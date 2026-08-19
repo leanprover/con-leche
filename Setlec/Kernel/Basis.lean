@@ -47,6 +47,15 @@ def punitUnitName : Name := punitName |>.str "unit"
 
 def emptyName : Name := anonymous |>.str "Empty"
 
+/-- Names reserved for the pinned basis blocks; no other declaration
+may use them. -/
+def reservedBasisNames : List Name :=
+  [eqName, eqReflName, eqName.str "rec",
+   natName, natZeroName, natSuccName, natName.str "rec",
+   psigmaName, psigmaMkName, psigmaName.str "rec",
+   punitName, punitUnitName, punitName.str "rec",
+   emptyName, emptyName.str "rec"]
+
 /-- The pinned `Eq` basis block. -/
 def eqBasis : List ConstantInfo := [
   .indInfo ⟨(anonymous |>.str "Eq"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "a") (.bvar 0) (.forallE (anonymous |>.str "b") (.bvar 1) (.sort .zero) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩)⟩,

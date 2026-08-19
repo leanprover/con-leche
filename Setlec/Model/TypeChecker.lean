@@ -800,7 +800,7 @@ theorem InterpSpine.take {cval : ConstVal V} {env : Env} {φ : Name → Nat}
   | _ + 1, [], [], _ => trivial
   | _ + 1, [], _ :: _, h => nomatch h
   | _ + 1, _ :: _, [], h => nomatch h
-  | n + 1, x :: xs, v :: vs, h => ⟨h.1, InterpSpine.take n h.2⟩
+  | n + 1, _ :: _, _ :: _, h => ⟨h.1, InterpSpine.take n h.2⟩
 
 theorem InterpSpine.drop {cval : ConstVal V} {env : Env} {φ : Name → Nat}
     {d : Nat} {ρ : Nat → V} :
@@ -811,7 +811,7 @@ theorem InterpSpine.drop {cval : ConstVal V} {env : Env} {φ : Name → Nat}
   | _ + 1, [], [], _ => trivial
   | _ + 1, [], _ :: _, h => nomatch h
   | _ + 1, _ :: _, [], h => nomatch h
-  | n + 1, _ :: xs, _ :: vs, h => InterpSpine.drop n h.2
+  | n + 1, _ :: _, _ :: _, h => InterpSpine.drop n h.2
 
 theorem InterpSpine.append {cval : ConstVal V} {env : Env} {φ : Name → Nat}
     {d : Nat} {ρ : Nat → V} :
@@ -821,7 +821,7 @@ theorem InterpSpine.append {cval : ConstVal V} {env : Env} {φ : Name → Nat}
   | [], _, [], _, _, h2 => h2
   | [], _, _ :: _, _, h1, _ => nomatch h1
   | _ :: _, _, [], _, h1, _ => nomatch h1
-  | x :: xs, ys, v :: vs, us, h1, h2 =>
+  | _ :: _, _, _ :: _, _, h1, h2 =>
     ⟨h1.1, InterpSpine.append h1.2 h2⟩
 
 /-- Inversion of an application spine's `AnnotOk`: the head and every

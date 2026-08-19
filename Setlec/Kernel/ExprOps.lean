@@ -168,6 +168,12 @@ def stripLams : Nat → Expr → Option (List (Name × Expr × BinderMeta) × Ex
     (stripLams k b).map fun (bs, e) => ((n, ty, m) :: bs, e)
   | _ + 1, _ => none
 
+/-- The binder infos of the first `k` binders of a `∀`-telescope. -/
+def piBinderInfos : Nat → Expr → Option (List BinderInfo)
+  | 0, _ => some []
+  | k + 1, .forallE _ _ b m => (piBinderInfos k b).map (m.bi :: ·)
+  | _ + 1, _ => none
+
 /-- The result sort at the end of a `∀`-telescope. -/
 def resultSort : Expr → Option Level
   | .forallE _ _ b _ => resultSort b

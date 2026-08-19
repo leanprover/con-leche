@@ -22,6 +22,8 @@ parameters.  Returns the constant with its type **annotated**
 def checkConstantVal (env : Env) (cv : ConstantVal) : CheckM ConstantVal := do
   if (env.find? cv.name).isSome then
     throw (.invalid s!"duplicate declaration {cv.name}")
+  if reservedBasisNames.contains cv.name then
+    throw (.invalid s!"reserved basis name {cv.name}")
   unless Name.nodup cv.levelParams do
     throw (.invalid s!"duplicate universe parameters in {cv.name}")
   unless cv.type.looseBVarsBounded 0 do
@@ -87,6 +89,119 @@ def checkDecl (env : Env) (d : Declaration) : CheckM Env := do
     -- Modeled inductive blocks: installation lands with the
     -- model-checking machinery; decline until then.
     throw (.notImplemented "modeled inductive declaration")
+
+/-- Build the expected statement of the model's `iota_j` theorem for one
+recursor rule (non-indexed, single motive): the rule's λ-telescope,
+domains renamed to the `_model` family, closing over
+`R._model p⃗ M m⃗ (C._model p⃗ x⃗) = rhs-body`. -/
+def buildIotaStmt (f : Name → Name) (recName ctorName : Name)
+    (recLPs ctorLPs : List Name) (nP nM nm nF : Nat)
+    (recTy ctorTy : Expr) (ruleRhs : Expr) : Option Expr := do
+  let (binders, body) ← ruleRhs.stripLams (nP + nM + nm + nF)
+  -- binder infos follow the recursor's telescope (then the
+  -- constructor's fields), not the rule's λs
+  let bisR ← recTy.piBinderInfos (nP + nM + nm)
+  let bisC ← ctorTy.piBinderInfos (nP + nF)
+  let bis := bisR ++ bisC.drop nP
+  let binders := (binders.zip bis).map fun (b, bi) => (b.1, b.2.1, bi)
+  let (_, mdom, _) ← binders[nP]?
+  let ℓ ← mdom.resultSort
+  let depth := nP + nM + nm + nF
+  let pArgs := (List.range nP).map fun k => Expr.bvar (depth - 1 - k)
+  let mmArgs := (List.range (nM + nm)).map fun k =>
+    Expr.bvar (depth - 1 - nP - k)
+  let xArgs := (List.range nF).map fun k => Expr.bvar (nF - 1 - k)
+  let ctorApp := Expr.mkAppN (.const (f ctorName) (ctorLPs.map .param))
+    (pArgs ++ xArgs)
+  let lhs := Expr.mkAppN (.const (f recName) (recLPs.map .param))
+    (pArgs ++ mmArgs ++ [ctorApp])
+  let motiveBVar := Expr.bvar (nF + nm + (nM - 1))
+  let α := Expr.app motiveBVar ctorApp
+  let rhs := body.renameConsts f
+  let eqApp := Expr.mkAppN (.const eqName [ℓ]) [α, lhs, rhs]
+  pure (binders.foldr
+    (fun (b : Name × Expr × BinderInfo) acc =>
+      .forallE b.1 (b.2.1.renameConsts f) acc ⟨b.2.2, none⟩) eqApp)
+
+/-- Check and install a modeled inductive block: every member is
+checked against its `_model` counterpart (type up to the public↔model
+renaming, iota rules against the model's `iota_j` theorems), then
+stored as a real inductive-kind constant.  Not yet wired into
+`checkDecl` — the soundness proof accompanies the wiring. -/
+def checkIndDecl (env : Env) (block : List ConstantInfo) : CheckM Env := do
+  let blockNames := block.map (·.name)
+  let f : Name → Name := fun n =>
+    if blockNames.contains n then n.str "_model" else n
+  block.foldlM (fun env' ci => do
+    let cv := ci.toConstantVal
+    unless (env'.find? cv.name).isNone do
+      throw (.invalid s!"duplicate declaration {cv.name}")
+    if reservedBasisNames.contains cv.name then
+      throw (.invalid s!"reserved basis name {cv.name}")
+    unless Name.nodup cv.levelParams do
+      throw (.invalid s!"duplicate universe parameters in {cv.name}")
+    unless cv.type.looseBVarsBounded 0 do
+      throw (.invalid s!"loose bound variable in type of {cv.name}")
+    if cv.type.hasFvar then
+      throw (.invalid s!"unexpected free variable in type of {cv.name}")
+    unless cv.type.allLevelParamsDefined cv.levelParams do
+      throw (.invalid s!"undeclared universe parameter in {cv.name}")
+    unless cv.type.constsResolve env' do
+      throw (.invalid s!"unknown constant in type of {cv.name}")
+    let tyA ← annotate env' 0 cv.type
+    -- the model counterpart
+    let some (.defnInfo cvm _mval) := env'.find? (cv.name.str "_model")
+      | throw (.notImplemented s!"missing model for {cv.name}")
+    unless cvm.levelParams = cv.levelParams do
+      throw (.notImplemented s!"model level parameters mismatch for {cv.name}")
+    unless (tyA.renameConsts f) == cvm.type do
+      throw (.notImplemented s!"model type mismatch for {cv.name}")
+    let cvA : ConstantVal := ⟨cv.name, cv.levelParams, tyA⟩
+    match ci with
+    | .indInfo _ => pure (⟨.indInfo cvA :: env'.consts⟩ : Env)
+    | .ctorInfo _ nP nF => pure ⟨.ctorInfo cvA nP nF :: env'.consts⟩
+    | .recInfo _ nP nM nm ni rules => do
+      unless ni = 0 do throw (.notImplemented "indexed recursor")
+      unless nM = 1 do throw (.notImplemented "multiple motives")
+      -- the model's value must be a λ-telescope matching the rule
+      -- domains (its interpretation determines argument domains)
+      let envSelf : Env := ⟨.recInfo cvA nP nM nm ni rules :: env'.consts⟩
+      let rec goRules : Nat → List RecRule → CheckM (List RecRule)
+        | _, [] => pure []
+        | j, r :: rest => do
+          let some (.ctorInfo cvj cnP cnF) := env'.find? r.ctor
+            | throw (.invalid s!"iota rule constructor {r.ctor} not stored")
+          unless cnP = nP do
+            throw (.notImplemented "constructor/recursor parameter mismatch")
+          unless r.nfields = cnF do
+            throw (.invalid "rule field count mismatch")
+          unless r.rhs.looseBVarsBounded 0 do
+            throw (.invalid s!"loose bound variable in rule of {cv.name}")
+          if r.rhs.hasFvar then
+            throw (.invalid s!"free variable in rule of {cv.name}")
+          unless r.rhs.allLevelParamsDefined cv.levelParams do
+            throw (.invalid s!"undeclared universe parameter in rule of {cv.name}")
+          unless r.rhs.constsResolve envSelf do
+            throw (.invalid s!"unknown constant in rule of {cv.name}")
+          let rhsA ← annotate envSelf 0 r.rhs
+          let some stmtRaw := buildIotaStmt f cv.name r.ctor
+              cv.levelParams cvj.levelParams nP nM nm cnF
+              tyA cvj.type r.rhs
+            | throw (.notImplemented "iota statement construction")
+          let stmtA ← annotate env' 0 stmtRaw
+          let thmName := (cv.name.str "_model").str s!"iota_{j}"
+          let some (.thmInfo cvt _) := env'.find? thmName
+            | throw (.notImplemented s!"missing iota theorem {thmName}")
+          unless cvt.levelParams = cv.levelParams do
+            throw (.notImplemented s!"iota theorem level mismatch {thmName}")
+          unless cvt.type == stmtA do
+            throw (.notImplemented s!"iota statement mismatch for {thmName}")
+          let rest' ← goRules (j + 1) rest
+          pure ({ r with rhs := rhsA } :: rest')
+      let rules' ← goRules 0 rules
+      pure ⟨.recInfo cvA nP nM nm ni rules' :: env'.consts⟩
+    | _ => throw (.invalid s!"non-inductive member {cv.name} in block")
+    ) env
 
 /-- Check a list of declarations in order, starting from the empty
 environment. -/

@@ -207,6 +207,7 @@ private theorem RecRulesOk.cons {env : Env} (m : EnvModel V env)
 private theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
     (h : checkConstantVal env cv = .ok cv') :
     env.find? cv.name = none ∧
+    reservedBasisNames.contains cv.name = false ∧
     Name.nodup cv.levelParams = true ∧
     cv.type.looseBVarsBounded 0 = true ∧
     cv.type.hasFvar = false ∧
@@ -221,6 +222,11 @@ private theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
   by_cases hfind : (env.find? cv.name).isSome = true
   case pos => simp [hfind] at h
   simp only [hfind] at h
+  by_cases hres : reservedBasisNames.contains cv.name = true
+  case pos =>
+    rw [if_pos hres] at h
+    exact nomatch h
+  simp only [hres] at h
   by_cases hnd : Name.nodup cv.levelParams = true
   case neg => simp [hnd] at h
   simp only [hnd] at h
@@ -254,8 +260,8 @@ private theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
   have hfind0 : env.find? cv.name = none := by
     revert hfind
     cases env.find? cv.name <;> simp
-  exact ⟨hfind0, hnd, hlb, by simpa using hif, type, stype, u, rfl, htp, htr, hst, hsort,
-    h.symm⟩
+  exact ⟨hfind0, by simpa using hres, hnd, hlb, by simpa using hif,
+    type, stype, u, rfl, htp, htr, hst, hsort, h.symm⟩
 
 /-- The common model-extension argument, for a new constant `c₀` with an
 annotated, checked type and value. -/
@@ -1892,7 +1898,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     | ok cv' =>
     rw [hccv] at h
     try dsimp only at h
-    obtain ⟨hfind', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
+    obtain ⟨hfind', hres', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
       checkConstantVal_inv hccv
     simp only [Pure.pure, Except.pure] at h
     by_cases hlbv : value.looseBVarsBounded 0 = true
@@ -1956,7 +1962,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     | ok cv' =>
     rw [hccv] at h
     try dsimp only at h
-    obtain ⟨hfind', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
+    obtain ⟨hfind', hres', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
       checkConstantVal_inv hccv
     simp only [Pure.pure, Except.pure] at h
     -- the theorem-specific proposition check re-runs inference on the type

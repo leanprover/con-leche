@@ -195,7 +195,8 @@ private def parseConstantVal (st : State) (v : Json) : M ConstantVal := do
 
 /-- Process one line of the export file.  `Sum.inl`: fine (possibly updated
 state); `Sum.inr`: unsupported declaration kind. -/
-private def processLine (st : State) (j : Json) : M (State ⊕ String) := do
+private def processLine (st : State) (j : Json)
+    (modeled : Bool := false) : M (State ⊕ String) := do
   if let .ok v := j.getObjVal? "in" then
     return .inl (← parseNameEntry st j (← v.getNat?))
   else if let .ok v := j.getObjVal? "il" then
@@ -259,25 +260,30 @@ private def processLine (st : State) (j : Json) : M (State ⊕ String) := do
     else if blockC = BasisKind.emptyK.decls.map ConstantInfo.canon then
       return .inl { st with decls := st.decls.push (.basisDecl .emptyK) }
     else
-      -- alias every member to its `_model` counterpart
-      let mut ds := st.decls
-      for ci in block do
-        let cv := ci.toConstantVal
-        ds := ds.push (.defnDecl cv
-          (.const (cv.name.str "_model") (cv.levelParams.map .param)))
-      return .inl { st with decls := ds }
+      if modeled then
+        -- store the block opaquely, checked against its `_model` family
+        return .inl { st with decls := st.decls.push (.indDecl block) }
+      else
+        -- alias every member to its `_model` counterpart
+        let mut ds := st.decls
+        for ci in block do
+          let cv := ci.toConstantVal
+          ds := ds.push (.defnDecl cv
+            (.const (cv.name.str "_model") (cv.levelParams.map .param)))
+        return .inl { st with decls := ds }
   else
     throw "unrecognized line"
 
 /-- Parse a whole export file into the declarations it contains, in order. -/
-def parseExport (contents : String) : Except FrontendError (Array Declaration) := do
+def parseExport (contents : String) (modeled : Bool := false) :
+    Except FrontendError (Array Declaration) := do
   let mut st : State := {}
   let mut lineNo := 0
   for line in contents.splitToList (· == '\n') do
     lineNo := lineNo + 1
     if line.trimAscii.isEmpty then
       continue
-    match Json.parse line >>= processLine st with
+    match Json.parse line >>= (fun j => processLine st j modeled) with
     | .error msg => throw (.parseError lineNo msg)
     | .ok (.inr what) => throw (.unsupported what)
     | .ok (.inl st') => st := st'
