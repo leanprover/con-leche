@@ -221,7 +221,10 @@ def isUnitLikeTy (env : Env) : Expr → Bool
       | _ => false) &&
     (match env.find? (c.str "rec") with
       | some (.recInfo _ _ _ _ 0 [r]) => r.nfields == 0
-      | _ => false)
+      | _ => false) &&
+    -- native unit semantics: only for structures without a model alias
+    (env.find? ((c.str "rec").str "_model")).isNone &&
+    (env.find? (c.str "_model")).isNone
   | _ => false
 
 /-- Certification for projecting a possibly-Prop pair `e₂ =
@@ -406,7 +409,10 @@ def pairEtaCert (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr �
             | some (.recInfo _ _ _ _ ni rules) =>
               match rules with
               | [r] =>
-                if ni = 0 ∧ r.ctor = c ∧ r.nfields = 2 then
+                if ni = 0 ∧ r.ctor = c ∧ r.nfields = 2 ∧
+                    (env.find? (c.str "_model")).isNone = true ∧
+                    (env.find? ((c'.str "rec").str "_model")).isNone
+                      = true then
                   if ← liftFueled "level comparison"
                       (Level.isEquivList us us') then
                     if ← isDefEqCore env fuel depth s₁ (.proj c' 0 b) then

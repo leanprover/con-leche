@@ -121,6 +121,18 @@ def BasisBlocks (env : Env) : Prop :=
     env.find? punitName = some punitA ∧
     env.find? punitUnitName = some punitUnitA)
 
+/-- Every stored recursor rule's constructor is itself stored: blocks
+carry their constructors, and the recursor is installed after them. -/
+def RecCtorsStored (env : Env) : Prop :=
+  ∀ n cv nP nM nm ni rules,
+    env.find? n = some (.recInfo cv nP nM nm ni rules) →
+    ∀ r ∈ rules, ∃ cvj cnP cnF,
+      env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF)
+
+theorem RecCtorsStored.empty : RecCtorsStored Env.empty := by
+  intro n cv nP nM nm ni rules h
+  simp [Env.find?, Env.empty] at h
+
 /-- The environment's inductive-kind constants have models: every fact
 here is what some checker rule's soundness consumes.  Grows on demand as
 rules land (iota equations come with the recursor rules). -/
@@ -134,15 +146,17 @@ def IndOk (env : Env) (val : ConstVal V) : Prop :=
   (∀ cv, env.find? punitName = some (.indInfo cv) →
     ∀ (ψ : Name → Nat) (x : V), x ∈ˢ val punitName ψ → x = pt) ∧
   (∀ n ci, env.find? n = some ci → ConstantInfo.isBasis ci = true →
+    env.find? (n.str "_model") = none →
     ci = pinnedInfo n ∧ ∀ ψ : Name → Nat, val n ψ = pinnedVal V n ψ) ∧
-  BasisBlocks env
+  BasisBlocks env ∧
+  RecCtorsStored env
 
 theorem BasisBlocks.empty : BasisBlocks Env.empty := by
   refine ⟨?_, ?_, ?_, ?_⟩ <;>
     (intro cv nP nM nm ni rules h; simp [Env.find?, Env.empty] at h)
 
 theorem IndOk.empty (val : ConstVal V) : IndOk V Env.empty val := by
-  refine ⟨?_, ?_, ?_, ?_, BasisBlocks.empty⟩
+  refine ⟨?_, ?_, ?_, ?_, BasisBlocks.empty, RecCtorsStored.empty⟩
   · intro cv h
     simp [Env.find?, Env.empty] at h
   · intro cv nP nF h

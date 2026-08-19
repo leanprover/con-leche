@@ -125,79 +125,29 @@ private def RecMemberOk (env' : Env) (val' : ConstVal V)
               SpineFold V R (args.take (nP + nM + nm) ++ margs.drop cnP) ∧
             ChainSlots V R (args.take (nP + nM + nm) ++ margs.drop cnP)
 
-/-- No stored recursor's rule names a fresh constructor: stored
-recursors are pinned, and their block constructors are stored. -/
-private theorem ctor_not_fresh {env : Env} (m : EnvModel V env) {nf : Name}
-    (hfresh : env.find? nf = none) :
-    ∀ n cvR nP nM nm ni rules,
-      env.find? n = some (.recInfo cvR nP nM nm ni rules) →
-      ∀ r ∈ rules, RecRule.ctor r ≠ nf := by
-  intro n cvR nP nM nm ni rules hf r hr hcontra
-  obtain ⟨hpin, -⟩ := m.ind_ok.right.right.right.left n _ hf rfl
-  have hblocks := m.ind_ok.right.right.right.right
-  rcases pinnedInfo_recInfo_cases hpin.symm with hc | hc | hc | hc
-  · subst hc
-    have hpin' := hpin.trans (show pinnedInfo (eqName.str "rec") = eqRecA
-      from rfl)
-    simp only [eqRecA] at hpin'
-    injection hpin' with h1 h2 h3 h4 h5 h6
-    subst h6
-    obtain ⟨-, hfR⟩ := hblocks.left _ _ _ _ _ _ hf
-    rcases List.mem_cons.mp hr with rfl | hr
-    · have hfresh' : env.find? eqReflName = none := by
-        rw [← hcontra] at hfresh
-        exact hfresh
-      rw [hfresh'] at hfR
-      exact nomatch hfR
-    · cases hr
-  · subst hc
-    have hpin' := hpin.trans (show pinnedInfo (natName.str "rec") = natRecA
-      from rfl)
-    simp only [natRecA] at hpin'
-    injection hpin' with h1 h2 h3 h4 h5 h6
-    subst h6
-    obtain ⟨-, hfZ, hfSc⟩ := hblocks.right.left _ _ _ _ _ _ hf
-    rcases List.mem_cons.mp hr with rfl | hr
-    · have hfresh' : env.find? natZeroName = none := by
-        rw [← hcontra] at hfresh
-        exact hfresh
-      rw [hfresh'] at hfZ
-      exact nomatch hfZ
-    rcases List.mem_cons.mp hr with rfl | hr
-    · have hfresh' : env.find? natSuccName = none := by
-        rw [← hcontra] at hfresh
-        exact hfresh
-      rw [hfresh'] at hfSc
-      exact nomatch hfSc
-    · cases hr
-  · subst hc
-    have hpin' := hpin.trans
-      (show pinnedInfo (psigmaName.str "rec") = psigmaRecA from rfl)
-    simp only [psigmaRecA] at hpin'
-    injection hpin' with h1 h2 h3 h4 h5 h6
-    subst h6
-    obtain ⟨-, hfM⟩ := hblocks.right.right.left _ _ _ _ _ _ hf
-    rcases List.mem_cons.mp hr with rfl | hr
-    · have hfresh' : env.find? psigmaMkName = none := by
-        rw [← hcontra] at hfresh
-        exact hfresh
-      rw [hfresh'] at hfM
-      exact nomatch hfM
-    · cases hr
-  · subst hc
-    have hpin' := hpin.trans
-      (show pinnedInfo (punitName.str "rec") = punitRecA from rfl)
-    simp only [punitRecA] at hpin'
-    injection hpin' with h1 h2 h3 h4 h5 h6
-    subst h6
-    obtain ⟨-, hfU⟩ := hblocks.right.right.right _ _ _ _ _ _ hf
-    rcases List.mem_cons.mp hr with rfl | hr
-    · have hfresh' : env.find? punitUnitName = none := by
-        rw [← hcontra] at hfresh
-        exact hfresh
-      rw [hfresh'] at hfU
-      exact nomatch hfU
-    · cases hr
+/-- `RecCtorsStored` is preserved by a fresh extension, given the
+stored-constructor facts for the new member (vacuous unless it is a
+recursor). -/
+private theorem RecCtorsStored.cons {env : Env} {c₀ : ConstantInfo}
+    (hold : RecCtorsStored env) (hfresh : env.find? c₀.name = none)
+    (hnew : ∀ cvR nP nM nm ni rules, c₀ = .recInfo cvR nP nM nm ni rules →
+      ∀ r ∈ rules, ∃ cvj cnP cnF,
+        env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF)) :
+    RecCtorsStored (⟨c₀ :: env.consts⟩ : Env) := by
+  intro n cv nP nM nm ni rules hfp r hr
+  rw [Env.find?_cons] at hfp
+  split at hfp
+  · next hn =>
+    obtain hceq := Option.some.inj hfp
+    obtain ⟨cvj, cnP, cnF, hf⟩ := hnew _ _ _ _ _ _ hceq r hr
+    refine ⟨cvj, cnP, cnF, ?_⟩
+    rw [Env.find?_cons_of_isSome hfresh (by rw [hf]; rfl)]
+    exact hf
+  · next hn =>
+    obtain ⟨cvj, cnP, cnF, hf⟩ := hold n cv nP nM nm ni rules hfp r hr
+    refine ⟨cvj, cnP, cnF, ?_⟩
+    rw [Env.find?_cons_of_isSome hfresh (by rw [hf]; rfl)]
+    exact hf
 
 /-- `RecRulesOk` is preserved by a fresh extension, given the fold
 facts for the new member (vacuous unless it is a recursor). -/
@@ -232,9 +182,12 @@ private theorem RecRulesOk.cons {env : Env} (m : EnvModel V env)
     rw [Env.find?_cons] at hfj
     split at hfj
     · next hnc =>
-      obtain hceq := Option.some.inj hfj
-      exact absurd hnc.symm
-        (ctor_not_fresh m hfind' n cvR nP nM nm ni rules hfp r hr)
+      obtain ⟨cvj2, cnP2, cnF2, hfc2⟩ :=
+        m.ind_ok.right.right.right.right.right n cvR nP nM nm ni rules
+          hfp r hr
+      rw [← hnc] at hfc2
+      rw [hfind'] at hfc2
+      exact nomatch hfc2
     · next hnc =>
       have hvalc : ∀ ψ' : Name → Nat,
           val' (RecRule.ctor r) ψ' = m.val (RecRule.ctor r) ψ' :=
@@ -437,10 +390,14 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
   · -- ind_ok: the fresh constant is a definition or theorem, so every
     -- inductive-kind lookup still resolves to the old environment, and
     -- the valuation agrees there.
-    refine ⟨?_, ?_, ?_, ?_, BasisBlocks.cons m.ind_ok.right.right.right.right
+    refine ⟨?_, ?_, ?_, ?_, BasisBlocks.cons m.ind_ok.right.right.right.right.left
       hc₀fresh (fun cv nP nM nm ni rules heq => by
         rw [heq] at hc₀nb
-        simp [ConstantInfo.isBasis] at hc₀nb)⟩
+        simp [ConstantInfo.isBasis] at hc₀nb),
+      RecCtorsStored.cons m.ind_ok.right.right.right.right.right hc₀fresh
+        (fun cvR nP nM nm ni rules heq => by
+          rw [heq] at hc₀nb
+          simp [ConstantInfo.isBasis] at hc₀nb)⟩
     · intro cv hfp
       rw [Env.find?_cons] at hfp
       split at hfp
@@ -505,7 +462,13 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
           simp [hval', hne]
         rw [hvagree] at hx
         exact m.ind_ok.right.right.left cv hfp ψ x hx
-    · intro n ci hfp hbasis
+    · intro n ci hfp hbasis hguard
+      have hguard' : env.find? (n.str "_model") = none := by
+        rw [Env.find?_cons] at hguard
+        revert hguard
+        split
+        · intro hguard; exact nomatch hguard
+        · intro hguard; exact hguard
       rw [Env.find?_cons] at hfp
       split at hfp
       · next hn =>
@@ -517,7 +480,8 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
           intro hcontra
           rw [hcontra, hfind'] at hfp
           exact nomatch hfp
-        obtain ⟨hpi, hpv⟩ := m.ind_ok.right.right.right.left n ci hfp hbasis
+        obtain ⟨hpi, hpv⟩ := m.ind_ok.right.right.right.left n ci hfp
+          hbasis hguard'
         refine ⟨hpi, fun ψ => ?_⟩
         have hvagree : val' n ψ = m.val n ψ := by
           simp [hval', hne]
@@ -562,7 +526,11 @@ private theorem extend_basis_one {env : Env} (m : EnvModel V env)
     (hrecm : ∀ val' : ConstVal V,
       (∀ ψ : Name → Nat, val' ci.name ψ = v₀ ψ) →
       (∀ (n : Name) (ψ : Name → Nat), n ≠ ci.name → val' n ψ = m.val n ψ) →
-      RecMemberOk (V := V) ⟨ci :: env.consts⟩ val' ci) :
+      RecMemberOk (V := V) ⟨ci :: env.consts⟩ val' ci)
+    (hctors : ∀ cvR nP nM nm ni rules,
+      ci = .recInfo cvR nP nM nm ni rules →
+      ∀ r ∈ rules, ∃ cvj cnP cnF,
+        env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF)) :
     ∃ m' : EnvModel V ⟨ci :: env.consts⟩,
       (∀ ψ, m'.val ci.name ψ = v₀ ψ) ∧
       (∀ n ψ, n ≠ ci.name → m'.val n ψ = m.val n ψ) := by
@@ -648,8 +616,10 @@ private theorem extend_basis_one {env : Env} (m : EnvModel V env)
       obtain ⟨-, -, hres2, -⟩ := hvalwf cv2 value2 heq
       exact hAtrans _ hres2 ψ (hA2 cv2 value2 heq)
   · -- ind_ok
-    refine ⟨?_, ?_, ?_, ?_, BasisBlocks.cons m.ind_ok.right.right.right.right
-      hfind' hsib⟩
+    refine ⟨?_, ?_, ?_, ?_, BasisBlocks.cons m.ind_ok.right.right.right.right.left
+      hfind' hsib,
+      RecCtorsStored.cons m.ind_ok.right.right.right.right.right hfind'
+        hctors⟩
     · intro cv hfp
       rw [Env.find?_cons] at hfp
       split at hfp
@@ -727,7 +697,13 @@ private theorem extend_basis_one {env : Env} (m : EnvModel V env)
           simp [hval', hne]
         rw [hval'eq] at hx
         exact m.ind_ok.right.right.left cv hfp ψ x hx
-    · intro n ci' hfp hbasis
+    · intro n ci' hfp hbasis hguard
+      have hguard' : env.find? (n.str "_model") = none := by
+        rw [Env.find?_cons] at hguard
+        revert hguard
+        split
+        · intro hguard; exact nomatch hguard
+        · intro hguard; exact hguard
       rw [Env.find?_cons] at hfp
       split at hfp
       · next hn =>
@@ -742,7 +718,8 @@ private theorem extend_basis_one {env : Env} (m : EnvModel V env)
           intro hcontra
           rw [hcontra, hfind'] at hfp
           exact nomatch hfp
-        obtain ⟨hpi, hpv⟩ := m.ind_ok.right.right.right.left n ci' hfp hbasis
+        obtain ⟨hpi, hpv⟩ := m.ind_ok.right.right.right.left n ci' hfp
+          hbasis hguard'
         refine ⟨hpi, fun ψ => ?_⟩
         have hval'eq : val' n ψ = m.val n ψ := by
           simp [hval', hne]
@@ -868,6 +845,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun _ _ _ _ _ _ hx => nomatch hx)
         (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
           absurd hx (by simp [natA]))
+        (fun _ _ _ _ _ _ hx =>
+          absurd hx (by simp [natA]))
       obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 natZeroA
         (fun _ => natzero)
         (Option.isNone_iff_eq_none.mp h2)
@@ -885,6 +864,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun _ => ⟨rfl, fun _ => rfl⟩)
         (fun _ _ _ _ _ _ hx => nomatch hx)
         (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+          absurd hx (by simp [natZeroA]))
+        (fun _ _ _ _ _ _ hx =>
           absurd hx (by simp [natZeroA]))
       have hvalN2 : ∀ ψ' : Name → Nat, m2.val natName ψ' = omega := fun ψ' => by
         rw [hpres2 natName ψ' (by decide)]
@@ -906,6 +887,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun _ => ⟨rfl, fun _ => rfl⟩)
         (fun _ _ _ _ _ _ hx => nomatch hx)
         (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+          absurd hx (by simp [natSuccA]))
+        (fun _ _ _ _ _ _ hx =>
           absurd hx (by simp [natSuccA]))
       have hvalN3 : ∀ ψ' : Name → Nat, m3.val natName ψ' = omega := fun ψ' => by
         rw [hpres3 natName ψ' (by decide)]
@@ -1098,6 +1081,25 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                 ⟨vS3, AS3, BS3, hq7, hq8, hq9⟩,
                 ⟨vS4, AS4, BS4, hq10, hq11, hq12⟩, trivial⟩
           · cases hr)
+        (fun cvR nP nM nm ni rules heq => by
+          simp only [natRecA] at heq
+          injection heq with h1 h2 h3 h4 h5 h6
+          subst h1 h2 h3 h4 h5 h6
+          intro r hr
+          rcases List.mem_cons.mp hr with rfl | hr
+          · have hf : Env.find?
+                (⟨natSuccA :: natZeroA :: natA :: env.consts⟩ : Env)
+                ((Name.anonymous.str "Nat").str "zero") = some natZeroA := by
+              rw [Env.find?_cons, if_neg (by decide), Env.find?_cons,
+                if_pos (by decide)]
+            exact ⟨_, _, _, hf⟩
+          rcases List.mem_cons.mp hr with rfl | hr
+          · have hf : Env.find?
+                (⟨natSuccA :: natZeroA :: natA :: env.consts⟩ : Env)
+                ((Name.anonymous.str "Nat").str "succ") = some natSuccA := by
+              rw [Env.find?_cons, if_pos (by decide)]
+            exact ⟨_, _, _, hf⟩
+          · cases hr)
       exact ⟨m4⟩
     case _ =>
       simp only [checkDecl, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
@@ -1179,6 +1181,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun _ _ _ _ _ _ hx => nomatch hx)
         (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
           absurd hx (by simp [psigmaA]))
+        (fun _ _ _ _ _ _ hx =>
+          absurd hx (by simp [psigmaA]))
       obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 psigmaMkA
         (fun ψ => psigmaMkVal V ψ)
         (Option.isNone_iff_eq_none.mp h2)
@@ -1201,6 +1205,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun _ => ⟨rfl, fun _ => rfl⟩)
         (fun _ _ _ _ _ _ hx => nomatch hx)
         (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+          absurd hx (by simp [psigmaMkA]))
+        (fun _ _ _ _ _ _ hx =>
           absurd hx (by simp [psigmaMkA]))
       have hvalS2 : ∀ ψ' : Name → Nat, m2.val psigmaName ψ' = psigmaVal V ψ' :=
         fun ψ' => by
@@ -1329,6 +1335,19 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                 ⟨vS5, AS5, BS5, hq13, hq14, hq15⟩,
                 ⟨vS6, AS6, BS6, hq16, hq17, hq18⟩, trivial⟩
           · cases hr)
+        (fun cvR nP nM nm ni rules heq => by
+          simp only [psigmaRecA] at heq
+          injection heq with h1 h2 h3 h4 h5 h6
+          subst h1 h2 h3 h4 h5 h6
+          intro r hr
+          rcases List.mem_cons.mp hr with rfl | hr
+          · have hf : Env.find?
+                (⟨psigmaMkA :: psigmaA :: env.consts⟩ : Env)
+                ((Name.anonymous.str "PSigma'").str "mk") =
+                some psigmaMkA := by
+              rw [Env.find?_cons, if_pos (by decide)]
+            exact ⟨_, _, _, hf⟩
+          · cases hr)
       exact ⟨m3⟩
     case _ =>
       simp only [checkDecl, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
@@ -1371,6 +1390,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun _ _ _ _ _ _ hx => nomatch hx)
         (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
           absurd hx (by simp [eqA]))
+        (fun _ _ _ _ _ _ hx =>
+          absurd hx (by simp [eqA]))
       obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 eqReflA
         (fun ψ => eqReflVal V ψ)
         (Option.isNone_iff_eq_none.mp h2)
@@ -1390,6 +1411,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun _ => ⟨rfl, fun _ => rfl⟩)
         (fun _ _ _ _ _ _ hx => nomatch hx)
         (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+          absurd hx (by simp [eqReflA]))
+        (fun _ _ _ _ _ _ hx =>
           absurd hx (by simp [eqReflA]))
       have hvalE2 : ∀ ψ' : Name → Nat, m2.val eqName ψ' = eqVal V ψ' := fun ψ' => by
         rw [hpres2 eqName ψ' (by decide)]
@@ -1517,6 +1540,18 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                 ⟨vS3, AS3, BS3, hq7, hq8, hq9⟩,
                 ⟨vS4, AS4, BS4, hq10, hq11, hq12⟩, trivial⟩
           · cases hr)
+        (fun cvR nP nM nm ni rules heq => by
+          simp only [eqRecA] at heq
+          injection heq with h1 h2 h3 h4 h5 h6
+          subst h1 h2 h3 h4 h5 h6
+          intro r hr
+          rcases List.mem_cons.mp hr with rfl | hr
+          · have hf : Env.find?
+                (⟨eqReflA :: eqA :: env.consts⟩ : Env)
+                ((Name.anonymous.str "Eq").str "refl") = some eqReflA := by
+              rw [Env.find?_cons, if_pos (by decide)]
+            exact ⟨_, _, _, hf⟩
+          · cases hr)
       exact ⟨m3⟩
     simp only [checkDecl, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
     -- step 1: PUnit
@@ -1556,6 +1591,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun _ _ _ _ _ _ hx => nomatch hx)
       (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
         absurd hx (by simp [punitA]))
+      (fun _ _ _ _ _ _ hx =>
+        absurd hx (by simp [punitA]))
     obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 punitUnitA (fun _ => pt)
       (Option.isNone_iff_eq_none.mp h2)
       ⟨rfl, rfl, rfl, rfl,
@@ -1572,6 +1609,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (fun _ => ⟨rfl, fun _ => rfl⟩)
         (fun _ _ _ _ _ _ hx => nomatch hx)
       (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+        absurd hx (by simp [punitUnitA]))
+      (fun _ _ _ _ _ _ hx =>
         absurd hx (by simp [punitUnitA]))
     have hvalP2 : ∀ ψ' : Name → Nat, m2.val punitName ψ' = unitSet := fun ψ' => by
       rw [hpres2 punitName ψ' (by decide)]
@@ -1684,6 +1723,19 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
             exact hfold
           · exact ⟨⟨vS1, AS1, BS1, hq1, hq2, hq3⟩,
               ⟨vS2, AS2, BS2, hq4, hq5, hq6⟩, trivial⟩
+        · cases hr)
+      (fun cvR nP nM nm ni rules heq => by
+        simp only [punitRecA] at heq
+        injection heq with h1 h2 h3 h4 h5 h6
+        subst h1 h2 h3 h4 h5 h6
+        intro r hr
+        rcases List.mem_cons.mp hr with rfl | hr
+        · have hf : Env.find?
+              (⟨punitUnitA :: punitA :: env.consts⟩ : Env)
+              ((Name.anonymous.str "PUnit").str "unit") =
+              some punitUnitA := by
+            rw [Env.find?_cons, if_pos (by decide)]
+          exact ⟨_, _, _, hf⟩
         · cases hr)
     exact ⟨m3⟩
   | defnDecl cv value =>

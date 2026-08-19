@@ -174,10 +174,10 @@ private theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
       have hoktx : FvarsOk V m.val env φ d ρ tx :=
         FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel htx hwx) hokx
       obtain ⟨hiw, -⟩ := ihw hwtx hwtxW hbtx hLbtx hoktx hATx
-      obtain ⟨c, us, cvi, cvr, nP, nM, nm, r, rfl, hfind, hfr, hrf⟩ :=
-        isUnitLikeTy_inv hux
+      obtain ⟨c, us, cvi, cvr, nP, nM, nm, r, rfl, hfind, hfr, hrf, hgu,
+        hgi⟩ := isUnitLikeTy_inv hux
       -- identify the unit type through the pinned recursor
-      obtain ⟨hpr, -⟩ := m.ind_ok.right.right.right.left _ _ hfr rfl
+      obtain ⟨hpr, -⟩ := m.ind_ok.right.right.right.left _ _ hfr rfl hgu
       have hcn : c = punitName := by
         rcases pinnedInfo_recInfo_cases hpr.symm with hc | hc | hc | hc
         · rw [hc] at hpr
@@ -193,7 +193,7 @@ private theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
           exact nomatch h2
         · injection hc
       subst hcn
-      obtain ⟨-, hval⟩ := m.ind_ok.right.right.right.left _ _ hfind rfl
+      obtain ⟨-, hval⟩ := m.ind_ok.right.right.right.left _ _ hfind rfl hgi
       rw [hTxi] at hiw
       simp only [interpExpr, hfind] at hiw
       by_cases hlen : us.length =
@@ -242,10 +242,10 @@ private theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
     va = vb := by
   obtain ⟨c, us, pα, pβ, s₁, s₂, cvm, tb, c', us', A, B, cvi, cvr,
     nPr, nMr, nmr, r, rfl, hfindM, htb, hwtb, hfindI, hfr, hrc, hrf,
-    hlev, hd1, hd2⟩ := pairEtaCert_inv h
+    hgc, hgr, hlev, hd1, hd2⟩ := pairEtaCert_inv h
   -- identify the constructor and its structure type through the
   -- pinned declarations
-  obtain ⟨hpc, -⟩ := m.ind_ok.right.right.right.left _ _ hfindM rfl
+  obtain ⟨hpc, -⟩ := m.ind_ok.right.right.right.left _ _ hfindM rfl hgc
   have hcn : c = psigmaMkName := by
     rcases pinnedInfo_ctorInfo_cases hpc.symm with hc | hc | hc | hc | hc
     · rw [hc] at hpc
@@ -258,7 +258,7 @@ private theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
     · rw [hc] at hpc
       exact nomatch (congrArg ConstantInfo.ctorNP hpc)
   subst hcn
-  obtain ⟨hpr, -⟩ := m.ind_ok.right.right.right.left _ _ hfr rfl
+  obtain ⟨hpr, -⟩ := m.ind_ok.right.right.right.left _ _ hfr rfl hgr
   have hcn' : c' = psigmaName := by
     rcases pinnedInfo_recInfo_cases hpr.symm with hc' | hc' | hc' | hc'
     · rw [hc'] at hpr
