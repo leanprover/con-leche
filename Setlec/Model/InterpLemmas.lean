@@ -1,5 +1,6 @@
 import Setlec.Model.Interp
 import Setlec.Verify.InstLevels
+import Setlec.Verify.Subst
 
 /-!
 # Weakening and stability lemmas for the interpretation
@@ -647,6 +648,92 @@ theorem interp_env_ext {env₁ env₂ : Env}
     simp only [interpExpr]
     rw [interp_env_ext henv e d ρ]
 termination_by e => e.sizeB
+decreasing_by
+  all_goals first
+  | (simp [Expr.sizeB]; omega)
+  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
+
+/-- The interpretation only reads what `ErasedEq` preserves. -/
+theorem interp_erasedEq : ∀ {e₁ e₂ : Expr}, Expr.ErasedEq e₁ e₂ →
+    ∀ (d : Nat) (ρ : Nat → V),
+      interpExpr V cval env φ d ρ e₁ = interpExpr V cval env φ d ρ e₂
+  | .bvar i, e₂, he, d, ρ => by
+    match e₂, he with
+    | .bvar j, he => obtain rfl : i = j := he; rfl
+  | .fvar i n ty, e₂, he, d, ρ => by
+    match e₂, he with
+    | .fvar j n' ty', he =>
+      obtain rfl : i = j := he
+      simp [interpExpr]
+  | .sort u, e₂, he, d, ρ => by
+    match e₂, he with
+    | .sort u', he => obtain rfl : u = u' := he; rfl
+  | .const n us, e₂, he, d, ρ => by
+    match e₂, he with
+    | .const n' us', he =>
+      obtain ⟨rfl, rfl⟩ : n = n' ∧ us = us' := he
+      rfl
+  | .app f a, e₂, he, d, ρ => by
+    match e₂, he with
+    | .app g b, he =>
+      obtain ⟨h1, h2⟩ : Expr.ErasedEq f g ∧ Expr.ErasedEq a b := he
+      simp only [interpExpr, interp_erasedEq h1 d ρ, interp_erasedEq h2 d ρ]
+  | .forallE n ty body m, e₂, he, d, ρ => by
+    match e₂, he with
+    | .forallE n' ty' body' m', he =>
+      obtain ⟨rfl, h1, h2⟩ :
+          m = m' ∧ Expr.ErasedEq ty ty' ∧ Expr.ErasedEq body body' := he
+      simp only [interpExpr]
+      cases m.cod with
+      | none => rfl
+      | some v =>
+        simp only []
+        rw [interp_erasedEq h1 d ρ]
+        cases hty : interpExpr V cval env φ d ρ ty' with
+        | none => rfl
+        | some A =>
+          simp only [Option.some.injEq]
+          congr 1
+          funext x
+          rw [interp_erasedEq
+            (Expr.ErasedEq.instantiate1 h2 (show Expr.ErasedEq
+              (.fvar d n ty) (.fvar d n' ty') from rfl))
+            (d + 1) (updV V ρ d x)]
+  | .lam n ty body m, e₂, he, d, ρ => by
+    match e₂, he with
+    | .lam n' ty' body' m', he =>
+      obtain ⟨rfl, h1, h2⟩ :
+          m = m' ∧ Expr.ErasedEq ty ty' ∧ Expr.ErasedEq body body' := he
+      simp only [interpExpr]
+      cases m.cod with
+      | none => rfl
+      | some v =>
+        simp only []
+        rw [interp_erasedEq h1 d ρ]
+        cases hty : interpExpr V cval env φ d ρ ty' with
+        | none => rfl
+        | some A =>
+          simp only [Option.some.injEq]
+          congr 1
+          funext x
+          rw [interp_erasedEq
+            (Expr.ErasedEq.instantiate1 h2 (show Expr.ErasedEq
+              (.fvar d n ty) (.fvar d n' ty') from rfl))
+            (d + 1) (updV V ρ d x)]
+  | .letE n ty vl body, e₂, he, d, ρ => by
+    match e₂, he with
+    | .letE n' ty' vl' body', he => simp [interpExpr]
+  | .lit l, e₂, he, d, ρ => by
+    match e₂, he with
+    | .lit l', he => obtain rfl : l = l' := he; rfl
+  | .proj sn i pe, e₂, he, d, ρ => by
+    match e₂, he with
+    | .proj sn' i' pe', he =>
+      obtain ⟨rfl, rfl, h⟩ :
+          sn = sn' ∧ i = i' ∧ Expr.ErasedEq pe pe' := he
+      simp only [interpExpr, interp_erasedEq h d ρ]
+termination_by e₁ => e₁.sizeB
 decreasing_by
   all_goals first
   | (simp [Expr.sizeB]; omega)

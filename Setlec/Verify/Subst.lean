@@ -113,6 +113,84 @@ theorem stripPis_instantiate1_isSome {v : Expr} :
       simp only [instantiate1, stripPis, Option.isSome_map] at h ⊢
       exact ih (j + 1) h
 
+/-- Structural equality up to `fvar` names and annotations and binder
+names — exactly what the interpretation never reads. -/
+def ErasedEq : Expr → Expr → Prop
+  | .bvar i, .bvar j => i = j
+  | .fvar i _ _, .fvar j _ _ => i = j
+  | .sort u, .sort v => u = v
+  | .const n us, .const n' us' => n = n' ∧ us = us'
+  | .app f a, .app g b => ErasedEq f g ∧ ErasedEq a b
+  | .lam _ ty b m, .lam _ ty' b' m' =>
+    m = m' ∧ ErasedEq ty ty' ∧ ErasedEq b b'
+  | .forallE _ ty b m, .forallE _ ty' b' m' =>
+    m = m' ∧ ErasedEq ty ty' ∧ ErasedEq b b'
+  | .letE _ ty v b, .letE _ ty' v' b' =>
+    ErasedEq ty ty' ∧ ErasedEq v v' ∧ ErasedEq b b'
+  | .lit l, .lit l' => l = l'
+  | .proj s i e, .proj s' i' e' => s = s' ∧ i = i' ∧ ErasedEq e e'
+  | _, _ => False
+
+theorem ErasedEq.rfl : ∀ (e : Expr), ErasedEq e e := by
+  intro e
+  induction e <;> simp_all [ErasedEq]
+
+theorem ErasedEq.instantiate1 :
+    ∀ {e e' v v' : Expr} {k : Nat}, ErasedEq e e' → ErasedEq v v' →
+      ErasedEq (e.instantiate1 v k) (e'.instantiate1 v' k) := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro e' v v' k he hv
+    match e', he with
+    | .bvar j, he =>
+      obtain rfl : i = j := he
+      simp only [Expr.instantiate1]
+      split
+      · exact hv
+      · split <;> simp [ErasedEq]
+  | fvar idx n ty =>
+    intro e' v v' k he hv
+    match e', he with
+    | .fvar j n' ty', he => simpa [Expr.instantiate1, ErasedEq] using he
+  | sort u =>
+    intro e' v v' k he hv
+    match e', he with
+    | .sort u', he => simpa [Expr.instantiate1, ErasedEq] using he
+  | const n us =>
+    intro e' v v' k he hv
+    match e', he with
+    | .const n' us', he => simpa [Expr.instantiate1, ErasedEq] using he
+  | app f a ihf iha =>
+    intro e' v v' k he hv
+    match e', he with
+    | .app g b, he =>
+      exact ⟨ihf he.1 hv, iha he.2 hv⟩
+  | lam n ty body m ihty ihbody =>
+    intro e' v v' k he hv
+    match e', he with
+    | .lam n' ty' body' m', he =>
+      exact ⟨he.1, ihty he.2.1 hv, ihbody he.2.2 hv⟩
+  | forallE n ty body m ihty ihbody =>
+    intro e' v v' k he hv
+    match e', he with
+    | .forallE n' ty' body' m', he =>
+      exact ⟨he.1, ihty he.2.1 hv, ihbody he.2.2 hv⟩
+  | letE n ty vl body ihty ihv ihbody =>
+    intro e' v v' k he hv
+    match e', he with
+    | .letE n' ty' vl' body', he =>
+      exact ⟨ihty he.1 hv, ihv he.2.1 hv, ihbody he.2.2 hv⟩
+  | lit l =>
+    intro e' v v' k he hv
+    match e', he with
+    | .lit l', he => simpa [Expr.instantiate1, ErasedEq] using he
+  | proj sn i pe ih =>
+    intro e' v v' k he hv
+    match e', he with
+    | .proj sn' i' pe', he =>
+      exact ⟨he.1, he.2.1, ih he.2.2 hv⟩
+
 /-- Instantiating with a bounded term keeps loose-bvar bounds. -/
 theorem looseBVarsBounded_instantiate1_gen {a : Expr}
     (hba : a.looseBVarsBounded 0 = true) :
