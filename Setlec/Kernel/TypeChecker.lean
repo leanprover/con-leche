@@ -250,13 +250,13 @@ def isDefEqCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr �
     | .sort u, .sort v => liftFueled "level comparison" (Level.isEquiv u v)
     | .fvar i n₁ ty₁, .fvar j n₂ ty₂ =>
       if i == j then pure true
-      else proofIrrel env fuel depth (.fvar i n₁ ty₁) (.fvar j n₂ ty₂)
+      else stuckIrrel env fuel depth (.fvar i n₁ ty₁) (.fvar j n₂ ty₂)
     | .const n us, .const n' us' =>
       if n = n' then
         if ← liftFueled "level comparison" (Level.isEquivList us us') then
           pure true
-        else proofIrrel env fuel depth (.const n us) (.const n' us')
-      else proofIrrel env fuel depth (.const n us) (.const n' us')
+        else stuckIrrel env fuel depth (.const n us) (.const n' us')
+      else stuckIrrel env fuel depth (.const n us) (.const n' us')
     | .forallE n₁ ty₁ body₁ m₁, .forallE n₂ ty₂ body₂ m₂ => do
       unless ← isDefEqCore env fuel depth ty₁ ty₂ do return false
       let b₁ := body₁.instantiate1 (.fvar depth n₁ ty₁)
@@ -282,26 +282,69 @@ def isDefEqCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr �
       if ← isDefEqCore env fuel depth f₁ f₂ then
         if ← isDefEqCore env fuel depth a₁ a₂ then
           pure true
-        else proofIrrel env fuel depth (.app f₁ a₁) (.app f₂ a₂)
-      else proofIrrel env fuel depth (.app f₁ a₁) (.app f₂ a₂)
+        else stuckIrrel env fuel depth (.app f₁ a₁) (.app f₂ a₂)
+      else stuckIrrel env fuel depth (.app f₁ a₁) (.app f₂ a₂)
     | .proj s₁ i₁ e₁, .proj s₂ i₂ e₂ => do
       -- Stuck projections: congruence, else proof irrelevance.
       if i₁ == i₂ then
         if ← isDefEqCore env fuel depth e₁ e₂ then pure true
-        else proofIrrel env fuel depth (.proj s₁ i₁ e₁) (.proj s₂ i₂ e₂)
-      else proofIrrel env fuel depth (.proj s₁ i₁ e₁) (.proj s₂ i₂ e₂)
+        else stuckIrrel env fuel depth (.proj s₁ i₁ e₁) (.proj s₂ i₂ e₂)
+      else stuckIrrel env fuel depth (.proj s₁ i₁ e₁) (.proj s₂ i₂ e₂)
     -- One-sided λ: eta, else proof irrelevance.
     | .lam n₁ ty₁ body₁ m₁, b₂ => do
       if ← etaCert env fuel depth n₁ ty₁ body₁ m₁ b₂ then pure true
-      else proofIrrel env fuel depth (.lam n₁ ty₁ body₁ m₁) b₂
+      else stuckIrrel env fuel depth (.lam n₁ ty₁ body₁ m₁) b₂
     | a₁, .lam n₂ ty₂ body₂ m₂ => do
       if ← etaCert env fuel depth n₂ ty₂ body₂ m₂ a₁ then pure true
-      else proofIrrel env fuel depth a₁ (.lam n₂ ty₂ body₂ m₂)
+      else stuckIrrel env fuel depth a₁ (.lam n₂ ty₂ body₂ m₂)
     -- Distinct whnf-stuck head symbols: only proof irrelevance can
     -- equate them; `false` is always sound, and `whnf` has already
     -- thrown on unsupported heads, so no unimplemented case can hide
     -- here.
-    | e₁, e₂ => proofIrrel env fuel depth e₁ e₂
+    | e₁, e₂ => stuckIrrel env fuel depth e₁ e₂
+  termination_by structural fuel _ _ _ => fuel
+
+/-- The fallback for structurally distinct stuck terms: pair eta in
+either direction, else proof irrelevance. -/
+def stuckIrrel (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr →
+    CheckM Bool
+  | 0, _, _, _ => throw (.internal "fuel exhausted: stuckIrrel")
+  | fuel + 1, depth, a, b => do
+    if ← pairEtaCert env fuel depth a b then pure true
+    else if ← pairEtaCert env fuel depth b a then pure true
+    else proofIrrel env fuel depth a b
+  termination_by structural fuel _ _ _ => fuel
+
+/-- Pair eta certification: `a` is a fully applied basis pair
+constructor, `b` inhabits the matching pair type (same levels), and
+`a`'s components are defeq to `b`'s projections.  In the model both
+sides are then the pair of `b`'s components (or the proof point at the
+Prop collapse). -/
+def pairEtaCert (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr →
+    CheckM Bool
+  | 0, _, _, _ => throw (.internal "fuel exhausted: pairEtaCert")
+  | fuel + 1, depth, .app (.app (.app (.app (.const c us) _pα) _pβ) s₁) s₂,
+      b => do
+    match env.find? c with
+    | some (.ctorInfo _ _ _) =>
+      if c = psigmaMkName then
+        let tb ← inferTypeCore env fuel depth b
+        match ← whnfCore env fuel depth tb with
+        | .app (.app (.const c' us') _A) _B =>
+          match env.find? c' with
+          | some (.indInfo _) =>
+            if c' = psigmaName then
+              if ← liftFueled "level comparison" (Level.isEquivList us us') then
+                if ← isDefEqCore env fuel depth s₁ (.proj psigmaName 0 b) then
+                  isDefEqCore env fuel depth s₂ (.proj psigmaName 1 b)
+                else pure false
+              else pure false
+            else pure false
+          | _ => pure false
+        | _ => pure false
+      else pure false
+    | _ => pure false
+  | _ + 1, _, _, _ => pure false
   termination_by structural fuel _ _ _ => fuel
 
 /-- Eta certification for a one-sided λ against a stuck term `b`: `b`'s

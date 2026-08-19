@@ -170,6 +170,9 @@ class SetTheory (V : Type u) where
   `v = 0` both sides are the proof point). -/
   lam_eta : ∀ {v : Nat} {A f : V} {B : V → V},
     Mem f (pi v A B) → lam v A (fun x => app f x) = f
+  /-- Prop-tagged abstractions are the proof point (the `v = 0` case of
+  `lam`'s realization). -/
+  lam_zero : ∀ {A : V} {F : V → V}, lam 0 A F = pt
 
 namespace SetTheory
 

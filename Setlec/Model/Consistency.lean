@@ -218,7 +218,7 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
     -- inductive-kind lookup still resolves to the old environment, and
     -- the valuation agrees there.
     refine ⟨?_, ?_, ?_⟩
-    · intro cv hfp ψ
+    · intro cv hfp
       rw [Env.find?_cons] at hfp
       split at hfp
       · next hn =>
@@ -234,10 +234,12 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
           have := find?_none_ne hfind' _ hmem
           rw [hname, hcontra] at this
           exact this rfl
+        obtain ⟨hlp, hfacts⟩ := m.ind_ok.1 cv hfp
+        refine ⟨hlp, fun ψ => ?_⟩
         have hvagree : val' psigmaName ψ = m.val psigmaName ψ := by
           simp [hval', hne]
         rw [hvagree]
-        exact m.ind_ok.1 cv hfp ψ
+        exact hfacts ψ
     · intro cv nP nF hfp
       rw [Env.find?_cons] at hfp
       split at hfp
@@ -298,6 +300,7 @@ private theorem extend_basis_one {env : Env} (m : EnvModel V env)
       (∀ p ∈ ci.toConstantVal.levelParams, ψ₁ p = ψ₂ p) → v₀ ψ₁ = v₀ ψ₂)
     (hAty : ∀ ψ : Name → Nat, AnnotOk V m.val env ψ 0 (rho0 V) ci.toConstantVal.type)
     (hnewty : ∀ cv, ci = .indInfo cv → ci.name = psigmaName →
+      cv.levelParams = [uN, vN] ∧
       ∀ ψ : Name → Nat, PairTyFacts V (v₀ ψ) (ψ uN) (ψ vN))
     (hnewmk : ∀ cv nP nF, ci = .ctorInfo cv nP nF → ci.name = psigmaMkName →
       nP = 2 ∧ nF = 2 ∧ cv.levelParams = [uN, vN] ∧
@@ -390,15 +393,17 @@ private theorem extend_basis_one {env : Env} (m : EnvModel V env)
       exact hAtrans _ hres2 ψ (hA2 cv2 value2 heq)
   · -- ind_ok
     refine ⟨?_, ?_, ?_⟩
-    · intro cv hfp ψ
+    · intro cv hfp
       rw [Env.find?_cons] at hfp
       split at hfp
       · next hn =>
         obtain rfl := Option.some.inj hfp
+        obtain ⟨hlp, hfacts⟩ := hnewty cv rfl hn
+        refine ⟨hlp, fun ψ => ?_⟩
         have hval'eq : val' psigmaName ψ = v₀ ψ := by
           simp [hval', hn.symm]
         rw [hval'eq]
-        exact hnewty cv rfl hn ψ
+        exact hfacts ψ
       · next hn =>
         have hne : psigmaName ≠ ci.name := by
           intro hcontra
@@ -409,10 +414,12 @@ private theorem extend_basis_one {env : Env} (m : EnvModel V env)
           have := hfresh _ hmem
           rw [hname, hcontra] at this
           exact this rfl
+        obtain ⟨hlp, hfacts⟩ := m.ind_ok.1 cv hfp
+        refine ⟨hlp, fun ψ => ?_⟩
         have hval'eq : val' psigmaName ψ = m.val psigmaName ψ := by
           simp [hval', hne]
         rw [hval'eq]
-        exact m.ind_ok.1 cv hfp ψ
+        exact hfacts ψ
     · intro cv nP nF hfp
       rw [Env.find?_cons] at hfp
       split at hfp
@@ -657,7 +664,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       have hmkfacts : ∀ ψ' : Name → Nat,
           PairMkFacts V (psigmaMkVal V ψ') (ψ' uN) (ψ' vN) := by
         intro ψ'
-        refine ⟨?_, ?_, ?_, ?_, ?_⟩
+        refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
         · intro hw vE A₀ B₀ x hmem hx
           simp only [psigmaMkVal] at hmem
           refine lam_pi_dom hmem ?_ hx
@@ -674,6 +681,9 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
           exact lam_pi_dom hmem hw hx
         · intro vA vB va vb hvA hvB hva hvb
           exact psigmaMkVal_fold hvA hvB hva hvb
+        · intro hw x y z w'
+          simp only [psigmaMkVal]
+          rw [if_pos hw, lam_zero, app_pt, app_pt, app_pt, app_pt]
       -- chain the three model extensions
       obtain ⟨m1, hval1, hpres1⟩ := extend_basis_one m psigmaA
         (fun ψ => psigmaVal V ψ)
@@ -687,7 +697,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
           rw [hψ uN (by simp [psigmaA, ConstantInfo.toConstantVal, uN]),
             hψ vN (by simp [psigmaA, ConstantInfo.toConstantVal, vN])])
         (fun ψ => annotOk_psigma_type)
-        (fun cv _ _ => htyfacts)
+        (fun cv hx _ => ⟨by cases hx; rfl, htyfacts⟩)
         (fun cv nP nF hx _ => nomatch hx)
         (fun cv hx hn => absurd hn (by decide))
       obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 psigmaMkA

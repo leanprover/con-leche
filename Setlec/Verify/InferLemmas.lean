@@ -601,6 +601,158 @@ theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
       cases okA <;> cases okB <;> simp_all
     exact Or.inr ⟨sta, uT, tb, stb, vT, rfl, hwta, heq1, rfl, hstb, hwtb, heq2⟩
 
+/-- Inversion of a successful pair-eta certification. -/
+theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
+    (h : pairEtaCert env (fuel + 1) d a b = .ok true) :
+    ∃ us pα pβ s₁ s₂ cvm nP nF tb us' A B cvi,
+      a = .app (.app (.app (.app (.const psigmaMkName us) pα) pβ) s₁) s₂ ∧
+      env.find? psigmaMkName = some (.ctorInfo cvm nP nF) ∧
+      inferTypeCore env fuel d b = .ok tb ∧
+      whnfCore env fuel d tb = .ok (.app (.app (.const psigmaName us') A) B) ∧
+      env.find? psigmaName = some (.indInfo cvi) ∧
+      Level.isEquivList us us' = some true ∧
+      isDefEqCore env fuel d s₁ (.proj psigmaName 0 b) = .ok true ∧
+      isDefEqCore env fuel d s₂ (.proj psigmaName 1 b) = .ok true := by
+  match a, h with
+  | .app (.app (.app (.app (.const c us) pα) pβ) s₁) s₂, h => ?_
+  | .bvar _, h => exact nomatch h
+  | .fvar _ _ _, h => exact nomatch h
+  | .sort _, h => exact nomatch h
+  | .const _ _, h => exact nomatch h
+  | .lam _ _ _ _, h => exact nomatch h
+  | .forallE _ _ _ _, h => exact nomatch h
+  | .letE _ _ _ _, h => exact nomatch h
+  | .lit _, h => exact nomatch h
+  | .proj _ _ _, h => exact nomatch h
+  | .app (.bvar _) _, h => exact nomatch h
+  | .app (.fvar _ _ _) _, h => exact nomatch h
+  | .app (.sort _) _, h => exact nomatch h
+  | .app (.const _ _) _, h => exact nomatch h
+  | .app (.lam _ _ _ _) _, h => exact nomatch h
+  | .app (.forallE _ _ _ _) _, h => exact nomatch h
+  | .app (.letE _ _ _ _) _, h => exact nomatch h
+  | .app (.lit _) _, h => exact nomatch h
+  | .app (.proj _ _ _) _, h => exact nomatch h
+  | .app (.app (.bvar _) _) _, h => exact nomatch h
+  | .app (.app (.fvar _ _ _) _) _, h => exact nomatch h
+  | .app (.app (.sort _) _) _, h => exact nomatch h
+  | .app (.app (.const _ _) _) _, h => exact nomatch h
+  | .app (.app (.lam _ _ _ _) _) _, h => exact nomatch h
+  | .app (.app (.forallE _ _ _ _) _) _, h => exact nomatch h
+  | .app (.app (.letE _ _ _ _) _) _, h => exact nomatch h
+  | .app (.app (.lit _) _) _, h => exact nomatch h
+  | .app (.app (.proj _ _ _) _) _, h => exact nomatch h
+  | .app (.app (.app (.bvar _) _) _) _, h => exact nomatch h
+  | .app (.app (.app (.fvar _ _ _) _) _) _, h => exact nomatch h
+  | .app (.app (.app (.sort _) _) _) _, h => exact nomatch h
+  | .app (.app (.app (.const _ _) _) _) _, h => exact nomatch h
+  | .app (.app (.app (.app (.bvar _) _) _) _) _, h => exact nomatch h
+  | .app (.app (.app (.app (.fvar _ _ _) _) _) _) _, h => exact nomatch h
+  | .app (.app (.app (.app (.sort _) _) _) _) _, h => exact nomatch h
+  | .app (.app (.app (.app (.app _ _) _) _) _) _, h => exact nomatch h
+  | .app (.app (.app (.app (.lam _ _ _ _) _) _) _) _, h => exact nomatch h
+  | .app (.app (.app (.app (.forallE _ _ _ _) _) _) _) _, h =>
+    exact nomatch h
+  | .app (.app (.app (.app (.letE _ _ _ _) _) _) _) _, h => exact nomatch h
+  | .app (.app (.app (.app (.lit _) _) _) _) _, h => exact nomatch h
+  | .app (.app (.app (.app (.proj _ _ _) _) _) _) _, h => exact nomatch h
+  | .app (.app (.app (.lam _ _ _ _) _) _) _, h => exact nomatch h
+  | .app (.app (.app (.forallE _ _ _ _) _) _) _, h => exact nomatch h
+  | .app (.app (.app (.letE _ _ _ _) _) _) _, h => exact nomatch h
+  | .app (.app (.app (.lit _) _) _) _, h => exact nomatch h
+  | .app (.app (.app (.proj _ _ _) _) _) _, h => exact nomatch h
+  dsimp only [pairEtaCert] at h
+  revert h
+  match hfc : env.find? c with
+  | none => intro h; exact nomatch h
+  | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.defnInfo _ _) => intro h; exact nomatch h
+  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.indInfo _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.ctorInfo cvm nP nF) => ?_
+  intro h
+  by_cases hc : c = psigmaMkName
+  case neg => rw [if_neg hc] at h; exact nomatch h
+  subst hc
+  rw [if_pos rfl] at h
+  try simp only [Bind.bind, Except.bind] at h
+  cases htb : inferTypeCore env fuel d b with
+  | error err => rw [htb] at h; exact nomatch h
+  | ok tb =>
+  rw [htb] at h
+  dsimp only at h
+  cases hwtb : whnfCore env fuel d tb with
+  | error err => rw [hwtb] at h; exact nomatch h
+  | ok wtb =>
+  rw [hwtb] at h
+  match wtb, h with
+  | .app (.app (.const c' us') A) B, h => ?_
+  | .bvar _, h => exact nomatch h
+  | .fvar _ _ _, h => exact nomatch h
+  | .sort _, h => exact nomatch h
+  | .const _ _, h => exact nomatch h
+  | .lam _ _ _ _, h => exact nomatch h
+  | .forallE _ _ _ _, h => exact nomatch h
+  | .letE _ _ _ _, h => exact nomatch h
+  | .lit _, h => exact nomatch h
+  | .proj _ _ _, h => exact nomatch h
+  | .app (.bvar _) _, h => exact nomatch h
+  | .app (.fvar _ _ _) _, h => exact nomatch h
+  | .app (.sort _) _, h => exact nomatch h
+  | .app (.const _ _) _, h => exact nomatch h
+  | .app (.lam _ _ _ _) _, h => exact nomatch h
+  | .app (.forallE _ _ _ _) _, h => exact nomatch h
+  | .app (.letE _ _ _ _) _, h => exact nomatch h
+  | .app (.lit _) _, h => exact nomatch h
+  | .app (.proj _ _ _) _, h => exact nomatch h
+  | .app (.app (.bvar _) _) _, h => exact nomatch h
+  | .app (.app (.fvar _ _ _) _) _, h => exact nomatch h
+  | .app (.app (.sort _) _) _, h => exact nomatch h
+  | .app (.app (.app _ _) _) _, h => exact nomatch h
+  | .app (.app (.lam _ _ _ _) _) _, h => exact nomatch h
+  | .app (.app (.forallE _ _ _ _) _) _, h => exact nomatch h
+  | .app (.app (.letE _ _ _ _) _) _, h => exact nomatch h
+  | .app (.app (.lit _) _) _, h => exact nomatch h
+  | .app (.app (.proj _ _ _) _) _, h => exact nomatch h
+  dsimp only at h
+  revert h
+  match hfc' : env.find? c' with
+  | none => intro h; exact nomatch h
+  | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.defnInfo _ _) => intro h; exact nomatch h
+  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.indInfo cvi) => ?_
+  intro h
+  by_cases hc' : c' = psigmaName
+  case neg => rw [if_neg hc'] at h; exact nomatch h
+  subst hc'
+  rw [if_pos rfl] at h
+  try simp only [Bind.bind, Except.bind] at h
+  cases hlev : Level.isEquivList us us' with
+  | none => rw [hlev] at h; simp [liftFueled] at h
+  | some okL =>
+  rw [hlev] at h
+  try dsimp only [liftFueled] at h
+  try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+  cases okL with
+  | false => simp at h
+  | true =>
+  simp only [↓reduceIte] at h
+  cases hd1 : isDefEqCore env fuel d s₁ (.proj psigmaName 0 b) with
+  | error err => rw [hd1] at h; exact nomatch h
+  | ok r₁ =>
+  rw [hd1] at h
+  dsimp only at h
+  cases r₁ with
+  | false => simp [pure, Except.pure] at h
+  | true =>
+  simp only [↓reduceIte] at h
+  exact ⟨us, pα, pβ, s₁, s₂, cvm, nP, nF, tb, us', A, B, cvi,
+    rfl, hfc, rfl, hwtb, hfc', hlev, hd1, h⟩
+
 /-- Inversion of a successful eta certification. -/
 theorem etaCert_inv {env : Env} {fuel d : Nat} {n₁ : Name} {ty₁ body₁ b : Expr}
     {m₁ : BinderMeta}

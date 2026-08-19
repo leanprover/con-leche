@@ -361,7 +361,7 @@ theorem annotate_sound (m : EnvModel V env) :
       rw [← hψ']
       simp only [hal, if_true]
     have hvf₀ : vf₀ = m.val psigmaName ψ' := (Option.some.inj hci).symm
-    have hfacts := (m.ind_ok.1 cv hfind ψ')
+    have hfacts := ((m.ind_ok.1 cv hfind).2 ψ')
     have hAmem : vA ∈ˢ univ (ψ' uN) := hfacts.dom₀ (hvf₀ ▸ hpi₀) hvA₀
     have hf₁ : vf₁ = app (m.val psigmaName ψ') vA := by
       rw [interpExpr, hval, hAi] at hf₁i

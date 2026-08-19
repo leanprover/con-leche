@@ -62,12 +62,18 @@ structure PairMkFacts (pv : V) (u v : Nat) : Prop where
     va ∈ˢ vA → vb ∈ˢ app vB va →
     app (app (app (app pv vA) vB) va) vb =
       (if Nat.max u v = 0 then pt else spair va vb)
+  /-- At the Prop collapse the constructor's full application is the
+  proof point unconditionally (no membership needed: the value itself
+  is the proof point). -/
+  zero : Nat.max u v = 0 → ∀ x y z w' : V,
+    app (app (app (app pv x) y) z) w' = pt
 
 /-- The environment's inductive-kind constants have models: every fact
 here is what some checker rule's soundness consumes.  Grows on demand as
 rules land (iota equations come with the recursor rules). -/
 def IndOk (env : Env) (val : ConstVal V) : Prop :=
   (∀ cv, env.find? psigmaName = some (.indInfo cv) →
+    cv.levelParams = [uN, vN] ∧
     ∀ ψ : Name → Nat, PairTyFacts V (val psigmaName ψ) (ψ uN) (ψ vN)) ∧
   (∀ cv nP nF, env.find? psigmaMkName = some (.ctorInfo cv nP nF) →
     nP = 2 ∧ nF = 2 ∧ cv.levelParams = [uN, vN] ∧
