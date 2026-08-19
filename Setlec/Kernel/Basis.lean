@@ -24,6 +24,12 @@ def psigmaName : Name := anonymous |>.str "PSigma'"
 /-- The name of the basis dependent-pair constructor. -/
 def psigmaMkName : Name := psigmaName |>.str "mk"
 
+/-- The name of the basis equality type. -/
+def eqName : Name := anonymous |>.str "Eq"
+
+/-- The name of the basis equality constructor. -/
+def eqReflName : Name := eqName |>.str "refl"
+
 /-- The name of the basis unit type. -/
 def punitName : Name := anonymous |>.str "PUnit"
 

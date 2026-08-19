@@ -129,7 +129,7 @@ theorem substFvarAt_instantiate1 {p d : Nat} (hpd : p ≤ d) {n : Name} {ty a : 
     · have h1 : ¬ (d + 1 = p) := by omega
       have h2 : d + 1 > p := by omega
       simp [substFvarAt, h1, h2]
-    · split <;> simp [substFvarAt, instantiate1]
+    · split <;> simp [substFvarAt]
   | fvar idx n' ty' ih =>
     intro k
     simp only [instantiate1, substFvarAt]
@@ -152,7 +152,7 @@ theorem substFvarAt_instantiate1_self {d : Nat} {n : Name} {ty a : Expr} :
   induction e with
   | bvar i =>
     intro k hb
-    simp only [instantiate1, substFvarAt]
+    simp only [instantiate1]
     split
     · simp [substFvarAt]
     · split <;> simp [substFvarAt]

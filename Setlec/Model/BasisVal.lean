@@ -106,14 +106,14 @@ where
   basisRecEqV2 (u u1 : Nat) : Nat := Nat.max u (Nat.max u1 1)
   basisRecEqV3 (u u1 : Nat) : Nat := Nat.max u (Nat.max u1 1)
   basisRecEqV4 (u u1 : Nat) : Nat := Nat.max u u1
-  basisRecEqV5 (u u1 : Nat) : Nat := u1
+  basisRecEqV5 (_u u1 : Nat) : Nat := u1
   basisRecNatV (u1 : Nat) : Nat := Nat.max u1 1
   basisRecNatV2 (u1 : Nat) : Nat := Nat.max u1 1
   basisRecNatV3 (u1 : Nat) : Nat := u1
-  basisRecSigV (u v : Nat) : Nat := 1
-  basisRecSigV2 (u v : Nat) : Nat := 1
-  basisRecSigV3 (u v : Nat) : Nat := 1
-  basisRecSigV4 (u v : Nat) : Nat := 0
+  basisRecSigV (_u _v : Nat) : Nat := 1
+  basisRecSigV2 (_u _v : Nat) : Nat := 1
+  basisRecSigV3 (_u _v : Nat) : Nat := 1
+  basisRecSigV4 (_u _v : Nat) : Nat := 0
   basisRecUnitV (u u1 : Nat) : Nat := Nat.max u u1
 
 /-- The value of the basis unit recursor (`λ M m t. m`; tags are the
@@ -125,6 +125,37 @@ noncomputable def punitRecVal (ψ : Name → Nat) : V :=
   SetTheory.lam w (pi (u1 + 1) unitSet fun _ => univ u1) fun M =>
     SetTheory.lam w (app M pt) fun m =>
       SetTheory.lam u1 unitSet fun _ => m
+
+/-- The value of the basis equality type former (truth values of set
+equality). -/
+noncomputable def eqVal (ψ : Name → Nat) : V :=
+  let u := ψ uN
+  SetTheory.lam (Nat.max u (Nat.max u 1)) (univ u) fun A =>
+    SetTheory.lam (Nat.max u 1) A fun x =>
+      SetTheory.lam 1 A fun y => eqv x y
+
+/-- The value of `Eq.refl` (a proof point under the Prop collapse). -/
+noncomputable def eqReflVal (_ψ : Name → Nat) : V :=
+  SetTheory.lam 0 (univ (_ψ uN)) fun _A =>
+    SetTheory.lam 0 _A fun _x => pt
+
+/-- The motive space of `Eq.rec` over a domain and a base point. -/
+noncomputable def eqRecMSpace (u1 : Nat) (A a : V) : V :=
+  pi (u1 + 1) A fun b => pi (u1 + 1) (eqv a b) fun _ => univ u1
+
+/-- The value of `Eq.rec` (`λ α a motive refl b h. refl`: transport is
+the identity under equality collapse). -/
+noncomputable def eqRecVal (ψ : Name → Nat) : V :=
+  let u := ψ uN
+  let u1 := ψ u1N
+  let w := if u1 = 0 then 0 else Nat.max u u1
+  let s := if u1 = 0 then 0 else Nat.max u (u1 + 1)
+  SetTheory.lam s (univ u) fun A =>
+    SetTheory.lam s A fun a =>
+      SetTheory.lam w (eqRecMSpace V u1 A a) fun M =>
+        SetTheory.lam w (app (app M a) pt) fun r =>
+          SetTheory.lam u1 A fun _b =>
+            SetTheory.lam u1 (eqv a _b) fun _h => r
 
 /-- Is this constant-info one of the basis kinds? -/
 def ConstantInfo.isBasis : ConstantInfo → Bool

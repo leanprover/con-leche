@@ -192,7 +192,7 @@ def inferTypeCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Chec
       -- structure's type delta-unfolds (via its `_model` alias) to a
       -- `PSigma'` nest, which is what `whnfCore` produces here.
       match ← whnfCore env fuel depth (← inferTypeCore env fuel depth e) with
-      | .app (.app (.const c us) A) B =>
+      | .app (.app (.const c _us) A) B =>
         match env.find? c with
         | some (.indInfo _) =>
           if c = psigmaName then

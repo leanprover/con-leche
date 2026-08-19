@@ -544,7 +544,7 @@ private theorem whnf_claims (m : EnvModel V env)
 
 private theorem defeq_claims (m : EnvModel V env)
     (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-    (ihi : InferClaims m φ fuel) :
+    (_ihi : InferClaims m φ fuel) :
     DefEqClaims m φ (fuel + 1) := by
   intro d a b ρ h hwa hwb hba hbb hLba hLbb hoka hokb haa hab va vb hva hvb
   unfold isDefEqCore at h
