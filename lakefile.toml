@@ -1,0 +1,14 @@
+name = "setlec"
+defaultTargets = ["Setlec", "setlec"]
+testDriver = "SetlecTests"
+
+[[lean_lib]]
+name = "Setlec"
+
+[[lean_lib]]
+name = "SetlecTests"
+srcDir = "tests"
+
+[[lean_exe]]
+name = "setlec"
+root = "Main"
