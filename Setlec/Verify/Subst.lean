@@ -55,6 +55,64 @@ theorem instantiate1_eq_self {v : Expr} :
     intro k hb
     simp_all [looseBVarsBounded, instantiate1]
 
+/-- Two closed instantiations commute (the outer index below the
+inner). -/
+theorem instantiate1_instantiate1 {a b : Expr}
+    (hba : a.looseBVarsBounded 0 = true)
+    (hbb : b.looseBVarsBounded 0 = true) :
+    ∀ (e : Expr) (j k : Nat), j ≤ k →
+      (e.instantiate1 a (k + 1)).instantiate1 b j =
+        (e.instantiate1 b j).instantiate1 a k := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro j k hjk
+    repeat' first
+      | (exact instantiate1_eq_self
+          (looseBVarsBounded_mono (Nat.zero_le _) hba))
+      | (exact instantiate1_eq_self
+          (looseBVarsBounded_mono (Nat.zero_le _) hbb))
+      | (exact (instantiate1_eq_self
+          (looseBVarsBounded_mono (Nat.zero_le _) hba)).symm)
+      | (exact (instantiate1_eq_self
+          (looseBVarsBounded_mono (Nat.zero_le _) hbb)).symm)
+      | rfl
+      | (exact congrArg Expr.bvar (by omega))
+      | (exact absurd rfl (by omega))
+      | omega
+      | simp only [instantiate1]
+      | split
+  | fvar idx n ty => intro j k hjk; simp [instantiate1]
+  | sort u => intro j k hjk; simp [instantiate1]
+  | const n us => intro j k hjk; simp [instantiate1]
+  | app f g ihf ihg => intro j k hjk; simp [instantiate1, ihf _ _ hjk, ihg _ _ hjk]
+  | lam n ty body m ihty ihbody =>
+    intro j k hjk
+    simp [instantiate1, ihty _ _ hjk, ihbody _ _ (by omega : j + 1 ≤ k + 1)]
+  | forallE n ty body m ihty ihbody =>
+    intro j k hjk
+    simp [instantiate1, ihty _ _ hjk, ihbody _ _ (by omega : j + 1 ≤ k + 1)]
+  | letE n ty v body ihty ihv ihbody =>
+    intro j k hjk
+    simp [instantiate1, ihty _ _ hjk, ihv _ _ hjk,
+      ihbody _ _ (by omega : j + 1 ≤ k + 1)]
+  | lit l => intro j k hjk; simp [instantiate1]
+  | proj s i e ih => intro j k hjk; simp [instantiate1, ih _ _ hjk]
+
+/-- Instantiation preserves a `∀`-telescope's arity. -/
+theorem stripPis_instantiate1_isSome {v : Expr} :
+    ∀ (k : Nat) {e : Expr} (j : Nat), (e.stripPis k).isSome →
+      ((e.instantiate1 v j).stripPis k).isSome := by
+  intro k
+  induction k with
+  | zero => intro e j _; simp [stripPis]
+  | succ k ih =>
+    intro e j h
+    match e, h with
+    | .forallE n ty body m, h =>
+      simp only [instantiate1, stripPis, Option.isSome_map] at h ⊢
+      exact ih (j + 1) h
+
 /-- Instantiating with a bounded term keeps loose-bvar bounds. -/
 theorem looseBVarsBounded_instantiate1_gen {a : Expr}
     (hba : a.looseBVarsBounded 0 = true) :

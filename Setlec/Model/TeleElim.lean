@@ -149,4 +149,132 @@ theorem TeleFitI.elim :
         SpineFold V (SetTheory.app v x) xs from rfl]
       exact hmem, hA'⟩
 
+/-- Weakening an expression-spine fit: a fit over `p`-scoped data holds
+at any depth `≥ p` under any valuation agreeing below `p`. -/
+theorem TeleFitI.lift {p : Nat} {ρ : Nat → V} :
+    ∀ {e : Expr} {args : List Expr} {vs : List V} {rest : Expr},
+      TeleFitI cval env φ p ρ e args vs rest →
+      WScoped p e →
+      ∀ {D : Nat} {ρ2 : Nat → V}, p ≤ D → (∀ i, i < p → ρ2 i = ρ i) →
+      TeleFitI cval env φ D ρ2 e args vs rest := by
+  intro e args vs rest ht
+  induction ht with
+  | nil => intro _ D ρ2 _ _; exact TeleFitI.nil
+  | @cons n ty body m arg args x xs A rest hity hiarg hx hfb hwa hba hAa
+      ht ih =>
+    intro hwe D ρ2 hpD hag
+    have hwe' : WScoped p ty ∧ WScoped p body := by simpa [WScoped] using hwe
+    refine TeleFitI.cons ?_ ?_ hx (fvarsBelow_mono hpD hfb)
+      (hwa.mono hpD) hba
+      (AnnotOk.lift hwa D hpD ρ ρ2 hag hAa)
+      (ih (WScoped.instantiate1_gen hwa 0 hwe'.2) hpD hag)
+    · rw [interp_lift hwe'.1 D hpD ρ ρ2 hag]
+      exact hity
+    · rw [interp_lift hwa D hpD ρ ρ2 hag]
+      exact hiarg
+
+/-- Swapping an instantiation argument for an interp-equal one inside
+an expression-spine fit (both closed and `d`-scoped): every interp fact
+transfers through a double `interp_beta` bridge, and the walk\'s
+substitutions are re-associated with `instantiate1_instantiate1`. -/
+theorem TeleFitI.arg_swap {d : Nat} {ρ : Nat → V} {a₁ a₂ : Expr} {xv : V}
+    (hwa₁ : WScoped d a₁) (hba₁ : a₁.looseBVarsBounded 0 = true)
+    (hwa₂ : WScoped d a₂) (hba₂ : a₂.looseBVarsBounded 0 = true)
+    (hia₁ : interpExpr V cval env φ d ρ a₁ = some xv)
+    (hia₂ : interpExpr V cval env φ d ρ a₂ = some xv) :
+    ∀ {args : List Expr} {body : Expr} {k : Nat} {vs : List V} {rest : Expr},
+      TeleFitI cval env φ d ρ (body.instantiate1 a₁ k) args vs rest →
+      Expr.fvarsBelow d body →
+      (body.stripPis args.length).isSome →
+      ∃ rest2, TeleFitI cval env φ d ρ (body.instantiate1 a₂ k) args vs rest2
+  | [], body, k, vs, rest, hfit, hfb, harity => by
+    generalize body.instantiate1 a₁ k = e at hfit
+    cases hfit with
+    | nil => exact ⟨body.instantiate1 a₂ k, TeleFitI.nil⟩
+  | arg :: args, body, k, vs, rest, hfit, hfb, harity => by
+    obtain ⟨n, ty₀, b₀, m₀, rfl⟩ :
+        ∃ n ty₀ b₀ m₀, body = .forallE n ty₀ b₀ m₀ := by
+      match body, harity with
+      | .forallE n ty₀ b₀ m₀, _ => exact ⟨n, ty₀, b₀, m₀, rfl⟩
+    simp only [Expr.instantiate1] at hfit
+    have hfb' : Expr.fvarsBelow d ty₀ ∧ Expr.fvarsBelow d b₀ := by
+      simpa [Expr.fvarsBelow] using hfb
+    cases hfit with
+    | @cons _ _ _ _ _ _ x xs A rest hity hiarg hx hfbI hwarg hbarg hAarg
+        hsub =>
+    have hity₂ : interpExpr V cval env φ d ρ (ty₀.instantiate1 a₂ k) =
+        some A := by
+      rw [interp_beta (n := .anonymous) (ty := .sort .zero) hfb'.1 hwa₂ hba₂
+        hia₂ k]
+      rw [← interp_beta (n := .anonymous) (ty := .sort .zero) hfb'.1 hwa₁ hba₁
+        hia₁ k]
+      exact hity
+    have hsub' : TeleFitI cval env φ d ρ
+        ((b₀.instantiate1 arg).instantiate1 a₁ k) args xs rest := by
+      rw [instantiate1_instantiate1 hba₁ hbarg b₀ 0 k (Nat.zero_le k)] at hsub
+      exact hsub
+    have hfbsub : Expr.fvarsBelow d (b₀.instantiate1 arg) :=
+      fvarsBelow_instantiate1_gen hwarg.fvarsBelow 0 hfb'.2
+    have harity' : ((b₀.instantiate1 arg).stripPis args.length).isSome := by
+      simp only [List.length_cons, Expr.stripPis, Option.isSome_map] at harity
+      exact stripPis_instantiate1_isSome args.length 0 harity
+    obtain ⟨rest2, hsw⟩ := TeleFitI.arg_swap hwa₁ hba₁ hwa₂ hba₂ hia₁ hia₂
+      hsub' hfbsub harity'
+    have hsw' : TeleFitI cval env φ d ρ
+        ((b₀.instantiate1 a₂ (k + 1)).instantiate1 arg) args xs rest2 := by
+      rw [instantiate1_instantiate1 hba₂ hbarg b₀ 0 k (Nat.zero_le k)]
+      exact hsw
+    refine ⟨rest2, ?_⟩
+    simp only [Expr.instantiate1]
+    exact TeleFitI.cons hity₂ hiarg hx
+      (fvarsBelow_instantiate1_gen hwa₂.fvarsBelow (k + 1) hfb'.2)
+      hwarg hbarg hAarg hsw'
+
+/-- An expression-spine fit of a genuine `∀`-telescope yields a
+value-spine fit: each instantiation argument is exchanged for the
+opening variable (which interprets to the same value). -/
+theorem TeleFitI.toTeleFit {d : Nat} {ρ : Nat → V} :
+    ∀ {args : List Expr} {ty : Expr} {vs : List V} {rest : Expr},
+      TeleFitI cval env φ d ρ ty args vs rest →
+      WScoped d ty →
+      (ty.stripPis args.length).isSome →
+      ∃ d2 ρ2 rest2, TeleFit cval env φ d ρ ty vs d2 ρ2 rest2
+  | [], ty, vs, rest, hfit, hwty, harity => by
+    cases hfit with
+    | nil => exact ⟨d, ρ, ty, TeleFit.nil⟩
+  | arg :: args, ty, vs, rest, hfit, hwty, harity => by
+    obtain ⟨n, dom, body, m, rfl⟩ :
+        ∃ n dom body m, ty = .forallE n dom body m := by
+      match ty, harity with
+      | .forallE n dom body m, _ => exact ⟨n, dom, body, m, rfl⟩
+    cases hfit with
+    | @cons _ _ _ _ _ _ x xs A rest hity hiarg hx hfbI hwarg hbarg hAarg
+        hsub =>
+    have hwty' : WScoped d dom ∧ WScoped d body := by simpa [WScoped] using hwty
+    have hagub : ∀ i, i < d → updV V ρ d x i = ρ i := fun i hi => by
+      simp only [updV]; rw [if_neg (by omega)]
+    have hsub1 : TeleFitI cval env φ (d + 1) (updV V ρ d x)
+        (body.instantiate1 arg) args xs rest :=
+      TeleFitI.lift hsub (WScoped.instantiate1_gen hwarg 0 hwty'.2)
+        (Nat.le_succ d) hagub
+    have hiarg1 : interpExpr V cval env φ (d + 1) (updV V ρ d x) arg =
+        some x := by
+      rw [interp_lift hwarg (d + 1) (Nat.le_succ d) ρ (updV V ρ d x) hagub]
+      exact hiarg
+    have hifv : interpExpr V cval env φ (d + 1) (updV V ρ d x)
+        (.fvar d n dom) = some x := by
+      simp [interpExpr, updV]
+    have hwfv : WScoped (d + 1) (Expr.fvar d n dom) := by
+      simp only [WScoped]
+      exact ⟨Nat.lt_succ_self d, hwty'.1⟩
+    have harity' : (body.stripPis args.length).isSome := by
+      simpa [List.length_cons, Expr.stripPis, Option.isSome_map] using harity
+    obtain ⟨rest2, hsw⟩ := TeleFitI.arg_swap (hwarg.mono (Nat.le_succ d))
+      hbarg hwfv rfl hiarg1 hifv (k := 0) hsub1
+      (fvarsBelow_mono (Nat.le_succ d) hwty'.2.fvarsBelow) harity'
+    obtain ⟨d2, ρ2, rest3, hfit'⟩ := TeleFitI.toTeleFit hsw
+      (WScoped.instantiate1_gen hwfv 0 (hwty'.2.mono (Nat.le_succ d)))
+      (stripPis_instantiate1_isSome args.length 0 harity')
+    exact ⟨d2, ρ2, rest3, TeleFit.cons hity hx hfit'⟩
+
 end Setlec
