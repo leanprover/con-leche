@@ -46,12 +46,42 @@ checker is verified to be consistent.
 ## Inductives via preprocessing
 
 The checker uses https://github.com/nomeata/lean-inductive-models as a
-preprocessor (eventually invoked transparently by the `setlec` binary). For
+preprocessor (invoked transparently by the `setlec` binary). For
 each inductive it builds, *in Lean*, a model: type former, constructors,
 recursors, projections as `def`s, and their iota rules as theorems. The
 checker then only needs to check that this model matches the declared
 inductive. For an inductive with a `_model` from the preprocessor,
 `⟦T⟧ := ⟦T._model⟧`, so the model theorems apply without rewriting.
+
+**Modeled inductives are opaque (decision 2026-08-19, per review).** A
+modeled inductive `T` is *not* installed as an alias definition
+`T := T._model` — it is stored as a real inductive-kind constant
+(indInfo/ctorInfo/recInfo), i.e. a whnf head form. The `_model` family
+(checked earlier in the stream as ordinary defs/thms) is consulted only
+(1) at install time, to check that the inductive matches the model it
+claims — member types under the public↔`_model` constant-name rewrite,
+iota rules against the `R._model.iota_j` theorems, and (as features
+land) `unitlike`/`eta`/`ruleK` theorems — and (2) in the consistency
+proofs, where `⟦T⟧ := ⟦T._model⟧` supplies the values and each checked
+theorem `a = b` yields `⟦a⟧ = ⟦b⟧` through `mem_eqv`.  Type checking of
+code *using* `T` never unfolds it: whnf stops at `T` applications, iota
+fires on `T.rec` through the stored rules, and projections use the
+stored constructor telescope.  (Aliasing was tried first and makes whnf
+see through `T` into the model's encoding — tagged sigmas etc. — so the
+kernel-level projection/eta/K rules on `T` become untypeable.)
+
+Consequently the environment invariant carries per-stored-constant
+semantic facts abstractly — for every stored recursor rule a fold
+equation over value spines (`RecRulesOk`: interpreted recursor applied
+through its telescope, with the major a constructor-value spine, equals
+the interpreted rule rhs applied to the non-index prefix and fields,
+together with the `AppSlot` typing facts and rule-rhs `AnnotOk` the
+reduct's annotation chain needs); analogous records for projections and
+unit-like/eta/K as those land.  Basis blocks discharge these facts from
+the hand-written set values (`Setlec/Model/BasisIota.lean`); modeled
+blocks discharge them at install from the checked `_model` theorems.
+`whnf`/`isDefEq`/`inferType` soundness consumes only the abstract facts
+and never identifies constants by name.
 
 Only the "basis" inductives get hand-written models: `Eq`, `Nat`, `PSigma'`,
 `PUnit`, `Quot` (plus the direct `Empty` clause). `PSigma'` and `PUnit` get
