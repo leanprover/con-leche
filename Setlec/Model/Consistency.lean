@@ -771,6 +771,70 @@ private theorem extend_basis_one {env : Env} (m : EnvModel V env)
     intro n ψ hne
     simp [hval', hne]
 
+/-- Extend a model by one opaque modeled inductive-kind member (an
+inductive type former or constructor; the recursor carries rule
+obligations and is handled separately): its value is its `_model`
+counterpart's, and its type interprets identically through the block
+renaming. -/
+private theorem extend_modeled_one {env : Env} (m : EnvModel V env)
+    (ci : ConstantInfo) (f : Name → Name) {cvm : ConstantVal} {mval : Expr}
+    (hfind' : env.find? ci.name = none)
+    (hnres : reservedBasisNames.contains ci.name = false)
+    (hwf : ConstWF ⟨ci :: env.consts⟩ ci)
+    (htyres0 : ci.toConstantVal.type.constsResolve env = true)
+    (hkind : (∃ cv, ci = .indInfo cv) ∨ ∃ cv nP nF, ci = .ctorInfo cv nP nF)
+    (hmodel : env.find? (ci.name.str "_model") = some (.defnInfo cvm mval))
+    (hlps : cvm.levelParams = ci.toConstantVal.levelParams)
+    (hren : ci.toConstantVal.type.renameConsts f = cvm.type)
+    (hro : RenameOk m.val env f) :
+    ∃ m' : EnvModel V ⟨ci :: env.consts⟩,
+      (∀ ψ, m'.val ci.name ψ = m.val (ci.name.str "_model") ψ) ∧
+      (∀ n ψ, n ≠ ci.name → m'.val n ψ = m.val n ψ) := by
+  have hmm : ConstantInfo.defnInfo cvm mval ∈ env.consts :=
+    List.mem_of_find?_eq_some hmodel
+  have hkey : ∀ ψ : Name → Nat, ∃ T,
+      interpClosed V m.val env ψ ci.toConstantVal.type = some T ∧
+        m.val (ci.name.str "_model") ψ ∈ˢ T := by
+    intro ψ
+    obtain ⟨T, hT, hmem⟩ := m.mem_type _ hmm ψ
+    have hname : cvm.name = ci.name.str "_model" := by
+      have := List.find?_some hmodel
+      simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using this
+    refine ⟨T, ?_, by rw [← hname]; exact hmem⟩
+    have hri : interpClosed V m.val env ψ (ci.toConstantVal.type.renameConsts f) =
+        interpClosed V m.val env ψ ci.toConstantVal.type :=
+      interp_renameConsts hro _ 0 (rho0 V)
+    rw [← hri, hren]
+    exact hT
+  exact extend_basis_one m ci (fun ψ => m.val (ci.name.str "_model") ψ)
+    hfind' hwf htyres0
+    (fun cv2 value2 => by
+      rcases hkind with ⟨cv', rfl⟩ | ⟨cv', nP', nF', rfl⟩ <;> simp)
+    hkey
+    (fun ψ₁ ψ₂ hψ => by
+      refine m.val_params _ _ hmodel ψ₁ ψ₂ ?_
+      intro p hp
+      refine hψ p ?_
+      rwa [show (ConstantInfo.defnInfo cvm mval).toConstantVal = cvm from rfl,
+        hlps] at hp)
+    (fun ψ => by
+      obtain ⟨hA, -⟩ := m.annot_ok _ hmm ψ
+      have hA' : AnnotOk V m.val env ψ 0 (rho0 V)
+          (ci.toConstantVal.type.renameConsts f) := by
+        rw [hren]; exact hA
+      exact AnnotOk_renameConsts hro _ 0 (rho0 V) hA')
+    (fun cv heq hn => absurd (hn ▸ hnres) (by decide))
+    (fun cv nP nF heq hn => absurd (hn ▸ hnres) (by decide))
+    (fun cv heq hn => absurd (hn ▸ hnres) (by decide))
+    (fun hn => absurd (hn ▸ hnres) (by decide))
+    (fun _ hguard => nomatch (hguard ▸ hmodel))
+    (fun cv nP nM nm ni rules heq => by
+      rcases hkind with ⟨cv', rfl⟩ | ⟨cv', nP', nF', rfl⟩ <;> exact nomatch heq)
+    (fun val' _ _ cvR nP nM nm ni rules heq => by
+      rcases hkind with ⟨cv', rfl⟩ | ⟨cv', nP', nF', rfl⟩ <;> exact nomatch heq)
+    (fun cvR nP nM nm ni rules heq => by
+      rcases hkind with ⟨cv', rfl⟩ | ⟨cv', nP', nF', rfl⟩ <;> exact nomatch heq)
+
 /-- The common inversion + semantic-fact assembly for a checked value
 against a checked (annotated) type. -/
 private theorem value_facts {env : Env} (m : EnvModel V env)
