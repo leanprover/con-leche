@@ -150,7 +150,7 @@ def checkIndDecl (env : Env) (block : List ConstantInfo) : CheckM Env := do
       throw (.invalid s!"unknown constant in type of {cv.name}")
     let tyA ← annotate env' 0 cv.type
     -- the model counterpart
-    let some (.defnInfo cvm _mval) := env'.find? (cv.name.str "_model")
+    let some (.defnInfo cvm mval) := env'.find? (cv.name.str "_model")
       | throw (.notImplemented s!"missing model for {cv.name}")
     unless cvm.levelParams = cv.levelParams do
       throw (.notImplemented s!"model level parameters mismatch for {cv.name}")
@@ -165,7 +165,10 @@ def checkIndDecl (env : Env) (block : List ConstantInfo) : CheckM Env := do
       unless nM = 1 do throw (.notImplemented "multiple motives")
       -- the model's value must be a λ-telescope matching the rule
       -- domains (its interpretation determines argument domains)
-      let envSelf : Env := ⟨.recInfo cvA nP nM nm ni rules :: env'.consts⟩
+      -- provisional self with *no* rules: rule right-hand sides may
+      -- mention the recursor, but nothing during their annotation may
+      -- depend on its (yet unchecked) rules
+      let envSelf : Env := ⟨.recInfo cvA nP nM nm ni [] :: env'.consts⟩
       let rec goRules : Nat → List RecRule → CheckM (List RecRule)
         | _, [] => pure []
         | j, r :: rest => do
@@ -184,6 +187,29 @@ def checkIndDecl (env : Env) (block : List ConstantInfo) : CheckM Env := do
           unless r.rhs.constsResolve envSelf do
             throw (.invalid s!"unknown constant in rule of {cv.name}")
           let rhsA ← annotate envSelf 0 r.rhs
+          -- the rule's λ-domains pin down what the model's iota
+          -- theorem quantifies over; they must match the model
+          -- value's λ-domains (prefix) and the constructor model
+          -- value's field domains (lifted past motive and minors)
+          let some (rbinders, _) := rhsA.stripLams (nP + nM + nm + cnF)
+            | throw (.notImplemented s!"rule of {cv.name} is not a lambda telescope")
+          let some (mbinders, _) := mval.stripLams (nP + nM + nm)
+            | throw (.notImplemented s!"model value of {cv.name} is not a lambda telescope")
+          let some (.defnInfo _ cmval) := env'.find? (r.ctor.str "_model")
+            | throw (.notImplemented s!"missing model for {r.ctor}")
+          let some (cbinders, _) := cmval.stripLams (cnP + cnF)
+            | throw (.notImplemented s!"model value of {r.ctor} is not a lambda telescope")
+          unless (List.range (nP + nM + nm)).all (fun i =>
+              match rbinders[i]?, mbinders[i]? with
+              | some rb, some mb => rb.2.1.renameConsts f == mb.2.1
+              | _, _ => false) do
+            throw (.notImplemented s!"rule domain mismatch with model for {cv.name}")
+          unless (List.range cnF).all (fun i =>
+              match rbinders[nP + nM + nm + i]?, cbinders[cnP + i]? with
+              | some rb, some cb =>
+                rb.2.1.renameConsts f == cb.2.1.liftLooseBVars (nM + nm) i
+              | _, _ => false) do
+            throw (.notImplemented s!"rule field domain mismatch with model for {cv.name}")
           let some stmtRaw := buildIotaStmt f cv.name r.ctor
               cv.levelParams cvj.levelParams nP nM nm cnF
               tyA cvj.type r.rhs

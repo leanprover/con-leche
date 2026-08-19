@@ -160,6 +160,27 @@ def renameConsts (f : Name → Name) : Expr → Expr
   | .lit l => .lit l
   | .proj s i e => .proj (f s) i (renameConsts f e)
 
+/-- Bump every loose bound variable `≥ cutoff` by `amount`.  Used to
+transport a constructor-telescope field domain (parameters, then prior
+fields) into a recursor-rule telescope (parameters, motive, minors,
+then prior fields): parameter references must skip the extra motive
+and minor binders. -/
+def liftLooseBVars (amount : Nat) : (cutoff : Nat) → Expr → Expr
+  | c, .bvar i => if i ≥ c then .bvar (i + amount) else .bvar i
+  | c, .fvar i n ty => .fvar i n (liftLooseBVars amount c ty)
+  | _, .sort u => .sort u
+  | _, .const n us => .const n us
+  | c, .app a b => .app (liftLooseBVars amount c a) (liftLooseBVars amount c b)
+  | c, .lam n ty body m =>
+    .lam n (liftLooseBVars amount c ty) (liftLooseBVars amount (c + 1) body) m
+  | c, .forallE n ty body m =>
+    .forallE n (liftLooseBVars amount c ty) (liftLooseBVars amount (c + 1) body) m
+  | c, .letE n ty v body =>
+    .letE n (liftLooseBVars amount c ty) (liftLooseBVars amount c v)
+      (liftLooseBVars amount (c + 1) body)
+  | _, .lit l => .lit l
+  | c, .proj s i e => .proj s i (liftLooseBVars amount c e)
+
 /-- Strip `k` leading lambdas: the binder list (outermost first) and
 the body. -/
 def stripLams : Nat → Expr → Option (List (Name × Expr × BinderMeta) × Expr)

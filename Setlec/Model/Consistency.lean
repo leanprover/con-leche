@@ -540,7 +540,8 @@ private theorem extend_basis_one {env : Env} (m : EnvModel V env)
       ∀ (ψ : Name → Nat) (x : V), x ∈ˢ v₀ ψ → x = pt)
     (hnewempty : ci.name = emptyName →
       ∀ (ψ : Name → Nat) (x : V), x ∈ˢ v₀ ψ → False)
-    (hpin : ci.isBasis = true → ci = pinnedInfo ci.name ∧
+    (hpin : ci.isBasis = true → env.find? (ci.name.str "_model") = none →
+      ci = pinnedInfo ci.name ∧
       ∀ ψ : Name → Nat, v₀ ψ = pinnedVal V ci.name ψ)
     (hsib : SibFinds env ci)
     (hrecm : ∀ val' : ConstVal V,
@@ -728,7 +729,7 @@ private theorem extend_basis_one {env : Env} (m : EnvModel V env)
       split at hfp
       · next hn =>
         obtain rfl := Option.some.inj hfp
-        obtain ⟨hpi, hpv⟩ := hpin hbasis
+        obtain ⟨hpi, hpv⟩ := hpin hbasis (by rw [hn]; exact hguard')
         refine ⟨by rw [← hn]; exact hpi, fun ψ => ?_⟩
         have hval'eq : val' n ψ = v₀ ψ := by
           simp [hval', hn.symm]
@@ -875,7 +876,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv nP nF hx _ => nomatch hx)
         (fun cv hx hn => absurd hn (by decide))
         (fun hn => absurd hn (by decide))
-        (fun _ => ⟨rfl, fun _ => rfl⟩)
+        (fun _ _ => ⟨rfl, fun _ => rfl⟩)
         (fun _ _ _ _ _ _ hx => nomatch hx)
         (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
           absurd hx (by simp [natA]))
@@ -896,7 +897,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv nP nF hx hn => absurd hn (by decide))
         (fun cv hx _ => nomatch hx)
         (fun hn => absurd hn (by decide))
-        (fun _ => ⟨rfl, fun _ => rfl⟩)
+        (fun _ _ => ⟨rfl, fun _ => rfl⟩)
         (fun _ _ _ _ _ _ hx => nomatch hx)
         (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
           absurd hx (by simp [natZeroA]))
@@ -920,7 +921,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv nP nF hx hn => absurd hn (by decide))
         (fun cv hx _ => nomatch hx)
         (fun hn => absurd hn (by decide))
-        (fun _ => ⟨rfl, fun _ => rfl⟩)
+        (fun _ _ => ⟨rfl, fun _ => rfl⟩)
         (fun _ _ _ _ _ _ hx => nomatch hx)
         (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
           absurd hx (by simp [natSuccA]))
@@ -980,7 +981,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv nP nF hx _ => nomatch hx)
         (fun cv hx _ => nomatch hx)
         (fun hn => absurd hn (by decide))
-        (fun _ => ⟨rfl, fun _ => rfl⟩)
+        (fun _ _ => ⟨rfl, fun _ => rfl⟩)
         (fun cv nP nM nm ni rules heq =>
           ⟨fun hn => absurd hn (by decide),
            fun _ => ⟨by
@@ -1217,7 +1218,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv nP nF hx _ => nomatch hx)
         (fun cv hx hn => absurd hn (by decide))
         (fun hn => absurd hn (by decide))
-        (fun _ => ⟨rfl, fun _ => rfl⟩)
+        (fun _ _ => ⟨rfl, fun _ => rfl⟩)
         (fun _ _ _ _ _ _ hx => nomatch hx)
         (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
           absurd hx (by simp [psigmaA]))
@@ -1243,7 +1244,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
           exact ⟨rfl, rfl, rfl, hmkfacts⟩)
         (fun cv hx _ => nomatch hx)
         (fun hn => absurd hn (by decide))
-        (fun _ => ⟨rfl, fun _ => rfl⟩)
+        (fun _ _ => ⟨rfl, fun _ => rfl⟩)
         (fun _ _ _ _ _ _ hx => nomatch hx)
         (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
           absurd hx (by simp [psigmaMkA]))
@@ -1301,7 +1302,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv nP nF hx _ => nomatch hx)
         (fun cv hx _ => nomatch hx)
         (fun hn => absurd hn (by decide))
-        (fun _ => ⟨rfl, fun _ => rfl⟩)
+        (fun _ _ => ⟨rfl, fun _ => rfl⟩)
         (fun cv nP nM nm ni rules heq =>
           ⟨fun hn => absurd hn (by decide),
            fun hn => absurd hn (by decide),
@@ -1430,7 +1431,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv nP nF hx _ => nomatch hx)
         (fun cv hx hn => absurd hn (by decide))
         (fun hn => absurd hn (by decide))
-        (fun _ => ⟨rfl, fun _ => rfl⟩)
+        (fun _ _ => ⟨rfl, fun _ => rfl⟩)
         (fun _ _ _ _ _ _ hx => nomatch hx)
         (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
           absurd hx (by simp [eqA]))
@@ -1453,7 +1454,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv nP nF hx hn => absurd hn (by decide))
         (fun cv hx _ => nomatch hx)
         (fun hn => absurd hn (by decide))
-        (fun _ => ⟨rfl, fun _ => rfl⟩)
+        (fun _ _ => ⟨rfl, fun _ => rfl⟩)
         (fun _ _ _ _ _ _ hx => nomatch hx)
         (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
           absurd hx (by simp [eqReflA]))
@@ -1510,7 +1511,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv nP nF hx _ => nomatch hx)
         (fun cv hx _ => nomatch hx)
         (fun hn => absurd hn (by decide))
-        (fun _ => ⟨rfl, fun _ => rfl⟩)
+        (fun _ _ => ⟨rfl, fun _ => rfl⟩)
         (fun cv nP nM nm ni rules heq =>
           ⟨fun _ => ⟨by
               rw [Env.find?_cons, if_neg (by decide), Env.find?_cons,
@@ -1635,7 +1636,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (fun cv nP nF hx _ => nomatch hx)
       (fun cv _ _ ψ x hx => mem_unitSet hx)
       (fun hn => absurd hn (by decide))
-      (fun _ => ⟨rfl, fun _ => rfl⟩)
+      (fun _ _ => ⟨rfl, fun _ => rfl⟩)
         (fun _ _ _ _ _ _ hx => nomatch hx)
       (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
         absurd hx (by simp [punitA]))
@@ -1655,7 +1656,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (fun cv nP nF hx hn => absurd hn (by decide))
       (fun cv hx _ => nomatch hx)
       (fun hn => absurd hn (by decide))
-      (fun _ => ⟨rfl, fun _ => rfl⟩)
+      (fun _ _ => ⟨rfl, fun _ => rfl⟩)
         (fun _ _ _ _ _ _ hx => nomatch hx)
       (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
         absurd hx (by simp [punitUnitA]))
@@ -1712,7 +1713,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (fun cv nP nF hx _ => nomatch hx)
       (fun cv hx _ => nomatch hx)
       (fun hn => absurd hn (by decide))
-      (fun _ => ⟨rfl, fun _ => rfl⟩)
+      (fun _ _ => ⟨rfl, fun _ => rfl⟩)
         (fun cv nP nM nm ni rules heq =>
           ⟨fun hn => absurd hn (by decide),
            fun hn => absurd hn (by decide),
@@ -1821,7 +1822,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv nP nF hx _ => nomatch hx)
         (fun cv hx hn => absurd hn (by decide))
         (fun _ ψ x hx' => not_mem_empty x hx')
-        (fun _ => ⟨rfl, fun _ => rfl⟩)
+        (fun _ _ => ⟨rfl, fun _ => rfl⟩)
         (fun _ _ _ _ _ _ hx => nomatch hx)
         (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
           absurd hx (by simp [emptyA]))
@@ -1849,7 +1850,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv nP nF hx _ => nomatch hx)
         (fun cv hx _ => nomatch hx)
         (fun hn => absurd hn (by decide))
-        (fun _ => ⟨rfl, fun _ => rfl⟩)
+        (fun _ _ => ⟨rfl, fun _ => rfl⟩)
         (fun cv nP nM nm ni rules heq =>
           ⟨fun hn => absurd hn (by decide),
            fun hn => absurd hn (by decide),
