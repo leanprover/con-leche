@@ -149,10 +149,23 @@ constructions.
 
 ## Current state
 
-Supported fragment: **`def` declarations over sorts and dependent function
-types** (12/92 good arena tutorial tests accepted, including impredicative
-`∀ (p : Prop), p`; type-mismatch, duplicate-name, duplicate/undeclared level
-parameters, and stray free variables rejected).
+Supported fragment: **`def` declarations over sorts, dependent function
+types, and constants with delta unfolding** (12/92 good arena tutorial
+tests accepted, including impredicative `∀ (p : Prop), p`; type-mismatch,
+duplicate-name, duplicate/undeclared level parameters, stray free
+variables, and unknown constants rejected).  `whnf` is fueled and
+delta-unfolds definitions eagerly for now (the lazy strategy of real
+kernels is deferred to performance work).
+
+The environment invariant `EnvWF` (stored declarations closed,
+level-param-bounded, constants resolving — all checked syntactically per
+declaration) supports monotonicity of reduction/inference/interpretation
+under fresh environment extension, and `EnvModel` carries, per constant,
+its (level-polymorphic) value, membership in its type's interpretation,
+the delta equation for definitions, and parameter-only dependence
+(`val_params`).  Level instantiation corresponds semantically to
+composing the level assignment (`Level.substFn`), with commutation laws
+through `whnf`/`inferType`/`interpExpr`.
 
 Binders follow nanoda: opening substitutes `fvar d n ty` where `d` is the
 binder depth (de Bruijn level) and the annotation `ty` is part of the
