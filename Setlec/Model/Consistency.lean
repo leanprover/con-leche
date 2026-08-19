@@ -217,7 +217,7 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
   · -- ind_ok: the fresh constant is a definition or theorem, so every
     -- inductive-kind lookup still resolves to the old environment, and
     -- the valuation agrees there.
-    constructor
+    refine ⟨?_, ?_, ?_⟩
     · intro cv hfp ψ
       rw [Env.find?_cons] at hfp
       split at hfp
@@ -254,12 +254,32 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
           have := find?_none_ne hfind' _ hmem
           rw [hname, hcontra] at this
           exact this rfl
-        obtain ⟨hnP, hnF, hlp, hfacts⟩ := m.ind_ok.2 cv nP nF hfp
+        obtain ⟨hnP, hnF, hlp, hfacts⟩ := m.ind_ok.right.left cv nP nF hfp
         refine ⟨hnP, hnF, hlp, fun ψ => ?_⟩
         have hvagree : val' psigmaMkName ψ = m.val psigmaMkName ψ := by
           simp [hval', hne]
         rw [hvagree]
         exact hfacts ψ
+    · intro cv hfp ψ x hx
+      rw [Env.find?_cons] at hfp
+      split at hfp
+      · next hn =>
+        obtain rfl := Option.some.inj hfp
+        exact absurd hc₀nb (by simp [ConstantInfo.isBasis])
+      · next hn =>
+        have hne : punitName ≠ name := by
+          intro hcontra
+          have hmem := List.mem_of_find?_eq_some hfp
+          have hname : (ConstantInfo.indInfo cv).name = punitName := by
+            have := List.find?_some hfp
+            simpa using this
+          have := find?_none_ne hfind' _ hmem
+          rw [hname, hcontra] at this
+          exact this rfl
+        have hvagree : val' punitName ψ = m.val punitName ψ := by
+          simp [hval', hne]
+        rw [hvagree] at hx
+        exact m.ind_ok.right.right cv hfp ψ x hx
 
 /-- Extend a model by one pinned basis constant with a hand-supplied
 value.  The membership and annotation facts are stated over the *old*
@@ -281,7 +301,9 @@ private theorem extend_basis_one {env : Env} (m : EnvModel V env)
       ∀ ψ : Name → Nat, PairTyFacts V (v₀ ψ) (ψ uN) (ψ vN))
     (hnewmk : ∀ cv nP nF, ci = .ctorInfo cv nP nF → ci.name = psigmaMkName →
       nP = 2 ∧ nF = 2 ∧ cv.levelParams = [uN, vN] ∧
-      ∀ ψ : Name → Nat, PairMkFacts V (v₀ ψ) (ψ uN) (ψ vN)) :
+      ∀ ψ : Name → Nat, PairMkFacts V (v₀ ψ) (ψ uN) (ψ vN))
+    (hnewunit : ∀ cv, ci = .indInfo cv → ci.name = punitName →
+      ∀ (ψ : Name → Nat) (x : V), x ∈ˢ v₀ ψ → x = pt) :
     ∃ m' : EnvModel V ⟨ci :: env.consts⟩,
       (∀ ψ, m'.val ci.name ψ = v₀ ψ) ∧
       (∀ n ψ, n ≠ ci.name → m'.val n ψ = m.val n ψ) := by
@@ -367,7 +389,7 @@ private theorem extend_basis_one {env : Env} (m : EnvModel V env)
       obtain ⟨-, -, hres2, -⟩ := hvalwf cv2 value2 heq
       exact hAtrans _ hres2 ψ (hA2 cv2 value2 heq)
   · -- ind_ok
-    constructor
+    refine ⟨?_, ?_, ?_⟩
     · intro cv hfp ψ
       rw [Env.find?_cons] at hfp
       split at hfp
@@ -412,12 +434,35 @@ private theorem extend_basis_one {env : Env} (m : EnvModel V env)
           have := hfresh _ hmem
           rw [hname, hcontra] at this
           exact this rfl
-        obtain ⟨h1, h2, h3, h4⟩ := m.ind_ok.2 cv nP nF hfp
+        obtain ⟨h1, h2, h3, h4⟩ := m.ind_ok.right.left cv nP nF hfp
         refine ⟨h1, h2, h3, fun ψ => ?_⟩
         have hval'eq : val' psigmaMkName ψ = m.val psigmaMkName ψ := by
           simp [hval', hne]
         rw [hval'eq]
         exact h4 ψ
+    · intro cv hfp ψ x hx
+      rw [Env.find?_cons] at hfp
+      split at hfp
+      · next hn =>
+        obtain rfl := Option.some.inj hfp
+        have hval'eq : val' punitName ψ = v₀ ψ := by
+          simp [hval', hn.symm]
+        rw [hval'eq] at hx
+        exact hnewunit cv rfl hn ψ x hx
+      · next hn =>
+        have hne : punitName ≠ ci.name := by
+          intro hcontra
+          have hmem := List.mem_of_find?_eq_some hfp
+          have hname : (ConstantInfo.indInfo cv).name = punitName := by
+            have := List.find?_some hfp
+            simpa using this
+          have := hfresh _ hmem
+          rw [hname, hcontra] at this
+          exact this rfl
+        have hval'eq : val' punitName ψ = m.val punitName ψ := by
+          simp [hval', hne]
+        rw [hval'eq] at hx
+        exact m.ind_ok.right.right cv hfp ψ x hx
   · -- the new constant's value
     intro ψ
     simp [hval']
@@ -517,6 +562,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun ψ => annotOk_eq_type)
         (fun cv hx hn => absurd hn (by decide))
         (fun cv nP nF hx _ => nomatch hx)
+        (fun cv hx hn => absurd hn (by decide))
       obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 eqReflA
         (fun ψ => eqReflVal V ψ)
         (Option.isNone_iff_eq_none.mp h2)
@@ -530,6 +576,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun ψ => annotOk_eqRefl_type rfl (fun ψ' => hval1 ψ'))
         (fun cv hx _ => nomatch hx)
         (fun cv nP nF hx hn => absurd hn (by decide))
+        (fun cv hx _ => nomatch hx)
       have hvalE2 : ∀ ψ' : Name → Nat, m2.val eqName ψ' = eqVal V ψ' := fun ψ' => by
         rw [hpres2 eqName ψ' (by decide)]
         exact hval1 ψ'
@@ -547,6 +594,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun ψ => annotOk_eqRec_type rfl hvalE2 rfl (fun ψ' => hval2 ψ'))
         (fun cv hx _ => nomatch hx)
         (fun cv nP nF hx _ => nomatch hx)
+        (fun cv hx _ => nomatch hx)
       exact ⟨m3⟩
     simp only [checkDecl, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
     -- step 1: PUnit
@@ -579,6 +627,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (fun ψ => by simp [punitA, ConstantInfo.toConstantVal, AnnotOk])
       (fun cv hx hn => absurd hn (by decide))
       (fun cv nP nF hx _ => nomatch hx)
+      (fun cv _ _ ψ x hx => mem_unitSet hx)
     obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 punitUnitA (fun _ => pt)
       (Option.isNone_iff_eq_none.mp h2)
       ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
@@ -589,6 +638,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (fun ψ => by simp [punitUnitA, ConstantInfo.toConstantVal, AnnotOk])
       (fun cv hx _ => nomatch hx)
       (fun cv nP nF hx hn => absurd hn (by decide))
+      (fun cv hx _ => nomatch hx)
     have hvalP2 : ∀ ψ' : Name → Nat, m2.val punitName ψ' = unitSet := fun ψ' => by
       rw [hpres2 punitName ψ' (by decide)]
       exact hval1 ψ'
@@ -606,6 +656,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (fun ψ => annotOk_punitRec_type rfl hvalP2 rfl (fun ψ' => hval2 ψ'))
       (fun cv hx _ => nomatch hx)
       (fun cv nP nF hx _ => nomatch hx)
+      (fun cv hx _ => nomatch hx)
     exact ⟨m3⟩
   | defnDecl cv value =>
     simp only [checkDecl, Bind.bind, Except.bind] at h

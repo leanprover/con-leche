@@ -71,13 +71,17 @@ def IndOk (env : Env) (val : ConstVal V) : Prop :=
     ∀ ψ : Name → Nat, PairTyFacts V (val psigmaName ψ) (ψ uN) (ψ vN)) ∧
   (∀ cv nP nF, env.find? psigmaMkName = some (.ctorInfo cv nP nF) →
     nP = 2 ∧ nF = 2 ∧ cv.levelParams = [uN, vN] ∧
-    ∀ ψ : Name → Nat, PairMkFacts V (val psigmaMkName ψ) (ψ uN) (ψ vN))
+    ∀ ψ : Name → Nat, PairMkFacts V (val psigmaMkName ψ) (ψ uN) (ψ vN)) ∧
+  (∀ cv, env.find? punitName = some (.indInfo cv) →
+    ∀ (ψ : Name → Nat) (x : V), x ∈ˢ val punitName ψ → x = pt)
 
 theorem IndOk.empty (val : ConstVal V) : IndOk V Env.empty val := by
-  constructor
+  refine ⟨?_, ?_, ?_⟩
   · intro cv h
     simp [Env.find?, Env.empty] at h
   · intro cv nP nF h
+    simp [Env.find?, Env.empty] at h
+  · intro cv h
     simp [Env.find?, Env.empty] at h
 
 end Setlec

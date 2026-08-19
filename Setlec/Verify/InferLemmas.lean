@@ -466,88 +466,140 @@ theorem projCert_inv {env : Env} {fuel d : Nat} {e₂ : Expr} {i : Nat}
     cases okT <;> cases okW <;> simp_all
   exact ⟨ta, sta, uT, te, ste, wT, rfl, hsta, hwta, heq1, rfl, hste, hwte, heq2⟩
 
-/-- Inversion of a successful proof-irrelevance certification. -/
+/-- Inversion of the unit-type check. -/
+theorem isUnitLikeTy_inv {env : Env} {e : Expr}
+    (h : isUnitLikeTy env e = true) :
+    ∃ us cv, e = .const punitName us ∧
+      env.find? punitName = some (.indInfo cv) := by
+  match e, h with
+  | .const c us, h =>
+    simp only [isUnitLikeTy, Bool.and_eq_true, beq_iff_eq] at h
+    obtain ⟨rfl, h⟩ := h
+    match hf : env.find? punitName, h with
+    | some (.indInfo cv), _ => exact ⟨us, cv, rfl, rfl⟩
+    | some (.axiomInfo cv), h => exact nomatch h
+    | some (.defnInfo cv v), h => exact nomatch h
+    | some (.thmInfo cv v), h => exact nomatch h
+    | some (.ctorInfo cv nP nF), h => exact nomatch h
+    | some (.recInfo cv nP nM nm ni rs), h => exact nomatch h
+    | none, h => exact nomatch h
+
+/-- Inversion of a successful proof-irrelevance certification: either
+both sides' types whnf to the basis unit type, or both types' sorts are
+`Prop`. -/
 theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
     (h : proofIrrel env (fuel + 1) d a b = .ok true) :
-    ∃ ta sta uT tb stb vT,
+    ∃ ta wta,
       inferTypeCore env fuel d a = .ok ta ∧
-      inferTypeCore env fuel d ta = .ok sta ∧
-      whnfCore env fuel d sta = .ok (.sort uT) ∧
-      Level.isEquiv uT .zero = some true ∧
-      inferTypeCore env fuel d b = .ok tb ∧
-      inferTypeCore env fuel d tb = .ok stb ∧
-      whnfCore env fuel d stb = .ok (.sort vT) ∧
-      Level.isEquiv vT .zero = some true := by
+      whnfCore env fuel d ta = .ok wta ∧
+      ((isUnitLikeTy env wta = true ∧
+        ∃ tb wtb, inferTypeCore env fuel d b = .ok tb ∧
+          whnfCore env fuel d tb = .ok wtb ∧ isUnitLikeTy env wtb = true) ∨
+       (∃ sta uT tb stb vT,
+        inferTypeCore env fuel d ta = .ok sta ∧
+        whnfCore env fuel d sta = .ok (.sort uT) ∧
+        Level.isEquiv uT .zero = some true ∧
+        inferTypeCore env fuel d b = .ok tb ∧
+        inferTypeCore env fuel d tb = .ok stb ∧
+        whnfCore env fuel d stb = .ok (.sort vT) ∧
+        Level.isEquiv vT .zero = some true)) := by
   simp only [proofIrrel, Bind.bind, Except.bind] at h
   cases hta : inferTypeCore env fuel d a with
   | error err => rw [hta] at h; exact nomatch h
   | ok ta =>
   rw [hta] at h
   dsimp only at h
-  cases hsta : inferTypeCore env fuel d ta with
-  | error err => rw [hsta] at h; exact nomatch h
-  | ok sta =>
-  rw [hsta] at h
+  cases hwta0 : whnfCore env fuel d ta with
+  | error err => rw [hwta0] at h; exact nomatch h
+  | ok wta0 =>
+  rw [hwta0] at h
   dsimp only at h
-  cases hwta : whnfCore env fuel d sta with
-  | error err => rw [hwta] at h; exact nomatch h
-  | ok wta =>
-  rw [hwta] at h
-  match wta, h with
-  | .sort uT, h => ?_
-  | .bvar i2, h => exact nomatch h
-  | .fvar i2 n2 t2, h => exact nomatch h
-  | .const n2 us2, h => exact nomatch h
-  | .app f2 a2, h => exact nomatch h
-  | .lam n2 t2 b2 m2, h => exact nomatch h
-  | .forallE n2 t2 b2 m2, h => exact nomatch h
-  | .letE n2 t2 v2 b2, h => exact nomatch h
-  | .lit l2, h => exact nomatch h
-  | .proj s2 i2 e3, h => exact nomatch h
-  dsimp only at h
-  cases heq1 : Level.isEquiv uT .zero with
-  | none => rw [heq1] at h; simp [liftFueled] at h
-  | some okA =>
-  rw [heq1] at h
-  try dsimp only [liftFueled] at h
-  try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
-  try dsimp only at h
-  cases htb : inferTypeCore env fuel d b with
-  | error err => rw [htb] at h; exact nomatch h
-  | ok tb =>
-  rw [htb] at h
-  dsimp only at h
-  cases hstb : inferTypeCore env fuel d tb with
-  | error err => rw [hstb] at h; exact nomatch h
-  | ok stb =>
-  rw [hstb] at h
-  dsimp only at h
-  cases hwtb : whnfCore env fuel d stb with
-  | error err => rw [hwtb] at h; exact nomatch h
-  | ok wtb =>
-  rw [hwtb] at h
-  match wtb, h with
-  | .sort vT, h => ?_
-  | .bvar i2, h => exact nomatch h
-  | .fvar i2 n2 t2, h => exact nomatch h
-  | .const n2 us2, h => exact nomatch h
-  | .app f2 a2, h => exact nomatch h
-  | .lam n2 t2 b2 m2, h => exact nomatch h
-  | .forallE n2 t2 b2 m2, h => exact nomatch h
-  | .letE n2 t2 v2 b2, h => exact nomatch h
-  | .lit l2, h => exact nomatch h
-  | .proj s2 i2 e3, h => exact nomatch h
-  dsimp only at h
-  cases heq2 : Level.isEquiv vT .zero with
-  | none => rw [heq2] at h; simp [liftFueled] at h
-  | some okB =>
-  rw [heq2] at h
-  try dsimp only [liftFueled] at h
-  try simp only [pure, Except.pure, Except.ok.injEq] at h
-  obtain ⟨rfl, rfl⟩ : okA = true ∧ okB = true := by
-    have := h
-    cases okA <;> cases okB <;> simp_all
-  exact ⟨ta, sta, uT, tb, stb, vT, rfl, hsta, hwta, heq1, rfl, hstb, hwtb, heq2⟩
+  refine ⟨ta, wta0, rfl, hwta0, ?_⟩
+  by_cases hu : isUnitLikeTy env wta0 = true
+  · -- unit branch
+    rw [if_pos hu] at h
+    try simp only [Bind.bind, Except.bind] at h
+    cases htb : inferTypeCore env fuel d b with
+    | error err => rw [htb] at h; exact nomatch h
+    | ok tb =>
+    rw [htb] at h
+    dsimp only at h
+    cases hwtb : whnfCore env fuel d tb with
+    | error err => rw [hwtb] at h; exact nomatch h
+    | ok wtb =>
+    rw [hwtb] at h
+    dsimp only at h
+    by_cases hub : isUnitLikeTy env wtb = true
+    · exact Or.inl ⟨hu, tb, wtb, rfl, hwtb, hub⟩
+    · rw [if_neg hub] at h
+      simp [pure, Except.pure] at h
+  · -- Prop branch
+    rw [if_neg hu] at h
+    try simp only [Bind.bind, Except.bind] at h
+    cases hsta : inferTypeCore env fuel d ta with
+    | error err => rw [hsta] at h; exact nomatch h
+    | ok sta =>
+    rw [hsta] at h
+    dsimp only at h
+    cases hwta : whnfCore env fuel d sta with
+    | error err => rw [hwta] at h; exact nomatch h
+    | ok wta =>
+    rw [hwta] at h
+    match wta, h with
+    | .sort uT, h => ?_
+    | .bvar i2, h => exact nomatch h
+    | .fvar i2 n2 t2, h => exact nomatch h
+    | .const n2 us2, h => exact nomatch h
+    | .app f2 a2, h => exact nomatch h
+    | .lam n2 t2 b2 m2, h => exact nomatch h
+    | .forallE n2 t2 b2 m2, h => exact nomatch h
+    | .letE n2 t2 v2 b2, h => exact nomatch h
+    | .lit l2, h => exact nomatch h
+    | .proj s2 i2 e3, h => exact nomatch h
+    dsimp only at h
+    cases heq1 : Level.isEquiv uT .zero with
+    | none => rw [heq1] at h; simp [liftFueled] at h
+    | some okA =>
+    rw [heq1] at h
+    try dsimp only [liftFueled] at h
+    try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+    try dsimp only at h
+    cases htb : inferTypeCore env fuel d b with
+    | error err => rw [htb] at h; exact nomatch h
+    | ok tb =>
+    rw [htb] at h
+    dsimp only at h
+    cases hstb : inferTypeCore env fuel d tb with
+    | error err => rw [hstb] at h; exact nomatch h
+    | ok stb =>
+    rw [hstb] at h
+    dsimp only at h
+    cases hwtb : whnfCore env fuel d stb with
+    | error err => rw [hwtb] at h; exact nomatch h
+    | ok wtb =>
+    rw [hwtb] at h
+    match wtb, h with
+    | .sort vT, h => ?_
+    | .bvar i2, h => exact nomatch h
+    | .fvar i2 n2 t2, h => exact nomatch h
+    | .const n2 us2, h => exact nomatch h
+    | .app f2 a2, h => exact nomatch h
+    | .lam n2 t2 b2 m2, h => exact nomatch h
+    | .forallE n2 t2 b2 m2, h => exact nomatch h
+    | .letE n2 t2 v2 b2, h => exact nomatch h
+    | .lit l2, h => exact nomatch h
+    | .proj s2 i2 e3, h => exact nomatch h
+    dsimp only at h
+    cases heq2 : Level.isEquiv vT .zero with
+    | none => rw [heq2] at h; simp [liftFueled] at h
+    | some okB =>
+    rw [heq2] at h
+    try dsimp only [liftFueled] at h
+    try simp only [pure, Except.pure, Except.ok.injEq] at h
+    obtain ⟨rfl, rfl⟩ : okA = true ∧ okB = true := by
+      have := h
+      cases okA <;> cases okB <;> simp_all
+    exact Or.inr ⟨sta, uT, tb, stb, vT, rfl, hwta, heq1, rfl, hstb, hwtb, heq2⟩
 
 /-- Inversion of a successful eta certification. -/
 theorem etaCert_inv {env : Env} {fuel d : Nat} {n₁ : Name} {ty₁ body₁ b : Expr}

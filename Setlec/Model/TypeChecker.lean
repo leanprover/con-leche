@@ -153,16 +153,53 @@ private theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
     (haa : AnnotOk V m.val env φ d ρ a) (hab : AnnotOk V m.val env φ d ρ b) :
     interpExpr V m.val env φ d ρ a = some pt ∧
     interpExpr V m.val env φ d ρ b = some pt := by
-  obtain ⟨ta, sta, uT, tb, stb, vT, hta, hsta, hwta, hequ, htb, hstb, hwtb, heqv⟩ :=
-    proofIrrel_inv h
-  have hu0 : Level.eval φ uT = 0 := by
-    have := Level.isEquiv_sound hequ φ
-    simpa [Level.eval] using this
-  have hv0 : Level.eval φ vT = 0 := by
-    have := Level.isEquiv_sound heqv φ
-    simpa [Level.eval] using this
-  exact ⟨sortCert_pt ihw ihi hta hsta hwta hu0 hwa hba hLba hoka haa,
-    sortCert_pt ihw ihi htb hstb hwtb hv0 hwb hbb hLbb hokb hab⟩
+  obtain ⟨ta, wta0, hta, hwta0, hcase⟩ := proofIrrel_inv h
+  rcases hcase with ⟨hu, tb, wtb, htb, hwtb, hub⟩ |
+    ⟨sta, uT, tb, stb, vT, hsta, hwta, hequ, htb, hstb, hwtb, heqv⟩
+  · -- unit branch: every inhabitant of the basis unit type is `pt`
+    have unitSide : ∀ (x tx wtx : Expr),
+        inferTypeCore env fuel d x = .ok tx →
+        whnfCore env fuel d tx = .ok wtx →
+        isUnitLikeTy env wtx = true →
+        WScoped d x → x.looseBVarsBounded 0 = true → Expr.LeavesBounded x →
+        FvarsOk V m.val env φ d ρ x → AnnotOk V m.val env φ d ρ x →
+        interpExpr V m.val env φ d ρ x = some pt := by
+      intro x tx wtx htx hwtx hux hwx hbx hLbx hokx hax
+      obtain ⟨⟨vx, Tx, hxi, hTxi, hmemx⟩, hATx⟩ := ihi htx hwx hbx hLbx hokx hax
+      have hwtxW := inferTypeCore_WScoped m.wf fuel htx hwx
+      have hbtx := inferTypeCore_looseBVars m.wf fuel htx hwx hbx hLbx
+      have hLbtx : Expr.LeavesBounded tx := fun l hl =>
+        hLbx l (inferTypeCore_fvarLeaves m.wf fuel htx hwx l hl)
+      have hoktx : FvarsOk V m.val env φ d ρ tx :=
+        FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel htx hwx) hokx
+      obtain ⟨hiw, -⟩ := ihw hwtx hwtxW hbtx hLbtx hoktx hATx
+      obtain ⟨us, cv, rfl, hfind⟩ := isUnitLikeTy_inv hux
+      rw [hTxi] at hiw
+      simp only [interpExpr, hfind] at hiw
+      by_cases hlen : us.length =
+          (ConstantInfo.indInfo cv).toConstantVal.levelParams.length
+      · rw [if_pos hlen] at hiw
+        have hTx : Tx = m.val punitName
+            (Level.substFn φ (ConstantInfo.indInfo cv).toConstantVal.levelParams us) :=
+          (Option.some.inj hiw).symm
+        rw [hxi]
+        have hpt := m.ind_ok.right.right cv hfind
+          (Level.substFn φ (ConstantInfo.indInfo cv).toConstantVal.levelParams us)
+          vx (hTx ▸ hmemx)
+        rw [hpt]
+      · rw [if_neg hlen] at hiw
+        exact nomatch hiw
+    exact ⟨unitSide a ta wta0 hta hwta0 hu hwa hba hLba hoka haa,
+      unitSide b tb wtb htb hwtb hub hwb hbb hLbb hokb hab⟩
+  · -- Prop branch: both sides collapse to the proof point
+    have hu0 : Level.eval φ uT = 0 := by
+      have := Level.isEquiv_sound hequ φ
+      simpa [Level.eval] using this
+    have hv0 : Level.eval φ vT = 0 := by
+      have := Level.isEquiv_sound heqv φ
+      simpa [Level.eval] using this
+    exact ⟨sortCert_pt ihw ihi hta hsta hwta hu0 hwa hba hLba hoka haa,
+      sortCert_pt ihw ihi htb hstb hwtb hv0 hwb hbb hLbb hokb hab⟩
 
 /-- A successful eta certification identifies the λ's interpretation
 with the stuck side's (`SetTheory.lam_eta`). -/
@@ -628,7 +665,7 @@ private theorem whnf_claims (m : EnvModel V env)
         refine ⟨hae₂, hilt, veC, uC, vC, AC, BfC, ?_, hsigC, hAuC, hBfC⟩
         rw [hie]; exact hveiC
     · -- projection of the pair constructor
-      obtain ⟨hnP, hnF, hlp, hmkfacts⟩ := m.ind_ok.2 cv nP nF hf
+      obtain ⟨hnP, hnF, hlp, hmkfacts⟩ := m.ind_ok.right.left cv nP nF hf
       subst hnP; subst hnF
       obtain ⟨l0, l1, rfl⟩ := List.length_two hus
       obtain ⟨α, β, a, b, hargs⟩ := List.length_four hlen

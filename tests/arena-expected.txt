@@ -72,8 +72,8 @@
 2 good/tutorial/101_natLitEq.ndjson
 0 good/tutorial/102_proofIrrelevance.ndjson
 0 good/tutorial/104_proofIrrelevanceWhnf.ndjson
-1 good/tutorial/105_unitEta1.ndjson
-1 good/tutorial/106_unitEta2.ndjson
+0 good/tutorial/105_unitEta1.ndjson
+0 good/tutorial/106_unitEta2.ndjson
 0 good/tutorial/107_unitEta3.ndjson
 2 good/tutorial/109_structEta.ndjson
 0 good/tutorial/111_funEta.ndjson

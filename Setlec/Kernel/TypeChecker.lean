@@ -206,6 +206,17 @@ def inferTypeCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Chec
     | _ => throw (.notImplemented "inferType beyond the supported fragment")
   termination_by structural fuel _ _ => fuel
 
+/-- Is this (whnf'd) type expression the basis unit type?  All of its
+inhabitants are the proof point in the model (the `IndOk` unit fact),
+which is what makes unit eta a certification. -/
+def isUnitLikeTy (env : Env) : Expr → Bool
+  | .const c _ =>
+    c == punitName &&
+      match env.find? c with
+      | some (.indInfo _) => true
+      | _ => false
+  | _ => false
+
 /-- Certification for projecting a possibly-Prop pair `e₂ =
 PSigma'.mk α β a b` (levels `us`): the projected argument's *type's
 sort* matches the corresponding level, and the pair's type's sort
@@ -311,25 +322,33 @@ def etaCert (env : Env) : (fuel : Nat) → (depth : Nat) →
     | _ => pure false
   termination_by structural fuel _ => fuel
 
-/-- Proof irrelevance certification: both sides' types' sorts are
-`Prop`.  In the model everything inhabiting a proposition is the proof
-point, so any two such terms are equal — no common-type check is needed
-for soundness. -/
+/-- Proof irrelevance certification: both sides' types whnf to the
+basis unit type (all of whose inhabitants are the proof point in the
+model), or both sides' types' *sorts* are `Prop`.  In the model
+everything inhabiting a proposition is the proof point, so any two such
+terms are equal — no common-type check is needed for soundness. -/
 def proofIrrel (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr →
     CheckM Bool
   | 0, _, _, _ => throw (.internal "fuel exhausted: proofIrrel")
   | fuel + 1, depth, a, b => do
     let ta ← inferTypeCore env fuel depth a
-    match ← whnfCore env fuel depth (← inferTypeCore env fuel depth ta) with
-    | .sort uT =>
-      let okA ← liftFueled "level comparison" (Level.isEquiv uT .zero)
+    if isUnitLikeTy env (← whnfCore env fuel depth ta) then
       let tb ← inferTypeCore env fuel depth b
-      match ← whnfCore env fuel depth (← inferTypeCore env fuel depth tb) with
-      | .sort vT =>
-        let okB ← liftFueled "level comparison" (Level.isEquiv vT .zero)
-        pure (okA && okB)
+      if isUnitLikeTy env (← whnfCore env fuel depth tb) then
+        pure true
+      else
+        pure false
+    else
+      match ← whnfCore env fuel depth (← inferTypeCore env fuel depth ta) with
+      | .sort uT =>
+        let okA ← liftFueled "level comparison" (Level.isEquiv uT .zero)
+        let tb ← inferTypeCore env fuel depth b
+        match ← whnfCore env fuel depth (← inferTypeCore env fuel depth tb) with
+        | .sort vT =>
+          let okB ← liftFueled "level comparison" (Level.isEquiv vT .zero)
+          pure (okA && okB)
+        | _ => pure false
       | _ => pure false
-    | _ => pure false
   termination_by structural fuel _ _ _ => fuel
 
 end
