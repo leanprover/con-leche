@@ -193,7 +193,7 @@ def checkIndDecl (env : Env) (block : List ConstantInfo) : CheckM Env := do
           -- domains (lifted past motive and minors) — the same
           -- telescopes the iota certificates certify the spines
           -- against
-          let some (rbinders, _) := rhsA.stripLams (nP + nM + nm + cnF)
+          let some (rbinders, rbody) := rhsA.stripLams (nP + nM + nm + cnF)
             | throw (.notImplemented s!"rule of {cv.name} is not a lambda telescope")
           let some (tbinders, _) := tyA.stripPis (nP + nM + nm)
             | throw (.notImplemented s!"type of {cv.name} is not a pi telescope")
@@ -225,6 +225,37 @@ def checkIndDecl (env : Env) (block : List ConstantInfo) : CheckM Env := do
             throw (.notImplemented s!"iota theorem level mismatch {thmName}")
           unless cvt.type == stmtA do
             throw (.notImplemented s!"iota statement mismatch for {thmName}")
+          -- the theorem's telescope domains and equation body are
+          -- additionally pinned to the rule's annotated data: soundness
+          -- walks the statement with exactly these facts
+          let some (sbinders, sbody) := cvt.type.stripPis (nP + nM + nm + cnF)
+            | throw (.notImplemented
+                s!"iota statement of {thmName} is not a pi telescope")
+          unless (List.range (nP + nM + nm + cnF)).all (fun i =>
+              match sbinders[i]?, rbinders[i]? with
+              | some sb, some rb => sb.2.1 == rb.2.1.renameConsts f
+              | _, _ => false) do
+            throw (.notImplemented
+              s!"iota statement domain mismatch for {thmName}")
+          let some (_, mdomA, _) := rbinders[nP]?
+            | throw (.notImplemented "iota statement motive")
+          let some ℓA := mdomA.resultSort
+            | throw (.notImplemented "iota statement motive sort")
+          let depthS := nP + nM + nm + cnF
+          let pArgsS := (List.range nP).map fun k => Expr.bvar (depthS - 1 - k)
+          let mmArgsS := (List.range (nM + nm)).map fun k =>
+            Expr.bvar (depthS - 1 - nP - k)
+          let xArgsS := (List.range cnF).map fun k => Expr.bvar (cnF - 1 - k)
+          let ctorAppS := Expr.mkAppN
+            (.const (f r.ctor) (cvj.levelParams.map .param)) (pArgsS ++ xArgsS)
+          let lhsS := Expr.mkAppN
+            (.const (f cv.name) (cv.levelParams.map .param))
+            (pArgsS ++ mmArgsS ++ [ctorAppS])
+          let motiveBVarS := Expr.bvar (cnF + nm + (nM - 1))
+          unless sbody == Expr.mkAppN (.const eqName [ℓA])
+              [.app motiveBVarS ctorAppS, lhsS, rbody.renameConsts f] do
+            throw (.notImplemented
+              s!"iota statement body mismatch for {thmName}")
           let rest' ← goRules (j + 1) rest
           pure ({ r with rhs := rhsA } :: rest')
       let rules' ← goRules 0 rules
