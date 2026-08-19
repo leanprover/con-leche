@@ -246,10 +246,37 @@ substitution lemma is mechanical, like `interp_shift`: define
 terms (generalizing `interp_closed_invariant`).  Beta and the dependent
 application rule then verify without new metatheory classes.
 
+Refined plan (annotation slot itself is done):
+
+* `annotate env d e` (bottom-up): opens each binder with the annotated
+  domain, recurses, computes the codomain sort by real inference on the
+  fully-annotated body (`ensureSort ∘ inferType`, for a `lam` the sort of
+  the body's inferred type), stores it, and re-closes with `abstract1`
+  (replace `fvar d` by `bvar k`).  `checkDecl` annotates type and value
+  right after the syntactic guards and stores annotated declarations.
+* `inferType` on an annotated `forallE` **trusts** the annotation: it
+  infers only the domain sort and returns `sort (imax u cod)` without
+  descending into the body (`cod = none` is an internal error).  Bodies
+  are checked exactly once, at annotate time.  This also makes
+  `inferType` structurally recursive.
+* `isDefEq` on two ∀s compares the annotations with `Level.isEquiv`
+  (replaces the re-inference deviation).
+* `interpExpr`'s ∀-clause reads the annotation; `sortLevelOf` and all its
+  shift/instLevels/mono lemmas are deleted (`Verify/InferShift.lean`
+  disappears; `Verify/InferLemmas.lean` shrinks).
+* New semantic invariant `AnnotOk` (structural, like `FvarsOk`): each
+  ∀-subterm's fibres, over its interpreted domain, land in
+  `univ (eval φ cod)`.  Established by `annotate_sound`, consumed as a
+  hypothesis by `inferType_sound` (whose ∀-case no longer has body
+  inference to lean on), preserved by opening/substitution — the
+  preservation under *term* substitution follows from the now-mechanical
+  substitution lemma, which is the whole point of the design.
+
 Order of work:
-1. Refactor: annotation slot on `forallE`/`lam`, annotation pass,
+1. Refactor: annotation pass + `abstract1` (+ roundtrip lemma via
+   `fvarConsistent` and no-loose-bvars predicates),
    `inferType`/`isDefEq`/`whnf` updated, structural `interpExpr`,
-   lemma files updated (mostly deletions on the model side).
+   `AnnotOk`, lemma files updated.
 2. Lambdas, application, beta, congruence defeq (`abstract1` for
    `infer`-lam with the fvar-annotation-consistency roundtrip), the
    substitution lemma; arena 005–007, 020, 021, 026, 027.
