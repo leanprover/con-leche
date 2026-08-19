@@ -213,6 +213,29 @@ mentions.  `whnf` is fueled and
 delta-unfolds definitions eagerly for now (the lazy strategy of real
 kernels is deferred to performance work).
 
+Modeled-install soundness architecture (2026-08-19, in progress): the
+fold facts for a modeled recursor come from eliminating its checked
+`R._model.iota_j` theorem.  The pipeline: the kernel's iota
+certificates (now covering the major and the constructor spine, plus
+syntactic arity pins on both types) become expression-spine fits
+(`certs_fit` → `TeleFitI`), relocated to value-spine fits
+(`TeleFitI.toTeleFit` via `arg_swap`/`instantiate1_instantiate1` —
+each instantiation argument exchanged for its opening variable) and
+carried as hypotheses of `RecRulesOk`'s fold clause (transported past
+extensions by `TeleFit.env_shrink`; the basis instances ignore them).
+The consumer-side plan: the fits give exactly the memberships the
+stmt-telescope quantifies over (rule λ-domains are kernel-pinned to
+the recursor/constructor type domains), `TeleFit.elim` + the Eq
+collapse (`mem_eqv`) turn the theorem's inhabitant into the value
+equation, and a λ-tower fold lemma (app_lam per binder, with
+`app_pt`/`lam_zero`/`mem_univ_zero` making the Prop collapse
+self-handling) identifies the right-hand side.  Remaining: an
+fvar-annotation-erasure interp congruence (opened expressions from
+different walks differ only in fvar annotations), the tower-fold
+lemma, the recursor extension itself (two-phase: rules-free
+provisional model for rhs annotation, then the final environment via
+interp_env_ext/AnnotOk.env_ext), the Verify EnvWF arm, and the wiring.
+
 Consistency corollary (2026-08-19): the 15 pinned basis names are
 *reserved* — `checkConstantVal` (and the per-member checks of the
 dormant `checkIndDecl`) reject any input declaration using one, so the
