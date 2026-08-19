@@ -249,6 +249,74 @@ decreasing_by
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
   | (simp [Expr.sizeB])
 
+/-- Renaming constants along a `RenameOk` map preserves annotation
+truthfulness (inversion direction: the renamed expression's
+truthfulness yields the original's). -/
+theorem AnnotOk_renameConsts {f : Name → Name}
+    (hro : RenameOk cval env f) :
+    ∀ (e : Expr) (d : Nat) (ρ : Nat → V),
+      AnnotOk V cval env φ d ρ (e.renameConsts f) →
+      AnnotOk V cval env φ d ρ e
+  | .forallE n ty body m, d, ρ, ha => by
+    simp only [Expr.renameConsts, AnnotOk] at ha
+    obtain ⟨haty, hcod, hcond⟩ := ha
+    simp only [AnnotOk]
+    refine ⟨AnnotOk_renameConsts hro ty d ρ haty, hcod, ?_⟩
+    intro x A hA hx
+    rw [← interp_renameConsts hro ty d ρ] at hA
+    obtain ⟨hbody, hwfact⟩ := hcond x A hA hx
+    rw [← renameConsts_instantiate1] at hbody hwfact
+    refine ⟨AnnotOk_renameConsts hro _ (d + 1) (updV V ρ d x) hbody, ?_⟩
+    intro v' hv'
+    obtain ⟨w, hwi, hmem⟩ := hwfact v' hv'
+    refine ⟨w, ?_, hmem⟩
+    rw [← interp_renameConsts hro _ (d + 1) (updV V ρ d x)]
+    exact hwi
+  | .lam n ty body m, d, ρ, ha => by
+    simp only [Expr.renameConsts, AnnotOk] at ha
+    obtain ⟨haty, hcod, hcond⟩ := ha
+    simp only [AnnotOk]
+    refine ⟨AnnotOk_renameConsts hro ty d ρ haty, hcod, ?_⟩
+    intro x A hA hx
+    rw [← interp_renameConsts hro ty d ρ] at hA
+    obtain ⟨hbody, hwfact⟩ := hcond x A hA hx
+    rw [← renameConsts_instantiate1] at hbody hwfact
+    refine ⟨AnnotOk_renameConsts hro _ (d + 1) (updV V ρ d x) hbody, ?_⟩
+    intro v' hv'
+    obtain ⟨w, B, hwi, hwB, hBu⟩ := hwfact v' hv'
+    refine ⟨w, B, ?_, hwB, hBu⟩
+    rw [← interp_renameConsts hro _ (d + 1) (updV V ρ d x)]
+    exact hwi
+  | .app g a, d, ρ, ha => by
+    simp only [Expr.renameConsts, AnnotOk] at ha
+    obtain ⟨haf, haa, vf, va, vE, A, B, hfi, hai, hpi, hva, hfib⟩ := ha
+    simp only [AnnotOk]
+    refine ⟨AnnotOk_renameConsts hro g d ρ haf,
+      AnnotOk_renameConsts hro a d ρ haa,
+      vf, va, vE, A, B, ?_, ?_, hpi, hva, hfib⟩
+    · rw [← interp_renameConsts hro g d ρ]; exact hfi
+    · rw [← interp_renameConsts hro a d ρ]; exact hai
+  | .bvar _, _, _, _ => by simp [AnnotOk, Expr.renameConsts]
+  | .sort _, _, _, _ => by simp [AnnotOk, Expr.renameConsts]
+  | .const _ _, _, _, _ => by simp [AnnotOk, Expr.renameConsts]
+  | .fvar _ _ _, _, _, _ => by simp [AnnotOk, Expr.renameConsts]
+  | .letE _ _ _ _, _, _, _ => by simp [AnnotOk, Expr.renameConsts]
+  | .lit _, _, _, _ => by simp [AnnotOk, Expr.renameConsts]
+  | .proj s' i e, d, ρ, ha => by
+    simp only [Expr.renameConsts, AnnotOk] at ha
+    obtain ⟨hae, hi2, ve, u', v', A, Bf, hvei, hsig, hAu, hBf⟩ := ha
+    simp only [AnnotOk]
+    refine ⟨AnnotOk_renameConsts hro e d ρ hae, hi2, ve, u', v', A, Bf,
+      ?_, hsig, hAu, hBf⟩
+    rw [← interp_renameConsts hro e d ρ]
+    exact hvei
+termination_by e => e.sizeB
+decreasing_by
+  all_goals first
+  | (simp [Expr.sizeB]; omega)
+  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
+
 /-- Environment monotonicity for annotation truthfulness. -/
 theorem AnnotOk.mono {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none) :
     ∀ (e : Expr) (d : Nat) (ρ : Nat → V), e.constsResolve env = true →

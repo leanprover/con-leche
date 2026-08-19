@@ -116,6 +116,19 @@ theorem instantiateLevelParams_instantiate1 (ks : List Name) (us : List Level)
     · rfl
     · split <;> simp [instantiateLevelParams]
 
+theorem renameConsts_instantiate1 (f : Name → Name)
+    {d : Nat} {n : Name} {ty : Expr} :
+    ∀ (e : Expr) (k : Nat),
+      (e.instantiate1 (.fvar d n ty) k).renameConsts f =
+        (e.renameConsts f).instantiate1
+          (.fvar d n (ty.renameConsts f)) k := by
+  intro e
+  induction e <;> intro k <;> simp_all [Expr.instantiate1, Expr.renameConsts]
+  case bvar i =>
+    split
+    · rfl
+    · split <;> simp [Expr.renameConsts]
+
 /-- Level instantiation composes, provided the expression only mentions
 parameters from `ps` and the lists align. -/
 theorem instantiateLevelParams_instantiateLevelParams

@@ -298,6 +298,84 @@ decreasing_by
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
   | (simp [Expr.sizeB])
 
+/-- The condition under which renaming constants is invisible to the
+interpretation: every renamed constant resolves with the same level
+parameters, unresolved names stay unresolved, and the valuation agrees
+on the renaming. -/
+def RenameOk (cval : ConstVal V) (env : Env) (f : Name → Name) : Prop :=
+  (∀ n ci, env.find? n = some ci → ∃ ci', env.find? (f n) = some ci' ∧
+    ci'.toConstantVal.levelParams = ci.toConstantVal.levelParams) ∧
+  (∀ n, env.find? n = none → env.find? (f n) = none) ∧
+  (∀ (n : Name) (ψ' : Name → Nat), cval (f n) ψ' = cval n ψ')
+
+/-- Renaming constants along a `RenameOk` map preserves the
+interpretation. -/
+theorem interp_renameConsts {f : Name → Name}
+    (hro : RenameOk cval env f) :
+    ∀ (e : Expr) (d : Nat) (ρ : Nat → V),
+      interpExpr V cval env φ d ρ (e.renameConsts f) =
+        interpExpr V cval env φ d ρ e
+  | .sort u, d, ρ => by simp [interpExpr, Expr.renameConsts]
+  | .fvar idx n ty, d, ρ => by simp [interpExpr, Expr.renameConsts]
+  | .const n ws, d, ρ => by
+    simp only [interpExpr, Expr.renameConsts]
+    cases hf : env.find? n with
+    | none =>
+      rw [hro.2.1 n hf]
+    | some ci =>
+      obtain ⟨ci', hf', hlp⟩ := hro.1 n ci hf
+      rw [hf']
+      dsimp only
+      rw [hlp]
+      by_cases hal : ws.length = ci.toConstantVal.levelParams.length
+      · rw [if_pos hal, if_pos hal, hro.2.2]
+      · rw [if_neg hal, if_neg hal]
+  | .forallE n ty body m, d, ρ => by
+    simp only [interpExpr, Expr.renameConsts]
+    cases m.cod with
+    | none => rfl
+    | some v =>
+      rw [← renameConsts_instantiate1]
+      rw [interp_renameConsts hro ty d ρ]
+      cases hty : interpExpr V cval env φ d ρ ty with
+      | none => rfl
+      | some A =>
+        simp only [Option.some.injEq]
+        congr 1
+        funext x
+        rw [interp_renameConsts hro (body.instantiate1 (.fvar d n ty))
+          (d + 1) (updV V ρ d x)]
+  | .lam n ty body m, d, ρ => by
+    simp only [interpExpr, Expr.renameConsts]
+    cases m.cod with
+    | none => rfl
+    | some v =>
+      rw [← renameConsts_instantiate1]
+      rw [interp_renameConsts hro ty d ρ]
+      cases hty : interpExpr V cval env φ d ρ ty with
+      | none => rfl
+      | some A =>
+        simp only [Option.some.injEq]
+        congr 1
+        funext x
+        rw [interp_renameConsts hro (body.instantiate1 (.fvar d n ty))
+          (d + 1) (updV V ρ d x)]
+  | .app g a, d, ρ => by
+    simp only [interpExpr, Expr.renameConsts]
+    rw [interp_renameConsts hro g d ρ, interp_renameConsts hro a d ρ]
+  | .bvar _, _, _ => by simp [interpExpr, Expr.renameConsts]
+  | .letE _ _ _ _, _, _ => by simp [interpExpr, Expr.renameConsts]
+  | .lit _, _, _ => by simp [interpExpr, Expr.renameConsts]
+  | .proj s' i e, d, ρ => by
+    simp only [interpExpr, Expr.renameConsts]
+    rw [interp_renameConsts hro e d ρ]
+termination_by e => e.sizeB
+decreasing_by
+  all_goals first
+  | (simp [Expr.sizeB]; omega)
+  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
+
 /-- The interpretation reads `φ` only at the expression's level
 parameters. -/
 theorem interp_params_ext (hcp : ConstValParams cval env)

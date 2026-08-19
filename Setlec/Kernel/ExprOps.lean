@@ -142,4 +142,22 @@ def zetaExpand : Expr → Expr
   | .lit l => .lit l
   | .proj s i e => .proj s i (zetaExpand e)
 
+/-- Rename constants throughout (including inside `fvar` type
+annotations and `proj` type names); levels and binders untouched.  Used
+to compare a modeled inductive's members against their `_model`
+counterparts. -/
+def renameConsts (f : Name → Name) : Expr → Expr
+  | .bvar i => .bvar i
+  | .fvar i n ty => .fvar i n (renameConsts f ty)
+  | .sort u => .sort u
+  | .const n us => .const (f n) us
+  | .app a b => .app (renameConsts f a) (renameConsts f b)
+  | .lam n ty body m => .lam n (renameConsts f ty) (renameConsts f body) m
+  | .forallE n ty body m =>
+    .forallE n (renameConsts f ty) (renameConsts f body) m
+  | .letE n ty v body =>
+    .letE n (renameConsts f ty) (renameConsts f v) (renameConsts f body)
+  | .lit l => .lit l
+  | .proj s i e => .proj (f s) i (renameConsts f e)
+
 end Setlec.Expr
