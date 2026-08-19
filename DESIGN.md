@@ -229,12 +229,18 @@ the recursor/constructor type domains), `TeleFit.elim` + the Eq
 collapse (`mem_eqv`) turn the theorem's inhabitant into the value
 equation, and a λ-tower fold lemma (app_lam per binder, with
 `app_pt`/`lam_zero`/`mem_univ_zero` making the Prop collapse
-self-handling) identifies the right-hand side.  Remaining: an
-fvar-annotation-erasure interp congruence (opened expressions from
-different walks differ only in fvar annotations), the tower-fold
-lemma, the recursor extension itself (two-phase: rules-free
-provisional model for rhs annotation, then the final environment via
-interp_env_ext/AnnotOk.env_ext), the Verify EnvWF arm, and the wiring.
+self-handling) identifies the right-hand side.  The generic machinery is
+complete and committed: the erasure congruence (`interp_erasedEq`),
+the λ-tower fold (`TeleFitLam.fold`, collapse-free via unconditional
+`app_lam`), the value↔expression spine bridges
+(`TeleFit.toTeleFitI`, `TeleFitI.toLam`), renaming transfer (`RenEq`,
+`TeleFitI.ren_transfer`), argument swapping (`arg_swap_list`), and
+the lift/instantiate commutations.  The kernel additionally pins the
+stored iota theorem's statement piecewise (telescope domains = rule
+λ-domains renamed; body = the expected Eq application), so soundness
+never reasons about annotate/rename commutation.  Remaining: the
+recursor extension lemma assembling these (staged plan in the
+project memory), the Verify EnvWF arm, and the wiring.
 
 Consistency corollary (2026-08-19): the 15 pinned basis names are
 *reserved* — `checkConstantVal` (and the per-member checks of the
