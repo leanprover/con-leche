@@ -479,10 +479,75 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
   | axiomDecl cv => exact nomatch h
   | basisDecl kind =>
     match kind, h with
-    | .eqK, h => exact nomatch h
     | .natK, h => exact nomatch h
     | .psigmaK, h => exact nomatch h
+    | .eqK, h => ?_
     | .punitK, h => ?_
+    case _ =>
+      simp only [checkDecl, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
+      -- step 1: Eq
+      by_cases h1 : (env.find? eqA.name).isNone
+      case neg => simp [h1, pure, Except.pure] at h
+      simp only [h1, if_true, ↓reduceIte] at h
+      try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+      try dsimp only at h
+      -- step 2: Eq.refl
+      by_cases h2 : ((⟨eqA :: env.consts⟩ : Env).find? eqReflA.name).isNone
+      case neg => simp [h2, pure, Except.pure] at h
+      simp only [h2, if_true, ↓reduceIte] at h
+      try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+      try dsimp only at h
+      -- step 3: Eq.rec
+      by_cases h3 : ((⟨eqReflA :: eqA :: env.consts⟩ : Env).find? eqRecA.name).isNone
+      case neg => simp [h3, pure, Except.pure] at h
+      simp only [h3, if_true, ↓reduceIte] at h
+      try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+      simp only [Except.ok.injEq] at h
+      subst h
+      -- chain the three model extensions
+      obtain ⟨m1, hval1, hpres1⟩ := extend_basis_one m eqA (fun ψ => eqVal V ψ)
+        (Option.isNone_iff_eq_none.mp h1)
+        ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+        rfl
+        (fun _ _ hx => nomatch hx)
+        (fun ψ => eq_key)
+        (fun ψ₁ ψ₂ hψ => by
+          simp only [eqVal]
+          rw [hψ uN (by simp [eqA, ConstantInfo.toConstantVal, uN])])
+        (fun ψ => annotOk_eq_type)
+        (fun cv hx hn => absurd hn (by decide))
+        (fun cv nP nF hx _ => nomatch hx)
+      obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 eqReflA
+        (fun ψ => eqReflVal V ψ)
+        (Option.isNone_iff_eq_none.mp h2)
+        ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+        rfl
+        (fun _ _ hx => nomatch hx)
+        (fun ψ => eqRefl_key rfl (fun ψ' => hval1 ψ'))
+        (fun ψ₁ ψ₂ hψ => by
+          simp only [eqReflVal]
+          rw [hψ uN (by simp [eqReflA, ConstantInfo.toConstantVal, uN])])
+        (fun ψ => annotOk_eqRefl_type rfl (fun ψ' => hval1 ψ'))
+        (fun cv hx _ => nomatch hx)
+        (fun cv nP nF hx hn => absurd hn (by decide))
+      have hvalE2 : ∀ ψ' : Name → Nat, m2.val eqName ψ' = eqVal V ψ' := fun ψ' => by
+        rw [hpres2 eqName ψ' (by decide)]
+        exact hval1 ψ'
+      obtain ⟨m3, hval3, hpres3⟩ := extend_basis_one m2 eqRecA
+        (fun ψ => eqRecVal V ψ)
+        (Option.isNone_iff_eq_none.mp h3)
+        ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+        rfl
+        (fun _ _ hx => nomatch hx)
+        (fun ψ => eqRec_key rfl hvalE2 rfl (fun ψ' => hval2 ψ'))
+        (fun ψ₁ ψ₂ hψ => by
+          simp only [eqRecVal]
+          rw [hψ u1N (by simp [eqRecA, ConstantInfo.toConstantVal, u1N]),
+            hψ uN (by simp [eqRecA, ConstantInfo.toConstantVal, uN])])
+        (fun ψ => annotOk_eqRec_type rfl hvalE2 rfl (fun ψ' => hval2 ψ'))
+        (fun cv hx _ => nomatch hx)
+        (fun cv nP nF hx _ => nomatch hx)
+      exact ⟨m3⟩
     simp only [checkDecl, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
     -- step 1: PUnit
     by_cases h1 : (env.find? punitA.name).isNone

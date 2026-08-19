@@ -80,7 +80,7 @@ def checkDecl (env : Env) (d : Declaration) : CheckM Env := do
     -- Install the pinned (pre-annotated) basis block; the frontend has
     -- already matched the incoming record against the pinned shapes.
     match kind with
-    | .punitK =>
+    | .punitK | .eqK =>
       kind.declsA.foldlM (fun env ci => do
         unless (env.find? ci.name).isNone do
           throw (.invalid s!"duplicate declaration {ci.name}")

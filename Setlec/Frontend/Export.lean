@@ -27,6 +27,53 @@ namespace Setlec.Frontend
 
 open Lean (Json)
 
+/-- Rename level parameters (for basis-block matching up to
+level-parameter names). -/
+private def canonLevel (m : Name → Name) : Level → Level
+  | .zero => .zero
+  | .succ u => .succ (canonLevel m u)
+  | .max u v => .max (canonLevel m u) (canonLevel m v)
+  | .imax u v => .imax (canonLevel m u) (canonLevel m v)
+  | .param n => .param (m n)
+
+/-- Erase binder names and rename level parameters: the alpha/renaming
+canonical form used to match a parsed inductive block against a pinned
+basis block (Lean's exports use auto-bound universe names and hygienic
+binder names, both semantically irrelevant). -/
+private def canonExpr (m : Name → Name) : Expr → Expr
+  | .bvar i => .bvar i
+  | .fvar idx _ ty => .fvar idx .anonymous (canonExpr m ty)
+  | .sort u => .sort (canonLevel m u)
+  | .const n us => .const n (us.map (canonLevel m))
+  | .app f a => .app (canonExpr m f) (canonExpr m a)
+  | .lam _ ty b bm => .lam .anonymous (canonExpr m ty) (canonExpr m b)
+      ⟨bm.bi, bm.cod.map (canonLevel m)⟩
+  | .forallE _ ty b bm => .forallE .anonymous (canonExpr m ty) (canonExpr m b)
+      ⟨bm.bi, bm.cod.map (canonLevel m)⟩
+  | .letE _ ty v b => .letE .anonymous (canonExpr m ty) (canonExpr m v)
+      (canonExpr m b)
+  | .lit l => .lit l
+  | .proj s i e => .proj s i (canonExpr m e)
+
+/-- Canonical form of a stored constant for basis matching. -/
+private def ConstantInfo.canon (ci : ConstantInfo) : ConstantInfo :=
+  let ps := ci.toConstantVal.levelParams
+  let m : Name → Name := fun n =>
+    match ps.findIdx? (fun p => p == n) with
+    | some i => .num .anonymous i
+    | none => n
+  let cv : ConstantVal := { ci.toConstantVal with
+    levelParams := (List.range ps.length).map (.num .anonymous ·),
+    type := canonExpr m ci.toConstantVal.type }
+  match ci with
+  | .axiomInfo _ => .axiomInfo cv
+  | .defnInfo _ v => .defnInfo cv (canonExpr m v)
+  | .thmInfo _ v => .thmInfo cv (canonExpr m v)
+  | .indInfo _ => .indInfo cv
+  | .ctorInfo _ nP nF => .ctorInfo cv nP nF
+  | .recInfo _ nP nM nm ni rules => .recInfo cv nP nM nm ni
+      (rules.map fun r => { r with rhs := canonExpr m r.rhs })
+
 inductive FrontendError where
   | parseError (line : Nat) (msg : String)
   | unsupported (what : String)
@@ -200,13 +247,14 @@ private def processLine (st : State) (j : Json) : M (State ⊕ String) := do
         (← (← r.getObjVal? "numMinors").getNat?)
         (← (← r.getObjVal? "numIndices").getNat?) rules.toList)
     let block := types.toList ++ ctors.toList ++ recs.toList
-    if block = BasisKind.eqK.decls then
+    let blockC := block.map ConstantInfo.canon
+    if blockC = BasisKind.eqK.decls.map ConstantInfo.canon then
       return .inl { st with decls := st.decls.push (.basisDecl .eqK) }
-    else if block = BasisKind.natK.decls then
+    else if blockC = BasisKind.natK.decls.map ConstantInfo.canon then
       return .inl { st with decls := st.decls.push (.basisDecl .natK) }
-    else if block = BasisKind.psigmaK.decls then
+    else if blockC = BasisKind.psigmaK.decls.map ConstantInfo.canon then
       return .inl { st with decls := st.decls.push (.basisDecl .psigmaK) }
-    else if block = BasisKind.punitK.decls then
+    else if blockC = BasisKind.punitK.decls.map ConstantInfo.canon then
       return .inl { st with decls := st.decls.push (.basisDecl .punitK) }
     else
       -- alias every member to its `_model` counterpart
