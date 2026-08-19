@@ -189,8 +189,8 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
       obtain ⟨v, T, hv, -, -⟩ := hkey ψ
       rw [hval2, htrans value hvr ψ, hv, hcv2]
       simp [hval', hv]
-    · obtain ⟨-, -, -, hvalwf⟩ := m.wf _ hmem2
-      obtain ⟨-, -, hres2⟩ := hvalwf cv2 value2 rfl
+    · obtain ⟨-, -, -, -, hvalwf⟩ := m.wf _ hmem2
+      obtain ⟨-, -, hres2, -⟩ := hvalwf cv2 value2 rfl
       have := m.defn_eq cv2 value2 hmem2 ψ
       rw [htrans _ hres2 ψ, this]
       have hne : cv2.name ≠ name :=
@@ -206,11 +206,11 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
         obtain ⟨-, hval2⟩ := hc₀val cv2 value2 heq
         rw [hval2]
         exact hAtrans value hvr ψ (hAval ψ)
-    · obtain ⟨-, -, htyres, hvalwf⟩ := m.wf c hc
+    · obtain ⟨-, -, htyres, -, hvalwf⟩ := m.wf c hc
       obtain ⟨hA1, hA2⟩ := m.annot_ok c hc ψ
       refine ⟨hAtrans _ htyres ψ hA1, ?_⟩
       intro cv2 value2 heq
-      obtain ⟨-, -, hres2⟩ := hvalwf cv2 value2 heq
+      obtain ⟨-, -, hres2, -⟩ := hvalwf cv2 value2 heq
       exact hAtrans _ hres2 ψ (hA2 cv2 value2 heq)
 
 /-- The common inversion + semantic-fact assembly for a checked value
@@ -223,6 +223,7 @@ private theorem value_facts {env : Env} (m : EnvModel V env)
     (hvt : inferType env 0 value' = .ok vtype)
     (hde : isDefEq env 0 vtype type = .ok true)
     (htf : type.hasFvar = false)
+    (htb : type.looseBVarsBounded 0 = true)
     (hAty : ∀ ψ : Name → Nat, AnnotOk V m.val env ψ 0 (rho0 V) type)
     (hkeyT : ∀ ψ : Name → Nat, ∃ T, interpClosed V m.val env ψ type = some T) :
     value'.hasFvar = false ∧
@@ -234,18 +235,22 @@ private theorem value_facts {env : Env} (m : EnvModel V env)
   have hvf' : value'.hasFvar = false := by
     rw [← Expr.LeafEquiv.hasFvar_eq value value' (annotate_leafEquiv value hannv hwv hlbv)]
     exact hivf
+  have hbv' : value'.looseBVarsBounded 0 = true := annotate_looseBVars value hannv hlbv
   have hAv : ∀ ψ : Name → Nat, AnnotOk V m.val env ψ 0 (rho0 V) value' := fun ψ =>
-    annotate_sound m value hannv hwv hlbv (rho0 V) (FvarsOk.of_not_hasFvar hivf)
+    annotate_sound m value hannv hwv hlbv (Expr.LeavesBounded.of_not_hasFvar hivf)
+      (rho0 V) (FvarsOk.of_not_hasFvar hivf)
   refine ⟨hvf', hAv, fun ψ => ?_⟩
   obtain ⟨⟨v, tv, hv, htv, hmem⟩, hwvt, hAvt⟩ :=
-    inferType_sound (φ := ψ) m value' hvt (WScoped.of_not_hasFvar hvf')
+    inferType_sound (φ := ψ) m hvt (WScoped.of_not_hasFvar hvf') hbv'
+      (Expr.LeavesBounded.of_not_hasFvar hvf')
       (FvarsOk.of_not_hasFvar hvf') (hAv ψ)
   obtain ⟨T, hT⟩ := hkeyT ψ
-  have hvtf : vtype.hasFvar = false :=
-    not_hasFvar_of_fvarsBelow_zero hwvt.fvarsBelow
+  have hbvt : vtype.looseBVarsBounded 0 = true :=
+    inferTypeCore_looseBVars m.wf inferFuel hvt (WScoped.of_not_hasFvar hvf') hbv'
+      (Expr.LeavesBounded.of_not_hasFvar hvf')
   have htveq : tv = T :=
     isDefEq_sound (φ := ψ) m hde hwvt (WScoped.of_not_hasFvar htf)
-      hAvt (hAty ψ) htv hT
+      hbvt htb hAvt (hAty ψ) htv hT
   exact ⟨v, T, hv, hT, htveq ▸ hmem⟩
 
 /-- Checking a declaration preserves having a model. -/
@@ -299,16 +304,19 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     have htf : type.hasFvar = false := by
       rw [← Expr.LeafEquiv.hasFvar_eq cv.type type (annotate_leafEquiv cv.type hann hwt hlbt)]
       exact hitf
+    have hbt' : type.looseBVarsBounded 0 = true := annotate_looseBVars cv.type hann hlbt
     have hAty : ∀ ψ : Name → Nat, AnnotOk V m.val env ψ 0 (rho0 V) type := fun ψ =>
-      annotate_sound m cv.type hann hwt hlbt (rho0 V) (FvarsOk.of_not_hasFvar hitf)
+      annotate_sound m cv.type hann hwt hlbt (Expr.LeavesBounded.of_not_hasFvar hitf)
+        (rho0 V) (FvarsOk.of_not_hasFvar hitf)
     have hkeyT : ∀ ψ : Name → Nat, ∃ T, interpClosed V m.val env ψ type = some T := by
       intro ψ
       obtain ⟨⟨T, sT, hT, -, -⟩, -, -⟩ :=
-        inferType_sound (φ := ψ) m type hst (WScoped.of_not_hasFvar htf)
+        inferType_sound (φ := ψ) m hst (WScoped.of_not_hasFvar htf) hbt'
+          (Expr.LeavesBounded.of_not_hasFvar htf)
           (FvarsOk.of_not_hasFvar htf) (hAty ψ)
       exact ⟨T, hT⟩
     obtain ⟨hvf', hAval, hkey⟩ :=
-      value_facts m hlbv (by simpa using hivf) hannv hvt hde htf hAty hkeyT
+      value_facts m hlbv (by simpa using hivf) hannv hvt hde htf hbt' hAty hkeyT
     exact extend_model m hfind' htp htf htr (annotate_looseBVars cv.type hann hlbt)
       hvp hvf' hvr (annotate_looseBVars value hannv hlbv) hkey hAty hAval
       (ConstantInfo.defnInfo { cv with type := type } value') rfl rfl
@@ -378,16 +386,19 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     have htf : type.hasFvar = false := by
       rw [← Expr.LeafEquiv.hasFvar_eq cv.type type (annotate_leafEquiv cv.type hann hwt hlbt)]
       exact hitf
+    have hbt' : type.looseBVarsBounded 0 = true := annotate_looseBVars cv.type hann hlbt
     have hAty : ∀ ψ : Name → Nat, AnnotOk V m.val env ψ 0 (rho0 V) type := fun ψ =>
-      annotate_sound m cv.type hann hwt hlbt (rho0 V) (FvarsOk.of_not_hasFvar hitf)
+      annotate_sound m cv.type hann hwt hlbt (Expr.LeavesBounded.of_not_hasFvar hitf)
+        (rho0 V) (FvarsOk.of_not_hasFvar hitf)
     have hkeyT : ∀ ψ : Name → Nat, ∃ T, interpClosed V m.val env ψ type = some T := by
       intro ψ
       obtain ⟨⟨T, sT, hT, -, -⟩, -, -⟩ :=
-        inferType_sound (φ := ψ) m type hst (WScoped.of_not_hasFvar htf)
+        inferType_sound (φ := ψ) m hst (WScoped.of_not_hasFvar htf) hbt'
+          (Expr.LeavesBounded.of_not_hasFvar htf)
           (FvarsOk.of_not_hasFvar htf) (hAty ψ)
       exact ⟨T, hT⟩
     obtain ⟨hvf', hAval, hkey⟩ :=
-      value_facts m hlbv (by simpa using hivf) hannv hvt hde htf hAty hkeyT
+      value_facts m hlbv (by simpa using hivf) hannv hvt hde htf hbt' hAty hkeyT
     exact extend_model m hfind' htp htf htr (annotate_looseBVars cv.type hann hlbt)
       hvp hvf' hvr (annotate_looseBVars value hannv hlbv) hkey hAty hAval
       (ConstantInfo.thmInfo { cv with type := type } value') rfl rfl

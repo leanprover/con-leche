@@ -182,7 +182,9 @@ theorem whnf_app_inv {env : Env} {fuel : Nat} {f a e' : Expr}
 theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat} {n : Name} {ty body t : Expr}
     {m : BinderMeta}
     (h : inferTypeCore env (fuel + 1) d (.lam n ty body m) = .ok t) :
-    ∃ v bt tbt v', m.cod = some v ∧
+    ∃ v tty u bt tbt v', m.cod = some v ∧
+      inferTypeCore env fuel d ty = .ok tty ∧
+      ensureSort env tty = .ok u ∧
       inferTypeCore env fuel (d + 1) (body.instantiate1 (.fvar d n ty)) = .ok bt ∧
       inferTypeCore env fuel (d + 1) bt = .ok tbt ∧
       ensureSort env tbt = .ok v' ∧
@@ -193,6 +195,16 @@ theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat} {n : Name} {ty body t :
   | none => rw [hc] at h; exact nomatch h
   | some v =>
   rw [hc] at h
+  dsimp only at h
+  cases hty : inferTypeCore env fuel d ty with
+  | error err => rw [hty] at h; exact nomatch h
+  | ok tty =>
+  rw [hty] at h
+  dsimp only at h
+  cases hu : ensureSort env tty with
+  | error err => rw [hu] at h; exact nomatch h
+  | ok u =>
+  rw [hu] at h
   dsimp only at h
   cases hbt : inferTypeCore env fuel (d + 1) (body.instantiate1 (.fvar d n ty)) with
   | error err => rw [hbt] at h; exact nomatch h
@@ -218,7 +230,7 @@ theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat} {n : Name} {ty body t :
   | true =>
     simp only [liftFueled, Bool.false_eq_true, pure, Except.pure, ↓reduceIte,
       Except.ok.injEq] at h
-    exact ⟨v, bt, tbt, v', rfl, rfl, htbt, hes, heq, h.symm⟩
+    exact ⟨v, tty, u, bt, tbt, v', rfl, rfl, hu, rfl, htbt, hes, heq, h.symm⟩
 
 /-- Inversion for the application rule of `inferTypeCore`. -/
 theorem inferTypeCore_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}

@@ -137,6 +137,12 @@ theorem Expr.fvarLeaves_abstract1_ne {D : Nat} :
   | const n us => intro k _ l hl; simp [abstract1, fvarLeaves] at hl
   | lit ll => intro k _ l hl; simp [abstract1, fvarLeaves] at hl
 
+theorem Expr.LeavesBounded.of_not_hasFvar {e : Expr} (h : e.hasFvar = false) :
+    Expr.LeavesBounded e := by
+  intro l hl
+  rw [fvarLeaves_eq_nil_of_not_hasFvar h] at hl
+  cases hl
+
 /-! ## Preservation through `whnf` -/
 
 theorem whnf_fvarLeaves {env : Env} (henv : EnvWF env) :
@@ -275,7 +281,7 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
         subst h
         simp [WScoped]
     | .lam n ty body m, h =>
-      obtain ⟨v, bt, tbt, v', hc, hbt, htbt, hes, heq, rfl⟩ := inferTypeCore_lam_inv h
+      obtain ⟨v, tty, u, bt, tbt, v', hc, hty2, hu2, hbt, htbt, hes, heq, rfl⟩ := inferTypeCore_lam_inv h
       simp only [WScoped] at hw
       have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
         hw.1.instantiate1 0 hw.2
@@ -347,7 +353,7 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
         intro l hl
         simp [fvarLeaves] at hl
     | .lam n ty body m, h =>
-      obtain ⟨v, bt, tbt, v', hc, hbt, htbt, hes, heq, rfl⟩ := inferTypeCore_lam_inv h
+      obtain ⟨v, tty, u, bt, tbt, v', hc, hty2, hu2, hbt, htbt, hes, heq, rfl⟩ := inferTypeCore_lam_inv h
       simp only [WScoped] at hw
       have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
         hw.1.instantiate1 0 hw.2
@@ -429,7 +435,7 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
         subst h
         simp [looseBVarsBounded]
     | .lam n ty body m, h =>
-      obtain ⟨v, bt, tbt, v', hc, hbt, htbt, hes, heq, rfl⟩ := inferTypeCore_lam_inv h
+      obtain ⟨v, tty, u, bt, tbt, v', hc, hty2, hu2, hbt, htbt, hes, heq, rfl⟩ := inferTypeCore_lam_inv h
       simp only [WScoped] at hw
       simp only [looseBVarsBounded, Bool.and_eq_true] at hb
       have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=

@@ -128,13 +128,17 @@ theorem looseBVarsBounded_abstract1 {d : Nat} :
 
 /-! ## Preservation through `annotate` -/
 
-/-- Inversion for `annotate` on applications: whatever the embedded
-application-rule check did, a successful result is the two annotated
-subterms reassembled. -/
+/-- Inversion for `annotate` on applications: the two annotated subterms
+are reassembled, and the application-rule check ran successfully. -/
 theorem annotate_app_inv {env : Env} {d : Nat} {f a e' : Expr}
     (h : annotate env d (.app f a) = .ok e') :
     ∃ f' a', annotate env d f = .ok f' ∧ annotate env d a = .ok a' ∧
-      e' = .app f' a' := by
+      e' = .app f' a' ∧
+      ∃ tf n1 ty1 body1 m1 ta,
+        inferType env d f' = .ok tf ∧
+        whnf env whnfFuel tf = .ok (.forallE n1 ty1 body1 m1) ∧
+        inferType env d a' = .ok ta ∧
+        isDefEq env d ta ty1 = .ok true := by
   simp only [annotate, Bind.bind, Except.bind] at h
   cases hf : annotate env d f with
   | error e => rw [hf] at h; exact nomatch h
@@ -166,7 +170,7 @@ theorem annotate_app_inv {env : Env} {d : Nat} {f a e' : Expr}
     cases b with
     | true =>
       simp only [if_true, pure, Except.pure, Except.ok.injEq] at h
-      exact ⟨f', a', rfl, rfl, h.symm⟩
+      exact ⟨f', a', rfl, rfl, h.symm, tf, n, ty, body, m, ta, hit, hwh, hia, hde⟩
     | false =>
       simp only [Bool.false_eq_true, if_false] at h
       exact nomatch h
@@ -197,7 +201,7 @@ theorem annotate_WScoped {env : Env} :
     exact h ▸ hw
   | .app f a, d, e', h, hw => by
     simp only [WScoped] at hw
-    obtain ⟨f', a', hf, ha, rfl⟩ := annotate_app_inv h
+    obtain ⟨f', a', hf, ha, rfl, -⟩ := annotate_app_inv h
     simp only [WScoped]
     exact ⟨annotate_WScoped f hf hw.1, annotate_WScoped a ha hw.2⟩
   | .forallE n ty body m, d, e', h, hw => by
@@ -283,7 +287,7 @@ theorem annotate_fvarConsistent {env : Env} {d₀ : Nat} {n₀ : Name} {ty₀ : 
     exact h ▸ hc
   | .app f a, d, e', hd, h, hc => by
     simp only [Expr.fvarConsistent] at hc
-    obtain ⟨f', a', hf, ha, rfl⟩ := annotate_app_inv h
+    obtain ⟨f', a', hf, ha, rfl, -⟩ := annotate_app_inv h
     exact ⟨annotate_fvarConsistent f hd hf hc.1, annotate_fvarConsistent a hd ha hc.2⟩
   | .forallE n ty body m, d, e', hd, h, hc => by
     simp only [Expr.fvarConsistent] at hc
@@ -368,7 +372,7 @@ theorem annotate_looseBVars {env : Env} :
     exact h ▸ hb
   | .app f a, d, e', h, hb => by
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    obtain ⟨f', a', hf, ha, rfl⟩ := annotate_app_inv h
+    obtain ⟨f', a', hf, ha, rfl, -⟩ := annotate_app_inv h
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
     exact ⟨annotate_looseBVars f hf hb.1, annotate_looseBVars a ha hb.2⟩
   | .forallE n ty body m, d, e', h, hb => by
@@ -605,7 +609,7 @@ theorem annotate_leafEquiv {env : Env} :
   | .app f a, d, e', h, hw, hb => by
     simp only [WScoped] at hw
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    obtain ⟨f', a', hf, ha, rfl⟩ := annotate_app_inv h
+    obtain ⟨f', a', hf, ha, rfl, -⟩ := annotate_app_inv h
     simp only [Expr.LeafEquiv]
     exact ⟨annotate_leafEquiv f hf hw.1 hb.1, annotate_leafEquiv a ha hw.2 hb.2⟩
   | .forallE n ty body m, d, e', h, hw, hb => by

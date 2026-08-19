@@ -182,6 +182,9 @@ def inferTypeCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Chec
     | .lam n ty body m => do
       match m.cod with
       | some v => do
+        -- The domain must be a type (and the model needs its
+        -- interpretation defined), exactly as in the ∀ rule.
+        let _ ← ensureSort env (← inferTypeCore env fuel depth ty)
         let bt ← inferTypeCore env fuel (depth + 1)
           (body.instantiate1 (.fvar depth n ty))
         -- Re-check the stored annotation: it must be the sort of the
