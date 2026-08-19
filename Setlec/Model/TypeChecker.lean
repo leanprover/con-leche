@@ -1345,7 +1345,11 @@ private theorem iota_sound {m : EnvModel V env} {fuel : Nat}
   obtain ⟨restC, hfitIC⟩ := certs_fit ihAll fuel (Nat.le_succ fuel)
     _ _ _ TC hmcerts hCw hCb (Expr.LeavesBounded.of_not_hasFvar hChf)
     (FvarsOk.of_not_hasFvar hChf) hCA hCT hcertmargs hmsp
-  obtain ⟨dC, ρC, restC', hfitC⟩ := TeleFitI.toTeleFit hfitIC hCw (by
+  -- rebase the constructor fit at the recursor fit's final frame
+  obtain ⟨hdR, hagrR, -⟩ := TeleFit.toTeleFitI hfitR hRw
+  have hfitIC' := TeleFitI.lift hfitIC hCw hdR hagrR
+  obtain ⟨dC, ρC, restC', hfitC⟩ := TeleFitI.toTeleFit hfitIC'
+    (hCw.mono hdR) (by
     rw [show major.getAppArgs.length = cnP + cnF from hml1]
     exact stripPis_instantiateLevelParams_isSome _ _ _ har2)
   -- the rule's fold facts

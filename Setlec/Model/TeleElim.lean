@@ -382,4 +382,45 @@ theorem TeleFitLam.fold :
       rw [happlam, hwi]
       simpa using hchain
 
+/-- A value-spine fit induces an expression-spine fit at its final
+depth, with the opening variables as the argument spine: the two walks
+produce syntactically identical subjects. -/
+theorem TeleFit.toTeleFitI :
+    ∀ {D : Nat} {ρD : Nat → V} {e : Expr} {vs : List V} {d' : Nat}
+      {ρ' : Nat → V} {rest : Expr},
+      TeleFit V cval env φ D ρD e vs d' ρ' rest →
+      WScoped D e →
+      D ≤ d' ∧ (∀ i, i < D → ρ' i = ρD i) ∧
+      ∃ args rest₂, TeleFitI V cval env φ d' ρ' e args vs rest₂ := by
+  intro D ρD e vs d' ρ' rest ht
+  induction ht with
+  | nil =>
+    intro _
+    exact ⟨Nat.le_refl _, fun _ _ => rfl, [], _, TeleFitI.nil⟩
+  | @cons D ρD n ty body m x xs d' ρ' rest A hity hx ht ih =>
+    intro hwe
+    have hwe' : WScoped D ty ∧ WScoped D body := by simpa [WScoped] using hwe
+    have hwopen : WScoped (D + 1) (body.instantiate1 (.fvar D n ty)) := by
+      refine WScoped.instantiate1_gen ?_ 0 (hwe'.2.mono (Nat.le_succ D))
+      simp only [WScoped]
+      exact ⟨Nat.lt_succ_self D, hwe'.1⟩
+    obtain ⟨hDd, hagr, args, rest₂, hfit⟩ := ih hwopen
+    have hDd' : D ≤ d' := Nat.le_trans (Nat.le_succ D) hDd
+    have hagr' : ∀ i, i < D → ρ' i = ρD i := by
+      intro i hi
+      rw [hagr i (by omega)]
+      simp only [updV]
+      rw [if_neg (by omega)]
+    have hρD : ρ' D = x := by
+      rw [hagr D (by omega)]
+      simp [updV]
+    refine ⟨hDd', hagr', .fvar D n ty :: args, rest₂, ?_⟩
+    refine TeleFitI.cons ?_ ?_ hx (fvarsBelow_mono hDd' hwe'.2.fvarsBelow)
+      ?_ rfl (by simp [AnnotOk]) hfit
+    · rw [interp_lift hwe'.1 d' hDd' ρD ρ' hagr']
+      exact hity
+    · simp [interpExpr, hρD]
+    · simp only [WScoped]
+      exact ⟨by omega, hwe'.1⟩
+
 end Setlec

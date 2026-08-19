@@ -130,7 +130,7 @@ private def RecMemberOk (env' : Env) (val' : ConstVal V)
             TeleFit V val' env' φ' d ρ
               (cvR.type.instantiateLevelParams cvR.levelParams us)
               (args ++ [tv]) d₁ ρ₁ rest₁ ∧
-            TeleFit V val' env' φ' d ρ
+            TeleFit V val' env' φ' d₁ ρ₁
               (cvj.type.instantiateLevelParams cvj.levelParams usj)
               margs d₂ ρ₂ rest₂) →
           ∃ R, interpClosed V val' env' ψ (RecRule.rhs r) = some R ∧
@@ -216,7 +216,7 @@ private theorem RecRulesOk.cons {env : Env} (m : EnvModel V env)
           TeleFit V m.val env φ' d ρ
             (cvR.type.instantiateLevelParams cvR.levelParams us)
             (args ++ [tv]) d₁ ρ₁ rest₁ ∧
-          TeleFit V m.val env φ' d ρ
+          TeleFit V m.val env φ' d₁ ρ₁
             (cvj.type.instantiateLevelParams cvj.levelParams usj)
             margs d₂ ρ₂ rest₂ := by
         obtain ⟨φ', us, usj, d, ρ, d₁, ρ₁, rest₁, d₂, ρ₂, rest₂,

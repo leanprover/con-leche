@@ -230,7 +230,7 @@ def RecRulesOk (env : Env) (val : ConstVal V) : Prop :=
             TeleFit V val env φ' d ρ
               (cv.type.instantiateLevelParams cv.levelParams us)
               (args ++ [tv]) d₁ ρ₁ rest₁ ∧
-            TeleFit V val env φ' d ρ
+            TeleFit V val env φ' d₁ ρ₁
               (cvj.type.instantiateLevelParams cvj.levelParams usj)
               margs d₂ ρ₂ rest₂) →
           ∃ R, interpClosed V val env ψ (RecRule.rhs r) = some R ∧
