@@ -21,7 +21,7 @@ namespace Setlec
 
 variable {V : Type u} [SetTheory V]
 
-open SetTheory
+open SetTheory Expr
 
 private theorem find?_none_ne {env : Env} {n : Name} (h : env.find? n = none) :
     ∀ c ∈ env.consts, c.name ≠ n := by
@@ -48,8 +48,12 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     by_cases htp : Expr.allLevelParamsDefined cv.levelParams cv.type = true
     case neg => simp [htp] at h
     simp only [htp] at h
+    -- no free variables in the type
+    by_cases htf : cv.type.hasFvar = true
+    case pos => simp [htf] at h
+    simp only [htf] at h
     -- inferType of the declared type
-    cases hst : inferType env cv.type with
+    cases hst : inferType env 0 cv.type with
     | error e => rw [hst] at h; exact nomatch h
     | ok stype =>
     rw [hst] at h; dsimp only at h
@@ -61,13 +65,17 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     by_cases hvp : Expr.allLevelParamsDefined cv.levelParams value = true
     case neg => simp [hvp] at h
     simp only [hvp] at h
+    -- no free variables in the value
+    by_cases hvf : value.hasFvar = true
+    case pos => simp [hvf] at h
+    simp only [hvf] at h
     -- inferType of the value
-    cases hvt : inferType env value with
+    cases hvt : inferType env 0 value with
     | error e => rw [hvt] at h; exact nomatch h
     | ok vtype =>
     rw [hvt] at h; dsimp only at h
     -- definitional equality of inferred and declared type
-    cases hde : isDefEq env vtype cv.type with
+    cases hde : isDefEq env 0 vtype cv.type with
     | error e => rw [hde] at h; exact nomatch h
     | ok b =>
     rw [hde] at h
@@ -76,33 +84,53 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     | true =>
     simp only [Bool.false_eq_true, ↓reduceIte, Except.ok.injEq] at h
     subst h
-    -- construct the extended model
+    -- collected facts
+    have hwt : WScoped 0 cv.type := WScoped.of_not_hasFvar (by simpa using htf)
+    have hwv : WScoped 0 value := WScoped.of_not_hasFvar (by simpa using hvf)
     have hfind' : env.find? cv.name = none := by
       revert hfind
       cases env.find? cv.name <;> simp
     have hfresh := find?_none_ne hfind'
+    -- the interpretation ignores the extension (current fragment)
+    have hirr : ∀ (φ : Name → Nat) (e : Expr),
+        interpClosed V (⟨ConstantInfo.defnInfo cv value :: env.consts⟩ : Env) φ e =
+          interpClosed V env φ e :=
+      fun φ e => interpClosed_env_irrel _ env e
+    -- construct the extended model
     refine ⟨⟨fun n φ => if n = cv.name
-        then (interpExpr V φ value).getD SetTheory.empty
+        then (interpClosed V env φ value).getD SetTheory.empty
         else m.val n φ, ?_, ?_⟩⟩
     · intro c hc φ
+      rw [hirr]
       rcases List.mem_cons.mp hc with rfl | hc
       · -- the new constant
-        obtain ⟨v, tv, hv, htv, hmem⟩ := inferType_sound (V := V) hvt φ
-        obtain ⟨T, sT, hT, hsT, -⟩ := inferType_sound (V := V) hst φ
-        have : tv = T := isDefEq_sound hde φ htv hT
-        subst this
+        obtain ⟨⟨v, tv, hv, htv, hmem⟩, hwvt, hokvt⟩ :=
+          inferType_sound (V := V) (φ := φ) (ρ := rho0 V) value hvt hwv
+            (FvarsOk.of_not_hasFvar (by simpa using hvf))
+        obtain ⟨⟨T, sT, hT, hsT, -⟩, -, -⟩ :=
+          inferType_sound (V := V) (φ := φ) (ρ := rho0 V) cv.type hst hwt
+            (FvarsOk.of_not_hasFvar (by simpa using htf))
+        have htveq : tv = T :=
+          isDefEq_sound (ρ := rho0 V) hde hwvt hwt hokvt
+            (FvarsOk.of_not_hasFvar (by simpa using htf)) htv hT
+        subst htveq
         refine ⟨tv, hT, ?_⟩
-        simp [ConstantInfo.name, ConstantInfo.toConstantVal, hv, hmem]
+        simp [ConstantInfo.name, ConstantInfo.toConstantVal, interpClosed, hv, hmem]
       · -- a pre-existing constant
         obtain ⟨t, ht, hmem⟩ := m.mem_type c hc φ
         refine ⟨t, ht, ?_⟩
         have : c.name ≠ cv.name := hfresh c hc
         simp [this, hmem]
     · intro cv2 value2 hmem2 φ
+      rw [hirr]
       rcases List.mem_cons.mp hmem2 with heq | hmem2
-      · obtain ⟨rfl, rfl⟩ : cv2 = cv ∧ value2 = value := by
+      · have h12 : cv2 = cv ∧ value2 = value := by
           injection heq with h1 h2; exact ⟨h1, h2⟩
-        obtain ⟨v, tv, hv, -, -⟩ := inferType_sound (V := V) hvt φ
+        obtain ⟨⟨v, tv, hv, -, -⟩, -, -⟩ :=
+          inferType_sound (V := V) (φ := φ) (ρ := rho0 V) value hvt hwv
+            (FvarsOk.of_not_hasFvar (by simpa using hvf))
+        rw [h12.1, h12.2]
+        simp only [interpClosed] at hv ⊢
         simp [hv]
       · have hne : cv2.name ≠ cv.name :=
           hfresh (.defnInfo cv2 value2) hmem2

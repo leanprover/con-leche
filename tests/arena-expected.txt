@@ -1,6 +1,6 @@
 0 good/tutorial/001_basicDef.ndjson
-2 good/tutorial/003_arrowType.ndjson
-2 good/tutorial/004_dependentType.ndjson
+0 good/tutorial/003_arrowType.ndjson
+0 good/tutorial/004_dependentType.ndjson
 2 good/tutorial/005_constType.ndjson
 2 good/tutorial/006_betaReduction.ndjson
 2 good/tutorial/007_betaReduction2.ndjson

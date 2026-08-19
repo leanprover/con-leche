@@ -49,6 +49,26 @@ private def mkDef (n : String) (ps : List String) (type value : Expr) : Declarat
 #guard (checkDecls [mkDef "levelComp4" ["u"] (.sort (.succ .zero))
     (.sort (.imax (.param (.str .anonymous "u")) .zero))]).toBool
 
+/-! ## Dependent function types -/
+
+-- `def arrowType : Type := Prop → Prop` (tutorial test 003)
+#guard (checkDecls [mkDef "arrowType" [] (.sort (.succ .zero))
+  (.forallE (.str .anonymous "a") (.sort .zero) (.sort .zero) .default)]).toBool
+
+-- `def dependentType : Prop := ∀ (p : Prop), p` (tutorial test 004): impredicativity
+#guard (checkDecls [mkDef "dependentType" [] (.sort .zero)
+  (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) .default)]).toBool
+
+-- `∀ (p : Prop), p : Type` is rejected (it is a Prop).
+#guard checkDecls [mkDef "bad2" [] (.sort (.succ .zero))
+    (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) .default)]
+  matches .error (.invalid _)
+
+-- Input expressions containing fvars are rejected.
+#guard checkDecls [mkDef "sneaky" [] (.sort (.succ .zero))
+    (.fvar 0 (.str .anonymous "x") (.sort (.succ .zero)))]
+  matches .error (.invalid _)
+
 /-! ## Level algebra -/
 
 private def u : Level := .param (.str .anonymous "u")

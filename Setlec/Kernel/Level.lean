@@ -68,10 +68,9 @@ def leqCore (fuel : Nat) (l r : Level) (diff : Int) : Option Bool :=
   match fuel with
   | 0 => none
   | fuel + 1 =>
-    match l, r with
-    | .zero, _ => if diff ≥ 0 then some true else rest fuel l r diff
-    | _, .zero => if diff < 0 then some false else rest fuel l r diff
-    | _, _ => rest fuel l r diff
+    if l = .zero ∧ diff ≥ 0 then some true
+    else if r = .zero ∧ diff < 0 then some false
+    else rest fuel l r diff
 
 /-- The cases after the cheap `zero` short-cuts, in nanoda's order. -/
 def rest (fuel : Nat) (l r : Level) (diff : Int) : Option Bool :=

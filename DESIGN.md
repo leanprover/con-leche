@@ -149,10 +149,32 @@ constructions.
 
 ## Current state
 
-Supported fragment: **`def` declarations whose type and value are sort
-expressions**, with the full universe-level algebra (10/92 good arena
-tutorial tests accepted; type-mismatch, duplicate-name, duplicate/undeclared
-level parameters rejected).
+Supported fragment: **`def` declarations over sorts and dependent function
+types** (12/92 good arena tutorial tests accepted, including impredicative
+`∀ (p : Prop), p`; type-mismatch, duplicate-name, duplicate/undeclared level
+parameters, and stray free variables rejected).
+
+Binders follow nanoda: opening substitutes `fvar d n ty` where `d` is the
+binder depth (de Bruijn level) and the annotation `ty` is part of the
+variable's identity; the local context is implicit in terms.  The model
+interprets `Π` with the thesis's Prop/Type split: `SetTheory.pi` takes the
+*evaluated codomain sort* explicitly (not recoverable from the sets:
+`⟦True⟧ = ⟦PUnit⟧`), and `interpExpr` obtains it by re-running the
+checker's own `inferType` on the opened body.  Deviation from real kernels
+(documented in `Kernel/TypeChecker.lean`): `isDefEq` on two ∀-types also
+checks the codomain sorts are semantically equal levels — implied for
+well-typed input, but proving that needs sort-coherence metatheory we
+don't have yet; costs completeness/performance only.
+
+The binder metatheory lives in `Verify/Shift.lean` (`WScoped`,
+`shiftFrom`, commutation with `instantiate1`), `Verify/InferShift.lean`
+(shift invariance of `whnf`/`ensureSort`/`inferType`) and
+`Model/InterpLemmas.lean` (`interp_ext`, `interp_shift`,
+`interp_weaken_top`, `FvarsOk.instantiate1`).  The soundness statements
+take `WScoped` (syntactic scoping, annotations scoped at their own index)
+and `FvarsOk` (each free variable's valuation is a member of its
+annotated type's interpretation — "the typing assumptions of the local
+environment are hypotheses of the kernel theorems") as hypotheses.
 
 * `Setlec.Kernel.{Expr,Env}`: term representation, environment.
 * `Setlec.Kernel.Level`: `simplify`/`leqCore` (nanoda's algorithm and case

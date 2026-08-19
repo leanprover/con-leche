@@ -24,7 +24,9 @@ def checkConstantVal (env : Env) (cv : ConstantVal) : CheckM Unit := do
     throw (.invalid s!"duplicate universe parameters in {cv.name}")
   unless cv.type.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
-  let stype ← inferType env cv.type
+  if cv.type.hasFvar then
+    throw (.invalid s!"unexpected free variable in type of {cv.name}")
+  let stype ← inferType env 0 cv.type
   let _u ← ensureSort env stype
 
 /-- Check a single declaration, extending the environment on success. -/
@@ -34,8 +36,10 @@ def checkDecl (env : Env) (d : Declaration) : CheckM Env := do
     checkConstantVal env cv
     unless value.allLevelParamsDefined cv.levelParams do
       throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
-    let vtype ← inferType env value
-    unless ← isDefEq env vtype cv.type do
+    if value.hasFvar then
+      throw (.invalid s!"unexpected free variable in value of {cv.name}")
+    let vtype ← inferType env 0 value
+    unless ← isDefEq env 0 vtype cv.type do
       throw (.invalid s!"type mismatch in definition {cv.name}")
     pure ⟨.defnInfo cv value :: env.consts⟩
   | .thmDecl cv _ => throw (.notImplemented s!"theorem declaration ({cv.name})")

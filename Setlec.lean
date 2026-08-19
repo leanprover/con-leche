@@ -1,10 +1,15 @@
 import Setlec.Kernel.Expr
+import Setlec.Kernel.ExprOps
 import Setlec.Kernel.Level
 import Setlec.Kernel.Env
 import Setlec.Kernel.TypeChecker
 import Setlec.Kernel.Checker
 import Setlec.Verify.Level
+import Setlec.Verify.Shift
+import Setlec.Verify.InferShift
+import Setlec.Verify.EnvIrrel
 import Setlec.SetTheory.Basic
 import Setlec.Model.Interp
+import Setlec.Model.InterpLemmas
 import Setlec.Model.TypeChecker
 import Setlec.Model.Consistency

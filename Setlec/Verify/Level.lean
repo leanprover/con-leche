@@ -155,13 +155,12 @@ theorem leqCore_sound : ∀ {fuel : Nat} {l r : Level} {diff : Int},
     intro l r diff h
     unfold leqCore at h
     split at h
-    · split at h
-      · next hd => intro φ; simp only [eval]; omega
-      · exact rest_sound h
+    · next hc =>
+      obtain ⟨rfl, hd⟩ := hc
+      intro φ; simp only [eval]; omega
     · split at h
       · simp at h
       · exact rest_sound h
-    · exact rest_sound h
 
 theorem leq_sound {l r : Level} (h : leq l r = some true) :
     ∀ φ, eval φ l ≤ eval φ r := by
