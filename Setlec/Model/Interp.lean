@@ -28,9 +28,12 @@ tail is irrelevant.
 
 A `∀`-type is interpreted by opening the binder at index `d` — exactly as
 the checker does — and forming the dependent product `SetTheory.pi` over
-the domain; the codomain's (evaluated) sort level, which `pi` needs to
-decide the Prop/Type split, is computed by `sortLevelOf` using the
-checker's own `inferType`.
+the domain; the Prop/Type classifier `pi` needs is the evaluation of the
+binder's stored codomain-sort annotation (`BinderMeta.cod`) — unannotated
+binders are uninterpreted.  `AnnotOk` states that annotations are
+*truthful* (each fibre lands in the annotated universe, hereditarily);
+it is established once by the annotation pass (`annotate_sound`) and is
+a hypothesis of the soundness theorems.
 
 `FvarsOk` states the typing assumptions about the (implicit) local
 context.  `EnvModel` packages a model of a whole environment.
@@ -41,14 +44,6 @@ namespace Setlec
 variable (V : Type u) [SetTheory V]
 
 open SetTheory
-
-/-- The evaluated sort level of the *type* of `e` — the Prop/Type
-classifier for `SetTheory.pi`.  Computed with the checker's own inference;
-`none` when inference fails (then nothing is interpreted anyway). -/
-def sortLevelOf (env : Env) (φ : Name → Nat) (depth : Nat) (e : Expr) : Option Nat :=
-  match inferType env depth e >>= ensureSort env with
-  | .ok u => some (u.eval φ)
-  | .error _ => none
 
 /-- Update a valuation at one index. -/
 def updV (ρ : Nat → V) (d : Nat) (x : V) : Nat → V :=
@@ -70,28 +65,56 @@ def interpExpr (cval : ConstVal V) (env : Env) (φ : Name → Nat) :
         some (cval n (Level.substFn φ ci.toConstantVal.levelParams us))
       else none
     | none => none
-  | d, ρ, .forallE n ty body _ =>
-    match interpExpr cval env φ d ρ ty with
+  | d, ρ, .forallE n ty body m =>
+    match m.cod with
     | none => none
-    | some A =>
-      let body' := body.instantiate1 (.fvar d n ty)
-      match sortLevelOf env φ (d + 1) body' with
+    | some v =>
+      match interpExpr cval env φ d ρ ty with
       | none => none
-      | some vE => some (pi vE A fun x =>
-          (interpExpr cval env φ (d + 1) (updV V ρ d x) body').getD SetTheory.empty)
+      | some A => some (pi (v.eval φ) A fun x =>
+          (interpExpr cval env φ (d + 1) (updV V ρ d x)
+            (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty)
   | _, _, _ => none
 termination_by _ _ e => e.sizeB
 decreasing_by
   · simp [Expr.sizeB]; omega
   · rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega
 
+/-- Truthfulness of the codomain-sort annotations: every `∀`-subterm is
+annotated, and over every member of the domain's interpretation the
+(defined) fibre lands in the annotated universe, hereditarily; `lam`
+bodies are covered so that the invariant survives beta reduction. -/
+def AnnotOk (cval : ConstVal V) (env : Env) (φ : Name → Nat) :
+    (d : Nat) → (ρ : Nat → V) → Expr → Prop
+  | d, ρ, .forallE n ty body m =>
+    AnnotOk cval env φ d ρ ty ∧
+    (∃ v, m.cod = some v) ∧
+    ∀ x A, interpExpr V cval env φ d ρ ty = some A → x ∈ˢ A →
+      AnnotOk cval env φ (d + 1) (updV V ρ d x) (body.instantiate1 (.fvar d n ty)) ∧
+      ∀ v, m.cod = some v →
+        ∃ w, interpExpr V cval env φ (d + 1) (updV V ρ d x)
+            (body.instantiate1 (.fvar d n ty)) = some w ∧
+          w ∈ˢ univ (v.eval φ)
+  | d, ρ, .lam n ty body _ =>
+    AnnotOk cval env φ d ρ ty ∧
+    ∀ x A, interpExpr V cval env φ d ρ ty = some A → x ∈ˢ A →
+      AnnotOk cval env φ (d + 1) (updV V ρ d x) (body.instantiate1 (.fvar d n ty))
+  | d, ρ, .app f a => AnnotOk cval env φ d ρ f ∧ AnnotOk cval env φ d ρ a
+  | _, _, _ => True
+termination_by d ρ e => e.sizeB
+decreasing_by
+  all_goals first
+  | (simp [Expr.sizeB]; omega)
+  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+
 /-- The typing assumptions about the implicit local context: every
 reachable free variable is valued inside (the interpretation of) its
-annotated type, and the annotations themselves satisfy the same
-assumptions. -/
+annotated type, the annotations themselves satisfy the same assumptions,
+and their sort annotations are truthful. -/
 def FvarsOk (cval : ConstVal V) (env : Env) (φ : Name → Nat) (d : Nat) (ρ : Nat → V) :
     Expr → Prop
   | .fvar idx _ ty => idx < d ∧ FvarsOk cval env φ d ρ ty ∧
+      AnnotOk V cval env φ d ρ ty ∧
       ∃ T, interpExpr V cval env φ d ρ ty = some T ∧ ρ idx ∈ˢ T
   | .app f a => FvarsOk cval env φ d ρ f ∧ FvarsOk cval env φ d ρ a
   | .lam _ ty body _ | .forallE _ ty body _ =>

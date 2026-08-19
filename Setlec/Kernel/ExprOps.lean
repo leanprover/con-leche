@@ -56,6 +56,24 @@ theorem sizeB_instantiate1 (v : Expr) (hv : sizeB v = 1) :
     · exact hv
     · split <;> rfl
 
+/-- Close a binder body: replace `fvar d …` leaves by `bvar k`, bumping
+`k` under binders — the inverse of `instantiate1` with a fresh variable
+(`fvar` type annotations are not descended into; a well-scoped term has no
+`fvar d` inside another variable's annotation). -/
+def abstract1 (e : Expr) (d : Nat) (k : Nat := 0) : Expr :=
+  match e with
+  | .bvar i => .bvar i
+  | .fvar idx n ty => if idx = d then .bvar k else .fvar idx n ty
+  | .sort u => .sort u
+  | .const n us => .const n us
+  | .app f a => .app (abstract1 f d k) (abstract1 a d k)
+  | .lam n ty body m => .lam n (abstract1 ty d k) (abstract1 body d (k + 1)) m
+  | .forallE n ty body m => .forallE n (abstract1 ty d k) (abstract1 body d (k + 1)) m
+  | .letE n ty val body =>
+    .letE n (abstract1 ty d k) (abstract1 val d k) (abstract1 body d (k + 1))
+  | .lit l => .lit l
+  | .proj s i e => .proj s i (abstract1 e d k)
+
 /-- Full node count, including `fvar` type annotations.  Termination
 measure for predicates that recurse into annotations (but never into
 instantiated bodies). -/

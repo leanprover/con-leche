@@ -16,26 +16,31 @@ theorems are declined.  Verification: `Setlec.Verify.Checker` and
 namespace Setlec
 
 /-- Checks common to all declarations: fresh name, well-formed universe
-parameters, and a type that is a type and mentions only declared parameters. -/
-def checkConstantVal (env : Env) (cv : ConstantVal) : CheckM Unit := do
+parameters, and a type that is a type and mentions only declared
+parameters.  Returns the constant with its type **annotated**
+(`annotate`); the guards run on the annotated type. -/
+def checkConstantVal (env : Env) (cv : ConstantVal) : CheckM ConstantVal := do
   if (env.find? cv.name).isSome then
     throw (.invalid s!"duplicate declaration {cv.name}")
   unless Name.nodup cv.levelParams do
     throw (.invalid s!"duplicate universe parameters in {cv.name}")
-  unless cv.type.allLevelParamsDefined cv.levelParams do
+  let type ← annotate env 0 cv.type
+  unless type.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
-  if cv.type.hasFvar then
+  if type.hasFvar then
     throw (.invalid s!"unexpected free variable in type of {cv.name}")
-  unless cv.type.constsResolve env do
+  unless type.constsResolve env do
     throw (.invalid s!"unknown constant in type of {cv.name}")
-  let stype ← inferType env 0 cv.type
+  let stype ← inferType env 0 type
   let _u ← ensureSort env stype
+  pure { cv with type := type }
 
 /-- Check a single declaration, extending the environment on success. -/
 def checkDecl (env : Env) (d : Declaration) : CheckM Env := do
   match d with
   | .defnDecl cv value =>
-    checkConstantVal env cv
+    let cv ← checkConstantVal env cv
+    let value ← annotate env 0 value
     unless value.allLevelParamsDefined cv.levelParams do
       throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
     if value.hasFvar then
@@ -47,12 +52,13 @@ def checkDecl (env : Env) (d : Declaration) : CheckM Env := do
       throw (.invalid s!"type mismatch in definition {cv.name}")
     pure ⟨.defnInfo cv value :: env.consts⟩
   | .thmDecl cv value =>
-    checkConstantVal env cv
+    let cv ← checkConstantVal env cv
     -- the type of a theorem must be a proposition
     let stype ← inferType env 0 cv.type
     let u ← ensureSort env stype
     unless (← liftFueled "level comparison" (Level.isEquiv u .zero)) do
       throw (.invalid s!"type of theorem {cv.name} is not a proposition")
+    let value ← annotate env 0 value
     unless value.allLevelParamsDefined cv.levelParams do
       throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
     if value.hasFvar then

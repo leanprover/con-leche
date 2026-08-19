@@ -26,15 +26,15 @@ at the same depth (the annotation of an `fvar` is never compared — `fvar`s
 are equal iff their depths are), which matches how the model interprets
 each side.
 
-## Deviation from real kernels (to be removed)
+## Sort annotations
 
-`isDefEq` on two ∀-types additionally checks that the *codomain sorts* of
-the two bodies are semantically equal levels.  Real kernels do not check
-this — for well-typed inputs it is implied — but our model interprets
-Prop-valued and Type-valued products differently, and proving that two
-algorithm-defeq bodies have equal sorts requires metatheory (sort
-coherence) we do not have yet.  The extra check only costs completeness
-and performance, not soundness.
+Binders carry a codomain-sort annotation (`BinderMeta.cod`), computed
+once by `annotate` (the only place binder bodies are type-checked) and
+trusted by `inferType` thereafter; the set-model's Prop/Type classifier
+reads it (see DESIGN.md).  Deviation from real kernels (to be removed):
+`isDefEq` on two ∀-types additionally checks that the codomain
+annotations are equivalent levels — for well-typed inputs this is
+implied, and with annotations the check is a cheap level comparison.
 
 Verification: `Setlec.Model.TypeChecker`.
 -/
@@ -104,15 +104,48 @@ def inferType (env : Env) (depth : Nat) : Expr → CheckM Expr
       unless us.length = cv.levelParams.length do
         throw (.invalid s!"incorrect number of universe levels for {n}")
       pure (cv.type.instantiateLevelParams cv.levelParams us)
-  | .forallE n ty body _ => do
-    let u ← ensureSort env (← inferType env depth ty)
-    let v ← ensureSort env (← inferType env (depth + 1) (body.instantiate1 (.fvar depth n ty)))
-    pure (.sort (.imax u v))
+  | .forallE _ ty _ m => do
+    -- The codomain-sort annotation is trusted: the body was checked once,
+    -- by real inference, when the annotation was created (`annotate`).
+    match m.cod with
+    | some v => do
+      let u ← ensureSort env (← inferType env depth ty)
+      pure (.sort (.imax u v))
+    | none => throw (.internal "unannotated ∀-binder reached inferType")
   | _ => throw (.notImplemented "inferType beyond sorts, fvars, foralls and constants")
-termination_by e => e.sizeB
+
+/-- Compute the codomain-sort annotations of every binder in `e`, bottom-up,
+by real inference on the opened (already annotated) body.  This is the one
+place binder bodies are type-checked; `inferType` afterwards trusts the
+annotations.  For a `forallE` the annotation is the body's sort (so this
+also checks that the body *is* a type — the ∀-formation rule); for a `lam`
+it is the sort of the body's type. -/
+def annotate (env : Env) : (depth : Nat) → Expr → CheckM Expr
+  | _, .bvar i => pure (.bvar i)
+  | _, .fvar idx n ty => pure (.fvar idx n ty)
+  | _, .sort u => pure (.sort u)
+  | _, .const n us => pure (.const n us)
+  | depth, .app f a =>
+    return .app (← annotate env depth f) (← annotate env depth a)
+  | depth, .forallE n ty body m => do
+    let ty' ← annotate env depth ty
+    let body' ← annotate env (depth + 1) (body.instantiate1 (.fvar depth n ty'))
+    let v ← ensureSort env (← inferType env (depth + 1) body')
+    pure (.forallE n ty' (body'.abstract1 depth) ⟨m.bi, some v⟩)
+  | depth, .lam n ty body m => do
+    let ty' ← annotate env depth ty
+    let body' ← annotate env (depth + 1) (body.instantiate1 (.fvar depth n ty'))
+    let bt ← inferType env (depth + 1) body'
+    let v ← ensureSort env (← inferType env (depth + 1) bt)
+    pure (.lam n ty' (body'.abstract1 depth) ⟨m.bi, some v⟩)
+  | _, .letE _ _ _ _ => throw (.notImplemented "annotate: let-expressions")
+  | _, .lit _ => throw (.notImplemented "annotate: literals")
+  | _, .proj _ _ _ => throw (.notImplemented "annotate: projections")
+termination_by _ e => e.sizeB
 decreasing_by
-  · simp [Expr.sizeB]; omega
-  · rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega
+  all_goals first
+  | (simp [Expr.sizeB]; omega)
+  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
 
 /-- Fueled definitional-equality core.  Fuel exhaustion is an internal
 error, not a verdict. -/
@@ -125,15 +158,16 @@ def isDefEqCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr �
     | .const n us, .const n' us' =>
       if n = n' then liftFueled "level comparison" (Level.isEquivList us us')
       else pure false
-    | .forallE n₁ ty₁ body₁ _, .forallE n₂ ty₂ body₂ _ => do
+    | .forallE n₁ ty₁ body₁ m₁, .forallE n₂ ty₂ body₂ m₂ => do
       unless ← isDefEqCore env fuel depth ty₁ ty₂ do return false
       let b₁ := body₁.instantiate1 (.fvar depth n₁ ty₁)
       let b₂ := body₂.instantiate1 (.fvar depth n₂ ty₂)
       unless ← isDefEqCore env fuel (depth + 1) b₁ b₂ do return false
-      -- Deviation (see module docstring): codomain sorts must agree.
-      let v₁ ← ensureSort env (← inferType env (depth + 1) b₁)
-      let v₂ ← ensureSort env (← inferType env (depth + 1) b₂)
-      liftFueled "level comparison" (Level.isEquiv v₁ v₂)
+      -- Deviation (see module docstring): codomain sorts must agree —
+      -- with annotations this is a cheap level comparison.
+      match m₁.cod, m₂.cod with
+      | some v₁, some v₂ => liftFueled "level comparison" (Level.isEquiv v₁ v₂)
+      | _, _ => throw (.internal "unannotated ∀-binder reached isDefEq")
     -- Distinct supported (whnf-stuck) head symbols are never
     -- definitionally equal; `false` is always sound.
     | .sort _, .fvar .. | .sort _, .forallE .. | .sort _, .const ..
