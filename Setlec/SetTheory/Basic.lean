@@ -104,6 +104,63 @@ class SetTheory (V : Type u) where
   lam_dom : ∀ {v' v : Nat} {A A' : V} {F : V → V} {B : V → V},
     Mem (lam v' A F) (pi v A' B) → v ≠ 0 → v' ≠ 0 →
     ∀ x, Mem x A' → Mem x A
+  /-- Truth values for equality: `eqv x y` is `{pt}` if `x = y` and `∅`
+  otherwise (classically definable). -/
+  eqv : V → V → V
+  eqv_mem_univ : ∀ x y, Mem (eqv x y) (univ 0)
+  mem_eqv : ∀ {a x y : V}, Mem a (eqv x y) → x = y
+  pt_mem_eqv_self : ∀ x, Mem pt (eqv x x)
+  /-- The canonical singleton `{pt}` (the model of `PUnit` at every
+  level, and the true truth value). -/
+  unitSet : V
+  pt_mem_unitSet : Mem pt unitSet
+  mem_unitSet : ∀ {x : V}, Mem x unitSet → x = pt
+  unitSet_mem_univ : ∀ u, Mem unitSet (univ u)
+  /-- The finite ordinals (the model of `Nat`). -/
+  omega : V
+  omega_mem_univ : Mem omega (univ 1)
+  natzero : V
+  natzero_mem : Mem natzero omega
+  natsucc : V → V
+  natsucc_mem : ∀ {n : V}, Mem n omega → Mem (natsucc n) omega
+  /-- Set-theoretic recursion on omega: `natrec z s n` with the minor
+  premise `s` applied as a set-theoretic (curried) function.  The
+  equations are conditional on typing where realizability requires it;
+  `natrec_mem` is the recursion theorem plus induction. -/
+  natrec : V → V → V → V
+  natrec_zero : ∀ z s, natrec z s natzero = z
+  natrec_succ : ∀ z s {n}, Mem n omega →
+    natrec z s (natsucc n) = app (app s n) (natrec z s n)
+  natrec_mem : ∀ {M z s n : V},
+    Mem z (app M natzero) →
+    (∀ k, Mem k omega → ∀ ih, Mem ih (app M k) →
+      Mem (app (app s k) ih) (app M (natsucc k))) →
+    Mem n omega → Mem (natrec z s n) (app M n)
+  /-- Dependent pairs.  `sigmaSet w A B` is, for `w ≠ 0`, the set of
+  Kuratowski pairs `⟨a, b⟩` with `a ∈ A`, `b ∈ B a`; for `w = 0` the
+  truth value `[∃ a ∈ A, B a inhabited]` (Prop collapse).  `spair`,
+  `sfst`, `ssnd` are pairing and projections, with `pt` mapped to `pt`
+  (realizable: `pt = {∅}` is not a pair). -/
+  sigmaSet : Nat → V → (V → V) → V
+  spair : V → V → V
+  sfst : V → V
+  ssnd : V → V
+  sigma_congr : ∀ {w : Nat} {A : V} {B B' : V → V},
+    (∀ x, Mem x A → B x = B' x) → sigmaSet w A B = sigmaSet w A B'
+  sigma_mem_univ : ∀ {u v : Nat} {A : V} {B : V → V}, Mem A (univ u) →
+    (∀ x, Mem x A → Mem (B x) (univ v)) →
+    Mem (sigmaSet (Nat.max u v) A B) (univ (Nat.max u v))
+  spair_mem : ∀ {w : Nat} {A : V} {B : V → V} {a b : V}, w ≠ 0 →
+    Mem a A → Mem b (B a) → Mem (spair a b) (sigmaSet w A B)
+  pt_mem_sigma : ∀ {A : V} {B : V → V} {a b : V},
+    Mem a A → Mem b (B a) → Mem pt (sigmaSet 0 A B)
+  mem_sigma_elim : ∀ {w : Nat} {A : V} {B : V → V} {t : V},
+    Mem t (sigmaSet w A B) →
+    ∃ a b, Mem a A ∧ Mem b (B a) ∧ (w = 0 → t = pt) ∧ (w ≠ 0 → t = spair a b)
+  sfst_spair : ∀ a b, sfst (spair a b) = a
+  ssnd_spair : ∀ a b, ssnd (spair a b) = b
+  sfst_pt : sfst pt = pt
+  ssnd_pt : ssnd pt = pt
 
 namespace SetTheory
 
