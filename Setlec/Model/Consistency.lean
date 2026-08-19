@@ -93,9 +93,11 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
     (htp : type.allLevelParamsDefined lps = true)
     (htf : type.hasFvar = false)
     (htr : type.constsResolve env = true)
+    (htb : type.looseBVarsBounded 0 = true)
     (hvp : value.allLevelParamsDefined lps = true)
     (hvf : value.hasFvar = false)
     (hvr : value.constsResolve env = true)
+    (hvb : value.looseBVarsBounded 0 = true)
     (hkey : ∀ ψ : Name → Nat, ∃ v T,
       interpClosed V m.val env ψ value = some v ∧
       interpClosed V m.val env ψ type = some T ∧ v ∈ˢ T)
@@ -134,10 +136,10 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
   have hwf' : EnvWF ⟨c₀ :: env.consts⟩ := by
     refine EnvWF.cons m.wf ?_
     rw [ConstWF, hc₀cv]
-    refine ⟨htf, htp, Expr.constsResolve_mono htr, ?_⟩
+    refine ⟨htf, htp, Expr.constsResolve_mono htr, htb, ?_⟩
     intro cv2 value2 heq
     obtain ⟨rfl, rfl⟩ := hc₀val cv2 value2 heq
-    exact ⟨hvf, hvp, Expr.constsResolve_mono hvr⟩
+    exact ⟨hvf, hvp, Expr.constsResolve_mono hvr, hvb⟩
   refine ⟨⟨val', hwf', ?_, ?_, ?_, ?_⟩⟩
   · -- val_params
     intro n ci hf ψ₁ ψ₂ hψ
@@ -307,7 +309,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       exact ⟨T, hT⟩
     obtain ⟨hvf', hAval, hkey⟩ :=
       value_facts m hlbv (by simpa using hivf) hannv hvt hde htf hAty hkeyT
-    exact extend_model m hfind' htp htf htr hvp hvf' hvr hkey hAty hAval
+    exact extend_model m hfind' htp htf htr (annotate_looseBVars cv.type hann hlbt)
+      hvp hvf' hvr (annotate_looseBVars value hannv hlbv) hkey hAty hAval
       (ConstantInfo.defnInfo { cv with type := type } value') rfl rfl
       (fun cv2 value2 heq => by injection heq with h1 h2; exact ⟨h1.symm, h2.symm⟩)
   | thmDecl cv value =>
@@ -385,7 +388,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       exact ⟨T, hT⟩
     obtain ⟨hvf', hAval, hkey⟩ :=
       value_facts m hlbv (by simpa using hivf) hannv hvt hde htf hAty hkeyT
-    exact extend_model m hfind' htp htf htr hvp hvf' hvr hkey hAty hAval
+    exact extend_model m hfind' htp htf htr (annotate_looseBVars cv.type hann hlbt)
+      hvp hvf' hvr (annotate_looseBVars value hannv hlbv) hkey hAty hAval
       (ConstantInfo.thmInfo { cv with type := type } value') rfl rfl
       (fun cv2 value2 heq => nomatch heq)
 

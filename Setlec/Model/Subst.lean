@@ -305,4 +305,17 @@ theorem AnnotOk_beta {d : Nat} {n : Name} {ty body a : Expr} {ρ : Nat → V} {v
       rw [if_pos hi, if_neg (by omega)])
     (fvarsBelow_instantiate1_gen hwa.fvarsBelow k hfb) h
 
+/-- Functionalize per-point fibre witnesses (for `SetTheory.app_lam`). -/
+theorem choose_fibres {A : V} {F : V → V} {v : Nat}
+    (h : ∀ x, x ∈ˢ A → ∃ B, F x ∈ˢ B ∧ B ∈ˢ univ v) :
+    ∃ B : V → V, (∀ x, x ∈ˢ A → F x ∈ˢ B x) ∧ ∀ x, x ∈ˢ A → B x ∈ˢ univ v := by
+  classical
+  refine ⟨fun x => if hx : x ∈ˢ A then (h x hx).choose else SetTheory.empty, ?_, ?_⟩
+  · intro x hx
+    simp only [dif_pos hx]
+    exact (h x hx).choose_spec.1
+  · intro x hx
+    simp only [dif_pos hx]
+    exact (h x hx).choose_spec.2
+
 end Setlec

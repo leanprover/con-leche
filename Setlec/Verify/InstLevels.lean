@@ -95,6 +95,13 @@ theorem hasFvar_instantiateLevelParams (ks : List Name) (us : List Level) :
   intro e
   induction e <;> simp_all [instantiateLevelParams, hasFvar]
 
+/-- Level instantiation does not change loose-bvar bounds. -/
+theorem looseBVarsBounded_instantiateLevelParams (ks : List Name) (us : List Level) :
+    ∀ (e : Expr) (k : Nat),
+      (e.instantiateLevelParams ks us).looseBVarsBounded k = e.looseBVarsBounded k := by
+  intro e
+  induction e <;> intro k <;> simp_all [instantiateLevelParams, looseBVarsBounded]
+
 /-- Level instantiation commutes with binder opening. -/
 theorem instantiateLevelParams_instantiate1 (ks : List Name) (us : List Level)
     {d : Nat} {n : Name} {ty : Expr} :

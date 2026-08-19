@@ -56,8 +56,8 @@ theorem whnf_FvarsOk {cval : ConstVal V} (henv : EnvWF env) :
           dsimp only at h
           split at h
           next hal =>
-            obtain ⟨-, -, -, hval⟩ := henv _ (List.mem_of_find?_eq_some hf)
-            obtain ⟨hvc, -, -⟩ := hval cv value rfl
+            obtain ⟨-, -, -, -, hval⟩ := henv _ (List.mem_of_find?_eq_some hf)
+            obtain ⟨hvc, -, -, -⟩ := hval cv value rfl
             exact whnf_FvarsOk henv fuel h
               (FvarsOk.of_not_hasFvar (by rw [hasFvar_instantiateLevelParams]; exact hvc))
           next hal => exact (Except.ok.inj h) ▸ hok
@@ -86,8 +86,8 @@ theorem whnf_AnnotOk (m : EnvModel V env) :
           dsimp only at h
           split at h
           next hal =>
-            obtain ⟨-, -, -, hval⟩ := m.wf _ (List.mem_of_find?_eq_some hf)
-            obtain ⟨hvc, -, -⟩ := hval cv value rfl
+            obtain ⟨-, -, -, -, hval⟩ := m.wf _ (List.mem_of_find?_eq_some hf)
+            obtain ⟨hvc, -, -, -⟩ := hval cv value rfl
             have hstored := (m.annot_ok _ (List.mem_of_find?_eq_some hf)
               (Level.substFn φ cv.levelParams ws)).2 cv value rfl
             have hinst := AnnotOk.instLevels m.val_params value 0 (rho0 V) hstored
@@ -120,8 +120,8 @@ theorem whnf_sound (m : EnvModel V env) :
           dsimp only at h
           split at h
           next hal =>
-            obtain ⟨-, -, -, hval⟩ := m.wf _ (List.mem_of_find?_eq_some hf)
-            obtain ⟨hvc, -, -⟩ := hval cv value rfl
+            obtain ⟨-, -, -, -, hval⟩ := m.wf _ (List.mem_of_find?_eq_some hf)
+            obtain ⟨hvc, -, -, -⟩ := hval cv value rfl
             rw [whnf_sound m fuel h]
             have hcl : (value.instantiateLevelParams cv.levelParams ws).hasFvar = false := by
               rw [hasFvar_instantiateLevelParams]; exact hvc

@@ -296,4 +296,28 @@ theorem isEquiv_sound {l r : Level} (h : isEquiv l r = some true) :
   obtain ⟨h1, h2⟩ := bind_and_some_true (by simpa [isEquiv] using h)
   exact Nat.le_antisymm (leq_sound h1 φ) (leq_sound h2 φ)
 
+/-- `isNonZero` is conservative: a positive answer means nonzero under
+every level assignment. -/
+theorem isNonZero_sound : ∀ {u : Level}, u.isNonZero = true → ∀ φ, u.eval φ ≠ 0 := by
+  intro u
+  induction u with
+  | zero => simp [isNonZero]
+  | succ v ih => intro _ φ; simp [eval]
+  | max a b iha ihb =>
+    intro h φ
+    simp only [isNonZero, Bool.or_eq_true] at h
+    simp only [eval]
+    rcases h with h | h
+    · have := iha h φ; omega
+    · have := ihb h φ; omega
+  | imax a b iha ihb =>
+    intro h φ
+    simp only [isNonZero] at h
+    have := ihb h φ
+    simp only [eval]
+    split
+    · omega
+    · omega
+  | param n => simp [isNonZero]
+
 end Setlec.Level
