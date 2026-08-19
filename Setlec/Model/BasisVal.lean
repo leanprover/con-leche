@@ -157,6 +157,24 @@ noncomputable def eqRecVal (ψ : Name → Nat) : V :=
           SetTheory.lam u1 A fun _b =>
             SetTheory.lam u1 (eqv a _b) fun _h => r
 
+/-- The value of `PSigma'.rec` (Prop-motive only: the result is a proof
+point; every lam tag is `0` because the whole telescope, from the motive
+binder on, is propositional — and so are the binders before it, since
+the codomain chain ends in `motive t : Prop`). -/
+noncomputable def psigmaRecVal (ψ : Name → Nat) : V :=
+  let u := ψ uN
+  let v := ψ vN
+  SetTheory.lam 0 (univ u) fun A =>
+    SetTheory.lam 0 (pi (v + 1) A fun _ => univ v) fun B =>
+      SetTheory.lam 0
+          (pi 1 (sigmaSet (Nat.max u v) A fun x => app B x) fun _ => univ 0)
+          fun M =>
+        SetTheory.lam 0
+            (pi 0 A fun a => pi 0 (app B a) fun b =>
+              app M (if Nat.max u v = 0 then pt else spair a b)) fun _m =>
+          SetTheory.lam 0 (sigmaSet (Nat.max u v) A fun x => app B x)
+            fun _t => pt
+
 /-- Is this constant-info one of the basis kinds? -/
 def ConstantInfo.isBasis : ConstantInfo → Bool
   | .indInfo _ | .ctorInfo _ _ _ | .recInfo _ _ _ _ _ _ => true
