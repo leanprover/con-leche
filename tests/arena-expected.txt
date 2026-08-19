@@ -94,7 +94,7 @@
 2 bad/tutorial/009_forallSortBad.ndjson
 2 bad/tutorial/010_nonTypeType.ndjson
 2 bad/tutorial/011_nonTypeAxiom.ndjson
-2 bad/tutorial/012_nonPropThm.ndjson
+1 bad/tutorial/012_nonPropThm.ndjson
 1 bad/tutorial/017_tut06_bad01.ndjson
 2 bad/tutorial/044_inductBadNonSort.ndjson
 2 bad/tutorial/045_inductBadNonSort2.ndjson

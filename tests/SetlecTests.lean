@@ -69,6 +69,30 @@ private def mkDef (n : String) (ps : List String) (type value : Expr) : Declarat
     (.fvar 0 (.str .anonymous "x") (.sort (.succ .zero)))]
   matches .error (.invalid _)
 
+/-! ## Theorems -/
+
+private def mkThm (n : String) (type value : Expr) : Declaration :=
+  .thmDecl { name := .str .anonymous n, levelParams := [], type := type } value
+
+-- `theorem t : ∀ (p : Prop), p → p`-shaped: a Prop-typed theorem is accepted
+-- when its (in-fragment) value matches.
+#guard (checkDecls [mkThm "t"
+    (.forallE (.str .anonymous "p") (.sort .zero) (.sort .zero) .default)
+    (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) .default)])
+  matches .error (.invalid _)  -- value `∀ p, p : Prop` vs type `Prop → Prop : Prop`? mismatch
+
+-- A theorem whose type is not a proposition is rejected (tutorial 012).
+#guard checkDecls [mkThm "bad3" (.sort (.succ .zero)) (.sort .zero)]
+  matches .error (.invalid _)
+
+-- A theorem stating an accepted Prop with a matching proof-shaped value:
+-- `theorem t2 : Prop-valued-forall` where value has exactly that type.
+#guard (checkDecls [mkDef "prp" [] (.sort .zero)
+    (.forallE (.str .anonymous "p") (.sort .zero) (.bvar 0) .default),
+  mkThm "t2" (.sort .zero) (.const (.str .anonymous "prp") [])]).toBool == false
+  -- (const prp : Prop, but Prop ≠ prp's type Prop... value `prp : Prop`; type `Prop`:
+  --  `prp : Prop` vs declared `Prop : ?` — declared type must be a Prop; `Prop` is not)
+
 /-! ## Level algebra -/
 
 private def u : Level := .param (.str .anonymous "u")
