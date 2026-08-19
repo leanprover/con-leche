@@ -85,6 +85,19 @@ def sizeF : Expr → Nat
   | .letE _ ty val body => sizeF ty + sizeF val + sizeF body + 1
   | .proj _ _ e => sizeF e + 1
 
+/-- Are all bound-variable references bound within the expression (below
+`k` at the root)?  Input declarations must satisfy `looseBVarsBounded 0`. -/
+def looseBVarsBounded (k : Nat) : Expr → Bool
+  | .bvar i => i < k
+  | .fvar _ _ _ => true
+  | .sort _ | .const _ _ | .lit _ => true
+  | .app f a => looseBVarsBounded k f && looseBVarsBounded k a
+  | .lam _ ty body _ | .forallE _ ty body _ =>
+    looseBVarsBounded k ty && looseBVarsBounded (k + 1) body
+  | .letE _ ty val body =>
+    looseBVarsBounded k ty && looseBVarsBounded k val && looseBVarsBounded (k + 1) body
+  | .proj _ _ e => looseBVarsBounded k e
+
 /-- Does the expression contain any free variable (`fvar`)?  Input
 declarations must be `fvar`-free; the checker introduces `fvar`s only
 internally when opening binders. -/

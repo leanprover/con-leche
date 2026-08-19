@@ -24,11 +24,13 @@ def checkConstantVal (env : Env) (cv : ConstantVal) : CheckM ConstantVal := do
     throw (.invalid s!"duplicate declaration {cv.name}")
   unless Name.nodup cv.levelParams do
     throw (.invalid s!"duplicate universe parameters in {cv.name}")
+  unless cv.type.looseBVarsBounded 0 do
+    throw (.invalid s!"loose bound variable in type of {cv.name}")
+  if cv.type.hasFvar then
+    throw (.invalid s!"unexpected free variable in type of {cv.name}")
   let type ← annotate env 0 cv.type
   unless type.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
-  if type.hasFvar then
-    throw (.invalid s!"unexpected free variable in type of {cv.name}")
   unless type.constsResolve env do
     throw (.invalid s!"unknown constant in type of {cv.name}")
   let stype ← inferType env 0 type
@@ -40,11 +42,13 @@ def checkDecl (env : Env) (d : Declaration) : CheckM Env := do
   match d with
   | .defnDecl cv value =>
     let cv ← checkConstantVal env cv
+    unless value.looseBVarsBounded 0 do
+      throw (.invalid s!"loose bound variable in value of {cv.name}")
+    if value.hasFvar then
+      throw (.invalid s!"unexpected free variable in value of {cv.name}")
     let value ← annotate env 0 value
     unless value.allLevelParamsDefined cv.levelParams do
       throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
-    if value.hasFvar then
-      throw (.invalid s!"unexpected free variable in value of {cv.name}")
     unless value.constsResolve env do
       throw (.invalid s!"unknown constant in value of {cv.name}")
     let vtype ← inferType env 0 value
@@ -58,11 +62,13 @@ def checkDecl (env : Env) (d : Declaration) : CheckM Env := do
     let u ← ensureSort env stype
     unless (← liftFueled "level comparison" (Level.isEquiv u .zero)) do
       throw (.invalid s!"type of theorem {cv.name} is not a proposition")
+    unless value.looseBVarsBounded 0 do
+      throw (.invalid s!"loose bound variable in value of {cv.name}")
+    if value.hasFvar then
+      throw (.invalid s!"unexpected free variable in value of {cv.name}")
     let value ← annotate env 0 value
     unless value.allLevelParamsDefined cv.levelParams do
       throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
-    if value.hasFvar then
-      throw (.invalid s!"unexpected free variable in value of {cv.name}")
     unless value.constsResolve env do
       throw (.invalid s!"unknown constant in value of {cv.name}")
     let vtype ← inferType env 0 value

@@ -39,6 +39,9 @@ a hypothesis of the soundness theorems.
 context.  `EnvModel` packages a model of a whole environment.
 -/
 
+set_option linter.unusedVariables false
+set_option linter.defProp false
+
 namespace Setlec
 
 variable (V : Type u) [SetTheory V]
@@ -113,8 +116,7 @@ annotated type, the annotations themselves satisfy the same assumptions,
 and their sort annotations are truthful. -/
 def FvarsOk (cval : ConstVal V) (env : Env) (φ : Name → Nat) (d : Nat) (ρ : Nat → V) :
     Expr → Prop
-  | .fvar idx _ ty => idx < d ∧ FvarsOk cval env φ d ρ ty ∧
-      AnnotOk V cval env φ d ρ ty ∧
+  | .fvar idx _ ty => idx < d ∧ AnnotOk V cval env φ d ρ ty ∧
       ∃ T, interpExpr V cval env φ d ρ ty = some T ∧ ρ idx ∈ˢ T
   | .app f a => FvarsOk cval env φ d ρ f ∧ FvarsOk cval env φ d ρ a
   | .lam _ ty body _ | .forallE _ ty body _ =>
@@ -161,6 +163,11 @@ structure EnvModel (env : Env) where
   /-- Every definition is interpreted by its body. -/
   defn_eq : ∀ cv value, ConstantInfo.defnInfo cv value ∈ env.consts → ∀ φ : Name → Nat,
     interpClosed V val env φ value = some (val cv.name φ)
+  /-- Stored types (and definition bodies) carry truthful annotations. -/
+  annot_ok : ∀ c ∈ env.consts, ∀ φ : Name → Nat,
+    AnnotOk V val env φ 0 (rho0 V) c.toConstantVal.type ∧
+    ∀ cv value, c = ConstantInfo.defnInfo cv value →
+      AnnotOk V val env φ 0 (rho0 V) value
 
 /-- The empty environment has a (trivial) model. -/
 def EnvModel.empty : EnvModel V Env.empty where
@@ -171,5 +178,6 @@ def EnvModel.empty : EnvModel V Env.empty where
     simp [Env.find?, Env.empty] at h
   mem_type := by intro c hc; cases hc
   defn_eq := by intro cv value h; cases h
+  annot_ok := by intro c hc; cases hc
 
 end Setlec

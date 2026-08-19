@@ -15,6 +15,9 @@ parameters from the substituted list *and* the lists to be aligned
 instantiation happens.
 -/
 
+set_option linter.unusedSimpArgs false
+set_option linter.unusedVariables false
+
 namespace Setlec
 
 namespace Level

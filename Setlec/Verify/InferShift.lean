@@ -115,24 +115,17 @@ theorem inferType_shift {env : Env} (henv : EnvWF env) :
   | .forallE n' ty body bi, d, p, hpd, hw => by
     simp only [WScoped] at hw
     simp only [shiftFrom, inferType]
-    rw [← shiftFrom_instantiate1 hpd]
-    rw [inferType_shift henv ty hpd hw.1,
-        inferType_shift henv (body.instantiate1 (.fvar d n' ty))
-          (Nat.le_succ_of_le hpd) (hw.1.instantiate1 0 hw.2)]
-    cases hty : inferType env d ty with
-    | error e => simp [Functor.map, Except.map, Bind.bind, Except.bind]
-    | ok tty =>
-      simp only [Functor.map, Except.map, Bind.bind, Except.bind, ensureSort_shift henv]
-      cases hsty : ensureSort env tty with
-      | error e => simp
-      | ok u =>
-        simp only []
-        cases hb : inferType env (d + 1) (body.instantiate1 (.fvar d n' ty)) with
-        | error e => simp
-        | ok tb =>
-          simp only [ensureSort_shift henv]
-          cases hsb : ensureSort env tb <;>
-            simp [Functor.map, Except.map, pure, Except.pure, shiftFrom]
+    cases hc : bi.cod with
+    | none => simp [Functor.map, Except.map, throw, throwThe, MonadExceptOf.throw]
+    | some v =>
+      dsimp only
+      rw [inferType_shift henv ty hpd hw.1]
+      cases hty : inferType env d ty with
+      | error e => simp [Functor.map, Except.map, Bind.bind, Except.bind]
+      | ok tty =>
+        simp only [Functor.map, Except.map, Bind.bind, Except.bind, ensureSort_shift henv]
+        cases hsty : ensureSort env tty <;>
+          simp [Functor.map, Except.map, pure, Except.pure, shiftFrom]
   | .bvar i, _, _, _, _ => by simp [inferType, shiftFrom, Functor.map, Except.map, pure, Except.pure, throw, throwThe, MonadExceptOf.throw]
   | .app f a, _, _, _, _ => by simp [inferType, shiftFrom, Functor.map, Except.map, pure, Except.pure, throw, throwThe, MonadExceptOf.throw]
   | .lam n' ty body bi, _, _, _, _ => by simp [inferType, shiftFrom, Functor.map, Except.map, pure, Except.pure, throw, throwThe, MonadExceptOf.throw]
@@ -141,7 +134,8 @@ theorem inferType_shift {env : Env} (henv : EnvWF env) :
   | .proj s i e', _, _, _, _ => by simp [inferType, shiftFrom, Functor.map, Except.map, pure, Except.pure, throw, throwThe, MonadExceptOf.throw]
 termination_by e => e.sizeB
 decreasing_by
-  · simp [Expr.sizeB]; omega
-  · rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega
+  all_goals first
+  | (simp [Expr.sizeB]; omega)
+  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
 
 end Setlec

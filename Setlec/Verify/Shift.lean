@@ -57,6 +57,12 @@ theorem shiftFrom_eq_self {p : Nat} :
   intro e
   induction e <;> simp_all [fvarsBelow, shiftFrom]
 
+/-- A term with all reachable `fvar`s below `0` has none. -/
+theorem not_hasFvar_of_fvarsBelow_zero :
+    ∀ {e : Expr}, Expr.fvarsBelow 0 e → e.hasFvar = false := by
+  intro e
+  induction e <;> simp_all [Expr.fvarsBelow, Expr.hasFvar]
+
 /-- Well-scoped at depth `d`: every reachable `fvar` has index `< d`, and
 its type annotation is itself well-scoped at that index (annotations may
 only mention strictly earlier variables). -/

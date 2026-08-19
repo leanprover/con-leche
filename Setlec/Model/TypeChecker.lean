@@ -1,5 +1,6 @@
 import Setlec.Kernel.TypeChecker
-import Setlec.Model.InterpLemmas
+import Setlec.Model.FvarsOkLemmas
+import Setlec.Verify.InferLemmas
 
 /-!
 # Soundness of the type checker functions
@@ -8,15 +9,18 @@ All statements are relative to a model `m : EnvModel V env` of the current
 environment and interpret with `m.val`:
 
 * `whnf_sound`: reduction preserves the interpretation (delta unfolding is
-  justified by `m.defn_eq`).
+  justified by `m.defn_eq`); `whnf` also preserves the local-context
+  assumptions and annotation truthfulness.
 * `ensureSort_sound`: a successful `ensureSort env t = .ok u` means
   `⟦t⟧ = univ (eval φ u)`.
 * `inferType_sound`: a successful inference means expression and type are
-  interpreted and `⟦e⟧ ∈ ⟦t⟧`, under the local-context assumptions
-  (`FvarsOk`) and well-scopedness.
+  interpreted and `⟦e⟧ ∈ ⟦t⟧`, under well-scopedness, the local-context
+  assumptions (`FvarsOk`) and annotation truthfulness (`AnnotOk`).
 * `isDefEqCore_sound`: a positive definitional-equality verdict means the
   interpretations agree whenever both are defined.
 -/
+
+set_option linter.unusedSimpArgs false
 
 namespace Setlec
 
@@ -59,6 +63,40 @@ theorem whnf_FvarsOk {cval : ConstVal V} (henv : EnvWF env) :
         | axiomInfo cv => exact (Except.ok.inj h) ▸ hok
         | thmInfo cv value => exact (Except.ok.inj h) ▸ hok
 
+/-- `whnf` preserves annotation truthfulness. -/
+theorem whnf_AnnotOk (m : EnvModel V env) :
+    ∀ (fuel : Nat) {e e' : Expr} {d : Nat} {ρ : Nat → V},
+      whnf env fuel e = .ok e' →
+      AnnotOk V m.val env φ d ρ e → AnnotOk V m.val env φ d ρ e'
+  | 0, e, e', d, ρ, h, _ => nomatch h
+  | fuel + 1, e, e', d, ρ, h, ha => by
+    match e, h with
+    | .sort u, h => exact (Except.ok.inj h) ▸ ha
+    | .fvar idx n ty, h => exact (Except.ok.inj h) ▸ ha
+    | .forallE n ty body bi, h => exact (Except.ok.inj h) ▸ ha
+    | .const n ws, h =>
+      simp only [whnf] at h
+      cases hf : env.find? n with
+      | none => rw [hf] at h; exact (Except.ok.inj h) ▸ ha
+      | some ci =>
+        rw [hf] at h
+        cases ci with
+        | defnInfo cv value =>
+          dsimp only at h
+          split at h
+          next hal =>
+            obtain ⟨-, -, -, hval⟩ := m.wf _ (List.mem_of_find?_eq_some hf)
+            obtain ⟨hvc, -, -⟩ := hval cv value rfl
+            have hstored := (m.annot_ok _ (List.mem_of_find?_eq_some hf)
+              (Level.substFn φ cv.levelParams ws)).2 cv value rfl
+            have hinst := AnnotOk.instLevels m.val_params value 0 (rho0 V) hstored
+            have hcl : (value.instantiateLevelParams cv.levelParams ws).hasFvar = false := by
+              rw [hasFvar_instantiateLevelParams]; exact hvc
+            exact whnf_AnnotOk m fuel h (AnnotOk.closed_invariant hcl d ρ hinst)
+          next hal => exact (Except.ok.inj h) ▸ ha
+        | axiomInfo cv => exact (Except.ok.inj h) ▸ ha
+        | thmInfo cv value => exact (Except.ok.inj h) ▸ ha
+
 /-- Reduction preserves the interpretation. -/
 theorem whnf_sound (m : EnvModel V env) :
     ∀ (fuel : Nat) {e e' : Expr} {d : Nat} {ρ : Nat → V},
@@ -86,9 +124,9 @@ theorem whnf_sound (m : EnvModel V env) :
             rw [whnf_sound m fuel h]
             have hcl : (value.instantiateLevelParams cv.levelParams ws).hasFvar = false := by
               rw [hasFvar_instantiateLevelParams]; exact hvc
-            rw [interp_closed_invariant m.wf hcl]
+            rw [interp_closed_invariant hcl]
             unfold interpClosed
-            rw [interp_instLevels m.wf m.val_params]
+            rw [interp_instLevels m.val_params]
             have hmem : ConstantInfo.defnInfo cv value ∈ env.consts :=
               List.mem_of_find?_eq_some hf
             have hde := m.defn_eq cv value hmem (Level.substFn φ cv.levelParams ws)
@@ -119,22 +157,23 @@ theorem ensureSort_sound (m : EnvModel V env) {t : Expr} {u : Level}
 /-- Successful inference is sound. -/
 theorem inferType_sound (m : EnvModel V env) : ∀ (e : Expr) {d : Nat} {t : Expr} {ρ : Nat → V},
     inferType env d e = .ok t → WScoped d e → FvarsOk V m.val env φ d ρ e →
+    AnnotOk V m.val env φ d ρ e →
     (∃ v tv, interpExpr V m.val env φ d ρ e = some v ∧
       interpExpr V m.val env φ d ρ t = some tv ∧ v ∈ˢ tv) ∧
-      WScoped d t ∧ FvarsOk V m.val env φ d ρ t
-  | .sort u, d, t, ρ, h, _, _ => by
+      WScoped d t ∧ AnnotOk V m.val env φ d ρ t
+  | .sort u, d, t, ρ, h, _, _, _ => by
     simp only [inferType, pure, Except.pure, Except.ok.injEq] at h
     subst h
     refine ⟨⟨univ (u.eval φ), univ (u.eval φ + 1), ?_, ?_, univ_mem_univ _⟩, ?_, ?_⟩ <;>
-      simp [interpExpr, Level.eval, WScoped, FvarsOk]
-  | .fvar idx n ty, d, t, ρ, h, hw, hok => by
+      simp [interpExpr, Level.eval, WScoped, AnnotOk]
+  | .fvar idx n ty, d, t, ρ, h, hw, hok, _ => by
     simp only [inferType, pure, Except.pure, Except.ok.injEq] at h
     subst h
     simp only [WScoped] at hw
     simp only [FvarsOk] at hok
-    obtain ⟨hidx, hFty, T, hT, hmem⟩ := hok
-    exact ⟨⟨ρ idx, T, by simp [interpExpr], hT, hmem⟩, hw.2.mono (by omega), hFty⟩
-  | .const n ws, d, t, ρ, h, hw, hok => by
+    obtain ⟨hidx, hAty, T, hT, hmem⟩ := hok
+    exact ⟨⟨ρ idx, T, by simp [interpExpr], hT, hmem⟩, hw.2.mono (by omega), hAty⟩
+  | .const n ws, d, t, ρ, h, hw, hok, _ => by
     simp only [inferType] at h
     cases hf : env.find? n with
     | none => rw [hf] at h; exact nomatch h
@@ -152,23 +191,31 @@ theorem inferType_sound (m : EnvModel V env) : ∀ (e : Expr) {d : Nat} {t : Exp
         obtain ⟨T, hT, hmem⟩ :=
           m.mem_type ci (List.mem_of_find?_eq_some hf)
             (Level.substFn φ ci.toConstantVal.levelParams ws)
+        have hAstored := (m.annot_ok ci (List.mem_of_find?_eq_some hf)
+          (Level.substFn φ ci.toConstantVal.levelParams ws)).1
         refine ⟨⟨m.val n (Level.substFn φ ci.toConstantVal.levelParams ws), T, ?_, ?_, ?_⟩,
-          WScoped.of_not_hasFvar hcl, FvarsOk.of_not_hasFvar hcl⟩
+          WScoped.of_not_hasFvar hcl, ?_⟩
         · simp only [interpExpr, hf]
           rw [if_pos hal]
-        · rw [interp_closed_invariant m.wf hcl]
+        · rw [interp_closed_invariant hcl]
           unfold interpClosed
-          rw [interp_instLevels m.wf m.val_params]
+          rw [interp_instLevels m.val_params]
           exact hT
         · have hname : ci.name = n := find?_name hf
           simp only [ConstantInfo.name] at hname
           rw [← hname]
           exact hmem
+        · exact AnnotOk.closed_invariant hcl d ρ
+            (AnnotOk.instLevels m.val_params _ 0 (rho0 V) hAstored)
       next hal => exact nomatch h
-  | .forallE n ty body bi, d, t, ρ, h, hw, hok => by
+  | .forallE n ty body m', d, t, ρ, h, hw, hok, ha => by
     simp only [WScoped] at hw
     simp only [FvarsOk] at hok
-    simp only [inferType, Bind.bind, Except.bind] at h
+    simp only [AnnotOk] at ha
+    obtain ⟨haty, ⟨v₀, hv₀⟩, hcond⟩ := ha
+    simp only [inferType] at h
+    rw [hv₀] at h
+    simp only [Bind.bind, Except.bind] at h
     cases hty : inferType env d ty with
     | error e => rw [hty] at h; exact nomatch h
     | ok tty =>
@@ -179,57 +226,38 @@ theorem inferType_sound (m : EnvModel V env) : ∀ (e : Expr) {d : Nat} {t : Exp
     | ok u =>
     rw [hsty] at h
     dsimp only at h
-    cases hb : inferType env (d + 1) (body.instantiate1 (.fvar d n ty)) with
-    | error e => rw [hb] at h; exact nomatch h
-    | ok tb =>
-    rw [hb] at h
-    dsimp only at h
-    cases hsb : ensureSort env tb with
-    | error e => rw [hsb] at h; exact nomatch h
-    | ok v =>
-    rw [hsb] at h
-    dsimp only at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     subst h
-    obtain ⟨⟨A, tA, hA, htA, hmemA⟩, -, -⟩ := inferType_sound m ty hty hw.1 hok.1
+    obtain ⟨⟨A, tA, hA, htA, hmemA⟩, -, -⟩ := inferType_sound m ty hty hw.1 hok.1 haty
     rw [ensureSort_sound m hsty] at htA
     obtain rfl := Option.some.inj htA
-    have hsl : sortLevelOf env φ (d + 1) (body.instantiate1 (.fvar d n ty)) =
-        some (v.eval φ) := by
-      unfold sortLevelOf
-      rw [hb]
-      simp [Bind.bind, Except.bind, hsb]
-    refine ⟨⟨pi (v.eval φ) A (fun x => (interpExpr V m.val env φ (d + 1) (updV V ρ d x)
+    refine ⟨⟨pi (v₀.eval φ) A (fun x => (interpExpr V m.val env φ (d + 1) (updV V ρ d x)
         (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty),
-      univ ((Level.imax u v).eval φ), ?_, ?_, ?_⟩, by simp [WScoped], by simp [FvarsOk]⟩
-    · simp only [interpExpr, hA, hsl]
+      univ ((Level.imax u v₀).eval φ), ?_, ?_, ?_⟩,
+      by simp [WScoped], by simp [AnnotOk]⟩
+    · simp only [interpExpr, hv₀, hA]
     · simp only [interpExpr]
-    · have hpi := pi_mem_univ (V := V) (v := v.eval φ)
+    · have hpi := pi_mem_univ (V := V) (v := v₀.eval φ)
         (B := fun x => (interpExpr V m.val env φ (d + 1) (updV V ρ d x)
           (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty)
         hmemA
         (fun x hx => by
-          obtain ⟨⟨w, tw, hwi, htw, hmemw⟩, -, -⟩ :=
-            inferType_sound m (body.instantiate1 (.fvar d n ty)) hb
-              (hw.1.instantiate1 0 hw.2)
-              (FvarsOk.instantiate1 m.wf hw.1 hok.1 hA hx body 0 hw.2 hok.2)
-          rw [ensureSort_sound m hsb] at htw
-          obtain rfl := Option.some.inj htw
-          simpa [hwi] using hmemw)
-      have heq : Level.eval φ (.imax u v) =
-          if v.eval φ = 0 then 0 else Nat.max (u.eval φ) (v.eval φ) := rfl
+          obtain ⟨-, hwfact⟩ := hcond x A hA hx
+          obtain ⟨w, hwi, hmem⟩ := hwfact v₀ hv₀
+          simpa [hwi] using hmem)
+      have heq : Level.eval φ (.imax u v₀) =
+          if v₀.eval φ = 0 then 0 else Nat.max (u.eval φ) (v₀.eval φ) := rfl
       rw [heq]
       exact hpi
-  | .bvar _, _, _, _, h, _, _ => by simp [inferType] at h
-  | .app _ _, _, _, _, h, _, _ => by simp [inferType] at h
-  | .lam _ _ _ _, _, _, _, h, _, _ => by simp [inferType] at h
-  | .letE _ _ _ _, _, _, _, h, _, _ => by simp [inferType] at h
-  | .lit _, _, _, _, h, _, _ => by simp [inferType] at h
-  | .proj _ _ _, _, _, _, h, _, _ => by simp [inferType] at h
+  | .bvar _, _, _, _, h, _, _, _ => by simp [inferType] at h
+  | .app _ _, _, _, _, h, _, _, _ => by simp [inferType] at h
+  | .lam _ _ _ _, _, _, _, h, _, _, _ => by simp [inferType] at h
+  | .letE _ _ _ _, _, _, _, h, _, _, _ => by simp [inferType] at h
+  | .lit _, _, _, _, h, _, _, _ => by simp [inferType] at h
+  | .proj _ _ _, _, _, _, h, _, _, _ => by simp [inferType] at h
 termination_by e => e.sizeB
 decreasing_by
-  · simp [Expr.sizeB]; omega
-  · rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega
+  all_goals (simp [Expr.sizeB]; omega)
 
 /-- A positive definitional-equality verdict means the interpretations
 agree, whenever both are defined. -/
@@ -237,13 +265,14 @@ theorem isDefEqCore_sound (m : EnvModel V env) :
     ∀ (fuel : Nat) {d : Nat} {a b : Expr} {ρ : Nat → V},
     isDefEqCore env fuel d a b = .ok true →
     WScoped d a → WScoped d b → FvarsOk V m.val env φ d ρ a → FvarsOk V m.val env φ d ρ b →
+    AnnotOk V m.val env φ d ρ a → AnnotOk V m.val env φ d ρ b →
     ∀ {va vb : V}, interpExpr V m.val env φ d ρ a = some va →
       interpExpr V m.val env φ d ρ b = some vb → va = vb := by
   intro fuel
   induction fuel with
   | zero => intro d a b ρ h; exact nomatch h
   | succ fuel ih =>
-    intro d a b ρ h hwa hwb hoka hokb va vb hva hvb
+    intro d a b ρ h hwa hwb hoka hokb haa hab va vb hva hvb
     unfold isDefEqCore at h
     simp only [Bind.bind, Except.bind] at h
     cases hwha : whnf env whnfFuel a with
@@ -263,7 +292,9 @@ theorem isDefEqCore_sound (m : EnvModel V env) :
     have hwb' := whnf_WScoped m.wf whnfFuel hwhb hwb
     have hoka' := whnf_FvarsOk (cval := m.val) m.wf whnfFuel hwha hoka
     have hokb' := whnf_FvarsOk (cval := m.val) m.wf whnfFuel hwhb hokb
-    clear hwha hwhb hwa hwb hoka hokb
+    have haa' := whnf_AnnotOk m whnfFuel hwha haa
+    have hab' := whnf_AnnotOk m whnfFuel hwhb hab
+    clear hwha hwhb hwa hwb hoka hokb haa hab
     match a', b', h with
     | Expr.sort u, Expr.sort v, h =>
       dsimp only at h
@@ -311,10 +342,13 @@ theorem isDefEqCore_sound (m : EnvModel V env) :
         · rw [if_neg hal] at hva
           exact nomatch hva
       next hnn => simp [pure, Except.pure] at h
-    | Expr.forallE n₁ ty₁ body₁ bi₁, Expr.forallE n₂ ty₂ body₂ bi₂, h =>
+    | Expr.forallE n₁ ty₁ body₁ m₁, Expr.forallE n₂ ty₂ body₂ m₂, h =>
       dsimp only at h
       simp only [WScoped] at hwa' hwb'
       simp only [FvarsOk] at hoka' hokb'
+      simp only [AnnotOk] at haa' hab'
+      obtain ⟨haty₁, ⟨v₁, hv₁⟩, hcond₁⟩ := haa'
+      obtain ⟨haty₂, ⟨v₂, hv₂⟩, hcond₂⟩ := hab'
       cases hd1 : isDefEqCore env fuel d ty₁ ty₂ with
       | error e => rw [hd1] at h; exact nomatch h
       | ok r₁ =>
@@ -334,32 +368,14 @@ theorem isDefEqCore_sound (m : EnvModel V env) :
       | false => simp [pure, Except.pure] at h
       | true =>
       simp only [] at h
-      cases hi1 : inferType env (d + 1) (body₁.instantiate1 (.fvar d n₁ ty₁)) with
-      | error e => rw [hi1] at h; exact nomatch h
-      | ok t₁ =>
-      rw [hi1] at h
-      dsimp only at h
-      cases hs1 : ensureSort env t₁ with
-      | error e => rw [hs1] at h; exact nomatch h
-      | ok v₁ =>
-      rw [hs1] at h
-      dsimp only at h
-      cases hi2 : inferType env (d + 1) (body₂.instantiate1 (.fvar d n₂ ty₂)) with
-      | error e => rw [hi2] at h; exact nomatch h
-      | ok t₂ =>
-      rw [hi2] at h
-      dsimp only at h
-      cases hs2 : ensureSort env t₂ with
-      | error e => rw [hs2] at h; exact nomatch h
-      | ok v₂ =>
-      rw [hs2] at h
+      rw [hv₁, hv₂] at h
       dsimp only at h
       have hlev : Level.isEquiv v₁ v₂ = some true := by
         revert h
         cases hEq : Level.isEquiv v₁ v₂ with
         | none => simp [liftFueled]
         | some x => cases x <;> simp [liftFueled, pure, Except.pure]
-      simp only [interpExpr] at hva hvb
+      simp only [interpExpr, hv₁, hv₂] at hva hvb
       cases hA1 : interpExpr V m.val env φ d ρ ty₁ with
       | none => rw [hA1] at hva; exact nomatch hva
       | some A₁ =>
@@ -368,35 +384,24 @@ theorem isDefEqCore_sound (m : EnvModel V env) :
       | none => rw [hA2] at hvb; exact nomatch hvb
       | some A₂ =>
       rw [hA2] at hvb
-      have hsl1 : sortLevelOf env φ (d + 1) (body₁.instantiate1 (.fvar d n₁ ty₁)) =
-          some (v₁.eval φ) := by
-        unfold sortLevelOf; rw [hi1]; simp [Bind.bind, Except.bind, hs1]
-      have hsl2 : sortLevelOf env φ (d + 1) (body₂.instantiate1 (.fvar d n₂ ty₂)) =
-          some (v₂.eval φ) := by
-        unfold sortLevelOf; rw [hi2]; simp [Bind.bind, Except.bind, hs2]
-      rw [hsl1] at hva
-      rw [hsl2] at hvb
       simp only [Option.some.injEq] at hva hvb
       subst hva; subst hvb
-      have hAeq : A₁ = A₂ := ih hd1 hwa'.1 hwb'.1 hoka'.1 hokb'.1 hA1 hA2
+      have hAeq : A₁ = A₂ :=
+        ih hd1 hwa'.1 hwb'.1 hoka'.1 hokb'.1 haty₁ haty₂ hA1 hA2
       subst hAeq
       have hveq : v₁.eval φ = v₂.eval φ := Level.isEquiv_sound hlev φ
       rw [← hveq]
       refine pi_congr fun x hx => ?_
-      obtain ⟨⟨w₁, tw₁, hw₁, -, -⟩, -, -⟩ :=
-        inferType_sound (φ := φ) m (body₁.instantiate1 (.fvar d n₁ ty₁)) hi1
-          (hwa'.1.instantiate1 0 hwa'.2)
-          (FvarsOk.instantiate1 m.wf hwa'.1 hoka'.1 hA1 hx body₁ 0 hwa'.2 hoka'.2)
-      obtain ⟨⟨w₂, tw₂, hw₂, -, -⟩, -, -⟩ :=
-        inferType_sound (φ := φ) m (body₂.instantiate1 (.fvar d n₂ ty₂)) hi2
-          (hwb'.1.instantiate1 0 hwb'.2)
-          (FvarsOk.instantiate1 m.wf hwb'.1 hokb'.1 hA2 hx body₂ 0 hwb'.2 hokb'.2)
+      obtain ⟨habody₁, hwfact₁⟩ := hcond₁ x A₁ hA1 hx
+      obtain ⟨habody₂, hwfact₂⟩ := hcond₂ x A₁ hA2 hx
+      obtain ⟨w₁, hw₁, -⟩ := hwfact₁ v₁ hv₁
+      obtain ⟨w₂, hw₂, -⟩ := hwfact₂ v₂ hv₂
       rw [hw₁, hw₂]
       simpa using ih hd2
         (hwa'.1.instantiate1 0 hwa'.2) (hwb'.1.instantiate1 0 hwb'.2)
-        (FvarsOk.instantiate1 m.wf hwa'.1 hoka'.1 hA1 hx body₁ 0 hwa'.2 hoka'.2)
-        (FvarsOk.instantiate1 m.wf hwb'.1 hokb'.1 hA2 hx body₂ 0 hwb'.2 hokb'.2)
-        hw₁ hw₂
+        (FvarsOk.instantiate1 hwa'.1 haty₁ hA1 hx body₁ 0 hwa'.2 hoka'.2)
+        (FvarsOk.instantiate1 hwb'.1 haty₂ hA2 hx body₂ 0 hwb'.2 hokb'.2)
+        habody₁ habody₂ hw₁ hw₂
     | Expr.sort _, Expr.fvar _ _ _, h => simp [pure, Except.pure] at h
     | Expr.sort _, Expr.forallE _ _ _ _, h => simp [pure, Except.pure] at h
     | Expr.sort _, Expr.const _ _, h => simp [pure, Except.pure] at h
@@ -414,8 +419,9 @@ theorem isDefEq_sound (m : EnvModel V env) {d : Nat} {a b : Expr} {ρ : Nat → 
     (h : isDefEq env d a b = .ok true)
     (hwa : WScoped d a) (hwb : WScoped d b)
     (hoka : FvarsOk V m.val env φ d ρ a) (hokb : FvarsOk V m.val env φ d ρ b)
+    (haa : AnnotOk V m.val env φ d ρ a) (hab : AnnotOk V m.val env φ d ρ b)
     {va vb : V} (hva : interpExpr V m.val env φ d ρ a = some va)
     (hvb : interpExpr V m.val env φ d ρ b = some vb) : va = vb :=
-  isDefEqCore_sound m defEqFuel h hwa hwb hoka hokb hva hvb
+  isDefEqCore_sound m defEqFuel h hwa hwb hoka hokb haa hab hva hvb
 
 end Setlec

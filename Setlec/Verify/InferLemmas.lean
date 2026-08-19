@@ -104,23 +104,19 @@ theorem inferType_instLevels {env : Env} (henv : EnvWF env) (ks : List Name) (vs
         simp [Functor.map, Except.map, throw, throwThe, MonadExceptOf.throw]
   | .forallE n ty body bi, d => by
     simp only [instantiateLevelParams, inferType]
-    rw [← instantiateLevelParams_instantiate1]
-    rw [inferType_instLevels henv ks vs ty d,
-      inferType_instLevels henv ks vs (body.instantiate1 (.fvar d n ty)) (d + 1)]
-    cases hty : inferType env d ty with
-    | error e => simp [Except.map, Bind.bind, Except.bind]
-    | ok tty =>
-      simp only [Except.map, Bind.bind, Except.bind, ensureSort_instLevels henv]
-      cases hsty : ensureSort env tty with
-      | error e => simp [Except.map]
-      | ok u =>
-        simp only [Except.map]
-        cases hb : inferType env (d + 1) (body.instantiate1 (.fvar d n ty)) with
+    cases hc : bi.cod with
+    | none => simp [Except.map, throw, throwThe, MonadExceptOf.throw]
+    | some v =>
+      simp only [Option.map_some]
+      rw [inferType_instLevels henv ks vs ty d]
+      cases hty : inferType env d ty with
+      | error e => simp [Except.map, Bind.bind, Except.bind]
+      | ok tty =>
+        simp only [Except.map, Bind.bind, Except.bind, ensureSort_instLevels henv]
+        cases hsty : ensureSort env tty with
         | error e => simp [Except.map]
-        | ok tb =>
-          simp only [ensureSort_instLevels henv, Except.map]
-          cases hsb : ensureSort env tb <;>
-            simp [Except.map, pure, Except.pure, instantiateLevelParams, Level.subst]
+        | ok u =>
+          simp [Except.map, pure, Except.pure, instantiateLevelParams, Level.subst]
   | .bvar i, d => by simp [inferType, instantiateLevelParams, Except.map, throw, throwThe, MonadExceptOf.throw]
   | .app f a, d => by simp [inferType, instantiateLevelParams, Except.map, throw, throwThe, MonadExceptOf.throw]
   | .lam n ty body bi, d => by simp [inferType, instantiateLevelParams, Except.map, throw, throwThe, MonadExceptOf.throw]
@@ -129,8 +125,9 @@ theorem inferType_instLevels {env : Env} (henv : EnvWF env) (ks : List Name) (vs
   | .proj s i e', d => by simp [inferType, instantiateLevelParams, Except.map, throw, throwThe, MonadExceptOf.throw]
 termination_by e => e.sizeB
 decreasing_by
-  · simp [Expr.sizeB]; omega
-  · rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega
+  all_goals first
+  | (simp [Expr.sizeB]; omega)
+  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
 
 
 /-! ## Preservation of scoping and level-parameter bounds -/
@@ -223,27 +220,22 @@ theorem inferType_allLevelParams {env : Env} (henv : EnvWF env) {ps' : List Name
       next hal => exact nomatch h
   | .forallE n ty body bi, d, t, h, hp => by
     simp only [allLevelParamsDefined, Bool.and_eq_true] at hp
-    obtain ⟨⟨hpty, hpbody⟩, -⟩ := hp
-    simp only [inferType, Bind.bind, Except.bind] at h
+    obtain ⟨⟨hpty, hpbody⟩, hpcod⟩ := hp
+    simp only [inferType] at h
+    cases hc : bi.cod with
+    | none => rw [hc] at h; exact nomatch h
+    | some v =>
+    rw [hc] at h
+    try dsimp only at h
     cases hty : inferType env d ty with
     | error e => rw [hty] at h; exact nomatch h
     | ok tty =>
     rw [hty] at h
-    dsimp only at h
+    simp only [Bind.bind, Except.bind] at h
     cases hsty : ensureSort env tty with
     | error e => rw [hsty] at h; exact nomatch h
     | ok u =>
     rw [hsty] at h
-    dsimp only at h
-    cases hb : inferType env (d + 1) (body.instantiate1 (.fvar d n ty)) with
-    | error e => rw [hb] at h; exact nomatch h
-    | ok tb =>
-    rw [hb] at h
-    dsimp only at h
-    cases hsb : ensureSort env tb with
-    | error e => rw [hsb] at h; exact nomatch h
-    | ok v =>
-    rw [hsb] at h
     dsimp only at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     subst h
@@ -257,18 +249,8 @@ theorem inferType_allLevelParams {env : Env} (henv : EnvWF env) {ps' : List Name
         rw [hw] at hsty
         cases w <;>
           simp_all [Bind.bind, Except.bind, pure, Except.pure, allLevelParamsDefined]
-    have hv : (Expr.sort v).allLevelParamsDefined ps' = true := by
-      have h1 := inferType_allLevelParams henv (body.instantiate1 (.fvar d n ty)) hb
-        (allLevelParamsDefined_instantiate1 hpty 0 hpbody)
-      unfold ensureSort at hsb
-      cases hw : whnf env whnfFuel tb with
-      | error e => rw [hw] at hsb; exact nomatch hsb
-      | ok w =>
-        have h2 := whnf_allLevelParams henv whnfFuel hw h1
-        rw [hw] at hsb
-        cases w <;>
-          simp_all [Bind.bind, Except.bind, pure, Except.pure, allLevelParamsDefined]
-    simp only [allLevelParamsDefined, Level.allParamsDefined] at hu hv ⊢
+    have hv : v.allParamsDefined ps' = true := by simpa [hc] using hpcod
+    simp only [allLevelParamsDefined, Level.allParamsDefined] at hu ⊢
     simp [hu, hv]
   | .bvar _, _, _, h, _ => by simp [inferType] at h
   | .app _ _, _, _, h, _ => by simp [inferType] at h
@@ -278,8 +260,9 @@ theorem inferType_allLevelParams {env : Env} (henv : EnvWF env) {ps' : List Name
   | .proj _ _ _, _, _, h, _ => by simp [inferType] at h
 termination_by e => e.sizeB
 decreasing_by
-  · simp [Expr.sizeB]; omega
-  · rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega
+  all_goals first
+  | (simp [Expr.sizeB]; omega)
+  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
 
 theorem whnf_constsResolve {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat) {e e' : Expr},
@@ -337,23 +320,21 @@ theorem inferType_constsResolve {env : Env} (henv : EnvWF env) :
         exact htr
       next hal => exact nomatch h
   | .forallE n ty body bi, d, t, h, hres => by
-    simp only [inferType, Bind.bind, Except.bind] at h
+    simp only [inferType] at h
+    cases hc : bi.cod with
+    | none => rw [hc] at h; exact nomatch h
+    | some v =>
+    rw [hc] at h
+    try dsimp only at h
     cases hty : inferType env d ty with
     | error e => rw [hty] at h; exact nomatch h
     | ok tty =>
-    rw [hty] at h; dsimp only at h
+    rw [hty] at h
+    simp only [Bind.bind, Except.bind] at h
     cases hsty : ensureSort env tty with
     | error e => rw [hsty] at h; exact nomatch h
     | ok u =>
     rw [hsty] at h; dsimp only at h
-    cases hb : inferType env (d + 1) (body.instantiate1 (.fvar d n ty)) with
-    | error e => rw [hb] at h; exact nomatch h
-    | ok tb =>
-    rw [hb] at h; dsimp only at h
-    cases hsb : ensureSort env tb with
-    | error e => rw [hsb] at h; exact nomatch h
-    | ok v =>
-    rw [hsb] at h; dsimp only at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     subst h
     simp [constsResolve]
@@ -419,24 +400,16 @@ theorem inferType_mono (henv : EnvWF env) (hfresh : env.find? c₀.name = none) 
   | .forallE n ty body bi, d, hres => by
     simp only [constsResolve, Bool.and_eq_true] at hres
     simp only [inferType]
-    rw [inferType_mono henv hfresh ty d hres.1,
-      inferType_mono henv hfresh (body.instantiate1 (.fvar d n ty)) (d + 1)
-        (constsResolve_instantiate1 hres.1 0 hres.2)]
-    cases hty : inferType env d ty with
-    | error e => simp [Bind.bind, Except.bind]
-    | ok tty =>
-      simp only [Bind.bind, Except.bind]
-      rw [ensureSort_mono henv hfresh (inferType_constsResolve henv ty hty hres.1)]
-      cases hsty : ensureSort env tty with
-      | error e => simp
-      | ok u =>
-        simp only []
-        cases hb : inferType env (d + 1) (body.instantiate1 (.fvar d n ty)) with
-        | error e => simp
-        | ok tb =>
-          simp only []
-          rw [ensureSort_mono henv hfresh
-            (inferType_constsResolve henv _ hb (constsResolve_instantiate1 hres.1 0 hres.2))]
+    cases hc : bi.cod with
+    | none => rfl
+    | some v =>
+      dsimp only
+      rw [inferType_mono henv hfresh ty d hres.1]
+      cases hty : inferType env d ty with
+      | error e => simp [Bind.bind, Except.bind]
+      | ok tty =>
+        simp only [Bind.bind, Except.bind]
+        rw [ensureSort_mono henv hfresh (inferType_constsResolve henv ty hty hres.1)]
   | .bvar i, d, _ => by simp [inferType]
   | .app f a, d, _ => by simp [inferType]
   | .lam n ty body bi, d, _ => by simp [inferType]
@@ -445,7 +418,8 @@ theorem inferType_mono (henv : EnvWF env) (hfresh : env.find? c₀.name = none) 
   | .proj s i e', d, _ => by simp [inferType]
 termination_by e => e.sizeB
 decreasing_by
-  · simp [Expr.sizeB]; omega
-  · rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega
+  all_goals first
+  | (simp [Expr.sizeB]; omega)
+  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
 
 end Setlec
