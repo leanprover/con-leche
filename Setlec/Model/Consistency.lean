@@ -841,6 +841,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     (h : checkDecl env d = .ok env') (m : EnvModel V env) : Nonempty (EnvModel V env') := by
   cases d with
   | axiomDecl cv => exact nomatch h
+  | indDecl block => exact nomatch h
   | basisDecl kind =>
     match kind, h with
     | .natK, h => ?_

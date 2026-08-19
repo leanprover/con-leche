@@ -36,22 +36,6 @@ inductive BasisKind where
   | eqK | natK | psigmaK | punitK | emptyK
   deriving DecidableEq, Repr, Inhabited
 
-/-- A declaration presented to the checker. -/
-inductive Declaration where
-  | axiomDecl (val : ConstantVal)
-  | defnDecl (val : ConstantVal) (value : Expr)
-  | thmDecl (val : ConstantVal) (value : Expr)
-  | basisDecl (kind : BasisKind)
-  deriving DecidableEq, Repr, Inhabited
-
-namespace Declaration
-
-/-- The name of a non-basis declaration (basis blocks install several). -/
-def name : Declaration → Name
-  | .axiomDecl v | .defnDecl v _ | .thmDecl v _ => v.name
-  | .basisDecl _ => .anonymous
-
-end Declaration
 
 /-- Information stored about an accepted constant. -/
 inductive ConstantInfo where
@@ -66,6 +50,27 @@ inductive ConstantInfo where
   | recInfo (val : ConstantVal) (numParams numMotives numMinors numIndices : Nat)
       (rules : List RecRule)
   deriving DecidableEq, Repr, Inhabited
+
+/-- A declaration presented to the checker. -/
+inductive Declaration where
+  | axiomDecl (val : ConstantVal)
+  | defnDecl (val : ConstantVal) (value : Expr)
+  | thmDecl (val : ConstantVal) (value : Expr)
+  | basisDecl (kind : BasisKind)
+  /-- A preprocessed (modeled) inductive block: type formers,
+  constructors and recursors, installed opaquely after checking each
+  member against its `_model` counterpart. -/
+  | indDecl (block : List ConstantInfo)
+  deriving DecidableEq, Repr, Inhabited
+
+namespace Declaration
+
+/-- The name of a non-basis declaration (basis blocks install several). -/
+def name : Declaration → Name
+  | .axiomDecl v | .defnDecl v _ | .thmDecl v _ => v.name
+  | .basisDecl _ | .indDecl _ => .anonymous
+
+end Declaration
 
 namespace ConstantInfo
 

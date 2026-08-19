@@ -83,6 +83,10 @@ def checkDecl (env : Env) (d : Declaration) : CheckM Env := do
       unless (env.find? ci.name).isNone do
         throw (.invalid s!"duplicate declaration {ci.name}")
       pure (⟨ci :: env.consts⟩ : Env)) env
+  | .indDecl _block =>
+    -- Modeled inductive blocks: installation lands with the
+    -- model-checking machinery; decline until then.
+    throw (.notImplemented "modeled inductive declaration")
 
 /-- Check a list of declarations in order, starting from the empty
 environment. -/
