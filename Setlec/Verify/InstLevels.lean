@@ -118,6 +118,30 @@ theorem stripPis_instantiateLevelParams_isSome (ks : List Name)
         Option.isSome_map] at h ⊢
       exact ih h
 
+/-- Renaming constants commutes with level instantiation. -/
+theorem renameConsts_instantiateLevelParams (f : Name → Name)
+    (ks : List Name) (us : List Level) :
+    ∀ (e : Expr), (e.instantiateLevelParams ks us).renameConsts f =
+      (e.renameConsts f).instantiateLevelParams ks us := by
+  intro e
+  induction e <;>
+    simp_all [Expr.instantiateLevelParams, Expr.renameConsts]
+
+/-- Renaming constants commutes with bvar lifting. -/
+theorem renameConsts_liftLooseBVars (f : Name → Name) :
+    ∀ (e : Expr) (k c : Nat),
+      (e.liftLooseBVars k c).renameConsts f =
+        (e.renameConsts f).liftLooseBVars k c := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k c
+    simp only [Expr.liftLooseBVars, Expr.renameConsts]
+    split <;> simp [Expr.renameConsts]
+  | _ =>
+    intro k c
+    simp_all [Expr.liftLooseBVars, Expr.renameConsts]
+
 /-- Level instantiation commutes with binder opening. -/
 theorem instantiateLevelParams_instantiate1 (ks : List Name) (us : List Level)
     {d : Nat} {n : Name} {ty : Expr} :
