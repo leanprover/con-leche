@@ -517,6 +517,9 @@ private theorem value_facts {env : Env} (m : EnvModel V env)
       hAvt (hAty ψ) htv hT
   exact ⟨v, T, hv, hT, htveq ▸ hmem⟩
 
+private theorem max_ne_zero_r'' {u v : Nat} (h : v ≠ 0) : Nat.max u v ≠ 0 :=
+  fun hc => h (Nat.le_zero.mp (hc ▸ Nat.le_max_right u v))
+
 /-- Checking a declaration preserves having a model. -/
 theorem checkDecl_sound {env env' : Env} {d : Declaration}
     (h : checkDecl env d = .ok env') (m : EnvModel V env) : Nonempty (EnvModel V env') := by
@@ -525,9 +528,117 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
   | basisDecl kind =>
     match kind, h with
     | .natK, h => exact nomatch h
-    | .psigmaK, h => exact nomatch h
+    | .psigmaK, h => ?_
     | .eqK, h => ?_
     | .punitK, h => ?_
+    case _ =>
+      simp only [checkDecl, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
+      -- step 1: PSigma'
+      by_cases h1 : (env.find? psigmaA.name).isNone
+      case neg => simp [h1, pure, Except.pure] at h
+      simp only [h1, if_true, ↓reduceIte] at h
+      try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+      try dsimp only at h
+      -- step 2: PSigma'.mk
+      by_cases h2 : ((⟨psigmaA :: env.consts⟩ : Env).find? psigmaMkA.name).isNone
+      case neg => simp [h2, pure, Except.pure] at h
+      simp only [h2, if_true, ↓reduceIte] at h
+      try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+      try dsimp only at h
+      -- step 3: PSigma'.rec
+      by_cases h3 : ((⟨psigmaMkA :: psigmaA :: env.consts⟩ : Env).find? psigmaRecA.name).isNone
+      case neg => simp [h3, pure, Except.pure] at h
+      simp only [h3, if_true, ↓reduceIte] at h
+      try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+      simp only [Except.ok.injEq] at h
+      subst h
+      -- the semantic pair facts the environment invariant records
+      have htyfacts : ∀ ψ' : Name → Nat,
+          PairTyFacts V (psigmaVal V ψ') (ψ' uN) (ψ' vN) := by
+        intro ψ'
+        refine ⟨?_, ?_, ?_⟩
+        · intro vE A₀ B₀ x hmem hx
+          simp only [psigmaVal] at hmem
+          exact lam_pi_dom hmem
+            (max_ne_zero_r'' (Nat.succ_ne_zero (Nat.max (ψ' uN) (ψ' vN)))) hx
+        · intro vA vE A₁ B₁ x hvA hmem hx
+          rw [psigmaVal_app hvA] at hmem
+          exact lam_pi_dom hmem (Nat.succ_ne_zero _) hx
+        · intro vA vB hvA hvB
+          exact psigmaVal_fold hvA hvB
+      have hmkfacts : ∀ ψ' : Name → Nat,
+          PairMkFacts V (psigmaMkVal V ψ') (ψ' uN) (ψ' vN) := by
+        intro ψ'
+        refine ⟨?_, ?_, ?_, ?_, ?_⟩
+        · intro hw vE A₀ B₀ x hmem hx
+          simp only [psigmaMkVal] at hmem
+          refine lam_pi_dom hmem ?_ hx
+          rw [if_neg hw]
+          exact max_ne_zero_r'' (Nat.succ_ne_zero (ψ' vN))
+        · intro hw vA vE A₁ B₁ x hvA hmem hx
+          rw [psigmaMkVal_app hvA] at hmem
+          exact lam_pi_dom hmem hw hx
+        · intro hw vA vB vE A₂ B₂ x hvA hvB hmem hx
+          rw [psigmaMkVal_app₂ hvA hvB] at hmem
+          exact lam_pi_dom hmem hw hx
+        · intro hw vA vB va vE A₃ B₃ x hvA hvB hva hmem hx
+          rw [psigmaMkVal_app₃ hvA hvB hva] at hmem
+          exact lam_pi_dom hmem hw hx
+        · intro vA vB va vb hvA hvB hva hvb
+          exact psigmaMkVal_fold hvA hvB hva hvb
+      -- chain the three model extensions
+      obtain ⟨m1, hval1, hpres1⟩ := extend_basis_one m psigmaA
+        (fun ψ => psigmaVal V ψ)
+        (Option.isNone_iff_eq_none.mp h1)
+        ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+        rfl
+        (fun _ _ hx => nomatch hx)
+        (fun ψ => psigma_key)
+        (fun ψ₁ ψ₂ hψ => by
+          simp only [psigmaVal]
+          rw [hψ uN (by simp [psigmaA, ConstantInfo.toConstantVal, uN]),
+            hψ vN (by simp [psigmaA, ConstantInfo.toConstantVal, vN])])
+        (fun ψ => annotOk_psigma_type)
+        (fun cv _ _ => htyfacts)
+        (fun cv nP nF hx _ => nomatch hx)
+        (fun cv hx hn => absurd hn (by decide))
+      obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 psigmaMkA
+        (fun ψ => psigmaMkVal V ψ)
+        (Option.isNone_iff_eq_none.mp h2)
+        ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+        rfl
+        (fun _ _ hx => nomatch hx)
+        (fun ψ => psigmaMk_key rfl (fun ψ' => hval1 ψ'))
+        (fun ψ₁ ψ₂ hψ => by
+          simp only [psigmaMkVal]
+          rw [hψ uN (by simp [psigmaMkA, ConstantInfo.toConstantVal, uN]),
+            hψ vN (by simp [psigmaMkA, ConstantInfo.toConstantVal, vN])])
+        (fun ψ => annotOk_psigmaMk_type rfl (fun ψ' => hval1 ψ'))
+        (fun cv hx _ => nomatch hx)
+        (fun cv nP nF hx _ => by
+          cases hx
+          exact ⟨rfl, rfl, rfl, hmkfacts⟩)
+        (fun cv hx _ => nomatch hx)
+      have hvalS2 : ∀ ψ' : Name → Nat, m2.val psigmaName ψ' = psigmaVal V ψ' :=
+        fun ψ' => by
+          rw [hpres2 psigmaName ψ' (by decide)]
+          exact hval1 ψ'
+      obtain ⟨m3, hval3, hpres3⟩ := extend_basis_one m2 psigmaRecA
+        (fun ψ => psigmaRecVal V ψ)
+        (Option.isNone_iff_eq_none.mp h3)
+        ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+        rfl
+        (fun _ _ hx => nomatch hx)
+        (fun ψ => psigmaRec_key rfl hvalS2 rfl (fun ψ' => hval2 ψ'))
+        (fun ψ₁ ψ₂ hψ => by
+          simp only [psigmaRecVal]
+          rw [hψ uN (by simp [psigmaRecA, ConstantInfo.toConstantVal, uN]),
+            hψ vN (by simp [psigmaRecA, ConstantInfo.toConstantVal, vN])])
+        (fun ψ => annotOk_psigmaRec_type rfl hvalS2 rfl (fun ψ' => hval2 ψ'))
+        (fun cv hx _ => nomatch hx)
+        (fun cv nP nF hx _ => nomatch hx)
+        (fun cv hx _ => nomatch hx)
+      exact ⟨m3⟩
     case _ =>
       simp only [checkDecl, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
       -- step 1: Eq
