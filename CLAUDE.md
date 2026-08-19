@@ -19,3 +19,8 @@ iteration protocol. Keep it up to date when decisions change.
   /tmp and /home are tmpfs). Reference clones already there: nanodatg,
   lean-inductive-models, lean4lean-model.
 * If running the checker may OOM, use a timeout and memory limit.
+* Exit codes (arena convention): 0 accept, 1 reject (invalid input proof),
+  2 decline, 3 error. Decline (2) only when the checker *positively detects*
+  a feature it doesn't support yet — never when an internal construction
+  happens to fail or an invariant is violated with unclear cause; that is
+  exit 3 ("crash for unclear reasons", which verification should make rare).
