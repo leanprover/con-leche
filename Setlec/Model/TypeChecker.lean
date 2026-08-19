@@ -973,7 +973,7 @@ private theorem certs_fit {m : EnvModel V env} {fuelTop : Nat}
         Expr.LeavesBounded x ∧ FvarsOk V m.val env φ d ρ x ∧
         AnnotOk V m.val env φ d ρ x) →
       InterpSpine m.val env φ d ρ args vs →
-      ∃ rest, TeleFitI m.val env φ d ρ ty args vs rest := by
+      ∃ rest, TeleFitI V m.val env φ d ρ ty args vs rest := by
   intro fl hfl d ρ ty args
   induction args generalizing fl ty with
   | nil =>
@@ -1260,6 +1260,94 @@ private theorem iota_sound {m : EnvModel V env} {fuel : Nat}
         exact (Option.some.inj himaj).symm
       · exact nomatch hiw0
   obtain ⟨ws, hmxsA, hmsp, hmchain, htveq, hwslen⟩ := hctor
+  -- the certified telescope fits
+  obtain ⟨hRtf, -, -, hRtb, -, -⟩ := m.wf _ (find?_mem hfc)
+  have hRhf : (cv.type.instantiateLevelParams cv.levelParams us).hasFvar
+      = false := by
+    rw [hasFvar_instantiateLevelParams]; exact hRtf
+  have hRw : WScoped d (cv.type.instantiateLevelParams cv.levelParams us) :=
+    WScoped.of_not_hasFvar hRhf
+  have hRb : (cv.type.instantiateLevelParams cv.levelParams
+      us).looseBVarsBounded 0 = true := by
+    rw [looseBVarsBounded_instantiateLevelParams]; exact hRtb
+  have hRA : AnnotOk V m.val env φ d ρ
+      (cv.type.instantiateLevelParams cv.levelParams us) := by
+    obtain ⟨hA0, -⟩ := m.annot_ok _ (find?_mem hfc)
+      (Level.substFn φ cv.levelParams us)
+    exact AnnotOk.closed_invariant hRhf d ρ
+      (AnnotOk.instLevels m.val_params _ 0 (rho0 V) hA0)
+  obtain ⟨T, hRT⟩ : ∃ T, interpExpr V m.val env φ d ρ
+      (cv.type.instantiateLevelParams cv.levelParams us) = some T := by
+    obtain ⟨T0, hT0, -⟩ := m.mem_type _ (find?_mem hfc)
+      (Level.substFn φ cv.levelParams us)
+    refine ⟨T0, ?_⟩
+    rw [interp_closed_invariant hRhf d ρ]
+    unfold interpClosed
+    rw [interp_instLevels m.val_params]
+    exact hT0
+  have hcertargs : ∀ x ∈ ((Expr.app fe ae).getAppArgs.take
+      (nP + nM + nm + ni) ++ [major]),
+      WScoped d x ∧ x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x ∧
+      FvarsOk V m.val env φ d ρ x ∧ AnnotOk V m.val env φ d ρ x := by
+    intro x hx
+    rcases List.mem_append.mp hx with hx | hx
+    · have hxm := List.mem_of_mem_take hx
+      exact ⟨hargsW _ hxm, hargsB _ hxm, hargsL _ hxm, hargsO _ hxm,
+        hxsA _ hxm⟩
+    · obtain rfl : x = major := by simpa using hx
+      exact ⟨hmajW, hmajB, hmajL, hmajO, hmA⟩
+  have hspR : InterpSpine m.val env φ d ρ
+      ((Expr.app fe ae).getAppArgs.take (nP + nM + nm + ni) ++ [major])
+      (vsi ++ [tvv]) :=
+    InterpSpine.append hspi ⟨himaj, trivial⟩
+  obtain ⟨restR, hfitIR⟩ := certs_fit ihAll fuel (Nat.le_succ fuel)
+    _ _ _ T hcerts hRw hRb (Expr.LeavesBounded.of_not_hasFvar hRhf)
+    (FvarsOk.of_not_hasFvar hRhf) hRA hRT hcertargs hspR
+  obtain ⟨dR, ρR, restR', hfitR⟩ := TeleFitI.toTeleFit hfitIR hRw (by
+    rw [show ((Expr.app fe ae).getAppArgs.take (nP + nM + nm + ni) ++
+        [major]).length = nP + nM + nm + ni + 1 from by
+      rw [List.length_append, List.length_take]
+      simp [hlen]]
+    exact stripPis_instantiateLevelParams_isSome _ _ _ har1)
+  obtain ⟨hCtf, -, -, hCtb, -, -⟩ := m.wf _ (find?_mem hfj)
+  have hChf : (cvj.type.instantiateLevelParams cvj.levelParams usj).hasFvar
+      = false := by
+    rw [hasFvar_instantiateLevelParams]; exact hCtf
+  have hCw : WScoped d (cvj.type.instantiateLevelParams cvj.levelParams
+      usj) := WScoped.of_not_hasFvar hChf
+  have hCb : (cvj.type.instantiateLevelParams cvj.levelParams
+      usj).looseBVarsBounded 0 = true := by
+    rw [looseBVarsBounded_instantiateLevelParams]; exact hCtb
+  have hCA : AnnotOk V m.val env φ d ρ
+      (cvj.type.instantiateLevelParams cvj.levelParams usj) := by
+    obtain ⟨hA0, -⟩ := m.annot_ok _ (find?_mem hfj)
+      (Level.substFn φ cvj.levelParams usj)
+    exact AnnotOk.closed_invariant hChf d ρ
+      (AnnotOk.instLevels m.val_params _ 0 (rho0 V) hA0)
+  obtain ⟨TC, hCT⟩ : ∃ TC, interpExpr V m.val env φ d ρ
+      (cvj.type.instantiateLevelParams cvj.levelParams usj) = some TC := by
+    obtain ⟨T0, hT0, -⟩ := m.mem_type _ (find?_mem hfj)
+      (Level.substFn φ cvj.levelParams usj)
+    refine ⟨T0, ?_⟩
+    rw [interp_closed_invariant hChf d ρ]
+    unfold interpClosed
+    rw [interp_instLevels m.val_params]
+    exact hT0
+  have hcertmargs : ∀ x ∈ major.getAppArgs,
+      WScoped d x ∧ x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x ∧
+      FvarsOk V m.val env φ d ρ x ∧ AnnotOk V m.val env φ d ρ x := by
+    intro x hxm
+    exact ⟨hmajW.getAppArgs _ hxm,
+      looseBVarsBounded_getAppArgs hmajB _ hxm,
+      fun l hl => hmajL l (fvarLeaves_getAppArgs hxm l hl),
+      FvarsOk.of_subset (fun l hl => fvarLeaves_getAppArgs hxm l hl) hmajO,
+      hmxsA _ hxm⟩
+  obtain ⟨restC, hfitIC⟩ := certs_fit ihAll fuel (Nat.le_succ fuel)
+    _ _ _ TC hmcerts hCw hCb (Expr.LeavesBounded.of_not_hasFvar hChf)
+    (FvarsOk.of_not_hasFvar hChf) hCA hCT hcertmargs hmsp
+  obtain ⟨dC, ρC, restC', hfitC⟩ := TeleFitI.toTeleFit hfitIC hCw (by
+    rw [show major.getAppArgs.length = cnP + cnF from hml1]
+    exact stripPis_instantiateLevelParams_isSome _ _ _ har2)
   -- the rule's fold facts
   obtain ⟨hrhsA, hfolds⟩ := m.rec_rules c cv nP nM nm ni rules hfc r
     (List.mem_of_find?_eq_some hrule)
@@ -1323,6 +1411,8 @@ private theorem iota_sound {m : EnvModel V env} {fuel : Nat}
     rfl
   obtain ⟨R, hRi, hfoldEq, hRchain⟩ := hfolds cvj cnP cnF hfj _ _
     vsi ws tvv hvsilen hwslen hchain' hmchain htveq hparameq hψeq
+    ⟨φ, us, usj, d, ρ, dR, ρR, restR', dC, ρC, restC', rfl, rfl,
+      hfitR, hfitC⟩
   -- the reduct's interpretation and annotation chain
   have hRinst : interpExpr V m.val env φ d ρ
       (r.rhs.instantiateLevelParams cv.levelParams us) = some R := by

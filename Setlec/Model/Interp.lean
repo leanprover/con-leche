@@ -162,6 +162,43 @@ def rho0 : Nat → V := fun _ => SetTheory.empty
 def interpClosed (cval : ConstVal V) (env : Env) (φ : Name → Nat) (e : Expr) : Option V :=
   interpExpr V cval env φ 0 (rho0 V) e
 
+/-- Values fitting an opened `∀`-telescope: each value is a member of
+the interpretation of the corresponding (progressively instantiated)
+domain; `d'`, `ρ'`, `rest` describe the fully opened residual body. -/
+inductive TeleFit (V : Type u) [SetTheory V] (cval : ConstVal V)
+    (env : Env) (φ : Name → Nat) :
+    Nat → (Nat → V) → Expr → List V → Nat → (Nat → V) → Expr → Prop
+  | nil {d ρ e} : TeleFit V cval env φ d ρ e [] d ρ e
+  | cons {d ρ n ty body m x xs d' ρ' rest A} :
+      interpExpr V cval env φ d ρ ty = some A →
+      x ∈ˢ A →
+      TeleFit V cval env φ (d + 1) (updV V ρ d x)
+        (body.instantiate1 (.fvar d n ty)) xs d' ρ' rest →
+      TeleFit V cval env φ d ρ (.forallE n ty body m) (x :: xs) d' ρ' rest
+
+
+/-- Values fitting a `∀`-telescope along an *expression* spine: each
+argument expression interprets to a member of the corresponding domain,
+and the telescope is instantiated one argument at a time (mirroring the
+iota certificates' walk).  The last index is the fully instantiated
+residual body. -/
+inductive TeleFitI (V : Type u) [SetTheory V] (cval : ConstVal V)
+    (env : Env) (φ : Name → Nat)
+    (d : Nat) (ρ : Nat → V) : Expr → List Expr → List V → Expr → Prop
+  | nil {e} : TeleFitI V cval env φ d ρ e [] [] e
+  | cons {n ty body m arg args x xs A rest} :
+      interpExpr V cval env φ d ρ ty = some A →
+      interpExpr V cval env φ d ρ arg = some x →
+      x ∈ˢ A →
+      Expr.fvarsBelow d body →
+      Expr.WScoped d arg →
+      arg.looseBVarsBounded 0 = true →
+      AnnotOk V cval env φ d ρ arg →
+      TeleFitI V cval env φ d ρ (body.instantiate1 arg) args xs rest →
+      TeleFitI V cval env φ d ρ (.forallE n ty body m) (arg :: args) (x :: xs)
+        rest
+
+
 /-- Fold facts for every stored recursor rule: the recursor's value
 applied through its argument spine (`args`, then the major `tv`), with
 the major a constructor-value spine, equals the interpreted rule rhs
@@ -185,6 +222,17 @@ def RecRulesOk (env : Env) (val : ConstVal V) : Prop :=
           tv = SpineFold V (val (RecRule.ctor r) ψj) margs →
           margs.take cnP = (args ++ [tv]).take cnP →
           (∀ p ∈ cvj.levelParams, ψj p = ψ p) →
+          (∃ (φ' : Name → Nat) (us usj : List Level) (d : Nat) (ρ : Nat → V)
+              (d₁ : Nat) (ρ₁ : Nat → V) (rest₁ : Expr)
+              (d₂ : Nat) (ρ₂ : Nat → V) (rest₂ : Expr),
+            ψ = Level.substFn φ' cv.levelParams us ∧
+            ψj = Level.substFn φ' cvj.levelParams usj ∧
+            TeleFit V val env φ' d ρ
+              (cv.type.instantiateLevelParams cv.levelParams us)
+              (args ++ [tv]) d₁ ρ₁ rest₁ ∧
+            TeleFit V val env φ' d ρ
+              (cvj.type.instantiateLevelParams cvj.levelParams usj)
+              margs d₂ ρ₂ rest₂) →
           ∃ R, interpClosed V val env ψ (RecRule.rhs r) = some R ∧
             SpineFold V (val n ψ) (args ++ [tv]) =
               SpineFold V R (args.take (nP + nM + nm) ++ margs.drop cnP) ∧

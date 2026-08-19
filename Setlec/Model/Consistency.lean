@@ -122,6 +122,17 @@ private def RecMemberOk (env' : Env) (val' : ConstVal V)
           tv = SpineFold V (val' (RecRule.ctor r) ψj) margs →
           margs.take cnP = (args ++ [tv]).take cnP →
           (∀ p ∈ cvj.levelParams, ψj p = ψ p) →
+          (∃ (φ' : Name → Nat) (us usj : List Level) (d : Nat) (ρ : Nat → V)
+              (d₁ : Nat) (ρ₁ : Nat → V) (rest₁ : Expr)
+              (d₂ : Nat) (ρ₂ : Nat → V) (rest₂ : Expr),
+            ψ = Level.substFn φ' cvR.levelParams us ∧
+            ψj = Level.substFn φ' cvj.levelParams usj ∧
+            TeleFit V val' env' φ' d ρ
+              (cvR.type.instantiateLevelParams cvR.levelParams us)
+              (args ++ [tv]) d₁ ρ₁ rest₁ ∧
+            TeleFit V val' env' φ' d ρ
+              (cvj.type.instantiateLevelParams cvj.levelParams usj)
+              margs d₂ ρ₂ rest₂) →
           ∃ R, interpClosed V val' env' ψ (RecRule.rhs r) = some R ∧
             SpineFold V (val' ci.name ψ) (args ++ [tv]) =
               SpineFold V R (args.take (nP + nM + nm) ++ margs.drop cnP) ∧
@@ -181,6 +192,7 @@ private theorem RecRulesOk.cons {env : Env} (m : EnvModel V env)
       fun ψ => hagree n (by rw [hfp]; rfl) ψ
     refine ⟨fun ψ => hAtrans _ hrres ψ (hA ψ), ?_⟩
     intro cvj cnP cnF hfj ψ ψj args margs tv hl hml hch hmch htv hpeq hlev
+      hfit
     rw [Env.find?_cons] at hfj
     split at hfj
     · next hnc =>
@@ -196,8 +208,28 @@ private theorem RecRulesOk.cons {env : Env} (m : EnvModel V env)
         fun ψ' => hagree _ (by rw [hfj]; rfl) ψ'
       rw [hvaln] at hch
       rw [hvalc] at hmch htv
+      have hfit' : ∃ (φ' : Name → Nat) (us usj : List Level) (d : Nat)
+          (ρ : Nat → V) (d₁ : Nat) (ρ₁ : Nat → V) (rest₁ : Expr)
+          (d₂ : Nat) (ρ₂ : Nat → V) (rest₂ : Expr),
+          ψ = Level.substFn φ' cvR.levelParams us ∧
+          ψj = Level.substFn φ' cvj.levelParams usj ∧
+          TeleFit V m.val env φ' d ρ
+            (cvR.type.instantiateLevelParams cvR.levelParams us)
+            (args ++ [tv]) d₁ ρ₁ rest₁ ∧
+          TeleFit V m.val env φ' d ρ
+            (cvj.type.instantiateLevelParams cvj.levelParams usj)
+            margs d₂ ρ₂ rest₂ := by
+        obtain ⟨φ', us, usj, d, ρ, d₁, ρ₁, rest₁, d₂, ρ₂, rest₂,
+          hψ, hψj, hf1, hf2⟩ := hfit
+        obtain ⟨-, -, hRres, -, -, -⟩ := m.wf _ (find?_mem hfp)
+        obtain ⟨-, -, hCres, -, -, -⟩ := m.wf _ (find?_mem hfj)
+        exact ⟨φ', us, usj, d, ρ, d₁, ρ₁, rest₁, d₂, ρ₂, rest₂, hψ, hψj,
+          TeleFit.env_shrink hfind' hagree hf1
+            (by rw [Expr.constsResolve_instantiateLevelParams]; exact hRres),
+          TeleFit.env_shrink hfind' hagree hf2
+            (by rw [Expr.constsResolve_instantiateLevelParams]; exact hCres)⟩
       obtain ⟨R, hRi, hfoldEq, hRch⟩ := hfold cvj cnP cnF hfj ψ ψj
-        args margs tv hl hml hch hmch htv hpeq hlev
+        args margs tv hl hml hch hmch htv hpeq hlev hfit'
       refine ⟨R, ?_, ?_, hRch⟩
       · rw [htrans _ hrres ψ]
         exact hRi
@@ -1097,7 +1129,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
             refine ⟨fun ψ => annotOk_natRecZero_rhs (cval := val') (ψ := ψ)
               rfl hvalN' rfl hvalZ' rfl hvalSc', ?_⟩
             intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
-              htv _hpeq _hlev
+              htv _hpeq _hlev _hfit
             have hje := Option.some.inj hfj
             simp only [natZeroA] at hje
             injection hje with hj1 hj2 hj3
@@ -1136,7 +1168,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
             refine ⟨fun ψ => annotOk_natRecSucc_rhs (cval := val') (ψ := ψ)
               rfl hvalN' rfl hvalZ' rfl hvalSc' hfRc' hvalRc', ?_⟩
             intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
-              htv _hpeq _hlev
+              htv _hpeq _hlev _hfit
             have hje := Option.some.inj hfj
             simp only [natSuccA] at hje
             injection hje with hj1 hj2 hj3
@@ -1402,7 +1434,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
           · refine ⟨fun ψ => annotOk_psigmaRec_rhs (cval := val') (ψ := ψ)
               rfl hvalS' rfl hvalM', ?_⟩
             intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
-              htv _hpeq _hlev
+              htv _hpeq _hlev _hfit
             have hje := Option.some.inj hfj
             simp only [psigmaMkA] at hje
             injection hje with hj1 hj2 hj3
@@ -1610,7 +1642,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
           · refine ⟨fun ψ => annotOk_eqRec_rhs (cval := val') (ψ := ψ)
               rfl hvalE' rfl hvalR', ?_⟩
             intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
-              htv _hpeq _hlev
+              htv _hpeq _hlev _hfit
             have hje := Option.some.inj hfj
             simp only [eqReflA] at hje
             injection hje with hj1 hj2 hj3
@@ -1805,7 +1837,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         · refine ⟨fun ψ => annotOk_punitRec_rhs (cval := val') (ψ := ψ)
             rfl hvalP' rfl hvalU', ?_⟩
           intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
-            htv _hpeq _hlev
+            htv _hpeq _hlev _hfit
           have hje := Option.some.inj hfj
           simp only [punitUnitA] at hje
           injection hje with hj1 hj2 hj3

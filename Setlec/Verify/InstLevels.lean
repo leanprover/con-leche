@@ -102,6 +102,22 @@ theorem looseBVarsBounded_instantiateLevelParams (ks : List Name) (us : List Lev
   intro e
   induction e <;> intro k <;> simp_all [instantiateLevelParams, looseBVarsBounded]
 
+/-- Level instantiation preserves a `∀`-telescope's arity. -/
+theorem stripPis_instantiateLevelParams_isSome (ks : List Name)
+    (us : List Level) :
+    ∀ (k : Nat) {e : Expr}, (e.stripPis k).isSome →
+      ((e.instantiateLevelParams ks us).stripPis k).isSome := by
+  intro k
+  induction k with
+  | zero => intro e _; simp [Expr.stripPis]
+  | succ k ih =>
+    intro e h
+    match e, h with
+    | .forallE n ty body m, h =>
+      simp only [Expr.instantiateLevelParams, Expr.stripPis,
+        Option.isSome_map] at h ⊢
+      exact ih h
+
 /-- Level instantiation commutes with binder opening. -/
 theorem instantiateLevelParams_instantiate1 (ks : List Name) (us : List Level)
     {d : Nat} {n : Name} {ty : Expr} :
