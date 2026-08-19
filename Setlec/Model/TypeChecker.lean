@@ -4,6 +4,7 @@ import Setlec.Model.Subst
 import Setlec.Verify.Leaves
 import Setlec.Verify.InferLemmas
 import Setlec.Verify.InferLeaves
+import Setlec.Model.BasisIota
 
 /-!
 # Soundness of the type checker functions
@@ -176,7 +177,7 @@ private theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
       obtain ⟨c, us, cvi, cvr, nP, nM, nm, r, rfl, hfind, hfr, hrf⟩ :=
         isUnitLikeTy_inv hux
       -- identify the unit type through the pinned recursor
-      obtain ⟨hpr, -⟩ := m.ind_ok.right.right.right _ _ hfr rfl
+      obtain ⟨hpr, -⟩ := m.ind_ok.right.right.right.left _ _ hfr rfl
       have hcn : c = punitName := by
         rcases pinnedInfo_recInfo_cases hpr.symm with hc | hc | hc | hc
         · rw [hc] at hpr
@@ -192,7 +193,7 @@ private theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
           exact nomatch h2
         · injection hc
       subst hcn
-      obtain ⟨-, hval⟩ := m.ind_ok.right.right.right _ _ hfind rfl
+      obtain ⟨-, hval⟩ := m.ind_ok.right.right.right.left _ _ hfind rfl
       rw [hTxi] at hiw
       simp only [interpExpr, hfind] at hiw
       by_cases hlen : us.length =
@@ -244,7 +245,7 @@ private theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
     hlev, hd1, hd2⟩ := pairEtaCert_inv h
   -- identify the constructor and its structure type through the
   -- pinned declarations
-  obtain ⟨hpc, -⟩ := m.ind_ok.right.right.right _ _ hfindM rfl
+  obtain ⟨hpc, -⟩ := m.ind_ok.right.right.right.left _ _ hfindM rfl
   have hcn : c = psigmaMkName := by
     rcases pinnedInfo_ctorInfo_cases hpc.symm with hc | hc | hc | hc | hc
     · rw [hc] at hpc
@@ -257,7 +258,7 @@ private theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
     · rw [hc] at hpc
       exact nomatch (congrArg ConstantInfo.ctorNP hpc)
   subst hcn
-  obtain ⟨hpr, -⟩ := m.ind_ok.right.right.right _ _ hfr rfl
+  obtain ⟨hpr, -⟩ := m.ind_ok.right.right.right.left _ _ hfr rfl
   have hcn' : c' = psigmaName := by
     rcases pinnedInfo_recInfo_cases hpr.symm with hc' | hc' | hc' | hc'
     · rw [hc'] at hpr
@@ -751,6 +752,989 @@ private theorem etaBranch_sound' {m : EnvModel V env} {fuel : Nat}
   exact (etaCert_sound ihwL ihdL ihiL hec hwb hwa hbb hba hLbb hLba
     hokb hoka hab haa hvb hva).symm
 
+/-- Soundness of one iota step: the reduct's interpretation matches the
+original application spine's, its annotations are truthful, and it stays
+well-scoped — everything the whnf recursion needs to continue. -/
+private theorem iota_sound {m : EnvModel V env} {fuel : Nat}
+    (ihAll : ∀ f, f ≤ fuel →
+      WhnfClaims m φ f ∧ DefEqClaims m φ f ∧ InferClaims m φ f)
+    {d : Nat} {fe ae e'' : Expr} {ρ : Nat → V}
+    (hio : iotaRec env fuel d (.app fe ae) = .ok (some e''))
+    (hw : WScoped d (Expr.app fe ae))
+    (hb : (Expr.app fe ae).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (Expr.app fe ae))
+    (hok : FvarsOk V m.val env φ d ρ (Expr.app fe ae))
+    (ha : AnnotOk V m.val env φ d ρ (Expr.app fe ae)) :
+    (interpExpr V m.val env φ d ρ e'' =
+      interpExpr V m.val env φ d ρ (Expr.app fe ae) ∧
+     AnnotOk V m.val env φ d ρ e'') ∧
+    WScoped d e'' ∧ e''.looseBVarsBounded 0 = true ∧
+    Expr.LeavesBounded e'' ∧ FvarsOk V m.val env φ d ρ e'' := by
+  match fuel, ihAll, hio with
+  | 0, ihAll, hio => exact nomatch hio
+  | fuel + 1, ihAll, hio =>
+  obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major, cj, usj, cvj, cnP, cnF, r,
+    hfn, hfc, hlen, hmaj, hmfn, hfj, hrule, hml1, hml2, hcerts, heout⟩ :=
+    iotaRec_inv hio
+  obtain ⟨ihwL, ihdL, ihiL⟩ := ihAll fuel (Nat.le_succ fuel)
+  -- generic well-scopedness of the reduct
+  have hargsW : ∀ x ∈ (Expr.app fe ae).getAppArgs, WScoped d x :=
+    fun x hx => hw.getAppArgs x hx
+  have hargsB : ∀ x ∈ (Expr.app fe ae).getAppArgs,
+      x.looseBVarsBounded 0 = true :=
+    fun x hx => looseBVarsBounded_getAppArgs hb x hx
+  have hargsL : ∀ x ∈ (Expr.app fe ae).getAppArgs, Expr.LeavesBounded x :=
+    fun x hx l hl => hLb l (fvarLeaves_getAppArgs hx l hl)
+  have hargsO : ∀ x ∈ (Expr.app fe ae).getAppArgs,
+      FvarsOk V m.val env φ d ρ x :=
+    fun x hx => FvarsOk.of_subset (fun l hl => fvarLeaves_getAppArgs hx l hl)
+      hok
+  have hmajarg := getD_mem (l := (Expr.app fe ae).getAppArgs)
+    (i := nP + nM + nm + ni) (dflt := Expr.bvar 0) (by omega)
+  have hmajW : WScoped d major := whnf_WScoped m.wf fuel hmaj
+    (hargsW _ hmajarg)
+  have hmajB : major.looseBVarsBounded 0 = true :=
+    whnf_looseBVars m.wf fuel hmaj (hargsB _ hmajarg)
+  have hmajLsub := whnf_fvarLeaves m.wf fuel hmaj
+  have hmajL : Expr.LeavesBounded major :=
+    fun l hl => hargsL _ hmajarg l (hmajLsub l hl)
+  have hmajO : FvarsOk V m.val env φ d ρ major :=
+    FvarsOk.of_subset hmajLsub (hargsO _ hmajarg)
+  obtain ⟨-, -, -, -, -, hrules⟩ := m.wf _ (find?_mem hfc)
+  obtain ⟨hrf, hrlp, hrres, hrlb⟩ := hrules cv nP nM nm ni rules rfl r
+    (List.mem_of_find?_eq_some hrule)
+  have hclInst : (r.rhs.instantiateLevelParams cv.levelParams
+      us).hasFvar = false := by
+    rw [hasFvar_instantiateLevelParams]; exact hrf
+  have hrhsW : WScoped d (r.rhs.instantiateLevelParams cv.levelParams us) :=
+    WScoped.of_not_hasFvar hclInst
+  have hallW : ∀ x ∈ ((Expr.app fe ae).getAppArgs.take (nP + nM + nm) ++
+      major.getAppArgs.drop cnP), WScoped d x := by
+    intro x hx
+    rcases List.mem_append.mp hx with hx | hx
+    · exact hargsW _ (List.mem_of_mem_take hx)
+    · exact hmajW.getAppArgs _ (List.mem_of_mem_drop hx)
+  have hallB : ∀ x ∈ ((Expr.app fe ae).getAppArgs.take (nP + nM + nm) ++
+      major.getAppArgs.drop cnP), x.looseBVarsBounded 0 = true := by
+    intro x hx
+    rcases List.mem_append.mp hx with hx | hx
+    · exact hargsB _ (List.mem_of_mem_take hx)
+    · exact looseBVarsBounded_getAppArgs hmajB _ (List.mem_of_mem_drop hx)
+  have hallL : ∀ x ∈ ((Expr.app fe ae).getAppArgs.take (nP + nM + nm) ++
+      major.getAppArgs.drop cnP), Expr.LeavesBounded x := by
+    intro x hx
+    rcases List.mem_append.mp hx with hx | hx
+    · exact hargsL _ (List.mem_of_mem_take hx)
+    · exact fun l hl => hmajL l
+        (fvarLeaves_getAppArgs (List.mem_of_mem_drop hx) l hl)
+  have hallO : ∀ x ∈ ((Expr.app fe ae).getAppArgs.take (nP + nM + nm) ++
+      major.getAppArgs.drop cnP), FvarsOk V m.val env φ d ρ x := by
+    intro x hx
+    rcases List.mem_append.mp hx with hx | hx
+    · exact hargsO _ (List.mem_of_mem_take hx)
+    · exact FvarsOk.of_subset
+        (fun l hl => fvarLeaves_getAppArgs (List.mem_of_mem_drop hx) l hl)
+        hmajO
+  have hscoped : WScoped d e'' ∧ e''.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded e'' ∧ FvarsOk V m.val env φ d ρ e'' := by
+    subst heout
+    refine ⟨Expr.WScoped.mkAppN hrhsW hallW,
+      looseBVarsBounded_mkAppN
+        (by rw [looseBVarsBounded_instantiateLevelParams]; exact hrlb)
+        hallB, ?_, ?_⟩
+    · intro l hl
+      rcases fvarLeaves_mkAppN hl with hl' | ⟨x, hx, hlx⟩
+      · rw [fvarLeaves_eq_nil_of_not_hasFvar hclInst] at hl'
+        cases hl'
+      · exact hallL x hx l hlx
+    · intro l hl
+      rcases fvarLeaves_mkAppN hl with hl' | ⟨x, hx, hlx⟩
+      · rw [fvarLeaves_eq_nil_of_not_hasFvar hclInst] at hl'
+        cases hl'
+      · exact hallO x hx l hlx
+  refine ⟨?_, hscoped⟩
+  -- identify the recursor through the pinned declarations
+  obtain ⟨hpinR, hvalRec⟩ := m.ind_ok.right.right.right.left c _ hfc rfl
+  have hblocks := m.ind_ok.right.right.right.right
+  rcases pinnedInfo_recInfo_cases hpinR.symm with hc | hc | hc | hc
+  · -- Eq.rec
+    subst hc
+    have hpico : pinnedInfo (eqName.str "rec") = eqRecA := rfl
+    have hpin' := hpinR.trans hpico
+    simp only [eqRecA] at hpin'
+    injection hpin' with h1 h2 h3 h4 h5 h6
+    subst h1 h2 h3 h4 h5 h6
+    obtain ⟨hfE, hfRfl⟩ := (hblocks.left) _ _ _ _ _ _ hfc
+    obtain ⟨-, hvalE0⟩ := m.ind_ok.right.right.right.left _ _ hfE rfl
+    obtain ⟨-, hvalR0⟩ := m.ind_ok.right.right.right.left _ _ hfRfl rfl
+    have hvalE : ∀ ψ' : Name → Nat, m.val eqName ψ' = eqVal V ψ' :=
+      fun ψ' => (hvalE0 ψ').trans rfl
+    have hvalRfl : ∀ ψ' : Name → Nat,
+        m.val eqReflName ψ' = eqReflVal V ψ' :=
+      fun ψ' => (hvalR0 ψ').trans rfl
+    -- destructure the spine (6 arguments)
+    rcases hargsE : (Expr.app fe ae).getAppArgs with
+      _ | ⟨x1, _ | ⟨x2, _ | ⟨x3, _ | ⟨x4, _ | ⟨x5, _ | ⟨x6,
+        _ | ⟨x7, rest⟩⟩⟩⟩⟩⟩⟩ <;>
+      rw [hargsE] at hlen <;> simp at hlen
+    have hspine : Expr.app fe ae = Expr.app (Expr.app (Expr.app (Expr.app
+        (Expr.app (Expr.app (Expr.const (eqName.str "rec") us) x1) x2) x3)
+        x4) x5) x6 := by
+      have := (Expr.mkAppN_getApp (Expr.app fe ae)).symm
+      rw [hfn, hargsE] at this
+      simpa [Expr.mkAppN] using this
+    injection hspine with hfe hae
+    subst hfe hae
+    -- the annotation chain
+    simp only [AnnotOk] at ha
+    obtain ⟨⟨⟨⟨⟨⟨haC, hax1, v0, x1v, vE1, A1, B1, hi0, hi1, hp1, hm1, hf1⟩,
+      hax2, v1, x2v, vE2, A2, B2, hi01, hi2, hp2, hm2, hf2⟩,
+      hax3, v2, x3v, vE3, A3, B3, hi012, hi3, hp3, hm3, hf3⟩,
+      hax4, v3, x4v, vE4, A4, B4, hi0123, hi4, hp4, hm4, hf4⟩,
+      hax5, v4, x5v, vE5, A5, B5, hi01234, hi5, hp5, hm5, hf5⟩,
+      hax6, v5, x6v, vE6, A6, B6, hi012345, hi6, hp6, hm6, hf6⟩ := ha
+    have hv1eq : v1 = SetTheory.app v0 x1v := by
+      have : interpExpr V m.val env φ d ρ
+          (Expr.app (Expr.const (eqName.str "rec") us) x1) =
+          some (SetTheory.app v0 x1v) := by
+        rw [interpExpr, hi0, hi1]
+      rw [this] at hi01
+      exact (Option.some.inj hi01).symm
+    subst hv1eq
+    have hv2eq : v2 = SetTheory.app (SetTheory.app v0 x1v) x2v := by
+      have : interpExpr V m.val env φ d ρ
+          (Expr.app (Expr.app (Expr.const (eqName.str "rec") us) x1) x2) =
+          some (SetTheory.app (SetTheory.app v0 x1v) x2v) := by
+        rw [interpExpr, hi01, hi2]
+      rw [this] at hi012
+      exact (Option.some.inj hi012).symm
+    subst hv2eq
+    have hv3eq : v3 = SetTheory.app (SetTheory.app (SetTheory.app v0 x1v)
+        x2v) x3v := by
+      have : interpExpr V m.val env φ d ρ
+          (Expr.app (Expr.app (Expr.app (Expr.const (eqName.str "rec") us)
+            x1) x2) x3) =
+          some (SetTheory.app (SetTheory.app (SetTheory.app v0 x1v) x2v)
+            x3v) := by
+        rw [interpExpr, hi012, hi3]
+      rw [this] at hi0123
+      exact (Option.some.inj hi0123).symm
+    subst hv3eq
+    have hv4eq : v4 = SetTheory.app (SetTheory.app (SetTheory.app
+        (SetTheory.app v0 x1v) x2v) x3v) x4v := by
+      have : interpExpr V m.val env φ d ρ
+          (Expr.app (Expr.app (Expr.app (Expr.app
+            (Expr.const (eqName.str "rec") us) x1) x2) x3) x4) =
+          some (SetTheory.app (SetTheory.app (SetTheory.app
+            (SetTheory.app v0 x1v) x2v) x3v) x4v) := by
+        rw [interpExpr, hi0123, hi4]
+      rw [this] at hi01234
+      exact (Option.some.inj hi01234).symm
+    subst hv4eq
+    have hv5eq : v5 = SetTheory.app (SetTheory.app (SetTheory.app
+        (SetTheory.app (SetTheory.app v0 x1v) x2v) x3v) x4v) x5v := by
+      have : interpExpr V m.val env φ d ρ
+          (Expr.app (Expr.app (Expr.app (Expr.app (Expr.app
+            (Expr.const (eqName.str "rec") us) x1) x2) x3) x4) x5) =
+          some (SetTheory.app (SetTheory.app (SetTheory.app
+            (SetTheory.app (SetTheory.app v0 x1v) x2v) x3v) x4v) x5v) := by
+        rw [interpExpr, hi01234, hi5]
+      rw [this] at hi012345
+      exact (Option.some.inj hi012345).symm
+    subst hv5eq
+    simp only [interpExpr, hfc] at hi0
+    split at hi0
+    case isFalse => exact nomatch hi0
+    obtain hv0 := (Option.some.inj hi0)
+    have hrecv : v0 = eqRecVal V (Level.substFn φ
+        [Name.anonymous.str "u_1", Name.anonymous.str "u"] us) := by
+      rw [← hv0, hvalRec]
+      rfl
+    subst hrecv
+    -- the constructor rule and major shape
+    simp only [List.find?] at hrule
+    revert hrule
+    cases hbeq : (((Name.anonymous.str "Eq").str "refl") == cj) with
+    | false => intro hrule; exact nomatch hrule
+    | true =>
+    intro hrule
+    dsimp only at hrule
+    obtain rfl := Option.some.inj hrule
+    obtain rfl := eq_of_beq hbeq
+    obtain ⟨hpinC, -⟩ := m.ind_ok.right.right.right.left _ _ hfj rfl
+    have hpinC' := hpinC.trans
+      (show pinnedInfo (eqName.str "refl") = eqReflA from rfl)
+    simp only [eqReflA] at hpinC'
+    injection hpinC' with hj1 hj2 hj3
+    subst hj1 hj2 hj3
+    have hdrop : major.getAppArgs.drop 2 = [] :=
+      List.drop_eq_nil_of_le (by omega)
+    have heout' : e'' = Expr.app (Expr.app (Expr.app (Expr.app
+        (eqRecRhsA.instantiateLevelParams
+          [Name.anonymous.str "u_1", Name.anonymous.str "u"] us) x1) x2)
+        x3) x4 := by
+      rw [heout, hdrop]
+      rfl
+    subst heout'
+    -- apply the rule glue
+    obtain ⟨R, hRi, hfold, ⟨vS1, AS1, BS1, hs1p, hs1m, hs1f⟩,
+      ⟨vS2, AS2, BS2, hs2p, hs2m, hs2f⟩,
+      ⟨vS3, AS3, BS3, hs3p, hs3m, hs3f⟩,
+      ⟨vS4, AS4, BS4, hs4p, hs4m, hs4f⟩⟩ :=
+      eqIota_claims (env := env)
+        (ψ := Level.substFn φ
+          [Name.anonymous.str "u_1", Name.anonymous.str "u"] us)
+        hfE hvalE hfRfl hvalRfl
+        hp1 hm1 hp2 hm2 hp3 hm3 hp4 hm4 hp5 hm5 hp6 hm6
+    have hclI : (eqRecRhsA.instantiateLevelParams
+        [Name.anonymous.str "u_1", Name.anonymous.str "u"] us).hasFvar =
+        false := by
+      rw [hasFvar_instantiateLevelParams]
+      exact hrf
+    have hRinst : interpExpr V m.val env φ d ρ
+        (eqRecRhsA.instantiateLevelParams
+          [Name.anonymous.str "u_1", Name.anonymous.str "u"] us) = some R := by
+      rw [interp_closed_invariant hclI d ρ]
+      unfold interpClosed
+      rw [interp_instLevels m.val_params]
+      exact hRi
+    have hArhs : AnnotOk V m.val env φ d ρ
+        (eqRecRhsA.instantiateLevelParams
+          [Name.anonymous.str "u_1", Name.anonymous.str "u"] us) := by
+      have h0 := annotOk_eqRec_rhs (env := env)
+        (ψ := Level.substFn φ
+          [Name.anonymous.str "u_1", Name.anonymous.str "u"] us)
+        hfE hvalE hfRfl hvalRfl
+      have h1 := AnnotOk.instLevels m.val_params eqRecRhsA 0 (rho0 V) h0
+      exact AnnotOk.closed_invariant hclI d ρ h1
+    have hRx1 : interpExpr V m.val env φ d ρ (Expr.app
+        (eqRecRhsA.instantiateLevelParams
+          [Name.anonymous.str "u_1", Name.anonymous.str "u"] us) x1) =
+        some (SetTheory.app R x1v) := by
+      rw [interpExpr, hRinst, hi1]
+    have hRx2 : interpExpr V m.val env φ d ρ (Expr.app (Expr.app
+        (eqRecRhsA.instantiateLevelParams
+          [Name.anonymous.str "u_1", Name.anonymous.str "u"] us) x1) x2) =
+        some (SetTheory.app (SetTheory.app R x1v) x2v) := by
+      rw [interpExpr, hRx1, hi2]
+    have hRx3 : interpExpr V m.val env φ d ρ (Expr.app (Expr.app (Expr.app
+        (eqRecRhsA.instantiateLevelParams
+          [Name.anonymous.str "u_1", Name.anonymous.str "u"] us) x1) x2)
+        x3) =
+        some (SetTheory.app (SetTheory.app (SetTheory.app R x1v) x2v)
+          x3v) := by
+      rw [interpExpr, hRx2, hi3]
+    constructor
+    · rw [show interpExpr V m.val env φ d ρ (Expr.app (Expr.app (Expr.app
+          (Expr.app (eqRecRhsA.instantiateLevelParams
+            [Name.anonymous.str "u_1", Name.anonymous.str "u"] us) x1) x2)
+          x3) x4) =
+          some (SetTheory.app (SetTheory.app (SetTheory.app
+            (SetTheory.app R x1v) x2v) x3v) x4v) from by
+        rw [interpExpr, hRx3, hi4]]
+      rw [show interpExpr V m.val env φ d ρ (Expr.app (Expr.app (Expr.app
+          (Expr.app (Expr.app (Expr.app
+            (Expr.const (eqName.str "rec") us) x1) x2) x3) x4) x5) ae) =
+          some (SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app
+            (SetTheory.app (SetTheory.app (eqRecVal V (Level.substFn φ
+              [Name.anonymous.str "u_1", Name.anonymous.str "u"] us)) x1v)
+            x2v) x3v) x4v) x5v) x6v) from by
+        rw [interpExpr, hi012345, hi6]]
+      rw [hfold]
+    · simp only [AnnotOk]
+      exact ⟨⟨⟨⟨hArhs, hax1, R, x1v, vS1, AS1, BS1, hRinst, hi1,
+        hs1p, hs1m, hs1f⟩,
+        hax2, SetTheory.app R x1v, x2v, vS2, AS2, BS2, hRx1, hi2,
+        hs2p, hs2m, hs2f⟩,
+        hax3, SetTheory.app (SetTheory.app R x1v) x2v, x3v,
+        vS3, AS3, BS3, hRx2, hi3, hs3p, hs3m, hs3f⟩,
+        hax4, SetTheory.app (SetTheory.app (SetTheory.app R x1v) x2v) x3v,
+        x4v, vS4, AS4, BS4, hRx3, hi4, hs4p, hs4m, hs4f⟩
+  · -- Nat.rec
+    subst hc
+    have hpico : pinnedInfo (natName.str "rec") = natRecA := rfl
+    have hpin' := hpinR.trans hpico
+    simp only [natRecA] at hpin'
+    injection hpin' with h1 h2 h3 h4 h5 h6
+    subst h1 h2 h3 h4 h5 h6
+    obtain ⟨hfN, hfZ, hfSc⟩ := (hblocks.right.left) _ _ _ _ _ _ hfc
+    obtain ⟨-, hvalN0⟩ := m.ind_ok.right.right.right.left _ _ hfN rfl
+    obtain ⟨-, hvalZ0⟩ := m.ind_ok.right.right.right.left _ _ hfZ rfl
+    obtain ⟨-, hvalSc0⟩ := m.ind_ok.right.right.right.left _ _ hfSc rfl
+    have hvalN : ∀ ψ' : Name → Nat, m.val natName ψ' = omega :=
+      fun ψ' => (hvalN0 ψ').trans rfl
+    have hvalZ : ∀ ψ' : Name → Nat, m.val natZeroName ψ' = natzero :=
+      fun ψ' => (hvalZ0 ψ').trans rfl
+    have hvalSc : ∀ ψ' : Name → Nat,
+        m.val natSuccName ψ' = natSuccVal V ψ' :=
+      fun ψ' => (hvalSc0 ψ').trans rfl
+    have hvalRc : ∀ ψ' : Name → Nat,
+        m.val (natName.str "rec") ψ' = natRecVal V ψ' :=
+      fun ψ' => (hvalRec ψ').trans rfl
+    -- destructure the spine (4 arguments)
+    rcases hargsE : (Expr.app fe ae).getAppArgs with
+      _ | ⟨x1, _ | ⟨x2, _ | ⟨x3, _ | ⟨x4, _ | ⟨x5, rest⟩⟩⟩⟩⟩ <;>
+      rw [hargsE] at hlen <;> simp at hlen
+    have hspine : Expr.app fe ae = Expr.app (Expr.app (Expr.app (Expr.app
+        (Expr.const (natName.str "rec") us) x1) x2) x3) x4 := by
+      have := (Expr.mkAppN_getApp (Expr.app fe ae)).symm
+      rw [hfn, hargsE] at this
+      simpa [Expr.mkAppN] using this
+    injection hspine with hfe hae
+    subst hfe hae
+    simp only [AnnotOk] at ha
+    obtain ⟨⟨⟨⟨haC, hax1, v0, x1v, vE1, A1, B1, hi0, hi1, hp1, hm1, hf1⟩,
+      hax2, v1, x2v, vE2, A2, B2, hi01, hi2, hp2, hm2, hf2⟩,
+      hax3, v2, x3v, vE3, A3, B3, hi012, hi3, hp3, hm3, hf3⟩,
+      hax4, v3, x4v, vE4, A4, B4, hi0123, hi4, hp4, hm4, hf4⟩ := ha
+    have hv1eq : v1 = SetTheory.app v0 x1v := by
+      have : interpExpr V m.val env φ d ρ
+          (Expr.app (Expr.const (natName.str "rec") us) x1) =
+          some (SetTheory.app v0 x1v) := by
+        rw [interpExpr, hi0, hi1]
+      rw [this] at hi01
+      exact (Option.some.inj hi01).symm
+    subst hv1eq
+    have hv2eq : v2 = SetTheory.app (SetTheory.app v0 x1v) x2v := by
+      have : interpExpr V m.val env φ d ρ
+          (Expr.app (Expr.app (Expr.const (natName.str "rec") us) x1)
+            x2) =
+          some (SetTheory.app (SetTheory.app v0 x1v) x2v) := by
+        rw [interpExpr, hi01, hi2]
+      rw [this] at hi012
+      exact (Option.some.inj hi012).symm
+    subst hv2eq
+    have hv3eq : v3 = SetTheory.app (SetTheory.app (SetTheory.app v0 x1v)
+        x2v) x3v := by
+      have : interpExpr V m.val env φ d ρ
+          (Expr.app (Expr.app (Expr.app
+            (Expr.const (natName.str "rec") us) x1) x2) x3) =
+          some (SetTheory.app (SetTheory.app (SetTheory.app v0 x1v) x2v)
+            x3v) := by
+        rw [interpExpr, hi012, hi3]
+      rw [this] at hi0123
+      exact (Option.some.inj hi0123).symm
+    subst hv3eq
+    simp only [interpExpr, hfc] at hi0
+    split at hi0
+    case isFalse => exact nomatch hi0
+    obtain hv0 := (Option.some.inj hi0)
+    have hrecv : v0 = natRecVal V (Level.substFn φ
+        [Name.anonymous.str "u"] us) := by
+      rw [← hv0, hvalRec]
+      rfl
+    subst hrecv
+    -- the major reduces to a `Nat` constructor application
+    rw [hargsE] at hmaj
+    simp only [List.getD, List.getElem?_cons_succ, List.getElem?_cons_zero,
+      Option.getD_some] at hmaj
+    obtain ⟨hmieq, hmA⟩ := ihwL hmaj (hargsW _ (by rw [hargsE]; simp))
+      (hargsB _ (by rw [hargsE]; simp))
+      (hargsL _ (by rw [hargsE]; simp))
+      (hargsO _ (by rw [hargsE]; simp)) hax4
+    have hclI0 : (natRecZeroRhsA.instantiateLevelParams
+        [Name.anonymous.str "u"] us).hasFvar = false := by
+      rw [hasFvar_instantiateLevelParams]
+      decide
+    have hclI1 : (natRecSuccRhsA.instantiateLevelParams
+        [Name.anonymous.str "u"] us).hasFvar = false := by
+      rw [hasFvar_instantiateLevelParams]
+      decide
+    simp only [List.find?] at hrule
+    revert hrule
+    cases hbeq0 : (((Name.anonymous.str "Nat").str "zero") == cj) with
+    | true =>
+      -- zero rule
+      intro hrule
+      dsimp only at hrule
+      obtain rfl := Option.some.inj hrule
+      obtain rfl := eq_of_beq hbeq0
+      obtain ⟨hpinC, -⟩ := m.ind_ok.right.right.right.left _ _ hfj rfl
+      have hpinC' := hpinC.trans
+        (show pinnedInfo (natName.str "zero") = natZeroA from rfl)
+      simp only [natZeroA] at hpinC'
+      injection hpinC' with hj1 hj2 hj3
+      subst hj1 hj2 hj3
+      have hmargs : major.getAppArgs = [] :=
+        List.length_eq_zero_iff.mp hml1
+      have hmajeq : major = Expr.const ((Name.anonymous.str "Nat").str
+          "zero") usj := by
+        have := (Expr.mkAppN_getApp major).symm
+        rw [hmfn, hmargs] at this
+        simpa [Expr.mkAppN] using this
+      have hx4z : x4v = natzero := by
+        rw [hmajeq] at hmieq
+        rw [hi4] at hmieq
+        simp only [interpExpr, hfj] at hmieq
+        split at hmieq
+        case isFalse => exact nomatch hmieq
+        obtain heq := (Option.some.inj hmieq)
+        rw [← heq]
+        exact hvalZ _
+      obtain ⟨R, hRi, hfold, ⟨vS1, AS1, BS1, hs1p, hs1m, hs1f⟩,
+        ⟨vS2, AS2, BS2, hs2p, hs2m, hs2f⟩,
+        ⟨vS3, AS3, BS3, hs3p, hs3m, hs3f⟩⟩ :=
+        natZeroIota_claims (env := env)
+          (ψ := Level.substFn φ [Name.anonymous.str "u"] us)
+          hfN hvalN hfZ hvalZ hfSc hvalSc
+          hp1 hm1 hp2 hm2 hp3 hm3 hx4z
+      have heout' : e'' = Expr.app (Expr.app (Expr.app
+          (natRecZeroRhsA.instantiateLevelParams
+            [Name.anonymous.str "u"] us) x1) x2) x3 := by
+        rw [heout, hmargs]
+        rfl
+      subst heout'
+      have hRinst : interpExpr V m.val env φ d ρ
+          (natRecZeroRhsA.instantiateLevelParams
+            [Name.anonymous.str "u"] us) = some R := by
+        rw [interp_closed_invariant hclI0 d ρ]
+        unfold interpClosed
+        rw [interp_instLevels m.val_params]
+        exact hRi
+      have hArhs : AnnotOk V m.val env φ d ρ
+          (natRecZeroRhsA.instantiateLevelParams
+            [Name.anonymous.str "u"] us) := by
+        have h0 := annotOk_natRecZero_rhs (env := env)
+          (ψ := Level.substFn φ [Name.anonymous.str "u"] us)
+          hfN hvalN hfZ hvalZ hfSc hvalSc
+        have h1 := AnnotOk.instLevels m.val_params natRecZeroRhsA 0
+          (rho0 V) h0
+        exact AnnotOk.closed_invariant hclI0 d ρ h1
+      have hRx1 : interpExpr V m.val env φ d ρ (Expr.app
+          (natRecZeroRhsA.instantiateLevelParams
+            [Name.anonymous.str "u"] us) x1) =
+          some (SetTheory.app R x1v) := by
+        rw [interpExpr, hRinst, hi1]
+      have hRx2 : interpExpr V m.val env φ d ρ (Expr.app (Expr.app
+          (natRecZeroRhsA.instantiateLevelParams
+            [Name.anonymous.str "u"] us) x1) x2) =
+          some (SetTheory.app (SetTheory.app R x1v) x2v) := by
+        rw [interpExpr, hRx1, hi2]
+      constructor
+      · rw [show interpExpr V m.val env φ d ρ (Expr.app (Expr.app (Expr.app
+            (natRecZeroRhsA.instantiateLevelParams
+              [Name.anonymous.str "u"] us) x1) x2) x3) =
+            some (SetTheory.app (SetTheory.app (SetTheory.app R x1v) x2v)
+              x3v) from by
+          rw [interpExpr, hRx2, hi3]]
+        rw [show interpExpr V m.val env φ d ρ (Expr.app (Expr.app (Expr.app
+            (Expr.app (Expr.const (natName.str "rec") us) x1) x2) x3)
+            ae) =
+            some (SetTheory.app (SetTheory.app (SetTheory.app
+              (SetTheory.app (natRecVal V (Level.substFn φ
+                [Name.anonymous.str "u"] us)) x1v) x2v) x3v) x4v) from by
+          rw [interpExpr, hi0123, hi4]]
+        rw [hfold]
+      · simp only [AnnotOk]
+        exact ⟨⟨⟨hArhs, hax1, R, x1v, vS1, AS1, BS1, hRinst, hi1,
+          hs1p, hs1m, hs1f⟩,
+          hax2, SetTheory.app R x1v, x2v, vS2, AS2, BS2, hRx1, hi2,
+          hs2p, hs2m, hs2f⟩,
+          hax3, SetTheory.app (SetTheory.app R x1v) x2v, x3v,
+          vS3, AS3, BS3, hRx2, hi3, hs3p, hs3m, hs3f⟩
+    | false =>
+      intro hrule
+      dsimp only at hrule
+      revert hrule
+      cases hbeq1 : (((Name.anonymous.str "Nat").str "succ") == cj) with
+      | false => intro hrule; exact nomatch hrule
+      | true =>
+      intro hrule
+      dsimp only at hrule
+      obtain rfl := Option.some.inj hrule
+      obtain rfl := eq_of_beq hbeq1
+      obtain ⟨hpinC, -⟩ := m.ind_ok.right.right.right.left _ _ hfj rfl
+      have hpinC' := hpinC.trans
+        (show pinnedInfo (natName.str "succ") = natSuccA from rfl)
+      simp only [natSuccA] at hpinC'
+      injection hpinC' with hj1 hj2 hj3
+      subst hj1 hj2 hj3
+      rcases hmargsE : major.getAppArgs with _ | ⟨y1, _ | ⟨y2, mrest⟩⟩ <;>
+        rw [hmargsE] at hml1 <;> simp at hml1
+      have hmajeq : major = Expr.app (Expr.const
+          ((Name.anonymous.str "Nat").str "succ") usj) y1 := by
+        have := (Expr.mkAppN_getApp major).symm
+        rw [hmfn, hmargsE] at this
+        simpa [Expr.mkAppN] using this
+      subst hmajeq
+      simp only [AnnotOk] at hmA
+      obtain ⟨hmaC, hay1, w0, y1v, wE', A', B', hj0, hjy1, hq1, hn1, hg1⟩ :=
+        hmA
+      have hj0' := hj0
+      simp only [interpExpr, hfj] at hj0'
+      split at hj0'
+      case isFalse => exact nomatch hj0'
+      obtain hw0 := (Option.some.inj hj0')
+      have hw0' : w0 = natSuccVal V (Level.substFn φ
+          [Name.anonymous.str "u"] us) := by
+        rw [← hw0]
+        exact hvalSc _
+      subst hw0'
+      have hx4s : x4v = SetTheory.app (natSuccVal V (Level.substFn φ
+          [Name.anonymous.str "u"] us)) y1v := by
+        rw [hi4] at hmieq
+        rw [show interpExpr V m.val env φ d ρ (Expr.app (Expr.const
+            ((Name.anonymous.str "Nat").str "succ") usj) y1) =
+            some (SetTheory.app (natSuccVal V (Level.substFn φ
+              [Name.anonymous.str "u"] us)) y1v) from by
+          rw [interpExpr, hj0, hjy1]] at hmieq
+        exact (Option.some.inj hmieq).symm
+      obtain ⟨R, hRi, hfold, ⟨vS1, AS1, BS1, hs1p, hs1m, hs1f⟩,
+        ⟨vS2, AS2, BS2, hs2p, hs2m, hs2f⟩,
+        ⟨vS3, AS3, BS3, hs3p, hs3m, hs3f⟩,
+        ⟨vS4, AS4, BS4, hs4p, hs4m, hs4f⟩⟩ :=
+        natSuccIota_claims (env := env)
+          (ψ := Level.substFn φ [Name.anonymous.str "u"] us)
+          hfN hvalN hfZ hvalZ hfSc hvalSc hfc hvalRc
+          hp1 hm1 hp2 hm2 hp3 hm3 hq1 hn1 hx4s
+      have heout' : e'' = Expr.app (Expr.app (Expr.app (Expr.app
+          (natRecSuccRhsA.instantiateLevelParams
+            [Name.anonymous.str "u"] us) x1) x2) x3) y1 := by
+        rw [heout, hmargsE]
+        rfl
+      subst heout'
+      have hRinst : interpExpr V m.val env φ d ρ
+          (natRecSuccRhsA.instantiateLevelParams
+            [Name.anonymous.str "u"] us) = some R := by
+        rw [interp_closed_invariant hclI1 d ρ]
+        unfold interpClosed
+        rw [interp_instLevels m.val_params]
+        exact hRi
+      have hArhs : AnnotOk V m.val env φ d ρ
+          (natRecSuccRhsA.instantiateLevelParams
+            [Name.anonymous.str "u"] us) := by
+        have h0 := annotOk_natRecSucc_rhs (env := env)
+          (ψ := Level.substFn φ [Name.anonymous.str "u"] us)
+          hfN hvalN hfZ hvalZ hfSc hvalSc hfc hvalRc
+        have h1 := AnnotOk.instLevels m.val_params natRecSuccRhsA 0
+          (rho0 V) h0
+        exact AnnotOk.closed_invariant hclI1 d ρ h1
+      have hRx1 : interpExpr V m.val env φ d ρ (Expr.app
+          (natRecSuccRhsA.instantiateLevelParams
+            [Name.anonymous.str "u"] us) x1) =
+          some (SetTheory.app R x1v) := by
+        rw [interpExpr, hRinst, hi1]
+      have hRx2 : interpExpr V m.val env φ d ρ (Expr.app (Expr.app
+          (natRecSuccRhsA.instantiateLevelParams
+            [Name.anonymous.str "u"] us) x1) x2) =
+          some (SetTheory.app (SetTheory.app R x1v) x2v) := by
+        rw [interpExpr, hRx1, hi2]
+      have hRx3 : interpExpr V m.val env φ d ρ (Expr.app (Expr.app
+          (Expr.app (natRecSuccRhsA.instantiateLevelParams
+            [Name.anonymous.str "u"] us) x1) x2) x3) =
+          some (SetTheory.app (SetTheory.app (SetTheory.app R x1v) x2v)
+            x3v) := by
+        rw [interpExpr, hRx2, hi3]
+      constructor
+      · rw [show interpExpr V m.val env φ d ρ (Expr.app (Expr.app (Expr.app
+            (Expr.app (natRecSuccRhsA.instantiateLevelParams
+              [Name.anonymous.str "u"] us) x1) x2) x3) y1) =
+            some (SetTheory.app (SetTheory.app (SetTheory.app
+              (SetTheory.app R x1v) x2v) x3v) y1v) from by
+          rw [interpExpr, hRx3, hjy1]]
+        rw [show interpExpr V m.val env φ d ρ (Expr.app (Expr.app (Expr.app
+            (Expr.app (Expr.const (natName.str "rec") us) x1) x2) x3)
+            ae) =
+            some (SetTheory.app (SetTheory.app (SetTheory.app
+              (SetTheory.app (natRecVal V (Level.substFn φ
+                [Name.anonymous.str "u"] us)) x1v) x2v) x3v) x4v) from by
+          rw [interpExpr, hi0123, hi4]]
+        rw [hfold]
+      · simp only [AnnotOk]
+        exact ⟨⟨⟨⟨hArhs, hax1, R, x1v, vS1, AS1, BS1, hRinst, hi1,
+          hs1p, hs1m, hs1f⟩,
+          hax2, SetTheory.app R x1v, x2v, vS2, AS2, BS2, hRx1, hi2,
+          hs2p, hs2m, hs2f⟩,
+          hax3, SetTheory.app (SetTheory.app R x1v) x2v, x3v,
+          vS3, AS3, BS3, hRx2, hi3, hs3p, hs3m, hs3f⟩,
+          hay1, SetTheory.app (SetTheory.app (SetTheory.app R x1v) x2v)
+            x3v, y1v, vS4, AS4, BS4, hRx3, hjy1, hs4p, hs4m, hs4f⟩
+  · -- PSigma'.rec
+    subst hc
+    have hpico : pinnedInfo (psigmaName.str "rec") = psigmaRecA := rfl
+    have hpin' := hpinR.trans hpico
+    simp only [psigmaRecA] at hpin'
+    injection hpin' with h1 h2 h3 h4 h5 h6
+    subst h1 h2 h3 h4 h5 h6
+    obtain ⟨hfS, hfMk⟩ := (hblocks.right.right.left) _ _ _ _ _ _ hfc
+    obtain ⟨-, hvalS0⟩ := m.ind_ok.right.right.right.left _ _ hfS rfl
+    obtain ⟨-, hvalM0⟩ := m.ind_ok.right.right.right.left _ _ hfMk rfl
+    have hvalS : ∀ ψ' : Name → Nat, m.val psigmaName ψ' = psigmaVal V ψ' :=
+      fun ψ' => (hvalS0 ψ').trans rfl
+    have hvalMk : ∀ ψ' : Name → Nat,
+        m.val psigmaMkName ψ' = psigmaMkVal V ψ' :=
+      fun ψ' => (hvalM0 ψ').trans rfl
+    -- destructure the spine (5 arguments)
+    rcases hargsE : (Expr.app fe ae).getAppArgs with
+      _ | ⟨x1, _ | ⟨x2, _ | ⟨x3, _ | ⟨x4, _ | ⟨x5,
+        _ | ⟨x6, rest⟩⟩⟩⟩⟩⟩ <;>
+      rw [hargsE] at hlen <;> simp at hlen
+    have hspine : Expr.app fe ae = Expr.app (Expr.app (Expr.app (Expr.app
+        (Expr.app (Expr.const (psigmaName.str "rec") us) x1) x2) x3) x4)
+        x5 := by
+      have := (Expr.mkAppN_getApp (Expr.app fe ae)).symm
+      rw [hfn, hargsE] at this
+      simpa [Expr.mkAppN] using this
+    injection hspine with hfe hae
+    subst hfe hae
+    simp only [AnnotOk] at ha
+    obtain ⟨⟨⟨⟨⟨haC, hax1, v0, x1v, vE1, A1, B1, hi0, hi1, hp1, hm1, hf1⟩,
+      hax2, v1, x2v, vE2, A2, B2, hi01, hi2, hp2, hm2, hf2⟩,
+      hax3, v2, x3v, vE3, A3, B3, hi012, hi3, hp3, hm3, hf3⟩,
+      hax4, v3, x4v, vE4, A4, B4, hi0123, hi4, hp4, hm4, hf4⟩,
+      hax5, v4, x5v, vE5, A5, B5, hi01234, hi5, hp5, hm5, hf5⟩ := ha
+    have hv1eq : v1 = SetTheory.app v0 x1v := by
+      have : interpExpr V m.val env φ d ρ
+          (Expr.app (Expr.const (psigmaName.str "rec") us) x1) =
+          some (SetTheory.app v0 x1v) := by
+        rw [interpExpr, hi0, hi1]
+      rw [this] at hi01
+      exact (Option.some.inj hi01).symm
+    subst hv1eq
+    have hv2eq : v2 = SetTheory.app (SetTheory.app v0 x1v) x2v := by
+      have : interpExpr V m.val env φ d ρ
+          (Expr.app (Expr.app (Expr.const (psigmaName.str "rec") us) x1)
+            x2) =
+          some (SetTheory.app (SetTheory.app v0 x1v) x2v) := by
+        rw [interpExpr, hi01, hi2]
+      rw [this] at hi012
+      exact (Option.some.inj hi012).symm
+    subst hv2eq
+    have hv3eq : v3 = SetTheory.app (SetTheory.app (SetTheory.app v0 x1v)
+        x2v) x3v := by
+      have : interpExpr V m.val env φ d ρ
+          (Expr.app (Expr.app (Expr.app
+            (Expr.const (psigmaName.str "rec") us) x1) x2) x3) =
+          some (SetTheory.app (SetTheory.app (SetTheory.app v0 x1v) x2v)
+            x3v) := by
+        rw [interpExpr, hi012, hi3]
+      rw [this] at hi0123
+      exact (Option.some.inj hi0123).symm
+    subst hv3eq
+    have hv4eq : v4 = SetTheory.app (SetTheory.app (SetTheory.app
+        (SetTheory.app v0 x1v) x2v) x3v) x4v := by
+      have : interpExpr V m.val env φ d ρ
+          (Expr.app (Expr.app (Expr.app (Expr.app
+            (Expr.const (psigmaName.str "rec") us) x1) x2) x3) x4) =
+          some (SetTheory.app (SetTheory.app (SetTheory.app
+            (SetTheory.app v0 x1v) x2v) x3v) x4v) := by
+        rw [interpExpr, hi0123, hi4]
+      rw [this] at hi01234
+      exact (Option.some.inj hi01234).symm
+    subst hv4eq
+    simp only [interpExpr, hfc] at hi0
+    split at hi0
+    case isFalse => exact nomatch hi0
+    obtain hv0 := (Option.some.inj hi0)
+    have hrecv : v0 = psigmaRecVal V (Level.substFn φ
+        [Name.anonymous.str "u", Name.anonymous.str "v"] us) := by
+      rw [← hv0, hvalRec]
+      rfl
+    subst hrecv
+    -- the major reduces to a `PSigma'.mk` application
+    rw [hargsE] at hmaj
+    simp only [List.getD, List.getElem?_cons_succ, List.getElem?_cons_zero,
+      Option.getD_some] at hmaj
+    obtain ⟨hmieq, hmA⟩ := ihwL hmaj (hargsW _ (by rw [hargsE]; simp))
+      (hargsB _ (by rw [hargsE]; simp))
+      (hargsL _ (by rw [hargsE]; simp))
+      (hargsO _ (by rw [hargsE]; simp)) hax5
+    simp only [List.find?] at hrule
+    revert hrule
+    cases hbeq : (((Name.anonymous.str "PSigma'").str "mk") == cj) with
+    | false => intro hrule; exact nomatch hrule
+    | true =>
+    intro hrule
+    dsimp only at hrule
+    obtain rfl := Option.some.inj hrule
+    obtain rfl := eq_of_beq hbeq
+    obtain ⟨hpinC, -⟩ := m.ind_ok.right.right.right.left _ _ hfj rfl
+    have hpinC' := hpinC.trans
+      (show pinnedInfo (psigmaName.str "mk") = psigmaMkA from rfl)
+    simp only [psigmaMkA] at hpinC'
+    injection hpinC' with hj1 hj2 hj3
+    subst hj1 hj2 hj3
+    -- destructure the major's arguments (2 parameters + 2 fields)
+    rcases hmargsE : major.getAppArgs with
+      _ | ⟨y1, _ | ⟨y2, _ | ⟨y3, _ | ⟨y4, _ | ⟨y5, mrest⟩⟩⟩⟩⟩ <;>
+      rw [hmargsE] at hml1 <;> simp at hml1
+    have hmajeq : major = Expr.app (Expr.app (Expr.app (Expr.app
+        (Expr.const ((Name.anonymous.str "PSigma'").str "mk") usj) y1) y2)
+        y3) y4 := by
+      have := (Expr.mkAppN_getApp major).symm
+      rw [hmfn, hmargsE] at this
+      simpa [Expr.mkAppN] using this
+    subst hmajeq
+    simp only [AnnotOk] at hmA
+    obtain ⟨⟨⟨⟨hmaC, hay1, w0, y1v, wE1, C1, D1, hj0, hjy1, hq1, hn1, hg1⟩,
+      hay2, w1, y2v, wE2, C2, D2, hj01, hjy2, hq2, hn2, hg2⟩,
+      hay3, w2, y3v, wE3, C3, D3, hj012, hjy3, hq3, hn3, hg3⟩,
+      hay4, w3, y4v, wE4, C4, D4, hj0123, hjy4, hq4, hn4, hg4⟩ := hmA
+    have heout' : e'' = Expr.app (Expr.app (Expr.app (Expr.app (Expr.app
+        (Expr.app (psigmaRecRhsA.instantiateLevelParams
+          [Name.anonymous.str "u", Name.anonymous.str "v"] us) x1) x2) x3)
+        x4) y3) y4 := by
+      rw [heout, hmargsE]
+      rfl
+    subst heout'
+    -- apply the rule glue
+    obtain ⟨R, hRi, hfold, ⟨vS1, AS1, BS1, hs1p, hs1m, hs1f⟩,
+      ⟨vS2, AS2, BS2, hs2p, hs2m, hs2f⟩,
+      ⟨vS3, AS3, BS3, hs3p, hs3m, hs3f⟩,
+      ⟨vS4, AS4, BS4, hs4p, hs4m, hs4f⟩,
+      ⟨vS5, AS5, BS5, hs5p, hs5m, hs5f⟩,
+      ⟨vS6, AS6, BS6, hs6p, hs6m, hs6f⟩⟩ :=
+      psigmaIota_claims (env := env)
+        (ψ := Level.substFn φ
+          [Name.anonymous.str "u", Name.anonymous.str "v"] us)
+        (Av := x1v) (Bv := x2v) (Mv := x3v) (mkv := x4v) (tv := x5v)
+        (av := y3v) (bv := y4v)
+        hfS hvalS hfMk hvalMk hm1 hm2 hm3 hm4 hn3 hn4
+    have hclI : (psigmaRecRhsA.instantiateLevelParams
+        [Name.anonymous.str "u", Name.anonymous.str "v"] us).hasFvar =
+        false := by
+      rw [hasFvar_instantiateLevelParams]
+      exact hrf
+    have hRinst : interpExpr V m.val env φ d ρ
+        (psigmaRecRhsA.instantiateLevelParams
+          [Name.anonymous.str "u", Name.anonymous.str "v"] us) = some R := by
+      rw [interp_closed_invariant hclI d ρ]
+      unfold interpClosed
+      rw [interp_instLevels m.val_params]
+      exact hRi
+    have hArhs : AnnotOk V m.val env φ d ρ
+        (psigmaRecRhsA.instantiateLevelParams
+          [Name.anonymous.str "u", Name.anonymous.str "v"] us) := by
+      have h0 := annotOk_psigmaRec_rhs (env := env)
+        (ψ := Level.substFn φ
+          [Name.anonymous.str "u", Name.anonymous.str "v"] us)
+        hfS hvalS hfMk hvalMk
+      have h1 := AnnotOk.instLevels m.val_params psigmaRecRhsA 0 (rho0 V) h0
+      exact AnnotOk.closed_invariant hclI d ρ h1
+    have hRx1 : interpExpr V m.val env φ d ρ (Expr.app
+        (psigmaRecRhsA.instantiateLevelParams
+          [Name.anonymous.str "u", Name.anonymous.str "v"] us) x1) =
+        some (SetTheory.app R x1v) := by
+      rw [interpExpr, hRinst, hi1]
+    have hRx2 : interpExpr V m.val env φ d ρ (Expr.app (Expr.app
+        (psigmaRecRhsA.instantiateLevelParams
+          [Name.anonymous.str "u", Name.anonymous.str "v"] us) x1) x2) =
+        some (SetTheory.app (SetTheory.app R x1v) x2v) := by
+      rw [interpExpr, hRx1, hi2]
+    have hRx3 : interpExpr V m.val env φ d ρ (Expr.app (Expr.app (Expr.app
+        (psigmaRecRhsA.instantiateLevelParams
+          [Name.anonymous.str "u", Name.anonymous.str "v"] us) x1) x2) x3) =
+        some (SetTheory.app (SetTheory.app (SetTheory.app R x1v) x2v)
+          x3v) := by
+      rw [interpExpr, hRx2, hi3]
+    have hRx4 : interpExpr V m.val env φ d ρ (Expr.app (Expr.app (Expr.app
+        (Expr.app (psigmaRecRhsA.instantiateLevelParams
+          [Name.anonymous.str "u", Name.anonymous.str "v"] us) x1) x2) x3)
+        x4) =
+        some (SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app R
+          x1v) x2v) x3v) x4v) := by
+      rw [interpExpr, hRx3, hi4]
+    have hRy3 : interpExpr V m.val env φ d ρ (Expr.app (Expr.app (Expr.app
+        (Expr.app (Expr.app (psigmaRecRhsA.instantiateLevelParams
+          [Name.anonymous.str "u", Name.anonymous.str "v"] us) x1) x2) x3)
+        x4) y3) =
+        some (SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app
+          (SetTheory.app R x1v) x2v) x3v) x4v) y3v) := by
+      rw [interpExpr, hRx4, hjy3]
+    constructor
+    · rw [show interpExpr V m.val env φ d ρ (Expr.app (Expr.app (Expr.app
+          (Expr.app (Expr.app (Expr.app
+            (psigmaRecRhsA.instantiateLevelParams
+              [Name.anonymous.str "u", Name.anonymous.str "v"] us) x1) x2)
+            x3) x4) y3) y4) =
+          some (SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app
+            (SetTheory.app (SetTheory.app R x1v) x2v) x3v) x4v) y3v)
+            y4v) from by
+        rw [interpExpr, hRy3, hjy4]]
+      rw [show interpExpr V m.val env φ d ρ (Expr.app (Expr.app (Expr.app
+          (Expr.app (Expr.app
+            (Expr.const (psigmaName.str "rec") us) x1) x2) x3) x4) ae) =
+          some (SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app
+            (SetTheory.app (psigmaRecVal V (Level.substFn φ
+              [Name.anonymous.str "u", Name.anonymous.str "v"] us)) x1v)
+            x2v) x3v) x4v) x5v) from by
+        rw [interpExpr, hi01234, hi5]]
+      rw [hfold]
+    · simp only [AnnotOk]
+      exact ⟨⟨⟨⟨⟨⟨hArhs, hax1, R, x1v, vS1, AS1, BS1, hRinst, hi1,
+        hs1p, hs1m, hs1f⟩,
+        hax2, SetTheory.app R x1v, x2v, vS2, AS2, BS2, hRx1, hi2,
+        hs2p, hs2m, hs2f⟩,
+        hax3, SetTheory.app (SetTheory.app R x1v) x2v, x3v,
+        vS3, AS3, BS3, hRx2, hi3, hs3p, hs3m, hs3f⟩,
+        hax4, SetTheory.app (SetTheory.app (SetTheory.app R x1v) x2v) x3v,
+        x4v, vS4, AS4, BS4, hRx3, hi4, hs4p, hs4m, hs4f⟩,
+        hay3, SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app R
+          x1v) x2v) x3v) x4v, y3v,
+        vS5, AS5, BS5, hRx4, hjy3, hs5p, hs5m, hs5f⟩,
+        hay4, SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app
+          (SetTheory.app R x1v) x2v) x3v) x4v) y3v, y4v,
+        vS6, AS6, BS6, hRy3, hjy4, hs6p, hs6m, hs6f⟩
+  · -- PUnit.rec
+    subst hc
+    have hpico : pinnedInfo (punitName.str "rec") = punitRecA := rfl
+    have hpin' := hpinR.trans hpico
+    simp only [punitRecA] at hpin'
+    injection hpin' with h1 h2 h3 h4 h5 h6
+    subst h1 h2 h3 h4 h5 h6
+    -- resolve the block members
+    obtain ⟨hfP, hfU⟩ := (hblocks.right.right.right) _ _ _ _ _ _ hfc
+    obtain ⟨-, hvalP0⟩ := m.ind_ok.right.right.right.left _ _ hfP rfl
+    obtain ⟨-, hvalU0⟩ := m.ind_ok.right.right.right.left _ _ hfU rfl
+    have hvalP : ∀ ψ' : Name → Nat, m.val punitName ψ' = unitSet :=
+      fun ψ' => (hvalP0 ψ').trans rfl
+    have hvalU : ∀ ψ' : Name → Nat, m.val punitUnitName ψ' = pt :=
+      fun ψ' => (hvalU0 ψ').trans rfl
+    -- destructure the spine (3 arguments)
+    rcases hargsE : (Expr.app fe ae).getAppArgs with
+      _ | ⟨x1, _ | ⟨x2, _ | ⟨x3, _ | ⟨x4, rest⟩⟩⟩⟩ <;>
+      rw [hargsE] at hlen <;> simp at hlen
+    have hspine : Expr.app fe ae = Expr.app (Expr.app (Expr.app
+        (Expr.const (punitName.str "rec") us) x1) x2) x3 := by
+      have := (Expr.mkAppN_getApp (Expr.app fe ae)).symm
+      rw [hfn, hargsE] at this
+      simpa [Expr.mkAppN] using this
+    injection hspine with hfe hae
+    subst hfe hae
+    -- the annotation chain
+    simp only [AnnotOk] at ha
+    obtain ⟨⟨⟨haC, hax1, v0, x1v, vE1, A1, B1, hi0, hi1, hp1, hm1, hf1⟩,
+      hax2, v1, x2v, vE2, A2, B2, hi01, hi2, hp2, hm2, hf2⟩,
+      hax3, v2, x3v, vE3, A3, B3, hi012, hi3, hp3, hm3, hf3⟩ := ha
+    -- chain the interpretation values
+    have hv1eq : v1 = SetTheory.app v0 x1v := by
+      have : interpExpr V m.val env φ d ρ
+          (Expr.app (Expr.const (punitName.str "rec") us) x1) =
+          some (SetTheory.app v0 x1v) := by
+        rw [interpExpr, hi0, hi1]
+      rw [this] at hi01
+      exact (Option.some.inj hi01).symm
+    have hv2eq : v2 = SetTheory.app (SetTheory.app v0 x1v) x2v := by
+      have : interpExpr V m.val env φ d ρ
+          (Expr.app (Expr.app (Expr.const (punitName.str "rec") us) x1)
+            x2) = some (SetTheory.app v1 x2v) := by
+        rw [interpExpr, hi01, hi2]
+      rw [this] at hi012
+      obtain rfl := (Option.some.inj hi012)
+      rw [hv1eq]
+    subst hv1eq hv2eq
+    -- identify the head value
+    simp only [interpExpr, hfc] at hi0
+    split at hi0
+    case isFalse => exact nomatch hi0
+    obtain hv0 := (Option.some.inj hi0)
+    have hrecv : v0 = punitRecVal V (Level.substFn φ
+        [Name.anonymous.str "u_1", Name.anonymous.str "u"] us) := by
+      rw [← hv0, hvalRec]
+      rfl
+    subst hrecv
+    -- the major reduces to `PUnit.unit`
+    rw [hargsE] at hmaj
+    simp only [List.getD, List.getElem?_cons_succ, List.getElem?_cons_zero,
+      Option.getD_some] at hmaj
+    obtain ⟨hmieq, hmA⟩ := ihwL hmaj (hargsW _ (by rw [hargsE]; simp))
+      (hargsB _ (by rw [hargsE]; simp))
+      (hargsL _ (by rw [hargsE]; simp))
+      (hargsO _ (by rw [hargsE]; simp)) hax3
+    -- identify the constructor
+    simp only [List.find?] at hrule
+    revert hrule
+    cases hbeq : ((Name.anonymous.str "PUnit").str "unit" == cj) with
+    | false => intro hrule; exact nomatch hrule
+    | true =>
+    intro hrule
+    dsimp only at hrule
+    obtain rfl := Option.some.inj hrule
+    obtain rfl := eq_of_beq hbeq
+    obtain ⟨hpinC, hvalCU⟩ := m.ind_ok.right.right.right.left _ _ hfj rfl
+    have hpinC' := hpinC.trans
+      (show pinnedInfo (punitName.str "unit") = punitUnitA from rfl)
+    simp only [punitUnitA] at hpinC'
+    injection hpinC' with hj1 hj2 hj3
+    subst hj1 hj2 hj3
+    have hmargs : major.getAppArgs = [] :=
+      List.length_eq_zero_iff.mp hml1
+    have hmajeq : major = Expr.const ((Name.anonymous.str "PUnit").str "unit")
+        usj := by
+      have := (Expr.mkAppN_getApp major).symm
+      rw [hmfn, hmargs] at this
+      simpa [Expr.mkAppN] using this
+    -- the major's interpretation is the proof point
+    have hx3pt : x3v = pt := by
+      rw [hmajeq] at hmieq
+      rw [hi3] at hmieq
+      simp only [interpExpr, hfj] at hmieq
+      split at hmieq
+      case isFalse => exact nomatch hmieq
+      obtain heq := (Option.some.inj hmieq)
+      rw [← heq, hvalCU]
+      rfl
+    -- apply the rule glue
+    obtain ⟨R, hRi, hfold, ⟨vS1, AS1, BS1, hs1p, hs1m, hs1f⟩,
+      ⟨vS2, AS2, BS2, hs2p, hs2m, hs2f⟩⟩ :=
+      punitIota_claims (env := env)
+        (ψ := Level.substFn φ
+          [Name.anonymous.str "u_1", Name.anonymous.str "u"] us)
+        hfP hvalP hfU hvalU
+        hp1 hm1 hp2 hm2 hx3pt
+    -- the reduct's shape
+    have heout' : e'' = Expr.app (Expr.app
+        (punitRecRhsA.instantiateLevelParams
+          [Name.anonymous.str "u_1", Name.anonymous.str "u"] us) x1) x2 := by
+      rw [heout, hmargs]
+      rfl
+    subst heout'
+    have hclI : (punitRecRhsA.instantiateLevelParams
+        [Name.anonymous.str "u_1", Name.anonymous.str "u"] us).hasFvar =
+        false := by
+      rw [hasFvar_instantiateLevelParams]
+      exact hrf
+    have hRinst : interpExpr V m.val env φ d ρ
+        (punitRecRhsA.instantiateLevelParams
+          [Name.anonymous.str "u_1", Name.anonymous.str "u"] us) = some R := by
+      rw [interp_closed_invariant hclI d ρ]
+      unfold interpClosed
+      rw [interp_instLevels m.val_params]
+      exact hRi
+    have hArhs : AnnotOk V m.val env φ d ρ
+        (punitRecRhsA.instantiateLevelParams
+          [Name.anonymous.str "u_1", Name.anonymous.str "u"] us) := by
+      have h0 := annotOk_punitRec_rhs (env := env)
+        (ψ := Level.substFn φ
+          [Name.anonymous.str "u_1", Name.anonymous.str "u"] us)
+        hfP hvalP hfU hvalU
+      have h1 := AnnotOk.instLevels m.val_params punitRecRhsA 0 (rho0 V) h0
+      exact AnnotOk.closed_invariant hclI d ρ h1
+    have hRx1 : interpExpr V m.val env φ d ρ (Expr.app
+        (punitRecRhsA.instantiateLevelParams
+          [Name.anonymous.str "u_1", Name.anonymous.str "u"] us) x1) =
+        some (SetTheory.app R x1v) := by
+      rw [interpExpr, hRinst, hi1]
+    constructor
+    · rw [show interpExpr V m.val env φ d ρ (Expr.app (Expr.app
+          (punitRecRhsA.instantiateLevelParams
+            [Name.anonymous.str "u_1", Name.anonymous.str "u"] us) x1) x2) =
+          some (SetTheory.app (SetTheory.app R x1v) x2v) from by
+        rw [interpExpr, hRx1, hi2]]
+      rw [show interpExpr V m.val env φ d ρ (Expr.app (Expr.app (Expr.app
+          (Expr.const (punitName.str "rec") us) x1) x2) ae) =
+          some (SetTheory.app (SetTheory.app (SetTheory.app
+            (punitRecVal V (Level.substFn φ
+              [Name.anonymous.str "u_1", Name.anonymous.str "u"] us)) x1v)
+            x2v) x3v) from by
+        rw [interpExpr, hi012, hi3]]
+      rw [hfold]
+    · simp only [AnnotOk]
+      exact ⟨⟨hArhs, hax1, R, x1v, vS1, AS1, BS1, hRinst, hi1,
+        hs1p, hs1m, hs1f⟩,
+        hax2, SetTheory.app R x1v, x2v, vS2, AS2, BS2, hRx1, hi2,
+        hs2p, hs2m, hs2f⟩
+
 private theorem whnf_claims (m : EnvModel V env)
     (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
     (ihi : InferClaims m φ fuel)
@@ -782,7 +1766,7 @@ private theorem whnf_claims (m : EnvModel V env)
         dsimp only at h
         split at h
         next hal =>
-          obtain ⟨-, -, -, -, hval⟩ := m.wf _ (List.mem_of_find?_eq_some hf)
+          obtain ⟨-, -, -, -, hval, -⟩ := m.wf _ (List.mem_of_find?_eq_some hf)
           obtain ⟨hvc, -, -, hvb⟩ := hval cv value rfl
           have hcl : (value.instantiateLevelParams cv.levelParams ws).hasFvar = false := by
             rw [hasFvar_instantiateLevelParams]; exact hvc
@@ -826,7 +1810,8 @@ private theorem whnf_claims (m : EnvModel V env)
     obtain ⟨haf, haa, vf, va, vE, A, B, hfi, hai, hpi, hvA, hfib⟩ := ha
     obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
     obtain ⟨hif, haf'⟩ := ihw hwf hw.1 hb.1 hLbf hokf haf
-    rcases hcase with ⟨n, ty, body, mm, v, rfl, hc, hbeta, hcert⟩ | rfl
+    rcases hcase with ⟨n, ty, body, mm, v, rfl, hc, hbeta, hcert⟩ |
+      ⟨e'', hio, hwe''⟩ | rfl
     · -- beta (guarded or certified)
       have hwlam := whnf_WScoped m.wf fuel hwf hw.1
       have hblam := whnf_looseBVars m.wf fuel hwf hb.1
@@ -920,6 +1905,36 @@ private theorem whnf_claims (m : EnvModel V env)
       simp only [Option.some.injEq]
       rw [← hfi', app_lam hdom hBf1 hBf2]
       simp [hwi]
+    · -- iota step
+      have hw' : WScoped d (Expr.app f' a) := by
+        simp only [WScoped]
+        exact ⟨whnf_WScoped m.wf fuel hwf hw.1, hw.2⟩
+      have hb' : (Expr.app f' a).looseBVarsBounded 0 = true := by
+        simp only [looseBVarsBounded, Bool.and_eq_true]
+        exact ⟨whnf_looseBVars m.wf fuel hwf hb.1, hb.2⟩
+      have hLb' : Expr.LeavesBounded (Expr.app f' a) := by
+        intro l hl
+        simp only [fvarLeaves, List.mem_append] at hl
+        rcases hl with hl | hl
+        · exact hLbf l (whnf_fvarLeaves m.wf fuel hwf l hl)
+        · exact hLba l hl
+      have hok' : FvarsOk V m.val env φ d ρ (Expr.app f' a) := by
+        intro l hl
+        simp only [fvarLeaves, List.mem_append] at hl
+        rcases hl with hl | hl
+        · exact whnf_FvarsOk m.wf fuel hwf hokf l hl
+        · exact hoka l hl
+      have ha' : AnnotOk V m.val env φ d ρ (Expr.app f' a) := by
+        simp only [AnnotOk]
+        exact ⟨haf', haa, vf, va, vE, A, B, hif.trans hfi, hai, hpi, hvA,
+          hfib⟩
+      obtain ⟨⟨hie, hae''⟩, hwE, hbE, hLbE, hokE⟩ :=
+        iota_sound ihAll hio hw' hb' hLb' hok' ha'
+      obtain ⟨hi2, ha2⟩ := ihw hwe'' hwE hbE hLbE hokE hae''
+      refine ⟨?_, ha2⟩
+      rw [hi2, hie]
+      simp only [interpExpr]
+      rw [hif]
     · -- stuck application
       refine ⟨?_, ?_⟩
       · simp only [interpExpr]
@@ -1660,7 +2675,7 @@ private theorem infer_claims (m : EnvModel V env)
       next hal =>
         simp only [pure, Except.pure, Except.ok.injEq] at h
         subst h
-        obtain ⟨htc, -, -, -, -⟩ := m.wf _ (List.mem_of_find?_eq_some hf)
+        obtain ⟨htc, -, -, -, -, -⟩ := m.wf _ (List.mem_of_find?_eq_some hf)
         have hcl : (ci.toConstantVal.type.instantiateLevelParams
             ci.toConstantVal.levelParams ws).hasFvar = false := by
           rw [hasFvar_instantiateLevelParams]; exact htc

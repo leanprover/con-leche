@@ -68,6 +68,27 @@ structure PairMkFacts (pv : V) (u v : Nat) : Prop where
   zero : Nat.max u v = 0 → ∀ x y z w' : V,
     app (app (app (app pv x) y) z) w' = pt
 
+/-- Block completeness: whenever a pinned basis *recursor* is stored,
+the other members of its block are stored (pinned) too.  This holds
+because blocks install as a unit with the recursor last; iota soundness
+uses it to resolve the constants a rule right-hand side mentions. -/
+def BasisBlocks (env : Env) : Prop :=
+  (∀ cv nP nM nm ni rules,
+    env.find? (eqName.str "rec") = some (.recInfo cv nP nM nm ni rules) →
+    env.find? eqName = some eqA ∧ env.find? eqReflName = some eqReflA) ∧
+  (∀ cv nP nM nm ni rules,
+    env.find? (natName.str "rec") = some (.recInfo cv nP nM nm ni rules) →
+    env.find? natName = some natA ∧ env.find? natZeroName = some natZeroA ∧
+    env.find? natSuccName = some natSuccA) ∧
+  (∀ cv nP nM nm ni rules,
+    env.find? (psigmaName.str "rec") = some (.recInfo cv nP nM nm ni rules) →
+    env.find? psigmaName = some psigmaA ∧
+    env.find? psigmaMkName = some psigmaMkA) ∧
+  (∀ cv nP nM nm ni rules,
+    env.find? (punitName.str "rec") = some (.recInfo cv nP nM nm ni rules) →
+    env.find? punitName = some punitA ∧
+    env.find? punitUnitName = some punitUnitA)
+
 /-- The environment's inductive-kind constants have models: every fact
 here is what some checker rule's soundness consumes.  Grows on demand as
 rules land (iota equations come with the recursor rules). -/
@@ -81,10 +102,15 @@ def IndOk (env : Env) (val : ConstVal V) : Prop :=
   (∀ cv, env.find? punitName = some (.indInfo cv) →
     ∀ (ψ : Name → Nat) (x : V), x ∈ˢ val punitName ψ → x = pt) ∧
   (∀ n ci, env.find? n = some ci → ConstantInfo.isBasis ci = true →
-    ci = pinnedInfo n ∧ ∀ ψ : Name → Nat, val n ψ = pinnedVal V n ψ)
+    ci = pinnedInfo n ∧ ∀ ψ : Name → Nat, val n ψ = pinnedVal V n ψ) ∧
+  BasisBlocks env
+
+theorem BasisBlocks.empty : BasisBlocks Env.empty := by
+  refine ⟨?_, ?_, ?_, ?_⟩ <;>
+    (intro cv nP nM nm ni rules h; simp [Env.find?, Env.empty] at h)
 
 theorem IndOk.empty (val : ConstVal V) : IndOk V Env.empty val := by
-  refine ⟨?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, BasisBlocks.empty⟩
   · intro cv h
     simp [Env.find?, Env.empty] at h
   · intro cv nP nF h

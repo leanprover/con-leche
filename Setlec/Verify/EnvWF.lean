@@ -19,11 +19,17 @@ def ConstWF (env : Env) (c : ConstantInfo) : Prop :=
   c.toConstantVal.type.allLevelParamsDefined c.toConstantVal.levelParams = true ∧
   c.toConstantVal.type.constsResolve env = true ∧
   c.toConstantVal.type.looseBVarsBounded 0 = true ∧
-  ∀ cv value, c = .defnInfo cv value →
+  (∀ cv value, c = .defnInfo cv value →
     value.hasFvar = false ∧
     value.allLevelParamsDefined cv.levelParams = true ∧
     value.constsResolve env = true ∧
-    value.looseBVarsBounded 0 = true
+    value.looseBVarsBounded 0 = true) ∧
+  (∀ cv nP nM nm ni rules, c = .recInfo cv nP nM nm ni rules →
+    ∀ r, r ∈ rules →
+      (RecRule.rhs r).hasFvar = false ∧
+      (RecRule.rhs r).allLevelParamsDefined cv.levelParams = true ∧
+      (RecRule.rhs r).constsResolve env = true ∧
+      (RecRule.rhs r).looseBVarsBounded 0 = true)
 
 /-- Every stored constant is syntactically well-formed. -/
 def EnvWF (env : Env) : Prop := ∀ c ∈ env.consts, ConstWF env c
@@ -82,9 +88,12 @@ theorem EnvWF.cons {c : ConstantInfo} {env : Env}
   intro c' hc'
   rcases List.mem_cons.mp hc' with rfl | hmem
   · exact hc
-  · obtain ⟨h1, h2, h3, h4, h5⟩ := henv c' hmem
-    exact ⟨h1, h2, Expr.constsResolve_mono h3, h4, fun cv value heq =>
+  · obtain ⟨h1, h2, h3, h4, h5, h6⟩ := henv c' hmem
+    refine ⟨h1, h2, Expr.constsResolve_mono h3, h4, fun cv value heq =>
       let ⟨g1, g2, g3, g4⟩ := h5 cv value heq
-      ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩⟩
+      ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩, ?_⟩
+    intro cv nP nM nm ni rules heq r hr
+    obtain ⟨g1, g2, g3, g4⟩ := h6 cv nP nM nm ni rules heq r hr
+    exact ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩
 
 end Setlec

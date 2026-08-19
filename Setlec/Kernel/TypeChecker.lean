@@ -107,7 +107,10 @@ def whnfCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → CheckM Ex
               whnfCore env fuel depth (body.instantiate1 a)
             else pure (.app (.lam n ty body m) a)
         | none => pure (.app (.lam n ty body m) a)
-      | f' => pure (.app f' a)
+      | f' => do
+        match ← iotaRec env fuel depth (.app f' a) with
+        | some e'' => whnfCore env fuel depth e''
+        | none => pure (.app f' a)
     | .proj sn i e => do
       let e' ← whnfCore env fuel depth e
       match e'.getAppFn with
@@ -306,6 +309,65 @@ def isDefEqCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr �
     -- thrown on unsupported heads, so no unimplemented case can hide
     -- here.
     | e₁, e₂ => stuckIrrel env fuel depth e₁ e₂
+  termination_by structural fuel _ _ _ => fuel
+
+/-- One iota step: the expression is a stored recursor applied to
+exactly its telescope (params, motives, minors, indices, major), the
+major premise whnfs to a fully applied constructor with a matching
+rule, and the spine is certified against the recursor's own (pinned,
+annotated) type.  The result is the rule's rhs applied to the
+non-index prefix and the constructor's fields; over-application is
+handled by the outer `whnf` app recursion. -/
+def iotaRec (env : Env) : (fuel : Nat) → (depth : Nat) → Expr →
+    CheckM (Option Expr)
+  | 0, _, _ => throw (.internal "fuel exhausted: iotaRec")
+  | fuel + 1, depth, e => do
+    match e.getAppFn with
+    | .const c us =>
+      match env.find? c with
+      | some (.recInfo cv nP nM nm ni rules) =>
+        let args := e.getAppArgs
+        if args.length = nP + nM + nm + ni + 1 then
+          let major ← whnfCore env fuel depth
+            (args.getD (nP + nM + nm + ni) (.bvar 0))
+          match major.getAppFn with
+          | .const cj _usj =>
+            match env.find? cj with
+            | some (.ctorInfo _ cnP cnF) =>
+              match rules.find? (fun r => r.ctor == cj) with
+              | some r =>
+                let margs := major.getAppArgs
+                if margs.length = cnP + cnF ∧ r.nfields = cnF then
+                  if ← iotaCerts env fuel depth
+                      (cv.type.instantiateLevelParams cv.levelParams us)
+                      (args.take (nP + nM + nm + ni)) then
+                    pure (some (Expr.mkAppN
+                      (r.rhs.instantiateLevelParams cv.levelParams us)
+                      (args.take (nP + nM + nm) ++ margs.drop cnP)))
+                  else pure none
+                else pure none
+              | none => pure none
+            | _ => pure none
+          | _ => pure none
+        else pure none
+      | _ => pure none
+    | _ => pure none
+  termination_by structural fuel _ _ => fuel
+
+/-- Certify a spine against a recursor telescope: each argument's
+inferred type is defeq to the corresponding (instantiated) domain.
+This is what hands the soundness proof the memberships the iota
+equations need, at every level assignment. -/
+def iotaCerts (env : Env) : (fuel : Nat) → (depth : Nat) → Expr →
+    List Expr → CheckM Bool
+  | 0, _, _, _ => throw (.internal "fuel exhausted: iotaCerts")
+  | _ + 1, _, _, [] => pure true
+  | fuel + 1, depth, .forallE _ ty body _, arg :: rest => do
+    let ta ← inferTypeCore env fuel depth arg
+    if ← isDefEqCore env fuel depth ta ty then
+      iotaCerts env fuel depth (body.instantiate1 arg) rest
+    else pure false
+  | _ + 1, _, _, _ :: _ => pure false
   termination_by structural fuel _ _ _ => fuel
 
 /-- The fallback for structurally distinct stuck terms: pair eta in

@@ -156,8 +156,39 @@ theorem fvarLeaves_getAppArgs :
     · exact Or.inr hl
   | _ => intro x hx; simp [getAppArgs] at hx
 
+theorem looseBVarsBounded_mkAppN {k : Nat} : ∀ {xs : List Expr} {f : Expr},
+    f.looseBVarsBounded k = true → (∀ x ∈ xs, x.looseBVarsBounded k = true) →
+    (Expr.mkAppN f xs).looseBVarsBounded k = true := by
+  intro xs
+  induction xs with
+  | nil => intro f hf _; exact hf
+  | cons x xs ih =>
+    intro f hf hxs
+    simp only [Expr.mkAppN]
+    refine ih ?_ (fun y hy => hxs y (List.mem_cons_of_mem _ hy))
+    simp only [looseBVarsBounded, Bool.and_eq_true]
+    exact ⟨hf, hxs x List.mem_cons_self⟩
+
+theorem fvarLeaves_mkAppN : ∀ {xs : List Expr} {f : Expr}
+    {l : Nat × Name × Expr},
+    l ∈ (Expr.mkAppN f xs).fvarLeaves →
+    l ∈ f.fvarLeaves ∨ ∃ x, x ∈ xs ∧ l ∈ x.fvarLeaves := by
+  intro xs
+  induction xs with
+  | nil => intro f l hl; exact Or.inl hl
+  | cons x xs ih =>
+    intro f l hl
+    simp only [Expr.mkAppN] at hl
+    rcases ih hl with hl' | ⟨y, hy, hly⟩
+    · simp only [fvarLeaves, List.mem_append] at hl'
+      rcases hl' with h | h
+      · exact Or.inl h
+      · exact Or.inr ⟨x, List.mem_cons_self, h⟩
+    · exact Or.inr ⟨y, List.mem_cons_of_mem _ hy, hly⟩
+
 /-! ## Preservation through `whnf` -/
 
+set_option maxRecDepth 2048 in
 theorem whnf_fvarLeaves {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat) {d : Nat} {e e' : Expr}, whnfCore env fuel d e = .ok e' →
       ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves
@@ -188,7 +219,7 @@ theorem whnf_fvarLeaves {env : Env} (henv : EnvWF env) :
           split at h
           next hal =>
             intro l hl
-            obtain ⟨-, -, -, -, hval⟩ := henv _ (find?_mem hf)
+            obtain ⟨-, -, -, -, hval, -⟩ := henv _ (find?_mem hf)
             obtain ⟨hvc, -, -, -⟩ := hval cv value rfl
             have := whnf_fvarLeaves henv fuel h l hl
             rw [fvarLeaves_eq_nil_of_not_hasFvar
@@ -204,11 +235,41 @@ theorem whnf_fvarLeaves {env : Env} (henv : EnvWF env) :
       intro l hl
       obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
       simp only [fvarLeaves, List.mem_append]
-      rcases hcase with ⟨n, ty, body, mm, v, rfl, hc, hbeta, -⟩ | rfl
+      rcases hcase with ⟨n, ty, body, mm, v, rfl, hc, hbeta, -⟩ |
+        ⟨e'', hio, hwe''⟩ | rfl
       · have hl' := whnf_fvarLeaves henv fuel hbeta l hl
         rcases fvarLeaves_instantiate1 body 0 hl' with hb | hb
         · exact Or.inl (whnf_fvarLeaves henv fuel hwf l (by simp [fvarLeaves, hb]))
         · exact Or.inr hb
+      · -- iota step
+        cases fuel with
+        | zero => exact nomatch hio
+        | succ fuel' =>
+        obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major, cj, usj, cvj,
+          cnP, cnF, r, hfn, hfc, hlen, hmaj, hmfn, hfj, hrule, hml1, hml2,
+          hcerts, rfl⟩ := iotaRec_inv hio
+        have hl2 := whnf_fvarLeaves henv _ hwe'' l hl
+        rcases fvarLeaves_mkAppN hl2 with hrl | ⟨x, hx, hlx⟩
+        · obtain ⟨-, -, -, -, -, hrules⟩ := henv _ (find?_mem hfc)
+          obtain ⟨hrf, -, -, -⟩ := hrules cv nP nM nm ni rules rfl r
+            (List.mem_of_find?_eq_some hrule)
+          rw [fvarLeaves_eq_nil_of_not_hasFvar
+            (by rw [hasFvar_instantiateLevelParams]; exact hrf)] at hrl
+          cases hrl
+        · rcases List.mem_append.mp hx with hx | hx
+          · have hll := fvarLeaves_getAppArgs (List.mem_of_mem_take hx) l hlx
+            simp only [fvarLeaves, List.mem_append] at hll
+            rcases hll with hll | hll
+            · exact Or.inl (whnf_fvarLeaves henv _ hwf l hll)
+            · exact Or.inr hll
+          · have hxa := fvarLeaves_getAppArgs (List.mem_of_mem_drop hx) l hlx
+            have hmj := whnf_fvarLeaves henv fuel' hmaj l hxa
+            have hll := fvarLeaves_getAppArgs
+              (getD_mem (l := (Expr.app f' a).getAppArgs) (by omega)) l hmj
+            simp only [fvarLeaves, List.mem_append] at hll
+            rcases hll with hll | hll
+            · exact Or.inl (whnf_fvarLeaves henv _ hwf l hll)
+            · exact Or.inr hll
       · simp only [fvarLeaves, List.mem_append] at hl
         rcases hl with hl | hl
         · exact Or.inl (whnf_fvarLeaves henv fuel hwf l hl)
@@ -223,7 +284,10 @@ theorem whnf_fvarLeaves {env : Env} (henv : EnvWF env) :
       · have hl2 := whnf_fvarLeaves henv fuel hred l hl
         exact whnf_fvarLeaves henv fuel he l
           (fvarLeaves_getAppArgs (getD_mem (by omega)) l hl2)
+  termination_by fuel => fuel
+  decreasing_by all_goals omega
 
+set_option maxRecDepth 2048 in
 theorem whnf_looseBVars {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat) {d : Nat} {e e' : Expr}, whnfCore env fuel d e = .ok e' →
       e.looseBVarsBounded 0 = true → e'.looseBVarsBounded 0 = true
@@ -253,7 +317,7 @@ theorem whnf_looseBVars {env : Env} (henv : EnvWF env) :
           dsimp only at h
           split at h
           next hal =>
-            obtain ⟨-, -, -, -, hval⟩ := henv _ (find?_mem hf)
+            obtain ⟨-, -, -, -, hval, -⟩ := henv _ (find?_mem hf)
             obtain ⟨-, -, -, hvb⟩ := hval cv value rfl
             refine whnf_looseBVars henv fuel h ?_
             rw [looseBVarsBounded_instantiateLevelParams]
@@ -268,10 +332,37 @@ theorem whnf_looseBVars {env : Env} (henv : EnvWF env) :
       simp only [looseBVarsBounded, Bool.and_eq_true] at hb
       obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
       have hbf' := whnf_looseBVars henv fuel hwf hb.1
-      rcases hcase with ⟨n, ty, body, mm, v, rfl, hc, hbeta, -⟩ | rfl
+      rcases hcase with ⟨n, ty, body, mm, v, rfl, hc, hbeta, -⟩ |
+        ⟨e'', hio, hwe''⟩ | rfl
       · simp only [looseBVarsBounded, Bool.and_eq_true] at hbf'
         exact whnf_looseBVars henv fuel hbeta
           (looseBVarsBounded_instantiate1_gen hb.2 hbf'.2)
+      · -- iota step
+        cases fuel with
+        | zero => exact nomatch hio
+        | succ fuel' =>
+        obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major, cj, usj, cvj,
+          cnP, cnF, r, hfn, hfc, hlen, hmaj, hmfn, hfj, hrule, hml1, hml2,
+          hcerts, rfl⟩ := iotaRec_inv hio
+        have hbapp : (Expr.app f' a).looseBVarsBounded 0 = true := by
+          simp only [looseBVarsBounded, Bool.and_eq_true]
+          exact ⟨hbf', hb.2⟩
+        have hbmaj : major.looseBVarsBounded 0 = true :=
+          whnf_looseBVars henv fuel' hmaj
+            (looseBVarsBounded_getAppArgs hbapp _ (getD_mem (by omega)))
+        refine whnf_looseBVars henv _ hwe'' ?_
+        refine looseBVarsBounded_mkAppN ?_ ?_
+        · obtain ⟨-, -, -, -, -, hrules⟩ := henv _ (find?_mem hfc)
+          obtain ⟨-, -, -, hrb⟩ := hrules cv nP nM nm ni rules rfl r
+            (List.mem_of_find?_eq_some hrule)
+          rw [looseBVarsBounded_instantiateLevelParams]
+          exact hrb
+        · intro x hx
+          rcases List.mem_append.mp hx with hx | hx
+          · exact looseBVarsBounded_getAppArgs hbapp _
+              (List.mem_of_mem_take hx)
+          · exact looseBVarsBounded_getAppArgs hbmaj _
+              (List.mem_of_mem_drop hx)
       · simp only [looseBVarsBounded, Bool.and_eq_true]
         exact ⟨hbf', hb.2⟩
     | .proj sn i e, h =>
@@ -282,6 +373,8 @@ theorem whnf_looseBVars {env : Env} (henv : EnvWF env) :
       · simpa [looseBVarsBounded] using hbe₂
       · exact whnf_looseBVars henv fuel hred
           (looseBVarsBounded_getAppArgs hbe₂ _ (getD_mem (by omega)))
+  termination_by fuel => fuel
+  decreasing_by all_goals omega
 
 /-! ## Preservation through `inferTypeCore` -/
 

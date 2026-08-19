@@ -32,6 +32,79 @@ private theorem find?_none_ne {env : Env} {n : Name} (h : env.find? n = none) :
   have := List.find?_eq_none.mp h c hc
   simpa using this
 
+/-- The sibling-availability data `BasisBlocks` preservation needs when
+extending by one (fresh) constant: if the constant is a recursor-kind
+record, the members of its block are already stored. -/
+private def SibFinds (env : Env) (c₀ : ConstantInfo) : Prop :=
+  ∀ cv nP nM nm ni rules, c₀ = .recInfo cv nP nM nm ni rules →
+    (c₀.name = eqName.str "rec" →
+      env.find? eqName = some eqA ∧ env.find? eqReflName = some eqReflA) ∧
+    (c₀.name = natName.str "rec" →
+      env.find? natName = some natA ∧
+      env.find? natZeroName = some natZeroA ∧
+      env.find? natSuccName = some natSuccA) ∧
+    (c₀.name = psigmaName.str "rec" →
+      env.find? psigmaName = some psigmaA ∧
+      env.find? psigmaMkName = some psigmaMkA) ∧
+    (c₀.name = punitName.str "rec" →
+      env.find? punitName = some punitA ∧
+      env.find? punitUnitName = some punitUnitA)
+
+private theorem BasisBlocks.cons {env : Env} {c₀ : ConstantInfo}
+    (hb : BasisBlocks env) (hfind' : env.find? c₀.name = none)
+    (hsib : SibFinds env c₀) :
+    BasisBlocks (⟨c₀ :: env.consts⟩ : Env) := by
+  have keep : ∀ {s : Name} {X : ConstantInfo}, env.find? s = some X →
+      Env.find? ⟨c₀ :: env.consts⟩ s = some X := by
+    intro s X hs
+    rw [Env.find?_cons_of_isSome hfind' (by rw [hs]; rfl)]
+    exact hs
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · intro cv nP nM nm ni rules h
+    rw [Env.find?_cons] at h
+    split at h
+    · next hn =>
+      obtain heq := (Option.some.inj h)
+      obtain ⟨hs, -, -, -⟩ := hsib cv nP nM nm ni rules heq
+      obtain ⟨h1, h2⟩ := hs hn
+      exact ⟨keep h1, keep h2⟩
+    · next hn =>
+      obtain ⟨h1, h2⟩ := hb.1 cv nP nM nm ni rules h
+      exact ⟨keep h1, keep h2⟩
+  · intro cv nP nM nm ni rules h
+    rw [Env.find?_cons] at h
+    split at h
+    · next hn =>
+      obtain heq := (Option.some.inj h)
+      obtain ⟨-, hs, -, -⟩ := hsib cv nP nM nm ni rules heq
+      obtain ⟨h1, h2, h3⟩ := hs hn
+      exact ⟨keep h1, keep h2, keep h3⟩
+    · next hn =>
+      obtain ⟨h1, h2, h3⟩ := hb.right.left cv nP nM nm ni rules h
+      exact ⟨keep h1, keep h2, keep h3⟩
+  · intro cv nP nM nm ni rules h
+    rw [Env.find?_cons] at h
+    split at h
+    · next hn =>
+      obtain heq := (Option.some.inj h)
+      obtain ⟨-, -, hs, -⟩ := hsib cv nP nM nm ni rules heq
+      obtain ⟨h1, h2⟩ := hs hn
+      exact ⟨keep h1, keep h2⟩
+    · next hn =>
+      obtain ⟨h1, h2⟩ := hb.right.right.left cv nP nM nm ni rules h
+      exact ⟨keep h1, keep h2⟩
+  · intro cv nP nM nm ni rules h
+    rw [Env.find?_cons] at h
+    split at h
+    · next hn =>
+      obtain heq := (Option.some.inj h)
+      obtain ⟨-, -, -, hs⟩ := hsib cv nP nM nm ni rules heq
+      obtain ⟨h1, h2⟩ := hs hn
+      exact ⟨keep h1, keep h2⟩
+    · next hn =>
+      obtain ⟨h1, h2⟩ := hb.right.right.right cv nP nM nm ni rules h
+      exact ⟨keep h1, keep h2⟩
+
 /-- Inversion for `checkConstantVal`. -/
 private theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
     (h : checkConstantVal env cv = .ok cv') :
@@ -138,10 +211,13 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
   have hwf' : EnvWF ⟨c₀ :: env.consts⟩ := by
     refine EnvWF.cons m.wf ?_
     rw [ConstWF, hc₀cv]
-    refine ⟨htf, htp, Expr.constsResolve_mono htr, htb, ?_⟩
-    intro cv2 value2 heq
-    obtain ⟨rfl, rfl⟩ := hc₀val cv2 value2 heq
-    exact ⟨hvf, hvp, Expr.constsResolve_mono hvr, hvb⟩
+    refine ⟨htf, htp, Expr.constsResolve_mono htr, htb, ?_, ?_⟩
+    · intro cv2 value2 heq
+      obtain ⟨rfl, rfl⟩ := hc₀val cv2 value2 heq
+      exact ⟨hvf, hvp, Expr.constsResolve_mono hvr, hvb⟩
+    · intro cv nP nM nm ni rules heq
+      rw [heq] at hc₀nb
+      simp [ConstantInfo.isBasis] at hc₀nb
   refine ⟨⟨val', hwf', ?_, ?_, ?_, ?_, ?_⟩⟩
   · -- val_params
     intro n ci hf ψ₁ ψ₂ hψ
@@ -191,7 +267,7 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
       obtain ⟨v, T, hv, -, -⟩ := hkey ψ
       rw [hval2, htrans value hvr ψ, hv, hcv2]
       simp [hval', hv]
-    · obtain ⟨-, -, -, -, hvalwf⟩ := m.wf _ hmem2
+    · obtain ⟨-, -, -, -, hvalwf, -⟩ := m.wf _ hmem2
       obtain ⟨-, -, hres2, -⟩ := hvalwf cv2 value2 rfl
       have := m.defn_eq cv2 value2 hmem2 ψ
       rw [htrans _ hres2 ψ, this]
@@ -208,7 +284,7 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
         obtain ⟨-, hval2⟩ := hc₀val cv2 value2 heq
         rw [hval2]
         exact hAtrans value hvr ψ (hAval ψ)
-    · obtain ⟨-, -, htyres, -, hvalwf⟩ := m.wf c hc
+    · obtain ⟨-, -, htyres, -, hvalwf, -⟩ := m.wf c hc
       obtain ⟨hA1, hA2⟩ := m.annot_ok c hc ψ
       refine ⟨hAtrans _ htyres ψ hA1, ?_⟩
       intro cv2 value2 heq
@@ -217,7 +293,10 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
   · -- ind_ok: the fresh constant is a definition or theorem, so every
     -- inductive-kind lookup still resolves to the old environment, and
     -- the valuation agrees there.
-    refine ⟨?_, ?_, ?_, ?_⟩
+    refine ⟨?_, ?_, ?_, ?_, BasisBlocks.cons m.ind_ok.right.right.right.right
+      hc₀fresh (fun cv nP nM nm ni rules heq => by
+        rw [heq] at hc₀nb
+        simp [ConstantInfo.isBasis] at hc₀nb)⟩
     · intro cv hfp
       rw [Env.find?_cons] at hfp
       split at hfp
@@ -294,7 +373,7 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
           intro hcontra
           rw [hcontra, hfind'] at hfp
           exact nomatch hfp
-        obtain ⟨hpi, hpv⟩ := m.ind_ok.right.right.right n ci hfp hbasis
+        obtain ⟨hpi, hpv⟩ := m.ind_ok.right.right.right.left n ci hfp hbasis
         refine ⟨hpi, fun ψ => ?_⟩
         have hvagree : val' n ψ = m.val n ψ := by
           simp [hval', hne]
@@ -326,7 +405,8 @@ private theorem extend_basis_one {env : Env} (m : EnvModel V env)
     (hnewunit : ∀ cv, ci = .indInfo cv → ci.name = punitName →
       ∀ (ψ : Name → Nat) (x : V), x ∈ˢ v₀ ψ → x = pt)
     (hpin : ci.isBasis = true → ci = pinnedInfo ci.name ∧
-      ∀ ψ : Name → Nat, v₀ ψ = pinnedVal V ci.name ψ) :
+      ∀ ψ : Name → Nat, v₀ ψ = pinnedVal V ci.name ψ)
+    (hsib : SibFinds env ci) :
     ∃ m' : EnvModel V ⟨ci :: env.consts⟩,
       (∀ ψ, m'.val ci.name ψ = v₀ ψ) ∧
       (∀ n ψ, n ≠ ci.name → m'.val n ψ = m.val n ψ) := by
@@ -380,7 +460,7 @@ private theorem extend_basis_one {env : Env} (m : EnvModel V env)
         rw [this]
         exact hv
     · obtain ⟨T, hT, hv⟩ := m.mem_type c hc ψ
-      obtain ⟨-, -, hres, -, -⟩ := m.wf c hc
+      obtain ⟨-, -, hres, -, -, -⟩ := m.wf c hc
       refine ⟨T, ?_, ?_⟩
       · rw [htrans _ hres ψ]
         exact hT
@@ -391,7 +471,7 @@ private theorem extend_basis_one {env : Env} (m : EnvModel V env)
     intro cv2 value2 hmem2 ψ
     rcases List.mem_cons.mp hmem2 with heq | hmem2
     · exact absurd heq.symm (hnotdefn cv2 value2)
-    · obtain ⟨-, -, -, -, hvalwf⟩ := m.wf _ hmem2
+    · obtain ⟨-, -, -, -, hvalwf, -⟩ := m.wf _ hmem2
       obtain ⟨-, -, hres2, -⟩ := hvalwf cv2 value2 rfl
       have := m.defn_eq cv2 value2 hmem2 ψ
       rw [htrans _ hres2 ψ, this]
@@ -405,14 +485,15 @@ private theorem extend_basis_one {env : Env} (m : EnvModel V env)
     · refine ⟨hAtrans _ htyres0 ψ (hAty ψ), ?_⟩
       intro cv2 value2 heq
       exact absurd heq (hnotdefn cv2 value2)
-    · obtain ⟨-, -, htyres, -, hvalwf⟩ := m.wf c hc
+    · obtain ⟨-, -, htyres, -, hvalwf, -⟩ := m.wf c hc
       obtain ⟨hA1, hA2⟩ := m.annot_ok c hc ψ
       refine ⟨hAtrans _ htyres ψ hA1, ?_⟩
       intro cv2 value2 heq
       obtain ⟨-, -, hres2, -⟩ := hvalwf cv2 value2 heq
       exact hAtrans _ hres2 ψ (hA2 cv2 value2 heq)
   · -- ind_ok
-    refine ⟨?_, ?_, ?_, ?_⟩
+    refine ⟨?_, ?_, ?_, ?_, BasisBlocks.cons m.ind_ok.right.right.right.right
+      hfind' hsib⟩
     · intro cv hfp
       rw [Env.find?_cons] at hfp
       split at hfp
@@ -505,7 +586,7 @@ private theorem extend_basis_one {env : Env} (m : EnvModel V env)
           intro hcontra
           rw [hcontra, hfind'] at hfp
           exact nomatch hfp
-        obtain ⟨hpi, hpv⟩ := m.ind_ok.right.right.right n ci' hfp hbasis
+        obtain ⟨hpi, hpv⟩ := m.ind_ok.right.right.right.left n ci' hfp hbasis
         refine ⟨hpi, fun ψ => ?_⟩
         have hval'eq : val' n ψ = m.val n ψ := by
           simp [hval', hne]
@@ -609,7 +690,9 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       -- chain the four model extensions
       obtain ⟨m1, hval1, hpres1⟩ := extend_basis_one m natA (fun _ => omega)
         (Option.isNone_iff_eq_none.mp h1)
-        ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+        ⟨rfl, rfl, rfl, rfl,
+          fun _ _ hx => absurd hx (by simp [natA]),
+          fun _ _ _ _ _ _ hx => absurd hx (by simp [natA])⟩
         rfl
         (fun _ _ hx => nomatch hx)
         (fun ψ => nat_key)
@@ -619,10 +702,13 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv nP nF hx _ => nomatch hx)
         (fun cv hx hn => absurd hn (by decide))
         (fun _ => ⟨rfl, fun _ => rfl⟩)
+        (fun _ _ _ _ _ _ hx => nomatch hx)
       obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 natZeroA
         (fun _ => natzero)
         (Option.isNone_iff_eq_none.mp h2)
-        ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+        ⟨rfl, rfl, rfl, rfl,
+          fun _ _ hx => absurd hx (by simp [natZeroA]),
+          fun _ _ _ _ _ _ hx => absurd hx (by simp [natZeroA])⟩
         rfl
         (fun _ _ hx => nomatch hx)
         (fun ψ => natZero_key rfl (fun ψ' => hval1 ψ'))
@@ -632,13 +718,16 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv nP nF hx hn => absurd hn (by decide))
         (fun cv hx _ => nomatch hx)
         (fun _ => ⟨rfl, fun _ => rfl⟩)
+        (fun _ _ _ _ _ _ hx => nomatch hx)
       have hvalN2 : ∀ ψ' : Name → Nat, m2.val natName ψ' = omega := fun ψ' => by
         rw [hpres2 natName ψ' (by decide)]
         exact hval1 ψ'
       obtain ⟨m3, hval3, hpres3⟩ := extend_basis_one m2 natSuccA
         (fun ψ => natSuccVal V ψ)
         (Option.isNone_iff_eq_none.mp h3)
-        ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+        ⟨rfl, rfl, rfl, rfl,
+          fun _ _ hx => absurd hx (by simp [natSuccA]),
+          fun _ _ _ _ _ _ hx => absurd hx (by simp [natSuccA])⟩
         rfl
         (fun _ _ hx => nomatch hx)
         (fun ψ => natSucc_key rfl hvalN2)
@@ -648,6 +737,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv nP nF hx hn => absurd hn (by decide))
         (fun cv hx _ => nomatch hx)
         (fun _ => ⟨rfl, fun _ => rfl⟩)
+        (fun _ _ _ _ _ _ hx => nomatch hx)
       have hvalN3 : ∀ ψ' : Name → Nat, m3.val natName ψ' = omega := fun ψ' => by
         rw [hpres3 natName ψ' (by decide)]
         exact hvalN2 ψ'
@@ -657,7 +747,39 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       obtain ⟨m4, hval4, hpres4⟩ := extend_basis_one m3 natRecA
         (fun ψ => natRecVal V ψ)
         (Option.isNone_iff_eq_none.mp h4)
-        ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+        ⟨rfl, rfl, rfl, rfl,
+          fun _ _ hx => absurd hx (by simp [natRecA]),
+          fun cv nP nM nm ni rules heq r hr => by
+            simp only [natRecA] at heq
+            injection heq with h1 h2 h3 h4 h5 h6
+            subst h1 h2 h3 h4 h5 h6
+            first
+            | (rcases List.mem_cons.mp hr with rfl | hr
+               · exact ⟨by decide, by decide,
+                   (by simp +decide [Expr.constsResolve, Env.find?, List.find?,
+                     natRecA, natSuccA, natZeroA, natA, psigmaRecA,
+                     psigmaMkA, psigmaA, eqRecA, eqReflA, eqA, punitRecA,
+                     punitUnitA, punitA, ConstantInfo.name,
+                     ConstantInfo.toConstantVal]),
+                   by decide⟩
+               rcases List.mem_cons.mp hr with rfl | hr
+               · exact ⟨by decide, by decide,
+                   (by simp +decide [Expr.constsResolve, Env.find?, List.find?,
+                     natRecA, natSuccA, natZeroA, natA, psigmaRecA,
+                     psigmaMkA, psigmaA, eqRecA, eqReflA, eqA, punitRecA,
+                     punitUnitA, punitA, ConstantInfo.name,
+                     ConstantInfo.toConstantVal]),
+                   by decide⟩
+               exact absurd hr (by simp))
+            | (rcases List.mem_cons.mp hr with rfl | hr
+               · exact ⟨by decide, by decide,
+                   (by simp +decide [Expr.constsResolve, Env.find?, List.find?,
+                     natRecA, natSuccA, natZeroA, natA, psigmaRecA,
+                     psigmaMkA, psigmaA, eqRecA, eqReflA, eqA, punitRecA,
+                     punitUnitA, punitA, ConstantInfo.name,
+                     ConstantInfo.toConstantVal]),
+                   by decide⟩
+               exact absurd hr (by simp))⟩
         rfl
         (fun _ _ hx => nomatch hx)
         (fun ψ => natRec_key rfl hvalN3 rfl hvalZ3 rfl (fun ψ' => hval3 ψ'))
@@ -670,6 +792,18 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv nP nF hx _ => nomatch hx)
         (fun cv hx _ => nomatch hx)
         (fun _ => ⟨rfl, fun _ => rfl⟩)
+        (fun cv nP nM nm ni rules heq =>
+          ⟨fun hn => absurd hn (by decide),
+           fun _ => ⟨by
+              rw [Env.find?_cons, if_neg (by decide), Env.find?_cons,
+                if_neg (by decide), Env.find?_cons, if_pos (by decide)],
+            by
+              rw [Env.find?_cons, if_neg (by decide), Env.find?_cons,
+                if_pos (by decide)],
+            by
+              rw [Env.find?_cons, if_pos (by decide)]⟩,
+           fun hn => absurd hn (by decide),
+           fun hn => absurd hn (by decide)⟩)
       exact ⟨m4⟩
     case _ =>
       simp only [checkDecl, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
@@ -733,7 +867,9 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       obtain ⟨m1, hval1, hpres1⟩ := extend_basis_one m psigmaA
         (fun ψ => psigmaVal V ψ)
         (Option.isNone_iff_eq_none.mp h1)
-        ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+        ⟨rfl, rfl, rfl, rfl,
+          fun _ _ hx => absurd hx (by simp [psigmaA]),
+          fun _ _ _ _ _ _ hx => absurd hx (by simp [psigmaA])⟩
         rfl
         (fun _ _ hx => nomatch hx)
         (fun ψ => psigma_key)
@@ -746,10 +882,13 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv nP nF hx _ => nomatch hx)
         (fun cv hx hn => absurd hn (by decide))
         (fun _ => ⟨rfl, fun _ => rfl⟩)
+        (fun _ _ _ _ _ _ hx => nomatch hx)
       obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 psigmaMkA
         (fun ψ => psigmaMkVal V ψ)
         (Option.isNone_iff_eq_none.mp h2)
-        ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+        ⟨rfl, rfl, rfl, rfl,
+          fun _ _ hx => absurd hx (by simp [psigmaMkA]),
+          fun _ _ _ _ _ _ hx => absurd hx (by simp [psigmaMkA])⟩
         rfl
         (fun _ _ hx => nomatch hx)
         (fun ψ => psigmaMk_key rfl (fun ψ' => hval1 ψ'))
@@ -764,6 +903,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
           exact ⟨rfl, rfl, rfl, hmkfacts⟩)
         (fun cv hx _ => nomatch hx)
         (fun _ => ⟨rfl, fun _ => rfl⟩)
+        (fun _ _ _ _ _ _ hx => nomatch hx)
       have hvalS2 : ∀ ψ' : Name → Nat, m2.val psigmaName ψ' = psigmaVal V ψ' :=
         fun ψ' => by
           rw [hpres2 psigmaName ψ' (by decide)]
@@ -771,7 +911,39 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       obtain ⟨m3, hval3, hpres3⟩ := extend_basis_one m2 psigmaRecA
         (fun ψ => psigmaRecVal V ψ)
         (Option.isNone_iff_eq_none.mp h3)
-        ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+        ⟨rfl, rfl, rfl, rfl,
+          fun _ _ hx => absurd hx (by simp [psigmaRecA]),
+          fun cv nP nM nm ni rules heq r hr => by
+            simp only [psigmaRecA] at heq
+            injection heq with h1 h2 h3 h4 h5 h6
+            subst h1 h2 h3 h4 h5 h6
+            first
+            | (rcases List.mem_cons.mp hr with rfl | hr
+               · exact ⟨by decide, by decide,
+                   (by simp +decide [Expr.constsResolve, Env.find?, List.find?,
+                     natRecA, natSuccA, natZeroA, natA, psigmaRecA,
+                     psigmaMkA, psigmaA, eqRecA, eqReflA, eqA, punitRecA,
+                     punitUnitA, punitA, ConstantInfo.name,
+                     ConstantInfo.toConstantVal]),
+                   by decide⟩
+               rcases List.mem_cons.mp hr with rfl | hr
+               · exact ⟨by decide, by decide,
+                   (by simp +decide [Expr.constsResolve, Env.find?, List.find?,
+                     natRecA, natSuccA, natZeroA, natA, psigmaRecA,
+                     psigmaMkA, psigmaA, eqRecA, eqReflA, eqA, punitRecA,
+                     punitUnitA, punitA, ConstantInfo.name,
+                     ConstantInfo.toConstantVal]),
+                   by decide⟩
+               exact absurd hr (by simp))
+            | (rcases List.mem_cons.mp hr with rfl | hr
+               · exact ⟨by decide, by decide,
+                   (by simp +decide [Expr.constsResolve, Env.find?, List.find?,
+                     natRecA, natSuccA, natZeroA, natA, psigmaRecA,
+                     psigmaMkA, psigmaA, eqRecA, eqReflA, eqA, punitRecA,
+                     punitUnitA, punitA, ConstantInfo.name,
+                     ConstantInfo.toConstantVal]),
+                   by decide⟩
+               exact absurd hr (by simp))⟩
         rfl
         (fun _ _ hx => nomatch hx)
         (fun ψ => psigmaRec_key rfl hvalS2 rfl (fun ψ' => hval2 ψ'))
@@ -784,6 +956,15 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv nP nF hx _ => nomatch hx)
         (fun cv hx _ => nomatch hx)
         (fun _ => ⟨rfl, fun _ => rfl⟩)
+        (fun cv nP nM nm ni rules heq =>
+          ⟨fun hn => absurd hn (by decide),
+           fun hn => absurd hn (by decide),
+           fun _ => ⟨by
+              rw [Env.find?_cons, if_neg (by decide), Env.find?_cons,
+                if_pos (by decide)],
+            by
+              rw [Env.find?_cons, if_pos (by decide)]⟩,
+           fun hn => absurd hn (by decide)⟩)
       exact ⟨m3⟩
     case _ =>
       simp only [checkDecl, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
@@ -809,7 +990,9 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       -- chain the three model extensions
       obtain ⟨m1, hval1, hpres1⟩ := extend_basis_one m eqA (fun ψ => eqVal V ψ)
         (Option.isNone_iff_eq_none.mp h1)
-        ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+        ⟨rfl, rfl, rfl, rfl,
+          fun _ _ hx => absurd hx (by simp [eqA]),
+          fun _ _ _ _ _ _ hx => absurd hx (by simp [eqA])⟩
         rfl
         (fun _ _ hx => nomatch hx)
         (fun ψ => eq_key)
@@ -821,10 +1004,13 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv nP nF hx _ => nomatch hx)
         (fun cv hx hn => absurd hn (by decide))
         (fun _ => ⟨rfl, fun _ => rfl⟩)
+        (fun _ _ _ _ _ _ hx => nomatch hx)
       obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 eqReflA
         (fun ψ => eqReflVal V ψ)
         (Option.isNone_iff_eq_none.mp h2)
-        ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+        ⟨rfl, rfl, rfl, rfl,
+          fun _ _ hx => absurd hx (by simp [eqReflA]),
+          fun _ _ _ _ _ _ hx => absurd hx (by simp [eqReflA])⟩
         rfl
         (fun _ _ hx => nomatch hx)
         (fun ψ => eqRefl_key rfl (fun ψ' => hval1 ψ'))
@@ -836,13 +1022,46 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv nP nF hx hn => absurd hn (by decide))
         (fun cv hx _ => nomatch hx)
         (fun _ => ⟨rfl, fun _ => rfl⟩)
+        (fun _ _ _ _ _ _ hx => nomatch hx)
       have hvalE2 : ∀ ψ' : Name → Nat, m2.val eqName ψ' = eqVal V ψ' := fun ψ' => by
         rw [hpres2 eqName ψ' (by decide)]
         exact hval1 ψ'
       obtain ⟨m3, hval3, hpres3⟩ := extend_basis_one m2 eqRecA
         (fun ψ => eqRecVal V ψ)
         (Option.isNone_iff_eq_none.mp h3)
-        ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+        ⟨rfl, rfl, rfl, rfl,
+          fun _ _ hx => absurd hx (by simp [eqRecA]),
+          fun cv nP nM nm ni rules heq r hr => by
+            simp only [eqRecA] at heq
+            injection heq with h1 h2 h3 h4 h5 h6
+            subst h1 h2 h3 h4 h5 h6
+            first
+            | (rcases List.mem_cons.mp hr with rfl | hr
+               · exact ⟨by decide, by decide,
+                   (by simp +decide [Expr.constsResolve, Env.find?, List.find?,
+                     natRecA, natSuccA, natZeroA, natA, psigmaRecA,
+                     psigmaMkA, psigmaA, eqRecA, eqReflA, eqA, punitRecA,
+                     punitUnitA, punitA, ConstantInfo.name,
+                     ConstantInfo.toConstantVal]),
+                   by decide⟩
+               rcases List.mem_cons.mp hr with rfl | hr
+               · exact ⟨by decide, by decide,
+                   (by simp +decide [Expr.constsResolve, Env.find?, List.find?,
+                     natRecA, natSuccA, natZeroA, natA, psigmaRecA,
+                     psigmaMkA, psigmaA, eqRecA, eqReflA, eqA, punitRecA,
+                     punitUnitA, punitA, ConstantInfo.name,
+                     ConstantInfo.toConstantVal]),
+                   by decide⟩
+               exact absurd hr (by simp))
+            | (rcases List.mem_cons.mp hr with rfl | hr
+               · exact ⟨by decide, by decide,
+                   (by simp +decide [Expr.constsResolve, Env.find?, List.find?,
+                     natRecA, natSuccA, natZeroA, natA, psigmaRecA,
+                     psigmaMkA, psigmaA, eqRecA, eqReflA, eqA, punitRecA,
+                     punitUnitA, punitA, ConstantInfo.name,
+                     ConstantInfo.toConstantVal]),
+                   by decide⟩
+               exact absurd hr (by simp))⟩
         rfl
         (fun _ _ hx => nomatch hx)
         (fun ψ => eqRec_key rfl hvalE2 rfl (fun ψ' => hval2 ψ'))
@@ -855,6 +1074,15 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv nP nF hx _ => nomatch hx)
         (fun cv hx _ => nomatch hx)
         (fun _ => ⟨rfl, fun _ => rfl⟩)
+        (fun cv nP nM nm ni rules heq =>
+          ⟨fun _ => ⟨by
+              rw [Env.find?_cons, if_neg (by decide), Env.find?_cons,
+                if_pos (by decide)],
+            by
+              rw [Env.find?_cons, if_pos (by decide)]⟩,
+           fun hn => absurd hn (by decide),
+           fun hn => absurd hn (by decide),
+           fun hn => absurd hn (by decide)⟩)
       exact ⟨m3⟩
     simp only [checkDecl, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
     -- step 1: PUnit
@@ -879,7 +1107,9 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     -- chain the three model extensions
     obtain ⟨m1, hval1, hpres1⟩ := extend_basis_one m punitA (fun _ => unitSet)
       (Option.isNone_iff_eq_none.mp h1)
-      ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+      ⟨rfl, rfl, rfl, rfl,
+          fun _ _ hx => absurd hx (by simp [punitA]),
+          fun _ _ _ _ _ _ hx => absurd hx (by simp [punitA])⟩
       rfl
       (fun _ _ hx => nomatch hx)
       (fun ψ => punit_key)
@@ -889,9 +1119,12 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (fun cv nP nF hx _ => nomatch hx)
       (fun cv _ _ ψ x hx => mem_unitSet hx)
       (fun _ => ⟨rfl, fun _ => rfl⟩)
+        (fun _ _ _ _ _ _ hx => nomatch hx)
     obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 punitUnitA (fun _ => pt)
       (Option.isNone_iff_eq_none.mp h2)
-      ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+      ⟨rfl, rfl, rfl, rfl,
+          fun _ _ hx => absurd hx (by simp [punitUnitA]),
+          fun _ _ _ _ _ _ hx => absurd hx (by simp [punitUnitA])⟩
       rfl
       (fun _ _ hx => nomatch hx)
       (fun ψ => punitUnit_key rfl (fun ψ' => hval1 ψ'))
@@ -901,13 +1134,46 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (fun cv nP nF hx hn => absurd hn (by decide))
       (fun cv hx _ => nomatch hx)
       (fun _ => ⟨rfl, fun _ => rfl⟩)
+        (fun _ _ _ _ _ _ hx => nomatch hx)
     have hvalP2 : ∀ ψ' : Name → Nat, m2.val punitName ψ' = unitSet := fun ψ' => by
       rw [hpres2 punitName ψ' (by decide)]
       exact hval1 ψ'
     obtain ⟨m3, hval3, hpres3⟩ := extend_basis_one m2 punitRecA
       (fun ψ => punitRecVal V ψ)
       (Option.isNone_iff_eq_none.mp h3)
-      ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+      ⟨rfl, rfl, rfl, rfl,
+          fun _ _ hx => absurd hx (by simp [punitRecA]),
+          fun cv nP nM nm ni rules heq r hr => by
+            simp only [punitRecA] at heq
+            injection heq with h1 h2 h3 h4 h5 h6
+            subst h1 h2 h3 h4 h5 h6
+            first
+            | (rcases List.mem_cons.mp hr with rfl | hr
+               · exact ⟨by decide, by decide,
+                   (by simp +decide [Expr.constsResolve, Env.find?, List.find?,
+                     natRecA, natSuccA, natZeroA, natA, psigmaRecA,
+                     psigmaMkA, psigmaA, eqRecA, eqReflA, eqA, punitRecA,
+                     punitUnitA, punitA, ConstantInfo.name,
+                     ConstantInfo.toConstantVal]),
+                   by decide⟩
+               rcases List.mem_cons.mp hr with rfl | hr
+               · exact ⟨by decide, by decide,
+                   (by simp +decide [Expr.constsResolve, Env.find?, List.find?,
+                     natRecA, natSuccA, natZeroA, natA, psigmaRecA,
+                     psigmaMkA, psigmaA, eqRecA, eqReflA, eqA, punitRecA,
+                     punitUnitA, punitA, ConstantInfo.name,
+                     ConstantInfo.toConstantVal]),
+                   by decide⟩
+               exact absurd hr (by simp))
+            | (rcases List.mem_cons.mp hr with rfl | hr
+               · exact ⟨by decide, by decide,
+                   (by simp +decide [Expr.constsResolve, Env.find?, List.find?,
+                     natRecA, natSuccA, natZeroA, natA, psigmaRecA,
+                     psigmaMkA, psigmaA, eqRecA, eqReflA, eqA, punitRecA,
+                     punitUnitA, punitA, ConstantInfo.name,
+                     ConstantInfo.toConstantVal]),
+                   by decide⟩
+               exact absurd hr (by simp))⟩
       rfl
       (fun _ _ hx => nomatch hx)
       (fun ψ => punitRec_key rfl hvalP2 rfl (fun ψ' => hval2 ψ'))
@@ -920,6 +1186,15 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (fun cv nP nF hx _ => nomatch hx)
       (fun cv hx _ => nomatch hx)
       (fun _ => ⟨rfl, fun _ => rfl⟩)
+        (fun cv nP nM nm ni rules heq =>
+          ⟨fun hn => absurd hn (by decide),
+           fun hn => absurd hn (by decide),
+           fun hn => absurd hn (by decide),
+           fun _ => ⟨by
+              rw [Env.find?_cons, if_neg (by decide), Env.find?_cons,
+                if_pos (by decide)],
+            by
+              rw [Env.find?_cons, if_pos (by decide)]⟩⟩)
     exact ⟨m3⟩
   | defnDecl cv value =>
     simp only [checkDecl, Bind.bind, Except.bind] at h

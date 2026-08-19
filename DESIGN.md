@@ -151,12 +151,35 @@ constructions.
 
 Supported fragment: **`def`/`thm` declarations over sorts, dependent
 function types, lambdas/apps with certified beta, lets (zeta-expanded in
-the frontend), constants with delta unfolding, the `PUnit` and `Eq`
-basis blocks with verified set models, `PSigma'.mk` projections, and
-proof irrelevance** (37/92 good arena tutorial tests accepted; the only
-good tests still rejected are the four eta-conversion ones; type-mismatch,
-duplicate-name, duplicate/undeclared level parameters, stray free
-variables, and unknown constants rejected).  `whnf` is fueled and
+the frontend), constants with delta unfolding, all four basis blocks
+(`PUnit`, `Eq`, `Nat`, `PSigma'`) with verified set models,
+`PSigma'.mk` projections, proof irrelevance, lambda/unit eta, and
+verified iota reduction for all five basis recursor rules** (62/92 good
+arena tutorial tests accepted; the good tests still rejected need
+ctor-param reduction under `mk` (053), rule K / singleton-elim
+reduction (073, 097), second projections (082–084, 096), and struct
+eta (109); type-mismatch, duplicate-name, duplicate/undeclared level
+parameters, stray free variables, and unknown constants rejected).
+
+Iota soundness (2026-08-19): the whnf iota step is verified end to end.
+Per recursor rule, `Setlec/Model/BasisIota.lean` provides the
+interpretation of the (annotated) rule rhs, its annotation
+truthfulness, the *fold equation* (recursor value applied through the
+telescope equals the rhs value applied to the non-index prefix and
+fields), and a claims-glue lemma packaging the `AppSlot` typing facts
+the reduct's `AnnotOk` app-chain needs.  The claims-side `iota_sound`
+(in `Setlec/Model/TypeChecker.lean`) identifies the recursor and
+constructor through `decl_ok`/`pinnedInfo`, destructures the concrete
+spine, and recovers the canonical argument memberships from the
+*original* application chain's `AnnotOk` witnesses via `lam_dom`
+("graphs determine their domains") away from the Prop collapse — no
+use of the runtime `iotaCerts` is needed for soundness; under the
+collapse both sides are the proof point and `AppSlot`s are discharged
+with `pt ∈ pi 0 A (fun _ => unitSet)`.  A new `IndOk` conjunct
+`BasisBlocks` records that whenever a pinned basis *recursor* is
+stored, its block siblings are stored pinned too (blocks install as a
+unit, recursor last), which resolves the constants a rule rhs
+mentions.  `whnf` is fueled and
 delta-unfolds definitions eagerly for now (the lazy strategy of real
 kernels is deferred to performance work).
 

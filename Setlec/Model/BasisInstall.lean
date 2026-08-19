@@ -1,4 +1,9 @@
-import Setlec.Model.TypeChecker
+import Setlec.Kernel.TypeChecker
+import Setlec.Model.FvarsOkLemmas
+import Setlec.Model.Subst
+import Setlec.Verify.Leaves
+import Setlec.Verify.InferLemmas
+import Setlec.Verify.InferLeaves
 import Setlec.Model.BasisLemmas
 
 /-!
@@ -18,7 +23,7 @@ variable {V : Type u} [SetTheory V] {env : Env} {ψ : Name → Nat}
 
 open SetTheory Expr
 
-private theorem max_absorb_r' (u v : Nat) : Nat.max v (Nat.max u v) = Nat.max u v :=
+theorem max_absorb_r' (u v : Nat) : Nat.max v (Nat.max u v) = Nat.max u v :=
   Nat.le_antisymm (Nat.max_le.mpr ⟨Nat.le_max_right u v, Nat.le_refl _⟩)
     (Nat.le_max_right _ _)
 
@@ -541,14 +546,14 @@ theorem annotOk_eqRefl_type {cval : ConstVal V}
 /-! The evaluations of `Eq.rec`'s binder codomain annotations, in the
 raw nested-`if` forms `interpExpr` computes (outermost binder last). -/
 
-private def erB (u1 : Nat) : Nat := if u1 = 0 then 0 else u1
-private def erRefl (u u1 : Nat) : Nat :=
+def erB (u1 : Nat) : Nat := if u1 = 0 then 0 else u1
+def erRefl (u u1 : Nat) : Nat :=
   if erB u1 = 0 then 0 else Nat.max u (erB u1)
-private def erM (u u1 : Nat) : Nat :=
+def erM (u u1 : Nat) : Nat :=
   if erRefl u u1 = 0 then 0 else Nat.max u1 (erRefl u u1)
-private def erA (u u1 : Nat) : Nat :=
+def erA (u u1 : Nat) : Nat :=
   if erM u u1 = 0 then 0 else Nat.max u (Nat.max (u1 + 1) (erM u u1))
-private def erAl (u u1 : Nat) : Nat :=
+def erAl (u u1 : Nat) : Nat :=
   if erA u u1 = 0 then 0 else Nat.max u (erA u u1)
 
 /-- Interpretation of `Eq.rec`'s pinned type, computed. -/
@@ -589,12 +594,28 @@ theorem interp_eqRec_type {cval : ConstVal V}
 
 /-! Collapsing the raw annotation evaluations to `eqRecVal`'s tags. -/
 
-private theorem max_absorb_l' (u v : Nat) :
+theorem max_absorb_l' (u v : Nat) :
     Nat.max u (Nat.max u v) = Nat.max u v :=
   Nat.le_antisymm (Nat.max_le.mpr ⟨Nat.le_max_left _ _, Nat.le_refl _⟩)
     (Nat.le_max_right _ _)
 
-private theorem max_eqrec_a (u u1 : Nat) :
+theorem max_eqrec_b (u u1 : Nat) :
+    Nat.max (Nat.max u (u1 + 1)) u1 = Nat.max u (u1 + 1) :=
+  Nat.le_antisymm
+    (Nat.max_le.mpr ⟨Nat.le_refl _,
+      Nat.le_trans (Nat.le_succ _) (Nat.le_max_right _ _)⟩)
+    (Nat.le_max_left _ _)
+
+theorem max_eqrec_a'' (u u1 : Nat) :
+    Nat.max u (Nat.max (u1 + 1) u1) = Nat.max u (u1 + 1) :=
+  Nat.le_antisymm
+    (Nat.max_le.mpr ⟨Nat.le_max_left _ _,
+      Nat.max_le.mpr ⟨Nat.le_max_right _ _,
+        Nat.le_trans (Nat.le_succ _) (Nat.le_max_right _ _)⟩⟩)
+    (Nat.max_le.mpr ⟨Nat.le_max_left _ _,
+      Nat.le_trans (Nat.le_max_left _ _) (Nat.le_max_right _ _)⟩)
+
+theorem max_eqrec_a (u u1 : Nat) :
     Nat.max u (Nat.max (u1 + 1) (Nat.max u u1)) = Nat.max u (u1 + 1) :=
   Nat.le_antisymm
     (Nat.max_le.mpr ⟨Nat.le_max_left _ _,
@@ -604,11 +625,11 @@ private theorem max_eqrec_a (u u1 : Nat) :
     (Nat.max_le.mpr ⟨Nat.le_max_left _ _,
       Nat.le_trans (Nat.le_max_left _ _) (Nat.le_max_right _ _)⟩)
 
-private theorem erB_eq (u1 : Nat) : erB u1 = u1 := by
+theorem erB_eq (u1 : Nat) : erB u1 = u1 := by
   unfold erB
   by_cases h : u1 = 0 <;> simp [h]
 
-private theorem erRefl_eq (u u1 : Nat) :
+theorem erRefl_eq (u u1 : Nat) :
     erRefl u u1 = if u1 = 0 then 0 else Nat.max u u1 := by
   unfold erRefl
   rw [erB_eq]
@@ -617,7 +638,7 @@ private theorem max_ne_zero_r {u u1 : Nat} (h : u1 ≠ 0) :
     Nat.max u u1 ≠ 0 :=
   fun hc => h (Nat.le_zero.mp (hc ▸ Nat.le_max_right u u1))
 
-private theorem erM_eq (u u1 : Nat) :
+theorem erM_eq (u u1 : Nat) :
     erM u u1 = if u1 = 0 then 0 else Nat.max u u1 := by
   unfold erM
   rw [erRefl_eq]
@@ -627,7 +648,7 @@ private theorem erM_eq (u u1 : Nat) :
     rw [if_neg (max_ne_zero_r h)]
     exact max_absorb_r' u u1
 
-private theorem erA_eq (u u1 : Nat) :
+theorem erA_eq (u u1 : Nat) :
     erA u u1 = if u1 = 0 then 0 else Nat.max u (u1 + 1) := by
   unfold erA
   rw [erM_eq]
@@ -637,7 +658,7 @@ private theorem erA_eq (u u1 : Nat) :
     rw [if_neg (max_ne_zero_r h)]
     exact max_eqrec_a u u1
 
-private theorem erAl_eq (u u1 : Nat) :
+theorem erAl_eq (u u1 : Nat) :
     erAl u u1 = if u1 = 0 then 0 else Nat.max u (u1 + 1) := by
   unfold erAl
   rw [erA_eq]
@@ -681,10 +702,10 @@ theorem eqRec_key {cval : ConstVal V}
 /-! Unassociated (raw) forms of the two outermost `Eq.rec` annotation
 evaluations (`interp_eqRec_type` states the simp-reassociated forms). -/
 
-private def erA₀ (u u1 : Nat) : Nat :=
+def erA₀ (u u1 : Nat) : Nat :=
   if erM u u1 = 0 then 0 else Nat.max (Nat.max u (u1 + 1)) (erM u u1)
 
-private theorem erA₀_eq_erA (u u1 : Nat) : erA₀ u u1 = erA u u1 := by
+theorem erA₀_eq_erA (u u1 : Nat) : erA₀ u u1 = erA u u1 := by
   unfold erA₀ erA
   by_cases h : erM u u1 = 0
   · rw [if_pos h, if_pos h]
@@ -1249,27 +1270,27 @@ theorem psigmaVal_app_mem {A : V} (hA : A ∈ˢ univ (ψ uN)) :
 
 /-! Raw evaluations of `PSigma'.mk`'s binder annotations. -/
 
-private def emV (u v : Nat) : Nat :=
+def emV (u v : Nat) : Nat :=
   if Nat.max u v = 0 then 0 else Nat.max v (Nat.max u v)
-private def emB (u v : Nat) : Nat :=
+def emB (u v : Nat) : Nat :=
   if emV u v = 0 then 0 else Nat.max u (emV u v)
-private def emA (u v : Nat) : Nat :=
+def emA (u v : Nat) : Nat :=
   if emB u v = 0 then 0 else Nat.max u (Nat.max (v + 1) (emB u v))
 
-private theorem max_ne_zero_l {u v : Nat} (h : u ≠ 0) : Nat.max u v ≠ 0 :=
+theorem max_ne_zero_l {u v : Nat} (h : u ≠ 0) : Nat.max u v ≠ 0 :=
   fun hc => h (Nat.le_zero.mp (hc ▸ Nat.le_max_left u v))
 
-private theorem max_ne_zero_r' {u v : Nat} (h : v ≠ 0) : Nat.max u v ≠ 0 :=
+theorem max_ne_zero_r' {u v : Nat} (h : v ≠ 0) : Nat.max u v ≠ 0 :=
   fun hc => h (Nat.le_zero.mp (hc ▸ Nat.le_max_right u v))
 
-private theorem emV_eq (u v : Nat) : emV u v = Nat.max u v := by
+theorem emV_eq (u v : Nat) : emV u v = Nat.max u v := by
   unfold emV
   by_cases h : Nat.max u v = 0
   · rw [if_pos h, h]
   · rw [if_neg h]
     exact max_absorb_r' u v
 
-private theorem emB_eq (u v : Nat) : emB u v = Nat.max u v := by
+theorem emB_eq (u v : Nat) : emB u v = Nat.max u v := by
   unfold emB
   rw [emV_eq]
   by_cases h : Nat.max u v = 0
@@ -1279,7 +1300,7 @@ private theorem emB_eq (u v : Nat) : emB u v = Nat.max u v := by
       (Nat.max_le.mpr ⟨Nat.le_max_left _ _, Nat.le_refl _⟩)
       (Nat.le_max_right _ _)
 
-private theorem emA_eq (u v : Nat) :
+theorem emA_eq (u v : Nat) :
     emA u v = if Nat.max u v = 0 then 0 else Nat.max u (v + 1) := by
   unfold emA
   rw [emB_eq]
@@ -1500,7 +1521,7 @@ theorem annotOk_psigmaMk_type {cval : ConstVal V}
 applications (the `AnnotOk` app clauses of the recursor's minor
 premise). -/
 
-private theorem psigmaMk_space3 {A B' a' : V}
+theorem psigmaMk_space3 {A B' a' : V}
     (hA : A ∈ˢ univ (ψ uN)) (hB' : B' ∈ˢ pi (ψ vN + 1) A fun _ => univ (ψ vN))
     (ha' : a' ∈ˢ A) :
     (pi (Nat.max (ψ uN) (ψ vN)) (SetTheory.app B' a') fun _ =>
@@ -1515,7 +1536,7 @@ private theorem psigmaMk_space3 {A B' a' : V}
   · simpa [hw] using this
   · simpa [hw, max_absorb_r'] using this
 
-private theorem psigmaMk_space2 {A B' : V}
+theorem psigmaMk_space2 {A B' : V}
     (hA : A ∈ˢ univ (ψ uN)) (hB' : B' ∈ˢ pi (ψ vN + 1) A fun _ => univ (ψ vN)) :
     (pi (Nat.max (ψ uN) (ψ vN)) A fun a' =>
       pi (Nat.max (ψ uN) (ψ vN)) (SetTheory.app B' a') fun _ =>
@@ -1527,7 +1548,7 @@ private theorem psigmaMk_space2 {A B' : V}
   · simpa [hw] using this
   · simpa [hw, max_absorb_l'] using this
 
-private theorem psigmaMk_space1 {A : V} (hA : A ∈ˢ univ (ψ uN)) :
+theorem psigmaMk_space1 {A : V} (hA : A ∈ˢ univ (ψ uN)) :
     (pi (Nat.max (ψ uN) (ψ vN)) (pi (ψ vN + 1) A fun _ => univ (ψ vN))
       fun B' => pi (Nat.max (ψ uN) (ψ vN)) A fun a' =>
         pi (Nat.max (ψ uN) (ψ vN)) (SetTheory.app B' a') fun _ =>
@@ -2293,30 +2314,30 @@ theorem annotOk_natSucc_type {cval : ConstVal V}
 
 /-! Raw evaluations of `Nat.rec`'s binder annotations. -/
 
-private def enUU (u : Nat) : Nat := if u = 0 then 0 else u
-private def en1U (u : Nat) : Nat := if u = 0 then 0 else Nat.max 1 u
-private def en11UU (u : Nat) : Nat :=
+def enUU (u : Nat) : Nat := if u = 0 then 0 else u
+def en1U (u : Nat) : Nat := if u = 0 then 0 else Nat.max 1 u
+def en11UU (u : Nat) : Nat :=
   if enUU u = 0 then 0 else Nat.max 1 (enUU u)
-private def enZ (u : Nat) : Nat :=
+def enZ (u : Nat) : Nat :=
   if en1U u = 0 then 0 else Nat.max (en11UU u) (en1U u)
-private def enM (u : Nat) : Nat :=
+def enM (u : Nat) : Nat :=
   if enZ u = 0 then 0 else Nat.max u (enZ u)
 
-private theorem enUU_eq (u : Nat) : enUU u = u := by
+theorem enUU_eq (u : Nat) : enUU u = u := by
   unfold enUU
   by_cases h : u = 0
   · rw [if_pos h, h]
   · rw [if_neg h]
 
-private theorem en1U_eq (u : Nat) :
+theorem en1U_eq (u : Nat) :
     en1U u = if u = 0 then 0 else Nat.max 1 u := rfl
 
-private theorem en11UU_eq (u : Nat) :
+theorem en11UU_eq (u : Nat) :
     en11UU u = if u = 0 then 0 else Nat.max 1 u := by
   unfold en11UU
   rw [enUU_eq]
 
-private theorem enZ_eq (u : Nat) :
+theorem enZ_eq (u : Nat) :
     enZ u = if u = 0 then 0 else Nat.max 1 u := by
   unfold enZ
   rw [en11UU_eq, en1U_eq]
@@ -2326,7 +2347,7 @@ private theorem enZ_eq (u : Nat) :
     rw [if_neg (max_ne_zero_l (by decide) : Nat.max 1 u ≠ 0)]
     exact Nat.max_self _
 
-private theorem enM_eq (u : Nat) :
+theorem enM_eq (u : Nat) :
     enM u = if u = 0 then 0 else Nat.max 1 u := by
   unfold enM
   rw [enZ_eq]
