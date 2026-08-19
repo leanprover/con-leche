@@ -223,6 +223,7 @@ theorem inferType_allLevelParams {env : Env} (henv : EnvWF env) {ps' : List Name
       next hal => exact nomatch h
   | .forallE n ty body bi, d, t, h, hp => by
     simp only [allLevelParamsDefined, Bool.and_eq_true] at hp
+    obtain ⟨⟨hpty, hpbody⟩, -⟩ := hp
     simp only [inferType, Bind.bind, Except.bind] at h
     cases hty : inferType env d ty with
     | error e => rw [hty] at h; exact nomatch h
@@ -247,7 +248,7 @@ theorem inferType_allLevelParams {env : Env} (henv : EnvWF env) {ps' : List Name
     simp only [pure, Except.pure, Except.ok.injEq] at h
     subst h
     have hu : (Expr.sort u).allLevelParamsDefined ps' = true := by
-      have h1 := inferType_allLevelParams henv ty hty hp.1
+      have h1 := inferType_allLevelParams henv ty hty hpty
       unfold ensureSort at hsty
       cases hw : whnf env whnfFuel tty with
       | error e => rw [hw] at hsty; exact nomatch hsty
@@ -258,7 +259,7 @@ theorem inferType_allLevelParams {env : Env} (henv : EnvWF env) {ps' : List Name
           simp_all [Bind.bind, Except.bind, pure, Except.pure, allLevelParamsDefined]
     have hv : (Expr.sort v).allLevelParamsDefined ps' = true := by
       have h1 := inferType_allLevelParams henv (body.instantiate1 (.fvar d n ty)) hb
-        (allLevelParamsDefined_instantiate1 hp.1 0 hp.2)
+        (allLevelParamsDefined_instantiate1 hpty 0 hpbody)
       unfold ensureSort at hsb
       cases hw : whnf env whnfFuel tb with
       | error e => rw [hw] at hsb; exact nomatch hsb

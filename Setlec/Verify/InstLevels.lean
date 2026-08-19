@@ -128,6 +128,24 @@ theorem instantiateLevelParams_instantiateLevelParams
       simp only [Expr.allLevelParamsDefined, List.all_eq_true] at h
       exact h l hml
     simpa [Function.comp] using Level.subst_subst (u := l) hl hb
+  | lam n ty body m ihty ihbody =>
+    intro h
+    simp only [allLevelParamsDefined, Bool.and_eq_true] at h
+    simp only [instantiateLevelParams, ihty h.1.1, ihbody h.1.2]
+    cases hc : m.cod with
+    | none => simp
+    | some v =>
+      simp only [hc, Option.map_some]
+      rw [Level.subst_subst hl (by simpa [hc] using h.2)]
+  | forallE n ty body m ihty ihbody =>
+    intro h
+    simp only [allLevelParamsDefined, Bool.and_eq_true] at h
+    simp only [instantiateLevelParams, ihty h.1.1, ihbody h.1.2]
+    cases hc : m.cod with
+    | none => simp
+    | some v =>
+      simp only [hc, Option.map_some]
+      rw [Level.subst_subst hl (by simpa [hc] using h.2)]
   | _ =>
     intro h
     simp_all [instantiateLevelParams, allLevelParamsDefined]
@@ -141,12 +159,40 @@ theorem allLevelParamsDefined_instantiateLevelParams
     ∀ {e : Expr}, e.allLevelParamsDefined ks = true →
       (e.instantiateLevelParams ks us).allLevelParamsDefined ps' = true := by
   intro e
-  induction e <;> intro h <;>
-    simp_all [instantiateLevelParams, allLevelParamsDefined]
-  case sort u => exact Level.allParamsDefined_subst hl hus h
-  case const n ls =>
+  induction e with
+  | lam n ty body m ihty ihbody =>
+    intro h
+    simp only [allLevelParamsDefined, Bool.and_eq_true] at h
+    simp only [instantiateLevelParams, allLevelParamsDefined, ihty h.1.1, ihbody h.1.2,
+      Bool.and_eq_true, Bool.true_and]
+    cases hc : m.cod with
+    | none => simp
+    | some v =>
+      simp only [Option.map_some]
+      exact Level.allParamsDefined_subst hl hus (by simpa [hc] using h.2)
+  | forallE n ty body m ihty ihbody =>
+    intro h
+    simp only [allLevelParamsDefined, Bool.and_eq_true] at h
+    simp only [instantiateLevelParams, allLevelParamsDefined, ihty h.1.1, ihbody h.1.2,
+      Bool.and_eq_true, Bool.true_and]
+    cases hc : m.cod with
+    | none => simp
+    | some v =>
+      simp only [Option.map_some]
+      exact Level.allParamsDefined_subst hl hus (by simpa [hc] using h.2)
+  | sort u =>
+    intro h
+    simp only [instantiateLevelParams, allLevelParamsDefined] at h ⊢
+    exact Level.allParamsDefined_subst hl hus h
+  | const n ls =>
+    intro h
+    simp only [instantiateLevelParams, allLevelParamsDefined, List.all_eq_true] at h ⊢
     intro l hl'
-    exact Level.allParamsDefined_subst hl hus (h l hl')
+    obtain ⟨l0, hl0, rfl⟩ := List.mem_map.mp hl'
+    exact Level.allParamsDefined_subst hl hus (h l0 hl0)
+  | _ =>
+    intro h
+    simp_all [instantiateLevelParams, allLevelParamsDefined]
 
 /-- Binder opening keeps level parameters bounded. -/
 theorem allLevelParamsDefined_instantiate1 {ps : List Name} {d : Nat} {n : Name} {ty : Expr}

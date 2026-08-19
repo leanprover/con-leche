@@ -116,10 +116,10 @@ private def parseExprEntry (st : State) (j : Json) (i : Nat) : M State := do
       pure <| Expr.app (← getExpr' st v "fn") (← getExpr' st v "arg")
     else if let .ok v := j.getObjVal? "lam" then
       pure <| Expr.lam (← getName' st v "name") (← getExpr' st v "type")
-        (← getExpr' st v "body") (← parseBinderInfo v)
+        (← getExpr' st v "body") ⟨← parseBinderInfo v, none⟩
     else if let .ok v := j.getObjVal? "forallE" then
       pure <| Expr.forallE (← getName' st v "name") (← getExpr' st v "type")
-        (← getExpr' st v "body") (← parseBinderInfo v)
+        (← getExpr' st v "body") ⟨← parseBinderInfo v, none⟩
     else if let .ok v := j.getObjVal? "letE" then
       pure <| Expr.letE (← getName' st v "name") (← getExpr' st v "type")
         (← getExpr' st v "value") (← getExpr' st v "body")

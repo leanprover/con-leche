@@ -151,10 +151,12 @@ def Expr.instantiateLevelParams (ks : List Name) (us : List Level) : Expr → Ex
   | .sort u => .sort (Level.subst ks us u)
   | .const n vs => .const n (vs.map (Level.subst ks us))
   | .app f a => .app (f.instantiateLevelParams ks us) (a.instantiateLevelParams ks us)
-  | .lam n ty body bi =>
-    .lam n (ty.instantiateLevelParams ks us) (body.instantiateLevelParams ks us) bi
-  | .forallE n ty body bi =>
-    .forallE n (ty.instantiateLevelParams ks us) (body.instantiateLevelParams ks us) bi
+  | .lam n ty body m =>
+    .lam n (ty.instantiateLevelParams ks us) (body.instantiateLevelParams ks us)
+      ⟨m.bi, m.cod.map (Level.subst ks us)⟩
+  | .forallE n ty body m =>
+    .forallE n (ty.instantiateLevelParams ks us) (body.instantiateLevelParams ks us)
+      ⟨m.bi, m.cod.map (Level.subst ks us)⟩
   | .letE n ty val body => .letE n (ty.instantiateLevelParams ks us)
       (val.instantiateLevelParams ks us) (body.instantiateLevelParams ks us)
   | .lit l => .lit l
@@ -167,8 +169,11 @@ def Expr.allLevelParamsDefined (params : List Name) : Expr → Bool
   | .sort u => u.allParamsDefined params
   | .const _ us => us.all (Level.allParamsDefined params)
   | .app f a => f.allLevelParamsDefined params && a.allLevelParamsDefined params
-  | .lam _ t b _ | .forallE _ t b _ =>
-    t.allLevelParamsDefined params && b.allLevelParamsDefined params
+  | .lam _ t b m | .forallE _ t b m =>
+    t.allLevelParamsDefined params && b.allLevelParamsDefined params &&
+      (match m.cod with
+       | some v => v.allParamsDefined params
+       | none => true)
   | .letE _ t v b => t.allLevelParamsDefined params && v.allLevelParamsDefined params
       && b.allLevelParamsDefined params
   | .lit _ => true

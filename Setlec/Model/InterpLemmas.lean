@@ -439,14 +439,15 @@ theorem interp_params_ext (henv : EnvWF env) (hcp : ConstValParams cval env)
       · rw [if_neg hal, if_neg hal]
   | .forallE n ty body bi, d, ρ, hp => by
     simp only [allLevelParamsDefined, Bool.and_eq_true] at hp
+    obtain ⟨⟨hpty, hpbody⟩, -⟩ := hp
     simp only [interpExpr]
-    rw [interp_params_ext henv hcp hφ ty d ρ hp.1]
+    rw [interp_params_ext henv hcp hφ ty d ρ hpty]
     cases hty : interpExpr V cval env φ₂ d ρ ty with
     | none => rfl
     | some A =>
       simp only []
       have hb' : (body.instantiate1 (.fvar d n ty)).allLevelParamsDefined ps = true :=
-        allLevelParamsDefined_instantiate1 hp.1 0 hp.2
+        allLevelParamsDefined_instantiate1 hpty 0 hpbody
       have hsl : sortLevelOf env φ₁ (d + 1) (body.instantiate1 (.fvar d n ty)) =
           sortLevelOf env φ₂ (d + 1) (body.instantiate1 (.fvar d n ty)) := by
         unfold sortLevelOf

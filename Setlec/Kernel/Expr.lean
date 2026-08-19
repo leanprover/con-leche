@@ -61,6 +61,21 @@ inductive BinderInfo where
   | instImplicit
   deriving DecidableEq, Repr, Inhabited
 
+/-- Metadata carried by a binder (`forallE`, `lam`): the display
+`BinderInfo`, and the **codomain sort annotation** `cod` — for a
+`forallE`, the sort level of the body; for a `lam`, the sort level of the
+body's type.  Input expressions carry `none`; the checker computes each
+annotation once (by real inference, in the annotation pass) and it is
+trusted thereafter.  The set-model's Prop/Type classifier for dependent
+products reads this annotation, which makes the interpretation purely
+structural (see DESIGN.md, "sort annotations"). -/
+structure BinderMeta where
+  bi : BinderInfo
+  cod : Option Level := none
+  deriving DecidableEq, Repr
+
+instance : Inhabited BinderMeta := ⟨⟨.default, none⟩⟩
+
 /-- Literals. -/
 inductive Literal where
   | natVal (n : Nat)
@@ -78,8 +93,8 @@ inductive Expr where
   | sort (u : Level)
   | const (n : Name) (us : List Level)
   | app (f a : Expr)
-  | lam (n : Name) (type body : Expr) (bi : BinderInfo)
-  | forallE (n : Name) (type body : Expr) (bi : BinderInfo)
+  | lam (n : Name) (type body : Expr) (m : BinderMeta)
+  | forallE (n : Name) (type body : Expr) (m : BinderMeta)
   | letE (n : Name) (type value body : Expr)
   | lit (l : Literal)
   | proj (structName : Name) (idx : Nat) (e : Expr)
