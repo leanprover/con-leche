@@ -164,6 +164,12 @@ class SetTheory (V : Type u) where
   /-- Applying the proof point yields the proof point (realizable via the
   tagged definition of `app`). -/
   app_pt : ∀ a, app pt a = pt
+  /-- Eta: a member of a dependent product *is* the abstraction of its
+  applications (realizable: for `v ≠ 0` members are function graphs on
+  `A`, and the graph of `x ↦ app f x` over `A` is `f` itself; for
+  `v = 0` both sides are the proof point). -/
+  lam_eta : ∀ {v : Nat} {A f : V} {B : V → V},
+    Mem f (pi v A B) → lam v A (fun x => app f x) = f
 
 namespace SetTheory
 

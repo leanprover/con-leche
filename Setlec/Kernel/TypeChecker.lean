@@ -273,12 +273,43 @@ def isDefEqCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr �
           pure true
         else proofIrrel env fuel depth (.app f₁ a₁) (.app f₂ a₂)
       else proofIrrel env fuel depth (.app f₁ a₁) (.app f₂ a₂)
+    -- One-sided λ: eta, else proof irrelevance.
+    | .lam n₁ ty₁ body₁ m₁, b₂ => do
+      if ← etaCert env fuel depth n₁ ty₁ body₁ m₁ b₂ then pure true
+      else proofIrrel env fuel depth (.lam n₁ ty₁ body₁ m₁) b₂
+    | a₁, .lam n₂ ty₂ body₂ m₂ => do
+      if ← etaCert env fuel depth n₂ ty₂ body₂ m₂ a₁ then pure true
+      else proofIrrel env fuel depth a₁ (.lam n₂ ty₂ body₂ m₂)
     -- Distinct whnf-stuck head symbols: only proof irrelevance can
     -- equate them; `false` is always sound, and `whnf` has already
     -- thrown on unsupported heads, so no unimplemented case can hide
-    -- here.  (Eta-equalities are missed; completeness work.)
+    -- here.
     | e₁, e₂ => proofIrrel env fuel depth e₁ e₂
   termination_by structural fuel _ _ _ => fuel
+
+/-- Eta certification for a one-sided λ against a stuck term `b`: `b`'s
+type whnfs to a `∀` whose domain is defeq to the λ's and whose codomain
+annotation agrees, and the λ's body is pointwise the application of `b`.
+The λ is then `b`'s eta-expansion (soundness: `SetTheory.lam_eta`). -/
+def etaCert (env : Env) : (fuel : Nat) → (depth : Nat) →
+    Name → Expr → Expr → BinderMeta → Expr → CheckM Bool
+  | 0, _, _, _, _, _, _ => throw (.internal "fuel exhausted: etaCert")
+  | fuel + 1, depth, n₁, ty₁, body₁, m₁, b => do
+    let tb ← inferTypeCore env fuel depth b
+    match ← whnfCore env fuel depth tb with
+    | .forallE _ ty₂ _ m₂ =>
+      match m₁.cod, m₂.cod with
+      | some v₁, some v₂ =>
+        if ← liftFueled "level comparison" (Level.isEquiv v₁ v₂) then
+          if ← isDefEqCore env fuel depth ty₂ ty₁ then
+            isDefEqCore env fuel (depth + 1)
+              (body₁.instantiate1 (.fvar depth n₁ ty₁))
+              (.app b (.fvar depth n₁ ty₁))
+          else pure false
+        else pure false
+      | _, _ => pure false
+    | _ => pure false
+  termination_by structural fuel _ => fuel
 
 /-- Proof irrelevance certification: both sides' types' sorts are
 `Prop`.  In the model everything inhabiting a proposition is the proof

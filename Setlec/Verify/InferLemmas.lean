@@ -549,6 +549,70 @@ theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
     cases okA <;> cases okB <;> simp_all
   exact ⟨ta, sta, uT, tb, stb, vT, rfl, hsta, hwta, heq1, rfl, hstb, hwtb, heq2⟩
 
+/-- Inversion of a successful eta certification. -/
+theorem etaCert_inv {env : Env} {fuel d : Nat} {n₁ : Name} {ty₁ body₁ b : Expr}
+    {m₁ : BinderMeta}
+    (h : etaCert env (fuel + 1) d n₁ ty₁ body₁ m₁ b = .ok true) :
+    ∃ tb n₂ ty₂ fb m₂ v₁ v₂,
+      inferTypeCore env fuel d b = .ok tb ∧
+      whnfCore env fuel d tb = .ok (.forallE n₂ ty₂ fb m₂) ∧
+      m₁.cod = some v₁ ∧ m₂.cod = some v₂ ∧
+      Level.isEquiv v₁ v₂ = some true ∧
+      isDefEqCore env fuel d ty₂ ty₁ = .ok true ∧
+      isDefEqCore env fuel (d + 1) (body₁.instantiate1 (.fvar d n₁ ty₁))
+        (.app b (.fvar d n₁ ty₁)) = .ok true := by
+  simp only [etaCert, Bind.bind, Except.bind] at h
+  cases htb : inferTypeCore env fuel d b with
+  | error err => rw [htb] at h; exact nomatch h
+  | ok tb =>
+  rw [htb] at h
+  dsimp only at h
+  cases hwtb : whnfCore env fuel d tb with
+  | error err => rw [hwtb] at h; exact nomatch h
+  | ok wtb =>
+  rw [hwtb] at h
+  match wtb, h with
+  | .forallE n₂ ty₂ fb m₂, h => ?_
+  | .bvar i2, h => exact nomatch h
+  | .fvar i2 n2 t2, h => exact nomatch h
+  | .sort u2, h => exact nomatch h
+  | .const n2 us2, h => exact nomatch h
+  | .app f2 a2, h => exact nomatch h
+  | .lam n2 t2 b2 m2, h => exact nomatch h
+  | .letE n2 t2 v2 b2, h => exact nomatch h
+  | .lit l2, h => exact nomatch h
+  | .proj s2 i2 e3, h => exact nomatch h
+  dsimp only at h
+  cases hm₁ : m₁.cod with
+  | none => rw [hm₁] at h; exact nomatch h
+  | some v₁ =>
+  rw [hm₁] at h
+  cases hm₂ : m₂.cod with
+  | none => rw [hm₂] at h; exact nomatch h
+  | some v₂ =>
+  rw [hm₂] at h
+  dsimp only at h
+  cases heq : Level.isEquiv v₁ v₂ with
+  | none => rw [heq] at h; simp [liftFueled] at h
+  | some okL =>
+  rw [heq] at h
+  try dsimp only [liftFueled] at h
+  try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+  cases okL with
+  | false => simp at h
+  | true =>
+  simp only [↓reduceIte] at h
+  cases hd1 : isDefEqCore env fuel d ty₂ ty₁ with
+  | error err => rw [hd1] at h; exact nomatch h
+  | ok r₁ =>
+  rw [hd1] at h
+  dsimp only at h
+  cases r₁ with
+  | false => simp [pure, Except.pure] at h
+  | true =>
+  simp only [↓reduceIte] at h
+  exact ⟨tb, n₂, ty₂, fb, m₂, v₁, v₂, rfl, hwtb, rfl, hm₂, heq, hd1, h⟩
+
 /-- Inversion for the projection rule of `inferTypeCore`. -/
 theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
     {e t : Expr}

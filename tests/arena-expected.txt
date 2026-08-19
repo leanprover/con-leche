@@ -76,8 +76,8 @@
 1 good/tutorial/106_unitEta2.ndjson
 0 good/tutorial/107_unitEta3.ndjson
 2 good/tutorial/109_structEta.ndjson
-1 good/tutorial/111_funEta.ndjson
-1 good/tutorial/112_funEtaDep.ndjson
+0 good/tutorial/111_funEta.ndjson
+0 good/tutorial/112_funEtaDep.ndjson
 2 good/tutorial/118_reduceCtorParamRefl.mk.ndjson
 2 good/tutorial/119_reduceCtorParamRefl2.mk.ndjson
 2 good/tutorial/120_rTreeRec.ndjson
