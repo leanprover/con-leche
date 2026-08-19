@@ -68,6 +68,38 @@ structure PairMkFacts (pv : V) (u v : Nat) : Prop where
   zero : Nat.max u v = 0 → ∀ x y z w' : V,
     app (app (app (app pv x) y) z) w' = pt
 
+/-- Left fold of set application along a value spine. -/
+def SpineFold (v : V) (xs : List V) : V := xs.foldl SetTheory.app v
+
+theorem SpineFold_nil (v : V) : SpineFold V v [] = v := rfl
+
+theorem SpineFold_cons (v x : V) (xs : List V) :
+    SpineFold V v (x :: xs) = SpineFold V (SetTheory.app v x) xs := rfl
+
+theorem SpineFold_append (v : V) (xs ys : List V) :
+    SpineFold V v (xs ++ ys) = SpineFold V (SpineFold V v xs) ys := by
+  simp [SpineFold, List.foldl_append]
+
+/-- One `AnnotOk`-app typing slot: the function value sits in a pi whose
+domain contains the argument, with the fibres in the tag's universe. -/
+def AppSlot (f a : V) : Prop :=
+  ∃ vE A B, f ∈ˢ pi vE A (B : V → V) ∧ a ∈ˢ A ∧
+    ∀ x, x ∈ˢ A → B x ∈ˢ univ vE
+
+/-- Typing slots along a whole application spine. -/
+def ChainSlots (v : V) : List V → Prop
+  | [] => True
+  | x :: xs => AppSlot V v x ∧ ChainSlots (SetTheory.app v x) xs
+
+theorem ChainSlots_append (v : V) (xs ys : List V) :
+    ChainSlots V v (xs ++ ys) ↔
+      ChainSlots V v xs ∧ ChainSlots V (SpineFold V v xs) ys := by
+  induction xs generalizing v with
+  | nil => simp [ChainSlots, SpineFold]
+  | cons x xs ih =>
+    simp only [List.cons_append, ChainSlots, SpineFold_cons, ih,
+      and_assoc]
+
 /-- Block completeness: whenever a pinned basis *recursor* is stored,
 the other members of its block are stored (pinned) too.  This holds
 because blocks install as a unit with the recursor last; iota soundness

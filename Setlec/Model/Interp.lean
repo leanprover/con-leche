@@ -162,6 +162,37 @@ def rho0 : Nat → V := fun _ => SetTheory.empty
 def interpClosed (cval : ConstVal V) (env : Env) (φ : Name → Nat) (e : Expr) : Option V :=
   interpExpr V cval env φ 0 (rho0 V) e
 
+/-- Fold facts for every stored recursor rule: the recursor's value
+applied through its argument spine (`args`, then the major `tv`), with
+the major a constructor-value spine, equals the interpreted rule rhs
+applied to the non-index prefix and the constructor's fields — together
+with the typing slots the reduct's annotation chain needs, and the
+rhs's own annotation truthfulness.  Basis blocks discharge this from
+the hand-written values; modeled blocks will discharge it from their
+checked `_model` theorems. -/
+def RecRulesOk (env : Env) (val : ConstVal V) : Prop :=
+  ∀ n cv nP nM nm ni rules,
+    env.find? n = some (.recInfo cv nP nM nm ni rules) →
+    ∀ r ∈ rules,
+      (∀ ψ : Name → Nat, AnnotOk V val env ψ 0 (rho0 V) (RecRule.rhs r)) ∧
+      ∀ cvj cnP cnF,
+        env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF) →
+        ∀ (ψ ψj : Name → Nat) (args margs : List V) (tv : V),
+          args.length = nP + nM + nm + ni →
+          margs.length = cnP + cnF →
+          ChainSlots V (val n ψ) (args ++ [tv]) →
+          ChainSlots V (val (RecRule.ctor r) ψj) margs →
+          tv = SpineFold V (val (RecRule.ctor r) ψj) margs →
+          ∃ R, interpClosed V val env ψ (RecRule.rhs r) = some R ∧
+            SpineFold V (val n ψ) (args ++ [tv]) =
+              SpineFold V R (args.take (nP + nM + nm) ++ margs.drop cnP) ∧
+            ChainSlots V R (args.take (nP + nM + nm) ++ margs.drop cnP)
+
+theorem RecRulesOk.empty (val : ConstVal V) :
+    RecRulesOk V Env.empty val := by
+  intro n cv nP nM nm ni rules h
+  simp [Env.find?, Env.empty] at h
+
 /-- A model of an environment: a set-theoretic value for every constant
 (a function of the level-parameter assignment), such that
 
@@ -197,6 +228,8 @@ structure EnvModel (env : Env) where
   facts the checker rules consume (`IndOk`), independent of the
   concrete construction that realizes them. -/
   ind_ok : IndOk V env val
+  /-- Every stored recursor rule has a verified fold equation. -/
+  rec_rules : RecRulesOk V env val
 
 /-- The empty environment has a (trivial) model. -/
 def EnvModel.empty : EnvModel V Env.empty where
@@ -209,5 +242,6 @@ def EnvModel.empty : EnvModel V Env.empty where
   defn_eq := by intro cv value h; cases h
   annot_ok := by intro c hc; cases hc
   ind_ok := IndOk.empty V _
+  rec_rules := RecRulesOk.empty V _
 
 end Setlec

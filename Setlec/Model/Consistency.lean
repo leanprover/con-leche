@@ -105,6 +105,150 @@ private theorem BasisBlocks.cons {env : Env} {c₀ : ConstantInfo}
       obtain ⟨h1, h2⟩ := hb.right.right.right cv nP nM nm ni rules h
       exact ⟨keep h1, keep h2⟩
 
+/-- The fold facts a single (freshly installed) recursor-kind member
+must supply, phrased over the extended environment and valuation. -/
+private def RecMemberOk (env' : Env) (val' : ConstVal V)
+    (ci : ConstantInfo) : Prop :=
+  ∀ cvR nP nM nm ni rules, ci = .recInfo cvR nP nM nm ni rules →
+    ∀ r ∈ rules,
+      (∀ ψ : Name → Nat, AnnotOk V val' env' ψ 0 (rho0 V) (RecRule.rhs r)) ∧
+      ∀ cvj cnP cnF,
+        env'.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF) →
+        ∀ (ψ ψj : Name → Nat) (args margs : List V) (tv : V),
+          args.length = nP + nM + nm + ni →
+          margs.length = cnP + cnF →
+          ChainSlots V (val' ci.name ψ) (args ++ [tv]) →
+          ChainSlots V (val' (RecRule.ctor r) ψj) margs →
+          tv = SpineFold V (val' (RecRule.ctor r) ψj) margs →
+          ∃ R, interpClosed V val' env' ψ (RecRule.rhs r) = some R ∧
+            SpineFold V (val' ci.name ψ) (args ++ [tv]) =
+              SpineFold V R (args.take (nP + nM + nm) ++ margs.drop cnP) ∧
+            ChainSlots V R (args.take (nP + nM + nm) ++ margs.drop cnP)
+
+/-- No stored recursor's rule names a fresh constructor: stored
+recursors are pinned, and their block constructors are stored. -/
+private theorem ctor_not_fresh {env : Env} (m : EnvModel V env) {nf : Name}
+    (hfresh : env.find? nf = none) :
+    ∀ n cvR nP nM nm ni rules,
+      env.find? n = some (.recInfo cvR nP nM nm ni rules) →
+      ∀ r ∈ rules, RecRule.ctor r ≠ nf := by
+  intro n cvR nP nM nm ni rules hf r hr hcontra
+  obtain ⟨hpin, -⟩ := m.ind_ok.right.right.right.left n _ hf rfl
+  have hblocks := m.ind_ok.right.right.right.right
+  rcases pinnedInfo_recInfo_cases hpin.symm with hc | hc | hc | hc
+  · subst hc
+    have hpin' := hpin.trans (show pinnedInfo (eqName.str "rec") = eqRecA
+      from rfl)
+    simp only [eqRecA] at hpin'
+    injection hpin' with h1 h2 h3 h4 h5 h6
+    subst h6
+    obtain ⟨-, hfR⟩ := hblocks.left _ _ _ _ _ _ hf
+    rcases List.mem_cons.mp hr with rfl | hr
+    · have hfresh' : env.find? eqReflName = none := by
+        rw [← hcontra] at hfresh
+        exact hfresh
+      rw [hfresh'] at hfR
+      exact nomatch hfR
+    · cases hr
+  · subst hc
+    have hpin' := hpin.trans (show pinnedInfo (natName.str "rec") = natRecA
+      from rfl)
+    simp only [natRecA] at hpin'
+    injection hpin' with h1 h2 h3 h4 h5 h6
+    subst h6
+    obtain ⟨-, hfZ, hfSc⟩ := hblocks.right.left _ _ _ _ _ _ hf
+    rcases List.mem_cons.mp hr with rfl | hr
+    · have hfresh' : env.find? natZeroName = none := by
+        rw [← hcontra] at hfresh
+        exact hfresh
+      rw [hfresh'] at hfZ
+      exact nomatch hfZ
+    rcases List.mem_cons.mp hr with rfl | hr
+    · have hfresh' : env.find? natSuccName = none := by
+        rw [← hcontra] at hfresh
+        exact hfresh
+      rw [hfresh'] at hfSc
+      exact nomatch hfSc
+    · cases hr
+  · subst hc
+    have hpin' := hpin.trans
+      (show pinnedInfo (psigmaName.str "rec") = psigmaRecA from rfl)
+    simp only [psigmaRecA] at hpin'
+    injection hpin' with h1 h2 h3 h4 h5 h6
+    subst h6
+    obtain ⟨-, hfM⟩ := hblocks.right.right.left _ _ _ _ _ _ hf
+    rcases List.mem_cons.mp hr with rfl | hr
+    · have hfresh' : env.find? psigmaMkName = none := by
+        rw [← hcontra] at hfresh
+        exact hfresh
+      rw [hfresh'] at hfM
+      exact nomatch hfM
+    · cases hr
+  · subst hc
+    have hpin' := hpin.trans
+      (show pinnedInfo (punitName.str "rec") = punitRecA from rfl)
+    simp only [punitRecA] at hpin'
+    injection hpin' with h1 h2 h3 h4 h5 h6
+    subst h6
+    obtain ⟨-, hfU⟩ := hblocks.right.right.right _ _ _ _ _ _ hf
+    rcases List.mem_cons.mp hr with rfl | hr
+    · have hfresh' : env.find? punitUnitName = none := by
+        rw [← hcontra] at hfresh
+        exact hfresh
+      rw [hfresh'] at hfU
+      exact nomatch hfU
+    · cases hr
+
+/-- `RecRulesOk` is preserved by a fresh extension, given the fold
+facts for the new member (vacuous unless it is a recursor). -/
+private theorem RecRulesOk.cons {env : Env} (m : EnvModel V env)
+    {c₀ : ConstantInfo} {val' : ConstVal V}
+    (hfind' : env.find? c₀.name = none)
+    (hagree : ∀ n, (env.find? n).isSome = true → ∀ ψ : Name → Nat,
+      val' n ψ = m.val n ψ)
+    (htrans : ∀ (e : Expr), e.constsResolve env = true → ∀ ψ : Name → Nat,
+      interpClosed V val' (⟨c₀ :: env.consts⟩ : Env) ψ e =
+        interpClosed V m.val env ψ e)
+    (hAtrans : ∀ (e : Expr), e.constsResolve env = true → ∀ ψ : Name → Nat,
+      AnnotOk V m.val env ψ 0 (rho0 V) e →
+      AnnotOk V val' (⟨c₀ :: env.consts⟩ : Env) ψ 0 (rho0 V) e)
+    (hnewrec : RecMemberOk (V := V) ⟨c₀ :: env.consts⟩ val' c₀) :
+    RecRulesOk V ⟨c₀ :: env.consts⟩ val' := by
+  intro n cvR nP nM nm ni rules hfp r hr
+  rw [Env.find?_cons] at hfp
+  split at hfp
+  · next hn =>
+    obtain hceq := Option.some.inj hfp
+    subst hn
+    exact hnewrec cvR nP nM nm ni rules hceq r hr
+  · next hn =>
+    obtain ⟨hA, hfold⟩ := m.rec_rules n cvR nP nM nm ni rules hfp r hr
+    obtain ⟨-, -, -, -, -, hrules⟩ := m.wf _ (find?_mem hfp)
+    obtain ⟨-, -, hrres, -⟩ := hrules cvR nP nM nm ni rules rfl r hr
+    have hvaln : ∀ ψ : Name → Nat, val' n ψ = m.val n ψ :=
+      fun ψ => hagree n (by rw [hfp]; rfl) ψ
+    refine ⟨fun ψ => hAtrans _ hrres ψ (hA ψ), ?_⟩
+    intro cvj cnP cnF hfj ψ ψj args margs tv hl hml hch hmch htv
+    rw [Env.find?_cons] at hfj
+    split at hfj
+    · next hnc =>
+      obtain hceq := Option.some.inj hfj
+      exact absurd hnc.symm
+        (ctor_not_fresh m hfind' n cvR nP nM nm ni rules hfp r hr)
+    · next hnc =>
+      have hvalc : ∀ ψ' : Name → Nat,
+          val' (RecRule.ctor r) ψ' = m.val (RecRule.ctor r) ψ' :=
+        fun ψ' => hagree _ (by rw [hfj]; rfl) ψ'
+      rw [hvaln] at hch
+      rw [hvalc] at hmch htv
+      obtain ⟨R, hRi, hfoldEq, hRch⟩ := hfold cvj cnP cnF hfj ψ ψj
+        args margs tv hl hml hch hmch htv
+      refine ⟨R, ?_, ?_, hRch⟩
+      · rw [htrans _ hrres ψ]
+        exact hRi
+      · rw [hvaln]
+        exact hfoldEq
+
 /-- Inversion for `checkConstantVal`. -/
 private theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
     (h : checkConstantVal env cv = .ok cv') :
@@ -218,7 +362,7 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
     · intro cv nP nM nm ni rules heq
       rw [heq] at hc₀nb
       simp [ConstantInfo.isBasis] at hc₀nb
-  refine ⟨⟨val', hwf', ?_, ?_, ?_, ?_, ?_⟩⟩
+  refine ⟨⟨val', hwf', ?_, ?_, ?_, ?_, ?_, ?_⟩⟩
   · -- val_params
     intro n ci hf ψ₁ ψ₂ hψ
     rw [Env.find?_cons] at hf
@@ -379,6 +523,14 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
           simp [hval', hne]
         rw [hvagree]
         exact hpv ψ
+  · -- rec_rules: no recursor is added
+    exact RecRulesOk.cons m hc₀fresh
+      (fun n hn ψ => hagree n hn ψ)
+      (fun e hres ψ => htrans e hres ψ)
+      (fun e hres ψ hAe => hAtrans e hres ψ hAe)
+      (fun cvR nP nM nm ni rules heq => by
+        rw [heq] at hc₀nb
+        simp [ConstantInfo.isBasis] at hc₀nb)
 
 /-- Extend a model by one pinned basis constant with a hand-supplied
 value.  The membership and annotation facts are stated over the *old*
@@ -406,7 +558,11 @@ private theorem extend_basis_one {env : Env} (m : EnvModel V env)
       ∀ (ψ : Name → Nat) (x : V), x ∈ˢ v₀ ψ → x = pt)
     (hpin : ci.isBasis = true → ci = pinnedInfo ci.name ∧
       ∀ ψ : Name → Nat, v₀ ψ = pinnedVal V ci.name ψ)
-    (hsib : SibFinds env ci) :
+    (hsib : SibFinds env ci)
+    (hrecm : ∀ val' : ConstVal V,
+      (∀ ψ : Name → Nat, val' ci.name ψ = v₀ ψ) →
+      (∀ (n : Name) (ψ : Name → Nat), n ≠ ci.name → val' n ψ = m.val n ψ) →
+      RecMemberOk (V := V) ⟨ci :: env.consts⟩ val' ci) :
     ∃ m' : EnvModel V ⟨ci :: env.consts⟩,
       (∀ ψ, m'.val ci.name ψ = v₀ ψ) ∧
       (∀ n ψ, n ≠ ci.name → m'.val n ψ = m.val n ψ) := by
@@ -434,7 +590,7 @@ private theorem extend_basis_one {env : Env} (m : EnvModel V env)
     refine AnnotOk.mono hfind' e 0 (rho0 V) hres ?_
     exact AnnotOk.cval_ext (fun n hn ψ' => (hagree n hn ψ').symm) e 0 (rho0 V) ha
   have hwf' : EnvWF ⟨ci :: env.consts⟩ := EnvWF.cons m.wf hwf
-  refine ⟨⟨val', hwf', ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
+  refine ⟨⟨val', hwf', ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
   · -- val_params
     intro n ci2 hf ψ₁ ψ₂ hψ
     rw [Env.find?_cons] at hf
@@ -592,6 +748,13 @@ private theorem extend_basis_one {env : Env} (m : EnvModel V env)
           simp [hval', hne]
         rw [hval'eq]
         exact hpv ψ
+  · -- rec_rules
+    exact RecRulesOk.cons m hfind'
+      (fun n hn ψ => hagree n hn ψ)
+      (fun e hres ψ => htrans e hres ψ)
+      (fun e hres ψ hAe => hAtrans e hres ψ hAe)
+      (hrecm val' (fun ψ => by simp [hval'])
+        (fun n ψ hne => by simp [hval', hne]))
   · -- the new constant's value
     intro ψ
     simp [hval']
@@ -703,6 +866,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv hx hn => absurd hn (by decide))
         (fun _ => ⟨rfl, fun _ => rfl⟩)
         (fun _ _ _ _ _ _ hx => nomatch hx)
+        (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+          absurd hx (by simp [natA]))
       obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 natZeroA
         (fun _ => natzero)
         (Option.isNone_iff_eq_none.mp h2)
@@ -719,6 +884,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv hx _ => nomatch hx)
         (fun _ => ⟨rfl, fun _ => rfl⟩)
         (fun _ _ _ _ _ _ hx => nomatch hx)
+        (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+          absurd hx (by simp [natZeroA]))
       have hvalN2 : ∀ ψ' : Name → Nat, m2.val natName ψ' = omega := fun ψ' => by
         rw [hpres2 natName ψ' (by decide)]
         exact hval1 ψ'
@@ -738,6 +905,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv hx _ => nomatch hx)
         (fun _ => ⟨rfl, fun _ => rfl⟩)
         (fun _ _ _ _ _ _ hx => nomatch hx)
+        (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+          absurd hx (by simp [natSuccA]))
       have hvalN3 : ∀ ψ' : Name → Nat, m3.val natName ψ' = omega := fun ψ' => by
         rw [hpres3 natName ψ' (by decide)]
         exact hvalN2 ψ'
@@ -804,6 +973,131 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
               rw [Env.find?_cons, if_pos (by decide)]⟩,
            fun hn => absurd hn (by decide),
            fun hn => absurd hn (by decide)⟩)
+        (fun val' hv1 hv2 cvR nP nM nm ni rules heq => by
+          simp only [natRecA] at heq
+          injection heq with h1 h2 h3 h4 h5 h6
+          subst h1 h2 h3 h4 h5 h6
+          intro r hr
+          have hvalN' : ∀ ψ' : Name → Nat, val' natName ψ' = omega := by
+            intro ψ'
+            rw [hv2 natName ψ' (by decide)]
+            exact hvalN3 ψ'
+          have hvalZ' : ∀ ψ' : Name → Nat, val' natZeroName ψ' = natzero := by
+            intro ψ'
+            rw [hv2 natZeroName ψ' (by decide)]
+            exact hvalZ3 ψ'
+          have hvalSc' : ∀ ψ' : Name → Nat,
+              val' natSuccName ψ' = natSuccVal V ψ' := by
+            intro ψ'
+            rw [hv2 natSuccName ψ' (by decide)]
+            exact hval3 ψ'
+          have hvalRc' : ∀ ψ' : Name → Nat,
+              val' (natName.str "rec") ψ' = natRecVal V ψ' :=
+            fun ψ' => hv1 ψ'
+          have hfN' : Env.find?
+              (⟨natRecA :: natSuccA :: natZeroA :: natA :: env.consts⟩ : Env)
+              natName = some natA := rfl
+          have hfZ' : Env.find?
+              (⟨natRecA :: natSuccA :: natZeroA :: natA :: env.consts⟩ : Env)
+              natZeroName = some natZeroA := rfl
+          have hfSc' : Env.find?
+              (⟨natRecA :: natSuccA :: natZeroA :: natA :: env.consts⟩ : Env)
+              natSuccName = some natSuccA := rfl
+          have hfRc' : Env.find?
+              (⟨natRecA :: natSuccA :: natZeroA :: natA :: env.consts⟩ : Env)
+              (natName.str "rec") = some natRecA := rfl
+          rcases List.mem_cons.mp hr with rfl | hr
+          · -- zero rule
+            refine ⟨fun ψ => annotOk_natRecZero_rhs (cval := val') (ψ := ψ)
+              rfl hvalN' rfl hvalZ' rfl hvalSc', ?_⟩
+            intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch htv
+            have hje := Option.some.inj hfj
+            simp only [natZeroA] at hje
+            injection hje with hj1 hj2 hj3
+            subst hj1 hj2 hj3
+            rcases args with _ | ⟨Mv, _ | ⟨zv, _ | ⟨sv, _ | ⟨x, rest⟩⟩⟩⟩ <;>
+              simp at hlen
+            rcases margs with _ | ⟨y, ys⟩ <;> simp at hmlen
+            obtain ⟨hs1, hs2, hs3, hs4, -⟩ := hch
+            obtain ⟨vE1, A1, B1, hp1, hm1, hf1⟩ := hs1
+            obtain ⟨vE2, A2, B2, hp2, hm2, hf2⟩ := hs2
+            obtain ⟨vE3, A3, B3, hp3, hm3, hf3⟩ := hs3
+            rw [hv1] at hp1 hp2 hp3
+            have htv' : tv = natzero := by
+              rw [htv, hv2 _ _ (by decide)]
+              exact hvalZ3 ψj
+            obtain ⟨R, hRi, hfold, ⟨vS1, AS1, BS1, hq1, hq2, hq3⟩,
+              ⟨vS2, AS2, BS2, hq4, hq5, hq6⟩,
+              ⟨vS3, AS3, BS3, hq7, hq8, hq9⟩⟩ :=
+              natZeroIota_claims (cval := val') (ψ := ψ)
+                hfN' hvalN' hfZ' hvalZ' hfSc' hvalSc'
+                (vE1 := vE1) (A1 := A1) (B1 := B1) hp1 hm1
+                (vE2 := vE2) (A2 := A2) (B2 := B2) hp2 hm2
+                (vE3 := vE3) (A3 := A3) (B3 := B3) hp3 hm3 htv'
+            refine ⟨R, hRi, ?_, ?_⟩
+            · rw [show SpineFold V (val' natRecA.name ψ)
+                  ([Mv, zv, sv] ++ [tv]) = SetTheory.app (SetTheory.app
+                    (SetTheory.app (SetTheory.app
+                      (val' natRecA.name ψ) Mv) zv) sv) tv from rfl]
+              rw [hv1]
+              exact hfold
+            · exact ⟨⟨vS1, AS1, BS1, hq1, hq2, hq3⟩,
+                ⟨vS2, AS2, BS2, hq4, hq5, hq6⟩,
+                ⟨vS3, AS3, BS3, hq7, hq8, hq9⟩, trivial⟩
+          rcases List.mem_cons.mp hr with rfl | hr
+          · -- successor rule
+            refine ⟨fun ψ => annotOk_natRecSucc_rhs (cval := val') (ψ := ψ)
+              rfl hvalN' rfl hvalZ' rfl hvalSc' hfRc' hvalRc', ?_⟩
+            intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch htv
+            have hje := Option.some.inj hfj
+            simp only [natSuccA] at hje
+            injection hje with hj1 hj2 hj3
+            subst hj1 hj2 hj3
+            rcases args with _ | ⟨Mv, _ | ⟨zv, _ | ⟨sv, _ | ⟨x, rest⟩⟩⟩⟩ <;>
+              simp at hlen
+            rcases margs with _ | ⟨y1, _ | ⟨y2, ys⟩⟩ <;> simp at hmlen
+            obtain ⟨hs1, hs2, hs3, hs4, -⟩ := hch
+            obtain ⟨vE1, A1, B1, hp1, hm1, hf1⟩ := hs1
+            obtain ⟨vE2, A2, B2, hp2, hm2, hf2⟩ := hs2
+            obtain ⟨vE3, A3, B3, hp3, hm3, hf3⟩ := hs3
+            rw [hv1] at hp1 hp2 hp3
+            obtain ⟨hms1, -⟩ := hmch
+            obtain ⟨vE', A', B', hq', hn', hf'⟩ := hms1
+            have hsucceq : ∀ ψ'' : Name → Nat,
+                val' ((Name.anonymous.str "Nat").str "succ") ψ'' =
+                natSuccVal V ψ := by
+              intro ψ''
+              rw [hv2 _ _ (by decide)]
+              exact hval3 ψ''
+            rw [hsucceq] at hq'
+            have htv' : tv = SetTheory.app (natSuccVal V ψ) y1 := by
+              rw [htv, show SpineFold V (val'
+                  ((Name.anonymous.str "Nat").str "succ") ψj) [y1] =
+                  SetTheory.app (val'
+                    ((Name.anonymous.str "Nat").str "succ") ψj) y1 from rfl,
+                hsucceq]
+            obtain ⟨R, hRi, hfold, ⟨vS1, AS1, BS1, hq1, hq2, hq3⟩,
+              ⟨vS2, AS2, BS2, hq4, hq5, hq6⟩,
+              ⟨vS3, AS3, BS3, hq7, hq8, hq9⟩,
+              ⟨vS4, AS4, BS4, hq10, hq11, hq12⟩⟩ :=
+              natSuccIota_claims (cval := val') (ψ := ψ)
+                hfN' hvalN' hfZ' hvalZ' hfSc' hvalSc' hfRc' hvalRc'
+                (vE1 := vE1) (A1 := A1) (B1 := B1) hp1 hm1
+                (vE2 := vE2) (A2 := A2) (B2 := B2) hp2 hm2
+                (vE3 := vE3) (A3 := A3) (B3 := B3) hp3 hm3
+                (vE' := vE') (A' := A') (B' := B') hq' hn' htv'
+            refine ⟨R, hRi, ?_, ?_⟩
+            · rw [show SpineFold V (val' natRecA.name ψ)
+                  ([Mv, zv, sv] ++ [tv]) = SetTheory.app (SetTheory.app
+                    (SetTheory.app (SetTheory.app
+                      (val' natRecA.name ψ) Mv) zv) sv) tv from rfl]
+              rw [hv1]
+              exact hfold
+            · exact ⟨⟨vS1, AS1, BS1, hq1, hq2, hq3⟩,
+                ⟨vS2, AS2, BS2, hq4, hq5, hq6⟩,
+                ⟨vS3, AS3, BS3, hq7, hq8, hq9⟩,
+                ⟨vS4, AS4, BS4, hq10, hq11, hq12⟩, trivial⟩
+          · cases hr)
       exact ⟨m4⟩
     case _ =>
       simp only [checkDecl, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
@@ -883,6 +1177,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv hx hn => absurd hn (by decide))
         (fun _ => ⟨rfl, fun _ => rfl⟩)
         (fun _ _ _ _ _ _ hx => nomatch hx)
+        (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+          absurd hx (by simp [psigmaA]))
       obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 psigmaMkA
         (fun ψ => psigmaMkVal V ψ)
         (Option.isNone_iff_eq_none.mp h2)
@@ -904,6 +1200,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv hx _ => nomatch hx)
         (fun _ => ⟨rfl, fun _ => rfl⟩)
         (fun _ _ _ _ _ _ hx => nomatch hx)
+        (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+          absurd hx (by simp [psigmaMkA]))
       have hvalS2 : ∀ ψ' : Name → Nat, m2.val psigmaName ψ' = psigmaVal V ψ' :=
         fun ψ' => by
           rw [hpres2 psigmaName ψ' (by decide)]
@@ -965,6 +1263,72 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
             by
               rw [Env.find?_cons, if_pos (by decide)]⟩,
            fun hn => absurd hn (by decide)⟩)
+        (fun val' hv1 hv2 cvR nP nM nm ni rules heq => by
+          simp only [psigmaRecA] at heq
+          injection heq with h1 h2 h3 h4 h5 h6
+          subst h1 h2 h3 h4 h5 h6
+          intro r hr
+          have hvalS' : ∀ ψ' : Name → Nat,
+              val' psigmaName ψ' = psigmaVal V ψ' := by
+            intro ψ'
+            rw [hv2 psigmaName ψ' (by decide)]
+            exact hvalS2 ψ'
+          have hvalM' : ∀ ψ' : Name → Nat,
+              val' psigmaMkName ψ' = psigmaMkVal V ψ' := by
+            intro ψ'
+            rw [hv2 psigmaMkName ψ' (by decide)]
+            exact hval2 ψ'
+          have hfS' : Env.find?
+              (⟨psigmaRecA :: psigmaMkA :: psigmaA :: env.consts⟩ : Env)
+              psigmaName = some psigmaA := rfl
+          have hfM' : Env.find?
+              (⟨psigmaRecA :: psigmaMkA :: psigmaA :: env.consts⟩ : Env)
+              psigmaMkName = some psigmaMkA := rfl
+          rcases List.mem_cons.mp hr with rfl | hr
+          · refine ⟨fun ψ => annotOk_psigmaRec_rhs (cval := val') (ψ := ψ)
+              rfl hvalS' rfl hvalM', ?_⟩
+            intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch htv
+            have hje := Option.some.inj hfj
+            simp only [psigmaMkA] at hje
+            injection hje with hj1 hj2 hj3
+            subst hj1 hj2 hj3
+            rcases args with _ | ⟨Av, _ | ⟨Bv, _ | ⟨Mv, _ | ⟨mkv,
+              _ | ⟨x, rest⟩⟩⟩⟩⟩ <;> simp at hlen
+            rcases margs with _ | ⟨p1, _ | ⟨p2, _ | ⟨av, _ | ⟨bv,
+              _ | ⟨y, ys⟩⟩⟩⟩⟩ <;> simp at hmlen
+            obtain ⟨hs1, hs2, hs3, hs4, hs5, -⟩ := hch
+            obtain ⟨vE1, A1, B1, hp1, hm1, hf1⟩ := hs1
+            obtain ⟨vE2, A2, B2, hp2, hm2, hf2⟩ := hs2
+            obtain ⟨vE3, A3, B3, hp3, hm3, hf3⟩ := hs3
+            obtain ⟨vE4, A4, B4, hp4, hm4, hf4⟩ := hs4
+            obtain ⟨hms1, hms2, hms3, hms4, -⟩ := hmch
+            obtain ⟨vE5, A5, B5, hp5, hm5, hf5⟩ := hms3
+            obtain ⟨vE6, A6, B6, hp6, hm6, hf6⟩ := hms4
+            obtain ⟨R, hRi, hfold, ⟨vS1, AS1, BS1, hq1, hq2, hq3⟩,
+              ⟨vS2, AS2, BS2, hq4, hq5, hq6⟩,
+              ⟨vS3, AS3, BS3, hq7, hq8, hq9⟩,
+              ⟨vS4, AS4, BS4, hq10, hq11, hq12⟩,
+              ⟨vS5, AS5, BS5, hq13, hq14, hq15⟩,
+              ⟨vS6, AS6, BS6, hq16, hq17, hq18⟩⟩ :=
+              psigmaIota_claims (cval := val') (ψ := ψ)
+                (Av := Av) (Bv := Bv) (Mv := Mv) (mkv := mkv) (tv := tv)
+                (av := av) (bv := bv)
+                hfS' hvalS' hfM' hvalM' hm1 hm2 hm3 hm4 hm5 hm6
+            refine ⟨R, hRi, ?_, ?_⟩
+            · rw [show SpineFold V (val' psigmaRecA.name ψ)
+                  ([Av, Bv, Mv, mkv] ++ [tv]) =
+                  SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app
+                    (SetTheory.app (val' psigmaRecA.name ψ) Av) Bv)
+                    Mv) mkv) tv from rfl]
+              rw [hv1]
+              exact hfold
+            · exact ⟨⟨vS1, AS1, BS1, hq1, hq2, hq3⟩,
+                ⟨vS2, AS2, BS2, hq4, hq5, hq6⟩,
+                ⟨vS3, AS3, BS3, hq7, hq8, hq9⟩,
+                ⟨vS4, AS4, BS4, hq10, hq11, hq12⟩,
+                ⟨vS5, AS5, BS5, hq13, hq14, hq15⟩,
+                ⟨vS6, AS6, BS6, hq16, hq17, hq18⟩, trivial⟩
+          · cases hr)
       exact ⟨m3⟩
     case _ =>
       simp only [checkDecl, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
@@ -1005,6 +1369,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv hx hn => absurd hn (by decide))
         (fun _ => ⟨rfl, fun _ => rfl⟩)
         (fun _ _ _ _ _ _ hx => nomatch hx)
+        (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+          absurd hx (by simp [eqA]))
       obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 eqReflA
         (fun ψ => eqReflVal V ψ)
         (Option.isNone_iff_eq_none.mp h2)
@@ -1023,6 +1389,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv hx _ => nomatch hx)
         (fun _ => ⟨rfl, fun _ => rfl⟩)
         (fun _ _ _ _ _ _ hx => nomatch hx)
+        (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+          absurd hx (by simp [eqReflA]))
       have hvalE2 : ∀ ψ' : Name → Nat, m2.val eqName ψ' = eqVal V ψ' := fun ψ' => by
         rw [hpres2 eqName ψ' (by decide)]
         exact hval1 ψ'
@@ -1083,6 +1451,72 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
            fun hn => absurd hn (by decide),
            fun hn => absurd hn (by decide),
            fun hn => absurd hn (by decide)⟩)
+        (fun val' hv1 hv2 cvR nP nM nm ni rules heq => by
+          simp only [eqRecA] at heq
+          injection heq with h1 h2 h3 h4 h5 h6
+          subst h1 h2 h3 h4 h5 h6
+          intro r hr
+          have hvalE' : ∀ ψ' : Name → Nat, val' eqName ψ' = eqVal V ψ' := by
+            intro ψ'
+            rw [hv2 eqName ψ' (by decide)]
+            exact hvalE2 ψ'
+          have hvalR' : ∀ ψ' : Name → Nat,
+              val' eqReflName ψ' = eqReflVal V ψ' := by
+            intro ψ'
+            rw [hv2 eqReflName ψ' (by decide)]
+            exact hval2 ψ'
+          have hfE' : Env.find?
+              (⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ : Env)
+              eqName = some eqA := rfl
+          have hfR' : Env.find?
+              (⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ : Env)
+              eqReflName = some eqReflA := rfl
+          rcases List.mem_cons.mp hr with rfl | hr
+          · refine ⟨fun ψ => annotOk_eqRec_rhs (cval := val') (ψ := ψ)
+              rfl hvalE' rfl hvalR', ?_⟩
+            intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch htv
+            have hje := Option.some.inj hfj
+            simp only [eqReflA] at hje
+            injection hje with hj1 hj2 hj3
+            subst hj1 hj2 hj3
+            rcases args with _ | ⟨Av, _ | ⟨av, _ | ⟨Mv, _ | ⟨rv,
+              _ | ⟨bv, _ | ⟨x, rest⟩⟩⟩⟩⟩⟩ <;> simp at hlen
+            rcases margs with _ | ⟨p1, _ | ⟨p2, _ | ⟨p3, ys⟩⟩⟩ <;>
+              simp at hmlen
+            obtain ⟨hs1, hs2, hs3, hs4, hs5, hs6, -⟩ := hch
+            obtain ⟨vE1, A1, B1, hp1, hm1, hf1⟩ := hs1
+            obtain ⟨vE2, A2, B2, hp2, hm2, hf2⟩ := hs2
+            obtain ⟨vE3, A3, B3, hp3, hm3, hf3⟩ := hs3
+            obtain ⟨vE4, A4, B4, hp4, hm4, hf4⟩ := hs4
+            obtain ⟨vE5, A5, B5, hp5, hm5, hf5⟩ := hs5
+            obtain ⟨vE6, A6, B6, hp6, hm6, hf6⟩ := hs6
+            rw [hv1] at hp1 hp2 hp3 hp4 hp5 hp6
+            obtain ⟨R, hRi, hfold, ⟨vS1, AS1, BS1, hq1, hq2, hq3⟩,
+              ⟨vS2, AS2, BS2, hq4, hq5, hq6⟩,
+              ⟨vS3, AS3, BS3, hq7, hq8, hq9⟩,
+              ⟨vS4, AS4, BS4, hq10, hq11, hq12⟩⟩ :=
+              eqIota_claims (cval := val') (ψ := ψ)
+                hfE' hvalE' hfR' hvalR'
+                (vE1 := vE1) (A1 := A1) (B1 := B1) hp1 hm1
+                (vE2 := vE2) (A2 := A2) (B2 := B2) hp2 hm2
+                (vE3 := vE3) (A3 := A3) (B3 := B3) hp3 hm3
+                (vE4 := vE4) (A4 := A4) (B4 := B4) hp4 hm4
+                (vE5 := vE5) (A5 := A5) (B5 := B5) hp5 hm5
+                (vE6 := vE6) (A6 := A6) (B6 := B6) hp6 hm6
+            refine ⟨R, hRi, ?_, ?_⟩
+            · rw [show SpineFold V (val' eqRecA.name ψ)
+                  ([Av, av, Mv, rv, bv] ++ [tv]) =
+                  SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app
+                    (SetTheory.app (SetTheory.app
+                      (val' eqRecA.name ψ) Av) av) Mv) rv) bv) tv
+                  from rfl]
+              rw [hv1]
+              exact hfold
+            · exact ⟨⟨vS1, AS1, BS1, hq1, hq2, hq3⟩,
+                ⟨vS2, AS2, BS2, hq4, hq5, hq6⟩,
+                ⟨vS3, AS3, BS3, hq7, hq8, hq9⟩,
+                ⟨vS4, AS4, BS4, hq10, hq11, hq12⟩, trivial⟩
+          · cases hr)
       exact ⟨m3⟩
     simp only [checkDecl, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
     -- step 1: PUnit
@@ -1120,6 +1554,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (fun cv _ _ ψ x hx => mem_unitSet hx)
       (fun _ => ⟨rfl, fun _ => rfl⟩)
         (fun _ _ _ _ _ _ hx => nomatch hx)
+      (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+        absurd hx (by simp [punitA]))
     obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 punitUnitA (fun _ => pt)
       (Option.isNone_iff_eq_none.mp h2)
       ⟨rfl, rfl, rfl, rfl,
@@ -1135,6 +1571,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (fun cv hx _ => nomatch hx)
       (fun _ => ⟨rfl, fun _ => rfl⟩)
         (fun _ _ _ _ _ _ hx => nomatch hx)
+      (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+        absurd hx (by simp [punitUnitA]))
     have hvalP2 : ∀ ψ' : Name → Nat, m2.val punitName ψ' = unitSet := fun ψ' => by
       rw [hpres2 punitName ψ' (by decide)]
       exact hval1 ψ'
@@ -1195,6 +1633,58 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                 if_pos (by decide)],
             by
               rw [Env.find?_cons, if_pos (by decide)]⟩⟩)
+      (fun val' hv1 hv2 cvR nP nM nm ni rules heq => by
+        simp only [punitRecA] at heq
+        injection heq with h1 h2 h3 h4 h5 h6
+        subst h1 h2 h3 h4 h5 h6
+        intro r hr
+        have hvalP' : ∀ ψ' : Name → Nat, val' punitName ψ' = unitSet := by
+          intro ψ'
+          rw [hv2 punitName ψ' (by decide)]
+          exact hvalP2 ψ'
+        have hvalU' : ∀ ψ' : Name → Nat, val' punitUnitName ψ' = pt := by
+          intro ψ'
+          rw [hv2 punitUnitName ψ' (by decide)]
+          exact hval2 ψ'
+        rcases List.mem_cons.mp hr with rfl | hr
+        · refine ⟨fun ψ => annotOk_punitRec_rhs (cval := val') (ψ := ψ)
+            rfl hvalP' rfl hvalU', ?_⟩
+          intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch htv
+          have hje := Option.some.inj hfj
+          simp only [punitUnitA] at hje
+          injection hje with hj1 hj2 hj3
+          subst hj1 hj2 hj3
+          rcases args with _ | ⟨Mv, _ | ⟨mv, _ | ⟨x, rest⟩⟩⟩ <;>
+            simp at hlen
+          rcases margs with _ | ⟨y, ys⟩ <;> simp at hmlen
+          obtain ⟨hs1, hs2, hs3, -⟩ := hch
+          obtain ⟨vE1, A1, B1, hp1, hm1, hf1⟩ := hs1
+          obtain ⟨vE2, A2, B2, hp2, hm2, hf2⟩ := hs2
+          rw [hv1] at hp1 hp2
+          have htv' : tv = pt := by
+            rw [htv, hv2 _ _ (by decide)]
+            exact hval2 ψj
+          have hfP' : Env.find?
+              (⟨punitRecA :: punitUnitA :: punitA :: env.consts⟩ : Env)
+              punitName = some punitA := rfl
+          have hfU' : Env.find?
+              (⟨punitRecA :: punitUnitA :: punitA :: env.consts⟩ : Env)
+              punitUnitName = some punitUnitA := rfl
+          obtain ⟨R, hRi, hfold, ⟨vS1, AS1, BS1, hq1, hq2, hq3⟩,
+            ⟨vS2, AS2, BS2, hq4, hq5, hq6⟩⟩ :=
+            punitIota_claims (cval := val') (ψ := ψ) hfP' hvalP' hfU' hvalU'
+              (vE1 := vE1) (A1 := A1) (B1 := B1) hp1 hm1
+              (vE2 := vE2) (A2 := A2) (B2 := B2) hp2 hm2 htv'
+          refine ⟨R, hRi, ?_, ?_⟩
+          · rw [show SpineFold V (val' punitRecA.name ψ)
+                ([Mv, mv] ++ [tv]) = SetTheory.app (SetTheory.app
+                  (SetTheory.app (val' punitRecA.name ψ) Mv) mv) tv
+                from rfl]
+            rw [hv1]
+            exact hfold
+          · exact ⟨⟨vS1, AS1, BS1, hq1, hq2, hq3⟩,
+              ⟨vS2, AS2, BS2, hq4, hq5, hq6⟩, trivial⟩
+        · cases hr)
     exact ⟨m3⟩
   | defnDecl cv value =>
     simp only [checkDecl, Bind.bind, Except.bind] at h

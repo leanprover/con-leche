@@ -3617,11 +3617,6 @@ reassembled.  The membership hypotheses are the ∃-witnesses of the
 recovered with `lam_dom` away from the Prop collapse, and under the
 collapse everything is the proof point. -/
 
-/-- One `AnnotOk`-app typing slot. -/
-def AppSlot (f a : V) : Prop :=
-  ∃ vE A B, f ∈ˢ pi vE A (B : V → V) ∧ a ∈ˢ A ∧
-    ∀ x, x ∈ˢ A → B x ∈ˢ univ vE
-
 /-- Away from `pi 0`, an abstraction's membership transfers elements of
 the pi's domain into its own. -/
 theorem lam_dom_of_ne {w vE : Nat} {D A : V} {F : V → V} {B : V → V}
