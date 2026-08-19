@@ -912,6 +912,48 @@ private theorem take_concat_of_length {α : Type _} :
       rw [this, List.take_succ_cons, List.cons_append, ← hz]
     · simpa using hg
 
+/-- Pairwise definitional equality of two interpreted spines yields
+pointwise equal values. -/
+private theorem defEqList_values {m : EnvModel V env} {fuelTop : Nat}
+    (ihAll : ∀ f, f ≤ fuelTop →
+      WhnfClaims m φ f ∧ DefEqClaims m φ f ∧ InferClaims m φ f) :
+    ∀ (fl : Nat), fl ≤ fuelTop → ∀ {d : Nat} {ρ : Nat → V}
+      (as bs : List Expr) (vs us : List V),
+      defEqList env fl d as bs = .ok true →
+      (∀ x ∈ as, WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded x ∧ FvarsOk V m.val env φ d ρ x ∧
+        AnnotOk V m.val env φ d ρ x) →
+      (∀ x ∈ bs, WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded x ∧ FvarsOk V m.val env φ d ρ x ∧
+        AnnotOk V m.val env φ d ρ x) →
+      InterpSpine m.val env φ d ρ as vs →
+      InterpSpine m.val env φ d ρ bs us →
+      vs = us := by
+  intro fl hfl d ρ as
+  induction as generalizing fl with
+  | nil =>
+    intro bs vs us h _ _ hs1 hs2
+    match fl, bs, h with
+    | fl + 1, [], h =>
+      match vs, hs1, us, hs2 with
+      | [], _, [], _ => rfl
+    | fl + 1, _ :: _, h => exact nomatch h
+  | cons a as ih =>
+    intro bs vs us h ha hb hs1 hs2
+    match fl, bs, h with
+    | fl + 1, b :: bs, h =>
+      obtain ⟨hde, hrest⟩ := defEqList_step_inv h
+      match vs, hs1, us, hs2 with
+      | v :: vs, ⟨hiv, hs1'⟩, u :: us, ⟨hiu, hs2'⟩ =>
+        obtain ⟨haw, hab, haL, haF, haA⟩ := ha a List.mem_cons_self
+        obtain ⟨hbw, hbb, hbL, hbF, hbA⟩ := hb b List.mem_cons_self
+        have hflle : fl ≤ fuelTop := Nat.le_trans (Nat.le_succ fl) hfl
+        have hvu : v = u := (ihAll fl hflle).2.1 hde haw hbw hab hbb
+          haL hbL haF hbF haA hbA hiv hiu
+        rw [hvu, ih fl hflle bs vs us hrest
+          (fun x hx => ha x (List.mem_cons_of_mem _ hx))
+          (fun x hx => hb x (List.mem_cons_of_mem _ hx)) hs1' hs2']
+
 /-- Soundness of one iota step: the reduct's interpretation matches the
 original application spine's, its annotations are truthful, and it stays
 well-scoped — everything the whnf recursion needs to continue.  Fully
@@ -936,7 +978,8 @@ private theorem iota_sound {m : EnvModel V env} {fuel : Nat}
   | 0, ihAll, hio => exact nomatch hio
   | fuel + 1, ihAll, hio =>
   obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major, cj, usj, cvj, cnP, cnF, r,
-    hfn, hfc, hlen, hmaj, hmfn, hfj, hrule, hml1, hml2, hcerts, heout⟩ :=
+    hfn, hfc, hlen, hmaj, hmfn, hfj, hrule, hml1, hml2, hpeq, hcerts,
+    heout⟩ :=
     iotaRec_inv hio
   obtain ⟨ihwL, ihdL, ihiL⟩ := ihAll fuel (Nat.le_succ fuel)
   obtain rfl : cj = r.ctor :=
@@ -1114,8 +1157,32 @@ private theorem iota_sound {m : EnvModel V env} {fuel : Nat}
     rw [hxeq] at hlen
     simp at hlen
     omega
+  have hparameq : ws.take cnP = (vsi ++ [tvv]).take cnP := by
+    have hspT1 : InterpSpine m.val env φ d ρ
+        (major.getAppArgs.take cnP) (ws.take cnP) :=
+      InterpSpine.take _ hmsp
+    have hspT2 : InterpSpine m.val env φ d ρ
+        ((Expr.app fe ae).getAppArgs.take cnP)
+        ((vsi ++ [tvv]).take cnP) := by
+      have := InterpSpine.take cnP hisp
+      rw [← hxeq] at this
+      exact this
+    refine defEqList_values ihAll fuel (Nat.le_succ fuel)
+      _ _ _ _ hpeq ?_ ?_ hspT1 hspT2
+    · intro x hx
+      have hxm := List.mem_of_mem_take hx
+      exact ⟨hmajW.getAppArgs _ hxm,
+        looseBVarsBounded_getAppArgs hmajB _ hxm,
+        fun l hl => hmajL l (fvarLeaves_getAppArgs hxm l hl),
+        FvarsOk.of_subset
+          (fun l hl => fvarLeaves_getAppArgs hxm l hl) hmajO,
+        hmxsA _ hxm⟩
+    · intro x hx
+      have hxm := List.mem_of_mem_take hx
+      exact ⟨hargsW _ hxm, hargsB _ hxm, hargsL _ hxm, hargsO _ hxm,
+        hxsA _ hxm⟩
   obtain ⟨R, hRi, hfoldEq, hRchain⟩ := hfolds cvj cnP cnF hfj _ _
-    vsi ws tvv hvsilen hwslen hchain' hmchain htveq
+    vsi ws tvv hvsilen hwslen hchain' hmchain htveq hparameq
   -- the reduct's interpretation and annotation chain
   have hRinst : interpExpr V m.val env φ d ρ
       (r.rhs.instantiateLevelParams cv.levelParams us) = some R := by

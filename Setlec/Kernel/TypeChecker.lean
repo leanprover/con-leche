@@ -341,12 +341,15 @@ def iotaRec (env : Env) : (fuel : Nat) → (depth : Nat) → Expr →
               | some r =>
                 let margs := major.getAppArgs
                 if margs.length = cnP + cnF ∧ r.nfields = cnF then
-                  if ← iotaCerts env fuel depth
+                  if ← defEqList env fuel depth (margs.take cnP)
+                      (args.take cnP) then
+                   if ← iotaCerts env fuel depth
                       (cv.type.instantiateLevelParams cv.levelParams us)
                       (args.take (nP + nM + nm + ni)) then
                     pure (some (Expr.mkAppN
                       (r.rhs.instantiateLevelParams cv.levelParams us)
                       (args.take (nP + nM + nm) ++ margs.drop cnP)))
+                   else pure none
                   else pure none
                 else pure none
               | none => pure none
@@ -371,6 +374,19 @@ def iotaCerts (env : Env) : (fuel : Nat) → (depth : Nat) → Expr →
       iotaCerts env fuel depth (body.instantiate1 arg) rest
     else pure false
   | _ + 1, _, _, _ :: _ => pure false
+  termination_by structural fuel _ _ _ => fuel
+
+/-- Pairwise definitional equality of two spines (used to check a
+major's constructor parameters against the recursor's). -/
+def defEqList (env : Env) : (fuel : Nat) → (depth : Nat) → List Expr →
+    List Expr → CheckM Bool
+  | 0, _, _, _ => throw (.internal "fuel exhausted: defEqList")
+  | _ + 1, _, [], [] => pure true
+  | fuel + 1, depth, a :: as, b :: bs => do
+    if ← isDefEqCore env fuel depth a b then
+      defEqList env fuel depth as bs
+    else pure false
+  | _ + 1, _, _, _ => pure false
   termination_by structural fuel _ _ _ => fuel
 
 /-- The fallback for structurally distinct stuck terms: pair eta in

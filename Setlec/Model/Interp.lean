@@ -183,6 +183,7 @@ def RecRulesOk (env : Env) (val : ConstVal V) : Prop :=
           ChainSlots V (val n ψ) (args ++ [tv]) →
           ChainSlots V (val (RecRule.ctor r) ψj) margs →
           tv = SpineFold V (val (RecRule.ctor r) ψj) margs →
+          margs.take cnP = (args ++ [tv]).take cnP →
           ∃ R, interpClosed V val env ψ (RecRule.rhs r) = some R ∧
             SpineFold V (val n ψ) (args ++ [tv]) =
               SpineFold V R (args.take (nP + nM + nm) ++ margs.drop cnP) ∧

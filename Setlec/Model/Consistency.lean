@@ -120,6 +120,7 @@ private def RecMemberOk (env' : Env) (val' : ConstVal V)
           ChainSlots V (val' ci.name ψ) (args ++ [tv]) →
           ChainSlots V (val' (RecRule.ctor r) ψj) margs →
           tv = SpineFold V (val' (RecRule.ctor r) ψj) margs →
+          margs.take cnP = (args ++ [tv]).take cnP →
           ∃ R, interpClosed V val' env' ψ (RecRule.rhs r) = some R ∧
             SpineFold V (val' ci.name ψ) (args ++ [tv]) =
               SpineFold V R (args.take (nP + nM + nm) ++ margs.drop cnP) ∧
@@ -178,7 +179,7 @@ private theorem RecRulesOk.cons {env : Env} (m : EnvModel V env)
     have hvaln : ∀ ψ : Name → Nat, val' n ψ = m.val n ψ :=
       fun ψ => hagree n (by rw [hfp]; rfl) ψ
     refine ⟨fun ψ => hAtrans _ hrres ψ (hA ψ), ?_⟩
-    intro cvj cnP cnF hfj ψ ψj args margs tv hl hml hch hmch htv
+    intro cvj cnP cnF hfj ψ ψj args margs tv hl hml hch hmch htv hpeq
     rw [Env.find?_cons] at hfj
     split at hfj
     · next hnc =>
@@ -195,7 +196,7 @@ private theorem RecRulesOk.cons {env : Env} (m : EnvModel V env)
       rw [hvaln] at hch
       rw [hvalc] at hmch htv
       obtain ⟨R, hRi, hfoldEq, hRch⟩ := hfold cvj cnP cnF hfj ψ ψj
-        args margs tv hl hml hch hmch htv
+        args margs tv hl hml hch hmch htv hpeq
       refine ⟨R, ?_, ?_, hRch⟩
       · rw [htrans _ hrres ψ]
         exact hRi
@@ -1046,7 +1047,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
           · -- zero rule
             refine ⟨fun ψ => annotOk_natRecZero_rhs (cval := val') (ψ := ψ)
               rfl hvalN' rfl hvalZ' rfl hvalSc', ?_⟩
-            intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch htv
+            intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
+              htv _hpeq
             have hje := Option.some.inj hfj
             simp only [natZeroA] at hje
             injection hje with hj1 hj2 hj3
@@ -1084,7 +1086,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
           · -- successor rule
             refine ⟨fun ψ => annotOk_natRecSucc_rhs (cval := val') (ψ := ψ)
               rfl hvalN' rfl hvalZ' rfl hvalSc' hfRc' hvalRc', ?_⟩
-            intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch htv
+            intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
+              htv _hpeq
             have hje := Option.some.inj hfj
             simp only [natSuccA] at hje
             injection hje with hj1 hj2 hj3
@@ -1349,7 +1352,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
           rcases List.mem_cons.mp hr with rfl | hr
           · refine ⟨fun ψ => annotOk_psigmaRec_rhs (cval := val') (ψ := ψ)
               rfl hvalS' rfl hvalM', ?_⟩
-            intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch htv
+            intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
+              htv _hpeq
             have hje := Option.some.inj hfj
             simp only [psigmaMkA] at hje
             injection hje with hj1 hj2 hj3
@@ -1556,7 +1560,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
           rcases List.mem_cons.mp hr with rfl | hr
           · refine ⟨fun ψ => annotOk_eqRec_rhs (cval := val') (ψ := ψ)
               rfl hvalE' rfl hvalR', ?_⟩
-            intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch htv
+            intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
+              htv _hpeq
             have hje := Option.some.inj hfj
             simp only [eqReflA] at hje
             injection hje with hj1 hj2 hj3
@@ -1750,7 +1755,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         rcases List.mem_cons.mp hr with rfl | hr
         · refine ⟨fun ψ => annotOk_punitRec_rhs (cval := val') (ψ := ψ)
             rfl hvalP' rfl hvalU', ?_⟩
-          intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch htv
+          intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
+            htv _hpeq
           have hje := Option.some.inj hfj
           simp only [punitUnitA] at hje
           injection hje with hj1 hj2 hj3

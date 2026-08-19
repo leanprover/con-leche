@@ -502,6 +502,8 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
       env.find? cj = some (.ctorInfo cvj cnP cnF) ∧
       rules.find? (fun r' => r'.ctor == cj) = some r ∧
       major.getAppArgs.length = cnP + cnF ∧ r.nfields = cnF ∧
+      defEqList env fuel d (major.getAppArgs.take cnP)
+        (e.getAppArgs.take cnP) = .ok true ∧
       iotaCerts env fuel d (cv.type.instantiateLevelParams cv.levelParams us)
         (e.getAppArgs.take (nP + nM + nm + ni)) = .ok true ∧
       eout = Expr.mkAppN (r.rhs.instantiateLevelParams cv.levelParams us)
@@ -579,6 +581,17 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   obtain ⟨hml1, hml2⟩ := hml
   rw [if_pos ⟨hml1, hml2⟩] at h
   try simp only [Bind.bind, Except.bind] at h
+  cases hpeq : defEqList env fuel d (major.getAppArgs.take cnP)
+      (e.getAppArgs.take cnP) with
+  | error err => rw [hpeq] at h; exact nomatch h
+  | ok rp =>
+  rw [hpeq] at h
+  dsimp only at h
+  cases rp with
+  | false => simp [pure, Except.pure] at h
+  | true =>
+  simp only [↓reduceIte] at h
+  try simp only [Bind.bind, Except.bind] at h
   cases hcerts : iotaCerts env fuel d
       (cv.type.instantiateLevelParams cv.levelParams us)
       (e.getAppArgs.take (nP + nM + nm + ni)) with
@@ -592,7 +605,26 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq,
     Option.some.injEq] at h
   exact ⟨c, us, cv, nP, nM, nm, ni, rules, major, cj, usj, cvj, cnP, cnF, r,
-    rfl, hfc, hlen, hmaj, hmfn, hfj, hrule, hml1, hml2, hcerts, h.symm⟩
+    rfl, hfc, hlen, hmaj, hmfn, hfj, hrule, hml1, hml2, hpeq, hcerts,
+    h.symm⟩
+
+/-- Inversion of one pairwise-defeq step. -/
+theorem defEqList_step_inv {env : Env} {fuel d : Nat} {a b : Expr}
+    {as bs : List Expr}
+    (h : defEqList env (fuel + 1) d (a :: as) (b :: bs) = .ok true) :
+    isDefEqCore env fuel d a b = .ok true ∧
+    defEqList env fuel d as bs = .ok true := by
+  simp only [defEqList, Bind.bind, Except.bind] at h
+  cases hde : isDefEqCore env fuel d a b with
+  | error err => rw [hde] at h; exact nomatch h
+  | ok r =>
+  rw [hde] at h
+  dsimp only at h
+  cases r with
+  | false => simp [pure, Except.pure] at h
+  | true =>
+  simp only [↓reduceIte] at h
+  exact ⟨rfl, h⟩
 
 /-- Inversion of one certification step. -/
 theorem iotaCerts_step_inv {env : Env} {fuel d : Nat} {n : Name}
@@ -1171,7 +1203,7 @@ theorem whnf_WScoped {env : Env} (henv : EnvWF env) :
         | succ fuel' =>
         obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major, cj, usj, cvj,
           cnP, cnF, r, hfn, hfc, hlen, hmaj, hmfn, hfj, hrule, hml1, hml2,
-          hcerts, rfl⟩ := iotaRec_inv hio
+          hpeq, hcerts, rfl⟩ := iotaRec_inv hio
         have hwapp : WScoped d (Expr.app f' a) := by
           simp only [WScoped]
           exact ⟨hwf', hw.2⟩
