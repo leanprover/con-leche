@@ -12,3 +12,7 @@ srcDir = "tests"
 [[lean_exe]]
 name = "setlec"
 root = "Main"
+
+[[lean_exe]]
+name = "annotate-basis"
+root = "AnnotateBasis"

@@ -20,87 +20,58 @@ variable (V : Type u) [SetTheory V]
 
 open SetTheory
 
-/-- What the projection rules need from the pair type former's value:
-partial applications determine their argument domains, and the full
-application is a sigma set. -/
-structure PairTyFacts (val : ConstVal V) (ψ : Name → Nat) : Prop where
+/-- What the projection rules need from the pair type former's value at
+one level assignment (`u`, `v` the assigned levels): partial
+applications determine their argument domains, and the full application
+is a sigma set. -/
+structure PairTyFacts (pv : V) (u v : Nat) : Prop where
   dom₀ : ∀ {vE : Nat} {A₀ : V} {B₀ : V → V} {x : V},
-    val psigmaName ψ ∈ˢ pi vE A₀ B₀ → x ∈ˢ A₀ → x ∈ˢ univ (ψ uN)
+    pv ∈ˢ pi vE A₀ B₀ → x ∈ˢ A₀ → x ∈ˢ univ u
   dom₁ : ∀ {vA : V} {vE : Nat} {A₁ : V} {B₁ : V → V} {x : V},
-    vA ∈ˢ univ (ψ uN) → app (val psigmaName ψ) vA ∈ˢ pi vE A₁ B₁ →
-    x ∈ˢ A₁ → x ∈ˢ pi (ψ vN + 1) vA fun _ => univ (ψ vN)
-  fold : ∀ {vA vB : V}, vA ∈ˢ univ (ψ uN) →
-    vB ∈ˢ pi (ψ vN + 1) vA (fun _ => univ (ψ vN)) →
-    app (app (val psigmaName ψ) vA) vB =
-      sigmaSet (Nat.max (ψ uN) (ψ vN)) vA fun x => app vB x
+    vA ∈ˢ univ u → app pv vA ∈ˢ pi vE A₁ B₁ →
+    x ∈ˢ A₁ → x ∈ˢ pi (v + 1) vA fun _ => univ v
+  fold : ∀ {vA vB : V}, vA ∈ˢ univ u →
+    vB ∈ˢ pi (v + 1) vA (fun _ => univ v) →
+    app (app pv vA) vB = sigmaSet (Nat.max u v) vA fun x => app vB x
 
 /-- What the projection rules need from the pair constructor's value:
 away from the Prop collapse, partial applications determine their
 argument domains; the full application is the pair (or the proof point
 under the collapse). -/
-structure PairMkFacts (val : ConstVal V) (ψ : Name → Nat) : Prop where
-  dom₀ : Nat.max (ψ uN) (ψ vN) ≠ 0 →
+structure PairMkFacts (pv : V) (u v : Nat) : Prop where
+  dom₀ : Nat.max u v ≠ 0 →
     ∀ {vE : Nat} {A₀ : V} {B₀ : V → V} {x : V},
-    val psigmaMkName ψ ∈ˢ pi vE A₀ B₀ → x ∈ˢ A₀ → x ∈ˢ univ (ψ uN)
-  dom₁ : Nat.max (ψ uN) (ψ vN) ≠ 0 →
+    pv ∈ˢ pi vE A₀ B₀ → x ∈ˢ A₀ → x ∈ˢ univ u
+  dom₁ : Nat.max u v ≠ 0 →
     ∀ {vA : V} {vE : Nat} {A₁ : V} {B₁ : V → V} {x : V},
-    vA ∈ˢ univ (ψ uN) → app (val psigmaMkName ψ) vA ∈ˢ pi vE A₁ B₁ →
-    x ∈ˢ A₁ → x ∈ˢ pi (ψ vN + 1) vA fun _ => univ (ψ vN)
-  dom₂ : Nat.max (ψ uN) (ψ vN) ≠ 0 →
+    vA ∈ˢ univ u → app pv vA ∈ˢ pi vE A₁ B₁ →
+    x ∈ˢ A₁ → x ∈ˢ pi (v + 1) vA fun _ => univ v
+  dom₂ : Nat.max u v ≠ 0 →
     ∀ {vA vB : V} {vE : Nat} {A₂ : V} {B₂ : V → V} {x : V},
-    vA ∈ˢ univ (ψ uN) → vB ∈ˢ pi (ψ vN + 1) vA (fun _ => univ (ψ vN)) →
-    app (app (val psigmaMkName ψ) vA) vB ∈ˢ pi vE A₂ B₂ →
+    vA ∈ˢ univ u → vB ∈ˢ pi (v + 1) vA (fun _ => univ v) →
+    app (app pv vA) vB ∈ˢ pi vE A₂ B₂ →
     x ∈ˢ A₂ → x ∈ˢ vA
-  dom₃ : Nat.max (ψ uN) (ψ vN) ≠ 0 →
+  dom₃ : Nat.max u v ≠ 0 →
     ∀ {vA vB va : V} {vE : Nat} {A₃ : V} {B₃ : V → V} {x : V},
-    vA ∈ˢ univ (ψ uN) → vB ∈ˢ pi (ψ vN + 1) vA (fun _ => univ (ψ vN)) →
+    vA ∈ˢ univ u → vB ∈ˢ pi (v + 1) vA (fun _ => univ v) →
     va ∈ˢ vA →
-    app (app (app (val psigmaMkName ψ) vA) vB) va ∈ˢ pi vE A₃ B₃ →
+    app (app (app pv vA) vB) va ∈ˢ pi vE A₃ B₃ →
     x ∈ˢ A₃ → x ∈ˢ app vB va
-  fold : ∀ {vA vB va vb : V}, vA ∈ˢ univ (ψ uN) →
-    vB ∈ˢ pi (ψ vN + 1) vA (fun _ => univ (ψ vN)) →
+  fold : ∀ {vA vB va vb : V}, vA ∈ˢ univ u →
+    vB ∈ˢ pi (v + 1) vA (fun _ => univ v) →
     va ∈ˢ vA → vb ∈ˢ app vB va →
-    app (app (app (app (val psigmaMkName ψ) vA) vB) va) vb =
-      (if Nat.max (ψ uN) (ψ vN) = 0 then pt else spair va vb)
+    app (app (app (app pv vA) vB) va) vb =
+      (if Nat.max u v = 0 then pt else spair va vb)
 
 /-- The environment's inductive-kind constants have models: every fact
 here is what some checker rule's soundness consumes.  Grows on demand as
 rules land (iota equations come with the recursor rules). -/
 def IndOk (env : Env) (val : ConstVal V) : Prop :=
   (∀ cv, env.find? psigmaName = some (.indInfo cv) →
-    ∀ ψ : Name → Nat, PairTyFacts V val ψ) ∧
+    ∀ ψ : Name → Nat, PairTyFacts V (val psigmaName ψ) (ψ uN) (ψ vN)) ∧
   (∀ cv nP nF, env.find? psigmaMkName = some (.ctorInfo cv nP nF) →
     nP = 2 ∧ nF = 2 ∧ cv.levelParams = [uN, vN] ∧
-    ∀ ψ : Name → Nat, PairMkFacts V val ψ)
-
-/-- Transport pair-former facts along valuation agreement at the name. -/
-theorem PairTyFacts.of_agree {val val' : ConstVal V} {ψ : Name → Nat}
-    (hag : val' psigmaName ψ = val psigmaName ψ)
-    (h : PairTyFacts V val ψ) : PairTyFacts V val' ψ where
-  dom₀ hp hx := h.dom₀ (by rw [← hag]; exact hp) hx
-  dom₁ hA hp hx := h.dom₁ hA (by rw [← hag]; exact hp) hx
-  fold hA hB := by rw [hag]; exact h.fold hA hB
-
-/-- Transport pair-constructor facts along valuation agreement. -/
-theorem PairMkFacts.of_agree {val val' : ConstVal V} {ψ : Name → Nat}
-    (hag : val' psigmaMkName ψ = val psigmaMkName ψ)
-    (h : PairMkFacts V val ψ) : PairMkFacts V val' ψ where
-  dom₀ := by
-    intro hw vE A₀ B₀ x hp hx
-    exact h.dom₀ hw (by rw [← hag]; exact hp) hx
-  dom₁ := by
-    intro hw vA vE A₁ B₁ x hA hp hx
-    exact h.dom₁ hw hA (by rw [← hag]; exact hp) hx
-  dom₂ := by
-    intro hw vA vB vE A₂ B₂ x hA hB hp hx
-    exact h.dom₂ hw hA hB (by rw [← hag]; exact hp) hx
-  dom₃ := by
-    intro hw vA vB va vE A₃ B₃ x hA hB ha hp hx
-    exact h.dom₃ hw hA hB ha (by rw [← hag]; exact hp) hx
-  fold := by
-    intro vA vB va vb hA hB ha hb
-    rw [hag]
-    exact h.fold hA hB ha hb
+    ∀ ψ : Name → Nat, PairMkFacts V (val psigmaMkName ψ) (ψ uN) (ψ vN))
 
 theorem IndOk.empty (val : ConstVal V) : IndOk V Env.empty val := by
   constructor

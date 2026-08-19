@@ -233,7 +233,10 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
           have := find?_none_ne hfind' _ hmem
           rw [hname, hcontra] at this
           exact this rfl
-        exact PairTyFacts.of_agree V (by simp [hval', hne]) (m.ind_ok.1 cv hfp ψ)
+        have hvagree : val' psigmaName ψ = m.val psigmaName ψ := by
+          simp [hval', hne]
+        rw [hvagree]
+        exact m.ind_ok.1 cv hfp ψ
     · intro cv nP nF hfp
       rw [Env.find?_cons] at hfp
       split at hfp
@@ -251,8 +254,11 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
           rw [hname, hcontra] at this
           exact this rfl
         obtain ⟨hnP, hnF, hlp, hfacts⟩ := m.ind_ok.2 cv nP nF hfp
-        exact ⟨hnP, hnF, hlp, fun ψ =>
-          PairMkFacts.of_agree V (by simp [hval', hne]) (hfacts ψ)⟩
+        refine ⟨hnP, hnF, hlp, fun ψ => ?_⟩
+        have hvagree : val' psigmaMkName ψ = m.val psigmaMkName ψ := by
+          simp [hval', hne]
+        rw [hvagree]
+        exact hfacts ψ
 
 /-- The common inversion + semantic-fact assembly for a checked value
 against a checked (annotated) type. -/
