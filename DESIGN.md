@@ -423,3 +423,17 @@ blocks *up to binder names and positional level-parameter renaming*
 (`Eq.{u_1}`, `Eq.rec.{u, u_1}`) and hygienic binder names, both
 semantically irrelevant; the checker installs the pinned (annotated)
 declarations.
+
+### Generic eta/iota machinery (2026-08-19, per review)
+
+`whnf`/`isDefEq` never test basis *names*: the kernel keys only on
+environment shapes — `ctorInfo`/`indInfo`/`recInfo` numbers, the iota
+rules, and the `<ind>.rec` naming convention that links a type to its
+recursor (a rule's `ctor` field links back to the constructor).  Unit
+eta fires for any stored inductive whose recursor has no indices and a
+single zero-field rule; pair eta for any fully applied two-field
+structure constructor.  The soundness side identifies the concrete
+basis constant through the environment invariant's `decl_ok` conjunct
+(every stored basis-shaped constant *is* its pinned declaration —
+`pinnedInfo` — and its valuation *is* its pinned value — `pinnedVal`),
+so only installation contains construction-specific proofs.

@@ -46,76 +46,6 @@ noncomputable def psigmaMkVal (ψ : Name → Nat) : V :=
         SetTheory.lam w (app B a) fun b =>
           if w = 0 then pt else spair a b
 
-/-- The value of one basis constant (`empty` for non-basis names). -/
-noncomputable def pinnedVal (n : Name) (ψ : Name → Nat) : V :=
-  let u := ψ uN
-  let u1 := ψ u1N
-  let v := ψ vN
-  if n = anonymous.str "Eq" then
-    SetTheory.lam (Nat.max u 1) (univ u) fun A =>
-      SetTheory.lam (Nat.max u 1) A fun x =>
-        SetTheory.lam 1 A fun y => eqv x y
-  else if n = (anonymous.str "Eq").str "refl" then
-    SetTheory.lam 0 (univ u) fun A =>
-      SetTheory.lam 0 A fun _ => pt
-  else if n = (anonymous.str "Eq").str "rec" then
-    -- λ α a motive refl b h. refl  (equality collapse: ⟦a⟧ = ⟦b⟧)
-    SetTheory.lam (basisRecEqV u u1) (univ u) fun A =>
-      SetTheory.lam (basisRecEqV2 u u1) A fun a =>
-        SetTheory.lam (basisRecEqV3 u u1)
-            (pi (Nat.max u1 1) A fun b => pi (u1 + 1) (eqv a b) fun _ => univ u1)
-            fun M =>
-          SetTheory.lam (basisRecEqV4 u u1) (app (app M a) pt) fun m =>
-            SetTheory.lam (basisRecEqV5 u u1) A fun b =>
-              SetTheory.lam u1 (eqv a b) fun _ => m
-  else if n = anonymous.str "Nat" then omega
-  else if n = (anonymous.str "Nat").str "zero" then natzero
-  else if n = (anonymous.str "Nat").str "succ" then
-    SetTheory.lam 1 omega natsucc
-  else if n = (anonymous.str "Nat").str "rec" then
-    SetTheory.lam (basisRecNatV u1) (pi (u1 + 1) omega fun _ => univ u1) fun M =>
-      SetTheory.lam (basisRecNatV2 u1) (app M natzero) fun z =>
-        SetTheory.lam (basisRecNatV3 u1)
-            (pi (Nat.max u1 1) omega fun k =>
-              pi (Nat.max u1 1) (app M k) fun _ => app M (natsucc k))
-            fun s =>
-          SetTheory.lam u1 omega fun t => natrec z s t
-  else if n = psigmaName then psigmaVal V ψ
-  else if n = psigmaMkName then psigmaMkVal V ψ
-  else if n = psigmaName.str "rec" then
-    -- proof-motive recursor: the result is a proof point
-    SetTheory.lam (basisRecSigV u v) (univ u) fun A =>
-      SetTheory.lam (basisRecSigV2 u v) (pi (v + 1) A fun _ => univ v) fun B =>
-        SetTheory.lam (basisRecSigV3 u v)
-            (pi 1 (sigmaSet (Nat.max u v) A fun x => app B x) fun _ => univ 0)
-            fun _M =>
-          SetTheory.lam (basisRecSigV4 u v)
-              (pi 0 A fun a => pi 0 (app B a) fun b =>
-                app _M (if Nat.max u v = 0 then pt else spair a b))
-              fun _m =>
-            SetTheory.lam 0 (sigmaSet (Nat.max u v) A fun x => app B x) fun _t => pt
-  else if n = anonymous.str "PUnit" then unitSet
-  else if n = (anonymous.str "PUnit").str "unit" then pt
-  else if n = (anonymous.str "PUnit").str "rec" then
-    SetTheory.lam (basisRecUnitV u u1) (pi (u1 + 1) unitSet fun _ => univ u1) fun M =>
-      SetTheory.lam u1 (app M pt) fun m =>
-        SetTheory.lam u1 unitSet fun _t => m
-  else empty
-where
-  basisRecEqV (u u1 : Nat) : Nat := Nat.max u (Nat.max u1 1)
-  basisRecEqV2 (u u1 : Nat) : Nat := Nat.max u (Nat.max u1 1)
-  basisRecEqV3 (u u1 : Nat) : Nat := Nat.max u (Nat.max u1 1)
-  basisRecEqV4 (u u1 : Nat) : Nat := Nat.max u u1
-  basisRecEqV5 (_u u1 : Nat) : Nat := u1
-  basisRecNatV (u1 : Nat) : Nat := Nat.max u1 1
-  basisRecNatV2 (u1 : Nat) : Nat := Nat.max u1 1
-  basisRecNatV3 (u1 : Nat) : Nat := u1
-  basisRecSigV (_u _v : Nat) : Nat := 1
-  basisRecSigV2 (_u _v : Nat) : Nat := 1
-  basisRecSigV3 (_u _v : Nat) : Nat := 1
-  basisRecSigV4 (_u _v : Nat) : Nat := 0
-  basisRecUnitV (u u1 : Nat) : Nat := Nat.max u u1
-
 /-- The value of the basis unit recursor (`λ M m t. m`; tags are the
 imax-evaluations of the recursor telescope). -/
 noncomputable def punitRecVal (ψ : Name → Nat) : V :=
@@ -190,9 +120,138 @@ noncomputable def natRecVal (ψ : Name → Nat) : V :=
           fun s =>
         SetTheory.lam u omega fun t => natrec z s t
 
+/-- The value of one basis constant (`empty` for non-basis names). -/
+noncomputable def pinnedVal (n : Name) (ψ : Name → Nat) : V :=
+  if n = eqName then eqVal V ψ
+  else if n = eqReflName then eqReflVal V ψ
+  else if n = eqName.str "rec" then eqRecVal V ψ
+  else if n = natName then omega
+  else if n = natZeroName then natzero
+  else if n = natSuccName then natSuccVal V ψ
+  else if n = natName.str "rec" then natRecVal V ψ
+  else if n = psigmaName then psigmaVal V ψ
+  else if n = psigmaMkName then psigmaMkVal V ψ
+  else if n = psigmaName.str "rec" then psigmaRecVal V ψ
+  else if n = punitName then unitSet
+  else if n = punitUnitName then pt
+  else if n = punitName.str "rec" then punitRecVal V ψ
+  else empty
+
+/-- The pinned (annotated) declaration of one basis constant. -/
+def pinnedInfo (n : Name) : ConstantInfo :=
+  if n = eqName then eqA
+  else if n = eqReflName then eqReflA
+  else if n = eqName.str "rec" then eqRecA
+  else if n = natName then natA
+  else if n = natZeroName then natZeroA
+  else if n = natSuccName then natSuccA
+  else if n = natName.str "rec" then natRecA
+  else if n = psigmaName then psigmaA
+  else if n = psigmaMkName then psigmaMkA
+  else if n = psigmaName.str "rec" then psigmaRecA
+  else if n = punitName then punitA
+  else if n = punitUnitName then punitUnitA
+  else if n = punitName.str "rec" then punitRecA
+  else .axiomInfo ⟨n, [], .sort .zero⟩
+
 /-- Is this constant-info one of the basis kinds? -/
 def ConstantInfo.isBasis : ConstantInfo → Bool
   | .indInfo _ | .ctorInfo _ _ _ | .recInfo _ _ _ _ _ _ => true
   | _ => false
+
+/-- Which names carry constructor-shaped pinned declarations. -/
+theorem pinnedInfo_ctorInfo_cases {n : Name} {cv : ConstantVal} {nP nF : Nat}
+    (h : pinnedInfo n = .ctorInfo cv nP nF) :
+    n = eqReflName ∨ n = natZeroName ∨ n = natSuccName ∨
+    n = psigmaMkName ∨ n = punitUnitName := by
+  delta pinnedInfo at h
+  by_cases h1 : n = eqName
+  · rw [if_pos h1] at h; exact nomatch h
+  rw [if_neg h1] at h
+  by_cases h2 : n = eqReflName
+  · exact Or.inl h2
+  rw [if_neg h2] at h
+  by_cases h3 : n = eqName.str "rec"
+  · rw [if_pos h3] at h; exact nomatch h
+  rw [if_neg h3] at h
+  by_cases h4 : n = natName
+  · rw [if_pos h4] at h; exact nomatch h
+  rw [if_neg h4] at h
+  by_cases h5 : n = natZeroName
+  · exact Or.inr (Or.inl h5)
+  rw [if_neg h5] at h
+  by_cases h6 : n = natSuccName
+  · exact Or.inr (Or.inr (Or.inl h6))
+  rw [if_neg h6] at h
+  by_cases h7 : n = natName.str "rec"
+  · rw [if_pos h7] at h; exact nomatch h
+  rw [if_neg h7] at h
+  by_cases h8 : n = psigmaName
+  · rw [if_pos h8] at h; exact nomatch h
+  rw [if_neg h8] at h
+  by_cases h9 : n = psigmaMkName
+  · exact Or.inr (Or.inr (Or.inr (Or.inl h9)))
+  rw [if_neg h9] at h
+  by_cases h10 : n = psigmaName.str "rec"
+  · rw [if_pos h10] at h; exact nomatch h
+  rw [if_neg h10] at h
+  by_cases h11 : n = punitName
+  · rw [if_pos h11] at h; exact nomatch h
+  rw [if_neg h11] at h
+  by_cases h12 : n = punitUnitName
+  · exact Or.inr (Or.inr (Or.inr (Or.inr h12)))
+  rw [if_neg h12] at h
+  by_cases h13 : n = punitName.str "rec"
+  · rw [if_pos h13] at h; exact nomatch h
+  rw [if_neg h13] at h
+  exact nomatch h
+
+/-- Which names carry recursor-shaped pinned declarations. -/
+theorem pinnedInfo_recInfo_cases {n : Name} {cv : ConstantVal}
+    {nP nM nm ni : Nat} {rules : List RecRule}
+    (h : pinnedInfo n = .recInfo cv nP nM nm ni rules) :
+    n = eqName.str "rec" ∨ n = natName.str "rec" ∨
+    n = psigmaName.str "rec" ∨ n = punitName.str "rec" := by
+  delta pinnedInfo at h
+  by_cases h1 : n = eqName
+  · rw [if_pos h1] at h; exact nomatch h
+  rw [if_neg h1] at h
+  by_cases h2 : n = eqReflName
+  · rw [if_pos h2] at h; exact nomatch h
+  rw [if_neg h2] at h
+  by_cases h3 : n = eqName.str "rec"
+  · exact Or.inl h3
+  rw [if_neg h3] at h
+  by_cases h4 : n = natName
+  · rw [if_pos h4] at h; exact nomatch h
+  rw [if_neg h4] at h
+  by_cases h5 : n = natZeroName
+  · rw [if_pos h5] at h; exact nomatch h
+  rw [if_neg h5] at h
+  by_cases h6 : n = natSuccName
+  · rw [if_pos h6] at h; exact nomatch h
+  rw [if_neg h6] at h
+  by_cases h7 : n = natName.str "rec"
+  · exact Or.inr (Or.inl h7)
+  rw [if_neg h7] at h
+  by_cases h8 : n = psigmaName
+  · rw [if_pos h8] at h; exact nomatch h
+  rw [if_neg h8] at h
+  by_cases h9 : n = psigmaMkName
+  · rw [if_pos h9] at h; exact nomatch h
+  rw [if_neg h9] at h
+  by_cases h10 : n = psigmaName.str "rec"
+  · exact Or.inr (Or.inr (Or.inl h10))
+  rw [if_neg h10] at h
+  by_cases h11 : n = punitName
+  · rw [if_pos h11] at h; exact nomatch h
+  rw [if_neg h11] at h
+  by_cases h12 : n = punitUnitName
+  · rw [if_pos h12] at h; exact nomatch h
+  rw [if_neg h12] at h
+  by_cases h13 : n = punitName.str "rec"
+  · exact Or.inr (Or.inr (Or.inr h13))
+  rw [if_neg h13] at h
+  exact nomatch h
 
 end Setlec

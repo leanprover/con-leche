@@ -206,15 +206,19 @@ def inferTypeCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Chec
     | _ => throw (.notImplemented "inferType beyond the supported fragment")
   termination_by structural fuel _ _ => fuel
 
-/-- Is this (whnf'd) type expression the basis unit type?  All of its
-inhabitants are the proof point in the model (the `IndOk` unit fact),
-which is what makes unit eta a certification. -/
+/-- Is this (whnf'd) type expression a unit-like inductive type — a
+stored inductive whose recursor (under the `<ind>.rec` naming
+convention) has no indices and a single zero-field rule?  All of its
+inhabitants are then equal (in the model: the proof point; the
+environment invariant supplies the fact for the stored constant). -/
 def isUnitLikeTy (env : Env) : Expr → Bool
   | .const c _ =>
-    c == punitName &&
-      match env.find? c with
+    (match env.find? c with
       | some (.indInfo _) => true
-      | _ => false
+      | _ => false) &&
+    (match env.find? (c.str "rec") with
+      | some (.recInfo _ _ _ _ 0 [r]) => r.nfields == 0
+      | _ => false)
   | _ => false
 
 /-- Certification for projecting a possibly-Prop pair `e₂ =
@@ -315,31 +319,41 @@ def stuckIrrel (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr �
     else proofIrrel env fuel depth a b
   termination_by structural fuel _ _ _ => fuel
 
-/-- Pair eta certification: `a` is a fully applied basis pair
-constructor, `b` inhabits the matching pair type (same levels), and
-`a`'s components are defeq to `b`'s projections.  In the model both
-sides are then the pair of `b`'s components (or the proof point at the
-Prop collapse). -/
+/-- Pair eta certification: `a` is a fully applied structure
+constructor (a stored constructor that is the single rule of an
+index-free recursor, under the `<ind>.rec` naming convention), `b`
+inhabits the matching structure type at the same levels, and `a`'s
+two fields are defeq to `b`'s projections.  In the model both sides
+are then the pair of `b`'s components (or the proof point at the Prop
+collapse); the environment invariant supplies the facts for the stored
+constants. -/
 def pairEtaCert (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr →
     CheckM Bool
   | 0, _, _, _ => throw (.internal "fuel exhausted: pairEtaCert")
   | fuel + 1, depth, .app (.app (.app (.app (.const c us) _pα) _pβ) s₁) s₂,
       b => do
     match env.find? c with
-    | some (.ctorInfo _ _ _) =>
-      if c = psigmaMkName then
+    | some (.ctorInfo _ nP nF) =>
+      if nP = 2 ∧ nF = 2 then
         let tb ← inferTypeCore env fuel depth b
         match ← whnfCore env fuel depth tb with
         | .app (.app (.const c' us') _A) _B =>
           match env.find? c' with
           | some (.indInfo _) =>
-            if c' = psigmaName then
-              if ← liftFueled "level comparison" (Level.isEquivList us us') then
-                if ← isDefEqCore env fuel depth s₁ (.proj psigmaName 0 b) then
-                  isDefEqCore env fuel depth s₂ (.proj psigmaName 1 b)
+            match env.find? (c'.str "rec") with
+            | some (.recInfo _ _ _ _ ni rules) =>
+              match rules with
+              | [r] =>
+                if ni = 0 ∧ r.ctor = c ∧ r.nfields = 2 then
+                  if ← liftFueled "level comparison"
+                      (Level.isEquivList us us') then
+                    if ← isDefEqCore env fuel depth s₁ (.proj c' 0 b) then
+                      isDefEqCore env fuel depth s₂ (.proj c' 1 b)
+                    else pure false
+                  else pure false
                 else pure false
-              else pure false
-            else pure false
+              | _ => pure false
+            | _ => pure false
           | _ => pure false
         | _ => pure false
       else pure false

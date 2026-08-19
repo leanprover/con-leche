@@ -469,20 +469,41 @@ theorem projCert_inv {env : Env} {fuel d : Nat} {e₂ : Expr} {i : Nat}
 /-- Inversion of the unit-type check. -/
 theorem isUnitLikeTy_inv {env : Env} {e : Expr}
     (h : isUnitLikeTy env e = true) :
-    ∃ us cv, e = .const punitName us ∧
-      env.find? punitName = some (.indInfo cv) := by
+    ∃ c us cvi cvr nP nM nm r, e = .const c us ∧
+      env.find? c = some (.indInfo cvi) ∧
+      env.find? (c.str "rec") = some (.recInfo cvr nP nM nm 0 [r]) ∧
+      r.nfields = 0 := by
   match e, h with
   | .const c us, h =>
-    simp only [isUnitLikeTy, Bool.and_eq_true, beq_iff_eq] at h
-    obtain ⟨rfl, h⟩ := h
-    match hf : env.find? punitName, h with
-    | some (.indInfo cv), _ => exact ⟨us, cv, rfl, rfl⟩
-    | some (.axiomInfo cv), h => exact nomatch h
-    | some (.defnInfo cv v), h => exact nomatch h
-    | some (.thmInfo cv v), h => exact nomatch h
-    | some (.ctorInfo cv nP nF), h => exact nomatch h
-    | some (.recInfo cv nP nM nm ni rs), h => exact nomatch h
-    | none, h => exact nomatch h
+    simp only [isUnitLikeTy, Bool.and_eq_true] at h
+    obtain ⟨h1, h2⟩ := h
+    revert h1
+    match hfc : env.find? c with
+    | none => intro h1; exact nomatch h1
+    | some (.axiomInfo _) => intro h1; exact nomatch h1
+    | some (.defnInfo _ _) => intro h1; exact nomatch h1
+    | some (.thmInfo _ _) => intro h1; exact nomatch h1
+    | some (.ctorInfo _ _ _) => intro h1; exact nomatch h1
+    | some (.recInfo _ _ _ _ _ _) => intro h1; exact nomatch h1
+    | some (.indInfo cvi) => ?_
+    intro _
+    revert h2
+    match hfr : env.find? (c.str "rec") with
+    | none => intro h2; exact nomatch h2
+    | some (.axiomInfo _) => intro h2; exact nomatch h2
+    | some (.defnInfo _ _) => intro h2; exact nomatch h2
+    | some (.thmInfo _ _) => intro h2; exact nomatch h2
+    | some (.ctorInfo _ _ _) => intro h2; exact nomatch h2
+    | some (.indInfo _) => intro h2; exact nomatch h2
+    | some (.recInfo cvr nP nM nm ni rules) => ?_
+    intro h2
+    match ni, rules, h2 with
+    | 0, [r], h2 =>
+      have hr0 : r.nfields = 0 := by simpa using h2
+      exact ⟨c, us, cvi, cvr, nP, nM, nm, r, rfl, hfc, hfr, hr0⟩
+    | 0, [], h2 => exact nomatch h2
+    | 0, _ :: _ :: _, h2 => exact nomatch h2
+    | _ + 1, _, h2 => exact nomatch h2
 
 /-- Inversion of a successful proof-irrelevance certification: either
 both sides' types whnf to the basis unit type, or both types' sorts are
@@ -604,15 +625,17 @@ theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
 /-- Inversion of a successful pair-eta certification. -/
 theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
     (h : pairEtaCert env (fuel + 1) d a b = .ok true) :
-    ∃ us pα pβ s₁ s₂ cvm nP nF tb us' A B cvi,
-      a = .app (.app (.app (.app (.const psigmaMkName us) pα) pβ) s₁) s₂ ∧
-      env.find? psigmaMkName = some (.ctorInfo cvm nP nF) ∧
+    ∃ c us pα pβ s₁ s₂ cvm tb c' us' A B cvi cvr nP nM nm r,
+      a = .app (.app (.app (.app (.const c us) pα) pβ) s₁) s₂ ∧
+      env.find? c = some (.ctorInfo cvm 2 2) ∧
       inferTypeCore env fuel d b = .ok tb ∧
-      whnfCore env fuel d tb = .ok (.app (.app (.const psigmaName us') A) B) ∧
-      env.find? psigmaName = some (.indInfo cvi) ∧
+      whnfCore env fuel d tb = .ok (.app (.app (.const c' us') A) B) ∧
+      env.find? c' = some (.indInfo cvi) ∧
+      env.find? (c'.str "rec") = some (.recInfo cvr nP nM nm 0 [r]) ∧
+      r.ctor = c ∧ r.nfields = 2 ∧
       Level.isEquivList us us' = some true ∧
-      isDefEqCore env fuel d s₁ (.proj psigmaName 0 b) = .ok true ∧
-      isDefEqCore env fuel d s₂ (.proj psigmaName 1 b) = .ok true := by
+      isDefEqCore env fuel d s₁ (.proj c' 0 b) = .ok true ∧
+      isDefEqCore env fuel d s₂ (.proj c' 1 b) = .ok true := by
   match a, h with
   | .app (.app (.app (.app (.const c us) pα) pβ) s₁) s₂, h => ?_
   | .bvar _, h => exact nomatch h
@@ -670,12 +693,13 @@ theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
-  | some (.ctorInfo cvm nP nF) => ?_
+  | some (.ctorInfo cvm nP0 nF0) => ?_
   intro h
-  by_cases hc : c = psigmaMkName
-  case neg => rw [if_neg hc] at h; exact nomatch h
-  subst hc
-  rw [if_pos rfl] at h
+  dsimp only at h
+  by_cases hpf : nP0 = 2 ∧ nF0 = 2
+  case neg => rw [if_neg hpf] at h; exact nomatch h
+  obtain ⟨rfl, rfl⟩ := hpf
+  rw [if_pos ⟨rfl, rfl⟩] at h
   try simp only [Bind.bind, Except.bind] at h
   cases htb : inferTypeCore env fuel d b with
   | error err => rw [htb] at h; exact nomatch h
@@ -726,10 +750,27 @@ theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
   | some (.indInfo cvi) => ?_
   intro h
-  by_cases hc' : c' = psigmaName
-  case neg => rw [if_neg hc'] at h; exact nomatch h
-  subst hc'
-  rw [if_pos rfl] at h
+  dsimp only at h
+  revert h
+  match hfr : env.find? (c'.str "rec") with
+  | none => intro h; exact nomatch h
+  | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.defnInfo _ _) => intro h; exact nomatch h
+  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+  | some (.indInfo _) => intro h; exact nomatch h
+  | some (.recInfo cvr nP nM nm ni rules) => ?_
+  intro h
+  dsimp only at h
+  match rules, h with
+  | [], h => exact nomatch h
+  | _ :: _ :: _, h => exact nomatch h
+  | [r], h => ?_
+  dsimp only at h
+  by_cases hg : ni = 0 ∧ r.ctor = c ∧ r.nfields = 2
+  case neg => rw [if_neg hg] at h; exact nomatch h
+  obtain ⟨rfl, hrc, hrf⟩ := hg
+  rw [if_pos ⟨rfl, hrc, hrf⟩] at h
   try simp only [Bind.bind, Except.bind] at h
   cases hlev : Level.isEquivList us us' with
   | none => rw [hlev] at h; simp [liftFueled] at h
@@ -741,7 +782,7 @@ theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   | false => simp at h
   | true =>
   simp only [↓reduceIte] at h
-  cases hd1 : isDefEqCore env fuel d s₁ (.proj psigmaName 0 b) with
+  cases hd1 : isDefEqCore env fuel d s₁ (.proj c' 0 b) with
   | error err => rw [hd1] at h; exact nomatch h
   | ok r₁ =>
   rw [hd1] at h
@@ -750,8 +791,8 @@ theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   | false => simp [pure, Except.pure] at h
   | true =>
   simp only [↓reduceIte] at h
-  exact ⟨us, pα, pβ, s₁, s₂, cvm, nP, nF, tb, us', A, B, cvi,
-    rfl, hfc, rfl, hwtb, hfc', hlev, hd1, h⟩
+  exact ⟨c, us, pα, pβ, s₁, s₂, cvm, tb, c', us', A, B, cvi, cvr,
+    nP, nM, nm, r, rfl, hfc, rfl, hwtb, hfc', hfr, hrc, hrf, hlev, hd1, h⟩
 
 /-- Inversion of a successful eta certification. -/
 theorem etaCert_inv {env : Env} {fuel d : Nat} {n₁ : Name} {ty₁ body₁ b : Expr}

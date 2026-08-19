@@ -217,7 +217,7 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
   · -- ind_ok: the fresh constant is a definition or theorem, so every
     -- inductive-kind lookup still resolves to the old environment, and
     -- the valuation agrees there.
-    refine ⟨?_, ?_, ?_⟩
+    refine ⟨?_, ?_, ?_, ?_⟩
     · intro cv hfp
       rw [Env.find?_cons] at hfp
       split at hfp
@@ -281,7 +281,25 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
         have hvagree : val' punitName ψ = m.val punitName ψ := by
           simp [hval', hne]
         rw [hvagree] at hx
-        exact m.ind_ok.right.right cv hfp ψ x hx
+        exact m.ind_ok.right.right.left cv hfp ψ x hx
+    · intro n ci hfp hbasis
+      rw [Env.find?_cons] at hfp
+      split at hfp
+      · next hn =>
+        obtain rfl := Option.some.inj hfp
+        rw [hc₀nb] at hbasis
+        exact nomatch hbasis
+      · next hn =>
+        have hne : n ≠ name := by
+          intro hcontra
+          rw [hcontra, hfind'] at hfp
+          exact nomatch hfp
+        obtain ⟨hpi, hpv⟩ := m.ind_ok.right.right.right n ci hfp hbasis
+        refine ⟨hpi, fun ψ => ?_⟩
+        have hvagree : val' n ψ = m.val n ψ := by
+          simp [hval', hne]
+        rw [hvagree]
+        exact hpv ψ
 
 /-- Extend a model by one pinned basis constant with a hand-supplied
 value.  The membership and annotation facts are stated over the *old*
@@ -306,7 +324,9 @@ private theorem extend_basis_one {env : Env} (m : EnvModel V env)
       nP = 2 ∧ nF = 2 ∧ cv.levelParams = [uN, vN] ∧
       ∀ ψ : Name → Nat, PairMkFacts V (v₀ ψ) (ψ uN) (ψ vN))
     (hnewunit : ∀ cv, ci = .indInfo cv → ci.name = punitName →
-      ∀ (ψ : Name → Nat) (x : V), x ∈ˢ v₀ ψ → x = pt) :
+      ∀ (ψ : Name → Nat) (x : V), x ∈ˢ v₀ ψ → x = pt)
+    (hpin : ci.isBasis = true → ci = pinnedInfo ci.name ∧
+      ∀ ψ : Name → Nat, v₀ ψ = pinnedVal V ci.name ψ) :
     ∃ m' : EnvModel V ⟨ci :: env.consts⟩,
       (∀ ψ, m'.val ci.name ψ = v₀ ψ) ∧
       (∀ n ψ, n ≠ ci.name → m'.val n ψ = m.val n ψ) := by
@@ -392,7 +412,7 @@ private theorem extend_basis_one {env : Env} (m : EnvModel V env)
       obtain ⟨-, -, hres2, -⟩ := hvalwf cv2 value2 heq
       exact hAtrans _ hres2 ψ (hA2 cv2 value2 heq)
   · -- ind_ok
-    refine ⟨?_, ?_, ?_⟩
+    refine ⟨?_, ?_, ?_, ?_⟩
     · intro cv hfp
       rw [Env.find?_cons] at hfp
       split at hfp
@@ -469,7 +489,28 @@ private theorem extend_basis_one {env : Env} (m : EnvModel V env)
         have hval'eq : val' punitName ψ = m.val punitName ψ := by
           simp [hval', hne]
         rw [hval'eq] at hx
-        exact m.ind_ok.right.right cv hfp ψ x hx
+        exact m.ind_ok.right.right.left cv hfp ψ x hx
+    · intro n ci' hfp hbasis
+      rw [Env.find?_cons] at hfp
+      split at hfp
+      · next hn =>
+        obtain rfl := Option.some.inj hfp
+        obtain ⟨hpi, hpv⟩ := hpin hbasis
+        refine ⟨by rw [← hn]; exact hpi, fun ψ => ?_⟩
+        have hval'eq : val' n ψ = v₀ ψ := by
+          simp [hval', hn.symm]
+        rw [hval'eq, hpv ψ, hn]
+      · next hn =>
+        have hne : n ≠ ci.name := by
+          intro hcontra
+          rw [hcontra, hfind'] at hfp
+          exact nomatch hfp
+        obtain ⟨hpi, hpv⟩ := m.ind_ok.right.right.right n ci' hfp hbasis
+        refine ⟨hpi, fun ψ => ?_⟩
+        have hval'eq : val' n ψ = m.val n ψ := by
+          simp [hval', hne]
+        rw [hval'eq]
+        exact hpv ψ
   · -- the new constant's value
     intro ψ
     simp [hval']
@@ -577,6 +618,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv hx hn => absurd hn (by decide))
         (fun cv nP nF hx _ => nomatch hx)
         (fun cv hx hn => absurd hn (by decide))
+        (fun _ => ⟨rfl, fun _ => rfl⟩)
       obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 natZeroA
         (fun _ => natzero)
         (Option.isNone_iff_eq_none.mp h2)
@@ -589,6 +631,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv hx _ => nomatch hx)
         (fun cv nP nF hx hn => absurd hn (by decide))
         (fun cv hx _ => nomatch hx)
+        (fun _ => ⟨rfl, fun _ => rfl⟩)
       have hvalN2 : ∀ ψ' : Name → Nat, m2.val natName ψ' = omega := fun ψ' => by
         rw [hpres2 natName ψ' (by decide)]
         exact hval1 ψ'
@@ -604,6 +647,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv hx _ => nomatch hx)
         (fun cv nP nF hx hn => absurd hn (by decide))
         (fun cv hx _ => nomatch hx)
+        (fun _ => ⟨rfl, fun _ => rfl⟩)
       have hvalN3 : ∀ ψ' : Name → Nat, m3.val natName ψ' = omega := fun ψ' => by
         rw [hpres3 natName ψ' (by decide)]
         exact hvalN2 ψ'
@@ -625,6 +669,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv hx _ => nomatch hx)
         (fun cv nP nF hx _ => nomatch hx)
         (fun cv hx _ => nomatch hx)
+        (fun _ => ⟨rfl, fun _ => rfl⟩)
       exact ⟨m4⟩
     case _ =>
       simp only [checkDecl, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
@@ -700,6 +745,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv hx _ => ⟨by cases hx; rfl, htyfacts⟩)
         (fun cv nP nF hx _ => nomatch hx)
         (fun cv hx hn => absurd hn (by decide))
+        (fun _ => ⟨rfl, fun _ => rfl⟩)
       obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 psigmaMkA
         (fun ψ => psigmaMkVal V ψ)
         (Option.isNone_iff_eq_none.mp h2)
@@ -717,6 +763,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
           cases hx
           exact ⟨rfl, rfl, rfl, hmkfacts⟩)
         (fun cv hx _ => nomatch hx)
+        (fun _ => ⟨rfl, fun _ => rfl⟩)
       have hvalS2 : ∀ ψ' : Name → Nat, m2.val psigmaName ψ' = psigmaVal V ψ' :=
         fun ψ' => by
           rw [hpres2 psigmaName ψ' (by decide)]
@@ -736,6 +783,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv hx _ => nomatch hx)
         (fun cv nP nF hx _ => nomatch hx)
         (fun cv hx _ => nomatch hx)
+        (fun _ => ⟨rfl, fun _ => rfl⟩)
       exact ⟨m3⟩
     case _ =>
       simp only [checkDecl, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
@@ -772,6 +820,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv hx hn => absurd hn (by decide))
         (fun cv nP nF hx _ => nomatch hx)
         (fun cv hx hn => absurd hn (by decide))
+        (fun _ => ⟨rfl, fun _ => rfl⟩)
       obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 eqReflA
         (fun ψ => eqReflVal V ψ)
         (Option.isNone_iff_eq_none.mp h2)
@@ -786,6 +835,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv hx _ => nomatch hx)
         (fun cv nP nF hx hn => absurd hn (by decide))
         (fun cv hx _ => nomatch hx)
+        (fun _ => ⟨rfl, fun _ => rfl⟩)
       have hvalE2 : ∀ ψ' : Name → Nat, m2.val eqName ψ' = eqVal V ψ' := fun ψ' => by
         rw [hpres2 eqName ψ' (by decide)]
         exact hval1 ψ'
@@ -804,6 +854,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv hx _ => nomatch hx)
         (fun cv nP nF hx _ => nomatch hx)
         (fun cv hx _ => nomatch hx)
+        (fun _ => ⟨rfl, fun _ => rfl⟩)
       exact ⟨m3⟩
     simp only [checkDecl, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
     -- step 1: PUnit
@@ -837,6 +888,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (fun cv hx hn => absurd hn (by decide))
       (fun cv nP nF hx _ => nomatch hx)
       (fun cv _ _ ψ x hx => mem_unitSet hx)
+      (fun _ => ⟨rfl, fun _ => rfl⟩)
     obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 punitUnitA (fun _ => pt)
       (Option.isNone_iff_eq_none.mp h2)
       ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
@@ -848,6 +900,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (fun cv hx _ => nomatch hx)
       (fun cv nP nF hx hn => absurd hn (by decide))
       (fun cv hx _ => nomatch hx)
+      (fun _ => ⟨rfl, fun _ => rfl⟩)
     have hvalP2 : ∀ ψ' : Name → Nat, m2.val punitName ψ' = unitSet := fun ψ' => by
       rw [hpres2 punitName ψ' (by decide)]
       exact hval1 ψ'
@@ -866,6 +919,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (fun cv hx _ => nomatch hx)
       (fun cv nP nF hx _ => nomatch hx)
       (fun cv hx _ => nomatch hx)
+      (fun _ => ⟨rfl, fun _ => rfl⟩)
     exact ⟨m3⟩
   | defnDecl cv value =>
     simp only [checkDecl, Bind.bind, Except.bind] at h

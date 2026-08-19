@@ -173,19 +173,39 @@ private theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
       have hoktx : FvarsOk V m.val env φ d ρ tx :=
         FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel htx hwx) hokx
       obtain ⟨hiw, -⟩ := ihw hwtx hwtxW hbtx hLbtx hoktx hATx
-      obtain ⟨us, cv, rfl, hfind⟩ := isUnitLikeTy_inv hux
+      obtain ⟨c, us, cvi, cvr, nP, nM, nm, r, rfl, hfind, hfr, hrf⟩ :=
+        isUnitLikeTy_inv hux
+      -- identify the unit type through the pinned recursor
+      obtain ⟨hpr, -⟩ := m.ind_ok.right.right.right _ _ hfr rfl
+      have hcn : c = punitName := by
+        rcases pinnedInfo_recInfo_cases hpr.symm with hc | hc | hc | hc
+        · rw [hc] at hpr
+          exact nomatch (congrArg ConstantInfo.recNi hpr)
+        · rw [hc] at hpr
+          exact nomatch
+            (congrArg (fun ci => (ConstantInfo.recRules ci).length) hpr)
+        · rw [hc] at hpr
+          have h2 : r.nfields = 2 :=
+            congrArg (fun ci =>
+              ((ConstantInfo.recRules ci).getD 0 default).nfields) hpr
+          rw [hrf] at h2
+          exact nomatch h2
+        · injection hc
+      subst hcn
+      obtain ⟨-, hval⟩ := m.ind_ok.right.right.right _ _ hfind rfl
       rw [hTxi] at hiw
       simp only [interpExpr, hfind] at hiw
       by_cases hlen : us.length =
-          (ConstantInfo.indInfo cv).toConstantVal.levelParams.length
+          (ConstantInfo.indInfo cvi).toConstantVal.levelParams.length
       · rw [if_pos hlen] at hiw
         have hTx : Tx = m.val punitName
-            (Level.substFn φ (ConstantInfo.indInfo cv).toConstantVal.levelParams us) :=
+            (Level.substFn φ (ConstantInfo.indInfo cvi).toConstantVal.levelParams us) :=
           (Option.some.inj hiw).symm
         rw [hxi]
-        have hpt := m.ind_ok.right.right cv hfind
-          (Level.substFn φ (ConstantInfo.indInfo cv).toConstantVal.levelParams us)
-          vx (hTx ▸ hmemx)
+        have hTx' : Tx = (unitSet : V) := by
+          rw [hTx, hval]
+          rfl
+        have hpt := mem_unitSet (hTx' ▸ hmemx)
         rw [hpt]
       · rw [if_neg hlen] at hiw
         exact nomatch hiw
@@ -219,8 +239,40 @@ private theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
     (hva : interpExpr V m.val env φ d ρ a = some va)
     (hvb : interpExpr V m.val env φ d ρ b = some vb) :
     va = vb := by
-  obtain ⟨us, pα, pβ, s₁, s₂, cvm, nP, nF, tb, us', A, B, cvi,
-    rfl, hfindM, htb, hwtb, hfindI, hlev, hd1, hd2⟩ := pairEtaCert_inv h
+  obtain ⟨c, us, pα, pβ, s₁, s₂, cvm, tb, c', us', A, B, cvi, cvr,
+    nPr, nMr, nmr, r, rfl, hfindM, htb, hwtb, hfindI, hfr, hrc, hrf,
+    hlev, hd1, hd2⟩ := pairEtaCert_inv h
+  -- identify the constructor and its structure type through the
+  -- pinned declarations
+  obtain ⟨hpc, -⟩ := m.ind_ok.right.right.right _ _ hfindM rfl
+  have hcn : c = psigmaMkName := by
+    rcases pinnedInfo_ctorInfo_cases hpc.symm with hc | hc | hc | hc | hc
+    · rw [hc] at hpc
+      exact nomatch (congrArg ConstantInfo.ctorNF hpc)
+    · rw [hc] at hpc
+      exact nomatch (congrArg ConstantInfo.ctorNP hpc)
+    · rw [hc] at hpc
+      exact nomatch (congrArg ConstantInfo.ctorNF hpc)
+    · exact hc
+    · rw [hc] at hpc
+      exact nomatch (congrArg ConstantInfo.ctorNP hpc)
+  subst hcn
+  obtain ⟨hpr, -⟩ := m.ind_ok.right.right.right _ _ hfr rfl
+  have hcn' : c' = psigmaName := by
+    rcases pinnedInfo_recInfo_cases hpr.symm with hc' | hc' | hc' | hc'
+    · rw [hc'] at hpr
+      exact nomatch (congrArg ConstantInfo.recNi hpr)
+    · rw [hc'] at hpr
+      exact nomatch
+        (congrArg (fun ci => (ConstantInfo.recRules ci).length) hpr)
+    · injection hc'
+    · rw [hc'] at hpr
+      have hr : r.ctor = punitUnitName :=
+        congrArg (fun ci =>
+          ((ConstantInfo.recRules ci).getD 0 default).ctor) hpr
+      rw [hrc] at hr
+      exact absurd hr (by decide)
+  subst hcn'
   -- b's type reduces to the pair type; extract the sigma facts
   obtain ⟨⟨vb', vtb, hbi, htbi, hmemb⟩, hAtb⟩ := ihi htb hwb hbb hLbb hokb hab
   have hvbeq : vb' = vb := by
@@ -286,7 +338,7 @@ private theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
   obtain ⟨haa1, hapβ, vf₁m, vpβ, vE₁m, A₁m, B₁m, hf₁mi, hpβi, hpi₁m, hvpβ, hfib₁m⟩ := haa2
   try simp only [AnnotOk] at haa1
   obtain ⟨hacm, hapα, vf₀m, vpα, vE₀m, A₀m, B₀m, hcmi, hpαi, hpi₀m, hvpα, hfib₀m⟩ := haa1
-  obtain ⟨hnP2, hnF2, hlpM, hmkfAll⟩ := m.ind_ok.right.left cvm nP nF hfindM
+  obtain ⟨hnP2, hnF2, hlpM, hmkfAll⟩ := m.ind_ok.right.left cvm 2 2 hfindM
   obtain ⟨ψk, hψk⟩ : ∃ ψk, ψk = Level.substFn φ cvm.levelParams us := ⟨_, rfl⟩
   have hcmi' := hcmi
   rw [interpExpr, hfindM] at hcmi'

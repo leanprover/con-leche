@@ -75,6 +75,26 @@ def toConstantVal : ConstantInfo → ConstantVal
 
 def name (c : ConstantInfo) : Name := c.toConstantVal.name
 
+/-- The index count of a recursor (junk elsewhere). -/
+def recNi : ConstantInfo → Nat
+  | .recInfo _ _ _ _ ni _ => ni
+  | _ => 0
+
+/-- The iota rules of a recursor (junk elsewhere). -/
+def recRules : ConstantInfo → List RecRule
+  | .recInfo _ _ _ _ _ rs => rs
+  | _ => []
+
+/-- The parameter count of a constructor (junk elsewhere). -/
+def ctorNP : ConstantInfo → Nat
+  | .ctorInfo _ nP _ => nP
+  | _ => 0
+
+/-- The field count of a constructor (junk elsewhere). -/
+def ctorNF : ConstantInfo → Nat
+  | .ctorInfo _ _ nF => nF
+  | _ => 0
+
 def type (c : ConstantInfo) : Expr := c.toConstantVal.type
 
 end ConstantInfo

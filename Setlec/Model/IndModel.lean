@@ -79,15 +79,19 @@ def IndOk (env : Env) (val : ConstVal V) : Prop :=
     nP = 2 ∧ nF = 2 ∧ cv.levelParams = [uN, vN] ∧
     ∀ ψ : Name → Nat, PairMkFacts V (val psigmaMkName ψ) (ψ uN) (ψ vN)) ∧
   (∀ cv, env.find? punitName = some (.indInfo cv) →
-    ∀ (ψ : Name → Nat) (x : V), x ∈ˢ val punitName ψ → x = pt)
+    ∀ (ψ : Name → Nat) (x : V), x ∈ˢ val punitName ψ → x = pt) ∧
+  (∀ n ci, env.find? n = some ci → ConstantInfo.isBasis ci = true →
+    ci = pinnedInfo n ∧ ∀ ψ : Name → Nat, val n ψ = pinnedVal V n ψ)
 
 theorem IndOk.empty (val : ConstVal V) : IndOk V Env.empty val := by
-  refine ⟨?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_⟩
   · intro cv h
     simp [Env.find?, Env.empty] at h
   · intro cv nP nF h
     simp [Env.find?, Env.empty] at h
   · intro cv h
+    simp [Env.find?, Env.empty] at h
+  · intro n ci h
     simp [Env.find?, Env.empty] at h
 
 end Setlec
