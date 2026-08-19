@@ -146,17 +146,17 @@ theorem Expr.LeavesBounded.of_not_hasFvar {e : Expr} (h : e.hasFvar = false) :
 /-! ## Preservation through `whnf` -/
 
 theorem whnf_fvarLeaves {env : Env} (henv : EnvWF env) :
-    ∀ (fuel : Nat) {e e' : Expr}, whnf env fuel e = .ok e' →
+    ∀ (fuel : Nat) {d : Nat} {e e' : Expr}, whnfCore env fuel d e = .ok e' →
       ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves
-  | 0, e, e', h => nomatch h
-  | fuel + 1, e, e', h => by
+  | 0, d, e, e', h => nomatch h
+  | fuel + 1, d, e, e', h => by
     match e, h with
     | .sort u, h => exact (Except.ok.inj h) ▸ fun l hl => hl
     | .fvar idx n ty, h => exact (Except.ok.inj h) ▸ fun l hl => hl
     | .forallE n ty body bi, h => exact (Except.ok.inj h) ▸ fun l hl => hl
     | .lam n ty body bi, h => exact (Except.ok.inj h) ▸ fun l hl => hl
     | .const n ws, h =>
-      simp only [whnf] at h
+      simp only [whnfCore] at h
       cases hf : env.find? n with
       | none => rw [hf] at h; exact (Except.ok.inj h) ▸ fun l hl => hl
       | some ci =>
@@ -180,7 +180,7 @@ theorem whnf_fvarLeaves {env : Env} (henv : EnvWF env) :
       intro l hl
       obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
       simp only [fvarLeaves, List.mem_append]
-      rcases hcase with ⟨n, ty, body, mm, v, rfl, hc, hnz, hbeta⟩ | rfl
+      rcases hcase with ⟨n, ty, body, mm, v, rfl, hc, hbeta, -⟩ | rfl
       · have hl' := whnf_fvarLeaves henv fuel hbeta l hl
         rcases fvarLeaves_instantiate1 body 0 hl' with hb | hb
         · exact Or.inl (whnf_fvarLeaves henv fuel hwf l (by simp [fvarLeaves, hb]))
@@ -191,17 +191,17 @@ theorem whnf_fvarLeaves {env : Env} (henv : EnvWF env) :
         · exact Or.inr hl
 
 theorem whnf_looseBVars {env : Env} (henv : EnvWF env) :
-    ∀ (fuel : Nat) {e e' : Expr}, whnf env fuel e = .ok e' →
+    ∀ (fuel : Nat) {d : Nat} {e e' : Expr}, whnfCore env fuel d e = .ok e' →
       e.looseBVarsBounded 0 = true → e'.looseBVarsBounded 0 = true
-  | 0, e, e', h, _ => nomatch h
-  | fuel + 1, e, e', h, hb => by
+  | 0, d, e, e', h, _ => nomatch h
+  | fuel + 1, d, e, e', h, hb => by
     match e, h with
     | .sort u, h => exact (Except.ok.inj h) ▸ hb
     | .fvar idx n ty, h => exact (Except.ok.inj h) ▸ hb
     | .forallE n ty body bi, h => exact (Except.ok.inj h) ▸ hb
     | .lam n ty body bi, h => exact (Except.ok.inj h) ▸ hb
     | .const n ws, h =>
-      simp only [whnf] at h
+      simp only [whnfCore] at h
       cases hf : env.find? n with
       | none => rw [hf] at h; exact (Except.ok.inj h) ▸ hb
       | some ci =>
@@ -223,7 +223,7 @@ theorem whnf_looseBVars {env : Env} (henv : EnvWF env) :
       simp only [looseBVarsBounded, Bool.and_eq_true] at hb
       obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
       have hbf' := whnf_looseBVars henv fuel hwf hb.1
-      rcases hcase with ⟨n, ty, body, mm, v, rfl, hc, hnz, hbeta⟩ | rfl
+      rcases hcase with ⟨n, ty, body, mm, v, rfl, hc, hbeta, -⟩ | rfl
       · simp only [looseBVarsBounded, Bool.and_eq_true] at hbf'
         exact whnf_looseBVars henv fuel hbeta
           (looseBVarsBounded_instantiate1_gen hb.2 hbf'.2)
@@ -262,26 +262,13 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
             (by rw [hasFvar_instantiateLevelParams]; exact htc)
         next hal => exact nomatch h
     | .forallE n ty body m, h =>
-      simp only [inferTypeCore] at h
       cases hc : m.cod with
-      | none => rw [hc] at h; exact nomatch h
+      | none => rw [inferTypeCore, hc] at h; exact nomatch h
       | some v =>
-        rw [hc] at h
-        simp only [Bind.bind, Except.bind] at h
-        cases hty : inferTypeCore env fuel d ty with
-        | error err => rw [hty] at h; exact nomatch h
-        | ok tty =>
-        rw [hty] at h
-        dsimp only at h
-        cases hes : ensureSort env tty with
-        | error err => rw [hes] at h; exact nomatch h
-        | ok u =>
-        rw [hes] at h
-        simp only [pure, Except.pure, Except.ok.injEq] at h
-        subst h
-        simp [WScoped]
+      obtain ⟨tty, u, hty, hwt, rfl⟩ := inferTypeCore_forall_inv hc h
+      simp [WScoped]
     | .lam n ty body m, h =>
-      obtain ⟨v, tty, u, bt, tbt, v', hc, hty2, hu2, hbt, htbt, hes, heq, rfl⟩ := inferTypeCore_lam_inv h
+      obtain ⟨v, tty, u, bt, tbt, v', hc, hty2, hu2, hbt, htbt, hwv2, heq, rfl⟩ := inferTypeCore_lam_inv h
       simp only [WScoped] at hw
       have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
         hw.1.instantiate1 0 hw.2
@@ -292,7 +279,7 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
       obtain ⟨tf, n', ty', body', m', ta, htf, hwh, hta, hde, rfl⟩ := inferTypeCore_app_inv h
       simp only [WScoped] at hw
       have hwtf := inferTypeCore_WScoped henv fuel htf hw.1
-      have hwPi := whnf_WScoped henv whnfFuel hwh hwtf
+      have hwPi := whnf_WScoped henv fuel hwh hwtf
       simp only [WScoped] at hwPi
       exact WScoped.instantiate1_gen hw.2 0 hwPi.2
     | .bvar i, h => simp [inferTypeCore] at h
@@ -333,27 +320,14 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
           cases hl
         next hal => exact nomatch h
     | .forallE n ty body m, h =>
-      simp only [inferTypeCore] at h
       cases hc : m.cod with
-      | none => rw [hc] at h; exact nomatch h
+      | none => rw [inferTypeCore, hc] at h; exact nomatch h
       | some v =>
-        rw [hc] at h
-        simp only [Bind.bind, Except.bind] at h
-        cases hty : inferTypeCore env fuel d ty with
-        | error err => rw [hty] at h; exact nomatch h
-        | ok tty =>
-        rw [hty] at h
-        dsimp only at h
-        cases hes : ensureSort env tty with
-        | error err => rw [hes] at h; exact nomatch h
-        | ok u =>
-        rw [hes] at h
-        simp only [pure, Except.pure, Except.ok.injEq] at h
-        subst h
-        intro l hl
-        simp [fvarLeaves] at hl
+      obtain ⟨tty, u, hty, hwt, rfl⟩ := inferTypeCore_forall_inv hc h
+      intro l hl
+      simp [fvarLeaves] at hl
     | .lam n ty body m, h =>
-      obtain ⟨v, tty, u, bt, tbt, v', hc, hty2, hu2, hbt, htbt, hes, heq, rfl⟩ := inferTypeCore_lam_inv h
+      obtain ⟨v, tty, u, bt, tbt, v', hc, hty2, hu2, hbt, htbt, hwv2, heq, rfl⟩ := inferTypeCore_lam_inv h
       simp only [WScoped] at hw
       have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
         hw.1.instantiate1 0 hw.2
@@ -377,7 +351,7 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
       simp only [fvarLeaves, List.mem_append]
       rcases fvarLeaves_instantiate1 body' 0 hl with hb | hb
       · refine Or.inl (inferTypeCore_fvarLeaves henv fuel htf hw.1 l ?_)
-        refine whnf_fvarLeaves henv whnfFuel hwh l ?_
+        refine whnf_fvarLeaves henv fuel hwh l ?_
         simp [fvarLeaves, hb]
       · exact Or.inr hb
     | .bvar i, h => simp [inferTypeCore] at h
@@ -416,26 +390,13 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
           exact htb
         next hal => exact nomatch h
     | .forallE n ty body m, h =>
-      simp only [inferTypeCore] at h
       cases hc : m.cod with
-      | none => rw [hc] at h; exact nomatch h
+      | none => rw [inferTypeCore, hc] at h; exact nomatch h
       | some v =>
-        rw [hc] at h
-        simp only [Bind.bind, Except.bind] at h
-        cases hty : inferTypeCore env fuel d ty with
-        | error err => rw [hty] at h; exact nomatch h
-        | ok tty =>
-        rw [hty] at h
-        dsimp only at h
-        cases hes : ensureSort env tty with
-        | error err => rw [hes] at h; exact nomatch h
-        | ok u =>
-        rw [hes] at h
-        simp only [pure, Except.pure, Except.ok.injEq] at h
-        subst h
-        simp [looseBVarsBounded]
+      obtain ⟨tty, u, hty, hwt, rfl⟩ := inferTypeCore_forall_inv hc h
+      simp [looseBVarsBounded]
     | .lam n ty body m, h =>
-      obtain ⟨v, tty, u, bt, tbt, v', hc, hty2, hu2, hbt, htbt, hes, heq, rfl⟩ := inferTypeCore_lam_inv h
+      obtain ⟨v, tty, u, bt, tbt, v', hc, hty2, hu2, hbt, htbt, hwv2, heq, rfl⟩ := inferTypeCore_lam_inv h
       simp only [WScoped] at hw
       simp only [looseBVarsBounded, Bool.and_eq_true] at hb
       have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
@@ -459,7 +420,7 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
       simp only [looseBVarsBounded, Bool.and_eq_true] at hb
       have hLbf : Expr.LeavesBounded f := fun l hl => hLb l (by simp [fvarLeaves, hl])
       have hbtf := inferTypeCore_looseBVars henv fuel htf hw.1 hb.1 hLbf
-      have hbPi := whnf_looseBVars henv whnfFuel hwh hbtf
+      have hbPi := whnf_looseBVars henv fuel hwh hbtf
       simp only [looseBVarsBounded, Bool.and_eq_true] at hbPi
       exact looseBVarsBounded_instantiate1_gen hb.2 hbPi.2
     | .bvar i, h => simp [inferTypeCore] at h

@@ -61,18 +61,22 @@ def liftFueled (what : String) : Option α → CheckM α
   | some a => pure a
   | none => throw (.internal s!"fuel exhausted: {what}")
 
-/-- Fuel for `whnf`: bounds delta-unfolding chains; exhaustion is an
-internal error, never a verdict. -/
-def whnfFuel : Nat := 10000
+/-! The mutually recursive checker core: reduction, inference and
+definitional equality share one strictly decreasing fuel.  The mutual
+knot is `whnf`'s beta rule: a redex whose codomain sort is not
+*certainly* nonzero (`Level.isNonZero`) may be a proof-redex, which is
+semantically invisible (Prop collapses to a point in the model), so the
+argument is first *certified* against the λ's domain — see DESIGN.md.
+Fuel exhaustion is an internal error, never a verdict. -/
+mutual
 
 /-- Reduce an expression to weak head normal form.  Definitions are
 delta-unfolded (eagerly for now; the lazy strategy of real kernels comes
-with performance work).  Constants that are not definitions — or whose
-level-argument count is wrong, which inference rejects anyway — are stuck.
--/
-def whnf (env : Env) : (fuel : Nat) → Expr → CheckM Expr
-  | 0, _ => throw (.internal "fuel exhausted: whnf")
-  | fuel + 1, e =>
+with performance work); beta redexes reduce when certainly non-Prop or
+when the argument certifies against the domain. -/
+def whnfCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → CheckM Expr
+  | 0, _, _ => throw (.internal "fuel exhausted: whnf")
+  | fuel + 1, depth, e =>
     match e with
     | .sort u => pure (.sort u)
     | .fvar idx n ty => pure (.fvar idx n ty)
@@ -82,36 +86,90 @@ def whnf (env : Env) : (fuel : Nat) → Expr → CheckM Expr
       match env.find? n with
       | some (.defnInfo cv value) =>
         if us.length = cv.levelParams.length then
-          whnf env fuel (value.instantiateLevelParams cv.levelParams us)
+          whnfCore env fuel depth (value.instantiateLevelParams cv.levelParams us)
         else pure (.const n us)
       | _ => pure (.const n us)
     | .app f a => do
-      match ← whnf env fuel f with
+      match ← whnfCore env fuel depth f with
       | .lam n ty body m =>
-        -- Beta only on redexes whose codomain sort is *certainly* nonzero:
-        -- proof-redexes are semantically invisible (Prop collapses to a
-        -- point in the model) and must stay stuck (see DESIGN.md; real
-        -- kernels compensate with proof irrelevance instead).
         match m.cod with
         | some v =>
-          if v.isNonZero then whnf env fuel (body.instantiate1 a)
-          else pure (.app (.lam n ty body m) a)
+          if v.isNonZero then whnfCore env fuel depth (body.instantiate1 a)
+          else do
+            -- Possibly-Prop redex: certify the argument against the
+            -- domain before reducing (the soundness proof needs
+            -- `⟦a⟧ ∈ ⟦ty⟧` at every level assignment).  An uncertified
+            -- redex stays stuck — sound, and unreachable for
+            -- well-typed input.
+            let ta ← inferTypeCore env fuel depth a
+            if ← isDefEqCore env fuel depth ta ty then
+              whnfCore env fuel depth (body.instantiate1 a)
+            else pure (.app (.lam n ty body m) a)
         | none => pure (.app (.lam n ty body m) a)
       | f' => pure (.app f' a)
     | _ => throw (.notImplemented "whnf beyond the supported fragment")
 
-/-- Ensure `e` (the type of some expression) is a sort, returning its level. -/
-def ensureSort (env : Env) (e : Expr) : CheckM Level := do
-  match ← whnf env whnfFuel e with
-  | .sort u => pure u
-  | _ => throw (.invalid "expected a sort")
+/-- Infer the type of an expression whose free variables are `fvar`s below
+`depth` (no loose `bvar`s). -/
+def inferTypeCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → CheckM Expr
+  | 0, _, _ => throw (.internal "fuel exhausted: inferType")
+  | fuel + 1, depth, e =>
+    match e with
+    | .sort u => pure (.sort (.succ u))
+    | .fvar _ _ ty => pure ty
+    | .const n us => do
+      match env.find? n with
+      | none => throw (.invalid s!"unknown constant {n}")
+      | some ci =>
+        let cv := ci.toConstantVal
+        unless us.length = cv.levelParams.length do
+          throw (.invalid s!"incorrect number of universe levels for {n}")
+        pure (cv.type.instantiateLevelParams cv.levelParams us)
+    | .forallE _ ty _ m => do
+      -- The codomain-sort annotation is trusted: the body was checked once,
+      -- by real inference, when the annotation was created (`annotate`).
+      match m.cod with
+      | some v => do
+        match ← whnfCore env fuel depth (← inferTypeCore env fuel depth ty) with
+        | .sort u => pure (.sort (.imax u v))
+        | _ => throw (.invalid "expected a sort")
+      | none => throw (.internal "unannotated ∀-binder reached inferType")
+    | .lam n ty body m => do
+      match m.cod with
+      | some v => do
+        -- The domain must be a type (and the model needs its
+        -- interpretation defined), exactly as in the ∀ rule.
+        match ← whnfCore env fuel depth (← inferTypeCore env fuel depth ty) with
+        | .sort _ => do
+          let bt ← inferTypeCore env fuel (depth + 1)
+            (body.instantiate1 (.fvar depth n ty))
+          -- Re-check the stored annotation: it must be the sort of the
+          -- body's type (the λ-annotation is *trusted* by the ∀ it builds,
+          -- so it is *checked* here, where the body's type is at hand).
+          match ← whnfCore env fuel (depth + 1) (← inferTypeCore env fuel (depth + 1) bt) with
+          | .sort v' => do
+            unless ← liftFueled "level comparison" (Level.isEquiv v v') do
+              throw (.invalid "λ-annotation does not match the body's sort")
+            pure (.forallE n ty (bt.abstract1 depth) ⟨m.bi, some v⟩)
+          | _ => throw (.invalid "expected a sort")
+        | _ => throw (.invalid "expected a sort")
+      | none => throw (.internal "unannotated λ-binder reached inferType")
+    | .app f a => do
+      let tf ← inferTypeCore env fuel depth f
+      match ← whnfCore env fuel depth tf with
+      | .forallE _ ty body _ =>
+        let ta ← inferTypeCore env fuel depth a
+        unless ← isDefEqCore env fuel depth ta ty do
+          throw (.invalid "application argument type mismatch")
+        pure (body.instantiate1 a)
+      | _ => throw (.invalid "function expected")
+    | _ => throw (.notImplemented "inferType beyond the supported fragment")
 
-/-- Fueled definitional-equality core.  Fuel exhaustion is an internal
-error, not a verdict. -/
+/-- Definitional-equality core. -/
 def isDefEqCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr → CheckM Bool
   | 0, _, _, _ => throw (.internal "fuel exhausted: isDefEq")
   | fuel + 1, depth, a, b => do
-    match ← whnf env whnfFuel a, ← whnf env whnfFuel b with
+    match ← whnfCore env fuel depth a, ← whnfCore env fuel depth b with
     | .sort u, .sort v => liftFueled "level comparison" (Level.isEquiv u v)
     | .fvar i _ _, .fvar j _ _ => pure (i == j)
     | .const n us, .const n' us' =>
@@ -146,73 +204,30 @@ def isDefEqCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr �
     -- case can hide here.  (Eta-equalities are missed; completeness work.)
     | _, _ => pure false
 
-/-- A generous fuel bound for `isDefEqCore`. -/
-def defEqFuel : Nat := 10000
+end
 
-/-- Definitional equality at binder depth `depth`. -/
-def isDefEq (env : Env) (depth : Nat) (a b : Expr) : CheckM Bool :=
-  isDefEqCore env defEqFuel depth a b
+/-- The shared fuel for the checker core: bounds the combined recursion
+depth of reduction, inference and definitional equality.  Exhaustion is
+an internal error, never a verdict. -/
+def checkFuel : Nat := 100000
 
-/-- Infer the type of an expression whose free variables are `fvar`s below
-`depth` (no loose `bvar`s).  Fueled: the λ-rule re-checks the stored
-codomain-sort annotation against the inferred body type, a recursion that
-is not structural.  Fuel exhaustion is an internal error, not a verdict. -/
-def inferTypeCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → CheckM Expr
-  | 0, _, _ => throw (.internal "fuel exhausted: inferType")
-  | fuel + 1, depth, e =>
-    match e with
-    | .sort u => pure (.sort (.succ u))
-    | .fvar _ _ ty => pure ty
-    | .const n us => do
-      match env.find? n with
-      | none => throw (.invalid s!"unknown constant {n}")
-      | some ci =>
-        let cv := ci.toConstantVal
-        unless us.length = cv.levelParams.length do
-          throw (.invalid s!"incorrect number of universe levels for {n}")
-        pure (cv.type.instantiateLevelParams cv.levelParams us)
-    | .forallE _ ty _ m => do
-      -- The codomain-sort annotation is trusted: the body was checked once,
-      -- by real inference, when the annotation was created (`annotate`).
-      match m.cod with
-      | some v => do
-        let u ← ensureSort env (← inferTypeCore env fuel depth ty)
-        pure (.sort (.imax u v))
-      | none => throw (.internal "unannotated ∀-binder reached inferType")
-    | .lam n ty body m => do
-      match m.cod with
-      | some v => do
-        -- The domain must be a type (and the model needs its
-        -- interpretation defined), exactly as in the ∀ rule.
-        let _ ← ensureSort env (← inferTypeCore env fuel depth ty)
-        let bt ← inferTypeCore env fuel (depth + 1)
-          (body.instantiate1 (.fvar depth n ty))
-        -- Re-check the stored annotation: it must be the sort of the
-        -- body's type (the λ-annotation is *trusted* by the ∀ it builds,
-        -- so it is *checked* here, where the body's type is at hand).
-        let v' ← ensureSort env (← inferTypeCore env fuel (depth + 1) bt)
-        unless ← liftFueled "level comparison" (Level.isEquiv v v') do
-          throw (.invalid "λ-annotation does not match the body's sort")
-        pure (.forallE n ty (bt.abstract1 depth) ⟨m.bi, some v⟩)
-      | none => throw (.internal "unannotated λ-binder reached inferType")
-    | .app f a => do
-      let tf ← inferTypeCore env fuel depth f
-      match ← whnf env whnfFuel tf with
-      | .forallE _ ty body _ =>
-        let ta ← inferTypeCore env fuel depth a
-        unless ← isDefEq env depth ta ty do
-          throw (.invalid "application argument type mismatch")
-        pure (body.instantiate1 a)
-      | _ => throw (.invalid "function expected")
-    | _ => throw (.notImplemented "inferType beyond the supported fragment")
-
-/-- Fuel for `inferTypeCore`: bounds the λ-rule's annotation re-check
-recursion.  Exhaustion is an internal error, never a verdict. -/
-def inferFuel : Nat := 10000
+/-- `whnfCore` with the standard fuel. -/
+def whnf (env : Env) (depth : Nat) (e : Expr) : CheckM Expr :=
+  whnfCore env checkFuel depth e
 
 /-- `inferTypeCore` with the standard fuel. -/
 def inferType (env : Env) (depth : Nat) (e : Expr) : CheckM Expr :=
-  inferTypeCore env inferFuel depth e
+  inferTypeCore env checkFuel depth e
+
+/-- `isDefEqCore` with the standard fuel. -/
+def isDefEq (env : Env) (depth : Nat) (a b : Expr) : CheckM Bool :=
+  isDefEqCore env checkFuel depth a b
+
+/-- Ensure `e` (the type of some expression) is a sort, returning its level. -/
+def ensureSort (env : Env) (depth : Nat) (e : Expr) : CheckM Level := do
+  match ← whnf env depth e with
+  | .sort u => pure u
+  | _ => throw (.invalid "expected a sort")
 
 /-- Compute the codomain-sort annotations of every binder in `e`, bottom-up,
 by real inference on the opened (already annotated) body.  This is the one
@@ -232,7 +247,7 @@ def annotate (env : Env) : (depth : Nat) → Expr → CheckM Expr
     -- this establishes the semantic well-typedness clause for `app`
     -- nodes that beta-reduction soundness relies on (see DESIGN.md).
     let tf ← inferType env depth f'
-    match ← whnf env whnfFuel tf with
+    match ← whnf env depth tf with
     | .forallE _ ty _ _ =>
       let ta ← inferType env depth a'
       unless ← isDefEq env depth ta ty do
@@ -242,13 +257,13 @@ def annotate (env : Env) : (depth : Nat) → Expr → CheckM Expr
   | depth, .forallE n ty body m => do
     let ty' ← annotate env depth ty
     let body' ← annotate env (depth + 1) (body.instantiate1 (.fvar depth n ty'))
-    let v ← ensureSort env (← inferType env (depth + 1) body')
+    let v ← ensureSort env (depth + 1) (← inferType env (depth + 1) body')
     pure (.forallE n ty' (body'.abstract1 depth) ⟨m.bi, some v⟩)
   | depth, .lam n ty body m => do
     let ty' ← annotate env depth ty
     let body' ← annotate env (depth + 1) (body.instantiate1 (.fvar depth n ty'))
     let bt ← inferType env (depth + 1) body'
-    let v ← ensureSort env (← inferType env (depth + 1) bt)
+    let v ← ensureSort env (depth + 1) (← inferType env (depth + 1) bt)
     pure (.lam n ty' (body'.abstract1 depth) ⟨m.bi, some v⟩)
   | _, .letE _ _ _ _ => throw (.notImplemented "annotate: let-expressions")
   | _, .lit _ => throw (.notImplemented "annotate: literals")

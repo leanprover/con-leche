@@ -136,7 +136,7 @@ theorem annotate_app_inv {env : Env} {d : Nat} {f a e' : Expr}
       e' = .app f' a' ∧
       ∃ tf n1 ty1 body1 m1 ta,
         inferType env d f' = .ok tf ∧
-        whnf env whnfFuel tf = .ok (.forallE n1 ty1 body1 m1) ∧
+        whnf env d tf = .ok (.forallE n1 ty1 body1 m1) ∧
         inferType env d a' = .ok ta ∧
         isDefEq env d ta ty1 = .ok true := by
   simp only [annotate, Bind.bind, Except.bind] at h
@@ -152,7 +152,7 @@ theorem annotate_app_inv {env : Env} {d : Nat} {f a e' : Expr}
   | error e => rw [hit] at h; exact nomatch h
   | ok tf =>
   rw [hit] at h; dsimp only at h
-  cases hwh : whnf env whnfFuel tf with
+  cases hwh : whnf env d tf with
   | error e => rw [hwh] at h; exact nomatch h
   | ok w =>
   rw [hwh] at h; dsimp only at h
@@ -220,7 +220,7 @@ theorem annotate_WScoped {env : Env} :
     | error e => rw [hit] at h; exact nomatch h
     | ok bt =>
     rw [hit] at h; dsimp only at h
-    cases hes : ensureSort env bt with
+    cases hes : ensureSort env (d + 1) bt with
     | error e => rw [hes] at h; exact nomatch h
     | ok v =>
     rw [hes] at h; dsimp only at h
@@ -250,7 +250,7 @@ theorem annotate_WScoped {env : Env} :
     | error e => rw [hit2] at h; exact nomatch h
     | ok bt2 =>
     rw [hit2] at h; dsimp only at h
-    cases hes : ensureSort env bt2 with
+    cases hes : ensureSort env (d + 1) bt2 with
     | error e => rw [hes] at h; exact nomatch h
     | ok v =>
     rw [hes] at h; dsimp only at h
@@ -304,7 +304,7 @@ theorem annotate_fvarConsistent {env : Env} {d₀ : Nat} {n₀ : Name} {ty₀ : 
     | error e => rw [hit] at h; exact nomatch h
     | ok bt =>
     rw [hit] at h; dsimp only at h
-    cases hes : ensureSort env bt with
+    cases hes : ensureSort env (d + 1) bt with
     | error e => rw [hes] at h; exact nomatch h
     | ok v =>
     rw [hes] at h; dsimp only at h
@@ -334,7 +334,7 @@ theorem annotate_fvarConsistent {env : Env} {d₀ : Nat} {n₀ : Name} {ty₀ : 
     | error e => rw [hit2] at h; exact nomatch h
     | ok bt2 =>
     rw [hit2] at h; dsimp only at h
-    cases hes : ensureSort env bt2 with
+    cases hes : ensureSort env (d + 1) bt2 with
     | error e => rw [hes] at h; exact nomatch h
     | ok v =>
     rw [hes] at h; dsimp only at h
@@ -390,7 +390,7 @@ theorem annotate_looseBVars {env : Env} :
     | error e => rw [hit] at h; exact nomatch h
     | ok bt =>
     rw [hit] at h; dsimp only at h
-    cases hes : ensureSort env bt with
+    cases hes : ensureSort env (d + 1) bt with
     | error e => rw [hes] at h; exact nomatch h
     | ok v =>
     rw [hes] at h; dsimp only at h
@@ -419,7 +419,7 @@ theorem annotate_looseBVars {env : Env} :
     | error e => rw [hit2] at h; exact nomatch h
     | ok bt2 =>
     rw [hit2] at h; dsimp only at h
-    cases hes : ensureSort env bt2 with
+    cases hes : ensureSort env (d + 1) bt2 with
     | error e => rw [hes] at h; exact nomatch h
     | ok v =>
     rw [hes] at h; dsimp only at h
@@ -628,7 +628,7 @@ theorem annotate_leafEquiv {env : Env} :
     | error e => rw [hit] at h; exact nomatch h
     | ok bt =>
     rw [hit] at h; dsimp only at h
-    cases hes : ensureSort env bt with
+    cases hes : ensureSort env (d + 1) bt with
     | error e => rw [hes] at h; exact nomatch h
     | ok v =>
     rw [hes] at h; dsimp only at h
@@ -661,7 +661,7 @@ theorem annotate_leafEquiv {env : Env} :
     | error e => rw [hit2] at h; exact nomatch h
     | ok bt2 =>
     rw [hit2] at h; dsimp only at h
-    cases hes : ensureSort env bt2 with
+    cases hes : ensureSort env (d + 1) bt2 with
     | error e => rw [hes] at h; exact nomatch h
     | ok v =>
     rw [hes] at h; dsimp only at h

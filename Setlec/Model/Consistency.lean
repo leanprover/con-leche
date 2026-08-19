@@ -43,7 +43,7 @@ private theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
       type.allLevelParamsDefined cv.levelParams = true ∧
       type.constsResolve env = true ∧
       inferType env 0 type = .ok stype ∧
-      ensureSort env stype = .ok u ∧
+      ensureSort env 0 stype = .ok u ∧
       cv' = { cv with type := type } := by
   simp only [checkConstantVal, Bind.bind, Except.bind, Pure.pure, Except.pure] at h
   by_cases hfind : (env.find? cv.name).isSome = true
@@ -74,7 +74,7 @@ private theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
   | ok stype =>
   rw [hst] at h
   try dsimp only at h
-  cases hsort : ensureSort env stype with
+  cases hsort : ensureSort env 0 stype with
   | error e => rw [hsort] at h; exact nomatch h
   | ok u =>
   rw [hsort] at h
@@ -246,11 +246,18 @@ private theorem value_facts {env : Env} (m : EnvModel V env)
       (FvarsOk.of_not_hasFvar hvf') (hAv ψ)
   obtain ⟨T, hT⟩ := hkeyT ψ
   have hbvt : vtype.looseBVarsBounded 0 = true :=
-    inferTypeCore_looseBVars m.wf inferFuel hvt (WScoped.of_not_hasFvar hvf') hbv'
+    inferTypeCore_looseBVars m.wf checkFuel hvt (WScoped.of_not_hasFvar hvf') hbv'
       (Expr.LeavesBounded.of_not_hasFvar hvf')
+  have hLbvt : Expr.LeavesBounded vtype := fun l hl =>
+    Expr.LeavesBounded.of_not_hasFvar hvf' l
+      (inferTypeCore_fvarLeaves m.wf checkFuel hvt (WScoped.of_not_hasFvar hvf') l hl)
   have htveq : tv = T :=
     isDefEq_sound (φ := ψ) m hde hwvt (WScoped.of_not_hasFvar htf)
-      hbvt htb hAvt (hAty ψ) htv hT
+      hbvt htb hLbvt (Expr.LeavesBounded.of_not_hasFvar htf)
+      (FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf checkFuel hvt
+        (WScoped.of_not_hasFvar hvf')) (FvarsOk.of_not_hasFvar hvf'))
+      (FvarsOk.of_not_hasFvar htf)
+      hAvt (hAty ψ) htv hT
   exact ⟨v, T, hv, hT, htveq ▸ hmem⟩
 
 /-- Checking a declaration preserves having a model. -/
@@ -337,7 +344,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     | ok stype2 =>
     rw [hst2] at h
     try dsimp only at h
-    cases hsort2 : ensureSort env stype2 with
+    cases hsort2 : ensureSort env 0 stype2 with
     | error e => rw [hsort2] at h; exact nomatch h
     | ok u2 =>
     rw [hsort2] at h

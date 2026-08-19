@@ -34,7 +34,7 @@ def checkConstantVal (env : Env) (cv : ConstantVal) : CheckM ConstantVal := do
   unless type.constsResolve env do
     throw (.invalid s!"unknown constant in type of {cv.name}")
   let stype ← inferType env 0 type
-  let _u ← ensureSort env stype
+  let _u ← ensureSort env 0 stype
   pure { cv with type := type }
 
 /-- Check a single declaration, extending the environment on success. -/
@@ -59,7 +59,7 @@ def checkDecl (env : Env) (d : Declaration) : CheckM Env := do
     let cv ← checkConstantVal env cv
     -- the type of a theorem must be a proposition
     let stype ← inferType env 0 cv.type
-    let u ← ensureSort env stype
+    let u ← ensureSort env 0 stype
     unless (← liftFueled "level comparison" (Level.isEquiv u .zero)) do
       throw (.invalid s!"type of theorem {cv.name} is not a proposition")
     unless value.looseBVarsBounded 0 do
