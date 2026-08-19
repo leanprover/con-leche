@@ -18,6 +18,8 @@ open Setlec
 
 def Setlec.CheckError.exitCode : CheckError → UInt32
   | .notImplemented _ => 2
+  | .invalid _ => 1
+  | .internal _ => 3
 
 def main (args : List String) : IO UInt32 := do
   match args with

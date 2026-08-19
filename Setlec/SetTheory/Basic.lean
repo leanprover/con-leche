@@ -29,6 +29,13 @@ class SetTheory (V : Type u) where
   empty : V
   /-- Nothing is a member of the empty set. -/
   not_mem_empty : ∀ x, ¬ Mem x empty
+  /-- The interpretation of `Sort n`: `univ 0` is the set of truth values
+  `{∅, {∅}}` interpreting `Prop`, and `univ (n+1)` is (essentially) the
+  `n`-th Grothendieck universe. -/
+  univ : Nat → V
+  /-- Each sort is an element of the next one: `⟦Sort n⟧ ∈ ⟦Sort (n+1)⟧`,
+  the model-side counterpart of `Sort n : Sort (n+1)`. -/
+  univ_mem_univ : ∀ n, Mem (univ n) (univ (n + 1))
 
 namespace SetTheory
 

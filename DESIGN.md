@@ -149,21 +149,42 @@ constructions.
 
 ## Current state
 
-* Project scaffold: latest stable Lean (`lean-toolchain`), `lakefile.toml`.
-* `Setlec.Kernel.{Expr,Env,Checker}`: term representation, environment,
-  trivial always-rejecting checker.
-* `Setlec.Verify.Checker`: proofs about the checker functions themselves.
-* `Setlec.SetTheory.Basic`: minimal TG interface (membership + empty set).
-* `Setlec.Model.{Interp,Consistency}`: everywhere-undefined interpretation,
-  `EnvModel`, and the theorems `accepted_env_has_model` / `consistency`.
-* `Main.lean`: stub CLI.
-* `tests/SetlecTests.lean`: `#guard`-based tests, run with `lake test`.
+Supported fragment: **`def` declarations whose type and value are sort
+expressions**, with the full universe-level algebra (10/92 good arena
+tutorial tests accepted; type-mismatch, duplicate-name, duplicate/undeclared
+level parameters rejected).
+
+* `Setlec.Kernel.{Expr,Env}`: term representation, environment.
+* `Setlec.Kernel.Level`: `simplify`/`leqCore` (nanoda's algorithm and case
+  order; fuel for termination, exhaustion = internal error)/`isEquiv`.
+* `Setlec.Kernel.TypeChecker`: `whnf`/`inferType`/`isDefEq` on the fragment;
+  `CheckError` distinguishes `notImplemented` (decline) / `invalid` (reject)
+  / `internal` (error).
+* `Setlec.Kernel.Checker`: `checkDecl`/`checkDecls` (guards: fresh name,
+  nodup level params, params declared, type is a sort, value type defeq).
+* `Setlec.Verify.Level`: `Level.eval` semantics into `Nat`; soundness of
+  `simplify`, `leqCore`, `isEquiv` (the `some true` direction).
+* `Setlec.SetTheory.Basic`: TG interface — membership, empty set,
+  `univ : Nat → V` with `univ n ∈ univ (n+1)`.
+* `Setlec.Model.Interp`: `interpExpr` (sorts ↦ `univ (eval φ u)`), `EnvModel`
+  (level-polymorphic constant valuations; membership in type; definitions
+  interpreted by their bodies).
+* `Setlec.Model.TypeChecker`: soundness of `whnf`/`inferType`/`isDefEq`.
+* `Setlec.Model.Consistency`: `checkDecl_sound` (checking preserves having a
+  model), `checkDecls_sound` (accepted ⇒ model exists).
+* `Setlec.Frontend.Export`: lean4export 3.x ndjson parser (sparse tables).
+* `Main.lean`: CLI with arena exit codes.
+* Tests: `lake test` (unit `#guard`s), `tests/arena.sh` against
+  `tests/arena-expected.txt` (per-test pinned exit codes; good tests must
+  never be rejected, bad tests never accepted).
 
 ### Next steps
 
-1. Input pipeline: parse lean4export format (or drive via `Lean.Environment`)
-   so real declarations reach the checker.
-2. First accepting feature: `axiom` declarations whose type is `Sort u` /
-   simple sorts — requires `infer`/`whnf`/`defeq` skeletons and the
-   corresponding interpretation of sorts as sets of sets.
-3. Grow `SetTheory` interface as needed (universes, omega, pairing, …).
+1. `forallE` types (tutorial 003, 004, 020, 021): binders via nanoda-style
+   fvars, `inferType` for Pi types (imax rule), model needs dependent
+   function sets in the `SetTheory` interface.
+2. Constants in terms (`const` case of `inferType`/`interpExpr`, level
+   instantiation, delta unfolding using `EnvModel.defn_eq`), tutorial 005 ff.
+3. Lambdas, application, beta (006, 007, 026, 027).
+4. `thmDecl`/`axiomDecl` (011, 012 are the bad-test counterparts).
+5. Inductives via lean-inductive-models preprocessor (034 ff.).

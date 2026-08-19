@@ -55,8 +55,9 @@ def type (c : ConstantInfo) : Expr := c.toConstantVal.type
 
 end ConstantInfo
 
-/-- The global environment: the list of constants accepted so far, in
-declaration order (newest last). -/
+/-- The global environment: the list of constants accepted so far, newest
+first.  Names are unique (the checker rejects duplicates), so the order is
+irrelevant for lookup. -/
 structure Env where
   consts : List ConstantInfo
   deriving Repr, Inhabited
