@@ -26,6 +26,8 @@ def checkConstantVal (env : Env) (cv : ConstantVal) : CheckM Unit := do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   if cv.type.hasFvar then
     throw (.invalid s!"unexpected free variable in type of {cv.name}")
+  unless cv.type.constsResolve env do
+    throw (.invalid s!"unknown constant in type of {cv.name}")
   let stype ← inferType env 0 cv.type
   let _u ← ensureSort env stype
 
@@ -38,6 +40,8 @@ def checkDecl (env : Env) (d : Declaration) : CheckM Env := do
       throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
     if value.hasFvar then
       throw (.invalid s!"unexpected free variable in value of {cv.name}")
+    unless value.constsResolve env do
+      throw (.invalid s!"unknown constant in value of {cv.name}")
     let vtype ← inferType env 0 value
     unless ← isDefEq env 0 vtype cv.type do
       throw (.invalid s!"type mismatch in definition {cv.name}")

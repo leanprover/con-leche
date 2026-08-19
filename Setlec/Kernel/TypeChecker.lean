@@ -60,16 +60,34 @@ def liftFueled (what : String) : Option α → CheckM α
   | some a => pure a
   | none => throw (.internal s!"fuel exhausted: {what}")
 
-/-- Reduce an expression to weak head normal form. -/
-def whnf (_env : Env) : Expr → CheckM Expr
-  | .sort u => pure (.sort u)
-  | .fvar idx n ty => pure (.fvar idx n ty)
-  | .forallE n ty body bi => pure (.forallE n ty body bi)
-  | _ => throw (.notImplemented "whnf beyond sorts, fvars and foralls")
+/-- Fuel for `whnf`: bounds delta-unfolding chains; exhaustion is an
+internal error, never a verdict. -/
+def whnfFuel : Nat := 10000
+
+/-- Reduce an expression to weak head normal form.  Definitions are
+delta-unfolded (eagerly for now; the lazy strategy of real kernels comes
+with performance work).  Constants that are not definitions — or whose
+level-argument count is wrong, which inference rejects anyway — are stuck.
+-/
+def whnf (env : Env) : (fuel : Nat) → Expr → CheckM Expr
+  | 0, _ => throw (.internal "fuel exhausted: whnf")
+  | fuel + 1, e =>
+    match e with
+    | .sort u => pure (.sort u)
+    | .fvar idx n ty => pure (.fvar idx n ty)
+    | .forallE n ty body bi => pure (.forallE n ty body bi)
+    | .const n us =>
+      match env.find? n with
+      | some (.defnInfo cv value) =>
+        if us.length = cv.levelParams.length then
+          whnf env fuel (value.instantiateLevelParams cv.levelParams us)
+        else pure (.const n us)
+      | _ => pure (.const n us)
+    | _ => throw (.notImplemented "whnf beyond sorts, fvars, foralls and constants")
 
 /-- Ensure `e` (the type of some expression) is a sort, returning its level. -/
 def ensureSort (env : Env) (e : Expr) : CheckM Level := do
-  match ← whnf env e with
+  match ← whnf env whnfFuel e with
   | .sort u => pure u
   | _ => throw (.invalid "expected a sort")
 
@@ -78,11 +96,19 @@ def ensureSort (env : Env) (e : Expr) : CheckM Level := do
 def inferType (env : Env) (depth : Nat) : Expr → CheckM Expr
   | .sort u => pure (.sort (.succ u))
   | .fvar _ _ ty => pure ty
+  | .const n us => do
+    match env.find? n with
+    | none => throw (.invalid s!"unknown constant {n}")
+    | some ci =>
+      let cv := ci.toConstantVal
+      unless us.length = cv.levelParams.length do
+        throw (.invalid s!"incorrect number of universe levels for {n}")
+      pure (cv.type.instantiateLevelParams cv.levelParams us)
   | .forallE n ty body _ => do
     let u ← ensureSort env (← inferType env depth ty)
     let v ← ensureSort env (← inferType env (depth + 1) (body.instantiate1 (.fvar depth n ty)))
     pure (.sort (.imax u v))
-  | _ => throw (.notImplemented "inferType beyond sorts, fvars and foralls")
+  | _ => throw (.notImplemented "inferType beyond sorts, fvars, foralls and constants")
 termination_by e => e.sizeB
 decreasing_by
   · simp [Expr.sizeB]; omega
@@ -93,9 +119,12 @@ error, not a verdict. -/
 def isDefEqCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr → CheckM Bool
   | 0, _, _, _ => throw (.internal "fuel exhausted: isDefEq")
   | fuel + 1, depth, a, b => do
-    match ← whnf env a, ← whnf env b with
+    match ← whnf env whnfFuel a, ← whnf env whnfFuel b with
     | .sort u, .sort v => liftFueled "level comparison" (Level.isEquiv u v)
     | .fvar i _ _, .fvar j _ _ => pure (i == j)
+    | .const n us, .const n' us' =>
+      if n = n' then liftFueled "level comparison" (Level.isEquivList us us')
+      else pure false
     | .forallE n₁ ty₁ body₁ _, .forallE n₂ ty₂ body₂ _ => do
       unless ← isDefEqCore env fuel depth ty₁ ty₂ do return false
       let b₁ := body₁.instantiate1 (.fvar depth n₁ ty₁)
@@ -105,11 +134,13 @@ def isDefEqCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr �
       let v₁ ← ensureSort env (← inferType env (depth + 1) b₁)
       let v₂ ← ensureSort env (← inferType env (depth + 1) b₂)
       liftFueled "level comparison" (Level.isEquiv v₁ v₂)
-    -- Distinct supported head symbols are never definitionally equal.
-    | .sort _, .fvar .. | .sort _, .forallE ..
-    | .fvar .., .sort _ | .fvar .., .forallE ..
-    | .forallE .., .sort _ | .forallE .., .fvar .. => pure false
-    | _, _ => throw (.notImplemented "defEq beyond sorts, fvars and foralls")
+    -- Distinct supported (whnf-stuck) head symbols are never
+    -- definitionally equal; `false` is always sound.
+    | .sort _, .fvar .. | .sort _, .forallE .. | .sort _, .const ..
+    | .fvar .., .sort _ | .fvar .., .forallE .. | .fvar .., .const ..
+    | .forallE .., .sort _ | .forallE .., .fvar .. | .forallE .., .const ..
+    | .const .., .sort _ | .const .., .fvar .. | .const .., .forallE .. => pure false
+    | _, _ => throw (.notImplemented "defEq beyond sorts, fvars, foralls and constants")
 
 /-- A generous fuel bound for `isDefEqCore`. -/
 def defEqFuel : Nat := 10000

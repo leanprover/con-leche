@@ -2,36 +2,38 @@ import Setlec.Kernel.TypeChecker
 import Setlec.SetTheory.Basic
 import Setlec.Verify.Level
 import Setlec.Verify.Shift
+import Setlec.Verify.EnvWF
 
 /-!
 # Interpretation of expressions in the set model
 
-`interpExpr env φ d ρ e` maps a kernel expression to an element of the
-set-theoretic universe `V`, where
+`interpExpr cval env φ d ρ e` maps a kernel expression to an element of
+the set-theoretic universe `V`, where
 
+* `cval` values the constants (level-polymorphically: each constant is a
+  function of the level-parameter assignment),
 * `φ` assigns the universe level parameters,
 * `d` is the current binder depth,
 * `ρ : Nat → V` values the free variables (`fvar idx …` ↦ `ρ idx`; the
-  annotation at an `fvar` leaf is *not* read — an `fvar`'s meaning is its
-  valuation).
+  annotation at an `fvar` leaf is *not* read).
 
 It is partial (`Option`): unsupported expression forms are uninterpreted,
 and it grows in lockstep with the checker.
 
+A constant `const n us` is valued at the assignment sending the
+constant's own parameters to the evaluation of `us` under `φ` (and other
+names to `φ` itself — `Level.substFn`); an `EnvModel`'s `val_params`
+field records that the valuation only reads its own parameters, so the
+tail is irrelevant.
+
 A `∀`-type is interpreted by opening the binder at index `d` — exactly as
 the checker does — and forming the dependent product `SetTheory.pi` over
-the domain.  The codomain's (evaluated) sort level, which `pi` needs to
+the domain; the codomain's (evaluated) sort level, which `pi` needs to
 decide the Prop/Type split, is computed by `sortLevelOf` using the
-checker's own `inferType`; the verification only ever cares about
-interpretations of expressions the checker has successfully inferred, for
-which this computation succeeds and agrees with the checker's.
+checker's own `inferType`.
 
 `FvarsOk` states the typing assumptions about the (implicit) local
-context: each free variable's valuation is a member of its annotated
-type's interpretation.  These are the hypotheses of the soundness
-theorems, maintained when the checker opens a binder.
-
-`EnvModel` packages a model of a whole (closed) environment.
+context.  `EnvModel` packages a model of a whole environment.
 -/
 
 namespace Setlec
@@ -52,20 +54,31 @@ def sortLevelOf (env : Env) (φ : Name → Nat) (depth : Nat) (e : Expr) : Optio
 def updV (ρ : Nat → V) (d : Nat) (x : V) : Nat → V :=
   fun i => if i = d then x else ρ i
 
-/-- Interpret an expression under level assignment `φ`, binder depth `d`
-and free-variable valuation `ρ`. -/
-def interpExpr (env : Env) (φ : Name → Nat) : (d : Nat) → (ρ : Nat → V) → Expr → Option V
+/-- The type of constant valuations. -/
+abbrev ConstVal (V : Type u) := Name → (Name → Nat) → V
+
+/-- Interpret an expression under constant valuation `cval`, level
+assignment `φ`, binder depth `d` and free-variable valuation `ρ`. -/
+def interpExpr (cval : ConstVal V) (env : Env) (φ : Name → Nat) :
+    (d : Nat) → (ρ : Nat → V) → Expr → Option V
   | _, _, .sort u => some (univ (u.eval φ))
   | _, ρ, .fvar idx _ _ => some (ρ idx)
+  | _, _, .const n us =>
+    match env.find? n with
+    | some ci =>
+      if us.length = ci.toConstantVal.levelParams.length then
+        some (cval n (Level.substFn φ ci.toConstantVal.levelParams us))
+      else none
+    | none => none
   | d, ρ, .forallE n ty body _ =>
-    match interpExpr env φ d ρ ty with
+    match interpExpr cval env φ d ρ ty with
     | none => none
     | some A =>
       let body' := body.instantiate1 (.fvar d n ty)
       match sortLevelOf env φ (d + 1) body' with
       | none => none
       | some vE => some (pi vE A fun x =>
-          (interpExpr env φ (d + 1) (updV V ρ d x) body').getD SetTheory.empty)
+          (interpExpr cval env φ (d + 1) (updV V ρ d x) body').getD SetTheory.empty)
   | _, _, _ => none
 termination_by _ _ e => e.sizeB
 decreasing_by
@@ -76,15 +89,16 @@ decreasing_by
 reachable free variable is valued inside (the interpretation of) its
 annotated type, and the annotations themselves satisfy the same
 assumptions. -/
-def FvarsOk (env : Env) (φ : Name → Nat) (d : Nat) (ρ : Nat → V) : Expr → Prop
-  | .fvar idx _ ty => idx < d ∧ FvarsOk env φ d ρ ty ∧
-      ∃ T, interpExpr V env φ d ρ ty = some T ∧ ρ idx ∈ˢ T
-  | .app f a => FvarsOk env φ d ρ f ∧ FvarsOk env φ d ρ a
+def FvarsOk (cval : ConstVal V) (env : Env) (φ : Name → Nat) (d : Nat) (ρ : Nat → V) :
+    Expr → Prop
+  | .fvar idx _ ty => idx < d ∧ FvarsOk cval env φ d ρ ty ∧
+      ∃ T, interpExpr V cval env φ d ρ ty = some T ∧ ρ idx ∈ˢ T
+  | .app f a => FvarsOk cval env φ d ρ f ∧ FvarsOk cval env φ d ρ a
   | .lam _ ty body _ | .forallE _ ty body _ =>
-      FvarsOk env φ d ρ ty ∧ FvarsOk env φ d ρ body
+      FvarsOk cval env φ d ρ ty ∧ FvarsOk cval env φ d ρ body
   | .letE _ ty val body =>
-      FvarsOk env φ d ρ ty ∧ FvarsOk env φ d ρ val ∧ FvarsOk env φ d ρ body
-  | .proj _ _ e => FvarsOk env φ d ρ e
+      FvarsOk cval env φ d ρ ty ∧ FvarsOk cval env φ d ρ val ∧ FvarsOk cval env φ d ρ body
+  | .proj _ _ e => FvarsOk cval env φ d ρ e
   | _ => True
 termination_by e => e.sizeF
 decreasing_by all_goals first
@@ -95,12 +109,14 @@ decreasing_by all_goals first
 def rho0 : Nat → V := fun _ => SetTheory.empty
 
 /-- Interpretation of a closed expression (as they appear in declarations). -/
-def interpClosed (env : Env) (φ : Name → Nat) (e : Expr) : Option V :=
-  interpExpr V env φ 0 (rho0 V) e
+def interpClosed (cval : ConstVal V) (env : Env) (φ : Name → Nat) (e : Expr) : Option V :=
+  interpExpr V cval env φ 0 (rho0 V) e
 
 /-- A model of an environment: a set-theoretic value for every constant
 (a function of the level-parameter assignment), such that
 
+* the environment is syntactically well-formed,
+* each constant's value only reads its own level parameters,
 * each constant is a member of the interpretation of its type, and
 * each definition's value equals the interpretation of its body.
 
@@ -109,17 +125,27 @@ supported fragment, so an environment using unsupported constructs
 provably has no `EnvModel`. -/
 structure EnvModel (env : Env) where
   /-- The interpretation of each constant. -/
-  val : Name → (Name → Nat) → V
+  val : ConstVal V
+  /-- Stored declarations are syntactically well-formed. -/
+  wf : EnvWF env
+  /-- A constant's value only depends on its own level parameters. -/
+  val_params : ∀ n ci, env.find? n = some ci →
+    ∀ φ₁ φ₂ : Name → Nat, (∀ p ∈ ci.toConstantVal.levelParams, φ₁ p = φ₂ p) →
+      val n φ₁ = val n φ₂
   /-- Every constant is a member of (the interpretation of) its type. -/
-  mem_type : ∀ c ∈ env.consts, ∀ φ,
-    ∃ t, interpClosed V env φ c.type = some t ∧ val c.name φ ∈ˢ t
+  mem_type : ∀ c ∈ env.consts, ∀ φ : Name → Nat,
+    ∃ t, interpClosed V val env φ c.toConstantVal.type = some t ∧ val c.name φ ∈ˢ t
   /-- Every definition is interpreted by its body. -/
-  defn_eq : ∀ cv value, ConstantInfo.defnInfo cv value ∈ env.consts → ∀ φ,
-    interpClosed V env φ value = some (val cv.name φ)
+  defn_eq : ∀ cv value, ConstantInfo.defnInfo cv value ∈ env.consts → ∀ φ : Name → Nat,
+    interpClosed V val env φ value = some (val cv.name φ)
 
 /-- The empty environment has a (trivial) model. -/
 def EnvModel.empty : EnvModel V Env.empty where
   val := fun _ _ => SetTheory.empty
+  wf := by intro c hc; cases hc
+  val_params := by
+    intro n ci h
+    simp [Env.find?, Env.empty] at h
   mem_type := by intro c hc; cases hc
   defn_eq := by intro cv value h; cases h
 

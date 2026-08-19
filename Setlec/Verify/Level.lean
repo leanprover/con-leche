@@ -169,6 +169,127 @@ theorem leq_sound {l r : Level} (h : leq l r = some true) :
   rw [eval_simplify, eval_simplify] at this
   omega
 
+theorem isEquiv_sound' {l r : Level} (h : isEquiv l r = some true) :
+    ∀ φ, eval φ l = eval φ r := by
+  intro φ
+  obtain ⟨h1, h2⟩ := bind_and_some_true (by simpa [isEquiv] using h)
+  exact Nat.le_antisymm (leq_sound h1 φ) (leq_sound h2 φ)
+
+/-- Pointwise evaluation equality of two level lists. -/
+def EvalEqList (φ : Name → Nat) : List Level → List Level → Prop
+  | [], [] => True
+  | u :: us, v :: vs => eval φ u = eval φ v ∧ EvalEqList φ us vs
+  | _, _ => False
+
+/-- Pointwise soundness of level-list equivalence. -/
+theorem isEquivList_sound : ∀ {us vs : List Level}, isEquivList us vs = some true →
+    ∀ φ, EvalEqList φ us vs
+  | [], [], _, φ => trivial
+  | u :: us, v :: vs, h, φ => by
+    obtain ⟨h1, h2⟩ := bind_and_some_true (by simpa [isEquivList] using h)
+    exact ⟨isEquiv_sound' h1 φ, isEquivList_sound h2 φ⟩
+  | [], _ :: _, h, φ => by simp [isEquivList] at h
+  | _ :: _, [], h, φ => by simp [isEquivList] at h
+
+theorem isEquivList_length : ∀ {us vs : List Level}, isEquivList us vs = some true →
+    us.length = vs.length
+  | [], [], _ => rfl
+  | u :: us, v :: vs, h => by
+    obtain ⟨-, h2⟩ := bind_and_some_true (by simpa [isEquivList] using h)
+    simpa using isEquivList_length h2
+  | [], _ :: _, h => by simp [isEquivList] at h
+  | _ :: _, [], h => by simp [isEquivList] at h
+
+/-- Pointwise-equivalent substitutions induce the same assignment. -/
+theorem substFn_congr {φ : Name → Nat} : ∀ {ks : List Name} {us vs : List Level},
+    EvalEqList φ us vs → substFn φ ks us = substFn φ ks vs := by
+  intro ks
+  induction ks with
+  | nil => intro us vs _; funext n; cases us <;> cases vs <;> simp [substFn]
+  | cons k ks ih =>
+    intro us vs h
+    cases us with
+    | nil =>
+      cases vs with
+      | nil => rfl
+      | cons v vs => exact absurd h (by simp [EvalEqList])
+    | cons u us =>
+      cases vs with
+      | nil => exact absurd h (by simp [EvalEqList])
+      | cons v vs =>
+        obtain ⟨hu, hrest⟩ : eval φ u = eval φ v ∧ EvalEqList φ us vs := h
+        funext n
+        simp only [substFn]
+        split
+        · exact hu
+        · exact congrFun (ih hrest) n
+
+/-- Evaluation reads the assignment only at the level's parameters. -/
+theorem eval_ext {ps : List Name} : ∀ {u : Level}, u.allParamsDefined ps = true →
+    ∀ {φ₁ φ₂ : Name → Nat}, (∀ p ∈ ps, φ₁ p = φ₂ p) → eval φ₁ u = eval φ₂ u := by
+  intro u
+  induction u with
+  | zero => intro _ _ _ _; rfl
+  | succ v ih => intro h φ₁ φ₂ hφ; simp only [eval, ih h hφ]
+  | max a b iha ihb =>
+    intro h φ₁ φ₂ hφ
+    simp only [allParamsDefined, Bool.and_eq_true] at h
+    simp only [eval, iha h.1 hφ, ihb h.2 hφ]
+  | imax a b iha ihb =>
+    intro h φ₁ φ₂ hφ
+    simp only [allParamsDefined, Bool.and_eq_true] at h
+    simp only [eval, iha h.1 hφ, ihb h.2 hφ]
+  | param n =>
+    intro h φ₁ φ₂ hφ
+    exact hφ n (by simpa [allParamsDefined] using h)
+
+/-- Substituting pre-substituted levels agrees with composing assignments,
+at the substituted parameters. -/
+theorem substFn_map_subst {φ : Name → Nat} {ks : List Name} {vs : List Level} :
+    ∀ {ks' : List Name} {ws : List Level} {p : Name},
+      ws.length = ks'.length → p ∈ ks' →
+      substFn φ ks' (ws.map (subst ks vs)) p = substFn (substFn φ ks vs) ks' ws p := by
+  intro ks'
+  induction ks' with
+  | nil => intro ws p _ hp; simp at hp
+  | cons k ks' ih =>
+    intro ws p hal hp
+    cases ws with
+    | nil => simp at hal
+    | cons w ws =>
+      simp only [List.map, substFn]
+      split
+      · exact eval_subst φ ks vs w
+      · next hne =>
+        refine ih (by simpa using hal) ?_
+        rcases List.mem_cons.mp hp with rfl | h
+        · exact absurd rfl hne
+        · exact h
+
+/-- `substFn` only reads the assignment through the substituted levels'
+parameters (given membership and alignment). -/
+theorem substFn_ext {φ₁ φ₂ : Name → Nat} {ps : List Name}
+    (hφ : ∀ p ∈ ps, φ₁ p = φ₂ p) :
+    ∀ {ks' : List Name} {ws : List Level},
+      (∀ u ∈ ws, u.allParamsDefined ps = true) → ws.length = ks'.length →
+      ∀ p ∈ ks', substFn φ₁ ks' ws p = substFn φ₂ ks' ws p := by
+  intro ks'
+  induction ks' with
+  | nil => intro ws _ _ p hp; simp at hp
+  | cons k ks' ih =>
+    intro ws hws hal p hp
+    cases ws with
+    | nil => simp at hal
+    | cons w ws =>
+      simp only [substFn]
+      split
+      · exact eval_ext (hws w (by simp)) hφ
+      · next hne =>
+        refine ih (fun u hu => hws u (by simp [hu])) (by simpa using hal) p ?_
+        rcases List.mem_cons.mp hp with rfl | h
+        · exact absurd rfl hne
+        · exact h
+
 theorem isEquiv_sound {l r : Level} (h : isEquiv l r = some true) :
     ∀ φ, eval φ l = eval φ r := by
   intro φ

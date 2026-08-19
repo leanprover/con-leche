@@ -125,11 +125,10 @@ def isEquiv (l r : Level) : Option Bool :=
 
 /-- Decide pointwise semantic equality of two level lists (`false` on length
 mismatch). -/
-def isEquivList (ls rs : List Level) : Option Bool :=
-  if ls.length = rs.length then
-    return (← (ls.zip rs).mapM fun (l, r) => isEquiv l r).all id
-  else
-    return false
+def isEquivList : List Level → List Level → Option Bool
+  | [], [] => some true
+  | l :: ls, r :: rs => return (← isEquiv l r) && (← isEquivList ls rs)
+  | _, _ => some false
 
 /-- Is this level syntactically `zero` after simplification?  (Sound but
 incomplete zero test; matches what the checker needs.) -/
@@ -143,6 +142,23 @@ namespace Setlec
 def Name.nodup : List Name → Bool
   | [] => true
   | n :: ns => !ns.contains n && Name.nodup ns
+
+/-- Substitute level parameters throughout an expression (sorts and
+constant level arguments). -/
+def Expr.instantiateLevelParams (ks : List Name) (us : List Level) : Expr → Expr
+  | .bvar i => .bvar i
+  | .fvar idx n ty => .fvar idx n (ty.instantiateLevelParams ks us)
+  | .sort u => .sort (Level.subst ks us u)
+  | .const n vs => .const n (vs.map (Level.subst ks us))
+  | .app f a => .app (f.instantiateLevelParams ks us) (a.instantiateLevelParams ks us)
+  | .lam n ty body bi =>
+    .lam n (ty.instantiateLevelParams ks us) (body.instantiateLevelParams ks us) bi
+  | .forallE n ty body bi =>
+    .forallE n (ty.instantiateLevelParams ks us) (body.instantiateLevelParams ks us) bi
+  | .letE n ty val body => .letE n (ty.instantiateLevelParams ks us)
+      (val.instantiateLevelParams ks us) (body.instantiateLevelParams ks us)
+  | .lit l => .lit l
+  | .proj s i e => .proj s i (e.instantiateLevelParams ks us)
 
 /-- Are all level parameters occurring in `e` among `params`? -/
 def Expr.allLevelParamsDefined (params : List Name) : Expr → Bool

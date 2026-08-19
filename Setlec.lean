@@ -7,7 +7,9 @@ import Setlec.Kernel.Checker
 import Setlec.Verify.Level
 import Setlec.Verify.Shift
 import Setlec.Verify.InferShift
-import Setlec.Verify.EnvIrrel
+import Setlec.Verify.InstLevels
+import Setlec.Verify.EnvWF
+import Setlec.Verify.InferLemmas
 import Setlec.SetTheory.Basic
 import Setlec.Model.Interp
 import Setlec.Model.InterpLemmas

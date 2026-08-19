@@ -72,4 +72,18 @@ def find? (env : Env) (n : Name) : Option ConstantInfo :=
 
 end Env
 
+/-- Do all constants referenced in `e` (including inside `fvar` type
+annotations) resolve in `env`?  Checked once per declaration; keeps the
+environment well-formedness invariant syntactic. -/
+def Expr.constsResolve (env : Env) : Expr → Bool
+  | .bvar _ | .sort _ | .lit _ => true
+  | .const n _ => (env.find? n).isSome
+  | .fvar _ _ ty => ty.constsResolve env
+  | .app f a => f.constsResolve env && a.constsResolve env
+  | .lam _ ty body _ | .forallE _ ty body _ =>
+    ty.constsResolve env && body.constsResolve env
+  | .letE _ ty val body =>
+    ty.constsResolve env && val.constsResolve env && body.constsResolve env
+  | .proj _ _ e => e.constsResolve env
+
 end Setlec
