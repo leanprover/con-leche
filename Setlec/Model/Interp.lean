@@ -242,7 +242,7 @@ def EnvModel.empty : EnvModel V Env.empty where
   mem_type := by intro c hc; cases hc
   defn_eq := by intro cv value h; cases h
   annot_ok := by intro c hc; cases hc
-  ind_ok := IndOk.empty V _
+  ind_ok := IndOk.empty V _ (fun _ x hx => SetTheory.not_mem_empty x hx)
   rec_rules := RecRulesOk.empty V _
 
 end Setlec

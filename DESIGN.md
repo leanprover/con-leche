@@ -213,6 +213,19 @@ mentions.  `whnf` is fueled and
 delta-unfolds definitions eagerly for now (the lazy strategy of real
 kernels is deferred to performance work).
 
+Consistency corollary (2026-08-19): the 15 pinned basis names are
+*reserved* — `checkConstantVal` (and the per-member checks of the
+dormant `checkIndDecl`) reject any input declaration using one, so the
+only thing `Empty` can ever denote is the pinned empty inductive.  The
+`IndOk` Empty clause is unconditional (`val emptyName` is uninhabited
+in every model, starting from the all-empty base valuation), giving
+`no_proof_of_Empty` with no hypothesis about how `Empty` is stored,
+and the input-level `no_proof_of_Empty_input`: `checkDecls` never
+accepts a list containing a `def`/`theorem` whose *stated* type is
+`.const Empty []` (via `checkDecl_stores`: a checked `def`/`thm`
+stores its annotated declared type, and `annotate` is the identity on
+bare constants).
+
 The environment invariant `EnvWF` (stored declarations closed,
 level-param-bounded, constants resolving — all checked syntactically per
 declaration) supports monotonicity of reduction/inference/interpretation

@@ -150,15 +150,16 @@ def IndOk (env : Env) (val : ConstVal V) : Prop :=
     ci = pinnedInfo n ∧ ∀ ψ : Name → Nat, val n ψ = pinnedVal V n ψ) ∧
   BasisBlocks env ∧
   RecCtorsStored env ∧
-  (∀ cv, env.find? emptyName = some (.indInfo cv) →
-    ∀ (ψ : Name → Nat) (x : V), x ∈ˢ val emptyName ψ → False)
+  (∀ (ψ : Name → Nat) (x : V), x ∈ˢ val emptyName ψ → False)
 
 theorem BasisBlocks.empty : BasisBlocks Env.empty := by
   refine ⟨?_, ?_, ?_, ?_⟩ <;>
     (intro cv nP nM nm ni rules h; simp [Env.find?, Env.empty] at h)
 
-theorem IndOk.empty (val : ConstVal V) : IndOk V Env.empty val := by
-  refine ⟨?_, ?_, ?_, ?_, BasisBlocks.empty, RecCtorsStored.empty, ?_⟩
+theorem IndOk.empty (val : ConstVal V)
+    (hE : ∀ (ψ : Name → Nat) (x : V), x ∈ˢ val emptyName ψ → False) :
+    IndOk V Env.empty val := by
+  refine ⟨?_, ?_, ?_, ?_, BasisBlocks.empty, RecCtorsStored.empty, hE⟩
   · intro cv h
     simp [Env.find?, Env.empty] at h
   · intro cv nP nF h
@@ -166,8 +167,6 @@ theorem IndOk.empty (val : ConstVal V) : IndOk V Env.empty val := by
   · intro cv h
     simp [Env.find?, Env.empty] at h
   · intro n ci h
-    simp [Env.find?, Env.empty] at h
-  · intro cv h
     simp [Env.find?, Env.empty] at h
 
 end Setlec
