@@ -502,6 +502,8 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
       env.find? cj = some (.ctorInfo cvj cnP cnF) ∧
       rules.find? (fun r' => r'.ctor == cj) = some r ∧
       major.getAppArgs.length = cnP + cnF ∧ r.nfields = cnF ∧
+      Level.isEquivList usj (cvj.levelParams.map fun p =>
+        Level.subst cv.levelParams us (.param p)) = some true ∧
       defEqList env fuel d (major.getAppArgs.take cnP)
         (e.getAppArgs.take cnP) = .ok true ∧
       iotaCerts env fuel d (cv.type.instantiateLevelParams cv.levelParams us)
@@ -581,6 +583,18 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   obtain ⟨hml1, hml2⟩ := hml
   rw [if_pos ⟨hml1, hml2⟩] at h
   try simp only [Bind.bind, Except.bind] at h
+  cases hlev : Level.isEquivList usj (cvj.levelParams.map fun p =>
+      Level.subst cv.levelParams us (.param p)) with
+  | none => rw [hlev] at h; simp [liftFueled] at h
+  | some bl =>
+  rw [hlev] at h
+  simp only [liftFueled, pure, Except.pure] at h
+  try dsimp only at h
+  cases bl with
+  | false => simp [pure, Except.pure] at h
+  | true =>
+  simp only [↓reduceIte] at h
+  try simp only [Bind.bind, Except.bind] at h
   cases hpeq : defEqList env fuel d (major.getAppArgs.take cnP)
       (e.getAppArgs.take cnP) with
   | error err => rw [hpeq] at h; exact nomatch h
@@ -605,7 +619,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq,
     Option.some.injEq] at h
   exact ⟨c, us, cv, nP, nM, nm, ni, rules, major, cj, usj, cvj, cnP, cnF, r,
-    rfl, hfc, hlen, hmaj, hmfn, hfj, hrule, hml1, hml2, hpeq, hcerts,
+    rfl, hfc, hlen, hmaj, hmfn, hfj, hrule, hml1, hml2, hlev, hpeq, hcerts,
     h.symm⟩
 
 /-- Inversion of one pairwise-defeq step. -/
@@ -1203,7 +1217,7 @@ theorem whnf_WScoped {env : Env} (henv : EnvWF env) :
         | succ fuel' =>
         obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major, cj, usj, cvj,
           cnP, cnF, r, hfn, hfc, hlen, hmaj, hmfn, hfj, hrule, hml1, hml2,
-          hpeq, hcerts, rfl⟩ := iotaRec_inv hio
+          hlev, hpeq, hcerts, rfl⟩ := iotaRec_inv hio
         have hwapp : WScoped d (Expr.app f' a) := by
           simp only [WScoped]
           exact ⟨hwf', hw.2⟩

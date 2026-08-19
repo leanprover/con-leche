@@ -978,7 +978,7 @@ private theorem iota_sound {m : EnvModel V env} {fuel : Nat}
   | 0, ihAll, hio => exact nomatch hio
   | fuel + 1, ihAll, hio =>
   obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major, cj, usj, cvj, cnP, cnF, r,
-    hfn, hfc, hlen, hmaj, hmfn, hfj, hrule, hml1, hml2, hpeq, hcerts,
+    hfn, hfc, hlen, hmaj, hmfn, hfj, hrule, hml1, hml2, hlev, hpeq, hcerts,
     heout⟩ :=
     iotaRec_inv hio
   obtain ⟨ihwL, ihdL, ihiL⟩ := ihAll fuel (Nat.le_succ fuel)
@@ -1181,8 +1181,31 @@ private theorem iota_sound {m : EnvModel V env} {fuel : Nat}
       have hxm := List.mem_of_mem_take hx
       exact ⟨hargsW _ hxm, hargsB _ hxm, hargsL _ hxm, hargsO _ hxm,
         hxsA _ hxm⟩
+  have hψeq : ∀ p ∈ cvj.levelParams,
+      Level.substFn φ
+        (ConstantInfo.ctorInfo cvj cnP cnF).toConstantVal.levelParams usj p =
+      Level.substFn φ
+        (ConstantInfo.recInfo cv nP nM nm ni rules).toConstantVal.levelParams
+        us p := by
+    intro p hp
+    have h1 : Level.substFn φ cvj.levelParams usj =
+        Level.substFn φ cvj.levelParams
+          (cvj.levelParams.map fun q =>
+            Level.subst cv.levelParams us (.param q)) :=
+      Level.substFn_congr (Level.isEquivList_sound hlev φ)
+    have h2 : (cvj.levelParams.map fun q =>
+        Level.subst cv.levelParams us (.param q)) =
+        (cvj.levelParams.map Level.param).map
+          (Level.subst cv.levelParams us) := by
+      simp [List.map_map, Function.comp]
+    have h3 := Level.substFn_map_subst (φ := φ) (ks := cv.levelParams)
+      (vs := us) (ks' := cvj.levelParams)
+      (ws := cvj.levelParams.map Level.param) (by simp) hp
+    show Level.substFn φ cvj.levelParams usj p = _
+    rw [h1, h2, h3, Level.substFn_map_param]
+    rfl
   obtain ⟨R, hRi, hfoldEq, hRchain⟩ := hfolds cvj cnP cnF hfj _ _
-    vsi ws tvv hvsilen hwslen hchain' hmchain htveq hparameq
+    vsi ws tvv hvsilen hwslen hchain' hmchain htveq hparameq hψeq
   -- the reduct's interpretation and annotation chain
   have hRinst : interpExpr V m.val env φ d ρ
       (r.rhs.instantiateLevelParams cv.levelParams us) = some R := by

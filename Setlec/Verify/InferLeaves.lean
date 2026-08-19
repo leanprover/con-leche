@@ -247,7 +247,7 @@ theorem whnf_fvarLeaves {env : Env} (henv : EnvWF env) :
         | succ fuel' =>
         obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major, cj, usj, cvj,
           cnP, cnF, r, hfn, hfc, hlen, hmaj, hmfn, hfj, hrule, hml1, hml2,
-          hpeq, hcerts, rfl⟩ := iotaRec_inv hio
+          hlev, hpeq, hcerts, rfl⟩ := iotaRec_inv hio
         have hl2 := whnf_fvarLeaves henv _ hwe'' l hl
         rcases fvarLeaves_mkAppN hl2 with hrl | ⟨x, hx, hlx⟩
         · obtain ⟨-, -, -, -, -, hrules⟩ := henv _ (find?_mem hfc)
@@ -343,7 +343,7 @@ theorem whnf_looseBVars {env : Env} (henv : EnvWF env) :
         | succ fuel' =>
         obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major, cj, usj, cvj,
           cnP, cnF, r, hfn, hfc, hlen, hmaj, hmfn, hfj, hrule, hml1, hml2,
-          hpeq, hcerts, rfl⟩ := iotaRec_inv hio
+          hlev, hpeq, hcerts, rfl⟩ := iotaRec_inv hio
         have hbapp : (Expr.app f' a).looseBVarsBounded 0 = true := by
           simp only [looseBVarsBounded, Bool.and_eq_true]
           exact ⟨hbf', hb.2⟩

@@ -266,6 +266,19 @@ theorem substFn_map_subst {φ : Name → Nat} {ks : List Name} {vs : List Level}
         · exact absurd rfl hne
         · exact h
 
+/-- Substituting a parameter list for itself is the identity assignment. -/
+theorem substFn_map_param {φ : Name → Nat} :
+    ∀ {ks : List Name} {p : Name}, substFn φ ks (ks.map .param) p = φ p := by
+  intro ks
+  induction ks with
+  | nil => intro p; rfl
+  | cons k ks ih =>
+    intro p
+    simp only [List.map, substFn]
+    split
+    · next h => rw [← h]; rfl
+    · exact ih
+
 /-- `substFn` only reads the assignment through the substituted levels'
 parameters (given membership and alignment). -/
 theorem substFn_ext {φ₁ φ₂ : Name → Nat} {ps : List Name}

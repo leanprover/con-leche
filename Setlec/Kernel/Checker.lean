@@ -210,6 +210,9 @@ def checkIndDecl (env : Env) (block : List ConstantInfo) : CheckM Env := do
                 rb.2.1.renameConsts f == cb.2.1.liftLooseBVars (nM + nm) i
               | _, _ => false) do
             throw (.notImplemented s!"rule field domain mismatch with model for {cv.name}")
+          -- infer the rule's type: soundness interprets the (λ-tower)
+          -- right-hand side through this inference
+          let _rhsTy ← inferType envSelf 0 rhsA
           let some stmtRaw := buildIotaStmt f cv.name r.ctor
               cv.levelParams cvj.levelParams nP nM nm cnF
               tyA cvj.type r.rhs

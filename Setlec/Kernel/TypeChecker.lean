@@ -334,21 +334,28 @@ def iotaRec (env : Env) : (fuel : Nat) → (depth : Nat) → Expr →
           let major ← whnfCore env fuel depth
             (args.getD (nP + nM + nm + ni) (.bvar 0))
           match major.getAppFn with
-          | .const cj _usj =>
+          | .const cj usj =>
             match env.find? cj with
-            | some (.ctorInfo _ cnP cnF) =>
+            | some (.ctorInfo cvj cnP cnF) =>
               match rules.find? (fun r => r.ctor == cj) with
               | some r =>
                 let margs := major.getAppArgs
                 if margs.length = cnP + cnF ∧ r.nfields = cnF then
-                  if ← defEqList env fuel depth (margs.take cnP)
+                  -- the constructor's levels must agree with the
+                  -- recursor's instantiation (the rule links their
+                  -- level parameters by name)
+                  if ← liftFueled "level comparison" (Level.isEquivList usj
+                      (cvj.levelParams.map fun p =>
+                        Level.subst cv.levelParams us (.param p))) then
+                   if ← defEqList env fuel depth (margs.take cnP)
                       (args.take cnP) then
-                   if ← iotaCerts env fuel depth
-                      (cv.type.instantiateLevelParams cv.levelParams us)
-                      (args.take (nP + nM + nm + ni)) then
-                    pure (some (Expr.mkAppN
-                      (r.rhs.instantiateLevelParams cv.levelParams us)
-                      (args.take (nP + nM + nm) ++ margs.drop cnP)))
+                    if ← iotaCerts env fuel depth
+                       (cv.type.instantiateLevelParams cv.levelParams us)
+                       (args.take (nP + nM + nm + ni)) then
+                     pure (some (Expr.mkAppN
+                       (r.rhs.instantiateLevelParams cv.levelParams us)
+                       (args.take (nP + nM + nm) ++ margs.drop cnP)))
+                    else pure none
                    else pure none
                   else pure none
                 else pure none
