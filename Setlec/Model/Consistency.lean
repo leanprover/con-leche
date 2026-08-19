@@ -1,5 +1,6 @@
 import Setlec.Kernel.Checker
 import Setlec.Model.Annotate
+import Setlec.Model.BasisInstall
 
 /-!
 # Consistency of the checker
@@ -476,7 +477,71 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     (h : checkDecl env d = .ok env') (m : EnvModel V env) : Nonempty (EnvModel V env') := by
   cases d with
   | axiomDecl cv => exact nomatch h
-  | basisDecl kind => exact nomatch h
+  | basisDecl kind =>
+    match kind, h with
+    | .eqK, h => exact nomatch h
+    | .natK, h => exact nomatch h
+    | .psigmaK, h => exact nomatch h
+    | .punitK, h => ?_
+    simp only [checkDecl, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
+    -- step 1: PUnit
+    by_cases h1 : (env.find? punitA.name).isNone
+    case neg => simp [h1, pure, Except.pure] at h
+    simp only [h1, if_true, ↓reduceIte] at h
+    try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+    try dsimp only at h
+    -- step 2: PUnit.unit
+    by_cases h2 : ((⟨punitA :: env.consts⟩ : Env).find? punitUnitA.name).isNone
+    case neg => simp [h2, pure, Except.pure] at h
+    simp only [h2, if_true, ↓reduceIte] at h
+    try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+    try dsimp only at h
+    -- step 3: PUnit.rec
+    by_cases h3 : ((⟨punitUnitA :: punitA :: env.consts⟩ : Env).find? punitRecA.name).isNone
+    case neg => simp [h3, pure, Except.pure] at h
+    simp only [h3, if_true, ↓reduceIte] at h
+    try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+    simp only [Except.ok.injEq] at h
+    subst h
+    -- chain the three model extensions
+    obtain ⟨m1, hval1, hpres1⟩ := extend_basis_one m punitA (fun _ => unitSet)
+      (Option.isNone_iff_eq_none.mp h1)
+      ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+      rfl
+      (fun _ _ hx => nomatch hx)
+      (fun ψ => punit_key)
+      (fun _ _ _ => rfl)
+      (fun ψ => by simp [punitA, ConstantInfo.toConstantVal, AnnotOk])
+      (fun cv hx hn => absurd hn (by decide))
+      (fun cv nP nF hx _ => nomatch hx)
+    obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 punitUnitA (fun _ => pt)
+      (Option.isNone_iff_eq_none.mp h2)
+      ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+      rfl
+      (fun _ _ hx => nomatch hx)
+      (fun ψ => punitUnit_key rfl (fun ψ' => hval1 ψ'))
+      (fun _ _ _ => rfl)
+      (fun ψ => by simp [punitUnitA, ConstantInfo.toConstantVal, AnnotOk])
+      (fun cv hx _ => nomatch hx)
+      (fun cv nP nF hx hn => absurd hn (by decide))
+    have hvalP2 : ∀ ψ' : Name → Nat, m2.val punitName ψ' = unitSet := fun ψ' => by
+      rw [hpres2 punitName ψ' (by decide)]
+      exact hval1 ψ'
+    obtain ⟨m3, hval3, hpres3⟩ := extend_basis_one m2 punitRecA
+      (fun ψ => punitRecVal V ψ)
+      (Option.isNone_iff_eq_none.mp h3)
+      ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+      rfl
+      (fun _ _ hx => nomatch hx)
+      (fun ψ => punitRec_key rfl hvalP2 rfl (fun ψ' => hval2 ψ'))
+      (fun ψ₁ ψ₂ hψ => by
+        simp only [punitRecVal]
+        rw [hψ u1N (by simp [punitRecA, ConstantInfo.toConstantVal, u1N]),
+          hψ uN (by simp [punitRecA, ConstantInfo.toConstantVal, uN])])
+      (fun ψ => annotOk_punitRec_type rfl hvalP2 rfl (fun ψ' => hval2 ψ'))
+      (fun cv hx _ => nomatch hx)
+      (fun cv nP nF hx _ => nomatch hx)
+    exact ⟨m3⟩
   | defnDecl cv value =>
     simp only [checkDecl, Bind.bind, Except.bind] at h
     cases hccv : checkConstantVal env cv with
