@@ -284,6 +284,12 @@ def isDefEqCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr �
           pure true
         else proofIrrel env fuel depth (.app f₁ a₁) (.app f₂ a₂)
       else proofIrrel env fuel depth (.app f₁ a₁) (.app f₂ a₂)
+    | .proj s₁ i₁ e₁, .proj s₂ i₂ e₂ => do
+      -- Stuck projections: congruence, else proof irrelevance.
+      if i₁ == i₂ then
+        if ← isDefEqCore env fuel depth e₁ e₂ then pure true
+        else proofIrrel env fuel depth (.proj s₁ i₁ e₁) (.proj s₂ i₂ e₂)
+      else proofIrrel env fuel depth (.proj s₁ i₁ e₁) (.proj s₂ i₂ e₂)
     -- One-sided λ: eta, else proof irrelevance.
     | .lam n₁ ty₁ body₁ m₁, b₂ => do
       if ← etaCert env fuel depth n₁ ty₁ body₁ m₁ b₂ then pure true

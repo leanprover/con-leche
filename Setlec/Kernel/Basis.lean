@@ -33,6 +33,15 @@ def eqReflName : Name := eqName |>.str "refl"
 /-- The name of the basis unit type. -/
 def punitName : Name := anonymous |>.str "PUnit"
 
+/-- The name `Nat`. -/
+def natName : Name := anonymous |>.str "Nat"
+
+/-- The name `Nat.zero`. -/
+def natZeroName : Name := natName |>.str "zero"
+
+/-- The name `Nat.succ`. -/
+def natSuccName : Name := natName |>.str "succ"
+
 /-- The name of the basis unit constructor. -/
 def punitUnitName : Name := punitName |>.str "unit"
 

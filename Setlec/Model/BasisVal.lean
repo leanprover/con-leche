@@ -175,6 +175,21 @@ noncomputable def psigmaRecVal (ψ : Name → Nat) : V :=
           SetTheory.lam 0 (sigmaSet (Nat.max u v) A fun x => app B x)
             fun _t => pt
 
+/-- The value of `Nat.succ`. -/
+noncomputable def natSuccVal (_ψ : Name → Nat) : V :=
+  SetTheory.lam 1 omega natsucc
+
+/-- The value of `Nat.rec` (set-theoretic recursion on omega). -/
+noncomputable def natRecVal (ψ : Name → Nat) : V :=
+  let u := ψ uN
+  let w := if u = 0 then 0 else Nat.max 1 u
+  SetTheory.lam w (pi (u + 1) omega fun _ => univ u) fun M =>
+    SetTheory.lam w (app M natzero) fun z =>
+      SetTheory.lam w
+          (pi u omega fun n => pi u (app M n) fun _ => app M (natsucc n))
+          fun s =>
+        SetTheory.lam u omega fun t => natrec z s t
+
 /-- Is this constant-info one of the basis kinds? -/
 def ConstantInfo.isBasis : ConstantInfo → Bool
   | .indInfo _ | .ctorInfo _ _ _ | .recInfo _ _ _ _ _ _ => true

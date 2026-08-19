@@ -79,13 +79,10 @@ def checkDecl (env : Env) (d : Declaration) : CheckM Env := do
   | .basisDecl kind =>
     -- Install the pinned (pre-annotated) basis block; the frontend has
     -- already matched the incoming record against the pinned shapes.
-    match kind with
-    | .punitK | .eqK | .psigmaK =>
-      kind.declsA.foldlM (fun env ci => do
-        unless (env.find? ci.name).isNone do
-          throw (.invalid s!"duplicate declaration {ci.name}")
-        pure (⟨ci :: env.consts⟩ : Env)) env
-    | _ => throw (.notImplemented "basis inductive")
+    kind.declsA.foldlM (fun env ci => do
+      unless (env.find? ci.name).isNone do
+        throw (.invalid s!"duplicate declaration {ci.name}")
+      pure (⟨ci :: env.consts⟩ : Env)) env
 
 /-- Check a list of declarations in order, starting from the empty
 environment. -/

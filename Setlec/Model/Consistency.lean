@@ -527,10 +527,98 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
   | axiomDecl cv => exact nomatch h
   | basisDecl kind =>
     match kind, h with
-    | .natK, h => exact nomatch h
+    | .natK, h => ?_
     | .psigmaK, h => ?_
     | .eqK, h => ?_
     | .punitK, h => ?_
+    case _ =>
+      simp only [checkDecl, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
+      -- step 1: Nat
+      by_cases h1 : (env.find? natA.name).isNone
+      case neg => simp [h1, pure, Except.pure] at h
+      simp only [h1, if_true, ↓reduceIte] at h
+      try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+      try dsimp only at h
+      -- step 2: Nat.zero
+      by_cases h2 : ((⟨natA :: env.consts⟩ : Env).find? natZeroA.name).isNone
+      case neg => simp [h2, pure, Except.pure] at h
+      simp only [h2, if_true, ↓reduceIte] at h
+      try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+      try dsimp only at h
+      -- step 3: Nat.succ
+      by_cases h3 : ((⟨natZeroA :: natA :: env.consts⟩ : Env).find? natSuccA.name).isNone
+      case neg => simp [h3, pure, Except.pure] at h
+      simp only [h3, if_true, ↓reduceIte] at h
+      try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+      try dsimp only at h
+      -- step 4: Nat.rec
+      by_cases h4 : ((⟨natSuccA :: natZeroA :: natA :: env.consts⟩ : Env).find? natRecA.name).isNone
+      case neg => simp [h4, pure, Except.pure] at h
+      simp only [h4, if_true, ↓reduceIte] at h
+      try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+      simp only [Except.ok.injEq] at h
+      subst h
+      -- chain the four model extensions
+      obtain ⟨m1, hval1, hpres1⟩ := extend_basis_one m natA (fun _ => omega)
+        (Option.isNone_iff_eq_none.mp h1)
+        ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+        rfl
+        (fun _ _ hx => nomatch hx)
+        (fun ψ => nat_key)
+        (fun _ _ _ => rfl)
+        (fun ψ => by simp [natA, ConstantInfo.toConstantVal, AnnotOk])
+        (fun cv hx hn => absurd hn (by decide))
+        (fun cv nP nF hx _ => nomatch hx)
+        (fun cv hx hn => absurd hn (by decide))
+      obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 natZeroA
+        (fun _ => natzero)
+        (Option.isNone_iff_eq_none.mp h2)
+        ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+        rfl
+        (fun _ _ hx => nomatch hx)
+        (fun ψ => natZero_key rfl (fun ψ' => hval1 ψ'))
+        (fun _ _ _ => rfl)
+        (fun ψ => by simp [natZeroA, ConstantInfo.toConstantVal, AnnotOk])
+        (fun cv hx _ => nomatch hx)
+        (fun cv nP nF hx hn => absurd hn (by decide))
+        (fun cv hx _ => nomatch hx)
+      have hvalN2 : ∀ ψ' : Name → Nat, m2.val natName ψ' = omega := fun ψ' => by
+        rw [hpres2 natName ψ' (by decide)]
+        exact hval1 ψ'
+      obtain ⟨m3, hval3, hpres3⟩ := extend_basis_one m2 natSuccA
+        (fun ψ => natSuccVal V ψ)
+        (Option.isNone_iff_eq_none.mp h3)
+        ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+        rfl
+        (fun _ _ hx => nomatch hx)
+        (fun ψ => natSucc_key rfl hvalN2)
+        (fun _ _ _ => rfl)
+        (fun ψ => annotOk_natSucc_type rfl hvalN2)
+        (fun cv hx _ => nomatch hx)
+        (fun cv nP nF hx hn => absurd hn (by decide))
+        (fun cv hx _ => nomatch hx)
+      have hvalN3 : ∀ ψ' : Name → Nat, m3.val natName ψ' = omega := fun ψ' => by
+        rw [hpres3 natName ψ' (by decide)]
+        exact hvalN2 ψ'
+      have hvalZ3 : ∀ ψ' : Name → Nat, m3.val natZeroName ψ' = natzero := fun ψ' => by
+        rw [hpres3 natZeroName ψ' (by decide)]
+        exact hval2 ψ'
+      obtain ⟨m4, hval4, hpres4⟩ := extend_basis_one m3 natRecA
+        (fun ψ => natRecVal V ψ)
+        (Option.isNone_iff_eq_none.mp h4)
+        ⟨rfl, rfl, rfl, rfl, fun _ _ hx => nomatch hx⟩
+        rfl
+        (fun _ _ hx => nomatch hx)
+        (fun ψ => natRec_key rfl hvalN3 rfl hvalZ3 rfl (fun ψ' => hval3 ψ'))
+        (fun ψ₁ ψ₂ hψ => by
+          simp only [natRecVal]
+          rw [hψ uN (by simp [natRecA, ConstantInfo.toConstantVal, uN])])
+        (fun ψ => annotOk_natRec_type rfl hvalN3 rfl hvalZ3 rfl
+          (fun ψ' => hval3 ψ'))
+        (fun cv hx _ => nomatch hx)
+        (fun cv nP nF hx _ => nomatch hx)
+        (fun cv hx _ => nomatch hx)
+      exact ⟨m4⟩
     case _ =>
       simp only [checkDecl, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
       -- step 1: PSigma'

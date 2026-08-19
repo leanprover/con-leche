@@ -1306,7 +1306,51 @@ private theorem defeq_claims (m : EnvModel V env)
   | Expr.proj _ _ _, Expr.bvar _, h => exact hPI h
   | Expr.proj _ _ _, Expr.letE _ _ _ _, h => exact hPI h
   | Expr.proj _ _ _, Expr.lit _, h => exact hPI h
-  | Expr.proj _ _ _, Expr.proj _ _ _, h => exact hPI h
+  | Expr.proj s₁ i₁ e₁, Expr.proj s₂ i₂ e₂, h =>
+    dsimp only at h
+    split at h
+    case _ hi =>
+      try simp only [Bind.bind, Except.bind] at h
+      cases hd : isDefEqCore env fuel d e₁ e₂ with
+      | error e => rw [hd] at h; exact nomatch h
+      | ok r =>
+      rw [hd] at h
+      dsimp only at h
+      cases r with
+      | false =>
+        simp only [Bool.false_eq_true, ↓reduceIte] at h
+        exact hPI h
+      | true =>
+      have hieq : i₁ = i₂ := by simpa using hi
+      subst hieq
+      simp only [WScoped] at hwa' hwb'
+      simp only [looseBVarsBounded] at hba' hbb'
+      have hLbe₁ : Expr.LeavesBounded e₁ := fun l hl =>
+        hLba' l (by simp [fvarLeaves, hl])
+      have hLbe₂ : Expr.LeavesBounded e₂ := fun l hl =>
+        hLbb' l (by simp [fvarLeaves, hl])
+      have hoke₁ : FvarsOk V m.val env φ d ρ e₁ :=
+        FvarsOk.of_subset (fun l hl => by simpa [fvarLeaves] using hl) hoka'
+      have hoke₂ : FvarsOk V m.val env φ d ρ e₂ :=
+        FvarsOk.of_subset (fun l hl => by simpa [fvarLeaves] using hl) hokb'
+      simp only [AnnotOk] at haa' hab'
+      simp only [interpExpr] at hva hvb
+      cases he₁ : interpExpr V m.val env φ d ρ e₁ with
+      | none => rw [he₁] at hva; exact nomatch hva
+      | some ve₁ =>
+      rw [he₁] at hva
+      dsimp only at hva
+      cases he₂ : interpExpr V m.val env φ d ρ e₂ with
+      | none => rw [he₂] at hvb; exact nomatch hvb
+      | some ve₂ =>
+      rw [he₂] at hvb
+      dsimp only at hvb
+      have hee : ve₁ = ve₂ :=
+        ihd hd hwa' hwb' hba' hbb' hLbe₁ hLbe₂ hoke₁ hoke₂
+          haa'.1 hab'.1 he₁ he₂
+      subst hee
+      exact Option.some.inj (hva.symm.trans hvb)
+    case _ _ => exact hPI h
   | Expr.sort _, Expr.proj _ _ _, h => exact hPI h
   | Expr.fvar _ _ _, Expr.proj _ _ _, h => exact hPI h
   | Expr.const _ _, Expr.proj _ _ _, h => exact hPI h
