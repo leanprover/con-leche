@@ -389,6 +389,32 @@ theorem annotOk_eq_type {cval : ConstVal V} :
       rw [hev]
       exact hmem
 
+/-- `Eq.refl`'s value is a member of the reflexivity pi-type. -/
+theorem eqReflVal_mem :
+    (eqReflVal V ψ : V) ∈ˢ pi 0 (univ (ψ uN))
+      (fun A => pi 0 A fun a => eqv a a) := by
+  simp only [eqReflVal]
+  refine lam_mem (V := V) (B := fun A => pi 0 A fun a => eqv a a)
+    fun A hA => ?_
+  exact lam_mem (V := V) (B := fun a => eqv a a) fun a _ => pt_mem_eqv_self a
+
+/-- Applying `Eq.refl`'s value to a domain. -/
+theorem eqReflVal_app {A : V} (hA : A ∈ˢ univ (ψ uN)) :
+    SetTheory.app (eqReflVal V ψ) A = SetTheory.lam 0 A fun _ => pt := by
+  simp only [eqReflVal]
+  exact app_lam (B := fun X => pi 0 X fun a => eqv a a) hA
+    (fun X _ => lam_mem (V := V) (B := fun a => eqv a a)
+      fun a _ => pt_mem_eqv_self a)
+    (fun X hX => pi_mem_univ (v := 0) hX (fun a _ => eqv_mem_univ a a))
+
+/-- The full application of `Eq.refl`'s value is the proof point. -/
+theorem eqReflVal_app₂ {A a : V} (hA : A ∈ˢ univ (ψ uN)) (ha : a ∈ˢ A) :
+    SetTheory.app (SetTheory.app (eqReflVal V ψ) A) a = pt := by
+  rw [eqReflVal_app hA]
+  exact app_lam (B := fun x => eqv x x) ha
+    (fun x _ => pt_mem_eqv_self x)
+    (fun x _ => eqv_mem_univ x x)
+
 /-- Interpretation of `Eq.refl`'s pinned type, computed (both pis are
 Prop-level: the codomain annotations are `0` and `imax u 0`). -/
 theorem interp_eqRefl_type {cval : ConstVal V}
@@ -505,4 +531,144 @@ theorem annotOk_eqRefl_type {cval : ConstVal V}
           rw [eqVal_app₃ hAmem ha ha]
           exact eqv_mem_univ a a)
       exact this
+
+/-! The evaluations of `Eq.rec`'s binder codomain annotations, in the
+raw nested-`if` forms `interpExpr` computes (outermost binder last). -/
+
+private def erB (u1 : Nat) : Nat := if u1 = 0 then 0 else u1
+private def erRefl (u u1 : Nat) : Nat :=
+  if erB u1 = 0 then 0 else Nat.max u (erB u1)
+private def erM (u u1 : Nat) : Nat :=
+  if erRefl u u1 = 0 then 0 else Nat.max u1 (erRefl u u1)
+private def erA (u u1 : Nat) : Nat :=
+  if erM u u1 = 0 then 0 else Nat.max u (Nat.max (u1 + 1) (erM u u1))
+private def erAl (u u1 : Nat) : Nat :=
+  if erA u u1 = 0 then 0 else Nat.max u (erA u u1)
+
+/-- Interpretation of `Eq.rec`'s pinned type, computed. -/
+theorem interp_eqRec_type {cval : ConstVal V}
+    (hfindE : env.find? eqName = some eqA)
+    (hvalE : ∀ ψ' : Name → Nat, cval eqName ψ' = eqVal V ψ')
+    (hfindR : env.find? eqReflName = some eqReflA)
+    (hvalR : ∀ ψ' : Name → Nat, cval eqReflName ψ' = eqReflVal V ψ') :
+    interpClosed V cval env ψ eqRecA.toConstantVal.type =
+      some (pi (erAl (ψ uN) (ψ u1N)) (univ (ψ uN)) fun A =>
+        pi (erA (ψ uN) (ψ u1N)) A fun a =>
+          pi (erM (ψ uN) (ψ u1N))
+            (pi (ψ u1N + 1) A fun b =>
+              pi (ψ u1N + 1)
+                (SetTheory.app (SetTheory.app (SetTheory.app (eqVal V ψ) A) a) b)
+                fun _ => univ (ψ u1N)) fun M =>
+            pi (erRefl (ψ uN) (ψ u1N))
+              (SetTheory.app (SetTheory.app M a)
+                (SetTheory.app (SetTheory.app (eqReflVal V ψ) A) a)) fun _ =>
+              pi (erB (ψ u1N)) A fun b =>
+                pi (ψ u1N)
+                  (SetTheory.app (SetTheory.app (SetTheory.app (eqVal V ψ) A) a) b)
+                  fun h => SetTheory.app (SetTheory.app M b) h) := by
+  have hfindE' : env.find? (Name.anonymous.str "Eq") = some eqA := hfindE
+  have hvalE' : ∀ ψ' : Name → Nat,
+      cval (Name.anonymous.str "Eq") ψ' = eqVal V ψ' := hvalE
+  have hfindR' : env.find? ((Name.anonymous.str "Eq").str "refl") = some eqReflA :=
+    hfindR
+  have hvalR' : ∀ ψ' : Name → Nat,
+      cval ((Name.anonymous.str "Eq").str "refl") ψ' = eqReflVal V ψ' := hvalR
+  simp only [interpClosed, eqRecA, ConstantInfo.toConstantVal, interpExpr,
+    Expr.instantiate1, updV, Level.eval, Option.getD,
+    hfindE', hvalE', hfindR', hvalR', eqA, eqReflA, List.length_cons,
+    List.length_nil, reduceIte, Level.substFn]
+  simp [interpExpr, updV, Expr.instantiate1, uN, u1N,
+    -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
+  try rfl
+
+/-! Collapsing the raw annotation evaluations to `eqRecVal`'s tags. -/
+
+private theorem max_absorb_l' (u v : Nat) :
+    Nat.max u (Nat.max u v) = Nat.max u v :=
+  Nat.le_antisymm (Nat.max_le.mpr ⟨Nat.le_max_left _ _, Nat.le_refl _⟩)
+    (Nat.le_max_right _ _)
+
+private theorem max_eqrec_a (u u1 : Nat) :
+    Nat.max u (Nat.max (u1 + 1) (Nat.max u u1)) = Nat.max u (u1 + 1) :=
+  Nat.le_antisymm
+    (Nat.max_le.mpr ⟨Nat.le_max_left _ _,
+      Nat.max_le.mpr ⟨Nat.le_max_right _ _,
+        Nat.max_le.mpr ⟨Nat.le_max_left _ _,
+          Nat.le_trans (Nat.le_succ _) (Nat.le_max_right _ _)⟩⟩⟩)
+    (Nat.max_le.mpr ⟨Nat.le_max_left _ _,
+      Nat.le_trans (Nat.le_max_left _ _) (Nat.le_max_right _ _)⟩)
+
+private theorem erB_eq (u1 : Nat) : erB u1 = u1 := by
+  unfold erB
+  by_cases h : u1 = 0 <;> simp [h]
+
+private theorem erRefl_eq (u u1 : Nat) :
+    erRefl u u1 = if u1 = 0 then 0 else Nat.max u u1 := by
+  unfold erRefl
+  rw [erB_eq]
+
+private theorem max_ne_zero_r {u u1 : Nat} (h : u1 ≠ 0) :
+    Nat.max u u1 ≠ 0 :=
+  fun hc => h (Nat.le_zero.mp (hc ▸ Nat.le_max_right u u1))
+
+private theorem erM_eq (u u1 : Nat) :
+    erM u u1 = if u1 = 0 then 0 else Nat.max u u1 := by
+  unfold erM
+  rw [erRefl_eq]
+  by_cases h : u1 = 0
+  · simp [h]
+  · simp only [if_neg h]
+    rw [if_neg (max_ne_zero_r h)]
+    exact max_absorb_r' u u1
+
+private theorem erA_eq (u u1 : Nat) :
+    erA u u1 = if u1 = 0 then 0 else Nat.max u (u1 + 1) := by
+  unfold erA
+  rw [erM_eq]
+  by_cases h : u1 = 0
+  · simp [h]
+  · simp only [if_neg h]
+    rw [if_neg (max_ne_zero_r h)]
+    exact max_eqrec_a u u1
+
+private theorem erAl_eq (u u1 : Nat) :
+    erAl u u1 = if u1 = 0 then 0 else Nat.max u (u1 + 1) := by
+  unfold erAl
+  rw [erA_eq]
+  by_cases h : u1 = 0
+  · simp [h]
+  · simp only [if_neg h]
+    rw [if_neg (max_ne_zero_r (Nat.succ_ne_zero u1))]
+    exact max_absorb_l' u (u1 + 1)
+
+/-- `Eq.rec`'s value inhabits its type (the equality collapse: the
+motive's fibre at `b, h` is the fibre at `a, pt`). -/
+theorem eqRec_key {cval : ConstVal V}
+    (hfindE : env.find? eqName = some eqA)
+    (hvalE : ∀ ψ' : Name → Nat, cval eqName ψ' = eqVal V ψ')
+    (hfindR : env.find? eqReflName = some eqReflA)
+    (hvalR : ∀ ψ' : Name → Nat, cval eqReflName ψ' = eqReflVal V ψ') :
+    ∃ T, interpClosed V cval env ψ eqRecA.toConstantVal.type = some T ∧
+      eqRecVal V ψ ∈ˢ T := by
+  refine ⟨_, interp_eqRec_type hfindE hvalE hfindR hvalR, ?_⟩
+  rw [erAl_eq, erA_eq, erM_eq, erRefl_eq, erB_eq]
+  simp only [eqRecVal]
+  refine lam_mem (V := V) fun A hA => ?_
+  refine lam_mem (V := V) fun a ha => ?_
+  have hMS : (pi (ψ u1N + 1) A fun b =>
+      pi (ψ u1N + 1)
+        (SetTheory.app (SetTheory.app (SetTheory.app (eqVal V ψ) A) a) b)
+        fun _ => univ (ψ u1N)) = eqRecMSpace V (ψ u1N) A a := by
+    unfold eqRecMSpace
+    exact pi_congr fun b hb => by rw [eqVal_app₃ hA ha hb]
+  rw [hMS]
+  refine lam_mem (V := V) fun M hM => ?_
+  rw [eqReflVal_app₂ hA ha]
+  refine lam_mem (V := V) fun r hr => ?_
+  refine lam_mem (V := V) fun b hb => ?_
+  rw [eqVal_app₃ hA ha hb]
+  refine lam_mem (V := V) fun h hh => ?_
+  obtain rfl : a = b := mem_eqv hh
+  obtain rfl : h = pt := mem_univ_zero (eqv_mem_univ a a) hh
+  exact hr
 end Setlec
