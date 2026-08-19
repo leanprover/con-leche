@@ -341,6 +341,8 @@ def iotaRec (env : Env) : (fuel : Nat) → (depth : Nat) → Expr →
               | some r =>
                 let margs := major.getAppArgs
                 if margs.length = cnP + cnF ∧ r.nfields = cnF then
+                 if (cv.type.stripPis (nP + nM + nm + ni + 1)).isSome ∧
+                    (cvj.type.stripPis (cnP + cnF)).isSome then
                   -- the constructor's levels must agree with the
                   -- recursor's instantiation (the rule links their
                   -- level parameters by name)
@@ -351,7 +353,7 @@ def iotaRec (env : Env) : (fuel : Nat) → (depth : Nat) → Expr →
                       (args.take cnP) then
                     if ← iotaCerts env fuel depth
                        (cv.type.instantiateLevelParams cv.levelParams us)
-                       (args.take (nP + nM + nm + ni)) then
+                       (args.take (nP + nM + nm + ni) ++ [major]) then
                      if ← iotaCerts env fuel depth
                         (cvj.type.instantiateLevelParams cvj.levelParams usj)
                         margs then
@@ -362,6 +364,7 @@ def iotaRec (env : Env) : (fuel : Nat) → (depth : Nat) → Expr →
                     else pure none
                    else pure none
                   else pure none
+                 else pure none
                 else pure none
               | none => pure none
             | _ => pure none
