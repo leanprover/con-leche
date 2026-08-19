@@ -213,13 +213,47 @@ environment are hypotheses of the kernel theorems") as hypotheses.
   `tests/arena-expected.txt` (per-test pinned exit codes; good tests must
   never be rejected, bad tests never accepted).
 
-### Next steps
+### Next step: sort annotations, then lambdas/app/beta (task 3)
 
-1. `forallE` types (tutorial 003, 004, 020, 021): binders via nanoda-style
-   fvars, `inferType` for Pi types (imax rule), model needs dependent
-   function sets in the `SetTheory` interface.
-2. Constants in terms (`const` case of `inferType`/`interpExpr`, level
-   instantiation, delta unfolding using `EnvModel.defn_eq`), tutorial 005 ff.
-3. Lambdas, application, beta (006, 007, 026, 027).
-4. `thmDecl`/`axiomDecl` (011, 012 are the bad-test counterparts).
+**The problem.** `interpExpr` currently classifies each `Π`-type's
+codomain (Prop vs Type, needed by `SetTheory.pi`) by re-running the
+checker's `inferType` on the opened body.  This made the weakening lemmas
+carry inference-shift lemmas, and it makes the *substitution lemma*
+(needed for beta and for the dependent application rule `(Π x:A. B) a ↦
+B[a]`) essentially unprovable without subject-reduction-grade metatheory:
+substituting `a` for an fvar changes the syntactic inference runs inside
+the classifier, and reconnecting them needs "defeq types have eval-equal
+sorts" compositionally.
+
+**The decision (2026-08-19): annotate binders with their codomain sort.**
+`Expr.forallE` (and `lam`) gets an `Option Level` annotation slot:
+
+* the frontend parses everything with `none`;
+* a checker pass (or the inference itself) computes each binder's
+  codomain sort once, by real inference, and stores it — annotations are
+  *checked once at creation, then trusted*;
+* `inferType` on an annotated `forallE` *reads* the annotation for the
+  imax rule; `isDefEq` compares annotations with `Level.isEquiv`
+  (replacing the current re-inference deviation — also cheaper);
+* `interpExpr`'s classifier becomes `eval φ` of the stored annotation —
+  **fully structural**, no embedded inference.  `sortLevelOf` and all its
+  shift/mono/instLevels plumbing get deleted.
+
+Then substitution (`fvar` ↦ arbitrary term) does not touch levels, so the
+substitution lemma is mechanical, like `interp_shift`: define
+`substFvarAt p a` (replace `fvar p`, shift higher fvars down) with a
+`delV`-style valuation contraction, plus depth-invariance for scoped
+terms (generalizing `interp_closed_invariant`).  Beta and the dependent
+application rule then verify without new metatheory classes.
+
+Order of work:
+1. Refactor: annotation slot on `forallE`/`lam`, annotation pass,
+   `inferType`/`isDefEq`/`whnf` updated, structural `interpExpr`,
+   lemma files updated (mostly deletions on the model side).
+2. Lambdas, application, beta, congruence defeq (`abstract1` for
+   `infer`-lam with the fvar-annotation-consistency roundtrip), the
+   substitution lemma; arena 005–007, 020, 021, 026, 027.
+3. `letE` (zeta) — 031–033; eta — 111, 112.
+4. Axioms (only the three standard ones; models for them come with the
+   `Eq`/`Quot` machinery), 011.
 5. Inductives via lean-inductive-models preprocessor (034 ff.).
