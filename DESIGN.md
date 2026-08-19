@@ -331,11 +331,24 @@ and substitutions.  Analysis of the design space:
   proof-λ**.  Any route that beta-reduces proof-redexes needs syntactic
   subject-reduction metatheory (checker-run commutation with
   substitution) — exactly what the annotation design exists to avoid.
-* Consequently `whnf` **does not beta-reduce proof-redexes**: beta fires
-  only when the λ's stored codomain sort is *certainly* nonzero
-  (`Level.isNonZero`, sound under every level assignment).  Real kernels
-  do reduce them but compensate with proof irrelevance in defeq; we will
-  add proof irrelevance (a completeness feature) separately.
+* Consequently `whnf` cannot blindly beta-reduce possibly-Prop redexes.
+  A pure syntactic guard (`Level.isNonZero` on the codomain sort) is
+  *insufficient in practice*: level-polymorphic lambdas (`Sort u`
+  codomains — e.g. Church encodings, arena 029/030) are never certainly
+  non-Prop and would stay stuck, failing good tests.  **Resolution
+  (2026-08-19): runtime certification.**  On a redex whose codomain sort
+  is not certainly nonzero, `whnf` first checks
+  `isDefEq (inferType a) ty` — the check passing hands the soundness
+  proof exactly the missing fact (`⟦a⟧ ∈ ⟦ty⟧`, at *every* level
+  assignment); failing leaves the redex stuck (sound: `whnf` may always
+  under-reduce; unreachable for well-typed input).  This makes
+  `whnf`/`inferType`/`isDefEq` mutually recursive on one shared,
+  strictly decreasing fuel (separate per-function fuels would regress
+  infinitely across the mutual calls), and the three soundness theorems
+  one mutual fuel induction.  Deviation from real kernels (documented):
+  they reduce unconditionally and compensate with proof irrelevance;
+  the certification costs an inference+defeq per possibly-Prop redex.
+  Revisit with performance work (e.g. cache certified redexes).
 * For non-Prop redexes a **semantic-only app clause in `AnnotOk`**
   suffices: `∃ vE A B, ⟦f⟧ ∈ pi vE A B ∧ ⟦a⟧ ∈ A ∧ ∀ x ∈ A, B x ∈ univ
   vE` (plus definedness).  Established by `annotate` running the full
