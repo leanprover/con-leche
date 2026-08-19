@@ -437,4 +437,63 @@ decreasing_by
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
   | (simp [Expr.sizeB])
 
+/-- Annotation truthfulness only reads the environment through the
+interpretation, hence transfers between environments agreeing on level
+parameters (e.g. differing only in a recursor's rule list). -/
+theorem AnnotOk.env_ext {env₁ env₂ : Env}
+    (henv : ∀ n, (env₁.find? n).map (fun ci => ci.toConstantVal.levelParams) =
+        (env₂.find? n).map (fun ci => ci.toConstantVal.levelParams)) :
+    ∀ (e : Expr) (d : Nat) (ρ : Nat → V),
+      AnnotOk V cval env₁ φ d ρ e → AnnotOk V cval env₂ φ d ρ e
+  | .forallE n ty body m, d, ρ, ha => by
+    simp only [AnnotOk] at ha ⊢
+    obtain ⟨haty, hcod, hcond⟩ := ha
+    refine ⟨AnnotOk.env_ext henv ty d ρ haty, hcod, ?_⟩
+    intro x A hA hx
+    rw [← interp_env_ext henv ty d ρ] at hA
+    obtain ⟨hbody, hwfact⟩ := hcond x A hA hx
+    refine ⟨AnnotOk.env_ext henv _ (d + 1) (updV V ρ d x) hbody, ?_⟩
+    intro v hv
+    obtain ⟨w, hwi, hmem⟩ := hwfact v hv
+    refine ⟨w, ?_, hmem⟩
+    rw [← interp_env_ext henv _ (d + 1) (updV V ρ d x)]
+    exact hwi
+  | .lam n ty body m, d, ρ, ha => by
+    simp only [AnnotOk] at ha ⊢
+    obtain ⟨haty, hcod, hcond⟩ := ha
+    refine ⟨AnnotOk.env_ext henv ty d ρ haty, hcod, ?_⟩
+    intro x A hA hx
+    rw [← interp_env_ext henv ty d ρ] at hA
+    obtain ⟨hbody, hwfact⟩ := hcond x A hA hx
+    refine ⟨AnnotOk.env_ext henv _ (d + 1) (updV V ρ d x) hbody, ?_⟩
+    intro v hv
+    obtain ⟨w, B, hwi, hwB, hBu⟩ := hwfact v hv
+    refine ⟨w, B, ?_, hwB, hBu⟩
+    rw [← interp_env_ext henv _ (d + 1) (updV V ρ d x)]
+    exact hwi
+  | .app f a, d, ρ, ha => by
+    simp only [AnnotOk] at ha ⊢
+    obtain ⟨haf, haa, vf, va, vE, A, B, hfi, hai, hpi, hva, hfib⟩ := ha
+    refine ⟨AnnotOk.env_ext henv f d ρ haf, AnnotOk.env_ext henv a d ρ haa,
+      vf, va, vE, A, B, ?_, ?_, hpi, hva, hfib⟩
+    · rw [← interp_env_ext henv f d ρ]; exact hfi
+    · rw [← interp_env_ext henv a d ρ]; exact hai
+  | .bvar _, _, _, _ => by simp [AnnotOk]
+  | .sort _, _, _, _ => by simp [AnnotOk]
+  | .const _ _, _, _, _ => by simp [AnnotOk]
+  | .fvar _ _ _, _, _, _ => by simp [AnnotOk]
+  | .letE _ _ _ _, _, _, _ => by simp [AnnotOk]
+  | .lit _, _, _, _ => by simp [AnnotOk]
+  | .proj s' i e, d, ρ, ha => by
+    simp only [AnnotOk] at ha ⊢
+    obtain ⟨hae, hi2, ve, u', v', A, Bf, hvei, hsig, hAu, hBf⟩ := ha
+    refine ⟨AnnotOk.env_ext henv e d ρ hae, hi2, ve, u', v', A, Bf, ?_, hsig, hAu, hBf⟩
+    rw [← interp_env_ext henv e d ρ]; exact hvei
+termination_by e => e.sizeB
+decreasing_by
+  all_goals first
+  | (simp [Expr.sizeB]; omega)
+  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
+
 end Setlec

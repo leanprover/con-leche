@@ -581,4 +581,76 @@ decreasing_by
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
   | (simp [Expr.sizeB])
 
+/-- The interpretation reads stored constants only through their level
+parameters: environments that agree there (e.g. differing only in a
+recursor's rule list) interpret every expression alike. -/
+theorem interp_env_ext {env₁ env₂ : Env}
+    (henv : ∀ n, (env₁.find? n).map (fun ci => ci.toConstantVal.levelParams) =
+        (env₂.find? n).map (fun ci => ci.toConstantVal.levelParams)) :
+    ∀ (e : Expr) (d : Nat) (ρ : Nat → V),
+      interpExpr V cval env₁ φ d ρ e = interpExpr V cval env₂ φ d ρ e
+  | .sort u, d, ρ => by simp [interpExpr]
+  | .fvar idx n ty, d, ρ => by simp [interpExpr]
+  | .const n ws, d, ρ => by
+    simp only [interpExpr]
+    have h := henv n
+    cases hf : env₁.find? n with
+    | none =>
+      rw [hf] at h
+      cases hf2 : env₂.find? n with
+      | none => rfl
+      | some ci₂ => rw [hf2] at h; exact nomatch h
+    | some ci =>
+      rw [hf] at h
+      cases hf2 : env₂.find? n with
+      | none => rw [hf2] at h; exact nomatch h
+      | some ci₂ =>
+        rw [hf2] at h
+        simp only [Option.map_some, Option.some.injEq] at h
+        dsimp only
+        rw [h]
+  | .forallE n ty body m, d, ρ => by
+    simp only [interpExpr]
+    cases m.cod with
+    | none => rfl
+    | some v =>
+      simp only []
+      rw [interp_env_ext henv ty d ρ]
+      cases hty : interpExpr V cval env₂ φ d ρ ty with
+      | none => rfl
+      | some A =>
+        simp only [Option.some.injEq]
+        congr 1
+        funext x
+        rw [interp_env_ext henv (body.instantiate1 (.fvar d n ty)) (d + 1) (updV V ρ d x)]
+  | .lam n ty body m, d, ρ => by
+    simp only [interpExpr]
+    cases m.cod with
+    | none => rfl
+    | some v =>
+      simp only []
+      rw [interp_env_ext henv ty d ρ]
+      cases hty : interpExpr V cval env₂ φ d ρ ty with
+      | none => rfl
+      | some A =>
+        simp only [Option.some.injEq]
+        congr 1
+        funext x
+        rw [interp_env_ext henv (body.instantiate1 (.fvar d n ty)) (d + 1) (updV V ρ d x)]
+  | .app f a, d, ρ => by
+    simp only [interpExpr]
+    rw [interp_env_ext henv f d ρ, interp_env_ext henv a d ρ]
+  | .bvar _, _, _ => by simp [interpExpr]
+  | .letE _ _ _ _, _, _ => by simp [interpExpr]
+  | .lit _, _, _ => by simp [interpExpr]
+  | .proj s' i e, d, ρ => by
+    simp only [interpExpr]
+    rw [interp_env_ext henv e d ρ]
+termination_by e => e.sizeB
+decreasing_by
+  all_goals first
+  | (simp [Expr.sizeB]; omega)
+  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
+
 end Setlec
