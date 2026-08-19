@@ -260,6 +260,170 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
         rw [hvagree]
         exact hfacts ψ
 
+/-- Extend a model by one pinned basis constant with a hand-supplied
+value.  The membership and annotation facts are stated over the *old*
+valuation (basis types only mention previously installed constants);
+the conclusion exposes the new valuation's equations so block
+installation can chain. -/
+private theorem extend_basis_one {env : Env} (m : EnvModel V env)
+    (ci : ConstantInfo) (v₀ : (Name → Nat) → V)
+    (hfind' : env.find? ci.name = none)
+    (hwf : ConstWF ⟨ci :: env.consts⟩ ci)
+    (htyres0 : ci.toConstantVal.type.constsResolve env = true)
+    (hnotdefn : ∀ cv2 value2, ci ≠ .defnInfo cv2 value2)
+    (hkey : ∀ ψ : Name → Nat, ∃ T,
+      interpClosed V m.val env ψ ci.toConstantVal.type = some T ∧ v₀ ψ ∈ˢ T)
+    (hparams : ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ p ∈ ci.toConstantVal.levelParams, ψ₁ p = ψ₂ p) → v₀ ψ₁ = v₀ ψ₂)
+    (hAty : ∀ ψ : Name → Nat, AnnotOk V m.val env ψ 0 (rho0 V) ci.toConstantVal.type)
+    (hnewty : ∀ cv, ci = .indInfo cv → ci.name = psigmaName →
+      ∀ ψ : Name → Nat, PairTyFacts V (v₀ ψ) (ψ uN) (ψ vN))
+    (hnewmk : ∀ cv nP nF, ci = .ctorInfo cv nP nF → ci.name = psigmaMkName →
+      nP = 2 ∧ nF = 2 ∧ cv.levelParams = [uN, vN] ∧
+      ∀ ψ : Name → Nat, PairMkFacts V (v₀ ψ) (ψ uN) (ψ vN)) :
+    ∃ m' : EnvModel V ⟨ci :: env.consts⟩,
+      (∀ ψ, m'.val ci.name ψ = v₀ ψ) ∧
+      (∀ n ψ, n ≠ ci.name → m'.val n ψ = m.val n ψ) := by
+  have hfresh := find?_none_ne hfind'
+  obtain ⟨val', hval'⟩ : ∃ val' : ConstVal V, val' = fun n ψ =>
+      if n = ci.name then v₀ ψ else m.val n ψ := ⟨_, rfl⟩
+  have hagree : ∀ n, (env.find? n).isSome = true → ∀ ψ : Name → Nat,
+      val' n ψ = m.val n ψ := by
+    intro n hn ψ
+    have : n ≠ ci.name := by
+      intro hcontra
+      rw [hcontra, hfind'] at hn
+      exact nomatch hn
+    simp [hval', this]
+  have htrans : ∀ (e : Expr), e.constsResolve env = true → ∀ ψ : Name → Nat,
+      interpClosed V val' (⟨ci :: env.consts⟩ : Env) ψ e =
+        interpClosed V m.val env ψ e := by
+    intro e hres ψ
+    rw [interpClosed_mono (cval := val') hfind' hres]
+    exact interp_cval_ext hagree e 0 (rho0 V)
+  have hAtrans : ∀ (e : Expr), e.constsResolve env = true → ∀ ψ : Name → Nat,
+      AnnotOk V m.val env ψ 0 (rho0 V) e →
+      AnnotOk V val' (⟨ci :: env.consts⟩ : Env) ψ 0 (rho0 V) e := by
+    intro e hres ψ ha
+    refine AnnotOk.mono hfind' e 0 (rho0 V) hres ?_
+    exact AnnotOk.cval_ext (fun n hn ψ' => (hagree n hn ψ').symm) e 0 (rho0 V) ha
+  have hwf' : EnvWF ⟨ci :: env.consts⟩ := EnvWF.cons m.wf hwf
+  refine ⟨⟨val', hwf', ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
+  · -- val_params
+    intro n ci2 hf ψ₁ ψ₂ hψ
+    rw [Env.find?_cons] at hf
+    split at hf
+    · next hn =>
+      obtain rfl := Option.some.inj hf
+      have hn' : n = ci.name := hn.symm ▸ rfl
+      subst hn'
+      simp only [hval', if_pos rfl]
+      exact hparams ψ₁ ψ₂ hψ
+    · next hn =>
+      have hne : n ≠ ci.name := fun hc => hn (hc ▸ rfl)
+      simp only [hval', if_neg hne]
+      exact m.val_params n ci2 hf ψ₁ ψ₂ hψ
+  · -- mem_type
+    intro c hc ψ
+    rcases List.mem_cons.mp hc with rfl | hc
+    · obtain ⟨T, hT, hv⟩ := hkey ψ
+      refine ⟨T, ?_, ?_⟩
+      · rw [htrans _ htyres0 ψ]
+        exact hT
+      · have : val' c.name ψ = v₀ ψ := by simp [hval']
+        rw [this]
+        exact hv
+    · obtain ⟨T, hT, hv⟩ := m.mem_type c hc ψ
+      obtain ⟨-, -, hres, -, -⟩ := m.wf c hc
+      refine ⟨T, ?_, ?_⟩
+      · rw [htrans _ hres ψ]
+        exact hT
+      · have hne : c.name ≠ ci.name := hfresh c hc ∘ fun h => h
+        simp only [hval', if_neg hne]
+        exact hv
+  · -- defn_eq
+    intro cv2 value2 hmem2 ψ
+    rcases List.mem_cons.mp hmem2 with heq | hmem2
+    · exact absurd heq.symm (hnotdefn cv2 value2)
+    · obtain ⟨-, -, -, -, hvalwf⟩ := m.wf _ hmem2
+      obtain ⟨-, -, hres2, -⟩ := hvalwf cv2 value2 rfl
+      have := m.defn_eq cv2 value2 hmem2 ψ
+      rw [htrans _ hres2 ψ, this]
+      have hne : cv2.name ≠ ci.name := by
+        have := hfresh (.defnInfo cv2 value2) hmem2
+        simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using this
+      simp [hval', hne]
+  · -- annot_ok
+    intro c hc ψ
+    rcases List.mem_cons.mp hc with rfl | hc
+    · refine ⟨hAtrans _ htyres0 ψ (hAty ψ), ?_⟩
+      intro cv2 value2 heq
+      exact absurd heq (hnotdefn cv2 value2)
+    · obtain ⟨-, -, htyres, -, hvalwf⟩ := m.wf c hc
+      obtain ⟨hA1, hA2⟩ := m.annot_ok c hc ψ
+      refine ⟨hAtrans _ htyres ψ hA1, ?_⟩
+      intro cv2 value2 heq
+      obtain ⟨-, -, hres2, -⟩ := hvalwf cv2 value2 heq
+      exact hAtrans _ hres2 ψ (hA2 cv2 value2 heq)
+  · -- ind_ok
+    constructor
+    · intro cv hfp ψ
+      rw [Env.find?_cons] at hfp
+      split at hfp
+      · next hn =>
+        obtain rfl := Option.some.inj hfp
+        have hval'eq : val' psigmaName ψ = v₀ ψ := by
+          simp [hval', hn.symm]
+        rw [hval'eq]
+        exact hnewty cv rfl hn ψ
+      · next hn =>
+        have hne : psigmaName ≠ ci.name := by
+          intro hcontra
+          have hmem := List.mem_of_find?_eq_some hfp
+          have hname : (ConstantInfo.indInfo cv).name = psigmaName := by
+            have := List.find?_some hfp
+            simpa using this
+          have := hfresh _ hmem
+          rw [hname, hcontra] at this
+          exact this rfl
+        have hval'eq : val' psigmaName ψ = m.val psigmaName ψ := by
+          simp [hval', hne]
+        rw [hval'eq]
+        exact m.ind_ok.1 cv hfp ψ
+    · intro cv nP nF hfp
+      rw [Env.find?_cons] at hfp
+      split at hfp
+      · next hn =>
+        obtain rfl := Option.some.inj hfp
+        obtain ⟨h1, h2, h3, h4⟩ := hnewmk cv nP nF rfl hn
+        refine ⟨h1, h2, h3, fun ψ => ?_⟩
+        have hval'eq : val' psigmaMkName ψ = v₀ ψ := by
+          simp [hval', hn.symm]
+        rw [hval'eq]
+        exact h4 ψ
+      · next hn =>
+        have hne : psigmaMkName ≠ ci.name := by
+          intro hcontra
+          have hmem := List.mem_of_find?_eq_some hfp
+          have hname : (ConstantInfo.ctorInfo cv nP nF).name = psigmaMkName := by
+            have := List.find?_some hfp
+            simpa using this
+          have := hfresh _ hmem
+          rw [hname, hcontra] at this
+          exact this rfl
+        obtain ⟨h1, h2, h3, h4⟩ := m.ind_ok.2 cv nP nF hfp
+        refine ⟨h1, h2, h3, fun ψ => ?_⟩
+        have hval'eq : val' psigmaMkName ψ = m.val psigmaMkName ψ := by
+          simp [hval', hne]
+        rw [hval'eq]
+        exact h4 ψ
+  · -- the new constant's value
+    intro ψ
+    simp [hval']
+  · -- untouched values
+    intro n ψ hne
+    simp [hval', hne]
+
 /-- The common inversion + semantic-fact assembly for a checked value
 against a checked (annotated) type. -/
 private theorem value_facts {env : Env} (m : EnvModel V env)

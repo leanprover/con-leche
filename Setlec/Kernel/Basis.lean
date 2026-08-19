@@ -24,6 +24,12 @@ def psigmaName : Name := anonymous |>.str "PSigma'"
 /-- The name of the basis dependent-pair constructor. -/
 def psigmaMkName : Name := psigmaName |>.str "mk"
 
+/-- The name of the basis unit type. -/
+def punitName : Name := anonymous |>.str "PUnit"
+
+/-- The name of the basis unit constructor. -/
+def punitUnitName : Name := punitName |>.str "unit"
+
 /-- The pinned `Eq` basis block. -/
 def eqBasis : List ConstantInfo := [
   .indInfo ⟨(anonymous |>.str "Eq"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "a") (.bvar 0) (.forallE (anonymous |>.str "b") (.bvar 1) (.sort .zero) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩)⟩,

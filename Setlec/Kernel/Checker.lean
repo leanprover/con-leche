@@ -76,7 +76,16 @@ def checkDecl (env : Env) (d : Declaration) : CheckM Env := do
       throw (.invalid s!"type mismatch in theorem {cv.name}")
     pure ⟨.thmInfo cv value :: env.consts⟩
   | .axiomDecl cv => throw (.notImplemented s!"axiom declaration ({cv.name})")
-  | .basisDecl _ => throw (.notImplemented "basis inductive")
+  | .basisDecl kind =>
+    -- Install the pinned (pre-annotated) basis block; the frontend has
+    -- already matched the incoming record against the pinned shapes.
+    match kind with
+    | .punitK =>
+      kind.declsA.foldlM (fun env ci => do
+        unless (env.find? ci.name).isNone do
+          throw (.invalid s!"duplicate declaration {ci.name}")
+        pure (⟨ci :: env.consts⟩ : Env)) env
+    | _ => throw (.notImplemented "basis inductive")
 
 /-- Check a list of declarations in order, starting from the empty
 environment. -/

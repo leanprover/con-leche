@@ -116,6 +116,16 @@ where
   basisRecSigV4 (u v : Nat) : Nat := 0
   basisRecUnitV (u u1 : Nat) : Nat := Nat.max u u1
 
+/-- The value of the basis unit recursor (`λ M m t. m`; tags are the
+imax-evaluations of the recursor telescope). -/
+noncomputable def punitRecVal (ψ : Name → Nat) : V :=
+  let u1 := ψ u1N
+  let u := ψ uN
+  let w := if u1 = 0 then 0 else Nat.max u u1
+  SetTheory.lam w (pi (u1 + 1) unitSet fun _ => univ u1) fun M =>
+    SetTheory.lam w (app M pt) fun m =>
+      SetTheory.lam u1 unitSet fun _ => m
+
 /-- Is this constant-info one of the basis kinds? -/
 def ConstantInfo.isBasis : ConstantInfo → Bool
   | .indInfo _ | .ctorInfo _ _ _ | .recInfo _ _ _ _ _ _ => true
