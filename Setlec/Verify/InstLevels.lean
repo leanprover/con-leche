@@ -142,6 +142,23 @@ theorem renameConsts_liftLooseBVars (f : Name → Name) :
     intro k c
     simp_all [Expr.liftLooseBVars, Expr.renameConsts]
 
+/-- Renaming constants commutes with instantiation (general argument). -/
+theorem renameConsts_instantiate1_gen (f : Name → Name) {v : Expr} :
+    ∀ (e : Expr) (k : Nat),
+      (e.instantiate1 v k).renameConsts f =
+        (e.renameConsts f).instantiate1 (v.renameConsts f) k := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k
+    simp only [Expr.instantiate1, Expr.renameConsts]
+    split
+    · rfl
+    · split <;> simp [Expr.renameConsts]
+  | _ =>
+    intro k
+    simp_all [Expr.instantiate1, Expr.renameConsts]
+
 /-- Level instantiation commutes with binder opening. -/
 theorem instantiateLevelParams_instantiate1 (ks : List Name) (us : List Level)
     {d : Nat} {n : Name} {ty : Expr} :

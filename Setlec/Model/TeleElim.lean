@@ -465,4 +465,105 @@ theorem TeleFitI.arg_swap_list {d : Nat} {ρ : Nat → V} {a₁ a₂ : Expr}
       hsub harity'
     exact ⟨rest₂, TeleFitI.cons hity hiarg hx hfbI hwarg hbarg hAarg hsw⟩
 
+/-- Related by constant renaming, modulo the positions the
+interpretation never reads. -/
+def RenEq (f : Name → Name) (e₁ e₂ : Expr) : Prop :=
+  Expr.ErasedEq (e₁.renameConsts f) e₂
+
+theorem RenEq.interp {f : Name → Name} (hro : RenameOk cval env f)
+    {e₁ e₂ : Expr} (h : RenEq f e₁ e₂) (d : Nat) (ρ : Nat → V) :
+    interpExpr V cval env φ d ρ e₂ = interpExpr V cval env φ d ρ e₁ := by
+  rw [← interp_erasedEq h d ρ]
+  exact interp_renameConsts hro e₁ d ρ
+
+theorem RenEq.forallE_inv {f : Name → Name} {n : Name} {ty body : Expr}
+    {m : BinderMeta} {e₂ : Expr}
+    (h : RenEq f (.forallE n ty body m) e₂) :
+    ∃ n₂ ty₂ body₂, e₂ = .forallE n₂ ty₂ body₂ m ∧
+      RenEq f ty ty₂ ∧ RenEq f body body₂ := by
+  match e₂, h with
+  | .forallE n₂ ty₂ body₂ m₂, h =>
+    obtain ⟨rfl, h1, h2⟩ :
+        m = m₂ ∧ Expr.ErasedEq (ty.renameConsts f) ty₂ ∧
+          Expr.ErasedEq (body.renameConsts f) body₂ := h
+    exact ⟨n₂, ty₂, body₂, rfl, h1, h2⟩
+
+theorem RenEq.instantiate1 {f : Name → Name} {e₁ e₂ a₁ a₂ : Expr} {k : Nat}
+    (he : RenEq f e₁ e₂) (ha : RenEq f a₁ a₂) :
+    RenEq f (e₁.instantiate1 a₁ k) (e₂.instantiate1 a₂ k) := by
+  unfold RenEq
+  rw [renameConsts_instantiate1_gen]
+  exact Expr.ErasedEq.instantiate1 he ha
+
+/-- Pointwise relation on argument spines. -/
+inductive ArgsRel (P : Expr → Expr → Prop) : List Expr → List Expr → Prop
+  | nil : ArgsRel P [] []
+  | cons {a₁ a₂ : Expr} {l₁ l₂ : List Expr} :
+      P a₁ a₂ → ArgsRel P l₁ l₂ → ArgsRel P (a₁ :: l₁) (a₂ :: l₂)
+
+/-- A fit's value spine has the arguments' length. -/
+theorem TeleFitI.vs_length :
+    ∀ {ty : Expr} {args : List Expr} {vs : List V} {rest : Expr},
+      TeleFitI V cval env φ d ρ ty args vs rest → vs.length = args.length := by
+  intro ty args vs rest h
+  induction h with
+  | nil => rfl
+  | cons _ _ _ _ _ _ _ _ ih => simpa using ih
+
+/-- Transfer an expression-spine fit across a renaming of the telescope
+and the arguments: every interpretation fact is renaming-invariant. -/
+theorem TeleFitI.ren_transfer {f : Name → Name}
+    (hro : RenameOk cval env f) :
+    ∀ {args₁ : List Expr} {ty₁ ty₂ : Expr} {args₂ : List Expr}
+      {vs : List V} {rest₁ : Expr},
+      TeleFitI V cval env φ d ρ ty₁ args₁ vs rest₁ →
+      RenEq f ty₁ ty₂ →
+      ArgsRel (fun a₁ a₂ => RenEq f a₁ a₂ ∧ WScoped d a₂ ∧
+        a₂.looseBVarsBounded 0 = true ∧
+        AnnotOk V cval env φ d ρ a₂) args₁ args₂ →
+      ∃ rest₂, TeleFitI V cval env φ d ρ ty₂ args₂ vs rest₂
+  | [], ty₁, ty₂, args₂, vs, rest₁, hfit, hty, hargs => by
+    generalize ty₁ = t at hfit
+    cases hfit with
+    | nil =>
+      cases hargs with
+      | nil => exact ⟨ty₂, TeleFitI.nil⟩
+  | a₁ :: args₁, ty₁, ty₂, args₂, vs, rest₁, hfit, hty, hargs => by
+    obtain ⟨n, dom, body, m, rfl⟩ :
+        ∃ n dom body m, ty₁ = .forallE n dom body m := by
+      cases hfit; exact ⟨_, _, _, _, rfl⟩
+    obtain ⟨n₂, dom₂, body₂, m₂eq, hdom, hbody⟩ := RenEq.forallE_inv hty
+    subst m₂eq
+    cases hfit with
+    | @cons _ _ _ _ _ _ x xs A rest hity hiarg hx hfbI hwarg hbarg hAarg
+        hsub =>
+    cases hargs with
+    | cons ha hargs' =>
+    obtain ⟨haren, hwa₂, hba₂, hAa₂⟩ := ha
+    obtain ⟨rest₂, hsub₂⟩ := TeleFitI.ren_transfer hro hsub
+      (RenEq.instantiate1 hbody haren) hargs'
+    refine ⟨rest₂, TeleFitI.cons ?_ ?_ hx ?_ hwa₂ hba₂ hAa₂ hsub₂⟩
+    · rw [RenEq.interp hro hdom d ρ]
+      exact hity
+    · rw [RenEq.interp hro haren d ρ]
+      exact hiarg
+    · exact Expr.fvarsBelow_erasedEq hbody
+        (Expr.fvarsBelow_renameConsts hfbI)
+
+/-- Peel the leading arguments off an expression-spine fit. -/
+theorem TeleFitI.drop_prefix :
+    ∀ {pre : List Expr} {ty : Expr} {post : List Expr} {vs : List V}
+      {rest : Expr},
+      TeleFitI V cval env φ d ρ ty (pre ++ post) vs rest →
+      ∃ ty' vs', TeleFitI V cval env φ d ρ ty' post vs' rest ∧
+        vs = vs.take pre.length ++ vs' ∧ vs'.length = post.length
+  | [], ty, post, vs, rest, hfit => by
+    exact ⟨ty, vs, hfit, by simp, TeleFitI.vs_length hfit⟩
+  | p₀ :: pre, ty, post, vs, rest, hfit => by
+    cases hfit with
+    | @cons _ _ _ _ _ _ x xs A rest hity hiarg hx hfbI hwarg hbarg hAarg
+        hsub =>
+    obtain ⟨ty', vs', hfit', heq, hlen⟩ := TeleFitI.drop_prefix hsub
+    exact ⟨ty', vs', hfit', by simpa using heq, hlen⟩
+
 end Setlec

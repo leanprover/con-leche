@@ -25,6 +25,13 @@ Declaration kinds the checker cannot represent yet map to
 
 namespace Setlec.Frontend
 
+/-- Is this a `_model` companion of a reserved basis name?  The
+preprocessor emits them even for basis blocks; the pinned basis
+carries its own model, so the frontend drops them. -/
+def isBasisModelName : Name → Bool
+  | .str p "_model" => reservedBasisNames.contains p
+  | _ => false
+
 open Lean (Json)
 
 /-- Rename level parameters (for basis-block matching up to
@@ -212,12 +219,19 @@ private def processLine (st : State) (j : Json)
     return .inl { st with decls := st.decls.push (.axiomDecl cv) }
   else if let .ok v := j.getObjVal? "def" then
     let cv ← parseConstantVal st v
+    -- the preprocessor emits `_model` companions even for basis blocks
+    -- (e.g. `Empty._model`); the pinned basis carries its own model,
+    -- so these are dropped (their names are reserved)
+    if isBasisModelName cv.name then
+      return .inl st
     match (← (← v.getObjVal? "safety").getStr?) with
     | "safe" => return .inl { st with
         decls := st.decls.push (.defnDecl cv (← getExpr' st v "value").zetaExpand) }
     | s => return .inr s!"definition with safety '{s}'"
   else if let .ok v := j.getObjVal? "thm" then
     let cv ← parseConstantVal st v
+    if isBasisModelName cv.name then
+      return .inl st
     return .inl { st with
       decls := st.decls.push (.thmDecl cv (← getExpr' st v "value").zetaExpand) }
   else if (j.getObjVal? "opaque").isOk then

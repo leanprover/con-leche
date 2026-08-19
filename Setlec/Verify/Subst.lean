@@ -331,6 +331,46 @@ theorem liftLooseBVars_instantiate1 {v : Expr}
     intro k c j hjc
     simp only [liftLooseBVars, instantiate1, ih hjc]
 
+/-- Renaming constants moves no `fvar` indices. -/
+theorem fvarsBelow_renameConsts {f : Name → Name} :
+    ∀ {e : Expr} {d : Nat}, fvarsBelow d e → fvarsBelow d (e.renameConsts f) := by
+  intro e
+  induction e <;> intro d h <;> simp_all [fvarsBelow, renameConsts]
+
+/-- Erasure-equal expressions have the same `fvar` indices. -/
+theorem fvarsBelow_erasedEq :
+    ∀ {e₁ e₂ : Expr} {d : Nat}, ErasedEq e₁ e₂ → fvarsBelow d e₁ →
+      fvarsBelow d e₂ := by
+  intro e₁
+  induction e₁ with
+  | bvar i => intro e₂ d he _; match e₂, he with
+    | .bvar j, _ => trivial
+  | fvar idx n ty => intro e₂ d he hb; match e₂, he with
+    | .fvar j n' ty', he =>
+      obtain rfl : idx = j := he
+      exact hb
+  | sort u => intro e₂ d he _; match e₂, he with
+    | .sort u', _ => trivial
+  | const n us => intro e₂ d he _; match e₂, he with
+    | .const n' us', _ => trivial
+  | app f a ihf iha => intro e₂ d he hb; match e₂, he with
+    | .app g b, he => exact ⟨ihf he.1 hb.1, iha he.2 hb.2⟩
+  | lam n ty body m ihty ihbody => intro e₂ d he hb; match e₂, he with
+    | .lam n' ty' body' m', he =>
+      exact ⟨ihty he.2.1 hb.1, ihbody he.2.2 hb.2⟩
+  | forallE n ty body m ihty ihbody => intro e₂ d he hb; match e₂, he with
+    | .forallE n' ty' body' m', he =>
+      exact ⟨ihty he.2.1 hb.1, ihbody he.2.2 hb.2⟩
+  | letE n ty vl body ihty ihv ihbody => intro e₂ d he hb; match e₂, he with
+    | .letE n' ty' vl' body', he =>
+      exact ⟨ihty he.1 hb.1, ihv he.2.1 hb.2.1, ihbody he.2.2 hb.2.2⟩
+  | lit l => intro e₂ d he _; match e₂, he with
+    | .lit l', _ => trivial
+  | proj sn i pe ih => intro e₂ d he hb; match e₂, he with
+    | .proj sn' i' pe', he =>
+      show fvarsBelow d pe'
+      exact ih he.2.2 hb
+
 /-- Instantiating with a bounded term keeps loose-bvar bounds. -/
 theorem looseBVarsBounded_instantiate1_gen {a : Expr}
     (hba : a.looseBVarsBounded 0 = true) :

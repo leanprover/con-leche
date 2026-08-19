@@ -50,11 +50,15 @@ def emptyName : Name := anonymous |>.str "Empty"
 /-- Names reserved for the pinned basis blocks; no other declaration
 may use them. -/
 def reservedBasisNames : List Name :=
-  [eqName, eqReflName, eqName.str "rec",
-   natName, natZeroName, natSuccName, natName.str "rec",
-   psigmaName, psigmaMkName, psigmaName.str "rec",
-   punitName, punitUnitName, punitName.str "rec",
-   emptyName, emptyName.str "rec"]
+  let base : List Name :=
+    [eqName, eqReflName, eqName.str "rec",
+     natName, natZeroName, natSuccName, natName.str "rec",
+     psigmaName, psigmaMkName, psigmaName.str "rec",
+     punitName, punitUnitName, punitName.str "rec",
+     emptyName, emptyName.str "rec"]
+  -- also reserve the `_model` companions: a stray `X._model` for a
+  -- pinned `X` would disable the invariant's pinnedness guard
+  base ++ base.map (·.str "_model")
 
 /-- The pinned `Eq` basis block. -/
 def eqBasis : List ConstantInfo := [
