@@ -243,7 +243,6 @@ private theorem value_facts {env : Env} (m : EnvModel V env)
     not_hasFvar_of_fvarsBelow_zero hwvt.fvarsBelow
   have htveq : tv = T :=
     isDefEq_sound (φ := ψ) m hde hwvt (WScoped.of_not_hasFvar htf)
-      (FvarsOk.of_not_hasFvar hvtf) (FvarsOk.of_not_hasFvar htf)
       hAvt (hAty ψ) htv hT
   exact ⟨v, T, hv, hT, htveq ▸ hmem⟩
 

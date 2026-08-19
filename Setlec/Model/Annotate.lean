@@ -38,7 +38,7 @@ theorem annotate_sound (m : EnvModel V env) :
   | .app f a, d, e', h, hw, hb, ρ, hok => by
     simp only [WScoped] at hw
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    simp only [FvarsOk] at hok
+    obtain ⟨hokf, hoka⟩ := FvarsOk.of_app hok
     simp only [annotate, Bind.bind, Except.bind] at h
     cases hf : annotate env d f with
     | error e => rw [hf] at h; exact nomatch h
@@ -51,13 +51,13 @@ theorem annotate_sound (m : EnvModel V env) :
     simp only [pure, Except.pure, Except.ok.injEq] at h
     subst h
     simp only [AnnotOk]
-    exact ⟨annotate_sound m f hf hw.1 hb.1 ρ hok.1,
-      annotate_sound m a ha hw.2 hb.2 ρ hok.2⟩
+    exact ⟨annotate_sound m f hf hw.1 hb.1 ρ hokf,
+      annotate_sound m a ha hw.2 hb.2 ρ hoka⟩
   | .forallE n ty body mb, d, e', h, hw, hb, ρ, hok => by
     have hle := annotate_leafEquiv (env := env) (.forallE n ty body mb) h hw hb
     simp only [WScoped] at hw
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    simp only [FvarsOk] at hok
+    obtain ⟨hokty, hokbody⟩ := FvarsOk.of_forallE hok
     simp only [annotate, Bind.bind, Except.bind] at h
     cases hty : annotate env d ty with
     | error e => rw [hty] at h; exact nomatch h
@@ -92,21 +92,23 @@ theorem annotate_sound (m : EnvModel V env) :
     have hlebody : Expr.LeafEquiv body (body'.abstract1 d) := by
       simp only [Expr.LeafEquiv] at hle
       exact hle.2
-    have haty' := annotate_sound m ty hty hw.1 hb.1 ρ hok.1
+    have haty' := annotate_sound m ty hty hw.1 hb.1 ρ hokty
+    have hFty' : FvarsOk V m.val env φ d ρ ty' :=
+      FvarsOk.of_leafEquiv (annotate_leafEquiv ty hty hw.1 hb.1) hokty
     -- the annotation-truthfulness goal
     simp only [AnnotOk]
     refine ⟨haty', ⟨v, rfl⟩, ?_⟩
     intro x A hA hx
     have hfin : FvarsOk V m.val env φ (d + 1) (updV V ρ d x)
         (body.instantiate1 (.fvar d n ty')) :=
-      FvarsOk.instantiate1 hwty' haty' hA hx body 0 hw.2 hok.2
+      FvarsOk.instantiate1 hwty' hFty' haty' hA hx body 0 hw.2 hokbody
     have habody : AnnotOk V m.val env φ (d + 1) (updV V ρ d x) body' :=
       annotate_sound m _ hbody hwin hbin (updV V ρ d x) hfin
     have hfbody' : FvarsOk V m.val env φ (d + 1) (updV V ρ d x) body' := by
       rw [← hrt]
-      refine FvarsOk.instantiate1 hwty' haty' hA hx (body'.abstract1 d) 0
+      refine FvarsOk.instantiate1 hwty' hFty' haty' hA hx (body'.abstract1 d) 0
         (WScoped.abstract1 0 hwbody') ?_
-      exact FvarsOk.congr body (body'.abstract1 d) hlebody hok.2
+      exact FvarsOk.of_leafEquiv hlebody hokbody
     constructor
     · rw [hrt]
       exact habody
@@ -120,7 +122,7 @@ theorem annotate_sound (m : EnvModel V env) :
   | .lam n ty body mb, d, e', h, hw, hb, ρ, hok => by
     simp only [WScoped] at hw
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    simp only [FvarsOk] at hok
+    obtain ⟨hokty, hokbody⟩ := FvarsOk.of_lam hok
     simp only [annotate, Bind.bind, Except.bind] at h
     cases hty : annotate env d ty with
     | error e => rw [hty] at h; exact nomatch h
@@ -154,13 +156,15 @@ theorem annotate_sound (m : EnvModel V env) :
         (annotate_fvarConsistent _ (by omega) hbody
           (fvarConsistent_instantiate1 body 0 hw.2.fvarsBelow))
         (annotate_looseBVars _ hbody hbin)
-    have haty' := annotate_sound m ty hty hw.1 hb.1 ρ hok.1
+    have haty' := annotate_sound m ty hty hw.1 hb.1 ρ hokty
+    have hFty' : FvarsOk V m.val env φ d ρ ty' :=
+      FvarsOk.of_leafEquiv (annotate_leafEquiv ty hty hw.1 hb.1) hokty
     simp only [AnnotOk]
     refine ⟨haty', ?_⟩
     intro x A hA hx
     have hfin : FvarsOk V m.val env φ (d + 1) (updV V ρ d x)
         (body.instantiate1 (.fvar d n ty')) :=
-      FvarsOk.instantiate1 hwty' haty' hA hx body 0 hw.2 hok.2
+      FvarsOk.instantiate1 hwty' hFty' haty' hA hx body 0 hw.2 hokbody
     have habody : AnnotOk V m.val env φ (d + 1) (updV V ρ d x) body' :=
       annotate_sound m _ hbody hwin hbin (updV V ρ d x) hfin
     rw [hrt]

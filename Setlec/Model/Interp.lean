@@ -3,6 +3,7 @@ import Setlec.SetTheory.Basic
 import Setlec.Verify.Level
 import Setlec.Verify.Shift
 import Setlec.Verify.EnvWF
+import Setlec.Verify.Leaves
 
 /-!
 # Interpretation of expressions in the set model
@@ -110,25 +111,15 @@ decreasing_by
   | (simp [Expr.sizeB]; omega)
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
 
-/-- The typing assumptions about the implicit local context: every
-reachable free variable is valued inside (the interpretation of) its
-annotated type, the annotations themselves satisfy the same assumptions,
-and their sort annotations are truthful. -/
-def FvarsOk (cval : ConstVal V) (env : Env) (φ : Name → Nat) (d : Nat) (ρ : Nat → V) :
-    Expr → Prop
-  | .fvar idx _ ty => idx < d ∧ AnnotOk V cval env φ d ρ ty ∧
-      ∃ T, interpExpr V cval env φ d ρ ty = some T ∧ ρ idx ∈ˢ T
-  | .app f a => FvarsOk cval env φ d ρ f ∧ FvarsOk cval env φ d ρ a
-  | .lam _ ty body _ | .forallE _ ty body _ =>
-      FvarsOk cval env φ d ρ ty ∧ FvarsOk cval env φ d ρ body
-  | .letE _ ty val body =>
-      FvarsOk cval env φ d ρ ty ∧ FvarsOk cval env φ d ρ val ∧ FvarsOk cval env φ d ρ body
-  | .proj _ _ e => FvarsOk cval env φ d ρ e
-  | _ => True
-termination_by e => e.sizeF
-decreasing_by all_goals first
-  | (simp [Expr.sizeF]; omega)
-  | simp [Expr.sizeF]
+/-- The typing assumptions about the implicit local context, as
+conditions on the free-variable leaf closure: every leaf (including
+those inside annotations, hereditarily) is bounded by the depth, its
+annotation's annotations are truthful, and its valuation is a member of
+its annotated type's interpretation. -/
+def FvarsOk (cval : ConstVal V) (env : Env) (φ : Name → Nat) (d : Nat) (ρ : Nat → V)
+    (e : Expr) : Prop :=
+  ∀ l ∈ e.fvarLeaves, l.1 < d ∧ AnnotOk V cval env φ d ρ l.2.2 ∧
+    ∃ T, interpExpr V cval env φ d ρ l.2.2 = some T ∧ ρ l.1 ∈ˢ T
 
 /-- The canonical valuation for closed terms. -/
 def rho0 : Nat → V := fun _ => SetTheory.empty

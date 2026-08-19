@@ -1,5 +1,6 @@
 import Setlec.Kernel.TypeChecker
 import Setlec.Model.FvarsOkLemmas
+import Setlec.Verify.Leaves
 import Setlec.Verify.InferLemmas
 
 /-!
@@ -170,8 +171,7 @@ theorem inferType_sound (m : EnvModel V env) : ∀ (e : Expr) {d : Nat} {t : Exp
     simp only [inferType, pure, Except.pure, Except.ok.injEq] at h
     subst h
     simp only [WScoped] at hw
-    simp only [FvarsOk] at hok
-    obtain ⟨hidx, hAty, T, hT, hmem⟩ := hok
+    obtain ⟨⟨hidx, hAty, T, hT, hmem⟩, hFty⟩ := FvarsOk.of_fvar hok
     exact ⟨⟨ρ idx, T, by simp [interpExpr], hT, hmem⟩, hw.2.mono (by omega), hAty⟩
   | .const n ws, d, t, ρ, h, hw, hok, _ => by
     simp only [inferType] at h
@@ -210,7 +210,7 @@ theorem inferType_sound (m : EnvModel V env) : ∀ (e : Expr) {d : Nat} {t : Exp
       next hal => exact nomatch h
   | .forallE n ty body m', d, t, ρ, h, hw, hok, ha => by
     simp only [WScoped] at hw
-    simp only [FvarsOk] at hok
+    obtain ⟨hokty, hokbody⟩ := FvarsOk.of_forallE hok
     simp only [AnnotOk] at ha
     obtain ⟨haty, ⟨v₀, hv₀⟩, hcond⟩ := ha
     simp only [inferType] at h
@@ -228,7 +228,7 @@ theorem inferType_sound (m : EnvModel V env) : ∀ (e : Expr) {d : Nat} {t : Exp
     dsimp only at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     subst h
-    obtain ⟨⟨A, tA, hA, htA, hmemA⟩, -, -⟩ := inferType_sound m ty hty hw.1 hok.1 haty
+    obtain ⟨⟨A, tA, hA, htA, hmemA⟩, -, -⟩ := inferType_sound m ty hty hw.1 hokty haty
     rw [ensureSort_sound m hsty] at htA
     obtain rfl := Option.some.inj htA
     refine ⟨⟨pi (v₀.eval φ) A (fun x => (interpExpr V m.val env φ (d + 1) (updV V ρ d x)
@@ -264,7 +264,7 @@ agree, whenever both are defined. -/
 theorem isDefEqCore_sound (m : EnvModel V env) :
     ∀ (fuel : Nat) {d : Nat} {a b : Expr} {ρ : Nat → V},
     isDefEqCore env fuel d a b = .ok true →
-    WScoped d a → WScoped d b → FvarsOk V m.val env φ d ρ a → FvarsOk V m.val env φ d ρ b →
+    WScoped d a → WScoped d b →
     AnnotOk V m.val env φ d ρ a → AnnotOk V m.val env φ d ρ b →
     ∀ {va vb : V}, interpExpr V m.val env φ d ρ a = some va →
       interpExpr V m.val env φ d ρ b = some vb → va = vb := by
@@ -272,7 +272,7 @@ theorem isDefEqCore_sound (m : EnvModel V env) :
   induction fuel with
   | zero => intro d a b ρ h; exact nomatch h
   | succ fuel ih =>
-    intro d a b ρ h hwa hwb hoka hokb haa hab va vb hva hvb
+    intro d a b ρ h hwa hwb haa hab va vb hva hvb
     unfold isDefEqCore at h
     simp only [Bind.bind, Except.bind] at h
     cases hwha : whnf env whnfFuel a with
@@ -290,11 +290,9 @@ theorem isDefEqCore_sound (m : EnvModel V env) :
     rw [← whnf_sound (φ := φ) m whnfFuel hwhb] at hvb
     have hwa' := whnf_WScoped m.wf whnfFuel hwha hwa
     have hwb' := whnf_WScoped m.wf whnfFuel hwhb hwb
-    have hoka' := whnf_FvarsOk (cval := m.val) m.wf whnfFuel hwha hoka
-    have hokb' := whnf_FvarsOk (cval := m.val) m.wf whnfFuel hwhb hokb
     have haa' := whnf_AnnotOk m whnfFuel hwha haa
     have hab' := whnf_AnnotOk m whnfFuel hwhb hab
-    clear hwha hwhb hwa hwb hoka hokb haa hab
+    clear hwha hwhb hwa hwb haa hab
     match a', b', h with
     | Expr.sort u, Expr.sort v, h =>
       dsimp only at h
@@ -345,7 +343,6 @@ theorem isDefEqCore_sound (m : EnvModel V env) :
     | Expr.forallE n₁ ty₁ body₁ m₁, Expr.forallE n₂ ty₂ body₂ m₂, h =>
       dsimp only at h
       simp only [WScoped] at hwa' hwb'
-      simp only [FvarsOk] at hoka' hokb'
       simp only [AnnotOk] at haa' hab'
       obtain ⟨haty₁, ⟨v₁, hv₁⟩, hcond₁⟩ := haa'
       obtain ⟨haty₂, ⟨v₂, hv₂⟩, hcond₂⟩ := hab'
@@ -387,7 +384,7 @@ theorem isDefEqCore_sound (m : EnvModel V env) :
       simp only [Option.some.injEq] at hva hvb
       subst hva; subst hvb
       have hAeq : A₁ = A₂ :=
-        ih hd1 hwa'.1 hwb'.1 hoka'.1 hokb'.1 haty₁ haty₂ hA1 hA2
+        ih hd1 hwa'.1 hwb'.1 haty₁ haty₂ hA1 hA2
       subst hAeq
       have hveq : v₁.eval φ = v₂.eval φ := Level.isEquiv_sound hlev φ
       rw [← hveq]
@@ -399,8 +396,6 @@ theorem isDefEqCore_sound (m : EnvModel V env) :
       rw [hw₁, hw₂]
       simpa using ih hd2
         (hwa'.1.instantiate1 0 hwa'.2) (hwb'.1.instantiate1 0 hwb'.2)
-        (FvarsOk.instantiate1 hwa'.1 haty₁ hA1 hx body₁ 0 hwa'.2 hoka'.2)
-        (FvarsOk.instantiate1 hwb'.1 haty₂ hA2 hx body₂ 0 hwb'.2 hokb'.2)
         habody₁ habody₂ hw₁ hw₂
     | Expr.sort _, Expr.fvar _ _ _, h => simp [pure, Except.pure] at h
     | Expr.sort _, Expr.forallE _ _ _ _, h => simp [pure, Except.pure] at h
@@ -418,10 +413,9 @@ theorem isDefEqCore_sound (m : EnvModel V env) :
 theorem isDefEq_sound (m : EnvModel V env) {d : Nat} {a b : Expr} {ρ : Nat → V}
     (h : isDefEq env d a b = .ok true)
     (hwa : WScoped d a) (hwb : WScoped d b)
-    (hoka : FvarsOk V m.val env φ d ρ a) (hokb : FvarsOk V m.val env φ d ρ b)
     (haa : AnnotOk V m.val env φ d ρ a) (hab : AnnotOk V m.val env φ d ρ b)
     {va vb : V} (hva : interpExpr V m.val env φ d ρ a = some va)
     (hvb : interpExpr V m.val env φ d ρ b = some vb) : va = vb :=
-  isDefEqCore_sound m defEqFuel h hwa hwb hoka hokb haa hab hva hvb
+  isDefEqCore_sound m defEqFuel h hwa hwb haa hab hva hvb
 
 end Setlec
