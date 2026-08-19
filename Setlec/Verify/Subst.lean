@@ -212,6 +212,125 @@ theorem LamPiDomsEq.instantiate1 {v : Expr} :
     | .lam n₁ d₁ b₁ m₁, .forallE n₂ d₂ b₂ m₂, h =>
       exact ⟨by rw [h.1], ih (j + 1) h.2⟩
 
+/-- Lifting a bvar-closed expression is the identity. -/
+theorem liftLooseBVars_eq_self {k : Nat} :
+    ∀ {e : Expr} {c : Nat}, e.looseBVarsBounded c = true →
+      e.liftLooseBVars k c = e := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro c hb
+    simp only [looseBVarsBounded, decide_eq_true_eq] at hb
+    simp only [liftLooseBVars]
+    rw [if_neg (by omega)]
+  | _ =>
+    intro c hb
+    simp_all [looseBVarsBounded, liftLooseBVars]
+
+/-- A zero lift is the identity. -/
+theorem liftLooseBVars_zero : ∀ (e : Expr) (c : Nat),
+    e.liftLooseBVars 0 c = e := by
+  intro e
+  induction e <;> intro c <;> simp_all [liftLooseBVars]
+
+/-- Instantiating the freshly inserted slot of a lift eats one lift
+level: the lifted expression never references it. -/
+theorem instantiate1_liftLooseBVars {v : Expr} :
+    ∀ {e : Expr} {k c : Nat},
+      (e.liftLooseBVars (k + 1) c).instantiate1 v c =
+        e.liftLooseBVars k c := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k c
+    simp only [liftLooseBVars]
+    split
+    · next h =>
+      simp only [instantiate1]
+      rw [if_neg (by omega), if_pos (by omega)]
+      exact congrArg Expr.bvar (by omega)
+    · next h =>
+      simp only [instantiate1]
+      rw [if_neg (by omega), if_neg (by omega)]
+  | fvar idx n ty => intro k c; rfl
+  | sort u => intro k c; rfl
+  | const n us => intro k c; rfl
+  | app f a ihf iha =>
+    intro k c
+    simp only [liftLooseBVars, instantiate1, ihf, iha]
+  | lam n ty body m ihty ihbody =>
+    intro k c
+    simp only [liftLooseBVars, instantiate1, ihty, ihbody]
+  | forallE n ty body m ihty ihbody =>
+    intro k c
+    simp only [liftLooseBVars, instantiate1, ihty, ihbody]
+  | letE n ty vl body ihty ihv ihbody =>
+    intro k c
+    simp only [liftLooseBVars, instantiate1, ihty, ihv, ihbody]
+  | lit l => intro k c; rfl
+  | proj sn i pe ih =>
+    intro k c
+    simp only [liftLooseBVars, instantiate1, ih]
+
+/-- Instantiation below the lift's cutoff commutes with the lift. -/
+theorem liftLooseBVars_instantiate1 {v : Expr}
+    (hbv : v.looseBVarsBounded 0 = true) :
+    ∀ {e : Expr} {k c j : Nat}, j ≥ c →
+      (e.liftLooseBVars k c).instantiate1 v (j + k) =
+        (e.instantiate1 v j).liftLooseBVars k c := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k c j hjc
+    simp only [liftLooseBVars]
+    split
+    · next h =>
+      simp only [instantiate1]
+      by_cases h1 : i = j
+      · rw [if_pos (by omega : i + k = j + k), if_pos h1,
+          liftLooseBVars_eq_self (looseBVarsBounded_mono (Nat.zero_le _) hbv)]
+      · rw [if_neg (by omega : ¬ i + k = j + k), if_neg h1]
+        by_cases h2 : i > j
+        · rw [if_pos (by omega), if_pos h2]
+          simp only [liftLooseBVars]
+          rw [if_pos (by omega)]
+          congr 1
+          omega
+        · rw [if_neg (by omega), if_neg h2]
+          simp only [liftLooseBVars]
+          rw [if_pos h]
+    · next h =>
+      simp only [instantiate1]
+      rw [if_neg (by omega), if_neg (by omega), if_neg (by omega),
+        if_neg (by omega)]
+      simp only [liftLooseBVars]
+      rw [if_neg h]
+  | fvar idx n ty => intro k c j hjc; rfl
+  | sort u => intro k c j hjc; rfl
+  | const n us => intro k c j hjc; rfl
+  | app f a ihf iha =>
+    intro k c j hjc
+    simp only [liftLooseBVars, instantiate1, ihf hjc, iha hjc]
+  | lam n ty body m ihty ihbody =>
+    intro k c j hjc
+    simp only [liftLooseBVars, instantiate1, ihty hjc]
+    rw [show j + k + 1 = (j + 1) + k from by omega,
+      ihbody (by omega : j + 1 ≥ c + 1)]
+  | forallE n ty body m ihty ihbody =>
+    intro k c j hjc
+    simp only [liftLooseBVars, instantiate1, ihty hjc]
+    rw [show j + k + 1 = (j + 1) + k from by omega,
+      ihbody (by omega : j + 1 ≥ c + 1)]
+  | letE n ty vl body ihty ihv ihbody =>
+    intro k c j hjc
+    simp only [liftLooseBVars, instantiate1, ihty hjc, ihv hjc]
+    rw [show j + k + 1 = (j + 1) + k from by omega,
+      ihbody (by omega : j + 1 ≥ c + 1)]
+  | lit l => intro k c j hjc; rfl
+  | proj sn i pe ih =>
+    intro k c j hjc
+    simp only [liftLooseBVars, instantiate1, ih hjc]
+
 /-- Instantiating with a bounded term keeps loose-bvar bounds. -/
 theorem looseBVarsBounded_instantiate1_gen {a : Expr}
     (hba : a.looseBVarsBounded 0 = true) :

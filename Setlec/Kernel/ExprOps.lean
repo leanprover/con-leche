@@ -167,7 +167,7 @@ then prior fields): parameter references must skip the extra motive
 and minor binders. -/
 def liftLooseBVars (amount : Nat) : (cutoff : Nat) → Expr → Expr
   | c, .bvar i => if i ≥ c then .bvar (i + amount) else .bvar i
-  | c, .fvar i n ty => .fvar i n (liftLooseBVars amount c ty)
+  | _, .fvar i n ty => .fvar i n ty
   | _, .sort u => .sort u
   | _, .const n us => .const n us
   | c, .app a b => .app (liftLooseBVars amount c a) (liftLooseBVars amount c b)
