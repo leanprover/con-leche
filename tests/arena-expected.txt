@@ -22,7 +22,7 @@
 0 good/tutorial/028_peano1.ndjson
 0 good/tutorial/029_peano2.ndjson
 0 good/tutorial/030_peano3.ndjson
-2 good/tutorial/031_letType.ndjson
+0 good/tutorial/031_letType.ndjson
 2 good/tutorial/032_letTypeDep.ndjson
 2 good/tutorial/033_letRed.ndjson
 2 good/tutorial/034_empty.ndjson

@@ -1,5 +1,6 @@
 import Lean.Data.Json
 import Setlec.Kernel.Env
+import Setlec.Kernel.ExprOps
 
 /-!
 # Reading lean4export ndjson files
@@ -140,7 +141,8 @@ private def parseConstantVal (st : State) (v : Json) : M ConstantVal := do
   pure {
     name := ← getName' st v "name"
     levelParams := (← (← getIdxs v "levelParams").mapM st.name).toList
-    type := ← getExpr' st v "type"
+    -- `let` is definitionally its expansion; the checker works let-free.
+    type := (← getExpr' st v "type").zetaExpand
   }
 
 /-- Process one line of the export file.  `Sum.inl`: fine (possibly updated
@@ -162,11 +164,13 @@ private def processLine (st : State) (j : Json) : M (State ⊕ String) := do
   else if let .ok v := j.getObjVal? "def" then
     let cv ← parseConstantVal st v
     match (← (← v.getObjVal? "safety").getStr?) with
-    | "safe" => return .inl { st with decls := st.decls.push (.defnDecl cv (← getExpr' st v "value")) }
+    | "safe" => return .inl { st with
+        decls := st.decls.push (.defnDecl cv (← getExpr' st v "value").zetaExpand) }
     | s => return .inr s!"definition with safety '{s}'"
   else if let .ok v := j.getObjVal? "thm" then
     let cv ← parseConstantVal st v
-    return .inl { st with decls := st.decls.push (.thmDecl cv (← getExpr' st v "value")) }
+    return .inl { st with
+      decls := st.decls.push (.thmDecl cv (← getExpr' st v "value").zetaExpand) }
   else if (j.getObjVal? "opaque").isOk then
     return .inr "opaque declaration"
   else if (j.getObjVal? "quot").isOk then

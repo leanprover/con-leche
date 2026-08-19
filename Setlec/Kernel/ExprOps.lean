@@ -109,4 +109,22 @@ def hasFvar : Expr → Bool
   | .letE _ ty val body => hasFvar ty || hasFvar val || hasFvar body
   | .proj _ _ e => hasFvar e
 
+/-- Fully zeta-expand: replace every `let x := v in b` by `b[v/x]`
+(value and body expanded first, so the result is let-free and the
+recursion structural).  Applied by the frontend when building
+declarations; `let` is definitionally its expansion, so checking the
+expansion is checking the original (the per-occurrence re-checking
+costs performance, not soundness — revisit with performance work). -/
+def zetaExpand : Expr → Expr
+  | .bvar i => .bvar i
+  | .fvar idx n ty => .fvar idx n (zetaExpand ty)
+  | .sort u => .sort u
+  | .const n us => .const n us
+  | .app f a => .app (zetaExpand f) (zetaExpand a)
+  | .lam n ty body m => .lam n (zetaExpand ty) (zetaExpand body) m
+  | .forallE n ty body m => .forallE n (zetaExpand ty) (zetaExpand body) m
+  | .letE _ _ val body => (zetaExpand body).instantiate1 (zetaExpand val)
+  | .lit l => .lit l
+  | .proj s i e => .proj s i (zetaExpand e)
+
 end Setlec.Expr
