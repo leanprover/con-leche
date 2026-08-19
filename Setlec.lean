@@ -6,7 +6,6 @@ import Setlec.Kernel.TypeChecker
 import Setlec.Kernel.Checker
 import Setlec.Verify.Level
 import Setlec.Verify.Shift
-import Setlec.Verify.InferShift
 import Setlec.Verify.InstLevels
 import Setlec.Verify.EnvWF
 import Setlec.Verify.InferLemmas

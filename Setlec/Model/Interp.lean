@@ -78,11 +78,25 @@ def interpExpr (cval : ConstVal V) (env : Env) (φ : Name → Nat) :
       | some A => some (pi (v.eval φ) A fun x =>
           (interpExpr cval env φ (d + 1) (updV V ρ d x)
             (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty)
+  | d, ρ, .lam n ty body m =>
+    match m.cod with
+    | none => none
+    | some v =>
+      match interpExpr cval env φ d ρ ty with
+      | none => none
+      | some A => some (SetTheory.lam (v.eval φ) A fun x =>
+          (interpExpr cval env φ (d + 1) (updV V ρ d x)
+            (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty)
+  | d, ρ, .app f a =>
+    match interpExpr cval env φ d ρ f, interpExpr cval env φ d ρ a with
+    | some vf, some va => some (SetTheory.app vf va)
+    | _, _ => none
   | _, _, _ => none
 termination_by _ _ e => e.sizeB
 decreasing_by
-  · simp [Expr.sizeB]; omega
-  · rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega
+  all_goals first
+  | (simp [Expr.sizeB]; omega)
+  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
 
 /-- Truthfulness of the codomain-sort annotations: every `∀`-subterm is
 annotated, and over every member of the domain's interpretation the
@@ -99,11 +113,20 @@ def AnnotOk (cval : ConstVal V) (env : Env) (φ : Name → Nat) :
         ∃ w, interpExpr V cval env φ (d + 1) (updV V ρ d x)
             (body.instantiate1 (.fvar d n ty)) = some w ∧
           w ∈ˢ univ (v.eval φ)
-  | d, ρ, .lam n ty body _ =>
+  | d, ρ, .lam n ty body m =>
     AnnotOk cval env φ d ρ ty ∧
+    (∃ v, m.cod = some v) ∧
     ∀ x A, interpExpr V cval env φ d ρ ty = some A → x ∈ˢ A →
-      AnnotOk cval env φ (d + 1) (updV V ρ d x) (body.instantiate1 (.fvar d n ty))
-  | d, ρ, .app f a => AnnotOk cval env φ d ρ f ∧ AnnotOk cval env φ d ρ a
+      AnnotOk cval env φ (d + 1) (updV V ρ d x) (body.instantiate1 (.fvar d n ty)) ∧
+      ∀ v, m.cod = some v →
+        ∃ w B, interpExpr V cval env φ (d + 1) (updV V ρ d x)
+            (body.instantiate1 (.fvar d n ty)) = some w ∧
+          w ∈ˢ B ∧ B ∈ˢ univ (v.eval φ)
+  | d, ρ, .app f a =>
+    AnnotOk cval env φ d ρ f ∧ AnnotOk cval env φ d ρ a ∧
+    ∃ vf va vE A B, interpExpr V cval env φ d ρ f = some vf ∧
+      interpExpr V cval env φ d ρ a = some va ∧
+      vf ∈ˢ pi vE A B ∧ va ∈ˢ A ∧ ∀ x, x ∈ˢ A → B x ∈ˢ univ vE
   | _, _, _ => True
 termination_by d ρ e => e.sizeB
 decreasing_by

@@ -84,16 +84,41 @@ theorem interp_ext : ∀ (e : Expr) {d : Nat} {ρ ρ' : Nat → V},
             · rfl
             · exact h i (by omega))
           (fvarsBelow_instantiate1 0 hb.2)]
+  | .lam n ty body m, d, ρ, ρ', h, hb => by
+    simp only [fvarsBelow] at hb
+    simp only [interpExpr]
+    cases m.cod with
+    | none => rfl
+    | some v =>
+      simp only []
+      rw [interp_ext ty h hb.1]
+      cases hty : interpExpr V cval env φ d ρ' ty with
+      | none => rfl
+      | some A =>
+        simp only [Option.some.injEq]
+        congr 1
+        funext x
+        rw [interp_ext (body.instantiate1 (.fvar d n ty))
+          (ρ := updV V ρ d x) (ρ' := updV V ρ' d x)
+          (fun i hi => by
+            simp only [updV]
+            split
+            · rfl
+            · exact h i (by omega))
+          (fvarsBelow_instantiate1 0 hb.2)]
+  | .app f a, d, ρ, ρ', h, hb => by
+    simp only [fvarsBelow] at hb
+    simp only [interpExpr]
+    rw [interp_ext f h hb.1, interp_ext a h hb.2]
   | .bvar _, _, _, _, _, _ => by simp [interpExpr]
-  | .app _ _, _, _, _, _, _ => by simp [interpExpr]
-  | .lam _ _ _ _, _, _, _, _, _ => by simp [interpExpr]
   | .letE _ _ _ _, _, _, _, _, _ => by simp [interpExpr]
   | .lit _, _, _, _, _, _ => by simp [interpExpr]
   | .proj _ _ _, _, _, _, _, _ => by simp [interpExpr]
 termination_by e => e.sizeB
 decreasing_by
-  · simp [Expr.sizeB]; omega
-  · rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega
+  all_goals first
+  | (simp [Expr.sizeB]; omega)
+  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
 
 /-- Semantic weakening: inserting a value at `p ≤ d` and shifting the term
 leaves the interpretation unchanged. -/
@@ -131,16 +156,37 @@ theorem interp_shift : ∀ (e : Expr) {d p : Nat} {ρ : Nat → V} {x : V},
         rw [← insV_updV hpd,
           interp_shift (body.instantiate1 (.fvar d n ty))
             (Nat.le_succ_of_le hpd) (hw'.1.instantiate1 0 hw'.2)]
+  | .lam n ty body m, d, p, ρ, x, hpd, hw => by
+    have hw' : WScoped d ty ∧ WScoped d body := by simpa [WScoped] using hw
+    simp only [shiftFrom, interpExpr]
+    cases m.cod with
+    | none => rfl
+    | some v =>
+      simp only []
+      rw [← shiftFrom_instantiate1 hpd]
+      rw [interp_shift ty hpd hw'.1]
+      cases hty : interpExpr V cval env φ d ρ ty with
+      | none => rfl
+      | some A =>
+        simp only [Option.some.injEq]
+        congr 1
+        funext x'
+        rw [← insV_updV hpd,
+          interp_shift (body.instantiate1 (.fvar d n ty))
+            (Nat.le_succ_of_le hpd) (hw'.1.instantiate1 0 hw'.2)]
+  | .app f a, d, p, ρ, x, hpd, hw => by
+    have hw' : WScoped d f ∧ WScoped d a := by simpa [WScoped] using hw
+    simp only [shiftFrom, interpExpr]
+    rw [interp_shift f hpd hw'.1, interp_shift a hpd hw'.2]
   | .bvar _, _, _, _, _, _, _ => by simp [interpExpr, shiftFrom]
-  | .app _ _, _, _, _, _, _, _ => by simp [interpExpr, shiftFrom]
-  | .lam _ _ _ _, _, _, _, _, _, _ => by simp [interpExpr, shiftFrom]
   | .letE _ _ _ _, _, _, _, _, _, _ => by simp [interpExpr, shiftFrom]
   | .lit _, _, _, _, _, _, _ => by simp [interpExpr, shiftFrom]
   | .proj _ _ _, _, _, _, _, _, _ => by simp [interpExpr, shiftFrom]
 termination_by e => e.sizeB
 decreasing_by
-  · simp [Expr.sizeB]; omega
-  · rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega
+  all_goals first
+  | (simp [Expr.sizeB]; omega)
+  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
 
 /-- Weakening at the top: valuing a fresh top variable does not change the
 interpretation of a term scoped below it. -/
@@ -211,16 +257,35 @@ theorem interp_instLevels (hcp : ConstValParams cval env)
         funext x
         rw [interp_instLevels hcp (body.instantiate1 (.fvar d n ty)) (d + 1)
           (updV V ρ d x)]
+  | .lam n ty body m, d, ρ => by
+    simp only [interpExpr, instantiateLevelParams]
+    cases m.cod with
+    | none => rfl
+    | some v =>
+      simp only [Option.map_some]
+      rw [← instantiateLevelParams_instantiate1]
+      rw [interp_instLevels hcp ty d ρ]
+      cases hty : interpExpr V cval env (Level.substFn φ ks vs) d ρ ty with
+      | none => rfl
+      | some A =>
+        simp only [Option.some.injEq]
+        rw [Level.eval_subst]
+        congr 1
+        funext x
+        rw [interp_instLevels hcp (body.instantiate1 (.fvar d n ty)) (d + 1)
+          (updV V ρ d x)]
+  | .app f a, d, ρ => by
+    simp only [interpExpr, instantiateLevelParams]
+    rw [interp_instLevels hcp f d ρ, interp_instLevels hcp a d ρ]
   | .bvar _, _, _ => by simp [interpExpr, instantiateLevelParams]
-  | .app _ _, _, _ => by simp [interpExpr, instantiateLevelParams]
-  | .lam _ _ _ _, _, _ => by simp [interpExpr, instantiateLevelParams]
   | .letE _ _ _ _, _, _ => by simp [interpExpr, instantiateLevelParams]
   | .lit _, _, _ => by simp [interpExpr, instantiateLevelParams]
   | .proj _ _ _, _, _ => by simp [interpExpr, instantiateLevelParams]
 termination_by e => e.sizeB
 decreasing_by
-  · simp [Expr.sizeB]; omega
-  · rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega
+  all_goals first
+  | (simp [Expr.sizeB]; omega)
+  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
 
 /-- The interpretation reads `φ` only at the expression's level
 parameters. -/
@@ -265,16 +330,37 @@ theorem interp_params_ext (hcp : ConstValParams cval env)
         funext x
         rw [interp_params_ext hcp hφ (body.instantiate1 (.fvar d n ty)) (d + 1)
           (updV V ρ d x) (allLevelParamsDefined_instantiate1 hpty 0 hpbody)]
+  | .lam n ty body m, d, ρ, hp => by
+    simp only [allLevelParamsDefined, Bool.and_eq_true] at hp
+    obtain ⟨⟨hpty, hpbody⟩, hpcod⟩ := hp
+    simp only [interpExpr]
+    cases hc : m.cod with
+    | none => rfl
+    | some v =>
+      simp only []
+      rw [interp_params_ext hcp hφ ty d ρ hpty]
+      cases hty : interpExpr V cval env φ₂ d ρ ty with
+      | none => rfl
+      | some A =>
+        simp only [Option.some.injEq]
+        rw [Level.eval_ext (by simpa [hc] using hpcod) hφ]
+        congr 1
+        funext x
+        rw [interp_params_ext hcp hφ (body.instantiate1 (.fvar d n ty)) (d + 1)
+          (updV V ρ d x) (allLevelParamsDefined_instantiate1 hpty 0 hpbody)]
+  | .app f a, d, ρ, hp => by
+    simp only [allLevelParamsDefined, Bool.and_eq_true] at hp
+    simp only [interpExpr]
+    rw [interp_params_ext hcp hφ f d ρ hp.1, interp_params_ext hcp hφ a d ρ hp.2]
   | .bvar _, _, _, _ => by simp [interpExpr]
-  | .app _ _, _, _, _ => by simp [interpExpr]
-  | .lam _ _ _ _, _, _, _ => by simp [interpExpr]
   | .letE _ _ _ _, _, _, _ => by simp [interpExpr]
   | .lit _, _, _, _ => by simp [interpExpr]
   | .proj _ _ _, _, _, _ => by simp [interpExpr]
 termination_by e => e.sizeB
 decreasing_by
-  · simp [Expr.sizeB]; omega
-  · rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega
+  all_goals first
+  | (simp [Expr.sizeB]; omega)
+  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
 
 /-- The interpretation is stable under a fresh environment extension. -/
 theorem interp_mono {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none) :
@@ -302,16 +388,35 @@ theorem interp_mono {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none) 
         funext x
         rw [interp_mono hfresh (body.instantiate1 (.fvar d n ty)) (d + 1)
           (updV V ρ d x) (constsResolve_instantiate1 hres.1 0 hres.2)]
+  | .lam n ty body m, d, ρ, hres => by
+    simp only [constsResolve, Bool.and_eq_true] at hres
+    simp only [interpExpr]
+    cases m.cod with
+    | none => rfl
+    | some v =>
+      simp only []
+      rw [interp_mono hfresh ty d ρ hres.1]
+      cases hty : interpExpr V cval env φ d ρ ty with
+      | none => rfl
+      | some A =>
+        simp only [Option.some.injEq]
+        congr 1
+        funext x
+        rw [interp_mono hfresh (body.instantiate1 (.fvar d n ty)) (d + 1)
+          (updV V ρ d x) (constsResolve_instantiate1 hres.1 0 hres.2)]
+  | .app f a, d, ρ, hres => by
+    simp only [constsResolve, Bool.and_eq_true] at hres
+    simp only [interpExpr]
+    rw [interp_mono hfresh f d ρ hres.1, interp_mono hfresh a d ρ hres.2]
   | .bvar _, _, _, _ => by simp [interpExpr]
-  | .app _ _, _, _, _ => by simp [interpExpr]
-  | .lam _ _ _ _, _, _, _ => by simp [interpExpr]
   | .letE _ _ _ _, _, _, _ => by simp [interpExpr]
   | .lit _, _, _, _ => by simp [interpExpr]
   | .proj _ _ _, _, _, _ => by simp [interpExpr]
 termination_by e => e.sizeB
 decreasing_by
-  · simp [Expr.sizeB]; omega
-  · rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega
+  all_goals first
+  | (simp [Expr.sizeB]; omega)
+  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
 
 theorem interpClosed_mono {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none)
     {e : Expr} (hres : e.constsResolve env = true) :
@@ -349,15 +454,31 @@ theorem interp_cval_ext {cval₁ cval₂ : ConstVal V}
         congr 1
         funext x
         rw [interp_cval_ext hagree (body.instantiate1 (.fvar d n ty)) (d + 1) (updV V ρ d x)]
+  | .lam n ty body m, d, ρ => by
+    simp only [interpExpr]
+    cases m.cod with
+    | none => rfl
+    | some v =>
+      simp only []
+      rw [interp_cval_ext hagree ty d ρ]
+      cases hty : interpExpr V cval₂ env φ d ρ ty with
+      | none => rfl
+      | some A =>
+        simp only [Option.some.injEq]
+        congr 1
+        funext x
+        rw [interp_cval_ext hagree (body.instantiate1 (.fvar d n ty)) (d + 1) (updV V ρ d x)]
+  | .app f a, d, ρ => by
+    simp only [interpExpr]
+    rw [interp_cval_ext hagree f d ρ, interp_cval_ext hagree a d ρ]
   | .bvar _, _, _ => by simp [interpExpr]
-  | .app _ _, _, _ => by simp [interpExpr]
-  | .lam _ _ _ _, _, _ => by simp [interpExpr]
   | .letE _ _ _ _, _, _ => by simp [interpExpr]
   | .lit _, _, _ => by simp [interpExpr]
   | .proj _ _ _, _, _ => by simp [interpExpr]
 termination_by e => e.sizeB
 decreasing_by
-  · simp [Expr.sizeB]; omega
-  · rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega
+  all_goals first
+  | (simp [Expr.sizeB]; omega)
+  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
 
 end Setlec

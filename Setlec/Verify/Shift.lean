@@ -184,6 +184,48 @@ theorem WScoped.of_not_hasFvar : ∀ {e : Expr} {d : Nat}, e.hasFvar = false →
   intro e
   induction e <;> intro d h <;> simp_all [Expr.hasFvar, WScoped]
 
+/-- Instantiation with an arbitrary well-scoped term (e.g. a beta redex's
+argument) preserves well-scopedness. -/
+theorem WScoped.instantiate1_gen {d : Nat} {v : Expr} (hv : WScoped d v) :
+    ∀ {e : Expr} (k : Nat), WScoped d e → WScoped d (e.instantiate1 v k) := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k _
+    simp only [Expr.instantiate1]
+    split
+    · exact hv
+    · split <;> simp [WScoped]
+  | fvar idx n' ty' _ =>
+    intro k hw
+    simpa [Expr.instantiate1, WScoped] using hw
+  | app f a ihf iha =>
+    intro k hw
+    simp only [WScoped] at hw
+    simp only [Expr.instantiate1, WScoped]
+    exact ⟨ihf _ hw.1, iha _ hw.2⟩
+  | lam n' ty' body bi ihty ihbody =>
+    intro k hw
+    simp only [WScoped] at hw
+    simp only [Expr.instantiate1, WScoped]
+    exact ⟨ihty _ hw.1, ihbody _ hw.2⟩
+  | forallE n' ty' body bi ihty ihbody =>
+    intro k hw
+    simp only [WScoped] at hw
+    simp only [Expr.instantiate1, WScoped]
+    exact ⟨ihty _ hw.1, ihbody _ hw.2⟩
+  | letE n' ty' val body ihty ihval ihbody =>
+    intro k hw
+    simp only [WScoped] at hw
+    simp only [Expr.instantiate1, WScoped]
+    exact ⟨ihty _ hw.1, ihval _ hw.2.1, ihbody _ hw.2.2⟩
+  | proj s i e ih =>
+    intro k hw
+    simp only [WScoped] at hw
+    simp only [Expr.instantiate1, WScoped]
+    exact ih _ hw
+  | _ => intro k hw; simp [Expr.instantiate1, WScoped]
+
 /-- Shifting commutes with instantiation by an `fvar` at the shifted
 index: opening at `d` then shifting from `p ≤ d` equals shifting the body
 first and opening at `d + 1` with the shifted annotation. -/

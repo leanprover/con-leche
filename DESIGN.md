@@ -316,6 +316,57 @@ Plan for item 2 (worked out 2026-08-19, after the refactor):
   (scoped-term generalization of `interp_closed_invariant`).  Beta/whnf
   soundness and the dependent application rule reduce to it.
 
+### Beta soundness without subject reduction (worked out 2026-08-19)
+
+`whnf`-beta (`app (lam n ty body ⟨…,v⟩) a ↦ body.instantiate1 a`) is
+sound in the model only via `SetTheory.app_lam`, whose key premise is
+`⟦a⟧ ∈ ⟦ty⟧` — the argument lives in *the λ's own* domain.  A typing
+derivation would hand this over (that's how thesis-style models get it);
+an invariant on raw terms has to carry it through arbitrary reductions
+and substitutions.  Analysis of the design space:
+
+* For `Prop`-valued functions the interpretation collapses to a point
+  (impredicativity forces this — proof-relevant impredicative Prop has no
+  set model), so **no semantic invariant can recover the domain of a
+  proof-λ**.  Any route that beta-reduces proof-redexes needs syntactic
+  subject-reduction metatheory (checker-run commutation with
+  substitution) — exactly what the annotation design exists to avoid.
+* Consequently `whnf` **does not beta-reduce proof-redexes**: beta fires
+  only when the λ's stored codomain sort is *certainly* nonzero
+  (`Level.isNonZero`, sound under every level assignment).  Real kernels
+  do reduce them but compensate with proof irrelevance in defeq; we will
+  add proof irrelevance (a completeness feature) separately.
+* For non-Prop redexes a **semantic-only app clause in `AnnotOk`**
+  suffices: `∃ vE A B, ⟦f⟧ ∈ pi vE A B ∧ ⟦a⟧ ∈ A ∧ ∀ x ∈ A, B x ∈ univ
+  vE` (plus definedness).  Established by `annotate` running the full
+  application rule (infer `f`, whnf to `Π`, defeq-check the argument) —
+  `annotate` remains the one place where typing is *checked*; the clause
+  transports purely semantically (no checker runs inside the invariant).
+* Connecting the clause's `pi`-membership to the λ that `f` reduces to
+  uses new (realizable) `SetTheory` axioms about the **tagged proof
+  point** `pt := {∅}` — a set that is never a function graph:
+  `mem_pi_zero : f ∈ pi 0 A B → f = pt`, `lam_ne_pt : v ≠ 0 → lam v A F
+  ≠ pt`, `lam_dom : lam v' A F ∈ pi v A' B → v ≠ 0 → v' ≠ 0 → A' ⊆ A`
+  (graphs determine their domains), `mem_univ_zero : T ∈ univ 0 → x ∈ T
+  → x = pt`.  The mismatched-level "junk" cases (`vE = 0` but the λ
+  type-valued, or vice versa) are then *vacuous by contradiction* instead
+  of needing typing: a genuine graph is never `pt`.  (Realization: `app f
+  a := if f = pt then pt else ⋃ {y | ⟨a,y⟩ ∈ f}`; `lam 0 A F := pt`;
+  truth values are subsets of `{pt}`.)
+* `inferType`'s app rule keeps the runtime defeq check (`ta ≟ domain`)
+  and its soundness needs **no clause at all**: IH gives `⟦f⟧ ∈ ⟦tf⟧` and
+  `⟦a⟧ ∈ ⟦ta⟧`, `whnf_sound` turns `⟦tf⟧` into a canonical `pi`,
+  `isDefEq_sound` identifies `⟦ta⟧` with the domain, `app_mem` closes.
+  This is *why* kernels have that check.
+* The λ-rule's `abstract1` roundtrip needs `inferType` outputs to be
+  bvar-closed and fvar-consistent; both are leaf-closure conditions
+  (`∀ l ∈ fvarLeaves`, …) so the output-⊆-input leaf lemma for
+  `whnf`/`inferType` transports them for free.
+* Deleted rather than ported: `Verify/InferShift.lean` and the
+  instLevels/mono/constsResolve/allLevelParams lemma family for
+  `inferType` — they were only needed when the interpretation re-ran
+  inference; nothing imports them anymore.
+
 Order of work:
 1. ~~Refactor: annotation pass, structural `interpExpr`, `AnnotOk`~~ DONE.
 2. Lambdas, application, beta, congruence defeq (`abstract1` for

@@ -134,6 +134,16 @@ def isEquivList : List Level → List Level → Option Bool
 incomplete zero test; matches what the checker needs.) -/
 def isZero (l : Level) : Bool := simplify l = .zero
 
+/-- Certainly nonzero under *every* level assignment (`succ`-headed
+somewhere along every `max`, and along the `imax` right spine).
+Conservative: `false` does not mean "can be zero". -/
+def isNonZero : Level → Bool
+  | .zero => false
+  | .succ _ => true
+  | .max a b => a.isNonZero || b.isNonZero
+  | .imax _ b => b.isNonZero
+  | .param _ => false
+
 end Setlec.Level
 
 namespace Setlec

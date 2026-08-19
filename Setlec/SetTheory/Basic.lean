@@ -58,6 +58,52 @@ class SetTheory (V : Type u) where
   /-- `pi` only depends on the fibre family's values on `A`. -/
   pi_congr : ∀ {v : Nat} {A : V} {B B' : V → V},
     (∀ x, Mem x A → B x = B' x) → pi v A B = pi v A B'
+  /-- Set-theoretic function abstraction over `A`, at codomain sort `v`:
+  for `v > 0` the function graph `{⟨x, F x⟩ : x ∈ A}`, for `v = 0` the
+  proof point `•` (proofs are degenerate). -/
+  lam : Nat → V → (V → V) → V
+  /-- Set-theoretic application: `⋃ {y : ⟨a, y⟩ ∈ f}` — on graphs the
+  value, on the proof point again the proof point. -/
+  app : V → V → V
+  /-- `lam` only depends on the function's values on `A`. -/
+  lam_congr : ∀ {v : Nat} {A : V} {F F' : V → V},
+    (∀ x, Mem x A → F x = F' x) → lam v A F = lam v A F'
+  /-- Introduction: a function with fibre-wise members abstracts into the
+  dependent product.  (No fibre-universe premise: for `v = 0` the premise
+  itself witnesses every fibre inhabited.) -/
+  lam_mem : ∀ {v : Nat} {A : V} {F B : V → V},
+    (∀ x, Mem x A → Mem (F x) (B x)) → Mem (lam v A F) (pi v A B)
+  /-- Elimination: application stays in the fibre.  The fibre-universe
+  premise makes the `v = 0` case realizable (fibres are then truth
+  values, so the inhabited fibre is the singleton of `•`). -/
+  app_mem : ∀ {v : Nat} {A f a : V} {B : V → V},
+    Mem f (pi v A B) → Mem a A → (∀ x, Mem x A → Mem (B x) (univ v)) →
+    Mem (app f a) (B a)
+  /-- Beta: conditional on membership, as set-theoretic functions have set
+  domains. -/
+  app_lam : ∀ {v : Nat} {A a : V} {F B : V → V},
+    Mem a A → (∀ x, Mem x A → Mem (F x) (B x)) →
+    (∀ x, Mem x A → Mem (B x) (univ v)) →
+    app (lam v A F) a = F a
+  /-- The *tagged proof point* `pt := {∅}`: the canonical inhabitant of
+  every true proposition.  Chosen to never be a function graph (a graph's
+  elements are Kuratowski pairs, which are nonempty, so `{∅}` is not a
+  set of pairs) — this tag is what lets beta soundness rule out
+  Prop/Type mismatches by contradiction instead of by typing metatheory
+  (see DESIGN.md). -/
+  pt : V
+  /-- Propositions have at most the proof point as element. -/
+  mem_univ_zero : ∀ {T x : V}, Mem T (univ 0) → Mem x T → x = pt
+  /-- Inhabitants of Prop-valued `pi`s are the proof point (`pi 0 A B` is
+  a truth value, i.e. a subset of `{pt}`). -/
+  mem_pi_zero : ∀ {A f : V} {B : V → V}, Mem f (pi 0 A B) → f = pt
+  /-- Type-valued functions are graphs, never the proof point. -/
+  lam_ne_pt : ∀ {v : Nat} {A : V} {F : V → V}, v ≠ 0 → lam v A F ≠ pt
+  /-- Graphs determine their domains: membership in a type-valued `pi`
+  pins the abstraction's domain. -/
+  lam_dom : ∀ {v' v : Nat} {A A' : V} {F : V → V} {B : V → V},
+    Mem (lam v' A F) (pi v A' B) → v ≠ 0 → v' ≠ 0 →
+    ∀ x, Mem x A' → Mem x A
 
 namespace SetTheory
 
