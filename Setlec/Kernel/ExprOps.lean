@@ -160,4 +160,18 @@ def renameConsts (f : Name → Name) : Expr → Expr
   | .lit l => .lit l
   | .proj s i e => .proj (f s) i (renameConsts f e)
 
+/-- Strip `k` leading lambdas: the binder list (outermost first) and
+the body. -/
+def stripLams : Nat → Expr → Option (List (Name × Expr × BinderMeta) × Expr)
+  | 0, e => some ([], e)
+  | k + 1, .lam n ty b m =>
+    (stripLams k b).map fun (bs, e) => ((n, ty, m) :: bs, e)
+  | _ + 1, _ => none
+
+/-- The result sort at the end of a `∀`-telescope. -/
+def resultSort : Expr → Option Level
+  | .forallE _ _ b _ => resultSort b
+  | .sort u => some u
+  | _ => none
+
 end Setlec.Expr
