@@ -179,7 +179,7 @@ private theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
       -- identify the unit type through the pinned recursor
       obtain ⟨hpr, -⟩ := m.ind_ok.right.right.right.left _ _ hfr rfl hgu
       have hcn : c = punitName := by
-        rcases pinnedInfo_recInfo_cases hpr.symm with hc | hc | hc | hc
+        rcases pinnedInfo_recInfo_cases hpr.symm with hc | hc | hc | hc | hc
         · rw [hc] at hpr
           exact nomatch (congrArg ConstantInfo.recNi hpr)
         · rw [hc] at hpr
@@ -192,6 +192,9 @@ private theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
           rw [hrf] at h2
           exact nomatch h2
         · injection hc
+        · rw [hc] at hpr
+          exact nomatch
+            (congrArg (fun ci => (ConstantInfo.recRules ci).length) hpr)
       subst hcn
       obtain ⟨-, hval⟩ := m.ind_ok.right.right.right.left _ _ hfind rfl hgi
       rw [hTxi] at hiw
@@ -260,7 +263,7 @@ private theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
   subst hcn
   obtain ⟨hpr, -⟩ := m.ind_ok.right.right.right.left _ _ hfr rfl hgr
   have hcn' : c' = psigmaName := by
-    rcases pinnedInfo_recInfo_cases hpr.symm with hc' | hc' | hc' | hc'
+    rcases pinnedInfo_recInfo_cases hpr.symm with hc' | hc' | hc' | hc' | hc'
     · rw [hc'] at hpr
       exact nomatch (congrArg ConstantInfo.recNi hpr)
     · rw [hc'] at hpr
@@ -273,6 +276,9 @@ private theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
           ((ConstantInfo.recRules ci).getD 0 default).ctor) hpr
       rw [hrc] at hr
       exact absurd hr (by decide)
+    · rw [hc'] at hpr
+      exact nomatch
+        (congrArg (fun ci => (ConstantInfo.recRules ci).length) hpr)
   subst hcn'
   -- b's type reduces to the pair type; extract the sigma facts
   obtain ⟨⟨vb', vtb, hbi, htbi, hmemb⟩, hAtb⟩ := ihi htb hwb hbb hLbb hokb hab

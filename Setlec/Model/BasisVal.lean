@@ -120,6 +120,12 @@ noncomputable def natRecVal (ψ : Name → Nat) : V :=
           fun s =>
         SetTheory.lam u omega fun t => natrec z s t
 
+/-- The value of `Empty.rec` (a function out of the empty set). -/
+noncomputable def emptyRecVal (ψ : Name → Nat) : V :=
+  SetTheory.lam (if ψ uN = 0 then 0 else Nat.max 1 (ψ uN))
+    (pi (ψ uN + 1) SetTheory.empty fun _ => univ (ψ uN)) fun _M =>
+    SetTheory.lam (ψ uN) SetTheory.empty fun _t => pt
+
 /-- The value of one basis constant (`empty` for non-basis names). -/
 noncomputable def pinnedVal (n : Name) (ψ : Name → Nat) : V :=
   if n = eqName then eqVal V ψ
@@ -135,6 +141,8 @@ noncomputable def pinnedVal (n : Name) (ψ : Name → Nat) : V :=
   else if n = punitName then unitSet
   else if n = punitUnitName then pt
   else if n = punitName.str "rec" then punitRecVal V ψ
+  else if n = emptyName then SetTheory.empty
+  else if n = emptyName.str "rec" then emptyRecVal V ψ
   else empty
 
 /-- The pinned (annotated) declaration of one basis constant. -/
@@ -152,6 +160,8 @@ def pinnedInfo (n : Name) : ConstantInfo :=
   else if n = punitName then punitA
   else if n = punitUnitName then punitUnitA
   else if n = punitName.str "rec" then punitRecA
+  else if n = emptyName then emptyA
+  else if n = emptyName.str "rec" then emptyRecA
   else .axiomInfo ⟨n, [], .sort .zero⟩
 
 /-- Is this constant-info one of the basis kinds? -/
@@ -204,6 +214,12 @@ theorem pinnedInfo_ctorInfo_cases {n : Name} {cv : ConstantVal} {nP nF : Nat}
   by_cases h13 : n = punitName.str "rec"
   · rw [if_pos h13] at h; exact nomatch h
   rw [if_neg h13] at h
+  by_cases h14 : n = emptyName
+  · rw [if_pos h14] at h; exact nomatch h
+  rw [if_neg h14] at h
+  by_cases h15 : n = emptyName.str "rec"
+  · rw [if_pos h15] at h; exact nomatch h
+  rw [if_neg h15] at h
   exact nomatch h
 
 /-- Which names carry recursor-shaped pinned declarations. -/
@@ -211,7 +227,8 @@ theorem pinnedInfo_recInfo_cases {n : Name} {cv : ConstantVal}
     {nP nM nm ni : Nat} {rules : List RecRule}
     (h : pinnedInfo n = .recInfo cv nP nM nm ni rules) :
     n = eqName.str "rec" ∨ n = natName.str "rec" ∨
-    n = psigmaName.str "rec" ∨ n = punitName.str "rec" := by
+    n = psigmaName.str "rec" ∨ n = punitName.str "rec" ∨
+    n = emptyName.str "rec" := by
   delta pinnedInfo at h
   by_cases h1 : n = eqName
   · rw [if_pos h1] at h; exact nomatch h
@@ -250,8 +267,14 @@ theorem pinnedInfo_recInfo_cases {n : Name} {cv : ConstantVal}
   · rw [if_pos h12] at h; exact nomatch h
   rw [if_neg h12] at h
   by_cases h13 : n = punitName.str "rec"
-  · exact Or.inr (Or.inr (Or.inr h13))
+  · exact Or.inr (Or.inr (Or.inr (Or.inl h13)))
   rw [if_neg h13] at h
+  by_cases h14 : n = emptyName
+  · rw [if_pos h14] at h; exact nomatch h
+  rw [if_neg h14] at h
+  by_cases h15 : n = emptyName.str "rec"
+  · exact Or.inr (Or.inr (Or.inr (Or.inr h15)))
+  rw [if_neg h15] at h
   exact nomatch h
 
 end Setlec

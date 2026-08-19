@@ -33,7 +33,7 @@ structure RecRule where
 /-- The trusted basis inductives (hand-written set models; everything
 else is reduced to these by the lean-inductive-models preprocessor). -/
 inductive BasisKind where
-  | eqK | natK | psigmaK | punitK
+  | eqK | natK | psigmaK | punitK | emptyK
   deriving DecidableEq, Repr, Inhabited
 
 /-- A declaration presented to the checker. -/

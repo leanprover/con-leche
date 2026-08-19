@@ -36,6 +36,8 @@ class SetTheory (V : Type u) where
   /-- Each sort is an element of the next one: `⟦Sort n⟧ ∈ ⟦Sort (n+1)⟧`,
   the model-side counterpart of `Sort n : Sort (n+1)`. -/
   univ_mem_univ : ∀ n, Mem (univ n) (univ (n + 1))
+  /-- The empty set inhabits every universe. -/
+  empty_mem_univ : ∀ u, Mem empty (univ u)
   /-- The dependent product over `A` with fibre family `B`, where `v` is the
   (evaluated) sort level of the codomain.  Following the standard model
   (Carneiro, *The Type Theory of Lean*, §6.2), the interpretation splits on

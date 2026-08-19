@@ -256,6 +256,8 @@ private def processLine (st : State) (j : Json) : M (State ⊕ String) := do
       return .inl { st with decls := st.decls.push (.basisDecl .psigmaK) }
     else if blockC = BasisKind.punitK.decls.map ConstantInfo.canon then
       return .inl { st with decls := st.decls.push (.basisDecl .punitK) }
+    else if blockC = BasisKind.emptyK.decls.map ConstantInfo.canon then
+      return .inl { st with decls := st.decls.push (.basisDecl .emptyK) }
     else
       -- alias every member to its `_model` counterpart
       let mut ds := st.decls
