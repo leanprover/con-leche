@@ -273,4 +273,113 @@ theorem TeleFitI.toTeleFit {d : Nat} {ρ : Nat → V} :
       (stripPis_instantiate1_isSome args.length 0 harity')
     exact ⟨d2, ρ2, rest3, TeleFit.cons hity hx hfit'⟩
 
+/-- Values fitting a λ-tower along an expression spine (mirror of
+`TeleFitI` on the term side); the last index is the fully
+instantiated body. -/
+inductive TeleFitLam (cval : ConstVal V) (env : Env) (φ : Name → Nat)
+    (d : Nat) (ρ : Nat → V) : Expr → List Expr → List V → Expr → Prop
+  | nil {e} : TeleFitLam cval env φ d ρ e [] [] e
+  | cons {n ty body m arg args x xs A rest} :
+      interpExpr V cval env φ d ρ ty = some A →
+      interpExpr V cval env φ d ρ arg = some x →
+      x ∈ˢ A →
+      Expr.fvarsBelow d body →
+      WScoped d arg →
+      arg.looseBVarsBounded 0 = true →
+      AnnotOk V cval env φ d ρ arg →
+      TeleFitLam cval env φ d ρ (body.instantiate1 arg) args xs rest →
+      TeleFitLam cval env φ d ρ (.lam n ty body m) (arg :: args) (x :: xs)
+        rest
+
+/-- A type-telescope fit transfers to a λ-tower with the same binder
+domains: the walks instantiate the same arguments into syntactically
+equal domains. -/
+theorem TeleFitI.toLam :
+    ∀ {args : List Expr} {ty e : Expr} {vs : List V} {restT : Expr},
+      TeleFitI V cval env φ d ρ ty args vs restT →
+      Expr.LamPiDomsEq args.length e ty →
+      Expr.fvarsBelow d e →
+      ∃ restE, TeleFitLam cval env φ d ρ e args vs restE
+  | [], ty, e, vs, restT, hfit, hdoms, hfbe => by
+    generalize ty = t at hfit
+    cases hfit with
+    | nil => exact ⟨e, TeleFitLam.nil⟩
+  | arg :: args, ty, e, vs, restT, hfit, hdoms, hfbe => by
+    obtain ⟨n₁, d₁, b₁, m₁, n₂, d₂, b₂, m₂, rfl, rfl⟩ :
+        ∃ n₁ d₁ b₁ m₁ n₂ d₂ b₂ m₂, e = .lam n₁ d₁ b₁ m₁ ∧
+          ty = .forallE n₂ d₂ b₂ m₂ := by
+      match e, ty, hdoms with
+      | .lam n₁ d₁ b₁ m₁, .forallE n₂ d₂ b₂ m₂, _ =>
+        exact ⟨n₁, d₁, b₁, m₁, n₂, d₂, b₂, m₂, rfl, rfl⟩
+    obtain ⟨hdeq, hdoms'⟩ : d₁ = d₂ ∧ Expr.LamPiDomsEq args.length b₁ b₂ := by
+      simpa [Expr.LamPiDomsEq] using hdoms
+    subst hdeq
+    have hfbe' : Expr.fvarsBelow d d₁ ∧ Expr.fvarsBelow d b₁ := by
+      simpa [Expr.fvarsBelow] using hfbe
+    cases hfit with
+    | @cons _ _ _ _ _ _ x xs A rest hity hiarg hx hfbI hwarg hbarg hAarg
+        hsub =>
+    obtain ⟨restE, hfitE⟩ := TeleFitI.toLam hsub
+      (Expr.LamPiDomsEq.instantiate1 args.length 0 hdoms')
+      (fvarsBelow_instantiate1_gen hwarg.fvarsBelow 0 hfbe'.2)
+    exact ⟨restE, TeleFitLam.cons hity hiarg hx hfbe'.2 hwarg hbarg hAarg
+      hfitE⟩
+
+/-- Folding an interpreted λ-tower over a fitting expression spine:
+the result is the interpretation of the fully instantiated body, and
+every application stays inside a certified slot.  `app_lam` is
+unconditional, so the Prop collapse needs no special treatment. -/
+theorem TeleFitLam.fold :
+    ∀ {e restE : Expr} {args : List Expr} {vs : List V},
+      TeleFitLam cval env φ d ρ e args vs restE →
+      AnnotOk V cval env φ d ρ e →
+      ∀ {L : V}, interpExpr V cval env φ d ρ e = some L →
+      ∃ B, interpExpr V cval env φ d ρ restE = some B ∧
+        SpineFold V L vs = B ∧ ChainSlots V L vs := by
+  intro e restE args vs ht
+  induction ht with
+  | nil =>
+    intro hA L hi
+    exact ⟨L, hi, rfl, trivial⟩
+  | @cons n ty body m arg args x xs A rest hity hiarg hx hfb hwa hba hAa
+      ht ih =>
+    intro hA L hi
+    simp only [AnnotOk] at hA
+    obtain ⟨hAty, ⟨cod, hcod⟩, hcond⟩ := hA
+    rw [interpExpr, hcod, hity] at hi
+    dsimp only at hi
+    obtain rfl := Option.some.inj hi
+    obtain ⟨hbodyA, hwfact⟩ := hcond x A hity hx
+    obtain ⟨w, B0, hwi, hwB0, hB0u⟩ := hwfact cod hcod
+    -- functional fibres for the beta step and the slot
+    have hfibres : ∀ y, y ∈ˢ A → ∃ B, ((interpExpr V cval env φ (d + 1)
+        (updV V ρ d y) (body.instantiate1 (.fvar d n ty))).getD
+          SetTheory.empty) ∈ˢ B ∧ B ∈ˢ univ (cod.eval φ) := by
+      intro y hy
+      obtain ⟨-, hwfact2⟩ := hcond y A hity hy
+      obtain ⟨w2, B2, hw2, hwB2, hB2u⟩ := hwfact2 cod hcod
+      rw [hw2]
+      exact ⟨B2, hwB2, hB2u⟩
+    obtain ⟨Bf, hBf1, hBf2⟩ := choose_fibres hfibres
+    have happlam : SetTheory.app
+        (lam (cod.eval φ) A fun y => (interpExpr V cval env φ (d + 1)
+          (updV V ρ d y) (body.instantiate1 (.fvar d n ty))).getD
+            SetTheory.empty) x =
+        (interpExpr V cval env φ (d + 1) (updV V ρ d x)
+          (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty :=
+      app_lam hx hBf1 hBf2
+    have hsubi : interpExpr V cval env φ d ρ (body.instantiate1 arg) =
+        some w := by
+      rw [interp_beta (n := n) (ty := ty) hfb hwa hba hiarg 0]
+      exact hwi
+    have hsubA : AnnotOk V cval env φ d ρ (body.instantiate1 arg) :=
+      AnnotOk_beta hfb hwa hba hiarg hAa 0 hbodyA
+    obtain ⟨B, hBi, hfold, hchain⟩ := ih hsubA hsubi
+    refine ⟨B, hBi, ?_, ?_⟩
+    · rw [SpineFold_cons, happlam, hwi]
+      simpa using hfold
+    · refine ⟨⟨cod.eval φ, A, Bf, lam_mem hBf1, hx, hBf2⟩, ?_⟩
+      rw [happlam, hwi]
+      simpa using hchain
+
 end Setlec

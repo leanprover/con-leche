@@ -191,6 +191,27 @@ theorem ErasedEq.instantiate1 :
     | .proj sn' i' pe', he =>
       exact ⟨he.1, he.2.1, ih he.2.2 hv⟩
 
+/-- The first `k` binder domains of a λ-tower and a `∀`-telescope agree
+syntactically. -/
+def LamPiDomsEq : Nat → Expr → Expr → Prop
+  | 0, _, _ => True
+  | k + 1, .lam _ d₁ b₁ _, .forallE _ d₂ b₂ _ => d₁ = d₂ ∧ LamPiDomsEq k b₁ b₂
+  | _ + 1, _, _ => False
+
+/-- Domain agreement survives instantiation (same argument on both
+sides). -/
+theorem LamPiDomsEq.instantiate1 {v : Expr} :
+    ∀ (k : Nat) {e₁ e₂ : Expr} (j : Nat), LamPiDomsEq k e₁ e₂ →
+      LamPiDomsEq k (e₁.instantiate1 v j) (e₂.instantiate1 v j) := by
+  intro k
+  induction k with
+  | zero => intro e₁ e₂ j _; trivial
+  | succ k ih =>
+    intro e₁ e₂ j h
+    match e₁, e₂, h with
+    | .lam n₁ d₁ b₁ m₁, .forallE n₂ d₂ b₂ m₂, h =>
+      exact ⟨by rw [h.1], ih (j + 1) h.2⟩
+
 /-- Instantiating with a bounded term keeps loose-bvar bounds. -/
 theorem looseBVarsBounded_instantiate1_gen {a : Expr}
     (hba : a.looseBVarsBounded 0 = true) :
