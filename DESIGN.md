@@ -149,9 +149,12 @@ constructions.
 
 ## Current state
 
-Supported fragment: **`def` declarations over sorts, dependent function
-types, and constants with delta unfolding** (12/92 good arena tutorial
-tests accepted, including impredicative `∀ (p : Prop), p`; type-mismatch,
+Supported fragment: **`def`/`thm` declarations over sorts, dependent
+function types, lambdas/apps with certified beta, lets (zeta-expanded in
+the frontend), constants with delta unfolding, the `PUnit` and `Eq`
+basis blocks with verified set models, `PSigma'.mk` projections, and
+proof irrelevance** (37/92 good arena tutorial tests accepted; the only
+good tests still rejected are the four eta-conversion ones; type-mismatch,
 duplicate-name, duplicate/undeclared level parameters, stray free
 variables, and unknown constants rejected).  `whnf` is fueled and
 delta-unfolds definitions eagerly for now (the lazy strategy of real
@@ -399,3 +402,24 @@ Order of work:
 4. Axioms (only the three standard ones; models for them come with the
    `Eq`/`Quot` machinery), 011.
 5. Inductives via lean-inductive-models preprocessor (034 ff.).
+
+### Proof irrelevance (2026-08-19)
+
+`isDefEq` implements proof irrelevance by *certification*, like beta and
+proj: on any structural-comparison failure (mismatched stuck heads,
+distinct fvars/consts, failed app congruence) it runs `proofIrrel a b`,
+which checks that both sides' types' *sorts* are `Prop`
+(`inferType (inferType x)` whnfs to `.sort u` with `u ≡ 0`).  Soundness
+needs *no common-type check*: in the model everything inhabiting a
+proposition is the tagged proof point `pt` (`sortCert_pt` twice), so the
+interpretations are equal outright.  This is what lets the
+lean-inductive-models `_model` encodings of `Prop` inductives (`And`,
+`Exists`, …) typecheck: their recursors re-build the scrutinee from its
+projections, which only proof irrelevance can equate with the original.
+
+The frontend matches incoming inductive blocks against the pinned basis
+blocks *up to binder names and positional level-parameter renaming*
+(`ConstantInfo.canon`): Lean's exports use auto-bound universe names
+(`Eq.{u_1}`, `Eq.rec.{u, u_1}`) and hygienic binder names, both
+semantically irrelevant; the checker installs the pinned (annotated)
+declarations.

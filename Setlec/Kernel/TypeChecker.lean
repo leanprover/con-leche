@@ -237,10 +237,15 @@ def isDefEqCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr �
   | fuel + 1, depth, a, b => do
     match ← whnfCore env fuel depth a, ← whnfCore env fuel depth b with
     | .sort u, .sort v => liftFueled "level comparison" (Level.isEquiv u v)
-    | .fvar i _ _, .fvar j _ _ => pure (i == j)
+    | .fvar i n₁ ty₁, .fvar j n₂ ty₂ =>
+      if i == j then pure true
+      else proofIrrel env fuel depth (.fvar i n₁ ty₁) (.fvar j n₂ ty₂)
     | .const n us, .const n' us' =>
-      if n = n' then liftFueled "level comparison" (Level.isEquivList us us')
-      else pure false
+      if n = n' then
+        if ← liftFueled "level comparison" (Level.isEquivList us us') then
+          pure true
+        else proofIrrel env fuel depth (.const n us) (.const n' us')
+      else proofIrrel env fuel depth (.const n us) (.const n' us')
     | .forallE n₁ ty₁ body₁ m₁, .forallE n₂ ty₂ body₂ m₂ => do
       unless ← isDefEqCore env fuel depth ty₁ ty₂ do return false
       let b₁ := body₁.instantiate1 (.fvar depth n₁ ty₁)
@@ -261,14 +266,39 @@ def isDefEqCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr �
       | some v₁, some v₂ => liftFueled "level comparison" (Level.isEquiv v₁ v₂)
       | _, _ => throw (.internal "unannotated λ-binder reached isDefEq")
     | .app f₁ a₁, .app f₂ a₂ => do
-      -- Stuck applications: congruence.  (Eta is not yet handled; a
-      -- `false` answer is always sound.)
-      unless ← isDefEqCore env fuel depth f₁ f₂ do return false
-      isDefEqCore env fuel depth a₁ a₂
-    -- Distinct whnf-stuck head symbols: `false` is always sound, and
-    -- `whnf` has already thrown on unsupported heads, so no unimplemented
-    -- case can hide here.  (Eta-equalities are missed; completeness work.)
-    | _, _ => pure false
+      -- Stuck applications: congruence, else proof irrelevance.
+      -- (Eta is not yet handled; a `false` answer is always sound.)
+      if ← isDefEqCore env fuel depth f₁ f₂ then
+        if ← isDefEqCore env fuel depth a₁ a₂ then
+          pure true
+        else proofIrrel env fuel depth (.app f₁ a₁) (.app f₂ a₂)
+      else proofIrrel env fuel depth (.app f₁ a₁) (.app f₂ a₂)
+    -- Distinct whnf-stuck head symbols: only proof irrelevance can
+    -- equate them; `false` is always sound, and `whnf` has already
+    -- thrown on unsupported heads, so no unimplemented case can hide
+    -- here.  (Eta-equalities are missed; completeness work.)
+    | e₁, e₂ => proofIrrel env fuel depth e₁ e₂
+  termination_by structural fuel _ _ _ => fuel
+
+/-- Proof irrelevance certification: both sides' types' sorts are
+`Prop`.  In the model everything inhabiting a proposition is the proof
+point, so any two such terms are equal — no common-type check is needed
+for soundness. -/
+def proofIrrel (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr →
+    CheckM Bool
+  | 0, _, _, _ => throw (.internal "fuel exhausted: proofIrrel")
+  | fuel + 1, depth, a, b => do
+    let ta ← inferTypeCore env fuel depth a
+    match ← whnfCore env fuel depth (← inferTypeCore env fuel depth ta) with
+    | .sort uT =>
+      let okA ← liftFueled "level comparison" (Level.isEquiv uT .zero)
+      let tb ← inferTypeCore env fuel depth b
+      match ← whnfCore env fuel depth (← inferTypeCore env fuel depth tb) with
+      | .sort vT =>
+        let okB ← liftFueled "level comparison" (Level.isEquiv vT .zero)
+        pure (okA && okB)
+      | _ => pure false
+    | _ => pure false
   termination_by structural fuel _ _ _ => fuel
 
 end

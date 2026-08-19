@@ -140,6 +140,30 @@ private theorem sortCert_pt {m : EnvModel V env} {fuel : Nat}
   have hpt : vx = pt := mem_univ_zero this hmemx
   rw [hxi, hpt]
 
+/-- A successful proof-irrelevance certification collapses both sides
+to the proof point. -/
+private theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
+    (ihw : WhnfClaims m φ fuel) (ihi : InferClaims m φ fuel)
+    {d : Nat} {a b : Expr} {ρ : Nat → V}
+    (h : proofIrrel env (fuel + 1) d a b = .ok true)
+    (hwa : WScoped d a) (hwb : WScoped d b)
+    (hba : a.looseBVarsBounded 0 = true) (hbb : b.looseBVarsBounded 0 = true)
+    (hLba : Expr.LeavesBounded a) (hLbb : Expr.LeavesBounded b)
+    (hoka : FvarsOk V m.val env φ d ρ a) (hokb : FvarsOk V m.val env φ d ρ b)
+    (haa : AnnotOk V m.val env φ d ρ a) (hab : AnnotOk V m.val env φ d ρ b) :
+    interpExpr V m.val env φ d ρ a = some pt ∧
+    interpExpr V m.val env φ d ρ b = some pt := by
+  obtain ⟨ta, sta, uT, tb, stb, vT, hta, hsta, hwta, hequ, htb, hstb, hwtb, heqv⟩ :=
+    proofIrrel_inv h
+  have hu0 : Level.eval φ uT = 0 := by
+    have := Level.isEquiv_sound hequ φ
+    simpa [Level.eval] using this
+  have hv0 : Level.eval φ vT = 0 := by
+    have := Level.isEquiv_sound heqv φ
+    simpa [Level.eval] using this
+  exact ⟨sortCert_pt ihw ihi hta hsta hwta hu0 hwa hba hLba hoka haa,
+    sortCert_pt ihw ihi htb hstb hwtb hv0 hwb hbb hLbb hokb hab⟩
+
 private theorem whnf_claims (m : EnvModel V env)
     (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
     (ihi : InferClaims m φ fuel)
@@ -544,7 +568,9 @@ private theorem whnf_claims (m : EnvModel V env)
 
 private theorem defeq_claims (m : EnvModel V env)
     (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-    (_ihi : InferClaims m φ fuel) :
+    (_ihi : InferClaims m φ fuel)
+    (ihAll : ∀ f, f ≤ fuel →
+      WhnfClaims m φ f ∧ DefEqClaims m φ f ∧ InferClaims m φ f) :
     DefEqClaims m φ (fuel + 1) := by
   intro d a b ρ h hwa hwb hba hbb hLba hLbb hoka hokb haa hab va vb hva hvb
   unfold isDefEqCore at h
@@ -575,6 +601,17 @@ private theorem defeq_claims (m : EnvModel V env)
   have hoka' := whnf_FvarsOk m.wf fuel hwha hoka
   have hokb' := whnf_FvarsOk m.wf fuel hwhb hokb
   clear hwha hwhb hwa hwb haa hab hia hib hba hbb hLba hLbb hoka hokb
+  have hPI : proofIrrel env fuel d a' b' = .ok true → va = vb := by
+    intro hp
+    cases fuel with
+    | zero => exact nomatch hp
+    | succ f =>
+      obtain ⟨ihwL, ihdL, ihiL⟩ := ihAll f (by omega)
+      obtain ⟨hpa, hpb⟩ := proofIrrel_pt ihwL ihiL hp hwa' hwb' hba' hbb'
+        hLba' hLbb' hoka' hokb' haa' hab'
+      rw [hva] at hpa
+      rw [hvb] at hpb
+      exact (Option.some.inj hpa).trans (Option.some.inj hpb).symm
   match a', b', h with
   | Expr.sort u, Expr.sort v, h =>
     dsimp only at h
@@ -588,22 +625,33 @@ private theorem defeq_claims (m : EnvModel V env)
     rw [Level.isEquiv_sound this φ]
   | Expr.fvar i ni tyi, Expr.fvar j nj tyj, h =>
     dsimp only at h
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    have hij : i = j := by simpa using h.symm
-    subst hij
-    simp only [interpExpr, Option.some.injEq] at hva hvb
-    subst hva; subst hvb
-    rfl
+    split at h
+    next hij =>
+      have hij' : i = j := by simpa using hij
+      subst hij'
+      simp only [interpExpr, Option.some.injEq] at hva hvb
+      subst hva; subst hvb
+      rfl
+    next _ => exact hPI h
   | Expr.const n us, Expr.const n' us', h =>
     dsimp only at h
     split at h
-    next hnn =>
+    case _ hnn =>
       subst hnn
-      have hlev : Level.isEquivList us us' = some true := by
-        revert h
-        cases hEq : Level.isEquivList us us' with
-        | none => simp [liftFueled]
-        | some x => cases x <;> simp [liftFueled, pure, Except.pure]
+      try simp only [Bind.bind, Except.bind] at h
+      cases hEq : Level.isEquivList us us' with
+      | none => rw [hEq] at h; simp [liftFueled] at h
+      | some r =>
+      rw [hEq] at h
+      dsimp only [liftFueled] at h
+      try simp only [pure, Except.pure] at h
+      try dsimp only at h
+      cases r with
+      | false =>
+        simp only [Bool.false_eq_true, ↓reduceIte] at h
+        exact hPI h
+      | true =>
+      have hlev : Level.isEquivList us us' = some true := hEq
       simp only [interpExpr] at hva hvb
       cases hf : env.find? n with
       | none => rw [hf] at hva; exact nomatch hva
@@ -621,7 +669,7 @@ private theorem defeq_claims (m : EnvModel V env)
         rw [Level.substFn_congr (Level.isEquivList_sound hlev φ)]
       · rw [if_neg hal] at hva
         exact nomatch hva
-    next hnn => simp [pure, Except.pure] at h
+    case _ hnn => exact hPI h
   | Expr.forallE n₁ ty₁ body₁ m₁, Expr.forallE n₂ ty₂ body₂ m₂, h =>
     dsimp only at h
     simp only [WScoped] at hwa' hwb'
@@ -803,15 +851,28 @@ private theorem defeq_claims (m : EnvModel V env)
     simp only [AnnotOk] at haa' hab'
     obtain ⟨haf₁, haa₁, -⟩ := haa'
     obtain ⟨haf₂, haa₂, -⟩ := hab'
+    try simp only [Bind.bind, Except.bind] at h
     cases hd1 : isDefEqCore env fuel d f₁ f₂ with
     | error e => rw [hd1] at h; exact nomatch h
     | ok r₁ =>
     rw [hd1] at h
     dsimp only at h
     cases r₁ with
-    | false => simp [pure, Except.pure] at h
+    | false =>
+      simp only [Bool.false_eq_true, ↓reduceIte] at h
+      exact hPI h
     | true =>
-    simp only [] at h
+    simp only [↓reduceIte] at h
+    cases hd2 : isDefEqCore env fuel d a₁ a₂ with
+    | error e => rw [hd2] at h; exact nomatch h
+    | ok r₂ =>
+    rw [hd2] at h
+    dsimp only at h
+    cases r₂ with
+    | false =>
+      simp only [Bool.false_eq_true, ↓reduceIte] at h
+      exact hPI h
+    | true =>
     simp only [interpExpr] at hva hvb
     cases hf1 : interpExpr V m.val env φ d ρ f₁ with
     | none => rw [hf1] at hva; exact nomatch hva
@@ -834,46 +895,66 @@ private theorem defeq_claims (m : EnvModel V env)
     have hfe : vf₁ = vf₂ :=
       ihd hd1 hwa'.1 hwb'.1 hba'.1 hbb'.1 hLbf₁ hLbf₂ hokf₁ hokf₂ haf₁ haf₂ hf1 hf2
     have hae : va₁ = va₂ :=
-      ihd h hwa'.2 hwb'.2 hba'.2 hbb'.2 hLba₁ hLba₂ hoka₁ hoka₂ haa₁ haa₂ ha1 ha2
+      ihd hd2 hwa'.2 hwb'.2 hba'.2 hbb'.2 hLba₁ hLba₂ hoka₁ hoka₂ haa₁ haa₂ ha1 ha2
     rw [hfe, hae]
-  | Expr.sort _, Expr.fvar _ _ _, h => simp [pure, Except.pure] at h
-  | Expr.sort _, Expr.forallE _ _ _ _, h => simp [pure, Except.pure] at h
-  | Expr.sort _, Expr.const _ _, h => simp [pure, Except.pure] at h
-  | Expr.sort _, Expr.lam _ _ _ _, h => simp [pure, Except.pure] at h
-  | Expr.sort _, Expr.app _ _, h => simp [pure, Except.pure] at h
-  | Expr.fvar _ _ _, Expr.sort _, h => simp [pure, Except.pure] at h
-  | Expr.fvar _ _ _, Expr.forallE _ _ _ _, h => simp [pure, Except.pure] at h
-  | Expr.fvar _ _ _, Expr.const _ _, h => simp [pure, Except.pure] at h
-  | Expr.fvar _ _ _, Expr.lam _ _ _ _, h => simp [pure, Except.pure] at h
-  | Expr.fvar _ _ _, Expr.app _ _, h => simp [pure, Except.pure] at h
-  | Expr.forallE _ _ _ _, Expr.sort _, h => simp [pure, Except.pure] at h
-  | Expr.forallE _ _ _ _, Expr.fvar _ _ _, h => simp [pure, Except.pure] at h
-  | Expr.forallE _ _ _ _, Expr.const _ _, h => simp [pure, Except.pure] at h
-  | Expr.forallE _ _ _ _, Expr.lam _ _ _ _, h => simp [pure, Except.pure] at h
-  | Expr.forallE _ _ _ _, Expr.app _ _, h => simp [pure, Except.pure] at h
-  | Expr.const _ _, Expr.sort _, h => simp [pure, Except.pure] at h
-  | Expr.const _ _, Expr.fvar _ _ _, h => simp [pure, Except.pure] at h
-  | Expr.const _ _, Expr.forallE _ _ _ _, h => simp [pure, Except.pure] at h
-  | Expr.const _ _, Expr.lam _ _ _ _, h => simp [pure, Except.pure] at h
-  | Expr.const _ _, Expr.app _ _, h => simp [pure, Except.pure] at h
-  | Expr.lam _ _ _ _, Expr.sort _, h => simp [pure, Except.pure] at h
-  | Expr.lam _ _ _ _, Expr.fvar _ _ _, h => simp [pure, Except.pure] at h
-  | Expr.lam _ _ _ _, Expr.forallE _ _ _ _, h => simp [pure, Except.pure] at h
-  | Expr.lam _ _ _ _, Expr.const _ _, h => simp [pure, Except.pure] at h
-  | Expr.lam _ _ _ _, Expr.app _ _, h => simp [pure, Except.pure] at h
-  | Expr.app _ _, Expr.sort _, h => simp [pure, Except.pure] at h
-  | Expr.app _ _, Expr.fvar _ _ _, h => simp [pure, Except.pure] at h
-  | Expr.app _ _, Expr.forallE _ _ _ _, h => simp [pure, Except.pure] at h
-  | Expr.app _ _, Expr.const _ _, h => simp [pure, Except.pure] at h
-  | Expr.app _ _, Expr.lam _ _ _ _, h => simp [pure, Except.pure] at h
-  | Expr.bvar _, _, h => simp [pure, Except.pure] at h
-  | _, Expr.bvar _, h => simp [pure, Except.pure] at h
-  | Expr.letE _ _ _ _, _, h => simp [pure, Except.pure] at h
-  | _, Expr.letE _ _ _ _, h => simp [pure, Except.pure] at h
-  | Expr.lit _, _, h => simp [pure, Except.pure] at h
-  | _, Expr.lit _, h => simp [pure, Except.pure] at h
-  | Expr.proj _ _ _, _, h => simp [pure, Except.pure] at h
-  | _, Expr.proj _ _ _, h => simp [pure, Except.pure] at h
+  | Expr.sort _, Expr.fvar _ _ _, h => exact hPI h
+  | Expr.sort _, Expr.forallE _ _ _ _, h => exact hPI h
+  | Expr.sort _, Expr.const _ _, h => exact hPI h
+  | Expr.sort _, Expr.lam _ _ _ _, h => exact hPI h
+  | Expr.sort _, Expr.app _ _, h => exact hPI h
+  | Expr.fvar _ _ _, Expr.sort _, h => exact hPI h
+  | Expr.fvar _ _ _, Expr.forallE _ _ _ _, h => exact hPI h
+  | Expr.fvar _ _ _, Expr.const _ _, h => exact hPI h
+  | Expr.fvar _ _ _, Expr.lam _ _ _ _, h => exact hPI h
+  | Expr.fvar _ _ _, Expr.app _ _, h => exact hPI h
+  | Expr.forallE _ _ _ _, Expr.sort _, h => exact hPI h
+  | Expr.forallE _ _ _ _, Expr.fvar _ _ _, h => exact hPI h
+  | Expr.forallE _ _ _ _, Expr.const _ _, h => exact hPI h
+  | Expr.forallE _ _ _ _, Expr.lam _ _ _ _, h => exact hPI h
+  | Expr.forallE _ _ _ _, Expr.app _ _, h => exact hPI h
+  | Expr.const _ _, Expr.sort _, h => exact hPI h
+  | Expr.const _ _, Expr.fvar _ _ _, h => exact hPI h
+  | Expr.const _ _, Expr.forallE _ _ _ _, h => exact hPI h
+  | Expr.const _ _, Expr.lam _ _ _ _, h => exact hPI h
+  | Expr.const _ _, Expr.app _ _, h => exact hPI h
+  | Expr.lam _ _ _ _, Expr.sort _, h => exact hPI h
+  | Expr.lam _ _ _ _, Expr.fvar _ _ _, h => exact hPI h
+  | Expr.lam _ _ _ _, Expr.forallE _ _ _ _, h => exact hPI h
+  | Expr.lam _ _ _ _, Expr.const _ _, h => exact hPI h
+  | Expr.lam _ _ _ _, Expr.app _ _, h => exact hPI h
+  | Expr.app _ _, Expr.sort _, h => exact hPI h
+  | Expr.app _ _, Expr.fvar _ _ _, h => exact hPI h
+  | Expr.app _ _, Expr.forallE _ _ _ _, h => exact hPI h
+  | Expr.app _ _, Expr.const _ _, h => exact hPI h
+  | Expr.app _ _, Expr.lam _ _ _ _, h => exact hPI h
+  | Expr.bvar _, _, h => exact hPI h
+  | Expr.sort _, Expr.bvar _, h => exact hPI h
+  | Expr.fvar _ _ _, Expr.bvar _, h => exact hPI h
+  | Expr.const _ _, Expr.bvar _, h => exact hPI h
+  | Expr.forallE _ _ _ _, Expr.bvar _, h => exact hPI h
+  | Expr.lam _ _ _ _, Expr.bvar _, h => exact hPI h
+  | Expr.app _ _, Expr.bvar _, h => exact hPI h
+  | Expr.letE _ _ _ _, _, h => exact hPI h
+  | Expr.sort _, Expr.letE _ _ _ _, h => exact hPI h
+  | Expr.fvar _ _ _, Expr.letE _ _ _ _, h => exact hPI h
+  | Expr.const _ _, Expr.letE _ _ _ _, h => exact hPI h
+  | Expr.forallE _ _ _ _, Expr.letE _ _ _ _, h => exact hPI h
+  | Expr.lam _ _ _ _, Expr.letE _ _ _ _, h => exact hPI h
+  | Expr.app _ _, Expr.letE _ _ _ _, h => exact hPI h
+  | Expr.lit _, _, h => exact hPI h
+  | Expr.sort _, Expr.lit _, h => exact hPI h
+  | Expr.fvar _ _ _, Expr.lit _, h => exact hPI h
+  | Expr.const _ _, Expr.lit _, h => exact hPI h
+  | Expr.forallE _ _ _ _, Expr.lit _, h => exact hPI h
+  | Expr.lam _ _ _ _, Expr.lit _, h => exact hPI h
+  | Expr.app _ _, Expr.lit _, h => exact hPI h
+  | Expr.proj _ _ _, _, h => exact hPI h
+  | Expr.sort _, Expr.proj _ _ _, h => exact hPI h
+  | Expr.fvar _ _ _, Expr.proj _ _ _, h => exact hPI h
+  | Expr.const _ _, Expr.proj _ _ _, h => exact hPI h
+  | Expr.forallE _ _ _ _, Expr.proj _ _ _, h => exact hPI h
+  | Expr.lam _ _ _ _, Expr.proj _ _ _, h => exact hPI h
+  | Expr.app _ _, Expr.proj _ _ _, h => exact hPI h
 
 private theorem infer_claims (m : EnvModel V env)
     (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
@@ -1269,7 +1350,8 @@ theorem check_sound (m : EnvModel V env) :
     | fuel + 1 =>
       obtain ⟨ihw, ihd, ihi⟩ := ihAll fuel (by omega)
       exact ⟨whnf_claims m ihw ihd ihi (fun f hf => ihAll f (by omega)),
-        defeq_claims m ihw ihd ihi, infer_claims m ihw ihd ihi⟩
+        defeq_claims m ihw ihd ihi (fun f hf => ihAll f (by omega)),
+        infer_claims m ihw ihd ihi⟩
 
 /-! ## Fuel-instantiated wrappers -/
 

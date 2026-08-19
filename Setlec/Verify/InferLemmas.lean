@@ -466,6 +466,89 @@ theorem projCert_inv {env : Env} {fuel d : Nat} {e₂ : Expr} {i : Nat}
     cases okT <;> cases okW <;> simp_all
   exact ⟨ta, sta, uT, te, ste, wT, rfl, hsta, hwta, heq1, rfl, hste, hwte, heq2⟩
 
+/-- Inversion of a successful proof-irrelevance certification. -/
+theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
+    (h : proofIrrel env (fuel + 1) d a b = .ok true) :
+    ∃ ta sta uT tb stb vT,
+      inferTypeCore env fuel d a = .ok ta ∧
+      inferTypeCore env fuel d ta = .ok sta ∧
+      whnfCore env fuel d sta = .ok (.sort uT) ∧
+      Level.isEquiv uT .zero = some true ∧
+      inferTypeCore env fuel d b = .ok tb ∧
+      inferTypeCore env fuel d tb = .ok stb ∧
+      whnfCore env fuel d stb = .ok (.sort vT) ∧
+      Level.isEquiv vT .zero = some true := by
+  simp only [proofIrrel, Bind.bind, Except.bind] at h
+  cases hta : inferTypeCore env fuel d a with
+  | error err => rw [hta] at h; exact nomatch h
+  | ok ta =>
+  rw [hta] at h
+  dsimp only at h
+  cases hsta : inferTypeCore env fuel d ta with
+  | error err => rw [hsta] at h; exact nomatch h
+  | ok sta =>
+  rw [hsta] at h
+  dsimp only at h
+  cases hwta : whnfCore env fuel d sta with
+  | error err => rw [hwta] at h; exact nomatch h
+  | ok wta =>
+  rw [hwta] at h
+  match wta, h with
+  | .sort uT, h => ?_
+  | .bvar i2, h => exact nomatch h
+  | .fvar i2 n2 t2, h => exact nomatch h
+  | .const n2 us2, h => exact nomatch h
+  | .app f2 a2, h => exact nomatch h
+  | .lam n2 t2 b2 m2, h => exact nomatch h
+  | .forallE n2 t2 b2 m2, h => exact nomatch h
+  | .letE n2 t2 v2 b2, h => exact nomatch h
+  | .lit l2, h => exact nomatch h
+  | .proj s2 i2 e3, h => exact nomatch h
+  dsimp only at h
+  cases heq1 : Level.isEquiv uT .zero with
+  | none => rw [heq1] at h; simp [liftFueled] at h
+  | some okA =>
+  rw [heq1] at h
+  try dsimp only [liftFueled] at h
+  try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  cases htb : inferTypeCore env fuel d b with
+  | error err => rw [htb] at h; exact nomatch h
+  | ok tb =>
+  rw [htb] at h
+  dsimp only at h
+  cases hstb : inferTypeCore env fuel d tb with
+  | error err => rw [hstb] at h; exact nomatch h
+  | ok stb =>
+  rw [hstb] at h
+  dsimp only at h
+  cases hwtb : whnfCore env fuel d stb with
+  | error err => rw [hwtb] at h; exact nomatch h
+  | ok wtb =>
+  rw [hwtb] at h
+  match wtb, h with
+  | .sort vT, h => ?_
+  | .bvar i2, h => exact nomatch h
+  | .fvar i2 n2 t2, h => exact nomatch h
+  | .const n2 us2, h => exact nomatch h
+  | .app f2 a2, h => exact nomatch h
+  | .lam n2 t2 b2 m2, h => exact nomatch h
+  | .forallE n2 t2 b2 m2, h => exact nomatch h
+  | .letE n2 t2 v2 b2, h => exact nomatch h
+  | .lit l2, h => exact nomatch h
+  | .proj s2 i2 e3, h => exact nomatch h
+  dsimp only at h
+  cases heq2 : Level.isEquiv vT .zero with
+  | none => rw [heq2] at h; simp [liftFueled] at h
+  | some okB =>
+  rw [heq2] at h
+  try dsimp only [liftFueled] at h
+  try simp only [pure, Except.pure, Except.ok.injEq] at h
+  obtain ⟨rfl, rfl⟩ : okA = true ∧ okB = true := by
+    have := h
+    cases okA <;> cases okB <;> simp_all
+  exact ⟨ta, sta, uT, tb, stb, vT, rfl, hsta, hwta, heq1, rfl, hstb, hwtb, heq2⟩
+
 /-- Inversion for the projection rule of `inferTypeCore`. -/
 theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
     {e t : Expr}
