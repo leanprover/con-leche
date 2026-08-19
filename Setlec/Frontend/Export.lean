@@ -1,6 +1,7 @@
 import Lean.Data.Json
 import Setlec.Kernel.Env
 import Setlec.Kernel.ExprOps
+import Setlec.Kernel.Basis
 
 /-!
 # Reading lean4export ndjson files
@@ -175,8 +176,46 @@ private def processLine (st : State) (j : Json) : M (State ⊕ String) := do
     return .inr "opaque declaration"
   else if (j.getObjVal? "quot").isOk then
     return .inr "quotient declaration"
-  else if (j.getObjVal? "inductive").isOk then
-    return .inr "inductive declaration"
+  else if let .ok v := j.getObjVal? "inductive" then
+    -- Parse the block into stored-constant form; a pinned basis block
+    -- becomes a `basisDecl`, anything else is converted into alias
+    -- definitions `T := T._model` etc. (the lean-inductive-models
+    -- preprocessor has emitted the `_model` family earlier in the
+    -- stream; if it hasn't, the checker rejects the unresolved alias).
+    let types ← (← (← v.getObjVal? "types").getArr?).mapM fun t => do
+      if (← (← t.getObjVal? "isUnsafe").getBool?) then throw "unsafe inductive"
+      pure (ConstantInfo.indInfo (← parseConstantVal st t))
+    let ctors ← (← (← v.getObjVal? "ctors").getArr?).mapM fun c => do
+      pure (ConstantInfo.ctorInfo (← parseConstantVal st c)
+        (← (← c.getObjVal? "numParams").getNat?)
+        (← (← c.getObjVal? "numFields").getNat?))
+    let recs ← (← (← v.getObjVal? "recs").getArr?).mapM fun r => do
+      let rules ← (← (← r.getObjVal? "rules").getArr?).mapM fun ru => do
+        pure (RecRule.mk (← getName' st ru "ctor")
+          (← (← ru.getObjVal? "nfields").getNat?)
+          (← getExpr' st ru "rhs"))
+      pure (ConstantInfo.recInfo (← parseConstantVal st r)
+        (← (← r.getObjVal? "numParams").getNat?)
+        (← (← r.getObjVal? "numMotives").getNat?)
+        (← (← r.getObjVal? "numMinors").getNat?)
+        (← (← r.getObjVal? "numIndices").getNat?) rules.toList)
+    let block := types.toList ++ ctors.toList ++ recs.toList
+    if block = BasisKind.eqK.decls then
+      return .inl { st with decls := st.decls.push (.basisDecl .eqK) }
+    else if block = BasisKind.natK.decls then
+      return .inl { st with decls := st.decls.push (.basisDecl .natK) }
+    else if block = BasisKind.psigmaK.decls then
+      return .inl { st with decls := st.decls.push (.basisDecl .psigmaK) }
+    else if block = BasisKind.punitK.decls then
+      return .inl { st with decls := st.decls.push (.basisDecl .punitK) }
+    else
+      -- alias every member to its `_model` counterpart
+      let mut ds := st.decls
+      for ci in block do
+        let cv := ci.toConstantVal
+        ds := ds.push (.defnDecl cv
+          (.const (cv.name.str "_model") (cv.levelParams.map .param)))
+      return .inl { st with decls := ds }
   else
     throw "unrecognized line"
 

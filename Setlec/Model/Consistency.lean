@@ -265,6 +265,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     (h : checkDecl env d = .ok env') (m : EnvModel V env) : Nonempty (EnvModel V env') := by
   cases d with
   | axiomDecl cv => exact nomatch h
+  | basisDecl kind => exact nomatch h
   | defnDecl cv value =>
     simp only [checkDecl, Bind.bind, Except.bind] at h
     cases hccv : checkConstantVal env cv with

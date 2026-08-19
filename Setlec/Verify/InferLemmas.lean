@@ -278,6 +278,9 @@ theorem whnf_WScoped {env : Env} (henv : EnvWF env) :
           next hal => exact (Except.ok.inj h) ▸ hw
         | axiomInfo cv => exact (Except.ok.inj h) ▸ hw
         | thmInfo cv value => exact (Except.ok.inj h) ▸ hw
+        | indInfo cv => exact (Except.ok.inj h) ▸ hw
+        | ctorInfo cv nP nF => exact (Except.ok.inj h) ▸ hw
+        | recInfo cv nP nM nm ni rules => exact (Except.ok.inj h) ▸ hw
     | .app f a, h =>
       simp only [WScoped] at hw
       obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h

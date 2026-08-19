@@ -134,5 +134,5 @@
 2 bad/tutorial/134_dup_rec_def.ndjson
 2 bad/tutorial/135_misnamed_rec_user.ndjson
 2 bad/tutorial/136_dup_rec_def2.ndjson
-2 bad/tutorial/137_dup_ctor_rec.ndjson
-2 bad/tutorial/138_DupConCon.ndjson
+1 bad/tutorial/137_dup_ctor_rec.ndjson
+1 bad/tutorial/138_DupConCon.ndjson

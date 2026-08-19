@@ -150,6 +150,9 @@ private theorem whnf_claims (m : EnvModel V env)
         next hal => exact (Except.ok.inj h) ▸ ⟨rfl, ha⟩
       | axiomInfo cv => exact (Except.ok.inj h) ▸ ⟨rfl, ha⟩
       | thmInfo cv value => exact (Except.ok.inj h) ▸ ⟨rfl, ha⟩
+      | indInfo cv => exact (Except.ok.inj h) ▸ ⟨rfl, ha⟩
+      | ctorInfo cv nP nF => exact (Except.ok.inj h) ▸ ⟨rfl, ha⟩
+      | recInfo cv nP nM nm ni rules => exact (Except.ok.inj h) ▸ ⟨rfl, ha⟩
   | .app f a, h =>
     simp only [WScoped] at hw
     simp only [looseBVarsBounded, Bool.and_eq_true] at hb

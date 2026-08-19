@@ -20,20 +20,36 @@ structure ConstantVal where
   type : Expr
   deriving DecidableEq, Repr, Inhabited
 
+/-- One iota rule of a recursor: applying the recursor (with its
+parameters, motives and minors) to a `ctor`-headed major premise reduces
+to `rhs` applied to the parameters, motives, minors and the constructor's
+`nfields` fields. -/
+structure RecRule where
+  ctor : Name
+  nfields : Nat
+  rhs : Expr
+  deriving DecidableEq, Repr, Inhabited
+
+/-- The trusted basis inductives (hand-written set models; everything
+else is reduced to these by the lean-inductive-models preprocessor). -/
+inductive BasisKind where
+  | eqK | natK | psigmaK | punitK
+  deriving DecidableEq, Repr, Inhabited
+
 /-- A declaration presented to the checker. -/
 inductive Declaration where
   | axiomDecl (val : ConstantVal)
   | defnDecl (val : ConstantVal) (value : Expr)
   | thmDecl (val : ConstantVal) (value : Expr)
+  | basisDecl (kind : BasisKind)
   deriving DecidableEq, Repr, Inhabited
 
 namespace Declaration
 
-/-- The underlying constant data. -/
-def toConstantVal : Declaration → ConstantVal
-  | .axiomDecl v | .defnDecl v _ | .thmDecl v _ => v
-
-def name (d : Declaration) : Name := d.toConstantVal.name
+/-- The name of a non-basis declaration (basis blocks install several). -/
+def name : Declaration → Name
+  | .axiomDecl v | .defnDecl v _ | .thmDecl v _ => v.name
+  | .basisDecl _ => .anonymous
 
 end Declaration
 
@@ -42,12 +58,20 @@ inductive ConstantInfo where
   | axiomInfo (val : ConstantVal)
   | defnInfo (val : ConstantVal) (value : Expr)
   | thmInfo (val : ConstantVal) (value : Expr)
+  /-- A basis inductive type former (whnf-stuck). -/
+  | indInfo (val : ConstantVal)
+  /-- A basis constructor (whnf-stuck; the iota target). -/
+  | ctorInfo (val : ConstantVal) (numParams numFields : Nat)
+  /-- A basis recursor with its iota rules. -/
+  | recInfo (val : ConstantVal) (numParams numMotives numMinors numIndices : Nat)
+      (rules : List RecRule)
   deriving DecidableEq, Repr, Inhabited
 
 namespace ConstantInfo
 
 def toConstantVal : ConstantInfo → ConstantVal
   | .axiomInfo v | .defnInfo v _ | .thmInfo v _ => v
+  | .indInfo v | .ctorInfo v _ _ | .recInfo v _ _ _ _ _ => v
 
 def name (c : ConstantInfo) : Name := c.toConstantVal.name
 

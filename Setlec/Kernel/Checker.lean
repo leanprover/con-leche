@@ -76,6 +76,7 @@ def checkDecl (env : Env) (d : Declaration) : CheckM Env := do
       throw (.invalid s!"type mismatch in theorem {cv.name}")
     pure ⟨.thmInfo cv value :: env.consts⟩
   | .axiomDecl cv => throw (.notImplemented s!"axiom declaration ({cv.name})")
+  | .basisDecl _ => throw (.notImplemented "basis inductive")
 
 /-- Check a list of declarations in order, starting from the empty
 environment. -/

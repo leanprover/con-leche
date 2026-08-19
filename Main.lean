@@ -21,10 +21,39 @@ def Setlec.CheckError.exitCode : CheckError → UInt32
   | .invalid _ => 1
   | .internal _ => 3
 
+/-- Locate the lean-inductive-models preprocessor: `$SETLEC_INDUCTIVE_MODELS`,
+then `$PATH`, then the development checkout under `_tmp/`. -/
+def findPreprocessor : IO (Option String) := do
+  if let some p ← IO.getEnv "SETLEC_INDUCTIVE_MODELS" then
+    return some p
+  let dev := "_tmp/lean-inductive-models/.lake/build/bin/lean-inductive-models"
+  if ← System.FilePath.pathExists dev then
+    return some dev
+  -- fall back to PATH resolution by just trying the bare name at spawn time
+  return some "lean-inductive-models"
+
+/-- Run the preprocessor over the input, reducing inductives to the
+modelled basis.  On any failure to run it, fall back to the raw input
+(the checker then declines at the first inductive). -/
+def preprocess (file : String) (contents : String) : IO String := do
+  unless ((contents.splitOn "\"inductive\"").length > 1 ||
+      (contents.splitOn "\"quot\"").length > 1) do
+    return contents
+  let some tool ← findPreprocessor | return contents
+  try
+    let out ← IO.Process.output { cmd := tool, args := #["--quiet", "-o", "-", file] }
+    if out.exitCode = 0 then
+      return out.stdout
+    else
+      IO.eprintln s!"setlec: preprocessor exited {out.exitCode}; using raw input"
+      return contents
+  catch _ =>
+    return contents
+
 def main (args : List String) : IO UInt32 := do
   match args with
   | [file] =>
-    let contents ← IO.FS.readFile file
+    let contents ← preprocess file (← IO.FS.readFile file)
     match Frontend.parseExport contents with
     | .error (.unsupported what) =>
       IO.eprintln s!"setlec: declined: {what}"

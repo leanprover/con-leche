@@ -176,6 +176,9 @@ theorem whnf_fvarLeaves {env : Env} (henv : EnvWF env) :
           next hal => exact (Except.ok.inj h) ▸ fun l hl => hl
         | axiomInfo cv => exact (Except.ok.inj h) ▸ fun l hl => hl
         | thmInfo cv value => exact (Except.ok.inj h) ▸ fun l hl => hl
+        | indInfo cv => exact (Except.ok.inj h) ▸ fun l hl => hl
+        | ctorInfo cv nP nF => exact (Except.ok.inj h) ▸ fun l hl => hl
+        | recInfo cv nP nM nm ni rules => exact (Except.ok.inj h) ▸ fun l hl => hl
     | .app f a, h =>
       intro l hl
       obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
@@ -219,6 +222,9 @@ theorem whnf_looseBVars {env : Env} (henv : EnvWF env) :
           next hal => exact (Except.ok.inj h) ▸ hb
         | axiomInfo cv => exact (Except.ok.inj h) ▸ hb
         | thmInfo cv value => exact (Except.ok.inj h) ▸ hb
+        | indInfo cv => exact (Except.ok.inj h) ▸ hb
+        | ctorInfo cv nP nF => exact (Except.ok.inj h) ▸ hb
+        | recInfo cv nP nM nm ni rules => exact (Except.ok.inj h) ▸ hb
     | .app f a, h =>
       simp only [looseBVarsBounded, Bool.and_eq_true] at hb
       obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
