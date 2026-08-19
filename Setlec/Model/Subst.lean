@@ -159,12 +159,15 @@ theorem interp_substFvarAt {p : Nat} {a : Expr} {va : V}
       interp_substFvarAt hwa hba b D hpD ρ' hva ha]
   | .letE n ty val body, D, hpD, ρ', hva, ha => by simp [substFvarAt, interpExpr]
   | .lit l, D, hpD, ρ', hva, ha => by simp [substFvarAt, interpExpr]
-  | .proj s i e, D, hpD, ρ', hva, ha => by simp [substFvarAt, interpExpr]
+  | .proj s i e, D, hpD, ρ', hva, ha => by
+    simp only [substFvarAt, interpExpr]
+    rw [interp_substFvarAt hwa hba e D hpD ρ' hva ha]
 termination_by e => e.sizeB
 decreasing_by
   all_goals first
   | (simp [Expr.sizeB]; omega)
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
 
 /-- Beta, interpretation side: opening a binder body with the argument
 directly equals opening with a fresh variable valued at `⟦a⟧`. -/
@@ -203,7 +206,14 @@ theorem AnnotOk.substFvarAt {p : Nat} {a : Expr} {va : V}
   | .lit l, D, hpD, ρ', hva, ha, hAa, hA => by simp [Expr.substFvarAt, AnnotOk]
   | .letE n ty val body, D, hpD, ρ', hva, ha, hAa, hA => by
     simp [Expr.substFvarAt, AnnotOk]
-  | .proj s i e, D, hpD, ρ', hva, ha, hAa, hA => by simp [Expr.substFvarAt, AnnotOk]
+  | .proj s i e, D, hpD, ρ', hva, ha, hAa, hA => by
+    simp only [AnnotOk] at hA
+    obtain ⟨hae, hi2, ve, u', v', A, Bf, hvei, hsig, hAu, hBf⟩ := hA
+    simp only [Expr.substFvarAt, AnnotOk]
+    refine ⟨AnnotOk.substFvarAt hwa hba e D hpD ρ' hva ha hAa hae, hi2,
+      ve, u', v', A, Bf, ?_, hsig, hAu, hBf⟩
+    rw [interp_substFvarAt hwa hba e D hpD ρ' hva ha]
+    exact hvei
   | .fvar idx n ty, D, hpD, ρ', hva, ha, hAa, hA => by
     by_cases h1 : idx = p
     · simp only [Expr.substFvarAt, if_pos h1]
@@ -279,6 +289,7 @@ decreasing_by
   all_goals first
   | (simp [Expr.sizeB]; omega)
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
 
 /-- Beta, annotation-truthfulness side. -/
 theorem AnnotOk_beta {d : Nat} {n : Name} {ty body a : Expr} {ρ : Nat → V} {va : V}

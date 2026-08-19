@@ -161,6 +161,9 @@ class SetTheory (V : Type u) where
   ssnd_spair : ∀ a b, ssnd (spair a b) = b
   sfst_pt : sfst pt = pt
   ssnd_pt : ssnd pt = pt
+  /-- Applying the proof point yields the proof point (realizable via the
+  tagged definition of `app`). -/
+  app_pt : ∀ a, app pt a = pt
 
 namespace SetTheory
 

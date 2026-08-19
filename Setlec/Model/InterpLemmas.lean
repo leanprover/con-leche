@@ -113,12 +113,16 @@ theorem interp_ext : ∀ (e : Expr) {d : Nat} {ρ ρ' : Nat → V},
   | .bvar _, _, _, _, _, _ => by simp [interpExpr]
   | .letE _ _ _ _, _, _, _, _, _ => by simp [interpExpr]
   | .lit _, _, _, _, _, _ => by simp [interpExpr]
-  | .proj _ _ _, _, _, _, _, _ => by simp [interpExpr]
+  | .proj s' i e, d, ρ, ρ', h, hb => by
+    simp only [fvarsBelow] at hb
+    simp only [interpExpr]
+    rw [interp_ext e h hb]
 termination_by e => e.sizeB
 decreasing_by
   all_goals first
   | (simp [Expr.sizeB]; omega)
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
 
 /-- Semantic weakening: inserting a value at `p ≤ d` and shifting the term
 leaves the interpretation unchanged. -/
@@ -181,12 +185,16 @@ theorem interp_shift : ∀ (e : Expr) {d p : Nat} {ρ : Nat → V} {x : V},
   | .bvar _, _, _, _, _, _, _ => by simp [interpExpr, shiftFrom]
   | .letE _ _ _ _, _, _, _, _, _, _ => by simp [interpExpr, shiftFrom]
   | .lit _, _, _, _, _, _, _ => by simp [interpExpr, shiftFrom]
-  | .proj _ _ _, _, _, _, _, _, _ => by simp [interpExpr, shiftFrom]
+  | .proj s' i e, d, p, ρ, x, hpd, hw => by
+    have hw' : WScoped d e := by simpa [WScoped] using hw
+    simp only [shiftFrom, interpExpr]
+    rw [interp_shift e hpd hw']
 termination_by e => e.sizeB
 decreasing_by
   all_goals first
   | (simp [Expr.sizeB]; omega)
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
 
 /-- Weakening at the top: valuing a fresh top variable does not change the
 interpretation of a term scoped below it. -/
@@ -280,12 +288,15 @@ theorem interp_instLevels (hcp : ConstValParams cval env)
   | .bvar _, _, _ => by simp [interpExpr, instantiateLevelParams]
   | .letE _ _ _ _, _, _ => by simp [interpExpr, instantiateLevelParams]
   | .lit _, _, _ => by simp [interpExpr, instantiateLevelParams]
-  | .proj _ _ _, _, _ => by simp [interpExpr, instantiateLevelParams]
+  | .proj s' i e, d, ρ => by
+    simp only [interpExpr, instantiateLevelParams]
+    rw [interp_instLevels hcp e d ρ]
 termination_by e => e.sizeB
 decreasing_by
   all_goals first
   | (simp [Expr.sizeB]; omega)
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
 
 /-- The interpretation reads `φ` only at the expression's level
 parameters. -/
@@ -355,12 +366,16 @@ theorem interp_params_ext (hcp : ConstValParams cval env)
   | .bvar _, _, _, _ => by simp [interpExpr]
   | .letE _ _ _ _, _, _, _ => by simp [interpExpr]
   | .lit _, _, _, _ => by simp [interpExpr]
-  | .proj _ _ _, _, _, _ => by simp [interpExpr]
+  | .proj s' i e, d, ρ, hp => by
+    simp only [allLevelParamsDefined] at hp
+    simp only [interpExpr]
+    rw [interp_params_ext hcp hφ e d ρ hp]
 termination_by e => e.sizeB
 decreasing_by
   all_goals first
   | (simp [Expr.sizeB]; omega)
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
 
 /-- The interpretation is stable under a fresh environment extension. -/
 theorem interp_mono {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none) :
@@ -411,12 +426,16 @@ theorem interp_mono {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none) 
   | .bvar _, _, _, _ => by simp [interpExpr]
   | .letE _ _ _ _, _, _, _ => by simp [interpExpr]
   | .lit _, _, _, _ => by simp [interpExpr]
-  | .proj _ _ _, _, _, _ => by simp [interpExpr]
+  | .proj s' i e, d, ρ, hres => by
+    simp only [constsResolve] at hres
+    simp only [interpExpr]
+    rw [interp_mono hfresh e d ρ hres]
 termination_by e => e.sizeB
 decreasing_by
   all_goals first
   | (simp [Expr.sizeB]; omega)
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
 
 theorem interpClosed_mono {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none)
     {e : Expr} (hres : e.constsResolve env = true) :
@@ -474,11 +493,14 @@ theorem interp_cval_ext {cval₁ cval₂ : ConstVal V}
   | .bvar _, _, _ => by simp [interpExpr]
   | .letE _ _ _ _, _, _ => by simp [interpExpr]
   | .lit _, _, _ => by simp [interpExpr]
-  | .proj _ _ _, _, _ => by simp [interpExpr]
+  | .proj s' i e, d, ρ => by
+    simp only [interpExpr]
+    rw [interp_cval_ext hagree e d ρ]
 termination_by e => e.sizeB
 decreasing_by
   all_goals first
   | (simp [Expr.sizeB]; omega)
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
 
 end Setlec

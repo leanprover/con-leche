@@ -91,12 +91,18 @@ def interpExpr (cval : ConstVal V) (env : Env) (φ : Name → Nat) :
     match interpExpr cval env φ d ρ f, interpExpr cval env φ d ρ a with
     | some vf, some va => some (SetTheory.app vf va)
     | _, _ => none
+  | d, ρ, .proj _ i e =>
+    match interpExpr cval env φ d ρ e with
+    | some ve =>
+      if i = 0 then some (sfst ve) else if i = 1 then some (ssnd ve) else none
+    | none => none
   | _, _, _ => none
 termination_by _ _ e => e.sizeB
 decreasing_by
   all_goals first
   | (simp [Expr.sizeB]; omega)
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
 
 /-- Truthfulness of the codomain-sort annotations: every `∀`-subterm is
 annotated, and over every member of the domain's interpretation the
@@ -127,12 +133,18 @@ def AnnotOk (cval : ConstVal V) (env : Env) (φ : Name → Nat) :
     ∃ vf va vE A B, interpExpr V cval env φ d ρ f = some vf ∧
       interpExpr V cval env φ d ρ a = some va ∧
       vf ∈ˢ pi vE A B ∧ va ∈ˢ A ∧ ∀ x, x ∈ˢ A → B x ∈ˢ univ vE
+  | d, ρ, .proj _ i e =>
+    AnnotOk cval env φ d ρ e ∧ i < 2 ∧
+    ∃ ve u v A Bf, interpExpr V cval env φ d ρ e = some ve ∧
+      ve ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
+      A ∈ˢ univ u ∧ ∀ x, x ∈ˢ A → Bf x ∈ˢ univ v
   | _, _, _ => True
 termination_by d ρ e => e.sizeB
 decreasing_by
   all_goals first
   | (simp [Expr.sizeB]; omega)
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
 
 /-- The typing assumptions about the implicit local context, as
 conditions on the free-variable leaf closure: every leaf (including

@@ -73,12 +73,18 @@ theorem AnnotOk.ext : ∀ (e : Expr) {d : Nat} {ρ ρ' : Nat → V},
   | .fvar _ _ _, _, _, _, _, _, _ => by simp [AnnotOk]
   | .letE _ _ _ _, _, _, _, _, _, _ => by simp [AnnotOk]
   | .lit _, _, _, _, _, _, _ => by simp [AnnotOk]
-  | .proj _ _ _, _, _, _, _, _, _ => by simp [AnnotOk]
+  | .proj s' i e, d, ρ, ρ', h, hb, ha => by
+    simp only [fvarsBelow] at hb
+    simp only [AnnotOk] at ha ⊢
+    obtain ⟨hae, hi2, ve, u', v', A, Bf, hvei, hsig, hAu, hBf⟩ := ha
+    refine ⟨AnnotOk.ext e h hb hae, hi2, ve, u', v', A, Bf, ?_, hsig, hAu, hBf⟩
+    rw [← interp_ext e h hb]; exact hvei
 termination_by e => e.sizeB
 decreasing_by
   all_goals first
   | (simp [Expr.sizeB]; omega)
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
 
 theorem AnnotOk.shift : ∀ (e : Expr) {d p : Nat} {ρ : Nat → V} {x0 : V},
     p ≤ d → WScoped d e →
@@ -133,12 +139,19 @@ theorem AnnotOk.shift : ∀ (e : Expr) {d p : Nat} {ρ : Nat → V} {x0 : V},
     split <;> simp [AnnotOk]
   | .letE _ _ _ _, _, _, _, _, _, _, _ => by simp [AnnotOk, shiftFrom]
   | .lit _, _, _, _, _, _, _, _ => by simp [AnnotOk, shiftFrom]
-  | .proj _ _ _, _, _, _, _, _, _, _ => by simp [AnnotOk, shiftFrom]
+  | .proj s' i e, d, p, ρ, x0, hpd, hw, ha => by
+    have hw' : WScoped d e := by simpa [WScoped] using hw
+    simp only [AnnotOk] at ha
+    obtain ⟨hae, hi2, ve, u', v', A, Bf, hvei, hsig, hAu, hBf⟩ := ha
+    simp only [shiftFrom, AnnotOk]
+    refine ⟨AnnotOk.shift e hpd hw' hae, hi2, ve, u', v', A, Bf, ?_, hsig, hAu, hBf⟩
+    rw [interp_shift e hpd hw']; exact hvei
 termination_by e => e.sizeB
 decreasing_by
   all_goals first
   | (simp [Expr.sizeB]; omega)
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
 
 /-- Weakening at the top for annotation truthfulness. -/
 theorem AnnotOk.weaken_top {e : Expr} {d : Nat} {ρ : Nat → V} {x : V}
@@ -223,12 +236,18 @@ theorem AnnotOk.instLevels (hcp : ConstValParams cval env)
   | .fvar _ _ _, _, _, _ => by simp [AnnotOk, instantiateLevelParams]
   | .letE _ _ _ _, _, _, _ => by simp [AnnotOk, instantiateLevelParams]
   | .lit _, _, _, _ => by simp [AnnotOk, instantiateLevelParams]
-  | .proj _ _ _, _, _, _ => by simp [AnnotOk, instantiateLevelParams]
+  | .proj s' i e, d, ρ, ha => by
+    simp only [AnnotOk] at ha
+    obtain ⟨hae, hi2, ve, u', v', A, Bf, hvei, hsig, hAu, hBf⟩ := ha
+    simp only [instantiateLevelParams, AnnotOk]
+    refine ⟨AnnotOk.instLevels hcp e d ρ hae, hi2, ve, u', v', A, Bf, ?_, hsig, hAu, hBf⟩
+    rw [interp_instLevels hcp e d ρ]; exact hvei
 termination_by e => e.sizeB
 decreasing_by
   all_goals first
   | (simp [Expr.sizeB]; omega)
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
 
 /-- Environment monotonicity for annotation truthfulness. -/
 theorem AnnotOk.mono {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none) :
@@ -281,12 +300,18 @@ theorem AnnotOk.mono {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none)
   | .fvar _ _ _, _, _, _, _ => by simp [AnnotOk]
   | .letE _ _ _ _, _, _, _, _ => by simp [AnnotOk]
   | .lit _, _, _, _, _ => by simp [AnnotOk]
-  | .proj _ _ _, _, _, _, _ => by simp [AnnotOk]
+  | .proj s' i e, d, ρ, hres, ha => by
+    simp only [constsResolve] at hres
+    simp only [AnnotOk] at ha ⊢
+    obtain ⟨hae, hi2, ve, u', v', A, Bf, hvei, hsig, hAu, hBf⟩ := ha
+    refine ⟨AnnotOk.mono hfresh e d ρ hres hae, hi2, ve, u', v', A, Bf, ?_, hsig, hAu, hBf⟩
+    rw [interp_mono hfresh e d ρ hres]; exact hvei
 termination_by e => e.sizeB
 decreasing_by
   all_goals first
   | (simp [Expr.sizeB]; omega)
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
 
 /-- Constant-valuation extensionality for annotation truthfulness. -/
 theorem AnnotOk.cval_ext {cval₁ cval₂ : ConstVal V}
@@ -332,11 +357,16 @@ theorem AnnotOk.cval_ext {cval₁ cval₂ : ConstVal V}
   | .fvar _ _ _, _, _, _ => by simp [AnnotOk]
   | .letE _ _ _ _, _, _, _ => by simp [AnnotOk]
   | .lit _, _, _, _ => by simp [AnnotOk]
-  | .proj _ _ _, _, _, _ => by simp [AnnotOk]
+  | .proj s' i e, d, ρ, ha => by
+    simp only [AnnotOk] at ha ⊢
+    obtain ⟨hae, hi2, ve, u', v', A, Bf, hvei, hsig, hAu, hBf⟩ := ha
+    refine ⟨AnnotOk.cval_ext hagree e d ρ hae, hi2, ve, u', v', A, Bf, ?_, hsig, hAu, hBf⟩
+    rw [← interp_cval_ext hagree e d ρ]; exact hvei
 termination_by e => e.sizeB
 decreasing_by
   all_goals first
   | (simp [Expr.sizeB]; omega)
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
 
 end Setlec
