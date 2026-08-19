@@ -279,11 +279,45 @@ Refined plan (annotation slot itself is done):
   preservation under *term* substitution follows from the now-mechanical
   substitution lemma, which is the whole point of the design.
 
+Plan for item 2 (worked out 2026-08-19, after the refactor):
+
+* **Leaf-closure `FvarsOk`**: redefine `FvarsOk` as "every triple in
+  `Expr.fvarLeaves e` (reachable `fvar` leaves plus, hereditarily, the
+  leaves of their annotations) satisfies the membership condition".  Then
+  every syntactic transformation needs only an `fvarLeaves`-subset lemma
+  (instantiate1, abstract1, annotate ≙ leaf-equal via `LeafEquiv`,
+  `whnf`/`inferType` outputs ⊆ input closure ∪ closed), and
+  `inferType_sound` can conclude `FvarsOk` of its *output* uniformly —
+  which the λ-rule needs (the abstracted body type reappears as a Π-body).
+* `isDefEqCore_sound` in fact never consumes `FvarsOk` (definedness comes
+  from `AnnotOk`); drop those hypotheses.
+* `inferType` gets fuel (the λ-rule re-checks the stored annotation
+  against `ensureSort ∘ inferType` of the inferred body type, which is
+  not structurally smaller).
+* λ-rule: infer opened body, re-close with `abstract1` (roundtrip via
+  `fvarConsistent`/`looseBVarsBounded` output-preservation lemmas for
+  `inferType`), result `Π` annotated with the λ's stored `cod`.
+* app-rule: whnf the function type to a `Π`, check the argument against
+  the domain, return `body.instantiate1 arg`.
+* `whnf` beta case: `app (lam …) a ↦ body.instantiate1 a`.
+* `SetTheory` additions: `lam : Nat → V → (V → V) → V`, `app : V → V → V`
+  with `lam_congr`, `lam_mem : (∀ x ∈ A, F x ∈ B x) → lam v A F ∈ pi v A B`
+  (no fibre-universe premise needed — for `v = 0` the premise itself
+  makes every fibre inhabited), `app_mem : f ∈ pi v A B → a ∈ A →
+  (∀ x ∈ A, B x ∈ univ v) → app f a ∈ B a` (fibre premise needed for
+  `v = 0` realizability), and conditional beta
+  `app_lam : a ∈ A → (∀ x ∈ A, F x ∈ B x) → (∀ x ∈ A, B x ∈ univ v) →
+  app (lam v A F) a = F a`.
+* `interpExpr`: `lam` ↦ `SetTheory.lam (eval cod) ⟦ty⟧ (fibres)`,
+  `app` ↦ `SetTheory.app ⟦f⟧ ⟦a⟧`.
+* **Substitution lemma** (now classifier-free): `substFvarAt p a` with a
+  `delV` valuation contraction; `interp d (delV ρ' p) (t.substFvarAt p a)
+  = interp (d+1) ρ' t` given `ρ' p = ⟦a⟧` and depth-invariance of `⟦a⟧`
+  (scoped-term generalization of `interp_closed_invariant`).  Beta/whnf
+  soundness and the dependent application rule reduce to it.
+
 Order of work:
-1. Refactor: annotation pass + `abstract1` (+ roundtrip lemma via
-   `fvarConsistent` and no-loose-bvars predicates),
-   `inferType`/`isDefEq`/`whnf` updated, structural `interpExpr`,
-   `AnnotOk`, lemma files updated.
+1. ~~Refactor: annotation pass, structural `interpExpr`, `AnnotOk`~~ DONE.
 2. Lambdas, application, beta, congruence defeq (`abstract1` for
    `infer`-lam with the fvar-annotation-consistency roundtrip), the
    substitution lemma; arena 005–007, 020, 021, 026, 027.
