@@ -423,4 +423,46 @@ theorem TeleFit.toTeleFitI :
     · simp only [WScoped]
       exact ⟨by omega, hwe'.1⟩
 
+/-- Swapping one argument of an expression-spine fit anywhere in the
+spine, for an interp-equal replacement. -/
+theorem TeleFitI.arg_swap_list {d : Nat} {ρ : Nat → V} {a₁ a₂ : Expr}
+    (hwa₂ : WScoped d a₂) (hba₂ : a₂.looseBVarsBounded 0 = true)
+    (hAa₂ : AnnotOk V cval env φ d ρ a₂)
+    (hia : interpExpr V cval env φ d ρ a₂ =
+      interpExpr V cval env φ d ρ a₁) :
+    ∀ {pre : List Expr} {ty : Expr} {post : List Expr} {vs : List V}
+      {rest : Expr},
+      TeleFitI V cval env φ d ρ ty (pre ++ a₁ :: post) vs rest →
+      (ty.stripPis (pre ++ a₁ :: post).length).isSome →
+      ∃ rest₂, TeleFitI V cval env φ d ρ ty (pre ++ a₂ :: post) vs rest₂
+  | [], ty, post, vs, rest, hfit, harity => by
+    obtain ⟨n, dom, body, m, rfl⟩ :
+        ∃ n dom body m, ty = .forallE n dom body m := by
+      match ty, harity with
+      | .forallE n dom body m, _ => exact ⟨n, dom, body, m, rfl⟩
+    cases hfit with
+    | @cons _ _ _ _ _ _ x xs A rest hity hiarg hx hfbI hwarg hbarg hAarg
+        hsub =>
+    have hia₂ : interpExpr V cval env φ d ρ a₂ = some x := hia.trans hiarg
+    have harity' : (body.stripPis post.length).isSome := by
+      simpa [Expr.stripPis, Option.isSome_map] using harity
+    obtain ⟨rest₂, hsw⟩ := TeleFitI.arg_swap hwarg hbarg hwa₂ hba₂ hiarg
+      hia₂ (k := 0) hsub hfbI harity'
+    exact ⟨rest₂, TeleFitI.cons hity hia₂ hx hfbI hwa₂ hba₂ hAa₂ hsw⟩
+  | p₀ :: pre, ty, post, vs, rest, hfit, harity => by
+    obtain ⟨n, dom, body, m, rfl⟩ :
+        ∃ n dom body m, ty = .forallE n dom body m := by
+      match ty, harity with
+      | .forallE n dom body m, _ => exact ⟨n, dom, body, m, rfl⟩
+    cases hfit with
+    | @cons _ _ _ _ _ _ x xs A rest hity hiarg hx hfbI hwarg hbarg hAarg
+        hsub =>
+    have harity' : ((body.instantiate1 p₀).stripPis
+        (pre ++ a₁ :: post).length).isSome := by
+      refine stripPis_instantiate1_isSome _ 0 ?_
+      simpa [Expr.stripPis, Option.isSome_map] using harity
+    obtain ⟨rest₂, hsw⟩ := TeleFitI.arg_swap_list hwa₂ hba₂ hAa₂ hia
+      hsub harity'
+    exact ⟨rest₂, TeleFitI.cons hity hiarg hx hfbI hwarg hbarg hAarg hsw⟩
+
 end Setlec

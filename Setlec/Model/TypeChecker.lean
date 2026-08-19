@@ -868,6 +868,28 @@ theorem annotOk_spine_inv {cval : ConstVal V} {env : Env} {φ : Name → Nat}
     · rw [hstep]
       exact hifold
 
+/-- Interpreting an application spine is folding set application: no
+side conditions, the `app` case of the interpretation composes
+unconditionally. -/
+theorem interp_mkAppN {cval : ConstVal V} {env : Env} {φ : Name → Nat}
+    {d : Nat} {ρ : Nat → V} :
+    ∀ (xs : List Expr) (f : Expr) {vf : V} {vs : List V},
+      interpExpr V cval env φ d ρ f = some vf →
+      InterpSpine cval env φ d ρ xs vs →
+      interpExpr V cval env φ d ρ (Expr.mkAppN f xs) =
+        some (SpineFold V vf vs)
+  | [], f, vf, [], hif, _ => hif
+  | [], f, vf, _ :: _, _, hsp => nomatch hsp
+  | x :: xs, f, vf, [], _, hsp => nomatch hsp
+  | x :: xs, f, vf, v :: vs, hif, hsp => by
+    obtain ⟨hix, hsp'⟩ := hsp
+    have happ : interpExpr V cval env φ d ρ (Expr.app f x) =
+        some (SetTheory.app vf v) := by
+      rw [interpExpr, hif, hix]
+    rw [show Expr.mkAppN f (x :: xs) = Expr.mkAppN (Expr.app f x) xs from rfl,
+      interp_mkAppN xs (Expr.app f x) happ hsp']
+    rfl
+
 /-- Forward construction of an application spine's `AnnotOk` and
 interpretation from its parts. -/
 theorem annotOk_spine {cval : ConstVal V} {env : Env} {φ : Name → Nat}
