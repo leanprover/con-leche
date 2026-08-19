@@ -246,6 +246,13 @@ substitution lemma is mechanical, like `interp_shift`: define
 terms (generalizing `interp_closed_invariant`).  Beta and the dependent
 application rule then verify without new metatheory classes.
 
+**Status: the refactor (order-of-work item 1) is DONE** — `annotate`,
+trust-and-read `inferType`, annotation-comparing `isDefEq`, structural
+`interpExpr`, the `AnnotOk` invariant with its full transport family,
+`annotate_sound`, and the reworked consistency proof are all merged and
+verified.  Next: order-of-work item 2 (lambdas, application, beta, the
+now-mechanical substitution lemma).
+
 Refined plan (annotation slot itself is done):
 
 * `annotate env d e` (bottom-up): opens each binder with the annotated
