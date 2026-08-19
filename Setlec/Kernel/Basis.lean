@@ -92,797 +92,947 @@ hand. -/
 
 /-- Annotated basis declaration (generated). -/
 def eqA : ConstantInfo :=
-  ConstantInfo.indInfo
-  { name := Name.str (Name.anonymous) "Eq",
-    levelParams := [Name.str (Name.anonymous) "u"],
-    type := Expr.forallE
-              (Name.str (Name.anonymous) "α")
-              (Expr.sort (Level.param (Name.str (Name.anonymous) "u")))
-              (Expr.forallE
-                (Name.str (Name.anonymous) "a")
-                (Expr.bvar 0)
-                (Expr.forallE
-                  (Name.str (Name.anonymous) "b")
-                  (Expr.bvar 1)
-                  (Expr.sort (Level.zero))
-                  { bi := BinderInfo.default, cod := some (Level.succ (Level.zero)) })
-                { bi := BinderInfo.default,
-                  cod := some (Level.imax
-                           (Level.param (Name.str (Name.anonymous) "u"))
-                           (Level.succ (Level.zero))) })
-              { bi := BinderInfo.implicit,
-                cod := some (Level.imax
-                         (Level.param (Name.str (Name.anonymous) "u"))
-                         (Level.imax
-                           (Level.param (Name.str (Name.anonymous) "u"))
-                           (Level.succ (Level.zero)))) } }
+  Setlec.ConstantInfo.indInfo
+    { name := Setlec.Name.str (Setlec.Name.anonymous) "Eq",
+      levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u"],
+      type := Setlec.Expr.forallE
+                (Setlec.Name.str (Setlec.Name.anonymous) "α")
+                (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
+                (Setlec.Expr.forallE
+                  (Setlec.Name.str (Setlec.Name.anonymous) "a")
+                  (Setlec.Expr.bvar 0)
+                  (Setlec.Expr.forallE
+                    (Setlec.Name.str (Setlec.Name.anonymous) "b")
+                    (Setlec.Expr.bvar 1)
+                    (Setlec.Expr.sort (Setlec.Level.zero))
+                    { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.succ (Setlec.Level.zero)) })
+                  { bi := Setlec.BinderInfo.default,
+                    cod := some (Setlec.Level.imax
+                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                             (Setlec.Level.succ (Setlec.Level.zero))) })
+                { bi := Setlec.BinderInfo.implicit,
+                  cod := some (Setlec.Level.imax
+                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                           (Setlec.Level.imax
+                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                             (Setlec.Level.succ (Setlec.Level.zero)))) } }
 
 /-- Annotated basis declaration (generated). -/
 def eqReflA : ConstantInfo :=
-  ConstantInfo.ctorInfo
-  { name := Name.str (Name.str (Name.anonymous) "Eq") "refl",
-    levelParams := [Name.str (Name.anonymous) "u"],
-    type := Expr.forallE
-              (Name.str (Name.anonymous) "α")
-              (Expr.sort (Level.param (Name.str (Name.anonymous) "u")))
-              (Expr.forallE
-                (Name.str (Name.anonymous) "a")
-                (Expr.bvar 0)
-                (Expr.app
-                  (Expr.app
-                    (Expr.app
-                      (Expr.const
-                        (Name.str (Name.anonymous) "Eq")
-                        [Level.param (Name.str (Name.anonymous) "u")])
-                      (Expr.bvar 1))
-                    (Expr.bvar 0))
-                  (Expr.bvar 0))
-                { bi := BinderInfo.default, cod := some (Level.zero) })
-              { bi := BinderInfo.implicit,
-                cod := some (Level.imax
-                         (Level.param (Name.str (Name.anonymous) "u"))
-                         (Level.zero)) } }
-  2
-  0
+  Setlec.ConstantInfo.ctorInfo
+    { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Eq") "refl",
+      levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u"],
+      type := Setlec.Expr.forallE
+                (Setlec.Name.str (Setlec.Name.anonymous) "α")
+                (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
+                (Setlec.Expr.forallE
+                  (Setlec.Name.str (Setlec.Name.anonymous) "a")
+                  (Setlec.Expr.bvar 0)
+                  (Setlec.Expr.app
+                    (Setlec.Expr.app
+                      (Setlec.Expr.app
+                        (Setlec.Expr.const
+                          (Setlec.Name.str (Setlec.Name.anonymous) "Eq")
+                          [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
+                        (Setlec.Expr.bvar 1))
+                      (Setlec.Expr.bvar 0))
+                    (Setlec.Expr.bvar 0))
+                  { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.zero) })
+                { bi := Setlec.BinderInfo.implicit,
+                  cod := some (Setlec.Level.imax
+                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                           (Setlec.Level.zero)) } }
+    2
+    0
 
 /-- Annotated basis declaration (generated). -/
 def eqRecA : ConstantInfo :=
-  ConstantInfo.recInfo
-  { name := Name.str (Name.str (Name.anonymous) "Eq") "rec",
-    levelParams := [Name.str (Name.anonymous) "u_1", Name.str (Name.anonymous) "u"],
-    type := Expr.forallE
-              (Name.str (Name.anonymous) "α")
-              (Expr.sort (Level.param (Name.str (Name.anonymous) "u")))
-              (Expr.forallE
-                (Name.str (Name.anonymous) "a")
-                (Expr.bvar 0)
-                (Expr.forallE
-                  (Name.str (Name.anonymous) "motive")
-                  (Expr.forallE
-                    (Name.str (Name.anonymous) "b")
-                    (Expr.bvar 1)
-                    (Expr.forallE
-                      (Name.str (Name.anonymous) "t")
-                      (Expr.app
-                        (Expr.app
-                          (Expr.app
-                            (Expr.const
-                              (Name.str (Name.anonymous) "Eq")
-                              [Level.param (Name.str (Name.anonymous) "u")])
-                            (Expr.bvar 2))
-                          (Expr.bvar 1))
-                        (Expr.bvar 0))
-                      (Expr.sort (Level.param (Name.str (Name.anonymous) "u_1")))
-                      { bi := BinderInfo.default,
-                        cod := some (Level.succ
-                                 (Level.param (Name.str (Name.anonymous) "u_1"))) })
-                    { bi := BinderInfo.default,
-                      cod := some (Level.imax
-                               (Level.zero)
-                               (Level.succ
-                                 (Level.param (Name.str (Name.anonymous) "u_1")))) })
-                  (Expr.forallE
-                    (Name.str (Name.anonymous) "refl")
-                    (Expr.app
-                      (Expr.app (Expr.bvar 0) (Expr.bvar 1))
-                      (Expr.app
-                        (Expr.app
-                          (Expr.const
-                            (Name.str (Name.str (Name.anonymous) "Eq") "refl")
-                            [Level.param (Name.str (Name.anonymous) "u")])
-                          (Expr.bvar 2))
-                        (Expr.bvar 1)))
-                    (Expr.forallE
-                      (Name.str (Name.anonymous) "b")
-                      (Expr.bvar 3)
-                      (Expr.forallE
-                        (Name.str (Name.anonymous) "t")
-                        (Expr.app
-                          (Expr.app
-                            (Expr.app
-                              (Expr.const
-                                (Name.str (Name.anonymous) "Eq")
-                                [Level.param (Name.str (Name.anonymous) "u")])
-                              (Expr.bvar 4))
-                            (Expr.bvar 3))
-                          (Expr.bvar 0))
-                        (Expr.app
-                          (Expr.app (Expr.bvar 3) (Expr.bvar 1))
-                          (Expr.bvar 0))
-                        { bi := BinderInfo.default,
-                          cod := some (Level.param (Name.str (Name.anonymous) "u_1")) })
-                      { bi := BinderInfo.implicit,
-                        cod := some (Level.imax
-                                 (Level.zero)
-                                 (Level.param (Name.str (Name.anonymous) "u_1"))) })
-                    { bi := BinderInfo.default,
-                      cod := some (Level.imax
-                               (Level.param (Name.str (Name.anonymous) "u"))
-                               (Level.imax
-                                 (Level.zero)
-                                 (Level.param (Name.str (Name.anonymous) "u_1")))) })
-                  { bi := BinderInfo.implicit,
-                    cod := some (Level.imax
-                             (Level.param (Name.str (Name.anonymous) "u_1"))
-                             (Level.imax
-                               (Level.param (Name.str (Name.anonymous) "u"))
-                               (Level.imax
-                                 (Level.zero)
-                                 (Level.param (Name.str (Name.anonymous) "u_1"))))) })
-                { bi := BinderInfo.implicit,
-                  cod := some (Level.imax
-                           (Level.imax
-                             (Level.param (Name.str (Name.anonymous) "u"))
-                             (Level.imax
-                               (Level.zero)
-                               (Level.succ
-                                 (Level.param (Name.str (Name.anonymous) "u_1")))))
-                           (Level.imax
-                             (Level.param (Name.str (Name.anonymous) "u_1"))
-                             (Level.imax
-                               (Level.param (Name.str (Name.anonymous) "u"))
-                               (Level.imax
-                                 (Level.zero)
-                                 (Level.param (Name.str (Name.anonymous) "u_1")))))) })
-              { bi := BinderInfo.implicit,
-                cod := some (Level.imax
-                         (Level.param (Name.str (Name.anonymous) "u"))
-                         (Level.imax
-                           (Level.imax
-                             (Level.param (Name.str (Name.anonymous) "u"))
-                             (Level.imax
-                               (Level.zero)
-                               (Level.succ
-                                 (Level.param (Name.str (Name.anonymous) "u_1")))))
-                           (Level.imax
-                             (Level.param (Name.str (Name.anonymous) "u_1"))
-                             (Level.imax
-                               (Level.param (Name.str (Name.anonymous) "u"))
-                               (Level.imax
-                                 (Level.zero)
-                                 (Level.param (Name.str (Name.anonymous) "u_1"))))))) } }
-  2
-  1
-  1
-  1
-  [{ ctor := Name.str (Name.str (Name.anonymous) "Eq") "refl",
-     nfields := 0,
-     rhs := Expr.lam
-              (Name.str (Name.anonymous) "α")
-              (Expr.sort (Level.param (Name.str (Name.anonymous) "u")))
-              (Expr.lam
-                (Name.str (Name.anonymous) "a")
-                (Expr.bvar 0)
-                (Expr.lam
-                  (Name.str (Name.anonymous) "motive")
-                  (Expr.forallE
-                    (Name.str (Name.anonymous) "b")
-                    (Expr.bvar 1)
-                    (Expr.forallE
-                      (Name.str (Name.anonymous) "t")
-                      (Expr.app
-                        (Expr.app
-                          (Expr.app
-                            (Expr.const
-                              (Name.str (Name.anonymous) "Eq")
-                              [Level.param (Name.str (Name.anonymous) "u")])
-                            (Expr.bvar 2))
-                          (Expr.bvar 1))
-                        (Expr.bvar 0))
-                      (Expr.sort (Level.param (Name.str (Name.anonymous) "u_1")))
-                      { bi := BinderInfo.default, cod := none })
-                    { bi := BinderInfo.default, cod := none })
-                  (Expr.lam
-                    (Name.str (Name.anonymous) "refl")
-                    (Expr.app
-                      (Expr.app (Expr.bvar 0) (Expr.bvar 1))
-                      (Expr.app
-                        (Expr.app
-                          (Expr.const
-                            (Name.str (Name.str (Name.anonymous) "Eq") "refl")
-                            [Level.param (Name.str (Name.anonymous) "u")])
-                          (Expr.bvar 2))
-                        (Expr.bvar 1)))
-                    (Expr.bvar 0)
-                    { bi := BinderInfo.default, cod := none })
-                  { bi := BinderInfo.default, cod := none })
-                { bi := BinderInfo.default, cod := none })
-              { bi := BinderInfo.implicit, cod := none } }]
+  Setlec.ConstantInfo.recInfo
+    { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Eq") "rec",
+      levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u_1", Setlec.Name.str (Setlec.Name.anonymous) "u"],
+      type := Setlec.Expr.forallE
+                (Setlec.Name.str (Setlec.Name.anonymous) "α")
+                (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
+                (Setlec.Expr.forallE
+                  (Setlec.Name.str (Setlec.Name.anonymous) "a")
+                  (Setlec.Expr.bvar 0)
+                  (Setlec.Expr.forallE
+                    (Setlec.Name.str (Setlec.Name.anonymous) "motive")
+                    (Setlec.Expr.forallE
+                      (Setlec.Name.str (Setlec.Name.anonymous) "b")
+                      (Setlec.Expr.bvar 1)
+                      (Setlec.Expr.forallE
+                        (Setlec.Name.str (Setlec.Name.anonymous) "t")
+                        (Setlec.Expr.app
+                          (Setlec.Expr.app
+                            (Setlec.Expr.app
+                              (Setlec.Expr.const
+                                (Setlec.Name.str (Setlec.Name.anonymous) "Eq")
+                                [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
+                              (Setlec.Expr.bvar 2))
+                            (Setlec.Expr.bvar 1))
+                          (Setlec.Expr.bvar 0))
+                        (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1")))
+                        { bi := Setlec.BinderInfo.default,
+                          cod := some (Setlec.Level.succ
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))) })
+                      { bi := Setlec.BinderInfo.default,
+                        cod := some (Setlec.Level.imax
+                                 (Setlec.Level.zero)
+                                 (Setlec.Level.succ
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1")))) })
+                    (Setlec.Expr.forallE
+                      (Setlec.Name.str (Setlec.Name.anonymous) "refl")
+                      (Setlec.Expr.app
+                        (Setlec.Expr.app (Setlec.Expr.bvar 0) (Setlec.Expr.bvar 1))
+                        (Setlec.Expr.app
+                          (Setlec.Expr.app
+                            (Setlec.Expr.const
+                              (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Eq") "refl")
+                              [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
+                            (Setlec.Expr.bvar 2))
+                          (Setlec.Expr.bvar 1)))
+                      (Setlec.Expr.forallE
+                        (Setlec.Name.str (Setlec.Name.anonymous) "b")
+                        (Setlec.Expr.bvar 3)
+                        (Setlec.Expr.forallE
+                          (Setlec.Name.str (Setlec.Name.anonymous) "t")
+                          (Setlec.Expr.app
+                            (Setlec.Expr.app
+                              (Setlec.Expr.app
+                                (Setlec.Expr.const
+                                  (Setlec.Name.str (Setlec.Name.anonymous) "Eq")
+                                  [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
+                                (Setlec.Expr.bvar 4))
+                              (Setlec.Expr.bvar 3))
+                            (Setlec.Expr.bvar 0))
+                          (Setlec.Expr.app
+                            (Setlec.Expr.app (Setlec.Expr.bvar 3) (Setlec.Expr.bvar 1))
+                            (Setlec.Expr.bvar 0))
+                          { bi := Setlec.BinderInfo.default,
+                            cod := some (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1")) })
+                        { bi := Setlec.BinderInfo.implicit,
+                          cod := some (Setlec.Level.imax
+                                   (Setlec.Level.zero)
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))) })
+                      { bi := Setlec.BinderInfo.default,
+                        cod := some (Setlec.Level.imax
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.imax
+                                   (Setlec.Level.zero)
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1")))) })
+                    { bi := Setlec.BinderInfo.implicit,
+                      cod := some (Setlec.Level.imax
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))
+                               (Setlec.Level.imax
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.imax
+                                   (Setlec.Level.zero)
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))))) })
+                  { bi := Setlec.BinderInfo.implicit,
+                    cod := some (Setlec.Level.imax
+                             (Setlec.Level.imax
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                               (Setlec.Level.imax
+                                 (Setlec.Level.zero)
+                                 (Setlec.Level.succ
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1")))))
+                             (Setlec.Level.imax
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))
+                               (Setlec.Level.imax
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.imax
+                                   (Setlec.Level.zero)
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1")))))) })
+                { bi := Setlec.BinderInfo.implicit,
+                  cod := some (Setlec.Level.imax
+                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                           (Setlec.Level.imax
+                             (Setlec.Level.imax
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                               (Setlec.Level.imax
+                                 (Setlec.Level.zero)
+                                 (Setlec.Level.succ
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1")))))
+                             (Setlec.Level.imax
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))
+                               (Setlec.Level.imax
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.imax
+                                   (Setlec.Level.zero)
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))))))) } }
+    2
+    1
+    1
+    1
+    [{ ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Eq") "refl",
+       nfields := 0,
+       rhs := Setlec.Expr.lam
+                (Setlec.Name.str (Setlec.Name.anonymous) "α")
+                (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
+                (Setlec.Expr.lam
+                  (Setlec.Name.str (Setlec.Name.anonymous) "a")
+                  (Setlec.Expr.bvar 0)
+                  (Setlec.Expr.lam
+                    (Setlec.Name.str (Setlec.Name.anonymous) "motive")
+                    (Setlec.Expr.forallE
+                      (Setlec.Name.str (Setlec.Name.anonymous) "b")
+                      (Setlec.Expr.bvar 1)
+                      (Setlec.Expr.forallE
+                        (Setlec.Name.str (Setlec.Name.anonymous) "t")
+                        (Setlec.Expr.app
+                          (Setlec.Expr.app
+                            (Setlec.Expr.app
+                              (Setlec.Expr.const
+                                (Setlec.Name.str (Setlec.Name.anonymous) "Eq")
+                                [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
+                              (Setlec.Expr.bvar 2))
+                            (Setlec.Expr.bvar 1))
+                          (Setlec.Expr.bvar 0))
+                        (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1")))
+                        { bi := Setlec.BinderInfo.default,
+                          cod := some (Setlec.Level.succ
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))) })
+                      { bi := Setlec.BinderInfo.default,
+                        cod := some (Setlec.Level.imax
+                                 (Setlec.Level.zero)
+                                 (Setlec.Level.succ
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1")))) })
+                    (Setlec.Expr.lam
+                      (Setlec.Name.str (Setlec.Name.anonymous) "refl")
+                      (Setlec.Expr.app
+                        (Setlec.Expr.app (Setlec.Expr.bvar 0) (Setlec.Expr.bvar 1))
+                        (Setlec.Expr.app
+                          (Setlec.Expr.app
+                            (Setlec.Expr.const
+                              (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Eq") "refl")
+                              [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
+                            (Setlec.Expr.bvar 2))
+                          (Setlec.Expr.bvar 1)))
+                      (Setlec.Expr.bvar 0)
+                      { bi := Setlec.BinderInfo.default,
+                        cod := some (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1")) })
+                    { bi := Setlec.BinderInfo.default,
+                      cod := some (Setlec.Level.imax
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))) })
+                  { bi := Setlec.BinderInfo.default,
+                    cod := some (Setlec.Level.imax
+                             (Setlec.Level.imax
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                               (Setlec.Level.imax
+                                 (Setlec.Level.zero)
+                                 (Setlec.Level.succ
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1")))))
+                             (Setlec.Level.imax
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1")))) })
+                { bi := Setlec.BinderInfo.implicit,
+                  cod := some (Setlec.Level.imax
+                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                           (Setlec.Level.imax
+                             (Setlec.Level.imax
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                               (Setlec.Level.imax
+                                 (Setlec.Level.zero)
+                                 (Setlec.Level.succ
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1")))))
+                             (Setlec.Level.imax
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))))) } }]
 
 /-- Annotated basis declaration (generated). -/
 def natA : ConstantInfo :=
-  ConstantInfo.indInfo
-  { name := Name.str (Name.anonymous) "Nat",
-    levelParams := [],
-    type := Expr.sort (Level.succ (Level.zero)) }
+  Setlec.ConstantInfo.indInfo
+    { name := Setlec.Name.str (Setlec.Name.anonymous) "Nat",
+      levelParams := [],
+      type := Setlec.Expr.sort (Setlec.Level.succ (Setlec.Level.zero)) }
 
 /-- Annotated basis declaration (generated). -/
 def natZeroA : ConstantInfo :=
-  ConstantInfo.ctorInfo
-  { name := Name.str (Name.str (Name.anonymous) "Nat") "zero",
-    levelParams := [],
-    type := Expr.const (Name.str (Name.anonymous) "Nat") [] }
-  0
-  0
+  Setlec.ConstantInfo.ctorInfo
+    { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nat") "zero",
+      levelParams := [],
+      type := Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Nat") [] }
+    0
+    0
 
 /-- Annotated basis declaration (generated). -/
 def natSuccA : ConstantInfo :=
-  ConstantInfo.ctorInfo
-  { name := Name.str (Name.str (Name.anonymous) "Nat") "succ",
-    levelParams := [],
-    type := Expr.forallE
-              (Name.str (Name.anonymous) "n")
-              (Expr.const (Name.str (Name.anonymous) "Nat") [])
-              (Expr.const (Name.str (Name.anonymous) "Nat") [])
-              { bi := BinderInfo.default, cod := some (Level.succ (Level.zero)) } }
-  0
-  1
+  Setlec.ConstantInfo.ctorInfo
+    { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nat") "succ",
+      levelParams := [],
+      type := Setlec.Expr.forallE
+                (Setlec.Name.str (Setlec.Name.anonymous) "n")
+                (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Nat") [])
+                (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Nat") [])
+                { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.succ (Setlec.Level.zero)) } }
+    0
+    1
 
 /-- Annotated basis declaration (generated). -/
 def natRecA : ConstantInfo :=
-  ConstantInfo.recInfo
-  { name := Name.str (Name.str (Name.anonymous) "Nat") "rec",
-    levelParams := [Name.str (Name.anonymous) "u"],
-    type := Expr.forallE
-              (Name.str (Name.anonymous) "motive")
-              (Expr.forallE
-                (Name.str (Name.anonymous) "t")
-                (Expr.const (Name.str (Name.anonymous) "Nat") [])
-                (Expr.sort (Level.param (Name.str (Name.anonymous) "u")))
-                { bi := BinderInfo.default,
-                  cod := some (Level.succ (Level.param (Name.str (Name.anonymous) "u"))) })
-              (Expr.forallE
-                (Name.str (Name.anonymous) "zero")
-                (Expr.app
-                  (Expr.bvar 0)
-                  (Expr.const (Name.str (Name.str (Name.anonymous) "Nat") "zero") []))
-                (Expr.forallE
-                  (Name.str (Name.anonymous) "succ")
-                  (Expr.forallE
-                    (Name.str (Name.anonymous) "n")
-                    (Expr.const (Name.str (Name.anonymous) "Nat") [])
-                    (Expr.forallE
-                      (Name.str (Name.anonymous) "n_ih")
-                      (Expr.app (Expr.bvar 2) (Expr.bvar 0))
-                      (Expr.app
-                        (Expr.bvar 3)
-                        (Expr.app
-                          (Expr.const
-                            (Name.str (Name.str (Name.anonymous) "Nat") "succ")
-                            [])
-                          (Expr.bvar 1)))
-                      { bi := BinderInfo.default,
-                        cod := some (Level.param (Name.str (Name.anonymous) "u")) })
-                    { bi := BinderInfo.default,
-                      cod := some (Level.imax
-                               (Level.param (Name.str (Name.anonymous) "u"))
-                               (Level.param (Name.str (Name.anonymous) "u"))) })
-                  (Expr.forallE
-                    (Name.str (Name.anonymous) "t")
-                    (Expr.const (Name.str (Name.anonymous) "Nat") [])
-                    (Expr.app (Expr.bvar 3) (Expr.bvar 0))
-                    { bi := BinderInfo.default,
-                      cod := some (Level.param (Name.str (Name.anonymous) "u")) })
-                  { bi := BinderInfo.default,
-                    cod := some (Level.imax
-                             (Level.succ (Level.zero))
-                             (Level.param (Name.str (Name.anonymous) "u"))) })
-                { bi := BinderInfo.default,
-                  cod := some (Level.imax
-                           (Level.imax
-                             (Level.succ (Level.zero))
-                             (Level.imax
-                               (Level.param (Name.str (Name.anonymous) "u"))
-                               (Level.param (Name.str (Name.anonymous) "u"))))
-                           (Level.imax
-                             (Level.succ (Level.zero))
-                             (Level.param (Name.str (Name.anonymous) "u")))) })
-              { bi := BinderInfo.implicit,
-                cod := some (Level.imax
-                         (Level.param (Name.str (Name.anonymous) "u"))
-                         (Level.imax
-                           (Level.imax
-                             (Level.succ (Level.zero))
-                             (Level.imax
-                               (Level.param (Name.str (Name.anonymous) "u"))
-                               (Level.param (Name.str (Name.anonymous) "u"))))
-                           (Level.imax
-                             (Level.succ (Level.zero))
-                             (Level.param (Name.str (Name.anonymous) "u"))))) } }
-  0
-  1
-  2
-  0
-  [{ ctor := Name.str (Name.str (Name.anonymous) "Nat") "zero",
-     nfields := 0,
-     rhs := Expr.lam
-              (Name.str (Name.anonymous) "motive")
-              (Expr.forallE
-                (Name.str (Name.anonymous) "t")
-                (Expr.const (Name.str (Name.anonymous) "Nat") [])
-                (Expr.sort (Level.param (Name.str (Name.anonymous) "u")))
-                { bi := BinderInfo.default, cod := none })
-              (Expr.lam
-                (Name.str (Name.anonymous) "zero")
-                (Expr.app
-                  (Expr.bvar 0)
-                  (Expr.const (Name.str (Name.str (Name.anonymous) "Nat") "zero") []))
-                (Expr.lam
-                  (Name.str (Name.anonymous) "succ")
-                  (Expr.forallE
-                    (Name.str (Name.anonymous) "n")
-                    (Expr.const (Name.str (Name.anonymous) "Nat") [])
-                    (Expr.forallE
-                      (Name.str (Name.anonymous) "n_ih")
-                      (Expr.app (Expr.bvar 2) (Expr.bvar 0))
-                      (Expr.app
-                        (Expr.bvar 3)
-                        (Expr.app
-                          (Expr.const
-                            (Name.str (Name.str (Name.anonymous) "Nat") "succ")
-                            [])
-                          (Expr.bvar 1)))
-                      { bi := BinderInfo.default, cod := none })
-                    { bi := BinderInfo.default, cod := none })
-                  (Expr.bvar 1)
-                  { bi := BinderInfo.default, cod := none })
-                { bi := BinderInfo.default, cod := none })
-              { bi := BinderInfo.default, cod := none } },
-   { ctor := Name.str (Name.str (Name.anonymous) "Nat") "succ",
-     nfields := 1,
-     rhs := Expr.lam
-              (Name.str (Name.anonymous) "motive")
-              (Expr.forallE
-                (Name.str (Name.anonymous) "t")
-                (Expr.const (Name.str (Name.anonymous) "Nat") [])
-                (Expr.sort (Level.param (Name.str (Name.anonymous) "u")))
-                { bi := BinderInfo.default, cod := none })
-              (Expr.lam
-                (Name.str (Name.anonymous) "zero")
-                (Expr.app
-                  (Expr.bvar 0)
-                  (Expr.const (Name.str (Name.str (Name.anonymous) "Nat") "zero") []))
-                (Expr.lam
-                  (Name.str (Name.anonymous) "succ")
-                  (Expr.forallE
-                    (Name.str (Name.anonymous) "n")
-                    (Expr.const (Name.str (Name.anonymous) "Nat") [])
-                    (Expr.forallE
-                      (Name.str (Name.anonymous) "n_ih")
-                      (Expr.app (Expr.bvar 2) (Expr.bvar 0))
-                      (Expr.app
-                        (Expr.bvar 3)
-                        (Expr.app
-                          (Expr.const
-                            (Name.str (Name.str (Name.anonymous) "Nat") "succ")
-                            [])
-                          (Expr.bvar 1)))
-                      { bi := BinderInfo.default, cod := none })
-                    { bi := BinderInfo.default, cod := none })
-                  (Expr.lam
-                    (Name.str (Name.anonymous) "n")
-                    (Expr.const (Name.str (Name.anonymous) "Nat") [])
-                    (Expr.app
-                      (Expr.app (Expr.bvar 1) (Expr.bvar 0))
-                      (Expr.app
-                        (Expr.app
-                          (Expr.app
-                            (Expr.app
-                              (Expr.const
-                                (Name.str (Name.str (Name.anonymous) "Nat") "rec")
-                                [Level.param (Name.str (Name.anonymous) "u")])
-                              (Expr.bvar 3))
-                            (Expr.bvar 2))
-                          (Expr.bvar 1))
-                        (Expr.bvar 0)))
-                    { bi := BinderInfo.default, cod := none })
-                  { bi := BinderInfo.default, cod := none })
-                { bi := BinderInfo.default, cod := none })
-              { bi := BinderInfo.default, cod := none } }]
+  Setlec.ConstantInfo.recInfo
+    { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nat") "rec",
+      levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u"],
+      type := Setlec.Expr.forallE
+                (Setlec.Name.str (Setlec.Name.anonymous) "motive")
+                (Setlec.Expr.forallE
+                  (Setlec.Name.str (Setlec.Name.anonymous) "t")
+                  (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Nat") [])
+                  (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
+                  { bi := Setlec.BinderInfo.default,
+                    cod := some (Setlec.Level.succ (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))) })
+                (Setlec.Expr.forallE
+                  (Setlec.Name.str (Setlec.Name.anonymous) "zero")
+                  (Setlec.Expr.app
+                    (Setlec.Expr.bvar 0)
+                    (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nat") "zero") []))
+                  (Setlec.Expr.forallE
+                    (Setlec.Name.str (Setlec.Name.anonymous) "succ")
+                    (Setlec.Expr.forallE
+                      (Setlec.Name.str (Setlec.Name.anonymous) "n")
+                      (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Nat") [])
+                      (Setlec.Expr.forallE
+                        (Setlec.Name.str (Setlec.Name.anonymous) "n_ih")
+                        (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 0))
+                        (Setlec.Expr.app
+                          (Setlec.Expr.bvar 3)
+                          (Setlec.Expr.app
+                            (Setlec.Expr.const
+                              (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nat") "succ")
+                              [])
+                            (Setlec.Expr.bvar 1)))
+                        { bi := Setlec.BinderInfo.default,
+                          cod := some (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")) })
+                      { bi := Setlec.BinderInfo.default,
+                        cod := some (Setlec.Level.imax
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))) })
+                    (Setlec.Expr.forallE
+                      (Setlec.Name.str (Setlec.Name.anonymous) "t")
+                      (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Nat") [])
+                      (Setlec.Expr.app (Setlec.Expr.bvar 3) (Setlec.Expr.bvar 0))
+                      { bi := Setlec.BinderInfo.default,
+                        cod := some (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")) })
+                    { bi := Setlec.BinderInfo.default,
+                      cod := some (Setlec.Level.imax
+                               (Setlec.Level.succ (Setlec.Level.zero))
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))) })
+                  { bi := Setlec.BinderInfo.default,
+                    cod := some (Setlec.Level.imax
+                             (Setlec.Level.imax
+                               (Setlec.Level.succ (Setlec.Level.zero))
+                               (Setlec.Level.imax
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))))
+                             (Setlec.Level.imax
+                               (Setlec.Level.succ (Setlec.Level.zero))
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))) })
+                { bi := Setlec.BinderInfo.implicit,
+                  cod := some (Setlec.Level.imax
+                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                           (Setlec.Level.imax
+                             (Setlec.Level.imax
+                               (Setlec.Level.succ (Setlec.Level.zero))
+                               (Setlec.Level.imax
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))))
+                             (Setlec.Level.imax
+                               (Setlec.Level.succ (Setlec.Level.zero))
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))))) } }
+    0
+    1
+    2
+    0
+    [{ ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nat") "zero",
+       nfields := 0,
+       rhs := Setlec.Expr.lam
+                (Setlec.Name.str (Setlec.Name.anonymous) "motive")
+                (Setlec.Expr.forallE
+                  (Setlec.Name.str (Setlec.Name.anonymous) "t")
+                  (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Nat") [])
+                  (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
+                  { bi := Setlec.BinderInfo.default,
+                    cod := some (Setlec.Level.succ (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))) })
+                (Setlec.Expr.lam
+                  (Setlec.Name.str (Setlec.Name.anonymous) "zero")
+                  (Setlec.Expr.app
+                    (Setlec.Expr.bvar 0)
+                    (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nat") "zero") []))
+                  (Setlec.Expr.lam
+                    (Setlec.Name.str (Setlec.Name.anonymous) "succ")
+                    (Setlec.Expr.forallE
+                      (Setlec.Name.str (Setlec.Name.anonymous) "n")
+                      (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Nat") [])
+                      (Setlec.Expr.forallE
+                        (Setlec.Name.str (Setlec.Name.anonymous) "n_ih")
+                        (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 0))
+                        (Setlec.Expr.app
+                          (Setlec.Expr.bvar 3)
+                          (Setlec.Expr.app
+                            (Setlec.Expr.const
+                              (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nat") "succ")
+                              [])
+                            (Setlec.Expr.bvar 1)))
+                        { bi := Setlec.BinderInfo.default,
+                          cod := some (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")) })
+                      { bi := Setlec.BinderInfo.default,
+                        cod := some (Setlec.Level.imax
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))) })
+                    (Setlec.Expr.bvar 1)
+                    { bi := Setlec.BinderInfo.default,
+                      cod := some (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")) })
+                  { bi := Setlec.BinderInfo.default,
+                    cod := some (Setlec.Level.imax
+                             (Setlec.Level.imax
+                               (Setlec.Level.succ (Setlec.Level.zero))
+                               (Setlec.Level.imax
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))))
+                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))) })
+                { bi := Setlec.BinderInfo.default,
+                  cod := some (Setlec.Level.imax
+                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                           (Setlec.Level.imax
+                             (Setlec.Level.imax
+                               (Setlec.Level.succ (Setlec.Level.zero))
+                               (Setlec.Level.imax
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))))
+                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))) } },
+     { ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nat") "succ",
+       nfields := 1,
+       rhs := Setlec.Expr.lam
+                (Setlec.Name.str (Setlec.Name.anonymous) "motive")
+                (Setlec.Expr.forallE
+                  (Setlec.Name.str (Setlec.Name.anonymous) "t")
+                  (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Nat") [])
+                  (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
+                  { bi := Setlec.BinderInfo.default,
+                    cod := some (Setlec.Level.succ (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))) })
+                (Setlec.Expr.lam
+                  (Setlec.Name.str (Setlec.Name.anonymous) "zero")
+                  (Setlec.Expr.app
+                    (Setlec.Expr.bvar 0)
+                    (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nat") "zero") []))
+                  (Setlec.Expr.lam
+                    (Setlec.Name.str (Setlec.Name.anonymous) "succ")
+                    (Setlec.Expr.forallE
+                      (Setlec.Name.str (Setlec.Name.anonymous) "n")
+                      (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Nat") [])
+                      (Setlec.Expr.forallE
+                        (Setlec.Name.str (Setlec.Name.anonymous) "n_ih")
+                        (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 0))
+                        (Setlec.Expr.app
+                          (Setlec.Expr.bvar 3)
+                          (Setlec.Expr.app
+                            (Setlec.Expr.const
+                              (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nat") "succ")
+                              [])
+                            (Setlec.Expr.bvar 1)))
+                        { bi := Setlec.BinderInfo.default,
+                          cod := some (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")) })
+                      { bi := Setlec.BinderInfo.default,
+                        cod := some (Setlec.Level.imax
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))) })
+                    (Setlec.Expr.lam
+                      (Setlec.Name.str (Setlec.Name.anonymous) "n")
+                      (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Nat") [])
+                      (Setlec.Expr.app
+                        (Setlec.Expr.app (Setlec.Expr.bvar 1) (Setlec.Expr.bvar 0))
+                        (Setlec.Expr.app
+                          (Setlec.Expr.app
+                            (Setlec.Expr.app
+                              (Setlec.Expr.app
+                                (Setlec.Expr.const
+                                  (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nat") "rec")
+                                  [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
+                                (Setlec.Expr.bvar 3))
+                              (Setlec.Expr.bvar 2))
+                            (Setlec.Expr.bvar 1))
+                          (Setlec.Expr.bvar 0)))
+                      { bi := Setlec.BinderInfo.default,
+                        cod := some (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")) })
+                    { bi := Setlec.BinderInfo.default,
+                      cod := some (Setlec.Level.imax
+                               (Setlec.Level.succ (Setlec.Level.zero))
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))) })
+                  { bi := Setlec.BinderInfo.default,
+                    cod := some (Setlec.Level.imax
+                             (Setlec.Level.imax
+                               (Setlec.Level.succ (Setlec.Level.zero))
+                               (Setlec.Level.imax
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))))
+                             (Setlec.Level.imax
+                               (Setlec.Level.succ (Setlec.Level.zero))
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))) })
+                { bi := Setlec.BinderInfo.default,
+                  cod := some (Setlec.Level.imax
+                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                           (Setlec.Level.imax
+                             (Setlec.Level.imax
+                               (Setlec.Level.succ (Setlec.Level.zero))
+                               (Setlec.Level.imax
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))))
+                             (Setlec.Level.imax
+                               (Setlec.Level.succ (Setlec.Level.zero))
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))))) } }]
 
 /-- Annotated basis declaration (generated). -/
 def psigmaA : ConstantInfo :=
-  ConstantInfo.indInfo
-  { name := Name.str (Name.anonymous) "PSigma'",
-    levelParams := [Name.str (Name.anonymous) "u", Name.str (Name.anonymous) "v"],
-    type := Expr.forallE
-              (Name.str (Name.anonymous) "α")
-              (Expr.sort (Level.param (Name.str (Name.anonymous) "u")))
-              (Expr.forallE
-                (Name.str (Name.anonymous) "β")
-                (Expr.forallE
-                  (Name.str (Name.anonymous) "x")
-                  (Expr.bvar 0)
-                  (Expr.sort (Level.param (Name.str (Name.anonymous) "v")))
-                  { bi := BinderInfo.default,
-                    cod := some (Level.succ
-                             (Level.param (Name.str (Name.anonymous) "v"))) })
-                (Expr.sort
-                  (Level.max
-                    (Level.param (Name.str (Name.anonymous) "u"))
-                    (Level.param (Name.str (Name.anonymous) "v"))))
-                { bi := BinderInfo.default,
-                  cod := some (Level.succ
-                           (Level.max
-                             (Level.param (Name.str (Name.anonymous) "u"))
-                             (Level.param (Name.str (Name.anonymous) "v")))) })
-              { bi := BinderInfo.implicit,
-                cod := some (Level.imax
-                         (Level.imax
-                           (Level.param (Name.str (Name.anonymous) "u"))
-                           (Level.succ (Level.param (Name.str (Name.anonymous) "v"))))
-                         (Level.succ
-                           (Level.max
-                             (Level.param (Name.str (Name.anonymous) "u"))
-                             (Level.param (Name.str (Name.anonymous) "v"))))) } }
+  Setlec.ConstantInfo.indInfo
+    { name := Setlec.Name.str (Setlec.Name.anonymous) "PSigma'",
+      levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u", Setlec.Name.str (Setlec.Name.anonymous) "v"],
+      type := Setlec.Expr.forallE
+                (Setlec.Name.str (Setlec.Name.anonymous) "α")
+                (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
+                (Setlec.Expr.forallE
+                  (Setlec.Name.str (Setlec.Name.anonymous) "β")
+                  (Setlec.Expr.forallE
+                    (Setlec.Name.str (Setlec.Name.anonymous) "x")
+                    (Setlec.Expr.bvar 0)
+                    (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
+                    { bi := Setlec.BinderInfo.default,
+                      cod := some (Setlec.Level.succ
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))) })
+                  (Setlec.Expr.sort
+                    (Setlec.Level.max
+                      (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                      (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))))
+                  { bi := Setlec.BinderInfo.default,
+                    cod := some (Setlec.Level.succ
+                             (Setlec.Level.max
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))) })
+                { bi := Setlec.BinderInfo.implicit,
+                  cod := some (Setlec.Level.imax
+                           (Setlec.Level.imax
+                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                             (Setlec.Level.succ (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))))
+                           (Setlec.Level.succ
+                             (Setlec.Level.max
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))))) } }
 
 /-- Annotated basis declaration (generated). -/
 def psigmaMkA : ConstantInfo :=
-  ConstantInfo.ctorInfo
-  { name := Name.str (Name.str (Name.anonymous) "PSigma'") "mk",
-    levelParams := [Name.str (Name.anonymous) "u", Name.str (Name.anonymous) "v"],
-    type := Expr.forallE
-              (Name.str (Name.anonymous) "α")
-              (Expr.sort (Level.param (Name.str (Name.anonymous) "u")))
-              (Expr.forallE
-                (Name.str (Name.anonymous) "β")
-                (Expr.forallE
-                  (Name.str (Name.anonymous) "x")
-                  (Expr.bvar 0)
-                  (Expr.sort (Level.param (Name.str (Name.anonymous) "v")))
-                  { bi := BinderInfo.default,
-                    cod := some (Level.succ
-                             (Level.param (Name.str (Name.anonymous) "v"))) })
-                (Expr.forallE
-                  (Name.str (Name.anonymous) "fst")
-                  (Expr.bvar 1)
-                  (Expr.forallE
-                    (Name.str (Name.anonymous) "snd")
-                    (Expr.app (Expr.bvar 1) (Expr.bvar 0))
-                    (Expr.app
-                      (Expr.app
-                        (Expr.const
-                          (Name.str (Name.anonymous) "PSigma'")
-                          [Level.param (Name.str (Name.anonymous) "u"),
-                           Level.param (Name.str (Name.anonymous) "v")])
-                        (Expr.bvar 3))
-                      (Expr.bvar 2))
-                    { bi := BinderInfo.default,
-                      cod := some (Level.max
-                               (Level.param (Name.str (Name.anonymous) "u"))
-                               (Level.param (Name.str (Name.anonymous) "v"))) })
-                  { bi := BinderInfo.default,
-                    cod := some (Level.imax
-                             (Level.param (Name.str (Name.anonymous) "v"))
-                             (Level.max
-                               (Level.param (Name.str (Name.anonymous) "u"))
-                               (Level.param (Name.str (Name.anonymous) "v")))) })
-                { bi := BinderInfo.implicit,
-                  cod := some (Level.imax
-                           (Level.param (Name.str (Name.anonymous) "u"))
-                           (Level.imax
-                             (Level.param (Name.str (Name.anonymous) "v"))
-                             (Level.max
-                               (Level.param (Name.str (Name.anonymous) "u"))
-                               (Level.param (Name.str (Name.anonymous) "v"))))) })
-              { bi := BinderInfo.implicit,
-                cod := some (Level.imax
-                         (Level.imax
-                           (Level.param (Name.str (Name.anonymous) "u"))
-                           (Level.succ (Level.param (Name.str (Name.anonymous) "v"))))
-                         (Level.imax
-                           (Level.param (Name.str (Name.anonymous) "u"))
-                           (Level.imax
-                             (Level.param (Name.str (Name.anonymous) "v"))
-                             (Level.max
-                               (Level.param (Name.str (Name.anonymous) "u"))
-                               (Level.param (Name.str (Name.anonymous) "v")))))) } }
-  2
-  2
+  Setlec.ConstantInfo.ctorInfo
+    { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "PSigma'") "mk",
+      levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u", Setlec.Name.str (Setlec.Name.anonymous) "v"],
+      type := Setlec.Expr.forallE
+                (Setlec.Name.str (Setlec.Name.anonymous) "α")
+                (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
+                (Setlec.Expr.forallE
+                  (Setlec.Name.str (Setlec.Name.anonymous) "β")
+                  (Setlec.Expr.forallE
+                    (Setlec.Name.str (Setlec.Name.anonymous) "x")
+                    (Setlec.Expr.bvar 0)
+                    (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
+                    { bi := Setlec.BinderInfo.default,
+                      cod := some (Setlec.Level.succ
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))) })
+                  (Setlec.Expr.forallE
+                    (Setlec.Name.str (Setlec.Name.anonymous) "fst")
+                    (Setlec.Expr.bvar 1)
+                    (Setlec.Expr.forallE
+                      (Setlec.Name.str (Setlec.Name.anonymous) "snd")
+                      (Setlec.Expr.app (Setlec.Expr.bvar 1) (Setlec.Expr.bvar 0))
+                      (Setlec.Expr.app
+                        (Setlec.Expr.app
+                          (Setlec.Expr.const
+                            (Setlec.Name.str (Setlec.Name.anonymous) "PSigma'")
+                            [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"),
+                             Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")])
+                          (Setlec.Expr.bvar 3))
+                        (Setlec.Expr.bvar 2))
+                      { bi := Setlec.BinderInfo.default,
+                        cod := some (Setlec.Level.max
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))) })
+                    { bi := Setlec.BinderInfo.default,
+                      cod := some (Setlec.Level.imax
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))
+                               (Setlec.Level.max
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))) })
+                  { bi := Setlec.BinderInfo.implicit,
+                    cod := some (Setlec.Level.imax
+                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                             (Setlec.Level.imax
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))
+                               (Setlec.Level.max
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))))) })
+                { bi := Setlec.BinderInfo.implicit,
+                  cod := some (Setlec.Level.imax
+                           (Setlec.Level.imax
+                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                             (Setlec.Level.succ (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))))
+                           (Setlec.Level.imax
+                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                             (Setlec.Level.imax
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))
+                               (Setlec.Level.max
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))))) } }
+    2
+    2
 
 /-- Annotated basis declaration (generated). -/
 def psigmaRecA : ConstantInfo :=
-  ConstantInfo.recInfo
-  { name := Name.str (Name.str (Name.anonymous) "PSigma'") "rec",
-    levelParams := [Name.str (Name.anonymous) "u", Name.str (Name.anonymous) "v"],
-    type := Expr.forallE
-              (Name.str (Name.anonymous) "α")
-              (Expr.sort (Level.param (Name.str (Name.anonymous) "u")))
-              (Expr.forallE
-                (Name.str (Name.anonymous) "β")
-                (Expr.forallE
-                  (Name.str (Name.anonymous) "x")
-                  (Expr.bvar 0)
-                  (Expr.sort (Level.param (Name.str (Name.anonymous) "v")))
-                  { bi := BinderInfo.default,
-                    cod := some (Level.succ
-                             (Level.param (Name.str (Name.anonymous) "v"))) })
-                (Expr.forallE
-                  (Name.str (Name.anonymous) "motive")
-                  (Expr.forallE
-                    (Name.str (Name.anonymous) "t")
-                    (Expr.app
-                      (Expr.app
-                        (Expr.const
-                          (Name.str (Name.anonymous) "PSigma'")
-                          [Level.param (Name.str (Name.anonymous) "u"),
-                           Level.param (Name.str (Name.anonymous) "v")])
-                        (Expr.bvar 1))
-                      (Expr.bvar 0))
-                    (Expr.sort (Level.zero))
-                    { bi := BinderInfo.default, cod := some (Level.succ (Level.zero)) })
-                  (Expr.forallE
-                    (Name.str (Name.anonymous) "mk")
-                    (Expr.forallE
-                      (Name.str (Name.anonymous) "fst")
-                      (Expr.bvar 2)
-                      (Expr.forallE
-                        (Name.str (Name.anonymous) "snd")
-                        (Expr.app (Expr.bvar 2) (Expr.bvar 0))
-                        (Expr.app
-                          (Expr.bvar 2)
-                          (Expr.app
-                            (Expr.app
-                              (Expr.app
-                                (Expr.app
-                                  (Expr.const
-                                    (Name.str (Name.str (Name.anonymous) "PSigma'") "mk")
-                                    [Level.param (Name.str (Name.anonymous) "u"),
-                                     Level.param (Name.str (Name.anonymous) "v")])
-                                  (Expr.bvar 4))
-                                (Expr.bvar 3))
-                              (Expr.bvar 1))
-                            (Expr.bvar 0)))
-                        { bi := BinderInfo.default, cod := some (Level.zero) })
-                      { bi := BinderInfo.default,
-                        cod := some (Level.imax
-                                 (Level.param (Name.str (Name.anonymous) "v"))
-                                 (Level.zero)) })
-                    (Expr.forallE
-                      (Name.str (Name.anonymous) "t")
-                      (Expr.app
-                        (Expr.app
-                          (Expr.const
-                            (Name.str (Name.anonymous) "PSigma'")
-                            [Level.param (Name.str (Name.anonymous) "u"),
-                             Level.param (Name.str (Name.anonymous) "v")])
-                          (Expr.bvar 3))
-                        (Expr.bvar 2))
-                      (Expr.app (Expr.bvar 2) (Expr.bvar 0))
-                      { bi := BinderInfo.default, cod := some (Level.zero) })
-                    { bi := BinderInfo.default,
-                      cod := some (Level.imax
-                               (Level.max
-                                 (Level.param (Name.str (Name.anonymous) "u"))
-                                 (Level.param (Name.str (Name.anonymous) "v")))
-                               (Level.zero)) })
-                  { bi := BinderInfo.implicit,
-                    cod := some (Level.imax
-                             (Level.imax
-                               (Level.param (Name.str (Name.anonymous) "u"))
-                               (Level.imax
-                                 (Level.param (Name.str (Name.anonymous) "v"))
-                                 (Level.zero)))
-                             (Level.imax
-                               (Level.max
-                                 (Level.param (Name.str (Name.anonymous) "u"))
-                                 (Level.param (Name.str (Name.anonymous) "v")))
-                               (Level.zero))) })
-                { bi := BinderInfo.implicit,
-                  cod := some (Level.imax
-                           (Level.imax
-                             (Level.max
-                               (Level.param (Name.str (Name.anonymous) "u"))
-                               (Level.param (Name.str (Name.anonymous) "v")))
-                             (Level.succ (Level.zero)))
-                           (Level.imax
-                             (Level.imax
-                               (Level.param (Name.str (Name.anonymous) "u"))
-                               (Level.imax
-                                 (Level.param (Name.str (Name.anonymous) "v"))
-                                 (Level.zero)))
-                             (Level.imax
-                               (Level.max
-                                 (Level.param (Name.str (Name.anonymous) "u"))
-                                 (Level.param (Name.str (Name.anonymous) "v")))
-                               (Level.zero)))) })
-              { bi := BinderInfo.implicit,
-                cod := some (Level.imax
-                         (Level.imax
-                           (Level.param (Name.str (Name.anonymous) "u"))
-                           (Level.succ (Level.param (Name.str (Name.anonymous) "v"))))
-                         (Level.imax
-                           (Level.imax
-                             (Level.max
-                               (Level.param (Name.str (Name.anonymous) "u"))
-                               (Level.param (Name.str (Name.anonymous) "v")))
-                             (Level.succ (Level.zero)))
-                           (Level.imax
-                             (Level.imax
-                               (Level.param (Name.str (Name.anonymous) "u"))
-                               (Level.imax
-                                 (Level.param (Name.str (Name.anonymous) "v"))
-                                 (Level.zero)))
-                             (Level.imax
-                               (Level.max
-                                 (Level.param (Name.str (Name.anonymous) "u"))
-                                 (Level.param (Name.str (Name.anonymous) "v")))
-                               (Level.zero))))) } }
-  2
-  1
-  1
-  0
-  [{ ctor := Name.str (Name.str (Name.anonymous) "PSigma'") "mk",
-     nfields := 2,
-     rhs := Expr.lam
-              (Name.str (Name.anonymous) "α")
-              (Expr.sort (Level.param (Name.str (Name.anonymous) "u")))
-              (Expr.lam
-                (Name.str (Name.anonymous) "β")
-                (Expr.forallE
-                  (Name.str (Name.anonymous) "x")
-                  (Expr.bvar 0)
-                  (Expr.sort (Level.param (Name.str (Name.anonymous) "v")))
-                  { bi := BinderInfo.default, cod := none })
-                (Expr.lam
-                  (Name.str (Name.anonymous) "motive")
-                  (Expr.forallE
-                    (Name.str (Name.anonymous) "t")
-                    (Expr.app
-                      (Expr.app
-                        (Expr.const
-                          (Name.str (Name.anonymous) "PSigma'")
-                          [Level.param (Name.str (Name.anonymous) "u"),
-                           Level.param (Name.str (Name.anonymous) "v")])
-                        (Expr.bvar 1))
-                      (Expr.bvar 0))
-                    (Expr.sort (Level.zero))
-                    { bi := BinderInfo.default, cod := none })
-                  (Expr.lam
-                    (Name.str (Name.anonymous) "mk")
-                    (Expr.forallE
-                      (Name.str (Name.anonymous) "fst")
-                      (Expr.bvar 2)
-                      (Expr.forallE
-                        (Name.str (Name.anonymous) "snd")
-                        (Expr.app (Expr.bvar 2) (Expr.bvar 0))
-                        (Expr.app
-                          (Expr.bvar 2)
-                          (Expr.app
-                            (Expr.app
-                              (Expr.app
-                                (Expr.app
-                                  (Expr.const
-                                    (Name.str (Name.str (Name.anonymous) "PSigma'") "mk")
-                                    [Level.param (Name.str (Name.anonymous) "u"),
-                                     Level.param (Name.str (Name.anonymous) "v")])
-                                  (Expr.bvar 4))
-                                (Expr.bvar 3))
-                              (Expr.bvar 1))
-                            (Expr.bvar 0)))
-                        { bi := BinderInfo.default, cod := none })
-                      { bi := BinderInfo.default, cod := none })
-                    (Expr.lam
-                      (Name.str (Name.anonymous) "fst")
-                      (Expr.bvar 3)
-                      (Expr.lam
-                        (Name.str (Name.anonymous) "snd")
-                        (Expr.app (Expr.bvar 3) (Expr.bvar 0))
-                        (Expr.app
-                          (Expr.app (Expr.bvar 2) (Expr.bvar 1))
-                          (Expr.bvar 0))
-                        { bi := BinderInfo.default, cod := none })
-                      { bi := BinderInfo.default, cod := none })
-                    { bi := BinderInfo.default, cod := none })
-                  { bi := BinderInfo.default, cod := none })
-                { bi := BinderInfo.default, cod := none })
-              { bi := BinderInfo.implicit, cod := none } }]
+  Setlec.ConstantInfo.recInfo
+    { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "PSigma'") "rec",
+      levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u", Setlec.Name.str (Setlec.Name.anonymous) "v"],
+      type := Setlec.Expr.forallE
+                (Setlec.Name.str (Setlec.Name.anonymous) "α")
+                (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
+                (Setlec.Expr.forallE
+                  (Setlec.Name.str (Setlec.Name.anonymous) "β")
+                  (Setlec.Expr.forallE
+                    (Setlec.Name.str (Setlec.Name.anonymous) "x")
+                    (Setlec.Expr.bvar 0)
+                    (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
+                    { bi := Setlec.BinderInfo.default,
+                      cod := some (Setlec.Level.succ
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))) })
+                  (Setlec.Expr.forallE
+                    (Setlec.Name.str (Setlec.Name.anonymous) "motive")
+                    (Setlec.Expr.forallE
+                      (Setlec.Name.str (Setlec.Name.anonymous) "t")
+                      (Setlec.Expr.app
+                        (Setlec.Expr.app
+                          (Setlec.Expr.const
+                            (Setlec.Name.str (Setlec.Name.anonymous) "PSigma'")
+                            [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"),
+                             Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")])
+                          (Setlec.Expr.bvar 1))
+                        (Setlec.Expr.bvar 0))
+                      (Setlec.Expr.sort (Setlec.Level.zero))
+                      { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.succ (Setlec.Level.zero)) })
+                    (Setlec.Expr.forallE
+                      (Setlec.Name.str (Setlec.Name.anonymous) "mk")
+                      (Setlec.Expr.forallE
+                        (Setlec.Name.str (Setlec.Name.anonymous) "fst")
+                        (Setlec.Expr.bvar 2)
+                        (Setlec.Expr.forallE
+                          (Setlec.Name.str (Setlec.Name.anonymous) "snd")
+                          (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 0))
+                          (Setlec.Expr.app
+                            (Setlec.Expr.bvar 2)
+                            (Setlec.Expr.app
+                              (Setlec.Expr.app
+                                (Setlec.Expr.app
+                                  (Setlec.Expr.app
+                                    (Setlec.Expr.const
+                                      (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "PSigma'") "mk")
+                                      [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"),
+                                       Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")])
+                                    (Setlec.Expr.bvar 4))
+                                  (Setlec.Expr.bvar 3))
+                                (Setlec.Expr.bvar 1))
+                              (Setlec.Expr.bvar 0)))
+                          { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.zero) })
+                        { bi := Setlec.BinderInfo.default,
+                          cod := some (Setlec.Level.imax
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))
+                                   (Setlec.Level.zero)) })
+                      (Setlec.Expr.forallE
+                        (Setlec.Name.str (Setlec.Name.anonymous) "t")
+                        (Setlec.Expr.app
+                          (Setlec.Expr.app
+                            (Setlec.Expr.const
+                              (Setlec.Name.str (Setlec.Name.anonymous) "PSigma'")
+                              [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"),
+                               Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")])
+                            (Setlec.Expr.bvar 3))
+                          (Setlec.Expr.bvar 2))
+                        (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 0))
+                        { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.zero) })
+                      { bi := Setlec.BinderInfo.default,
+                        cod := some (Setlec.Level.imax
+                                 (Setlec.Level.max
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
+                                 (Setlec.Level.zero)) })
+                    { bi := Setlec.BinderInfo.implicit,
+                      cod := some (Setlec.Level.imax
+                               (Setlec.Level.imax
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.imax
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))
+                                   (Setlec.Level.zero)))
+                               (Setlec.Level.imax
+                                 (Setlec.Level.max
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
+                                 (Setlec.Level.zero))) })
+                  { bi := Setlec.BinderInfo.implicit,
+                    cod := some (Setlec.Level.imax
+                             (Setlec.Level.imax
+                               (Setlec.Level.max
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
+                               (Setlec.Level.succ (Setlec.Level.zero)))
+                             (Setlec.Level.imax
+                               (Setlec.Level.imax
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.imax
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))
+                                   (Setlec.Level.zero)))
+                               (Setlec.Level.imax
+                                 (Setlec.Level.max
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
+                                 (Setlec.Level.zero)))) })
+                { bi := Setlec.BinderInfo.implicit,
+                  cod := some (Setlec.Level.imax
+                           (Setlec.Level.imax
+                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                             (Setlec.Level.succ (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))))
+                           (Setlec.Level.imax
+                             (Setlec.Level.imax
+                               (Setlec.Level.max
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
+                               (Setlec.Level.succ (Setlec.Level.zero)))
+                             (Setlec.Level.imax
+                               (Setlec.Level.imax
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.imax
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))
+                                   (Setlec.Level.zero)))
+                               (Setlec.Level.imax
+                                 (Setlec.Level.max
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
+                                 (Setlec.Level.zero))))) } }
+    2
+    1
+    1
+    0
+    [{ ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "PSigma'") "mk",
+       nfields := 2,
+       rhs := Setlec.Expr.lam
+                (Setlec.Name.str (Setlec.Name.anonymous) "α")
+                (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
+                (Setlec.Expr.lam
+                  (Setlec.Name.str (Setlec.Name.anonymous) "β")
+                  (Setlec.Expr.forallE
+                    (Setlec.Name.str (Setlec.Name.anonymous) "x")
+                    (Setlec.Expr.bvar 0)
+                    (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
+                    { bi := Setlec.BinderInfo.default,
+                      cod := some (Setlec.Level.succ
+                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))) })
+                  (Setlec.Expr.lam
+                    (Setlec.Name.str (Setlec.Name.anonymous) "motive")
+                    (Setlec.Expr.forallE
+                      (Setlec.Name.str (Setlec.Name.anonymous) "t")
+                      (Setlec.Expr.app
+                        (Setlec.Expr.app
+                          (Setlec.Expr.const
+                            (Setlec.Name.str (Setlec.Name.anonymous) "PSigma'")
+                            [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"),
+                             Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")])
+                          (Setlec.Expr.bvar 1))
+                        (Setlec.Expr.bvar 0))
+                      (Setlec.Expr.sort (Setlec.Level.zero))
+                      { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.succ (Setlec.Level.zero)) })
+                    (Setlec.Expr.lam
+                      (Setlec.Name.str (Setlec.Name.anonymous) "mk")
+                      (Setlec.Expr.forallE
+                        (Setlec.Name.str (Setlec.Name.anonymous) "fst")
+                        (Setlec.Expr.bvar 2)
+                        (Setlec.Expr.forallE
+                          (Setlec.Name.str (Setlec.Name.anonymous) "snd")
+                          (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 0))
+                          (Setlec.Expr.app
+                            (Setlec.Expr.bvar 2)
+                            (Setlec.Expr.app
+                              (Setlec.Expr.app
+                                (Setlec.Expr.app
+                                  (Setlec.Expr.app
+                                    (Setlec.Expr.const
+                                      (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "PSigma'") "mk")
+                                      [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"),
+                                       Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")])
+                                    (Setlec.Expr.bvar 4))
+                                  (Setlec.Expr.bvar 3))
+                                (Setlec.Expr.bvar 1))
+                              (Setlec.Expr.bvar 0)))
+                          { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.zero) })
+                        { bi := Setlec.BinderInfo.default,
+                          cod := some (Setlec.Level.imax
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))
+                                   (Setlec.Level.zero)) })
+                      (Setlec.Expr.lam
+                        (Setlec.Name.str (Setlec.Name.anonymous) "fst")
+                        (Setlec.Expr.bvar 3)
+                        (Setlec.Expr.lam
+                          (Setlec.Name.str (Setlec.Name.anonymous) "snd")
+                          (Setlec.Expr.app (Setlec.Expr.bvar 3) (Setlec.Expr.bvar 0))
+                          (Setlec.Expr.app
+                            (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 1))
+                            (Setlec.Expr.bvar 0))
+                          { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.zero) })
+                        { bi := Setlec.BinderInfo.default,
+                          cod := some (Setlec.Level.imax
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))
+                                   (Setlec.Level.zero)) })
+                      { bi := Setlec.BinderInfo.default,
+                        cod := some (Setlec.Level.imax
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.imax
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))
+                                   (Setlec.Level.zero))) })
+                    { bi := Setlec.BinderInfo.default,
+                      cod := some (Setlec.Level.imax
+                               (Setlec.Level.imax
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.imax
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))
+                                   (Setlec.Level.zero)))
+                               (Setlec.Level.imax
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.imax
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))
+                                   (Setlec.Level.zero)))) })
+                  { bi := Setlec.BinderInfo.default,
+                    cod := some (Setlec.Level.imax
+                             (Setlec.Level.imax
+                               (Setlec.Level.max
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
+                               (Setlec.Level.succ (Setlec.Level.zero)))
+                             (Setlec.Level.imax
+                               (Setlec.Level.imax
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.imax
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))
+                                   (Setlec.Level.zero)))
+                               (Setlec.Level.imax
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.imax
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))
+                                   (Setlec.Level.zero))))) })
+                { bi := Setlec.BinderInfo.implicit,
+                  cod := some (Setlec.Level.imax
+                           (Setlec.Level.imax
+                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                             (Setlec.Level.succ (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))))
+                           (Setlec.Level.imax
+                             (Setlec.Level.imax
+                               (Setlec.Level.max
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
+                               (Setlec.Level.succ (Setlec.Level.zero)))
+                             (Setlec.Level.imax
+                               (Setlec.Level.imax
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.imax
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))
+                                   (Setlec.Level.zero)))
+                               (Setlec.Level.imax
+                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                                 (Setlec.Level.imax
+                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))
+                                   (Setlec.Level.zero)))))) } }]
 
 /-- Annotated basis declaration (generated). -/
 def punitA : ConstantInfo :=
-  ConstantInfo.indInfo
-  { name := Name.str (Name.anonymous) "PUnit",
-    levelParams := [Name.str (Name.anonymous) "u"],
-    type := Expr.sort (Level.param (Name.str (Name.anonymous) "u")) }
+  Setlec.ConstantInfo.indInfo
+    { name := Setlec.Name.str (Setlec.Name.anonymous) "PUnit",
+      levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u"],
+      type := Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")) }
 
 /-- Annotated basis declaration (generated). -/
 def punitUnitA : ConstantInfo :=
-  ConstantInfo.ctorInfo
-  { name := Name.str (Name.str (Name.anonymous) "PUnit") "unit",
-    levelParams := [Name.str (Name.anonymous) "u"],
-    type := Expr.const
-              (Name.str (Name.anonymous) "PUnit")
-              [Level.param (Name.str (Name.anonymous) "u")] }
-  0
-  0
+  Setlec.ConstantInfo.ctorInfo
+    { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "PUnit") "unit",
+      levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u"],
+      type := Setlec.Expr.const
+                (Setlec.Name.str (Setlec.Name.anonymous) "PUnit")
+                [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")] }
+    0
+    0
 
 /-- Annotated basis declaration (generated). -/
 def punitRecA : ConstantInfo :=
-  ConstantInfo.recInfo
-  { name := Name.str (Name.str (Name.anonymous) "PUnit") "rec",
-    levelParams := [Name.str (Name.anonymous) "u_1", Name.str (Name.anonymous) "u"],
-    type := Expr.forallE
-              (Name.str (Name.anonymous) "motive")
-              (Expr.forallE
-                (Name.str (Name.anonymous) "t")
-                (Expr.const
-                  (Name.str (Name.anonymous) "PUnit")
-                  [Level.param (Name.str (Name.anonymous) "u")])
-                (Expr.sort (Level.param (Name.str (Name.anonymous) "u_1")))
-                { bi := BinderInfo.default,
-                  cod := some (Level.succ
-                           (Level.param (Name.str (Name.anonymous) "u_1"))) })
-              (Expr.forallE
-                (Name.str (Name.anonymous) "unit")
-                (Expr.app
-                  (Expr.bvar 0)
-                  (Expr.const
-                    (Name.str (Name.str (Name.anonymous) "PUnit") "unit")
-                    [Level.param (Name.str (Name.anonymous) "u")]))
-                (Expr.forallE
-                  (Name.str (Name.anonymous) "t")
-                  (Expr.const
-                    (Name.str (Name.anonymous) "PUnit")
-                    [Level.param (Name.str (Name.anonymous) "u")])
-                  (Expr.app (Expr.bvar 2) (Expr.bvar 0))
-                  { bi := BinderInfo.default,
-                    cod := some (Level.param (Name.str (Name.anonymous) "u_1")) })
-                { bi := BinderInfo.default,
-                  cod := some (Level.imax
-                           (Level.param (Name.str (Name.anonymous) "u"))
-                           (Level.param (Name.str (Name.anonymous) "u_1"))) })
-              { bi := BinderInfo.implicit,
-                cod := some (Level.imax
-                         (Level.param (Name.str (Name.anonymous) "u_1"))
-                         (Level.imax
-                           (Level.param (Name.str (Name.anonymous) "u"))
-                           (Level.param (Name.str (Name.anonymous) "u_1")))) } }
-  0
-  1
-  1
-  0
-  [{ ctor := Name.str (Name.str (Name.anonymous) "PUnit") "unit",
-     nfields := 0,
-     rhs := Expr.lam
-              (Name.str (Name.anonymous) "motive")
-              (Expr.forallE
-                (Name.str (Name.anonymous) "t")
-                (Expr.const
-                  (Name.str (Name.anonymous) "PUnit")
-                  [Level.param (Name.str (Name.anonymous) "u")])
-                (Expr.sort (Level.param (Name.str (Name.anonymous) "u_1")))
-                { bi := BinderInfo.default, cod := none })
-              (Expr.lam
-                (Name.str (Name.anonymous) "unit")
-                (Expr.app
-                  (Expr.bvar 0)
-                  (Expr.const
-                    (Name.str (Name.str (Name.anonymous) "PUnit") "unit")
-                    [Level.param (Name.str (Name.anonymous) "u")]))
-                (Expr.bvar 0)
-                { bi := BinderInfo.default, cod := none })
-              { bi := BinderInfo.default, cod := none } }]
-
+  Setlec.ConstantInfo.recInfo
+    { name := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "PUnit") "rec",
+      levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u_1", Setlec.Name.str (Setlec.Name.anonymous) "u"],
+      type := Setlec.Expr.forallE
+                (Setlec.Name.str (Setlec.Name.anonymous) "motive")
+                (Setlec.Expr.forallE
+                  (Setlec.Name.str (Setlec.Name.anonymous) "t")
+                  (Setlec.Expr.const
+                    (Setlec.Name.str (Setlec.Name.anonymous) "PUnit")
+                    [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
+                  (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1")))
+                  { bi := Setlec.BinderInfo.default,
+                    cod := some (Setlec.Level.succ
+                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))) })
+                (Setlec.Expr.forallE
+                  (Setlec.Name.str (Setlec.Name.anonymous) "unit")
+                  (Setlec.Expr.app
+                    (Setlec.Expr.bvar 0)
+                    (Setlec.Expr.const
+                      (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "PUnit") "unit")
+                      [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")]))
+                  (Setlec.Expr.forallE
+                    (Setlec.Name.str (Setlec.Name.anonymous) "t")
+                    (Setlec.Expr.const
+                      (Setlec.Name.str (Setlec.Name.anonymous) "PUnit")
+                      [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
+                    (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 0))
+                    { bi := Setlec.BinderInfo.default,
+                      cod := some (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1")) })
+                  { bi := Setlec.BinderInfo.default,
+                    cod := some (Setlec.Level.imax
+                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))) })
+                { bi := Setlec.BinderInfo.implicit,
+                  cod := some (Setlec.Level.imax
+                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))
+                           (Setlec.Level.imax
+                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1")))) } }
+    0
+    1
+    1
+    0
+    [{ ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "PUnit") "unit",
+       nfields := 0,
+       rhs := Setlec.Expr.lam
+                (Setlec.Name.str (Setlec.Name.anonymous) "motive")
+                (Setlec.Expr.forallE
+                  (Setlec.Name.str (Setlec.Name.anonymous) "t")
+                  (Setlec.Expr.const
+                    (Setlec.Name.str (Setlec.Name.anonymous) "PUnit")
+                    [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
+                  (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1")))
+                  { bi := Setlec.BinderInfo.default,
+                    cod := some (Setlec.Level.succ
+                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))) })
+                (Setlec.Expr.lam
+                  (Setlec.Name.str (Setlec.Name.anonymous) "unit")
+                  (Setlec.Expr.app
+                    (Setlec.Expr.bvar 0)
+                    (Setlec.Expr.const
+                      (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "PUnit") "unit")
+                      [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")]))
+                  (Setlec.Expr.bvar 0)
+                  { bi := Setlec.BinderInfo.default,
+                    cod := some (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1")) })
+                { bi := Setlec.BinderInfo.default,
+                  cod := some (Setlec.Level.imax
+                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))
+                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))) } }]
 
 /-- The annotated constants of one basis block, in dependency order. -/
 def BasisKind.declsA : BasisKind → List ConstantInfo

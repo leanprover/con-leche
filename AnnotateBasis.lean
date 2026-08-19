@@ -17,14 +17,31 @@ def main : IO Unit := do
         return
       | .ok ty' =>
         let cv' : ConstantVal := { cv with type := ty' }
-        let ci' : ConstantInfo :=
+        -- annotate iota-rule right-hand sides against the environment
+        -- extended with the (annotated) block members so far, plus the
+        -- recursor itself (rule rhs may mention it)
+        let annotateRules (rules : List RecRule) (self : ConstantInfo) :
+            Except String (List RecRule) := Id.run do
+          let env' : Env := ⟨self :: env.consts⟩
+          let mut out : List RecRule := []
+          for r in rules do
+            match annotate env' 0 r.rhs with
+            | .error e => return .error s!"{e}"
+            | .ok rhs' => out := out ++ [{ r with rhs := rhs' }]
+          return .ok out
+        let ci' : ConstantInfo ←
           match ci with
-          | .indInfo _ => .indInfo cv'
-          | .ctorInfo _ nP nF => .ctorInfo cv' nP nF
-          | .recInfo _ nP nM nm ni rules => .recInfo cv' nP nM nm ni rules
-          | .axiomInfo _ => .axiomInfo cv'
-          | .defnInfo _ v => .defnInfo cv' v
-          | .thmInfo _ v => .thmInfo cv' v
+          | .indInfo _ => pure (.indInfo cv')
+          | .ctorInfo _ nP nF => pure (.ctorInfo cv' nP nF)
+          | .recInfo _ nP nM nm ni rules =>
+            match annotateRules rules (.recInfo cv' nP nM nm ni rules) with
+            | .error e =>
+              IO.println s!"ERROR annotating rules of {cv.name}: {e}"
+              return
+            | .ok rules' => pure (.recInfo cv' nP nM nm ni rules')
+          | .axiomInfo _ => pure (.axiomInfo cv')
+          | .defnInfo _ v => pure (.defnInfo cv' v)
+          | .thmInfo _ v => pure (.thmInfo cv' v)
         IO.println (repr ci')
         IO.println "---8<---"
         env := ⟨ci' :: env.consts⟩
