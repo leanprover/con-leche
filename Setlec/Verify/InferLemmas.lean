@@ -287,6 +287,32 @@ theorem looseBVarsBounded_getAppArgs {k : Nat} :
     · exact hb.2
   | _ => intro hb x hx; simp [Expr.getAppArgs] at hx
 
+theorem Expr.mkAppN_append_one (f : Expr) (l : List Expr) (a : Expr) :
+    Expr.mkAppN f (l ++ [a]) = .app (Expr.mkAppN f l) a := by
+  induction l generalizing f with
+  | nil => rfl
+  | cons x xs ih => simp only [List.cons_append, Expr.mkAppN]; exact ih _
+
+/-- An expression is its spine head applied to its spine arguments. -/
+theorem Expr.mkAppN_getApp : ∀ (e : Expr), Expr.mkAppN e.getAppFn e.getAppArgs = e := by
+  intro e
+  induction e with
+  | app f a ih _ =>
+    simp only [Expr.getAppFn, Expr.getAppArgs]
+    rw [Expr.mkAppN_append_one]
+    exact congrArg (Expr.app · a) ih
+  | _ => rfl
+
+theorem List.length_four {α : Type _} {l : List α} (h : l.length = 4) :
+    ∃ a b c d, l = [a, b, c, d] := by
+  match l, h with
+  | [a, b, c, d], _ => exact ⟨a, b, c, d, rfl⟩
+
+theorem List.length_two {α : Type _} {l : List α} (h : l.length = 2) :
+    ∃ a b, l = [a, b] := by
+  match l, h with
+  | [a, b], _ => exact ⟨a, b, rfl⟩
+
 /-- Inversion for `whnfCore` on projections. -/
 theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : Expr}
     (h : whnfCore env (fuel + 1) d (.proj sn i e) = .ok e') :
@@ -356,12 +382,97 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
   | lit l2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
   | proj s2 i2 e3 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
 
+/-- Inversion for a successful projection certification. -/
+theorem projCert_inv {env : Env} {fuel d : Nat} {e₂ : Expr} {i : Nat}
+    {us : List Level} {nP : Nat}
+    (h : projCert env (fuel + 1) d e₂ i us nP = .ok true) :
+    ∃ ta sta uT te ste wT,
+      inferTypeCore env fuel d (e₂.getAppArgs.getD (nP + i) (.bvar 0)) = .ok ta ∧
+      inferTypeCore env fuel d ta = .ok sta ∧
+      whnfCore env fuel d sta = .ok (.sort uT) ∧
+      Level.isEquiv uT (us.getD i .zero) = some true ∧
+      inferTypeCore env fuel d e₂ = .ok te ∧
+      inferTypeCore env fuel d te = .ok ste ∧
+      whnfCore env fuel d ste = .ok (.sort wT) ∧
+      Level.isEquiv wT (.max (us.getD 0 .zero) (us.getD 1 .zero)) = some true := by
+  simp only [projCert, Bind.bind, Except.bind] at h
+  cases hta : inferTypeCore env fuel d (e₂.getAppArgs.getD (nP + i) (.bvar 0)) with
+  | error err => rw [hta] at h; exact nomatch h
+  | ok ta =>
+  rw [hta] at h
+  dsimp only at h
+  cases hsta : inferTypeCore env fuel d ta with
+  | error err => rw [hsta] at h; exact nomatch h
+  | ok sta =>
+  rw [hsta] at h
+  dsimp only at h
+  cases hwta : whnfCore env fuel d sta with
+  | error err => rw [hwta] at h; exact nomatch h
+  | ok wta =>
+  rw [hwta] at h
+  match wta, h with
+  | .sort uT, h => ?_
+  | .bvar i2, h => exact nomatch h
+  | .fvar i2 n2 t2, h => exact nomatch h
+  | .const n2 us2, h => exact nomatch h
+  | .app f2 a2, h => exact nomatch h
+  | .lam n2 t2 b2 m2, h => exact nomatch h
+  | .forallE n2 t2 b2 m2, h => exact nomatch h
+  | .letE n2 t2 v2 b2, h => exact nomatch h
+  | .lit l2, h => exact nomatch h
+  | .proj s2 i2 e3, h => exact nomatch h
+  dsimp only at h
+  cases heq1 : Level.isEquiv uT (us.getD i .zero) with
+  | none => rw [heq1] at h; simp [liftFueled] at h
+  | some okT =>
+  rw [heq1] at h
+  try dsimp only [liftFueled] at h
+  try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  cases hte : inferTypeCore env fuel d e₂ with
+  | error err => rw [hte] at h; exact nomatch h
+  | ok te =>
+  rw [hte] at h
+  dsimp only at h
+  cases hste : inferTypeCore env fuel d te with
+  | error err => rw [hste] at h; exact nomatch h
+  | ok ste =>
+  rw [hste] at h
+  dsimp only at h
+  cases hwte : whnfCore env fuel d ste with
+  | error err => rw [hwte] at h; exact nomatch h
+  | ok wte =>
+  rw [hwte] at h
+  match wte, h with
+  | .sort wT, h => ?_
+  | .bvar i2, h => exact nomatch h
+  | .fvar i2 n2 t2, h => exact nomatch h
+  | .const n2 us2, h => exact nomatch h
+  | .app f2 a2, h => exact nomatch h
+  | .lam n2 t2 b2 m2, h => exact nomatch h
+  | .forallE n2 t2 b2 m2, h => exact nomatch h
+  | .letE n2 t2 v2 b2, h => exact nomatch h
+  | .lit l2, h => exact nomatch h
+  | .proj s2 i2 e3, h => exact nomatch h
+  dsimp only at h
+  cases heq2 : Level.isEquiv wT (.max (us.getD 0 .zero) (us.getD 1 .zero)) with
+  | none => rw [heq2] at h; simp [liftFueled] at h
+  | some okW =>
+  rw [heq2] at h
+  try dsimp only [liftFueled] at h
+  try simp only [pure, Except.pure, Except.ok.injEq] at h
+  obtain ⟨rfl, rfl⟩ : okT = true ∧ okW = true := by
+    have := h
+    cases okT <;> cases okW <;> simp_all
+  exact ⟨ta, sta, uT, te, ste, wT, rfl, hsta, hwta, heq1, rfl, hste, hwte, heq2⟩
+
 /-- Inversion for the projection rule of `inferTypeCore`. -/
 theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
     {e t : Expr}
     (h : inferTypeCore env (fuel + 1) d (.proj sn i e) = .ok t) :
-    ∃ te us A B, inferTypeCore env fuel d e = .ok te ∧
+    ∃ te us A B cv, inferTypeCore env fuel d e = .ok te ∧
       whnfCore env fuel d te = .ok (.app (.app (.const psigmaName us) A) B) ∧
+      env.find? psigmaName = some (.indInfo cv) ∧
       ((i = 0 ∧ t = A) ∨ (i = 1 ∧ t = .app B (.proj sn 0 e))) := by
   simp only [inferTypeCore, Bind.bind, Except.bind] at h
   cases hte : inferTypeCore env fuel d e with
@@ -408,16 +519,28 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
   | .lit l2, h => exact nomatch h
   | .proj s2 i2 e2, h => exact nomatch h
   dsimp only at h
+  cases hfind : env.find? c with
+  | none => rw [hfind] at h; exact nomatch h
+  | some ci =>
+  rw [hfind] at h
+  cases ci with
+  | indInfo cv => ?_
+  | axiomInfo cv => exact nomatch h
+  | defnInfo cv value => exact nomatch h
+  | thmInfo cv value => exact nomatch h
+  | ctorInfo cv nP nF => exact nomatch h
+  | recInfo cv nP nM nm ni rules => exact nomatch h
+  dsimp only at h
   by_cases hc : c = psigmaName
   · rw [if_pos hc] at h
     subst hc
     match i, h with
     | 0, h =>
       simp only [pure, Except.pure, Except.ok.injEq] at h
-      exact ⟨te, us, A, B, rfl, hw, Or.inl ⟨rfl, h.symm⟩⟩
+      exact ⟨te, us, A, B, cv, rfl, hw, hfind, Or.inl ⟨rfl, h.symm⟩⟩
     | 1, h =>
       simp only [pure, Except.pure, Except.ok.injEq] at h
-      exact ⟨te, us, A, B, rfl, hw, Or.inr ⟨rfl, h.symm⟩⟩
+      exact ⟨te, us, A, B, cv, rfl, hw, hfind, Or.inr ⟨rfl, h.symm⟩⟩
     | (n + 2), h => exact nomatch h
   · rw [if_neg hc] at h
     exact nomatch h

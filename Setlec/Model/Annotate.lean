@@ -312,13 +312,82 @@ theorem annotate_sound (m : EnvModel V env) :
     refine ⟨w, tw, by rw [hrt]; exact hwi, hmemw, ?_⟩
     rw [htweq]
     exact hmem2
+  | .proj sn i e, d, e', h, hw, hb, hLb, ρ, hok => by
+    simp only [WScoped] at hw
+    simp only [Expr.looseBVarsBounded] at hb
+    have hLbe : Expr.LeavesBounded e := fun l hl => hLb l (by
+      simp only [fvarLeaves]; exact hl)
+    have hoke : FvarsOk V m.val env φ d ρ e := fun l hl => hok l (by
+      simp only [fvarLeaves]; exact hl)
+    obtain ⟨e₂, te, us, A, B, cv, he, hte, hwh, hfind, hi2, rfl⟩ := annotate_proj_inv h
+    -- the annotated struct's facts
+    have hle := annotate_leafEquiv e he hw hb
+    have hwe₂ : WScoped d e₂ := annotate_WScoped e he hw
+    have hbe₂ : e₂.looseBVarsBounded 0 = true := annotate_looseBVars e he hb
+    have hLbe₂ : Expr.LeavesBounded e₂ := fun l hl => by
+      rw [fvarLeaves_of_leafEquiv e e₂ hle] at hl
+      exact hLbe l hl
+    have hoke₂ : FvarsOk V m.val env φ d ρ e₂ := FvarsOk.of_leafEquiv hle hoke
+    have hAe₂ : AnnotOk V m.val env φ d ρ e₂ :=
+      annotate_sound m e he hw hb hLbe ρ hoke
+    obtain ⟨⟨ve, vte, hei, htei, hmem⟩, hwte, hAte⟩ :=
+      inferType_sound m hte hwe₂ hbe₂ hLbe₂ hoke₂ hAe₂
+    -- reduce the type to the pair form
+    have hbte : te.looseBVarsBounded 0 = true :=
+      inferTypeCore_looseBVars m.wf checkFuel hte hwe₂ hbe₂ hLbe₂
+    have hLbte : Expr.LeavesBounded te := fun l hl =>
+      hLbe₂ l (inferTypeCore_fvarLeaves m.wf checkFuel hte hwe₂ l hl)
+    have hokte : FvarsOk V m.val env φ d ρ te :=
+      FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf checkFuel hte hwe₂) hoke₂
+    obtain ⟨hiw, haPi⟩ := whnf_facts m hwh hwte hbte hLbte hokte hAte
+    have hPii : interpExpr V m.val env φ d ρ
+        (.app (.app (.const psigmaName us) A) B) = some vte := by
+      rw [hiw]; exact htei
+    try simp only [AnnotOk] at haPi
+    obtain ⟨haCA, haB, vf₁, vB, vE₁, A₁, B₁, hf₁i, hBi, hpi₁, hvB₁, hfib₁⟩ := haPi
+    try simp only [AnnotOk] at haCA
+    obtain ⟨hac, haA, vf₀, vA, vE₀, A₀, B₀, hci, hAi, hpi₀, hvA₀, hfib₀⟩ := haCA
+    rw [interpExpr, hfind] at hci
+    dsimp only [ConstantInfo.toConstantVal] at hci
+    obtain ⟨ψ', hψ'⟩ : ∃ ψ', ψ' = Level.substFn φ cv.levelParams us := ⟨_, rfl⟩
+    rw [← hψ'] at hci
+    by_cases hal : us.length = cv.levelParams.length
+    case neg => simp only [hal, if_false] at hci; exact nomatch hci
+    simp only [hal, if_true] at hci
+    have hval : interpExpr V m.val env φ d ρ (.const psigmaName us) =
+        some (m.val psigmaName ψ') := by
+      rw [interpExpr, hfind]
+      dsimp only [ConstantInfo.toConstantVal]
+      rw [← hψ']
+      simp only [hal, if_true]
+    have hvf₀ : vf₀ = m.val psigmaName ψ' := (Option.some.inj hci).symm
+    have hfacts := (m.ind_ok.1 cv hfind ψ')
+    have hAmem : vA ∈ˢ univ (ψ' uN) := hfacts.dom₀ (hvf₀ ▸ hpi₀) hvA₀
+    have hf₁ : vf₁ = app (m.val psigmaName ψ') vA := by
+      rw [interpExpr, hval, hAi] at hf₁i
+      dsimp only at hf₁i
+      exact (Option.some.inj hf₁i).symm
+    have hBmem : vB ∈ˢ pi (ψ' vN + 1) vA (fun _ => univ (ψ' vN)) :=
+      hfacts.dom₁ hAmem (hf₁ ▸ hpi₁) hvB₁
+    have hfold : vte = sigmaSet (Nat.max (ψ' uN) (ψ' vN)) vA (fun x => app vB x) := by
+      rw [interpExpr, hf₁i, hBi] at hPii
+      dsimp only at hPii
+      have := Option.some.inj hPii
+      rw [← this, hf₁, hfacts.fold hAmem hBmem]
+    -- the proj clause
+    simp only [AnnotOk]
+    refine ⟨hAe₂, hi2, ve, ψ' uN, ψ' vN, vA, (fun x => app vB x), hei, ?_, hAmem, ?_⟩
+    · rw [← hfold]
+      exact hmem
+    · intro x hx
+      exact app_mem hBmem hx fun _ _ => univ_mem_univ _
   | .letE _ _ _ _, d, e', h, _, _, _, ρ, _ => by simp [annotate] at h
   | .lit _, d, e', h, _, _, _, ρ, _ => by simp [annotate] at h
-  | .proj _ _ _, d, e', h, _, _, _, ρ, _ => by simp [annotate] at h
 termination_by e => e.sizeB
 decreasing_by
   all_goals first
   | (simp [Expr.sizeB]; omega)
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
 
 end Setlec

@@ -336,7 +336,7 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
       simp only [WScoped] at hwPi
       exact WScoped.instantiate1_gen hw.2 0 hwPi.2
     | .proj sn i e, h =>
-      obtain ⟨te, us, A, B, hte, hwt, hcase⟩ := inferTypeCore_proj_inv h
+      obtain ⟨te, us, A, B, cv2, hte, hwt, hfind2, hcase⟩ := inferTypeCore_proj_inv h
       simp only [WScoped] at hw
       have hwte := inferTypeCore_WScoped henv fuel hte hw
       have hwPi := whnf_WScoped henv fuel hwt hwte
@@ -417,7 +417,7 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
         simp [fvarLeaves, hb]
       · exact Or.inr hb
     | .proj sn i e, h =>
-      obtain ⟨te, us, A, B, hte, hwt, hcase⟩ := inferTypeCore_proj_inv h
+      obtain ⟨te, us, A, B, cv2, hte, hwt, hfind2, hcase⟩ := inferTypeCore_proj_inv h
       simp only [WScoped] at hw
       intro l hl
       simp only [fvarLeaves]
@@ -500,7 +500,7 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
       simp only [looseBVarsBounded, Bool.and_eq_true] at hbPi
       exact looseBVarsBounded_instantiate1_gen hb.2 hbPi.2
     | .proj sn i e, h =>
-      obtain ⟨te, us, A, B, hte, hwt, hcase⟩ := inferTypeCore_proj_inv h
+      obtain ⟨te, us, A, B, cv2, hte, hwt, hfind2, hcase⟩ := inferTypeCore_proj_inv h
       simp only [WScoped] at hw
       simp only [looseBVarsBounded] at hb
       have hLbe : Expr.LeavesBounded e := fun l hl => hLb l (by

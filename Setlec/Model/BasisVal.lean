@@ -19,6 +19,9 @@ variable (V : Type u) [SetTheory V]
 
 open SetTheory Name
 
+/-- The type of constant valuations. -/
+abbrev ConstVal (V : Type u) := Name → (Name → Nat) → V
+
 def uN : Name := anonymous |>.str "u"
 def u1N : Name := anonymous |>.str "u_1"
 def vN : Name := anonymous |>.str "v"

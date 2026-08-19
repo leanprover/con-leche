@@ -57,13 +57,6 @@ instance : ToString CheckError where
 
 abbrev CheckM := Except CheckError
 
-/-- The type against which a certified projection's argument is checked:
-the pair's first component type, or the second component type at the
-first argument. -/
-def projCertTarget (args : List Expr) (i : Nat) : Expr :=
-  if i = 0 then args.getD 0 (.bvar 0)
-  else .app (args.getD 1 (.bvar 0)) (args.getD 2 (.bvar 0))
-
 /-- Lift a fuel-style partial result; `none` is an internal error. -/
 def liftFueled (what : String) : Option α → CheckM α
   | some a => pure a
@@ -200,31 +193,32 @@ def inferTypeCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Chec
       -- `PSigma'` nest, which is what `whnfCore` produces here.
       match ← whnfCore env fuel depth (← inferTypeCore env fuel depth e) with
       | .app (.app (.const c us) A) B =>
-        if c = psigmaName then
-          match i with
-          | 0 => pure A
-          | 1 => pure (.app B (.proj sn 0 e))
-          | _ => throw (.invalid "projection index out of range")
-        else throw (.notImplemented "projection on a non-basis structure")
+        match env.find? c with
+        | some (.indInfo _) =>
+          if c = psigmaName then
+            match i with
+            | 0 => pure A
+            | 1 => pure (.app B (.proj sn 0 e))
+            | _ => throw (.invalid "projection index out of range")
+          else throw (.notImplemented "projection on a non-basis structure")
+        | _ => throw (.notImplemented "projection on a non-basis structure")
       | _ => throw (.notImplemented "projection on a non-basis structure")
     | _ => throw (.notImplemented "inferType beyond the supported fragment")
   termination_by structural fuel _ _ => fuel
 
 /-- Certification for projecting a possibly-Prop pair `e₂ =
-PSigma'.mk α β a b` (levels `us`): the projected argument checks
-against its component type, that type's sort matches the corresponding
-level, and the pair's type's sort matches `max` of the levels — which
-is exactly what makes the Prop-collapse instances sound. -/
+PSigma'.mk α β a b` (levels `us`): the projected argument's *type's
+sort* matches the corresponding level, and the pair's type's sort
+matches `max` of the levels.  At Prop instances this collapses both the
+argument and the pair to the proof point, which is exactly what the
+reduction's soundness needs there. -/
 def projCert (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Nat → List Level →
     Nat → CheckM Bool
   | 0, _, _, _, _, _ => throw (.internal "fuel exhausted: projCert")
   | fuel + 1, depth, e₂, i, us, nP => do
-    let args := e₂.getAppArgs
-    let arg := args.getD (nP + i) (.bvar 0)
-    let tArg := projCertTarget args i
+    let arg := e₂.getAppArgs.getD (nP + i) (.bvar 0)
     let ta ← inferTypeCore env fuel depth arg
-    let okArg ← isDefEqCore env fuel depth ta tArg
-    match ← whnfCore env fuel depth (← inferTypeCore env fuel depth tArg) with
+    match ← whnfCore env fuel depth (← inferTypeCore env fuel depth ta) with
     | .sort uT =>
       let okT ← liftFueled "level comparison" (Level.isEquiv uT (us.getD i .zero))
       let te ← inferTypeCore env fuel depth e₂
@@ -232,7 +226,7 @@ def projCert (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Nat → L
       | .sort wT =>
         let okW ← liftFueled "level comparison"
           (Level.isEquiv wT (.max (us.getD 0 .zero) (us.getD 1 .zero)))
-        pure (okArg && okT && okW)
+        pure (okT && okW)
       | _ => pure false
     | _ => pure false
   termination_by structural fuel _ _ _ => fuel
@@ -345,11 +339,14 @@ def annotate (env : Env) : (depth : Nat) → Expr → CheckM Expr
     -- establishes the semantic proj clause of `AnnotOk`).
     match ← whnf env depth (← inferType env depth e') with
     | .app (.app (.const c _) _) _ =>
-      unless c = psigmaName do
-        throw (.notImplemented "projection on a non-basis structure")
-      unless i < 2 do
-        throw (.invalid "projection index out of range")
-      pure (.proj sn i e')
+      match env.find? c with
+      | some (.indInfo _) =>
+        unless c = psigmaName do
+          throw (.notImplemented "projection on a non-basis structure")
+        unless i < 2 do
+          throw (.invalid "projection index out of range")
+        pure (.proj sn i e')
+      | _ => throw (.notImplemented "projection on a non-basis structure")
     | _ => throw (.notImplemented "projection on a non-basis structure")
   | _, .lit _ => throw (.notImplemented "annotate: literals")
 termination_by _ e => e.sizeB

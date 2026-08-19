@@ -107,7 +107,8 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
     (hc₀cv : c₀.toConstantVal = ⟨name, lps, type⟩)
     (hc₀name : c₀.name = name)
     (hc₀val : ∀ cv2 value2, c₀ = ConstantInfo.defnInfo cv2 value2 →
-      cv2 = ⟨name, lps, type⟩ ∧ value2 = value) :
+      cv2 = ⟨name, lps, type⟩ ∧ value2 = value)
+    (hc₀nb : c₀.isBasis = false) :
     Nonempty (EnvModel V ⟨c₀ :: env.consts⟩) := by
   have hfresh := find?_none_ne hfind'
   obtain ⟨val', hval'⟩ : ∃ val' : ConstVal V, val' = fun n ψ =>
@@ -140,7 +141,7 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
     intro cv2 value2 heq
     obtain ⟨rfl, rfl⟩ := hc₀val cv2 value2 heq
     exact ⟨hvf, hvp, Expr.constsResolve_mono hvr, hvb⟩
-  refine ⟨⟨val', hwf', ?_, ?_, ?_, ?_⟩⟩
+  refine ⟨⟨val', hwf', ?_, ?_, ?_, ?_, ?_⟩⟩
   · -- val_params
     intro n ci hf ψ₁ ψ₂ hψ
     rw [Env.find?_cons] at hf
@@ -212,6 +213,46 @@ private theorem extend_model {env : Env} (m : EnvModel V env)
       intro cv2 value2 heq
       obtain ⟨-, -, hres2, -⟩ := hvalwf cv2 value2 heq
       exact hAtrans _ hres2 ψ (hA2 cv2 value2 heq)
+  · -- ind_ok: the fresh constant is a definition or theorem, so every
+    -- inductive-kind lookup still resolves to the old environment, and
+    -- the valuation agrees there.
+    constructor
+    · intro cv hfp ψ
+      rw [Env.find?_cons] at hfp
+      split at hfp
+      · next hn =>
+        obtain rfl := Option.some.inj hfp
+        exact absurd hc₀nb (by simp [ConstantInfo.isBasis])
+      · next hn =>
+        have hne : psigmaName ≠ name := by
+          intro hcontra
+          have hmem := List.mem_of_find?_eq_some hfp
+          have hname : (ConstantInfo.indInfo cv).name = psigmaName := by
+            have := List.find?_some hfp
+            simpa using this
+          have := find?_none_ne hfind' _ hmem
+          rw [hname, hcontra] at this
+          exact this rfl
+        exact PairTyFacts.of_agree V (by simp [hval', hne]) (m.ind_ok.1 cv hfp ψ)
+    · intro cv nP nF hfp
+      rw [Env.find?_cons] at hfp
+      split at hfp
+      · next hn =>
+        obtain rfl := Option.some.inj hfp
+        exact absurd hc₀nb (by simp [ConstantInfo.isBasis])
+      · next hn =>
+        have hne : psigmaMkName ≠ name := by
+          intro hcontra
+          have hmem := List.mem_of_find?_eq_some hfp
+          have hname : (ConstantInfo.ctorInfo cv nP nF).name = psigmaMkName := by
+            have := List.find?_some hfp
+            simpa using this
+          have := find?_none_ne hfind' _ hmem
+          rw [hname, hcontra] at this
+          exact this rfl
+        obtain ⟨hnP, hnF, hlp, hfacts⟩ := m.ind_ok.2 cv nP nF hfp
+        exact ⟨hnP, hnF, hlp, fun ψ =>
+          PairMkFacts.of_agree V (by simp [hval', hne]) (hfacts ψ)⟩
 
 /-- The common inversion + semantic-fact assembly for a checked value
 against a checked (annotated) type. -/
@@ -329,6 +370,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       hvp hvf' hvr (annotate_looseBVars value hannv hlbv) hkey hAty hAval
       (ConstantInfo.defnInfo { cv with type := type } value') rfl rfl
       (fun cv2 value2 heq => by injection heq with h1 h2; exact ⟨h1.symm, h2.symm⟩)
+      rfl
   | thmDecl cv value =>
     simp only [checkDecl, Bind.bind, Except.bind] at h
     cases hccv : checkConstantVal env cv with
@@ -411,6 +453,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       hvp hvf' hvr (annotate_looseBVars value hannv hlbv) hkey hAty hAval
       (ConstantInfo.thmInfo { cv with type := type } value') rfl rfl
       (fun cv2 value2 heq => nomatch heq)
+      rfl
 
 private theorem foldlM_sound {env' : Env} :
     ∀ (ds : List Declaration) (env : Env), Nonempty (EnvModel V env) →

@@ -132,9 +132,10 @@ theorem looseBVarsBounded_abstract1 {d : Nat} :
 rewrapped, and the projection-rule check ran successfully. -/
 theorem annotate_proj_inv {env : Env} {d : Nat} {sn : Name} {i : Nat} {e e' : Expr}
     (h : annotate env d (.proj sn i e) = .ok e') :
-    ∃ e₂ te us A B, annotate env d e = .ok e₂ ∧
+    ∃ e₂ te us A B cv, annotate env d e = .ok e₂ ∧
       inferType env d e₂ = .ok te ∧
       whnf env d te = .ok (.app (.app (.const psigmaName us) A) B) ∧
+      env.find? psigmaName = some (.indInfo cv) ∧
       i < 2 ∧ e' = .proj sn i e₂ := by
   simp only [annotate, Bind.bind, Except.bind] at h
   cases he : annotate env d e with
@@ -186,13 +187,25 @@ theorem annotate_proj_inv {env : Env} {d : Nat} {sn : Name} {i : Nat} {e e' : Ex
   | .lit l2, h => exact nomatch h
   | .proj s2 i2 e2, h => exact nomatch h
   dsimp only at h
+  cases hfind : env.find? c with
+  | none => rw [hfind] at h; exact nomatch h
+  | some ci =>
+  rw [hfind] at h
+  cases ci with
+  | indInfo cv => ?_
+  | axiomInfo cv => exact nomatch h
+  | defnInfo cv value => exact nomatch h
+  | thmInfo cv value => exact nomatch h
+  | ctorInfo cv nP nF => exact nomatch h
+  | recInfo cv nP nM nm ni rules => exact nomatch h
+  dsimp only at h
   by_cases hc : c = psigmaName
   · simp only [hc, if_pos rfl] at h
     try dsimp only at h
     by_cases hi : i < 2
     · simp only [hi, if_true, ↓reduceIte, pure, Except.pure, Except.ok.injEq] at h
       subst hc
-      exact ⟨e₂, te, us, A, B, rfl, hte, hw, hi, h.symm⟩
+      exact ⟨e₂, te, us, A, B, cv, rfl, hte, hw, hfind, hi, h.symm⟩
     · simp only [hi] at h
       simp [pure, Except.pure] at h
   · simp only [hc] at h
@@ -276,7 +289,7 @@ theorem annotate_WScoped {env : Env} :
     exact ⟨annotate_WScoped f hf hw.1, annotate_WScoped a ha hw.2⟩
   | .proj sn i e, d, e', h, hw => by
     simp only [WScoped] at hw
-    obtain ⟨e₂, te, us, A, B, he, -, -, -, rfl⟩ := annotate_proj_inv h
+    obtain ⟨e₂, te, us, A, B, cv2, he, -, -, -, -, rfl⟩ := annotate_proj_inv h
     simp only [WScoped]
     exact annotate_WScoped e he hw
   | .forallE n ty body m, d, e', h, hw => by
@@ -366,7 +379,7 @@ theorem annotate_fvarConsistent {env : Env} {d₀ : Nat} {n₀ : Name} {ty₀ : 
     exact ⟨annotate_fvarConsistent f hd hf hc.1, annotate_fvarConsistent a hd ha hc.2⟩
   | .proj sn i e, d, e', hd, h, hc => by
     simp only [Expr.fvarConsistent] at hc
-    obtain ⟨e₂, te, us, A, B, he, -, -, -, rfl⟩ := annotate_proj_inv h
+    obtain ⟨e₂, te, us, A, B, cv2, he, -, -, -, -, rfl⟩ := annotate_proj_inv h
     simp only [Expr.fvarConsistent]
     exact annotate_fvarConsistent e hd he hc
   | .forallE n ty body m, d, e', hd, h, hc => by
@@ -452,7 +465,7 @@ theorem annotate_looseBVars {env : Env} :
     exact h ▸ hb
   | .proj sn i e, d, e', h, hb => by
     simp only [Expr.looseBVarsBounded] at hb
-    obtain ⟨e₂, te, us, A, B, he, -, -, -, rfl⟩ := annotate_proj_inv h
+    obtain ⟨e₂, te, us, A, B, cv2, he, -, -, -, -, rfl⟩ := annotate_proj_inv h
     simp only [Expr.looseBVarsBounded]
     exact annotate_looseBVars e he hb
   | .app f a, d, e', h, hb => by
@@ -700,7 +713,7 @@ theorem annotate_leafEquiv {env : Env} :
   | .proj sn i e, d, e', h, hw, hb => by
     simp only [WScoped] at hw
     simp only [Expr.looseBVarsBounded] at hb
-    obtain ⟨e₂, te, us, A, B, he, -, -, -, rfl⟩ := annotate_proj_inv h
+    obtain ⟨e₂, te, us, A, B, cv2, he, -, -, -, -, rfl⟩ := annotate_proj_inv h
     simp only [Expr.LeafEquiv]
     exact annotate_leafEquiv e he hw hb
   | .forallE n ty body m, d, e', h, hw, hb => by

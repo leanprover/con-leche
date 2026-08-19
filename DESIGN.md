@@ -375,6 +375,16 @@ and substitutions.  Analysis of the design space:
   bvar-closed and fvar-consistent; both are leaf-closure conditions
   (`∀ l ∈ fvarLeaves`, …) so the output-⊆-input leaf lemma for
   `whnf`/`inferType` transports them for free.
+* **Inductive-model layering** (user decision, 2026-08-19): the
+  environment invariant (`EnvModel.ind_ok`) states, for every stored
+  inductive-kind constant (`indInfo`/`ctorInfo`/`recInfo`), the semantic
+  facts the checker functions need — application-fold equations, domain
+  determinations for partial applications, iota equations — abstractly
+  over the model's valuation.  `whnf`/`inferType`/`isDefEq` soundness
+  consumes only these fields and is construction-agnostic; only the
+  *installation* code (`checkDecl` on a basis block) contains
+  construction-specific proofs, discharging `ind_ok` from the
+  hand-written basis values (`pinnedVal`, `psigmaVal_fold`, …).
 * Deleted rather than ported: `Verify/InferShift.lean` and the
   instLevels/mono/constsResolve/allLevelParams lemma family for
   `inferType` — they were only needed when the interpretation re-ran
