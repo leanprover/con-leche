@@ -508,6 +508,8 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
         (e.getAppArgs.take cnP) = .ok true ∧
       iotaCerts env fuel d (cv.type.instantiateLevelParams cv.levelParams us)
         (e.getAppArgs.take (nP + nM + nm + ni)) = .ok true ∧
+      iotaCerts env fuel d (cvj.type.instantiateLevelParams cvj.levelParams usj)
+        major.getAppArgs = .ok true ∧
       eout = Expr.mkAppN (r.rhs.instantiateLevelParams cv.levelParams us)
         (e.getAppArgs.take (nP + nM + nm) ++
           major.getAppArgs.drop cnP) := by
@@ -616,11 +618,23 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   cases rc with
   | false => simp [pure, Except.pure] at h
   | true =>
+  simp only [↓reduceIte] at h
+  try simp only [Bind.bind, Except.bind] at h
+  cases hmcerts : iotaCerts env fuel d
+      (cvj.type.instantiateLevelParams cvj.levelParams usj)
+      major.getAppArgs with
+  | error err => rw [hmcerts] at h; exact nomatch h
+  | ok rmc =>
+  rw [hmcerts] at h
+  dsimp only at h
+  cases rmc with
+  | false => simp [pure, Except.pure] at h
+  | true =>
   simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq,
     Option.some.injEq] at h
   exact ⟨c, us, cv, nP, nM, nm, ni, rules, major, cj, usj, cvj, cnP, cnF, r,
     rfl, hfc, hlen, hmaj, hmfn, hfj, hrule, hml1, hml2, hlev, hpeq, hcerts,
-    h.symm⟩
+    hmcerts, h.symm⟩
 
 /-- Inversion of one pairwise-defeq step. -/
 theorem defEqList_step_inv {env : Env} {fuel d : Nat} {a b : Expr}
@@ -1217,7 +1231,7 @@ theorem whnf_WScoped {env : Env} (henv : EnvWF env) :
         | succ fuel' =>
         obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major, cj, usj, cvj,
           cnP, cnF, r, hfn, hfc, hlen, hmaj, hmfn, hfj, hrule, hml1, hml2,
-          hlev, hpeq, hcerts, rfl⟩ := iotaRec_inv hio
+          hlev, hpeq, hcerts, hmcerts, rfl⟩ := iotaRec_inv hio
         have hwapp : WScoped d (Expr.app f' a) := by
           simp only [WScoped]
           exact ⟨hwf', hw.2⟩

@@ -979,7 +979,7 @@ private theorem iota_sound {m : EnvModel V env} {fuel : Nat}
   | fuel + 1, ihAll, hio =>
   obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major, cj, usj, cvj, cnP, cnF, r,
     hfn, hfc, hlen, hmaj, hmfn, hfj, hrule, hml1, hml2, hlev, hpeq, hcerts,
-    heout⟩ :=
+    hmcerts, heout⟩ :=
     iotaRec_inv hio
   obtain ⟨ihwL, ihdL, ihiL⟩ := ihAll fuel (Nat.le_succ fuel)
   obtain rfl : cj = r.ctor :=

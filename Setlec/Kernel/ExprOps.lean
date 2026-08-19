@@ -189,6 +189,14 @@ def stripLams : Nat → Expr → Option (List (Name × Expr × BinderMeta) × Ex
     (stripLams k b).map fun (bs, e) => ((n, ty, m) :: bs, e)
   | _ + 1, _ => none
 
+/-- Strip `k` leading `∀`s: the binder list (outermost first) and the
+body. -/
+def stripPis : Nat → Expr → Option (List (Name × Expr × BinderMeta) × Expr)
+  | 0, e => some ([], e)
+  | k + 1, .forallE n ty b m =>
+    (stripPis k b).map fun (bs, e) => ((n, ty, m) :: bs, e)
+  | _ + 1, _ => none
+
 /-- The binder infos of the first `k` binders of a `∀`-telescope. -/
 def piBinderInfos : Nat → Expr → Option (List BinderInfo)
   | 0, _ => some []

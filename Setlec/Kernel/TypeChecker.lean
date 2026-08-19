@@ -352,9 +352,13 @@ def iotaRec (env : Env) : (fuel : Nat) → (depth : Nat) → Expr →
                     if ← iotaCerts env fuel depth
                        (cv.type.instantiateLevelParams cv.levelParams us)
                        (args.take (nP + nM + nm + ni)) then
-                     pure (some (Expr.mkAppN
-                       (r.rhs.instantiateLevelParams cv.levelParams us)
-                       (args.take (nP + nM + nm) ++ margs.drop cnP)))
+                     if ← iotaCerts env fuel depth
+                        (cvj.type.instantiateLevelParams cvj.levelParams usj)
+                        margs then
+                      pure (some (Expr.mkAppN
+                        (r.rhs.instantiateLevelParams cv.levelParams us)
+                        (args.take (nP + nM + nm) ++ margs.drop cnP)))
+                     else pure none
                     else pure none
                    else pure none
                   else pure none

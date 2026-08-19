@@ -150,7 +150,7 @@ def checkIndDecl (env : Env) (block : List ConstantInfo) : CheckM Env := do
       throw (.invalid s!"unknown constant in type of {cv.name}")
     let tyA ← annotate env' 0 cv.type
     -- the model counterpart
-    let some (.defnInfo cvm mval) := env'.find? (cv.name.str "_model")
+    let some (.defnInfo cvm _mval) := env'.find? (cv.name.str "_model")
       | throw (.notImplemented s!"missing model for {cv.name}")
     unless cvm.levelParams = cv.levelParams do
       throw (.notImplemented s!"model level parameters mismatch for {cv.name}")
@@ -188,28 +188,28 @@ def checkIndDecl (env : Env) (block : List ConstantInfo) : CheckM Env := do
             throw (.invalid s!"unknown constant in rule of {cv.name}")
           let rhsA ← annotate envSelf 0 r.rhs
           -- the rule's λ-domains pin down what the model's iota
-          -- theorem quantifies over; they must match the model
-          -- value's λ-domains (prefix) and the constructor model
-          -- value's field domains (lifted past motive and minors)
+          -- theorem quantifies over; they must match the recursor
+          -- type's domains (prefix) and the constructor type's field
+          -- domains (lifted past motive and minors) — the same
+          -- telescopes the iota certificates certify the spines
+          -- against
           let some (rbinders, _) := rhsA.stripLams (nP + nM + nm + cnF)
             | throw (.notImplemented s!"rule of {cv.name} is not a lambda telescope")
-          let some (mbinders, _) := mval.stripLams (nP + nM + nm)
-            | throw (.notImplemented s!"model value of {cv.name} is not a lambda telescope")
-          let some (.defnInfo _ cmval) := env'.find? (r.ctor.str "_model")
-            | throw (.notImplemented s!"missing model for {r.ctor}")
-          let some (cbinders, _) := cmval.stripLams (cnP + cnF)
-            | throw (.notImplemented s!"model value of {r.ctor} is not a lambda telescope")
+          let some (tbinders, _) := tyA.stripPis (nP + nM + nm)
+            | throw (.notImplemented s!"type of {cv.name} is not a pi telescope")
+          let some (cbinders, _) := cvj.type.stripPis (cnP + cnF)
+            | throw (.notImplemented s!"type of {r.ctor} is not a pi telescope")
           unless (List.range (nP + nM + nm)).all (fun i =>
-              match rbinders[i]?, mbinders[i]? with
-              | some rb, some mb => rb.2.1.renameConsts f == mb.2.1
+              match rbinders[i]?, tbinders[i]? with
+              | some rb, some tb => rb.2.1 == tb.2.1
               | _, _ => false) do
-            throw (.notImplemented s!"rule domain mismatch with model for {cv.name}")
+            throw (.notImplemented s!"rule domain mismatch with recursor type for {cv.name}")
           unless (List.range cnF).all (fun i =>
               match rbinders[nP + nM + nm + i]?, cbinders[cnP + i]? with
               | some rb, some cb =>
-                rb.2.1.renameConsts f == cb.2.1.liftLooseBVars (nM + nm) i
+                rb.2.1 == cb.2.1.liftLooseBVars (nM + nm) i
               | _, _ => false) do
-            throw (.notImplemented s!"rule field domain mismatch with model for {cv.name}")
+            throw (.notImplemented s!"rule field domain mismatch with constructor type for {cv.name}")
           -- infer the rule's type: soundness interprets the (λ-tower)
           -- right-hand side through this inference
           let _rhsTy ← inferType envSelf 0 rhsA
