@@ -104,10 +104,18 @@ private theorem whnf_claims (m : EnvModel V env)
     WhnfClaims m φ (fuel + 1) := by
   intro d e e' ρ h hw hb hLb hok ha
   match e, h with
-  | .sort u, h => exact (Except.ok.inj h) ▸ ⟨rfl, ha⟩
-  | .fvar idx n ty, h => exact (Except.ok.inj h) ▸ ⟨rfl, ha⟩
-  | .forallE n ty body bi, h => exact (Except.ok.inj h) ▸ ⟨rfl, ha⟩
-  | .lam n ty body bi, h => exact (Except.ok.inj h) ▸ ⟨rfl, ha⟩
+  | .sort u, h =>
+      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
+      exact h ▸ ⟨rfl, ha⟩
+  | .fvar idx n ty, h =>
+      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
+      exact h ▸ ⟨rfl, ha⟩
+  | .forallE n ty body bi, h =>
+      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
+      exact h ▸ ⟨rfl, ha⟩
+  | .lam n ty body bi, h =>
+      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
+      exact h ▸ ⟨rfl, ha⟩
   | .const n ws, h =>
     simp only [whnfCore] at h
     cases hf : env.find? n with

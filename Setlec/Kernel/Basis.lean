@@ -18,6 +18,12 @@ namespace Setlec
 
 open Name (anonymous)
 
+/-- The name of the basis dependent-pair type. -/
+def psigmaName : Name := anonymous |>.str "PSigma'"
+
+/-- The name of the basis dependent-pair constructor. -/
+def psigmaMkName : Name := psigmaName |>.str "mk"
+
 /-- The pinned `Eq` basis block. -/
 def eqBasis : List ConstantInfo := [
   .indInfo ⟨(anonymous |>.str "Eq"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "a") (.bvar 0) (.forallE (anonymous |>.str "b") (.bvar 1) (.sort .zero) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩)⟩,

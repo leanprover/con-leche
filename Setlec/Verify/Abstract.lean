@@ -128,6 +128,76 @@ theorem looseBVarsBounded_abstract1 {d : Nat} :
 
 /-! ## Preservation through `annotate` -/
 
+/-- Inversion for `annotate` on projections: the annotated struct is
+rewrapped, and the projection-rule check ran successfully. -/
+theorem annotate_proj_inv {env : Env} {d : Nat} {sn : Name} {i : Nat} {e e' : Expr}
+    (h : annotate env d (.proj sn i e) = .ok e') :
+    ∃ e₂ te us A B, annotate env d e = .ok e₂ ∧
+      inferType env d e₂ = .ok te ∧
+      whnf env d te = .ok (.app (.app (.const psigmaName us) A) B) ∧
+      i < 2 ∧ e' = .proj sn i e₂ := by
+  simp only [annotate, Bind.bind, Except.bind] at h
+  cases he : annotate env d e with
+  | error err => rw [he] at h; exact nomatch h
+  | ok e₂ =>
+  rw [he] at h
+  dsimp only at h
+  cases hte : inferType env d e₂ with
+  | error err => rw [hte] at h; exact nomatch h
+  | ok te =>
+  rw [hte] at h
+  dsimp only at h
+  cases hw : whnf env d te with
+  | error err => rw [hw] at h; exact nomatch h
+  | ok w =>
+  rw [hw] at h
+  dsimp only at h
+  match w, h with
+  | .app w1 B, h => ?_
+  | .sort u, h => exact nomatch h
+  | .fvar i2 n2 t2, h => exact nomatch h
+  | .const n2 us2, h => exact nomatch h
+  | .lam n2 t2 b2 m2, h => exact nomatch h
+  | .forallE n2 t2 b2 m2, h => exact nomatch h
+  | .bvar i2, h => exact nomatch h
+  | .letE n2 t2 v2 b2, h => exact nomatch h
+  | .lit l2, h => exact nomatch h
+  | .proj s2 i2 e2, h => exact nomatch h
+  match w1, h with
+  | .app w2 A, h => ?_
+  | .sort u, h => exact nomatch h
+  | .fvar i2 n2 t2, h => exact nomatch h
+  | .const n2 us2, h => exact nomatch h
+  | .lam n2 t2 b2 m2, h => exact nomatch h
+  | .forallE n2 t2 b2 m2, h => exact nomatch h
+  | .bvar i2, h => exact nomatch h
+  | .letE n2 t2 v2 b2, h => exact nomatch h
+  | .lit l2, h => exact nomatch h
+  | .proj s2 i2 e2, h => exact nomatch h
+  match w2, h with
+  | .const c us, h => ?_
+  | .sort u, h => exact nomatch h
+  | .fvar i2 n2 t2, h => exact nomatch h
+  | .app f2 a2, h => exact nomatch h
+  | .lam n2 t2 b2 m2, h => exact nomatch h
+  | .forallE n2 t2 b2 m2, h => exact nomatch h
+  | .bvar i2, h => exact nomatch h
+  | .letE n2 t2 v2 b2, h => exact nomatch h
+  | .lit l2, h => exact nomatch h
+  | .proj s2 i2 e2, h => exact nomatch h
+  dsimp only at h
+  by_cases hc : c = psigmaName
+  · simp only [hc, if_pos rfl] at h
+    try dsimp only at h
+    by_cases hi : i < 2
+    · simp only [hi, if_true, ↓reduceIte, pure, Except.pure, Except.ok.injEq] at h
+      subst hc
+      exact ⟨e₂, te, us, A, B, rfl, hte, hw, hi, h.symm⟩
+    · simp only [hi] at h
+      simp [pure, Except.pure] at h
+  · simp only [hc] at h
+    simp [pure, Except.pure] at h
+
 /-- Inversion for `annotate` on applications: the two annotated subterms
 are reassembled, and the application-rule check ran successfully. -/
 theorem annotate_app_inv {env : Env} {d : Nat} {f a e' : Expr}
@@ -204,6 +274,11 @@ theorem annotate_WScoped {env : Env} :
     obtain ⟨f', a', hf, ha, rfl, -⟩ := annotate_app_inv h
     simp only [WScoped]
     exact ⟨annotate_WScoped f hf hw.1, annotate_WScoped a ha hw.2⟩
+  | .proj sn i e, d, e', h, hw => by
+    simp only [WScoped] at hw
+    obtain ⟨e₂, te, us, A, B, he, -, -, -, rfl⟩ := annotate_proj_inv h
+    simp only [WScoped]
+    exact annotate_WScoped e he hw
   | .forallE n ty body m, d, e', h, hw => by
     simp only [WScoped] at hw
     simp only [annotate, Bind.bind, Except.bind] at h
@@ -262,12 +337,12 @@ theorem annotate_WScoped {env : Env} :
     exact ⟨hwty', WScoped.abstract1 0 hwbody'⟩
   | .letE _ _ _ _, d, e', h, _ => by simp [annotate] at h
   | .lit _, d, e', h, _ => by simp [annotate] at h
-  | .proj _ _ _, d, e', h, _ => by simp [annotate] at h
 termination_by e => e.sizeB
 decreasing_by
   all_goals first
   | (simp [Expr.sizeB]; omega)
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
 
 theorem annotate_fvarConsistent {env : Env} {d₀ : Nat} {n₀ : Name} {ty₀ : Expr} :
     ∀ (e : Expr) {d : Nat} {e' : Expr}, d₀ < d →
@@ -289,6 +364,11 @@ theorem annotate_fvarConsistent {env : Env} {d₀ : Nat} {n₀ : Name} {ty₀ : 
     simp only [Expr.fvarConsistent] at hc
     obtain ⟨f', a', hf, ha, rfl, -⟩ := annotate_app_inv h
     exact ⟨annotate_fvarConsistent f hd hf hc.1, annotate_fvarConsistent a hd ha hc.2⟩
+  | .proj sn i e, d, e', hd, h, hc => by
+    simp only [Expr.fvarConsistent] at hc
+    obtain ⟨e₂, te, us, A, B, he, -, -, -, rfl⟩ := annotate_proj_inv h
+    simp only [Expr.fvarConsistent]
+    exact annotate_fvarConsistent e hd he hc
   | .forallE n ty body m, d, e', hd, h, hc => by
     simp only [Expr.fvarConsistent] at hc
     simp only [annotate, Bind.bind, Except.bind] at h
@@ -347,12 +427,12 @@ theorem annotate_fvarConsistent {env : Env} {d₀ : Nat} {n₀ : Name} {ty₀ : 
           (fvarConsistent_instantiate1' (by omega) body 0 hc.2))⟩
   | .letE _ _ _ _, d, e', _, h, _ => by simp [annotate] at h
   | .lit _, d, e', _, h, _ => by simp [annotate] at h
-  | .proj _ _ _, d, e', _, h, _ => by simp [annotate] at h
 termination_by e => e.sizeB
 decreasing_by
   all_goals first
   | (simp [Expr.sizeB]; omega)
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
 
 theorem annotate_looseBVars {env : Env} :
     ∀ (e : Expr) {d : Nat} {e' : Expr},
@@ -370,6 +450,11 @@ theorem annotate_looseBVars {env : Env} :
   | .const n us, d, e', h, hb => by
     simp only [annotate, pure, Except.pure, Except.ok.injEq] at h
     exact h ▸ hb
+  | .proj sn i e, d, e', h, hb => by
+    simp only [Expr.looseBVarsBounded] at hb
+    obtain ⟨e₂, te, us, A, B, he, -, -, -, rfl⟩ := annotate_proj_inv h
+    simp only [Expr.looseBVarsBounded]
+    exact annotate_looseBVars e he hb
   | .app f a, d, e', h, hb => by
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
     obtain ⟨f', a', hf, ha, rfl, -⟩ := annotate_app_inv h
@@ -431,12 +516,12 @@ theorem annotate_looseBVars {env : Env} :
       (annotate_looseBVars _ hbody (looseBVarsBounded_instantiate1 body 0 hb.2))
   | .letE _ _ _ _, d, e', h, _ => by simp [annotate] at h
   | .lit _, d, e', h, _ => by simp [annotate] at h
-  | .proj _ _ _, d, e', h, _ => by simp [annotate] at h
 termination_by e => e.sizeB
 decreasing_by
   all_goals first
   | (simp [Expr.sizeB]; omega)
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
 
 
 
@@ -612,6 +697,12 @@ theorem annotate_leafEquiv {env : Env} :
     obtain ⟨f', a', hf, ha, rfl, -⟩ := annotate_app_inv h
     simp only [Expr.LeafEquiv]
     exact ⟨annotate_leafEquiv f hf hw.1 hb.1, annotate_leafEquiv a ha hw.2 hb.2⟩
+  | .proj sn i e, d, e', h, hw, hb => by
+    simp only [WScoped] at hw
+    simp only [Expr.looseBVarsBounded] at hb
+    obtain ⟨e₂, te, us, A, B, he, -, -, -, rfl⟩ := annotate_proj_inv h
+    simp only [Expr.LeafEquiv]
+    exact annotate_leafEquiv e he hw hb
   | .forallE n ty body m, d, e', h, hw, hb => by
     simp only [WScoped] at hw
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
@@ -676,11 +767,11 @@ theorem annotate_leafEquiv {env : Env} :
       (looseBVarsBounded_instantiate1 body 0 hb.2)
   | .letE _ _ _ _, d, e', h, _, _ => by simp [annotate] at h
   | .lit _, d, e', h, _, _ => by simp [annotate] at h
-  | .proj _ _ _, d, e', h, _, _ => by simp [annotate] at h
 termination_by e => e.sizeB
 decreasing_by
   all_goals first
   | (simp [Expr.sizeB]; omega)
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
 
 end Setlec

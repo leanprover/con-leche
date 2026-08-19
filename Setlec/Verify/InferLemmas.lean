@@ -247,6 +247,181 @@ theorem inferTypeCore_forall_inv {env : Env} {fuel d : Nat} {n : Name} {ty body 
   | .lit l2, h => exact nomatch h
   | .proj s2 i2 e2, h => exact nomatch h
 
+/-! ## Application-spine helpers -/
+
+theorem getD_mem {α : Type _} {l : List α} {i : Nat} {dflt : α} (h : i < l.length) :
+    l.getD i dflt ∈ l := by
+  induction l generalizing i with
+  | nil => simp at h
+  | cons x xs ih =>
+    cases i with
+    | zero => simp [List.getD]
+    | succ j =>
+      simp only [List.getD_cons_succ]
+      exact List.mem_cons_of_mem _ (ih (by simpa using h))
+
+theorem Expr.WScoped.getAppArgs {d : Nat} :
+    ∀ {e : Expr}, WScoped d e → ∀ x ∈ e.getAppArgs, WScoped d x := by
+  intro e
+  induction e with
+  | app f a ihf iha =>
+    intro hw x hx
+    simp only [Expr.getAppArgs, List.mem_append, List.mem_singleton] at hx
+    simp only [WScoped] at hw
+    rcases hx with hx | rfl
+    · exact ihf hw.1 x hx
+    · exact hw.2
+  | _ => intro hw x hx; simp [Expr.getAppArgs] at hx
+
+theorem looseBVarsBounded_getAppArgs {k : Nat} :
+    ∀ {e : Expr}, e.looseBVarsBounded k = true →
+      ∀ x ∈ e.getAppArgs, x.looseBVarsBounded k = true := by
+  intro e
+  induction e with
+  | app f a ihf iha =>
+    intro hb x hx
+    simp only [Expr.getAppArgs, List.mem_append, List.mem_singleton] at hx
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+    rcases hx with hx | rfl
+    · exact ihf hb.1 x hx
+    · exact hb.2
+  | _ => intro hb x hx; simp [Expr.getAppArgs] at hx
+
+/-- Inversion for `whnfCore` on projections. -/
+theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : Expr}
+    (h : whnfCore env (fuel + 1) d (.proj sn i e) = .ok e') :
+    ∃ e₂, whnfCore env fuel d e = .ok e₂ ∧
+      (e' = .proj sn i e₂ ∨
+        ∃ us cv nP nF, e₂.getAppFn = .const psigmaMkName us ∧
+          env.find? psigmaMkName = some (.ctorInfo cv nP nF) ∧
+          i < nF ∧ e₂.getAppArgs.length = nP + nF ∧ us.length = 2 ∧
+          whnfCore env fuel d (e₂.getAppArgs.getD (nP + i) (.bvar 0)) = .ok e' ∧
+          ((Level.max (us.getD 0 .zero) (us.getD 1 .zero)).isNonZero = true ∨
+            projCert env fuel d e₂ i us nP = .ok true)) := by
+  simp only [whnfCore, Bind.bind, Except.bind] at h
+  cases he : whnfCore env fuel d e with
+  | error err => rw [he] at h; exact nomatch h
+  | ok e₂ =>
+  rw [he] at h
+  dsimp only at h
+  refine ⟨e₂, rfl, ?_⟩
+  cases hfn : e₂.getAppFn with
+  | const c us =>
+    rw [hfn] at h
+    dsimp only at h
+    cases hf : env.find? c with
+    | none =>
+      rw [hf] at h
+      exact Or.inl (Except.ok.inj h).symm
+    | some ci =>
+      rw [hf] at h
+      cases ci with
+      | ctorInfo cv nP nF =>
+        dsimp only at h
+        split at h
+        next hcond =>
+          obtain ⟨rfl, hi, hlen, hus⟩ := hcond
+          split at h
+          next hnz =>
+            exact Or.inr ⟨us, cv, nP, nF, rfl, hf, hi, hlen, hus, h, Or.inl hnz⟩
+          next hnz =>
+            try simp only [Bind.bind, Except.bind] at h
+            try dsimp only at h
+            cases hcert : projCert env fuel d e₂ i us nP with
+            | error err => rw [hcert] at h; exact nomatch h
+            | ok b =>
+            rw [hcert] at h
+            cases b with
+            | true =>
+              simp only [if_true] at h
+              try dsimp only at h
+              exact Or.inr ⟨us, cv, nP, nF, rfl, hf, hi, hlen, hus, h, Or.inr hcert⟩
+            | false =>
+              simp only [Bool.false_eq_true, if_false] at h
+              exact Or.inl (Except.ok.inj h).symm
+        next hcond =>
+          exact Or.inl (Except.ok.inj h).symm
+      | axiomInfo cv => exact Or.inl (Except.ok.inj h).symm
+      | defnInfo cv value => exact Or.inl (Except.ok.inj h).symm
+      | thmInfo cv value => exact Or.inl (Except.ok.inj h).symm
+      | indInfo cv => exact Or.inl (Except.ok.inj h).symm
+      | recInfo cv nP nM nm ni rules => exact Or.inl (Except.ok.inj h).symm
+  | bvar i2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
+  | sort u => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
+  | fvar i2 n2 t2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
+  | app f2 a2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
+  | lam n2 t2 b2 m2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
+  | forallE n2 t2 b2 m2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
+  | letE n2 t2 v2 b2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
+  | lit l2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
+  | proj s2 i2 e3 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
+
+/-- Inversion for the projection rule of `inferTypeCore`. -/
+theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
+    {e t : Expr}
+    (h : inferTypeCore env (fuel + 1) d (.proj sn i e) = .ok t) :
+    ∃ te us A B, inferTypeCore env fuel d e = .ok te ∧
+      whnfCore env fuel d te = .ok (.app (.app (.const psigmaName us) A) B) ∧
+      ((i = 0 ∧ t = A) ∨ (i = 1 ∧ t = .app B (.proj sn 0 e))) := by
+  simp only [inferTypeCore, Bind.bind, Except.bind] at h
+  cases hte : inferTypeCore env fuel d e with
+  | error err => rw [hte] at h; exact nomatch h
+  | ok te =>
+  rw [hte] at h
+  dsimp only at h
+  cases hw : whnfCore env fuel d te with
+  | error err => rw [hw] at h; exact nomatch h
+  | ok w =>
+  rw [hw] at h
+  dsimp only at h
+  match w, h with
+  | .app w1 B, h => ?_
+  | .sort u, h => exact nomatch h
+  | .fvar i2 n2 t2, h => exact nomatch h
+  | .const n2 us2, h => exact nomatch h
+  | .lam n2 t2 b2 m2, h => exact nomatch h
+  | .forallE n2 t2 b2 m2, h => exact nomatch h
+  | .bvar i2, h => exact nomatch h
+  | .letE n2 t2 v2 b2, h => exact nomatch h
+  | .lit l2, h => exact nomatch h
+  | .proj s2 i2 e2, h => exact nomatch h
+  match w1, h with
+  | .app w2 A, h => ?_
+  | .sort u, h => exact nomatch h
+  | .fvar i2 n2 t2, h => exact nomatch h
+  | .const n2 us2, h => exact nomatch h
+  | .lam n2 t2 b2 m2, h => exact nomatch h
+  | .forallE n2 t2 b2 m2, h => exact nomatch h
+  | .bvar i2, h => exact nomatch h
+  | .letE n2 t2 v2 b2, h => exact nomatch h
+  | .lit l2, h => exact nomatch h
+  | .proj s2 i2 e2, h => exact nomatch h
+  match w2, h with
+  | .const c us, h => ?_
+  | .sort u, h => exact nomatch h
+  | .fvar i2 n2 t2, h => exact nomatch h
+  | .app f2 a2, h => exact nomatch h
+  | .lam n2 t2 b2 m2, h => exact nomatch h
+  | .forallE n2 t2 b2 m2, h => exact nomatch h
+  | .bvar i2, h => exact nomatch h
+  | .letE n2 t2 v2 b2, h => exact nomatch h
+  | .lit l2, h => exact nomatch h
+  | .proj s2 i2 e2, h => exact nomatch h
+  dsimp only at h
+  by_cases hc : c = psigmaName
+  · rw [if_pos hc] at h
+    subst hc
+    match i, h with
+    | 0, h =>
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact ⟨te, us, A, B, rfl, hw, Or.inl ⟨rfl, h.symm⟩⟩
+    | 1, h =>
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact ⟨te, us, A, B, rfl, hw, Or.inr ⟨rfl, h.symm⟩⟩
+    | (n + 2), h => exact nomatch h
+  · rw [if_neg hc] at h
+    exact nomatch h
+
 /-! ## Well-scopedness preservation through reduction -/
 
 theorem whnf_WScoped {env : Env} (henv : EnvWF env) :
@@ -255,10 +430,18 @@ theorem whnf_WScoped {env : Env} (henv : EnvWF env) :
   | 0, d, e, e', h, _ => nomatch h
   | fuel + 1, d, e, e', h, hw => by
     match e, h with
-    | .sort u, h => exact (Except.ok.inj h) ▸ hw
-    | .fvar idx n ty, h => exact (Except.ok.inj h) ▸ hw
-    | .forallE n ty body bi, h => exact (Except.ok.inj h) ▸ hw
-    | .lam n ty body bi, h => exact (Except.ok.inj h) ▸ hw
+    | .sort u, h =>
+      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
+      exact h ▸ hw
+    | .fvar idx n ty, h =>
+      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
+      exact h ▸ hw
+    | .forallE n ty body bi, h =>
+      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
+      exact h ▸ hw
+    | .lam n ty body bi, h =>
+      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
+      exact h ▸ hw
     | .const n ws, h =>
       simp only [whnfCore] at h
       cases hf : env.find? n with
@@ -291,5 +474,13 @@ theorem whnf_WScoped {env : Env} (henv : EnvWF env) :
           (WScoped.instantiate1_gen hw.2 0 hwf'.2)
       · simp only [WScoped]
         exact ⟨hwf', hw.2⟩
+    | .proj sn i e, h =>
+      simp only [WScoped] at hw
+      obtain ⟨e₂, he, hcase⟩ := whnf_proj_inv h
+      have hwe₂ : WScoped d e₂ := whnf_WScoped henv fuel he hw
+      rcases hcase with rfl | ⟨us, cv, nP, nF, hfn, hf, hi, hlen, hus, hred, -⟩
+      · simpa [WScoped] using hwe₂
+      · exact whnf_WScoped henv fuel hred
+          (hwe₂.getAppArgs _ (getD_mem (by omega)))
 
 end Setlec

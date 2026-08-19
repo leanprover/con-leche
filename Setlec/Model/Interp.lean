@@ -4,6 +4,7 @@ import Setlec.Verify.Level
 import Setlec.Verify.Shift
 import Setlec.Verify.EnvWF
 import Setlec.Verify.Leaves
+import Setlec.Model.BasisVal
 
 /-!
 # Interpretation of expressions in the set model
@@ -194,6 +195,10 @@ structure EnvModel (env : Env) where
     AnnotOk V val env φ 0 (rho0 V) c.toConstantVal.type ∧
     ∀ cv value, c = ConstantInfo.defnInfo cv value →
       AnnotOk V val env φ 0 (rho0 V) value
+  /-- Basis constants (the only inductive-kind infos the checker ever
+  installs) are valued by their pinned hand-written models. -/
+  basis_ok : ∀ c ∈ env.consts, c.isBasis = true →
+    ∀ ψ : Name → Nat, val c.name ψ = pinnedVal V c.name ψ
 
 /-- The empty environment has a (trivial) model. -/
 def EnvModel.empty : EnvModel V Env.empty where
@@ -205,5 +210,6 @@ def EnvModel.empty : EnvModel V Env.empty where
   mem_type := by intro c hc; cases hc
   defn_eq := by intro cv value h; cases h
   annot_ok := by intro c hc; cases hc
+  basis_ok := by intro c hc; cases hc
 
 end Setlec

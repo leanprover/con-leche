@@ -143,6 +143,19 @@ theorem Expr.LeavesBounded.of_not_hasFvar {e : Expr} (h : e.hasFvar = false) :
   rw [fvarLeaves_eq_nil_of_not_hasFvar h] at hl
   cases hl
 
+theorem fvarLeaves_getAppArgs :
+    ∀ {e x : Expr}, x ∈ e.getAppArgs → ∀ l ∈ x.fvarLeaves, l ∈ e.fvarLeaves := by
+  intro e
+  induction e with
+  | app f a ihf iha =>
+    intro x hx l hl
+    simp only [getAppArgs, List.mem_append, List.mem_singleton] at hx
+    simp only [fvarLeaves, List.mem_append]
+    rcases hx with hx | rfl
+    · exact Or.inl (ihf hx l hl)
+    · exact Or.inr hl
+  | _ => intro x hx; simp [getAppArgs] at hx
+
 /-! ## Preservation through `whnf` -/
 
 theorem whnf_fvarLeaves {env : Env} (henv : EnvWF env) :
@@ -151,10 +164,18 @@ theorem whnf_fvarLeaves {env : Env} (henv : EnvWF env) :
   | 0, d, e, e', h => nomatch h
   | fuel + 1, d, e, e', h => by
     match e, h with
-    | .sort u, h => exact (Except.ok.inj h) ▸ fun l hl => hl
-    | .fvar idx n ty, h => exact (Except.ok.inj h) ▸ fun l hl => hl
-    | .forallE n ty body bi, h => exact (Except.ok.inj h) ▸ fun l hl => hl
-    | .lam n ty body bi, h => exact (Except.ok.inj h) ▸ fun l hl => hl
+    | .sort u, h =>
+      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
+      exact h ▸ fun l hl => hl
+    | .fvar idx n ty, h =>
+      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
+      exact h ▸ fun l hl => hl
+    | .forallE n ty body bi, h =>
+      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
+      exact h ▸ fun l hl => hl
+    | .lam n ty body bi, h =>
+      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
+      exact h ▸ fun l hl => hl
     | .const n ws, h =>
       simp only [whnfCore] at h
       cases hf : env.find? n with
@@ -192,6 +213,16 @@ theorem whnf_fvarLeaves {env : Env} (henv : EnvWF env) :
         rcases hl with hl | hl
         · exact Or.inl (whnf_fvarLeaves henv fuel hwf l hl)
         · exact Or.inr hl
+    | .proj sn i e, h =>
+      intro l hl
+      obtain ⟨e₂, he, hcase⟩ := whnf_proj_inv h
+      simp only [fvarLeaves]
+      rcases hcase with rfl | ⟨us, cv, nP, nF, hfn, hf, hi, hlen, hus, hred, -⟩
+      · simp only [fvarLeaves] at hl
+        exact whnf_fvarLeaves henv fuel he l hl
+      · have hl2 := whnf_fvarLeaves henv fuel hred l hl
+        exact whnf_fvarLeaves henv fuel he l
+          (fvarLeaves_getAppArgs (getD_mem (by omega)) l hl2)
 
 theorem whnf_looseBVars {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat) {d : Nat} {e e' : Expr}, whnfCore env fuel d e = .ok e' →
@@ -199,10 +230,18 @@ theorem whnf_looseBVars {env : Env} (henv : EnvWF env) :
   | 0, d, e, e', h, _ => nomatch h
   | fuel + 1, d, e, e', h, hb => by
     match e, h with
-    | .sort u, h => exact (Except.ok.inj h) ▸ hb
-    | .fvar idx n ty, h => exact (Except.ok.inj h) ▸ hb
-    | .forallE n ty body bi, h => exact (Except.ok.inj h) ▸ hb
-    | .lam n ty body bi, h => exact (Except.ok.inj h) ▸ hb
+    | .sort u, h =>
+      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
+      exact h ▸ hb
+    | .fvar idx n ty, h =>
+      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
+      exact h ▸ hb
+    | .forallE n ty body bi, h =>
+      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
+      exact h ▸ hb
+    | .lam n ty body bi, h =>
+      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
+      exact h ▸ hb
     | .const n ws, h =>
       simp only [whnfCore] at h
       cases hf : env.find? n with
@@ -235,6 +274,14 @@ theorem whnf_looseBVars {env : Env} (henv : EnvWF env) :
           (looseBVarsBounded_instantiate1_gen hb.2 hbf'.2)
       · simp only [looseBVarsBounded, Bool.and_eq_true]
         exact ⟨hbf', hb.2⟩
+    | .proj sn i e, h =>
+      simp only [looseBVarsBounded] at hb
+      obtain ⟨e₂, he, hcase⟩ := whnf_proj_inv h
+      have hbe₂ := whnf_looseBVars henv fuel he hb
+      rcases hcase with rfl | ⟨us, cv, nP, nF, hfn, hf, hi, hlen, hus, hred, -⟩
+      · simpa [looseBVarsBounded] using hbe₂
+      · exact whnf_looseBVars henv fuel hred
+          (looseBVarsBounded_getAppArgs hbe₂ _ (getD_mem (by omega)))
 
 /-! ## Preservation through `inferTypeCore` -/
 
@@ -288,10 +335,19 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
       have hwPi := whnf_WScoped henv fuel hwh hwtf
       simp only [WScoped] at hwPi
       exact WScoped.instantiate1_gen hw.2 0 hwPi.2
+    | .proj sn i e, h =>
+      obtain ⟨te, us, A, B, hte, hwt, hcase⟩ := inferTypeCore_proj_inv h
+      simp only [WScoped] at hw
+      have hwte := inferTypeCore_WScoped henv fuel hte hw
+      have hwPi := whnf_WScoped henv fuel hwt hwte
+      simp only [WScoped] at hwPi
+      rcases hcase with ⟨-, rfl⟩ | ⟨-, rfl⟩
+      · exact hwPi.1.2
+      · simp only [WScoped]
+        exact ⟨hwPi.2, hw⟩
     | .bvar i, h => simp [inferTypeCore] at h
     | .letE n' t' v' b', h => simp [inferTypeCore] at h
     | .lit l', h => simp [inferTypeCore] at h
-    | .proj s' i' e', h => simp [inferTypeCore] at h
 
 theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat) {d : Nat} {e t : Expr},
@@ -360,10 +416,24 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
         refine whnf_fvarLeaves henv fuel hwh l ?_
         simp [fvarLeaves, hb]
       · exact Or.inr hb
+    | .proj sn i e, h =>
+      obtain ⟨te, us, A, B, hte, hwt, hcase⟩ := inferTypeCore_proj_inv h
+      simp only [WScoped] at hw
+      intro l hl
+      simp only [fvarLeaves]
+      have hsub : ∀ l', l' ∈ (Expr.app (Expr.app (.const psigmaName us) A) B).fvarLeaves →
+          l' ∈ e.fvarLeaves := fun l' hl' =>
+        inferTypeCore_fvarLeaves henv fuel hte hw l'
+          (whnf_fvarLeaves henv fuel hwt l' hl')
+      rcases hcase with ⟨-, rfl⟩ | ⟨-, rfl⟩
+      · exact hsub l (by simp [fvarLeaves, hl])
+      · simp only [fvarLeaves, List.mem_append] at hl
+        rcases hl with hl | hl
+        · exact hsub l (by simp [fvarLeaves, hl])
+        · simpa [fvarLeaves] using hl
     | .bvar i, h => simp [inferTypeCore] at h
     | .letE n' t' v' b', h => simp [inferTypeCore] at h
     | .lit l', h => simp [inferTypeCore] at h
-    | .proj s' i' e', h => simp [inferTypeCore] at h
 
 theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat) {d : Nat} {e t : Expr},
@@ -429,9 +499,21 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
       have hbPi := whnf_looseBVars henv fuel hwh hbtf
       simp only [looseBVarsBounded, Bool.and_eq_true] at hbPi
       exact looseBVarsBounded_instantiate1_gen hb.2 hbPi.2
+    | .proj sn i e, h =>
+      obtain ⟨te, us, A, B, hte, hwt, hcase⟩ := inferTypeCore_proj_inv h
+      simp only [WScoped] at hw
+      simp only [looseBVarsBounded] at hb
+      have hLbe : Expr.LeavesBounded e := fun l hl => hLb l (by
+        simp only [fvarLeaves]; exact hl)
+      have hbte := inferTypeCore_looseBVars henv fuel hte hw hb hLbe
+      have hbPi := whnf_looseBVars henv fuel hwt hbte
+      simp only [looseBVarsBounded, Bool.and_eq_true] at hbPi
+      rcases hcase with ⟨-, rfl⟩ | ⟨-, rfl⟩
+      · exact hbPi.1.2
+      · simp only [looseBVarsBounded, Bool.and_eq_true]
+        exact ⟨hbPi.2, hb⟩
     | .bvar i, h => simp [inferTypeCore] at h
     | .letE n' t' v' b', h => simp [inferTypeCore] at h
     | .lit l', h => simp [inferTypeCore] at h
-    | .proj s' i' e', h => simp [inferTypeCore] at h
 
 end Setlec

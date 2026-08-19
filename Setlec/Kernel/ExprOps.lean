@@ -109,6 +109,21 @@ def hasFvar : Expr → Bool
   | .letE _ ty val body => hasFvar ty || hasFvar val || hasFvar body
   | .proj _ _ e => hasFvar e
 
+/-- The head of an application spine. -/
+def getAppFn : Expr → Expr
+  | .app f _ => getAppFn f
+  | e => e
+
+/-- The arguments of an application spine, outermost last. -/
+def getAppArgs : Expr → List Expr
+  | .app f a => getAppArgs f ++ [a]
+  | _ => []
+
+/-- Apply to a list of arguments. -/
+def mkAppN (f : Expr) : List Expr → Expr
+  | [] => f
+  | a :: as => mkAppN (.app f a) as
+
 /-- Fully zeta-expand: replace every `let x := v in b` by `b[v/x]`
 (value and body expanded first, so the result is let-free and the
 recursion structural).  Applied by the frontend when building
