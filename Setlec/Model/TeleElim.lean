@@ -747,4 +747,85 @@ theorem LamPiDomsEq.of_pointwise :
       exact ih hs1 hs2 (fun i c₁ c₂ hc₁ hc₂ =>
         hdoms (i + 1) c₁ c₂ (by simpa using hc₁) (by simpa using hc₂))
 
+/-- Peeling a telescope: the residual's decomposition carries the
+accumulated descending-index instantiations. -/
+theorem telescopeInst_stripPis :
+    ∀ (p : Nat) (args : List Expr) (k : Nat) {ty : Expr}
+      {bs : List (Name × Expr × BinderMeta)} {body : Expr},
+      args.length = p →
+      ty.stripPis (p + k) = some (bs, body) →
+      ∃ mid, telescopeInst ty args = some mid ∧
+        ∃ bs' body', mid.stripPis k = some (bs', body') ∧
+          body' = Expr.instSeq args (p + k - 1) body ∧
+          ∀ (i : Nat) (b b' : Name × Expr × BinderMeta),
+            bs[p + i]? = some b → bs'[i]? = some b' →
+            b'.2.1 = Expr.instSeq args (p + i - 1) b.2.1 := by
+  intro p
+  induction p with
+  | zero =>
+    intro args k ty bs body hlen hstrip
+    match args, hlen with
+    | [], _ =>
+      refine ⟨ty, rfl, bs, body, by simpa using hstrip, rfl, ?_⟩
+      intro i b b' hb hb'
+      simp only [Nat.zero_add] at hb
+      rw [hb] at hb'
+      obtain rfl := Option.some.inj hb'
+      rfl
+  | succ p ih =>
+    intro args k ty bs body hlen hstrip
+    match args, hlen with
+    | a :: as, hlen =>
+    have hlen' : as.length = p := by simpa using hlen
+    rw [show p + 1 + k = (p + k) + 1 from by omega] at hstrip
+    match ty, hstrip with
+    | .forallE n d b m, hstrip =>
+    simp only [Expr.stripPis] at hstrip
+    cases hs0 : b.stripPis (p + k) with
+    | none => rw [hs0] at hstrip; exact nomatch hstrip
+    | some p0 =>
+    rw [hs0] at hstrip
+    simp only [Option.map_some, Option.some.injEq] at hstrip
+    obtain ⟨hb0, hbody0⟩ : (n, d, m) :: p0.1 = bs ∧ p0.2 = body := by
+      cases hstrip; exact ⟨rfl, rfl⟩
+    have hlen0 : p0.1.length = p + k := Expr.stripPis_length _ hs0
+    cases hs1 : (b.instantiate1 a).stripPis (p + k) with
+    | none =>
+      exact absurd (Expr.stripPis_instantiate1_isSome (p + k) 0
+        (by rw [hs0]; rfl)) (by rw [hs1]; simp)
+    | some p1 =>
+    obtain ⟨hbody1, hdoms1⟩ := Expr.stripPis_instantiate1_eq (p + k) 0
+      hs0 hs1
+    obtain ⟨mid, hmid, bs', body', hstrip', hbody', hdoms'⟩ :=
+      ih as k hlen' (bs := p1.1) (body := p1.2) hs1
+    refine ⟨mid, hmid, bs', body', hstrip', ?_, ?_⟩
+    · rw [hbody', hbody1, ← hbody0]
+      show Expr.instSeq as (p + k - 1) (p0.2.instantiate1 a (0 + (p + k)))
+        = Expr.instSeq (a :: as) (p + 1 + k - 1) p0.2
+      show _ = Expr.instSeq as (p + 1 + k - 1 - 1)
+        (p0.2.instantiate1 a (p + 1 + k - 1))
+      congr 2 <;> omega
+    · intro i bb bb' hbb hbb'
+      rw [← hb0] at hbb
+      have hbb0 : p0.1[p + i]? = some bb ∨ False := by
+        left
+        simpa [show p + 1 + i = (p + i) + 1 from by omega] using hbb
+      obtain hbb0 := hbb0.resolve_right (fun h => h)
+      have hlen1 : p1.1.length = p + k := Expr.stripPis_length _ hs1
+      by_cases hik : p + i < p + k
+      · have hbb1 : ∃ cb, p1.1[p + i]? = some cb := by
+          refine ⟨p1.1[p + i]'(by omega), ?_⟩
+          simp [List.getElem?_eq_getElem (by omega : p + i < p1.1.length)]
+        obtain ⟨cb, hcb⟩ := hbb1
+        have hd1 : cb.2.1 = bb.2.1.instantiate1 a (0 + (p + i)) :=
+          hdoms1 (p + i) bb cb hbb0 hcb
+        rw [hdoms' i cb bb' hcb hbb', hd1]
+        show Expr.instSeq as (p + i - 1) (bb.2.1.instantiate1 a (0 + (p + i)))
+          = Expr.instSeq as (p + 1 + i - 1 - 1)
+            (bb.2.1.instantiate1 a (p + 1 + i - 1))
+        congr 2 <;> omega
+      · exact absurd hbb0 (by
+          rw [List.getElem?_eq_none (by omega : p0.1.length ≤ p + i)]
+          simp)
+
 end Setlec

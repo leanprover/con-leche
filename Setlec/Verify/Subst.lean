@@ -613,6 +613,33 @@ theorem instSeq_lift_eat {c : Nat} :
     rw [show c + (xs.length + 1) - 1 - 1 = c + xs.length - 1 from by omega]
     exact ih
 
+/-- A successful telescope decomposition has exactly `k` binders. -/
+theorem stripPis_length :
+    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+      {body : Expr}, e.stripPis k = some (bs, body) → bs.length = k := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs body h
+    simp only [stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    rfl
+  | succ k ih =>
+    intro e bs body h
+    match e, h with
+    | .forallE n d b m, h =>
+      simp only [stripPis] at h
+      cases hs : b.stripPis k with
+      | none => rw [hs] at h; exact nomatch h
+      | some p =>
+        rw [hs] at h
+        simp only [Option.map_some, Option.some.injEq] at h
+        obtain ⟨hb, -⟩ : (n, d, m) :: p.1 = bs ∧ p.2 = body := by
+          cases h; exact ⟨rfl, rfl⟩
+        subst hb
+        have := ih (e := b) (bs := p.1) (body := p.2) (by rw [hs])
+        simp [this]
+
 /-- Instantiating with a bounded term keeps loose-bvar bounds. -/
 theorem looseBVarsBounded_instantiate1_gen {a : Expr}
     (hba : a.looseBVarsBounded 0 = true) :
