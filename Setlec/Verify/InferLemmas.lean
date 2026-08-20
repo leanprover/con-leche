@@ -492,12 +492,13 @@ theorem projCert_inv {env : Env} {fuel d : Nat} {e₂ : Expr} {i : Nat}
 /-- Inversion of a successful iota step. -/
 theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
     (h : iotaRec env (fuel + 1) d e = .ok (some eout)) :
-    ∃ c us cv nP nM nm ni rules major cj usj cvj cnP cnF r,
+    ∃ c us cv nP nM nm ni rules major₀ major cj usj cvj cnP cnF r,
       e.getAppFn = .const c us ∧
       env.find? c = some (.recInfo cv nP nM nm ni rules) ∧
       e.getAppArgs.length = nP + nM + nm + ni + 1 ∧
       whnfCore env fuel d (e.getAppArgs.getD (nP + nM + nm + ni) (.bvar 0)) =
-        .ok major ∧
+        .ok major₀ ∧
+      majorToCtor env fuel d c rules major₀ = .ok major ∧
       major.getAppFn = .const cj usj ∧
       env.find? cj = some (.ctorInfo cvj cnP cnF) ∧
       rules.find? (fun r' => r'.ctor == cj) = some r ∧
@@ -548,8 +549,13 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   cases hmaj : whnfCore env fuel d
       (e.getAppArgs.getD (nP + nM + nm + ni) (.bvar 0)) with
   | error err => rw [hmaj] at h; exact nomatch h
-  | ok major =>
+  | ok major₀ =>
   rw [hmaj] at h
+  dsimp only at h
+  cases hsub : majorToCtor env fuel d c rules major₀ with
+  | error err => rw [hsub] at h; exact nomatch h
+  | ok major =>
+  rw [hsub] at h
   dsimp only at h
   revert h
   cases hmfn : major.getAppFn with
@@ -640,9 +646,317 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   | true =>
   simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq,
     Option.some.injEq] at h
-  exact ⟨c, us, cv, nP, nM, nm, ni, rules, major, cj, usj, cvj, cnP, cnF, r,
-    rfl, hfc, hlen, hmaj, hmfn, hfj, hrule, hml1, hml2, har1, har2, hlev,
-    hpeq, hcerts, hmcerts, h.symm⟩
+  exact ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major, cj, usj, cvj, cnP,
+    cnF, r, rfl, hfc, hlen, hmaj, hsub, hmfn, hfj, hrule, hml1, hml2, har1,
+    har2, hlev, hpeq, hcerts, hmcerts, h.symm⟩
+
+/-- Inversion of the stuck-major rescue: either the major is returned
+unchanged, or a constructor application was fabricated — in the
+K branch certified by proof irrelevance, in the structure-eta branch by
+the structure-eta certificate — and its scoping was checked
+syntactically (the scope guard). -/
+theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
+    {rules : List RecRule} {major major' : Expr}
+    (h : majorToCtor env (fuel + 1) d recName rules major = .ok major') :
+    major' = major ∨
+    (major'.wscopedB d = true ∧ major'.looseBVarsBounded 0 = true ∧
+     major'.fvarLeaves.all (fun l => major.fvarLeaves.contains l) = true ∧
+     ∃ r cvj cnP cnF tmaj₀ tmaj T us₀ ust cvT caps,
+       rules = [r] ∧
+       env.find? r.ctor = some (.ctorInfo cvj cnP cnF) ∧
+       (cvj.type.piResult).getAppFn = .const T us₀ ∧
+       env.find? T = some (.indInfo cvT caps) ∧
+       inferTypeCore env fuel d major = .ok tmaj₀ ∧
+       whnfCore env fuel d tmaj₀ = .ok tmaj ∧
+       tmaj.getAppFn = .const T ust ∧
+       ((caps.ruleK = true ∧ cnF = 0 ∧
+         cvj.levelParams.length = ust.length ∧
+         major' = Expr.mkAppN (.const r.ctor ust)
+           (tmaj.getAppArgs.take cnP) ∧
+         proofIrrel env fuel d major' major = .ok true) ∨
+        (caps.eta = true ∧ r.ctor = caps.etaCtor ∧
+         Name.isProjFnShape recName = false ∧
+         tmaj.getAppArgs.length = caps.etaParams ∧
+         ust.length = cvT.levelParams.length ∧
+         major' = Expr.mkAppN (.const caps.etaCtor ust)
+           (tmaj.getAppArgs ++
+             (List.range caps.etaFields).map fun j =>
+               Expr.mkAppN (.const (projFnName T j) ust)
+                 (tmaj.getAppArgs ++ [major])) ∧
+         structEtaCert env fuel d major' major = .ok true))) := by
+  simp only [majorToCtor] at h
+  revert h
+  cases hca : isCtorApp env major with
+  | true =>
+    intro h
+    simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq] at h
+    exact Or.inl h.symm
+  | false =>
+  simp only [Bool.false_eq_true, ↓reduceIte]
+  match hrs : rules with
+  | [] =>
+    intro h; dsimp only at h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact Or.inl h.symm
+  | _ :: _ :: _ =>
+    intro h; dsimp only at h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact Or.inl h.symm
+  | [r] =>
+  intro h
+  dsimp only at h
+  revert h
+  match hfj : env.find? r.ctor with
+  | none =>
+    intro h; dsimp only at h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact Or.inl h.symm
+  | some (.axiomInfo _) | some (.defnInfo _ _) | some (.thmInfo _ _)
+  | some (.indInfo _ _) | some (.recInfo _ _ _ _ _ _) =>
+    intro h; dsimp only at h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact Or.inl h.symm
+  | some (.ctorInfo cvj cnP cnF) =>
+  intro h
+  dsimp only at h
+  revert h
+  match hpr : (cvj.type.piResult).getAppFn with
+  | .bvar _ | .fvar _ _ _ | .sort _ | .app _ _ | .lam _ _ _ _
+  | .forallE _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+    intro h; dsimp only at h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact Or.inl h.symm
+  | .const T us₀ =>
+  intro h
+  dsimp only at h
+  revert h
+  match hfT : env.find? T with
+  | none =>
+    intro h; dsimp only at h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact Or.inl h.symm
+  | some (.axiomInfo _) | some (.defnInfo _ _) | some (.thmInfo _ _)
+  | some (.ctorInfo _ _ _) | some (.recInfo _ _ _ _ _ _) =>
+    intro h; dsimp only at h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact Or.inl h.symm
+  | some (.indInfo cvT caps) =>
+  intro h
+  dsimp only at h
+  by_cases hK : caps.ruleK = true ∧ cnF = 0
+  · rw [if_pos hK] at h
+    try simp only [Bind.bind, Except.bind] at h
+    cases hti : inferTypeCore env fuel d major with
+    | error err => rw [hti] at h; exact nomatch h
+    | ok tmaj₀ =>
+    rw [hti] at h
+    dsimp only at h
+    cases htw : whnfCore env fuel d tmaj₀ with
+    | error err => rw [htw] at h; exact nomatch h
+    | ok tmaj =>
+    rw [htw] at h
+    dsimp only at h
+    revert h
+    cases hth : tmaj.getAppFn with
+    | bvar i =>
+      intro h; dsimp only at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl h.symm
+    | fvar i n ty =>
+      intro h; dsimp only at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl h.symm
+    | sort u =>
+      intro h; dsimp only at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl h.symm
+    | app f a =>
+      intro h; dsimp only at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl h.symm
+    | lam n ty body m =>
+      intro h; dsimp only at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl h.symm
+    | forallE n ty body m =>
+      intro h; dsimp only at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl h.symm
+    | letE n ty v body =>
+      intro h; dsimp only at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl h.symm
+    | lit l =>
+      intro h; dsimp only at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl h.symm
+    | proj sn i pe =>
+      intro h; dsimp only at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl h.symm
+    | const T' ust =>
+    intro h
+    dsimp only at h
+    by_cases hTl : T' = T ∧ cvj.levelParams.length = ust.length
+    case neg =>
+      rw [if_neg hTl] at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl h.symm
+    obtain ⟨rfl, hlvl⟩ := hTl
+    rw [if_pos ⟨rfl, hlvl⟩] at h
+    cases hguard : (Expr.mkAppN (.const r.ctor ust)
+          (tmaj.getAppArgs.take cnP)).wscopedB d &&
+        (Expr.mkAppN (.const r.ctor ust)
+          (tmaj.getAppArgs.take cnP)).looseBVarsBounded 0 &&
+        (Expr.mkAppN (.const r.ctor ust)
+          (tmaj.getAppArgs.take cnP)).fvarLeaves.all
+          (fun l => major.fvarLeaves.contains l) with
+    | false =>
+      rw [hguard] at h
+      simp only [Bool.false_eq_true, ↓reduceIte, pure, Except.pure,
+        Except.ok.injEq] at h
+      exact Or.inl h.symm
+    | true =>
+    rw [hguard] at h
+    simp only [↓reduceIte] at h
+    try simp only [Bind.bind, Except.bind] at h
+    cases hpi : proofIrrel env fuel d
+        (Expr.mkAppN (.const r.ctor ust)
+          (tmaj.getAppArgs.take cnP)) major with
+    | error err => rw [hpi] at h; exact nomatch h
+    | ok bpi =>
+    rw [hpi] at h
+    dsimp only at h
+    cases bpi with
+    | false =>
+      simp only [Bool.false_eq_true, ↓reduceIte, pure, Except.pure,
+        Except.ok.injEq] at h
+      exact Or.inl h.symm
+    | true =>
+    simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    simp only [Bool.and_eq_true] at hguard
+    exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
+      r, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
+      rfl, rfl, rfl, rfl, rfl, rfl, rfl,
+      Or.inl ⟨hK.1, hK.2, hlvl, rfl, hpi⟩⟩
+  · rw [if_neg hK] at h
+    by_cases hE : caps.eta = true ∧ r.ctor = caps.etaCtor ∧
+        Name.isProjFnShape recName = false
+    case neg =>
+      rw [if_neg hE] at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl h.symm
+    rw [if_pos hE] at h
+    try simp only [Bind.bind, Except.bind] at h
+    cases hti : inferTypeCore env fuel d major with
+    | error err => rw [hti] at h; exact nomatch h
+    | ok tmaj₀ =>
+    rw [hti] at h
+    dsimp only at h
+    cases htw : whnfCore env fuel d tmaj₀ with
+    | error err => rw [htw] at h; exact nomatch h
+    | ok tmaj =>
+    rw [htw] at h
+    dsimp only at h
+    revert h
+    cases hth : tmaj.getAppFn with
+    | bvar i =>
+      intro h; dsimp only at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl h.symm
+    | fvar i n ty =>
+      intro h; dsimp only at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl h.symm
+    | sort u =>
+      intro h; dsimp only at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl h.symm
+    | app f a =>
+      intro h; dsimp only at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl h.symm
+    | lam n ty body m =>
+      intro h; dsimp only at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl h.symm
+    | forallE n ty body m =>
+      intro h; dsimp only at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl h.symm
+    | letE n ty v body =>
+      intro h; dsimp only at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl h.symm
+    | lit l =>
+      intro h; dsimp only at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl h.symm
+    | proj sn i pe =>
+      intro h; dsimp only at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl h.symm
+    | const T' ust =>
+    intro h
+    dsimp only at h
+    by_cases hTl : T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
+        ust.length = cvT.levelParams.length
+    case neg =>
+      rw [if_neg hTl] at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl h.symm
+    obtain ⟨rfl, hplen, hlvl⟩ := hTl
+    rw [if_pos ⟨rfl, hplen, hlvl⟩] at h
+    cases hguard : (Expr.mkAppN (.const caps.etaCtor ust)
+          (tmaj.getAppArgs ++
+            (List.range caps.etaFields).map fun j =>
+              Expr.mkAppN (.const (projFnName T' j) ust)
+                (tmaj.getAppArgs ++ [major]))).wscopedB d &&
+        (Expr.mkAppN (.const caps.etaCtor ust)
+          (tmaj.getAppArgs ++
+            (List.range caps.etaFields).map fun j =>
+              Expr.mkAppN (.const (projFnName T' j) ust)
+                (tmaj.getAppArgs ++ [major]))).looseBVarsBounded 0 &&
+        (Expr.mkAppN (.const caps.etaCtor ust)
+          (tmaj.getAppArgs ++
+            (List.range caps.etaFields).map fun j =>
+              Expr.mkAppN (.const (projFnName T' j) ust)
+                (tmaj.getAppArgs ++ [major]))).fvarLeaves.all
+          (fun l => major.fvarLeaves.contains l) with
+    | false =>
+      rw [hguard] at h
+      simp only [Bool.false_eq_true, ↓reduceIte, pure, Except.pure,
+        Except.ok.injEq] at h
+      exact Or.inl h.symm
+    | true =>
+    rw [hguard] at h
+    simp only [↓reduceIte] at h
+    try simp only [Bind.bind, Except.bind] at h
+    cases hse : structEtaCert env fuel d
+        (Expr.mkAppN (.const caps.etaCtor ust)
+          (tmaj.getAppArgs ++
+            (List.range caps.etaFields).map fun j =>
+              Expr.mkAppN (.const (projFnName T' j) ust)
+                (tmaj.getAppArgs ++ [major]))) major with
+    | error err => rw [hse] at h; exact nomatch h
+    | ok bse =>
+    rw [hse] at h
+    dsimp only at h
+    cases bse with
+    | false =>
+      simp only [Bool.false_eq_true, ↓reduceIte, pure, Except.pure,
+        Except.ok.injEq] at h
+      exact Or.inl h.symm
+    | true =>
+    simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    simp only [Bool.and_eq_true] at hguard
+    exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
+      r, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
+      rfl, rfl, rfl, rfl, rfl, rfl, rfl,
+      Or.inr ⟨hE.1, hE.2.1, hE.2.2, hplen, hlvl, rfl, hse⟩⟩
+
 
 /-- Inversion of one pairwise-defeq step. -/
 theorem defEqList_step_inv {env : Env} {fuel d : Nat} {a b : Expr}
@@ -1230,6 +1544,94 @@ theorem structEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   exact ⟨c, us, cvc, cnP, cnF, tb, wtb, T, us', cvT, caps,
     rfl, hfc, hal, rfl, hwtb, hwfn, hfT, he1, he2, he3, he4, he5,
     he5b, he6, he7, he8, he9, hlev, hic, hpc, hd1, h⟩
+
+/-- Inversion of a successful unit-likeness certification. -/
+theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
+    (h : structUnitCert env (fuel + 1) d a b = .ok true) :
+    ∃ (ta wta : Expr) (T : Name) (us' : List Level)
+      (cvT : ConstantVal) (caps : IndCaps) (tb wtb : Expr),
+      inferTypeCore env fuel d a = .ok ta ∧
+      whnfCore env fuel d ta = .ok wta ∧
+      wta.getAppFn = .const T us' ∧
+      env.find? T = some (.indInfo cvT caps) ∧
+      caps.unitlike = true ∧
+      reservedBasisNames.contains T = false ∧
+      wta.getAppArgs.length = caps.unitParams ∧
+      us'.length = cvT.levelParams.length ∧
+      (cvT.type.stripPis caps.unitParams).isSome = true ∧
+      inferTypeCore env fuel d b = .ok tb ∧
+      whnfCore env fuel d tb = .ok wtb ∧
+      isDefEqCore env fuel d wta wtb = .ok true ∧
+      iotaCerts env fuel d
+        (cvT.type.instantiateLevelParams cvT.levelParams us')
+        wta.getAppArgs = .ok true := by
+  rw [structUnitCert] at h
+  simp only [Bind.bind, Except.bind] at h
+  cases hta : inferTypeCore env fuel d a with
+  | error e => rw [hta] at h; exact nomatch h
+  | ok ta => ?_
+  rw [hta] at h
+  try dsimp only at h
+  cases hwta : whnfCore env fuel d ta with
+  | error e => rw [hwta] at h; exact nomatch h
+  | ok wta => ?_
+  rw [hwta] at h
+  try dsimp only at h
+  revert h
+  match hwfn : wta.getAppFn with
+  | .bvar _ => intro h; exact nomatch h
+  | .fvar _ _ _ => intro h; exact nomatch h
+  | .sort _ => intro h; exact nomatch h
+  | .app _ _ => intro h; exact nomatch h
+  | .lam _ _ _ _ => intro h; exact nomatch h
+  | .forallE _ _ _ _ => intro h; exact nomatch h
+  | .letE _ _ _ _ => intro h; exact nomatch h
+  | .lit _ => intro h; exact nomatch h
+  | .proj _ _ _ => intro h; exact nomatch h
+  | .const T us' => ?_
+  intro h
+  dsimp only at h
+  revert h
+  match hfT : env.find? T with
+  | none => intro h; exact nomatch h
+  | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.defnInfo _ _) => intro h; exact nomatch h
+  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.indInfo cvT caps) => ?_
+  intro h
+  dsimp only at h
+  by_cases hcond : caps.unitlike = true ∧
+      reservedBasisNames.contains T = false ∧
+      wta.getAppArgs.length = caps.unitParams ∧
+      us'.length = cvT.levelParams.length ∧
+      (cvT.type.stripPis caps.unitParams).isSome = true
+  case neg => rw [if_neg hcond] at h; exact nomatch h
+  rw [if_pos hcond] at h
+  obtain ⟨he1, he2, he3, he4, he5⟩ := hcond
+  try simp only [Bind.bind, Except.bind] at h
+  cases htb : inferTypeCore env fuel d b with
+  | error e => rw [htb] at h; exact nomatch h
+  | ok tb => ?_
+  rw [htb] at h
+  try dsimp only at h
+  cases hwtb : whnfCore env fuel d tb with
+  | error e => rw [hwtb] at h; exact nomatch h
+  | ok wtb => ?_
+  rw [hwtb] at h
+  try dsimp only at h
+  cases hde : isDefEqCore env fuel d wta wtb with
+  | error e => rw [hde] at h; exact nomatch h
+  | ok r₁ => ?_
+  rw [hde] at h
+  try dsimp only at h
+  cases r₁ with
+  | false => simp [pure, Except.pure] at h
+  | true => ?_
+  simp only [↓reduceIte] at h
+  exact ⟨ta, wta, T, us', cvT, caps, tb, wtb, rfl, hwta, hwfn, hfT,
+    he1, he2, he3, he4, he5, rfl, hwtb, hde, h⟩
 
 /-- Inversion of a successful eta certification. -/
 theorem etaCert_inv {env : Env} {fuel d : Nat} {n₁ : Name} {ty₁ body₁ b : Expr}

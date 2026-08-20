@@ -52,6 +52,9 @@ structure IndCaps where
   /-- Its field count (meaningful only when `eta`). -/
   etaFields : Nat := 0
   unitlike : Bool := false
+  /-- The parameter count of the unit-like family (meaningful only
+  when `unitlike`). -/
+  unitParams : Nat := 0
   ruleK : Bool := false
   deriving DecidableEq, Repr, Inhabited
 

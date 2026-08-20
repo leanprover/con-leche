@@ -138,6 +138,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun hres _ => absurd hres (by decide))
         (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
         (fun _ _ _ _ hres => absurd hres (by decide))
+        (fun _ _ _ _ hres => absurd hres (by decide))
       obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 natZeroA
         (fun _ => natzero)
         (Option.isNone_iff_eq_none.mp h2)
@@ -161,6 +162,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
           absurd hx (by simp [natZeroA]))
         (fun hres _ => absurd hres (by decide))
         (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
+        (fun _ _ _ _ hres => absurd hres (by decide))
         (fun _ _ _ _ hres => absurd hres (by decide))
       have hvalN2 : ∀ ψ' : Name → Nat, m2.val natName ψ' = omega := fun ψ' => by
         rw [hpres2 natName ψ' (by decide)]
@@ -188,6 +190,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
           absurd hx (by simp [natSuccA]))
         (fun hres _ => absurd hres (by decide))
         (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
+        (fun _ _ _ _ hres => absurd hres (by decide))
         (fun _ _ _ _ hres => absurd hres (by decide))
       have hvalN3 : ∀ ψ' : Name → Nat, m3.val natName ψ' = omega := fun ψ' => by
         rw [hpres3 natName ψ' (by decide)]
@@ -405,6 +408,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun hres _ => absurd hres (by decide))
         (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
         (fun _ _ _ _ hres => absurd hres (by decide))
+        (fun _ _ _ _ hres => absurd hres (by decide))
       exact ⟨m4⟩
     case _ =>
       simp only [checkDecl, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
@@ -492,6 +496,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun hres _ => absurd hres (by decide))
         (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
         (fun _ _ _ _ hres => absurd hres (by decide))
+        (fun _ _ _ _ hres => absurd hres (by decide))
       obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 psigmaMkA
         (fun ψ => psigmaMkVal V ψ)
         (Option.isNone_iff_eq_none.mp h2)
@@ -520,6 +525,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
           absurd hx (by simp [psigmaMkA]))
         (fun hres _ => absurd hres (by decide))
         (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
+        (fun _ _ _ _ hres => absurd hres (by decide))
         (fun _ _ _ _ hres => absurd hres (by decide))
       have hvalS2 : ∀ ψ' : Name → Nat, m2.val psigmaName ψ' = psigmaVal V ψ' :=
         fun ψ' => by
@@ -666,6 +672,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun hres _ => absurd hres (by decide))
         (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
         (fun _ _ _ _ hres => absurd hres (by decide))
+        (fun _ _ _ _ hres => absurd hres (by decide))
       exact ⟨m3⟩
     case _ =>
       simp only [checkDecl, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
@@ -714,6 +721,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun hres _ => absurd hres (by decide))
         (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
         (fun _ _ _ _ hres => absurd hres (by decide))
+        (fun _ _ _ _ hres => absurd hres (by decide))
       obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 eqReflA
         (fun ψ => eqReflVal V ψ)
         (Option.isNone_iff_eq_none.mp h2)
@@ -739,6 +747,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
           absurd hx (by simp [eqReflA]))
         (fun hres _ => absurd hres (by decide))
         (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
+        (fun _ _ _ _ hres => absurd hres (by decide))
         (fun _ _ _ _ hres => absurd hres (by decide))
       have hvalE2 : ∀ ψ' : Name → Nat, m2.val eqName ψ' = eqVal V ψ' := fun ψ' => by
         rw [hpres2 eqName ψ' (by decide)]
@@ -883,6 +892,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun hres _ => absurd hres (by decide))
         (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
         (fun _ _ _ _ hres => absurd hres (by decide))
+        (fun _ _ _ _ hres => absurd hres (by decide))
       exact ⟨m3⟩
     simp only [checkDecl, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
     -- step 1: PUnit
@@ -928,6 +938,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (fun hres _ => absurd hres (by decide))
       (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
       (fun _ _ _ _ hres => absurd hres (by decide))
+      (fun _ _ _ _ hres => absurd hres (by decide))
     obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 punitUnitA (fun _ => pt)
       (Option.isNone_iff_eq_none.mp h2)
       ⟨rfl, rfl, rfl, rfl,
@@ -950,6 +961,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         absurd hx (by simp [punitUnitA]))
       (fun hres _ => absurd hres (by decide))
       (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
+      (fun _ _ _ _ hres => absurd hres (by decide))
       (fun _ _ _ _ hres => absurd hres (by decide))
     have hvalP2 : ∀ ψ' : Name → Nat, m2.val punitName ψ' = unitSet := fun ψ' => by
       rw [hpres2 punitName ψ' (by decide)]
@@ -1081,6 +1093,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (fun hres _ => absurd hres (by decide))
       (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
       (fun _ _ _ _ hres => absurd hres (by decide))
+      (fun _ _ _ _ hres => absurd hres (by decide))
     exact ⟨m3⟩
     case _ =>
       simp only [checkDecl, BasisKind.declsA, List.foldlM, Bind.bind,
@@ -1121,6 +1134,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun _ _ _ _ _ _ hx => absurd hx (by simp [emptyA]))
         (fun hres _ => absurd hres (by decide))
         (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
+        (fun _ _ _ _ hres => absurd hres (by decide))
         (fun _ _ _ _ hres => absurd hres (by decide))
       have hvalE1 : ∀ ψ' : Name → Nat, m1.val emptyName ψ' =
           SetTheory.empty := fun ψ' => hval1 ψ'
@@ -1165,6 +1179,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
           cases hr)
         (fun hres _ => absurd hres (by decide))
         (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
+        (fun _ _ _ _ hres => absurd hres (by decide))
         (fun _ _ _ _ hres => absurd hres (by decide))
       exact ⟨m2⟩
   | defnDecl cv value =>

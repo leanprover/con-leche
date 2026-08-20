@@ -344,13 +344,17 @@ theorem ModeledOk.cons {env : Env} {val val' : ConstVal V}
       (∀ j, j < caps.etaFields →
         ((⟨c₀ :: env.consts⟩ : Env).find?
           (projModelName c₀.name j)).isSome = true) ∧
-      EtaLaw V ⟨c₀ :: env.consts⟩ val' c₀.name cv caps) :
+      EtaLaw V ⟨c₀ :: env.consts⟩ val' c₀.name cv caps)
+    (hheadUnit : ∀ cv caps, c₀ = .indInfo cv caps →
+      caps.unitlike = true →
+      reservedBasisNames.contains c₀.name = false →
+      UnitLaw V ⟨c₀ :: env.consts⟩ val' c₀.name cv caps) :
     ModeledOk V ⟨c₀ :: env.consts⟩ val' := by
   have hfind : ∀ n, n ≠ c₀.name →
       (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n := by
     intro n hn
     rw [Env.find?_cons, if_neg (fun hh => hn hh.symm)]
-  refine ⟨?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_⟩
   · intro n cv caps hf hres
     by_cases hn : n = c₀.name
     · subst hn
@@ -403,7 +407,7 @@ theorem ModeledOk.cons {env : Env} {val val' : ConstVal V}
       rw [Env.find?_cons, if_pos rfl] at hf
       exact hheadEta cvT caps (Option.some.inj hf) hcape hres
     · rw [hfind _ hn] at hf
-      obtain ⟨hmsC, hmsP, hlaw⟩ := h.2.2.2 T cvT caps hf hcape hres
+      obtain ⟨hmsC, hmsP, hlaw⟩ := h.2.2.2.1 T cvT caps hf hcape hres
       have hCne : caps.etaCtor.str "_model" ≠ c₀.name := by
         intro he
         rw [he, hfresh] at hmsC
@@ -451,6 +455,36 @@ theorem ModeledOk.cons {env : Env} {val val' : ConstVal V}
           rw [hpres _ _ (hPne j (List.mem_range.mp hj))]
         rw [h2] at h1
         exact h1
+  · intro T cvT caps hf hcapu hres
+    by_cases hn : T = c₀.name
+    · subst hn
+      rw [Env.find?_cons, if_pos rfl] at hf
+      exact hheadUnit cvT caps (Option.some.inj hf) hcapu hres
+    · rw [hfind _ hn] at hf
+      have hlaw := h.2.2.2.2 T cvT caps hf hcapu hres
+      have hagree : ∀ n, (env.find? n).isSome = true →
+          ∀ ψ' : Name → Nat, val' n ψ' = val n ψ' := by
+        intro n hnf ψ'
+        refine hpres n ψ' ?_
+        intro he
+        rw [he, hfresh] at hnf
+        exact nomatch hnf
+      have hTres : cvT.type.constsResolve env = true := by
+        obtain ⟨-, -, h3, -⟩ := hwfe _ (find?_mem hf)
+        exact h3
+      intro φ'' us ps x y d₁ ρ₁ d₂ ρ₂ rest hlen hx hy hfit
+      have hfit' := TeleFit.env_shrink hfresh hagree hfit
+        (by rw [Expr.constsResolve_instantiateLevelParams]
+            exact hTres)
+      have hx' : x ∈ˢ SpineFold V
+          (val T (Level.substFn φ'' cvT.levelParams us)) ps := by
+        rw [← hpres T _ hn]
+        exact hx
+      have hy' : y ∈ˢ SpineFold V
+          (val T (Level.substFn φ'' cvT.levelParams us)) ps := by
+        rw [← hpres T _ hn]
+        exact hy
+      exact hlaw φ'' us ps x y d₁ ρ₁ d₂ ρ₂ rest hlen hx' hy' hfit'
 
 /-- The common model-extension argument, for a new constant `c₀` with an
 annotated, checked type and value. -/
@@ -698,7 +732,7 @@ theorem extend_model {env : Env} (m : EnvModel V env)
         rw [heq] at hc₀nb
         simp [ConstantInfo.isBasis] at hc₀nb)
   · -- modeled_ok: no inductive-kind constant is added
-    refine ModeledOk.cons m.modeled_ok m.wf hc₀fresh ?_ ?_ ?_ ?_ ?_
+    refine ModeledOk.cons m.modeled_ok m.wf hc₀fresh ?_ ?_ ?_ ?_ ?_ ?_
     · intro n ψ hn
       have hne : n ≠ name := by
         rw [← hc₀name]
@@ -714,6 +748,9 @@ theorem extend_model {env : Env} (m : EnvModel V env)
       exfalso
       rw [hc₀name.symm.trans hh] at hc₀pshape
       exact nomatch hc₀pshape
+    · intro cv caps heq
+      rw [heq] at hc₀nb
+      simp [ConstantInfo.isBasis] at hc₀nb
     · intro cv caps heq
       rw [heq] at hc₀nb
       simp [ConstantInfo.isBasis] at hc₀nb
@@ -782,7 +819,19 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
             (Level.substFn φ'' cv.levelParams us))
           (ps ++ (List.range caps.etaFields).map fun j =>
             SpineFold V (m.val (projModelName ci.name j)
-              (Level.substFn φ'' cv.levelParams us)) (ps ++ [x]))) :
+              (Level.substFn φ'' cv.levelParams us)) (ps ++ [x])))
+    (hunitL : ∀ cv caps, ci = .indInfo cv caps → caps.unitlike = true →
+      reservedBasisNames.contains ci.name = false →
+      ∀ (φ'' : Name → Nat) (us : List Level) (ps : List V) (x y : V)
+        (d₁ : Nat) (ρ₁ : Nat → V) (d₂ : Nat) (ρ₂ : Nat → V)
+        (rest : Expr),
+        ps.length = caps.unitParams →
+        x ∈ˢ SpineFold V (v₀ (Level.substFn φ'' cv.levelParams us)) ps →
+        y ∈ˢ SpineFold V (v₀ (Level.substFn φ'' cv.levelParams us)) ps →
+        TeleFit V m.val env φ'' d₁ ρ₁
+          (cv.type.instantiateLevelParams cv.levelParams us) ps d₂ ρ₂
+          rest →
+        x = y) :
     ∃ m' : EnvModel V ⟨ci :: env.consts⟩,
       (∀ ψ, m'.val ci.name ψ = v₀ ψ) ∧
       (∀ n ψ, n ≠ ci.name → m'.val n ψ = m.val n ψ) := by
@@ -990,7 +1039,7 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
       (hrecm val' (fun ψ => by simp [hval'])
         (fun n ψ hne => by simp [hval', hne]))
   · -- modeled_ok
-    refine ModeledOk.cons m.modeled_ok m.wf hfind' ?_ ?_ ?_ ?_ ?_
+    refine ModeledOk.cons m.modeled_ok m.wf hfind' ?_ ?_ ?_ ?_ ?_ ?_
     · intro n ψ hn
       simp [hval', hn]
     · intro cv caps heq hres
@@ -1098,6 +1147,21 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
           rw [this]
         rw [hvC, hvP]
         exact h1
+    · -- the unit-like law of a freshly installed family
+      intro cv caps heq hcapu hres
+      intro φ'' us ps x y d₁ ρ₁ d₂ ρ₂ rest hlen hx hy hfit
+      have hcvty : cv.type = ci.toConstantVal.type := by
+        rw [heq]
+        rfl
+      have hfit' := TeleFit.env_shrink hfind' hagree hfit
+        (by rw [Expr.constsResolve_instantiateLevelParams, hcvty]
+            exact htyres0)
+      have hveq : val' ci.name (Level.substFn φ'' cv.levelParams us) =
+          v₀ (Level.substFn φ'' cv.levelParams us) := by
+        simp [hval']
+      rw [hveq] at hx hy
+      exact hunitL cv caps heq hcapu hres φ'' us ps x y d₁ ρ₁ d₂ ρ₂
+        rest hlen hx hy hfit'
   · -- the new constant's value
     intro ψ
     simp [hval']
@@ -1149,7 +1213,21 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
             (Level.substFn φ'' cv.levelParams us))
           (ps ++ (List.range caps.etaFields).map fun j =>
             SpineFold V (m.val (projModelName ci.name j)
-              (Level.substFn φ'' cv.levelParams us)) (ps ++ [x]))) :
+              (Level.substFn φ'' cv.levelParams us)) (ps ++ [x])))
+    (hunitLm : ∀ cv caps, ci = .indInfo cv caps → caps.unitlike = true →
+      reservedBasisNames.contains ci.name = false →
+      ∀ (φ'' : Name → Nat) (us : List Level) (ps : List V) (x y : V)
+        (d₁ : Nat) (ρ₁ : Nat → V) (d₂ : Nat) (ρ₂ : Nat → V)
+        (rest : Expr),
+        ps.length = caps.unitParams →
+        x ∈ˢ SpineFold V
+          (m.val mname (Level.substFn φ'' cv.levelParams us)) ps →
+        y ∈ˢ SpineFold V
+          (m.val mname (Level.substFn φ'' cv.levelParams us)) ps →
+        TeleFit V m.val env φ'' d₁ ρ₁
+          (cv.type.instantiateLevelParams cv.levelParams us) ps d₂ ρ₂
+          rest →
+        x = y) :
     ∃ m' : EnvModel V ⟨ci :: env.consts⟩,
       (∀ ψ, m'.val ci.name ψ = m.val mname ψ) ∧
       (∀ n ψ, n ≠ ci.name → m'.val n ψ = m.val n ψ) := by
@@ -1219,7 +1297,7 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
         subst h6
         intro r hr
         cases hr)
-    (fun _ => hmodm) hprojm hetaLm
+    (fun _ => hmodm) hprojm hetaLm hunitLm
 
 /-- The kernel-checked data of one modeled recursor rule: the
 hypothesis kit its fold obligation consumes.  `env` is the environment
@@ -1526,7 +1604,7 @@ carried through the member fold: `find?`-facts (preserved by fresh
 installs) and plain syntax about the model-side statement. -/
 def EtaPins (env' : Env) (T : Name) (lps : List Name)
     (caps : IndCaps) : Prop :=
-  caps.eta = true →
+  (caps.eta = true →
   ∃ (tcv : ConstantVal) (tval : Expr) (cvmT : ConstantVal) (mvalT : Expr)
     (sbinders tbindersM : List (Name × Expr × BinderMeta))
     (sbody tbodyM tySlot : Expr) (ℓA : Level),
@@ -1558,7 +1636,184 @@ def EtaPins (env' : Env) (T : Name) (lps : List Name)
            (.const (projModelName T j) (lps.map .param))
            (((List.range caps.etaParams).map fun k =>
                Expr.bvar (caps.etaParams - k)) ++
-            [Expr.bvar 0]))]
+            [Expr.bvar 0]))]) ∧
+  (caps.unitlike = true →
+  ∃ (tcv : ConstantVal) (tval : Expr) (cvmT : ConstantVal) (mvalT : Expr)
+    (sbinders tbindersM : List (Name × Expr × BinderMeta))
+    (sbody tbodyM tySlot : Expr) (ℓA : Level),
+    env'.find? ((T.str "_model").str "unitlike") =
+      some (.thmInfo tcv tval) ∧
+    tcv.levelParams = lps ∧
+    env'.find? (T.str "_model") = some (.defnInfo cvmT mvalT) ∧
+    cvmT.levelParams = lps ∧
+    env'.find? eqName = some eqA ∧
+    tcv.type.stripPis (caps.unitParams + 2) = some (sbinders, sbody) ∧
+    cvmT.type.stripPis caps.unitParams = some (tbindersM, tbodyM) ∧
+    (∀ (k : Nat) (b b' : Name × Expr × BinderMeta),
+      k < caps.unitParams →
+      sbinders[k]? = some b → tbindersM[k]? = some b' →
+      b.2.1 = b'.2.1) ∧
+    (∃ nx mx, sbinders[caps.unitParams]? = some (nx,
+      Expr.mkAppN (.const (T.str "_model") (lps.map .param))
+        ((List.range caps.unitParams).map fun k =>
+          Expr.bvar (caps.unitParams - 1 - k)), mx)) ∧
+    (∃ ny my, sbinders[caps.unitParams + 1]? = some (ny,
+      Expr.mkAppN (.const (T.str "_model") (lps.map .param))
+        ((List.range caps.unitParams).map fun k =>
+          Expr.bvar (caps.unitParams - k)), my)) ∧
+    sbody = Expr.mkAppN (.const eqName [ℓA]) [tySlot, .bvar 1, .bvar 0])
+
+set_option maxHeartbeats 3200000 in
+/-- Invert a positive unit-capability check into the stored pins. -/
+theorem checkUnitThm_inv {env' : Env} {T : Name}
+    {lps : List Name} {nP : Nat}
+    (h : checkUnitThm env' T lps nP = true) :
+    ∃ (tcv : ConstantVal) (tval : Expr) (cvmT : ConstantVal)
+      (mvalT : Expr)
+      (sbinders tbindersM : List (Name × Expr × BinderMeta))
+      (sbody tbodyM tySlot : Expr) (ℓA : Level),
+      env'.find? ((T.str "_model").str "unitlike") =
+        some (.thmInfo tcv tval) ∧
+      tcv.levelParams = lps ∧
+      env'.find? (T.str "_model") = some (.defnInfo cvmT mvalT) ∧
+      cvmT.levelParams = lps ∧
+      env'.find? eqName = some eqA ∧
+      tcv.type.stripPis (nP + 2) = some (sbinders, sbody) ∧
+      cvmT.type.stripPis nP = some (tbindersM, tbodyM) ∧
+      (∀ (k : Nat) (b b' : Name × Expr × BinderMeta), k < nP →
+        sbinders[k]? = some b → tbindersM[k]? = some b' →
+        b.2.1 = b'.2.1) ∧
+      (∃ nx mx, sbinders[nP]? = some (nx,
+        Expr.mkAppN (.const (T.str "_model") (lps.map .param))
+          ((List.range nP).map fun k => Expr.bvar (nP - 1 - k)), mx)) ∧
+      (∃ ny my, sbinders[nP + 1]? = some (ny,
+        Expr.mkAppN (.const (T.str "_model") (lps.map .param))
+          ((List.range nP).map fun k => Expr.bvar (nP - k)), my)) ∧
+      sbody = Expr.mkAppN (.const eqName [ℓA])
+        [tySlot, .bvar 1, .bvar 0] := by
+  rw [checkUnitThm] at h
+  revert h
+  match hthm : env'.find? ((T.str "_model").str "unitlike") with
+  | none => intro h; exact nomatch h
+  | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.defnInfo _ _) => intro h; exact nomatch h
+  | some (.indInfo _ _) => intro h; exact nomatch h
+  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.thmInfo tcv tval) => ?_
+  intro h
+  revert h
+  match hTm : env'.find? (T.str "_model") with
+  | none => intro h; exact nomatch h
+  | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.indInfo _ _) => intro h; exact nomatch h
+  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.defnInfo cvmT mvalT) => ?_
+  intro h
+  revert h
+  match heqf : env'.find? eqName with
+  | none => intro h; exact nomatch h
+  | some eqStored => ?_
+  intro h
+  simp only [Bool.and_eq_true] at h
+  obtain ⟨⟨heqA, htlps⟩, hTlps⟩ := h.1
+  have hrest := h.2
+  revert hrest
+  match hS_strip : tcv.type.stripPis (nP + 2) with
+  | none => intro hrest; exact nomatch hrest
+  | some (sbinders, sbody) => ?_
+  intro hrest
+  revert hrest
+  match hTm_strip : cvmT.type.stripPis nP with
+  | none => intro hrest; exact nomatch hrest
+  | some (tbindersM, tbodyM) => ?_
+  intro hrest
+  simp only [Bool.and_eq_true] at hrest
+  obtain ⟨⟨⟨hdomsB, hxdomB⟩, hydomB⟩, hbodyB⟩ := hrest
+  have hdoms : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta), k < nP →
+      sbinders[k]? = some b → tbindersM[k]? = some b' →
+      b.2.1 = b'.2.1 := by
+    intro k b b' hk hb hb'
+    exact domsMatchAux_inv hdomsB hk
+      (by rw [Nat.zero_add]; exact hb) (by rw [Nat.zero_add]; exact hb')
+  have hxdom : ∃ nx mx, sbinders[nP]? = some (nx,
+      Expr.mkAppN (.const (T.str "_model") (lps.map .param))
+        ((List.range nP).map fun k => Expr.bvar (nP - 1 - k)), mx) := by
+    revert hxdomB
+    match hbx : sbinders[nP]? with
+    | none => intro hx; exact nomatch hx
+    | some (nx, xdom, mx) =>
+      intro hx
+      exact ⟨nx, mx, by rw [eq_of_beq hx]⟩
+  have hydom : ∃ ny my, sbinders[nP + 1]? = some (ny,
+      Expr.mkAppN (.const (T.str "_model") (lps.map .param))
+        ((List.range nP).map fun k => Expr.bvar (nP - k)), my) := by
+    revert hydomB
+    match hby : sbinders[nP + 1]? with
+    | none => intro hy; exact nomatch hy
+    | some (ny, ydom, my) =>
+      intro hy
+      exact ⟨ny, my, by rw [eq_of_beq hy]⟩
+  revert hbodyB
+  match hsb : sbody with
+  | .app (.app (.app (.const c ℓs) tySlot) lhsC) rhsC => ?_
+  | .bvar _ => intro hb; exact nomatch hb
+  | .fvar _ _ _ => intro hb; exact nomatch hb
+  | .sort _ => intro hb; exact nomatch hb
+  | .const _ _ => intro hb; exact nomatch hb
+  | .lam _ _ _ _ => intro hb; exact nomatch hb
+  | .forallE _ _ _ _ => intro hb; exact nomatch hb
+  | .letE _ _ _ _ => intro hb; exact nomatch hb
+  | .lit _ => intro hb; exact nomatch hb
+  | .proj _ _ _ => intro hb; exact nomatch hb
+  | .app (.bvar _) _ => intro hb; exact nomatch hb
+  | .app (.fvar _ _ _) _ => intro hb; exact nomatch hb
+  | .app (.sort _) _ => intro hb; exact nomatch hb
+  | .app (.const _ _) _ => intro hb; exact nomatch hb
+  | .app (.lam _ _ _ _) _ => intro hb; exact nomatch hb
+  | .app (.forallE _ _ _ _) _ => intro hb; exact nomatch hb
+  | .app (.letE _ _ _ _) _ => intro hb; exact nomatch hb
+  | .app (.lit _) _ => intro hb; exact nomatch hb
+  | .app (.proj _ _ _) _ => intro hb; exact nomatch hb
+  | .app (.app (.bvar _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.fvar _ _ _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.sort _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.const _ _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.lam _ _ _ _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.forallE _ _ _ _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.letE _ _ _ _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.lit _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.proj _ _ _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.app (.bvar _) _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.app (.fvar _ _ _) _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.app (.sort _) _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.app (.app _ _) _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.app (.lam _ _ _ _) _) _) _ =>
+    intro hb; exact nomatch hb
+  | .app (.app (.app (.forallE _ _ _ _) _) _) _ =>
+    intro hb; exact nomatch hb
+  | .app (.app (.app (.letE _ _ _ _) _) _) _ =>
+    intro hb; exact nomatch hb
+  | .app (.app (.app (.lit _) _) _) _ => intro hb; exact nomatch hb
+  | .app (.app (.app (.proj _ _ _) _) _) _ =>
+    intro hb; exact nomatch hb
+  intro hb
+  revert hb
+  match ℓs with
+  | [] => intro hb; exact nomatch hb
+  | _ :: _ :: _ => intro hb; exact nomatch hb
+  | [ℓA] => ?_
+  intro hb
+  simp only [Bool.and_eq_true] at hb
+  obtain ⟨⟨hceq, hlhs⟩, hrhs⟩ := hb
+  refine ⟨tcv, tval, cvmT, mvalT, sbinders, tbindersM, _, tbodyM,
+    tySlot, ℓA, rfl, eq_of_beq htlps, rfl, eq_of_beq hTlps,
+    (by rw [eq_of_beq heqA]), hS_strip, hTm_strip, hdoms, hxdom, hydom,
+    ?_⟩
+  rw [eq_of_beq hceq, eq_of_beq hlhs, eq_of_beq hrhs]
+  rfl
 
 set_option maxHeartbeats 3200000 in
 /-- Invert a positive eta-capability check into the stored pins. -/
@@ -1744,10 +1999,6 @@ theorem EtaPins.step {env' : Env} {c₁ : ConstantInfo} {T : Name}
     (h : EtaPins env' T lps caps)
     (hfresh : env'.find? c₁.name = none) :
     EtaPins ⟨c₁ :: env'.consts⟩ T lps caps := by
-  intro hcape
-  obtain ⟨tcv, tval, cvmT, mvalT, sbinders, tbindersM, sbody, tbodyM,
-    tySlot, ℓA, hthm, h2, hTm, h4, ⟨cvmC, mvalC, hCm, hClps⟩, hPj,
-    heqf, h8, h9, h10, h11, h12⟩ := h hcape
   have hkeep : ∀ (n : Name) (ci : ConstantInfo),
       env'.find? n = some ci →
       (⟨c₁ :: env'.consts⟩ : Env).find? n = some ci := by
@@ -1757,13 +2008,25 @@ theorem EtaPins.step {env' : Env} {c₁ : ConstantInfo} {T : Name}
     · intro he
       rw [← he, hfresh] at hf
       exact nomatch hf
-  refine ⟨tcv, tval, cvmT, mvalT, sbinders, tbindersM, sbody, tbodyM,
-    tySlot, ℓA, hkeep _ _ hthm, h2, hkeep _ _ hTm, h4,
-    ⟨cvmC, mvalC, hkeep _ _ hCm, hClps⟩, ?_, hkeep _ _ heqf,
-    h8, h9, h10, h11, h12⟩
-  intro j hj
-  obtain ⟨cvmj, mvalj, hfj, hjlps⟩ := hPj j hj
-  exact ⟨cvmj, mvalj, hkeep _ _ hfj, hjlps⟩
+  refine ⟨?_, ?_⟩
+  · intro hcape
+    obtain ⟨tcv, tval, cvmT, mvalT, sbinders, tbindersM, sbody, tbodyM,
+      tySlot, ℓA, hthm, h2, hTm, h4, ⟨cvmC, mvalC, hCm, hClps⟩, hPj,
+      heqf, h8, h9, h10, h11, h12⟩ := h.1 hcape
+    refine ⟨tcv, tval, cvmT, mvalT, sbinders, tbindersM, sbody, tbodyM,
+      tySlot, ℓA, hkeep _ _ hthm, h2, hkeep _ _ hTm, h4,
+      ⟨cvmC, mvalC, hkeep _ _ hCm, hClps⟩, ?_, hkeep _ _ heqf,
+      h8, h9, h10, h11, h12⟩
+    intro j hj
+    obtain ⟨cvmj, mvalj, hfj, hjlps⟩ := hPj j hj
+    exact ⟨cvmj, mvalj, hkeep _ _ hfj, hjlps⟩
+  · intro hcapu
+    obtain ⟨tcv, tval, cvmT, mvalT, sbinders, tbindersM, sbody, tbodyM,
+      tySlot, ℓA, hthm, h2, hTm, h4, heqf, h6, h7, h8, h9, h10, h11⟩ :=
+      h.2 hcapu
+    exact ⟨tcv, tval, cvmT, mvalT, sbinders, tbindersM, sbody, tbodyM,
+      tySlot, ℓA, hkeep _ _ hthm, h2, hkeep _ _ hTm, h4,
+      hkeep _ _ heqf, h6, h7, h8, h9, h10, h11⟩
 
 /-- Extend a model by an installed projection function: a degenerate
 recursor (no motive, no minors) whose value is its `_model.proj_i`
@@ -1873,6 +2136,7 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
     (fun hk => by
       rcases hk with ⟨_, _, hcon⟩ | ⟨_, _, _, hcon⟩ <;> exact nomatch hcon)
     hprojm
+    (fun cv caps hcon => nomatch hcon)
     (fun cv caps hcon => nomatch hcon)
   have henv01 : ∀ n,
       ((⟨.recInfo cvA nP 0 0 0 [] :: env.consts⟩ : Env).find? n).map
@@ -2328,7 +2592,7 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
       rw [hitrans]
       exact hRi
   · -- modeled_ok: lookups only differ in the head's rule list
-    obtain ⟨mo1, mo2, mo3, mo4⟩ := m₀.modeled_ok
+    obtain ⟨mo1, mo2, mo3, mo4, mo5⟩ := m₀.modeled_ok
     have hisoF : ∀ n,
         (⟨.recInfo cvA nP 0 0 0 [rule] :: env.consts⟩ : Env).find? n =
         if cvA.name = n then some (.recInfo cvA nP 0 0 0 [rule])
@@ -2340,7 +2604,7 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
       · rw [if_neg (show ¬(ConstantInfo.recInfo cvA nP 0 0 0 [rule]).name = n from h), if_neg h,
           Env.find?_cons,
           if_neg (show ¬(ConstantInfo.recInfo cvA nP 0 0 0 []).name = n from h)]
-    refine ⟨?_, ?_, ?_, ?_⟩
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
     · intro n cv caps hf hres
       rw [hisoF] at hf
       split at hf
@@ -2397,6 +2661,14 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
         · intro φ'' us ps x dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hfit
           exact hlaw φ'' us ps x dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx
             (TeleFit.env_levelext henv10 hfit)
+    · intro T cvT caps hf hcapu hres
+      rw [hisoF] at hf
+      split at hf
+      · exact nomatch (Option.some.inj hf)
+      · have hlaw := mo5 T cvT caps hf hcapu hres
+        intro φ'' us ps x y dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hy hfit
+        exact hlaw φ'' us ps x y dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hy
+          (TeleFit.env_levelext henv10 hfit)
 
 /-- Invert a successful `checkIndMember` run. -/
 theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
@@ -2575,6 +2847,7 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
       have hh' : cvA.name = projFnName T j := hh
       rw [hh'] at hpshape
       exact nomatch hpshape)
+    (fun cv caps hcon => nomatch hcon)
     (fun cv caps hcon => nomatch hcon)
   have henv01 : ∀ n,
       ((⟨.recInfo cvA nP 1 nm 0 [] :: env.consts⟩ : Env).find? n).map
@@ -3024,7 +3297,7 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
       rw [hitrans]
       exact hRi
   · -- modeled_ok: lookups only differ in the head's rule list
-    obtain ⟨mo1, mo2, mo3, mo4⟩ := m₀.modeled_ok
+    obtain ⟨mo1, mo2, mo3, mo4, mo5⟩ := m₀.modeled_ok
     have hisoF : ∀ n,
         (⟨.recInfo cvA nP 1 nm 0 rules' :: env.consts⟩ : Env).find? n =
         if cvA.name = n then some (.recInfo cvA nP 1 nm 0 rules')
@@ -3036,7 +3309,7 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
       · rw [if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0 rules').name = n from h), if_neg h,
           Env.find?_cons,
           if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0 []).name = n from h)]
-    refine ⟨?_, ?_, ?_, ?_⟩
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
     · intro n cv caps hf hres
       rw [hisoF] at hf
       split at hf
@@ -3093,6 +3366,14 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
         · intro φ'' us ps x dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hfit
           exact hlaw φ'' us ps x dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx
             (TeleFit.env_levelext henv10 hfit)
+    · intro T cvT caps hf hcapu hres
+      rw [hisoF] at hf
+      split at hf
+      · exact nomatch (Option.some.inj hf)
+      · have hlaw := mo5 T cvT caps hf hcapu hres
+        intro φ'' us ps x y dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hy hfit
+        exact hlaw φ'' us ps x y dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hy
+          (TeleFit.env_levelext henv10 hfit)
 
 /-- No `_model`-companion name equals a name that is not itself
 `_model`-shaped. -/
@@ -3153,7 +3434,7 @@ the fold invariant. -/
 theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
     {env' env₁ : Env} {ci : ConstantInfo}
     (h : checkIndMember blockNames caps env' ci = .ok env₁)
-    (hpins : caps.eta = true → ∀ cv caps₂, ci = .indInfo cv caps₂ →
+    (hpins : ∀ cv caps₂, ci = .indInfo cv caps₂ →
       EtaPins env' cv.name cv.levelParams caps)
     (hbn : blockNames.contains ci.name = true)
     (m : EnvModel V env') (hI : BlockInstalled blockNames env' m.val) :
@@ -3253,12 +3534,12 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
         subst hcaps
         have hpinsA : EtaPins env' cvA.name cvA.levelParams caps := by
           rw [hnameA, hlpsA]
-          exact hpins hcape cv caps' rfl
+          exact hpins cv caps' rfl
         obtain ⟨tcv, tval, cvmT, mvalT, sbinders, tbindersM, sbody,
           tbodyM, tySlot, ℓA, hthmE, htlpsE, hTmE, hTmlpsE,
           ⟨cvmC, mvalC, hCmE, hCmlpsE⟩, hPjE, heqfE, hS_stripE,
           hTm_stripE, hsdomsE, hxdomE, hsbodyE⟩ :=
-          hpinsA hcape
+          hpinsA.1 hcape
         obtain ⟨rfl, rfl⟩ : cvm = cvmT ∧ mval = mvalT := by
           rw [hfm] at hTmE
           have h1 := Option.some.inj hTmE
@@ -3311,6 +3592,59 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
               exact ⟨.defnInfo cvmj mvalj, hfj, hjlps⟩)
             heqfE heqval hthm_mem hthm_annot hSw hS_stripE hT_strip
             hsdomsF hxdomE hsbodyE htyf hlen hx hfit)
+      (fun cv₂ caps₂ heq hcapu _hres' => by
+        injection heq with hcv hcaps
+        subst hcv
+        subst hcaps
+        have hpinsA : EtaPins env' cvA.name cvA.levelParams caps := by
+          rw [hnameA, hlpsA]
+          exact hpins cv caps' rfl
+        obtain ⟨tcv, tval, cvmT, mvalT, sbinders, tbindersM, sbody,
+          tbodyM, tySlot, ℓA, hthmE, htlpsE, hTmE, hTmlpsE, heqfE,
+          hS_stripE, hTm_stripE, hsdomsE, hxdomE, hydomE, hsbodyE⟩ :=
+          hpinsA.2 hcapu
+        obtain ⟨rfl, rfl⟩ : cvm = cvmT ∧ mval = mvalT := by
+          rw [hfm] at hTmE
+          have h1 := Option.some.inj hTmE
+          exact ⟨by injection h1, by injection h1⟩
+        intro φ'' us ps x y d₁ ρ₁ d₂ ρ₂ rest hlen hx hy hfit
+        obtain ⟨tbinders, tbody, hT_strip, hbsmap, -⟩ :=
+          Expr.stripPis_renameConsts_inv (f := fS) caps.unitParams
+            (by rw [hrenS]; exact hTm_stripE)
+        have hsdomsF : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta),
+            k < caps.unitParams →
+            sbinders[k]? = some b → tbinders[k]? = some b' →
+            b.2.1 = (b'.2.1).renameConsts fS := by
+          intro k b b' hk hb hb'
+          have hbm : tbindersM[k]? =
+              some (b'.1, (b'.2.1).renameConsts fS, b'.2.2) := by
+            rw [hbsmap, List.getElem?_map, hb']
+            rfl
+          exact hsdomsE k b _ hk hb hbm
+        have hcvp : ConstValParams m.val env' :=
+          fun n ci₂ hf ψ₁ ψ₂ hψ => m.val_params n ci₂ hf ψ₁ ψ₂ hψ
+        have heqval : ∀ ψ'' : Name → Nat,
+            m.val eqName ψ'' = eqVal V ψ'' := by
+          intro ψ''
+          obtain ⟨-, hpv⟩ :=
+            m.ind_ok.2.2.2.1 eqName eqA heqfE (by rfl) (by decide)
+          rw [hpv ψ'']
+          simp [pinnedVal]
+        have hthm_mem : ∀ ψ'' : Name → Nat, ∃ Pv,
+            interpClosed V m.val env' ψ'' tcv.type = some Pv ∧
+            m.val tcv.name ψ'' ∈ˢ Pv := by
+          intro ψ''
+          obtain ⟨P, hP, hmem⟩ := m.mem_type _ (find?_mem hthmE) ψ''
+          exact ⟨P, hP, hmem⟩
+        have hSw : tcv.type.hasFvar = false := by
+          obtain ⟨h1, -⟩ := m.wf _ (find?_mem hthmE)
+          exact h1
+        have hthm_annot : ∀ ψ'' : Name → Nat,
+            AnnotOk V m.val env' ψ'' 0 (rho0 V) tcv.type :=
+          fun ψ'' => (m.annot_ok _ (find?_mem hthmE) ψ'').1
+        exact unit_rule_fold hroS hcvp hTmE hTmlpsE heqfE heqval
+          hthm_mem hthm_annot hSw hS_stripE hT_strip hsdomsF hxdomE
+          hydomE hsbodyE htyf hlen hx hy hfit)
     exact ⟨m₁, BlockInstalled.step hI hms hfm hlps hval₁ hpres₁⟩
   · -- constructor
     have hwf : ConstWF ⟨.ctorInfo cvA nP nF :: env'.consts⟩
@@ -3325,6 +3659,7 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
       (fun _ => ⟨show (env'.find? (cvA.name.str "_model")).isSome = true
         by rw [hfm]; rfl, fun ψ => rfl⟩)
       (fun T j hh => hprojRef T j hh)
+      (fun cv₂ caps₂ hcon => nomatch hcon)
       (fun cv₂ caps₂ hcon => nomatch hcon)
     exact ⟨m₁, BlockInstalled.step hI hms hfm hlps hval₁ hpres₁⟩
   · -- recursor
@@ -3442,7 +3777,7 @@ the block-install invariant. -/
 theorem checkIndFold_sound {blockNames : List Name} {caps : IndCaps} :
     ∀ (rest : List ConstantInfo) (env' env₂ : Env),
     (∀ ci ∈ rest, blockNames.contains ci.name = true) →
-    (caps.eta = true → ∀ cv caps₂,
+    (∀ cv caps₂,
       (ConstantInfo.indInfo cv caps₂) ∈ rest →
       EtaPins env' cv.name cv.levelParams caps) →
     rest.foldlM (checkIndMember blockNames caps) env' = .ok env₂ →
@@ -3459,7 +3794,7 @@ theorem checkIndFold_sound {blockNames : List Name} {caps : IndCaps} :
     | ok env₁ => ?_
     rw [hstep] at h
     obtain ⟨m₁, hI₁⟩ := checkIndMember_sound hstep
-      (fun hcape cv caps₂ heq => hp hcape cv caps₂
+      (fun cv caps₂ heq => hp cv caps₂
         (by rw [← heq]; exact List.mem_cons_self))
       (hns ci (by simp)) m hI
     obtain ⟨cvA', cvm', mval', hccv', -, -, -, -, hkind'⟩ :=
@@ -3482,8 +3817,8 @@ theorem checkIndFold_sound {blockNames : List Name} {caps : IndCaps} :
       exact hfind0'
     exact checkIndFold_sound rest _ env₂
       (fun ci' hci' => hns ci' (by simp [hci']))
-      (fun hcape cv caps₂ hmem => EtaPins.step
-        (hp hcape cv caps₂ (List.mem_cons_of_mem _ hmem)) hfresh₁)
+      (fun cv caps₂ hmem => EtaPins.step
+        (hp cv caps₂ (List.mem_cons_of_mem _ hmem)) hfresh₁)
       h m₁ hI₁
 
 /-- Invert stage 1 of `checkProjFn` (the stored-constant lookups). -/
@@ -4241,38 +4576,31 @@ theorem checkIndDecl_sound {env env₂ : Env} {block : List ConstantInfo}
       obtain ⟨ci₀, hci₀, rfl⟩ := List.mem_map.mp hmem
       rw [checkIndMember_fold_names block env env₁ hfold ci₀ hci₀] at hf₂
       exact nomatch hf₂
-    have hpins0 : (if (decide (cvC.levelParams = cvT.levelParams) &&
-          checkEtaThm env cvT.name cvC.name cvT.levelParams nP nF)
-          = true then
-        ({ eta := true, etaCtor := cvC.name, etaParams := nP,
-           etaFields := nF } : IndCaps)
-      else {}).eta = true → ∀ (cv : ConstantVal) (caps₂ : IndCaps),
+    have hpins0 : ∀ (cv : ConstantVal) (caps₂ : IndCaps),
         (ConstantInfo.indInfo cv caps₂) ∈ block →
         EtaPins env cv.name cv.levelParams
-          (if (decide (cvC.levelParams = cvT.levelParams) &&
+          (IndCaps.mk
+            (cvC.levelParams = cvT.levelParams &&
               checkEtaThm env cvT.name cvC.name cvT.levelParams nP nF)
-              = true then
-            ({ eta := true, etaCtor := cvC.name, etaParams := nP,
-               etaFields := nF } : IndCaps)
-          else {}) := by
-      intro hcape cv caps₂ hmem
-      by_cases hcond : (decide (cvC.levelParams = cvT.levelParams) &&
-          checkEtaThm env cvT.name cvC.name cvT.levelParams nP nF) = true
-      case neg =>
-        rw [if_neg hcond] at hcape
-        exact nomatch hcape
-      case pos =>
-        rw [if_pos hcond]
-        have hmemf : (ConstantInfo.indInfo cv caps₂) ∈
-            ([ConstantInfo.indInfo cvT capsT] : List ConstantInfo) := by
-          rw [← heqI]
-          exact List.mem_filter.mpr ⟨hmem, rfl⟩
-        have hid := List.mem_singleton.mp hmemf
-        injection hid with h1 h2
-        rw [h1]
-        simp only [Bool.and_eq_true, decide_eq_true_eq] at hcond
-        intro _
-        exact checkEtaThm_inv hcond.2
+            cvC.name nP nF
+            (checkUnitThm env cvT.name cvT.levelParams nP) nP false) := by
+      intro cv caps₂ hmem
+      have hmemf : (ConstantInfo.indInfo cv caps₂) ∈
+          ([ConstantInfo.indInfo cvT capsT] : List ConstantInfo) := by
+        rw [← heqI]
+        exact List.mem_filter.mpr ⟨hmem, rfl⟩
+      have hid := List.mem_singleton.mp hmemf
+      injection hid with h1 h2
+      rw [h1]
+      refine ⟨?_, ?_⟩
+      · intro hcape
+        have h3 : (decide (cvC.levelParams = cvT.levelParams) &&
+            checkEtaThm env cvT.name cvC.name cvT.levelParams nP nF)
+            = true := hcape
+        simp only [Bool.and_eq_true] at h3
+        exact checkEtaThm_inv h3.2
+      · intro hcapu
+        exact checkUnitThm_inv hcapu
     obtain ⟨m₁, hI₁⟩ := checkIndFold_sound block env env₁ hbn hpins0
       hfold m hI₀
     have hTin : (ConstantInfo.indInfo cvT capsT) ∈ block := by
@@ -4323,7 +4651,8 @@ theorem checkIndDecl_sound {env env₂ : Env} {block : List ConstantInfo}
       rw [checkIndMember_fold_names block env env₂ h ci₀ hci₀] at hf₂
       exact nomatch hf₂
     obtain ⟨m₂, -⟩ := checkIndFold_sound block env env₂ hbn
-      (fun hcape _ _ _ => absurd hcape (by decide)) h m hI₀
+      (fun _ _ _ => ⟨fun hcape => absurd hcape (by decide),
+        fun hcapu => absurd hcapu (by decide)⟩) h m hI₀
     exact ⟨m₂⟩
 
 end Setlec

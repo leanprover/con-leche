@@ -924,7 +924,7 @@ private theorem structEta_sound {m : EnvModel V env} {fuelTop : Nat}
     rw [htal]
     exact stripPis_instantiateLevelParams_isSome _ _ _ hTstrip)
   -- the stored eta law
-  obtain ⟨hmsC, hmsP, hlaw⟩ := m.modeled_ok.2.2.2 T cvT caps hfT hce hres
+  obtain ⟨hmsC, hmsP, hlaw⟩ := m.modeled_ok.2.2.2.1 T cvT caps hfT hce hres
   have hmemb' : vb ∈ˢ SpineFold V
       (m.val T (Level.substFn φ cvT.levelParams us')) psv := by
     rw [← hψ']
@@ -1187,6 +1187,186 @@ private theorem structEta_sound {m : EnvModel V env} {fuelTop : Nat}
   rw [hψ']
   exact hvbEq.symm
 
+set_option maxHeartbeats 3200000 in
+/-- A successful unit-likeness certification identifies the two
+interpretations: both values inhabit the same interpreted unit-like
+family, whose stored law makes any two members equal. -/
+private theorem structUnit_sound {m : EnvModel V env} {fuelTop : Nat}
+    (ihAll : ∀ f, f ≤ fuelTop →
+      WhnfClaims m φ f ∧ DefEqClaims m φ f ∧ InferClaims m φ f)
+    {fuel : Nat} (hfle : fuel ≤ fuelTop)
+    {d : Nat} {a b : Expr} {ρ : Nat → V} {va vb : V}
+    (h : structUnitCert env (fuel + 1) d a b = .ok true)
+    (hwa : WScoped d a) (hwb : WScoped d b)
+    (hba : a.looseBVarsBounded 0 = true)
+    (hbb : b.looseBVarsBounded 0 = true)
+    (hLba : Expr.LeavesBounded a) (hLbb : Expr.LeavesBounded b)
+    (hoka : FvarsOk V m.val env φ d ρ a)
+    (hokb : FvarsOk V m.val env φ d ρ b)
+    (haa : AnnotOk V m.val env φ d ρ a)
+    (hab : AnnotOk V m.val env φ d ρ b)
+    (hva : interpExpr V m.val env φ d ρ a = some va)
+    (hvb : interpExpr V m.val env φ d ρ b = some vb) :
+    va = vb := by
+  obtain ⟨ihw, ihd, ihi⟩ := ihAll fuel hfle
+  obtain ⟨ta, wta, T, us', cvT, caps, tb, wtb, hta, hwta, hwfn, hfT,
+    hcu, hres, htal, hulen, hTstrip, htb, hwtb, hde, hic⟩ :=
+    structUnitCert_inv h
+  obtain ⟨ψ', hψ'⟩ : ∃ x, x = Level.substFn φ cvT.levelParams us' :=
+    ⟨_, rfl⟩
+  -- a's type facts
+  obtain ⟨⟨va', vta, hai, htai, hmema⟩, hAta⟩ :=
+    ihi hta hwa hba hLba hoka haa
+  obtain rfl : va = va' := by
+    rw [hva] at hai
+    exact Option.some.inj hai
+  have hwtaW := inferTypeCore_WScoped m.wf fuel hta hwa
+  have hbta := inferTypeCore_looseBVars m.wf fuel hta hwa hba hLba
+  have hLbta : Expr.LeavesBounded ta := fun l hl =>
+    hLba l (inferTypeCore_fvarLeaves m.wf fuel hta hwa l hl)
+  have hokta : FvarsOk V m.val env φ d ρ ta :=
+    FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hta hwa) hoka
+  obtain ⟨hiwa, hAwta⟩ := ihw hwta hwtaW hbta hLbta hokta hAta
+  have hvtaI : interpExpr V m.val env φ d ρ wta = some vta := by
+    rw [hiwa]
+    exact htai
+  have hwtaW' := whnf_WScoped m.wf fuel hwta hwtaW
+  have hbwta := whnf_looseBVars m.wf fuel hwta hbta
+  have hLwta : Expr.LeavesBounded wta := fun l hl =>
+    hLbta l (whnf_fvarLeaves m.wf fuel hwta l hl)
+  have hokwta : FvarsOk V m.val env φ d ρ wta :=
+    FvarsOk.of_subset (whnf_fvarLeaves m.wf fuel hwta) hokta
+  -- b's type facts
+  obtain ⟨⟨vb', vtb, hbi, htbi, hmemb⟩, hAtb⟩ :=
+    ihi htb hwb hbb hLbb hokb hab
+  obtain rfl : vb = vb' := by
+    rw [hvb] at hbi
+    exact Option.some.inj hbi
+  have hwtbW := inferTypeCore_WScoped m.wf fuel htb hwb
+  have hbtb := inferTypeCore_looseBVars m.wf fuel htb hwb hbb hLbb
+  have hLbtb : Expr.LeavesBounded tb := fun l hl =>
+    hLbb l (inferTypeCore_fvarLeaves m.wf fuel htb hwb l hl)
+  have hoktb : FvarsOk V m.val env φ d ρ tb :=
+    FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel htb hwb) hokb
+  obtain ⟨hiwb, hAwtb⟩ := ihw hwtb hwtbW hbtb hLbtb hoktb hAtb
+  have hvtbI : interpExpr V m.val env φ d ρ wtb = some vtb := by
+    rw [hiwb]
+    exact htbi
+  have hwtbW' := whnf_WScoped m.wf fuel hwtb hwtbW
+  have hbwtb := whnf_looseBVars m.wf fuel hwtb hbtb
+  have hLwtb : Expr.LeavesBounded wtb := fun l hl =>
+    hLbtb l (whnf_fvarLeaves m.wf fuel hwtb l hl)
+  have hokwtb : FvarsOk V m.val env φ d ρ wtb :=
+    FvarsOk.of_subset (whnf_fvarLeaves m.wf fuel hwtb) hoktb
+  -- the two types interpret equally
+  have htyeq : vta = vtb :=
+    ihd hde hwtaW' hwtbW' hbwta hbwtb hLwta hLwtb hokwta hokwtb
+      hAwta hAwtb hvtaI hvtbI
+  -- decompose the family application
+  have hvalT : interpExpr V m.val env φ d ρ (.const T us') =
+      some (m.val T ψ') := by
+    simp only [interpExpr, hfT]
+    rw [if_pos (show us'.length =
+      (ConstantInfo.indInfo cvT caps).toConstantVal.levelParams.length
+      from hulen)]
+    rw [hψ']
+    rfl
+  have hwta_eq : Expr.mkAppN (.const T us') wta.getAppArgs = wta := by
+    rw [← hwfn]
+    exact Expr.mkAppN_getApp wta
+  have hAwta' : AnnotOk V m.val env φ d ρ
+      (Expr.mkAppN (.const T us') wta.getAppArgs) := by
+    rw [hwta_eq]
+    exact hAwta
+  obtain ⟨psv, hspT, hAtargs, hvta⟩ : ∃ psv,
+      InterpSpine m.val env φ d ρ wta.getAppArgs psv ∧
+      (∀ x ∈ wta.getAppArgs, AnnotOk V m.val env φ d ρ x) ∧
+      vta = SpineFold V (m.val T ψ') psv := by
+    cases hcase : wta.getAppArgs with
+    | nil =>
+      refine ⟨[], trivial, ?_, ?_⟩
+      · intro x hx
+        exact absurd hx List.not_mem_nil
+      · have hwtac : wta = .const T us' := by
+          rw [← Expr.mkAppN_getApp wta, hwfn, hcase]
+          rfl
+        rw [hwtac, hvalT] at hvtaI
+        exact (Option.some.inj hvtaI).symm
+    | cons t ts =>
+      rw [← hcase]
+      have hne : wta.getAppArgs ≠ [] := by
+        rw [hcase]
+        simp
+      obtain ⟨-, hAargs, vf, vs, hvf, hsp, -, hfold⟩ :=
+        annotOk_spine_inv _ _ hne hAwta'
+      obtain rfl : m.val T ψ' = vf := by
+        rw [hvalT] at hvf
+        exact Option.some.inj hvf
+      refine ⟨vs, hsp, hAargs, ?_⟩
+      rw [hwta_eq] at hfold
+      rw [hfold] at hvtaI
+      exact (Option.some.inj hvtaI).symm
+  have hpslen : psv.length = wta.getAppArgs.length :=
+    InterpSpine.length hspT
+  -- fit the type arguments through the family's telescope
+  obtain ⟨hTtf, -, -, hTtb, -, -⟩ := m.wf _ (find?_mem hfT)
+  have hThf : (cvT.type.instantiateLevelParams cvT.levelParams
+      us').hasFvar = false := by
+    rw [hasFvar_instantiateLevelParams]
+    exact hTtf
+  have hTw : WScoped d (cvT.type.instantiateLevelParams cvT.levelParams
+      us') := WScoped.of_not_hasFvar hThf
+  have hTb : (cvT.type.instantiateLevelParams cvT.levelParams
+      us').looseBVarsBounded 0 = true := by
+    rw [looseBVarsBounded_instantiateLevelParams]
+    exact hTtb
+  have hTA : AnnotOk V m.val env φ d ρ
+      (cvT.type.instantiateLevelParams cvT.levelParams us') := by
+    obtain ⟨hA0, -⟩ := m.annot_ok _ (find?_mem hfT)
+      (Level.substFn φ cvT.levelParams us')
+    exact AnnotOk.closed_invariant hThf d ρ
+      (AnnotOk.instLevels m.val_params _ 0 (rho0 V) hA0)
+  obtain ⟨TT, hTT⟩ : ∃ TT, interpExpr V m.val env φ d ρ
+      (cvT.type.instantiateLevelParams cvT.levelParams us') = some TT := by
+    obtain ⟨T0, hT0, -⟩ := m.mem_type _ (find?_mem hfT)
+      (Level.substFn φ cvT.levelParams us')
+    refine ⟨T0, ?_⟩
+    rw [interp_closed_invariant hThf d ρ]
+    unfold interpClosed
+    rw [interp_instLevels m.val_params]
+    exact hT0
+  have htargswf : ∀ x ∈ wta.getAppArgs,
+      WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded x ∧ FvarsOk V m.val env φ d ρ x ∧
+      AnnotOk V m.val env φ d ρ x := by
+    intro x hx
+    refine ⟨hwtaW'.getAppArgs x hx,
+      looseBVarsBounded_getAppArgs hbwta x hx, ?_, ?_, hAtargs x hx⟩
+    · intro l hl
+      exact hLwta l (fvarLeaves_getAppArgs hx l hl)
+    · exact FvarsOk.of_subset (fun l hl => fvarLeaves_getAppArgs hx l hl)
+        hokwta
+  obtain ⟨restT, hfitIT⟩ := certs_fit ihAll fuel hfle _ _ _ TT hic hTw
+    hTb (Expr.LeavesBounded.of_not_hasFvar hThf)
+    (FvarsOk.of_not_hasFvar hThf) hTA hTT htargswf hspT
+  obtain ⟨dT, ρT, restT', hfitT⟩ := TeleFitI.toTeleFit hfitIT hTw (by
+    rw [htal]
+    exact stripPis_instantiateLevelParams_isSome _ _ _ hTstrip)
+  -- the stored unit law
+  have hlaw := m.modeled_ok.2.2.2.2 T cvT caps hfT hcu hres
+  have hmema' : va ∈ˢ SpineFold V
+      (m.val T (Level.substFn φ cvT.levelParams us')) psv := by
+    rw [← hψ']
+    rw [hvta] at hmema
+    exact hmema
+  have hmemb' : vb ∈ˢ SpineFold V
+      (m.val T (Level.substFn φ cvT.levelParams us')) psv := by
+    rw [← hψ']
+    rw [← htyeq, hvta] at hmemb
+    exact hmemb
+  exact hlaw φ us' psv va vb d ρ dT ρT restT'
+    (by rw [hpslen, htal]) hmema' hmemb' hfitT
+
 /-- Soundness of the stuck-term fallback: pair eta in either direction,
 else proof irrelevance. -/
 private theorem stuckIrrel_sound {m : EnvModel V env} {fuel : Nat}
@@ -1266,6 +1446,22 @@ private theorem stuckIrrel_sound {m : EnvModel V env} {fuel : Nat}
         (by omega))
       (Nat.le_refl _) hs2 hwb hwa hbb hba hLbb hLba
       hokb hoka hab haa hvb hva).symm
+  | false =>
+  simp only [Bool.false_eq_true, ↓reduceIte] at h
+  cases hu1 : structUnitCert env f d a b with
+  | error e => rw [hu1] at h; exact nomatch h
+  | ok r₅ =>
+  rw [hu1] at h
+  dsimp only at h
+  cases r₅ with
+  | true =>
+    cases f with
+    | zero => exact nomatch hu1
+    | succ f' =>
+    exact structUnit_sound (fuelTop := f') (fun ff hff => ihAll ff
+        (by omega))
+      (Nat.le_refl _) hu1 hwa hwb hba hbb hLba hLbb
+      hoka hokb haa hab hva hvb
   | false =>
   simp only [Bool.false_eq_true, ↓reduceIte] at h
   cases f with

@@ -204,7 +204,7 @@ theorem annotateCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
     {i : Nat} {e e' : Expr}
     (h : annotateCore env (fuel + 1) d (.proj sn i e) = .ok e') :
     ∃ e₂ tt te, annotateCore env fuel d e = .ok e₂ ∧
-      inferType env d e₂ = .ok tt ∧ whnf env d tt = .ok te ∧
+      inferTypeCore env fuel d e₂ = .ok tt ∧ whnfCore env fuel d tt = .ok te ∧
       ((∃ us A B cv caps, te = .app (.app (.const psigmaName us) A) B ∧
           env.find? psigmaName = some (.indInfo cv caps) ∧
           i < 2 ∧ e' = .proj sn i e₂) ∨
@@ -215,12 +215,12 @@ theorem annotateCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
   | ok e₂ =>
   rw [he] at h
   dsimp only at h
-  cases hte : inferType env d e₂ with
+  cases hte : inferTypeCore env fuel d e₂ with
   | error err => rw [hte] at h; exact nomatch h
   | ok tt =>
   rw [hte] at h
   dsimp only at h
-  cases hw : whnf env d tt with
+  cases hw : whnfCore env fuel d tt with
   | error err => rw [hw] at h; exact nomatch h
   | ok te =>
   rw [hw] at h
@@ -289,10 +289,10 @@ theorem annotateCore_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
       annotateCore env fuel d a = .ok a' ∧
       e' = .app f' a' ∧
       ∃ tf n1 ty1 body1 m1 ta,
-        inferType env d f' = .ok tf ∧
-        whnf env d tf = .ok (.forallE n1 ty1 body1 m1) ∧
-        inferType env d a' = .ok ta ∧
-        isDefEq env d ta ty1 = .ok true := by
+        inferTypeCore env fuel d f' = .ok tf ∧
+        whnfCore env fuel d tf = .ok (.forallE n1 ty1 body1 m1) ∧
+        inferTypeCore env fuel d a' = .ok ta ∧
+        isDefEqCore env fuel d ta ty1 = .ok true := by
   simp only [annotateCore, Bind.bind, Except.bind] at h
   cases hf : annotateCore env fuel d f with
   | error e => rw [hf] at h; exact nomatch h
@@ -302,22 +302,22 @@ theorem annotateCore_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
   | error e => rw [ha] at h; exact nomatch h
   | ok a' =>
   rw [ha] at h; dsimp only at h
-  cases hit : inferType env d f' with
+  cases hit : inferTypeCore env fuel d f' with
   | error e => rw [hit] at h; exact nomatch h
   | ok tf =>
   rw [hit] at h; dsimp only at h
-  cases hwh : whnf env d tf with
+  cases hwh : whnfCore env fuel d tf with
   | error e => rw [hwh] at h; exact nomatch h
   | ok w =>
   rw [hwh] at h; dsimp only at h
   cases w with
   | forallE n ty body m =>
     dsimp only at h
-    cases hia : inferType env d a' with
+    cases hia : inferTypeCore env fuel d a' with
     | error e => rw [hia] at h; exact nomatch h
     | ok ta =>
     rw [hia] at h; dsimp only at h
-    cases hde : isDefEq env d ta ty with
+    cases hde : isDefEqCore env fuel d ta ty with
     | error e => rw [hde] at h; exact nomatch h
     | ok b =>
     rw [hde] at h; dsimp only at h
@@ -380,11 +380,11 @@ theorem annotateCore_WScoped {env : Env} :
     | error e => rw [hbody] at h; exact nomatch h
     | ok body' =>
     rw [hbody] at h; dsimp only at h
-    cases hit : inferType env (d + 1) body' with
+    cases hit : inferTypeCore env fuel (d + 1) body' with
     | error e => rw [hit] at h; exact nomatch h
     | ok bt =>
     rw [hit] at h; dsimp only at h
-    cases hes : ensureSort env (d + 1) bt with
+    cases hes : ensureSortCore env fuel (d + 1) bt with
     | error e => rw [hes] at h; exact nomatch h
     | ok v =>
     rw [hes] at h; dsimp only at h
@@ -406,15 +406,15 @@ theorem annotateCore_WScoped {env : Env} :
     | error e => rw [hbody] at h; exact nomatch h
     | ok body' =>
     rw [hbody] at h; dsimp only at h
-    cases hit : inferType env (d + 1) body' with
+    cases hit : inferTypeCore env fuel (d + 1) body' with
     | error e => rw [hit] at h; exact nomatch h
     | ok bt =>
     rw [hit] at h; dsimp only at h
-    cases hit2 : inferType env (d + 1) bt with
+    cases hit2 : inferTypeCore env fuel (d + 1) bt with
     | error e => rw [hit2] at h; exact nomatch h
     | ok bt2 =>
     rw [hit2] at h; dsimp only at h
-    cases hes : ensureSort env (d + 1) bt2 with
+    cases hes : ensureSortCore env fuel (d + 1) bt2 with
     | error e => rw [hes] at h; exact nomatch h
     | ok v =>
     rw [hes] at h; dsimp only at h
@@ -470,11 +470,11 @@ theorem annotateCore_looseBVars {env : Env} :
     | error e => rw [hbody] at h; exact nomatch h
     | ok body' =>
     rw [hbody] at h; dsimp only at h
-    cases hit : inferType env (d + 1) body' with
+    cases hit : inferTypeCore env fuel (d + 1) body' with
     | error e => rw [hit] at h; exact nomatch h
     | ok bt =>
     rw [hit] at h; dsimp only at h
-    cases hes : ensureSort env (d + 1) bt with
+    cases hes : ensureSortCore env fuel (d + 1) bt with
     | error e => rw [hes] at h; exact nomatch h
     | ok v =>
     rw [hes] at h; dsimp only at h
@@ -495,15 +495,15 @@ theorem annotateCore_looseBVars {env : Env} :
     | error e => rw [hbody] at h; exact nomatch h
     | ok body' =>
     rw [hbody] at h; dsimp only at h
-    cases hit : inferType env (d + 1) body' with
+    cases hit : inferTypeCore env fuel (d + 1) body' with
     | error e => rw [hit] at h; exact nomatch h
     | ok bt =>
     rw [hit] at h; dsimp only at h
-    cases hit2 : inferType env (d + 1) bt with
+    cases hit2 : inferTypeCore env fuel (d + 1) bt with
     | error e => rw [hit2] at h; exact nomatch h
     | ok bt2 =>
     rw [hit2] at h; dsimp only at h
-    cases hes : ensureSort env (d + 1) bt2 with
+    cases hes : ensureSortCore env fuel (d + 1) bt2 with
     | error e => rw [hes] at h; exact nomatch h
     | ok v =>
     rw [hes] at h; dsimp only at h
@@ -667,19 +667,5 @@ theorem leafEquiv_abstract_of_inst {D : Nat} {n : Name} {ty : Expr} :
     simp only [Expr.instantiate1] at hle
     cases y <;> simp_all [Expr.LeafEquiv, Expr.abstract1]
     case proj s2 i2 e2 => exact ih k e2 hle hf hb
-
-/-! Wrappers at the standard fuel, keeping the historical signatures. -/
-
-theorem annotate_WScoped {env : Env} :
-    ∀ (e : Expr) {d : Nat} {e' : Expr},
-      annotate env d e = .ok e' → WScoped d e → WScoped d e' :=
-  by intro e d e' h hw; exact annotateCore_WScoped checkFuel e h hw
-
-theorem annotate_looseBVars {env : Env} :
-    ∀ (e : Expr) {d : Nat} {e' : Expr},
-      annotate env d e = .ok e' → e.looseBVarsBounded 0 = true →
-      e'.looseBVarsBounded 0 = true :=
-  by intro e d e' h hb; exact annotateCore_looseBVars checkFuel e h hb
-
 
 end Setlec
