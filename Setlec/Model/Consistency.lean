@@ -948,6 +948,248 @@ private def RuleChecked (env env₀ : Env) (f : Name → Name)
     env.find? thmName = some (.thmInfo cvt tval) ∧
     cvt.levelParams = cvA.levelParams
 
+private theorem domsMatchAux_inv {g : Nat → Expr → Expr}
+    {bs₁ bs₂ : List (Name × Expr × BinderMeta)} {o₁ o₂ n : Nat}
+    (h : domsMatchAux g bs₁ bs₂ o₁ o₂ n = true)
+    {i : Nat} (hi : i < n) {b b' : Name × Expr × BinderMeta}
+    (hb : bs₁[o₁ + i]? = some b) (hb' : bs₂[o₂ + i]? = some b') :
+    b.2.1 = g i b'.2.1 := by
+  have hone := List.all_eq_true.mp h i (List.mem_range.mpr hi)
+  rw [hb, hb'] at hone
+  exact eq_of_beq hone
+
+/-- Invert a successful `checkIotaRules` run: every returned rule
+carries the full `RuleChecked` hypothesis kit. -/
+private theorem checkIotaRules_inv {env' envSelf : Env} {f : Name → Name}
+    {cvA : ConstantVal} {nP nm : Nat} :
+    ∀ (j : Nat) (rules rules' : List RecRule),
+    checkIotaRules env' envSelf f cvA.name cvA.levelParams cvA.type
+      nP 1 nm j rules = .ok rules' →
+    ∀ r' ∈ rules', RuleChecked env' envSelf f cvA nP nm r' := by
+  intro j rules
+  induction rules generalizing j with
+  | nil =>
+    intro rules' h r' hr'
+    simp only [checkIotaRules, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact nomatch hr'
+  | cons r rest ih =>
+    intro rules' h r' hr'
+    simp only [checkIotaRules, Bind.bind, Except.bind] at h
+    revert h
+    match hfc : env'.find? r.ctor with
+    | none => intro h; exact nomatch h
+    | some (.axiomInfo _) => intro h; exact nomatch h
+    | some (.defnInfo _ _) => intro h; exact nomatch h
+    | some (.thmInfo _ _) => intro h; exact nomatch h
+    | some (.indInfo _) => intro h; exact nomatch h
+    | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+    | some (.ctorInfo cvj cnP cnF) => ?_
+    intro h
+    dsimp only at h
+    by_cases hcnP : cnP = nP
+    case neg => rw [if_neg hcnP] at h; exact nomatch h
+    rw [if_pos hcnP] at h
+    subst cnP
+    try dsimp only at h
+    by_cases hnf : r.nfields = cnF
+    case neg => rw [if_neg hnf] at h; exact nomatch h
+    rw [if_pos hnf] at h
+    try dsimp only at h
+    by_cases hrb : r.rhs.looseBVarsBounded 0 = true
+    case neg => rw [if_neg hrb] at h; exact nomatch h
+    rw [if_pos hrb] at h
+    try dsimp only at h
+    by_cases hrf : r.rhs.hasFvar = true
+    case pos => rw [if_pos hrf] at h; exact nomatch h
+    rw [if_neg hrf] at h
+    have hrfF : r.rhs.hasFvar = false := by
+      revert hrf; cases r.rhs.hasFvar <;> simp
+    try dsimp only at h
+    by_cases hrlp : r.rhs.allLevelParamsDefined cvA.levelParams = true
+    case neg => rw [if_neg hrlp] at h; exact nomatch h
+    rw [if_pos hrlp] at h
+    try dsimp only at h
+    by_cases hrres : r.rhs.constsResolve envSelf = true
+    case neg => rw [if_neg hrres] at h; exact nomatch h
+    rw [if_pos hrres] at h
+    try dsimp only at h
+    cases hann : annotate envSelf 0 r.rhs with
+    | error e => rw [hann] at h; exact nomatch h
+    | ok rhsA =>
+    rw [hann] at h
+    try dsimp only at h
+    revert h
+    match hstR : rhsA.stripLams (nP + 1 + nm + cnF) with
+    | none => intro h; exact nomatch h
+    | some pr => ?_
+    intro h
+    obtain ⟨rbinders, rbody⟩ := pr
+    dsimp only at h
+    revert h
+    match hstT : cvA.type.stripPis (nP + 1 + nm + 1) with
+    | none => intro h; exact nomatch h
+    | some pr => ?_
+    intro h
+    obtain ⟨tbinders, tybody⟩ := pr
+    dsimp only at h
+    revert h
+    match hstC : cvj.type.stripPis (nP + cnF) with
+    | none => intro h; exact nomatch h
+    | some pr => ?_
+    intro h
+    obtain ⟨cbinders, cbody⟩ := pr
+    dsimp only at h
+    by_cases hallPre : domsMatchAux (fun _ e => e) rbinders tbinders 0 0
+        (nP + 1 + nm) = true
+    case neg => rw [if_neg hallPre] at h; exact nomatch h
+    rw [if_pos hallPre] at h
+    try dsimp only at h
+    by_cases hallF : domsMatchAux (fun i e => e.liftLooseBVars (1 + nm) i)
+        rbinders cbinders (nP + 1 + nm) nP cnF = true
+    case neg => rw [if_neg hallF] at h; exact nomatch h
+    rw [if_pos hallF] at h
+    try dsimp only at h
+    cases hity : inferType envSelf 0 rhsA with
+    | error e => rw [hity] at h; exact nomatch h
+    | ok rhsTy =>
+    rw [hity] at h
+    try dsimp only at h
+    revert h
+    match hbuild : buildIotaStmt f cvA.name r.ctor cvA.levelParams
+        cvj.levelParams nP 1 nm cnF cvA.type cvj.type r.rhs with
+    | none => intro h; exact nomatch h
+    | some stmtRaw => ?_
+    intro h
+    dsimp only at h
+    cases hstmtA : annotate env' 0 stmtRaw with
+    | error e => rw [hstmtA] at h; exact nomatch h
+    | ok stmtA =>
+    rw [hstmtA] at h
+    try dsimp only at h
+    revert h
+    match hfthm : env'.find? ((cvA.name.str "_model").str s!"iota_{j}") with
+    | none => intro h; exact nomatch h
+    | some (.axiomInfo _) => intro h; exact nomatch h
+    | some (.defnInfo _ _) => intro h; exact nomatch h
+    | some (.indInfo _) => intro h; exact nomatch h
+    | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+    | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+    | some (.thmInfo cvt tval) => ?_
+    intro h
+    dsimp only at h
+    by_cases hlpt : cvt.levelParams = cvA.levelParams
+    case neg => rw [if_neg hlpt] at h; exact nomatch h
+    rw [if_pos hlpt] at h
+    try dsimp only at h
+    by_cases hbeq : (cvt.type == stmtA) = true
+    case neg => rw [if_neg hbeq] at h; exact nomatch h
+    rw [if_pos hbeq] at h
+    try dsimp only at h
+    revert h
+    match hstS : cvt.type.stripPis (nP + 1 + nm + cnF) with
+    | none => intro h; exact nomatch h
+    | some pr => ?_
+    intro h
+    obtain ⟨sbinders, sbody⟩ := pr
+    dsimp only at h
+    by_cases hallS : domsMatchAux (fun _ e => e.renameConsts f)
+        sbinders rbinders 0 0 (nP + 1 + nm + cnF) = true
+    case neg => rw [if_neg hallS] at h; exact nomatch h
+    rw [if_pos hallS] at h
+    try dsimp only at h
+    revert h
+    match hmb : rbinders[nP]? with
+    | none => intro h; exact nomatch h
+    | some pr => ?_
+    intro h
+    obtain ⟨mna, mdomA, mbm⟩ := pr
+    dsimp only at h
+    revert h
+    match hms : mdomA.resultSort with
+    | none => intro h; exact nomatch h
+    | some ℓA => ?_
+    intro h
+    dsimp only at h
+    by_cases hsbeq : (sbody == Expr.mkAppN (.const eqName [ℓA])
+        [.app (.bvar (cnF + nm + (1 - 1)))
+          (Expr.mkAppN (.const (f r.ctor) (cvj.levelParams.map .param))
+            (((List.range nP).map fun k =>
+                Expr.bvar (nP + 1 + nm + cnF - 1 - k)) ++
+             ((List.range cnF).map fun k => Expr.bvar (cnF - 1 - k)))),
+         Expr.mkAppN (.const (f cvA.name) (cvA.levelParams.map .param))
+          ((((List.range nP).map fun k =>
+              Expr.bvar (nP + 1 + nm + cnF - 1 - k)) ++
+            ((List.range (1 + nm)).map fun k =>
+              Expr.bvar (nP + 1 + nm + cnF - 1 - nP - k))) ++
+           [Expr.mkAppN (.const (f r.ctor) (cvj.levelParams.map .param))
+             (((List.range nP).map fun k =>
+                 Expr.bvar (nP + 1 + nm + cnF - 1 - k)) ++
+              ((List.range cnF).map fun k =>
+                Expr.bvar (cnF - 1 - k)))]),
+         rbody.renameConsts f]) = true
+    case neg => rw [if_neg hsbeq] at h; exact nomatch h
+    rw [if_pos hsbeq] at h
+    try dsimp only at h
+    cases hrec : checkIotaRules env' envSelf f cvA.name cvA.levelParams
+        cvA.type nP 1 nm (j + 1) rest with
+    | error e => rw [hrec] at h; exact nomatch h
+    | ok rest' =>
+    rw [hrec] at h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    rw [List.mem_cons] at hr'
+    rcases hr' with rfl | hr'
+    case inr => exact ih (j + 1) rest' hrec r' hr'
+    -- the head rule
+    unfold RuleChecked
+    have hrlen : rbinders.length = nP + 1 + nm + cnF :=
+      Expr.stripLams_length _ hstR
+    have htlen : tbinders.length = nP + 1 + nm + 1 :=
+      Expr.stripPis_length _ hstT
+    have hclen : cbinders.length = nP + cnF :=
+      Expr.stripPis_length _ hstC
+    have hslen : sbinders.length = nP + 1 + nm + cnF :=
+      Expr.stripPis_length _ hstS
+    refine ⟨cvj, cnF, r.rhs, rbinders, tbinders, cbinders, sbinders,
+      rbody, tybody, cbody, sbody,
+      (cvA.name.str "_model").str s!"iota_{j}", cvt, tval, ℓA,
+      hfc, hnf, hann, hrfF, hrb, ?_, ?_, hstR, hstT, hstC, ?_,
+      ?_, ?_, ?_, ?_, hfthm, hlpt⟩
+    · -- rhsA has no fvars
+      exact not_hasFvar_of_fvarsBelow_zero
+        ((annotate_WScoped _ hann (WScoped.of_not_hasFvar hrfF)).fvarsBelow)
+    · -- rhsA stays closed
+      exact annotate_looseBVars _ hann hrb
+    · -- statement strip at the reassociated arity
+      rw [show (nP + (1 + nm)) + cnF = nP + 1 + nm + cnF from by omega]
+      exact hstS
+    · -- prefix domains
+      intro i b b' hi hb hb'
+      exact domsMatchAux_inv hallPre hi
+        (by rw [Nat.zero_add]; exact hb) (by rw [Nat.zero_add]; exact hb')
+    · -- field domains
+      intro i b b' hbF hcF
+      have hicnF : i < cnF := by
+        rcases Nat.lt_or_ge i cnF with hlt | hge
+        · exact hlt
+        · rw [List.getElem?_eq_none (by omega)] at hcF
+          exact nomatch hcF
+      exact domsMatchAux_inv hallF hicnF
+        (by rw [show nP + 1 + nm + i = (nP + (1 + nm)) + i from by omega]
+            exact hbF) hcF
+    · -- statement domains
+      intro i b b' hsb hrbi
+      have hi : i < nP + 1 + nm + cnF := by
+        rcases Nat.lt_or_ge i (nP + 1 + nm + cnF) with hlt | hge
+        · exact hlt
+        · rw [List.getElem?_eq_none (by omega)] at hsb
+          exact nomatch hsb
+      exact domsMatchAux_inv hallS hi
+        (by rw [Nat.zero_add]; exact hsb) (by rw [Nat.zero_add]; exact hrbi)
+    · -- the pinned equation body
+      exact eq_of_beq hsbeq
+
 /-- Extend a model by an opaque modeled *recursor*: its value is its
 `_model`'s, and every rule's fold obligation is discharged by the
 checked `iota` theorem (`modeled_rule_fold`).  Two-phase: the rule

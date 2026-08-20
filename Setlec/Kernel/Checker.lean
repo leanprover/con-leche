@@ -123,6 +123,15 @@ def buildIotaStmt (f : Name → Name) (recName ctorName : Name)
     (fun (b : Name × Expr × BinderInfo) acc =>
       .forallE b.1 (b.2.1.renameConsts f) acc ⟨b.2.2, none⟩) eqApp)
 
+/-- Compare binder domains at offsets `o₁`/`o₂` for `n` positions, the
+right side viewed through `g` (identity, lifting, or renaming). -/
+def domsMatchAux (g : Nat → Expr → Expr)
+    (bs₁ bs₂ : List (Name × Expr × BinderMeta)) (o₁ o₂ n : Nat) : Bool :=
+  (List.range n).all fun i =>
+    match bs₁[o₁ + i]?, bs₂[o₂ + i]? with
+    | some b₁, some b₂ => b₁.2.1 == g i b₂.2.1
+    | _, _ => false
+
 /-- Check a modeled recursor's rules against the model's `iota`
 theorems (the loop of `checkIndDecl`'s recursor arm, lifted for
 verification). -/
@@ -158,16 +167,11 @@ def checkIotaRules (env' envSelf : Env) (f : Name → Name)
       | throw (.notImplemented s!"type of {cvName} is not a pi telescope")
     let some (cbinders, _) := cvj.type.stripPis (cnP + cnF)
       | throw (.notImplemented s!"type of {r.ctor} is not a pi telescope")
-    unless (List.range (nP + nM + nm)).all (fun i =>
-        match rbinders[i]?, tbinders[i]? with
-        | some rb, some tb => rb.2.1 == tb.2.1
-        | _, _ => false) do
+    unless domsMatchAux (fun _ e => e) rbinders tbinders 0 0
+        (nP + nM + nm) do
       throw (.notImplemented s!"rule domain mismatch with recursor type for {cvName}")
-    unless (List.range cnF).all (fun i =>
-        match rbinders[nP + nM + nm + i]?, cbinders[cnP + i]? with
-        | some rb, some cb =>
-          rb.2.1 == cb.2.1.liftLooseBVars (nM + nm) i
-        | _, _ => false) do
+    unless domsMatchAux (fun i e => e.liftLooseBVars (nM + nm) i)
+        rbinders cbinders (nP + nM + nm) cnP cnF do
       throw (.notImplemented s!"rule field domain mismatch with constructor type for {cvName}")
     -- infer the rule's type: soundness interprets the (λ-tower)
     -- right-hand side through this inference
@@ -190,10 +194,8 @@ def checkIotaRules (env' envSelf : Env) (f : Name → Name)
     let some (sbinders, sbody) := cvt.type.stripPis (nP + nM + nm + cnF)
       | throw (.notImplemented
           s!"iota statement of {thmName} is not a pi telescope")
-    unless (List.range (nP + nM + nm + cnF)).all (fun i =>
-        match sbinders[i]?, rbinders[i]? with
-        | some sb, some rb => sb.2.1 == rb.2.1.renameConsts f
-        | _, _ => false) do
+    unless domsMatchAux (fun _ e => e.renameConsts f) sbinders rbinders
+        0 0 (nP + nM + nm + cnF) do
       throw (.notImplemented
         s!"iota statement domain mismatch for {thmName}")
     let some (_, mdomA, _) := rbinders[nP]?
