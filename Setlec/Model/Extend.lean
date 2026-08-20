@@ -1188,6 +1188,114 @@ theorem checkIotaRules_inv {env' envSelf : Env} {f : Name → Name}
     · -- the pinned equation body
       exact eq_of_beq hsbeq
 
+/-- Invert a successful `checkIndMember` run. -/
+theorem checkIndMember_inv {blockNames : List Name} {env' env₁ : Env}
+    {ci : ConstantInfo}
+    (h : checkIndMember blockNames env' ci = .ok env₁) :
+    ∃ cvA cvm mval,
+      checkConstantVal env' ci.toConstantVal = .ok cvA ∧
+      cvA.name.isModelSuffix = false ∧
+      env'.find? (cvA.name.str "_model") = some (.defnInfo cvm mval) ∧
+      cvm.levelParams = cvA.levelParams ∧
+      cvA.type.renameConsts (fun n =>
+        if blockNames.contains n then n.str "_model" else n) = cvm.type ∧
+      ((∃ cv, ci = .indInfo cv) ∧
+         env₁ = ⟨.indInfo cvA :: env'.consts⟩ ∨
+       (∃ cv nP nF, ci = .ctorInfo cv nP nF ∧
+         env₁ = ⟨.ctorInfo cvA nP nF :: env'.consts⟩) ∨
+       (∃ cv nP nm rules rules', ci = .recInfo cv nP 1 nm 0 rules ∧
+         blockNames.all (fun n =>
+           n == cvA.name || (env'.find? n).isSome) = true ∧
+         env'.find? eqName = some eqA ∧
+         env'.find? (eqName.str "_model") = none ∧
+         checkIotaRules env' ⟨.recInfo cvA nP 1 nm 0 [] :: env'.consts⟩
+           (fun n => if blockNames.contains n then n.str "_model" else n)
+           cvA.name cvA.levelParams cvA.type nP 1 nm 0 rules = .ok rules' ∧
+         env₁ = ⟨.recInfo cvA nP 1 nm 0 rules' :: env'.consts⟩)) := by
+  simp only [checkIndMember, Bind.bind, Except.bind] at h
+  cases hccv : checkConstantVal env' ci.toConstantVal with
+  | error e => rw [hccv] at h; exact nomatch h
+  | ok cvA =>
+  rw [hccv] at h
+  try dsimp only at h
+  by_cases hms : cvA.name.isModelSuffix = true
+  case pos => rw [if_pos hms] at h; exact nomatch h
+  rw [if_neg hms] at h
+  have hmsF : cvA.name.isModelSuffix = false := by
+    revert hms; cases cvA.name.isModelSuffix <;> simp
+  try dsimp only at h
+  revert h
+  match hfm : env'.find? (cvA.name.str "_model") with
+  | none => intro h; exact nomatch h
+  | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.indInfo _) => intro h; exact nomatch h
+  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.defnInfo cvm mval) => ?_
+  intro h
+  dsimp only at h
+  by_cases hlps : cvm.levelParams = cvA.levelParams
+  case neg => rw [if_neg hlps] at h; exact nomatch h
+  rw [if_pos hlps] at h
+  try dsimp only at h
+  by_cases hren : (cvA.type.renameConsts (fun n =>
+      if blockNames.contains n then n.str "_model" else n) ==
+      cvm.type) = true
+  case neg => rw [if_neg hren] at h; exact nomatch h
+  rw [if_pos hren] at h
+  try dsimp only at h
+  refine ⟨cvA, cvm, mval, rfl, hmsF, hfm, hlps, eq_of_beq hren, ?_⟩
+  cases ci with
+  | axiomInfo cv => exact nomatch h
+  | defnInfo cv value => exact nomatch h
+  | thmInfo cv value => exact nomatch h
+  | indInfo cv =>
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact Or.inl ⟨⟨cv, rfl⟩, h.symm⟩
+  | ctorInfo cv nP nF =>
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact Or.inr (Or.inl ⟨cv, nP, nF, rfl, h.symm⟩)
+  | recInfo cv nP nM nm ni rules =>
+    refine Or.inr (Or.inr ?_)
+    simp only [Bind.bind, Except.bind] at h
+    by_cases hni : ni = 0
+    case neg => rw [if_neg hni] at h; exact nomatch h
+    rw [if_pos hni] at h
+    subst hni
+    try dsimp only at h
+    by_cases hnM : nM = 1
+    case neg => rw [if_neg hnM] at h; exact nomatch h
+    rw [if_pos hnM] at h
+    subst hnM
+    try dsimp only at h
+    by_cases hall : (blockNames.all fun n =>
+        n == cvA.name || (env'.find? n).isSome) = true
+    case neg => rw [if_neg hall] at h; exact nomatch h
+    rw [if_pos hall] at h
+    try dsimp only at h
+    by_cases heqf : env'.find? eqName = some eqA
+    case neg => rw [if_neg heqf] at h; exact nomatch h
+    rw [if_pos heqf] at h
+    try dsimp only at h
+    by_cases heqm : (env'.find? (eqName.str "_model")).isNone = true
+    case neg => rw [if_neg heqm] at h; exact nomatch h
+    rw [if_pos heqm] at h
+    have heqm' : env'.find? (eqName.str "_model") = none := by
+      revert heqm
+      cases env'.find? (eqName.str "_model") <;> simp
+    try dsimp only at h
+    cases hcir : checkIotaRules env'
+        ⟨.recInfo cvA nP 1 nm 0 [] :: env'.consts⟩
+        (fun n => if blockNames.contains n then n.str "_model" else n)
+        cvA.name cvA.levelParams cvA.type nP 1 nm 0 rules with
+    | error e => rw [hcir] at h; exact nomatch h
+    | ok rules' =>
+    rw [hcir] at h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact ⟨cv, nP, nm, rules, rules', rfl, hall, heqf, heqm', hcir, h.symm⟩
+
+
 /-- Extend a model by an opaque modeled *recursor*: its value is its
 `_model`'s, and every rule's fold obligation is discharged by the
 checked `iota` theorem (`modeled_rule_fold`).  Two-phase: the rule
@@ -1716,5 +1824,301 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
       refine ⟨R', ?_, hfoldEq, hRch⟩
       rw [hitrans]
       exact hRi
+
+/-- No `_model`-companion name equals a name that is not itself
+`_model`-shaped. -/
+theorem Name.str_model_ne {n m : Name} (hm : m.isModelSuffix = false) :
+    n.str "_model" ≠ m := by
+  intro h
+  rw [← h] at hm
+  simp [Name.isModelSuffix] at hm
+
+/-- The fold invariant of `checkIndDecl`: every installed block member
+has its `_model` companion stored (as a definition with the same level
+parameters) and is interpreted by it. -/
+def BlockInstalled (blockNames : List Name) (env' : Env)
+    (val : ConstVal V) : Prop :=
+  ∀ n, blockNames.contains n = true → ∀ ci, env'.find? n = some ci →
+    ∃ cvm mval, env'.find? (n.str "_model") = some (.defnInfo cvm mval) ∧
+      cvm.levelParams = ci.toConstantVal.levelParams ∧
+      ∀ ψ : Name → Nat, val n ψ = val (n.str "_model") ψ
+
+omit [SetTheory V] in
+/-- Installing one member with its model's value preserves the fold
+invariant. -/
+theorem BlockInstalled.step {blockNames : List Name} {env' : Env}
+    {val val₁ : ConstVal V} {ci₁ : ConstantInfo} {cvm : ConstantVal}
+    {mval : Expr}
+    (hI : BlockInstalled blockNames env' val)
+    (hms : ci₁.name.isModelSuffix = false)
+    (hfm : env'.find? (ci₁.name.str "_model") = some (.defnInfo cvm mval))
+    (hlps : cvm.levelParams = ci₁.toConstantVal.levelParams)
+    (hval₁ : ∀ ψ, val₁ ci₁.name ψ = val (ci₁.name.str "_model") ψ)
+    (hpres₁ : ∀ n ψ, n ≠ ci₁.name → val₁ n ψ = val n ψ) :
+    BlockInstalled blockNames ⟨ci₁ :: env'.consts⟩ val₁ := by
+  intro n hbn ci₂ hf₂
+  rw [Env.find?_cons] at hf₂
+  split at hf₂
+  · next hh =>
+    obtain rfl := Option.some.inj hf₂
+    obtain rfl : ci₁.name = n := hh
+    refine ⟨cvm, mval, ?_, hlps, ?_⟩
+    · rw [Env.find?_cons,
+        if_neg (fun h => Name.str_ne ci₁.name "_model" h.symm)]
+      exact hfm
+    · intro ψ
+      rw [hval₁ ψ, hpres₁ _ ψ (Name.str_ne ci₁.name "_model")]
+  · next hh =>
+    obtain ⟨cvm₂, mval₂, hfm₂, hlps₂, hv₂⟩ := hI n hbn ci₂ hf₂
+    refine ⟨cvm₂, mval₂, ?_, hlps₂, ?_⟩
+    · rw [Env.find?_cons, if_neg (show ¬ci₁.name = n.str "_model" from
+        fun h => Name.str_model_ne hms h.symm)]
+      exact hfm₂
+    · intro ψ
+      rw [hpres₁ _ ψ (fun h => hh h.symm),
+        hpres₁ _ ψ (fun h => Name.str_model_ne hms h),
+        hv₂ ψ]
+
+/-- One `checkIndMember` step preserves having a model together with
+the fold invariant. -/
+theorem checkIndMember_sound {blockNames : List Name} {env' env₁ : Env}
+    {ci : ConstantInfo}
+    (h : checkIndMember blockNames env' ci = .ok env₁)
+    (hbn : blockNames.contains ci.name = true)
+    (m : EnvModel V env') (hI : BlockInstalled blockNames env' m.val) :
+    ∃ m₁ : EnvModel V env₁, BlockInstalled blockNames env₁ m₁.val := by
+  obtain ⟨cvA, cvm, mval, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
+    checkIndMember_inv h
+  obtain ⟨hfind0, hnres0, hnd, hlb, hfv, tyA, stype, u, hann, hlp, hres,
+    hst, hsort, hcvA⟩ := checkConstantVal_inv hccv
+  have hnameA : cvA.name = ci.name := by rw [hcvA]; rfl
+  have hlpsA : cvA.levelParams = ci.toConstantVal.levelParams := by
+    rw [hcvA]
+  have htypeA : cvA.type = tyA := by rw [hcvA]
+  have hfind' : env'.find? cvA.name = none := by rw [hnameA]; exact hfind0
+  have hnres : reservedBasisNames.contains cvA.name = false := by
+    rw [hnameA]; exact hnres0
+  have hbnA : blockNames.contains cvA.name = true := by
+    rw [hnameA]; exact hbn
+  have htyf : cvA.type.hasFvar = false := by
+    rw [htypeA]
+    exact not_hasFvar_of_fvarsBelow_zero
+      ((annotate_WScoped _ hann (WScoped.of_not_hasFvar hfv)).fvarsBelow)
+  have htyb : cvA.type.looseBVarsBounded 0 = true := by
+    rw [htypeA]
+    exact annotate_looseBVars _ hann hlb
+  have htlp : cvA.type.allLevelParamsDefined cvA.levelParams = true := by
+    rw [htypeA, hlpsA]; exact hlp
+  have htres : cvA.type.constsResolve env' = true := by
+    rw [htypeA]; exact hres
+  -- the block renaming and its semantic pruning
+  obtain ⟨fb, hfb⟩ : ∃ fb : Name → Name, fb = fun n =>
+      if blockNames.contains n then n.str "_model" else n := ⟨_, rfl⟩
+  rw [← hfb] at hrenf hkind
+  obtain ⟨fS, hfS⟩ : ∃ fS : Name → Name, fS = fun n =>
+      if (env'.find? n).isSome then fb n else n := ⟨_, rfl⟩
+  have hfSfound : ∀ n, (env'.find? n).isSome = true → fS n = fb n := by
+    intro n hn
+    rw [hfS]; simp only [hn, if_true]
+  have hfSnone : ∀ n, env'.find? n = none → fS n = n := by
+    intro n hn
+    rw [hfS]; simp [hn]
+  have hroS : RenameOk m.val env' fS := by
+    refine ⟨?_, ?_, ?_⟩
+    · intro n ci₂ hf₂
+      have hsome : (env'.find? n).isSome = true := by rw [hf₂]; rfl
+      rw [hfSfound n hsome, hfb]
+      dsimp only
+      by_cases hc : blockNames.contains n = true
+      · rw [if_pos hc]
+        obtain ⟨cvm₂, mval₂, hfm₂, hlps₂, -⟩ := hI n hc ci₂ hf₂
+        exact ⟨.defnInfo cvm₂ mval₂, hfm₂, hlps₂⟩
+      · rw [if_neg hc]
+        exact ⟨ci₂, hf₂, rfl⟩
+    · intro n hf₂
+      rw [hfSnone n hf₂]
+      exact hf₂
+    · intro n ψ
+      cases hf₂ : env'.find? n with
+      | none => rw [hfSnone n hf₂]
+      | some ci₂ =>
+        have hsome : (env'.find? n).isSome = true := by rw [hf₂]; rfl
+        rw [hfSfound n hsome, hfb]
+        dsimp only
+        by_cases hc : blockNames.contains n = true
+        · rw [if_pos hc]
+          obtain ⟨cvm₂, mval₂, -, -, hv₂⟩ := hI n hc ci₂ hf₂
+          exact (hv₂ ψ).symm
+        · rw [if_neg hc]
+  have hrenS : cvA.type.renameConsts fS = cvm.type := by
+    rw [htypeA, ← Expr.renameConsts_congr_resolve
+      (fun n hn => (hfSfound n hn).symm) tyA hres]
+    rw [← htypeA]
+    exact hrenf
+  rcases hkind with ⟨⟨cv, rfl⟩, rfl⟩ | ⟨cv, nP, nF, rfl, rfl⟩ |
+    ⟨cv, nP, nm, rules, rules', rfl, hall, heqf, heqm, hcir, rfl⟩
+  · -- inductive type former
+    have hwf : ConstWF ⟨.indInfo cvA :: env'.consts⟩ (.indInfo cvA) := by
+      refine ⟨htyf, htlp, Expr.constsResolve_mono htres, htyb, ?_, ?_⟩
+      · intro cv2 v2 heq; exact nomatch heq
+      · intro cv2 nP' nM' nm' ni' rules heq; exact nomatch heq
+    obtain ⟨m₁, hval₁, hpres₁⟩ := extend_modeled_one m
+      (.indInfo cvA) fS hfind' hnres hwf htres
+      (Or.inl ⟨_, rfl⟩) hfm hlps hrenS hroS
+    exact ⟨m₁, BlockInstalled.step hI hms hfm hlps hval₁ hpres₁⟩
+  · -- constructor
+    have hwf : ConstWF ⟨.ctorInfo cvA nP nF :: env'.consts⟩
+        (.ctorInfo cvA nP nF) := by
+      refine ⟨htyf, htlp, Expr.constsResolve_mono htres, htyb, ?_, ?_⟩
+      · intro cv2 v2 heq; exact nomatch heq
+      · intro cv2 nP' nM' nm' ni' rules heq; exact nomatch heq
+    obtain ⟨m₁, hval₁, hpres₁⟩ := extend_modeled_one m
+      (.ctorInfo cvA nP nF) fS hfind' hnres hwf htres
+      (Or.inr (Or.inl ⟨_, _, _, rfl⟩)) hfm hlps hrenS hroS
+    exact ⟨m₁, BlockInstalled.step hI hms hfm hlps hval₁ hpres₁⟩
+  · -- recursor
+    have hfself : fb cvA.name = cvA.name.str "_model" := by
+      rw [hfb]; dsimp only; rw [if_pos hbnA]
+    have hfnot : ∀ n, fb n ≠ cvA.name := by
+      intro n
+      rw [hfb]
+      dsimp only
+      by_cases hc : blockNames.contains n = true
+      · rw [if_pos hc]
+        exact Name.str_model_ne hms
+      · rw [if_neg hc]
+        intro hn
+        rw [hn] at hc
+        exact hc hbnA
+    have hff₀ : ∀ n, n ≠ cvA.name → fb n = fS n := by
+      intro n hn
+      cases hf₂ : env'.find? n with
+      | some ci₂ =>
+        exact (hfSfound n (by rw [hf₂]; rfl)).symm
+      | none =>
+        rw [hfSnone n hf₂, hfb]
+        have hnc : ¬blockNames.contains n = true := by
+          intro hc
+          have hmem : n ∈ blockNames := by
+            simpa using hc
+          have hor := List.all_eq_true.mp hall n hmem
+          simp only [Bool.or_eq_true, beq_iff_eq] at hor
+          rcases hor with h1 | h1
+          · exact hn h1
+          · rw [hf₂] at h1; exact nomatch h1
+        dsimp only
+        rw [if_neg hnc]
+    have heqval : ∀ ψ'' : Name → Nat, m.val eqName ψ'' = eqVal V ψ'' := by
+      intro ψ''
+      obtain ⟨-, hpv⟩ := m.ind_ok.2.2.2.1 eqName eqA heqf (by rfl) heqm
+      rw [hpv ψ'']
+      simp [pinnedVal]
+    have hwf : ConstWF ⟨.recInfo cvA nP 1 nm 0 rules' :: env'.consts⟩
+        (.recInfo cvA nP 1 nm 0 rules') := by
+      have hiso : ∀ n,
+          ((⟨.recInfo cvA nP 1 nm 0 [] :: env'.consts⟩ : Env).find? n).isSome
+          =
+          ((⟨.recInfo cvA nP 1 nm 0 rules' ::
+            env'.consts⟩ : Env).find? n).isSome := by
+        intro n
+        rw [Env.find?_cons, Env.find?_cons]
+        by_cases hh : cvA.name = n
+        · rw [if_pos (show (ConstantInfo.recInfo cvA nP 1 nm 0
+              []).name = n from hh),
+            if_pos (show (ConstantInfo.recInfo cvA nP 1 nm 0
+              rules').name = n from hh)]
+          rfl
+        · rw [if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0
+              []).name = n from hh),
+            if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0
+              rules').name = n from hh)]
+      refine ⟨htyf, htlp, Expr.constsResolve_mono htres, htyb, ?_, ?_⟩
+      · intro cv2 v2 heq; exact nomatch heq
+      · intro cv2 nP' nM' nm' ni' rules'' heq r hr
+        injection heq with e1 e2 e3 e4 e5 e6
+        subst e6
+        obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -,
+          -, -, -, -, -, hrf, hrb', -, -, -, -, -, -, -, -, -, -,
+          hrlp, hrres⟩ :=
+          checkIotaRules_inv 0 rules rules' hcir r hr
+        refine ⟨hrf, by rw [← e1]; exact hrlp, ?_, hrb'⟩
+        rw [← Expr.constsResolve_congr hiso]
+        exact hrres
+    obtain ⟨m₁, hval₁, hpres₁⟩ := extend_modeled_rec m cvA nP nm rules'
+      fb hfind' hnres hwf htres hfm hlps hrenf
+      fS hroS hff₀ hfself hfnot heqf heqval
+      (checkIotaRules_inv 0 rules rules' hcir)
+    exact ⟨m₁, BlockInstalled.step
+      (ci₁ := .recInfo cvA nP 1 nm 0 rules') hI hms hfm hlps hval₁ hpres₁⟩
+
+/-- A successful fold's members were all fresh at their own step, hence
+already fresh at any earlier point. -/
+theorem checkIndMember_fold_names {blockNames : List Name} :
+    ∀ (rest : List ConstantInfo) (env' env₂ : Env),
+    rest.foldlM (checkIndMember blockNames) env' = .ok env₂ →
+    ∀ ci ∈ rest, env'.find? ci.name = none
+  | [], _, _, _, ci, hci => nomatch hci
+  | ci₀ :: rest, env', env₂, h, ci, hci => by
+    rw [List.foldlM_cons] at h
+    simp only [Bind.bind, Except.bind] at h
+    cases hstep : checkIndMember blockNames env' ci₀ with
+    | error e => rw [hstep] at h; exact nomatch h
+    | ok env₁ =>
+    rw [hstep] at h
+    obtain ⟨cvA, cvm, mval, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
+      checkIndMember_inv hstep
+    obtain ⟨hfind0, -⟩ := checkConstantVal_inv hccv
+    rw [List.mem_cons] at hci
+    rcases hci with rfl | hci
+    · exact hfind0
+    · have hnone₁ := checkIndMember_fold_names rest env₁ env₂ h ci hci
+      have henv₁ : ∃ ci₁, env₁ = (⟨ci₁ :: env'.consts⟩ : Env) := by
+        rcases hkind with ⟨-, rfl⟩ | ⟨cv, nP, nF, -, rfl⟩ |
+          ⟨cv, nP, nm, rules, rules', -, -, -, -, -, rfl⟩
+        · exact ⟨_, rfl⟩
+        · exact ⟨_, rfl⟩
+        · exact ⟨_, rfl⟩
+      obtain ⟨ci₁, rfl⟩ := henv₁
+      rw [Env.find?_cons] at hnone₁
+      split at hnone₁
+      · exact nomatch hnone₁
+      · exact hnone₁
+
+/-- The fold of `checkIndDecl` preserves having a model. -/
+theorem checkIndFold_sound {blockNames : List Name} :
+    ∀ (rest : List ConstantInfo) (env' env₂ : Env),
+    (∀ ci ∈ rest, blockNames.contains ci.name = true) →
+    rest.foldlM (checkIndMember blockNames) env' = .ok env₂ →
+    ∀ m : EnvModel V env', BlockInstalled blockNames env' m.val →
+    Nonempty (EnvModel V env₂)
+  | [], env', env₂, hns, h, m, hI => by
+    simp only [List.foldlM_nil, pure, Except.pure, Except.ok.injEq] at h
+    exact h ▸ ⟨m⟩
+  | ci :: rest, env', env₂, hns, h, m, hI => by
+    rw [List.foldlM_cons] at h
+    simp only [Bind.bind, Except.bind] at h
+    cases hstep : checkIndMember blockNames env' ci with
+    | error e => rw [hstep] at h; exact nomatch h
+    | ok env₁ =>
+    rw [hstep] at h
+    obtain ⟨m₁, hI₁⟩ := checkIndMember_sound hstep
+      (hns ci (by simp)) m hI
+    exact checkIndFold_sound rest env₁ env₂
+      (fun ci' hci' => hns ci' (by simp [hci'])) h m₁ hI₁
+
+/-- Checking a modeled inductive block preserves having a model. -/
+theorem checkIndDecl_sound {env env₂ : Env} {block : List ConstantInfo}
+    (h : checkIndDecl env block = .ok env₂) (m : EnvModel V env) :
+    Nonempty (EnvModel V env₂) := by
+  rw [checkIndDecl] at h
+  refine checkIndFold_sound block env env₂ ?_ h m ?_
+  · intro ci hci
+    have : ci.name ∈ block.map (·.name) := List.mem_map_of_mem hci
+    simpa using this
+  · intro n hn ci₂ hf₂
+    have hmem : n ∈ block.map (·.name) := by simpa using hn
+    obtain ⟨ci₀, hci₀, rfl⟩ := List.mem_map.mp hmem
+    rw [checkIndMember_fold_names block env env₂ h ci₀ hci₀] at hf₂
+    exact nomatch hf₂
 
 end Setlec

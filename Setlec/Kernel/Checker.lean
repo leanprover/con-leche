@@ -39,57 +39,6 @@ def checkConstantVal (env : Env) (cv : ConstantVal) : CheckM ConstantVal := do
   let _u ← ensureSort env 0 stype
   pure { cv with type := type }
 
-/-- Check a single declaration, extending the environment on success. -/
-def checkDecl (env : Env) (d : Declaration) : CheckM Env := do
-  match d with
-  | .defnDecl cv value =>
-    let cv ← checkConstantVal env cv
-    unless value.looseBVarsBounded 0 do
-      throw (.invalid s!"loose bound variable in value of {cv.name}")
-    if value.hasFvar then
-      throw (.invalid s!"unexpected free variable in value of {cv.name}")
-    let value ← annotate env 0 value
-    unless value.allLevelParamsDefined cv.levelParams do
-      throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
-    unless value.constsResolve env do
-      throw (.invalid s!"unknown constant in value of {cv.name}")
-    let vtype ← inferType env 0 value
-    unless ← isDefEq env 0 vtype cv.type do
-      throw (.invalid s!"type mismatch in definition {cv.name}")
-    pure ⟨.defnInfo cv value :: env.consts⟩
-  | .thmDecl cv value =>
-    let cv ← checkConstantVal env cv
-    -- the type of a theorem must be a proposition
-    let stype ← inferType env 0 cv.type
-    let u ← ensureSort env 0 stype
-    unless (← liftFueled "level comparison" (Level.isEquiv u .zero)) do
-      throw (.invalid s!"type of theorem {cv.name} is not a proposition")
-    unless value.looseBVarsBounded 0 do
-      throw (.invalid s!"loose bound variable in value of {cv.name}")
-    if value.hasFvar then
-      throw (.invalid s!"unexpected free variable in value of {cv.name}")
-    let value ← annotate env 0 value
-    unless value.allLevelParamsDefined cv.levelParams do
-      throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
-    unless value.constsResolve env do
-      throw (.invalid s!"unknown constant in value of {cv.name}")
-    let vtype ← inferType env 0 value
-    unless ← isDefEq env 0 vtype cv.type do
-      throw (.invalid s!"type mismatch in theorem {cv.name}")
-    pure ⟨.thmInfo cv value :: env.consts⟩
-  | .axiomDecl cv => throw (.notImplemented s!"axiom declaration ({cv.name})")
-  | .basisDecl kind =>
-    -- Install the pinned (pre-annotated) basis block; the frontend has
-    -- already matched the incoming record against the pinned shapes.
-    kind.declsA.foldlM (fun env ci => do
-      unless (env.find? ci.name).isNone do
-        throw (.invalid s!"duplicate declaration {ci.name}")
-      pure (⟨ci :: env.consts⟩ : Env)) env
-  | .indDecl _block =>
-    -- Modeled inductive blocks: installation lands with the
-    -- model-checking machinery; decline until then.
-    throw (.notImplemented "modeled inductive declaration")
-
 /-- Build the expected statement of the model's `iota_j` theorem for one
 recursor rule (non-indexed, single motive): the rule's λ-telescope,
 domains renamed to the `_model` family, closing over
@@ -247,7 +196,7 @@ def checkIndMember (blockNames : List Name) (env' : Env)
     unless ni = 0 do throw (.notImplemented "indexed recursor")
     unless nM = 1 do throw (.notImplemented "multiple motives")
     -- the recursor comes last: with every other member installed the
-    -- block renaming is exactly \"installed members and the recursor\"
+    -- block renaming is exactly "installed members and the recursor"
     unless blockNames.all (fun n =>
         n == cvA.name || (env'.find? n).isSome) do
       throw (.notImplemented "recursor before other block members")
@@ -271,6 +220,54 @@ stored as a real inductive-kind constant.  Not yet wired into
 `checkDecl` — the soundness proof accompanies the wiring. -/
 def checkIndDecl (env : Env) (block : List ConstantInfo) : CheckM Env :=
   block.foldlM (checkIndMember (block.map (·.name))) env
+
+/-- Check a single declaration, extending the environment on success. -/
+def checkDecl (env : Env) (d : Declaration) : CheckM Env := do
+  match d with
+  | .defnDecl cv value =>
+    let cv ← checkConstantVal env cv
+    unless value.looseBVarsBounded 0 do
+      throw (.invalid s!"loose bound variable in value of {cv.name}")
+    if value.hasFvar then
+      throw (.invalid s!"unexpected free variable in value of {cv.name}")
+    let value ← annotate env 0 value
+    unless value.allLevelParamsDefined cv.levelParams do
+      throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
+    unless value.constsResolve env do
+      throw (.invalid s!"unknown constant in value of {cv.name}")
+    let vtype ← inferType env 0 value
+    unless ← isDefEq env 0 vtype cv.type do
+      throw (.invalid s!"type mismatch in definition {cv.name}")
+    pure ⟨.defnInfo cv value :: env.consts⟩
+  | .thmDecl cv value =>
+    let cv ← checkConstantVal env cv
+    -- the type of a theorem must be a proposition
+    let stype ← inferType env 0 cv.type
+    let u ← ensureSort env 0 stype
+    unless (← liftFueled "level comparison" (Level.isEquiv u .zero)) do
+      throw (.invalid s!"type of theorem {cv.name} is not a proposition")
+    unless value.looseBVarsBounded 0 do
+      throw (.invalid s!"loose bound variable in value of {cv.name}")
+    if value.hasFvar then
+      throw (.invalid s!"unexpected free variable in value of {cv.name}")
+    let value ← annotate env 0 value
+    unless value.allLevelParamsDefined cv.levelParams do
+      throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
+    unless value.constsResolve env do
+      throw (.invalid s!"unknown constant in value of {cv.name}")
+    let vtype ← inferType env 0 value
+    unless ← isDefEq env 0 vtype cv.type do
+      throw (.invalid s!"type mismatch in theorem {cv.name}")
+    pure ⟨.thmInfo cv value :: env.consts⟩
+  | .axiomDecl cv => throw (.notImplemented s!"axiom declaration ({cv.name})")
+  | .basisDecl kind =>
+    -- Install the pinned (pre-annotated) basis block; the frontend has
+    -- already matched the incoming record against the pinned shapes.
+    kind.declsA.foldlM (fun env ci => do
+      unless (env.find? ci.name).isNone do
+        throw (.invalid s!"duplicate declaration {ci.name}")
+      pure (⟨ci :: env.consts⟩ : Env)) env
+  | .indDecl block => checkIndDecl env block
 
 /-- Check a list of declarations in order, starting from the empty
 environment. -/
