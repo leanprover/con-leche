@@ -1163,4 +1163,131 @@ theorem telescopeInst_fvarsBelow {D : Nat} :
         (fvarsBelow_instantiate1_gen (hargs a List.mem_cons_self) 0 hty'.2)
         (fun x hx => hargs x (List.mem_cons_of_mem _ hx)) h
 
+/-- Normalize an `fvar`'s annotation away. -/
+def sanitizeArg : Expr → Expr
+  | .fvar i n _ => .fvar i n (.sort .zero)
+  | e => e
+
+/-- Normalize a fit's fvar arguments: the interpretation reads neither
+their names nor their annotations. -/
+theorem TeleFitI.sanitize :
+    ∀ {ty : Expr} {args : List Expr} {vs : List V} {rest : Expr},
+      TeleFitI V cval env φ d ρ ty args vs rest →
+      (ty.stripPis args.length).isSome →
+      (∀ a ∈ args, ∃ i n t, a = .fvar i n t) →
+      ∃ rest₂, TeleFitI V cval env φ d ρ ty (args.map sanitizeArg) vs
+        rest₂ := by
+  intro ty args vs rest hfit harity hshape
+  have hfit' : TeleFitI V cval env φ d ρ ty (args ++ []) vs rest := by
+    simpa using hfit
+  obtain ⟨rest₂, h₂⟩ := TeleFitI.swap_prefix hfit'
+    (by simpa using harity)
+    (show ArgsRel _ args (args.map sanitizeArg) from by
+      refine ArgsRel.of_pointwise (by simp) ?_
+      intro i a₁ a₂ ha₁ ha₂
+      have ha₂' : (args.map sanitizeArg)[i]? = some a₂ := ha₂
+      rw [List.getElem?_map, ha₁] at ha₂'
+      obtain rfl : sanitizeArg a₁ = a₂ := Option.some.inj ha₂'
+      obtain ⟨j, n, t, rfl⟩ := hshape a₁ (List.mem_of_getElem? ha₁)
+      obtain ⟨hw, -, -⟩ := TeleFitI.arg_wf hfit i _ ha₁
+      have hw' : j < d ∧ WScoped j t := by simpa [WScoped] using hw
+      refine ⟨by simp [sanitizeArg, interpExpr], ?_, rfl,
+        by simp [AnnotOk, sanitizeArg]⟩
+      show WScoped d (Expr.fvar j n (.sort .zero))
+      simp only [WScoped]
+      exact ⟨hw'.1, trivial⟩)
+  exact ⟨rest₂, by simpa using h₂⟩
+
+/-- Uninstantiate the levels of a fit's telescope: the fit transfers
+to the raw telescope at the composed assignment. -/
+theorem TeleFitI.instLev_down {ks : List Name} {lvs : List Level}
+    (hcp : ConstValParams cval env) :
+    ∀ {args : List Expr} {e : Expr} {vsl : List V} {rest : Expr},
+      TeleFitI V cval env φ d ρ (e.instantiateLevelParams ks lvs) args vsl
+        rest →
+      (∀ a ∈ args, ∃ i n, a = .fvar i n (.sort .zero)) →
+      Expr.fvarsBelow d e →
+      ∃ rest₂, TeleFitI V cval env (Level.substFn φ ks lvs) d ρ e args vsl
+        rest₂
+  | [], e, vsl, rest, hfit, _, _ => by
+    generalize e.instantiateLevelParams ks lvs = E at hfit
+    cases hfit with
+    | nil => exact ⟨e, TeleFitI.nil⟩
+  | arg :: args, e, vsl, rest, hfit, hshape, hfbe => by
+    obtain ⟨n, dom, body, m, rfl⟩ :
+        ∃ n dom body m, e = .forallE n dom body m := by
+      match e, hfit with
+      | .forallE n dom body m, _ => exact ⟨n, dom, body, m, rfl⟩
+      | .bvar _, hfit => exact nomatch hfit
+      | .fvar _ _ _, hfit => exact nomatch hfit
+      | .sort _, hfit => exact nomatch hfit
+      | .const _ _, hfit => exact nomatch hfit
+      | .app _ _, hfit => exact nomatch hfit
+      | .lam _ _ _ _, hfit => exact nomatch hfit
+      | .letE _ _ _ _, hfit => exact nomatch hfit
+      | .lit _, hfit => exact nomatch hfit
+      | .proj _ _ _, hfit => exact nomatch hfit
+    have hfbe' : Expr.fvarsBelow d dom ∧ Expr.fvarsBelow d body := by
+      simpa [Expr.fvarsBelow] using hfbe
+    obtain ⟨i₀, n₀, rfl⟩ := hshape arg List.mem_cons_self
+    cases hfit with
+    | @cons _ _ _ _ _ _ x xs A rest hity hiarg hx hfbI hwarg hbarg hAarg
+        hsub =>
+    have hsub' : TeleFitI V cval env φ d ρ
+        ((body.instantiate1 (.fvar i₀ n₀ (.sort .zero))).instantiateLevelParams
+          ks lvs) args xs rest := by
+      rw [instantiateLevelParams_instantiate1]
+      exact hsub
+    obtain ⟨rest₂, h₂⟩ := TeleFitI.instLev_down hcp hsub'
+      (fun a ha => hshape a (List.mem_cons_of_mem _ ha))
+      (fvarsBelow_instantiate1_gen (by
+        simp only [Expr.fvarsBelow]
+        have hw2 := hwarg
+        simp only [WScoped] at hw2
+        exact hw2.1) 0 hfbe'.2)
+    refine ⟨rest₂, TeleFitI.cons ?_ ?_ hx hfbe'.2 ?_ rfl
+      (by simp [AnnotOk]) h₂⟩
+    · rw [← interp_instLevels hcp]
+      exact hity
+    · simpa [interpExpr] using hiarg
+    · simp only [WScoped]
+      have hi : i₀ < d := by
+        have hw2 := hwarg
+        simp only [WScoped] at hw2
+        exact hw2.1
+      exact ⟨hi, trivial⟩
+
+/-- Change the level assignment of a fit off the telescope's defined
+parameters. -/
+theorem TeleFitI.params_ext {ps : List Name} {φ₁ φ₂ : Name → Nat}
+    (hφ : ∀ p ∈ ps, φ₁ p = φ₂ p) (hcp : ConstValParams cval env) :
+    ∀ {args : List Expr} {e : Expr} {vsl : List V} {rest : Expr},
+      TeleFitI V cval env φ₁ d ρ e args vsl rest →
+      e.allLevelParamsDefined ps = true →
+      (∀ a ∈ args, ∃ i n, a = .fvar i n (.sort .zero)) →
+      ∃ rest₂, TeleFitI V cval env φ₂ d ρ e args vsl rest₂
+  | [], e, vsl, rest, hfit, _, _ => by
+    cases hfit with
+    | nil => exact ⟨e, TeleFitI.nil⟩
+  | arg :: args, e, vsl, rest, hfit, hps, hshape => by
+    obtain ⟨n, dom, body, m, rfl⟩ :
+        ∃ n dom body m, e = .forallE n dom body m := by
+      cases hfit; exact ⟨_, _, _, _, rfl⟩
+    have hps' : dom.allLevelParamsDefined ps = true ∧
+        body.allLevelParamsDefined ps = true := by
+      simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hps
+      exact ⟨hps.1.1, hps.1.2⟩
+    obtain ⟨i₀, n₀, rfl⟩ := hshape arg List.mem_cons_self
+    cases hfit with
+    | @cons _ _ _ _ _ _ x xs A rest hity hiarg hx hfbI hwarg hbarg hAarg
+        hsub =>
+    obtain ⟨rest₂, h₂⟩ := TeleFitI.params_ext hφ hcp hsub
+      (allLevelParamsDefined_instantiate1 (by rfl) 0 hps'.2)
+      (fun a ha => hshape a (List.mem_cons_of_mem _ ha))
+    refine ⟨rest₂, TeleFitI.cons ?_ ?_ hx hfbI hwarg hbarg
+      (by simp [AnnotOk]) h₂⟩
+    · rw [← interp_params_ext hcp hφ dom d ρ hps'.1]
+      exact hity
+    · simpa [interpExpr] using hiarg
+
 end Setlec
