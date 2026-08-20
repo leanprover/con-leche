@@ -806,6 +806,35 @@ theorem stripLams_instantiate1_eq {v : Expr} :
         congr 1
         omega
 
+/-- A longer telescope decomposition restricts to a shorter one with
+the binder-list prefix. -/
+theorem stripPis_prefix :
+    ∀ (a b : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+      {body : Expr},
+      e.stripPis (a + b) = some (bs, body) →
+      ∃ body', e.stripPis a = some (bs.take a, body') := by
+  intro a
+  induction a with
+  | zero => intro b e bs body h; exact ⟨e, by simp [stripPis]⟩
+  | succ a ih =>
+    intro b e bs body h
+    rw [show a + 1 + b = (a + b) + 1 from by omega] at h
+    match e, h with
+    | .forallE n d bo m, h =>
+      simp only [stripPis] at h ⊢
+      cases hs : bo.stripPis (a + b) with
+      | none => rw [hs] at h; exact nomatch h
+      | some p =>
+        rw [hs] at h
+        simp only [Option.map_some, Option.some.injEq] at h
+        obtain ⟨hb, -⟩ : (n, d, m) :: p.1 = bs ∧ p.2 = body := by
+          cases h; exact ⟨rfl, rfl⟩
+        obtain ⟨body', hbody'⟩ := ih b (bs := p.1) (body := p.2) (by rw [hs])
+        refine ⟨body', ?_⟩
+        rw [hbody']
+        subst hb
+        simp
+
 /-- Instantiating with a bounded term keeps loose-bvar bounds. -/
 theorem looseBVarsBounded_instantiate1_gen {a : Expr}
     (hba : a.looseBVarsBounded 0 = true) :
