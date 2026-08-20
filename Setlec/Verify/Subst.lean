@@ -640,6 +640,21 @@ theorem stripPis_length :
         have := ih (e := b) (bs := p.1) (body := p.2) (by rw [hs])
         simp [this]
 
+/-- An instantiation sequence splits along list append. -/
+theorem instSeq_append :
+    ∀ (as bs : List Expr) (t : Nat) (X : Expr),
+      instSeq (as ++ bs) t X = instSeq bs (t - as.length) (instSeq as t X) := by
+  intro as
+  induction as with
+  | nil => intro bs t X; simp [instSeq]
+  | cons a as ih =>
+    intro bs t X
+    show instSeq (as ++ bs) (t - 1) (X.instantiate1 a t) = _
+    rw [ih bs (t - 1) (X.instantiate1 a t)]
+    congr 1
+    simp
+    omega
+
 /-- Instantiating with a bounded term keeps loose-bvar bounds. -/
 theorem looseBVarsBounded_instantiate1_gen {a : Expr}
     (hba : a.looseBVarsBounded 0 = true) :

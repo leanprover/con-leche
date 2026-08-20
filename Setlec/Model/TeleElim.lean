@@ -828,4 +828,79 @@ theorem telescopeInst_stripPis :
           rw [List.getElem?_eq_none (by omega : p0.1.length ≤ p + i)]
           simp)
 
+/-- After walking the parameters (constructor side) and the full
+prefix (statement side) with the same closed arguments, the two
+telescopes' field domains are related by the renaming: the lift slots
+are eaten by the motive/minor instantiations, the parameter
+instantiations drop past the lift, and the renaming rides along
+(erased on the fvar arguments). -/
+theorem fields_relation {f : Name → Name} {nP nmM cnF : Nat}
+    (hnm : 1 ≤ nmM)
+    {ctorTy stmtTy : Expr}
+    {cbs sbs : List (Name × Expr × BinderMeta)} {cbody sbody : Expr}
+    (hcs : ctorTy.stripPis (nP + cnF) = some (cbs, cbody))
+    (hss : stmtTy.stripPis ((nP + nmM) + cnF) = some (sbs, sbody))
+    (hpin : ∀ (i : Nat) (cb sb : Name × Expr × BinderMeta),
+      cbs[nP + i]? = some cb → sbs[(nP + nmM) + i]? = some sb →
+      sb.2.1 = (cb.2.1.liftLooseBVars nmM i).renameConsts f)
+    {params extras : List Expr}
+    (hplen : params.length = nP) (hxlen : extras.length = nmM)
+    (hpb : ∀ a ∈ params, a.looseBVarsBounded 0 = true)
+    (hpren : ∀ a ∈ params, Expr.ErasedEq (a.renameConsts f) a)
+    {midC midS : Expr}
+    (hmidC : telescopeInst ctorTy params = some midC)
+    (hmidS : telescopeInst stmtTy (params ++ extras) = some midS) :
+    PiDomsRenEq f cnF midC midS := by
+  obtain ⟨midC', hmidC', cbs', cbody', hcs', hcbody', hcdoms⟩ :=
+    telescopeInst_stripPis nP params cnF hplen hcs
+  obtain rfl : midC' = midC := by
+    rw [hmidC'] at hmidC
+    exact Option.some.inj hmidC
+  obtain ⟨midS', hmidS', sbs', sbody', hss', hsbody', hsdoms⟩ :=
+    telescopeInst_stripPis (nP + nmM) (params ++ extras) cnF
+      (by simp [hplen, hxlen]) hss
+  obtain rfl : midS' = midS := by
+    rw [hmidS'] at hmidS
+    exact Option.some.inj hmidS
+  refine PiDomsRenEq.of_pointwise cnF hcs' hss' ?_
+  intro i b₁ b₂ hb₁ hb₂
+  have hilen : i < cnF := by
+    rcases Nat.lt_or_ge i cnF with h | h
+    · exact h
+    · rw [List.getElem?_eq_none
+        (by rw [Expr.stripPis_length _ hcs']; omega)] at hb₁
+      exact nomatch hb₁
+  have hclen : cbs.length = nP + cnF := Expr.stripPis_length _ hcs
+  have hslen : sbs.length = (nP + nmM) + cnF := Expr.stripPis_length _ hss
+  obtain ⟨cb, hcb⟩ : ∃ cb, cbs[nP + i]? = some cb :=
+    ⟨cbs[nP + i]'(by omega),
+     by simp [List.getElem?_eq_getElem (by omega : nP + i < cbs.length)]⟩
+  obtain ⟨sb, hsb⟩ : ∃ sb, sbs[(nP + nmM) + i]? = some sb :=
+    ⟨sbs[(nP + nmM) + i]'(by omega),
+     by simp [List.getElem?_eq_getElem
+       (by omega : (nP + nmM) + i < sbs.length)]⟩
+  have h1 : b₁.2.1 = Expr.instSeq params (nP + i - 1) cb.2.1 :=
+    hcdoms i cb b₁ hcb hb₁
+  have h2 : b₂.2.1 = Expr.instSeq (params ++ extras)
+      ((nP + nmM) + i - 1) sb.2.1 :=
+    hsdoms i sb b₂ hsb hb₂
+  have h3 : sb.2.1 = (cb.2.1.liftLooseBVars nmM i).renameConsts f :=
+    hpin i cb sb hcb hsb
+  show RenEq f b₁.2.1 b₂.2.1
+  rw [h1, h2, h3]
+  show Expr.ErasedEq
+    ((Expr.instSeq params (nP + i - 1) cb.2.1).renameConsts f)
+    (Expr.instSeq (params ++ extras) (nP + nmM + i - 1)
+      ((cb.2.1.liftLooseBVars nmM i).renameConsts f))
+  rw [renameConsts_liftLooseBVars]
+  rw [Expr.instSeq_append]
+  rw [Expr.instSeq_liftLooseBVars params (nP + nmM + i - 1) hpb
+    (by rw [hplen]; omega)]
+  rw [show nP + nmM + i - 1 - nmM = nP + i - 1 from by omega]
+  rw [show nP + nmM + i - 1 - params.length = i + extras.length - 1 from by
+    rw [hplen, hxlen]; omega]
+  rw [← hxlen]
+  rw [Expr.instSeq_lift_eat extras]
+  exact instSeq_renameConsts params (nP + i - 1) hpren
+
 end Setlec
