@@ -30,19 +30,18 @@ constructor application's own claims are assembled from the iota
 certificates the reduction then runs on it (`certs_fit` +
 `annotOk_spine`); its arguments' claims come from the reduced type's
 spine and, for eta, the projection certificates. -/
-theorem majorToCtor_claims {m : EnvModel V env} {fuelTop : Nat}
-    (ihAll : ∀ f, f ≤ fuelTop →
-      WhnfClaims m φ f ∧ DefEqClaims m φ f ∧ InferClaims m φ f)
-    {fuel : Nat} (hfle : fuel ≤ fuelTop)
+theorem majorToCtor_claims {m : EnvModel V env} {fuel : Nat}
+    (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
+    (ihi : InferClaims m φ fuel)
     {d : Nat} {recName cj : Name} {rules : List RecRule}
     {major₀ major : Expr} {ρ : Nat → V} {usj : List Level}
     {cvj : ConstantVal} {cnP cnF : Nat}
-    (hsub : majorToCtor env fuel d recName rules major₀ = .ok major)
+    (hsub : majorToCtorP env fuel d recName rules major₀ = .ok major)
     (hmfn : major.getAppFn = .const cj usj)
     (hfj : env.find? cj = some (.ctorInfo cvj cnP cnF))
     (hml1 : major.getAppArgs.length = cnP + cnF)
     (har2 : (cvj.type.stripPis (cnP + cnF)).isSome = true)
-    (hmcerts : iotaCerts env fuel d
+    (hmcerts : iotaCertsP env fuel d
       (cvj.type.instantiateLevelParams cvj.levelParams usj)
       major.getAppArgs = .ok true)
     (hw : WScoped d major₀) (hb : major₀.looseBVarsBounded 0 = true)
@@ -54,10 +53,6 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuelTop : Nat}
     AnnotOk V m.val env φ d ρ major ∧ WScoped d major ∧
     major.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded major ∧
     FvarsOk V m.val env φ d ρ major := by
-  match fuel, hfle, hsub, hmcerts with
-  | fuelS + 1, hfle, hsub, hmcerts =>
-  have hfuelle : fuelS ≤ fuelTop := Nat.le_trans (Nat.le_succ fuelS) hfle
-  obtain ⟨ihw, ihd, ihi⟩ := ihAll fuelS hfuelle
   rcases majorToCtor_inv hsub with rfl | ⟨hwsc, hbM, hall, r, cvj', cnP',
     cnF', tmaj₀, tmaj, T, us₀, ust, cvT, caps, hrs, hfj', hpr', hfT,
     hti, htw, hth, hcase⟩
@@ -72,20 +67,20 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuelTop : Nat}
   have hokM : FvarsOk V m.val env φ d ρ major := FvarsOk.of_subset hsubL hok
   -- the stuck major's type chain
   obtain ⟨⟨vM, TM, hMi, hTMi, hmemM⟩, hAtm₀⟩ := ihi hti hw hb hLb hok hA
-  have htm0w := inferTypeCore_WScoped m.wf fuelS hti hw
-  have htm0b := inferTypeCore_looseBVars m.wf fuelS hti hw hb hLb
+  have htm0w := inferTypeCore_WScoped m.wf fuel hti hw
+  have htm0b := inferTypeCore_looseBVars m.wf fuel hti hw hb hLb
   have htm0L : Expr.LeavesBounded tmaj₀ := fun l hl =>
-    hLb l (inferTypeCore_fvarLeaves m.wf fuelS hti hw l hl)
+    hLb l (inferTypeCore_fvarLeaves m.wf fuel hti hw l hl)
   have htm0F : FvarsOk V m.val env φ d ρ tmaj₀ :=
-    FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuelS hti hw) hok
+    FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hti hw) hok
   obtain ⟨htieq, hAtm⟩ := ihw htw htm0w htm0b htm0L htm0F hAtm₀
-  have htmw : WScoped d tmaj := whnf_WScoped m.wf fuelS htw htm0w
+  have htmw : WScoped d tmaj := whnf_WScoped m.wf fuel htw htm0w
   have htmb : tmaj.looseBVarsBounded 0 = true :=
-    whnf_looseBVars m.wf fuelS htw htm0b
+    whnf_looseBVars m.wf fuel htw htm0b
   have htmL : Expr.LeavesBounded tmaj := fun l hl =>
-    htm0L l (whnf_fvarLeaves m.wf fuelS htw l hl)
+    htm0L l (whnf_fvarLeaves m.wf fuel htw l hl)
   have htmF : FvarsOk V m.val env φ d ρ tmaj :=
-    FvarsOk.of_subset (whnf_fvarLeaves m.wf fuelS htw) htm0F
+    FvarsOk.of_subset (whnf_fvarLeaves m.wf fuel htw) htm0F
   have htmaj_eq : Expr.mkAppN (.const T ust) tmaj.getAppArgs = tmaj := by
     rw [← hth]
     exact Expr.mkAppN_getApp tmaj
@@ -155,7 +150,7 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuelTop : Nat}
   have hconstA : AnnotOk V m.val env φ d ρ (.const cj usj) := by
     simp [AnnotOk]
   -- branch on the fabrication kind
-  rcases hcase with ⟨hKrule, hcnF0, hlvlK, hfabeq, -, hpi⟩ |
+  rcases hcase with ⟨hKrule, hcnF0, hlvlK, hfabeq, hpi⟩ |
     ⟨hEeta, hEctor, hEproj, -, hplenE, hlvlE, hfabeq, hse⟩
   · -- ── K: the fabricated `refl`-like application ──
     have heqc : cj = r.ctor ∧ usj = ust := by
@@ -196,7 +191,7 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuelTop : Nat}
         (psv.take cnP) := by
       rw [hmargs]
       exact InterpSpine.take cnP hspT
-    obtain ⟨restC, hfitIC⟩ := certs_fit ihAll (fuelS + 1) hfle _ _ _ TC
+    obtain ⟨restC, hfitIC⟩ := certs_fit ihd ihi _ _ _ TC
       hmcerts hCw hCb (Expr.LeavesBounded.of_not_hasFvar hChf)
       (FvarsOk.of_not_hasFvar hChf) hCA hCT hmargswf hspM
     obtain ⟨dC, ρC, restC', hfitC⟩ := TeleFitI.toTeleFit hfitIC hCw (by
@@ -208,13 +203,7 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuelTop : Nat}
       (fun x hx => (hmargswf x hx).2.2.2.2) hspM hch
     rw [hmspine] at hAfab hIfab
     -- proof irrelevance identifies the values
-    cases fuelS with
-    | zero => exact nomatch hpi
-    | succ fuelS' =>
-    obtain ⟨ihw', ihd', ihi'⟩ := ihAll fuelS'
-      (Nat.le_trans (Nat.le_succ fuelS')
-        (Nat.le_trans (Nat.le_succ (fuelS' + 1)) hfle))
-    obtain ⟨hptM, hptM0⟩ := proofIrrel_pt ihw' ihi' hpi hwM hw hbM hb
+    obtain ⟨hptM, hptM0⟩ := proofIrrel_pt ihw ihi hpi hwM hw hbM hb
       hLbM hLb hokM hok hAfab hA
     exact ⟨by rw [hptM, hptM0], hAfab, hwM, hbM, hLbM, hokM⟩
   · -- ── eta: the fabricated constructor of the projections ──
@@ -224,12 +213,6 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuelTop : Nat}
       exact ⟨(Expr.const.inj hgfn).1, (Expr.const.inj hgfn).2⟩
     rw [← heqc.1, ← heqc.2] at hfabeq
     rw [← heqc.2] at hth
-    cases fuelS with
-    | zero => exact nomatch hse
-    | succ fuelS' =>
-    have hfleS : fuelS' + 1 ≤ fuelTop :=
-      Nat.le_trans (Nat.le_succ (fuelS' + 1)) hfle
-    have hfleS' : fuelS' ≤ fuelTop := Nat.le_trans (Nat.le_succ fuelS') hfleS
     obtain ⟨c2, us2, cvc2, cnP2, cnF2, T2, us'2, cvT2, caps2,
       hfn2, hfc2, hal2, hwfn2, hfT2, hce2, hcc2, hcp2, hcf2, hres2,
       hresC2, htal2, hulen2, hclps2, hTstrip2, hlev2, hic2, hpc2,
@@ -261,26 +244,19 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuelTop : Nat}
         (ConstantInfo.ctorInfo cvj cnP cnF).toConstantVal.levelParams.length
         from hlenj)]
       rfl
-    -- the projection certificates at their fuel
-    have hpcFacts : ∀ i, i < cnF → ∃ (fl : Nat) (cvp : ConstantVal)
+    -- the projection certificates
+    have hpcFacts : ∀ i, i < cnF → ∃ (cvp : ConstantVal)
         (nPp nMp nmp nip : Nat) (rulesp : List RecRule),
-        fl ≤ fuelS' ∧
         env.find? (projFnName T i) =
           some (.recInfo cvp nPp nMp nmp nip rulesp) ∧
         cvp.levelParams = cvT.levelParams ∧
         (cvp.type.stripPis (tmaj.getAppArgs.length + 1)).isSome = true ∧
-        iotaCerts env fl d
+        iotaCertsP env fuel d
           (cvp.type.instantiateLevelParams cvp.levelParams usj)
           (tmaj.getAppArgs ++ [major₀]) = .ok true := by
       intro i hi
-      match fuelS', hpc2 with
-      | 0, hpc2 => exact nomatch hpc2
-      | flp + 1, hpc2 =>
-        obtain ⟨fl, cvp, nPp, nMp, nmp, nip, rulesp, hfl, hfpj, hplps,
-          hpstrip, hicj⟩ := structEtaProjCerts_inv (List.range cnF) flp
-          hpc2 i (List.mem_range.mpr hi)
-        exact ⟨fl, cvp, nPp, nMp, nmp, nip, rulesp,
-          Nat.le_trans hfl (Nat.le_succ _), hfpj, hplps, hpstrip, hicj⟩
+      exact structEtaProjCerts_inv (List.range cnF) hpc2 i
+        (List.mem_range.mpr hi)
     -- each projection application's claims
     have hprojFacts : ∀ j, j < cnF →
         AnnotOk V m.val env φ d ρ
@@ -292,7 +268,7 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuelTop : Nat}
         some (SpineFold V (m.val (projFnName T j)
           (Level.substFn φ cvT.levelParams usj)) (psv ++ [vM])) := by
       intro j hj
-      obtain ⟨fl, cvp, nPp, nMp, nmp, nip, rulesp, hfl, hfpj, hplps,
+      obtain ⟨cvp, nPp, nMp, nmp, nip, rulesp, hfpj, hplps,
         hpstrip, hicj⟩ := hpcFacts j hj
       have hpname : cvp.name = projFnName T j := by
         have h1 := find?_name hfpj
@@ -356,8 +332,7 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuelTop : Nat}
       have hspPB : InterpSpine m.val env φ d ρ
           (tmaj.getAppArgs ++ [major₀]) (psv ++ [vM]) :=
         InterpSpine.append hspT ⟨hMi, trivial⟩
-      obtain ⟨restP, hfitIP⟩ := certs_fit ihAll fl
-        (Nat.le_trans hfl hfleS') _ _ _ PT hicj hPw hPb
+      obtain ⟨restP, hfitIP⟩ := certs_fit ihd ihi _ _ _ PT hicj hPw hPb
         (Expr.LeavesBounded.of_not_hasFvar hPhf)
         (FvarsOk.of_not_hasFvar hPhf) hPA hPT hargs5 hspPB
       obtain ⟨dP, ρP, restP', hfitP⟩ := TeleFitI.toTeleFit hfitIP hPw (by
@@ -456,7 +431,7 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuelTop : Nat}
             (Level.substFn φ cvT.levelParams usj)) (psv ++ [vM])) := by
       rw [hmargs]
       exact InterpSpine.append hspT hprojSpine
-    obtain ⟨restC, hfitIC⟩ := certs_fit ihAll (fuelS' + 1 + 1) hfle _ _ _
+    obtain ⟨restC, hfitIC⟩ := certs_fit ihd ihi _ _ _
       TC hmcerts hCw hCb (Expr.LeavesBounded.of_not_hasFvar hChf)
       (FvarsOk.of_not_hasFvar hChf) hCA hCT hmargswf hspM
     obtain ⟨dC, ρC, restC', hfitC⟩ := TeleFitI.toTeleFit hfitIC hCw (by
@@ -468,7 +443,7 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuelTop : Nat}
       (fun x hx => (hmargswf x hx).2.2.2.2) hspM hch
     rw [hmspine] at hAfab hIfab
     -- the eta law identifies the values
-    have hveq := structEtaWith_sound ihAll hfleS' hfleS hse hti htw
+    have hveq := structEtaWith_sound ihw ihd ihi hse hti htw
       hwM hw hbM hb hLbM hLb hokM hok hAfab hA hIfab hMi
     exact ⟨by rw [hIfab, hMi, hveq], hAfab, hwM, hbM, hLbM, hokM⟩
 

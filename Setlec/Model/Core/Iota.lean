@@ -27,10 +27,10 @@ well-scoped — everything the whnf recursion needs to continue.  Fully
 generic: the fold facts come from the environment model's `rec_rules`,
 never from identifying the recursor by name. -/
 theorem iota_sound {m : EnvModel V env} {fuel : Nat}
-    (ihAll : ∀ f, f ≤ fuel →
-      WhnfClaims m φ f ∧ DefEqClaims m φ f ∧ InferClaims m φ f)
+    (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
+    (ihi : InferClaims m φ fuel)
     {d : Nat} {fe ae e'' : Expr} {ρ : Nat → V}
-    (hio : iotaRec env fuel d (.app fe ae) = .ok (some e''))
+    (hio : iotaRecP env fuel d (.app fe ae) = .ok (some e''))
     (hw : WScoped d (Expr.app fe ae))
     (hb : (Expr.app fe ae).looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded (Expr.app fe ae))
@@ -41,14 +41,10 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
      AnnotOk V m.val env φ d ρ e'') ∧
     WScoped d e'' ∧ e''.looseBVarsBounded 0 = true ∧
     Expr.LeavesBounded e'' ∧ FvarsOk V m.val env φ d ρ e'' := by
-  match fuel, ihAll, hio with
-  | 0, ihAll, hio => exact nomatch hio
-  | fuel + 1, ihAll, hio =>
   obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major, cj, usj, cvj,
     cnP, cnF, r, hfn, hfc, hlen, hmaj, hsub, hmfn, hfj, hrule, hml1, hml2,
     har1, har2, hlev, hpeq, hcerts, hmcerts, heout⟩ :=
     iotaRec_inv hio
-  obtain ⟨ihwL, ihdL, ihiL⟩ := ihAll fuel (Nat.le_succ fuel)
   obtain rfl : cj = r.ctor :=
     (eq_of_beq (by simpa using List.find?_some hrule)).symm
   -- generic well-scopedness of the reduct
@@ -88,11 +84,13 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
       (Expr.mkAppN (.const c us) ((Expr.app fe ae).getAppArgs)) :=
     hspine0 ▸ ha
   obtain ⟨-, hxsA0, -⟩ := annotOk_spine_inv _ _ hane0 ha0'
-  obtain ⟨hmieq0, hmA0⟩ := ihwL hmaj (hargsW _ hmajarg) (hargsB _ hmajarg)
+  obtain ⟨hmieq0, hmA0⟩ := ihw hmaj (hargsW _ hmajarg) (hargsB _ hmajarg)
     (hargsL _ hmajarg) (hargsO _ hmajarg) (hxsA0 _ hmajarg)
+  obtain ⟨hcvteq, hcvtA, hcvtW, hcvtB, hcvtL, hcvtO⟩ :=
+    litToCtorIfNat_claims (e := major₀) m hmaj0W hmaj0B hmaj0L hmaj0O hmA0
   obtain ⟨hmieqS, hmA, hmajW, hmajB, hmajL, hmajO⟩ :=
-    majorToCtor_claims ihAll (Nat.le_succ fuel) hsub hmfn hfj hml1 har2
-      hmcerts hmaj0W hmaj0B hmaj0L hmaj0O hmA0
+    majorToCtor_claims ihw ihd ihi hsub hmfn hfj hml1 har2
+      hmcerts hcvtW hcvtB hcvtL hcvtO hcvtA
   obtain ⟨-, -, -, -, -, hrules⟩ := m.wf _ (find?_mem hfc)
   obtain ⟨hrf, hrlp, hrres, hrlb⟩ := hrules cv nP nM nm ni rules rfl r
     (List.mem_of_find?_eq_some hrule)
@@ -174,7 +172,7 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
     exact List.mem_append.mpr (Or.inr List.mem_cons_self)
   have hmieq : interpExpr V m.val env φ d ρ major =
       interpExpr V m.val env φ d ρ xl := by
-    rw [hmieqS]
+    rw [hmieqS, hcvteq]
     rw [show (Expr.app fe ae).getAppArgs.getD (nP + nM + nm + ni)
         (Expr.bvar 0) = xl from by
       rw [List.getD_eq_getElem?_getD, hxg]
@@ -269,7 +267,7 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
       ((Expr.app fe ae).getAppArgs.take (nP + nM + nm + ni) ++ [major])
       (vsi ++ [tvv]) :=
     InterpSpine.append hspi ⟨himaj, trivial⟩
-  obtain ⟨restR, hfitIR⟩ := certs_fit ihAll fuel (Nat.le_succ fuel)
+  obtain ⟨restR, hfitIR⟩ := certs_fit ihd ihi
     _ _ _ T hcerts hRw hRb (Expr.LeavesBounded.of_not_hasFvar hRhf)
     (FvarsOk.of_not_hasFvar hRhf) hRA hRT hcertargs hspR
   obtain ⟨dR, ρR, restR', hfitR⟩ := TeleFitI.toTeleFit hfitIR hRw (by
@@ -311,7 +309,7 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
       fun l hl => hmajL l (fvarLeaves_getAppArgs hxm l hl),
       FvarsOk.of_subset (fun l hl => fvarLeaves_getAppArgs hxm l hl) hmajO,
       hmxsA _ hxm⟩
-  obtain ⟨restC, hfitIC⟩ := certs_fit ihAll fuel (Nat.le_succ fuel)
+  obtain ⟨restC, hfitIC⟩ := certs_fit ihd ihi
     _ _ _ TC hmcerts hCw hCb (Expr.LeavesBounded.of_not_hasFvar hChf)
     (FvarsOk.of_not_hasFvar hChf) hCA hCT hcertmargs hmsp
   -- rebase the constructor fit at the recursor fit's final frame
@@ -345,7 +343,7 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
       have := InterpSpine.take cnP hisp
       rw [← hxeq] at this
       exact this
-    refine defEqList_values ihAll fuel (Nat.le_succ fuel)
+    refine defEqList_values ihd
       _ _ _ _ hpeq ?_ ?_ hspT1 hspT2
     · intro x hx
       have hxm := List.mem_of_mem_take hx

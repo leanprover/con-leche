@@ -82,6 +82,44 @@ def InferClaims (m : EnvModel V env) (φ : Name → Nat) (fuel : Nat) : Prop :=
       interpExpr V m.val env φ d ρ t = some tv ∧ v ∈ˢ tv) ∧
     AnnotOk V m.val env φ d ρ t
 
+
+/-- The literal-major conversion's full claims package: interpretation
+preserved, annotations truthful (via the numeral membership facts), and
+all syntactic invariants kept. -/
+theorem litToCtorIfNat_claims (m : EnvModel V env) {d : Nat} {ρ : Nat → V}
+    {e : Expr}
+    (hw : WScoped d e) (hb : e.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded e) (hok : FvarsOk V m.val env φ d ρ e)
+    (hA : AnnotOk V m.val env φ d ρ e) :
+    interpExpr V m.val env φ d ρ (litToCtorIfNat env e) =
+      interpExpr V m.val env φ d ρ e ∧
+    AnnotOk V m.val env φ d ρ (litToCtorIfNat env e) ∧
+    WScoped d (litToCtorIfNat env e) ∧
+    (litToCtorIfNat env e).looseBVarsBounded 0 = true ∧
+    Expr.LeavesBounded (litToCtorIfNat env e) ∧
+    FvarsOk V m.val env φ d ρ (litToCtorIfNat env e) := by
+  match e with
+  | .lit (.natVal n) =>
+    rw [litToCtorIfNat]
+    by_cases hs : natLitSupported env = true
+    · rw [if_pos hs]
+      refine ⟨?_, annotOk_natLitToConstructor m hs,
+        natLitToConstructor_WScoped n, natLitToConstructor_looseBVars n,
+        ?_, ?_⟩
+      · rw [interpExpr_natLitToConstructor hs, interpExpr_lit hs]
+      · intro l hl
+        rw [natLitToConstructor_fvarLeaves] at hl
+        cases hl
+      · intro l hl
+        rw [natLitToConstructor_fvarLeaves] at hl
+        cases hl
+    · rw [if_neg hs]
+      exact ⟨rfl, hA, hw, hb, hLb, hok⟩
+  | .lit (.strVal _) => exact ⟨rfl, hA, hw, hb, hLb, hok⟩
+  | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
+  | .lam _ _ _ _ | .forallE _ _ _ _ | .letE _ _ _ _ | .proj _ _ _ =>
+    exact ⟨rfl, hA, hw, hb, hLb, hok⟩
+
 section Claims
 
 variable {m : EnvModel V env} {fuel : Nat}

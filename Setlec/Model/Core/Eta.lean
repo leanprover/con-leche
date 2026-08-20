@@ -28,7 +28,7 @@ theorem etaCert_sound {m : EnvModel V env} {fuel : Nat}
     (ihi : InferClaims m φ fuel)
     {d : Nat} {n₁ : Name} {ty₁ body₁ b : Expr} {m₁ : BinderMeta} {ρ : Nat → V}
     {va vb : V}
-    (hec : etaCert env (fuel + 1) d n₁ ty₁ body₁ m₁ b = .ok true)
+    (hec : etaCertP env fuel d n₁ ty₁ body₁ m₁ b = .ok true)
     (hwa : WScoped d (Expr.lam n₁ ty₁ body₁ m₁)) (hwb : WScoped d b)
     (hba : (Expr.lam n₁ ty₁ body₁ m₁).looseBVarsBounded 0 = true)
     (hbb : b.looseBVarsBounded 0 = true)
@@ -194,13 +194,13 @@ theorem etaCert_sound {m : EnvModel V env} {fuel : Nat}
 /-- Soundness of the one-sided-λ branch of `isDefEqCore` (λ on the
 left): eta, else proof irrelevance. -/
 theorem etaBranch_sound {m : EnvModel V env} {fuel : Nat}
-    (ihAll : ∀ f, f ≤ fuel →
-      WhnfClaims m φ f ∧ DefEqClaims m φ f ∧ InferClaims m φ f)
+    (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
+    (ihi : InferClaims m φ fuel)
     {d : Nat} {n₁ : Name} {ty₁ body₁ b : Expr} {m₁ : BinderMeta} {ρ : Nat → V}
     {va vb : V}
     (h : (do
-      if ← etaCert env fuel d n₁ ty₁ body₁ m₁ b then pure true
-      else stuckIrrel env fuel d (Expr.lam n₁ ty₁ body₁ m₁) b :
+      if ← etaCertP env fuel d n₁ ty₁ body₁ m₁ b then pure true
+      else stuckIrrelP env fuel d (Expr.lam n₁ ty₁ body₁ m₁) b :
         CheckM Bool) = .ok true)
     (hwa : WScoped d (Expr.lam n₁ ty₁ body₁ m₁)) (hwb : WScoped d b)
     (hba : (Expr.lam n₁ ty₁ body₁ m₁).looseBVarsBounded 0 = true)
@@ -215,7 +215,7 @@ theorem etaBranch_sound {m : EnvModel V env} {fuel : Nat}
     (hvb : interpExpr V m.val env φ d ρ b = some vb) :
     va = vb := by
   simp only [Bind.bind, Except.bind] at h
-  cases hec : etaCert env fuel d n₁ ty₁ body₁ m₁ b with
+  cases hec : etaCertP env fuel d n₁ ty₁ body₁ m₁ b with
   | error e => rw [hec] at h; exact nomatch h
   | ok r =>
   rw [hec] at h
@@ -223,26 +223,22 @@ theorem etaBranch_sound {m : EnvModel V env} {fuel : Nat}
   cases r with
   | false =>
     simp only [Bool.false_eq_true, ↓reduceIte] at h
-    exact stuckIrrel_sound ihAll h hwa hwb hba hbb hLba hLbb
+    exact stuckIrrel_sound ihw ihd ihi h hwa hwb hba hbb hLba hLbb
       hoka hokb haa hab hva hvb
   | true =>
-  cases fuel with
-  | zero => exact nomatch hec
-  | succ f =>
-  obtain ⟨ihwL, ihdL, ihiL⟩ := ihAll f (Nat.le_succ f)
-  exact etaCert_sound ihwL ihdL ihiL hec hwa hwb hba hbb hLba hLbb
+  exact etaCert_sound ihw ihd ihi hec hwa hwb hba hbb hLba hLbb
     hoka hokb haa hab hva hvb
 
 /-- Soundness of the one-sided-λ branch of `isDefEqCore` (λ on the
 right). -/
 theorem etaBranch_sound' {m : EnvModel V env} {fuel : Nat}
-    (ihAll : ∀ f, f ≤ fuel →
-      WhnfClaims m φ f ∧ DefEqClaims m φ f ∧ InferClaims m φ f)
+    (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
+    (ihi : InferClaims m φ fuel)
     {d : Nat} {n₂ : Name} {ty₂ body₂ a : Expr} {m₂ : BinderMeta} {ρ : Nat → V}
     {va vb : V}
     (h : (do
-      if ← etaCert env fuel d n₂ ty₂ body₂ m₂ a then pure true
-      else stuckIrrel env fuel d a (Expr.lam n₂ ty₂ body₂ m₂) :
+      if ← etaCertP env fuel d n₂ ty₂ body₂ m₂ a then pure true
+      else stuckIrrelP env fuel d a (Expr.lam n₂ ty₂ body₂ m₂) :
         CheckM Bool) = .ok true)
     (hwa : WScoped d a) (hwb : WScoped d (Expr.lam n₂ ty₂ body₂ m₂))
     (hba : a.looseBVarsBounded 0 = true)
@@ -257,7 +253,7 @@ theorem etaBranch_sound' {m : EnvModel V env} {fuel : Nat}
     (hvb : interpExpr V m.val env φ d ρ (Expr.lam n₂ ty₂ body₂ m₂) = some vb) :
     va = vb := by
   simp only [Bind.bind, Except.bind] at h
-  cases hec : etaCert env fuel d n₂ ty₂ body₂ m₂ a with
+  cases hec : etaCertP env fuel d n₂ ty₂ body₂ m₂ a with
   | error e => rw [hec] at h; exact nomatch h
   | ok r =>
   rw [hec] at h
@@ -265,17 +261,12 @@ theorem etaBranch_sound' {m : EnvModel V env} {fuel : Nat}
   cases r with
   | false =>
     simp only [Bool.false_eq_true, ↓reduceIte] at h
-    exact stuckIrrel_sound ihAll h hwa hwb hba hbb hLba hLbb
+    exact stuckIrrel_sound ihw ihd ihi h hwa hwb hba hbb hLba hLbb
       hoka hokb haa hab hva hvb
   | true =>
-  cases fuel with
-  | zero => exact nomatch hec
-  | succ f =>
-  obtain ⟨ihwL, ihdL, ihiL⟩ := ihAll f (Nat.le_succ f)
-  exact (etaCert_sound ihwL ihdL ihiL hec hwb hwa hbb hba hLbb hLba
+  exact (etaCert_sound ihw ihd ihi hec hwb hwa hbb hba hLbb hLba
     hokb hoka hab haa hvb hva).symm
 
-set_option maxHeartbeats 6400000 in
 end Claims
 
 end Setlec
