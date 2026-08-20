@@ -177,31 +177,76 @@ constructions.
 * For Lean proof work, https://github.com/ejgallego/lean-beam/ may speed
   things up.
 
-## The cached twin and the refinement bridge (2026-08-20)
+## The open-recursion core and the refinement bridge (2026-08-20)
 
-The executable checker is memoized: `Setlec/Kernel/TypeCheckerC.lean`
-is a line-for-line twin of the pure mutual core threading a `KCache`
-(`whnf`/`infer`/`defeq`/`annotate` maps keyed by binder depth and
-expression) in `StateT` over `CheckM`; `Setlec/Kernel/CheckerC.lean`
-is the corresponding twin of the declaration checker, and `Main`
-runs `checkDeclsC`.  Memoization took 053_reduceCtorParam from
-2m04s to 0.6s and the whole tutorial arena to ~14s.
+The checker core is **single-sourced**: every core function is one
+non-recursive *body* in `Setlec/Kernel/Core.lean`, parameterized over a
+record of the mutually recursive entry points (`CoreFns`) and
+monad-polymorphic.  Fuel lives only in the knots that tie the record:
+the **pure knot** (`Setlec/Kernel/TypeChecker.lean`, `pureFns`) at
+`CheckM` is the verification's subject; the **memoized knot**
+(`Setlec/Kernel/TypeCheckerC.lean`, `cachedFns`) wraps every level's
+entry points with a `KCache` lookup (maps keyed by binder depth and
+expression) in `StateT` over `CheckM` and is what the checker executes
+(`cachedOps` in `Setlec/Kernel/Checker.lean`; the declaration checker
+itself is written once over a `CheckerOps` record).  The knots are
+built lazily — each level closes over a thunk of the next; an eager
+tower was a 12x slowdown.  Memoization took 053_reduceCtorParam from
+2m04s to 0.6s and the whole tutorial arena to ~13s.
 
-The pure modules (`TypeChecker.lean`, `Checker.lean`) are the
-**specification**: all semantic verification reasons about them,
-unchanged.  The planned **refinement bridge** (fuel monotonicity for
-the pure core + a `CacheWF` invariant stating every cache entry is
-backed by a pure run) will show a successful cached run is reproduced
-by the pure run at some fuel, transporting every claim to the
-executable.  Until it lands, the consistency theorems are about the
-pure pipeline; the twins are kept textually identical (modulo the `C`
-suffix and the memo shims) so the bridge is a mechanical walk.  An
-open-recursion restructuring (single body, two knots — the lean4lean
-style) would deduplicate the bodies and is under consideration before
-the bridge is written.  Both `_model` declarations and real Lean terms
-are DAGs sharing subterms; every traversal must eventually be memoized
-under a cached-hash representation (structural hashing walks the
-unshared tree), tracked as follow-up work.
+Verification style: `Setlec/Verify/Knot.lean` holds the definitional
+equations bridging fueled spellings to bodies-at-the-knot
+(`whnfCore_succ`, `*_def`, `*_zero`), plus fueled `P`-abbrevs and
+`*_fold` rewrites for the record-parameterized helpers.  Inversions
+(`Setlec/Verify/*`) and claims (`Setlec/Model/Core/*`) unfold one body
+with the recipe `rw [X_succ]; simp only [XBody, …]; simp only [*_def,
+*_fold]` and obtain all helper facts at the **same** fuel (helpers no
+longer consume fuel — only the knot does).  Dependent `match e, h`
+on knot-defined hypotheses times out; use `cases e` + the recipe.
+
+The planned **refinement bridge** (fuel monotonicity for the pure core
++ a `CacheWF` invariant stating every cache entry is backed by a pure
+run) will show a successful cached run is reproduced by the pure run,
+transporting every claim to the executable.  Until it lands, the
+consistency theorems are about `pureOps`.  Both `_model` declarations
+and real Lean terms are DAGs sharing subterms; every traversal must
+eventually be memoized under a cached-hash representation, tracked as
+follow-up work.
+
+### Inference re-checks; infer-only deferred
+
+The official kernel's inference is *infer-only* inside reduction
+(argument checks ran once, at declaration time).  Setlec's `inferBody`
+**re-checks** the application argument (defeq against the domain) and
+the λ-annotation (against the body's inferred sort), as the
+pre-restructure checker did: the soundness claims re-derive their
+membership slots (`⟦a⟧ ∈ ⟦domain⟧`, fibres-in-universe) from those
+checks at the claims' own fuel.  Deriving them without the checks
+would need the annotation-time facts, which live at a *different*
+fuel — i.e. the fuel-determinism machinery of the refinement bridge —
+plus a strengthened `AnnotOk` app clause.  Revisit once the bridge
+lands; until then the speculative-inference-cannot-reject property is
+weakened (a re-check could in principle fail on a reduced term whose
+annotate-time check passed; not observed on the suite).
+
+### Nat literals in the model (2026-08-20)
+
+`natLitSupported env` pins the stored `Nat`/`Nat.zero`/`Nat.succ`
+declarations (kinds, empty level parameters, exact annotated types,
+via per-slot checks `natIndOk`/`natZeroOk`/`natSuccOk`).  Every literal
+code path guards on it: `inferBody`/`annotateBody` lit cases,
+`reduceNat`, and the lit-to-constructor major conversion
+(`litToCtorIfNat` takes the env).  The model interprets
+`.lit (.natVal n)` as `natLitVal` — the `Nat.succ` value iterated on
+the `Nat.zero` value — under the same guard; numeral membership in the
+`Nat` value falls out of `EnvModel.mem_type` alone
+(`Setlec/Model/NatLit.lean`), with no `Nat`-specific model fields.
+`constsResolve` counts a literal as referencing the three `Nat`
+constants (interp stability under environment extension needs their
+presence), and the env-relating lemmas (`interp_env_ext`,
+`AnnotOk.env_ext`, `TeleFit.env_levelext`) carry the guard across
+explicitly (`natLitSupported_cons_recRules` for the recursor-rules
+swap the install proofs perform).
 
 ## Kernel design review triage (2026-08-20)
 
@@ -209,28 +254,29 @@ A fresh-context implementation review compared the core against nanoda,
 lean4lean (the faithful port of the official kernel) and the mini
 checker (`_tmp/kernel-design-review.md`).  Disposition of its findings:
 
-**Adopted immediately** (fidelity fixes — each made the checker accept
-*less*, matching the kernel):
-* `proofIrrel` gained the official kernel's common-type check (only
-  inhabitants of definitionally equal types are identified; the model
-  never needed it — all propositions collapse — but accepting more than
-  the kernel is a divergence).
-* The K rescue checks the fabricated constructor's type against the
-  major's explicitly (previously implied by the downstream certificate
-  ordering — correct only by coincidence).
+**Adopted immediately** (fidelity fixes):
 * The structure-eta rescue is guarded against propositional structures
   (`piResultIsProp`), as in the official kernel.
 * The K capability's Prop test normalizes the result sort
   (`Level.isEquiv` against zero) instead of comparing syntactically.
 
-**Adopted as part of the open-recursion core restructure** (they reshape
-the same code): the `whnfCore`/`whnf` split with the official loop
-(`whnfCore → reduceNat → unfold → repeat`) and its literal/quotient
-hook points; the syntactic `a == b` fast path and sorted defeq cache
-keys; hoisting proof irrelevance before reduction/congruence; an
-infer-only inference mode with certificate sites treating failure as
-"certificate fails" rather than a thrown reject (the exit-1/3 hazard on
-speculative paths).
+**Considered and reverted** (checks implied by machine-checked
+invariants; no `.ndjson` reachability test is constructible, so the
+checks are omitted — we verify the kernel and may rely on invariants
+where other kernels re-check):
+* `proofIrrel`'s common-type check (annotation-first discipline already
+  forces both sides' types through the same checked chain).
+* The K rescue's explicit fabricated-type check (implied by the
+  load-bearing iota certificates that run on the fabrication).
+
+**Adopted as part of the open-recursion core restructure**: the
+`whnfCore`/`whnf` split with the official loop (`whnfCore → reduceNat →
+unfold → repeat`) and its literal/quotient hook points; the syntactic
+`a == b` fast path (pre- and post-whnf) in defeq; hoisting proof
+irrelevance into the stuck-terms fallback.  The **infer-only** mode was
+attempted and deferred (see "Inference re-checks" above); the early
+proof-irrelevance hoist in defeq was reverted for fuel-depth reasons
+(it stays in the stuck fallback).
 
 **Deferred, tracked as tasks**: lazy delta unfolding with reducibility
 hints (+ failure cache, `tryUnfoldProjApp`, cheapProj); native `.letE`
@@ -290,14 +336,17 @@ function types, lambdas/apps with certified beta, lets (zeta-expanded in
 the frontend), constants with delta unfolding, all five basis blocks
 (`PUnit`, `Eq`, `Nat`, `PSigma'`, `Empty`) with verified set models,
 `PSigma'.mk` projections, proof irrelevance, lambda/unit eta,
-verified iota reduction, modeled inductives with projection functions
-and the eta/unit-like/rule-K capabilities, and the stuck-major rescue
-(rule K + structure eta in iota)** (67/92 good arena tutorial tests
-accepted; the good tests still rejected need indexed recursors
-(074/075), literals (100/101), and assorted features (080, 087–093,
+verified iota reduction, `Nat` literals (succ-packing `reduceNat`,
+literal defeq, lit-major conversion — all modeled), modeled inductives
+with projection functions and the eta/unit-like/rule-K capabilities,
+and the stuck-major rescue (rule K + structure eta in iota)** (69/92
+good arena tutorial tests accepted; the good tests still rejected need
+indexed recursors (074/075) and assorted features (080, 087–093,
 102–107, 118–123); type-mismatch, duplicate-name,
 duplicate/undeclared level parameters, stray free variables, and
-unknown constants rejected).
+unknown constants rejected).  The whole verification stack (claims in
+`Setlec/Model/Core/*`, annotation, extension, consistency) is stated
+against the open-recursion pure knot at `pureOps`.
 
 Iota soundness (2026-08-19): the whnf iota step is verified end to end.
 Per recursor rule, `Setlec/Model/BasisIota.lean` provides the
