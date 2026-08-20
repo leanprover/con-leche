@@ -275,6 +275,46 @@ basis pair; recovering them is the generic-projection task, whose
 model side needs EnvModel to record that every non-reserved stored
 inductive-kind constant is val-equal to its stored `_model`.
 
+Projection functions (2026-08-20): projections on modeled structures
+are installed as *public projection functions* — degenerate recursors
+(`nM = 0`, no motive, one rule `⟨T.mk, nF, λ p⃗ x⃗. x_i⟩`) named
+`(T.proj).i` (a reserved name *shape*, rejected by `checkConstantVal`)
+whose model value is the documented `T._model.proj_i` definition.
+`checkIndDecl` installs them for single-constructor blocks after the
+member fold (family freshness kernel-checked; fields with absent
+`proj_i` artifacts are skipped), and `annotate` rewrites `.proj T i e`
+into that constant applied to the type args and `e`, so the generic
+iota machinery performs the reduction with no new core code.  The
+kernel check is staged (`checkProjLookups`/`checkProjTy`/
+`checkProjRule`/`checkProjIota` — small functions keep the monadic
+inversions tractable): the public type is the model's renamed back
+along `projBack` and pinned by the `projFwd` roundtrip; the rule is
+`pisToLams` of the constructor's telescope; the `proj_i.iota` theorem
+is pinned piecewise (telescope domains are the constructor's renamed
+along `projFwd`; the equation's sides are the projection redex over
+the `mk._model` spine and the field bvar; the equality's *type slot*
+is not pinned — the fold's Eq collapse never reads it).  Soundness:
+`proj_rule_fold` (Model/ProjInstall) discharges the rule's fold
+obligation from the checked iota theorem, `extend_proj_fn` extends the
+model (value := the model projection's), and `checkProjFn_sound`
+carries the phase invariant `ProjPhaseInv` (parent, constructor, and
+already-installed projections are val-equal to their `_model`
+companions) through the fold.  The frontend currently still drops
+`proj_i`/`iota` auxiliaries: keeping the artifacts without eta support
+makes pair-eta (`mk (proj f) (proj f) ≡ f`) fail on modeled structures
+and good tests get *rejected*; the flip that un-drops them lands
+together with the eta capability (task: caps in env).
+
+`_model` names are not special (2026-08-20, user directive): only the
+inductive-declaration install path may look `_model` names up (pairing
+a non-basis inductive with its model); no other code knows about them.
+In particular the basis does *not* reserve `X._model` companions, the
+kernel does not check for "shadowed" models, and input files are free
+to declare `Eq._model` etc. as ordinary definitions.  The `IndOk`
+pinned clause is guarded by reservedness alone: reserved names are
+rejected at install, so a reserved stored constant can only be the
+pinned declaration.
+
 Consistency corollary (2026-08-19): the 15 pinned basis names are
 *reserved* — `checkConstantVal` (and the per-member checks of the
 dormant `checkIndDecl`) reject any input declaration using one, so the

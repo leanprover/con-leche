@@ -24,6 +24,8 @@ def checkConstantVal (env : Env) (cv : ConstantVal) : CheckM ConstantVal := do
     throw (.invalid s!"duplicate declaration {cv.name}")
   if reservedBasisNames.contains cv.name then
     throw (.invalid s!"reserved basis name {cv.name}")
+  if cv.name.isProjFnShape then
+    throw (.invalid s!"reserved projection name {cv.name}")
   unless Name.nodup cv.levelParams do
     throw (.invalid s!"duplicate universe parameters in {cv.name}")
   unless cv.type.looseBVarsBounded 0 do
@@ -203,8 +205,6 @@ def checkIndMember (blockNames : List Name) (env' : Env)
     -- iota statements are equations: pin the pinned equality former
     unless env'.find? eqName = some eqA do
       throw (.notImplemented "modeled recursor requires the pinned Eq basis")
-    unless (env'.find? (eqName.str "_model")).isNone do
-      throw (.invalid "shadowed Eq model")
     -- provisional self with *no* rules: rule right-hand sides may
     -- mention the recursor, but nothing during their annotation may
     -- depend on its (yet unchecked) rules
@@ -213,13 +213,164 @@ def checkIndMember (blockNames : List Name) (env' : Env)
     pure ⟨.recInfo cvA nP nM nm ni rules' :: env'.consts⟩
   | _ => throw (.invalid s!"non-inductive member {cvA.name} in block")
 
+/-- The model-side name of field `i`'s projection for `T`
+(the documented public interface of the preprocessor's models). -/
+def projModelName (T : Name) (i : Nat) : Name :=
+  (T.str "_model").str ("proj_" ++ toString i)
+
+/-- Rename a model-side projection type back to public names. -/
+def projBack (T ctor : Name) (nF : Nat) : Name → Name := fun n =>
+  if n = T.str "_model" then T
+  else if n = ctor.str "_model" then ctor
+  else
+    match (List.range nF).find? (fun j => n == projModelName T j) with
+    | some j => projFnName T j
+    | none => n
+
+/-- The forward (public → model) map on the projection family. -/
+def projFwd (T ctor : Name) (nF : Nat) : Name → Name := fun n =>
+  if n = T then T.str "_model"
+  else if n = ctor then ctor.str "_model"
+  else
+    match (List.range nF).find? (fun j => n == projFnName T j) with
+    | some j => projModelName T j
+    | none => n
+
+/-- Stage 1 of `checkProjFn`: the stored constants the projection
+depends on — the single constructor (arity-matched), the model's
+`proj_i` definition (level-matched), the parent type, and the pinned
+equality former; the projection's own name must be free. -/
+def checkProjLookups (env' : Env) (T ctorName : Name) (lps : List Name)
+    (nP nF i : Nat) : CheckM (ConstantVal × ConstantVal) := do
+  let some (.ctorInfo cvj cnP cnF) := env'.find? ctorName
+    | throw (.notImplemented "projection constructor not stored")
+  unless cnP = nP ∧ cnF = nF do
+    throw (.notImplemented "projection constructor arity mismatch")
+  let some (.defnInfo mcv _) := env'.find? (projModelName T i)
+    | throw (.notImplemented "missing projection model")
+  unless mcv.levelParams = lps do
+    throw (.notImplemented "projection model level mismatch")
+  unless (env'.find? (projFnName T i)).isNone do
+    throw (.invalid "projection name taken")
+  unless (env'.find? T).isSome do
+    throw (.notImplemented "projection parent not stored")
+  unless env'.find? eqName = some eqA do
+    throw (.notImplemented "projection iota requires the pinned Eq basis")
+  pure (cvj, mcv)
+
+/-- Stage 2: the public projection type — the model's, renamed back
+(pinned by the renaming roundtrip), well-formed and parameter-led. -/
+def checkProjTy (env' : Env) (T ctorName : Name) (lps : List Name)
+    (mty : Expr) (nP nF : Nat) : CheckM Expr := do
+  let pty := mty.renameConsts (projBack T ctorName nF)
+  unless (pty.renameConsts (projFwd T ctorName nF)) == mty do
+    throw (.notImplemented "projection type roundtrip")
+  unless pty.constsResolve env' do
+    throw (.notImplemented "projection type resolution")
+  unless pty.looseBVarsBounded 0 && !pty.hasFvar &&
+      pty.allLevelParamsDefined lps do
+    throw (.notImplemented "projection type wellformedness")
+  unless (pty.stripPis (nP + 1)).isSome do
+    throw (.notImplemented "projection type telescope")
+  pure pty
+
+/-- Stage 3: the reduction rule — λ over the constructor telescope
+returning field `i`, annotated; its λ-domains stay the constructor's. -/
+def checkProjRule (env' : Env) (cvj : ConstantVal) (lps : List Name)
+    (nP nF i : Nat) : CheckM Expr := do
+  let some rhs := Expr.pisToLams (nP + nF) cvj.type (.bvar (nF - 1 - i))
+    | throw (.notImplemented "projection rule telescope")
+  unless !rhs.hasFvar && rhs.looseBVarsBounded 0 do
+    throw (.notImplemented "projection rule scoping")
+  let rhsA ← annotate env' 0 rhs
+  unless rhsA.allLevelParamsDefined lps && rhsA.constsResolve env' &&
+      rhsA.looseBVarsBounded 0 && !rhsA.hasFvar do
+    throw (.notImplemented "projection rule wellformedness")
+  let some (rbinders, rrbody) := rhsA.stripLams (nP + nF)
+    | throw (.notImplemented "projection rule telescope")
+  unless rrbody == Expr.bvar (nF - 1 - i) do
+    throw (.notImplemented "projection rule body")
+  let some (cbindersR, _) := cvj.type.stripPis (nP + nF)
+    | throw (.notImplemented "projection constructor telescope")
+  unless domsMatchAux (fun _ e => e) rbinders cbindersR 0 0 (nP + nF) do
+    throw (.notImplemented "projection rule domain mismatch")
+  pure rhsA
+
+/-- Stage 4: the model's `proj_i.iota` theorem pins the rule — the
+statement's telescope domains are the constructor's (renamed to the
+model side) and its body equates the projected constructor spine with
+field `i`.  The equality's type slot needs no pin (the collapse
+ignores it). -/
+def checkProjIota (env' : Env) (T ctorName : Name) (lps : List Name)
+    (cvj : ConstantVal) (nP nF i : Nat) : CheckM Unit := do
+  let some (.thmInfo tcv _) := env'.find? ((projModelName T i).str "iota")
+    | throw (.notImplemented "missing projection iota theorem")
+  unless tcv.levelParams = lps do
+    throw (.notImplemented "projection iota level mismatch")
+  let some (sbinders, sbody) := tcv.type.stripPis (nP + nF)
+    | throw (.notImplemented "projection iota telescope")
+  let some (cbindersR, _) := cvj.type.stripPis (nP + nF)
+    | throw (.notImplemented "projection constructor telescope")
+  unless domsMatchAux
+      (fun _ e => e.renameConsts (projFwd T ctorName nF))
+      sbinders cbindersR 0 0 (nP + nF) do
+    throw (.notImplemented "projection iota domain mismatch")
+  let depth := nP + nF
+  let pArgs := (List.range nP).map fun k => Expr.bvar (depth - 1 - k)
+  let xArgs := (List.range nF).map fun k => Expr.bvar (nF - 1 - k)
+  let mkSpine := Expr.mkAppN
+    (.const (ctorName.str "_model") (cvj.levelParams.map .param))
+    (pArgs ++ xArgs)
+  let lhsS := Expr.mkAppN
+    (.const (projModelName T i) (lps.map .param)) (pArgs ++ [mkSpine])
+  match sbody with
+  | .app (.app (.app (.const c [_ℓ]) _tySlot) lhsC) rhsC =>
+    unless c = eqName do
+      throw (.notImplemented "projection iota head")
+    unless lhsC == lhsS do
+      throw (.notImplemented "projection iota redex mismatch")
+    unless rhsC == Expr.bvar (nF - 1 - i) do
+      throw (.notImplemented "projection iota field mismatch")
+  | _ => throw (.notImplemented "projection iota body shape")
+
+/-- Check and install the public projection function for field `i` of
+a modeled single-constructor structure, against the model's
+`T._model.proj_i` definition and its `iota` theorem.  The function is
+stored as a degenerate recursor (no motive, no minors) carrying one
+rule, so the generic iota machinery reduces it. -/
+def checkProjFn (env' : Env) (T ctorName : Name) (lps : List Name)
+    (nP nF i : Nat) : CheckM Env := do
+  let (cvj, mcv) ← checkProjLookups env' T ctorName lps nP nF i
+  let pty ← checkProjTy env' T ctorName lps mcv.type nP nF
+  unless i < nF do
+    throw (.invalid "projection index out of range")
+  let rhsA ← checkProjRule env' cvj lps nP nF i
+  checkProjIota env' T ctorName lps cvj nP nF i
+  pure ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP 0 0 0
+    [⟨ctorName, nF, rhsA⟩] :: env'.consts⟩
+
 /-- Check and install a modeled inductive block: every member is
 checked against its `_model` counterpart (type up to the public↔model
 renaming, iota rules against the model's `iota_j` theorems), then
-stored as a real inductive-kind constant.  Not yet wired into
-`checkDecl` — the soundness proof accompanies the wiring. -/
-def checkIndDecl (env : Env) (block : List ConstantInfo) : CheckM Env :=
-  block.foldlM (checkIndMember (block.map (·.name))) env
+stored as a real inductive-kind constant.  Single-constructor blocks
+additionally install the projection functions the model documents
+(skipped where the artifacts are absent). -/
+def checkIndDecl (env : Env) (block : List ConstantInfo) : CheckM Env := do
+  let env₂ ← block.foldlM (checkIndMember (block.map (·.name))) env
+  match block.filter (fun ci => match ci with
+      | .indInfo _ => true | _ => false),
+    block.filter (fun ci => match ci with
+      | .ctorInfo _ _ _ => true | _ => false) with
+  | [.indInfo cvT], [.ctorInfo cvC nP nF] =>
+    -- the whole projection name family must be ours to install
+    unless (List.range nF).all
+        (fun j => (env₂.find? (projFnName cvT.name j)).isNone) do
+      throw (.invalid "projection name family taken")
+    (List.range nF).foldlM (fun e i =>
+      if (e.find? (projModelName cvT.name i)).isSome then
+        checkProjFn e cvT.name cvC.name cvT.levelParams nP nF i
+      else pure e) env₂
+  | _, _ => pure env₂
 
 /-- Check a single declaration, extending the environment on success. -/
 def checkDecl (env : Env) (d : Declaration) : CheckM Env := do

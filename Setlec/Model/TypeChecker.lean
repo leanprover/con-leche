@@ -175,10 +175,11 @@ private theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
       have hoktx : FvarsOk V m.val env φ d ρ tx :=
         FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel htx hwx) hokx
       obtain ⟨hiw, -⟩ := ihw hwtx hwtxW hbtx hLbtx hoktx hATx
-      obtain ⟨c, us, cvi, cvr, nP, nM, nm, r, rfl, hfind, hfr, hrf, hgu,
-        hgi⟩ := isUnitLikeTy_inv hux
+      obtain ⟨c, us, cvi, cvr, nP, nM, nm, r, rfl, hfind, hfr, hrf,
+        hgres⟩ := isUnitLikeTy_inv hux
       -- identify the unit type through the pinned recursor
-      obtain ⟨hpr, -⟩ := m.ind_ok.right.right.right.left _ _ hfr rfl hgu
+      obtain ⟨hpr, -⟩ :=
+        m.ind_ok.right.right.right.left _ _ hfr rfl hgres
       have hcn : c = punitName := by
         rcases pinnedInfo_recInfo_cases hpr.symm with hc | hc | hc | hc | hc
         · rw [hc] at hpr
@@ -197,7 +198,8 @@ private theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
           exact nomatch
             (congrArg (fun ci => (ConstantInfo.recRules ci).length) hpr)
       subst hcn
-      obtain ⟨-, hval⟩ := m.ind_ok.right.right.right.left _ _ hfind rfl hgi
+      obtain ⟨-, hval⟩ :=
+        m.ind_ok.right.right.right.left _ _ hfind rfl (by decide)
       rw [hTxi] at hiw
       simp only [interpExpr, hfind] at hiw
       by_cases hlen : us.length =
@@ -246,23 +248,10 @@ private theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
     va = vb := by
   obtain ⟨c, us, pα, pβ, s₁, s₂, cvm, tb, c', us', A, B, cvi, cvr,
     nPr, nMr, nmr, r, rfl, hfindM, htb, hwtb, hfindI, hfr, hrc, hrf,
-    hgc, hgr, hlev, hd1, hd2⟩ := pairEtaCert_inv h
-  -- identify the constructor and its structure type through the
-  -- pinned declarations
-  obtain ⟨hpc, -⟩ := m.ind_ok.right.right.right.left _ _ hfindM rfl hgc
-  have hcn : c = psigmaMkName := by
-    rcases pinnedInfo_ctorInfo_cases hpc.symm with hc | hc | hc | hc | hc
-    · rw [hc] at hpc
-      exact nomatch (congrArg ConstantInfo.ctorNF hpc)
-    · rw [hc] at hpc
-      exact nomatch (congrArg ConstantInfo.ctorNP hpc)
-    · rw [hc] at hpc
-      exact nomatch (congrArg ConstantInfo.ctorNF hpc)
-    · exact hc
-    · rw [hc] at hpc
-      exact nomatch (congrArg ConstantInfo.ctorNP hpc)
-  subst hcn
-  obtain ⟨hpr, -⟩ := m.ind_ok.right.right.right.left _ _ hfr rfl hgr
+    hgres, hlev, hd1, hd2⟩ := pairEtaCert_inv h
+  -- identify the structure through the pinned recursor, then the
+  -- constructor through the recursor's rule
+  obtain ⟨hpr, -⟩ := m.ind_ok.right.right.right.left _ _ hfr rfl hgres
   have hcn' : c' = psigmaName := by
     rcases pinnedInfo_recInfo_cases hpr.symm with hc' | hc' | hc' | hc' | hc'
     · rw [hc'] at hpr
@@ -272,15 +261,22 @@ private theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
         (congrArg (fun ci => (ConstantInfo.recRules ci).length) hpr)
     · injection hc'
     · rw [hc'] at hpr
-      have hr : r.ctor = punitUnitName :=
+      have hr : r.nfields = 0 :=
         congrArg (fun ci =>
-          ((ConstantInfo.recRules ci).getD 0 default).ctor) hpr
-      rw [hrc] at hr
-      exact absurd hr (by decide)
+          ((ConstantInfo.recRules ci).getD 0 default).nfields) hpr
+      rw [hrf] at hr
+      exact nomatch hr
     · rw [hc'] at hpr
       exact nomatch
         (congrArg (fun ci => (ConstantInfo.recRules ci).length) hpr)
   subst hcn'
+  have hcn : c = psigmaMkName := by
+    have hr : r.ctor = psigmaMkName :=
+      congrArg (fun ci =>
+        ((ConstantInfo.recRules ci).getD 0 default).ctor) hpr
+    rw [← hrc]
+    exact hr
+  subst hcn
   -- b's type reduces to the pair type; extract the sigma facts
   obtain ⟨⟨vb', vtb, hbi, htbi, hmemb⟩, hAtb⟩ := ihi htb hwb hbb hLbb hokb hab
   have hvbeq : vb' = vb := by

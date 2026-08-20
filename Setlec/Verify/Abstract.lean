@@ -128,55 +128,75 @@ theorem looseBVarsBounded_abstract1 {d : Nat} :
 
 /-! ## Preservation through `annotate` -/
 
-/-- Inversion for the projection-elimination path: every scaffolding
-step ran, the scope guard passed, and the elimination re-annotated. -/
+/-- Inversion for the projection-elimination path: the structure and
+its installed projection function were resolved, the scope guard
+passed, and the rewrite re-annotated. -/
 theorem annotateProjElim_inv {env : Env} {fuel d : Nat} {sn : Name}
     {i : Nat} {te e₂ e' : Expr}
     (h : annotateProjElim env fuel d sn i te e₂ = .ok e') :
-    ∃ T us args projTy motive projTy' sTy u raw,
-      projElimPre env sn i te e₂ = .ok (T, us, args, projTy, motive) ∧
-      annotateCore env fuel d projTy = .ok projTy' ∧
-      inferType env d projTy' = .ok sTy ∧
-      ensureSort env d sTy = .ok u ∧
-      projElimAssemble env T u us args motive e₂ i = .ok raw ∧
-      raw.wscopedB d = true ∧ raw.looseBVarsBounded 0 = true ∧
-      raw.fvarLeaves.all (fun l => e₂.fvarLeaves.contains l) = true ∧
-      annotateCore env fuel d raw = .ok e' := by
+    ∃ us pcv nP nM nm ni rules,
+      te.getAppFn = .const sn us ∧
+      env.find? (projFnName sn i) =
+        some (.recInfo pcv nP nM nm ni rules) ∧
+      te.getAppArgs.length = nP ∧
+      (Expr.mkAppN (.const (projFnName sn i) us)
+        (te.getAppArgs ++ [e₂])).wscopedB d = true ∧
+      (Expr.mkAppN (.const (projFnName sn i) us)
+        (te.getAppArgs ++ [e₂])).looseBVarsBounded 0 = true ∧
+      (Expr.mkAppN (.const (projFnName sn i) us)
+        (te.getAppArgs ++ [e₂])).fvarLeaves.all
+        (fun l => e₂.fvarLeaves.contains l) = true ∧
+      annotateCore env fuel d
+        (Expr.mkAppN (.const (projFnName sn i) us)
+          (te.getAppArgs ++ [e₂])) = .ok e' := by
   simp only [annotateProjElim, Bind.bind, Except.bind] at h
-  cases hpre : projElimPre env sn i te e₂ with
-  | error err => rw [hpre] at h; exact nomatch h
-  | ok parts =>
-  rw [hpre] at h
-  obtain ⟨T, us, args, projTy, motive⟩ := parts
+  revert h
+  match hfn : te.getAppFn with
+  | .bvar _ => intro h; exact nomatch h
+  | .fvar _ _ _ => intro h; exact nomatch h
+  | .sort _ => intro h; exact nomatch h
+  | .app _ _ => intro h; exact nomatch h
+  | .lam _ _ _ _ => intro h; exact nomatch h
+  | .forallE _ _ _ _ => intro h; exact nomatch h
+  | .letE _ _ _ _ => intro h; exact nomatch h
+  | .lit _ => intro h; exact nomatch h
+  | .proj _ _ _ => intro h; exact nomatch h
+  | .const T us => ?_
+  intro h
   dsimp only at h
-  cases hpt : annotateCore env fuel d projTy with
-  | error err => rw [hpt] at h; exact nomatch h
-  | ok projTy' =>
-  rw [hpt] at h
+  by_cases hT : T = sn
+  case neg => rw [if_neg hT] at h; exact nomatch h
+  rw [if_pos hT] at h
+  subst hT
   try dsimp only at h
-  cases hit : inferType env d projTy' with
-  | error err => rw [hit] at h; exact nomatch h
-  | ok sTy =>
-  rw [hit] at h
+  revert h
+  match hfp : env.find? (projFnName T i) with
+  | none => intro h; exact nomatch h
+  | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.defnInfo _ _) => intro h; exact nomatch h
+  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.indInfo _) => intro h; exact nomatch h
+  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+  | some (.recInfo pcv nP nM nm ni rules) => ?_
+  intro h
+  dsimp only at h
+  by_cases hlen : te.getAppArgs.length = nP
+  case neg => rw [if_neg hlen] at h; exact nomatch h
+  rw [if_pos hlen] at h
   try dsimp only at h
-  cases hes : ensureSort env d sTy with
-  | error err => rw [hes] at h; exact nomatch h
-  | ok u =>
-  rw [hes] at h
-  try dsimp only at h
-  cases has : projElimAssemble env T u us args motive e₂ i with
-  | error err => rw [has] at h; exact nomatch h
-  | ok raw =>
-  rw [has] at h
-  try dsimp only at h
-  by_cases hg : (raw.wscopedB d && raw.looseBVarsBounded 0 &&
-      raw.fvarLeaves.all (fun l => e₂.fvarLeaves.contains l)) = true
+  by_cases hg : ((Expr.mkAppN (.const (projFnName T i) us)
+      (te.getAppArgs ++ [e₂])).wscopedB d &&
+      (Expr.mkAppN (.const (projFnName T i) us)
+        (te.getAppArgs ++ [e₂])).looseBVarsBounded 0 &&
+      (Expr.mkAppN (.const (projFnName T i) us)
+        (te.getAppArgs ++ [e₂])).fvarLeaves.all
+        (fun l => e₂.fvarLeaves.contains l)) = true
   case neg => rw [if_neg hg] at h; exact nomatch h
   rw [if_pos hg] at h
   try dsimp only at h
   simp only [Bool.and_eq_true] at hg
-  exact ⟨T, us, args, projTy, motive, projTy', sTy, u, raw,
-    rfl, hpt, hit, hes, has, hg.1.1, hg.1.2, hg.2, h⟩
+  exact ⟨us, pcv, nP, nM, nm, ni, rules, rfl, rfl, hlen,
+    hg.1.1, hg.1.2, hg.2, h⟩
 
 /-- Inversion for `annotate` on projections: either the native basis
 pair rule ran, or the projection was eliminated through a recursor. -/
@@ -345,9 +365,9 @@ theorem annotateCore_WScoped {env : Env} :
     rcases hres with ⟨us, A, B, cv2, -, -, -, rfl⟩ | hel
     · simp only [WScoped]
       exact annotateCore_WScoped fuel e he hw
-    · obtain ⟨T, us, args, projTy, motive, projTy', sTy, u, raw, -, -, -, -,
-        -, hwsb, -, -, hann⟩ := annotateProjElim_inv hel
-      exact annotateCore_WScoped fuel raw hann (WScoped.of_wscopedB hwsb)
+    · obtain ⟨us, pcv, nP, nM, nm, ni, rules, -, -, -,
+        hwsb, -, -, hann⟩ := annotateProjElim_inv hel
+      exact annotateCore_WScoped fuel _ hann (WScoped.of_wscopedB hwsb)
   | fuel + 1, .forallE n ty body m, d, e', h, hw => by
     simp only [WScoped] at hw
     simp only [annotateCore, Bind.bind, Except.bind] at h
@@ -431,9 +451,9 @@ theorem annotateCore_looseBVars {env : Env} :
     rcases hres with ⟨us, A, B, cv2, -, -, -, rfl⟩ | hel
     · simp only [Expr.looseBVarsBounded]
       exact annotateCore_looseBVars fuel e he hb
-    · obtain ⟨T, us, args, projTy, motive, projTy', sTy, u, raw, -, -, -, -,
-        -, -, hrb, -, hann⟩ := annotateProjElim_inv hel
-      exact annotateCore_looseBVars fuel raw hann hrb
+    · obtain ⟨us, pcv, nP, nM, nm, ni, rules, -, -, -,
+        -, hrb, -, hann⟩ := annotateProjElim_inv hel
+      exact annotateCore_looseBVars fuel _ hann hrb
   | fuel + 1, .app f a, d, e', h, hb => by
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
     obtain ⟨f', a', hf, ha, rfl, -⟩ := annotateCore_app_inv h

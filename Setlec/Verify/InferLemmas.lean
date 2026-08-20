@@ -694,24 +694,11 @@ theorem isUnitLikeTy_inv {env : Env} {e : Expr}
       env.find? c = some (.indInfo cvi) ∧
       env.find? (c.str "rec") = some (.recInfo cvr nP nM nm 0 [r]) ∧
       r.nfields = 0 ∧
-      env.find? (((c.str "rec").str "_model")) = none ∧
-      env.find? (c.str "_model") = none := by
+      reservedBasisNames.contains (c.str "rec") = true := by
   match e, h with
   | .const c us, h =>
     simp only [isUnitLikeTy, Bool.and_eq_true] at h
-    obtain ⟨⟨⟨h1, h2⟩, h3⟩, h4⟩ := h
-    have h3' : env.find? (((c.str "rec").str "_model")) = none := by
-      cases hf : env.find? (((c.str "rec").str "_model")) with
-      | none => rfl
-      | some v =>
-        rw [hf] at h3
-        exact nomatch h3
-    have h4' : env.find? (c.str "_model") = none := by
-      cases hf : env.find? (c.str "_model") with
-      | none => rfl
-      | some v =>
-        rw [hf] at h4
-        exact nomatch h4
+    obtain ⟨⟨h1, h2⟩, hres⟩ := h
     revert h1
     match hfc : env.find? c with
     | none => intro h1; exact nomatch h1
@@ -735,7 +722,7 @@ theorem isUnitLikeTy_inv {env : Env} {e : Expr}
     match ni, rules, h2 with
     | 0, [r], h2 =>
       have hr0 : r.nfields = 0 := by simpa using h2
-      exact ⟨c, us, cvi, cvr, nP, nM, nm, r, rfl, hfc, hfr, hr0, h3', h4'⟩
+      exact ⟨c, us, cvi, cvr, nP, nM, nm, r, rfl, hfc, hfr, hr0, hres⟩
     | 0, [], h2 => exact nomatch h2
     | 0, _ :: _ :: _, h2 => exact nomatch h2
     | _ + 1, _, h2 => exact nomatch h2
@@ -868,8 +855,7 @@ theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
       env.find? c' = some (.indInfo cvi) ∧
       env.find? (c'.str "rec") = some (.recInfo cvr nP nM nm 0 [r]) ∧
       r.ctor = c ∧ r.nfields = 2 ∧
-      env.find? (c.str "_model") = none ∧
-      env.find? ((c'.str "rec").str "_model") = none ∧
+      reservedBasisNames.contains (c'.str "rec") = true ∧
       Level.isEquivList us us' = some true ∧
       isDefEqCore env fuel d s₁ (.proj c' 0 b) = .ok true ∧
       isDefEqCore env fuel d s₂ (.proj c' 1 b) = .ok true := by
@@ -1005,15 +991,10 @@ theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   | [r], h => ?_
   dsimp only at h
   by_cases hg : ni = 0 ∧ r.ctor = c ∧ r.nfields = 2 ∧
-      (env.find? (c.str "_model")).isNone = true ∧
-      (env.find? ((c'.str "rec").str "_model")).isNone = true
+      reservedBasisNames.contains (c'.str "rec") = true
   case neg => rw [if_neg hg] at h; exact nomatch h
-  obtain ⟨rfl, hrc, hrf, hg1, hg2⟩ := hg
-  have hg1' : env.find? (c.str "_model") = none :=
-    Option.isNone_iff_eq_none.mp hg1
-  have hg2' : env.find? ((c'.str "rec").str "_model") = none :=
-    Option.isNone_iff_eq_none.mp hg2
-  rw [if_pos ⟨rfl, hrc, hrf, hg1, hg2⟩] at h
+  obtain ⟨rfl, hrc, hrf, hgres⟩ := hg
+  rw [if_pos ⟨rfl, hrc, hrf, hgres⟩] at h
   try simp only [Bind.bind, Except.bind] at h
   cases hlev : Level.isEquivList us us' with
   | none => rw [hlev] at h; simp [liftFueled] at h
@@ -1035,7 +1016,7 @@ theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   | true =>
   simp only [↓reduceIte] at h
   exact ⟨c, us, pα, pβ, s₁, s₂, cvm, tb, c', us', A, B, cvi, cvr,
-    nP, nM, nm, r, rfl, hfc, rfl, hwtb, hfc', hfr, hrc, hrf, hg1', hg2',
+    nP, nM, nm, r, rfl, hfc, rfl, hwtb, hfc', hfr, hrc, hrf, hgres,
     hlev, hd1, h⟩
 
 /-- Inversion of a successful eta certification. -/

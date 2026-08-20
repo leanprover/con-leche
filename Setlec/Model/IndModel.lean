@@ -146,7 +146,7 @@ def IndOk (env : Env) (val : ConstVal V) : Prop :=
   (∀ cv, env.find? punitName = some (.indInfo cv) →
     ∀ (ψ : Name → Nat) (x : V), x ∈ˢ val punitName ψ → x = pt) ∧
   (∀ n ci, env.find? n = some ci → ConstantInfo.isBasis ci = true →
-    env.find? (n.str "_model") = none →
+    reservedBasisNames.contains n = true →
     ci = pinnedInfo n ∧ ∀ ψ : Name → Nat, val n ψ = pinnedVal V n ψ) ∧
   BasisBlocks env ∧
   RecCtorsStored env ∧

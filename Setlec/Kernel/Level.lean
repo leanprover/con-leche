@@ -158,6 +158,13 @@ def Name.isModelSuffix : Name → Bool
   | .str _ "_model" => true
   | _ => false
 
+/-- Is this shaped like an installed projection function's name
+(`(T.proj).i`)?  The shape is reserved for the checker's own
+installs. -/
+def Name.isProjFnShape : Name → Bool
+  | .num (.str _ "proj") _ => true
+  | _ => false
+
 /-- Substitute level parameters throughout an expression (sorts and
 constant level arguments). -/
 def Expr.instantiateLevelParams (ks : List Name) (us : List Level) : Expr → Expr

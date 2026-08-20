@@ -2,6 +2,7 @@ import Setlec.Kernel.Checker
 import Setlec.Model.Annotate
 import Setlec.Model.BasisInstall
 import Setlec.Model.IndInstall
+import Setlec.Model.ProjInstall
 
 /-!
 # Model extension steps
@@ -238,6 +239,7 @@ theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
     (h : checkConstantVal env cv = .ok cv') :
     env.find? cv.name = none ∧
     reservedBasisNames.contains cv.name = false ∧
+    cv.name.isProjFnShape = false ∧
     Name.nodup cv.levelParams = true ∧
     cv.type.looseBVarsBounded 0 = true ∧
     cv.type.hasFvar = false ∧
@@ -257,6 +259,13 @@ theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
     rw [if_pos hres] at h
     exact nomatch h
   simp only [hres] at h
+  by_cases hpshape : cv.name.isProjFnShape = true
+  case pos =>
+    rw [if_pos hpshape] at h
+    exact nomatch h
+  rw [if_neg hpshape] at h
+  have hpshapeF : cv.name.isProjFnShape = false := by
+    revert hpshape; cases cv.name.isProjFnShape <;> simp
   by_cases hnd : Name.nodup cv.levelParams = true
   case neg => simp [hnd] at h
   simp only [hnd] at h
@@ -290,7 +299,7 @@ theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
   have hfind0 : env.find? cv.name = none := by
     revert hfind
     cases env.find? cv.name <;> simp
-  exact ⟨hfind0, by simpa using hres, hnd, hlb, by simpa using hif,
+  exact ⟨hfind0, by simpa using hres, hpshapeF, hnd, hlb, by simpa using hif,
     type, stype, u, rfl, htp, htr, hst, hsort, h.symm⟩
 
 /-- The common model-extension argument, for a new constant `c₀` with an
@@ -500,13 +509,7 @@ theorem extend_model {env : Env} (m : EnvModel V env)
           simp [hval', hne]
         rw [hvagree] at hx
         exact m.ind_ok.right.right.left cv hfp ψ x hx
-    · intro n ci hfp hbasis hguard
-      have hguard' : env.find? (n.str "_model") = none := by
-        rw [Env.find?_cons] at hguard
-        revert hguard
-        split
-        · intro hguard; exact nomatch hguard
-        · intro hguard; exact hguard
+    · intro n ci hfp hbasis hres2
       rw [Env.find?_cons] at hfp
       split at hfp
       · next hn =>
@@ -519,7 +522,7 @@ theorem extend_model {env : Env} (m : EnvModel V env)
           rw [hcontra, hfind'] at hfp
           exact nomatch hfp
         obtain ⟨hpi, hpv⟩ := m.ind_ok.right.right.right.left n ci hfp
-          hbasis hguard'
+          hbasis hres2
         refine ⟨hpi, fun ψ => ?_⟩
         have hvagree : val' n ψ = m.val n ψ := by
           simp [hval', hne]
@@ -570,7 +573,8 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
       ∀ (ψ : Name → Nat) (x : V), x ∈ˢ v₀ ψ → x = pt)
     (hnewempty : ci.name = emptyName →
       ∀ (ψ : Name → Nat) (x : V), x ∈ˢ v₀ ψ → False)
-    (hpin : ci.isBasis = true → env.find? (ci.name.str "_model") = none →
+    (hpin : ci.isBasis = true →
+      reservedBasisNames.contains ci.name = true →
       ci = pinnedInfo ci.name ∧
       ∀ ψ : Name → Nat, v₀ ψ = pinnedVal V ci.name ψ)
     (hsib : SibFinds env ci)
@@ -748,18 +752,12 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
           simp [hval', hne]
         rw [hval'eq] at hx
         exact m.ind_ok.right.right.left cv hfp ψ x hx
-    · intro n ci' hfp hbasis hguard
-      have hguard' : env.find? (n.str "_model") = none := by
-        rw [Env.find?_cons] at hguard
-        revert hguard
-        split
-        · intro hguard; exact nomatch hguard
-        · intro hguard; exact hguard
+    · intro n ci' hfp hbasis hres2
       rw [Env.find?_cons] at hfp
       split at hfp
       · next hn =>
         obtain rfl := Option.some.inj hfp
-        obtain ⟨hpi, hpv⟩ := hpin hbasis (by rw [hn]; exact hguard')
+        obtain ⟨hpi, hpv⟩ := hpin hbasis (by rw [hn]; exact hres2)
         refine ⟨by rw [← hn]; exact hpi, fun ψ => ?_⟩
         have hval'eq : val' n ψ = v₀ ψ := by
           simp [hval', hn.symm]
@@ -770,7 +768,7 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
           rw [hcontra, hfind'] at hfp
           exact nomatch hfp
         obtain ⟨hpi, hpv⟩ := m.ind_ok.right.right.right.left n ci' hfp
-          hbasis hguard'
+          hbasis hres2
         refine ⟨hpi, fun ψ => ?_⟩
         have hval'eq : val' n ψ = m.val n ψ := by
           simp [hval', hne]
@@ -807,29 +805,30 @@ obligations and is handled separately): its value is its `_model`
 counterpart's, and its type interprets identically through the block
 renaming. -/
 theorem extend_modeled_one {env : Env} (m : EnvModel V env)
-    (ci : ConstantInfo) (f : Name → Name) {cvm : ConstantVal} {mval : Expr}
+    (ci : ConstantInfo) (f : Name → Name) (mname : Name)
+    {cvm : ConstantVal} {mval : Expr}
     (hfind' : env.find? ci.name = none)
     (hnres : reservedBasisNames.contains ci.name = false)
     (hwf : ConstWF ⟨ci :: env.consts⟩ ci)
     (htyres0 : ci.toConstantVal.type.constsResolve env = true)
     (hkind : (∃ cv, ci = .indInfo cv) ∨
       (∃ cv nP nF, ci = .ctorInfo cv nP nF) ∨
-      (∃ cv nP nm, ci = .recInfo cv nP 1 nm 0 []))
-    (hmodel : env.find? (ci.name.str "_model") = some (.defnInfo cvm mval))
+      (∃ cv nP nM nm, ci = .recInfo cv nP nM nm 0 []))
+    (hmodel : env.find? mname = some (.defnInfo cvm mval))
     (hlps : cvm.levelParams = ci.toConstantVal.levelParams)
     (hren : ci.toConstantVal.type.renameConsts f = cvm.type)
     (hro : RenameOk m.val env f) :
     ∃ m' : EnvModel V ⟨ci :: env.consts⟩,
-      (∀ ψ, m'.val ci.name ψ = m.val (ci.name.str "_model") ψ) ∧
+      (∀ ψ, m'.val ci.name ψ = m.val mname ψ) ∧
       (∀ n ψ, n ≠ ci.name → m'.val n ψ = m.val n ψ) := by
   have hmm : ConstantInfo.defnInfo cvm mval ∈ env.consts :=
     List.mem_of_find?_eq_some hmodel
   have hkey : ∀ ψ : Name → Nat, ∃ T,
       interpClosed V m.val env ψ ci.toConstantVal.type = some T ∧
-        m.val (ci.name.str "_model") ψ ∈ˢ T := by
+        m.val (mname) ψ ∈ˢ T := by
     intro ψ
     obtain ⟨T, hT, hmem⟩ := m.mem_type _ hmm ψ
-    have hname : cvm.name = ci.name.str "_model" := by
+    have hname : cvm.name = mname := by
       have := List.find?_some hmodel
       simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using this
     refine ⟨T, ?_, by rw [← hname]; exact hmem⟩
@@ -838,11 +837,11 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
       interp_renameConsts hro _ 0 (rho0 V)
     rw [← hri, hren]
     exact hT
-  exact extend_basis_one m ci (fun ψ => m.val (ci.name.str "_model") ψ)
+  exact extend_basis_one m ci (fun ψ => m.val (mname) ψ)
     hfind' hwf htyres0
     (fun cv2 value2 => by
       rcases hkind with ⟨cv', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
-        ⟨cv', nP', nm', rfl⟩ <;> simp)
+        ⟨cv', nP', nM', nm', rfl⟩ <;> simp)
     hkey
     (fun ψ₁ ψ₂ hψ => by
       refine m.val_params _ _ hmodel ψ₁ ψ₂ ?_
@@ -860,10 +859,10 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
     (fun cv nP nF heq hn => absurd (hn ▸ hnres) (by decide))
     (fun cv heq hn => absurd (hn ▸ hnres) (by decide))
     (fun hn => absurd (hn ▸ hnres) (by decide))
-    (fun _ hguard => nomatch (hguard ▸ hmodel))
+    (fun _ hres2 => absurd (hres2 ▸ hnres) (by simp))
     (fun cv nP nM nm ni rules heq => by
       rcases hkind with ⟨cv', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
-        ⟨cv', nP', nm', rfl⟩
+        ⟨cv', nP', nM', nm', rfl⟩
       · exact nomatch heq
       · exact nomatch heq
       · exact ⟨fun hn => absurd hnres (by rw [hn]; decide),
@@ -872,7 +871,7 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
           fun hn => absurd hnres (by rw [hn]; decide)⟩)
     (fun val' _ _ cvR nP nM nm ni rules heq => by
       rcases hkind with ⟨cv', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
-        ⟨cv', nP', nm', rfl⟩
+        ⟨cv', nP', nM', nm', rfl⟩
       · exact nomatch heq
       · exact nomatch heq
       · injection heq with h1 h2 h3 h4 h5 h6
@@ -881,7 +880,7 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
         cases hr)
     (fun cvR nP nM nm ni rules heq => by
       rcases hkind with ⟨cv', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
-        ⟨cv', nP', nm', rfl⟩
+        ⟨cv', nP', nM', nm', rfl⟩
       · exact nomatch heq
       · exact nomatch heq
       · injection heq with h1 h2 h3 h4 h5 h6
@@ -1188,6 +1187,563 @@ theorem checkIotaRules_inv {env' envSelf : Env} {f : Name → Name}
     · -- the pinned equation body
       exact eq_of_beq hsbeq
 
+set_option maxHeartbeats 1600000 in
+/-- Extend a model by an installed projection function: a degenerate
+recursor (no motive, no minors) whose value is its `_model.proj_i`
+counterpart's and whose single rule's fold obligation is discharged by
+the checked `proj_i.iota` theorem (`proj_rule_fold`). -/
+theorem extend_proj_fn {env : Env} (m : EnvModel V env)
+    (cvA : ConstantVal) (nP nF i : Nat) (rule : RecRule)
+    (f : Name → Name) (mnameP : Name)
+    {cvm : ConstantVal} {mval : Expr} {cvj : ConstantVal}
+    (hfind' : env.find? cvA.name = none)
+    (hnres : reservedBasisNames.contains cvA.name = false)
+    (hwf : ConstWF ⟨.recInfo cvA nP 0 0 0 [rule] :: env.consts⟩
+      (.recInfo cvA nP 0 0 0 [rule]))
+    (htyres0 : cvA.type.constsResolve env = true)
+    (hmodel : env.find? mnameP = some (.defnInfo cvm mval))
+    (hlps : cvm.levelParams = cvA.levelParams)
+    (hren : cvA.type.renameConsts f = cvm.type)
+    (f₀ : Name → Name) (hro : RenameOk m.val env f₀)
+    (hff₀ : ∀ n, n ≠ cvA.name → f n = f₀ n)
+    (hfself : f cvA.name = mnameP)
+    (hfnot : ∀ n, f n ≠ cvA.name)
+    (heqfind : env.find? eqName = some eqA)
+    (heqval : ∀ ψ'' : Name → Nat, m.val eqName ψ'' = eqVal V ψ'')
+    (hi : i < nF)
+    (hctor : env.find? (RecRule.ctor rule) = some (.ctorInfo cvj nP nF))
+    (_hnf : rule.nfields = nF)
+    {raw : Expr}
+    (hann : annotate env 0 raw = .ok (RecRule.rhs rule))
+    (hrawf : raw.hasFvar = false)
+    (hrawb : raw.looseBVarsBounded 0 = true)
+    (hrhsf : (RecRule.rhs rule).hasFvar = false)
+    (hrhsb : (RecRule.rhs rule).looseBVarsBounded 0 = true)
+    (hrhsres : (RecRule.rhs rule).constsResolve env = true)
+    {rbinders cbinders sbinders : List (Name × Expr × BinderMeta)}
+    {rbody cbody sbody tySlot : Expr} {ℓA : Level}
+    {thmName : Name} {cvt : ConstantVal} {tval : Expr}
+    (hstripR : (RecRule.rhs rule).stripLams (nP + nF) =
+      some (rbinders, rbody))
+    (hrbody : rbody = .bvar (nF - 1 - i))
+    (hC_strip : cvj.type.stripPis (nP + nF) = some (cbinders, cbody))
+    (hS_strip : cvt.type.stripPis (nP + nF) = some (sbinders, sbody))
+    (hdoms : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta),
+      rbinders[k]? = some b → cbinders[k]? = some b' →
+      b.2.1 = b'.2.1)
+    (hsdoms : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta),
+      sbinders[k]? = some b → cbinders[k]? = some b' →
+      b.2.1 = (b'.2.1).renameConsts f)
+    (hsbody : sbody = Expr.mkAppN (.const eqName [ℓA])
+      [tySlot,
+       Expr.mkAppN (.const (f cvA.name) (cvA.levelParams.map .param))
+        (((List.range nP).map fun k =>
+            Expr.bvar (nP + nF - 1 - k)) ++
+         [Expr.mkAppN (.const (f (RecRule.ctor rule))
+             (cvj.levelParams.map .param))
+           (((List.range nP).map fun k =>
+               Expr.bvar (nP + nF - 1 - k)) ++
+            ((List.range nF).map fun k => Expr.bvar (nF - 1 - k)))]),
+       .bvar (nF - 1 - i)])
+    (hthm : env.find? thmName = some (.thmInfo cvt tval))
+    (_hlpt : cvt.levelParams = cvA.levelParams) :
+    ∃ m' : EnvModel V ⟨.recInfo cvA nP 0 0 0 [rule] :: env.consts⟩,
+      (∀ ψ, m'.val cvA.name ψ = m.val mnameP ψ) ∧
+      (∀ n ψ, n ≠ cvA.name → m'.val n ψ = m.val n ψ) := by
+  -- phase 0: install the rules-free provisional recursor
+  have hisoRes : ∀ n,
+      ((⟨.recInfo cvA nP 0 0 0 [rule] :: env.consts⟩ : Env).find? n).isSome
+      =
+      ((⟨.recInfo cvA nP 0 0 0 [] :: env.consts⟩ : Env).find? n).isSome := by
+    intro n
+    rw [Env.find?_cons, Env.find?_cons]
+    by_cases h : cvA.name = n
+    · rw [if_pos (show (ConstantInfo.recInfo cvA nP 0 0 0
+          [rule]).name = n from h),
+        if_pos (show (ConstantInfo.recInfo cvA nP 0 0 0
+          []).name = n from h)]
+      rfl
+    · rw [if_neg (show ¬(ConstantInfo.recInfo cvA nP 0 0 0
+          [rule]).name = n from h),
+        if_neg (show ¬(ConstantInfo.recInfo cvA nP 0 0 0
+          []).name = n from h)]
+  have hwf₀ : ConstWF (⟨.recInfo cvA nP 0 0 0 [] :: env.consts⟩ : Env)
+      (.recInfo cvA nP 0 0 0 []) := by
+    obtain ⟨h1, h2, h3, h4, -, -⟩ := hwf
+    refine ⟨h1, h2, ?_, h4, ?_, ?_⟩
+    · rw [← Expr.constsResolve_congr hisoRes]
+      exact h3
+    · intro cv2 v2 heq
+      exact nomatch heq
+    · intro cv nP' nM' nm' ni' rules heq
+      injection heq with e1 e2 e3 e4 e5 e6
+      subst e6
+      intro r hr
+      cases hr
+  have hren₀ : cvA.type.renameConsts f₀ = cvm.type := by
+    rw [← Expr.renameConsts_congr_resolve
+      (fun n hn => hff₀ n (fun he => by
+        rw [he, hfind'] at hn; exact nomatch hn))
+      cvA.type htyres0]
+    exact hren
+  obtain ⟨m₀, hval₀, hpres₀⟩ := extend_modeled_one m
+    (.recInfo cvA nP 0 0 0 []) f₀ (mnameP)
+    hfind' hnres hwf₀ htyres0
+    (Or.inr (Or.inr ⟨cvA, nP, 0, 0, rfl⟩)) hmodel hlps hren₀ hro
+  have henv01 : ∀ n,
+      ((⟨.recInfo cvA nP 0 0 0 [] :: env.consts⟩ : Env).find? n).map
+        (fun ci => ci.toConstantVal.levelParams) =
+      ((⟨.recInfo cvA nP 0 0 0 [rule] :: env.consts⟩ : Env).find? n).map
+        (fun ci => ci.toConstantVal.levelParams) := by
+    intro n
+    rw [Env.find?_cons, Env.find?_cons]
+    by_cases h : cvA.name = n
+    · rw [if_pos (show (ConstantInfo.recInfo cvA nP 0 0 0
+          []).name = n from h),
+        if_pos (show (ConstantInfo.recInfo cvA nP 0 0 0
+          [rule]).name = n from h)]
+      rfl
+    · rw [if_neg (show ¬(ConstantInfo.recInfo cvA nP 0 0 0
+          []).name = n from h),
+        if_neg (show ¬(ConstantInfo.recInfo cvA nP 0 0 0
+          [rule]).name = n from h)]
+  -- shared transports between the provisional and final environments
+  have hfindEq : ∀ n, n ≠ cvA.name →
+      (⟨.recInfo cvA nP 0 0 0 [rule] :: env.consts⟩ : Env).find? n =
+      (⟨.recInfo cvA nP 0 0 0 [] :: env.consts⟩ : Env).find? n := by
+    intro n hn
+    rw [Env.find?_cons, Env.find?_cons,
+      if_neg (show ¬(ConstantInfo.recInfo cvA nP 0 0 0 [rule]).name = n
+        from fun h => hn h.symm),
+      if_neg (show ¬(ConstantInfo.recInfo cvA nP 0 0 0 []).name = n
+        from fun h => hn h.symm)]
+  have hitrans : ∀ (e : Expr) (ψ : Name → Nat),
+      interpClosed V m₀.val
+        (⟨.recInfo cvA nP 0 0 0 [rule] :: env.consts⟩ : Env) ψ e =
+      interpClosed V m₀.val
+        (⟨.recInfo cvA nP 0 0 0 [] :: env.consts⟩ : Env) ψ e := by
+    intro e ψ
+    exact (interp_env_ext henv01 e 0 (rho0 V)).symm
+  have hAtrans01 : ∀ (e : Expr) (ψ : Name → Nat) (d : Nat) (ρ : Nat → V),
+      AnnotOk V m₀.val (⟨.recInfo cvA nP 0 0 0 [] :: env.consts⟩ : Env)
+        ψ d ρ e →
+      AnnotOk V m₀.val
+        (⟨.recInfo cvA nP 0 0 0 [rule] :: env.consts⟩ : Env) ψ d ρ e :=
+    fun e ψ d ρ h => AnnotOk.env_ext henv01 e d ρ h
+  have hCWtrans : ∀ c,
+      ConstWF (⟨.recInfo cvA nP 0 0 0 [] :: env.consts⟩ : Env) c →
+      ConstWF (⟨.recInfo cvA nP 0 0 0 [rule] :: env.consts⟩ : Env) c := by
+    intro c hc
+    obtain ⟨h1, h2, h3, h4, h5, h6⟩ := hc
+    refine ⟨h1, h2, ?_, h4, ?_, ?_⟩
+    · rw [Expr.constsResolve_congr hisoRes]
+      exact h3
+    · intro cv2 v2 heq
+      obtain ⟨a, b, cres, dd⟩ := h5 cv2 v2 heq
+      exact ⟨a, b, by rw [Expr.constsResolve_congr hisoRes]; exact cres,
+        dd⟩
+    · intro cv nP' nM' nm' ni' rules heq r hr
+      obtain ⟨a, b, cres, dd⟩ := h6 cv nP' nM' nm' ni' rules heq r hr
+      exact ⟨a, b, by rw [Expr.constsResolve_congr hisoRes]; exact cres,
+        dd⟩
+  -- hoisted: parameter-dependence over the final environment, and
+  -- transports from the base model
+  have hvp₁ : ConstValParams m₀.val
+      (⟨.recInfo cvA nP 0 0 0 [rule] :: env.consts⟩ : Env) := by
+    intro n ci hf ψ₁ ψ₂ hψ
+    rw [Env.find?_cons] at hf
+    split at hf
+    · next hn =>
+      obtain rfl := Option.some.inj hf
+      exact m₀.val_params n (.recInfo cvA nP 0 0 0 [])
+        (by rw [Env.find?_cons,
+          if_pos (show (ConstantInfo.recInfo cvA nP 0 0 0 []).name = n
+            from hn)]) ψ₁ ψ₂ (by exact hψ)
+    · next hn =>
+      refine m₀.val_params n ci ?_ ψ₁ ψ₂ hψ
+      rw [Env.find?_cons,
+        if_neg (show ¬(ConstantInfo.recInfo cvA nP 0 0 0 []).name = n
+          from hn)]
+      exact hf
+  have hagreeM : ∀ n, (env.find? n).isSome = true → ∀ ψ : Name → Nat,
+      m₀.val n ψ = m.val n ψ := by
+    intro n hn ψ
+    refine hpres₀ n ψ ?_
+    intro h
+    have h2 : n = cvA.name := h
+    rw [h2, hfind'] at hn
+    exact nomatch hn
+  have htransM : ∀ (e : Expr), e.constsResolve env = true →
+      ∀ ψ : Name → Nat,
+      interpClosed V m₀.val
+        (⟨.recInfo cvA nP 0 0 0 [rule] :: env.consts⟩ : Env) ψ e =
+      interpClosed V m.val env ψ e := by
+    intro e hres ψ
+    rw [interpClosed_mono (cval := m₀.val) hfind' hres]
+    exact interp_cval_ext hagreeM e 0 (rho0 V)
+  have hAtransM : ∀ (e : Expr), e.constsResolve env = true →
+      ∀ ψ : Name → Nat,
+      AnnotOk V m.val env ψ 0 (rho0 V) e →
+      AnnotOk V m₀.val
+        (⟨.recInfo cvA nP 0 0 0 [rule] :: env.consts⟩ : Env) ψ 0
+        (rho0 V) e := by
+    intro e hres ψ ha
+    refine AnnotOk.mono hfind' e 0 (rho0 V) hres ?_
+    exact AnnotOk.cval_ext (fun n hn ψ' => (hagreeM n hn ψ').symm)
+      e 0 (rho0 V) ha
+  have henv10 : ∀ n,
+      ((⟨.recInfo cvA nP 0 0 0 [rule] :: env.consts⟩ : Env).find? n).map
+        (fun ci => ci.toConstantVal.levelParams) =
+      ((⟨.recInfo cvA nP 0 0 0 [] :: env.consts⟩ : Env).find? n).map
+        (fun ci => ci.toConstantVal.levelParams) :=
+    fun n => (henv01 n).symm
+  refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
+    fun ψ => hval₀ ψ, fun n ψ hne => hpres₀ n ψ hne⟩
+  · -- wf
+    intro c hc
+    rcases List.mem_cons.mp hc with rfl | hc
+    · exact hwf
+    · exact hCWtrans c (m₀.wf c (List.mem_cons_of_mem _ hc))
+  · -- val_params
+    intro n ci hf ψ₁ ψ₂ hψ
+    rw [Env.find?_cons] at hf
+    split at hf
+    · next hn =>
+      obtain rfl := Option.some.inj hf
+      exact m₀.val_params n (.recInfo cvA nP 0 0 0 [])
+        (by rw [Env.find?_cons,
+          if_pos (show (ConstantInfo.recInfo cvA nP 0 0 0 []).name = n
+            from hn)]) ψ₁ ψ₂ (by exact hψ)
+    · next hn =>
+      refine m₀.val_params n ci ?_ ψ₁ ψ₂ hψ
+      rw [Env.find?_cons,
+        if_neg (show ¬(ConstantInfo.recInfo cvA nP 0 0 0 []).name = n
+          from hn)]
+      exact hf
+  · -- mem_type
+    intro c hc ψ
+    rcases List.mem_cons.mp hc with rfl | hc
+    · obtain ⟨t, ht, hmem⟩ := m₀.mem_type (.recInfo cvA nP 0 0 0 [])
+        List.mem_cons_self ψ
+      exact ⟨t, by rw [hitrans]; exact ht, hmem⟩
+    · obtain ⟨t, ht, hmem⟩ := m₀.mem_type c (List.mem_cons_of_mem _ hc) ψ
+      exact ⟨t, by rw [hitrans]; exact ht, hmem⟩
+  · -- defn_eq
+    intro cv2 v2 hmem2 ψ
+    rcases List.mem_cons.mp hmem2 with heq | hmem2
+    · exact nomatch heq
+    · have h := m₀.defn_eq cv2 v2 (List.mem_cons_of_mem _ hmem2) ψ
+      rw [hitrans]
+      exact h
+  · -- annot_ok
+    intro c hc ψ
+    rcases List.mem_cons.mp hc with rfl | hc
+    · obtain ⟨hA1, hA2⟩ := m₀.annot_ok (.recInfo cvA nP 0 0 0 [])
+        List.mem_cons_self ψ
+      exact ⟨hAtrans01 _ ψ 0 (rho0 V) hA1,
+        fun cv2 v2 heq => nomatch heq⟩
+    · obtain ⟨hA1, hA2⟩ := m₀.annot_ok c (List.mem_cons_of_mem _ hc) ψ
+      exact ⟨hAtrans01 _ ψ 0 (rho0 V) hA1,
+        fun cv2 v2 heq => hAtrans01 _ ψ 0 (rho0 V) (hA2 cv2 v2 heq)⟩
+  · -- ind_ok
+    have hneName : ∀ x : Name, reservedBasisNames.contains x = true →
+        x ≠ cvA.name := by
+      intro x hx h
+      rw [h] at hx
+      rw [hx] at hnres
+      exact nomatch hnres
+    obtain ⟨i1, i2, i3, i4, i5, i6, i7⟩ := m₀.ind_ok
+    refine ⟨?_, ?_, ?_, ?_, ?_, ?_, i7⟩
+    · intro cv hfp
+      rw [hfindEq _ (hneName _ (by decide))] at hfp
+      exact i1 cv hfp
+    · intro cv nP' nF' hfp
+      rw [hfindEq _ (hneName _ (by decide))] at hfp
+      exact i2 cv nP' nF' hfp
+    · intro cv hfp
+      rw [hfindEq _ (hneName _ (by decide))] at hfp
+      exact i3 cv hfp
+    · -- decl_ok
+      intro n ci hfp hbasis hres2
+      by_cases hn : cvA.name = n
+      · exfalso
+        subst hn
+        rw [hnres] at hres2
+        exact nomatch hres2
+      · have hfp₀ : (⟨.recInfo cvA nP 0 0 0 [] ::
+            env.consts⟩ : Env).find? n = some ci := by
+          rw [← hfindEq n (fun h => hn h.symm)]
+          exact hfp
+        exact i4 n ci hfp₀ hbasis hres2
+    · -- BasisBlocks
+      obtain ⟨b1, b2, b3, b4⟩ := i5
+      refine ⟨?_, ?_, ?_, ?_⟩
+      · intro cv nP' nM' nm' ni' rules hfp
+        rw [hfindEq _ (hneName _ (by decide))] at hfp
+        obtain ⟨f1, f2⟩ := b1 cv nP' nM' nm' ni' rules hfp
+        exact ⟨by rw [hfindEq _ (hneName _ (by decide))]; exact f1,
+          by rw [hfindEq _ (hneName _ (by decide))]; exact f2⟩
+      · intro cv nP' nM' nm' ni' rules hfp
+        rw [hfindEq _ (hneName _ (by decide))] at hfp
+        obtain ⟨f1, f2, f3⟩ := b2 cv nP' nM' nm' ni' rules hfp
+        exact ⟨by rw [hfindEq _ (hneName _ (by decide))]; exact f1,
+          by rw [hfindEq _ (hneName _ (by decide))]; exact f2,
+          by rw [hfindEq _ (hneName _ (by decide))]; exact f3⟩
+      · intro cv nP' nM' nm' ni' rules hfp
+        rw [hfindEq _ (hneName _ (by decide))] at hfp
+        obtain ⟨f1, f2⟩ := b3 cv nP' nM' nm' ni' rules hfp
+        exact ⟨by rw [hfindEq _ (hneName _ (by decide))]; exact f1,
+          by rw [hfindEq _ (hneName _ (by decide))]; exact f2⟩
+      · intro cv nP' nM' nm' ni' rules hfp
+        rw [hfindEq _ (hneName _ (by decide))] at hfp
+        obtain ⟨f1, f2⟩ := b4 cv nP' nM' nm' ni' rules hfp
+        exact ⟨by rw [hfindEq _ (hneName _ (by decide))]; exact f1,
+          by rw [hfindEq _ (hneName _ (by decide))]; exact f2⟩
+    · -- RecCtorsStored
+      intro n cv nP' nM' nm' ni' rules hfp r hr
+      by_cases hn : cvA.name = n
+      · subst hn
+        rw [Env.find?_cons,
+          if_pos (show (ConstantInfo.recInfo cvA nP 0 0 0
+            [rule]).name = cvA.name from rfl)] at hfp
+        obtain heq := Option.some.inj hfp
+        injection heq with e1 e2 e3 e4 e5 e6
+        subst e6
+        obtain rfl : rule = r := by
+          rcases List.mem_cons.mp hr with h | h
+          · exact h.symm
+          · cases h
+        refine ⟨cvj, nP, nF, ?_⟩
+        rw [Env.find?_cons,
+          if_neg (show ¬(ConstantInfo.recInfo cvA nP 0 0 0
+            [rule]).name = RecRule.ctor rule from ?_)]
+        · exact hctor
+        · intro h
+          have h2 := find?_none_ne hfind' _ (find?_mem hctor)
+          have h3 : (ConstantInfo.ctorInfo cvj nP nF).name =
+              RecRule.ctor rule := by
+            have h4 := List.find?_some hctor
+            simpa using h4
+          exact h2 (by rw [h3, ← h]; rfl)
+      · have hfp₀ : (⟨.recInfo cvA nP 0 0 0 [] ::
+            env.consts⟩ : Env).find? n =
+            some (.recInfo cv nP' nM' nm' ni' rules) := by
+          rw [← hfindEq n (fun h => hn h.symm)]
+          exact hfp
+        obtain ⟨cvj, cnP', cnF', hc⟩ := i6 n cv nP' nM' nm' ni' rules
+          hfp₀ r hr
+        refine ⟨cvj, cnP', cnF', ?_⟩
+        have hnc : RecRule.ctor r ≠ cvA.name := by
+          intro h
+          rw [Env.find?_cons,
+            if_pos (show (ConstantInfo.recInfo cvA nP 0 0 0
+              []).name = RecRule.ctor r from h.symm)] at hc
+          exact nomatch (Option.some.inj hc)
+        rw [hfindEq _ hnc]
+        exact hc
+  · -- rec_rules
+    intro n cvR nP' nM' nm' ni' rules hfp r hr
+    rw [Env.find?_cons] at hfp
+    split at hfp
+    · next hn =>
+      obtain rfl : cvA.name = n := hn
+      obtain hceq := Option.some.inj hfp
+      injection hceq with e1 e2 e3 e4 e5 e6
+      subst e1 e2 e3 e4 e5 e6
+      obtain rfl : rule = r := by
+        rcases List.mem_cons.mp hr with h | h
+        · exact h.symm
+        · cases h
+      have hncc : RecRule.ctor rule ≠ cvA.name := by
+        intro h
+        have h2 := find?_none_ne hfind' _ (find?_mem hctor)
+        have h3 : (ConstantInfo.ctorInfo cvj nP nF).name =
+            RecRule.ctor rule := by
+          have h4 := List.find?_some hctor
+          simpa using h4
+        exact h2 (by rw [h3, h])
+      have hArhs₁ : ∀ ψ : Name → Nat,
+          AnnotOk V m₀.val
+            (⟨.recInfo cvA nP 0 0 0 [rule] :: env.consts⟩ : Env) ψ 0
+            (rho0 V) (RecRule.rhs rule) := by
+        intro ψ
+        exact hAtransM _ hrhsres ψ
+          (annotate_sound m raw hann (WScoped.of_not_hasFvar hrawf)
+            hrawb (Expr.LeavesBounded.of_not_hasFvar hrawf) (rho0 V)
+            (FvarsOk.of_not_hasFvar hrawf))
+      refine ⟨hArhs₁, ?_⟩
+      intro cvj' cnP' cnF' hfj ψ ψj args margs tv hl hml hch hmch htv
+        hpeq hlev hfit
+      have hctor₁ : (⟨.recInfo cvA nP 0 0 0 [rule] ::
+          env.consts⟩ : Env).find? (RecRule.ctor rule) =
+          some (.ctorInfo cvj nP nF) := by
+        rw [Env.find?_cons,
+          if_neg (show ¬(ConstantInfo.recInfo cvA nP 0 0 0
+            [rule]).name = RecRule.ctor rule from fun h => hncc h.symm)]
+        exact hctor
+      rw [hctor₁] at hfj
+      obtain hje := Option.some.inj hfj
+      injection hje with j1 j2 j3
+      subst j1 j2 j3
+      obtain ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
+        hψeq, hψjeq, hfit1, hfit2⟩ := hfit
+      subst hψeq hψjeq
+      have hro₁ : RenameOk m₀.val
+          (⟨.recInfo cvA nP 0 0 0 [rule] :: env.consts⟩ : Env) f := by
+        refine ⟨?_, ?_, ?_⟩
+        · intro n₂ ci₂ hf₂
+          rw [Env.find?_cons] at hf₂
+          split at hf₂
+          · next hh =>
+            obtain rfl := Option.some.inj hf₂
+            refine ⟨.defnInfo cvm mval, ?_, ?_⟩
+            · rw [show f n₂ = mnameP from by
+                rw [← (show cvA.name = n₂ from hh)]
+                exact hfself]
+              rw [Env.find?_cons,
+                if_neg (show ¬(ConstantInfo.recInfo cvA nP 0 0 0
+                  [rule]).name = mnameP from
+                  fun h => hfnot cvA.name (hfself.trans h.symm))]
+              exact hmodel
+            · show cvm.levelParams = _
+              rw [hlps]
+              exact (show cvA.levelParams =
+                (ConstantInfo.recInfo cvA nP 0 0 0
+                  [rule]).toConstantVal.levelParams from rfl)
+          · next hh =>
+            obtain ⟨ci₃, hf₃, hlp₃⟩ := hro.1 n₂ ci₂ hf₂
+            refine ⟨ci₃, ?_, hlp₃⟩
+            rw [hff₀ n₂ (fun he => hh he.symm), Env.find?_cons,
+              if_neg (show ¬(ConstantInfo.recInfo cvA nP 0 0 0
+                [rule]).name = f₀ n₂ from fun h => hfnot n₂
+                  (by rw [hff₀ n₂ (fun he => hh he.symm)]; exact h.symm))]
+            exact hf₃
+        · intro n₂ hf₂
+          rw [Env.find?_cons] at hf₂
+          split at hf₂
+          · exact nomatch hf₂
+          · next hh =>
+            rw [hff₀ n₂ (fun he => hh he.symm), Env.find?_cons,
+              if_neg (show ¬(ConstantInfo.recInfo cvA nP 0 0 0
+                [rule]).name = f₀ n₂ from fun h => hfnot n₂
+                  (by rw [hff₀ n₂ (fun he => hh he.symm)]; exact h.symm))]
+            exact hro.2.1 n₂ hf₂
+        · intro n₂ ψ₂
+          by_cases hh : n₂ = cvA.name
+          · subst hh
+            rw [show f cvA.name = mnameP from hfself]
+            rw [hpres₀ _ ψ₂
+              (fun h => hfnot cvA.name (hfself.trans h))]
+            exact (hval₀ ψ₂).symm
+          · by_cases hh₂ : f n₂ = cvA.name
+            · exact absurd hh₂ (hfnot n₂)
+            · rw [hpres₀ _ ψ₂ hh₂, hpres₀ _ ψ₂ hh, hff₀ n₂ hh,
+                hro.2.2 n₂]
+      have hfRm₁ : (⟨.recInfo cvA nP 0 0 0 [rule] ::
+          env.consts⟩ : Env).find? (f cvA.name) =
+          some (.defnInfo cvm mval) := by
+        rw [hfself, Env.find?_cons,
+          if_neg (show ¬(ConstantInfo.recInfo cvA nP 0 0 0
+            [rule]).name = mnameP from
+            fun h => hfnot cvA.name (hfself.trans h.symm))]
+        exact hmodel
+      have heqne : eqName ≠ cvA.name := by
+        intro h
+        rw [← h] at hnres
+        exact absurd hnres (by decide)
+      have heqfind₁ : (⟨.recInfo cvA nP 0 0 0 [rule] ::
+          env.consts⟩ : Env).find? eqName = some eqA := by
+        rw [Env.find?_cons,
+          if_neg (show ¬(ConstantInfo.recInfo cvA nP 0 0 0
+            [rule]).name = eqName from fun h => heqne h.symm)]
+        exact heqfind
+      have heqval₁ : ∀ ψ'' : Name → Nat, m₀.val eqName ψ'' = eqVal V ψ'' :=
+        fun ψ'' => by
+          rw [hagreeM eqName (by rw [heqfind]; rfl) ψ'', heqval ψ'']
+      obtain ⟨hthw, -, hthres, -, -, -⟩ := m.wf _ (find?_mem hthm)
+      have hthmne : thmName ≠ cvA.name := by
+        intro h
+        have h2 := find?_none_ne hfind' _ (find?_mem hthm)
+        have h3 : (ConstantInfo.thmInfo cvt tval).name = thmName := by
+          have h4 := List.find?_some hthm
+          simpa using h4
+        exact h2 (by rw [h3, h])
+      have hthm_mem₁ : ∀ ψ'' : Name → Nat, ∃ P,
+          interpClosed V m₀.val
+            (⟨.recInfo cvA nP 0 0 0 [rule] :: env.consts⟩ : Env) ψ''
+            cvt.type = some P ∧
+          m₀.val thmName ψ'' ∈ˢ P := by
+        intro ψ''
+        obtain ⟨P, hP, hmem⟩ := m.mem_type _ (find?_mem hthm) ψ''
+        have h3 : (ConstantInfo.thmInfo cvt tval).name = thmName := by
+          simpa using List.find?_some hthm
+        refine ⟨P, ?_, ?_⟩
+        · rw [htransM cvt.type hthres ψ'']
+          exact hP
+        · rw [← h3, hagreeM _ (by rw [h3, hthm]; rfl) ψ'']
+          exact hmem
+      have hthm_annot₁ : ∀ ψ'' : Name → Nat,
+          AnnotOk V m₀.val
+            (⟨.recInfo cvA nP 0 0 0 [rule] :: env.consts⟩ : Env) ψ'' 0
+            (rho0 V) cvt.type := by
+        intro ψ''
+        obtain ⟨hA1, -⟩ := m.annot_ok _ (find?_mem hthm) ψ''
+        exact hAtransM cvt.type hthres ψ'' hA1
+      obtain ⟨hCtf, hCtp, -, -, -, -⟩ := m.wf _ (find?_mem hctor)
+      have htyw₁ : cvA.type.hasFvar = false := hwf.1
+      have hClps₁ : ∀ ψ₁ ψ₂ : Name → Nat,
+          (∀ p ∈ cvj.levelParams, ψ₁ p = ψ₂ p) →
+          m₀.val (RecRule.ctor rule) ψ₁ = m₀.val (RecRule.ctor rule) ψ₂ :=
+        fun ψ₁ ψ₂ hψ => hvp₁ _ _ hctor₁ ψ₁ ψ₂ (by exact hψ)
+      have hl' : args.length = nP := by simpa using hl
+      have hml' : margs.length = nP + nF := by simpa using hml
+      have hout := proj_rule_fold (P := cvA.name) (i := i)
+        hro₁ hvp₁ hi hctor₁ hfRm₁
+        (show (ConstantInfo.defnInfo cvm
+          mval).toConstantVal.levelParams = cvA.levelParams from hlps)
+        hClps₁ heqfind₁ heqval₁ hthm_mem₁ hthm_annot₁ hthw hstripR
+        hrbody hC_strip hS_strip hsdoms hdoms hsbody hrhsf
+        hrhsb hArhs₁ hCtf
+        (show cvj.type.allLevelParamsDefined cvj.levelParams = true from
+          hCtp)
+        hl' hml' htv hpeq hlev hfit2
+      obtain ⟨Rv, hRi, hfoldEq, hslots⟩ := hout
+      exact ⟨Rv, hRi, by simpa using hfoldEq, by simpa using hslots⟩
+    · next hn =>
+      have hfp₀ : (⟨.recInfo cvA nP 0 0 0 [] ::
+          env.consts⟩ : Env).find? n =
+          some (.recInfo cvR nP' nM' nm' ni' rules) := by
+        rw [Env.find?_cons,
+          if_neg (show ¬(ConstantInfo.recInfo cvA nP 0 0 0
+            []).name = n from hn)]
+        exact hfp
+      obtain ⟨hA, hfold⟩ := m₀.rec_rules n cvR nP' nM' nm' ni' rules
+        hfp₀ r hr
+      refine ⟨fun ψ => hAtrans01 _ ψ 0 (rho0 V) (hA ψ), ?_⟩
+      intro cvj' cnP' cnF' hfj ψ ψj args margs tv hl hml hch hmch htv
+        hpeq hlev hfit
+      have hncc : RecRule.ctor r ≠ cvA.name := by
+        intro h
+        rw [h, Env.find?_cons,
+          if_pos (show (ConstantInfo.recInfo cvA nP 0 0 0
+            [rule]).name = cvA.name from rfl)] at hfj
+        exact nomatch (Option.some.inj hfj)
+      have hfj₀ : (⟨.recInfo cvA nP 0 0 0 [] ::
+          env.consts⟩ : Env).find? (RecRule.ctor r) =
+          some (.ctorInfo cvj' cnP' cnF') := by
+        rw [← hfindEq _ hncc]
+        exact hfj
+      obtain ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
+        hψeq, hψjeq, hfit1, hfit2⟩ := hfit
+      obtain ⟨R', hRi, hfoldEq, hRch⟩ := hfold cvj' cnP' cnF' hfj₀ ψ ψj
+        args margs tv hl hml hch hmch htv hpeq hlev
+        ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
+          hψeq, hψjeq, TeleFit.env_levelext henv10 hfit1,
+          TeleFit.env_levelext henv10 hfit2⟩
+      refine ⟨R', ?_, hfoldEq, hRch⟩
+      rw [hitrans]
+      exact hRi
+
 /-- Invert a successful `checkIndMember` run. -/
 theorem checkIndMember_inv {blockNames : List Name} {env' env₁ : Env}
     {ci : ConstantInfo}
@@ -1207,7 +1763,6 @@ theorem checkIndMember_inv {blockNames : List Name} {env' env₁ : Env}
          blockNames.all (fun n =>
            n == cvA.name || (env'.find? n).isSome) = true ∧
          env'.find? eqName = some eqA ∧
-         env'.find? (eqName.str "_model") = none ∧
          checkIotaRules env' ⟨.recInfo cvA nP 1 nm 0 [] :: env'.consts⟩
            (fun n => if blockNames.contains n then n.str "_model" else n)
            cvA.name cvA.levelParams cvA.type nP 1 nm 0 rules = .ok rules' ∧
@@ -1278,12 +1833,6 @@ theorem checkIndMember_inv {blockNames : List Name} {env' env₁ : Env}
     case neg => rw [if_neg heqf] at h; exact nomatch h
     rw [if_pos heqf] at h
     try dsimp only at h
-    by_cases heqm : (env'.find? (eqName.str "_model")).isNone = true
-    case neg => rw [if_neg heqm] at h; exact nomatch h
-    rw [if_pos heqm] at h
-    have heqm' : env'.find? (eqName.str "_model") = none := by
-      revert heqm
-      cases env'.find? (eqName.str "_model") <;> simp
     try dsimp only at h
     cases hcir : checkIotaRules env'
         ⟨.recInfo cvA nP 1 nm 0 [] :: env'.consts⟩
@@ -1293,7 +1842,7 @@ theorem checkIndMember_inv {blockNames : List Name} {env' env₁ : Env}
     | ok rules' =>
     rw [hcir] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
-    exact ⟨cv, nP, nm, rules, rules', rfl, hall, heqf, heqm', hcir, h.symm⟩
+    exact ⟨cv, nP, nm, rules, rules', rfl, hall, heqf, hcir, h.symm⟩
 
 
 /-- Extend a model by an opaque modeled *recursor*: its value is its
@@ -1362,8 +1911,9 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
       cvA.type htyres0]
     exact hren
   obtain ⟨m₀, hval₀, hpres₀⟩ := extend_modeled_one m
-    (.recInfo cvA nP 1 nm 0 []) f₀ hfind' hnres hwf₀ htyres0
-    (Or.inr (Or.inr ⟨cvA, nP, nm, rfl⟩)) hmodel hlps hren₀ hro
+    (.recInfo cvA nP 1 nm 0 []) f₀ (cvA.name.str "_model")
+    hfind' hnres hwf₀ htyres0
+    (Or.inr (Or.inr ⟨cvA, nP, 1, nm, rfl⟩)) hmodel hlps hren₀ hro
   have henv01 : ∀ n,
       ((⟨.recInfo cvA nP 1 nm 0 [] :: env.consts⟩ : Env).find? n).map
         (fun ci => ci.toConstantVal.levelParams) =
@@ -1538,30 +2088,17 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
       rw [hfindEq _ (hneName _ (by decide))] at hfp
       exact i3 cv hfp
     · -- decl_ok
-      intro n ci hfp hbasis hguard
+      intro n ci hfp hbasis hres2
       by_cases hn : cvA.name = n
       · exfalso
         subst hn
-        rw [Env.find?_cons,
-          if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0
-            rules').name = cvA.name.str "_model" from
-            fun h => Name.str_ne cvA.name "_model" h.symm)] at hguard
-        rw [hguard] at hmodel
-        exact nomatch hmodel
+        rw [hnres] at hres2
+        exact nomatch hres2
       · have hfp₀ : (⟨.recInfo cvA nP 1 nm 0 [] ::
             env.consts⟩ : Env).find? n = some ci := by
           rw [← hfindEq n (fun h => hn h.symm)]
           exact hfp
-        have hguard₀ : (⟨.recInfo cvA nP 1 nm 0 [] ::
-            env.consts⟩ : Env).find? (n.str "_model") = none := by
-          rw [Env.find?_cons] at hguard ⊢
-          split at hguard
-          · exact nomatch hguard
-          · next hh =>
-            rw [if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0
-              []).name = n.str "_model" from hh)]
-            exact hguard
-        exact i4 n ci hfp₀ hbasis hguard₀
+        exact i4 n ci hfp₀ hbasis hres2
     · -- BasisBlocks
       obtain ⟨b1, b2, b3, b4⟩ := i5
       refine ⟨?_, ?_, ?_, ?_⟩
@@ -1889,8 +2426,8 @@ theorem checkIndMember_sound {blockNames : List Name} {env' env₁ : Env}
     ∃ m₁ : EnvModel V env₁, BlockInstalled blockNames env₁ m₁.val := by
   obtain ⟨cvA, cvm, mval, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
     checkIndMember_inv h
-  obtain ⟨hfind0, hnres0, hnd, hlb, hfv, tyA, stype, u, hann, hlp, hres,
-    hst, hsort, hcvA⟩ := checkConstantVal_inv hccv
+  obtain ⟨hfind0, hnres0, hpshape0, hnd, hlb, hfv, tyA, stype, u, hann,
+    hlp, hres, hst, hsort, hcvA⟩ := checkConstantVal_inv hccv
   have hnameA : cvA.name = ci.name := by rw [hcvA]; rfl
   have hlpsA : cvA.levelParams = ci.toConstantVal.levelParams := by
     rw [hcvA]
@@ -1956,14 +2493,14 @@ theorem checkIndMember_sound {blockNames : List Name} {env' env₁ : Env}
     rw [← htypeA]
     exact hrenf
   rcases hkind with ⟨⟨cv, rfl⟩, rfl⟩ | ⟨cv, nP, nF, rfl, rfl⟩ |
-    ⟨cv, nP, nm, rules, rules', rfl, hall, heqf, heqm, hcir, rfl⟩
+    ⟨cv, nP, nm, rules, rules', rfl, hall, heqf, hcir, rfl⟩
   · -- inductive type former
     have hwf : ConstWF ⟨.indInfo cvA :: env'.consts⟩ (.indInfo cvA) := by
       refine ⟨htyf, htlp, Expr.constsResolve_mono htres, htyb, ?_, ?_⟩
       · intro cv2 v2 heq; exact nomatch heq
       · intro cv2 nP' nM' nm' ni' rules heq; exact nomatch heq
     obtain ⟨m₁, hval₁, hpres₁⟩ := extend_modeled_one m
-      (.indInfo cvA) fS hfind' hnres hwf htres
+      (.indInfo cvA) fS (cvA.name.str "_model") hfind' hnres hwf htres
       (Or.inl ⟨_, rfl⟩) hfm hlps hrenS hroS
     exact ⟨m₁, BlockInstalled.step hI hms hfm hlps hval₁ hpres₁⟩
   · -- constructor
@@ -1973,7 +2510,8 @@ theorem checkIndMember_sound {blockNames : List Name} {env' env₁ : Env}
       · intro cv2 v2 heq; exact nomatch heq
       · intro cv2 nP' nM' nm' ni' rules heq; exact nomatch heq
     obtain ⟨m₁, hval₁, hpres₁⟩ := extend_modeled_one m
-      (.ctorInfo cvA nP nF) fS hfind' hnres hwf htres
+      (.ctorInfo cvA nP nF) fS (cvA.name.str "_model")
+      hfind' hnres hwf htres
       (Or.inr (Or.inl ⟨_, _, _, rfl⟩)) hfm hlps hrenS hroS
     exact ⟨m₁, BlockInstalled.step hI hms hfm hlps hval₁ hpres₁⟩
   · -- recursor
@@ -2010,7 +2548,8 @@ theorem checkIndMember_sound {blockNames : List Name} {env' env₁ : Env}
         rw [if_neg hnc]
     have heqval : ∀ ψ'' : Name → Nat, m.val eqName ψ'' = eqVal V ψ'' := by
       intro ψ''
-      obtain ⟨-, hpv⟩ := m.ind_ok.2.2.2.1 eqName eqA heqf (by rfl) heqm
+      obtain ⟨-, hpv⟩ :=
+        m.ind_ok.2.2.2.1 eqName eqA heqf (by rfl) (by decide)
       rw [hpv ψ'']
       simp [pinnedVal]
     have hwf : ConstWF ⟨.recInfo cvA nP 1 nm 0 rules' :: env'.consts⟩
@@ -2084,16 +2623,17 @@ theorem checkIndMember_fold_names {blockNames : List Name} :
       · exact nomatch hnone₁
       · exact hnone₁
 
-/-- The fold of `checkIndDecl` preserves having a model. -/
+/-- The fold of `checkIndDecl` preserves having a model together with
+the block-install invariant. -/
 theorem checkIndFold_sound {blockNames : List Name} :
     ∀ (rest : List ConstantInfo) (env' env₂ : Env),
     (∀ ci ∈ rest, blockNames.contains ci.name = true) →
     rest.foldlM (checkIndMember blockNames) env' = .ok env₂ →
     ∀ m : EnvModel V env', BlockInstalled blockNames env' m.val →
-    Nonempty (EnvModel V env₂)
+    ∃ m₂ : EnvModel V env₂, BlockInstalled blockNames env₂ m₂.val
   | [], env', env₂, hns, h, m, hI => by
     simp only [List.foldlM_nil, pure, Except.pure, Except.ok.injEq] at h
-    exact h ▸ ⟨m⟩
+    exact h ▸ ⟨m, hI⟩
   | ci :: rest, env', env₂, hns, h, m, hI => by
     rw [List.foldlM_cons] at h
     simp only [Bind.bind, Except.bind] at h
@@ -2106,19 +2646,795 @@ theorem checkIndFold_sound {blockNames : List Name} :
     exact checkIndFold_sound rest env₁ env₂
       (fun ci' hci' => hns ci' (by simp [hci'])) h m₁ hI₁
 
+omit [SetTheory V] in
+/-- Numeric names are never `str`-shaped. -/
+theorem Name.num_ne_str (p : Name) (k : Nat) (q : Name) (s : String) :
+    Name.num p k ≠ Name.str q s := fun h => nomatch h
+
+omit [SetTheory V] in
+/-- Reserved basis names are all `str`-shaped. -/
+theorem reservedBasisNames_not_num (p : Name) (k : Nat) :
+    reservedBasisNames.contains (Name.num p k) = false := rfl
+
+/-- Invert stage 1 of `checkProjFn` (the stored-constant lookups). -/
+theorem checkProjLookups_inv {env' : Env} {T ctorName : Name}
+    {lps : List Name} {nP nF i : Nat} {cvj mcv : ConstantVal}
+    (h : checkProjLookups env' T ctorName lps nP nF i = .ok (cvj, mcv)) :
+    ∃ mval,
+      env'.find? ctorName = some (.ctorInfo cvj nP nF) ∧
+      env'.find? (projModelName T i) = some (.defnInfo mcv mval) ∧
+      mcv.levelParams = lps ∧
+      env'.find? (projFnName T i) = none ∧
+      (env'.find? T).isSome = true ∧
+      env'.find? eqName = some eqA := by
+  simp only [checkProjLookups, Bind.bind, Except.bind] at h
+  revert h
+  match hctor : env'.find? ctorName with
+  | none => intro h; exact nomatch h
+  | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.defnInfo _ _) => intro h; exact nomatch h
+  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.indInfo _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.ctorInfo cvj' cnP cnF) => ?_
+  intro h
+  dsimp only at h
+  by_cases hpp : cnP = nP ∧ cnF = nF
+  case neg => rw [if_neg hpp] at h; exact nomatch h
+  rw [if_pos hpp] at h
+  obtain ⟨rfl, rfl⟩ := hpp
+  try dsimp only at h
+  revert h
+  match hfm : env'.find? (projModelName T i) with
+  | none => intro h; exact nomatch h
+  | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.indInfo _) => intro h; exact nomatch h
+  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.defnInfo mcv' mval) => ?_
+  intro h
+  dsimp only at h
+  by_cases hmlps : mcv'.levelParams = lps
+  case neg => rw [if_neg hmlps] at h; exact nomatch h
+  rw [if_pos hmlps] at h
+  try dsimp only at h
+  by_cases hpn : (env'.find? (projFnName T i)).isNone = true
+  case neg => rw [if_neg hpn] at h; exact nomatch h
+  rw [if_pos hpn] at h
+  have hpnone : env'.find? (projFnName T i) = none := by
+    revert hpn
+    cases env'.find? (projFnName T i) <;> simp
+  try dsimp only at h
+  by_cases hTf : (env'.find? T).isSome = true
+  case neg => rw [if_neg hTf] at h; exact nomatch h
+  rw [if_pos hTf] at h
+  try dsimp only at h
+  by_cases heqf : env'.find? eqName = some eqA
+  case neg => rw [if_neg heqf] at h; exact nomatch h
+  rw [if_pos heqf] at h
+  simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+  obtain ⟨rfl, rfl⟩ := h
+  exact ⟨mval, rfl, rfl, hmlps, hpnone, hTf, heqf⟩
+
+/-- Invert stage 2 of `checkProjFn` (the public projection type). -/
+theorem checkProjTy_inv {env' : Env} {T ctorName : Name} {lps : List Name}
+    {mty pty : Expr} {nP nF : Nat}
+    (h : checkProjTy env' T ctorName lps mty nP nF = .ok pty) :
+    pty = mty.renameConsts (projBack T ctorName nF) ∧
+    pty.renameConsts (projFwd T ctorName nF) = mty ∧
+    pty.constsResolve env' = true ∧
+    pty.looseBVarsBounded 0 = true ∧
+    pty.hasFvar = false ∧
+    pty.allLevelParamsDefined lps = true := by
+  simp only [checkProjTy, Bind.bind, Except.bind] at h
+  by_cases hround : ((mty.renameConsts (projBack T ctorName nF)).renameConsts
+      (projFwd T ctorName nF) == mty) = true
+  case neg => rw [if_neg hround] at h; exact nomatch h
+  rw [if_pos hround] at h
+  try dsimp only at h
+  by_cases hres : (mty.renameConsts (projBack T ctorName nF)).constsResolve
+      env' = true
+  case neg => rw [if_neg hres] at h; exact nomatch h
+  rw [if_pos hres] at h
+  try dsimp only at h
+  by_cases hwf3 : ((mty.renameConsts
+        (projBack T ctorName nF)).looseBVarsBounded 0 &&
+      !(mty.renameConsts (projBack T ctorName nF)).hasFvar &&
+      (mty.renameConsts (projBack T ctorName nF)).allLevelParamsDefined
+        lps) = true
+  case neg => rw [if_neg hwf3] at h; exact nomatch h
+  rw [if_pos hwf3] at h
+  simp only [Bool.and_eq_true] at hwf3
+  obtain ⟨⟨hptyb, hptyf'⟩, hptylp⟩ := hwf3
+  have hptyf : (mty.renameConsts (projBack T ctorName nF)).hasFvar
+      = false := by
+    revert hptyf'
+    cases (mty.renameConsts (projBack T ctorName nF)).hasFvar <;> simp
+  try dsimp only at h
+  by_cases hpis : ((mty.renameConsts
+      (projBack T ctorName nF)).stripPis (nP + 1)).isSome = true
+  case neg => rw [if_neg hpis] at h; exact nomatch h
+  rw [if_pos hpis] at h
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  subst h
+  exact ⟨rfl, eq_of_beq hround, hres, hptyb, hptyf, hptylp⟩
+
+/-- Invert stage 3 of `checkProjFn` (the reduction rule). -/
+theorem checkProjRule_inv {env' : Env} {cvj : ConstantVal} {lps : List Name}
+    {nP nF i : Nat} {rhsA : Expr}
+    (h : checkProjRule env' cvj lps nP nF i = .ok rhsA) :
+    ∃ raw rbinders cbindersR cbody,
+      Expr.pisToLams (nP + nF) cvj.type (.bvar (nF - 1 - i)) = some raw ∧
+      raw.hasFvar = false ∧
+      raw.looseBVarsBounded 0 = true ∧
+      annotate env' 0 raw = .ok rhsA ∧
+      rhsA.allLevelParamsDefined lps = true ∧
+      rhsA.constsResolve env' = true ∧
+      rhsA.looseBVarsBounded 0 = true ∧
+      rhsA.hasFvar = false ∧
+      rhsA.stripLams (nP + nF) = some (rbinders, .bvar (nF - 1 - i)) ∧
+      cvj.type.stripPis (nP + nF) = some (cbindersR, cbody) ∧
+      domsMatchAux (fun _ e => e) rbinders cbindersR 0 0 (nP + nF)
+        = true := by
+  simp only [checkProjRule, Bind.bind, Except.bind] at h
+  revert h
+  match hraw : Expr.pisToLams (nP + nF) cvj.type (.bvar (nF - 1 - i)) with
+  | none => intro h; exact nomatch h
+  | some raw => ?_
+  intro h
+  dsimp only at h
+  by_cases hrawwf : (!raw.hasFvar && raw.looseBVarsBounded 0) = true
+  case neg => rw [if_neg hrawwf] at h; exact nomatch h
+  rw [if_pos hrawwf] at h
+  simp only [Bool.and_eq_true] at hrawwf
+  obtain ⟨hrawf', hrawb⟩ := hrawwf
+  have hrawf : raw.hasFvar = false := by
+    revert hrawf'
+    cases raw.hasFvar <;> simp
+  try dsimp only at h
+  cases hann : annotate env' 0 raw with
+  | error e => rw [hann] at h; exact nomatch h
+  | ok rhsA' => ?_
+  rw [hann] at h
+  try dsimp only at h
+  by_cases hrwf : (rhsA'.allLevelParamsDefined lps &&
+      rhsA'.constsResolve env' && rhsA'.looseBVarsBounded 0 &&
+      !rhsA'.hasFvar) = true
+  case neg => rw [if_neg hrwf] at h; exact nomatch h
+  rw [if_pos hrwf] at h
+  simp only [Bool.and_eq_true] at hrwf
+  obtain ⟨⟨⟨hrlp, hrres⟩, hrb⟩, hrf'⟩ := hrwf
+  have hrf : rhsA'.hasFvar = false := by
+    revert hrf'
+    cases rhsA'.hasFvar <;> simp
+  try dsimp only at h
+  revert h
+  match hstripR : rhsA'.stripLams (nP + nF) with
+  | none => intro h; exact nomatch h
+  | some (rbinders, rrbody) => ?_
+  intro h
+  dsimp only at h
+  by_cases hrrb : (rrbody == Expr.bvar (nF - 1 - i)) = true
+  case neg => rw [if_neg hrrb] at h; exact nomatch h
+  rw [if_pos hrrb] at h
+  obtain rfl := eq_of_beq hrrb
+  try dsimp only at h
+  revert h
+  match hC_strip : cvj.type.stripPis (nP + nF) with
+  | none => intro h; exact nomatch h
+  | some (cbindersR, cbody) => ?_
+  intro h
+  dsimp only at h
+  by_cases hdomsB : domsMatchAux (fun _ e => e) rbinders cbindersR 0 0
+      (nP + nF) = true
+  case neg => rw [if_neg hdomsB] at h; exact nomatch h
+  rw [if_pos hdomsB] at h
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  subst h
+  exact ⟨raw, rbinders, cbindersR, cbody, rfl, hrawf, hrawb, hann,
+    hrlp, hrres, hrb, hrf, hstripR, rfl, hdomsB⟩
+
+/-- Invert stage 4 of `checkProjFn` (the pinned iota statement). -/
+theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
+    {lps : List Name} {cvj : ConstantVal} {nP nF i : Nat} {u : Unit}
+    (h : checkProjIota env' T ctorName lps cvj nP nF i = .ok u) :
+    ∃ tcv tval sbinders cbindersR cbody tySlot ℓA,
+      env'.find? ((projModelName T i).str "iota") =
+        some (.thmInfo tcv tval) ∧
+      tcv.levelParams = lps ∧
+      cvj.type.stripPis (nP + nF) = some (cbindersR, cbody) ∧
+      domsMatchAux (fun _ e => e.renameConsts (projFwd T ctorName nF))
+        sbinders cbindersR 0 0 (nP + nF) = true ∧
+      tcv.type.stripPis (nP + nF) = some (sbinders,
+        .app (.app (.app (.const eqName [ℓA]) tySlot)
+          (Expr.mkAppN (.const (projModelName T i) (lps.map .param))
+            (((List.range nP).map fun k => Expr.bvar (nP + nF - 1 - k)) ++
+             [Expr.mkAppN
+               (.const (ctorName.str "_model")
+                 (cvj.levelParams.map .param))
+               (((List.range nP).map fun k =>
+                   Expr.bvar (nP + nF - 1 - k)) ++
+                ((List.range nF).map fun k =>
+                  Expr.bvar (nF - 1 - k)))])))
+          (.bvar (nF - 1 - i))) := by
+  simp only [checkProjIota, Bind.bind, Except.bind] at h
+  revert h
+  match hthm : env'.find? ((projModelName T i).str "iota") with
+  | none => intro h; exact nomatch h
+  | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.defnInfo _ _) => intro h; exact nomatch h
+  | some (.indInfo _) => intro h; exact nomatch h
+  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.thmInfo tcv tval) => ?_
+  intro h
+  dsimp only at h
+  by_cases htlps : tcv.levelParams = lps
+  case neg => rw [if_neg htlps] at h; exact nomatch h
+  rw [if_pos htlps] at h
+  try dsimp only at h
+  revert h
+  match hS_strip : tcv.type.stripPis (nP + nF) with
+  | none => intro h; exact nomatch h
+  | some (sbinders, sbody) => ?_
+  intro h
+  dsimp only at h
+  revert h
+  match hC_strip : cvj.type.stripPis (nP + nF) with
+  | none => intro h; exact nomatch h
+  | some (cbindersR, cbody) => ?_
+  intro h
+  dsimp only at h
+  by_cases hsdomsB : domsMatchAux
+      (fun _ e => e.renameConsts (projFwd T ctorName nF))
+      sbinders cbindersR 0 0 (nP + nF) = true
+  case neg => rw [if_neg hsdomsB] at h; exact nomatch h
+  rw [if_pos hsdomsB] at h
+  try dsimp only at h
+  cases sbody
+  case bvar => exact nomatch h
+  case fvar => exact nomatch h
+  case sort => exact nomatch h
+  case const => exact nomatch h
+  case lam => exact nomatch h
+  case forallE => exact nomatch h
+  case letE => exact nomatch h
+  case lit => exact nomatch h
+  case proj => exact nomatch h
+  rename_i sA rhsC
+  cases sA
+  case bvar => exact nomatch h
+  case fvar => exact nomatch h
+  case sort => exact nomatch h
+  case const => exact nomatch h
+  case lam => exact nomatch h
+  case forallE => exact nomatch h
+  case letE => exact nomatch h
+  case lit => exact nomatch h
+  case proj => exact nomatch h
+  rename_i sB lhsC
+  cases sB
+  case bvar => exact nomatch h
+  case fvar => exact nomatch h
+  case sort => exact nomatch h
+  case const => exact nomatch h
+  case lam => exact nomatch h
+  case forallE => exact nomatch h
+  case letE => exact nomatch h
+  case lit => exact nomatch h
+  case proj => exact nomatch h
+  rename_i sEq tySlot
+  cases sEq
+  case bvar => exact nomatch h
+  case fvar => exact nomatch h
+  case sort => exact nomatch h
+  case app => exact nomatch h
+  case lam => exact nomatch h
+  case forallE => exact nomatch h
+  case letE => exact nomatch h
+  case lit => exact nomatch h
+  case proj => exact nomatch h
+  rename_i c ℓs
+  cases ℓs
+  case nil => exact nomatch h
+  rename_i ℓA ℓtail
+  cases ℓtail
+  case cons => exact nomatch h
+  try dsimp only at h
+  by_cases hc : c = eqName
+  case neg => rw [if_neg hc] at h; exact nomatch h
+  rw [if_pos hc] at h
+  subst hc
+  try dsimp only at h
+  by_cases hlhs : (lhsC == Expr.mkAppN
+      (.const (projModelName T i) (lps.map .param))
+      (((List.range nP).map fun k => Expr.bvar (nP + nF - 1 - k)) ++
+       [Expr.mkAppN
+         (.const (ctorName.str "_model") (cvj.levelParams.map .param))
+         (((List.range nP).map fun k => Expr.bvar (nP + nF - 1 - k)) ++
+          ((List.range nF).map fun k => Expr.bvar (nF - 1 - k)))])) = true
+  case neg => rw [if_neg hlhs] at h; exact nomatch h
+  rw [if_pos hlhs] at h
+  obtain rfl := eq_of_beq hlhs
+  try dsimp only at h
+  by_cases hrhsC : (rhsC == Expr.bvar (nF - 1 - i)) = true
+  case neg => rw [if_neg hrhsC] at h; exact nomatch h
+  rw [if_pos hrhsC] at h
+  obtain rfl := eq_of_beq hrhsC
+  exact ⟨tcv, tval, sbinders, cbindersR, cbody, tySlot, ℓA,
+    rfl, htlps, rfl, hsdomsB, hS_strip⟩
+
+/-- Invert a successful `checkProjFn` into its stages. -/
+theorem checkProjFn_inv {env' env₁ : Env} {T ctorName : Name}
+    {lps : List Name} {nP nF i : Nat}
+    (h : checkProjFn env' T ctorName lps nP nF i = .ok env₁) :
+    ∃ cvj mcv,
+      checkProjLookups env' T ctorName lps nP nF i = .ok (cvj, mcv) ∧
+      ∃ pty, checkProjTy env' T ctorName lps mcv.type nP nF = .ok pty ∧
+      i < nF ∧
+      ∃ rhsA, checkProjRule env' cvj lps nP nF i = .ok rhsA ∧
+      (∃ u : Unit, checkProjIota env' T ctorName lps cvj nP nF i
+        = .ok u) ∧
+      env₁ = ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP 0 0 0
+        [⟨ctorName, nF, rhsA⟩] :: env'.consts⟩ := by
+  simp only [checkProjFn, Bind.bind, Except.bind] at h
+  cases hlk : checkProjLookups env' T ctorName lps nP nF i with
+  | error e => rw [hlk] at h; exact nomatch h
+  | ok pr => ?_
+  rw [hlk] at h
+  obtain ⟨cvj, mcv⟩ := pr
+  try dsimp only at h
+  cases hty : checkProjTy env' T ctorName lps mcv.type nP nF with
+  | error e => rw [hty] at h; exact nomatch h
+  | ok pty => ?_
+  rw [hty] at h
+  try dsimp only at h
+  by_cases hi : i < nF
+  case neg => rw [if_neg hi] at h; exact nomatch h
+  rw [if_pos hi] at h
+  try dsimp only at h
+  cases hrule : checkProjRule env' cvj lps nP nF i with
+  | error e => rw [hrule] at h; exact nomatch h
+  | ok rhsA => ?_
+  rw [hrule] at h
+  try dsimp only at h
+  cases hio : checkProjIota env' T ctorName lps cvj nP nF i with
+  | error e => rw [hio] at h; exact nomatch h
+  | ok u => ?_
+  rw [hio] at h
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  exact ⟨cvj, mcv, rfl, pty, hty, hi, rhsA, hrule, ⟨u, hio⟩, h.symm⟩
+
+/-- The projection-phase fold invariant: the parent type and the
+constructor still carry their model values, and every installed
+projection function carries its `_model.proj_j`'s. -/
+def ProjPhaseInv (T ctorName : Name) (nF : Nat) (env' : Env)
+    (val : ConstVal V) : Prop :=
+  (∀ ci, env'.find? T = some ci →
+    ∃ cvm mval, env'.find? (T.str "_model") = some (.defnInfo cvm mval) ∧
+      cvm.levelParams = ci.toConstantVal.levelParams ∧
+      ∀ ψ : Name → Nat, val T ψ = val (T.str "_model") ψ) ∧
+  (∀ ci, env'.find? ctorName = some ci →
+    ∃ cvm mval,
+      env'.find? (ctorName.str "_model") = some (.defnInfo cvm mval) ∧
+      cvm.levelParams = ci.toConstantVal.levelParams ∧
+      ∀ ψ : Name → Nat,
+        val ctorName ψ = val (ctorName.str "_model") ψ) ∧
+  (∀ j, j < nF → ∀ ci, env'.find? (projFnName T j) = some ci →
+    ∃ cvm mval,
+      env'.find? (projModelName T j) = some (.defnInfo cvm mval) ∧
+      cvm.levelParams = ci.toConstantVal.levelParams ∧
+      ∀ ψ : Name → Nat,
+        val (projFnName T j) ψ = val (projModelName T j) ψ)
+
+set_option maxHeartbeats 1600000 in
+/-- One projection-function install preserves having a model together
+with the phase invariant. -/
+theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
+    {lps : List Name} {nP nF i : Nat}
+    (h : checkProjFn env' T ctorName lps nP nF i = .ok env₁)
+    (m : EnvModel V env')
+    (hinv : ProjPhaseInv T ctorName nF env' m.val) :
+    ∃ m₁ : EnvModel V env₁, ProjPhaseInv T ctorName nF env₁ m₁.val := by
+  obtain ⟨cvj, mcv, hlk, pty, hty, hi, rhsA, hrule, ⟨u, hio⟩, henv₁⟩ :=
+    checkProjFn_inv h
+  obtain ⟨mval, hctor, hfm, hmlps, hpnone, hTf, heqf⟩ :=
+    checkProjLookups_inv hlk
+  obtain ⟨hptyB, hround, hptyres, hptyb, hptyf, hptylp⟩ :=
+    checkProjTy_inv hty
+  obtain ⟨raw, rbinders, cbindersR, cbody, hraw, hrawf, hrawb, hann,
+    hrlp, hrres, hrb, hrf, hstripR, hC_strip, hdomsB⟩ :=
+    checkProjRule_inv hrule
+  obtain ⟨tcv, tval, sbinders, cbindersR₂, cbody₂, tySlot, ℓA,
+    hthm, htlps, hC_strip₂, hsdomsB, hS_strip⟩ := checkProjIota_inv hio
+  obtain ⟨rfl, rfl⟩ : cbindersR = cbindersR₂ ∧ cbody = cbody₂ := by
+    have hpair := Option.some.inj (hC_strip.symm.trans hC_strip₂)
+    exact ⟨congrArg Prod.fst hpair, congrArg Prod.snd hpair⟩
+  subst henv₁
+  -- basic disequalities from freshness
+  have hTne : T ≠ projFnName T i := by
+    intro he
+    rw [he, hpnone] at hTf
+    exact nomatch hTf
+  have hCne : ctorName ≠ projFnName T i := by
+    intro he
+    rw [he, hpnone] at hctor
+    exact nomatch hctor
+  -- the semantically pruned renaming and the rule's full renaming
+  obtain ⟨f₀, hf₀⟩ : ∃ f₀ : Name → Name, f₀ = fun n =>
+      if (env'.find? n).isSome then projFwd T ctorName nF n else n :=
+    ⟨_, rfl⟩
+  obtain ⟨f, hf⟩ : ∃ f : Name → Name, f = fun n =>
+      if n = projFnName T i then projModelName T i else f₀ n := ⟨_, rfl⟩
+  have hfound : ∀ n ci₂, env'.find? n = some ci₂ →
+      (∃ ci', env'.find? (projFwd T ctorName nF n) = some ci' ∧
+        ci'.toConstantVal.levelParams = ci₂.toConstantVal.levelParams) ∧
+      (∀ ψ : Name → Nat,
+        m.val (projFwd T ctorName nF n) ψ = m.val n ψ) := by
+    intro n ci₂ hf₂
+    unfold projFwd
+    try dsimp only
+    by_cases h1 : n = T
+    · subst h1
+      rw [if_pos rfl]
+      obtain ⟨cvm₂, mval₂, hfm₂, hlps₂, hv₂⟩ := hinv.1 ci₂ hf₂
+      exact ⟨⟨_, hfm₂, hlps₂⟩, fun ψ => (hv₂ ψ).symm⟩
+    rw [if_neg h1]
+    by_cases h2 : n = ctorName
+    · subst h2
+      rw [if_pos rfl]
+      obtain ⟨cvm₂, mval₂, hfm₂, hlps₂, hv₂⟩ := hinv.2.1 ci₂ hf₂
+      exact ⟨⟨_, hfm₂, hlps₂⟩, fun ψ => (hv₂ ψ).symm⟩
+    rw [if_neg h2]
+    cases hfind : (List.range nF).find? (fun j => n == projFnName T j) with
+    | none => exact ⟨⟨ci₂, hf₂, rfl⟩, fun ψ => rfl⟩
+    | some j =>
+      have hjlt : j < nF :=
+        List.mem_range.mp (List.mem_of_find?_eq_some hfind)
+      have hprop := List.find?_some hfind
+      have hprop' : (n == projFnName T j) = true := by
+        simpa using hprop
+      have hn : n = projFnName T j := eq_of_beq hprop'
+      subst hn
+      obtain ⟨cvm₂, mval₂, hfm₂, hlps₂, hv₂⟩ := hinv.2.2 j hjlt ci₂ hf₂
+      exact ⟨⟨_, hfm₂, hlps₂⟩, fun ψ => (hv₂ ψ).symm⟩
+  have hro : RenameOk m.val env' f₀ := by
+    refine ⟨?_, ?_, ?_⟩
+    · intro n ci₂ hf₂
+      rw [hf₀]
+      dsimp only
+      rw [if_pos (show (env'.find? n).isSome = true by rw [hf₂]; rfl)]
+      exact (hfound n ci₂ hf₂).1
+    · intro n hf₂
+      rw [hf₀]
+      dsimp only
+      rw [if_neg (show ¬(env'.find? n).isSome = true by
+        rw [hf₂]; exact fun hx => nomatch hx)]
+      exact hf₂
+    · intro n ψ
+      rw [hf₀]
+      dsimp only
+      cases hf₂ : env'.find? n with
+      | none =>
+        rw [if_neg (show ¬(none : Option ConstantInfo).isSome = true
+          from fun hx => nomatch hx)]
+      | some ci₂ =>
+        rw [if_pos (show (some ci₂ : Option ConstantInfo).isSome = true
+          from rfl)]
+        exact (hfound n ci₂ hf₂).2 ψ
+  have hagree : ∀ n, (env'.find? n).isSome = true →
+      f n = projFwd T ctorName nF n := by
+    intro n hn
+    have hne : n ≠ projFnName T i := by
+      intro he
+      rw [he, hpnone] at hn
+      exact nomatch hn
+    rw [hf]
+    dsimp only
+    rw [if_neg hne, hf₀]
+    dsimp only
+    rw [if_pos hn]
+  have hff₀ : ∀ n, n ≠ projFnName T i → f n = f₀ n := by
+    intro n hn
+    rw [hf]
+    dsimp only
+    rw [if_neg hn]
+  have hfself : f (projFnName T i) = projModelName T i := by
+    rw [hf]
+    dsimp only
+    rw [if_pos rfl]
+  have hfnot : ∀ n, f n ≠ projFnName T i := by
+    intro n
+    rw [hf]
+    dsimp only
+    by_cases hn : n = projFnName T i
+    · rw [if_pos hn]
+      exact fun hh => Name.num_ne_str _ _ _ _ hh.symm
+    · rw [if_neg hn, hf₀]
+      dsimp only
+      cases hf₂ : env'.find? n with
+      | none =>
+        rw [if_neg (show ¬(none : Option ConstantInfo).isSome = true
+          from fun hx => nomatch hx)]
+        exact hn
+      | some ci₂ =>
+        rw [if_pos (show (some ci₂ : Option ConstantInfo).isSome = true
+          from rfl)]
+        unfold projFwd
+        try dsimp only
+        by_cases h1 : n = T
+        · rw [if_pos h1]
+          exact fun hh => Name.num_ne_str _ _ _ _ hh.symm
+        rw [if_neg h1]
+        by_cases h2 : n = ctorName
+        · rw [if_pos h2]
+          exact fun hh => Name.num_ne_str _ _ _ _ hh.symm
+        rw [if_neg h2]
+        cases (List.range nF).find? (fun j => n == projFnName T j) with
+        | none => exact hn
+        | some j => exact fun hh => Name.num_ne_str _ _ _ _ hh.symm
+  have hren : pty.renameConsts f = mcv.type := by
+    rw [Expr.renameConsts_congr_resolve hagree pty hptyres]
+    exact hround
+  have hcres : cvj.type.constsResolve env' = true := by
+    obtain ⟨-, -, h3, -⟩ := m.wf _ (find?_mem hctor)
+    exact h3
+  have hdomres :=
+    (Expr.constsResolve_stripPis (nP + nF) hC_strip hcres).1
+  have hclen : cbindersR.length = nP + nF :=
+    Expr.stripPis_length _ hC_strip
+  have hdoms : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta),
+      rbinders[k]? = some b → cbindersR[k]? = some b' →
+      b.2.1 = b'.2.1 := by
+    intro k b b' hb hb'
+    have hk : k < nP + nF := by
+      rcases Nat.lt_or_ge k (nP + nF) with hlt | hge
+      · exact hlt
+      · rw [List.getElem?_eq_none (by omega)] at hb'
+        exact nomatch hb'
+    exact domsMatchAux_inv hdomsB hk
+      (by rw [Nat.zero_add]; exact hb) (by rw [Nat.zero_add]; exact hb')
+  have hsdoms : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta),
+      sbinders[k]? = some b → cbindersR[k]? = some b' →
+      b.2.1 = (b'.2.1).renameConsts f := by
+    intro k b b' hb hb'
+    have hk : k < nP + nF := by
+      rcases Nat.lt_or_ge k (nP + nF) with hlt | hge
+      · exact hlt
+      · rw [List.getElem?_eq_none (by omega)] at hb'
+        exact nomatch hb'
+    have hkfwd := domsMatchAux_inv hsdomsB hk
+      (by rw [Nat.zero_add]; exact hb) (by rw [Nat.zero_add]; exact hb')
+    rw [hkfwd]
+    exact (Expr.renameConsts_congr_resolve hagree _
+      (hdomres b' (List.mem_of_getElem? hb'))).symm
+  have hfctor : f ctorName = ctorName.str "_model" := by
+    rw [hagree ctorName (by rw [hctor]; rfl)]
+    unfold projFwd
+    try dsimp only
+    by_cases hCT : ctorName = T
+    · rw [if_pos hCT, hCT]
+    · rw [if_neg hCT, if_pos rfl]
+  have heqval : ∀ ψ'' : Name → Nat, m.val eqName ψ'' = eqVal V ψ'' := by
+    intro ψ''
+    obtain ⟨-, hpv⟩ :=
+      m.ind_ok.2.2.2.1 eqName eqA heqf (by rfl) (by decide)
+    rw [hpv ψ'']
+    simp [pinnedVal]
+  have hwf : ConstWF
+      ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP 0 0 0
+        [⟨ctorName, nF, rhsA⟩] :: env'.consts⟩
+      (.recInfo ⟨projFnName T i, lps, pty⟩ nP 0 0 0
+        [⟨ctorName, nF, rhsA⟩]) := by
+    refine ⟨hptyf, hptylp, Expr.constsResolve_mono hptyres, hptyb,
+      ?_, ?_⟩
+    · intro cv2 v2 heq
+      exact nomatch heq
+    · intro cv2 nP' nM' nm' ni' rules'' heq r hr
+      injection heq with e1 e2 e3 e4 e5 e6
+      subst e6
+      rcases List.mem_cons.mp hr with rfl | hr
+      · refine ⟨hrf, ?_, Expr.constsResolve_mono hrres, hrb⟩
+        rw [← e1]
+        exact hrlp
+      · exact absurd hr List.not_mem_nil
+  have hsbody' : (Expr.app (.app (.app (.const eqName [ℓA]) tySlot)
+      (Expr.mkAppN (.const (projModelName T i) (lps.map .param))
+        (((List.range nP).map fun k => Expr.bvar (nP + nF - 1 - k)) ++
+         [Expr.mkAppN
+           (.const (ctorName.str "_model")
+             (cvj.levelParams.map .param))
+           (((List.range nP).map fun k =>
+               Expr.bvar (nP + nF - 1 - k)) ++
+            ((List.range nF).map fun k =>
+              Expr.bvar (nF - 1 - k)))])))
+      (.bvar (nF - 1 - i))) = Expr.mkAppN (.const eqName [ℓA])
+      [tySlot,
+       Expr.mkAppN (.const (f (projFnName T i)) (lps.map .param))
+        (((List.range nP).map fun k =>
+            Expr.bvar (nP + nF - 1 - k)) ++
+         [Expr.mkAppN (.const (f ctorName)
+             (cvj.levelParams.map .param))
+           (((List.range nP).map fun k =>
+               Expr.bvar (nP + nF - 1 - k)) ++
+            ((List.range nF).map fun k => Expr.bvar (nF - 1 - k)))]),
+       .bvar (nF - 1 - i)] := by
+    rw [hfself, hfctor]
+    rfl
+  obtain ⟨m₁, hval₁, hpres₁⟩ := extend_proj_fn m
+    ⟨projFnName T i, lps, pty⟩ nP nF i ⟨ctorName, nF, rhsA⟩ f
+    (projModelName T i) hpnone
+    (reservedBasisNames_not_num _ _) hwf hptyres hfm hmlps hren
+    f₀ hro hff₀ hfself hfnot heqf heqval hi hctor rfl
+    hann hrawf hrawb hrf hrb hrres hstripR rfl hC_strip hS_strip
+    hdoms hsdoms hsbody' hthm htlps
+  have hval₁' : ∀ ψ : Name → Nat,
+      m₁.val (projFnName T i) ψ = m.val (projModelName T i) ψ := hval₁
+  have hpres₁' : ∀ (n : Name) (ψ : Name → Nat), n ≠ projFnName T i →
+      m₁.val n ψ = m.val n ψ := hpres₁
+  have hfindNe : ∀ n : Name, n ≠ projFnName T i →
+      (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP 0 0 0
+        [⟨ctorName, nF, rhsA⟩] :: env'.consts⟩ : Env).find? n
+        = env'.find? n := by
+    intro n hn
+    rw [Env.find?_cons,
+      if_neg (show ¬(ConstantInfo.recInfo ⟨projFnName T i, lps, pty⟩
+        nP 0 0 0 [⟨ctorName, nF, rhsA⟩]).name = n from
+        fun hh => hn hh.symm)]
+  refine ⟨m₁, ?_, ?_, ?_⟩
+  · -- the parent type's clause
+    intro ci₂ hf₂
+    rw [hfindNe T hTne] at hf₂
+    obtain ⟨cvm₂, mval₂, hfm₂, hlps₂, hv₂⟩ := hinv.1 ci₂ hf₂
+    refine ⟨cvm₂, mval₂, ?_, hlps₂, ?_⟩
+    · rw [hfindNe (T.str "_model")
+        (fun hh => Name.num_ne_str _ _ _ _ hh.symm)]
+      exact hfm₂
+    · intro ψ
+      rw [hpres₁' _ ψ hTne,
+        hpres₁' _ ψ (fun hh => Name.num_ne_str _ _ _ _ hh.symm),
+        hv₂ ψ]
+  · -- the constructor's clause
+    intro ci₂ hf₂
+    rw [hfindNe ctorName hCne] at hf₂
+    obtain ⟨cvm₂, mval₂, hfm₂, hlps₂, hv₂⟩ := hinv.2.1 ci₂ hf₂
+    refine ⟨cvm₂, mval₂, ?_, hlps₂, ?_⟩
+    · rw [hfindNe (ctorName.str "_model")
+        (fun hh => Name.num_ne_str _ _ _ _ hh.symm)]
+      exact hfm₂
+    · intro ψ
+      rw [hpres₁' _ ψ hCne,
+        hpres₁' _ ψ (fun hh => Name.num_ne_str _ _ _ _ hh.symm),
+        hv₂ ψ]
+  · -- the projection-family clause
+    intro j hj ci₂ hf₂
+    by_cases hji : projFnName T j = projFnName T i
+    · -- the freshly installed projection
+      have hn' : Name.num (T.str "proj") j =
+          Name.num (T.str "proj") i := hji
+      injection hn' with hp hij
+      subst hij
+      refine ⟨mcv, mval, ?_, ?_, ?_⟩
+      · rw [hfindNe (projModelName T j)
+          (fun hh => Name.num_ne_str _ _ _ _ hh.symm)]
+        exact hfm
+      · rw [Env.find?_cons,
+          if_pos (show (ConstantInfo.recInfo ⟨projFnName T j, lps, pty⟩
+            nP 0 0 0 [⟨ctorName, nF, rhsA⟩]).name = projFnName T j
+            from rfl)] at hf₂
+        obtain rfl := Option.some.inj hf₂
+        exact hmlps
+      · intro ψ
+        rw [hval₁' ψ,
+          hpres₁' (projModelName T j) ψ
+            (fun hh => Name.num_ne_str _ _ _ _ hh.symm)]
+    · -- an earlier install, preserved
+      rw [hfindNe (projFnName T j) hji] at hf₂
+      obtain ⟨cvm₂, mval₂, hfm₂, hlps₂, hv₂⟩ := hinv.2.2 j hj ci₂ hf₂
+      refine ⟨cvm₂, mval₂, ?_, hlps₂, ?_⟩
+      · rw [hfindNe (projModelName T j)
+          (fun hh => Name.num_ne_str _ _ _ _ hh.symm)]
+        exact hfm₂
+      · intro ψ
+        rw [hpres₁' _ ψ hji,
+          hpres₁' (projModelName T j) ψ
+            (fun hh => Name.num_ne_str _ _ _ _ hh.symm),
+          hv₂ ψ]
+
+/-- The projection-phase fold preserves having a model together with
+the phase invariant. -/
+theorem checkProjFold_sound {T ctorName : Name} {lps : List Name}
+    {nP nF : Nat} :
+    ∀ (idxs : List Nat) (env' env₁ : Env),
+    idxs.foldlM (fun e i =>
+      if (e.find? (projModelName T i)).isSome then
+        checkProjFn e T ctorName lps nP nF i
+      else pure e) env' = .ok env₁ →
+    ∀ m : EnvModel V env', ProjPhaseInv T ctorName nF env' m.val →
+    ∃ m₁ : EnvModel V env₁, ProjPhaseInv T ctorName nF env₁ m₁.val
+  | [], env', env₁, h, m, hinv => by
+    simp only [List.foldlM_nil, pure, Except.pure, Except.ok.injEq] at h
+    exact h ▸ ⟨m, hinv⟩
+  | i₀ :: rest, env', env₁, h, m, hinv => by
+    rw [List.foldlM_cons] at h
+    simp only [Bind.bind, Except.bind] at h
+    by_cases hm : (env'.find? (projModelName T i₀)).isSome = true
+    · rw [if_pos hm] at h
+      cases hstep : checkProjFn env' T ctorName lps nP nF i₀ with
+      | error e => rw [hstep] at h; exact nomatch h
+      | ok env₂ => ?_
+      rw [hstep] at h
+      obtain ⟨m₂, hinv₂⟩ := checkProjFn_sound hstep m hinv
+      exact checkProjFold_sound rest env₂ env₁ h m₂ hinv₂
+    · rw [if_neg hm] at h
+      simp only [pure, Except.pure, Except.bind] at h
+      exact checkProjFold_sound rest env' env₁ h m hinv
+
 /-- Checking a modeled inductive block preserves having a model. -/
 theorem checkIndDecl_sound {env env₂ : Env} {block : List ConstantInfo}
     (h : checkIndDecl env block = .ok env₂) (m : EnvModel V env) :
     Nonempty (EnvModel V env₂) := by
   rw [checkIndDecl] at h
-  refine checkIndFold_sound block env env₂ ?_ h m ?_
-  · intro ci hci
-    have : ci.name ∈ block.map (·.name) := List.mem_map_of_mem hci
-    simpa using this
-  · intro n hn ci₂ hf₂
+  simp only [Bind.bind, Except.bind] at h
+  cases hfold : block.foldlM (checkIndMember (block.map (·.name))) env with
+  | error e => rw [hfold] at h; exact nomatch h
+  | ok env₁ => ?_
+  rw [hfold] at h
+  try dsimp only at h
+  have hI₀ : BlockInstalled (block.map (·.name)) env m.val := by
+    intro n hn ci₂ hf₂
     have hmem : n ∈ block.map (·.name) := by simpa using hn
     obtain ⟨ci₀, hci₀, rfl⟩ := List.mem_map.mp hmem
-    rw [checkIndMember_fold_names block env env₂ h ci₀ hci₀] at hf₂
+    rw [checkIndMember_fold_names block env env₁ hfold ci₀ hci₀] at hf₂
     exact nomatch hf₂
+  obtain ⟨m₁, hI₁⟩ := checkIndFold_sound block env env₁
+    (fun ci hci => by
+      have : ci.name ∈ block.map (·.name) := List.mem_map_of_mem hci
+      simpa using this)
+    hfold m hI₀
+  split at h
+  · -- the single-constructor arm installs the projection family
+    rename_i cvT cvC nP nF heqI heqC
+    have hTin : (ConstantInfo.indInfo cvT) ∈ block := by
+      have h1 : ConstantInfo.indInfo cvT ∈ [ConstantInfo.indInfo cvT] :=
+        List.mem_singleton.mpr rfl
+      rw [← heqI] at h1
+      exact (List.mem_filter.mp h1).1
+    have hCin : (ConstantInfo.ctorInfo cvC nP nF) ∈ block := by
+      have h1 : ConstantInfo.ctorInfo cvC nP nF ∈
+          [ConstantInfo.ctorInfo cvC nP nF] :=
+        List.mem_singleton.mpr rfl
+      rw [← heqC] at h1
+      exact (List.mem_filter.mp h1).1
+    have hbnT : (block.map (·.name)).contains cvT.name = true := by
+      have hmm : cvT.name ∈ block.map (fun x => x.name) :=
+        List.mem_map_of_mem (f := fun x => x.name) hTin
+      simpa using hmm
+    have hbnC : (block.map (·.name)).contains cvC.name = true := by
+      have hmm : cvC.name ∈ block.map (fun x => x.name) :=
+        List.mem_map_of_mem (f := fun x => x.name) hCin
+      simpa using hmm
+    by_cases hfresh : ((List.range nF).all
+        (fun j => (env₁.find? (projFnName cvT.name j)).isNone)) = true
+    case neg => rw [if_neg hfresh] at h; exact nomatch h
+    rw [if_pos hfresh] at h
+    simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+    have hinv₀ : ProjPhaseInv cvT.name cvC.name nF env₁ m₁.val := by
+      refine ⟨?_, ?_, ?_⟩
+      · intro ci hf
+        exact hI₁ cvT.name hbnT ci hf
+      · intro ci hf
+        exact hI₁ cvC.name hbnC ci hf
+      · intro j hj ci hf
+        have hnone := List.all_eq_true.mp hfresh j (List.mem_range.mpr hj)
+        rw [Option.isNone_iff_eq_none.mp hnone] at hf
+        exact nomatch hf
+    obtain ⟨mf, -⟩ :=
+      checkProjFold_sound (List.range nF) env₁ env₂ h m₁ hinv₀
+    exact ⟨mf⟩
+  · -- no single-constructor structure: the fold's model stands
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact h ▸ ⟨m₁⟩
 
 end Setlec

@@ -222,9 +222,9 @@ def isUnitLikeTy (env : Env) : Expr → Bool
     (match env.find? (c.str "rec") with
       | some (.recInfo _ _ _ _ 0 [r]) => r.nfields == 0
       | _ => false) &&
-    -- native unit semantics: only for structures without a model alias
-    (env.find? ((c.str "rec").str "_model")).isNone &&
-    (env.find? (c.str "_model")).isNone
+    -- native unit semantics: pinned basis blocks only (env-stored
+    -- capability flags will replace this)
+    reservedBasisNames.contains (c.str "rec")
   | _ => false
 
 /-- Certification for projecting a possibly-Prop pair `e₂ =
@@ -440,9 +440,7 @@ def pairEtaCert (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr �
               match rules with
               | [r] =>
                 if ni = 0 ∧ r.ctor = c ∧ r.nfields = 2 ∧
-                    (env.find? (c.str "_model")).isNone = true ∧
-                    (env.find? ((c'.str "rec").str "_model")).isNone
-                      = true then
+                    reservedBasisNames.contains (c'.str "rec") = true then
                   if ← liftFueled "level comparison"
                       (Level.isEquivList us us') then
                     if ← isDefEqCore env fuel depth s₁ (.proj c' 0 b) then
@@ -537,66 +535,10 @@ def ensureSort (env : Env) (depth : Nat) (e : Expr) : CheckM Level := do
   | .sort u => pure u
   | _ => throw (.invalid "expected a sort")
 
-/-- Analyze a projection on a stored non-basis structure: the head
-data, the projection's (raw) type, and the (raw) elimination motive.
-The structure must be a non-indexed single-constructor inductive with
-a stored `<T>.rec` recursor (the standard naming). -/
-def projElimPre (env : Env) (sn : Name) (i : Nat) (te e' : Expr) :
-    CheckM (Name × List Level × List Expr × Expr × Expr) := do
-  let .const T us := te.getAppFn
-    | throw (.notImplemented "projection on a non-structure type")
-  unless T = sn do
-    throw (.invalid "projection structure mismatch")
-  let args := te.getAppArgs
-  let some (.indInfo _) := env.find? T
-    | throw (.notImplemented "projection on a non-structure type")
-  let some (.recInfo _ nP nM _ ni rules) := env.find? (T.str "rec")
-    | throw (.notImplemented "projection without a stored recursor")
-  unless nM = 1 ∧ ni = 0 do
-    throw (.notImplemented "projection on an indexed structure")
-  let [r] := rules
-    | throw (.notImplemented "projection on a multi-constructor type")
-  let some (.ctorInfo cvj cnP cnF) := env.find? r.ctor
-    | throw (.notImplemented "projection constructor not stored")
-  unless cnP = nP ∧ args.length = nP do
-    throw (.notImplemented "projection parameter mismatch")
-  unless i < cnF do
-    throw (.invalid "projection index out of range")
-  unless us.length = cvj.levelParams.length do
-    throw (.notImplemented "projection level mismatch")
-  let ctorTyI := cvj.type.instantiateLevelParams cvj.levelParams us
-  let some fieldsTy := ctorTyI.instPis args
-    | throw (.notImplemented "projection constructor arity")
-  let some (.forallE _ projTy _ _) :=
-      fieldsTy.instPis ((List.range i).map fun k => .proj T k e')
-    | throw (.notImplemented "projection field telescope")
-  let some (.forallE _ motiveBody _ _) :=
-      fieldsTy.instPis ((List.range i).map fun k => .proj T k (.bvar 0))
-    | throw (.notImplemented "projection field telescope")
-  let motive := Expr.lam (Name.anonymous.str "s") te motiveBody
-    ⟨.default, none⟩
-  pure (T, us, args, projTy, motive)
-
-/-- Assemble the recursor application eliminating a projection, given
-the inferred motive level `u`.  The recursive annotation of the result
-re-checks every node, so a wrong guess here can only fail, never
-mis-accept. -/
-def projElimAssemble (env : Env) (T : Name) (u : Level) (us : List Level)
-    (args : List Expr) (motive e' : Expr) (i : Nat) : CheckM Expr := do
-  let some (.recInfo cvR _ _ _ _ _) := env.find? (T.str "rec")
-    | throw (.notImplemented "projection without a stored recursor")
-  unless cvR.levelParams.length = us.length + 1 do
-    throw (.notImplemented "projection recursor level mismatch")
-  let recTyI := cvR.type.instantiateLevelParams cvR.levelParams (u :: us)
-  let some (.forallE _ minorDom _ _) := recTyI.instPis (args ++ [motive])
-    | throw (.notImplemented "projection recursor arity")
-  let k := minorDom.piArity
-  unless i < k do
-    throw (.notImplemented "projection minor arity")
-  let some minor := Expr.pisToLams k minorDom (.bvar (k - 1 - i))
-    | throw (.notImplemented "projection minor telescope")
-  pure (Expr.mkAppN (.const (T.str "rec") (u :: us))
-    (args ++ [motive, minor, e']))
+/-- The public projection-function constant installed for field `i` of
+a modeled structure `T` (a `Nat` component keeps it out of the way of
+exported identifiers; installs are duplicate-checked regardless). -/
+def projFnName (T : Name) (i : Nat) : Name := (T.str "proj").num i
 
 mutual
 
@@ -658,17 +600,25 @@ def annotateCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Check
   | _ + 1, _, .lit _ => throw (.notImplemented "annotate: literals")
 termination_by fuel _ _ => (fuel, 0)
 
-/-- Eliminate a projection on a stored non-basis structure through its
-recursor and annotate the elimination: the recursive annotation
-re-checks every node with the ordinary rules, and the scope guard
-keeps the scaffolding inside the annotated struct's free-variable
-leaves (which keeps the soundness argument leafwise). -/
+/-- Rewrite a projection on a stored non-basis structure into its
+installed projection function (a rules-carrying constant checked
+against the structure's `_model.proj_i` at install) and annotate the
+rewrite: the recursive annotation re-checks every node with the
+ordinary rules, and the scope guard keeps the scaffolding inside the
+annotated struct's free-variable leaves. -/
 def annotateProjElim (env : Env) (fuel depth : Nat) (sn : Name) (i : Nat)
     (te e' : Expr) : CheckM Expr := do
-  let (T, us, args, projTy, motive) ← projElimPre env sn i te e'
-  let projTy' ← annotateCore env fuel depth projTy
-  let u ← ensureSort env depth (← inferType env depth projTy')
-  let raw ← projElimAssemble env T u us args motive e' i
+  let .const T us := te.getAppFn
+    | throw (.notImplemented "projection on a non-structure type")
+  unless T = sn do
+    throw (.invalid "projection structure mismatch")
+  let some (.recInfo _ nP _ _ _ _) := env.find? (projFnName T i)
+    | throw (.notImplemented
+        "projection without an installed projection function")
+  let args := te.getAppArgs
+  unless args.length = nP do
+    throw (.notImplemented "projection parameter mismatch")
+  let raw := Expr.mkAppN (.const (projFnName T i) us) (args ++ [e'])
   unless raw.wscopedB depth && raw.looseBVarsBounded 0 &&
       raw.fvarLeaves.all (fun l => e'.fvarLeaves.contains l) do
     throw (.notImplemented "projection elimination scoping")

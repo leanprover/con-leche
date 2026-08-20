@@ -99,6 +99,40 @@ theorem Expr.constsResolve_congr {env₁ env₂ : Env}
   intro e
   induction e <;> simp_all [Expr.constsResolve]
 
+/-- Telescope domains of a resolving type resolve. -/
+theorem Expr.constsResolve_stripPis {env : Env} :
+    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+      {body : Expr},
+      e.stripPis k = some (bs, body) → e.constsResolve env = true →
+      (∀ b ∈ bs, (b.2.1).constsResolve env = true) ∧
+      body.constsResolve env = true := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs body h hres
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨fun b hb => absurd hb (List.not_mem_nil), hres⟩
+  | succ k ih =>
+    intro e bs body h hres
+    match e, h with
+    | .forallE n ty b m, h =>
+      simp only [Expr.stripPis] at h
+      cases hs : b.stripPis k with
+      | none => rw [hs] at h; exact nomatch h
+      | some pr =>
+        rw [hs] at h
+        obtain ⟨bs', body'⟩ := pr
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        simp only [Expr.constsResolve, Bool.and_eq_true] at hres
+        obtain ⟨hd, hrest⟩ := ih hs hres.2
+        refine ⟨?_, hrest⟩
+        intro bnd hb
+        rcases List.mem_cons.mp hb with rfl | hb
+        · exact hres.1
+        · exact hd bnd hb
+
 /-- Renaming maps that agree on every stored name rename a resolving
 expression identically. -/
 theorem Expr.renameConsts_congr_resolve {env : Env} {f g : Name → Name}

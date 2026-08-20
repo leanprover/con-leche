@@ -338,16 +338,20 @@ theorem annotateCore_sound (m : EnvModel V env) :
       annotateCore_sound m fuel e he hw hb hLbe ρ hoke
     rcases hres with ⟨us, A, B, cv, hteq, hfind, hi2, rfl⟩ | hel
     case inr =>
-      obtain ⟨T, us, args, projTy, motive, projTy', sTy, u, raw, -, -, -, -, -,
+      obtain ⟨us, pcv, nP, nM, nm, ni, rules, -, -, -,
         hwsb, hrb, hall, hann⟩ := annotateProjElim_inv hel
-      have hsubR : ∀ l ∈ raw.fvarLeaves, l ∈ e₂.fvarLeaves := fun l hl => by
+      have hsubR : ∀ l ∈ (Expr.mkAppN (.const (projFnName sn i) us)
+          (te'.getAppArgs ++ [e₂])).fvarLeaves,
+          l ∈ e₂.fvarLeaves := fun l hl => by
         have := List.all_eq_true.mp hall l hl
         simpa using this
-      have hLbraw : Expr.LeavesBounded raw := fun l hl =>
-        hLbe l (hsl l (hsubR l hl))
-      have hokraw : FvarsOk V m.val env φ d ρ raw := fun l hl =>
-        hoke l (hsl l (hsubR l hl))
-      exact annotateCore_sound m fuel raw hann (WScoped.of_wscopedB hwsb)
+      have hLbraw : Expr.LeavesBounded (Expr.mkAppN
+          (.const (projFnName sn i) us) (te'.getAppArgs ++ [e₂])) :=
+        fun l hl => hLbe l (hsl l (hsubR l hl))
+      have hokraw : FvarsOk V m.val env φ d ρ (Expr.mkAppN
+          (.const (projFnName sn i) us) (te'.getAppArgs ++ [e₂])) :=
+        fun l hl => hoke l (hsl l (hsubR l hl))
+      exact annotateCore_sound m fuel _ hann (WScoped.of_wscopedB hwsb)
         hrb hLbraw ρ hokraw
     rw [hteq] at hwh0
     obtain ⟨⟨ve, vte, hei, htei, hmem⟩, hwte, hAte⟩ :=

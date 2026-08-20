@@ -419,16 +419,17 @@ theorem annotateCore_leaves_sub {env : Env} :
     · intro l hl
       simp only [fvarLeaves] at hl ⊢
       exact hsub₂ l hl
-    · obtain ⟨T, us, args, projTy, motive, projTy', sTy, u, raw, -, -, -, -,
-        -, hwsb, hrb, hall, hann⟩ := annotateProjElim_inv hel
-      have hsubR : ∀ l ∈ raw.fvarLeaves, l ∈ e₂.fvarLeaves := by
+    · obtain ⟨us, pcv, nP, nM, nm, ni, rules, -, -, -,
+        hwsb, hrb, hall, hann⟩ := annotateProjElim_inv hel
+      have hsubR : ∀ l ∈ (Expr.mkAppN (.const (projFnName sn i) us)
+          (te.getAppArgs ++ [e₂])).fvarLeaves, l ∈ e₂.fvarLeaves := by
         intro l hl
         have := List.all_eq_true.mp hall l hl
         simpa using this
       intro l hl
       simp only [fvarLeaves]
       exact hsub₂ _ (hsubR _
-        (annotateCore_leaves_sub fuel raw hann
+        (annotateCore_leaves_sub fuel _ hann
           (WScoped.of_wscopedB hwsb) hrb l hl))
   | fuel + 1, .forallE n ty body m, d, e', h, hw, hb => by
     simp only [WScoped] at hw

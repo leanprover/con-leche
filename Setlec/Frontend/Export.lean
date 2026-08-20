@@ -40,12 +40,15 @@ def underBasisModel : Name → Bool
   | _ => false
 
 /-- Is this name a `_model` auxiliary the checker does not (yet)
-consume — a `proj_i` model, its iota lemma, or an eta lemma?  The
-modeled install reads only `X._model` members and `iota_j` theorems;
-the projection/eta auxiliaries are dropped until the corresponding
-facts are checked (they are never referenced elsewhere). -/
+consume — an eta, unitlike or ruleK lemma?  The modeled install reads
+the `X._model` members, the `iota_j` theorems and the `proj_i`
+definitions with their iota lemmas; the remaining auxiliaries are
+dropped until the corresponding facts are checked (they are never
+referenced elsewhere). -/
 def isModelAux : Name → Bool
   | .str p "eta" => isUnderModel p
+  | .str p "unitlike" => isUnderModel p
+  | .str p "ruleK" => isUnderModel p
   | .str p "iota" => isModelAux p
   | .str p s => s.startsWith "proj_" && isUnderModel p
   | _ => false
