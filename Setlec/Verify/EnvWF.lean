@@ -61,6 +61,10 @@ theorem Expr.constsResolve_mono {c : ConstantInfo} {env : Env} :
   case const n us =>
     rw [Env.find?_cons]
     split <;> simp_all
+  case proj s i e ih =>
+    intro hs he
+    rw [Env.find?_cons]
+    split <;> simp_all
 
 /-- Resolution survives binder opening. -/
 theorem Expr.constsResolve_instantiate1 {env : Env} {d : Nat} {n : Name} {ty : Expr}
@@ -94,6 +98,20 @@ theorem Expr.constsResolve_congr {env₁ env₂ : Env}
     ∀ (e : Expr), e.constsResolve env₁ = e.constsResolve env₂ := by
   intro e
   induction e <;> simp_all [Expr.constsResolve]
+
+/-- Renaming maps that agree on every stored name rename a resolving
+expression identically. -/
+theorem Expr.renameConsts_congr_resolve {env : Env} {f g : Name → Name}
+    (hfg : ∀ n, (env.find? n).isSome = true → f n = g n) :
+    ∀ (e : Expr), e.constsResolve env = true →
+      e.renameConsts f = e.renameConsts g := by
+  intro e
+  induction e <;> intro h <;>
+    simp_all [Expr.constsResolve, Expr.renameConsts]
+  all_goals first
+  | (rename_i n _; exact hfg n h)
+  | (rename_i s _ _ h'; exact hfg s h'.1)
+  | (rename_i s _ _; exact hfg s h.1)
 
 /-- Extending with a fresh, well-formed constant preserves `EnvWF`. -/
 theorem EnvWF.cons {c : ConstantInfo} {env : Env}

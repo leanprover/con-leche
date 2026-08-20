@@ -369,11 +369,11 @@ theorem AnnotOk.mono {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none)
   | .letE _ _ _ _, _, _, _, _ => by simp [AnnotOk]
   | .lit _, _, _, _, _ => by simp [AnnotOk]
   | .proj s' i e, d, ρ, hres, ha => by
-    simp only [constsResolve] at hres
+    simp only [constsResolve, Bool.and_eq_true] at hres
     simp only [AnnotOk] at ha ⊢
     obtain ⟨hae, hi2, ve, u', v', A, Bf, hvei, hsig, hAu, hBf⟩ := ha
-    refine ⟨AnnotOk.mono hfresh e d ρ hres hae, hi2, ve, u', v', A, Bf, ?_, hsig, hAu, hBf⟩
-    rw [interp_mono hfresh e d ρ hres]; exact hvei
+    refine ⟨AnnotOk.mono hfresh e d ρ hres.2 hae, hi2, ve, u', v', A, Bf, ?_, hsig, hAu, hBf⟩
+    rw [interp_mono hfresh e d ρ hres.2]; exact hvei
 termination_by e => e.sizeB
 decreasing_by
   all_goals first

@@ -506,9 +506,9 @@ theorem interp_mono {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none) 
   | .letE _ _ _ _, _, _, _ => by simp [interpExpr]
   | .lit _, _, _, _ => by simp [interpExpr]
   | .proj s' i e, d, ρ, hres => by
-    simp only [constsResolve] at hres
+    simp only [constsResolve, Bool.and_eq_true] at hres
     simp only [interpExpr]
-    rw [interp_mono hfresh e d ρ hres]
+    rw [interp_mono hfresh e d ρ hres.2]
 termination_by e => e.sizeB
 decreasing_by
   all_goals first

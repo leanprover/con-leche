@@ -133,6 +133,6 @@ def Expr.constsResolve (env : Env) : Expr → Bool
     ty.constsResolve env && body.constsResolve env
   | .letE _ ty val body =>
     ty.constsResolve env && val.constsResolve env && body.constsResolve env
-  | .proj _ _ e => e.constsResolve env
+  | .proj s _ e => (env.find? s).isSome && e.constsResolve env
 
 end Setlec
