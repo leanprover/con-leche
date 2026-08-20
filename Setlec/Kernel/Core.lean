@@ -136,6 +136,12 @@ def natLitToConstructor (n : Nat) : Expr :=
   | 0 => .const natZeroName []
   | k + 1 => .app (.const natSuccName []) (.lit (.natVal k))
 
+/-- Convert a `Nat`-literal major premise to constructor form, one
+layer; anything else passes through. -/
+def litToCtorIfNat : Expr → Expr
+  | .lit (.natVal n) => natLitToConstructor n
+  | e => e
+
 /-- A `Nat` literal reading of a whnf'd expression: literals and the
 `Nat.zero` constant (the official kernel's `rawNatLitExt?`). -/
 def rawNatLit? : Expr → Option Nat
@@ -232,17 +238,21 @@ def pairEtaCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
       let tb ← r.infer depth b
       match ← r.whnf depth tb with
       | .app (.app (.const c' us') _A) _B =>
-        match env.find? c', env.find? (c'.str "rec") with
-        | some (.indInfo _ _), some (.recInfo _ _ _ _ 0 [rr]) =>
-          if rr.ctor = c ∧ rr.nfields = 2 ∧
-              reservedBasisNames.contains (c'.str "rec") = true then
-            if ← liftFueled "level comparison" (Level.isEquivList us us') then
-              if ← r.defeq depth s₁ (.proj c' 0 b) then
-                r.defeq depth s₂ (.proj c' 1 b)
+        match env.find? c' with
+        | some (.indInfo _ _) =>
+          match env.find? (c'.str "rec") with
+          | some (.recInfo _ _ _ _ 0 [rr]) =>
+            if rr.ctor = c ∧ rr.nfields = 2 ∧
+                reservedBasisNames.contains (c'.str "rec") = true then
+              if ← liftFueled "level comparison"
+                  (Level.isEquivList us us') then
+                if ← r.defeq depth s₁ (.proj c' 0 b) then
+                  r.defeq depth s₂ (.proj c' 1 b)
+                else pure false
               else pure false
             else pure false
-          else pure false
-        | _, _ => pure false
+          | _ => pure false
+        | _ => pure false
       | _ => pure false
     | _ => pure false
   | _ => pure false
@@ -491,10 +501,7 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
       if args.length = nP + nM + nm + ni + 1 then
         let major₀ ← r.whnf depth
           (args.getD (nP + nM + nm + ni) (.bvar 0))
-        let major₁ := match major₀ with
-          | .lit (.natVal n) => natLitToConstructor n
-          | e' => e'
-        let major ← majorToCtor r env depth c rules major₁
+        let major ← majorToCtor r env depth c rules (litToCtorIfNat major₀)
         match major.getAppFn with
         | .const cj usj =>
           match env.find? cj with
@@ -686,8 +693,8 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       match ← r.whnf depth (← r.infer depth pe) with
       | .app (.app (.const c _us) A) B =>
         match env.find? c with
-        | some (.indInfo cv _) =>
-          if cv.name = psigmaName ∧ sn = psigmaName then
+        | some (.indInfo _ _) =>
+          if c = psigmaName then
             match i with
             | 0 => pure A
             | 1 => pure (.app B (.proj sn 0 pe))

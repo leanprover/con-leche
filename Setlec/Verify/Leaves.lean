@@ -1,6 +1,7 @@
 import Setlec.Kernel.ExprOps
 import Setlec.Verify.Shift
 import Setlec.Verify.Abstract
+import Setlec.Verify.Knot
 
 /-!
 # The free-variable leaf closure
@@ -387,18 +388,23 @@ theorem annotateCore_leaves_sub {env : Env} :
       annotateCore env fuel d e = .ok e' → WScoped d e →
       e.looseBVarsBounded 0 = true →
       ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves
-  | 0, _, _, _, h, _, _ => by simp [annotateCore] at h
+  | 0, _, _, _, h, _, _ => by simp [annotateCore_zero, throw, throwThe,
+      MonadExceptOf.throw] at h
   | fuel + 1, .bvar i, d, e', h, _, _ => by
-    simp only [annotateCore, pure, Except.pure, Except.ok.injEq] at h
+    rw [annotateCore_succ] at h
+    simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
     subst h; intro l hl; exact hl
   | fuel + 1, .fvar idx n ty, d, e', h, _, _ => by
-    simp only [annotateCore, pure, Except.pure, Except.ok.injEq] at h
+    rw [annotateCore_succ] at h
+    simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
     subst h; intro l hl; exact hl
   | fuel + 1, .sort u, d, e', h, _, _ => by
-    simp only [annotateCore, pure, Except.pure, Except.ok.injEq] at h
+    rw [annotateCore_succ] at h
+    simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
     subst h; intro l hl; exact hl
   | fuel + 1, .const n us, d, e', h, _, _ => by
-    simp only [annotateCore, pure, Except.pure, Except.ok.injEq] at h
+    rw [annotateCore_succ] at h
+    simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
     subst h; intro l hl; exact hl
   | fuel + 1, .app f a, d, e', h, hw, hb => by
     simp only [WScoped] at hw
@@ -434,7 +440,9 @@ theorem annotateCore_leaves_sub {env : Env} :
   | fuel + 1, .forallE n ty body m, d, e', h, hw, hb => by
     simp only [WScoped] at hw
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    simp only [annotateCore, Bind.bind, Except.bind] at h
+    rw [annotateCore_succ] at h
+    simp only [annotateBody, Bind.bind, Except.bind] at h
+    simp only [annotate_def, infer_def, ensureSort_def] at h
     cases hty : annotateCore env fuel d ty with
     | error e => rw [hty] at h; exact nomatch h
     | ok ty' =>
@@ -478,7 +486,9 @@ theorem annotateCore_leaves_sub {env : Env} :
   | fuel + 1, .lam n ty body m, d, e', h, hw, hb => by
     simp only [WScoped] at hw
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    simp only [annotateCore, Bind.bind, Except.bind] at h
+    rw [annotateCore_succ] at h
+    simp only [annotateBody, Bind.bind, Except.bind] at h
+    simp only [annotate_def, infer_def, ensureSort_def] at h
     cases hty : annotateCore env fuel d ty with
     | error e => rw [hty] at h; exact nomatch h
     | ok ty' =>
@@ -523,16 +533,25 @@ theorem annotateCore_leaves_sub {env : Env} :
         rcases h2 with rfl | h2
         · omega
         · exact Or.inl (hsubty l h2)
-  | fuel + 1, .letE _ _ _ _, d, e', h, _, _ => by simp [annotateCore] at h
-  | fuel + 1, .lit _, d, e', h, _, _ => by simp [annotateCore] at h
-
-/-- `annotate` (at the standard fuel) only shrinks the leaf closure. -/
-theorem annotate_leaves_sub {env : Env} :
-    ∀ (e : Expr) {d : Nat} {e' : Expr},
-      annotate env d e = .ok e' → WScoped d e →
-      e.looseBVarsBounded 0 = true →
-      ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves := by
-  intro e d e' h hw hb
-  exact annotateCore_leaves_sub checkFuel e h hw hb
+  | fuel + 1, .letE _ _ _ _, d, e', h, _, _ => by
+    rw [annotateCore_succ] at h
+    simp [annotateBody, throw, throwThe, MonadExceptOf.throw] at h
+  | fuel + 1, .lit l, d, e', h, _, _ => by
+    rw [annotateCore_succ] at h
+    match l, h with
+    | .natVal n, h => ?_
+    dsimp only [annotateBody] at h
+    revert h
+    match env.find? natName with
+    | none => intro h; exact nomatch h
+    | some (.axiomInfo _) => intro h; exact nomatch h
+    | some (.defnInfo _ _) => intro h; exact nomatch h
+    | some (.thmInfo _ _) => intro h; exact nomatch h
+    | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+    | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+    | some (.indInfo _ _) =>
+      intro h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      subst h; intro l' hl'; exact hl' 
 
 end Setlec
