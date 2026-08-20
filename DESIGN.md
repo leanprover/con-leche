@@ -305,6 +305,32 @@ makes pair-eta (`mk (proj f) (proj f) ≡ f`) fail on modeled structures
 and good tests get *rejected*; the flip that un-drops them lands
 together with the eta capability (task: caps in env).
 
+Eta capability (2026-08-20): a single-constructor block earns the eta
+capability when the model documents it — `checkEtaThm` pins the
+`T._model.eta` statement (level-matched theorem, parameter telescope
+equal to the type-former model's, subject binder at `T._model p⃗`,
+body `x = C._model p⃗ (proj_0 p⃗ x) …`) and `checkIndDecl` records
+`{eta, etaCtor, etaParams, etaFields}` on the installed inductive.
+The kernel's structural-eta rule (`structEtaCert`, in the stuck-term
+fallback) then certifies `C p⃗ s⃗ ≡ b`: parameters/levels against `b`'s
+whnf'd type, the type application and each installed projection
+function's application to `b` against their telescopes (`iotaCerts`),
+and each field against the corresponding projection.  Soundness: the
+`EtaPins` carried through the member fold discharge, at the
+inductive's install, the stored `EtaLaw` (ModeledOk's fourth clause)
+via `eta_rule_fold` — every member of the interpreted structure type
+is the constructor model applied to the projection models;
+`structEta_sound` consumes the law with a `TeleFit` built from the
+certified telescopes (`certs_fit`), interprets the synthetic
+projection chains through `TeleFit.chainSlots`/`annotOk_spine`, and
+bridges public values to the models' with `ModeledOk`.  With this the
+frontend keeps the `proj_i`/`iota`/`eta` artifacts (only
+`unitlike`/`ruleK` remain dropped): arena 63/92.  Remaining exit-1
+violations: 053/073 (unit-like), 097 (rule K), and 084 (the
+*dependent* projection's iota theorem transports along the previous
+field's iota with `Eq.rec`, whose major is an opaque theorem — it
+reduces only with rule K).
+
 `_model` names are not special (2026-08-20, user directive): only the
 inductive-declaration install path may look `_model` names up (pairing
 a non-basis inductive with its model); no other code knows about them.

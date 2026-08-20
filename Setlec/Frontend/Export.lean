@@ -46,11 +46,8 @@ definitions with their iota lemmas; the remaining auxiliaries are
 dropped until the corresponding facts are checked (they are never
 referenced elsewhere). -/
 def isModelAux : Name → Bool
-  | .str p "eta" => isUnderModel p
   | .str p "unitlike" => isUnderModel p
   | .str p "ruleK" => isUnderModel p
-  | .str p "iota" => isModelAux p
-  | .str p s => s.startsWith "proj_" && isUnderModel p
   | _ => false
 where
   isUnderModel : Name → Bool
