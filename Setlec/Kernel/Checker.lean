@@ -1,5 +1,6 @@
 import Setlec.Kernel.Env
 import Setlec.Kernel.TypeChecker
+import Setlec.Kernel.TypeCheckerC
 
 /-!
 # The checker
@@ -390,13 +391,55 @@ def checkEtaThm (env' : Env) (T ctorName : Name) (lps : List Name)
      | _, _ => false)
   | _, _, _, _ => false
 
+/-- Does the model document unit-likeness for this block — a
+`T._model.unitlike` theorem with the pinned statement
+`∀ p⃗ (x y : T._model p⃗), x = y`?  Checked before install; a positive
+answer records the unit-like capability on the stored inductive. -/
+def checkUnitThm (env' : Env) (T : Name) (lps : List Name)
+    (nP : Nat) : Bool :=
+  match env'.find? ((T.str "_model").str "unitlike"),
+      env'.find? (T.str "_model"), env'.find? eqName with
+  | some (.thmInfo tcv _), some (.defnInfo cvmT _), some eqStored =>
+    eqStored == eqA && tcv.levelParams == lps &&
+    cvmT.levelParams == lps &&
+    (match tcv.type.stripPis (nP + 2), cvmT.type.stripPis nP with
+     | some (sbinders, sbody), some (tbindersM, _) =>
+       domsMatchAux (fun _ e => e) sbinders tbindersM 0 0 nP &&
+       (match sbinders[nP]? with
+        | some (_, xdom, _) =>
+          xdom == Expr.mkAppN (.const (T.str "_model") (lps.map .param))
+            ((List.range nP).map fun k => Expr.bvar (nP - 1 - k))
+        | none => false) &&
+       (match sbinders[nP + 1]? with
+        | some (_, ydom, _) =>
+          ydom == Expr.mkAppN (.const (T.str "_model") (lps.map .param))
+            ((List.range nP).map fun k => Expr.bvar (nP - k))
+        | none => false) &&
+       (match sbody with
+        | .app (.app (.app (.const c [_ℓ]) _tySlot) lhsC) rhsC =>
+          c == eqName && lhsC == Expr.bvar 1 && rhsC == Expr.bvar 0
+        | _ => false)
+     | _, _ => false)
+  | _, _, _ => false
+
+/-- The result sort of a syntactic pi telescope (the sort the type
+former's type ends in), if it ends in a sort at all. -/
+def piResultSort (e : Expr) : Option Level :=
+  match e.piResult with
+  | .sort u => some u
+  | _ => none
+
 /-- Check and install a modeled inductive block: every member is
 checked against its `_model` counterpart (type up to the public↔model
 renaming, iota rules against the model's `iota_j` theorems), then
 stored as a real inductive-kind constant.  Single-constructor blocks
 determine their capability record first (recorded on the inductive)
 and additionally install the projection functions the model documents
-(skipped where the artifacts are absent). -/
+(skipped where the artifacts are absent).  The K flag is computed from
+shape exactly as the official kernel does — an inductive proposition
+with a single constructor taking only the parameters; the reduction
+site carries the semantic load (proof irrelevance), so no model
+theorem backs the flag. -/
 def checkIndDecl (env : Env) (block : List ConstantInfo) : CheckM Env := do
   match block.filter (fun ci => match ci with
       | .indInfo _ _ => true | _ => false),
@@ -404,11 +447,12 @@ def checkIndDecl (env : Env) (block : List ConstantInfo) : CheckM Env := do
       | .ctorInfo _ _ _ => true | _ => false) with
   | [.indInfo cvT _], [.ctorInfo cvC nP nF] =>
     let caps : IndCaps :=
-      if cvC.levelParams = cvT.levelParams &&
-          checkEtaThm env cvT.name cvC.name cvT.levelParams nP nF then
-        { eta := true, etaCtor := cvC.name, etaParams := nP,
-          etaFields := nF }
-      else {}
+      { eta := cvC.levelParams = cvT.levelParams &&
+          checkEtaThm env cvT.name cvC.name cvT.levelParams nP nF,
+        etaCtor := cvC.name, etaParams := nP, etaFields := nF,
+        unitlike := checkUnitThm env cvT.name cvT.levelParams nP,
+        unitParams := nP,
+        ruleK := nF == 0 && piResultSort cvT.type == some .zero }
     let env₂ ← block.foldlM
       (checkIndMember (block.map (·.name)) caps) env
     -- the whole projection name family must be ours to install

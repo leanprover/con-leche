@@ -72,6 +72,15 @@ def projFnName (T : Name) (i : Nat) : Name := (T.str "proj").num i
 def projModelName (T : Name) (i : Nat) : Name :=
   (T.str "_model").str ("proj_" ++ toString i)
 
+/-- Is the expression headed by a stored constructor? -/
+def isCtorApp (env : Env) (e : Expr) : Bool :=
+  match e.getAppFn with
+  | .const c _ =>
+    match env.find? c with
+    | some (.ctorInfo _ _ _) => true
+    | _ => false
+  | _ => false
+
 /-! The mutually recursive checker core: reduction, inference and
 definitional equality share one strictly decreasing fuel.  The mutual
 knot is `whnf`'s beta rule: a redex whose codomain sort is not
@@ -341,8 +350,9 @@ def iotaRec (env : Env) : (fuel : Nat) → (depth : Nat) → Expr →
       | some (.recInfo cv nP nM nm ni rules) =>
         let args := e.getAppArgs
         if args.length = nP + nM + nm + ni + 1 then
-          let major ← whnfCore env fuel depth
+          let major₀ ← whnfCore env fuel depth
             (args.getD (nP + nM + nm + ni) (.bvar 0))
+          let major ← majorToCtor env fuel depth c rules major₀
           match major.getAppFn with
           | .const cj usj =>
             match env.find? cj with
@@ -384,6 +394,83 @@ def iotaRec (env : Env) : (fuel : Nat) → (depth : Nat) → Expr →
     | _ => pure none
   termination_by structural fuel _ _ => fuel
 
+/-- Stuck-major rescue (`to_cnstr_when_K` and `to_cnstr_when_structure`
+in the official kernel): a recursor's major premise that does not whnf
+to a constructor application may still be *replaced* by one.  For a
+K-flagged inductive proposition the parameters-only application of the
+single constructor is fabricated from the major's type and certified by
+proof irrelevance (in the model both are the proof point); for an
+eta-capable structure the constructor of the major's projections is
+fabricated and certified by the structure-eta certificate (in the model
+both are the tuple of the major's components).  An uncertified major
+stays put — sound, the reduction simply stays stuck. -/
+def majorToCtor (env : Env) : (fuel : Nat) → (depth : Nat) → Name →
+    List RecRule → Expr → CheckM Expr
+  | 0, _, _, _, _ => throw (.internal "fuel exhausted: majorToCtor")
+  | fuel + 1, depth, recName, rules, major => do
+    -- cheap syntactic gates before any inference: a rescue needs a
+    -- single-rule recursor whose constructor's inductive is stored with
+    -- the matching capability
+    if isCtorApp env major then pure major else
+    match rules with
+    | [r] =>
+      match env.find? r.ctor with
+      | some (.ctorInfo cvj cnP cnF) =>
+        match (cvj.type.piResult).getAppFn with
+        | .const T _ =>
+          match env.find? T with
+          | some (.indInfo cvT caps) =>
+            if caps.ruleK = true ∧ cnF = 0 then
+              let tmaj ← whnfCore env fuel depth
+                (← inferTypeCore env fuel depth major)
+              match tmaj.getAppFn with
+              | .const T' ust =>
+                if T' = T ∧ cvj.levelParams.length = ust.length then
+                  let fab := Expr.mkAppN (.const r.ctor ust)
+                    (tmaj.getAppArgs.take cnP)
+                  -- scope guard (cf. `annotateProjElim`): scoping of the
+                  -- fabricated major is checked syntactically, keeping
+                  -- its verification local
+                  if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
+                      fab.fvarLeaves.all
+                        (fun l => major.fvarLeaves.contains l) then
+                    if ← proofIrrel env fuel depth fab major then pure fab
+                    else pure major
+                  else pure major
+                else pure major
+              | _ => pure major
+            else if caps.eta = true ∧ r.ctor = caps.etaCtor ∧
+                -- a projection function's rescue would reduce to a
+                -- no-op (its own reduct), looping the reduction: a
+                -- stuck projection stays stuck
+                Name.isProjFnShape recName = false then
+              let tmaj ← whnfCore env fuel depth
+                (← inferTypeCore env fuel depth major)
+              match tmaj.getAppFn with
+              | .const T' ust =>
+                if T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
+                    ust.length = cvT.levelParams.length then
+                  let fab := Expr.mkAppN (.const caps.etaCtor ust)
+                    (tmaj.getAppArgs ++
+                      (List.range caps.etaFields).map fun j =>
+                        Expr.mkAppN (.const (projFnName T j) ust)
+                          (tmaj.getAppArgs ++ [major]))
+                  -- scope guard, as in the K branch
+                  if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
+                      fab.fvarLeaves.all
+                        (fun l => major.fvarLeaves.contains l) then
+                    if ← structEtaCert env fuel depth fab major then pure fab
+                    else pure major
+                  else pure major
+                else pure major
+              | _ => pure major
+            else pure major
+          | _ => pure major
+        | _ => pure major
+      | _ => pure major
+    | _ => pure major
+  termination_by structural fuel _ _ _ _ => fuel
+
 /-- Certify a spine against a recursor telescope: each argument's
 inferred type is defeq to the corresponding (instantiated) domain.
 This is what hands the soundness proof the memberships the iota
@@ -423,6 +510,7 @@ def stuckIrrel (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr �
     else if ← pairEtaCert env fuel depth b a then pure true
     else if ← structEtaCert env fuel depth a b then pure true
     else if ← structEtaCert env fuel depth b a then pure true
+    else if ← structUnitCert env fuel depth a b then pure true
     else proofIrrel env fuel depth a b
   termination_by structural fuel _ _ _ => fuel
 
@@ -548,6 +636,37 @@ def structEtaCert (env : Env) : (fuel : Nat) → (depth : Nat) → Expr →
     | _ => pure false
   termination_by structural fuel _ _ _ => fuel
 
+/-- Unit-likeness certification: `a` and `b` inhabit the same stored
+unit-like family (the types are definitionally equal and the type
+application is certified against the family's telescope), so their
+values coincide by the stored unit law. -/
+def structUnitCert (env : Env) : (fuel : Nat) → (depth : Nat) → Expr →
+    Expr → CheckM Bool
+  | 0, _, _, _ => throw (.internal "fuel exhausted: structUnitCert")
+  | fuel + 1, depth, a, b => do
+    let ta ← inferTypeCore env fuel depth a
+    let wta ← whnfCore env fuel depth ta
+    match wta.getAppFn with
+    | .const T us' =>
+      match env.find? T with
+      | some (.indInfo cvT caps) =>
+        if caps.unitlike = true ∧
+            reservedBasisNames.contains T = false ∧
+            wta.getAppArgs.length = caps.unitParams ∧
+            us'.length = cvT.levelParams.length ∧
+            (cvT.type.stripPis caps.unitParams).isSome = true then
+          let tb ← inferTypeCore env fuel depth b
+          let wtb ← whnfCore env fuel depth tb
+          if ← isDefEqCore env fuel depth wta wtb then
+            iotaCerts env fuel depth
+              (cvT.type.instantiateLevelParams cvT.levelParams us')
+              wta.getAppArgs
+          else pure false
+        else pure false
+      | _ => pure false
+    | _ => pure false
+  termination_by structural fuel _ _ _ => fuel
+
 /-- Eta certification for a one-sided λ against a stuck term `b`: `b`'s
 type whnfs to a `∀` whose domain is defeq to the λ's and whose codomain
 annotation agrees, and the λ's body is pointwise the application of `b`.
@@ -608,21 +727,10 @@ depth of reduction, inference and definitional equality.  Exhaustion is
 an internal error, never a verdict. -/
 def checkFuel : Nat := 100000
 
-/-- `whnfCore` with the standard fuel. -/
-def whnf (env : Env) (depth : Nat) (e : Expr) : CheckM Expr :=
-  whnfCore env checkFuel depth e
-
-/-- `inferTypeCore` with the standard fuel. -/
-def inferType (env : Env) (depth : Nat) (e : Expr) : CheckM Expr :=
-  inferTypeCore env checkFuel depth e
-
-/-- `isDefEqCore` with the standard fuel. -/
-def isDefEq (env : Env) (depth : Nat) (a b : Expr) : CheckM Bool :=
-  isDefEqCore env checkFuel depth a b
-
-/-- Ensure `e` (the type of some expression) is a sort, returning its level. -/
-def ensureSort (env : Env) (depth : Nat) (e : Expr) : CheckM Level := do
-  match ← whnf env depth e with
+/-- Ensure `e` (the type of some expression) is a sort, returning its
+level. -/
+def ensureSortCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Level := do
+  match ← whnfCore env fuel depth e with
   | .sort u => pure u
   | _ => throw (.invalid "expected a sort")
 
@@ -646,31 +754,33 @@ def annotateCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Check
     -- Run the application rule here (the one place typing is checked):
     -- this establishes the semantic well-typedness clause for `app`
     -- nodes that beta-reduction soundness relies on (see DESIGN.md).
-    let tf ← inferType env depth f'
-    match ← whnf env depth tf with
+    let tf ← inferTypeCore env fuel depth f'
+    match ← whnfCore env fuel depth tf with
     | .forallE _ ty _ _ =>
-      let ta ← inferType env depth a'
-      unless ← isDefEq env depth ta ty do
+      let ta ← inferTypeCore env fuel depth a'
+      unless ← isDefEqCore env fuel depth ta ty do
         throw (.invalid "application argument type mismatch")
       pure (.app f' a')
     | _ => throw (.invalid "function expected")
   | fuel + 1, depth, .forallE n ty body m => do
     let ty' ← annotateCore env fuel depth ty
     let body' ← annotateCore env fuel (depth + 1) (body.instantiate1 (.fvar depth n ty'))
-    let v ← ensureSort env (depth + 1) (← inferType env (depth + 1) body')
+    let v ← ensureSortCore env fuel (depth + 1)
+      (← inferTypeCore env fuel (depth + 1) body')
     pure (.forallE n ty' (body'.abstract1 depth) ⟨m.bi, some v⟩)
   | fuel + 1, depth, .lam n ty body m => do
     let ty' ← annotateCore env fuel depth ty
     let body' ← annotateCore env fuel (depth + 1) (body.instantiate1 (.fvar depth n ty'))
-    let bt ← inferType env (depth + 1) body'
-    let v ← ensureSort env (depth + 1) (← inferType env (depth + 1) bt)
+    let bt ← inferTypeCore env fuel (depth + 1) body'
+    let v ← ensureSortCore env fuel (depth + 1)
+      (← inferTypeCore env fuel (depth + 1) bt)
     pure (.lam n ty' (body'.abstract1 depth) ⟨m.bi, some v⟩)
   | _ + 1, _, .letE _ _ _ _ => throw (.notImplemented "annotate: let-expressions")
   | fuel + 1, depth, .proj sn i e => do
     let e' ← annotateCore env fuel depth e
     -- Run the projection rule (the one place it is checked; this
     -- establishes the semantic proj clause of `AnnotOk`).
-    let te ← whnf env depth (← inferType env depth e')
+    let te ← whnfCore env fuel depth (← inferTypeCore env fuel depth e')
     match te with
     | .app (.app (.const c _) _) _ =>
       -- the basis pair projects natively
@@ -712,9 +822,5 @@ def annotateProjElim (env : Env) (fuel depth : Nat) (sn : Name) (i : Nat)
 termination_by (fuel, 1)
 
 end
-
-/-- Annotate with the standard fuel. -/
-def annotate (env : Env) (depth : Nat) (e : Expr) : CheckM Expr :=
-  annotateCore env checkFuel depth e
 
 end Setlec

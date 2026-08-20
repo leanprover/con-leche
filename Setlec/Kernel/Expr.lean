@@ -22,7 +22,7 @@ inductive Name where
   | anonymous
   | str (pre : Name) (s : String)
   | num (pre : Name) (n : Nat)
-  deriving DecidableEq, Repr, Inhabited
+  deriving DecidableEq, Repr, Inhabited, Hashable
 
 namespace Name
 
@@ -50,7 +50,7 @@ inductive Level where
   | max (u v : Level)
   | imax (u v : Level)
   | param (n : Name)
-  deriving DecidableEq, Repr, Inhabited
+  deriving DecidableEq, Repr, Inhabited, Hashable
 
 /-- Binder annotations. Irrelevant to checking; kept for round-tripping and
 error messages. -/
@@ -59,7 +59,7 @@ inductive BinderInfo where
   | implicit
   | strictImplicit
   | instImplicit
-  deriving DecidableEq, Repr, Inhabited
+  deriving DecidableEq, Repr, Inhabited, Hashable
 
 /-- Metadata carried by a binder (`forallE`, `lam`): the display
 `BinderInfo`, and the **codomain sort annotation** `cod` — for a
@@ -72,7 +72,7 @@ structural (see DESIGN.md, "sort annotations"). -/
 structure BinderMeta where
   bi : BinderInfo
   cod : Option Level := none
-  deriving DecidableEq, Repr
+  deriving DecidableEq, Repr, Hashable
 
 instance : Inhabited BinderMeta := ⟨⟨.default, none⟩⟩
 
@@ -80,7 +80,7 @@ instance : Inhabited BinderMeta := ⟨⟨.default, none⟩⟩
 inductive Literal where
   | natVal (n : Nat)
   | strVal (s : String)
-  deriving DecidableEq, Repr, Inhabited
+  deriving DecidableEq, Repr, Inhabited, Hashable
 
 /-- Kernel expressions.
 
@@ -98,6 +98,6 @@ inductive Expr where
   | letE (n : Name) (type value body : Expr)
   | lit (l : Literal)
   | proj (structName : Name) (idx : Nat) (e : Expr)
-  deriving DecidableEq, Repr, Inhabited
+  deriving DecidableEq, Repr, Inhabited, Hashable
 
 end Setlec
