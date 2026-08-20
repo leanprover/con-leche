@@ -536,6 +536,42 @@ theorem PiDomsRenEq.instantiate1 {f : Name → Name} {a₁ a₂ : Expr}
       exact ⟨n₂, d₂.instantiate1 a₂ j, b₂.instantiate1 a₂ (j + 1), m₂, rfl,
         RenEq.instantiate1 hd ha, ih (j + 1) hb⟩
 
+/-- Pointwise domain relatedness assembles the prefix relation. -/
+theorem PiDomsRenEq.of_pointwise {f : Name → Name} :
+    ∀ (k : Nat) {e₁ e₂ : Expr}
+      {bs₁ bs₂ : List (Name × Expr × BinderMeta)} {body₁ body₂ : Expr},
+      e₁.stripPis k = some (bs₁, body₁) →
+      e₂.stripPis k = some (bs₂, body₂) →
+      (∀ (i : Nat) (b₁ b₂ : Name × Expr × BinderMeta),
+        bs₁[i]? = some b₁ → bs₂[i]? = some b₂ → RenEq f b₁.2.1 b₂.2.1) →
+      PiDomsRenEq f k e₁ e₂ := by
+  intro k
+  induction k with
+  | zero => intro e₁ e₂ bs₁ bs₂ body₁ body₂ _ _ _; trivial
+  | succ k ih =>
+    intro e₁ e₂ bs₁ bs₂ body₁ body₂ h1 h2 hdoms
+    match e₁, e₂, h1, h2 with
+    | .forallE n₁ d₁ b₁ m₁, .forallE n₂ d₂ b₂ m₂, h1, h2 =>
+      simp only [Expr.stripPis] at h1 h2
+      cases hs1 : b₁.stripPis k with
+      | none => rw [hs1] at h1; exact nomatch h1
+      | some p1 =>
+      cases hs2 : b₂.stripPis k with
+      | none => rw [hs2] at h2; exact nomatch h2
+      | some p2 =>
+      rw [hs1] at h1
+      rw [hs2] at h2
+      simp only [Option.map_some, Option.some.injEq] at h1 h2
+      obtain ⟨hb1, -⟩ : (n₁, d₁, m₁) :: p1.1 = bs₁ ∧ p1.2 = body₁ := by
+        cases h1; exact ⟨rfl, rfl⟩
+      obtain ⟨hb2, -⟩ : (n₂, d₂, m₂) :: p2.1 = bs₂ ∧ p2.2 = body₂ := by
+        cases h2; exact ⟨rfl, rfl⟩
+      subst hb1 hb2
+      refine ⟨n₂, d₂, b₂, m₂, rfl, ?_, ?_⟩
+      · exact hdoms 0 (n₁, d₁, m₁) (n₂, d₂, m₂) rfl rfl
+      · exact ih hs1 hs2 (fun i c₁ c₂ hc₁ hc₂ =>
+          hdoms (i + 1) c₁ c₂ (by simpa using hc₁) (by simpa using hc₂))
+
 /-- Transfer an expression-spine fit across a renaming of the telescope
 domains and the arguments: every interpretation fact is
 renaming-invariant.  Only the walked prefix of the telescopes needs to

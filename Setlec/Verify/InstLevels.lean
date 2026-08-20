@@ -102,6 +102,60 @@ theorem looseBVarsBounded_instantiateLevelParams (ks : List Name) (us : List Lev
   intro e
   induction e <;> intro k <;> simp_all [instantiateLevelParams, looseBVarsBounded]
 
+/-- Level instantiation distributes over a `∀`-telescope's
+decomposition. -/
+theorem stripPis_instantiateLevelParams_eq (ks : List Name)
+    (us : List Level) :
+    ∀ (k : Nat) {e : Expr} {bs bs' : List (Name × Expr × BinderMeta)}
+      {body body' : Expr},
+      e.stripPis k = some (bs, body) →
+      (e.instantiateLevelParams ks us).stripPis k = some (bs', body') →
+      body' = body.instantiateLevelParams ks us ∧
+      ∀ (i : Nat) (b b' : Name × Expr × BinderMeta),
+        bs[i]? = some b → bs'[i]? = some b' →
+        b'.2.1 = b.2.1.instantiateLevelParams ks us := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs bs' body body' h1 h2
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h1 h2
+    obtain ⟨rfl, rfl⟩ := h1
+    obtain ⟨rfl, rfl⟩ := h2
+    exact ⟨rfl, fun i b b' hb _ => by simp at hb⟩
+  | succ k ih =>
+    intro e bs bs' body body' h1 h2
+    match e, h1 with
+    | .forallE n d b m, h1 =>
+      simp only [Expr.instantiateLevelParams, Expr.stripPis] at h1 h2
+      cases hs1 : b.stripPis k with
+      | none => rw [hs1] at h1; exact nomatch h1
+      | some p1 =>
+      cases hs2 : (b.instantiateLevelParams ks us).stripPis k with
+      | none => rw [hs2] at h2; exact nomatch h2
+      | some p2 =>
+      rw [hs1] at h1
+      rw [hs2] at h2
+      simp only [Option.map_some, Option.some.injEq] at h1 h2
+      obtain ⟨hb1, hbody1⟩ : (n, d, m) :: p1.1 = bs ∧ p1.2 = body := by
+        cases h1; exact ⟨rfl, rfl⟩
+      obtain ⟨hb2, hbody2⟩ :
+          (n, d.instantiateLevelParams ks us,
+            ⟨m.bi, m.cod.map (Level.subst ks us)⟩) :: p2.1 = bs' ∧
+            p2.2 = body' := by
+        cases h2; exact ⟨rfl, rfl⟩
+      subst hb1 hbody1 hb2 hbody2
+      obtain ⟨hbody, hdoms⟩ := ih hs1 hs2
+      refine ⟨hbody, ?_⟩
+      intro i bb bb' hbb hbb'
+      cases i with
+      | zero =>
+        simp only [List.getElem?_cons_zero, Option.some.injEq] at hbb hbb'
+        subst hbb hbb'
+        simp
+      | succ i =>
+        simp only [List.getElem?_cons_succ] at hbb hbb'
+        exact hdoms i bb bb' hbb hbb'
+
 /-- Level instantiation preserves a `∀`-telescope's arity. -/
 theorem stripPis_instantiateLevelParams_isSome (ks : List Name)
     (us : List Level) :

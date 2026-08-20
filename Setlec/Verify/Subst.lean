@@ -233,16 +233,16 @@ theorem liftLooseBVars_zero : ∀ (e : Expr) (c : Nat),
   intro e
   induction e <;> intro c <;> simp_all [liftLooseBVars]
 
-/-- Instantiating the freshly inserted slot of a lift eats one lift
-level: the lifted expression never references it. -/
+/-- Instantiating any freshly inserted slot of a lift eats one lift
+level: the lifted expression never references the inserted range. -/
 theorem instantiate1_liftLooseBVars {v : Expr} :
-    ∀ {e : Expr} {k c : Nat},
-      (e.liftLooseBVars (k + 1) c).instantiate1 v c =
+    ∀ {e : Expr} {k c j : Nat}, c ≤ j → j ≤ c + k →
+      (e.liftLooseBVars (k + 1) c).instantiate1 v j =
         e.liftLooseBVars k c := by
   intro e
   induction e with
   | bvar i =>
-    intro k c
+    intro k c j hcj hjk
     simp only [liftLooseBVars]
     split
     · next h =>
@@ -252,25 +252,28 @@ theorem instantiate1_liftLooseBVars {v : Expr} :
     · next h =>
       simp only [instantiate1]
       rw [if_neg (by omega), if_neg (by omega)]
-  | fvar idx n ty => intro k c; rfl
-  | sort u => intro k c; rfl
-  | const n us => intro k c; rfl
+  | fvar idx n ty => intro k c j hcj hjk; rfl
+  | sort u => intro k c j hcj hjk; rfl
+  | const n us => intro k c j hcj hjk; rfl
   | app f a ihf iha =>
-    intro k c
-    simp only [liftLooseBVars, instantiate1, ihf, iha]
+    intro k c j hcj hjk
+    simp only [liftLooseBVars, instantiate1, ihf hcj hjk, iha hcj hjk]
   | lam n ty body m ihty ihbody =>
-    intro k c
-    simp only [liftLooseBVars, instantiate1, ihty, ihbody]
+    intro k c j hcj hjk
+    simp only [liftLooseBVars, instantiate1, ihty hcj hjk,
+      ihbody (by omega : c + 1 ≤ j + 1) (by omega : j + 1 ≤ c + 1 + k)]
   | forallE n ty body m ihty ihbody =>
-    intro k c
-    simp only [liftLooseBVars, instantiate1, ihty, ihbody]
+    intro k c j hcj hjk
+    simp only [liftLooseBVars, instantiate1, ihty hcj hjk,
+      ihbody (by omega : c + 1 ≤ j + 1) (by omega : j + 1 ≤ c + 1 + k)]
   | letE n ty vl body ihty ihv ihbody =>
-    intro k c
-    simp only [liftLooseBVars, instantiate1, ihty, ihv, ihbody]
-  | lit l => intro k c; rfl
+    intro k c j hcj hjk
+    simp only [liftLooseBVars, instantiate1, ihty hcj hjk, ihv hcj hjk,
+      ihbody (by omega : c + 1 ≤ j + 1) (by omega : j + 1 ≤ c + 1 + k)]
+  | lit l => intro k c j hcj hjk; rfl
   | proj sn i pe ih =>
-    intro k c
-    simp only [liftLooseBVars, instantiate1, ih]
+    intro k c j hcj hjk
+    simp only [liftLooseBVars, instantiate1, ih hcj hjk]
 
 /-- Instantiation below the lift's cutoff commutes with the lift. -/
 theorem liftLooseBVars_instantiate1 {v : Expr}
@@ -370,6 +373,60 @@ theorem fvarsBelow_erasedEq :
     | .proj sn' i' pe', he =>
       show fvarsBelow d pe'
       exact ih he.2.2 hb
+
+/-- Instantiation distributes over a `∀`-telescope's decomposition:
+each domain is instantiated at its depth-shifted index, the body at
+the telescope's arity. -/
+theorem stripPis_instantiate1_eq {v : Expr} :
+    ∀ (k : Nat) {e : Expr} {bs bs' : List (Name × Expr × BinderMeta)}
+      {body body' : Expr} (j : Nat),
+      e.stripPis k = some (bs, body) →
+      (e.instantiate1 v j).stripPis k = some (bs', body') →
+      body' = body.instantiate1 v (j + k) ∧
+      ∀ (i : Nat) (b b' : Name × Expr × BinderMeta),
+        bs[i]? = some b → bs'[i]? = some b' →
+        b'.2.1 = b.2.1.instantiate1 v (j + i) := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs bs' body body' j h1 h2
+    simp only [stripPis, Option.some.injEq, Prod.mk.injEq] at h1 h2
+    obtain ⟨rfl, rfl⟩ := h1
+    obtain ⟨rfl, rfl⟩ := h2
+    exact ⟨rfl, fun i b b' hb _ => by simp at hb⟩
+  | succ k ih =>
+    intro e bs bs' body body' j h1 h2
+    match e, h1 with
+    | .forallE n d b m, h1 =>
+      simp only [instantiate1, stripPis] at h1 h2
+      cases hs1 : b.stripPis k with
+      | none => rw [hs1] at h1; exact nomatch h1
+      | some p1 =>
+      cases hs2 : (b.instantiate1 v (j + 1)).stripPis k with
+      | none => rw [hs2] at h2; exact nomatch h2
+      | some p2 =>
+      rw [hs1] at h1
+      rw [hs2] at h2
+      simp only [Option.map_some, Option.some.injEq] at h1 h2
+      obtain ⟨hb1, hbody1⟩ : (n, d, m) :: p1.1 = bs ∧ p1.2 = body := by
+        cases h1; exact ⟨rfl, rfl⟩
+      obtain ⟨hb2, hbody2⟩ :
+          (n, d.instantiate1 v j, m) :: p2.1 = bs' ∧ p2.2 = body' := by
+        cases h2; exact ⟨rfl, rfl⟩
+      subst hb1 hbody1 hb2 hbody2
+      obtain ⟨hbody, hdoms⟩ := ih (j + 1) hs1 hs2
+      refine ⟨by rw [hbody]; congr 1; omega, ?_⟩
+      intro i bb bb' hbb hbb'
+      cases i with
+      | zero =>
+        simp only [List.getElem?_cons_zero, Option.some.injEq] at hbb hbb'
+        subst hbb hbb'
+        simp
+      | succ i =>
+        simp only [List.getElem?_cons_succ] at hbb hbb'
+        rw [hdoms i bb bb' hbb hbb']
+        congr 1
+        omega
 
 /-- Instantiating with a bounded term keeps loose-bvar bounds. -/
 theorem looseBVarsBounded_instantiate1_gen {a : Expr}
