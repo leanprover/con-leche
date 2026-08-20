@@ -14,4 +14,5 @@ import Setlec.Model.Interp
 import Setlec.Model.InterpLemmas
 import Setlec.Model.TypeChecker
 import Setlec.Model.IndInstall
+import Setlec.Model.Extend
 import Setlec.Model.Consistency
