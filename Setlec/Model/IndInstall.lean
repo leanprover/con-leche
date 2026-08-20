@@ -43,11 +43,8 @@ theorem modeled_rule_fold
     {cim : ConstantInfo}
     (hfRm : env₁.find? (f R) = some cim)
     (hRmlps : cim.toConstantVal.levelParams = lps)
-    (hRlps : ∀ ψ₁ ψ₂ : Name → Nat, (∀ p ∈ lps, ψ₁ p = ψ₂ p) →
-      val' (f R) ψ₁ = val' (f R) ψ₂)
     (hClps : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ cvj.levelParams, ψ₁ p = ψ₂ p) → val' ctor ψ₁ = val' ctor ψ₂)
-    (hClpsSub : ∀ p ∈ cvj.levelParams, p ∈ lps)
     -- the pinned equality former
     (heqfind : env₁.find? eqName = some eqA)
     (heqval : ∀ ψ'' : Name → Nat, val' eqName ψ'' = eqVal V ψ'')
@@ -99,9 +96,8 @@ theorem modeled_rule_fold
     (hArhs : ∀ ψ'' : Name → Nat,
       AnnotOk V val' env₁ ψ'' 0 (rho0 V) rhsA)
     -- member type wf
-    (htyw : tyA.hasFvar = false) (htyb : tyA.looseBVarsBounded 0 = true)
+    (htyw : tyA.hasFvar = false)
     (hCw : cvj.type.hasFvar = false)
-    (hCb : cvj.type.looseBVarsBounded 0 = true)
     (hCps : cvj.type.allLevelParamsDefined cvj.levelParams = true)
     -- the fold clause's inputs
     {us usj : List Level} {args margs : List V} {tv : V}
