@@ -903,4 +903,164 @@ theorem fields_relation {f : Name → Name} {nP nmM cnF : Nat}
   rw [Expr.instSeq_lift_eat extras]
   exact instSeq_renameConsts params (nP + i - 1) hpren
 
+/-- Peel a λ-tower along an argument list. -/
+def telescopeInstLam : Expr → List Expr → Option Expr
+  | e, [] => some e
+  | .lam _ _ b _, a :: as => telescopeInstLam (b.instantiate1 a) as
+  | _, _ :: _ => none
+
+/-- A λ-spine fit's residual is the peeled tower. -/
+theorem TeleFitLam.rest_eq :
+    ∀ {e : Expr} {args : List Expr} {vs : List V} {rest : Expr},
+      TeleFitLam cval env φ d ρ e args vs rest →
+      telescopeInstLam e args = some rest := by
+  intro e args vs rest h
+  induction h with
+  | nil => rfl
+  | cons _ _ _ _ _ _ _ _ ih => exact ih
+
+/-- Peeling a λ-tower: the residual body carries the accumulated
+descending-index instantiations. -/
+theorem telescopeInstLam_body :
+    ∀ (p : Nat) (args : List Expr) {e : Expr}
+      {bs : List (Name × Expr × BinderMeta)} {body : Expr},
+      args.length = p →
+      e.stripLams p = some (bs, body) →
+      telescopeInstLam e args = some (Expr.instSeq args (p - 1) body) := by
+  intro p
+  induction p with
+  | zero =>
+    intro args e bs body hlen hstrip
+    match args, hlen with
+    | [], _ =>
+      simp only [Expr.stripLams, Option.some.injEq, Prod.mk.injEq] at hstrip
+      obtain ⟨-, rfl⟩ := hstrip
+      rfl
+  | succ p ih =>
+    intro args e bs body hlen hstrip
+    match args, hlen with
+    | a :: as, hlen =>
+    have hlen' : as.length = p := by simpa using hlen
+    match e, hstrip with
+    | .lam n d b m, hstrip =>
+    simp only [Expr.stripLams] at hstrip
+    cases hs0 : b.stripLams p with
+    | none => rw [hs0] at hstrip; exact nomatch hstrip
+    | some p0 =>
+    rw [hs0] at hstrip
+    simp only [Option.map_some, Option.some.injEq] at hstrip
+    obtain ⟨-, hbody0⟩ : (n, d, m) :: p0.1 = bs ∧ p0.2 = body := by
+      cases hstrip; exact ⟨rfl, rfl⟩
+    cases hs1 : (b.instantiate1 a).stripLams p with
+    | none =>
+      exact absurd (Expr.stripLams_instantiate1_isSome p 0
+        (by rw [hs0]; rfl)) (by rw [hs1]; simp)
+    | some p1 =>
+    obtain ⟨hbody1, -⟩ := Expr.stripLams_instantiate1_eq p 0 hs0 hs1
+    show telescopeInstLam (b.instantiate1 a) as = _
+    rw [ih as hlen' (bs := p1.1) (body := p1.2) (by rw [hs1])]
+    rw [hbody1, ← hbody0]
+    show some (Expr.instSeq as (p - 1) (p0.2.instantiate1 a (0 + p))) =
+      some (Expr.instSeq as (p + 1 - 1 - 1)
+        (p0.2.instantiate1 a (p + 1 - 1)))
+    congr 3 <;> omega
+
+/-- The first `k` λ-domains are related by the renaming to the
+`∀`-telescope's domains. -/
+def LamPiDomsRenEq (f : Name → Name) : Nat → Expr → Expr → Prop
+  | 0, _, _ => True
+  | k + 1, .lam _ d₁ b₁ _, e₂ =>
+    ∃ n₂ d₂ b₂ m₂, e₂ = .forallE n₂ d₂ b₂ m₂ ∧ RenEq f d₁ d₂ ∧
+      LamPiDomsRenEq f k b₁ b₂
+  | _ + 1, _, _ => False
+
+/-- Pointwise domain relatedness assembles the λ/∀ renaming
+relation. -/
+theorem LamPiDomsRenEq.of_pointwise {f : Name → Name} :
+    ∀ (k : Nat) {e ty : Expr}
+      {lbs pbs : List (Name × Expr × BinderMeta)} {lbody pbody : Expr},
+      e.stripLams k = some (lbs, lbody) →
+      ty.stripPis k = some (pbs, pbody) →
+      (∀ (i : Nat) (b₁ b₂ : Name × Expr × BinderMeta),
+        lbs[i]? = some b₁ → pbs[i]? = some b₂ → RenEq f b₁.2.1 b₂.2.1) →
+      LamPiDomsRenEq f k e ty := by
+  intro k
+  induction k with
+  | zero => intro e ty lbs pbs lbody pbody _ _ _; trivial
+  | succ k ih =>
+    intro e ty lbs pbs lbody pbody h1 h2 hdoms
+    match e, ty, h1, h2 with
+    | .lam n₁ d₁ b₁ m₁, .forallE n₂ d₂ b₂ m₂, h1, h2 =>
+      simp only [Expr.stripLams, Expr.stripPis] at h1 h2
+      cases hs1 : b₁.stripLams k with
+      | none => rw [hs1] at h1; exact nomatch h1
+      | some p1 =>
+      cases hs2 : b₂.stripPis k with
+      | none => rw [hs2] at h2; exact nomatch h2
+      | some p2 =>
+      rw [hs1] at h1
+      rw [hs2] at h2
+      simp only [Option.map_some, Option.some.injEq] at h1 h2
+      obtain ⟨hb1, -⟩ : (n₁, d₁, m₁) :: p1.1 = lbs ∧ p1.2 = lbody := by
+        cases h1; exact ⟨rfl, rfl⟩
+      obtain ⟨hb2, -⟩ : (n₂, d₂, m₂) :: p2.1 = pbs ∧ p2.2 = pbody := by
+        cases h2; exact ⟨rfl, rfl⟩
+      subst hb1 hb2
+      refine ⟨n₂, d₂, b₂, m₂, rfl,
+        hdoms 0 (n₁, d₁, m₁) (n₂, d₂, m₂) rfl rfl, ?_⟩
+      exact ih hs1 hs2 (fun i c₁ c₂ hc₁ hc₂ =>
+        hdoms (i + 1) c₁ c₂ (by simpa using hc₁) (by simpa using hc₂))
+
+/-- The relation survives instantiating both sides with related
+arguments. -/
+theorem LamPiDomsRenEq.instantiate1 {f : Name → Name} {a₁ a₂ : Expr}
+    (ha : RenEq f a₁ a₂) :
+    ∀ (k : Nat) {e₁ e₂ : Expr} (j : Nat), LamPiDomsRenEq f k e₁ e₂ →
+      LamPiDomsRenEq f k (e₁.instantiate1 a₁ j) (e₂.instantiate1 a₂ j) := by
+  intro k
+  induction k with
+  | zero => intro e₁ e₂ j _; trivial
+  | succ k ih =>
+    intro e₁ e₂ j h
+    match e₁, h with
+    | .lam n₁ d₁ b₁ m₁, h =>
+      obtain ⟨n₂, d₂, b₂, m₂, rfl, hd, hb⟩ := h
+      exact ⟨n₂, d₂.instantiate1 a₂ j, b₂.instantiate1 a₂ (j + 1), m₂, rfl,
+        RenEq.instantiate1 hd ha, ih (j + 1) hb⟩
+
+/-- A type-telescope fit transfers to a λ-tower whose binder domains
+are related through the renaming (the fit's domains rename to the
+tower's own). -/
+theorem TeleFitI.toLamRen {f : Name → Name} (hro : RenameOk cval env f) :
+    ∀ {args : List Expr} {ty e : Expr} {vs : List V} {restT : Expr},
+      TeleFitI V cval env φ d ρ ty args vs restT →
+      LamPiDomsRenEq f args.length e ty →
+      Expr.fvarsBelow d e →
+      (∀ a ∈ args, RenEq f a a) →
+      ∃ restE, TeleFitLam cval env φ d ρ e args vs restE
+  | [], ty, e, vs, restT, hfit, hdoms, hfbe, hargs => by
+    generalize ty = t at hfit
+    cases hfit with
+    | nil => exact ⟨e, TeleFitLam.nil⟩
+  | arg :: args, ty, e, vs, restT, hfit, hdoms, hfbe, hargs => by
+    obtain ⟨n₁, d₁, b₁, m₁, rfl⟩ :
+        ∃ n₁ d₁ b₁ m₁, e = .lam n₁ d₁ b₁ m₁ := by
+      match e, hdoms with
+      | .lam n₁ d₁ b₁ m₁, _ => exact ⟨n₁, d₁, b₁, m₁, rfl⟩
+    obtain ⟨n₂, d₂, b₂, m₂, rfl, hd, hb⟩ := hdoms
+    have hfbe' : Expr.fvarsBelow d d₁ ∧ Expr.fvarsBelow d b₁ := by
+      simpa [Expr.fvarsBelow] using hfbe
+    cases hfit with
+    | @cons _ _ _ _ _ _ x xs A rest hity hiarg hx hfbI hwarg hbarg hAarg
+        hsub =>
+    obtain ⟨restE, hfitE⟩ := TeleFitI.toLamRen hro hsub
+      (LamPiDomsRenEq.instantiate1 (hargs arg List.mem_cons_self)
+        args.length 0 hb)
+      (fvarsBelow_instantiate1_gen hwarg.fvarsBelow 0 hfbe'.2)
+      (fun a ha => hargs a (List.mem_cons_of_mem _ ha))
+    refine ⟨restE, TeleFitLam.cons ?_ hiarg hx hfbe'.2 hwarg hbarg hAarg
+      hfitE⟩
+    rw [← RenEq.interp hro hd d ρ]
+    exact hity
+
 end Setlec

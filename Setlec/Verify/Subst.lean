@@ -655,6 +655,157 @@ theorem instSeq_append :
     simp
     omega
 
+/-- An instantiation sequence is a no-op on bvar-closed expressions. -/
+theorem instSeq_eq_self :
+    ∀ (args : List Expr) (t : Nat) {e : Expr},
+      e.looseBVarsBounded 0 = true → instSeq args t e = e := by
+  intro args
+  induction args with
+  | nil => intro t e _; rfl
+  | cons a as ih =>
+    intro t e hb
+    show instSeq as (t - 1) (e.instantiate1 a t) = e
+    rw [instantiate1_eq_self (looseBVarsBounded_mono (Nat.zero_le t) hb)]
+    exact ih (t - 1) hb
+
+/-- An instantiation sequence distributes over an application spine. -/
+theorem instSeq_mkAppN :
+    ∀ (args : List Expr) (t : Nat) (h : Expr) (xs : List Expr),
+      instSeq args t (Expr.mkAppN h xs) =
+        Expr.mkAppN (instSeq args t h) (xs.map (instSeq args t ·)) := by
+  intro args
+  induction args with
+  | nil => intro t h xs; simp [instSeq]
+  | cons a as ih =>
+    intro t h xs
+    show instSeq as (t - 1) ((Expr.mkAppN h xs).instantiate1 a t) = _
+    rw [mkAppN_instantiate1, ih]
+    congr 1
+    simp only [List.map_map]
+    rfl
+
+/-- Resolving a bound variable through an instantiation sequence of
+closed arguments: the variable becomes its slot's argument. -/
+theorem instSeq_bvar :
+    ∀ (args : List Expr) (t j : Nat),
+      (∀ a ∈ args, a.looseBVarsBounded 0 = true) →
+      j ≤ t → t - j < args.length →
+      args[t - j]? = some (instSeq args t (.bvar j)) := by
+  intro args
+  induction args with
+  | nil => intro t j _ _ h; simp at h
+  | cons a as ih =>
+    intro t j hb hj hr
+    by_cases hjt : j = t
+    · subst hjt
+      show (a :: as)[j - j]? = some (instSeq as (j - 1)
+        ((Expr.bvar j).instantiate1 a j))
+      simp only [Expr.instantiate1, ↓reduceIte]
+      rw [instSeq_eq_self as (j - 1) (hb a List.mem_cons_self)]
+      simp [Nat.sub_self]
+    · have hjlt : j < t := by omega
+      show (a :: as)[t - j]? = some (instSeq as (t - 1)
+        ((Expr.bvar j).instantiate1 a t))
+      simp only [Expr.instantiate1]
+      rw [if_neg hjt, if_neg (by omega)]
+      rw [show t - j = (t - 1 - j) + 1 from by omega]
+      rw [List.getElem?_cons_succ]
+      exact ih (t - 1) j (fun x hx => hb x (List.mem_cons_of_mem _ hx))
+        (by omega) (by simp at hr; omega)
+
+/-- A successful λ-tower decomposition has exactly `k` binders. -/
+theorem stripLams_length :
+    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+      {body : Expr}, e.stripLams k = some (bs, body) → bs.length = k := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs body h
+    simp only [stripLams, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    rfl
+  | succ k ih =>
+    intro e bs body h
+    match e, h with
+    | .lam n d b m, h =>
+      simp only [stripLams] at h
+      cases hs : b.stripLams k with
+      | none => rw [hs] at h; exact nomatch h
+      | some p =>
+        rw [hs] at h
+        simp only [Option.map_some, Option.some.injEq] at h
+        obtain ⟨hb, -⟩ : (n, d, m) :: p.1 = bs ∧ p.2 = body := by
+          cases h; exact ⟨rfl, rfl⟩
+        subst hb
+        have := ih (e := b) (bs := p.1) (body := p.2) (by rw [hs])
+        simp [this]
+
+/-- Instantiation preserves a λ-tower's arity. -/
+theorem stripLams_instantiate1_isSome {v : Expr} :
+    ∀ (k : Nat) {e : Expr} (j : Nat), (e.stripLams k).isSome →
+      ((e.instantiate1 v j).stripLams k).isSome := by
+  intro k
+  induction k with
+  | zero => intro e j _; simp [stripLams]
+  | succ k ih =>
+    intro e j h
+    match e, h with
+    | .lam n ty body m, h =>
+      simp only [instantiate1, stripLams, Option.isSome_map] at h ⊢
+      exact ih (j + 1) h
+
+/-- Instantiation distributes over a λ-tower's decomposition. -/
+theorem stripLams_instantiate1_eq {v : Expr} :
+    ∀ (k : Nat) {e : Expr} {bs bs' : List (Name × Expr × BinderMeta)}
+      {body body' : Expr} (j : Nat),
+      e.stripLams k = some (bs, body) →
+      (e.instantiate1 v j).stripLams k = some (bs', body') →
+      body' = body.instantiate1 v (j + k) ∧
+      ∀ (i : Nat) (b b' : Name × Expr × BinderMeta),
+        bs[i]? = some b → bs'[i]? = some b' →
+        b'.2.1 = b.2.1.instantiate1 v (j + i) := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs bs' body body' j h1 h2
+    simp only [stripLams, Option.some.injEq, Prod.mk.injEq] at h1 h2
+    obtain ⟨rfl, rfl⟩ := h1
+    obtain ⟨rfl, rfl⟩ := h2
+    exact ⟨rfl, fun i b b' hb _ => by simp at hb⟩
+  | succ k ih =>
+    intro e bs bs' body body' j h1 h2
+    match e, h1 with
+    | .lam n d b m, h1 =>
+      simp only [instantiate1, stripLams] at h1 h2
+      cases hs1 : b.stripLams k with
+      | none => rw [hs1] at h1; exact nomatch h1
+      | some p1 =>
+      cases hs2 : (b.instantiate1 v (j + 1)).stripLams k with
+      | none => rw [hs2] at h2; exact nomatch h2
+      | some p2 =>
+      rw [hs1] at h1
+      rw [hs2] at h2
+      simp only [Option.map_some, Option.some.injEq] at h1 h2
+      obtain ⟨hb1, hbody1⟩ : (n, d, m) :: p1.1 = bs ∧ p1.2 = body := by
+        cases h1; exact ⟨rfl, rfl⟩
+      obtain ⟨hb2, hbody2⟩ :
+          (n, d.instantiate1 v j, m) :: p2.1 = bs' ∧ p2.2 = body' := by
+        cases h2; exact ⟨rfl, rfl⟩
+      subst hb1 hbody1 hb2 hbody2
+      obtain ⟨hbody, hdoms⟩ := ih (j + 1) hs1 hs2
+      refine ⟨by rw [hbody]; congr 1; omega, ?_⟩
+      intro i bb bb' hbb hbb'
+      cases i with
+      | zero =>
+        simp only [List.getElem?_cons_zero, Option.some.injEq] at hbb hbb'
+        subst hbb hbb'
+        simp
+      | succ i =>
+        simp only [List.getElem?_cons_succ] at hbb hbb'
+        rw [hdoms i bb bb' hbb hbb']
+        congr 1
+        omega
+
 /-- Instantiating with a bounded term keeps loose-bvar bounds. -/
 theorem looseBVarsBounded_instantiate1_gen {a : Expr}
     (hba : a.looseBVarsBounded 0 = true) :
