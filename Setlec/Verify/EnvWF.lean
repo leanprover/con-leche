@@ -1,3 +1,4 @@
+import Setlec.Kernel.Core
 import Setlec.Kernel.Env
 import Setlec.Kernel.ExprOps
 import Setlec.Kernel.Level
@@ -56,15 +57,50 @@ theorem Env.find?_cons_of_isSome {c : ConstantInfo} {env : Env} {n : Name}
 theorem Expr.constsResolve_mono {c : ConstantInfo} {env : Env} :
     ∀ {e : Expr}, e.constsResolve env = true →
       e.constsResolve ⟨c :: env.consts⟩ = true := by
+  have hf : ∀ n, (env.find? n).isSome = true →
+      (Env.find? ⟨c :: env.consts⟩ n).isSome = true := by
+    intro n h
+    rw [Env.find?_cons]
+    split <;> simp_all
   intro e
-  induction e <;> simp_all [Expr.constsResolve]
-  case const n us =>
-    rw [Env.find?_cons]
-    split <;> simp_all
-  case proj s i e ih =>
-    intro hs he
-    rw [Env.find?_cons]
-    split <;> simp_all
+  induction e with
+  | bvar i => intro h; simp [Expr.constsResolve]
+  | sort u => intro h; simp [Expr.constsResolve]
+  | const n us =>
+    intro h
+    simp only [Expr.constsResolve] at h ⊢
+    exact hf _ h
+  | lit l =>
+    cases l with
+    | natVal n =>
+      intro h
+      simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
+      exact ⟨⟨hf _ h.1.1, hf _ h.1.2⟩, hf _ h.2⟩
+    | strVal s => intro h; simp [Expr.constsResolve]
+  | fvar idx nm ty ih =>
+    intro h
+    simp only [Expr.constsResolve] at h ⊢
+    exact ih h
+  | app f a ihf iha =>
+    intro h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
+    exact ⟨ihf h.1, iha h.2⟩
+  | lam nm ty body mb ihty ihbody =>
+    intro h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
+    exact ⟨ihty h.1, ihbody h.2⟩
+  | forallE nm ty body mb ihty ihbody =>
+    intro h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
+    exact ⟨ihty h.1, ihbody h.2⟩
+  | letE nm ty val body ihty ihval ihbody =>
+    intro h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
+    exact ⟨⟨ihty h.1.1, ihval h.1.2⟩, ihbody h.2⟩
+  | proj s i e ih =>
+    intro h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
+    exact ⟨hf _ h.1, ih h.2⟩
 
 /-- Resolution survives binder opening. -/
 theorem Expr.constsResolve_instantiate1 {env : Env} {d : Nat} {n : Name} {ty : Expr}
@@ -97,7 +133,9 @@ theorem Expr.constsResolve_congr {env₁ env₂ : Env}
     (henv : ∀ n, (env₁.find? n).isSome = (env₂.find? n).isSome) :
     ∀ (e : Expr), e.constsResolve env₁ = e.constsResolve env₂ := by
   intro e
-  induction e <;> simp_all [Expr.constsResolve]
+  induction e with
+  | lit l => cases l <;> simp_all [Expr.constsResolve]
+  | _ => simp_all [Expr.constsResolve]
 
 /-- Telescope domains of a resolving type resolve. -/
 theorem Expr.constsResolve_stripPis {env : Env} :

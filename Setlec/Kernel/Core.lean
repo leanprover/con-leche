@@ -136,6 +136,29 @@ def natLitToConstructor (n : Nat) : Expr :=
   | 0 => .const natZeroName []
   | k + 1 => .app (.const natSuccName []) (.lit (.natVal k))
 
+/-- The stored `Nat` declaration has the expected shape. -/
+def natIndOk : Option ConstantInfo → Bool
+  | some (.indInfo cv _) =>
+    cv.levelParams.isEmpty && cv.type == .sort (.succ .zero)
+  | _ => false
+
+/-- The stored `Nat.zero` declaration has the expected shape. -/
+def natZeroOk : Option ConstantInfo → Bool
+  | some (.ctorInfo cv _ _) =>
+    cv.levelParams.isEmpty && cv.type == .const natName []
+  | _ => false
+
+/-- The stored `Nat.succ` declaration has the expected (annotated)
+shape. -/
+def natSuccOk : Option ConstantInfo → Bool
+  | some (.ctorInfo cv _ _) =>
+    cv.levelParams.isEmpty &&
+    (match cv.type with
+     | .forallE _ (.const c1 []) (.const c2 []) mb =>
+       c1 == natName && c2 == natName && mb.cod == some (.succ .zero)
+     | _ => false)
+  | _ => false
+
 /-- Whether the environment supports `Nat` literals: `Nat`, `Nat.zero`
 and `Nat.succ` are stored with exactly the expected kinds, level
 parameters and (annotated) types.  Every literal code path is guarded
@@ -143,16 +166,26 @@ on this — the model interprets a literal by iterating the `Nat.succ`
 value on the `Nat.zero` value, and the soundness proofs read the
 declaration shapes off this guard. -/
 def natLitSupported (env : Env) : Bool :=
-  match env.find? natName, env.find? natZeroName, env.find? natSuccName with
-  | some (.indInfo cv _), some (.ctorInfo cv0 _ _), some (.ctorInfo cv1 _ _) =>
-    cv.levelParams.isEmpty && cv0.levelParams.isEmpty &&
-    cv1.levelParams.isEmpty &&
-    cv.type == .sort (.succ .zero) && cv0.type == .const natName [] &&
-    (match cv1.type with
-     | .forallE _ (.const c1 []) (.const c2 []) mb =>
-       c1 == natName && c2 == natName && mb.cod == some (.succ .zero)
-     | _ => false)
-  | _, _, _ => false
+  natIndOk (env.find? natName) && natZeroOk (env.find? natZeroName) &&
+    natSuccOk (env.find? natSuccName)
+
+/-- Do all constants referenced in `e` (including inside `fvar` type
+annotations) resolve in `env`?  A `Nat` literal implicitly references
+the `Nat` basis constants.  Checked once per declaration; keeps the
+environment well-formedness invariant syntactic. -/
+def Expr.constsResolve (env : Env) : Expr → Bool
+  | .bvar _ | .sort _ | .lit (.strVal _) => true
+  | .lit (.natVal _) =>
+    (env.find? natName).isSome && (env.find? natZeroName).isSome &&
+      (env.find? natSuccName).isSome
+  | .const n _ => (env.find? n).isSome
+  | .fvar _ _ ty => ty.constsResolve env
+  | .app f a => f.constsResolve env && a.constsResolve env
+  | .lam _ ty body _ | .forallE _ ty body _ =>
+    ty.constsResolve env && body.constsResolve env
+  | .letE _ ty val body =>
+    ty.constsResolve env && val.constsResolve env && body.constsResolve env
+  | .proj s _ e => (env.find? s).isSome && e.constsResolve env
 
 /-- Convert a `Nat`-literal major premise to constructor form, one
 layer; anything else passes through. -/

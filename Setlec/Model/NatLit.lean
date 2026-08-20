@@ -1,4 +1,4 @@
-import Setlec.Model.Interp
+import Setlec.Model.InterpLemmas
 import Setlec.Verify.InferLemmas
 
 /-!
@@ -18,35 +18,6 @@ namespace Setlec
 variable {V : Type u} [SetTheory V] {env : Env} {φ : Name → Nat}
 
 open SetTheory Expr
-
-theorem Level.substFn_nil (φ : Name → Nat) : Level.substFn φ [] [] = φ :=
-  funext fun _ => rfl
-
-/-- Everything `natLitSupported` checked, as separate facts. -/
-theorem natLitSupported_inv (hs : natLitSupported env = true) :
-    ∃ cv caps cv0 i0 j0 cv1 i1 j1,
-      env.find? natName = some (.indInfo cv caps) ∧
-      env.find? natZeroName = some (.ctorInfo cv0 i0 j0) ∧
-      env.find? natSuccName = some (.ctorInfo cv1 i1 j1) ∧
-      cv.levelParams = [] ∧ cv0.levelParams = [] ∧ cv1.levelParams = [] ∧
-      cv.type = .sort (.succ .zero) ∧ cv0.type = .const natName [] ∧
-      ∃ nm mb, cv1.type = .forallE nm (.const natName []) (.const natName []) mb ∧
-        mb.cod = some (.succ .zero) := by
-  unfold natLitSupported at hs
-  split at hs
-  case h_2 => simp at hs
-  case h_1 cv caps cv0 i0 j0 cv1 i1 j1 hn hz hsc =>
-    simp only [Bool.and_eq_true, beq_iff_eq, List.isEmpty_iff] at hs
-    obtain ⟨⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, h5⟩, h6⟩ := hs
-    refine ⟨cv, caps, cv0, i0, j0, cv1, i1, j1, hn, hz, hsc,
-      h1, h2, h3, h4, h5, ?_⟩
-    revert h6
-    split
-    case h_2 => intro h; simp at h
-    next nm c1 c2 mb heq =>
-      intro h
-      simp only [Bool.and_eq_true, beq_iff_eq] at h
-      exact ⟨nm, mb, by rw [heq, h.1.1, h.1.2], h.2⟩
 
 private theorem find?_name' {env : Env} {n : Name} {ci : ConstantInfo}
     (h : env.find? n = some ci) : ci.name = n := by

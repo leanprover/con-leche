@@ -158,7 +158,7 @@ theorem interp_substFvarAt {p : Nat} {a : Expr} {va : V}
     rw [interp_substFvarAt hwa hba f D hpD ρ' hva ha,
       interp_substFvarAt hwa hba b D hpD ρ' hva ha]
   | .letE n ty val body, D, hpD, ρ', hva, ha => by simp [substFvarAt, interpExpr]
-  | .lit l, D, hpD, ρ', hva, ha => by simp [substFvarAt, interpExpr]
+  | .lit l, D, hpD, ρ', hva, ha => by cases l <;> simp [substFvarAt, interpExpr]
   | .proj s i e, D, hpD, ρ', hva, ha => by
     simp only [substFvarAt, interpExpr]
     rw [interp_substFvarAt hwa hba e D hpD ρ' hva ha]

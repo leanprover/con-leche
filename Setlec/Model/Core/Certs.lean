@@ -1,0 +1,185 @@
+import Setlec.Model.Core.Spine
+
+/-!
+# Checker-core soundness: Certs
+
+Part of the mutual soundness claims layer (split from
+`Setlec/Model/TypeChecker.lean`; see that module's docstring).
+-/
+
+set_option linter.unusedSimpArgs false
+
+namespace Setlec
+
+variable {V : Type u} [SetTheory V] {env : Env} {φ : Name → Nat}
+
+open SetTheory Expr
+
+section Claims
+
+variable {m : EnvModel V env} {fuel : Nat}
+variable (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
+  (ihi : InferClaims m φ fuel)
+
+/-- Pairwise definitional equality of two interpreted spines yields
+pointwise equal values. -/
+theorem defEqList_values {m : EnvModel V env} {fuelTop : Nat}
+    (ihAll : ∀ f, f ≤ fuelTop →
+      WhnfClaims m φ f ∧ DefEqClaims m φ f ∧ InferClaims m φ f) :
+    ∀ (fl : Nat), fl ≤ fuelTop → ∀ {d : Nat} {ρ : Nat → V}
+      (as bs : List Expr) (vs us : List V),
+      defEqList env fl d as bs = .ok true →
+      (∀ x ∈ as, WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded x ∧ FvarsOk V m.val env φ d ρ x ∧
+        AnnotOk V m.val env φ d ρ x) →
+      (∀ x ∈ bs, WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded x ∧ FvarsOk V m.val env φ d ρ x ∧
+        AnnotOk V m.val env φ d ρ x) →
+      InterpSpine m.val env φ d ρ as vs →
+      InterpSpine m.val env φ d ρ bs us →
+      vs = us := by
+  intro fl hfl d ρ as
+  induction as generalizing fl with
+  | nil =>
+    intro bs vs us h _ _ hs1 hs2
+    match fl, bs, h with
+    | fl + 1, [], h =>
+      match vs, hs1, us, hs2 with
+      | [], _, [], _ => rfl
+    | fl + 1, _ :: _, h => exact nomatch h
+  | cons a as ih =>
+    intro bs vs us h ha hb hs1 hs2
+    match fl, bs, h with
+    | fl + 1, b :: bs, h =>
+      obtain ⟨hde, hrest⟩ := defEqList_step_inv h
+      match vs, hs1, us, hs2 with
+      | v :: vs, ⟨hiv, hs1'⟩, u :: us, ⟨hiu, hs2'⟩ =>
+        obtain ⟨haw, hab, haL, haF, haA⟩ := ha a List.mem_cons_self
+        obtain ⟨hbw, hbb, hbL, hbF, hbA⟩ := hb b List.mem_cons_self
+        have hflle : fl ≤ fuelTop := Nat.le_trans (Nat.le_succ fl) hfl
+        have hvu : v = u := (ihAll fl hflle).2.1 hde haw hbw hab hbb
+          haL hbL haF hbF haA hbA hiv hiu
+        rw [hvu, ih fl hflle bs vs us hrest
+          (fun x hx => ha x (List.mem_cons_of_mem _ hx))
+          (fun x hx => hb x (List.mem_cons_of_mem _ hx)) hs1' hs2']
+
+/-- The iota certificates build an expression-spine telescope fit:
+each certified argument's inferred type is definitionally equal to the
+corresponding (progressively instantiated) domain, so its interpreted
+value is a member of the interpreted domain. -/
+theorem certs_fit {m : EnvModel V env} {fuelTop : Nat}
+    (ihAll : ∀ f, f ≤ fuelTop →
+      WhnfClaims m φ f ∧ DefEqClaims m φ f ∧ InferClaims m φ f) :
+    ∀ (fl : Nat), fl ≤ fuelTop → ∀ {d : Nat} {ρ : Nat → V}
+      (ty : Expr) (args : List Expr) (vs : List V) (T : V),
+      iotaCerts env fl d ty args = .ok true →
+      WScoped d ty → ty.looseBVarsBounded 0 = true →
+      Expr.LeavesBounded ty → FvarsOk V m.val env φ d ρ ty →
+      AnnotOk V m.val env φ d ρ ty →
+      interpExpr V m.val env φ d ρ ty = some T →
+      (∀ x ∈ args, WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded x ∧ FvarsOk V m.val env φ d ρ x ∧
+        AnnotOk V m.val env φ d ρ x) →
+      InterpSpine m.val env φ d ρ args vs →
+      ∃ rest, TeleFitI V m.val env φ d ρ ty args vs rest := by
+  intro fl hfl d ρ ty args
+  induction args generalizing fl ty with
+  | nil =>
+    intro vs T hc hwty hbty hLty hFty hAty hity hargs hsp
+    match vs, hsp with
+    | [], _ => exact ⟨ty, TeleFitI.nil⟩
+  | cons a as ih =>
+    intro vs T hc hwty hbty hLty hFty hAty hity hargs hsp
+    match vs, hsp with
+    | v :: vs, ⟨hia, hsp'⟩ =>
+    match fl, hc with
+    | fl + 1, hc =>
+    match ty, hc with
+    | .bvar _, hc => exact nomatch hc
+    | .fvar _ _ _, hc => exact nomatch hc
+    | .sort _, hc => exact nomatch hc
+    | .const _ _, hc => exact nomatch hc
+    | .app _ _, hc => exact nomatch hc
+    | .lam _ _ _ _, hc => exact nomatch hc
+    | .letE _ _ _ _, hc => exact nomatch hc
+    | .lit _, hc => exact nomatch hc
+    | .proj _ _ _, hc => exact nomatch hc
+    | .forallE n dom body mt, hc =>
+    obtain ⟨ta, hta, hde, hrest⟩ := iotaCerts_step_inv hc
+    have hflle : fl ≤ fuelTop := Nat.le_trans (Nat.le_succ fl) hfl
+    obtain ⟨haw, hab, haL, haF, haA⟩ := hargs a List.mem_cons_self
+    -- the domain interprets (the ∀-tower interp forces it)
+    simp only [AnnotOk] at hAty
+    obtain ⟨hAdom, ⟨cod, hcod⟩, hcond⟩ := hAty
+    rw [interpExpr, hcod] at hity
+    obtain ⟨A, hidom, hpieq⟩ : ∃ A,
+        interpExpr V m.val env φ d ρ dom = some A ∧
+        T = pi (cod.eval φ) A fun x =>
+          (interpExpr V m.val env φ (d + 1) (updV V ρ d x)
+            (body.instantiate1 (.fvar d n dom))).getD SetTheory.empty := by
+      revert hity
+      cases hd : interpExpr V m.val env φ d ρ dom with
+      | none => intro hity; exact nomatch hity
+      | some A =>
+        intro hity
+        dsimp only at hity
+        exact ⟨A, rfl, (Option.some.inj hity).symm⟩
+    -- the inferred type's value equals the domain's
+    obtain ⟨⟨va, tva, hiva, hita, hmemta⟩, hAta⟩ :=
+      (ihAll fl hflle).2.2 hta haw hab haL haF haA
+    obtain rfl : va = v := by rw [hiva] at hia; exact Option.some.inj hia
+    have htaw : WScoped d ta := inferTypeCore_WScoped m.wf fl hta haw
+    have htab : ta.looseBVarsBounded 0 = true :=
+      inferTypeCore_looseBVars m.wf fl hta haw hab haL
+    have htaL : Expr.LeavesBounded ta := fun l hl =>
+      haL l (inferTypeCore_fvarLeaves m.wf fl hta haw l hl)
+    have htaF : FvarsOk V m.val env φ d ρ ta :=
+      FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fl hta haw) haF
+    have hwty' : WScoped d dom ∧ WScoped d body := by
+      simpa [WScoped] using hwty
+    have hdomw : WScoped d dom := hwty'.1
+    have hdomb : dom.looseBVarsBounded 0 = true := by
+      simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hbty
+      exact hbty.1
+    have hdomL : Expr.LeavesBounded dom := fun l hl =>
+      hLty l (by simp [Expr.fvarLeaves, hl])
+    have hdomF : FvarsOk V m.val env φ d ρ dom :=
+      FvarsOk.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]) hFty
+    have hveq : tva = A := (ihAll fl hflle).2.1 hde htaw hdomw htab hdomb
+      htaL hdomL htaF hdomF hAta hAdom hita hidom
+    have hvA : va ∈ˢ A := hveq ▸ hmemta
+    -- the instantiated body interprets and stays truthful
+    obtain ⟨hbodyA, hwfact⟩ := hcond va A hidom hvA
+    obtain ⟨w, hwi, -⟩ := hwfact cod hcod
+    have hfb : Expr.fvarsBelow d body := hwty'.2.fvarsBelow
+    have hibody : interpExpr V m.val env φ d ρ (body.instantiate1 a) =
+        some w := by
+      rw [interp_beta (n := n) (ty := dom) hfb haw hab hia 0]
+      exact hwi
+    have hAbody : AnnotOk V m.val env φ d ρ (body.instantiate1 a) :=
+      AnnotOk_beta hfb haw hab hia haA 0 hbodyA
+    have hwbody : WScoped d (body.instantiate1 a) :=
+      WScoped.instantiate1_gen haw 0 hwty'.2
+    have hbbody : (body.instantiate1 a).looseBVarsBounded 0 = true := by
+      refine looseBVarsBounded_instantiate1_gen hab ?_
+      simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hbty
+      exact hbty.2
+    have hLbody : Expr.LeavesBounded (body.instantiate1 a) := by
+      intro l hl
+      rcases fvarLeaves_instantiate1 body 0 hl with hl' | hl'
+      · exact hLty l (by simp [Expr.fvarLeaves, hl'])
+      · exact haL l hl'
+    have hFbody : FvarsOk V m.val env φ d ρ (body.instantiate1 a) := by
+      intro l hl
+      rcases fvarLeaves_instantiate1 body 0 hl with hl' | hl'
+      · exact hFty l (by simp [Expr.fvarLeaves, hl'])
+      · exact haF l hl'
+    obtain ⟨rest, hfit⟩ := ih fl hflle (body.instantiate1 a) vs w hrest
+      hwbody hbbody hLbody hFbody hAbody hibody
+      (fun x hx => hargs x (List.mem_cons_of_mem _ hx)) hsp'
+    exact ⟨rest, TeleFitI.cons hidom hia hvA hfb haw hab haA hfit⟩
+
+set_option maxHeartbeats 6400000 in
+end Claims
+
+end Setlec
