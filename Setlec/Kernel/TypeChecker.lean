@@ -81,6 +81,15 @@ def isCtorApp (env : Env) (e : Expr) : Bool :=
     | _ => false
   | _ => false
 
+/-- Does the syntactic pi telescope end in a (normalized) `Prop`?
+Used for the K capability (an inductive *proposition*) and to guard the
+structure-eta rescue (the official kernel does not eta-rescue
+propositional structures). -/
+def piResultIsProp (e : Expr) : Bool :=
+  match e.piResult with
+  | .sort u => Level.isEquiv u .zero == some true
+  | _ => false
+
 /-! The mutually recursive checker core: reduction, inference and
 definitional equality share one strictly decreasing fuel.  The mutual
 knot is `whnf`'s beta rule: a redex whose codomain sort is not
@@ -434,7 +443,16 @@ def majorToCtor (env : Env) : (fuel : Nat) → (depth : Nat) → Name →
                   if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
                       fab.fvarLeaves.all
                         (fun l => major.fvarLeaves.contains l) then
-                    if ← proofIrrel env fuel depth fab major then pure fab
+                    -- the official kernel's explicit check: the
+                    -- fabricated constructor's type must match the
+                    -- major's (for `Eq`: definitionally equal
+                    -- endpoints) — downstream certificates re-derive
+                    -- this, but the reduction must not rely on their
+                    -- ordering
+                    let tfab ← inferTypeCore env fuel depth fab
+                    if ← isDefEqCore env fuel depth tfab tmaj then
+                      if ← proofIrrel env fuel depth fab major then pure fab
+                      else pure major
                     else pure major
                   else pure major
                 else pure major
@@ -442,8 +460,10 @@ def majorToCtor (env : Env) : (fuel : Nat) → (depth : Nat) → Name →
             else if caps.eta = true ∧ r.ctor = caps.etaCtor ∧
                 -- a projection function's rescue would reduce to a
                 -- no-op (its own reduct), looping the reduction: a
-                -- stuck projection stays stuck
-                Name.isProjFnShape recName = false then
+                -- stuck projection stays stuck; and the official
+                -- kernel does not eta-rescue propositional structures
+                Name.isProjFnShape recName = false ∧
+                piResultIsProp cvT.type = false then
               let tmaj ← whnfCore env fuel depth
                 (← inferTypeCore env fuel depth major)
               match tmaj.getAppFn with
@@ -713,23 +733,28 @@ def proofIrrel (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr �
   | 0, _, _, _ => throw (.internal "fuel exhausted: proofIrrel")
   | fuel + 1, depth, a, b => do
     let ta ← inferTypeCore env fuel depth a
-    if isUnitLikeTy env (← whnfCore env fuel depth ta) then
-      let tb ← inferTypeCore env fuel depth b
-      if isUnitLikeTy env (← whnfCore env fuel depth tb) then
-        pure true
+    let tb ← inferTypeCore env fuel depth b
+    -- the official kernel's discipline: only inhabitants of the *same*
+    -- type are identified (soundness holds without it — the model
+    -- collapses all propositions — but accepting more than the kernel
+    -- is a fidelity divergence)
+    if ← isDefEqCore env fuel depth ta tb then
+      if isUnitLikeTy env (← whnfCore env fuel depth ta) then
+        if isUnitLikeTy env (← whnfCore env fuel depth tb) then
+          pure true
+        else
+          pure false
       else
-        pure false
-    else
-      match ← whnfCore env fuel depth (← inferTypeCore env fuel depth ta) with
-      | .sort uT =>
-        let okA ← liftFueled "level comparison" (Level.isEquiv uT .zero)
-        let tb ← inferTypeCore env fuel depth b
-        match ← whnfCore env fuel depth (← inferTypeCore env fuel depth tb) with
-        | .sort vT =>
-          let okB ← liftFueled "level comparison" (Level.isEquiv vT .zero)
-          pure (okA && okB)
+        match ← whnfCore env fuel depth (← inferTypeCore env fuel depth ta) with
+        | .sort uT =>
+          let okA ← liftFueled "level comparison" (Level.isEquiv uT .zero)
+          match ← whnfCore env fuel depth (← inferTypeCore env fuel depth tb) with
+          | .sort vT =>
+            let okB ← liftFueled "level comparison" (Level.isEquiv vT .zero)
+            pure (okA && okB)
+          | _ => pure false
         | _ => pure false
-      | _ => pure false
+    else pure false
   termination_by structural fuel _ _ _ => fuel
 
 end

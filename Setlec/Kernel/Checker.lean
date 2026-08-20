@@ -451,7 +451,7 @@ def checkIndDecl (env : Env) (block : List ConstantInfo) : CheckM Env := do
         etaCtor := cvC.name, etaParams := nP, etaFields := nF,
         unitlike := checkUnitThm env cvT.name cvT.levelParams nP,
         unitParams := nP,
-        ruleK := nF == 0 && piResultSort cvT.type == some .zero }
+        ruleK := nF == 0 && piResultIsProp cvT.type }
     let env₂ ← block.foldlM
       (checkIndMember (block.map (·.name)) caps) env
     -- the whole projection name family must be ours to install

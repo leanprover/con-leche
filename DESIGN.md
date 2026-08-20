@@ -203,6 +203,45 @@ are DAGs sharing subterms; every traversal must eventually be memoized
 under a cached-hash representation (structural hashing walks the
 unshared tree), tracked as follow-up work.
 
+## Kernel design review triage (2026-08-20)
+
+A fresh-context implementation review compared the core against nanoda,
+lean4lean (the faithful port of the official kernel) and the mini
+checker (`_tmp/kernel-design-review.md`).  Disposition of its findings:
+
+**Adopted immediately** (fidelity fixes — each made the checker accept
+*less*, matching the kernel):
+* `proofIrrel` gained the official kernel's common-type check (only
+  inhabitants of definitionally equal types are identified; the model
+  never needed it — all propositions collapse — but accepting more than
+  the kernel is a divergence).
+* The K rescue checks the fabricated constructor's type against the
+  major's explicitly (previously implied by the downstream certificate
+  ordering — correct only by coincidence).
+* The structure-eta rescue is guarded against propositional structures
+  (`piResultIsProp`), as in the official kernel.
+* The K capability's Prop test normalizes the result sort
+  (`Level.isEquiv` against zero) instead of comparing syntactically.
+
+**Adopted as part of the open-recursion core restructure** (they reshape
+the same code): the `whnfCore`/`whnf` split with the official loop
+(`whnfCore → reduceNat → unfold → repeat`) and its literal/quotient
+hook points; the syntactic `a == b` fast path and sorted defeq cache
+keys; hoisting proof irrelevance before reduction/congruence; an
+infer-only inference mode with certificate sites treating failure as
+"certificate fails" rather than a thrown reject (the exit-1/3 hazard on
+speculative paths).
+
+**Deferred, tracked as tasks**: lazy delta unfolding with reducibility
+hints (+ failure cache, `tryUnfoldProjApp`, cheapProj); native `.letE`
+(the frontend zeta expansion can duplicate exponentially on shared
+exports); string literals; the performance substrate (cached hashes /
+hash-consing, array spines, indexed environment, per-declaration cache
+threading, possibly-Prop-gated iota certificates); per-loop fuel
+budgets; instrumenting the possibly-Prop beta wedge (3.5) as an
+internal-error signal; removing the codomain-annotation comparison in
+binder defeq (documented deviation, benign for well-typed input).
+
 ## Stuck-major rescue: rule K and structure eta in iota (2026-08-20)
 
 `majorToCtor` (in the mutual core, mirrored in the cached twin)

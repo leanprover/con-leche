@@ -380,7 +380,11 @@ def majorToCtorC (env : Env) : (fuel : Nat) → (depth : Nat) → Name →
                   if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
                       fab.fvarLeaves.all
                         (fun l => major.fvarLeaves.contains l) then
-                    if ← proofIrrelC env fuel depth fab major then pure fab
+                    -- explicit fabricated-type check (see the spec twin)
+                    let tfab ← inferTypeCoreC env fuel depth fab
+                    if ← isDefEqCoreC env fuel depth tfab tmaj then
+                      if ← proofIrrelC env fuel depth fab major then pure fab
+                      else pure major
                     else pure major
                   else pure major
                 else pure major
@@ -388,8 +392,10 @@ def majorToCtorC (env : Env) : (fuel : Nat) → (depth : Nat) → Name →
             else if caps.eta = true ∧ r.ctor = caps.etaCtor ∧
                 -- a projection function's rescue would reduce to a
                 -- no-op (its own reduct), looping the reduction: a
-                -- stuck projection stays stuck
-                Name.isProjFnShape recName = false then
+                -- stuck projection stays stuck; and the official
+                -- kernel does not eta-rescue propositional structures
+                Name.isProjFnShape recName = false ∧
+                piResultIsProp cvT.type = false then
               let tmaj ← whnfCoreC env fuel depth
                 (← inferTypeCoreC env fuel depth major)
               match tmaj.getAppFn with
@@ -657,23 +663,28 @@ def proofIrrelC (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr �
   | 0, _, _, _ => throw (.internal "fuel exhausted: proofIrrelC")
   | fuel + 1, depth, a, b => do
     let ta ← inferTypeCoreC env fuel depth a
-    if isUnitLikeTy env (← whnfCoreC env fuel depth ta) then
-      let tb ← inferTypeCoreC env fuel depth b
-      if isUnitLikeTy env (← whnfCoreC env fuel depth tb) then
-        pure true
+    let tb ← inferTypeCoreC env fuel depth b
+    -- the official kernel's discipline: only inhabitants of the *same*
+    -- type are identified (soundness holds without it — the model
+    -- collapses all propositions — but accepting more than the kernel
+    -- is a fidelity divergence)
+    if ← isDefEqCoreC env fuel depth ta tb then
+      if isUnitLikeTy env (← whnfCoreC env fuel depth ta) then
+        if isUnitLikeTy env (← whnfCoreC env fuel depth tb) then
+          pure true
+        else
+          pure false
       else
-        pure false
-    else
-      match ← whnfCoreC env fuel depth (← inferTypeCoreC env fuel depth ta) with
-      | .sort uT =>
-        let okA ← liftFueled "level comparison" (Level.isEquiv uT .zero)
-        let tb ← inferTypeCoreC env fuel depth b
-        match ← whnfCoreC env fuel depth (← inferTypeCoreC env fuel depth tb) with
-        | .sort vT =>
-          let okB ← liftFueled "level comparison" (Level.isEquiv vT .zero)
-          pure (okA && okB)
+        match ← whnfCoreC env fuel depth (← inferTypeCoreC env fuel depth ta) with
+        | .sort uT =>
+          let okA ← liftFueled "level comparison" (Level.isEquiv uT .zero)
+          match ← whnfCoreC env fuel depth (← inferTypeCoreC env fuel depth tb) with
+          | .sort vT =>
+            let okB ← liftFueled "level comparison" (Level.isEquiv vT .zero)
+            pure (okA && okB)
+          | _ => pure false
         | _ => pure false
-      | _ => pure false
+    else pure false
   termination_by structural fuel _ _ _ => fuel
 
 end

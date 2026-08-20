@@ -4584,7 +4584,7 @@ theorem checkIndDecl_sound {env env₂ : Env} {block : List ConstantInfo}
               checkEtaThm env cvT.name cvC.name cvT.levelParams nP nF)
             cvC.name nP nF
             (checkUnitThm env cvT.name cvT.levelParams nP) nP
-            (nF == 0 && piResultSort cvT.type == some Level.zero)) := by
+            (nF == 0 && piResultIsProp cvT.type)) := by
       intro cv caps₂ hmem
       have hmemf : (ConstantInfo.indInfo cv caps₂) ∈
           ([ConstantInfo.indInfo cvT capsT] : List ConstantInfo) := by

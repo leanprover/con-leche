@@ -691,9 +691,12 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
          cvj.levelParams.length = ust.length ∧
          major' = Expr.mkAppN (.const r.ctor ust)
            (tmaj.getAppArgs.take cnP) ∧
+         (∃ tfab, inferTypeCore env fuel d major' = .ok tfab ∧
+           isDefEqCore env fuel d tfab tmaj = .ok true) ∧
          proofIrrel env fuel d major' major = .ok true) ∨
         (caps.eta = true ∧ r.ctor = caps.etaCtor ∧
          Name.isProjFnShape recName = false ∧
+         piResultIsProp cvT.type = false ∧
          tmaj.getAppArgs.length = caps.etaParams ∧
          ust.length = cvT.levelParams.length ∧
          major' = Expr.mkAppN (.const caps.etaCtor ust)
@@ -838,6 +841,26 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     rw [hguard] at h
     simp only [↓reduceIte] at h
     try simp only [Bind.bind, Except.bind] at h
+    cases htf : inferTypeCore env fuel d
+        (Expr.mkAppN (.const r.ctor ust)
+          (tmaj.getAppArgs.take cnP)) with
+    | error err => rw [htf] at h; exact nomatch h
+    | ok tfab =>
+    rw [htf] at h
+    dsimp only at h
+    cases hde : isDefEqCore env fuel d tfab tmaj with
+    | error err => rw [hde] at h; exact nomatch h
+    | ok bde =>
+    rw [hde] at h
+    dsimp only at h
+    cases bde with
+    | false =>
+      simp only [Bool.false_eq_true, ↓reduceIte, pure, Except.pure,
+        Except.ok.injEq] at h
+      exact Or.inl h.symm
+    | true =>
+    simp only [↓reduceIte] at h
+    try simp only [Bind.bind, Except.bind] at h
     cases hpi : proofIrrel env fuel d
         (Expr.mkAppN (.const r.ctor ust)
           (tmaj.getAppArgs.take cnP)) major with
@@ -857,10 +880,11 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
       r, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
       rfl, hfj, hpr, hfT, rfl, htw, hth,
-      Or.inl ⟨hK.1, hK.2, hlvl, rfl, hpi⟩⟩
+      Or.inl ⟨hK.1, hK.2, hlvl, rfl, ⟨tfab, htf, hde⟩, hpi⟩⟩
   · rw [if_neg hK] at h
     by_cases hE : caps.eta = true ∧ r.ctor = caps.etaCtor ∧
-        Name.isProjFnShape recName = false
+        Name.isProjFnShape recName = false ∧
+        piResultIsProp cvT.type = false
     case neg =>
       rw [if_neg hE] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
@@ -973,7 +997,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
       r, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
       rfl, hfj, hpr, hfT, rfl, htw, hth,
-      Or.inr ⟨hE.1, hE.2.1, hE.2.2, hplen, hlvl, rfl, hse⟩⟩
+      Or.inr ⟨hE.1, hE.2.1, hE.2.2.1, hE.2.2.2, hplen, hlvl, rfl, hse⟩⟩
 
 
 /-- Inversion of one pairwise-defeq step. -/
@@ -1059,22 +1083,23 @@ theorem isUnitLikeTy_inv {env : Env} {e : Expr}
     | 0, _ :: _ :: _, h2 => exact nomatch h2
     | _ + 1, _, h2 => exact nomatch h2
 
-/-- Inversion of a successful proof-irrelevance certification: either
-both sides' types whnf to the basis unit type, or both types' sorts are
-`Prop`. -/
+/-- Inversion of a successful proof-irrelevance certification: the two
+sides' types are definitionally equal, and either both whnf to the
+basis unit type, or both types' sorts are `Prop`. -/
 theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
     (h : proofIrrel env (fuel + 1) d a b = .ok true) :
-    ∃ ta wta,
+    ∃ ta tb wta,
       inferTypeCore env fuel d a = .ok ta ∧
+      inferTypeCore env fuel d b = .ok tb ∧
+      isDefEqCore env fuel d ta tb = .ok true ∧
       whnfCore env fuel d ta = .ok wta ∧
       ((isUnitLikeTy env wta = true ∧
-        ∃ tb wtb, inferTypeCore env fuel d b = .ok tb ∧
-          whnfCore env fuel d tb = .ok wtb ∧ isUnitLikeTy env wtb = true) ∨
-       (∃ sta uT tb stb vT,
+        ∃ wtb, whnfCore env fuel d tb = .ok wtb ∧
+          isUnitLikeTy env wtb = true) ∨
+       (∃ sta uT stb vT,
         inferTypeCore env fuel d ta = .ok sta ∧
         whnfCore env fuel d sta = .ok (.sort uT) ∧
         Level.isEquiv uT .zero = some true ∧
-        inferTypeCore env fuel d b = .ok tb ∧
         inferTypeCore env fuel d tb = .ok stb ∧
         whnfCore env fuel d stb = .ok (.sort vT) ∧
         Level.isEquiv vT .zero = some true)) := by
@@ -1084,28 +1109,38 @@ theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
   | ok ta =>
   rw [hta] at h
   dsimp only at h
+  cases htb : inferTypeCore env fuel d b with
+  | error err => rw [htb] at h; exact nomatch h
+  | ok tb =>
+  rw [htb] at h
+  dsimp only at h
+  cases hdeq : isDefEqCore env fuel d ta tb with
+  | error err => rw [hdeq] at h; exact nomatch h
+  | ok bdeq =>
+  rw [hdeq] at h
+  dsimp only at h
+  cases bdeq with
+  | false => simp [pure, Except.pure] at h
+  | true =>
+  simp only [↓reduceIte] at h
+  try simp only [Bind.bind, Except.bind] at h
   cases hwta0 : whnfCore env fuel d ta with
   | error err => rw [hwta0] at h; exact nomatch h
   | ok wta0 =>
   rw [hwta0] at h
   dsimp only at h
-  refine ⟨ta, wta0, rfl, hwta0, ?_⟩
+  refine ⟨ta, tb, wta0, rfl, rfl, hdeq, hwta0, ?_⟩
   by_cases hu : isUnitLikeTy env wta0 = true
   · -- unit branch
     rw [if_pos hu] at h
     try simp only [Bind.bind, Except.bind] at h
-    cases htb : inferTypeCore env fuel d b with
-    | error err => rw [htb] at h; exact nomatch h
-    | ok tb =>
-    rw [htb] at h
-    dsimp only at h
     cases hwtb : whnfCore env fuel d tb with
     | error err => rw [hwtb] at h; exact nomatch h
     | ok wtb =>
     rw [hwtb] at h
     dsimp only at h
     by_cases hub : isUnitLikeTy env wtb = true
-    · exact Or.inl ⟨hu, tb, wtb, rfl, hwtb, hub⟩
+    · exact Or.inl ⟨hu, wtb, rfl, hub⟩
     · rw [if_neg hub] at h
       simp [pure, Except.pure] at h
   · -- Prop branch
@@ -1139,11 +1174,6 @@ theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
     try dsimp only [liftFueled] at h
     try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
     try dsimp only at h
-    cases htb : inferTypeCore env fuel d b with
-    | error err => rw [htb] at h; exact nomatch h
-    | ok tb =>
-    rw [htb] at h
-    dsimp only at h
     cases hstb : inferTypeCore env fuel d tb with
     | error err => rw [hstb] at h; exact nomatch h
     | ok stb =>
@@ -1174,7 +1204,8 @@ theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
     obtain ⟨rfl, rfl⟩ : okA = true ∧ okB = true := by
       have := h
       cases okA <;> cases okB <;> simp_all
-    exact Or.inr ⟨sta, uT, tb, stb, vT, rfl, hwta, heq1, rfl, hstb, hwtb, heq2⟩
+    exact Or.inr ⟨sta, uT, stb, vT, rfl, hwta, heq1, rfl, hwtb, heq2⟩
+
 
 /-- Inversion of a successful pair-eta certification. -/
 theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}

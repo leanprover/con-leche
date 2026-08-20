@@ -155,9 +155,9 @@ private theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
     (haa : AnnotOk V m.val env φ d ρ a) (hab : AnnotOk V m.val env φ d ρ b) :
     interpExpr V m.val env φ d ρ a = some pt ∧
     interpExpr V m.val env φ d ρ b = some pt := by
-  obtain ⟨ta, wta0, hta, hwta0, hcase⟩ := proofIrrel_inv h
-  rcases hcase with ⟨hu, tb, wtb, htb, hwtb, hub⟩ |
-    ⟨sta, uT, tb, stb, vT, hsta, hwta, hequ, htb, hstb, hwtb, heqv⟩
+  obtain ⟨ta, tb, wta0, hta, htb, -, hwta0, hcase⟩ := proofIrrel_inv h
+  rcases hcase with ⟨hu, wtb, hwtb, hub⟩ |
+    ⟨sta, uT, stb, vT, hsta, hwta, hequ, hstb, hwtb, heqv⟩
   · -- unit branch: every inhabitant of the basis unit type is `pt`
     have unitSide : ∀ (x tx wtx : Expr),
         inferTypeCore env fuel d x = .ok tx →
@@ -1894,8 +1894,8 @@ private theorem majorToCtor_claims {m : EnvModel V env} {fuelTop : Nat}
   have hconstA : AnnotOk V m.val env φ d ρ (.const cj usj) := by
     simp [AnnotOk]
   -- branch on the fabrication kind
-  rcases hcase with ⟨hKrule, hcnF0, hlvlK, hfabeq, hpi⟩ |
-    ⟨hEeta, hEctor, hEproj, hplenE, hlvlE, hfabeq, hse⟩
+  rcases hcase with ⟨hKrule, hcnF0, hlvlK, hfabeq, -, hpi⟩ |
+    ⟨hEeta, hEctor, hEproj, -, hplenE, hlvlE, hfabeq, hse⟩
   · -- ── K: the fabricated `refl`-like application ──
     have heqc : cj = r.ctor ∧ usj = ust := by
       have hgfn := congrArg Expr.getAppFn hfabeq
