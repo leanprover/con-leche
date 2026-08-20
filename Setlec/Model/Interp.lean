@@ -243,6 +243,37 @@ theorem RecRulesOk.empty (val : ConstVal V) :
   intro n cv nP nM nm ni rules h
   simp [Env.find?, Env.empty] at h
 
+/-- Modeled-install bookkeeping: every *non-reserved* stored inductive
+type former or constructor carries its `_model` companion's value (and
+that companion is stored), and every installed projection function its
+`_model.proj_j`'s.  Only the inductive-declaration install path
+creates such constants, so these value bridges hold globally; the
+capability rules' soundness consumes them. -/
+def ModeledOk (env : Env) (val : ConstVal V) : Prop :=
+  (∀ n cv caps, env.find? n = some (.indInfo cv caps) →
+    reservedBasisNames.contains n = false →
+    (env.find? (n.str "_model")).isSome = true ∧
+    ∀ ψ : Name → Nat, val n ψ = val (n.str "_model") ψ) ∧
+  (∀ n cv cnP cnF, env.find? n = some (.ctorInfo cv cnP cnF) →
+    reservedBasisNames.contains n = false →
+    (env.find? (n.str "_model")).isSome = true ∧
+    ∀ ψ : Name → Nat, val n ψ = val (n.str "_model") ψ) ∧
+  (∀ (T : Name) (j : Nat) (ci : ConstantInfo),
+    env.find? (projFnName T j) = some ci →
+    (env.find? (projModelName T j)).isSome = true ∧
+    ∀ ψ : Name → Nat,
+      val (projFnName T j) ψ = val (projModelName T j) ψ)
+
+omit [SetTheory V] in
+theorem ModeledOk.empty (val : ConstVal V) : ModeledOk V Env.empty val := by
+  refine ⟨?_, ?_, ?_⟩
+  · intro n cv caps h
+    simp [Env.find?, Env.empty] at h
+  · intro n cv cnP cnF h
+    simp [Env.find?, Env.empty] at h
+  · intro T j ci h
+    simp [Env.find?, Env.empty] at h
+
 /-- A model of an environment: a set-theoretic value for every constant
 (a function of the level-parameter assignment), such that
 
@@ -280,6 +311,8 @@ structure EnvModel (env : Env) where
   ind_ok : IndOk V env val
   /-- Every stored recursor rule has a verified fold equation. -/
   rec_rules : RecRulesOk V env val
+  /-- Non-reserved inductive-kind constants carry their model values. -/
+  modeled_ok : ModeledOk V env val
 
 /-- The empty environment has a (trivial) model. -/
 def EnvModel.empty : EnvModel V Env.empty where
@@ -293,5 +326,6 @@ def EnvModel.empty : EnvModel V Env.empty where
   annot_ok := by intro c hc; cases hc
   ind_ok := IndOk.empty V _ (fun _ x hx => SetTheory.not_mem_empty x hx)
   rec_rules := RecRulesOk.empty V _
+  modeled_ok := ModeledOk.empty V _
 
 end Setlec

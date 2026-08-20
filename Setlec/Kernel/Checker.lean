@@ -214,11 +214,6 @@ def checkIndMember (blockNames : List Name) (caps : IndCaps) (env' : Env)
     pure ⟨.recInfo cvA nP nM nm ni rules' :: env'.consts⟩
   | _ => throw (.invalid s!"non-inductive member {cvA.name} in block")
 
-/-- The model-side name of field `i`'s projection for `T`
-(the documented public interface of the preprocessor's models). -/
-def projModelName (T : Name) (i : Nat) : Name :=
-  (T.str "_model").str ("proj_" ++ toString i)
-
 /-- Rename a model-side projection type back to public names. -/
 def projBack (T ctor : Name) (nF : Nat) : Name → Name := fun n =>
   if n = T.str "_model" then T

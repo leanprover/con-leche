@@ -540,6 +540,11 @@ a modeled structure `T` (a `Nat` component keeps it out of the way of
 exported identifiers; installs are duplicate-checked regardless). -/
 def projFnName (T : Name) (i : Nat) : Name := (T.str "proj").num i
 
+/-- The model-side name of field `i`'s projection for `T`
+(the documented public interface of the preprocessor's models). -/
+def projModelName (T : Name) (i : Nat) : Name :=
+  (T.str "_model").str ("proj_" ++ toString i)
+
 mutual
 
 /-- Compute the codomain-sort annotations of every binder in `e`, bottom-up,

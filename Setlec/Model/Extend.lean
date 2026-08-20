@@ -302,6 +302,93 @@ theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
   exact ⟨hfind0, by simpa using hres, hpshapeF, hnd, hlb, by simpa using hif,
     type, stype, u, rfl, htp, htr, hst, hsort, h.symm⟩
 
+omit [SetTheory V] in
+/-- Numeric names are never `str`-shaped. -/
+theorem Name.num_ne_str (p : Name) (k : Nat) (q : Name) (s : String) :
+    Name.num p k ≠ Name.str q s := fun h => nomatch h
+
+omit [SetTheory V] in
+/-- Reserved basis names are all `str`-shaped. -/
+theorem reservedBasisNames_not_num (p : Name) (k : Nat) :
+    reservedBasisNames.contains (Name.num p k) = false := rfl
+
+omit [SetTheory V] in
+/-- Extending with a fresh constant preserves the modeled-value
+bridges, given the head's own obligations. -/
+theorem ModeledOk.cons {env : Env} {val val' : ConstVal V}
+    {c₀ : ConstantInfo}
+    (h : ModeledOk V env val)
+    (hfresh : env.find? c₀.name = none)
+    (hpres : ∀ (n : Name) (ψ : Name → Nat), n ≠ c₀.name →
+      val' n ψ = val n ψ)
+    (hheadInd : ∀ cv caps, c₀ = .indInfo cv caps →
+      reservedBasisNames.contains c₀.name = false →
+      ((⟨c₀ :: env.consts⟩ : Env).find? (c₀.name.str "_model")).isSome
+        = true ∧
+      ∀ ψ : Name → Nat, val' c₀.name ψ = val' (c₀.name.str "_model") ψ)
+    (hheadCtor : ∀ cv cnP cnF, c₀ = .ctorInfo cv cnP cnF →
+      reservedBasisNames.contains c₀.name = false →
+      ((⟨c₀ :: env.consts⟩ : Env).find? (c₀.name.str "_model")).isSome
+        = true ∧
+      ∀ ψ : Name → Nat, val' c₀.name ψ = val' (c₀.name.str "_model") ψ)
+    (hheadProj : ∀ (T : Name) (j : Nat), c₀.name = projFnName T j →
+      ((⟨c₀ :: env.consts⟩ : Env).find? (projModelName T j)).isSome
+        = true ∧
+      ∀ ψ : Name → Nat,
+        val' (projFnName T j) ψ = val' (projModelName T j) ψ) :
+    ModeledOk V ⟨c₀ :: env.consts⟩ val' := by
+  have hfind : ∀ n, n ≠ c₀.name →
+      (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n := by
+    intro n hn
+    rw [Env.find?_cons, if_neg (fun hh => hn hh.symm)]
+  refine ⟨?_, ?_, ?_⟩
+  · intro n cv caps hf hres
+    by_cases hn : n = c₀.name
+    · subst hn
+      rw [Env.find?_cons, if_pos rfl] at hf
+      exact hheadInd cv caps (Option.some.inj hf) hres
+    · rw [hfind n hn] at hf
+      obtain ⟨hms, hveq⟩ := h.1 n cv caps hf hres
+      have hmne : n.str "_model" ≠ c₀.name := by
+        intro he
+        rw [he, hfresh] at hms
+        exact nomatch hms
+      refine ⟨?_, ?_⟩
+      · rw [hfind _ hmne]
+        exact hms
+      · intro ψ
+        rw [hpres _ ψ hn, hpres _ ψ hmne, hveq ψ]
+  · intro n cv cnP cnF hf hres
+    by_cases hn : n = c₀.name
+    · subst hn
+      rw [Env.find?_cons, if_pos rfl] at hf
+      exact hheadCtor cv cnP cnF (Option.some.inj hf) hres
+    · rw [hfind n hn] at hf
+      obtain ⟨hms, hveq⟩ := h.2.1 n cv cnP cnF hf hres
+      have hmne : n.str "_model" ≠ c₀.name := by
+        intro he
+        rw [he, hfresh] at hms
+        exact nomatch hms
+      refine ⟨?_, ?_⟩
+      · rw [hfind _ hmne]
+        exact hms
+      · intro ψ
+        rw [hpres _ ψ hn, hpres _ ψ hmne, hveq ψ]
+  · intro T j ci hf
+    by_cases hn : projFnName T j = c₀.name
+    · exact hn ▸ hheadProj T j hn.symm
+    · rw [hfind _ hn] at hf
+      obtain ⟨hms, hveq⟩ := h.2.2 T j ci hf
+      have hmne : projModelName T j ≠ c₀.name := by
+        intro he
+        rw [he, hfresh] at hms
+        exact nomatch hms
+      refine ⟨?_, ?_⟩
+      · rw [hfind _ hmne]
+        exact hms
+      · intro ψ
+        rw [hpres _ ψ hn, hpres _ ψ hmne, hveq ψ]
+
 /-- The common model-extension argument, for a new constant `c₀` with an
 annotated, checked type and value. -/
 theorem extend_model {env : Env} (m : EnvModel V env)
@@ -326,7 +413,8 @@ theorem extend_model {env : Env} (m : EnvModel V env)
     (hc₀val : ∀ cv2 value2, c₀ = ConstantInfo.defnInfo cv2 value2 →
       cv2 = ⟨name, lps, type⟩ ∧ value2 = value)
     (hc₀nb : c₀.isBasis = false)
-    (hc₀nres : reservedBasisNames.contains name = false) :
+    (hc₀nres : reservedBasisNames.contains name = false)
+    (hc₀pshape : name.isProjFnShape = false) :
     Nonempty (EnvModel V ⟨c₀ :: env.consts⟩) := by
   have hfresh := find?_none_ne hfind'
   obtain ⟨val', hval'⟩ : ∃ val' : ConstVal V, val' = fun n ψ =>
@@ -362,7 +450,7 @@ theorem extend_model {env : Env} (m : EnvModel V env)
     · intro cv nP nM nm ni rules heq
       rw [heq] at hc₀nb
       simp [ConstantInfo.isBasis] at hc₀nb
-  refine ⟨⟨val', hwf', ?_, ?_, ?_, ?_, ?_, ?_⟩⟩
+  refine ⟨⟨val', hwf', ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩⟩
   · -- val_params
     intro n ci hf ψ₁ ψ₂ hψ
     rw [Env.find?_cons] at hf
@@ -546,6 +634,23 @@ theorem extend_model {env : Env} (m : EnvModel V env)
       (fun cvR nP nM nm ni rules heq => by
         rw [heq] at hc₀nb
         simp [ConstantInfo.isBasis] at hc₀nb)
+  · -- modeled_ok: no inductive-kind constant is added
+    refine ModeledOk.cons m.modeled_ok hc₀fresh ?_ ?_ ?_ ?_
+    · intro n ψ hn
+      have hne : n ≠ name := by
+        rw [← hc₀name]
+        exact hn
+      simp [hval', hne]
+    · intro cv caps heq
+      rw [heq] at hc₀nb
+      simp [ConstantInfo.isBasis] at hc₀nb
+    · intro cv cnP cnF heq
+      rw [heq] at hc₀nb
+      simp [ConstantInfo.isBasis] at hc₀nb
+    · intro T j hh
+      exfalso
+      rw [hc₀name.symm.trans hh] at hc₀pshape
+      exact nomatch hc₀pshape
 
 /-- Extend a model by one pinned basis constant with a hand-supplied
 value.  The membership and annotation facts are stated over the *old*
@@ -585,7 +690,15 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
     (hctors : ∀ cvR nP nM nm ni rules,
       ci = .recInfo cvR nP nM nm ni rules →
       ∀ r ∈ rules, ∃ cvj cnP cnF,
-        env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF)) :
+        env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF))
+    (hmodv : reservedBasisNames.contains ci.name = false →
+      ((∃ cv caps, ci = .indInfo cv caps) ∨
+       (∃ cv cnP cnF, ci = .ctorInfo cv cnP cnF)) →
+      (env.find? (ci.name.str "_model")).isSome = true ∧
+      ∀ ψ : Name → Nat, v₀ ψ = m.val (ci.name.str "_model") ψ)
+    (hproj : ∀ (T : Name) (j : Nat), ci.name = projFnName T j →
+      (env.find? (projModelName T j)).isSome = true ∧
+      ∀ ψ : Name → Nat, v₀ ψ = m.val (projModelName T j) ψ) :
     ∃ m' : EnvModel V ⟨ci :: env.consts⟩,
       (∀ ψ, m'.val ci.name ψ = v₀ ψ) ∧
       (∀ n ψ, n ≠ ci.name → m'.val n ψ = m.val n ψ) := by
@@ -613,7 +726,7 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
     refine AnnotOk.mono hfind' e 0 (rho0 V) hres ?_
     exact AnnotOk.cval_ext (fun n hn ψ' => (hagree n hn ψ').symm) e 0 (rho0 V) ha
   have hwf' : EnvWF ⟨ci :: env.consts⟩ := EnvWF.cons m.wf hwf
-  refine ⟨⟨val', hwf', ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
+  refine ⟨⟨val', hwf', ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
   · -- val_params
     intro n ci2 hf ψ₁ ψ₂ hψ
     rw [Env.find?_cons] at hf
@@ -792,6 +905,57 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
       (fun e hres ψ hAe => hAtrans e hres ψ hAe)
       (hrecm val' (fun ψ => by simp [hval'])
         (fun n ψ hne => by simp [hval', hne]))
+  · -- modeled_ok
+    refine ModeledOk.cons m.modeled_ok hfind' ?_ ?_ ?_ ?_
+    · intro n ψ hn
+      simp [hval', hn]
+    · intro cv caps heq hres
+      obtain ⟨hms, hveq⟩ := hmodv hres (Or.inl ⟨cv, caps, heq⟩)
+      have hmne : ¬ci.name = ci.name.str "_model" :=
+        fun hh => Name.str_ne ci.name "_model" hh.symm
+      refine ⟨?_, ?_⟩
+      · rw [Env.find?_cons, if_neg hmne]
+        exact hms
+      · intro ψ
+        have h1 : val' ci.name ψ = v₀ ψ := by simp [hval']
+        have hmne2 : ¬ci.name.str "_model" = ci.name :=
+          fun hh => hmne hh.symm
+        have h2 : val' (ci.name.str "_model") ψ =
+            m.val (ci.name.str "_model") ψ := by
+          simp [hval', hmne2]
+        rw [h1, h2, hveq ψ]
+    · intro cv cnP cnF heq hres
+      obtain ⟨hms, hveq⟩ := hmodv hres (Or.inr ⟨cv, cnP, cnF, heq⟩)
+      have hmne : ¬ci.name = ci.name.str "_model" :=
+        fun hh => Name.str_ne ci.name "_model" hh.symm
+      refine ⟨?_, ?_⟩
+      · rw [Env.find?_cons, if_neg hmne]
+        exact hms
+      · intro ψ
+        have h1 : val' ci.name ψ = v₀ ψ := by simp [hval']
+        have hmne2 : ¬ci.name.str "_model" = ci.name :=
+          fun hh => hmne hh.symm
+        have h2 : val' (ci.name.str "_model") ψ =
+            m.val (ci.name.str "_model") ψ := by
+          simp [hval', hmne2]
+        rw [h1, h2, hveq ψ]
+    · intro T j hh
+      obtain ⟨hms, hveq⟩ := hproj T j hh
+      have hpmne : projModelName T j ≠ ci.name := by
+        intro he
+        rw [he, hfind'] at hms
+        exact nomatch hms
+      refine ⟨?_, ?_⟩
+      · rw [Env.find?_cons, if_neg (fun hh2 => hpmne hh2.symm)]
+        exact hms
+      · intro ψ
+        have h1 : val' (projFnName T j) ψ = v₀ ψ := by
+          rw [← hh]
+          simp [hval']
+        have h2 : val' (projModelName T j) ψ =
+            m.val (projModelName T j) ψ := by
+          simp [hval', hpmne]
+        rw [h1, h2, hveq ψ]
   · -- the new constant's value
     intro ψ
     simp [hval']
@@ -817,7 +981,14 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
     (hmodel : env.find? mname = some (.defnInfo cvm mval))
     (hlps : cvm.levelParams = ci.toConstantVal.levelParams)
     (hren : ci.toConstantVal.type.renameConsts f = cvm.type)
-    (hro : RenameOk m.val env f) :
+    (hro : RenameOk m.val env f)
+    (hmodm : ((∃ cv caps, ci = .indInfo cv caps) ∨
+        (∃ cv cnP cnF, ci = .ctorInfo cv cnP cnF)) →
+      (env.find? (ci.name.str "_model")).isSome = true ∧
+      ∀ ψ : Name → Nat, m.val mname ψ = m.val (ci.name.str "_model") ψ)
+    (hprojm : ∀ (T : Name) (j : Nat), ci.name = projFnName T j →
+      (env.find? (projModelName T j)).isSome = true ∧
+      ∀ ψ : Name → Nat, m.val mname ψ = m.val (projModelName T j) ψ) :
     ∃ m' : EnvModel V ⟨ci :: env.consts⟩,
       (∀ ψ, m'.val ci.name ψ = m.val mname ψ) ∧
       (∀ n ψ, n ≠ ci.name → m'.val n ψ = m.val n ψ) := by
@@ -887,6 +1058,7 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
         subst h6
         intro r hr
         cases hr)
+    (fun _ => hmodm) hprojm
 
 /-- The kernel-checked data of one modeled recursor rule: the
 hypothesis kit its fold obligation consumes.  `env` is the environment
@@ -1203,6 +1375,9 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
     (htyres0 : cvA.type.constsResolve env = true)
     (hmodel : env.find? mnameP = some (.defnInfo cvm mval))
     (hlps : cvm.levelParams = cvA.levelParams)
+    (hprojm : ∀ (T : Name) (j : Nat), cvA.name = projFnName T j →
+      (env.find? (projModelName T j)).isSome = true ∧
+      ∀ ψ : Name → Nat, m.val mnameP ψ = m.val (projModelName T j) ψ)
     (hren : cvA.type.renameConsts f = cvm.type)
     (f₀ : Name → Name) (hro : RenameOk m.val env f₀)
     (hff₀ : ∀ n, n ≠ cvA.name → f n = f₀ n)
@@ -1290,6 +1465,9 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
     (.recInfo cvA nP 0 0 0 []) f₀ (mnameP)
     hfind' hnres hwf₀ htyres0
     (Or.inr (Or.inr ⟨cvA, nP, 0, 0, rfl⟩)) hmodel hlps hren₀ hro
+    (fun hk => by
+      rcases hk with ⟨_, _, hcon⟩ | ⟨_, _, _, hcon⟩ <;> exact nomatch hcon)
+    hprojm
   have henv01 : ∀ n,
       ((⟨.recInfo cvA nP 0 0 0 [] :: env.consts⟩ : Env).find? n).map
         (fun ci => ci.toConstantVal.levelParams) =
@@ -1397,7 +1575,7 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
       ((⟨.recInfo cvA nP 0 0 0 [] :: env.consts⟩ : Env).find? n).map
         (fun ci => ci.toConstantVal.levelParams) :=
     fun n => (henv01 n).symm
-  refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
+  refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
     fun ψ => hval₀ ψ, fun n ψ hne => hpres₀ n ψ hne⟩
   · -- wf
     intro c hc
@@ -1743,6 +1921,58 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
       refine ⟨R', ?_, hfoldEq, hRch⟩
       rw [hitrans]
       exact hRi
+  · -- modeled_ok: lookups only differ in the head's rule list
+    obtain ⟨mo1, mo2, mo3⟩ := m₀.modeled_ok
+    have hisoF : ∀ n,
+        (⟨.recInfo cvA nP 0 0 0 [rule] :: env.consts⟩ : Env).find? n =
+        if cvA.name = n then some (.recInfo cvA nP 0 0 0 [rule])
+        else (⟨.recInfo cvA nP 0 0 0 [] :: env.consts⟩ : Env).find? n := by
+      intro n
+      rw [Env.find?_cons]
+      by_cases h : cvA.name = n
+      · rw [if_pos (show (ConstantInfo.recInfo cvA nP 0 0 0 [rule]).name = n from h), if_pos h]
+      · rw [if_neg (show ¬(ConstantInfo.recInfo cvA nP 0 0 0 [rule]).name = n from h), if_neg h,
+          Env.find?_cons,
+          if_neg (show ¬(ConstantInfo.recInfo cvA nP 0 0 0 []).name = n from h)]
+    refine ⟨?_, ?_, ?_⟩
+    · intro n cv caps hf hres
+      rw [hisoF] at hf
+      split at hf
+      · exact nomatch (Option.some.inj hf)
+      · obtain ⟨hms, hveq⟩ := mo1 n cv caps hf hres
+        refine ⟨?_, hveq⟩
+        rw [hisoF]
+        split
+        · rfl
+        · exact hms
+    · intro n cv cnP' cnF' hf hres
+      rw [hisoF] at hf
+      split at hf
+      · exact nomatch (Option.some.inj hf)
+      · obtain ⟨hms, hveq⟩ := mo2 n cv cnP' cnF' hf hres
+        refine ⟨?_, hveq⟩
+        rw [hisoF]
+        split
+        · rfl
+        · exact hms
+    · intro T j ci hf
+      rw [hisoF] at hf
+      split at hf
+      · next hh =>
+        obtain ⟨hms, hveq⟩ := mo3 T j (.recInfo cvA nP 0 0 0 [])
+          (by rw [Env.find?_cons,
+            if_pos (show (ConstantInfo.recInfo cvA nP 0 0 0 []).name = projFnName T j from hh)])
+        refine ⟨?_, hveq⟩
+        rw [hisoF]
+        split
+        · rfl
+        · exact hms
+      · obtain ⟨hms, hveq⟩ := mo3 T j ci hf
+        refine ⟨?_, hveq⟩
+        rw [hisoF]
+        split
+        · rfl
+        · exact hms
 
 /-- Invert a successful `checkIndMember` run. -/
 theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
@@ -1857,6 +2087,7 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
     (f : Name → Name) {cvm : ConstantVal} {mval : Expr}
     (hfind' : env.find? cvA.name = none)
     (hnres : reservedBasisNames.contains cvA.name = false)
+    (hpshape : cvA.name.isProjFnShape = false)
     (hwf : ConstWF ⟨.recInfo cvA nP 1 nm 0 rules' :: env.consts⟩
       (.recInfo cvA nP 1 nm 0 rules'))
     (htyres0 : cvA.type.constsResolve env = true)
@@ -1914,6 +2145,12 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
     (.recInfo cvA nP 1 nm 0 []) f₀ (cvA.name.str "_model")
     hfind' hnres hwf₀ htyres0
     (Or.inr (Or.inr ⟨cvA, nP, 1, nm, rfl⟩)) hmodel hlps hren₀ hro
+    (fun hk => by
+      rcases hk with ⟨_, _, hcon⟩ | ⟨_, _, _, hcon⟩ <;> exact nomatch hcon)
+    (fun T j hh => by
+      have hh' : cvA.name = projFnName T j := hh
+      rw [hh'] at hpshape
+      exact nomatch hpshape)
   have henv01 : ∀ n,
       ((⟨.recInfo cvA nP 1 nm 0 [] :: env.consts⟩ : Env).find? n).map
         (fun ci => ci.toConstantVal.levelParams) =
@@ -2021,7 +2258,7 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
       ((⟨.recInfo cvA nP 1 nm 0 [] :: env.consts⟩ : Env).find? n).map
         (fun ci => ci.toConstantVal.levelParams) :=
     fun n => (henv01 n).symm
-  refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
+  refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
     fun ψ => hval₀ ψ, fun n ψ hne => hpres₀ n ψ hne⟩
   · -- wf
     intro c hc
@@ -2361,6 +2598,58 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
       refine ⟨R', ?_, hfoldEq, hRch⟩
       rw [hitrans]
       exact hRi
+  · -- modeled_ok: lookups only differ in the head's rule list
+    obtain ⟨mo1, mo2, mo3⟩ := m₀.modeled_ok
+    have hisoF : ∀ n,
+        (⟨.recInfo cvA nP 1 nm 0 rules' :: env.consts⟩ : Env).find? n =
+        if cvA.name = n then some (.recInfo cvA nP 1 nm 0 rules')
+        else (⟨.recInfo cvA nP 1 nm 0 [] :: env.consts⟩ : Env).find? n := by
+      intro n
+      rw [Env.find?_cons]
+      by_cases h : cvA.name = n
+      · rw [if_pos (show (ConstantInfo.recInfo cvA nP 1 nm 0 rules').name = n from h), if_pos h]
+      · rw [if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0 rules').name = n from h), if_neg h,
+          Env.find?_cons,
+          if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0 []).name = n from h)]
+    refine ⟨?_, ?_, ?_⟩
+    · intro n cv caps hf hres
+      rw [hisoF] at hf
+      split at hf
+      · exact nomatch (Option.some.inj hf)
+      · obtain ⟨hms, hveq⟩ := mo1 n cv caps hf hres
+        refine ⟨?_, hveq⟩
+        rw [hisoF]
+        split
+        · rfl
+        · exact hms
+    · intro n cv cnP' cnF' hf hres
+      rw [hisoF] at hf
+      split at hf
+      · exact nomatch (Option.some.inj hf)
+      · obtain ⟨hms, hveq⟩ := mo2 n cv cnP' cnF' hf hres
+        refine ⟨?_, hveq⟩
+        rw [hisoF]
+        split
+        · rfl
+        · exact hms
+    · intro T j ci hf
+      rw [hisoF] at hf
+      split at hf
+      · next hh =>
+        obtain ⟨hms, hveq⟩ := mo3 T j (.recInfo cvA nP 1 nm 0 [])
+          (by rw [Env.find?_cons,
+            if_pos (show (ConstantInfo.recInfo cvA nP 1 nm 0 []).name = projFnName T j from hh)])
+        refine ⟨?_, hveq⟩
+        rw [hisoF]
+        split
+        · rfl
+        · exact hms
+      · obtain ⟨hms, hveq⟩ := mo3 T j ci hf
+        refine ⟨?_, hveq⟩
+        rw [hisoF]
+        split
+        · rfl
+        · exact hms
 
 /-- No `_model`-companion name equals a name that is not itself
 `_model`-shaped. -/
@@ -2435,6 +2724,13 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
   have hfind' : env'.find? cvA.name = none := by rw [hnameA]; exact hfind0
   have hnres : reservedBasisNames.contains cvA.name = false := by
     rw [hnameA]; exact hnres0
+  have hshapeA : cvA.name.isProjFnShape = false := by
+    rw [hnameA]; exact hpshape0
+  have hprojRef : ∀ (T : Name) (j : Nat), cvA.name = projFnName T j →
+      ∀ {p : Prop}, p := by
+    intro T j hh
+    rw [hh] at hshapeA
+    exact nomatch hshapeA
   have hbnA : blockNames.contains cvA.name = true := by
     rw [hnameA]; exact hbn
   have htyf : cvA.type.hasFvar = false := by
@@ -2503,6 +2799,9 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
     obtain ⟨m₁, hval₁, hpres₁⟩ := extend_modeled_one m
       (.indInfo cvA caps) fS (cvA.name.str "_model") hfind' hnres hwf htres
       (Or.inl ⟨_, _, rfl⟩) hfm hlps hrenS hroS
+      (fun _ => ⟨show (env'.find? (cvA.name.str "_model")).isSome = true
+        by rw [hfm]; rfl, fun ψ => rfl⟩)
+      (fun T j hh => hprojRef T j hh)
     exact ⟨m₁, BlockInstalled.step hI hms hfm hlps hval₁ hpres₁⟩
   · -- constructor
     have hwf : ConstWF ⟨.ctorInfo cvA nP nF :: env'.consts⟩
@@ -2514,6 +2813,9 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
       (.ctorInfo cvA nP nF) fS (cvA.name.str "_model")
       hfind' hnres hwf htres
       (Or.inr (Or.inl ⟨_, _, _, rfl⟩)) hfm hlps hrenS hroS
+      (fun _ => ⟨show (env'.find? (cvA.name.str "_model")).isSome = true
+        by rw [hfm]; rfl, fun ψ => rfl⟩)
+      (fun T j hh => hprojRef T j hh)
     exact ⟨m₁, BlockInstalled.step hI hms hfm hlps hval₁ hpres₁⟩
   · -- recursor
     have hfself : fb cvA.name = cvA.name.str "_model" := by
@@ -2585,7 +2887,7 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
         rw [← Expr.constsResolve_congr hiso]
         exact hrres
     obtain ⟨m₁, hval₁, hpres₁⟩ := extend_modeled_rec m cvA nP nm rules'
-      fb hfind' hnres hwf htres hfm hlps hrenf
+      fb hfind' hnres hshapeA hwf htres hfm hlps hrenf
       fS hroS hff₀ hfself hfnot heqf heqval
       (checkIotaRules_inv 0 rules rules' hcir)
     exact ⟨m₁, BlockInstalled.step
@@ -2647,16 +2949,6 @@ theorem checkIndFold_sound {blockNames : List Name} {caps : IndCaps} :
       (hns ci (by simp)) m hI
     exact checkIndFold_sound rest env₁ env₂
       (fun ci' hci' => hns ci' (by simp [hci'])) h m₁ hI₁
-
-omit [SetTheory V] in
-/-- Numeric names are never `str`-shaped. -/
-theorem Name.num_ne_str (p : Name) (k : Nat) (q : Name) (s : String) :
-    Name.num p k ≠ Name.str q s := fun h => nomatch h
-
-omit [SetTheory V] in
-/-- Reserved basis names are all `str`-shaped. -/
-theorem reservedBasisNames_not_num (p : Name) (k : Nat) :
-    reservedBasisNames.contains (Name.num p k) = false := rfl
 
 /-- Invert stage 1 of `checkProjFn` (the stored-constant lookups). -/
 theorem checkProjLookups_inv {env' : Env} {T ctorName : Name}
@@ -3264,10 +3556,22 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
        .bvar (nF - 1 - i)] := by
     rw [hfself, hfctor]
     rfl
+  have hprojmArg : ∀ (T' : Name) (j : Nat),
+      projFnName T i = projFnName T' j →
+      (env'.find? (projModelName T' j)).isSome = true ∧
+      ∀ ψ : Name → Nat,
+        m.val (projModelName T i) ψ = m.val (projModelName T' j) ψ := by
+    intro T' j hh
+    have hh' : Name.num (T.str "proj") i = Name.num (T'.str "proj") j := hh
+    injection hh' with hp hij
+    injection hp with hT hs
+    subst hij
+    subst hT
+    exact ⟨by rw [hfm]; rfl, fun ψ => rfl⟩
   obtain ⟨m₁, hval₁, hpres₁⟩ := extend_proj_fn m
     ⟨projFnName T i, lps, pty⟩ nP nF i ⟨ctorName, nF, rhsA⟩ f
     (projModelName T i) hpnone
-    (reservedBasisNames_not_num _ _) hwf hptyres hfm hmlps hren
+    (reservedBasisNames_not_num _ _) hwf hptyres hfm hmlps hprojmArg hren
     f₀ hro hff₀ hfself hfnot heqf heqval hi hctor rfl
     hann hrawf hrawb hrf hrb hrres hstripR rfl hC_strip hS_strip
     hdoms hsdoms hsbody' hthm htlps
