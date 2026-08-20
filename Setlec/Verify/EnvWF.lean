@@ -81,6 +81,13 @@ theorem Expr.constsResolve_instantiateLevelParams {env : Env} (ks : List Name)
   intro e
   induction e <;> simp_all [Expr.instantiateLevelParams, Expr.constsResolve]
 
+/-- No name equals its own string extension. -/
+theorem Name.str_ne (n : Name) (s : String) : n.str s ≠ n := by
+  intro h
+  have h1 : sizeOf (Name.str n s) = sizeOf n := congrArg sizeOf h
+  simp at h1
+  omega
+
 /-- Resolution only reads whether names are stored. -/
 theorem Expr.constsResolve_congr {env₁ env₂ : Env}
     (henv : ∀ n, (env₁.find? n).isSome = (env₂.find? n).isSome) :
