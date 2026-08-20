@@ -221,52 +221,56 @@ def checkIotaRules (env' envSelf : Env) (f : Name → Name)
       (j + 1) rest
     pure ({ r with rhs := rhsA } :: rest')
 
+/-- Check and install one member of a modeled inductive block against
+its `_model` counterpart (the step of `checkIndDecl`'s fold, lifted
+for verification). -/
+def checkIndMember (blockNames : List Name) (env' : Env)
+    (ci : ConstantInfo) : CheckM Env := do
+  let f : Name → Name := fun n =>
+    if blockNames.contains n then n.str "_model" else n
+  let cvA ← checkConstantVal env' ci.toConstantVal
+  -- a member may not itself be shaped like a model companion, so the
+  -- block renaming can never map onto a member
+  if cvA.name.isModelSuffix then
+    throw (.invalid s!"model-shaped member name {cvA.name}")
+  -- the model counterpart
+  let some (.defnInfo cvm _mval) := env'.find? (cvA.name.str "_model")
+    | throw (.notImplemented s!"missing model for {cvA.name}")
+  unless cvm.levelParams = cvA.levelParams do
+    throw (.notImplemented s!"model level parameters mismatch for {cvA.name}")
+  unless (cvA.type.renameConsts f) == cvm.type do
+    throw (.notImplemented s!"model type mismatch for {cvA.name}")
+  match ci with
+  | .indInfo _ => pure (⟨.indInfo cvA :: env'.consts⟩ : Env)
+  | .ctorInfo _ nP nF => pure ⟨.ctorInfo cvA nP nF :: env'.consts⟩
+  | .recInfo _ nP nM nm ni rules => do
+    unless ni = 0 do throw (.notImplemented "indexed recursor")
+    unless nM = 1 do throw (.notImplemented "multiple motives")
+    -- the recursor comes last: with every other member installed the
+    -- block renaming is exactly \"installed members and the recursor\"
+    unless blockNames.all (fun n =>
+        n == cvA.name || (env'.find? n).isSome) do
+      throw (.notImplemented "recursor before other block members")
+    -- iota statements are equations: pin the pinned equality former
+    unless env'.find? eqName = some eqA do
+      throw (.notImplemented "modeled recursor requires the pinned Eq basis")
+    unless (env'.find? (eqName.str "_model")).isNone do
+      throw (.invalid "shadowed Eq model")
+    -- provisional self with *no* rules: rule right-hand sides may
+    -- mention the recursor, but nothing during their annotation may
+    -- depend on its (yet unchecked) rules
+    let envSelf : Env := ⟨.recInfo cvA nP nM nm ni [] :: env'.consts⟩
+    let rules' ← checkIotaRules env' envSelf f cvA.name cvA.levelParams cvA.type nP nM nm 0 rules
+    pure ⟨.recInfo cvA nP nM nm ni rules' :: env'.consts⟩
+  | _ => throw (.invalid s!"non-inductive member {cvA.name} in block")
+
 /-- Check and install a modeled inductive block: every member is
 checked against its `_model` counterpart (type up to the public↔model
 renaming, iota rules against the model's `iota_j` theorems), then
 stored as a real inductive-kind constant.  Not yet wired into
 `checkDecl` — the soundness proof accompanies the wiring. -/
-def checkIndDecl (env : Env) (block : List ConstantInfo) : CheckM Env := do
-  let blockNames := block.map (·.name)
-  let f : Name → Name := fun n =>
-    if blockNames.contains n then n.str "_model" else n
-  block.foldlM (fun env' ci => do
-    let cvA ← checkConstantVal env' ci.toConstantVal
-    -- a member may not itself be shaped like a model companion, so the
-    -- block renaming can never map onto a member
-    if cvA.name.isModelSuffix then
-      throw (.invalid s!"model-shaped member name {cvA.name}")
-    -- the model counterpart
-    let some (.defnInfo cvm _mval) := env'.find? (cvA.name.str "_model")
-      | throw (.notImplemented s!"missing model for {cvA.name}")
-    unless cvm.levelParams = cvA.levelParams do
-      throw (.notImplemented s!"model level parameters mismatch for {cvA.name}")
-    unless (cvA.type.renameConsts f) == cvm.type do
-      throw (.notImplemented s!"model type mismatch for {cvA.name}")
-    match ci with
-    | .indInfo _ => pure (⟨.indInfo cvA :: env'.consts⟩ : Env)
-    | .ctorInfo _ nP nF => pure ⟨.ctorInfo cvA nP nF :: env'.consts⟩
-    | .recInfo _ nP nM nm ni rules => do
-      unless ni = 0 do throw (.notImplemented "indexed recursor")
-      unless nM = 1 do throw (.notImplemented "multiple motives")
-      -- the recursor comes last: with every other member installed the
-      -- block renaming is exactly \"installed members and the recursor\"
-      unless blockNames.all (fun n =>
-          n == cvA.name || (env'.find? n).isSome) do
-        throw (.notImplemented "recursor before other block members")
-      -- iota statements are equations: pin the pinned equality former
-      unless env'.find? eqName = some eqA do
-        throw (.notImplemented "modeled recursor requires the pinned Eq basis")
-      unless (env'.find? (eqName.str "_model")).isNone do
-        throw (.invalid "shadowed Eq model")
-      -- provisional self with *no* rules: rule right-hand sides may
-      -- mention the recursor, but nothing during their annotation may
-      -- depend on its (yet unchecked) rules
-      let envSelf : Env := ⟨.recInfo cvA nP nM nm ni [] :: env'.consts⟩
-      let rules' ← checkIotaRules env' envSelf f cvA.name cvA.levelParams cvA.type nP nM nm 0 rules
-      pure ⟨.recInfo cvA nP nM nm ni rules' :: env'.consts⟩
-    | _ => throw (.invalid s!"non-inductive member {cvA.name} in block")
-    ) env
+def checkIndDecl (env : Env) (block : List ConstantInfo) : CheckM Env :=
+  block.foldlM (checkIndMember (block.map (·.name))) env
 
 /-- Check a list of declarations in order, starting from the empty
 environment. -/
