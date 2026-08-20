@@ -326,6 +326,24 @@ theorem Expr.mkAppN_getApp : ∀ (e : Expr), Expr.mkAppN e.getAppFn e.getAppArgs
     exact congrArg (Expr.app · a) ih
   | _ => rfl
 
+/-- The spine head of an application chain is the base's spine head. -/
+theorem Expr.getAppFn_mkAppN : ∀ (args : List Expr) (f : Expr),
+    (Expr.mkAppN f args).getAppFn = f.getAppFn
+  | [], _ => rfl
+  | a :: as, f => by
+    rw [show Expr.mkAppN f (a :: as) = Expr.mkAppN (.app f a) as from rfl,
+      Expr.getAppFn_mkAppN as]
+    rfl
+
+/-- The spine arguments of an application chain extend the base's. -/
+theorem Expr.getAppArgs_mkAppN : ∀ (args : List Expr) (f : Expr),
+    (Expr.mkAppN f args).getAppArgs = f.getAppArgs ++ args
+  | [], _ => by simp [Expr.mkAppN]
+  | a :: as, f => by
+    rw [show Expr.mkAppN f (a :: as) = Expr.mkAppN (.app f a) as from rfl,
+      Expr.getAppArgs_mkAppN as]
+    simp [Expr.getAppArgs]
+
 theorem List.length_four {α : Type _} {l : List α} (h : l.length = 4) :
     ∃ a b c d, l = [a, b, c, d] := by
   match l, h with
