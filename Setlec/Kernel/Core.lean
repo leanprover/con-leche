@@ -20,11 +20,13 @@ bridge relates the two (see DESIGN.md).
 
 The reduction loop follows the official kernel (`whnfCore` never
 delta-unfolds; `whnf` iterates `whnfCore → reduceNat → unfold one
-definition`), definitional equality starts with the syntactic fast path
-and tries proof irrelevance before structural congruence, and inference
-is *infer-only* — the application rule is checked once, in the
-annotation pass, and trusted thereafter (so speculative inference
-inside reduction cannot reject).
+definition`), and definitional equality starts with the syntactic fast
+path and tries proof irrelevance before structural congruence.
+Inference re-checks the application argument and the λ-annotation: the
+soundness claims re-derive their membership slots from those checks at
+their own fuel.  The official kernel's *infer-only* mode is deferred
+until the refinement bridge's fuel-determinism machinery lands
+(DESIGN.md).
 
 Verification: `Setlec.Model.TypeChecker` (claims), `Setlec.Verify.*`
 (inversions), both stated against the bodies with hypotheses about the
@@ -49,7 +51,7 @@ abbrev CheckM := Except CheckError
 
 /-- The record of mutually recursive core entry points.  `whnfCore`
 computes a head normal form without delta; `whnf` is the full reduction
-loop; `infer` is infer-only type inference (annotations trusted);
+loop; `infer` is type inference;
 `defeq` is definitional equality; `annotate` computes binder
 annotations (and is the one place typing is checked). -/
 structure CoreFns (m : Type → Type u) where
@@ -727,15 +729,37 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       | none => throw (.internal "unannotated ∀-binder reached inferType")
     | .lam n ty body mb => do
       match mb.cod with
-      | some _ => do
-        let bt ← r.infer (depth + 1)
-          (body.instantiate1 (.fvar depth n ty))
-        pure (.forallE n ty (bt.abstract1 depth) mb)
+      | some v => do
+        -- The domain must be a type (and the model needs its
+        -- interpretation defined), exactly as in the ∀ rule.
+        match ← r.whnf depth (← r.infer depth ty) with
+        | .sort _ => do
+          let bt ← r.infer (depth + 1)
+            (body.instantiate1 (.fvar depth n ty))
+          -- Re-check the stored annotation: it must be the sort of the
+          -- body's type (the λ-annotation is *trusted* by the ∀ it
+          -- builds, so it is *checked* here, where the body's type is
+          -- at hand).
+          match ← r.whnf (depth + 1) (← r.infer (depth + 1) bt) with
+          | .sort v' => do
+            unless ← liftFueled "level comparison" (Level.isEquiv v v') do
+              throw (.invalid "λ-annotation does not match the body's sort")
+            pure (.forallE n ty (bt.abstract1 depth) mb)
+          | _ => throw (.invalid "expected a sort")
+        | _ => throw (.invalid "expected a sort")
       | none => throw (.internal "unannotated λ-binder reached inferType")
     | .app f a => do
       let tf ← r.infer depth f
       match ← r.whnf depth tf with
-      | .forallE _ _ body _ => pure (body.instantiate1 a)
+      | .forallE _ ty body _ => do
+        -- The argument check stays in inference for now: the soundness
+        -- claim's `⟦a⟧ ∈ ⟦domain⟧` slot is re-derived here, at the
+        -- claims' own fuel.  A later infer-only mode needs the fuel
+        -- determinism machinery of the refinement bridge (DESIGN.md).
+        let ta ← r.infer depth a
+        unless ← r.defeq depth ta ty do
+          throw (.invalid "application type mismatch")
+        pure (body.instantiate1 a)
       | _ => throw (.invalid "function expected")
     | .proj sn i pe => do
       -- Only the basis pair type is projected natively; every other

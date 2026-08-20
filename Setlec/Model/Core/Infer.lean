@@ -21,31 +21,58 @@ variable {m : EnvModel V env} {fuel : Nat}
 variable (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
   (ihi : InferClaims m φ fuel)
 
+set_option maxHeartbeats 1600000 in
 theorem infer_claims (m : EnvModel V env)
     (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
     (ihi : InferClaims m φ fuel) :
     InferClaims m φ (fuel + 1) := by
   intro d e t ρ h hw hb hLb hok ha
-  match e, h with
-  | .sort u, h =>
-    simp only [inferTypeCore, pure, Except.pure, Except.ok.injEq] at h
+  cases e with
+  | sort u =>
+    rw [inferTypeCore_succ] at h
+    simp only [inferBody, pure, Except.pure, Except.ok.injEq] at h
     subst h
     refine ⟨⟨univ (u.eval φ), univ (u.eval φ + 1), ?_, ?_, univ_mem_univ _⟩, ?_⟩ <;>
       simp [interpExpr, Level.eval, AnnotOk]
-  | .fvar idx n ty, h =>
-    simp only [inferTypeCore, pure, Except.pure, Except.ok.injEq] at h
+  | fvar idx n ty =>
+    rw [inferTypeCore_succ] at h
+    simp only [inferBody, pure, Except.pure, Except.ok.injEq] at h
     subst h
     obtain ⟨⟨hidx, hAty, T, hT, hmem⟩, hFty⟩ := FvarsOk.of_fvar hok
     exact ⟨⟨ρ idx, T, by simp [interpExpr], hT, hmem⟩, hAty⟩
-  | .const n ws, h =>
-    simp only [inferTypeCore] at h
+  | lit l0 =>
+    rw [inferTypeCore_succ] at h
+    match l0, h with
+    | .natVal n, h => ?_
+    | .strVal sv, h =>
+      simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
+    dsimp only [inferBody] at h
+    revert h
+    split
+    case isFalse =>
+      intro h
+      simp [throw, throwThe, MonadExceptOf.throw] at h
+    case isTrue hs =>
+      intro h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      subst h
+      exact ⟨⟨natLitVal V (m.val natZeroName φ) (m.val natSuccName φ) n,
+        m.val natName φ, interpExpr_lit hs, interpExpr_const_nat hs,
+        natLitVal_mem_nat m hs φ n⟩, by simp [AnnotOk]⟩
+  | const n ws =>
+    rw [inferTypeCore_succ] at h
+    simp only [inferBody] at h
+    revert h
     cases hf : env.find? n with
-    | none => rw [hf] at h; exact nomatch h
+    | none => intro h; exact nomatch h
     | some ci =>
-      rw [hf] at h
+      intro h
       dsimp only at h
-      split at h
-      next hal =>
+      revert h
+      split
+      case isFalse => intro h; exact nomatch h
+      case isTrue hal =>
+        intro h
         simp only [pure, Except.pure, Except.ok.injEq] at h
         subst h
         obtain ⟨htc, -, -, -, -, -⟩ := m.wf _ (List.mem_of_find?_eq_some hf)
@@ -70,8 +97,7 @@ theorem infer_claims (m : EnvModel V env)
           exact hmem
         · exact AnnotOk.closed_invariant hcl d ρ
             (AnnotOk.instLevels m.val_params _ 0 (rho0 V) hAstored)
-      next hal => exact nomatch h
-  | .forallE n ty body m', h =>
+  | forallE n ty body m' =>
     simp only [WScoped] at hw
     simp only [looseBVarsBounded, Bool.and_eq_true] at hb
     obtain ⟨hokty, hokbody⟩ := FvarsOk.of_forallE hok
@@ -106,7 +132,7 @@ theorem infer_claims (m : EnvModel V env)
           if v₀.eval φ = 0 then 0 else Nat.max (u.eval φ) (v₀.eval φ) := rfl
       rw [heq]
       exact hpi
-  | .lam n ty body m', h =>
+  | lam n ty body m' =>
     obtain ⟨v, tty, u, bt, tbt, v', hc, htyi, hu, hbt, htbt, hwv, heqv, rfl⟩ :=
       inferTypeCore_lam_inv h
     simp only [WScoped] at hw
@@ -184,14 +210,14 @@ theorem infer_claims (m : EnvModel V env)
           ((bt.abstract1 d).instantiate1 (.fvar d n ty))).getD SetTheory.empty),
       ?_, ?_, ?_⟩, ?_⟩
     · simp only [interpExpr, hc, hA]
-    · simp only [interpExpr, hA]
+    · simp only [interpExpr, hc, hA]
     · refine lam_mem fun x hx => ?_
       obtain ⟨⟨w, tw, hwi, hbti, hmem, -⟩, -⟩ := hfacts x hx
       rw [hrt, hwi, hbti]
       simpa using hmem
     · -- annotation truthfulness of the inferred Π-type
       simp only [AnnotOk]
-      refine ⟨haty, ⟨v, rfl⟩, ?_⟩
+      refine ⟨haty, ⟨v, hc⟩, ?_⟩
       intro x A' hA' hx
       rw [hA] at hA'
       obtain rfl := Option.some.inj hA'
@@ -199,9 +225,9 @@ theorem infer_claims (m : EnvModel V env)
       rw [hrt]
       refine ⟨hAbt, ?_⟩
       intro v'' hv''
-      obtain rfl : v = v'' := by injection hv''
+      obtain rfl : v = v'' := by rw [hc] at hv''; injection hv''
       exact ⟨tw, hbti, htwu⟩
-  | .app f a, h =>
+  | app f a =>
     obtain ⟨tf, n', ty', body', mPi, ta, htf, hwh, hta, hde, rfl⟩ :=
       inferTypeCore_app_inv h
     simp only [WScoped] at hw
@@ -288,7 +314,7 @@ theorem infer_claims (m : EnvModel V env)
       rw [hwi'] at happ
       simpa using happ
     · exact AnnotOk_beta hfb' hw.2 hb.2 hai haa 0 hAopened
-  | .proj sn i e, h =>
+  | proj sn i e =>
     obtain ⟨te, us, A, B, cv, caps, hte, hwt, hfind, hcase⟩ := inferTypeCore_proj_inv h
     simp only [WScoped] at hw
     simp only [looseBVarsBounded] at hb
@@ -391,11 +417,13 @@ theorem infer_claims (m : EnvModel V env)
           hBi, hproj0, hBmem, hsfst, fun _ _ => univ_mem_univ _⟩
         exact ⟨hae, by omega, ve, ψ' uN, ψ' vN, vA, (fun x => app vB x),
           hei, hvemem, hAmem, hfib⟩
-  | .bvar i, h => simp [inferTypeCore] at h
-  | .letE n' t' v' b', h => simp [inferTypeCore] at h
-  | .lit l', h => simp [inferTypeCore] at h
+  | bvar i =>
+    rw [inferTypeCore_succ] at h
+    simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
+  | letE n' t' v' b' =>
+    rw [inferTypeCore_succ] at h
+    simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
 
-end Claims
 end Claims
 
 end Setlec

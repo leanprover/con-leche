@@ -621,7 +621,8 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
       obtain ⟨tty, u, hty, hwt, rfl⟩ := inferTypeCore_forall_inv hc h
       simp [WScoped]
     | lam n ty body m =>
-      obtain ⟨v, bt, hc, hbt, rfl⟩ := inferTypeCore_lam_inv h
+      obtain ⟨v, tty, u, bt, tbt, v', hc, -, -, hbt, -, -, -, rfl⟩ :=
+        inferTypeCore_lam_inv h
       simp only [WScoped] at hw
       have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
         hw.1.instantiate1 0 hw.2
@@ -629,7 +630,7 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
       simp only [WScoped]
       exact ⟨hw.1, WScoped.abstract1 0 hwbt⟩
     | app f a =>
-      obtain ⟨tf, n', ty', body', m', htf, hwh, rfl⟩ :=
+      obtain ⟨tf, n', ty', body', m', ta, htf, hwh, -, -, rfl⟩ :=
         inferTypeCore_app_inv h
       simp only [WScoped] at hw
       have hwtf := inferTypeCore_WScoped henv fuel htf hw.1
@@ -718,7 +719,8 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
       intro l hl
       simp [fvarLeaves] at hl
     | lam n ty body m =>
-      obtain ⟨v, bt, hc, hbt, rfl⟩ := inferTypeCore_lam_inv h
+      obtain ⟨v, tty, u, bt, tbt, v', hc, -, -, hbt, -, -, -, rfl⟩ :=
+        inferTypeCore_lam_inv h
       simp only [WScoped] at hw
       have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
         hw.1.instantiate1 0 hw.2
@@ -736,7 +738,7 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
           · exact absurd rfl hlne
           · exact Or.inl hb
     | app f a =>
-      obtain ⟨tf, n', ty', body', m', htf, hwh, rfl⟩ :=
+      obtain ⟨tf, n', ty', body', m', ta, htf, hwh, -, -, rfl⟩ :=
         inferTypeCore_app_inv h
       simp only [WScoped] at hw
       intro l hl
@@ -831,7 +833,8 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
       obtain ⟨tty, u, hty, hwt, rfl⟩ := inferTypeCore_forall_inv hc h
       simp [looseBVarsBounded]
     | lam n ty body m =>
-      obtain ⟨v, bt, hc, hbt, rfl⟩ := inferTypeCore_lam_inv h
+      obtain ⟨v, tty, u, bt, tbt, v', hc, -, -, hbt, -, -, -, rfl⟩ :=
+        inferTypeCore_lam_inv h
       simp only [WScoped] at hw
       simp only [looseBVarsBounded, Bool.and_eq_true] at hb
       have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
@@ -850,7 +853,7 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
       simp only [looseBVarsBounded, Bool.and_eq_true]
       exact ⟨hb.1, looseBVarsBounded_abstract1 bt 0 hbbt⟩
     | app f a =>
-      obtain ⟨tf, n', ty', body', m', htf, hwh, rfl⟩ :=
+      obtain ⟨tf, n', ty', body', m', ta, htf, hwh, -, -, rfl⟩ :=
         inferTypeCore_app_inv h
       simp only [WScoped] at hw
       simp only [looseBVarsBounded, Bool.and_eq_true] at hb

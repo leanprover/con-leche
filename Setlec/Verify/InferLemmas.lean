@@ -151,36 +151,89 @@ annotation is reused whole). -/
 theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
     {ty body t : Expr} {m : BinderMeta}
     (h : inferTypeCore env (fuel + 1) d (.lam n ty body m) = .ok t) :
-    ∃ v bt, m.cod = some v ∧
+    ∃ v tty u bt tbt v', m.cod = some v ∧
+      inferTypeCore env fuel d ty = .ok tty ∧
+      whnf env fuel d tty = .ok (.sort u) ∧
       inferTypeCore env fuel (d + 1)
         (body.instantiate1 (.fvar d n ty)) = .ok bt ∧
+      inferTypeCore env fuel (d + 1) bt = .ok tbt ∧
+      whnf env fuel (d + 1) tbt = .ok (.sort v') ∧
+      Level.isEquiv v v' = some true ∧
       t = .forallE n ty (bt.abstract1 d) m := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, Bind.bind, Except.bind] at h
-  simp only [infer_def] at h
+  simp only [infer_def, whnf_def] at h
   cases hc : m.cod with
   | none => rw [hc] at h; exact nomatch h
   | some v =>
   rw [hc] at h
+  dsimp only at h
+  cases htty : inferTypeCore env fuel d ty with
+  | error err => rw [htty] at h; exact nomatch h
+  | ok tty =>
+  rw [htty] at h
+  dsimp only at h
+  cases hwtty : whnf env fuel d tty with
+  | error err => rw [hwtty] at h; exact nomatch h
+  | ok wtty =>
+  rw [hwtty] at h
+  dsimp only at h
+  revert h
+  match wtty with
+  | .sort u => ?_
+  | .bvar _ | .fvar _ _ _ | .const _ _ | .app _ _ | .lam _ _ _ _
+  | .forallE _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+    intro h; simp [throw, throwThe, MonadExceptOf.throw] at h
+  intro h
   dsimp only at h
   cases hbt : inferTypeCore env fuel (d + 1)
       (body.instantiate1 (.fvar d n ty)) with
   | error err => rw [hbt] at h; exact nomatch h
   | ok bt =>
   rw [hbt] at h
-  simp only [pure, Except.pure, Except.ok.injEq] at h
-  exact ⟨v, bt, rfl, rfl, h.symm⟩
+  dsimp only at h
+  cases htbt : inferTypeCore env fuel (d + 1) bt with
+  | error err => rw [htbt] at h; exact nomatch h
+  | ok tbt =>
+  rw [htbt] at h
+  dsimp only at h
+  cases hwtbt : whnf env fuel (d + 1) tbt with
+  | error err => rw [hwtbt] at h; exact nomatch h
+  | ok wtbt =>
+  rw [hwtbt] at h
+  dsimp only at h
+  revert h
+  match wtbt with
+  | .sort v' => ?_
+  | .bvar _ | .fvar _ _ _ | .const _ _ | .app _ _ | .lam _ _ _ _
+  | .forallE _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+    intro h; simp [throw, throwThe, MonadExceptOf.throw] at h
+  intro h
+  dsimp only at h
+  cases hEq : Level.isEquiv v v' with
+  | none => rw [hEq] at h; simp [liftFueled] at h
+  | some r =>
+  rw [hEq] at h
+  dsimp only [liftFueled] at h
+  cases r with
+  | false => simp [throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at h
+  | true =>
+    simp only [if_true, pure, Except.pure, Except.ok.injEq] at h
+    exact ⟨v, tty, u, bt, tbt, v', rfl, rfl, hwtty, rfl, htbt, hwtbt, hEq,
+      h.symm⟩
 
 /-- Inversion for the application rule of `inferTypeCore` (infer-only:
 no argument check — that ran once, in the annotation pass). -/
 theorem inferTypeCore_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
     (h : inferTypeCore env (fuel + 1) d (.app f a) = .ok t) :
-    ∃ tf n' ty' body' m', inferTypeCore env fuel d f = .ok tf ∧
+    ∃ tf n' ty' body' m' ta, inferTypeCore env fuel d f = .ok tf ∧
       whnf env fuel d tf = .ok (.forallE n' ty' body' m') ∧
+      inferTypeCore env fuel d a = .ok ta ∧
+      isDefEqCore env fuel d ta ty' = .ok true ∧
       t = body'.instantiate1 a := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, Bind.bind, Except.bind] at h
-  simp only [infer_def, whnf_def] at h
+  simp only [infer_def, whnf_def, defeq_def] at h
   cases htf : inferTypeCore env fuel d f with
   | error err => rw [htf] at h; exact nomatch h
   | ok tf =>
@@ -192,9 +245,7 @@ theorem inferTypeCore_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
   rw [hw] at h
   dsimp only at h
   match w, h with
-  | .forallE n' ty' body' m', h =>
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    exact ⟨tf, n', ty', body', m', rfl, hw, h.symm⟩
+  | .forallE n' ty' body' m', h => ?_
   | .sort u, h => exact nomatch h
   | .fvar i n2 t2, h => exact nomatch h
   | .const n2 us, h => exact nomatch h
@@ -204,6 +255,20 @@ theorem inferTypeCore_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
   | .letE n2 t2 v2 b2, h => exact nomatch h
   | .lit l2, h => exact nomatch h
   | .proj s2 i2 e2, h => exact nomatch h
+  cases hta : inferTypeCore env fuel d a with
+  | error err => rw [hta] at h; exact nomatch h
+  | ok ta =>
+  rw [hta] at h
+  dsimp only at h
+  cases hde : isDefEqCore env fuel d ta ty' with
+  | error err => rw [hde] at h; exact nomatch h
+  | ok r =>
+  rw [hde] at h
+  cases r with
+  | false => simp [throw, throwThe, MonadExceptOf.throw] at h
+  | true =>
+    simp only [if_true, pure, Except.pure, Except.ok.injEq] at h
+    exact ⟨tf, n', ty', body', m', ta, rfl, hw, rfl, hde, h.symm⟩
 
 /-- Inversion for the ∀-rule of `inferTypeCore`. -/
 theorem inferTypeCore_forall_inv {env : Env} {fuel d : Nat} {n : Name}
