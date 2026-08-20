@@ -44,6 +44,13 @@ recursor.  The pinned basis blocks carry pinned capabilities; modeled
 blocks earn them from checked `_model` theorems. -/
 structure IndCaps where
   eta : Bool := false
+  /-- The single constructor the eta law reconstructs through
+  (meaningful only when `eta`). -/
+  etaCtor : Name := .anonymous
+  /-- Its parameter count (meaningful only when `eta`). -/
+  etaParams : Nat := 0
+  /-- Its field count (meaningful only when `eta`). -/
+  etaFields : Nat := 0
   unitlike : Bool := false
   ruleK : Bool := false
   deriving DecidableEq, Repr, Inhabited

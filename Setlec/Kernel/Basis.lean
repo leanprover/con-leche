@@ -74,7 +74,7 @@ def natBasis : List ConstantInfo := [
 
 /-- The pinned `PSigma'` basis block. -/
 def psigmaBasis : List ConstantInfo := [
-  .indInfo ⟨(anonymous |>.str "PSigma'"), [(anonymous |>.str "u"), (anonymous |>.str "v")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "β") (.forallE (anonymous |>.str "x") (.bvar 0) (.sort (.param (anonymous |>.str "v"))) ⟨.default, none⟩) (.sort (.max (.param (anonymous |>.str "u")) (.param (anonymous |>.str "v")))) ⟨.default, none⟩) ⟨.implicit, none⟩)⟩ { eta := true },
+  .indInfo ⟨(anonymous |>.str "PSigma'"), [(anonymous |>.str "u"), (anonymous |>.str "v")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "β") (.forallE (anonymous |>.str "x") (.bvar 0) (.sort (.param (anonymous |>.str "v"))) ⟨.default, none⟩) (.sort (.max (.param (anonymous |>.str "u")) (.param (anonymous |>.str "v")))) ⟨.default, none⟩) ⟨.implicit, none⟩)⟩ ⟨true, psigmaMkName, 2, 2, false, false⟩,
   .ctorInfo ⟨((anonymous |>.str "PSigma'") |>.str "mk"), [(anonymous |>.str "u"), (anonymous |>.str "v")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "β") (.forallE (anonymous |>.str "x") (.bvar 0) (.sort (.param (anonymous |>.str "v"))) ⟨.default, none⟩) (.forallE (anonymous |>.str "fst") (.bvar 1) (.forallE (anonymous |>.str "snd") (.app (.bvar 1) (.bvar 0)) (.app (.app (.const (anonymous |>.str "PSigma'") [(.param (anonymous |>.str "u")), (.param (anonymous |>.str "v"))]) (.bvar 3)) (.bvar 2)) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩) ⟨.implicit, none⟩)⟩ 2 2,
   .recInfo ⟨((anonymous |>.str "PSigma'") |>.str "rec"), [(anonymous |>.str "u"), (anonymous |>.str "v")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "β") (.forallE (anonymous |>.str "x") (.bvar 0) (.sort (.param (anonymous |>.str "v"))) ⟨.default, none⟩) (.forallE (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.app (.app (.const (anonymous |>.str "PSigma'") [(.param (anonymous |>.str "u")), (.param (anonymous |>.str "v"))]) (.bvar 1)) (.bvar 0)) (.sort .zero) ⟨.default, none⟩) (.forallE (anonymous |>.str "mk") (.forallE (anonymous |>.str "fst") (.bvar 2) (.forallE (anonymous |>.str "snd") (.app (.bvar 2) (.bvar 0)) (.app (.bvar 2) (.app (.app (.app (.app (.const ((anonymous |>.str "PSigma'") |>.str "mk") [(.param (anonymous |>.str "u")), (.param (anonymous |>.str "v"))]) (.bvar 4)) (.bvar 3)) (.bvar 1)) (.bvar 0))) ⟨.default, none⟩) ⟨.default, none⟩) (.forallE (anonymous |>.str "t") (.app (.app (.const (anonymous |>.str "PSigma'") [(.param (anonymous |>.str "u")), (.param (anonymous |>.str "v"))]) (.bvar 3)) (.bvar 2)) (.app (.bvar 2) (.bvar 0)) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩) ⟨.implicit, none⟩) ⟨.implicit, none⟩)⟩ 2 1 1 0
     [⟨((anonymous |>.str "PSigma'") |>.str "mk"), 2, (.lam (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.lam (anonymous |>.str "β") (.forallE (anonymous |>.str "x") (.bvar 0) (.sort (.param (anonymous |>.str "v"))) ⟨.default, none⟩) (.lam (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.app (.app (.const (anonymous |>.str "PSigma'") [(.param (anonymous |>.str "u")), (.param (anonymous |>.str "v"))]) (.bvar 1)) (.bvar 0)) (.sort .zero) ⟨.default, none⟩) (.lam (anonymous |>.str "mk") (.forallE (anonymous |>.str "fst") (.bvar 2) (.forallE (anonymous |>.str "snd") (.app (.bvar 2) (.bvar 0)) (.app (.bvar 2) (.app (.app (.app (.app (.const ((anonymous |>.str "PSigma'") |>.str "mk") [(.param (anonymous |>.str "u")), (.param (anonymous |>.str "v"))]) (.bvar 4)) (.bvar 3)) (.bvar 1)) (.bvar 0))) ⟨.default, none⟩) ⟨.default, none⟩) (.lam (anonymous |>.str "fst") (.bvar 3) (.lam (anonymous |>.str "snd") (.app (.bvar 3) (.bvar 0)) (.app (.app (.bvar 2) (.bvar 1)) (.bvar 0)) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩)⟩]]
@@ -113,7 +113,7 @@ def emptyA : ConstantInfo :=
     { name := Setlec.Name.str (Setlec.Name.anonymous) "Empty",
       levelParams := [],
       type := Setlec.Expr.sort (Setlec.Level.succ (Setlec.Level.zero)) }
-    { eta := false, unitlike := false, ruleK := false }
+    { eta := false, etaCtor := Setlec.Name.anonymous, etaParams := 0, etaFields := 0, unitlike := false, ruleK := false }
 
 /-- Annotated basis declaration (generated). -/
 def emptyRecA : ConstantInfo :=
@@ -170,7 +170,7 @@ def eqA : ConstantInfo :=
                            (Setlec.Level.imax
                              (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
                              (Setlec.Level.succ (Setlec.Level.zero)))) } }
-    { eta := false, unitlike := false, ruleK := false }
+    { eta := false, etaCtor := Setlec.Name.anonymous, etaParams := 0, etaFields := 0, unitlike := false, ruleK := false }
 
 /-- Annotated basis declaration (generated). -/
 def eqReflA : ConstantInfo :=
@@ -402,7 +402,7 @@ def natA : ConstantInfo :=
     { name := Setlec.Name.str (Setlec.Name.anonymous) "Nat",
       levelParams := [],
       type := Setlec.Expr.sort (Setlec.Level.succ (Setlec.Level.zero)) }
-    { eta := false, unitlike := false, ruleK := false }
+    { eta := false, etaCtor := Setlec.Name.anonymous, etaParams := 0, etaFields := 0, unitlike := false, ruleK := false }
 
 /-- Annotated basis declaration (generated). -/
 def natZeroA : ConstantInfo :=
@@ -674,7 +674,12 @@ def psigmaA : ConstantInfo :=
                              (Setlec.Level.max
                                (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
                                (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))))) } }
-    { eta := true, unitlike := false, ruleK := false }
+    { eta := true,
+      etaCtor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "PSigma'") "mk",
+      etaParams := 2,
+      etaFields := 2,
+      unitlike := false,
+      ruleK := false }
 
 /-- Annotated basis declaration (generated). -/
 def psigmaMkA : ConstantInfo :=
@@ -1006,7 +1011,7 @@ def punitA : ConstantInfo :=
     { name := Setlec.Name.str (Setlec.Name.anonymous) "PUnit",
       levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u"],
       type := Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")) }
-    { eta := false, unitlike := true, ruleK := false }
+    { eta := false, etaCtor := Setlec.Name.anonymous, etaParams := 0, etaFields := 0, unitlike := true, ruleK := false }
 
 /-- Annotated basis declaration (generated). -/
 def punitUnitA : ConstantInfo :=

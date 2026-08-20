@@ -174,8 +174,9 @@ def checkIotaRules (env' envSelf : Env) (f : Name → Name)
 
 /-- Check and install one member of a modeled inductive block against
 its `_model` counterpart (the step of `checkIndDecl`'s fold, lifted
-for verification). -/
-def checkIndMember (blockNames : List Name) (env' : Env)
+for verification).  `caps` is the capability record the block earned
+(recorded on the inductive type former). -/
+def checkIndMember (blockNames : List Name) (caps : IndCaps) (env' : Env)
     (ci : ConstantInfo) : CheckM Env := do
   let f : Name → Name := fun n =>
     if blockNames.contains n then n.str "_model" else n
@@ -192,7 +193,7 @@ def checkIndMember (blockNames : List Name) (env' : Env)
   unless (cvA.type.renameConsts f) == cvm.type do
     throw (.notImplemented s!"model type mismatch for {cvA.name}")
   match ci with
-  | .indInfo _ _ => pure (⟨.indInfo cvA {} :: env'.consts⟩ : Env)
+  | .indInfo _ _ => pure (⟨.indInfo cvA caps :: env'.consts⟩ : Env)
   | .ctorInfo _ nP nF => pure ⟨.ctorInfo cvA nP nF :: env'.consts⟩
   | .recInfo _ nP nM nm ni rules => do
     unless ni = 0 do throw (.notImplemented "indexed recursor")
@@ -349,19 +350,65 @@ def checkProjFn (env' : Env) (T ctorName : Name) (lps : List Name)
   pure ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP 0 0 0
     [⟨ctorName, nF, rhsA⟩] :: env'.consts⟩
 
+/-- Does the model document structural eta for this single-constructor
+block — a `T._model.eta` theorem with the pinned statement
+`∀ p⃗ (x : T._model p⃗), x = C._model p⃗ (T._model.proj_0 p⃗ x) …`?
+Checked before install; a positive answer records the eta capability
+on the stored inductive.  (`Bool`-valued: an absent or differently
+shaped artifact just means no capability.)  The parameter telescope is
+pinned against the constructor *model*'s (both live on the model side
+and are annotated by the same pipeline), and the equality's type slot
+is not pinned (the collapse ignores it). -/
+def checkEtaThm (env' : Env) (T ctorName : Name) (lps ctorLps : List Name)
+    (nP nF : Nat) : Bool :=
+  match env'.find? ((T.str "_model").str "eta"),
+      env'.find? (ctorName.str "_model"), env'.find? eqName with
+  | some (.thmInfo tcv _), some (.defnInfo cvmC _), some eqStored =>
+    eqStored == eqA && tcv.levelParams == lps &&
+    cvmC.levelParams == ctorLps &&
+    (match tcv.type.stripPis (nP + 1), cvmC.type.stripPis (nP + nF) with
+     | some (sbinders, sbody), some (cbindersM, _) =>
+       domsMatchAux (fun _ e => e) sbinders cbindersM 0 0 nP &&
+       (match sbinders[nP]? with
+        | some (_, xdom, _) =>
+          xdom == Expr.mkAppN (.const (T.str "_model") (lps.map .param))
+            ((List.range nP).map fun k => Expr.bvar (nP - 1 - k))
+        | none => false) &&
+       (match sbody with
+        | .app (.app (.app (.const c [_ℓ]) _tySlot) lhsC) rhsC =>
+          c == eqName && lhsC == Expr.bvar 0 &&
+          rhsC == Expr.mkAppN
+            (.const (ctorName.str "_model") (ctorLps.map .param))
+            (((List.range nP).map fun k => Expr.bvar (nP - k)) ++
+             (List.range nF).map fun j => Expr.mkAppN
+               (.const (projModelName T j) (lps.map .param))
+               (((List.range nP).map fun k => Expr.bvar (nP - k)) ++
+                [Expr.bvar 0]))
+        | _ => false)
+     | _, _ => false)
+  | _, _, _ => false
+
 /-- Check and install a modeled inductive block: every member is
 checked against its `_model` counterpart (type up to the public↔model
 renaming, iota rules against the model's `iota_j` theorems), then
 stored as a real inductive-kind constant.  Single-constructor blocks
-additionally install the projection functions the model documents
+determine their capability record first (recorded on the inductive)
+and additionally install the projection functions the model documents
 (skipped where the artifacts are absent). -/
 def checkIndDecl (env : Env) (block : List ConstantInfo) : CheckM Env := do
-  let env₂ ← block.foldlM (checkIndMember (block.map (·.name))) env
   match block.filter (fun ci => match ci with
       | .indInfo _ _ => true | _ => false),
     block.filter (fun ci => match ci with
       | .ctorInfo _ _ _ => true | _ => false) with
   | [.indInfo cvT _], [.ctorInfo cvC nP nF] =>
+    let caps : IndCaps :=
+      if checkEtaThm env cvT.name cvC.name cvT.levelParams
+          cvC.levelParams nP nF then
+        { eta := true, etaCtor := cvC.name, etaParams := nP,
+          etaFields := nF }
+      else {}
+    let env₂ ← block.foldlM
+      (checkIndMember (block.map (·.name)) caps) env
     -- the whole projection name family must be ours to install
     unless (List.range nF).all
         (fun j => (env₂.find? (projFnName cvT.name j)).isNone) do
@@ -370,7 +417,8 @@ def checkIndDecl (env : Env) (block : List ConstantInfo) : CheckM Env := do
       if (e.find? (projModelName cvT.name i)).isSome then
         checkProjFn e cvT.name cvC.name cvT.levelParams nP nF i
       else pure e) env₂
-  | _, _ => pure env₂
+  | _, _ =>
+    block.foldlM (checkIndMember (block.map (·.name)) {}) env
 
 /-- Check a single declaration, extending the environment on success. -/
 def checkDecl (env : Env) (d : Declaration) : CheckM Env := do

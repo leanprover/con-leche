@@ -1745,9 +1745,9 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
       exact hRi
 
 /-- Invert a successful `checkIndMember` run. -/
-theorem checkIndMember_inv {blockNames : List Name} {env' env₁ : Env}
-    {ci : ConstantInfo}
-    (h : checkIndMember blockNames env' ci = .ok env₁) :
+theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
+    {env' env₁ : Env} {ci : ConstantInfo}
+    (h : checkIndMember blockNames caps env' ci = .ok env₁) :
     ∃ cvA cvm mval,
       checkConstantVal env' ci.toConstantVal = .ok cvA ∧
       cvA.name.isModelSuffix = false ∧
@@ -1755,8 +1755,8 @@ theorem checkIndMember_inv {blockNames : List Name} {env' env₁ : Env}
       cvm.levelParams = cvA.levelParams ∧
       cvA.type.renameConsts (fun n =>
         if blockNames.contains n then n.str "_model" else n) = cvm.type ∧
-      ((∃ cv caps, ci = .indInfo cv caps) ∧
-         env₁ = ⟨.indInfo cvA {} :: env'.consts⟩ ∨
+      ((∃ cv caps', ci = .indInfo cv caps') ∧
+         env₁ = ⟨.indInfo cvA caps :: env'.consts⟩ ∨
        (∃ cv nP nF, ci = .ctorInfo cv nP nF ∧
          env₁ = ⟨.ctorInfo cvA nP nF :: env'.consts⟩) ∨
        (∃ cv nP nm rules rules', ci = .recInfo cv nP 1 nm 0 rules ∧
@@ -1805,9 +1805,9 @@ theorem checkIndMember_inv {blockNames : List Name} {env' env₁ : Env}
   | axiomInfo cv => exact nomatch h
   | defnInfo cv value => exact nomatch h
   | thmInfo cv value => exact nomatch h
-  | indInfo cv caps =>
+  | indInfo cv caps' =>
     simp only [pure, Except.pure, Except.ok.injEq] at h
-    exact Or.inl ⟨⟨cv, caps, rfl⟩, h.symm⟩
+    exact Or.inl ⟨⟨cv, caps', rfl⟩, h.symm⟩
   | ctorInfo cv nP nF =>
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact Or.inr (Or.inl ⟨cv, nP, nF, rfl, h.symm⟩)
@@ -2418,9 +2418,9 @@ theorem BlockInstalled.step {blockNames : List Name} {env' : Env}
 
 /-- One `checkIndMember` step preserves having a model together with
 the fold invariant. -/
-theorem checkIndMember_sound {blockNames : List Name} {env' env₁ : Env}
-    {ci : ConstantInfo}
-    (h : checkIndMember blockNames env' ci = .ok env₁)
+theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
+    {env' env₁ : Env} {ci : ConstantInfo}
+    (h : checkIndMember blockNames caps env' ci = .ok env₁)
     (hbn : blockNames.contains ci.name = true)
     (m : EnvModel V env') (hI : BlockInstalled blockNames env' m.val) :
     ∃ m₁ : EnvModel V env₁, BlockInstalled blockNames env₁ m₁.val := by
@@ -2492,16 +2492,16 @@ theorem checkIndMember_sound {blockNames : List Name} {env' env₁ : Env}
       (fun n hn => (hfSfound n hn).symm) tyA hres]
     rw [← htypeA]
     exact hrenf
-  rcases hkind with ⟨⟨cv, caps, rfl⟩, rfl⟩ | ⟨cv, nP, nF, rfl, rfl⟩ |
+  rcases hkind with ⟨⟨cv, caps', rfl⟩, rfl⟩ | ⟨cv, nP, nF, rfl, rfl⟩ |
     ⟨cv, nP, nm, rules, rules', rfl, hall, heqf, hcir, rfl⟩
   · -- inductive type former
-    have hwf : ConstWF ⟨.indInfo cvA {} :: env'.consts⟩
-        (.indInfo cvA {}) := by
+    have hwf : ConstWF ⟨.indInfo cvA caps :: env'.consts⟩
+        (.indInfo cvA caps) := by
       refine ⟨htyf, htlp, Expr.constsResolve_mono htres, htyb, ?_, ?_⟩
       · intro cv2 v2 heq; exact nomatch heq
       · intro cv2 nP' nM' nm' ni' rules heq; exact nomatch heq
     obtain ⟨m₁, hval₁, hpres₁⟩ := extend_modeled_one m
-      (.indInfo cvA {}) fS (cvA.name.str "_model") hfind' hnres hwf htres
+      (.indInfo cvA caps) fS (cvA.name.str "_model") hfind' hnres hwf htres
       (Or.inl ⟨_, _, rfl⟩) hfm hlps hrenS hroS
     exact ⟨m₁, BlockInstalled.step hI hms hfm hlps hval₁ hpres₁⟩
   · -- constructor
@@ -2593,15 +2593,16 @@ theorem checkIndMember_sound {blockNames : List Name} {env' env₁ : Env}
 
 /-- A successful fold's members were all fresh at their own step, hence
 already fresh at any earlier point. -/
-theorem checkIndMember_fold_names {blockNames : List Name} :
+theorem checkIndMember_fold_names {blockNames : List Name}
+    {caps : IndCaps} :
     ∀ (rest : List ConstantInfo) (env' env₂ : Env),
-    rest.foldlM (checkIndMember blockNames) env' = .ok env₂ →
+    rest.foldlM (checkIndMember blockNames caps) env' = .ok env₂ →
     ∀ ci ∈ rest, env'.find? ci.name = none
   | [], _, _, _, ci, hci => nomatch hci
   | ci₀ :: rest, env', env₂, h, ci, hci => by
     rw [List.foldlM_cons] at h
     simp only [Bind.bind, Except.bind] at h
-    cases hstep : checkIndMember blockNames env' ci₀ with
+    cases hstep : checkIndMember blockNames caps env' ci₀ with
     | error e => rw [hstep] at h; exact nomatch h
     | ok env₁ =>
     rw [hstep] at h
@@ -2626,10 +2627,10 @@ theorem checkIndMember_fold_names {blockNames : List Name} :
 
 /-- The fold of `checkIndDecl` preserves having a model together with
 the block-install invariant. -/
-theorem checkIndFold_sound {blockNames : List Name} :
+theorem checkIndFold_sound {blockNames : List Name} {caps : IndCaps} :
     ∀ (rest : List ConstantInfo) (env' env₂ : Env),
     (∀ ci ∈ rest, blockNames.contains ci.name = true) →
-    rest.foldlM (checkIndMember blockNames) env' = .ok env₂ →
+    rest.foldlM (checkIndMember blockNames caps) env' = .ok env₂ →
     ∀ m : EnvModel V env', BlockInstalled blockNames env' m.val →
     ∃ m₂ : EnvModel V env₂, BlockInstalled blockNames env₂ m₂.val
   | [], env', env₂, hns, h, m, hI => by
@@ -2638,7 +2639,7 @@ theorem checkIndFold_sound {blockNames : List Name} :
   | ci :: rest, env', env₂, hns, h, m, hI => by
     rw [List.foldlM_cons] at h
     simp only [Bind.bind, Except.bind] at h
-    cases hstep : checkIndMember blockNames env' ci with
+    cases hstep : checkIndMember blockNames caps env' ci with
     | error e => rw [hstep] at h; exact nomatch h
     | ok env₁ =>
     rw [hstep] at h
@@ -3372,31 +3373,35 @@ theorem checkProjFold_sound {T ctorName : Name} {lps : List Name}
       simp only [pure, Except.pure, Except.bind] at h
       exact checkProjFold_sound rest env' env₁ h m hinv
 
+/-- Split a successful monadic bind. -/
+theorem Except.bind_ok {ε α β : Type _} {x : Except ε α}
+    {k : α → Except ε β} {b : β}
+    (h : Except.bind x k = .ok b) : ∃ a, x = .ok a ∧ k a = .ok b := by
+  cases x with
+  | error e => exact nomatch h
+  | ok a => exact ⟨a, rfl, h⟩
+
 /-- Checking a modeled inductive block preserves having a model. -/
 theorem checkIndDecl_sound {env env₂ : Env} {block : List ConstantInfo}
     (h : checkIndDecl env block = .ok env₂) (m : EnvModel V env) :
     Nonempty (EnvModel V env₂) := by
   rw [checkIndDecl] at h
-  simp only [Bind.bind, Except.bind] at h
-  cases hfold : block.foldlM (checkIndMember (block.map (·.name))) env with
-  | error e => rw [hfold] at h; exact nomatch h
-  | ok env₁ => ?_
-  rw [hfold] at h
-  try dsimp only at h
-  have hI₀ : BlockInstalled (block.map (·.name)) env m.val := by
-    intro n hn ci₂ hf₂
-    have hmem : n ∈ block.map (·.name) := by simpa using hn
-    obtain ⟨ci₀, hci₀, rfl⟩ := List.mem_map.mp hmem
-    rw [checkIndMember_fold_names block env env₁ hfold ci₀ hci₀] at hf₂
-    exact nomatch hf₂
-  obtain ⟨m₁, hI₁⟩ := checkIndFold_sound block env env₁
-    (fun ci hci => by
+  have hbn : ∀ ci ∈ block, (block.map (·.name)).contains ci.name = true :=
+    fun ci hci => by
       have : ci.name ∈ block.map (·.name) := List.mem_map_of_mem hci
-      simpa using this)
-    hfold m hI₀
+      simpa using this
   split at h
   · -- the single-constructor arm installs the projection family
     rename_i cvT capsT cvC nP nF heqI heqC
+    simp only [Bind.bind] at h
+    obtain ⟨env₁, hfold, h⟩ := Except.bind_ok h
+    have hI₀ : BlockInstalled (block.map (·.name)) env m.val := by
+      intro n hn ci₂ hf₂
+      have hmem : n ∈ block.map (·.name) := by simpa using hn
+      obtain ⟨ci₀, hci₀, rfl⟩ := List.mem_map.mp hmem
+      rw [checkIndMember_fold_names block env env₁ hfold ci₀ hci₀] at hf₂
+      exact nomatch hf₂
+    obtain ⟨m₁, hI₁⟩ := checkIndFold_sound block env env₁ hbn hfold m hI₀
     have hTin : (ConstantInfo.indInfo cvT capsT) ∈ block := by
       have h1 : ConstantInfo.indInfo cvT capsT ∈
           [ConstantInfo.indInfo cvT capsT] :=
@@ -3417,11 +3422,13 @@ theorem checkIndDecl_sound {env env₂ : Env} {block : List ConstantInfo}
       have hmm : cvC.name ∈ block.map (fun x => x.name) :=
         List.mem_map_of_mem (f := fun x => x.name) hCin
       simpa using hmm
+    simp only [Bind.bind, Except.bind] at h
     by_cases hfresh : ((List.range nF).all
         (fun j => (env₁.find? (projFnName cvT.name j)).isNone)) = true
     case neg => rw [if_neg hfresh] at h; exact nomatch h
     rw [if_pos hfresh] at h
-    simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+    simp only [pure, Except.pure] at h
+    try dsimp only at h
     have hinv₀ : ProjPhaseInv cvT.name cvC.name nF env₁ m₁.val := by
       refine ⟨?_, ?_, ?_⟩
       · intro ci hf
@@ -3435,8 +3442,14 @@ theorem checkIndDecl_sound {env env₂ : Env} {block : List ConstantInfo}
     obtain ⟨mf, -⟩ :=
       checkProjFold_sound (List.range nF) env₁ env₂ h m₁ hinv₀
     exact ⟨mf⟩
-  · -- no single-constructor structure: the fold's model stands
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    exact h ▸ ⟨m₁⟩
+  · -- no single-constructor structure: the plain member fold
+    have hI₀ : BlockInstalled (block.map (·.name)) env m.val := by
+      intro n hn ci₂ hf₂
+      have hmem : n ∈ block.map (·.name) := by simpa using hn
+      obtain ⟨ci₀, hci₀, rfl⟩ := List.mem_map.mp hmem
+      rw [checkIndMember_fold_names block env env₂ h ci₀ hci₀] at hf₂
+      exact nomatch hf₂
+    obtain ⟨m₂, -⟩ := checkIndFold_sound block env env₂ hbn h m hI₀
+    exact ⟨m₂⟩
 
 end Setlec
