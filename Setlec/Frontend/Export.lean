@@ -40,19 +40,12 @@ def underBasisModel : Name → Bool
   | _ => false
 
 /-- Is this name a `_model` auxiliary the checker does not (yet)
-consume — an eta, unitlike or ruleK lemma?  The modeled install reads
-the `X._model` members, the `iota_j` theorems and the `proj_i`
-definitions with their iota lemmas; the remaining auxiliaries are
-dropped until the corresponding facts are checked (they are never
-referenced elsewhere). -/
+consume — an eta, unitlike or ruleK lemma?  All of them: the modeled
+install reads the `X._model` members, the `iota_j` theorems, the
+`proj_i` definitions with their iota lemmas, and the `eta`, `unitlike`
+and `ruleK` theorems that switch on the corresponding capabilities. -/
 def isModelAux : Name → Bool
-  | .str p "unitlike" => isUnderModel p
-  | .str p "ruleK" => isUnderModel p
   | _ => false
-where
-  isUnderModel : Name → Bool
-    | .str _ "_model" => true
-    | _ => false
 
 open Lean (Json)
 
