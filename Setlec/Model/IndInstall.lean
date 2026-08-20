@@ -66,6 +66,7 @@ theorem modeled_rule_fold
     (hS_strip : cvt.type.stripPis ((nP + (1 + nm)) + cnF) =
       some (sbinders, sbody))
     (hdomsPre : ∀ (i : Nat) (b b' : Name × Expr × BinderMeta),
+      i < nP + 1 + nm →
       rbinders[i]? = some b → tbinders[i]? = some b' → b.2.1 = b'.2.1)
     (hdomsF : ∀ (i : Nat) (b b' : Name × Expr × BinderMeta),
       rbinders[(nP + (1 + nm)) + i]? = some b →
@@ -246,7 +247,7 @@ theorem modeled_rule_fold
       rwa [List.getElem?_take_of_lt (by omega)] at hb₂
     obtain ⟨rb, hrb⟩ : ∃ rb, rbinders[i]? = some rb :=
       ⟨rbinders[i]'(by omega), List.getElem?_eq_getElem _⟩
-    have h1 : rb.2.1 = b₁.2.1 := hdomsPre i rb b₁ hrb hb₁'
+    have h1 : rb.2.1 = b₁.2.1 := hdomsPre i rb b₁ hi hrb hb₁'
     have h2 : b₂.2.1 = rb.2.1.renameConsts f := hsdoms i b₂ rb hb₂' hrb
     show RenEq f b₁.2.1 b₂.2.1
     rw [h2, h1]

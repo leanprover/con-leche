@@ -154,7 +154,7 @@ def checkIotaRules (env' envSelf : Env) (f : Name → Name)
     -- against
     let some (rbinders, rbody) := rhsA.stripLams (nP + nM + nm + cnF)
       | throw (.notImplemented s!"rule of {cvName} is not a lambda telescope")
-    let some (tbinders, _) := tyA.stripPis (nP + nM + nm)
+    let some (tbinders, _) := tyA.stripPis (nP + nM + nm + 1)
       | throw (.notImplemented s!"type of {cvName} is not a pi telescope")
     let some (cbinders, _) := cvj.type.stripPis (cnP + cnF)
       | throw (.notImplemented s!"type of {r.ctor} is not a pi telescope")

@@ -917,6 +917,7 @@ private def RuleChecked (env env₀ : Env) (f : Name → Name)
     cvj.type.stripPis (nP + cnF) = some (cbinders, cbody) ∧
     cvt.type.stripPis ((nP + (1 + nm)) + cnF) = some (sbinders, sbody) ∧
     (∀ (i : Nat) (b b' : Name × Expr × BinderMeta),
+      i < nP + 1 + nm →
       rbinders[i]? = some b → tbinders[i]? = some b' →
       b.2.1 = b'.2.1) ∧
     (∀ (i : Nat) (b b' : Name × Expr × BinderMeta),
