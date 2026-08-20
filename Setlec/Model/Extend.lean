@@ -3842,7 +3842,8 @@ theorem checkIndFold_sound {blockNames : List Name} {caps : IndCaps} :
 /-- Invert stage 1 of `checkProjFn` (the stored-constant lookups). -/
 theorem checkProjLookups_inv {env' : Env} {T ctorName : Name}
     {lps : List Name} {nP nF i : Nat} {cvj mcv : ConstantVal}
-    (h : checkProjLookups env' T ctorName lps nP nF i = .ok (cvj, mcv)) :
+    (h : (checkProjLookups env' T ctorName lps nP nF i : CheckM _) =
+      .ok (cvj, mcv)) :
     ∃ mval,
       env'.find? ctorName = some (.ctorInfo cvj nP nF) ∧
       env'.find? (projModelName T i) = some (.defnInfo mcv mval) ∧
@@ -3903,7 +3904,8 @@ theorem checkProjLookups_inv {env' : Env} {T ctorName : Name}
 /-- Invert stage 2 of `checkProjFn` (the public projection type). -/
 theorem checkProjTy_inv {env' : Env} {T ctorName : Name} {lps : List Name}
     {mty pty : Expr} {nP nF : Nat}
-    (h : checkProjTy env' T ctorName lps mty nP nF = .ok pty) :
+    (h : (checkProjTy env' T ctorName lps mty nP nF : CheckM _) =
+      .ok pty) :
     pty = mty.renameConsts (projBack T ctorName nF) ∧
     pty.renameConsts (projFwd T ctorName nF) = mty ∧
     pty.constsResolve env' = true ∧
@@ -4022,7 +4024,8 @@ theorem checkProjRule_inv {env' : Env} {cvj : ConstantVal} {lps : List Name}
 /-- Invert stage 4 of `checkProjFn` (the pinned iota statement). -/
 theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
     {lps : List Name} {cvj : ConstantVal} {nP nF i : Nat} {u : Unit}
-    (h : checkProjIota env' T ctorName lps cvj nP nF i = .ok u) :
+    (h : (checkProjIota env' T ctorName lps cvj nP nF i : CheckM _) =
+      .ok u) :
     ∃ tcv tval sbinders cbindersR cbody tySlot ℓA,
       env'.find? ((projModelName T i).str "iota") =
         some (.thmInfo tcv tval) ∧
@@ -4154,23 +4157,25 @@ theorem checkProjFn_inv {env' env₁ : Env} {T ctorName : Name}
     {lps : List Name} {nP nF i : Nat}
     (h : checkProjFn pureOps env' T ctorName lps nP nF i = .ok env₁) :
     ∃ cvj mcv,
-      checkProjLookups env' T ctorName lps nP nF i = .ok (cvj, mcv) ∧
-      ∃ pty, checkProjTy env' T ctorName lps mcv.type nP nF = .ok pty ∧
+      (checkProjLookups env' T ctorName lps nP nF i : CheckM _) =
+        .ok (cvj, mcv) ∧
+      ∃ pty, (checkProjTy env' T ctorName lps mcv.type nP nF : CheckM _) =
+        .ok pty ∧
       i < nF ∧
       ∃ rhsA, checkProjRule pureOps env' cvj lps nP nF i = .ok rhsA ∧
-      (∃ u : Unit, checkProjIota env' T ctorName lps cvj nP nF i
+      (∃ u : Unit, (checkProjIota env' T ctorName lps cvj nP nF i : CheckM _)
         = .ok u) ∧
       env₁ = ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP 0 0 0
         [⟨ctorName, nF, rhsA⟩] :: env'.consts⟩ := by
   simp only [checkProjFn, pureOps_annotate, pureOps_inferType, pureOps_isDefEq,
     pureOps_ensureSort, pureOps_whnf, Bind.bind, Except.bind] at h
-  cases hlk : checkProjLookups env' T ctorName lps nP nF i with
+  cases hlk : (checkProjLookups env' T ctorName lps nP nF i : CheckM _) with
   | error e => rw [hlk] at h; exact nomatch h
   | ok pr => ?_
   rw [hlk] at h
   obtain ⟨cvj, mcv⟩ := pr
   try dsimp only at h
-  cases hty : checkProjTy env' T ctorName lps mcv.type nP nF with
+  cases hty : (checkProjTy env' T ctorName lps mcv.type nP nF : CheckM _) with
   | error e => rw [hty] at h; exact nomatch h
   | ok pty => ?_
   rw [hty] at h
@@ -4184,7 +4189,7 @@ theorem checkProjFn_inv {env' env₁ : Env} {T ctorName : Name}
   | ok rhsA => ?_
   rw [hrule] at h
   try dsimp only at h
-  cases hio : checkProjIota env' T ctorName lps cvj nP nF i with
+  cases hio : (checkProjIota env' T ctorName lps cvj nP nF i : CheckM _) with
   | error e => rw [hio] at h; exact nomatch h
   | ok u => ?_
   rw [hio] at h

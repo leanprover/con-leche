@@ -17,27 +17,31 @@ theorems are declined.  Verification: `Setlec.Verify.Checker` and
 namespace Setlec
 
 /-- The core entry points the declaration checker runs on: the checker
-is written once against this record and instantiated twice — with the
-pure knot (`pureOps`, the verification's subject) and with the memoized
-knot (`cachedOps`, what the binary executes). -/
-structure CheckerOps where
-  annotate : Env → Nat → Expr → CheckM Expr
-  inferType : Env → Nat → Expr → CheckM Expr
-  isDefEq : Env → Nat → Expr → Expr → CheckM Bool
-  ensureSort : Env → Nat → Expr → CheckM Level
-  whnf : Env → Nat → Expr → CheckM Expr
+is written once against this record, monad-polymorphically, and
+instantiated with the pure knot (`fueledOps`/`pureOps`, the
+verification's subject) and with the memoized knot (`cachedOps`, what
+the binary executes). -/
+structure CheckerOps (m : Type → Type) where
+  annotate : Env → Nat → Expr → m Expr
+  inferType : Env → Nat → Expr → m Expr
+  isDefEq : Env → Nat → Expr → Expr → m Bool
+  ensureSort : Env → Nat → Expr → m Level
+  whnf : Env → Nat → Expr → m Expr
+
+/-- The pure instantiation, at an arbitrary fuel. -/
+def fueledOps (F : Nat) : CheckerOps CheckM where
+  annotate env d e := annotateCore env F d e
+  inferType env d e := inferTypeCore env F d e
+  isDefEq env d a b := isDefEqCore env F d a b
+  ensureSort env d e := ensureSortCore env F d e
+  whnf env d e := Setlec.whnf env F d e
 
 /-- The pure instantiation, at the standard fuel. -/
-def pureOps : CheckerOps where
-  annotate env d e := annotateCore env checkFuel d e
-  inferType env d e := inferTypeCore env checkFuel d e
-  isDefEq env d a b := isDefEqCore env checkFuel d a b
-  ensureSort env d e := ensureSortCore env checkFuel d e
-  whnf env d e := Setlec.whnf env checkFuel d e
+def pureOps : CheckerOps CheckM := fueledOps checkFuel
 
 /-- The memoized instantiation, at the standard fuel; each call starts
 from a fresh cache (the environment differs between calls). -/
-def cachedOps : CheckerOps where
+def cachedOps : CheckerOps CheckM where
   annotate env d e := ((cachedFns env checkFuel).annotate d e).run' {}
   inferType env d e := ((cachedFns env checkFuel).infer d e).run' {}
   isDefEq env d a b := ((cachedFns env checkFuel).defeq d a b).run' {}
@@ -45,11 +49,13 @@ def cachedOps : CheckerOps where
     (ensureSort (cachedFns env checkFuel) env d e).run' {}
   whnf env d e := ((cachedFns env checkFuel).whnf d e).run' {}
 
+variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
+
 /-- Checks common to all declarations: fresh name, well-formed universe
 parameters, and a type that is a type and mentions only declared
 parameters.  Returns the constant with its type **annotated**
 (`annotate`); the guards run on the annotated type. -/
-def checkConstantVal (ops : CheckerOps) (env : Env) (cv : ConstantVal) : CheckM ConstantVal := do
+def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal) : m ConstantVal := do
   if (env.find? cv.name).isSome then
     throw (.invalid s!"duplicate declaration {cv.name}")
   if reservedBasisNames.contains cv.name then
@@ -116,9 +122,9 @@ def domsMatchAux (g : Nat → Expr → Expr)
 /-- Check a modeled recursor's rules against the model's `iota`
 theorems (the loop of `checkIndDecl`'s recursor arm, lifted for
 verification). -/
-def checkIotaRules (ops : CheckerOps) (env' envSelf : Env) (f : Name → Name)
+def checkIotaRules (ops : CheckerOps m) (env' envSelf : Env) (f : Name → Name)
     (cvName : Name) (lps : List Name) (tyA : Expr)
-    (nP nM nm : Nat) : Nat → List RecRule → CheckM (List RecRule)
+    (nP nM nm : Nat) : Nat → List RecRule → m (List RecRule)
   | _, [] => pure []
   | j, r :: rest => do
     let some (.ctorInfo cvj cnP cnF) := env'.find? r.ctor
@@ -206,8 +212,8 @@ def checkIotaRules (ops : CheckerOps) (env' envSelf : Env) (f : Name → Name)
 its `_model` counterpart (the step of `checkIndDecl`'s fold, lifted
 for verification).  `caps` is the capability record the block earned
 (recorded on the inductive type former). -/
-def checkIndMember (ops : CheckerOps) (blockNames : List Name) (caps : IndCaps) (env' : Env)
-    (ci : ConstantInfo) : CheckM Env := do
+def checkIndMember (ops : CheckerOps m) (blockNames : List Name) (caps : IndCaps) (env' : Env)
+    (ci : ConstantInfo) : m Env := do
   let f : Name → Name := fun n =>
     if blockNames.contains n then n.str "_model" else n
   let cvA ← checkConstantVal ops env' ci.toConstantVal
@@ -267,7 +273,7 @@ depends on — the single constructor (arity-matched), the model's
 `proj_i` definition (level-matched), the parent type, and the pinned
 equality former; the projection's own name must be free. -/
 def checkProjLookups (env' : Env) (T ctorName : Name) (lps : List Name)
-    (nP nF i : Nat) : CheckM (ConstantVal × ConstantVal) := do
+    (nP nF i : Nat) : m (ConstantVal × ConstantVal) := do
   let some (.ctorInfo cvj cnP cnF) := env'.find? ctorName
     | throw (.notImplemented "projection constructor not stored")
   unless cnP = nP ∧ cnF = nF do
@@ -287,7 +293,7 @@ def checkProjLookups (env' : Env) (T ctorName : Name) (lps : List Name)
 /-- Stage 2: the public projection type — the model's, renamed back
 (pinned by the renaming roundtrip), well-formed and parameter-led. -/
 def checkProjTy (env' : Env) (T ctorName : Name) (lps : List Name)
-    (mty : Expr) (nP nF : Nat) : CheckM Expr := do
+    (mty : Expr) (nP nF : Nat) : m Expr := do
   let pty := mty.renameConsts (projBack T ctorName nF)
   unless (pty.renameConsts (projFwd T ctorName nF)) == mty do
     throw (.notImplemented "projection type roundtrip")
@@ -302,8 +308,8 @@ def checkProjTy (env' : Env) (T ctorName : Name) (lps : List Name)
 
 /-- Stage 3: the reduction rule — λ over the constructor telescope
 returning field `i`, annotated; its λ-domains stay the constructor's. -/
-def checkProjRule (ops : CheckerOps) (env' : Env) (cvj : ConstantVal) (lps : List Name)
-    (nP nF i : Nat) : CheckM Expr := do
+def checkProjRule (ops : CheckerOps m) (env' : Env) (cvj : ConstantVal) (lps : List Name)
+    (nP nF i : Nat) : m Expr := do
   let some rhs := Expr.pisToLams (nP + nF) cvj.type (.bvar (nF - 1 - i))
     | throw (.notImplemented "projection rule telescope")
   unless !rhs.hasFvar && rhs.looseBVarsBounded 0 do
@@ -328,7 +334,7 @@ model side) and its body equates the projected constructor spine with
 field `i`.  The equality's type slot needs no pin (the collapse
 ignores it). -/
 def checkProjIota (env' : Env) (T ctorName : Name) (lps : List Name)
-    (cvj : ConstantVal) (nP nF i : Nat) : CheckM Unit := do
+    (cvj : ConstantVal) (nP nF i : Nat) : m Unit := do
   let some (.thmInfo tcv _) := env'.find? ((projModelName T i).str "iota")
     | throw (.notImplemented "missing projection iota theorem")
   unless tcv.levelParams = lps do
@@ -364,8 +370,8 @@ a modeled single-constructor structure, against the model's
 `T._model.proj_i` definition and its `iota` theorem.  The function is
 stored as a degenerate recursor (no motive, no minors) carrying one
 rule, so the generic iota machinery reduces it. -/
-def checkProjFn (ops : CheckerOps) (env' : Env) (T ctorName : Name) (lps : List Name)
-    (nP nF i : Nat) : CheckM Env := do
+def checkProjFn (ops : CheckerOps m) (env' : Env) (T ctorName : Name) (lps : List Name)
+    (nP nF i : Nat) : m Env := do
   let (cvj, mcv) ← checkProjLookups env' T ctorName lps nP nF i
   let pty ← checkProjTy env' T ctorName lps mcv.type nP nF
   unless i < nF do
@@ -469,7 +475,7 @@ shape exactly as the official kernel does — an inductive proposition
 with a single constructor taking only the parameters; the reduction
 site carries the semantic load (proof irrelevance), so no model
 theorem backs the flag. -/
-def checkIndDecl (ops : CheckerOps) (env : Env) (block : List ConstantInfo) : CheckM Env := do
+def checkIndDecl (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) : m Env := do
   match block.filter (fun ci => match ci with
       | .indInfo _ _ => true | _ => false),
     block.filter (fun ci => match ci with
@@ -496,7 +502,7 @@ def checkIndDecl (ops : CheckerOps) (env : Env) (block : List ConstantInfo) : Ch
     block.foldlM (checkIndMember ops (block.map (·.name)) {}) env
 
 /-- Check a single declaration, extending the environment on success. -/
-def checkDecl (ops : CheckerOps) (env : Env) (d : Declaration) : CheckM Env := do
+def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
   match d with
   | .defnDecl cv value =>
     let cv ← checkConstantVal ops env cv
@@ -545,7 +551,7 @@ def checkDecl (ops : CheckerOps) (env : Env) (d : Declaration) : CheckM Env := d
 
 /-- Check a list of declarations in order, starting from the empty
 environment. -/
-def checkDecls (ops : CheckerOps) (ds : List Declaration) : CheckM Env :=
+def checkDecls (ops : CheckerOps m) (ds : List Declaration) : m Env :=
   ds.foldlM (checkDecl ops) Env.empty
 
 end Setlec
