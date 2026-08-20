@@ -244,11 +244,36 @@ derives a modeled recursor rule's fold obligation end to end from its
 checked _model.iota theorem.  The recursor
 extension itself (extend_modeled_rec) is also proven: phase-0
 rules-free provisional model, environment transport, and
-modeled_rule_fold per rule.  All semantic content of the modeled
-install is done; what remains is checker plumbing — the checkIndDecl
-inversion (producing the RuleChecked bundles), the Verify EnvWF arm,
-checkDecl's indDecl case with the block-walk soundness, and the
-frontend flip.
+modeled_rule_fold per rule.
+
+Modeled install wired end to end (2026-08-20): checkDecl's indDecl arm
+runs checkIndDecl and the frontend emits opaque blocks (the alias
+shortcut is gone).  Soundness (Setlec/Model/Extend, split out of
+Consistency for iteration speed): checkIotaRules_inv and
+checkIndMember_inv walk the (top-level-lifted) kernel functions and
+package the RuleChecked bundles; checkIndMember_sound extends the
+model per member under the BlockInstalled fold invariant (each
+installed member's `_model` companion is stored, level-matched, and
+val-equal).  Two findings the wiring surfaced, both fixed: (1)
+RenameOk for the full block map is *unsatisfiable* before the recursor
+is installed (clause 2 at the recursor's name contradicts its model's
+presence) — phase 0 now runs on a pruned map f₀, and the kernel checks
+that the recursor comes after all other members so the pruned/full
+maps coincide where the statement facts need the full one; (2) the
+kernel's rule-vs-recursor domain comparison stops at the motive/minor
+prefix, so RuleChecked's hdomsPre is guarded by i < nP+1+nm (the
+unguarded form also paired a rule field domain with the major-premise
+domain — false for List.cons).  Supporting kernel hardening: members
+reuse checkConstantVal, no member may be `_model`-shaped, the pinned
+Eq basis must be present unshadowed at the recursor (its iota
+statements are equations; the value facts flow from IndOk's pinned
+clause), and constsResolve now also resolves proj struct names (the
+renaming congruence needs it).  Arena after the flip: 52/92 — the
+newly declining tests project out of PProd'/user structures, which
+previously worked only because the alias delta-unfolded them to the
+basis pair; recovering them is the generic-projection task, whose
+model side needs EnvModel to record that every non-reserved stored
+inductive-kind constant is val-equal to its stored `_model`.
 
 Consistency corollary (2026-08-19): the 15 pinned basis names are
 *reserved* — `checkConstantVal` (and the per-member checks of the
