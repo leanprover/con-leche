@@ -510,30 +510,60 @@ theorem TeleFitI.vs_length :
   | nil => rfl
   | cons _ _ _ _ _ _ _ _ ih => simpa using ih
 
+/-- The first `k` domains of two `∀`-telescopes are related by the
+renaming (their residuals are unconstrained). -/
+def PiDomsRenEq (f : Name → Name) : Nat → Expr → Expr → Prop
+  | 0, _, _ => True
+  | k + 1, .forallE _ d₁ b₁ _, e₂ =>
+    ∃ n₂ d₂ b₂ m₂, e₂ = .forallE n₂ d₂ b₂ m₂ ∧ RenEq f d₁ d₂ ∧
+      PiDomsRenEq f k b₁ b₂
+  | _ + 1, _, _ => False
+
+/-- Domain relatedness survives instantiating both sides with related
+arguments. -/
+theorem PiDomsRenEq.instantiate1 {f : Name → Name} {a₁ a₂ : Expr}
+    (ha : RenEq f a₁ a₂) :
+    ∀ (k : Nat) {e₁ e₂ : Expr} (j : Nat), PiDomsRenEq f k e₁ e₂ →
+      PiDomsRenEq f k (e₁.instantiate1 a₁ j) (e₂.instantiate1 a₂ j) := by
+  intro k
+  induction k with
+  | zero => intro e₁ e₂ j _; trivial
+  | succ k ih =>
+    intro e₁ e₂ j h
+    match e₁, h with
+    | .forallE n₁ d₁ b₁ m₁, h =>
+      obtain ⟨n₂, d₂, b₂, m₂, rfl, hd, hb⟩ := h
+      exact ⟨n₂, d₂.instantiate1 a₂ j, b₂.instantiate1 a₂ (j + 1), m₂, rfl,
+        RenEq.instantiate1 hd ha, ih (j + 1) hb⟩
+
 /-- Transfer an expression-spine fit across a renaming of the telescope
-and the arguments: every interpretation fact is renaming-invariant. -/
+domains and the arguments: every interpretation fact is
+renaming-invariant.  Only the walked prefix of the telescopes needs to
+be related. -/
 theorem TeleFitI.ren_transfer {f : Name → Name}
     (hro : RenameOk cval env f) :
     ∀ {args₁ : List Expr} {ty₁ ty₂ : Expr} {args₂ : List Expr}
       {vs : List V} {rest₁ : Expr},
       TeleFitI V cval env φ d ρ ty₁ args₁ vs rest₁ →
-      RenEq f ty₁ ty₂ →
+      PiDomsRenEq f args₁.length ty₁ ty₂ →
+      Expr.fvarsBelow d ty₂ →
       ArgsRel (fun a₁ a₂ => RenEq f a₁ a₂ ∧ WScoped d a₂ ∧
         a₂.looseBVarsBounded 0 = true ∧
         AnnotOk V cval env φ d ρ a₂) args₁ args₂ →
       ∃ rest₂, TeleFitI V cval env φ d ρ ty₂ args₂ vs rest₂
-  | [], ty₁, ty₂, args₂, vs, rest₁, hfit, hty, hargs => by
+  | [], ty₁, ty₂, args₂, vs, rest₁, hfit, hty, hfb₂, hargs => by
     generalize ty₁ = t at hfit
     cases hfit with
     | nil =>
       cases hargs with
       | nil => exact ⟨ty₂, TeleFitI.nil⟩
-  | a₁ :: args₁, ty₁, ty₂, args₂, vs, rest₁, hfit, hty, hargs => by
+  | a₁ :: args₁, ty₁, ty₂, args₂, vs, rest₁, hfit, hty, hfb₂, hargs => by
     obtain ⟨n, dom, body, m, rfl⟩ :
         ∃ n dom body m, ty₁ = .forallE n dom body m := by
       cases hfit; exact ⟨_, _, _, _, rfl⟩
-    obtain ⟨n₂, dom₂, body₂, m₂eq, hdom, hbody⟩ := RenEq.forallE_inv hty
-    subst m₂eq
+    obtain ⟨n₂, dom₂, body₂, m₂, rfl, hdom, hbody⟩ := hty
+    have hfb₂' : Expr.fvarsBelow d dom₂ ∧ Expr.fvarsBelow d body₂ := by
+      simpa [Expr.fvarsBelow] using hfb₂
     cases hfit with
     | @cons _ _ _ _ _ _ x xs A rest hity hiarg hx hfbI hwarg hbarg hAarg
         hsub =>
@@ -541,14 +571,27 @@ theorem TeleFitI.ren_transfer {f : Name → Name}
     | cons ha hargs' =>
     obtain ⟨haren, hwa₂, hba₂, hAa₂⟩ := ha
     obtain ⟨rest₂, hsub₂⟩ := TeleFitI.ren_transfer hro hsub
-      (RenEq.instantiate1 hbody haren) hargs'
-    refine ⟨rest₂, TeleFitI.cons ?_ ?_ hx ?_ hwa₂ hba₂ hAa₂ hsub₂⟩
+      (PiDomsRenEq.instantiate1 haren args₁.length 0 hbody)
+      (fvarsBelow_instantiate1_gen hwa₂.fvarsBelow 0 hfb₂'.2) hargs'
+    refine ⟨rest₂, TeleFitI.cons ?_ ?_ hx hfb₂'.2 hwa₂ hba₂ hAa₂ hsub₂⟩
     · rw [RenEq.interp hro hdom d ρ]
       exact hity
     · rw [RenEq.interp hro haren d ρ]
       exact hiarg
-    · exact Expr.fvarsBelow_erasedEq hbody
-        (Expr.fvarsBelow_renameConsts hfbI)
+
+/-- Keep only the leading arguments of an expression-spine fit. -/
+theorem TeleFitI.take_prefix :
+    ∀ {pre post : List Expr} {ty : Expr} {vs : List V} {rest : Expr},
+      TeleFitI V cval env φ d ρ ty (pre ++ post) vs rest →
+      ∃ mid, TeleFitI V cval env φ d ρ ty pre (vs.take pre.length) mid
+  | [], post, ty, vs, rest, hfit => ⟨ty, by simpa using TeleFitI.nil⟩
+  | p₀ :: pre, post, ty, vs, rest, hfit => by
+    cases hfit with
+    | @cons _ _ _ _ _ _ x xs A rest hity hiarg hx hfbI hwarg hbarg hAarg
+        hsub =>
+    obtain ⟨mid, hfit'⟩ := TeleFitI.take_prefix hsub
+    exact ⟨mid, by
+      simpa using TeleFitI.cons hity hiarg hx hfbI hwarg hbarg hAarg hfit'⟩
 
 /-- Peel the leading arguments off an expression-spine fit. -/
 theorem TeleFitI.drop_prefix :
@@ -565,5 +608,36 @@ theorem TeleFitI.drop_prefix :
         hsub =>
     obtain ⟨ty', vs', hfit', heq, hlen⟩ := TeleFitI.drop_prefix hsub
     exact ⟨ty', vs', hfit', by simpa using heq, hlen⟩
+
+/-- Peel a `∀`-telescope along an argument list. -/
+def telescopeInst : Expr → List Expr → Option Expr
+  | e, [] => some e
+  | .forallE _ _ b _, a :: as => telescopeInst (b.instantiate1 a) as
+  | _, _ :: _ => none
+
+/-- An expression-spine fit's residual is the peeled telescope. -/
+theorem TeleFitI.rest_eq :
+    ∀ {ty : Expr} {args : List Expr} {vs : List V} {rest : Expr},
+      TeleFitI V cval env φ d ρ ty args vs rest →
+      telescopeInst ty args = some rest := by
+  intro ty args vs rest h
+  induction h with
+  | nil => rfl
+  | cons _ _ _ _ _ _ _ _ ih => exact ih
+
+/-- Concatenate two expression-spine fits (the second starting at the
+first's residual). -/
+theorem TeleFitI.append :
+    ∀ {ty : Expr} {args₁ : List Expr} {vs₁ : List V} {mid : Expr}
+      {args₂ : List Expr} {vs₂ : List V} {rest : Expr},
+      TeleFitI V cval env φ d ρ ty args₁ vs₁ mid →
+      TeleFitI V cval env φ d ρ mid args₂ vs₂ rest →
+      TeleFitI V cval env φ d ρ ty (args₁ ++ args₂) (vs₁ ++ vs₂) rest := by
+  intro ty args₁ vs₁ mid args₂ vs₂ rest h1
+  induction h1 with
+  | nil => intro h2; exact h2
+  | cons hity hiarg hx hfb hwa hba hAa _ ih =>
+    intro h2
+    exact TeleFitI.cons hity hiarg hx hfb hwa hba hAa (ih h2)
 
 end Setlec
