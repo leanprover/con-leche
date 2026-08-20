@@ -18,3 +18,4 @@ import Setlec.Model.ProjInstall
 import Setlec.Model.Extend
 import Setlec.Model.Consistency
 import Setlec.Verify.Mono
+import Setlec.Verify.Bridge
