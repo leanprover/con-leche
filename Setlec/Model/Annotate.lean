@@ -64,16 +64,16 @@ theorem annotateCore_sound (m : EnvModel V env) :
     have hFa' : FvarsOk V m.val env φ d ρ a' := fun l hl => hoka l (hsla l hl)
     -- run the application rule semantically
     obtain ⟨⟨vf, vtf, hfi, htfi, hmemf⟩, hwtf, hAtf⟩ :=
-      inferType_sound m hit hwf' hbf' hLbf' hFf' hAf
+      inferTypeCore_sound m fuel hit hwf' hbf' hLbf' hFf' hAf
     have hbtf : tf.looseBVarsBounded 0 = true :=
-      inferTypeCore_looseBVars m.wf checkFuel hit hwf' hbf' hLbf'
+      inferTypeCore_looseBVars m.wf fuel hit hwf' hbf' hLbf'
     have hLbtf : Expr.LeavesBounded tf := fun l hl =>
-      hLbf' l (inferTypeCore_fvarLeaves m.wf checkFuel hit hwf' l hl)
+      hLbf' l (inferTypeCore_fvarLeaves m.wf fuel hit hwf' l hl)
     have hoktf : FvarsOk V m.val env φ d ρ tf :=
-      FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf checkFuel hit hwf') hFf'
-    obtain ⟨hiw, haPi⟩ := whnf_facts m hwh hwtf hbtf hLbtf hoktf hAtf
-    have hwPi := whnf_WScoped m.wf checkFuel hwh hwtf
-    have hbPi := whnf_looseBVars m.wf checkFuel hwh hbtf
+      FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hit hwf') hFf'
+    obtain ⟨hiw, haPi⟩ := whnfCore_facts m fuel hwh hwtf hbtf hLbtf hoktf hAtf
+    have hwPi := whnf_WScoped m.wf fuel hwh hwtf
+    have hbPi := whnf_looseBVars m.wf fuel hwh hbtf
     simp only [WScoped] at hwPi
     simp only [looseBVarsBounded, Bool.and_eq_true] at hbPi
     have hPii : interpExpr V m.val env φ d ρ (.forallE n1 ty1 body1 m1) = some vtf := by
@@ -90,20 +90,20 @@ theorem annotateCore_sound (m : EnvModel V env) :
     rw [htyPi] at hPii
     simp only [Option.some.injEq] at hPii
     obtain ⟨⟨va, vta, hai, htai, hmema⟩, hwta, hAta⟩ :=
-      inferType_sound m hia hwa' hba' hLba' hFa' hAa
+      inferTypeCore_sound m fuel hia hwa' hba' hLba' hFa' hAa
     simp only [AnnotOk] at haPi
     obtain ⟨haty1, -, hcond1⟩ := haPi
     have hLbta : Expr.LeavesBounded ta := fun l hl =>
-      hLba' l (inferTypeCore_fvarLeaves m.wf checkFuel hia hwa' l hl)
+      hLba' l (inferTypeCore_fvarLeaves m.wf fuel hia hwa' l hl)
     have hLbPi : Expr.LeavesBounded (Expr.forallE n1 ty1 body1 m1) := fun l hl =>
-      hLbtf l (whnf_fvarLeaves m.wf checkFuel hwh l hl)
+      hLbtf l (whnf_fvarLeaves m.wf fuel hwh l hl)
     have hokPi : FvarsOk V m.val env φ d ρ (.forallE n1 ty1 body1 m1) :=
-      whnf_FvarsOk m.wf checkFuel hwh hoktf
+      whnf_FvarsOk m.wf fuel hwh hoktf
     have hAeq : vta = A' :=
-      isDefEq_sound m hde hwta hwPi.1
-        (inferTypeCore_looseBVars m.wf checkFuel hia hwa' hba' hLba') hbPi.1
+      isDefEqCore_sound m fuel hde hwta hwPi.1
+        (inferTypeCore_looseBVars m.wf fuel hia hwa' hba' hLba') hbPi.1
         hLbta (fun l hl => hLbPi l (by simp [fvarLeaves, hl]))
-        (FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf checkFuel hia hwa') hFa')
+        (FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hia hwa') hFa')
         ((FvarsOk.of_forallE hokPi).1)
         hAta haty1 htai htyPi
     have hva : va ∈ˢ A' := hAeq ▸ hmema
@@ -138,11 +138,11 @@ theorem annotateCore_sound (m : EnvModel V env) :
     | error e => rw [hbody] at h; exact nomatch h
     | ok body' =>
     rw [hbody] at h; dsimp only at h
-    cases hit : inferType env (d + 1) body' with
+    cases hit : inferTypeCore env fuel (d + 1) body' with
     | error e => rw [hit] at h; exact nomatch h
     | ok bt =>
     rw [hit] at h; dsimp only at h
-    cases hes : ensureSort env (d + 1) bt with
+    cases hes : ensureSortCore env fuel (d + 1) bt with
     | error e => rw [hes] at h; exact nomatch h
     | ok v =>
     rw [hes] at h; dsimp only at h
@@ -205,13 +205,13 @@ theorem annotateCore_sound (m : EnvModel V env) :
     · intro v' hv'
       obtain rfl := Option.some.inj hv'
       obtain ⟨⟨w, tw, hwi, htw, hmemw⟩, hwbt, hAbt⟩ :=
-        inferType_sound m hit hwbody' hbbody' hLbbody' hfbody' habody
+        inferTypeCore_sound m fuel hit hwbody' hbbody' hLbbody' hfbody' habody
       have hLbbt : Expr.LeavesBounded bt := fun l hl =>
-        hLbbody' l (inferTypeCore_fvarLeaves m.wf checkFuel hit hwbody' l hl)
+        hLbbody' l (inferTypeCore_fvarLeaves m.wf fuel hit hwbody' l hl)
       have hokbt : FvarsOk V m.val env φ (d + 1) (updV V ρ d x) bt :=
-        FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf checkFuel hit hwbody') hfbody'
-      rw [ensureSort_sound m hes hwbt
-        (inferTypeCore_looseBVars m.wf checkFuel hit hwbody' hbbody' hLbbody')
+        FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hit hwbody') hfbody'
+      rw [ensureSortCore_sound m fuel hes hwbt
+        (inferTypeCore_looseBVars m.wf fuel hit hwbody' hbbody' hLbbody')
         hLbbt hokbt hAbt] at htw
       obtain rfl := Option.some.inj htw
       exact ⟨w, by rw [hrt]; exact hwi, hmemw⟩
@@ -230,15 +230,15 @@ theorem annotateCore_sound (m : EnvModel V env) :
     | error e => rw [hbody] at h; exact nomatch h
     | ok body' =>
     rw [hbody] at h; dsimp only at h
-    cases hit : inferType env (d + 1) body' with
+    cases hit : inferTypeCore env fuel (d + 1) body' with
     | error e => rw [hit] at h; exact nomatch h
     | ok bt =>
     rw [hit] at h; dsimp only at h
-    cases hit2 : inferType env (d + 1) bt with
+    cases hit2 : inferTypeCore env fuel (d + 1) bt with
     | error e => rw [hit2] at h; exact nomatch h
     | ok bt2 =>
     rw [hit2] at h; dsimp only at h
-    cases hes : ensureSort env (d + 1) bt2 with
+    cases hes : ensureSortCore env fuel (d + 1) bt2 with
     | error e => rw [hes] at h; exact nomatch h
     | ok v =>
     rw [hes] at h; dsimp only at h
@@ -297,22 +297,22 @@ theorem annotateCore_sound (m : EnvModel V env) :
     intro v' hv'
     obtain rfl := Option.some.inj hv'
     obtain ⟨⟨w, tw, hwi, htw, hmemw⟩, hwbt, hAbt⟩ :=
-      inferType_sound m hit hwbody' hbbody' hLbbody' hfbody' habody
+      inferTypeCore_sound m fuel hit hwbody' hbbody' hLbbody' hfbody' habody
     -- the sort of the body's type, via the second inference
     have hbbt : bt.looseBVarsBounded 0 = true :=
-      inferTypeCore_looseBVars m.wf checkFuel hit hwbody' hbbody' hLbbody'
+      inferTypeCore_looseBVars m.wf fuel hit hwbody' hbbody' hLbbody'
     have hLbbt : Expr.LeavesBounded bt := fun l hl =>
-      hLbbody' l (inferTypeCore_fvarLeaves m.wf checkFuel hit hwbody' l hl)
+      hLbbody' l (inferTypeCore_fvarLeaves m.wf fuel hit hwbody' l hl)
     have hfbt : FvarsOk V m.val env φ (d + 1) (updV V ρ d x) bt :=
-      FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf checkFuel hit hwbody') hfbody'
+      FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hit hwbody') hfbody'
     obtain ⟨⟨vbt, tvbt, hbti, htbti, hmem2⟩, hwbt2, hAbt2⟩ :=
-      inferType_sound m hit2 hwbt hbbt hLbbt hfbt hAbt
+      inferTypeCore_sound m fuel hit2 hwbt hbbt hLbbt hfbt hAbt
     have hLbbt2 : Expr.LeavesBounded bt2 := fun l hl =>
-      hLbbt l (inferTypeCore_fvarLeaves m.wf checkFuel hit2 hwbt l hl)
+      hLbbt l (inferTypeCore_fvarLeaves m.wf fuel hit2 hwbt l hl)
     have hokbt2 : FvarsOk V m.val env φ (d + 1) (updV V ρ d x) bt2 :=
-      FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf checkFuel hit2 hwbt) hfbt
-    rw [ensureSort_sound m hes hwbt2
-      (inferTypeCore_looseBVars m.wf checkFuel hit2 hwbt hbbt hLbbt)
+      FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hit2 hwbt) hfbt
+    rw [ensureSortCore_sound m fuel hes hwbt2
+      (inferTypeCore_looseBVars m.wf fuel hit2 hwbt hbbt hLbbt)
       hLbbt2 hokbt2 hAbt2] at htbti
     obtain rfl := Option.some.inj htbti
     rw [htw] at hbti
@@ -355,15 +355,15 @@ theorem annotateCore_sound (m : EnvModel V env) :
         hrb hLbraw ρ hokraw
     rw [hteq] at hwh0
     obtain ⟨⟨ve, vte, hei, htei, hmem⟩, hwte, hAte⟩ :=
-      inferType_sound m hte hwe₂ hbe₂ hLbe₂ hoke₂ hAe₂
+      inferTypeCore_sound m fuel hte hwe₂ hbe₂ hLbe₂ hoke₂ hAe₂
     -- reduce the type to the pair form
     have hbte : tt.looseBVarsBounded 0 = true :=
-      inferTypeCore_looseBVars m.wf checkFuel hte hwe₂ hbe₂ hLbe₂
+      inferTypeCore_looseBVars m.wf fuel hte hwe₂ hbe₂ hLbe₂
     have hLbte : Expr.LeavesBounded tt := fun l hl =>
-      hLbe₂ l (inferTypeCore_fvarLeaves m.wf checkFuel hte hwe₂ l hl)
+      hLbe₂ l (inferTypeCore_fvarLeaves m.wf fuel hte hwe₂ l hl)
     have hokte : FvarsOk V m.val env φ d ρ tt :=
-      FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf checkFuel hte hwe₂) hoke₂
-    obtain ⟨hiw, haPi⟩ := whnf_facts m hwh0 hwte hbte hLbte hokte hAte
+      FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hte hwe₂) hoke₂
+    obtain ⟨hiw, haPi⟩ := whnfCore_facts m fuel hwh0 hwte hbte hLbte hokte hAte
     have hPii : interpExpr V m.val env φ d ρ
         (.app (.app (.const psigmaName us) A) B) = some vte := by
       rw [hiw]; exact htei

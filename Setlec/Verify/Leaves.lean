@@ -526,4 +526,13 @@ theorem annotateCore_leaves_sub {env : Env} :
   | fuel + 1, .letE _ _ _ _, d, e', h, _, _ => by simp [annotateCore] at h
   | fuel + 1, .lit _, d, e', h, _, _ => by simp [annotateCore] at h
 
+/-- `annotate` (at the standard fuel) only shrinks the leaf closure. -/
+theorem annotate_leaves_sub {env : Env} :
+    ∀ (e : Expr) {d : Nat} {e' : Expr},
+      annotate env d e = .ok e' → WScoped d e →
+      e.looseBVarsBounded 0 = true →
+      ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves := by
+  intro e d e' h hw hb
+  exact annotateCore_leaves_sub checkFuel e h hw hb
+
 end Setlec

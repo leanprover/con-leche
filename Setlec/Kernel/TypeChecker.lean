@@ -746,6 +746,25 @@ def ensureSortCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Level := d
   | .sort u => pure u
   | _ => throw (.invalid "expected a sort")
 
+/-- `whnfCore` with the standard fuel. -/
+def whnf (env : Env) (depth : Nat) (e : Expr) : CheckM Expr :=
+  whnfCore env checkFuel depth e
+
+/-- `inferTypeCore` with the standard fuel. -/
+def inferType (env : Env) (depth : Nat) (e : Expr) : CheckM Expr :=
+  inferTypeCore env checkFuel depth e
+
+/-- `isDefEqCore` with the standard fuel. -/
+def isDefEq (env : Env) (depth : Nat) (a b : Expr) : CheckM Bool :=
+  isDefEqCore env checkFuel depth a b
+
+/-- Ensure `e` (the type of some expression) is a sort, returning its
+level. -/
+def ensureSort (env : Env) (depth : Nat) (e : Expr) : CheckM Level := do
+  match ← whnf env depth e with
+  | .sort u => pure u
+  | _ => throw (.invalid "expected a sort")
+
 mutual
 
 /-- Compute the codomain-sort annotations of every binder in `e`, bottom-up,
@@ -834,5 +853,9 @@ def annotateProjElim (env : Env) (fuel depth : Nat) (sn : Name) (i : Nat)
 termination_by (fuel, 1)
 
 end
+
+/-- Annotate with the standard fuel. -/
+def annotate (env : Env) (depth : Nat) (e : Expr) : CheckM Expr :=
+  annotateCore env checkFuel depth e
 
 end Setlec

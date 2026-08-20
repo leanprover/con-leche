@@ -668,4 +668,17 @@ theorem leafEquiv_abstract_of_inst {D : Nat} {n : Name} {ty : Expr} :
     cases y <;> simp_all [Expr.LeafEquiv, Expr.abstract1]
     case proj s2 i2 e2 => exact ih k e2 hle hf hb
 
+/-! Wrappers at the standard fuel, keeping the historical signatures. -/
+
+theorem annotate_WScoped {env : Env} :
+    ∀ (e : Expr) {d : Nat} {e' : Expr},
+      annotate env d e = .ok e' → WScoped d e → WScoped d e' :=
+  by intro e d e' h hw; exact annotateCore_WScoped checkFuel e h hw
+
+theorem annotate_looseBVars {env : Env} :
+    ∀ (e : Expr) {d : Nat} {e' : Expr},
+      annotate env d e = .ok e' → e.looseBVarsBounded 0 = true →
+      e'.looseBVarsBounded 0 = true :=
+  by intro e d e' h hb; exact annotateCore_looseBVars checkFuel e h hb
+
 end Setlec

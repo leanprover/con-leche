@@ -177,19 +177,88 @@ constructions.
 * For Lean proof work, https://github.com/ejgallego/lean-beam/ may speed
   things up.
 
+## The cached twin and the refinement bridge (2026-08-20)
+
+The executable checker is memoized: `Setlec/Kernel/TypeCheckerC.lean`
+is a line-for-line twin of the pure mutual core threading a `KCache`
+(`whnf`/`infer`/`defeq`/`annotate` maps keyed by binder depth and
+expression) in `StateT` over `CheckM`; `Setlec/Kernel/CheckerC.lean`
+is the corresponding twin of the declaration checker, and `Main`
+runs `checkDeclsC`.  Memoization took 053_reduceCtorParam from
+2m04s to 0.6s and the whole tutorial arena to ~14s.
+
+The pure modules (`TypeChecker.lean`, `Checker.lean`) are the
+**specification**: all semantic verification reasons about them,
+unchanged.  The planned **refinement bridge** (fuel monotonicity for
+the pure core + a `CacheWF` invariant stating every cache entry is
+backed by a pure run) will show a successful cached run is reproduced
+by the pure run at some fuel, transporting every claim to the
+executable.  Until it lands, the consistency theorems are about the
+pure pipeline; the twins are kept textually identical (modulo the `C`
+suffix and the memo shims) so the bridge is a mechanical walk.  An
+open-recursion restructuring (single body, two knots — the lean4lean
+style) would deduplicate the bodies and is under consideration before
+the bridge is written.  Both `_model` declarations and real Lean terms
+are DAGs sharing subterms; every traversal must eventually be memoized
+under a cached-hash representation (structural hashing walks the
+unshared tree), tracked as follow-up work.
+
+## Stuck-major rescue: rule K and structure eta in iota (2026-08-20)
+
+`majorToCtor` (in the mutual core, mirrored in the cached twin)
+implements `to_cnstr_when_K` and `to_cnstr_when_structure`: a
+recursor's major premise that does not whnf to a constructor
+application is *replaced* by a fabricated one.
+
+* **K**: for a K-flagged inductive proposition (single-rule recursor,
+  zero-field constructor), the constructor applied to the first
+  parameters of the major's reduced type.  Certified by `proofIrrel`
+  — in the model both the stuck major and the fabrication are the
+  proof point, so no `_model.ruleK` theorem is consulted; the
+  `ruleK` capability is computed from shape at install exactly as the
+  official kernel computes the `k` flag (inductive proposition, one
+  constructor taking only the parameters) and pinned `true` on the
+  basis `Eq`.
+* **Structure eta**: for an eta-capable structure, the constructor of
+  the major's projection functions, certified by the structure-eta
+  certificate in its `With` form (`structEtaCertWith` takes the
+  already-reduced type of the stuck side, so the certificate's facts
+  are in terms of the rescue's own reduction — no fuel-determinism
+  reasoning needed).  Projection-function recursors are excluded (the
+  rescue's reduct would be the projection itself, looping reduction:
+  a stuck projection stays stuck, as in the official kernel).
+
+Fabricated majors carry a syntactic scope guard (`wscopedB` &&
+`looseBVarsBounded` && leaf-subset, as in `annotateProjElim`), keeping
+their well-scopedness verification local.  Soundness
+(`majorToCtor_claims` in `Setlec/Model/TypeChecker.lean`) assembles
+the fabrication's `AnnotOk`/interpretation from the constructor
+telescope's iota certificates (`certs_fit` + `TeleFit.chainSlots` +
+`annotOk_spine`), the reduced type's argument spine, and (for eta) the
+projection certificates; the value identification is proof irrelevance
+(K) or the stored eta law via `structEtaWith_sound` (eta).
+
+Zeta expansion required a fix along the way: let-values are *open*
+terms, so substituting them under binders needs the lifting
+substitution `instantiate1Lift` (`instantiate1`'s contract requires a
+closed replacement; the old code silently corrupted nested lets —
+surfaced by the preprocessor's let-heavy `iota_0` proofs).
+
 ## Current state
 
 Supported fragment: **`def`/`thm` declarations over sorts, dependent
 function types, lambdas/apps with certified beta, lets (zeta-expanded in
-the frontend), constants with delta unfolding, all four basis blocks
-(`PUnit`, `Eq`, `Nat`, `PSigma'`) with verified set models,
-`PSigma'.mk` projections, proof irrelevance, lambda/unit eta, and
-verified iota reduction for all five basis recursor rules** (62/92 good
-arena tutorial tests accepted; the good tests still rejected need
-ctor-param reduction under `mk` (053), rule K / singleton-elim
-reduction (073, 097), second projections (082–084, 096), and struct
-eta (109); type-mismatch, duplicate-name, duplicate/undeclared level
-parameters, stray free variables, and unknown constants rejected).
+the frontend), constants with delta unfolding, all five basis blocks
+(`PUnit`, `Eq`, `Nat`, `PSigma'`, `Empty`) with verified set models,
+`PSigma'.mk` projections, proof irrelevance, lambda/unit eta,
+verified iota reduction, modeled inductives with projection functions
+and the eta/unit-like/rule-K capabilities, and the stuck-major rescue
+(rule K + structure eta in iota)** (67/92 good arena tutorial tests
+accepted; the good tests still rejected need indexed recursors
+(074/075), literals (100/101), and assorted features (080, 087–093,
+102–107, 118–123); type-mismatch, duplicate-name,
+duplicate/undeclared level parameters, stray free variables, and
+unknown constants rejected).
 
 Iota soundness (2026-08-19): the whnf iota step is verified end to end.
 Per recursor rule, `Setlec/Model/BasisIota.lean` provides the

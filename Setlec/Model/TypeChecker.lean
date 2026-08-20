@@ -3927,6 +3927,65 @@ theorem check_sound (m : EnvModel V env) :
         defeq_claims m ihw ihd ihi (fun f hf => ihAll f (by omega)),
         infer_claims m ihw ihd ihi⟩
 
+/-! ## Fuel-generic core soundness lemmas -/
+
+/-- Reduction preserves the interpretation and annotation truthfulness
+(explicit fuel). -/
+theorem whnfCore_facts (m : EnvModel V env) (fuel : Nat) {d : Nat}
+    {e e' : Expr} {ρ : Nat → V}
+    (h : whnfCore env fuel d e = .ok e')
+    (hw : WScoped d e) (hb : e.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded e)
+    (hok : FvarsOk V m.val env φ d ρ e) (ha : AnnotOk V m.val env φ d ρ e) :
+    interpExpr V m.val env φ d ρ e' = interpExpr V m.val env φ d ρ e ∧
+    AnnotOk V m.val env φ d ρ e' :=
+  (check_sound m fuel).1 h hw hb hLb hok ha
+
+/-- Definitional equality identifies interpretations (explicit fuel). -/
+theorem isDefEqCore_sound (m : EnvModel V env) (fuel : Nat) {d : Nat}
+    {a b : Expr} {ρ : Nat → V}
+    (h : isDefEqCore env fuel d a b = .ok true)
+    (hwa : WScoped d a) (hwb : WScoped d b)
+    (hba : a.looseBVarsBounded 0 = true) (hbb : b.looseBVarsBounded 0 = true)
+    (hLba : Expr.LeavesBounded a) (hLbb : Expr.LeavesBounded b)
+    (hoka : FvarsOk V m.val env φ d ρ a) (hokb : FvarsOk V m.val env φ d ρ b)
+    (haa : AnnotOk V m.val env φ d ρ a) (hab : AnnotOk V m.val env φ d ρ b)
+    {va vb : V} (hva : interpExpr V m.val env φ d ρ a = some va)
+    (hvb : interpExpr V m.val env φ d ρ b = some vb) : va = vb :=
+  (check_sound m fuel).2.1 h hwa hwb hba hbb hLba hLbb hoka hokb haa hab
+    hva hvb
+
+/-- Successful inference is sound (explicit fuel). -/
+theorem inferTypeCore_sound (m : EnvModel V env) (fuel : Nat) {d : Nat}
+    {e t : Expr} {ρ : Nat → V}
+    (h : inferTypeCore env fuel d e = .ok t)
+    (hw : WScoped d e) (hb : e.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded e)
+    (hok : FvarsOk V m.val env φ d ρ e) (ha : AnnotOk V m.val env φ d ρ e) :
+    (∃ v tv, interpExpr V m.val env φ d ρ e = some v ∧
+      interpExpr V m.val env φ d ρ t = some tv ∧ v ∈ˢ tv) ∧
+    WScoped d t ∧ AnnotOk V m.val env φ d ρ t :=
+  have := (check_sound m fuel).2.2 h hw hb hLb hok ha
+  ⟨this.1, inferTypeCore_WScoped m.wf fuel h hw, this.2⟩
+
+/-- A successful `ensureSortCore` identifies the interpretation of the
+type with a universe (explicit fuel). -/
+theorem ensureSortCore_sound (m : EnvModel V env) (fuel : Nat) {d : Nat}
+    {t : Expr} {u : Level}
+    (h : ensureSortCore env fuel d t = .ok u) {ρ : Nat → V}
+    (hw : WScoped d t) (hb : t.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded t)
+    (hok : FvarsOk V m.val env φ d ρ t) (ha : AnnotOk V m.val env φ d ρ t) :
+    interpExpr V m.val env φ d ρ t = some (univ (u.eval φ)) := by
+  unfold ensureSortCore at h
+  cases hwh : whnfCore env fuel d t with
+  | error e => rw [hwh] at h; exact nomatch h
+  | ok w =>
+    rw [hwh] at h
+    obtain ⟨hi, -⟩ := whnfCore_facts m fuel hwh hw hb hLb hok ha
+    cases w <;> simp_all [Bind.bind, Except.bind, pure, Except.pure,
+      interpExpr]
+
 /-! ## Fuel-instantiated wrappers -/
 
 /-- Reduction preserves the interpretation and annotation truthfulness. -/

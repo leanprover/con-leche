@@ -1,4 +1,4 @@
-import Setlec.Kernel.Checker
+import Setlec.Kernel.CheckerC
 import Setlec.Frontend.Export
 
 /-!
@@ -62,7 +62,7 @@ def main (args : List String) : IO UInt32 := do
       IO.eprintln s!"setlec: {file}:{line}: {msg}"
       return 3
     | .ok decls =>
-      match checkDecls decls.toList with
+      match checkDeclsC decls.toList with
       | .ok env =>
         IO.println s!"setlec: accepted {env.consts.length} declarations"
         return 0

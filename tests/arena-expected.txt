@@ -35,7 +35,7 @@
 0 good/tutorial/041_eqType.ndjson
 0 good/tutorial/042_natDef.ndjson
 2 good/tutorial/043_rbTreeDef.ndjson
-1 good/tutorial/053_reduceCtorParam.mk.ndjson
+0 good/tutorial/053_reduceCtorParam.mk.ndjson
 0 good/tutorial/056_predWithTypeField.ndjson
 0 good/tutorial/057_typeWithTypeField.ndjson
 0 good/tutorial/058_typeWithTypeFieldPoly.ndjson
@@ -51,7 +51,7 @@
 2 good/tutorial/069_rbTreeRef.ndjson
 0 good/tutorial/070_boolPropRec.ndjson
 0 good/tutorial/072_existsRec.ndjson
-1 good/tutorial/073_typeSingletonRecReduction.ndjson
+0 good/tutorial/073_typeSingletonRecReduction.ndjson
 2 good/tutorial/074_sortElimPropRec.ndjson
 2 good/tutorial/075_sortElimProp2Rec.ndjson
 0 good/tutorial/076_boolRecEqns.ndjson
@@ -62,12 +62,12 @@
 0 good/tutorial/081_And.right.ndjson
 0 good/tutorial/082_Prod.snd.ndjson
 0 good/tutorial/083_PProd.snd.ndjson
-1 good/tutorial/084_PSigma.snd.ndjson
+0 good/tutorial/084_PSigma.snd.ndjson
 2 good/tutorial/087_projProp1.ndjson
 2 good/tutorial/089_projProp3.ndjson
 0 good/tutorial/093_projDataIndexRec.ndjson
 0 good/tutorial/096_projRed.ndjson
-1 good/tutorial/097_ruleK.ndjson
+0 good/tutorial/097_ruleK.ndjson
 2 good/tutorial/100_aNatLit.ndjson
 2 good/tutorial/101_natLitEq.ndjson
 0 good/tutorial/102_proofIrrelevance.ndjson

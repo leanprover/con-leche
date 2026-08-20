@@ -783,23 +783,23 @@ termination_by (fuel, 1)
 end
 
 /-- `whnfCoreC` with the standard fuel and a fresh cache. -/
-def whnf (env : Env) (depth : Nat) (e : Expr) : CheckM Expr :=
+def whnfC (env : Env) (depth : Nat) (e : Expr) : CheckM Expr :=
   (whnfCoreC env checkFuel depth e).run' {}
 
 /-- `inferTypeCoreC` with the standard fuel and a fresh cache. -/
-def inferType (env : Env) (depth : Nat) (e : Expr) : CheckM Expr :=
+def inferTypeC (env : Env) (depth : Nat) (e : Expr) : CheckM Expr :=
   (inferTypeCoreC env checkFuel depth e).run' {}
 
 /-- `isDefEqCoreC` with the standard fuel and a fresh cache. -/
-def isDefEq (env : Env) (depth : Nat) (a b : Expr) : CheckM Bool :=
+def isDefEqC (env : Env) (depth : Nat) (a b : Expr) : CheckM Bool :=
   (isDefEqCoreC env checkFuel depth a b).run' {}
 
 /-- `ensureSortCoreC` with the standard fuel and a fresh cache. -/
-def ensureSort (env : Env) (depth : Nat) (e : Expr) : CheckM Level :=
+def ensureSortC (env : Env) (depth : Nat) (e : Expr) : CheckM Level :=
   (ensureSortCoreC env checkFuel depth e).run' {}
 
 /-- `annotateCoreC` with the standard fuel and a fresh cache. -/
-def annotate (env : Env) (depth : Nat) (e : Expr) : CheckM Expr :=
+def annotateC (env : Env) (depth : Nat) (e : Expr) : CheckM Expr :=
   (annotateCoreC env checkFuel depth e).run' {}
 
 end Setlec
