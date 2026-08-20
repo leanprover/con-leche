@@ -806,6 +806,69 @@ theorem stripLams_instantiate1_eq {v : Expr} :
         congr 1
         omega
 
+/-- Peel `instSeq` through a `∀`-binder (the shift index stays in step
+with the remaining arguments). -/
+theorem instSeq_forallE :
+    ∀ (args : List Expr) (t : Nat) (n : Name) (d b : Expr)
+      (m : BinderMeta), args.length ≤ t + 1 →
+      instSeq args t (.forallE n d b m) =
+        .forallE n (instSeq args t d) (instSeq args (t + 1) b) m := by
+  intro args
+  induction args with
+  | nil => intro t n d b m _; rfl
+  | cons a as ih =>
+    intro t n d b m hlen
+    show instSeq as (t - 1)
+      (.forallE n (d.instantiate1 a t) (b.instantiate1 a (t + 1)) m) = _
+    rw [ih (t - 1) n (d.instantiate1 a t) (b.instantiate1 a (t + 1)) m
+      (by simp only [List.length_cons] at hlen; omega)]
+    show Expr.forallE n (instSeq as (t - 1) (d.instantiate1 a t))
+        (instSeq as (t - 1 + 1) (b.instantiate1 a (t + 1))) m =
+      Expr.forallE n (instSeq as (t - 1) (d.instantiate1 a t))
+        (instSeq as (t + 1 - 1) (b.instantiate1 a (t + 1))) m
+    cases as with
+    | nil => rfl
+    | cons a2 as2 =>
+      have ht : t - 1 + 1 = t + 1 - 1 := by
+        simp only [List.length_cons] at hlen
+        omega
+      rw [ht]
+
+/-- Split the last binder off a `∀`-telescope strip. -/
+theorem stripPis_snoc :
+    ∀ (n : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+      {body : Expr},
+      e.stripPis (n + 1) = some (bs, body) →
+      ∃ (nx : Name) (dx : Expr) (mx : BinderMeta),
+        bs[n]? = some (nx, dx, mx) ∧
+        e.stripPis n = some (bs.take n, .forallE nx dx body mx) := by
+  intro n
+  induction n with
+  | zero =>
+    intro e bs body h
+    match e, h with
+    | .forallE nx dx b mx, h =>
+      simp only [stripPis, Option.map_some, Option.some.injEq,
+        Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      exact ⟨nx, dx, mx, rfl, by simp [stripPis]⟩
+  | succ n ih =>
+    intro e bs body h
+    match e, h with
+    | .forallE n₀ d₀ b₀ m₀, h =>
+      simp only [stripPis] at h
+      cases hs : b₀.stripPis (n + 1) with
+      | none => rw [hs] at h; exact nomatch h
+      | some pr =>
+        rw [hs] at h
+        obtain ⟨bs', body'⟩ := pr
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        obtain ⟨nx, dx, mx, hbn, hstrip⟩ := ih hs
+        refine ⟨nx, dx, mx, by simpa using hbn, ?_⟩
+        simp only [stripPis, hstrip]
+        rfl
+
 /-- A longer telescope decomposition restricts to a shorter one with
 the binder-list prefix. -/
 theorem stripPis_prefix :
