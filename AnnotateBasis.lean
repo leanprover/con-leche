@@ -11,7 +11,7 @@ def main : IO Unit := do
   for k in blocks do
     for ci in k.decls do
       let cv := ci.toConstantVal
-      match annotate env 0 cv.type with
+      match annotateCore env checkFuel 0 cv.type with
       | .error e =>
         IO.println s!"ERROR annotating {cv.name}: {e}"
         return
@@ -25,7 +25,7 @@ def main : IO Unit := do
           let env' : Env := ⟨self :: env.consts⟩
           let mut out : List RecRule := []
           for r in rules do
-            match annotate env' 0 r.rhs with
+            match annotateCore env' checkFuel 0 r.rhs with
             | .error e => return .error s!"{e}"
             | .ok rhs' => out := out ++ [{ r with rhs := rhs' }]
           return .ok out

@@ -68,8 +68,8 @@
 0 good/tutorial/093_projDataIndexRec.ndjson
 0 good/tutorial/096_projRed.ndjson
 0 good/tutorial/097_ruleK.ndjson
-2 good/tutorial/100_aNatLit.ndjson
-2 good/tutorial/101_natLitEq.ndjson
+0 good/tutorial/100_aNatLit.ndjson
+0 good/tutorial/101_natLitEq.ndjson
 0 good/tutorial/102_proofIrrelevance.ndjson
 0 good/tutorial/104_proofIrrelevanceWhnf.ndjson
 0 good/tutorial/105_unitEta1.ndjson
