@@ -199,24 +199,31 @@ theorem natLitToConstructor_looseBVars (n : Nat) {k : Nat} :
   cases n <;> simp [natLitToConstructor, Expr.looseBVarsBounded]
 
 /-- The literal-major conversion only shrinks the leaf closure. -/
-theorem litToCtorIfNat_fvarLeaves {e : Expr} :
-    ∀ l ∈ (litToCtorIfNat e).fvarLeaves, l ∈ e.fvarLeaves := by
+theorem litToCtorIfNat_fvarLeaves {env : Env} {e : Expr} :
+    ∀ l ∈ (litToCtorIfNat env e).fvarLeaves, l ∈ e.fvarLeaves := by
   intro l hl
   match e, hl with
   | .lit (.natVal n), hl =>
-    rw [litToCtorIfNat, natLitToConstructor_fvarLeaves] at hl
-    cases hl
+    rw [litToCtorIfNat] at hl
+    split at hl
+    · rw [natLitToConstructor_fvarLeaves] at hl
+      cases hl
+    · exact hl
   | .lit (.strVal _), hl => exact hl
   | .bvar _, hl | .fvar _ _ _, hl | .sort _, hl | .const _ _, hl
   | .app _ _, hl | .lam _ _ _ _, hl | .forallE _ _ _ _, hl
   | .letE _ _ _ _, hl | .proj _ _ _, hl => exact hl
 
 /-- The literal-major conversion preserves the bvar bound. -/
-theorem litToCtorIfNat_looseBVars {e : Expr} {k : Nat}
+theorem litToCtorIfNat_looseBVars {env : Env} {e : Expr} {k : Nat}
     (hb : e.looseBVarsBounded k = true) :
-    (litToCtorIfNat e).looseBVarsBounded k = true := by
+    (litToCtorIfNat env e).looseBVarsBounded k = true := by
   match e with
-  | .lit (.natVal n) => exact natLitToConstructor_looseBVars n
+  | .lit (.natVal n) =>
+    rw [litToCtorIfNat]
+    split
+    · exact natLitToConstructor_looseBVars n
+    · exact hb
   | .lit (.strVal _) => exact hb
   | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
   | .lam _ _ _ _ | .forallE _ _ _ _ | .letE _ _ _ _ | .proj _ _ _ =>
@@ -596,14 +603,11 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
         simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
       dsimp only [inferBody] at h
       revert h
-      match env.find? natName with
-      | none => intro h; exact nomatch h
-      | some (.axiomInfo _) => intro h; exact nomatch h
-      | some (.defnInfo _ _) => intro h; exact nomatch h
-      | some (.thmInfo _ _) => intro h; exact nomatch h
-      | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-      | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
-      | some (.indInfo _ _) =>
+      split
+      case isFalse =>
+        intro h
+        simp [throw, throwThe, MonadExceptOf.throw] at h
+      case isTrue =>
         intro h
         simp only [pure, Except.pure, Except.ok.injEq] at h
         subst h; simp [WScoped]
@@ -695,14 +699,11 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
         simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
       dsimp only [inferBody] at h
       revert h
-      match env.find? natName with
-      | none => intro h; exact nomatch h
-      | some (.axiomInfo _) => intro h; exact nomatch h
-      | some (.defnInfo _ _) => intro h; exact nomatch h
-      | some (.thmInfo _ _) => intro h; exact nomatch h
-      | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-      | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
-      | some (.indInfo _ _) =>
+      split
+      case isFalse =>
+        intro h
+        simp [throw, throwThe, MonadExceptOf.throw] at h
+      case isTrue =>
         intro h
         simp only [pure, Except.pure, Except.ok.injEq] at h
         subst h; intro l hl; simp [fvarLeaves] at hl
@@ -812,14 +813,11 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
         simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
       dsimp only [inferBody] at h
       revert h
-      match env.find? natName with
-      | none => intro h; exact nomatch h
-      | some (.axiomInfo _) => intro h; exact nomatch h
-      | some (.defnInfo _ _) => intro h; exact nomatch h
-      | some (.thmInfo _ _) => intro h; exact nomatch h
-      | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-      | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
-      | some (.indInfo _ _) =>
+      split
+      case isFalse =>
+        intro h
+        simp [throw, throwThe, MonadExceptOf.throw] at h
+      case isTrue =>
         intro h
         simp only [pure, Except.pure, Except.ok.injEq] at h
         subst h; simp [looseBVarsBounded]

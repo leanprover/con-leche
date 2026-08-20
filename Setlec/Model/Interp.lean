@@ -55,6 +55,12 @@ open SetTheory
 def updV (ρ : Nat → V) (d : Nat) (x : V) : Nat → V :=
   fun i => if i = d then x else ρ i
 
+/-- The value of a `Nat` literal: the `Nat.succ` value iterated on the
+`Nat.zero` value. -/
+def natLitVal (zv sv : V) : Nat → V
+  | 0 => zv
+  | n + 1 => SetTheory.app sv (natLitVal zv sv n)
+
 /-- Interpret an expression under constant valuation `cval`, level
 assignment `φ`, binder depth `d` and free-variable valuation `ρ`. -/
 def interpExpr (cval : ConstVal V) (env : Env) (φ : Name → Nat) :
@@ -95,6 +101,13 @@ def interpExpr (cval : ConstVal V) (env : Env) (φ : Name → Nat) :
     | some ve =>
       if i = 0 then some (sfst ve) else if i = 1 then some (ssnd ve) else none
     | none => none
+  | _, _, .lit (.natVal n) =>
+    -- guarded exactly like the checker's literal paths; the zero/succ
+    -- values match the `.const` case's given the guard's shape facts
+    if natLitSupported env then
+      some (natLitVal V (cval natZeroName (Level.substFn φ [] []))
+        (cval natSuccName (Level.substFn φ [] [])) n)
+    else none
   | _, _, _ => none
 termination_by _ _ e => e.sizeB
 decreasing_by

@@ -136,10 +136,29 @@ def natLitToConstructor (n : Nat) : Expr :=
   | 0 => .const natZeroName []
   | k + 1 => .app (.const natSuccName []) (.lit (.natVal k))
 
+/-- Whether the environment supports `Nat` literals: `Nat`, `Nat.zero`
+and `Nat.succ` are stored with exactly the expected kinds, level
+parameters and (annotated) types.  Every literal code path is guarded
+on this — the model interprets a literal by iterating the `Nat.succ`
+value on the `Nat.zero` value, and the soundness proofs read the
+declaration shapes off this guard. -/
+def natLitSupported (env : Env) : Bool :=
+  match env.find? natName, env.find? natZeroName, env.find? natSuccName with
+  | some (.indInfo cv _), some (.ctorInfo cv0 _ _), some (.ctorInfo cv1 _ _) =>
+    cv.levelParams.isEmpty && cv0.levelParams.isEmpty &&
+    cv1.levelParams.isEmpty &&
+    cv.type == .sort (.succ .zero) && cv0.type == .const natName [] &&
+    (match cv1.type with
+     | .forallE _ (.const c1 []) (.const c2 []) mb =>
+       c1 == natName && c2 == natName && mb.cod == some (.succ .zero)
+     | _ => false)
+  | _, _, _ => false
+
 /-- Convert a `Nat`-literal major premise to constructor form, one
 layer; anything else passes through. -/
-def litToCtorIfNat : Expr → Expr
-  | .lit (.natVal n) => natLitToConstructor n
+def litToCtorIfNat (env : Env) : Expr → Expr
+  | .lit (.natVal n) =>
+    if natLitSupported env then natLitToConstructor n else .lit (.natVal n)
   | e => e
 
 /-- A `Nat` literal reading of a whnf'd expression: literals and the
@@ -158,7 +177,7 @@ def reduceNat (_r : CoreFns m) (env : Env) (_depth : Nat) (e : Expr) :
     m (Option Expr) := do
   match e with
   | .app (.const c []) a =>
-    if c = natSuccName ∧ (env.find? natName).isSome then
+    if c = natSuccName ∧ natLitSupported env then
       match rawNatLit? a with
       | some n => pure (some (.lit (.natVal (n + 1))))
       | none => pure none
@@ -501,7 +520,7 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
       if args.length = nP + nM + nm + ni + 1 then
         let major₀ ← r.whnf depth
           (args.getD (nP + nM + nm + ni) (.bvar 0))
-        let major ← majorToCtor r env depth c rules (litToCtorIfNat major₀)
+        let major ← majorToCtor r env depth c rules (litToCtorIfNat env major₀)
         match major.getAppFn with
         | .const cj usj =>
           match env.find? cj with
@@ -661,9 +680,8 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           throw (.invalid s!"incorrect number of universe levels for {n}")
         pure (cv.type.instantiateLevelParams cv.levelParams us)
     | .lit (.natVal _) => do
-      match env.find? natName with
-      | some (.indInfo _ _) => pure (.const natName [])
-      | _ => throw (.invalid "Nat literal without the Nat type")
+      if natLitSupported env then pure (.const natName [])
+      else throw (.invalid "Nat literal without the Nat basis declarations")
     | .lit (.strVal _) => throw (.notImplemented "string literals")
     | .forallE _ ty _ mb => do
       -- The codomain-sort annotation is trusted: the body was checked once,
@@ -838,10 +856,10 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
     | .sort u => pure (.sort u)
     | .const n us => pure (.const n us)
     | .lit (.natVal n) => do
-      -- a literal is well-formed exactly when its type is stored
-      match env.find? natName with
-      | some (.indInfo _ _) => pure (.lit (.natVal n))
-      | _ => throw (.invalid "Nat literal without the Nat type")
+      -- a literal is well-formed exactly when its type's declarations
+      -- are stored in the expected shape
+      if natLitSupported env then pure (.lit (.natVal n))
+      else throw (.invalid "Nat literal without the Nat basis declarations")
     | .lit (.strVal _) => throw (.notImplemented "string literals")
     | .app f a => do
       let f' ← r.annotate depth f

@@ -542,14 +542,11 @@ theorem annotateCore_leaves_sub {env : Env} :
     | .natVal n, h => ?_
     dsimp only [annotateBody] at h
     revert h
-    match env.find? natName with
-    | none => intro h; exact nomatch h
-    | some (.axiomInfo _) => intro h; exact nomatch h
-    | some (.defnInfo _ _) => intro h; exact nomatch h
-    | some (.thmInfo _ _) => intro h; exact nomatch h
-    | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-    | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
-    | some (.indInfo _ _) =>
+    split
+    case isFalse =>
+      intro h
+      simp [throw, throwThe, MonadExceptOf.throw] at h
+    case isTrue =>
       intro h
       simp only [pure, Except.pure, Except.ok.injEq] at h
       subst h; intro l' hl'; exact hl' 

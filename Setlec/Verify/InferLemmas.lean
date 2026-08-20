@@ -504,7 +504,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
       e.getAppArgs.length = nP + nM + nm + ni + 1 ∧
       whnf env fuel d (e.getAppArgs.getD (nP + nM + nm + ni) (.bvar 0)) =
         .ok major₀ ∧
-      majorToCtorP env fuel d c rules (litToCtorIfNat major₀) = .ok major ∧
+      majorToCtorP env fuel d c rules (litToCtorIfNat env major₀) = .ok major ∧
       major.getAppFn = .const cj usj ∧
       env.find? cj = some (.ctorInfo cvj cnP cnF) ∧
       rules.find? (fun r' => r'.ctor == cj) = some r ∧
@@ -560,7 +560,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   | ok major₀ =>
   rw [hmaj] at h
   dsimp only at h
-  cases hsub : majorToCtorP env fuel d c rules (litToCtorIfNat major₀) with
+  cases hsub : majorToCtorP env fuel d c rules (litToCtorIfNat env major₀) with
   | error err => rw [hsub] at h; exact nomatch h
   | ok major =>
   rw [hsub] at h
@@ -1843,10 +1843,14 @@ theorem natLitToConstructor_WScoped (n : Nat) {d : Nat} :
   cases n <;> simp [natLitToConstructor, WScoped]
 
 /-- The literal-major conversion preserves well-scopedness. -/
-theorem litToCtorIfNat_WScoped {d : Nat} {e : Expr} (hw : WScoped d e) :
-    WScoped d (litToCtorIfNat e) := by
+theorem litToCtorIfNat_WScoped {env : Env} {d : Nat} {e : Expr}
+    (hw : WScoped d e) : WScoped d (litToCtorIfNat env e) := by
   match e with
-  | .lit (.natVal n) => exact natLitToConstructor_WScoped n
+  | .lit (.natVal n) =>
+    rw [litToCtorIfNat]
+    split
+    · exact natLitToConstructor_WScoped n
+    · exact hw
   | .lit (.strVal _) => exact hw
   | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
   | .lam _ _ _ _ | .forallE _ _ _ _ | .letE _ _ _ _ | .proj _ _ _ =>
