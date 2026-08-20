@@ -27,15 +27,13 @@ identifies the constructor application's interpretation with the stuck
 side's: the stored eta law reconstructs the member through the
 projection models, and the value bridges identify the public
 constants' values with the models'. -/
-theorem structEtaWith_sound {m : EnvModel V env} {fuelTop : Nat}
-    (ihAll : ∀ f, f ≤ fuelTop →
-      WhnfClaims m φ f ∧ DefEqClaims m φ f ∧ InferClaims m φ f)
-    {fuel : Nat} (hfle : fuel ≤ fuelTop)
-    {fl2 : Nat} (hfl2 : fl2 ≤ fuelTop)
+theorem structEtaWith_sound {m : EnvModel V env} {fuel : Nat}
+    (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
+    (ihi : InferClaims m φ fuel)
     {d : Nat} {a b tb wtb : Expr} {ρ : Nat → V} {va vb : V}
-    (h : structEtaCertWith env (fuel + 1) d a b wtb = .ok true)
-    (htb : inferTypeCore env fl2 d b = .ok tb)
-    (hwtb : whnfCore env fl2 d tb = .ok wtb)
+    (h : structEtaCertWithP env fuel d a b wtb = .ok true)
+    (htb : inferTypeCore env fuel d b = .ok tb)
+    (hwtb : whnf env fuel d tb = .ok wtb)
     (hwa : WScoped d a) (hwb : WScoped d b)
     (hba : a.looseBVarsBounded 0 = true)
     (hbb : b.looseBVarsBounded 0 = true)
@@ -47,8 +45,6 @@ theorem structEtaWith_sound {m : EnvModel V env} {fuelTop : Nat}
     (hva : interpExpr V m.val env φ d ρ a = some va)
     (hvb : interpExpr V m.val env φ d ρ b = some vb) :
     va = vb := by
-  obtain ⟨ihw, ihd, ihi⟩ := ihAll fuel hfle
-  obtain ⟨ihw2, ihd2, ihi2⟩ := ihAll fl2 hfl2
   obtain ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps,
     hfn, hfc, hal, hwfn, hfT, hce, hcc, hcp, hcf, hres,
     hresC, htal, hulen, hclps, hTstrip, hlev, hic, hpc, hd1, hd2⟩ :=
@@ -61,26 +57,26 @@ theorem structEtaWith_sound {m : EnvModel V env} {fuelTop : Nat}
     exact Level.substFn_congr (Level.isEquivList_sound hlev φ)
   -- b's type reduces to the structure type; extract the spine facts
   obtain ⟨⟨vb', vtb, hbi, htbi, hmemb⟩, hAtb⟩ :=
-    ihi2 htb hwb hbb hLbb hokb hab
+    ihi htb hwb hbb hLbb hokb hab
   obtain rfl : vb = vb' := by
     rw [hvb] at hbi
     exact Option.some.inj hbi
-  have hwtbW := inferTypeCore_WScoped m.wf fl2 htb hwb
-  have hbtb := inferTypeCore_looseBVars m.wf fl2 htb hwb hbb hLbb
+  have hwtbW := inferTypeCore_WScoped m.wf fuel htb hwb
+  have hbtb := inferTypeCore_looseBVars m.wf fuel htb hwb hbb hLbb
   have hLbtb : Expr.LeavesBounded tb := fun l hl =>
-    hLbb l (inferTypeCore_fvarLeaves m.wf fl2 htb hwb l hl)
+    hLbb l (inferTypeCore_fvarLeaves m.wf fuel htb hwb l hl)
   have hoktb : FvarsOk V m.val env φ d ρ tb :=
-    FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fl2 htb hwb) hokb
-  obtain ⟨hiw, hAwtb⟩ := ihw2 hwtb hwtbW hbtb hLbtb hoktb hAtb
+    FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel htb hwb) hokb
+  obtain ⟨hiw, hAwtb⟩ := ihw hwtb hwtbW hbtb hLbtb hoktb hAtb
   have hvtbI : interpExpr V m.val env φ d ρ wtb = some vtb := by
     rw [hiw]
     exact htbi
-  have hwtbW' := whnf_WScoped m.wf fl2 hwtb hwtbW
-  have hbwtb := whnf_looseBVars m.wf fl2 hwtb hbtb
+  have hwtbW' := whnf_WScoped m.wf fuel hwtb hwtbW
+  have hbwtb := whnf_looseBVars m.wf fuel hwtb hbtb
   have hLwtb : Expr.LeavesBounded wtb := fun l hl =>
-    hLbtb l (whnf_fvarLeaves m.wf fl2 hwtb l hl)
+    hLbtb l (whnf_fvarLeaves m.wf fuel hwtb l hl)
   have hokwtb : FvarsOk V m.val env φ d ρ wtb :=
-    FvarsOk.of_subset (whnf_fvarLeaves m.wf fl2 hwtb) hoktb
+    FvarsOk.of_subset (whnf_fvarLeaves m.wf fuel hwtb) hoktb
   -- the head's interpretation
   have hvalT : interpExpr V m.val env φ d ρ (.const T us') =
       some (m.val T ψ') := by
@@ -166,7 +162,7 @@ theorem structEtaWith_sound {m : EnvModel V env} {fuelTop : Nat}
       exact hLwtb l (fvarLeaves_getAppArgs hx l hl)
     · exact FvarsOk.of_subset (fun l hl => fvarLeaves_getAppArgs hx l hl)
         hokwtb
-  obtain ⟨restT, hfitIT⟩ := certs_fit ihAll fuel hfle _ _ _ TT hic hTw hTb
+  obtain ⟨restT, hfitIT⟩ := certs_fit ihd ihi _ _ _ TT hic hTw hTb
     (Expr.LeavesBounded.of_not_hasFvar hThf)
     (FvarsOk.of_not_hasFvar hThf) hTA hTT htargswf hspT
   obtain ⟨dT, ρT, restT', hfitT⟩ := TeleFitI.toTeleFit hfitIT hTw (by
@@ -242,30 +238,23 @@ theorem structEtaWith_sound {m : EnvModel V env} {fuelTop : Nat}
         hoka
   -- the parameter prefix matches the type's arguments
   have hpref : avs.take cnP = psv := by
-    refine defEqList_values ihAll fuel hfle _ _ _ _ hd1 ?_ htargswf
+    refine defEqList_values ihd _ _ _ _ hd1 ?_ htargswf
       (InterpSpine.take cnP hspA) hspT
     intro x hx
     exact haargswf x (List.mem_of_mem_take hx)
-  -- the projection certificates at the decremented fuel
-  have hpcFacts : ∀ i, i < cnF → ∃ (fl : Nat) (cvp : ConstantVal)
+  -- the projection certificates
+  have hpcFacts : ∀ i, i < cnF → ∃ (cvp : ConstantVal)
       (nPp nMp nmp nip : Nat) (rulesp : List RecRule),
-      fl ≤ fuel ∧
       env.find? (projFnName T i) =
         some (.recInfo cvp nPp nMp nmp nip rulesp) ∧
       cvp.levelParams = cvT.levelParams ∧
       (cvp.type.stripPis (wtb.getAppArgs.length + 1)).isSome = true ∧
-      iotaCerts env fl d
+      iotaCertsP env fuel d
         (cvp.type.instantiateLevelParams cvp.levelParams us')
         (wtb.getAppArgs ++ [b]) = .ok true := by
     intro i hi
-    match fuel, hpc with
-    | 0, hpc => exact nomatch hpc
-    | fuel' + 1, hpc =>
-      obtain ⟨fl, cvp, nPp, nMp, nmp, nip, rulesp, hfl, hfpj, hplps,
-        hpstrip, hicj⟩ := structEtaProjCerts_inv (List.range cnF) fuel'
-        hpc i (List.mem_range.mpr hi)
-      exact ⟨fl, cvp, nPp, nMp, nmp, nip, rulesp,
-        Nat.le_trans hfl (Nat.le_succ _), hfpj, hplps, hpstrip, hicj⟩
+    exact structEtaProjCerts_inv (List.range cnF) hpc i
+      (List.mem_range.mpr hi)
   -- each projection application's chain facts
   have hprojFacts : ∀ j, j < cnF →
       AnnotOk V m.val env φ d ρ
@@ -276,7 +265,7 @@ theorem structEtaWith_sound {m : EnvModel V env} {fuelTop : Nat}
           (wtb.getAppArgs ++ [b])) =
       some (SpineFold V (m.val (projFnName T j) ψ') (psv ++ [vb])) := by
     intro j hj
-    obtain ⟨fl, cvp, nPp, nMp, nmp, nip, rulesp, hfl, hfpj, hplps,
+    obtain ⟨cvp, nPp, nMp, nmp, nip, rulesp, hfpj, hplps,
       hpstrip, hicj⟩ := hpcFacts j hj
     have hpname : cvp.name = projFnName T j := by
       have h1 := List.find?_some hfpj
@@ -338,8 +327,7 @@ theorem structEtaWith_sound {m : EnvModel V env} {fuelTop : Nat}
     have hspPB : InterpSpine m.val env φ d ρ (wtb.getAppArgs ++ [b])
         (psv ++ [vb]) :=
       InterpSpine.append hspT ⟨hvb, trivial⟩
-    obtain ⟨restP, hfitIP⟩ := certs_fit ihAll fl
-      (Nat.le_trans hfl hfle) _ _ _ PT hicj hPw hPb
+    obtain ⟨restP, hfitIP⟩ := certs_fit ihd ihi _ _ _ PT hicj hPw hPb
       (Expr.LeavesBounded.of_not_hasFvar hPhf)
       (FvarsOk.of_not_hasFvar hPhf) hPA hPT hargs5 hspPB
     obtain ⟨dP, ρP, restP', hfitP⟩ := TeleFitI.toTeleFit hfitIP hPw (by
@@ -380,7 +368,7 @@ theorem structEtaWith_sound {m : EnvModel V env} {fuelTop : Nat}
     exact hgen (List.range cnF) (fun i hi => List.mem_range.mp hi)
   have hflds : avs.drop cnP = (List.range cnF).map fun i =>
       SpineFold V (m.val (projFnName T i) ψ') (psv ++ [vb]) := by
-    refine defEqList_values ihAll fuel hfle _ _ _ _ hd2 ?_ ?_
+    refine defEqList_values ihd _ _ _ _ hd2 ?_ ?_
       (InterpSpine.drop cnP hspA) hprojSpine
     · intro x hx
       exact haargswf x (List.mem_of_mem_drop hx)
@@ -419,7 +407,7 @@ theorem structEtaWith_sound {m : EnvModel V env} {fuelTop : Nat}
   have hvalPM : ∀ i, i < cnF →
       m.val (projFnName T i) ψ' = m.val (projModelName T i) ψ' := by
     intro i hi
-    obtain ⟨fl, cvp, nPp, nMp, nmp, nip, rulesp, -, hfpj, -, -, -⟩ :=
+    obtain ⟨cvp, nPp, nMp, nmp, nip, rulesp, hfpj, -, -, -⟩ :=
       hpcFacts i hi
     obtain ⟨-, hveqP⟩ := m.modeled_ok.2.2.1 T i _ hfpj
     exact hveqP ψ'
@@ -438,12 +426,11 @@ theorem structEtaWith_sound {m : EnvModel V env} {fuelTop : Nat}
 
 /-- A successful structural eta certification (whole-certificate form,
 deriving the stuck side's type itself). -/
-theorem structEta_sound {m : EnvModel V env} {fuelTop : Nat}
-    (ihAll : ∀ f, f ≤ fuelTop →
-      WhnfClaims m φ f ∧ DefEqClaims m φ f ∧ InferClaims m φ f)
-    {fuel : Nat} (hfle : fuel ≤ fuelTop)
+theorem structEta_sound {m : EnvModel V env} {fuel : Nat}
+    (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
+    (ihi : InferClaims m φ fuel)
     {d : Nat} {a b : Expr} {ρ : Nat → V} {va vb : V}
-    (h : structEtaCert env (fuel + 1) d a b = .ok true)
+    (h : structEtaCertP env fuel d a b = .ok true)
     (hwa : WScoped d a) (hwb : WScoped d b)
     (hba : a.looseBVarsBounded 0 = true)
     (hbb : b.looseBVarsBounded 0 = true)
@@ -456,22 +443,18 @@ theorem structEta_sound {m : EnvModel V env} {fuelTop : Nat}
     (hvb : interpExpr V m.val env φ d ρ b = some vb) :
     va = vb := by
   obtain ⟨tb, wtb, htb, hwtb, hW⟩ := structEtaCert_inv h
-  match fuel, hfle, htb, hwtb, hW with
-  | fuel' + 1, hfle, htb, hwtb, hW =>
-    exact structEtaWith_sound ihAll
-      (Nat.le_trans (Nat.le_succ fuel') hfle) hfle hW htb hwtb
-      hwa hwb hba hbb hLba hLbb hoka hokb haa hab hva hvb
+  exact structEtaWith_sound ihw ihd ihi hW htb hwtb
+    hwa hwb hba hbb hLba hLbb hoka hokb haa hab hva hvb
 
 set_option maxHeartbeats 3200000 in
 /-- A successful unit-likeness certification identifies the two
 interpretations: both values inhabit the same interpreted unit-like
 family, whose stored law makes any two members equal. -/
-theorem structUnit_sound {m : EnvModel V env} {fuelTop : Nat}
-    (ihAll : ∀ f, f ≤ fuelTop →
-      WhnfClaims m φ f ∧ DefEqClaims m φ f ∧ InferClaims m φ f)
-    {fuel : Nat} (hfle : fuel ≤ fuelTop)
+theorem structUnit_sound {m : EnvModel V env} {fuel : Nat}
+    (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
+    (ihi : InferClaims m φ fuel)
     {d : Nat} {a b : Expr} {ρ : Nat → V} {va vb : V}
-    (h : structUnitCert env (fuel + 1) d a b = .ok true)
+    (h : structUnitCertP env fuel d a b = .ok true)
     (hwa : WScoped d a) (hwb : WScoped d b)
     (hba : a.looseBVarsBounded 0 = true)
     (hbb : b.looseBVarsBounded 0 = true)
@@ -483,7 +466,6 @@ theorem structUnit_sound {m : EnvModel V env} {fuelTop : Nat}
     (hva : interpExpr V m.val env φ d ρ a = some va)
     (hvb : interpExpr V m.val env φ d ρ b = some vb) :
     va = vb := by
-  obtain ⟨ihw, ihd, ihi⟩ := ihAll fuel hfle
   obtain ⟨ta, wta, T, us', cvT, caps, tb, wtb, hta, hwta, hwfn, hfT,
     hcu, hres, htal, hulen, hTstrip, htb, hwtb, hde, hic⟩ :=
     structUnitCert_inv h
@@ -621,7 +603,7 @@ theorem structUnit_sound {m : EnvModel V env} {fuelTop : Nat}
       exact hLwta l (fvarLeaves_getAppArgs hx l hl)
     · exact FvarsOk.of_subset (fun l hl => fvarLeaves_getAppArgs hx l hl)
         hokwta
-  obtain ⟨restT, hfitIT⟩ := certs_fit ihAll fuel hfle _ _ _ TT hic hTw
+  obtain ⟨restT, hfitIT⟩ := certs_fit ihd ihi _ _ _ TT hic hTw
     hTb (Expr.LeavesBounded.of_not_hasFvar hThf)
     (FvarsOk.of_not_hasFvar hThf) hTA hTT htargswf hspT
   obtain ⟨dT, ρT, restT', hfitT⟩ := TeleFitI.toTeleFit hfitIT hTw (by

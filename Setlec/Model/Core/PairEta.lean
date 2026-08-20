@@ -29,7 +29,7 @@ theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
     (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
     (ihi : InferClaims m φ fuel)
     {d : Nat} {a b : Expr} {ρ : Nat → V} {va vb : V}
-    (h : pairEtaCert env (fuel + 1) d a b = .ok true)
+    (h : pairEtaCertP env fuel d a b = .ok true)
     (hwa : WScoped d a) (hwb : WScoped d b)
     (hba : a.looseBVarsBounded 0 = true) (hbb : b.looseBVarsBounded 0 = true)
     (hLba : Expr.LeavesBounded a) (hLbb : Expr.LeavesBounded b)

@@ -22,12 +22,13 @@ variable (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
   (ihi : InferClaims m φ fuel)
 
 /-- Soundness of the stuck-term fallback: pair eta in either direction,
-else proof irrelevance. -/
+struct eta in either direction, unit-likeness, else proof
+irrelevance. -/
 theorem stuckIrrel_sound {m : EnvModel V env} {fuel : Nat}
-    (ihAll : ∀ f, f ≤ fuel →
-      WhnfClaims m φ f ∧ DefEqClaims m φ f ∧ InferClaims m φ f)
+    (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
+    (ihi : InferClaims m φ fuel)
     {d : Nat} {a b : Expr} {ρ : Nat → V} {va vb : V}
-    (h : stuckIrrel env fuel d a b = .ok true)
+    (h : stuckIrrelP env fuel d a b = .ok true)
     (hwa : WScoped d a) (hwb : WScoped d b)
     (hba : a.looseBVarsBounded 0 = true) (hbb : b.looseBVarsBounded 0 = true)
     (hLba : Expr.LeavesBounded a) (hLbb : Expr.LeavesBounded b)
@@ -36,93 +37,66 @@ theorem stuckIrrel_sound {m : EnvModel V env} {fuel : Nat}
     (hva : interpExpr V m.val env φ d ρ a = some va)
     (hvb : interpExpr V m.val env φ d ρ b = some vb) :
     va = vb := by
-  cases fuel with
-  | zero => exact nomatch h
-  | succ f =>
+  dsimp only [stuckIrrelP] at h
   simp only [stuckIrrel, Bind.bind, Except.bind] at h
-  cases hp1 : pairEtaCert env f d a b with
+  simp only [pairEtaCert_fold, structEtaCert_fold, structUnitCert_fold,
+    proofIrrel_fold] at h
+  cases hp1 : pairEtaCertP env fuel d a b with
   | error e => rw [hp1] at h; exact nomatch h
   | ok r₁ =>
   rw [hp1] at h
   dsimp only at h
   cases r₁ with
   | true =>
-    cases f with
-    | zero => exact nomatch hp1
-    | succ f' =>
-    obtain ⟨ihwL, ihdL, ihiL⟩ := ihAll f' (by omega)
-    exact pairEta_sound ihwL ihdL ihiL hp1 hwa hwb hba hbb hLba hLbb
+    exact pairEta_sound ihw ihd ihi hp1 hwa hwb hba hbb hLba hLbb
       hoka hokb haa hab hva hvb
   | false =>
   simp only [Bool.false_eq_true, ↓reduceIte] at h
-  cases hp2 : pairEtaCert env f d b a with
+  cases hp2 : pairEtaCertP env fuel d b a with
   | error e => rw [hp2] at h; exact nomatch h
   | ok r₂ =>
   rw [hp2] at h
   dsimp only at h
   cases r₂ with
   | true =>
-    cases f with
-    | zero => exact nomatch hp2
-    | succ f' =>
-    obtain ⟨ihwL, ihdL, ihiL⟩ := ihAll f' (by omega)
-    exact (pairEta_sound ihwL ihdL ihiL hp2 hwb hwa hbb hba hLbb hLba
+    exact (pairEta_sound ihw ihd ihi hp2 hwb hwa hbb hba hLbb hLba
       hokb hoka hab haa hvb hva).symm
   | false =>
   simp only [Bool.false_eq_true, ↓reduceIte] at h
-  cases hs1 : structEtaCert env f d a b with
+  cases hs1 : structEtaCertP env fuel d a b with
   | error e => rw [hs1] at h; exact nomatch h
   | ok r₃ =>
   rw [hs1] at h
   dsimp only at h
   cases r₃ with
   | true =>
-    cases f with
-    | zero => exact nomatch hs1
-    | succ f' =>
-    exact structEta_sound (fuelTop := f') (fun ff hff => ihAll ff
-        (by omega))
-      (Nat.le_refl _) hs1 hwa hwb hba hbb hLba hLbb
+    exact structEta_sound ihw ihd ihi hs1 hwa hwb hba hbb hLba hLbb
       hoka hokb haa hab hva hvb
   | false =>
   simp only [Bool.false_eq_true, ↓reduceIte] at h
-  cases hs2 : structEtaCert env f d b a with
+  cases hs2 : structEtaCertP env fuel d b a with
   | error e => rw [hs2] at h; exact nomatch h
   | ok r₄ =>
   rw [hs2] at h
   dsimp only at h
   cases r₄ with
   | true =>
-    cases f with
-    | zero => exact nomatch hs2
-    | succ f' =>
-    exact (structEta_sound (fuelTop := f') (fun ff hff => ihAll ff
-        (by omega))
-      (Nat.le_refl _) hs2 hwb hwa hbb hba hLbb hLba
+    exact (structEta_sound ihw ihd ihi hs2 hwb hwa hbb hba hLbb hLba
       hokb hoka hab haa hvb hva).symm
   | false =>
   simp only [Bool.false_eq_true, ↓reduceIte] at h
-  cases hu1 : structUnitCert env f d a b with
+  cases hu1 : structUnitCertP env fuel d a b with
   | error e => rw [hu1] at h; exact nomatch h
   | ok r₅ =>
   rw [hu1] at h
   dsimp only at h
   cases r₅ with
   | true =>
-    cases f with
-    | zero => exact nomatch hu1
-    | succ f' =>
-    exact structUnit_sound (fuelTop := f') (fun ff hff => ihAll ff
-        (by omega))
-      (Nat.le_refl _) hu1 hwa hwb hba hbb hLba hLbb
+    exact structUnit_sound ihw ihd ihi hu1 hwa hwb hba hbb hLba hLbb
       hoka hokb haa hab hva hvb
   | false =>
   simp only [Bool.false_eq_true, ↓reduceIte] at h
-  cases f with
-  | zero => exact nomatch h
-  | succ f' =>
-  obtain ⟨ihwL, ihdL, ihiL⟩ := ihAll f' (by omega)
-  obtain ⟨hpa, hpb⟩ := proofIrrel_pt ihwL ihiL h hwa hwb hba hbb
+  obtain ⟨hpa, hpb⟩ := proofIrrel_pt ihw ihi h hwa hwb hba hbb
     hLba hLbb hoka hokb haa hab
   rw [hva] at hpa
   rw [hvb] at hpb

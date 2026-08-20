@@ -28,16 +28,33 @@ theorem find?_name {env : Env} {n : Name} {ci : ConstantInfo}
 
 /-- `whnfCore` preserves the local-context assumptions (a leaf-subset
 argument). -/
-theorem whnf_FvarsOk {cval : ConstVal V} (henv : EnvWF env)
+theorem whnfCore_FvarsOk {cval : ConstVal V} (henv : EnvWF env)
     (fuel : Nat) {d : Nat} {e e' : Expr} {ρ : Nat → V}
     (h : whnfCore env fuel d e = .ok e')
     (hok : FvarsOk V cval env φ d ρ e) : FvarsOk V cval env φ d ρ e' :=
+  FvarsOk.of_subset (whnfCore_fvarLeaves henv fuel h) hok
+
+/-- The reduction loop preserves the local-context assumptions. -/
+theorem whnf_FvarsOk {cval : ConstVal V} (henv : EnvWF env)
+    (fuel : Nat) {d : Nat} {e e' : Expr} {ρ : Nat → V}
+    (h : whnf env fuel d e = .ok e')
+    (hok : FvarsOk V cval env φ d ρ e) : FvarsOk V cval env φ d ρ e' :=
   FvarsOk.of_subset (whnf_fvarLeaves henv fuel h) hok
 
-/-- The whnf part of the mutual soundness claims. -/
-def WhnfClaims (m : EnvModel V env) (φ : Name → Nat) (fuel : Nat) : Prop :=
+/-- The head-normalization (no delta) part of the mutual soundness
+claims. -/
+def WhnfCoreClaims (m : EnvModel V env) (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {ρ : Nat → V},
     whnfCore env fuel d e = .ok e' →
+    WScoped d e → e.looseBVarsBounded 0 = true → Expr.LeavesBounded e →
+    FvarsOk V m.val env φ d ρ e → AnnotOk V m.val env φ d ρ e →
+    interpExpr V m.val env φ d ρ e' = interpExpr V m.val env φ d ρ e ∧
+    AnnotOk V m.val env φ d ρ e'
+
+/-- The reduction-loop part of the mutual soundness claims. -/
+def WhnfClaims (m : EnvModel V env) (φ : Name → Nat) (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {e e' : Expr} {ρ : Nat → V},
+    whnf env fuel d e = .ok e' →
     WScoped d e → e.looseBVarsBounded 0 = true → Expr.LeavesBounded e →
     FvarsOk V m.val env φ d ρ e → AnnotOk V m.val env φ d ρ e →
     interpExpr V m.val env φ d ρ e' = interpExpr V m.val env φ d ρ e ∧
@@ -75,7 +92,7 @@ variable (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
 universe (the inlined-`ensureSort` pattern of the inference rules). -/
 theorem sort_result (hwc : WhnfClaims m φ fuel) {d : Nat} {t : Expr} {u : Level}
     {ρ : Nat → V}
-    (h : whnfCore env fuel d t = .ok (.sort u))
+    (h : whnf env fuel d t = .ok (.sort u))
     (hw : WScoped d t) (hb : t.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded t)
     (hok : FvarsOk V m.val env φ d ρ t) (ha : AnnotOk V m.val env φ d ρ t) :
@@ -92,7 +109,7 @@ theorem sortCert_pt {m : EnvModel V env} {fuel : Nat}
     {d : Nat} {x tx stx : Expr} {uT : Level} {ρ : Nat → V}
     (hti : inferTypeCore env fuel d x = .ok tx)
     (hsti : inferTypeCore env fuel d tx = .ok stx)
-    (hwst : whnfCore env fuel d stx = .ok (.sort uT))
+    (hwst : whnf env fuel d stx = .ok (.sort uT))
     (hu0 : Level.eval φ uT = 0)
     (hw : WScoped d x) (hb : x.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded x)
@@ -131,7 +148,7 @@ to the proof point. -/
 theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
     (ihw : WhnfClaims m φ fuel) (ihi : InferClaims m φ fuel)
     {d : Nat} {a b : Expr} {ρ : Nat → V}
-    (h : proofIrrel env (fuel + 1) d a b = .ok true)
+    (h : proofIrrelP env fuel d a b = .ok true)
     (hwa : WScoped d a) (hwb : WScoped d b)
     (hba : a.looseBVarsBounded 0 = true) (hbb : b.looseBVarsBounded 0 = true)
     (hLba : Expr.LeavesBounded a) (hLbb : Expr.LeavesBounded b)
@@ -139,13 +156,13 @@ theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
     (haa : AnnotOk V m.val env φ d ρ a) (hab : AnnotOk V m.val env φ d ρ b) :
     interpExpr V m.val env φ d ρ a = some pt ∧
     interpExpr V m.val env φ d ρ b = some pt := by
-  obtain ⟨ta, tb, wta0, hta, htb, -, hwta0, hcase⟩ := proofIrrel_inv h
-  rcases hcase with ⟨hu, wtb, hwtb, hub⟩ |
-    ⟨sta, uT, stb, vT, hsta, hwta, hequ, hstb, hwtb, heqv⟩
+  obtain ⟨ta, wta0, hta, hwta0, hcase⟩ := proofIrrel_inv h
+  rcases hcase with ⟨hu, tb, wtb, htb, hwtb, hub⟩ |
+    ⟨sta, uT, tb, stb, vT, hsta, hwta, hequ, htb, hstb, hwtb, heqv⟩
   · -- unit branch: every inhabitant of the basis unit type is `pt`
     have unitSide : ∀ (x tx wtx : Expr),
         inferTypeCore env fuel d x = .ok tx →
-        whnfCore env fuel d tx = .ok wtx →
+        whnf env fuel d tx = .ok wtx →
         isUnitLikeTy env wtx = true →
         WScoped d x → x.looseBVarsBounded 0 = true → Expr.LeavesBounded x →
         FvarsOk V m.val env φ d ρ x → AnnotOk V m.val env φ d ρ x →

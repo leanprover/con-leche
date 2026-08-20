@@ -23,12 +23,11 @@ variable (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
 
 /-- Pairwise definitional equality of two interpreted spines yields
 pointwise equal values. -/
-theorem defEqList_values {m : EnvModel V env} {fuelTop : Nat}
-    (ihAll : ∀ f, f ≤ fuelTop →
-      WhnfClaims m φ f ∧ DefEqClaims m φ f ∧ InferClaims m φ f) :
-    ∀ (fl : Nat), fl ≤ fuelTop → ∀ {d : Nat} {ρ : Nat → V}
+theorem defEqList_values {m : EnvModel V env} {fuel : Nat}
+    (ihd : DefEqClaims m φ fuel) :
+    ∀ {d : Nat} {ρ : Nat → V}
       (as bs : List Expr) (vs us : List V),
-      defEqList env fl d as bs = .ok true →
+      defEqListP env fuel d as bs = .ok true →
       (∀ x ∈ as, WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
         Expr.LeavesBounded x ∧ FvarsOk V m.val env φ d ρ x ∧
         AnnotOk V m.val env φ d ρ x) →
@@ -38,28 +37,27 @@ theorem defEqList_values {m : EnvModel V env} {fuelTop : Nat}
       InterpSpine m.val env φ d ρ as vs →
       InterpSpine m.val env φ d ρ bs us →
       vs = us := by
-  intro fl hfl d ρ as
-  induction as generalizing fl with
+  intro d ρ as
+  induction as with
   | nil =>
     intro bs vs us h _ _ hs1 hs2
-    match fl, bs, h with
-    | fl + 1, [], h =>
+    match bs, h with
+    | [], h =>
       match vs, hs1, us, hs2 with
       | [], _, [], _ => rfl
-    | fl + 1, _ :: _, h => exact nomatch h
+    | _ :: _, h => exact nomatch h
   | cons a as ih =>
     intro bs vs us h ha hb hs1 hs2
-    match fl, bs, h with
-    | fl + 1, b :: bs, h =>
+    match bs, h with
+    | b :: bs, h =>
       obtain ⟨hde, hrest⟩ := defEqList_step_inv h
       match vs, hs1, us, hs2 with
       | v :: vs, ⟨hiv, hs1'⟩, u :: us, ⟨hiu, hs2'⟩ =>
         obtain ⟨haw, hab, haL, haF, haA⟩ := ha a List.mem_cons_self
         obtain ⟨hbw, hbb, hbL, hbF, hbA⟩ := hb b List.mem_cons_self
-        have hflle : fl ≤ fuelTop := Nat.le_trans (Nat.le_succ fl) hfl
-        have hvu : v = u := (ihAll fl hflle).2.1 hde haw hbw hab hbb
+        have hvu : v = u := ihd hde haw hbw hab hbb
           haL hbL haF hbF haA hbA hiv hiu
-        rw [hvu, ih fl hflle bs vs us hrest
+        rw [hvu, ih bs vs us hrest
           (fun x hx => ha x (List.mem_cons_of_mem _ hx))
           (fun x hx => hb x (List.mem_cons_of_mem _ hx)) hs1' hs2']
 
@@ -67,12 +65,11 @@ theorem defEqList_values {m : EnvModel V env} {fuelTop : Nat}
 each certified argument's inferred type is definitionally equal to the
 corresponding (progressively instantiated) domain, so its interpreted
 value is a member of the interpreted domain. -/
-theorem certs_fit {m : EnvModel V env} {fuelTop : Nat}
-    (ihAll : ∀ f, f ≤ fuelTop →
-      WhnfClaims m φ f ∧ DefEqClaims m φ f ∧ InferClaims m φ f) :
-    ∀ (fl : Nat), fl ≤ fuelTop → ∀ {d : Nat} {ρ : Nat → V}
+theorem certs_fit {m : EnvModel V env} {fuel : Nat}
+    (ihd : DefEqClaims m φ fuel) (ihi : InferClaims m φ fuel) :
+    ∀ {d : Nat} {ρ : Nat → V}
       (ty : Expr) (args : List Expr) (vs : List V) (T : V),
-      iotaCerts env fl d ty args = .ok true →
+      iotaCertsP env fuel d ty args = .ok true →
       WScoped d ty → ty.looseBVarsBounded 0 = true →
       Expr.LeavesBounded ty → FvarsOk V m.val env φ d ρ ty →
       AnnotOk V m.val env φ d ρ ty →
@@ -82,8 +79,8 @@ theorem certs_fit {m : EnvModel V env} {fuelTop : Nat}
         AnnotOk V m.val env φ d ρ x) →
       InterpSpine m.val env φ d ρ args vs →
       ∃ rest, TeleFitI V m.val env φ d ρ ty args vs rest := by
-  intro fl hfl d ρ ty args
-  induction args generalizing fl ty with
+  intro d ρ ty args
+  induction args generalizing ty with
   | nil =>
     intro vs T hc hwty hbty hLty hFty hAty hity hargs hsp
     match vs, hsp with
@@ -92,8 +89,6 @@ theorem certs_fit {m : EnvModel V env} {fuelTop : Nat}
     intro vs T hc hwty hbty hLty hFty hAty hity hargs hsp
     match vs, hsp with
     | v :: vs, ⟨hia, hsp'⟩ =>
-    match fl, hc with
-    | fl + 1, hc =>
     match ty, hc with
     | .bvar _, hc => exact nomatch hc
     | .fvar _ _ _, hc => exact nomatch hc
@@ -106,7 +101,6 @@ theorem certs_fit {m : EnvModel V env} {fuelTop : Nat}
     | .proj _ _ _, hc => exact nomatch hc
     | .forallE n dom body mt, hc =>
     obtain ⟨ta, hta, hde, hrest⟩ := iotaCerts_step_inv hc
-    have hflle : fl ≤ fuelTop := Nat.le_trans (Nat.le_succ fl) hfl
     obtain ⟨haw, hab, haL, haF, haA⟩ := hargs a List.mem_cons_self
     -- the domain interprets (the ∀-tower interp forces it)
     simp only [AnnotOk] at hAty
@@ -126,15 +120,15 @@ theorem certs_fit {m : EnvModel V env} {fuelTop : Nat}
         exact ⟨A, rfl, (Option.some.inj hity).symm⟩
     -- the inferred type's value equals the domain's
     obtain ⟨⟨va, tva, hiva, hita, hmemta⟩, hAta⟩ :=
-      (ihAll fl hflle).2.2 hta haw hab haL haF haA
+      ihi hta haw hab haL haF haA
     obtain rfl : va = v := by rw [hiva] at hia; exact Option.some.inj hia
-    have htaw : WScoped d ta := inferTypeCore_WScoped m.wf fl hta haw
+    have htaw : WScoped d ta := inferTypeCore_WScoped m.wf fuel hta haw
     have htab : ta.looseBVarsBounded 0 = true :=
-      inferTypeCore_looseBVars m.wf fl hta haw hab haL
+      inferTypeCore_looseBVars m.wf fuel hta haw hab haL
     have htaL : Expr.LeavesBounded ta := fun l hl =>
-      haL l (inferTypeCore_fvarLeaves m.wf fl hta haw l hl)
+      haL l (inferTypeCore_fvarLeaves m.wf fuel hta haw l hl)
     have htaF : FvarsOk V m.val env φ d ρ ta :=
-      FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fl hta haw) haF
+      FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hta haw) haF
     have hwty' : WScoped d dom ∧ WScoped d body := by
       simpa [WScoped] using hwty
     have hdomw : WScoped d dom := hwty'.1
@@ -145,7 +139,7 @@ theorem certs_fit {m : EnvModel V env} {fuelTop : Nat}
       hLty l (by simp [Expr.fvarLeaves, hl])
     have hdomF : FvarsOk V m.val env φ d ρ dom :=
       FvarsOk.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]) hFty
-    have hveq : tva = A := (ihAll fl hflle).2.1 hde htaw hdomw htab hdomb
+    have hveq : tva = A := ihd hde htaw hdomw htab hdomb
       htaL hdomL htaF hdomF hAta hAdom hita hidom
     have hvA : va ∈ˢ A := hveq ▸ hmemta
     -- the instantiated body interprets and stays truthful
@@ -174,12 +168,11 @@ theorem certs_fit {m : EnvModel V env} {fuelTop : Nat}
       rcases fvarLeaves_instantiate1 body 0 hl with hl' | hl'
       · exact hFty l (by simp [Expr.fvarLeaves, hl'])
       · exact haF l hl'
-    obtain ⟨rest, hfit⟩ := ih fl hflle (body.instantiate1 a) vs w hrest
+    obtain ⟨rest, hfit⟩ := ih (body.instantiate1 a) vs w hrest
       hwbody hbbody hLbody hFbody hAbody hibody
       (fun x hx => hargs x (List.mem_cons_of_mem _ hx)) hsp'
     exact ⟨rest, TeleFitI.cons hidom hia hvA hfb haw hab haA hfit⟩
 
-set_option maxHeartbeats 6400000 in
 end Claims
 
 end Setlec
