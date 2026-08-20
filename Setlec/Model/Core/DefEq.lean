@@ -21,21 +21,27 @@ variable {m : EnvModel V env} {fuel : Nat}
 variable (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
   (ihi : InferClaims m φ fuel)
 
+set_option maxHeartbeats 1600000 in
 theorem defeq_claims (m : EnvModel V env)
     (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-    (_ihi : InferClaims m φ fuel)
-    (ihAll : ∀ f, f ≤ fuel →
-      WhnfClaims m φ f ∧ DefEqClaims m φ f ∧ InferClaims m φ f) :
+    (ihi : InferClaims m φ fuel) :
     DefEqClaims m φ (fuel + 1) := by
   intro d a b ρ h hwa hwb hba hbb hLba hLbb hoka hokb haa hab va vb hva hvb
-  unfold isDefEqCore at h
-  simp only [Bind.bind, Except.bind] at h
-  cases hwha : whnfCore env fuel d a with
+  rw [isDefEqCore_succ] at h
+  simp only [defeqBody, Bind.bind, Except.bind] at h
+  simp only [whnf_def, defeq_def, infer_def, stuckIrrel_fold,
+    etaCert_fold] at h
+  by_cases heqab : (a == b) = true
+  · obtain rfl : a = b := eq_of_beq heqab
+    rw [hva] at hvb
+    exact Option.some.inj hvb
+  rw [if_neg heqab] at h
+  cases hwha : whnf env fuel d a with
   | error e => rw [hwha] at h; exact nomatch h
   | ok a' =>
   rw [hwha] at h
   dsimp only at h
-  cases hwhb : whnfCore env fuel d b with
+  cases hwhb : whnf env fuel d b with
   | error e => rw [hwhb] at h; exact nomatch h
   | ok b' =>
   rw [hwhb] at h
@@ -56,9 +62,14 @@ theorem defeq_claims (m : EnvModel V env)
   have hoka' := whnf_FvarsOk m.wf fuel hwha hoka
   have hokb' := whnf_FvarsOk m.wf fuel hwhb hokb
   clear hwha hwhb hwa hwb haa hab hia hib hba hbb hLba hLbb hoka hokb
-  have hPI : stuckIrrel env fuel d a' b' = .ok true → va = vb := fun hp =>
-    stuckIrrel_sound ihAll hp hwa' hwb' hba' hbb' hLba' hLbb'
+  have hPI : stuckIrrelP env fuel d a' b' = .ok true → va = vb := fun hp =>
+    stuckIrrel_sound ihw ihd ihi hp hwa' hwb' hba' hbb' hLba' hLbb'
       hoka' hokb' haa' hab' hva hvb
+  by_cases heqab' : (a' == b') = true
+  · obtain rfl : a' = b' := eq_of_beq heqab'
+    rw [hva] at hvb
+    exact Option.some.inj hvb
+  rw [if_neg heqab'] at h
   match a', b', h with
   | Expr.sort u, Expr.sort v, h =>
     dsimp only at h
@@ -348,44 +359,44 @@ theorem defeq_claims (m : EnvModel V env)
   | Expr.sort _, Expr.forallE _ _ _ _, h => exact hPI h
   | Expr.sort _, Expr.const _ _, h => exact hPI h
   | Expr.sort u, Expr.lam n₂ ty₂ body₂ m₂, h =>
-    exact etaBranch_sound' ihAll h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
+    exact etaBranch_sound' ihw ihd ihi h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
   | Expr.sort _, Expr.app _ _, h => exact hPI h
   | Expr.fvar _ _ _, Expr.sort _, h => exact hPI h
   | Expr.fvar _ _ _, Expr.forallE _ _ _ _, h => exact hPI h
   | Expr.fvar _ _ _, Expr.const _ _, h => exact hPI h
   | Expr.fvar i ni tyi, Expr.lam n₂ ty₂ body₂ m₂, h =>
-    exact etaBranch_sound' ihAll h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
+    exact etaBranch_sound' ihw ihd ihi h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
   | Expr.fvar _ _ _, Expr.app _ _, h => exact hPI h
   | Expr.forallE _ _ _ _, Expr.sort _, h => exact hPI h
   | Expr.forallE _ _ _ _, Expr.fvar _ _ _, h => exact hPI h
   | Expr.forallE _ _ _ _, Expr.const _ _, h => exact hPI h
   | Expr.forallE n₁ ty₁ body₁ m₁, Expr.lam n₂ ty₂ body₂ m₂, h =>
-    exact etaBranch_sound' ihAll h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
+    exact etaBranch_sound' ihw ihd ihi h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
   | Expr.forallE _ _ _ _, Expr.app _ _, h => exact hPI h
   | Expr.const _ _, Expr.sort _, h => exact hPI h
   | Expr.const _ _, Expr.fvar _ _ _, h => exact hPI h
   | Expr.const _ _, Expr.forallE _ _ _ _, h => exact hPI h
   | Expr.const n us, Expr.lam n₂ ty₂ body₂ m₂, h =>
-    exact etaBranch_sound' ihAll h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
+    exact etaBranch_sound' ihw ihd ihi h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
   | Expr.const _ _, Expr.app _ _, h => exact hPI h
   | Expr.lam n₁ ty₁ body₁ m₁, Expr.sort u, h =>
-    exact etaBranch_sound ihAll h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
+    exact etaBranch_sound ihw ihd ihi h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
   | Expr.lam n₁ ty₁ body₁ m₁, Expr.fvar j nj tyj, h =>
-    exact etaBranch_sound ihAll h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
+    exact etaBranch_sound ihw ihd ihi h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
   | Expr.lam n₁ ty₁ body₁ m₁, Expr.forallE n₂ ty₂ body₂ m₂, h =>
-    exact etaBranch_sound ihAll h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
+    exact etaBranch_sound ihw ihd ihi h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
   | Expr.lam n₁ ty₁ body₁ m₁, Expr.const n' us', h =>
-    exact etaBranch_sound ihAll h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
+    exact etaBranch_sound ihw ihd ihi h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
   | Expr.lam n₁ ty₁ body₁ m₁, Expr.app f₂ a₂, h =>
-    exact etaBranch_sound ihAll h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
+    exact etaBranch_sound ihw ihd ihi h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
   | Expr.app _ _, Expr.sort _, h => exact hPI h
   | Expr.app _ _, Expr.fvar _ _ _, h => exact hPI h
   | Expr.app _ _, Expr.forallE _ _ _ _, h => exact hPI h
   | Expr.app _ _, Expr.const _ _, h => exact hPI h
   | Expr.app f₁ a₁, Expr.lam n₂ ty₂ body₂ m₂, h =>
-    exact etaBranch_sound' ihAll h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
+    exact etaBranch_sound' ihw ihd ihi h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
   | Expr.bvar i₁, Expr.lam n₂ ty₂ body₂ m₂, h =>
-    exact etaBranch_sound' ihAll h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
+    exact etaBranch_sound' ihw ihd ihi h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
   | Expr.bvar _, Expr.sort _, h => exact hPI h
   | Expr.bvar _, Expr.fvar _ _ _, h => exact hPI h
   | Expr.bvar _, Expr.const _ _, h => exact hPI h
@@ -400,10 +411,10 @@ theorem defeq_claims (m : EnvModel V env)
   | Expr.const _ _, Expr.bvar _, h => exact hPI h
   | Expr.forallE _ _ _ _, Expr.bvar _, h => exact hPI h
   | Expr.lam n₁ ty₁ body₁ m₁, Expr.bvar i₂, h =>
-    exact etaBranch_sound ihAll h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
+    exact etaBranch_sound ihw ihd ihi h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
   | Expr.app _ _, Expr.bvar _, h => exact hPI h
   | Expr.letE n₁ ty₁ v₁ body₁, Expr.lam n₂ ty₂ body₂ m₂, h =>
-    exact etaBranch_sound' ihAll h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
+    exact etaBranch_sound' ihw ihd ihi h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
   | Expr.letE _ _ _ _, Expr.sort _, h => exact hPI h
   | Expr.letE _ _ _ _, Expr.fvar _ _ _, h => exact hPI h
   | Expr.letE _ _ _ _, Expr.const _ _, h => exact hPI h
@@ -418,28 +429,163 @@ theorem defeq_claims (m : EnvModel V env)
   | Expr.const _ _, Expr.letE _ _ _ _, h => exact hPI h
   | Expr.forallE _ _ _ _, Expr.letE _ _ _ _, h => exact hPI h
   | Expr.lam n₁ ty₁ body₁ m₁, Expr.letE n₂ ty₂ v₂ body₂, h =>
-    exact etaBranch_sound ihAll h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
+    exact etaBranch_sound ihw ihd ihi h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
   | Expr.app _ _, Expr.letE _ _ _ _, h => exact hPI h
   | Expr.lit l₁, Expr.lam n₂ ty₂ body₂ m₂, h =>
-    exact etaBranch_sound' ihAll h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
+    exact etaBranch_sound' ihw ihd ihi h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
   | Expr.lit _, Expr.sort _, h => exact hPI h
   | Expr.lit _, Expr.fvar _ _ _, h => exact hPI h
-  | Expr.lit _, Expr.const _ _, h => exact hPI h
+  | Expr.lit (.natVal n), Expr.const c us, h =>
+    dsimp only at h
+    split at h
+    case isTrue hc =>
+      obtain ⟨rfl, rfl⟩ := hc
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      obtain rfl : n = 0 := by simpa using h.symm
+      have hs : natLitSupported env = true := by
+        cases hns : natLitSupported env
+        · simp [interpExpr, hns] at hva
+        · rfl
+      rw [interpExpr_lit hs] at hva
+      rw [interpExpr_const_natZero hs] at hvb
+      rw [← Option.some.inj hva, ← Option.some.inj hvb]
+      rfl
+    case isFalse => exact hPI h
+  | Expr.lit (.strVal _), Expr.const _ _, h => exact hPI h
   | Expr.lit _, Expr.forallE _ _ _ _, h => exact hPI h
-  | Expr.lit _, Expr.app _ _, h => exact hPI h
+  | Expr.lit (.natVal nn), Expr.app f x, h =>
+    dsimp only at h
+    match nn, f, h with
+    | 0, f, h => exact hPI h
+    | k + 1, .const c [], h =>
+      dsimp only at h
+      split at h
+      case isTrue hc =>
+        subst hc
+        have hs : natLitSupported env = true := by
+          cases hns : natLitSupported env
+          · simp [interpExpr, hns] at hva
+          · rfl
+        rw [interpExpr_lit hs] at hva
+        rw [interpExpr_app_succ hs] at hvb
+        revert hvb
+        cases hx : interpExpr V m.val env φ d ρ x with
+        | none => intro hvb; exact nomatch hvb
+        | some vx =>
+        intro hvb
+        dsimp only at hvb
+        simp only [WScoped] at hwb'
+        simp only [looseBVarsBounded, Bool.and_eq_true] at hbb'
+        have hLbx : Expr.LeavesBounded x := fun l hl =>
+          hLbb' l (by simp [fvarLeaves, hl])
+        have hokx : FvarsOk V m.val env φ d ρ x :=
+          (FvarsOk.of_app hokb').2
+        simp only [AnnotOk] at hab'
+        obtain ⟨-, hax, -⟩ := hab'
+        have hveq : natLitVal V (m.val natZeroName φ)
+            (m.val natSuccName φ) k = vx :=
+          ihd h (by simp [WScoped]) hwb'.2
+            (by simp [looseBVarsBounded]) hbb'.2
+            (fun l hl => by simp [fvarLeaves] at hl) hLbx
+            (fun l hl => by simp [fvarLeaves] at hl) hokx
+            (by simp [AnnotOk]) hax (interpExpr_lit hs) hx
+        rw [← Option.some.inj hva, ← Option.some.inj hvb, ← hveq]
+        rfl
+      case isFalse => exact hPI h
+    | k + 1, .bvar _, h => exact hPI h
+    | k + 1, .fvar _ _ _, h => exact hPI h
+    | k + 1, .sort _, h => exact hPI h
+    | k + 1, .const _ (_ :: _), h => exact hPI h
+    | k + 1, .app _ _, h => exact hPI h
+    | k + 1, .lam _ _ _ _, h => exact hPI h
+    | k + 1, .forallE _ _ _ _, h => exact hPI h
+    | k + 1, .letE _ _ _ _, h => exact hPI h
+    | k + 1, .lit _, h => exact hPI h
+    | k + 1, .proj _ _ _, h => exact hPI h
+  | Expr.lit (.strVal _), Expr.app _ _, h => exact hPI h
   | Expr.lit _, Expr.bvar _, h => exact hPI h
   | Expr.lit _, Expr.letE _ _ _ _, h => exact hPI h
-  | Expr.lit _, Expr.lit _, h => exact hPI h
+  | Expr.lit l₁, Expr.lit l₂, h =>
+    dsimp only at h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    obtain rfl : l₁ = l₂ := eq_of_beq h
+    rw [hva] at hvb
+    exact Option.some.inj hvb
   | Expr.lit _, Expr.proj _ _ _, h => exact hPI h
   | Expr.sort _, Expr.lit _, h => exact hPI h
   | Expr.fvar _ _ _, Expr.lit _, h => exact hPI h
-  | Expr.const _ _, Expr.lit _, h => exact hPI h
+  | Expr.const c us, Expr.lit (.natVal n), h =>
+    dsimp only at h
+    split at h
+    case isTrue hc =>
+      obtain ⟨rfl, rfl⟩ := hc
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      obtain rfl : n = 0 := by simpa using h.symm
+      have hs : natLitSupported env = true := by
+        cases hns : natLitSupported env
+        · simp [interpExpr, hns] at hvb
+        · rfl
+      rw [interpExpr_lit hs] at hvb
+      rw [interpExpr_const_natZero hs] at hva
+      rw [← Option.some.inj hva, ← Option.some.inj hvb]
+      rfl
+    case isFalse => exact hPI h
+  | Expr.const _ _, Expr.lit (.strVal _), h => exact hPI h
   | Expr.forallE _ _ _ _, Expr.lit _, h => exact hPI h
   | Expr.lam n₁ ty₁ body₁ m₁, Expr.lit l₂, h =>
-    exact etaBranch_sound ihAll h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
-  | Expr.app _ _, Expr.lit _, h => exact hPI h
+    exact etaBranch_sound ihw ihd ihi h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
+  | Expr.app f x, Expr.lit (.natVal nn), h =>
+    dsimp only at h
+    match nn, f, h with
+    | 0, f, h => exact hPI h
+    | k + 1, .const c [], h =>
+      dsimp only at h
+      split at h
+      case isTrue hc =>
+        subst hc
+        have hs : natLitSupported env = true := by
+          cases hns : natLitSupported env
+          · simp [interpExpr, hns] at hvb
+          · rfl
+        rw [interpExpr_lit hs] at hvb
+        rw [interpExpr_app_succ hs] at hva
+        revert hva
+        cases hx : interpExpr V m.val env φ d ρ x with
+        | none => intro hva; exact nomatch hva
+        | some vx =>
+        intro hva
+        dsimp only at hva
+        simp only [WScoped] at hwa'
+        simp only [looseBVarsBounded, Bool.and_eq_true] at hba'
+        have hLbx : Expr.LeavesBounded x := fun l hl =>
+          hLba' l (by simp [fvarLeaves, hl])
+        have hokx : FvarsOk V m.val env φ d ρ x :=
+          (FvarsOk.of_app hoka').2
+        simp only [AnnotOk] at haa'
+        obtain ⟨-, hax, -⟩ := haa'
+        have hveq : vx = natLitVal V (m.val natZeroName φ)
+            (m.val natSuccName φ) k :=
+          ihd h hwa'.2 (by simp [WScoped]) hba'.2
+            (by simp [looseBVarsBounded]) hLbx
+            (fun l hl => by simp [fvarLeaves] at hl) hokx
+            (fun l hl => by simp [fvarLeaves] at hl) hax
+            (by simp [AnnotOk]) hx (interpExpr_lit hs)
+        rw [← Option.some.inj hva, ← Option.some.inj hvb, hveq]
+        rfl
+      case isFalse => exact hPI h
+    | k + 1, .bvar _, h => exact hPI h
+    | k + 1, .fvar _ _ _, h => exact hPI h
+    | k + 1, .sort _, h => exact hPI h
+    | k + 1, .const _ (_ :: _), h => exact hPI h
+    | k + 1, .app _ _, h => exact hPI h
+    | k + 1, .lam _ _ _ _, h => exact hPI h
+    | k + 1, .forallE _ _ _ _, h => exact hPI h
+    | k + 1, .letE _ _ _ _, h => exact hPI h
+    | k + 1, .lit _, h => exact hPI h
+    | k + 1, .proj _ _ _, h => exact hPI h
+  | Expr.app _ _, Expr.lit (.strVal _), h => exact hPI h
   | Expr.proj s₁ i₁ e₁, Expr.lam n₂ ty₂ body₂ m₂, h =>
-    exact etaBranch_sound' ihAll h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
+    exact etaBranch_sound' ihw ihd ihi h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
   | Expr.proj _ _ _, Expr.sort _, h => exact hPI h
   | Expr.proj _ _ _, Expr.fvar _ _ _, h => exact hPI h
   | Expr.proj _ _ _, Expr.const _ _, h => exact hPI h
@@ -498,7 +644,7 @@ theorem defeq_claims (m : EnvModel V env)
   | Expr.const _ _, Expr.proj _ _ _, h => exact hPI h
   | Expr.forallE _ _ _ _, Expr.proj _ _ _, h => exact hPI h
   | Expr.lam n₁ ty₁ body₁ m₁, Expr.proj s₂ i₂ e₂, h =>
-    exact etaBranch_sound ihAll h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
+    exact etaBranch_sound ihw ihd ihi h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
   | Expr.app _ _, Expr.proj _ _ _, h => exact hPI h
 
 end Claims

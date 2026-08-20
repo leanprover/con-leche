@@ -75,6 +75,24 @@ theorem interpExpr_natLitToConstructor {cval : ConstVal V}
     simp [interpExpr, hsc, ConstantInfo.toConstantVal, h3, Level.substFn_nil,
       hs, natLitVal]
 
+/-- The interpretation of `Nat.succ` applied to one argument (given
+the guard). -/
+theorem interpExpr_app_succ {cval : ConstVal V}
+    (hs : natLitSupported env = true) {d : Nat} {ρ : Nat → V} {x : Expr} :
+    interpExpr V cval env φ d ρ (.app (.const natSuccName []) x) =
+      match interpExpr V cval env φ d ρ x with
+      | some vx => some (SetTheory.app (cval natSuccName φ) vx)
+      | none => none := by
+  obtain ⟨cv, caps, cv0, i0, j0, cv1, i1, j1, hn, hz, hsc, h1, h2, h3, -⟩ :=
+    natLitSupported_inv hs
+  cases hx : interpExpr V cval env φ d ρ x with
+  | none =>
+    simp [interpExpr, hsc, ConstantInfo.toConstantVal, h3,
+      Level.substFn_nil, hx]
+  | some vx =>
+    simp [interpExpr, hsc, ConstantInfo.toConstantVal, h3,
+      Level.substFn_nil, hx]
+
 /-- A whnf'd raw-literal reading interprets to the literal's value. -/
 theorem interpExpr_rawNatLit {cval : ConstVal V}
     (hs : natLitSupported env = true) {a : Expr} {n : Nat}
