@@ -1,5 +1,6 @@
 import Setlec.Kernel.Env
 import Setlec.Kernel.TypeChecker
+import Setlec.Kernel.TypeCheckerC
 
 /-!
 # The checker
@@ -15,11 +16,40 @@ theorems are declined.  Verification: `Setlec.Verify.Checker` and
 
 namespace Setlec
 
+/-- The core entry points the declaration checker runs on: the checker
+is written once against this record and instantiated twice — with the
+pure knot (`pureOps`, the verification's subject) and with the memoized
+knot (`cachedOps`, what the binary executes). -/
+structure CheckerOps where
+  annotate : Env → Nat → Expr → CheckM Expr
+  inferType : Env → Nat → Expr → CheckM Expr
+  isDefEq : Env → Nat → Expr → Expr → CheckM Bool
+  ensureSort : Env → Nat → Expr → CheckM Level
+  whnf : Env → Nat → Expr → CheckM Expr
+
+/-- The pure instantiation, at the standard fuel. -/
+def pureOps : CheckerOps where
+  annotate env d e := annotateCore env checkFuel d e
+  inferType env d e := inferTypeCore env checkFuel d e
+  isDefEq env d a b := isDefEqCore env checkFuel d a b
+  ensureSort env d e := ensureSortCore env checkFuel d e
+  whnf env d e := Setlec.whnf env checkFuel d e
+
+/-- The memoized instantiation, at the standard fuel; each call starts
+from a fresh cache (the environment differs between calls). -/
+def cachedOps : CheckerOps where
+  annotate env d e := ((cachedFns env checkFuel).annotate d e).run' {}
+  inferType env d e := ((cachedFns env checkFuel).infer d e).run' {}
+  isDefEq env d a b := ((cachedFns env checkFuel).defeq d a b).run' {}
+  ensureSort env d e :=
+    (ensureSort (cachedFns env checkFuel) env d e).run' {}
+  whnf env d e := ((cachedFns env checkFuel).whnf d e).run' {}
+
 /-- Checks common to all declarations: fresh name, well-formed universe
 parameters, and a type that is a type and mentions only declared
 parameters.  Returns the constant with its type **annotated**
 (`annotate`); the guards run on the annotated type. -/
-def checkConstantVal (env : Env) (cv : ConstantVal) : CheckM ConstantVal := do
+def checkConstantVal (ops : CheckerOps) (env : Env) (cv : ConstantVal) : CheckM ConstantVal := do
   if (env.find? cv.name).isSome then
     throw (.invalid s!"duplicate declaration {cv.name}")
   if reservedBasisNames.contains cv.name then
@@ -32,13 +62,13 @@ def checkConstantVal (env : Env) (cv : ConstantVal) : CheckM ConstantVal := do
     throw (.invalid s!"loose bound variable in type of {cv.name}")
   if cv.type.hasFvar then
     throw (.invalid s!"unexpected free variable in type of {cv.name}")
-  let type ← annotate env 0 cv.type
+  let type ← ops.annotate env 0 cv.type
   unless type.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless type.constsResolve env do
     throw (.invalid s!"unknown constant in type of {cv.name}")
-  let stype ← inferType env 0 type
-  let _u ← ensureSort env 0 stype
+  let stype ← ops.inferType env 0 type
+  let _u ← ops.ensureSort env 0 stype
   pure { cv with type := type }
 
 /-- Build the expected statement of the model's `iota_j` theorem for one
@@ -86,7 +116,7 @@ def domsMatchAux (g : Nat → Expr → Expr)
 /-- Check a modeled recursor's rules against the model's `iota`
 theorems (the loop of `checkIndDecl`'s recursor arm, lifted for
 verification). -/
-def checkIotaRules (env' envSelf : Env) (f : Name → Name)
+def checkIotaRules (ops : CheckerOps) (env' envSelf : Env) (f : Name → Name)
     (cvName : Name) (lps : List Name) (tyA : Expr)
     (nP nM nm : Nat) : Nat → List RecRule → CheckM (List RecRule)
   | _, [] => pure []
@@ -101,7 +131,7 @@ def checkIotaRules (env' envSelf : Env) (f : Name → Name)
       throw (.invalid s!"loose bound variable in rule of {cvName}")
     if r.rhs.hasFvar then
       throw (.invalid s!"free variable in rule of {cvName}")
-    let rhsA ← annotate envSelf 0 r.rhs
+    let rhsA ← ops.annotate envSelf 0 r.rhs
     unless rhsA.allLevelParamsDefined lps do
       throw (.invalid s!"undeclared universe parameter in rule of {cvName}")
     unless rhsA.constsResolve envSelf do
@@ -126,12 +156,12 @@ def checkIotaRules (env' envSelf : Env) (f : Name → Name)
       throw (.notImplemented s!"rule field domain mismatch with constructor type for {cvName}")
     -- infer the rule's type: soundness interprets the (λ-tower)
     -- right-hand side through this inference
-    let _rhsTy ← inferType envSelf 0 rhsA
+    let _rhsTy ← ops.inferType envSelf 0 rhsA
     let some stmtRaw := buildIotaStmt f cvName r.ctor
         lps cvj.levelParams nP nM nm cnF
         tyA cvj.type r.rhs
       | throw (.notImplemented "iota statement construction")
-    let stmtA ← annotate env' 0 stmtRaw
+    let stmtA ← ops.annotate env' 0 stmtRaw
     let thmName := (cvName.str "_model").str s!"iota_{j}"
     let some (.thmInfo cvt _) := env'.find? thmName
       | throw (.notImplemented s!"missing iota theorem {thmName}")
@@ -168,7 +198,7 @@ def checkIotaRules (env' envSelf : Env) (f : Name → Name)
         [.app motiveBVarS ctorAppS, lhsS, rbody.renameConsts f] do
       throw (.notImplemented
         s!"iota statement body mismatch for {thmName}")
-    let rest' ← checkIotaRules env' envSelf f cvName lps tyA nP nM nm
+    let rest' ← checkIotaRules ops env' envSelf f cvName lps tyA nP nM nm
       (j + 1) rest
     pure ({ r with rhs := rhsA } :: rest')
 
@@ -176,11 +206,11 @@ def checkIotaRules (env' envSelf : Env) (f : Name → Name)
 its `_model` counterpart (the step of `checkIndDecl`'s fold, lifted
 for verification).  `caps` is the capability record the block earned
 (recorded on the inductive type former). -/
-def checkIndMember (blockNames : List Name) (caps : IndCaps) (env' : Env)
+def checkIndMember (ops : CheckerOps) (blockNames : List Name) (caps : IndCaps) (env' : Env)
     (ci : ConstantInfo) : CheckM Env := do
   let f : Name → Name := fun n =>
     if blockNames.contains n then n.str "_model" else n
-  let cvA ← checkConstantVal env' ci.toConstantVal
+  let cvA ← checkConstantVal ops env' ci.toConstantVal
   -- a member may not itself be shaped like a model companion, so the
   -- block renaming can never map onto a member
   if cvA.name.isModelSuffix then
@@ -210,7 +240,7 @@ def checkIndMember (blockNames : List Name) (caps : IndCaps) (env' : Env)
     -- mention the recursor, but nothing during their annotation may
     -- depend on its (yet unchecked) rules
     let envSelf : Env := ⟨.recInfo cvA nP nM nm ni [] :: env'.consts⟩
-    let rules' ← checkIotaRules env' envSelf f cvA.name cvA.levelParams cvA.type nP nM nm 0 rules
+    let rules' ← checkIotaRules ops env' envSelf f cvA.name cvA.levelParams cvA.type nP nM nm 0 rules
     pure ⟨.recInfo cvA nP nM nm ni rules' :: env'.consts⟩
   | _ => throw (.invalid s!"non-inductive member {cvA.name} in block")
 
@@ -272,13 +302,13 @@ def checkProjTy (env' : Env) (T ctorName : Name) (lps : List Name)
 
 /-- Stage 3: the reduction rule — λ over the constructor telescope
 returning field `i`, annotated; its λ-domains stay the constructor's. -/
-def checkProjRule (env' : Env) (cvj : ConstantVal) (lps : List Name)
+def checkProjRule (ops : CheckerOps) (env' : Env) (cvj : ConstantVal) (lps : List Name)
     (nP nF i : Nat) : CheckM Expr := do
   let some rhs := Expr.pisToLams (nP + nF) cvj.type (.bvar (nF - 1 - i))
     | throw (.notImplemented "projection rule telescope")
   unless !rhs.hasFvar && rhs.looseBVarsBounded 0 do
     throw (.notImplemented "projection rule scoping")
-  let rhsA ← annotate env' 0 rhs
+  let rhsA ← ops.annotate env' 0 rhs
   unless rhsA.allLevelParamsDefined lps && rhsA.constsResolve env' &&
       rhsA.looseBVarsBounded 0 && !rhsA.hasFvar do
     throw (.notImplemented "projection rule wellformedness")
@@ -334,13 +364,13 @@ a modeled single-constructor structure, against the model's
 `T._model.proj_i` definition and its `iota` theorem.  The function is
 stored as a degenerate recursor (no motive, no minors) carrying one
 rule, so the generic iota machinery reduces it. -/
-def checkProjFn (env' : Env) (T ctorName : Name) (lps : List Name)
+def checkProjFn (ops : CheckerOps) (env' : Env) (T ctorName : Name) (lps : List Name)
     (nP nF i : Nat) : CheckM Env := do
   let (cvj, mcv) ← checkProjLookups env' T ctorName lps nP nF i
   let pty ← checkProjTy env' T ctorName lps mcv.type nP nF
   unless i < nF do
     throw (.invalid "projection index out of range")
-  let rhsA ← checkProjRule env' cvj lps nP nF i
+  let rhsA ← checkProjRule ops env' cvj lps nP nF i
   checkProjIota env' T ctorName lps cvj nP nF i
   pure ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP 0 0 0
     [⟨ctorName, nF, rhsA⟩] :: env'.consts⟩
@@ -439,7 +469,7 @@ shape exactly as the official kernel does — an inductive proposition
 with a single constructor taking only the parameters; the reduction
 site carries the semantic load (proof irrelevance), so no model
 theorem backs the flag. -/
-def checkIndDecl (env : Env) (block : List ConstantInfo) : CheckM Env := do
+def checkIndDecl (ops : CheckerOps) (env : Env) (block : List ConstantInfo) : CheckM Env := do
   match block.filter (fun ci => match ci with
       | .indInfo _ _ => true | _ => false),
     block.filter (fun ci => match ci with
@@ -453,54 +483,54 @@ def checkIndDecl (env : Env) (block : List ConstantInfo) : CheckM Env := do
         unitParams := nP,
         ruleK := nF == 0 && piResultIsProp cvT.type }
     let env₂ ← block.foldlM
-      (checkIndMember (block.map (·.name)) caps) env
+      (checkIndMember ops (block.map (·.name)) caps) env
     -- the whole projection name family must be ours to install
     unless (List.range nF).all
         (fun j => (env₂.find? (projFnName cvT.name j)).isNone) do
       throw (.invalid "projection name family taken")
     (List.range nF).foldlM (fun e i =>
       if (e.find? (projModelName cvT.name i)).isSome then
-        checkProjFn e cvT.name cvC.name cvT.levelParams nP nF i
+        checkProjFn ops e cvT.name cvC.name cvT.levelParams nP nF i
       else pure e) env₂
   | _, _ =>
-    block.foldlM (checkIndMember (block.map (·.name)) {}) env
+    block.foldlM (checkIndMember ops (block.map (·.name)) {}) env
 
 /-- Check a single declaration, extending the environment on success. -/
-def checkDecl (env : Env) (d : Declaration) : CheckM Env := do
+def checkDecl (ops : CheckerOps) (env : Env) (d : Declaration) : CheckM Env := do
   match d with
   | .defnDecl cv value =>
-    let cv ← checkConstantVal env cv
+    let cv ← checkConstantVal ops env cv
     unless value.looseBVarsBounded 0 do
       throw (.invalid s!"loose bound variable in value of {cv.name}")
     if value.hasFvar then
       throw (.invalid s!"unexpected free variable in value of {cv.name}")
-    let value ← annotate env 0 value
+    let value ← ops.annotate env 0 value
     unless value.allLevelParamsDefined cv.levelParams do
       throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
     unless value.constsResolve env do
       throw (.invalid s!"unknown constant in value of {cv.name}")
-    let vtype ← inferType env 0 value
-    unless ← isDefEq env 0 vtype cv.type do
+    let vtype ← ops.inferType env 0 value
+    unless ← ops.isDefEq env 0 vtype cv.type do
       throw (.invalid s!"type mismatch in definition {cv.name}")
     pure ⟨.defnInfo cv value :: env.consts⟩
   | .thmDecl cv value =>
-    let cv ← checkConstantVal env cv
+    let cv ← checkConstantVal ops env cv
     -- the type of a theorem must be a proposition
-    let stype ← inferType env 0 cv.type
-    let u ← ensureSort env 0 stype
+    let stype ← ops.inferType env 0 cv.type
+    let u ← ops.ensureSort env 0 stype
     unless (← liftFueled "level comparison" (Level.isEquiv u .zero)) do
       throw (.invalid s!"type of theorem {cv.name} is not a proposition")
     unless value.looseBVarsBounded 0 do
       throw (.invalid s!"loose bound variable in value of {cv.name}")
     if value.hasFvar then
       throw (.invalid s!"unexpected free variable in value of {cv.name}")
-    let value ← annotate env 0 value
+    let value ← ops.annotate env 0 value
     unless value.allLevelParamsDefined cv.levelParams do
       throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
     unless value.constsResolve env do
       throw (.invalid s!"unknown constant in value of {cv.name}")
-    let vtype ← inferType env 0 value
-    unless ← isDefEq env 0 vtype cv.type do
+    let vtype ← ops.inferType env 0 value
+    unless ← ops.isDefEq env 0 vtype cv.type do
       throw (.invalid s!"type mismatch in theorem {cv.name}")
     pure ⟨.thmInfo cv value :: env.consts⟩
   | .axiomDecl cv => throw (.notImplemented s!"axiom declaration ({cv.name})")
@@ -511,11 +541,11 @@ def checkDecl (env : Env) (d : Declaration) : CheckM Env := do
       unless (env.find? ci.name).isNone do
         throw (.invalid s!"duplicate declaration {ci.name}")
       pure (⟨ci :: env.consts⟩ : Env)) env
-  | .indDecl block => checkIndDecl env block
+  | .indDecl block => checkIndDecl ops env block
 
 /-- Check a list of declarations in order, starting from the empty
 environment. -/
-def checkDecls (ds : List Declaration) : CheckM Env :=
-  ds.foldlM checkDecl Env.empty
+def checkDecls (ops : CheckerOps) (ds : List Declaration) : CheckM Env :=
+  ds.foldlM (checkDecl ops) Env.empty
 
 end Setlec

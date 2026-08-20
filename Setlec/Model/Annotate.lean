@@ -28,18 +28,24 @@ theorem annotateCore_sound (m : EnvModel V env) :
       Expr.LeavesBounded e →
       ∀ (ρ : Nat → V), FvarsOk V m.val env φ d ρ e →
         AnnotOk V m.val env φ d ρ e'
-  | 0, _, _, _, h, _, _, _, _, _ => by simp [annotateCore] at h
+  | 0, _, _, _, h, _, _, _, _, _ => by
+    rw [annotateCore_zero] at h
+    simp [throw, throwThe, MonadExceptOf.throw] at h
   | fuel + 1, .bvar i, d, e', h, _, _, _, ρ, _ => by
-    simp only [annotateCore, pure, Except.pure, Except.ok.injEq] at h
+    rw [annotateCore_succ] at h
+    simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
     subst h; simp [AnnotOk]
   | fuel + 1, .fvar idx n ty, d, e', h, _, _, _, ρ, _ => by
-    simp only [annotateCore, pure, Except.pure, Except.ok.injEq] at h
+    rw [annotateCore_succ] at h
+    simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
     subst h; simp [AnnotOk]
   | fuel + 1, .sort u, d, e', h, _, _, _, ρ, _ => by
-    simp only [annotateCore, pure, Except.pure, Except.ok.injEq] at h
+    rw [annotateCore_succ] at h
+    simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
     subst h; simp [AnnotOk]
   | fuel + 1, .const n us, d, e', h, _, _, _, ρ, _ => by
-    simp only [annotateCore, pure, Except.pure, Except.ok.injEq] at h
+    rw [annotateCore_succ] at h
+    simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
     subst h; simp [AnnotOk]
   | fuel + 1, .app f a, d, e', h, hw, hb, hLb, ρ, hok => by
     simp only [WScoped] at hw
@@ -71,7 +77,7 @@ theorem annotateCore_sound (m : EnvModel V env) :
       hLbf' l (inferTypeCore_fvarLeaves m.wf fuel hit hwf' l hl)
     have hoktf : FvarsOk V m.val env φ d ρ tf :=
       FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hit hwf') hFf'
-    obtain ⟨hiw, haPi⟩ := whnfCore_facts m fuel hwh hwtf hbtf hLbtf hoktf hAtf
+    obtain ⟨hiw, haPi⟩ := whnf_facts m fuel hwh hwtf hbtf hLbtf hoktf hAtf
     have hwPi := whnf_WScoped m.wf fuel hwh hwtf
     have hbPi := whnf_looseBVars m.wf fuel hwh hbtf
     simp only [WScoped] at hwPi
@@ -129,7 +135,9 @@ theorem annotateCore_sound (m : EnvModel V env) :
     simp only [WScoped] at hw
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
     obtain ⟨hokty, hokbody⟩ := FvarsOk.of_forallE hok
-    simp only [annotateCore, Bind.bind, Except.bind] at h
+    rw [annotateCore_succ] at h
+    simp only [annotateBody, Bind.bind, Except.bind] at h
+    simp only [annotate_def, infer_def, ensureSort_def] at h
     cases hty : annotateCore env fuel d ty with
     | error e => rw [hty] at h; exact nomatch h
     | ok ty' =>
@@ -221,7 +229,9 @@ theorem annotateCore_sound (m : EnvModel V env) :
     simp only [WScoped] at hw
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
     obtain ⟨hokty, hokbody⟩ := FvarsOk.of_lam hok
-    simp only [annotateCore, Bind.bind, Except.bind] at h
+    rw [annotateCore_succ] at h
+    simp only [annotateBody, Bind.bind, Except.bind] at h
+    simp only [annotate_def, infer_def, ensureSort_def] at h
     cases hty : annotateCore env fuel d ty with
     | error e => rw [hty] at h; exact nomatch h
     | ok ty' =>
@@ -363,7 +373,7 @@ theorem annotateCore_sound (m : EnvModel V env) :
       hLbe₂ l (inferTypeCore_fvarLeaves m.wf fuel hte hwe₂ l hl)
     have hokte : FvarsOk V m.val env φ d ρ tt :=
       FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hte hwe₂) hoke₂
-    obtain ⟨hiw, haPi⟩ := whnfCore_facts m fuel hwh0 hwte hbte hLbte hokte hAte
+    obtain ⟨hiw, haPi⟩ := whnf_facts m fuel hwh0 hwte hbte hLbte hokte hAte
     have hPii : interpExpr V m.val env φ d ρ
         (.app (.app (.const psigmaName us) A) B) = some vte := by
       rw [hiw]; exact htei
@@ -405,15 +415,34 @@ theorem annotateCore_sound (m : EnvModel V env) :
       exact hmem
     · intro x hx
       exact app_mem hBmem hx fun _ _ => univ_mem_univ _
-  | fuel + 1, .letE _ _ _ _, d, e', h, _, _, _, ρ, _ => by simp [annotateCore] at h
-  | fuel + 1, .lit _, d, e', h, _, _, _, ρ, _ => by simp [annotateCore] at h
+  | fuel + 1, .letE _ _ _ _, d, e', h, _, _, _, ρ, _ => by
+    rw [annotateCore_succ] at h
+    simp [annotateBody, throw, throwThe, MonadExceptOf.throw] at h
+  | fuel + 1, .lit l0, d, e', h, _, _, _, ρ, _ => by
+    rw [annotateCore_succ] at h
+    match l0, h with
+    | .natVal n, h => ?_
+    | .strVal sv, h =>
+      simp [annotateBody, throw, throwThe, MonadExceptOf.throw] at h
+    dsimp only [annotateBody] at h
+    revert h
+    split
+    case isFalse =>
+      intro h
+      simp [throw, throwThe, MonadExceptOf.throw] at h
+    case isTrue =>
+      intro h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      subst h
+      simp [AnnotOk]
 
 
 
 /-- `annotate` (at the standard fuel) computes truthful annotations. -/
 theorem annotate_sound (m : EnvModel V env) :
     ∀ (e : Expr) {d : Nat} {e' : Expr},
-      annotate env d e = .ok e' → WScoped d e → e.looseBVarsBounded 0 = true →
+      annotateCore env checkFuel d e = .ok e' → WScoped d e →
+      e.looseBVarsBounded 0 = true →
       Expr.LeavesBounded e →
       ∀ (ρ : Nat → V), FvarsOk V m.val env φ d ρ e →
         AnnotOk V m.val env φ d ρ e' := by

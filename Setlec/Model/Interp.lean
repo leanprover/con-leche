@@ -55,6 +55,12 @@ open SetTheory
 def updV (ρ : Nat → V) (d : Nat) (x : V) : Nat → V :=
   fun i => if i = d then x else ρ i
 
+/-- The value of a `Nat` literal: the `Nat.succ` value iterated on the
+`Nat.zero` value. -/
+def natLitVal (zv sv : V) : Nat → V
+  | 0 => zv
+  | n + 1 => SetTheory.app sv (natLitVal zv sv n)
+
 /-- Interpret an expression under constant valuation `cval`, level
 assignment `φ`, binder depth `d` and free-variable valuation `ρ`. -/
 def interpExpr (cval : ConstVal V) (env : Env) (φ : Name → Nat) :
@@ -95,6 +101,13 @@ def interpExpr (cval : ConstVal V) (env : Env) (φ : Name → Nat) :
     | some ve =>
       if i = 0 then some (sfst ve) else if i = 1 then some (ssnd ve) else none
     | none => none
+  | _, _, .lit (.natVal n) =>
+    -- guarded exactly like the checker's literal paths; the zero/succ
+    -- values match the `.const` case's given the guard's shape facts
+    if natLitSupported env then
+      some (natLitVal V (cval natZeroName (Level.substFn φ [] []))
+        (cval natSuccName (Level.substFn φ [] [])) n)
+    else none
   | _, _, _ => none
 termination_by _ _ e => e.sizeB
 decreasing_by
@@ -378,5 +391,75 @@ def EnvModel.empty : EnvModel V Env.empty where
   ind_ok := IndOk.empty V _ (fun _ x hx => SetTheory.not_mem_empty x hx)
   rec_rules := RecRulesOk.empty V _
   modeled_ok := ModeledOk.empty V _
+
+/-! ## The literal guard, inverted
+
+`natLitSupported` (and its slot checks) as separate facts, plus the
+congruence the environment-relating lemmas use.  The literal fragment
+of the model proper lives in `Setlec.Model.NatLit`.
+-/
+
+theorem Level.substFn_nil (φ : Name → Nat) : Level.substFn φ [] [] = φ :=
+  funext fun _ => rfl
+
+/-- Everything `natLitSupported` checked, as separate facts. -/
+theorem natLitSupported_inv {env : Env} (hs : natLitSupported env = true) :
+    ∃ cv caps cv0 i0 j0 cv1 i1 j1,
+      env.find? natName = some (.indInfo cv caps) ∧
+      env.find? natZeroName = some (.ctorInfo cv0 i0 j0) ∧
+      env.find? natSuccName = some (.ctorInfo cv1 i1 j1) ∧
+      cv.levelParams = [] ∧ cv0.levelParams = [] ∧ cv1.levelParams = [] ∧
+      cv.type = .sort (.succ .zero) ∧ cv0.type = .const natName [] ∧
+      ∃ nm mb, cv1.type = .forallE nm (.const natName []) (.const natName []) mb ∧
+        mb.cod = some (.succ .zero) := by
+  unfold natLitSupported at hs
+  simp only [Bool.and_eq_true] at hs
+  obtain ⟨⟨hi, hz⟩, hsc⟩ := hs
+  unfold natIndOk at hi
+  split at hi
+  case h_2 => simp at hi
+  next cv caps heqN =>
+    unfold natZeroOk at hz
+    split at hz
+    case h_2 => simp at hz
+    next cv0 i0 j0 heqZ =>
+      unfold natSuccOk at hsc
+      split at hsc
+      case h_2 => simp at hsc
+      next cv1 i1 j1 heqS =>
+        simp only [Bool.and_eq_true, beq_iff_eq, List.isEmpty_iff] at hi hz hsc
+        refine ⟨cv, caps, cv0, i0, j0, cv1, i1, j1, heqN, heqZ, heqS,
+          hi.1, hz.1, hsc.1, hi.2, hz.2, ?_⟩
+        obtain ⟨-, h6⟩ := hsc
+        revert h6
+        split
+        case h_2 => intro h; simp at h
+        next nm c1 c2 mb heq =>
+          intro h
+          simp only [Bool.and_eq_true, beq_iff_eq] at h
+          exact ⟨nm, mb, by rw [heq, h.1.1, h.1.2], h.2⟩
+
+/-- The literal guard ignores a stored recursor's rule list (the slot
+checks only ever accept inductive/constructor kinds). -/
+theorem natLitSupported_cons_recRules {cvA : ConstantVal} {nP nM nm ni : Nat}
+    {rules₁ rules₂ : List RecRule} {env : Env} :
+    natLitSupported ⟨ConstantInfo.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ =
+    natLitSupported ⟨ConstantInfo.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ := by
+  unfold natLitSupported
+  rw [Env.find?_cons, Env.find?_cons, Env.find?_cons, Env.find?_cons,
+    Env.find?_cons, Env.find?_cons]
+  simp only [ConstantInfo.toConstantVal, ConstantInfo.name]
+  by_cases h1 : cvA.name = natName <;> by_cases h2 : cvA.name = natZeroName <;>
+    by_cases h3 : cvA.name = natSuccName <;>
+    simp [h1, h2, h3, natIndOk, natZeroOk, natSuccOk]
+
+/-- The literal guard only reads the three `Nat` slots. -/
+theorem natLitSupported_congr {env₁ env₂ : Env}
+    (h1 : env₁.find? natName = env₂.find? natName)
+    (h2 : env₁.find? natZeroName = env₂.find? natZeroName)
+    (h3 : env₁.find? natSuccName = env₂.find? natSuccName) :
+    natLitSupported env₁ = natLitSupported env₂ := by
+  unfold natLitSupported
+  rw [h1, h2, h3]
 
 end Setlec

@@ -25,6 +25,21 @@ variable {V : Type u} [SetTheory V]
 
 open SetTheory Expr
 
+/-! Projection equations for the pure checker operations: the
+declaration-checker inversions unfold through these (never through
+`pureOps` itself, so record spellings in hypotheses keep matching). -/
+
+theorem pureOps_annotate (env : Env) (d : Nat) (e : Expr) :
+    pureOps.annotate env d e = annotateCore env checkFuel d e := rfl
+theorem pureOps_inferType (env : Env) (d : Nat) (e : Expr) :
+    pureOps.inferType env d e = inferTypeCore env checkFuel d e := rfl
+theorem pureOps_isDefEq (env : Env) (d : Nat) (a b : Expr) :
+    pureOps.isDefEq env d a b = isDefEqCore env checkFuel d a b := rfl
+theorem pureOps_ensureSort (env : Env) (d : Nat) (e : Expr) :
+    pureOps.ensureSort env d e = ensureSortCore env checkFuel d e := rfl
+theorem pureOps_whnf (env : Env) (d : Nat) (e : Expr) :
+    pureOps.whnf env d e = Setlec.whnf env checkFuel d e := rfl
+
 theorem find?_none_ne {env : Env} {n : Name} (h : env.find? n = none) :
     ∀ c ∈ env.consts, c.name ≠ n := by
   intro c hc
@@ -237,7 +252,7 @@ theorem RecRulesOk.cons {env : Env} (m : EnvModel V env)
 
 /-- Inversion for `checkConstantVal`. -/
 theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
-    (h : checkConstantVal env cv = .ok cv') :
+    (h : checkConstantVal pureOps env cv = .ok cv') :
     env.find? cv.name = none ∧
     reservedBasisNames.contains cv.name = false ∧
     cv.name.isProjFnShape = false ∧
@@ -245,13 +260,14 @@ theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
     cv.type.looseBVarsBounded 0 = true ∧
     cv.type.hasFvar = false ∧
     ∃ type stype u,
-      annotate env 0 cv.type = .ok type ∧
+      annotateCore env checkFuel 0 cv.type = .ok type ∧
       type.allLevelParamsDefined cv.levelParams = true ∧
       type.constsResolve env = true ∧
-      inferType env 0 type = .ok stype ∧
-      ensureSort env 0 stype = .ok u ∧
+      inferTypeCore env checkFuel 0 type = .ok stype ∧
+      ensureSortCore env checkFuel 0 stype = .ok u ∧
       cv' = { cv with type := type } := by
-  simp only [checkConstantVal, Bind.bind, Except.bind, Pure.pure, Except.pure] at h
+  simp only [checkConstantVal, pureOps_annotate, pureOps_inferType, pureOps_isDefEq,
+    pureOps_ensureSort, pureOps_whnf, Bind.bind, Except.bind, Pure.pure, Except.pure] at h
   by_cases hfind : (env.find? cv.name).isSome = true
   case pos => simp [hfind] at h
   simp only [hfind] at h
@@ -276,7 +292,7 @@ theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
   by_cases hif : cv.type.hasFvar = true
   case pos => simp [hif] at h
   simp only [hif] at h
-  cases hann : annotate env 0 cv.type with
+  cases hann : annotateCore env checkFuel 0 cv.type with
   | error e => rw [hann] at h; exact nomatch h
   | ok type =>
   rw [hann] at h
@@ -287,12 +303,12 @@ theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
   by_cases htr : type.constsResolve env = true
   case neg => simp [htr] at h
   simp only [htr] at h
-  cases hst : inferType env 0 type with
+  cases hst : inferTypeCore env checkFuel 0 type with
   | error e => rw [hst] at h; exact nomatch h
   | ok stype =>
   rw [hst] at h
   try dsimp only at h
-  cases hsort : ensureSort env 0 stype with
+  cases hsort : ensureSortCore env checkFuel 0 stype with
   | error e => rw [hsort] at h; exact nomatch h
   | ok u =>
   rw [hsort] at h
@@ -1313,7 +1329,7 @@ def RuleChecked (env env₀ : Env) (f : Name → Name)
     (thmName : Name) (cvt : ConstantVal) (tval : Expr) (ℓA : Level),
     env.find? (RecRule.ctor r) = some (.ctorInfo cvj nP cnF) ∧
     r.nfields = cnF ∧
-    annotate env₀ 0 raw = .ok (RecRule.rhs r) ∧
+    annotateCore env₀ checkFuel 0 raw = .ok (RecRule.rhs r) ∧
     raw.hasFvar = false ∧ raw.looseBVarsBounded 0 = true ∧
     (RecRule.rhs r).hasFvar = false ∧
     (RecRule.rhs r).looseBVarsBounded 0 = true ∧
@@ -1371,7 +1387,7 @@ carries the full `RuleChecked` hypothesis kit. -/
 theorem checkIotaRules_inv {env' envSelf : Env} {f : Name → Name}
     {cvA : ConstantVal} {nP nm : Nat} :
     ∀ (j : Nat) (rules rules' : List RecRule),
-    checkIotaRules env' envSelf f cvA.name cvA.levelParams cvA.type
+    checkIotaRules pureOps env' envSelf f cvA.name cvA.levelParams cvA.type
       nP 1 nm j rules = .ok rules' →
     ∀ r' ∈ rules', RuleChecked env' envSelf f cvA nP nm r' := by
   intro j rules
@@ -1383,7 +1399,8 @@ theorem checkIotaRules_inv {env' envSelf : Env} {f : Name → Name}
     exact nomatch hr'
   | cons r rest ih =>
     intro rules' h r' hr'
-    simp only [checkIotaRules, Bind.bind, Except.bind] at h
+    simp only [checkIotaRules, pureOps_annotate, pureOps_inferType, pureOps_isDefEq,
+    pureOps_ensureSort, pureOps_whnf, Bind.bind, Except.bind] at h
     revert h
     match hfc : env'.find? r.ctor with
     | none => intro h; exact nomatch h
@@ -1414,7 +1431,7 @@ theorem checkIotaRules_inv {env' envSelf : Env} {f : Name → Name}
     have hrfF : r.rhs.hasFvar = false := by
       revert hrf; cases r.rhs.hasFvar <;> simp
     try dsimp only at h
-    cases hann : annotate envSelf 0 r.rhs with
+    cases hann : annotateCore envSelf checkFuel 0 r.rhs with
     | error e => rw [hann] at h; exact nomatch h
     | ok rhsA =>
     rw [hann] at h
@@ -1458,7 +1475,7 @@ theorem checkIotaRules_inv {env' envSelf : Env} {f : Name → Name}
     case neg => rw [if_neg hallF] at h; exact nomatch h
     rw [if_pos hallF] at h
     try dsimp only at h
-    cases hity : inferType envSelf 0 rhsA with
+    cases hity : inferTypeCore envSelf checkFuel 0 rhsA with
     | error e => rw [hity] at h; exact nomatch h
     | ok rhsTy =>
     rw [hity] at h
@@ -1470,7 +1487,7 @@ theorem checkIotaRules_inv {env' envSelf : Env} {f : Name → Name}
     | some stmtRaw => ?_
     intro h
     dsimp only at h
-    cases hstmtA : annotate env' 0 stmtRaw with
+    cases hstmtA : annotateCore env' checkFuel 0 stmtRaw with
     | error e => rw [hstmtA] at h; exact nomatch h
     | ok stmtA =>
     rw [hstmtA] at h
@@ -1539,7 +1556,7 @@ theorem checkIotaRules_inv {env' envSelf : Env} {f : Name → Name}
     case neg => rw [if_neg hsbeq] at h; exact nomatch h
     rw [if_pos hsbeq] at h
     try dsimp only at h
-    cases hrec : checkIotaRules env' envSelf f cvA.name cvA.levelParams
+    cases hrec : checkIotaRules pureOps env' envSelf f cvA.name cvA.levelParams
         cvA.type nP 1 nm (j + 1) rest with
     | error e => rw [hrec] at h; exact nomatch h
     | ok rest' =>
@@ -1566,9 +1583,9 @@ theorem checkIotaRules_inv {env' envSelf : Env} {f : Name → Name}
       ?_, ?_, ?_, ?_, hfthm, hlpt, hrlp, hrres⟩
     · -- rhsA has no fvars
       exact not_hasFvar_of_fvarsBelow_zero
-        ((annotate_WScoped _ hann (WScoped.of_not_hasFvar hrfF)).fvarsBelow)
+        ((annotateCore_WScoped checkFuel _ hann (WScoped.of_not_hasFvar hrfF)).fvarsBelow)
     · -- rhsA stays closed
-      exact annotate_looseBVars _ hann hrb
+      exact annotateCore_looseBVars checkFuel _ hann hrb
     · -- statement strip at the reassociated arity
       rw [show (nP + (1 + nm)) + cnF = nP + 1 + nm + cnF from by omega]
       exact hstS
@@ -2057,7 +2074,7 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
     (hctor : env.find? (RecRule.ctor rule) = some (.ctorInfo cvj nP nF))
     (_hnf : rule.nfields = nF)
     {raw : Expr}
-    (hann : annotate env 0 raw = .ok (RecRule.rhs rule))
+    (hann : annotateCore env checkFuel 0 raw = .ok (RecRule.rhs rule))
     (hrawf : raw.hasFvar = false)
     (hrawb : raw.looseBVarsBounded 0 = true)
     (hrhsf : (RecRule.rhs rule).hasFvar = false)
@@ -2171,13 +2188,13 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
       interpClosed V m₀.val
         (⟨.recInfo cvA nP 0 0 0 [] :: env.consts⟩ : Env) ψ e := by
     intro e ψ
-    exact (interp_env_ext henv01 e 0 (rho0 V)).symm
+    exact (interp_env_ext henv01 natLitSupported_cons_recRules e 0 (rho0 V)).symm
   have hAtrans01 : ∀ (e : Expr) (ψ : Name → Nat) (d : Nat) (ρ : Nat → V),
       AnnotOk V m₀.val (⟨.recInfo cvA nP 0 0 0 [] :: env.consts⟩ : Env)
         ψ d ρ e →
       AnnotOk V m₀.val
         (⟨.recInfo cvA nP 0 0 0 [rule] :: env.consts⟩ : Env) ψ d ρ e :=
-    fun e ψ d ρ h => AnnotOk.env_ext henv01 e d ρ h
+    fun e ψ d ρ h => AnnotOk.env_ext henv01 natLitSupported_cons_recRules e d ρ h
   have hCWtrans : ∀ c,
       ConstWF (⟨.recInfo cvA nP 0 0 0 [] :: env.consts⟩ : Env) c →
       ConstWF (⟨.recInfo cvA nP 0 0 0 [rule] :: env.consts⟩ : Env) c := by
@@ -2586,8 +2603,8 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
       obtain ⟨R', hRi, hfoldEq, hRch⟩ := hfold cvj' cnP' cnF' hfj₀ ψ ψj
         args margs tv hl hml hch hmch htv hpeq hlev
         ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
-          hψeq, hψjeq, TeleFit.env_levelext henv10 hfit1,
-          TeleFit.env_levelext henv10 hfit2⟩
+          hψeq, hψjeq, TeleFit.env_levelext henv10 natLitSupported_cons_recRules hfit1,
+          TeleFit.env_levelext henv10 natLitSupported_cons_recRules hfit2⟩
       refine ⟨R', ?_, hfoldEq, hRch⟩
       rw [hitrans]
       exact hRi
@@ -2660,7 +2677,7 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
           · exact hmsP j hj
         · intro φ'' us ps x dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hfit
           exact hlaw φ'' us ps x dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx
-            (TeleFit.env_levelext henv10 hfit)
+            (TeleFit.env_levelext henv10 natLitSupported_cons_recRules hfit)
     · intro T cvT caps hf hcapu hres
       rw [hisoF] at hf
       split at hf
@@ -2668,14 +2685,14 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
       · have hlaw := mo5 T cvT caps hf hcapu hres
         intro φ'' us ps x y dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hy hfit
         exact hlaw φ'' us ps x y dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hy
-          (TeleFit.env_levelext henv10 hfit)
+          (TeleFit.env_levelext henv10 natLitSupported_cons_recRules hfit)
 
 /-- Invert a successful `checkIndMember` run. -/
 theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
     {env' env₁ : Env} {ci : ConstantInfo}
-    (h : checkIndMember blockNames caps env' ci = .ok env₁) :
+    (h : checkIndMember pureOps blockNames caps env' ci = .ok env₁) :
     ∃ cvA cvm mval,
-      checkConstantVal env' ci.toConstantVal = .ok cvA ∧
+      checkConstantVal pureOps env' ci.toConstantVal = .ok cvA ∧
       cvA.name.isModelSuffix = false ∧
       env'.find? (cvA.name.str "_model") = some (.defnInfo cvm mval) ∧
       cvm.levelParams = cvA.levelParams ∧
@@ -2689,12 +2706,13 @@ theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
          blockNames.all (fun n =>
            n == cvA.name || (env'.find? n).isSome) = true ∧
          env'.find? eqName = some eqA ∧
-         checkIotaRules env' ⟨.recInfo cvA nP 1 nm 0 [] :: env'.consts⟩
+         checkIotaRules pureOps env' ⟨.recInfo cvA nP 1 nm 0 [] :: env'.consts⟩
            (fun n => if blockNames.contains n then n.str "_model" else n)
            cvA.name cvA.levelParams cvA.type nP 1 nm 0 rules = .ok rules' ∧
          env₁ = ⟨.recInfo cvA nP 1 nm 0 rules' :: env'.consts⟩)) := by
-  simp only [checkIndMember, Bind.bind, Except.bind] at h
-  cases hccv : checkConstantVal env' ci.toConstantVal with
+  simp only [checkIndMember, pureOps_annotate, pureOps_inferType, pureOps_isDefEq,
+    pureOps_ensureSort, pureOps_whnf, Bind.bind, Except.bind] at h
+  cases hccv : checkConstantVal pureOps env' ci.toConstantVal with
   | error e => rw [hccv] at h; exact nomatch h
   | ok cvA =>
   rw [hccv] at h
@@ -2760,7 +2778,7 @@ theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
     rw [if_pos heqf] at h
     try dsimp only at h
     try dsimp only at h
-    cases hcir : checkIotaRules env'
+    cases hcir : checkIotaRules pureOps env'
         ⟨.recInfo cvA nP 1 nm 0 [] :: env'.consts⟩
         (fun n => if blockNames.contains n then n.str "_model" else n)
         cvA.name cvA.levelParams cvA.type nP 1 nm 0 rules with
@@ -2882,13 +2900,13 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
       interpClosed V m₀.val
         (⟨.recInfo cvA nP 1 nm 0 [] :: env.consts⟩ : Env) ψ e := by
     intro e ψ
-    exact (interp_env_ext henv01 e 0 (rho0 V)).symm
+    exact (interp_env_ext henv01 natLitSupported_cons_recRules e 0 (rho0 V)).symm
   have hAtrans01 : ∀ (e : Expr) (ψ : Name → Nat) (d : Nat) (ρ : Nat → V),
       AnnotOk V m₀.val (⟨.recInfo cvA nP 1 nm 0 [] :: env.consts⟩ : Env)
         ψ d ρ e →
       AnnotOk V m₀.val
         (⟨.recInfo cvA nP 1 nm 0 rules' :: env.consts⟩ : Env) ψ d ρ e :=
-    fun e ψ d ρ h => AnnotOk.env_ext henv01 e d ρ h
+    fun e ψ d ρ h => AnnotOk.env_ext henv01 natLitSupported_cons_recRules e d ρ h
   have hCWtrans : ∀ c,
       ConstWF (⟨.recInfo cvA nP 1 nm 0 [] :: env.consts⟩ : Env) c →
       ConstWF (⟨.recInfo cvA nP 1 nm 0 rules' :: env.consts⟩ : Env) c := by
@@ -3291,8 +3309,8 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
       obtain ⟨R', hRi, hfoldEq, hRch⟩ := hfold cvj' cnP' cnF' hfj₀ ψ ψj
         args margs tv hl hml hch hmch htv hpeq hlev
         ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
-          hψeq, hψjeq, TeleFit.env_levelext henv10 hfit1,
-          TeleFit.env_levelext henv10 hfit2⟩
+          hψeq, hψjeq, TeleFit.env_levelext henv10 natLitSupported_cons_recRules hfit1,
+          TeleFit.env_levelext henv10 natLitSupported_cons_recRules hfit2⟩
       refine ⟨R', ?_, hfoldEq, hRch⟩
       rw [hitrans]
       exact hRi
@@ -3365,7 +3383,7 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
           · exact hmsP j hj
         · intro φ'' us ps x dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hfit
           exact hlaw φ'' us ps x dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx
-            (TeleFit.env_levelext henv10 hfit)
+            (TeleFit.env_levelext henv10 natLitSupported_cons_recRules hfit)
     · intro T cvT caps hf hcapu hres
       rw [hisoF] at hf
       split at hf
@@ -3373,7 +3391,7 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
       · have hlaw := mo5 T cvT caps hf hcapu hres
         intro φ'' us ps x y dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hy hfit
         exact hlaw φ'' us ps x y dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hy
-          (TeleFit.env_levelext henv10 hfit)
+          (TeleFit.env_levelext henv10 natLitSupported_cons_recRules hfit)
 
 /-- No `_model`-companion name equals a name that is not itself
 `_model`-shaped. -/
@@ -3433,7 +3451,7 @@ theorem BlockInstalled.step {blockNames : List Name} {env' : Env}
 the fold invariant. -/
 theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
     {env' env₁ : Env} {ci : ConstantInfo}
-    (h : checkIndMember blockNames caps env' ci = .ok env₁)
+    (h : checkIndMember pureOps blockNames caps env' ci = .ok env₁)
     (hpins : ∀ cv caps₂, ci = .indInfo cv caps₂ →
       EtaPins env' cv.name cv.levelParams caps)
     (hbn : blockNames.contains ci.name = true)
@@ -3462,10 +3480,10 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
   have htyf : cvA.type.hasFvar = false := by
     rw [htypeA]
     exact not_hasFvar_of_fvarsBelow_zero
-      ((annotate_WScoped _ hann (WScoped.of_not_hasFvar hfv)).fvarsBelow)
+      ((annotateCore_WScoped checkFuel _ hann (WScoped.of_not_hasFvar hfv)).fvarsBelow)
   have htyb : cvA.type.looseBVarsBounded 0 = true := by
     rw [htypeA]
-    exact annotate_looseBVars _ hann hlb
+    exact annotateCore_looseBVars checkFuel _ hann hlb
   have htlp : cvA.type.allLevelParamsDefined cvA.levelParams = true := by
     rw [htypeA, hlpsA]; exact hlp
   have htres : cvA.type.constsResolve env' = true := by
@@ -3743,13 +3761,13 @@ already fresh at any earlier point. -/
 theorem checkIndMember_fold_names {blockNames : List Name}
     {caps : IndCaps} :
     ∀ (rest : List ConstantInfo) (env' env₂ : Env),
-    rest.foldlM (checkIndMember blockNames caps) env' = .ok env₂ →
+    rest.foldlM (checkIndMember pureOps blockNames caps) env' = .ok env₂ →
     ∀ ci ∈ rest, env'.find? ci.name = none
   | [], _, _, _, ci, hci => nomatch hci
   | ci₀ :: rest, env', env₂, h, ci, hci => by
     rw [List.foldlM_cons] at h
     simp only [Bind.bind, Except.bind] at h
-    cases hstep : checkIndMember blockNames caps env' ci₀ with
+    cases hstep : checkIndMember pureOps blockNames caps env' ci₀ with
     | error e => rw [hstep] at h; exact nomatch h
     | ok env₁ =>
     rw [hstep] at h
@@ -3780,7 +3798,7 @@ theorem checkIndFold_sound {blockNames : List Name} {caps : IndCaps} :
     (∀ cv caps₂,
       (ConstantInfo.indInfo cv caps₂) ∈ rest →
       EtaPins env' cv.name cv.levelParams caps) →
-    rest.foldlM (checkIndMember blockNames caps) env' = .ok env₂ →
+    rest.foldlM (checkIndMember pureOps blockNames caps) env' = .ok env₂ →
     ∀ m : EnvModel V env', BlockInstalled blockNames env' m.val →
     ∃ m₂ : EnvModel V env₂, BlockInstalled blockNames env₂ m₂.val
   | [], env', env₂, hns, _hp, h, m, hI => by
@@ -3789,7 +3807,7 @@ theorem checkIndFold_sound {blockNames : List Name} {caps : IndCaps} :
   | ci :: rest, env', env₂, hns, hp, h, m, hI => by
     rw [List.foldlM_cons] at h
     simp only [Bind.bind, Except.bind] at h
-    cases hstep : checkIndMember blockNames caps env' ci with
+    cases hstep : checkIndMember pureOps blockNames caps env' ci with
     | error e => rw [hstep] at h; exact nomatch h
     | ok env₁ => ?_
     rw [hstep] at h
@@ -3928,12 +3946,12 @@ theorem checkProjTy_inv {env' : Env} {T ctorName : Name} {lps : List Name}
 /-- Invert stage 3 of `checkProjFn` (the reduction rule). -/
 theorem checkProjRule_inv {env' : Env} {cvj : ConstantVal} {lps : List Name}
     {nP nF i : Nat} {rhsA : Expr}
-    (h : checkProjRule env' cvj lps nP nF i = .ok rhsA) :
+    (h : checkProjRule pureOps env' cvj lps nP nF i = .ok rhsA) :
     ∃ raw rbinders cbindersR cbody,
       Expr.pisToLams (nP + nF) cvj.type (.bvar (nF - 1 - i)) = some raw ∧
       raw.hasFvar = false ∧
       raw.looseBVarsBounded 0 = true ∧
-      annotate env' 0 raw = .ok rhsA ∧
+      annotateCore env' checkFuel 0 raw = .ok rhsA ∧
       rhsA.allLevelParamsDefined lps = true ∧
       rhsA.constsResolve env' = true ∧
       rhsA.looseBVarsBounded 0 = true ∧
@@ -3942,7 +3960,8 @@ theorem checkProjRule_inv {env' : Env} {cvj : ConstantVal} {lps : List Name}
       cvj.type.stripPis (nP + nF) = some (cbindersR, cbody) ∧
       domsMatchAux (fun _ e => e) rbinders cbindersR 0 0 (nP + nF)
         = true := by
-  simp only [checkProjRule, Bind.bind, Except.bind] at h
+  simp only [checkProjRule, pureOps_annotate, pureOps_inferType, pureOps_isDefEq,
+    pureOps_ensureSort, pureOps_whnf, Bind.bind, Except.bind] at h
   revert h
   match hraw : Expr.pisToLams (nP + nF) cvj.type (.bvar (nF - 1 - i)) with
   | none => intro h; exact nomatch h
@@ -3958,7 +3977,7 @@ theorem checkProjRule_inv {env' : Env} {cvj : ConstantVal} {lps : List Name}
     revert hrawf'
     cases raw.hasFvar <;> simp
   try dsimp only at h
-  cases hann : annotate env' 0 raw with
+  cases hann : annotateCore env' checkFuel 0 raw with
   | error e => rw [hann] at h; exact nomatch h
   | ok rhsA' => ?_
   rw [hann] at h
@@ -4133,17 +4152,18 @@ theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
 /-- Invert a successful `checkProjFn` into its stages. -/
 theorem checkProjFn_inv {env' env₁ : Env} {T ctorName : Name}
     {lps : List Name} {nP nF i : Nat}
-    (h : checkProjFn env' T ctorName lps nP nF i = .ok env₁) :
+    (h : checkProjFn pureOps env' T ctorName lps nP nF i = .ok env₁) :
     ∃ cvj mcv,
       checkProjLookups env' T ctorName lps nP nF i = .ok (cvj, mcv) ∧
       ∃ pty, checkProjTy env' T ctorName lps mcv.type nP nF = .ok pty ∧
       i < nF ∧
-      ∃ rhsA, checkProjRule env' cvj lps nP nF i = .ok rhsA ∧
+      ∃ rhsA, checkProjRule pureOps env' cvj lps nP nF i = .ok rhsA ∧
       (∃ u : Unit, checkProjIota env' T ctorName lps cvj nP nF i
         = .ok u) ∧
       env₁ = ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP 0 0 0
         [⟨ctorName, nF, rhsA⟩] :: env'.consts⟩ := by
-  simp only [checkProjFn, Bind.bind, Except.bind] at h
+  simp only [checkProjFn, pureOps_annotate, pureOps_inferType, pureOps_isDefEq,
+    pureOps_ensureSort, pureOps_whnf, Bind.bind, Except.bind] at h
   cases hlk : checkProjLookups env' T ctorName lps nP nF i with
   | error e => rw [hlk] at h; exact nomatch h
   | ok pr => ?_
@@ -4159,7 +4179,7 @@ theorem checkProjFn_inv {env' env₁ : Env} {T ctorName : Name}
   case neg => rw [if_neg hi] at h; exact nomatch h
   rw [if_pos hi] at h
   try dsimp only at h
-  cases hrule : checkProjRule env' cvj lps nP nF i with
+  cases hrule : checkProjRule pureOps env' cvj lps nP nF i with
   | error e => rw [hrule] at h; exact nomatch h
   | ok rhsA => ?_
   rw [hrule] at h
@@ -4198,7 +4218,7 @@ set_option maxHeartbeats 1600000 in
 with the phase invariant. -/
 theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
     {lps : List Name} {nP nF i : Nat}
-    (h : checkProjFn env' T ctorName lps nP nF i = .ok env₁)
+    (h : checkProjFn pureOps env' T ctorName lps nP nF i = .ok env₁)
     (m : EnvModel V env')
     (hinv : ProjPhaseInv T ctorName nF env' m.val) :
     ∃ m₁ : EnvModel V env₁, ProjPhaseInv T ctorName nF env₁ m₁.val := by
@@ -4526,7 +4546,7 @@ theorem checkProjFold_sound {T ctorName : Name} {lps : List Name}
     ∀ (idxs : List Nat) (env' env₁ : Env),
     idxs.foldlM (fun e i =>
       if (e.find? (projModelName T i)).isSome then
-        checkProjFn e T ctorName lps nP nF i
+        checkProjFn pureOps e T ctorName lps nP nF i
       else pure e) env' = .ok env₁ →
     ∀ m : EnvModel V env', ProjPhaseInv T ctorName nF env' m.val →
     ∃ m₁ : EnvModel V env₁, ProjPhaseInv T ctorName nF env₁ m₁.val
@@ -4538,7 +4558,7 @@ theorem checkProjFold_sound {T ctorName : Name} {lps : List Name}
     simp only [Bind.bind, Except.bind] at h
     by_cases hm : (env'.find? (projModelName T i₀)).isSome = true
     · rw [if_pos hm] at h
-      cases hstep : checkProjFn env' T ctorName lps nP nF i₀ with
+      cases hstep : checkProjFn pureOps env' T ctorName lps nP nF i₀ with
       | error e => rw [hstep] at h; exact nomatch h
       | ok env₂ => ?_
       rw [hstep] at h
@@ -4558,7 +4578,7 @@ theorem Except.bind_ok {ε α β : Type _} {x : Except ε α}
 
 /-- Checking a modeled inductive block preserves having a model. -/
 theorem checkIndDecl_sound {env env₂ : Env} {block : List ConstantInfo}
-    (h : checkIndDecl env block = .ok env₂) (m : EnvModel V env) :
+    (h : checkIndDecl pureOps env block = .ok env₂) (m : EnvModel V env) :
     Nonempty (EnvModel V env₂) := by
   rw [checkIndDecl] at h
   have hbn : ∀ ci ∈ block, (block.map (·.name)).contains ci.name = true :=
