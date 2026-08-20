@@ -62,6 +62,16 @@ def liftFueled (what : String) : Option α → CheckM α
   | some a => pure a
   | none => throw (.internal s!"fuel exhausted: {what}")
 
+/-- The public projection-function constant installed for field `i` of
+a modeled structure `T` (a `Nat` component keeps it out of the way of
+exported identifiers; installs are duplicate-checked regardless). -/
+def projFnName (T : Name) (i : Nat) : Name := (T.str "proj").num i
+
+/-- The model-side name of field `i`'s projection for `T`
+(the documented public interface of the preprocessor's models). -/
+def projModelName (T : Name) (i : Nat) : Name :=
+  (T.str "_model").str ("proj_" ++ toString i)
+
 /-! The mutually recursive checker core: reduction, inference and
 definitional equality share one strictly decreasing fuel.  The mutual
 knot is `whnf`'s beta rule: a redex whose codomain sort is not
@@ -411,6 +421,8 @@ def stuckIrrel (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr �
   | fuel + 1, depth, a, b => do
     if ← pairEtaCert env fuel depth a b then pure true
     else if ← pairEtaCert env fuel depth b a then pure true
+    else if ← structEtaCert env fuel depth a b then pure true
+    else if ← structEtaCert env fuel depth b a then pure true
     else proofIrrel env fuel depth a b
   termination_by structural fuel _ _ _ => fuel
 
@@ -455,6 +467,85 @@ def pairEtaCert (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr �
       else pure false
     | _ => pure false
   | _ + 1, _, _, _ => pure false
+  termination_by structural fuel _ _ _ => fuel
+
+/-- Certify each installed projection function's application to the
+stuck side against its own telescope (the typing slots the reduct's
+annotation chain needs), at the structure type's level arguments. -/
+def structEtaProjCerts (env : Env) : (fuel : Nat) → (depth : Nat) →
+    Name → List Level → List Expr → Expr → List Name → List Nat →
+    CheckM Bool
+  | 0, _, _, _, _, _, _, _ =>
+    throw (.internal "fuel exhausted: structEtaProjCerts")
+  | _ + 1, _, _, _, _, _, _, [] => pure true
+  | fuel + 1, depth, T, us', targs, b, lpsT, i :: rest => do
+    match env.find? (projFnName T i) with
+    | some (.recInfo cvp _ _ _ _ _) =>
+      if cvp.levelParams = lpsT ∧
+          (cvp.type.stripPis (targs.length + 1)).isSome = true then
+        if ← iotaCerts env fuel depth
+            (cvp.type.instantiateLevelParams cvp.levelParams us')
+            (targs ++ [b]) then
+          structEtaProjCerts env fuel depth T us' targs b lpsT rest
+        else pure false
+      else pure false
+    | _ => pure false
+  termination_by structural fuel _ _ _ _ _ _ _ => fuel
+
+/-- Structural eta certification for a stored eta-capable structure:
+`a` is a fully applied constructor of a structure whose recorded
+capabilities include eta, `b` inhabits that structure type, the
+constructor's parameters are the type's arguments, and every field is
+the corresponding installed projection function applied to `b`.  The
+type application is additionally certified against the type former's
+telescope (the memberships the stored eta law consumes). -/
+def structEtaCert (env : Env) : (fuel : Nat) → (depth : Nat) → Expr →
+    Expr → CheckM Bool
+  | 0, _, _, _ => throw (.internal "fuel exhausted: structEtaCert")
+  | fuel + 1, depth, a, b => do
+    match a.getAppFn with
+    | .const c us =>
+      match env.find? c with
+      | some (.ctorInfo cvc cnP cnF) =>
+        if a.getAppArgs.length = cnP + cnF then
+          let tb ← inferTypeCore env fuel depth b
+          let wtb ← whnfCore env fuel depth tb
+          match wtb.getAppFn with
+          | .const T us' =>
+            match env.find? T with
+            | some (.indInfo cvT caps) =>
+              if caps.eta = true ∧ caps.etaCtor = c ∧
+                  caps.etaParams = cnP ∧ caps.etaFields = cnF ∧
+                  reservedBasisNames.contains T = false ∧
+                  reservedBasisNames.contains c = false ∧
+                  wtb.getAppArgs.length = cnP ∧
+                  us'.length = cvT.levelParams.length ∧
+                  cvc.levelParams = cvT.levelParams ∧
+                  (cvT.type.stripPis cnP).isSome = true then
+                if ← liftFueled "level comparison"
+                    (Level.isEquivList us us') then
+                  if ← iotaCerts env fuel depth
+                      (cvT.type.instantiateLevelParams cvT.levelParams
+                        us') wtb.getAppArgs then
+                    if ← structEtaProjCerts env fuel depth T us'
+                        wtb.getAppArgs b cvT.levelParams
+                        (List.range cnF) then
+                      if ← defEqList env fuel depth
+                          (a.getAppArgs.take cnP) wtb.getAppArgs then
+                        defEqList env fuel depth (a.getAppArgs.drop cnP)
+                          ((List.range cnF).map fun i =>
+                            Expr.mkAppN (.const (projFnName T i) us')
+                              (wtb.getAppArgs ++ [b]))
+                      else pure false
+                    else pure false
+                  else pure false
+                else pure false
+              else pure false
+            | _ => pure false
+          | _ => pure false
+        else pure false
+      | _ => pure false
+    | _ => pure false
   termination_by structural fuel _ _ _ => fuel
 
 /-- Eta certification for a one-sided λ against a stuck term `b`: `b`'s
@@ -534,16 +625,6 @@ def ensureSort (env : Env) (depth : Nat) (e : Expr) : CheckM Level := do
   match ← whnf env depth e with
   | .sort u => pure u
   | _ => throw (.invalid "expected a sort")
-
-/-- The public projection-function constant installed for field `i` of
-a modeled structure `T` (a `Nat` component keeps it out of the way of
-exported identifiers; installs are duplicate-checked regardless). -/
-def projFnName (T : Name) (i : Nat) : Name := (T.str "proj").num i
-
-/-- The model-side name of field `i`'s projection for `T`
-(the documented public interface of the preprocessor's models). -/
-def projModelName (T : Name) (i : Nat) : Name :=
-  (T.str "_model").str ("proj_" ++ toString i)
 
 mutual
 

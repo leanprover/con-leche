@@ -65,6 +65,47 @@ theorem TeleFit.elim :
         SpineFold V (SetTheory.app v x) xs from rfl]
       exact hmem, hA'⟩
 
+/-- An inhabitant of an interpreted telescope, applied through fitting
+values, walks a chain of typing slots. -/
+theorem TeleFit.chainSlots :
+    ∀ {d : Nat} {ρ : Nat → V} {e : Expr} {xs : List V} {d' : Nat}
+      {ρ' : Nat → V} {rest : Expr},
+      TeleFit V cval env φ d ρ e xs d' ρ' rest →
+      ∀ {v P : V}, AnnotOk V cval env φ d ρ e →
+        interpExpr V cval env φ d ρ e = some P → v ∈ˢ P →
+        ChainSlots V v xs := by
+  intro d ρ e xs d' ρ' rest ht
+  induction ht with
+  | nil =>
+    intro v P _ _ _
+    exact trivial
+  | @cons d ρ n ty body m x xs d' ρ' rest A hity hx ht ih =>
+    intro v P hA hi hv
+    simp only [AnnotOk] at hA
+    obtain ⟨haty, ⟨cod, hcod⟩, hcond⟩ := hA
+    obtain ⟨hbody, hwfact⟩ := hcond x A hity hx
+    rw [interpExpr, hcod, hity] at hi
+    dsimp only at hi
+    obtain rfl := Option.some.inj hi
+    have hfib : ∀ y, y ∈ˢ A →
+        ((interpExpr V cval env φ (d + 1) (updV V ρ d y)
+          (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty) ∈ˢ
+          univ (cod.eval φ) := by
+      intro y hy
+      obtain ⟨-, hwfact'⟩ := hcond y A hity hy
+      obtain ⟨w, hwi, hwu⟩ := hwfact' cod hcod
+      rw [hwi]
+      exact hwu
+    refine ⟨⟨cod.eval φ, A,
+      fun y => (interpExpr V cval env φ (d + 1) (updV V ρ d y)
+        (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty,
+      hv, hx, hfib⟩, ?_⟩
+    have happ := app_mem hv hx hfib
+    obtain ⟨w, hwi, hwu⟩ := hwfact cod hcod
+    rw [hwi] at happ
+    simp only [Option.getD_some] at happ
+    exact ih hbody hwi happ
+
 /-- Stepping an inhabitant of an interpreted telescope through an
 expression-spine fit: the applied value inhabits the interpretation of
 the fully instantiated residual, which stays annotation-truthful.

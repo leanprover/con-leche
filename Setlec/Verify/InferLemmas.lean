@@ -1019,6 +1019,218 @@ theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
     nP, nM, nm, r, rfl, hfc, rfl, hwtb, hfc', hfr, hrc, hrf, hgres,
     hlev, hd1, h⟩
 
+/-- Invert the per-projection telescope certificates. -/
+theorem structEtaProjCerts_inv {env : Env} {d : Nat} {T : Name}
+    {us' : List Level} {targs : List Expr} {b : Expr} {lpsT : List Name} :
+    ∀ (idxs : List Nat) (fuel : Nat),
+      structEtaProjCerts env (fuel + 1) d T us' targs b lpsT idxs
+        = .ok true →
+      ∀ i ∈ idxs, ∃ (fl : Nat) (cvp : ConstantVal)
+        (nPp nMp nmp nip : Nat) (rulesp : List RecRule),
+        fl ≤ fuel ∧
+        env.find? (projFnName T i) =
+          some (.recInfo cvp nPp nMp nmp nip rulesp) ∧
+        cvp.levelParams = lpsT ∧
+        (cvp.type.stripPis (targs.length + 1)).isSome = true ∧
+        iotaCerts env fl d
+          (cvp.type.instantiateLevelParams cvp.levelParams us')
+          (targs ++ [b]) = .ok true
+  | [], _, _, i, hi => nomatch hi
+  | i₀ :: rest, fuel, h, i, hi => by
+    rw [structEtaProjCerts] at h
+    revert h
+    match hfp : env.find? (projFnName T i₀) with
+    | none => intro h; exact nomatch h
+    | some (.axiomInfo _) => intro h; exact nomatch h
+    | some (.defnInfo _ _) => intro h; exact nomatch h
+    | some (.thmInfo _ _) => intro h; exact nomatch h
+    | some (.indInfo _ _) => intro h; exact nomatch h
+    | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+    | some (.recInfo cvp nPp nMp nmp nip rulesp) => ?_
+    intro h
+    dsimp only at h
+    by_cases hlps : cvp.levelParams = lpsT ∧
+        (cvp.type.stripPis (targs.length + 1)).isSome = true
+    case neg => rw [if_neg hlps] at h; exact nomatch h
+    rw [if_pos hlps] at h
+    obtain ⟨hlps, hstrp⟩ := hlps
+    simp only [Bind.bind, Except.bind] at h
+    cases hic : iotaCerts env fuel d
+        (cvp.type.instantiateLevelParams cvp.levelParams us')
+        (targs ++ [b]) with
+    | error e => rw [hic] at h; exact nomatch h
+    | ok r => ?_
+    rw [hic] at h
+    cases r with
+    | false => exact nomatch h
+    | true => ?_
+    simp only [↓reduceIte] at h
+    rcases List.mem_cons.mp hi with rfl | hi'
+    · exact ⟨fuel, cvp, nPp, nMp, nmp, nip, rulesp, Nat.le_refl _,
+        hfp, hlps, hstrp, hic⟩
+    · match fuel, h with
+      | fuel + 1, h =>
+        obtain ⟨fl, cvp', nPp', nMp', nmp', nip', rulesp', hfl, hfp',
+          hlps', hstrp', hic'⟩ := structEtaProjCerts_inv rest fuel h i hi'
+        exact ⟨fl, cvp', nPp', nMp', nmp', nip', rulesp',
+          Nat.le_trans hfl (Nat.le_succ _), hfp', hlps', hstrp', hic'⟩
+
+set_option maxHeartbeats 3200000 in
+/-- Inversion of a successful structural eta certification. -/
+theorem structEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
+    (h : structEtaCert env (fuel + 1) d a b = .ok true) :
+    ∃ (c : Name) (us : List Level) (cvc : ConstantVal) (cnP cnF : Nat)
+      (tb wtb : Expr) (T : Name) (us' : List Level)
+      (cvT : ConstantVal) (caps : IndCaps),
+      a.getAppFn = .const c us ∧
+      env.find? c = some (.ctorInfo cvc cnP cnF) ∧
+      a.getAppArgs.length = cnP + cnF ∧
+      inferTypeCore env fuel d b = .ok tb ∧
+      whnfCore env fuel d tb = .ok wtb ∧
+      wtb.getAppFn = .const T us' ∧
+      env.find? T = some (.indInfo cvT caps) ∧
+      caps.eta = true ∧ caps.etaCtor = c ∧ caps.etaParams = cnP ∧
+      caps.etaFields = cnF ∧
+      reservedBasisNames.contains T = false ∧
+      reservedBasisNames.contains c = false ∧
+      wtb.getAppArgs.length = cnP ∧
+      us'.length = cvT.levelParams.length ∧
+      cvc.levelParams = cvT.levelParams ∧
+      (cvT.type.stripPis cnP).isSome = true ∧
+      Level.isEquivList us us' = some true ∧
+      iotaCerts env fuel d
+        (cvT.type.instantiateLevelParams cvT.levelParams us')
+        wtb.getAppArgs = .ok true ∧
+      structEtaProjCerts env fuel d T us' wtb.getAppArgs b
+        cvT.levelParams (List.range cnF) = .ok true ∧
+      defEqList env fuel d (a.getAppArgs.take cnP) wtb.getAppArgs
+        = .ok true ∧
+      defEqList env fuel d (a.getAppArgs.drop cnP)
+        ((List.range cnF).map fun i =>
+          Expr.mkAppN (.const (projFnName T i) us')
+            (wtb.getAppArgs ++ [b])) = .ok true := by
+  rw [structEtaCert] at h
+  revert h
+  match hfn : a.getAppFn with
+  | .bvar _ => intro h; exact nomatch h
+  | .fvar _ _ _ => intro h; exact nomatch h
+  | .sort _ => intro h; exact nomatch h
+  | .app _ _ => intro h; exact nomatch h
+  | .lam _ _ _ _ => intro h; exact nomatch h
+  | .forallE _ _ _ _ => intro h; exact nomatch h
+  | .letE _ _ _ _ => intro h; exact nomatch h
+  | .lit _ => intro h; exact nomatch h
+  | .proj _ _ _ => intro h; exact nomatch h
+  | .const c us => ?_
+  intro h
+  dsimp only at h
+  revert h
+  match hfc : env.find? c with
+  | none => intro h; exact nomatch h
+  | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.defnInfo _ _) => intro h; exact nomatch h
+  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.indInfo _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.ctorInfo cvc cnP cnF) => ?_
+  intro h
+  dsimp only at h
+  by_cases hal : a.getAppArgs.length = cnP + cnF
+  case neg => rw [if_neg hal] at h; exact nomatch h
+  rw [if_pos hal] at h
+  simp only [Bind.bind, Except.bind] at h
+  cases htb : inferTypeCore env fuel d b with
+  | error e => rw [htb] at h; exact nomatch h
+  | ok tb => ?_
+  rw [htb] at h
+  try dsimp only at h
+  cases hwtb : whnfCore env fuel d tb with
+  | error e => rw [hwtb] at h; exact nomatch h
+  | ok wtb => ?_
+  rw [hwtb] at h
+  try dsimp only at h
+  revert h
+  match hwfn : wtb.getAppFn with
+  | .bvar _ => intro h; exact nomatch h
+  | .fvar _ _ _ => intro h; exact nomatch h
+  | .sort _ => intro h; exact nomatch h
+  | .app _ _ => intro h; exact nomatch h
+  | .lam _ _ _ _ => intro h; exact nomatch h
+  | .forallE _ _ _ _ => intro h; exact nomatch h
+  | .letE _ _ _ _ => intro h; exact nomatch h
+  | .lit _ => intro h; exact nomatch h
+  | .proj _ _ _ => intro h; exact nomatch h
+  | .const T us' => ?_
+  intro h
+  dsimp only at h
+  revert h
+  match hfT : env.find? T with
+  | none => intro h; exact nomatch h
+  | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.defnInfo _ _) => intro h; exact nomatch h
+  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.indInfo cvT caps) => ?_
+  intro h
+  dsimp only at h
+  by_cases hcond : caps.eta = true ∧ caps.etaCtor = c ∧
+      caps.etaParams = cnP ∧ caps.etaFields = cnF ∧
+      reservedBasisNames.contains T = false ∧
+      reservedBasisNames.contains c = false ∧
+      wtb.getAppArgs.length = cnP ∧
+      us'.length = cvT.levelParams.length ∧
+      cvc.levelParams = cvT.levelParams ∧
+      (cvT.type.stripPis cnP).isSome = true
+  case neg => rw [if_neg hcond] at h; exact nomatch h
+  rw [if_pos hcond] at h
+  obtain ⟨he1, he2, he3, he4, he5, he5b, he6, he7, he8, he9⟩ := hcond
+  try simp only [Bind.bind, Except.bind] at h
+  cases hlev : Level.isEquivList us us' with
+  | none => rw [hlev] at h; simp [liftFueled] at h
+  | some okL => ?_
+  rw [hlev] at h
+  try dsimp only [liftFueled] at h
+  try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+  cases okL with
+  | false => simp at h
+  | true => ?_
+  simp only [↓reduceIte] at h
+  cases hic : iotaCerts env fuel d
+      (cvT.type.instantiateLevelParams cvT.levelParams us')
+      wtb.getAppArgs with
+  | error e => rw [hic] at h; exact nomatch h
+  | ok r₁ => ?_
+  rw [hic] at h
+  try dsimp only at h
+  cases r₁ with
+  | false => simp [pure, Except.pure] at h
+  | true => ?_
+  simp only [↓reduceIte] at h
+  cases hpc : structEtaProjCerts env fuel d T us' wtb.getAppArgs b
+      cvT.levelParams (List.range cnF) with
+  | error e => rw [hpc] at h; exact nomatch h
+  | ok r₂ => ?_
+  rw [hpc] at h
+  try dsimp only at h
+  cases r₂ with
+  | false => simp [pure, Except.pure] at h
+  | true => ?_
+  simp only [↓reduceIte] at h
+  cases hd1 : defEqList env fuel d (a.getAppArgs.take cnP)
+      wtb.getAppArgs with
+  | error e => rw [hd1] at h; exact nomatch h
+  | ok r₃ => ?_
+  rw [hd1] at h
+  try dsimp only at h
+  cases r₃ with
+  | false => simp [pure, Except.pure] at h
+  | true => ?_
+  simp only [↓reduceIte] at h
+  exact ⟨c, us, cvc, cnP, cnF, tb, wtb, T, us', cvT, caps,
+    rfl, hfc, hal, rfl, hwtb, hwfn, hfT, he1, he2, he3, he4, he5,
+    he5b, he6, he7, he8, he9, hlev, hic, hpc, hd1, h⟩
+
 /-- Inversion of a successful eta certification. -/
 theorem etaCert_inv {env : Env} {fuel d : Nat} {n₁ : Name} {ty₁ body₁ b : Expr}
     {m₁ : BinderMeta}

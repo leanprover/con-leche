@@ -442,319 +442,6 @@ private theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
       exact hw
     rw [hpair hw', sfst_spair, ssnd_spair]
 
-/-- Soundness of the stuck-term fallback: pair eta in either direction,
-else proof irrelevance. -/
-private theorem stuckIrrel_sound {m : EnvModel V env} {fuel : Nat}
-    (ihAll : ∀ f, f ≤ fuel →
-      WhnfClaims m φ f ∧ DefEqClaims m φ f ∧ InferClaims m φ f)
-    {d : Nat} {a b : Expr} {ρ : Nat → V} {va vb : V}
-    (h : stuckIrrel env fuel d a b = .ok true)
-    (hwa : WScoped d a) (hwb : WScoped d b)
-    (hba : a.looseBVarsBounded 0 = true) (hbb : b.looseBVarsBounded 0 = true)
-    (hLba : Expr.LeavesBounded a) (hLbb : Expr.LeavesBounded b)
-    (hoka : FvarsOk V m.val env φ d ρ a) (hokb : FvarsOk V m.val env φ d ρ b)
-    (haa : AnnotOk V m.val env φ d ρ a) (hab : AnnotOk V m.val env φ d ρ b)
-    (hva : interpExpr V m.val env φ d ρ a = some va)
-    (hvb : interpExpr V m.val env φ d ρ b = some vb) :
-    va = vb := by
-  cases fuel with
-  | zero => exact nomatch h
-  | succ f =>
-  simp only [stuckIrrel, Bind.bind, Except.bind] at h
-  cases hp1 : pairEtaCert env f d a b with
-  | error e => rw [hp1] at h; exact nomatch h
-  | ok r₁ =>
-  rw [hp1] at h
-  dsimp only at h
-  cases r₁ with
-  | true =>
-    cases f with
-    | zero => exact nomatch hp1
-    | succ f' =>
-    obtain ⟨ihwL, ihdL, ihiL⟩ := ihAll f' (by omega)
-    exact pairEta_sound ihwL ihdL ihiL hp1 hwa hwb hba hbb hLba hLbb
-      hoka hokb haa hab hva hvb
-  | false =>
-  simp only [Bool.false_eq_true, ↓reduceIte] at h
-  cases hp2 : pairEtaCert env f d b a with
-  | error e => rw [hp2] at h; exact nomatch h
-  | ok r₂ =>
-  rw [hp2] at h
-  dsimp only at h
-  cases r₂ with
-  | true =>
-    cases f with
-    | zero => exact nomatch hp2
-    | succ f' =>
-    obtain ⟨ihwL, ihdL, ihiL⟩ := ihAll f' (by omega)
-    exact (pairEta_sound ihwL ihdL ihiL hp2 hwb hwa hbb hba hLbb hLba
-      hokb hoka hab haa hvb hva).symm
-  | false =>
-  simp only [Bool.false_eq_true, ↓reduceIte] at h
-  cases f with
-  | zero => exact nomatch h
-  | succ f' =>
-  obtain ⟨ihwL, ihdL, ihiL⟩ := ihAll f' (by omega)
-  obtain ⟨hpa, hpb⟩ := proofIrrel_pt ihwL ihiL h hwa hwb hba hbb
-    hLba hLbb hoka hokb haa hab
-  rw [hva] at hpa
-  rw [hvb] at hpb
-  exact (Option.some.inj hpa).trans (Option.some.inj hpb).symm
-
-/-- A successful eta certification identifies the λ's interpretation
-with the stuck side's (`SetTheory.lam_eta`). -/
-private theorem etaCert_sound {m : EnvModel V env} {fuel : Nat}
-    (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-    (ihi : InferClaims m φ fuel)
-    {d : Nat} {n₁ : Name} {ty₁ body₁ b : Expr} {m₁ : BinderMeta} {ρ : Nat → V}
-    {va vb : V}
-    (hec : etaCert env (fuel + 1) d n₁ ty₁ body₁ m₁ b = .ok true)
-    (hwa : WScoped d (Expr.lam n₁ ty₁ body₁ m₁)) (hwb : WScoped d b)
-    (hba : (Expr.lam n₁ ty₁ body₁ m₁).looseBVarsBounded 0 = true)
-    (hbb : b.looseBVarsBounded 0 = true)
-    (hLba : Expr.LeavesBounded (Expr.lam n₁ ty₁ body₁ m₁))
-    (hLbb : Expr.LeavesBounded b)
-    (hoka : FvarsOk V m.val env φ d ρ (Expr.lam n₁ ty₁ body₁ m₁))
-    (hokb : FvarsOk V m.val env φ d ρ b)
-    (haa : AnnotOk V m.val env φ d ρ (Expr.lam n₁ ty₁ body₁ m₁))
-    (hab : AnnotOk V m.val env φ d ρ b)
-    (hva : interpExpr V m.val env φ d ρ (Expr.lam n₁ ty₁ body₁ m₁) = some va)
-    (hvb : interpExpr V m.val env φ d ρ b = some vb) :
-    va = vb := by
-  obtain ⟨tb, n₂, ty₂, fb, m₂, v₁, v₂, htb, hwtb, hm₁, hm₂, hlev, hdty, hdbody⟩ :=
-    etaCert_inv hec
-  -- λ-side components
-  simp only [WScoped] at hwa
-  obtain ⟨hwty₁, hwbody₁⟩ := hwa
-  simp only [looseBVarsBounded, Bool.and_eq_true] at hba
-  obtain ⟨hbty₁, hbbody₁⟩ := hba
-  have hLbty₁ : Expr.LeavesBounded ty₁ := fun l hl => hLba l (by simp [fvarLeaves, hl])
-  obtain ⟨hokty₁, hokbody₁⟩ := FvarsOk.of_lam hoka
-  simp only [AnnotOk] at haa
-  obtain ⟨haty₁, ⟨v₁', hv₁'⟩, hconds⟩ := haa
-  -- b's inferred type
-  obtain ⟨⟨vb', Tb, hvb', hTbi, hmemb⟩, hATb⟩ := ihi htb hwb hbb hLbb hokb hab
-  have hvbeq : vb' = vb := by
-    rw [hvb] at hvb'
-    exact (Option.some.inj hvb').symm
-  rw [hvbeq] at hmemb
-  -- transport through whnf of the type
-  have hwtbW := inferTypeCore_WScoped m.wf fuel htb hwb
-  have hbtb := inferTypeCore_looseBVars m.wf fuel htb hwb hbb hLbb
-  have hLbtb : Expr.LeavesBounded tb := fun l hl =>
-    hLbb l (inferTypeCore_fvarLeaves m.wf fuel htb hwb l hl)
-  have hoktb : FvarsOk V m.val env φ d ρ tb :=
-    FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel htb hwb) hokb
-  obtain ⟨hiwtb, hAwtb⟩ := ihw hwtb hwtbW hbtb hLbtb hoktb hATb
-  have hwWS := whnf_WScoped m.wf fuel hwtb hwtbW
-  have hwB := whnf_looseBVars m.wf fuel hwtb hbtb
-  have hwLb : Expr.LeavesBounded (Expr.forallE n₂ ty₂ fb m₂) := fun l hl =>
-    hLbtb l (whnf_fvarLeaves m.wf fuel hwtb l hl)
-  have hwOk : FvarsOk V m.val env φ d ρ (Expr.forallE n₂ ty₂ fb m₂) :=
-    whnf_FvarsOk m.wf fuel hwtb hoktb
-  simp only [WScoped] at hwWS
-  obtain ⟨hwty₂, hwfb⟩ := hwWS
-  simp only [looseBVarsBounded, Bool.and_eq_true] at hwB
-  obtain ⟨hbty₂, hbfb⟩ := hwB
-  have hLbty₂ : Expr.LeavesBounded ty₂ := fun l hl => hwLb l (by simp [fvarLeaves, hl])
-  obtain ⟨hokty₂, hokfb⟩ := FvarsOk.of_forallE hwOk
-  simp only [AnnotOk] at hAwtb
-  obtain ⟨haty₂, ⟨v₂', hv₂'⟩, hcondf⟩ := hAwtb
-  -- the whnf'd type interprets to `Tb`
-  have hTfi : interpExpr V m.val env φ d ρ (Expr.forallE n₂ ty₂ fb m₂) = some Tb := by
-    rw [hiwtb, hTbi]
-  simp only [interpExpr, hm₂] at hTfi
-  cases hA2 : interpExpr V m.val env φ d ρ ty₂ with
-  | none => rw [hA2] at hTfi; exact nomatch hTfi
-  | some A₂ =>
-  rw [hA2] at hTfi
-  dsimp only at hTfi
-  simp only [Option.some.injEq] at hTfi
-  -- λ interp
-  simp only [interpExpr, hm₁] at hva
-  cases hA1 : interpExpr V m.val env φ d ρ ty₁ with
-  | none => rw [hA1] at hva; exact nomatch hva
-  | some A₁ =>
-  rw [hA1] at hva
-  dsimp only at hva
-  simp only [Option.some.injEq] at hva
-  -- domain agreement
-  have hAeq : A₂ = A₁ :=
-    ihd hdty hwty₂ hwty₁ hbty₂ hbty₁ hLbty₂ hLbty₁ hokty₂ hokty₁ haty₂ haty₁ hA2 hA1
-  subst hAeq
-  -- membership of `b`'s value in the pi over the λ's domain
-  have hmem' : vb ∈ˢ pi (Level.eval φ v₂) A₂ (fun x =>
-      (interpExpr V m.val env φ (d + 1) (updV V ρ d x)
-        (fb.instantiate1 (.fvar d n₂ ty₂))).getD SetTheory.empty) := by
-    rw [hTfi]
-    exact hmemb
-  -- pointwise: the λ's body is `b` applied
-  have hpoint : ∀ x, x ∈ˢ A₂ →
-      ((interpExpr V m.val env φ (d + 1) (updV V ρ d x)
-        (body₁.instantiate1 (.fvar d n₁ ty₁))).getD SetTheory.empty) =
-      SetTheory.app vb x := by
-    intro x hx
-    obtain ⟨habody₁, hwfact₁⟩ := hconds x A₂ hA1 hx
-    obtain ⟨w₁, B₁, hw₁, -, -⟩ := hwfact₁ v₁' hv₁'
-    have happI : interpExpr V m.val env φ (d + 1) (updV V ρ d x)
-        (Expr.app b (.fvar d n₁ ty₁)) = some (SetTheory.app vb x) := by
-      simp only [interpExpr]
-      rw [interp_weaken_top hwb, hvb]
-      simp [updV]
-    have hwapp : WScoped (d + 1) (Expr.app b (.fvar d n₁ ty₁)) := by
-      simp only [WScoped]
-      exact ⟨hwb.mono (Nat.le_succ d), Nat.lt_succ_self d, hwty₁⟩
-    have hbapp : (Expr.app b (.fvar d n₁ ty₁)).looseBVarsBounded 0 = true := by
-      simp [looseBVarsBounded, hbb, hbty₁]
-    have hLbapp : Expr.LeavesBounded (Expr.app b (.fvar d n₁ ty₁)) := by
-      intro l hl
-      simp only [fvarLeaves, List.mem_append, List.mem_cons] at hl
-      rcases hl with hl | rfl | hl
-      · exact hLbb l hl
-      · exact hbty₁
-      · exact hLbty₁ l hl
-    have hokapp : FvarsOk V m.val env φ (d + 1) (updV V ρ d x)
-        (Expr.app b (.fvar d n₁ ty₁)) := by
-      have h0 : (Expr.app b (Expr.bvar 0)).instantiate1 (.fvar d n₁ ty₁) 0 =
-          Expr.app b (.fvar d n₁ ty₁) := by
-        simp [Expr.instantiate1, instantiate1_eq_self hbb]
-      rw [← h0]
-      exact FvarsOk.instantiate1 hwty₁ hokty₁ haty₁ hA1 hx
-        (Expr.app b (Expr.bvar 0)) 0 (by simp only [WScoped]; exact ⟨hwb, trivial⟩)
-        (fun l hl => hokb l (by simpa [fvarLeaves] using hl))
-    have haapp : AnnotOk V m.val env φ (d + 1) (updV V ρ d x)
-        (Expr.app b (.fvar d n₁ ty₁)) := by
-      simp only [AnnotOk]
-      refine ⟨AnnotOk.weaken_top hwb hab, trivial, vb, x,
-        Level.eval φ v₂, A₂,
-        (fun y => (interpExpr V m.val env φ (d + 1) (updV V ρ d y)
-          (fb.instantiate1 (.fvar d n₂ ty₂))).getD SetTheory.empty),
-        ?_, ?_, hmem', hx, ?_⟩
-      · rw [interp_weaken_top hwb]
-        exact hvb
-      · simp [interpExpr, updV]
-      · intro y hy
-        obtain ⟨-, hwf⟩ := hcondf y A₂ hA2 hy
-        obtain ⟨w, hwi, hwu⟩ := hwf v₂' hv₂'
-        dsimp only
-        rw [hwi]
-        have hv₂eq : v₂' = v₂ := by
-          rw [hm₂] at hv₂'
-          exact (Option.some.inj hv₂').symm
-        rw [← hv₂eq]
-        simpa using hwu
-    have hLbo₁ : Expr.LeavesBounded (body₁.instantiate1 (.fvar d n₁ ty₁)) := by
-      intro l hl
-      rcases fvarLeaves_instantiate1 body₁ 0 hl with hl' | hl'
-      · exact hLba l (by simp [fvarLeaves, hl'])
-      · simp only [fvarLeaves, List.mem_cons] at hl'
-        rcases hl' with rfl | hl'
-        · exact hbty₁
-        · exact hLbty₁ l hl'
-    have heq := ihd hdbody
-      (hwty₁.instantiate1 0 hwbody₁) hwapp
-      (looseBVarsBounded_instantiate1 body₁ 0 hbbody₁) hbapp
-      hLbo₁ hLbapp
-      (FvarsOk.instantiate1 hwty₁ hokty₁ haty₁ hA1 hx body₁ 0 hwbody₁ hokbody₁)
-      hokapp habody₁ haapp hw₁ happI
-    rw [hw₁]
-    simpa using heq
-  -- assemble via congruence and eta
-  rw [← hva]
-  have hstep : SetTheory.lam (Level.eval φ v₁) A₂
-      (fun x => (interpExpr V m.val env φ (d + 1) (updV V ρ d x)
-        (body₁.instantiate1 (.fvar d n₁ ty₁))).getD SetTheory.empty) =
-      SetTheory.lam (Level.eval φ v₁) A₂ (fun x => SetTheory.app vb x) :=
-    lam_congr (fun x hx => hpoint x hx)
-  rw [hstep]
-  have hveq : Level.eval φ v₁ = Level.eval φ v₂ := Level.isEquiv_sound hlev φ
-  rw [hveq]
-  exact lam_eta hmem'
-
-/-- Soundness of the one-sided-λ branch of `isDefEqCore` (λ on the
-left): eta, else proof irrelevance. -/
-private theorem etaBranch_sound {m : EnvModel V env} {fuel : Nat}
-    (ihAll : ∀ f, f ≤ fuel →
-      WhnfClaims m φ f ∧ DefEqClaims m φ f ∧ InferClaims m φ f)
-    {d : Nat} {n₁ : Name} {ty₁ body₁ b : Expr} {m₁ : BinderMeta} {ρ : Nat → V}
-    {va vb : V}
-    (h : (do
-      if ← etaCert env fuel d n₁ ty₁ body₁ m₁ b then pure true
-      else stuckIrrel env fuel d (Expr.lam n₁ ty₁ body₁ m₁) b :
-        CheckM Bool) = .ok true)
-    (hwa : WScoped d (Expr.lam n₁ ty₁ body₁ m₁)) (hwb : WScoped d b)
-    (hba : (Expr.lam n₁ ty₁ body₁ m₁).looseBVarsBounded 0 = true)
-    (hbb : b.looseBVarsBounded 0 = true)
-    (hLba : Expr.LeavesBounded (Expr.lam n₁ ty₁ body₁ m₁))
-    (hLbb : Expr.LeavesBounded b)
-    (hoka : FvarsOk V m.val env φ d ρ (Expr.lam n₁ ty₁ body₁ m₁))
-    (hokb : FvarsOk V m.val env φ d ρ b)
-    (haa : AnnotOk V m.val env φ d ρ (Expr.lam n₁ ty₁ body₁ m₁))
-    (hab : AnnotOk V m.val env φ d ρ b)
-    (hva : interpExpr V m.val env φ d ρ (Expr.lam n₁ ty₁ body₁ m₁) = some va)
-    (hvb : interpExpr V m.val env φ d ρ b = some vb) :
-    va = vb := by
-  simp only [Bind.bind, Except.bind] at h
-  cases hec : etaCert env fuel d n₁ ty₁ body₁ m₁ b with
-  | error e => rw [hec] at h; exact nomatch h
-  | ok r =>
-  rw [hec] at h
-  dsimp only at h
-  cases r with
-  | false =>
-    simp only [Bool.false_eq_true, ↓reduceIte] at h
-    exact stuckIrrel_sound ihAll h hwa hwb hba hbb hLba hLbb
-      hoka hokb haa hab hva hvb
-  | true =>
-  cases fuel with
-  | zero => exact nomatch hec
-  | succ f =>
-  obtain ⟨ihwL, ihdL, ihiL⟩ := ihAll f (Nat.le_succ f)
-  exact etaCert_sound ihwL ihdL ihiL hec hwa hwb hba hbb hLba hLbb
-    hoka hokb haa hab hva hvb
-
-/-- Soundness of the one-sided-λ branch of `isDefEqCore` (λ on the
-right). -/
-private theorem etaBranch_sound' {m : EnvModel V env} {fuel : Nat}
-    (ihAll : ∀ f, f ≤ fuel →
-      WhnfClaims m φ f ∧ DefEqClaims m φ f ∧ InferClaims m φ f)
-    {d : Nat} {n₂ : Name} {ty₂ body₂ a : Expr} {m₂ : BinderMeta} {ρ : Nat → V}
-    {va vb : V}
-    (h : (do
-      if ← etaCert env fuel d n₂ ty₂ body₂ m₂ a then pure true
-      else stuckIrrel env fuel d a (Expr.lam n₂ ty₂ body₂ m₂) :
-        CheckM Bool) = .ok true)
-    (hwa : WScoped d a) (hwb : WScoped d (Expr.lam n₂ ty₂ body₂ m₂))
-    (hba : a.looseBVarsBounded 0 = true)
-    (hbb : (Expr.lam n₂ ty₂ body₂ m₂).looseBVarsBounded 0 = true)
-    (hLba : Expr.LeavesBounded a)
-    (hLbb : Expr.LeavesBounded (Expr.lam n₂ ty₂ body₂ m₂))
-    (hoka : FvarsOk V m.val env φ d ρ a)
-    (hokb : FvarsOk V m.val env φ d ρ (Expr.lam n₂ ty₂ body₂ m₂))
-    (haa : AnnotOk V m.val env φ d ρ a)
-    (hab : AnnotOk V m.val env φ d ρ (Expr.lam n₂ ty₂ body₂ m₂))
-    (hva : interpExpr V m.val env φ d ρ a = some va)
-    (hvb : interpExpr V m.val env φ d ρ (Expr.lam n₂ ty₂ body₂ m₂) = some vb) :
-    va = vb := by
-  simp only [Bind.bind, Except.bind] at h
-  cases hec : etaCert env fuel d n₂ ty₂ body₂ m₂ a with
-  | error e => rw [hec] at h; exact nomatch h
-  | ok r =>
-  rw [hec] at h
-  dsimp only at h
-  cases r with
-  | false =>
-    simp only [Bool.false_eq_true, ↓reduceIte] at h
-    exact stuckIrrel_sound ihAll h hwa hwb hba hbb hLba hLbb
-      hoka hokb haa hab hva hvb
-  | true =>
-  cases fuel with
-  | zero => exact nomatch hec
-  | succ f =>
-  obtain ⟨ihwL, ihdL, ihiL⟩ := ihAll f (Nat.le_succ f)
-  exact (etaCert_sound ihwL ihdL ihiL hec hwb hwa hbb hba hLbb hLba
-    hokb hoka hab haa hvb hva).symm
-
 /-- Pointwise interpretation of an expression spine. -/
 def InterpSpine (cval : ConstVal V) (env : Env) (φ : Name → Nat)
     (d : Nat) (ρ : Nat → V) : List Expr → List V → Prop
@@ -1088,6 +775,762 @@ private theorem certs_fit {m : EnvModel V env} {fuelTop : Nat}
       hwbody hbbody hLbody hFbody hAbody hibody
       (fun x hx => hargs x (List.mem_cons_of_mem _ hx)) hsp'
     exact ⟨rest, TeleFitI.cons hidom hia hvA hfb haw hab haA hfit⟩
+
+set_option maxHeartbeats 6400000 in
+/-- A successful structural eta certification identifies the
+constructor application's interpretation with the stuck side's: the
+stored eta law reconstructs the member through the projection models,
+and the value bridges identify the public constants' values with the
+models'. -/
+private theorem structEta_sound {m : EnvModel V env} {fuelTop : Nat}
+    (ihAll : ∀ f, f ≤ fuelTop →
+      WhnfClaims m φ f ∧ DefEqClaims m φ f ∧ InferClaims m φ f)
+    {fuel : Nat} (hfle : fuel ≤ fuelTop)
+    {d : Nat} {a b : Expr} {ρ : Nat → V} {va vb : V}
+    (h : structEtaCert env (fuel + 1) d a b = .ok true)
+    (hwa : WScoped d a) (hwb : WScoped d b)
+    (hba : a.looseBVarsBounded 0 = true)
+    (hbb : b.looseBVarsBounded 0 = true)
+    (hLba : Expr.LeavesBounded a) (hLbb : Expr.LeavesBounded b)
+    (hoka : FvarsOk V m.val env φ d ρ a)
+    (hokb : FvarsOk V m.val env φ d ρ b)
+    (haa : AnnotOk V m.val env φ d ρ a)
+    (hab : AnnotOk V m.val env φ d ρ b)
+    (hva : interpExpr V m.val env φ d ρ a = some va)
+    (hvb : interpExpr V m.val env φ d ρ b = some vb) :
+    va = vb := by
+  obtain ⟨ihw, ihd, ihi⟩ := ihAll fuel hfle
+  obtain ⟨c, us, cvc, cnP, cnF, tb, wtb, T, us', cvT, caps,
+    hfn, hfc, hal, htb, hwtb, hwfn, hfT, hce, hcc, hcp, hcf, hres,
+    hresC, htal, hulen, hclps, hTstrip, hlev, hic, hpc, hd1, hd2⟩ :=
+    structEtaCert_inv h
+  -- level assignments
+  obtain ⟨ψ', hψ'⟩ : ∃ x, x = Level.substFn φ cvT.levelParams us' :=
+    ⟨_, rfl⟩
+  have hψc : Level.substFn φ cvc.levelParams us = ψ' := by
+    rw [hψ', hclps]
+    exact Level.substFn_congr (Level.isEquivList_sound hlev φ)
+  -- b's type reduces to the structure type; extract the spine facts
+  obtain ⟨⟨vb', vtb, hbi, htbi, hmemb⟩, hAtb⟩ :=
+    ihi htb hwb hbb hLbb hokb hab
+  obtain rfl : vb = vb' := by
+    rw [hvb] at hbi
+    exact Option.some.inj hbi
+  have hwtbW := inferTypeCore_WScoped m.wf fuel htb hwb
+  have hbtb := inferTypeCore_looseBVars m.wf fuel htb hwb hbb hLbb
+  have hLbtb : Expr.LeavesBounded tb := fun l hl =>
+    hLbb l (inferTypeCore_fvarLeaves m.wf fuel htb hwb l hl)
+  have hoktb : FvarsOk V m.val env φ d ρ tb :=
+    FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel htb hwb) hokb
+  obtain ⟨hiw, hAwtb⟩ := ihw hwtb hwtbW hbtb hLbtb hoktb hAtb
+  have hvtbI : interpExpr V m.val env φ d ρ wtb = some vtb := by
+    rw [hiw]
+    exact htbi
+  have hwtbW' := whnf_WScoped m.wf fuel hwtb hwtbW
+  have hbwtb := whnf_looseBVars m.wf fuel hwtb hbtb
+  have hLwtb : Expr.LeavesBounded wtb := fun l hl =>
+    hLbtb l (whnf_fvarLeaves m.wf fuel hwtb l hl)
+  have hokwtb : FvarsOk V m.val env φ d ρ wtb :=
+    FvarsOk.of_subset (whnf_fvarLeaves m.wf fuel hwtb) hoktb
+  -- the head's interpretation
+  have hvalT : interpExpr V m.val env φ d ρ (.const T us') =
+      some (m.val T ψ') := by
+    simp only [interpExpr, hfT]
+    rw [if_pos (show us'.length =
+      (ConstantInfo.indInfo cvT caps).toConstantVal.levelParams.length
+      from hulen)]
+    rw [hψ']
+    rfl
+  have hwtb_eq : Expr.mkAppN (.const T us') wtb.getAppArgs = wtb := by
+    rw [← hwfn]
+    exact Expr.mkAppN_getApp wtb
+  have hAwtb' : AnnotOk V m.val env φ d ρ
+      (Expr.mkAppN (.const T us') wtb.getAppArgs) := by
+    rw [hwtb_eq]
+    exact hAwtb
+  -- the type-argument spine and the type's value fold
+  obtain ⟨psv, hspT, hAtargs, hvtb⟩ : ∃ psv,
+      InterpSpine m.val env φ d ρ wtb.getAppArgs psv ∧
+      (∀ x ∈ wtb.getAppArgs, AnnotOk V m.val env φ d ρ x) ∧
+      vtb = SpineFold V (m.val T ψ') psv := by
+    cases hcase : wtb.getAppArgs with
+    | nil =>
+      refine ⟨[], trivial, ?_, ?_⟩
+      · intro x hx
+        exact absurd hx List.not_mem_nil
+      · have hwtbc : wtb = .const T us' := by
+          rw [← Expr.mkAppN_getApp wtb, hwfn, hcase]
+          rfl
+        rw [hwtbc, hvalT] at hvtbI
+        exact (Option.some.inj hvtbI).symm
+    | cons t ts =>
+      rw [← hcase]
+      have hne : wtb.getAppArgs ≠ [] := by
+        rw [hcase]
+        simp
+      obtain ⟨-, hAargs, vf, vs, hvf, hsp, -, hfold⟩ :=
+        annotOk_spine_inv _ _ hne hAwtb'
+      obtain rfl : m.val T ψ' = vf := by
+        rw [hvalT] at hvf
+        exact Option.some.inj hvf
+      refine ⟨vs, hsp, hAargs, ?_⟩
+      rw [hwtb_eq] at hfold
+      rw [hfold] at hvtbI
+      exact (Option.some.inj hvtbI).symm
+  have hpslen : psv.length = wtb.getAppArgs.length :=
+    InterpSpine.length hspT
+  -- fit the type arguments through the type former's telescope
+  obtain ⟨hTtf, -, -, hTtb, -, -⟩ := m.wf _ (find?_mem hfT)
+  have hThf : (cvT.type.instantiateLevelParams cvT.levelParams
+      us').hasFvar = false := by
+    rw [hasFvar_instantiateLevelParams]
+    exact hTtf
+  have hTw : WScoped d (cvT.type.instantiateLevelParams cvT.levelParams
+      us') := WScoped.of_not_hasFvar hThf
+  have hTb : (cvT.type.instantiateLevelParams cvT.levelParams
+      us').looseBVarsBounded 0 = true := by
+    rw [looseBVarsBounded_instantiateLevelParams]
+    exact hTtb
+  have hTA : AnnotOk V m.val env φ d ρ
+      (cvT.type.instantiateLevelParams cvT.levelParams us') := by
+    obtain ⟨hA0, -⟩ := m.annot_ok _ (find?_mem hfT)
+      (Level.substFn φ cvT.levelParams us')
+    exact AnnotOk.closed_invariant hThf d ρ
+      (AnnotOk.instLevels m.val_params _ 0 (rho0 V) hA0)
+  obtain ⟨TT, hTT⟩ : ∃ TT, interpExpr V m.val env φ d ρ
+      (cvT.type.instantiateLevelParams cvT.levelParams us') = some TT := by
+    obtain ⟨T0, hT0, -⟩ := m.mem_type _ (find?_mem hfT)
+      (Level.substFn φ cvT.levelParams us')
+    refine ⟨T0, ?_⟩
+    rw [interp_closed_invariant hThf d ρ]
+    unfold interpClosed
+    rw [interp_instLevels m.val_params]
+    exact hT0
+  have htargswf : ∀ x ∈ wtb.getAppArgs,
+      WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded x ∧ FvarsOk V m.val env φ d ρ x ∧
+      AnnotOk V m.val env φ d ρ x := by
+    intro x hx
+    refine ⟨hwtbW'.getAppArgs x hx, looseBVarsBounded_getAppArgs hbwtb x hx,
+      ?_, ?_, hAtargs x hx⟩
+    · intro l hl
+      exact hLwtb l (fvarLeaves_getAppArgs hx l hl)
+    · exact FvarsOk.of_subset (fun l hl => fvarLeaves_getAppArgs hx l hl)
+        hokwtb
+  obtain ⟨restT, hfitIT⟩ := certs_fit ihAll fuel hfle _ _ _ TT hic hTw hTb
+    (Expr.LeavesBounded.of_not_hasFvar hThf)
+    (FvarsOk.of_not_hasFvar hThf) hTA hTT htargswf hspT
+  obtain ⟨dT, ρT, restT', hfitT⟩ := TeleFitI.toTeleFit hfitIT hTw (by
+    rw [htal]
+    exact stripPis_instantiateLevelParams_isSome _ _ _ hTstrip)
+  -- the stored eta law
+  obtain ⟨hmsC, hmsP, hlaw⟩ := m.modeled_ok.2.2.2 T cvT caps hfT hce hres
+  have hmemb' : vb ∈ˢ SpineFold V
+      (m.val T (Level.substFn φ cvT.levelParams us')) psv := by
+    rw [← hψ']
+    rw [hvtb] at hmemb
+    exact hmemb
+  have hvbEq := hlaw φ us' psv vb d ρ dT ρT restT'
+    (by rw [hpslen, htal, hcp]) hmemb' hfitT
+  rw [hcf] at hvbEq
+  -- the constructor application's spine
+  have ha_eq : Expr.mkAppN (.const c us) a.getAppArgs = a := by
+    rw [← hfn]
+    exact Expr.mkAppN_getApp a
+  have haa' : AnnotOk V m.val env φ d ρ
+      (Expr.mkAppN (.const c us) a.getAppArgs) := by
+    rw [ha_eq]
+    exact haa
+  have huslen : us.length = cvc.levelParams.length := by
+    rw [hclps, ← hulen]
+    exact Level.isEquivList_length hlev
+  have hvalC : interpExpr V m.val env φ d ρ (.const c us) =
+      some (m.val c ψ') := by
+    simp only [interpExpr, hfc]
+    rw [if_pos (show us.length =
+      (ConstantInfo.ctorInfo cvc cnP cnF).toConstantVal.levelParams.length
+      from huslen)]
+    rw [show (ConstantInfo.ctorInfo cvc cnP cnF).toConstantVal.levelParams
+      = cvc.levelParams from rfl, hψc]
+  obtain ⟨avs, hspA, haargsA, hva'⟩ : ∃ avs,
+      InterpSpine m.val env φ d ρ a.getAppArgs avs ∧
+      (∀ x ∈ a.getAppArgs, AnnotOk V m.val env φ d ρ x) ∧
+      va = SpineFold V (m.val c ψ') avs := by
+    cases hcase : a.getAppArgs with
+    | nil =>
+      refine ⟨[], trivial, ?_, ?_⟩
+      · intro x hx
+        exact absurd hx List.not_mem_nil
+      · have hac : a = .const c us := by
+          rw [← Expr.mkAppN_getApp a, hfn, hcase]
+          rfl
+        rw [hac, hvalC] at hva
+        exact (Option.some.inj hva).symm
+    | cons t ts =>
+      rw [← hcase]
+      have hane : a.getAppArgs ≠ [] := by
+        rw [hcase]
+        simp
+      obtain ⟨-, hAargs, vf, vs, hvf, hsp, -, hfold⟩ :=
+        annotOk_spine_inv _ _ hane haa'
+      obtain rfl : m.val c ψ' = vf := by
+        rw [hvalC] at hvf
+        exact Option.some.inj hvf
+      refine ⟨vs, hsp, hAargs, ?_⟩
+      rw [ha_eq] at hfold
+      rw [hfold] at hva
+      exact (Option.some.inj hva).symm
+  have haargswf : ∀ x ∈ a.getAppArgs,
+      WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded x ∧ FvarsOk V m.val env φ d ρ x ∧
+      AnnotOk V m.val env φ d ρ x := by
+    intro x hx
+    refine ⟨hwa.getAppArgs x hx, looseBVarsBounded_getAppArgs hba x hx,
+      ?_, ?_, haargsA x hx⟩
+    · intro l hl
+      exact hLba l (fvarLeaves_getAppArgs hx l hl)
+    · exact FvarsOk.of_subset (fun l hl => fvarLeaves_getAppArgs hx l hl)
+        hoka
+  -- the parameter prefix matches the type's arguments
+  have hpref : avs.take cnP = psv := by
+    refine defEqList_values ihAll fuel hfle _ _ _ _ hd1 ?_ htargswf
+      (InterpSpine.take cnP hspA) hspT
+    intro x hx
+    exact haargswf x (List.mem_of_mem_take hx)
+  -- the projection certificates at the decremented fuel
+  have hpcFacts : ∀ i, i < cnF → ∃ (fl : Nat) (cvp : ConstantVal)
+      (nPp nMp nmp nip : Nat) (rulesp : List RecRule),
+      fl ≤ fuel ∧
+      env.find? (projFnName T i) =
+        some (.recInfo cvp nPp nMp nmp nip rulesp) ∧
+      cvp.levelParams = cvT.levelParams ∧
+      (cvp.type.stripPis (wtb.getAppArgs.length + 1)).isSome = true ∧
+      iotaCerts env fl d
+        (cvp.type.instantiateLevelParams cvp.levelParams us')
+        (wtb.getAppArgs ++ [b]) = .ok true := by
+    intro i hi
+    match fuel, hpc with
+    | 0, hpc => exact nomatch hpc
+    | fuel' + 1, hpc =>
+      obtain ⟨fl, cvp, nPp, nMp, nmp, nip, rulesp, hfl, hfpj, hplps,
+        hpstrip, hicj⟩ := structEtaProjCerts_inv (List.range cnF) fuel'
+        hpc i (List.mem_range.mpr hi)
+      exact ⟨fl, cvp, nPp, nMp, nmp, nip, rulesp,
+        Nat.le_trans hfl (Nat.le_succ _), hfpj, hplps, hpstrip, hicj⟩
+  -- each projection application's chain facts
+  have hprojFacts : ∀ j, j < cnF →
+      AnnotOk V m.val env φ d ρ
+        (Expr.mkAppN (.const (projFnName T j) us')
+          (wtb.getAppArgs ++ [b])) ∧
+      interpExpr V m.val env φ d ρ
+        (Expr.mkAppN (.const (projFnName T j) us')
+          (wtb.getAppArgs ++ [b])) =
+      some (SpineFold V (m.val (projFnName T j) ψ') (psv ++ [vb])) := by
+    intro j hj
+    obtain ⟨fl, cvp, nPp, nMp, nmp, nip, rulesp, hfl, hfpj, hplps,
+      hpstrip, hicj⟩ := hpcFacts j hj
+    have hpname : cvp.name = projFnName T j := by
+      have h1 := List.find?_some hfpj
+      exact eq_of_beq h1
+    have hplen : us'.length = cvp.levelParams.length := by
+      rw [hplps]
+      exact hulen
+    have hψp : Level.substFn φ cvp.levelParams us' = ψ' := by
+      rw [hplps, hψ']
+    have hvalP : interpExpr V m.val env φ d ρ
+        (.const (projFnName T j) us') =
+        some (m.val (projFnName T j) ψ') := by
+      simp only [interpExpr, hfpj]
+      rw [if_pos (show us'.length =
+        (ConstantInfo.recInfo cvp nPp nMp nmp nip
+          rulesp).toConstantVal.levelParams.length from hplen)]
+      rw [show (ConstantInfo.recInfo cvp nPp nMp nmp nip
+        rulesp).toConstantVal.levelParams = cvp.levelParams from rfl, hψp]
+    -- the projection function's type facts
+    obtain ⟨hPtf, -, -, hPtb, -, -⟩ := m.wf _ (find?_mem hfpj)
+    have hPhf : (cvp.type.instantiateLevelParams cvp.levelParams
+        us').hasFvar = false := by
+      rw [hasFvar_instantiateLevelParams]
+      exact hPtf
+    have hPw : WScoped d (cvp.type.instantiateLevelParams cvp.levelParams
+        us') := WScoped.of_not_hasFvar hPhf
+    have hPb : (cvp.type.instantiateLevelParams cvp.levelParams
+        us').looseBVarsBounded 0 = true := by
+      rw [looseBVarsBounded_instantiateLevelParams]
+      exact hPtb
+    have hPA : AnnotOk V m.val env φ d ρ
+        (cvp.type.instantiateLevelParams cvp.levelParams us') := by
+      obtain ⟨hA0, -⟩ := m.annot_ok _ (find?_mem hfpj)
+        (Level.substFn φ cvp.levelParams us')
+      exact AnnotOk.closed_invariant hPhf d ρ
+        (AnnotOk.instLevels m.val_params _ 0 (rho0 V) hA0)
+    obtain ⟨PT, hPT, hPmem⟩ : ∃ PT, interpExpr V m.val env φ d ρ
+        (cvp.type.instantiateLevelParams cvp.levelParams us') = some PT ∧
+        m.val (projFnName T j) (Level.substFn φ cvp.levelParams us')
+          ∈ˢ PT := by
+      obtain ⟨T0, hT0, hTm⟩ := m.mem_type _ (find?_mem hfpj)
+        (Level.substFn φ cvp.levelParams us')
+      refine ⟨T0, ?_, ?_⟩
+      · rw [interp_closed_invariant hPhf d ρ]
+        unfold interpClosed
+        rw [interp_instLevels m.val_params]
+        exact hT0
+      · rw [← hpname]
+        exact hTm
+    have hargs5 : ∀ x ∈ wtb.getAppArgs ++ [b],
+        WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded x ∧ FvarsOk V m.val env φ d ρ x ∧
+        AnnotOk V m.val env φ d ρ x := by
+      intro x hx
+      rcases List.mem_append.mp hx with hx | hx
+      · exact htargswf x hx
+      · obtain rfl : x = b := by simpa using hx
+        exact ⟨hwb, hbb, hLbb, hokb, hab⟩
+    have hspPB : InterpSpine m.val env φ d ρ (wtb.getAppArgs ++ [b])
+        (psv ++ [vb]) :=
+      InterpSpine.append hspT ⟨hvb, trivial⟩
+    obtain ⟨restP, hfitIP⟩ := certs_fit ihAll fl
+      (Nat.le_trans hfl hfle) _ _ _ PT hicj hPw hPb
+      (Expr.LeavesBounded.of_not_hasFvar hPhf)
+      (FvarsOk.of_not_hasFvar hPhf) hPA hPT hargs5 hspPB
+    obtain ⟨dP, ρP, restP', hfitP⟩ := TeleFitI.toTeleFit hfitIP hPw (by
+      rw [show (wtb.getAppArgs ++ [b]).length = wtb.getAppArgs.length + 1
+        from by simp]
+      exact stripPis_instantiateLevelParams_isSome _ _ _ hpstrip)
+    have hψpmem : m.val (projFnName T j) ψ' ∈ˢ PT := by
+      rw [← hψp]
+      exact hPmem
+    have hch := TeleFit.chainSlots hfitP hPA hPT hψpmem
+    have hconstA : AnnotOk V m.val env φ d ρ
+        (.const (projFnName T j) us') := by
+      simp [AnnotOk]
+    obtain ⟨hA1, hI1⟩ := annotOk_spine (wtb.getAppArgs ++ [b])
+      (.const (projFnName T j) us') hconstA hvalP
+      (fun x hx => (hargs5 x hx).2.2.2.2) hspPB hch
+    exact ⟨hA1, hI1⟩
+  -- the field values are the projections'
+  have hprojSpine : InterpSpine m.val env φ d ρ
+      ((List.range cnF).map fun i =>
+        Expr.mkAppN (.const (projFnName T i) us')
+          (wtb.getAppArgs ++ [b]))
+      ((List.range cnF).map fun i =>
+        SpineFold V (m.val (projFnName T i) ψ') (psv ++ [vb])) := by
+    have hgen : ∀ (l : List Nat), (∀ i ∈ l, i < cnF) →
+        InterpSpine m.val env φ d ρ
+          (l.map fun i => Expr.mkAppN (.const (projFnName T i) us')
+            (wtb.getAppArgs ++ [b]))
+          (l.map fun i =>
+            SpineFold V (m.val (projFnName T i) ψ') (psv ++ [vb])) := by
+      intro l
+      induction l with
+      | nil => intro _; exact trivial
+      | cons i l ih =>
+        intro hl
+        exact ⟨(hprojFacts i (hl i List.mem_cons_self)).2,
+          ih (fun i' hi' => hl i' (List.mem_cons_of_mem _ hi'))⟩
+    exact hgen (List.range cnF) (fun i hi => List.mem_range.mp hi)
+  have hflds : avs.drop cnP = (List.range cnF).map fun i =>
+      SpineFold V (m.val (projFnName T i) ψ') (psv ++ [vb]) := by
+    refine defEqList_values ihAll fuel hfle _ _ _ _ hd2 ?_ ?_
+      (InterpSpine.drop cnP hspA) hprojSpine
+    · intro x hx
+      exact haargswf x (List.mem_of_mem_drop hx)
+    · intro x hx
+      obtain ⟨i, hi, rfl⟩ := List.mem_map.mp hx
+      have hif := hprojFacts i (List.mem_range.mp hi)
+      refine ⟨?_, ?_, ?_, ?_, hif.1⟩
+      · refine Expr.WScoped.mkAppN (by simp [WScoped]) ?_
+        intro x hx
+        rcases List.mem_append.mp hx with hx | hx
+        · exact hwtbW'.getAppArgs x hx
+        · obtain rfl : x = b := by simpa using hx
+          exact hwb
+      · refine looseBVarsBounded_mkAppN (by rfl) ?_
+        intro x hx
+        rcases List.mem_append.mp hx with hx | hx
+        · exact looseBVarsBounded_getAppArgs hbwtb x hx
+        · obtain rfl : x = b := by simpa using hx
+          exact hbb
+      · intro l hl
+        rcases fvarLeaves_mkAppN hl with hl' | ⟨x, hx, hlx⟩
+        · simp [Expr.fvarLeaves] at hl'
+        · rcases List.mem_append.mp hx with hx | hx
+          · exact hLwtb l (fvarLeaves_getAppArgs hx l hlx)
+          · obtain rfl : x = b := by simpa using hx
+            exact hLbb l hlx
+      · intro l hl
+        rcases fvarLeaves_mkAppN hl with hl' | ⟨x, hx, hlx⟩
+        · simp [Expr.fvarLeaves] at hl'
+        · rcases List.mem_append.mp hx with hx | hx
+          · exact hokwtb l (fvarLeaves_getAppArgs hx l hlx)
+          · obtain rfl : x = b := by simpa using hx
+            exact hokb l hlx
+  -- assembly through the value bridges
+  obtain ⟨-, hveqC⟩ := m.modeled_ok.2.1 c cvc cnP cnF hfc hresC
+  have hvalPM : ∀ i, i < cnF →
+      m.val (projFnName T i) ψ' = m.val (projModelName T i) ψ' := by
+    intro i hi
+    obtain ⟨fl, cvp, nPp, nMp, nmp, nip, rulesp, -, hfpj, -, -, -⟩ :=
+      hpcFacts i hi
+    obtain ⟨-, hveqP⟩ := m.modeled_ok.2.2.1 T i _ hfpj
+    exact hveqP ψ'
+  have hfldsM : ((List.range cnF).map fun i =>
+      SpineFold V (m.val (projFnName T i) ψ') (psv ++ [vb])) =
+      ((List.range cnF).map fun i =>
+      SpineFold V (m.val (projModelName T i) ψ') (psv ++ [vb])) := by
+    refine List.map_congr_left ?_
+    intro i hi
+    rw [hvalPM i (List.mem_range.mp hi)]
+  rw [hcc] at hvbEq
+  rw [hva', ← List.take_append_drop cnP avs, hpref, hflds, hfldsM,
+    hveqC ψ']
+  rw [hψ']
+  exact hvbEq.symm
+
+/-- Soundness of the stuck-term fallback: pair eta in either direction,
+else proof irrelevance. -/
+private theorem stuckIrrel_sound {m : EnvModel V env} {fuel : Nat}
+    (ihAll : ∀ f, f ≤ fuel →
+      WhnfClaims m φ f ∧ DefEqClaims m φ f ∧ InferClaims m φ f)
+    {d : Nat} {a b : Expr} {ρ : Nat → V} {va vb : V}
+    (h : stuckIrrel env fuel d a b = .ok true)
+    (hwa : WScoped d a) (hwb : WScoped d b)
+    (hba : a.looseBVarsBounded 0 = true) (hbb : b.looseBVarsBounded 0 = true)
+    (hLba : Expr.LeavesBounded a) (hLbb : Expr.LeavesBounded b)
+    (hoka : FvarsOk V m.val env φ d ρ a) (hokb : FvarsOk V m.val env φ d ρ b)
+    (haa : AnnotOk V m.val env φ d ρ a) (hab : AnnotOk V m.val env φ d ρ b)
+    (hva : interpExpr V m.val env φ d ρ a = some va)
+    (hvb : interpExpr V m.val env φ d ρ b = some vb) :
+    va = vb := by
+  cases fuel with
+  | zero => exact nomatch h
+  | succ f =>
+  simp only [stuckIrrel, Bind.bind, Except.bind] at h
+  cases hp1 : pairEtaCert env f d a b with
+  | error e => rw [hp1] at h; exact nomatch h
+  | ok r₁ =>
+  rw [hp1] at h
+  dsimp only at h
+  cases r₁ with
+  | true =>
+    cases f with
+    | zero => exact nomatch hp1
+    | succ f' =>
+    obtain ⟨ihwL, ihdL, ihiL⟩ := ihAll f' (by omega)
+    exact pairEta_sound ihwL ihdL ihiL hp1 hwa hwb hba hbb hLba hLbb
+      hoka hokb haa hab hva hvb
+  | false =>
+  simp only [Bool.false_eq_true, ↓reduceIte] at h
+  cases hp2 : pairEtaCert env f d b a with
+  | error e => rw [hp2] at h; exact nomatch h
+  | ok r₂ =>
+  rw [hp2] at h
+  dsimp only at h
+  cases r₂ with
+  | true =>
+    cases f with
+    | zero => exact nomatch hp2
+    | succ f' =>
+    obtain ⟨ihwL, ihdL, ihiL⟩ := ihAll f' (by omega)
+    exact (pairEta_sound ihwL ihdL ihiL hp2 hwb hwa hbb hba hLbb hLba
+      hokb hoka hab haa hvb hva).symm
+  | false =>
+  simp only [Bool.false_eq_true, ↓reduceIte] at h
+  cases hs1 : structEtaCert env f d a b with
+  | error e => rw [hs1] at h; exact nomatch h
+  | ok r₃ =>
+  rw [hs1] at h
+  dsimp only at h
+  cases r₃ with
+  | true =>
+    cases f with
+    | zero => exact nomatch hs1
+    | succ f' =>
+    exact structEta_sound (fuelTop := f') (fun ff hff => ihAll ff
+        (by omega))
+      (Nat.le_refl _) hs1 hwa hwb hba hbb hLba hLbb
+      hoka hokb haa hab hva hvb
+  | false =>
+  simp only [Bool.false_eq_true, ↓reduceIte] at h
+  cases hs2 : structEtaCert env f d b a with
+  | error e => rw [hs2] at h; exact nomatch h
+  | ok r₄ =>
+  rw [hs2] at h
+  dsimp only at h
+  cases r₄ with
+  | true =>
+    cases f with
+    | zero => exact nomatch hs2
+    | succ f' =>
+    exact (structEta_sound (fuelTop := f') (fun ff hff => ihAll ff
+        (by omega))
+      (Nat.le_refl _) hs2 hwb hwa hbb hba hLbb hLba
+      hokb hoka hab haa hvb hva).symm
+  | false =>
+  simp only [Bool.false_eq_true, ↓reduceIte] at h
+  cases f with
+  | zero => exact nomatch h
+  | succ f' =>
+  obtain ⟨ihwL, ihdL, ihiL⟩ := ihAll f' (by omega)
+  obtain ⟨hpa, hpb⟩ := proofIrrel_pt ihwL ihiL h hwa hwb hba hbb
+    hLba hLbb hoka hokb haa hab
+  rw [hva] at hpa
+  rw [hvb] at hpb
+  exact (Option.some.inj hpa).trans (Option.some.inj hpb).symm
+
+/-- A successful eta certification identifies the λ's interpretation
+with the stuck side's (`SetTheory.lam_eta`). -/
+private theorem etaCert_sound {m : EnvModel V env} {fuel : Nat}
+    (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
+    (ihi : InferClaims m φ fuel)
+    {d : Nat} {n₁ : Name} {ty₁ body₁ b : Expr} {m₁ : BinderMeta} {ρ : Nat → V}
+    {va vb : V}
+    (hec : etaCert env (fuel + 1) d n₁ ty₁ body₁ m₁ b = .ok true)
+    (hwa : WScoped d (Expr.lam n₁ ty₁ body₁ m₁)) (hwb : WScoped d b)
+    (hba : (Expr.lam n₁ ty₁ body₁ m₁).looseBVarsBounded 0 = true)
+    (hbb : b.looseBVarsBounded 0 = true)
+    (hLba : Expr.LeavesBounded (Expr.lam n₁ ty₁ body₁ m₁))
+    (hLbb : Expr.LeavesBounded b)
+    (hoka : FvarsOk V m.val env φ d ρ (Expr.lam n₁ ty₁ body₁ m₁))
+    (hokb : FvarsOk V m.val env φ d ρ b)
+    (haa : AnnotOk V m.val env φ d ρ (Expr.lam n₁ ty₁ body₁ m₁))
+    (hab : AnnotOk V m.val env φ d ρ b)
+    (hva : interpExpr V m.val env φ d ρ (Expr.lam n₁ ty₁ body₁ m₁) = some va)
+    (hvb : interpExpr V m.val env φ d ρ b = some vb) :
+    va = vb := by
+  obtain ⟨tb, n₂, ty₂, fb, m₂, v₁, v₂, htb, hwtb, hm₁, hm₂, hlev, hdty, hdbody⟩ :=
+    etaCert_inv hec
+  -- λ-side components
+  simp only [WScoped] at hwa
+  obtain ⟨hwty₁, hwbody₁⟩ := hwa
+  simp only [looseBVarsBounded, Bool.and_eq_true] at hba
+  obtain ⟨hbty₁, hbbody₁⟩ := hba
+  have hLbty₁ : Expr.LeavesBounded ty₁ := fun l hl => hLba l (by simp [fvarLeaves, hl])
+  obtain ⟨hokty₁, hokbody₁⟩ := FvarsOk.of_lam hoka
+  simp only [AnnotOk] at haa
+  obtain ⟨haty₁, ⟨v₁', hv₁'⟩, hconds⟩ := haa
+  -- b's inferred type
+  obtain ⟨⟨vb', Tb, hvb', hTbi, hmemb⟩, hATb⟩ := ihi htb hwb hbb hLbb hokb hab
+  have hvbeq : vb' = vb := by
+    rw [hvb] at hvb'
+    exact (Option.some.inj hvb').symm
+  rw [hvbeq] at hmemb
+  -- transport through whnf of the type
+  have hwtbW := inferTypeCore_WScoped m.wf fuel htb hwb
+  have hbtb := inferTypeCore_looseBVars m.wf fuel htb hwb hbb hLbb
+  have hLbtb : Expr.LeavesBounded tb := fun l hl =>
+    hLbb l (inferTypeCore_fvarLeaves m.wf fuel htb hwb l hl)
+  have hoktb : FvarsOk V m.val env φ d ρ tb :=
+    FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel htb hwb) hokb
+  obtain ⟨hiwtb, hAwtb⟩ := ihw hwtb hwtbW hbtb hLbtb hoktb hATb
+  have hwWS := whnf_WScoped m.wf fuel hwtb hwtbW
+  have hwB := whnf_looseBVars m.wf fuel hwtb hbtb
+  have hwLb : Expr.LeavesBounded (Expr.forallE n₂ ty₂ fb m₂) := fun l hl =>
+    hLbtb l (whnf_fvarLeaves m.wf fuel hwtb l hl)
+  have hwOk : FvarsOk V m.val env φ d ρ (Expr.forallE n₂ ty₂ fb m₂) :=
+    whnf_FvarsOk m.wf fuel hwtb hoktb
+  simp only [WScoped] at hwWS
+  obtain ⟨hwty₂, hwfb⟩ := hwWS
+  simp only [looseBVarsBounded, Bool.and_eq_true] at hwB
+  obtain ⟨hbty₂, hbfb⟩ := hwB
+  have hLbty₂ : Expr.LeavesBounded ty₂ := fun l hl => hwLb l (by simp [fvarLeaves, hl])
+  obtain ⟨hokty₂, hokfb⟩ := FvarsOk.of_forallE hwOk
+  simp only [AnnotOk] at hAwtb
+  obtain ⟨haty₂, ⟨v₂', hv₂'⟩, hcondf⟩ := hAwtb
+  -- the whnf'd type interprets to `Tb`
+  have hTfi : interpExpr V m.val env φ d ρ (Expr.forallE n₂ ty₂ fb m₂) = some Tb := by
+    rw [hiwtb, hTbi]
+  simp only [interpExpr, hm₂] at hTfi
+  cases hA2 : interpExpr V m.val env φ d ρ ty₂ with
+  | none => rw [hA2] at hTfi; exact nomatch hTfi
+  | some A₂ =>
+  rw [hA2] at hTfi
+  dsimp only at hTfi
+  simp only [Option.some.injEq] at hTfi
+  -- λ interp
+  simp only [interpExpr, hm₁] at hva
+  cases hA1 : interpExpr V m.val env φ d ρ ty₁ with
+  | none => rw [hA1] at hva; exact nomatch hva
+  | some A₁ =>
+  rw [hA1] at hva
+  dsimp only at hva
+  simp only [Option.some.injEq] at hva
+  -- domain agreement
+  have hAeq : A₂ = A₁ :=
+    ihd hdty hwty₂ hwty₁ hbty₂ hbty₁ hLbty₂ hLbty₁ hokty₂ hokty₁ haty₂ haty₁ hA2 hA1
+  subst hAeq
+  -- membership of `b`'s value in the pi over the λ's domain
+  have hmem' : vb ∈ˢ pi (Level.eval φ v₂) A₂ (fun x =>
+      (interpExpr V m.val env φ (d + 1) (updV V ρ d x)
+        (fb.instantiate1 (.fvar d n₂ ty₂))).getD SetTheory.empty) := by
+    rw [hTfi]
+    exact hmemb
+  -- pointwise: the λ's body is `b` applied
+  have hpoint : ∀ x, x ∈ˢ A₂ →
+      ((interpExpr V m.val env φ (d + 1) (updV V ρ d x)
+        (body₁.instantiate1 (.fvar d n₁ ty₁))).getD SetTheory.empty) =
+      SetTheory.app vb x := by
+    intro x hx
+    obtain ⟨habody₁, hwfact₁⟩ := hconds x A₂ hA1 hx
+    obtain ⟨w₁, B₁, hw₁, -, -⟩ := hwfact₁ v₁' hv₁'
+    have happI : interpExpr V m.val env φ (d + 1) (updV V ρ d x)
+        (Expr.app b (.fvar d n₁ ty₁)) = some (SetTheory.app vb x) := by
+      simp only [interpExpr]
+      rw [interp_weaken_top hwb, hvb]
+      simp [updV]
+    have hwapp : WScoped (d + 1) (Expr.app b (.fvar d n₁ ty₁)) := by
+      simp only [WScoped]
+      exact ⟨hwb.mono (Nat.le_succ d), Nat.lt_succ_self d, hwty₁⟩
+    have hbapp : (Expr.app b (.fvar d n₁ ty₁)).looseBVarsBounded 0 = true := by
+      simp [looseBVarsBounded, hbb, hbty₁]
+    have hLbapp : Expr.LeavesBounded (Expr.app b (.fvar d n₁ ty₁)) := by
+      intro l hl
+      simp only [fvarLeaves, List.mem_append, List.mem_cons] at hl
+      rcases hl with hl | rfl | hl
+      · exact hLbb l hl
+      · exact hbty₁
+      · exact hLbty₁ l hl
+    have hokapp : FvarsOk V m.val env φ (d + 1) (updV V ρ d x)
+        (Expr.app b (.fvar d n₁ ty₁)) := by
+      have h0 : (Expr.app b (Expr.bvar 0)).instantiate1 (.fvar d n₁ ty₁) 0 =
+          Expr.app b (.fvar d n₁ ty₁) := by
+        simp [Expr.instantiate1, instantiate1_eq_self hbb]
+      rw [← h0]
+      exact FvarsOk.instantiate1 hwty₁ hokty₁ haty₁ hA1 hx
+        (Expr.app b (Expr.bvar 0)) 0 (by simp only [WScoped]; exact ⟨hwb, trivial⟩)
+        (fun l hl => hokb l (by simpa [fvarLeaves] using hl))
+    have haapp : AnnotOk V m.val env φ (d + 1) (updV V ρ d x)
+        (Expr.app b (.fvar d n₁ ty₁)) := by
+      simp only [AnnotOk]
+      refine ⟨AnnotOk.weaken_top hwb hab, trivial, vb, x,
+        Level.eval φ v₂, A₂,
+        (fun y => (interpExpr V m.val env φ (d + 1) (updV V ρ d y)
+          (fb.instantiate1 (.fvar d n₂ ty₂))).getD SetTheory.empty),
+        ?_, ?_, hmem', hx, ?_⟩
+      · rw [interp_weaken_top hwb]
+        exact hvb
+      · simp [interpExpr, updV]
+      · intro y hy
+        obtain ⟨-, hwf⟩ := hcondf y A₂ hA2 hy
+        obtain ⟨w, hwi, hwu⟩ := hwf v₂' hv₂'
+        dsimp only
+        rw [hwi]
+        have hv₂eq : v₂' = v₂ := by
+          rw [hm₂] at hv₂'
+          exact (Option.some.inj hv₂').symm
+        rw [← hv₂eq]
+        simpa using hwu
+    have hLbo₁ : Expr.LeavesBounded (body₁.instantiate1 (.fvar d n₁ ty₁)) := by
+      intro l hl
+      rcases fvarLeaves_instantiate1 body₁ 0 hl with hl' | hl'
+      · exact hLba l (by simp [fvarLeaves, hl'])
+      · simp only [fvarLeaves, List.mem_cons] at hl'
+        rcases hl' with rfl | hl'
+        · exact hbty₁
+        · exact hLbty₁ l hl'
+    have heq := ihd hdbody
+      (hwty₁.instantiate1 0 hwbody₁) hwapp
+      (looseBVarsBounded_instantiate1 body₁ 0 hbbody₁) hbapp
+      hLbo₁ hLbapp
+      (FvarsOk.instantiate1 hwty₁ hokty₁ haty₁ hA1 hx body₁ 0 hwbody₁ hokbody₁)
+      hokapp habody₁ haapp hw₁ happI
+    rw [hw₁]
+    simpa using heq
+  -- assemble via congruence and eta
+  rw [← hva]
+  have hstep : SetTheory.lam (Level.eval φ v₁) A₂
+      (fun x => (interpExpr V m.val env φ (d + 1) (updV V ρ d x)
+        (body₁.instantiate1 (.fvar d n₁ ty₁))).getD SetTheory.empty) =
+      SetTheory.lam (Level.eval φ v₁) A₂ (fun x => SetTheory.app vb x) :=
+    lam_congr (fun x hx => hpoint x hx)
+  rw [hstep]
+  have hveq : Level.eval φ v₁ = Level.eval φ v₂ := Level.isEquiv_sound hlev φ
+  rw [hveq]
+  exact lam_eta hmem'
+
+/-- Soundness of the one-sided-λ branch of `isDefEqCore` (λ on the
+left): eta, else proof irrelevance. -/
+private theorem etaBranch_sound {m : EnvModel V env} {fuel : Nat}
+    (ihAll : ∀ f, f ≤ fuel →
+      WhnfClaims m φ f ∧ DefEqClaims m φ f ∧ InferClaims m φ f)
+    {d : Nat} {n₁ : Name} {ty₁ body₁ b : Expr} {m₁ : BinderMeta} {ρ : Nat → V}
+    {va vb : V}
+    (h : (do
+      if ← etaCert env fuel d n₁ ty₁ body₁ m₁ b then pure true
+      else stuckIrrel env fuel d (Expr.lam n₁ ty₁ body₁ m₁) b :
+        CheckM Bool) = .ok true)
+    (hwa : WScoped d (Expr.lam n₁ ty₁ body₁ m₁)) (hwb : WScoped d b)
+    (hba : (Expr.lam n₁ ty₁ body₁ m₁).looseBVarsBounded 0 = true)
+    (hbb : b.looseBVarsBounded 0 = true)
+    (hLba : Expr.LeavesBounded (Expr.lam n₁ ty₁ body₁ m₁))
+    (hLbb : Expr.LeavesBounded b)
+    (hoka : FvarsOk V m.val env φ d ρ (Expr.lam n₁ ty₁ body₁ m₁))
+    (hokb : FvarsOk V m.val env φ d ρ b)
+    (haa : AnnotOk V m.val env φ d ρ (Expr.lam n₁ ty₁ body₁ m₁))
+    (hab : AnnotOk V m.val env φ d ρ b)
+    (hva : interpExpr V m.val env φ d ρ (Expr.lam n₁ ty₁ body₁ m₁) = some va)
+    (hvb : interpExpr V m.val env φ d ρ b = some vb) :
+    va = vb := by
+  simp only [Bind.bind, Except.bind] at h
+  cases hec : etaCert env fuel d n₁ ty₁ body₁ m₁ b with
+  | error e => rw [hec] at h; exact nomatch h
+  | ok r =>
+  rw [hec] at h
+  dsimp only at h
+  cases r with
+  | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte] at h
+    exact stuckIrrel_sound ihAll h hwa hwb hba hbb hLba hLbb
+      hoka hokb haa hab hva hvb
+  | true =>
+  cases fuel with
+  | zero => exact nomatch hec
+  | succ f =>
+  obtain ⟨ihwL, ihdL, ihiL⟩ := ihAll f (Nat.le_succ f)
+  exact etaCert_sound ihwL ihdL ihiL hec hwa hwb hba hbb hLba hLbb
+    hoka hokb haa hab hva hvb
+
+/-- Soundness of the one-sided-λ branch of `isDefEqCore` (λ on the
+right). -/
+private theorem etaBranch_sound' {m : EnvModel V env} {fuel : Nat}
+    (ihAll : ∀ f, f ≤ fuel →
+      WhnfClaims m φ f ∧ DefEqClaims m φ f ∧ InferClaims m φ f)
+    {d : Nat} {n₂ : Name} {ty₂ body₂ a : Expr} {m₂ : BinderMeta} {ρ : Nat → V}
+    {va vb : V}
+    (h : (do
+      if ← etaCert env fuel d n₂ ty₂ body₂ m₂ a then pure true
+      else stuckIrrel env fuel d a (Expr.lam n₂ ty₂ body₂ m₂) :
+        CheckM Bool) = .ok true)
+    (hwa : WScoped d a) (hwb : WScoped d (Expr.lam n₂ ty₂ body₂ m₂))
+    (hba : a.looseBVarsBounded 0 = true)
+    (hbb : (Expr.lam n₂ ty₂ body₂ m₂).looseBVarsBounded 0 = true)
+    (hLba : Expr.LeavesBounded a)
+    (hLbb : Expr.LeavesBounded (Expr.lam n₂ ty₂ body₂ m₂))
+    (hoka : FvarsOk V m.val env φ d ρ a)
+    (hokb : FvarsOk V m.val env φ d ρ (Expr.lam n₂ ty₂ body₂ m₂))
+    (haa : AnnotOk V m.val env φ d ρ a)
+    (hab : AnnotOk V m.val env φ d ρ (Expr.lam n₂ ty₂ body₂ m₂))
+    (hva : interpExpr V m.val env φ d ρ a = some va)
+    (hvb : interpExpr V m.val env φ d ρ (Expr.lam n₂ ty₂ body₂ m₂) = some vb) :
+    va = vb := by
+  simp only [Bind.bind, Except.bind] at h
+  cases hec : etaCert env fuel d n₂ ty₂ body₂ m₂ a with
+  | error e => rw [hec] at h; exact nomatch h
+  | ok r =>
+  rw [hec] at h
+  dsimp only at h
+  cases r with
+  | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte] at h
+    exact stuckIrrel_sound ihAll h hwa hwb hba hbb hLba hLbb
+      hoka hokb haa hab hva hvb
+  | true =>
+  cases fuel with
+  | zero => exact nomatch hec
+  | succ f =>
+  obtain ⟨ihwL, ihdL, ihiL⟩ := ihAll f (Nat.le_succ f)
+  exact (etaCert_sound ihwL ihdL ihiL hec hwb hwa hbb hba hLbb hLba
+    hokb hoka hab haa hvb hva).symm
 
 /-- Soundness of one iota step: the reduct's interpretation matches the
 original application spine's, its annotations are truthful, and it stays
