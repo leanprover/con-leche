@@ -241,10 +241,14 @@ stored iota theorem's statement piecewise (telescope domains = rule
 never reasons about annotate/rename commutation.  The semantic
 centerpiece is proven: modeled_rule_fold (Setlec/Model/IndInstall)
 derives a modeled recursor rule's fold obligation end to end from its
-checked _model.iota theorem.  Remaining: the recursor extension
-lemma's plumbing (phase-0 rules-free model, env transport, applying
-modeled_rule_fold per rule), the checkIndDecl inversion and checkDecl
-wiring, the Verify EnvWF arm, and the frontend flip.
+checked _model.iota theorem.  The recursor
+extension itself (extend_modeled_rec) is also proven: phase-0
+rules-free provisional model, environment transport, and
+modeled_rule_fold per rule.  All semantic content of the modeled
+install is done; what remains is checker plumbing — the checkIndDecl
+inversion (producing the RuleChecked bundles), the Verify EnvWF arm,
+checkDecl's indDecl case with the block-walk soundness, and the
+frontend flip.
 
 Consistency corollary (2026-08-19): the 15 pinned basis names are
 *reserved* — `checkConstantVal` (and the per-member checks of the
