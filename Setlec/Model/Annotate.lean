@@ -21,41 +21,43 @@ variable {V : Type u} [SetTheory V] {env : Env} {φ : Name → Nat}
 
 open SetTheory Expr
 
-theorem annotate_sound (m : EnvModel V env) :
-    ∀ (e : Expr) {d : Nat} {e' : Expr},
-      annotate env d e = .ok e' → WScoped d e → e.looseBVarsBounded 0 = true →
+theorem annotateCore_sound (m : EnvModel V env) :
+    ∀ (fuel : Nat) (e : Expr) {d : Nat} {e' : Expr},
+      annotateCore env fuel d e = .ok e' → WScoped d e →
+      e.looseBVarsBounded 0 = true →
       Expr.LeavesBounded e →
       ∀ (ρ : Nat → V), FvarsOk V m.val env φ d ρ e →
         AnnotOk V m.val env φ d ρ e'
-  | .bvar i, d, e', h, _, _, _, ρ, _ => by
-    simp only [annotate, pure, Except.pure, Except.ok.injEq] at h
+  | 0, _, _, _, h, _, _, _, _, _ => by simp [annotateCore] at h
+  | fuel + 1, .bvar i, d, e', h, _, _, _, ρ, _ => by
+    simp only [annotateCore, pure, Except.pure, Except.ok.injEq] at h
     subst h; simp [AnnotOk]
-  | .fvar idx n ty, d, e', h, _, _, _, ρ, _ => by
-    simp only [annotate, pure, Except.pure, Except.ok.injEq] at h
+  | fuel + 1, .fvar idx n ty, d, e', h, _, _, _, ρ, _ => by
+    simp only [annotateCore, pure, Except.pure, Except.ok.injEq] at h
     subst h; simp [AnnotOk]
-  | .sort u, d, e', h, _, _, _, ρ, _ => by
-    simp only [annotate, pure, Except.pure, Except.ok.injEq] at h
+  | fuel + 1, .sort u, d, e', h, _, _, _, ρ, _ => by
+    simp only [annotateCore, pure, Except.pure, Except.ok.injEq] at h
     subst h; simp [AnnotOk]
-  | .const n us, d, e', h, _, _, _, ρ, _ => by
-    simp only [annotate, pure, Except.pure, Except.ok.injEq] at h
+  | fuel + 1, .const n us, d, e', h, _, _, _, ρ, _ => by
+    simp only [annotateCore, pure, Except.pure, Except.ok.injEq] at h
     subst h; simp [AnnotOk]
-  | .app f a, d, e', h, hw, hb, hLb, ρ, hok => by
+  | fuel + 1, .app f a, d, e', h, hw, hb, hLb, ρ, hok => by
     simp only [WScoped] at hw
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
     obtain ⟨hokf, hoka⟩ := FvarsOk.of_app hok
     obtain ⟨f', a', hf, ha, rfl, tf, n1, ty1, body1, m1, ta, hit, hwh, hia, hde⟩ :=
-      annotate_app_inv h
+      annotateCore_app_inv h
     have hLbf : Expr.LeavesBounded f := fun l hl => hLb l (by simp [fvarLeaves, hl])
     have hLba : Expr.LeavesBounded a := fun l hl => hLb l (by simp [fvarLeaves, hl])
-    have hAf := annotate_sound m f hf hw.1 hb.1 hLbf ρ hokf
-    have hAa := annotate_sound m a ha hw.2 hb.2 hLba ρ hoka
+    have hAf := annotateCore_sound m fuel f hf hw.1 hb.1 hLbf ρ hokf
+    have hAa := annotateCore_sound m fuel a ha hw.2 hb.2 hLba ρ hoka
     -- syntactic facts about the annotated pieces
-    have hlef := annotate_leafEquiv f hf hw.1 hb.1
-    have hlea := annotate_leafEquiv a ha hw.2 hb.2
-    have hwf' : WScoped d f' := annotate_WScoped f hf hw.1
-    have hwa' : WScoped d a' := annotate_WScoped a ha hw.2
-    have hbf' : f'.looseBVarsBounded 0 = true := annotate_looseBVars f hf hb.1
-    have hba' : a'.looseBVarsBounded 0 = true := annotate_looseBVars a ha hb.2
+    have hlef := annotateCore_leafEquiv fuel f hf hw.1 hb.1
+    have hlea := annotateCore_leafEquiv fuel a ha hw.2 hb.2
+    have hwf' : WScoped d f' := annotateCore_WScoped fuel f hf hw.1
+    have hwa' : WScoped d a' := annotateCore_WScoped fuel a ha hw.2
+    have hbf' : f'.looseBVarsBounded 0 = true := annotateCore_looseBVars fuel f hf hb.1
+    have hba' : a'.looseBVarsBounded 0 = true := annotateCore_looseBVars fuel a ha hb.2
     have hLbf' : Expr.LeavesBounded f' := fun l hl => by
       rw [fvarLeaves_of_leafEquiv f f' hlef] at hl
       exact hLbf l hl
@@ -125,17 +127,17 @@ theorem annotate_sound (m : EnvModel V env) :
       hfi, hai, ?_, hva, hfib⟩
     rw [hPii]
     exact hmemf
-  | .forallE n ty body mb, d, e', h, hw, hb, hLb, ρ, hok => by
-    have hle := annotate_leafEquiv (env := env) (.forallE n ty body mb) h hw hb
+  | fuel + 1, .forallE n ty body mb, d, e', h, hw, hb, hLb, ρ, hok => by
+    have hle := annotateCore_leafEquiv (fuel + 1) (env := env) (.forallE n ty body mb) h hw hb
     simp only [WScoped] at hw
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
     obtain ⟨hokty, hokbody⟩ := FvarsOk.of_forallE hok
-    simp only [annotate, Bind.bind, Except.bind] at h
-    cases hty : annotate env d ty with
+    simp only [annotateCore, Bind.bind, Except.bind] at h
+    cases hty : annotateCore env fuel d ty with
     | error e => rw [hty] at h; exact nomatch h
     | ok ty' =>
     rw [hty] at h; dsimp only at h
-    cases hbody : annotate env (d + 1) (body.instantiate1 (.fvar d n ty')) with
+    cases hbody : annotateCore env fuel (d + 1) (body.instantiate1 (.fvar d n ty')) with
     | error e => rw [hbody] at h; exact nomatch h
     | ok body' =>
     rw [hbody] at h; dsimp only at h
@@ -151,8 +153,8 @@ theorem annotate_sound (m : EnvModel V env) :
     subst h
     -- shared syntactic facts
     have hLbty : Expr.LeavesBounded ty := fun l hl => hLb l (by simp [fvarLeaves, hl])
-    have hwty' : WScoped d ty' := annotate_WScoped ty hty hw.1
-    have hbty' : ty'.looseBVarsBounded 0 = true := annotate_looseBVars ty hty hb.1
+    have hwty' : WScoped d ty' := annotateCore_WScoped fuel ty hty hw.1
+    have hbty' : ty'.looseBVarsBounded 0 = true := annotateCore_looseBVars fuel ty hty hb.1
     have hwin : WScoped (d + 1) (body.instantiate1 (.fvar d n ty')) :=
       hwty'.instantiate1 0 hw.2
     have hbin : (body.instantiate1 (.fvar d n ty')).looseBVarsBounded 0 = true :=
@@ -164,24 +166,24 @@ theorem annotate_sound (m : EnvModel V env) :
       · simp only [fvarLeaves, List.mem_cons] at hb'
         rcases hb' with rfl | hb'
         · exact hbty'
-        · rw [fvarLeaves_of_leafEquiv ty ty' (annotate_leafEquiv ty hty hw.1 hb.1)] at hb'
+        · rw [fvarLeaves_of_leafEquiv ty ty' (annotateCore_leafEquiv fuel ty hty hw.1 hb.1)] at hb'
           exact hLbty l hb'
-    have hwbody' : WScoped (d + 1) body' := annotate_WScoped _ hbody hwin
-    have hbbody' : body'.looseBVarsBounded 0 = true := annotate_looseBVars _ hbody hbin
+    have hwbody' : WScoped (d + 1) body' := annotateCore_WScoped fuel _ hbody hwin
+    have hbbody' : body'.looseBVarsBounded 0 = true := annotateCore_looseBVars fuel _ hbody hbin
     have hLbbody' : Expr.LeavesBounded body' := fun l hl => by
-      rw [fvarLeaves_of_leafEquiv _ _ (annotate_leafEquiv _ hbody hwin hbin)] at hl
+      rw [fvarLeaves_of_leafEquiv _ _ (annotateCore_leafEquiv fuel _ hbody hwin hbin)] at hl
       exact hLbin l hl
     have hrt : (body'.abstract1 d).instantiate1 (.fvar d n ty') 0 = body' :=
       abstract1_instantiate1 body' 0
-        (annotate_fvarConsistent _ (by omega) hbody
+        (annotateCore_fvarConsistent fuel _ (by omega) hbody
           (fvarConsistent_instantiate1 body 0 hw.2.fvarsBelow))
         hbbody'
     have hlebody : Expr.LeafEquiv body (body'.abstract1 d) := by
       simp only [Expr.LeafEquiv] at hle
       exact hle.2
-    have haty' := annotate_sound m ty hty hw.1 hb.1 hLbty ρ hokty
+    have haty' := annotateCore_sound m fuel ty hty hw.1 hb.1 hLbty ρ hokty
     have hFty' : FvarsOk V m.val env φ d ρ ty' :=
-      FvarsOk.of_leafEquiv (annotate_leafEquiv ty hty hw.1 hb.1) hokty
+      FvarsOk.of_leafEquiv (annotateCore_leafEquiv fuel ty hty hw.1 hb.1) hokty
     -- the annotation-truthfulness goal
     simp only [AnnotOk]
     refine ⟨haty', ⟨v, rfl⟩, ?_⟩
@@ -190,7 +192,7 @@ theorem annotate_sound (m : EnvModel V env) :
         (body.instantiate1 (.fvar d n ty')) :=
       FvarsOk.instantiate1 hwty' hFty' haty' hA hx body 0 hw.2 hokbody
     have habody : AnnotOk V m.val env φ (d + 1) (updV V ρ d x) body' :=
-      annotate_sound m _ hbody hwin hbin hLbin (updV V ρ d x) hfin
+      annotateCore_sound m fuel _ hbody hwin hbin hLbin (updV V ρ d x) hfin
     have hfbody' : FvarsOk V m.val env φ (d + 1) (updV V ρ d x) body' := by
       rw [← hrt]
       refine FvarsOk.instantiate1 hwty' hFty' haty' hA hx (body'.abstract1 d) 0
@@ -212,17 +214,17 @@ theorem annotate_sound (m : EnvModel V env) :
         hLbbt hokbt hAbt] at htw
       obtain rfl := Option.some.inj htw
       exact ⟨w, by rw [hrt]; exact hwi, hmemw⟩
-  | .lam n ty body mb, d, e', h, hw, hb, hLb, ρ, hok => by
-    have hle := annotate_leafEquiv (env := env) (.lam n ty body mb) h hw hb
+  | fuel + 1, .lam n ty body mb, d, e', h, hw, hb, hLb, ρ, hok => by
+    have hle := annotateCore_leafEquiv (fuel + 1) (env := env) (.lam n ty body mb) h hw hb
     simp only [WScoped] at hw
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
     obtain ⟨hokty, hokbody⟩ := FvarsOk.of_lam hok
-    simp only [annotate, Bind.bind, Except.bind] at h
-    cases hty : annotate env d ty with
+    simp only [annotateCore, Bind.bind, Except.bind] at h
+    cases hty : annotateCore env fuel d ty with
     | error e => rw [hty] at h; exact nomatch h
     | ok ty' =>
     rw [hty] at h; dsimp only at h
-    cases hbody : annotate env (d + 1) (body.instantiate1 (.fvar d n ty')) with
+    cases hbody : annotateCore env fuel (d + 1) (body.instantiate1 (.fvar d n ty')) with
     | error e => rw [hbody] at h; exact nomatch h
     | ok body' =>
     rw [hbody] at h; dsimp only at h
@@ -241,8 +243,8 @@ theorem annotate_sound (m : EnvModel V env) :
     simp only [pure, Except.pure, Except.ok.injEq] at h
     subst h
     have hLbty : Expr.LeavesBounded ty := fun l hl => hLb l (by simp [fvarLeaves, hl])
-    have hwty' : WScoped d ty' := annotate_WScoped ty hty hw.1
-    have hbty' : ty'.looseBVarsBounded 0 = true := annotate_looseBVars ty hty hb.1
+    have hwty' : WScoped d ty' := annotateCore_WScoped fuel ty hty hw.1
+    have hbty' : ty'.looseBVarsBounded 0 = true := annotateCore_looseBVars fuel ty hty hb.1
     have hwin : WScoped (d + 1) (body.instantiate1 (.fvar d n ty')) :=
       hwty'.instantiate1 0 hw.2
     have hbin : (body.instantiate1 (.fvar d n ty')).looseBVarsBounded 0 = true :=
@@ -254,24 +256,24 @@ theorem annotate_sound (m : EnvModel V env) :
       · simp only [fvarLeaves, List.mem_cons] at hb'
         rcases hb' with rfl | hb'
         · exact hbty'
-        · rw [fvarLeaves_of_leafEquiv ty ty' (annotate_leafEquiv ty hty hw.1 hb.1)] at hb'
+        · rw [fvarLeaves_of_leafEquiv ty ty' (annotateCore_leafEquiv fuel ty hty hw.1 hb.1)] at hb'
           exact hLbty l hb'
-    have hwbody' : WScoped (d + 1) body' := annotate_WScoped _ hbody hwin
-    have hbbody' : body'.looseBVarsBounded 0 = true := annotate_looseBVars _ hbody hbin
+    have hwbody' : WScoped (d + 1) body' := annotateCore_WScoped fuel _ hbody hwin
+    have hbbody' : body'.looseBVarsBounded 0 = true := annotateCore_looseBVars fuel _ hbody hbin
     have hLbbody' : Expr.LeavesBounded body' := fun l hl => by
-      rw [fvarLeaves_of_leafEquiv _ _ (annotate_leafEquiv _ hbody hwin hbin)] at hl
+      rw [fvarLeaves_of_leafEquiv _ _ (annotateCore_leafEquiv fuel _ hbody hwin hbin)] at hl
       exact hLbin l hl
     have hrt : (body'.abstract1 d).instantiate1 (.fvar d n ty') 0 = body' :=
       abstract1_instantiate1 body' 0
-        (annotate_fvarConsistent _ (by omega) hbody
+        (annotateCore_fvarConsistent fuel _ (by omega) hbody
           (fvarConsistent_instantiate1 body 0 hw.2.fvarsBelow))
         hbbody'
     have hlebody : Expr.LeafEquiv body (body'.abstract1 d) := by
       simp only [Expr.LeafEquiv] at hle
       exact hle.2
-    have haty' := annotate_sound m ty hty hw.1 hb.1 hLbty ρ hokty
+    have haty' := annotateCore_sound m fuel ty hty hw.1 hb.1 hLbty ρ hokty
     have hFty' : FvarsOk V m.val env φ d ρ ty' :=
-      FvarsOk.of_leafEquiv (annotate_leafEquiv ty hty hw.1 hb.1) hokty
+      FvarsOk.of_leafEquiv (annotateCore_leafEquiv fuel ty hty hw.1 hb.1) hokty
     simp only [AnnotOk]
     refine ⟨haty', ⟨v, rfl⟩, ?_⟩
     intro x A hA hx
@@ -279,7 +281,7 @@ theorem annotate_sound (m : EnvModel V env) :
         (body.instantiate1 (.fvar d n ty')) :=
       FvarsOk.instantiate1 hwty' hFty' haty' hA hx body 0 hw.2 hokbody
     have habody : AnnotOk V m.val env φ (d + 1) (updV V ρ d x) body' :=
-      annotate_sound m _ hbody hwin hbin hLbin (updV V ρ d x) hfin
+      annotateCore_sound m fuel _ hbody hwin hbin hLbin (updV V ρ d x) hfin
     have hfbody' : FvarsOk V m.val env φ (d + 1) (updV V ρ d x) body' := by
       rw [← hrt]
       refine FvarsOk.instantiate1 hwty' hFty' haty' hA hx (body'.abstract1 d) 0
@@ -312,24 +314,24 @@ theorem annotate_sound (m : EnvModel V env) :
     refine ⟨w, tw, by rw [hrt]; exact hwi, hmemw, ?_⟩
     rw [htweq]
     exact hmem2
-  | .proj sn i e, d, e', h, hw, hb, hLb, ρ, hok => by
+  | fuel + 1, .proj sn i e, d, e', h, hw, hb, hLb, ρ, hok => by
     simp only [WScoped] at hw
     simp only [Expr.looseBVarsBounded] at hb
     have hLbe : Expr.LeavesBounded e := fun l hl => hLb l (by
       simp only [fvarLeaves]; exact hl)
     have hoke : FvarsOk V m.val env φ d ρ e := fun l hl => hok l (by
       simp only [fvarLeaves]; exact hl)
-    obtain ⟨e₂, te, us, A, B, cv, he, hte, hwh, hfind, hi2, rfl⟩ := annotate_proj_inv h
+    obtain ⟨e₂, te, us, A, B, cv, he, hte, hwh, hfind, hi2, rfl⟩ := annotateCore_proj_inv h
     -- the annotated struct's facts
-    have hle := annotate_leafEquiv e he hw hb
-    have hwe₂ : WScoped d e₂ := annotate_WScoped e he hw
-    have hbe₂ : e₂.looseBVarsBounded 0 = true := annotate_looseBVars e he hb
+    have hle := annotateCore_leafEquiv fuel e he hw hb
+    have hwe₂ : WScoped d e₂ := annotateCore_WScoped fuel e he hw
+    have hbe₂ : e₂.looseBVarsBounded 0 = true := annotateCore_looseBVars fuel e he hb
     have hLbe₂ : Expr.LeavesBounded e₂ := fun l hl => by
       rw [fvarLeaves_of_leafEquiv e e₂ hle] at hl
       exact hLbe l hl
     have hoke₂ : FvarsOk V m.val env φ d ρ e₂ := FvarsOk.of_leafEquiv hle hoke
     have hAe₂ : AnnotOk V m.val env φ d ρ e₂ :=
-      annotate_sound m e he hw hb hLbe ρ hoke
+      annotateCore_sound m fuel e he hw hb hLbe ρ hoke
     obtain ⟨⟨ve, vte, hei, htei, hmem⟩, hwte, hAte⟩ :=
       inferType_sound m hte hwe₂ hbe₂ hLbe₂ hoke₂ hAe₂
     -- reduce the type to the pair form
@@ -381,13 +383,19 @@ theorem annotate_sound (m : EnvModel V env) :
       exact hmem
     · intro x hx
       exact app_mem hBmem hx fun _ _ => univ_mem_univ _
-  | .letE _ _ _ _, d, e', h, _, _, _, ρ, _ => by simp [annotate] at h
-  | .lit _, d, e', h, _, _, _, ρ, _ => by simp [annotate] at h
-termination_by e => e.sizeB
-decreasing_by
-  all_goals first
-  | (simp [Expr.sizeB]; omega)
-  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
-  | (simp [Expr.sizeB])
+  | fuel + 1, .letE _ _ _ _, d, e', h, _, _, _, ρ, _ => by simp [annotateCore] at h
+  | fuel + 1, .lit _, d, e', h, _, _, _, ρ, _ => by simp [annotateCore] at h
+
+
+
+/-- `annotate` (at the standard fuel) computes truthful annotations. -/
+theorem annotate_sound (m : EnvModel V env) :
+    ∀ (e : Expr) {d : Nat} {e' : Expr},
+      annotate env d e = .ok e' → WScoped d e → e.looseBVarsBounded 0 = true →
+      Expr.LeavesBounded e →
+      ∀ (ρ : Nat → V), FvarsOk V m.val env φ d ρ e →
+        AnnotOk V m.val env φ d ρ e' := by
+  intro e d e' h hw hb hLb ρ hok
+  exact annotateCore_sound m checkFuel e h hw hb hLb ρ hok
 
 end Setlec

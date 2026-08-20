@@ -543,14 +543,15 @@ place binder bodies are type-checked; `inferType` afterwards trusts the
 annotations.  For a `forallE` the annotation is the body's sort (so this
 also checks that the body *is* a type — the ∀-formation rule); for a `lam`
 it is the sort of the body's type. -/
-def annotate (env : Env) : (depth : Nat) → Expr → CheckM Expr
-  | _, .bvar i => pure (.bvar i)
-  | _, .fvar idx n ty => pure (.fvar idx n ty)
-  | _, .sort u => pure (.sort u)
-  | _, .const n us => pure (.const n us)
-  | depth, .app f a => do
-    let f' ← annotate env depth f
-    let a' ← annotate env depth a
+def annotateCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → CheckM Expr
+  | 0, _, _ => throw (.internal "fuel exhausted: annotate")
+  | _ + 1, _, .bvar i => pure (.bvar i)
+  | _ + 1, _, .fvar idx n ty => pure (.fvar idx n ty)
+  | _ + 1, _, .sort u => pure (.sort u)
+  | _ + 1, _, .const n us => pure (.const n us)
+  | fuel + 1, depth, .app f a => do
+    let f' ← annotateCore env fuel depth f
+    let a' ← annotateCore env fuel depth a
     -- Run the application rule here (the one place typing is checked):
     -- this establishes the semantic well-typedness clause for `app`
     -- nodes that beta-reduction soundness relies on (see DESIGN.md).
@@ -562,20 +563,20 @@ def annotate (env : Env) : (depth : Nat) → Expr → CheckM Expr
         throw (.invalid "application argument type mismatch")
       pure (.app f' a')
     | _ => throw (.invalid "function expected")
-  | depth, .forallE n ty body m => do
-    let ty' ← annotate env depth ty
-    let body' ← annotate env (depth + 1) (body.instantiate1 (.fvar depth n ty'))
+  | fuel + 1, depth, .forallE n ty body m => do
+    let ty' ← annotateCore env fuel depth ty
+    let body' ← annotateCore env fuel (depth + 1) (body.instantiate1 (.fvar depth n ty'))
     let v ← ensureSort env (depth + 1) (← inferType env (depth + 1) body')
     pure (.forallE n ty' (body'.abstract1 depth) ⟨m.bi, some v⟩)
-  | depth, .lam n ty body m => do
-    let ty' ← annotate env depth ty
-    let body' ← annotate env (depth + 1) (body.instantiate1 (.fvar depth n ty'))
+  | fuel + 1, depth, .lam n ty body m => do
+    let ty' ← annotateCore env fuel depth ty
+    let body' ← annotateCore env fuel (depth + 1) (body.instantiate1 (.fvar depth n ty'))
     let bt ← inferType env (depth + 1) body'
     let v ← ensureSort env (depth + 1) (← inferType env (depth + 1) bt)
     pure (.lam n ty' (body'.abstract1 depth) ⟨m.bi, some v⟩)
-  | _, .letE _ _ _ _ => throw (.notImplemented "annotate: let-expressions")
-  | depth, .proj sn i e => do
-    let e' ← annotate env depth e
+  | _ + 1, _, .letE _ _ _ _ => throw (.notImplemented "annotate: let-expressions")
+  | fuel + 1, depth, .proj sn i e => do
+    let e' ← annotateCore env fuel depth e
     -- Run the projection rule (the one place it is checked; this
     -- establishes the semantic proj clause of `AnnotOk`).
     match ← whnf env depth (← inferType env depth e') with
@@ -589,12 +590,11 @@ def annotate (env : Env) : (depth : Nat) → Expr → CheckM Expr
         pure (.proj sn i e')
       | _ => throw (.notImplemented "projection on a non-basis structure")
     | _ => throw (.notImplemented "projection on a non-basis structure")
-  | _, .lit _ => throw (.notImplemented "annotate: literals")
-termination_by _ e => e.sizeB
-decreasing_by
-  all_goals first
-  | (simp [Expr.sizeB]; omega)
-  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
-  | (simp [Expr.sizeB])
+  | _ + 1, _, .lit _ => throw (.notImplemented "annotate: literals")
+termination_by structural fuel _ _ => fuel
+
+/-- Annotate with the standard fuel. -/
+def annotate (env : Env) (depth : Nat) (e : Expr) : CheckM Expr :=
+  annotateCore env checkFuel depth e
 
 end Setlec

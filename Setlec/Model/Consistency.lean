@@ -1443,7 +1443,10 @@ private theorem foldlM_no_Empty_decl :
     · obtain ⟨type, hann, c, hc, hcv⟩ := checkDecl_stores hdd hdis
       rw [hty] at hann
       obtain rfl : Expr.const emptyName [] = type := by
-        simpa [annotate, pure, Except.pure] using hann
+        have h1 : annotateCore env checkFuel 0 (.const emptyName []) =
+            .ok type := hann
+        rw [show checkFuel = 99999 + 1 from rfl] at h1
+        simpa [annotateCore, pure, Except.pure] using h1
       obtain ⟨m1⟩ := checkDecl_sound hdd m
       exact no_constant_of_Empty m1 c hc (by rw [hcv])
     · have hd' : Declaration.defnDecl cv value ∈ ds ∨
