@@ -815,7 +815,9 @@ private theorem extend_modeled_one {env : Env} (m : EnvModel V env)
     (hnres : reservedBasisNames.contains ci.name = false)
     (hwf : ConstWF ⟨ci :: env.consts⟩ ci)
     (htyres0 : ci.toConstantVal.type.constsResolve env = true)
-    (hkind : (∃ cv, ci = .indInfo cv) ∨ ∃ cv nP nF, ci = .ctorInfo cv nP nF)
+    (hkind : (∃ cv, ci = .indInfo cv) ∨
+      (∃ cv nP nF, ci = .ctorInfo cv nP nF) ∨
+      (∃ cv nP nm, ci = .recInfo cv nP 1 nm 0 []))
     (hmodel : env.find? (ci.name.str "_model") = some (.defnInfo cvm mval))
     (hlps : cvm.levelParams = ci.toConstantVal.levelParams)
     (hren : ci.toConstantVal.type.renameConsts f = cvm.type)
@@ -842,7 +844,8 @@ private theorem extend_modeled_one {env : Env} (m : EnvModel V env)
   exact extend_basis_one m ci (fun ψ => m.val (ci.name.str "_model") ψ)
     hfind' hwf htyres0
     (fun cv2 value2 => by
-      rcases hkind with ⟨cv', rfl⟩ | ⟨cv', nP', nF', rfl⟩ <;> simp)
+      rcases hkind with ⟨cv', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
+        ⟨cv', nP', nm', rfl⟩ <;> simp)
     hkey
     (fun ψ₁ ψ₂ hψ => by
       refine m.val_params _ _ hmodel ψ₁ ψ₂ ?_
@@ -862,11 +865,32 @@ private theorem extend_modeled_one {env : Env} (m : EnvModel V env)
     (fun hn => absurd (hn ▸ hnres) (by decide))
     (fun _ hguard => nomatch (hguard ▸ hmodel))
     (fun cv nP nM nm ni rules heq => by
-      rcases hkind with ⟨cv', rfl⟩ | ⟨cv', nP', nF', rfl⟩ <;> exact nomatch heq)
+      rcases hkind with ⟨cv', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
+        ⟨cv', nP', nm', rfl⟩
+      · exact nomatch heq
+      · exact nomatch heq
+      · exact ⟨fun hn => absurd hnres (by rw [hn]; decide),
+          fun hn => absurd hnres (by rw [hn]; decide),
+          fun hn => absurd hnres (by rw [hn]; decide),
+          fun hn => absurd hnres (by rw [hn]; decide)⟩)
     (fun val' _ _ cvR nP nM nm ni rules heq => by
-      rcases hkind with ⟨cv', rfl⟩ | ⟨cv', nP', nF', rfl⟩ <;> exact nomatch heq)
+      rcases hkind with ⟨cv', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
+        ⟨cv', nP', nm', rfl⟩
+      · exact nomatch heq
+      · exact nomatch heq
+      · injection heq with h1 h2 h3 h4 h5 h6
+        subst h6
+        intro r hr
+        cases hr)
     (fun cvR nP nM nm ni rules heq => by
-      rcases hkind with ⟨cv', rfl⟩ | ⟨cv', nP', nF', rfl⟩ <;> exact nomatch heq)
+      rcases hkind with ⟨cv', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
+        ⟨cv', nP', nm', rfl⟩
+      · exact nomatch heq
+      · exact nomatch heq
+      · injection heq with h1 h2 h3 h4 h5 h6
+        subst h6
+        intro r hr
+        cases hr)
 
 /-- The common inversion + semantic-fact assembly for a checked value
 against a checked (annotated) type. -/

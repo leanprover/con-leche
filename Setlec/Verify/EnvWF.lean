@@ -81,6 +81,13 @@ theorem Expr.constsResolve_instantiateLevelParams {env : Env} (ks : List Name)
   intro e
   induction e <;> simp_all [Expr.instantiateLevelParams, Expr.constsResolve]
 
+/-- Resolution only reads whether names are stored. -/
+theorem Expr.constsResolve_congr {env₁ env₂ : Env}
+    (henv : ∀ n, (env₁.find? n).isSome = (env₂.find? n).isSome) :
+    ∀ (e : Expr), e.constsResolve env₁ = e.constsResolve env₂ := by
+  intro e
+  induction e <;> simp_all [Expr.constsResolve]
+
 /-- Extending with a fresh, well-formed constant preserves `EnvWF`. -/
 theorem EnvWF.cons {c : ConstantInfo} {env : Env}
     (henv : EnvWF env)
