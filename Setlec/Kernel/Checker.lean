@@ -123,6 +123,102 @@ def buildIotaStmt (f : Name → Name) (recName ctorName : Name)
     (fun (b : Name × Expr × BinderInfo) acc =>
       .forallE b.1 (b.2.1.renameConsts f) acc ⟨b.2.2, none⟩) eqApp)
 
+/-- Check a modeled recursor's rules against the model's `iota`
+theorems (the loop of `checkIndDecl`'s recursor arm, lifted for
+verification). -/
+def checkIotaRules (env' envSelf : Env) (f : Name → Name)
+    (cvName : Name) (lps : List Name) (tyA : Expr)
+    (nP nM nm : Nat) : Nat → List RecRule → CheckM (List RecRule)
+  | _, [] => pure []
+  | j, r :: rest => do
+    let some (.ctorInfo cvj cnP cnF) := env'.find? r.ctor
+      | throw (.invalid s!"iota rule constructor {r.ctor} not stored")
+    unless cnP = nP do
+      throw (.notImplemented "constructor/recursor parameter mismatch")
+    unless r.nfields = cnF do
+      throw (.invalid "rule field count mismatch")
+    unless r.rhs.looseBVarsBounded 0 do
+      throw (.invalid s!"loose bound variable in rule of {cvName}")
+    if r.rhs.hasFvar then
+      throw (.invalid s!"free variable in rule of {cvName}")
+    unless r.rhs.allLevelParamsDefined lps do
+      throw (.invalid s!"undeclared universe parameter in rule of {cvName}")
+    unless r.rhs.constsResolve envSelf do
+      throw (.invalid s!"unknown constant in rule of {cvName}")
+    let rhsA ← annotate envSelf 0 r.rhs
+    -- the rule's λ-domains pin down what the model's iota
+    -- theorem quantifies over; they must match the recursor
+    -- type's domains (prefix) and the constructor type's field
+    -- domains (lifted past motive and minors) — the same
+    -- telescopes the iota certificates certify the spines
+    -- against
+    let some (rbinders, rbody) := rhsA.stripLams (nP + nM + nm + cnF)
+      | throw (.notImplemented s!"rule of {cvName} is not a lambda telescope")
+    let some (tbinders, _) := tyA.stripPis (nP + nM + nm)
+      | throw (.notImplemented s!"type of {cvName} is not a pi telescope")
+    let some (cbinders, _) := cvj.type.stripPis (cnP + cnF)
+      | throw (.notImplemented s!"type of {r.ctor} is not a pi telescope")
+    unless (List.range (nP + nM + nm)).all (fun i =>
+        match rbinders[i]?, tbinders[i]? with
+        | some rb, some tb => rb.2.1 == tb.2.1
+        | _, _ => false) do
+      throw (.notImplemented s!"rule domain mismatch with recursor type for {cvName}")
+    unless (List.range cnF).all (fun i =>
+        match rbinders[nP + nM + nm + i]?, cbinders[cnP + i]? with
+        | some rb, some cb =>
+          rb.2.1 == cb.2.1.liftLooseBVars (nM + nm) i
+        | _, _ => false) do
+      throw (.notImplemented s!"rule field domain mismatch with constructor type for {cvName}")
+    -- infer the rule's type: soundness interprets the (λ-tower)
+    -- right-hand side through this inference
+    let _rhsTy ← inferType envSelf 0 rhsA
+    let some stmtRaw := buildIotaStmt f cvName r.ctor
+        lps cvj.levelParams nP nM nm cnF
+        tyA cvj.type r.rhs
+      | throw (.notImplemented "iota statement construction")
+    let stmtA ← annotate env' 0 stmtRaw
+    let thmName := (cvName.str "_model").str s!"iota_{j}"
+    let some (.thmInfo cvt _) := env'.find? thmName
+      | throw (.notImplemented s!"missing iota theorem {thmName}")
+    unless cvt.levelParams = lps do
+      throw (.notImplemented s!"iota theorem level mismatch {thmName}")
+    unless cvt.type == stmtA do
+      throw (.notImplemented s!"iota statement mismatch for {thmName}")
+    -- the theorem's telescope domains and equation body are
+    -- additionally pinned to the rule's annotated data: soundness
+    -- walks the statement with exactly these facts
+    let some (sbinders, sbody) := cvt.type.stripPis (nP + nM + nm + cnF)
+      | throw (.notImplemented
+          s!"iota statement of {thmName} is not a pi telescope")
+    unless (List.range (nP + nM + nm + cnF)).all (fun i =>
+        match sbinders[i]?, rbinders[i]? with
+        | some sb, some rb => sb.2.1 == rb.2.1.renameConsts f
+        | _, _ => false) do
+      throw (.notImplemented
+        s!"iota statement domain mismatch for {thmName}")
+    let some (_, mdomA, _) := rbinders[nP]?
+      | throw (.notImplemented "iota statement motive")
+    let some ℓA := mdomA.resultSort
+      | throw (.notImplemented "iota statement motive sort")
+    let depthS := nP + nM + nm + cnF
+    let pArgsS := (List.range nP).map fun k => Expr.bvar (depthS - 1 - k)
+    let mmArgsS := (List.range (nM + nm)).map fun k =>
+      Expr.bvar (depthS - 1 - nP - k)
+    let xArgsS := (List.range cnF).map fun k => Expr.bvar (cnF - 1 - k)
+    let ctorAppS := Expr.mkAppN
+      (.const (f r.ctor) (cvj.levelParams.map .param)) (pArgsS ++ xArgsS)
+    let lhsS := Expr.mkAppN
+      (.const (f cvName) (lps.map .param))
+      (pArgsS ++ mmArgsS ++ [ctorAppS])
+    let motiveBVarS := Expr.bvar (cnF + nm + (nM - 1))
+    unless sbody == Expr.mkAppN (.const eqName [ℓA])
+        [.app motiveBVarS ctorAppS, lhsS, rbody.renameConsts f] do
+      throw (.notImplemented
+        s!"iota statement body mismatch for {thmName}")
+    let rest' ← checkIotaRules env' envSelf f cvName lps tyA nP nM nm
+      (j + 1) rest
+    pure ({ r with rhs := rhsA } :: rest')
+
 /-- Check and install a modeled inductive block: every member is
 checked against its `_model` counterpart (type up to the public↔model
 renaming, iota rules against the model's `iota_j` theorems), then
@@ -169,96 +265,7 @@ def checkIndDecl (env : Env) (block : List ConstantInfo) : CheckM Env := do
       -- mention the recursor, but nothing during their annotation may
       -- depend on its (yet unchecked) rules
       let envSelf : Env := ⟨.recInfo cvA nP nM nm ni [] :: env'.consts⟩
-      let rec goRules : Nat → List RecRule → CheckM (List RecRule)
-        | _, [] => pure []
-        | j, r :: rest => do
-          let some (.ctorInfo cvj cnP cnF) := env'.find? r.ctor
-            | throw (.invalid s!"iota rule constructor {r.ctor} not stored")
-          unless cnP = nP do
-            throw (.notImplemented "constructor/recursor parameter mismatch")
-          unless r.nfields = cnF do
-            throw (.invalid "rule field count mismatch")
-          unless r.rhs.looseBVarsBounded 0 do
-            throw (.invalid s!"loose bound variable in rule of {cv.name}")
-          if r.rhs.hasFvar then
-            throw (.invalid s!"free variable in rule of {cv.name}")
-          unless r.rhs.allLevelParamsDefined cv.levelParams do
-            throw (.invalid s!"undeclared universe parameter in rule of {cv.name}")
-          unless r.rhs.constsResolve envSelf do
-            throw (.invalid s!"unknown constant in rule of {cv.name}")
-          let rhsA ← annotate envSelf 0 r.rhs
-          -- the rule's λ-domains pin down what the model's iota
-          -- theorem quantifies over; they must match the recursor
-          -- type's domains (prefix) and the constructor type's field
-          -- domains (lifted past motive and minors) — the same
-          -- telescopes the iota certificates certify the spines
-          -- against
-          let some (rbinders, rbody) := rhsA.stripLams (nP + nM + nm + cnF)
-            | throw (.notImplemented s!"rule of {cv.name} is not a lambda telescope")
-          let some (tbinders, _) := tyA.stripPis (nP + nM + nm)
-            | throw (.notImplemented s!"type of {cv.name} is not a pi telescope")
-          let some (cbinders, _) := cvj.type.stripPis (cnP + cnF)
-            | throw (.notImplemented s!"type of {r.ctor} is not a pi telescope")
-          unless (List.range (nP + nM + nm)).all (fun i =>
-              match rbinders[i]?, tbinders[i]? with
-              | some rb, some tb => rb.2.1 == tb.2.1
-              | _, _ => false) do
-            throw (.notImplemented s!"rule domain mismatch with recursor type for {cv.name}")
-          unless (List.range cnF).all (fun i =>
-              match rbinders[nP + nM + nm + i]?, cbinders[cnP + i]? with
-              | some rb, some cb =>
-                rb.2.1 == cb.2.1.liftLooseBVars (nM + nm) i
-              | _, _ => false) do
-            throw (.notImplemented s!"rule field domain mismatch with constructor type for {cv.name}")
-          -- infer the rule's type: soundness interprets the (λ-tower)
-          -- right-hand side through this inference
-          let _rhsTy ← inferType envSelf 0 rhsA
-          let some stmtRaw := buildIotaStmt f cv.name r.ctor
-              cv.levelParams cvj.levelParams nP nM nm cnF
-              tyA cvj.type r.rhs
-            | throw (.notImplemented "iota statement construction")
-          let stmtA ← annotate env' 0 stmtRaw
-          let thmName := (cv.name.str "_model").str s!"iota_{j}"
-          let some (.thmInfo cvt _) := env'.find? thmName
-            | throw (.notImplemented s!"missing iota theorem {thmName}")
-          unless cvt.levelParams = cv.levelParams do
-            throw (.notImplemented s!"iota theorem level mismatch {thmName}")
-          unless cvt.type == stmtA do
-            throw (.notImplemented s!"iota statement mismatch for {thmName}")
-          -- the theorem's telescope domains and equation body are
-          -- additionally pinned to the rule's annotated data: soundness
-          -- walks the statement with exactly these facts
-          let some (sbinders, sbody) := cvt.type.stripPis (nP + nM + nm + cnF)
-            | throw (.notImplemented
-                s!"iota statement of {thmName} is not a pi telescope")
-          unless (List.range (nP + nM + nm + cnF)).all (fun i =>
-              match sbinders[i]?, rbinders[i]? with
-              | some sb, some rb => sb.2.1 == rb.2.1.renameConsts f
-              | _, _ => false) do
-            throw (.notImplemented
-              s!"iota statement domain mismatch for {thmName}")
-          let some (_, mdomA, _) := rbinders[nP]?
-            | throw (.notImplemented "iota statement motive")
-          let some ℓA := mdomA.resultSort
-            | throw (.notImplemented "iota statement motive sort")
-          let depthS := nP + nM + nm + cnF
-          let pArgsS := (List.range nP).map fun k => Expr.bvar (depthS - 1 - k)
-          let mmArgsS := (List.range (nM + nm)).map fun k =>
-            Expr.bvar (depthS - 1 - nP - k)
-          let xArgsS := (List.range cnF).map fun k => Expr.bvar (cnF - 1 - k)
-          let ctorAppS := Expr.mkAppN
-            (.const (f r.ctor) (cvj.levelParams.map .param)) (pArgsS ++ xArgsS)
-          let lhsS := Expr.mkAppN
-            (.const (f cv.name) (cv.levelParams.map .param))
-            (pArgsS ++ mmArgsS ++ [ctorAppS])
-          let motiveBVarS := Expr.bvar (cnF + nm + (nM - 1))
-          unless sbody == Expr.mkAppN (.const eqName [ℓA])
-              [.app motiveBVarS ctorAppS, lhsS, rbody.renameConsts f] do
-            throw (.notImplemented
-              s!"iota statement body mismatch for {thmName}")
-          let rest' ← goRules (j + 1) rest
-          pure ({ r with rhs := rhsA } :: rest')
-      let rules' ← goRules 0 rules
+      let rules' ← checkIotaRules env' envSelf f cv.name cv.levelParams tyA nP nM nm 0 rules
       pure ⟨.recInfo cvA nP nM nm ni rules' :: env'.consts⟩
     | _ => throw (.invalid s!"non-inductive member {cv.name} in block")
     ) env
