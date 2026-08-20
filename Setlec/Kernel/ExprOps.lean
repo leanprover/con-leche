@@ -34,6 +34,51 @@ def instantiate1 (e : Expr) (v : Expr) (d : Nat := 0) : Expr :=
   | .lit l => .lit l
   | .proj s i e => .proj s i (instantiate1 e v d)
 
+/-- Bump every loose bound variable `≥ cutoff` by `amount`.  Used to
+transport a constructor-telescope field domain (parameters, then prior
+fields) into a recursor-rule telescope (parameters, motive, minors,
+then prior fields): parameter references must skip the extra motive
+and minor binders, and by the zeta expansion's substitution to carry
+open let-values under binders. -/
+def liftLooseBVars (amount : Nat) : (cutoff : Nat) → Expr → Expr
+  | c, .bvar i => if i ≥ c then .bvar (i + amount) else .bvar i
+  | _, .fvar i n ty => .fvar i n ty
+  | _, .sort u => .sort u
+  | _, .const n us => .const n us
+  | c, .app a b => .app (liftLooseBVars amount c a) (liftLooseBVars amount c b)
+  | c, .lam n ty body m =>
+    .lam n (liftLooseBVars amount c ty) (liftLooseBVars amount (c + 1) body) m
+  | c, .forallE n ty body m =>
+    .forallE n (liftLooseBVars amount c ty) (liftLooseBVars amount (c + 1) body) m
+  | c, .letE n ty v body =>
+    .letE n (liftLooseBVars amount c ty) (liftLooseBVars amount c v)
+      (liftLooseBVars amount (c + 1) body)
+  | _, .lit l => .lit l
+  | c, .proj s i e => .proj s i (liftLooseBVars amount c e)
+
+/-- Replace `bvar d` by `v`, *lifting* `v`'s loose `bvar`s past the
+binders crossed on the way — the general capture-avoiding substitution
+for an open `v` (unlike `instantiate1`, which requires `v` to be
+`bvar`-closed).  Used by `zetaExpand`, where let-values are open. -/
+def instantiate1Lift (e : Expr) (v : Expr) (d : Nat := 0) : Expr :=
+  match e with
+  | .bvar i =>
+    if i = d then Expr.liftLooseBVars d 0 v
+    else if i > d then .bvar (i - 1) else .bvar i
+  | .fvar idx n ty => .fvar idx n ty
+  | .sort u => .sort u
+  | .const n us => .const n us
+  | .app f a => .app (instantiate1Lift f v d) (instantiate1Lift a v d)
+  | .lam n ty body bi =>
+    .lam n (instantiate1Lift ty v d) (instantiate1Lift body v (d + 1)) bi
+  | .forallE n ty body bi =>
+    .forallE n (instantiate1Lift ty v d) (instantiate1Lift body v (d + 1)) bi
+  | .letE n ty val body =>
+    .letE n (instantiate1Lift ty v d) (instantiate1Lift val v d)
+      (instantiate1Lift body v (d + 1))
+  | .lit l => .lit l
+  | .proj s i e => .proj s i (instantiate1Lift e v d)
+
 /-- Node count with `fvar` counted as a leaf (its annotated type ignored).
 Termination measure for recursion into instantiated binder bodies. -/
 def sizeB : Expr → Nat
@@ -169,7 +214,9 @@ def zetaExpand : Expr → Expr
   | .app f a => .app (zetaExpand f) (zetaExpand a)
   | .lam n ty body m => .lam n (zetaExpand ty) (zetaExpand body) m
   | .forallE n ty body m => .forallE n (zetaExpand ty) (zetaExpand body) m
-  | .letE _ _ val body => (zetaExpand body).instantiate1 (zetaExpand val)
+  | .letE _ _ val body =>
+    -- let-values are open terms: substitute with lifting
+    (zetaExpand body).instantiate1Lift (zetaExpand val)
   | .lit l => .lit l
   | .proj s i e => .proj s i (zetaExpand e)
 
@@ -191,27 +238,6 @@ def renameConsts (f : Name → Name) : Expr → Expr
   | .lit l => .lit l
   | .proj s i e => .proj (f s) i (renameConsts f e)
 
-/-- Bump every loose bound variable `≥ cutoff` by `amount`.  Used to
-transport a constructor-telescope field domain (parameters, then prior
-fields) into a recursor-rule telescope (parameters, motive, minors,
-then prior fields): parameter references must skip the extra motive
-and minor binders. -/
-def liftLooseBVars (amount : Nat) : (cutoff : Nat) → Expr → Expr
-  | c, .bvar i => if i ≥ c then .bvar (i + amount) else .bvar i
-  | _, .fvar i n ty => .fvar i n ty
-  | _, .sort u => .sort u
-  | _, .const n us => .const n us
-  | c, .app a b => .app (liftLooseBVars amount c a) (liftLooseBVars amount c b)
-  | c, .lam n ty body m =>
-    .lam n (liftLooseBVars amount c ty) (liftLooseBVars amount (c + 1) body) m
-  | c, .forallE n ty body m =>
-    .forallE n (liftLooseBVars amount c ty) (liftLooseBVars amount (c + 1) body) m
-  | c, .letE n ty v body =>
-    .letE n (liftLooseBVars amount c ty) (liftLooseBVars amount c v)
-      (liftLooseBVars amount (c + 1) body)
-  | _, .lit l => .lit l
-  | c, .proj s i e => .proj s i (liftLooseBVars amount c e)
-
 /-- Strip `k` leading lambdas: the binder list (outermost first) and
 the body. -/
 def stripLams : Nat → Expr → Option (List (Name × Expr × BinderMeta) × Expr)
@@ -227,6 +253,12 @@ def stripPis : Nat → Expr → Option (List (Name × Expr × BinderMeta) × Exp
   | k + 1, .forallE n ty b m =>
     (stripPis k b).map fun (bs, e) => ((n, ty, m) :: bs, e)
   | _ + 1, _ => none
+
+/-- The body of a syntactic `∀`-telescope (the expression itself when
+it is not a `∀`). -/
+def piResult : Expr → Expr
+  | .forallE _ _ b _ => piResult b
+  | e => e
 
 /-- Instantiate a `∀`-telescope with arguments, in order. -/
 def instPis : Expr → List Expr → Option Expr
