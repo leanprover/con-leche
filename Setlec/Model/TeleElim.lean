@@ -391,12 +391,14 @@ theorem TeleFit.toTeleFitI :
       TeleFit V cval env φ D ρD e vs d' ρ' rest →
       WScoped D e →
       D ≤ d' ∧ (∀ i, i < D → ρ' i = ρD i) ∧
-      ∃ args rest₂, TeleFitI V cval env φ d' ρ' e args vs rest₂ := by
+      ∃ args rest₂, TeleFitI V cval env φ d' ρ' e args vs rest₂ ∧
+        ∀ a ∈ args, ∃ i n ty, a = .fvar i n ty := by
   intro D ρD e vs d' ρ' rest ht
   induction ht with
   | nil =>
     intro _
-    exact ⟨Nat.le_refl _, fun _ _ => rfl, [], _, TeleFitI.nil⟩
+    exact ⟨Nat.le_refl _, fun _ _ => rfl, [], _, TeleFitI.nil,
+      fun a ha => by simp at ha⟩
   | @cons D ρD n ty body m x xs d' ρ' rest A hity hx ht ih =>
     intro hwe
     have hwe' : WScoped D ty ∧ WScoped D body := by simpa [WScoped] using hwe
@@ -404,7 +406,7 @@ theorem TeleFit.toTeleFitI :
       refine WScoped.instantiate1_gen ?_ 0 (hwe'.2.mono (Nat.le_succ D))
       simp only [WScoped]
       exact ⟨Nat.lt_succ_self D, hwe'.1⟩
-    obtain ⟨hDd, hagr, args, rest₂, hfit⟩ := ih hwopen
+    obtain ⟨hDd, hagr, args, rest₂, hfit, hfvars⟩ := ih hwopen
     have hDd' : D ≤ d' := Nat.le_trans (Nat.le_succ D) hDd
     have hagr' : ∀ i, i < D → ρ' i = ρD i := by
       intro i hi
@@ -414,7 +416,12 @@ theorem TeleFit.toTeleFitI :
     have hρD : ρ' D = x := by
       rw [hagr D (by omega)]
       simp [updV]
-    refine ⟨hDd', hagr', .fvar D n ty :: args, rest₂, ?_⟩
+    refine ⟨hDd', hagr', .fvar D n ty :: args, rest₂,
+      ?_,
+      fun a ha => by
+        rcases List.mem_cons.mp ha with rfl | ha
+        · exact ⟨D, n, ty, rfl⟩
+        · exact hfvars a ha⟩
     refine TeleFitI.cons ?_ ?_ hx (fvarsBelow_mono hDd' hwe'.2.fvarsBelow)
       ?_ rfl (by simp [AnnotOk]) hfit
     · rw [interp_lift hwe'.1 d' hDd' ρD ρ' hagr']
@@ -696,6 +703,29 @@ theorem TeleFitI.arg_facts :
     | succ i =>
       simp only [List.getElem?_cons_succ] at ha hv
       exact ih i a v ha hv
+
+/-- Positional well-formedness facts of an expression-spine fit's
+arguments. -/
+theorem TeleFitI.arg_wf :
+    ∀ {ty : Expr} {args : List Expr} {vs : List V} {rest : Expr},
+      TeleFitI V cval env φ d ρ ty args vs rest →
+      ∀ (i : Nat) (a : Expr), args[i]? = some a →
+        WScoped d a ∧ a.looseBVarsBounded 0 = true ∧
+        AnnotOk V cval env φ d ρ a := by
+  intro ty args vs rest h
+  induction h with
+  | nil => intro i a ha; simp at ha
+  | @cons n ty body m arg args x xs A rest hity hiarg hx hfb hwa hba hAa
+      ht ih =>
+    intro i a ha
+    cases i with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at ha
+      subst ha
+      exact ⟨hwa, hba, hAa⟩
+    | succ i =>
+      simp only [List.getElem?_cons_succ] at ha
+      exact ih i a ha
 
 /-- Renaming relates every expression to itself modulo erasure when the
 renaming only retargets constants that do not occur — in particular any
@@ -1062,5 +1092,57 @@ theorem TeleFitI.toLamRen {f : Name → Name} (hro : RenameOk cval env f) :
       hfitE⟩
     rw [← RenEq.interp hro hd d ρ]
     exact hity
+
+/-- Build a pointwise argument relation from indexed facts. -/
+theorem ArgsRel.of_pointwise {P : Expr → Expr → Prop} :
+    ∀ {l₁ l₂ : List Expr}, l₁.length = l₂.length →
+      (∀ (i : Nat) (a₁ a₂ : Expr), l₁[i]? = some a₁ → l₂[i]? = some a₂ →
+        P a₁ a₂) →
+      ArgsRel P l₁ l₂
+  | [], [], _, _ => ArgsRel.nil
+  | a₁ :: l₁, a₂ :: l₂, hlen, h =>
+    ArgsRel.cons (h 0 a₁ a₂ rfl rfl)
+      (ArgsRel.of_pointwise (by simpa using hlen)
+        (fun i b₁ b₂ hb₁ hb₂ => h (i + 1) b₁ b₂ (by simpa using hb₁)
+          (by simpa using hb₂)))
+
+/-- Replace the leading arguments of a fit with pointwise interp-equal,
+well-formed alternatives. -/
+theorem TeleFitI.swap_prefix :
+    ∀ {pre₁ pre₂ post : List Expr} {ty : Expr} {vs : List V} {rest : Expr},
+      TeleFitI V cval env φ d ρ ty (pre₁ ++ post) vs rest →
+      (ty.stripPis (pre₁ ++ post).length).isSome →
+      ArgsRel (fun a₁ a₂ =>
+        interpExpr V cval env φ d ρ a₂ =
+          interpExpr V cval env φ d ρ a₁ ∧
+        WScoped d a₂ ∧ a₂.looseBVarsBounded 0 = true ∧
+        AnnotOk V cval env φ d ρ a₂) pre₁ pre₂ →
+      ∃ rest₂, TeleFitI V cval env φ d ρ ty (pre₂ ++ post) vs rest₂ := by
+  intro pre₁
+  induction pre₁ with
+  | nil =>
+    intro pre₂ post ty vs rest hfit _ hrel
+    cases hrel with
+    | nil => exact ⟨rest, hfit⟩
+  | cons a₁ pre₁ ih =>
+    intro pre₂ post ty vs rest hfit harity hrel
+    cases hrel with
+    | @cons _ a₂ _ pre₂ hP hrel' =>
+    obtain ⟨hia, hwa₂, hba₂, hAa₂⟩ := hP
+    obtain ⟨n, dom, body, m, rfl⟩ :
+        ∃ n dom body m, ty = .forallE n dom body m := by
+      cases hfit; exact ⟨_, _, _, _, rfl⟩
+    cases hfit with
+    | @cons _ _ _ _ _ _ x xs A rest hity hiarg hx hfbI hwarg hbarg hAarg
+        hsub =>
+    have hia₂ : interpExpr V cval env φ d ρ a₂ = some x := by
+      rw [hia]; exact hiarg
+    have harity' : (body.stripPis (pre₁ ++ post).length).isSome := by
+      simpa [Expr.stripPis, Option.isSome_map] using harity
+    obtain ⟨restS, hsw⟩ := TeleFitI.arg_swap hwarg hbarg hwa₂ hba₂ hiarg
+      hia₂ (k := 0) hsub hfbI harity'
+    obtain ⟨rest₂, hfit₂⟩ := ih hsw
+      (Expr.stripPis_instantiate1_isSome _ 0 harity') hrel'
+    exact ⟨rest₂, TeleFitI.cons hity hia₂ hx hfbI hwa₂ hba₂ hAa₂ hfit₂⟩
 
 end Setlec
