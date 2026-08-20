@@ -124,11 +124,11 @@ theorem foldlM_snd {α β : Type} (g : β → α → PairM rel β) :
 
 macro "dfst_step" : tactic =>
   `(tactic| repeat (first
-    | rfl
     | (rw [liftFueled_fst_proj])
     | (rw [foldlM_fst])
     | split
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
     | (simp only [])))
 
 macro "dfst_tac" : tactic =>
@@ -139,11 +139,11 @@ macro "dfst_tac" : tactic =>
 
 macro "dsnd_step" : tactic =>
   `(tactic| repeat (first
-    | rfl
     | (rw [liftFueled_snd_proj])
     | (rw [foldlM_snd])
     | split
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
     | (simp only [])))
 
 macro "dsnd_tac" : tactic =>
@@ -234,7 +234,6 @@ theorem checkIotaRules_snd_dproj (env' envSelf : Env)
 
 macro "dfst_step2" : tactic =>
   `(tactic| repeat (first
-    | rfl
     | (rw [liftFueled_fst_proj])
     | (rw [foldlM_fst])
     | (rw [checkConstantVal_fst_dproj])
@@ -246,6 +245,7 @@ macro "dfst_step2" : tactic =>
     | (rw [checkIotaRules_fst_dproj])
     | split
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
     | (simp only [])))
 
 macro "dfst_tac2" : tactic =>
@@ -256,7 +256,6 @@ macro "dfst_tac2" : tactic =>
 
 macro "dsnd_step2" : tactic =>
   `(tactic| repeat (first
-    | rfl
     | (rw [liftFueled_snd_proj])
     | (rw [foldlM_snd])
     | (rw [checkConstantVal_snd_dproj])
@@ -268,6 +267,7 @@ macro "dsnd_step2" : tactic =>
     | (rw [checkIotaRules_snd_dproj])
     | split
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
     | (simp only [])))
 
 macro "dsnd_tac2" : tactic =>
@@ -302,7 +302,6 @@ theorem checkIndMember_snd_dproj (blockNames : List Name) (caps : IndCaps) (env'
 
 macro "dfst_step3" : tactic =>
   `(tactic| repeat (first
-    | rfl
     | (rw [liftFueled_fst_proj])
     | (rw [foldlM_fst])
     | (rw [checkConstantVal_fst_dproj])
@@ -315,6 +314,7 @@ macro "dfst_step3" : tactic =>
     | (rw [checkProjFn_fst_dproj])
     | split
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
     | (simp only [])))
 
 macro "dfst_tac3" : tactic =>
@@ -325,7 +325,6 @@ macro "dfst_tac3" : tactic =>
 
 macro "dsnd_step3" : tactic =>
   `(tactic| repeat (first
-    | rfl
     | (rw [liftFueled_snd_proj])
     | (rw [foldlM_snd])
     | (rw [checkConstantVal_snd_dproj])
@@ -338,6 +337,7 @@ macro "dsnd_step3" : tactic =>
     | (rw [checkProjFn_snd_dproj])
     | split
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
     | (simp only [])))
 
 macro "dsnd_tac3" : tactic =>
@@ -360,7 +360,6 @@ theorem checkProjFn_snd_dproj (env' : Env) (T ctorName : Name) (lps : List Name)
 
 macro "dfst_step4" : tactic =>
   `(tactic| repeat (first
-    | rfl
     | (rw [liftFueled_fst_proj])
     | (rw [foldlM_fst])
     | (rw [checkConstantVal_fst_dproj])
@@ -374,6 +373,7 @@ macro "dfst_step4" : tactic =>
     | (rw [checkIndDecl_fst_dproj])
     | split
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
     | (simp only [])))
 
 macro "dfst_tac4" : tactic =>
@@ -384,7 +384,6 @@ macro "dfst_tac4" : tactic =>
 
 macro "dsnd_step4" : tactic =>
   `(tactic| repeat (first
-    | rfl
     | (rw [liftFueled_snd_proj])
     | (rw [foldlM_snd])
     | (rw [checkConstantVal_snd_dproj])
@@ -398,6 +397,7 @@ macro "dsnd_step4" : tactic =>
     | (rw [checkIndDecl_snd_dproj])
     | split
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
     | (simp only [])))
 
 macro "dsnd_tac4" : tactic =>
@@ -420,7 +420,6 @@ theorem checkIndDecl_snd_dproj (env : Env) (block : List ConstantInfo) :
 
 macro "dfst_step5" : tactic =>
   `(tactic| repeat (first
-    | rfl
     | (rw [liftFueled_fst_proj])
     | (rw [foldlM_fst])
     | (rw [checkConstantVal_fst_dproj])
@@ -435,6 +434,7 @@ macro "dfst_step5" : tactic =>
     | (rw [checkDecl_fst_dproj])
     | split
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
     | (simp only [])))
 
 macro "dfst_tac5" : tactic =>
@@ -445,7 +445,6 @@ macro "dfst_tac5" : tactic =>
 
 macro "dsnd_step5" : tactic =>
   `(tactic| repeat (first
-    | rfl
     | (rw [liftFueled_snd_proj])
     | (rw [foldlM_snd])
     | (rw [checkConstantVal_snd_dproj])
@@ -460,6 +459,7 @@ macro "dsnd_step5" : tactic =>
     | (rw [checkDecl_snd_dproj])
     | split
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
     | (simp only [])))
 
 macro "dsnd_tac5" : tactic =>
