@@ -133,6 +133,81 @@ theorem Expr.constsResolve_stripPis {env : Env} :
         · exact hres.1
         · exact hd bnd hb
 
+/-- `stripPis` commutes with constant renaming. -/
+theorem Expr.stripPis_renameConsts {f : Name → Name} :
+    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+      {body : Expr},
+      e.stripPis k = some (bs, body) →
+      (e.renameConsts f).stripPis k =
+        some (bs.map (fun b => (b.1, (b.2.1).renameConsts f, b.2.2)),
+          body.renameConsts f) := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs body h
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    simp [Expr.stripPis]
+  | succ k ih =>
+    intro e bs body h
+    match e, h with
+    | .forallE n ty b m, h =>
+      simp only [Expr.stripPis] at h
+      cases hs : b.stripPis k with
+      | none => rw [hs] at h; exact nomatch h
+      | some pr =>
+        rw [hs] at h
+        obtain ⟨bs', body'⟩ := pr
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        show ((Expr.forallE n ty b m).renameConsts f).stripPis (k + 1) = _
+        rw [show (Expr.forallE n ty b m).renameConsts f =
+          .forallE n (ty.renameConsts f) (b.renameConsts f) m from rfl]
+        simp only [Expr.stripPis, ih hs, Option.map_some, List.map_cons]
+
+/-- Invert `stripPis` across constant renaming: a strip of the renamed
+telescope comes from a strip of the original. -/
+theorem Expr.stripPis_renameConsts_inv {f : Name → Name} :
+    ∀ (k : Nat) {e : Expr} {bs' : List (Name × Expr × BinderMeta)}
+      {body' : Expr},
+      (e.renameConsts f).stripPis k = some (bs', body') →
+      ∃ bs body, e.stripPis k = some (bs, body) ∧
+        bs' = bs.map (fun b => (b.1, (b.2.1).renameConsts f, b.2.2)) ∧
+        body' = body.renameConsts f := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs' body' h
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨[], e, by simp [Expr.stripPis]⟩
+  | succ k ih =>
+    intro e bs' body' h
+    match e, h with
+    | .forallE n ty b m, h =>
+      rw [show (Expr.forallE n ty b m).renameConsts f =
+        .forallE n (ty.renameConsts f) (b.renameConsts f) m from rfl] at h
+      simp only [Expr.stripPis] at h
+      cases hs : (b.renameConsts f).stripPis k with
+      | none => rw [hs] at h; exact nomatch h
+      | some pr =>
+        rw [hs] at h
+        obtain ⟨bs₀, body₀⟩ := pr
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        obtain ⟨bs, body, hstrip, rfl, rfl⟩ := ih hs
+        refine ⟨(n, ty, m) :: bs, body, ?_, by simp, rfl⟩
+        simp only [Expr.stripPis, hstrip, Option.map_some]
+    | .bvar _, h => exact nomatch h
+    | .fvar _ _ _, h => exact nomatch h
+    | .sort _, h => exact nomatch h
+    | .const _ _, h => exact nomatch h
+    | .app _ _, h => exact nomatch h
+    | .lam _ _ _ _, h => exact nomatch h
+    | .letE _ _ _ _, h => exact nomatch h
+    | .lit _, h => exact nomatch h
+    | .proj _ _ _, h => exact nomatch h
+
 /-- Renaming maps that agree on every stored name rename a resolving
 expression identically. -/
 theorem Expr.renameConsts_congr_resolve {env : Env} {f g : Name → Name}

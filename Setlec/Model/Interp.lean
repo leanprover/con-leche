@@ -243,6 +243,27 @@ theorem RecRulesOk.empty (val : ConstVal V) :
   intro n cv nP nM nm ni rules h
   simp [Env.find?, Env.empty] at h
 
+/-- The semantic eta law of an eta-capable stored structure: every
+member of the interpreted type (fitting the type former's parameter
+telescope) is the constructor model's value applied to the projection
+models'.  Derived at install from the checked `T._model.eta` theorem
+(`eta_rule_fold`); the pair-eta rule's soundness consumes it. -/
+def EtaLaw (env : Env) (val : ConstVal V) (T : Name) (cvT : ConstantVal)
+    (caps : IndCaps) : Prop :=
+  ∀ (φ' : Name → Nat) (us : List Level) (ps : List V) (x : V)
+    (d₁ : Nat) (ρ₁ : Nat → V) (d₂ : Nat) (ρ₂ : Nat → V) (rest : Expr),
+    ps.length = caps.etaParams →
+    x ∈ˢ SpineFold V (val T (Level.substFn φ' cvT.levelParams us)) ps →
+    TeleFit V val env φ' d₁ ρ₁
+      (cvT.type.instantiateLevelParams cvT.levelParams us) ps d₂ ρ₂
+      rest →
+    x = SpineFold V
+      (val (caps.etaCtor.str "_model")
+        (Level.substFn φ' cvT.levelParams us))
+      (ps ++ (List.range caps.etaFields).map fun j =>
+        SpineFold V (val (projModelName T j)
+          (Level.substFn φ' cvT.levelParams us)) (ps ++ [x]))
+
 /-- Modeled-install bookkeeping: every *non-reserved* stored inductive
 type former or constructor carries its `_model` companion's value (and
 that companion is stored), and every installed projection function its
@@ -262,16 +283,24 @@ def ModeledOk (env : Env) (val : ConstVal V) : Prop :=
     env.find? (projFnName T j) = some ci →
     (env.find? (projModelName T j)).isSome = true ∧
     ∀ ψ : Name → Nat,
-      val (projFnName T j) ψ = val (projModelName T j) ψ)
+      val (projFnName T j) ψ = val (projModelName T j) ψ) ∧
+  (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
+    env.find? T = some (.indInfo cvT caps) → caps.eta = true →
+    reservedBasisNames.contains T = false →
+    (env.find? (caps.etaCtor.str "_model")).isSome = true ∧
+    (∀ j, j < caps.etaFields →
+      (env.find? (projModelName T j)).isSome = true) ∧
+    EtaLaw V env val T cvT caps)
 
-omit [SetTheory V] in
 theorem ModeledOk.empty (val : ConstVal V) : ModeledOk V Env.empty val := by
-  refine ⟨?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_⟩
   · intro n cv caps h
     simp [Env.find?, Env.empty] at h
   · intro n cv cnP cnF h
     simp [Env.find?, Env.empty] at h
   · intro T j ci h
+    simp [Env.find?, Env.empty] at h
+  · intro T cvT caps h
     simp [Env.find?, Env.empty] at h
 
 /-- A model of an environment: a set-theoretic value for every constant

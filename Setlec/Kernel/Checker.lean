@@ -354,16 +354,23 @@ shaped artifact just means no capability.)  The parameter telescope is
 pinned against the constructor *model*'s (both live on the model side
 and are annotated by the same pipeline), and the equality's type slot
 is not pinned (the collapse ignores it). -/
-def checkEtaThm (env' : Env) (T ctorName : Name) (lps ctorLps : List Name)
+def checkEtaThm (env' : Env) (T ctorName : Name) (lps : List Name)
     (nP nF : Nat) : Bool :=
   match env'.find? ((T.str "_model").str "eta"),
+      env'.find? (T.str "_model"),
       env'.find? (ctorName.str "_model"), env'.find? eqName with
-  | some (.thmInfo tcv _), some (.defnInfo cvmC _), some eqStored =>
+  | some (.thmInfo tcv _), some (.defnInfo cvmT _),
+      some (.defnInfo cvmC _), some eqStored =>
     eqStored == eqA && tcv.levelParams == lps &&
-    cvmC.levelParams == ctorLps &&
-    (match tcv.type.stripPis (nP + 1), cvmC.type.stripPis (nP + nF) with
-     | some (sbinders, sbody), some (cbindersM, _) =>
-       domsMatchAux (fun _ e => e) sbinders cbindersM 0 0 nP &&
+    cvmT.levelParams == lps && cvmC.levelParams == lps &&
+    -- the projection models exist at the family's level parameters
+    (List.range nF).all (fun j =>
+      match env'.find? (projModelName T j) with
+      | some (.defnInfo cvmj _) => cvmj.levelParams == lps
+      | _ => false) &&
+    (match tcv.type.stripPis (nP + 1), cvmT.type.stripPis nP with
+     | some (sbinders, sbody), some (tbindersM, _) =>
+       domsMatchAux (fun _ e => e) sbinders tbindersM 0 0 nP &&
        (match sbinders[nP]? with
         | some (_, xdom, _) =>
           xdom == Expr.mkAppN (.const (T.str "_model") (lps.map .param))
@@ -373,7 +380,7 @@ def checkEtaThm (env' : Env) (T ctorName : Name) (lps ctorLps : List Name)
         | .app (.app (.app (.const c [_ℓ]) _tySlot) lhsC) rhsC =>
           c == eqName && lhsC == Expr.bvar 0 &&
           rhsC == Expr.mkAppN
-            (.const (ctorName.str "_model") (ctorLps.map .param))
+            (.const (ctorName.str "_model") (lps.map .param))
             (((List.range nP).map fun k => Expr.bvar (nP - k)) ++
              (List.range nF).map fun j => Expr.mkAppN
                (.const (projModelName T j) (lps.map .param))
@@ -381,7 +388,7 @@ def checkEtaThm (env' : Env) (T ctorName : Name) (lps ctorLps : List Name)
                 [Expr.bvar 0]))
         | _ => false)
      | _, _ => false)
-  | _, _, _ => false
+  | _, _, _, _ => false
 
 /-- Check and install a modeled inductive block: every member is
 checked against its `_model` counterpart (type up to the public↔model
@@ -397,8 +404,8 @@ def checkIndDecl (env : Env) (block : List ConstantInfo) : CheckM Env := do
       | .ctorInfo _ _ _ => true | _ => false) with
   | [.indInfo cvT _], [.ctorInfo cvC nP nF] =>
     let caps : IndCaps :=
-      if checkEtaThm env cvT.name cvC.name cvT.levelParams
-          cvC.levelParams nP nF then
+      if cvC.levelParams = cvT.levelParams &&
+          checkEtaThm env cvT.name cvC.name cvT.levelParams nP nF then
         { eta := true, etaCtor := cvC.name, etaParams := nP,
           etaFields := nF }
       else {}
