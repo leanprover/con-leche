@@ -459,7 +459,8 @@ def majorToCtor (env : Env) : (fuel : Nat) → (depth : Nat) → Name →
                   if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
                       fab.fvarLeaves.all
                         (fun l => major.fvarLeaves.contains l) then
-                    if ← structEtaCert env fuel depth fab major then pure fab
+                    if ← structEtaCertWith env fuel depth fab major tmaj then
+                      pure fab
                     else pure major
                   else pure major
                 else pure major
@@ -591,13 +592,24 @@ def structEtaCert (env : Env) : (fuel : Nat) → (depth : Nat) → Expr →
     Expr → CheckM Bool
   | 0, _, _, _ => throw (.internal "fuel exhausted: structEtaCert")
   | fuel + 1, depth, a, b => do
+    let tb ← inferTypeCore env fuel depth b
+    let wtb ← whnfCore env fuel depth tb
+    structEtaCertWith env fuel depth a b wtb
+  termination_by structural fuel _ _ _ => fuel
+
+/-- The structure-eta certificate against a *given* weak-head-normal
+type of the stuck side (callers that already reduced it — the
+stuck-major rescue — pass their own copy, so the certificate's facts
+are in terms of that expression). -/
+def structEtaCertWith (env : Env) : (fuel : Nat) → (depth : Nat) → Expr →
+    Expr → Expr → CheckM Bool
+  | 0, _, _, _, _ => throw (.internal "fuel exhausted: structEtaCertWith")
+  | fuel + 1, depth, a, b, wtb => do
     match a.getAppFn with
     | .const c us =>
       match env.find? c with
       | some (.ctorInfo cvc cnP cnF) =>
         if a.getAppArgs.length = cnP + cnF then
-          let tb ← inferTypeCore env fuel depth b
-          let wtb ← whnfCore env fuel depth tb
           match wtb.getAppFn with
           | .const T us' =>
             match env.find? T with

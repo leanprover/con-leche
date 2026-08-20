@@ -683,7 +683,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
              (List.range caps.etaFields).map fun j =>
                Expr.mkAppN (.const (projFnName T j) ust)
                  (tmaj.getAppArgs ++ [major])) ∧
-         structEtaCert env fuel d major' major = .ok true))) := by
+         structEtaCertWith env fuel d major' major tmaj = .ok true))) := by
   simp only [majorToCtor] at h
   revert h
   cases hca : isCtorApp env major with
@@ -838,7 +838,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     simp only [Bool.and_eq_true] at hguard
     exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
       r, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
-      rfl, rfl, rfl, rfl, rfl, rfl, rfl,
+      rfl, hfj, hpr, hfT, rfl, htw, hth,
       Or.inl ⟨hK.1, hK.2, hlvl, rfl, hpi⟩⟩
   · rw [if_neg hK] at h
     by_cases hE : caps.eta = true ∧ r.ctor = caps.etaCtor ∧
@@ -933,12 +933,12 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     rw [hguard] at h
     simp only [↓reduceIte] at h
     try simp only [Bind.bind, Except.bind] at h
-    cases hse : structEtaCert env fuel d
+    cases hse : structEtaCertWith env fuel d
         (Expr.mkAppN (.const caps.etaCtor ust)
           (tmaj.getAppArgs ++
             (List.range caps.etaFields).map fun j =>
               Expr.mkAppN (.const (projFnName T' j) ust)
-                (tmaj.getAppArgs ++ [major]))) major with
+                (tmaj.getAppArgs ++ [major]))) major tmaj with
     | error err => rw [hse] at h; exact nomatch h
     | ok bse =>
     rw [hse] at h
@@ -954,7 +954,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     simp only [Bool.and_eq_true] at hguard
     exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
       r, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
-      rfl, rfl, rfl, rfl, rfl, rfl, rfl,
+      rfl, hfj, hpr, hfT, rfl, htw, hth,
       Or.inr ⟨hE.1, hE.2.1, hE.2.2, hplen, hlvl, rfl, hse⟩⟩
 
 
@@ -1391,16 +1391,14 @@ theorem structEtaProjCerts_inv {env : Env} {d : Nat} {T : Name}
 
 set_option maxHeartbeats 3200000 in
 /-- Inversion of a successful structural eta certification. -/
-theorem structEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
-    (h : structEtaCert env (fuel + 1) d a b = .ok true) :
+theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
+    (h : structEtaCertWith env (fuel + 1) d a b wtb = .ok true) :
     ∃ (c : Name) (us : List Level) (cvc : ConstantVal) (cnP cnF : Nat)
-      (tb wtb : Expr) (T : Name) (us' : List Level)
+      (T : Name) (us' : List Level)
       (cvT : ConstantVal) (caps : IndCaps),
       a.getAppFn = .const c us ∧
       env.find? c = some (.ctorInfo cvc cnP cnF) ∧
       a.getAppArgs.length = cnP + cnF ∧
-      inferTypeCore env fuel d b = .ok tb ∧
-      whnfCore env fuel d tb = .ok wtb ∧
       wtb.getAppFn = .const T us' ∧
       env.find? T = some (.indInfo cvT caps) ∧
       caps.eta = true ∧ caps.etaCtor = c ∧ caps.etaParams = cnP ∧
@@ -1423,7 +1421,7 @@ theorem structEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
         ((List.range cnF).map fun i =>
           Expr.mkAppN (.const (projFnName T i) us')
             (wtb.getAppArgs ++ [b])) = .ok true := by
-  rw [structEtaCert] at h
+  rw [structEtaCertWith] at h
   revert h
   match hfn : a.getAppFn with
   | .bvar _ => intro h; exact nomatch h
@@ -1452,17 +1450,6 @@ theorem structEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   by_cases hal : a.getAppArgs.length = cnP + cnF
   case neg => rw [if_neg hal] at h; exact nomatch h
   rw [if_pos hal] at h
-  simp only [Bind.bind, Except.bind] at h
-  cases htb : inferTypeCore env fuel d b with
-  | error e => rw [htb] at h; exact nomatch h
-  | ok tb => ?_
-  rw [htb] at h
-  try dsimp only at h
-  cases hwtb : whnfCore env fuel d tb with
-  | error e => rw [hwtb] at h; exact nomatch h
-  | ok wtb => ?_
-  rw [hwtb] at h
-  try dsimp only at h
   revert h
   match hwfn : wtb.getAppFn with
   | .bvar _ => intro h; exact nomatch h
@@ -1541,9 +1528,31 @@ theorem structEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   | false => simp [pure, Except.pure] at h
   | true => ?_
   simp only [↓reduceIte] at h
-  exact ⟨c, us, cvc, cnP, cnF, tb, wtb, T, us', cvT, caps,
-    rfl, hfc, hal, rfl, hwtb, hwfn, hfT, he1, he2, he3, he4, he5,
+  exact ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps,
+    rfl, hfc, hal, rfl, hfT, he1, he2, he3, he4, he5,
     he5b, he6, he7, he8, he9, hlev, hic, hpc, hd1, h⟩
+
+/-- Inversion of the structure-eta certificate through its type
+reduction: the stuck side's type is inferred and reduced, and the
+`With` form of the certificate ran on the result. -/
+theorem structEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
+    (h : structEtaCert env (fuel + 1) d a b = .ok true) :
+    ∃ tb wtb, inferTypeCore env fuel d b = .ok tb ∧
+      whnfCore env fuel d tb = .ok wtb ∧
+      structEtaCertWith env fuel d a b wtb = .ok true := by
+  rw [structEtaCert] at h
+  simp only [Bind.bind, Except.bind] at h
+  cases htb : inferTypeCore env fuel d b with
+  | error e => rw [htb] at h; exact nomatch h
+  | ok tb =>
+  rw [htb] at h
+  dsimp only at h
+  cases hwtb : whnfCore env fuel d tb with
+  | error e => rw [hwtb] at h; exact nomatch h
+  | ok wtb =>
+  rw [hwtb] at h
+  dsimp only at h
+  exact ⟨tb, wtb, rfl, hwtb, h⟩
 
 /-- Inversion of a successful unit-likeness certification. -/
 theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
@@ -1832,9 +1841,10 @@ theorem whnf_WScoped {env : Env} (henv : EnvWF env) :
         cases fuel with
         | zero => exact nomatch hio
         | succ fuel' =>
-        obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major, cj, usj, cvj,
-          cnP, cnF, r, hfn, hfc, hlen, hmaj, hmfn, hfj, hrule, hml1, hml2,
-          har1, har2, hlev, hpeq, hcerts, hmcerts, rfl⟩ := iotaRec_inv hio
+        obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major, cj, usj, cvj,
+          cnP, cnF, r, hfn, hfc, hlen, hmaj, hsub, hmfn, hfj, hrule, hml1,
+          hml2, har1, har2, hlev, hpeq, hcerts, hmcerts, rfl⟩ :=
+          iotaRec_inv hio
         have hwapp : WScoped d (Expr.app f' a) := by
           simp only [WScoped]
           exact ⟨hwf', hw.2⟩
@@ -1847,8 +1857,15 @@ theorem whnf_WScoped {env : Env} (henv : EnvWF env) :
             (List.mem_of_find?_eq_some hrule)
           exact WScoped.of_not_hasFvar
             (by rw [hasFvar_instantiateLevelParams]; exact hrf)
-        have hmajw : WScoped d major := whnf_WScoped henv fuel' hmaj
+        have hmaj0w : WScoped d major₀ := whnf_WScoped henv fuel' hmaj
           (hargs _ (getD_mem (by omega)))
+        have hmajw : WScoped d major := by
+          cases fuel' with
+          | zero => exact nomatch hsub
+          | succ fuel'' =>
+          rcases majorToCtor_inv hsub with rfl | ⟨hwsc, -, -, -⟩
+          · exact hmaj0w
+          · exact WScoped.of_wscopedB hwsc
         refine whnf_WScoped henv _ hwe'' ?_
         refine Expr.WScoped.mkAppN hrhs ?_
         intro x hx

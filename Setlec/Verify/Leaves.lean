@@ -445,11 +445,11 @@ theorem annotateCore_leaves_sub {env : Env} :
     | error e => rw [hbody] at h; exact nomatch h
     | ok body' =>
     rw [hbody] at h; dsimp only at h
-    cases hit : inferType env (d + 1) body' with
+    cases hit : inferTypeCore env fuel (d + 1) body' with
     | error e => rw [hit] at h; exact nomatch h
     | ok bt =>
     rw [hit] at h; dsimp only at h
-    cases hes : ensureSort env (d + 1) bt with
+    cases hes : ensureSortCore env fuel (d + 1) bt with
     | error e => rw [hes] at h; exact nomatch h
     | ok v =>
     rw [hes] at h; dsimp only at h
@@ -489,15 +489,15 @@ theorem annotateCore_leaves_sub {env : Env} :
     | error e => rw [hbody] at h; exact nomatch h
     | ok body' =>
     rw [hbody] at h; dsimp only at h
-    cases hit : inferType env (d + 1) body' with
+    cases hit : inferTypeCore env fuel (d + 1) body' with
     | error e => rw [hit] at h; exact nomatch h
     | ok bt =>
     rw [hit] at h; dsimp only at h
-    cases hit2 : inferType env (d + 1) bt with
+    cases hit2 : inferTypeCore env fuel (d + 1) bt with
     | error e => rw [hit2] at h; exact nomatch h
     | ok bt2 =>
     rw [hit2] at h; dsimp only at h
-    cases hes : ensureSort env (d + 1) bt2 with
+    cases hes : ensureSortCore env fuel (d + 1) bt2 with
     | error e => rw [hes] at h; exact nomatch h
     | ok v =>
     rw [hes] at h; dsimp only at h
@@ -525,14 +525,5 @@ theorem annotateCore_leaves_sub {env : Env} :
         · exact Or.inl (hsubty l h2)
   | fuel + 1, .letE _ _ _ _, d, e', h, _, _ => by simp [annotateCore] at h
   | fuel + 1, .lit _, d, e', h, _, _ => by simp [annotateCore] at h
-
-/-- `annotate` (at the standard fuel) only shrinks the leaf closure. -/
-theorem annotate_leaves_sub {env : Env} :
-    ∀ (e : Expr) {d : Nat} {e' : Expr},
-      annotate env d e = .ok e' → WScoped d e →
-      e.looseBVarsBounded 0 = true →
-      ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves := by
-  intro e d e' h hw hb
-  exact annotateCore_leaves_sub checkFuel e h hw hb
 
 end Setlec

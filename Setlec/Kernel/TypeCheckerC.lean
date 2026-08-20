@@ -405,7 +405,8 @@ def majorToCtorC (env : Env) : (fuel : Nat) → (depth : Nat) → Name →
                   if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
                       fab.fvarLeaves.all
                         (fun l => major.fvarLeaves.contains l) then
-                    if ← structEtaCertC env fuel depth fab major then pure fab
+                    if ← structEtaCertWithC env fuel depth fab major tmaj then
+                      pure fab
                     else pure major
                   else pure major
                 else pure major
@@ -537,13 +538,22 @@ def structEtaCertC (env : Env) : (fuel : Nat) → (depth : Nat) → Expr →
     Expr → CheckSM Bool
   | 0, _, _, _ => throw (.internal "fuel exhausted: structEtaCertC")
   | fuel + 1, depth, a, b => do
+    let tb ← inferTypeCoreC env fuel depth b
+    let wtb ← whnfCoreC env fuel depth tb
+    structEtaCertWithC env fuel depth a b wtb
+  termination_by structural fuel _ _ _ => fuel
+
+/-- The structure-eta certificate against a *given* weak-head-normal
+type of the stuck side (see the specification twin). -/
+def structEtaCertWithC (env : Env) : (fuel : Nat) → (depth : Nat) → Expr →
+    Expr → Expr → CheckSM Bool
+  | 0, _, _, _, _ => throw (.internal "fuel exhausted: structEtaCertWithC")
+  | fuel + 1, depth, a, b, wtb => do
     match a.getAppFn with
     | .const c us =>
       match env.find? c with
       | some (.ctorInfo cvc cnP cnF) =>
         if a.getAppArgs.length = cnP + cnF then
-          let tb ← inferTypeCoreC env fuel depth b
-          let wtb ← whnfCoreC env fuel depth tb
           match wtb.getAppFn with
           | .const T us' =>
             match env.find? T with
@@ -580,7 +590,7 @@ def structEtaCertC (env : Env) : (fuel : Nat) → (depth : Nat) → Expr →
         else pure false
       | _ => pure false
     | _ => pure false
-  termination_by structural fuel _ _ _ => fuel
+  termination_by structural fuel _ _ _ _ => fuel
 
 /-- Unit-likeness certification: `a` and `b` inhabit the same stored
 unit-like family (the types are definitionally equal and the type

@@ -245,9 +245,19 @@ theorem whnf_fvarLeaves {env : Env} (henv : EnvWF env) :
         cases fuel with
         | zero => exact nomatch hio
         | succ fuel' =>
-        obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major, cj, usj, cvj,
-          cnP, cnF, r, hfn, hfc, hlen, hmaj, hmfn, hfj, hrule, hml1, hml2,
-          har1, har2, hlev, hpeq, hcerts, hmcerts, rfl⟩ := iotaRec_inv hio
+        obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major, cj, usj, cvj,
+          cnP, cnF, r, hfn, hfc, hlen, hmaj, hsub, hmfn, hfj, hrule, hml1,
+          hml2, har1, har2, hlev, hpeq, hcerts, hmcerts, rfl⟩ :=
+          iotaRec_inv hio
+        have hsubM : ∀ l ∈ major.fvarLeaves, l ∈ major₀.fvarLeaves := by
+          cases fuel' with
+          | zero => exact nomatch hsub
+          | succ fuel'' =>
+          rcases majorToCtor_inv hsub with rfl | ⟨-, -, hall, -⟩
+          · exact fun _ hl' => hl'
+          · intro l' hl'
+            have := List.all_eq_true.mp hall l' hl'
+            simpa using this
         have hl2 := whnf_fvarLeaves henv _ hwe'' l hl
         rcases fvarLeaves_mkAppN hl2 with hrl | ⟨x, hx, hlx⟩
         · obtain ⟨-, -, -, -, -, hrules⟩ := henv _ (find?_mem hfc)
@@ -263,7 +273,7 @@ theorem whnf_fvarLeaves {env : Env} (henv : EnvWF env) :
             · exact Or.inl (whnf_fvarLeaves henv _ hwf l hll)
             · exact Or.inr hll
           · have hxa := fvarLeaves_getAppArgs (List.mem_of_mem_drop hx) l hlx
-            have hmj := whnf_fvarLeaves henv fuel' hmaj l hxa
+            have hmj := whnf_fvarLeaves henv fuel' hmaj l (hsubM l hxa)
             have hll := fvarLeaves_getAppArgs
               (getD_mem (l := (Expr.app f' a).getAppArgs) (by omega)) l hmj
             simp only [fvarLeaves, List.mem_append] at hll
@@ -341,15 +351,23 @@ theorem whnf_looseBVars {env : Env} (henv : EnvWF env) :
         cases fuel with
         | zero => exact nomatch hio
         | succ fuel' =>
-        obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major, cj, usj, cvj,
-          cnP, cnF, r, hfn, hfc, hlen, hmaj, hmfn, hfj, hrule, hml1, hml2,
-          har1, har2, hlev, hpeq, hcerts, hmcerts, rfl⟩ := iotaRec_inv hio
+        obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major, cj, usj, cvj,
+          cnP, cnF, r, hfn, hfc, hlen, hmaj, hsub, hmfn, hfj, hrule, hml1,
+          hml2, har1, har2, hlev, hpeq, hcerts, hmcerts, rfl⟩ :=
+          iotaRec_inv hio
         have hbapp : (Expr.app f' a).looseBVarsBounded 0 = true := by
           simp only [looseBVarsBounded, Bool.and_eq_true]
           exact ⟨hbf', hb.2⟩
-        have hbmaj : major.looseBVarsBounded 0 = true :=
+        have hbmaj0 : major₀.looseBVarsBounded 0 = true :=
           whnf_looseBVars henv fuel' hmaj
             (looseBVarsBounded_getAppArgs hbapp _ (getD_mem (by omega)))
+        have hbmaj : major.looseBVarsBounded 0 = true := by
+          cases fuel' with
+          | zero => exact nomatch hsub
+          | succ fuel'' =>
+          rcases majorToCtor_inv hsub with rfl | ⟨-, hbM, -, -⟩
+          · exact hbmaj0
+          · exact hbM
         refine whnf_looseBVars henv _ hwe'' ?_
         refine looseBVarsBounded_mkAppN ?_ ?_
         · obtain ⟨-, -, -, -, -, hrules⟩ := henv _ (find?_mem hfc)
