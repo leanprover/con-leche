@@ -32,6 +32,28 @@ def isBasisModelName : Name → Bool
   | .str p "_model" => reservedBasisNames.contains p
   | _ => false
 
+/-- Is this name a basis `_model` companion, or nested under one
+(auxiliary model lemmas like `X._model.proj_0.iota`)?  The pinned
+basis carries its own model, so the whole family is dropped. -/
+def underBasisModel : Name → Bool
+  | .str p s => isBasisModelName (.str p s) || underBasisModel p
+  | _ => false
+
+/-- Is this name a `_model` auxiliary the checker does not (yet)
+consume — a `proj_i` model, its iota lemma, or an eta lemma?  The
+modeled install reads only `X._model` members and `iota_j` theorems;
+the projection/eta auxiliaries are dropped until the corresponding
+facts are checked (they are never referenced elsewhere). -/
+def isModelAux : Name → Bool
+  | .str p "eta" => isUnderModel p
+  | .str p "iota" => isModelAux p
+  | .str p s => s.startsWith "proj_" && isUnderModel p
+  | _ => false
+where
+  isUnderModel : Name → Bool
+    | .str _ "_model" => true
+    | _ => false
+
 open Lean (Json)
 
 /-- Rename level parameters (for basis-block matching up to
@@ -222,7 +244,7 @@ private def processLine (st : State) (j : Json)
     -- the preprocessor emits `_model` companions even for basis blocks
     -- (e.g. `Empty._model`); the pinned basis carries its own model,
     -- so these are dropped (their names are reserved)
-    if isBasisModelName cv.name then
+    if underBasisModel cv.name || isModelAux cv.name then
       return .inl st
     match (← (← v.getObjVal? "safety").getStr?) with
     | "safe" => return .inl { st with
@@ -230,7 +252,7 @@ private def processLine (st : State) (j : Json)
     | s => return .inr s!"definition with safety '{s}'"
   else if let .ok v := j.getObjVal? "thm" then
     let cv ← parseConstantVal st v
-    if isBasisModelName cv.name then
+    if underBasisModel cv.name || isModelAux cv.name then
       return .inl st
     return .inl { st with
       decls := st.decls.push (.thmDecl cv (← getExpr' st v "value").zetaExpand) }
