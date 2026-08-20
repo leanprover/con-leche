@@ -172,6 +172,66 @@ theorem stripPis_instantiateLevelParams_isSome (ks : List Name)
         Option.isSome_map] at h ⊢
       exact ih h
 
+/-- Renaming along the identity is the identity. -/
+theorem renameConsts_id :
+    ∀ (e : Expr), e.renameConsts (fun n => n) = e := by
+  intro e
+  induction e <;> simp_all [Expr.renameConsts]
+
+/-- Lambda-telescope decomposition distributes over level
+instantiation. -/
+theorem stripLams_instantiateLevelParams_eq (ks : List Name)
+    (us : List Level) :
+    ∀ (k : Nat) {e : Expr} {bs bs' : List (Name × Expr × BinderMeta)}
+      {body body' : Expr},
+      e.stripLams k = some (bs, body) →
+      (e.instantiateLevelParams ks us).stripLams k = some (bs', body') →
+      body' = body.instantiateLevelParams ks us ∧
+      ∀ (i : Nat) (b b' : Name × Expr × BinderMeta),
+        bs[i]? = some b → bs'[i]? = some b' →
+        b'.2.1 = b.2.1.instantiateLevelParams ks us := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs bs' body body' h1 h2
+    simp only [Expr.stripLams, Option.some.injEq, Prod.mk.injEq] at h1 h2
+    obtain ⟨rfl, rfl⟩ := h1
+    obtain ⟨rfl, rfl⟩ := h2
+    exact ⟨rfl, fun i b b' hb _ => by simp at hb⟩
+  | succ k ih =>
+    intro e bs bs' body body' h1 h2
+    match e, h1 with
+    | .lam n d b m, h1 =>
+      simp only [Expr.instantiateLevelParams, Expr.stripLams] at h1 h2
+      cases hs1 : b.stripLams k with
+      | none => rw [hs1] at h1; exact nomatch h1
+      | some p1 =>
+      cases hs2 : (b.instantiateLevelParams ks us).stripLams k with
+      | none => rw [hs2] at h2; exact nomatch h2
+      | some p2 =>
+      rw [hs1] at h1
+      rw [hs2] at h2
+      simp only [Option.map_some, Option.some.injEq] at h1 h2
+      obtain ⟨hb1, hbody1⟩ : (n, d, m) :: p1.1 = bs ∧ p1.2 = body := by
+        cases h1; exact ⟨rfl, rfl⟩
+      obtain ⟨hb2, hbody2⟩ :
+          (n, d.instantiateLevelParams ks us,
+            ⟨m.bi, m.cod.map (Level.subst ks us)⟩) :: p2.1 = bs' ∧
+            p2.2 = body' := by
+        cases h2; exact ⟨rfl, rfl⟩
+      subst hb1 hbody1 hb2 hbody2
+      obtain ⟨hbody, hdoms⟩ := ih hs1 hs2
+      refine ⟨hbody, ?_⟩
+      intro i bb bb' hbb hbb'
+      cases i with
+      | zero =>
+        simp only [List.getElem?_cons_zero, Option.some.injEq] at hbb hbb'
+        subst hbb hbb'
+        simp
+      | succ i =>
+        simp only [List.getElem?_cons_succ] at hbb hbb'
+        exact hdoms i bb bb' hbb hbb'
+
 /-- Renaming constants commutes with level instantiation. -/
 theorem renameConsts_instantiateLevelParams (f : Name → Name)
     (ks : List Name) (us : List Level) :

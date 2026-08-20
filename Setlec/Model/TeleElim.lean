@@ -676,4 +676,75 @@ theorem TeleFitI.append :
     intro h2
     exact TeleFitI.cons hity hiarg hx hfb hwa hba hAa (ih h2)
 
+/-- Positional interpretation facts of an expression-spine fit. -/
+theorem TeleFitI.arg_facts :
+    ∀ {ty : Expr} {args : List Expr} {vs : List V} {rest : Expr},
+      TeleFitI V cval env φ d ρ ty args vs rest →
+      ∀ (i : Nat) (a : Expr) (v : V), args[i]? = some a → vs[i]? = some v →
+        interpExpr V cval env φ d ρ a = some v := by
+  intro ty args vs rest h
+  induction h with
+  | nil => intro i a v ha _; simp at ha
+  | @cons n ty body m arg args x xs A rest hity hiarg hx hfb hwa hba hAa
+      ht ih =>
+    intro i a v ha hv
+    cases i with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at ha hv
+      subst ha hv
+      exact hiarg
+    | succ i =>
+      simp only [List.getElem?_cons_succ] at ha hv
+      exact ih i a v ha hv
+
+/-- Renaming relates every expression to itself modulo erasure when the
+renaming only retargets constants that do not occur — in particular any
+`fvar` (its annotation is erased). -/
+theorem RenEq.fvar_self {f : Name → Name} {i : Nat} {n : Name} {ty : Expr} :
+    RenEq f (.fvar i n ty) (.fvar i n ty) := by
+  show Expr.ErasedEq (Expr.fvar i n (ty.renameConsts f)) (.fvar i n ty)
+  exact rfl
+
+/-- Erasure-equality is a `RenEq` along the identity renaming. -/
+theorem RenEq.of_erasedEq {e₁ e₂ : Expr} (h : Expr.ErasedEq e₁ e₂) :
+    RenEq (fun n => n) e₁ e₂ := by
+  show Expr.ErasedEq (e₁.renameConsts fun n => n) e₂
+  rw [renameConsts_id]
+  exact h
+
+/-- Pointwise domain agreement assembles the λ/∀ domain relation. -/
+theorem LamPiDomsEq.of_pointwise :
+    ∀ (k : Nat) {e ty : Expr}
+      {lbs pbs : List (Name × Expr × BinderMeta)} {lbody pbody : Expr},
+      e.stripLams k = some (lbs, lbody) →
+      ty.stripPis k = some (pbs, pbody) →
+      (∀ (i : Nat) (b₁ b₂ : Name × Expr × BinderMeta),
+        lbs[i]? = some b₁ → pbs[i]? = some b₂ → b₁.2.1 = b₂.2.1) →
+      Expr.LamPiDomsEq k e ty := by
+  intro k
+  induction k with
+  | zero => intro e ty lbs pbs lbody pbody _ _ _; trivial
+  | succ k ih =>
+    intro e ty lbs pbs lbody pbody h1 h2 hdoms
+    match e, ty, h1, h2 with
+    | .lam n₁ d₁ b₁ m₁, .forallE n₂ d₂ b₂ m₂, h1, h2 =>
+      simp only [Expr.stripLams, Expr.stripPis] at h1 h2
+      cases hs1 : b₁.stripLams k with
+      | none => rw [hs1] at h1; exact nomatch h1
+      | some p1 =>
+      cases hs2 : b₂.stripPis k with
+      | none => rw [hs2] at h2; exact nomatch h2
+      | some p2 =>
+      rw [hs1] at h1
+      rw [hs2] at h2
+      simp only [Option.map_some, Option.some.injEq] at h1 h2
+      obtain ⟨hb1, -⟩ : (n₁, d₁, m₁) :: p1.1 = lbs ∧ p1.2 = lbody := by
+        cases h1; exact ⟨rfl, rfl⟩
+      obtain ⟨hb2, -⟩ : (n₂, d₂, m₂) :: p2.1 = pbs ∧ p2.2 = pbody := by
+        cases h2; exact ⟨rfl, rfl⟩
+      subst hb1 hb2
+      refine ⟨hdoms 0 (n₁, d₁, m₁) (n₂, d₂, m₂) rfl rfl, ?_⟩
+      exact ih hs1 hs2 (fun i c₁ c₂ hc₁ hc₂ =>
+        hdoms (i + 1) c₁ c₂ (by simpa using hc₁) (by simpa using hc₂))
+
 end Setlec
