@@ -43,9 +43,9 @@ private theorem value_facts {env : Env} (m : EnvModel V env)
       interpClosed V m.val env ψ value' = some v ∧
       interpClosed V m.val env ψ type = some T ∧ v ∈ˢ T) := by
   have hwv : WScoped 0 value := WScoped.of_not_hasFvar hivf
-  have hvf' : value'.hasFvar = false := by
-    rw [← Expr.LeafEquiv.hasFvar_eq value value' (annotate_leafEquiv value hannv hwv hlbv)]
-    exact hivf
+  have hvf' : value'.hasFvar = false :=
+    not_hasFvar_of_fvarsBelow_zero
+      ((annotate_WScoped value hannv hwv).fvarsBelow)
   have hbv' : value'.looseBVarsBounded 0 = true := annotate_looseBVars value hannv hlbv
   have hAv : ∀ ψ : Name → Nat, AnnotOk V m.val env ψ 0 (rho0 V) value' := fun ψ =>
     annotate_sound m value hannv hwv hlbv (Expr.LeavesBounded.of_not_hasFvar hivf)
@@ -1165,9 +1165,9 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     subst h
     -- semantic facts about the annotated type
     have hwt : WScoped 0 cv.type := WScoped.of_not_hasFvar hitf
-    have htf : type.hasFvar = false := by
-      rw [← Expr.LeafEquiv.hasFvar_eq cv.type type (annotate_leafEquiv cv.type hann hwt hlbt)]
-      exact hitf
+    have htf : type.hasFvar = false :=
+      not_hasFvar_of_fvarsBelow_zero
+        ((annotate_WScoped cv.type hann hwt).fvarsBelow)
     have hbt' : type.looseBVarsBounded 0 = true := annotate_looseBVars cv.type hann hlbt
     have hAty : ∀ ψ : Name → Nat, AnnotOk V m.val env ψ 0 (rho0 V) type := fun ψ =>
       annotate_sound m cv.type hann hwt hlbt (Expr.LeavesBounded.of_not_hasFvar hitf)
@@ -1249,9 +1249,9 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     simp only [Bool.false_eq_true, ↓reduceIte, Except.ok.injEq] at h
     subst h
     have hwt : WScoped 0 cv.type := WScoped.of_not_hasFvar hitf
-    have htf : type.hasFvar = false := by
-      rw [← Expr.LeafEquiv.hasFvar_eq cv.type type (annotate_leafEquiv cv.type hann hwt hlbt)]
-      exact hitf
+    have htf : type.hasFvar = false :=
+      not_hasFvar_of_fvarsBelow_zero
+        ((annotate_WScoped cv.type hann hwt).fvarsBelow)
     have hbt' : type.looseBVarsBounded 0 = true := annotate_looseBVars cv.type hann hlbt
     have hAty : ∀ ψ : Name → Nat, AnnotOk V m.val env ψ 0 (rho0 V) type := fun ψ =>
       annotate_sound m cv.type hann hwt hlbt (Expr.LeavesBounded.of_not_hasFvar hitf)

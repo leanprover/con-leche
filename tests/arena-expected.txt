@@ -59,7 +59,7 @@
 0 good/tutorial/078_nRecReduction.ndjson
 2 good/tutorial/079_listRecReduction.ndjson
 2 good/tutorial/080_RBTree.id_spec.ndjson
-2 good/tutorial/081_And.right.ndjson
+0 good/tutorial/081_And.right.ndjson
 2 good/tutorial/082_Prod.snd.ndjson
 2 good/tutorial/083_PProd.snd.ndjson
 2 good/tutorial/084_PSigma.snd.ndjson
@@ -109,14 +109,14 @@
 2 bad/tutorial/055_indNegReducible.ndjson
 2 bad/tutorial/059_typeWithTooHighTypeField.mk.ndjson
 2 bad/tutorial/071_BogusRecursor.ndjson
-2 bad/tutorial/085_projOutOfRange.ndjson
+1 bad/tutorial/085_projOutOfRange.ndjson
 2 bad/tutorial/086_projNotStruct.ndjson
 2 bad/tutorial/088_projProp2.ndjson
 2 bad/tutorial/090_projProp4.ndjson
 2 bad/tutorial/091_projProp5.ndjson
 2 bad/tutorial/092_projProp6.ndjson
-2 bad/tutorial/094_projIndexData.ndjson
-2 bad/tutorial/095_projIndexData2.ndjson
+1 bad/tutorial/094_projIndexData.ndjson
+1 bad/tutorial/095_projIndexData2.ndjson
 1 bad/tutorial/098_ruleKbad.ndjson
 2 bad/tutorial/099_ruleKAcc.ndjson
 1 bad/tutorial/103_proofIrrelevanceBad.ndjson

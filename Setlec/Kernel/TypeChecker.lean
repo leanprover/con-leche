@@ -537,6 +537,69 @@ def ensureSort (env : Env) (depth : Nat) (e : Expr) : CheckM Level := do
   | .sort u => pure u
   | _ => throw (.invalid "expected a sort")
 
+/-- Analyze a projection on a stored non-basis structure: the head
+data, the projection's (raw) type, and the (raw) elimination motive.
+The structure must be a non-indexed single-constructor inductive with
+a stored `<T>.rec` recursor (the standard naming). -/
+def projElimPre (env : Env) (sn : Name) (i : Nat) (te e' : Expr) :
+    CheckM (Name × List Level × List Expr × Expr × Expr) := do
+  let .const T us := te.getAppFn
+    | throw (.notImplemented "projection on a non-structure type")
+  unless T = sn do
+    throw (.invalid "projection structure mismatch")
+  let args := te.getAppArgs
+  let some (.indInfo _) := env.find? T
+    | throw (.notImplemented "projection on a non-structure type")
+  let some (.recInfo _ nP nM _ ni rules) := env.find? (T.str "rec")
+    | throw (.notImplemented "projection without a stored recursor")
+  unless nM = 1 ∧ ni = 0 do
+    throw (.notImplemented "projection on an indexed structure")
+  let [r] := rules
+    | throw (.notImplemented "projection on a multi-constructor type")
+  let some (.ctorInfo cvj cnP cnF) := env.find? r.ctor
+    | throw (.notImplemented "projection constructor not stored")
+  unless cnP = nP ∧ args.length = nP do
+    throw (.notImplemented "projection parameter mismatch")
+  unless i < cnF do
+    throw (.invalid "projection index out of range")
+  unless us.length = cvj.levelParams.length do
+    throw (.notImplemented "projection level mismatch")
+  let ctorTyI := cvj.type.instantiateLevelParams cvj.levelParams us
+  let some fieldsTy := ctorTyI.instPis args
+    | throw (.notImplemented "projection constructor arity")
+  let some (.forallE _ projTy _ _) :=
+      fieldsTy.instPis ((List.range i).map fun k => .proj T k e')
+    | throw (.notImplemented "projection field telescope")
+  let some (.forallE _ motiveBody _ _) :=
+      fieldsTy.instPis ((List.range i).map fun k => .proj T k (.bvar 0))
+    | throw (.notImplemented "projection field telescope")
+  let motive := Expr.lam (Name.anonymous.str "s") te motiveBody
+    ⟨.default, none⟩
+  pure (T, us, args, projTy, motive)
+
+/-- Assemble the recursor application eliminating a projection, given
+the inferred motive level `u`.  The recursive annotation of the result
+re-checks every node, so a wrong guess here can only fail, never
+mis-accept. -/
+def projElimAssemble (env : Env) (T : Name) (u : Level) (us : List Level)
+    (args : List Expr) (motive e' : Expr) (i : Nat) : CheckM Expr := do
+  let some (.recInfo cvR _ _ _ _ _) := env.find? (T.str "rec")
+    | throw (.notImplemented "projection without a stored recursor")
+  unless cvR.levelParams.length = us.length + 1 do
+    throw (.notImplemented "projection recursor level mismatch")
+  let recTyI := cvR.type.instantiateLevelParams cvR.levelParams (u :: us)
+  let some (.forallE _ minorDom _ _) := recTyI.instPis (args ++ [motive])
+    | throw (.notImplemented "projection recursor arity")
+  let k := minorDom.piArity
+  unless i < k do
+    throw (.notImplemented "projection minor arity")
+  let some minor := Expr.pisToLams k minorDom (.bvar (k - 1 - i))
+    | throw (.notImplemented "projection minor telescope")
+  pure (Expr.mkAppN (.const (T.str "rec") (u :: us))
+    (args ++ [motive, minor, e']))
+
+mutual
+
 /-- Compute the codomain-sort annotations of every binder in `e`, bottom-up,
 by real inference on the opened (already annotated) body.  This is the one
 place binder bodies are type-checked; `inferType` afterwards trusts the
@@ -579,19 +642,40 @@ def annotateCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Check
     let e' ← annotateCore env fuel depth e
     -- Run the projection rule (the one place it is checked; this
     -- establishes the semantic proj clause of `AnnotOk`).
-    match ← whnf env depth (← inferType env depth e') with
+    let te ← whnf env depth (← inferType env depth e')
+    match te with
     | .app (.app (.const c _) _) _ =>
-      match env.find? c with
-      | some (.indInfo _) =>
-        unless c = psigmaName do
-          throw (.notImplemented "projection on a non-basis structure")
-        unless i < 2 do
-          throw (.invalid "projection index out of range")
-        pure (.proj sn i e')
-      | _ => throw (.notImplemented "projection on a non-basis structure")
-    | _ => throw (.notImplemented "projection on a non-basis structure")
+      -- the basis pair projects natively
+      if c = psigmaName then
+        match env.find? c with
+        | some (.indInfo _) => do
+          unless i < 2 do
+            throw (.invalid "projection index out of range")
+          pure (.proj sn i e')
+        | _ => annotateProjElim env fuel depth sn i te e'
+      else annotateProjElim env fuel depth sn i te e'
+    | _ => annotateProjElim env fuel depth sn i te e'
   | _ + 1, _, .lit _ => throw (.notImplemented "annotate: literals")
-termination_by structural fuel _ _ => fuel
+termination_by fuel _ _ => (fuel, 0)
+
+/-- Eliminate a projection on a stored non-basis structure through its
+recursor and annotate the elimination: the recursive annotation
+re-checks every node with the ordinary rules, and the scope guard
+keeps the scaffolding inside the annotated struct's free-variable
+leaves (which keeps the soundness argument leafwise). -/
+def annotateProjElim (env : Env) (fuel depth : Nat) (sn : Name) (i : Nat)
+    (te e' : Expr) : CheckM Expr := do
+  let (T, us, args, projTy, motive) ← projElimPre env sn i te e'
+  let projTy' ← annotateCore env fuel depth projTy
+  let u ← ensureSort env depth (← inferType env depth projTy')
+  let raw ← projElimAssemble env T u us args motive e' i
+  unless raw.wscopedB depth && raw.looseBVarsBounded 0 &&
+      raw.fvarLeaves.all (fun l => e'.fvarLeaves.contains l) do
+    throw (.notImplemented "projection elimination scoping")
+  annotateCore env fuel depth raw
+termination_by (fuel, 1)
+
+end
 
 /-- Annotate with the standard fuel. -/
 def annotate (env : Env) (depth : Nat) (e : Expr) : CheckM Expr :=

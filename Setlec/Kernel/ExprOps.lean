@@ -85,6 +85,37 @@ def sizeF : Expr → Nat
   | .letE _ ty val body => sizeF ty + sizeF val + sizeF body + 1
   | .proj _ _ e => sizeF e + 1
 
+/-- All reachable `fvar` leaves, including (hereditarily) those inside
+their type annotations. -/
+def fvarLeaves : Expr → List (Nat × Name × Expr)
+  | .fvar idx n ty => (idx, n, ty) :: fvarLeaves ty
+  | .app f a => fvarLeaves f ++ fvarLeaves a
+  | .lam _ ty b _ | .forallE _ ty b _ => fvarLeaves ty ++ fvarLeaves b
+  | .letE _ t v b => fvarLeaves t ++ fvarLeaves v ++ fvarLeaves b
+  | .proj _ _ e => fvarLeaves e
+  | _ => []
+termination_by e => e.sizeF
+decreasing_by all_goals first
+  | (simp [Expr.sizeF]; omega)
+  | simp [Expr.sizeF]
+
+/-- Scope check: every reachable `fvar` index is below `d`,
+hereditarily through annotations (the `Bool` mirror of the
+verification-side `WScoped`). -/
+def wscopedB : (d : Nat) → Expr → Bool
+  | d, .fvar idx _ ty => idx < d && wscopedB idx ty
+  | d, .app f a => wscopedB d f && wscopedB d a
+  | d, .lam _ ty body _ => wscopedB d ty && wscopedB d body
+  | d, .forallE _ ty body _ => wscopedB d ty && wscopedB d body
+  | d, .letE _ ty val body =>
+    wscopedB d ty && wscopedB d val && wscopedB d body
+  | d, .proj _ _ e => wscopedB d e
+  | _, .bvar _ | _, .sort _ | _, .const _ _ | _, .lit _ => true
+termination_by _ e => e.sizeF
+decreasing_by all_goals first
+  | (simp [Expr.sizeF]; omega)
+  | simp [Expr.sizeF]
+
 /-- Are all bound-variable references bound within the expression (below
 `k` at the root)?  Input declarations must satisfy `looseBVarsBounded 0`. -/
 def looseBVarsBounded (k : Nat) : Expr → Bool
@@ -196,6 +227,24 @@ def stripPis : Nat → Expr → Option (List (Name × Expr × BinderMeta) × Exp
   | k + 1, .forallE n ty b m =>
     (stripPis k b).map fun (bs, e) => ((n, ty, m) :: bs, e)
   | _ + 1, _ => none
+
+/-- Instantiate a `∀`-telescope with arguments, in order. -/
+def instPis : Expr → List Expr → Option Expr
+  | e, [] => some e
+  | .forallE _ _ body _, a :: as => instPis (body.instantiate1 a) as
+  | _, _ :: _ => none
+
+/-- Convert the first `k` `∀`-binders into `λ`-binders over a body. -/
+def pisToLams : Nat → Expr → Expr → Option Expr
+  | 0, _, body => some body
+  | k + 1, .forallE n ty rest m, body =>
+    (pisToLams k rest body).map fun b => .lam n ty b ⟨m.bi, none⟩
+  | _ + 1, _, _ => none
+
+/-- The length of the leading `∀`-telescope. -/
+def piArity : Expr → Nat
+  | .forallE _ _ b _ => piArity b + 1
+  | _ => 0
 
 /-- The binder infos of the first `k` binders of a `∀`-telescope. -/
 def piBinderInfos : Nat → Expr → Option (List BinderInfo)
