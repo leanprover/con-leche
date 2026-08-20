@@ -636,27 +636,28 @@ theorem TeleFitI.take_prefix :
     exact ⟨mid, by
       simpa using TeleFitI.cons hity hiarg hx hfbI hwarg hbarg hAarg hfit'⟩
 
-/-- Peel the leading arguments off an expression-spine fit. -/
-theorem TeleFitI.drop_prefix :
-    ∀ {pre : List Expr} {ty : Expr} {post : List Expr} {vs : List V}
-      {rest : Expr},
-      TeleFitI V cval env φ d ρ ty (pre ++ post) vs rest →
-      ∃ ty' vs', TeleFitI V cval env φ d ρ ty' post vs' rest ∧
-        vs = vs.take pre.length ++ vs' ∧ vs'.length = post.length
-  | [], ty, post, vs, rest, hfit => by
-    exact ⟨ty, vs, hfit, by simp, TeleFitI.vs_length hfit⟩
-  | p₀ :: pre, ty, post, vs, rest, hfit => by
-    cases hfit with
-    | @cons _ _ _ _ _ _ x xs A rest hity hiarg hx hfbI hwarg hbarg hAarg
-        hsub =>
-    obtain ⟨ty', vs', hfit', heq, hlen⟩ := TeleFitI.drop_prefix hsub
-    exact ⟨ty', vs', hfit', by simpa using heq, hlen⟩
-
 /-- Peel a `∀`-telescope along an argument list. -/
 def telescopeInst : Expr → List Expr → Option Expr
   | e, [] => some e
   | .forallE _ _ b _, a :: as => telescopeInst (b.instantiate1 a) as
   | _, _ :: _ => none
+
+/-- Peel the leading arguments off an expression-spine fit. -/
+theorem TeleFitI.drop_prefix :
+    ∀ {pre : List Expr} {ty : Expr} {post : List Expr} {vs : List V}
+      {rest : Expr},
+      TeleFitI V cval env φ d ρ ty (pre ++ post) vs rest →
+      ∃ ty' vs', telescopeInst ty pre = some ty' ∧
+        TeleFitI V cval env φ d ρ ty' post vs' rest ∧
+        vs = vs.take pre.length ++ vs' ∧ vs'.length = post.length
+  | [], ty, post, vs, rest, hfit => by
+    exact ⟨ty, vs, rfl, hfit, by simp, TeleFitI.vs_length hfit⟩
+  | p₀ :: pre, ty, post, vs, rest, hfit => by
+    cases hfit with
+    | @cons _ _ _ _ _ _ x xs A rest hity hiarg hx hfbI hwarg hbarg hAarg
+        hsub =>
+    obtain ⟨ty', vs', hpeel, hfit', heq, hlen⟩ := TeleFitI.drop_prefix hsub
+    exact ⟨ty', vs', hpeel, hfit', by simpa using heq, hlen⟩
 
 /-- An expression-spine fit's residual is the peeled telescope. -/
 theorem TeleFitI.rest_eq :
@@ -1144,5 +1145,22 @@ theorem TeleFitI.swap_prefix :
     obtain ⟨rest₂, hfit₂⟩ := ih hsw
       (Expr.stripPis_instantiate1_isSome _ 0 harity') hrel'
     exact ⟨rest₂, TeleFitI.cons hity hia₂ hx hfbI hwa₂ hba₂ hAa₂ hfit₂⟩
+
+/-- Peeling preserves the `fvar` bound. -/
+theorem telescopeInst_fvarsBelow {D : Nat} :
+    ∀ (args : List Expr) {ty mid : Expr},
+      Expr.fvarsBelow D ty → (∀ a ∈ args, Expr.fvarsBelow D a) →
+      telescopeInst ty args = some mid → Expr.fvarsBelow D mid
+  | [], ty, mid, hty, _, h => by
+    obtain rfl := Option.some.inj h
+    exact hty
+  | a :: as, ty, mid, hty, hargs, h => by
+    match ty, h with
+    | .forallE n dom body m, h =>
+      have hty' : Expr.fvarsBelow D dom ∧ Expr.fvarsBelow D body := by
+        simpa [Expr.fvarsBelow] using hty
+      exact telescopeInst_fvarsBelow as
+        (fvarsBelow_instantiate1_gen (hargs a List.mem_cons_self) 0 hty'.2)
+        (fun x hx => hargs x (List.mem_cons_of_mem _ hx)) h
 
 end Setlec

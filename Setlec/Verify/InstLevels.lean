@@ -233,6 +233,22 @@ theorem stripLams_instantiateLevelParams_eq (ks : List Name)
         simp only [List.getElem?_cons_succ] at hbb hbb'
         exact hdoms i bb bb' hbb hbb'
 
+/-- Level instantiation commutes with bvar lifting. -/
+theorem instantiateLevelParams_liftLooseBVars (ks : List Name)
+    (us : List Level) :
+    ∀ (e : Expr) (k c : Nat),
+      (e.liftLooseBVars k c).instantiateLevelParams ks us =
+        (e.instantiateLevelParams ks us).liftLooseBVars k c := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k c
+    simp only [Expr.liftLooseBVars, Expr.instantiateLevelParams]
+    split <;> simp [Expr.instantiateLevelParams]
+  | _ =>
+    intro k c
+    simp_all [Expr.liftLooseBVars, Expr.instantiateLevelParams]
+
 /-- Renaming constants commutes with level instantiation. -/
 theorem renameConsts_instantiateLevelParams (f : Name → Name)
     (ks : List Name) (us : List Level) :
