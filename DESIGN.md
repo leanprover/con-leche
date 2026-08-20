@@ -238,9 +238,13 @@ the λ-tower fold (`TeleFitLam.fold`, collapse-free via unconditional
 the lift/instantiate commutations.  The kernel additionally pins the
 stored iota theorem's statement piecewise (telescope domains = rule
 λ-domains renamed; body = the expected Eq application), so soundness
-never reasons about annotate/rename commutation.  Remaining: the
-recursor extension lemma assembling these (staged plan in the
-project memory), the Verify EnvWF arm, and the wiring.
+never reasons about annotate/rename commutation.  The semantic
+centerpiece is proven: modeled_rule_fold (Setlec/Model/IndInstall)
+derives a modeled recursor rule's fold obligation end to end from its
+checked _model.iota theorem.  Remaining: the recursor extension
+lemma's plumbing (phase-0 rules-free model, env transport, applying
+modeled_rule_fold per rule), the checkIndDecl inversion and checkDecl
+wiring, the Verify EnvWF arm, and the frontend flip.
 
 Consistency corollary (2026-08-19): the 15 pinned basis names are
 *reserved* — `checkConstantVal` (and the per-member checks of the
