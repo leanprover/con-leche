@@ -166,7 +166,7 @@ def pinnedInfo (n : Name) : ConstantInfo :=
 
 /-- Is this constant-info one of the basis kinds? -/
 def ConstantInfo.isBasis : ConstantInfo → Bool
-  | .indInfo _ | .ctorInfo _ _ _ | .recInfo _ _ _ _ _ _ => true
+  | .indInfo _ _ | .ctorInfo _ _ _ | .recInfo _ _ _ _ _ _ => true
   | _ => false
 
 /-- Which names carry constructor-shaped pinned declarations. -/

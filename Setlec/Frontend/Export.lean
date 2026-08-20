@@ -101,7 +101,7 @@ private def ConstantInfo.canon (ci : ConstantInfo) : ConstantInfo :=
   | .axiomInfo _ => .axiomInfo cv
   | .defnInfo _ v => .defnInfo cv (canonExpr m v)
   | .thmInfo _ v => .thmInfo cv (canonExpr m v)
-  | .indInfo _ => .indInfo cv
+  | .indInfo _ _ => .indInfo cv {}
   | .ctorInfo _ nP nF => .ctorInfo cv nP nF
   | .recInfo _ nP nM nm ni rules => .recInfo cv nP nM nm ni
       (rules.map fun r => { r with rhs := canonExpr m r.rhs })
@@ -271,7 +271,7 @@ private def processLine (st : State) (j : Json)
     -- stream; if it hasn't, the checker rejects the unresolved alias).
     let types ← (← (← v.getObjVal? "types").getArr?).mapM fun t => do
       if (← (← t.getObjVal? "isUnsafe").getBool?) then throw "unsafe inductive"
-      pure (ConstantInfo.indInfo (← parseConstantVal st t))
+      pure (ConstantInfo.indInfo (← parseConstantVal st t) {})
     let ctors ← (← (← v.getObjVal? "ctors").getArr?).mapM fun c => do
       pure (ConstantInfo.ctorInfo (← parseConstantVal st c)
         (← (← c.getObjVal? "numParams").getNat?)

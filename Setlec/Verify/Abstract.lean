@@ -175,7 +175,7 @@ theorem annotateProjElim_inv {env : Env} {fuel d : Nat} {sn : Name}
   | some (.axiomInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
-  | some (.indInfo _) => intro h; exact nomatch h
+  | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo pcv nP nM nm ni rules) => ?_
   intro h
@@ -205,8 +205,8 @@ theorem annotateCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
     (h : annotateCore env (fuel + 1) d (.proj sn i e) = .ok e') :
     ∃ e₂ tt te, annotateCore env fuel d e = .ok e₂ ∧
       inferType env d e₂ = .ok tt ∧ whnf env d tt = .ok te ∧
-      ((∃ us A B cv, te = .app (.app (.const psigmaName us) A) B ∧
-          env.find? psigmaName = some (.indInfo cv) ∧
+      ((∃ us A B cv caps, te = .app (.app (.const psigmaName us) A) B ∧
+          env.find? psigmaName = some (.indInfo cv caps) ∧
           i < 2 ∧ e' = .proj sn i e₂) ∨
         annotateProjElim env fuel d sn i te e₂ = .ok e') := by
   simp only [annotateCore, Bind.bind, Except.bind] at h
@@ -269,13 +269,13 @@ theorem annotateCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
     | some (.thmInfo cv v) => intro h; exact Or.inr h
     | some (.ctorInfo cv nP nF) => intro h; exact Or.inr h
     | some (.recInfo cv nP nM nm ni rules) => intro h; exact Or.inr h
-    | some (.indInfo cv) => ?_
+    | some (.indInfo cv _) => ?_
     intro h
     dsimp only at h
     by_cases hi : i < 2
     · simp only [hi, if_true, ↓reduceIte, pure, Except.pure,
         Except.ok.injEq] at h
-      exact Or.inl ⟨us, A, B, cv, rfl, rfl, hi, h.symm⟩
+      exact Or.inl ⟨us, A, B, cv, _, rfl, rfl, hi, h.symm⟩
     · rw [if_neg hi] at h
       exact nomatch h
   · rw [if_neg hc] at h
@@ -362,7 +362,7 @@ theorem annotateCore_WScoped {env : Env} :
   | fuel + 1, .proj sn i e, d, e', h, hw => by
     simp only [WScoped] at hw
     obtain ⟨e₂, tt, te, he, -, -, hres⟩ := annotateCore_proj_inv h
-    rcases hres with ⟨us, A, B, cv2, -, -, -, rfl⟩ | hel
+    rcases hres with ⟨us, A, B, cv2, caps2, -, -, -, rfl⟩ | hel
     · simp only [WScoped]
       exact annotateCore_WScoped fuel e he hw
     · obtain ⟨us, pcv, nP, nM, nm, ni, rules, -, -, -,
@@ -448,7 +448,7 @@ theorem annotateCore_looseBVars {env : Env} :
   | fuel + 1, .proj sn i e, d, e', h, hb => by
     simp only [Expr.looseBVarsBounded] at hb
     obtain ⟨e₂, tt, te, he, -, -, hres⟩ := annotateCore_proj_inv h
-    rcases hres with ⟨us, A, B, cv2, -, -, -, rfl⟩ | hel
+    rcases hres with ⟨us, A, B, cv2, caps2, -, -, -, rfl⟩ | hel
     · simp only [Expr.looseBVarsBounded]
       exact annotateCore_looseBVars fuel e he hb
     · obtain ⟨us, pcv, nP, nM, nm, ni, rules, -, -, -,

@@ -31,7 +31,7 @@ def main : IO Unit := do
           return .ok out
         let ci' : ConstantInfo ←
           match ci with
-          | .indInfo _ => pure (.indInfo cv')
+          | .indInfo _ caps => pure (.indInfo cv' caps)
           | .ctorInfo _ nP nF => pure (.ctorInfo cv' nP nF)
           | .recInfo _ nP nM nm ni rules =>
             match annotateRules rules (.recInfo cv' nP nM nm ni rules) with

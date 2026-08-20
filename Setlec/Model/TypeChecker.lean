@@ -175,7 +175,7 @@ private theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
       have hoktx : FvarsOk V m.val env φ d ρ tx :=
         FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel htx hwx) hokx
       obtain ⟨hiw, -⟩ := ihw hwtx hwtxW hbtx hLbtx hoktx hATx
-      obtain ⟨c, us, cvi, cvr, nP, nM, nm, r, rfl, hfind, hfr, hrf,
+      obtain ⟨c, us, cvi, capsi, cvr, nP, nM, nm, r, rfl, hfind, hfr, hrf,
         hgres⟩ := isUnitLikeTy_inv hux
       -- identify the unit type through the pinned recursor
       obtain ⟨hpr, -⟩ :=
@@ -203,10 +203,10 @@ private theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
       rw [hTxi] at hiw
       simp only [interpExpr, hfind] at hiw
       by_cases hlen : us.length =
-          (ConstantInfo.indInfo cvi).toConstantVal.levelParams.length
+          (ConstantInfo.indInfo cvi capsi).toConstantVal.levelParams.length
       · rw [if_pos hlen] at hiw
         have hTx : Tx = m.val punitName
-            (Level.substFn φ (ConstantInfo.indInfo cvi).toConstantVal.levelParams us) :=
+            (Level.substFn φ (ConstantInfo.indInfo cvi capsi).toConstantVal.levelParams us) :=
           (Option.some.inj hiw).symm
         rw [hxi]
         have hTx' : Tx = (unitSet : V) := by
@@ -246,7 +246,7 @@ private theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
     (hva : interpExpr V m.val env φ d ρ a = some va)
     (hvb : interpExpr V m.val env φ d ρ b = some vb) :
     va = vb := by
-  obtain ⟨c, us, pα, pβ, s₁, s₂, cvm, tb, c', us', A, B, cvi, cvr,
+  obtain ⟨c, us, pα, pβ, s₁, s₂, cvm, tb, c', us', A, B, cvi, capsi, cvr,
     nPr, nMr, nmr, r, rfl, hfindM, htb, hwtb, hfindI, hfr, hrc, hrf,
     hgres, hlev, hd1, hd2⟩ := pairEtaCert_inv h
   -- identify the structure through the pinned recursor, then the
@@ -297,7 +297,7 @@ private theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
   obtain ⟨haCA, haB, vf₁, vB, vE₁, A₁, B₁, hf₁i, hBi, hpi₁, hvB₁, hfib₁⟩ := haPi
   try simp only [AnnotOk] at haCA
   obtain ⟨hac, haA, vf₀, vA, vE₀, A₀, B₀, hci, hAi, hpi₀, hvA₀, hfib₀⟩ := haCA
-  obtain ⟨hlpI, htyf⟩ := m.ind_ok.1 cvi hfindI
+  obtain ⟨hlpI, htyf⟩ := m.ind_ok.1 cvi capsi hfindI
   obtain ⟨ψt, hψt⟩ : ∃ ψt, ψt = Level.substFn φ cvi.levelParams us' := ⟨_, rfl⟩
   have hci' := hci
   rw [interpExpr, hfindI] at hci'
@@ -1538,7 +1538,7 @@ private theorem whnf_claims (m : EnvModel V env)
         next hal => exact (Except.ok.inj h) ▸ ⟨rfl, ha⟩
       | axiomInfo cv => exact (Except.ok.inj h) ▸ ⟨rfl, ha⟩
       | thmInfo cv value => exact (Except.ok.inj h) ▸ ⟨rfl, ha⟩
-      | indInfo cv => exact (Except.ok.inj h) ▸ ⟨rfl, ha⟩
+      | indInfo cv _ => exact (Except.ok.inj h) ▸ ⟨rfl, ha⟩
       | ctorInfo cv nP nF => exact (Except.ok.inj h) ▸ ⟨rfl, ha⟩
       | recInfo cv nP nM nm ni rules => exact (Except.ok.inj h) ▸ ⟨rfl, ha⟩
   | .app f a, h =>
@@ -2657,7 +2657,7 @@ private theorem infer_claims (m : EnvModel V env)
       simpa using happ
     · exact AnnotOk_beta hfb' hw.2 hb.2 hai haa 0 hAopened
   | .proj sn i e, h =>
-    obtain ⟨te, us, A, B, cv, hte, hwt, hfind, hcase⟩ := inferTypeCore_proj_inv h
+    obtain ⟨te, us, A, B, cv, caps, hte, hwt, hfind, hcase⟩ := inferTypeCore_proj_inv h
     simp only [WScoped] at hw
     simp only [looseBVarsBounded] at hb
     have hLbe : Expr.LeavesBounded e := fun l hl => hLb l (by
@@ -2697,7 +2697,7 @@ private theorem infer_claims (m : EnvModel V env)
       rw [← hψ']
       simp only [hal, if_true]
     have hvf₀ : vf₀ = m.val psigmaName ψ' := (Option.some.inj hci).symm
-    have hfacts := ((m.ind_ok.1 cv hfind).2 ψ')
+    have hfacts := ((m.ind_ok.1 cv caps hfind).2 ψ')
     have hAmem : vA ∈ˢ univ (ψ' uN) := hfacts.dom₀ (hvf₀ ▸ hpi₀) hvA₀
     -- the partial application and its second argument
     have hf₁ : vf₁ = app (m.val psigmaName ψ') vA := by

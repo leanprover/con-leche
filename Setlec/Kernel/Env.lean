@@ -37,13 +37,24 @@ inductive BasisKind where
   deriving DecidableEq, Repr, Inhabited
 
 
+/-- Definitional capabilities of a stored inductive type, recorded at
+install: structural eta for its (single-constructor) values, unit-like
+collapse (all inhabitants definitionally equal), and rule K for its
+recursor.  The pinned basis blocks carry pinned capabilities; modeled
+blocks earn them from checked `_model` theorems. -/
+structure IndCaps where
+  eta : Bool := false
+  unitlike : Bool := false
+  ruleK : Bool := false
+  deriving DecidableEq, Repr, Inhabited
+
 /-- Information stored about an accepted constant. -/
 inductive ConstantInfo where
   | axiomInfo (val : ConstantVal)
   | defnInfo (val : ConstantVal) (value : Expr)
   | thmInfo (val : ConstantVal) (value : Expr)
-  /-- A basis inductive type former (whnf-stuck). -/
-  | indInfo (val : ConstantVal)
+  /-- An inductive type former (whnf-stuck) with its capabilities. -/
+  | indInfo (val : ConstantVal) (caps : IndCaps)
   /-- A basis constructor (whnf-stuck; the iota target). -/
   | ctorInfo (val : ConstantVal) (numParams numFields : Nat)
   /-- A basis recursor with its iota rules. -/
@@ -76,7 +87,7 @@ namespace ConstantInfo
 
 def toConstantVal : ConstantInfo → ConstantVal
   | .axiomInfo v | .defnInfo v _ | .thmInfo v _ => v
-  | .indInfo v | .ctorInfo v _ _ | .recInfo v _ _ _ _ _ => v
+  | .indInfo v _ | .ctorInfo v _ _ | .recInfo v _ _ _ _ _ => v
 
 def name (c : ConstantInfo) : Name := c.toConstantVal.name
 

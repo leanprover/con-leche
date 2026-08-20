@@ -197,7 +197,7 @@ def inferTypeCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Chec
       match ← whnfCore env fuel depth (← inferTypeCore env fuel depth e) with
       | .app (.app (.const c _us) A) B =>
         match env.find? c with
-        | some (.indInfo _) =>
+        | some (.indInfo _ _) =>
           if c = psigmaName then
             match i with
             | 0 => pure A
@@ -217,7 +217,7 @@ environment invariant supplies the fact for the stored constant). -/
 def isUnitLikeTy (env : Env) : Expr → Bool
   | .const c _ =>
     (match env.find? c with
-      | some (.indInfo _) => true
+      | some (.indInfo _ _) => true
       | _ => false) &&
     (match env.find? (c.str "rec") with
       | some (.recInfo _ _ _ _ 0 [r]) => r.nfields == 0
@@ -434,7 +434,7 @@ def pairEtaCert (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Expr �
         match ← whnfCore env fuel depth tb with
         | .app (.app (.const c' us') _A) _B =>
           match env.find? c' with
-          | some (.indInfo _) =>
+          | some (.indInfo _ _) =>
             match env.find? (c'.str "rec") with
             | some (.recInfo _ _ _ _ ni rules) =>
               match rules with
@@ -590,7 +590,7 @@ def annotateCore (env : Env) : (fuel : Nat) → (depth : Nat) → Expr → Check
       -- the basis pair projects natively
       if c = psigmaName then
         match env.find? c with
-        | some (.indInfo _) => do
+        | some (.indInfo _ _) => do
           unless i < 2 do
             throw (.invalid "projection index out of range")
           pure (.proj sn i e')

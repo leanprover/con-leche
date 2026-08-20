@@ -137,13 +137,13 @@ theorem RecCtorsStored.empty : RecCtorsStored Env.empty := by
 here is what some checker rule's soundness consumes.  Grows on demand as
 rules land (iota equations come with the recursor rules). -/
 def IndOk (env : Env) (val : ConstVal V) : Prop :=
-  (∀ cv, env.find? psigmaName = some (.indInfo cv) →
+  (∀ cv caps, env.find? psigmaName = some (.indInfo cv caps) →
     cv.levelParams = [uN, vN] ∧
     ∀ ψ : Name → Nat, PairTyFacts V (val psigmaName ψ) (ψ uN) (ψ vN)) ∧
   (∀ cv nP nF, env.find? psigmaMkName = some (.ctorInfo cv nP nF) →
     nP = 2 ∧ nF = 2 ∧ cv.levelParams = [uN, vN] ∧
     ∀ ψ : Name → Nat, PairMkFacts V (val psigmaMkName ψ) (ψ uN) (ψ vN)) ∧
-  (∀ cv, env.find? punitName = some (.indInfo cv) →
+  (∀ cv caps, env.find? punitName = some (.indInfo cv caps) →
     ∀ (ψ : Name → Nat) (x : V), x ∈ˢ val punitName ψ → x = pt) ∧
   (∀ n ci, env.find? n = some ci → ConstantInfo.isBasis ci = true →
     reservedBasisNames.contains n = true →
@@ -160,11 +160,11 @@ theorem IndOk.empty (val : ConstVal V)
     (hE : ∀ (ψ : Name → Nat) (x : V), x ∈ˢ val emptyName ψ → False) :
     IndOk V Env.empty val := by
   refine ⟨?_, ?_, ?_, ?_, BasisBlocks.empty, RecCtorsStored.empty, hE⟩
-  · intro cv h
+  · intro cv caps h
     simp [Env.find?, Env.empty] at h
   · intro cv nP nF h
     simp [Env.find?, Env.empty] at h
-  · intro cv h
+  · intro cv caps h
     simp [Env.find?, Env.empty] at h
   · intro n ci h
     simp [Env.find?, Env.empty] at h

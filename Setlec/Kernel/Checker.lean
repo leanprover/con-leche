@@ -192,7 +192,7 @@ def checkIndMember (blockNames : List Name) (env' : Env)
   unless (cvA.type.renameConsts f) == cvm.type do
     throw (.notImplemented s!"model type mismatch for {cvA.name}")
   match ci with
-  | .indInfo _ => pure (⟨.indInfo cvA :: env'.consts⟩ : Env)
+  | .indInfo _ _ => pure (⟨.indInfo cvA {} :: env'.consts⟩ : Env)
   | .ctorInfo _ nP nF => pure ⟨.ctorInfo cvA nP nF :: env'.consts⟩
   | .recInfo _ nP nM nm ni rules => do
     unless ni = 0 do throw (.notImplemented "indexed recursor")
@@ -358,10 +358,10 @@ additionally install the projection functions the model documents
 def checkIndDecl (env : Env) (block : List ConstantInfo) : CheckM Env := do
   let env₂ ← block.foldlM (checkIndMember (block.map (·.name))) env
   match block.filter (fun ci => match ci with
-      | .indInfo _ => true | _ => false),
+      | .indInfo _ _ => true | _ => false),
     block.filter (fun ci => match ci with
       | .ctorInfo _ _ _ => true | _ => false) with
-  | [.indInfo cvT], [.ctorInfo cvC nP nF] =>
+  | [.indInfo cvT _], [.ctorInfo cvC nP nF] =>
     -- the whole projection name family must be ours to install
     unless (List.range nF).all
         (fun j => (env₂.find? (projFnName cvT.name j)).isNone) do

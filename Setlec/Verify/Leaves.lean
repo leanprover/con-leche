@@ -415,7 +415,7 @@ theorem annotateCore_leaves_sub {env : Env} :
     obtain ⟨e₂, tt, te, he, -, -, hres⟩ := annotateCore_proj_inv h
     have hsub₂ : ∀ l ∈ e₂.fvarLeaves, l ∈ e.fvarLeaves :=
       annotateCore_leaves_sub fuel e he hw hb
-    rcases hres with ⟨us, A, B, cv2, -, -, -, rfl⟩ | hel
+    rcases hres with ⟨us, A, B, cv2, caps2, -, -, -, rfl⟩ | hel
     · intro l hl
       simp only [fvarLeaves] at hl ⊢
       exact hsub₂ l hl

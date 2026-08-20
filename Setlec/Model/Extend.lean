@@ -445,7 +445,7 @@ theorem extend_model {env : Env} (m : EnvModel V env)
         (fun cvR nP nM nm ni rules heq => by
           rw [heq] at hc₀nb
           simp [ConstantInfo.isBasis] at hc₀nb), ?_⟩
-    · intro cv hfp
+    · intro cv caps hfp
       rw [Env.find?_cons] at hfp
       split at hfp
       · next hn =>
@@ -455,13 +455,13 @@ theorem extend_model {env : Env} (m : EnvModel V env)
         have hne : psigmaName ≠ name := by
           intro hcontra
           have hmem := List.mem_of_find?_eq_some hfp
-          have hname : (ConstantInfo.indInfo cv).name = psigmaName := by
+          have hname : (ConstantInfo.indInfo cv caps).name = psigmaName := by
             have := List.find?_some hfp
             simpa using this
           have := find?_none_ne hfind' _ hmem
           rw [hname, hcontra] at this
           exact this rfl
-        obtain ⟨hlp, hfacts⟩ := m.ind_ok.1 cv hfp
+        obtain ⟨hlp, hfacts⟩ := m.ind_ok.1 cv caps hfp
         refine ⟨hlp, fun ψ => ?_⟩
         have hvagree : val' psigmaName ψ = m.val psigmaName ψ := by
           simp [hval', hne]
@@ -489,7 +489,7 @@ theorem extend_model {env : Env} (m : EnvModel V env)
           simp [hval', hne]
         rw [hvagree]
         exact hfacts ψ
-    · intro cv hfp ψ x hx
+    · intro cv caps hfp ψ x hx
       rw [Env.find?_cons] at hfp
       split at hfp
       · next hn =>
@@ -499,7 +499,7 @@ theorem extend_model {env : Env} (m : EnvModel V env)
         have hne : punitName ≠ name := by
           intro hcontra
           have hmem := List.mem_of_find?_eq_some hfp
-          have hname : (ConstantInfo.indInfo cv).name = punitName := by
+          have hname : (ConstantInfo.indInfo cv caps).name = punitName := by
             have := List.find?_some hfp
             simpa using this
           have := find?_none_ne hfind' _ hmem
@@ -508,7 +508,7 @@ theorem extend_model {env : Env} (m : EnvModel V env)
         have hvagree : val' punitName ψ = m.val punitName ψ := by
           simp [hval', hne]
         rw [hvagree] at hx
-        exact m.ind_ok.right.right.left cv hfp ψ x hx
+        exact m.ind_ok.right.right.left cv caps hfp ψ x hx
     · intro n ci hfp hbasis hres2
       rw [Env.find?_cons] at hfp
       split at hfp
@@ -563,13 +563,13 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
     (hparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ ci.toConstantVal.levelParams, ψ₁ p = ψ₂ p) → v₀ ψ₁ = v₀ ψ₂)
     (hAty : ∀ ψ : Name → Nat, AnnotOk V m.val env ψ 0 (rho0 V) ci.toConstantVal.type)
-    (hnewty : ∀ cv, ci = .indInfo cv → ci.name = psigmaName →
+    (hnewty : ∀ cv caps, ci = .indInfo cv caps → ci.name = psigmaName →
       cv.levelParams = [uN, vN] ∧
       ∀ ψ : Name → Nat, PairTyFacts V (v₀ ψ) (ψ uN) (ψ vN))
     (hnewmk : ∀ cv nP nF, ci = .ctorInfo cv nP nF → ci.name = psigmaMkName →
       nP = 2 ∧ nF = 2 ∧ cv.levelParams = [uN, vN] ∧
       ∀ ψ : Name → Nat, PairMkFacts V (v₀ ψ) (ψ uN) (ψ vN))
-    (hnewunit : ∀ cv, ci = .indInfo cv → ci.name = punitName →
+    (hnewunit : ∀ cv caps, ci = .indInfo cv caps → ci.name = punitName →
       ∀ (ψ : Name → Nat) (x : V), x ∈ˢ v₀ ψ → x = pt)
     (hnewempty : ci.name = emptyName →
       ∀ (ψ : Name → Nat) (x : V), x ∈ˢ v₀ ψ → False)
@@ -675,12 +675,12 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
       hfind' hsib,
       RecCtorsStored.cons m.ind_ok.right.right.right.right.right.left hfind'
         hctors, ?_⟩
-    · intro cv hfp
+    · intro cv caps hfp
       rw [Env.find?_cons] at hfp
       split at hfp
       · next hn =>
         obtain rfl := Option.some.inj hfp
-        obtain ⟨hlp, hfacts⟩ := hnewty cv rfl hn
+        obtain ⟨hlp, hfacts⟩ := hnewty cv caps rfl hn
         refine ⟨hlp, fun ψ => ?_⟩
         have hval'eq : val' psigmaName ψ = v₀ ψ := by
           simp [hval', hn.symm]
@@ -690,13 +690,13 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
         have hne : psigmaName ≠ ci.name := by
           intro hcontra
           have hmem := List.mem_of_find?_eq_some hfp
-          have hname : (ConstantInfo.indInfo cv).name = psigmaName := by
+          have hname : (ConstantInfo.indInfo cv caps).name = psigmaName := by
             have := List.find?_some hfp
             simpa using this
           have := hfresh _ hmem
           rw [hname, hcontra] at this
           exact this rfl
-        obtain ⟨hlp, hfacts⟩ := m.ind_ok.1 cv hfp
+        obtain ⟨hlp, hfacts⟩ := m.ind_ok.1 cv caps hfp
         refine ⟨hlp, fun ψ => ?_⟩
         have hval'eq : val' psigmaName ψ = m.val psigmaName ψ := by
           simp [hval', hne]
@@ -729,7 +729,7 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
           simp [hval', hne]
         rw [hval'eq]
         exact h4 ψ
-    · intro cv hfp ψ x hx
+    · intro cv caps hfp ψ x hx
       rw [Env.find?_cons] at hfp
       split at hfp
       · next hn =>
@@ -737,12 +737,12 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
         have hval'eq : val' punitName ψ = v₀ ψ := by
           simp [hval', hn.symm]
         rw [hval'eq] at hx
-        exact hnewunit cv rfl hn ψ x hx
+        exact hnewunit cv caps rfl hn ψ x hx
       · next hn =>
         have hne : punitName ≠ ci.name := by
           intro hcontra
           have hmem := List.mem_of_find?_eq_some hfp
-          have hname : (ConstantInfo.indInfo cv).name = punitName := by
+          have hname : (ConstantInfo.indInfo cv caps).name = punitName := by
             have := List.find?_some hfp
             simpa using this
           have := hfresh _ hmem
@@ -751,7 +751,7 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
         have hval'eq : val' punitName ψ = m.val punitName ψ := by
           simp [hval', hne]
         rw [hval'eq] at hx
-        exact m.ind_ok.right.right.left cv hfp ψ x hx
+        exact m.ind_ok.right.right.left cv caps hfp ψ x hx
     · intro n ci' hfp hbasis hres2
       rw [Env.find?_cons] at hfp
       split at hfp
@@ -811,7 +811,7 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
     (hnres : reservedBasisNames.contains ci.name = false)
     (hwf : ConstWF ⟨ci :: env.consts⟩ ci)
     (htyres0 : ci.toConstantVal.type.constsResolve env = true)
-    (hkind : (∃ cv, ci = .indInfo cv) ∨
+    (hkind : (∃ cv caps, ci = .indInfo cv caps) ∨
       (∃ cv nP nF, ci = .ctorInfo cv nP nF) ∨
       (∃ cv nP nM nm, ci = .recInfo cv nP nM nm 0 []))
     (hmodel : env.find? mname = some (.defnInfo cvm mval))
@@ -840,7 +840,7 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
   exact extend_basis_one m ci (fun ψ => m.val (mname) ψ)
     hfind' hwf htyres0
     (fun cv2 value2 => by
-      rcases hkind with ⟨cv', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
+      rcases hkind with ⟨cv', caps', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
         ⟨cv', nP', nM', nm', rfl⟩ <;> simp)
     hkey
     (fun ψ₁ ψ₂ hψ => by
@@ -855,13 +855,13 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
           (ci.toConstantVal.type.renameConsts f) := by
         rw [hren]; exact hA
       exact AnnotOk_renameConsts hro _ 0 (rho0 V) hA')
-    (fun cv heq hn => absurd (hn ▸ hnres) (by decide))
+    (fun cv caps heq hn => absurd (hn ▸ hnres) (by decide))
     (fun cv nP nF heq hn => absurd (hn ▸ hnres) (by decide))
-    (fun cv heq hn => absurd (hn ▸ hnres) (by decide))
+    (fun cv caps heq hn => absurd (hn ▸ hnres) (by decide))
     (fun hn => absurd (hn ▸ hnres) (by decide))
     (fun _ hres2 => absurd (hres2 ▸ hnres) (by simp))
     (fun cv nP nM nm ni rules heq => by
-      rcases hkind with ⟨cv', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
+      rcases hkind with ⟨cv', caps', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
         ⟨cv', nP', nM', nm', rfl⟩
       · exact nomatch heq
       · exact nomatch heq
@@ -870,7 +870,7 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
           fun hn => absurd hnres (by rw [hn]; decide),
           fun hn => absurd hnres (by rw [hn]; decide)⟩)
     (fun val' _ _ cvR nP nM nm ni rules heq => by
-      rcases hkind with ⟨cv', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
+      rcases hkind with ⟨cv', caps', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
         ⟨cv', nP', nM', nm', rfl⟩
       · exact nomatch heq
       · exact nomatch heq
@@ -879,7 +879,7 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
         intro r hr
         cases hr)
     (fun cvR nP nM nm ni rules heq => by
-      rcases hkind with ⟨cv', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
+      rcases hkind with ⟨cv', caps', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
         ⟨cv', nP', nM', nm', rfl⟩
       · exact nomatch heq
       · exact nomatch heq
@@ -979,7 +979,7 @@ theorem checkIotaRules_inv {env' envSelf : Env} {f : Name → Name}
     | some (.axiomInfo _) => intro h; exact nomatch h
     | some (.defnInfo _ _) => intro h; exact nomatch h
     | some (.thmInfo _ _) => intro h; exact nomatch h
-    | some (.indInfo _) => intro h; exact nomatch h
+    | some (.indInfo _ _) => intro h; exact nomatch h
     | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
     | some (.ctorInfo cvj cnP cnF) => ?_
     intro h
@@ -1069,7 +1069,7 @@ theorem checkIotaRules_inv {env' envSelf : Env} {f : Name → Name}
     | none => intro h; exact nomatch h
     | some (.axiomInfo _) => intro h; exact nomatch h
     | some (.defnInfo _ _) => intro h; exact nomatch h
-    | some (.indInfo _) => intro h; exact nomatch h
+    | some (.indInfo _ _) => intro h; exact nomatch h
     | some (.ctorInfo _ _ _) => intro h; exact nomatch h
     | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
     | some (.thmInfo cvt tval) => ?_
@@ -1454,15 +1454,15 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
       exact nomatch hnres
     obtain ⟨i1, i2, i3, i4, i5, i6, i7⟩ := m₀.ind_ok
     refine ⟨?_, ?_, ?_, ?_, ?_, ?_, i7⟩
-    · intro cv hfp
+    · intro cv caps hfp
       rw [hfindEq _ (hneName _ (by decide))] at hfp
-      exact i1 cv hfp
+      exact i1 cv caps hfp
     · intro cv nP' nF' hfp
       rw [hfindEq _ (hneName _ (by decide))] at hfp
       exact i2 cv nP' nF' hfp
-    · intro cv hfp
+    · intro cv caps hfp
       rw [hfindEq _ (hneName _ (by decide))] at hfp
-      exact i3 cv hfp
+      exact i3 cv caps hfp
     · -- decl_ok
       intro n ci hfp hbasis hres2
       by_cases hn : cvA.name = n
@@ -1755,8 +1755,8 @@ theorem checkIndMember_inv {blockNames : List Name} {env' env₁ : Env}
       cvm.levelParams = cvA.levelParams ∧
       cvA.type.renameConsts (fun n =>
         if blockNames.contains n then n.str "_model" else n) = cvm.type ∧
-      ((∃ cv, ci = .indInfo cv) ∧
-         env₁ = ⟨.indInfo cvA :: env'.consts⟩ ∨
+      ((∃ cv caps, ci = .indInfo cv caps) ∧
+         env₁ = ⟨.indInfo cvA {} :: env'.consts⟩ ∨
        (∃ cv nP nF, ci = .ctorInfo cv nP nF ∧
          env₁ = ⟨.ctorInfo cvA nP nF :: env'.consts⟩) ∨
        (∃ cv nP nm rules rules', ci = .recInfo cv nP 1 nm 0 rules ∧
@@ -1784,7 +1784,7 @@ theorem checkIndMember_inv {blockNames : List Name} {env' env₁ : Env}
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
-  | some (.indInfo _) => intro h; exact nomatch h
+  | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
   | some (.defnInfo cvm mval) => ?_
@@ -1805,9 +1805,9 @@ theorem checkIndMember_inv {blockNames : List Name} {env' env₁ : Env}
   | axiomInfo cv => exact nomatch h
   | defnInfo cv value => exact nomatch h
   | thmInfo cv value => exact nomatch h
-  | indInfo cv =>
+  | indInfo cv caps =>
     simp only [pure, Except.pure, Except.ok.injEq] at h
-    exact Or.inl ⟨⟨cv, rfl⟩, h.symm⟩
+    exact Or.inl ⟨⟨cv, caps, rfl⟩, h.symm⟩
   | ctorInfo cv nP nF =>
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact Or.inr (Or.inl ⟨cv, nP, nF, rfl, h.symm⟩)
@@ -2078,15 +2078,15 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
       exact nomatch hnres
     obtain ⟨i1, i2, i3, i4, i5, i6, i7⟩ := m₀.ind_ok
     refine ⟨?_, ?_, ?_, ?_, ?_, ?_, i7⟩
-    · intro cv hfp
+    · intro cv caps hfp
       rw [hfindEq _ (hneName _ (by decide))] at hfp
-      exact i1 cv hfp
+      exact i1 cv caps hfp
     · intro cv nP' nF' hfp
       rw [hfindEq _ (hneName _ (by decide))] at hfp
       exact i2 cv nP' nF' hfp
-    · intro cv hfp
+    · intro cv caps hfp
       rw [hfindEq _ (hneName _ (by decide))] at hfp
-      exact i3 cv hfp
+      exact i3 cv caps hfp
     · -- decl_ok
       intro n ci hfp hbasis hres2
       by_cases hn : cvA.name = n
@@ -2492,16 +2492,17 @@ theorem checkIndMember_sound {blockNames : List Name} {env' env₁ : Env}
       (fun n hn => (hfSfound n hn).symm) tyA hres]
     rw [← htypeA]
     exact hrenf
-  rcases hkind with ⟨⟨cv, rfl⟩, rfl⟩ | ⟨cv, nP, nF, rfl, rfl⟩ |
+  rcases hkind with ⟨⟨cv, caps, rfl⟩, rfl⟩ | ⟨cv, nP, nF, rfl, rfl⟩ |
     ⟨cv, nP, nm, rules, rules', rfl, hall, heqf, hcir, rfl⟩
   · -- inductive type former
-    have hwf : ConstWF ⟨.indInfo cvA :: env'.consts⟩ (.indInfo cvA) := by
+    have hwf : ConstWF ⟨.indInfo cvA {} :: env'.consts⟩
+        (.indInfo cvA {}) := by
       refine ⟨htyf, htlp, Expr.constsResolve_mono htres, htyb, ?_, ?_⟩
       · intro cv2 v2 heq; exact nomatch heq
       · intro cv2 nP' nM' nm' ni' rules heq; exact nomatch heq
     obtain ⟨m₁, hval₁, hpres₁⟩ := extend_modeled_one m
-      (.indInfo cvA) fS (cvA.name.str "_model") hfind' hnres hwf htres
-      (Or.inl ⟨_, rfl⟩) hfm hlps hrenS hroS
+      (.indInfo cvA {}) fS (cvA.name.str "_model") hfind' hnres hwf htres
+      (Or.inl ⟨_, _, rfl⟩) hfm hlps hrenS hroS
     exact ⟨m₁, BlockInstalled.step hI hms hfm hlps hval₁ hpres₁⟩
   · -- constructor
     have hwf : ConstWF ⟨.ctorInfo cvA nP nF :: env'.consts⟩
@@ -2674,7 +2675,7 @@ theorem checkProjLookups_inv {env' : Env} {T ctorName : Name}
   | some (.axiomInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
-  | some (.indInfo _) => intro h; exact nomatch h
+  | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
   | some (.ctorInfo cvj' cnP cnF) => ?_
   intro h
@@ -2689,7 +2690,7 @@ theorem checkProjLookups_inv {env' : Env} {T ctorName : Name}
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
-  | some (.indInfo _) => intro h; exact nomatch h
+  | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
   | some (.defnInfo mcv' mval) => ?_
@@ -2864,7 +2865,7 @@ theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _) => intro h; exact nomatch h
-  | some (.indInfo _) => intro h; exact nomatch h
+  | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
   | some (.thmInfo tcv tval) => ?_
@@ -3395,9 +3396,10 @@ theorem checkIndDecl_sound {env env₂ : Env} {block : List ConstantInfo}
     hfold m hI₀
   split at h
   · -- the single-constructor arm installs the projection family
-    rename_i cvT cvC nP nF heqI heqC
-    have hTin : (ConstantInfo.indInfo cvT) ∈ block := by
-      have h1 : ConstantInfo.indInfo cvT ∈ [ConstantInfo.indInfo cvT] :=
+    rename_i cvT capsT cvC nP nF heqI heqC
+    have hTin : (ConstantInfo.indInfo cvT capsT) ∈ block := by
+      have h1 : ConstantInfo.indInfo cvT capsT ∈
+          [ConstantInfo.indInfo cvT capsT] :=
         List.mem_singleton.mpr rfl
       rw [← heqI] at h1
       exact (List.mem_filter.mp h1).1
