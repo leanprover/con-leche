@@ -428,6 +428,191 @@ theorem stripPis_instantiate1_eq {v : Expr} :
         congr 1
         omega
 
+/-- Instantiation distributes over an application spine. -/
+theorem mkAppN_instantiate1 {v : Expr} :
+    ∀ (args : List Expr) (h : Expr) (k : Nat),
+      (Expr.mkAppN h args).instantiate1 v k =
+        Expr.mkAppN (h.instantiate1 v k) (args.map (·.instantiate1 v k)) := by
+  intro args
+  induction args with
+  | nil => intro h k; rfl
+  | cons a args ih =>
+    intro h k
+    show (Expr.mkAppN (.app h a) args).instantiate1 v k = _
+    rw [ih]
+    rfl
+
+/-- Erasure-equality is transitive. -/
+theorem ErasedEq.trans :
+    ∀ {e₁ e₂ e₃ : Expr}, ErasedEq e₁ e₂ → ErasedEq e₂ e₃ → ErasedEq e₁ e₃ := by
+  intro e₁
+  induction e₁ with
+  | bvar i =>
+    intro e₂ e₃ h12 h23
+    match e₂, h12 with
+    | .bvar j, h12 =>
+      match e₃, h23 with
+      | .bvar l, h23 =>
+        have a : i = j := h12
+        have b : j = l := h23
+        show i = l
+        omega
+  | fvar idx n ty =>
+    intro e₂ e₃ h12 h23
+    match e₂, h12 with
+    | .fvar j n₂ ty₂, h12 =>
+      match e₃, h23 with
+      | .fvar l n₃ ty₃, h23 =>
+        have a : idx = j := h12
+        have b : j = l := h23
+        show idx = l
+        omega
+  | sort u =>
+    intro e₂ e₃ h12 h23
+    match e₂, h12 with
+    | .sort u₂, h12 =>
+      match e₃, h23 with
+      | .sort u₃, h23 =>
+        have a : u = u₂ := h12
+        have b : u₂ = u₃ := h23
+        show u = u₃
+        exact a.trans b
+  | const n us =>
+    intro e₂ e₃ h12 h23
+    match e₂, h12 with
+    | .const n₂ us₂, h12 =>
+      match e₃, h23 with
+      | .const n₃ us₃, h23 =>
+        have a : n = n₂ ∧ us = us₂ := h12
+        have b : n₂ = n₃ ∧ us₂ = us₃ := h23
+        exact show n = n₃ ∧ us = us₃ from
+          ⟨a.1.trans b.1, a.2.trans b.2⟩
+  | app fe a ihf iha =>
+    intro e₂ e₃ h12 h23
+    match e₂, h12 with
+    | .app g b, h12 =>
+      match e₃, h23 with
+      | .app h c, h23 =>
+        have x : ErasedEq fe g ∧ ErasedEq a b := h12
+        have y : ErasedEq g h ∧ ErasedEq b c := h23
+        exact show ErasedEq fe h ∧ ErasedEq a c from
+          ⟨ihf x.1 y.1, iha x.2 y.2⟩
+  | lam n ty body m ihty ihbody =>
+    intro e₂ e₃ h12 h23
+    match e₂, h12 with
+    | .lam n₂ ty₂ body₂ m₂, h12 =>
+      match e₃, h23 with
+      | .lam n₃ ty₃ body₃ m₃, h23 =>
+        have x : m = m₂ ∧ ErasedEq ty ty₂ ∧ ErasedEq body body₂ := h12
+        have y : m₂ = m₃ ∧ ErasedEq ty₂ ty₃ ∧ ErasedEq body₂ body₃ := h23
+        exact show m = m₃ ∧ ErasedEq ty ty₃ ∧ ErasedEq body body₃ from
+          ⟨x.1.trans y.1, ihty x.2.1 y.2.1, ihbody x.2.2 y.2.2⟩
+  | forallE n ty body m ihty ihbody =>
+    intro e₂ e₃ h12 h23
+    match e₂, h12 with
+    | .forallE n₂ ty₂ body₂ m₂, h12 =>
+      match e₃, h23 with
+      | .forallE n₃ ty₃ body₃ m₃, h23 =>
+        have x : m = m₂ ∧ ErasedEq ty ty₂ ∧ ErasedEq body body₂ := h12
+        have y : m₂ = m₃ ∧ ErasedEq ty₂ ty₃ ∧ ErasedEq body₂ body₃ := h23
+        exact show m = m₃ ∧ ErasedEq ty ty₃ ∧ ErasedEq body body₃ from
+          ⟨x.1.trans y.1, ihty x.2.1 y.2.1, ihbody x.2.2 y.2.2⟩
+  | letE n ty vl body ihty ihv ihbody =>
+    intro e₂ e₃ h12 h23
+    match e₂, h12 with
+    | .letE n₂ ty₂ vl₂ body₂, h12 =>
+      match e₃, h23 with
+      | .letE n₃ ty₃ vl₃ body₃, h23 =>
+        have x : ErasedEq ty ty₂ ∧ ErasedEq vl vl₂ ∧ ErasedEq body body₂ :=
+          h12
+        have y : ErasedEq ty₂ ty₃ ∧ ErasedEq vl₂ vl₃ ∧
+            ErasedEq body₂ body₃ := h23
+        exact show ErasedEq ty ty₃ ∧ ErasedEq vl vl₃ ∧
+            ErasedEq body body₃ from
+          ⟨ihty x.1 y.1, ihv x.2.1 y.2.1, ihbody x.2.2 y.2.2⟩
+  | lit l =>
+    intro e₂ e₃ h12 h23
+    match e₂, h12 with
+    | .lit l₂, h12 =>
+      match e₃, h23 with
+      | .lit l₃, h23 =>
+        have a : l = l₂ := h12
+        have b : l₂ = l₃ := h23
+        show l = l₃
+        exact a.trans b
+  | proj sn i pe ih =>
+    intro e₂ e₃ h12 h23
+    match e₂, h12 with
+    | .proj sn₂ i₂ pe₂, h12 =>
+      match e₃, h23 with
+      | .proj sn₃ i₃ pe₃, h23 =>
+        have x : sn = sn₂ ∧ i = i₂ ∧ ErasedEq pe pe₂ := h12
+        have y : sn₂ = sn₃ ∧ i₂ = i₃ ∧ ErasedEq pe₂ pe₃ := h23
+        exact show sn = sn₃ ∧ i = i₃ ∧ ErasedEq pe pe₃ from
+          ⟨x.1.trans y.1, x.2.1.trans y.2.1, ih x.2.2 y.2.2⟩
+
+/-- Instantiate a sequence of arguments at descending indices (the
+per-domain effect of peeling a telescope). -/
+def instSeq : List Expr → Nat → Expr → Expr
+  | [], _, e => e
+  | a :: as, t, e => instSeq as (t - 1) (e.instantiate1 a t)
+
+/-- `instSeq` congruence under erasure (arguments erased to
+themselves). -/
+theorem instSeq_erasedEq :
+    ∀ (args : List Expr) (t : Nat) {X Y : Expr}, ErasedEq X Y →
+      ErasedEq (instSeq args t X) (instSeq args t Y) := by
+  intro args
+  induction args with
+  | nil => intro t X Y h; exact h
+  | cons a as ih =>
+    intro t X Y h
+    exact ih (t - 1) (ErasedEq.instantiate1 h (ErasedEq.rfl a))
+
+/-- Instantiations strictly above a lift's inserted range drop past
+it. -/
+theorem instSeq_liftLooseBVars {kL c : Nat} :
+    ∀ (args : List Expr) (t : Nat) {e : Expr},
+      (∀ a ∈ args, a.looseBVarsBounded 0 = true) →
+      t + 1 ≥ args.length + c + kL →
+      instSeq args t (e.liftLooseBVars kL c) =
+        (instSeq args (t - kL) e).liftLooseBVars kL c := by
+  intro args
+  induction args with
+  | nil => intro t e _ _; rfl
+  | cons a as ih =>
+    intro t e hb ht
+    simp only [List.length_cons] at ht
+    obtain ⟨j, rfl⟩ : ∃ j, t = j + kL := ⟨t - kL, by omega⟩
+    show instSeq as (j + kL - 1)
+        ((e.liftLooseBVars kL c).instantiate1 a (j + kL)) =
+      (instSeq as (j + kL - kL - 1)
+        (e.instantiate1 a (j + kL - kL))).liftLooseBVars kL c
+    rw [liftLooseBVars_instantiate1 (hb a List.mem_cons_self)
+      (by omega : j ≥ c)]
+    rw [show j + kL - kL = j from by omega]
+    rw [ih (j + kL - 1) (fun x hx => hb x (List.mem_cons_of_mem _ hx))
+      (by omega)]
+    rw [show j + kL - 1 - kL = j - 1 from by omega]
+
+/-- Instantiating every inserted slot of a lift, top down, restores the
+original expression. -/
+theorem instSeq_lift_eat {c : Nat} :
+    ∀ (extras : List Expr) {e : Expr},
+      instSeq extras (c + extras.length - 1)
+        (e.liftLooseBVars extras.length c) = e := by
+  intro extras
+  induction extras with
+  | nil => intro e; exact liftLooseBVars_zero e c
+  | cons x xs ih =>
+    intro e
+    show instSeq xs (c + (xs.length + 1) - 1 - 1)
+      ((e.liftLooseBVars (xs.length + 1) c).instantiate1 x
+        (c + (xs.length + 1) - 1)) = e
+    rw [instantiate1_liftLooseBVars (by omega) (by omega)]
+    rw [show c + (xs.length + 1) - 1 - 1 = c + xs.length - 1 from by omega]
+    exact ih
+
 /-- Instantiating with a bounded term keeps loose-bvar bounds. -/
 theorem looseBVarsBounded_instantiate1_gen {a : Expr}
     (hba : a.looseBVarsBounded 0 = true) :

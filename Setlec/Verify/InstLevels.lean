@@ -1,6 +1,7 @@
 import Setlec.Kernel.Level
 import Setlec.Kernel.ExprOps
 import Setlec.Verify.Level
+import Setlec.Verify.Subst
 
 /-!
 # Syntactic lemmas about level-parameter instantiation
@@ -399,6 +400,27 @@ theorem allLevelParamsDefined_instantiate1 {ps : List Name} {d : Nat} {n : Name}
     split
     · simpa [allLevelParamsDefined] using hty
     · split <;> simp [allLevelParamsDefined]
+
+/-- Renaming an instantiation sequence: pushing the renaming inside is
+exact on the telescope and erased on the (fvar) arguments. -/
+theorem instSeq_renameConsts {f : Name → Name} :
+    ∀ (args : List Expr) (t : Nat) {X : Expr},
+      (∀ a ∈ args, ErasedEq (a.renameConsts f) a) →
+      ErasedEq ((instSeq args t X).renameConsts f)
+        (instSeq args t (X.renameConsts f)) := by
+  intro args
+  induction args with
+  | nil => intro t X _; exact ErasedEq.rfl _
+  | cons a as ih =>
+    intro t X ha
+    show ErasedEq
+      ((instSeq as (t - 1) (X.instantiate1 a t)).renameConsts f) _
+    refine ErasedEq.trans
+      (ih (t - 1) (fun x hx => ha x (List.mem_cons_of_mem _ hx))) ?_
+    rw [renameConsts_instantiate1_gen]
+    exact instSeq_erasedEq as (t - 1)
+      (ErasedEq.instantiate1 (ErasedEq.rfl _)
+        (ha a List.mem_cons_self))
 
 end Expr
 
