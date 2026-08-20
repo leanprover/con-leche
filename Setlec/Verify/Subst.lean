@@ -835,6 +835,22 @@ theorem stripPis_prefix :
         subst hb
         simp
 
+/-- An instantiation sequence distributes over a single application. -/
+theorem instSeq_app :
+    ∀ (args : List Expr) (t : Nat) (f a : Expr),
+      instSeq args t (.app f a) =
+        .app (instSeq args t f) (instSeq args t a) := by
+  intro args
+  induction args with
+  | nil => intro t f a; rfl
+  | cons x xs ih =>
+    intro t f a
+    show instSeq xs (t - 1) ((Expr.app f a).instantiate1 x t) = _
+    show instSeq xs (t - 1)
+      (.app (f.instantiate1 x t) (a.instantiate1 x t)) = _
+    rw [ih]
+    rfl
+
 /-- Instantiating with a bounded term keeps loose-bvar bounds. -/
 theorem looseBVarsBounded_instantiate1_gen {a : Expr}
     (hba : a.looseBVarsBounded 0 = true) :
