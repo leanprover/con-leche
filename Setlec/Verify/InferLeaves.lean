@@ -188,211 +188,369 @@ theorem fvarLeaves_mkAppN : ∀ {xs : List Expr} {f : Expr}
 
 /-! ## Preservation through `whnf` -/
 
-set_option maxRecDepth 2048 in
-theorem whnf_fvarLeaves {env : Env} (henv : EnvWF env) :
-    ∀ (fuel : Nat) {d : Nat} {e e' : Expr}, whnfCore env fuel d e = .ok e' →
-      ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves
-  | 0, d, e, e', h => nomatch h
-  | fuel + 1, d, e, e', h => by
-    match e, h with
-    | .sort u, h =>
-      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
-      exact h ▸ fun l hl => hl
-    | .fvar idx n ty, h =>
-      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
-      exact h ▸ fun l hl => hl
-    | .forallE n ty body bi, h =>
-      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
-      exact h ▸ fun l hl => hl
-    | .lam n ty body bi, h =>
-      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
-      exact h ▸ fun l hl => hl
-    | .const n ws, h =>
-      simp only [whnfCore] at h
-      cases hf : env.find? n with
-      | none => rw [hf] at h; exact (Except.ok.inj h) ▸ fun l hl => hl
-      | some ci =>
-        rw [hf] at h
-        cases ci with
-        | defnInfo cv value =>
-          dsimp only at h
-          split at h
-          next hal =>
-            intro l hl
-            obtain ⟨-, -, -, -, hval, -⟩ := henv _ (find?_mem hf)
-            obtain ⟨hvc, -, -, -⟩ := hval cv value rfl
-            have := whnf_fvarLeaves henv fuel h l hl
-            rw [fvarLeaves_eq_nil_of_not_hasFvar
-              (by rw [hasFvar_instantiateLevelParams]; exact hvc)] at this
-            cases this
-          next hal => exact (Except.ok.inj h) ▸ fun l hl => hl
-        | axiomInfo cv => exact (Except.ok.inj h) ▸ fun l hl => hl
-        | thmInfo cv value => exact (Except.ok.inj h) ▸ fun l hl => hl
-        | indInfo cv _ => exact (Except.ok.inj h) ▸ fun l hl => hl
-        | ctorInfo cv nP nF => exact (Except.ok.inj h) ▸ fun l hl => hl
-        | recInfo cv nP nM nm ni rules => exact (Except.ok.inj h) ▸ fun l hl => hl
-    | .app f a, h =>
-      intro l hl
-      obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
-      simp only [fvarLeaves, List.mem_append]
-      rcases hcase with ⟨n, ty, body, mm, v, rfl, hc, hbeta, -⟩ |
-        ⟨e'', hio, hwe''⟩ | rfl
-      · have hl' := whnf_fvarLeaves henv fuel hbeta l hl
-        rcases fvarLeaves_instantiate1 body 0 hl' with hb | hb
-        · exact Or.inl (whnf_fvarLeaves henv fuel hwf l (by simp [fvarLeaves, hb]))
-        · exact Or.inr hb
-      · -- iota step
-        cases fuel with
-        | zero => exact nomatch hio
-        | succ fuel' =>
-        obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major, cj, usj, cvj,
-          cnP, cnF, r, hfn, hfc, hlen, hmaj, hsub, hmfn, hfj, hrule, hml1,
-          hml2, har1, har2, hlev, hpeq, hcerts, hmcerts, rfl⟩ :=
-          iotaRec_inv hio
-        have hsubM : ∀ l ∈ major.fvarLeaves, l ∈ major₀.fvarLeaves := by
-          cases fuel' with
-          | zero => exact nomatch hsub
-          | succ fuel'' =>
-          rcases majorToCtor_inv hsub with rfl | ⟨-, -, hall, -⟩
-          · exact fun _ hl' => hl'
-          · intro l' hl'
-            have := List.all_eq_true.mp hall l' hl'
-            simpa using this
-        have hl2 := whnf_fvarLeaves henv _ hwe'' l hl
-        rcases fvarLeaves_mkAppN hl2 with hrl | ⟨x, hx, hlx⟩
-        · obtain ⟨-, -, -, -, -, hrules⟩ := henv _ (find?_mem hfc)
-          obtain ⟨hrf, -, -, -⟩ := hrules cv nP nM nm ni rules rfl r
-            (List.mem_of_find?_eq_some hrule)
-          rw [fvarLeaves_eq_nil_of_not_hasFvar
-            (by rw [hasFvar_instantiateLevelParams]; exact hrf)] at hrl
-          cases hrl
-        · rcases List.mem_append.mp hx with hx | hx
-          · have hll := fvarLeaves_getAppArgs (List.mem_of_mem_take hx) l hlx
-            simp only [fvarLeaves, List.mem_append] at hll
-            rcases hll with hll | hll
-            · exact Or.inl (whnf_fvarLeaves henv _ hwf l hll)
-            · exact Or.inr hll
-          · have hxa := fvarLeaves_getAppArgs (List.mem_of_mem_drop hx) l hlx
-            have hmj := whnf_fvarLeaves henv fuel' hmaj l (hsubM l hxa)
-            have hll := fvarLeaves_getAppArgs
-              (getD_mem (l := (Expr.app f' a).getAppArgs) (by omega)) l hmj
-            simp only [fvarLeaves, List.mem_append] at hll
-            rcases hll with hll | hll
-            · exact Or.inl (whnf_fvarLeaves henv _ hwf l hll)
-            · exact Or.inr hll
-      · simp only [fvarLeaves, List.mem_append] at hl
-        rcases hl with hl | hl
-        · exact Or.inl (whnf_fvarLeaves henv fuel hwf l hl)
-        · exact Or.inr hl
-    | .proj sn i e, h =>
-      intro l hl
-      obtain ⟨e₂, he, hcase⟩ := whnf_proj_inv h
-      simp only [fvarLeaves]
-      rcases hcase with rfl | ⟨us, cv, nP, nF, hfn, hf, hi, hlen, hus, hred, -⟩
-      · simp only [fvarLeaves] at hl
-        exact whnf_fvarLeaves henv fuel he l hl
-      · have hl2 := whnf_fvarLeaves henv fuel hred l hl
-        exact whnf_fvarLeaves henv fuel he l
-          (fvarLeaves_getAppArgs (getD_mem (by omega)) l hl2)
-  termination_by fuel => fuel
-  decreasing_by all_goals omega
+/-- The constructor form of a literal has no leaves. -/
+theorem natLitToConstructor_fvarLeaves (n : Nat) :
+    (natLitToConstructor n).fvarLeaves = [] := by
+  cases n <;> simp [natLitToConstructor, Expr.fvarLeaves]
+
+/-- The constructor form of a literal has no loose bvars. -/
+theorem natLitToConstructor_looseBVars (n : Nat) {k : Nat} :
+    (natLitToConstructor n).looseBVarsBounded k = true := by
+  cases n <;> simp [natLitToConstructor, Expr.looseBVarsBounded]
+
+/-- The literal-major conversion only shrinks the leaf closure. -/
+theorem litToCtorIfNat_fvarLeaves {e : Expr} :
+    ∀ l ∈ (litToCtorIfNat e).fvarLeaves, l ∈ e.fvarLeaves := by
+  intro l hl
+  match e, hl with
+  | .lit (.natVal n), hl =>
+    rw [litToCtorIfNat, natLitToConstructor_fvarLeaves] at hl
+    cases hl
+  | .lit (.strVal _), hl => exact hl
+  | .bvar _, hl | .fvar _ _ _, hl | .sort _, hl | .const _ _, hl
+  | .app _ _, hl | .lam _ _ _ _, hl | .forallE _ _ _ _, hl
+  | .letE _ _ _ _, hl | .proj _ _ _, hl => exact hl
+
+/-- The literal-major conversion preserves the bvar bound. -/
+theorem litToCtorIfNat_looseBVars {e : Expr} {k : Nat}
+    (hb : e.looseBVarsBounded k = true) :
+    (litToCtorIfNat e).looseBVarsBounded k = true := by
+  match e with
+  | .lit (.natVal n) => exact natLitToConstructor_looseBVars n
+  | .lit (.strVal _) => exact hb
+  | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
+  | .lam _ _ _ _ | .forallE _ _ _ _ | .letE _ _ _ _ | .proj _ _ _ =>
+    exact hb
+
+/-- Unfolding a definition at the head only shrinks the leaf
+closure. -/
+theorem unfoldDefinition_fvarLeaves {env : Env} (henv : EnvWF env)
+    {e e₂ : Expr} (h : unfoldDefinition env e = some e₂) :
+    ∀ l ∈ e₂.fvarLeaves, l ∈ e.fvarLeaves := by
+  unfold unfoldDefinition at h
+  revert h
+  match hfn : e.getAppFn with
+  | .const n us => ?_
+  | .bvar _ | .fvar _ _ _ | .sort _ | .app _ _ | .lam _ _ _ _
+  | .forallE _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+    intro h; exact nomatch h
+  intro h
+  dsimp only at h
+  revert h
+  match hf : env.find? n with
+  | none => intro h; exact nomatch h
+  | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.indInfo _ _) => intro h; exact nomatch h
+  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.defnInfo cv value) => ?_
+  intro h
+  dsimp only at h
+  revert h
+  split
+  · intro h
+    simp only [Option.some.injEq] at h
+    subst h
+    intro l hl
+    obtain ⟨-, -, -, -, hval, -⟩ := henv _ (find?_mem hf)
+    obtain ⟨hvc, -, -, -⟩ := hval cv value rfl
+    rcases fvarLeaves_mkAppN hl with hl' | ⟨x, hx, hlx⟩
+    · rw [fvarLeaves_eq_nil_of_not_hasFvar
+        (by rw [hasFvar_instantiateLevelParams]; exact hvc)] at hl'
+      cases hl'
+    · exact fvarLeaves_getAppArgs hx l hlx
+  · intro h; exact nomatch h
+
+/-- Unfolding a definition at the head preserves the bvar bound. -/
+theorem unfoldDefinition_looseBVars {env : Env} (henv : EnvWF env)
+    {e e₂ : Expr} (h : unfoldDefinition env e = some e₂)
+    (hb : e.looseBVarsBounded 0 = true) :
+    e₂.looseBVarsBounded 0 = true := by
+  unfold unfoldDefinition at h
+  revert h
+  match hfn : e.getAppFn with
+  | .const n us => ?_
+  | .bvar _ | .fvar _ _ _ | .sort _ | .app _ _ | .lam _ _ _ _
+  | .forallE _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+    intro h; exact nomatch h
+  intro h
+  dsimp only at h
+  revert h
+  match hf : env.find? n with
+  | none => intro h; exact nomatch h
+  | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.indInfo _ _) => intro h; exact nomatch h
+  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.defnInfo cv value) => ?_
+  intro h
+  dsimp only at h
+  revert h
+  split
+  · intro h
+    simp only [Option.some.injEq] at h
+    subst h
+    obtain ⟨-, -, -, -, hval, -⟩ := henv _ (find?_mem hf)
+    obtain ⟨-, -, -, hvb⟩ := hval cv value rfl
+    refine looseBVarsBounded_mkAppN ?_ ?_
+    · rw [looseBVarsBounded_instantiateLevelParams]
+      exact hvb
+    · intro x hx
+      exact looseBVarsBounded_getAppArgs hb x hx
+  · intro h; exact nomatch h
 
 set_option maxRecDepth 2048 in
-theorem whnf_looseBVars {env : Env} (henv : EnvWF env) :
-    ∀ (fuel : Nat) {d : Nat} {e e' : Expr}, whnfCore env fuel d e = .ok e' →
-      e.looseBVarsBounded 0 = true → e'.looseBVarsBounded 0 = true
-  | 0, d, e, e', h, _ => nomatch h
-  | fuel + 1, d, e, e', h, hb => by
-    match e, h with
-    | .sort u, h =>
-      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
-      exact h ▸ hb
-    | .fvar idx n ty, h =>
-      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
-      exact h ▸ hb
-    | .forallE n ty body bi, h =>
-      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
-      exact h ▸ hb
-    | .lam n ty body bi, h =>
-      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
-      exact h ▸ hb
-    | .const n ws, h =>
-      simp only [whnfCore] at h
-      cases hf : env.find? n with
-      | none => rw [hf] at h; exact (Except.ok.inj h) ▸ hb
-      | some ci =>
-        rw [hf] at h
-        cases ci with
-        | defnInfo cv value =>
-          dsimp only at h
-          split at h
-          next hal =>
-            obtain ⟨-, -, -, -, hval, -⟩ := henv _ (find?_mem hf)
-            obtain ⟨-, -, -, hvb⟩ := hval cv value rfl
-            refine whnf_looseBVars henv fuel h ?_
+set_option maxHeartbeats 1600000 in
+/-- Head normalization and the reduction loop only shrink the leaf
+closure. -/
+theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
+    ∀ (fuel : Nat),
+      (∀ {d : Nat} {e e' : Expr}, whnfCore env fuel d e = .ok e' →
+        ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves) ∧
+      (∀ {d : Nat} {e e' : Expr}, whnf env fuel d e = .ok e' →
+        ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves)
+  | 0 => ⟨(fun {_ _ _} h => nomatch h), (fun {_ _ _} h => nomatch h)⟩
+  | fuel + 1 => by
+    obtain ⟨ihCore, ihLoop⟩ := whnfPres_fvarLeaves henv fuel
+    constructor
+    · -- whnfCore
+      intro d e e' h
+      cases e with
+      | sort u =>
+        rw [whnfCore_succ] at h
+        simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
+        exact h ▸ fun l hl => hl
+      | fvar idx n ty =>
+        rw [whnfCore_succ] at h
+        simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
+        exact h ▸ fun l hl => hl
+      | forallE n ty body bi =>
+        rw [whnfCore_succ] at h
+        simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
+        exact h ▸ fun l hl => hl
+      | lam n ty body bi =>
+        rw [whnfCore_succ] at h
+        simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
+        exact h ▸ fun l hl => hl
+      | const n ws =>
+        rw [whnfCore_succ] at h
+        simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
+        exact h ▸ fun l hl => hl
+      | lit l0 =>
+        rw [whnfCore_succ] at h
+        simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
+        exact h ▸ fun l hl => hl
+      | bvar i =>
+        rw [whnfCore_succ] at h
+        simp [whnfCoreBody, throw, throwThe, MonadExceptOf.throw] at h
+      | letE nn tt vv bb =>
+        rw [whnfCore_succ] at h
+        simp [whnfCoreBody, throw, throwThe, MonadExceptOf.throw] at h
+      | app f a =>
+        intro l hl
+        obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
+        simp only [fvarLeaves, List.mem_append]
+        rcases hcase with ⟨n, ty, body, mm, v, rfl, hc, hbeta, -⟩ |
+          ⟨e'', hio, hwe''⟩ | rfl
+        · have hl' := ihCore hbeta l hl
+          rcases fvarLeaves_instantiate1 body 0 hl' with hb | hb
+          · exact Or.inl (ihCore hwf l (by simp [fvarLeaves, hb]))
+          · exact Or.inr hb
+        · -- iota step
+          obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major, cj, usj,
+            cvj, cnP, cnF, r, hfn, hfc, hlen, hmaj, hsub, hmfn, hfj, hrule,
+            hml1, hml2, har1, har2, hlev, hpeq, hcerts, hmcerts, rfl⟩ :=
+            iotaRec_inv hio
+          have hsubM : ∀ l ∈ major.fvarLeaves, l ∈ major₀.fvarLeaves := by
+            rcases majorToCtor_inv hsub with rfl | ⟨-, -, hall, -⟩
+            · exact fun l' hl' => litToCtorIfNat_fvarLeaves l' hl'
+            · intro l' hl'
+              have := List.all_eq_true.mp hall l' hl'
+              exact litToCtorIfNat_fvarLeaves l' (by simpa using this)
+          have hl2 := ihCore hwe'' l hl
+          rcases fvarLeaves_mkAppN hl2 with hrl | ⟨x, hx, hlx⟩
+          · obtain ⟨-, -, -, -, -, hrules⟩ := henv _ (find?_mem hfc)
+            obtain ⟨hrf, -, -, -⟩ := hrules cv nP nM nm ni rules rfl r
+              (List.mem_of_find?_eq_some hrule)
+            rw [fvarLeaves_eq_nil_of_not_hasFvar
+              (by rw [hasFvar_instantiateLevelParams]; exact hrf)] at hrl
+            cases hrl
+          · rcases List.mem_append.mp hx with hx | hx
+            · have hll := fvarLeaves_getAppArgs (List.mem_of_mem_take hx)
+                l hlx
+              simp only [fvarLeaves, List.mem_append] at hll
+              rcases hll with hll | hll
+              · exact Or.inl (ihCore hwf l hll)
+              · exact Or.inr hll
+            · have hxa := fvarLeaves_getAppArgs (List.mem_of_mem_drop hx)
+                l hlx
+              have hmj := ihLoop hmaj l (hsubM l hxa)
+              have hll := fvarLeaves_getAppArgs
+                (getD_mem (l := (Expr.app f' a).getAppArgs) (by omega)) l hmj
+              simp only [fvarLeaves, List.mem_append] at hll
+              rcases hll with hll | hll
+              · exact Or.inl (ihCore hwf l hll)
+              · exact Or.inr hll
+        · simp only [fvarLeaves, List.mem_append] at hl
+          rcases hl with hl | hl
+          · exact Or.inl (ihCore hwf l hl)
+          · exact Or.inr hl
+      | proj sn i pe =>
+        intro l hl
+        obtain ⟨e₂, he, hcase⟩ := whnf_proj_inv h
+        simp only [fvarLeaves]
+        rcases hcase with rfl |
+          ⟨us, cv, nP, nF, hfn, hf, hi, hlen, hus, hred, -⟩
+        · simp only [fvarLeaves] at hl
+          exact ihLoop he l hl
+        · have hl2 := ihCore hred l hl
+          exact ihLoop he l
+            (fvarLeaves_getAppArgs (getD_mem (by omega)) l hl2)
+    · -- whnf loop
+      intro d e e' h l hl
+      obtain ⟨e₁, hwc, hcase⟩ := whnf_loop_inv h
+      rcases hcase with ⟨e₂, hrn, hcont⟩ | ⟨-, e₂, hu, hcont⟩ | ⟨-, -, rfl⟩
+      · obtain ⟨n, rfl⟩ := reduceNat_inv hrn
+        have := ihLoop hcont l hl
+        simp [Expr.fvarLeaves] at this
+      · exact ihCore hwc l
+          (unfoldDefinition_fvarLeaves henv hu l (ihLoop hcont l hl))
+      · exact ihCore hwc l hl
+
+set_option maxRecDepth 2048 in
+set_option maxHeartbeats 1600000 in
+/-- Head normalization and the reduction loop preserve the bvar
+bound. -/
+theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
+    ∀ (fuel : Nat),
+      (∀ {d : Nat} {e e' : Expr}, whnfCore env fuel d e = .ok e' →
+        e.looseBVarsBounded 0 = true → e'.looseBVarsBounded 0 = true) ∧
+      (∀ {d : Nat} {e e' : Expr}, whnf env fuel d e = .ok e' →
+        e.looseBVarsBounded 0 = true → e'.looseBVarsBounded 0 = true)
+  | 0 => ⟨(fun {_ _ _} h _ => nomatch h), (fun {_ _ _} h _ => nomatch h)⟩
+  | fuel + 1 => by
+    obtain ⟨ihCore, ihLoop⟩ := whnfPres_looseBVars henv fuel
+    constructor
+    · -- whnfCore
+      intro d e e' h hb
+      cases e with
+      | sort u =>
+        rw [whnfCore_succ] at h
+        simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
+        exact h ▸ hb
+      | fvar idx n ty =>
+        rw [whnfCore_succ] at h
+        simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
+        exact h ▸ hb
+      | forallE n ty body bi =>
+        rw [whnfCore_succ] at h
+        simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
+        exact h ▸ hb
+      | lam n ty body bi =>
+        rw [whnfCore_succ] at h
+        simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
+        exact h ▸ hb
+      | const n ws =>
+        rw [whnfCore_succ] at h
+        simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
+        exact h ▸ hb
+      | lit l0 =>
+        rw [whnfCore_succ] at h
+        simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
+        exact h ▸ hb
+      | bvar i =>
+        rw [whnfCore_succ] at h
+        simp [whnfCoreBody, throw, throwThe, MonadExceptOf.throw] at h
+      | letE nn tt vv bb =>
+        rw [whnfCore_succ] at h
+        simp [whnfCoreBody, throw, throwThe, MonadExceptOf.throw] at h
+      | app f a =>
+        simp only [looseBVarsBounded, Bool.and_eq_true] at hb
+        obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
+        have hbf' := ihCore hwf hb.1
+        rcases hcase with ⟨n, ty, body, mm, v, rfl, hc, hbeta, -⟩ |
+          ⟨e'', hio, hwe''⟩ | rfl
+        · simp only [looseBVarsBounded, Bool.and_eq_true] at hbf'
+          exact ihCore hbeta
+            (looseBVarsBounded_instantiate1_gen hb.2 hbf'.2)
+        · -- iota step
+          obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major, cj, usj,
+            cvj, cnP, cnF, r, hfn, hfc, hlen, hmaj, hsub, hmfn, hfj, hrule,
+            hml1, hml2, har1, har2, hlev, hpeq, hcerts, hmcerts, rfl⟩ :=
+            iotaRec_inv hio
+          have hbapp : (Expr.app f' a).looseBVarsBounded 0 = true := by
+            simp only [looseBVarsBounded, Bool.and_eq_true]
+            exact ⟨hbf', hb.2⟩
+          have hbmaj0 : major₀.looseBVarsBounded 0 = true :=
+            ihLoop hmaj
+              (looseBVarsBounded_getAppArgs hbapp _ (getD_mem (by omega)))
+          have hbmaj : major.looseBVarsBounded 0 = true := by
+            rcases majorToCtor_inv hsub with rfl | ⟨-, hbM, -, -⟩
+            · exact litToCtorIfNat_looseBVars hbmaj0
+            · exact hbM
+          refine ihCore hwe'' ?_
+          refine looseBVarsBounded_mkAppN ?_ ?_
+          · obtain ⟨-, -, -, -, -, hrules⟩ := henv _ (find?_mem hfc)
+            obtain ⟨-, -, -, hrb⟩ := hrules cv nP nM nm ni rules rfl r
+              (List.mem_of_find?_eq_some hrule)
             rw [looseBVarsBounded_instantiateLevelParams]
-            exact hvb
-          next hal => exact (Except.ok.inj h) ▸ hb
-        | axiomInfo cv => exact (Except.ok.inj h) ▸ hb
-        | thmInfo cv value => exact (Except.ok.inj h) ▸ hb
-        | indInfo cv _ => exact (Except.ok.inj h) ▸ hb
-        | ctorInfo cv nP nF => exact (Except.ok.inj h) ▸ hb
-        | recInfo cv nP nM nm ni rules => exact (Except.ok.inj h) ▸ hb
-    | .app f a, h =>
-      simp only [looseBVarsBounded, Bool.and_eq_true] at hb
-      obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
-      have hbf' := whnf_looseBVars henv fuel hwf hb.1
-      rcases hcase with ⟨n, ty, body, mm, v, rfl, hc, hbeta, -⟩ |
-        ⟨e'', hio, hwe''⟩ | rfl
-      · simp only [looseBVarsBounded, Bool.and_eq_true] at hbf'
-        exact whnf_looseBVars henv fuel hbeta
-          (looseBVarsBounded_instantiate1_gen hb.2 hbf'.2)
-      · -- iota step
-        cases fuel with
-        | zero => exact nomatch hio
-        | succ fuel' =>
-        obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major, cj, usj, cvj,
-          cnP, cnF, r, hfn, hfc, hlen, hmaj, hsub, hmfn, hfj, hrule, hml1,
-          hml2, har1, har2, hlev, hpeq, hcerts, hmcerts, rfl⟩ :=
-          iotaRec_inv hio
-        have hbapp : (Expr.app f' a).looseBVarsBounded 0 = true := by
-          simp only [looseBVarsBounded, Bool.and_eq_true]
+            exact hrb
+          · intro x hx
+            rcases List.mem_append.mp hx with hx | hx
+            · exact looseBVarsBounded_getAppArgs hbapp _
+                (List.mem_of_mem_take hx)
+            · exact looseBVarsBounded_getAppArgs hbmaj _
+                (List.mem_of_mem_drop hx)
+        · simp only [looseBVarsBounded, Bool.and_eq_true]
           exact ⟨hbf', hb.2⟩
-        have hbmaj0 : major₀.looseBVarsBounded 0 = true :=
-          whnf_looseBVars henv fuel' hmaj
-            (looseBVarsBounded_getAppArgs hbapp _ (getD_mem (by omega)))
-        have hbmaj : major.looseBVarsBounded 0 = true := by
-          cases fuel' with
-          | zero => exact nomatch hsub
-          | succ fuel'' =>
-          rcases majorToCtor_inv hsub with rfl | ⟨-, hbM, -, -⟩
-          · exact hbmaj0
-          · exact hbM
-        refine whnf_looseBVars henv _ hwe'' ?_
-        refine looseBVarsBounded_mkAppN ?_ ?_
-        · obtain ⟨-, -, -, -, -, hrules⟩ := henv _ (find?_mem hfc)
-          obtain ⟨-, -, -, hrb⟩ := hrules cv nP nM nm ni rules rfl r
-            (List.mem_of_find?_eq_some hrule)
-          rw [looseBVarsBounded_instantiateLevelParams]
-          exact hrb
-        · intro x hx
-          rcases List.mem_append.mp hx with hx | hx
-          · exact looseBVarsBounded_getAppArgs hbapp _
-              (List.mem_of_mem_take hx)
-          · exact looseBVarsBounded_getAppArgs hbmaj _
-              (List.mem_of_mem_drop hx)
-      · simp only [looseBVarsBounded, Bool.and_eq_true]
-        exact ⟨hbf', hb.2⟩
-    | .proj sn i e, h =>
-      simp only [looseBVarsBounded] at hb
-      obtain ⟨e₂, he, hcase⟩ := whnf_proj_inv h
-      have hbe₂ := whnf_looseBVars henv fuel he hb
-      rcases hcase with rfl | ⟨us, cv, nP, nF, hfn, hf, hi, hlen, hus, hred, -⟩
-      · simpa [looseBVarsBounded] using hbe₂
-      · exact whnf_looseBVars henv fuel hred
-          (looseBVarsBounded_getAppArgs hbe₂ _ (getD_mem (by omega)))
-  termination_by fuel => fuel
-  decreasing_by all_goals omega
+      | proj sn i pe =>
+        simp only [looseBVarsBounded] at hb
+        obtain ⟨e₂, he, hcase⟩ := whnf_proj_inv h
+        have hbe₂ := ihLoop he hb
+        rcases hcase with rfl |
+          ⟨us, cv, nP, nF, hfn, hf, hi, hlen, hus, hred, -⟩
+        · simpa [looseBVarsBounded] using hbe₂
+        · exact ihCore hred
+            (looseBVarsBounded_getAppArgs hbe₂ _ (getD_mem (by omega)))
+    · -- whnf loop
+      intro d e e' h hb
+      obtain ⟨e₁, hwc, hcase⟩ := whnf_loop_inv h
+      have hbe₁ := ihCore hwc hb
+      rcases hcase with ⟨e₂, hrn, hcont⟩ | ⟨-, e₂, hu, hcont⟩ | ⟨-, -, rfl⟩
+      · obtain ⟨n, rfl⟩ := reduceNat_inv hrn
+        exact ihLoop hcont (by simp [looseBVarsBounded])
+      · exact ihLoop hcont (unfoldDefinition_looseBVars henv hu hbe₁)
+      · exact hbe₁
+
+/-- Head normalization only shrinks the leaf closure. -/
+theorem whnfCore_fvarLeaves {env : Env} (henv : EnvWF env)
+    (fuel : Nat) {d : Nat} {e e' : Expr}
+    (h : whnfCore env fuel d e = .ok e') :
+    ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves :=
+  (whnfPres_fvarLeaves henv fuel).1 h
+
+/-- The reduction loop only shrinks the leaf closure. -/
+theorem whnf_fvarLeaves {env : Env} (henv : EnvWF env)
+    (fuel : Nat) {d : Nat} {e e' : Expr}
+    (h : whnf env fuel d e = .ok e') :
+    ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves :=
+  (whnfPres_fvarLeaves henv fuel).2 h
+
+/-- Head normalization preserves the bvar bound. -/
+theorem whnfCore_looseBVars {env : Env} (henv : EnvWF env)
+    (fuel : Nat) {d : Nat} {e e' : Expr}
+    (h : whnfCore env fuel d e = .ok e')
+    (hb : e.looseBVarsBounded 0 = true) : e'.looseBVarsBounded 0 = true :=
+  (whnfPres_looseBVars henv fuel).1 h hb
+
+/-- The reduction loop preserves the bvar bound. -/
+theorem whnf_looseBVars {env : Env} (henv : EnvWF env)
+    (fuel : Nat) {d : Nat} {e e' : Expr}
+    (h : whnf env fuel d e = .ok e')
+    (hb : e.looseBVarsBounded 0 = true) : e'.looseBVarsBounded 0 = true :=
+  (whnfPres_looseBVars henv fuel).2 h hb
 
 /-! ## Preservation through `inferTypeCore` -/
 
@@ -401,53 +559,82 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
       inferTypeCore env fuel d e = .ok t → WScoped d e → WScoped d t
   | 0, d, e, t, h, _ => nomatch h
   | fuel + 1, d, e, t, h, hw => by
-    match e, h with
-    | .sort u, h =>
-      simp only [inferTypeCore, pure, Except.pure, Except.ok.injEq] at h
+    cases e with
+    | sort u =>
+      rw [inferTypeCore_succ] at h
+      simp only [inferBody, pure, Except.pure, Except.ok.injEq] at h
       subst h; simp [WScoped]
-    | .fvar idx n ty, h =>
-      simp only [inferTypeCore, pure, Except.pure, Except.ok.injEq] at h
+    | fvar idx n ty =>
+      rw [inferTypeCore_succ] at h
+      simp only [inferBody, pure, Except.pure, Except.ok.injEq] at h
       subst h
       simp only [WScoped] at hw
       exact hw.2.mono (by omega)
-    | .const n ws, h =>
-      simp only [inferTypeCore] at h
+    | const n ws =>
+      rw [inferTypeCore_succ] at h
+      simp only [inferBody] at h
+      revert h
       cases hf : env.find? n with
-      | none => rw [hf] at h; exact nomatch h
+      | none => intro h; exact nomatch h
       | some ci =>
-        rw [hf] at h
+        intro h
         dsimp only at h
-        split at h
-        next hal =>
+        revert h
+        split
+        · intro h
           simp only [pure, Except.pure, Except.ok.injEq] at h
           subst h
           obtain ⟨htc, -, -, -, -⟩ := henv _ (find?_mem hf)
           exact WScoped.of_not_hasFvar
             (by rw [hasFvar_instantiateLevelParams]; exact htc)
-        next hal => exact nomatch h
-    | .forallE n ty body m, h =>
+        · intro h; exact nomatch h
+    | lit l0 =>
+      rw [inferTypeCore_succ] at h
+      match l0, h with
+      | .natVal n, h => ?_
+      | .strVal s, h =>
+        simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
+      dsimp only [inferBody] at h
+      revert h
+      match env.find? natName with
+      | none => intro h; exact nomatch h
+      | some (.axiomInfo _) => intro h; exact nomatch h
+      | some (.defnInfo _ _) => intro h; exact nomatch h
+      | some (.thmInfo _ _) => intro h; exact nomatch h
+      | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+      | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+      | some (.indInfo _ _) =>
+        intro h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        subst h; simp [WScoped]
+    | forallE n ty body m =>
       cases hc : m.cod with
-      | none => rw [inferTypeCore, hc] at h; exact nomatch h
+      | none =>
+        rw [inferTypeCore_succ] at h
+        simp only [inferBody, hc] at h
+        exact nomatch h
       | some v =>
       obtain ⟨tty, u, hty, hwt, rfl⟩ := inferTypeCore_forall_inv hc h
       simp [WScoped]
-    | .lam n ty body m, h =>
-      obtain ⟨v, tty, u, bt, tbt, v', hc, hty2, hu2, hbt, htbt, hwv2, heq, rfl⟩ := inferTypeCore_lam_inv h
+    | lam n ty body m =>
+      obtain ⟨v, bt, hc, hbt, rfl⟩ := inferTypeCore_lam_inv h
       simp only [WScoped] at hw
       have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
         hw.1.instantiate1 0 hw.2
       have hwbt := inferTypeCore_WScoped henv fuel hbt hwo
       simp only [WScoped]
       exact ⟨hw.1, WScoped.abstract1 0 hwbt⟩
-    | .app f a, h =>
-      obtain ⟨tf, n', ty', body', m', ta, htf, hwh, hta, hde, rfl⟩ := inferTypeCore_app_inv h
+    | app f a =>
+      obtain ⟨tf, n', ty', body', m', htf, hwh, rfl⟩ :=
+        inferTypeCore_app_inv h
       simp only [WScoped] at hw
       have hwtf := inferTypeCore_WScoped henv fuel htf hw.1
       have hwPi := whnf_WScoped henv fuel hwh hwtf
       simp only [WScoped] at hwPi
       exact WScoped.instantiate1_gen hw.2 0 hwPi.2
-    | .proj sn i e, h =>
-      obtain ⟨te, us, A, B, cv2, caps2, hte, hwt, hfind2, hcase⟩ := inferTypeCore_proj_inv h
+    | proj sn i pe =>
+      obtain ⟨te, us, A, B, cv2, caps2, hte, hwt, hfind2, hcase⟩ :=
+        inferTypeCore_proj_inv h
       simp only [WScoped] at hw
       have hwte := inferTypeCore_WScoped henv fuel hte hw
       have hwPi := whnf_WScoped henv fuel hwt hwte
@@ -456,9 +643,12 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
       · exact hwPi.1.2
       · simp only [WScoped]
         exact ⟨hwPi.2, hw⟩
-    | .bvar i, h => simp [inferTypeCore] at h
-    | .letE n' t' v' b', h => simp [inferTypeCore] at h
-    | .lit l', h => simp [inferTypeCore] at h
+    | bvar i =>
+      rw [inferTypeCore_succ] at h
+      simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
+    | letE n' t' v' b' =>
+      rw [inferTypeCore_succ] at h
+      simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
 
 theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat) {d : Nat} {e t : Expr},
@@ -466,24 +656,29 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
       ∀ l ∈ t.fvarLeaves, l ∈ e.fvarLeaves
   | 0, d, e, t, h, _ => nomatch h
   | fuel + 1, d, e, t, h, hw => by
-    match e, h with
-    | .sort u, h =>
-      simp only [inferTypeCore, pure, Except.pure, Except.ok.injEq] at h
+    cases e with
+    | sort u =>
+      rw [inferTypeCore_succ] at h
+      simp only [inferBody, pure, Except.pure, Except.ok.injEq] at h
       subst h; intro l hl; simp [fvarLeaves] at hl
-    | .fvar idx n ty, h =>
-      simp only [inferTypeCore, pure, Except.pure, Except.ok.injEq] at h
+    | fvar idx n ty =>
+      rw [inferTypeCore_succ] at h
+      simp only [inferBody, pure, Except.pure, Except.ok.injEq] at h
       subst h
       intro l hl
       simp [fvarLeaves, hl]
-    | .const n ws, h =>
-      simp only [inferTypeCore] at h
+    | const n ws =>
+      rw [inferTypeCore_succ] at h
+      simp only [inferBody] at h
+      revert h
       cases hf : env.find? n with
-      | none => rw [hf] at h; exact nomatch h
+      | none => intro h; exact nomatch h
       | some ci =>
-        rw [hf] at h
+        intro h
         dsimp only at h
-        split at h
-        next hal =>
+        revert h
+        split
+        · intro h
           simp only [pure, Except.pure, Except.ok.injEq] at h
           subst h
           obtain ⟨htc, -, -, -, -⟩ := henv _ (find?_mem hf)
@@ -491,16 +686,38 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
           rw [fvarLeaves_eq_nil_of_not_hasFvar
             (by rw [hasFvar_instantiateLevelParams]; exact htc)] at hl
           cases hl
-        next hal => exact nomatch h
-    | .forallE n ty body m, h =>
+        · intro h; exact nomatch h
+    | lit l0 =>
+      rw [inferTypeCore_succ] at h
+      match l0, h with
+      | .natVal n, h => ?_
+      | .strVal s, h =>
+        simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
+      dsimp only [inferBody] at h
+      revert h
+      match env.find? natName with
+      | none => intro h; exact nomatch h
+      | some (.axiomInfo _) => intro h; exact nomatch h
+      | some (.defnInfo _ _) => intro h; exact nomatch h
+      | some (.thmInfo _ _) => intro h; exact nomatch h
+      | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+      | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+      | some (.indInfo _ _) =>
+        intro h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        subst h; intro l hl; simp [fvarLeaves] at hl
+    | forallE n ty body m =>
       cases hc : m.cod with
-      | none => rw [inferTypeCore, hc] at h; exact nomatch h
+      | none =>
+        rw [inferTypeCore_succ] at h
+        simp only [inferBody, hc] at h
+        exact nomatch h
       | some v =>
       obtain ⟨tty, u, hty, hwt, rfl⟩ := inferTypeCore_forall_inv hc h
       intro l hl
       simp [fvarLeaves] at hl
-    | .lam n ty body m, h =>
-      obtain ⟨v, tty, u, bt, tbt, v', hc, hty2, hu2, hbt, htbt, hwv2, heq, rfl⟩ := inferTypeCore_lam_inv h
+    | lam n ty body m =>
+      obtain ⟨v, bt, hc, hbt, rfl⟩ := inferTypeCore_lam_inv h
       simp only [WScoped] at hw
       have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
         hw.1.instantiate1 0 hw.2
@@ -517,8 +734,9 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
           rcases hb with rfl | hb
           · exact absurd rfl hlne
           · exact Or.inl hb
-    | .app f a, h =>
-      obtain ⟨tf, n', ty', body', m', ta, htf, hwh, hta, hde, rfl⟩ := inferTypeCore_app_inv h
+    | app f a =>
+      obtain ⟨tf, n', ty', body', m', htf, hwh, rfl⟩ :=
+        inferTypeCore_app_inv h
       simp only [WScoped] at hw
       intro l hl
       simp only [fvarLeaves, List.mem_append]
@@ -527,13 +745,15 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
         refine whnf_fvarLeaves henv fuel hwh l ?_
         simp [fvarLeaves, hb]
       · exact Or.inr hb
-    | .proj sn i e, h =>
-      obtain ⟨te, us, A, B, cv2, caps2, hte, hwt, hfind2, hcase⟩ := inferTypeCore_proj_inv h
+    | proj sn i pe =>
+      obtain ⟨te, us, A, B, cv2, caps2, hte, hwt, hfind2, hcase⟩ :=
+        inferTypeCore_proj_inv h
       simp only [WScoped] at hw
       intro l hl
       simp only [fvarLeaves]
-      have hsub : ∀ l', l' ∈ (Expr.app (Expr.app (.const psigmaName us) A) B).fvarLeaves →
-          l' ∈ e.fvarLeaves := fun l' hl' =>
+      have hsub : ∀ l', l' ∈
+          (Expr.app (Expr.app (.const psigmaName us) A) B).fvarLeaves →
+          l' ∈ pe.fvarLeaves := fun l' hl' =>
         inferTypeCore_fvarLeaves henv fuel hte hw l'
           (whnf_fvarLeaves henv fuel hwt l' hl')
       rcases hcase with ⟨-, rfl⟩ | ⟨-, rfl⟩
@@ -542,9 +762,12 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
         rcases hl with hl | hl
         · exact hsub l (by simp [fvarLeaves, hl])
         · simpa [fvarLeaves] using hl
-    | .bvar i, h => simp [inferTypeCore] at h
-    | .letE n' t' v' b', h => simp [inferTypeCore] at h
-    | .lit l', h => simp [inferTypeCore] at h
+    | bvar i =>
+      rw [inferTypeCore_succ] at h
+      simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
+    | letE n' t' v' b' =>
+      rw [inferTypeCore_succ] at h
+      simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
 
 theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat) {d : Nat} {e t : Expr},
@@ -553,43 +776,70 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
       t.looseBVarsBounded 0 = true
   | 0, d, e, t, h, _, _, _ => nomatch h
   | fuel + 1, d, e, t, h, hw, hb, hLb => by
-    match e, h with
-    | .sort u, h =>
-      simp only [inferTypeCore, pure, Except.pure, Except.ok.injEq] at h
+    cases e with
+    | sort u =>
+      rw [inferTypeCore_succ] at h
+      simp only [inferBody, pure, Except.pure, Except.ok.injEq] at h
       subst h; simp [looseBVarsBounded]
-    | .fvar idx n ty, h =>
-      simp only [inferTypeCore, pure, Except.pure, Except.ok.injEq] at h
+    | fvar idx n ty =>
+      rw [inferTypeCore_succ] at h
+      simp only [inferBody, pure, Except.pure, Except.ok.injEq] at h
       subst h
       exact hLb (idx, n, ty) (by simp [fvarLeaves])
-    | .const n ws, h =>
-      simp only [inferTypeCore] at h
+    | const n ws =>
+      rw [inferTypeCore_succ] at h
+      simp only [inferBody] at h
+      revert h
       cases hf : env.find? n with
-      | none => rw [hf] at h; exact nomatch h
+      | none => intro h; exact nomatch h
       | some ci =>
-        rw [hf] at h
+        intro h
         dsimp only at h
-        split at h
-        next hal =>
+        revert h
+        split
+        · intro h
           simp only [pure, Except.pure, Except.ok.injEq] at h
           subst h
           obtain ⟨-, -, -, htb, -⟩ := henv _ (find?_mem hf)
           rw [looseBVarsBounded_instantiateLevelParams]
           exact htb
-        next hal => exact nomatch h
-    | .forallE n ty body m, h =>
+        · intro h; exact nomatch h
+    | lit l0 =>
+      rw [inferTypeCore_succ] at h
+      match l0, h with
+      | .natVal n, h => ?_
+      | .strVal s, h =>
+        simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
+      dsimp only [inferBody] at h
+      revert h
+      match env.find? natName with
+      | none => intro h; exact nomatch h
+      | some (.axiomInfo _) => intro h; exact nomatch h
+      | some (.defnInfo _ _) => intro h; exact nomatch h
+      | some (.thmInfo _ _) => intro h; exact nomatch h
+      | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+      | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+      | some (.indInfo _ _) =>
+        intro h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        subst h; simp [looseBVarsBounded]
+    | forallE n ty body m =>
       cases hc : m.cod with
-      | none => rw [inferTypeCore, hc] at h; exact nomatch h
+      | none =>
+        rw [inferTypeCore_succ] at h
+        simp only [inferBody, hc] at h
+        exact nomatch h
       | some v =>
       obtain ⟨tty, u, hty, hwt, rfl⟩ := inferTypeCore_forall_inv hc h
       simp [looseBVarsBounded]
-    | .lam n ty body m, h =>
-      obtain ⟨v, tty, u, bt, tbt, v', hc, hty2, hu2, hbt, htbt, hwv2, heq, rfl⟩ := inferTypeCore_lam_inv h
+    | lam n ty body m =>
+      obtain ⟨v, bt, hc, hbt, rfl⟩ := inferTypeCore_lam_inv h
       simp only [WScoped] at hw
       simp only [looseBVarsBounded, Bool.and_eq_true] at hb
       have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
         hw.1.instantiate1 0 hw.2
-      have hbo : (body.instantiate1 (.fvar d n ty)).looseBVarsBounded 0 = true :=
-        looseBVarsBounded_instantiate1 body 0 hb.2
+      have hbo : (body.instantiate1 (.fvar d n ty)).looseBVarsBounded 0
+          = true := looseBVarsBounded_instantiate1 body 0 hb.2
       have hLbo : Expr.LeavesBounded (body.instantiate1 (.fvar d n ty)) := by
         intro l hl
         rcases fvarLeaves_instantiate1 body 0 hl with hb' | hb'
@@ -601,20 +851,23 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
       have hbbt := inferTypeCore_looseBVars henv fuel hbt hwo hbo hLbo
       simp only [looseBVarsBounded, Bool.and_eq_true]
       exact ⟨hb.1, looseBVarsBounded_abstract1 bt 0 hbbt⟩
-    | .app f a, h =>
-      obtain ⟨tf, n', ty', body', m', ta, htf, hwh, hta, hde, rfl⟩ := inferTypeCore_app_inv h
+    | app f a =>
+      obtain ⟨tf, n', ty', body', m', htf, hwh, rfl⟩ :=
+        inferTypeCore_app_inv h
       simp only [WScoped] at hw
       simp only [looseBVarsBounded, Bool.and_eq_true] at hb
-      have hLbf : Expr.LeavesBounded f := fun l hl => hLb l (by simp [fvarLeaves, hl])
+      have hLbf : Expr.LeavesBounded f := fun l hl =>
+        hLb l (by simp [fvarLeaves, hl])
       have hbtf := inferTypeCore_looseBVars henv fuel htf hw.1 hb.1 hLbf
       have hbPi := whnf_looseBVars henv fuel hwh hbtf
       simp only [looseBVarsBounded, Bool.and_eq_true] at hbPi
       exact looseBVarsBounded_instantiate1_gen hb.2 hbPi.2
-    | .proj sn i e, h =>
-      obtain ⟨te, us, A, B, cv2, caps2, hte, hwt, hfind2, hcase⟩ := inferTypeCore_proj_inv h
+    | proj sn i pe =>
+      obtain ⟨te, us, A, B, cv2, caps2, hte, hwt, hfind2, hcase⟩ :=
+        inferTypeCore_proj_inv h
       simp only [WScoped] at hw
       simp only [looseBVarsBounded] at hb
-      have hLbe : Expr.LeavesBounded e := fun l hl => hLb l (by
+      have hLbe : Expr.LeavesBounded pe := fun l hl => hLb l (by
         simp only [fvarLeaves]; exact hl)
       have hbte := inferTypeCore_looseBVars henv fuel hte hw hb hLbe
       have hbPi := whnf_looseBVars henv fuel hwt hbte
@@ -623,8 +876,11 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
       · exact hbPi.1.2
       · simp only [looseBVarsBounded, Bool.and_eq_true]
         exact ⟨hbPi.2, hb⟩
-    | .bvar i, h => simp [inferTypeCore] at h
-    | .letE n' t' v' b', h => simp [inferTypeCore] at h
-    | .lit l', h => simp [inferTypeCore] at h
+    | bvar i =>
+      rw [inferTypeCore_succ] at h
+      simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
+    | letE n' t' v' b' =>
+      rw [inferTypeCore_succ] at h
+      simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
 
 end Setlec
