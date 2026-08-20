@@ -1206,7 +1206,8 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
     (hmodel : env.find? (cvA.name.str "_model") = some (.defnInfo cvm mval))
     (hlps : cvm.levelParams = cvA.levelParams)
     (hren : cvA.type.renameConsts f = cvm.type)
-    (hro : RenameOk m.val env f)
+    (f₀ : Name → Name) (hro : RenameOk m.val env f₀)
+    (hff₀ : ∀ n, n ≠ cvA.name → f n = f₀ n)
     (hfself : f cvA.name = cvA.name.str "_model")
     (hfnot : ∀ n, f n ≠ cvA.name)
     (heqfind : env.find? eqName = some eqA)
@@ -1246,9 +1247,15 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
       subst e6
       intro r hr
       cases hr
+  have hren₀ : cvA.type.renameConsts f₀ = cvm.type := by
+    rw [← Expr.renameConsts_congr_resolve
+      (fun n hn => hff₀ n (fun he => by
+        rw [he, hfind'] at hn; exact nomatch hn))
+      cvA.type htyres0]
+    exact hren
   obtain ⟨m₀, hval₀, hpres₀⟩ := extend_modeled_one m
-    (.recInfo cvA nP 1 nm 0 []) f hfind' hnres hwf₀ htyres0
-    (Or.inr (Or.inr ⟨cvA, nP, nm, rfl⟩)) hmodel hlps hren hro
+    (.recInfo cvA nP 1 nm 0 []) f₀ hfind' hnres hwf₀ htyres0
+    (Or.inr (Or.inr ⟨cvA, nP, nm, rfl⟩)) hmodel hlps hren₀ hro
   have henv01 : ∀ n,
       ((⟨.recInfo cvA nP 1 nm 0 [] :: env.consts⟩ : Env).find? n).map
         (fun ci => ci.toConstantVal.levelParams) =
@@ -1584,18 +1591,20 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
           · next hh =>
             obtain ⟨ci₃, hf₃, hlp₃⟩ := hro.1 n₂ ci₂ hf₂
             refine ⟨ci₃, ?_, hlp₃⟩
-            rw [Env.find?_cons,
+            rw [hff₀ n₂ (fun he => hh he.symm), Env.find?_cons,
               if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0
-                rules').name = f n₂ from fun h => hfnot n₂ h.symm)]
+                rules').name = f₀ n₂ from fun h => hfnot n₂
+                  (by rw [hff₀ n₂ (fun he => hh he.symm)]; exact h.symm))]
             exact hf₃
         · intro n₂ hf₂
           rw [Env.find?_cons] at hf₂
           split at hf₂
           · exact nomatch hf₂
           · next hh =>
-            rw [Env.find?_cons,
+            rw [hff₀ n₂ (fun he => hh he.symm), Env.find?_cons,
               if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0
-                rules').name = f n₂ from fun h => hfnot n₂ h.symm)]
+                rules').name = f₀ n₂ from fun h => hfnot n₂
+                  (by rw [hff₀ n₂ (fun he => hh he.symm)]; exact h.symm))]
             exact hro.2.1 n₂ hf₂
         · intro n₂ ψ₂
           by_cases hh : n₂ = cvA.name
@@ -1605,7 +1614,8 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
             exact (hval₀ ψ₂).symm
           · by_cases hh₂ : f n₂ = cvA.name
             · exact absurd hh₂ (hfnot n₂)
-            · rw [hpres₀ _ ψ₂ hh₂, hpres₀ _ ψ₂ hh, hro.2.2 n₂]
+            · rw [hpres₀ _ ψ₂ hh₂, hpres₀ _ ψ₂ hh, hff₀ n₂ hh,
+                hro.2.2 n₂]
       have hfRm₁ : (⟨.recInfo cvA nP 1 nm 0 rules' ::
           env.consts⟩ : Env).find? (f cvA.name) =
           some (.defnInfo cvm mval) := by
