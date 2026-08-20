@@ -439,6 +439,20 @@ theorem natLitSupported_inv {env : Env} (hs : natLitSupported env = true) :
           simp only [Bool.and_eq_true, beq_iff_eq] at h
           exact ⟨nm, mb, by rw [heq, h.1.1, h.1.2], h.2⟩
 
+/-- The literal guard ignores a stored recursor's rule list (the slot
+checks only ever accept inductive/constructor kinds). -/
+theorem natLitSupported_cons_recRules {cvA : ConstantVal} {nP nM nm ni : Nat}
+    {rules₁ rules₂ : List RecRule} {env : Env} :
+    natLitSupported ⟨ConstantInfo.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ =
+    natLitSupported ⟨ConstantInfo.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ := by
+  unfold natLitSupported
+  rw [Env.find?_cons, Env.find?_cons, Env.find?_cons, Env.find?_cons,
+    Env.find?_cons, Env.find?_cons]
+  simp only [ConstantInfo.toConstantVal, ConstantInfo.name]
+  by_cases h1 : cvA.name = natName <;> by_cases h2 : cvA.name = natZeroName <;>
+    by_cases h3 : cvA.name = natSuccName <;>
+    simp [h1, h2, h3, natIndOk, natZeroOk, natSuccOk]
+
 /-- The literal guard only reads the three `Nat` slots. -/
 theorem natLitSupported_congr {env₁ env₂ : Env}
     (h1 : env₁.find? natName = env₂.find? natName)
