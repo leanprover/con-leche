@@ -21,72 +21,46 @@ variable {m : EnvModel V env} {fuel : Nat}
 variable (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
   (ihi : InferClaims m φ fuel)
 
-theorem whnf_claims (m : EnvModel V env)
-    (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
-    (ihi : InferClaims m φ fuel)
-    (ihAll : ∀ f, f ≤ fuel →
-      WhnfClaims m φ f ∧ DefEqClaims m φ f ∧ InferClaims m φ f) :
-    WhnfClaims m φ (fuel + 1) := by
+set_option maxHeartbeats 1600000 in
+/-- Head normalization (no delta) preserves the interpretation and
+annotation truthfulness. -/
+theorem whnfCore_claims (m : EnvModel V env)
+    (ihwc : WhnfCoreClaims m φ fuel) (ihw : WhnfClaims m φ fuel)
+    (ihd : DefEqClaims m φ fuel) (ihi : InferClaims m φ fuel) :
+    WhnfCoreClaims m φ (fuel + 1) := by
   intro d e e' ρ h hw hb hLb hok ha
-  match e, h with
-  | .sort u, h =>
-      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
-      exact h ▸ ⟨rfl, ha⟩
-  | .fvar idx n ty, h =>
-      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
-      exact h ▸ ⟨rfl, ha⟩
-  | .forallE n ty body bi, h =>
-      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
-      exact h ▸ ⟨rfl, ha⟩
-  | .lam n ty body bi, h =>
-      simp only [whnfCore, pure, Except.pure, Except.ok.injEq] at h
-      exact h ▸ ⟨rfl, ha⟩
-  | .const n ws, h =>
-    simp only [whnfCore] at h
-    cases hf : env.find? n with
-    | none => rw [hf] at h; exact (Except.ok.inj h) ▸ ⟨rfl, ha⟩
-    | some ci =>
-      rw [hf] at h
-      cases ci with
-      | defnInfo cv value =>
-        dsimp only at h
-        split at h
-        next hal =>
-          obtain ⟨-, -, -, -, hval, -⟩ := m.wf _ (List.mem_of_find?_eq_some hf)
-          obtain ⟨hvc, -, -, hvb⟩ := hval cv value rfl
-          have hcl : (value.instantiateLevelParams cv.levelParams ws).hasFvar = false := by
-            rw [hasFvar_instantiateLevelParams]; exact hvc
-          have hstored := (m.annot_ok _ (List.mem_of_find?_eq_some hf)
-            (Level.substFn φ cv.levelParams ws)).2 cv value rfl
-          have hinst := AnnotOk.instLevels m.val_params value 0 (rho0 V) hstored
-          obtain ⟨hi, ha'⟩ := ihw h
-            (WScoped.of_not_hasFvar hcl)
-            (by rw [looseBVarsBounded_instantiateLevelParams]; exact hvb)
-            (Expr.LeavesBounded.of_not_hasFvar hcl)
-            (FvarsOk.of_not_hasFvar hcl)
-            (AnnotOk.closed_invariant hcl d ρ hinst)
-          refine ⟨?_, ha'⟩
-          rw [hi]
-          rw [interp_closed_invariant hcl]
-          unfold interpClosed
-          rw [interp_instLevels m.val_params]
-          have hmem : ConstantInfo.defnInfo cv value ∈ env.consts :=
-            List.mem_of_find?_eq_some hf
-          have hde := m.defn_eq cv value hmem (Level.substFn φ cv.levelParams ws)
-          unfold interpClosed at hde
-          rw [hde]
-          have hname : cv.name = n := by
-            have := find?_name hf
-            simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using this
-          rw [interp_const hf hal, hname]
-          rfl
-        next hal => exact (Except.ok.inj h) ▸ ⟨rfl, ha⟩
-      | axiomInfo cv => exact (Except.ok.inj h) ▸ ⟨rfl, ha⟩
-      | thmInfo cv value => exact (Except.ok.inj h) ▸ ⟨rfl, ha⟩
-      | indInfo cv _ => exact (Except.ok.inj h) ▸ ⟨rfl, ha⟩
-      | ctorInfo cv nP nF => exact (Except.ok.inj h) ▸ ⟨rfl, ha⟩
-      | recInfo cv nP nM nm ni rules => exact (Except.ok.inj h) ▸ ⟨rfl, ha⟩
-  | .app f a, h =>
+  cases e with
+  | sort u =>
+    rw [whnfCore_succ] at h
+    simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
+    exact h ▸ ⟨rfl, ha⟩
+  | fvar idx n ty =>
+    rw [whnfCore_succ] at h
+    simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
+    exact h ▸ ⟨rfl, ha⟩
+  | forallE n ty body bi =>
+    rw [whnfCore_succ] at h
+    simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
+    exact h ▸ ⟨rfl, ha⟩
+  | lam n ty body bi =>
+    rw [whnfCore_succ] at h
+    simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
+    exact h ▸ ⟨rfl, ha⟩
+  | lit l0 =>
+    rw [whnfCore_succ] at h
+    simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
+    exact h ▸ ⟨rfl, ha⟩
+  | bvar i =>
+    rw [whnfCore_succ] at h
+    simp [whnfCoreBody, throw, throwThe, MonadExceptOf.throw] at h
+  | letE nn tt vv bb =>
+    rw [whnfCore_succ] at h
+    simp [whnfCoreBody, throw, throwThe, MonadExceptOf.throw] at h
+  | const n ws =>
+    rw [whnfCore_succ] at h
+    simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h
+    exact h ▸ ⟨rfl, ha⟩
+  | app f a =>
     simp only [WScoped] at hw
     simp only [looseBVarsBounded, Bool.and_eq_true] at hb
     have hLbf : Expr.LeavesBounded f := fun l hl => hLb l (by simp [fvarLeaves, hl])
@@ -95,16 +69,16 @@ theorem whnf_claims (m : EnvModel V env)
     simp only [AnnotOk] at ha
     obtain ⟨haf, haa, vf, va, vE, A, B, hfi, hai, hpi, hvA, hfib⟩ := ha
     obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
-    obtain ⟨hif, haf'⟩ := ihw hwf hw.1 hb.1 hLbf hokf haf
+    obtain ⟨hif, haf'⟩ := ihwc hwf hw.1 hb.1 hLbf hokf haf
     rcases hcase with ⟨n, ty, body, mm, v, rfl, hc, hbeta, hcert⟩ |
       ⟨e'', hio, hwe''⟩ | rfl
     · -- beta (guarded or certified)
-      have hwlam := whnf_WScoped m.wf fuel hwf hw.1
-      have hblam := whnf_looseBVars m.wf fuel hwf hb.1
+      have hwlam := whnfCore_WScoped m.wf fuel hwf hw.1
+      have hblam := whnfCore_looseBVars m.wf fuel hwf hb.1
       have hLblam : Expr.LeavesBounded (Expr.lam n ty body mm) := fun l hl =>
-        hLbf l (whnf_fvarLeaves m.wf fuel hwf l hl)
+        hLbf l (whnfCore_fvarLeaves m.wf fuel hwf l hl)
       have hoklam : FvarsOk V m.val env φ d ρ (.lam n ty body mm) :=
-        whnf_FvarsOk m.wf fuel hwf hokf
+        whnfCore_FvarsOk m.wf fuel hwf hokf
       simp only [WScoped] at hwlam
       simp only [looseBVarsBounded, Bool.and_eq_true] at hblam
       have hfi' : interpExpr V m.val env φ d ρ (.lam n ty body mm) = some vf := by
@@ -173,7 +147,7 @@ theorem whnf_claims (m : EnvModel V env)
         (n := n) (ty := ty) hfb hw.2 hb.2 hai 0
       have hred_A : AnnotOk V m.val env φ d ρ (body.instantiate1 a) :=
         AnnotOk_beta hfb hw.2 hb.2 hai haa 0 hbodyA
-      obtain ⟨hi2, ha2⟩ := ihw hbeta hred_w hred_b hred_Lb hred_ok hred_A
+      obtain ⟨hi2, ha2⟩ := ihwc hbeta hred_w hred_b hred_Lb hred_ok hred_A
       refine ⟨?_, ha2⟩
       have hfibres : ∀ x, x ∈ˢ Aty →
           ∃ B', ((interpExpr V m.val env φ (d + 1) (updV V ρ d x)
@@ -194,29 +168,29 @@ theorem whnf_claims (m : EnvModel V env)
     · -- iota step
       have hw' : WScoped d (Expr.app f' a) := by
         simp only [WScoped]
-        exact ⟨whnf_WScoped m.wf fuel hwf hw.1, hw.2⟩
+        exact ⟨whnfCore_WScoped m.wf fuel hwf hw.1, hw.2⟩
       have hb' : (Expr.app f' a).looseBVarsBounded 0 = true := by
         simp only [looseBVarsBounded, Bool.and_eq_true]
-        exact ⟨whnf_looseBVars m.wf fuel hwf hb.1, hb.2⟩
+        exact ⟨whnfCore_looseBVars m.wf fuel hwf hb.1, hb.2⟩
       have hLb' : Expr.LeavesBounded (Expr.app f' a) := by
         intro l hl
         simp only [fvarLeaves, List.mem_append] at hl
         rcases hl with hl | hl
-        · exact hLbf l (whnf_fvarLeaves m.wf fuel hwf l hl)
+        · exact hLbf l (whnfCore_fvarLeaves m.wf fuel hwf l hl)
         · exact hLba l hl
       have hok' : FvarsOk V m.val env φ d ρ (Expr.app f' a) := by
         intro l hl
         simp only [fvarLeaves, List.mem_append] at hl
         rcases hl with hl | hl
-        · exact whnf_FvarsOk m.wf fuel hwf hokf l hl
+        · exact whnfCore_FvarsOk m.wf fuel hwf hokf l hl
         · exact hoka l hl
       have ha' : AnnotOk V m.val env φ d ρ (Expr.app f' a) := by
         simp only [AnnotOk]
         exact ⟨haf', haa, vf, va, vE, A, B, hif.trans hfi, hai, hpi, hvA,
           hfib⟩
       obtain ⟨⟨hie, hae''⟩, hwE, hbE, hLbE, hokE⟩ :=
-        iota_sound ihAll hio hw' hb' hLb' hok' ha'
-      obtain ⟨hi2, ha2⟩ := ihw hwe'' hwE hbE hLbE hokE hae''
+        iota_sound ihw ihd ihi hio hw' hb' hLb' hok' ha'
+      obtain ⟨hi2, ha2⟩ := ihwc hwe'' hwE hbE hLbE hokE hae''
       refine ⟨?_, ha2⟩
       rw [hi2, hie]
       simp only [interpExpr]
@@ -228,7 +202,7 @@ theorem whnf_claims (m : EnvModel V env)
       · simp only [AnnotOk]
         refine ⟨haf', haa, vf, va, vE, A, B, ?_, hai, hpi, hvA, hfib⟩
         rw [hif]; exact hfi
-  | .proj sn i e, h =>
+  | proj sn i e =>
     simp only [WScoped] at hw
     simp only [looseBVarsBounded] at hb
     have hLbe : Expr.LeavesBounded e := fun l hl => hLb l (by
@@ -256,11 +230,12 @@ theorem whnf_claims (m : EnvModel V env)
         have h0 := Expr.mkAppN_getApp e₂
         rw [hfn, hargs] at h0
         exact h0.symm
+      have hi2' : i = 0 ∨ i = 1 := by omega
       have hargd : e₂.getAppArgs.getD (2 + i) (.bvar 0) = if i = 0 then a else b := by
         rw [hargs]
-        match i, hi2 with
-        | 0, _ => rfl
-        | 1, _ => rfl
+        rcases hi2' with rfl | rfl
+        · rfl
+        · rfl
       -- pristine invariants of the whnf'd struct (for the certificates)
       have hwC := whnf_WScoped m.wf fuel he hw
       have hbC := whnf_looseBVars m.wf fuel he hb
@@ -357,10 +332,6 @@ theorem whnf_claims (m : EnvModel V env)
           exact this hw0
         rcases hcert with hcert | hcert
         case inl => exact absurd hcert hnz
-        cases fuel with
-        | zero => simp [projCert] at hcert
-        | succ f =>
-        obtain ⟨ihwL, ihdL, ihiL⟩ := ihAll f (by omega)
         obtain ⟨ta, sta, uT, te, ste, wT, hta, hsta, hwta, heq1, hte, hste, hwte, heq2⟩ :=
           projCert_inv hcert
         have hwT0 : Level.eval φ wT = 0 := by
@@ -370,7 +341,7 @@ theorem whnf_claims (m : EnvModel V env)
           rw [← hψu, ← hψv]
           exact hw0
         have hept : interpExpr V m.val env φ d ρ e₂ = some pt :=
-          sortCert_pt ihwL ihiL hte hste hwte hwT0 hwC hbC hLbC hokC haC
+          sortCert_pt ihw ihi hte hste hwte hwT0 hwC hbC hLbC hokC haC
         have hveCpt : veC = pt := by
           have : some veC = some pt := by
             rw [← hveiC, ← hie, hept]
@@ -383,34 +354,30 @@ theorem whnf_claims (m : EnvModel V env)
             Nat.le_zero.mp (Nat.le_trans (Nat.le_max_left _ _) (Nat.le_of_eq hw0))
           have hv0 : ψ' vN = 0 :=
             Nat.le_zero.mp (Nat.le_trans (Nat.le_max_right _ _) (Nat.le_of_eq hw0))
-          match i, hi2 with
-          | 0, _ =>
-            simp only [List.getD, List.getElem?_cons_zero, Option.getD_some]
+          rcases hi2' with rfl | rfl
+          · simp only [List.getD, List.getElem?_cons_zero, Option.getD_some]
             rw [← hψu]
             exact hu0
-          | 1, _ =>
-            simp only [List.getD, List.getElem?_cons_zero,
+          · simp only [List.getD, List.getElem?_cons_zero,
               List.getElem?_cons_succ, Option.getD_some]
             rw [← hψv]
             exact hv0
-        match i, hi2, hred, hargd, hta with
-        | 0, _, hred, hargd, hta =>
-          rw [if_pos rfl] at hargd
+        rcases hi2' with rfl | rfl
+        · rw [if_pos rfl] at hargd
           rw [hargd] at hred
           have hapt : interpExpr V m.val env φ d ρ a = some pt :=
-            sortCert_pt ihwL ihiL hta hsta hwta huT0 hwa hba hLba hoka haa
-          obtain ⟨hired, hared⟩ := ihw hred hwa hba hLba hoka haa
+            sortCert_pt ihw ihi hta hsta hwta huT0 hwa hba hLba hoka haa
+          obtain ⟨hired, hared⟩ := ihwc hred hwa hba hLba hoka haa
           refine ⟨?_, hared⟩
           rw [hired, hapt]
           simp only [interpExpr, hveiC]
           rw [hveCpt, sfst_pt]
           simp
-        | 1, _, hred, hargd, hta =>
-          rw [if_neg (by omega)] at hargd
+        · rw [if_neg (by omega)] at hargd
           rw [hargd] at hred
           have hbpt : interpExpr V m.val env φ d ρ b = some pt :=
-            sortCert_pt ihwL ihiL hta hsta hwta huT0 hwb hbb hLbb hokb hab
-          obtain ⟨hired, hared⟩ := ihw hred hwb hbb hLbb hokb hab
+            sortCert_pt ihw ihi hta hsta hwta huT0 hwb hbb hLbb hokb hab
+          obtain ⟨hired, hared⟩ := ihwc hred hwb hbb hLbb hokb hab
           refine ⟨?_, hared⟩
           rw [hired, hbpt]
           simp only [interpExpr, hveiC]
@@ -433,26 +400,220 @@ theorem whnf_claims (m : EnvModel V env)
           rw [hf₃, hf₂, hf₁]
           rw [hfacts.fold hαmem hβmem hamem hbmem]
           simp [hw0]
-        match i, hi2, hred, hargd with
-        | 0, _, hred, hargd =>
-          rw [if_pos rfl] at hargd
+        rcases hi2' with rfl | rfl
+        · rw [if_pos rfl] at hargd
           rw [hargd] at hred
-          obtain ⟨hired, hared⟩ := ihw hred hwa hba hLba hoka haa
+          obtain ⟨hired, hared⟩ := ihwc hred hwa hba hLba hoka haa
           refine ⟨?_, hared⟩
           rw [hired, hai]
           simp only [interpExpr, hveiC]
           rw [hveC', hfold, sfst_spair]
           simp
-        | 1, _, hred, hargd =>
-          rw [if_neg (by omega)] at hargd
+        · rw [if_neg (by omega)] at hargd
           rw [hargd] at hred
-          obtain ⟨hired, hared⟩ := ihw hred hwb hbb hLbb hokb hab
+          obtain ⟨hired, hared⟩ := ihwc hred hwb hbb hLbb hokb hab
           refine ⟨?_, hared⟩
           rw [hired, hbi]
           simp only [interpExpr, hveiC]
           rw [hveC', hfold, ssnd_spair]
           simp
 
+
+/-- Full inversion of a successful literal-acceleration step. -/
+theorem reduceNat_full_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
+    (h : reduceNatP env fuel d e = .ok (some e₂)) :
+    ∃ a n, e = .app (.const natSuccName []) a ∧
+      natLitSupported env = true ∧ rawNatLit? a = some n ∧
+      e₂ = .lit (.natVal (n + 1)) := by
+  dsimp only [reduceNatP] at h
+  revert h
+  match e with
+  | .app (.const c []) a => ?_
+  | .bvar _ | .fvar _ _ _ | .sort _ | .lam _ _ _ _ | .forallE _ _ _ _
+  | .letE _ _ _ _ | .lit _ | .proj _ _ _ | .const _ _ =>
+    intro h; simp [reduceNat, pure, Except.pure] at h
+  | .app (.bvar _) _ | .app (.fvar _ _ _) _ | .app (.sort _) _
+  | .app (.app _ _) _ | .app (.lam _ _ _ _) _ | .app (.forallE _ _ _ _) _
+  | .app (.letE _ _ _ _) _ | .app (.lit _) _ | .app (.proj _ _ _) _ =>
+    intro h; simp [reduceNat, pure, Except.pure] at h
+  | .app (.const c (_ :: _)) _ =>
+    intro h; simp [reduceNat, pure, Except.pure] at h
+  intro h
+  simp only [reduceNat] at h
+  revert h
+  split
+  case isTrue hg =>
+    obtain ⟨rfl, hs⟩ := hg
+    cases hraw : rawNatLit? a with
+    | none => intro h; simp [hraw, pure, Except.pure] at h
+    | some n =>
+      intro h
+      simp only [hraw, pure, Except.pure, Except.ok.injEq,
+        Option.some.injEq] at h
+      exact ⟨a, n, rfl, hs, hraw, h.symm⟩
+  case isFalse =>
+    intro h; simp [pure, Except.pure] at h
+
+/-- Soundness of a literal-acceleration step: the packed literal
+interprets to the application's value, and every invariant is
+trivially re-established (the result is a closed literal). -/
+theorem reduceNat_sound (m : EnvModel V env) {fuel d : Nat} {e e₂ : Expr}
+    {ρ : Nat → V}
+    (h : reduceNatP env fuel d e = .ok (some e₂)) :
+    interpExpr V m.val env φ d ρ e₂ = interpExpr V m.val env φ d ρ e ∧
+    AnnotOk V m.val env φ d ρ e₂ ∧ WScoped d e₂ ∧
+    e₂.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded e₂ ∧
+    FvarsOk V m.val env φ d ρ e₂ := by
+  obtain ⟨a, n, rfl, hs, hraw, rfl⟩ := reduceNat_full_inv h
+  refine ⟨?_, by simp [AnnotOk], by simp [WScoped],
+    by simp [Expr.looseBVarsBounded],
+    (fun l hl => by simp [Expr.fvarLeaves] at hl),
+    (fun l hl => by simp [Expr.fvarLeaves] at hl)⟩
+  rw [interpExpr_lit hs]
+  obtain ⟨cv, caps, cv0, i0, j0, cv1, i1, j1, hnn, hzz, hss, hl1, hl2, hl3,
+    -⟩ := natLitSupported_inv hs
+  simp [interpExpr, hss, ConstantInfo.toConstantVal, hl3, Level.substFn_nil,
+    interpExpr_rawNatLit hs hraw, natLitVal]
+
+/-- Inversion of a one-step delta unfolding. -/
+theorem unfoldDefinition_inv {env : Env} {e e₂ : Expr}
+    (h : unfoldDefinition env e = some e₂) :
+    ∃ n us cv value, e.getAppFn = .const n us ∧
+      env.find? n = some (.defnInfo cv value) ∧
+      us.length = cv.levelParams.length ∧
+      e₂ = Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
+        e.getAppArgs := by
+  unfold unfoldDefinition at h
+  revert h
+  match hfn : e.getAppFn with
+  | .const n us => ?_
+  | .bvar _ | .fvar _ _ _ | .sort _ | .app _ _ | .lam _ _ _ _
+  | .forallE _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+    intro h; exact nomatch h
+  intro h
+  dsimp only at h
+  revert h
+  match hf : env.find? n with
+  | none => intro h; exact nomatch h
+  | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.indInfo _ _) => intro h; exact nomatch h
+  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.defnInfo cv value) => ?_
+  intro h
+  dsimp only at h
+  revert h
+  split
+  case isTrue hal =>
+    intro h
+    simp only [Option.some.injEq] at h
+    exact ⟨n, us, cv, value, rfl, hf, hal, h.symm⟩
+  case isFalse =>
+    intro h; exact nomatch h
+
+/-- Soundness of a one-step delta unfolding: the definition's stored
+value interprets to the constant's value (`defn_eq`), so replacing the
+head preserves the spine's interpretation, and the stored annotation
+truthfulness transfers along the spine. -/
+theorem unfoldDefinition_sound (m : EnvModel V env) {d : Nat}
+    {e e₂ : Expr} {ρ : Nat → V}
+    (hu : unfoldDefinition env e = some e₂)
+    (hw : WScoped d e) (hb : e.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded e) (hok : FvarsOk V m.val env φ d ρ e)
+    (ha : AnnotOk V m.val env φ d ρ e) :
+    interpExpr V m.val env φ d ρ e₂ = interpExpr V m.val env φ d ρ e ∧
+    AnnotOk V m.val env φ d ρ e₂ ∧ WScoped d e₂ ∧
+    e₂.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded e₂ ∧
+    FvarsOk V m.val env φ d ρ e₂ := by
+  have hsynW := unfoldDefinition_WScoped m.wf hu hw
+  have hsynB := unfoldDefinition_looseBVars m.wf hu hb
+  have hsynL : Expr.LeavesBounded e₂ := fun l hl =>
+    hLb l (unfoldDefinition_fvarLeaves m.wf hu l hl)
+  have hsynO : FvarsOk V m.val env φ d ρ e₂ :=
+    FvarsOk.of_subset (unfoldDefinition_fvarLeaves m.wf hu) hok
+  obtain ⟨n, us, cv, value, hfn, hf, hal, rfl⟩ := unfoldDefinition_inv hu
+  -- head facts
+  obtain ⟨-, -, -, -, hval, -⟩ := m.wf _ (List.mem_of_find?_eq_some hf)
+  obtain ⟨hvc, -, -, hvb⟩ := hval cv value rfl
+  have hcl : (value.instantiateLevelParams cv.levelParams us).hasFvar
+      = false := by
+    rw [hasFvar_instantiateLevelParams]; exact hvc
+  have hstored := (m.annot_ok _ (List.mem_of_find?_eq_some hf)
+    (Level.substFn φ cv.levelParams us)).2 cv value rfl
+  have hinst := AnnotOk.instLevels m.val_params value 0 (rho0 V) hstored
+  have hA₂ : AnnotOk V m.val env φ d ρ
+      (value.instantiateLevelParams cv.levelParams us) :=
+    AnnotOk.closed_invariant hcl d ρ hinst
+  have hname : cv.name = n := by
+    have := find?_name hf
+    simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using this
+  have hi₂ : interpExpr V m.val env φ d ρ
+      (value.instantiateLevelParams cv.levelParams us) =
+      some (m.val n (Level.substFn φ cv.levelParams us)) := by
+    rw [interp_closed_invariant hcl]
+    unfold interpClosed
+    rw [interp_instLevels m.val_params]
+    have hde := m.defn_eq cv value (List.mem_of_find?_eq_some hf)
+      (Level.substFn φ cv.levelParams us)
+    unfold interpClosed at hde
+    rw [hde, hname]
+  have hi₁ : interpExpr V m.val env φ d ρ (.const n us) =
+      some (m.val n (Level.substFn φ cv.levelParams us)) := by
+    rw [interp_const hf hal]
+    rfl
+  have hspine : e = Expr.mkAppN (.const n us) e.getAppArgs := by
+    have := (Expr.mkAppN_getApp e).symm
+    rw [hfn] at this
+    exact this
+  cases hargs : e.getAppArgs with
+  | nil =>
+    rw [hargs] at hsynW hsynB hsynL hsynO hspine
+    refine ⟨?_, hA₂, hsynW, hsynB, hsynL, hsynO⟩
+    rw [show Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
+        [] = value.instantiateLevelParams cv.levelParams us from rfl,
+      hi₂, hspine]
+    rw [show Expr.mkAppN (.const n us) [] = (.const n us : Expr) from rfl,
+      hi₁]
+  | cons x xs =>
+    rw [hargs] at hsynW hsynB hsynL hsynO hspine
+    have ha' : AnnotOk V m.val env φ d ρ
+        (Expr.mkAppN (.const n us) (x :: xs)) := hspine ▸ ha
+    obtain ⟨-, hxsA, vf, vs, hif, hsp, hchain, hifold⟩ :=
+      annotOk_spine_inv _ _ (by simp) ha'
+    have hvf : vf = m.val n (Level.substFn φ cv.levelParams us) := by
+      rw [hi₁] at hif
+      exact (Option.some.inj hif).symm
+    obtain ⟨hA₂', hi₂'⟩ := annotOk_spine (x :: xs)
+      (value.instantiateLevelParams cv.levelParams us) hA₂
+      (hvf ▸ hi₂) hxsA hsp hchain
+    refine ⟨?_, hA₂', hsynW, hsynB, hsynL, hsynO⟩
+    rw [hi₂', hspine]
+    exact hifold.symm
+
+/-- The reduction loop preserves the interpretation and annotation
+truthfulness: a `whnfCore` step, then literal acceleration or one
+delta unfolding, then the loop again. -/
+theorem whnfLoop_claims (m : EnvModel V env)
+    (ihwc : WhnfCoreClaims m φ fuel) (ihw : WhnfClaims m φ fuel) :
+    WhnfClaims m φ (fuel + 1) := by
+  intro d e e' ρ h hw hb hLb hok ha
+  obtain ⟨e₁, hwc, hcase⟩ := whnf_loop_inv h
+  obtain ⟨hi1, ha1⟩ := ihwc hwc hw hb hLb hok ha
+  have hw1 := whnfCore_WScoped m.wf fuel hwc hw
+  have hb1 := whnfCore_looseBVars m.wf fuel hwc hb
+  have hLb1 : Expr.LeavesBounded e₁ := fun l hl =>
+    hLb l (whnfCore_fvarLeaves m.wf fuel hwc l hl)
+  have hok1 := whnfCore_FvarsOk m.wf fuel hwc hok
+  rcases hcase with ⟨e₂, hrn, hcont⟩ | ⟨-, e₂, hu, hcont⟩ | ⟨-, -, rfl⟩
+  · obtain ⟨hi2, ha2, hw2, hb2, hLb2, hok2⟩ := reduceNat_sound m hrn
+    obtain ⟨hi3, ha3⟩ := ihw hcont hw2 hb2 hLb2 hok2 ha2
+    exact ⟨by rw [hi3, hi2, hi1], ha3⟩
+  · obtain ⟨hi2, ha2, hw2, hb2, hLb2, hok2⟩ :=
+      unfoldDefinition_sound m hu hw1 hb1 hLb1 hok1 ha1
+    obtain ⟨hi3, ha3⟩ := ihw hcont hw2 hb2 hLb2 hok2 ha2
+    exact ⟨by rw [hi3, hi2, hi1], ha3⟩
+  · exact ⟨hi1, ha1⟩
 
 end Claims
 
