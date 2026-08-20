@@ -946,7 +946,9 @@ private def RuleChecked (env env₀ : Env) (f : Name → Name)
             ((List.range cnF).map fun k => Expr.bvar (cnF - 1 - k)))]),
        rbody.renameConsts f] ∧
     env.find? thmName = some (.thmInfo cvt tval) ∧
-    cvt.levelParams = cvA.levelParams
+    cvt.levelParams = cvA.levelParams ∧
+    (RecRule.rhs r).allLevelParamsDefined cvA.levelParams = true ∧
+    (RecRule.rhs r).constsResolve env₀ = true
 
 private theorem domsMatchAux_inv {g : Nat → Expr → Expr}
     {bs₁ bs₂ : List (Name × Expr × BinderMeta)} {o₁ o₂ n : Nat}
@@ -1006,18 +1008,18 @@ private theorem checkIotaRules_inv {env' envSelf : Env} {f : Name → Name}
     have hrfF : r.rhs.hasFvar = false := by
       revert hrf; cases r.rhs.hasFvar <;> simp
     try dsimp only at h
-    by_cases hrlp : r.rhs.allLevelParamsDefined cvA.levelParams = true
-    case neg => rw [if_neg hrlp] at h; exact nomatch h
-    rw [if_pos hrlp] at h
-    try dsimp only at h
-    by_cases hrres : r.rhs.constsResolve envSelf = true
-    case neg => rw [if_neg hrres] at h; exact nomatch h
-    rw [if_pos hrres] at h
-    try dsimp only at h
     cases hann : annotate envSelf 0 r.rhs with
     | error e => rw [hann] at h; exact nomatch h
     | ok rhsA =>
     rw [hann] at h
+    try dsimp only at h
+    by_cases hrlp : rhsA.allLevelParamsDefined cvA.levelParams = true
+    case neg => rw [if_neg hrlp] at h; exact nomatch h
+    rw [if_pos hrlp] at h
+    try dsimp only at h
+    by_cases hrres : rhsA.constsResolve envSelf = true
+    case neg => rw [if_neg hrres] at h; exact nomatch h
+    rw [if_pos hrres] at h
     try dsimp only at h
     revert h
     match hstR : rhsA.stripLams (nP + 1 + nm + cnF) with
@@ -1155,7 +1157,7 @@ private theorem checkIotaRules_inv {env' envSelf : Env} {f : Name → Name}
       rbody, tybody, cbody, sbody,
       (cvA.name.str "_model").str s!"iota_{j}", cvt, tval, ℓA,
       hfc, hnf, hann, hrfF, hrb, ?_, ?_, hstR, hstT, hstC, ?_,
-      ?_, ?_, ?_, ?_, hfthm, hlpt⟩
+      ?_, ?_, ?_, ?_, hfthm, hlpt, hrlp, hrres⟩
     · -- rhsA has no fvars
       exact not_hasFvar_of_fvarsBelow_zero
         ((annotate_WScoped _ hann (WScoped.of_not_hasFvar hrfF)).fvarsBelow)
@@ -1526,7 +1528,7 @@ private theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
         rbody, tybody, cbody, sbody, thmName, cvt, tval, ℓA,
         hctor, hnf, hann, hrawf, hrawb, hrhsf, hrhsb, hstripR,
         hR_strip, hC_strip, hS_strip, hdomsPre, hdomsF, hsdoms,
-        hsbody, hthm, hlpt⟩ := hrules r hr
+        hsbody, hthm, hlpt, -, -⟩ := hrules r hr
       have hncc : RecRule.ctor r ≠ cvA.name := by
         intro h
         have h2 := find?_none_ne hfind' _ (find?_mem hctor)

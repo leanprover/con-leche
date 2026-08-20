@@ -150,11 +150,11 @@ def checkIotaRules (env' envSelf : Env) (f : Name → Name)
       throw (.invalid s!"loose bound variable in rule of {cvName}")
     if r.rhs.hasFvar then
       throw (.invalid s!"free variable in rule of {cvName}")
-    unless r.rhs.allLevelParamsDefined lps do
-      throw (.invalid s!"undeclared universe parameter in rule of {cvName}")
-    unless r.rhs.constsResolve envSelf do
-      throw (.invalid s!"unknown constant in rule of {cvName}")
     let rhsA ← annotate envSelf 0 r.rhs
+    unless rhsA.allLevelParamsDefined lps do
+      throw (.invalid s!"undeclared universe parameter in rule of {cvName}")
+    unless rhsA.constsResolve envSelf do
+      throw (.invalid s!"unknown constant in rule of {cvName}")
     -- the rule's λ-domains pin down what the model's iota
     -- theorem quantifies over; they must match the recursor
     -- type's domains (prefix) and the constructor type's field
@@ -231,45 +231,41 @@ def checkIndDecl (env : Env) (block : List ConstantInfo) : CheckM Env := do
   let f : Name → Name := fun n =>
     if blockNames.contains n then n.str "_model" else n
   block.foldlM (fun env' ci => do
-    let cv := ci.toConstantVal
-    unless (env'.find? cv.name).isNone do
-      throw (.invalid s!"duplicate declaration {cv.name}")
-    if reservedBasisNames.contains cv.name then
-      throw (.invalid s!"reserved basis name {cv.name}")
-    unless Name.nodup cv.levelParams do
-      throw (.invalid s!"duplicate universe parameters in {cv.name}")
-    unless cv.type.looseBVarsBounded 0 do
-      throw (.invalid s!"loose bound variable in type of {cv.name}")
-    if cv.type.hasFvar then
-      throw (.invalid s!"unexpected free variable in type of {cv.name}")
-    unless cv.type.allLevelParamsDefined cv.levelParams do
-      throw (.invalid s!"undeclared universe parameter in {cv.name}")
-    unless cv.type.constsResolve env' do
-      throw (.invalid s!"unknown constant in type of {cv.name}")
-    let tyA ← annotate env' 0 cv.type
+    let cvA ← checkConstantVal env' ci.toConstantVal
+    -- a member may not itself be shaped like a model companion, so the
+    -- block renaming can never map onto a member
+    if cvA.name.isModelSuffix then
+      throw (.invalid s!"model-shaped member name {cvA.name}")
     -- the model counterpart
-    let some (.defnInfo cvm _mval) := env'.find? (cv.name.str "_model")
-      | throw (.notImplemented s!"missing model for {cv.name}")
-    unless cvm.levelParams = cv.levelParams do
-      throw (.notImplemented s!"model level parameters mismatch for {cv.name}")
-    unless (tyA.renameConsts f) == cvm.type do
-      throw (.notImplemented s!"model type mismatch for {cv.name}")
-    let cvA : ConstantVal := ⟨cv.name, cv.levelParams, tyA⟩
+    let some (.defnInfo cvm _mval) := env'.find? (cvA.name.str "_model")
+      | throw (.notImplemented s!"missing model for {cvA.name}")
+    unless cvm.levelParams = cvA.levelParams do
+      throw (.notImplemented s!"model level parameters mismatch for {cvA.name}")
+    unless (cvA.type.renameConsts f) == cvm.type do
+      throw (.notImplemented s!"model type mismatch for {cvA.name}")
     match ci with
     | .indInfo _ => pure (⟨.indInfo cvA :: env'.consts⟩ : Env)
     | .ctorInfo _ nP nF => pure ⟨.ctorInfo cvA nP nF :: env'.consts⟩
     | .recInfo _ nP nM nm ni rules => do
       unless ni = 0 do throw (.notImplemented "indexed recursor")
       unless nM = 1 do throw (.notImplemented "multiple motives")
-      -- the model's value must be a λ-telescope matching the rule
-      -- domains (its interpretation determines argument domains)
+      -- the recursor comes last: with every other member installed the
+      -- block renaming is exactly \"installed members and the recursor\"
+      unless blockNames.all (fun n =>
+          n == cvA.name || (env'.find? n).isSome) do
+        throw (.notImplemented "recursor before other block members")
+      -- iota statements are equations: pin the pinned equality former
+      unless env'.find? eqName = some eqA do
+        throw (.notImplemented "modeled recursor requires the pinned Eq basis")
+      unless (env'.find? (eqName.str "_model")).isNone do
+        throw (.invalid "shadowed Eq model")
       -- provisional self with *no* rules: rule right-hand sides may
       -- mention the recursor, but nothing during their annotation may
       -- depend on its (yet unchecked) rules
       let envSelf : Env := ⟨.recInfo cvA nP nM nm ni [] :: env'.consts⟩
-      let rules' ← checkIotaRules env' envSelf f cv.name cv.levelParams tyA nP nM nm 0 rules
+      let rules' ← checkIotaRules env' envSelf f cvA.name cvA.levelParams cvA.type nP nM nm 0 rules
       pure ⟨.recInfo cvA nP nM nm ni rules' :: env'.consts⟩
-    | _ => throw (.invalid s!"non-inductive member {cv.name} in block")
+    | _ => throw (.invalid s!"non-inductive member {cvA.name} in block")
     ) env
 
 /-- Check a list of declarations in order, starting from the empty

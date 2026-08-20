@@ -153,6 +153,11 @@ def Name.nodup : List Name → Bool
   | [] => true
   | n :: ns => !ns.contains n && Name.nodup ns
 
+/-- Is this a `_model`-suffixed name (the shape of model companions)? -/
+def Name.isModelSuffix : Name → Bool
+  | .str _ "_model" => true
+  | _ => false
+
 /-- Substitute level parameters throughout an expression (sorts and
 constant level arguments). -/
 def Expr.instantiateLevelParams (ks : List Name) (us : List Level) : Expr → Expr
