@@ -54,7 +54,7 @@ def main (args : List String) : IO UInt32 := do
   match args with
   | [file] =>
     let contents ← preprocess file (← IO.FS.readFile file)
-    match Frontend.parseExport contents with
+    match Frontend.parseExport contents (modeled := true) with
     | .error (.unsupported what) =>
       IO.eprintln s!"setlec: declined: {what}"
       return 2
