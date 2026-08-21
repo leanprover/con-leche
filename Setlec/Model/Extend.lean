@@ -557,7 +557,17 @@ theorem extend_model {env : Env} (m : EnvModel V env)
       cv2 = ⟨name, lps, type⟩ ∧ value2 = value)
     (hc₀nb : c₀.isBasis = false)
     (hc₀nres : reservedBasisNames.contains name = false)
-    (hc₀pshape : name.isProjFnShape = false) :
+    (hc₀pshape : name.isProjFnShape = false)
+    (hnatop : natOpNames.contains name = true →
+      (∃ cv₀ v₀, c₀ = ConstantInfo.defnInfo cv₀ v₀) →
+      natOpGuard (⟨c₀ :: env.consts⟩ : Env) name = true ∧
+      ∀ eq ∈ natOpEquations 0 name, ∀ (ψ : Name → Nat) (x y : V),
+        (∀ T, interpExpr V m.val env ψ 2 (rho0 V) (.const natName []) =
+          some T → x ∈ˢ T ∧ y ∈ˢ T) →
+        interpExpr V m.val env ψ 2 (updV V (updV V (rho0 V) 0 x) 1 y)
+          (Expr.substConst0 name value eq.1) =
+        interpExpr V m.val env ψ 2 (updV V (updV V (rho0 V) 0 x) 1 y)
+          (Expr.substConst0 name value eq.2)) :
     Nonempty (EnvModel V ⟨c₀ :: env.consts⟩) := by
   have hfresh := find?_none_ne hfind'
   obtain ⟨val', hval'⟩ : ∃ val' : ConstVal V, val' = fun n ψ =>
@@ -593,7 +603,7 @@ theorem extend_model {env : Env} (m : EnvModel V env)
     · intro cv nP nM nm ni rules heq
       rw [heq] at hc₀nb
       simp [ConstantInfo.isBasis] at hc₀nb
-  refine ⟨⟨val', hwf', ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩⟩
+  refine ⟨⟨val', hwf', ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩⟩
   · -- val_params
     intro n ci hf ψ₁ ψ₂ hψ
     rw [Env.find?_cons] at hf
@@ -800,6 +810,78 @@ theorem extend_model {env : Env} (m : EnvModel V env)
     · intro cv caps heq
       rw [heq] at hc₀nb
       simp [ConstantInfo.isBasis] at hc₀nb
+  · -- nat_ops: preservation, plus the head clause when the new
+    -- definition is itself a fast-path operation (`hnatop`'s
+    -- certification facts through the head-substitution transport)
+    have hagreeN : ∀ n, n ≠ c₀.name → ∀ ψ' : Name → Nat,
+        val' n ψ' = m.val n ψ' := by
+      intro n hne ψ'
+      have hne' : n ≠ name := by rw [← hc₀name]; exact hne
+      simp [hval', hne']
+    refine NatOpsOk.cons m.nat_ops hc₀fresh hagreeN ?_
+    intro cv₀ v₀ heq hcn
+    rw [hc₀name] at hcn
+    have hcontains : natOpNames.contains name = true :=
+      List.contains_iff_mem.mpr hcn
+    obtain ⟨hguard2, heqs⟩ := hnatop hcontains ⟨cv₀, v₀, heq⟩
+    obtain ⟨cvS, vS, hfS, hlpS⟩ := natOpGuard_self_defn hcn hguard2
+    have hfhead : (⟨c₀ :: env.consts⟩ : Env).find? name = some c₀ := by
+      rw [Env.find?_cons, if_pos hc₀name]
+    rw [hfhead] at hfS
+    have hc₀eq : c₀ = ConstantInfo.defnInfo cvS vS := Option.some.inj hfS
+    have hlp₀ : c₀.toConstantVal.levelParams = [] := by
+      rw [hc₀eq]
+      exact hlpS
+    have hnepins := natOpNames_ne_pins hcn
+    have hfNat : (⟨c₀ :: env.consts⟩ : Env).find? natName =
+        env.find? natName := by
+      rw [Env.find?_cons, if_neg (fun h => hnepins.1 (hc₀name.symm.trans h))]
+    have hfZero : (⟨c₀ :: env.consts⟩ : Env).find? natZeroName =
+        env.find? natZeroName := by
+      rw [Env.find?_cons,
+        if_neg (fun h => hnepins.2.1 (hc₀name.symm.trans h))]
+    have hfSucc : (⟨c₀ :: env.consts⟩ : Env).find? natSuccName =
+        env.find? natSuccName := by
+      rw [Env.find?_cons,
+        if_neg (fun h => hnepins.2.2.1 (hc₀name.symm.trans h))]
+    have hs2 : natLitSupported (⟨c₀ :: env.consts⟩ : Env) = true :=
+      (natOpGuard_inv hguard2).1
+    have hsenv : natLitSupported env = true := by
+      rw [← natLitSupported_congr hfNat hfZero hfSucc]
+      exact hs2
+    constructor
+    · rw [hc₀name]
+      exact hguard2
+    · rw [hc₀name]
+      intro eq heqm ψ x y hxy
+      obtain ⟨hsh1, hsh2⟩ := natOpEquations_shape hcn eq heqm
+      obtain ⟨v, T, hv, hT, hmem⟩ := hkey ψ
+      have hhead : interpExpr V val' (⟨c₀ :: env.consts⟩ : Env) ψ 2
+          (updV V (updV V (rho0 V) 0 x) 1 y) (.const c₀.name []) =
+          interpExpr V m.val env ψ 2 (updV V (updV V (rho0 V) 0 x) 1 y)
+            value := by
+        rw [hc₀name, interp_const_mono hfhead hlp₀,
+          interp_closed_invariant (cval := m.val) hvf 2
+            (updV V (updV V (rho0 V) 0 x) 1 y)]
+        unfold interpClosed
+        rw [show interpExpr V m.val env ψ 0 (rho0 V) value = some v from hv]
+        simp [hval', hv]
+      have hprem : ∀ T', interpExpr V m.val env ψ 2 (rho0 V)
+          (.const natName []) = some T' → x ∈ˢ T' ∧ y ∈ˢ T' := by
+        intro T' hT'
+        refine hxy T' ?_
+        rw [interpExpr_const_nat hs2]
+        rw [interpExpr_const_nat hsenv] at hT'
+        rw [← hT']
+        have hvals : val' natName ψ = m.val natName ψ := by
+          have : natName ≠ name := fun h => hnepins.1 h.symm
+          simp [hval', this]
+        rw [hvals]
+      have hgoal := heqs eq heqm ψ x y hprem
+      rw [interp_substConst0 hc₀fresh hlp₀ hagreeN hhead eq.1 hsh1,
+        interp_substConst0 hc₀fresh hlp₀ hagreeN hhead eq.2 hsh2,
+        hc₀name]
+      exact hgoal
 
 /-- Extend a model by one pinned basis constant with a hand-supplied
 value.  The membership and annotation facts are stated over the *old*
@@ -905,7 +987,7 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
     refine AnnotOk.mono hfind' e 0 (rho0 V) hres ?_
     exact AnnotOk.cval_ext (fun n hn ψ' => (hagree n hn ψ').symm) e 0 (rho0 V) ha
   have hwf' : EnvWF ⟨ci :: env.consts⟩ := EnvWF.cons m.wf hwf
-  refine ⟨⟨val', hwf', ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
+  refine ⟨⟨val', hwf', ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
   · -- val_params
     intro n ci2 hf ψ₁ ψ₂ hψ
     rw [Env.find?_cons] at hf
@@ -1208,6 +1290,12 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
       rw [hveq] at hx hy
       exact hunitL cv caps heq hcapu hres φ'' us ps x y d₁ ρ₁ d₂ ρ₂
         rest hlen hx hy hfit'
+  · -- nat_ops: the new constant is never a fast-path definition
+    refine NatOpsOk.cons m.nat_ops hfind' ?_ ?_
+    · intro n hne ψ'
+      simp [hval', hne]
+    · intro cv₀ v₀' heq _
+      exact absurd heq (hnotdefn cv₀ v₀')
   · -- the new constant's value
     intro ψ
     simp [hval']
@@ -2343,7 +2431,7 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
       ((⟨.recInfo cvA nP 0 0 0 [] :: env.consts⟩ : Env).find? n).map
         (fun ci => ci.toConstantVal.levelParams) :=
     fun n => (henv01 n).symm
-  refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
+  refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
     fun ψ => hval₀ ψ, fun n ψ hne => hpres₀ n ψ hne⟩
   · -- wf
     intro c hc
@@ -2770,6 +2858,8 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
         intro φ'' us ps x y dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hy hfit
         exact hlaw φ'' us ps x y dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hy
           (TeleFit.env_levelext henv10 natLitSupported_cons_recRules hfit)
+  · -- nat_ops: lookups only differ in the head's rule list
+    exact NatOpsOk.cons_recRules m₀.nat_ops
 
 /-- Invert a successful `checkIndMember` run. -/
 theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
@@ -3055,7 +3145,7 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
       ((⟨.recInfo cvA nP 1 nm ni [] :: env.consts⟩ : Env).find? n).map
         (fun ci => ci.toConstantVal.levelParams) :=
     fun n => (henv01 n).symm
-  refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
+  refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
     fun ψ => hval₀ ψ, fun n ψ hne => hpres₀ n ψ hne⟩
   · -- wf
     intro c hc
@@ -3476,6 +3566,8 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
         intro φ'' us ps x y dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hy hfit
         exact hlaw φ'' us ps x y dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hy
           (TeleFit.env_levelext henv10 natLitSupported_cons_recRules hfit)
+  · -- nat_ops: lookups only differ in the head's rule list
+    exact NatOpsOk.cons_recRules m₀.nat_ops
 
 /-- No `_model`-companion name equals a name that is not itself
 `_model`-shaped. -/

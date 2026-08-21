@@ -606,19 +606,27 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
     -- by definitional equality here, once, so the literal fast path's
     -- reduction-time certification never fails on an accepted
     -- environment.  A nonstandard definition under one of these names
-    -- is positively unsupported.
+    -- is positively unsupported.  The equations are certified in the
+    -- *pre-insertion* environment with the operation's self-references
+    -- replaced by its stored value (see `Setlec/Kernel/Core.lean`:
+    -- certifying after insertion would let the operation's own fast
+    -- path discharge its all-literal equations vacuously), and the
+    -- operation's and its dependencies' stored types are pinned.
     if natOpNames.contains cv.name then
-      unless cv.levelParams.isEmpty do
+      unless natOpGuard env2 cv.name &&
+          (natOpDeps cv.name).all (natOpStoredOk env2) do
         throw (.notImplemented
-          s!"level-polymorphic structural Nat operation ({cv.name})")
-      unless (natOpDeps cv.name).all
-          (fun n => n = cv.name || (env.find? n).isSome) do
-        throw (.notImplemented
-          s!"structural Nat operation without its dependencies ({cv.name})")
-      let ok ← certifyNatEqs ops env2 (natOpEquations 0 cv.name)
-      unless ok do
-        throw (.notImplemented
-          s!"nonstandard structural Nat operation ({cv.name})")
+          s!"nonstandard structural Nat operation environment ({cv.name})")
+      match env2.find? cv.name with
+      | some (.defnInfo _ value') =>
+        let ok ← certifyNatEqs ops env
+          ((natOpEquations 0 cv.name).map fun eq =>
+            (Expr.substConst0 cv.name value' eq.1,
+             Expr.substConst0 cv.name value' eq.2))
+        unless ok do
+          throw (.notImplemented
+            s!"nonstandard structural Nat operation ({cv.name})")
+      | _ => throw (.internal s!"structural Nat operation not stored ({cv.name})")
     pure env2
   | .thmDecl cv value =>
     let cv ← checkConstantVal ops env cv

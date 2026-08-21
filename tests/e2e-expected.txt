@@ -1,6 +1,10 @@
 0 indexed_vec.ndjson
 0 std_axioms.ndjson
 0 prop_proj.ndjson
+# nat_ops.ndjson: all seven structural-Nat fast-path operations
+# (pred/add/sub/mul/pow/beq/ble) exercised on 2^64-scale literals; the
+# certified install path must keep accepting the standard definitions.
+0 nat_ops.ndjson
 # prop_proj_raw.ndjson (= arena tutorial 087, only reachable from raw
 # kernel declarations, not surface Lean): a *Prop* structure-like with
 # data fields (PUnit.{v} at v=1) among its Prop fields.  For this

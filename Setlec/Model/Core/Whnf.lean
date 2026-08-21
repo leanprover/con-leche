@@ -1,4 +1,5 @@
 import Setlec.Model.Core.Iota
+import Setlec.Model.NatOps
 
 /-!
 # Checker-core soundness: Whnf
@@ -419,61 +420,289 @@ theorem whnfCore_claims (m : EnvModel V env)
           simp
 
 
-/-- Full inversion of a successful literal-acceleration step. -/
+/-- Full inversion of a successful literal-acceleration step:
+`Nat.succ` folding, the unary `pred` fast path, or a binary fast
+path. -/
 theorem reduceNat_full_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
     (h : reduceNatP env fuel d e = .ok (some e₂)) :
-    ∃ a n, e = .app (.const natSuccName []) a ∧
+    (∃ a n, e = .app (.const natSuccName []) a ∧
       natLitSupported env = true ∧ rawNatLit? a = some n ∧
-      e₂ = .lit (.natVal (n + 1)) := by
+      e₂ = .lit (.natVal (n + 1))) ∨
+    (∃ a a' n, e = .app (.const natPredName []) a ∧
+      natOpGuard env natPredName = true ∧
+      whnf env fuel d a = .ok a' ∧ rawNatLit? a' = some n ∧
+      e₂ = .lit (.natVal (n - 1))) ∨
+    (∃ c a b a' b' n₁ n₂, e = .app (.app (.const c []) a) b ∧
+      (c = natAddName ∨ c = natSubName ∨ c = natMulName ∨
+       c = natPowName ∨ c = natBeqName ∨ c = natBleName) ∧
+      natOpGuard env c = true ∧
+      whnf env fuel d a = .ok a' ∧ rawNatLit? a' = some n₁ ∧
+      whnf env fuel d b = .ok b' ∧ rawNatLit? b' = some n₂ ∧
+      natOpResult c n₁ n₂ = some e₂) := by
   dsimp only [reduceNatP] at h
   revert h
   match e with
   | .app (.const c []) a => ?_
+  | .app (.app (.const c []) a) b => ?_
   | .bvar _ | .fvar _ _ _ | .sort _ | .lam _ _ _ _ | .forallE _ _ _ _
   | .letE _ _ _ _ | .lit _ | .proj _ _ _ | .const _ _ =>
     intro h; simp [reduceNat, pure, Except.pure] at h
   | .app (.bvar _) _ | .app (.fvar _ _ _) _ | .app (.sort _) _
-  | .app (.app _ _) _ | .app (.lam _ _ _ _) _ | .app (.forallE _ _ _ _) _
+  | .app (.lam _ _ _ _) _ | .app (.forallE _ _ _ _) _
   | .app (.letE _ _ _ _) _ | .app (.lit _) _ | .app (.proj _ _ _) _ =>
     intro h; simp [reduceNat, pure, Except.pure] at h
   | .app (.const c (_ :: _)) _ =>
     intro h; simp [reduceNat, pure, Except.pure] at h
-  intro h
-  simp only [reduceNat] at h
-  revert h
-  split
-  case isTrue hg =>
-    obtain ⟨rfl, hs⟩ := hg
-    cases hraw : rawNatLit? a with
-    | none => intro h; simp [hraw, pure, Except.pure] at h
-    | some n =>
+  | .app (.app (.bvar _) _) _ | .app (.app (.fvar _ _ _) _) _
+  | .app (.app (.sort _) _) _ | .app (.app (.app _ _) _) _
+  | .app (.app (.lam _ _ _ _) _) _ | .app (.app (.forallE _ _ _ _) _) _
+  | .app (.app (.letE _ _ _ _) _) _ | .app (.app (.lit _) _) _
+  | .app (.app (.proj _ _ _) _) _ =>
+    intro h; simp [reduceNat, pure, Except.pure] at h
+  | .app (.app (.const c (_ :: _)) _) _ =>
+    intro h; simp [reduceNat, pure, Except.pure] at h
+  · -- unary heads: `succ` folding or the `pred` fast path
+    intro h
+    simp only [reduceNat, Bind.bind, Except.bind, whnf_def] at h
+    revert h
+    split
+    case isTrue hg =>
+      obtain ⟨rfl, hs⟩ := hg
+      cases hraw : rawNatLit? a with
+      | none => intro h; simp [hraw, pure, Except.pure] at h
+      | some n =>
+        intro h
+        simp only [hraw, pure, Except.pure, Except.ok.injEq,
+          Option.some.injEq] at h
+        exact Or.inl ⟨a, n, rfl, hs, hraw, h.symm⟩
+    case isFalse =>
+      split
+      case isTrue hg =>
+        obtain ⟨rfl, hguard⟩ := hg
+        cases hwa : whnf env fuel d a with
+        | error err => intro h; exact nomatch h
+        | ok a' =>
+        intro h
+        dsimp only at h
+        revert h
+        match hraw : rawNatLit? a' with
+        | some n => ?_
+        | none => intro h; simp [pure, Except.pure] at h
+        intro h
+        dsimp only at h
+        have hres : natOpResult natPredName n 0 =
+            some (.lit (.natVal (n - 1))) := by
+          simp [natOpResult]
+        rw [hres] at h
+        simp only [pure, Except.pure, Except.ok.injEq,
+          Option.some.injEq] at h
+        exact Or.inr (Or.inl ⟨a, a', n, rfl, hguard, hwa, hraw, h.symm⟩)
+      case isFalse => intro h; simp [pure, Except.pure] at h
+  · -- binary fast paths
+    intro h
+    simp only [reduceNat, Bind.bind, Except.bind, whnf_def] at h
+    revert h
+    split
+    case isTrue hg =>
+      obtain ⟨hor, hguard⟩ := hg
+      cases hwa : whnf env fuel d a with
+      | error err => intro h; exact nomatch h
+      | ok a' =>
       intro h
-      simp only [hraw, pure, Except.pure, Except.ok.injEq,
-        Option.some.injEq] at h
-      exact ⟨a, n, rfl, hs, hraw, h.symm⟩
-  case isFalse =>
-    intro h; simp [pure, Except.pure] at h
+      dsimp only at h
+      revert h
+      cases hwb : whnf env fuel d b with
+      | error err => intro h; exact nomatch h
+      | ok b' =>
+      intro h
+      dsimp only at h
+      revert h
+      match hraw1 : rawNatLit? a', hraw2 : rawNatLit? b' with
+      | some n₁, some n₂ => ?_
+      | some _, none => intro h; simp [pure, Except.pure] at h
+      | none, some _ => intro h; simp [pure, Except.pure] at h
+      | none, none => intro h; simp [pure, Except.pure] at h
+      intro h
+      dsimp only at h
+      cases hres : natOpResult c n₁ n₂ with
+      | none => rw [hres] at h; simp [pure, Except.pure] at h
+      | some r =>
+        rw [hres] at h
+        simp only [pure, Except.pure, Except.ok.injEq,
+          Option.some.injEq] at h
+        exact Or.inr (Or.inr ⟨c, a, b, a', b', n₁, n₂, rfl, hor, hguard,
+          hwa, hraw1, hwb, hraw2, h ▸ hres⟩)
+    case isFalse => intro h; simp [pure, Except.pure] at h
 
-/-- Soundness of a literal-acceleration step: the packed literal
-interprets to the application's value, and every invariant is
-trivially re-established (the result is a closed literal). -/
+/-- Soundness of a literal-acceleration step: the reduct (a literal or
+a `Bool`-constant) interprets to the redex's value — via the whnf
+claims on the arguments and the meta-level literal inductions over the
+stored recurrences (`EnvModel.nat_ops`) — and every invariant is
+trivially re-established (the result is a closed atom). -/
 theorem reduceNat_sound (m : EnvModel V env) {fuel d : Nat} {e e₂ : Expr}
-    {ρ : Nat → V}
-    (h : reduceNatP env fuel d e = .ok (some e₂)) :
+    {ρ : Nat → V} (ihw : WhnfClaims m φ fuel)
+    (h : reduceNatP env fuel d e = .ok (some e₂))
+    (hw : WScoped d e) (hb : e.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded e) (hok : FvarsOk V m.val env φ d ρ e)
+    (ha : AnnotOk V m.val env φ d ρ e) :
     interpExpr V m.val env φ d ρ e₂ = interpExpr V m.val env φ d ρ e ∧
     AnnotOk V m.val env φ d ρ e₂ ∧ WScoped d e₂ ∧
     e₂.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded e₂ ∧
     FvarsOk V m.val env φ d ρ e₂ := by
-  obtain ⟨a, n, rfl, hs, hraw, rfl⟩ := reduceNat_full_inv h
-  refine ⟨?_, by simp [AnnotOk], by simp [WScoped],
-    by simp [Expr.looseBVarsBounded],
-    (fun l hl => by simp [Expr.fvarLeaves] at hl),
-    (fun l hl => by simp [Expr.fvarLeaves] at hl)⟩
-  rw [interpExpr_lit hs]
-  obtain ⟨cv, caps, cv0, i0, j0, cv1, i1, j1, hnn, hzz, hss, hl1, hl2, hl3,
-    -⟩ := natLitSupported_inv hs
-  simp [interpExpr, hss, ConstantInfo.toConstantVal, hl3, Level.substFn_nil,
-    interpExpr_rawNatLit hs hraw, natLitVal]
+  rcases reduceNat_full_inv h with
+    ⟨a, n, rfl, hs, hraw, rfl⟩ |
+    ⟨a, a', n, rfl, hguard, hwa, hraw, rfl⟩ |
+    ⟨c, a, b, a', b', n₁, n₂, rfl, hor, hguard, hwa, hraw1, hwb, hraw2,
+      hres⟩
+  · -- `succ` folding
+    refine ⟨?_, by simp [AnnotOk], by simp [WScoped],
+      by simp [Expr.looseBVarsBounded],
+      (fun l hl => by simp [Expr.fvarLeaves] at hl),
+      (fun l hl => by simp [Expr.fvarLeaves] at hl)⟩
+    rw [interpExpr_lit hs]
+    obtain ⟨cv, caps, cv0, i0, j0, cv1, i1, j1, hnn, hzz, hss, hl1, hl2, hl3,
+      -⟩ := natLitSupported_inv hs
+    simp [interpExpr, hss, ConstantInfo.toConstantVal, hl3, Level.substFn_nil,
+      interpExpr_rawNatLit hs hraw, natLitVal]
+  · -- `pred`
+    have hs := (natOpGuard_inv hguard).1
+    obtain ⟨cvp, vp, hfp, hlpp⟩ := natOpGuard_self_defn (by decide) hguard
+    simp only [WScoped] at hw
+    simp only [looseBVarsBounded, Bool.and_eq_true] at hb
+    have hLba : Expr.LeavesBounded a := fun l hl =>
+      hLb l (by simp [fvarLeaves, hl])
+    have hoka := (FvarsOk.of_app hok).2
+    simp only [AnnotOk] at ha
+    obtain ⟨-, haa, -⟩ := ha
+    obtain ⟨hia', -⟩ := ihw hwa hw.2 hb.2 hLba hoka haa
+    have hia : interpExpr V m.val env φ d ρ a =
+        some (natLitVal V (m.val natZeroName φ) (m.val natSuccName φ) n) :=
+      hia'.symm.trans (interpExpr_rawNatLit hs hraw)
+    refine ⟨?_, by simp [AnnotOk], by simp [WScoped],
+      by simp [Expr.looseBVarsBounded],
+      (fun l hl => by simp [Expr.fvarLeaves] at hl),
+      (fun l hl => by simp [Expr.fvarLeaves] at hl)⟩
+    rw [interpExpr_lit hs,
+      interp_app1 (interp_const_mono hfp
+        (show (ConstantInfo.defnInfo cvp vp).toConstantVal.levelParams = []
+          from hlpp)) hia,
+      natOpVal_pred m hfp φ n]
+  · -- binary operations
+    have hc : c ∈ natOpNames := by
+      rcases hor with rfl | rfl | rfl | rfl | rfl | rfl <;> decide
+    have hs := (natOpGuard_inv hguard).1
+    obtain ⟨cvc, vc, hfc, hlpc⟩ := natOpGuard_self_defn hc hguard
+    simp only [WScoped] at hw
+    simp only [looseBVarsBounded, Bool.and_eq_true] at hb
+    have hLba : Expr.LeavesBounded a := fun l hl =>
+      hLb l (by simp [fvarLeaves, hl])
+    have hLbb : Expr.LeavesBounded b := fun l hl =>
+      hLb l (by simp [fvarLeaves, hl])
+    obtain ⟨hokf, hokb⟩ := FvarsOk.of_app hok
+    have hoka := (FvarsOk.of_app hokf).2
+    simp only [AnnotOk] at ha
+    obtain ⟨ha1, hab, -⟩ := ha
+    obtain ⟨-, haa, -⟩ := ha1
+    obtain ⟨hia', -⟩ := ihw hwa hw.1.2 hb.1.2 hLba hoka haa
+    obtain ⟨hib', -⟩ := ihw hwb hw.2 hb.2 hLbb hokb hab
+    have hia : interpExpr V m.val env φ d ρ a =
+        some (natLitVal V (m.val natZeroName φ) (m.val natSuccName φ) n₁) :=
+      hia'.symm.trans (interpExpr_rawNatLit hs hraw1)
+    have hib : interpExpr V m.val env φ d ρ b =
+        some (natLitVal V (m.val natZeroName φ) (m.val natSuccName φ) n₂) :=
+      hib'.symm.trans (interpExpr_rawNatLit hs hraw2)
+    have hie : interpExpr V m.val env φ d ρ (.app (.app (.const c []) a) b) =
+        some (app (app (m.val c φ)
+          (natLitVal V (m.val natZeroName φ) (m.val natSuccName φ) n₁))
+          (natLitVal V (m.val natZeroName φ) (m.val natSuccName φ) n₂)) :=
+      interp_app1 (interp_app1 (interp_const_mono hfc
+        (show (ConstantInfo.defnInfo cvc vc).toConstantVal.levelParams = []
+          from hlpc)) hia) hib
+    rcases hor with rfl | rfl | rfl | rfl | rfl | rfl
+    · -- add
+      have he₂ : e₂ = .lit (.natVal (n₁ + n₂)) := by
+        rw [show natOpResult natAddName n₁ n₂ =
+            some (.lit (.natVal (n₁ + n₂))) by simp +decide [natOpResult]]
+          at hres
+        exact (Option.some.inj hres).symm
+      subst he₂
+      refine ⟨?_, by simp [AnnotOk], by simp [WScoped],
+        by simp [Expr.looseBVarsBounded],
+        (fun l hl => by simp [Expr.fvarLeaves] at hl),
+        (fun l hl => by simp [Expr.fvarLeaves] at hl)⟩
+      rw [interpExpr_lit hs, hie, natOpVal_add m hfc φ n₁ n₂]
+    · -- sub
+      have he₂ : e₂ = .lit (.natVal (n₁ - n₂)) := by
+        rw [show natOpResult natSubName n₁ n₂ =
+            some (.lit (.natVal (n₁ - n₂))) by simp +decide [natOpResult]]
+          at hres
+        exact (Option.some.inj hres).symm
+      subst he₂
+      refine ⟨?_, by simp [AnnotOk], by simp [WScoped],
+        by simp [Expr.looseBVarsBounded],
+        (fun l hl => by simp [Expr.fvarLeaves] at hl),
+        (fun l hl => by simp [Expr.fvarLeaves] at hl)⟩
+      rw [interpExpr_lit hs, hie, natOpVal_sub m hfc φ n₁ n₂]
+    · -- mul
+      have he₂ : e₂ = .lit (.natVal (n₁ * n₂)) := by
+        rw [show natOpResult natMulName n₁ n₂ =
+            some (.lit (.natVal (n₁ * n₂))) by simp +decide [natOpResult]]
+          at hres
+        exact (Option.some.inj hres).symm
+      subst he₂
+      refine ⟨?_, by simp [AnnotOk], by simp [WScoped],
+        by simp [Expr.looseBVarsBounded],
+        (fun l hl => by simp [Expr.fvarLeaves] at hl),
+        (fun l hl => by simp [Expr.fvarLeaves] at hl)⟩
+      rw [interpExpr_lit hs, hie, natOpVal_mul m hfc φ n₁ n₂]
+    · -- pow
+      have he₂ : e₂ = .lit (.natVal (n₁ ^ n₂)) := by
+        rw [show natOpResult natPowName n₁ n₂ =
+            some (.lit (.natVal (n₁ ^ n₂))) by simp +decide [natOpResult]]
+          at hres
+        exact (Option.some.inj hres).symm
+      subst he₂
+      refine ⟨?_, by simp [AnnotOk], by simp [WScoped],
+        by simp [Expr.looseBVarsBounded],
+        (fun l hl => by simp [Expr.fvarLeaves] at hl),
+        (fun l hl => by simp [Expr.fvarLeaves] at hl)⟩
+      rw [interpExpr_lit hs, hie, natOpVal_pow m hfc φ n₁ n₂]
+    · -- beq
+      obtain ⟨⟨ciT, hT, hlpT⟩, ⟨ciF, hF, hlpF⟩⟩ :=
+        (natOpGuard_inv hguard).2.2 (Or.inl rfl)
+      have he₂ : e₂ = .const (if n₁ = n₂ then boolTrueName else boolFalseName)
+          [] := by
+        rw [show natOpResult natBeqName n₁ n₂ =
+            some (.const (if n₁ = n₂ then boolTrueName else boolFalseName) [])
+          by simp +decide [natOpResult]] at hres
+        exact (Option.some.inj hres).symm
+      subst he₂
+      refine ⟨?_, by split <;> simp [AnnotOk], by split <;> simp [WScoped],
+        by split <;> simp [Expr.looseBVarsBounded],
+        (fun l hl => by split at hl <;> simp [Expr.fvarLeaves] at hl),
+        (fun l hl => by split at hl <;> simp [Expr.fvarLeaves] at hl)⟩
+      rw [hie, natOpVal_beq m hfc φ n₁ n₂]
+      by_cases hn : n₁ = n₂
+      · rw [if_pos hn, if_pos hn, interp_const_mono hT hlpT]
+      · rw [if_neg hn, if_neg hn, interp_const_mono hF hlpF]
+    · -- ble
+      obtain ⟨⟨ciT, hT, hlpT⟩, ⟨ciF, hF, hlpF⟩⟩ :=
+        (natOpGuard_inv hguard).2.2 (Or.inr rfl)
+      have he₂ : e₂ = .const (if n₁ ≤ n₂ then boolTrueName else boolFalseName)
+          [] := by
+        rw [show natOpResult natBleName n₁ n₂ =
+            some (.const (if n₁ ≤ n₂ then boolTrueName else boolFalseName) [])
+          by simp +decide [natOpResult]] at hres
+        exact (Option.some.inj hres).symm
+      subst he₂
+      refine ⟨?_, by split <;> simp [AnnotOk], by split <;> simp [WScoped],
+        by split <;> simp [Expr.looseBVarsBounded],
+        (fun l hl => by split at hl <;> simp [Expr.fvarLeaves] at hl),
+        (fun l hl => by split at hl <;> simp [Expr.fvarLeaves] at hl)⟩
+      rw [hie, natOpVal_ble m hfc φ n₁ n₂]
+      by_cases hn : n₁ ≤ n₂
+      · rw [if_pos hn, if_pos hn, interp_const_mono hT hlpT]
+      · rw [if_neg hn, if_neg hn, interp_const_mono hF hlpF]
 
 /-- Inversion of a one-step delta unfolding. -/
 theorem unfoldDefinition_inv {env : Env} {e e₂ : Expr}
@@ -606,7 +835,8 @@ theorem whnfLoop_claims (m : EnvModel V env)
     hLb l (whnfCore_fvarLeaves m.wf fuel hwc l hl)
   have hok1 := whnfCore_FvarsOk m.wf fuel hwc hok
   rcases hcase with ⟨e₂, hrn, hcont⟩ | ⟨-, e₂, hu, hcont⟩ | ⟨-, -, rfl⟩
-  · obtain ⟨hi2, ha2, hw2, hb2, hLb2, hok2⟩ := reduceNat_sound m hrn
+  · obtain ⟨hi2, ha2, hw2, hb2, hLb2, hok2⟩ :=
+      reduceNat_sound m ihw hrn hw1 hb1 hLb1 hok1 ha1
     obtain ⟨hi3, ha3⟩ := ihw hcont hw2 hb2 hLb2 hok2 ha2
     exact ⟨by rw [hi3, hi2, hi1], ha3⟩
   · obtain ⟨hi2, ha2, hw2, hb2, hLb2, hok2⟩ :=

@@ -329,6 +329,56 @@ presence), and the env-relating lemmas (`interp_env_ext`,
 explicitly (`natLitSupported_cons_recRules` for the recursor-rules
 swap the install proofs perform).
 
+### Certified structural-Nat fast path (2026-08-21)
+
+`reduceNat` computes `pred/add/sub/mul/pow/beq/ble` on literal
+arguments (`natOpResult`), guarded by `natOpGuard`: `natLitSupported`,
+every dependency (`natOpDeps`, always including the op itself) stored
+as a level-monomorphic `defnInfo`, and for `beq`/`ble` the `Bool`
+constructors stored monomorphically.  *Presence in the store is the
+certificate*: `checkDecl`'s defn arm certifies each op at install and
+positively declines nonstandard definitions under these names, so the
+reduction needs no runtime re-check (which would livelock anyway).
+
+The certification runs in the **pre-insertion** environment on the
+recurrence equations (`natOpEquations`) with the op's self-references
+replaced by the stored annotated value (`Expr.substConst0`).  Two
+reasons, both load-bearing:
+
+* **Soundness.**  Certifying post-insertion (const-headed equations in
+  the extended env) lets the op's own just-enabled fast path discharge
+  its all-literal-argument equations vacuously (`pred zero`,
+  `beq zero zero`): a definition standard except at `beq 0 0` would be
+  accepted, after which `beq 0 0 ≡ true` (fast path) and
+  `B 0 0 ≡ false` (delta on the literal body `B`) are both certifiable
+  `rfl`s — a checkable proof of `False`.
+* **Non-circularity of the model.**  The certification's soundness is
+  discharged with the *previous* environment's model
+  (`isDefEqCore_sound`); dep fast paths that fire during the run are
+  covered by the previous `nat_ops` invariant.  Post-insertion
+  certification would need the extended model that is being built.
+
+The install additionally pins the op's and its deps' stored types to
+`Nat → … → Nat`/`Bool` (`natOpTyPinned`/`natOpStoredOk`; codomain-sort
+annotations `≈ 1`, `Bool` itself monomorphic at `Sort 1`): the model
+reads the operations' function-space memberships off these shapes
+(`mem_type` + `natOpTyPinned_interp`), which is what makes `AnnotOk`
+of the certification equations derivable.
+
+Model side: `EnvModel.nat_ops : NatOpsOk` states that every stored op
+satisfies `natOpGuard` and its recurrence equations semantically (at
+every level assignment, over members of the `Nat` value).  Established
+in the defn install case (`natop_eqs_sound` + `interp_substConst0`
+converting value-headed old-env equations to const-headed new-env
+ones); preserved by `NatOpsOk.cons` (guard names are stored, hence
+fresh-distinct) and `NatOpsOk.cons_recRules` (the recursor-rule-patch
+constructions).  Consumed by `reduceNat_sound`
+(`Setlec/Model/Core/Whnf.lean`): the whnf claims give the arguments'
+literal values, `Setlec/Model/NatOps.lean`'s meta-level inductions
+(`natOpVal_*`) compute the op on `natLitVal` values from the
+recurrences.  WF-recursive ops (`div`, `mod`, `gcd`) and string
+literals remain deferred.
+
 ## Kernel design review triage (2026-08-20)
 
 A fresh-context implementation review compared the core against nanoda,
