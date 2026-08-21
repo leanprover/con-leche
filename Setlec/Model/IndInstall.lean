@@ -116,7 +116,7 @@ theorem modeled_rule_fold
     (hdeRhs : isDefEqCore env₀ F (nP + nM + nm + cnF) rhsS
       (Expr.mkAppN (rhsA.renameConsts f) fvs) = .ok true)
     -- rule right-hand-side facts
-    (hstripR : rhsA.stripLams (nP + nM + nm + cnF) =
+    (_hstripR : rhsA.stripLams (nP + nM + nm + cnF) =
       some (rbinders, rbody))
     (hrhsw : rhsA.hasFvar = false)
     (hrhsb : rhsA.looseBVarsBounded 0 = true)
@@ -127,7 +127,7 @@ theorem modeled_rule_fold
     -- member type wf
     (htyw : tyA.hasFvar = false)
     (htyb : tyA.looseBVarsBounded 0 = true)
-    (htyps : tyA.allLevelParamsDefined lps = true)
+    (_htyps : tyA.allLevelParamsDefined lps = true)
     (hAty : ∀ ψ'' : Name → Nat,
       AnnotOk V m₀.val env₀ ψ'' 0 (rho0 V) tyA)
     (hIty : ∀ ψ'' : Name → Nat, ∃ T,

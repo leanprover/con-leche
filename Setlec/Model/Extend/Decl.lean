@@ -1,4 +1,5 @@
 import Setlec.Model.Extend.Ind
+import Setlec.Model.Extend.Recs
 import Setlec.Model.Extend.Proj
 
 /-!
@@ -21,21 +22,37 @@ theorem checkIndDecl_sound {env env₂ : Env} {block : List ConstantInfo}
     (h : checkIndDecl (fueledOps F) env block = .ok env₂) (m : EnvModel V env) :
     Nonempty (EnvModel V env₂) := by
   rw [checkIndDecl] at h
+  simp only [Bind.bind, Except.bind] at h
   have hbn : ∀ ci ∈ block, (block.map (·.name)).contains ci.name = true :=
     fun ci hci => by
       have : ci.name ∈ block.map (·.name) := List.mem_map_of_mem hci
       simpa using this
+  -- the recursor-suffix split
+  split at h
+  case isFalse => exact nomatch h
+  rename_i hsplit
+  simp only [pure, Except.pure, Except.bind] at h
+  try dsimp only at h
   split at h
   · -- the single-constructor arm installs the projection family
     rename_i cvT capsT cvC nP nF heqI heqC
-    simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+    try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
     obtain ⟨env₁, hfold, h⟩ := Except.bind_ok h
+    obtain ⟨env₃, hrecs, h⟩ := Except.bind_ok h
+    -- no block member was stored initially
     have hI₀ : BlockInstalled (block.map (·.name)) env m.val := by
       intro n hn ci₂ hf₂
       have hmem : n ∈ block.map (·.name) := by simpa using hn
       obtain ⟨ci₀, hci₀, rfl⟩ := List.mem_map.mp hmem
-      rw [checkIndMember_fold_names block env env₁ hfold ci₀ hci₀] at hf₂
-      exact nomatch hf₂
+      rw [hsplit] at hci₀
+      rcases List.mem_append.mp hci₀ with hci₀ | hci₀
+      · rw [checkIndMember_fold_names _ env env₁ hfold ci₀ hci₀] at hf₂
+        exact nomatch hf₂
+      · have h1 := checkIndRecs_names hrecs ci₀ hci₀
+        have h2 : (env₁.find? ci₀.name).isSome = true :=
+          checkIndFold_mono _ env env₁ hfold ci₀.name (by rw [hf₂]; rfl)
+        rw [h1] at h2
+        exact nomatch h2
     have hpins0 : ∀ (cv : ConstantVal) (caps₂ : IndCaps),
         (ConstantInfo.indInfo cv caps₂) ∈ block →
         EtaPins env cv.name cv.levelParams
@@ -55,8 +72,22 @@ theorem checkIndDecl_sound {env env₂ : Env} {block : List ConstantInfo}
       · intro hcapu
         simp only [indBlockCaps] at hcapu
         exact checkUnitThm_inv hcapu
-    obtain ⟨m₁, hI₁⟩ := checkIndFold_sound block env env₁ hbn hpins0
+    obtain ⟨m₁, hI₁⟩ := checkIndFold_sound _ env env₁
+      (fun ci hci => hbn ci (List.mem_filter.mp hci).1)
+      (fun cv caps₂ hmem =>
+        hpins0 cv caps₂ (List.mem_filter.mp hmem).1)
       hfold m hI₀
+    -- the recursor group
+    obtain ⟨m₃, hI₃⟩ := checkIndRecs_sound hrecs
+      (fun ci hci => hbn ci (List.mem_filter.mp hci).1)
+      (fun n hn => by
+        have hmem : n ∈ block.map (·.name) := by simpa using hn
+        obtain ⟨ci₀, hci₀, rfl⟩ := List.mem_map.mp hmem
+        rw [hsplit] at hci₀
+        rcases List.mem_append.mp hci₀ with hci₀ | hci₀
+        · exact Or.inl (checkIndFold_stored _ env env₁ hfold ci₀ hci₀)
+        · exact Or.inr ⟨ci₀, hci₀, rfl⟩)
+      m₁ hI₁
     have hTin : (ConstantInfo.indInfo cvT capsT) ∈ block := by
       have h1 : ConstantInfo.indInfo cvT capsT ∈
           [ConstantInfo.indInfo cvT capsT] :=
@@ -77,36 +108,57 @@ theorem checkIndDecl_sound {env env₂ : Env} {block : List ConstantInfo}
       have hmm : cvC.name ∈ block.map (fun x => x.name) :=
         List.mem_map_of_mem (f := fun x => x.name) hCin
       simpa using hmm
-    try simp only [Bind.bind, Except.bind] at h
+    -- the projection-family phase
     by_cases hfresh : ((List.range nF).all
-        (fun j => (env₁.find? (projFnName cvT.name j)).isNone)) = true
+        (fun j => (env₃.find? (projFnName cvT.name j)).isNone)) = true
     case neg => rw [if_neg hfresh] at h; exact nomatch h
     rw [if_pos hfresh] at h
     try simp only [pure, Except.pure] at h
     try dsimp only at h
-    have hinv₀ : ProjPhaseInv cvT.name cvC.name nF env₁ m₁.val := by
+    have hinv₀ : ProjPhaseInv cvT.name cvC.name nF env₃ m₃.val := by
       refine ⟨?_, ?_, ?_⟩
       · intro ci hf
-        exact hI₁ cvT.name hbnT ci hf
+        exact hI₃ cvT.name hbnT ci hf
       · intro ci hf
-        exact hI₁ cvC.name hbnC ci hf
+        exact hI₃ cvC.name hbnC ci hf
       · intro j hj ci hf
         have hnone := List.all_eq_true.mp hfresh j (List.mem_range.mpr hj)
         rw [Option.isNone_iff_eq_none.mp hnone] at hf
         exact nomatch hf
     obtain ⟨mf, -⟩ :=
-      checkProjFold_sound (List.range nF) env₁ env₂ h m₁ hinv₀
+      checkProjFold_sound (List.range nF) env₃ env₂ h m₃ hinv₀
     exact ⟨mf⟩
-  · -- no single-constructor structure: the plain member fold
+  · -- no single-constructor structure: member fold, then the recursors
+    try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+    obtain ⟨env₁, hfold, hrecs⟩ := Except.bind_ok h
     have hI₀ : BlockInstalled (block.map (·.name)) env m.val := by
       intro n hn ci₂ hf₂
       have hmem : n ∈ block.map (·.name) := by simpa using hn
       obtain ⟨ci₀, hci₀, rfl⟩ := List.mem_map.mp hmem
-      rw [checkIndMember_fold_names block env env₂ h ci₀ hci₀] at hf₂
-      exact nomatch hf₂
-    obtain ⟨m₂, -⟩ := checkIndFold_sound block env env₂ hbn
+      rw [hsplit] at hci₀
+      rcases List.mem_append.mp hci₀ with hci₀ | hci₀
+      · rw [checkIndMember_fold_names _ env env₁ hfold ci₀ hci₀] at hf₂
+        exact nomatch hf₂
+      · have h1 := checkIndRecs_names hrecs ci₀ hci₀
+        have h2 : (env₁.find? ci₀.name).isSome = true :=
+          checkIndFold_mono _ env env₁ hfold ci₀.name (by rw [hf₂]; rfl)
+        rw [h1] at h2
+        exact nomatch h2
+    obtain ⟨m₁, hI₁⟩ := checkIndFold_sound _ env env₁
+      (fun ci hci => hbn ci (List.mem_filter.mp hci).1)
       (fun _ _ _ => ⟨fun hcape => absurd hcape (by decide),
-        fun hcapu => absurd hcapu (by decide)⟩) h m hI₀
-    exact ⟨m₂⟩
+        fun hcapu => absurd hcapu (by decide)⟩)
+      hfold m hI₀
+    obtain ⟨m₂', -⟩ := checkIndRecs_sound hrecs
+      (fun ci hci => hbn ci (List.mem_filter.mp hci).1)
+      (fun n hn => by
+        have hmem : n ∈ block.map (·.name) := by simpa using hn
+        obtain ⟨ci₀, hci₀, rfl⟩ := List.mem_map.mp hmem
+        rw [hsplit] at hci₀
+        rcases List.mem_append.mp hci₀ with hci₀ | hci₀
+        · exact Or.inl (checkIndFold_stored _ env env₁ hfold ci₀ hci₀)
+        · exact Or.inr ⟨ci₀, hci₀, rfl⟩)
+      m₁ hI₁
+    exact ⟨m₂'⟩
 
 end Setlec

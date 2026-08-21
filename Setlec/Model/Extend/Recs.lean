@@ -952,4 +952,51 @@ theorem checkIndRecs_sound {F : Nat} {blockNames : List Name}
       rw [hveq n ψ, hveq (n.str "_model") ψ]
       exact hv₂ ψ
 
+
+/-- Every input recursor was fresh at the base of the provisioning
+chain. -/
+theorem provisionRecs_fresh {F : Nat} {blockNames : List Name} :
+    ∀ (recs : List ConstantInfo) (envAcc : Env)
+      (p : Env × List (ConstantVal × Nat × Nat × Nat × Nat ×
+        List RecRule)),
+    provisionRecs (fueledOps F) blockNames envAcc recs = .ok p →
+    ∀ ci ∈ recs, envAcc.find? ci.name = none
+  | [], _, _, _, ci, hci => nomatch hci
+  | ci₀ :: rest, envAcc, p, h, ci, hci => by
+    obtain ⟨cv, nP, nM, nm, ni, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
+      provisionRecs_cons_inv h
+    obtain ⟨hccv, -, -, -, -, -, -⟩ := checkMemberVal_inv hcmv
+    obtain ⟨hfind0, -, -, -, -, -, tyA, stype, u, -, -, -, -, -, -⟩ :=
+      checkConstantVal_inv hccv
+    rcases List.mem_cons.mp hci with rfl | hci
+    · exact hfind0
+    · have h1 := provisionRecs_fresh rest _ p' hrec ci hci
+      rw [Env.find?_cons] at h1
+      split at h1
+      · exact nomatch h1
+      · exact h1
+
+/-- Every input recursor was fresh at the environment `checkIndRecs`
+started from. -/
+theorem checkIndRecs_names {F : Nat} {blockNames : List Name}
+    {env₂ env₃ : Env} {recs : List ConstantInfo}
+    (h : checkIndRecs (fueledOps F) blockNames env₂ recs = .ok env₃) :
+    ∀ ci ∈ recs, env₂.find? ci.name = none := by
+  rw [checkIndRecs] at h
+  by_cases hemp : recs.isEmpty = true
+  · intro ci hci
+    rw [List.isEmpty_iff.mp hemp] at hci
+    exact nomatch hci
+  rw [if_neg hemp] at h
+  simp only [Bind.bind, Except.bind] at h
+  by_cases heqf : env₂.find? eqName = some eqA
+  case neg => rw [if_neg heqf] at h; exact nomatch h
+  rw [if_pos heqf] at h
+  simp only [pure, Except.pure] at h
+  try dsimp only at h
+  revert h
+  cases hprov : provisionRecs (fueledOps F) blockNames env₂ recs with
+  | error e => intro h; exact nomatch h
+  | ok p => intro h; exact provisionRecs_fresh recs env₂ p hprov
+
 end Setlec

@@ -165,7 +165,7 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
             (FvarsOk.of_not_hasFvar hrawf))
       refine ⟨hArhs₁, ?_⟩
       intro cvj' cnP' cnF' hfj ψ ψj args margs tv hl hml hch hmch htv
-        hpeq hlev hfit
+        hpeq _hplain hlev hfit
       have hctor₁ : (⟨.recInfo cvA nP 0 0 0 [rule] ::
           env.consts⟩ : Env).find? (RecRule.ctor rule) =
           some (.ctorInfo cvj nP nF) := by

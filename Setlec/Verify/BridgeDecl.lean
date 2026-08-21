@@ -200,6 +200,74 @@ theorem checkProjIota_snd_dproj (env' : Env) (T ctorName : Name) (lps : List Nam
   unfold checkProjIota
   dsnd_tac
 
+theorem pairOps_isDefEq_fst (env : Env) (d : Nat) (a b : Expr) :
+    ((pairOps o₁ o₂ h).isDefEq env d a b).val.1 =
+      o₁.isDefEq env d a b := rfl
+
+theorem pairOps_isDefEq_snd (env : Env) (d : Nat) (a b : Expr) :
+    ((pairOps o₁ o₂ h).isDefEq env d a b).val.2 =
+      o₂.isDefEq env d a b := rfl
+
+theorem unwrapOr_fst_dproj {α : Type} (o : Option α) (e : CheckError) :
+    (unwrapOr o e : PairM rel α).val.1 = (unwrapOr o e : M₁ α) := by
+  cases o <;> rfl
+
+theorem unwrapOr_snd_dproj {α : Type} (o : Option α) (e : CheckError) :
+    (unwrapOr o e : PairM rel α).val.2 = (unwrapOr o e : M₂ α) := by
+  cases o <;> rfl
+
+theorem checkDefEqList_fst_dproj (env : Env) (depth : Nat) :
+    ∀ (as bs : List Expr),
+      (checkDefEqList (pairOps o₁ o₂ h) env depth as bs).val.1 =
+      checkDefEqList o₁ env depth as bs
+  | [], [] => rfl
+  | [], _ :: _ => rfl
+  | _ :: _, [] => rfl
+  | a :: as, b :: bs => by
+    unfold checkDefEqList
+    simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
+      PairM.fst_ite, pairOps_isDefEq_fst,
+      checkDefEqList_fst_dproj env depth as bs]
+
+theorem checkDefEqList_snd_dproj (env : Env) (depth : Nat) :
+    ∀ (as bs : List Expr),
+      (checkDefEqList (pairOps o₁ o₂ h) env depth as bs).val.2 =
+      checkDefEqList o₂ env depth as bs
+  | [], [] => rfl
+  | [], _ :: _ => rfl
+  | _ :: _, [] => rfl
+  | a :: as, b :: bs => by
+    unfold checkDefEqList
+    simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
+      PairM.snd_ite, pairOps_isDefEq_snd,
+      checkDefEqList_snd_dproj env depth as bs]
+
+theorem checkIotaThm_fst_dproj (env' envSelf : Env)
+    (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
+    (nP nM nm ni j : Nat) (r : RecRule) (cvj : ConstantVal)
+    (cnP cnF : Nat) (rhsA : Expr) :
+    (checkIotaThm (pairOps o₁ o₂ h) env' envSelf f cvName lps tyA
+      nP nM nm ni j r cvj cnP cnF rhsA).val.1 =
+    checkIotaThm o₁ env' envSelf f cvName lps tyA nP nM nm ni j r cvj
+      cnP cnF rhsA := by
+  unfold checkIotaThm
+  simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
+    PairM.fst_ite, pairOps_isDefEq_fst, unwrapOr_fst_dproj,
+    checkDefEqList_fst_dproj]
+
+theorem checkIotaThm_snd_dproj (env' envSelf : Env)
+    (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
+    (nP nM nm ni j : Nat) (r : RecRule) (cvj : ConstantVal)
+    (cnP cnF : Nat) (rhsA : Expr) :
+    (checkIotaThm (pairOps o₁ o₂ h) env' envSelf f cvName lps tyA
+      nP nM nm ni j r cvj cnP cnF rhsA).val.2 =
+    checkIotaThm o₂ env' envSelf f cvName lps tyA nP nM nm ni j r cvj
+      cnP cnF rhsA := by
+  unfold checkIotaThm
+  simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
+    PairM.snd_ite, pairOps_isDefEq_snd, unwrapOr_snd_dproj,
+    checkDefEqList_snd_dproj]
+
 set_option maxHeartbeats 12800000 in
 theorem checkIotaRule_fst_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
@@ -209,6 +277,7 @@ theorem checkIotaRule_fst_dproj (env' envSelf : Env)
     checkIotaRule o₁ env' envSelf f cvName lps tyA nP nM nm ni j r := by
   unfold checkIotaRule
   dfst_tac
+  all_goals rw [checkIotaThm_fst_dproj]
 
 theorem checkIotaRules_fst_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
@@ -246,6 +315,7 @@ theorem checkIotaRule_snd_dproj (env' envSelf : Env)
     checkIotaRule o₂ env' envSelf f cvName lps tyA nP nM nm ni j r := by
   unfold checkIotaRule
   dsnd_tac
+  all_goals rw [checkIotaThm_snd_dproj]
 
 theorem checkIotaRules_snd_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
@@ -332,17 +402,77 @@ theorem checkProjRule_snd_dproj (env' : Env) (cvj : ConstantVal) (lps : List Nam
   unfold checkProjRule
   dsnd_tac2
 
+theorem checkMemberVal_fst_dproj (blockNames : List Name)
+    (env' : Env) (cv : ConstantVal) :
+    (checkMemberVal (pairOps o₁ o₂ h) blockNames env' cv).val.1 =
+      checkMemberVal o₁ blockNames env' cv := by
+  unfold checkMemberVal
+  dfst_tac2
+
+theorem checkMemberVal_snd_dproj (blockNames : List Name)
+    (env' : Env) (cv : ConstantVal) :
+    (checkMemberVal (pairOps o₁ o₂ h) blockNames env' cv).val.2 =
+      checkMemberVal o₂ blockNames env' cv := by
+  unfold checkMemberVal
+  dsnd_tac2
+
 theorem checkIndMember_fst_dproj (blockNames : List Name) (caps : IndCaps) (env' : Env) (ci : ConstantInfo) :
     (checkIndMember (pairOps o₁ o₂ h) blockNames caps env' ci).val.1 =
       checkIndMember o₁ blockNames caps env' ci := by
   unfold checkIndMember
   dfst_tac2
+  all_goals rw [checkMemberVal_fst_dproj]
 
 theorem checkIndMember_snd_dproj (blockNames : List Name) (caps : IndCaps) (env' : Env) (ci : ConstantInfo) :
     (checkIndMember (pairOps o₁ o₂ h) blockNames caps env' ci).val.2 =
       checkIndMember o₂ blockNames caps env' ci := by
   unfold checkIndMember
   dsnd_tac2
+  all_goals rw [checkMemberVal_snd_dproj]
+
+theorem provisionRecs_fst_dproj (blockNames : List Name) :
+    ∀ (envAcc : Env) (recs : List ConstantInfo),
+      (provisionRecs (pairOps o₁ o₂ h) blockNames envAcc recs).val.1 =
+      provisionRecs o₁ blockNames envAcc recs
+  | _, [] => rfl
+  | envAcc, ci :: rest => by
+    unfold provisionRecs
+    (dfst_step2 <;> dfst_step2) <;>
+      first
+        | (rw [checkMemberVal_fst_dproj])
+        | exact provisionRecs_fst_dproj blockNames _ rest
+        | rfl
+
+theorem provisionRecs_snd_dproj (blockNames : List Name) :
+    ∀ (envAcc : Env) (recs : List ConstantInfo),
+      (provisionRecs (pairOps o₁ o₂ h) blockNames envAcc recs).val.2 =
+      provisionRecs o₂ blockNames envAcc recs
+  | _, [] => rfl
+  | envAcc, ci :: rest => by
+    unfold provisionRecs
+    (dsnd_step2 <;> dsnd_step2) <;>
+      first
+        | (rw [checkMemberVal_snd_dproj])
+        | exact provisionRecs_snd_dproj blockNames _ rest
+        | rfl
+
+theorem checkIndRecs_fst_dproj (blockNames : List Name) (env₂ : Env)
+    (recs : List ConstantInfo) :
+    (checkIndRecs (pairOps o₁ o₂ h) blockNames env₂ recs).val.1 =
+      checkIndRecs o₁ blockNames env₂ recs := by
+  unfold checkIndRecs
+  simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
+    PairM.fst_ite, provisionRecs_fst_dproj, foldlM_fst,
+    checkIotaRules_fst_dproj]
+
+theorem checkIndRecs_snd_dproj (blockNames : List Name) (env₂ : Env)
+    (recs : List ConstantInfo) :
+    (checkIndRecs (pairOps o₁ o₂ h) blockNames env₂ recs).val.2 =
+      checkIndRecs o₂ blockNames env₂ recs := by
+  unfold checkIndRecs
+  simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
+    PairM.snd_ite, provisionRecs_snd_dproj, foldlM_snd,
+    checkIotaRules_snd_dproj]
 
 macro "dfst_step3" : tactic =>
   `(tactic| repeat (first
@@ -448,6 +578,7 @@ macro "dfst_step4" : tactic =>
     | (rw [checkIndMember_fst_dproj])
     | (rw [checkIotaRule_fst_dproj])
     | (rw [checkIotaRules_fst_dproj])
+    | (rw [checkIndRecs_fst_dproj])
     | (rw [checkProjFn_fst_dproj])
     | (rw [checkIndDecl_fst_dproj])
     | split
@@ -475,6 +606,7 @@ macro "dsnd_step4" : tactic =>
     | (rw [checkIndMember_snd_dproj])
     | (rw [checkIotaRule_snd_dproj])
     | (rw [checkIotaRules_snd_dproj])
+    | (rw [checkIndRecs_snd_dproj])
     | (rw [checkProjFn_snd_dproj])
     | (rw [checkIndDecl_snd_dproj])
     | split
@@ -515,6 +647,7 @@ macro "dfst_step5" : tactic =>
     | (rw [checkIndMember_fst_dproj])
     | (rw [checkIotaRule_fst_dproj])
     | (rw [checkIotaRules_fst_dproj])
+    | (rw [checkIndRecs_fst_dproj])
     | (rw [checkProjFn_fst_dproj])
     | (rw [checkIndDecl_fst_dproj])
     | (rw [checkDecl_fst_dproj])
@@ -544,6 +677,7 @@ macro "dsnd_step5" : tactic =>
     | (rw [checkIndMember_snd_dproj])
     | (rw [checkIotaRule_snd_dproj])
     | (rw [checkIotaRules_snd_dproj])
+    | (rw [checkIndRecs_snd_dproj])
     | (rw [checkProjFn_snd_dproj])
     | (rw [checkIndDecl_snd_dproj])
     | (rw [checkDecl_snd_dproj])
@@ -837,6 +971,40 @@ theorem checkProjIota_datF (env' : Env) (T ctorName : Name) (lps : List Name) (c
   unfold checkProjIota
   datF_tac
 
+theorem fueledOpsM_isDefEq_atF (env : Env) (d : Nat) (a b : Expr)
+    (F : Nat) :
+    (fueledOpsM.isDefEq env d a b).val F =
+      (fueledOps F).isDefEq env d a b := rfl
+
+theorem unwrapOr_atF {α : Type} (o : Option α) (e : CheckError)
+    (F : Nat) :
+    (unwrapOr o e : FueledM α).val F = (unwrapOr o e : CheckM α) := by
+  cases o <;> rfl
+
+theorem checkDefEqList_datF (env : Env) (depth F : Nat) :
+    ∀ (as bs : List Expr),
+      (checkDefEqList fueledOpsM env depth as bs).val F =
+      checkDefEqList (fueledOps F) env depth as bs
+  | [], [] => rfl
+  | [], _ :: _ => rfl
+  | _ :: _, [] => rfl
+  | a :: as, b :: bs => by
+    unfold checkDefEqList
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+      fueledOpsM_isDefEq_atF, checkDefEqList_datF env depth F as bs]
+
+theorem checkIotaThm_datF (env' envSelf : Env)
+    (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
+    (nP nM nm ni j : Nat) (r : RecRule) (cvj : ConstantVal)
+    (cnP cnF : Nat) (rhsA : Expr) (F : Nat) :
+    (checkIotaThm fueledOpsM env' envSelf f cvName lps tyA
+      nP nM nm ni j r cvj cnP cnF rhsA).val F =
+    checkIotaThm (fueledOps F) env' envSelf f cvName lps tyA nP nM nm
+      ni j r cvj cnP cnF rhsA := by
+  unfold checkIotaThm
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+    fueledOpsM_isDefEq_atF, unwrapOr_atF, checkDefEqList_datF]
+
 set_option maxHeartbeats 12800000 in
 theorem checkIotaRule_datF (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
@@ -847,6 +1015,7 @@ theorem checkIotaRule_datF (env' envSelf : Env)
       nP nM nm ni j r := by
   unfold checkIotaRule
   datF_tac
+  all_goals rw [checkIotaThm_datF]
 
 theorem checkIotaRules_datF (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
@@ -905,11 +1074,40 @@ theorem checkProjRule_datF (env' : Env) (cvj : ConstantVal) (lps : List Name) (n
   unfold checkProjRule
   datF_tac2
 
+theorem checkMemberVal_datF (blockNames : List Name)
+    (env' : Env) (cv : ConstantVal) (F : Nat) :
+    (checkMemberVal fueledOpsM blockNames env' cv).val F =
+      checkMemberVal (fueledOps F) blockNames env' cv := by
+  unfold checkMemberVal
+  datF_tac2
+
 theorem checkIndMember_datF (blockNames : List Name) (caps : IndCaps) (env' : Env) (ci : ConstantInfo) (F : Nat) :
     (checkIndMember fueledOpsM blockNames caps env' ci).val F =
       checkIndMember (fueledOps F) blockNames caps env' ci := by
   unfold checkIndMember
   datF_tac2
+  all_goals rw [checkMemberVal_datF]
+
+theorem provisionRecs_datF (blockNames : List Name) (F : Nat) :
+    ∀ (envAcc : Env) (recs : List ConstantInfo),
+      (provisionRecs fueledOpsM blockNames envAcc recs).val F =
+      provisionRecs (fueledOps F) blockNames envAcc recs
+  | _, [] => rfl
+  | envAcc, ci :: rest => by
+    unfold provisionRecs
+    (datF_step2 <;> datF_step2) <;>
+      first
+        | (rw [checkMemberVal_datF])
+        | exact provisionRecs_datF blockNames F _ rest
+        | rfl
+
+theorem checkIndRecs_datF (blockNames : List Name) (env₂ : Env)
+    (recs : List ConstantInfo) (F : Nat) :
+    (checkIndRecs fueledOpsM blockNames env₂ recs).val F =
+      checkIndRecs (fueledOps F) blockNames env₂ recs := by
+  unfold checkIndRecs
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+    provisionRecs_datF, foldlM_atF, checkIotaRules_datF]
 
 macro "datF_step3" : tactic =>
   `(tactic| repeat (first
@@ -970,6 +1168,7 @@ macro "datF_step4" : tactic =>
     | (rw [checkIndMember_datF])
     | (rw [checkIotaRule_datF])
     | (rw [checkIotaRules_datF])
+    | (rw [checkIndRecs_datF])
     | (rw [checkProjFn_datF])
     | (rw [checkIndDecl_datF])
     | split
@@ -1004,6 +1203,7 @@ macro "datF_step5" : tactic =>
     | (rw [checkIndMember_datF])
     | (rw [checkIotaRule_datF])
     | (rw [checkIotaRules_datF])
+    | (rw [checkIndRecs_datF])
     | (rw [checkProjFn_datF])
     | (rw [checkIndDecl_datF])
     | (rw [checkDecl_datF])

@@ -253,6 +253,7 @@ def FvarSpine (D : Nat) (ρ : Nat → V) : List Expr → List V → Prop
     FvarSpine D ρ as vs
   | _, _ => False
 
+omit [SetTheory V] in
 theorem FvarSpine.length {D : Nat} {ρ : Nat → V} :
     ∀ {as : List Expr} {vs : List V}, FvarSpine D ρ as vs →
       as.length = vs.length
@@ -262,17 +263,19 @@ theorem FvarSpine.length {D : Nat} {ρ : Nat → V} :
   | _ :: as, _ :: vs, h => by
     simpa using FvarSpine.length h.2
 
+omit [SetTheory V] in
 theorem FvarSpine.snoc {D : Nat} {ρ : Nat → V} :
     ∀ {as : List Expr} {vs : List V}, FvarSpine D ρ as vs →
       ∀ {a : Expr} {v : V},
         (∃ i n ty, a = .fvar i n ty ∧ i < D ∧ ρ i = v) →
         FvarSpine D ρ (as ++ [a]) (vs ++ [v])
-  | [], [], _, a, v, ha => ⟨ha, trivial⟩
+  | [], [], _, _a, _v, ha => ⟨ha, trivial⟩
   | [], _ :: _, h, _, _, _ => nomatch h
   | _ :: _, [], h, _, _, _ => nomatch h
-  | _ :: as, _ :: vs, h, a, v, ha =>
+  | _ :: _as, _ :: _vs, h, _a, _v, ha =>
     ⟨h.1, FvarSpine.snoc h.2 ha⟩
 
+omit [SetTheory V] in
 /-- Weaken a spine to a higher frame with an agreeing valuation. -/
 theorem FvarSpine.lift {D : Nat} {ρ : Nat → V} :
     ∀ {as : List Expr} {vs : List V}, FvarSpine D ρ as vs →
@@ -287,6 +290,7 @@ theorem FvarSpine.lift {D : Nat} {ρ : Nat → V} :
     exact ⟨⟨i, n, ty, rfl, by omega, by rw [hag i hiD]; exact hval⟩,
       FvarSpine.lift h' hle hag⟩
 
+omit [SetTheory V] in
 theorem FvarSpine.pointwise {D : Nat} {ρ : Nat → V} :
     ∀ {as : List Expr} {vs : List V}, FvarSpine D ρ as vs →
       ∀ (k : Nat) {a : Expr} {v : V},
@@ -305,6 +309,7 @@ theorem FvarSpine.pointwise {D : Nat} {ρ : Nat → V} :
       exact FvarSpine.pointwise h.2 k (by simpa using ha)
         (by simpa using hv)
 
+omit [SetTheory V] in
 theorem FvarSpine.bounded {D : Nat} {ρ : Nat → V} :
     ∀ {as : List Expr} {vs : List V}, FvarSpine D ρ as vs →
       ∀ a ∈ as, a.looseBVarsBounded 0 = true := by

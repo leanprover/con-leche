@@ -252,7 +252,7 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
           · refine ⟨fun ψ => annotOk_quotLift_rhs (cval := val') (ψ := ψ)
               hfE' hvalE', ?_⟩
             intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
-              htv hpeq hlev hfit
+              htv hpeq _hplain hlev hfit
             have hje := Option.some.inj hfj
             simp only [quotMkA] at hje
             injection hje with hj1 hj2 hj3
@@ -412,7 +412,7 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
           · refine ⟨fun ψ => annotOk_quotInd_rhs (cval := val') (ψ := ψ)
               hfQ' hvalQ' hfM' hvalM', ?_⟩
             intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
-              htv hpeq hlev hfit
+              htv hpeq _hplain hlev hfit
             have hje := Option.some.inj hfj
             simp only [quotMkA] at hje
             injection hje with hj1 hj2 hj3

@@ -74,9 +74,9 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
       cvA.type nP nM nm ni j r cvj cnP cnF rhsA = .ok u) :
     PlainChecked F env' env₀ f cvA nP nM nm ni cnP cnF
       { r with rhs := rhsA } cvj := by
-  simp only [checkIotaThm, fueledOps_annotate, fueledOps_inferType,
-    fueledOps_isDefEq, fueledOps_ensureSort, fueledOps_whnf, Bind.bind,
-    Except.bind, pure, Except.pure] at h
+  simp only [checkIotaThm, unwrapOr, Env.findThm?, fueledOps_annotate,
+    fueledOps_inferType, fueledOps_isDefEq, fueledOps_ensureSort,
+    fueledOps_whnf, Bind.bind, Except.bind, pure, Except.pure] at h
   revert h
   match hfthm : env'.find? ((cvA.name.str "_model").str s!"iota_{j}") with
   | none => intro h; exact nomatch h
@@ -87,7 +87,8 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
   | some (.thmInfo cvt tval) => ?_
   intro h
-  dsimp only at h
+  try simp only [Except.bind, pure, Except.pure] at h
+  try dsimp only at h
   by_cases hlpt : cvt.levelParams = cvA.levelParams
   case neg => rw [if_neg hlpt] at h; exact nomatch h
   rw [if_pos hlpt] at h
@@ -97,7 +98,8 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   | none => intro h; exact nomatch h
   | some (fvs, tbody) => ?_
   intro h
-  dsimp only at h
+  try simp only [Except.bind, pure, Except.pure] at h
+  try dsimp only at h
   by_cases hhead : isEqHead tbody.getAppFn = true
   case neg => rw [if_neg hhead] at h; exact nomatch h
   rw [if_pos hhead] at h
@@ -146,7 +148,8 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   | none => intro h; exact nomatch h
   | some (cdoms, cres) => ?_
   intro h
-  dsimp only at h
+  try simp only [Except.bind, pure, Except.pure] at h
+  try dsimp only at h
   by_cases hclen : cres.getAppArgs.length = cnP + ni
   case neg => rw [if_neg hclen] at h; exact nomatch h
   rw [if_pos hclen] at h
@@ -171,7 +174,8 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   | none => intro h; exact nomatch h
   | some (rdoms, rrest) => ?_
   intro h
-  dsimp only at h
+  try simp only [Except.bind, pure, Except.pure] at h
+  try dsimp only at h
   cases hdq3 : checkDefEqList (fueledOps F) env₀ (nP + nM + nm + cnF)
       ((fvs.take (nP + nM + nm)).map Expr.fvarTypeD) rdoms with
   | error e => rw [hdq3] at h; exact nomatch h
@@ -183,25 +187,29 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   | none => intro h; exact nomatch h
   | some (fvsP, restP) => ?_
   intro h
-  dsimp only at h
+  try simp only [Except.bind, pure, Except.pure] at h
+  try dsimp only at h
   revert h
   match hcinstP : Expr.instPisAt (fvsP.take cnP) cvj.type with
   | none => intro h; exact nomatch h
   | some (cdomsP, crestP) => ?_
   intro h
-  dsimp only at h
+  try simp only [Except.bind, pure, Except.pure] at h
+  try dsimp only at h
   revert h
   match hopenX : openPisAtFvars cnF crestP (nP + nM + nm) with
   | none => intro h; exact nomatch h
   | some (xFvsP, crest2) => ?_
   intro h
-  dsimp only at h
+  try simp only [Except.bind, pure, Except.pure] at h
+  try dsimp only at h
   revert h
   match hlinst : Expr.instLamsAt (fvsP ++ xFvsP) rhsA with
   | none => intro h; exact nomatch h
   | some (ldoms, lrest) => ?_
   intro h
-  dsimp only at h
+  try simp only [Except.bind, pure, Except.pure] at h
+  try dsimp only at h
   cases hdq4 : checkDefEqList (fueledOps F) env₀ (nP + nM + nm + cnF)
       ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldoms with
   | error e => rw [hdq4] at h; exact nomatch h
