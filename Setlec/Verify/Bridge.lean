@@ -1,4 +1,5 @@
 import Setlec.Verify.Mono
+import Setlec.Verify.Deep
 import Setlec.Kernel.TypeCheckerC
 import Setlec.Kernel.Checker
 
@@ -458,36 +459,49 @@ theorem annotateBody_atF (d : Nat) (e : Expr) (F : Nat) :
 
 end AtF
 
-/-! ## Part B: the cache invariant and the simulation -/
+/-! ## Part B: the cache invariant and the simulation
 
-/-- Every cache entry is backed by a pure run at some fuel. -/
+Memo keys are depth-free, so a cache entry must be consumable at
+*every* depth at which its key is well-scoped: `CacheOK` backs each
+entry by a pure run at one fuel that is valid at all such depths.  An
+entry is created from a run at the ambient depth (where the memo
+guard checked the key's scoping), and the depth invariance theorems
+(`Setlec/Verify/Deep.lean`, requiring `EnvWF`) transport that run to
+every other well-scoped depth — which is why the memoized knot is
+gated on the `Bool` well-formedness check `Env.wfB`
+(`envWF_of_wfB` below reflects it into `EnvWF`); ill-formed
+environments run the plain (uncached) knot, bridged separately. -/
+
+/-- Every cache entry is backed by a pure run at some fuel, at every
+depth at which the key is well-scoped. -/
 def CacheOK (env : Env) (σ : KCache) : Prop :=
-  (∀ d e r, σ.whnfCore[((d, e) : Nat × Expr)]? = some r →
-    ∃ F, whnfCore env F d e = .ok r) ∧
-  (∀ d e r, σ.whnf[((d, e) : Nat × Expr)]? = some r →
-    ∃ F, whnf env F d e = .ok r) ∧
-  (∀ d e r, σ.infer[((d, e) : Nat × Expr)]? = some r →
-    ∃ F, inferTypeCore env F d e = .ok r) ∧
-  (∀ d a b r, σ.defeq[((d, a, b) : Nat × Expr × Expr)]? = some r →
-    ∃ F, isDefEqCore env F d a b = .ok r) ∧
-  (∀ d e r, σ.annot[((d, e) : Nat × Expr)]? = some r →
-    ∃ F, annotateCore env F d e = .ok r)
+  (∀ e r, σ.whnfCore[e]? = some r →
+    ∃ F, ∀ d, e.wscopedB d = true → whnfCore env F d e = .ok r) ∧
+  (∀ e r, σ.whnf[e]? = some r →
+    ∃ F, ∀ d, e.wscopedB d = true → whnf env F d e = .ok r) ∧
+  (∀ e r, σ.infer[e]? = some r →
+    ∃ F, ∀ d, e.wscopedB d = true → inferTypeCore env F d e = .ok r) ∧
+  (∀ a b r, σ.defeq[((a, b) : Expr × Expr)]? = some r →
+    ∃ F, ∀ d, a.wscopedB d = true → b.wscopedB d = true →
+      isDefEqCore env F d a b = .ok r) ∧
+  (∀ e r, σ.annot[e]? = some r →
+    ∃ F, ∀ d, e.wscopedB d = true → annotateCore env F d e = .ok r)
 
 theorem CacheOK.empty (env : Env) : CacheOK env {} := by
   refine ⟨?_, ?_, ?_, ?_, ?_⟩
-  · intro d e r hl
+  · intro e r hl
     rw [Std.HashMap.getElem?_empty] at hl
     exact nomatch hl
-  · intro d e r hl
+  · intro e r hl
     rw [Std.HashMap.getElem?_empty] at hl
     exact nomatch hl
-  · intro d e r hl
+  · intro e r hl
     rw [Std.HashMap.getElem?_empty] at hl
     exact nomatch hl
-  · intro d a b r hl
+  · intro a b r hl
     rw [Std.HashMap.getElem?_empty] at hl
     exact nomatch hl
-  · intro d e r hl
+  · intro e r hl
     rw [Std.HashMap.getElem?_empty] at hl
     exact nomatch hl
 
@@ -525,302 +539,636 @@ def simRel (env : Env) : MonadRel FueledM CheckSM where
     intro σ hσ v σ' h
     exact nomatch h
 
+/-! ## Reflecting the gate: `Env.wfB` into `EnvWF` -/
+
+private theorem nameSet_contains_aux (n : Name) :
+    ∀ (l : List ConstantInfo) (s : Std.HashSet Name),
+      (l.foldl (fun s c => s.insert c.name) s).contains n =
+        (s.contains n || l.any (fun c => c.name == n))
+  | [], s => by simp
+  | c :: l, s => by
+    rw [List.foldl_cons, nameSet_contains_aux n l]
+    simp only [List.any_cons]
+    rw [Std.HashSet.contains_insert]
+    cases hcn : c.name == n
+    · have hne : c.name ≠ n := by
+        intro hh
+        subst hh
+        simp at hcn
+      simp [hne, Ne.symm hne]
+    · simp [eq_of_beq hcn]
+
+private theorem nameSet_contains (env : Env) (n : Name) :
+    env.nameSet.contains n = (env.find? n).isSome := by
+  rw [Env.nameSet, nameSet_contains_aux n env.consts]
+  simp only [Std.HashSet.contains_empty, Bool.false_or]
+  rw [Env.find?]
+  cases hf : env.consts.find? (·.name == n) with
+  | none =>
+    simp only [Option.isSome_none]
+    rw [List.find?_eq_none] at hf
+    simp only [List.any_eq_false]
+    intro c hc
+    exact fun hcn => by simpa [hcn] using hf c hc
+  | some c =>
+    simp only [Option.isSome_some]
+    rw [List.any_eq_true]
+    exact ⟨c, List.mem_of_find?_eq_some hf, by
+      have := List.find?_some hf
+      simpa using this⟩
+
+private theorem constsResolveS_eq (env : Env) :
+    ∀ e : Expr, Expr.constsResolveS env.nameSet e = e.constsResolve env := by
+  intro e
+  induction e with
+  | lit l =>
+    cases l with
+    | natVal n =>
+      simp only [Expr.constsResolveS, Expr.constsResolve,
+        nameSet_contains]
+    | strVal str => rfl
+  | const n us => exact nameSet_contains env n
+  | fvar idx n ty ih => exact ih
+  | app f a ihf iha =>
+    simp only [Expr.constsResolveS, Expr.constsResolve, ihf, iha]
+  | lam n ty body mb ihty ihbody =>
+    simp only [Expr.constsResolveS, Expr.constsResolve, ihty, ihbody]
+  | forallE n ty body mb ihty ihbody =>
+    simp only [Expr.constsResolveS, Expr.constsResolve, ihty, ihbody]
+  | letE n ty v body ihty ihv ihbody =>
+    simp only [Expr.constsResolveS, Expr.constsResolve, ihty, ihv, ihbody]
+  | proj sn i e ih =>
+    simp only [Expr.constsResolveS, Expr.constsResolve, ih,
+      nameSet_contains]
+  | bvar i => rfl
+  | sort u => rfl
+
+private theorem declWfB_parts {s : Std.HashSet Name} {lps : List Name} :
+    ∀ {k : Nat} {e : Expr}, Expr.declWfB s lps k e = true →
+      e.hasFvar = false ∧ e.allLevelParamsDefined lps = true ∧
+      e.constsResolveS s = true ∧ e.looseBVarsBounded k = true := by
+  intro k e
+  induction e generalizing k with
+  | bvar i =>
+    intro h
+    simp only [Expr.declWfB, decide_eq_true_eq] at h
+    simp [Expr.hasFvar, Expr.allLevelParamsDefined, Expr.constsResolveS,
+      Expr.looseBVarsBounded, h]
+  | fvar idx n ty ih =>
+    intro h
+    exact nomatch h
+  | sort u =>
+    intro h
+    simp only [Expr.declWfB] at h
+    simp [Expr.hasFvar, Expr.allLevelParamsDefined, Expr.constsResolveS,
+      Expr.looseBVarsBounded, h]
+  | const n us =>
+    intro h
+    simp only [Expr.declWfB, Bool.and_eq_true] at h
+    simp [Expr.hasFvar, Expr.allLevelParamsDefined, Expr.constsResolveS,
+      Expr.looseBVarsBounded, h.1, h.2]
+  | app f a ihf iha =>
+    intro h
+    simp only [Expr.declWfB, Bool.and_eq_true] at h
+    obtain ⟨hf, ha⟩ := h
+    obtain ⟨h1, h2, h3, h4⟩ := ihf hf
+    obtain ⟨h5, h6, h7, h8⟩ := iha ha
+    simp [Expr.hasFvar, Expr.allLevelParamsDefined, Expr.constsResolveS,
+      Expr.looseBVarsBounded, h1, h2, h3, h4, h5, h6, h7, h8]
+  | lam n t b m iht ihb =>
+    intro h
+    simp only [Expr.declWfB, Bool.and_eq_true] at h
+    obtain ⟨⟨ht, hb⟩, hm⟩ := h
+    obtain ⟨h1, h2, h3, h4⟩ := iht ht
+    obtain ⟨h5, h6, h7, h8⟩ := ihb hb
+    simp only [Expr.hasFvar, Expr.allLevelParamsDefined,
+      Expr.constsResolveS, Expr.looseBVarsBounded, h1, h2, h3, h4, h5, h6,
+      h7, h8, Bool.or_self, Bool.and_true, Bool.true_and, and_true,
+      true_and]
+    exact hm
+  | forallE n t b m iht ihb =>
+    intro h
+    simp only [Expr.declWfB, Bool.and_eq_true] at h
+    obtain ⟨⟨ht, hb⟩, hm⟩ := h
+    obtain ⟨h1, h2, h3, h4⟩ := iht ht
+    obtain ⟨h5, h6, h7, h8⟩ := ihb hb
+    simp only [Expr.hasFvar, Expr.allLevelParamsDefined,
+      Expr.constsResolveS, Expr.looseBVarsBounded, h1, h2, h3, h4, h5, h6,
+      h7, h8, Bool.or_self, Bool.and_true, Bool.true_and, and_true,
+      true_and]
+    exact hm
+  | letE n t v b iht ihv ihb =>
+    intro h
+    simp only [Expr.declWfB, Bool.and_eq_true] at h
+    obtain ⟨⟨ht, hv⟩, hb⟩ := h
+    obtain ⟨h1, h2, h3, h4⟩ := iht ht
+    obtain ⟨h5, h6, h7, h8⟩ := ihv hv
+    obtain ⟨h9, h10, h11, h12⟩ := ihb hb
+    simp [Expr.hasFvar, Expr.allLevelParamsDefined, Expr.constsResolveS,
+      Expr.looseBVarsBounded, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10,
+      h11, h12]
+  | lit l =>
+    intro h
+    cases l with
+    | natVal n =>
+      simp only [Expr.declWfB, Bool.and_eq_true] at h
+      obtain ⟨⟨ha, hb⟩, hc⟩ := h
+      refine ⟨rfl, rfl, ?_, rfl⟩
+      simp only [Expr.constsResolveS, Bool.and_eq_true]
+      exact ⟨⟨ha, hb⟩, hc⟩
+    | strVal str =>
+      simp [Expr.hasFvar, Expr.allLevelParamsDefined, Expr.constsResolveS,
+        Expr.looseBVarsBounded]
+  | proj sn i e ih =>
+    intro h
+    simp only [Expr.declWfB, Bool.and_eq_true] at h
+    obtain ⟨hs, he⟩ := h
+    obtain ⟨h1, h2, h3, h4⟩ := ih he
+    simp [Expr.hasFvar, Expr.allLevelParamsDefined, Expr.constsResolveS,
+      Expr.looseBVarsBounded, hs, h1, h2, h3, h4]
+
+/-- The `Bool` gate reflects into the `Prop` invariant the depth
+invariance theorems consume. -/
+theorem envWF_of_wfB {env : Env} (h : env.wfB = true) : EnvWF env := by
+  intro c hc
+  rw [Env.wfB] at h
+  have hcw := List.all_eq_true.mp h c hc
+  unfold ConstantInfo.wfB at hcw
+  cases c with
+  | defnInfo cv value =>
+    simp only [Bool.and_eq_true] at hcw
+    obtain ⟨h1, h2, h3, h4⟩ := declWfB_parts hcw.1
+    obtain ⟨h5, h6, h7, h8⟩ := declWfB_parts hcw.2
+    rw [constsResolveS_eq] at h3 h7
+    refine ⟨h1, h2, h3, h4, ?_, ?_⟩
+    · intro cv' value' heq
+      cases heq
+      exact ⟨h5, h6, h7, h8⟩
+    · intro cv' nP' nM' nm' ni' rules' heq
+      exact nomatch heq
+  | recInfo cv nP nM nm ni rules =>
+    simp only [Bool.and_eq_true] at hcw
+    obtain ⟨h1, h2, h3, h4⟩ := declWfB_parts hcw.1
+    rw [constsResolveS_eq] at h3
+    refine ⟨h1, h2, h3, h4, ?_, ?_⟩
+    · intro cv' value' heq
+      exact nomatch heq
+    · intro cv' nP' nM' nm' ni' rules' heq r hr
+      cases heq
+      obtain ⟨h5, h6, h7, h8⟩ :=
+        declWfB_parts (List.all_eq_true.mp hcw.2 r hr)
+      rw [constsResolveS_eq] at h7
+      exact ⟨h5, h6, h7, h8⟩
+  | axiomInfo cv =>
+    simp only [Bool.and_eq_true] at hcw
+    obtain ⟨h1, h2, h3, h4⟩ := declWfB_parts hcw.1
+    rw [constsResolveS_eq] at h3
+    refine ⟨h1, h2, h3, h4, ?_, ?_⟩
+    · intro cv' value' heq
+      exact nomatch heq
+    · intro cv' nP' nM' nm' ni' rules' heq
+      exact nomatch heq
+  | thmInfo cv value =>
+    simp only [Bool.and_eq_true] at hcw
+    obtain ⟨h1, h2, h3, h4⟩ := declWfB_parts hcw.1
+    rw [constsResolveS_eq] at h3
+    refine ⟨h1, h2, h3, h4, ?_, ?_⟩
+    · intro cv' value' heq
+      exact nomatch heq
+    · intro cv' nP' nM' nm' ni' rules' heq
+      exact nomatch heq
+  | indInfo cv caps =>
+    simp only [Bool.and_eq_true] at hcw
+    obtain ⟨h1, h2, h3, h4⟩ := declWfB_parts hcw.1
+    rw [constsResolveS_eq] at h3
+    refine ⟨h1, h2, h3, h4, ?_, ?_⟩
+    · intro cv' value' heq
+      exact nomatch heq
+    · intro cv' nP' nM' nm' ni' rules' heq
+      exact nomatch heq
+  | ctorInfo cv nP nF =>
+    simp only [Bool.and_eq_true] at hcw
+    obtain ⟨h1, h2, h3, h4⟩ := declWfB_parts hcw.1
+    rw [constsResolveS_eq] at h3
+    refine ⟨h1, h2, h3, h4, ?_, ?_⟩
+    · intro cv' value' heq
+      exact nomatch heq
+    · intro cv' nP' nM' nm' ni' rules' heq
+      exact nomatch heq
+
 /-! ## The memoized knot simulates the fueled families -/
 
-theorem cached_whnfCore_sim (env : Env) (f : Nat)
-    (ih : FnsRel (simRel env) (fueledFns env) (cachedFns env f))
+theorem cached_whnfCore_sim (env : Env) (henv : EnvWF env) (f : Nat)
+    (ih : FnsRel (simRel env) (fueledFns env) (cachedFnsM env f))
     (d : Nat) (e : Expr) :
     (simRel env).R ((fueledFns env).whnfCore d e)
-      ((cachedFns env (f + 1)).whnfCore d e) := by
+      ((cachedFnsM env (f + 1)).whnfCore d e) := by
   intro σ hσ v σ' hrun
-  rw [show (cachedFns env (f + 1)).whnfCore d e =
+  rw [show (cachedFnsM env (f + 1)).whnfCore d e =
     memoE (·.whnfCore) (fun st mp => { st with whnfCore := mp })
-      (fun d e => whnfCoreBody (cachedFns env f) env d e) d e from rfl]
+      (fun d e => whnfCoreBody (cachedFnsM env f) env d e) d e from rfl]
     at hrun
+  have hbody : ∀ v σ',
+      whnfCoreBody (cachedFnsM env f) env d e σ = .ok (v, σ') →
+      (∃ F, whnfCore env (F + 1) d e = .ok v) ∧ CacheOK env σ' := by
+    intro v σ' hb
+    have hpair := (whnfCoreBody
+      (pairFns (fueledFns env) (cachedFnsM env f) ih) env d e).property
+    rw [whnfCoreBody_fst_proj, whnfCoreBody_snd_proj] at hpair
+    obtain ⟨⟨F, hF⟩, hσ₁⟩ := hpair σ hσ v σ' hb
+    rw [whnfCoreBody_atF] at hF
+    exact ⟨⟨F, hF⟩, hσ₁⟩
   simp only [memoE, Bind.bind, StateT.bind, get, getThe, MonadStateOf.get,
     StateT.get, pure, StateT.pure, Except.pure, Except.bind] at hrun
-  cases hl : σ.whnfCore[((d, e) : Nat × Expr)]? with
-  | some r =>
-    rw [hl] at hrun
-    dsimp only at hrun
-    simp only [pure, StateT.pure, Except.pure, Except.ok.injEq,
-      Prod.mk.injEq] at hrun
-    obtain ⟨rfl, rfl⟩ := hrun
-    obtain ⟨F, hF⟩ := hσ.1 d e r hl
-    exact ⟨⟨F, hF⟩, hσ⟩
-  | none =>
-    rw [hl] at hrun
-    dsimp only at hrun
-    simp only [StateT.bind] at hrun
-    cases hb : whnfCoreBody (cachedFns env f) env d e σ with
-    | error err =>
-      rw [hb] at hrun
-      simp only [Bind.bind, Except.bind] at hrun
-      exact nomatch hrun
-    | ok p =>
-      obtain ⟨r, σ₁⟩ := p
-      rw [hb] at hrun
-      simp only [Bind.bind, Except.bind, modify, modifyGet,
-        MonadStateOf.modifyGet, StateT.modifyGet, StateT.pure, pure,
-        Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+  by_cases hg : e.wscopedB d
+  · rw [if_pos (by simpa using hg)] at hrun
+    try simp only [Bind.bind, StateT.bind, get, getThe, MonadStateOf.get,
+      StateT.get, pure, StateT.pure, Except.pure, Except.bind] at hrun
+    cases hl : σ.whnfCore[e]? with
+    | some r =>
+      rw [hl] at hrun
+      try dsimp only at hrun
+      simp only [pure, StateT.pure, Except.pure, Except.ok.injEq,
+        Prod.mk.injEq] at hrun
       obtain ⟨rfl, rfl⟩ := hrun
-      have hpair := (whnfCoreBody
-        (pairFns (fueledFns env) (cachedFns env f) ih) env d e).property
-      rw [whnfCoreBody_fst_proj, whnfCoreBody_snd_proj] at hpair
-      obtain ⟨⟨F, hF⟩, hσ₁⟩ := hpair σ hσ r σ₁ hb
-      rw [whnfCoreBody_atF] at hF
-      have hpure : whnfCore env (F + 1) d e = .ok r := hF
-      refine ⟨⟨F + 1, hpure⟩, ?_, hσ₁.2.1, hσ₁.2.2.1, hσ₁.2.2.2.1,
-        hσ₁.2.2.2.2⟩
-      intro d' e' r' hl'
-      simp only at hl'
-      rw [Std.HashMap.getElem?_insert] at hl'
-      by_cases hk : ((d, e) : Nat × Expr) == (d', e')
-      · rw [if_pos hk] at hl'
-        obtain ⟨rfl, rfl⟩ : d = d' ∧ e = e' := by
-          have := eq_of_beq hk
-          exact ⟨congrArg Prod.fst this, congrArg Prod.snd this⟩
-        obtain rfl : r = r' := by injection hl'
-        exact ⟨F + 1, hpure⟩
-      · rw [if_neg hk] at hl'
-        exact hσ₁.1 d' e' r' hl'
+      obtain ⟨F, hall⟩ := hσ.1 e r hl
+      exact ⟨⟨F, hall d hg⟩, hσ⟩
+    | none =>
+      rw [hl] at hrun
+      try dsimp only at hrun
+      try simp only [StateT.bind] at hrun
+      cases hb : whnfCoreBody (cachedFnsM env f) env d e σ with
+      | error err =>
+        rw [hb] at hrun
+        simp only [Bind.bind, Except.bind] at hrun
+        exact nomatch hrun
+      | ok pr =>
+        obtain ⟨r, σ₁⟩ := pr
+        rw [hb] at hrun
+        simp only [Bind.bind, Except.bind, modify, modifyGet,
+          MonadStateOf.modifyGet, StateT.modifyGet, StateT.pure, pure,
+          Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+        obtain ⟨rfl, rfl⟩ := hrun
+        obtain ⟨⟨F, hpure⟩, hσ₁⟩ := hbody r σ₁ hb
+        refine ⟨⟨F + 1, hpure⟩, ?_, hσ₁.2.1, hσ₁.2.2.1, hσ₁.2.2.2.1,
+          hσ₁.2.2.2.2⟩
+        intro e' r' hl'
+        simp only at hl'
+        rw [Std.HashMap.getElem?_insert] at hl'
+        by_cases hk : e == e'
+        · rw [if_pos hk] at hl'
+          obtain rfl : e = e' := eq_of_beq hk
+          obtain rfl : r = r' := by injection hl'
+          refine ⟨F + 1, fun d' hd' => ?_⟩
+          rw [whnfCore_depth_inv henv (F + 1) hd' hg]
+          exact hpure
+        · rw [if_neg hk] at hl'
+          exact hσ₁.1 e' r' hl'
+  · rw [if_neg (by simpa using hg)] at hrun
+    obtain ⟨⟨F, hpure⟩, hσ'⟩ := hbody v σ' hrun
+    exact ⟨⟨F + 1, hpure⟩, hσ'⟩
 
-theorem cached_whnf_sim (env : Env) (f : Nat)
-    (ih : FnsRel (simRel env) (fueledFns env) (cachedFns env f))
+theorem cached_whnf_sim (env : Env) (henv : EnvWF env) (f : Nat)
+    (ih : FnsRel (simRel env) (fueledFns env) (cachedFnsM env f))
     (d : Nat) (e : Expr) :
     (simRel env).R ((fueledFns env).whnf d e)
-      ((cachedFns env (f + 1)).whnf d e) := by
+      ((cachedFnsM env (f + 1)).whnf d e) := by
   intro σ hσ v σ' hrun
-  rw [show (cachedFns env (f + 1)).whnf d e =
+  rw [show (cachedFnsM env (f + 1)).whnf d e =
     memoE (·.whnf) (fun st mp => { st with whnf := mp })
-      (fun d e => whnfBody (cachedFns env f) env d e) d e from rfl]
+      (fun d e => whnfBody (cachedFnsM env f) env d e) d e from rfl]
     at hrun
+  have hbody : ∀ v σ',
+      whnfBody (cachedFnsM env f) env d e σ = .ok (v, σ') →
+      (∃ F, whnf env (F + 1) d e = .ok v) ∧ CacheOK env σ' := by
+    intro v σ' hb
+    have hpair := (whnfBody
+      (pairFns (fueledFns env) (cachedFnsM env f) ih) env d e).property
+    rw [whnfBody_fst_proj, whnfBody_snd_proj] at hpair
+    obtain ⟨⟨F, hF⟩, hσ₁⟩ := hpair σ hσ v σ' hb
+    rw [whnfBody_atF] at hF
+    exact ⟨⟨F, hF⟩, hσ₁⟩
   simp only [memoE, Bind.bind, StateT.bind, get, getThe, MonadStateOf.get,
     StateT.get, pure, StateT.pure, Except.pure, Except.bind] at hrun
-  cases hl : σ.whnf[((d, e) : Nat × Expr)]? with
-  | some r =>
-    rw [hl] at hrun
-    dsimp only at hrun
-    simp only [pure, StateT.pure, Except.pure, Except.ok.injEq,
-      Prod.mk.injEq] at hrun
-    obtain ⟨rfl, rfl⟩ := hrun
-    obtain ⟨F, hF⟩ := hσ.2.1 d e r hl
-    exact ⟨⟨F, hF⟩, hσ⟩
-  | none =>
-    rw [hl] at hrun
-    dsimp only at hrun
-    simp only [StateT.bind] at hrun
-    cases hb : whnfBody (cachedFns env f) env d e σ with
-    | error err =>
-      rw [hb] at hrun
-      simp only [Bind.bind, Except.bind] at hrun
-      exact nomatch hrun
-    | ok p =>
-      obtain ⟨r, σ₁⟩ := p
-      rw [hb] at hrun
-      simp only [Bind.bind, Except.bind, modify, modifyGet,
-        MonadStateOf.modifyGet, StateT.modifyGet, StateT.pure, pure,
-        Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+  by_cases hg : e.wscopedB d
+  · rw [if_pos (by simpa using hg)] at hrun
+    try simp only [Bind.bind, StateT.bind, get, getThe, MonadStateOf.get,
+      StateT.get, pure, StateT.pure, Except.pure, Except.bind] at hrun
+    cases hl : σ.whnf[e]? with
+    | some r =>
+      rw [hl] at hrun
+      try dsimp only at hrun
+      simp only [pure, StateT.pure, Except.pure, Except.ok.injEq,
+        Prod.mk.injEq] at hrun
       obtain ⟨rfl, rfl⟩ := hrun
-      have hpair := (whnfBody
-        (pairFns (fueledFns env) (cachedFns env f) ih) env d e).property
-      rw [whnfBody_fst_proj, whnfBody_snd_proj] at hpair
-      obtain ⟨⟨F, hF⟩, hσ₁⟩ := hpair σ hσ r σ₁ hb
-      rw [whnfBody_atF] at hF
-      have hpure : whnf env (F + 1) d e = .ok r := hF
-      refine ⟨⟨F + 1, hpure⟩, hσ₁.1, ?_, hσ₁.2.2.1, hσ₁.2.2.2.1,
-        hσ₁.2.2.2.2⟩
-      intro d' e' r' hl'
-      simp only at hl'
-      rw [Std.HashMap.getElem?_insert] at hl'
-      by_cases hk : ((d, e) : Nat × Expr) == (d', e')
-      · rw [if_pos hk] at hl'
-        obtain ⟨rfl, rfl⟩ : d = d' ∧ e = e' := by
-          have := eq_of_beq hk
-          exact ⟨congrArg Prod.fst this, congrArg Prod.snd this⟩
-        obtain rfl : r = r' := by injection hl'
-        exact ⟨F + 1, hpure⟩
-      · rw [if_neg hk] at hl'
-        exact hσ₁.2.1 d' e' r' hl'
+      obtain ⟨F, hall⟩ := hσ.2.1 e r hl
+      exact ⟨⟨F, hall d hg⟩, hσ⟩
+    | none =>
+      rw [hl] at hrun
+      try dsimp only at hrun
+      try simp only [StateT.bind] at hrun
+      cases hb : whnfBody (cachedFnsM env f) env d e σ with
+      | error err =>
+        rw [hb] at hrun
+        simp only [Bind.bind, Except.bind] at hrun
+        exact nomatch hrun
+      | ok pr =>
+        obtain ⟨r, σ₁⟩ := pr
+        rw [hb] at hrun
+        simp only [Bind.bind, Except.bind, modify, modifyGet,
+          MonadStateOf.modifyGet, StateT.modifyGet, StateT.pure, pure,
+          Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+        obtain ⟨rfl, rfl⟩ := hrun
+        obtain ⟨⟨F, hpure⟩, hσ₁⟩ := hbody r σ₁ hb
+        refine ⟨⟨F + 1, hpure⟩, hσ₁.1, ?_, hσ₁.2.2.1, hσ₁.2.2.2.1,
+          hσ₁.2.2.2.2⟩
+        intro e' r' hl'
+        simp only at hl'
+        rw [Std.HashMap.getElem?_insert] at hl'
+        by_cases hk : e == e'
+        · rw [if_pos hk] at hl'
+          obtain rfl : e = e' := eq_of_beq hk
+          obtain rfl : r = r' := by injection hl'
+          refine ⟨F + 1, fun d' hd' => ?_⟩
+          rw [whnf_depth_inv henv (F + 1) hd' hg]
+          exact hpure
+        · rw [if_neg hk] at hl'
+          exact hσ₁.2.1 e' r' hl'
+  · rw [if_neg (by simpa using hg)] at hrun
+    obtain ⟨⟨F, hpure⟩, hσ'⟩ := hbody v σ' hrun
+    exact ⟨⟨F + 1, hpure⟩, hσ'⟩
 
-theorem cached_infer_sim (env : Env) (f : Nat)
-    (ih : FnsRel (simRel env) (fueledFns env) (cachedFns env f))
+theorem cached_infer_sim (env : Env) (henv : EnvWF env) (f : Nat)
+    (ih : FnsRel (simRel env) (fueledFns env) (cachedFnsM env f))
     (d : Nat) (e : Expr) :
     (simRel env).R ((fueledFns env).infer d e)
-      ((cachedFns env (f + 1)).infer d e) := by
+      ((cachedFnsM env (f + 1)).infer d e) := by
   intro σ hσ v σ' hrun
-  rw [show (cachedFns env (f + 1)).infer d e =
+  rw [show (cachedFnsM env (f + 1)).infer d e =
     memoE (·.infer) (fun st mp => { st with infer := mp })
-      (fun d e => inferBody (cachedFns env f) env d e) d e from rfl]
+      (fun d e => inferBody (cachedFnsM env f) env d e) d e from rfl]
     at hrun
+  have hbody : ∀ v σ',
+      inferBody (cachedFnsM env f) env d e σ = .ok (v, σ') →
+      (∃ F, inferTypeCore env (F + 1) d e = .ok v) ∧ CacheOK env σ' := by
+    intro v σ' hb
+    have hpair := (inferBody
+      (pairFns (fueledFns env) (cachedFnsM env f) ih) env d e).property
+    rw [inferBody_fst_proj, inferBody_snd_proj] at hpair
+    obtain ⟨⟨F, hF⟩, hσ₁⟩ := hpair σ hσ v σ' hb
+    rw [inferBody_atF] at hF
+    exact ⟨⟨F, hF⟩, hσ₁⟩
   simp only [memoE, Bind.bind, StateT.bind, get, getThe, MonadStateOf.get,
     StateT.get, pure, StateT.pure, Except.pure, Except.bind] at hrun
-  cases hl : σ.infer[((d, e) : Nat × Expr)]? with
-  | some r =>
-    rw [hl] at hrun
-    dsimp only at hrun
-    simp only [pure, StateT.pure, Except.pure, Except.ok.injEq,
-      Prod.mk.injEq] at hrun
-    obtain ⟨rfl, rfl⟩ := hrun
-    obtain ⟨F, hF⟩ := hσ.2.2.1 d e r hl
-    exact ⟨⟨F, hF⟩, hσ⟩
-  | none =>
-    rw [hl] at hrun
-    dsimp only at hrun
-    simp only [StateT.bind] at hrun
-    cases hb : inferBody (cachedFns env f) env d e σ with
-    | error err =>
-      rw [hb] at hrun
-      simp only [Bind.bind, Except.bind] at hrun
-      exact nomatch hrun
-    | ok p =>
-      obtain ⟨r, σ₁⟩ := p
-      rw [hb] at hrun
-      simp only [Bind.bind, Except.bind, modify, modifyGet,
-        MonadStateOf.modifyGet, StateT.modifyGet, StateT.pure, pure,
-        Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+  by_cases hg : e.wscopedB d
+  · rw [if_pos (by simpa using hg)] at hrun
+    try simp only [Bind.bind, StateT.bind, get, getThe, MonadStateOf.get,
+      StateT.get, pure, StateT.pure, Except.pure, Except.bind] at hrun
+    cases hl : σ.infer[e]? with
+    | some r =>
+      rw [hl] at hrun
+      try dsimp only at hrun
+      simp only [pure, StateT.pure, Except.pure, Except.ok.injEq,
+        Prod.mk.injEq] at hrun
       obtain ⟨rfl, rfl⟩ := hrun
-      have hpair := (inferBody
-        (pairFns (fueledFns env) (cachedFns env f) ih) env d e).property
-      rw [inferBody_fst_proj, inferBody_snd_proj] at hpair
-      obtain ⟨⟨F, hF⟩, hσ₁⟩ := hpair σ hσ r σ₁ hb
-      rw [inferBody_atF] at hF
-      have hpure : inferTypeCore env (F + 1) d e = .ok r := hF
-      refine ⟨⟨F + 1, hpure⟩, hσ₁.1, hσ₁.2.1, ?_, hσ₁.2.2.2.1,
-        hσ₁.2.2.2.2⟩
-      intro d' e' r' hl'
-      simp only at hl'
-      rw [Std.HashMap.getElem?_insert] at hl'
-      by_cases hk : ((d, e) : Nat × Expr) == (d', e')
-      · rw [if_pos hk] at hl'
-        obtain ⟨rfl, rfl⟩ : d = d' ∧ e = e' := by
-          have := eq_of_beq hk
-          exact ⟨congrArg Prod.fst this, congrArg Prod.snd this⟩
-        obtain rfl : r = r' := by injection hl'
-        exact ⟨F + 1, hpure⟩
-      · rw [if_neg hk] at hl'
-        exact hσ₁.2.2.1 d' e' r' hl'
+      obtain ⟨F, hall⟩ := hσ.2.2.1 e r hl
+      exact ⟨⟨F, hall d hg⟩, hσ⟩
+    | none =>
+      rw [hl] at hrun
+      try dsimp only at hrun
+      try simp only [StateT.bind] at hrun
+      cases hb : inferBody (cachedFnsM env f) env d e σ with
+      | error err =>
+        rw [hb] at hrun
+        simp only [Bind.bind, Except.bind] at hrun
+        exact nomatch hrun
+      | ok pr =>
+        obtain ⟨r, σ₁⟩ := pr
+        rw [hb] at hrun
+        simp only [Bind.bind, Except.bind, modify, modifyGet,
+          MonadStateOf.modifyGet, StateT.modifyGet, StateT.pure, pure,
+          Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+        obtain ⟨rfl, rfl⟩ := hrun
+        obtain ⟨⟨F, hpure⟩, hσ₁⟩ := hbody r σ₁ hb
+        refine ⟨⟨F + 1, hpure⟩, hσ₁.1, hσ₁.2.1, ?_, hσ₁.2.2.2.1,
+          hσ₁.2.2.2.2⟩
+        intro e' r' hl'
+        simp only at hl'
+        rw [Std.HashMap.getElem?_insert] at hl'
+        by_cases hk : e == e'
+        · rw [if_pos hk] at hl'
+          obtain rfl : e = e' := eq_of_beq hk
+          obtain rfl : r = r' := by injection hl'
+          refine ⟨F + 1, fun d' hd' => ?_⟩
+          rw [inferTypeCore_depth_inv henv (F + 1) hd' hg]
+          exact hpure
+        · rw [if_neg hk] at hl'
+          exact hσ₁.2.2.1 e' r' hl'
+  · rw [if_neg (by simpa using hg)] at hrun
+    obtain ⟨⟨F, hpure⟩, hσ'⟩ := hbody v σ' hrun
+    exact ⟨⟨F + 1, hpure⟩, hσ'⟩
 
-theorem cached_annotate_sim (env : Env) (f : Nat)
-    (ih : FnsRel (simRel env) (fueledFns env) (cachedFns env f))
+theorem cached_annotate_sim (env : Env) (henv : EnvWF env) (f : Nat)
+    (ih : FnsRel (simRel env) (fueledFns env) (cachedFnsM env f))
     (d : Nat) (e : Expr) :
     (simRel env).R ((fueledFns env).annotate d e)
-      ((cachedFns env (f + 1)).annotate d e) := by
+      ((cachedFnsM env (f + 1)).annotate d e) := by
   intro σ hσ v σ' hrun
-  rw [show (cachedFns env (f + 1)).annotate d e =
+  rw [show (cachedFnsM env (f + 1)).annotate d e =
     memoE (·.annot) (fun st mp => { st with annot := mp })
-      (fun d e => annotateBody (cachedFns env f) env d e) d e from rfl]
+      (fun d e => annotateBody (cachedFnsM env f) env d e) d e from rfl]
     at hrun
+  have hbody : ∀ v σ',
+      annotateBody (cachedFnsM env f) env d e σ = .ok (v, σ') →
+      (∃ F, annotateCore env (F + 1) d e = .ok v) ∧ CacheOK env σ' := by
+    intro v σ' hb
+    have hpair := (annotateBody
+      (pairFns (fueledFns env) (cachedFnsM env f) ih) env d e).property
+    rw [annotateBody_fst_proj, annotateBody_snd_proj] at hpair
+    obtain ⟨⟨F, hF⟩, hσ₁⟩ := hpair σ hσ v σ' hb
+    rw [annotateBody_atF] at hF
+    exact ⟨⟨F, hF⟩, hσ₁⟩
   simp only [memoE, Bind.bind, StateT.bind, get, getThe, MonadStateOf.get,
     StateT.get, pure, StateT.pure, Except.pure, Except.bind] at hrun
-  cases hl : σ.annot[((d, e) : Nat × Expr)]? with
-  | some r =>
-    rw [hl] at hrun
-    dsimp only at hrun
-    simp only [pure, StateT.pure, Except.pure, Except.ok.injEq,
-      Prod.mk.injEq] at hrun
-    obtain ⟨rfl, rfl⟩ := hrun
-    obtain ⟨F, hF⟩ := hσ.2.2.2.2 d e r hl
-    exact ⟨⟨F, hF⟩, hσ⟩
-  | none =>
-    rw [hl] at hrun
-    dsimp only at hrun
-    simp only [StateT.bind] at hrun
-    cases hb : annotateBody (cachedFns env f) env d e σ with
-    | error err =>
-      rw [hb] at hrun
-      simp only [Bind.bind, Except.bind] at hrun
-      exact nomatch hrun
-    | ok p =>
-      obtain ⟨r, σ₁⟩ := p
-      rw [hb] at hrun
-      simp only [Bind.bind, Except.bind, modify, modifyGet,
-        MonadStateOf.modifyGet, StateT.modifyGet, StateT.pure, pure,
-        Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+  by_cases hg : e.wscopedB d
+  · rw [if_pos (by simpa using hg)] at hrun
+    try simp only [Bind.bind, StateT.bind, get, getThe, MonadStateOf.get,
+      StateT.get, pure, StateT.pure, Except.pure, Except.bind] at hrun
+    cases hl : σ.annot[e]? with
+    | some r =>
+      rw [hl] at hrun
+      try dsimp only at hrun
+      simp only [pure, StateT.pure, Except.pure, Except.ok.injEq,
+        Prod.mk.injEq] at hrun
       obtain ⟨rfl, rfl⟩ := hrun
-      have hpair := (annotateBody
-        (pairFns (fueledFns env) (cachedFns env f) ih) env d e).property
-      rw [annotateBody_fst_proj, annotateBody_snd_proj] at hpair
-      obtain ⟨⟨F, hF⟩, hσ₁⟩ := hpair σ hσ r σ₁ hb
-      rw [annotateBody_atF] at hF
-      have hpure : annotateCore env (F + 1) d e = .ok r := hF
-      refine ⟨⟨F + 1, hpure⟩, hσ₁.1, hσ₁.2.1, hσ₁.2.2.1, hσ₁.2.2.2.1,
-        ?_⟩
-      intro d' e' r' hl'
-      simp only at hl'
-      rw [Std.HashMap.getElem?_insert] at hl'
-      by_cases hk : ((d, e) : Nat × Expr) == (d', e')
-      · rw [if_pos hk] at hl'
-        obtain ⟨rfl, rfl⟩ : d = d' ∧ e = e' := by
-          have := eq_of_beq hk
-          exact ⟨congrArg Prod.fst this, congrArg Prod.snd this⟩
-        obtain rfl : r = r' := by injection hl'
-        exact ⟨F + 1, hpure⟩
-      · rw [if_neg hk] at hl'
-        exact hσ₁.2.2.2.2 d' e' r' hl'
+      obtain ⟨F, hall⟩ := hσ.2.2.2.2 e r hl
+      exact ⟨⟨F, hall d hg⟩, hσ⟩
+    | none =>
+      rw [hl] at hrun
+      try dsimp only at hrun
+      try simp only [StateT.bind] at hrun
+      cases hb : annotateBody (cachedFnsM env f) env d e σ with
+      | error err =>
+        rw [hb] at hrun
+        simp only [Bind.bind, Except.bind] at hrun
+        exact nomatch hrun
+      | ok pr =>
+        obtain ⟨r, σ₁⟩ := pr
+        rw [hb] at hrun
+        simp only [Bind.bind, Except.bind, modify, modifyGet,
+          MonadStateOf.modifyGet, StateT.modifyGet, StateT.pure, pure,
+          Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+        obtain ⟨rfl, rfl⟩ := hrun
+        obtain ⟨⟨F, hpure⟩, hσ₁⟩ := hbody r σ₁ hb
+        refine ⟨⟨F + 1, hpure⟩, hσ₁.1, hσ₁.2.1, hσ₁.2.2.1,
+          hσ₁.2.2.2.1, ?_⟩
+        intro e' r' hl'
+        simp only at hl'
+        rw [Std.HashMap.getElem?_insert] at hl'
+        by_cases hk : e == e'
+        · rw [if_pos hk] at hl'
+          obtain rfl : e = e' := eq_of_beq hk
+          obtain rfl : r = r' := by injection hl'
+          refine ⟨F + 1, fun d' hd' => ?_⟩
+          rw [annotateCore_depth_inv henv (F + 1) hd' hg]
+          exact hpure
+        · rw [if_neg hk] at hl'
+          exact hσ₁.2.2.2.2 e' r' hl'
+  · rw [if_neg (by simpa using hg)] at hrun
+    obtain ⟨⟨F, hpure⟩, hσ'⟩ := hbody v σ' hrun
+    exact ⟨⟨F + 1, hpure⟩, hσ'⟩
 
-theorem cached_defeq_sim (env : Env) (f : Nat)
-    (ih : FnsRel (simRel env) (fueledFns env) (cachedFns env f))
+theorem cached_defeq_sim (env : Env) (henv : EnvWF env) (f : Nat)
+    (ih : FnsRel (simRel env) (fueledFns env) (cachedFnsM env f))
     (d : Nat) (a b : Expr) :
     (simRel env).R ((fueledFns env).defeq d a b)
-      ((cachedFns env (f + 1)).defeq d a b) := by
+      ((cachedFnsM env (f + 1)).defeq d a b) := by
   intro σ hσ v σ' hrun
-  rw [show (cachedFns env (f + 1)).defeq d a b =
-    memoB (fun d a b => defeqBody (cachedFns env f) env d a b) d a b
+  rw [show (cachedFnsM env (f + 1)).defeq d a b =
+    memoB (fun d a b => defeqBody (cachedFnsM env f) env d a b) d a b
       from rfl] at hrun
+  have hbody : ∀ v σ',
+      defeqBody (cachedFnsM env f) env d a b σ = .ok (v, σ') →
+      (∃ F, isDefEqCore env (F + 1) d a b = .ok v) ∧ CacheOK env σ' := by
+    intro v σ' hb
+    have hpair := (defeqBody
+      (pairFns (fueledFns env) (cachedFnsM env f) ih) env d a b).property
+    rw [defeqBody_fst_proj, defeqBody_snd_proj] at hpair
+    obtain ⟨⟨F, hF⟩, hσ₁⟩ := hpair σ hσ v σ' hb
+    rw [defeqBody_atF] at hF
+    exact ⟨⟨F, hF⟩, hσ₁⟩
   simp only [memoB, Bind.bind, StateT.bind, get, getThe, MonadStateOf.get,
     StateT.get, pure, StateT.pure, Except.pure, Except.bind] at hrun
-  cases hl : σ.defeq[((d, a, b) : Nat × Expr × Expr)]? with
-  | some r =>
-    rw [hl] at hrun
-    dsimp only at hrun
-    simp only [pure, StateT.pure, Except.pure, Except.ok.injEq,
-      Prod.mk.injEq] at hrun
-    obtain ⟨rfl, rfl⟩ := hrun
-    obtain ⟨F, hF⟩ := hσ.2.2.2.1 d a b r hl
-    exact ⟨⟨F, hF⟩, hσ⟩
-  | none =>
-    rw [hl] at hrun
-    dsimp only at hrun
-    simp only [StateT.bind] at hrun
-    cases hb : defeqBody (cachedFns env f) env d a b σ with
-    | error err =>
-      rw [hb] at hrun
-      simp only [Bind.bind, Except.bind] at hrun
-      exact nomatch hrun
-    | ok p =>
-      obtain ⟨r, σ₁⟩ := p
-      rw [hb] at hrun
-      simp only [Bind.bind, Except.bind, modify, modifyGet,
-        MonadStateOf.modifyGet, StateT.modifyGet, StateT.pure, pure,
-        Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+  by_cases hg : (a.wscopedB d && b.wscopedB d) = true
+  · obtain ⟨hga, hgb⟩ := Bool.and_eq_true .. ▸ hg
+    rw [if_pos (by simpa using hg)] at hrun
+    try simp only [Bind.bind, StateT.bind, get, getThe, MonadStateOf.get,
+      StateT.get, pure, StateT.pure, Except.pure, Except.bind] at hrun
+    cases hl : σ.defeq[((a, b) : Expr × Expr)]? with
+    | some r =>
+      rw [hl] at hrun
+      try dsimp only at hrun
+      simp only [pure, StateT.pure, Except.pure, Except.ok.injEq,
+        Prod.mk.injEq] at hrun
       obtain ⟨rfl, rfl⟩ := hrun
-      have hpair := (defeqBody
-        (pairFns (fueledFns env) (cachedFns env f) ih) env d a b).property
-      rw [defeqBody_fst_proj, defeqBody_snd_proj] at hpair
-      obtain ⟨⟨F, hF⟩, hσ₁⟩ := hpair σ hσ r σ₁ hb
-      rw [defeqBody_atF] at hF
-      have hpure : isDefEqCore env (F + 1) d a b = .ok r := hF
-      refine ⟨⟨F + 1, hpure⟩, hσ₁.1, hσ₁.2.1, hσ₁.2.2.1, ?_,
-        hσ₁.2.2.2.2⟩
-      intro d' a' b' r' hl'
-      simp only at hl'
-      rw [Std.HashMap.getElem?_insert] at hl'
-      by_cases hk : ((d, a, b) : Nat × Expr × Expr) == (d', a', b')
-      · rw [if_pos hk] at hl'
-        obtain ⟨rfl, rfl, rfl⟩ : d = d' ∧ a = a' ∧ b = b' := by
-          have := eq_of_beq hk
-          exact ⟨congrArg Prod.fst this,
-            congrArg (fun p => p.snd.fst) this,
-            congrArg (fun p => p.snd.snd) this⟩
-        obtain rfl : r = r' := by injection hl'
-        exact ⟨F + 1, hpure⟩
-      · rw [if_neg hk] at hl'
-        exact hσ₁.2.2.2.1 d' a' b' r' hl'
+      obtain ⟨F, hall⟩ := hσ.2.2.2.1 a b r hl
+      exact ⟨⟨F, hall d hga hgb⟩, hσ⟩
+    | none =>
+      rw [hl] at hrun
+      try dsimp only at hrun
+      try simp only [StateT.bind] at hrun
+      cases hb : defeqBody (cachedFnsM env f) env d a b σ with
+      | error err =>
+        rw [hb] at hrun
+        simp only [Bind.bind, Except.bind] at hrun
+        exact nomatch hrun
+      | ok pr =>
+        obtain ⟨r, σ₁⟩ := pr
+        rw [hb] at hrun
+        simp only [Bind.bind, Except.bind, modify, modifyGet,
+          MonadStateOf.modifyGet, StateT.modifyGet, StateT.pure, pure,
+          Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+        obtain ⟨rfl, rfl⟩ := hrun
+        obtain ⟨⟨F, hpure⟩, hσ₁⟩ := hbody r σ₁ hb
+        refine ⟨⟨F + 1, hpure⟩, hσ₁.1, hσ₁.2.1, hσ₁.2.2.1, ?_,
+          hσ₁.2.2.2.2⟩
+        intro a' b' r' hl'
+        simp only at hl'
+        rw [Std.HashMap.getElem?_insert] at hl'
+        by_cases hk : ((a, b) : Expr × Expr) == (a', b')
+        · rw [if_pos hk] at hl'
+          obtain ⟨rfl, rfl⟩ : a = a' ∧ b = b' := by
+            have := eq_of_beq hk
+            exact ⟨congrArg Prod.fst this, congrArg Prod.snd this⟩
+          obtain rfl : r = r' := by injection hl'
+          refine ⟨F + 1, fun d' hda' hdb' => ?_⟩
+          rw [isDefEqCore_depth_inv henv (F + 1) hda' hdb' hga hgb]
+          exact hpure
+        · rw [if_neg hk] at hl'
+          exact hσ₁.2.2.2.1 a' b' r' hl'
+  · rw [if_neg (by simpa using hg)] at hrun
+    obtain ⟨⟨F, hpure⟩, hσ'⟩ := hbody v σ' hrun
+    exact ⟨⟨F + 1, hpure⟩, hσ'⟩
 
-/-- The memoized knot simulates the fueled families at every level. -/
-theorem cachedFns_sim (env : Env) :
-    ∀ f, FnsRel (simRel env) (fueledFns env) (cachedFns env f)
+/-! ## The plain `CheckSM` knot (ill-formed environments) -/
+
+theorem plainFnsS_sim (env : Env) : ∀ f,
+    FnsRel (simRel env) (fueledFns env) (plainFnsS env f)
+  | 0 => by
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
+    · intro d e σ hσ v σ' hrun
+      exact nomatch hrun
+    · intro d e σ hσ v σ' hrun
+      exact nomatch hrun
+    · intro d e σ hσ v σ' hrun
+      exact nomatch hrun
+    · intro d a b σ hσ v σ' hrun
+      exact nomatch hrun
+    · intro d e σ hσ v σ' hrun
+      exact nomatch hrun
+  | f + 1 => by
+    have ih := plainFnsS_sim env f
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
+    · intro d e σ hσ v σ' hrun
+      have hpair := (whnfCoreBody
+        (pairFns (fueledFns env) (plainFnsS env f) ih) env d e).property
+      rw [whnfCoreBody_fst_proj, whnfCoreBody_snd_proj] at hpair
+      obtain ⟨⟨F, hF⟩, hσ'⟩ := hpair σ hσ v σ' hrun
+      rw [whnfCoreBody_atF] at hF
+      exact ⟨⟨F + 1, hF⟩, hσ'⟩
+    · intro d e σ hσ v σ' hrun
+      have hpair := (whnfBody
+        (pairFns (fueledFns env) (plainFnsS env f) ih) env d e).property
+      rw [whnfBody_fst_proj, whnfBody_snd_proj] at hpair
+      obtain ⟨⟨F, hF⟩, hσ'⟩ := hpair σ hσ v σ' hrun
+      rw [whnfBody_atF] at hF
+      exact ⟨⟨F + 1, hF⟩, hσ'⟩
+    · intro d e σ hσ v σ' hrun
+      have hpair := (inferBody
+        (pairFns (fueledFns env) (plainFnsS env f) ih) env d e).property
+      rw [inferBody_fst_proj, inferBody_snd_proj] at hpair
+      obtain ⟨⟨F, hF⟩, hσ'⟩ := hpair σ hσ v σ' hrun
+      rw [inferBody_atF] at hF
+      exact ⟨⟨F + 1, hF⟩, hσ'⟩
+    · intro d a b σ hσ v σ' hrun
+      have hpair := (defeqBody
+        (pairFns (fueledFns env) (plainFnsS env f) ih) env d a b).property
+      rw [defeqBody_fst_proj, defeqBody_snd_proj] at hpair
+      obtain ⟨⟨F, hF⟩, hσ'⟩ := hpair σ hσ v σ' hrun
+      rw [defeqBody_atF] at hF
+      exact ⟨⟨F + 1, hF⟩, hσ'⟩
+    · intro d e σ hσ v σ' hrun
+      have hpair := (annotateBody
+        (pairFns (fueledFns env) (plainFnsS env f) ih) env d e).property
+      rw [annotateBody_fst_proj, annotateBody_snd_proj] at hpair
+      obtain ⟨⟨F, hF⟩, hσ'⟩ := hpair σ hσ v σ' hrun
+      rw [annotateBody_atF] at hF
+      exact ⟨⟨F + 1, hF⟩, hσ'⟩
+
+/-- The memoized knot simulates the fueled families at every level
+(well-formed environments). -/
+theorem cachedFnsM_sim (env : Env) (henv : EnvWF env) :
+    ∀ f, FnsRel (simRel env) (fueledFns env) (cachedFnsM env f)
   | 0 => by
     refine ⟨?_, ?_, ?_, ?_, ?_⟩
     · intro d e σ hσ v σ' hrun
@@ -834,11 +1182,23 @@ theorem cachedFns_sim (env : Env) :
     · intro d e σ hσ v σ' hrun
       exact nomatch hrun
   | f + 1 =>
-    ⟨cached_whnfCore_sim env f (cachedFns_sim env f),
-     cached_whnf_sim env f (cachedFns_sim env f),
-     cached_infer_sim env f (cachedFns_sim env f),
-     cached_defeq_sim env f (cachedFns_sim env f),
-     cached_annotate_sim env f (cachedFns_sim env f)⟩
+    ⟨cached_whnfCore_sim env henv f (cachedFnsM_sim env henv f),
+     cached_whnf_sim env henv f (cachedFnsM_sim env henv f),
+     cached_infer_sim env henv f (cachedFnsM_sim env henv f),
+     cached_defeq_sim env henv f (cachedFnsM_sim env henv f),
+     cached_annotate_sim env henv f (cachedFnsM_sim env henv f)⟩
+
+/-- The executable knot simulates the fueled families: memoized under
+the reflected well-formedness gate, plain otherwise. -/
+theorem cachedFns_sim (env : Env) :
+    ∀ f, FnsRel (simRel env) (fueledFns env) (cachedFns env f) := by
+  intro f
+  unfold cachedFns
+  by_cases hwf : env.wfB
+  · rw [if_pos hwf]
+    exact cachedFnsM_sim env (envWF_of_wfB hwf) f
+  · rw [if_neg hwf]
+    exact plainFnsS_sim env f
 
 /-! ## From the executable entry points to pure runs at some fuel -/
 
