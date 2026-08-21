@@ -11,7 +11,9 @@ import Setlec.SetTheory.Derive.Universe
   exploits.
 * `unitSet := {pt}` — the true truth value, and the model of `PUnit`.
 * `univZero := power unitSet = {∅, {pt}}` — the set of truth values,
-  Carneiro's `U₀ = {∅, {•}}`; stating it as a power set makes
+  the `U₀ = {∅, {•}}` of Mario Carneiro, *The Type Theory of Lean*,
+  master's thesis, Carnegie Mellon University, 2019; stating it as a
+  power set makes
   "members of `univ 0` are subsets of `{pt}`" definitional, and
   propositional extensionality one application of `ext`.
 * `truthVal p` — the truth value of a meta-level proposition, `{pt}`

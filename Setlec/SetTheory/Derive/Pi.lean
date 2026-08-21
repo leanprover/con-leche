@@ -3,7 +3,9 @@ import Setlec.SetTheory.Derive.Graphs
 /-!
 # The dependent product and abstraction, with the level-0 truncation
 
-Carneiro §6.2 conventions, as fixed by the `SetTheory` interface:
+the §6.2 conventions of Mario Carneiro, *The Type Theory of Lean*,
+master's thesis, Carnegie Mellon University, 2019, as fixed by the
+`SetTheory` interface:
 
 * `pi 0 A B` is the truth value `[∀ x ∈ A, B x inhabited]` — `Prop` is
   impredicative and proof irrelevance immediate;

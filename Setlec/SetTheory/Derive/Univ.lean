@@ -4,7 +4,9 @@ import Setlec.SetTheory.Derive.Omega
 /-!
 # The universe tower
 
-`univ 0` is the set of truth values (`univZero`, Carneiro's `U₀`);
+`univ 0` is the set of truth values (`univZero`, the `U₀` of Mario
+Carneiro, *The Type Theory of Lean*, master's thesis, Carnegie Mellon
+University, 2019);
 `univ (n+1)` is the chain universe `univChain (n+2)`.  The tower
 starts two levels up the chain so that every positive level has the
 inductive set `univChain 1` as a member — which is what puts `ω`

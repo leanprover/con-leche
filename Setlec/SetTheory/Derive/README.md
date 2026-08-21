@@ -6,8 +6,9 @@ minimal `SetTheory` class (`Setlec/SetTheory/Core.lean`), which
 axiomatizes only membership, extensionality, pairing, union, power set,
 regularity, Lean-level replacement, and an ω-chain of Grothendieck
 universes `univChain` (universehood as Tarski's Axiom A matrix with
-transitivity) — the consistency strength of Carneiro's
-`OmegaInaccessibles` hypothesis (*The Type Theory of Lean*, §1.2);
+transitivity) — the consistency strength of the `OmegaInaccessibles`
+hypothesis of Mario Carneiro, *The Type Theory of Lean*, master's
+thesis, Carnegie Mellon University, 2019, §1.2;
 choice is inherited from Lean's `Classical.choice` rather than
 asserted — see Core.lean's module doc.
 

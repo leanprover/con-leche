@@ -17,9 +17,11 @@ checker is verified to be consistent.
 ## The model
 
 * The target theory is **ZF (minus Infinity) plus an ω-chain of Grothendieck
-  universes** — the consistency strength of Lean itself (Carneiro's
-  `OmegaInaccessibles`: ZFC + a strictly increasing ω-sequence of
-  inaccessibles; model the chain by `V_{κ n}`). Inside Lean it is
+  universes** — the consistency strength of Lean itself: the
+  `OmegaInaccessibles` hypothesis of Mario Carneiro, *The Type Theory
+  of Lean*, master's thesis, Carnegie Mellon University, 2019 (ZFC +
+  a strictly increasing ω-sequence of inaccessibles; model the chain
+  by `V_{κ n}`). Inside Lean it is
   expressed as an interface (`Setlec.SetTheory`, see
   `Setlec/SetTheory/Core.lean`), a class over a universe
   type `V`; all verification is parametric in a model of that interface, which
