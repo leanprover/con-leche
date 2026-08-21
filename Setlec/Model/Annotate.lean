@@ -37,8 +37,14 @@ theorem annotateCore_sound (m : EnvModel V env) :
     subst h; simp [AnnotOk]
   | fuel + 1, .fvar idx n ty, d, e', h, _, _, _, ρ, _ => by
     rw [annotateCore_succ] at h
-    simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
-    subst h; simp [AnnotOk]
+    simp only [annotateBody] at h
+    revert h
+    split
+    · intro h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      subst h; simp [AnnotOk]
+    · intro h
+      simp [throw, throwThe, MonadExceptOf.throw] at h
   | fuel + 1, .sort u, d, e', h, _, _, _, ρ, _ => by
     rw [annotateCore_succ] at h
     simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h

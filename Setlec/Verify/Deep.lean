@@ -296,7 +296,7 @@ private theorem piResidual_shiftFrom {p : Nat} :
 
 /-- Peeling a `∀`-telescope along scoped arguments preserves
 well-scopedness. -/
-private theorem piResidual_WScoped {d : Nat} :
+theorem piResidual_WScoped {d : Nat} :
     ∀ {as : List Expr} {t res : Expr}, piResidual t as = some res →
       WScoped d t → (∀ x ∈ as, WScoped d x) → WScoped d res
   | [], t, res, h, hw, _ => by
@@ -1403,7 +1403,7 @@ private theorem projFieldDom_WScoped {d : Nat} {structProp : Bool}
           | false => exact nomatch h
       · exact ihk (j + 1) h hwrec
 
-private theorem instPis_WScoped {d : Nat} :
+theorem instPis_WScoped {d : Nat} :
     ∀ {as : List Expr} {t res : Expr}, Expr.instPis t as = some res →
       WScoped d t → (∀ x ∈ as, WScoped d x) → WScoped d res
   | [], t, res, h, hw, _ => by
@@ -1748,6 +1748,9 @@ private theorem infer_step (henv : EnvWF env)
     simp only [WScoped] at hw
     rw [shiftFrom_fvar]
     simp only [inferBody, viewM, Expr.view, pure_bind]
+    rw [if_pos (show shiftIdx p idx < d + 1 by
+          simp only [shiftIdx]; split <;> omega),
+        if_pos hw.1]
     by_cases hp : p ≤ idx
     · simp [shiftTy, hp, pure, Except.pure]
     · simp only [shiftTy, if_neg hp, pure, Except.pure, map_ok]
@@ -2218,8 +2221,14 @@ private theorem annotate_step (henv : EnvWF env)
     simp only [annotateBody]
     exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
   | .fvar idx n ty =>
+    have hw' : idx < d ∧ WScoped idx ty := by
+      simpa only [WScoped] using hw
     rw [shiftFrom_fvar]
-    simp only [annotateBody, pure, Except.pure, map_ok, shiftFrom_fvar]
+    simp only [annotateBody]
+    rw [if_pos (show shiftIdx p idx < d + 1 by
+          simp only [shiftIdx]; split <;> omega),
+        if_pos hw'.1]
+    simp only [pure, Except.pure, map_ok, shiftFrom_fvar]
   | .app f a =>
     simp only [WScoped] at hw
     rw [shiftFrom_app]

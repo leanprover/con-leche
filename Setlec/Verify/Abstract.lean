@@ -456,8 +456,14 @@ theorem annotateCore_WScoped {env : Env} :
     exact h ▸ hw
   | fuel + 1, .fvar idx n ty, d, e', h, hw => by
     rw [annotateCore_succ] at h
-    simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
-    exact h ▸ hw
+    simp only [annotateBody] at h
+    revert h
+    split
+    · intro h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact h ▸ hw
+    · intro h
+      simp [throw, throwThe, MonadExceptOf.throw] at h
   | fuel + 1, .sort u, d, e', h, hw => by
     rw [annotateCore_succ] at h
     simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
@@ -569,8 +575,14 @@ theorem annotateCore_looseBVars {env : Env} :
     exact h ▸ hb
   | fuel + 1, .fvar idx n ty, d, e', h, hb => by
     rw [annotateCore_succ] at h
-    simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
-    exact h ▸ hb
+    simp only [annotateBody] at h
+    revert h
+    split
+    · intro h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact h ▸ hb
+    · intro h
+      simp [throw, throwThe, MonadExceptOf.throw] at h
   | fuel + 1, .sort u, d, e', h, hb => by
     rw [annotateCore_succ] at h
     simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h

@@ -1,4 +1,4 @@
-import Setlec.Verify.BridgeDecl
+import Setlec.Verify.BridgeWfImp
 import Setlec.Model.Extend
 
 /-!
@@ -99,66 +99,117 @@ theorem checkIndMember_wfimp {blockNames : List Name} {caps : IndCaps}
       .ok env₁) :
     checkIndMember (fueledOps F) blockNames caps env' ci = .ok env₁ ∧
       EnvWF env₁ := by
-  simp only [checkIndMember] at h
-  rw [checkConstantVal_wfeq henv', FueledM.atF_bind,
-    checkConstantVal_datF] at h
-  cases hccv : checkConstantVal (fueledOps F) env' ci.toConstantVal with
-  | error e => rw [hccv] at h; exact nomatch h
-  | ok cvA =>
-    rw [hccv] at h
-    simp only [Bind.bind, Except.bind] at h
-    obtain ⟨htf, htp, htr, htb⟩ := cvA_type_facts hccv
-    have henvSelf : ∀ a b c d,
-        EnvWF ⟨.recInfo cvA a b c d [] :: env'.consts⟩ := by
-      intro a b c d
-      refine EnvWF.cons henv' (constWF_intro htf htp
-        (Expr.constsResolve_mono htr) htb
-        (fun _ _ _ heq => nomatch heq) ?_)
-      intro cvR nP' nM' nm' ni' rules' heq r hr
-      injection heq with h1 h2 h3 h4 h5 h6
-      subst h6
-      exact nomatch hr
-    simp only [fun a b c d =>
-      checkIotaRules_wfeq henv' (henvSelf a b c d)] at h
-    have hpure : checkIndMember (fueledOps F) blockNames caps env' ci =
-        .ok env₁ := by
-      rw [← checkIndMember_datF]
-      simp only [checkIndMember]
-      rw [FueledM.atF_bind, checkConstantVal_datF, hccv]
-      simp only [Bind.bind, Except.bind]
+  unfold checkIndMember at h
+  dsimp only [] at h
+  obtain ⟨cvA, hccvW, h⟩ := atF_bind_ok h
+  have hccv : checkConstantVal (fueledOps F) env' ci.toConstantVal =
+      .ok cvA := checkConstantVal_wfimp henv' hccvW
+  obtain ⟨htf, htp, htr, htb⟩ := cvA_type_facts hccv
+  have henvSelf : ∀ a b c d,
+      EnvWF ⟨.recInfo cvA a b c d [] :: env'.consts⟩ := by
+    intro a b c d
+    refine EnvWF.cons henv' (constWF_intro htf htp
+      (Expr.constsResolve_mono htr) htb
+      (fun _ _ _ heq => nomatch heq) ?_)
+    intro cvR nP' nM' nm' ni' rules' heq r hr
+    injection heq with h1 h2 h3 h4 h5 h6
+    subst h6
+    exact nomatch hr
+  have hpure : checkIndMember (fueledOps F) blockNames caps env' ci =
+      .ok env₁ := by
+    unfold checkIndMember
+    dsimp only []
+    show (checkConstantVal (fueledOps F) env' ci.toConstantVal >>= _) = _
+    rw [hccv]
+    simp only [Bind.bind, Except.bind]
+    by_cases h1 : cvA.name.isModelSuffix = true
+    · rw [if_pos h1] at h
+      exact absurd h atF_throw_bind
+    rw [if_neg h1] at h ⊢
+    revert h
+    match hm : env'.find? (cvA.name.str "_model") with
+    | none => intro h; exact nomatch h
+    | some (.axiomInfo _) => intro h; exact nomatch h
+    | some (.thmInfo _ _) => intro h; exact nomatch h
+    | some (.indInfo _ _) => intro h; exact nomatch h
+    | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+    | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+    | some (.defnInfo cvm mval mhint) => ?_
+    intro h
+    dsimp only [] at h ⊢
+    by_cases h2 : cvm.levelParams = cvA.levelParams
+    case neg => rw [if_neg h2] at h; exact absurd h atF_throw_bind
+    rw [if_pos h2] at h ⊢
+    by_cases h3 : (cvA.type.renameConsts
+        (fun n => if blockNames.contains n then n.str "_model" else n)
+        == cvm.type) = true
+    case neg => rw [if_neg h3] at h; exact absurd h atF_throw_bind
+    rw [if_pos h3] at h ⊢
+    revert h
+    match hci : ci with
+    | .indInfo cvI capsI =>
+      intro h
       exact h
-    refine ⟨hpure, ?_⟩
-    obtain ⟨cvA', cvm, mval, hmcvm, hccv', hms, hfm, hlps, hren, hcases⟩ :=
-      checkIndMember_inv hpure
-    obtain rfl : cvA = cvA' := by
-      rw [hccv'] at hccv
-      injection hccv with hAA
-      exact hAA.symm
-    rcases hcases with ⟨⟨cv, caps', rfl⟩, rfl⟩ |
-      ⟨cv, nP, nF, rfl, rfl⟩ |
-      ⟨cv, nP, nm, ni, rules, rules', rfl, hall, heqf, hcir, rfl⟩
-    · exact EnvWF.cons henv' (constWF_intro htf htp
-        (Expr.constsResolve_mono htr) htb
-        (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ _ heq => nomatch heq))
-    · exact EnvWF.cons henv' (constWF_intro htf htp
-        (Expr.constsResolve_mono htr) htb
-        (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ _ heq => nomatch heq))
-    · have hrc := checkIotaRules_inv 0 rules rules' hcir
-      refine EnvWF.cons henv' (constWF_intro htf htp
-        (Expr.constsResolve_mono htr) htb
-        (fun _ _ _ heq => nomatch heq) ?_)
-      intro cvR nP' nM' nm' ni' rules'' heq r hr
-      injection heq with h1 h2 h3 h4 h5 h6
-      subst h1; subst h6
-      obtain ⟨hf1, hf2, hf3, hf4⟩ := ruleChecked_rhs_facts (hrc r hr)
-      refine ⟨hf1, hf3, ?_, hf2⟩
-      rw [Expr.constsResolve_congr
-        (env₁ := ⟨.recInfo cvA nP 1 nm ni rules' :: env'.consts⟩)
-        (env₂ := ⟨.recInfo cvA nP 1 nm ni [] :: env'.consts⟩)
-        (fun n => find?_isSome_cons_swap
-          (c₁ := .recInfo cvA nP 1 nm ni rules')
-          (c₂ := .recInfo cvA nP 1 nm ni []) rfl n)]
-      exact hf4
+    | .ctorInfo cvI nPI nFI =>
+      intro h
+      exact h
+    | .axiomInfo _ => intro h; exact nomatch h
+    | .defnInfo _ _ _ => intro h; exact nomatch h
+    | .thmInfo _ _ => intro h; exact nomatch h
+    | .recInfo cvR nP nM nm ni rules => ?_
+    intro h
+    dsimp only [] at h ⊢
+    by_cases h4 : nM = 1
+    case neg => rw [if_neg h4] at h; exact absurd h atF_throw_bind
+    rw [if_pos h4] at h ⊢
+    by_cases h5 : blockNames.all (fun n =>
+        n == cvA.name || (env'.find? n).isSome) = true
+    case neg => rw [if_neg h5] at h; exact absurd h atF_throw_bind
+    rw [if_pos h5] at h ⊢
+    by_cases h6 : env'.find? eqName = some eqA
+    case neg => rw [if_neg h6] at h; exact absurd h atF_throw_bind
+    rw [if_pos h6] at h ⊢
+    obtain ⟨rules', hrules, h⟩ := atF_bind_ok h
+    have hrules' := checkIotaRules_wfimp henv' (henvSelf nP nM nm ni)
+      hrules
+    show (checkIotaRules (fueledOps F) env'
+      ⟨.recInfo cvA nP nM nm ni [] :: env'.consts⟩ _ cvA.name
+      cvA.levelParams cvA.type nP nM nm ni 0 rules >>= _) = _
+    rw [hrules']
+    simp only [Bind.bind, Except.bind]
+    exact h
+  refine ⟨hpure, ?_⟩
+  obtain ⟨cvA', cvm, mval, hmcvm, hccv', hms, hfm, hlps, hren, hcases⟩ :=
+    checkIndMember_inv hpure
+  obtain rfl : cvA = cvA' := by
+    rw [hccv'] at hccv
+    injection hccv with hAA
+    exact hAA.symm
+  rcases hcases with ⟨⟨cv, caps', rfl⟩, rfl⟩ |
+    ⟨cv, nP, nF, rfl, rfl⟩ |
+    ⟨cv, nP, nm, ni, rules, rules', rfl, hall, heqf, hcir, rfl⟩
+  · exact EnvWF.cons henv' (constWF_intro htf htp
+      (Expr.constsResolve_mono htr) htb
+      (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ _ heq => nomatch heq))
+  · exact EnvWF.cons henv' (constWF_intro htf htp
+      (Expr.constsResolve_mono htr) htb
+      (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ _ heq => nomatch heq))
+  · have hrc := checkIotaRules_inv 0 rules rules' hcir
+    refine EnvWF.cons henv' (constWF_intro htf htp
+      (Expr.constsResolve_mono htr) htb
+      (fun _ _ _ heq => nomatch heq) ?_)
+    intro cvR nP' nM' nm' ni' rules'' heq r hr
+    injection heq with h1 h2 h3 h4 h5 h6
+    subst h1; subst h6
+    obtain ⟨hf1, hf2, hf3, hf4⟩ := ruleChecked_rhs_facts (hrc r hr)
+    refine ⟨hf1, hf3, ?_, hf2⟩
+    rw [Expr.constsResolve_congr
+      (env₁ := ⟨.recInfo cvA nP 1 nm ni rules' :: env'.consts⟩)
+      (env₂ := ⟨.recInfo cvA nP 1 nm ni [] :: env'.consts⟩)
+      (fun n => find?_isSome_cons_swap
+        (c₁ := .recInfo cvA nP 1 nm ni rules')
+        (c₂ := .recInfo cvA nP 1 nm ni []) rfl n)]
+    exact hf4
 
 /-- The `checkIndMember` fold over a block, `wfOpsM` to pure. -/
 private theorem foldIndMember_wfimp {blockNames : List Name}
@@ -199,14 +250,14 @@ private theorem foldIndMember_wfimp {blockNames : List Name}
 the stored degenerate recursor's type and rule right-hand side are
 fully re-checked by the projection stages, so its `ConstWF` needs no
 annotation-preservation reasoning. -/
-private theorem installProjFnStep_wfimp {T ctorName : Name}
+private theorem installProjFnStepE_wfimp {T ctorName : Name}
     {lps : List Name} {nP nF : Nat} {e e' : Env} {i F : Nat}
     (he : EnvWF e)
     (h : (installProjFnStep wfOpsM T ctorName lps nP nF e i).val F =
       .ok e') :
     installProjFnStep (fueledOps F) T ctorName lps nP nF e i = .ok e' ∧
       EnvWF e' := by
-  rw [installProjFnStep_wfeq he, installProjFnStep_datF] at h
+  have h := installProjFnStep_wfimp he h
   refine ⟨h, ?_⟩
   unfold installProjFnStep at h
   split at h
@@ -253,7 +304,7 @@ private theorem foldProjFn_wfimp {T ctorName : Name} {lps : List Name}
       rw [hm] at h'
       have h'' : (idxs.foldlM (installProjFnStep wfOpsM T ctorName lps nP
           nF) e₁).val F = .ok e₂ := h'
-      obtain ⟨hp, he₁⟩ := installProjFnStep_wfimp he hm
+      obtain ⟨hp, he₁⟩ := installProjFnStepE_wfimp he hm
       obtain ⟨hrest, hwf⟩ := foldProjFn_wfimp idxs e₁ he₁ h''
       refine ⟨?_, hwf⟩
       show (installProjFnStep (fueledOps F) T ctorName lps nP nF e i >>=
@@ -320,44 +371,172 @@ theorem checkIndDecl_wfimp {env env₂ : Env} {block : List ConstantInfo}
   case _ =>
     exact (foldIndMember_wfimp block env henv h).1
 
-/-- A successful `wfOpsM` run of `checkDecl` over a well-formed
-environment is the pure run at the same fuel: every operation call a
-non-inductive declaration makes is at the input environment itself;
-inductive blocks go through `checkIndDecl_wfimp`. -/
+/-- Successful pure `checkDefnVal` runs annotate the value and store
+it (shape inversion for the structural-Nat certification's stored
+value). -/
+private theorem checkDefnVal_run_shape {env : Env} {cv : ConstantVal}
+    {value : Expr} {hint : ReducibilityHint} {F : Nat} {env2 : Env}
+    (h : checkDefnVal (fueledOps F) env cv value hint = .ok env2) :
+    ∃ value', annotateCore env F 0 value = .ok value' ∧
+      value.hasFvar = false ∧
+      env2 = ⟨.defnInfo cv value' hint :: env.consts⟩ := by
+  unfold checkDefnVal at h
+  dsimp only [] at h
+  by_cases h1 : Expr.looseBVarsBounded 0 value = true
+  case neg => rw [if_neg h1] at h; exact nomatch h
+  rw [if_pos h1] at h
+  by_cases h2 : value.hasFvar = true
+  · rw [if_pos h2] at h; exact nomatch h
+  rw [if_neg h2] at h
+  revert h
+  cases hann : annotateCore env F 0 value with
+  | error e =>
+    intro h
+    rw [show CheckerOps.annotate (fueledOps F) env 0 value =
+      annotateCore env F 0 value from rfl, hann] at h
+    exact nomatch h
+  | ok value' =>
+    intro h
+    rw [show CheckerOps.annotate (fueledOps F) env 0 value =
+      annotateCore env F 0 value from rfl, hann] at h
+    simp only [Bind.bind, Except.bind] at h
+    refine ⟨value', rfl, Bool.not_eq_true _ ▸ h2, ?_⟩
+    by_cases h3 : Expr.allLevelParamsDefined cv.levelParams value' = true
+    case neg => rw [if_neg h3] at h; exact nomatch h
+    rw [if_pos h3] at h
+    by_cases h4 : Expr.constsResolve env value' = true
+    case neg => rw [if_neg h4] at h; exact nomatch h
+    rw [if_pos h4] at h
+    revert h
+    cases hvt : inferTypeCore env F 0 value' with
+    | error e =>
+      intro h
+      rw [show CheckerOps.inferType (fueledOps F) env 0 value' =
+        inferTypeCore env F 0 value' from rfl, hvt] at h
+      exact nomatch h
+    | ok vtype =>
+      intro h
+      rw [show CheckerOps.inferType (fueledOps F) env 0 value' =
+        inferTypeCore env F 0 value' from rfl, hvt] at h
+      simp only [Bind.bind, Except.bind] at h
+      revert h
+      cases hde : isDefEqCore env F 0 vtype cv.type with
+      | error e =>
+        intro h
+        rw [show CheckerOps.isDefEq (fueledOps F) env 0 vtype cv.type =
+          isDefEqCore env F 0 vtype cv.type from rfl, hde] at h
+        exact nomatch h
+      | ok b =>
+        intro h
+        rw [show CheckerOps.isDefEq (fueledOps F) env 0 vtype cv.type =
+          isDefEqCore env F 0 vtype cv.type from rfl, hde] at h
+        simp only [Bind.bind, Except.bind] at h
+        cases b with
+        | true =>
+          simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq] at h
+          exact h.symm
+        | false =>
+          simp only [Bool.false_eq_true, ↓reduceIte] at h
+          exact nomatch h
+
+set_option maxHeartbeats 1600000 in
 theorem checkDecl_wfimp {env env₂ : Env} {d : Declaration} {F : Nat}
     (henv : EnvWF env)
     (h : (checkDecl wfOpsM env d).val F = .ok env₂) :
     checkDecl (fueledOps F) env d = .ok env₂ := by
   cases d with
   | defnDecl cv value hint =>
-    have heq : checkDecl wfOpsM env (.defnDecl cv value hint) =
-        checkDecl fueledOpsM env (.defnDecl cv value hint) := by
-      unfold checkDecl
-      simp only [checkConstantVal_wfeq henv, checkDefnVal_wfeq henv,
-        certifyNatEqs_wfeq henv]
-    rw [heq, checkDecl_datF] at h
+    unfold checkDecl at h ⊢
+    dsimp only [] at h ⊢
+    obtain ⟨cvA, hccvW, h⟩ := atF_bind_ok h
+    have hccv : checkConstantVal (fueledOps F) env cv = .ok cvA :=
+      checkConstantVal_wfimp henv hccvW
+    show (checkConstantVal (fueledOps F) env cv >>= _) = _
+    rw [hccv]
+    simp only [Bind.bind, Except.bind]
+    obtain ⟨htf, -, -, -⟩ := cvA_type_facts hccv
+    obtain ⟨env2, hdefW, h⟩ := atF_bind_ok h
+    have hdefn : checkDefnVal (fueledOps F) env cvA value hint =
+        .ok env2 := checkDefnVal_wfimp henv htf hdefW
+    show (checkDefnVal (fueledOps F) env cvA value hint >>= _) = _
+    rw [hdefn]
+    simp only [Bind.bind, Except.bind]
+    by_cases h1 : natOpNames.contains cvA.name = true
+    case neg =>
+      rw [if_neg h1] at h ⊢
+      exact h
+    rw [if_pos h1] at h ⊢
+    by_cases h2 : (natOpGuard env2 cvA.name &&
+        (natOpDeps cvA.name).all (natOpStoredOk env2)) = true
+    case neg => rw [if_neg h2] at h; exact absurd h atF_throw_bind
+    rw [if_pos h2] at h ⊢
+    obtain ⟨value', hann, hvf, henv2⟩ := checkDefnVal_run_shape hdefn
+    have hfind : env2.find? cvA.name =
+        some (.defnInfo cvA value' hint) := by
+      rw [henv2, Env.find?_cons]
+      exact if_pos rfl
+    rw [hfind] at h ⊢
+    have hval'f : value'.hasFvar = false :=
+      not_hasFvar_of_fvarsBelow_zero
+        ((annotateCore_WScoped F value hann
+          (WScoped.of_not_hasFvar hvf)).fvarsBelow)
+    obtain ⟨ok, hcert, h⟩ := atF_bind_ok h
+    have hsc : ∀ eq ∈ (natOpEquations 0 cvA.name).map
+        (fun eq => (Expr.substConst0 cvA.name value' eq.1,
+          Expr.substConst0 cvA.name value' eq.2)),
+        eq.1.wscopedB 2 = true ∧ eq.2.wscopedB 2 = true := by
+      intro eq heq
+      obtain ⟨eq₀, heq₀, rfl⟩ := List.mem_map.mp heq
+      obtain ⟨hs1, hs2⟩ := natOpEquations_wscopedB
+        (by simpa using h1) eq₀ heq₀
+      exact ⟨wscopedB_substConst0 hval'f _ hs1,
+        wscopedB_substConst0 hval'f _ hs2⟩
+    have hcert' := certifyNatEqs_wfimp henv hsc hcert
+    show (certifyNatEqs (fueledOps F) env _ >>= _) = _
+    rw [hcert']
+    simp only [Bind.bind, Except.bind]
+    by_cases h3 : ok = true
+    case neg =>
+      rw [if_neg h3] at h
+      exact absurd h atF_throw_bind
+    rw [if_pos h3] at h ⊢
     exact h
   | thmDecl cv value =>
-    have heq : checkDecl wfOpsM env (.thmDecl cv value) =
-        checkDecl fueledOpsM env (.thmDecl cv value) := by
-      unfold checkDecl
-      simp only [checkConstantVal_wfeq henv, checkThmVal_wfeq henv]
-    rw [heq, checkDecl_datF] at h
-    exact h
+    unfold checkDecl at h ⊢
+    dsimp only [] at h ⊢
+    obtain ⟨cvA, hccvW, h⟩ := atF_bind_ok h
+    have hccv : checkConstantVal (fueledOps F) env cv = .ok cvA :=
+      checkConstantVal_wfimp henv hccvW
+    show (checkConstantVal (fueledOps F) env cv >>= _) = _
+    rw [hccv]
+    simp only [Bind.bind, Except.bind]
+    obtain ⟨htf, -, -, -⟩ := cvA_type_facts hccv
+    exact checkThmVal_wfimp henv htf h
   | opaqueDecl cv value =>
-    have heq : checkDecl wfOpsM env (.opaqueDecl cv value) =
-        checkDecl fueledOpsM env (.opaqueDecl cv value) := by
-      unfold checkDecl
-      simp only [checkConstantVal_wfeq henv, checkOpaqueVal_wfeq henv]
-    rw [heq, checkDecl_datF] at h
-    exact h
+    unfold checkDecl at h ⊢
+    dsimp only [] at h ⊢
+    obtain ⟨cvA, hccvW, h⟩ := atF_bind_ok h
+    have hccv : checkConstantVal (fueledOps F) env cv = .ok cvA :=
+      checkConstantVal_wfimp henv hccvW
+    show (checkConstantVal (fueledOps F) env cv >>= _) = _
+    rw [hccv]
+    simp only [Bind.bind, Except.bind]
+    obtain ⟨htf, -, -, -⟩ := cvA_type_facts hccv
+    exact checkOpaqueVal_wfimp henv htf h
   | axiomDecl cv =>
-    have heq : checkDecl wfOpsM env (.axiomDecl cv) =
-        checkDecl fueledOpsM env (.axiomDecl cv) := by
-      unfold checkDecl
-      simp only [checkConstantVal_wfeq henv]
-    rw [heq, checkDecl_datF] at h
-    exact h
+    unfold checkDecl at h ⊢
+    dsimp only [] at h ⊢
+    obtain ⟨cvA, hccvW, h⟩ := atF_bind_ok h
+    have hccv : checkConstantVal (fueledOps F) env cv = .ok cvA :=
+      checkConstantVal_wfimp henv hccvW
+    show (checkConstantVal (fueledOps F) env cv >>= _) = _
+    rw [hccv]
+    simp only [Bind.bind, Except.bind]
+    by_cases h1 : stdAxiomOk env cvA = true
+    · rw [if_pos h1] at h ⊢
+      exact h
+    · rw [if_neg h1] at h
+      exact nomatch h
   | basisDecl kind =>
     have heq : checkDecl wfOpsM env (.basisDecl kind) =
         checkDecl fueledOpsM env (.basisDecl kind) := rfl

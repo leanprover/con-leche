@@ -110,6 +110,44 @@ theorem WScoped.of_wscopedB : ∀ {e : Expr} {d : Nat},
     exact (by simp only [WScoped]; exact ih h)
   | _ => intro d h; simp [WScoped]
 
+/-- `WScoped` implies the `Bool` scope check (the converse of
+`WScoped.of_wscopedB`). -/
+theorem WScoped.to_wscopedB : ∀ {e : Expr} {d : Nat},
+    WScoped d e → Expr.wscopedB d e = true := by
+  intro e
+  induction e with
+  | fvar idx n ty ih =>
+    intro d h
+    simp only [WScoped] at h
+    simp only [Expr.wscopedB, Bool.and_eq_true, decide_eq_true_eq]
+    exact ⟨h.1, ih h.2⟩
+  | app f a ihf iha =>
+    intro d h
+    simp only [WScoped] at h
+    simp only [Expr.wscopedB, Bool.and_eq_true]
+    exact ⟨ihf h.1, iha h.2⟩
+  | lam n ty body bi ihty ihbody =>
+    intro d h
+    simp only [WScoped] at h
+    simp only [Expr.wscopedB, Bool.and_eq_true]
+    exact ⟨ihty h.1, ihbody h.2⟩
+  | forallE n ty body bi ihty ihbody =>
+    intro d h
+    simp only [WScoped] at h
+    simp only [Expr.wscopedB, Bool.and_eq_true]
+    exact ⟨ihty h.1, ihbody h.2⟩
+  | letE n ty val body ihty ihval ihbody =>
+    intro d h
+    simp only [WScoped] at h
+    simp only [Expr.wscopedB, Bool.and_eq_true]
+    exact ⟨⟨ihty h.1, ihval h.2.1⟩, ihbody h.2.2⟩
+  | proj s i e ih =>
+    intro d h
+    simp only [WScoped] at h
+    simp only [Expr.wscopedB]
+    exact ih h
+  | _ => intro d h; simp [Expr.wscopedB]
+
 theorem WScoped.mono : ∀ {e : Expr} {d d' : Nat}, d ≤ d' → WScoped d e → WScoped d' e := by
   intro e
   induction e with

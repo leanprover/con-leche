@@ -396,8 +396,14 @@ theorem annotateCore_leaves_sub {env : Env} :
     subst h; intro l hl; exact hl
   | fuel + 1, .fvar idx n ty, d, e', h, _, _ => by
     rw [annotateCore_succ] at h
-    simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
-    subst h; intro l hl; exact hl
+    simp only [annotateBody] at h
+    revert h
+    split
+    · intro h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      subst h; intro l hl; exact hl
+    · intro h
+      simp [throw, throwThe, MonadExceptOf.throw] at h
   | fuel + 1, .sort u, d, e', h, _, _ => by
     rw [annotateCore_succ] at h
     simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
