@@ -98,6 +98,49 @@ inductive Expr where
   | letE (n : Name) (type value body : Expr)
   | lit (l : Literal)
   | proj (structName : Name) (idx : Nat) (e : Expr)
-  deriving DecidableEq, Repr, Inhabited, Hashable
+  deriving DecidableEq, Repr, Inhabited
+
+/-- Depth-bounded `Level` hash (towers from universe arithmetic can be
+deep; the memo maps only need *some* function of the value). -/
+def Level.hashB : Nat → Level → UInt64
+  | 0, _ => 511
+  | _ + 1, .zero => 1
+  | n + 1, .succ u => mixHash 3 (Level.hashB n u)
+  | n + 1, .max u v => mixHash 5 (mixHash (Level.hashB n u) (Level.hashB n v))
+  | n + 1, .imax u v => mixHash 7 (mixHash (Level.hashB n u) (Level.hashB n v))
+  | _ + 1, .param p => mixHash 11 (hash p)
+
+/-- Node-budget-bounded `Expr` hash: visits at most `budget` nodes and
+salts the remainder with a sentinel, so memo-map lookups cost `O(1)`
+in the term size instead of a full traversal.  Display-only fields
+(binder and `fvar` names, binder metadata, `fvar` types) are skipped —
+a hash may ignore fields; `BEq`/`DecidableEq` remain full structural
+equality, so the memo maps stay correct. -/
+def Expr.hashB : Expr → Nat → UInt64 → UInt64 × Nat
+  | _, 0, acc => (mixHash acc 511, 0)
+  | .bvar i, n + 1, acc => (mixHash acc (mixHash 3 (hash i)), n)
+  | .fvar idx _ _, n + 1, acc => (mixHash acc (mixHash 5 (hash idx)), n)
+  | .sort u, n + 1, acc => (mixHash acc (mixHash 7 (Level.hashB 4 u)), n)
+  | .const c us, n + 1, acc =>
+    (mixHash acc (mixHash 11 (mixHash (hash c)
+      (us.foldl (fun a u => mixHash a (Level.hashB 4 u)) 13))), n)
+  | .app f a, n + 1, acc =>
+    let (h₁, n₁) := f.hashB n (mixHash acc 17)
+    a.hashB n₁ h₁
+  | .lam _ ty b _, n + 1, acc =>
+    let (h₁, n₁) := ty.hashB n (mixHash acc 19)
+    b.hashB n₁ h₁
+  | .forallE _ ty b _, n + 1, acc =>
+    let (h₁, n₁) := ty.hashB n (mixHash acc 23)
+    b.hashB n₁ h₁
+  | .letE _ ty v b, n + 1, acc =>
+    let (h₁, n₁) := ty.hashB n (mixHash acc 29)
+    let (h₂, n₂) := v.hashB n₁ h₁
+    b.hashB n₂ h₂
+  | .lit l, n + 1, acc => (mixHash acc (mixHash 31 (hash l)), n)
+  | .proj s i e, n + 1, acc =>
+    e.hashB n (mixHash acc (mixHash 37 (mixHash (hash s) (hash i))))
+
+instance : Hashable Expr := ⟨fun e => (e.hashB 64 7).1⟩
 
 end Setlec
