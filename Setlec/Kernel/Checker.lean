@@ -585,6 +585,26 @@ def checkThmVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
     throw (.invalid s!"type mismatch in theorem {cv.name}")
   pure ⟨.thmInfo cv value :: env.consts⟩
 
+/-- Check an `opaque` declaration's value against its checked
+constant: exactly the theorem check without the is-a-proposition
+requirement.  The result is stored as a `thmInfo` — "checked value,
+never delta-unfolded" is precisely opaque semantics. -/
+def checkOpaqueVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
+    (value : Expr) : m Env := do
+  unless value.looseBVarsBounded 0 do
+    throw (.invalid s!"loose bound variable in value of {cv.name}")
+  if value.hasFvar then
+    throw (.invalid s!"unexpected free variable in value of {cv.name}")
+  let value ← ops.annotate env 0 value
+  unless value.allLevelParamsDefined cv.levelParams do
+    throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
+  unless value.constsResolve env do
+    throw (.invalid s!"unknown constant in value of {cv.name}")
+  let vtype ← ops.inferType env 0 value
+  unless ← ops.isDefEq env 0 vtype cv.type do
+    throw (.invalid s!"type mismatch in opaque {cv.name}")
+  pure ⟨.thmInfo cv value :: env.consts⟩
+
 /-- Check a single declaration, extending the environment on success. -/
 def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
   match d with
@@ -594,6 +614,9 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
   | .thmDecl cv value =>
     let cv ← checkConstantVal ops env cv
     checkThmVal ops env cv value
+  | .opaqueDecl cv value =>
+    let cv ← checkConstantVal ops env cv
+    checkOpaqueVal ops env cv value
   | .axiomDecl cv => do
     -- Only the two standard axioms the preprocessor's generated routes
     -- use are accepted, with their types and the shapes of the

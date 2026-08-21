@@ -310,8 +310,13 @@ private def processLineCore (st : State) (j : Json)
       return .inl st
     return .inl { st with
       decls := st.decls.push (.thmDecl cv (← getDeclExpr' st v "value").zetaExpand) }
-  else if (j.getObjVal? "opaque").isOk then
-    return .inr "opaque declaration"
+  else if let .ok v := j.getObjVal? "opaque" then
+    let cv ← parseConstantVal st v
+    if (← (← v.getObjVal? "isUnsafe").getBool?) then
+      return .inr "unsafe opaque declaration"
+    return .inl { st with
+      decls := st.decls.push
+        (.opaqueDecl cv (← getDeclExpr' st v "value").zetaExpand) }
   else if let .ok v := j.getObjVal? "quot" then
     -- the kernel quotient bundle: each record must match its pinned
     -- basis member; the type former's record installs the whole block

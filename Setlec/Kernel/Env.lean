@@ -77,6 +77,10 @@ inductive Declaration where
   | axiomDecl (val : ConstantVal)
   | defnDecl (val : ConstantVal) (value : Expr)
   | thmDecl (val : ConstantVal) (value : Expr)
+  /-- An `opaque` declaration: exactly a theorem check without the
+  is-a-proposition requirement — the value is checked against the
+  type and the constant is never delta-unfolded. -/
+  | opaqueDecl (val : ConstantVal) (value : Expr)
   | basisDecl (kind : BasisKind)
   /-- A preprocessed (modeled) inductive block: type formers,
   constructors and recursors, installed opaquely after checking each
@@ -88,7 +92,7 @@ namespace Declaration
 
 /-- The name of a non-basis declaration (basis blocks install several). -/
 def name : Declaration → Name
-  | .axiomDecl v | .defnDecl v _ | .thmDecl v _ => v.name
+  | .axiomDecl v | .defnDecl v _ | .thmDecl v _ | .opaqueDecl v _ => v.name
   | .basisDecl _ | .indDecl _ => .anonymous
 
 end Declaration

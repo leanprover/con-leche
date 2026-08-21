@@ -2078,6 +2078,73 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       hres'
       hpshape'
 
+  | opaqueDecl cv value =>
+    simp only [checkDecl, checkDefnVal, checkOpaqueVal, installBasisDecl,
+        fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
+        fueledOps_ensureSort, fueledOps_whnf, Bind.bind, Except.bind] at h
+    cases hccv : checkConstantVal (fueledOps F) env cv with
+    | error e => rw [hccv] at h; exact nomatch h
+    | ok cv' =>
+    rw [hccv] at h
+    try dsimp only at h
+    obtain ⟨hfind', hres', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
+      checkConstantVal_inv hccv
+    simp only [Pure.pure, Except.pure] at h
+    by_cases hlbv : value.looseBVarsBounded 0 = true
+    case neg => simp [hlbv] at h
+    simp only [hlbv] at h
+    by_cases hivf : value.hasFvar = true
+    case pos => simp [hivf] at h
+    simp only [hivf] at h
+    cases hannv : annotateCore env F 0 value with
+    | error e => rw [hannv] at h; exact nomatch h
+    | ok value' =>
+    rw [hannv] at h
+    try dsimp only at h
+    by_cases hvp : value'.allLevelParamsDefined cv.levelParams = true
+    case neg => simp [hvp] at h
+    simp only [hvp] at h
+    by_cases hvr : value'.constsResolve env = true
+    case neg => simp [hvr] at h
+    simp only [hvr] at h
+    cases hvt : inferTypeCore env F 0 value' with
+    | error e => rw [hvt] at h; exact nomatch h
+    | ok vtype =>
+    rw [hvt] at h
+    try dsimp only at h
+    cases hde : isDefEqCore env F 0 vtype type with
+    | error e => rw [hde] at h; exact nomatch h
+    | ok b =>
+    rw [hde] at h
+    cases b with
+    | false => exact nomatch h
+    | true =>
+    simp only [Bool.false_eq_true, ↓reduceIte, Except.ok.injEq] at h
+    subst h
+    have hwt : WScoped 0 cv.type := WScoped.of_not_hasFvar hitf
+    have htf : type.hasFvar = false :=
+      not_hasFvar_of_fvarsBelow_zero
+        ((annotateCore_WScoped F cv.type hann hwt).fvarsBelow)
+    have hbt' : type.looseBVarsBounded 0 = true := annotateCore_looseBVars F cv.type hann hlbt
+    have hAty : ∀ ψ : Name → Nat, AnnotOk V m.val env ψ 0 (rho0 V) type := fun ψ =>
+      annotate_sound m cv.type hann hwt hlbt (Expr.LeavesBounded.of_not_hasFvar hitf)
+        (rho0 V) (FvarsOk.of_not_hasFvar hitf)
+    have hkeyT : ∀ ψ : Name → Nat, ∃ T, interpClosed V m.val env ψ type = some T := by
+      intro ψ
+      obtain ⟨⟨T, sT, hT, -, -⟩, -, -⟩ :=
+        inferTypeCore_sound (φ := ψ) m F hst (WScoped.of_not_hasFvar htf) hbt'
+          (Expr.LeavesBounded.of_not_hasFvar htf)
+          (FvarsOk.of_not_hasFvar htf) (hAty ψ)
+      exact ⟨T, hT⟩
+    obtain ⟨hvf', hAval, hkey⟩ :=
+      value_facts m hlbv (by simpa using hivf) hannv hvt hde htf hbt' hAty hkeyT
+    exact extend_model m hfind' htp htf htr (annotateCore_looseBVars F cv.type hann hlbt)
+      hvp hvf' hvr (annotateCore_looseBVars F value hannv hlbv) hkey hAty hAval
+      (ConstantInfo.thmInfo { cv with type := type } value') rfl rfl
+      (fun cv2 value2 heq => nomatch heq)
+      rfl
+      hres'
+      hpshape'
 private theorem foldlM_sound {env' : Env} :
     ∀ (ds : List Declaration) (env : Env), Nonempty (EnvModel V env) →
       ds.foldlM (checkDecl (fueledOps F)) env = .ok env' → Nonempty (EnvModel V env')

@@ -20,3 +20,4 @@
 0 sorry_unused.ndjson
 2 sorry_use.ndjson
 
+0 opaque_decl.ndjson

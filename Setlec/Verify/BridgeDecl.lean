@@ -586,6 +586,20 @@ theorem checkThmVal_snd_dproj (env : Env) (cv : ConstantVal)
   unfold checkThmVal
   dsnd_tac
 
+theorem checkOpaqueVal_fst_dproj (env : Env) (cv : ConstantVal)
+    (value : Expr) :
+    (checkOpaqueVal (pairOps o₁ o₂ h) env cv value).val.1 =
+      checkOpaqueVal o₁ env cv value := by
+  unfold checkOpaqueVal
+  dfst_tac
+
+theorem checkOpaqueVal_snd_dproj (env : Env) (cv : ConstantVal)
+    (value : Expr) :
+    (checkOpaqueVal (pairOps o₁ o₂ h) env cv value).val.2 =
+      checkOpaqueVal o₂ env cv value := by
+  unfold checkOpaqueVal
+  dsnd_tac
+
 theorem checkDecl_fst_dproj (env : Env) (d : Declaration) :
     (checkDecl (pairOps o₁ o₂ h) env d).val.1 =
       checkDecl o₁ env d := by
@@ -607,6 +621,14 @@ theorem checkDecl_fst_dproj (env : Env) (d : Declaration) :
     congr 1
     funext cv'
     rw [checkThmVal_fst_dproj]
+  | opaqueDecl cv value =>
+    show ((checkConstantVal (pairOps o₁ o₂ h) env cv >>= fun cv =>
+      checkOpaqueVal (pairOps o₁ o₂ h) env cv value : PairM rel _)).val.1
+      = _
+    rw [PairM.fst_bind, checkConstantVal_fst_dproj]
+    congr 1
+    funext cv'
+    rw [checkOpaqueVal_fst_dproj]
   | axiomDecl cv =>
     show ((checkConstantVal (pairOps o₁ o₂ h) env cv >>= fun cvA =>
       if stdAxiomOk env cvA then
@@ -656,6 +678,14 @@ theorem checkDecl_snd_dproj (env : Env) (d : Declaration) :
     congr 1
     funext cv'
     rw [checkThmVal_snd_dproj]
+  | opaqueDecl cv value =>
+    show ((checkConstantVal (pairOps o₁ o₂ h) env cv >>= fun cv =>
+      checkOpaqueVal (pairOps o₁ o₂ h) env cv value : PairM rel _)).val.2
+      = _
+    rw [PairM.snd_bind, checkConstantVal_snd_dproj]
+    congr 1
+    funext cv'
+    rw [checkOpaqueVal_snd_dproj]
   | axiomDecl cv =>
     show ((checkConstantVal (pairOps o₁ o₂ h) env cv >>= fun cvA =>
       if stdAxiomOk env cvA then
@@ -948,6 +978,13 @@ theorem checkThmVal_datF (env : Env) (cv : ConstantVal) (value : Expr)
   unfold checkThmVal
   datF_tac
 
+theorem checkOpaqueVal_datF (env : Env) (cv : ConstantVal) (value : Expr)
+    (F : Nat) :
+    (checkOpaqueVal fueledOpsM env cv value).val F =
+      checkOpaqueVal (fueledOps F) env cv value := by
+  unfold checkOpaqueVal
+  datF_tac
+
 theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
     (checkDecl fueledOpsM env d).val F =
       checkDecl (fueledOps F) env d := by
@@ -967,6 +1004,13 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
     congr 1
     funext cv'
     rw [checkThmVal_datF]
+  | opaqueDecl cv value =>
+    show ((checkConstantVal fueledOpsM env cv >>= fun cv =>
+      checkOpaqueVal fueledOpsM env cv value : FueledM _)).val F = _
+    rw [FueledM.atF_bind, checkConstantVal_datF]
+    congr 1
+    funext cv'
+    rw [checkOpaqueVal_datF]
   | axiomDecl cv =>
     show ((checkConstantVal fueledOpsM env cv >>= fun cvA =>
       if stdAxiomOk env cvA then
