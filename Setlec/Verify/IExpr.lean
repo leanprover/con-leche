@@ -2588,6 +2588,689 @@ theorem looseBVarsBoundedI_spec {st : EStore} {k : Nat} {e : EIdx} {a : Expr}
   simp only [looseBVarsBoundedI, hgo]
   exact hcond a he
 
+theorem wscopedBIGo_spec {st : EStore} (hwf : st.WF) :
+    ∀ (e : EIdx) {memo : Std.HashMap (EIdx × Nat) Bool} {d : Nat} {r : Bool}
+      {memo' : Std.HashMap (EIdx × Nat) Bool},
+      QMemoNInv st (fun x c => x.wscopedB c) memo →
+      wscopedBIGo st memo d e = (r, memo') →
+      QMemoNInv st (fun x c => x.wscopedB c) memo' ∧
+        ∀ x, st.denote e = some x → r = x.wscopedB d := by
+  intro e
+  induction e using Nat.strongRecOn with
+  | _ e ih =>
+    intro memo d r memo' hinv hgo
+    unfold wscopedBIGo at hgo
+    split at hgo
+    · rename_i hhit
+      injection hgo with hgr hgm
+      subst hgr
+      subst hgm
+      exact ⟨hinv, hinv _ _ _ hhit⟩
+    · split at hgo
+      · rename_i hnone
+        injection hgo with hgr hgm
+        subst hgr
+        subst hgm
+        refine ⟨hinv, ?_⟩
+        intro x hx
+        obtain ⟨n, hn, -, -⟩ := denote_some_inv hx
+        rw [hn] at hnone
+        cases hnone
+      · rename_i n hn
+        have hesz : e < st.nodes.size := (Array.getElem?_eq_some_iff.mp hn).1
+        have hcl := hwf.children_lt e n hn
+        have hde := denote_node hn hcl
+        cases n with
+        | bvar i =>
+          dsimp only at hgo
+          injection hgo with hgr hgm
+          subst hgr
+          subst hgm
+          have hx : st.denote e = some (.bvar i) := by rw [hde]; rfl
+          have hcond : ∀ x, st.denote e = some x → true = x.wscopedB d := by
+            intro x hxx
+            rw [hx] at hxx; cases hxx
+            simp [Expr.wscopedB]
+          exact ⟨hinv.insert hcond, hcond⟩
+        | sort u =>
+          dsimp only at hgo
+          injection hgo with hgr hgm
+          subst hgr
+          subst hgm
+          have hx : st.denote e = some (.sort u) := by rw [hde]; rfl
+          have hcond : ∀ x, st.denote e = some x → true = x.wscopedB d := by
+            intro x hxx
+            rw [hx] at hxx; cases hxx
+            simp [Expr.wscopedB]
+          exact ⟨hinv.insert hcond, hcond⟩
+        | const nm us =>
+          dsimp only at hgo
+          injection hgo with hgr hgm
+          subst hgr
+          subst hgm
+          have hx : st.denote e = some (.const nm us) := by rw [hde]; rfl
+          have hcond : ∀ x, st.denote e = some x → true = x.wscopedB d := by
+            intro x hxx
+            rw [hx] at hxx; cases hxx
+            simp [Expr.wscopedB]
+          exact ⟨hinv.insert hcond, hcond⟩
+        | lit l =>
+          dsimp only at hgo
+          injection hgo with hgr hgm
+          subst hgr
+          subst hgm
+          have hx : st.denote e = some (.lit l) := by rw [hde]; rfl
+          have hcond : ∀ x, st.denote e = some x → true = x.wscopedB d := by
+            intro x hxx
+            rw [hx] at hxx; cases hxx
+            simp [Expr.wscopedB]
+          exact ⟨hinv.insert hcond, hcond⟩
+        | fvar idx nm t =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd (hcl t (by simp [ENode.children])) hguard
+          case isTrue hguard =>
+            obtain ⟨xt, hxt⟩ := denote_total hwf t (Nat.lt_trans hguard hesz)
+            have hx : st.denote e = some (.fvar idx nm xt) := by
+              rw [hde, denoteNode, hxt]; rfl
+            split at hgo
+            · -- idx < d: recurse into the annotation at cutoff idx
+              rename_i hlt
+              rcases h₁ : wscopedBIGo st memo idx t with ⟨rt, memo₁⟩
+              rw [h₁] at hgo
+              try dsimp only at hgo
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              obtain ⟨hinv₁, hden₁⟩ := ih t hguard hinv h₁
+              have hcond : ∀ x, st.denote e = some x → rt = x.wscopedB d := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                simp [Expr.wscopedB, hlt, ← hden₁ xt hxt]
+              exact ⟨hinv₁.insert hcond, hcond⟩
+            · rename_i hlt
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              have hcond : ∀ x, st.denote e = some x → false = x.wscopedB d := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                simp [Expr.wscopedB, hlt]
+              exact ⟨hinv.insert hcond, hcond⟩
+        | app f a =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd ⟨hcl f (by simp [ENode.children]),
+              hcl a (by simp [ENode.children])⟩ hguard
+          case isTrue hguard =>
+            obtain ⟨xf, hf⟩ := denote_total hwf f (Nat.lt_trans hguard.1 hesz)
+            obtain ⟨xa, ha⟩ := denote_total hwf a (Nat.lt_trans hguard.2 hesz)
+            have hx : st.denote e = some (.app xf xa) := by
+              rw [hde, denoteNode, hf, ha]; rfl
+            rcases h₁ : wscopedBIGo st memo d f with ⟨rf, memo₁⟩
+            rw [h₁] at hgo
+            try dsimp only at hgo
+            obtain ⟨hinv₁, hden₁⟩ := ih f hguard.1 hinv h₁
+            split at hgo
+            · rename_i hrf
+              rcases h₂ : wscopedBIGo st memo₁ d a with ⟨ra, memo₂⟩
+              rw [h₂] at hgo
+              try dsimp only at hgo
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              obtain ⟨hinv₂, hden₂⟩ := ih a hguard.2 hinv₁ h₂
+              have hcond : ∀ x, st.denote e = some x → ra = x.wscopedB d := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xf hf
+                rw [hrf] at h1
+                simp [Expr.wscopedB, ← h1, ← hden₂ xa ha]
+              exact ⟨hinv₂.insert hcond, hcond⟩
+            · rename_i hrf
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              have hcond : ∀ x, st.denote e = some x → false = x.wscopedB d := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xf hf
+                rw [Bool.not_eq_true] at hrf
+                rw [hrf] at h1
+                simp [Expr.wscopedB, ← h1]
+              exact ⟨hinv₁.insert hcond, hcond⟩
+        | lam nm ty body m =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd ⟨hcl ty (by simp [ENode.children]),
+              hcl body (by simp [ENode.children])⟩ hguard
+          case isTrue hguard =>
+            obtain ⟨xt, ht⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
+            obtain ⟨xb, hb⟩ := denote_total hwf body (Nat.lt_trans hguard.2 hesz)
+            have hx : st.denote e = some (.lam nm xt xb m) := by
+              rw [hde, denoteNode, ht, hb]; rfl
+            rcases h₁ : wscopedBIGo st memo d ty with ⟨rt, memo₁⟩
+            rw [h₁] at hgo
+            try dsimp only at hgo
+            obtain ⟨hinv₁, hden₁⟩ := ih ty hguard.1 hinv h₁
+            split at hgo
+            · rename_i hrt
+              rcases h₂ : wscopedBIGo st memo₁ d body with ⟨rb, memo₂⟩
+              rw [h₂] at hgo
+              try dsimp only at hgo
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              obtain ⟨hinv₂, hden₂⟩ := ih body hguard.2 hinv₁ h₂
+              have hcond : ∀ x, st.denote e = some x → rb = x.wscopedB d := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xt ht
+                rw [hrt] at h1
+                simp [Expr.wscopedB, ← h1, ← hden₂ xb hb]
+              exact ⟨hinv₂.insert hcond, hcond⟩
+            · rename_i hrt
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              have hcond : ∀ x, st.denote e = some x → false = x.wscopedB d := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xt ht
+                rw [Bool.not_eq_true] at hrt
+                rw [hrt] at h1
+                simp [Expr.wscopedB, ← h1]
+              exact ⟨hinv₁.insert hcond, hcond⟩
+        | forallE nm ty body m =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd ⟨hcl ty (by simp [ENode.children]),
+              hcl body (by simp [ENode.children])⟩ hguard
+          case isTrue hguard =>
+            obtain ⟨xt, ht⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
+            obtain ⟨xb, hb⟩ := denote_total hwf body (Nat.lt_trans hguard.2 hesz)
+            have hx : st.denote e = some (.forallE nm xt xb m) := by
+              rw [hde, denoteNode, ht, hb]; rfl
+            rcases h₁ : wscopedBIGo st memo d ty with ⟨rt, memo₁⟩
+            rw [h₁] at hgo
+            try dsimp only at hgo
+            obtain ⟨hinv₁, hden₁⟩ := ih ty hguard.1 hinv h₁
+            split at hgo
+            · rename_i hrt
+              rcases h₂ : wscopedBIGo st memo₁ d body with ⟨rb, memo₂⟩
+              rw [h₂] at hgo
+              try dsimp only at hgo
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              obtain ⟨hinv₂, hden₂⟩ := ih body hguard.2 hinv₁ h₂
+              have hcond : ∀ x, st.denote e = some x → rb = x.wscopedB d := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xt ht
+                rw [hrt] at h1
+                simp [Expr.wscopedB, ← h1, ← hden₂ xb hb]
+              exact ⟨hinv₂.insert hcond, hcond⟩
+            · rename_i hrt
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              have hcond : ∀ x, st.denote e = some x → false = x.wscopedB d := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xt ht
+                rw [Bool.not_eq_true] at hrt
+                rw [hrt] at h1
+                simp [Expr.wscopedB, ← h1]
+              exact ⟨hinv₁.insert hcond, hcond⟩
+        | letE nm ty val body =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd ⟨hcl ty (by simp [ENode.children]),
+              hcl val (by simp [ENode.children]),
+              hcl body (by simp [ENode.children])⟩ hguard
+          case isTrue hguard =>
+            obtain ⟨xt, ht⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
+            obtain ⟨xv, hvv⟩ := denote_total hwf val (Nat.lt_trans hguard.2.1 hesz)
+            obtain ⟨xb, hb⟩ := denote_total hwf body (Nat.lt_trans hguard.2.2 hesz)
+            have hx : st.denote e = some (.letE nm xt xv xb) := by
+              rw [hde, denoteNode, ht, hvv, hb]; rfl
+            rcases h₁ : wscopedBIGo st memo d ty with ⟨rt, memo₁⟩
+            rw [h₁] at hgo
+            try dsimp only at hgo
+            obtain ⟨hinv₁, hden₁⟩ := ih ty hguard.1 hinv h₁
+            split at hgo
+            · rename_i hrt
+              rcases h₂ : wscopedBIGo st memo₁ d val with ⟨rv, memo₂⟩
+              rw [h₂] at hgo
+              try dsimp only at hgo
+              obtain ⟨hinv₂, hden₂⟩ := ih val hguard.2.1 hinv₁ h₂
+              split at hgo
+              · rename_i hrv
+                rcases h₃ : wscopedBIGo st memo₂ d body with ⟨rb, memo₃⟩
+                rw [h₃] at hgo
+                try dsimp only at hgo
+                injection hgo with hgr hgm
+                subst hgr
+                subst hgm
+                obtain ⟨hinv₃, hden₃⟩ := ih body hguard.2.2 hinv₂ h₃
+                have hcond : ∀ x, st.denote e = some x → rb = x.wscopedB d := by
+                  intro x hxx
+                  rw [hx] at hxx; cases hxx
+                  have h1 := hden₁ xt ht
+                  have h2 := hden₂ xv hvv
+                  rw [hrt] at h1
+                  rw [hrv] at h2
+                  simp [Expr.wscopedB, ← h1, ← h2, ← hden₃ xb hb]
+                exact ⟨hinv₃.insert hcond, hcond⟩
+              · rename_i hrv
+                injection hgo with hgr hgm
+                subst hgr
+                subst hgm
+                have hcond : ∀ x, st.denote e = some x → false = x.wscopedB d := by
+                  intro x hxx
+                  rw [hx] at hxx; cases hxx
+                  have h2 := hden₂ xv hvv
+                  rw [Bool.not_eq_true] at hrv
+                  rw [hrv] at h2
+                  simp [Expr.wscopedB, ← h2]
+                exact ⟨hinv₂.insert hcond, hcond⟩
+            · rename_i hrt
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              have hcond : ∀ x, st.denote e = some x → false = x.wscopedB d := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xt ht
+                rw [Bool.not_eq_true] at hrt
+                rw [hrt] at h1
+                simp [Expr.wscopedB, ← h1]
+              exact ⟨hinv₁.insert hcond, hcond⟩
+        | proj s j sub =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd (hcl sub (by simp [ENode.children])) hguard
+          case isTrue hguard =>
+            obtain ⟨xs, hs⟩ := denote_total hwf sub (Nat.lt_trans hguard hesz)
+            have hx : st.denote e = some (.proj s j xs) := by
+              rw [hde, denoteNode, hs]; rfl
+            rcases h₁ : wscopedBIGo st memo d sub with ⟨rs, memo₁⟩
+            rw [h₁] at hgo
+            try dsimp only at hgo
+            injection hgo with hgr hgm
+            subst hgr
+            subst hgm
+            obtain ⟨hinv₁, hden₁⟩ := ih sub hguard hinv h₁
+            have hcond : ∀ x, st.denote e = some x → rs = x.wscopedB d := by
+              intro x hxx
+              rw [hx] at hxx; cases hxx
+              simpa [Expr.wscopedB] using hden₁ xs hs
+            exact ⟨hinv₁.insert hcond, hcond⟩
+
+/-- `wscopedBI` agrees with `Expr.wscopedB`. -/
+theorem wscopedBI_spec {st : EStore} {d : Nat} {e : EIdx} {a : Expr}
+    (hwf : st.WF) (he : st.denote e = some a) :
+    st.wscopedBI d e = a.wscopedB d := by
+  rcases hgo : wscopedBIGo st {} d e with ⟨r, memo'⟩
+  obtain ⟨-, hcond⟩ := wscopedBIGo_spec hwf e QMemoNInv.empty hgo
+  simp only [wscopedBI, hgo]
+  exact hcond a he
+
+theorem constsResolveIGo_spec {st : EStore} {env : Env} (hwf : st.WF) :
+    ∀ (e : EIdx) {memo : Std.HashMap EIdx Bool} {r : Bool}
+      {memo' : Std.HashMap EIdx Bool},
+      QMemo0Inv st (fun x => x.constsResolve env) memo →
+      constsResolveIGo st env memo e = (r, memo') →
+      QMemo0Inv st (fun x => x.constsResolve env) memo' ∧
+        ∀ x, st.denote e = some x → r = x.constsResolve env := by
+  intro e
+  induction e using Nat.strongRecOn with
+  | _ e ih =>
+    intro memo r memo' hinv hgo
+    unfold constsResolveIGo at hgo
+    split at hgo
+    · rename_i hhit
+      injection hgo with hgr hgm
+      subst hgr
+      subst hgm
+      exact ⟨hinv, hinv _ _ hhit⟩
+    · split at hgo
+      · rename_i hnone
+        injection hgo with hgr hgm
+        subst hgr
+        subst hgm
+        refine ⟨hinv, ?_⟩
+        intro x hx
+        obtain ⟨n, hn, -, -⟩ := denote_some_inv hx
+        rw [hn] at hnone
+        cases hnone
+      · rename_i n hn
+        have hesz : e < st.nodes.size := (Array.getElem?_eq_some_iff.mp hn).1
+        have hcl := hwf.children_lt e n hn
+        have hde := denote_node hn hcl
+        cases n with
+        | bvar i =>
+          dsimp only at hgo
+          injection hgo with hgr hgm
+          subst hgr
+          subst hgm
+          have hx : st.denote e = some (.bvar i) := by rw [hde]; rfl
+          have hcond : ∀ x, st.denote e = some x → true = x.constsResolve env := by
+            intro x hxx
+            rw [hx] at hxx; cases hxx
+            simp [Expr.constsResolve]
+          exact ⟨hinv.insert hcond, hcond⟩
+        | sort u =>
+          dsimp only at hgo
+          injection hgo with hgr hgm
+          subst hgr
+          subst hgm
+          have hx : st.denote e = some (.sort u) := by rw [hde]; rfl
+          have hcond : ∀ x, st.denote e = some x → true = x.constsResolve env := by
+            intro x hxx
+            rw [hx] at hxx; cases hxx
+            simp [Expr.constsResolve]
+          exact ⟨hinv.insert hcond, hcond⟩
+        | lit l =>
+          dsimp only at hgo
+          injection hgo with hgr hgm
+          subst hgr
+          subst hgm
+          have hx : st.denote e = some (.lit l) := by rw [hde]; rfl
+          have hcond : ∀ x, st.denote e = some x → true = x.constsResolve env := by
+            intro x hxx
+            rw [hx] at hxx; cases hxx
+            simp [Expr.constsResolve]
+          exact ⟨hinv.insert hcond, hcond⟩
+        | const nm us =>
+          dsimp only at hgo
+          injection hgo with hgr hgm
+          subst hgr
+          subst hgm
+          have hx : st.denote e = some (.const nm us) := by rw [hde]; rfl
+          have hcond : ∀ x, st.denote e = some x →
+              (env.find? nm).isSome = x.constsResolve env := by
+            intro x hxx
+            rw [hx] at hxx; cases hxx
+            simp [Expr.constsResolve]
+          exact ⟨hinv.insert hcond, hcond⟩
+        | fvar idx nm t =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd (hcl t (by simp [ENode.children])) hguard
+          case isTrue hguard =>
+            obtain ⟨xt, hxt⟩ := denote_total hwf t (Nat.lt_trans hguard hesz)
+            have hx : st.denote e = some (.fvar idx nm xt) := by
+              rw [hde, denoteNode, hxt]; rfl
+            rcases h₁ : constsResolveIGo st env memo t with ⟨rt, memo₁⟩
+            rw [h₁] at hgo
+            try dsimp only at hgo
+            injection hgo with hgr hgm
+            subst hgr
+            subst hgm
+            obtain ⟨hinv₁, hden₁⟩ := ih t hguard hinv h₁
+            have hcond : ∀ x, st.denote e = some x → rt = x.constsResolve env := by
+              intro x hxx
+              rw [hx] at hxx; cases hxx
+              simpa [Expr.constsResolve] using hden₁ xt hxt
+            exact ⟨hinv₁.insert hcond, hcond⟩
+        | app f a =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd ⟨hcl f (by simp [ENode.children]),
+              hcl a (by simp [ENode.children])⟩ hguard
+          case isTrue hguard =>
+            obtain ⟨xf, hf⟩ := denote_total hwf f (Nat.lt_trans hguard.1 hesz)
+            obtain ⟨xa, ha⟩ := denote_total hwf a (Nat.lt_trans hguard.2 hesz)
+            have hx : st.denote e = some (.app xf xa) := by
+              rw [hde, denoteNode, hf, ha]; rfl
+            rcases h₁ : constsResolveIGo st env memo f with ⟨rf, memo₁⟩
+            rw [h₁] at hgo
+            try dsimp only at hgo
+            obtain ⟨hinv₁, hden₁⟩ := ih f hguard.1 hinv h₁
+            split at hgo
+            · rename_i hrf
+              rcases h₂ : constsResolveIGo st env memo₁ a with ⟨ra, memo₂⟩
+              rw [h₂] at hgo
+              try dsimp only at hgo
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              obtain ⟨hinv₂, hden₂⟩ := ih a hguard.2 hinv₁ h₂
+              have hcond : ∀ x, st.denote e = some x →
+                  ra = x.constsResolve env := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xf hf
+                rw [hrf] at h1
+                simp [Expr.constsResolve, ← h1, ← hden₂ xa ha]
+              exact ⟨hinv₂.insert hcond, hcond⟩
+            · rename_i hrf
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              have hcond : ∀ x, st.denote e = some x →
+                  false = x.constsResolve env := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xf hf
+                rw [Bool.not_eq_true] at hrf
+                rw [hrf] at h1
+                simp [Expr.constsResolve, ← h1]
+              exact ⟨hinv₁.insert hcond, hcond⟩
+        | lam nm ty body m =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd ⟨hcl ty (by simp [ENode.children]),
+              hcl body (by simp [ENode.children])⟩ hguard
+          case isTrue hguard =>
+            obtain ⟨xt, ht⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
+            obtain ⟨xb, hb⟩ := denote_total hwf body (Nat.lt_trans hguard.2 hesz)
+            have hx : st.denote e = some (.lam nm xt xb m) := by
+              rw [hde, denoteNode, ht, hb]; rfl
+            rcases h₁ : constsResolveIGo st env memo ty with ⟨rt, memo₁⟩
+            rw [h₁] at hgo
+            try dsimp only at hgo
+            obtain ⟨hinv₁, hden₁⟩ := ih ty hguard.1 hinv h₁
+            split at hgo
+            · rename_i hrt
+              rcases h₂ : constsResolveIGo st env memo₁ body with ⟨rb, memo₂⟩
+              rw [h₂] at hgo
+              try dsimp only at hgo
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              obtain ⟨hinv₂, hden₂⟩ := ih body hguard.2 hinv₁ h₂
+              have hcond : ∀ x, st.denote e = some x →
+                  rb = x.constsResolve env := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xt ht
+                rw [hrt] at h1
+                simp [Expr.constsResolve, ← h1, ← hden₂ xb hb]
+              exact ⟨hinv₂.insert hcond, hcond⟩
+            · rename_i hrt
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              have hcond : ∀ x, st.denote e = some x →
+                  false = x.constsResolve env := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xt ht
+                rw [Bool.not_eq_true] at hrt
+                rw [hrt] at h1
+                simp [Expr.constsResolve, ← h1]
+              exact ⟨hinv₁.insert hcond, hcond⟩
+        | forallE nm ty body m =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd ⟨hcl ty (by simp [ENode.children]),
+              hcl body (by simp [ENode.children])⟩ hguard
+          case isTrue hguard =>
+            obtain ⟨xt, ht⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
+            obtain ⟨xb, hb⟩ := denote_total hwf body (Nat.lt_trans hguard.2 hesz)
+            have hx : st.denote e = some (.forallE nm xt xb m) := by
+              rw [hde, denoteNode, ht, hb]; rfl
+            rcases h₁ : constsResolveIGo st env memo ty with ⟨rt, memo₁⟩
+            rw [h₁] at hgo
+            try dsimp only at hgo
+            obtain ⟨hinv₁, hden₁⟩ := ih ty hguard.1 hinv h₁
+            split at hgo
+            · rename_i hrt
+              rcases h₂ : constsResolveIGo st env memo₁ body with ⟨rb, memo₂⟩
+              rw [h₂] at hgo
+              try dsimp only at hgo
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              obtain ⟨hinv₂, hden₂⟩ := ih body hguard.2 hinv₁ h₂
+              have hcond : ∀ x, st.denote e = some x →
+                  rb = x.constsResolve env := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xt ht
+                rw [hrt] at h1
+                simp [Expr.constsResolve, ← h1, ← hden₂ xb hb]
+              exact ⟨hinv₂.insert hcond, hcond⟩
+            · rename_i hrt
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              have hcond : ∀ x, st.denote e = some x →
+                  false = x.constsResolve env := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xt ht
+                rw [Bool.not_eq_true] at hrt
+                rw [hrt] at h1
+                simp [Expr.constsResolve, ← h1]
+              exact ⟨hinv₁.insert hcond, hcond⟩
+        | letE nm ty val body =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd ⟨hcl ty (by simp [ENode.children]),
+              hcl val (by simp [ENode.children]),
+              hcl body (by simp [ENode.children])⟩ hguard
+          case isTrue hguard =>
+            obtain ⟨xt, ht⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
+            obtain ⟨xv, hvv⟩ := denote_total hwf val (Nat.lt_trans hguard.2.1 hesz)
+            obtain ⟨xb, hb⟩ := denote_total hwf body (Nat.lt_trans hguard.2.2 hesz)
+            have hx : st.denote e = some (.letE nm xt xv xb) := by
+              rw [hde, denoteNode, ht, hvv, hb]; rfl
+            rcases h₁ : constsResolveIGo st env memo ty with ⟨rt, memo₁⟩
+            rw [h₁] at hgo
+            try dsimp only at hgo
+            obtain ⟨hinv₁, hden₁⟩ := ih ty hguard.1 hinv h₁
+            split at hgo
+            · rename_i hrt
+              rcases h₂ : constsResolveIGo st env memo₁ val with ⟨rv, memo₂⟩
+              rw [h₂] at hgo
+              try dsimp only at hgo
+              obtain ⟨hinv₂, hden₂⟩ := ih val hguard.2.1 hinv₁ h₂
+              split at hgo
+              · rename_i hrv
+                rcases h₃ : constsResolveIGo st env memo₂ body with ⟨rb, memo₃⟩
+                rw [h₃] at hgo
+                try dsimp only at hgo
+                injection hgo with hgr hgm
+                subst hgr
+                subst hgm
+                obtain ⟨hinv₃, hden₃⟩ := ih body hguard.2.2 hinv₂ h₃
+                have hcond : ∀ x, st.denote e = some x →
+                    rb = x.constsResolve env := by
+                  intro x hxx
+                  rw [hx] at hxx; cases hxx
+                  have h1 := hden₁ xt ht
+                  have h2 := hden₂ xv hvv
+                  rw [hrt] at h1
+                  rw [hrv] at h2
+                  simp [Expr.constsResolve, ← h1, ← h2, ← hden₃ xb hb]
+                exact ⟨hinv₃.insert hcond, hcond⟩
+              · rename_i hrv
+                injection hgo with hgr hgm
+                subst hgr
+                subst hgm
+                have hcond : ∀ x, st.denote e = some x →
+                    false = x.constsResolve env := by
+                  intro x hxx
+                  rw [hx] at hxx; cases hxx
+                  have h2 := hden₂ xv hvv
+                  rw [Bool.not_eq_true] at hrv
+                  rw [hrv] at h2
+                  simp [Expr.constsResolve, ← h2]
+                exact ⟨hinv₂.insert hcond, hcond⟩
+            · rename_i hrt
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              have hcond : ∀ x, st.denote e = some x →
+                  false = x.constsResolve env := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xt ht
+                rw [Bool.not_eq_true] at hrt
+                rw [hrt] at h1
+                simp [Expr.constsResolve, ← h1]
+              exact ⟨hinv₁.insert hcond, hcond⟩
+        | proj s j sub =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd (hcl sub (by simp [ENode.children])) hguard
+          case isTrue hguard =>
+            obtain ⟨xs, hs⟩ := denote_total hwf sub (Nat.lt_trans hguard hesz)
+            have hx : st.denote e = some (.proj s j xs) := by
+              rw [hde, denoteNode, hs]; rfl
+            split at hgo
+            · -- struct name resolves: recurse
+              rename_i hres
+              rcases h₁ : constsResolveIGo st env memo sub with ⟨rs, memo₁⟩
+              rw [h₁] at hgo
+              try dsimp only at hgo
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              obtain ⟨hinv₁, hden₁⟩ := ih sub hguard hinv h₁
+              have hcond : ∀ x, st.denote e = some x →
+                  rs = x.constsResolve env := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                simp [Expr.constsResolve, hres, ← hden₁ xs hs]
+              exact ⟨hinv₁.insert hcond, hcond⟩
+            · rename_i hres
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              have hcond : ∀ x, st.denote e = some x →
+                  false = x.constsResolve env := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                rw [Bool.not_eq_true] at hres
+                simp [Expr.constsResolve, hres]
+              exact ⟨hinv.insert hcond, hcond⟩
+
+/-- `constsResolveI` agrees with `Expr.constsResolve`. -/
+theorem constsResolveI_spec {st : EStore} {env : Env} {e : EIdx} {a : Expr}
+    (hwf : st.WF) (he : st.denote e = some a) :
+    st.constsResolveI env e = a.constsResolve env := by
+  rcases hgo : constsResolveIGo st env {} e with ⟨r, memo'⟩
+  obtain ⟨-, hcond⟩ := constsResolveIGo_spec hwf e QMemo0Inv.empty hgo
+  simp only [constsResolveI, hgo]
+  exact hcond a he
+
 end EStore
 
 end Setlec
