@@ -296,7 +296,7 @@ private theorem piResidual_shiftFrom {p : Nat} :
 
 /-- Peeling a `∀`-telescope along scoped arguments preserves
 well-scopedness. -/
-private theorem piResidual_WScoped {d : Nat} :
+theorem piResidual_WScoped {d : Nat} :
     ∀ {as : List Expr} {t res : Expr}, piResidual t as = some res →
       WScoped d t → (∀ x ∈ as, WScoped d x) → WScoped d res
   | [], t, res, h, hw, _ => by
@@ -1403,7 +1403,7 @@ private theorem projFieldDom_WScoped {d : Nat} {structProp : Bool}
           | false => exact nomatch h
       · exact ihk (j + 1) h hwrec
 
-private theorem instPis_WScoped {d : Nat} :
+theorem instPis_WScoped {d : Nat} :
     ∀ {as : List Expr} {t res : Expr}, Expr.instPis t as = some res →
       WScoped d t → (∀ x ∈ as, WScoped d x) → WScoped d res
   | [], t, res, h, hw, _ => by

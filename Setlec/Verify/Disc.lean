@@ -499,6 +499,262 @@ theorem projCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
       refine DiscV.bind (DiscV.liftFueled_true _ _) (fun okW _ => ?_)
       exact DiscV.pure trivial
 
+theorem stuckIrrel_disc (ih : ScopedSim env f) (henv : EnvWF env)
+    {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
+    DiscV env (fun _ => True) (stuckIrrel C env d a b)
+      (stuckIrrel G env d a b) := by
+  unfold stuckIrrel
+  refine DiscV.bind (pairEtaCert_disc ih henv hwa hwb) (fun r₁ _ => ?_)
+  split
+  · exact DiscV.pure trivial
+  refine DiscV.bind (pairEtaCert_disc ih henv hwb hwa) (fun r₂ _ => ?_)
+  split
+  · exact DiscV.pure trivial
+  refine DiscV.bind (structEtaCert_disc ih henv hwa hwb) (fun r₃ _ => ?_)
+  split
+  · exact DiscV.pure trivial
+  refine DiscV.bind (structEtaCert_disc ih henv hwb hwa) (fun r₄ _ => ?_)
+  split
+  · exact DiscV.pure trivial
+  refine DiscV.bind (structUnitCert_disc ih henv hwa hwb) (fun r₅ _ => ?_)
+  split
+  · exact DiscV.pure trivial
+  exact proofIrrel_disc ih henv hwa hwb
+
+theorem majorToCtor_disc (ih : ScopedSim env f) (henv : EnvWF env)
+    {d : Nat} {recName : Name} {rules : List RecRule} {major : Expr}
+    (hmaj : WScoped d major) :
+    DiscV env (WScoped d) (majorToCtor C env d recName rules major)
+      (majorToCtor G env d recName rules major) := by
+  unfold majorToCtor
+  split
+  · exact DiscV.pure hmaj
+  split <;> try exact DiscV.pure hmaj
+  split <;> try exact DiscV.pure hmaj
+  split <;> try exact DiscV.pure hmaj
+  split <;> try exact DiscV.pure hmaj
+  split
+  · -- K branch
+    refine DiscV.bind (ih.site_infer henv hmaj) (fun tm htm => ?_)
+    refine DiscV.bind (ih.site_whnf henv htm) (fun tmaj htmaj => ?_)
+    split <;> try exact DiscV.pure hmaj
+    split <;> try exact DiscV.pure hmaj
+    dsimp only []
+    split
+    · rename_i hguard
+      have hwfab := WScoped.of_wscopedB
+        (by simp only [Bool.and_eq_true] at hguard; exact hguard.1.1)
+      refine DiscV.bind (proofIrrel_disc ih henv hwfab hmaj)
+        (fun r _ => ?_)
+      split
+      · exact DiscV.pure hwfab
+      · exact DiscV.pure hmaj
+    · exact DiscV.pure hmaj
+  split
+  · -- eta branch
+    refine DiscV.bind (ih.site_infer henv hmaj) (fun tm htm => ?_)
+    refine DiscV.bind (ih.site_whnf henv htm) (fun tmaj htmaj => ?_)
+    split <;> try exact DiscV.pure hmaj
+    split <;> try exact DiscV.pure hmaj
+    dsimp only []
+    split
+    · rename_i hguard
+      have hwfab := WScoped.of_wscopedB
+        (by simp only [Bool.and_eq_true] at hguard; exact hguard.1.1)
+      refine DiscV.bind
+        (structEtaCertWith_disc ih henv hwfab hmaj htmaj)
+        (fun r _ => ?_)
+      split
+      · exact DiscV.pure hwfab
+      · exact DiscV.pure hmaj
+    · exact DiscV.pure hmaj
+  · exact DiscV.pure hmaj
+
+theorem isPropType_disc (ih : ScopedSim env f) (henv : EnvWF env)
+    {d : Nat} {ty : Expr} (hwty : WScoped d ty) :
+    DiscV env (fun _ => True) (isPropType C env d ty)
+      (isPropType G env d ty) := by
+  unfold isPropType
+  refine DiscV.bind (ih.site_annotate hwty) (fun ty' hty' => ?_)
+  refine DiscV.bind (ih.site_infer henv hty') (fun s hs => ?_)
+  refine DiscV.bind (ensureSort_disc ih henv hs) (fun u _ => ?_)
+  exact DiscV.liftFueled_true _ _
+
+theorem projFieldDom_disc (ih : ScopedSim env f) (henv : EnvWF env)
+    {d : Nat} {structProp : Bool} {sn : Name} {e' : Expr}
+    (hwe : WScoped d e') :
+    ∀ (k j : Nat) {tel : Expr}, WScoped d tel →
+      DiscV env (WScoped d)
+        (projFieldDom C env d structProp sn e' j k tel)
+        (projFieldDom G env d structProp sn e' j k tel) := by
+  intro k
+  induction k with
+  | zero =>
+    intro j tel hwtel
+    cases tel <;> try exact DiscV.throw _
+    case forallE n dom rest mb =>
+      have hw' : WScoped d dom ∧ WScoped d rest := by
+        simpa only [WScoped] using hwtel
+      exact DiscV.pure hw'.1
+  | succ k ihk =>
+    intro j tel hwtel
+    cases tel <;> try exact DiscV.throw _
+    case forallE n dom rest mb =>
+      have hw' : WScoped d dom ∧ WScoped d rest := by
+        simpa only [WScoped] using hwtel
+      have hwrest' : WScoped d (rest.instantiate1 (.proj sn j e')) :=
+        WScoped.instantiate1_gen
+          (show WScoped d (.proj sn j e') by
+            simpa only [WScoped] using hwe) 0 hw'.2
+      dsimp only [projFieldDom]
+      split
+      · exact ihk (j + 1) hw'.2
+      · split
+        · refine DiscV.bind (isPropType_disc ih henv hw'.1)
+            (fun b _ => ?_)
+          split
+          · exact ihk (j + 1) hwrest'
+          · exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
+              (fun _ h => h.elim)
+        · exact ihk (j + 1) hwrest'
+
+theorem annotateProjRec_disc (ih : ScopedSim env f) (henv : EnvWF env)
+    {d : Nat} {sn : Name} {i : Nat} {te e' : Expr} {us : List Level}
+    (hwte : WScoped d te) (hwe : WScoped d e') :
+    DiscV env (WScoped d) (annotateProjRec C env d sn i te e' us)
+      (annotateProjRec G env d sn i te e' us) := by
+  unfold annotateProjRec
+  split <;> try exact DiscV.throw _
+  rename_i cvR nP rule cvI capsI hfR hfI
+  split <;> try exact DiscV.throw _
+  rename_i cvC cnFdummy cnF hfC
+  dsimp only []
+  split <;> try exact DiscV.throw _
+  split <;> try exact DiscV.throw _
+  rename_i tel htel
+  refine DiscV.bind (isPropType_disc ih henv hwte)
+    (fun structProp _ => ?_)
+  have hwtel : WScoped d tel := by
+    refine instPis_WScoped htel ?_ hwte.getAppArgs
+    obtain ⟨htf, -⟩ := henv _ (find?_mem hfC)
+    exact wscoped_instLevels_of_not_hasFvar htf _ _
+  refine DiscV.bind (projFieldDom_disc ih henv hwe i 0 hwtel)
+    (fun fi hfi => ?_)
+  split <;> try exact DiscV.throw _
+  refine DiscV.bind (ih.site_annotate hfi) (fun fi' hfi' => ?_)
+  refine DiscV.bind (ih.site_infer henv hfi') (fun sfi₀ hsfi₀ => ?_)
+  refine DiscV.bind (ensureSort_disc ih henv hsfi₀) (fun sfi _ => ?_)
+  split
+  · -- Prop structure: the field-sort check runs, then (under the
+    -- inlined motive-level `if`) the scope guard
+    refine DiscV.bind (DiscV.liftFueled_true _ _) (fun ok _ => ?_)
+    split
+    · split <;> split <;> first
+        | exact DiscV.throw _
+        | (rename_i hguard
+           exact ih.site_annotate (WScoped.of_wscopedB
+             (by simp only [Bool.and_eq_true] at hguard; exact hguard.1.1)))
+    · first
+        | exact DiscV.throw _
+        | exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
+            (fun _ h => h.elim)
+  · split <;> split <;> first
+      | exact DiscV.throw _
+      | (rename_i hguard
+         exact ih.site_annotate (WScoped.of_wscopedB
+           (by simp only [Bool.and_eq_true] at hguard; exact hguard.1.1)))
+
+theorem annotateProjElim_disc (ih : ScopedSim env f) (henv : EnvWF env)
+    {d : Nat} {sn : Name} {i : Nat} {te e' : Expr}
+    (hwte : WScoped d te) (hwe : WScoped d e') :
+    DiscV env (WScoped d) (annotateProjElim C env d sn i te e')
+      (annotateProjElim G env d sn i te e') := by
+  unfold annotateProjElim
+  split <;> try exact DiscV.throw _
+  split <;> try exact DiscV.throw _
+  · split
+    · dsimp only []
+      split
+      · split
+        · rename_i hguard
+          exact ih.site_annotate (WScoped.of_wscopedB
+            (by simp only [Bool.and_eq_true] at hguard; exact hguard.1.1))
+        · exact DiscV.throw _
+      · exact DiscV.throw _
+    · exact annotateProjRec_disc ih henv hwte hwe
+
+theorem iotaRec_disc (ih : ScopedSim env f) (henv : EnvWF env)
+    {d : Nat} {e : Expr} (hw : WScoped d e) :
+    DiscV env (WScopedO d) (iotaRec C env d e)
+      (iotaRec G env d e) := by
+  unfold iotaRec
+  split <;> try exact DiscV.pure WScopedO.none
+  rename_i c us heqfn
+  split <;> try exact DiscV.pure WScopedO.none
+  rename_i cv nP nM nm ni rules hfc
+  dsimp only []
+  split <;> try exact DiscV.pure WScopedO.none
+  refine DiscV.bind
+    (ih.site_whnf henv (wscoped_getD hw.getAppArgs _))
+    (fun major₀ hmaj₀ => ?_)
+  refine DiscV.bind
+    (majorToCtor_disc ih henv (litToCtorIfNat_WScoped hmaj₀))
+    (fun major hmaj => ?_)
+  split <;> try exact DiscV.pure WScopedO.none
+  rename_i cj usj heqmfn
+  split <;> try exact DiscV.pure WScopedO.none
+  rename_i cvj cnP cnF hfj
+  split <;> try exact DiscV.pure WScopedO.none
+  rename_i rl hrule
+  split <;> try exact DiscV.pure WScopedO.none
+  split <;> try exact DiscV.pure WScopedO.none
+  refine DiscV.bind (DiscV.liftFueled_true _ _) (fun okl _ => ?_)
+  split <;> try exact DiscV.pure WScopedO.none
+  refine DiscV.bind (defEqList_disc ih
+    (fun x hx => hmaj.getAppArgs x (List.mem_of_mem_take hx))
+    (fun x hx => hw.getAppArgs x (List.mem_of_mem_take hx)))
+    (fun r₁ _ => ?_)
+  split <;> try exact DiscV.pure WScopedO.none
+  have hwrecty : WScoped d
+      (cv.type.instantiateLevelParams cv.levelParams us) := by
+    obtain ⟨htf, -⟩ := henv _ (find?_mem hfc)
+    exact wscoped_instLevels_of_not_hasFvar htf _ _
+  have hwctorty : WScoped d
+      (cvj.type.instantiateLevelParams cvj.levelParams usj) := by
+    obtain ⟨htf, -⟩ := henv _ (find?_mem hfj)
+    exact wscoped_instLevels_of_not_hasFvar htf _ _
+  refine DiscV.bind (iotaCerts_disc ih henv hwrecty ?_) (fun r₂ _ => ?_)
+  · intro x hx
+    rcases List.mem_append.mp hx with hx | hx
+    · exact hw.getAppArgs x (List.mem_of_mem_take hx)
+    · rcases List.mem_singleton.mp hx with rfl
+      exact hmaj
+  split <;> try exact DiscV.pure WScopedO.none
+  refine DiscV.bind (iotaCerts_disc ih henv hwctorty hmaj.getAppArgs)
+    (fun r₃ _ => ?_)
+  split <;> try exact DiscV.pure WScopedO.none
+  split <;> try exact DiscV.pure WScopedO.none
+  rename_i hstrip hresid
+  split <;> try exact DiscV.pure WScopedO.none
+  refine DiscV.bind (defEqList_disc ih
+    (fun x hx => (piResidual_WScoped hresid hwctorty
+      hmaj.getAppArgs).getAppArgs x (List.mem_of_mem_drop hx))
+    (fun x hx => hw.getAppArgs x
+      (List.mem_of_mem_take (List.mem_of_mem_drop hx))))
+    (fun r₄ _ => ?_)
+  split
+  · refine DiscV.pure (WScopedO.some ?_)
+    refine Expr.WScoped.mkAppN ?_ ?_
+    · obtain ⟨-, -, -, -, -, hrules⟩ := henv _ (find?_mem hfc)
+      obtain ⟨hrf, -, -, -⟩ := hrules cv nP nM nm ni rules rfl rl
+        (List.mem_of_find?_eq_some hrule)
+      exact wscoped_instLevels_of_not_hasFvar hrf _ _
+    · intro x hx
+      rcases List.mem_append.mp hx with hx | hx
+      · exact hw.getAppArgs x (List.mem_of_mem_take hx)
+      · exact hmaj.getAppArgs x (List.mem_of_mem_drop hx)
+  · exact DiscV.pure WScopedO.none
+
 end Walks
 
 end Setlec
