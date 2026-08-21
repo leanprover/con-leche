@@ -148,10 +148,14 @@ decreasing_by all_goals first
 hereditarily through annotations (the `Bool` mirror of the
 verification-side `WScoped`).
 
-TODO(cleanup, tasks #26/#43): unmemoized expression traversal — runs
-per memo op and per reduction step, so it is exponential on shared
-(DAG-shaped) terms.  Interning (#26) should cache the fvar range per
-node, making this O(1); #43 removes the memo-guard call sites. -/
+Not on any per-memo-op path (task #43): the memoized knot's cache
+operations run unguarded, justified by the proven call discipline
+(`Setlec/Verify/Disc.lean`).  Remaining executable call sites are the
+scope guards on checker-fabricated terms in `Setlec/Kernel/Core.lean`
+(the stuck-major rescues in `majorToCtor` and the projection
+eliminations in `annotateProjRec`/`annotateProjElim`), each O(small
+fabricated term) once per fabrication.  TODO(cleanup, task #26):
+interning should cache the fvar range per node, making those O(1). -/
 def wscopedB : (d : Nat) → Expr → Bool
   | d, .fvar idx _ ty => idx < d && wscopedB idx ty
   | d, .app f a => wscopedB d f && wscopedB d a
