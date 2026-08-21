@@ -55,3 +55,12 @@
 2 nat_add_levelpoly.ndjson
 
 2 nat_div_declined.ndjson
+# nat_divmod_ok.ndjson: the init-prelude prefix through Nat.div; the
+# stored div/mod match the vendored toolchain pins, the ble-guarded
+# characterization certificates check, and rfl-proofs of
+# `20 / 3 = 6` / `20 % 3 = 2` exercise the literal fast path.
+0 nat_divmod_ok.ndjson
+# nat_mod_perturbed.ndjson: same prefix with Nat.mod's body replaced
+# by Nat.modCore's (extensionally equal, definitionally distinct) —
+# the pin gate must positively decline the drifted spelling.
+2 nat_mod_perturbed.ndjson
