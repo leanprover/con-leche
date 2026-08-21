@@ -898,12 +898,92 @@ def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
     -- here.
     | e₁, e₂ => stuckIrrel r env depth e₁ e₂
 
+/-- Check that a (raw) type is a `Prop` by annotating it and inferring
+its sort. -/
+def isPropType (r : CoreFns m) (env : Env) (depth : Nat) (ty : Expr) :
+    m Bool := do
+  let ty' ← r.annotate depth ty
+  let s ← ensureSort r env depth (← r.infer depth ty')
+  liftFueled "level comparison" (Level.isEquiv s Level.zero)
+
+/-- Walk a field telescope to the `i`-th binder and return its domain,
+earlier binders instantiated with projections of `e'`, mirroring the
+official kernel's projection rule: for a `Prop` structure every
+*depended-on* skipped field must itself be a `Prop`. -/
+def projFieldDom (r : CoreFns m) (env : Env) (depth : Nat)
+    (structProp : Bool) (sn : Name) (e' : Expr) :
+    Nat → Nat → Expr → m Expr
+  | _, 0, .forallE _ dom _ _ => pure dom
+  | j, k + 1, .forallE _ dom rest _ => do
+    if rest.looseBVarsBounded 0 then
+      projFieldDom r env depth structProp sn e' (j + 1) k rest
+    else
+      if structProp then
+        unless ← isPropType r env depth dom do
+          throw (.invalid
+            "projection through a non-Prop field of a Prop structure")
+      projFieldDom r env depth structProp sn e' (j + 1) k
+        (rest.instantiate1 (.proj sn j e'))
+  | _, _, _ => throw (.invalid "projection index out of range")
+
+/-- Fallback for structures without an installed projection function
+(Prop-valued structures: the preprocessor emits no `_model.proj_i`
+artifacts for them): inline the recursor elimination
+`S.rec params motive minor e'`, with a constant motive — the projected
+field's type, earlier fields replaced by projections of `e'` — and the
+minor the constructor's field telescope as `λ`s returning field `i`.
+The rewrite is annotated, so the ordinary rules re-check it; in
+particular the kernel's Prop restriction (projections from a `Prop`
+structure must land in `Prop`) surfaces as a type error when the
+stored recursor's fixed motive sort cannot reach the field's. -/
+def annotateProjRec (r : CoreFns m) (env : Env) (depth : Nat) (sn : Name)
+    (i : Nat) (te e' : Expr) (us : List Level) : m Expr := do
+  match env.find? (sn.str "rec"), env.find? sn with
+  | some (.recInfo cvR nP 1 1 0 [rule]), some (.indInfo _ _) =>
+    match env.find? (RecRule.ctor rule) with
+    | some (.ctorInfo cvC _ cnF) =>
+      let params := te.getAppArgs
+      if params.length = nP then
+        let ctorTy := cvC.type.instantiateLevelParams cvC.levelParams us
+        match ctorTy.instPis params with
+        | some tel =>
+          let structProp ← isPropType r env depth te
+          let fi ← projFieldDom r env depth structProp sn e' 0 i tel
+          match Expr.pisToLams cnF tel (.bvar (cnF - 1 - i)) with
+          | some minor =>
+            -- the projected field's sort: the official Prop
+            -- restriction, and the motive level for subsingleton
+            -- eliminators
+            let fi' ← r.annotate depth fi
+            let sfi ← ensureSort r env depth (← r.infer depth fi')
+            if structProp then
+              unless ← liftFueled "level comparison"
+                  (Level.isEquiv sfi Level.zero) do
+                throw (.invalid "non-Prop projection from a Prop structure")
+            let uf :=
+              if cvR.levelParams.length = us.length + 1 then [sfi] else []
+            let raw := Expr.mkAppN (.const (sn.str "rec") (uf ++ us))
+              (params ++ [.lam (.str .anonymous "t") te fi ⟨.default, none⟩,
+                minor, e'])
+            if raw.wscopedB depth && raw.looseBVarsBounded 0 &&
+                raw.fvarLeaves.all (fun l => e'.fvarLeaves.contains l) then
+              r.annotate depth raw
+            else throw (.notImplemented "projection elimination scoping")
+          | none => throw (.invalid "projection index out of range")
+        | none => throw (.invalid "projection index out of range")
+      else throw (.notImplemented "projection parameter mismatch")
+    | _ => throw (.notImplemented
+        "projection constructor not stored")
+  | _, _ => throw (.notImplemented
+      "projection on a non-structure-like type")
+
 /-- Rewrite a projection on a stored non-basis structure into its
 installed projection function (a rules-carrying constant checked
 against the structure's `_model.proj_i` at install) and annotate the
 rewrite: the recursive annotation re-checks every node with the
 ordinary rules, and the scope guard keeps the scaffolding inside the
-annotated struct's free-variable leaves. -/
+annotated struct's free-variable leaves.  Structures without an
+installed projection function fall back to `annotateProjRec`. -/
 def annotateProjElim (r : CoreFns m) (env : Env) (depth : Nat) (sn : Name)
     (i : Nat) (te e' : Expr) : m Expr := do
   match te.getAppFn with
@@ -919,8 +999,7 @@ def annotateProjElim (r : CoreFns m) (env : Env) (depth : Nat) (sn : Name)
             r.annotate depth raw
           else throw (.notImplemented "projection elimination scoping")
         else throw (.notImplemented "projection parameter mismatch")
-      | _ => throw (.notImplemented
-          "projection without an installed projection function")
+      | _ => annotateProjRec r env depth sn i te e' us
     else throw (.invalid "projection structure mismatch")
   | _ => throw (.notImplemented "projection on a non-structure type")
 

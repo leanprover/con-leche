@@ -538,17 +538,109 @@ theorem majorToCtor_snd_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Ex
   unfold majorToCtor
   snd_tac2
 
+theorem isPropType_fst_proj (d : Nat) (ty : Expr) :
+    (isPropType (pairFns r₁ r₂ h) env d ty).val.1 =
+      isPropType r₁ env d ty := by
+  unfold isPropType
+  fst_tac2
+
+theorem isPropType_snd_proj (d : Nat) (ty : Expr) :
+    (isPropType (pairFns r₁ r₂ h) env d ty).val.2 =
+      isPropType r₂ env d ty := by
+  unfold isPropType
+  snd_tac2
+
+theorem projFieldDom_fst_proj (structProp : Bool) (sn : Name) (e₂ : Expr) :
+    ∀ (k j d : Nat) (tel : Expr),
+      (projFieldDom (pairFns r₁ r₂ h) env d structProp sn e₂ j k tel).val.1 =
+        projFieldDom r₁ env d structProp sn e₂ j k tel := by
+  intro k
+  induction k with
+  | zero =>
+    intro j d tel
+    cases tel <;> dsimp only [projFieldDom] <;> rfl
+  | succ k ih =>
+    intro j d tel
+    cases tel <;> dsimp only [projFieldDom] <;> try rfl
+    repeat (first
+      | rfl
+      | (rw [ih])
+      | (rw [isPropType_fst_proj])
+      | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
+      | (dsimp only [])
+      | split)
+
+theorem projFieldDom_snd_proj (structProp : Bool) (sn : Name) (e₂ : Expr) :
+    ∀ (k j d : Nat) (tel : Expr),
+      (projFieldDom (pairFns r₁ r₂ h) env d structProp sn e₂ j k tel).val.2 =
+        projFieldDom r₂ env d structProp sn e₂ j k tel := by
+  intro k
+  induction k with
+  | zero =>
+    intro j d tel
+    cases tel <;> dsimp only [projFieldDom] <;> rfl
+  | succ k ih =>
+    intro j d tel
+    cases tel <;> dsimp only [projFieldDom] <;> try rfl
+    repeat (first
+      | rfl
+      | (rw [ih])
+      | (rw [isPropType_snd_proj])
+      | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
+      | (dsimp only [])
+      | split)
+
+theorem annotateProjRec_fst_proj (d : Nat) (sn : Name) (i : Nat)
+    (te e₂ : Expr) (us : List Level) :
+    (annotateProjRec (pairFns r₁ r₂ h) env d sn i te e₂ us).val.1 =
+      annotateProjRec r₁ env d sn i te e₂ us := by
+  unfold annotateProjRec
+  repeat (first
+    | rfl
+    | (rw [isPropType_fst_proj])
+    | (rw [projFieldDom_fst_proj])
+    | (rw [ensureSort_fst_proj])
+    | (rw [liftFueled_fst_proj])
+    | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | (dsimp only [])
+    | split)
+
+theorem annotateProjRec_snd_proj (d : Nat) (sn : Name) (i : Nat)
+    (te e₂ : Expr) (us : List Level) :
+    (annotateProjRec (pairFns r₁ r₂ h) env d sn i te e₂ us).val.2 =
+      annotateProjRec r₂ env d sn i te e₂ us := by
+  unfold annotateProjRec
+  repeat (first
+    | rfl
+    | (rw [isPropType_snd_proj])
+    | (rw [projFieldDom_snd_proj])
+    | (rw [ensureSort_snd_proj])
+    | (rw [liftFueled_snd_proj])
+    | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | (dsimp only [])
+    | split)
+
 theorem annotateProjElim_fst_proj (d : Nat) (sn : Name) (i : Nat) (te e₂ : Expr) :
     (annotateProjElim (pairFns r₁ r₂ h) env d sn i te e₂).val.1 =
       annotateProjElim r₁ env d sn i te e₂ := by
   unfold annotateProjElim
-  fst_tac2
+  repeat (first
+    | rfl
+    | (rw [annotateProjRec_fst_proj])
+    | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | (dsimp only [])
+    | split)
 
 theorem annotateProjElim_snd_proj (d : Nat) (sn : Name) (i : Nat) (te e₂ : Expr) :
     (annotateProjElim (pairFns r₁ r₂ h) env d sn i te e₂).val.2 =
       annotateProjElim r₂ env d sn i te e₂ := by
   unfold annotateProjElim
-  snd_tac2
+  repeat (first
+    | rfl
+    | (rw [annotateProjRec_snd_proj])
+    | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | (dsimp only [])
+    | split)
 
 macro "fst_step3" : tactic =>
   `(tactic| repeat (first

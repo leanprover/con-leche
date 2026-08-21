@@ -127,6 +127,17 @@ abbrev majorToCtorP (env : Env) (fuel : Nat) : Nat → Name →
 abbrev projCertP (env : Env) (fuel : Nat) : Nat → Expr → Nat →
     List Level → Nat → CheckM Bool := projCert (pureFns env fuel) env
 
+abbrev isPropTypeP (env : Env) (fuel : Nat) : Nat → Expr → CheckM Bool :=
+  isPropType (pureFns env fuel) env
+
+abbrev projFieldDomP (env : Env) (fuel : Nat) (d : Nat) (structProp : Bool)
+    (sn : Name) (e₂ : Expr) : Nat → Nat → Expr → CheckM Expr :=
+  projFieldDom (pureFns env fuel) env d structProp sn e₂
+
+abbrev annotateProjRecP (env : Env) (fuel : Nat) : Nat → Name → Nat →
+    Expr → Expr → List Level → CheckM Expr :=
+  annotateProjRec (pureFns env fuel) env
+
 abbrev annotateProjElimP (env : Env) (fuel : Nat) : Nat → Name → Nat →
     Expr → Expr → CheckM Expr := annotateProjElim (pureFns env fuel) env
 

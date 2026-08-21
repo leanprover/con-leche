@@ -63,8 +63,8 @@
 0 good/tutorial/082_Prod.snd.ndjson
 0 good/tutorial/083_PProd.snd.ndjson
 0 good/tutorial/084_PSigma.snd.ndjson
-2 good/tutorial/087_projProp1.ndjson
-2 good/tutorial/089_projProp3.ndjson
+0 good/tutorial/087_projProp1.ndjson
+0 good/tutorial/089_projProp3.ndjson
 0 good/tutorial/093_projDataIndexRec.ndjson
 0 good/tutorial/096_projRed.ndjson
 0 good/tutorial/097_ruleK.ndjson
@@ -111,10 +111,10 @@
 2 bad/tutorial/071_BogusRecursor.ndjson
 2 bad/tutorial/085_projOutOfRange.ndjson
 2 bad/tutorial/086_projNotStruct.ndjson
-2 bad/tutorial/088_projProp2.ndjson
-2 bad/tutorial/090_projProp4.ndjson
-2 bad/tutorial/091_projProp5.ndjson
-2 bad/tutorial/092_projProp6.ndjson
+1 bad/tutorial/088_projProp2.ndjson
+1 bad/tutorial/090_projProp4.ndjson
+1 bad/tutorial/091_projProp5.ndjson
+1 bad/tutorial/092_projProp6.ndjson
 1 bad/tutorial/094_projIndexData.ndjson
 1 bad/tutorial/095_projIndexData2.ndjson
 1 bad/tutorial/098_ruleKbad.ndjson

@@ -129,27 +129,130 @@ theorem looseBVarsBounded_abstract1 {d : Nat} :
 
 /-! ## Preservation through `annotate` -/
 
-/-- Inversion for the projection-elimination path: the structure and
-its installed projection function were resolved, the scope guard
-passed, and the rewrite re-annotated. -/
+/-- Inversion for the recursor-inlining projection fallback: whatever
+the rewrite was, it passed the scope guard and was re-annotated. -/
+theorem annotateProjRec_inv {env : Env} {fuel d : Nat} {sn : Name}
+    {i : Nat} {te e₂ e' : Expr} {us : List Level}
+    (h : annotateProjRecP env fuel d sn i te e₂ us = .ok e') :
+    ∃ raw : Expr,
+      raw.wscopedB d = true ∧
+      raw.looseBVarsBounded 0 = true ∧
+      raw.fvarLeaves.all (fun l => e₂.fvarLeaves.contains l) = true ∧
+      annotateCore env fuel d raw = .ok e' := by
+  simp only [annotateProjRecP, annotateProjRec, Bind.bind, Except.bind,
+    annotate_def, infer_def] at h
+  split at h
+  case h_2 => exact nomatch h
+  split at h
+  case h_2 => exact nomatch h
+  split at h
+  case isFalse => exact nomatch h
+  split at h
+  case h_2 => exact nomatch h
+  revert h
+  cases hp : isPropType (pureFns env fuel) env d te with
+  | error err => intro h; exact nomatch h
+  | ok structProp =>
+  intro h
+  dsimp only at h
+  revert h
+  cases hf : projFieldDom (pureFns env fuel) env d structProp sn e₂ 0 i _ with
+  | error err => intro h; exact nomatch h
+  | ok fi =>
+  intro h
+  dsimp only at h
+  split at h
+  case h_2 => exact nomatch h
+  revert h
+  cases ha : annotateCore env fuel d fi with
+  | error err => intro h; exact nomatch h
+  | ok fi' =>
+  intro h
+  dsimp only at h
+  revert h
+  cases hi : inferTypeCore env fuel d fi' with
+  | error err => intro h; exact nomatch h
+  | ok tfi =>
+  intro h
+  dsimp only at h
+  revert h
+  cases hs : ensureSort (pureFns env fuel) env d tfi with
+  | error err => intro h; exact nomatch h
+  | ok sfi =>
+  intro h
+  dsimp only at h
+  revert h
+  split
+  case isTrue =>
+    intro h
+    revert h
+    cases hl : (liftFueled "level comparison"
+        (Level.isEquiv sfi Level.zero) : CheckM Bool) with
+    | error err => intro h; exact nomatch h
+    | ok b =>
+    intro h
+    dsimp only at h
+    cases b with
+    | false =>
+      simp only [Bool.false_eq_true, ↓reduceIte] at h
+      exact nomatch h
+    | true =>
+    simp only [↓reduceIte] at h
+    try simp only [pure, Except.pure, Bind.bind, Except.bind] at h
+    revert h
+    split
+    · intro h
+      revert h
+      split
+      · intro h
+        rename_i hg
+        simp only [Bool.and_eq_true] at hg
+        exact ⟨_, hg.1.1, hg.1.2, hg.2, h⟩
+      · intro h
+        exact nomatch h
+    · intro h
+      revert h
+      split
+      · intro h
+        rename_i hg
+        simp only [Bool.and_eq_true] at hg
+        exact ⟨_, hg.1.1, hg.1.2, hg.2, h⟩
+      · intro h
+        exact nomatch h
+  case isFalse =>
+    intro h
+    revert h
+    split
+    · intro h
+      revert h
+      split
+      · intro h
+        rename_i hg
+        simp only [Bool.and_eq_true] at hg
+        exact ⟨_, hg.1.1, hg.1.2, hg.2, h⟩
+      · intro h
+        exact nomatch h
+    · intro h
+      revert h
+      split
+      · intro h
+        rename_i hg
+        simp only [Bool.and_eq_true] at hg
+        exact ⟨_, hg.1.1, hg.1.2, hg.2, h⟩
+      · intro h
+        exact nomatch h
+
+/-- Inversion for the projection-elimination path: whatever rewrite
+was chosen (installed projection function or inlined recursor), it
+passed the scope guard and was re-annotated. -/
 theorem annotateProjElim_inv {env : Env} {fuel d : Nat} {sn : Name}
     {i : Nat} {te e₂ e' : Expr}
     (h : annotateProjElimP env fuel d sn i te e₂ = .ok e') :
-    ∃ us pcv nP nM nm ni rules,
-      te.getAppFn = .const sn us ∧
-      env.find? (projFnName sn i) =
-        some (.recInfo pcv nP nM nm ni rules) ∧
-      te.getAppArgs.length = nP ∧
-      (Expr.mkAppN (.const (projFnName sn i) us)
-        (te.getAppArgs ++ [e₂])).wscopedB d = true ∧
-      (Expr.mkAppN (.const (projFnName sn i) us)
-        (te.getAppArgs ++ [e₂])).looseBVarsBounded 0 = true ∧
-      (Expr.mkAppN (.const (projFnName sn i) us)
-        (te.getAppArgs ++ [e₂])).fvarLeaves.all
-        (fun l => e₂.fvarLeaves.contains l) = true ∧
-      annotateCore env fuel d
-        (Expr.mkAppN (.const (projFnName sn i) us)
-          (te.getAppArgs ++ [e₂])) = .ok e' := by
+    ∃ raw : Expr,
+      raw.wscopedB d = true ∧
+      raw.looseBVarsBounded 0 = true ∧
+      raw.fvarLeaves.all (fun l => e₂.fvarLeaves.contains l) = true ∧
+      annotateCore env fuel d raw = .ok e' := by
   simp only [annotateProjElimP, annotateProjElim] at h
   revert h
   match hfn : te.getAppFn with
@@ -172,12 +275,12 @@ theorem annotateProjElim_inv {env : Env} {fuel d : Nat} {sn : Name}
   try dsimp only at h
   revert h
   match hfp : env.find? (projFnName T i) with
-  | none => intro h; exact nomatch h
-  | some (.axiomInfo _) => intro h; exact nomatch h
-  | some (.defnInfo _ _) => intro h; exact nomatch h
-  | some (.thmInfo _ _) => intro h; exact nomatch h
-  | some (.indInfo _ _) => intro h; exact nomatch h
-  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+  | none => intro h; exact annotateProjRec_inv h
+  | some (.axiomInfo _) => intro h; exact annotateProjRec_inv h
+  | some (.defnInfo _ _) => intro h; exact annotateProjRec_inv h
+  | some (.thmInfo _ _) => intro h; exact annotateProjRec_inv h
+  | some (.indInfo _ _) => intro h; exact annotateProjRec_inv h
+  | some (.ctorInfo _ _ _) => intro h; exact annotateProjRec_inv h
   | some (.recInfo pcv nP nM nm ni rules) => ?_
   intro h
   dsimp only at h
@@ -194,8 +297,7 @@ theorem annotateProjElim_inv {env : Env} {fuel d : Nat} {sn : Name}
         (fun l => e₂.fvarLeaves.contains l)) = true
   · rw [if_pos hg] at h
     simp only [Bool.and_eq_true] at hg
-    exact ⟨us, pcv, nP, nM, nm, ni, rules, rfl, rfl, hlen,
-      hg.1.1, hg.1.2, hg.2, h⟩
+    exact ⟨_, hg.1.1, hg.1.2, hg.2, h⟩
   · rw [if_neg hg] at h
     exact nomatch h
 
@@ -389,8 +491,7 @@ theorem annotateCore_WScoped {env : Env} :
     rcases hres with ⟨us, A, B, cv2, caps2, -, -, -, rfl⟩ | hel
     · simp only [WScoped]
       exact annotateCore_WScoped fuel e he hw
-    · obtain ⟨us, pcv, nP, nM, nm, ni, rules, -, -, -,
-        hwsb, -, -, hann⟩ := annotateProjElim_inv hel
+    · obtain ⟨raw, hwsb, -, -, hann⟩ := annotateProjElim_inv hel
       exact annotateCore_WScoped fuel _ hann (WScoped.of_wscopedB hwsb)
   | fuel + 1, .forallE n ty body m, d, e', h, hw => by
     simp only [WScoped] at hw
@@ -498,8 +599,7 @@ theorem annotateCore_looseBVars {env : Env} :
     rcases hres with ⟨us, A, B, cv2, caps2, -, -, -, rfl⟩ | hel
     · simp only [Expr.looseBVarsBounded]
       exact annotateCore_looseBVars fuel e he hb
-    · obtain ⟨us, pcv, nP, nM, nm, ni, rules, -, -, -,
-        -, hrb, -, hann⟩ := annotateProjElim_inv hel
+    · obtain ⟨raw, -, hrb, -, hann⟩ := annotateProjElim_inv hel
       exact annotateCore_looseBVars fuel _ hann hrb
   | fuel + 1, .app f a, d, e', h, hb => by
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb

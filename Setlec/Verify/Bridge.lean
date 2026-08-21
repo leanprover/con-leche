@@ -292,11 +292,57 @@ theorem majorToCtor_atF (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) (
   unfold majorToCtor
   atF_tac2
 
+theorem isPropType_atF (d : Nat) (ty : Expr) (F : Nat) :
+    (isPropType (fueledFns env) env d ty).val F =
+      isPropType (pureFns env F) env d ty := by
+  unfold isPropType
+  atF_tac2
+
+theorem projFieldDom_atF (structProp : Bool) (sn : Name) (e₂ : Expr) :
+    ∀ (k j d : Nat) (tel : Expr) (F : Nat),
+      (projFieldDom (fueledFns env) env d structProp sn e₂ j k tel).val F =
+        projFieldDom (pureFns env F) env d structProp sn e₂ j k tel := by
+  intro k
+  induction k with
+  | zero =>
+    intro j d tel F
+    cases tel <;> dsimp only [projFieldDom] <;> rfl
+  | succ k ih =>
+    intro j d tel F
+    cases tel <;> dsimp only [projFieldDom] <;> try rfl
+    repeat (first
+      | rfl
+      | (rw [ih])
+      | (rw [isPropType_atF])
+      | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+      | (dsimp only [])
+      | split)
+
+theorem annotateProjRec_atF (d : Nat) (sn : Name) (i : Nat)
+    (te e₂ : Expr) (us : List Level) (F : Nat) :
+    (annotateProjRec (fueledFns env) env d sn i te e₂ us).val F =
+      annotateProjRec (pureFns env F) env d sn i te e₂ us := by
+  unfold annotateProjRec
+  repeat (first
+    | rfl
+    | (rw [isPropType_atF])
+    | (rw [projFieldDom_atF])
+    | (rw [ensureSort_atF])
+    | (rw [liftFueled_atF])
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | (dsimp only [])
+    | split)
+
 theorem annotateProjElim_atF (d : Nat) (sn : Name) (i : Nat) (te e₂ : Expr) (F : Nat) :
     (annotateProjElim (fueledFns env) env d sn i te e₂).val F =
       annotateProjElim (pureFns env F) env d sn i te e₂ := by
   unfold annotateProjElim
-  atF_tac2
+  repeat (first
+    | rfl
+    | (rw [annotateProjRec_atF])
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | (dsimp only [])
+    | split)
 
 macro "atF_step3" : tactic =>
   `(tactic| repeat (first
