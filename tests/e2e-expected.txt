@@ -1,2 +1,15 @@
 0 indexed_vec.ndjson
 0 std_axioms.ndjson
+0 prop_proj.ndjson
+# prop_proj_raw.ndjson (= arena tutorial 087, only reachable from raw
+# kernel declarations, not surface Lean): a *Prop* structure-like with
+# data fields (PUnit.{v} at v=1) among its Prop fields.  For this shape
+# lean-inductive-models emits NO _model.proj_i artifacts, although the
+# Prop fields' projections are definable via the recursor at a Prop
+# motive; setlec falls back to inlining that elimination.  Upstream
+# fix: emit proj_i models for the Prop-sorted fields of Prop
+# structure-likes.  (All-Prop structures DO get artifacts; a Prop
+# structure with a data field cannot be written with the `structure`
+# command, so no .lean source exists for this fixture.)
+0 prop_proj_raw.ndjson
+
