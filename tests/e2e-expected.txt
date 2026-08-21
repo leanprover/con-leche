@@ -1,1 +1,2 @@
 0 indexed_vec.ndjson
+0 std_axioms.ndjson

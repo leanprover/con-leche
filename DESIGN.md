@@ -88,9 +88,23 @@ Only the "basis" inductives get hand-written models: `Eq`, `Nat`, `PSigma'`,
 custom models (level-zero-or-not case distinction may be needed). These live
 in modules analogous to `derived/` in nanodatg.
 
-Axioms: only the three standard axioms are supported; anything else is
-"declined" (lean kernel arena exit convention). They map to custom
-constructions.
+Axioms: only the standard axioms are supported; anything else is
+"declined" (lean kernel arena exit convention).  `Quot.sound` is part
+of the pinned quotient basis block; `propext` and `Classical.choice`
+are accepted as `axiomDecl`s by `stdAxiomOk`: a pure predicate that
+requires the pinned `Eq` basis plus standardly-shaped stored `Iff`
+(for `propext`) resp. `Nonempty` (for `choice`) families, and matches
+the checked type against annotated pins (`Setlec/Kernel/StdAxioms.lean`).
+Since the exporter's hygienic binder names are unstable across
+preprocessor runs, pin matching compares types up to binder names
+(`Expr.eraseNames`); the interpretation never reads what is erased
+(`Expr.ErasedEq.of_eraseNames` + `interp_erasedEq` transport the model
+facts from the pin to the stored type).  Models: `propext` is the
+proof point `pt`, true by propositional extensionality of the set
+model (`SetTheory.prop_ext`) via the stored `Iff.rec`'s member fact;
+`Classical.choice` is a function tower ending in a global choice
+operator (`SetTheory.schoice`), with nonemptiness extracted from the
+stored `Nonempty.rec`'s member fact (`Setlec/Model/StdAxioms.lean`).
 
 ## Term representation
 
@@ -392,8 +406,9 @@ recursors with one synthetic rule each (`⟨Quot.mk, 1, λ … a, f a⟩`,
 resp. `mk a`), so the *generic* iota machinery reduces them — no new
 kernel reduction code.  `Quot.sound` is part of the block as a stored
 axiom: it is true in the set model, and a matching `axiom` record in
-the input is skipped by the frontend (any other axiom remains
-declined).  The frontend verifies each exporter `quot` record against
+the input is skipped by the frontend (`propext` and
+`Classical.choice` are instead accepted as ordinary `axiomDecl`s; see
+the axioms note in the overview).  The frontend verifies each exporter `quot` record against
 the pinned member of its kind and installs the block at the `type`
 record.  Because the block's types mention the pinned equality former,
 `checkDecl`'s `basisDecl` arm requires `Eq` to be installed first.
