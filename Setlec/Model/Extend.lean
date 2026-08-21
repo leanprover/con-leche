@@ -4,6 +4,7 @@ import Setlec.Model.BasisInstall
 import Setlec.Model.IndInstall
 import Setlec.Model.ProjInstall
 import Setlec.Model.EtaInstall
+import Setlec.Model.Extend.Inversions
 
 /-!
 # Model extension steps
@@ -24,27 +25,6 @@ namespace Setlec
 variable {V : Type u} [SetTheory V]
 
 open SetTheory Expr
-
-/-! Projection equations for the pure checker operations: the
-declaration-checker inversions unfold through these (never through
-`fueledOps` itself, so record spellings in hypotheses keep matching). -/
-
-theorem fueledOps_annotate (F : Nat) (env : Env) (d : Nat) (e : Expr) :
-    (fueledOps F).annotate env d e = annotateCore env F d e := rfl
-theorem fueledOps_inferType (F : Nat) (env : Env) (d : Nat) (e : Expr) :
-    (fueledOps F).inferType env d e = inferTypeCore env F d e := rfl
-theorem fueledOps_isDefEq (F : Nat) (env : Env) (d : Nat) (a b : Expr) :
-    (fueledOps F).isDefEq env d a b = isDefEqCore env F d a b := rfl
-theorem fueledOps_ensureSort (F : Nat) (env : Env) (d : Nat) (e : Expr) :
-    (fueledOps F).ensureSort env d e = ensureSortCore env F d e := rfl
-theorem fueledOps_whnf (F : Nat) (env : Env) (d : Nat) (e : Expr) :
-    (fueledOps F).whnf env d e = Setlec.whnf env F d e := rfl
-
-theorem find?_none_ne {env : Env} {n : Name} (h : env.find? n = none) :
-    ∀ c ∈ env.consts, c.name ≠ n := by
-  intro c hc
-  have := List.find?_eq_none.mp h c hc
-  simpa using this
 
 /-- The sibling-availability data `BasisBlocks` preservation needs when
 extending by one (fresh) constant: if the constant is a recursor-kind
@@ -279,85 +259,6 @@ theorem RecRulesOk.cons {env : Env} (m : EnvModel V env)
         exact hRi
       · rw [hvaln]
         exact hfoldEq
-
-/-- Inversion for `checkConstantVal`. -/
-theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
-    (h : checkConstantVal (fueledOps F) env cv = .ok cv') :
-    env.find? cv.name = none ∧
-    reservedBasisNames.contains cv.name = false ∧
-    cv.name.isProjFnShape = false ∧
-    Name.nodup cv.levelParams = true ∧
-    cv.type.looseBVarsBounded 0 = true ∧
-    cv.type.hasFvar = false ∧
-    ∃ type stype u,
-      annotateCore env F 0 cv.type = .ok type ∧
-      type.allLevelParamsDefined cv.levelParams = true ∧
-      type.constsResolve env = true ∧
-      inferTypeCore env F 0 type = .ok stype ∧
-      ensureSortCore env F 0 stype = .ok u ∧
-      cv' = { cv with type := type } := by
-  simp only [checkConstantVal, fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
-    fueledOps_ensureSort, fueledOps_whnf, Bind.bind, Except.bind, Pure.pure, Except.pure] at h
-  by_cases hfind : (env.find? cv.name).isSome = true
-  case pos => simp [hfind] at h
-  simp only [hfind] at h
-  by_cases hres : reservedBasisNames.contains cv.name = true
-  case pos =>
-    rw [if_pos hres] at h
-    exact nomatch h
-  simp only [hres] at h
-  by_cases hpshape : cv.name.isProjFnShape = true
-  case pos =>
-    rw [if_pos hpshape] at h
-    exact nomatch h
-  rw [if_neg hpshape] at h
-  have hpshapeF : cv.name.isProjFnShape = false := by
-    revert hpshape; cases cv.name.isProjFnShape <;> simp
-  by_cases hnd : Name.nodup cv.levelParams = true
-  case neg => simp [hnd] at h
-  simp only [hnd] at h
-  by_cases hlb : cv.type.looseBVarsBounded 0 = true
-  case neg => simp [hlb] at h
-  simp only [hlb] at h
-  by_cases hif : cv.type.hasFvar = true
-  case pos => simp [hif] at h
-  simp only [hif] at h
-  cases hann : annotateCore env F 0 cv.type with
-  | error e => rw [hann] at h; exact nomatch h
-  | ok type =>
-  rw [hann] at h
-  try dsimp only at h
-  by_cases htp : type.allLevelParamsDefined cv.levelParams = true
-  case neg => simp [htp] at h
-  simp only [htp] at h
-  by_cases htr : type.constsResolve env = true
-  case neg => simp [htr] at h
-  simp only [htr] at h
-  cases hst : inferTypeCore env F 0 type with
-  | error e => rw [hst] at h; exact nomatch h
-  | ok stype =>
-  rw [hst] at h
-  try dsimp only at h
-  cases hsort : ensureSortCore env F 0 stype with
-  | error e => rw [hsort] at h; exact nomatch h
-  | ok u =>
-  rw [hsort] at h
-  simp only [Bool.false_eq_true, ↓reduceIte, Except.ok.injEq] at h
-  have hfind0 : env.find? cv.name = none := by
-    revert hfind
-    cases env.find? cv.name <;> simp
-  exact ⟨hfind0, by simpa using hres, hpshapeF, hnd, hlb, by simpa using hif,
-    type, stype, u, rfl, htp, htr, hst, hsort, h.symm⟩
-
-omit [SetTheory V] in
-/-- Numeric names are never `str`-shaped. -/
-theorem Name.num_ne_str (p : Name) (k : Nat) (q : Name) (s : String) :
-    Name.num p k ≠ Name.str q s := fun h => nomatch h
-
-omit [SetTheory V] in
-/-- Reserved basis names are all `str`-shaped. -/
-theorem reservedBasisNames_not_num (p : Name) (k : Nat) :
-    reservedBasisNames.contains (Name.num p k) = false := rfl
 
 /-- Extending with a fresh constant preserves the modeled-value
 bridges, given the head's own obligations. -/
@@ -1494,16 +1395,6 @@ def RuleChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
     cvt.levelParams = cvA.levelParams ∧
     (RecRule.rhs r).allLevelParamsDefined cvA.levelParams = true ∧
     (RecRule.rhs r).constsResolve env₀ = true
-
-theorem domsMatchAux_inv {g : Nat → Expr → Expr}
-    {bs₁ bs₂ : List (Name × Expr × BinderMeta)} {o₁ o₂ n : Nat}
-    (h : domsMatchAux g bs₁ bs₂ o₁ o₂ n = true)
-    {i : Nat} (hi : i < n) {b b' : Name × Expr × BinderMeta}
-    (hb : bs₁[o₁ + i]? = some b) (hb' : bs₂[o₂ + i]? = some b') :
-    b.2.1 = g i b'.2.1 := by
-  have hone := List.all_eq_true.mp h i (List.mem_range.mpr hi)
-  rw [hb, hb'] at hone
-  exact eq_of_beq hone
 
 /-- Invert the pure rule-shape check. -/
 theorem checkIotaRuleShape_inv {tyA cvjty rhsA : Expr}
@@ -2959,7 +2850,6 @@ theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact ⟨cv, nP, nm, ni, rules, rules', rfl, hall, heqf, hcir, h.symm⟩
 
-
 /-- Extend a model by an opaque modeled *recursor*: its value is its
 `_model`'s, and every rule's fold obligation is discharged by the
 checked `iota` theorem (`modeled_rule_fold`).  Two-phase: the rule
@@ -3568,14 +3458,6 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
           (TeleFit.env_levelext henv10 natLitSupported_cons_recRules hfit)
   · -- nat_ops: lookups only differ in the head's rule list
     exact NatOpsOk.cons_recRules m₀.nat_ops
-
-/-- No `_model`-companion name equals a name that is not itself
-`_model`-shaped. -/
-theorem Name.str_model_ne {n m : Name} (hm : m.isModelSuffix = false) :
-    n.str "_model" ≠ m := by
-  intro h
-  rw [← h] at hm
-  simp [Name.isModelSuffix] at hm
 
 /-- The fold invariant of `checkIndDecl`: every installed block member
 has its `_model` companion stored (as a definition with the same level
@@ -4748,14 +4630,6 @@ theorem checkProjFold_sound {T ctorName : Name} {lps : List Name}
     · rw [if_neg hm] at h
       simp only [pure, Except.pure, Except.bind] at h
       exact checkProjFold_sound rest env' env₁ h m hinv
-
-/-- Split a successful monadic bind. -/
-theorem Except.bind_ok {ε α β : Type _} {x : Except ε α}
-    {k : α → Except ε β} {b : β}
-    (h : Except.bind x k = .ok b) : ∃ a, x = .ok a ∧ k a = .ok b := by
-  cases x with
-  | error e => exact nomatch h
-  | ok a => exact ⟨a, rfl, h⟩
 
 /-- Checking a modeled inductive block preserves having a model. -/
 theorem checkIndDecl_sound {env env₂ : Env} {block : List ConstantInfo}
