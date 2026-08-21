@@ -14,4 +14,11 @@
 # with a data field cannot be written with the `structure` command,
 # so no .lean source exists for this fixture.)
 0 prop_proj_raw.ndjson
+0 nat_ops.ndjson
+# nat_ops_nonstandard.ndjson: hand-patched from a plain export —
+# Nat.add's value replaced by (fun x y => x).  The structural-Nat
+# fast-path certification must positively decline the nonstandard
+# definition at install (never accept: the literal fast path would
+# then compute values the stored definition does not).
+2 nat_ops_nonstandard.ndjson
 
