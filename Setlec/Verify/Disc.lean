@@ -1060,6 +1060,122 @@ theorem annotateBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     · exact DiscV.pure hwproj
     · exact DiscV.throw _
 
+/-- Throw-with-inlined-continuation branches (the `unless`/`guard`
+desugaring): both sides start with the same `throw`. -/
+private def discThrowSeq {α : Type} {P : α → Prop} {x g : CheckSM α}
+    (e : CheckError) (hx : x = throw e) (hg : g = throw e) :
+    DiscV env P x g := by
+  subst hx; subst hg
+  exact DiscV.throw e
+
+set_option maxHeartbeats 1600000 in
+theorem inferBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
+    {d : Nat} {e : Expr} (hw : WScoped d e) :
+    DiscV env (WScoped d) (inferBody C env d e)
+      (inferBody G env d e) := by
+  match e with
+  | .bvar _ | .letE _ _ _ _ | .lit (.strVal _) => exact DiscV.throw _
+  | .sort u => exact DiscV.pure (by simp [WScoped])
+  | .fvar idx n ty =>
+    have h' : idx < d ∧ WScoped idx ty := by
+      simpa only [WScoped] using hw
+    exact DiscV.pure (WScoped.mono (Nat.le_of_lt h'.1) h'.2)
+  | .lit (.natVal n) =>
+    show DiscV env _
+      (if natLitSupported env then pure (Expr.const natName [])
+       else throw (.invalid "Nat literal without the Nat basis declarations"))
+      (if natLitSupported env then pure (Expr.const natName [])
+       else throw (.invalid "Nat literal without the Nat basis declarations"))
+    split
+    · exact DiscV.pure (by simp [WScoped])
+    · exact DiscV.throw _
+  | .const n us =>
+    unfold inferBody
+    dsimp only [viewM, Expr.view]
+    simp only [pure_bind]
+    split <;> try exact DiscV.throw _
+    rename_i ci hfn
+    split
+    · refine DiscV.pure ?_
+      obtain ⟨htf, -⟩ := henv _ (find?_mem hfn)
+      exact wscoped_instLevels_of_not_hasFvar htf _ _
+    · exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
+        (fun _ h => h.elim)
+  | .forallE n ty body mb =>
+    have hwtb : WScoped d ty ∧ WScoped d body := by
+      simpa only [WScoped] using hw
+    unfold inferBody
+    dsimp only [viewM, Expr.view]
+    simp only [pure_bind]
+    split <;> try exact DiscV.throw _
+    refine DiscV.bind (ih.site_infer henv hwtb.1) (fun tty htty => ?_)
+    refine DiscV.bind (ih.site_whnf henv htty) (fun w hww => ?_)
+    split <;> try exact DiscV.throw _
+    exact DiscV.pure (by simp [WScoped])
+  | .lam n ty body mb =>
+    have hwtb : WScoped d ty ∧ WScoped d body := by
+      simpa only [WScoped] using hw
+    unfold inferBody
+    dsimp only [viewM, Expr.view]
+    simp only [pure_bind]
+    split <;> try exact DiscV.throw _
+    refine DiscV.bind (ih.site_infer henv hwtb.1) (fun tty htty => ?_)
+    refine DiscV.bind (ih.site_whnf henv htty) (fun w hww => ?_)
+    split <;> try exact DiscV.throw _
+    refine DiscV.bind (ih.site_infer henv
+      (WScoped.instantiate1 hwtb.1 0 hwtb.2)) (fun bt hbt => ?_)
+    refine DiscV.bind (ih.site_infer henv hbt) (fun tbt htbt => ?_)
+    refine DiscV.bind (ih.site_whnf henv htbt) (fun w' hww' => ?_)
+    split <;> try exact DiscV.throw _
+    refine DiscV.bind (DiscV.liftFueled_true _ _) (fun ok _ => ?_)
+    split
+    · exact DiscV.pure (by
+        simp only [WScoped]
+        exact ⟨hwtb.1, WScoped.abstract1 0 hbt⟩)
+    · first
+        | exact DiscV.throw _
+        | exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
+            (fun _ h => h.elim)
+  | .app g' a =>
+    have hwfa : WScoped d g' ∧ WScoped d a := by
+      simpa only [WScoped] using hw
+    unfold inferBody
+    dsimp only [viewM, Expr.view]
+    simp only [pure_bind]
+    refine DiscV.bind (ih.site_infer henv hwfa.1) (fun tf htf => ?_)
+    refine DiscV.bind (ih.site_whnf henv htf) (fun w hww => ?_)
+    split <;> try exact DiscV.throw _
+    rename_i nw tyw bodyw mbw
+    have hwtb : WScoped d tyw ∧ WScoped d bodyw := by
+      simpa only [WScoped] using hww
+    refine DiscV.bind (ih.site_infer henv hwfa.2) (fun ta hta => ?_)
+    refine DiscV.bind (ih.site_defeq hta hwtb.1) (fun b _ => ?_)
+    split
+    · exact DiscV.pure (WScoped.instantiate1_gen hwfa.2 0 hwtb.2)
+    · first
+        | exact DiscV.throw _
+        | exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
+            (fun _ h => h.elim)
+  | .proj sn i pe =>
+    have hwpe : WScoped d pe := by simpa only [WScoped] using hw
+    unfold inferBody
+    dsimp only [viewM, Expr.view]
+    simp only [pure_bind]
+    refine DiscV.bind (ih.site_infer henv hwpe) (fun tpe htpe => ?_)
+    refine DiscV.bind (ih.site_whnf henv htpe) (fun w hww => ?_)
+    split <;> try exact DiscV.throw _
+    rename_i cw usw Aw Bw
+    have hwAB : (WScoped d (Expr.const cw usw) ∧ WScoped d Aw) ∧
+        WScoped d Bw := by
+      simpa only [WScoped] using hww
+    split <;> try exact DiscV.throw _
+    split <;> try exact DiscV.throw _
+    split <;> try exact DiscV.throw _
+    · exact DiscV.pure hwAB.1.2
+    · refine DiscV.pure ?_
+      simp only [WScoped]
+      exact ⟨hwAB.2, hwpe⟩
+
 end Walks
 
 end Setlec
