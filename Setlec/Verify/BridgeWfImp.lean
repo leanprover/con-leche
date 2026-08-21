@@ -757,4 +757,40 @@ theorem installProjFnStep_wfimp {e : Env} (he : EnvWF e)
   · rw [if_neg (by assumption)]
     exact h
 
+/-! ## Scoping of the structural-Nat certification equations -/
+
+/-- The recurrence equations' sides are well-scoped at depth 2 (their
+free variables are `fvar 0`/`fvar 1` with closed annotations). -/
+theorem natOpEquations_wscopedB {c : Name} (hc : c ∈ natOpNames) :
+    ∀ eq ∈ natOpEquations 0 c,
+      eq.1.wscopedB 2 = true ∧ eq.2.wscopedB 2 = true := by
+  simp only [natOpNames, List.mem_cons, List.not_mem_nil, or_false] at hc
+  rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
+    (intro eq heq
+     simp +decide [natOpEquations] at heq
+     first
+       | (rcases heq with rfl | rfl | rfl | rfl) <;>
+           simp +decide [Expr.wscopedB]
+       | (rcases heq with rfl | rfl | rfl) <;>
+           simp +decide [Expr.wscopedB]
+       | (rcases heq with rfl | rfl) <;>
+           simp +decide [Expr.wscopedB])
+
+/-- Substituting a closed value for a constant preserves scoping. -/
+theorem wscopedB_substConst0 {n : Name} {r : Expr}
+    (hr : r.hasFvar = false) :
+    ∀ (e : Expr) {d : Nat}, e.wscopedB d = true →
+      (Expr.substConst0 n r e).wscopedB d = true
+  | .const c us, d, he => by
+    simp only [Expr.substConst0]
+    split
+    · exact wscopedB_of_not_hasFvar hr
+    · exact he
+  | .app f a, d, he => by
+    simp only [Expr.substConst0, Expr.wscopedB, Bool.and_eq_true] at he ⊢
+    exact ⟨wscopedB_substConst0 hr f he.1, wscopedB_substConst0 hr a he.2⟩
+  | .bvar _, _, he | .fvar _ _ _, _, he | .sort _, _, he | .lit _, _, he
+  | .lam _ _ _ _, _, he | .forallE _ _ _ _, _, he
+  | .letE _ _ _ _, _, he | .proj _ _ _, _, he => he
+
 end Setlec
