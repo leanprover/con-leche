@@ -186,6 +186,41 @@ theorem TeleFit.env_shrink {c₀ : ConstantInfo} {env : Env}
     rw [← interp_cval_ext hagree ty d ρ]
     exact h1
 
+/-- The members of an application spine resolve when the whole
+expression does. -/
+theorem Expr.constsResolve_getAppArgs {env : Env} :
+    ∀ {e : Expr}, e.constsResolve env = true →
+      ∀ x ∈ e.getAppArgs, x.constsResolve env = true := by
+  intro e
+  induction e with
+  | app f a ihf iha =>
+    intro hb x hx
+    simp only [Expr.getAppArgs, List.mem_append, List.mem_singleton] at hx
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hb
+    rcases hx with hx | rfl
+    · exact ihf hb.1 x hx
+    · exact hb.2
+  | _ => intro hb x hx; simp [Expr.getAppArgs] at hx
+
+/-- A value-spine fit's residual resolves in any environment its
+telescope resolves in (the walk only inserts opening variables typed by
+the telescope's own domains). -/
+theorem TeleFit.rest_resolve {envR : Env} {env₂ : Env} :
+    ∀ {d : Nat} {ρ : Nat → V} {e : Expr} {vs : List V} {d' : Nat}
+      {ρ' : Nat → V} {rest : Expr},
+      TeleFit V cval env₂ φ d ρ e vs d' ρ' rest →
+      e.constsResolve envR = true →
+      rest.constsResolve envR = true := by
+  intro d ρ e vs d' ρ' rest ht
+  induction ht with
+  | nil => intro h; exact h
+  | @cons d ρ n ty body m x xs d' ρ' rest A hity hx ht ih =>
+    intro hres
+    have hres' : ty.constsResolve envR = true ∧
+        body.constsResolve envR = true := by
+      simpa [Expr.constsResolve] using hres
+    exact ih (Expr.constsResolve_instantiate1 hres'.1 0 hres'.2)
+
 /-- Weakening an expression-spine fit: a fit over `p`-scoped data holds
 at any depth `≥ p` under any valuation agreeing below `p`. -/
 theorem TeleFitI.lift {p : Nat} {ρ : Nat → V} :
@@ -432,13 +467,13 @@ theorem TeleFit.toTeleFitI :
       TeleFit V cval env φ D ρD e vs d' ρ' rest →
       WScoped D e →
       D ≤ d' ∧ (∀ i, i < D → ρ' i = ρD i) ∧
-      ∃ args rest₂, TeleFitI V cval env φ d' ρ' e args vs rest₂ ∧
+      ∃ args, TeleFitI V cval env φ d' ρ' e args vs rest ∧
         ∀ a ∈ args, ∃ i n ty, a = .fvar i n ty := by
   intro D ρD e vs d' ρ' rest ht
   induction ht with
   | nil =>
     intro _
-    exact ⟨Nat.le_refl _, fun _ _ => rfl, [], _, TeleFitI.nil,
+    exact ⟨Nat.le_refl _, fun _ _ => rfl, [], TeleFitI.nil,
       fun a ha => by simp at ha⟩
   | @cons D ρD n ty body m x xs d' ρ' rest A hity hx ht ih =>
     intro hwe
@@ -447,7 +482,7 @@ theorem TeleFit.toTeleFitI :
       refine WScoped.instantiate1_gen ?_ 0 (hwe'.2.mono (Nat.le_succ D))
       simp only [WScoped]
       exact ⟨Nat.lt_succ_self D, hwe'.1⟩
-    obtain ⟨hDd, hagr, args, rest₂, hfit, hfvars⟩ := ih hwopen
+    obtain ⟨hDd, hagr, args, hfit, hfvars⟩ := ih hwopen
     have hDd' : D ≤ d' := Nat.le_trans (Nat.le_succ D) hDd
     have hagr' : ∀ i, i < D → ρ' i = ρD i := by
       intro i hi
@@ -457,7 +492,7 @@ theorem TeleFit.toTeleFitI :
     have hρD : ρ' D = x := by
       rw [hagr D (by omega)]
       simp [updV]
-    refine ⟨hDd', hagr', .fvar D n ty :: args, rest₂,
+    refine ⟨hDd', hagr', .fvar D n ty :: args,
       ?_,
       fun a ha => by
         rcases List.mem_cons.mp ha with rfl | ha
@@ -682,6 +717,198 @@ def telescopeInst : Expr → List Expr → Option Expr
   | e, [] => some e
   | .forallE _ _ b _, a :: as => telescopeInst (b.instantiate1 a) as
   | _, _ :: _ => none
+
+/-- The kernel's telescope-peeling helper is `telescopeInst`. -/
+theorem piResidual_eq_telescopeInst :
+    ∀ (ty : Expr) (args : List Expr),
+      piResidual ty args = telescopeInst ty args
+  | _, [] => rfl
+  | .forallE _ _ b _, a :: as => piResidual_eq_telescopeInst (b.instantiate1 a) as
+  | .sort _, _ :: _ | .bvar _, _ :: _ | .fvar _ _ _, _ :: _
+  | .const _ _, _ :: _ | .app _ _, _ :: _ | .lam _ _ _ _, _ :: _
+  | .letE _ _ _ _, _ :: _ | .lit _, _ :: _ | .proj _ _ _, _ :: _ => rfl
+
+/-- Argument spines with given interpreted values: each argument is
+bvar-closed, `D`-scoped and interprets to the corresponding value. -/
+def InstArgs (cval : ConstVal V) (env : Env) (φ : Name → Nat) (D : Nat)
+    (ρ : Nat → V) : List Expr → List V → Prop
+  | [], [] => True
+  | a :: as, v :: vs =>
+    (WScoped D a ∧ a.looseBVarsBounded 0 = true ∧
+      interpExpr V cval env φ D ρ a = some v) ∧
+    InstArgs cval env φ D ρ as vs
+  | _, _ => False
+
+theorem InstArgs.length {D : Nat} {ρ : Nat → V} :
+    ∀ {args : List Expr} {vs : List V},
+      InstArgs cval env φ D ρ args vs → args.length = vs.length
+  | [], [], _ => rfl
+  | [], _ :: _, h => nomatch h
+  | _ :: _, [], h => nomatch h
+  | _ :: as, _ :: vs, h => by
+    simpa using InstArgs.length (h.2)
+
+theorem InstArgs.bounded {D : Nat} {ρ : Nat → V} :
+    ∀ {args : List Expr} {vs : List V},
+      InstArgs cval env φ D ρ args vs →
+      ∀ a ∈ args, a.looseBVarsBounded 0 = true
+  | [], [], _ => by simp
+  | [], _ :: _, h => nomatch h
+  | _ :: _, [], h => nomatch h
+  | a :: as, v :: vs, h => by
+    intro x hx
+    rcases List.mem_cons.mp hx with rfl | hx
+    · exact h.1.2.1
+    · exact InstArgs.bounded h.2 x hx
+
+theorem InstArgs.wscoped {D : Nat} {ρ : Nat → V} :
+    ∀ {args : List Expr} {vs : List V},
+      InstArgs cval env φ D ρ args vs → ∀ a ∈ args, WScoped D a
+  | [], [], _ => by simp
+  | [], _ :: _, h => nomatch h
+  | _ :: _, [], h => nomatch h
+  | a :: as, v :: vs, h => by
+    intro x hx
+    rcases List.mem_cons.mp hx with rfl | hx
+    · exact h.1.1
+    · exact InstArgs.wscoped h.2 x hx
+
+/-- An expression-spine fit's arguments and values form an `InstArgs`
+spine. -/
+theorem TeleFitI.toInstArgs {D : Nat} {ρ : Nat → V} :
+    ∀ {ty : Expr} {args : List Expr} {vs : List V} {rest : Expr},
+      TeleFitI V cval env φ D ρ ty args vs rest →
+      InstArgs cval env φ D ρ args vs := by
+  intro ty args vs rest h
+  induction h with
+  | nil => trivial
+  | cons hity hiarg hx hfb hwa hba hAa _ ih => exact ⟨⟨hwa, hba, hiarg⟩, ih⟩
+
+/-- `InstArgs` lifts to any higher frame agreeing below the base. -/
+theorem InstArgs.lift {D : Nat} {ρ : Nat → V} :
+    ∀ {args : List Expr} {vs : List V},
+      InstArgs cval env φ D ρ args vs →
+      ∀ {D' : Nat} {ρ' : Nat → V}, D ≤ D' → (∀ i, i < D → ρ' i = ρ i) →
+      InstArgs cval env φ D' ρ' args vs
+  | [], [], _, _, _, _, _ => trivial
+  | [], _ :: _, h, _, _, _, _ => nomatch h
+  | _ :: _, [], h, _, _, _, _ => nomatch h
+  | a :: as, v :: vs, h, D', ρ', hle, hag => by
+    obtain ⟨⟨hw, hb, hi⟩, h'⟩ := h
+    refine ⟨⟨hw.mono hle, hb, ?_⟩, InstArgs.lift h' hle hag⟩
+    rw [interp_lift hw D' hle ρ ρ' hag]
+    exact hi
+
+/-- For opening-variable spines the level assignment is irrelevant:
+`InstArgs` transfers across any two assignments. -/
+theorem InstArgs.of_fvars_ext {φ₂ : Name → Nat} {D : Nat} {ρ : Nat → V} :
+    ∀ {args : List Expr} {vs : List V},
+      (∀ a ∈ args, ∃ i n ty, a = .fvar i n ty) →
+      InstArgs cval env φ D ρ args vs →
+      InstArgs cval env φ₂ D ρ args vs
+  | [], [], _, _ => trivial
+  | [], _ :: _, _, h => nomatch h
+  | _ :: _, [], _, h => nomatch h
+  | a :: as, v :: vs, hfv, h => by
+    obtain ⟨⟨hw, hb, hi⟩, h'⟩ := h
+    obtain ⟨i, n, ty, rfl⟩ := hfv a List.mem_cons_self
+    refine ⟨⟨hw, hb, ?_⟩,
+      InstArgs.of_fvars_ext (fun y hy => hfv y (List.mem_cons_of_mem _ hy))
+        h'⟩
+    simpa [interpExpr] using hi
+
+/-- Interpretation of an instantiation sequence is determined by the
+argument *values*: two spines with pointwise equal interpretations
+yield interp-equal instantiations.  Each head argument is exchanged for
+the opening variable through a double `interp_beta` bridge after
+commuting it past the remaining (closed) substitutions. -/
+theorem interp_instSeq_congr {D : Nat} {ρ : Nat → V} :
+    ∀ {args₁ args₂ : List Expr} {vs : List V} {e : Expr},
+      InstArgs cval env φ D ρ args₁ vs →
+      InstArgs cval env φ D ρ args₂ vs →
+      Expr.fvarsBelow D e →
+      e.looseBVarsBounded args₁.length = true →
+      interpExpr V cval env φ D ρ (instSeq args₁ (args₁.length - 1) e) =
+      interpExpr V cval env φ D ρ (instSeq args₂ (args₂.length - 1) e)
+  | [], [], [], e, _, _, _, _ => rfl
+  | [], _ :: _, vs, e, h₁, h₂, _, _ => by
+    match vs, h₁ with
+    | [], _ => exact nomatch h₂
+  | _ :: _, [], vs, e, h₁, h₂, _, _ => by
+    match vs, h₂ with
+    | [], _ => exact nomatch h₁
+  | a₁ :: as₁, a₂ :: as₂, vs, e, h₁, h₂, hfb, hb => by
+    match vs, h₁, h₂ with
+    | v :: vs, ⟨⟨hw₁, hb₁, hi₁⟩, h₁'⟩, ⟨⟨hw₂, hb₂, hi₂⟩, h₂'⟩ =>
+    have hlen12 : as₁.length = as₂.length := by
+      have := InstArgs.length h₁'
+      have := InstArgs.length h₂'
+      omega
+    show interpExpr V cval env φ D ρ
+        (instSeq as₁ ((a₁ :: as₁).length - 1 - 1)
+          (e.instantiate1 a₁ ((a₁ :: as₁).length - 1))) =
+      interpExpr V cval env φ D ρ
+        (instSeq as₂ ((a₂ :: as₂).length - 1 - 1)
+          (e.instantiate1 a₂ ((a₂ :: as₂).length - 1)))
+    simp only [List.length_cons, Nat.succ_sub_one]
+    have hfb₁ : Expr.fvarsBelow D (e.instantiate1 a₁ as₁.length) :=
+      fvarsBelow_instantiate1_gen hw₁.fvarsBelow _ hfb
+    have hbnd₁ : (e.instantiate1 a₁ as₁.length).looseBVarsBounded
+        as₁.length = true :=
+      looseBVarsBounded_instantiate1_gen hb₁
+        (by simpa [List.length_cons] using hb)
+    have hIH := interp_instSeq_congr h₁' h₂' hfb₁ hbnd₁
+    rw [hIH]
+    rw [hlen12]
+    have hout₁ := instSeq_instantiate1_out hb₁ as₂ as₂.length e
+      (InstArgs.bounded h₂') (Nat.le_refl _)
+    have hout₂ := instSeq_instantiate1_out hb₂ as₂ as₂.length e
+      (InstArgs.bounded h₂') (Nat.le_refl _)
+    rw [Nat.sub_self] at hout₁ hout₂
+    rw [hout₁, hout₂]
+    have hfbX : Expr.fvarsBelow D (instSeq as₂ (as₂.length - 1) e) :=
+      fvarsBelow_instSeq as₂ _
+        (fun a ha => (InstArgs.wscoped h₂' a ha).fvarsBelow)
+        hfb
+    rw [interp_beta (n := .anonymous) (ty := .sort .zero) hfbX hw₁ hb₁ hi₁ 0,
+      ← interp_beta (n := .anonymous) (ty := .sort .zero) hfbX hw₂ hb₂ hi₂ 0]
+
+/-- Well-formedness of an expression-spine fit's residual: scoping,
+loose-bvar boundedness and annotation truthfulness carry through the
+instantiation walk. -/
+theorem TeleFitI.rest_wf {d : Nat} {ρ : Nat → V} :
+    ∀ {ty : Expr} {args : List Expr} {vs : List V} {rest : Expr},
+      TeleFitI V cval env φ d ρ ty args vs rest →
+      WScoped d ty → ty.looseBVarsBounded 0 = true →
+      AnnotOk V cval env φ d ρ ty →
+      WScoped d rest ∧ rest.looseBVarsBounded 0 = true ∧
+        AnnotOk V cval env φ d ρ rest ∧
+        ∀ l ∈ rest.fvarLeaves,
+          l ∈ ty.fvarLeaves ∨ ∃ a ∈ args, l ∈ a.fvarLeaves := by
+  intro ty args vs rest ht
+  induction ht with
+  | nil => intro hw hb hA; exact ⟨hw, hb, hA, fun l hl => Or.inl hl⟩
+  | @cons n ty₀ body m arg args x xs A rest hity hiarg hx hfb hwa hba hAa
+      ht ih =>
+    intro hw hb hA
+    have hw' : WScoped d ty₀ ∧ WScoped d body := by simpa [WScoped] using hw
+    have hb' : ty₀.looseBVarsBounded 0 = true ∧
+        body.looseBVarsBounded 1 = true := by
+      simpa [Expr.looseBVarsBounded] using hb
+    simp only [AnnotOk] at hA
+    obtain ⟨hAty, ⟨v, hcod⟩, hcond⟩ := hA
+    obtain ⟨hAopen, -⟩ := hcond x A hity hx
+    obtain ⟨hwR, hbR, hAR, hlR⟩ := ih (WScoped.instantiate1_gen hwa 0 hw'.2)
+      (looseBVarsBounded_instantiate1_gen hba (k := 0) hb'.2)
+      (AnnotOk_beta hfb hwa hba hiarg hAa 0 hAopen)
+    refine ⟨hwR, hbR, hAR, fun l hl => ?_⟩
+    rcases hlR l hl with hl' | ⟨a, ha, hla⟩
+    · rcases fvarLeaves_instantiate1 body 0 hl' with hb'' | hb''
+      · exact Or.inl (by
+          simp only [Expr.fvarLeaves, List.mem_append]
+          exact Or.inr hb'')
+      · exact Or.inr ⟨arg, List.mem_cons_self, hb''⟩
+    · exact Or.inr ⟨a, List.mem_cons_of_mem _ ha, hla⟩
 
 /-- Peel the leading arguments off an expression-spine fit. -/
 theorem TeleFitI.drop_prefix :

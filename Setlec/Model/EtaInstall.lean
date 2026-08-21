@@ -85,7 +85,7 @@ theorem eta_rule_fold
   have hTwI : ∀ D, WScoped D (cvTty.instantiateLevelParams lps us) :=
     fun D => WScoped.of_not_hasFvar
       (by rw [hasFvar_instantiateLevelParams]; exact hTw)
-  obtain ⟨hd₂, hagr₂, argsC0, restC0, hfitL2, hfvC0⟩ :=
+  obtain ⟨hd₂, hagr₂, argsC0, hfitL2, hfvC0⟩ :=
     TeleFit.toTeleFitI hfitT (hTwI d₁)
   have hlenC0 : argsC0.length = nP := by
     have h1 := TeleFitI.vs_length hfitL2
@@ -586,7 +586,7 @@ theorem unit_rule_fold
   have hTwI : ∀ D, WScoped D (cvTty.instantiateLevelParams lps us) :=
     fun D => WScoped.of_not_hasFvar
       (by rw [hasFvar_instantiateLevelParams]; exact hTw)
-  obtain ⟨hd₂, hagr₂, argsC0, restC0, hfitL2, hfvC0⟩ :=
+  obtain ⟨hd₂, hagr₂, argsC0, hfitL2, hfvC0⟩ :=
     TeleFit.toTeleFitI hfitT (hTwI d₁)
   have hlenC0 : argsC0.length = nP := by
     have h1 := TeleFitI.vs_length hfitL2

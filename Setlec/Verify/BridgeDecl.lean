@@ -203,75 +203,75 @@ theorem checkProjIota_snd_dproj (env' : Env) (T ctorName : Name) (lps : List Nam
 set_option maxHeartbeats 12800000 in
 theorem checkIotaRule_fst_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
-    (nP nM nm j : Nat) (r : RecRule) :
+    (nP nM nm ni j : Nat) (r : RecRule) :
     (checkIotaRule (pairOps o₁ o₂ h) env' envSelf f cvName lps tyA
-      nP nM nm j r).val.1 =
-    checkIotaRule o₁ env' envSelf f cvName lps tyA nP nM nm j r := by
+      nP nM nm ni j r).val.1 =
+    checkIotaRule o₁ env' envSelf f cvName lps tyA nP nM nm ni j r := by
   unfold checkIotaRule
   dfst_tac
 
 theorem checkIotaRules_fst_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
-    (nP nM nm : Nat) :
+    (nP nM nm ni : Nat) :
     ∀ (j : Nat) (rules : List RecRule),
       (checkIotaRules (pairOps o₁ o₂ h) env' envSelf f cvName lps tyA
-        nP nM nm j rules).val.1 =
-      checkIotaRules o₁ env' envSelf f cvName lps tyA nP nM nm j rules
+        nP nM nm ni j rules).val.1 =
+      checkIotaRules o₁ env' envSelf f cvName lps tyA nP nM nm ni j rules
   | _, [] => rfl
   | j, r :: rest => by
     show ((do
         let r' ← checkIotaRule (pairOps o₁ o₂ h) env' envSelf f cvName
-          lps tyA nP nM nm j r
+          lps tyA nP nM nm ni j r
         let rest' ← checkIotaRules (pairOps o₁ o₂ h) env' envSelf f
-          cvName lps tyA nP nM nm (j + 1) rest
+          cvName lps tyA nP nM nm ni (j + 1) rest
         pure (r' :: rest') : PairM rel _)).val.1 = (do
         let r' ← checkIotaRule o₁ env' envSelf f cvName lps tyA
-          nP nM nm j r
+          nP nM nm ni j r
         let rest' ← checkIotaRules o₁ env' envSelf f cvName lps tyA
-          nP nM nm (j + 1) rest
+          nP nM nm ni (j + 1) rest
         pure (r' :: rest'))
     rw [PairM.fst_bind, checkIotaRule_fst_dproj]
     congr 1
     funext r'
     rw [PairM.fst_bind, checkIotaRules_fst_dproj env' envSelf f cvName lps tyA
-      nP nM nm (j + 1) rest]
+      nP nM nm ni (j + 1) rest]
     rfl
 
 set_option maxHeartbeats 12800000 in
 theorem checkIotaRule_snd_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
-    (nP nM nm j : Nat) (r : RecRule) :
+    (nP nM nm ni j : Nat) (r : RecRule) :
     (checkIotaRule (pairOps o₁ o₂ h) env' envSelf f cvName lps tyA
-      nP nM nm j r).val.2 =
-    checkIotaRule o₂ env' envSelf f cvName lps tyA nP nM nm j r := by
+      nP nM nm ni j r).val.2 =
+    checkIotaRule o₂ env' envSelf f cvName lps tyA nP nM nm ni j r := by
   unfold checkIotaRule
   dsnd_tac
 
 theorem checkIotaRules_snd_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
-    (nP nM nm : Nat) :
+    (nP nM nm ni : Nat) :
     ∀ (j : Nat) (rules : List RecRule),
       (checkIotaRules (pairOps o₁ o₂ h) env' envSelf f cvName lps tyA
-        nP nM nm j rules).val.2 =
-      checkIotaRules o₂ env' envSelf f cvName lps tyA nP nM nm j rules
+        nP nM nm ni j rules).val.2 =
+      checkIotaRules o₂ env' envSelf f cvName lps tyA nP nM nm ni j rules
   | _, [] => rfl
   | j, r :: rest => by
     show ((do
         let r' ← checkIotaRule (pairOps o₁ o₂ h) env' envSelf f cvName
-          lps tyA nP nM nm j r
+          lps tyA nP nM nm ni j r
         let rest' ← checkIotaRules (pairOps o₁ o₂ h) env' envSelf f
-          cvName lps tyA nP nM nm (j + 1) rest
+          cvName lps tyA nP nM nm ni (j + 1) rest
         pure (r' :: rest') : PairM rel _)).val.2 = (do
         let r' ← checkIotaRule o₂ env' envSelf f cvName lps tyA
-          nP nM nm j r
+          nP nM nm ni j r
         let rest' ← checkIotaRules o₂ env' envSelf f cvName lps tyA
-          nP nM nm (j + 1) rest
+          nP nM nm ni (j + 1) rest
         pure (r' :: rest'))
     rw [PairM.snd_bind, checkIotaRule_snd_dproj]
     congr 1
     funext r'
     rw [PairM.snd_bind, checkIotaRules_snd_dproj env' envSelf f cvName lps tyA
-      nP nM nm (j + 1) rest]
+      nP nM nm ni (j + 1) rest]
     rfl
 
 macro "dfst_step2" : tactic =>
@@ -718,40 +718,40 @@ theorem checkProjIota_datF (env' : Env) (T ctorName : Name) (lps : List Name) (c
 set_option maxHeartbeats 12800000 in
 theorem checkIotaRule_datF (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
-    (nP nM nm j : Nat) (r : RecRule) (F : Nat) :
+    (nP nM nm ni j : Nat) (r : RecRule) (F : Nat) :
     (checkIotaRule fueledOpsM env' envSelf f cvName lps tyA
-      nP nM nm j r).val F =
+      nP nM nm ni j r).val F =
     checkIotaRule (fueledOps F) env' envSelf f cvName lps tyA
-      nP nM nm j r := by
+      nP nM nm ni j r := by
   unfold checkIotaRule
   datF_tac
 
 theorem checkIotaRules_datF (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
-    (nP nM nm : Nat) (F : Nat) :
+    (nP nM nm ni : Nat) (F : Nat) :
     ∀ (j : Nat) (rules : List RecRule),
       (checkIotaRules fueledOpsM env' envSelf f cvName lps tyA
-        nP nM nm j rules).val F =
+        nP nM nm ni j rules).val F =
       checkIotaRules (fueledOps F) env' envSelf f cvName lps tyA
-        nP nM nm j rules
+        nP nM nm ni j rules
   | _, [] => rfl
   | j, r :: rest => by
     show ((do
         let r' ← checkIotaRule fueledOpsM env' envSelf f cvName lps tyA
-          nP nM nm j r
+          nP nM nm ni j r
         let rest' ← checkIotaRules fueledOpsM env' envSelf f cvName lps
-          tyA nP nM nm (j + 1) rest
+          tyA nP nM nm ni (j + 1) rest
         pure (r' :: rest') : FueledM _)).val F = (do
         let r' ← checkIotaRule (fueledOps F) env' envSelf f cvName lps
-          tyA nP nM nm j r
+          tyA nP nM nm ni j r
         let rest' ← checkIotaRules (fueledOps F) env' envSelf f cvName
-          lps tyA nP nM nm (j + 1) rest
+          lps tyA nP nM nm ni (j + 1) rest
         pure (r' :: rest'))
     rw [FueledM.atF_bind, checkIotaRule_datF]
     congr 1
     funext r'
     rw [FueledM.atF_bind, checkIotaRules_datF env' envSelf f cvName lps
-      tyA nP nM nm F (j + 1) rest]
+      tyA nP nM nm ni F (j + 1) rest]
     rfl
 
 macro "datF_step2" : tactic =>

@@ -42,8 +42,9 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
     WScoped d e'' ∧ e''.looseBVarsBounded 0 = true ∧
     Expr.LeavesBounded e'' ∧ FvarsOk V m.val env φ d ρ e'' := by
   obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major, cj, usj, cvj,
-    cnP, cnF, r, hfn, hfc, hlen, hmaj, hsub, hmfn, hfj, hrule, hml1, hml2,
-    har1, har2, hlev, hpeq, hcerts, hmcerts, heout⟩ :=
+    cnP, cnF, r, cbinders, cbody, residual, cr, usr, hfn, hfc, hlen, hmaj,
+    hsub, hmfn, hfj, hrule, hml1, hml2, har1, har2, hlev, hpeq, hcerts,
+    hmcerts, hstrip, hres, hrfn, hieq, heout⟩ :=
     iotaRec_inv hio
   obtain rfl : cj = r.ctor :=
     (eq_of_beq (by simpa using List.find?_some hrule)).symm
@@ -333,6 +334,192 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
     rw [hxeq] at hlen
     simp at hlen
     omega
+  -- the canonical-index certificate: the kernel's residual is the
+  -- constructor walk's; its trailing slots are the canonical index
+  -- expressions, whose values (by the index `defEqList` check) are the
+  -- recursor's index-argument values — transported onto the opened
+  -- (fvar-instantiated) residual `restC'` by the value-congruence of
+  -- instantiation sequences
+  rw [piResidual_eq_telescopeInst, TeleFitI.rest_eq hfitIC] at hres
+  obtain rfl : restC = residual := Option.some.inj hres
+  obtain ⟨hrw, hrb, hrA, hrleaves⟩ := TeleFitI.rest_wf hfitIC hCw hCb hCA
+  have hrL : Expr.LeavesBounded restC := by
+    intro l hl
+    rcases hrleaves l hl with hl' | ⟨a, ha, hla⟩
+    · rw [fvarLeaves_eq_nil_of_not_hasFvar hChf] at hl'
+      cases hl'
+    · exact (hcertmargs a ha).2.2.1 l hla
+  have hrO : FvarsOk V m.val env φ d ρ restC := by
+    intro l hl
+    rcases hrleaves l hl with hl' | ⟨a, ha, hla⟩
+    · rw [fvarLeaves_eq_nil_of_not_hasFvar hChf] at hl'
+      cases hl'
+    · exact (hcertmargs a ha).2.2.2.1 l hla
+  have hlenieq := defEqList_length (env := env) (fuel := fuel) _ _ hieq
+  have htakelen : ((Expr.app fe ae).getAppArgs.take
+      (nP + nM + nm + ni)).length = nP + nM + nm + ni := by
+    rw [List.length_take, hlen]
+    omega
+  -- frame bookkeeping
+  have hdC : d ≤ dC := Nat.le_trans hdR (TeleFit.toTeleFitI hfitC
+    (WScoped.of_not_hasFvar hChf)).1
+  obtain ⟨hdRC, hagrRC, argsCF, hfitCF, hfvCF⟩ :=
+    TeleFit.toTeleFitI hfitC (WScoped.of_not_hasFvar hChf)
+  have hagrC : ∀ i, i < d → ρC i = ρ i := by
+    intro i hi
+    rw [hagrRC i (by omega), hagrR i hi]
+  -- both residuals are instantiation sequences of the constructor's
+  -- stripped result
+  have hlenCF : argsCF.length = cnP + cnF := by
+    have h1 := TeleFitI.vs_length hfitCF
+    rw [hwslen] at h1
+    omega
+  obtain ⟨mid, hmid, bs', body', hstripMid, hbodyMid, -⟩ :=
+    telescopeInst_stripPis (cnP + cnF) major.getAppArgs 0 hml1
+      (by simpa using hstrip)
+  rw [TeleFitI.rest_eq hfitIC] at hmid
+  obtain rfl : restC = mid := Option.some.inj hmid
+  have hrestCeq : restC = instSeq major.getAppArgs (cnP + cnF - 1) cbody := by
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at hstripMid
+    rw [hstripMid.2, hbodyMid]
+    simp
+  obtain ⟨midF, hmidF, bsF', bodyF', hstripF, hbodyF, -⟩ :=
+    telescopeInst_stripPis (cnP + cnF) argsCF 0 hlenCF
+      (by simpa using hstrip)
+  rw [TeleFitI.rest_eq hfitCF] at hmidF
+  obtain rfl : restC' = midF := Option.some.inj hmidF
+  have hrestC'eq : restC' = instSeq argsCF (cnP + cnF - 1) cbody := by
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at hstripF
+    rw [hstripF.2, hbodyF]
+    simp
+  -- the stripped result's own well-formedness and constant head
+  have hcbodyF : cbody.hasFvar = false :=
+    stripPis_body_hasFvar _ hstrip hChf
+  have hcbodyB : cbody.looseBVarsBounded (cnP + cnF) = true := by
+    have := stripPis_body_bounded _ hstrip hCb
+    simpa using this
+  have hcspine : cbody = Expr.mkAppN (.const cr usr) cbody.getAppArgs := by
+    have := (Expr.mkAppN_getApp cbody).symm
+    rw [hrfn] at this
+    exact this
+  have hinstM : instSeq major.getAppArgs (cnP + cnF - 1) cbody =
+      Expr.mkAppN (.const cr usr)
+        (cbody.getAppArgs.map (instSeq major.getAppArgs (cnP + cnF - 1) ·)) := by
+    conv => lhs; rw [hcspine]
+    rw [instSeq_mkAppN, instSeq_eq_self _ _ (by simp [Expr.looseBVarsBounded])]
+  have hinstF : instSeq argsCF (cnP + cnF - 1) cbody =
+      Expr.mkAppN (.const cr usr)
+        (cbody.getAppArgs.map (instSeq argsCF (cnP + cnF - 1) ·)) := by
+    conv => lhs; rw [hcspine]
+    rw [instSeq_mkAppN, instSeq_eq_self _ _ (by simp [Expr.looseBVarsBounded])]
+  have hrArgs : restC.getAppArgs =
+      cbody.getAppArgs.map (instSeq major.getAppArgs (cnP + cnF - 1) ·) := by
+    rw [hrestCeq, hinstM, Expr.getAppArgs_mkAppN]
+    simp [Expr.getAppArgs]
+  have hrArgsF : restC'.getAppArgs =
+      cbody.getAppArgs.map (instSeq argsCF (cnP + cnF - 1) ·) := by
+    rw [hrestC'eq, hinstF, Expr.getAppArgs_mkAppN]
+    simp [Expr.getAppArgs]
+  -- argument spines with the constructor values, at the final frame
+  have hInstF : InstArgs m.val env φ dC ρC argsCF ws :=
+    TeleFitI.toInstArgs hfitCF
+  have hInstM : InstArgs m.val env φ dC ρC major.getAppArgs ws :=
+    InstArgs.lift (TeleFitI.toInstArgs hfitIC) hdC hagrC
+  have hmapM : (restC'.getAppArgs.drop cnP).mapM
+      (interpExpr V m.val env φ dC ρC) = some (vsi.drop (nP + nM + nm)) := by
+    by_cases hrnil : restC.getAppArgs = []
+    · have hcnil : cbody.getAppArgs = [] := by
+        rw [hrArgs] at hrnil
+        exact List.map_eq_nil_iff.mp hrnil
+      have hni : ni = 0 := by
+        rw [hrnil] at hlenieq
+        simp only [List.drop_nil, List.length_nil, List.length_drop,
+          htakelen] at hlenieq
+        omega
+      have hvnil : vsi.drop (nP + nM + nm) = [] :=
+        List.drop_eq_nil_of_le (by rw [hvsilen]; omega)
+      rw [hrArgsF, hcnil, hvnil]
+      simp
+    · have hrspine : restC = Expr.mkAppN (.const cr usr)
+          restC.getAppArgs := by
+        rw [hrArgs]
+        exact hrestCeq.trans hinstM
+      have hrA' : AnnotOk V m.val env φ d ρ
+          (Expr.mkAppN (.const cr usr) restC.getAppArgs) := hrspine ▸ hrA
+      obtain ⟨-, hrxsA, vr0, vsRes, hir0, hispRes, -, -⟩ :=
+        annotOk_spine_inv _ _ hrnil hrA'
+      have hvals : vsRes.drop cnP = vsi.drop (nP + nM + nm) := by
+        refine defEqList_values ihd _ _ _ _ hieq ?_ ?_
+          (InterpSpine.drop cnP hispRes) ?_
+        · intro x hx
+          have hxm := List.mem_of_mem_drop hx
+          exact ⟨hrw.getAppArgs _ hxm,
+            looseBVarsBounded_getAppArgs hrb _ hxm,
+            fun l hl => hrL l (fvarLeaves_getAppArgs hxm l hl),
+            FvarsOk.of_subset
+              (fun l hl => fvarLeaves_getAppArgs hxm l hl) hrO,
+            hrxsA _ hxm⟩
+        · intro x hx
+          have hxm := List.mem_of_mem_take (List.mem_of_mem_drop hx)
+          exact ⟨hargsW _ hxm, hargsB _ hxm, hargsL _ hxm, hargsO _ hxm,
+            hxsA _ hxm⟩
+        · exact InterpSpine.drop (nP + nM + nm) hspi
+      -- convert the dropped spine to the fvar-instantiated exprs at the
+      -- final frame
+      have hspineM : InterpSpine m.val env φ d ρ
+          ((cbody.getAppArgs.drop cnP).map
+            (instSeq major.getAppArgs (cnP + cnF - 1) ·))
+          (vsRes.drop cnP) := by
+        have := InterpSpine.drop cnP hispRes
+        rw [hrArgs, ← List.map_drop] at this
+        exact this
+      have hconv : ∀ (l : List Expr) (vs0 : List V),
+          (∀ x ∈ l, x ∈ cbody.getAppArgs) →
+          InterpSpine m.val env φ d ρ
+            (l.map (instSeq major.getAppArgs (cnP + cnF - 1) ·)) vs0 →
+          InterpSpine m.val env φ dC ρC
+            (l.map (instSeq argsCF (cnP + cnF - 1) ·)) vs0 := by
+        intro l
+        induction l with
+        | nil =>
+          intro vs0 _ hs
+          match vs0, hs with
+          | [], _ => trivial
+        | cons x l ihl =>
+          intro vs0 hmem hs
+          match vs0, hs with
+          | v :: vs0, ⟨hix, hrest⟩ =>
+            refine ⟨?_, ihl vs0
+              (fun y hy => hmem y (List.mem_cons_of_mem _ hy)) hrest⟩
+            have hxmem := hmem x List.mem_cons_self
+            have hxw : WScoped d (instSeq major.getAppArgs
+                (cnP + cnF - 1) x) := by
+              have : instSeq major.getAppArgs (cnP + cnF - 1) x ∈
+                  restC.getAppArgs := by
+                rw [hrArgs]
+                exact List.mem_map.mpr ⟨x, hxmem, rfl⟩
+              exact hrw.getAppArgs _ this
+            have hxb : x.looseBVarsBounded (cnP + cnF) = true :=
+              looseBVarsBounded_getAppArgs hcbodyB _ hxmem
+            have hxfb : Expr.fvarsBelow dC x :=
+              (WScoped.of_not_hasFvar
+                (hasFvar_getAppArgs hcbodyF _ hxmem)).fvarsBelow
+            have hlift : interpExpr V m.val env φ dC ρC
+                (instSeq major.getAppArgs (cnP + cnF - 1) x) = some v := by
+              rw [interp_lift hxw dC hdC ρ ρC hagrC]
+              exact hix
+            have hcongr := interp_instSeq_congr hInstF hInstM hxfb
+              (by rw [hlenCF]; exact hxb)
+            rw [show argsCF.length - 1 = cnP + cnF - 1 from by
+                rw [hlenCF]] at hcongr
+            rw [show major.getAppArgs.length - 1 = cnP + cnF - 1 from by
+                rw [hml1]] at hcongr
+            rw [hcongr]
+            exact hlift
+      have hspineF := hconv (cbody.getAppArgs.drop cnP) (vsRes.drop cnP)
+        (fun x hx => List.mem_of_mem_drop hx) hspineM
+      rw [hrArgsF, ← List.map_drop, ← hvals]
+      exact InterpSpine.mapM_eq hspineF
   have hparameq : ws.take cnP = (vsi ++ [tvv]).take cnP := by
     have hspT1 : InterpSpine m.val env φ d ρ
         (major.getAppArgs.take cnP) (ws.take cnP) :=
@@ -383,7 +570,7 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
   obtain ⟨R, hRi, hfoldEq, hRchain⟩ := hfolds cvj cnP cnF hfj _ _
     vsi ws tvv hvsilen hwslen hchain' hmchain htveq hparameq hψeq
     ⟨φ, us, usj, d, ρ, dR, ρR, restR', dC, ρC, restC', rfl, rfl,
-      hfitR, hfitC⟩
+      hfitR, hfitC, hmapM⟩
   -- the reduct's interpretation and annotation chain
   have hRinst : interpExpr V m.val env φ d ρ
       (r.rhs.instantiateLevelParams cv.levelParams us) = some R := by

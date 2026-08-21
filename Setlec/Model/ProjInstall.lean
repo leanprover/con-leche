@@ -101,7 +101,7 @@ theorem proj_rule_fold
       (cvj.type.instantiateLevelParams cvj.levelParams usj) := fun D =>
     WScoped.of_not_hasFvar
       (by rw [hasFvar_instantiateLevelParams]; exact hCw)
-  obtain ⟨hd₂, hagr₂, argsC0, restC0, hfitL2, hfvC0⟩ :=
+  obtain ⟨hd₂, hagr₂, argsC0, hfitL2, hfvC0⟩ :=
     TeleFit.toTeleFitI hfit2 (hCwI d₁)
   have hlenC0 : argsC0.length = nP + nF := by
     have h1 := TeleFitI.vs_length hfitL2

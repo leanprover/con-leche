@@ -628,6 +628,18 @@ decreasing_by
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
   | (simp [Expr.sizeB])
 
+/-- Congruence for `mapM` over pointwise-equal interpretations. -/
+theorem mapM_interp_congr {cval₁ cval₂ : ConstVal V} {env₁ env₂ : Env}
+    {φ₁ φ₂ : Name → Nat} {d₁ d₂ : Nat} {ρ₁ ρ₂ : Nat → V}
+    (hpt : ∀ e : Expr, interpExpr V cval₁ env₁ φ₁ d₁ ρ₁ e =
+      interpExpr V cval₂ env₂ φ₂ d₂ ρ₂ e) :
+    ∀ (l : List Expr),
+      l.mapM (interpExpr V cval₁ env₁ φ₁ d₁ ρ₁) =
+      l.mapM (interpExpr V cval₂ env₂ φ₂ d₂ ρ₂)
+  | [] => rfl
+  | x :: l => by
+    simp only [List.mapM_cons, hpt x, mapM_interp_congr hpt l]
+
 /-- The interpretation reads stored constants only through their level
 parameters: environments that agree there (e.g. differing only in a
 recursor's rule list) interpret every expression alike. -/

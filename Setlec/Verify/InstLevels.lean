@@ -249,6 +249,70 @@ theorem instantiateLevelParams_liftLooseBVars (ks : List Name)
     intro k c
     simp_all [Expr.liftLooseBVars, Expr.instantiateLevelParams]
 
+/-- Level instantiation distributes over an application spine's
+arguments. -/
+theorem getAppArgs_instantiateLevelParams (ks : List Name)
+    (us : List Level) :
+    ∀ (e : Expr), (e.instantiateLevelParams ks us).getAppArgs =
+      e.getAppArgs.map (·.instantiateLevelParams ks us) := by
+  intro e
+  induction e with
+  | app f a ihf iha =>
+    simp only [Expr.instantiateLevelParams, Expr.getAppArgs, ihf,
+      List.map_append, List.map_cons, List.map_nil]
+  | _ => simp [Expr.instantiateLevelParams, Expr.getAppArgs]
+
+/-- Level instantiation preserves the head shape. -/
+theorem getAppFn_instantiateLevelParams (ks : List Name)
+    (us : List Level) :
+    ∀ (e : Expr), (e.instantiateLevelParams ks us).getAppFn =
+      e.getAppFn.instantiateLevelParams ks us := by
+  intro e
+  induction e with
+  | app f a ihf iha => simpa [Expr.instantiateLevelParams, Expr.getAppFn]
+      using ihf
+  | _ => simp [Expr.instantiateLevelParams, Expr.getAppFn]
+
+/-- A stripped telescope's body keeps its level parameters defined. -/
+theorem allLevelParamsDefined_stripPis_body {ps : List Name} :
+    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+      {body : Expr},
+      e.stripPis k = some (bs, body) →
+      e.allLevelParamsDefined ps = true →
+      body.allLevelParamsDefined ps = true := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs body h hp
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    rw [← h.2]
+    exact hp
+  | succ k ih =>
+    intro e bs body h hp
+    match e, h with
+    | .forallE n ty b m, h =>
+      simp only [Expr.stripPis, Option.map_eq_some_iff] at h
+      obtain ⟨⟨bs', body'⟩, hb, heq⟩ := h
+      obtain ⟨-, rfl⟩ : (n, ty, m) :: bs' = bs ∧ body' = body := by
+        simpa using heq
+      simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hp
+      exact ih hb hp.1.2
+
+/-- Application-spine members keep their level parameters defined. -/
+theorem allLevelParamsDefined_getAppArgs {ps : List Name} :
+    ∀ {e : Expr}, e.allLevelParamsDefined ps = true →
+      ∀ x ∈ e.getAppArgs, x.allLevelParamsDefined ps = true := by
+  intro e
+  induction e with
+  | app f a ihf iha =>
+    intro hb x hx
+    simp only [Expr.getAppArgs, List.mem_append, List.mem_singleton] at hx
+    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hb
+    rcases hx with hx | rfl
+    · exact ihf hb.1 x hx
+    · exact hb.2
+  | _ => intro hb x hx; simp [Expr.getAppArgs] at hx
+
 /-- Renaming constants commutes with level instantiation. -/
 theorem renameConsts_instantiateLevelParams (f : Name → Name)
     (ks : List Name) (us : List Level) :
@@ -437,6 +501,47 @@ theorem instSeq_renameConsts {f : Name → Name} :
     exact instSeq_erasedEq as (t - 1)
       (ErasedEq.instantiate1 (ErasedEq.rfl _)
         (ha a List.mem_cons_self))
+
+/-- Level instantiation distributes over an opening-variable
+instantiation sequence. -/
+theorem instSeq_instantiateLevelParams_fvars (ks : List Name)
+    (us : List Level) :
+    ∀ (args : List Expr) (t : Nat) (e : Expr),
+      (∀ a ∈ args, ∃ i n ty, a = .fvar i n ty) →
+      (instSeq args t e).instantiateLevelParams ks us =
+      instSeq (args.map (·.instantiateLevelParams ks us)) t
+        (e.instantiateLevelParams ks us) := by
+  intro args
+  induction args with
+  | nil => intro t e _; rfl
+  | cons x xs ih =>
+    intro t e hfv
+    obtain ⟨i, n, ty, rfl⟩ := hfv x List.mem_cons_self
+    show (instSeq xs (t - 1)
+        (e.instantiate1 (.fvar i n ty) t)).instantiateLevelParams ks us = _
+    rw [ih (t - 1) _ (fun y hy => hfv y (List.mem_cons_of_mem _ hy))]
+    rw [instantiateLevelParams_instantiate1]
+    rfl
+
+
+/-- Defined level parameters survive an opening-variable instantiation
+sequence whose variables carry parameter-defined types. -/
+theorem allLevelParamsDefined_instSeq_fvars {ps : List Name} :
+    ∀ (args : List Expr) (t : Nat) {e : Expr},
+      (∀ a ∈ args, a.allLevelParamsDefined ps = true ∧
+        ∃ i n ty, a = .fvar i n ty) →
+      e.allLevelParamsDefined ps = true →
+      (instSeq args t e).allLevelParamsDefined ps = true := by
+  intro args
+  induction args with
+  | nil => intro t e _ he; exact he
+  | cons a as ih =>
+    intro t e hargs he
+    obtain ⟨hlpd, i, n, ty, rfl⟩ := hargs a List.mem_cons_self
+    exact ih (t - 1)
+      (fun x hx => hargs x (List.mem_cons_of_mem _ hx))
+      (allLevelParamsDefined_instantiate1
+        (by simpa [Expr.allLevelParamsDefined] using hlpd) t he)
 
 end Expr
 

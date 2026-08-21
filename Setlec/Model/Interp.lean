@@ -245,7 +245,13 @@ def RecRulesOk (env : Env) (val : ConstVal V) : Prop :=
               (args ++ [tv]) d₁ ρ₁ rest₁ ∧
             TeleFit V val env φ' d₁ ρ₁
               (cvj.type.instantiateLevelParams cvj.levelParams usj)
-              margs d₂ ρ₂ rest₂) →
+              margs d₂ ρ₂ rest₂ ∧
+            -- the recursor's index-argument values are the constructor's
+            -- canonical index tuple: the trailing interpretations of the
+            -- opened constructor residual (the kernel's index certificate)
+            (rest₂.getAppArgs.drop cnP).mapM
+              (interpExpr V val env φ' d₂ ρ₂) =
+              some (args.drop (nP + nM + nm))) →
           ∃ R, interpClosed V val env ψ (RecRule.rhs r) = some R ∧
             SpineFold V (val n ψ) (args ++ [tv]) =
               SpineFold V R (args.take (nP + nM + nm) ++ margs.drop cnP) ∧

@@ -359,6 +359,30 @@ substitution `instantiate1Lift` (`instantiate1`'s contract requires a
 closed replacement; the old code silently corrupted nested lets —
 surfaced by the preprocessor's let-heavy `iota_0` proofs).
 
+## Indexed recursors (2026-08-21)
+
+The iota machinery is index-generic; the one addition over the
+official kernel is the **canonical-index certificate**.  The model's
+`iota_j` theorem only speaks about the constructor's canonical index
+tuple `ı⃗_j(p⃗, x⃗)`, so the semantic fold fact cannot hold at arbitrary
+index arguments — before firing, `iotaRec` checks (mirroring the
+existing parameter `defEqList`) that the recursor's index arguments
+are definitionally equal to the residual of the constructor's
+telescope under the major's arguments, whose stripped result head must
+be a constant.  On well-typed input this always succeeds (with the
+family opaque, the defeq that typed the application can only have
+proceeded by congruence), so no completeness is lost.  `RecRulesOk`'s
+hypothesis block carries the matching semantic fact — the trailing
+interpretations of the constructor walk's (fvar-opened) residual
+`rest₂` are the recursor's index-argument values — produced by
+`iota_sound` from the certificate and consumed by `modeled_rule_fold`,
+where the statement's index slots collapse onto the parameter+field
+spine (`instSeq_mid_collapse`) and swap onto the walk's opening
+variables via `interp_instSeq_congr` (instantiation interpretations
+are determined by argument values).  The preprocessor's indexed
+`iota_j` statement (indices instantiated at `ı⃗_j`, never quantified)
+is pinned by the generalized `buildIotaStmt`/`checkIotaStmtShape`.
+
 ## Current state
 
 Supported fragment: **`def`/`thm` declarations over sorts, dependent
@@ -368,13 +392,13 @@ the frontend), constants with delta unfolding, all five basis blocks
 `PSigma'.mk` projections, proof irrelevance, lambda/unit eta,
 verified iota reduction, `Nat` literals (succ-packing `reduceNat`,
 literal defeq, lit-major conversion — all modeled), modeled inductives
-with projection functions and the eta/unit-like/rule-K capabilities,
-and the stuck-major rescue (rule K + structure eta in iota)** (69/92
-good arena tutorial tests accepted; the good tests still rejected need
-indexed recursors (074/075) and assorted features (080, 087–093,
-102–107, 118–123); type-mismatch, duplicate-name,
-duplicate/undeclared level parameters, stray free variables, and
-unknown constants rejected).  The whole verification stack (claims in
+— including indexed families/recursors — with projection functions
+and the eta/unit-like/rule-K capabilities, and the stuck-major rescue
+(rule K + structure eta in iota)** (71/92 good arena tutorial tests
+accepted; the good tests still rejected need quotients, Prop
+projections and assorted features (080, 087–093, 102–107, 118–123);
+type-mismatch, duplicate-name, duplicate/undeclared level parameters,
+stray free variables, and unknown constants rejected).  The whole verification stack (claims in
 `Setlec/Model/Core/*`, annotation, extension, consistency) is stated
 against the open-recursion pure knot at `pureOps`.
 

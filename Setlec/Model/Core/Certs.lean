@@ -21,6 +21,25 @@ variable {m : EnvModel V env} {fuel : Nat}
 variable (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
   (ihi : InferClaims m φ fuel)
 
+/-- A successful pairwise definitional-equality check relates spines of
+equal length. -/
+theorem defEqList_length {fuel : Nat} :
+    ∀ {d : Nat} (as bs : List Expr),
+      defEqListP env fuel d as bs = .ok true → as.length = bs.length := by
+  intro d as
+  induction as with
+  | nil =>
+    intro bs h
+    match bs, h with
+    | [], _ => rfl
+    | _ :: _, h => exact nomatch h
+  | cons a as ih =>
+    intro bs h
+    match bs, h with
+    | b :: bs, h =>
+      obtain ⟨-, hrest⟩ := defEqList_step_inv h
+      simpa using ih bs hrest
+
 /-- Pairwise definitional equality of two interpreted spines yields
 pointwise equal values. -/
 theorem defEqList_values {m : EnvModel V env} {fuel : Nat}
