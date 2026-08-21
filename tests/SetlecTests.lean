@@ -1,4 +1,5 @@
 import Setlec
+import Setlec.Frontend.Export
 
 /-!
 Test suite.  Tests are `#guard`s and `example`s, so `lake test` (which
@@ -93,6 +94,41 @@ private def mkThm (n : String) (type value : Expr) : Declaration :=
   mkThm "t2" (.sort .zero) (.const (.str .anonymous "prp") [])]).toBool == false
   -- (const prp : Prop, but Prop ≠ prp's type Prop... value `prp : Prop`; type `Prop`:
   --  `prp : Prop` vs declared `Prop : ?` — declared type must be a Prop; `Prop` is not)
+
+/-! ## Frontend: basis `_model` companions are ordinary declarations
+
+`_model` names are not special: a `X._model` declaration for a pinned
+basis `X` (or an auxiliary nested under one) must flow through the
+frontend like any other input declaration and be checked on its
+merits, not silently dropped (the pinned basis install never consults
+it). -/
+
+private def basisModelExport : String := String.intercalate "\n" [
+  "{\"in\":1,\"str\":{\"pre\":0,\"str\":\"Eq\"}}",
+  "{\"in\":2,\"str\":{\"pre\":1,\"str\":\"_model\"}}",
+  "{\"in\":3,\"str\":{\"pre\":0,\"str\":\"Empty\"}}",
+  "{\"in\":4,\"str\":{\"pre\":3,\"str\":\"_model\"}}",
+  "{\"in\":5,\"str\":{\"pre\":4,\"str\":\"proj_0\"}}",
+  "{\"il\":1,\"succ\":0}",
+  "{\"ie\":1,\"sort\":1}",
+  "{\"ie\":2,\"sort\":0}",
+  "{\"def\":{\"name\":2,\"levelParams\":[],\"type\":1,\"value\":2,\"safety\":\"safe\"}}",
+  "{\"def\":{\"name\":5,\"levelParams\":[],\"type\":1,\"value\":2,\"safety\":\"safe\"}}"]
+
+private def eqModelName : Name := Name.anonymous |>.str "Eq" |>.str "_model"
+private def emptyModelAuxName : Name :=
+  Name.anonymous |>.str "Empty" |>.str "_model" |>.str "proj_0"
+
+-- The frontend keeps both declarations (`def Eq._model : Type := Prop`,
+-- `def Empty._model.proj_0 : Type := Prop`) …
+#guard match Frontend.parseExport basisModelExport with
+  | .ok ds => ds.map (·.name) == #[eqModelName, emptyModelAuxName]
+  | .error _ => false
+
+-- … and the checker accepts them as ordinary definitions.
+#guard match Frontend.parseExport basisModelExport with
+  | .ok ds => (checkDecls pureOps ds.toList).toBool
+  | .error _ => false
 
 /-! ## Level algebra -/
 
