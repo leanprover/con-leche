@@ -37,7 +37,13 @@ def memoE (get' : KCache → Std.HashMap (Nat × Expr) Expr)
     | some r => pure r
     | none =>
       let r ← f d e
-      modify fun st => set' st ((get' st).insert (d, e) r)
+      -- Detach the map from the state before inserting: `insert` on a
+      -- map still referenced from `st`'s field would copy the whole
+      -- backing array on every miss.
+      modify fun st =>
+        let mp := get' st
+        let st := set' st ∅
+        set' st (mp.insert (d, e) r)
       pure r
 
 /-- Memoize the binary definitional-equality entry point. -/
@@ -48,7 +54,10 @@ def memoB (f : Nat → Expr → Expr → CheckSM Bool) :
     | some r => pure r
     | none =>
       let r ← f d a b
-      modify fun st => { st with defeq := st.defeq.insert (d, a, b) r }
+      modify fun st =>
+        let mp := st.defeq
+        let st := { st with defeq := ∅ }
+        { st with defeq := mp.insert (d, a, b) r }
       pure r
 
 /-- The memoized core: the bodies tied at `CheckSM`, every level's
