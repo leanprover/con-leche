@@ -30,13 +30,13 @@ theorem infer_claims (m : EnvModel V env)
   cases e with
   | sort u =>
     rw [inferTypeCore_succ] at h
-    simp only [inferBody, pure, Except.pure, Except.ok.injEq] at h
+    simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, Except.ok.injEq] at h
     subst h
     refine ⟨⟨univ (u.eval φ), univ (u.eval φ + 1), ?_, ?_, univ_mem_univ _⟩, ?_⟩ <;>
       simp [interpExpr, Level.eval, AnnotOk]
   | fvar idx n ty =>
     rw [inferTypeCore_succ] at h
-    simp only [inferBody, pure, Except.pure, Except.ok.injEq] at h
+    simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, Except.ok.injEq] at h
     subst h
     obtain ⟨⟨hidx, hAty, T, hT, hmem⟩, hFty⟩ := FvarsOk.of_fvar hok
     exact ⟨⟨ρ idx, T, by simp [interpExpr], hT, hmem⟩, hAty⟩
@@ -45,8 +45,8 @@ theorem infer_claims (m : EnvModel V env)
     match l0, h with
     | .natVal n, h => ?_
     | .strVal sv, h =>
-      simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
-    dsimp only [inferBody] at h
+      simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
+    dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
     revert h
     split
     case isFalse =>
@@ -61,7 +61,7 @@ theorem infer_claims (m : EnvModel V env)
         natLitVal_mem_nat m hs φ n⟩, by simp [AnnotOk]⟩
   | const n ws =>
     rw [inferTypeCore_succ] at h
-    simp only [inferBody] at h
+    simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
     revert h
     cases hf : env.find? n with
     | none => intro h; exact nomatch h
@@ -419,10 +419,10 @@ theorem infer_claims (m : EnvModel V env)
           hei, hvemem, hAmem, hfib⟩
   | bvar i =>
     rw [inferTypeCore_succ] at h
-    simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
+    simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
   | letE n' t' v' b' =>
     rw [inferTypeCore_succ] at h
-    simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
+    simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
 
 end Claims
 

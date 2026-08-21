@@ -161,7 +161,7 @@ theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
       Level.isEquiv v v' = some true ∧
       t = .forallE n ty (bt.abstract1 d) m := by
   rw [inferTypeCore_succ] at h
-  simp only [inferBody, Bind.bind, Except.bind] at h
+  simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind] at h
   simp only [infer_def, whnf_def] at h
   cases hc : m.cod with
   | none => rw [hc] at h; exact nomatch h
@@ -232,7 +232,7 @@ theorem inferTypeCore_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
       isDefEqCore env fuel d ta ty' = .ok true ∧
       t = body'.instantiate1 a := by
   rw [inferTypeCore_succ] at h
-  simp only [inferBody, Bind.bind, Except.bind] at h
+  simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind] at h
   simp only [infer_def, whnf_def, defeq_def] at h
   cases htf : inferTypeCore env fuel d f with
   | error err => rw [htf] at h; exact nomatch h
@@ -279,7 +279,7 @@ theorem inferTypeCore_forall_inv {env : Env} {fuel d : Nat} {n : Name}
       whnf env fuel d tty = .ok (.sort u) ∧
       t = .sort (.imax u v) := by
   rw [inferTypeCore_succ] at h
-  simp only [inferBody, Bind.bind, Except.bind, hc] at h
+  simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind, hc] at h
   simp only [infer_def, whnf_def] at h
   try dsimp only at h
   cases hty : inferTypeCore env fuel d ty with
@@ -1891,7 +1891,7 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
       env.find? psigmaName = some (.indInfo cv caps) ∧
       ((i = 0 ∧ t = A) ∨ (i = 1 ∧ t = .app B (.proj sn 0 e))) := by
   rw [inferTypeCore_succ] at h
-  simp only [inferBody, Bind.bind, Except.bind] at h
+  simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind] at h
   simp only [infer_def, whnf_def] at h
   cases hte : inferTypeCore env fuel d e with
   | error err => rw [hte] at h; exact nomatch h
