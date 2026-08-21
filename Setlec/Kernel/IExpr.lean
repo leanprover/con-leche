@@ -120,7 +120,7 @@ verification only speaks about well-formed stores).
 -/
 
 /-- Memo table for index→index traversals with a `Nat` cursor. -/
-private abbrev MemoN := Std.HashMap (EIdx × Nat) EIdx
+abbrev MemoN := Std.HashMap (EIdx × Nat) EIdx
 
 /-- Core of `instantiate1I`; `v` is the replacement index, `d` the
 binder depth cursor (mirrors `Expr.instantiate1 e v d`). -/
@@ -258,7 +258,7 @@ def abstract1I (st : EStore) (e : EIdx) (d : Nat) (k : Nat := 0) : EIdx × EStor
   (r, st)
 
 /-- Memo table for cursor-free index→index traversals. -/
-private abbrev Memo0 := Std.HashMap EIdx EIdx
+abbrev Memo0 := Std.HashMap EIdx EIdx
 
 /-- Core of `instantiateLevelParamsI` (no cursor; mirrors
 `Expr.instantiateLevelParams ks us`). -/
