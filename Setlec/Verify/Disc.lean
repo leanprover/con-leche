@@ -1176,6 +1176,171 @@ theorem inferBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
       simp only [WScoped]
       exact ⟨hwAB.2, hwpe⟩
 
+set_option maxHeartbeats 1600000 in
+theorem defeqBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
+    {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
+    DiscV env (fun _ => True) (defeqBody C env d a b)
+      (defeqBody G env d a b) := by
+  unfold defeqBody
+  split
+  · exact DiscV.pure trivial
+  refine DiscV.bind (ih.site_whnfCore henv hwa) (fun a' ha' => ?_)
+  refine DiscV.bind (ih.site_whnfCore henv hwb) (fun b' hb' => ?_)
+  split
+  · exact DiscV.pure trivial
+  refine DiscV.bind (reduceNat_disc ih henv ha') (fun o₁ ho₁ => ?_)
+  split
+  · exact ih.site_defeq (ho₁ _ rfl) hb'
+  refine DiscV.bind (reduceNat_disc ih henv hb') (fun o₂ ho₂ => ?_)
+  split
+  · exact ih.site_defeq ha' (ho₂ _ rfl)
+  split
+  case h_1 =>
+    rename_i a₂ hua hub
+    exact ih.site_defeq (unfoldDefinition_WScoped henv hua ha') hb'
+  case h_2 =>
+    rename_i b₂ hua hub
+    exact ih.site_defeq ha' (unfoldDefinition_WScoped henv hub hb')
+  case h_3 =>
+    rename_i a₂ b₂ hua hub
+    have hwa₂ := unfoldDefinition_WScoped henv hua ha'
+    have hwb₂ := unfoldDefinition_WScoped henv hub hb'
+    dsimp only []
+    split
+    · exact ih.site_defeq hwa₂ hb'
+    split
+    · exact ih.site_defeq ha' hwb₂
+    split
+    · refine DiscV.bind (defeqSpine_disc ih ha' hb') (fun sp _ => ?_)
+      split
+      · exact DiscV.pure trivial
+      · exact ih.site_defeq hwa₂ hwb₂
+    · exact ih.site_defeq hwa₂ hwb₂
+  case h_4 =>
+    rename_i hua hub
+    split
+    case h_1 => exact DiscV.liftFueled_true _ _
+    case h_2 => exact DiscV.pure trivial
+    case h_3 =>
+      split
+      · exact DiscV.pure trivial
+      · exact stuckIrrel_disc ih henv ha' hb'
+    case h_4 =>
+      split
+      · exact DiscV.pure trivial
+      · exact stuckIrrel_disc ih henv ha' hb'
+    case h_5 =>
+      rename_i nn f1 x hne
+      split
+      case h_1 =>
+        rename_i k c
+        have hx : WScoped d (Expr.const c []) ∧ WScoped d x := by
+          simpa only [WScoped] using hb'
+        split
+        · exact ih.site_defeq (by simp [WScoped]) hx.2
+        · exact stuckIrrel_disc ih henv ha' hb'
+      case h_2 => exact stuckIrrel_disc ih henv ha' hb'
+    case h_6 =>
+      rename_i f1 x nn hne
+      split
+      case h_1 =>
+        rename_i k c
+        have hx : WScoped d (Expr.const c []) ∧ WScoped d x := by
+          simpa only [WScoped] using ha'
+        split
+        · exact ih.site_defeq hx.2 (by simp [WScoped])
+        · exact stuckIrrel_disc ih henv ha' hb'
+      case h_2 => exact stuckIrrel_disc ih henv ha' hb'
+    case h_7 =>
+      split
+      · exact DiscV.pure trivial
+      · exact stuckIrrel_disc ih henv ha' hb'
+    case h_8 =>
+      split
+      · refine DiscV.bind (DiscV.liftFueled_true _ _) (fun ok _ => ?_)
+        split
+        · exact DiscV.pure trivial
+        · exact stuckIrrel_disc ih henv ha' hb'
+      · exact stuckIrrel_disc ih henv ha' hb'
+    case h_9 =>
+      rename_i n₁ ty₁ body₁ m₁ n₂ ty₂ body₂ m₂ hne
+      have h1 : WScoped d ty₁ ∧ WScoped d body₁ := by
+        simpa only [WScoped] using ha'
+      have h2 : WScoped d ty₂ ∧ WScoped d body₂ := by
+        simpa only [WScoped] using hb'
+      refine DiscV.bind (ih.site_defeq h1.1 h2.1) (fun r₁ _ => ?_)
+      split
+      · dsimp only []
+        refine DiscV.bind (ih.site_defeq
+          (WScoped.instantiate1 h1.1 0 h1.2)
+          (WScoped.instantiate1 h2.1 0 h2.2)) (fun r₂ _ => ?_)
+        split
+        · split <;> first
+            | exact DiscV.liftFueled_true _ _
+            | exact DiscV.throw _
+        · exact DiscV.pure trivial
+      · exact DiscV.pure trivial
+    case h_10 =>
+      rename_i n₁ ty₁ body₁ m₁ n₂ ty₂ body₂ m₂ hne
+      have h1 : WScoped d ty₁ ∧ WScoped d body₁ := by
+        simpa only [WScoped] using ha'
+      have h2 : WScoped d ty₂ ∧ WScoped d body₂ := by
+        simpa only [WScoped] using hb'
+      refine DiscV.bind (ih.site_defeq h1.1 h2.1) (fun r₁ _ => ?_)
+      split
+      · dsimp only []
+        refine DiscV.bind (ih.site_defeq
+          (WScoped.instantiate1 h1.1 0 h1.2)
+          (WScoped.instantiate1 h2.1 0 h2.2)) (fun r₂ _ => ?_)
+        split
+        · split <;> first
+            | exact DiscV.liftFueled_true _ _
+            | exact DiscV.throw _
+        · exact DiscV.pure trivial
+      · exact DiscV.pure trivial
+    case h_11 =>
+      rename_i f₁ a₁ f₂ a₂ hne
+      have h1 : WScoped d f₁ ∧ WScoped d a₁ := by
+        simpa only [WScoped] using ha'
+      have h2 : WScoped d f₂ ∧ WScoped d a₂ := by
+        simpa only [WScoped] using hb'
+      refine DiscV.bind (ih.site_defeq h1.1 h2.1) (fun r₁ _ => ?_)
+      split
+      · refine DiscV.bind (ih.site_defeq h1.2 h2.2) (fun r₂ _ => ?_)
+        split
+        · exact DiscV.pure trivial
+        · exact stuckIrrel_disc ih henv ha' hb'
+      · exact stuckIrrel_disc ih henv ha' hb'
+    case h_12 =>
+      rename_i s₁ i₁ e₁ s₂ i₂ e₂ hne
+      have h1 : WScoped d e₁ := by simpa only [WScoped] using ha'
+      have h2 : WScoped d e₂ := by simpa only [WScoped] using hb'
+      split
+      · refine DiscV.bind (ih.site_defeq h1 h2) (fun r₁ _ => ?_)
+        split
+        · exact DiscV.pure trivial
+        · exact stuckIrrel_disc ih henv ha' hb'
+      · exact stuckIrrel_disc ih henv ha' hb'
+    case h_13 =>
+      rename_i n₁ ty₁ body₁ m₁ hne hx₁
+      have h1 : WScoped d ty₁ ∧ WScoped d body₁ := by
+        simpa only [WScoped] using ha'
+      refine DiscV.bind (etaCert_disc ih henv h1.1 h1.2 hb')
+        (fun r₁ _ => ?_)
+      split
+      · exact DiscV.pure trivial
+      · exact stuckIrrel_disc ih henv ha' hb'
+    case h_14 =>
+      rename_i n₂ ty₂ body₂ m₂ hne hx₁
+      have h2 : WScoped d ty₂ ∧ WScoped d body₂ := by
+        simpa only [WScoped] using hb'
+      refine DiscV.bind (etaCert_disc ih henv h2.1 h2.2 ha')
+        (fun r₁ _ => ?_)
+      split
+      · exact DiscV.pure trivial
+      · exact stuckIrrel_disc ih henv ha' hb'
+    case h_15 => exact stuckIrrel_disc ih henv ha' hb'
+
 end Walks
 
 end Setlec
