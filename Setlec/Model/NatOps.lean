@@ -768,6 +768,115 @@ theorem natOpEquations_constsResolve {c : Name} (hc : c ∈ natOpNames)
     obtain ⟨cvc, vc, hfc, -⟩ := hdeps natBleName (by decide)
     simp +decide [natOpEquations, Expr.constsResolve, hnn, hzz, hss, hfc, hT, hF]
 
+/-- Operation names are distinct from the `Nat`/`Bool` pins. -/
+theorem natOpNames_ne_pins {c : Name} (hc : c ∈ natOpNames) :
+    c ≠ natName ∧ c ≠ natZeroName ∧ c ≠ natSuccName ∧
+    c ≠ boolName ∧ c ≠ boolTrueName ∧ c ≠ boolFalseName := by
+  simp only [natOpNames, List.mem_cons, List.not_mem_nil, or_false] at hc
+  rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
+    exact ⟨by decide, by decide, by decide, by decide, by decide, by decide⟩
+
+/-- The invariant ignores a stored recursor's rule list (the operations
+are stored definitions, and neither the guard nor the interpretation
+reads a recursor's rules). -/
+theorem NatOpsOk.cons_recRules {cvA : ConstantVal} {nP nM nm ni : Nat}
+    {rules₁ rules₂ : List RecRule} {val : ConstVal V}
+    (h : NatOpsOk V ⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ val) :
+    NatOpsOk V ⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ val := by
+  have henv : ∀ n,
+      ((⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env).find? n).map
+        (fun ci => ci.toConstantVal.levelParams) =
+      ((⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env).find? n).map
+        (fun ci => ci.toConstantVal.levelParams) := by
+    intro n
+    rw [Env.find?_cons, Env.find?_cons]
+    by_cases hn : (ConstantInfo.recInfo cvA nP nM nm ni rules₂).name = n
+    · rw [if_pos hn,
+        if_pos (show (ConstantInfo.recInfo cvA nP nM nm ni rules₁).name = n
+          from hn)]
+      rfl
+    · rw [if_neg hn,
+        if_neg (show ¬ (ConstantInfo.recInfo cvA nP nM nm ni rules₁).name = n
+          from hn)]
+  have hfind : ∀ n (ci : ConstantInfo),
+      (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env).find? n =
+        some ci → (∀ cv2 v2, ci ≠ .defnInfo cv2 v2) ∨
+      (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env).find? n =
+        some ci := by
+    intro n ci hf
+    rw [Env.find?_cons] at hf
+    rw [Env.find?_cons]
+    by_cases hn : (ConstantInfo.recInfo cvA nP nM nm ni rules₂).name = n
+    · rw [if_pos hn] at hf
+      obtain rfl := Option.some.inj hf
+      exact Or.inl (fun cv2 v2 h => nomatch h)
+    · rw [if_neg hn] at hf
+      rw [if_neg (show ¬ (ConstantInfo.recInfo cvA nP nM nm ni rules₁).name = n
+        from hn)]
+      exact Or.inr hf
+  have hfind' : ∀ n (ci : ConstantInfo),
+      (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env).find? n =
+        some ci → (∀ cv2 v2, ci ≠ .defnInfo cv2 v2) ∨
+      (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env).find? n =
+        some ci := by
+    intro n ci hf
+    rw [Env.find?_cons] at hf
+    rw [Env.find?_cons]
+    by_cases hn : (ConstantInfo.recInfo cvA nP nM nm ni rules₁).name = n
+    · rw [if_pos hn] at hf
+      obtain rfl := Option.some.inj hf
+      exact Or.inl (fun cv2 v2 h => nomatch h)
+    · rw [if_neg hn] at hf
+      rw [if_neg (show ¬ (ConstantInfo.recInfo cvA nP nM nm ni rules₂).name = n
+        from hn)]
+      exact Or.inr hf
+  have hnat : natLitSupported
+      (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env) =
+      natLitSupported (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env) :=
+    natLitSupported_cons_recRules
+  intro c hc cv v hf
+  rcases hfind c _ hf with hnd | hf₁
+  · exact absurd rfl (hnd cv v)
+  obtain ⟨hg, heqs⟩ := h c hc cv v hf₁
+  obtain ⟨hs, hdeps, hbool⟩ := natOpGuard_inv hg
+  refine ⟨natOpGuard_intro (by rw [hnat]; exact hs) ?_ ?_, ?_⟩
+  · intro n hn
+    obtain ⟨cvn, vn, hfn, hlpn⟩ := hdeps n hn
+    rcases hfind' n _ hfn with hnd | hfn₂
+    · exact absurd rfl (hnd cvn vn)
+    · exact ⟨cvn, vn, hfn₂, hlpn⟩
+  · intro hcb
+    obtain ⟨⟨ciT, hT, hlpT⟩, ⟨ciF, hF, hlpF⟩⟩ := hbool hcb
+    have conv : ∀ (nb : Name) (ci : ConstantInfo),
+        (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env).find? nb =
+          some ci → ci.toConstantVal.levelParams = [] →
+        ∃ ci₂, (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env).find?
+          nb = some ci₂ ∧ ci₂.toConstantVal.levelParams = [] := by
+      intro nb ci hfb hlpb
+      have h2 := henv nb
+      rw [hfb] at h2
+      cases hf2 : (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ :
+          Env).find? nb with
+      | none => rw [hf2] at h2; exact nomatch h2
+      | some ci₂ =>
+        rw [hf2] at h2
+        simp only [Option.map_some, Option.some.injEq] at h2
+        exact ⟨ci₂, rfl, by rw [h2, hlpb]⟩
+    exact ⟨conv _ _ hT hlpT, conv _ _ hF hlpF⟩
+  · intro eq heq ψ x y hxy
+    have hie : ∀ (e : Expr) (dd : Nat) (ρ : Nat → V),
+        interpExpr V val
+          (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env) ψ dd ρ e =
+        interpExpr V val
+          (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env) ψ dd ρ e :=
+      fun e dd ρ => interp_env_ext henv hnat e dd ρ
+    rw [hie eq.1 2 _, hie eq.2 2 _]
+    refine heqs eq heq ψ x y ?_
+    intro T hT
+    refine hxy T ?_
+    rw [hie]
+    exact hT
+
 /-- Interpreting an equation side over the extended environment equals
 interpreting its self-substituted form over the base environment: the
 new constant's value is the substituted expression's, all other
