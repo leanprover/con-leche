@@ -47,3 +47,4 @@
 # declined at install (the certification pins level-monomorphy).
 2 nat_add_levelpoly.ndjson
 
+2 nat_div_declined.ndjson

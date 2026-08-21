@@ -348,6 +348,20 @@ def natOpGuard (env : Env) (c : Name) : Bool :=
       | none => false)
    else true)
 
+/-- Structural-`Nat` operations *without* a verified fast path: the
+WF-recursive ones (`div`, `mod`, `gcd`, the bit operations, `log2`).
+Reducing these on literals natively is unsupported, and letting delta
+grind through their well-founded recursion on large literals would
+build huge terms (a plain run visibly times out) — so a *literal
+application* of one of these is positively declined (arena exit 2),
+per the exit-code convention.  Declaring the functions themselves is
+unaffected: only the reduction path declines. -/
+def natOpWfNames : List Name :=
+  [natName.str "div", natName.str "mod", natName.str "gcd",
+   natName.str "land", natName.str "lor", natName.str "xor",
+   natName.str "shiftLeft", natName.str "shiftRight",
+   natName.str "log2"]
+
 /-- Substitute the level-monomorphic constant `n` by `r` through an
 application spine (the certification equations' self-references; the
 equation sides are binder-free, so only `app` recurses). -/
@@ -417,6 +431,11 @@ def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
       match rawNatLit? (← r.whnf depth a) with
       | some n => pure (natOpResult c n 0)
       | none => pure none
+    else if c = natName.str "log2" ∧ natLitSupported env then
+      match rawNatLit? (← r.whnf depth a) with
+      | some _ => throw (.notImplemented
+          s!"native Nat computation on literals ({c})")
+      | none => pure none
     else pure none
   | .app (.app (.const c []) a) b =>
     if (c = natAddName ∨ c = natSubName ∨ c = natMulName ∨
@@ -425,6 +444,12 @@ def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
       match rawNatLit? (← r.whnf depth a),
           rawNatLit? (← r.whnf depth b) with
       | some n₁, some n₂ => pure (natOpResult c n₁ n₂)
+      | _, _ => pure none
+    else if natOpWfNames.contains c ∧ natLitSupported env then
+      match rawNatLit? (← r.whnf depth a),
+          rawNatLit? (← r.whnf depth b) with
+      | some _, some _ => throw (.notImplemented
+          s!"native Nat computation on literals ({c})")
       | _, _ => pure none
     else pure none
   | _ => pure none

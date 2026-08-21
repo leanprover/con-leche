@@ -497,7 +497,21 @@ theorem reduceNat_full_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
         simp only [pure, Except.pure, Except.ok.injEq,
           Option.some.injEq] at h
         exact Or.inr (Or.inl ⟨a, a', n, rfl, hguard, hwa, hraw, h.symm⟩)
-      case isFalse => intro h; simp [pure, Except.pure] at h
+      case isFalse =>
+        -- the log2 decline branch never returns a reduct
+        split
+        · intro h
+          revert h
+          cases hw : whnf env fuel d a with
+          | error err => intro h; exact nomatch h
+          | ok a' =>
+          intro h
+          dsimp only at h
+          revert h
+          match rawNatLit? a' with
+          | some _ => intro h; exact nomatch h
+          | none => intro h; simp [pure, Except.pure] at h
+        · intro h; simp [pure, Except.pure] at h
   · -- binary fast paths
     intro h
     simp only [reduceNat, Bind.bind, Except.bind, whnf_def] at h
@@ -532,7 +546,29 @@ theorem reduceNat_full_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
           Option.some.injEq] at h
         exact Or.inr (Or.inr ⟨c, a, b, a', b', n₁, n₂, rfl, hor, hguard,
           hwa, hraw1, hwb, hraw2, h ▸ hres⟩)
-    case isFalse => intro h; simp [pure, Except.pure] at h
+    case isFalse =>
+      -- the WF-op decline branch never returns a reduct
+      split
+      · intro h
+        revert h
+        cases hw1 : whnf env fuel d a with
+        | error err => intro h; exact nomatch h
+        | ok a' =>
+        intro h
+        dsimp only at h
+        revert h
+        cases hw2 : whnf env fuel d b with
+        | error err => intro h; exact nomatch h
+        | ok b' =>
+        intro h
+        dsimp only at h
+        revert h
+        match rawNatLit? a', rawNatLit? b' with
+        | some _, some _ => intro h; exact nomatch h
+        | some _, none => intro h; simp [pure, Except.pure] at h
+        | none, some _ => intro h; simp [pure, Except.pure] at h
+        | none, none => intro h; simp [pure, Except.pure] at h
+      · intro h; simp [pure, Except.pure] at h
 
 /-- Soundness of a literal-acceleration step: the reduct (a literal or
 a `Bool`-constant) interprets to the redex's value — via the whnf
