@@ -220,4 +220,316 @@ theorem buildIotaStmt_not_hasFvar {f : Name → Name}
     rw [hasFvar_renameConsts]
     exact hdoms b (List.mem_cons_self ..)
 
+/-! ## Run plumbing -/
+
+theorem atF_bind_ok {α β : Type} {x : FueledM α} {g : α → FueledM β}
+    {F : Nat} {v : β} (h : (x >>= g).val F = .ok v) :
+    ∃ a, x.val F = .ok a ∧ (g a).val F = .ok v := by
+  rw [FueledM.atF_bind] at h
+  revert h
+  cases hx : x.val F with
+  | error e =>
+    intro h
+    simp only [Bind.bind, Except.bind] at h
+    exact nomatch h
+  | ok a =>
+    intro h
+    simp only [Bind.bind, Except.bind] at h
+    exact ⟨a, rfl, h⟩
+
+theorem atF_throw_bind {α β : Type} {e : CheckError}
+    {g : α → FueledM β} {F : Nat} {v : β}
+    (h : ((throw e : FueledM α) >>= g).val F = .ok v) : False := by
+  rw [FueledM.atF_bind] at h
+  simp only [throw, throwThe, MonadExceptOf.throw, Bind.bind,
+    Except.bind] at h
+  exact nomatch h
+
+/-! ## The leaf checker functions, `wfOpsM` runs to pure runs -/
+
+theorem checkConstantVal_wfimp {env : Env} (henv : EnvWF env)
+    {cv : ConstantVal} {F : Nat} {v : ConstantVal}
+    (h : (checkConstantVal wfOpsM env cv).val F = .ok v) :
+    checkConstantVal (fueledOps F) env cv = .ok v := by
+  unfold checkConstantVal at h ⊢
+  dsimp only [] at h ⊢
+  by_cases h1 : (env.find? cv.name).isSome = true
+  · rw [if_pos h1] at h
+    exact absurd h atF_throw_bind
+  rw [if_neg h1] at h ⊢
+  by_cases h2 : reservedBasisNames.contains cv.name = true
+  · rw [if_pos h2] at h
+    exact absurd h atF_throw_bind
+  rw [if_neg h2] at h ⊢
+  by_cases h3 : cv.name.isProjFnShape = true
+  · rw [if_pos h3] at h
+    exact absurd h atF_throw_bind
+  rw [if_neg h3] at h ⊢
+  by_cases h4 : Name.nodup cv.levelParams = true
+  case neg =>
+    rw [if_neg h4] at h
+    exact absurd h atF_throw_bind
+  rw [if_pos h4] at h ⊢
+  by_cases h5 : Expr.looseBVarsBounded 0 cv.type = true
+  case neg =>
+    rw [if_neg h5] at h
+    exact absurd h atF_throw_bind
+  rw [if_pos h5] at h ⊢
+  by_cases h6 : cv.type.hasFvar = true
+  · rw [if_pos h6] at h
+    exact absurd h atF_throw_bind
+  rw [if_neg h6] at h ⊢
+  rw [wfOpsM_annotate henv
+    (wscopedB_of_not_hasFvar (Bool.not_eq_true _ ▸ h6))] at h
+  obtain ⟨type, hty, h⟩ := atF_bind_ok h
+  have hty' : annotateCore env F 0 cv.type = .ok type := hty
+  show (annotateCore env F 0 cv.type >>= _) = _
+  rw [hty']
+  simp only [Bind.bind, Except.bind]
+  have hwty : WScoped 0 type := annotateCore_WScoped F cv.type hty'
+    (WScoped.of_not_hasFvar (Bool.not_eq_true _ ▸ h6))
+  by_cases h7 : Expr.allLevelParamsDefined cv.levelParams type = true
+  case neg =>
+    rw [if_neg h7] at h
+    exact absurd h atF_throw_bind
+  rw [if_pos h7] at h ⊢
+  by_cases h8 : Expr.constsResolve env type = true
+  case neg =>
+    rw [if_neg h8] at h
+    exact absurd h atF_throw_bind
+  rw [if_pos h8] at h ⊢
+  rw [wfOpsM_inferType henv hwty.to_wscopedB] at h
+  obtain ⟨stype, hsty, h⟩ := atF_bind_ok h
+  have hsty' : inferTypeCore env F 0 type = .ok stype := hsty
+  show (inferTypeCore env F 0 type >>= _) = _
+  rw [hsty']
+  simp only [Bind.bind, Except.bind]
+  have hwsty : WScoped 0 stype := inferTypeCore_WScoped henv F hsty' hwty
+  rw [wfOpsM_ensureSort henv hwsty.to_wscopedB] at h
+  obtain ⟨u, hu, h⟩ := atF_bind_ok h
+  have hu' : ensureSortCore env F 0 stype = .ok u := hu
+  show (ensureSortCore env F 0 stype >>= _) = _
+  rw [hu']
+  simp only [Bind.bind, Except.bind]
+  exact h
+
+theorem checkDefnVal_wfimp {env : Env} (henv : EnvWF env)
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (hcvty : cv.type.hasFvar = false) {F : Nat} {v : Env}
+    (h : (checkDefnVal wfOpsM env cv value hint).val F = .ok v) :
+    checkDefnVal (fueledOps F) env cv value hint = .ok v := by
+  unfold checkDefnVal at h ⊢
+  dsimp only [] at h ⊢
+  by_cases h1 : Expr.looseBVarsBounded 0 value = true
+  case neg =>
+    rw [if_neg h1] at h
+    exact absurd h atF_throw_bind
+  rw [if_pos h1] at h ⊢
+  by_cases h2 : value.hasFvar = true
+  · rw [if_pos h2] at h
+    exact absurd h atF_throw_bind
+  rw [if_neg h2] at h ⊢
+  rw [wfOpsM_annotate henv
+    (wscopedB_of_not_hasFvar (Bool.not_eq_true _ ▸ h2))] at h
+  obtain ⟨value', hval, h⟩ := atF_bind_ok h
+  have hval' : annotateCore env F 0 value = .ok value' := hval
+  show (annotateCore env F 0 value >>= _) = _
+  rw [hval']
+  simp only [Bind.bind, Except.bind]
+  have hwval : WScoped 0 value' := annotateCore_WScoped F value hval'
+    (WScoped.of_not_hasFvar (Bool.not_eq_true _ ▸ h2))
+  by_cases h3 : Expr.allLevelParamsDefined cv.levelParams value' = true
+  case neg =>
+    rw [if_neg h3] at h
+    exact absurd h atF_throw_bind
+  rw [if_pos h3] at h ⊢
+  by_cases h4 : Expr.constsResolve env value' = true
+  case neg =>
+    rw [if_neg h4] at h
+    exact absurd h atF_throw_bind
+  rw [if_pos h4] at h ⊢
+  rw [wfOpsM_inferType henv hwval.to_wscopedB] at h
+  obtain ⟨vtype, hvt, h⟩ := atF_bind_ok h
+  have hvt' : inferTypeCore env F 0 value' = .ok vtype := hvt
+  show (inferTypeCore env F 0 value' >>= _) = _
+  rw [hvt']
+  simp only [Bind.bind, Except.bind]
+  have hwvt : WScoped 0 vtype := inferTypeCore_WScoped henv F hvt' hwval
+  rw [wfOpsM_isDefEq henv hwvt.to_wscopedB
+    (wscopedB_of_not_hasFvar hcvty)] at h
+  obtain ⟨b, hb, h⟩ := atF_bind_ok h
+  have hb' : isDefEqCore env F 0 vtype cv.type = .ok b := hb
+  show (isDefEqCore env F 0 vtype cv.type >>= _) = _
+  rw [hb']
+  simp only [Bind.bind, Except.bind]
+  cases b with
+  | true =>
+    simp only [↓reduceIte] at h ⊢
+    exact h
+  | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte] at h
+    exact absurd h atF_throw_bind
+
+theorem checkThmVal_wfimp {env : Env} (henv : EnvWF env)
+    {cv : ConstantVal} {value : Expr}
+    (hcvty : cv.type.hasFvar = false) {F : Nat} {v : Env}
+    (h : (checkThmVal wfOpsM env cv value).val F = .ok v) :
+    checkThmVal (fueledOps F) env cv value = .ok v := by
+  unfold checkThmVal at h ⊢
+  dsimp only [] at h ⊢
+  rw [wfOpsM_inferType henv (wscopedB_of_not_hasFvar hcvty)] at h
+  obtain ⟨stype, hst, h⟩ := atF_bind_ok h
+  have hst' : inferTypeCore env F 0 cv.type = .ok stype := hst
+  show (inferTypeCore env F 0 cv.type >>= _) = _
+  rw [hst']
+  simp only [Bind.bind, Except.bind]
+  have hwst : WScoped 0 stype := inferTypeCore_WScoped henv F hst'
+    (WScoped.of_not_hasFvar hcvty)
+  rw [wfOpsM_ensureSort henv hwst.to_wscopedB] at h
+  obtain ⟨u, hu, h⟩ := atF_bind_ok h
+  have hu' : ensureSortCore env F 0 stype = .ok u := hu
+  show (ensureSortCore env F 0 stype >>= _) = _
+  rw [hu']
+  simp only [Bind.bind, Except.bind]
+  obtain ⟨ok₁, hok, h⟩ := atF_bind_ok h
+  rw [liftFueled_atF] at hok
+  show ((liftFueled "level comparison" (u.isEquiv .zero) :
+    CheckM Bool) >>= _) = _
+  rw [hok]
+  simp only [Bind.bind, Except.bind]
+  by_cases h0 : ok₁ = true
+  case neg =>
+    rw [if_neg h0] at h
+    exact absurd h atF_throw_bind
+  rw [if_pos h0] at h ⊢
+  by_cases h1 : Expr.looseBVarsBounded 0 value = true
+  case neg =>
+    rw [if_neg h1] at h
+    exact absurd h atF_throw_bind
+  rw [if_pos h1] at h ⊢
+  by_cases h2 : value.hasFvar = true
+  · rw [if_pos h2] at h
+    exact absurd h atF_throw_bind
+  rw [if_neg h2] at h ⊢
+  rw [wfOpsM_annotate henv
+    (wscopedB_of_not_hasFvar (Bool.not_eq_true _ ▸ h2))] at h
+  obtain ⟨value', hval, h⟩ := atF_bind_ok h
+  have hval' : annotateCore env F 0 value = .ok value' := hval
+  show (annotateCore env F 0 value >>= _) = _
+  rw [hval']
+  simp only [Bind.bind, Except.bind]
+  have hwval : WScoped 0 value' := annotateCore_WScoped F value hval'
+    (WScoped.of_not_hasFvar (Bool.not_eq_true _ ▸ h2))
+  by_cases h3 : Expr.allLevelParamsDefined cv.levelParams value' = true
+  case neg =>
+    rw [if_neg h3] at h
+    exact absurd h atF_throw_bind
+  rw [if_pos h3] at h ⊢
+  by_cases h4 : Expr.constsResolve env value' = true
+  case neg =>
+    rw [if_neg h4] at h
+    exact absurd h atF_throw_bind
+  rw [if_pos h4] at h ⊢
+  rw [wfOpsM_inferType henv hwval.to_wscopedB] at h
+  obtain ⟨vtype, hvt, h⟩ := atF_bind_ok h
+  have hvt' : inferTypeCore env F 0 value' = .ok vtype := hvt
+  show (inferTypeCore env F 0 value' >>= _) = _
+  rw [hvt']
+  simp only [Bind.bind, Except.bind]
+  have hwvt : WScoped 0 vtype := inferTypeCore_WScoped henv F hvt' hwval
+  rw [wfOpsM_isDefEq henv hwvt.to_wscopedB
+    (wscopedB_of_not_hasFvar hcvty)] at h
+  obtain ⟨b, hb, h⟩ := atF_bind_ok h
+  have hb' : isDefEqCore env F 0 vtype cv.type = .ok b := hb
+  show (isDefEqCore env F 0 vtype cv.type >>= _) = _
+  rw [hb']
+  simp only [Bind.bind, Except.bind]
+  cases b with
+  | true =>
+    simp only [↓reduceIte] at h ⊢
+    exact h
+  | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte] at h
+    exact absurd h atF_throw_bind
+
+theorem checkOpaqueVal_wfimp {env : Env} (henv : EnvWF env)
+    {cv : ConstantVal} {value : Expr}
+    (hcvty : cv.type.hasFvar = false) {F : Nat} {v : Env}
+    (h : (checkOpaqueVal wfOpsM env cv value).val F = .ok v) :
+    checkOpaqueVal (fueledOps F) env cv value = .ok v := by
+  unfold checkOpaqueVal at h ⊢
+  dsimp only [] at h ⊢
+  by_cases h1 : Expr.looseBVarsBounded 0 value = true
+  case neg =>
+    rw [if_neg h1] at h
+    exact absurd h atF_throw_bind
+  rw [if_pos h1] at h ⊢
+  by_cases h2 : value.hasFvar = true
+  · rw [if_pos h2] at h
+    exact absurd h atF_throw_bind
+  rw [if_neg h2] at h ⊢
+  rw [wfOpsM_annotate henv
+    (wscopedB_of_not_hasFvar (Bool.not_eq_true _ ▸ h2))] at h
+  obtain ⟨value', hval, h⟩ := atF_bind_ok h
+  have hval' : annotateCore env F 0 value = .ok value' := hval
+  show (annotateCore env F 0 value >>= _) = _
+  rw [hval']
+  simp only [Bind.bind, Except.bind]
+  have hwval : WScoped 0 value' := annotateCore_WScoped F value hval'
+    (WScoped.of_not_hasFvar (Bool.not_eq_true _ ▸ h2))
+  by_cases h3 : Expr.allLevelParamsDefined cv.levelParams value' = true
+  case neg =>
+    rw [if_neg h3] at h
+    exact absurd h atF_throw_bind
+  rw [if_pos h3] at h ⊢
+  by_cases h4 : Expr.constsResolve env value' = true
+  case neg =>
+    rw [if_neg h4] at h
+    exact absurd h atF_throw_bind
+  rw [if_pos h4] at h ⊢
+  rw [wfOpsM_inferType henv hwval.to_wscopedB] at h
+  obtain ⟨vtype, hvt, h⟩ := atF_bind_ok h
+  have hvt' : inferTypeCore env F 0 value' = .ok vtype := hvt
+  show (inferTypeCore env F 0 value' >>= _) = _
+  rw [hvt']
+  simp only [Bind.bind, Except.bind]
+  have hwvt : WScoped 0 vtype := inferTypeCore_WScoped henv F hvt' hwval
+  rw [wfOpsM_isDefEq henv hwvt.to_wscopedB
+    (wscopedB_of_not_hasFvar hcvty)] at h
+  obtain ⟨b, hb, h⟩ := atF_bind_ok h
+  have hb' : isDefEqCore env F 0 vtype cv.type = .ok b := hb
+  show (isDefEqCore env F 0 vtype cv.type >>= _) = _
+  rw [hb']
+  simp only [Bind.bind, Except.bind]
+  cases b with
+  | true =>
+    simp only [↓reduceIte] at h ⊢
+    exact h
+  | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte] at h
+    exact absurd h atF_throw_bind
+
+theorem certifyNatEqs_wfimp {env : Env} (henv : EnvWF env) {F : Nat} :
+    ∀ {eqs : List (Expr × Expr)},
+      (∀ eq ∈ eqs, (eq.1.wscopedB 2 = true) ∧ (eq.2.wscopedB 2 = true)) →
+      ∀ {v : Bool}, (certifyNatEqs wfOpsM env eqs).val F = .ok v →
+      certifyNatEqs (fueledOps F) env eqs = .ok v
+  | [], _, v, h => h
+  | eq :: rest, hsc, v, h => by
+    unfold certifyNatEqs at h ⊢
+    have hh := hsc eq (List.mem_cons_self ..)
+    rw [wfOpsM_isDefEq henv hh.1 hh.2] at h
+    obtain ⟨b, hb, h⟩ := atF_bind_ok h
+    have hb' : isDefEqCore env F 2 eq.1 eq.2 = .ok b := hb
+    show (isDefEqCore env F 2 eq.1 eq.2 >>= _) = _
+    rw [hb']
+    simp only [Bind.bind, Except.bind]
+    cases b with
+    | true =>
+      simp only [↓reduceIte] at h ⊢
+      exact certifyNatEqs_wfimp henv
+        (fun e he => hsc e (List.mem_cons_of_mem _ he)) h
+    | false =>
+      simpa using h
+
 end Setlec
