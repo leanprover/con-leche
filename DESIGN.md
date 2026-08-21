@@ -735,6 +735,32 @@ extension itself (extend_modeled_rec) is also proven: phase-0
 rules-free provisional model, environment transport, and
 modeled_rule_fold per rule.
 
+**Member types match syntactically; binder-name drift is the tool's
+to fix (2026-08-21).**  `checkMemberVal`'s comparison of the renamed
+public member type against its stored `_model` type is and stays
+*syntactic* equality — that agreement is part of the
+lean-inductive-models contract, and the kernel does not weaken it (an
+`eraseNames`-based comparison with `ErasedEq` soundness transports was
+prototyped and deliberately dropped, owner ruling).  On failure the
+error message dumps both compared expressions, which localizes the
+offending subterm immediately.  Known failure mode (diagnosed on the
+init-prelude probe at `Lean.ParserDescr.rec`): lean4export's
+expression table is keyed by `Lean.Expr`'s hash/equality, which
+identify terms differing only in binder names, so the *first
+occurrence's* spelling wins for every shared subterm — in the
+init-prelude export, `ParserDescr.const (name : Name)` and
+`ParserDescr.parser (declName : Name)` share one table entry, and
+`trailingNode`'s `(prec lhsPrec : Nat)` telescope is spelled
+`prec, prec` in the constructor record while the recursor record's own
+type keeps `prec, lhsPrec`.  A preprocessor route that rebuilds the
+model recursor type from the input's constructor telescopes therefore
+cannot reproduce the recursor record's binder-name spelling; the fix
+belongs upstream in lean-inductive-models — spell the model recursor
+type from the export's *recursor record* (lean-inductive-models
+dd7bd87 does this for the nested-recursor route, but as of that
+commit the plain-recursive route, e.g. `Lean.ParserDescr`, still
+mismatches at exactly these positions).
+
 Modeled install wired end to end (2026-08-20): checkDecl's indDecl arm
 runs checkIndDecl and the frontend emits opaque blocks (the alias
 shortcut is gone).  Soundness (Setlec/Model/Extend/, split out of
