@@ -603,6 +603,120 @@ theorem ErasedEq.trans :
         exact show sn = sn₃ ∧ i = i₃ ∧ ErasedEq pe pe₃ from
           ⟨x.1.trans y.1, x.2.1.trans y.2.1, ih x.2.2 y.2.2⟩
 
+/-- `eqUpToNames` is reflexive. -/
+theorem eqUpToNames_rfl : ∀ (e : Expr), eqUpToNames e e = true := by
+  intro e
+  induction e <;> simp_all [eqUpToNames]
+
+/-- The name-insensitive structural comparison only ignores what
+`ErasedEq` ignores (it additionally still compares `fvar` type
+annotations, which `ErasedEq` drops). -/
+theorem ErasedEq.of_eqUpToNames :
+    ∀ {a b : Expr}, eqUpToNames a b = true → ErasedEq a b
+  | .bvar _, b, h => by
+    match b, h with
+    | .bvar _, h =>
+      simp only [eqUpToNames, beq_iff_eq] at h
+      exact h
+  | .fvar _ _ tya, b, h => by
+    match b, h with
+    | .fvar _ _ tyb, h =>
+      simp only [eqUpToNames, Bool.and_eq_true, beq_iff_eq] at h
+      exact h.1
+  | .sort _, b, h => by
+    match b, h with
+    | .sort _, h =>
+      simp only [eqUpToNames, beq_iff_eq] at h
+      exact h
+  | .const _ _, b, h => by
+    match b, h with
+    | .const _ _, h =>
+      simp only [eqUpToNames, Bool.and_eq_true, beq_iff_eq] at h
+      exact h
+  | .app fa aa, b, h => by
+    match b, h with
+    | .app fb ab, h =>
+      simp only [eqUpToNames, Bool.and_eq_true] at h
+      exact ⟨of_eqUpToNames h.1, of_eqUpToNames h.2⟩
+  | .lam _ tya ba ma, b, h => by
+    match b, h with
+    | .lam _ tyb bb mb, h =>
+      simp only [eqUpToNames, Bool.and_eq_true, beq_iff_eq] at h
+      exact ⟨h.1.1, of_eqUpToNames h.1.2, of_eqUpToNames h.2⟩
+  | .forallE _ tya ba ma, b, h => by
+    match b, h with
+    | .forallE _ tyb bb mb, h =>
+      simp only [eqUpToNames, Bool.and_eq_true, beq_iff_eq] at h
+      exact ⟨h.1.1, of_eqUpToNames h.1.2, of_eqUpToNames h.2⟩
+  | .letE _ tya va ba, b, h => by
+    match b, h with
+    | .letE _ tyb vb bb, h =>
+      simp only [eqUpToNames, Bool.and_eq_true] at h
+      exact ⟨of_eqUpToNames h.1.1, of_eqUpToNames h.1.2,
+        of_eqUpToNames h.2⟩
+  | .lit _, b, h => by
+    match b, h with
+    | .lit _, h =>
+      simp only [eqUpToNames, beq_iff_eq] at h
+      exact h
+  | .proj _ _ ea, b, h => by
+    match b, h with
+    | .proj _ _ eb, h =>
+      simp only [eqUpToNames, Bool.and_eq_true, beq_iff_eq] at h
+      exact ⟨h.1.1, h.1.2, of_eqUpToNames h.2⟩
+
+/-- Invert `stripPis` across erasure: a strip of one side of an
+`ErasedEq` pair comes from a strip of the other, with pointwise-erased
+domains, equal binder metadata, and erased bodies. -/
+theorem ErasedEq.stripPis_inv :
+    ∀ (k : Nat) {e₁ e₂ : Expr} {bs₂ : List (Name × Expr × BinderMeta)}
+      {body₂ : Expr},
+      ErasedEq e₁ e₂ → e₂.stripPis k = some (bs₂, body₂) →
+      ∃ bs₁ body₁, e₁.stripPis k = some (bs₁, body₁) ∧
+        bs₁.length = bs₂.length ∧
+        (∀ (i : Nat) (b₁ b₂' : Name × Expr × BinderMeta),
+          bs₁[i]? = some b₁ → bs₂[i]? = some b₂' →
+          ErasedEq b₁.2.1 b₂'.2.1 ∧ b₁.2.2 = b₂'.2.2) ∧
+        ErasedEq body₁ body₂ := by
+  intro k
+  induction k with
+  | zero =>
+    intro e₁ e₂ bs₂ body₂ he h
+    simp only [stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨[], e₁, by simp [stripPis], by simp,
+      fun i b₁ b₂' hb₁ hb₂ => by simp at hb₁, he⟩
+  | succ k ih =>
+    intro e₁ e₂ bs₂ body₂ he h
+    match e₂, h with
+    | .forallE n₂ ty₂ b₂ m₂, h =>
+      match e₁, he with
+      | .forallE n₁ ty₁ b₁ m₁, he =>
+        obtain ⟨rfl, hety, heb⟩ :
+            m₁ = m₂ ∧ ErasedEq ty₁ ty₂ ∧ ErasedEq b₁ b₂ := he
+        simp only [stripPis] at h
+        cases hs : b₂.stripPis k with
+        | none => rw [hs] at h; exact nomatch h
+        | some pr =>
+          rw [hs] at h
+          obtain ⟨bs₀, body₀⟩ := pr
+          simp only [Option.map_some, Option.some.injEq,
+            Prod.mk.injEq] at h
+          obtain ⟨rfl, rfl⟩ := h
+          obtain ⟨bs₁', body₁', hstrip, hlen, hdoms, hbody⟩ := ih heb hs
+          refine ⟨(n₁, ty₁, m₁) :: bs₁', body₁', ?_, by simp [hlen],
+            ?_, hbody⟩
+          · simp only [stripPis, hstrip, Option.map_some]
+          · intro i b₁' b₂'' hb₁ hb₂
+            match i with
+            | 0 =>
+              obtain rfl : (n₁, ty₁, m₁) = b₁' := by simpa using hb₁
+              obtain rfl : (n₂, ty₂, m₁) = b₂'' := by simpa using hb₂
+              exact ⟨hety, Eq.refl _⟩
+            | i + 1 =>
+              exact hdoms i b₁' b₂'' (by simpa using hb₁)
+                (by simpa using hb₂)
+
 /-- Instantiate a sequence of arguments at descending indices (the
 per-domain effect of peeling a telescope). -/
 def instSeq : List Expr → Nat → Expr → Expr

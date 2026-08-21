@@ -735,31 +735,44 @@ extension itself (extend_modeled_rec) is also proven: phase-0
 rules-free provisional model, environment transport, and
 modeled_rule_fold per rule.
 
-**Member types match syntactically; binder-name drift is the tool's
-to fix (2026-08-21).**  `checkMemberVal`'s comparison of the renamed
-public member type against its stored `_model` type is and stays
-*syntactic* equality — that agreement is part of the
-lean-inductive-models contract, and the kernel does not weaken it (an
-`eraseNames`-based comparison with `ErasedEq` soundness transports was
-prototyped and deliberately dropped, owner ruling).  On failure the
-error message dumps both compared expressions, which localizes the
-offending subterm immediately.  Known failure mode (diagnosed on the
-init-prelude probe at `Lean.ParserDescr.rec`): lean4export's
+**Member types match up to display-only binder names (2026-08-21,
+owner ruling).**  `checkMemberVal` compares the renamed public member
+type against its stored `_model` type with `Expr.eqUpToNames`: plain
+structural `==` except that the binder names of
+`lam`/`forallE`/`letE` and an `fvar`'s display name are ignored —
+everything semantic (indices, constants, levels, `BinderMeta`
+including the codomain-sort annotation and the binder info, `fvar`
+type annotations) still compares.  Definitional equality was
+explicitly ruled out as far too heavy.  The reason a syntactic
+contract cannot hold at the binder-name level: lean4export's
 expression table is keyed by `Lean.Expr`'s hash/equality, which
 identify terms differing only in binder names, so the *first
 occurrence's* spelling wins for every shared subterm — in the
 init-prelude export, `ParserDescr.const (name : Name)` and
 `ParserDescr.parser (declName : Name)` share one table entry, and
 `trailingNode`'s `(prec lhsPrec : Nat)` telescope is spelled
-`prec, prec` in the constructor record while the recursor record's own
-type keeps `prec, lhsPrec`.  A preprocessor route that rebuilds the
-model recursor type from the input's constructor telescopes therefore
-cannot reproduce the recursor record's binder-name spelling; the fix
-belongs upstream in lean-inductive-models — spell the model recursor
-type from the export's *recursor record* (lean-inductive-models
-dd7bd87 does this for the nested-recursor route, but as of that
-commit the plain-recursive route, e.g. `Lean.ParserDescr`, still
-mismatches at exactly these positions).
+`prec, prec` in the constructor record while the recursor record's
+own type keeps `prec, lhsPrec` (this blocked the init-prelude probe
+at `Lean.ParserDescr.rec`; even a correct preprocessor stream can
+drift this way).  On failure the error message dumps both compared
+expressions, which localizes the offending subterm immediately.
+Soundness rides on names being display-only: the inversion yields
+`eqUpToNames` instead of `=`, bridged to the existing erasure
+machinery by `ErasedEq.of_eqUpToNames` (structural induction; the
+comparison is strictly stronger than `ErasedEq`, which also drops
+`fvar` types), consumed via `interp_erasedEq` (the interpretation
+never reads names) and a new `ErasedEq.stripPis_inv` (telescope strip
+transport with pointwise-erased domains and equal binder metadata,
+for the eta/unit-like pins).  `extend_modeled_one` takes the member's
+own `AnnotOk` as a hypothesis (from its annotation run,
+`annotate_sound`) instead of transporting the model's across the
+no-longer-syntactic equality, and `eta_rule_fold`/`unit_rule_fold`'s
+statement-vs-public domain hypothesis weakened from renaming equality
+to the already-erased-based `RenEq`.  No other congruences were
+needed: the syntactic facts about the member type (`hasFvar`,
+`looseBVarsBounded`, `constsResolve`, `allLevelParamsDefined`) were
+always derived from the member's own annotation run, not from the
+model's type.
 
 Modeled install wired end to end (2026-08-20): checkDecl's indDecl arm
 runs checkIndDecl and the frontend emits opaque blocks (the alias

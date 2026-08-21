@@ -91,10 +91,23 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
         rw [he, hfind'] at hn; exact nomatch hn))
       cvA.type htyres0]
     exact hren
+  -- the projection type is the model's renamed back verbatim, so its
+  -- annotation truthfulness transports from the model's
+  have hannT : ∀ ψ : Name → Nat,
+      AnnotOk V m.val env ψ 0 (rho0 V) cvA.type := by
+    intro ψ
+    obtain ⟨hA, -⟩ := m.annot_ok _ (find?_mem hmodel) ψ
+    have hA' : AnnotOk V m.val env ψ 0 (rho0 V)
+        (cvA.type.renameConsts f₀) := by
+      rw [hren₀]; exact hA
+    exact AnnotOk_renameConsts hro _ 0 (rho0 V) hA'
   obtain ⟨m₀, hval₀, hpres₀⟩ := extend_modeled_one m
     (.recInfo cvA nP 0 0 0 []) f₀ (mnameP)
     hfind' hnres hwf₀ htyres0
-    (Or.inr (Or.inr ⟨cvA, nP, 0, 0, 0, rfl⟩)) hmodel hlps hren₀ hro
+    (Or.inr (Or.inr ⟨cvA, nP, 0, 0, 0, rfl⟩)) hmodel hlps
+    (by show Expr.eqUpToNames (cvA.type.renameConsts f₀) cvm.type = true
+        rw [hren₀]
+        exact Expr.eqUpToNames_rfl _) hannT hro
     (fun hk => by
       rcases hk with ⟨_, _, hcon⟩ | ⟨_, _, _, hcon⟩ <;> exact nomatch hcon)
     hprojm

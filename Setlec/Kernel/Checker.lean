@@ -265,11 +265,12 @@ def checkIotaRules (ops : CheckerOps m) (env' envSelf : Env) (f : Name → Name)
 
 /-- Check a block member's constant against its `_model` counterpart:
 `checkConstantVal`, the member may not itself be model-shaped, and its
-type is *syntactically* the model's under the block renaming (part of
-the lean-inductive-models contract; on failure the message dumps both
-sides — mismatches here have historically been preprocessor or export
-binder-name drift, and the dump identifies the offending subterm
-immediately). -/
+type is the model's under the block renaming — structurally, up to
+display-only binder names (`Expr.eqUpToNames`): lean4export interns
+expressions irrespective of names, so even a correct preprocessor
+stream can differ from the input in binder names only.  On failure the
+message dumps both sides, which identifies the offending subterm
+immediately. -/
 def checkMemberVal (ops : CheckerOps m) (blockNames : List Name)
     (env' : Env) (cv : ConstantVal) : m ConstantVal := do
   let f : Name → Name := fun n =>
@@ -284,7 +285,7 @@ def checkMemberVal (ops : CheckerOps m) (blockNames : List Name)
     | throw (.notImplemented s!"missing model for {cvA.name}")
   unless cvm.levelParams = cvA.levelParams do
     throw (.notImplemented s!"model level parameters mismatch for {cvA.name}")
-  unless (cvA.type.renameConsts f) == cvm.type do
+  unless Expr.eqUpToNames (cvA.type.renameConsts f) cvm.type do
     throw (.notImplemented
       s!"model type mismatch for {cvA.name}\n  member (renamed): \
         {reprStr (cvA.type.renameConsts f)}\n  model: {reprStr cvm.type}")

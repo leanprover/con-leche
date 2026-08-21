@@ -23,7 +23,11 @@ open SetTheory Expr
 inductive type former or constructor; the recursor carries rule
 obligations and is handled separately): its value is its `_model`
 counterpart's, and its type interprets identically through the block
-renaming. -/
+renaming.  The type agreement is structural up to display-only binder
+names (`Expr.eqUpToNames`) — the interpretation never reads them — so
+the member's own annotation truthfulness is a hypothesis (`hannT`,
+from the member's annotation run) rather than transported from the
+model's. -/
 theorem extend_modeled_one {env : Env} (m : EnvModel V env)
     (ci : ConstantInfo) (f : Name → Name) (mname : Name)
     {cvm : ConstantVal} {mval : Expr}
@@ -36,7 +40,10 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
       (∃ cv nP nM nm ni, ci = .recInfo cv nP nM nm ni []))
     (hmodel : env.find? mname = some (.defnInfo cvm mval hmcvm))
     (hlps : cvm.levelParams = ci.toConstantVal.levelParams)
-    (hren : ci.toConstantVal.type.renameConsts f = cvm.type)
+    (hren : Expr.eqUpToNames (ci.toConstantVal.type.renameConsts f)
+      cvm.type = true)
+    (hannT : ∀ ψ : Name → Nat,
+      AnnotOk V m.val env ψ 0 (rho0 V) ci.toConstantVal.type)
     (hro : RenameOk m.val env f)
     (hmodm : ((∃ cv caps, ci = .indInfo cv caps) ∨
         (∃ cv cnP cnF, ci = .ctorInfo cv cnP cnF)) →
@@ -95,7 +102,11 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
     have hri : interpClosed V m.val env ψ (ci.toConstantVal.type.renameConsts f) =
         interpClosed V m.val env ψ ci.toConstantVal.type :=
       interp_renameConsts hro _ 0 (rho0 V)
-    rw [← hri, hren]
+    have hre : interpClosed V m.val env ψ
+        (ci.toConstantVal.type.renameConsts f) =
+        interpClosed V m.val env ψ cvm.type :=
+      interp_erasedEq (Expr.ErasedEq.of_eqUpToNames hren) 0 (rho0 V)
+    rw [← hri, hre]
     exact hT
   exact extend_basis_one m ci (fun ψ => m.val (mname) ψ)
     hfind' hwf htyres0
@@ -109,12 +120,7 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
       refine hψ p ?_
       rwa [show (ConstantInfo.defnInfo cvm mval hmcvm).toConstantVal = cvm from rfl,
         hlps] at hp)
-    (fun ψ => by
-      obtain ⟨hA, -⟩ := m.annot_ok _ hmm ψ
-      have hA' : AnnotOk V m.val env ψ 0 (rho0 V)
-          (ci.toConstantVal.type.renameConsts f) := by
-        rw [hren]; exact hA
-      exact AnnotOk_renameConsts hro _ 0 (rho0 V) hA')
+    (fun ψ => hannT ψ)
     (fun cv caps heq hn => absurd (hn ▸ hnres) (by decide))
     (fun cv nP nF heq hn => absurd (hn ▸ hnres) (by decide))
     (fun cv caps heq hn => absurd (hn ▸ hnres) (by decide))
@@ -205,8 +211,9 @@ theorem checkMemberVal_inv {blockNames : List Name} {env' : Env}
       env'.find? (cvA.name.str "_model") =
         some (.defnInfo cvm mval hmcvm) ∧
       cvm.levelParams = cvA.levelParams ∧
-      cvA.type.renameConsts (fun n =>
-        if blockNames.contains n then n.str "_model" else n) = cvm.type := by
+      Expr.eqUpToNames (cvA.type.renameConsts (fun n =>
+        if blockNames.contains n then n.str "_model" else n)) cvm.type =
+        true := by
   simp only [checkMemberVal, fueledOps_annotate, fueledOps_inferType,
     fueledOps_isDefEq, fueledOps_ensureSort, fueledOps_whnf, Bind.bind,
     Except.bind] at h
@@ -236,14 +243,14 @@ theorem checkMemberVal_inv {blockNames : List Name} {env' : Env}
   case neg => rw [if_neg hlps] at h; exact nomatch h
   rw [if_pos hlps] at h
   try dsimp only at h
-  by_cases hren : (cvA'.type.renameConsts (fun n =>
-      if blockNames.contains n then n.str "_model" else n) ==
-      cvm.type) = true
+  by_cases hren : Expr.eqUpToNames (cvA'.type.renameConsts (fun n =>
+      if blockNames.contains n then n.str "_model" else n))
+      cvm.type = true
   case neg => rw [if_neg hren] at h; exact nomatch h
   rw [if_pos hren] at h
   simp only [pure, Except.pure, Except.ok.injEq] at h
   subst h
-  exact ⟨rfl, hmsF, cvm, mval, hmcvm, hfm, hlps, eq_of_beq hren⟩
+  exact ⟨rfl, hmsF, cvm, mval, hmcvm, hfm, hlps, hren⟩
 
 /-- Invert a successful `checkIndMember` run (non-recursor members). -/
 theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
@@ -254,8 +261,9 @@ theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
       cvA.name.isModelSuffix = false ∧
       env'.find? (cvA.name.str "_model") = some (.defnInfo cvm mval hmcvm) ∧
       cvm.levelParams = cvA.levelParams ∧
-      cvA.type.renameConsts (fun n =>
-        if blockNames.contains n then n.str "_model" else n) = cvm.type ∧
+      Expr.eqUpToNames (cvA.type.renameConsts (fun n =>
+        if blockNames.contains n then n.str "_model" else n)) cvm.type =
+        true ∧
       ((∃ cv caps', ci = .indInfo cv caps') ∧
          env₁ = ⟨.indInfo cvA caps :: env'.consts⟩ ∨
        (∃ cv nP nF, ci = .ctorInfo cv nP nF ∧
