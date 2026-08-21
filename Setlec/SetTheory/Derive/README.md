@@ -33,27 +33,27 @@ itemization) and `_tmp/nanodatg/derived/src/*` (module docs).
 - [x] `Derive/Pi.lean` — level-truncated `pi`/`lam` (`pi 0` a truth
   value, `lam 0 = pt`) with all `SetTheory`-shaped laws (`v = 0`
   fibre premises phrased as `v = 0 → … ∈ᵗ univZero`).
-- [ ] `Derive/Omega.lean` — von Neumann naturals: `omega` separated
+- [x] `Derive/Omega.lean` — von Neumann naturals: `omega` separated
   from the inductive universe `guniv empty`, `vnat : Nat → V`
   (injective), `mem_omega_iff`; `omega ∈ U` for any universe with a
   universe member.
-- [ ] `Derive/Natrec.lean` — recursion on `omega` through the
+- [x] `Derive/Natrec.lean` — recursion on `omega` through the
   meta-level `Nat` (each member of `omega` is a unique `vnat k`).
-- [ ] `Derive/Univ.lean` — the tower `univ 0 = univZero`,
+- [x] `Derive/Univ.lean` — the tower `univ 0 = univZero`,
   `univ (n+1) = guniv {univ n, guniv empty}`; cumulativity,
   `univ_mem_univ`, `omega ∈ univ (n+1)`, closure transport.
-- [ ] `Derive/Sigma.lean` — `sigmaSet` (level-0 truth value /
+- [x] `Derive/Sigma.lean` — `sigmaSet` (level-0 truth value /
   `sigmaPairs`), `spair := kpair`, classical `sfst`/`ssnd` with `pt`
   defaults; all `SetTheory` sigma laws.
-- [ ] `Derive/Quot.lean` — quotients: equivalence closure of the
+- [x] `Derive/Quot.lean` — quotients: equivalence closure of the
   `R`-inhabitation relation on `A`, classes by separation, `quotSet`
   (level-0 collapse to `image (fun _ => pt) A`), `quotLift` via a
   choice of representatives; sound/surjective/lift laws matching the
   quot fields of the *mainline* `Basic.lean`.
-- [ ] `Derive/Choice.lean` — global `schoice` from `Classical.choice`;
+- [x] `Derive/Choice.lean` — global `schoice` from `Classical.choice`;
   the Jech-form set-level choice function as a *theorem* (the "eighth
   axiom", derived).
-- [ ] `Instance.lean` — `noncomputable instance [TG V] : SetTheory V`.
+- [x] `Instance.lean` — `noncomputable instance [TG V] : SetTheory V`.
 
 ## Notes for the merger
 
