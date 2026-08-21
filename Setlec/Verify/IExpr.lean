@@ -2255,6 +2255,339 @@ theorem hasFvarI_spec {st : EStore} {e : EIdx} {a : Expr}
   simp only [hasFvarI, hgo]
   exact hcond a he
 
+theorem looseBVarsBoundedIGo_spec {st : EStore} (hwf : st.WF) :
+    ∀ (e : EIdx) {memo : Std.HashMap (EIdx × Nat) Bool} {k : Nat} {r : Bool}
+      {memo' : Std.HashMap (EIdx × Nat) Bool},
+      QMemoNInv st (fun x c => x.looseBVarsBounded c) memo →
+      looseBVarsBoundedIGo st memo k e = (r, memo') →
+      QMemoNInv st (fun x c => x.looseBVarsBounded c) memo' ∧
+        ∀ x, st.denote e = some x → r = x.looseBVarsBounded k := by
+  intro e
+  induction e using Nat.strongRecOn with
+  | _ e ih =>
+    intro memo k r memo' hinv hgo
+    unfold looseBVarsBoundedIGo at hgo
+    split at hgo
+    · rename_i hhit
+      injection hgo with hgr hgm
+      subst hgr
+      subst hgm
+      exact ⟨hinv, hinv _ _ _ hhit⟩
+    · split at hgo
+      · rename_i hnone
+        injection hgo with hgr hgm
+        subst hgr
+        subst hgm
+        refine ⟨hinv, ?_⟩
+        intro x hx
+        obtain ⟨n, hn, -, -⟩ := denote_some_inv hx
+        rw [hn] at hnone
+        cases hnone
+      · rename_i n hn
+        have hesz : e < st.nodes.size := (Array.getElem?_eq_some_iff.mp hn).1
+        have hcl := hwf.children_lt e n hn
+        have hde := denote_node hn hcl
+        cases n with
+        | bvar i =>
+          dsimp only at hgo
+          injection hgo with hgr hgm
+          subst hgr
+          subst hgm
+          have hx : st.denote e = some (.bvar i) := by rw [hde]; rfl
+          have hcond : ∀ x, st.denote e = some x →
+              decide (i < k) = x.looseBVarsBounded k := by
+            intro x hxx
+            rw [hx] at hxx; cases hxx
+            simp [Expr.looseBVarsBounded]
+          exact ⟨hinv.insert hcond, hcond⟩
+        | fvar idx nm t =>
+          dsimp only at hgo
+          injection hgo with hgr hgm
+          subst hgr
+          subst hgm
+          obtain ⟨xt, hxt⟩ := denote_total hwf t
+            (Nat.lt_trans (hcl t (by simp [ENode.children])) hesz)
+          have hx : st.denote e = some (.fvar idx nm xt) := by
+            rw [hde, denoteNode, hxt]; rfl
+          have hcond : ∀ x, st.denote e = some x →
+              true = x.looseBVarsBounded k := by
+            intro x hxx
+            rw [hx] at hxx; cases hxx
+            simp [Expr.looseBVarsBounded]
+          exact ⟨hinv.insert hcond, hcond⟩
+        | sort u =>
+          dsimp only at hgo
+          injection hgo with hgr hgm
+          subst hgr
+          subst hgm
+          have hx : st.denote e = some (.sort u) := by rw [hde]; rfl
+          have hcond : ∀ x, st.denote e = some x →
+              true = x.looseBVarsBounded k := by
+            intro x hxx
+            rw [hx] at hxx; cases hxx
+            simp [Expr.looseBVarsBounded]
+          exact ⟨hinv.insert hcond, hcond⟩
+        | const nm us =>
+          dsimp only at hgo
+          injection hgo with hgr hgm
+          subst hgr
+          subst hgm
+          have hx : st.denote e = some (.const nm us) := by rw [hde]; rfl
+          have hcond : ∀ x, st.denote e = some x →
+              true = x.looseBVarsBounded k := by
+            intro x hxx
+            rw [hx] at hxx; cases hxx
+            simp [Expr.looseBVarsBounded]
+          exact ⟨hinv.insert hcond, hcond⟩
+        | lit l =>
+          dsimp only at hgo
+          injection hgo with hgr hgm
+          subst hgr
+          subst hgm
+          have hx : st.denote e = some (.lit l) := by rw [hde]; rfl
+          have hcond : ∀ x, st.denote e = some x →
+              true = x.looseBVarsBounded k := by
+            intro x hxx
+            rw [hx] at hxx; cases hxx
+            simp [Expr.looseBVarsBounded]
+          exact ⟨hinv.insert hcond, hcond⟩
+        | app f a =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd ⟨hcl f (by simp [ENode.children]),
+              hcl a (by simp [ENode.children])⟩ hguard
+          case isTrue hguard =>
+            obtain ⟨xf, hf⟩ := denote_total hwf f (Nat.lt_trans hguard.1 hesz)
+            obtain ⟨xa, ha⟩ := denote_total hwf a (Nat.lt_trans hguard.2 hesz)
+            have hx : st.denote e = some (.app xf xa) := by
+              rw [hde, denoteNode, hf, ha]; rfl
+            rcases h₁ : looseBVarsBoundedIGo st memo k f with ⟨rf, memo₁⟩
+            rw [h₁] at hgo
+            try dsimp only at hgo
+            obtain ⟨hinv₁, hden₁⟩ := ih f hguard.1 hinv h₁
+            split at hgo
+            · -- rf = true: continue with the argument
+              rename_i hrf
+              rcases h₂ : looseBVarsBoundedIGo st memo₁ k a with ⟨ra, memo₂⟩
+              rw [h₂] at hgo
+              try dsimp only at hgo
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              obtain ⟨hinv₂, hden₂⟩ := ih a hguard.2 hinv₁ h₂
+              have hcond : ∀ x, st.denote e = some x →
+                  ra = x.looseBVarsBounded k := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xf hf
+                rw [hrf] at h1
+                simp [Expr.looseBVarsBounded, ← h1, ← hden₂ xa ha]
+              exact ⟨hinv₂.insert hcond, hcond⟩
+            · -- rf = false: short-circuit false
+              rename_i hrf
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              have hcond : ∀ x, st.denote e = some x →
+                  false = x.looseBVarsBounded k := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xf hf
+                rw [Bool.not_eq_true] at hrf
+                rw [hrf] at h1
+                simp [Expr.looseBVarsBounded, ← h1]
+              exact ⟨hinv₁.insert hcond, hcond⟩
+        | lam nm ty body m =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd ⟨hcl ty (by simp [ENode.children]),
+              hcl body (by simp [ENode.children])⟩ hguard
+          case isTrue hguard =>
+            obtain ⟨xt, ht⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
+            obtain ⟨xb, hb⟩ := denote_total hwf body (Nat.lt_trans hguard.2 hesz)
+            have hx : st.denote e = some (.lam nm xt xb m) := by
+              rw [hde, denoteNode, ht, hb]; rfl
+            rcases h₁ : looseBVarsBoundedIGo st memo k ty with ⟨rt, memo₁⟩
+            rw [h₁] at hgo
+            try dsimp only at hgo
+            obtain ⟨hinv₁, hden₁⟩ := ih ty hguard.1 hinv h₁
+            split at hgo
+            · rename_i hrt
+              rcases h₂ : looseBVarsBoundedIGo st memo₁ (k + 1) body with ⟨rb, memo₂⟩
+              rw [h₂] at hgo
+              try dsimp only at hgo
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              obtain ⟨hinv₂, hden₂⟩ := ih body hguard.2 hinv₁ h₂
+              have hcond : ∀ x, st.denote e = some x →
+                  rb = x.looseBVarsBounded k := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xt ht
+                rw [hrt] at h1
+                simp [Expr.looseBVarsBounded, ← h1, ← hden₂ xb hb]
+              exact ⟨hinv₂.insert hcond, hcond⟩
+            · rename_i hrt
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              have hcond : ∀ x, st.denote e = some x →
+                  false = x.looseBVarsBounded k := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xt ht
+                rw [Bool.not_eq_true] at hrt
+                rw [hrt] at h1
+                simp [Expr.looseBVarsBounded, ← h1]
+              exact ⟨hinv₁.insert hcond, hcond⟩
+        | forallE nm ty body m =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd ⟨hcl ty (by simp [ENode.children]),
+              hcl body (by simp [ENode.children])⟩ hguard
+          case isTrue hguard =>
+            obtain ⟨xt, ht⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
+            obtain ⟨xb, hb⟩ := denote_total hwf body (Nat.lt_trans hguard.2 hesz)
+            have hx : st.denote e = some (.forallE nm xt xb m) := by
+              rw [hde, denoteNode, ht, hb]; rfl
+            rcases h₁ : looseBVarsBoundedIGo st memo k ty with ⟨rt, memo₁⟩
+            rw [h₁] at hgo
+            try dsimp only at hgo
+            obtain ⟨hinv₁, hden₁⟩ := ih ty hguard.1 hinv h₁
+            split at hgo
+            · rename_i hrt
+              rcases h₂ : looseBVarsBoundedIGo st memo₁ (k + 1) body with ⟨rb, memo₂⟩
+              rw [h₂] at hgo
+              try dsimp only at hgo
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              obtain ⟨hinv₂, hden₂⟩ := ih body hguard.2 hinv₁ h₂
+              have hcond : ∀ x, st.denote e = some x →
+                  rb = x.looseBVarsBounded k := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xt ht
+                rw [hrt] at h1
+                simp [Expr.looseBVarsBounded, ← h1, ← hden₂ xb hb]
+              exact ⟨hinv₂.insert hcond, hcond⟩
+            · rename_i hrt
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              have hcond : ∀ x, st.denote e = some x →
+                  false = x.looseBVarsBounded k := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xt ht
+                rw [Bool.not_eq_true] at hrt
+                rw [hrt] at h1
+                simp [Expr.looseBVarsBounded, ← h1]
+              exact ⟨hinv₁.insert hcond, hcond⟩
+        | letE nm ty val body =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd ⟨hcl ty (by simp [ENode.children]),
+              hcl val (by simp [ENode.children]),
+              hcl body (by simp [ENode.children])⟩ hguard
+          case isTrue hguard =>
+            obtain ⟨xt, ht⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
+            obtain ⟨xv, hvv⟩ := denote_total hwf val (Nat.lt_trans hguard.2.1 hesz)
+            obtain ⟨xb, hb⟩ := denote_total hwf body (Nat.lt_trans hguard.2.2 hesz)
+            have hx : st.denote e = some (.letE nm xt xv xb) := by
+              rw [hde, denoteNode, ht, hvv, hb]; rfl
+            rcases h₁ : looseBVarsBoundedIGo st memo k ty with ⟨rt, memo₁⟩
+            rw [h₁] at hgo
+            try dsimp only at hgo
+            obtain ⟨hinv₁, hden₁⟩ := ih ty hguard.1 hinv h₁
+            split at hgo
+            · rename_i hrt
+              rcases h₂ : looseBVarsBoundedIGo st memo₁ k val with ⟨rv, memo₂⟩
+              rw [h₂] at hgo
+              try dsimp only at hgo
+              obtain ⟨hinv₂, hden₂⟩ := ih val hguard.2.1 hinv₁ h₂
+              split at hgo
+              · rename_i hrv
+                rcases h₃ : looseBVarsBoundedIGo st memo₂ (k + 1) body with ⟨rb, memo₃⟩
+                rw [h₃] at hgo
+                try dsimp only at hgo
+                injection hgo with hgr hgm
+                subst hgr
+                subst hgm
+                obtain ⟨hinv₃, hden₃⟩ := ih body hguard.2.2 hinv₂ h₃
+                have hcond : ∀ x, st.denote e = some x →
+                    rb = x.looseBVarsBounded k := by
+                  intro x hxx
+                  rw [hx] at hxx; cases hxx
+                  have h1 := hden₁ xt ht
+                  have h2 := hden₂ xv hvv
+                  rw [hrt] at h1
+                  rw [hrv] at h2
+                  simp [Expr.looseBVarsBounded, ← h1, ← h2, ← hden₃ xb hb]
+                exact ⟨hinv₃.insert hcond, hcond⟩
+              · rename_i hrv
+                injection hgo with hgr hgm
+                subst hgr
+                subst hgm
+                have hcond : ∀ x, st.denote e = some x →
+                    false = x.looseBVarsBounded k := by
+                  intro x hxx
+                  rw [hx] at hxx; cases hxx
+                  have h2 := hden₂ xv hvv
+                  rw [Bool.not_eq_true] at hrv
+                  rw [hrv] at h2
+                  simp [Expr.looseBVarsBounded, ← h2]
+                exact ⟨hinv₂.insert hcond, hcond⟩
+            · rename_i hrt
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              have hcond : ∀ x, st.denote e = some x →
+                  false = x.looseBVarsBounded k := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xt ht
+                rw [Bool.not_eq_true] at hrt
+                rw [hrt] at h1
+                simp [Expr.looseBVarsBounded, ← h1]
+              exact ⟨hinv₁.insert hcond, hcond⟩
+        | proj s j sub =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd (hcl sub (by simp [ENode.children])) hguard
+          case isTrue hguard =>
+            obtain ⟨xs, hs⟩ := denote_total hwf sub (Nat.lt_trans hguard hesz)
+            have hx : st.denote e = some (.proj s j xs) := by
+              rw [hde, denoteNode, hs]; rfl
+            rcases h₁ : looseBVarsBoundedIGo st memo k sub with ⟨rs, memo₁⟩
+            rw [h₁] at hgo
+            try dsimp only at hgo
+            injection hgo with hgr hgm
+            subst hgr
+            subst hgm
+            obtain ⟨hinv₁, hden₁⟩ := ih sub hguard hinv h₁
+            have hcond : ∀ x, st.denote e = some x →
+                rs = x.looseBVarsBounded k := by
+              intro x hxx
+              rw [hx] at hxx; cases hxx
+              simpa [Expr.looseBVarsBounded] using hden₁ xs hs
+            exact ⟨hinv₁.insert hcond, hcond⟩
+
+/-- `looseBVarsBoundedI` agrees with `Expr.looseBVarsBounded`. -/
+theorem looseBVarsBoundedI_spec {st : EStore} {k : Nat} {e : EIdx} {a : Expr}
+    (hwf : st.WF) (he : st.denote e = some a) :
+    st.looseBVarsBoundedI k e = a.looseBVarsBounded k := by
+  rcases hgo : looseBVarsBoundedIGo st {} k e with ⟨r, memo'⟩
+  obtain ⟨-, hcond⟩ := looseBVarsBoundedIGo_spec hwf e QMemoNInv.empty hgo
+  simp only [looseBVarsBoundedI, hgo]
+  exact hcond a he
+
 end EStore
 
 end Setlec
