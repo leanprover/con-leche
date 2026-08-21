@@ -231,12 +231,117 @@ def rawNatLit? : Expr → Option Nat
   | .const c [] => if c = natZeroName then some 0 else none
   | _ => none
 
+/-! ## Structural-Nat literal acceleration
+
+The official kernel accelerates the structural `Nat` operations on
+literals (GMP-backed there).  Here the fast path is *certified*: an
+operation participates only when its defining recurrence equations
+hold by definitional equality — checked once, at install: `checkDecl`
+positively rejects a nonstandard definition under one of these names,
+so *presence in the store is the certificate* (no runtime flag, no
+re-checking; a reduction-time re-check would in fact livelock — the
+certification's own `pred zero` equation re-enters the fast path).
+The environment model carries the matching semantic clause: a stored
+definition under one of these names satisfies its recurrences, from
+which meta-level induction over the literal yields the computed
+value.  WF-recursive operations (`div`, `mod`, `gcd`) and string
+literals are deferred. -/
+
+def natPredName : Name := natName.str "pred"
+def natAddName : Name := natName.str "add"
+def natSubName : Name := natName.str "sub"
+def natMulName : Name := natName.str "mul"
+def natPowName : Name := natName.str "pow"
+def natBeqName : Name := natName.str "beq"
+def natBleName : Name := natName.str "ble"
+def boolName : Name := .str .anonymous "Bool"
+def boolTrueName : Name := boolName.str "true"
+def boolFalseName : Name := boolName.str "false"
+
+/-- The structural-Nat operations with a certified literal fast path. -/
+def natOpNames : List Name :=
+  [natPredName, natAddName, natSubName, natMulName, natPowName,
+   natBeqName, natBleName]
+
+/-- The operations (transitively) involved in `c`'s recurrences. -/
+def natOpDeps (c : Name) : List Name :=
+  if c = natPredName then [natPredName]
+  else if c = natAddName then [natAddName]
+  else if c = natSubName then [natPredName, natSubName]
+  else if c = natMulName then [natAddName, natMulName]
+  else if c = natPowName then [natAddName, natMulName, natPowName]
+  else if c = natBeqName then [natBeqName]
+  else if c = natBleName then [natBleName]
+  else []
+
+/-- The defining recurrence equations of a structural-Nat operation,
+over constructor forms with free variables `d`, `d + 1` (binder-free,
+so the equation sides carry no annotations). -/
+def natOpEquations (d : Nat) (c : Name) : List (Expr × Expr) :=
+  let natTy : Expr := .const natName []
+  let x : Expr := .fvar d (.str .anonymous "x") natTy
+  let y : Expr := .fvar (d + 1) (.str .anonymous "y") natTy
+  let z : Expr := .const natZeroName []
+  let s : Expr → Expr := (.app (.const natSuccName []) ·)
+  let ap1 : Name → Expr → Expr := fun n a => .app (.const n []) a
+  let ap2 : Name → Expr → Expr → Expr := fun n a b =>
+    .app (.app (.const n []) a) b
+  let bT : Expr := .const boolTrueName []
+  let bF : Expr := .const boolFalseName []
+  if c = natPredName then
+    [(ap1 c z, z), (ap1 c (s x), x)]
+  else if c = natAddName then
+    [(ap2 c x z, x), (ap2 c x (s y), s (ap2 c x y))]
+  else if c = natSubName then
+    [(ap2 c x z, x), (ap2 c x (s y), ap1 natPredName (ap2 c x y))]
+  else if c = natMulName then
+    [(ap2 c x z, z), (ap2 c x (s y), ap2 natAddName (ap2 c x y) x)]
+  else if c = natPowName then
+    [(ap2 c x z, s z), (ap2 c x (s y), ap2 natMulName (ap2 c x y) x)]
+  else if c = natBeqName then
+    [(ap2 c z z, bT), (ap2 c z (s y), bF), (ap2 c (s x) z, bF),
+     (ap2 c (s x) (s y), ap2 c x y)]
+  else if c = natBleName then
+    [(ap2 c z y, bT), (ap2 c (s x) z, bF), (ap2 c (s x) (s y), ap2 c x y)]
+  else []
+
+/-- The reduct of op `c` on literal arguments (`pred` ignores the
+second slot). -/
+def natOpResult (c : Name) (a b : Nat) : Option Expr :=
+  if c = natPredName then some (.lit (.natVal (a - 1)))
+  else if c = natAddName then some (.lit (.natVal (a + b)))
+  else if c = natSubName then some (.lit (.natVal (a - b)))
+  else if c = natMulName then some (.lit (.natVal (a * b)))
+  else if c = natPowName then some (.lit (.natVal (a ^ b)))
+  else if c = natBeqName then
+    some (.const (if a = b then boolTrueName else boolFalseName) [])
+  else if c = natBleName then
+    some (.const (if a <= b then boolTrueName else boolFalseName) [])
+  else none
+
+/-- Stored-constant guards for op `c`: the `Nat` basis, every
+dependency stored as a definition, and (for the `Bool`-valued ops) the
+`Bool` constructors stored. -/
+def natOpGuard (env : Env) (c : Name) : Bool :=
+  natLitSupported env &&
+  (natOpDeps c).all (fun n => match env.find? n with
+    | some (.defnInfo cv _) => cv.levelParams.isEmpty
+    | _ => false) &&
+  (if c = natBeqName || c = natBleName then
+    (match env.find? boolTrueName with
+      | some ci => ci.toConstantVal.levelParams.isEmpty
+      | none => false) &&
+    (match env.find? boolFalseName with
+      | some ci => ci.toConstantVal.levelParams.isEmpty
+      | none => false)
+   else true)
+
 /-- Literal acceleration (the official kernel's `reduceNat`, run in the
 `whnf` loop *before* delta-unfolding): pack `Nat.succ` applied to a
 literal back into a literal.  Binary operations on literal arguments
 are added with the verified fast-path capabilities (see DESIGN.md);
 until then only the constructor packing reduces. -/
-def reduceNat (_r : CoreFns m) (env : Env) (_depth : Nat) (e : Expr) :
+def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
     m (Option Expr) := do
   match e with
   | .app (.const c []) a =>
@@ -244,6 +349,19 @@ def reduceNat (_r : CoreFns m) (env : Env) (_depth : Nat) (e : Expr) :
       match rawNatLit? a with
       | some n => pure (some (.lit (.natVal (n + 1))))
       | none => pure none
+    else if c = natPredName ∧ natOpGuard env c = true then
+      match rawNatLit? (← r.whnf depth a) with
+      | some n => pure (natOpResult c n 0)
+      | none => pure none
+    else pure none
+  | .app (.app (.const c []) a) b =>
+    if (c = natAddName ∨ c = natSubName ∨ c = natMulName ∨
+        c = natPowName ∨ c = natBeqName ∨ c = natBleName) ∧
+        natOpGuard env c = true then
+      match rawNatLit? (← r.whnf depth a),
+          rawNatLit? (← r.whnf depth b) with
+      | some n₁, some n₂ => pure (natOpResult c n₁ n₂)
+      | _, _ => pure none
     else pure none
   | _ => pure none
 

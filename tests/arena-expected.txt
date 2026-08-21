@@ -109,7 +109,7 @@
 2 bad/tutorial/055_indNegReducible.ndjson
 2 bad/tutorial/059_typeWithTooHighTypeField.mk.ndjson
 2 bad/tutorial/071_BogusRecursor.ndjson
-2 bad/tutorial/085_projOutOfRange.ndjson
+1 bad/tutorial/085_projOutOfRange.ndjson
 2 bad/tutorial/086_projNotStruct.ndjson
 1 bad/tutorial/088_projProp2.ndjson
 1 bad/tutorial/090_projProp4.ndjson

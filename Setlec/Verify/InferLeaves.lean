@@ -420,9 +420,9 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
       intro d e e' h l hl
       obtain ⟨e₁, hwc, hcase⟩ := whnf_loop_inv h
       rcases hcase with ⟨e₂, hrn, hcont⟩ | ⟨-, e₂, hu, hcont⟩ | ⟨-, -, rfl⟩
-      · obtain ⟨n, rfl⟩ := reduceNat_inv hrn
-        have := ihLoop hcont l hl
-        simp [Expr.fvarLeaves] at this
+      · rcases reduceNat_inv hrn with ⟨n, rfl⟩ | ⟨bn, rfl⟩ <;>
+        · have := ihLoop hcont l hl
+          simp [Expr.fvarLeaves] at this
       · exact ihCore hwc l
           (unfoldDefinition_fvarLeaves henv hu l (ihLoop hcont l hl))
       · exact ihCore hwc l hl
@@ -528,8 +528,8 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
       obtain ⟨e₁, hwc, hcase⟩ := whnf_loop_inv h
       have hbe₁ := ihCore hwc hb
       rcases hcase with ⟨e₂, hrn, hcont⟩ | ⟨-, e₂, hu, hcont⟩ | ⟨-, -, rfl⟩
-      · obtain ⟨n, rfl⟩ := reduceNat_inv hrn
-        exact ihLoop hcont (by simp [looseBVarsBounded])
+      · rcases reduceNat_inv hrn with ⟨n, rfl⟩ | ⟨bn, rfl⟩ <;>
+          exact ihLoop hcont (by simp [looseBVarsBounded])
       · exact ihLoop hcont (unfoldDefinition_looseBVars henv hu hbe₁)
       · exact hbe₁
 

@@ -1984,36 +1984,114 @@ theorem litToCtorIfNat_WScoped {env : Env} {d : Nat} {e : Expr}
   | .lam _ _ _ _ | .forallE _ _ _ _ | .letE _ _ _ _ | .proj _ _ _ =>
     exact hw
 
-/-- Literal acceleration produces literals (which are closed). -/
+/-- The fast-path reducts are closed atoms. -/
+theorem natOpResult_shape {c : Name} {a b : Nat} {e₂ : Expr}
+    (h : natOpResult c a b = some e₂) :
+    (∃ n, e₂ = .lit (.natVal n)) ∨ (∃ bn, e₂ = .const bn []) := by
+  unfold natOpResult at h
+  repeat' split at h
+  all_goals simp only [Option.some.injEq, reduceCtorEq] at h
+  all_goals first
+    | exact Or.inl ⟨_, h.symm⟩
+    | exact Or.inr ⟨_, h.symm⟩
+    | exact nomatch h
+
+/-- Literal acceleration produces closed atoms: a literal or a
+`Bool`-constant head. -/
 theorem reduceNat_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
     (h : reduceNatP env fuel d e = .ok (some e₂)) :
-    ∃ n, e₂ = .lit (.natVal n) := by
+    (∃ n, e₂ = .lit (.natVal n)) ∨ (∃ bn, e₂ = .const bn []) := by
   dsimp only [reduceNatP] at h
   revert h
   match e with
   | .app (.const c []) a => ?_
+  | .app (.app (.const c []) a) b => ?_
   | .bvar _ | .fvar _ _ _ | .sort _ | .lam _ _ _ _ | .forallE _ _ _ _
   | .letE _ _ _ _ | .lit _ | .proj _ _ _ | .const _ _ =>
     intro h; simp [reduceNat, pure, Except.pure] at h
   | .app (.bvar _) _ | .app (.fvar _ _ _) _ | .app (.sort _) _
-  | .app (.app _ _) _ | .app (.lam _ _ _ _) _ | .app (.forallE _ _ _ _) _
+  | .app (.lam _ _ _ _) _ | .app (.forallE _ _ _ _) _
   | .app (.letE _ _ _ _) _ | .app (.lit _) _ | .app (.proj _ _ _) _ =>
     intro h; simp [reduceNat, pure, Except.pure] at h
   | .app (.const c (_ :: _)) _ =>
     intro h; simp [reduceNat, pure, Except.pure] at h
-  intro h
-  simp only [reduceNat] at h
-  revert h
-  split
-  · intro h
+  | .app (.app (.bvar _) _) _ | .app (.app (.fvar _ _ _) _) _
+  | .app (.app (.sort _) _) _ | .app (.app (.app _ _) _) _
+  | .app (.app (.lam _ _ _ _) _) _ | .app (.app (.forallE _ _ _ _) _) _
+  | .app (.app (.letE _ _ _ _) _) _ | .app (.app (.lit _) _) _
+  | .app (.app (.proj _ _ _) _) _ =>
+    intro h; simp [reduceNat, pure, Except.pure] at h
+  | .app (.app (.const c (_ :: _)) _) _ =>
+    intro h; simp [reduceNat, pure, Except.pure] at h
+  · -- unary heads: `succ` folding or the `pred` fast path
+    intro h
+    simp only [reduceNat, Bind.bind, Except.bind, whnf_def] at h
     revert h
-    match rawNatLit? a with
-    | some n =>
+    split
+    · intro h
+      revert h
+      match rawNatLit? a with
+      | some n =>
+        intro h
+        simp only [pure, Except.pure, Except.ok.injEq, Option.some.injEq] at h
+        exact Or.inl ⟨n + 1, h.symm⟩
+      | none => intro h; simp [pure, Except.pure] at h
+    · split
+      · intro h
+        revert h
+        cases hw : whnf env fuel d a with
+        | error err => intro h; exact nomatch h
+        | ok a' =>
+        intro h
+        dsimp only at h
+        revert h
+        match rawNatLit? a' with
+        | some n =>
+          intro h
+          dsimp only at h
+          cases hres : natOpResult c n 0 with
+          | none => rw [hres] at h; simp [pure, Except.pure] at h
+          | some r =>
+            rw [hres] at h
+            simp only [pure, Except.pure, Except.ok.injEq,
+              Option.some.injEq] at h
+            exact h ▸ natOpResult_shape hres
+        | none => intro h; simp [pure, Except.pure] at h
+      · intro h; simp [pure, Except.pure] at h
+  · -- binary fast paths
+    intro h
+    simp only [reduceNat, Bind.bind, Except.bind, whnf_def] at h
+    revert h
+    split
+    · intro h
+      revert h
+      cases hw1 : whnf env fuel d a with
+      | error err => intro h; exact nomatch h
+      | ok a' =>
       intro h
-      simp only [pure, Except.pure, Except.ok.injEq, Option.some.injEq] at h
-      exact ⟨n + 1, h.symm⟩
-    | none => intro h; simp [pure, Except.pure] at h
-  · intro h; simp [pure, Except.pure] at h
+      dsimp only at h
+      revert h
+      cases hw2 : whnf env fuel d b with
+      | error err => intro h; exact nomatch h
+      | ok b' =>
+      intro h
+      dsimp only at h
+      revert h
+      match rawNatLit? a', rawNatLit? b' with
+      | some n₁, some n₂ =>
+        intro h
+        dsimp only at h
+        cases hres : natOpResult c n₁ n₂ with
+        | none => rw [hres] at h; simp [pure, Except.pure] at h
+        | some r =>
+          rw [hres] at h
+          simp only [pure, Except.pure, Except.ok.injEq,
+            Option.some.injEq] at h
+          exact h ▸ natOpResult_shape hres
+      | some _, none => intro h; simp [pure, Except.pure] at h
+      | none, some _ => intro h; simp [pure, Except.pure] at h
+      | none, none => intro h; simp [pure, Except.pure] at h
+    · intro h; simp [pure, Except.pure] at h
 
 /-- Unfolding a definition at the head preserves well-scopedness (the
 stored value is closed by environment well-formedness). -/
@@ -2155,8 +2233,8 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
       obtain ⟨e₁, hwc, hcase⟩ := whnf_loop_inv h
       have hwe₁ : WScoped d e₁ := ihCore hwc hw
       rcases hcase with ⟨e₂, hrn, hcont⟩ | ⟨-, e₂, hu, hcont⟩ | ⟨-, -, rfl⟩
-      · obtain ⟨n, rfl⟩ := reduceNat_inv hrn
-        exact ihLoop hcont (by simp [WScoped])
+      · rcases reduceNat_inv hrn with ⟨n, rfl⟩ | ⟨bn, rfl⟩ <;>
+          exact ihLoop hcont (by simp [WScoped])
       · exact ihLoop hcont (unfoldDefinition_WScoped henv hu hwe₁)
       · exact hwe₁
 
