@@ -331,6 +331,26 @@ def ModeledOk (env : Env) (val : ConstVal V) : Prop :=
     reservedBasisNames.contains T = false →
     UnitLaw V env val T cvT caps)
 
+/-- A stored structural-Nat operation's semantic certificate
+(established at install by `certifyNatEqs` and the pinned-shape
+checks): its literal fast-path guard holds, and it satisfies its
+defining recurrence equations semantically — at every level
+assignment, for every valuation of the equations' two free variables
+by members of the `Nat` value.  `reduceNat`'s soundness consumes the
+equations by meta-level induction on the literal. -/
+def NatOpsOk (env : Env) (val : ConstVal V) : Prop :=
+  ∀ c ∈ natOpNames, ∀ cv v, env.find? c = some (.defnInfo cv v) →
+    natOpGuard env c = true ∧
+    ∀ eq ∈ natOpEquations 0 c, ∀ (ψ : Name → Nat) (x y : V),
+      (∀ T, interpExpr V val env ψ 2 (rho0 V) (.const natName []) = some T →
+        x ∈ˢ T ∧ y ∈ˢ T) →
+      interpExpr V val env ψ 2 (updV V (updV V (rho0 V) 0 x) 1 y) eq.1 =
+      interpExpr V val env ψ 2 (updV V (updV V (rho0 V) 0 x) 1 y) eq.2
+
+theorem NatOpsOk.empty (val : ConstVal V) : NatOpsOk V Env.empty val := by
+  intro c hc cv v h
+  simp [Env.find?, Env.empty] at h
+
 theorem ModeledOk.empty (val : ConstVal V) : ModeledOk V Env.empty val := by
   refine ⟨?_, ?_, ?_, ?_, ?_⟩
   · intro n cv caps h
@@ -383,6 +403,9 @@ structure EnvModel (env : Env) where
   rec_rules : RecRulesOk V env val
   /-- Non-reserved inductive-kind constants carry their model values. -/
   modeled_ok : ModeledOk V env val
+  /-- Every stored structural-Nat operation satisfies its recurrence
+  equations semantically (established at install by `certifyNatEqs`). -/
+  nat_ops : NatOpsOk V env val
 
 /-- The empty environment has a (trivial) model. -/
 def EnvModel.empty : EnvModel V Env.empty where
@@ -397,6 +420,7 @@ def EnvModel.empty : EnvModel V Env.empty where
   ind_ok := IndOk.empty V _ (fun _ x hx => SetTheory.not_mem_empty x hx)
   rec_rules := RecRulesOk.empty V _
   modeled_ok := ModeledOk.empty V _
+  nat_ops := NatOpsOk.empty V _
 
 /-! ## The literal guard, inverted
 

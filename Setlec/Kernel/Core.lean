@@ -231,12 +231,195 @@ def rawNatLit? : Expr → Option Nat
   | .const c [] => if c = natZeroName then some 0 else none
   | _ => none
 
+/-! ## Structural-Nat literal acceleration
+
+The official kernel accelerates the structural `Nat` operations on
+literals (GMP-backed there).  Here the fast path is *certified*: an
+operation participates only when its defining recurrence equations
+hold by definitional equality — checked once, at install: `checkDecl`
+positively rejects a nonstandard definition under one of these names,
+so *presence in the store is the certificate* (no runtime flag, no
+re-checking; a reduction-time re-check would in fact livelock — the
+certification's own `pred zero` equation re-enters the fast path).
+
+The certification runs in the environment *before* the operation is
+stored, on the equations with the operation's self-references replaced
+by its (annotated) definition value (`Expr.substConst0`): running it
+after insertion would let the operation's own just-enabled fast path
+discharge its all-literal-argument equations (`pred zero ≡ zero`,
+`beq zero zero ≡ true`) vacuously — accepting definitions that
+disagree with the fast path on those points, which is unsound.  The
+install also pins the operation's and its dependencies' types to the
+expected `Nat → … → Nat`/`Bool` shapes (`natOpStoredOk`): the model
+reads the operations' function-space memberships off these shapes.
+
+The environment model carries the matching semantic clause: a stored
+definition under one of these names satisfies its recurrences, from
+which meta-level induction over the literal yields the computed
+value.  WF-recursive operations (`div`, `mod`, `gcd`) and string
+literals are deferred. -/
+
+def natPredName : Name := natName.str "pred"
+def natAddName : Name := natName.str "add"
+def natSubName : Name := natName.str "sub"
+def natMulName : Name := natName.str "mul"
+def natPowName : Name := natName.str "pow"
+def natBeqName : Name := natName.str "beq"
+def natBleName : Name := natName.str "ble"
+def boolName : Name := .str .anonymous "Bool"
+def boolTrueName : Name := boolName.str "true"
+def boolFalseName : Name := boolName.str "false"
+
+/-- The structural-Nat operations with a certified literal fast path. -/
+def natOpNames : List Name :=
+  [natPredName, natAddName, natSubName, natMulName, natPowName,
+   natBeqName, natBleName]
+
+/-- The operations (transitively) involved in `c`'s recurrences. -/
+def natOpDeps (c : Name) : List Name :=
+  if c = natPredName then [natPredName]
+  else if c = natAddName then [natAddName]
+  else if c = natSubName then [natPredName, natSubName]
+  else if c = natMulName then [natAddName, natMulName]
+  else if c = natPowName then [natAddName, natMulName, natPowName]
+  else if c = natBeqName then [natBeqName]
+  else if c = natBleName then [natBleName]
+  else []
+
+/-- The defining recurrence equations of a structural-Nat operation,
+over constructor forms with free variables `d`, `d + 1` (binder-free,
+so the equation sides carry no annotations). -/
+def natOpEquations (d : Nat) (c : Name) : List (Expr × Expr) :=
+  let natTy : Expr := .const natName []
+  let x : Expr := .fvar d (.str .anonymous "x") natTy
+  let y : Expr := .fvar (d + 1) (.str .anonymous "y") natTy
+  let z : Expr := .const natZeroName []
+  let s : Expr → Expr := (.app (.const natSuccName []) ·)
+  let ap1 : Name → Expr → Expr := fun n a => .app (.const n []) a
+  let ap2 : Name → Expr → Expr → Expr := fun n a b =>
+    .app (.app (.const n []) a) b
+  let bT : Expr := .const boolTrueName []
+  let bF : Expr := .const boolFalseName []
+  if c = natPredName then
+    [(ap1 c z, z), (ap1 c (s x), x)]
+  else if c = natAddName then
+    [(ap2 c x z, x), (ap2 c x (s y), s (ap2 c x y))]
+  else if c = natSubName then
+    [(ap2 c x z, x), (ap2 c x (s y), ap1 natPredName (ap2 c x y))]
+  else if c = natMulName then
+    [(ap2 c x z, z), (ap2 c x (s y), ap2 natAddName (ap2 c x y) x)]
+  else if c = natPowName then
+    [(ap2 c x z, s z), (ap2 c x (s y), ap2 natMulName (ap2 c x y) x)]
+  else if c = natBeqName then
+    [(ap2 c z z, bT), (ap2 c z (s y), bF), (ap2 c (s x) z, bF),
+     (ap2 c (s x) (s y), ap2 c x y)]
+  else if c = natBleName then
+    [(ap2 c z y, bT), (ap2 c (s x) z, bF), (ap2 c (s x) (s y), ap2 c x y)]
+  else []
+
+/-- The reduct of op `c` on literal arguments (`pred` ignores the
+second slot). -/
+def natOpResult (c : Name) (a b : Nat) : Option Expr :=
+  if c = natPredName then some (.lit (.natVal (a - 1)))
+  else if c = natAddName then some (.lit (.natVal (a + b)))
+  else if c = natSubName then some (.lit (.natVal (a - b)))
+  else if c = natMulName then some (.lit (.natVal (a * b)))
+  else if c = natPowName then some (.lit (.natVal (a ^ b)))
+  else if c = natBeqName then
+    some (.const (if a = b then boolTrueName else boolFalseName) [])
+  else if c = natBleName then
+    some (.const (if a <= b then boolTrueName else boolFalseName) [])
+  else none
+
+/-- Stored-constant guards for op `c`: the `Nat` basis, every
+dependency stored as a definition, and (for the `Bool`-valued ops) the
+`Bool` constructors stored. -/
+def natOpGuard (env : Env) (c : Name) : Bool :=
+  natLitSupported env &&
+  (natOpDeps c).all (fun n => match env.find? n with
+    | some (.defnInfo cv _) => cv.levelParams.isEmpty
+    | _ => false) &&
+  (if c = natBeqName || c = natBleName then
+    (match env.find? boolTrueName with
+      | some ci => ci.toConstantVal.levelParams.isEmpty
+      | none => false) &&
+    (match env.find? boolFalseName with
+      | some ci => ci.toConstantVal.levelParams.isEmpty
+      | none => false)
+   else true)
+
+/-- Structural-`Nat` operations *without* a verified fast path: the
+WF-recursive ones (`div`, `mod`, `gcd`, the bit operations, `log2`).
+Reducing these on literals natively is unsupported, and letting delta
+grind through their well-founded recursion on large literals would
+build huge terms (a plain run visibly times out) — so a *literal
+application* of one of these is positively declined (arena exit 2),
+per the exit-code convention.  Declaring the functions themselves is
+unaffected: only the reduction path declines. -/
+def natOpWfNames : List Name :=
+  [natName.str "div", natName.str "mod", natName.str "gcd",
+   natName.str "land", natName.str "lor", natName.str "xor",
+   natName.str "shiftLeft", natName.str "shiftRight",
+   natName.str "log2"]
+
+/-- Substitute the level-monomorphic constant `n` by `r` through an
+application spine (the certification equations' self-references; the
+equation sides are binder-free, so only `app` recurses). -/
+def Expr.substConst0 (n : Name) (r : Expr) : Expr → Expr
+  | .const c us => if c = n ∧ us = [] then r else .const c us
+  | .app f a => .app (Expr.substConst0 n r f) (Expr.substConst0 n r a)
+  | e => e
+
+/-- A binder's codomain-sort annotation is (equivalent to) `1`. -/
+def natCod1 (mb : BinderMeta) : Bool :=
+  match mb.cod with
+  | some v => Level.isEquiv v (.succ .zero) == some true
+  | none => false
+
+/-- The pinned codomain of a structural-Nat operation: `Bool` (itself
+stored level-monomorphically at type `Sort 1`) for the comparisons,
+`Nat` otherwise. -/
+def natOpCod (env : Env) (c : Name) (e : Expr) : Bool :=
+  if c = natBeqName || c = natBleName then
+    e == .const boolName [] &&
+    (match env.find? boolName with
+     | some ci => ci.toConstantVal.levelParams.isEmpty &&
+         ci.toConstantVal.type == .sort (.succ .zero)
+     | none => false)
+  else e == .const natName []
+
+/-- The pinned (annotated) type of a structural-Nat operation:
+`Nat → Nat` for `pred`, `Nat → Nat → Nat` for the arithmetic
+operations, `Nat → Nat → Bool` for the comparisons.  The codomain-sort
+annotations must be equivalent to `1`.  The model reads the
+operations' function-space memberships off this shape. -/
+def natOpTyPinned (env : Env) (c : Name) (ty : Expr) : Bool :=
+  if c = natPredName then
+    match ty with
+    | .forallE _ dom body mb =>
+      dom == .const natName [] && natOpCod env c body && natCod1 mb
+    | _ => false
+  else
+    match ty with
+    | .forallE _ dom (.forallE _ dom2 body mb2) mb =>
+      dom == .const natName [] && dom2 == .const natName [] &&
+      natOpCod env c body && natCod1 mb && natCod1 mb2
+    | _ => false
+
+/-- Op `n` is stored as a level-monomorphic definition with the pinned
+type. -/
+def natOpStoredOk (env : Env) (n : Name) : Bool :=
+  match env.find? n with
+  | some (.defnInfo cv _) =>
+    cv.levelParams.isEmpty && natOpTyPinned env n cv.type
+  | _ => false
+
 /-- Literal acceleration (the official kernel's `reduceNat`, run in the
 `whnf` loop *before* delta-unfolding): pack `Nat.succ` applied to a
 literal back into a literal.  Binary operations on literal arguments
 are added with the verified fast-path capabilities (see DESIGN.md);
 until then only the constructor packing reduces. -/
-def reduceNat (_r : CoreFns m) (env : Env) (_depth : Nat) (e : Expr) :
+def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
     m (Option Expr) := do
   match e with
   | .app (.const c []) a =>
@@ -244,6 +427,30 @@ def reduceNat (_r : CoreFns m) (env : Env) (_depth : Nat) (e : Expr) :
       match rawNatLit? a with
       | some n => pure (some (.lit (.natVal (n + 1))))
       | none => pure none
+    else if c = natPredName ∧ natOpGuard env c = true then
+      match rawNatLit? (← r.whnf depth a) with
+      | some n => pure (natOpResult c n 0)
+      | none => pure none
+    else if c = natName.str "log2" ∧ natLitSupported env then
+      match rawNatLit? (← r.whnf depth a) with
+      | some _ => throw (.notImplemented
+          s!"native Nat computation on literals ({c})")
+      | none => pure none
+    else pure none
+  | .app (.app (.const c []) a) b =>
+    if (c = natAddName ∨ c = natSubName ∨ c = natMulName ∨
+        c = natPowName ∨ c = natBeqName ∨ c = natBleName) ∧
+        natOpGuard env c = true then
+      match rawNatLit? (← r.whnf depth a),
+          rawNatLit? (← r.whnf depth b) with
+      | some n₁, some n₂ => pure (natOpResult c n₁ n₂)
+      | _, _ => pure none
+    else if natOpWfNames.contains c ∧ natLitSupported env then
+      match rawNatLit? (← r.whnf depth a),
+          rawNatLit? (← r.whnf depth b) with
+      | some _, some _ => throw (.notImplemented
+          s!"native Nat computation on literals ({c})")
+      | _, _ => pure none
     else pure none
   | _ => pure none
 

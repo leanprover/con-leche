@@ -600,19 +600,67 @@ theorem checkOpaqueVal_snd_dproj (env : Env) (cv : ConstantVal)
   unfold checkOpaqueVal
   dsnd_tac
 
+theorem certifyNatEqs_fst_dproj (env : Env) :
+    ∀ eqs : List (Expr × Expr),
+      (certifyNatEqs (pairOps o₁ o₂ h) env eqs).val.1 =
+        certifyNatEqs o₁ env eqs
+  | [] => rfl
+  | eq :: rest => by
+    show ((do
+        if ← CheckerOps.isDefEq (pairOps o₁ o₂ h) env 2 eq.1 eq.2 then
+          certifyNatEqs (pairOps o₁ o₂ h) env rest
+        else pure false : PairM rel _)).val.1 = _
+    rw [PairM.fst_bind]
+    show _ = (do
+        if ← CheckerOps.isDefEq o₁ env 2 eq.1 eq.2 then
+          certifyNatEqs o₁ env rest
+        else pure false : M₁ _)
+    congr 1
+    funext b
+    cases b with
+    | true => exact certifyNatEqs_fst_dproj env rest
+    | false => rfl
+
+theorem certifyNatEqs_snd_dproj (env : Env) :
+    ∀ eqs : List (Expr × Expr),
+      (certifyNatEqs (pairOps o₁ o₂ h) env eqs).val.2 =
+        certifyNatEqs o₂ env eqs
+  | [] => rfl
+  | eq :: rest => by
+    show ((do
+        if ← CheckerOps.isDefEq (pairOps o₁ o₂ h) env 2 eq.1 eq.2 then
+          certifyNatEqs (pairOps o₁ o₂ h) env rest
+        else pure false : PairM rel _)).val.2 = _
+    rw [PairM.snd_bind]
+    show _ = (do
+        if ← CheckerOps.isDefEq o₂ env 2 eq.1 eq.2 then
+          certifyNatEqs o₂ env rest
+        else pure false : M₂ _)
+    congr 1
+    funext b
+    cases b with
+    | true => exact certifyNatEqs_snd_dproj env rest
+    | false => rfl
+
 theorem checkDecl_fst_dproj (env : Env) (d : Declaration) :
     (checkDecl (pairOps o₁ o₂ h) env d).val.1 =
       checkDecl o₁ env d := by
   unfold checkDecl
   cases d with
   | defnDecl cv value =>
-    show ((checkConstantVal (pairOps o₁ o₂ h) env cv >>= fun cv =>
-      checkDefnVal (pairOps o₁ o₂ h) env cv value : PairM rel _)).val.1
-      = _
+    dsimp only
     rw [PairM.fst_bind, checkConstantVal_fst_dproj]
     congr 1
     funext cv'
-    rw [checkDefnVal_fst_dproj]
+    rw [PairM.fst_bind, checkDefnVal_fst_dproj]
+    congr 1
+    funext env2
+    repeat (first
+      | (rw [certifyNatEqs_fst_dproj])
+      | split
+      | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
+      | rfl
+      | (simp only [PairM.fst_pure, PairM.fst_throw]))
   | thmDecl cv value =>
     show ((checkConstantVal (pairOps o₁ o₂ h) env cv >>= fun cv =>
       checkThmVal (pairOps o₁ o₂ h) env cv value : PairM rel _)).val.1
@@ -663,13 +711,19 @@ theorem checkDecl_snd_dproj (env : Env) (d : Declaration) :
   unfold checkDecl
   cases d with
   | defnDecl cv value =>
-    show ((checkConstantVal (pairOps o₁ o₂ h) env cv >>= fun cv =>
-      checkDefnVal (pairOps o₁ o₂ h) env cv value : PairM rel _)).val.2
-      = _
+    dsimp only
     rw [PairM.snd_bind, checkConstantVal_snd_dproj]
     congr 1
     funext cv'
-    rw [checkDefnVal_snd_dproj]
+    rw [PairM.snd_bind, checkDefnVal_snd_dproj]
+    congr 1
+    funext env2
+    repeat (first
+      | (rw [certifyNatEqs_snd_dproj])
+      | split
+      | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
+      | rfl
+      | (simp only [PairM.snd_pure, PairM.snd_throw]))
   | thmDecl cv value =>
     show ((checkConstantVal (pairOps o₁ o₂ h) env cv >>= fun cv =>
       checkThmVal (pairOps o₁ o₂ h) env cv value : PairM rel _)).val.2
@@ -985,18 +1039,46 @@ theorem checkOpaqueVal_datF (env : Env) (cv : ConstantVal) (value : Expr)
   unfold checkOpaqueVal
   datF_tac
 
+theorem certifyNatEqs_datF (env : Env) (F : Nat) :
+    ∀ eqs : List (Expr × Expr),
+      (certifyNatEqs fueledOpsM env eqs).val F =
+        certifyNatEqs (fueledOps F) env eqs
+  | [] => rfl
+  | eq :: rest => by
+    show ((do
+        if ← CheckerOps.isDefEq fueledOpsM env 2 eq.1 eq.2 then
+          certifyNatEqs fueledOpsM env rest
+        else pure false : FueledM _)).val F = _
+    rw [FueledM.atF_bind]
+    show _ = (do
+        if ← CheckerOps.isDefEq (fueledOps F) env 2 eq.1 eq.2 then
+          certifyNatEqs (fueledOps F) env rest
+        else pure false : CheckM _)
+    congr 1
+    funext b
+    cases b with
+    | true => exact certifyNatEqs_datF env F rest
+    | false => rfl
+
 theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
     (checkDecl fueledOpsM env d).val F =
       checkDecl (fueledOps F) env d := by
   unfold checkDecl
   cases d with
   | defnDecl cv value =>
-    show ((checkConstantVal fueledOpsM env cv >>= fun cv =>
-      checkDefnVal fueledOpsM env cv value : FueledM _)).val F = _
+    dsimp only
     rw [FueledM.atF_bind, checkConstantVal_datF]
     congr 1
     funext cv'
-    rw [checkDefnVal_datF]
+    rw [FueledM.atF_bind, checkDefnVal_datF]
+    congr 1
+    funext env2
+    repeat (first
+      | (rw [certifyNatEqs_datF])
+      | split
+      | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+      | rfl
+      | (simp only [FueledM.atF_pure, FueledM.atF_throw]))
   | thmDecl cv value =>
     show ((checkConstantVal fueledOpsM env cv >>= fun cv =>
       checkThmVal fueledOpsM env cv value : FueledM _)).val F = _

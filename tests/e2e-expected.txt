@@ -1,6 +1,10 @@
 0 indexed_vec.ndjson
 0 std_axioms.ndjson
 0 prop_proj.ndjson
+# nat_ops.ndjson: all seven structural-Nat fast-path operations
+# (pred/add/sub/mul/pow/beq/ble) exercised on 2^64-scale literals; the
+# certified install path must keep accepting the standard definitions.
+0 nat_ops.ndjson
 # prop_proj_raw.ndjson (= arena tutorial 087, only reachable from raw
 # kernel declarations, not surface Lean): a *Prop* structure-like with
 # data fields (PUnit.{v} at v=1) among its Prop fields.  For this
@@ -21,3 +25,33 @@
 2 sorry_use.ndjson
 
 0 opaque_decl.ndjson
+0 nat_ops.ndjson
+# nat_ops_nonstandard.ndjson: hand-patched from a plain export —
+# Nat.add's value replaced by (fun x y => x).  The structural-Nat
+# fast-path certification must positively decline the nonstandard
+# definition at install (never accept: the literal fast path would
+# then compute values the stored definition does not).
+2 nat_ops_nonstandard.ndjson
+# Structural-Nat fast-path coverage (see tests/e2e/src/nat_ops*.lean).
+# nat_ops_edge: zero operands, truncated sub, pred 0, 0^0, nested
+# chains, succ-application and Nat.zero-constant argument forms.
+0 nat_ops_edge.ndjson
+# nat_*_wrong: hand-patched from the (preprocessed) bad_base exports —
+# ONE stated result literal (resp. the theorem-side Bool constant) is
+# perturbed, so acceptance would require e.g. add 11 12 ≡ 24: a wrong
+# fast-path value would ACCEPT, a missing fast path would exit 3 —
+# only the correct certified computation rejects (1).  Patching after
+# preprocessing matters: the preprocessor's own kernel check would
+# otherwise crash to the raw-input fallback.
+1 nat_add_wrong.ndjson
+1 nat_sub_wrong.ndjson
+1 nat_mul_wrong.ndjson
+1 nat_pow_wrong.ndjson
+1 nat_pred_wrong.ndjson
+1 nat_beq_wrong.ndjson
+1 nat_ble_wrong.ndjson
+# A level-polymorphic definition under a fast-path name is positively
+# declined at install (the certification pins level-monomorphy).
+2 nat_add_levelpoly.ndjson
+
+2 nat_div_declined.ndjson

@@ -604,13 +604,49 @@ def checkOpaqueVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
   unless ← ops.isDefEq env 0 vtype cv.type do
     throw (.invalid s!"type mismatch in opaque {cv.name}")
   pure ⟨.thmInfo cv value :: env.consts⟩
+/-- Certify a list of recurrence equations by definitional equality
+(at depth 2: the equations' variables are `fvar 0`/`fvar 1`). -/
+def certifyNatEqs (ops : CheckerOps m) (env : Env) :
+    List (Expr × Expr) → m Bool
+  | [] => pure true
+  | eq :: rest => do
+    if ← ops.isDefEq env 2 eq.1 eq.2 then
+      certifyNatEqs ops env rest
+    else pure false
 
 /-- Check a single declaration, extending the environment on success. -/
 def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
   match d with
-  | .defnDecl cv value =>
+  | .defnDecl cv value => do
     let cv ← checkConstantVal ops env cv
-    checkDefnVal ops env cv value
+    let env2 ← checkDefnVal ops env cv value
+    -- Structural-Nat pins: the fast-path ops must be the standard
+    -- structural recursions — their recurrence equations are checked
+    -- by definitional equality here, once, so the literal fast path's
+    -- reduction-time certification never fails on an accepted
+    -- environment.  A nonstandard definition under one of these names
+    -- is positively unsupported.  The equations are certified in the
+    -- *pre-insertion* environment with the operation's self-references
+    -- replaced by its stored value (see `Setlec/Kernel/Core.lean`:
+    -- certifying after insertion would let the operation's own fast
+    -- path discharge its all-literal equations vacuously), and the
+    -- operation's and its dependencies' stored types are pinned.
+    if natOpNames.contains cv.name then
+      unless natOpGuard env2 cv.name &&
+          (natOpDeps cv.name).all (natOpStoredOk env2) do
+        throw (.notImplemented
+          s!"nonstandard structural Nat operation environment ({cv.name})")
+      match env2.find? cv.name with
+      | some (.defnInfo _ value') =>
+        let ok ← certifyNatEqs ops env
+          ((natOpEquations 0 cv.name).map fun eq =>
+            (Expr.substConst0 cv.name value' eq.1,
+             Expr.substConst0 cv.name value' eq.2))
+        unless ok do
+          throw (.notImplemented
+            s!"nonstandard structural Nat operation ({cv.name})")
+      | _ => throw (.internal s!"structural Nat operation not stored ({cv.name})")
+    pure env2
   | .thmDecl cv value =>
     let cv ← checkConstantVal ops env cv
     checkThmVal ops env cv value
