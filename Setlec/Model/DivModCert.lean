@@ -968,4 +968,111 @@ theorem divmod_certs_sound (m : EnvModel V env) (F : Nat)
       rw [if_neg (by decide), hveq]
       exact heq
 
+
+/-! ## Inversion of the fueled pin-gate run -/
+
+/-- Unpack a successful `checkDivModPin` run. -/
+theorem checkDivModPin_inv {env env2 : Env} {F : Nat} {c : Name} {u : Unit}
+    (h : checkDivModPin (fueledOps F) env env2 c = .ok u) :
+    divModEnvGuard env2 c = true ∧
+    ∃ cv' value' hint',
+      env2.find? c = some (.defnInfo cv' value' hint') ∧
+      divModPinGuard env c = true ∧
+      (∃ pinA, annotateCore env F 0 (divModDeclPin c) = .ok pinA ∧
+        isDefEqCore env F 0 value' pinA = .ok true) ∧
+      checkDivModCerts (fueledOps F) env c value'
+        (divModCertStmts c) (divModCertProofs c) = .ok true := by
+  unfold checkDivModPin at h
+  revert h
+  split
+  case isFalse => intro h; exact nomatch h
+  case isTrue hg =>
+    refine fun h => ⟨hg, ?_⟩
+    revert h
+    cases hfind : env2.find? c with
+    | none => intro h; exact nomatch h
+    | some ci =>
+      cases ci with
+      | axiomInfo cv' => intro h; exact nomatch h
+      | thmInfo cv' v' => intro h; exact nomatch h
+      | indInfo cv' caps => intro h; exact nomatch h
+      | ctorInfo cv' nP nF => intro h; exact nomatch h
+      | recInfo cv' nP nM nm ni rules => intro h; exact nomatch h
+      | defnInfo cv' value' hint' =>
+        dsimp only
+        split
+        case isFalse => intro h; exact nomatch h
+        case isTrue hping =>
+          simp only [fueledOps_annotate, fueledOps_isDefEq, Bind.bind,
+            Except.bind]
+          cases hann : annotateCore env F 0 (divModDeclPin c) with
+          | error e => intro h; exact nomatch h
+          | ok pinA =>
+            intro h
+            dsimp only at h
+            revert h
+            cases hde : isDefEqCore env F 0 value' pinA with
+            | error e => intro h; exact nomatch h
+            | ok b =>
+              cases b with
+              | false => intro h; simp [throw, throwThe,
+                  MonadExceptOf.throw] at h
+              | true =>
+                intro h
+                simp only [↓reduceIte] at h
+                revert h
+                cases hcert : checkDivModCerts (fueledOps F) env c value'
+                    (divModCertStmts c) (divModCertProofs c) with
+                | error e => intro h; exact nomatch h
+                | ok ok =>
+                  cases ok with
+                  | false => intro h; simp [throw, throwThe,
+                      MonadExceptOf.throw] at h
+                  | true =>
+                    intro h
+                    exact ⟨cv', value', hint', rfl, hping,
+                      ⟨pinA, rfl, hde⟩, hcert⟩
+
+
+/-- The pin names are distinct from every constant the install path
+transports (the `Nat`/`Bool` pins, the pinned equality, and the
+already-certified dependencies). -/
+theorem natDivModNames_ne_env {c : Name} (hc : c ∈ natDivModNames) :
+    c ≠ natName ∧ c ≠ natZeroName ∧ c ≠ natSuccName ∧ c ≠ boolName ∧
+    c ≠ boolTrueName ∧ c ≠ boolFalseName ∧ c ≠ eqName ∧
+    c ≠ natBleName ∧ c ≠ natSubName ∧ c ≠ natPredName ∧
+    c ≠ natBeqName := by
+  simp only [natDivModNames, List.mem_cons, List.not_mem_nil,
+    or_false] at hc
+  rcases hc with rfl | rfl <;>
+    exact ⟨by decide, by decide, by decide, by decide, by decide,
+      by decide, by decide, by decide, by decide, by decide, by decide⟩
+
+/-- `divModEnvGuard`, split into facts. -/
+theorem divModEnvGuard_inv {env2 : Env} {c : Name}
+    (h : divModEnvGuard env2 c = true) :
+    natOpGuard env2 c = true ∧
+    (natOpDeps c).all (natOpStoredOk env2) = true ∧
+    env2.find? eqName = some eqA ∧
+    (∃ ci, env2.find? boolTrueName = some ci ∧
+      ci.toConstantVal.type = .const boolName []) ∧
+    (∃ ci, env2.find? boolFalseName = some ci ∧
+      ci.toConstantVal.type = .const boolName []) := by
+  unfold divModEnvGuard at h
+  simp only [Bool.and_eq_true] at h
+  obtain ⟨⟨⟨⟨hg, hdeps⟩, heq⟩, hbT⟩, hbF⟩ := h
+  refine ⟨hg, hdeps, by simpa using heq, ?_, ?_⟩
+  · revert hbT
+    split
+    · next ci hfind =>
+      intro hbT
+      exact ⟨ci, hfind, by simpa using hbT⟩
+    · intro hbT; exact nomatch hbT
+  · revert hbF
+    split
+    · next ci hfind =>
+      intro hbF
+      exact ⟨ci, hfind, by simpa using hbF⟩
+    · intro hbF; exact nomatch hbF
+
 end Setlec
