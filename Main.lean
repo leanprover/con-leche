@@ -67,7 +67,25 @@ def main (args : List String) : IO UInt32 := do
         IO.println s!"setlec: accepted {env.consts.length} declarations"
         return 0
       | .error e =>
-        IO.eprintln s!"setlec: {e}"
+        -- Diagnostic second pass: the verdict above is the verified
+        -- `checkDecls` run; this only locates the failing declaration
+        -- for the message.
+        let declName : Setlec.Declaration → String := fun d =>
+          match d with
+          | .defnDecl cv _ => s!"def {cv.name}"
+          | .thmDecl cv _ => s!"theorem {cv.name}"
+          | .opaqueDecl cv _ => s!"opaque {cv.name}"
+          | .axiomDecl cv => s!"axiom {cv.name}"
+          | .indDecl b => s!"inductive {(b.head?.map (·.name)).getD .anonymous}"
+          | .basisDecl k => s!"basis block {repr k}"
+        let ctx := Id.run do
+          let mut env := Setlec.Env.empty
+          for d in decls do
+            match checkDecl cachedOps env d with
+            | .ok env' => env := env'
+            | .error _ => return s!" [at {declName d}]"
+          return ""
+        IO.eprintln s!"setlec: {e}{ctx}"
         return e.exitCode
   | _ =>
     IO.eprintln "usage: setlec FILE.ndjson"
