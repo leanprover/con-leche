@@ -16,8 +16,12 @@ checker is verified to be consistent.
 
 ## The model
 
-* The target theory is **Tarski–Grothendieck set theory**. Inside Lean it is
-  expressed as an interface (`Setlec.SetTheory`), a class over a universe
+* The target theory is **ZF (minus Infinity) plus an ω-chain of Grothendieck
+  universes** — the consistency strength of Lean itself (Carneiro's
+  `OmegaInaccessibles`: ZFC + a strictly increasing ω-sequence of
+  inaccessibles; model the chain by `V_{κ n}`). Inside Lean it is
+  expressed as an interface (`Setlec.SetTheory`, see
+  `Setlec/SetTheory/Core.lean`), a class over a universe
   type `V`; all verification is parametric in a model of that interface, which
   serves as the "extra assumption for cardinality reasons". Constructing an
   instance from `ZFSet`-style machinery (cf.

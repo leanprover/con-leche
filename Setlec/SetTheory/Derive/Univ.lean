@@ -5,11 +5,17 @@ import Setlec.SetTheory.Derive.Omega
 # The universe tower
 
 `univ 0` is the set of truth values (`univZero`, Carneiro's `U₀`);
-`univ (n+1)` is a Grothendieck universe containing both `univ n` and
-the inductive universe `guniv ∅` — the second component is what puts
-`ω` inside every positive level (a bare universe need not contain
-`ω`; `V_ω` is one).  Cumulativity holds because positive levels are
-transitive and each level is a member of the next.
+`univ (n+1)` is the chain universe `univChain (n+2)`.  The tower
+starts two levels up the chain so that every positive level has the
+inductive set `univChain 1` as a member — which is what puts `ω`
+inside every positive level (a bare universe need not contain `ω`;
+`V_ω` is one — and `univChain 0` need not be inhabited, the empty set
+satisfying `IsTGUniverse` vacuously, so `univChain 1` is the first chain
+member known to be inductive).  `univ 0 ∈ univ 1` because `univZero`
+is built from `∅` by pairing/power closure inside the inhabited
+universe `univChain 1 ∈ univChain 2`.  Cumulativity holds because
+positive levels are transitive and each level is a member of the
+next.
 -/
 
 namespace Setlec.SetTheory
@@ -21,7 +27,7 @@ variable {V : Type u} [SetTheory V]
 /-- The universe tower interpreting `Sort n`. -/
 noncomputable def univ : Nat → V
   | 0 => univZero
-  | n + 1 => guniv (upair (univ n) (guniv empty))
+  | n + 1 => univChain (n + 2)
 
 theorem univ_zero : (univ 0 : V) = univZero := rfl
 
@@ -29,14 +35,18 @@ theorem univ_zero : (univ 0 : V) = univZero := rfl
 theorem univ_isTGUniverse {n : Nat} (hn : n ≠ 0) :
     IsTGUniverse (Mem (V := V)) (univ n) := by
   match n, hn with
-  | m + 1, _ => exact guniv_isTGUniverse _
+  | m + 1, _ => exact univChain_tg _
 
-theorem guniv_empty_mem_univ_succ (n : Nat) :
-    guniv (empty : V) ∈ˢ univ (n + 1) :=
-  (guniv_isTGUniverse _).transitive (mem_guniv _) (mem_upair_right _ _)
+theorem univChain_one_mem_univ_succ (n : Nat) :
+    (univChain 1 : V) ∈ˢ univ (n + 1) :=
+  univChain_mem_of_lt (Nat.succ_lt_succ n.succ_pos)
 
-theorem univ_mem_univ (n : Nat) : (univ n : V) ∈ˢ univ (n + 1) :=
-  (guniv_isTGUniverse _).transitive (mem_guniv _) (mem_upair_left _ _)
+theorem univ_mem_univ (n : Nat) : (univ n : V) ∈ˢ univ (n + 1) := by
+  match n with
+  | 0 =>
+    exact (univChain_tg 2).transitive (univChain_mem 1)
+      ((univChain_tg 1).univZero_mem (univChain_mem 0))
+  | m + 1 => exact univChain_mem (m + 2)
 
 theorem univ_subset_succ (n : Nat) : (univ n : V) ⊆ˢ univ (n + 1) :=
   (univ_isTGUniverse (Nat.succ_ne_zero n)).subset_of_mem (univ_mem_univ n)
@@ -50,17 +60,17 @@ theorem univ_mono {m n : Nat} (h : m ≤ n) : (univ m : V) ⊆ˢ univ n := by
     · exact Subset.refl _
 
 theorem omega_mem_univ_succ (n : Nat) : (omega : V) ∈ˢ univ (n + 1) :=
-  (univ_isTGUniverse (Nat.succ_ne_zero n)).omega_mem (guniv_empty_mem_univ_succ n)
+  (univ_isTGUniverse (Nat.succ_ne_zero n)).omega_mem (univChain_one_mem_univ_succ n)
 
 theorem empty_mem_univ : ∀ n : Nat, (empty : V) ∈ˢ univ n
   | 0 => mem_univZero.mpr (empty_subset _)
   | n + 1 =>
-    (univ_isTGUniverse (Nat.succ_ne_zero n)).empty_mem (guniv_empty_mem_univ_succ n)
+    (univ_isTGUniverse (Nat.succ_ne_zero n)).empty_mem (univChain_one_mem_univ_succ n)
 
 theorem unitSet_mem_univ : ∀ n : Nat, (unitSet : V) ∈ˢ univ n
   | 0 => mem_univZero.mpr (Subset.refl _)
   | n + 1 =>
-    (univ_isTGUniverse (Nat.succ_ne_zero n)).unitSet_mem (guniv_empty_mem_univ_succ n)
+    (univ_isTGUniverse (Nat.succ_ne_zero n)).unitSet_mem (univChain_one_mem_univ_succ n)
 
 /-- Formation for `pi` along the tower, with the `imax`-style level. -/
 theorem pi_mem_univ {u v : Nat} {A : V} {B : V → V}

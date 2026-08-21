@@ -4,16 +4,15 @@ import Setlec.SetTheory.Derive.Pair
 # Grothendieck universes: the diagonal argument and the closure laws
 
 The engine room, recovering the Grothendieck-universe closure laws
-(SGA 4, Exp. I, Appendix) from Tarski's Axiom A (Tarski 1938).  The
-inaccessibility clause offers, for any subset `S ⊆ u`, the disjunction
-`S ≈ u ∨ S ∈ u`; the single lemma `covered_mem` turns it into a
-closure property by refuting the first disjunct with Cantor's diagonal
-whenever `S` is covered by a function from a *member* of `u`.
+(SGA 4, Exp. I, Appendix) from the Axiom-A matrix `IsTGUniverse`
+(Tarski 1938) — applied downstream to the chain members `univChain n`.
+The inaccessibility clause offers, for any subset `S ⊆ u`, the
+disjunction `S ≈ u ∨ S ∈ u`; the single lemma `covered_mem` turns it
+into a closure property by refuting the first disjunct with Cantor's
+diagonal whenever `S` is covered by a function from a *member* of `u`.
 Everything else — pairing, power, binary union, replacement images,
 `⋃` of a member — reduces to it (`⋃` via a two-step surjection
 argument ending in a membership 2-cycle).
-
-`guniv x` fixes, by choice, a Grothendieck universe containing `x`.
 -/
 
 namespace Setlec.SetTheory
@@ -150,14 +149,15 @@ theorem _root_.Setlec.IsTGUniverse.famUnion_mem {A : V} {F : V → V}
 
 end IsTGUniverse
 
-/-- A fixed Grothendieck universe containing `x`, by choice from
-Tarski's Axiom A. -/
-noncomputable def guniv (x : V) : V := Classical.choose (tarski x)
-
-theorem mem_guniv (x : V) : x ∈ˢ guniv x :=
-  (Classical.choose_spec (tarski x)).1
-
-theorem guniv_isTGUniverse (x : V) : IsTGUniverse (Mem (V := V)) (guniv x) :=
-  (Classical.choose_spec (tarski x)).2
+/-- Chain membership generalizes along the ordering, by transitivity
+of the higher universe. -/
+theorem univChain_mem_of_lt {m n : Nat} (h : m < n) :
+    (univChain m : V) ∈ˢ univChain n := by
+  induction n with
+  | zero => exact absurd h (Nat.not_lt_zero m)
+  | succ n ih =>
+    rcases Nat.lt_succ_iff_lt_or_eq.mp h with h' | rfl
+    · exact (univChain_tg (n + 1)).transitive (univChain_mem n) (ih h')
+    · exact univChain_mem m
 
 end Setlec.SetTheory

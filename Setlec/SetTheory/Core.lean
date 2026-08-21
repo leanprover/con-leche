@@ -1,51 +1,53 @@
 /-!
-# The axiomatic core: Tarski–Grothendieck set theory
+# The axiomatic core: ZF⁻ plus an ω-chain of Grothendieck universes
 
 The `SetTheory` class below is the *entire* axiomatic interface of the
 consistency proof; every operator and law the model construction uses
 (`Setlec/SetTheory/Basic.lean`) is *derived* from it in
 `Setlec/SetTheory/Derive/*`, never assumed.
 
-The set-theoretic axioms are those of Tarski–Grothendieck set theory
-(Tarski's Axiom A over ZF minus Infinity; cf. the Mizar axiomatics,
-A. Trybulec, *Tarski Grothendieck Set Theory*, Formalized Mathematics
-1(1), 1990): **extensionality, pairing, union, power set, regularity,
-the replacement scheme, and Tarski's Axiom A** (A. Tarski, *Über
-unerreichbare Kardinalzahlen*, Fund. Math. 30 (1938), 68–89)
-**strengthened with a transitivity clause**, making the universes it
-postulates Grothendieck universes (SGA 4, Exp. I, Appendix).  Infinity
-and choice are derivable and therefore absent.  Deliberate deviations
-from a first-order presentation:
+The set-theoretic axioms are **extensionality, pairing, union, power
+set, regularity, the replacement scheme, and an ω-chain of
+Grothendieck universes** `univChain 0 ∈ univChain 1 ∈ …` —
+universehood stated as the matrix of Tarski's Axiom A (A. Tarski,
+*Über unerreichbare Kardinalzahlen*, Fund. Math. 30 (1938), 68–89)
+strengthened with a transitivity clause, i.e. as Grothendieck
+universes (SGA 4, Exp. I, Appendix).  Infinity and choice are
+derivable and therefore absent.
+
+This calibrates the axiomatic strength to exactly what the checker
+consumes — the ω-indexed tower `univ 0, univ 1, univ 2, …` — and to
+the known consistency strength of Lean itself: ZFC plus a strictly
+increasing ω-sequence of inaccessible cardinals, M. Carneiro's
+`OmegaInaccessibles` hypothesis
+`∃ κ : ℕ → Cardinal, StrictMono κ ∧ ∀ n, (κ n).IsInaccessible`
+(*The Type Theory of Lean*, §1.2).  Under that hypothesis the intended
+model takes `univChain n := V_{κ n}`.  This is strictly weaker than
+full Tarski–Grothendieck set theory (Tarski's Axiom A places a
+universe above *every* set, a proper class of inaccessibles; cf. the
+Mizar axiomatics, A. Trybulec, *Tarski Grothendieck Set Theory*,
+Formalized Mathematics 1(1), 1990).
+
+Deliberate deviations from a first-order presentation:
 
 * **Replacement** is a Lean-level scheme: the image operator takes an
   arbitrary function `V → V`.  This is the usual strengthening when the
   ambient logic can quantify over class functions; `V_κ` for `κ`
   inaccessible still satisfies it.
 * **Choice is not a field.**  A first-order axiomatization must assert
-  choice (Tarski–Grothendieck theory usually derives a strong form from
-  Axiom A); here the ambient logic is Lean with `Classical.choice`, and
+  choice; here the ambient logic is Lean with `Classical.choice`, and
   every set-level form of choice over `V` (the global selector
   `schoice`, and the Jech-form choice-function statement, *Set Theory*,
   §5) is a *theorem* — replacement applied to a classically chosen
   selector.  See `Setlec/SetTheory/Derive/Choice.lean`.  Asserting it
   here would add redundant axiomatic content; global choice is supplied
   by the meta-logic, not by this class.
-* **`nonempty`** makes explicit what first-order logic assumes of every
-  domain; without it all fields are vacuously satisfiable by an empty
-  `V` and not even the empty set would be derivable.
+* **No `nonempty` field.**  First-order logic's nonempty domain is
+  implied: `univChain` already exhibits elements of `V`.
 
 Everything else — the empty set, separation, ordered pairs, infinity,
 function graphs, the universe tower, quotients — is constructed in
 `Setlec/SetTheory/Derive/*`.
-
-**Known further weakening (not yet done).**  `tarski` gives a universe
-above *every* set, i.e. a proper class of inaccessibles; the checker
-only ever consumes the ω-indexed tower `univ 0, univ 1, univ 2, …`, so
-the axiom could be weakened to an ω-chain of universes — the
-"ω-many inaccessibles" hypothesis of Carneiro's consistency analysis of
-Lean (*The Type Theory of Lean*, §1.2).  `tarski` is kept as a single
-cleanly isolated field so that this swap stays local to this file and
-`Setlec/SetTheory/Derive/Universe.lean`.
 -/
 
 namespace Setlec
@@ -85,16 +87,14 @@ def IsTGUniverse {V : Type u} (mem : V → V → Prop) (u : V) : Prop :=
   (∀ y, mem y u → ∃ p, mem p u ∧ ∀ z, (∀ w, mem w z → mem w y) → mem z p) ∧
   (∀ y, (∀ w, mem w y → mem w u) → Equinumerous mem y u ∨ mem y u)
 
-/-- A model of Tarski–Grothendieck set theory, axiomatized minimally:
-membership, the seven set axioms (extensionality, pairing, union, power
-set, regularity, Lean-level replacement, Tarski's Axiom A with
-transitivity), and domain nonemptiness.  Choice is inherited from the
-meta-logic (`Classical.choice`); see the module docstring. -/
+/-- A model of set theory of exactly the strength the checker needs:
+membership, the six ZF⁻ axioms (extensionality, pairing, union, power
+set, regularity, Lean-level replacement), and an ω-chain of
+Grothendieck universes.  Infinity is derivable; choice is inherited
+from the meta-logic (`Classical.choice`); see the module docstring. -/
 class SetTheory (V : Type u) where
   /-- Set membership. -/
   Mem : V → V → Prop
-  /-- First-order logic's nonempty domain, made explicit. -/
-  nonempty : Nonempty V
   /-- Extensionality: sets with the same members are equal. -/
   ext : ∀ {x y : V}, (∀ z, Mem z x ↔ Mem z y) → x = y
   /-- Pairing: the unordered pair. -/
@@ -116,9 +116,15 @@ class SetTheory (V : Type u) where
   image : (V → V) → V → V
   /-- Characterization of the replacement image. -/
   mem_image : ∀ {f : V → V} {a z : V}, Mem z (image f a) ↔ ∃ w, Mem w a ∧ z = f w
-  /-- Tarski's Axiom A, strengthened with transitivity: every set is a
-  member of a Grothendieck universe (`IsTGUniverse`). -/
-  tarski : ∀ x : V, ∃ u : V, Mem x u ∧ IsTGUniverse Mem u
+  /-- An ω-chain of Grothendieck universes: the sets interpreting the
+  universe tower (Carneiro's ω-many inaccessibles, `V_{κ n}`). -/
+  univChain : Nat → V
+  /-- The chain increases strictly: each universe is a member of the
+  next. -/
+  univChain_mem : ∀ n : Nat, Mem (univChain n) (univChain (n + 1))
+  /-- Each chain member is a Grothendieck universe (Tarski's Axiom A
+  matrix with transitivity, `IsTGUniverse`). -/
+  univChain_tg : ∀ n : Nat, IsTGUniverse Mem (univChain n)
 
 namespace SetTheory
 
