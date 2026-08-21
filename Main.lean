@@ -62,6 +62,21 @@ def main (args : List String) : IO UInt32 := do
       IO.eprintln s!"setlec: {file}:{line}: {msg}"
       return 3
     | .ok decls =>
+      -- Progress instrumentation for long runs (init-prelude probes):
+      -- with SETLEC_PROGRESS set, check declaration by declaration and
+      -- print a `DECL:` line before each (fold state as in checkDecls).
+      if (← IO.getEnv "SETLEC_PROGRESS").isSome then
+        let mut env := Setlec.Env.empty
+        for d in decls do
+          IO.println s!"DECL: {d.name}"
+          (← IO.getStdout).flush
+          match checkDecl cachedOps env d with
+          | .ok env' => env := env'
+          | .error e =>
+            IO.eprintln s!"setlec: {e}"
+            return e.exitCode
+        IO.println s!"setlec: accepted {env.consts.length} declarations"
+        return 0
       match checkDecls cachedOps decls.toList with
       | .ok env =>
         IO.println s!"setlec: accepted {env.consts.length} declarations"
@@ -72,7 +87,7 @@ def main (args : List String) : IO UInt32 := do
         -- for the message.
         let declName : Setlec.Declaration → String := fun d =>
           match d with
-          | .defnDecl cv _ => s!"def {cv.name}"
+          | .defnDecl cv _ _ => s!"def {cv.name}"
           | .thmDecl cv _ => s!"theorem {cv.name}"
           | .opaqueDecl cv _ => s!"opaque {cv.name}"
           | .axiomDecl cv => s!"axiom {cv.name}"

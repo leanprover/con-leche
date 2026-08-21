@@ -38,13 +38,13 @@ theorem extend_model {env : Env} (m : EnvModel V env)
     (c₀ : ConstantInfo)
     (hc₀cv : c₀.toConstantVal = ⟨name, lps, type⟩)
     (hc₀name : c₀.name = name)
-    (hc₀val : ∀ cv2 value2, c₀ = ConstantInfo.defnInfo cv2 value2 →
+    (hc₀val : ∀ cv2 value2 h2, c₀ = ConstantInfo.defnInfo cv2 value2 h2 →
       cv2 = ⟨name, lps, type⟩ ∧ value2 = value)
     (hc₀nb : c₀.isBasis = false)
     (hc₀nres : reservedBasisNames.contains name = false)
     (hc₀pshape : name.isProjFnShape = false)
     (hnatop : natOpNames.contains name = true →
-      (∃ cv₀ v₀, c₀ = ConstantInfo.defnInfo cv₀ v₀) →
+      (∃ cv₀ v₀ h₀, c₀ = ConstantInfo.defnInfo cv₀ v₀ h₀) →
       natOpGuard (⟨c₀ :: env.consts⟩ : Env) name = true ∧
       ∀ eq ∈ natOpEquations 0 name, ∀ (ψ : Name → Nat) (x y : V),
         (∀ T, interpExpr V m.val env ψ 2 (rho0 V) (.const natName []) =
@@ -60,8 +60,8 @@ theorem extend_model {env : Env} (m : EnvModel V env)
   have hwf : ConstWF ⟨c₀ :: env.consts⟩ c₀ := by
     rw [ConstWF, hc₀cv]
     refine ⟨htf, htp, Expr.constsResolve_mono htr, htb, ?_, ?_⟩
-    · intro cv2 value2 heq
-      obtain ⟨rfl, rfl⟩ := hc₀val cv2 value2 heq
+    · intro cv2 value2 h2 heq
+      obtain ⟨rfl, rfl⟩ := hc₀val cv2 value2 h2 heq
       exact ⟨hvf, hvp, Expr.constsResolve_mono hvr, hvb⟩
     · intro cv nP nM nm ni rules heq
       rw [heq] at hc₀nb
@@ -83,7 +83,7 @@ theorem extend_model {env : Env} (m : EnvModel V env)
   have hnatophead : ∀ val' : ConstVal V,
       (∀ ψ : Name → Nat, val' c₀.name ψ = v₀f ψ) →
       (∀ n, n ≠ c₀.name → ∀ ψ' : Name → Nat, val' n ψ' = m.val n ψ') →
-      ∀ cv₀ v₀', c₀ = .defnInfo cv₀ v₀' → c₀.name ∈ natOpNames →
+      ∀ cv₀ v₀' h₀', c₀ = .defnInfo cv₀ v₀' h₀' → c₀.name ∈ natOpNames →
       natOpGuard (⟨c₀ :: env.consts⟩ : Env) c₀.name = true ∧
       ∀ eq ∈ natOpEquations 0 c₀.name, ∀ (ψ : Name → Nat) (x y : V),
         (∀ T, interpExpr V val' (⟨c₀ :: env.consts⟩ : Env) ψ 2 (rho0 V)
@@ -92,16 +92,16 @@ theorem extend_model {env : Env} (m : EnvModel V env)
           (updV V (updV V (rho0 V) 0 x) 1 y) eq.1 =
         interpExpr V val' (⟨c₀ :: env.consts⟩ : Env) ψ 2
           (updV V (updV V (rho0 V) 0 x) 1 y) eq.2 := by
-    intro val' hvhead hagreeN cv₀ v₀' heq hcn
+    intro val' hvhead hagreeN cv₀ v₀' h₀' heq hcn
     rw [hc₀name] at hcn
     have hcontains : natOpNames.contains name = true :=
       List.contains_iff_mem.mpr hcn
-    obtain ⟨hguard2, heqs⟩ := hnatop hcontains ⟨cv₀, v₀', heq⟩
-    obtain ⟨cvS, vS, hfS, hlpS⟩ := natOpGuard_self_defn hcn hguard2
+    obtain ⟨hguard2, heqs⟩ := hnatop hcontains ⟨cv₀, v₀', h₀', heq⟩
+    obtain ⟨cvS, vS, hntS, hfS, hlpS⟩ := natOpGuard_self_defn hcn hguard2
     have hfhead : (⟨c₀ :: env.consts⟩ : Env).find? name = some c₀ := by
       rw [Env.find?_cons, if_pos hc₀name]
     rw [hfhead] at hfS
-    have hc₀eq : c₀ = ConstantInfo.defnInfo cvS vS := Option.some.inj hfS
+    have hc₀eq : c₀ = ConstantInfo.defnInfo cvS vS hntS := Option.some.inj hfS
     have hlp₀ : c₀.toConstantVal.levelParams = [] := by
       rw [hc₀eq]
       exact hlpS
@@ -160,8 +160,8 @@ theorem extend_model {env : Env} (m : EnvModel V env)
       exact hgoal
 
   obtain ⟨m', -, -⟩ := extend_fresh m c₀ v₀f hc₀fresh hwf htyres0
-    (fun cv2 value2 heq => by
-      obtain ⟨-, rfl⟩ := hc₀val cv2 value2 heq
+    (fun cv2 value2 h2 heq => by
+      obtain ⟨-, rfl⟩ := hc₀val cv2 value2 h2 heq
       exact ⟨hvr, hAval, hv₀⟩)
     (fun ψ => by
       obtain ⟨v, T, hv, hT, hmem⟩ := hkey ψ

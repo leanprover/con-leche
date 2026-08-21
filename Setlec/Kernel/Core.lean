@@ -150,13 +150,35 @@ def unfoldDefinition (env : Env) (e : Expr) : Option Expr :=
   match e.getAppFn with
   | .const n us =>
     match env.find? n with
-    | some (.defnInfo cv value) =>
+    | some (.defnInfo cv value _) =>
       if us.length = cv.levelParams.length then
         some (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
           e.getAppArgs)
       else none
     | _ => none
   | _ => none
+
+/-- The reducibility hint of the constant at the head of `e` (`opaque`
+when the head is not a stored definition — such a head never unfolds,
+so the value is only read where `unfoldDefinition` succeeded). -/
+def headHint (env : Env) (e : Expr) : ReducibilityHint :=
+  match e.getAppFn with
+  | .const n _ =>
+    match env.find? n with
+    | some (.defnInfo _ _ hint) => hint
+    | _ => .opaque
+  | _ => .opaque
+
+/-- Are `a` and `b` applications of the *same* constant (the lazy delta
+same-head short-circuit: try level and spine congruence before
+unfolding both sides)?  Mirrors the official kernel's
+`try_eq_const_app`: both sides must actually be applications. -/
+def sameConstHeads : Expr → Expr → Bool
+  | .app f₁ _, .app f₂ _ =>
+    match f₁.getAppFn, f₂.getAppFn with
+    | .const n₁ _, .const n₂ _ => n₁ == n₂
+    | _, _ => false
+  | _, _ => false
 
 /-- The constructor form of a `Nat` literal, one layer:
 `n + 1` becomes `Nat.succ (lit n)`, `0` becomes `Nat.zero` (the
@@ -337,7 +359,7 @@ dependency stored as a definition, and (for the `Bool`-valued ops) the
 def natOpGuard (env : Env) (c : Name) : Bool :=
   natLitSupported env &&
   (natOpDeps c).all (fun n => match env.find? n with
-    | some (.defnInfo cv _) => cv.levelParams.isEmpty
+    | some (.defnInfo cv _ _) => cv.levelParams.isEmpty
     | _ => false) &&
   (if c = natBeqName || c = natBleName then
     (match env.find? boolTrueName with
@@ -410,7 +432,7 @@ def natOpTyPinned (env : Env) (c : Name) (ty : Expr) : Bool :=
 type. -/
 def natOpStoredOk (env : Env) (n : Name) : Bool :=
   match env.find? n with
-  | some (.defnInfo cv _) =>
+  | some (.defnInfo cv _ _) =>
     cv.levelParams.isEmpty && natOpTyPinned env n cv.type
   | _ => false
 
@@ -972,7 +994,16 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
   fun depth e => do
     match ← viewM (m := m) e with
     | .sort u => pure (.sort (.succ u))
-    | .fvar _ _ ty => pure ty
+    | .fvar idx _ ty =>
+      -- Scope check at the leaf of a traversal that happens anyway
+      -- (O(1); never a fresh walk): a free variable must refer to an
+      -- enclosing opened binder.  On raw (closed) input at depth 0 this
+      -- rejects any `fvar` outright; internally the checker only opens
+      -- variables below the ambient depth, so for disciplined calls the
+      -- check always passes (and inference success implies
+      -- well-scopedness, the base case of the cache discipline).
+      if idx < depth then pure ty
+      else throw (.invalid "free variable out of scope")
     | .const n us => do
       match env.find? n with
       | none => throw (.invalid s!"unknown constant {n}")
@@ -1047,16 +1078,78 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
     | .bvar _ | .letE .. =>
       throw (.notImplemented "inferType beyond the supported fragment")
 
-/-- The definitional-equality body: syntactic fast path, full
-reduction of both sides, an early proof-irrelevance attempt, then
-structural congruence with the stuck fallbacks. -/
+/-- Levels-and-spine congruence for two applications of the same
+stored constant — the lazy delta *same-head short-circuit* (the
+official kernel's `try_eq_const_app`): before unfolding both sides of
+`f as ≡ f bs`, try pairwise definitional equality of the levels and
+the spine arguments.  A `false` verdict is never final — the caller
+falls back to unfolding — so an inconclusive level comparison simply
+answers `false` here. -/
+def defeqSpine (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
+    m Bool := do
+  match a.getAppFn with
+  | .const n us =>
+    match b.getAppFn with
+    | .const n' us' =>
+      if n = n' ∧ a.getAppArgs.length = b.getAppArgs.length then
+        match Level.isEquivList us us' with
+        | some true => defEqList r env depth a.getAppArgs b.getAppArgs
+        | _ => pure false
+      else pure false
+    | _ => pure false
+  | _ => pure false
+
+/-- The definitional-equality body: syntactic fast path, head
+normalization of both sides (**no delta** — `whnfCore`), then the
+*lazy delta* strategy of real kernels: literal acceleration first
+(mirroring the `whnf` loop order), then — when a side's head is an
+unfoldable definition — unfold lazily, guided by the reducibility
+hints (unfold only the side with the greater hint; at equal hints try
+the same-head congruence short-circuit, then unfold both).  Each
+unfolding step recurses through `r.defeq`, so the reference kernels'
+`lazy_delta_step` loop is the knot recursion here, and every re-entry
+re-runs the syntactic fast path and `whnfCore` (the official kernel's
+`whnf_core` after each unfold).  Only when neither head unfolds does
+structural congruence with the stuck fallbacks decide.  The hints
+steer *order only*: every branch below is an independently sound
+reduction or comparison, so the verdict never depends on the hint
+values. -/
 def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
   fun depth a b => do
     -- syntactic fast path (the references' most-hit branch)
     if a == b then pure true else
-    let a' ← r.whnf depth a
-    let b' ← r.whnf depth b
+    let a' ← r.whnfCore depth a
+    let b' ← r.whnfCore depth b
     if a' == b' then pure true else
+    match ← reduceNat r env depth a' with
+    | some a₂ => r.defeq depth a₂ b'
+    | none =>
+    match ← reduceNat r env depth b' with
+    | some b₂ => r.defeq depth a' b₂
+    | none =>
+    match unfoldDefinition env a', unfoldDefinition env b' with
+    | some a₂, none => r.defeq depth a₂ b'
+    | none, some b₂ => r.defeq depth a' b₂
+    | some a₂, some b₂ =>
+      let ha := headHint env a'
+      let hb := headHint env b'
+      if ReducibilityHint.lt hb ha then r.defeq depth a₂ b'
+      else if ReducibilityHint.lt ha hb then r.defeq depth a' b₂
+      else if ReducibilityHint.sameRegular ha hb && sameConstHeads a' b' then
+        -- Same constant at equal *regular* hints: cheap congruence
+        -- first — this short-circuit is where lazy delta wins on
+        -- large proof terms.  The `sameRegular` guard mirrors the
+        -- reference kernels (nanoda `try_eq_const_app`, the official
+        -- kernel) exactly and is deliberate: at equal `abbrev` (or
+        -- `opaque`) hints both sides unfold eagerly instead, because
+        -- proof authors rely on abbrevs unfolding eagerly and a spine
+        -- defeq attempt on abbrev-headed applications risks reduction
+        -- bombs (spines only equal after reduction, retried at every
+        -- congruence level).  Do not generalize this guard.
+        if ← defeqSpine r env depth a' b' then pure true
+        else r.defeq depth a₂ b₂
+      else r.defeq depth a₂ b₂
+    | none, none =>
     match a', b' with
     | .sort u, .sort v => liftFueled "level comparison" (Level.isEquiv u v)
     | .lit l₁, .lit l₂ => pure (l₁ == l₂)
@@ -1255,7 +1348,12 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
   fun depth e =>
     match e with
     | .bvar i => pure (.bvar i)
-    | .fvar idx n ty => pure (.fvar idx n ty)
+    | .fvar idx n ty =>
+      -- Leaf scope check, as in `inferBody`: annotation is the pass raw
+      -- input enters through, so a dangling free variable in the input
+      -- is rejected here (depth 0: any `fvar` fails).
+      if idx < depth then pure (.fvar idx n ty)
+      else throw (.invalid "free variable out of scope")
     | .sort u => pure (.sort u)
     | .const n us => pure (.const n us)
     | .lit (.natVal n) => do

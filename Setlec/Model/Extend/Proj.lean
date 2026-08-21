@@ -21,9 +21,9 @@ theorem checkProjLookups_inv {env' : Env} {T ctorName : Name}
     {lps : List Name} {nP nF i : Nat} {cvj mcv : ConstantVal}
     (h : (checkProjLookups env' T ctorName lps nP nF i : CheckM _) =
       .ok (cvj, mcv)) :
-    ∃ mval,
+    ∃ mval hmmcv,
       env'.find? ctorName = some (.ctorInfo cvj nP nF) ∧
-      env'.find? (projModelName T i) = some (.defnInfo mcv mval) ∧
+      env'.find? (projModelName T i) = some (.defnInfo mcv mval hmmcv) ∧
       mcv.levelParams = lps ∧
       env'.find? (projFnName T i) = none ∧
       (env'.find? T).isSome = true ∧
@@ -33,7 +33,7 @@ theorem checkProjLookups_inv {env' : Env} {T ctorName : Name}
   match hctor : env'.find? ctorName with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
-  | some (.defnInfo _ _) => intro h; exact nomatch h
+  | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
@@ -53,7 +53,7 @@ theorem checkProjLookups_inv {env' : Env} {T ctorName : Name}
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
-  | some (.defnInfo mcv' mval) => ?_
+  | some (.defnInfo mcv' mval hmv') => ?_
   intro h
   dsimp only at h
   by_cases hmlps : mcv'.levelParams = lps
@@ -76,7 +76,7 @@ theorem checkProjLookups_inv {env' : Env} {T ctorName : Name}
   rw [if_pos heqf] at h
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, rfl⟩ := h
-  exact ⟨mval, rfl, rfl, hmlps, hpnone, hTf, heqf⟩
+  exact ⟨mval, hmv', rfl, rfl, hmlps, hpnone, hTf, heqf⟩
 
 /-- Invert stage 2 of `checkProjFn` (the public projection type). -/
 theorem checkProjTy_inv {env' : Env} {T ctorName : Name} {lps : List Name}
@@ -227,7 +227,7 @@ theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
   match hthm : env'.find? ((projModelName T i).str "iota") with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
-  | some (.defnInfo _ _) => intro h; exact nomatch h
+  | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
@@ -379,18 +379,18 @@ projection function carries its `_model.proj_j`'s. -/
 def ProjPhaseInv (T ctorName : Name) (nF : Nat) (env' : Env)
     (val : ConstVal V) : Prop :=
   (∀ ci, env'.find? T = some ci →
-    ∃ cvm mval, env'.find? (T.str "_model") = some (.defnInfo cvm mval) ∧
+    ∃ cvm mval hmcvm, env'.find? (T.str "_model") = some (.defnInfo cvm mval hmcvm) ∧
       cvm.levelParams = ci.toConstantVal.levelParams ∧
       ∀ ψ : Name → Nat, val T ψ = val (T.str "_model") ψ) ∧
   (∀ ci, env'.find? ctorName = some ci →
-    ∃ cvm mval,
-      env'.find? (ctorName.str "_model") = some (.defnInfo cvm mval) ∧
+    ∃ cvm mval hmcvm,
+      env'.find? (ctorName.str "_model") = some (.defnInfo cvm mval hmcvm) ∧
       cvm.levelParams = ci.toConstantVal.levelParams ∧
       ∀ ψ : Name → Nat,
         val ctorName ψ = val (ctorName.str "_model") ψ) ∧
   (∀ j, j < nF → ∀ ci, env'.find? (projFnName T j) = some ci →
-    ∃ cvm mval,
-      env'.find? (projModelName T j) = some (.defnInfo cvm mval) ∧
+    ∃ cvm mval hmcvm,
+      env'.find? (projModelName T j) = some (.defnInfo cvm mval hmcvm) ∧
       cvm.levelParams = ci.toConstantVal.levelParams ∧
       ∀ ψ : Name → Nat,
         val (projFnName T j) ψ = val (projModelName T j) ψ)
@@ -406,7 +406,7 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
     ∃ m₁ : EnvModel V env₁, ProjPhaseInv T ctorName nF env₁ m₁.val := by
   obtain ⟨cvj, mcv, hlk, pty, hty, hi, rhsA, hrule, ⟨u, hio⟩, henv₁⟩ :=
     checkProjFn_inv h
-  obtain ⟨mval, hctor, hfm, hmlps, hpnone, hTf, heqf⟩ :=
+  obtain ⟨mval, hmmcv, hctor, hfm, hmlps, hpnone, hTf, heqf⟩ :=
     checkProjLookups_inv hlk
   obtain ⟨hptyB, hround, hptyres, hptyb, hptyf, hptylp⟩ :=
     checkProjTy_inv hty
@@ -445,13 +445,13 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
     by_cases h1 : n = T
     · subst h1
       rw [if_pos rfl]
-      obtain ⟨cvm₂, mval₂, hfm₂, hlps₂, hv₂⟩ := hinv.1 ci₂ hf₂
+      obtain ⟨cvm₂, mval₂, hm₂, hfm₂, hlps₂, hv₂⟩ := hinv.1 ci₂ hf₂
       exact ⟨⟨_, hfm₂, hlps₂⟩, fun ψ => (hv₂ ψ).symm⟩
     rw [if_neg h1]
     by_cases h2 : n = ctorName
     · subst h2
       rw [if_pos rfl]
-      obtain ⟨cvm₂, mval₂, hfm₂, hlps₂, hv₂⟩ := hinv.2.1 ci₂ hf₂
+      obtain ⟨cvm₂, mval₂, hm₂, hfm₂, hlps₂, hv₂⟩ := hinv.2.1 ci₂ hf₂
       exact ⟨⟨_, hfm₂, hlps₂⟩, fun ψ => (hv₂ ψ).symm⟩
     rw [if_neg h2]
     cases hfind : (List.range nF).find? (fun j => n == projFnName T j) with
@@ -464,7 +464,7 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
         simpa using hprop
       have hn : n = projFnName T j := eq_of_beq hprop'
       subst hn
-      obtain ⟨cvm₂, mval₂, hfm₂, hlps₂, hv₂⟩ := hinv.2.2 j hjlt ci₂ hf₂
+      obtain ⟨cvm₂, mval₂, hm₂, hfm₂, hlps₂, hv₂⟩ := hinv.2.2 j hjlt ci₂ hf₂
       exact ⟨⟨_, hfm₂, hlps₂⟩, fun ψ => (hv₂ ψ).symm⟩
   have hro : RenameOk m.val env' f₀ := by
     refine ⟨?_, ?_, ?_⟩
@@ -596,7 +596,7 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
         [⟨ctorName, nF, rhsA⟩]) := by
     refine ⟨hptyf, hptylp, Expr.constsResolve_mono hptyres, hptyb,
       ?_, ?_⟩
-    · intro cv2 v2 heq
+    · intro cv2 v2 h2 heq
       exact nomatch heq
     · intro cv2 nP' nM' nm' ni' rules'' heq r hr
       injection heq with e1 e2 e3 e4 e5 e6
@@ -665,8 +665,8 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
   · -- the parent type's clause
     intro ci₂ hf₂
     rw [hfindNe T hTne] at hf₂
-    obtain ⟨cvm₂, mval₂, hfm₂, hlps₂, hv₂⟩ := hinv.1 ci₂ hf₂
-    refine ⟨cvm₂, mval₂, ?_, hlps₂, ?_⟩
+    obtain ⟨cvm₂, mval₂, hm₂, hfm₂, hlps₂, hv₂⟩ := hinv.1 ci₂ hf₂
+    refine ⟨cvm₂, mval₂, hm₂, ?_, hlps₂, ?_⟩
     · rw [hfindNe (T.str "_model")
         (fun hh => Name.num_ne_str _ _ _ _ hh.symm)]
       exact hfm₂
@@ -677,8 +677,8 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
   · -- the constructor's clause
     intro ci₂ hf₂
     rw [hfindNe ctorName hCne] at hf₂
-    obtain ⟨cvm₂, mval₂, hfm₂, hlps₂, hv₂⟩ := hinv.2.1 ci₂ hf₂
-    refine ⟨cvm₂, mval₂, ?_, hlps₂, ?_⟩
+    obtain ⟨cvm₂, mval₂, hm₂, hfm₂, hlps₂, hv₂⟩ := hinv.2.1 ci₂ hf₂
+    refine ⟨cvm₂, mval₂, hm₂, ?_, hlps₂, ?_⟩
     · rw [hfindNe (ctorName.str "_model")
         (fun hh => Name.num_ne_str _ _ _ _ hh.symm)]
       exact hfm₂
@@ -694,7 +694,7 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
           Name.num (T.str "proj") i := hji
       injection hn' with hp hij
       subst hij
-      refine ⟨mcv, mval, ?_, ?_, ?_⟩
+      refine ⟨mcv, mval, hmmcv, ?_, ?_, ?_⟩
       · rw [hfindNe (projModelName T j)
           (fun hh => Name.num_ne_str _ _ _ _ hh.symm)]
         exact hfm
@@ -710,8 +710,8 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
             (fun hh => Name.num_ne_str _ _ _ _ hh.symm)]
     · -- an earlier install, preserved
       rw [hfindNe (projFnName T j) hji] at hf₂
-      obtain ⟨cvm₂, mval₂, hfm₂, hlps₂, hv₂⟩ := hinv.2.2 j hj ci₂ hf₂
-      refine ⟨cvm₂, mval₂, ?_, hlps₂, ?_⟩
+      obtain ⟨cvm₂, mval₂, hm₂, hfm₂, hlps₂, hv₂⟩ := hinv.2.2 j hj ci₂ hf₂
+      refine ⟨cvm₂, mval₂, hm₂, ?_, hlps₂, ?_⟩
       · rw [hfindNe (projModelName T j)
           (fun hh => Name.num_ne_str _ _ _ _ hh.symm)]
         exact hfm₂

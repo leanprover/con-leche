@@ -229,8 +229,8 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
       refine ⟨h1, h2, ?_, h4, ?_, ?_⟩
       · rw [← Expr.constsResolve_congr hisoSome]
         exact h3
-      · intro cv2 v2 heq
-        obtain ⟨g1, g2, g3, g4⟩ := h5 cv2 v2 heq
+      · intro cv2 v2 h2 heq
+        obtain ⟨g1, g2, g3, g4⟩ := h5 cv2 v2 h2 heq
         refine ⟨g1, g2, ?_, g4⟩
         rw [← Expr.constsResolve_congr hisoSome]
         exact g3
@@ -258,15 +258,15 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
     · rw [← SwapPair.name_eq hpair]
       exact hmem
   · -- defn_eq
-    intro cv2 v2 hmem2 ψ
+    intro cv2 v2 h2 hmem2 ψ
     obtain ⟨c₀, hc₀, hpair⟩ := swap_mem_corr hsw _ hmem2
-    have hc₀eq : c₀ = .defnInfo cv2 v2 := by
+    have hc₀eq : c₀ = .defnInfo cv2 v2 h2 := by
       rcases hpair with rfl | ⟨cv, nP, nM, nm, ni, rules, -, hcon, -⟩
       · rfl
       · exact nomatch hcon
     subst hc₀eq
     rw [hitrans]
-    exact m₀.defn_eq cv2 v2 hc₀ ψ
+    exact m₀.defn_eq cv2 v2 h2 hc₀ ψ
   · -- annot_ok
     intro c₃ hc₃ ψ
     obtain ⟨c₀, hc₀, hpair⟩ := swap_mem_corr hsw c₃ hc₃
@@ -274,13 +274,13 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
     constructor
     · rw [← SwapPair.cv_eq hpair]
       exact hAtrans _ ψ 0 (rho0 V) hA1
-    · intro cv2 v2 heq
-      have hc₀eq : c₀ = .defnInfo cv2 v2 := by
+    · intro cv2 v2 h2 heq
+      have hc₀eq : c₀ = .defnInfo cv2 v2 h2 := by
         rcases hpair with rfl | ⟨cv, nP, nM, nm, ni, rules, -, hcon, -⟩
         · rw [heq]
         · rw [heq] at hcon
           exact nomatch hcon
-      exact hAtrans _ ψ 0 (rho0 V) (hA2 cv2 v2 hc₀eq)
+      exact hAtrans _ ψ 0 (rho0 V) (hA2 cv2 v2 h2 hc₀eq)
   · -- ind_ok
     obtain ⟨i1, i2, i3, i4, i5, i6, i7⟩ := m₀.ind_ok
     refine ⟨?_, ?_, ?_, ?_, ?_, ?_, i7⟩
@@ -458,10 +458,10 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
         (TeleFit.env_levelext (fun n' => (henvLev n').symm) hnat.symm
           hfit)
   · -- nat_ops
-    intro c hc cv v hf
-    have hf₀ : env₀.find? c = some (.defnInfo cv v) :=
+    intro c hc cv v hint hf
+    have hf₀ : env₀.find? c = some (.defnInfo cv v hint) :=
       hfindDown _ _ hf (fun _ _ _ _ _ _ h => nomatch h)
-    obtain ⟨hg, heqs⟩ := m₀.nat_ops c hc cv v hf₀
+    obtain ⟨hg, heqs⟩ := m₀.nat_ops c hc cv v hint hf₀
     obtain ⟨hs, hdeps, hbool⟩ := natOpGuard_inv hg
     have hie : ∀ (e : Expr) (ψ : Name → Nat) (dd : Nat) (ρ : Nat → V),
         interpExpr V m₀.val env₃ ψ dd ρ e =
@@ -469,9 +469,9 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
       fun e ψ dd ρ => (interp_env_ext henvLev hnat e dd ρ).symm
     refine ⟨natOpGuard_intro (by rw [← hnat]; exact hs) ?_ ?_, ?_⟩
     · intro n' hn'
-      obtain ⟨cvn, vn, hfn, hlpn⟩ := hdeps n' hn'
-      exact ⟨cvn, vn, hfindUp _ _ hfn (fun _ _ _ _ _ _ h => nomatch h),
-        hlpn⟩
+      obtain ⟨cvn, vn, hintn, hfn, hlpn⟩ := hdeps n' hn'
+      exact ⟨cvn, vn, hintn,
+        hfindUp _ _ hfn (fun _ _ _ _ _ _ h => nomatch h), hlpn⟩
     · intro hcb
       obtain ⟨⟨ciT, hT, hlpT⟩, ⟨ciF, hF, hlpF⟩⟩ := hbool hcb
       have conv : ∀ (nb : Name) (ci : ConstantInfo),

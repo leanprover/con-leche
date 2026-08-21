@@ -20,7 +20,7 @@ def ConstWF (env : Env) (c : ConstantInfo) : Prop :=
   c.toConstantVal.type.allLevelParamsDefined c.toConstantVal.levelParams = true ∧
   c.toConstantVal.type.constsResolve env = true ∧
   c.toConstantVal.type.looseBVarsBounded 0 = true ∧
-  (∀ cv value, c = .defnInfo cv value →
+  (∀ cv value hint, c = .defnInfo cv value hint →
     value.hasFvar = false ∧
     value.allLevelParamsDefined cv.levelParams = true ∧
     value.constsResolve env = true ∧
@@ -268,8 +268,8 @@ theorem EnvWF.cons {c : ConstantInfo} {env : Env}
   rcases List.mem_cons.mp hc' with rfl | hmem
   · exact hc
   · obtain ⟨h1, h2, h3, h4, h5, h6⟩ := henv c' hmem
-    refine ⟨h1, h2, Expr.constsResolve_mono h3, h4, fun cv value heq =>
-      let ⟨g1, g2, g3, g4⟩ := h5 cv value heq
+    refine ⟨h1, h2, Expr.constsResolve_mono h3, h4, fun cv value hint heq =>
+      let ⟨g1, g2, g3, g4⟩ := h5 cv value hint heq
       ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩, ?_⟩
     intro cv nP nM nm ni rules heq r hr
     obtain ⟨g1, g2, g3, g4⟩ := h6 cv nP nM nm ni rules heq r hr

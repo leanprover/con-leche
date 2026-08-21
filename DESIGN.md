@@ -223,8 +223,9 @@ monad-polymorphic.  Fuel lives only in the knots that tie the record:
 the **pure knot** (`Setlec/Kernel/TypeChecker.lean`, `pureFns`) at
 `CheckM` is the verification's subject; the **memoized knot**
 (`Setlec/Kernel/TypeCheckerC.lean`, `cachedFns`) wraps every level's
-entry points with a `KCache` lookup (maps keyed by binder depth and
-expression) in `StateT` over `CheckM` and is what the checker executes
+entry points with a `KCache` lookup (maps keyed by the **expression
+alone** — see *Depth-free memo keys* below) in `StateT` over `CheckM`
+and is what the checker executes
 (`cachedOps` in `Setlec/Kernel/Checker.lean`; the declaration checker
 itself is written once over a `CheckerOps` record).  The knots are
 built lazily — each level closes over a thunk of the next; an eager
@@ -257,28 +258,131 @@ relate the pair's components to the plain instantiations.
   gives `whnfCore/whnf/infer/defeq/annotate/ensureSort` monotonicity.
 * **Cache simulation** (`Verify/Bridge.lean`): `FueledM` packages
   monotone fuel-indexed families; `CacheOK` backs every cache entry by
-  a pure run at some fuel; `simRel` (families vs. `StateT KCache`
-  computations) is `bind`-closed via monotonicity, `memoE`/`memoB`
-  wrapper lemmas + a knot induction give: every successful `cachedOps`
-  entry-point run is reproduced by the pure knot at some fuel.
-* **Declaration checker** (`Verify/BridgeDecl.lean`): the checker is
-  monad-polymorphic over `CheckerOps m`; `bridgeRel` (families vs.
-  plain `CheckM`) + the ops-record pairing + batteries over every
-  declaration-checker function yield `checkDecls_bridge`: a successful
-  `checkDecls cachedOps` run is reproduced by
-  `checkDecls (fueledOps F)` for some fuel.
+  a pure run at one fuel valid at *every* depth at which the key is
+  well-scoped (see *Depth-free memo keys*); `simRel` (families vs.
+  `StateT KCache` computations) is `bind`-closed via monotonicity,
+  `memoE`/`memoB` wrapper lemmas + a knot induction give: under
+  `EnvWF env` (a hypothesis, not a runtime check — see *Depth-free
+  memo keys*), every successful `cachedOps` entry-point run is
+  reproduced by the pure knot at some fuel.
+* **Declaration checker** (`Verify/BridgeDecl.lean` +
+  `Model/BridgeWF.lean`): the checker is monad-polymorphic over
+  `CheckerOps m`; `bridgeRel` (families vs. plain `CheckM`) + the
+  ops-record pairing against the conditional comparand `wfOpsM` +
+  batteries over every declaration-checker function yield
+  `checkDecl_wfOpsM_bridge` (unconditional), and `Model/BridgeWF.lean`'s
+  `checkDecl_bridge`: under `EnvWF env`, a successful
+  `checkDecl cachedOps` step is reproduced by
+  `checkDecl (fueledOps F)` for some fuel.
 
 The consistency layer is stated fuel-generically (`fueledOps F`;
 `pureOps = fueledOps checkFuel`), so `Setlec/Model/ConsistencyC.lean`
-concludes: **every environment the executable accepts has a model**
-(`checkDeclsC_sound`), and the executable never accepts a proof of
-`Empty` (`no_proof_of_Empty_C`).  If the pair-monad batteries ever get
+concludes by a per-declaration fold interleaving `EnvModel.wf` (which
+discharges the bridge's `EnvWF` hypothesis), the bridge, and
+`checkDecl_sound`: **every environment the executable accepts has a
+model** (`checkDeclsC_sound`), and the executable never accepts a
+proof of `Empty` (`no_proof_of_Empty_C`).  If the pair-monad batteries ever get
 unwieldy, `mvcgen` (Lean's verification-condition generator for
 monadic programs) plus precondition-carrying high-level combinators is
 the designated fallback.  Both `_model` declarations and real Lean
 terms are DAGs sharing subterms; every traversal must eventually be
 memoized under a cached-hash representation, tracked as follow-up
 work.
+
+### Depth-free memo keys and depth invariance (2026-08-21)
+
+Memo keys carry **no binder depth**: `KCache` maps `whnfCore`/`whnf`/
+`infer`/`annot` under the expression and `defeq` under the pair, so
+the same subterm reached under different binder contexts hits one
+entry.  The mathematics behind this is **depth invariance**
+(`Setlec/Verify/Deep.lean`): every core entry point returns the same
+result at any two depths at which its inputs are well-scoped
+(`whnfCore_depth_inv`, `whnf_depth_inv`, `inferTypeCore_depth_inv`,
+`isDefEqCore_depth_inv`, `annotateCore_depth_inv`, all under `EnvWF`).
+The proof is a shift bisimulation: the run at depth `d` is matched
+against the run at depth `d+1` on `shiftFrom p` of the input (all
+`fvar` indices `≥ p` bumped by one, `p ≤ d`); one claim per entry
+point (`ShiftClaims`), one commutation lemma per record-parameterized
+helper body at the same fuel, one fuel induction at the knot — then
+`p := d` plus `shiftFrom_eq_self` collapses the bisimulation to a
+depth bump, chained across any gap.  The syntactic commutation kit
+(`shiftFrom` vs. `instantiate1`/`abstract1`/level instantiation/spine
+operations/the scope guards) lives at the end of
+`Setlec/Verify/Shift.lean`.
+
+Depth invariance holds only for well-scoped inputs under well-formed
+environments.  **Neither half is checked at runtime** (principle,
+owner ruling 2026-08-21: *never add boolean checks for what is proven
+to hold*):
+
+* The environment half: the executable always runs the memoized knot,
+  and `EnvWF` is a *hypothesis* of the bridge, threaded down from the
+  model invariant `EnvModel.wf` — the checker only ever calls the core
+  on environments it built itself, and `checkDecl_sound` proves those
+  have models.  (An earlier `Env.wfB` boolean gate — one `O(|env|)`
+  walk per top-level entry-point call — was deleted, task #42.)
+* The scoping half (task #43): the memo operations
+  (`memoE`/`memoB`) consult and fill the caches **unguarded** — the
+  earlier per-op `wscopedB` key walks (O(key size) each) are deleted.
+  Soundness comes from the proven **call discipline**: every core
+  body, run at the cached record on well-scoped inputs, only ever
+  invokes the record on well-scoped arguments at the ambient depth.
+  The proof (`Setlec/Verify/Scoped.lean` + `Setlec/Verify/Disc.lean`)
+  is one `DiscV` walk per body/helper exhibiting a disciplined cached
+  run as verbatim a run at the *guarded* verification-only record
+  `gFns` (each entry wrapped in a `wscopedB` test that throws) — to
+  which the pair battery applies unconditionally (`gFns_rel`); the
+  scoping of intermediate values flows from the conditional simulation
+  (`ScopedSim`) plus the pure preservation lemmas
+  (`whnfCore_WScoped` and friends), the scoping of syntactically
+  constructed arguments from the `WScoped` toolkit — the same
+  per-site facts the depth-invariance bisimulation established, with a
+  one-sided conclusion.  The base case is the checker's own input
+  validation: raw declarations are checked closed
+  (`looseBVarsBounded 0`/`hasFvar`) before any operation call, at
+  depth 0 closedness *is* well-scopedness.  Additionally (owner
+  refinement, 2026-08-21) the `fvar` cases of `inferBody` and
+  `annotateBody` fail hard unless `idx < depth` — an O(1) check at a
+  leaf of a traversal that happens anyway, never a fresh walk — so a
+  dangling free variable is rejected inside the passes raw input flows
+  through, and inference/annotation success implies well-scopedness
+  for the calls the checker makes.  The scope guards on
+  checker-fabricated terms (stuck-major rescues, projection
+  eliminations in `Setlec/Kernel/Core.lean`) stay: they validate
+  freshly constructed terms once per fabrication.
+
+Concretely: the per-entry-point simulation is the *conditional*
+`ScopedSim` (one knot induction, `scopedSim` in
+`Setlec/Verify/Bridge.lean`), and the entry-point bridges
+(`cachedOps_*_bridge`) take `henv : EnvWF env` *and* the argument's
+`wscopedB` at the call depth.  The declaration-checker comparand
+`wfOpsM` (`Setlec/Verify/BridgeDecl.lean`) conditions per call on
+`EnvWF env ∧ wscopedB`; since the condition is now per-argument, the
+former wholesale function-level rewrites became run-level implications
+(`Setlec/Verify/BridgeWfImp.lean`): per declaration-checker function,
+a successful `wfOpsM` run over a well-formed environment is the pure
+`fueledOps` run, with the per-site scoping facts read off the
+checker's guards, the preservation lemmas, and closedness of
+checker-constructed statements (`buildIotaStmt_not_hasFvar`, the
+`natOpEquations`/`substConst0` scoping lemmas).
+`Setlec/Model/BridgeWF.lean` composes these with the intermediate
+`EnvWF` facts into `checkDecl_bridge`, and
+`Setlec/Model/ConsistencyC.lean` is unchanged: the top-level
+statements (`checkDeclsC_sound`, `no_proof_of_Empty_C`,
+`no_proof_of_Empty_input_C`) keep exactly their strength —
+acceptance by the executable, no side conditions.
+
+`CacheOK` (now in `Setlec/Verify/Scoped.lean`) still backs an entry
+`e ↦ r` by `∃ F, ∀ d, e.wscopedB d → run F d e = .ok r`: inserts
+establish the universal form from the run at the ambient depth (whose
+well-scopedness the discipline supplies) via the invariance theorems,
+hits consume it at their own depth.  Numbers for the guard removal
+(tutorial arena, fresh builds at the same base, best of 3): suite
+26s → 24–25s; 043_rbTreeDef 1.52s → 1.42s; 069_rbTreeRef
+1.53s → 1.42s; 080_RBTree.id_spec 1.55s → 1.43s; 120_rTreeRec
+0.96s → 0.90s — a consistent ~6% per-test win (the guard walked every
+key per memo op, but hashing already walked it; the leaf scope checks
+cost nothing measurable).
 
 ### Inference re-checks; infer-only deferred
 
@@ -422,8 +526,9 @@ attempted and deferred (see "Inference re-checks" above); the early
 proof-irrelevance hoist in defeq was reverted for fuel-depth reasons
 (it stays in the stuck fallback).
 
-**Deferred, tracked as tasks**: lazy delta unfolding with reducibility
-hints (+ failure cache, `tryUnfoldProjApp`, cheapProj); native `.letE`
+**Deferred, tracked as tasks**: the lazy-delta extras — failure cache,
+`tryUnfoldProjApp`, cheapProj (lazy delta itself landed, see below);
+native `.letE`
 (the frontend zeta expansion can duplicate exponentially on shared
 exports); string literals; the performance substrate (cached hashes /
 hash-consing, array spines, indexed environment, per-declaration cache
@@ -563,9 +668,39 @@ with `pt ∈ pi 0 A (fun _ => unitSet)`.  A new `IndOk` conjunct
 `BasisBlocks` records that whenever a pinned basis *recursor* is
 stored, its block siblings are stored pinned too (blocks install as a
 unit, recursor last), which resolves the constants a rule rhs
-mentions.  `whnf` is fueled and
-delta-unfolds definitions eagerly for now (the lazy strategy of real
-kernels is deferred to performance work).
+mentions.
+
+### Lazy delta reduction with reducibility hints (2026-08-21)
+
+`isDefEq` unfolds definitions lazily, the way real kernels do
+(`lazyDeltaStep`), instead of eagerly whnf-ing both sides: the defeq
+body `whnfCore`s both sides (no delta), tries the literal
+acceleration, and only then decides on delta — one-sided heads unfold
+that side; when both heads are stored definitions the *reducibility
+hint* (`ReducibilityHint`: `opaque < regular h < abbrev`, regular
+heights by `<`; parsed from the export's `hints` field, stored on
+`defnInfo`) picks the greater side to unfold; at equal hints the
+*same-head short-circuit* first tries level-and-spine congruence
+(`defeqSpine`, pairwise `defEqList` on the arguments) and only on
+failure unfolds both.  Each unfolding step recurses through
+`r.defeq`, so the reference kernels' loop is the knot recursion and
+every re-entry re-runs the syntactic fast path and `whnfCore`.  The
+hints steer *order only* — every branch is an independently sound
+reduction or comparison — so the model layer never reads them: the
+semantic invariants quantify over the stored hint and the claims
+proofs (`defeq_claims` consumes `WhnfCoreClaims`, `reduceNat_sound`,
+`unfoldDefinition_sound`, and the new `defeqSpine_values` spine
+congruence) are hint-independent.  `whnf` itself (as a normalizer)
+still unfolds eagerly in its loop.  The same-head try is guarded to
+equal *regular* hints (`ReducibilityHint.sameRegular`), mirroring the
+reference kernels exactly (owner ruling, 2026-08-21): at equal
+`abbrev`/`opaque` hints both sides unfold eagerly without a spine
+attempt — proof authors rely on abbrevs unfolding eagerly, and a
+spine defeq attempt on abbrev-headed applications risks reduction
+bombs; do not generalize the guard.  Remaining deviations from the
+reference kernels, all safe-side: no failure cache for the same-head
+check yet, no `tryUnfoldProjApp`, no cheapProj (tracked as deferred
+tasks).  Arena suite wall time dropped ~33% (47s → 31s).
 
 Modeled-install soundness architecture (2026-08-19, in progress): the
 fold facts for a modeled recursor come from eliminating its checked

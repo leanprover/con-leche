@@ -276,7 +276,7 @@ def checkMemberVal (ops : CheckerOps m) (blockNames : List Name)
   if cvA.name.isModelSuffix then
     throw (.invalid s!"model-shaped member name {cvA.name}")
   -- the model counterpart
-  let some (.defnInfo cvm _mval) := env'.find? (cvA.name.str "_model")
+  let some (.defnInfo cvm _mval _) := env'.find? (cvA.name.str "_model")
     | throw (.notImplemented s!"missing model for {cvA.name}")
   unless cvm.levelParams = cvA.levelParams do
     throw (.notImplemented s!"model level parameters mismatch for {cvA.name}")
@@ -368,7 +368,7 @@ def checkProjLookups (env' : Env) (T ctorName : Name) (lps : List Name)
     | throw (.notImplemented "projection constructor not stored")
   unless cnP = nP ∧ cnF = nF do
     throw (.notImplemented "projection constructor arity mismatch")
-  let some (.defnInfo mcv _) := env'.find? (projModelName T i)
+  let some (.defnInfo mcv _ _) := env'.find? (projModelName T i)
     | throw (.notImplemented "missing projection model")
   unless mcv.levelParams = lps do
     throw (.notImplemented "projection model level mismatch")
@@ -485,14 +485,14 @@ def checkEtaThm (env' : Env) (T ctorName : Name) (lps : List Name)
   match env'.find? ((T.str "_model").str "eta"),
       env'.find? (T.str "_model"),
       env'.find? (ctorName.str "_model"), env'.find? eqName with
-  | some (.thmInfo tcv _), some (.defnInfo cvmT _),
-      some (.defnInfo cvmC _), some eqStored =>
+  | some (.thmInfo tcv _), some (.defnInfo cvmT _ _),
+      some (.defnInfo cvmC _ _), some eqStored =>
     eqStored == eqA && tcv.levelParams == lps &&
     cvmT.levelParams == lps && cvmC.levelParams == lps &&
     -- the projection models exist at the family's level parameters
     (List.range nF).all (fun j =>
       match env'.find? (projModelName T j) with
-      | some (.defnInfo cvmj _) => cvmj.levelParams == lps
+      | some (.defnInfo cvmj _ _) => cvmj.levelParams == lps
       | _ => false) &&
     (match tcv.type.stripPis (nP + 1), cvmT.type.stripPis nP with
      | some (sbinders, sbody), some (tbindersM, _) =>
@@ -524,7 +524,7 @@ def checkUnitThm (env' : Env) (T : Name) (lps : List Name)
     (nP : Nat) : Bool :=
   match env'.find? ((T.str "_model").str "unitlike"),
       env'.find? (T.str "_model"), env'.find? eqName with
-  | some (.thmInfo tcv _), some (.defnInfo cvmT _), some eqStored =>
+  | some (.thmInfo tcv _), some (.defnInfo cvmT _ _), some eqStored =>
     eqStored == eqA && tcv.levelParams == lps &&
     cvmT.levelParams == lps &&
     (match tcv.type.stripPis (nP + 2), cvmT.type.stripPis nP with
@@ -621,9 +621,12 @@ def checkIndDecl (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) : 
     let env₂ ← nonrecs.foldlM (checkIndMember ops blockNames {}) env
     checkIndRecs ops blockNames env₂ recs
 
-/-- Check a `def` declaration's value against its checked constant. -/
+/-- Check a `def` declaration's value against its checked constant.
+The reducibility hint is stored untouched: it steers only the lazy
+delta unfolding order in `isDefEq`, never a verdict, so nothing about
+it needs checking. -/
 def checkDefnVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
-    (value : Expr) : m Env := do
+    (value : Expr) (hint : ReducibilityHint) : m Env := do
   unless value.looseBVarsBounded 0 do
     throw (.invalid s!"loose bound variable in value of {cv.name}")
   if value.hasFvar then
@@ -636,7 +639,7 @@ def checkDefnVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
   let vtype ← ops.inferType env 0 value
   unless ← ops.isDefEq env 0 vtype cv.type do
     throw (.invalid s!"type mismatch in definition {cv.name}")
-  pure ⟨.defnInfo cv value :: env.consts⟩
+  pure ⟨.defnInfo cv value hint :: env.consts⟩
 
 /-- Check a `theorem` declaration's value against its checked constant
 (whose type must additionally be a proposition). -/
@@ -693,9 +696,9 @@ def certifyNatEqs (ops : CheckerOps m) (env : Env) :
 /-- Check a single declaration, extending the environment on success. -/
 def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
   match d with
-  | .defnDecl cv value => do
+  | .defnDecl cv value hint => do
     let cv ← checkConstantVal ops env cv
-    let env2 ← checkDefnVal ops env cv value
+    let env2 ← checkDefnVal ops env cv value hint
     -- Structural-Nat pins: the fast-path ops must be the standard
     -- structural recursions — their recurrence equations are checked
     -- by definitional equality here, once, so the literal fast path's
@@ -713,7 +716,7 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
         throw (.notImplemented
           s!"nonstandard structural Nat operation environment ({cv.name})")
       match env2.find? cv.name with
-      | some (.defnInfo _ value') =>
+      | some (.defnInfo _ value' _) =>
         let ok ← certifyNatEqs ops env
           ((natOpEquations 0 cv.name).map fun eq =>
             (Expr.substConst0 cv.name value' eq.1,

@@ -38,8 +38,9 @@ inductive ProvFacts (F : Nat) (blockNames : List Name) :
       cvA.type.looseBVarsBounded 0 = true →
       cvA.type.allLevelParamsDefined cvA.levelParams = true →
       cvA.type.constsResolve envAcc = true →
-      (∃ cvm mval, envAcc.find? (cvA.name.str "_model") =
-        some (.defnInfo cvm mval) ∧ cvm.levelParams = cvA.levelParams ∧
+      (∃ cvm mval hmcvm, envAcc.find? (cvA.name.str "_model") =
+        some (.defnInfo cvm mval hmcvm) ∧
+        cvm.levelParams = cvA.levelParams ∧
         cvA.type.renameConsts (fun n => if blockNames.contains n then
           n.str "_model" else n) = cvm.type) →
       ProvFacts F blockNames
@@ -117,7 +118,7 @@ theorem provisionRecs_sound {F : Nat} {blockNames : List Name} :
   | ci :: rest, envAcc, p, h, hbn, m, hI => by
     obtain ⟨cv, nP, nM, nm, ni, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
       provisionRecs_cons_inv h
-    obtain ⟨hccv, hms, cvm, mval, hfm, hlps, hrenf⟩ :=
+    obtain ⟨hccv, hms, cvm, mval, hmcvm, hfm, hlps, hrenf⟩ :=
       checkMemberVal_inv hcmv
     obtain ⟨hfind0raw, hnres0raw, hpshape0raw, hnd, hlb, hfv, tyA, stype,
       u, hann, hlp, hres, hst, hsort, hcvA⟩ := checkConstantVal_inv hccv
@@ -171,8 +172,8 @@ theorem provisionRecs_sound {F : Nat} {blockNames : List Name} :
         dsimp only
         by_cases hc : blockNames.contains n = true
         · rw [if_pos hc]
-          obtain ⟨cvm₂, mval₂, hfm₂, hlps₂, -⟩ := hI n hc ci₂ hf₂
-          exact ⟨.defnInfo cvm₂ mval₂, hfm₂, hlps₂⟩
+          obtain ⟨cvm₂, mval₂, hm₂, hfm₂, hlps₂, -⟩ := hI n hc ci₂ hf₂
+          exact ⟨.defnInfo cvm₂ mval₂ hm₂, hfm₂, hlps₂⟩
         · rw [if_neg hc]
           exact ⟨ci₂, hf₂, rfl⟩
       · intro n hf₂
@@ -187,7 +188,7 @@ theorem provisionRecs_sound {F : Nat} {blockNames : List Name} :
           dsimp only
           by_cases hc : blockNames.contains n = true
           · rw [if_pos hc]
-            obtain ⟨cvm₂, mval₂, -, -, hv₂⟩ := hI n hc ci₂ hf₂
+            obtain ⟨cvm₂, mval₂, -, -, -, hv₂⟩ := hI n hc ci₂ hf₂
             exact (hv₂ ψ).symm
           · rw [if_neg hc]
     have hrenS : cvA.type.renameConsts fS = cvm.type := by
@@ -197,7 +198,7 @@ theorem provisionRecs_sound {F : Nat} {blockNames : List Name} :
     have hwf₀ : ConstWF ⟨.recInfo cvA nP nM nm ni [] :: envAcc.consts⟩
         (.recInfo cvA nP nM nm ni []) := by
       refine ⟨htyf, htlp, Expr.constsResolve_mono htres, htyb, ?_, ?_⟩
-      · intro cv2 v2 heq
+      · intro cv2 v2 h2 heq
         exact nomatch heq
       · intro cv2 nP' nM' nm' ni' rules'' heq r hr
         injection heq with e1 e2 e3 e4 e5 e6
@@ -236,7 +237,8 @@ theorem provisionRecs_sound {F : Nat} {blockNames : List Name} :
       rw [hpresS n ψ hn₁, hpres₁ n ψ hne]
     · exact ProvFacts.cons hfind0 hnres0 hpshape0 hms hbnA htyf htyb
         htlp htres
-        ⟨cvm, mval, hfm, hlps, by rw [hfb] at hrenf; exact hrenf⟩
+        ⟨cvm, mval, hmcvm, hfm, hlps,
+          by rw [hfb] at hrenf; exact hrenf⟩
         hchain
 
 /-- Resolution is monotone under lookup-preserving extension. -/
@@ -467,8 +469,8 @@ theorem ProvFacts.mem_facts {F : Nat} {blockNames : List Name} :
         c.1.type.looseBVarsBounded 0 = true ∧
         c.1.type.allLevelParamsDefined c.1.levelParams = true ∧
         c.1.type.constsResolve envSelf = true ∧
-        (∃ cvm mval, envSelf.find? (c.1.name.str "_model") =
-          some (.defnInfo cvm mval) ∧
+        (∃ cvm mval hmcvm, envSelf.find? (c.1.name.str "_model") =
+          some (.defnInfo cvm mval hmcvm) ∧
           cvm.levelParams = c.1.levelParams ∧
           c.1.type.renameConsts (fun n => if blockNames.contains n then
             n.str "_model" else n) = cvm.type) ∧
@@ -492,7 +494,7 @@ theorem ProvFacts.mem_facts {F : Nat} {blockNames : List Name} :
         rw [Env.find?_cons,
           if_pos (show (ConstantInfo.recInfo cvA nP nM nm ni
             []).name = cvA.name from rfl)]
-      obtain ⟨cvm, mval, hfm, hlps, hren⟩ := hmodel
+      obtain ⟨cvm, mval, hmcvm, hfm, hlps, hren⟩ := hmodel
       refine ⟨hnres, hshape, hms, hbnc, htyf, htyb, htlp, ?_, ?_, hself⟩
       · refine Expr.constsResolve_le ?_ htres
         intro n hn
@@ -505,7 +507,7 @@ theorem ProvFacts.mem_facts {F : Nat} {blockNames : List Name} :
             exact hf
           rw [hupN n ci h1]
           rfl
-      · refine ⟨cvm, mval, ?_, hlps, hren⟩
+      · refine ⟨cvm, mval, hmcvm, ?_, hlps, hren⟩
         refine hupN _ _ ?_
         rw [Env.find?_cons_of_isSome hfresh (by rw [hfm]; rfl)]
         exact hfm
@@ -607,8 +609,8 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
     obtain ⟨t, ht, -⟩ := mS.mem_type _ hfcMem ψ''
     exact ⟨t, ht⟩
   -- the recursor's model
-  obtain ⟨cvm, mval, hfm, hlpsm, -⟩ := hIS cvA.name hbnA _ hself
-  have hfRm : envS.find? (f cvA.name) = some (.defnInfo cvm mval) := by
+  obtain ⟨cvm, mval, hm, hfm, hlpsm, -⟩ := hIS cvA.name hbnA _ hself
+  have hfRm : envS.find? (f cvA.name) = some (.defnInfo cvm mval hm) := by
     rw [hf]
     dsimp only
     rw [if_pos hbnA]
@@ -618,8 +620,8 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
       envS.find? (f (RecRule.ctor r)) = some cimC ∧
       cimC.toConstantVal.levelParams = cvj.levelParams := by
     by_cases hbc : blockNames.contains (RecRule.ctor r) = true
-    · obtain ⟨cvmC, mvalC, hfmC, hlpsC, -⟩ := hIS _ hbc _ hfcS
-      refine ⟨.defnInfo cvmC mvalC, ?_, hlpsC⟩
+    · obtain ⟨cvmC, mvalC, hmC, hfmC, hlpsC, -⟩ := hIS _ hbc _ hfcS
+      refine ⟨.defnInfo cvmC mvalC hmC, ?_, hlpsC⟩
       rw [hf]
       dsimp only
       rw [if_pos hbc]
@@ -669,8 +671,8 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
   subst hψeq hψjeq
   have hfold := modeled_rule_fold mS F hro
     (fun n ci hfx => mS.val_params n ci hfx)
-    hfRm (show (ConstantInfo.defnInfo cvm
-      mval).toConstantVal.levelParams = cvA.levelParams from hlpsm)
+    hfRm (show (ConstantInfo.defnInfo cvm mval
+      hm).toConstantVal.levelParams = cvA.levelParams from hlpsm)
     hfcS hfCm hCmlps heqfindS heqval
     hthm_mem hthm_annot hSw hSb
     (recRulePlain_strip hplain)
@@ -863,8 +865,8 @@ theorem checkIndRecs_sound {F : Nat} {blockNames : List Name}
       dsimp only
       by_cases hc : blockNames.contains n = true
       · rw [if_pos hc]
-        obtain ⟨cvm₂, mval₂, hfm₂, hlps₂, -⟩ := hIS n hc ci₂ hf₂
-        exact ⟨.defnInfo cvm₂ mval₂, hfm₂, hlps₂⟩
+        obtain ⟨cvm₂, mval₂, hm₂, hfm₂, hlps₂, -⟩ := hIS n hc ci₂ hf₂
+        exact ⟨.defnInfo cvm₂ mval₂ hm₂, hfm₂, hlps₂⟩
       · rw [if_neg hc]
         exact ⟨ci₂, hf₂, rfl⟩
     · intro n hf₂
@@ -885,7 +887,7 @@ theorem checkIndRecs_sound {F : Nat} {blockNames : List Name}
           rw [hf₂] at this
           exact nomatch this
         | some ci₂ =>
-          obtain ⟨cvm₂, mval₂, -, -, hv₂⟩ := hIS n hc ci₂ hf₂
+          obtain ⟨cvm₂, mval₂, -, -, -, hv₂⟩ := hIS n hc ci₂ hf₂
           exact (hv₂ ψ).symm
       · rw [if_neg hc]
   -- per-item swap obligations
@@ -908,7 +910,7 @@ theorem checkIndRecs_sound {F : Nat} {blockNames : List Name}
       refine ⟨htyf, htlp, ?_, htyb, ?_, ?_⟩
       · rw [← Expr.constsResolve_congr hisoSome]
         exact htres
-      · intro cv2 v2 heq
+      · intro cv2 v2 h2 heq
         exact nomatch heq
       · intro cv2 nP2 nM2 nm2 ni2 rules2 heq r hr
         injection heq with e1 e2 e3 e4 e5 e6
@@ -937,16 +939,16 @@ theorem checkIndRecs_sound {F : Nat} {blockNames : List Name}
   intro n hn ci₃ hf₃
   rcases hcorr n with heq | ⟨cv, a, b, c, d, e0, h₀, h₃, -⟩
   · rw [heq] at hf₃
-    obtain ⟨cvm₂, mval₂, hfm₂, hlps₂, hv₂⟩ := hIS n hn ci₃ hf₃
-    refine ⟨cvm₂, mval₂, ?_, hlps₂, ?_⟩
+    obtain ⟨cvm₂, mval₂, hm₂, hfm₂, hlps₂, hv₂⟩ := hIS n hn ci₃ hf₃
+    refine ⟨cvm₂, mval₂, hm₂, ?_, hlps₂, ?_⟩
     · exact hfindUp3 _ _ hfm₂ (fun _ _ _ _ _ _ hcon => nomatch hcon)
     · intro ψ
       rw [hveq n ψ, hveq (n.str "_model") ψ]
       exact hv₂ ψ
   · rw [h₃] at hf₃
     obtain rfl := Option.some.inj hf₃
-    obtain ⟨cvm₂, mval₂, hfm₂, hlps₂, hv₂⟩ := hIS n hn _ h₀
-    refine ⟨cvm₂, mval₂, ?_, hlps₂, ?_⟩
+    obtain ⟨cvm₂, mval₂, hm₂, hfm₂, hlps₂, hv₂⟩ := hIS n hn _ h₀
+    refine ⟨cvm₂, mval₂, hm₂, ?_, hlps₂, ?_⟩
     · exact hfindUp3 _ _ hfm₂ (fun _ _ _ _ _ _ hcon => nomatch hcon)
     · intro ψ
       rw [hveq n ψ, hveq (n.str "_model") ψ]

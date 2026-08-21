@@ -30,7 +30,7 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
     (hwf : ConstWF ⟨.recInfo cvA nP 0 0 0 [rule] :: env.consts⟩
       (.recInfo cvA nP 0 0 0 [rule]))
     (htyres0 : cvA.type.constsResolve env = true)
-    (hmodel : env.find? mnameP = some (.defnInfo cvm mval))
+    (hmodel : env.find? mnameP = some (.defnInfo cvm mval hmcvm))
     (hlps : cvm.levelParams = cvA.levelParams)
     (hprojm : ∀ (T : Name) (j : Nat), cvA.name = projFnName T j →
       (env.find? (projModelName T j)).isSome = true ∧
@@ -188,7 +188,7 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
           split at hf₂
           · next hh =>
             obtain rfl := Option.some.inj hf₂
-            refine ⟨.defnInfo cvm mval, ?_, ?_⟩
+            refine ⟨.defnInfo cvm mval hmcvm, ?_, ?_⟩
             · rw [show f n₂ = mnameP from by
                 rw [← (show cvA.name = n₂ from hh)]
                 exact hfself]
@@ -233,7 +233,7 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
                 hro.2.2 n₂]
       have hfRm₁ : (⟨.recInfo cvA nP 0 0 0 [rule] ::
           env.consts⟩ : Env).find? (f cvA.name) =
-          some (.defnInfo cvm mval) := by
+          some (.defnInfo cvm mval hmcvm) := by
         rw [hfself, Env.find?_cons,
           if_neg (show ¬(ConstantInfo.recInfo cvA nP 0 0 0
             [rule]).name = mnameP from
@@ -292,7 +292,7 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
       have hout := proj_rule_fold (P := cvA.name) (i := i)
         hro₁ hvp₁ hi hctor₁ hfRm₁
         (show (ConstantInfo.defnInfo cvm
-          mval).toConstantVal.levelParams = cvA.levelParams from hlps)
+          mval hmcvm).toConstantVal.levelParams = cvA.levelParams from hlps)
         hClps₁ heqfind₁ heqval₁ hthm_mem₁ hthm_annot₁ hthw hstripR
         hrbody hC_strip hS_strip hsdoms hdoms hsbody hrhsf
         hrhsb hArhs₁ hCtf

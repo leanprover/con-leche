@@ -474,7 +474,7 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
         next hcond =>
           exact Or.inl (Except.ok.inj h).symm
       | axiomInfo cv => exact Or.inl (Except.ok.inj h).symm
-      | defnInfo cv value => exact Or.inl (Except.ok.inj h).symm
+      | defnInfo cv value hint => exact Or.inl (Except.ok.inj h).symm
       | thmInfo cv value => exact Or.inl (Except.ok.inj h).symm
       | indInfo cv _ => exact Or.inl (Except.ok.inj h).symm
       | recInfo cv nP nM nm ni rules => exact Or.inl (Except.ok.inj h).symm
@@ -632,7 +632,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   match hfc : env.find? c with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
-  | some (.defnInfo _ _) => intro h; exact nomatch h
+  | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
@@ -672,7 +672,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   match hfj : env.find? cj with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
-  | some (.defnInfo _ _) => intro h; exact nomatch h
+  | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
@@ -853,7 +853,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     intro h; dsimp only at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact Or.inl h.symm
-  | some (.axiomInfo _) | some (.defnInfo _ _) | some (.thmInfo _ _)
+  | some (.axiomInfo _) | some (.defnInfo _ _ _) | some (.thmInfo _ _)
   | some (.indInfo _ _) | some (.recInfo _ _ _ _ _ _) =>
     intro h; dsimp only at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
@@ -877,7 +877,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     intro h; dsimp only at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact Or.inl h.symm
-  | some (.axiomInfo _) | some (.defnInfo _ _) | some (.thmInfo _ _)
+  | some (.axiomInfo _) | some (.defnInfo _ _ _) | some (.thmInfo _ _)
   | some (.ctorInfo _ _ _) | some (.recInfo _ _ _ _ _ _) =>
     intro h; dsimp only at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
@@ -1121,6 +1121,46 @@ theorem defEqList_step_inv {env : Env} {fuel d : Nat} {a b : Expr}
   simp only [↓reduceIte] at h
   exact ⟨rfl, h⟩
 
+/-- Inversion of the lazy delta same-head spine congruence: both sides
+are applications of the same constant, at pointwise-equivalent levels,
+with pairwise definitionally equal spines of equal length. -/
+theorem defeqSpine_inv {env : Env} {fuel d : Nat} {a b : Expr}
+    (h : defeqSpineP env fuel d a b = .ok true) :
+    ∃ n us us', a.getAppFn = .const n us ∧ b.getAppFn = .const n us' ∧
+      a.getAppArgs.length = b.getAppArgs.length ∧
+      Level.isEquivList us us' = some true ∧
+      defEqListP env fuel d a.getAppArgs b.getAppArgs = .ok true := by
+  dsimp only [defeqSpineP] at h
+  simp only [defeqSpine, defEqList_fold] at h
+  revert h
+  match hfa : a.getAppFn with
+  | .bvar _ | .fvar _ _ _ | .sort _ | .app _ _ | .lam _ _ _ _
+  | .forallE _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+    intro h; simp [pure, Except.pure] at h
+  | .const n us => ?_
+  intro h
+  dsimp only at h
+  revert h
+  match hfb : b.getAppFn with
+  | .bvar _ | .fvar _ _ _ | .sort _ | .app _ _ | .lam _ _ _ _
+  | .forallE _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+    intro h; simp [pure, Except.pure] at h
+  | .const n' us' => ?_
+  intro h
+  dsimp only at h
+  revert h
+  split
+  case isTrue hcond =>
+    obtain ⟨rfl, hlen⟩ := hcond
+    intro h
+    revert h
+    match hlev : Level.isEquivList us us' with
+    | some true => intro h; exact ⟨n, us, us', rfl, rfl, hlen, hlev, h⟩
+    | some false => intro h; simp [pure, Except.pure] at h
+    | none => intro h; simp [pure, Except.pure] at h
+  case isFalse =>
+    intro h; simp [pure, Except.pure] at h
+
 /-- Inversion of one certification step. -/
 theorem iotaCerts_step_inv {env : Env} {fuel d : Nat} {n : Name}
     {ty body : Expr} {m : BinderMeta} {arg : Expr} {rest : List Expr}
@@ -1164,7 +1204,7 @@ theorem isUnitLikeTy_inv {env : Env} {e : Expr}
     match hfc : env.find? c with
     | none => intro h1; exact nomatch h1
     | some (.axiomInfo _) => intro h1; exact nomatch h1
-    | some (.defnInfo _ _) => intro h1; exact nomatch h1
+    | some (.defnInfo _ _ _) => intro h1; exact nomatch h1
     | some (.thmInfo _ _) => intro h1; exact nomatch h1
     | some (.ctorInfo _ _ _) => intro h1; exact nomatch h1
     | some (.recInfo _ _ _ _ _ _) => intro h1; exact nomatch h1
@@ -1174,7 +1214,7 @@ theorem isUnitLikeTy_inv {env : Env} {e : Expr}
     match hfr : env.find? (c.str "rec") with
     | none => intro h2; exact nomatch h2
     | some (.axiomInfo _) => intro h2; exact nomatch h2
-    | some (.defnInfo _ _) => intro h2; exact nomatch h2
+    | some (.defnInfo _ _ _) => intro h2; exact nomatch h2
     | some (.thmInfo _ _) => intro h2; exact nomatch h2
     | some (.ctorInfo _ _ _) => intro h2; exact nomatch h2
     | some (.indInfo _ _) => intro h2; exact nomatch h2
@@ -1386,7 +1426,7 @@ theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   match hfc : env.find? c with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
-  | some (.defnInfo _ _) => intro h; exact nomatch h
+  | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
@@ -1451,7 +1491,7 @@ theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   match hfi : env.find? c' with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
-  | some (.defnInfo _ _) => intro h; exact nomatch h
+  | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
@@ -1462,7 +1502,7 @@ theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   match hfr : env.find? (c'.str "rec") with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
-  | some (.defnInfo _ _) => intro h; exact nomatch h
+  | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
@@ -1531,7 +1571,7 @@ theorem structEtaProjCerts_inv {env : Env} {fuel d : Nat} {T : Name}
     match hfp : env.find? (projFnName T i₀) with
     | none => intro h; exact nomatch h
     | some (.axiomInfo _) => intro h; exact nomatch h
-    | some (.defnInfo _ _) => intro h; exact nomatch h
+    | some (.defnInfo _ _ _) => intro h; exact nomatch h
     | some (.thmInfo _ _) => intro h; exact nomatch h
     | some (.indInfo _ _) => intro h; exact nomatch h
     | some (.ctorInfo _ _ _) => intro h; exact nomatch h
@@ -1612,7 +1652,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   match hfc : env.find? c with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
-  | some (.defnInfo _ _) => intro h; exact nomatch h
+  | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
@@ -1640,7 +1680,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   match hfT : env.find? T with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
-  | some (.defnInfo _ _) => intro h; exact nomatch h
+  | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
@@ -1780,7 +1820,7 @@ theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   match hfT : env.find? T with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
-  | some (.defnInfo _ _) => intro h; exact nomatch h
+  | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
@@ -1946,7 +1986,7 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
   cases ci with
   | indInfo cv _ => ?_
   | axiomInfo cv => exact nomatch h
-  | defnInfo cv value => exact nomatch h
+  | defnInfo cv value hint => exact nomatch h
   | thmInfo cv value => exact nomatch h
   | ctorInfo cv nP nF => exact nomatch h
   | recInfo cv nP nM nm ni rules => exact nomatch h
@@ -2152,7 +2192,7 @@ theorem unfoldDefinition_WScoped {env : Env} (henv : EnvWF env)
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
-  | some (.defnInfo cv value) => ?_
+  | some (.defnInfo cv value hint) => ?_
   intro h
   dsimp only at h
   revert h
@@ -2161,7 +2201,7 @@ theorem unfoldDefinition_WScoped {env : Env} (henv : EnvWF env)
     simp only [Option.some.injEq] at h
     subst h
     obtain ⟨-, -, -, -, hval, -⟩ := henv _ (find?_mem hf)
-    obtain ⟨hvc, -, -, -⟩ := hval cv value rfl
+    obtain ⟨hvc, -, -, -⟩ := hval cv value hint rfl
     refine Expr.WScoped.mkAppN
       (WScoped.of_not_hasFvar (by
         rw [hasFvar_instantiateLevelParams]; exact hvc)) ?_

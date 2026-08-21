@@ -81,10 +81,10 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
         (fun ψ => quotVal V ψ)
         (Option.isNone_iff_eq_none.mp h1)
         ⟨rfl, rfl, rfl, rfl,
-          fun _ _ hx => absurd hx (by simp [quotA]),
+          fun _ _ _ hx => absurd hx (by simp [quotA]),
           fun _ _ _ _ _ _ hx => absurd hx (by simp [quotA])⟩
         rfl
-        (fun _ _ hx => nomatch hx)
+        (fun _ _ _ hx => nomatch hx)
         (fun ψ => quot_key)
         (fun ψ₁ ψ₂ hψ => by
           simp only [quotVal]
@@ -110,10 +110,10 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
         (fun ψ => quotMkVal V ψ)
         (Option.isNone_iff_eq_none.mp h2)
         ⟨rfl, rfl, rfl, rfl,
-          fun _ _ hx => absurd hx (by simp [quotMkA]),
+          fun _ _ _ hx => absurd hx (by simp [quotMkA]),
           fun _ _ _ _ _ _ hx => absurd hx (by simp [quotMkA])⟩
         rfl
-        (fun _ _ hx => nomatch hx)
+        (fun _ _ _ hx => nomatch hx)
         (fun ψ => quotMk_key rfl hvalQ1)
         (fun ψ₁ ψ₂ hψ => by
           simp only [quotMkVal]
@@ -203,7 +203,7 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
         (fun ψ => quotLiftVal V ψ)
         (Option.isNone_iff_eq_none.mp h3)
         ⟨rfl, rfl, hresL, rfl,
-          fun _ _ hx => absurd hx (by simp [quotLiftA]),
+          fun _ _ _ hx => absurd hx (by simp [quotLiftA]),
           fun cv nP nM nm ni rules heq r hr => by
             simp only [quotLiftA] at heq
             injection heq with e1 e2 e3 e4 e5 e6
@@ -212,7 +212,7 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
             · exact ⟨rfl, rfl, hresLr, rfl⟩
             · cases hr⟩
         hresL0
-        (fun _ _ hx => nomatch hx)
+        (fun _ _ _ hx => nomatch hx)
         (fun ψ => quotLift_key hfE2 hvalE2 rfl hvalQ2)
         (fun ψ₁ ψ₂ hψ => by
           simp only [quotLiftVal]
@@ -358,7 +358,7 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
         (fun ψ => quotIndVal V ψ)
         (Option.isNone_iff_eq_none.mp h4)
         ⟨rfl, rfl, rfl, rfl,
-          fun _ _ hx => absurd hx (by simp [quotIndA]),
+          fun _ _ _ hx => absurd hx (by simp [quotIndA]),
           fun cv nP nM nm ni rules heq r hr => by
             simp only [quotIndA] at heq
             injection heq with e1 e2 e3 e4 e5 e6
@@ -367,7 +367,7 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
             · exact ⟨rfl, rfl, rfl, rfl⟩
             · cases hr⟩
         rfl
-        (fun _ _ hx => nomatch hx)
+        (fun _ _ _ hx => nomatch hx)
         (fun ψ => quotInd_key rfl hvalQ3 rfl hvalM3)
         (fun ψ₁ ψ₂ hψ => by
           simp only [quotIndVal]
@@ -552,10 +552,10 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
         (fun ψ => quotSoundVal V ψ)
         (Option.isNone_iff_eq_none.mp h5)
         ⟨rfl, rfl, hresS, rfl,
-          fun _ _ hx => absurd hx (by simp [quotSoundA]),
+          fun _ _ _ hx => absurd hx (by simp [quotSoundA]),
           fun _ _ _ _ _ _ hx => absurd hx (by simp [quotSoundA])⟩
         hresS0
-        (fun _ _ hx => nomatch hx)
+        (fun _ _ _ hx => nomatch hx)
         (fun ψ => quotSound_key hfE4 hvalE4 rfl hvalQ4 rfl hvalM4)
         (fun ψ₁ ψ₂ hψ => by
           simp only [quotSoundVal]

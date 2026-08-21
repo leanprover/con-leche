@@ -602,7 +602,7 @@ theorem reduceNat_sound (m : EnvModel V env) {fuel d : Nat} {e e₂ : Expr}
       interpExpr_rawNatLit hs hraw, natLitVal]
   · -- `pred`
     have hs := (natOpGuard_inv hguard).1
-    obtain ⟨cvp, vp, hfp, hlpp⟩ := natOpGuard_self_defn (by decide) hguard
+    obtain ⟨cvp, vp, hntp, hfp, hlpp⟩ := natOpGuard_self_defn (by decide) hguard
     simp only [WScoped] at hw
     simp only [looseBVarsBounded, Bool.and_eq_true] at hb
     have hLba : Expr.LeavesBounded a := fun l hl =>
@@ -620,14 +620,14 @@ theorem reduceNat_sound (m : EnvModel V env) {fuel d : Nat} {e e₂ : Expr}
       (fun l hl => by simp [Expr.fvarLeaves] at hl)⟩
     rw [interpExpr_lit hs,
       interp_app1 (interp_const_mono hfp
-        (show (ConstantInfo.defnInfo cvp vp).toConstantVal.levelParams = []
+        (show (ConstantInfo.defnInfo cvp vp hntp).toConstantVal.levelParams = []
           from hlpp)) hia,
       natOpVal_pred m hfp φ n]
   · -- binary operations
     have hc : c ∈ natOpNames := by
       rcases hor with rfl | rfl | rfl | rfl | rfl | rfl <;> decide
     have hs := (natOpGuard_inv hguard).1
-    obtain ⟨cvc, vc, hfc, hlpc⟩ := natOpGuard_self_defn hc hguard
+    obtain ⟨cvc, vc, hntc, hfc, hlpc⟩ := natOpGuard_self_defn hc hguard
     simp only [WScoped] at hw
     simp only [looseBVarsBounded, Bool.and_eq_true] at hb
     have hLba : Expr.LeavesBounded a := fun l hl =>
@@ -652,7 +652,7 @@ theorem reduceNat_sound (m : EnvModel V env) {fuel d : Nat} {e e₂ : Expr}
           (natLitVal V (m.val natZeroName φ) (m.val natSuccName φ) n₁))
           (natLitVal V (m.val natZeroName φ) (m.val natSuccName φ) n₂)) :=
       interp_app1 (interp_app1 (interp_const_mono hfc
-        (show (ConstantInfo.defnInfo cvc vc).toConstantVal.levelParams = []
+        (show (ConstantInfo.defnInfo cvc vc hntc).toConstantVal.levelParams = []
           from hlpc)) hia) hib
     rcases hor with rfl | rfl | rfl | rfl | rfl | rfl
     · -- add
@@ -743,8 +743,8 @@ theorem reduceNat_sound (m : EnvModel V env) {fuel d : Nat} {e e₂ : Expr}
 /-- Inversion of a one-step delta unfolding. -/
 theorem unfoldDefinition_inv {env : Env} {e e₂ : Expr}
     (h : unfoldDefinition env e = some e₂) :
-    ∃ n us cv value, e.getAppFn = .const n us ∧
-      env.find? n = some (.defnInfo cv value) ∧
+    ∃ n us cv value hint, e.getAppFn = .const n us ∧
+      env.find? n = some (.defnInfo cv value hint) ∧
       us.length = cv.levelParams.length ∧
       e₂ = Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
         e.getAppArgs := by
@@ -765,7 +765,7 @@ theorem unfoldDefinition_inv {env : Env} {e e₂ : Expr}
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
-  | some (.defnInfo cv value) => ?_
+  | some (.defnInfo cv value hint) => ?_
   intro h
   dsimp only at h
   revert h
@@ -773,7 +773,7 @@ theorem unfoldDefinition_inv {env : Env} {e e₂ : Expr}
   case isTrue hal =>
     intro h
     simp only [Option.some.injEq] at h
-    exact ⟨n, us, cv, value, rfl, hf, hal, h.symm⟩
+    exact ⟨n, us, cv, value, hint, rfl, hf, hal, h.symm⟩
   case isFalse =>
     intro h; exact nomatch h
 
@@ -797,15 +797,15 @@ theorem unfoldDefinition_sound (m : EnvModel V env) {d : Nat}
     hLb l (unfoldDefinition_fvarLeaves m.wf hu l hl)
   have hsynO : FvarsOk V m.val env φ d ρ e₂ :=
     FvarsOk.of_subset (unfoldDefinition_fvarLeaves m.wf hu) hok
-  obtain ⟨n, us, cv, value, hfn, hf, hal, rfl⟩ := unfoldDefinition_inv hu
+  obtain ⟨n, us, cv, value, hint, hfn, hf, hal, rfl⟩ := unfoldDefinition_inv hu
   -- head facts
   obtain ⟨-, -, -, -, hval, -⟩ := m.wf _ (List.mem_of_find?_eq_some hf)
-  obtain ⟨hvc, -, -, hvb⟩ := hval cv value rfl
+  obtain ⟨hvc, -, -, hvb⟩ := hval cv value hint rfl
   have hcl : (value.instantiateLevelParams cv.levelParams us).hasFvar
       = false := by
     rw [hasFvar_instantiateLevelParams]; exact hvc
   have hstored := (m.annot_ok _ (List.mem_of_find?_eq_some hf)
-    (Level.substFn φ cv.levelParams us)).2 cv value rfl
+    (Level.substFn φ cv.levelParams us)).2 cv value hint rfl
   have hinst := AnnotOk.instLevels m.val_params value 0 (rho0 V) hstored
   have hA₂ : AnnotOk V m.val env φ d ρ
       (value.instantiateLevelParams cv.levelParams us) :=
@@ -819,7 +819,7 @@ theorem unfoldDefinition_sound (m : EnvModel V env) {d : Nat}
     rw [interp_closed_invariant hcl]
     unfold interpClosed
     rw [interp_instLevels m.val_params]
-    have hde := m.defn_eq cv value (List.mem_of_find?_eq_some hf)
+    have hde := m.defn_eq cv value hint (List.mem_of_find?_eq_some hf)
       (Level.substFn φ cv.levelParams us)
     unfold interpClosed at hde
     rw [hde, hname]

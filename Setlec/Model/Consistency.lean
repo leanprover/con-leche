@@ -237,7 +237,7 @@ private theorem natop_eqs_sound {env : Env} (m : EnvModel V env) (F : Nat)
   · -- sub
     obtain ⟨C, hHpi, hCu, hCid⟩ := hHmem.2 (by decide)
     rw [hCid (by decide) (by decide)] at hHpi
-    obtain ⟨cvp, vp, hfp, hlpp, hpredm, -⟩ :=
+    obtain ⟨cvp, vp, hnf1, hfp, hlpp, hpredm, -⟩ :=
       natOpStored_facts m (hdeps natPredName (by decide) (by decide)) hs ψ
     have hpredpi := hpredm rfl
     simp +decide [natOpEquations, Prod.mk.injEq] at heqm
@@ -257,7 +257,7 @@ private theorem natop_eqs_sound {env : Env} (m : EnvModel V env) (F : Nat)
   · -- mul
     obtain ⟨C, hHpi, hCu, hCid⟩ := hHmem.2 (by decide)
     rw [hCid (by decide) (by decide)] at hHpi
-    obtain ⟨cva, va, hfa, hlpa, -, haddm⟩ :=
+    obtain ⟨cva, va, hnf2, hfa, hlpa, -, haddm⟩ :=
       natOpStored_facts m (hdeps natAddName (by decide) (by decide)) hs ψ
     obtain ⟨Ca, haddpi, hCua, hCida⟩ := haddm (by decide)
     rw [hCida (by decide) (by decide)] at haddpi
@@ -279,7 +279,7 @@ private theorem natop_eqs_sound {env : Env} (m : EnvModel V env) (F : Nat)
   · -- pow
     obtain ⟨C, hHpi, hCu, hCid⟩ := hHmem.2 (by decide)
     rw [hCid (by decide) (by decide)] at hHpi
-    obtain ⟨cvm', vm', hfm, hlpm, -, hmulm⟩ :=
+    obtain ⟨cvm', vm', hnf3, hfm, hlpm, -, hmulm⟩ :=
       natOpStored_facts m (hdeps natMulName (by decide) (by decide)) hs ψ
     obtain ⟨Cm, hmulpi, hCum, hCidm⟩ := hmulm (by decide)
     rw [hCidm (by decide) (by decide)] at hmulpi
@@ -444,10 +444,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun _ => propextVal V)
         hfind'
         ⟨htf, htp, Expr.constsResolve_mono htr, hbt',
-          fun _ _ hx => ConstantInfo.noConfusion hx,
+          fun _ _ _ hx => ConstantInfo.noConfusion hx,
           fun _ _ _ _ _ _ hx => ConstantInfo.noConfusion hx⟩
         htr
-        (fun _ _ hx => nomatch hx)
+        (fun _ _ _ hx => nomatch hx)
         (fun ψ => hkey ψ)
         (fun _ _ _ => rfl)
         (fun ψ => hAty ψ)
@@ -490,10 +490,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun ψ => choiceVal V (ψ uN))
         hfind'
         ⟨htf, htp, Expr.constsResolve_mono htr, hbt',
-          fun _ _ hx => ConstantInfo.noConfusion hx,
+          fun _ _ _ hx => ConstantInfo.noConfusion hx,
           fun _ _ _ _ _ _ hx => ConstantInfo.noConfusion hx⟩
         htr
-        (fun _ _ hx => nomatch hx)
+        (fun _ _ _ hx => nomatch hx)
         (fun ψ => hkey ψ)
         (fun ψ₁ ψ₂ hψ => by
           rw [hψ uN (by rw [hlp]; exact List.mem_singleton.mpr rfl)])
@@ -556,10 +556,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       obtain ⟨m1, hval1, hpres1⟩ := extend_basis_one m natA (fun _ => omega)
         (Option.isNone_iff_eq_none.mp h1)
         ⟨rfl, rfl, rfl, rfl,
-          fun _ _ hx => absurd hx (by simp [natA]),
+          fun _ _ _ hx => absurd hx (by simp [natA]),
           fun _ _ _ _ _ _ hx => absurd hx (by simp [natA])⟩
         rfl
-        (fun _ _ hx => nomatch hx)
+        (fun _ _ _ hx => nomatch hx)
         (fun ψ => nat_key)
         (fun _ _ _ => rfl)
         (fun ψ => by simp [natA, ConstantInfo.toConstantVal, AnnotOk])
@@ -581,10 +581,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun _ => natzero)
         (Option.isNone_iff_eq_none.mp h2)
         ⟨rfl, rfl, rfl, rfl,
-          fun _ _ hx => absurd hx (by simp [natZeroA]),
+          fun _ _ _ hx => absurd hx (by simp [natZeroA]),
           fun _ _ _ _ _ _ hx => absurd hx (by simp [natZeroA])⟩
         rfl
-        (fun _ _ hx => nomatch hx)
+        (fun _ _ _ hx => nomatch hx)
         (fun ψ => natZero_key rfl (fun ψ' => hval1 ψ'))
         (fun _ _ _ => rfl)
         (fun ψ => by simp [natZeroA, ConstantInfo.toConstantVal, AnnotOk])
@@ -609,10 +609,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun ψ => natSuccVal V ψ)
         (Option.isNone_iff_eq_none.mp h3)
         ⟨rfl, rfl, rfl, rfl,
-          fun _ _ hx => absurd hx (by simp [natSuccA]),
+          fun _ _ _ hx => absurd hx (by simp [natSuccA]),
           fun _ _ _ _ _ _ hx => absurd hx (by simp [natSuccA])⟩
         rfl
-        (fun _ _ hx => nomatch hx)
+        (fun _ _ _ hx => nomatch hx)
         (fun ψ => natSucc_key rfl hvalN2)
         (fun _ _ _ => rfl)
         (fun ψ => annotOk_natSucc_type rfl hvalN2)
@@ -640,7 +640,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun ψ => natRecVal V ψ)
         (Option.isNone_iff_eq_none.mp h4)
         ⟨rfl, rfl, rfl, rfl,
-          fun _ _ hx => absurd hx (by simp [natRecA]),
+          fun _ _ _ hx => absurd hx (by simp [natRecA]),
           fun cv nP nM nm ni rules heq r hr => by
             simp only [natRecA] at heq
             injection heq with h1 h2 h3 h4 h5 h6
@@ -673,7 +673,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                    by decide⟩
                exact absurd hr (by simp))⟩
         rfl
-        (fun _ _ hx => nomatch hx)
+        (fun _ _ _ hx => nomatch hx)
         (fun ψ => natRec_key rfl hvalN3 rfl hvalZ3 rfl (fun ψ' => hval3 ψ'))
         (fun ψ₁ ψ₂ hψ => by
           simp only [natRecVal]
@@ -914,10 +914,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun ψ => psigmaVal V ψ)
         (Option.isNone_iff_eq_none.mp h1)
         ⟨rfl, rfl, rfl, rfl,
-          fun _ _ hx => absurd hx (by simp [psigmaA]),
+          fun _ _ _ hx => absurd hx (by simp [psigmaA]),
           fun _ _ _ _ _ _ hx => absurd hx (by simp [psigmaA])⟩
         rfl
-        (fun _ _ hx => nomatch hx)
+        (fun _ _ _ hx => nomatch hx)
         (fun ψ => psigma_key)
         (fun ψ₁ ψ₂ hψ => by
           simp only [psigmaVal]
@@ -942,10 +942,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun ψ => psigmaMkVal V ψ)
         (Option.isNone_iff_eq_none.mp h2)
         ⟨rfl, rfl, rfl, rfl,
-          fun _ _ hx => absurd hx (by simp [psigmaMkA]),
+          fun _ _ _ hx => absurd hx (by simp [psigmaMkA]),
           fun _ _ _ _ _ _ hx => absurd hx (by simp [psigmaMkA])⟩
         rfl
-        (fun _ _ hx => nomatch hx)
+        (fun _ _ _ hx => nomatch hx)
         (fun ψ => psigmaMk_key rfl (fun ψ' => hval1 ψ'))
         (fun ψ₁ ψ₂ hψ => by
           simp only [psigmaMkVal]
@@ -976,7 +976,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun ψ => psigmaRecVal V ψ)
         (Option.isNone_iff_eq_none.mp h3)
         ⟨rfl, rfl, rfl, rfl,
-          fun _ _ hx => absurd hx (by simp [psigmaRecA]),
+          fun _ _ _ hx => absurd hx (by simp [psigmaRecA]),
           fun cv nP nM nm ni rules heq r hr => by
             simp only [psigmaRecA] at heq
             injection heq with h1 h2 h3 h4 h5 h6
@@ -1009,7 +1009,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                    by decide⟩
                exact absurd hr (by simp))⟩
         rfl
-        (fun _ _ hx => nomatch hx)
+        (fun _ _ _ hx => nomatch hx)
         (fun ψ => psigmaRec_key rfl hvalS2 rfl (fun ψ' => hval2 ψ'))
         (fun ψ₁ ψ₂ hψ => by
           simp only [psigmaRecVal]
@@ -1143,10 +1143,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       obtain ⟨m1, hval1, hpres1⟩ := extend_basis_one m eqA (fun ψ => eqVal V ψ)
         (Option.isNone_iff_eq_none.mp h1)
         ⟨rfl, rfl, rfl, rfl,
-          fun _ _ hx => absurd hx (by simp [eqA]),
+          fun _ _ _ hx => absurd hx (by simp [eqA]),
           fun _ _ _ _ _ _ hx => absurd hx (by simp [eqA])⟩
         rfl
-        (fun _ _ hx => nomatch hx)
+        (fun _ _ _ hx => nomatch hx)
         (fun ψ => eq_key)
         (fun ψ₁ ψ₂ hψ => by
           simp only [eqVal]
@@ -1170,10 +1170,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun ψ => eqReflVal V ψ)
         (Option.isNone_iff_eq_none.mp h2)
         ⟨rfl, rfl, rfl, rfl,
-          fun _ _ hx => absurd hx (by simp [eqReflA]),
+          fun _ _ _ hx => absurd hx (by simp [eqReflA]),
           fun _ _ _ _ _ _ hx => absurd hx (by simp [eqReflA])⟩
         rfl
-        (fun _ _ hx => nomatch hx)
+        (fun _ _ _ hx => nomatch hx)
         (fun ψ => eqRefl_key rfl (fun ψ' => hval1 ψ'))
         (fun ψ₁ ψ₂ hψ => by
           simp only [eqReflVal]
@@ -1200,7 +1200,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun ψ => eqRecVal V ψ)
         (Option.isNone_iff_eq_none.mp h3)
         ⟨rfl, rfl, rfl, rfl,
-          fun _ _ hx => absurd hx (by simp [eqRecA]),
+          fun _ _ _ hx => absurd hx (by simp [eqRecA]),
           fun cv nP nM nm ni rules heq r hr => by
             simp only [eqRecA] at heq
             injection heq with h1 h2 h3 h4 h5 h6
@@ -1233,7 +1233,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                    by decide⟩
                exact absurd hr (by simp))⟩
         rfl
-        (fun _ _ hx => nomatch hx)
+        (fun _ _ _ hx => nomatch hx)
         (fun ψ => eqRec_key rfl hvalE2 rfl (fun ψ' => hval2 ψ'))
         (fun ψ₁ ψ₂ hψ => by
           simp only [eqRecVal]
@@ -1365,10 +1365,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     obtain ⟨m1, hval1, hpres1⟩ := extend_basis_one m punitA (fun _ => unitSet)
       (Option.isNone_iff_eq_none.mp h1)
       ⟨rfl, rfl, rfl, rfl,
-          fun _ _ hx => absurd hx (by simp [punitA]),
+          fun _ _ _ hx => absurd hx (by simp [punitA]),
           fun _ _ _ _ _ _ hx => absurd hx (by simp [punitA])⟩
       rfl
-      (fun _ _ hx => nomatch hx)
+      (fun _ _ _ hx => nomatch hx)
       (fun ψ => punit_key)
       (fun _ _ _ => rfl)
       (fun ψ => by simp [punitA, ConstantInfo.toConstantVal, AnnotOk])
@@ -1389,10 +1389,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     obtain ⟨m2, hval2, hpres2⟩ := extend_basis_one m1 punitUnitA (fun _ => pt)
       (Option.isNone_iff_eq_none.mp h2)
       ⟨rfl, rfl, rfl, rfl,
-          fun _ _ hx => absurd hx (by simp [punitUnitA]),
+          fun _ _ _ hx => absurd hx (by simp [punitUnitA]),
           fun _ _ _ _ _ _ hx => absurd hx (by simp [punitUnitA])⟩
       rfl
-      (fun _ _ hx => nomatch hx)
+      (fun _ _ _ hx => nomatch hx)
       (fun ψ => punitUnit_key rfl (fun ψ' => hval1 ψ'))
       (fun _ _ _ => rfl)
       (fun ψ => by simp [punitUnitA, ConstantInfo.toConstantVal, AnnotOk])
@@ -1417,7 +1417,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (fun ψ => punitRecVal V ψ)
       (Option.isNone_iff_eq_none.mp h3)
       ⟨rfl, rfl, rfl, rfl,
-          fun _ _ hx => absurd hx (by simp [punitRecA]),
+          fun _ _ _ hx => absurd hx (by simp [punitRecA]),
           fun cv nP nM nm ni rules heq r hr => by
             simp only [punitRecA] at heq
             injection heq with h1 h2 h3 h4 h5 h6
@@ -1450,7 +1450,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                    by decide⟩
                exact absurd hr (by simp))⟩
       rfl
-      (fun _ _ hx => nomatch hx)
+      (fun _ _ _ hx => nomatch hx)
       (fun ψ => punitRec_key rfl hvalP2 rfl (fun ψ' => hval2 ψ'))
       (fun ψ₁ ψ₂ hψ => by
         simp only [punitRecVal]
@@ -1565,10 +1565,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun _ => SetTheory.empty)
         (Option.isNone_iff_eq_none.mp h1)
         ⟨rfl, rfl, rfl, rfl,
-          fun _ _ hx => absurd hx (by simp [emptyA]),
+          fun _ _ _ hx => absurd hx (by simp [emptyA]),
           fun _ _ _ _ _ _ hx => absurd hx (by simp [emptyA])⟩
         rfl
-        (fun _ _ hx => nomatch hx)
+        (fun _ _ _ hx => nomatch hx)
         (fun ψ => empty_key)
         (fun _ _ _ => rfl)
         (fun ψ => by simp [emptyA, ConstantInfo.toConstantVal, AnnotOk])
@@ -1591,14 +1591,14 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun ψ => emptyRecVal V ψ)
         (Option.isNone_iff_eq_none.mp h2)
         ⟨rfl, rfl, rfl, rfl,
-          fun _ _ hx => absurd hx (by simp [emptyRecA]),
+          fun _ _ _ hx => absurd hx (by simp [emptyRecA]),
           fun cv nP nM nm ni rules heq r hr => by
             simp only [emptyRecA] at heq
             injection heq with h1 h2 h3 h4 h5 h6
             subst h6
             cases hr⟩
         rfl
-        (fun _ _ hx => nomatch hx)
+        (fun _ _ _ hx => nomatch hx)
         (fun ψ => emptyRec_key rfl (fun ψ' => hvalE1 ψ'))
         (fun ψ₁ ψ₂ hψ => by
           simp only [emptyRecVal]
@@ -1634,7 +1634,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
 
     case _ => exact installQuotBasis_sound h m
 
-  | defnDecl cv value =>
+  | defnDecl cv value hint =>
     simp only [checkDecl, checkDefnVal, checkThmVal, installBasisDecl,
         fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
         fueledOps_ensureSort, fueledOps_whnf, Bind.bind, Except.bind] at h
@@ -1679,13 +1679,13 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     -- the structural-Nat pin arm: invert the guard checks and the
     -- pre-insertion value-substituted certification
     have harm : env' =
-        ⟨ConstantInfo.defnInfo { cv with type := type } value' ::
+        ⟨ConstantInfo.defnInfo { cv with type := type } value' hint ::
           env.consts⟩ ∧
         (natOpNames.contains cv.name = true →
           (natOpGuard (⟨ConstantInfo.defnInfo { cv with type := type }
-              value' :: env.consts⟩ : Env) cv.name &&
+              value' hint :: env.consts⟩ : Env) cv.name &&
             (natOpDeps cv.name).all (natOpStoredOk
-              (⟨ConstantInfo.defnInfo { cv with type := type } value' ::
+              (⟨ConstantInfo.defnInfo { cv with type := type } value' hint ::
                 env.consts⟩ : Env))) = true ∧
           certifyNatEqs (fueledOps F) env
             ((natOpEquations 0 cv.name).map fun eq =>
@@ -1694,10 +1694,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       by_cases hnop : natOpNames.contains cv.name = true
       · rw [if_pos hnop] at h
         by_cases hgd : (natOpGuard (⟨ConstantInfo.defnInfo
-              { cv with type := type } value' :: env.consts⟩ : Env)
+              { cv with type := type } value' hint :: env.consts⟩ : Env)
               cv.name &&
             (natOpDeps cv.name).all (natOpStoredOk
-              (⟨ConstantInfo.defnInfo { cv with type := type } value' ::
+              (⟨ConstantInfo.defnInfo { cv with type := type } value' hint ::
                 env.consts⟩ : Env))) = true
         case neg =>
           rw [if_neg hgd] at h
@@ -1705,11 +1705,11 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
             MonadExceptOf.throw] at h
         rw [if_pos hgd] at h
         have hfind2 : (⟨ConstantInfo.defnInfo { cv with type := type }
-            value' :: env.consts⟩ : Env).find? cv.name =
-            some (.defnInfo { cv with type := type } value') := by
+            value' hint :: env.consts⟩ : Env).find? cv.name =
+            some (.defnInfo { cv with type := type } value' hint) := by
           rw [Env.find?_cons,
             if_pos (show (ConstantInfo.defnInfo { cv with type := type }
-              value').name = cv.name from rfl)]
+              value' hint).name = cv.name from rfl)]
         rw [hfind2] at h
         dsimp only at h
         revert h
@@ -1753,8 +1753,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       value_facts m hlbv (by simpa using hivf) hannv hvt hde htf hbt' hAty hkeyT
     refine extend_model m hfind' htp htf htr (annotateCore_looseBVars F cv.type hann hlbt)
       hvp hvf' hvr (annotateCore_looseBVars F value hannv hlbv) hkey hAty hAval
-      (ConstantInfo.defnInfo { cv with type := type } value') rfl rfl
-      (fun cv2 value2 heq => by injection heq with h1 h2; exact ⟨h1.symm, h2.symm⟩)
+      (ConstantInfo.defnInfo { cv with type := type } value' hint) rfl rfl
+      (fun cv2 value2 h2v heq => by injection heq with h1 h2; exact ⟨h1.symm, h2.symm⟩)
       rfl
       hres'
       hpshape'
@@ -1766,22 +1766,22 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     have hcmem : cv.name ∈ natOpNames := List.contains_iff_mem.mp hcontains
     have hnepins := natOpNames_ne_pins hcmem
     have hs2 : natLitSupported (⟨ConstantInfo.defnInfo
-        { cv with type := type } value' :: env.consts⟩ : Env) = true :=
+        { cv with type := type } value' hint :: env.consts⟩ : Env) = true :=
       (natOpGuard_inv hguard2).1
-    have hfNat : (⟨ConstantInfo.defnInfo { cv with type := type } value' ::
+    have hfNat : (⟨ConstantInfo.defnInfo { cv with type := type } value' hint ::
         env.consts⟩ : Env).find? natName = env.find? natName := by
       rw [Env.find?_cons, if_neg (show ¬ ((ConstantInfo.defnInfo
-        { cv with type := type } value').name = natName) from
+        { cv with type := type } value' hint).name = natName) from
         fun hh => hnepins.1 hh)]
-    have hfZero : (⟨ConstantInfo.defnInfo { cv with type := type } value' ::
+    have hfZero : (⟨ConstantInfo.defnInfo { cv with type := type } value' hint ::
         env.consts⟩ : Env).find? natZeroName = env.find? natZeroName := by
       rw [Env.find?_cons, if_neg (show ¬ ((ConstantInfo.defnInfo
-        { cv with type := type } value').name = natZeroName) from
+        { cv with type := type } value' hint).name = natZeroName) from
         fun hh => hnepins.2.1 hh)]
-    have hfSucc : (⟨ConstantInfo.defnInfo { cv with type := type } value' ::
+    have hfSucc : (⟨ConstantInfo.defnInfo { cv with type := type } value' hint ::
         env.consts⟩ : Env).find? natSuccName = env.find? natSuccName := by
       rw [Env.find?_cons, if_neg (show ¬ ((ConstantInfo.defnInfo
-        { cv with type := type } value').name = natSuccName) from
+        { cv with type := type } value' hint).name = natSuccName) from
         fun hh => hnepins.2.2.1 hh)]
     have hsenv : natLitSupported env = true := by
       rw [← natLitSupported_congr hfNat hfZero hfSucc]
@@ -1789,26 +1789,26 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     refine ⟨hguard2, ?_⟩
     -- the self pin
     have hself : natOpStoredOk (⟨ConstantInfo.defnInfo
-        { cv with type := type } value' :: env.consts⟩ : Env) cv.name
+        { cv with type := type } value' hint :: env.consts⟩ : Env) cv.name
         = true :=
       List.all_eq_true.mp hdeps2 cv.name (natOpDeps_self hcmem)
     have hfind2 : (⟨ConstantInfo.defnInfo { cv with type := type }
-        value' :: env.consts⟩ : Env).find? cv.name =
-        some (.defnInfo { cv with type := type } value') := by
+        value' hint :: env.consts⟩ : Env).find? cv.name =
+        some (.defnInfo { cv with type := type } value' hint) := by
       rw [Env.find?_cons,
         if_pos (show (ConstantInfo.defnInfo { cv with type := type }
-          value').name = cv.name from rfl)]
+          value' hint).name = cv.name from rfl)]
     have hpin2 : natOpTyPinned (⟨ConstantInfo.defnInfo
-        { cv with type := type } value' :: env.consts⟩ : Env) cv.name
+        { cv with type := type } value' hint :: env.consts⟩ : Env) cv.name
         type = true := by
       unfold natOpStoredOk at hself
       rw [hfind2] at hself
       simp only [Bool.and_eq_true] at hself
       exact hself.2
-    have hbne : (⟨ConstantInfo.defnInfo { cv with type := type } value' ::
+    have hbne : (⟨ConstantInfo.defnInfo { cv with type := type } value' hint ::
         env.consts⟩ : Env).find? boolName = env.find? boolName := by
       rw [Env.find?_cons, if_neg (show ¬ ((ConstantInfo.defnInfo
-        { cv with type := type } value').name = boolName) from
+        { cv with type := type } value' hint).name = boolName) from
         fun hh => hnepins.2.2.2.1 hh)]
     have hpin : natOpTyPinned env cv.name type = true := by
       rw [← natOpTyPinned_congr hbne]
@@ -1838,7 +1838,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         natOpStoredOk env n = true := by
       intro n hn hne
       exact natOpStoredOk_cons_down (c₀ := ConstantInfo.defnInfo
-          { cv with type := type } value')
+          { cv with type := type } value' hint)
         hne (fun hh => hnepins.2.2.2.1 hh)
         (List.all_eq_true.mp hdeps2 n hn)
     have hboolcE : (cv.name = natBeqName ∨ cv.name = natBleName) →
@@ -1849,17 +1849,17 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       intro hcb
       obtain ⟨⟨ciT, hT, hlpT⟩, ⟨ciF, hF, hlpF⟩⟩ :=
         (natOpGuard_inv hguard2).2.2 hcb
-      have hTd : (⟨ConstantInfo.defnInfo { cv with type := type } value' ::
+      have hTd : (⟨ConstantInfo.defnInfo { cv with type := type } value' hint ::
           env.consts⟩ : Env).find? boolTrueName =
           env.find? boolTrueName := by
         rw [Env.find?_cons, if_neg (show ¬ ((ConstantInfo.defnInfo
-        { cv with type := type } value').name = boolTrueName) from
+        { cv with type := type } value' hint).name = boolTrueName) from
         fun hh => hnepins.2.2.2.2.1 hh)]
-      have hFd : (⟨ConstantInfo.defnInfo { cv with type := type } value' ::
+      have hFd : (⟨ConstantInfo.defnInfo { cv with type := type } value' hint ::
           env.consts⟩ : Env).find? boolFalseName =
           env.find? boolFalseName := by
         rw [Env.find?_cons, if_neg (show ¬ ((ConstantInfo.defnInfo
-        { cv with type := type } value').name = boolFalseName) from
+        { cv with type := type } value' hint).name = boolFalseName) from
         fun hh => hnepins.2.2.2.2.2 hh)]
       exact ⟨⟨ciT, hTd.symm.trans hT, hlpT⟩, ⟨ciF, hFd.symm.trans hF, hlpF⟩⟩
     have hcertE : ∀ eq ∈ natOpEquations 0 cv.name,
@@ -1953,7 +1953,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     exact extend_model m hfind' htp htf htr (annotateCore_looseBVars F cv.type hann hlbt)
       hvp hvf' hvr (annotateCore_looseBVars F value hannv hlbv) hkey hAty hAval
       (ConstantInfo.thmInfo { cv with type := type } value') rfl rfl
-      (fun cv2 value2 heq => nomatch heq)
+      (fun cv2 value2 h2 heq => nomatch heq)
       rfl
       hres'
       hpshape'
@@ -2022,7 +2022,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     exact extend_model m hfind' htp htf htr (annotateCore_looseBVars F cv.type hann hlbt)
       hvp hvf' hvr (annotateCore_looseBVars F value hannv hlbv) hkey hAty hAval
       (ConstantInfo.thmInfo { cv with type := type } value') rfl rfl
-      (fun cv2 value2 heq => nomatch heq)
+      (fun cv2 value2 h2 heq => nomatch heq)
       rfl
       hres'
       hpshape'
@@ -2050,7 +2050,7 @@ theorem checkDecls_sound {ds : List Declaration} {env' : Env}
 
 /-- Model-level core of the consistency corollary: a modeled
 environment stores no constant of type `Empty`. -/
-private theorem no_constant_of_Empty {env : Env} (m : EnvModel V env)
+theorem no_constant_of_Empty {env : Env} (m : EnvModel V env)
     (c : ConstantInfo) (hc : c ∈ env.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
   obtain ⟨T, hTi, hmem⟩ := m.mem_type c hc (fun _ => 0)
@@ -2065,10 +2065,10 @@ private theorem no_constant_of_Empty {env : Env} (m : EnvModel V env)
 
 /-- A checked `def` or `theorem` stores a constant carrying the
 annotated declared type. -/
-private theorem checkDecl_stores {env env₁ : Env} {cv : ConstantVal}
-    {value : Expr} {d : Declaration}
+theorem checkDecl_stores {env env₁ : Env} {cv : ConstantVal}
+    {value : Expr} {hint : ReducibilityHint} {d : Declaration}
     (h : checkDecl (fueledOps F) env d = .ok env₁)
-    (hd : d = .defnDecl cv value ∨ d = .thmDecl cv value) :
+    (hd : d = .defnDecl cv value hint ∨ d = .thmDecl cv value) :
     ∃ type, annotateCore env F 0 cv.type = .ok type ∧
       ∃ c ∈ env₁.consts, c.toConstantVal = ⟨cv.name, cv.levelParams, type⟩ := by
   rcases hd with rfl | rfl
@@ -2114,15 +2114,15 @@ private theorem checkDecl_stores {env env₁ : Env} {cv : ConstantVal}
     | true =>
     simp only [Bool.false_eq_true, ↓reduceIte] at h
     have henv1 : env₁ =
-        ⟨ConstantInfo.defnInfo { cv with type := type } value' ::
+        ⟨ConstantInfo.defnInfo { cv with type := type } value' hint ::
           env.consts⟩ := by
       by_cases hnop : natOpNames.contains cv.name = true
       · rw [if_pos hnop] at h
         by_cases hgd : (natOpGuard (⟨ConstantInfo.defnInfo
-              { cv with type := type } value' :: env.consts⟩ : Env)
+              { cv with type := type } value' hint :: env.consts⟩ : Env)
               cv.name &&
             (natOpDeps cv.name).all (natOpStoredOk
-              (⟨ConstantInfo.defnInfo { cv with type := type } value' ::
+              (⟨ConstantInfo.defnInfo { cv with type := type } value' hint ::
                 env.consts⟩ : Env))) = true
         case neg =>
           rw [if_neg hgd] at h
@@ -2130,11 +2130,11 @@ private theorem checkDecl_stores {env env₁ : Env} {cv : ConstantVal}
             MonadExceptOf.throw] at h
         rw [if_pos hgd] at h
         have hfind2 : (⟨ConstantInfo.defnInfo { cv with type := type }
-            value' :: env.consts⟩ : Env).find? cv.name =
-            some (.defnInfo { cv with type := type } value') := by
+            value' hint :: env.consts⟩ : Env).find? cv.name =
+            some (.defnInfo { cv with type := type } value' hint) := by
           rw [Env.find?_cons,
             if_pos (show (ConstantInfo.defnInfo { cv with type := type }
-              value').name = cv.name from rfl)]
+              value' hint).name = cv.name from rfl)]
         rw [hfind2] at h
         dsimp only at h
         revert h
@@ -2229,20 +2229,20 @@ private theorem foldlM_no_Empty_decl :
     ∀ (ds : List Declaration) (env : Env) {env' : Env},
       Nonempty (EnvModel V env) →
       ds.foldlM (checkDecl (fueledOps F)) env = .ok env' →
-      ∀ {cv : ConstantVal} {value : Expr},
-        (Declaration.defnDecl cv value ∈ ds ∨
+      ∀ {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint},
+        (Declaration.defnDecl cv value hint ∈ ds ∨
           Declaration.thmDecl cv value ∈ ds) →
         cv.type = .const emptyName [] → False
-  | [], _, _, _, _, _, _, hd, _ => by
+  | [], _, _, _, _, _, _, _, hd, _ => by
     rcases hd with hd | hd <;> cases hd
-  | d :: ds, env, env', hm, h, cv, value, hd, hty => by
+  | d :: ds, env, env', hm, h, cv, value, hint, hd, hty => by
     simp only [List.foldlM, Bind.bind, Except.bind] at h
     cases hdd : checkDecl (fueledOps F) env d with
     | error e => rw [hdd] at h; exact nomatch h
     | ok env1 =>
     rw [hdd] at h
     obtain ⟨m⟩ := hm
-    by_cases hdis : d = Declaration.defnDecl cv value ∨
+    by_cases hdis : d = Declaration.defnDecl cv value hint ∨
         d = Declaration.thmDecl cv value
     · obtain ⟨type, hann, c, hc, hcv⟩ := checkDecl_stores hdd hdis
       rw [hty] at hann
@@ -2258,7 +2258,7 @@ private theorem foldlM_no_Empty_decl :
           simpa [annotateBody, pure, Except.pure] using h1
       obtain ⟨m1⟩ := checkDecl_sound hdd m
       exact no_constant_of_Empty m1 c hc (by rw [hcv])
-    · have hd' : Declaration.defnDecl cv value ∈ ds ∨
+    · have hd' : Declaration.defnDecl cv value hint ∈ ds ∨
           Declaration.thmDecl cv value ∈ ds := by
         rcases hd with hd | hd
         · rcases List.mem_cons.mp hd with rfl | hmem
@@ -2275,8 +2275,8 @@ declaration list containing a `def` or `theorem` whose stated type is
 theorem no_proof_of_Empty_input (V : Type u) [SetTheory V]
     {ds : List Declaration} {env' : Env}
     (h : checkDecls (fueledOps F) ds = .ok env')
-    {cv : ConstantVal} {value : Expr}
-    (hd : Declaration.defnDecl cv value ∈ ds ∨
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (hd : Declaration.defnDecl cv value hint ∈ ds ∨
       Declaration.thmDecl cv value ∈ ds)
     (hty : cv.type = .const emptyName []) : False :=
   foldlM_no_Empty_decl ds Env.empty ⟨EnvModel.empty V⟩ h hd hty

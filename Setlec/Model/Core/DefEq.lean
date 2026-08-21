@@ -21,46 +21,47 @@ variable {m : EnvModel V env} {fuel : Nat}
 variable (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
   (ihi : InferClaims m φ fuel)
 
-set_option maxHeartbeats 1600000 in
+set_option maxHeartbeats 3200000 in
 theorem defeq_claims (m : EnvModel V env)
+    (ihwc : WhnfCoreClaims m φ fuel)
     (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
     (ihi : InferClaims m φ fuel) :
     DefEqClaims m φ (fuel + 1) := by
   intro d a b ρ h hwa hwb hba hbb hLba hLbb hoka hokb haa hab va vb hva hvb
   rw [isDefEqCore_succ] at h
   simp only [defeqBody, Bind.bind, Except.bind] at h
-  simp only [whnf_def, defeq_def, infer_def, stuckIrrel_fold,
-    etaCert_fold] at h
+  simp only [whnfCore_def, whnf_def, defeq_def, infer_def, stuckIrrel_fold,
+    etaCert_fold, reduceNat_fold, defeqSpine_fold] at h
   by_cases heqab : (a == b) = true
   · obtain rfl : a = b := eq_of_beq heqab
     rw [hva] at hvb
     exact Option.some.inj hvb
   rw [if_neg heqab] at h
-  cases hwha : whnf env fuel d a with
+  cases hwha : whnfCore env fuel d a with
   | error e => rw [hwha] at h; exact nomatch h
   | ok a' =>
   rw [hwha] at h
   dsimp only at h
-  cases hwhb : whnf env fuel d b with
+  cases hwhb : whnfCore env fuel d b with
   | error e => rw [hwhb] at h; exact nomatch h
   | ok b' =>
   rw [hwhb] at h
   dsimp only at h
-  -- transfer facts through reduction
-  obtain ⟨hia, haa'⟩ := ihw hwha hwa hba hLba hoka haa
-  obtain ⟨hib, hab'⟩ := ihw hwhb hwb hbb hLbb hokb hab
+  -- transfer facts through head normalization (no delta)
+  obtain ⟨hia, haa'⟩ := ihwc hwha hwa hba hLba hoka haa
+  obtain ⟨hib, hab'⟩ := ihwc hwhb hwb hbb hLbb hokb hab
   rw [← hia] at hva
   rw [← hib] at hvb
-  have hwa' := whnf_WScoped m.wf fuel hwha hwa
-  have hwb' := whnf_WScoped m.wf fuel hwhb hwb
-  have hba' := whnf_looseBVars m.wf fuel hwha hba
-  have hbb' := whnf_looseBVars m.wf fuel hwhb hbb
+  have hwa' := whnfCore_WScoped m.wf fuel hwha hwa
+  have hwb' := whnfCore_WScoped m.wf fuel hwhb hwb
+  have hba' := whnfCore_looseBVars m.wf fuel hwha hba
+  have hbb' := whnfCore_looseBVars m.wf fuel hwhb hbb
   have hLba' : Expr.LeavesBounded a' := fun l hl =>
-    hLba l (whnf_fvarLeaves m.wf fuel hwha l hl)
+    hLba l (whnfCore_fvarLeaves m.wf fuel hwha l hl)
   have hLbb' : Expr.LeavesBounded b' := fun l hl =>
-    hLbb l (whnf_fvarLeaves m.wf fuel hwhb l hl)
-  have hoka' := whnf_FvarsOk m.wf fuel hwha hoka
-  have hokb' := whnf_FvarsOk m.wf fuel hwhb hokb
+    hLbb l (whnfCore_fvarLeaves m.wf fuel hwhb l hl)
+  have hoka' := whnfCore_FvarsOk m.wf fuel hwha hoka
+  have hokb' := whnfCore_FvarsOk m.wf fuel hwhb hokb
   clear hwha hwhb hwa hwb haa hab hia hib hba hbb hLba hLbb hoka hokb
   have hPI : stuckIrrelP env fuel d a' b' = .ok true → va = vb := fun hp =>
     stuckIrrel_sound ihw ihd ihi hp hwa' hwb' hba' hbb' hLba' hLbb'
@@ -70,6 +71,92 @@ theorem defeq_claims (m : EnvModel V env)
     rw [hva] at hvb
     exact Option.some.inj hvb
   rw [if_neg heqab'] at h
+  -- literal acceleration before delta (mirrors the whnf loop order)
+  cases hrna : reduceNatP env fuel d a' with
+  | error e => rw [hrna] at h; exact nomatch h
+  | ok oa =>
+  rw [hrna] at h
+  dsimp only at h
+  cases oa with
+  | some a₂ =>
+    obtain ⟨hi2, ha2, hw2, hb2, hLb2, hok2⟩ :=
+      reduceNat_sound m ihw hrna hwa' hba' hLba' hoka' haa'
+    exact ihd h hw2 hwb' hb2 hbb' hLb2 hLbb' hok2 hokb' ha2 hab'
+      (by rw [hi2]; exact hva) hvb
+  | none =>
+  dsimp only at h
+  cases hrnb : reduceNatP env fuel d b' with
+  | error e => rw [hrnb] at h; exact nomatch h
+  | ok ob =>
+  rw [hrnb] at h
+  dsimp only at h
+  cases ob with
+  | some b₂ =>
+    obtain ⟨hi2, ha2, hw2, hb2, hLb2, hok2⟩ :=
+      reduceNat_sound m ihw hrnb hwb' hbb' hLbb' hokb' hab'
+    exact ihd h hwa' hw2 hba' hb2 hLba' hLb2 hoka' hok2 haa' ha2
+      hva (by rw [hi2]; exact hvb)
+  | none =>
+  dsimp only at h
+  -- the lazy delta unfolding decision: every branch is an
+  -- independently sound reduction or comparison, so the reducibility
+  -- hints (which only schedule) never enter the argument
+  cases hua : unfoldDefinition env a' with
+  | some a₂ =>
+    obtain ⟨hi2, ha2, hw2, hb2, hLb2, hok2⟩ :=
+      unfoldDefinition_sound m hua hwa' hba' hLba' hoka' haa'
+    cases hub : unfoldDefinition env b' with
+    | none =>
+      rw [hua, hub] at h
+      dsimp only at h
+      exact ihd h hw2 hwb' hb2 hbb' hLb2 hLbb' hok2 hokb' ha2 hab'
+        (by rw [hi2]; exact hva) hvb
+    | some b₂ =>
+      rw [hua, hub] at h
+      dsimp only at h
+      obtain ⟨hi3, ha3, hw3, hb3, hLb3, hok3⟩ :=
+        unfoldDefinition_sound m hub hwb' hbb' hLbb' hokb' hab'
+      split at h
+      case isTrue =>
+        exact ihd h hw2 hwb' hb2 hbb' hLb2 hLbb' hok2 hokb' ha2 hab'
+          (by rw [hi2]; exact hva) hvb
+      case isFalse =>
+      split at h
+      case isTrue =>
+        exact ihd h hwa' hw3 hba' hb3 hLba' hLb3 hoka' hok3 haa' ha3
+          hva (by rw [hi3]; exact hvb)
+      case isFalse =>
+      split at h
+      case isFalse =>
+        exact ihd h hw2 hw3 hb2 hb3 hLb2 hLb3 hok2 hok3 ha2 ha3
+          (by rw [hi2]; exact hva) (by rw [hi3]; exact hvb)
+      case isTrue =>
+        -- same-head short-circuit; a negative verdict falls back to
+        -- unfolding both sides
+        cases hsp : defeqSpineP env fuel d a' b' with
+        | error e => rw [hsp] at h; exact nomatch h
+        | ok r =>
+        rw [hsp] at h
+        dsimp only at h
+        cases r with
+        | true =>
+          exact defeqSpine_values ihd hsp hwa' hwb' hba' hbb' hLba' hLbb'
+            hoka' hokb' haa' hab' hva hvb
+        | false =>
+          exact ihd h hw2 hw3 hb2 hb3 hLb2 hLb3 hok2 hok3 ha2 ha3
+            (by rw [hi2]; exact hva) (by rw [hi3]; exact hvb)
+  | none =>
+  cases hub : unfoldDefinition env b' with
+  | some b₂ =>
+    rw [hua, hub] at h
+    dsimp only at h
+    obtain ⟨hi3, ha3, hw3, hb3, hLb3, hok3⟩ :=
+      unfoldDefinition_sound m hub hwb' hbb' hLbb' hokb' hab'
+    exact ihd h hwa' hw3 hba' hb3 hLba' hLb3 hoka' hok3 haa' ha3
+      hva (by rw [hi3]; exact hvb)
+  | none =>
+  rw [hua, hub] at h
+  dsimp only at h
   match a', b', h with
   | Expr.sort u, Expr.sort v, h =>
     dsimp only at h

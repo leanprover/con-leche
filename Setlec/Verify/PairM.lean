@@ -218,6 +218,28 @@ theorem defEqList_snd (d : Nat) :
   | [], _ :: _ => rfl
   | _ :: _, [] => rfl
 
+theorem defeqSpine_fst (d : Nat) (a b : Expr) :
+    (defeqSpine (pairFns r₁ r₂ h) env d a b).val.1 =
+      defeqSpine r₁ env d a b := by
+  unfold defeqSpine
+  repeat (first
+    | rfl
+    | (rw [defEqList_fst])
+    | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | (dsimp only [])
+    | split)
+
+theorem defeqSpine_snd (d : Nat) (a b : Expr) :
+    (defeqSpine (pairFns r₁ r₂ h) env d a b).val.2 =
+      defeqSpine r₂ env d a b := by
+  unfold defeqSpine
+  repeat (first
+    | rfl
+    | (rw [defEqList_snd])
+    | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | (dsimp only [])
+    | split)
+
 theorem structEtaProjCerts_fst (d : Nat) (T : Name) (us' : List Level)
     (targs : List Expr) (b : Expr) (lpsT : List Name) :
     ∀ (idxs : List Nat),
@@ -742,6 +764,7 @@ macro "fst_step4" : tactic =>
     | (rw [annotateProjElim_fst_proj])
     | (rw [stuckIrrel_fst_proj])
     | (rw [iotaRec_fst_proj])
+    | (rw [defeqSpine_fst])
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
     | split))
@@ -772,6 +795,7 @@ macro "snd_step4" : tactic =>
     | (rw [annotateProjElim_snd_proj])
     | (rw [stuckIrrel_snd_proj])
     | (rw [iotaRec_snd_proj])
+    | (rw [defeqSpine_snd])
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
     | split))

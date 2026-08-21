@@ -34,7 +34,7 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
     (hkind : (∃ cv caps, ci = .indInfo cv caps) ∨
       (∃ cv nP nF, ci = .ctorInfo cv nP nF) ∨
       (∃ cv nP nM nm ni, ci = .recInfo cv nP nM nm ni []))
-    (hmodel : env.find? mname = some (.defnInfo cvm mval))
+    (hmodel : env.find? mname = some (.defnInfo cvm mval hmcvm))
     (hlps : cvm.levelParams = ci.toConstantVal.levelParams)
     (hren : ci.toConstantVal.type.renameConsts f = cvm.type)
     (hro : RenameOk m.val env f)
@@ -81,7 +81,7 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
     ∃ m' : EnvModel V ⟨ci :: env.consts⟩,
       (∀ ψ, m'.val ci.name ψ = m.val mname ψ) ∧
       (∀ n ψ, n ≠ ci.name → m'.val n ψ = m.val n ψ) := by
-  have hmm : ConstantInfo.defnInfo cvm mval ∈ env.consts :=
+  have hmm : ConstantInfo.defnInfo cvm mval hmcvm ∈ env.consts :=
     List.mem_of_find?_eq_some hmodel
   have hkey : ∀ ψ : Name → Nat, ∃ T,
       interpClosed V m.val env ψ ci.toConstantVal.type = some T ∧
@@ -99,7 +99,7 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
     exact hT
   exact extend_basis_one m ci (fun ψ => m.val (mname) ψ)
     hfind' hwf htyres0
-    (fun cv2 value2 => by
+    (fun cv2 value2 h2 => by
       rcases hkind with ⟨cv', caps', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
         ⟨cv', nP', nM', nm', ni', rfl⟩ <;> simp)
     hkey
@@ -107,7 +107,7 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
       refine m.val_params _ _ hmodel ψ₁ ψ₂ ?_
       intro p hp
       refine hψ p ?_
-      rwa [show (ConstantInfo.defnInfo cvm mval).toConstantVal = cvm from rfl,
+      rwa [show (ConstantInfo.defnInfo cvm mval hmcvm).toConstantVal = cvm from rfl,
         hlps] at hp)
     (fun ψ => by
       obtain ⟨hA, -⟩ := m.annot_ok _ hmm ψ
@@ -155,7 +155,7 @@ parameters) and is interpreted by it. -/
 def BlockInstalled (blockNames : List Name) (env' : Env)
     (val : ConstVal V) : Prop :=
   ∀ n, blockNames.contains n = true → ∀ ci, env'.find? n = some ci →
-    ∃ cvm mval, env'.find? (n.str "_model") = some (.defnInfo cvm mval) ∧
+    ∃ cvm mval hmcvm, env'.find? (n.str "_model") = some (.defnInfo cvm mval hmcvm) ∧
       cvm.levelParams = ci.toConstantVal.levelParams ∧
       ∀ ψ : Name → Nat, val n ψ = val (n.str "_model") ψ
 
@@ -164,10 +164,10 @@ omit [SetTheory V] in
 invariant. -/
 theorem BlockInstalled.step {blockNames : List Name} {env' : Env}
     {val val₁ : ConstVal V} {ci₁ : ConstantInfo} {cvm : ConstantVal}
-    {mval : Expr}
+    {mval : Expr} {hmcvm : ReducibilityHint}
     (hI : BlockInstalled blockNames env' val)
     (hms : ci₁.name.isModelSuffix = false)
-    (hfm : env'.find? (ci₁.name.str "_model") = some (.defnInfo cvm mval))
+    (hfm : env'.find? (ci₁.name.str "_model") = some (.defnInfo cvm mval hmcvm))
     (hlps : cvm.levelParams = ci₁.toConstantVal.levelParams)
     (hval₁ : ∀ ψ, val₁ ci₁.name ψ = val (ci₁.name.str "_model") ψ)
     (hpres₁ : ∀ n ψ, n ≠ ci₁.name → val₁ n ψ = val n ψ) :
@@ -178,15 +178,15 @@ theorem BlockInstalled.step {blockNames : List Name} {env' : Env}
   · next hh =>
     obtain rfl := Option.some.inj hf₂
     obtain rfl : ci₁.name = n := hh
-    refine ⟨cvm, mval, ?_, hlps, ?_⟩
+    refine ⟨cvm, mval, hmcvm, ?_, hlps, ?_⟩
     · rw [Env.find?_cons,
         if_neg (fun h => Name.str_ne ci₁.name "_model" h.symm)]
       exact hfm
     · intro ψ
       rw [hval₁ ψ, hpres₁ _ ψ (Name.str_ne ci₁.name "_model")]
   · next hh =>
-    obtain ⟨cvm₂, mval₂, hfm₂, hlps₂, hv₂⟩ := hI n hbn ci₂ hf₂
-    refine ⟨cvm₂, mval₂, ?_, hlps₂, ?_⟩
+    obtain ⟨cvm₂, mval₂, hm₂, hfm₂, hlps₂, hv₂⟩ := hI n hbn ci₂ hf₂
+    refine ⟨cvm₂, mval₂, hm₂, ?_, hlps₂, ?_⟩
     · rw [Env.find?_cons, if_neg (show ¬ci₁.name = n.str "_model" from
         fun h => Name.str_model_ne hms h.symm)]
       exact hfm₂
@@ -201,8 +201,9 @@ theorem checkMemberVal_inv {blockNames : List Name} {env' : Env}
     (h : checkMemberVal (fueledOps F) blockNames env' cv = .ok cvA) :
     checkConstantVal (fueledOps F) env' cv = .ok cvA ∧
     cvA.name.isModelSuffix = false ∧
-    ∃ cvm mval,
-      env'.find? (cvA.name.str "_model") = some (.defnInfo cvm mval) ∧
+    ∃ cvm mval hmcvm,
+      env'.find? (cvA.name.str "_model") =
+        some (.defnInfo cvm mval hmcvm) ∧
       cvm.levelParams = cvA.levelParams ∧
       cvA.type.renameConsts (fun n =>
         if blockNames.contains n then n.str "_model" else n) = cvm.type := by
@@ -228,7 +229,7 @@ theorem checkMemberVal_inv {blockNames : List Name} {env' : Env}
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
-  | some (.defnInfo cvm mval) => ?_
+  | some (.defnInfo cvm mval hmcvm) => ?_
   intro h
   dsimp only at h
   by_cases hlps : cvm.levelParams = cvA'.levelParams
@@ -242,16 +243,16 @@ theorem checkMemberVal_inv {blockNames : List Name} {env' : Env}
   rw [if_pos hren] at h
   simp only [pure, Except.pure, Except.ok.injEq] at h
   subst h
-  exact ⟨rfl, hmsF, cvm, mval, hfm, hlps, eq_of_beq hren⟩
+  exact ⟨rfl, hmsF, cvm, mval, hmcvm, hfm, hlps, eq_of_beq hren⟩
 
 /-- Invert a successful `checkIndMember` run (non-recursor members). -/
 theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
     {env' env₁ : Env} {ci : ConstantInfo}
     (h : checkIndMember (fueledOps F) blockNames caps env' ci = .ok env₁) :
-    ∃ cvA cvm mval,
+    ∃ cvA cvm mval hmcvm,
       checkConstantVal (fueledOps F) env' ci.toConstantVal = .ok cvA ∧
       cvA.name.isModelSuffix = false ∧
-      env'.find? (cvA.name.str "_model") = some (.defnInfo cvm mval) ∧
+      env'.find? (cvA.name.str "_model") = some (.defnInfo cvm mval hmcvm) ∧
       cvm.levelParams = cvA.levelParams ∧
       cvA.type.renameConsts (fun n =>
         if blockNames.contains n then n.str "_model" else n) = cvm.type ∧
@@ -265,11 +266,12 @@ theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
   | error e => rw [hcmv] at h; exact nomatch h
   | ok cvA =>
   rw [hcmv] at h
-  obtain ⟨hccv, hms, cvm, mval, hfm, hlps, hren⟩ := checkMemberVal_inv hcmv
-  refine ⟨cvA, cvm, mval, hccv, hms, hfm, hlps, hren, ?_⟩
+  obtain ⟨hccv, hms, cvm, mval, hmcvm, hfm, hlps, hren⟩ :=
+    checkMemberVal_inv hcmv
+  refine ⟨cvA, cvm, mval, hmcvm, hccv, hms, hfm, hlps, hren, ?_⟩
   cases ci with
   | axiomInfo cv => exact nomatch h
-  | defnInfo cv value => exact nomatch h
+  | defnInfo cv value hint => exact nomatch h
   | thmInfo cv value => exact nomatch h
   | recInfo cv nP nM nm ni rules => exact nomatch h
   | indInfo cv caps' =>
@@ -296,7 +298,7 @@ theorem provisionRecs_cons_inv {blockNames : List Name}
   match ci with
   | .recInfo cv nP nM nm ni rules => ?_
   | .axiomInfo _ => intro h; exact nomatch h
-  | .defnInfo _ _ => intro h; exact nomatch h
+  | .defnInfo _ _ _ => intro h; exact nomatch h
   | .thmInfo _ _ => intro h; exact nomatch h
   | .indInfo _ _ => intro h; exact nomatch h
   | .ctorInfo _ _ _ => intro h; exact nomatch h
