@@ -81,7 +81,7 @@ against the precomputed name set. -/
 def ConstantInfo.wfB (s : Std.HashSet Name) (c : ConstantInfo) : Bool :=
   c.toConstantVal.type.declWfB s c.toConstantVal.levelParams 0 &&
   (match c with
-   | .defnInfo cv value => value.declWfB s cv.levelParams 0
+   | .defnInfo cv value _ => value.declWfB s cv.levelParams 0
    | .recInfo cv _ _ _ _ rules =>
      rules.all fun r => r.rhs.declWfB s cv.levelParams 0
    | _ => true)

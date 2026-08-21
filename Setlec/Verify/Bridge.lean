@@ -695,13 +695,13 @@ theorem envWF_of_wfB {env : Env} (h : env.wfB = true) : EnvWF env := by
   have hcw := List.all_eq_true.mp h c hc
   unfold ConstantInfo.wfB at hcw
   cases c with
-  | defnInfo cv value =>
+  | defnInfo cv value hint =>
     simp only [Bool.and_eq_true] at hcw
     obtain ⟨h1, h2, h3, h4⟩ := declWfB_parts hcw.1
     obtain ⟨h5, h6, h7, h8⟩ := declWfB_parts hcw.2
     rw [constsResolveS_eq] at h3 h7
     refine ⟨h1, h2, h3, h4, ?_, ?_⟩
-    · intro cv' value' heq
+    · intro cv' value' hint' heq
       cases heq
       exact ⟨h5, h6, h7, h8⟩
     · intro cv' nP' nM' nm' ni' rules' heq
@@ -711,7 +711,7 @@ theorem envWF_of_wfB {env : Env} (h : env.wfB = true) : EnvWF env := by
     obtain ⟨h1, h2, h3, h4⟩ := declWfB_parts hcw.1
     rw [constsResolveS_eq] at h3
     refine ⟨h1, h2, h3, h4, ?_, ?_⟩
-    · intro cv' value' heq
+    · intro cv' value' hint' heq
       exact nomatch heq
     · intro cv' nP' nM' nm' ni' rules' heq r hr
       cases heq
@@ -724,7 +724,7 @@ theorem envWF_of_wfB {env : Env} (h : env.wfB = true) : EnvWF env := by
     obtain ⟨h1, h2, h3, h4⟩ := declWfB_parts hcw.1
     rw [constsResolveS_eq] at h3
     refine ⟨h1, h2, h3, h4, ?_, ?_⟩
-    · intro cv' value' heq
+    · intro cv' value' hint' heq
       exact nomatch heq
     · intro cv' nP' nM' nm' ni' rules' heq
       exact nomatch heq
@@ -733,7 +733,7 @@ theorem envWF_of_wfB {env : Env} (h : env.wfB = true) : EnvWF env := by
     obtain ⟨h1, h2, h3, h4⟩ := declWfB_parts hcw.1
     rw [constsResolveS_eq] at h3
     refine ⟨h1, h2, h3, h4, ?_, ?_⟩
-    · intro cv' value' heq
+    · intro cv' value' hint' heq
       exact nomatch heq
     · intro cv' nP' nM' nm' ni' rules' heq
       exact nomatch heq
@@ -742,7 +742,7 @@ theorem envWF_of_wfB {env : Env} (h : env.wfB = true) : EnvWF env := by
     obtain ⟨h1, h2, h3, h4⟩ := declWfB_parts hcw.1
     rw [constsResolveS_eq] at h3
     refine ⟨h1, h2, h3, h4, ?_, ?_⟩
-    · intro cv' value' heq
+    · intro cv' value' hint' heq
       exact nomatch heq
     · intro cv' nP' nM' nm' ni' rules' heq
       exact nomatch heq
@@ -751,7 +751,7 @@ theorem envWF_of_wfB {env : Env} (h : env.wfB = true) : EnvWF env := by
     obtain ⟨h1, h2, h3, h4⟩ := declWfB_parts hcw.1
     rw [constsResolveS_eq] at h3
     refine ⟨h1, h2, h3, h4, ?_, ?_⟩
-    · intro cv' value' heq
+    · intro cv' value' hint' heq
       exact nomatch heq
     · intro cv' nP' nM' nm' ni' rules' heq
       exact nomatch heq
