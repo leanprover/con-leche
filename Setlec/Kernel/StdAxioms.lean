@@ -1,4 +1,4 @@
-import Setlec.Kernel.Basis.Names
+import Setlec.Kernel.Basis.Eq
 
 /-!
 # Recognized standard axioms and their prerequisite shapes
@@ -442,5 +442,41 @@ def choiceA : ConstantVal :=
                   cod := some (Setlec.Level.imax
                            (Setlec.Level.zero)
                            (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))) } }
+
+
+/-- Is this checked axiom one of the two recognized standard axioms,
+over standardly-shaped stored `Iff` / `Nonempty` families (and the
+pinned `Eq` basis)?  A pure predicate so the checker's `axiomDecl`
+arm stays a single conditional. -/
+def stdAxiomOk (env : Env) (cvA : ConstantVal) : Bool :=
+  if cvA.name = propextName then
+    decide (env.find? eqName = some eqA) &&
+    (match env.find? iffName with
+     | some (.indInfo cvI _) => ConstantVal.matchesPin cvI iffA.toConstantVal
+     | _ => false) &&
+    (match env.find? iffIntroName with
+     | some (.ctorInfo cvIi 2 2) =>
+       ConstantVal.matchesPin cvIi iffIntroA.toConstantVal
+     | _ => false) &&
+    (match env.find? iffRecName with
+     | some (.recInfo cvIr 2 1 1 0 _) =>
+       ConstantVal.matchesPin cvIr iffRecA.toConstantVal
+     | _ => false) &&
+    ConstantVal.matchesPin cvA propextA
+  else if cvA.name = choiceName then
+    (match env.find? nonemptyName with
+     | some (.indInfo cvN _) =>
+       ConstantVal.matchesPin cvN nonemptyA.toConstantVal
+     | _ => false) &&
+    (match env.find? nonemptyIntroName with
+     | some (.ctorInfo cvNi 1 1) =>
+       ConstantVal.matchesPin cvNi nonemptyIntroA.toConstantVal
+     | _ => false) &&
+    (match env.find? nonemptyRecName with
+     | some (.recInfo cvNr 1 1 1 0 _) =>
+       ConstantVal.matchesPin cvNr nonemptyRecA.toConstantVal
+     | _ => false) &&
+    ConstantVal.matchesPin cvA choiceA
+  else false
 
 end Setlec

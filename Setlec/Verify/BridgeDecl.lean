@@ -607,7 +607,16 @@ theorem checkDecl_fst_dproj (env : Env) (d : Declaration) :
     congr 1
     funext cv'
     rw [checkThmVal_fst_dproj]
-  | axiomDecl cv => rfl
+  | axiomDecl cv =>
+    show ((checkConstantVal (pairOps o₁ o₂ h) env cv >>= fun cvA =>
+      if stdAxiomOk env cvA then
+        pure (⟨.axiomInfo cvA :: env.consts⟩ : Env)
+      else throw (.notImplemented s!"axiom declaration ({cv.name})")
+      : PairM rel _)).val.1 = _
+    rw [PairM.fst_bind, checkConstantVal_fst_dproj]
+    congr 1
+    funext cvA
+    simp only [PairM.fst_ite, PairM.fst_pure, PairM.fst_throw]
   | basisDecl kind =>
     dsimp only
     by_cases hq : kind = .quotK
@@ -647,7 +656,16 @@ theorem checkDecl_snd_dproj (env : Env) (d : Declaration) :
     congr 1
     funext cv'
     rw [checkThmVal_snd_dproj]
-  | axiomDecl cv => rfl
+  | axiomDecl cv =>
+    show ((checkConstantVal (pairOps o₁ o₂ h) env cv >>= fun cvA =>
+      if stdAxiomOk env cvA then
+        pure (⟨.axiomInfo cvA :: env.consts⟩ : Env)
+      else throw (.notImplemented s!"axiom declaration ({cv.name})")
+      : PairM rel _)).val.2 = _
+    rw [PairM.snd_bind, checkConstantVal_snd_dproj]
+    congr 1
+    funext cvA
+    simp only [PairM.snd_ite, PairM.snd_pure, PairM.snd_throw]
   | basisDecl kind =>
     dsimp only
     by_cases hq : kind = .quotK
@@ -949,7 +967,16 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
     congr 1
     funext cv'
     rw [checkThmVal_datF]
-  | axiomDecl cv => rfl
+  | axiomDecl cv =>
+    show ((checkConstantVal fueledOpsM env cv >>= fun cvA =>
+      if stdAxiomOk env cvA then
+        pure (⟨.axiomInfo cvA :: env.consts⟩ : Env)
+      else throw (.notImplemented s!"axiom declaration ({cv.name})")
+      : FueledM _)).val F = _
+    rw [FueledM.atF_bind, checkConstantVal_datF]
+    congr 1
+    funext cvA
+    simp only [FueledM.atF_ite, FueledM.atF_pure, FueledM.atF_throw]
   | basisDecl kind =>
     dsimp only
     by_cases hq : kind = .quotK

@@ -597,46 +597,13 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
   | .axiomDecl cv => do
     -- Only the two standard axioms the preprocessor's generated routes
     -- use are accepted, with their types and the shapes of the
-    -- inductives they quantify over pinned; both are true in the set
-    -- model (`propext` via the stored `Iff` recursor and
-    -- extensionality of propositions, `Classical.choice` via the
-    -- stored `Nonempty` recursor and global choice).
+    -- inductives they quantify over pinned (up to the exporter's
+    -- unstable hygienic binder names); both are true in the set model
+    -- (`propext` via the stored `Iff` recursor and extensionality of
+    -- propositions, `Classical.choice` via the stored `Nonempty`
+    -- recursor and global choice).
     let cvA ← checkConstantVal ops env cv
-    if cvA.name = propextName then
-      unless env.find? eqName = some eqA do
-        throw (.notImplemented "propext requires the pinned Eq basis")
-      let some (.indInfo cvI _) := env.find? iffName
-        | throw (.notImplemented "propext requires the standard Iff")
-      unless ConstantVal.matchesPin cvI iffA.toConstantVal do
-        throw (.notImplemented "propext requires the standard Iff")
-      let some (.ctorInfo cvIi 2 2) := env.find? iffIntroName
-        | throw (.notImplemented "propext requires the standard Iff.intro")
-      unless ConstantVal.matchesPin cvIi iffIntroA.toConstantVal do
-        throw (.notImplemented "propext requires the standard Iff.intro")
-      let some (.recInfo cvIr 2 1 1 0 _) := env.find? iffRecName
-        | throw (.notImplemented "propext requires the standard Iff.rec")
-      unless ConstantVal.matchesPin cvIr iffRecA.toConstantVal do
-        throw (.notImplemented "propext requires the standard Iff.rec")
-      unless ConstantVal.matchesPin cvA propextA do
-        throw (.notImplemented "nonstandard propext type")
-      pure ⟨.axiomInfo cvA :: env.consts⟩
-    else if cvA.name = choiceName then
-      unless ConstantVal.matchesPin cvA choiceA do
-        throw (.notImplemented "nonstandard Classical.choice")
-      let some (.indInfo cvN _) := env.find? nonemptyName
-        | throw (.notImplemented "choice requires the standard Nonempty")
-      unless ConstantVal.matchesPin cvN nonemptyA.toConstantVal do
-        throw (.notImplemented "choice requires the standard Nonempty")
-      let some (.ctorInfo cvNi 1 1) := env.find? nonemptyIntroName
-        | throw (.notImplemented
-            "choice requires the standard Nonempty.intro")
-      unless ConstantVal.matchesPin cvNi nonemptyIntroA.toConstantVal do
-        throw (.notImplemented
-          "choice requires the standard Nonempty.intro")
-      let some (.recInfo cvNr 1 1 1 0 _) := env.find? nonemptyRecName
-        | throw (.notImplemented "choice requires the standard Nonempty.rec")
-      unless ConstantVal.matchesPin cvNr nonemptyRecA.toConstantVal do
-        throw (.notImplemented "choice requires the standard Nonempty.rec")
+    if stdAxiomOk env cvA then
       pure ⟨.axiomInfo cvA :: env.consts⟩
     else
       throw (.notImplemented s!"axiom declaration ({cv.name})")
