@@ -362,9 +362,9 @@ former wholesale function-level rewrites became run-level implications
 (`Setlec/Verify/BridgeWfImp.lean`): per declaration-checker function,
 a successful `wfOpsM` run over a well-formed environment is the pure
 `fueledOps` run, with the per-site scoping facts read off the
-checker's guards, the preservation lemmas, and closedness of
-checker-constructed statements (`buildIotaStmt_not_hasFvar`, the
-`natOpEquations`/`substConst0` scoping lemmas).
+checker's guards, the preservation lemmas, and scoping of the
+iota-theorem check's opened telescopes (`openPisAtFvars_WScoped` and
+friends; also the `natOpEquations`/`substConst0` scoping lemmas).
 `Setlec/Model/BridgeWF.lean` composes these with the intermediate
 `EnvWF` facts into `checkDecl_bridge`, and
 `Setlec/Model/ConsistencyC.lean` is unchanged: the top-level
@@ -600,7 +600,9 @@ spine (`instSeq_mid_collapse`) and swap onto the walk's opening
 variables via `interp_instSeq_congr` (instantiation interpretations
 are determined by argument values).  The preprocessor's indexed
 `iota_j` statement (indices instantiated at `ı⃗_j`, never quantified)
-is pinned by the generalized `buildIotaStmt`/`checkIotaStmtShape`.
+is checked *semantically* by `checkIotaThm` (see the defeq-based
+install section below), which replaced the syntactic
+`buildIotaStmt`/`checkIotaStmtShape` pin.
 
 ## Quotients as a pinned basis block (2026-08-21)
 
@@ -1124,3 +1126,77 @@ basis constant through the environment invariant's `decl_ok` conjunct
 (every stored basis-shaped constant *is* its pinned declaration —
 `pinnedInfo` — and its valuation *is* its pinned value — `pinnedVal`),
 so only installation contains construction-specific proofs.
+
+## Defeq-based modeled-recursor install (2026-08-21)
+
+The iota-rule check against the model's `iota_j` theorem is
+*semantic*, not syntactic (`checkIotaThm`): the stored theorem's
+telescope is opened at free variables (`openPisAtFvars`), the body
+must be an equation in the pinned `Eq`, the left side is
+*structurally* the renamed recursor applied to the opened prefix
+variables, `ni` index slots, and the canonical major (renamed
+constructor at the parameter/field variables); everything else is
+checked **definitionally** (`checkDefEqList` in the provisional
+environment): the index slots against the constructor residual's
+canonical tuple, the opened field-variable types against the renamed
+constructor's field domains, the opened prefix types against the
+renamed recursor's domains, the rule's λ-domains against the public
+telescopes, and the equation's right side against the applied rule
+rhs.  This makes the check insensitive to binder names, `optParam`
+wrappers, and any reducible spelling differences in the stored model.
+Soundness consumes the defeq pins through `isDefEqCore_sound` inside
+the telescope walks (`Setlec/Model/IotaWalk.lean`): `pi_walk` /
+`lam_walk` / `peel_walk` / `self_walk` transfer the fold fact's value
+spines between the theorem's opened telescope, the public telescopes,
+and the rule λs, with the frame-crossing congruence
+(`interp_instSeq_fvarFrames`: instantiation interpretations along an
+fvar spine are determined by the spine's *values*) bridging the
+theorem's own opening frame and the fold clause's fit frames.
+`modeled_rule_fold` (`Setlec/Model/IndInstall.lean`) is fully
+multi-motive-general (all of `nP nM nm ni cnP cnF` abstract).
+
+**Canonical rules only; nested-aux rules are inert.**  A rule is
+*canonical* (`Expr.recRulePlain`) when its constructor-parameter count
+is within the recursor prefix and the major's domain starts with the
+recursor's own leading binders.  Nested/auxiliary rules (e.g. the
+`List.cons` rule of a nested recursor, whose major lives at an inner
+type former) have no `iota_j` theorem and no provable fold fact — they
+are stored **inert**: `iotaRec` guards on `recRulePlain` before firing
+(runtime), `checkIotaRule` only consults the theorem for canonical
+rules (install), and `RecRulesOk`'s fold clause hypothesizes
+`recRulePlain` (soundness), so inert rules' obligations are vacuous.
+No completeness is lost on the tutorial arena (no nested blocks) and
+declines stay declines.
+
+**Recursor group install.**  Mutual/nested blocks' rule right-hand
+sides may mention sibling recursors, so no intermediate environment
+may store a recursor whose rules dangle: `checkIndDecl` requires the
+block's recursors to form a suffix, `checkIndRecs` provisions them
+*rule-less* on top of the member fold (`provisionRecs` — per-member
+`checkMemberVal`, exactly the non-recursor member check), checks every
+rule against the fully provisioned `envSelf` (per-rule, local), and
+re-attaches the checked rule lists.  Soundness mirrors this in
+`Setlec/Model/Extend/Recs.lean` + `GroupSwap.lean`: the provisioning
+phase is a fold of `extend_modeled_one` (recording `ProvFacts`), the
+attachment is a *pointwise swap* of the consts list (`SwapList`,
+rule-less vs. rules-attached recInfo at equal positions), and
+`extend_rules_eq` transports the whole `EnvModel` across the swap in
+one pass — per-item obligations (`SwapPair`: ConstWF, stored rule
+constructors, `RecMemberOk` via `recMemberOk_of_kit`) are discharged
+from the per-rule `RuleChecked` kits at the provisional model and
+carried to the final environment by a levelParams-preserving
+environment congruence.  There is no cross-recursor semantic content:
+the group theorem is the composition of per-position swaps, done over
+the consts list because the kernel's attachment-by-recons makes the
+*intermediate* environments (some rules attached, later siblings
+absent) ill-formed, so the model cannot be threaded through them
+step-by-step.
+
+**Batteries stay simp-shaped.**  `checkIotaThm`'s `Option`-shaped
+checks go through `unwrapOr` (and `Env.findThm?`) so the function is
+bind/ite-shaped; the pair-monad/fueled projection batteries then
+reduce by plain `simp only` distribution (`fst/snd/atF` of bind, pure,
+throw, ite, the ops atoms, `unwrapOr`, `checkDefEqList`) — `let some
+… := … | throw` patterns compile to matcher applications that block
+both `simp` and (at this term size) `split`, so new monad-polymorphic
+kernel functions should prefer `unwrapOr`.

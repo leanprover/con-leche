@@ -1129,7 +1129,7 @@ private theorem iotaRec_WScoped (henv : EnvWF env)
   obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major, cj, usj,
     cvj, cnP, cnF, r, -, -, -, -, -, hfn, hfc, hlen, hmaj, hsub, hmfn, hfj,
     hrule,
-    hml1, hml2, har1, har2, hlev, hpeq, hcerts, hmcerts, -, -, -, -, rfl⟩ :=
+    hml1, hml2, har1, har2, -, hlev, hpeq, hcerts, hmcerts, -, -, -, -, rfl⟩ :=
     iotaRec_inv h
   have hargs : ∀ x, x ∈ e.getAppArgs → WScoped d x :=
     fun x hx => hw.getAppArgs x hx

@@ -591,6 +591,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
       major.getAppArgs.length = cnP + cnF ∧ r.nfields = cnF ∧
       (cv.type.stripPis (nP + nM + nm + ni + 1)).isSome = true ∧
       (cvj.type.stripPis (cnP + cnF)).isSome = true ∧
+      Expr.recRulePlain cv.type nP nM nm ni cnP = true ∧
       Level.isEquivList usj (cvj.levelParams.map fun p =>
         Level.subst cv.levelParams us (.param p)) = some true ∧
       defEqListP env fuel d (major.getAppArgs.take cnP)
@@ -690,10 +691,11 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   rw [if_pos ⟨hml1, hml2⟩] at h
   try simp only [Bind.bind, Except.bind] at h
   by_cases harities : (cv.type.stripPis (nP + nM + nm + ni + 1)).isSome = true ∧
-      (cvj.type.stripPis (cnP + cnF)).isSome = true
+      (cvj.type.stripPis (cnP + cnF)).isSome = true ∧
+      Expr.recRulePlain cv.type nP nM nm ni cnP = true
   case neg => rw [if_neg harities] at h; exact nomatch h
-  obtain ⟨har1, har2⟩ := harities
-  rw [if_pos ⟨har1, har2⟩] at h
+  obtain ⟨har1, har2, har3⟩ := harities
+  rw [if_pos ⟨har1, har2, har3⟩] at h
   try simp only [Bind.bind, Except.bind] at h
   cases hlev : Level.isEquivList usj (cvj.levelParams.map fun p =>
       Level.subst cv.levelParams us (.param p)) with
@@ -783,8 +785,8 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
     Option.some.injEq] at h
   exact ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major, cj, usj, cvj, cnP,
     cnF, r, cbinders, cbody, residual, cr, usr, rfl, hfc, hlen, hmaj, hsub,
-    hmfn, hfj, hrule, hml1, hml2, har1, har2, hlev, hpeq, hcerts, hmcerts,
-    hstrip, hres, hrfn, hieq, h.symm⟩
+    hmfn, hfj, hrule, hml1, hml2, har1, har2, har3, hlev, hpeq, hcerts,
+    hmcerts, hstrip, hres, hrfn, hieq, h.symm⟩
 
 /-- Inversion of the stuck-major rescue: either the major is returned
 unchanged, or a constructor application was fabricated — in the
@@ -2266,7 +2268,7 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
           obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major, cj, usj,
             cvj, cnP, cnF, r, -, -, -, -, -, hfn, hfc, hlen, hmaj, hsub, hmfn, hfj,
             hrule,
-            hml1, hml2, har1, har2, hlev, hpeq, hcerts, hmcerts, -, -, -, -, rfl⟩ :=
+            hml1, hml2, har1, har2, -, hlev, hpeq, hcerts, hmcerts, -, -, -, -, rfl⟩ :=
             iotaRec_inv hio
           have hwapp : WScoped d (Expr.app f' a) := by
             simp only [WScoped]

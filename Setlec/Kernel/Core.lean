@@ -829,7 +829,10 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
               let margs := major.getAppArgs
               if margs.length = cnP + cnF ∧ rl.nfields = cnF then
                if (cv.type.stripPis (nP + nM + nm + ni + 1)).isSome ∧
-                  (cvj.type.stripPis (cnP + cnF)).isSome then
+                  (cvj.type.stripPis (cnP + cnF)).isSome ∧
+                  -- non-canonical (nested-auxiliary) rules are inert:
+                  -- their fold facts carry this guard
+                  Expr.recRulePlain cv.type nP nM nm ni cnP then
                 -- the constructor's levels must agree with the
                 -- recursor's instantiation (the rule links their
                 -- level parameters by name)

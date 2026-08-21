@@ -1,4 +1,5 @@
 import Setlec.Model.Extend.Inversions
+import Setlec.Model.IotaWalk
 
 /-!
 # Iota — split out of `Setlec.Model.Extend`
@@ -17,174 +18,343 @@ variable {V : Type u} [SetTheory V]
 
 open SetTheory Expr
 
-/-- The kernel-checked data of one modeled recursor rule: the
-hypothesis kit its fold obligation consumes.  `env` is the environment
-before the recursor's installation, `env₀` the provisional one with
-the rules-free recursor (in which the rule's right-hand side was
-annotated). -/
-def RuleChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
-    (cvA : ConstantVal) (nP nm ni : Nat) (r : RecRule) : Prop :=
-  ∃ (cvj : ConstantVal) (cnF : Nat) (raw : Expr)
-    (rbinders tbinders cbinders sbinders :
-      List (Name × Expr × BinderMeta))
-    (rbody tybody cbody sbody : Expr)
-    (thmName : Name) (cvt : ConstantVal) (tval : Expr) (ℓA : Level),
-    env.find? (RecRule.ctor r) = some (.ctorInfo cvj nP cnF) ∧
-    r.nfields = cnF ∧
-    annotateCore env₀ F 0 raw = .ok (RecRule.rhs r) ∧
-    raw.hasFvar = false ∧ raw.looseBVarsBounded 0 = true ∧
-    (RecRule.rhs r).hasFvar = false ∧
-    (RecRule.rhs r).looseBVarsBounded 0 = true ∧
-    (RecRule.rhs r).stripLams (nP + 1 + nm + cnF) =
-      some (rbinders, rbody) ∧
-    cvA.type.stripPis (nP + 1 + nm + ni + 1) = some (tbinders, tybody) ∧
-    cvj.type.stripPis (nP + cnF) = some (cbinders, cbody) ∧
-    cbody.getAppArgs.length = nP + ni ∧
-    cvt.type.stripPis ((nP + (1 + nm)) + cnF) = some (sbinders, sbody) ∧
-    (∀ (i : Nat) (b b' : Name × Expr × BinderMeta),
-      i < nP + 1 + nm →
-      rbinders[i]? = some b → tbinders[i]? = some b' →
-      b.2.1 = b'.2.1) ∧
-    (∀ (i : Nat) (b b' : Name × Expr × BinderMeta),
-      rbinders[(nP + (1 + nm)) + i]? = some b →
-      cbinders[nP + i]? = some b' →
-      b.2.1 = (b'.2.1).liftLooseBVars (1 + nm) i) ∧
-    (∀ (i : Nat) (b b' : Name × Expr × BinderMeta),
-      sbinders[i]? = some b → rbinders[i]? = some b' →
-      b.2.1 = (b'.2.1).renameConsts f) ∧
-    sbody = Expr.mkAppN (.const eqName [ℓA])
-      [Expr.mkAppN (.bvar (cnF + nm))
-        (((cbody.getAppArgs.drop nP).map fun e =>
-            (e.liftLooseBVars (1 + nm) cnF).renameConsts f) ++
-         [Expr.mkAppN (.const (f (RecRule.ctor r))
-            (cvj.levelParams.map .param))
-          (((List.range nP).map fun k =>
-              Expr.bvar (nP + 1 + nm + cnF - 1 - k)) ++
-           ((List.range cnF).map fun k => Expr.bvar (cnF - 1 - k)))]),
-       Expr.mkAppN (.const (f cvA.name) (cvA.levelParams.map .param))
-        (((((List.range nP).map fun k =>
-            Expr.bvar (nP + 1 + nm + cnF - 1 - k)) ++
-          ((List.range (1 + nm)).map fun k =>
-            Expr.bvar (nP + 1 + nm + cnF - 1 - nP - k))) ++
-          ((cbody.getAppArgs.drop nP).map fun e =>
-            (e.liftLooseBVars (1 + nm) cnF).renameConsts f)) ++
-         [Expr.mkAppN (.const (f (RecRule.ctor r))
-             (cvj.levelParams.map .param))
-           (((List.range nP).map fun k =>
-               Expr.bvar (nP + 1 + nm + cnF - 1 - k)) ++
-            ((List.range cnF).map fun k => Expr.bvar (cnF - 1 - k)))]),
-       rbody.renameConsts f] ∧
+/-- The kernel-checked data of a *canonical* rule's `iota_j` theorem:
+everything `modeled_rule_fold` consumes.  `env` is the environment the
+theorem is stored in, `env₀` the provisional one carrying the block's
+rule-less recursors (the definitional-equality checks ran there). -/
+def PlainChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
+    (cvA : ConstantVal) (nP nM nm ni cnP cnF : Nat) (r : RecRule)
+    (cvj : ConstantVal) : Prop :=
+  ∃ (thmName : Name) (cvt : ConstantVal) (tval : Expr)
+    (fvs : List Expr) (tbody : Expr) (ℓA : Level) (αS lhsS rhsS : Expr)
+    (cdoms : List Expr) (cres : Expr) (rdoms : List Expr) (rrest : Expr)
+    (fvsP : List Expr) (restP : Expr) (cdomsP : List Expr)
+    (crestP : Expr) (xFvsP : List Expr) (crest2 : Expr)
+    (ldoms : List Expr) (lrest : Expr),
     env.find? thmName = some (.thmInfo cvt tval) ∧
     cvt.levelParams = cvA.levelParams ∧
-    (RecRule.rhs r).allLevelParamsDefined cvA.levelParams = true ∧
-    (RecRule.rhs r).constsResolve env₀ = true
+    openPisAtFvars (nP + nM + nm + cnF) cvt.type 0 = some (fvs, tbody) ∧
+    tbody.getAppFn = .const eqName [ℓA] ∧
+    tbody.getAppArgs = [αS, lhsS, rhsS] ∧
+    lhsS.getAppFn = Expr.const (f cvA.name) (cvA.levelParams.map .param) ∧
+    lhsS.getAppArgs.length = nP + nM + nm + ni + 1 ∧
+    lhsS.getAppArgs.take (nP + nM + nm) = fvs.take (nP + nM + nm) ∧
+    lhsS.getAppArgs.getLastD (.bvar 0) =
+      Expr.mkAppN (.const (f (RecRule.ctor r)) (cvj.levelParams.map .param))
+        (fvs.take cnP ++ fvs.drop (nP + nM + nm)) ∧
+    (cvj.type.stripPis (cnP + cnF)).isSome = true ∧
+    Expr.instPisAt (fvs.take cnP ++ fvs.drop (nP + nM + nm))
+      (cvj.type.renameConsts f) = some (cdoms, cres) ∧
+    cres.getAppArgs.length = cnP + ni ∧
+    DefEqListOk F env₀ (nP + nM + nm + cnF)
+      ((lhsS.getAppArgs.drop (nP + nM + nm)).take ni)
+      (cres.getAppArgs.drop cnP) ∧
+    DefEqListOk F env₀ (nP + nM + nm + cnF)
+      ((fvs.drop (nP + nM + nm)).map Expr.fvarTypeD) (cdoms.drop cnP) ∧
+    Expr.instPisAt (fvs.take (nP + nM + nm)) (cvA.type.renameConsts f) =
+      some (rdoms, rrest) ∧
+    DefEqListOk F env₀ (nP + nM + nm + cnF)
+      ((fvs.take (nP + nM + nm)).map Expr.fvarTypeD) rdoms ∧
+    openPisAtFvars (nP + nM + nm) cvA.type 0 = some (fvsP, restP) ∧
+    Expr.instPisAt (fvsP.take cnP) cvj.type = some (cdomsP, crestP) ∧
+    openPisAtFvars cnF crestP (nP + nM + nm) = some (xFvsP, crest2) ∧
+    Expr.instLamsAt (fvsP ++ xFvsP) (RecRule.rhs r) =
+      some (ldoms, lrest) ∧
+    DefEqListOk F env₀ (nP + nM + nm + cnF)
+      ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldoms ∧
+    isDefEqCore env₀ F (nP + nM + nm + cnF) rhsS
+      (Expr.mkAppN ((RecRule.rhs r).renameConsts f) fvs) = .ok true
 
-/-- Invert the pure rule-shape check. -/
-theorem checkIotaRuleShape_inv {tyA cvjty rhsA : Expr}
-    {nP nM nm ni cnP cnF : Nat}
-    {rbinders : List (Name × Expr × BinderMeta)} {rbody : Expr}
-    (h : checkIotaRuleShape tyA cvjty rhsA nP nM nm ni cnP cnF =
-      some (rbinders, rbody)) :
-    ∃ tbinders tybody cbinders cbody,
-      rhsA.stripLams (nP + nM + nm + cnF) = some (rbinders, rbody) ∧
-      tyA.stripPis (nP + nM + nm + ni + 1) = some (tbinders, tybody) ∧
-      cvjty.stripPis (cnP + cnF) = some (cbinders, cbody) ∧
-      domsMatchAux (fun _ e => e) rbinders tbinders 0 0 (nP + nM + nm)
-        = true ∧
-      domsMatchAux (fun i e => e.liftLooseBVars (nM + nm) i) rbinders
-        cbinders (nP + nM + nm) cnP cnF = true := by
-  unfold checkIotaRuleShape at h
+/-- Invert a successful `checkIotaThm` run (on the rule as returned,
+whose `rhs` is the annotated right-hand side). -/
+theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
+    {cvA cvj : ConstantVal} {nP nM nm ni j cnP cnF : Nat}
+    {r : RecRule} {rhsA : Expr} {u : Unit}
+    (h : checkIotaThm (fueledOps F) env' env₀ f cvA.name cvA.levelParams
+      cvA.type nP nM nm ni j r cvj cnP cnF rhsA = .ok u) :
+    PlainChecked F env' env₀ f cvA nP nM nm ni cnP cnF
+      { r with rhs := rhsA } cvj := by
+  simp only [checkIotaThm, unwrapOr, Env.findThm?, fueledOps_annotate,
+    fueledOps_inferType, fueledOps_isDefEq, fueledOps_ensureSort,
+    fueledOps_whnf, Bind.bind, Except.bind, pure, Except.pure] at h
   revert h
-  match hstR : rhsA.stripLams (nP + nM + nm + cnF),
-      hstT : tyA.stripPis (nP + nM + nm + ni + 1),
-      hstC : cvjty.stripPis (cnP + cnF) with
-  | some (rb, rb'), some (tb, tb'), some (cb, cb') => ?_
-  | none, _, _ => intro h; exact nomatch h
-  | some _, none, _ => intro h; exact nomatch h
-  | some _, some _, none => intro h; exact nomatch h
-  intro h
-  dsimp only at h
-  revert h
-  split
-  case isTrue hd =>
-    intro h
-    simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    simp only [Bool.and_eq_true] at hd
-    first
-    | exact ⟨tb, tb', cb, cb', rfl, rfl, rfl, hd.1, hd.2⟩
-    | exact ⟨tb, tb', cb, cb', hstR, hstT, hstC, hd.1, hd.2⟩
-    | exact ⟨tb, tb', cb, cb', rfl, hstT, hstC, hd.1, hd.2⟩
-    | exact ⟨tb, tb', cb, cb', rfl, rfl, hstC, hd.1, hd.2⟩
-  case isFalse =>
-    intro h
-    exact nomatch h
-
-/-- Invert the pure statement-shape check. -/
-theorem checkIotaStmtShape_inv {f : Name → Name} {cvName ctorName : Name}
-    {lps cvjlps : List Name} {nP nM nm ni cnF : Nat} {cvjty cvtType : Expr}
-    {rbinders : List (Name × Expr × BinderMeta)} {rbody : Expr}
-    (h : checkIotaStmtShape f cvName ctorName lps cvjlps nP nM nm ni cnF
-      cvjty cvtType rbinders rbody = true) :
-    ∃ sbinders sbody mna mdomA mbm ℓA cbindersS cbodyS,
-      cvtType.stripPis (nP + nM + nm + cnF) = some (sbinders, sbody) ∧
-      rbinders[nP]? = some (mna, mdomA, mbm) ∧
-      cvjty.stripPis (nP + cnF) = some (cbindersS, cbodyS) ∧
-      mdomA.resultSort = some ℓA ∧
-      cbodyS.getAppArgs.length = nP + ni ∧
-      domsMatchAux (fun _ e => e.renameConsts f) sbinders rbinders 0 0
-        (nP + nM + nm + cnF) = true ∧
-      sbody = Expr.mkAppN (.const eqName [ℓA])
-        [Expr.mkAppN (Expr.bvar (cnF + nm + (nM - 1)))
-          (((cbodyS.getAppArgs.drop nP).map fun e =>
-              (e.liftLooseBVars (nM + nm) cnF).renameConsts f) ++
-           [Expr.mkAppN (.const (f ctorName) (cvjlps.map .param))
-            (((List.range nP).map fun k =>
-                Expr.bvar (nP + nM + nm + cnF - 1 - k)) ++
-             ((List.range cnF).map fun k => Expr.bvar (cnF - 1 - k)))]),
-         Expr.mkAppN (.const (f cvName) (lps.map .param))
-          (((((List.range nP).map fun k =>
-              Expr.bvar (nP + nM + nm + cnF - 1 - k)) ++
-            ((List.range (nM + nm)).map fun k =>
-              Expr.bvar (nP + nM + nm + cnF - 1 - nP - k))) ++
-            ((cbodyS.getAppArgs.drop nP).map fun e =>
-              (e.liftLooseBVars (nM + nm) cnF).renameConsts f)) ++
-           [Expr.mkAppN (.const (f ctorName) (cvjlps.map .param))
-             (((List.range nP).map fun k =>
-                 Expr.bvar (nP + nM + nm + cnF - 1 - k)) ++
-              ((List.range cnF).map fun k =>
-                Expr.bvar (cnF - 1 - k)))]),
-         rbody.renameConsts f] := by
-  unfold checkIotaStmtShape at h
-  revert h
-  match hstS : cvtType.stripPis (nP + nM + nm + cnF),
-      hmb : rbinders[nP]?,
-      hstC : cvjty.stripPis (nP + cnF) with
-  | some (sbinders, sbody), some (mna, mdomA, mbm),
-      some (cbindersS, cbodyS) => ?_
-  | none, _, _ => intro h; exact nomatch h
-  | some _, none, _ => intro h; exact nomatch h
-  | some _, some _, none => intro h; exact nomatch h
-  intro h
-  dsimp only at h
-  revert h
-  match hms : mdomA.resultSort with
+  match hfthm : env'.find? ((cvA.name.str "_model").str s!"iota_{j}") with
   | none => intro h; exact nomatch h
-  | some ℓA => ?_
+  | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.defnInfo _ _ _) => intro h; exact nomatch h
+  | some (.indInfo _ _) => intro h; exact nomatch h
+  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.thmInfo cvt tval) => ?_
+  intro h
+  try simp only [Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  by_cases hlpt : cvt.levelParams = cvA.levelParams
+  case neg => rw [if_neg hlpt] at h; exact nomatch h
+  rw [if_pos hlpt] at h
+  try dsimp only at h
+  revert h
+  match hopen : openPisAtFvars (nP + nM + nm + cnF) cvt.type 0 with
+  | none => intro h; exact nomatch h
+  | some (fvs, tbody) => ?_
+  intro h
+  try simp only [Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  by_cases hhead : isEqHead tbody.getAppFn = true
+  case neg => rw [if_neg hhead] at h; exact nomatch h
+  rw [if_pos hhead] at h
+  obtain ⟨ℓA, hheadEq⟩ := isEqHead_inv hhead
+  try dsimp only at h
+  by_cases hlen3 : tbody.getAppArgs.length = 3
+  case neg => rw [if_neg hlen3] at h; exact nomatch h
+  rw [if_pos hlen3] at h
+  obtain ⟨αS, lhsS, rhsS, hargs3⟩ :
+      ∃ αS lhsS rhsS, tbody.getAppArgs = [αS, lhsS, rhsS] := by
+    match hta : tbody.getAppArgs with
+    | [a, b, c] => exact ⟨a, b, c, rfl⟩
+    | [] => rw [hta] at hlen3; exact nomatch hlen3
+    | [_] => rw [hta] at hlen3; exact nomatch hlen3
+    | [_, _] => rw [hta] at hlen3; exact nomatch hlen3
+    | _ :: _ :: _ :: _ :: _ => rw [hta] at hlen3; simp at hlen3
+  rw [hargs3] at h
+  simp only [List.getD_cons_succ, List.getD_cons_zero] at h
+  by_cases hlhead : (lhsS.getAppFn ==
+      Expr.const (f cvA.name) (cvA.levelParams.map .param)) = true
+  case neg => rw [if_neg hlhead] at h; exact nomatch h
+  rw [if_pos hlhead] at h
+  try dsimp only at h
+  by_cases hlarity : lhsS.getAppArgs.length = nP + nM + nm + ni + 1
+  case neg => rw [if_neg hlarity] at h; exact nomatch h
+  rw [if_pos hlarity] at h
+  try dsimp only at h
+  by_cases hlpre : (lhsS.getAppArgs.take (nP + nM + nm) ==
+      fvs.take (nP + nM + nm)) = true
+  case neg => rw [if_neg hlpre] at h; exact nomatch h
+  rw [if_pos hlpre] at h
+  try dsimp only at h
+  by_cases hmaj : (lhsS.getAppArgs.getLastD (.bvar 0) ==
+      Expr.mkAppN (.const (f (RecRule.ctor r)) (cvj.levelParams.map .param))
+        (fvs.take cnP ++ fvs.drop (nP + nM + nm))) = true
+  case neg => rw [if_neg hmaj] at h; exact nomatch h
+  rw [if_pos hmaj] at h
+  try dsimp only at h
+  by_cases hcstrip : (cvj.type.stripPis (cnP + cnF)).isSome = true
+  case neg => rw [if_neg hcstrip] at h; exact nomatch h
+  rw [if_pos hcstrip] at h
+  try dsimp only at h
+  revert h
+  match hcinst : Expr.instPisAt (fvs.take cnP ++ fvs.drop (nP + nM + nm))
+      (cvj.type.renameConsts f) with
+  | none => intro h; exact nomatch h
+  | some (cdoms, cres) => ?_
+  intro h
+  try simp only [Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  by_cases hclen : cres.getAppArgs.length = cnP + ni
+  case neg => rw [if_neg hclen] at h; exact nomatch h
+  rw [if_pos hclen] at h
+  try dsimp only at h
+  cases hdq1 : checkDefEqList (fueledOps F) env₀ (nP + nM + nm + cnF)
+      ((lhsS.getAppArgs.drop (nP + nM + nm)).take ni)
+      (cres.getAppArgs.drop cnP) with
+  | error e => rw [hdq1] at h; exact nomatch h
+  | ok u1 =>
+  rw [hdq1] at h
+  try dsimp only at h
+  cases hdq2 : checkDefEqList (fueledOps F) env₀ (nP + nM + nm + cnF)
+      ((fvs.drop (nP + nM + nm)).map Expr.fvarTypeD)
+      (cdoms.drop cnP) with
+  | error e => rw [hdq2] at h; exact nomatch h
+  | ok u2 =>
+  rw [hdq2] at h
+  try dsimp only at h
+  revert h
+  match hrinst : Expr.instPisAt (fvs.take (nP + nM + nm))
+      (cvA.type.renameConsts f) with
+  | none => intro h; exact nomatch h
+  | some (rdoms, rrest) => ?_
+  intro h
+  try simp only [Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  cases hdq3 : checkDefEqList (fueledOps F) env₀ (nP + nM + nm + cnF)
+      ((fvs.take (nP + nM + nm)).map Expr.fvarTypeD) rdoms with
+  | error e => rw [hdq3] at h; exact nomatch h
+  | ok u3 =>
+  rw [hdq3] at h
+  try dsimp only at h
+  revert h
+  match hopenP : openPisAtFvars (nP + nM + nm) cvA.type 0 with
+  | none => intro h; exact nomatch h
+  | some (fvsP, restP) => ?_
+  intro h
+  try simp only [Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  revert h
+  match hcinstP : Expr.instPisAt (fvsP.take cnP) cvj.type with
+  | none => intro h; exact nomatch h
+  | some (cdomsP, crestP) => ?_
+  intro h
+  try simp only [Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  revert h
+  match hopenX : openPisAtFvars cnF crestP (nP + nM + nm) with
+  | none => intro h; exact nomatch h
+  | some (xFvsP, crest2) => ?_
+  intro h
+  try simp only [Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  revert h
+  match hlinst : Expr.instLamsAt (fvsP ++ xFvsP) rhsA with
+  | none => intro h; exact nomatch h
+  | some (ldoms, lrest) => ?_
+  intro h
+  try simp only [Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  cases hdq4 : checkDefEqList (fueledOps F) env₀ (nP + nM + nm + cnF)
+      ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldoms with
+  | error e => rw [hdq4] at h; exact nomatch h
+  | ok u4 =>
+  rw [hdq4] at h
+  try dsimp only at h
+  revert h
+  cases hde : isDefEqCore env₀ F (nP + nM + nm + cnF) rhsS
+      (Expr.mkAppN (rhsA.renameConsts f) fvs) with
+  | error e => intro h; exact nomatch h
+  | ok v =>
+    cases v with
+    | false => intro h; simp at h
+    | true =>
+      intro h
+      exact ⟨(cvA.name.str "_model").str s!"iota_{j}", cvt, tval, fvs,
+        tbody, ℓA, αS, lhsS, rhsS, cdoms, cres, rdoms, rrest, fvsP,
+        restP, cdomsP, crestP, xFvsP, crest2, ldoms, lrest,
+        hfthm, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
+        eq_of_beq hlpre, eq_of_beq hmaj, hcstrip, hcinst, hclen,
+        checkDefEqList_inv hdq1, checkDefEqList_inv hdq2, hrinst,
+        checkDefEqList_inv hdq3, hopenP, hcinstP, hopenX, hlinst,
+        checkDefEqList_inv hdq4, hde⟩
+
+/-- The kernel-checked data of one modeled recursor rule: the
+hypothesis kit its fold obligation consumes.  `env` is the environment
+before the recursor group's installation, `env₀` the provisional one
+with the block's rule-less recursors (in which the rule's right-hand
+side was annotated). -/
+def RuleChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
+    (cvA : ConstantVal) (nP nM nm ni : Nat) (r : RecRule) : Prop :=
+  ∃ (cvj : ConstantVal) (cnP cnF : Nat) (raw rhsTy : Expr)
+    (rbinders : List (Name × Expr × BinderMeta)) (rbody : Expr),
+    env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF) ∧
+    RecRule.nfields r = cnF ∧
+    raw.hasFvar = false ∧ raw.looseBVarsBounded 0 = true ∧
+    annotateCore env₀ F 0 raw = .ok (RecRule.rhs r) ∧
+    (RecRule.rhs r).hasFvar = false ∧
+    (RecRule.rhs r).looseBVarsBounded 0 = true ∧
+    (RecRule.rhs r).allLevelParamsDefined cvA.levelParams = true ∧
+    (RecRule.rhs r).constsResolve env₀ = true ∧
+    (RecRule.rhs r).stripLams (nP + nM + nm + cnF) =
+      some (rbinders, rbody) ∧
+    inferTypeCore env₀ F 0 (RecRule.rhs r) = .ok rhsTy ∧
+    (Expr.recRulePlain cvA.type nP nM nm ni cnP = true →
+      PlainChecked F env env₀ f cvA nP nM nm ni cnP cnF r cvj)
+
+/-- Invert one `checkIotaRule` run. -/
+theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
+    {cvA : ConstantVal} {nP nM nm ni j : Nat} {r r' : RecRule}
+    (h : checkIotaRule (fueledOps F) env' env₀ f cvA.name cvA.levelParams
+      cvA.type nP nM nm ni j r = .ok r') :
+    RuleChecked F env' env₀ f cvA nP nM nm ni r' := by
+  simp only [checkIotaRule, fueledOps_annotate, fueledOps_inferType,
+    fueledOps_isDefEq, fueledOps_ensureSort, fueledOps_whnf, Bind.bind,
+    Except.bind, pure, Except.pure] at h
+  revert h
+  match hfc : env'.find? (RecRule.ctor r) with
+  | none => intro h; exact nomatch h
+  | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.defnInfo _ _ _) => intro h; exact nomatch h
+  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.indInfo _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.ctorInfo cvj cnP cnF) => ?_
   intro h
   dsimp only at h
-  simp only [Bool.and_eq_true] at h
-  exact ⟨_, _, _, _, _, _, _, _, rfl, rfl, rfl, hms, eq_of_beq h.1.1,
-    h.1.2, eq_of_beq h.2⟩
+  by_cases hnf : RecRule.nfields r = cnF
+  case neg => rw [if_neg hnf] at h; exact nomatch h
+  rw [if_pos hnf] at h
+  try dsimp only at h
+  by_cases hrb : (RecRule.rhs r).looseBVarsBounded 0 = true
+  case neg => rw [if_neg hrb] at h; exact nomatch h
+  rw [if_pos hrb] at h
+  try dsimp only at h
+  by_cases hrf : (RecRule.rhs r).hasFvar = true
+  case pos => rw [if_pos hrf] at h; exact nomatch h
+  rw [if_neg hrf] at h
+  have hrfF : (RecRule.rhs r).hasFvar = false := by
+    revert hrf; cases (RecRule.rhs r).hasFvar <;> simp
+  try dsimp only at h
+  cases hann : annotateCore env₀ F 0 (RecRule.rhs r) with
+  | error e => rw [hann] at h; exact nomatch h
+  | ok rhsA =>
+  rw [hann] at h
+  try dsimp only at h
+  by_cases hrlp : rhsA.allLevelParamsDefined cvA.levelParams = true
+  case neg => rw [if_neg hrlp] at h; exact nomatch h
+  rw [if_pos hrlp] at h
+  try dsimp only at h
+  by_cases hrres : rhsA.constsResolve env₀ = true
+  case neg => rw [if_neg hrres] at h; exact nomatch h
+  rw [if_pos hrres] at h
+  try dsimp only at h
+  by_cases hstrip : (rhsA.stripLams (nP + nM + nm + cnF)).isSome = true
+  case neg => rw [if_neg hstrip] at h; exact nomatch h
+  rw [if_pos hstrip] at h
+  obtain ⟨⟨rbinders, rbody⟩, hstripEq⟩ :=
+    Option.isSome_iff_exists.mp hstrip
+  try dsimp only at h
+  cases hity : inferTypeCore env₀ F 0 rhsA with
+  | error e => rw [hity] at h; exact nomatch h
+  | ok rhsTy =>
+  rw [hity] at h
+  try dsimp only at h
+  by_cases hplain : Expr.recRulePlain cvA.type nP nM nm ni cnP = true
+  case pos =>
+    rw [if_pos hplain] at h
+    revert h
+    cases hthm : checkIotaThm (fueledOps F) env' env₀ f cvA.name
+        cvA.levelParams cvA.type nP nM nm ni j r cvj cnP cnF rhsA with
+    | error e => intro h; exact nomatch h
+    | ok u =>
+      intro h
+      simp only [Except.ok.injEq] at h
+      subst h
+      have hkit := checkIotaThm_inv (cvA := cvA) hthm
+      exact ⟨cvj, cnP, cnF, RecRule.rhs r, rhsTy, rbinders, rbody,
+        hfc, hnf, hrfF, hrb, hann,
+        not_hasFvar_of_fvarsBelow_zero
+          ((annotateCore_WScoped F _ hann
+            (WScoped.of_not_hasFvar hrfF)).fvarsBelow),
+        annotateCore_looseBVars F _ hann hrb, hrlp, hrres, hstripEq,
+        hity, fun _ => hkit⟩
+  case neg =>
+    rw [if_neg hplain] at h
+    try dsimp only at h
+    simp only [Except.ok.injEq] at h
+    subst h
+    exact ⟨cvj, cnP, cnF, RecRule.rhs r, rhsTy, rbinders, rbody,
+      hfc, hnf, hrfF, hrb, hann,
+      not_hasFvar_of_fvarsBelow_zero
+        ((annotateCore_WScoped F _ hann
+          (WScoped.of_not_hasFvar hrfF)).fvarsBelow),
+      annotateCore_looseBVars F _ hann hrb, hrlp, hrres, hstripEq,
+      hity, fun hp => absurd hp hplain⟩
 
 /-- Invert a successful `checkIotaRules` run: every returned rule
 carries the full `RuleChecked` hypothesis kit. -/
-theorem checkIotaRules_inv {env' envSelf : Env} {f : Name → Name}
-    {cvA : ConstantVal} {nP nm ni : Nat} :
+theorem checkIotaRules_inv {env' env₀ : Env} {f : Name → Name}
+    {cvA : ConstantVal} {nP nM nm ni : Nat} :
     ∀ (j : Nat) (rules rules' : List RecRule),
-    checkIotaRules (fueledOps F) env' envSelf f cvA.name cvA.levelParams cvA.type
-      nP 1 nm ni j rules = .ok rules' →
-    ∀ r' ∈ rules', RuleChecked F env' envSelf f cvA nP nm ni r' := by
+    checkIotaRules (fueledOps F) env' env₀ f cvA.name cvA.levelParams
+      cvA.type nP nM nm ni j rules = .ok rules' →
+    ∀ r' ∈ rules', RuleChecked F env' env₀ f cvA nP nM nm ni r' := by
   intro j rules
   induction rules generalizing j with
   | nil =>
@@ -194,169 +364,26 @@ theorem checkIotaRules_inv {env' envSelf : Env} {f : Name → Name}
     exact nomatch hr'
   | cons r rest ih =>
     intro rules' h r' hr'
-    simp only [checkIotaRules, checkIotaRule, fueledOps_annotate,
-      fueledOps_inferType, fueledOps_isDefEq, fueledOps_ensureSort,
-      fueledOps_whnf, Bind.bind, Except.bind, pure, Except.pure] at h
+    simp only [checkIotaRules, Bind.bind, Except.bind] at h
     revert h
-    match hfc : env'.find? r.ctor with
-    | none => intro h; exact nomatch h
-    | some (.axiomInfo _) => intro h; exact nomatch h
-    | some (.defnInfo _ _ _) => intro h; exact nomatch h
-    | some (.thmInfo _ _) => intro h; exact nomatch h
-    | some (.indInfo _ _) => intro h; exact nomatch h
-    | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
-    | some (.ctorInfo cvj cnP cnF) => ?_
+    cases hr1 : checkIotaRule (fueledOps F) env' env₀ f cvA.name
+        cvA.levelParams cvA.type nP nM nm ni j r with
+    | error e => intro h; exact nomatch h
+    | ok r₁ => ?_
     intro h
-    dsimp only at h
-    by_cases hcnP : cnP = nP
-    case neg => rw [if_neg hcnP] at h; exact nomatch h
-    rw [if_pos hcnP] at h
-    subst cnP
-    try dsimp only at h
-    by_cases hnf : r.nfields = cnF
-    case neg => rw [if_neg hnf] at h; exact nomatch h
-    rw [if_pos hnf] at h
-    try dsimp only at h
-    by_cases hrb : r.rhs.looseBVarsBounded 0 = true
-    case neg => rw [if_neg hrb] at h; exact nomatch h
-    rw [if_pos hrb] at h
-    try dsimp only at h
-    by_cases hrf : r.rhs.hasFvar = true
-    case pos => rw [if_pos hrf] at h; exact nomatch h
-    rw [if_neg hrf] at h
-    have hrfF : r.rhs.hasFvar = false := by
-      revert hrf; cases r.rhs.hasFvar <;> simp
-    try dsimp only at h
-    cases hann : annotateCore envSelf F 0 r.rhs with
-    | error e => rw [hann] at h; exact nomatch h
-    | ok rhsA =>
-    rw [hann] at h
-    try dsimp only at h
-    by_cases hrlp : rhsA.allLevelParamsDefined cvA.levelParams = true
-    case neg => rw [if_neg hrlp] at h; exact nomatch h
-    rw [if_pos hrlp] at h
-    try dsimp only at h
-    by_cases hrres : rhsA.constsResolve envSelf = true
-    case neg => rw [if_neg hrres] at h; exact nomatch h
-    rw [if_pos hrres] at h
     try dsimp only at h
     revert h
-    match hshape : checkIotaRuleShape cvA.type cvj.type rhsA nP 1 nm ni
-        nP cnF with
-    | none => intro h; exact nomatch h
-    | some pr => ?_
+    cases hrest : checkIotaRules (fueledOps F) env' env₀ f cvA.name
+        cvA.levelParams cvA.type nP nM nm ni (j + 1) rest with
+    | error e => intro h; exact nomatch h
+    | ok rest' => ?_
     intro h
-    obtain ⟨rbinders, rbody⟩ := pr
-    dsimp only at h
-    obtain ⟨tbinders, tybody, cbinders, cbody, hstR, hstT, hstC, hallPre,
-      hallF⟩ := checkIotaRuleShape_inv hshape
-    cases hity : inferTypeCore envSelf F 0 rhsA with
-    | error e => rw [hity] at h; exact nomatch h
-    | ok rhsTy =>
-    rw [hity] at h
-    try dsimp only at h
-    revert h
-    match hbuild : buildIotaStmt f cvA.name r.ctor cvA.levelParams
-        cvj.levelParams nP 1 nm ni cnF cvA.type cvj.type r.rhs with
-    | none => intro h; exact nomatch h
-    | some stmtRaw => ?_
-    intro h
-    dsimp only at h
-    cases hstmtA : annotateCore env' F 0 stmtRaw with
-    | error e => rw [hstmtA] at h; exact nomatch h
-    | ok stmtA =>
-    rw [hstmtA] at h
-    try dsimp only at h
-    revert h
-    match hfthm : env'.find? ((cvA.name.str "_model").str s!"iota_{j}") with
-    | none => intro h; exact nomatch h
-    | some (.axiomInfo _) => intro h; exact nomatch h
-    | some (.defnInfo _ _ _) => intro h; exact nomatch h
-    | some (.indInfo _ _) => intro h; exact nomatch h
-    | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-    | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
-    | some (.thmInfo cvt tval) => ?_
-    intro h
-    dsimp only at h
-    by_cases hlpt : cvt.levelParams = cvA.levelParams
-    case neg => rw [if_neg hlpt] at h; exact nomatch h
-    rw [if_pos hlpt] at h
-    try dsimp only at h
-    by_cases hbeq : (cvt.type == stmtA) = true
-    case neg => rw [if_neg hbeq] at h; exact nomatch h
-    rw [if_pos hbeq] at h
-    try dsimp only at h
-    by_cases hstmt : checkIotaStmtShape f cvA.name r.ctor cvA.levelParams
-        cvj.levelParams nP 1 nm ni cnF cvj.type cvt.type rbinders
-        rbody = true
-    case neg => rw [if_neg hstmt] at h; exact nomatch h
-    rw [if_pos hstmt] at h
-    try dsimp only at h
-    obtain ⟨sbinders, sbody, mna, mdomA, mbm, ℓA, cbindersS, cbodyS,
-      hstS, hmb, hstC2, hms, hclen2, hallS, hsbeq⟩ :=
-      checkIotaStmtShape_inv hstmt
-    cases hrec : checkIotaRules (fueledOps F) env' envSelf f cvA.name cvA.levelParams
-        cvA.type nP 1 nm ni (j + 1) rest with
-    | error e => rw [hrec] at h; exact nomatch h
-    | ok rest' =>
-    rw [hrec] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     subst h
     rw [List.mem_cons] at hr'
     rcases hr' with rfl | hr'
-    case inr => exact ih (j + 1) rest' hrec r' hr'
-    -- the head rule
-    unfold RuleChecked
-    have hrlen : rbinders.length = nP + 1 + nm + cnF :=
-      Expr.stripLams_length _ hstR
-    have htlen : tbinders.length = nP + 1 + nm + ni + 1 :=
-      Expr.stripPis_length _ hstT
-    have hclen : cbinders.length = nP + cnF :=
-      Expr.stripPis_length _ hstC
-    have hslen : sbinders.length = nP + 1 + nm + cnF :=
-      Expr.stripPis_length _ hstS
-    have hcc : cbinders = cbindersS ∧ cbody = cbodyS := by
-      have h2 := hstC.symm.trans hstC2
-      simpa using h2
-    obtain ⟨-, rfl⟩ := hcc
-    refine ⟨cvj, cnF, r.rhs, rbinders, tbinders, cbinders, sbinders,
-      rbody, tybody, cbody, sbody,
-      (cvA.name.str "_model").str s!"iota_{j}", cvt, tval, ℓA,
-      hfc, hnf, hann, hrfF, hrb, ?_, ?_, hstR, hstT, hstC, hclen2, ?_,
-      ?_, ?_, ?_, ?_, hfthm, hlpt, hrlp, hrres⟩
-    · -- rhsA has no fvars
-      exact not_hasFvar_of_fvarsBelow_zero
-        ((annotateCore_WScoped F _ hann (WScoped.of_not_hasFvar hrfF)).fvarsBelow)
-    · -- rhsA stays closed
-      exact annotateCore_looseBVars F _ hann hrb
-    · -- statement strip at the reassociated arity
-      rw [show (nP + (1 + nm)) + cnF = nP + 1 + nm + cnF from by omega]
-      exact hstS
-    · -- prefix domains
-      intro i b b' hi hb hb'
-      exact domsMatchAux_inv hallPre hi
-        (by rw [Nat.zero_add]; exact hb) (by rw [Nat.zero_add]; exact hb')
-    · -- field domains
-      intro i b b' hbF hcF
-      have hicnF : i < cnF := by
-        rcases Nat.lt_or_ge i cnF with hlt | hge
-        · exact hlt
-        · rw [List.getElem?_eq_none (by omega)] at hcF
-          exact nomatch hcF
-      exact domsMatchAux_inv hallF hicnF
-        (by rw [show nP + 1 + nm + i = (nP + (1 + nm)) + i from by omega]
-            exact hbF) hcF
-    · -- statement domains
-      intro i b b' hsb hrbi
-      have hi : i < nP + 1 + nm + cnF := by
-        rcases Nat.lt_or_ge i (nP + 1 + nm + cnF) with hlt | hge
-        · exact hlt
-        · rw [List.getElem?_eq_none (by omega)] at hsb
-          exact nomatch hsb
-      exact domsMatchAux_inv hallS hi
-        (by rw [Nat.zero_add]; exact hsb) (by rw [Nat.zero_add]; exact hrbi)
-    · -- the pinned equation body
-      exact hsbeq
+    · exact checkIotaRule_inv hr1
+    · exact ih (j + 1) rest' hrest r' hr'
 
 set_option maxHeartbeats 1600000 in
 /-- The kernel-checked eta pins of a block's capability record,

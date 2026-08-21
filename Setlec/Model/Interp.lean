@@ -234,6 +234,9 @@ def RecRulesOk (env : Env) (val : ConstVal V) : Prop :=
           ChainSlots V (val (RecRule.ctor r) ψj) margs →
           tv = SpineFold V (val (RecRule.ctor r) ψj) margs →
           margs.take cnP = (args ++ [tv]).take cnP →
+          -- non-canonical (nested-auxiliary) rules are inert: `iotaRec`
+          -- guards on `recRulePlain`, so their fold facts are vacuous
+          Expr.recRulePlain cv.type nP nM nm ni cnP = true →
           (∀ p ∈ cvj.levelParams, ψj p = ψ p) →
           (∃ (φ' : Name → Nat) (us usj : List Level) (d : Nat) (ρ : Nat → V)
               (d₁ : Nat) (ρ₁ : Nat → V) (rest₁ : Expr)
