@@ -16,8 +16,10 @@ At each operation call site the argument's well-scopedness comes from
   fvar-freedom *is* well-scopedness),
 * the scoping-preservation lemmas for the operations' outputs
   (`annotateCore_WScoped`, `inferTypeCore_WScoped`), and
-* closedness of checker-constructed terms (`buildIotaStmt`'s statement
-  is assembled from closed pieces — proven below).
+* scoping of the iota-theorem check's opened telescopes
+  (`openPisAtFvars_WScoped`, `instPisAt_WScoped`, `instLamsAt_WScoped`
+  — the defeq comparisons run at the opened depth, over variables of
+  that frame).
 
 `Setlec/Model/BridgeWF.lean` composes these with the intermediate
 `EnvWF` facts into `checkDecl_bridge`.

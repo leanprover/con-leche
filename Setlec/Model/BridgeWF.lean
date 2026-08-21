@@ -76,16 +76,15 @@ private theorem find?_isSome_cons_swap {env : Env} {c₁ c₂ : ConstantInfo}
 /-- The four `ConstWF` facts `RuleChecked` provides for a checked
 rule's right-hand side. -/
 private theorem ruleChecked_rhs_facts {F : Nat} {env env₀ : Env}
-    {f : Name → Name} {cvA : ConstantVal} {nP nm ni : Nat} {r : RecRule}
-    (h : RuleChecked F env env₀ f cvA nP nm ni r) :
+    {f : Name → Name} {cvA : ConstantVal} {nP nM nm ni : Nat}
+    {r : RecRule} (h : RuleChecked F env env₀ f cvA nP nM nm ni r) :
     (RecRule.rhs r).hasFvar = false ∧
     (RecRule.rhs r).looseBVarsBounded 0 = true ∧
     (RecRule.rhs r).allLevelParamsDefined cvA.levelParams = true ∧
     (RecRule.rhs r).constsResolve env₀ = true := by
-  obtain ⟨cvj, cnF, raw, rb, tb, cb, sb, rbody, tybody, cbody, sbody,
-    thmName, cvt, tval, ℓA, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11,
-    h12, h13, h14, h15, h16, h17, h18, h19, h20⟩ := h
-  exact ⟨h6, h7, h19, h20⟩
+  obtain ⟨cvj, cnP, cnF, raw, rhsTy, rbinders, rbody, -, -, -, -, -,
+    hrhsf, hrhsb, hrlp, hrres, -, -, -⟩ := h
+  exact ⟨hrhsf, hrhsb, hrlp, hrres⟩
 
 /-! ## `checkIndMember` -/
 
@@ -100,116 +99,242 @@ theorem checkIndMember_wfimp {blockNames : List Name} {caps : IndCaps}
     checkIndMember (fueledOps F) blockNames caps env' ci = .ok env₁ ∧
       EnvWF env₁ := by
   unfold checkIndMember at h
-  dsimp only [] at h
-  obtain ⟨cvA, hccvW, h⟩ := atF_bind_ok h
-  have hccv : checkConstantVal (fueledOps F) env' ci.toConstantVal =
-      .ok cvA := checkConstantVal_wfimp henv' hccvW
-  obtain ⟨htf, htp, htr, htb⟩ := cvA_type_facts hccv
-  have henvSelf : ∀ a b c d,
-      EnvWF ⟨.recInfo cvA a b c d [] :: env'.consts⟩ := by
-    intro a b c d
-    refine EnvWF.cons henv' (constWF_intro htf htp
-      (Expr.constsResolve_mono htr) htb
-      (fun _ _ _ heq => nomatch heq) ?_)
-    intro cvR nP' nM' nm' ni' rules' heq r hr
-    injection heq with h1 h2 h3 h4 h5 h6
-    subst h6
-    exact nomatch hr
+  try dsimp only [] at h
+  obtain ⟨cvA, hcmvW, h⟩ := atF_bind_ok h
+  have hcmv := checkMemberVal_wfimp henv' hcmvW
   have hpure : checkIndMember (fueledOps F) blockNames caps env' ci =
       .ok env₁ := by
     unfold checkIndMember
-    dsimp only []
-    show (checkConstantVal (fueledOps F) env' ci.toConstantVal >>= _) = _
-    rw [hccv]
+    try dsimp only []
+    show (checkMemberVal (fueledOps F) blockNames env' ci.toConstantVal
+      >>= _) = _
+    rw [hcmv]
     simp only [Bind.bind, Except.bind]
-    by_cases h1 : cvA.name.isModelSuffix = true
-    · rw [if_pos h1] at h
-      exact absurd h atF_throw_bind
-    rw [if_neg h1] at h ⊢
-    revert h
-    match hm : env'.find? (cvA.name.str "_model") with
-    | none => intro h; exact nomatch h
-    | some (.axiomInfo _) => intro h; exact nomatch h
-    | some (.thmInfo _ _) => intro h; exact nomatch h
-    | some (.indInfo _ _) => intro h; exact nomatch h
-    | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-    | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
-    | some (.defnInfo cvm mval mhint) => ?_
-    intro h
-    dsimp only [] at h ⊢
-    by_cases h2 : cvm.levelParams = cvA.levelParams
-    case neg => rw [if_neg h2] at h; exact absurd h atF_throw_bind
-    rw [if_pos h2] at h ⊢
-    by_cases h3 : (cvA.type.renameConsts
-        (fun n => if blockNames.contains n then n.str "_model" else n)
-        == cvm.type) = true
-    case neg => rw [if_neg h3] at h; exact absurd h atF_throw_bind
-    rw [if_pos h3] at h ⊢
     revert h
     match hci : ci with
-    | .indInfo cvI capsI =>
-      intro h
-      exact h
-    | .ctorInfo cvI nPI nFI =>
-      intro h
-      exact h
+    | .indInfo cvI capsI => intro h; exact h
+    | .ctorInfo cvI nPI nFI => intro h; exact h
     | .axiomInfo _ => intro h; exact nomatch h
     | .defnInfo _ _ _ => intro h; exact nomatch h
     | .thmInfo _ _ => intro h; exact nomatch h
-    | .recInfo cvR nP nM nm ni rules => ?_
-    intro h
-    dsimp only [] at h ⊢
-    by_cases h4 : nM = 1
-    case neg => rw [if_neg h4] at h; exact absurd h atF_throw_bind
-    rw [if_pos h4] at h ⊢
-    by_cases h5 : blockNames.all (fun n =>
-        n == cvA.name || (env'.find? n).isSome) = true
-    case neg => rw [if_neg h5] at h; exact absurd h atF_throw_bind
-    rw [if_pos h5] at h ⊢
-    by_cases h6 : env'.find? eqName = some eqA
-    case neg => rw [if_neg h6] at h; exact absurd h atF_throw_bind
-    rw [if_pos h6] at h ⊢
-    obtain ⟨rules', hrules, h⟩ := atF_bind_ok h
-    have hrules' := checkIotaRules_wfimp henv' (henvSelf nP nM nm ni)
-      hrules
-    show (checkIotaRules (fueledOps F) env'
-      ⟨.recInfo cvA nP nM nm ni [] :: env'.consts⟩ _ cvA.name
-      cvA.levelParams cvA.type nP nM nm ni 0 rules >>= _) = _
-    rw [hrules']
-    simp only [Bind.bind, Except.bind]
-    exact h
+    | .recInfo _ _ _ _ _ _ => intro h; exact nomatch h
   refine ⟨hpure, ?_⟩
   obtain ⟨cvA', cvm, mval, hmcvm, hccv', hms, hfm, hlps, hren, hcases⟩ :=
     checkIndMember_inv hpure
-  obtain rfl : cvA = cvA' := by
-    rw [hccv'] at hccv
-    injection hccv with hAA
-    exact hAA.symm
-  rcases hcases with ⟨⟨cv, caps', rfl⟩, rfl⟩ |
-    ⟨cv, nP, nF, rfl, rfl⟩ |
-    ⟨cv, nP, nm, ni, rules, rules', rfl, hall, heqf, hcir, rfl⟩
+  obtain ⟨htf, htp, htr, htb⟩ := cvA_type_facts hccv'
+  rcases hcases with ⟨⟨cv, caps', rfl⟩, rfl⟩ | ⟨cv, nP, nF, rfl, rfl⟩
   · exact EnvWF.cons henv' (constWF_intro htf htp
       (Expr.constsResolve_mono htr) htb
-      (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ _ heq => nomatch heq))
+      (fun _ _ _ heq => nomatch heq)
+      (fun _ _ _ _ _ _ heq => nomatch heq))
   · exact EnvWF.cons henv' (constWF_intro htf htp
       (Expr.constsResolve_mono htr) htb
-      (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ _ heq => nomatch heq))
-  · have hrc := checkIotaRules_inv 0 rules rules' hcir
-    refine EnvWF.cons henv' (constWF_intro htf htp
-      (Expr.constsResolve_mono htr) htb
-      (fun _ _ _ heq => nomatch heq) ?_)
-    intro cvR nP' nM' nm' ni' rules'' heq r hr
-    injection heq with h1 h2 h3 h4 h5 h6
-    subst h1; subst h6
-    obtain ⟨hf1, hf2, hf3, hf4⟩ := ruleChecked_rhs_facts (hrc r hr)
-    refine ⟨hf1, hf3, ?_, hf2⟩
-    rw [Expr.constsResolve_congr
-      (env₁ := ⟨.recInfo cvA nP 1 nm ni rules' :: env'.consts⟩)
-      (env₂ := ⟨.recInfo cvA nP 1 nm ni [] :: env'.consts⟩)
-      (fun n => find?_isSome_cons_swap
-        (c₁ := .recInfo cvA nP 1 nm ni rules')
-        (c₂ := .recInfo cvA nP 1 nm ni []) rfl n)]
-    exact hf4
+      (fun _ _ _ heq => nomatch heq)
+      (fun _ _ _ _ _ _ heq => nomatch heq))
+
+/-- The recursor-provisioning fold, `wfOpsM` to pure, with the
+provisional environment well-formed. -/
+private theorem provisionRecs_wfimp {blockNames : List Name} {F : Nat} :
+    ∀ (recs : List ConstantInfo) (envAcc : Env)
+      {p : Env × List (ConstantVal × Nat × Nat × Nat × Nat ×
+        List RecRule)},
+      EnvWF envAcc →
+      (provisionRecs wfOpsM blockNames envAcc recs).val F = .ok p →
+      provisionRecs (fueledOps F) blockNames envAcc recs = .ok p ∧
+        EnvWF p.1
+  | [], envAcc, p, henv, h => by
+    have h' : (Except.ok ((envAcc, []) : Env × _) :
+        Except CheckError _) = Except.ok p := h
+    cases h'
+    exact ⟨rfl, henv⟩
+  | ci :: rest, envAcc, p, henv, h => by
+    unfold provisionRecs at h ⊢
+    revert h
+    match hci : ci with
+    | .recInfo cv nP nM nm ni rules => ?_
+    | .axiomInfo _ => intro h; exact nomatch h
+    | .defnInfo _ _ _ => intro h; exact nomatch h
+    | .thmInfo _ _ => intro h; exact nomatch h
+    | .indInfo _ _ => intro h; exact nomatch h
+    | .ctorInfo _ _ _ => intro h; exact nomatch h
+    intro h
+    dsimp only [] at h ⊢
+    obtain ⟨cvA, hcmvW, h⟩ := atF_bind_ok h
+    have hcmv := checkMemberVal_wfimp henv hcmvW
+    obtain ⟨hccv, -, -, -, -, -, -, -⟩ := checkMemberVal_inv hcmv
+    obtain ⟨htf, htp, htr, htb⟩ := cvA_type_facts hccv
+    have henv₁ : EnvWF ⟨.recInfo cvA nP nM nm ni [] ::
+        envAcc.consts⟩ :=
+      EnvWF.cons henv (constWF_intro htf htp
+        (Expr.constsResolve_mono htr) htb
+        (fun _ _ _ heq => nomatch heq)
+        (fun cvR nP' nM' nm' ni' rules' heq r hr => by
+          injection heq with h1 h2 h3 h4 h5 h6
+          subst h6
+          exact nomatch hr))
+    obtain ⟨p', hrecW, h⟩ := atF_bind_ok h
+    obtain ⟨hrec, hwfS⟩ := provisionRecs_wfimp rest _ henv₁ hrecW
+    obtain ⟨envSelf, others⟩ := p'
+    refine ⟨?_, ?_⟩
+    · show (checkMemberVal (fueledOps F) blockNames envAcc _ >>= _) = _
+      rw [hcmv]
+      simp only [Bind.bind, Except.bind]
+      show (provisionRecs (fueledOps F) blockNames _ rest >>= _) = _
+      rw [hrec]
+      simp only [Bind.bind, Except.bind]
+      exact h
+    · have h' : (Except.ok ((envSelf, (cvA, nP, nM, nm, ni, rules) ::
+          others) : Env × _) : Except CheckError _) = Except.ok p := h
+      cases h'
+      exact hwfS
+
+/-- Transport `ConstWF` along lookup-presence monotonicity. -/
+private theorem constWF_le {envA envB : Env}
+    (hle : ∀ n, (envA.find? n).isSome = true →
+      (envB.find? n).isSome = true)
+    {c : ConstantInfo} (h : ConstWF envA c) : ConstWF envB c := by
+  obtain ⟨h1, h2, h3, h4, h5, h6⟩ := h
+  refine ⟨h1, h2, Expr.constsResolve_le hle h3, h4, ?_, ?_⟩
+  · intro cv v hint heq
+    obtain ⟨g1, g2, g3, g4⟩ := h5 cv v hint heq
+    exact ⟨g1, g2, Expr.constsResolve_le hle g3, g4⟩
+  · intro cv a b c' d e heq r hr
+    obtain ⟨g1, g2, g3, g4⟩ := h6 cv a b c' d e heq r hr
+    exact ⟨g1, g2, Expr.constsResolve_le hle g3, g4⟩
+
+/-- The recursor-group check, `wfOpsM` to pure, with the final
+environment well-formed. -/
+theorem checkIndRecs_wfimp {blockNames : List Name} {env₂ env₃ : Env}
+    {recs : List ConstantInfo} {F : Nat} (henv₂ : EnvWF env₂)
+    (hbn : ∀ ci ∈ recs, blockNames.contains ci.name = true)
+    (h : (checkIndRecs wfOpsM blockNames env₂ recs).val F = .ok env₃) :
+    checkIndRecs (fueledOps F) blockNames env₂ recs = .ok env₃ ∧
+      EnvWF env₃ := by
+  unfold checkIndRecs at h ⊢
+  by_cases hemp : recs.isEmpty = true
+  · rw [if_pos hemp] at h ⊢
+    have h' : (Except.ok env₂ : CheckM Env) = .ok env₃ := h
+    cases h'
+    exact ⟨rfl, henv₂⟩
+  rw [if_neg hemp] at h ⊢
+  dsimp only [] at h ⊢
+  by_cases heqf : env₂.find? eqName = some eqA
+  case neg =>
+    rw [if_neg heqf] at h
+    exact absurd h atF_throw_bind
+  rw [if_pos heqf] at h ⊢
+  try dsimp only [] at h
+  obtain ⟨p, hprovW, h⟩ := atF_bind_ok h
+  obtain ⟨envSelf, checked⟩ := p
+  try dsimp only [] at h
+  obtain ⟨hprov, henvSelf⟩ := provisionRecs_wfimp recs env₂ henv₂ hprovW
+  have hProv := provisionRecs_facts recs env₂ (envSelf, checked)
+    hprov hbn
+  -- the rule-checking fold, `wfOpsM` to pure
+  have hfold : ∀ (cs : List (ConstantVal × Nat × Nat × Nat × Nat ×
+      List RecRule)),
+      (∀ c ∈ cs, c.1.type.hasFvar = false) →
+      ∀ (acc : Env) {envO : Env},
+      (cs.foldlM (fun (acc : Env)
+          (c : ConstantVal × Nat × Nat × Nat × Nat × List RecRule) => do
+          let rules' ← checkIotaRules wfOpsM env₂ envSelf
+            (fun n => if blockNames.contains n then n.str "_model"
+              else n) c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1
+            c.2.2.2.1 c.2.2.2.2.1 0 c.2.2.2.2.2
+          pure (⟨.recInfo c.1 c.2.1 c.2.2.1 c.2.2.2.1 c.2.2.2.2.1
+            rules' :: acc.consts⟩ : Env)) acc).val F = .ok envO →
+      cs.foldlM (fun (acc : Env)
+          (c : ConstantVal × Nat × Nat × Nat × Nat × List RecRule) => do
+          let rules' ← checkIotaRules (fueledOps F) env₂ envSelf
+            (fun n => if blockNames.contains n then n.str "_model"
+              else n) c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1
+            c.2.2.2.1 c.2.2.2.2.1 0 c.2.2.2.2.2
+          pure (⟨.recInfo c.1 c.2.1 c.2.2.1 c.2.2.2.1 c.2.2.2.2.1
+            rules' :: acc.consts⟩ : Env)) acc = .ok envO := by
+    intro cs
+    induction cs with
+    | nil =>
+      intro _ acc envO hrun
+      exact hrun
+    | cons c cs ih =>
+      intro hty acc envO hrun
+      rw [List.foldlM_cons] at hrun ⊢
+      obtain ⟨e₁, hstep, hrun⟩ := atF_bind_ok hrun
+      obtain ⟨rules', hir, hstep⟩ := atF_bind_ok hstep
+      have hir' := checkIotaRules_wfimp henv₂ henvSelf
+        (hty c List.mem_cons_self) hir
+      have hstep' : (⟨.recInfo c.1 c.2.1 c.2.2.1 c.2.2.2.1 c.2.2.2.2.1
+          rules' :: acc.consts⟩ : Env) = e₁ := by
+        have hs : (Except.ok (⟨.recInfo c.1 c.2.1 c.2.2.1 c.2.2.2.1
+            c.2.2.2.2.1 rules' :: acc.consts⟩ : Env) :
+            Except CheckError Env) = .ok e₁ := hstep
+        exact Except.ok.inj hs
+      show ((do
+          let rules' ← checkIotaRules (fueledOps F) env₂ envSelf _
+            c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 c.2.2.2.1
+            c.2.2.2.2.1 0 c.2.2.2.2.2
+          pure (⟨.recInfo c.1 c.2.1 c.2.2.1 c.2.2.2.1 c.2.2.2.2.1
+            rules' :: acc.consts⟩ : Env)) >>= _) = _
+      rw [hir']
+      simp only [Bind.bind, Except.bind, pure, Except.pure]
+      rw [hstep']
+      exact ih (fun c' hc' => hty c' (List.mem_cons_of_mem _ hc'))
+        e₁ hrun
+  have htys : ∀ c ∈ checked, c.1.type.hasFvar = false := by
+    intro c hc
+    obtain ⟨-, -, -, -, htyf, -, -, -, -, -⟩ :=
+      ProvFacts.mem_facts hProv c hc
+    exact htyf
+  have hpure := hfold checked htys env₂ h
+  refine ⟨?_, ?_⟩
+  · show (provisionRecs (fueledOps F) blockNames env₂ recs >>= _) = _
+    rw [hprov]
+    simp only [Bind.bind, Except.bind]
+    exact hpure
+  · -- the final environment is well-formed
+    obtain ⟨zipped, hmap, hchain⟩ := rulesFold_inv checked env₂ env₃
+      hpure
+    rw [show checked = zipped.map Prod.fst from hmap.symm] at hProv htys
+    have hswSh := chains_swapSh hProv hchain
+      (SwapShList.of_eq env₂.consts)
+    have hcorr := swapSh_find?_corr hswSh
+    have hisoSome : ∀ n, (envSelf.find? n).isSome =
+        (env₃.find? n).isSome := by
+      intro n
+      rcases hcorr n with heq | ⟨cv, a, b, c, d, e0, h₀, h₃, -⟩
+      · rw [heq]
+      · rw [h₀, h₃]
+        rfl
+    intro c₃ hc₃
+    rcases rulesChain_mem hchain c₃ hc₃ with hc₂ | ⟨z, hz, rfl⟩
+    · -- an untouched constant of the base environment
+      refine constWF_le (fun n hn => ?_) (henv₂ c₃ hc₂)
+      rw [← hisoSome n]
+      cases hf2 : env₂.find? n with
+      | none =>
+        rw [hf2] at hn
+        exact nomatch hn
+      | some ci₂ =>
+        rw [ProvFacts.find?_preserved hProv n ci₂ hf2]
+        rfl
+    · -- an installed recursor of the chain
+      have hz1 : z.1 ∈ zipped.map Prod.fst := List.mem_map_of_mem hz
+      obtain ⟨-, -, -, -, htyf, htyb, htlp, htres, -, -⟩ :=
+        ProvFacts.mem_facts hProv z.1 hz1
+      have hkits := checkIotaRules_inv 0 _ _
+        (RulesChain.mem_facts hchain z hz)
+      refine constWF_intro htyf htlp ?_ htyb
+        (fun _ _ _ heq => nomatch heq) ?_
+      · rw [← Expr.constsResolve_congr hisoSome]
+        exact htres
+      · intro cvR nP' nM' nm' ni' rules'' heq r hr
+        injection heq with e1 e2 e3 e4 e5 e6
+        subst e6
+        obtain ⟨cvj, cnP, cnF, raw, rhsTy, rbinders, rbody, -, -, -, -,
+          -, hrf, hrb, hrlp, hrres, -, -, -⟩ := hkits r hr
+        refine ⟨hrf, by rw [← e1]; exact hrlp, ?_, hrb⟩
+        rw [← Expr.constsResolve_congr hisoSome]
+        exact hrres
 
 /-- The `checkIndMember` fold over a block, `wfOpsM` to pure. -/
 private theorem foldIndMember_wfimp {blockNames : List Name}
@@ -322,54 +447,50 @@ theorem checkIndDecl_wfimp {env env₂ : Env} {block : List ConstantInfo}
     (h : (checkIndDecl wfOpsM env block).val F = .ok env₂) :
     checkIndDecl (fueledOps F) env block = .ok env₂ := by
   simp only [checkIndDecl] at h ⊢
+  have hbnAll : ∀ ci ∈ block,
+      (block.map (·.name)).contains ci.name = true := by
+    intro ci hci
+    have : ci.name ∈ block.map (·.name) := List.mem_map_of_mem hci
+    simpa using this
+  split at h
+  case isFalse => exact absurd h atF_throw_bind
+  rename_i hsplit
+  rw [if_pos hsplit]
+  try dsimp only [] at h
   split at h
   case _ cvT c0 cvC nP nF heq1 heq2 =>
-    have h' : ((block.foldlM (checkIndMember wfOpsM (block.map (·.name))
-        (indBlockCaps env cvT cvC nP nF)) env >>= fun env₂' =>
-        (if (List.range nF).all (fun j =>
-            (env₂'.find? (projFnName cvT.name j)).isNone) = true then
-          (List.range nF).foldlM (installProjFnStep wfOpsM cvT.name
-            cvC.name cvT.levelParams nP nF) env₂'
-        else throw (.invalid "projection name family taken"))
-        : FueledM Env)).val F = .ok env₂ := h
-    rw [FueledM.atF_bind] at h'
-    cases hfold : (block.foldlM (checkIndMember wfOpsM
-        (block.map (·.name)) (indBlockCaps env cvT cvC nP nF)) env).val F
-      with
-    | error e => rw [hfold] at h'; exact nomatch h'
-    | ok env₂' =>
-      rw [hfold] at h'
-      simp only [Bind.bind, Except.bind] at h'
-      obtain ⟨hp, henv₂'⟩ :=
-        foldIndMember_wfimp block env henv hfold
-      by_cases hguard : (List.range nF).all (fun j =>
-          (env₂'.find? (projFnName cvT.name j)).isNone) = true
-      · rw [if_pos hguard] at h'
-        have h'' : ((List.range nF).foldlM (installProjFnStep wfOpsM
-            cvT.name cvC.name cvT.levelParams nP nF) env₂').val F =
-            .ok env₂ := h'
-        obtain ⟨hpp, -⟩ := foldProjFn_wfimp (List.range nF) env₂' henv₂' h''
-        show (block.foldlM (checkIndMember (fueledOps F)
-            (block.map (·.name)) (indBlockCaps env cvT cvC nP nF)) env >>=
-          fun env₂' =>
-            (if (List.range nF).all (fun j =>
-                (env₂'.find? (projFnName cvT.name j)).isNone) = true then
-              (List.range nF).foldlM (installProjFnStep (fueledOps F)
-                cvT.name cvC.name cvT.levelParams nP nF) env₂'
-            else throw (.invalid "projection name family taken"))) =
-          .ok env₂
-        rw [hp]
-        show (if (List.range nF).all (fun j =>
-            (env₂'.find? (projFnName cvT.name j)).isNone) = true then
-          (List.range nF).foldlM (installProjFnStep (fueledOps F) cvT.name
-            cvC.name cvT.levelParams nP nF) env₂'
-        else throw (.invalid "projection name family taken")) = .ok env₂
-        rw [if_pos hguard]
-        exact hpp
-      · rw [if_neg hguard] at h'
-        exact nomatch h'
+    obtain ⟨caps, hcaps, h⟩ := atF_bind_ok h
+    obtain rfl : indBlockCaps env cvT cvC nP nF = caps := by
+      have hc : (Except.ok (indBlockCaps env cvT cvC nP nF) :
+          Except CheckError IndCaps) = .ok caps := hcaps
+      exact Except.ok.inj hc
+    obtain ⟨env₁, hfoldW, h⟩ := atF_bind_ok h
+    obtain ⟨hfold, henv₁⟩ := foldIndMember_wfimp _ env henv hfoldW
+    obtain ⟨env₃, hrecsW, h⟩ := atF_bind_ok h
+    obtain ⟨hrecs, henv₃⟩ := checkIndRecs_wfimp henv₁
+      (fun ci hci => hbnAll ci (List.mem_filter.mp hci).1) hrecsW
+    simp only [Bind.bind, Except.bind, pure, Except.pure]
+    rw [hfold]
+    simp only [Except.bind]
+    rw [hrecs]
+    simp only [Except.bind]
+    by_cases hguard : (List.range nF).all (fun j =>
+        (env₃.find? (projFnName cvT.name j)).isNone) = true
+    case neg =>
+      rw [if_neg hguard] at h
+      exact absurd h atF_throw_bind
+    rw [if_pos hguard] at h ⊢
+    obtain ⟨hpp, -⟩ := foldProjFn_wfimp (List.range nF) env₃ henv₃ h
+    exact hpp
   case _ =>
-    exact (foldIndMember_wfimp block env henv h).1
+    try dsimp only [] at h
+    obtain ⟨env₁, hfoldW, h⟩ := atF_bind_ok h
+    obtain ⟨hfold, henv₁⟩ := foldIndMember_wfimp _ env henv hfoldW
+    show (_ >>= _ : CheckM Env) = _
+    rw [hfold]
+    simp only [Bind.bind, Except.bind]
+    exact (checkIndRecs_wfimp henv₁
+      (fun ci hci => hbnAll ci (List.mem_filter.mp hci).1) h).1
 
 /-- Successful pure `checkDefnVal` runs annotate the value and store
 it (shape inversion for the structural-Nat certification's stored

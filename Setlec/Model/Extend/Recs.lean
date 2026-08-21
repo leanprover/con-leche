@@ -1001,4 +1001,97 @@ theorem checkIndRecs_names {F : Nat} {blockNames : List Name}
   | error e => intro h; exact nomatch h
   | ok p => intro h; exact provisionRecs_fresh recs env₂ p hprov
 
+
+/-- The provisioning chain's facts, model-free (for the run-level
+`EnvWF` threading). -/
+theorem provisionRecs_facts {F : Nat} {blockNames : List Name} :
+    ∀ (recs : List ConstantInfo) (envAcc : Env)
+      (p : Env × List (ConstantVal × Nat × Nat × Nat × Nat ×
+        List RecRule)),
+    provisionRecs (fueledOps F) blockNames envAcc recs = .ok p →
+    (∀ ci ∈ recs, blockNames.contains ci.name = true) →
+    ProvFacts F blockNames envAcc p.1 p.2
+  | [], envAcc, p, h, _ => by
+    simp only [provisionRecs, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact ProvFacts.nil
+  | ci :: rest, envAcc, p, h, hbn => by
+    obtain ⟨cv, nP, nM, nm, ni, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
+      provisionRecs_cons_inv h
+    obtain ⟨hccv, hms, cvm, mval, hmcvm, hfm, hlps, hrenf⟩ :=
+      checkMemberVal_inv hcmv
+    obtain ⟨hfind0raw, hnres0raw, hpshape0raw, hnd, hlb, hfv, tyA, stype,
+      u, hann, hlp, hres, hst, hsort, hcvA⟩ := checkConstantVal_inv hccv
+    have hnameA : cvA.name = cv.name := by rw [hcvA]; rfl
+    have hfind0 : envAcc.find? cvA.name = none := by
+      rw [hnameA]
+      exact hfind0raw
+    have hnres0 : reservedBasisNames.contains cvA.name = false := by
+      rw [hnameA]
+      exact hnres0raw
+    have hpshape0 : cvA.name.isProjFnShape = false := by
+      rw [hnameA]
+      exact hpshape0raw
+    have hbnA : blockNames.contains cvA.name = true := by
+      rw [hnameA]
+      exact hbn (ConstantInfo.recInfo cv nP nM nm ni rules)
+        List.mem_cons_self
+    have htyf : cvA.type.hasFvar = false := by
+      rw [hcvA]
+      exact not_hasFvar_of_fvarsBelow_zero
+        ((annotateCore_WScoped F _ hann
+          (WScoped.of_not_hasFvar hfv)).fvarsBelow)
+    have htyb : cvA.type.looseBVarsBounded 0 = true := by
+      rw [hcvA]
+      exact annotateCore_looseBVars F _ hann hlb
+    have htlp : cvA.type.allLevelParamsDefined cvA.levelParams =
+        true := by
+      rw [hcvA]
+      exact hlp
+    have htres : cvA.type.constsResolve envAcc = true := by
+      rw [hcvA]
+      exact hres
+    exact ProvFacts.cons hfind0 hnres0 hpshape0 hms hbnA htyf htyb htlp
+      htres ⟨cvm, mval, hmcvm, hfm, hlps, hrenf⟩
+      (provisionRecs_facts rest _ p' hrec
+        (fun cj hcj => hbn cj (List.mem_cons_of_mem _ hcj)))
+
+/-- Every member of the swapped list corresponds to a member of the
+original. -/
+theorem swapSh_mem_corr :
+    ∀ {consts₀ consts₃ : List ConstantInfo},
+      SwapShList consts₀ consts₃ →
+      ∀ c₃ ∈ consts₃, ∃ c₀ ∈ consts₀, SwapPairSh c₀ c₃ := by
+  intro consts₀ consts₃ hsw
+  induction hsw with
+  | nil => intro c₃ hc; exact nomatch hc
+  | cons hpair hrest ih =>
+    intro c₃ hc
+    rcases List.mem_cons.mp hc with rfl | hc
+    · exact ⟨_, List.mem_cons_self, hpair⟩
+    · obtain ⟨c₀, hc₀, hp⟩ := ih c₃ hc
+      exact ⟨c₀, List.mem_cons_of_mem _ hc₀, hp⟩
+
+/-- Membership in the rule-checking fold's final environment: either
+an accumulator constant or an installed recursor of the chain. -/
+theorem rulesChain_mem {F : Nat} {env' envS : Env} {f : Name → Name} :
+    ∀ {envAcc env₃ : Env}
+      {zipped : List ((ConstantVal × Nat × Nat × Nat × Nat ×
+        List RecRule) × List RecRule)},
+      RulesChain F env' envS f envAcc env₃ zipped →
+      ∀ c ∈ env₃.consts, c ∈ envAcc.consts ∨
+        ∃ z ∈ zipped, c = .recInfo z.1.1 z.1.2.1 z.1.2.2.1 z.1.2.2.2.1
+          z.1.2.2.2.2.1 z.2 := by
+  intro envAcc env₃ zipped h
+  induction h with
+  | nil => intro c hc; exact Or.inl hc
+  | @cons envAcc env₃ cvA nP nM nm ni rules rules' rest hcir hrest ih =>
+    intro c hc
+    rcases ih c hc with hc' | ⟨z, hz, rfl⟩
+    · rcases List.mem_cons.mp hc' with rfl | hc''
+      · exact Or.inr ⟨((cvA, nP, nM, nm, ni, rules), rules'),
+          List.mem_cons_self, rfl⟩
+      · exact Or.inl hc''
+    · exact Or.inr ⟨z, List.mem_cons_of_mem _ hz, rfl⟩
+
 end Setlec

@@ -362,9 +362,9 @@ former wholesale function-level rewrites became run-level implications
 (`Setlec/Verify/BridgeWfImp.lean`): per declaration-checker function,
 a successful `wfOpsM` run over a well-formed environment is the pure
 `fueledOps` run, with the per-site scoping facts read off the
-checker's guards, the preservation lemmas, and closedness of
-checker-constructed statements (`buildIotaStmt_not_hasFvar`, the
-`natOpEquations`/`substConst0` scoping lemmas).
+checker's guards, the preservation lemmas, and scoping of the
+iota-theorem check's opened telescopes (`openPisAtFvars_WScoped` and
+friends; also the `natOpEquations`/`substConst0` scoping lemmas).
 `Setlec/Model/BridgeWF.lean` composes these with the intermediate
 `EnvWF` facts into `checkDecl_bridge`, and
 `Setlec/Model/ConsistencyC.lean` is unchanged: the top-level
