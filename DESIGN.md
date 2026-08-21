@@ -66,7 +66,17 @@ proofs, where `⟦T⟧ := ⟦T._model⟧` supplies the values and each checked
 theorem `a = b` yields `⟦a⟧ = ⟦b⟧` through `mem_eqv`.  Type checking of
 code *using* `T` never unfolds it: whnf stops at `T` applications, iota
 fires on `T.rec` through the stored rules, and projections use the
-stored constructor telescope.  (Aliasing was tried first and makes whnf
+stored constructor telescope.  Projections annotate into applications
+of installed `T.proj.i` functions (checked against `_model.proj_i` at
+install); when no projection function is installed — Prop
+structure-likes with data fields, whose projections only *exist* at
+certain level instantiations, so level-polymorphic artifacts cannot
+cover them — `annotateProjRec` permanently falls back to inlining the
+recursor elimination at the use site's concrete levels (constant
+motive = the field's type with earlier fields as projections, minor =
+the constructor telescope as `λ`s returning the field), re-annotated
+so the ordinary rules re-check it; the official kernel's Prop
+restrictions are mirrored in the telescope walk.  (Aliasing was tried first and makes whnf
 see through `T` into the model's encoding — tagged sigmas etc. — so the
 kernel-level projection/eta/K rules on `T` become untypeable.)
 

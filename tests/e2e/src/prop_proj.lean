@@ -3,9 +3,11 @@
    installed-projection path types the auto-generated projections
    (whose bodies are raw `Expr.proj` nodes).
 
-   The gap that needs the recursor-inlining fallback is exhibited by
-   `tests/e2e/prop_proj_raw.ndjson` instead (see the note in
-   `tests/e2e-expected.txt`). -/
+   The shape that needs the recursor-inlining fallback is exhibited
+   by `tests/e2e/prop_proj_raw.ndjson` instead (see the note in
+   `tests/e2e-expected.txt`); there the projections only exist at
+   certain level instantiations, so per-declaration artifacts cannot
+   cover them and the fallback is the permanent mechanism. -/
 
 --#export getSecond getBoth
 

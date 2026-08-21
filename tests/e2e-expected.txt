@@ -3,13 +3,15 @@
 0 prop_proj.ndjson
 # prop_proj_raw.ndjson (= arena tutorial 087, only reachable from raw
 # kernel declarations, not surface Lean): a *Prop* structure-like with
-# data fields (PUnit.{v} at v=1) among its Prop fields.  For this shape
-# lean-inductive-models emits NO _model.proj_i artifacts, although the
-# Prop fields' projections are definable via the recursor at a Prop
-# motive; setlec falls back to inlining that elimination.  Upstream
-# fix: emit proj_i models for the Prop-sorted fields of Prop
-# structure-likes.  (All-Prop structures DO get artifacts; a Prop
-# structure with a data field cannot be written with the `structure`
-# command, so no .lean source exists for this fixture.)
+# data fields (PUnit.{v} at v=1) among its Prop fields.  For this
+# shape lean-inductive-models emits no _model.proj_i artifacts — and
+# cannot in general: the projections only exist at certain level
+# instantiations (here u=0 collapsing the fields to Prop), while the
+# artifacts would have to be level-polymorphic.  setlec's
+# recursor-inlining fallback is therefore the permanent mechanism for
+# this shape: it builds the elimination at the use site's concrete
+# levels.  (All-Prop structures DO get artifacts; a Prop structure
+# with a data field cannot be written with the `structure` command,
+# so no .lean source exists for this fixture.)
 0 prop_proj_raw.ndjson
 
