@@ -591,7 +591,7 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
         revert h
         split
         · intro h
-          simp only [pure, Except.pure, Except.ok.injEq] at h
+          simp only [Except.ok.injEq] at h
           subst h
           obtain ⟨htc, -, -, -, -⟩ := henv _ (find?_mem hf)
           exact WScoped.of_not_hasFvar
@@ -611,7 +611,7 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
         simp [throw, throwThe, MonadExceptOf.throw] at h
       case isTrue =>
         intro h
-        simp only [pure, Except.pure, Except.ok.injEq] at h
+        simp only [Except.ok.injEq] at h
         subst h; simp [WScoped]
     | forallE n ty body m =>
       cases hc : m.cod with
@@ -686,7 +686,7 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
         revert h
         split
         · intro h
-          simp only [pure, Except.pure, Except.ok.injEq] at h
+          simp only [Except.ok.injEq] at h
           subst h
           obtain ⟨htc, -, -, -, -⟩ := henv _ (find?_mem hf)
           intro l hl
@@ -708,7 +708,7 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
         simp [throw, throwThe, MonadExceptOf.throw] at h
       case isTrue =>
         intro h
-        simp only [pure, Except.pure, Except.ok.injEq] at h
+        simp only [Except.ok.injEq] at h
         subst h; intro l hl; simp [fvarLeaves] at hl
     | forallE n ty body m =>
       cases hc : m.cod with
@@ -803,7 +803,7 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
         revert h
         split
         · intro h
-          simp only [pure, Except.pure, Except.ok.injEq] at h
+          simp only [Except.ok.injEq] at h
           subst h
           obtain ⟨-, -, -, htb, -⟩ := henv _ (find?_mem hf)
           rw [looseBVarsBounded_instantiateLevelParams]
@@ -823,7 +823,7 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
         simp [throw, throwThe, MonadExceptOf.throw] at h
       case isTrue =>
         intro h
-        simp only [pure, Except.pure, Except.ok.injEq] at h
+        simp only [Except.ok.injEq] at h
         subst h; simp [looseBVarsBounded]
     | forallE n ty body m =>
       cases hc : m.cod with

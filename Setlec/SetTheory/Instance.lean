@@ -13,14 +13,10 @@ derived operators/laws of `Setlec/SetTheory/Derive/*`.  With this
 instance, "assuming a model of `SetTheory`" weakens to "assuming a
 model of the seven TG axioms" (plus Lean's own classical meta-logic).
 
-Should `SetTheory` grow (mainline has quotient, `prop_ext` and
-`schoice` fields on top of the ones filled here), the material is
-already derived: `Derive/Quot.lean` proves `quotSet_mem_univ`,
-`quotClass_mem`, `quotClass_surj`, `quotSound`, `quotLift_mem` and
-`quotLift_beta` in the interface's exact statements, `Derive/Pt.lean`
-proves `univZero_ext` (= `prop_ext`, with `univ 0 = univZero` by
-`rfl`), and `Derive/Choice.lean` provides `schoice`/`schoice_mem` —
-extending this instance is mechanical.
+Everything the interface asks for — including the quotient laws,
+`prop_ext` (from `univZero_ext`; `univ 0 = univZero` by `rfl`) and
+the global selector `schoice` — is one of the derived theorems; no
+field has independent axiomatic content beyond the `TG` core.
 -/
 
 namespace Setlec
@@ -86,5 +82,17 @@ noncomputable instance TG.toSetTheory {V : Type u} [TG V] : SetTheory V where
   app_pt := TG.app_pt
   lam_eta := TG.lam_eta
   lam_zero := TG.lam_zero
+  quotSet := TG.quotSet
+  quotClass := TG.quotClass
+  quotLift := TG.quotLift
+  quotSet_mem_univ := TG.quotSet_mem_univ
+  quotClass_mem := TG.quotClass_mem
+  quotClass_surj := TG.quotClass_surj
+  quotSound := TG.quotSound
+  quotLift_mem := TG.quotLift_mem
+  quotLift_beta := TG.quotLift_beta
+  prop_ext := TG.univZero_ext
+  schoice := TG.schoice
+  schoice_mem := TG.schoice_mem
 
 end Setlec

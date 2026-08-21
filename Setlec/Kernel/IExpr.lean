@@ -1,5 +1,6 @@
 import Std.Data.HashMap
 import Setlec.Kernel.Env
+import Setlec.Kernel.Basis.Names
 import Setlec.Kernel.ExprOps
 import Setlec.Kernel.Level
 
@@ -542,7 +543,10 @@ def constsResolveIGo (st : EStore) (env : Env)
     | some n =>
       let (r, memo) : Bool × Std.HashMap EIdx Bool :=
         match n with
-        | .bvar _ | .sort _ | .lit _ => (true, memo)
+        | .bvar _ | .sort _ | .lit (.strVal _) => (true, memo)
+        | .lit (.natVal _) =>
+          ((env.find? natName).isSome && (env.find? natZeroName).isSome &&
+            (env.find? natSuccName).isSome, memo)
         | .const n _ => ((env.find? n).isSome, memo)
         | .fvar _ _ ty =>
           if _h : ty < e then constsResolveIGo st env memo ty

@@ -1,4 +1,5 @@
 import Setlec.Kernel.IExpr
+import Setlec.Kernel.Core
 
 /-!
 # Verification of the interned expression arena
@@ -2979,16 +2980,35 @@ theorem constsResolveIGo_spec {st : EStore} {env : Env} (hwf : st.WF) :
             simp [Expr.constsResolve]
           exact ⟨hinv.insert hcond, hcond⟩
         | lit l =>
-          dsimp only at hgo
-          injection hgo with hgr hgm
-          subst hgr
-          subst hgm
-          have hx : st.denote e = some (.lit l) := by rw [hde]; rfl
-          have hcond : ∀ x, st.denote e = some x → true = x.constsResolve env := by
-            intro x hxx
-            rw [hx] at hxx; cases hxx
-            simp [Expr.constsResolve]
-          exact ⟨hinv.insert hcond, hcond⟩
+          cases l with
+          | strVal sv =>
+            dsimp only at hgo
+            injection hgo with hgr hgm
+            subst hgr
+            subst hgm
+            have hx : st.denote e = some (.lit (.strVal sv)) := by
+              rw [hde]; rfl
+            have hcond : ∀ x, st.denote e = some x →
+                true = x.constsResolve env := by
+              intro x hxx
+              rw [hx] at hxx; cases hxx
+              simp [Expr.constsResolve]
+            exact ⟨hinv.insert hcond, hcond⟩
+          | natVal nv =>
+            dsimp only at hgo
+            injection hgo with hgr hgm
+            subst hgr
+            subst hgm
+            have hx : st.denote e = some (.lit (.natVal nv)) := by
+              rw [hde]; rfl
+            have hcond : ∀ x, st.denote e = some x →
+                ((env.find? natName).isSome &&
+                  (env.find? natZeroName).isSome &&
+                  (env.find? natSuccName).isSome) = x.constsResolve env := by
+              intro x hxx
+              rw [hx] at hxx; cases hxx
+              simp [Expr.constsResolve]
+            exact ⟨hinv.insert hcond, hcond⟩
         | const nm us =>
           dsimp only at hgo
           injection hgo with hgr hgm
