@@ -1,0 +1,186 @@
+import Setlec.SetTheory.Derive.Pt
+
+/-!
+# Function graphs, application, and the raw dependent-function set
+
+* `graph F A = {⟨x, F x⟩ : x ∈ A}` — the set-theoretic function graph
+  (replacement); never equal to `pt`, since `pt`'s element is empty
+  and a pair is not.
+* `app f a = ⋃ {y : ⟨a, y⟩ ∈ f}` — untagged application on non-`pt`
+  arguments; `app pt a = pt` is the tag that makes proofs degenerate
+  (`app_pt` in the `SetTheory` interface).
+* `sigmaPairs A B = {⟨x, y⟩ : x ∈ A, y ∈ B x}` — the raw dependent
+  pair set (also the `w ≠ 0` sigma).
+* `piSet A B ⊆ power (sigmaPairs A B)` — the total single-valued
+  graphs: the `v ≠ 0` dependent product.
+
+The level-`0` truncations (`lam 0 = pt`, `pi 0` a truth value) are
+layered on top in `Derive/Pi.lean`.
+-/
+
+namespace Setlec.TG
+
+universe u
+
+variable {V : Type u} [TG V]
+
+/-- The function graph `{⟨x, F x⟩ : x ∈ A}`. -/
+noncomputable def graph (F : V → V) (A : V) : V :=
+  image (fun x => kpair x (F x)) A
+
+theorem mem_graph {F : V → V} {A p : V} :
+    p ∈ᵗ graph F A ↔ ∃ x, x ∈ᵗ A ∧ p = kpair x (F x) := mem_image
+
+theorem graph_ne_pt {F : V → V} {A : V} : graph F A ≠ (pt : V) := by
+  intro h
+  obtain ⟨x, -, hx⟩ := mem_graph.mp (h ▸ mem_pt.mpr rfl : (empty : V) ∈ᵗ graph F A)
+  exact kpair_ne_empty hx.symm
+
+theorem graph_congr {F F' : V → V} {A : V} (h : ∀ x, x ∈ᵗ A → F x = F' x) :
+    graph F A = graph F' A :=
+  image_congr fun x hx => by rw [h x hx]
+
+open Classical in
+/-- Tagged set-theoretic application: the union of the values paired
+with `a` in `f` — except at the proof point, which applies to `pt`
+again. -/
+noncomputable def app (f a : V) : V :=
+  if f = pt then pt else sUnion (sep (sUnion (sUnion f)) (fun y => kpair a y ∈ᵗ f))
+
+theorem app_pt (a : V) : app (pt : V) a = pt := by
+  unfold app; exact if_pos rfl
+
+/-- Application computes on single-valued positions. -/
+theorem app_eq_of_unique {f a b : V} (hf : f ≠ pt) (hab : kpair a b ∈ᵗ f)
+    (huniq : ∀ y, kpair a y ∈ᵗ f → y = b) : app f a = b := by
+  unfold app
+  rw [if_neg hf]
+  have : sep (sUnion (sUnion f)) (fun y => kpair a y ∈ᵗ f) = sing b := by
+    apply ext fun z => ?_
+    rw [mem_sep, mem_sing]
+    constructor
+    · exact fun ⟨_, hz⟩ => huniq z hz
+    · rintro rfl
+      refine ⟨?_, hab⟩
+      exact mem_sUnion.mpr ⟨upair a z, mem_sUnion.mpr ⟨kpair a z, hab, mem_upair_right _ _⟩,
+        mem_upair_right a z⟩
+  rw [this, sUnion_sing]
+
+/-- Beta on graphs. -/
+theorem app_graph {F : V → V} {A a : V} (ha : a ∈ᵗ A) :
+    app (graph F A) a = F a := by
+  refine app_eq_of_unique graph_ne_pt (mem_graph.mpr ⟨a, ha, rfl⟩) ?_
+  intro y hy
+  obtain ⟨x, -, hx⟩ := mem_graph.mp hy
+  obtain ⟨rfl, rfl⟩ := kpair_inj hx
+  rfl
+
+/-- The raw dependent pair set `{⟨x, y⟩ : x ∈ A, y ∈ B x}`. -/
+noncomputable def sigmaPairs (A : V) (B : V → V) : V :=
+  sUnion (image (fun x => image (fun y => kpair x y) (B x)) A)
+
+theorem mem_sigmaPairs {A p : V} {B : V → V} :
+    p ∈ᵗ sigmaPairs A B ↔ ∃ x, x ∈ᵗ A ∧ ∃ y, y ∈ᵗ B x ∧ p = kpair x y := by
+  unfold sigmaPairs
+  rw [mem_sUnion]
+  constructor
+  · rintro ⟨s, hs, hps⟩
+    obtain ⟨x, hx, rfl⟩ := mem_image.mp hs
+    obtain ⟨y, hy, rfl⟩ := mem_image.mp hps
+    exact ⟨x, hx, y, hy, rfl⟩
+  · rintro ⟨x, hx, y, hy, rfl⟩
+    exact ⟨image (fun y => kpair x y) (B x), mem_image.mpr ⟨x, hx, rfl⟩,
+      mem_image.mpr ⟨y, hy, rfl⟩⟩
+
+theorem sigmaPairs_congr {A : V} {B B' : V → V}
+    (h : ∀ x, x ∈ᵗ A → B x = B' x) : sigmaPairs A B = sigmaPairs A B' := by
+  unfold sigmaPairs
+  congr 1
+  exact image_congr fun x hx => by rw [h x hx]
+
+theorem _root_.Setlec.IsTGUniverse.sigmaPairs_mem {U A : V} {B : V → V}
+    (hU : IsTGUniverse (Mem (V := V)) U) (hA : A ∈ᵗ U)
+    (hB : ∀ x, x ∈ᵗ A → B x ∈ᵗ U) : sigmaPairs A B ∈ᵗ U :=
+  hU.famUnion_mem hA fun x hx =>
+    hU.image_mem (hB x hx) fun _y hy =>
+      hU.kpair_mem hA (hU.transitive hA hx) (hU.transitive (hB x hx) hy)
+
+/-- The set of total single-valued dependent graphs on `A` with fibres
+`B`: the `v ≠ 0` dependent product. -/
+noncomputable def piSet (A : V) (B : V → V) : V :=
+  sep (power (sigmaPairs A B))
+    (fun f => ∀ x, x ∈ᵗ A → ∃ y, kpair x y ∈ᵗ f ∧ ∀ y', kpair x y' ∈ᵗ f → y' = y)
+
+theorem mem_piSet {A f : V} {B : V → V} :
+    f ∈ᵗ piSet A B ↔ f ⊆ᵗ sigmaPairs A B ∧
+      ∀ x, x ∈ᵗ A → ∃ y, kpair x y ∈ᵗ f ∧ ∀ y', kpair x y' ∈ᵗ f → y' = y := by
+  unfold piSet
+  rw [mem_sep, mem_power_iff_subset]
+
+theorem piSet_congr {A : V} {B B' : V → V}
+    (h : ∀ x, x ∈ᵗ A → B x = B' x) : piSet A B = piSet A B' := by
+  unfold piSet
+  rw [sigmaPairs_congr h]
+
+theorem _root_.Setlec.IsTGUniverse.piSet_mem {U A : V} {B : V → V}
+    (hU : IsTGUniverse (Mem (V := V)) U) (hA : A ∈ᵗ U)
+    (hB : ∀ x, x ∈ᵗ A → B x ∈ᵗ U) : piSet A B ∈ᵗ U :=
+  hU.mem_of_subset_mem (hU.power_mem (hU.sigmaPairs_mem hA hB)) sep_subset
+
+theorem graph_mem_piSet {A : V} {B F : V → V}
+    (hF : ∀ x, x ∈ᵗ A → F x ∈ᵗ B x) : graph F A ∈ᵗ piSet A B := by
+  rw [mem_piSet]
+  constructor
+  · intro p hp
+    obtain ⟨x, hx, rfl⟩ := mem_graph.mp hp
+    exact mem_sigmaPairs.mpr ⟨x, hx, F x, hF x hx, rfl⟩
+  · intro x hx
+    refine ⟨F x, mem_graph.mpr ⟨x, hx, rfl⟩, ?_⟩
+    intro y' hy'
+    obtain ⟨x', -, hx'⟩ := mem_graph.mp hy'
+    obtain ⟨rfl, rfl⟩ := kpair_inj hx'
+    rfl
+
+theorem ne_pt_of_mem_piSet {A f : V} {B : V → V} (hf : f ∈ᵗ piSet A B) :
+    f ≠ pt := by
+  rintro rfl
+  have := (mem_piSet.mp hf).1 empty (mem_pt.mpr rfl)
+  obtain ⟨x, -, y, -, hy⟩ := mem_sigmaPairs.mp this
+  exact kpair_ne_empty hy.symm
+
+theorem app_mem_of_mem_piSet {A f a : V} {B : V → V}
+    (hf : f ∈ᵗ piSet A B) (ha : a ∈ᵗ A) : app f a ∈ᵗ B a := by
+  obtain ⟨hsub, htot⟩ := mem_piSet.mp hf
+  obtain ⟨y, hy, huniq⟩ := htot a ha
+  rw [app_eq_of_unique (ne_pt_of_mem_piSet hf) hy huniq]
+  obtain ⟨x', -, y', hy', hp⟩ := mem_sigmaPairs.mp (hsub _ hy)
+  obtain ⟨rfl, rfl⟩ := kpair_inj hp
+  exact hy'
+
+/-- Eta: a member of `piSet A B` is the graph of its own application. -/
+theorem eq_graph_app_of_mem_piSet {A f : V} {B : V → V}
+    (hf : f ∈ᵗ piSet A B) : graph (fun x => app f x) A = f := by
+  obtain ⟨hsub, htot⟩ := mem_piSet.mp hf
+  apply ext fun p => ?_
+  rw [mem_graph]
+  constructor
+  · rintro ⟨x, hx, rfl⟩
+    obtain ⟨y, hy, huniq⟩ := htot x hx
+    rwa [app_eq_of_unique (ne_pt_of_mem_piSet hf) hy huniq]
+  · intro hp
+    obtain ⟨x, hx, y, -, rfl⟩ := mem_sigmaPairs.mp (hsub p hp)
+    obtain ⟨y', hy', huniq⟩ := htot x hx
+    refine ⟨x, hx, ?_⟩
+    rw [app_eq_of_unique (ne_pt_of_mem_piSet hf) hy' huniq, huniq y hp]
+
+/-- Members of `piSet A' B` that are graphs over `A` pin the domain:
+every `x ∈ A'` lies in `A`. -/
+theorem graph_dom_of_mem_piSet {A A' : V} {B F : V → V}
+    (hf : graph F A ∈ᵗ piSet A' B) : ∀ x, x ∈ᵗ A' → x ∈ᵗ A := by
+  intro x hx
+  obtain ⟨y, hy, -⟩ := (mem_piSet.mp hf).2 x hx
+  obtain ⟨x', hx', hp⟩ := mem_graph.mp hy
+  obtain ⟨rfl, rfl⟩ := kpair_inj hp
+  exact hx'
+
+end Setlec.TG
