@@ -200,7 +200,16 @@ theorem checkProjIota_snd_dproj (env' : Env) (T ctorName : Name) (lps : List Nam
   unfold checkProjIota
   dsnd_tac
 
-set_option maxHeartbeats 25600000 in
+set_option maxHeartbeats 12800000 in
+theorem checkIotaRule_fst_dproj (env' envSelf : Env)
+    (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
+    (nP nM nm j : Nat) (r : RecRule) :
+    (checkIotaRule (pairOps o₁ o₂ h) env' envSelf f cvName lps tyA
+      nP nM nm j r).val.1 =
+    checkIotaRule o₁ env' envSelf f cvName lps tyA nP nM nm j r := by
+  unfold checkIotaRule
+  dfst_tac
+
 theorem checkIotaRules_fst_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
     (nP nM nm : Nat) :
@@ -210,13 +219,34 @@ theorem checkIotaRules_fst_dproj (env' envSelf : Env)
       checkIotaRules o₁ env' envSelf f cvName lps tyA nP nM nm j rules
   | _, [] => rfl
   | j, r :: rest => by
-    rw [checkIotaRules, checkIotaRules]
-    have ih := checkIotaRules_fst_dproj env' envSelf f cvName lps tyA
-      nP nM nm (j + 1) rest
-    dfst_step <;> (try rw [ih]) <;> dfst_step <;> (try rw [ih]) <;>
-      dfst_step <;> (try rw [ih]) <;> dfst_step
+    show ((do
+        let r' ← checkIotaRule (pairOps o₁ o₂ h) env' envSelf f cvName
+          lps tyA nP nM nm j r
+        let rest' ← checkIotaRules (pairOps o₁ o₂ h) env' envSelf f
+          cvName lps tyA nP nM nm (j + 1) rest
+        pure (r' :: rest') : PairM rel _)).val.1 = (do
+        let r' ← checkIotaRule o₁ env' envSelf f cvName lps tyA
+          nP nM nm j r
+        let rest' ← checkIotaRules o₁ env' envSelf f cvName lps tyA
+          nP nM nm (j + 1) rest
+        pure (r' :: rest'))
+    rw [PairM.fst_bind, checkIotaRule_fst_dproj]
+    congr 1
+    funext r'
+    rw [PairM.fst_bind, checkIotaRules_fst_dproj env' envSelf f cvName lps tyA
+      nP nM nm (j + 1) rest]
+    rfl
 
-set_option maxHeartbeats 25600000 in
+set_option maxHeartbeats 12800000 in
+theorem checkIotaRule_snd_dproj (env' envSelf : Env)
+    (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
+    (nP nM nm j : Nat) (r : RecRule) :
+    (checkIotaRule (pairOps o₁ o₂ h) env' envSelf f cvName lps tyA
+      nP nM nm j r).val.2 =
+    checkIotaRule o₂ env' envSelf f cvName lps tyA nP nM nm j r := by
+  unfold checkIotaRule
+  dsnd_tac
+
 theorem checkIotaRules_snd_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
     (nP nM nm : Nat) :
@@ -226,11 +256,23 @@ theorem checkIotaRules_snd_dproj (env' envSelf : Env)
       checkIotaRules o₂ env' envSelf f cvName lps tyA nP nM nm j rules
   | _, [] => rfl
   | j, r :: rest => by
-    rw [checkIotaRules, checkIotaRules]
-    have ih := checkIotaRules_snd_dproj env' envSelf f cvName lps tyA
-      nP nM nm (j + 1) rest
-    dsnd_step <;> (try rw [ih]) <;> dsnd_step <;> (try rw [ih]) <;>
-      dsnd_step <;> (try rw [ih]) <;> dsnd_step
+    show ((do
+        let r' ← checkIotaRule (pairOps o₁ o₂ h) env' envSelf f cvName
+          lps tyA nP nM nm j r
+        let rest' ← checkIotaRules (pairOps o₁ o₂ h) env' envSelf f
+          cvName lps tyA nP nM nm (j + 1) rest
+        pure (r' :: rest') : PairM rel _)).val.2 = (do
+        let r' ← checkIotaRule o₂ env' envSelf f cvName lps tyA
+          nP nM nm j r
+        let rest' ← checkIotaRules o₂ env' envSelf f cvName lps tyA
+          nP nM nm (j + 1) rest
+        pure (r' :: rest'))
+    rw [PairM.snd_bind, checkIotaRule_snd_dproj]
+    congr 1
+    funext r'
+    rw [PairM.snd_bind, checkIotaRules_snd_dproj env' envSelf f cvName lps tyA
+      nP nM nm (j + 1) rest]
+    rfl
 
 macro "dfst_step2" : tactic =>
   `(tactic| repeat (first
@@ -242,6 +284,7 @@ macro "dfst_step2" : tactic =>
     | (rw [checkProjIota_fst_dproj])
     | (rw [checkProjRule_fst_dproj])
     | (rw [checkIndMember_fst_dproj])
+    | (rw [checkIotaRule_fst_dproj])
     | (rw [checkIotaRules_fst_dproj])
     | split
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
@@ -264,6 +307,7 @@ macro "dsnd_step2" : tactic =>
     | (rw [checkProjIota_snd_dproj])
     | (rw [checkProjRule_snd_dproj])
     | (rw [checkIndMember_snd_dproj])
+    | (rw [checkIotaRule_snd_dproj])
     | (rw [checkIotaRules_snd_dproj])
     | split
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
@@ -310,6 +354,7 @@ macro "dfst_step3" : tactic =>
     | (rw [checkProjIota_fst_dproj])
     | (rw [checkProjRule_fst_dproj])
     | (rw [checkIndMember_fst_dproj])
+    | (rw [checkIotaRule_fst_dproj])
     | (rw [checkIotaRules_fst_dproj])
     | (rw [checkProjFn_fst_dproj])
     | split
@@ -333,6 +378,7 @@ macro "dsnd_step3" : tactic =>
     | (rw [checkProjIota_snd_dproj])
     | (rw [checkProjRule_snd_dproj])
     | (rw [checkIndMember_snd_dproj])
+    | (rw [checkIotaRule_snd_dproj])
     | (rw [checkIotaRules_snd_dproj])
     | (rw [checkProjFn_snd_dproj])
     | split
@@ -358,16 +404,49 @@ theorem checkProjFn_snd_dproj (env' : Env) (T ctorName : Name) (lps : List Name)
   unfold checkProjFn
   dsnd_tac3
 
+theorem installProjFnStep_fst_dproj (T ctorName : Name)
+    (lps : List Name) (nP nF : Nat) (e : Env) (i : Nat) :
+    (installProjFnStep (pairOps o₁ o₂ h) T ctorName lps nP nF e i).val.1
+      = installProjFnStep o₁ T ctorName lps nP nF e i := by
+  unfold installProjFnStep
+  split
+  · exact checkProjFn_fst_dproj e T ctorName lps nP nF i
+  · rfl
+
+theorem installBasisDecl_fst_dproj (env : Env) (ci : ConstantInfo) :
+    (installBasisDecl env ci : PairM rel _).val.1 =
+      (installBasisDecl env ci : M₁ _) := by
+  unfold installBasisDecl
+  dfst_tac
+
+theorem installProjFnStep_snd_dproj (T ctorName : Name)
+    (lps : List Name) (nP nF : Nat) (e : Env) (i : Nat) :
+    (installProjFnStep (pairOps o₁ o₂ h) T ctorName lps nP nF e i).val.2
+      = installProjFnStep o₂ T ctorName lps nP nF e i := by
+  unfold installProjFnStep
+  split
+  · exact checkProjFn_snd_dproj e T ctorName lps nP nF i
+  · rfl
+
+theorem installBasisDecl_snd_dproj (env : Env) (ci : ConstantInfo) :
+    (installBasisDecl env ci : PairM rel _).val.2 =
+      (installBasisDecl env ci : M₂ _) := by
+  unfold installBasisDecl
+  dsnd_tac
+
 macro "dfst_step4" : tactic =>
   `(tactic| repeat (first
     | (rw [liftFueled_fst_proj])
     | (rw [foldlM_fst])
+    | (simp only [checkIndMember_fst_dproj, checkProjFn_fst_dproj,
+        installProjFnStep_fst_dproj, installBasisDecl_fst_dproj])
     | (rw [checkConstantVal_fst_dproj])
     | (rw [checkProjLookups_fst_dproj])
     | (rw [checkProjTy_fst_dproj])
     | (rw [checkProjIota_fst_dproj])
     | (rw [checkProjRule_fst_dproj])
     | (rw [checkIndMember_fst_dproj])
+    | (rw [checkIotaRule_fst_dproj])
     | (rw [checkIotaRules_fst_dproj])
     | (rw [checkProjFn_fst_dproj])
     | (rw [checkIndDecl_fst_dproj])
@@ -386,12 +465,15 @@ macro "dsnd_step4" : tactic =>
   `(tactic| repeat (first
     | (rw [liftFueled_snd_proj])
     | (rw [foldlM_snd])
+    | (simp only [checkIndMember_snd_dproj, checkProjFn_snd_dproj,
+        installProjFnStep_snd_dproj, installBasisDecl_snd_dproj])
     | (rw [checkConstantVal_snd_dproj])
     | (rw [checkProjLookups_snd_dproj])
     | (rw [checkProjTy_snd_dproj])
     | (rw [checkProjIota_snd_dproj])
     | (rw [checkProjRule_snd_dproj])
     | (rw [checkIndMember_snd_dproj])
+    | (rw [checkIotaRule_snd_dproj])
     | (rw [checkIotaRules_snd_dproj])
     | (rw [checkProjFn_snd_dproj])
     | (rw [checkIndDecl_snd_dproj])
@@ -422,12 +504,16 @@ macro "dfst_step5" : tactic =>
   `(tactic| repeat (first
     | (rw [liftFueled_fst_proj])
     | (rw [foldlM_fst])
+    | (simp only [checkIndMember_fst_dproj, checkProjFn_fst_dproj,
+        installProjFnStep_fst_dproj, installBasisDecl_fst_dproj,
+        checkIndDecl_fst_dproj])
     | (rw [checkConstantVal_fst_dproj])
     | (rw [checkProjLookups_fst_dproj])
     | (rw [checkProjTy_fst_dproj])
     | (rw [checkProjIota_fst_dproj])
     | (rw [checkProjRule_fst_dproj])
     | (rw [checkIndMember_fst_dproj])
+    | (rw [checkIotaRule_fst_dproj])
     | (rw [checkIotaRules_fst_dproj])
     | (rw [checkProjFn_fst_dproj])
     | (rw [checkIndDecl_fst_dproj])
@@ -447,12 +533,16 @@ macro "dsnd_step5" : tactic =>
   `(tactic| repeat (first
     | (rw [liftFueled_snd_proj])
     | (rw [foldlM_snd])
+    | (simp only [checkIndMember_snd_dproj, checkProjFn_snd_dproj,
+        installProjFnStep_snd_dproj, installBasisDecl_snd_dproj,
+        checkIndDecl_snd_dproj])
     | (rw [checkConstantVal_snd_dproj])
     | (rw [checkProjLookups_snd_dproj])
     | (rw [checkProjTy_snd_dproj])
     | (rw [checkProjIota_snd_dproj])
     | (rw [checkProjRule_snd_dproj])
     | (rw [checkIndMember_snd_dproj])
+    | (rw [checkIotaRule_snd_dproj])
     | (rw [checkIotaRules_snd_dproj])
     | (rw [checkProjFn_snd_dproj])
     | (rw [checkIndDecl_snd_dproj])
@@ -468,29 +558,405 @@ macro "dsnd_tac5" : tactic =>
     dsnd_step5 <;> dsnd_step5 <;> dsnd_step5 <;>
     dsnd_step5 <;> dsnd_step5 <;> dsnd_step5)
 
+theorem checkDefnVal_fst_dproj (env : Env) (cv : ConstantVal)
+    (value : Expr) :
+    (checkDefnVal (pairOps o₁ o₂ h) env cv value).val.1 =
+      checkDefnVal o₁ env cv value := by
+  unfold checkDefnVal
+  dfst_tac
+
+theorem checkThmVal_fst_dproj (env : Env) (cv : ConstantVal)
+    (value : Expr) :
+    (checkThmVal (pairOps o₁ o₂ h) env cv value).val.1 =
+      checkThmVal o₁ env cv value := by
+  unfold checkThmVal
+  dfst_tac
+
+theorem checkDefnVal_snd_dproj (env : Env) (cv : ConstantVal)
+    (value : Expr) :
+    (checkDefnVal (pairOps o₁ o₂ h) env cv value).val.2 =
+      checkDefnVal o₂ env cv value := by
+  unfold checkDefnVal
+  dsnd_tac
+
+theorem checkThmVal_snd_dproj (env : Env) (cv : ConstantVal)
+    (value : Expr) :
+    (checkThmVal (pairOps o₁ o₂ h) env cv value).val.2 =
+      checkThmVal o₂ env cv value := by
+  unfold checkThmVal
+  dsnd_tac
+
 theorem checkDecl_fst_dproj (env : Env) (d : Declaration) :
     (checkDecl (pairOps o₁ o₂ h) env d).val.1 =
       checkDecl o₁ env d := by
   unfold checkDecl
-  dfst_tac5
+  cases d with
+  | defnDecl cv value =>
+    show ((checkConstantVal (pairOps o₁ o₂ h) env cv >>= fun cv =>
+      checkDefnVal (pairOps o₁ o₂ h) env cv value : PairM rel _)).val.1
+      = _
+    rw [PairM.fst_bind, checkConstantVal_fst_dproj]
+    congr 1
+    funext cv'
+    rw [checkDefnVal_fst_dproj]
+  | thmDecl cv value =>
+    show ((checkConstantVal (pairOps o₁ o₂ h) env cv >>= fun cv =>
+      checkThmVal (pairOps o₁ o₂ h) env cv value : PairM rel _)).val.1
+      = _
+    rw [PairM.fst_bind, checkConstantVal_fst_dproj]
+    congr 1
+    funext cv'
+    rw [checkThmVal_fst_dproj]
+  | axiomDecl cv => rfl
+  | basisDecl kind =>
+    show ((kind.declsA.foldlM installBasisDecl env : PairM rel _)).val.1
+      = _
+    rw [foldlM_fst]
+    simp only [installBasisDecl_fst_dproj]
+  | indDecl block =>
+    exact checkIndDecl_fst_dproj env block
 
 theorem checkDecl_snd_dproj (env : Env) (d : Declaration) :
     (checkDecl (pairOps o₁ o₂ h) env d).val.2 =
       checkDecl o₂ env d := by
   unfold checkDecl
-  dsnd_tac5
+  cases d with
+  | defnDecl cv value =>
+    show ((checkConstantVal (pairOps o₁ o₂ h) env cv >>= fun cv =>
+      checkDefnVal (pairOps o₁ o₂ h) env cv value : PairM rel _)).val.2
+      = _
+    rw [PairM.snd_bind, checkConstantVal_snd_dproj]
+    congr 1
+    funext cv'
+    rw [checkDefnVal_snd_dproj]
+  | thmDecl cv value =>
+    show ((checkConstantVal (pairOps o₁ o₂ h) env cv >>= fun cv =>
+      checkThmVal (pairOps o₁ o₂ h) env cv value : PairM rel _)).val.2
+      = _
+    rw [PairM.snd_bind, checkConstantVal_snd_dproj]
+    congr 1
+    funext cv'
+    rw [checkThmVal_snd_dproj]
+  | axiomDecl cv => rfl
+  | basisDecl kind =>
+    show ((kind.declsA.foldlM installBasisDecl env : PairM rel _)).val.2
+      = _
+    rw [foldlM_snd]
+    simp only [installBasisDecl_snd_dproj]
+  | indDecl block =>
+    exact checkIndDecl_snd_dproj env block
 
 theorem checkDecls_fst_dproj (ds : List Declaration) :
     (checkDecls (pairOps o₁ o₂ h) ds).val.1 =
       checkDecls o₁ ds := by
   unfold checkDecls
-  dfst_tac5
+  rw [foldlM_fst]
+  simp only [checkDecl_fst_dproj]
 
 theorem checkDecls_snd_dproj (ds : List Declaration) :
     (checkDecls (pairOps o₁ o₂ h) ds).val.2 =
       checkDecls o₂ ds := by
   unfold checkDecls
-  dsnd_tac5
+  rw [foldlM_snd]
+  simp only [checkDecl_snd_dproj]
+
+/-! ## The `atF` battery: fueled-family runs are fueled-ops runs -/
+
+theorem foldlM_atF {α β : Type} (g : β → α → FueledM β) (F : Nat) :
+    ∀ (l : List α) (init : β),
+      (l.foldlM g init).val F =
+        l.foldlM (fun b a => (g b a).val F) init
+  | [], init => rfl
+  | a :: l, init => by
+    show ((g init a >>= fun b => l.foldlM g b : FueledM β)).val F = _
+    rw [FueledM.atF_bind]
+    show _ = (g init a).val F >>= fun b =>
+      l.foldlM (fun b a => (g b a).val F) b
+    congr 1
+    funext b
+    exact foldlM_atF g F l b
+
+macro "datF_step" : tactic =>
+  `(tactic| repeat (first
+    | (rw [liftFueled_atF])
+    | (rw [foldlM_atF])
+    | split
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
+    | (simp only [])))
+
+macro "datF_tac" : tactic =>
+  `(tactic| datF_step <;> datF_step <;> datF_step <;>
+    datF_step <;> datF_step <;> datF_step <;>
+    datF_step <;> datF_step <;> datF_step <;>
+    datF_step <;> datF_step <;> datF_step)
+
+theorem checkConstantVal_datF (env : Env) (cv : ConstantVal) (F : Nat) :
+    (checkConstantVal fueledOpsM env cv).val F =
+      checkConstantVal (fueledOps F) env cv := by
+  unfold checkConstantVal
+  datF_tac
+
+theorem checkProjLookups_datF (env' : Env) (T ctorName : Name) (lps : List Name) (nP nF i : Nat) (F : Nat) :
+    (checkProjLookups env' T ctorName lps nP nF i : FueledM _).val F =
+      (checkProjLookups env' T ctorName lps nP nF i : CheckM _) := by
+  unfold checkProjLookups
+  datF_tac
+
+theorem checkProjTy_datF (env' : Env) (T ctorName : Name) (lps : List Name) (mty : Expr) (nP nF : Nat) (F : Nat) :
+    (checkProjTy env' T ctorName lps mty nP nF : FueledM _).val F =
+      (checkProjTy env' T ctorName lps mty nP nF : CheckM _) := by
+  unfold checkProjTy
+  datF_tac
+
+theorem checkProjIota_datF (env' : Env) (T ctorName : Name) (lps : List Name) (cvj : ConstantVal) (nP nF i : Nat) (F : Nat) :
+    (checkProjIota env' T ctorName lps cvj nP nF i : FueledM _).val F =
+      (checkProjIota env' T ctorName lps cvj nP nF i : CheckM _) := by
+  unfold checkProjIota
+  datF_tac
+
+set_option maxHeartbeats 12800000 in
+theorem checkIotaRule_datF (env' envSelf : Env)
+    (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
+    (nP nM nm j : Nat) (r : RecRule) (F : Nat) :
+    (checkIotaRule fueledOpsM env' envSelf f cvName lps tyA
+      nP nM nm j r).val F =
+    checkIotaRule (fueledOps F) env' envSelf f cvName lps tyA
+      nP nM nm j r := by
+  unfold checkIotaRule
+  datF_tac
+
+theorem checkIotaRules_datF (env' envSelf : Env)
+    (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
+    (nP nM nm : Nat) (F : Nat) :
+    ∀ (j : Nat) (rules : List RecRule),
+      (checkIotaRules fueledOpsM env' envSelf f cvName lps tyA
+        nP nM nm j rules).val F =
+      checkIotaRules (fueledOps F) env' envSelf f cvName lps tyA
+        nP nM nm j rules
+  | _, [] => rfl
+  | j, r :: rest => by
+    show ((do
+        let r' ← checkIotaRule fueledOpsM env' envSelf f cvName lps tyA
+          nP nM nm j r
+        let rest' ← checkIotaRules fueledOpsM env' envSelf f cvName lps
+          tyA nP nM nm (j + 1) rest
+        pure (r' :: rest') : FueledM _)).val F = (do
+        let r' ← checkIotaRule (fueledOps F) env' envSelf f cvName lps
+          tyA nP nM nm j r
+        let rest' ← checkIotaRules (fueledOps F) env' envSelf f cvName
+          lps tyA nP nM nm (j + 1) rest
+        pure (r' :: rest'))
+    rw [FueledM.atF_bind, checkIotaRule_datF]
+    congr 1
+    funext r'
+    rw [FueledM.atF_bind, checkIotaRules_datF env' envSelf f cvName lps
+      tyA nP nM nm F (j + 1) rest]
+    rfl
+
+macro "datF_step2" : tactic =>
+  `(tactic| repeat (first
+    | (rw [liftFueled_atF])
+    | (rw [foldlM_atF])
+    | (rw [checkConstantVal_datF])
+    | (rw [checkProjLookups_datF])
+    | (rw [checkProjTy_datF])
+    | (rw [checkProjIota_datF])
+    | (rw [checkProjRule_datF])
+    | (rw [checkIndMember_datF])
+    | (rw [checkIotaRule_datF])
+    | (rw [checkIotaRules_datF])
+    | split
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
+    | (simp only [])))
+
+macro "datF_tac2" : tactic =>
+  `(tactic| datF_step2 <;> datF_step2 <;> datF_step2 <;>
+    datF_step2 <;> datF_step2 <;> datF_step2 <;>
+    datF_step2 <;> datF_step2 <;> datF_step2 <;>
+    datF_step2 <;> datF_step2 <;> datF_step2)
+
+theorem checkProjRule_datF (env' : Env) (cvj : ConstantVal) (lps : List Name) (nP nF i : Nat) (F : Nat) :
+    (checkProjRule fueledOpsM env' cvj lps nP nF i).val F =
+      checkProjRule (fueledOps F) env' cvj lps nP nF i := by
+  unfold checkProjRule
+  datF_tac2
+
+theorem checkIndMember_datF (blockNames : List Name) (caps : IndCaps) (env' : Env) (ci : ConstantInfo) (F : Nat) :
+    (checkIndMember fueledOpsM blockNames caps env' ci).val F =
+      checkIndMember (fueledOps F) blockNames caps env' ci := by
+  unfold checkIndMember
+  datF_tac2
+
+macro "datF_step3" : tactic =>
+  `(tactic| repeat (first
+    | (rw [liftFueled_atF])
+    | (rw [foldlM_atF])
+    | (rw [checkConstantVal_datF])
+    | (rw [checkProjLookups_datF])
+    | (rw [checkProjTy_datF])
+    | (rw [checkProjIota_datF])
+    | (rw [checkProjRule_datF])
+    | (rw [checkIndMember_datF])
+    | (rw [checkIotaRule_datF])
+    | (rw [checkIotaRules_datF])
+    | (rw [checkProjFn_datF])
+    | split
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
+    | (simp only [])))
+
+macro "datF_tac3" : tactic =>
+  `(tactic| datF_step3 <;> datF_step3 <;> datF_step3 <;>
+    datF_step3 <;> datF_step3 <;> datF_step3 <;>
+    datF_step3 <;> datF_step3 <;> datF_step3 <;>
+    datF_step3 <;> datF_step3 <;> datF_step3)
+
+theorem checkProjFn_datF (env' : Env) (T ctorName : Name) (lps : List Name) (nP nF i : Nat) (F : Nat) :
+    (checkProjFn fueledOpsM env' T ctorName lps nP nF i).val F =
+      checkProjFn (fueledOps F) env' T ctorName lps nP nF i := by
+  unfold checkProjFn
+  datF_tac3
+
+theorem installProjFnStep_datF (T ctorName : Name)
+    (lps : List Name) (nP nF : Nat) (e : Env) (i : Nat) (F : Nat) :
+    (installProjFnStep fueledOpsM T ctorName lps nP nF e i).val F
+      = installProjFnStep (fueledOps F) T ctorName lps nP nF e i := by
+  unfold installProjFnStep
+  split
+  · exact checkProjFn_datF e T ctorName lps nP nF i F
+  · rfl
+
+theorem installBasisDecl_datF (env : Env) (ci : ConstantInfo) (F : Nat) :
+    (installBasisDecl env ci : FueledM _).val F =
+      (installBasisDecl env ci : CheckM _) := by
+  unfold installBasisDecl
+  datF_tac
+
+macro "datF_step4" : tactic =>
+  `(tactic| repeat (first
+    | (rw [liftFueled_atF])
+    | (rw [foldlM_atF])
+    | (simp only [checkIndMember_datF, checkProjFn_datF,
+        installProjFnStep_datF, installBasisDecl_datF])
+    | (rw [checkConstantVal_datF])
+    | (rw [checkProjLookups_datF])
+    | (rw [checkProjTy_datF])
+    | (rw [checkProjIota_datF])
+    | (rw [checkProjRule_datF])
+    | (rw [checkIndMember_datF])
+    | (rw [checkIotaRule_datF])
+    | (rw [checkIotaRules_datF])
+    | (rw [checkProjFn_datF])
+    | (rw [checkIndDecl_datF])
+    | split
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
+    | (simp only [])))
+
+macro "datF_tac4" : tactic =>
+  `(tactic| datF_step4 <;> datF_step4 <;> datF_step4 <;>
+    datF_step4 <;> datF_step4 <;> datF_step4 <;>
+    datF_step4 <;> datF_step4 <;> datF_step4 <;>
+    datF_step4 <;> datF_step4 <;> datF_step4)
+
+theorem checkIndDecl_datF (env : Env) (block : List ConstantInfo) (F : Nat) :
+    (checkIndDecl fueledOpsM env block).val F =
+      checkIndDecl (fueledOps F) env block := by
+  unfold checkIndDecl
+  datF_tac4
+
+macro "datF_step5" : tactic =>
+  `(tactic| repeat (first
+    | (rw [liftFueled_atF])
+    | (rw [foldlM_atF])
+    | (simp only [checkIndMember_datF, checkProjFn_datF,
+        installProjFnStep_datF, installBasisDecl_datF,
+        checkIndDecl_datF])
+    | (rw [checkConstantVal_datF])
+    | (rw [checkProjLookups_datF])
+    | (rw [checkProjTy_datF])
+    | (rw [checkProjIota_datF])
+    | (rw [checkProjRule_datF])
+    | (rw [checkIndMember_datF])
+    | (rw [checkIotaRule_datF])
+    | (rw [checkIotaRules_datF])
+    | (rw [checkProjFn_datF])
+    | (rw [checkIndDecl_datF])
+    | (rw [checkDecl_datF])
+    | split
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
+    | (simp only [])))
+
+macro "datF_tac5" : tactic =>
+  `(tactic| datF_step5 <;> datF_step5 <;> datF_step5 <;>
+    datF_step5 <;> datF_step5 <;> datF_step5 <;>
+    datF_step5 <;> datF_step5 <;> datF_step5 <;>
+    datF_step5 <;> datF_step5 <;> datF_step5)
+
+theorem checkDefnVal_datF (env : Env) (cv : ConstantVal) (value : Expr)
+    (F : Nat) :
+    (checkDefnVal fueledOpsM env cv value).val F =
+      checkDefnVal (fueledOps F) env cv value := by
+  unfold checkDefnVal
+  datF_tac
+
+theorem checkThmVal_datF (env : Env) (cv : ConstantVal) (value : Expr)
+    (F : Nat) :
+    (checkThmVal fueledOpsM env cv value).val F =
+      checkThmVal (fueledOps F) env cv value := by
+  unfold checkThmVal
+  datF_tac
+
+theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
+    (checkDecl fueledOpsM env d).val F =
+      checkDecl (fueledOps F) env d := by
+  unfold checkDecl
+  cases d with
+  | defnDecl cv value =>
+    show ((checkConstantVal fueledOpsM env cv >>= fun cv =>
+      checkDefnVal fueledOpsM env cv value : FueledM _)).val F = _
+    rw [FueledM.atF_bind, checkConstantVal_datF]
+    congr 1
+    funext cv'
+    rw [checkDefnVal_datF]
+  | thmDecl cv value =>
+    show ((checkConstantVal fueledOpsM env cv >>= fun cv =>
+      checkThmVal fueledOpsM env cv value : FueledM _)).val F = _
+    rw [FueledM.atF_bind, checkConstantVal_datF]
+    congr 1
+    funext cv'
+    rw [checkThmVal_datF]
+  | axiomDecl cv => rfl
+  | basisDecl kind =>
+    show ((kind.declsA.foldlM installBasisDecl env : FueledM _)).val F = _
+    rw [foldlM_atF]
+    simp only [installBasisDecl_datF]
+  | indDecl block =>
+    exact checkIndDecl_datF env block F
+
+theorem checkDecls_datF (ds : List Declaration) (F : Nat) :
+    (checkDecls fueledOpsM ds).val F =
+      checkDecls (fueledOps F) ds := by
+  unfold checkDecls
+  rw [foldlM_atF]
+  simp only [checkDecl_datF]
+
+/-! ## The punchline -/
+
+/-- A successful executable run of the declaration checker is
+reproduced by the pure fueled checker at some fuel. -/
+theorem checkDecls_bridge {ds : List Declaration} {env' : Env}
+    (h : checkDecls cachedOps ds = .ok env') :
+    ∃ F, checkDecls (fueledOps F) ds = .ok env' := by
+  have hp := (checkDecls
+    (pairOps fueledOpsM cachedOps fueledOpsM_cachedOps_rel) ds).property
+  rw [checkDecls_fst_dproj, checkDecls_snd_dproj] at hp
+  obtain ⟨F, hF⟩ := hp env' h
+  rw [checkDecls_datF] at hF
+  exact ⟨F, hF⟩
 
 end DeclBattery
 

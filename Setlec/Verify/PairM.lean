@@ -75,6 +75,16 @@ instance : MonadExceptOf CheckError (PairM rel) where
 @[simp] theorem snd_throw {α : Type} (e : CheckError) :
     (throw e : PairM rel α).val.2 = throw e := rfl
 
+@[simp] theorem fst_ite {α : Type} {c : Prop} [Decidable c]
+    (x y : PairM rel α) :
+    (if c then x else y).val.1 = if c then x.val.1 else y.val.1 := by
+  by_cases hc : c <;> simp [hc]
+
+@[simp] theorem snd_ite {α : Type} {c : Prop} [Decidable c]
+    (x y : PairM rel α) :
+    (if c then x else y).val.2 = if c then x.val.2 else y.val.2 := by
+  by_cases hc : c <;> simp [hc]
+
 end PairM
 
 /-- Componentwise relatedness of two core records. -/

@@ -88,7 +88,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     | .punitK, h => ?_
     | .emptyK, h => ?_
     case _ =>
-      simp only [checkDecl, fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
+      simp only [checkDecl, checkDefnVal, checkThmVal, installBasisDecl,
+        fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
         fueledOps_ensureSort, fueledOps_whnf, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
       -- step 1: Nat
       by_cases h1 : (env.find? natA.name).isNone
@@ -412,7 +413,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun _ _ _ _ hres => absurd hres (by decide))
       exact ⟨m4⟩
     case _ =>
-      simp only [checkDecl, fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
+      simp only [checkDecl, checkDefnVal, checkThmVal, installBasisDecl,
+        fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
         fueledOps_ensureSort, fueledOps_whnf, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
       -- step 1: PSigma'
       by_cases h1 : (env.find? psigmaA.name).isNone
@@ -677,7 +679,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun _ _ _ _ hres => absurd hres (by decide))
       exact ⟨m3⟩
     case _ =>
-      simp only [checkDecl, fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
+      simp only [checkDecl, checkDefnVal, checkThmVal, installBasisDecl,
+        fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
         fueledOps_ensureSort, fueledOps_whnf, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
       -- step 1: Eq
       by_cases h1 : (env.find? eqA.name).isNone
@@ -897,7 +900,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun _ _ _ _ hres => absurd hres (by decide))
         (fun _ _ _ _ hres => absurd hres (by decide))
       exact ⟨m3⟩
-    simp only [checkDecl, fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
+    simp only [checkDecl, checkDefnVal, checkThmVal, installBasisDecl,
+        fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
         fueledOps_ensureSort, fueledOps_whnf, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
     -- step 1: PUnit
     by_cases h1 : (env.find? punitA.name).isNone
@@ -1100,7 +1104,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (fun _ _ _ _ hres => absurd hres (by decide))
     exact ⟨m3⟩
     case _ =>
-      simp only [checkDecl, fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
+      simp only [checkDecl, checkDefnVal, checkThmVal, installBasisDecl,
+        fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
         fueledOps_ensureSort, fueledOps_whnf, BasisKind.declsA, List.foldlM, Bind.bind,
         Except.bind] at h
       -- step 1: Empty
@@ -1188,7 +1193,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun _ _ _ _ hres => absurd hres (by decide))
       exact ⟨m2⟩
   | defnDecl cv value =>
-    simp only [checkDecl, fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
+    simp only [checkDecl, checkDefnVal, checkThmVal, installBasisDecl,
+        fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
         fueledOps_ensureSort, fueledOps_whnf, Bind.bind, Except.bind] at h
     cases hccv : checkConstantVal (fueledOps F) env cv with
     | error e => rw [hccv] at h; exact nomatch h
@@ -1255,7 +1261,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       hres'
       hpshape'
   | thmDecl cv value =>
-    simp only [checkDecl, fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
+    simp only [checkDecl, checkDefnVal, checkThmVal, installBasisDecl,
+        fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
         fueledOps_ensureSort, fueledOps_whnf, Bind.bind, Except.bind] at h
     cases hccv : checkConstantVal (fueledOps F) env cv with
     | error e => rw [hccv] at h; exact nomatch h
@@ -1385,7 +1392,8 @@ private theorem checkDecl_stores {env env₁ : Env} {cv : ConstantVal}
     ∃ type, annotateCore env F 0 cv.type = .ok type ∧
       ∃ c ∈ env₁.consts, c.toConstantVal = ⟨cv.name, cv.levelParams, type⟩ := by
   rcases hd with rfl | rfl
-  · simp only [checkDecl, fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
+  · simp only [checkDecl, checkDefnVal, checkThmVal, installBasisDecl,
+        fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
         fueledOps_ensureSort, fueledOps_whnf, Bind.bind, Except.bind] at h
     cases hccv : checkConstantVal (fueledOps F) env cv with
     | error e => rw [hccv] at h; exact nomatch h
@@ -1427,7 +1435,8 @@ private theorem checkDecl_stores {env env₁ : Env} {cv : ConstantVal}
     simp only [Bool.false_eq_true, ↓reduceIte, Except.ok.injEq] at h
     subst h
     exact ⟨type, hann, _, List.mem_cons_self .., rfl⟩
-  · simp only [checkDecl, fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
+  · simp only [checkDecl, checkDefnVal, checkThmVal, installBasisDecl,
+        fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
         fueledOps_ensureSort, fueledOps_whnf, Bind.bind, Except.bind] at h
     cases hccv : checkConstantVal (fueledOps F) env cv with
     | error e => rw [hccv] at h; exact nomatch h

@@ -54,6 +54,11 @@ instance : MonadExceptOf CheckError FueledM where
 @[simp] theorem atF_throw {α : Type} (e : CheckError) (F : Nat) :
     (throw e : FueledM α).val F = throw e := rfl
 
+@[simp] theorem atF_ite {α : Type} {c : Prop} [Decidable c]
+    (x y : FueledM α) (F : Nat) :
+    (if c then x else y).val F = if c then x.val F else y.val F := by
+  by_cases hc : c <;> simp [hc]
+
 end FueledM
 
 /-- The fueled record: each entry is the family of its fueled runs,
