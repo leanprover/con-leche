@@ -150,13 +150,35 @@ def unfoldDefinition (env : Env) (e : Expr) : Option Expr :=
   match e.getAppFn with
   | .const n us =>
     match env.find? n with
-    | some (.defnInfo cv value) =>
+    | some (.defnInfo cv value _) =>
       if us.length = cv.levelParams.length then
         some (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
           e.getAppArgs)
       else none
     | _ => none
   | _ => none
+
+/-- The reducibility hint of the constant at the head of `e` (`opaque`
+when the head is not a stored definition — such a head never unfolds,
+so the value is only read where `unfoldDefinition` succeeded). -/
+def headHint (env : Env) (e : Expr) : ReducibilityHint :=
+  match e.getAppFn with
+  | .const n _ =>
+    match env.find? n with
+    | some (.defnInfo _ _ hint) => hint
+    | _ => .opaque
+  | _ => .opaque
+
+/-- Are `a` and `b` applications of the *same* constant (the lazy delta
+same-head short-circuit: try level and spine congruence before
+unfolding both sides)?  Mirrors the official kernel's
+`try_eq_const_app`: both sides must actually be applications. -/
+def sameConstHeads : Expr → Expr → Bool
+  | .app f₁ _, .app f₂ _ =>
+    match f₁.getAppFn, f₂.getAppFn with
+    | .const n₁ _, .const n₂ _ => n₁ == n₂
+    | _, _ => false
+  | _, _ => false
 
 /-- The constructor form of a `Nat` literal, one layer:
 `n + 1` becomes `Nat.succ (lit n)`, `0` becomes `Nat.zero` (the
@@ -337,7 +359,7 @@ dependency stored as a definition, and (for the `Bool`-valued ops) the
 def natOpGuard (env : Env) (c : Name) : Bool :=
   natLitSupported env &&
   (natOpDeps c).all (fun n => match env.find? n with
-    | some (.defnInfo cv _) => cv.levelParams.isEmpty
+    | some (.defnInfo cv _ _) => cv.levelParams.isEmpty
     | _ => false) &&
   (if c = natBeqName || c = natBleName then
     (match env.find? boolTrueName with
@@ -410,7 +432,7 @@ def natOpTyPinned (env : Env) (c : Name) (ty : Expr) : Bool :=
 type. -/
 def natOpStoredOk (env : Env) (n : Name) : Bool :=
   match env.find? n with
-  | some (.defnInfo cv _) =>
+  | some (.defnInfo cv _ _) =>
     cv.levelParams.isEmpty && natOpTyPinned env n cv.type
   | _ => false
 

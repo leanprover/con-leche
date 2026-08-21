@@ -277,7 +277,7 @@ theorem annotateProjElim_inv {env : Env} {fuel d : Nat} {sn : Name}
   match hfp : env.find? (projFnName T i) with
   | none => intro h; exact annotateProjRec_inv h
   | some (.axiomInfo _) => intro h; exact annotateProjRec_inv h
-  | some (.defnInfo _ _) => intro h; exact annotateProjRec_inv h
+  | some (.defnInfo _ _ _) => intro h; exact annotateProjRec_inv h
   | some (.thmInfo _ _) => intro h; exact annotateProjRec_inv h
   | some (.indInfo _ _) => intro h; exact annotateProjRec_inv h
   | some (.ctorInfo _ _ _) => intro h; exact annotateProjRec_inv h
@@ -370,7 +370,7 @@ theorem annotateCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
     match hfind : env.find? psigmaName with
     | none => intro h; exact Or.inr h
     | some (.axiomInfo cv) => intro h; exact Or.inr h
-    | some (.defnInfo cv v) => intro h; exact Or.inr h
+    | some (.defnInfo cv v hint) => intro h; exact Or.inr h
     | some (.thmInfo cv v) => intro h; exact Or.inr h
     | some (.ctorInfo cv nP nF) => intro h; exact Or.inr h
     | some (.recInfo cv nP nM nm ni rules) => intro h; exact Or.inr h

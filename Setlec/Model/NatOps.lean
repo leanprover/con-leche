@@ -34,8 +34,8 @@ open SetTheory Expr
 /-- Everything `natOpGuard` checked, as separate facts. -/
 theorem natOpGuard_inv {c : Name} (h : natOpGuard env c = true) :
     natLitSupported env = true ∧
-    (∀ n ∈ natOpDeps c, ∃ cvn vn,
-      env.find? n = some (.defnInfo cvn vn) ∧ cvn.levelParams = []) ∧
+    (∀ n ∈ natOpDeps c, ∃ cvn vn hn,
+      env.find? n = some (.defnInfo cvn vn hn) ∧ cvn.levelParams = []) ∧
     ((c = natBeqName ∨ c = natBleName) →
       (∃ ciT, env.find? boolTrueName = some ciT ∧
         ciT.toConstantVal.levelParams = []) ∧
@@ -49,9 +49,9 @@ theorem natOpGuard_inv {c : Name} (h : natOpGuard env c = true) :
     have := List.all_eq_true.mp hdeps n hn
     revert this
     split
-    · next cvn vn heq =>
+    · next cvn vn hn heq =>
       intro hlp
-      exact ⟨cvn, vn, heq, List.isEmpty_iff.mp (by simpa using hlp)⟩
+      exact ⟨cvn, vn, hn, heq, List.isEmpty_iff.mp (by simpa using hlp)⟩
     · intro hh; exact nomatch hh
   · intro hc
     have hcb : (c = natBeqName || c = natBleName) = true := by
@@ -76,8 +76,8 @@ theorem natOpGuard_inv {c : Name} (h : natOpGuard env c = true) :
 /-- Rebuild the guard from the separate facts. -/
 theorem natOpGuard_intro {c : Name}
     (hs : natLitSupported env = true)
-    (hdeps : ∀ n ∈ natOpDeps c, ∃ cvn vn,
-      env.find? n = some (.defnInfo cvn vn) ∧ cvn.levelParams = [])
+    (hdeps : ∀ n ∈ natOpDeps c, ∃ cvn vn hn,
+      env.find? n = some (.defnInfo cvn vn hn) ∧ cvn.levelParams = [])
     (hbool : (c = natBeqName ∨ c = natBleName) →
       (∃ ciT, env.find? boolTrueName = some ciT ∧
         ciT.toConstantVal.levelParams = []) ∧
@@ -89,7 +89,7 @@ theorem natOpGuard_intro {c : Name}
   refine ⟨⟨hs, ?_⟩, ?_⟩
   · refine List.all_eq_true.mpr ?_
     intro n hn
-    obtain ⟨cvn, vn, heq, hlp⟩ := hdeps n hn
+    obtain ⟨cvn, vn, hn, heq, hlp⟩ := hdeps n hn
     rw [heq]
     simp [hlp]
   · split
@@ -119,8 +119,8 @@ theorem natOpGuard_cons {c : Name} {c₀ : ConstantInfo}
       (Env.find?_cons_of_isSome hfresh (by simp [hss]))]
     exact hs
   · intro n hn
-    obtain ⟨cvn, vn, heq, hlp⟩ := hdeps n hn
-    exact ⟨cvn, vn,
+    obtain ⟨cvn, vn, hn, heq, hlp⟩ := hdeps n hn
+    exact ⟨cvn, vn, hn,
       (Env.find?_cons_of_isSome hfresh (by simp [heq])).trans heq, hlp⟩
   · intro hc
     obtain ⟨⟨ciT, hT, hlpT⟩, ⟨ciF, hF, hlpF⟩⟩ := hbool hc
@@ -328,17 +328,17 @@ private theorem succ_closed (hs : natLitSupported env = true) (ψ : Name → Nat
   app_mem (natSuccVal_mem_pi m hs ψ) hx (fun _ _ => natVal_mem_univ m hs ψ)
 
 /-- `Nat.pred` on literal values. -/
-theorem natOpVal_pred {cv : ConstantVal} {v : Expr}
-    (hf : env.find? natPredName = some (.defnInfo cv v)) (ψ : Name → Nat) :
+theorem natOpVal_pred {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
+    (hf : env.find? natPredName = some (.defnInfo cv v hint)) (ψ : Name → Nat) :
     ∀ a : Nat, app (m.val natPredName ψ)
         (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a) =
       natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) (a - 1) := by
-  obtain ⟨hg, heqs⟩ := m.nat_ops natPredName (by decide) cv v hf
+  obtain ⟨hg, heqs⟩ := m.nat_ops natPredName (by decide) cv v hint hf
   obtain ⟨hs, hdeps, -⟩ := natOpGuard_inv hg
-  obtain ⟨cv', v', hf', hlp⟩ := hdeps natPredName (by decide)
+  obtain ⟨cv', v', hnt', hf', hlp⟩ := hdeps natPredName (by decide)
   rw [hf] at hf'
   simp only [Option.some.injEq, ConstantInfo.defnInfo.injEq] at hf'
-  obtain ⟨rfl, rfl⟩ := hf'
+  obtain ⟨rfl, rfl, rfl⟩ := hf'
   have h0 : app (m.val natPredName ψ) (m.val natZeroName ψ) =
       m.val natZeroName ψ := by
     have h := heqs (.app (.const natPredName []) (.const natZeroName []),
@@ -364,18 +364,18 @@ theorem natOpVal_pred {cv : ConstantVal} {v : Expr}
   exact natLit_pred (natZeroVal_mem m hs ψ) (succ_closed m hs ψ) h0 hS
 
 /-- `Nat.add` on literal values. -/
-theorem natOpVal_add {cv : ConstantVal} {v : Expr}
-    (hf : env.find? natAddName = some (.defnInfo cv v)) (ψ : Name → Nat) :
+theorem natOpVal_add {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
+    (hf : env.find? natAddName = some (.defnInfo cv v hint)) (ψ : Name → Nat) :
     ∀ a b : Nat, app (app (m.val natAddName ψ)
         (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a))
         (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
       natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) (a + b) := by
-  obtain ⟨hg, heqs⟩ := m.nat_ops natAddName (by decide) cv v hf
+  obtain ⟨hg, heqs⟩ := m.nat_ops natAddName (by decide) cv v hint hf
   obtain ⟨hs, hdeps, -⟩ := natOpGuard_inv hg
-  obtain ⟨cv', v', hf', hlp⟩ := hdeps natAddName (by decide)
+  obtain ⟨cv', v', hnt', hf', hlp⟩ := hdeps natAddName (by decide)
   rw [hf] at hf'
   simp only [Option.some.injEq, ConstantInfo.defnInfo.injEq] at hf'
-  obtain ⟨rfl, rfl⟩ := hf'
+  obtain ⟨rfl, rfl, rfl⟩ := hf'
   have h0 : ∀ x, x ∈ˢ m.val natName ψ →
       app (app (m.val natAddName ψ) x) (m.val natZeroName ψ) = x := by
     intro x hx
@@ -412,19 +412,19 @@ theorem natOpVal_add {cv : ConstantVal} {v : Expr}
   exact natLit_add (natZeroVal_mem m hs ψ) (succ_closed m hs ψ) h0 hS
 
 /-- `Nat.sub` on literal values. -/
-theorem natOpVal_sub {cv : ConstantVal} {v : Expr}
-    (hf : env.find? natSubName = some (.defnInfo cv v)) (ψ : Name → Nat) :
+theorem natOpVal_sub {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
+    (hf : env.find? natSubName = some (.defnInfo cv v hint)) (ψ : Name → Nat) :
     ∀ a b : Nat, app (app (m.val natSubName ψ)
         (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a))
         (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
       natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) (a - b) := by
-  obtain ⟨hg, heqs⟩ := m.nat_ops natSubName (by decide) cv v hf
+  obtain ⟨hg, heqs⟩ := m.nat_ops natSubName (by decide) cv v hint hf
   obtain ⟨hs, hdeps, -⟩ := natOpGuard_inv hg
-  obtain ⟨cvp, vp, hfp, hlpp⟩ := hdeps natPredName (by decide)
-  obtain ⟨cv', v', hf', hlp⟩ := hdeps natSubName (by decide)
+  obtain ⟨cvp, vp, hnt1, hfp, hlpp⟩ := hdeps natPredName (by decide)
+  obtain ⟨cv', v', hnt', hf', hlp⟩ := hdeps natSubName (by decide)
   rw [hf] at hf'
   simp only [Option.some.injEq, ConstantInfo.defnInfo.injEq] at hf'
-  obtain ⟨rfl, rfl⟩ := hf'
+  obtain ⟨rfl, rfl, rfl⟩ := hf'
   have h0 : ∀ x, x ∈ˢ m.val natName ψ →
       app (app (m.val natSubName ψ) x) (m.val natZeroName ψ) = x := by
     intro x hx
@@ -462,19 +462,19 @@ theorem natOpVal_sub {cv : ConstantVal} {v : Expr}
     (natOpVal_pred m hfp ψ) h0 hS
 
 /-- `Nat.mul` on literal values. -/
-theorem natOpVal_mul {cv : ConstantVal} {v : Expr}
-    (hf : env.find? natMulName = some (.defnInfo cv v)) (ψ : Name → Nat) :
+theorem natOpVal_mul {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
+    (hf : env.find? natMulName = some (.defnInfo cv v hint)) (ψ : Name → Nat) :
     ∀ a b : Nat, app (app (m.val natMulName ψ)
         (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a))
         (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
       natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) (a * b) := by
-  obtain ⟨hg, heqs⟩ := m.nat_ops natMulName (by decide) cv v hf
+  obtain ⟨hg, heqs⟩ := m.nat_ops natMulName (by decide) cv v hint hf
   obtain ⟨hs, hdeps, -⟩ := natOpGuard_inv hg
-  obtain ⟨cva, va, hfa, hlpa⟩ := hdeps natAddName (by decide)
-  obtain ⟨cv', v', hf', hlp⟩ := hdeps natMulName (by decide)
+  obtain ⟨cva, va, hnt2, hfa, hlpa⟩ := hdeps natAddName (by decide)
+  obtain ⟨cv', v', hnt', hf', hlp⟩ := hdeps natMulName (by decide)
   rw [hf] at hf'
   simp only [Option.some.injEq, ConstantInfo.defnInfo.injEq] at hf'
-  obtain ⟨rfl, rfl⟩ := hf'
+  obtain ⟨rfl, rfl, rfl⟩ := hf'
   have h0 : ∀ x, x ∈ˢ m.val natName ψ →
       app (app (m.val natMulName ψ) x) (m.val natZeroName ψ) =
         m.val natZeroName ψ := by
@@ -514,19 +514,19 @@ theorem natOpVal_mul {cv : ConstantVal} {v : Expr}
     (natOpVal_add m hfa ψ) h0 hS
 
 /-- `Nat.pow` on literal values. -/
-theorem natOpVal_pow {cv : ConstantVal} {v : Expr}
-    (hf : env.find? natPowName = some (.defnInfo cv v)) (ψ : Name → Nat) :
+theorem natOpVal_pow {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
+    (hf : env.find? natPowName = some (.defnInfo cv v hint)) (ψ : Name → Nat) :
     ∀ a b : Nat, app (app (m.val natPowName ψ)
         (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a))
         (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
       natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) (a ^ b) := by
-  obtain ⟨hg, heqs⟩ := m.nat_ops natPowName (by decide) cv v hf
+  obtain ⟨hg, heqs⟩ := m.nat_ops natPowName (by decide) cv v hint hf
   obtain ⟨hs, hdeps, -⟩ := natOpGuard_inv hg
-  obtain ⟨cvm, vm, hfm, hlpm⟩ := hdeps natMulName (by decide)
-  obtain ⟨cv', v', hf', hlp⟩ := hdeps natPowName (by decide)
+  obtain ⟨cvm, vm, hnt3, hfm, hlpm⟩ := hdeps natMulName (by decide)
+  obtain ⟨cv', v', hnt', hf', hlp⟩ := hdeps natPowName (by decide)
   rw [hf] at hf'
   simp only [Option.some.injEq, ConstantInfo.defnInfo.injEq] at hf'
-  obtain ⟨rfl, rfl⟩ := hf'
+  obtain ⟨rfl, rfl, rfl⟩ := hf'
   have h0 : ∀ x, x ∈ˢ m.val natName ψ →
       app (app (m.val natPowName ψ) x) (m.val natZeroName ψ) =
         app (m.val natSuccName ψ) (m.val natZeroName ψ) := by
@@ -568,19 +568,19 @@ theorem natOpVal_pow {cv : ConstantVal} {v : Expr}
     (natOpVal_mul m hfm ψ) h0 hS
 
 /-- `Nat.beq` on literal values. -/
-theorem natOpVal_beq {cv : ConstantVal} {v : Expr}
-    (hf : env.find? natBeqName = some (.defnInfo cv v)) (ψ : Name → Nat) :
+theorem natOpVal_beq {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
+    (hf : env.find? natBeqName = some (.defnInfo cv v hint)) (ψ : Name → Nat) :
     ∀ a b : Nat, app (app (m.val natBeqName ψ)
         (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a))
         (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
       if a = b then m.val boolTrueName ψ else m.val boolFalseName ψ := by
-  obtain ⟨hg, heqs⟩ := m.nat_ops natBeqName (by decide) cv v hf
+  obtain ⟨hg, heqs⟩ := m.nat_ops natBeqName (by decide) cv v hint hf
   obtain ⟨hs, hdeps, hbool⟩ := natOpGuard_inv hg
   obtain ⟨⟨ciT, hT, hlpT⟩, ⟨ciF, hF, hlpF⟩⟩ := hbool (Or.inl rfl)
-  obtain ⟨cv', v', hf', hlp⟩ := hdeps natBeqName (by decide)
+  obtain ⟨cv', v', hnt', hf', hlp⟩ := hdeps natBeqName (by decide)
   rw [hf] at hf'
   simp only [Option.some.injEq, ConstantInfo.defnInfo.injEq] at hf'
-  obtain ⟨rfl, rfl⟩ := hf'
+  obtain ⟨rfl, rfl, rfl⟩ := hf'
   have h00 : app (app (m.val natBeqName ψ) (m.val natZeroName ψ))
       (m.val natZeroName ψ) = m.val boolTrueName ψ := by
     have h := heqs (.app (.app (.const natBeqName []) (.const natZeroName []))
@@ -645,19 +645,19 @@ theorem natOpVal_beq {cv : ConstantVal} {v : Expr}
     h00 h0S hS0 hSS
 
 /-- `Nat.ble` on literal values. -/
-theorem natOpVal_ble {cv : ConstantVal} {v : Expr}
-    (hf : env.find? natBleName = some (.defnInfo cv v)) (ψ : Name → Nat) :
+theorem natOpVal_ble {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
+    (hf : env.find? natBleName = some (.defnInfo cv v hint)) (ψ : Name → Nat) :
     ∀ a b : Nat, app (app (m.val natBleName ψ)
         (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a))
         (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
       if a ≤ b then m.val boolTrueName ψ else m.val boolFalseName ψ := by
-  obtain ⟨hg, heqs⟩ := m.nat_ops natBleName (by decide) cv v hf
+  obtain ⟨hg, heqs⟩ := m.nat_ops natBleName (by decide) cv v hint hf
   obtain ⟨hs, hdeps, hbool⟩ := natOpGuard_inv hg
   obtain ⟨⟨ciT, hT, hlpT⟩, ⟨ciF, hF, hlpF⟩⟩ := hbool (Or.inr rfl)
-  obtain ⟨cv', v', hf', hlp⟩ := hdeps natBleName (by decide)
+  obtain ⟨cv', v', hnt', hf', hlp⟩ := hdeps natBleName (by decide)
   rw [hf] at hf'
   simp only [Option.some.injEq, ConstantInfo.defnInfo.injEq] at hf'
-  obtain ⟨rfl, rfl⟩ := hf'
+  obtain ⟨rfl, rfl, rfl⟩ := hf'
   have h0 : ∀ y, y ∈ˢ m.val natName ψ →
       app (app (m.val natBleName ψ) (m.val natZeroName ψ)) y =
         m.val boolTrueName ψ := by
@@ -721,7 +721,7 @@ theorem natOpDeps_self {c : Name} (hc : c ∈ natOpNames) : c ∈ natOpDeps c :=
 definition. -/
 theorem natOpGuard_self_defn {c : Name} (hc : c ∈ natOpNames)
     (hg : natOpGuard env c = true) :
-    ∃ cv v, env.find? c = some (.defnInfo cv v) ∧ cv.levelParams = [] :=
+    ∃ cv v h, env.find? c = some (.defnInfo cv v h) ∧ cv.levelParams = [] :=
   (natOpGuard_inv hg).2.1 c (natOpDeps_self hc)
 
 /-- The equation sides are application spines over constants and free
@@ -749,24 +749,24 @@ theorem natOpEquations_constsResolve {c : Name} (hc : c ∈ natOpNames)
     natLitSupported_inv hs
   simp only [natOpNames, List.mem_cons, List.not_mem_nil, or_false] at hc
   rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl
-  · obtain ⟨cvc, vc, hfc, -⟩ := hdeps natPredName (by decide)
+  · obtain ⟨cvc, vc, hnt4, hfc, -⟩ := hdeps natPredName (by decide)
     simp +decide [natOpEquations, Expr.constsResolve, hnn, hzz, hss, hfc]
-  · obtain ⟨cvc, vc, hfc, -⟩ := hdeps natAddName (by decide)
+  · obtain ⟨cvc, vc, hnt5, hfc, -⟩ := hdeps natAddName (by decide)
     simp +decide [natOpEquations, Expr.constsResolve, hnn, hzz, hss, hfc]
-  · obtain ⟨cvp, vp, hfp, -⟩ := hdeps natPredName (by decide)
-    obtain ⟨cvc, vc, hfc, -⟩ := hdeps natSubName (by decide)
+  · obtain ⟨cvp, vp, hnt6, hfp, -⟩ := hdeps natPredName (by decide)
+    obtain ⟨cvc, vc, hnt7, hfc, -⟩ := hdeps natSubName (by decide)
     simp +decide [natOpEquations, Expr.constsResolve, hnn, hzz, hss, hfc, hfp]
-  · obtain ⟨cva, va, hfa, -⟩ := hdeps natAddName (by decide)
-    obtain ⟨cvc, vc, hfc, -⟩ := hdeps natMulName (by decide)
+  · obtain ⟨cva, va, hnt8, hfa, -⟩ := hdeps natAddName (by decide)
+    obtain ⟨cvc, vc, hnt9, hfc, -⟩ := hdeps natMulName (by decide)
     simp +decide [natOpEquations, Expr.constsResolve, hnn, hzz, hss, hfc, hfa]
-  · obtain ⟨cvm, vm, hfm, -⟩ := hdeps natMulName (by decide)
-    obtain ⟨cvc, vc, hfc, -⟩ := hdeps natPowName (by decide)
+  · obtain ⟨cvm, vm, hnt10, hfm, -⟩ := hdeps natMulName (by decide)
+    obtain ⟨cvc, vc, hnt11, hfc, -⟩ := hdeps natPowName (by decide)
     simp +decide [natOpEquations, Expr.constsResolve, hnn, hzz, hss, hfc, hfm]
   · obtain ⟨⟨ciT, hT, -⟩, ⟨ciF, hF, -⟩⟩ := hbool (Or.inl rfl)
-    obtain ⟨cvc, vc, hfc, -⟩ := hdeps natBeqName (by decide)
+    obtain ⟨cvc, vc, hnt12, hfc, -⟩ := hdeps natBeqName (by decide)
     simp +decide [natOpEquations, Expr.constsResolve, hnn, hzz, hss, hfc, hT, hF]
   · obtain ⟨⟨ciT, hT, -⟩, ⟨ciF, hF, -⟩⟩ := hbool (Or.inr rfl)
-    obtain ⟨cvc, vc, hfc, -⟩ := hdeps natBleName (by decide)
+    obtain ⟨cvc, vc, hnt13, hfc, -⟩ := hdeps natBleName (by decide)
     simp +decide [natOpEquations, Expr.constsResolve, hnn, hzz, hss, hfc, hT, hF]
 
 /-! ## Install-side derivation helpers
@@ -950,7 +950,7 @@ slot, level monomorphy, and the value's function-space membership. -/
 theorem natOpStored_facts (m : EnvModel V env) {n : Name}
     (hst : natOpStoredOk env n = true) (hs : natLitSupported env = true)
     (ψ : Name → Nat) :
-    ∃ cvn vn, env.find? n = some (.defnInfo cvn vn) ∧
+    ∃ cvn vn hn, env.find? n = some (.defnInfo cvn vn hn) ∧
       cvn.levelParams = [] ∧
       (n = natPredName → m.val n ψ ∈ˢ pi 1 (m.val natName ψ)
         (fun _ => m.val natName ψ)) ∧
@@ -960,22 +960,22 @@ theorem natOpStored_facts (m : EnvModel V env) {n : Name}
   unfold natOpStoredOk at hst
   revert hst
   split
-  · next cvn vn heq =>
+  · next cvn vn hn heq =>
     intro hst
     simp only [Bool.and_eq_true, List.isEmpty_iff] at hst
     obtain ⟨hlp, hty⟩ := hst
     obtain ⟨T, hT, hmem⟩ := m.mem_type _ (find?_mem heq) ψ
     rw [find?_ciname heq] at hmem
     obtain ⟨h1, h2⟩ := natOpTyPinned_interp m hty hs ψ
-    refine ⟨cvn, vn, heq, hlp, ?_, ?_⟩
+    refine ⟨cvn, vn, hn, heq, hlp, ?_, ?_⟩
     · intro hp
-      rw [show (ConstantInfo.defnInfo cvn vn).toConstantVal.type = cvn.type
+      rw [show (ConstantInfo.defnInfo cvn vn hn).toConstantVal.type = cvn.type
         from rfl, h1 hp] at hT
       obtain rfl := Option.some.inj hT
       exact hmem
     · intro hp
       obtain ⟨C, hCi, hCu, hCid⟩ := h2 hp
-      rw [show (ConstantInfo.defnInfo cvn vn).toConstantVal.type = cvn.type
+      rw [show (ConstantInfo.defnInfo cvn vn hn).toConstantVal.type = cvn.type
         from rfl, hCi] at hT
       obtain rfl := Option.some.inj hT
       exact ⟨C, hmem, hCu, hCid⟩
@@ -1191,7 +1191,7 @@ theorem NatOpsOk.cons_recRules {cvA : ConstantVal} {nP nM nm ni : Nat}
           from hn)]
   have hfind : ∀ n (ci : ConstantInfo),
       (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env).find? n =
-        some ci → (∀ cv2 v2, ci ≠ .defnInfo cv2 v2) ∨
+        some ci → (∀ cv2 v2 h2, ci ≠ .defnInfo cv2 v2 h2) ∨
       (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env).find? n =
         some ci := by
     intro n ci hf
@@ -1200,14 +1200,14 @@ theorem NatOpsOk.cons_recRules {cvA : ConstantVal} {nP nM nm ni : Nat}
     by_cases hn : (ConstantInfo.recInfo cvA nP nM nm ni rules₂).name = n
     · rw [if_pos hn] at hf
       obtain rfl := Option.some.inj hf
-      exact Or.inl (fun cv2 v2 h => nomatch h)
+      exact Or.inl (fun cv2 v2 h2 h => nomatch h)
     · rw [if_neg hn] at hf
       rw [if_neg (show ¬ (ConstantInfo.recInfo cvA nP nM nm ni rules₁).name = n
         from hn)]
       exact Or.inr hf
   have hfind' : ∀ n (ci : ConstantInfo),
       (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env).find? n =
-        some ci → (∀ cv2 v2, ci ≠ .defnInfo cv2 v2) ∨
+        some ci → (∀ cv2 v2 h2, ci ≠ .defnInfo cv2 v2 h2) ∨
       (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env).find? n =
         some ci := by
     intro n ci hf
@@ -1216,7 +1216,7 @@ theorem NatOpsOk.cons_recRules {cvA : ConstantVal} {nP nM nm ni : Nat}
     by_cases hn : (ConstantInfo.recInfo cvA nP nM nm ni rules₁).name = n
     · rw [if_pos hn] at hf
       obtain rfl := Option.some.inj hf
-      exact Or.inl (fun cv2 v2 h => nomatch h)
+      exact Or.inl (fun cv2 v2 h2 h => nomatch h)
     · rw [if_neg hn] at hf
       rw [if_neg (show ¬ (ConstantInfo.recInfo cvA nP nM nm ni rules₂).name = n
         from hn)]
@@ -1225,17 +1225,17 @@ theorem NatOpsOk.cons_recRules {cvA : ConstantVal} {nP nM nm ni : Nat}
       (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env) =
       natLitSupported (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env) :=
     natLitSupported_cons_recRules
-  intro c hc cv v hf
+  intro c hc cv v hv hf
   rcases hfind c _ hf with hnd | hf₁
-  · exact absurd rfl (hnd cv v)
-  obtain ⟨hg, heqs⟩ := h c hc cv v hf₁
+  · exact absurd rfl (hnd cv v hv)
+  obtain ⟨hg, heqs⟩ := h c hc cv v hv hf₁
   obtain ⟨hs, hdeps, hbool⟩ := natOpGuard_inv hg
   refine ⟨natOpGuard_intro (by rw [hnat]; exact hs) ?_ ?_, ?_⟩
   · intro n hn
-    obtain ⟨cvn, vn, hfn, hlpn⟩ := hdeps n hn
+    obtain ⟨cvn, vn, hnt14, hfn, hlpn⟩ := hdeps n hn
     rcases hfind' n _ hfn with hnd | hfn₂
-    · exact absurd rfl (hnd cvn vn)
-    · exact ⟨cvn, vn, hfn₂, hlpn⟩
+    · exact absurd rfl (hnd cvn vn hnt14)
+    · exact ⟨cvn, vn, hnt14, hfn₂, hlpn⟩
   · intro hcb
     obtain ⟨⟨ciT, hT, hlpT⟩, ⟨ciF, hF, hlpF⟩⟩ := hbool hcb
     have conv : ∀ (nb : Name) (ci : ConstantInfo),
@@ -1326,7 +1326,7 @@ theorem NatOpsOk.cons {val val' : ConstVal V} {c₀ : ConstantInfo}
     (h : NatOpsOk V env val)
     (hfresh : env.find? c₀.name = none)
     (hagree : ∀ n, n ≠ c₀.name → ∀ ψ' : Name → Nat, val' n ψ' = val n ψ')
-    (hhead : ∀ cv₀ v₀, c₀ = .defnInfo cv₀ v₀ → c₀.name ∈ natOpNames →
+    (hhead : ∀ cv₀ v₀ h₀, c₀ = .defnInfo cv₀ v₀ h₀ → c₀.name ∈ natOpNames →
       natOpGuard (⟨c₀ :: env.consts⟩ : Env) c₀.name = true ∧
       ∀ eq ∈ natOpEquations 0 c₀.name, ∀ (ψ : Name → Nat) (x y : V),
         (∀ T, interpExpr V val' (⟨c₀ :: env.consts⟩ : Env) ψ 2 (rho0 V)
@@ -1336,14 +1336,14 @@ theorem NatOpsOk.cons {val val' : ConstVal V} {c₀ : ConstantInfo}
         interpExpr V val' (⟨c₀ :: env.consts⟩ : Env) ψ 2
           (updV V (updV V (rho0 V) 0 x) 1 y) eq.2) :
     NatOpsOk V (⟨c₀ :: env.consts⟩ : Env) val' := by
-  intro c hc cv v hf
+  intro c hc cv v hv hf
   rw [Env.find?_cons] at hf
   by_cases hn : c₀.name = c
   · rw [if_pos hn] at hf
     subst hn
-    exact hhead cv v (Option.some.inj hf) hc
+    exact hhead cv v hv (Option.some.inj hf) hc
   · rw [if_neg hn] at hf
-    obtain ⟨hg, heqs⟩ := h c hc cv v hf
+    obtain ⟨hg, heqs⟩ := h c hc cv v hv hf
     have hagree' : ∀ n, (env.find? n).isSome = true →
         ∀ ψ' : Name → Nat, val' n ψ' = val n ψ' := by
       intro n hnf ψ'

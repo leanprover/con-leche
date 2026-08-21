@@ -27,8 +27,8 @@ a `def` or `theorem` whose stated type is `Empty`. -/
 theorem no_proof_of_Empty_input_C (V : Type u) [SetTheory V]
     {ds : List Declaration} {env' : Env}
     (h : checkDecls cachedOps ds = .ok env')
-    {cv : ConstantVal} {value : Expr}
-    (hd : Declaration.defnDecl cv value ∈ ds ∨
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (hd : Declaration.defnDecl cv value hint ∈ ds ∨
       Declaration.thmDecl cv value ∈ ds)
     (hty : cv.type = .const emptyName []) : False := by
   obtain ⟨F, hF⟩ := checkDecls_bridge h

@@ -339,7 +339,7 @@ assignment, for every valuation of the equations' two free variables
 by members of the `Nat` value.  `reduceNat`'s soundness consumes the
 equations by meta-level induction on the literal. -/
 def NatOpsOk (env : Env) (val : ConstVal V) : Prop :=
-  ∀ c ∈ natOpNames, ∀ cv v, env.find? c = some (.defnInfo cv v) →
+  ∀ c ∈ natOpNames, ∀ cv v hint, env.find? c = some (.defnInfo cv v hint) →
     natOpGuard env c = true ∧
     ∀ eq ∈ natOpEquations 0 c, ∀ (ψ : Name → Nat) (x y : V),
       (∀ T, interpExpr V val env ψ 2 (rho0 V) (.const natName []) = some T →
@@ -348,7 +348,7 @@ def NatOpsOk (env : Env) (val : ConstVal V) : Prop :=
       interpExpr V val env ψ 2 (updV V (updV V (rho0 V) 0 x) 1 y) eq.2
 
 theorem NatOpsOk.empty (val : ConstVal V) : NatOpsOk V Env.empty val := by
-  intro c hc cv v h
+  intro c hc cv v hint h
   simp [Env.find?, Env.empty] at h
 
 theorem ModeledOk.empty (val : ConstVal V) : ModeledOk V Env.empty val := by
@@ -388,12 +388,12 @@ structure EnvModel (env : Env) where
   mem_type : ∀ c ∈ env.consts, ∀ φ : Name → Nat,
     ∃ t, interpClosed V val env φ c.toConstantVal.type = some t ∧ val c.name φ ∈ˢ t
   /-- Every definition is interpreted by its body. -/
-  defn_eq : ∀ cv value, ConstantInfo.defnInfo cv value ∈ env.consts → ∀ φ : Name → Nat,
+  defn_eq : ∀ cv value hint, ConstantInfo.defnInfo cv value hint ∈ env.consts → ∀ φ : Name → Nat,
     interpClosed V val env φ value = some (val cv.name φ)
   /-- Stored types (and definition bodies) carry truthful annotations. -/
   annot_ok : ∀ c ∈ env.consts, ∀ φ : Name → Nat,
     AnnotOk V val env φ 0 (rho0 V) c.toConstantVal.type ∧
-    ∀ cv value, c = ConstantInfo.defnInfo cv value →
+    ∀ cv value hint, c = ConstantInfo.defnInfo cv value hint →
       AnnotOk V val env φ 0 (rho0 V) value
   /-- Every stored inductive-kind constant has a model: the semantic
   facts the checker rules consume (`IndOk`), independent of the
@@ -415,7 +415,7 @@ def EnvModel.empty : EnvModel V Env.empty where
     intro n ci h
     simp [Env.find?, Env.empty] at h
   mem_type := by intro c hc; cases hc
-  defn_eq := by intro cv value h; cases h
+  defn_eq := by intro cv value hint h; cases h
   annot_ok := by intro c hc; cases hc
   ind_ok := IndOk.empty V _ (fun _ x hx => SetTheory.not_mem_empty x hx)
   rec_rules := RecRulesOk.empty V _

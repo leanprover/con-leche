@@ -30,6 +30,32 @@ structure RecRule where
   rhs : Expr
   deriving DecidableEq, Repr, Inhabited
 
+/-- Reducibility hint of a definition, mirroring Lean's
+`ReducibilityHints`: `abbrev` unfolds first, `opaque` last, `regular`
+definitions compare by their definitional height.  The hints steer only
+the *order* of lazy delta unfolding in `isDefEq` — never whether two
+terms are definitionally equal — so the model and all soundness proofs
+are independent of them. -/
+inductive ReducibilityHint where
+  | «opaque»
+  | «abbrev»
+  | regular (height : Nat)
+  deriving DecidableEq, Repr, Inhabited
+
+namespace ReducibilityHint
+
+/-- `h₁.lt h₂`: `h₁` is strictly less eager to unfold than `h₂` (the
+lazy delta step unfolds the greater side to bring the two closer;
+`opaque < regular h < abbrev`, regular heights compare by `<`). -/
+def lt : ReducibilityHint → ReducibilityHint → Bool
+  | _, .opaque => false
+  | .abbrev, _ => false
+  | .opaque, _ => true
+  | _, .abbrev => true
+  | .regular h₁, .regular h₂ => h₁ < h₂
+
+end ReducibilityHint
+
 /-- The trusted basis inductives (hand-written set models; everything
 else is reduced to these by the lean-inductive-models preprocessor). -/
 inductive BasisKind where
@@ -61,7 +87,7 @@ structure IndCaps where
 /-- Information stored about an accepted constant. -/
 inductive ConstantInfo where
   | axiomInfo (val : ConstantVal)
-  | defnInfo (val : ConstantVal) (value : Expr)
+  | defnInfo (val : ConstantVal) (value : Expr) (hint : ReducibilityHint)
   | thmInfo (val : ConstantVal) (value : Expr)
   /-- An inductive type former (whnf-stuck) with its capabilities. -/
   | indInfo (val : ConstantVal) (caps : IndCaps)
@@ -75,7 +101,7 @@ inductive ConstantInfo where
 /-- A declaration presented to the checker. -/
 inductive Declaration where
   | axiomDecl (val : ConstantVal)
-  | defnDecl (val : ConstantVal) (value : Expr)
+  | defnDecl (val : ConstantVal) (value : Expr) (hint : ReducibilityHint)
   | thmDecl (val : ConstantVal) (value : Expr)
   /-- An `opaque` declaration: exactly a theorem check without the
   is-a-proposition requirement — the value is checked against the
@@ -92,7 +118,7 @@ namespace Declaration
 
 /-- The name of a non-basis declaration (basis blocks install several). -/
 def name : Declaration → Name
-  | .axiomDecl v | .defnDecl v _ | .thmDecl v _ | .opaqueDecl v _ => v.name
+  | .axiomDecl v | .defnDecl v _ _ | .thmDecl v _ | .opaqueDecl v _ => v.name
   | .basisDecl _ | .indDecl _ => .anonymous
 
 end Declaration
@@ -100,7 +126,7 @@ end Declaration
 namespace ConstantInfo
 
 def toConstantVal : ConstantInfo → ConstantVal
-  | .axiomInfo v | .defnInfo v _ | .thmInfo v _ => v
+  | .axiomInfo v | .defnInfo v _ _ | .thmInfo v _ => v
   | .indInfo v _ | .ctorInfo v _ _ | .recInfo v _ _ _ _ _ => v
 
 def name (c : ConstantInfo) : Name := c.toConstantVal.name

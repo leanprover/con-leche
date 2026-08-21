@@ -201,7 +201,7 @@ theorem checkIotaRules_inv {env' envSelf : Env} {f : Name → Name}
     match hfc : env'.find? r.ctor with
     | none => intro h; exact nomatch h
     | some (.axiomInfo _) => intro h; exact nomatch h
-    | some (.defnInfo _ _) => intro h; exact nomatch h
+    | some (.defnInfo _ _ _) => intro h; exact nomatch h
     | some (.thmInfo _ _) => intro h; exact nomatch h
     | some (.indInfo _ _) => intro h; exact nomatch h
     | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
@@ -271,7 +271,7 @@ theorem checkIotaRules_inv {env' envSelf : Env} {f : Name → Name}
     match hfthm : env'.find? ((cvA.name.str "_model").str s!"iota_{j}") with
     | none => intro h; exact nomatch h
     | some (.axiomInfo _) => intro h; exact nomatch h
-    | some (.defnInfo _ _) => intro h; exact nomatch h
+    | some (.defnInfo _ _ _) => intro h; exact nomatch h
     | some (.indInfo _ _) => intro h; exact nomatch h
     | some (.ctorInfo _ _ _) => intro h; exact nomatch h
     | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
@@ -366,16 +366,17 @@ def EtaPins (env' : Env) (T : Name) (lps : List Name)
     (caps : IndCaps) : Prop :=
   (caps.eta = true →
   ∃ (tcv : ConstantVal) (tval : Expr) (cvmT : ConstantVal) (mvalT : Expr)
+    (hmcvmT : ReducibilityHint)
     (sbinders tbindersM : List (Name × Expr × BinderMeta))
     (sbody tbodyM tySlot : Expr) (ℓA : Level),
     env'.find? ((T.str "_model").str "eta") = some (.thmInfo tcv tval) ∧
     tcv.levelParams = lps ∧
-    env'.find? (T.str "_model") = some (.defnInfo cvmT mvalT) ∧
+    env'.find? (T.str "_model") = some (.defnInfo cvmT mvalT hmcvmT) ∧
     cvmT.levelParams = lps ∧
-    (∃ cvmC mvalC, env'.find? (caps.etaCtor.str "_model") =
-      some (.defnInfo cvmC mvalC) ∧ cvmC.levelParams = lps) ∧
-    (∀ j, j < caps.etaFields → ∃ cvmj mvalj,
-      env'.find? (projModelName T j) = some (.defnInfo cvmj mvalj) ∧
+    (∃ cvmC mvalC hmcvmC, env'.find? (caps.etaCtor.str "_model") =
+      some (.defnInfo cvmC mvalC hmcvmC) ∧ cvmC.levelParams = lps) ∧
+    (∀ j, j < caps.etaFields → ∃ cvmj mvalj hmcvmj,
+      env'.find? (projModelName T j) = some (.defnInfo cvmj mvalj hmcvmj) ∧
       cvmj.levelParams = lps) ∧
     env'.find? eqName = some eqA ∧
     tcv.type.stripPis (caps.etaParams + 1) = some (sbinders, sbody) ∧
@@ -399,12 +400,13 @@ def EtaPins (env' : Env) (T : Name) (lps : List Name)
             [Expr.bvar 0]))]) ∧
   (caps.unitlike = true →
   ∃ (tcv : ConstantVal) (tval : Expr) (cvmT : ConstantVal) (mvalT : Expr)
+    (hmcvmT : ReducibilityHint)
     (sbinders tbindersM : List (Name × Expr × BinderMeta))
     (sbody tbodyM tySlot : Expr) (ℓA : Level),
     env'.find? ((T.str "_model").str "unitlike") =
       some (.thmInfo tcv tval) ∧
     tcv.levelParams = lps ∧
-    env'.find? (T.str "_model") = some (.defnInfo cvmT mvalT) ∧
+    env'.find? (T.str "_model") = some (.defnInfo cvmT mvalT hmcvmT) ∧
     cvmT.levelParams = lps ∧
     env'.find? eqName = some eqA ∧
     tcv.type.stripPis (caps.unitParams + 2) = some (sbinders, sbody) ∧
@@ -429,13 +431,13 @@ theorem checkUnitThm_inv {env' : Env} {T : Name}
     {lps : List Name} {nP : Nat}
     (h : checkUnitThm env' T lps nP = true) :
     ∃ (tcv : ConstantVal) (tval : Expr) (cvmT : ConstantVal)
-      (mvalT : Expr)
+      (mvalT : Expr) (hmcvmT : ReducibilityHint)
       (sbinders tbindersM : List (Name × Expr × BinderMeta))
       (sbody tbodyM tySlot : Expr) (ℓA : Level),
       env'.find? ((T.str "_model").str "unitlike") =
         some (.thmInfo tcv tval) ∧
       tcv.levelParams = lps ∧
-      env'.find? (T.str "_model") = some (.defnInfo cvmT mvalT) ∧
+      env'.find? (T.str "_model") = some (.defnInfo cvmT mvalT hmcvmT) ∧
       cvmT.levelParams = lps ∧
       env'.find? eqName = some eqA ∧
       tcv.type.stripPis (nP + 2) = some (sbinders, sbody) ∧
@@ -456,7 +458,7 @@ theorem checkUnitThm_inv {env' : Env} {T : Name}
   match hthm : env'.find? ((T.str "_model").str "unitlike") with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
-  | some (.defnInfo _ _) => intro h; exact nomatch h
+  | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
@@ -470,7 +472,7 @@ theorem checkUnitThm_inv {env' : Env} {T : Name}
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
-  | some (.defnInfo cvmT mvalT) => ?_
+  | some (.defnInfo cvmT mvalT hmcvmT) => ?_
   intro h
   revert h
   match heqf : env'.find? eqName with
@@ -568,7 +570,7 @@ theorem checkUnitThm_inv {env' : Env} {T : Name}
   intro hb
   simp only [Bool.and_eq_true] at hb
   obtain ⟨⟨hceq, hlhs⟩, hrhs⟩ := hb
-  refine ⟨tcv, tval, cvmT, mvalT, sbinders, tbindersM, _, tbodyM,
+  refine ⟨tcv, tval, cvmT, mvalT, hmcvmT, sbinders, tbindersM, _, tbodyM,
     tySlot, ℓA, rfl, eq_of_beq htlps, rfl, eq_of_beq hTlps,
     (by rw [eq_of_beq heqA]), hS_strip, hTm_strip, hdoms, hxdom, hydom,
     ?_⟩
@@ -581,18 +583,18 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
     {lps : List Name} {nP nF : Nat}
     (h : checkEtaThm env' T ctorName lps nP nF = true) :
     ∃ (tcv : ConstantVal) (tval : Expr) (cvmT : ConstantVal)
-      (mvalT : Expr)
+      (mvalT : Expr) (hmcvmT : ReducibilityHint)
       (sbinders tbindersM : List (Name × Expr × BinderMeta))
       (sbody tbodyM tySlot : Expr) (ℓA : Level),
       env'.find? ((T.str "_model").str "eta") =
         some (.thmInfo tcv tval) ∧
       tcv.levelParams = lps ∧
-      env'.find? (T.str "_model") = some (.defnInfo cvmT mvalT) ∧
+      env'.find? (T.str "_model") = some (.defnInfo cvmT mvalT hmcvmT) ∧
       cvmT.levelParams = lps ∧
-      (∃ cvmC mvalC, env'.find? (ctorName.str "_model") =
-        some (.defnInfo cvmC mvalC) ∧ cvmC.levelParams = lps) ∧
-      (∀ j, j < nF → ∃ cvmj mvalj,
-        env'.find? (projModelName T j) = some (.defnInfo cvmj mvalj) ∧
+      (∃ cvmC mvalC hmcvmC, env'.find? (ctorName.str "_model") =
+        some (.defnInfo cvmC mvalC hmcvmC) ∧ cvmC.levelParams = lps) ∧
+      (∀ j, j < nF → ∃ cvmj mvalj hmcvmj,
+        env'.find? (projModelName T j) = some (.defnInfo cvmj mvalj hmcvmj) ∧
         cvmj.levelParams = lps) ∧
       env'.find? eqName = some eqA ∧
       tcv.type.stripPis (nP + 1) = some (sbinders, sbody) ∧
@@ -616,7 +618,7 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
   match hthm : env'.find? ((T.str "_model").str "eta") with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
-  | some (.defnInfo _ _) => intro h; exact nomatch h
+  | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
@@ -630,7 +632,7 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
-  | some (.defnInfo cvmT mvalT) => ?_
+  | some (.defnInfo cvmT mvalT hmcvmT) => ?_
   intro h
   revert h
   match hCm : env'.find? (ctorName.str "_model") with
@@ -640,7 +642,7 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
-  | some (.defnInfo cvmC mvalC) => ?_
+  | some (.defnInfo cvmC mvalC hmcvmC) => ?_
   intro h
   revert h
   match heqf : env'.find? eqName with
@@ -649,8 +651,8 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
   intro h
   simp only [Bool.and_eq_true] at h
   obtain ⟨⟨⟨⟨⟨heqA, htlps⟩, hTlps⟩, hClps⟩, hproj⟩, hrest⟩ := h
-  have hprojf : ∀ j, j < nF → ∃ cvmj mvalj,
-      env'.find? (projModelName T j) = some (.defnInfo cvmj mvalj) ∧
+  have hprojf : ∀ j, j < nF → ∃ cvmj mvalj hmcvmj,
+      env'.find? (projModelName T j) = some (.defnInfo cvmj mvalj hmcvmj) ∧
       cvmj.levelParams = lps := by
     intro j hj
     have h1 := List.all_eq_true.mp hproj j (List.mem_range.mpr hj)
@@ -662,9 +664,9 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
     | some (.indInfo _ _) => intro h1; exact nomatch h1
     | some (.ctorInfo _ _ _) => intro h1; exact nomatch h1
     | some (.recInfo _ _ _ _ _ _) => intro h1; exact nomatch h1
-    | some (.defnInfo cvmj mvalj) =>
+    | some (.defnInfo cvmj mvalj hmcvmj) =>
       intro h1
-      exact ⟨cvmj, mvalj, rfl, eq_of_beq h1⟩
+      exact ⟨cvmj, mvalj, hmcvmj, rfl, eq_of_beq h1⟩
   revert hrest
   match hS_strip : tcv.type.stripPis (nP + 1) with
   | none => intro hrest; exact nomatch hrest
@@ -745,9 +747,9 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
   intro hb
   simp only [Bool.and_eq_true] at hb
   obtain ⟨⟨hceq, hlhs⟩, hrhs⟩ := hb
-  refine ⟨tcv, tval, cvmT, mvalT, sbinders, tbindersM, _, tbodyM,
+  refine ⟨tcv, tval, cvmT, mvalT, hmcvmT, sbinders, tbindersM, _, tbodyM,
     tySlot, ℓA, rfl, eq_of_beq htlps, rfl, eq_of_beq hTlps,
-    ⟨cvmC, mvalC, rfl, eq_of_beq hClps⟩, hprojf,
+    ⟨cvmC, mvalC, hmcvmC, rfl, eq_of_beq hClps⟩, hprojf,
     (by rw [eq_of_beq heqA]), hS_strip,
     hTm_strip, hdoms, hxdom, ?_⟩
   rw [eq_of_beq hceq, eq_of_beq hlhs, eq_of_beq hrhs]
@@ -770,21 +772,21 @@ theorem EtaPins.step {env' : Env} {c₁ : ConstantInfo} {T : Name}
       exact nomatch hf
   refine ⟨?_, ?_⟩
   · intro hcape
-    obtain ⟨tcv, tval, cvmT, mvalT, sbinders, tbindersM, sbody, tbodyM,
-      tySlot, ℓA, hthm, h2, hTm, h4, ⟨cvmC, mvalC, hCm, hClps⟩, hPj,
+    obtain ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody, tbodyM,
+      tySlot, ℓA, hthm, h2, hTm, h4, ⟨cvmC, mvalC, hmC, hCm, hClps⟩, hPj,
       heqf, h8, h9, h10, h11, h12⟩ := h.1 hcape
-    refine ⟨tcv, tval, cvmT, mvalT, sbinders, tbindersM, sbody, tbodyM,
+    refine ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody, tbodyM,
       tySlot, ℓA, hkeep _ _ hthm, h2, hkeep _ _ hTm, h4,
-      ⟨cvmC, mvalC, hkeep _ _ hCm, hClps⟩, ?_, hkeep _ _ heqf,
+      ⟨cvmC, mvalC, hmC, hkeep _ _ hCm, hClps⟩, ?_, hkeep _ _ heqf,
       h8, h9, h10, h11, h12⟩
     intro j hj
-    obtain ⟨cvmj, mvalj, hfj, hjlps⟩ := hPj j hj
-    exact ⟨cvmj, mvalj, hkeep _ _ hfj, hjlps⟩
+    obtain ⟨cvmj, mvalj, hmj, hfj, hjlps⟩ := hPj j hj
+    exact ⟨cvmj, mvalj, hmj, hkeep _ _ hfj, hjlps⟩
   · intro hcapu
-    obtain ⟨tcv, tval, cvmT, mvalT, sbinders, tbindersM, sbody, tbodyM,
+    obtain ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody, tbodyM,
       tySlot, ℓA, hthm, h2, hTm, h4, heqf, h6, h7, h8, h9, h10, h11⟩ :=
       h.2 hcapu
-    exact ⟨tcv, tval, cvmT, mvalT, sbinders, tbindersM, sbody, tbodyM,
+    exact ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody, tbodyM,
       tySlot, ℓA, hkeep _ _ hthm, h2, hkeep _ _ hTm, h4,
       hkeep _ _ heqf, h6, h7, h8, h9, h10, h11⟩
 
