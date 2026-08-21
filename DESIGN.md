@@ -223,8 +223,9 @@ monad-polymorphic.  Fuel lives only in the knots that tie the record:
 the **pure knot** (`Setlec/Kernel/TypeChecker.lean`, `pureFns`) at
 `CheckM` is the verification's subject; the **memoized knot**
 (`Setlec/Kernel/TypeCheckerC.lean`, `cachedFns`) wraps every level's
-entry points with a `KCache` lookup (maps keyed by binder depth and
-expression) in `StateT` over `CheckM` and is what the checker executes
+entry points with a `KCache` lookup (maps keyed by the **expression
+alone** — see *Depth-free memo keys* below) in `StateT` over `CheckM`
+and is what the checker executes
 (`cachedOps` in `Setlec/Kernel/Checker.lean`; the declaration checker
 itself is written once over a `CheckerOps` record).  The knots are
 built lazily — each level closes over a thunk of the next; an eager
@@ -257,10 +258,12 @@ relate the pair's components to the plain instantiations.
   gives `whnfCore/whnf/infer/defeq/annotate/ensureSort` monotonicity.
 * **Cache simulation** (`Verify/Bridge.lean`): `FueledM` packages
   monotone fuel-indexed families; `CacheOK` backs every cache entry by
-  a pure run at some fuel; `simRel` (families vs. `StateT KCache`
-  computations) is `bind`-closed via monotonicity, `memoE`/`memoB`
-  wrapper lemmas + a knot induction give: every successful `cachedOps`
-  entry-point run is reproduced by the pure knot at some fuel.
+  a pure run at one fuel valid at *every* depth at which the key is
+  well-scoped (see *Depth-free memo keys*); `simRel` (families vs.
+  `StateT KCache` computations) is `bind`-closed via monotonicity,
+  `memoE`/`memoB` wrapper lemmas + a knot induction give: every
+  successful `cachedOps` entry-point run is reproduced by the pure
+  knot at some fuel.
 * **Declaration checker** (`Verify/BridgeDecl.lean`): the checker is
   monad-polymorphic over `CheckerOps m`; `bridgeRel` (families vs.
   plain `CheckM`) + the ops-record pairing + batteries over every
@@ -279,6 +282,56 @@ the designated fallback.  Both `_model` declarations and real Lean
 terms are DAGs sharing subterms; every traversal must eventually be
 memoized under a cached-hash representation, tracked as follow-up
 work.
+
+### Depth-free memo keys and depth invariance (2026-08-21)
+
+Memo keys carry **no binder depth**: `KCache` maps `whnfCore`/`whnf`/
+`infer`/`annot` under the expression and `defeq` under the pair, so
+the same subterm reached under different binder contexts hits one
+entry.  The mathematics behind this is **depth invariance**
+(`Setlec/Verify/Deep.lean`): every core entry point returns the same
+result at any two depths at which its inputs are well-scoped
+(`whnfCore_depth_inv`, `whnf_depth_inv`, `inferTypeCore_depth_inv`,
+`isDefEqCore_depth_inv`, `annotateCore_depth_inv`, all under `EnvWF`).
+The proof is a shift bisimulation: the run at depth `d` is matched
+against the run at depth `d+1` on `shiftFrom p` of the input (all
+`fvar` indices `≥ p` bumped by one, `p ≤ d`); one claim per entry
+point (`ShiftClaims`), one commutation lemma per record-parameterized
+helper body at the same fuel, one fuel induction at the knot — then
+`p := d` plus `shiftFrom_eq_self` collapses the bisimulation to a
+depth bump, chained across any gap.  The syntactic commutation kit
+(`shiftFrom` vs. `instantiate1`/`abstract1`/level instantiation/spine
+operations/the scope guards) lives at the end of
+`Setlec/Verify/Shift.lean`.
+
+Depth invariance holds only for well-scoped inputs under well-formed
+environments, so the memoized knot guards both, keeping the bridge
+free of any call-discipline assumption:
+
+* every cache lookup/insert is guarded on `wscopedB` of its key at the
+  ambient depth (an ill-scoped argument bypasses the cache) — the
+  hashing of the key walks the term anyway, so the guard is a
+  constant-factor cost;
+* memoization is gated on `Env.wfB` — a `Bool` mirror of `EnvWF`,
+  fused into one traversal per stored expression (`Expr.declWfB`)
+  and resolving constants against a precomputed name set — reflected
+  by `envWF_of_wfB`; a syntactically ill-formed environment (never
+  produced by the checker) runs the plain uncached knot (`plainFnsS`),
+  bridged directly.
+
+`CacheOK` accordingly backs an entry `e ↦ r` by
+`∃ F, ∀ d, e.wscopedB d → run F d e = .ok r`: inserts establish the
+universal form from the run at the guarded ambient depth via the
+invariance theorems, hits consume it at their own guarded depth.
+Numbers (tutorial arena): whole suite 46.7s → 42.5s;
+043_rbTreeDef 5.50s → 4.34s; 069_rbTreeRef 5.54s → 4.35s.  The
+`Env.wfB` gate costs one `O(|env|)` walk per top-level entry-point
+call (~0.9s of 043's 4.34s; small and mid-sized tests with many
+entry-point calls over recursor-heavy environments can regress ~20%,
+e.g. 120_rTreeRec 1.97s → 2.40s, while the big tests win ~20%); it
+amortizes to zero once environments carry a well-formedness
+certificate or the interned-representation work (task #26) caches
+per-constant flags — tracked as follow-up.
 
 ### Inference re-checks; infer-only deferred
 
