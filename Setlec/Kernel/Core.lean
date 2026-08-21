@@ -356,34 +356,40 @@ def Expr.substConst0 (n : Name) (r : Expr) : Expr → Expr
   | .app f a => .app (Expr.substConst0 n r f) (Expr.substConst0 n r a)
   | e => e
 
+/-- A binder's codomain-sort annotation is (equivalent to) `1`. -/
+def natCod1 (mb : BinderMeta) : Bool :=
+  match mb.cod with
+  | some v => Level.isEquiv v (.succ .zero) == some true
+  | none => false
+
+/-- The pinned codomain of a structural-Nat operation: `Bool` (itself
+stored level-monomorphically at type `Sort 1`) for the comparisons,
+`Nat` otherwise. -/
+def natOpCod (env : Env) (c : Name) (e : Expr) : Bool :=
+  if c = natBeqName || c = natBleName then
+    e == .const boolName [] &&
+    (match env.find? boolName with
+     | some ci => ci.toConstantVal.levelParams.isEmpty &&
+         ci.toConstantVal.type == .sort (.succ .zero)
+     | none => false)
+  else e == .const natName []
+
 /-- The pinned (annotated) type of a structural-Nat operation:
 `Nat → Nat` for `pred`, `Nat → Nat → Nat` for the arithmetic
-operations, `Nat → Nat → Bool` for the comparisons (with `Bool` itself
-stored level-monomorphically at type `Sort 1`).  The codomain-sort
+operations, `Nat → Nat → Bool` for the comparisons.  The codomain-sort
 annotations must be equivalent to `1`.  The model reads the
 operations' function-space memberships off this shape. -/
 def natOpTyPinned (env : Env) (c : Name) (ty : Expr) : Bool :=
-  let natTy : Expr := .const natName []
-  let cod1 : BinderMeta → Bool := fun mb =>
-    match mb.cod with
-    | some v => Level.isEquiv v (.succ .zero) == some true
-    | none => false
-  let codOk : Expr → Bool := fun e =>
-    if c = natBeqName || c = natBleName then
-      e == .const boolName [] &&
-      (match env.find? boolName with
-       | some ci => ci.toConstantVal.levelParams.isEmpty &&
-           ci.toConstantVal.type == .sort (.succ .zero)
-       | none => false)
-    else e == natTy
   if c = natPredName then
     match ty with
-    | .forallE _ dom body mb => dom == natTy && codOk body && cod1 mb
+    | .forallE _ dom body mb =>
+      dom == .const natName [] && natOpCod env c body && natCod1 mb
     | _ => false
   else
     match ty with
     | .forallE _ dom (.forallE _ dom2 body mb2) mb =>
-      dom == natTy && dom2 == natTy && codOk body && cod1 mb && cod1 mb2
+      dom == .const natName [] && dom2 == .const natName [] &&
+      natOpCod env c body && natCod1 mb && natCod1 mb2
     | _ => false
 
 /-- Op `n` is stored as a level-monomorphic definition with the pinned

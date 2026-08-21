@@ -1,4 +1,5 @@
 import Setlec.Model.NatLit
+import Setlec.Verify.InferLeaves
 
 /-!
 # The structural-Nat operations in the model
@@ -767,6 +768,396 @@ theorem natOpEquations_constsResolve {c : Name} (hc : c ∈ natOpNames)
   · obtain ⟨⟨ciT, hT, -⟩, ⟨ciF, hF, -⟩⟩ := hbool (Or.inr rfl)
     obtain ⟨cvc, vc, hfc, -⟩ := hdeps natBleName (by decide)
     simp +decide [natOpEquations, Expr.constsResolve, hnn, hzz, hss, hfc, hT, hF]
+
+/-! ## Install-side derivation helpers
+
+The `defnDecl` install case turns the kernel's certification run into
+the semantic equations.  These lemmas read the pinned type shapes off
+`natOpTyPinned`/`natOpStoredOk` and provide the side conditions
+(`EqSideOk`) that feed definitional-equality soundness. -/
+
+section Install
+
+private theorem find?_ciname {n : Name} {ci : ConstantInfo}
+    (h : env.find? n = some ci) : ci.name = n := by
+  have := List.find?_some h
+  simpa using this
+
+theorem natCod1_inv {mb : BinderMeta} (h : natCod1 mb = true) :
+    ∃ v, mb.cod = some v ∧ ∀ ψ : Name → Nat, v.eval ψ = 1 := by
+  unfold natCod1 at h
+  split at h
+  · next v heq =>
+    refine ⟨v, heq, fun ψ => ?_⟩
+    have := Level.isEquiv_sound (by simpa using h) ψ
+    simpa [Level.eval] using this
+  · exact nomatch h
+
+/-- The interpretation of a `∀`-type with a known codomain annotation
+and domain interpretation. -/
+theorem interp_forallE {cval : ConstVal V} {d : Nat} {ρ : Nat → V}
+    {nm : Name} {ty body : Expr} {mb : BinderMeta} {v : Level} {A : V}
+    (hcod : mb.cod = some v)
+    (hty : interpExpr V cval env φ d ρ ty = some A) :
+    interpExpr V cval env φ d ρ (.forallE nm ty body mb) =
+      some (pi (v.eval φ) A fun x =>
+        (interpExpr V cval env φ (d + 1) (updV V ρ d x)
+          (body.instantiate1 (.fvar d nm ty))).getD SetTheory.empty) := by
+  simp only [interpExpr, hcod, hty]
+
+/-- The pinned codomain's interpretation: a set in `univ 1`, the `Nat`
+value for the arithmetic operations. -/
+theorem natOpCod_interp (m : EnvModel V env) {c : Name} {e : Expr}
+    (h : natOpCod env c e = true) (hs : natLitSupported env = true)
+    (ψ : Name → Nat) :
+    ∃ bn C, e = .const bn [] ∧
+      (∀ (d : Nat) (ρ : Nat → V),
+        interpExpr V m.val env ψ d ρ e = some C) ∧ C ∈ˢ univ 1 ∧
+      (c ≠ natBeqName → c ≠ natBleName → C = m.val natName ψ) := by
+  unfold natOpCod at h
+  split at h
+  · next hcb =>
+    simp only [Bool.and_eq_true, beq_iff_eq] at h
+    obtain ⟨rfl, hbool⟩ := h
+    revert hbool
+    split
+    · next ci heq =>
+      intro hbool
+      simp only [Bool.and_eq_true, beq_iff_eq, List.isEmpty_iff] at hbool
+      obtain ⟨hlp, hbty⟩ := hbool
+      refine ⟨boolName, m.val boolName ψ, rfl,
+        fun d ρ => interp_const_mono heq hlp, ?_, ?_⟩
+      · obtain ⟨T, hT, hmem⟩ := m.mem_type _ (find?_mem heq) ψ
+        rw [find?_ciname heq] at hmem
+        rw [hbty] at hT
+        simp only [interpClosed, interpExpr, Option.some.injEq] at hT
+        subst hT
+        simpa [Level.eval] using hmem
+      · intro h1 h2
+        simp only [Bool.or_eq_true, decide_eq_true_eq] at hcb
+        rcases hcb with rfl | rfl
+        · exact absurd rfl h1
+        · exact absurd rfl h2
+    · intro hbool; exact nomatch hbool
+  · simp only [beq_iff_eq] at h
+    subst h
+    exact ⟨natName, m.val natName ψ, rfl,
+      fun d ρ => interpExpr_const_nat hs, natVal_mem_univ m hs ψ,
+      fun _ _ => rfl⟩
+
+/-- The pinned type's interpretation: the function space over the
+`Nat` value with the pinned codomain. -/
+theorem natOpTyPinned_interp (m : EnvModel V env) {c : Name} {ty : Expr}
+    (hty : natOpTyPinned env c ty = true) (hs : natLitSupported env = true)
+    (ψ : Name → Nat) :
+    (c = natPredName →
+      interpClosed V m.val env ψ ty =
+        some (pi 1 (m.val natName ψ) (fun _ => m.val natName ψ))) ∧
+    (c ≠ natPredName → ∃ C,
+      interpClosed V m.val env ψ ty =
+        some (pi 1 (m.val natName ψ)
+          (fun _ => pi 1 (m.val natName ψ) (fun _ => C))) ∧
+      C ∈ˢ univ 1 ∧
+      (c ≠ natBeqName → c ≠ natBleName → C = m.val natName ψ)) := by
+  unfold natOpTyPinned at hty
+  by_cases hcp : c = natPredName
+  · rw [if_pos hcp] at hty
+    refine ⟨fun _ => ?_, fun hne => absurd hcp hne⟩
+    revert hty
+    match ty with
+    | .forallE nm dom body mb => ?_
+    | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
+    | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+      intro hty; exact nomatch hty
+    intro hty
+    simp only [Bool.and_eq_true, beq_iff_eq] at hty
+    obtain ⟨⟨rfl, hcod⟩, hc1⟩ := hty
+    have hbody : body = .const natName [] := by
+      unfold natOpCod at hcod
+      rw [if_neg (by rw [hcp]; decide)] at hcod
+      simpa using hcod
+    subst hbody
+    obtain ⟨v, hv, hev⟩ := natCod1_inv hc1
+    unfold interpClosed
+    rw [interp_forallE hv (interpExpr_const_nat hs), hev ψ]
+    congr 2
+    funext x
+    simp [Expr.instantiate1, interpExpr_const_nat hs]
+  · rw [if_neg hcp] at hty
+    refine ⟨fun heq => absurd heq hcp, fun _ => ?_⟩
+    revert hty
+    match ty with
+    | .forallE nm dom (.forallE nm2 dom2 body mb2) mb => ?_
+    | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
+    | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _
+    | .forallE _ _ (.bvar _) _ | .forallE _ _ (.fvar _ _ _) _
+    | .forallE _ _ (.sort _) _ | .forallE _ _ (.const _ _) _
+    | .forallE _ _ (.app _ _) _ | .forallE _ _ (.lam _ _ _ _) _
+    | .forallE _ _ (.letE _ _ _ _) _ | .forallE _ _ (.lit _) _
+    | .forallE _ _ (.proj _ _ _) _ =>
+      intro hty; exact nomatch hty
+    intro hty
+    simp only [Bool.and_eq_true, beq_iff_eq] at hty
+    obtain ⟨⟨⟨⟨rfl, rfl⟩, hcod⟩, hc1⟩, hc2⟩ := hty
+    obtain ⟨v, hv, hev⟩ := natCod1_inv hc1
+    obtain ⟨v2, hv2, hev2⟩ := natCod1_inv hc2
+    obtain ⟨bn, C, rfl, hCi, hCu, hCid⟩ := natOpCod_interp m hcod hs ψ
+    refine ⟨C, ?_, hCu, hCid⟩
+    unfold interpClosed
+    rw [interp_forallE hv (interpExpr_const_nat hs), hev ψ]
+    congr 2
+    funext x
+    simp only [Expr.instantiate1]
+    rw [interp_forallE hv2 (interpExpr_const_nat hs), hev2 ψ]
+    simp only [Option.getD_some]
+    congr 1
+    funext x2
+    simp [Expr.instantiate1, hCi]
+
+/-- The pinned-type check only reads the `Bool` slot. -/
+theorem natOpTyPinned_congr {env₁ env₂ : Env} {c : Name} {ty : Expr}
+    (h : env₁.find? boolName = env₂.find? boolName) :
+    natOpTyPinned env₁ c ty = natOpTyPinned env₂ c ty := by
+  have hcod : ∀ e, natOpCod env₁ c e = natOpCod env₂ c e := by
+    intro e
+    unfold natOpCod
+    rw [h]
+  unfold natOpTyPinned
+  split
+  · split <;> simp [hcod]
+  · split <;> simp [hcod]
+
+/-- A stored-pinned fact transported below a fresh extension. -/
+theorem natOpStoredOk_cons_down {c₀ : ConstantInfo} {n : Name}
+    (hne : n ≠ c₀.name) (hneb : c₀.name ≠ boolName)
+    (h : natOpStoredOk (⟨c₀ :: env.consts⟩ : Env) n = true) :
+    natOpStoredOk env n = true := by
+  have hb : (⟨c₀ :: env.consts⟩ : Env).find? boolName =
+      env.find? boolName := by
+    rw [Env.find?_cons, if_neg hneb]
+  unfold natOpStoredOk at h ⊢
+  rw [Env.find?_cons, if_neg (fun hh => hne hh.symm)] at h
+  revert h
+  split
+  · next cvn vn heq =>
+    intro h
+    rw [natOpTyPinned_congr hb] at h
+    exact h
+  · intro h; exact nomatch h
+
+/-- Everything a stored-pinned operation contributes: the definition
+slot, level monomorphy, and the value's function-space membership. -/
+theorem natOpStored_facts (m : EnvModel V env) {n : Name}
+    (hst : natOpStoredOk env n = true) (hs : natLitSupported env = true)
+    (ψ : Name → Nat) :
+    ∃ cvn vn, env.find? n = some (.defnInfo cvn vn) ∧
+      cvn.levelParams = [] ∧
+      (n = natPredName → m.val n ψ ∈ˢ pi 1 (m.val natName ψ)
+        (fun _ => m.val natName ψ)) ∧
+      (n ≠ natPredName → ∃ C, m.val n ψ ∈ˢ pi 1 (m.val natName ψ)
+        (fun _ => pi 1 (m.val natName ψ) (fun _ => C)) ∧ C ∈ˢ univ 1 ∧
+        (n ≠ natBeqName → n ≠ natBleName → C = m.val natName ψ)) := by
+  unfold natOpStoredOk at hst
+  revert hst
+  split
+  · next cvn vn heq =>
+    intro hst
+    simp only [Bool.and_eq_true, List.isEmpty_iff] at hst
+    obtain ⟨hlp, hty⟩ := hst
+    obtain ⟨T, hT, hmem⟩ := m.mem_type _ (find?_mem heq) ψ
+    rw [find?_ciname heq] at hmem
+    obtain ⟨h1, h2⟩ := natOpTyPinned_interp m hty hs ψ
+    refine ⟨cvn, vn, heq, hlp, ?_, ?_⟩
+    · intro hp
+      rw [show (ConstantInfo.defnInfo cvn vn).toConstantVal.type = cvn.type
+        from rfl, h1 hp] at hT
+      obtain rfl := Option.some.inj hT
+      exact hmem
+    · intro hp
+      obtain ⟨C, hCi, hCu, hCid⟩ := h2 hp
+      rw [show (ConstantInfo.defnInfo cvn vn).toConstantVal.type = cvn.type
+        from rfl, hCi] at hT
+      obtain rfl := Option.some.inj hT
+      exact ⟨C, hmem, hCu, hCid⟩
+  · intro hst; exact nomatch hst
+
+/-- Everything a certification-equation side must satisfy to feed
+definitional-equality soundness, bundled: interpretation, membership,
+truthful annotations, and the syntactic invariants (at binder depth
+`2`, the equations' canonical depth). -/
+def EqSideOk (env : Env) (cval : ConstVal V) (ψ : Name → Nat)
+    (ρ : Nat → V) (e : Expr) (v T : V) : Prop :=
+  interpExpr V cval env ψ 2 ρ e = some v ∧ v ∈ˢ T ∧
+  AnnotOk V cval env ψ 2 ρ e ∧ FvarsOk V cval env ψ 2 ρ e ∧
+  WScoped 2 e ∧ e.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded e
+
+section EqSides
+
+variable (m : EnvModel V env) (hs : natLitSupported env = true)
+  {ψ : Name → Nat} {ρ : Nat → V}
+
+include hs
+
+/-- `Nat.zero` as an equation side. -/
+theorem eqSide_zero : EqSideOk env m.val ψ ρ (.const natZeroName [])
+    (m.val natZeroName ψ) (m.val natName ψ) :=
+  ⟨interpExpr_const_natZero hs, natZeroVal_mem m hs ψ, by simp [AnnotOk],
+    fun l hl => by simp [Expr.fvarLeaves] at hl, by simp [WScoped], rfl,
+    fun l hl => by simp [Expr.fvarLeaves] at hl⟩
+
+/-- An `fvar` slot valued in the `Nat` value. -/
+theorem eqSide_fvar {idx : Nat} {nm : Name} (hidx : idx < 2)
+    (hval : ρ idx ∈ˢ m.val natName ψ) :
+    EqSideOk env m.val ψ ρ (.fvar idx nm (.const natName []))
+      (ρ idx) (m.val natName ψ) := by
+  refine ⟨interp_fvar, hval, by simp [AnnotOk], ?_, ?_, rfl, ?_⟩
+  · intro l hl
+    simp only [Expr.fvarLeaves, List.mem_cons] at hl
+    rcases hl with rfl | hl
+    · exact ⟨hidx, by simp [AnnotOk],
+        m.val natName ψ, interpExpr_const_nat hs, hval⟩
+    · simp [Expr.fvarLeaves] at hl
+  · simp only [WScoped]
+    exact ⟨hidx, by simp [WScoped]⟩
+  · intro l hl
+    simp only [Expr.fvarLeaves, List.mem_cons] at hl
+    rcases hl with rfl | hl
+    · rfl
+    · simp [Expr.fvarLeaves] at hl
+
+/-- `Nat.succ` applied to a `Nat`-valued side. -/
+theorem eqSide_succ {a : Expr} {va : V}
+    (ha : EqSideOk env m.val ψ ρ a va (m.val natName ψ)) :
+    EqSideOk env m.val ψ ρ (.app (.const natSuccName []) a)
+      (app (m.val natSuccName ψ) va) (m.val natName ψ) := by
+  obtain ⟨hai, ham, haA, haF, haW, haB, haL⟩ := ha
+  refine ⟨interp_app1 (interpExpr_const_natSucc hs) hai,
+    succ_closed m hs ψ va ham, ?_, ?_, ?_,
+    by simp [Expr.looseBVarsBounded, haB], ?_⟩
+  · simp only [AnnotOk]
+    exact ⟨by simp [AnnotOk], haA, m.val natSuccName ψ, va, 1,
+      m.val natName ψ, fun _ => m.val natName ψ,
+      interpExpr_const_natSucc hs, hai, natSuccVal_mem_pi m hs ψ, ham,
+      fun _ _ => natVal_mem_univ m hs ψ⟩
+  · intro l hl
+    simp only [Expr.fvarLeaves, List.nil_append] at hl
+    exact haF l hl
+  · simp only [WScoped]
+    exact ⟨by simp [WScoped], haW⟩
+  · intro l hl
+    simp only [Expr.fvarLeaves, List.nil_append] at hl
+    exact haL l hl
+
+/-- A binary head (the head's own facts supplied) applied to two
+`Nat`-valued sides; the result lands in the head's codomain. -/
+theorem eqSide_app2 {H a b : Expr} {hv va vb C : V}
+    (hHi : interpExpr V m.val env ψ 2 ρ H = some hv)
+    (hHA : AnnotOk V m.val env ψ 2 ρ H)
+    (hHF : FvarsOk V m.val env ψ 2 ρ H)
+    (hHW : WScoped 2 H) (hHB : H.looseBVarsBounded 0 = true)
+    (hHL : Expr.LeavesBounded H)
+    (hHm : hv ∈ˢ pi 1 (m.val natName ψ)
+      (fun _ => pi 1 (m.val natName ψ) (fun _ => C)))
+    (hCu : C ∈ˢ univ 1)
+    (ha : EqSideOk env m.val ψ ρ a va (m.val natName ψ))
+    (hb : EqSideOk env m.val ψ ρ b vb (m.val natName ψ)) :
+    EqSideOk env m.val ψ ρ (.app (.app H a) b) (app (app hv va) vb) C := by
+  obtain ⟨hai, ham, haA, haF, haW, haB, haL⟩ := ha
+  obtain ⟨hbi, hbm, hbA, hbF, hbW, hbB, hbL⟩ := hb
+  have hfib1 : ∀ x, x ∈ˢ m.val natName ψ →
+      pi 1 (m.val natName ψ) (fun _ => C) ∈ˢ univ 1 := by
+    intro x hx
+    have := pi_mem_univ (natVal_mem_univ m hs ψ) (fun _ _ => hCu)
+    simpa using this
+  have h1m : app hv va ∈ˢ pi 1 (m.val natName ψ) (fun _ => C) :=
+    app_mem hHm ham hfib1
+  refine ⟨interp_app1 (interp_app1 hHi hai) hbi,
+    app_mem h1m hbm (fun _ _ => hCu), ?_, ?_, ?_,
+    by simp [Expr.looseBVarsBounded, hHB, haB, hbB], ?_⟩
+  · simp only [AnnotOk]
+    refine ⟨?_, hbA, app hv va, vb, 1, m.val natName ψ, fun _ => C,
+      interp_app1 hHi hai, hbi, h1m, hbm, fun _ _ => hCu⟩
+    exact ⟨hHA, haA, hv, va, 1, m.val natName ψ,
+      fun _ => pi 1 (m.val natName ψ) (fun _ => C), hHi, hai, hHm, ham,
+      hfib1⟩
+  · intro l hl
+    simp only [Expr.fvarLeaves, List.mem_append] at hl
+    rcases hl with (hl | hl) | hl
+    · exact hHF l hl
+    · exact haF l hl
+    · exact hbF l hl
+  · simp only [WScoped]
+    exact ⟨⟨hHW, haW⟩, hbW⟩
+  · intro l hl
+    simp only [Expr.fvarLeaves, List.mem_append] at hl
+    rcases hl with (hl | hl) | hl
+    · exact hHL l hl
+    · exact haL l hl
+    · exact hbL l hl
+
+/-- A stored level-monomorphic constant as a binary head. -/
+theorem eqSide_app2c {n : Name} {ci : ConstantInfo} {a b : Expr}
+    {va vb C : V}
+    (hf : env.find? n = some ci) (hlp : ci.toConstantVal.levelParams = [])
+    (hm : m.val n ψ ∈ˢ pi 1 (m.val natName ψ)
+      (fun _ => pi 1 (m.val natName ψ) (fun _ => C)))
+    (hCu : C ∈ˢ univ 1)
+    (ha : EqSideOk env m.val ψ ρ a va (m.val natName ψ))
+    (hb : EqSideOk env m.val ψ ρ b vb (m.val natName ψ)) :
+    EqSideOk env m.val ψ ρ (.app (.app (.const n []) a) b)
+      (app (app (m.val n ψ) va) vb) C :=
+  eqSide_app2 m hs (interp_const_mono hf hlp) (by simp [AnnotOk])
+    (fun l hl => by simp [Expr.fvarLeaves] at hl) (by simp [WScoped]) rfl
+    (fun l hl => by simp [Expr.fvarLeaves] at hl) hm hCu ha hb
+
+omit hs
+
+/-- A unary head applied to one `Nat`-valued side. -/
+theorem eqSide_app1 {H a : Expr} {hv va C : V}
+    (hHi : interpExpr V m.val env ψ 2 ρ H = some hv)
+    (hHA : AnnotOk V m.val env ψ 2 ρ H)
+    (hHF : FvarsOk V m.val env ψ 2 ρ H)
+    (hHW : WScoped 2 H) (hHB : H.looseBVarsBounded 0 = true)
+    (hHL : Expr.LeavesBounded H)
+    (hHm : hv ∈ˢ pi 1 (m.val natName ψ) (fun _ => C))
+    (hCu : C ∈ˢ univ 1)
+    (ha : EqSideOk env m.val ψ ρ a va (m.val natName ψ)) :
+    EqSideOk env m.val ψ ρ (.app H a) (app hv va) C := by
+  obtain ⟨hai, ham, haA, haF, haW, haB, haL⟩ := ha
+  refine ⟨interp_app1 hHi hai,
+    app_mem hHm ham (fun _ _ => hCu), ?_, ?_, ?_,
+    by simp [Expr.looseBVarsBounded, hHB, haB], ?_⟩
+  · simp only [AnnotOk]
+    exact ⟨hHA, haA, hv, va, 1, m.val natName ψ, fun _ => C, hHi, hai,
+      hHm, ham, fun _ _ => hCu⟩
+  · intro l hl
+    simp only [Expr.fvarLeaves, List.mem_append] at hl
+    rcases hl with hl | hl
+    · exact hHF l hl
+    · exact haF l hl
+  · simp only [WScoped]
+    exact ⟨hHW, haW⟩
+  · intro l hl
+    simp only [Expr.fvarLeaves, List.mem_append] at hl
+    rcases hl with hl | hl
+    · exact hHL l hl
+    · exact haL l hl
+
+/-- A stored level-monomorphic constant as a unary head. -/
+theorem eqSide_app1c {n : Name} {ci : ConstantInfo} {a : Expr} {va C : V}
+    (hf : env.find? n = some ci) (hlp : ci.toConstantVal.levelParams = [])
+    (hm : m.val n ψ ∈ˢ pi 1 (m.val natName ψ) (fun _ => C))
+    (hCu : C ∈ˢ univ 1)
+    (ha : EqSideOk env m.val ψ ρ a va (m.val natName ψ)) :
+    EqSideOk env m.val ψ ρ (.app (.const n []) a)
+      (app (m.val n ψ) va) C :=
+  eqSide_app1 m (interp_const_mono hf hlp) (by simp [AnnotOk])
+    (fun l hl => by simp [Expr.fvarLeaves] at hl) (by simp [WScoped]) rfl
+    (fun l hl => by simp [Expr.fvarLeaves] at hl) hm hCu ha
+
+end EqSides
+
+end Install
 
 /-- Operation names are distinct from the `Nat`/`Bool` pins. -/
 theorem natOpNames_ne_pins {c : Name} (hc : c ∈ natOpNames) :
