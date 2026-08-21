@@ -48,4 +48,25 @@ while read -r want rel; do
 done < "$EXPECTED"
 
 echo "arena tutorial: $accepted/$total_good good tests accepted"
+
+# Own end-to-end tests (committed exports of tests/e2e/src/*.lean;
+# regenerate with lean-inductive-models' scripts/export-fixture.sh,
+# FIXTURE_DIR=tests/e2e/src OUT_DIR=tests/e2e FILTER=0).
+E2E_EXPECTED=tests/e2e-expected.txt
+if [ -f "$E2E_EXPECTED" ]; then
+  e2e_ok=0
+  e2e_total=0
+  while read -r want rel; do
+    case "$want" in ''|'#'*) continue;; esac
+    e2e_total=$((e2e_total+1))
+    timeout 60 "$BIN" "tests/e2e/$rel" >/dev/null 2>&1
+    got=$?
+    if [ "$got" != "$want" ]; then
+      echo "E2E FAIL $rel: expected exit $want, got $got"; fail=1
+    else
+      e2e_ok=$((e2e_ok+1))
+    fi
+  done < "$E2E_EXPECTED"
+  echo "e2e: $e2e_ok/$e2e_total as expected"
+fi
 exit $fail
