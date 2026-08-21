@@ -1500,20 +1500,22 @@ theorem peel_walk {φ : Name → Nat} {D : Nat} {ρ : Nat → V} :
       (∀ a ∈ spine, WScoped D a) →
       WScoped D ty →
       AnnotOk V cval env φ D ρ ty →
+      (∃ P, interpExpr V cval env φ D ρ ty = some P) →
       (∀ (k : Nat) (a : Expr) (v : V), ds[k]? = some a →
         vs[k]? = some v →
         ∃ B, interpExpr V cval env φ D ρ a = some B ∧ v ∈ˢ B) →
-      TeleFitI V cval env φ D ρ ty spine vs rest := by
+      TeleFitI V cval env φ D ρ ty spine vs rest ∧
+      (∃ P', interpExpr V cval env φ D ρ rest = some P') := by
   intro spine
   induction spine with
   | nil =>
-    intro vs ty ds rest hop hsp hws hW hA hmem
+    intro vs ty ds rest hop hsp hws hW hA hI hmem
     simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at hop
     obtain ⟨-, rfl⟩ := hop
     match vs, hsp with
-    | [], _ => exact TeleFitI.nil
+    | [], _ => exact ⟨TeleFitI.nil, hI⟩
   | cons fv spine' ih =>
-    intro vs ty ds rest hop hsp hws hW hA hmem
+    intro vs ty ds rest hop hsp hws hW hA hI hmem
     match vs, hsp with
     | v :: vs', hsp =>
     obtain ⟨⟨i, nfv, tfv, rfl, hiD, hval⟩, hsp'⟩ := hsp
@@ -1534,13 +1536,21 @@ theorem peel_walk {φ : Name → Nat} {D : Nat} {ρ : Nat → V} :
         (body.instantiate1 (.fvar i nfv tfv)) :=
       AnnotOk_beta hWd.2.fvarsBelow hwfv (by rfl) hifv
         (by simp [AnnotOk]) 0 hAop
-    refine TeleFitI.cons hBi hifv hvB hWd.2.fvarsBelow hwfv (by rfl)
-      (by simp [AnnotOk]) ?_
-    exact ih h0 hsp' (fun a ha => hws a (List.mem_cons_of_mem _ ha))
-      (WScoped.instantiate1_gen hwfv 0 hWd.2) hAbody
+    obtain ⟨w, hwi, -⟩ := hfib cod hcod
+    have hIbody : ∃ P, interpExpr V cval env φ D ρ
+        (body.instantiate1 (.fvar i nfv tfv)) = some P := by
+      refine ⟨w, ?_⟩
+      rw [interp_beta (n := n) (ty := dom) hWd.2.fvarsBelow hwfv
+        (by rfl) hifv 0]
+      exact hwi
+    obtain ⟨hfit, hIrest⟩ := ih h0 hsp'
+      (fun a ha => hws a (List.mem_cons_of_mem _ ha))
+      (WScoped.instantiate1_gen hwfv 0 hWd.2) hAbody hIbody
       (fun k a v' ha hv' => hmem (k + 1) a v'
         (show (dom :: ds')[k + 1]? = some a from by simpa using ha)
         (show (v :: vs')[k + 1]? = some v' from by simpa using hv'))
+    exact ⟨TeleFitI.cons hBi hifv hvB hWd.2.fvarsBelow hwfv (by rfl)
+      (by simp [AnnotOk]) hfit, hIrest⟩
 
 /-- The λ-tower walk: the rule's λ-domains are definitionally the
 opening variables' annotations, whose typing packages (`FvarsOk` of
@@ -1674,5 +1684,296 @@ theorem lam_walk {env : Env} (m : EnvModel V env) (F : Nat)
             exact Or.inr hl')
         · exact hFfv l hl')
       hAbody hIbody
+
+/-! ## More telescope bookkeeping -/
+
+omit [SetTheory V] in
+/-- Forward composition of instantiation walks. -/
+theorem instPisAt_append_of :
+    ∀ (as : List Expr) {bs : List Expr} {e : Expr} {ds₁ ds₂ : List Expr}
+      {mid rest : Expr},
+      Expr.instPisAt as e = some (ds₁, mid) →
+      Expr.instPisAt bs mid = some (ds₂, rest) →
+      Expr.instPisAt (as ++ bs) e = some (ds₁ ++ ds₂, rest)
+  | [], bs, e, ds₁, ds₂, mid, rest, h1, h2 => by
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h1
+    obtain ⟨rfl, rfl⟩ := h1
+    simpa using h2
+  | a :: as, bs, e, ds₁, ds₂, mid, rest, h1, h2 => by
+    obtain ⟨n, dom, body, m, ds', rfl, rfl, h0⟩ := instPisAt_cons_inv h1
+    have := instPisAt_append_of as h0 h2
+    simp only [List.cons_append, Expr.instPisAt, this]
+    rfl
+
+omit [SetTheory V] in
+/-- A telescope that strips syntactically admits any instantiation
+walk of matching length. -/
+theorem instPisAt_isSome_of_stripPis :
+    ∀ (args : List Expr) {e : Expr},
+      (e.stripPis args.length).isSome = true →
+      (Expr.instPisAt args e).isSome = true
+  | [], e, _ => by simp [Expr.instPisAt]
+  | a :: as, e, h => by
+    match e, h with
+    | .forallE n dom body m, h =>
+      simp only [List.length_cons, Expr.stripPis, Option.isSome_map] at h
+      have h' : ((body.instantiate1 a).stripPis as.length).isSome = true :=
+        Expr.stripPis_instantiate1_isSome as.length 0 h
+      have := instPisAt_isSome_of_stripPis as h'
+      simp only [Expr.instPisAt, Option.isSome_map]
+      exact this
+
+omit [SetTheory V] in
+/-- Scoping of an instantiation walk's domains and residual. -/
+theorem instPisAt_wscoped {D : Nat} :
+    ∀ (args : List Expr) {e : Expr} {ds : List Expr} {rest : Expr},
+      Expr.instPisAt args e = some (ds, rest) →
+      WScoped D e → (∀ a ∈ args, WScoped D a) →
+      (∀ dEl ∈ ds, WScoped D dEl) ∧ WScoped D rest
+  | [], e, ds, rest, h, hW, _ => by
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨(fun x hx => nomatch hx), hW⟩
+  | a :: as, e, ds, rest, h, hW, hargs => by
+    obtain ⟨n, dom, body, m, ds', rfl, rfl, h0⟩ := instPisAt_cons_inv h
+    have hW' : WScoped D dom ∧ WScoped D body := by
+      simpa [WScoped] using hW
+    have hrec := instPisAt_wscoped as h0
+      (WScoped.instantiate1_gen (hargs a List.mem_cons_self) 0 hW'.2)
+      (fun x hx => hargs x (List.mem_cons_of_mem _ hx))
+    refine ⟨?_, hrec.2⟩
+    intro x hx
+    rcases List.mem_cons.mp hx with rfl | hx
+    · exact hW'.1
+    · exact hrec.1 x hx
+
+omit [SetTheory V] in
+/-- Well-formedness of the opened variables: scoping, closed
+annotations, bounded leaf annotations. -/
+theorem openPisAtFvars_wf :
+    ∀ (n : Nat) {e : Expr} (i₀ : Nat) {fvs : List Expr} {body : Expr},
+      openPisAtFvars n e i₀ = some (fvs, body) →
+      WScoped i₀ e → e.looseBVarsBounded 0 = true →
+      Expr.LeavesBounded e →
+      (∀ a ∈ fvs, WScoped (i₀ + n) a ∧ a.looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded a) ∧
+      (WScoped (i₀ + n) body ∧ body.looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded body)
+  | 0, e, i₀, fvs, body, h, hW, hb, hL => by
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨(fun a ha => nomatch ha), by simpa using hW, hb, hL⟩
+  | n + 1, e, i₀, fvs, body, h, hW, hb, hL => by
+    match e, h with
+    | .forallE nm dom bodyE m, h =>
+      simp only [openPisAtFvars] at h
+      cases h0 : openPisAtFvars n
+          (bodyE.instantiate1 (.fvar i₀ nm dom)) (i₀ + 1) with
+      | none => rw [h0] at h; exact nomatch h
+      | some p =>
+        rw [h0] at h
+        simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨hfvs, hbody⟩ := h
+        subst hfvs hbody
+        have hW' : WScoped i₀ dom ∧ WScoped i₀ bodyE := by
+          simpa [WScoped] using hW
+        have hb' : dom.looseBVarsBounded 0 = true ∧
+            bodyE.looseBVarsBounded 1 = true := by
+          revert hb; simp [Expr.looseBVarsBounded]
+        have hLd := LeavesBounded.of_forallE_ty hL
+        have hLb := LeavesBounded.of_forallE_body hL
+        have hfvW : WScoped (i₀ + 1) (Expr.fvar i₀ nm dom) := by
+          simp only [WScoped]
+          exact ⟨by omega, hW'.1⟩
+        have hfvL : Expr.LeavesBounded (Expr.fvar i₀ nm dom) :=
+          LeavesBounded.fvar hb'.1 hLd
+        have hrec := openPisAtFvars_wf n (i₀ + 1) h0
+          (WScoped.instantiate1_gen hfvW 0 (hW'.2.mono (by omega)))
+          (looseBVarsBounded_instantiate1_gen (by rfl) hb'.2)
+          (LeavesBounded.instantiate1 hLb hfvL)
+        refine ⟨?_, ?_⟩
+        · intro a ha
+          rcases List.mem_cons.mp ha with rfl | ha
+          · exact ⟨hfvW.mono (by omega), by rfl, hfvL⟩
+          · obtain ⟨h1, h2, h3⟩ := hrec.1 a ha
+            exact ⟨h1.mono (by omega), h2, h3⟩
+        · obtain ⟨h1, h2, h3⟩ := hrec.2
+          exact ⟨h1.mono (by omega), h2, h3⟩
+
+/-- Extract a value spine from an all-`fvar` fit. -/
+theorem FvarSpine_of_fit {D : Nat} {ρ : Nat → V} :
+    ∀ {ty : Expr} {args : List Expr} {vs : List V} {rest : Expr},
+      TeleFitI V cval env φ D ρ ty args vs rest →
+      (∀ a ∈ args, ∃ i n t, a = .fvar i n t) →
+      FvarSpine D ρ args vs := by
+  intro ty args vs rest h
+  induction h with
+  | nil => intro _; trivial
+  | @cons n ty₀ body m arg args x xs A rest hity hiarg hx hfb hwa hba hAa
+      ht ih =>
+    intro hshape
+    obtain ⟨i, nm, t, rfl⟩ := hshape _ List.mem_cons_self
+    have hiD : i < D := by
+      have h2 : i < D ∧ WScoped i t := by simpa [WScoped] using hwa
+      exact h2.1
+    have hval : ρ i = x := by
+      have : interpExpr V cval env φ D ρ (.fvar i nm t) = some (ρ i) := by
+        simp [interpExpr]
+      rw [this] at hiarg
+      exact Option.some.inj hiarg
+    exact ⟨⟨i, nm, t, rfl, hiD, hval⟩,
+      ih (fun a ha => hshape a (List.mem_cons_of_mem _ ha))⟩
+
+/-- Transfer a fit's pointwise domain memberships onto another
+free-variable spine with the same values: the instantiated domains of
+a closed telescope interpret equally at both frames. -/
+theorem fit_mem_transfer {D₁ D₂ : Nat} {ρ₁ ρ₂ : Nat → V}
+    {ty : Expr} {n : Nat} {bs : List (Name × Expr × BinderMeta)}
+    {body : Expr} {spine₁ : List Expr} {ds₁ : List Expr} {rest₁ : Expr}
+    {spine₂ : List Expr} {vs : List V} {rest₂ : Expr}
+    (hcl : ty.hasFvar = false)
+    (hty0 : ty.looseBVarsBounded 0 = true)
+    (hstrip : ty.stripPis n = some (bs, body))
+    (hinst₁ : Expr.instPisAt spine₁ ty = some (ds₁, rest₁))
+    (hlen₁ : spine₁.length = n)
+    (hsp₁ : FvarSpine D₁ ρ₁ spine₁ vs)
+    (hsp₂ : FvarSpine D₂ ρ₂ spine₂ vs)
+    (hfit : TeleFitI V cval env φ D₂ ρ₂ ty spine₂ vs rest₂) :
+    ∀ (k : Nat) (a : Expr) (v : V), ds₁[k]? = some a → vs[k]? = some v →
+      ∃ B, interpExpr V cval env φ D₁ ρ₁ a = some B ∧ v ∈ˢ B := by
+  have hlen₂ : spine₂.length = n := by
+    rw [FvarSpine.length hsp₂, ← FvarSpine.length hsp₁, hlen₁]
+  obtain ⟨ds₂, hinst₂, hpt⟩ := TeleFitI.toInstPisAt hfit
+  obtain ⟨-, hds₁⟩ := instPisAt_stripPis spine₁ hinst₁
+    (by rw [hlen₁]; exact hstrip)
+  obtain ⟨-, hds₂⟩ := instPisAt_stripPis spine₂ hinst₂
+    (by rw [hlen₂]; exact hstrip)
+  intro k a v ha hv
+  have hkn : k < n := by
+    have hdl := instPisAt_length spine₁ hinst₁
+    rcases Nat.lt_or_ge k n with hlt | hge
+    · exact hlt
+    · rw [List.getElem?_eq_none (by omega)] at ha
+      exact nomatch ha
+  obtain ⟨b, hb⟩ : ∃ b, bs[k]? = some b := by
+    have := Expr.stripPis_length n hstrip
+    exact ⟨_, List.getElem?_eq_getElem (by omega)⟩
+  have ha' := hds₁ k b hb
+  rw [ha] at ha'
+  obtain rfl := Option.some.inj ha'
+  obtain ⟨a₂, ha₂⟩ : ∃ a₂, ds₂[k]? = some a₂ := by
+    have := instPisAt_length spine₂ hinst₂
+    exact ⟨_, List.getElem?_eq_getElem (by omega)⟩
+  obtain ⟨B, hBi, hvB⟩ := hpt k a₂ v ha₂ hv
+  have ha₂' := hds₂ k b hb
+  rw [ha₂] at ha₂'
+  obtain rfl := Option.some.inj ha₂'
+  refine ⟨B, ?_, hvB⟩
+  have hdomcl : b.2.1.hasFvar = false :=
+    stripPis_doms_hasFvar n hstrip hcl b (List.mem_of_getElem? hb)
+  have hdombd : b.2.1.looseBVarsBounded k = true := by
+    have := stripPis_doms_bounded n 0 hstrip hty0 k b hb
+    simpa using this
+  have ht1 : (spine₁.take k).length = k := by
+    rw [List.length_take, hlen₁]; omega
+  have ht2 : (spine₂.take k).length = k := by
+    rw [List.length_take, hlen₂]; omega
+  have hcong := interp_instSeq_fvarFrames (cval := cval) (env := env)
+    (φ := φ) (e := b.2.1) hdomcl (by rw [ht1]; exact hdombd)
+    (FvarSpine.take k hsp₁) (FvarSpine.take k hsp₂)
+  rw [ht1, ht2] at hcong
+  rw [hcong]
+  exact hBi
+
+/-- One-sided variant of `pi_walk`: the telescope's walk domains are
+the opening variables' annotations, memberships are given directly,
+and every opening variable's typing package is established. -/
+theorem self_walk {φ : Name → Nat} {D : Nat} {ρ : Nat → V} :
+    ∀ {spine : List Expr} {vs : List V} {ty : Expr} {rest : Expr},
+      Expr.instPisAt spine ty = some (spine.map Expr.fvarTypeD, rest) →
+      FvarSpine D ρ spine vs →
+      (∀ a ∈ spine, WScoped D a) →
+      WScoped D ty → ty.looseBVarsBounded 0 = true →
+      Expr.LeavesBounded ty → FvarsOk V cval env φ D ρ ty →
+      AnnotOk V cval env φ D ρ ty →
+      (∀ (k : Nat) (a : Expr) (v : V),
+        (spine.map Expr.fvarTypeD)[k]? = some a → vs[k]? = some v →
+        ∃ B, interpExpr V cval env φ D ρ a = some B ∧ v ∈ˢ B) →
+      TeleFitI V cval env φ D ρ ty spine vs rest ∧
+      (∀ a ∈ spine, FvarsOk V cval env φ D ρ a) := by
+  intro spine
+  induction spine with
+  | nil =>
+    intro vs ty rest hop hsp hws hW hb hL hF hA hmem
+    simp only [List.map_nil, Expr.instPisAt, Option.some.injEq,
+      Prod.mk.injEq] at hop
+    obtain ⟨-, rfl⟩ := hop
+    match vs, hsp with
+    | [], _ => exact ⟨TeleFitI.nil, fun a ha => nomatch ha⟩
+  | cons fv spine' ih =>
+    intro vs ty rest hop hsp hws hW hb hL hF hA hmem
+    match vs, hsp with
+    | v :: vs', hsp =>
+    obtain ⟨⟨i, nfv, tfv, rfl, hiD, hval⟩, hsp'⟩ := hsp
+    obtain ⟨n, dom, body, m, ds', rfl, hdsS, h0⟩ := instPisAt_cons_inv hop
+    have hdomS : dom = tfv ∧ ds' = spine'.map Expr.fvarTypeD := by
+      rw [List.map_cons] at hdsS
+      injection hdsS with h1 h2
+      exact ⟨h1.symm, h2.symm⟩
+    obtain ⟨hdomS1, rfl⟩ := hdomS
+    subst dom
+    have hWd : WScoped D tfv ∧ WScoped D body := by
+      simpa [WScoped] using hW
+    have hbd : tfv.looseBVarsBounded 0 = true ∧
+        body.looseBVarsBounded 1 = true := by
+      revert hb; simp [Expr.looseBVarsBounded]
+    have hLdom := LeavesBounded.of_forallE_ty hL
+    have hFdom : FvarsOk V cval env φ D ρ tfv :=
+      FvarsOk.of_subset (fun l hl => by
+        simp only [fvarLeaves, List.mem_append]; exact Or.inl hl) hF
+    have hA' := hA
+    simp only [AnnotOk] at hA'
+    obtain ⟨hAdom, ⟨cod, hcod⟩, hcond⟩ := hA'
+    obtain ⟨B, hBi, hvB⟩ := hmem 0 tfv v (by simp [Expr.fvarTypeD]) rfl
+    have hwfv : WScoped D (Expr.fvar i nfv tfv) :=
+      hws _ List.mem_cons_self
+    have hifv : interpExpr V cval env φ D ρ (.fvar i nfv tfv) = some v := by
+      simp only [interpExpr]
+      rw [hval]
+    have hFfv : FvarsOk V cval env φ D ρ (.fvar i nfv tfv) := by
+      intro l hl
+      simp only [fvarLeaves, List.mem_cons] at hl
+      rcases hl with rfl | hl
+      · exact ⟨hiD, hAdom, B, hBi, by rw [hval]; exact hvB⟩
+      · exact hFdom l hl
+    have hLfv : Expr.LeavesBounded (.fvar i nfv tfv) :=
+      LeavesBounded.fvar hbd.1 hLdom
+    obtain ⟨hAop, hfib⟩ := hcond v B hBi hvB
+    have hAbody : AnnotOk V cval env φ D ρ
+        (body.instantiate1 (.fvar i nfv tfv)) :=
+      AnnotOk_beta hWd.2.fvarsBelow hwfv (by rfl) hifv
+        (by simp [AnnotOk]) 0 hAop
+    obtain ⟨hfit, hspineF⟩ := ih h0 hsp'
+      (fun a ha => hws a (List.mem_cons_of_mem _ ha))
+      (WScoped.instantiate1_gen hwfv 0 hWd.2)
+      (looseBVarsBounded_instantiate1_gen (by rfl) hbd.2)
+      (LeavesBounded.instantiate1 (LeavesBounded.of_forallE_body hL) hLfv)
+      (fun l hl => by
+        rcases fvarLeaves_instantiate1 body 0 hl with hl' | hl'
+        · exact hF l (by
+            simp only [fvarLeaves, List.mem_append]
+            exact Or.inr hl')
+        · exact hFfv l hl')
+      hAbody
+      (fun k a v' ha hv' => hmem (k + 1) a v'
+        (show ((Expr.fvar i nfv tfv :: spine').map
+            Expr.fvarTypeD)[k + 1]? = some a from by simpa using ha)
+        (show (v :: vs')[k + 1]? = some v' from by simpa using hv'))
+    refine ⟨TeleFitI.cons hBi hifv hvB hWd.2.fvarsBelow hwfv (by rfl)
+      (by simp [AnnotOk]) hfit, ?_⟩
+    intro a ha
+    rcases List.mem_cons.mp ha with rfl | ha
+    · exact hFfv
+    · exact hspineF a ha
 
 end Setlec
