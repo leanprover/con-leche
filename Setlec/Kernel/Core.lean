@@ -1066,16 +1066,70 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
     | .bvar _ | .letE .. =>
       throw (.notImplemented "inferType beyond the supported fragment")
 
-/-- The definitional-equality body: syntactic fast path, full
-reduction of both sides, an early proof-irrelevance attempt, then
-structural congruence with the stuck fallbacks. -/
+/-- Levels-and-spine congruence for two applications of the same
+stored constant — the lazy delta *same-head short-circuit* (the
+official kernel's `try_eq_const_app`): before unfolding both sides of
+`f as ≡ f bs`, try pairwise definitional equality of the levels and
+the spine arguments.  A `false` verdict is never final — the caller
+falls back to unfolding — so an inconclusive level comparison simply
+answers `false` here. -/
+def defeqSpine (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
+    m Bool := do
+  match a.getAppFn with
+  | .const n us =>
+    match b.getAppFn with
+    | .const n' us' =>
+      if n = n' ∧ a.getAppArgs.length = b.getAppArgs.length then
+        match Level.isEquivList us us' with
+        | some true => defEqList r env depth a.getAppArgs b.getAppArgs
+        | _ => pure false
+      else pure false
+    | _ => pure false
+  | _ => pure false
+
+/-- The definitional-equality body: syntactic fast path, head
+normalization of both sides (**no delta** — `whnfCore`), then the
+*lazy delta* strategy of real kernels: literal acceleration first
+(mirroring the `whnf` loop order), then — when a side's head is an
+unfoldable definition — unfold lazily, guided by the reducibility
+hints (unfold only the side with the greater hint; at equal hints try
+the same-head congruence short-circuit, then unfold both).  Each
+unfolding step recurses through `r.defeq`, so the reference kernels'
+`lazy_delta_step` loop is the knot recursion here, and every re-entry
+re-runs the syntactic fast path and `whnfCore` (the official kernel's
+`whnf_core` after each unfold).  Only when neither head unfolds does
+structural congruence with the stuck fallbacks decide.  The hints
+steer *order only*: every branch below is an independently sound
+reduction or comparison, so the verdict never depends on the hint
+values. -/
 def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
   fun depth a b => do
     -- syntactic fast path (the references' most-hit branch)
     if a == b then pure true else
-    let a' ← r.whnf depth a
-    let b' ← r.whnf depth b
+    let a' ← r.whnfCore depth a
+    let b' ← r.whnfCore depth b
     if a' == b' then pure true else
+    match ← reduceNat r env depth a' with
+    | some a₂ => r.defeq depth a₂ b'
+    | none =>
+    match ← reduceNat r env depth b' with
+    | some b₂ => r.defeq depth a' b₂
+    | none =>
+    match unfoldDefinition env a', unfoldDefinition env b' with
+    | some a₂, none => r.defeq depth a₂ b'
+    | none, some b₂ => r.defeq depth a' b₂
+    | some a₂, some b₂ =>
+      let ha := headHint env a'
+      let hb := headHint env b'
+      if ReducibilityHint.lt hb ha then r.defeq depth a₂ b'
+      else if ReducibilityHint.lt ha hb then r.defeq depth a' b₂
+      else if sameConstHeads a' b' then
+        -- same constant at equal hints: cheap congruence first — this
+        -- short-circuit is where lazy delta wins on large proof terms
+        if ← defeqSpine r env depth a' b' then pure true
+        else r.defeq depth a₂ b₂
+      else r.defeq depth a₂ b₂
+    | none, none =>
     match a', b' with
     | .sort u, .sort v => liftFueled "level comparison" (Level.isEquiv u v)
     | .lit l₁, .lit l₂ => pure (l₁ == l₂)

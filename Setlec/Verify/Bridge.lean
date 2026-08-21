@@ -190,6 +190,17 @@ theorem structEtaProjCerts_atF (d : Nat) (F : Nat) (T : Name)
       | indInfo cv caps => rfl
       | ctorInfo cv nP nF => rfl
 
+theorem defeqSpine_atF (d : Nat) (a b : Expr) (F : Nat) :
+    (defeqSpine (fueledFns env) env d a b).val F =
+      defeqSpine (pureFns env F) env d a b := by
+  unfold defeqSpine
+  repeat (first
+    | rfl
+    | (rw [defEqList_atF])
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | (dsimp only [])
+    | split)
+
 macro "atF_step" : tactic =>
   `(tactic| repeat (first
     | rfl
@@ -404,6 +415,7 @@ macro "atF_step4" : tactic =>
     | (rw [annotateProjElim_atF])
     | (rw [stuckIrrel_atF])
     | (rw [iotaRec_atF])
+    | (rw [defeqSpine_atF])
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
     | split))

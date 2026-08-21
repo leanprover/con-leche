@@ -1119,6 +1119,46 @@ theorem defEqList_step_inv {env : Env} {fuel d : Nat} {a b : Expr}
   simp only [↓reduceIte] at h
   exact ⟨rfl, h⟩
 
+/-- Inversion of the lazy delta same-head spine congruence: both sides
+are applications of the same constant, at pointwise-equivalent levels,
+with pairwise definitionally equal spines of equal length. -/
+theorem defeqSpine_inv {env : Env} {fuel d : Nat} {a b : Expr}
+    (h : defeqSpineP env fuel d a b = .ok true) :
+    ∃ n us us', a.getAppFn = .const n us ∧ b.getAppFn = .const n us' ∧
+      a.getAppArgs.length = b.getAppArgs.length ∧
+      Level.isEquivList us us' = some true ∧
+      defEqListP env fuel d a.getAppArgs b.getAppArgs = .ok true := by
+  dsimp only [defeqSpineP] at h
+  simp only [defeqSpine, defEqList_fold] at h
+  revert h
+  match hfa : a.getAppFn with
+  | .bvar _ | .fvar _ _ _ | .sort _ | .app _ _ | .lam _ _ _ _
+  | .forallE _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+    intro h; simp [pure, Except.pure] at h
+  | .const n us => ?_
+  intro h
+  dsimp only at h
+  revert h
+  match hfb : b.getAppFn with
+  | .bvar _ | .fvar _ _ _ | .sort _ | .app _ _ | .lam _ _ _ _
+  | .forallE _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+    intro h; simp [pure, Except.pure] at h
+  | .const n' us' => ?_
+  intro h
+  dsimp only at h
+  revert h
+  split
+  case isTrue hcond =>
+    obtain ⟨rfl, hlen⟩ := hcond
+    intro h
+    revert h
+    match hlev : Level.isEquivList us us' with
+    | some true => intro h; exact ⟨n, us, us', rfl, rfl, hlen, hlev, h⟩
+    | some false => intro h; simp [pure, Except.pure] at h
+    | none => intro h; simp [pure, Except.pure] at h
+  case isFalse =>
+    intro h; simp [pure, Except.pure] at h
+
 /-- Inversion of one certification step. -/
 theorem iotaCerts_step_inv {env : Env} {fuel d : Nat} {n : Name}
     {ty body : Expr} {m : BinderMeta} {arg : Expr} {rest : List Expr}
