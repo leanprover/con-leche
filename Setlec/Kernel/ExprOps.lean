@@ -343,4 +343,29 @@ def resultSort : Expr → Option Level
   | .sort u => some u
   | _ => none
 
+/-- Structural equality ignoring display-only names: the binder names
+of `lam`/`forallE`/`letE` and an `fvar`'s display name.  Everything
+semantic still compares — indices, constants, levels, `BinderMeta`
+(binder info *and* the codomain sort annotation), and an `fvar`'s type
+annotation (part of the variable's identity).  lean4export interns
+expressions irrespective of binder names (the first occurrence's
+spelling wins for every shared subterm), so even a correct
+preprocessor stream can differ from the input in binder names only;
+`checkMemberVal` compares member types with this. -/
+def eqUpToNames : Expr → Expr → Bool
+  | .bvar i, .bvar j => i == j
+  | .fvar i _ ty, .fvar j _ ty' => i == j && eqUpToNames ty ty'
+  | .sort u, .sort v => u == v
+  | .const n us, .const n' us' => n == n' && us == us'
+  | .app f a, .app g b => eqUpToNames f g && eqUpToNames a b
+  | .lam _ ty b m, .lam _ ty' b' m' =>
+    m == m' && eqUpToNames ty ty' && eqUpToNames b b'
+  | .forallE _ ty b m, .forallE _ ty' b' m' =>
+    m == m' && eqUpToNames ty ty' && eqUpToNames b b'
+  | .letE _ ty v b, .letE _ ty' v' b' =>
+    eqUpToNames ty ty' && eqUpToNames v v' && eqUpToNames b b'
+  | .lit l, .lit l' => l == l'
+  | .proj s i e, .proj s' i' e' => s == s' && i == i' && eqUpToNames e e'
+  | _, _ => false
+
 end Setlec.Expr

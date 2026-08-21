@@ -55,7 +55,7 @@ theorem eta_rule_fold
     (hT_strip : cvTty.stripPis nP = some (tbinders, tbody))
     (hsdoms : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta), k < nP →
       sbinders[k]? = some b → tbinders[k]? = some b' →
-      b.2.1 = (b'.2.1).renameConsts f)
+      RenEq f b'.2.1 b.2.1)
     (hxdom : ∃ nx mx, sbinders[nP]? = some (nx,
       Expr.mkAppN (.const (T.str "_model") (lps.map .param))
         ((List.range nP).map fun k => Expr.bvar (nP - 1 - k)), mx))
@@ -124,10 +124,7 @@ theorem eta_rule_fold
     have hb₂' : sbinders[k]? = some b₂ := by
       rw [← List.getElem?_take_of_lt hk]
       exact hb₂
-    have h2 : b₂.2.1 = b₁.2.1.renameConsts f := hsdoms k b₂ b₁ hk hb₂' hb₁
-    show RenEq f b₁.2.1 b₂.2.1
-    rw [h2]
-    exact Expr.ErasedEq.rfl _
+    exact hsdoms k b₂ b₁ hk hb₂' hb₁
   have hargsSelf : ArgsRel (fun a₁ a₂ => RenEq f a₁ a₂ ∧ WScoped d₂ a₂ ∧
       a₂.looseBVarsBounded 0 = true ∧
       AnnotOk V val' env₁ (Level.substFn φ' lps us) d₂ ρ₂ a₂)
@@ -562,7 +559,7 @@ theorem unit_rule_fold
     (hT_strip : cvTty.stripPis nP = some (tbinders, tbody))
     (hsdoms : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta), k < nP →
       sbinders[k]? = some b → tbinders[k]? = some b' →
-      b.2.1 = (b'.2.1).renameConsts f)
+      RenEq f b'.2.1 b.2.1)
     (hxdom : ∃ nx mx, sbinders[nP]? = some (nx,
       Expr.mkAppN (.const (T.str "_model") (lps.map .param))
         ((List.range nP).map fun k => Expr.bvar (nP - 1 - k)), mx))
@@ -626,10 +623,7 @@ theorem unit_rule_fold
     have hb₂' : sbinders[k]? = some b₂ := by
       rw [← List.getElem?_take_of_lt hk]
       exact hb₂
-    have h2 : b₂.2.1 = b₁.2.1.renameConsts f := hsdoms k b₂ b₁ hk hb₂' hb₁
-    show RenEq f b₁.2.1 b₂.2.1
-    rw [h2]
-    exact Expr.ErasedEq.rfl _
+    exact hsdoms k b₂ b₁ hk hb₂' hb₁
   have hargsSelf : ArgsRel (fun a₁ a₂ => RenEq f a₁ a₂ ∧ WScoped d₂ a₂ ∧
       a₂.looseBVarsBounded 0 = true ∧
       AnnotOk V val' env₁ (Level.substFn φ' lps us) d₂ ρ₂ a₂)

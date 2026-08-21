@@ -95,11 +95,19 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
           obtain ⟨cvm₂, mval₂, hm₂, -, -, hv₂⟩ := hI n hc ci₂ hf₂
           exact (hv₂ ψ).symm
         · rw [if_neg hc]
-  have hrenS : cvA.type.renameConsts fS = cvm.type := by
+  have hrenS : Expr.eqUpToNames (cvA.type.renameConsts fS) cvm.type =
+      true := by
     rw [htypeA, ← Expr.renameConsts_congr_resolve
       (fun n hn => (hfSfound n hn).symm) tyA hres]
     rw [← htypeA]
     exact hrenf
+  have hannT : ∀ ψ : Name → Nat,
+      AnnotOk V m.val env' ψ 0 (rho0 V) cvA.type := by
+    intro ψ
+    rw [htypeA]
+    exact annotate_sound m _ hann (WScoped.of_not_hasFvar hfv) hlb
+      (Expr.LeavesBounded.of_not_hasFvar hfv) (rho0 V)
+      (FvarsOk.of_not_hasFvar hfv)
   rcases hkind with ⟨⟨cv, caps', rfl⟩, rfl⟩ | ⟨cv, nP, nF, rfl, rfl⟩
   · -- inductive type former
     have hwf : ConstWF ⟨.indInfo cvA caps :: env'.consts⟩
@@ -109,7 +117,7 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
       · intro cv2 nP' nM' nm' ni' rules heq; exact nomatch heq
     obtain ⟨m₁, hval₁, hpres₁⟩ := extend_modeled_one m
       (.indInfo cvA caps) fS (cvA.name.str "_model") hfind' hnres hwf htres
-      (Or.inl ⟨_, _, rfl⟩) hfm hlps hrenS hroS
+      (Or.inl ⟨_, _, rfl⟩) hfm hlps hrenS hannT hroS
       (fun _ => ⟨show (env'.find? (cvA.name.str "_model")).isSome = true
         by rw [hfm]; rfl, fun ψ => rfl⟩)
       (fun T j hh => hprojRef T j hh)
@@ -136,19 +144,33 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
           rw [hfj]
           rfl
         · intro φ'' us ps x d₁ ρ₁ d₂ ρ₂ rest hlen hx hfit
+          obtain ⟨bsR, bodyR, hstripR, hlenR, hdomsR, -⟩ :=
+            Expr.ErasedEq.stripPis_inv caps.etaParams
+              (Expr.ErasedEq.of_eqUpToNames hrenS) hTm_stripE
           obtain ⟨tbinders, tbody, hT_strip, hbsmap, -⟩ :=
             Expr.stripPis_renameConsts_inv (f := fS) caps.etaParams
-              (by rw [hrenS]; exact hTm_stripE)
+              hstripR
           have hsdomsF : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta),
               k < caps.etaParams →
               sbinders[k]? = some b → tbinders[k]? = some b' →
-              b.2.1 = (b'.2.1).renameConsts fS := by
+              RenEq fS b'.2.1 b.2.1 := by
             intro k b b' hk hb hb'
-            have hbm : tbindersM[k]? =
+            have hbR : bsR[k]? =
                 some (b'.1, (b'.2.1).renameConsts fS, b'.2.2) := by
               rw [hbsmap, List.getElem?_map, hb']
               rfl
-            exact hsdomsE k b _ hk hb hbm
+            have hklt : k < tbindersM.length := by
+              have h1 : bsR[k]?.isSome = true := by rw [hbR]; rfl
+              simp at h1
+              omega
+            have hbm : tbindersM[k]? = some tbindersM[k] :=
+              List.getElem?_eq_getElem hklt
+            have hrel := (hdomsR k _ _ hbR hbm).1
+            have hpin : b.2.1 = tbindersM[k].2.1 :=
+              hsdomsE k b _ hk hb hbm
+            show Expr.ErasedEq ((b'.2.1).renameConsts fS) b.2.1
+            rw [hpin]
+            exact hrel
           have hcvp : ConstValParams m.val env' :=
             fun n ci₂ hf ψ₁ ψ₂ hψ => m.val_params n ci₂ hf ψ₁ ψ₂ hψ
           have heqval : ∀ ψ'' : Name → Nat,
@@ -193,19 +215,33 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
           have h1 := Option.some.inj hTmE
           exact ⟨by injection h1, by injection h1, by injection h1⟩
         intro φ'' us ps x y d₁ ρ₁ d₂ ρ₂ rest hlen hx hy hfit
+        obtain ⟨bsR, bodyR, hstripR, hlenR, hdomsR, -⟩ :=
+          Expr.ErasedEq.stripPis_inv caps.unitParams
+            (Expr.ErasedEq.of_eqUpToNames hrenS) hTm_stripE
         obtain ⟨tbinders, tbody, hT_strip, hbsmap, -⟩ :=
           Expr.stripPis_renameConsts_inv (f := fS) caps.unitParams
-            (by rw [hrenS]; exact hTm_stripE)
+            hstripR
         have hsdomsF : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta),
             k < caps.unitParams →
             sbinders[k]? = some b → tbinders[k]? = some b' →
-            b.2.1 = (b'.2.1).renameConsts fS := by
+            RenEq fS b'.2.1 b.2.1 := by
           intro k b b' hk hb hb'
-          have hbm : tbindersM[k]? =
+          have hbR : bsR[k]? =
               some (b'.1, (b'.2.1).renameConsts fS, b'.2.2) := by
             rw [hbsmap, List.getElem?_map, hb']
             rfl
-          exact hsdomsE k b _ hk hb hbm
+          have hklt : k < tbindersM.length := by
+            have h1 : bsR[k]?.isSome = true := by rw [hbR]; rfl
+            simp at h1
+            omega
+          have hbm : tbindersM[k]? = some tbindersM[k] :=
+            List.getElem?_eq_getElem hklt
+          have hrel := (hdomsR k _ _ hbR hbm).1
+          have hpin : b.2.1 = tbindersM[k].2.1 :=
+            hsdomsE k b _ hk hb hbm
+          show Expr.ErasedEq ((b'.2.1).renameConsts fS) b.2.1
+          rw [hpin]
+          exact hrel
         have hcvp : ConstValParams m.val env' :=
           fun n ci₂ hf ψ₁ ψ₂ hψ => m.val_params n ci₂ hf ψ₁ ψ₂ hψ
         have heqval : ∀ ψ'' : Name → Nat,
@@ -240,7 +276,7 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
     obtain ⟨m₁, hval₁, hpres₁⟩ := extend_modeled_one m
       (.ctorInfo cvA nP nF) fS (cvA.name.str "_model")
       hfind' hnres hwf htres
-      (Or.inr (Or.inl ⟨_, _, _, rfl⟩)) hfm hlps hrenS hroS
+      (Or.inr (Or.inl ⟨_, _, _, rfl⟩)) hfm hlps hrenS hannT hroS
       (fun _ => ⟨show (env'.find? (cvA.name.str "_model")).isSome = true
         by rw [hfm]; rfl, fun ψ => rfl⟩)
       (fun T j hh => hprojRef T j hh)

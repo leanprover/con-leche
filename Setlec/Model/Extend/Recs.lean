@@ -41,8 +41,9 @@ inductive ProvFacts (F : Nat) (blockNames : List Name) :
       (∃ cvm mval hmcvm, envAcc.find? (cvA.name.str "_model") =
         some (.defnInfo cvm mval hmcvm) ∧
         cvm.levelParams = cvA.levelParams ∧
-        cvA.type.renameConsts (fun n => if blockNames.contains n then
-          n.str "_model" else n) = cvm.type) →
+        Expr.eqUpToNames (cvA.type.renameConsts (fun n =>
+          if blockNames.contains n then n.str "_model" else n))
+          cvm.type = true) →
       ProvFacts F blockNames
         ⟨.recInfo cvA nP nM nm ni [] :: envAcc.consts⟩ envSelf rest →
       ProvFacts F blockNames envAcc envSelf
@@ -191,10 +192,18 @@ theorem provisionRecs_sound {F : Nat} {blockNames : List Name} :
             obtain ⟨cvm₂, mval₂, -, -, -, hv₂⟩ := hI n hc ci₂ hf₂
             exact (hv₂ ψ).symm
           · rw [if_neg hc]
-    have hrenS : cvA.type.renameConsts fS = cvm.type := by
+    have hrenS : Expr.eqUpToNames (cvA.type.renameConsts fS) cvm.type =
+        true := by
       rw [← Expr.renameConsts_congr_resolve
         (fun n hn => (hfSfound n hn).symm) cvA.type htres]
       exact hrenf
+    have hannT : ∀ ψ : Name → Nat,
+        AnnotOk V m.val envAcc ψ 0 (rho0 V) cvA.type := by
+      intro ψ
+      rw [hcvA]
+      exact annotate_sound m _ hann (WScoped.of_not_hasFvar hfv) hlb
+        (Expr.LeavesBounded.of_not_hasFvar hfv) (rho0 V)
+        (FvarsOk.of_not_hasFvar hfv)
     have hwf₀ : ConstWF ⟨.recInfo cvA nP nM nm ni [] :: envAcc.consts⟩
         (.recInfo cvA nP nM nm ni []) := by
       refine ⟨htyf, htlp, Expr.constsResolve_mono htres, htyb, ?_, ?_⟩
@@ -207,7 +216,7 @@ theorem provisionRecs_sound {F : Nat} {blockNames : List Name} :
     obtain ⟨m₁, hval₁, hpres₁⟩ := extend_modeled_one m
       (.recInfo cvA nP nM nm ni []) fS (cvA.name.str "_model")
       hfind0 hnres0 hwf₀ htres
-      (Or.inr (Or.inr ⟨cvA, nP, nM, nm, ni, rfl⟩)) hfm hlps hrenS hroS
+      (Or.inr (Or.inr ⟨cvA, nP, nM, nm, ni, rfl⟩)) hfm hlps hrenS hannT hroS
       (fun hk => by
         rcases hk with ⟨_, _, hcon⟩ | ⟨_, _, _, hcon⟩ <;> exact nomatch hcon)
       (fun T j hh => by
@@ -472,8 +481,9 @@ theorem ProvFacts.mem_facts {F : Nat} {blockNames : List Name} :
         (∃ cvm mval hmcvm, envSelf.find? (c.1.name.str "_model") =
           some (.defnInfo cvm mval hmcvm) ∧
           cvm.levelParams = c.1.levelParams ∧
-          c.1.type.renameConsts (fun n => if blockNames.contains n then
-            n.str "_model" else n) = cvm.type) ∧
+          Expr.eqUpToNames (c.1.type.renameConsts (fun n =>
+            if blockNames.contains n then n.str "_model" else n))
+            cvm.type = true) ∧
         envSelf.find? c.1.name =
           some (.recInfo c.1 c.2.1 c.2.2.1 c.2.2.2.1 c.2.2.2.2.1 []) := by
   intro envAcc envSelf checked h

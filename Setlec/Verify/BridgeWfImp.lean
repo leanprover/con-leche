@@ -1009,9 +1009,9 @@ theorem checkMemberVal_wfimp {blockNames : List Name} {env' : Env}
   by_cases h2 : cvm.levelParams = cvA.levelParams
   case neg => rw [if_neg h2] at h; exact absurd h atF_throw_bind
   rw [if_pos h2] at h ⊢
-  by_cases h3 : (cvA.type.renameConsts
-      (fun n => if blockNames.contains n then n.str "_model" else n)
-      == cvm.type) = true
+  by_cases h3 : Expr.eqUpToNames (cvA.type.renameConsts
+      (fun n => if blockNames.contains n then n.str "_model" else n))
+      cvm.type = true
   case neg => rw [if_neg h3] at h; exact absurd h atF_throw_bind
   rw [if_pos h3] at h ⊢
   exact h
