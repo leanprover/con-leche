@@ -169,6 +169,8 @@ def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
       throw (.notImplemented s!"iota statement major mismatch for {cvName}")
     -- the constructor's telescope (renamed), instantiated at the
     -- major's arguments: field domains and the canonical index tuple
+    unless (cvj.type.stripPis (cnP + cnF)).isSome do
+      throw (.notImplemented s!"iota constructor telescope for {cvName}")
     let some (cdoms, cres) :=
         Expr.instPisAt (fvs.take cnP ++ xFvs) (cvj.type.renameConsts f)
       | throw (.notImplemented s!"iota constructor telescope for {cvName}")

@@ -1,4 +1,5 @@
 import Setlec.Model.Extend.Inversions
+import Setlec.Model.IotaWalk
 
 /-!
 # Iota — split out of `Setlec.Model.Extend`
@@ -16,108 +17,6 @@ namespace Setlec
 variable {V : Type u} [SetTheory V]
 
 open SetTheory Expr
-
-/-- Pairwise fueled definitional equality of two spines (the semantic
-content of a successful `checkDefEqList`). -/
-def DefEqListOk (F : Nat) (env : Env) (d : Nat) :
-    List Expr → List Expr → Prop
-  | [], [] => True
-  | a :: as, b :: bs =>
-    isDefEqCore env F d a b = .ok true ∧ DefEqListOk F env d as bs
-  | _, _ => False
-
-omit [SetTheory V] in
-theorem DefEqListOk.length {F : Nat} {env : Env} {d : Nat} :
-    ∀ {as bs : List Expr}, DefEqListOk F env d as bs →
-      as.length = bs.length := by
-  intro as
-  induction as with
-  | nil =>
-    intro bs h
-    match bs, h with
-    | [], _ => rfl
-  | cons a as ih =>
-    intro bs h
-    match bs, h with
-    | b :: bs, ⟨_, h⟩ => simpa using ih h
-
-omit [SetTheory V] in
-theorem DefEqListOk.pointwise {F : Nat} {env : Env} {d : Nat} :
-    ∀ {as bs : List Expr}, DefEqListOk F env d as bs →
-      ∀ (i : Nat) {a b : Expr}, as[i]? = some a → bs[i]? = some b →
-        isDefEqCore env F d a b = .ok true := by
-  intro as
-  induction as with
-  | nil =>
-    intro bs h i a b ha hb
-    exact nomatch ha
-  | cons a₀ as ih =>
-    intro bs h i a b ha hb
-    match bs, h with
-    | b₀ :: bs, ⟨h₀, h⟩ =>
-      match i, ha, hb with
-      | 0, ha, hb =>
-        obtain rfl := Option.some.inj ha
-        obtain rfl := Option.some.inj hb
-        exact h₀
-      | i + 1, ha, hb => exact ih h i (by simpa using ha) (by simpa using hb)
-
-/-- Invert a successful `checkDefEqList` run. -/
-theorem checkDefEqList_inv {F : Nat} {env : Env} {d : Nat} :
-    ∀ {as bs : List Expr} {u : Unit},
-    checkDefEqList (fueledOps F) env d as bs = .ok u →
-    DefEqListOk F env d as bs := by
-  intro as
-  induction as with
-  | nil =>
-    intro bs u h
-    match bs with
-    | [] => trivial
-    | _ :: _ =>
-      simp only [checkDefEqList] at h
-      exact nomatch h
-  | cons a as ih =>
-    intro bs u h
-    match bs with
-    | [] =>
-      simp only [checkDefEqList] at h
-      exact nomatch h
-    | b :: bs =>
-      simp only [checkDefEqList, fueledOps_isDefEq, Bind.bind,
-        Except.bind] at h
-      revert h
-      cases hde : isDefEqCore env F d a b with
-      | error e => intro h; exact nomatch h
-      | ok v =>
-        cases v with
-        | false =>
-          intro h
-          simp [throw, throwThe, MonadExceptOf.throw] at h
-        | true =>
-          intro h
-          simp only [↓reduceIte, pure, Except.pure] at h
-          exact ⟨hde, ih h⟩
-
-omit [SetTheory V] in
-/-- Invert the boolean equality-head test. -/
-theorem isEqHead_inv {e : Expr} (h : isEqHead e = true) :
-    ∃ ℓA, e = .const eqName [ℓA] := by
-  match e, h with
-  | .const c [ℓ], h =>
-    refine ⟨ℓ, ?_⟩
-    have hc : (c == eqName) = true := by simpa [isEqHead] using h
-    rw [eq_of_beq hc]
-  | .const _ [], h => simp [isEqHead] at h
-  | .const _ (_ :: _ :: _), h => simp [isEqHead] at h
-  | .bvar _, h => simp [isEqHead] at h
-  | .fvar _ _ _, h => simp [isEqHead] at h
-  | .sort _, h => simp [isEqHead] at h
-  | .app _ _, h => simp [isEqHead] at h
-  | .lam _ _ _ _, h => simp [isEqHead] at h
-  | .forallE _ _ _ _, h => simp [isEqHead] at h
-  | .letE _ _ _ _, h => simp [isEqHead] at h
-  | .lit _, h => simp [isEqHead] at h
-  | .proj _ _ _, h => simp [isEqHead] at h
 
 /-- The kernel-checked data of a *canonical* rule's `iota_j` theorem:
 everything `modeled_rule_fold` consumes.  `env` is the environment the
@@ -143,6 +42,7 @@ def PlainChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
     lhsS.getAppArgs.getLastD (.bvar 0) =
       Expr.mkAppN (.const (f (RecRule.ctor r)) (cvj.levelParams.map .param))
         (fvs.take cnP ++ fvs.drop (nP + nM + nm)) ∧
+    (cvj.type.stripPis (cnP + cnF)).isSome = true ∧
     Expr.instPisAt (fvs.take cnP ++ fvs.drop (nP + nM + nm))
       (cvj.type.renameConsts f) = some (cdoms, cres) ∧
     cres.getAppArgs.length = cnP + ni ∧
@@ -236,6 +136,10 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   case neg => rw [if_neg hmaj] at h; exact nomatch h
   rw [if_pos hmaj] at h
   try dsimp only at h
+  by_cases hcstrip : (cvj.type.stripPis (cnP + cnF)).isSome = true
+  case neg => rw [if_neg hcstrip] at h; exact nomatch h
+  rw [if_pos hcstrip] at h
+  try dsimp only at h
   revert h
   match hcinst : Expr.instPisAt (fvs.take cnP ++ fvs.drop (nP + nM + nm))
       (cvj.type.renameConsts f) with
@@ -317,7 +221,7 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
         tbody, ℓA, αS, lhsS, rhsS, cdoms, cres, rdoms, rrest, fvsP,
         restP, cdomsP, crestP, xFvsP, crest2, ldoms, lrest,
         hfthm, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
-        eq_of_beq hlpre, eq_of_beq hmaj, hcinst, hclen,
+        eq_of_beq hlpre, eq_of_beq hmaj, hcstrip, hcinst, hclen,
         checkDefEqList_inv hdq1, checkDefEqList_inv hdq2, hrinst,
         checkDefEqList_inv hdq3, hopenP, hcinstP, hopenX, hlinst,
         checkDefEqList_inv hdq4, hde⟩
