@@ -802,11 +802,19 @@ def checkDivModCerts (ops : CheckerOps m) (env : Env) (c : Name)
   | _, _ => pure false
 
 /-- Environment prerequisites of a certified `Nat.div`/`Nat.mod`:
-dependency guard, pinned dependencies, and the pinned `Eq` basis (the
-certificate statements are equations in the pinned equality). -/
+dependency guard, pinned dependencies, the pinned `Eq` basis (the
+certificate statements are equations in the pinned equality), and the
+`Bool` constructors stored at the type `Bool` itself (the guards'
+`true`/`false` must inhabit the `Bool` value semantically). -/
 def divModEnvGuard (env2 : Env) (c : Name) : Bool :=
   natOpGuard env2 c && (natOpDeps c).all (natOpStoredOk env2) &&
-  env2.find? eqName == some eqA
+  env2.find? eqName == some eqA &&
+  (match env2.find? boolTrueName with
+    | some ci => ci.toConstantVal.type == .const boolName []
+    | none => false) &&
+  (match env2.find? boolFalseName with
+    | some ci => ci.toConstantVal.type == .const boolName []
+    | none => false)
 
 /-- Syntactic guards on the vendored pin (generated; checked once at
 install rather than proven about the blob). -/

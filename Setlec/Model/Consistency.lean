@@ -108,8 +108,8 @@ sides. -/
 private theorem eqSides_defeq {env : Env} (m : EnvModel V env) (F : Nat)
     {l r : Expr} {ψ : Name → Nat} {ρ : Nat → V} {vl vr Tl Tr : V}
     (hde : isDefEqCore env F 2 l r = .ok true)
-    (hl : EqSideOk env m.val ψ ρ l vl Tl)
-    (hr : EqSideOk env m.val ψ ρ r vr Tr) :
+    (hl : EqSideOk env m.val ψ 2 ρ l vl Tl)
+    (hr : EqSideOk env m.val ψ 2 ρ r vr Tr) :
     interpExpr V m.val env ψ 2 ρ l = interpExpr V m.val env ψ 2 ρ r := by
   obtain ⟨hli, -, hlA, hlF, hlW, hlB, hlL⟩ := hl
   obtain ⟨hri, -, hrA, hrF, hrW, hrB, hrL⟩ := hr
@@ -123,7 +123,7 @@ private theorem eqSides_defeq_const {env : Env} (m : EnvModel V env)
     (F : Nat) {l : Expr} {bn : Name} {ci : ConstantInfo} {ψ : Name → Nat}
     {ρ : Nat → V} {vl Tl : V}
     (hde : isDefEqCore env F 2 l (.const bn []) = .ok true)
-    (hl : EqSideOk env m.val ψ ρ l vl Tl)
+    (hl : EqSideOk env m.val ψ 2 ρ l vl Tl)
     (hf : env.find? bn = some ci)
     (hlp : ci.toConstantVal.levelParams = []) :
     interpExpr V m.val env ψ 2 ρ l =
@@ -185,19 +185,19 @@ private theorem natop_eqs_sound {env : Env} (m : EnvModel V env) (F : Nat)
       (updV V (updV V (rho0 V) 0 x) 1 y) H := FvarsOk.of_not_hasFvar hHf
   have hHW : WScoped 2 H := WScoped.of_not_hasFvar hHf
   have hHL : Expr.LeavesBounded H := Expr.LeavesBounded.of_not_hasFvar hHf
-  have hfx : EqSideOk env m.val ψ (updV V (updV V (rho0 V) 0 x) 1 y)
+  have hfx : EqSideOk env m.val ψ 2 (updV V (updV V (rho0 V) 0 x) 1 y)
       (.fvar 0 (.str .anonymous "x") (.const natName [])) x
       (m.val natName ψ) := by
     have h0 := eqSide_fvar m hs (idx := 0) (nm := .str .anonymous "x")
-      (ρ := updV V (updV V (rho0 V) 0 x) 1 y) (by omega)
+      (dd := 2) (ρ := updV V (updV V (rho0 V) 0 x) 1 y) (by omega)
       (by rw [updV01_0]; exact hx)
     rw [updV01_0] at h0
     exact h0
-  have hfy : EqSideOk env m.val ψ (updV V (updV V (rho0 V) 0 x) 1 y)
+  have hfy : EqSideOk env m.val ψ 2 (updV V (updV V (rho0 V) 0 x) 1 y)
       (.fvar 1 (.str .anonymous "y") (.const natName [])) y
       (m.val natName ψ) := by
     have h0 := eqSide_fvar m hs (idx := 1) (nm := .str .anonymous "y")
-      (ρ := updV V (updV V (rho0 V) 0 x) 1 y) (by omega)
+      (dd := 2) (ρ := updV V (updV V (rho0 V) 0 x) 1 y) (by omega)
       (by rw [updV01_1]; exact hy)
     rw [updV01_1] at h0
     exact h0
@@ -259,7 +259,7 @@ private theorem natop_eqs_sound {env : Env} (m : EnvModel V env) (F : Nat)
     rw [hCid (by decide) (by decide)] at hHpi
     obtain ⟨cva, va, hnf2, hfa, hlpa, -, haddm⟩ :=
       natOpStored_facts m (hdeps natAddName (by decide) (by decide)) hs ψ
-    obtain ⟨Ca, haddpi, hCua, hCida⟩ := haddm (by decide)
+    obtain ⟨Ca, haddpi, hCua, hCida, -⟩ := haddm (by decide)
     rw [hCida (by decide) (by decide)] at haddpi
     simp +decide [natOpEquations, Prod.mk.injEq] at heqm
     rcases heqm with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
@@ -281,7 +281,7 @@ private theorem natop_eqs_sound {env : Env} (m : EnvModel V env) (F : Nat)
     rw [hCid (by decide) (by decide)] at hHpi
     obtain ⟨cvm', vm', hnf3, hfm, hlpm, -, hmulm⟩ :=
       natOpStored_facts m (hdeps natMulName (by decide) (by decide)) hs ψ
-    obtain ⟨Cm, hmulpi, hCum, hCidm⟩ := hmulm (by decide)
+    obtain ⟨Cm, hmulpi, hCum, hCidm, -⟩ := hmulm (by decide)
     rw [hCidm (by decide) (by decide)] at hmulpi
     simp +decide [natOpEquations, Prod.mk.injEq] at heqm
     rcases heqm with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
@@ -1958,6 +1958,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       hres'
       hpshape'
       (fun _ hex => by obtain ⟨cv₀, v₀, heq⟩ := hex; exact nomatch heq)
+      (fun _ hex => by obtain ⟨cv₀, v₀, h₀, heq⟩ := hex; exact nomatch heq)
 
   | opaqueDecl cv value =>
     simp only [checkDecl, checkDefnVal, checkOpaqueVal, installBasisDecl,
@@ -2027,6 +2028,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       hres'
       hpshape'
       (fun _ hex => by obtain ⟨cv₀, v₀, heq⟩ := hex; exact nomatch heq)
+      (fun _ hex => by obtain ⟨cv₀, v₀, h₀, heq⟩ := hex; exact nomatch heq)
 
 private theorem foldlM_sound {env' : Env} :
     ∀ (ds : List Declaration) (env : Env), Nonempty (EnvModel V env) →
