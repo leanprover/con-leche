@@ -266,6 +266,46 @@ def instPis : Expr → List Expr → Option Expr
   | .forallE _ _ body _, a :: as => instPis (body.instantiate1 a) as
   | _, _ :: _ => none
 
+/-- Instantiate the leading `∀`-binders at the given arguments,
+returning each binder's (progressively instantiated) domain together
+with the fully instantiated residual. -/
+def instPisAt : List Expr → Expr → Option (List Expr × Expr)
+  | [], e => some ([], e)
+  | a :: as, .forallE _ dom body _ =>
+    (instPisAt as (body.instantiate1 a)).map fun (ds, rest) =>
+      (dom :: ds, rest)
+  | _ :: _, _ => none
+
+/-- `instPisAt` for `λ`-binders. -/
+def instLamsAt : List Expr → Expr → Option (List Expr × Expr)
+  | [], e => some ([], e)
+  | a :: as, .lam _ dom body _ =>
+    (instLamsAt as (body.instantiate1 a)).map fun (ds, rest) =>
+      (dom :: ds, rest)
+  | _ :: _, _ => none
+
+/-- The type annotation of a free-variable leaf (the expression itself
+otherwise; used to read the domains off an opened telescope's
+variables). -/
+def fvarTypeD : Expr → Expr
+  | .fvar _ _ ty => ty
+  | e => e
+
+/-- A recursor rule is *canonical* when its constructor's parameters
+are exactly the recursor's own leading arguments: the major premise's
+type applies the eliminated family to the first `cnP` telescope
+variables.  Rules for nested auxiliary constructors (whose parameters
+are instantiations like `Array Syntax`) are not canonical; they are
+stored inert — `iotaRec` guards on this predicate, so they never fire
+and carry no fold obligation. -/
+def recRulePlain (recTy : Expr) (nP nM nm ni cnP : Nat) : Bool :=
+  decide (cnP ≤ nP + nM + nm) &&
+  match recTy.stripPis (nP + nM + nm + ni) with
+  | some (_, .forallE _ dom _ _) =>
+    dom.getAppArgs.take cnP ==
+      (List.range cnP).map (fun k => Expr.bvar (nP + nM + nm + ni - 1 - k))
+  | _ => false
+
 /-- Convert the first `k` `∀`-binders into `λ`-binders over a body. -/
 def pisToLams : Nat → Expr → Expr → Option Expr
   | 0, _, body => some body

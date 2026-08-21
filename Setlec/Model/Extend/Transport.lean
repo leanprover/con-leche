@@ -380,7 +380,7 @@ theorem extend_rec_swap {rules' : List RecRule}
         hfp₀ r hr
       refine ⟨fun ψ => hAtrans01 _ ψ 0 (rho0 V) (hA ψ), ?_⟩
       intro cvj' cnP' cnF' hfj ψ ψj args margs tv hl hml hch hmch htv
-        hpeq hlev hfit
+        hpeq hplain hlev hfit
       have hncc : RecRule.ctor r ≠ cvA.name := by
         intro h
         rw [h, Env.find?_cons,
@@ -395,7 +395,7 @@ theorem extend_rec_swap {rules' : List RecRule}
       obtain ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
         hψeq, hψjeq, hfit1, hfit2, hidx⟩ := hfit
       obtain ⟨R', hRi, hfoldEq, hRch⟩ := hfold cvj' cnP' cnF' hfj₀ ψ ψj
-        args margs tv hl hml hch hmch htv hpeq hlev
+        args margs tv hl hml hch hmch htv hpeq hplain hlev
         ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
           hψeq, hψjeq,
           TeleFit.env_levelext henv10 natLitSupported_cons_recRules hfit1,

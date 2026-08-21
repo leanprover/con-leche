@@ -106,6 +106,7 @@ def RecMemberOk (env' : Env) (val' : ConstVal V)
           ChainSlots V (val' (RecRule.ctor r) ψj) margs →
           tv = SpineFold V (val' (RecRule.ctor r) ψj) margs →
           margs.take cnP = (args ++ [tv]).take cnP →
+          Expr.recRulePlain cvR.type nP nM nm ni cnP = true →
           (∀ p ∈ cvj.levelParams, ψj p = ψ p) →
           (∃ (φ' : Name → Nat) (us usj : List Level) (d : Nat) (ρ : Nat → V)
               (d₁ : Nat) (ρ₁ : Nat → V) (rest₁ : Expr)
@@ -179,8 +180,8 @@ theorem RecRulesOk.cons {env : Env} (m : EnvModel V env)
     have hvaln : ∀ ψ : Name → Nat, val' n ψ = m.val n ψ :=
       fun ψ => hagree n (by rw [hfp]; rfl) ψ
     refine ⟨fun ψ => hAtrans _ hrres ψ (hA ψ), ?_⟩
-    intro cvj cnP cnF hfj ψ ψj args margs tv hl hml hch hmch htv hpeq hlev
-      hfit
+    intro cvj cnP cnF hfj ψ ψj args margs tv hl hml hch hmch htv hpeq
+      hplain hlev hfit
     rw [Env.find?_cons] at hfj
     split at hfj
     · next hnc =>
@@ -244,7 +245,7 @@ theorem RecRulesOk.cons {env : Env} (m : EnvModel V env)
         exact htrans _ (fun x hx =>
           Expr.constsResolve_getAppArgs hrres2 x (List.mem_of_mem_drop hx))
       obtain ⟨R, hRi, hfoldEq, hRch⟩ := hfold cvj cnP cnF hfj ψ ψj
-        args margs tv hl hml hch hmch htv hpeq hlev hfit'
+        args margs tv hl hml hch hmch htv hpeq hplain hlev hfit'
       refine ⟨R, ?_, ?_, hRch⟩
       · rw [htrans _ hrres ψ]
         exact hRi

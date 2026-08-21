@@ -369,7 +369,7 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
           obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major, cj, usj,
             cvj, cnP, cnF, r, -, -, -, -, -, hfn, hfc, hlen, hmaj, hsub, hmfn, hfj,
             hrule,
-            hml1, hml2, har1, har2, hlev, hpeq, hcerts, hmcerts, -, -, -, -, rfl⟩ :=
+            hml1, hml2, har1, har2, -, hlev, hpeq, hcerts, hmcerts, -, -, -, -, rfl⟩ :=
             iotaRec_inv hio
           have hsubM : ∀ l ∈ major.fvarLeaves, l ∈ major₀.fvarLeaves := by
             rcases majorToCtor_inv hsub with rfl | ⟨-, -, hall, -⟩
@@ -487,7 +487,7 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
           obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major, cj, usj,
             cvj, cnP, cnF, r, -, -, -, -, -, hfn, hfc, hlen, hmaj, hsub, hmfn, hfj,
             hrule,
-            hml1, hml2, har1, har2, hlev, hpeq, hcerts, hmcerts, -, -, -, -, rfl⟩ :=
+            hml1, hml2, har1, har2, -, hlev, hpeq, hcerts, hmcerts, -, -, -, -, rfl⟩ :=
             iotaRec_inv hio
           have hbapp : (Expr.app f' a).looseBVarsBounded 0 = true := by
             simp only [looseBVarsBounded, Bool.and_eq_true]

@@ -43,7 +43,7 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
     Expr.LeavesBounded e'' ∧ FvarsOk V m.val env φ d ρ e'' := by
   obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major, cj, usj, cvj,
     cnP, cnF, r, cbinders, cbody, residual, cr, usr, hfn, hfc, hlen, hmaj,
-    hsub, hmfn, hfj, hrule, hml1, hml2, har1, har2, hlev, hpeq, hcerts,
+    hsub, hmfn, hfj, hrule, hml1, hml2, har1, har2, hplain, hlev, hpeq, hcerts,
     hmcerts, hstrip, hres, hrfn, hieq, heout⟩ :=
     iotaRec_inv hio
   obtain rfl : cj = r.ctor :=
@@ -568,7 +568,7 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
     rw [h1, h2, h3, Level.substFn_map_param]
     rfl
   obtain ⟨R, hRi, hfoldEq, hRchain⟩ := hfolds cvj cnP cnF hfj _ _
-    vsi ws tvv hvsilen hwslen hchain' hmchain htveq hparameq hψeq
+    vsi ws tvv hvsilen hwslen hchain' hmchain htveq hparameq hplain hψeq
     ⟨φ, us, usj, d, ρ, dR, ρR, restR', dC, ρC, restC', rfl, rfl,
       hfitR, hfitC, hmapM⟩
   -- the reduct's interpretation and annotation chain
