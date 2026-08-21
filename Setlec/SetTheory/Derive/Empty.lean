@@ -3,8 +3,7 @@ import Setlec.SetTheory.Core
 /-!
 # The empty set, derived
 
-nanodatg's `derived/empty` route (kernel README §1, "The empty set"):
-the transitivity clause added to Tarski's Axiom A makes this cheap —
+The transitivity clause added to Tarski's Axiom A makes this cheap —
 a universe is nonempty and transitive, so regularity's `∈`-minimal
 member of it has no members at all.
 
@@ -12,14 +11,14 @@ Also here: the small consequences of regularity everything downstream
 wants — `x ∉ x` and the impossibility of membership 2-cycles.
 -/
 
-namespace Setlec.TG
+namespace Setlec.SetTheory
 
 universe u
 
-variable {V : Type u} [TG V]
+variable {V : Type u} [SetTheory V]
 
-theorem empty_exists : ∃ e : V, ∀ z, ¬ z ∈ᵗ e := by
-  obtain ⟨x⟩ := TG.nonempty (V := V)
+theorem empty_exists : ∃ e : V, ∀ z, ¬ z ∈ˢ e := by
+  obtain ⟨x⟩ := SetTheory.nonempty (V := V)
   obtain ⟨uu, hx, htrans, -, -, -⟩ := tarski x
   obtain ⟨y, hy, hmin⟩ := regularity uu ⟨x, hx⟩
   exact ⟨y, fun z hz => hmin ⟨z, hz, htrans y z hy hz⟩⟩
@@ -27,37 +26,51 @@ theorem empty_exists : ∃ e : V, ∀ z, ¬ z ∈ᵗ e := by
 /-- The empty set. -/
 noncomputable def empty : V := Classical.choose empty_exists
 
-theorem not_mem_empty (z : V) : ¬ z ∈ᵗ (empty : V) :=
+theorem not_mem_empty (z : V) : ¬ z ∈ˢ (empty : V) :=
   Classical.choose_spec empty_exists z
 
-theorem eq_empty {x : V} (h : ∀ z, ¬ z ∈ᵗ x) : x = empty :=
+theorem eq_empty {x : V} (h : ∀ z, ¬ z ∈ˢ x) : x = empty :=
   ext fun z => ⟨fun hz => absurd hz (h z), fun hz => absurd hz (not_mem_empty z)⟩
 
-theorem eq_empty_iff {x : V} : x = empty ↔ ∀ z, ¬ z ∈ᵗ x :=
+theorem eq_empty_iff {x : V} : x = empty ↔ ∀ z, ¬ z ∈ˢ x :=
   ⟨fun h z => h ▸ not_mem_empty z, eq_empty⟩
 
-theorem ne_empty_of_mem {x z : V} (h : z ∈ᵗ x) : x ≠ empty :=
+theorem ne_empty_of_mem {x z : V} (h : z ∈ˢ x) : x ≠ empty :=
   fun he => not_mem_empty z (he ▸ h)
 
-theorem nonempty_of_ne_empty {x : V} (h : x ≠ empty) : ∃ z, z ∈ᵗ x :=
+theorem nonempty_of_ne_empty {x : V} (h : x ≠ empty) : ∃ z, z ∈ˢ x :=
   Classical.byContradiction fun hn => h (eq_empty fun z hz => hn ⟨z, hz⟩)
 
-theorem empty_subset (x : V) : (empty : V) ⊆ᵗ x :=
+theorem empty_subset (x : V) : (empty : V) ⊆ˢ x :=
   fun z hz => absurd hz (not_mem_empty z)
 
 /-- No set is a member of itself (regularity at `{x}`). -/
-theorem not_mem_self (x : V) : ¬ x ∈ᵗ x := by
+theorem not_mem_self (x : V) : ¬ x ∈ˢ x := by
   intro hx
   obtain ⟨y, hy, hmin⟩ := regularity (upair x x) ⟨x, mem_upair.mpr (Or.inl rfl)⟩
   have hyx : y = x := by rcases mem_upair.mp hy with h | h <;> exact h
   subst hyx
   exact hmin ⟨y, hx, mem_upair.mpr (Or.inl rfl)⟩
 
+/-- Compiler stub: the interface operators are noncomputable
+(classical), but consumers may mention them in computable definitions
+(as the legacy class projections allowed).  `implemented_by` satisfies
+the compiler; the stubs are never executed — the model layer is
+proof-only — and have no logical content. -/
+private unsafe def emptyImpl {V : Type u} [SetTheory V] : V := unsafeCast ()
+
+attribute [implemented_by emptyImpl] empty
+
+/- Interface operators are opaque from here on (as the legacy class
+projections were): consumers reason only through the laws, never by
+unfolding.  Everything above this line may use the definition. -/
+attribute [irreducible] empty
+
 /-- No membership 2-cycles (regularity at `{a, b}`). -/
-theorem no_two_cycle {a b : V} (hab : a ∈ᵗ b) (hba : b ∈ᵗ a) : False := by
+theorem no_two_cycle {a b : V} (hab : a ∈ˢ b) (hba : b ∈ˢ a) : False := by
   obtain ⟨y, hy, hmin⟩ := regularity (upair a b) ⟨a, mem_upair.mpr (Or.inl rfl)⟩
   rcases mem_upair.mp hy with h | h <;> subst h
   · exact hmin ⟨b, hba, mem_upair.mpr (Or.inr rfl)⟩
   · exact hmin ⟨a, hab, mem_upair.mpr (Or.inl rfl)⟩
 
-end Setlec.TG
+end Setlec.SetTheory

@@ -12,11 +12,11 @@ the inductive universe `guniv ∅` — the second component is what puts
 transitive and each level is a member of the next.
 -/
 
-namespace Setlec.TG
+namespace Setlec.SetTheory
 
 universe u
 
-variable {V : Type u} [TG V]
+variable {V : Type u} [SetTheory V]
 
 /-- The universe tower interpreting `Sort n`. -/
 noncomputable def univ : Nat → V
@@ -32,16 +32,16 @@ theorem univ_isTGUniverse {n : Nat} (hn : n ≠ 0) :
   | m + 1, _ => exact guniv_isTGUniverse _
 
 theorem guniv_empty_mem_univ_succ (n : Nat) :
-    guniv (empty : V) ∈ᵗ univ (n + 1) :=
+    guniv (empty : V) ∈ˢ univ (n + 1) :=
   (guniv_isTGUniverse _).transitive (mem_guniv _) (mem_upair_right _ _)
 
-theorem univ_mem_univ (n : Nat) : (univ n : V) ∈ᵗ univ (n + 1) :=
+theorem univ_mem_univ (n : Nat) : (univ n : V) ∈ˢ univ (n + 1) :=
   (guniv_isTGUniverse _).transitive (mem_guniv _) (mem_upair_left _ _)
 
-theorem univ_subset_succ (n : Nat) : (univ n : V) ⊆ᵗ univ (n + 1) :=
+theorem univ_subset_succ (n : Nat) : (univ n : V) ⊆ˢ univ (n + 1) :=
   (univ_isTGUniverse (Nat.succ_ne_zero n)).subset_of_mem (univ_mem_univ n)
 
-theorem univ_mono {m n : Nat} (h : m ≤ n) : (univ m : V) ⊆ᵗ univ n := by
+theorem univ_mono {m n : Nat} (h : m ≤ n) : (univ m : V) ⊆ˢ univ n := by
   induction n with
   | zero => cases Nat.le_zero.mp h; exact Subset.refl _
   | succ n ih =>
@@ -49,23 +49,23 @@ theorem univ_mono {m n : Nat} (h : m ≤ n) : (univ m : V) ⊆ᵗ univ n := by
     · exact (ih (Nat.lt_succ_iff.mp h')).trans (univ_subset_succ n)
     · exact Subset.refl _
 
-theorem omega_mem_univ_succ (n : Nat) : (omega : V) ∈ᵗ univ (n + 1) :=
+theorem omega_mem_univ_succ (n : Nat) : (omega : V) ∈ˢ univ (n + 1) :=
   (univ_isTGUniverse (Nat.succ_ne_zero n)).omega_mem (guniv_empty_mem_univ_succ n)
 
-theorem empty_mem_univ : ∀ n : Nat, (empty : V) ∈ᵗ univ n
+theorem empty_mem_univ : ∀ n : Nat, (empty : V) ∈ˢ univ n
   | 0 => mem_univZero.mpr (empty_subset _)
   | n + 1 =>
     (univ_isTGUniverse (Nat.succ_ne_zero n)).empty_mem (guniv_empty_mem_univ_succ n)
 
-theorem unitSet_mem_univ : ∀ n : Nat, (unitSet : V) ∈ᵗ univ n
+theorem unitSet_mem_univ : ∀ n : Nat, (unitSet : V) ∈ˢ univ n
   | 0 => mem_univZero.mpr (Subset.refl _)
   | n + 1 =>
     (univ_isTGUniverse (Nat.succ_ne_zero n)).unitSet_mem (guniv_empty_mem_univ_succ n)
 
 /-- Formation for `pi` along the tower, with the `imax`-style level. -/
 theorem pi_mem_univ {u v : Nat} {A : V} {B : V → V}
-    (hA : A ∈ᵗ (univ u : V)) (hB : ∀ x, x ∈ᵗ A → B x ∈ᵗ (univ v : V)) :
-    pi v A B ∈ᵗ (univ (if v = 0 then 0 else Nat.max u v) : V) := by
+    (hA : A ∈ˢ (univ u : V)) (hB : ∀ x, x ∈ˢ A → B x ∈ˢ (univ v : V)) :
+    pi v A B ∈ˢ (univ (if v = 0 then 0 else Nat.max u v) : V) := by
   rcases Nat.eq_zero_or_pos v with rfl | hv
   · rw [if_pos rfl, univ_zero]
     exact pi_zero_mem_univZero
@@ -77,4 +77,13 @@ theorem pi_mem_univ {u v : Nat} {A : V} {B : V → V}
       (univ_mono (Nat.le_max_left u v) A hA)
       (fun x hx => univ_mono (Nat.le_max_right u v) _ (hB x hx))
 
-end Setlec.TG
+/- Compiler stub (see `Derive/Empty.lean`): never executed, no logical
+content. -/
+private unsafe def univImpl {V : Type u} [SetTheory V] (_n : Nat) : V := unsafeCast ()
+
+attribute [implemented_by univImpl] univ
+
+/- Opaque interface operator (see `Derive/Empty.lean`). -/
+attribute [irreducible] univ
+
+end Setlec.SetTheory

@@ -13,16 +13,16 @@ non-pairs — in particular on `pt` itself, which is never a pair, so
 `sfst pt = ssnd pt = pt` holds by the tag.
 -/
 
-namespace Setlec.TG
+namespace Setlec.SetTheory
 
 universe u
 
-variable {V : Type u} [TG V]
+variable {V : Type u} [SetTheory V]
 
 open Classical in
 /-- Dependent pair set at level `w` (see module docs). -/
 noncomputable def sigmaSet (w : Nat) (A : V) (B : V → V) : V :=
-  if w = 0 then truthVal (∃ x, x ∈ᵗ A ∧ ∃ y, y ∈ᵗ B x) else sigmaPairs A B
+  if w = 0 then truthVal (∃ x, x ∈ˢ A ∧ ∃ y, y ∈ˢ B x) else sigmaPairs A B
 
 /-- Pairing: the Kuratowski pair. -/
 noncomputable def spair (a b : V) : V := kpair a b
@@ -39,7 +39,7 @@ noncomputable def ssnd (p : V) : V :=
   else pt
 
 theorem sigmaSet_zero {A : V} {B : V → V} :
-    sigmaSet 0 A B = truthVal (∃ x, x ∈ᵗ A ∧ ∃ y, y ∈ᵗ B x) := by
+    sigmaSet 0 A B = truthVal (∃ x, x ∈ˢ A ∧ ∃ y, y ∈ˢ B x) := by
   unfold sigmaSet; exact if_pos rfl
 
 theorem sigmaSet_pos {w : Nat} (hw : w ≠ 0) {A : V} {B : V → V} :
@@ -47,7 +47,7 @@ theorem sigmaSet_pos {w : Nat} (hw : w ≠ 0) {A : V} {B : V → V} :
   unfold sigmaSet; exact if_neg hw
 
 theorem sigma_congr {w : Nat} {A : V} {B B' : V → V}
-    (h : ∀ x, x ∈ᵗ A → B x = B' x) : sigmaSet w A B = sigmaSet w A B' := by
+    (h : ∀ x, x ∈ˢ A → B x = B' x) : sigmaSet w A B = sigmaSet w A B' := by
   rcases Nat.eq_zero_or_pos w with rfl | hw
   · rw [sigmaSet_zero, sigmaSet_zero]
     refine truthVal_congr ⟨?_, ?_⟩
@@ -57,18 +57,18 @@ theorem sigma_congr {w : Nat} {A : V} {B B' : V → V}
     exact sigmaPairs_congr h
 
 theorem spair_mem {w : Nat} {A : V} {B : V → V} {a b : V} (hw : w ≠ 0)
-    (ha : a ∈ᵗ A) (hb : b ∈ᵗ B a) : spair a b ∈ᵗ sigmaSet w A B := by
+    (ha : a ∈ˢ A) (hb : b ∈ˢ B a) : spair a b ∈ˢ sigmaSet w A B := by
   rw [sigmaSet_pos hw]
   exact mem_sigmaPairs.mpr ⟨a, ha, b, hb, rfl⟩
 
 theorem pt_mem_sigma {A : V} {B : V → V} {a b : V}
-    (ha : a ∈ᵗ A) (hb : b ∈ᵗ B a) : (pt : V) ∈ᵗ sigmaSet 0 A B := by
+    (ha : a ∈ˢ A) (hb : b ∈ˢ B a) : (pt : V) ∈ˢ sigmaSet 0 A B := by
   rw [sigmaSet_zero]
   exact pt_mem_truthVal ⟨a, ha, b, hb⟩
 
 theorem mem_sigma_elim {w : Nat} {A : V} {B : V → V} {t : V}
-    (ht : t ∈ᵗ sigmaSet w A B) :
-    ∃ a b, a ∈ᵗ A ∧ b ∈ᵗ B a ∧ (w = 0 → t = pt) ∧ (w ≠ 0 → t = spair a b) := by
+    (ht : t ∈ˢ sigmaSet w A B) :
+    ∃ a b, a ∈ˢ A ∧ b ∈ˢ B a ∧ (w = 0 → t = pt) ∧ (w ≠ 0 → t = spair a b) := by
   rcases Nat.eq_zero_or_pos w with rfl | hw
   · rw [sigmaSet_zero] at ht
     obtain ⟨a, ha, b, hb⟩ := of_mem_truthVal ht
@@ -108,8 +108,8 @@ theorem ssnd_pt : ssnd (pt : V) = pt := by
 
 /-- Formation along the tower, at the joint level `max u v`. -/
 theorem sigma_mem_univ {u v : Nat} {A : V} {B : V → V}
-    (hA : A ∈ᵗ (univ u : V)) (hB : ∀ x, x ∈ᵗ A → B x ∈ᵗ (univ v : V)) :
-    sigmaSet (Nat.max u v) A B ∈ᵗ (univ (Nat.max u v) : V) := by
+    (hA : A ∈ˢ (univ u : V)) (hB : ∀ x, x ∈ˢ A → B x ∈ˢ (univ v : V)) :
+    sigmaSet (Nat.max u v) A B ∈ˢ (univ (Nat.max u v) : V) := by
   rcases Nat.eq_zero_or_pos (Nat.max u v) with hw | hw
   · rw [hw, sigmaSet_zero, univ_zero]
     exact truthVal_mem_univZero _
@@ -119,4 +119,20 @@ theorem sigma_mem_univ {u v : Nat} {A : V} {B : V → V}
       (univ_mono (Nat.le_max_left u v) A hA)
       (fun x hx => univ_mono (Nat.le_max_right u v) _ (hB x hx))
 
-end Setlec.TG
+/- Compiler stubs (see `Derive/Empty.lean`): never executed, no logical
+content. -/
+private unsafe def sigmaSetImpl {V : Type u} [SetTheory V] (_w : Nat) (_A : V) (_B : V → V) : V :=
+  unsafeCast ()
+private unsafe def spairImpl {V : Type u} [SetTheory V] (_a _b : V) : V := unsafeCast ()
+private unsafe def sfstImpl {V : Type u} [SetTheory V] (_p : V) : V := unsafeCast ()
+private unsafe def ssndImpl {V : Type u} [SetTheory V] (_p : V) : V := unsafeCast ()
+
+attribute [implemented_by sigmaSetImpl] sigmaSet
+attribute [implemented_by spairImpl] spair
+attribute [implemented_by sfstImpl] sfst
+attribute [implemented_by ssndImpl] ssnd
+
+/- Opaque interface operators (see `Derive/Empty.lean`). -/
+attribute [irreducible] sigmaSet spair sfst ssnd
+
+end Setlec.SetTheory

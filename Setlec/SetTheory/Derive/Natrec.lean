@@ -12,11 +12,11 @@ function (`app`), matching the `SetTheory.natrec` interface; off `ω`
 the value is junk (`empty`), which no law constrains.
 -/
 
-namespace Setlec.TG
+namespace Setlec.SetTheory
 
 universe u
 
-variable {V : Type u} [TG V]
+variable {V : Type u} [SetTheory V]
 
 /-- Meta-level iteration of the set-level step function. -/
 noncomputable def natIter (z s : V) : Nat → V
@@ -41,7 +41,7 @@ theorem natrec_empty (z s : V) : natrec z s empty = z := by
   rw [h, natrec_vnat]
   rfl
 
-theorem natrec_vsucc (z s : V) {n : V} (hn : n ∈ᵗ (omega : V)) :
+theorem natrec_vsucc (z s : V) {n : V} (hn : n ∈ˢ (omega : V)) :
     natrec z s (vsucc n) = app (app s n) (natrec z s n) := by
   obtain ⟨k, rfl⟩ := mem_omega_iff.mp hn
   have h : vsucc (vnat k : V) = vnat (k + 1) := rfl
@@ -50,11 +50,11 @@ theorem natrec_vsucc (z s : V) {n : V} (hn : n ∈ᵗ (omega : V)) :
 
 /-- The recursion theorem with typing: the motive `M` is applied as a
 set-theoretic function. -/
-theorem natrec_mem {M z s n : V}
-    (hz : z ∈ᵗ app M empty)
-    (hs : ∀ k, k ∈ᵗ (omega : V) → ∀ ih, ih ∈ᵗ app M k →
-      app (app s k) ih ∈ᵗ app M (vsucc k))
-    (hn : n ∈ᵗ (omega : V)) : natrec z s n ∈ᵗ app M n := by
+theorem natrec_mem_vsucc {M z s n : V}
+    (hz : z ∈ˢ app M empty)
+    (hs : ∀ k, k ∈ˢ (omega : V) → ∀ ih, ih ∈ˢ app M k →
+      app (app s k) ih ∈ˢ app M (vsucc k))
+    (hn : n ∈ˢ (omega : V)) : natrec z s n ∈ˢ app M n := by
   obtain ⟨k, rfl⟩ := mem_omega_iff.mp hn
   clear hn
   rw [natrec_vnat]
@@ -63,4 +63,13 @@ theorem natrec_mem {M z s n : V}
   | succ k ih =>
     exact hs (vnat k) (vnat_mem_omega k) (natIter z s k) ih
 
-end Setlec.TG
+/- Compiler stub (see `Derive/Empty.lean`): never executed, no logical
+content. -/
+private unsafe def natrecImpl {V : Type u} [SetTheory V] (_z _s _n : V) : V := unsafeCast ()
+
+attribute [implemented_by natrecImpl] natrec
+
+/- Opaque interface operator (see `Derive/Empty.lean`). -/
+attribute [irreducible] natrec
+
+end Setlec.SetTheory

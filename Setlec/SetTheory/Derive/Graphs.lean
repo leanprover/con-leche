@@ -18,25 +18,25 @@ The level-`0` truncations (`lam 0 = pt`, `pi 0` a truth value) are
 layered on top in `Derive/Pi.lean`.
 -/
 
-namespace Setlec.TG
+namespace Setlec.SetTheory
 
 universe u
 
-variable {V : Type u} [TG V]
+variable {V : Type u} [SetTheory V]
 
 /-- The function graph `{⟨x, F x⟩ : x ∈ A}`. -/
 noncomputable def graph (F : V → V) (A : V) : V :=
   image (fun x => kpair x (F x)) A
 
 theorem mem_graph {F : V → V} {A p : V} :
-    p ∈ᵗ graph F A ↔ ∃ x, x ∈ᵗ A ∧ p = kpair x (F x) := mem_image
+    p ∈ˢ graph F A ↔ ∃ x, x ∈ˢ A ∧ p = kpair x (F x) := mem_image
 
 theorem graph_ne_pt {F : V → V} {A : V} : graph F A ≠ (pt : V) := by
   intro h
-  obtain ⟨x, -, hx⟩ := mem_graph.mp (h ▸ mem_pt.mpr rfl : (empty : V) ∈ᵗ graph F A)
+  obtain ⟨x, -, hx⟩ := mem_graph.mp (h ▸ mem_pt.mpr rfl : (empty : V) ∈ˢ graph F A)
   exact kpair_ne_empty hx.symm
 
-theorem graph_congr {F F' : V → V} {A : V} (h : ∀ x, x ∈ᵗ A → F x = F' x) :
+theorem graph_congr {F F' : V → V} {A : V} (h : ∀ x, x ∈ˢ A → F x = F' x) :
     graph F A = graph F' A :=
   image_congr fun x hx => by rw [h x hx]
 
@@ -45,17 +45,17 @@ open Classical in
 with `a` in `f` — except at the proof point, which applies to `pt`
 again. -/
 noncomputable def app (f a : V) : V :=
-  if f = pt then pt else sUnion (sep (sUnion (sUnion f)) (fun y => kpair a y ∈ᵗ f))
+  if f = pt then pt else sUnion (sep (sUnion (sUnion f)) (fun y => kpair a y ∈ˢ f))
 
 theorem app_pt (a : V) : app (pt : V) a = pt := by
   unfold app; exact if_pos rfl
 
 /-- Application computes on single-valued positions. -/
-theorem app_eq_of_unique {f a b : V} (hf : f ≠ pt) (hab : kpair a b ∈ᵗ f)
-    (huniq : ∀ y, kpair a y ∈ᵗ f → y = b) : app f a = b := by
+theorem app_eq_of_unique {f a b : V} (hf : f ≠ pt) (hab : kpair a b ∈ˢ f)
+    (huniq : ∀ y, kpair a y ∈ˢ f → y = b) : app f a = b := by
   unfold app
   rw [if_neg hf]
-  have : sep (sUnion (sUnion f)) (fun y => kpair a y ∈ᵗ f) = sing b := by
+  have : sep (sUnion (sUnion f)) (fun y => kpair a y ∈ˢ f) = sing b := by
     apply ext fun z => ?_
     rw [mem_sep, mem_sing]
     constructor
@@ -67,7 +67,7 @@ theorem app_eq_of_unique {f a b : V} (hf : f ≠ pt) (hab : kpair a b ∈ᵗ f)
   rw [this, sUnion_sing]
 
 /-- Beta on graphs. -/
-theorem app_graph {F : V → V} {A a : V} (ha : a ∈ᵗ A) :
+theorem app_graph {F : V → V} {A a : V} (ha : a ∈ˢ A) :
     app (graph F A) a = F a := by
   refine app_eq_of_unique graph_ne_pt (mem_graph.mpr ⟨a, ha, rfl⟩) ?_
   intro y hy
@@ -80,7 +80,7 @@ noncomputable def sigmaPairs (A : V) (B : V → V) : V :=
   sUnion (image (fun x => image (fun y => kpair x y) (B x)) A)
 
 theorem mem_sigmaPairs {A p : V} {B : V → V} :
-    p ∈ᵗ sigmaPairs A B ↔ ∃ x, x ∈ᵗ A ∧ ∃ y, y ∈ᵗ B x ∧ p = kpair x y := by
+    p ∈ˢ sigmaPairs A B ↔ ∃ x, x ∈ˢ A ∧ ∃ y, y ∈ˢ B x ∧ p = kpair x y := by
   unfold sigmaPairs
   rw [mem_sUnion]
   constructor
@@ -93,14 +93,14 @@ theorem mem_sigmaPairs {A p : V} {B : V → V} :
       mem_image.mpr ⟨y, hy, rfl⟩⟩
 
 theorem sigmaPairs_congr {A : V} {B B' : V → V}
-    (h : ∀ x, x ∈ᵗ A → B x = B' x) : sigmaPairs A B = sigmaPairs A B' := by
+    (h : ∀ x, x ∈ˢ A → B x = B' x) : sigmaPairs A B = sigmaPairs A B' := by
   unfold sigmaPairs
   congr 1
   exact image_congr fun x hx => by rw [h x hx]
 
 theorem _root_.Setlec.IsTGUniverse.sigmaPairs_mem {U A : V} {B : V → V}
-    (hU : IsTGUniverse (Mem (V := V)) U) (hA : A ∈ᵗ U)
-    (hB : ∀ x, x ∈ᵗ A → B x ∈ᵗ U) : sigmaPairs A B ∈ᵗ U :=
+    (hU : IsTGUniverse (Mem (V := V)) U) (hA : A ∈ˢ U)
+    (hB : ∀ x, x ∈ˢ A → B x ∈ˢ U) : sigmaPairs A B ∈ˢ U :=
   hU.famUnion_mem hA fun x hx =>
     hU.image_mem (hB x hx) fun _y hy =>
       hU.kpair_mem hA (hU.transitive hA hx) (hU.transitive (hB x hx) hy)
@@ -109,26 +109,26 @@ theorem _root_.Setlec.IsTGUniverse.sigmaPairs_mem {U A : V} {B : V → V}
 `B`: the `v ≠ 0` dependent product. -/
 noncomputable def piSet (A : V) (B : V → V) : V :=
   sep (power (sigmaPairs A B))
-    (fun f => ∀ x, x ∈ᵗ A → ∃ y, kpair x y ∈ᵗ f ∧ ∀ y', kpair x y' ∈ᵗ f → y' = y)
+    (fun f => ∀ x, x ∈ˢ A → ∃ y, kpair x y ∈ˢ f ∧ ∀ y', kpair x y' ∈ˢ f → y' = y)
 
 theorem mem_piSet {A f : V} {B : V → V} :
-    f ∈ᵗ piSet A B ↔ f ⊆ᵗ sigmaPairs A B ∧
-      ∀ x, x ∈ᵗ A → ∃ y, kpair x y ∈ᵗ f ∧ ∀ y', kpair x y' ∈ᵗ f → y' = y := by
+    f ∈ˢ piSet A B ↔ f ⊆ˢ sigmaPairs A B ∧
+      ∀ x, x ∈ˢ A → ∃ y, kpair x y ∈ˢ f ∧ ∀ y', kpair x y' ∈ˢ f → y' = y := by
   unfold piSet
   rw [mem_sep, mem_power_iff_subset]
 
 theorem piSet_congr {A : V} {B B' : V → V}
-    (h : ∀ x, x ∈ᵗ A → B x = B' x) : piSet A B = piSet A B' := by
+    (h : ∀ x, x ∈ˢ A → B x = B' x) : piSet A B = piSet A B' := by
   unfold piSet
   rw [sigmaPairs_congr h]
 
 theorem _root_.Setlec.IsTGUniverse.piSet_mem {U A : V} {B : V → V}
-    (hU : IsTGUniverse (Mem (V := V)) U) (hA : A ∈ᵗ U)
-    (hB : ∀ x, x ∈ᵗ A → B x ∈ᵗ U) : piSet A B ∈ᵗ U :=
+    (hU : IsTGUniverse (Mem (V := V)) U) (hA : A ∈ˢ U)
+    (hB : ∀ x, x ∈ˢ A → B x ∈ˢ U) : piSet A B ∈ˢ U :=
   hU.mem_of_subset_mem (hU.power_mem (hU.sigmaPairs_mem hA hB)) sep_subset
 
 theorem graph_mem_piSet {A : V} {B F : V → V}
-    (hF : ∀ x, x ∈ᵗ A → F x ∈ᵗ B x) : graph F A ∈ᵗ piSet A B := by
+    (hF : ∀ x, x ∈ˢ A → F x ∈ˢ B x) : graph F A ∈ˢ piSet A B := by
   rw [mem_piSet]
   constructor
   · intro p hp
@@ -141,7 +141,7 @@ theorem graph_mem_piSet {A : V} {B F : V → V}
     obtain ⟨rfl, rfl⟩ := kpair_inj hx'
     rfl
 
-theorem ne_pt_of_mem_piSet {A f : V} {B : V → V} (hf : f ∈ᵗ piSet A B) :
+theorem ne_pt_of_mem_piSet {A f : V} {B : V → V} (hf : f ∈ˢ piSet A B) :
     f ≠ pt := by
   rintro rfl
   have := (mem_piSet.mp hf).1 empty (mem_pt.mpr rfl)
@@ -149,7 +149,7 @@ theorem ne_pt_of_mem_piSet {A f : V} {B : V → V} (hf : f ∈ᵗ piSet A B) :
   exact kpair_ne_empty hy.symm
 
 theorem app_mem_of_mem_piSet {A f a : V} {B : V → V}
-    (hf : f ∈ᵗ piSet A B) (ha : a ∈ᵗ A) : app f a ∈ᵗ B a := by
+    (hf : f ∈ˢ piSet A B) (ha : a ∈ˢ A) : app f a ∈ˢ B a := by
   obtain ⟨hsub, htot⟩ := mem_piSet.mp hf
   obtain ⟨y, hy, huniq⟩ := htot a ha
   rw [app_eq_of_unique (ne_pt_of_mem_piSet hf) hy huniq]
@@ -159,7 +159,7 @@ theorem app_mem_of_mem_piSet {A f a : V} {B : V → V}
 
 /-- Eta: a member of `piSet A B` is the graph of its own application. -/
 theorem eq_graph_app_of_mem_piSet {A f : V} {B : V → V}
-    (hf : f ∈ᵗ piSet A B) : graph (fun x => app f x) A = f := by
+    (hf : f ∈ˢ piSet A B) : graph (fun x => app f x) A = f := by
   obtain ⟨hsub, htot⟩ := mem_piSet.mp hf
   apply ext fun p => ?_
   rw [mem_graph]
@@ -176,11 +176,20 @@ theorem eq_graph_app_of_mem_piSet {A f : V} {B : V → V}
 /-- Members of `piSet A' B` that are graphs over `A` pin the domain:
 every `x ∈ A'` lies in `A`. -/
 theorem graph_dom_of_mem_piSet {A A' : V} {B F : V → V}
-    (hf : graph F A ∈ᵗ piSet A' B) : ∀ x, x ∈ᵗ A' → x ∈ᵗ A := by
+    (hf : graph F A ∈ˢ piSet A' B) : ∀ x, x ∈ˢ A' → x ∈ˢ A := by
   intro x hx
   obtain ⟨y, hy, -⟩ := (mem_piSet.mp hf).2 x hx
   obtain ⟨x', hx', hp⟩ := mem_graph.mp hy
   obtain ⟨rfl, rfl⟩ := kpair_inj hp
   exact hx'
 
-end Setlec.TG
+/- Compiler stub (see `Derive/Empty.lean`): never executed, no logical
+content. -/
+private unsafe def appImpl {V : Type u} [SetTheory V] (_f _a : V) : V := unsafeCast ()
+
+attribute [implemented_by appImpl] app
+
+/- Opaque interface operator (see `Derive/Empty.lean`). -/
+attribute [irreducible] app
+
+end Setlec.SetTheory

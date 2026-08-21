@@ -1,19 +1,19 @@
-# Deriving `SetTheory` from the minimal `TG` core
+# Deriving the operator interface from the `SetTheory` core
 
-Goal: `instance [TG V] : SetTheory V` (`Setlec/SetTheory/Instance.lean`),
-with `TG` (`Setlec/SetTheory/Core.lean`) axiomatizing only membership,
-extensionality, pairing, union, power set, regularity, Lean-level
-replacement, and Tarski's Axiom A with the transitivity clause
-(nanodatg's eight set axioms; choice is inherited from Lean's
-`Classical.choice` rather than asserted — see Core.lean's module doc).
-
-Reference blueprints: `_tmp/nanodatg/kernel/README.md` (axiom
-itemization) and `_tmp/nanodatg/derived/src/*` (module docs).
+Goal: every operator and law of the checker's set-theoretic interface
+(surfaced by `Setlec/SetTheory/Basic.lean`) as a theorem over the
+minimal `SetTheory` class (`Setlec/SetTheory/Core.lean`), which
+axiomatizes only membership, extensionality, pairing, union, power set,
+regularity, Lean-level replacement, and Tarski's Axiom A (Tarski 1938)
+with the transitivity clause — the Tarski–Grothendieck axioms (cf.
+Trybulec, *Tarski Grothendieck Set Theory*, Formalized Mathematics
+1(1), 1990); choice is inherited from Lean's `Classical.choice` rather
+than asserted — see Core.lean's module doc.
 
 ## Status
 
-- [x] `Core.lean` — the `TG` class (7 asserted axioms + `nonempty`),
-  `Equinumerous`, `IsTGUniverse`, subset notation.
+- [x] `Core.lean` — the `SetTheory` class (7 asserted axioms +
+  `nonempty`), `Equinumerous`, `IsTGUniverse`, subset notation.
 - [x] `Derive/Empty.lean` — empty set from Tarski transitivity +
   regularity; `not_mem_self`, `no_two_cycle`.
 - [x] `Derive/Sep.lean` — separation from replacement (classical
@@ -21,9 +21,9 @@ itemization) and `_tmp/nanodatg/derived/src/*` (module docs).
 - [x] `Derive/Pair.lean` — singletons, binary union, Kuratowski pairs,
   `kpair_inj`, pair-members-nonempty.
 - [x] `Derive/Universe.lean` — the diagonal lemma
-  `IsTGUniverse.covered_mem` (nanodatg `cantor::image_in_universe`)
-  and the closure laws: power, pairing, replacement image, `⋃` of a
-  member, family unions; `guniv` via choice.
+  `IsTGUniverse.covered_mem` (Cantor) and the closure laws: power,
+  pairing, replacement image, `⋃` of a member, family unions; `guniv`
+  via choice.
 - [x] `Derive/Pt.lean` — `pt = {∅}`, `unitSet = {pt}`,
   `univZero = power unitSet`, `truthVal`, `eqv`, propositional
   extensionality; `pt` is never a Kuratowski pair.
@@ -31,8 +31,8 @@ itemization) and `_tmp/nanodatg/derived/src/*` (module docs).
   `sigmaPairs`, `piSet`; beta on graphs, eta, domain determination,
   universe membership.
 - [x] `Derive/Pi.lean` — level-truncated `pi`/`lam` (`pi 0` a truth
-  value, `lam 0 = pt`) with all `SetTheory`-shaped laws (`v = 0`
-  fibre premises phrased as `v = 0 → … ∈ᵗ univZero`).
+  value, `lam 0 = pt`) with the interface laws (`v = 0` fibre
+  premises phrased as `v = 0 → … ∈ˢ univZero`).
 - [x] `Derive/Omega.lean` — von Neumann naturals: `omega` separated
   from the inductive universe `guniv empty`, `vnat : Nat → V`
   (injective), `mem_omega_iff`; `omega ∈ U` for any universe with a
@@ -44,27 +44,23 @@ itemization) and `_tmp/nanodatg/derived/src/*` (module docs).
   `univ_mem_univ`, `omega ∈ univ (n+1)`, closure transport.
 - [x] `Derive/Sigma.lean` — `sigmaSet` (level-0 truth value /
   `sigmaPairs`), `spair := kpair`, classical `sfst`/`ssnd` with `pt`
-  defaults; all `SetTheory` sigma laws.
+  defaults; all interface sigma laws.
 - [x] `Derive/Quot.lean` — quotients: equivalence closure of the
   `R`-inhabitation relation on `A`, classes by separation, `quotSet`
   (level-0 collapse to `image (fun _ => pt) A`), `quotLift` via a
-  choice of representatives; sound/surjective/lift laws matching the
-  quot fields of the *mainline* `Basic.lean`.
+  choice of representatives; sound/surjective/lift laws.
 - [x] `Derive/Choice.lean` — global `schoice` from `Classical.choice`;
-  the Jech-form set-level choice function as a *theorem* (the "eighth
-  axiom", derived).
-- [x] `Instance.lean` — `noncomputable instance [TG V] : SetTheory V`.
+  the Jech-form set-level choice function as a *theorem*.
+- [x] `Basic.lean` — the interface surface: re-exports the derivation
+  and supplies the remaining interface-shaped statements (`natzero`/
+  `natsucc`/`natrec_*`, `app_mem`/`app_lam`, `mem_univ_zero`,
+  `prop_ext`, …).
 
-## Notes for the merger
+## Conventions
 
-- Nothing outside `Setlec/SetTheory/Core.lean`,
-  `Setlec/SetTheory/Derive/*`, `Setlec/SetTheory/Instance.lean` was
-  touched; wire imports (e.g. in `Setlec.lean`) as desired.
-- This branch's `Setlec/SetTheory/Basic.lean` predates the mainline
-  quot/prop_ext/schoice extension.  `Instance.lean` therefore fills
-  the fields present here; the extra mainline fields are already
-  proved as standalone theorems (`Derive/Quot.lean` for
-  `quotSet`/`quotClass`/`quotLift` laws, `Derive/Pt.lean`
-  `univZero_ext` for `prop_ext`, `Derive/Choice.lean` for
-  `schoice`/`schoice_mem`), so extending the instance is a few-line
-  mechanical step — see the comment at the end of `Instance.lean`.
+- Interface operators are `@[irreducible]` once their laws are proved
+  (end of each file): consumers reason only through the laws, exactly
+  as they did against the former class projections.
+- Interface operators also carry `@[implemented_by]` stubs (unsafe,
+  never executed) so that consumer definitions mentioning them stay
+  compilable; the stubs have no logical content.

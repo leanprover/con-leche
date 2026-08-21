@@ -19,22 +19,22 @@ goes through the representative and the invariance premise, with the
 `u = 0` collapse handled by `A ⊆ {pt}` (from `A ∈ univ 0`).
 -/
 
-namespace Setlec.TG
+namespace Setlec.SetTheory
 
 universe u
 
-variable {V : Type u} [TG V]
+variable {V : Type u} [SetTheory V]
 
 /-- The equivalence closure, on `A`, of "`app (app R a) b` is
 inhabited". -/
 inductive QuotRel (A R : V) : V → V → Prop where
-  | base {a b : V} : a ∈ᵗ A → b ∈ᵗ A → (∃ w, w ∈ᵗ app (app R a) b) →
+  | base {a b : V} : a ∈ˢ A → b ∈ˢ A → (∃ w, w ∈ˢ app (app R a) b) →
       QuotRel A R a b
-  | refl {a : V} : a ∈ᵗ A → QuotRel A R a a
+  | refl {a : V} : a ∈ˢ A → QuotRel A R a a
   | symm {a b : V} : QuotRel A R a b → QuotRel A R b a
   | trans {a b c : V} : QuotRel A R a b → QuotRel A R b c → QuotRel A R a c
 
-theorem QuotRel.mem {A R a b : V} (h : QuotRel A R a b) : a ∈ᵗ A ∧ b ∈ᵗ A := by
+theorem QuotRel.mem {A R a b : V} (h : QuotRel A R a b) : a ∈ˢ A ∧ b ∈ˢ A := by
   induction h with
   | base ha hb _ => exact ⟨ha, hb⟩
   | refl ha => exact ⟨ha, ha⟩
@@ -45,9 +45,9 @@ theorem QuotRel.mem {A R a b : V} (h : QuotRel A R a b) : a ∈ᵗ A ∧ b ∈�
 noncomputable def qclass (A R a : V) : V := sep A (fun b => QuotRel A R a b)
 
 theorem mem_qclass {A R a b : V} :
-    b ∈ᵗ qclass A R a ↔ b ∈ᵗ A ∧ QuotRel A R a b := mem_sep
+    b ∈ˢ qclass A R a ↔ b ∈ˢ A ∧ QuotRel A R a b := mem_sep
 
-theorem self_mem_qclass {A R a : V} (ha : a ∈ᵗ A) : a ∈ᵗ qclass A R a :=
+theorem self_mem_qclass {A R a : V} (ha : a ∈ˢ A) : a ∈ˢ qclass A R a :=
   mem_qclass.mpr ⟨ha, QuotRel.refl ha⟩
 
 theorem qclass_eq_of_rel {A R a b : V} (h : QuotRel A R a b) :
@@ -57,7 +57,7 @@ theorem qclass_eq_of_rel {A R a b : V} (h : QuotRel A R a b) :
     exact ⟨fun ⟨hz, hr⟩ => ⟨hz, (h.symm).trans hr⟩,
            fun ⟨hz, hr⟩ => ⟨hz, h.trans hr⟩⟩
 
-theorem rel_of_qclass_eq {A R a b : V} (ha : a ∈ᵗ A) (_hb : b ∈ᵗ A)
+theorem rel_of_qclass_eq {A R a b : V} (ha : a ∈ˢ A) (_hb : b ∈ˢ A)
     (h : qclass A R a = qclass A R b) : QuotRel A R a b :=
   (mem_qclass.mp (h ▸ self_mem_qclass ha)).2.symm
 
@@ -71,15 +71,15 @@ open Classical in
 noncomputable def quotClass (u : Nat) (A R a : V) : V :=
   if u = 0 then pt else qclass A R a
 
-theorem quotClass_mem {u : Nat} {A R a : V} (ha : a ∈ᵗ A) :
-    quotClass u A R a ∈ᵗ quotSet u A R := by
+theorem quotClass_mem {u : Nat} {A R a : V} (ha : a ∈ˢ A) :
+    quotClass u A R a ∈ˢ quotSet u A R := by
   unfold quotClass quotSet
   split
   · exact mem_image.mpr ⟨a, ha, rfl⟩
   · exact mem_image.mpr ⟨a, ha, rfl⟩
 
-theorem quotClass_surj {u : Nat} {A R q : V} (hq : q ∈ᵗ quotSet u A R) :
-    ∃ a, a ∈ᵗ A ∧ q = quotClass u A R a := by
+theorem quotClass_surj {u : Nat} {A R q : V} (hq : q ∈ˢ quotSet u A R) :
+    ∃ a, a ∈ˢ A ∧ q = quotClass u A R a := by
   unfold quotSet at hq
   unfold quotClass
   split at hq
@@ -90,19 +90,20 @@ theorem quotClass_surj {u : Nat} {A R q : V} (hq : q ∈ᵗ quotSet u A R) :
     obtain ⟨a, ha, rfl⟩ := mem_image.mp hq
     exact ⟨a, ha, (if_neg h).symm⟩
 
-theorem quotSound {u : Nat} {A R a b w : V} (ha : a ∈ᵗ A) (hb : b ∈ᵗ A)
-    (hw : w ∈ᵗ app (app R a) b) : quotClass u A R a = quotClass u A R b := by
+theorem quotSound {u : Nat} {A R a b w : V} (ha : a ∈ˢ A) (hb : b ∈ˢ A)
+    (hw : w ∈ˢ app (app R a) b) : quotClass u A R a = quotClass u A R b := by
   unfold quotClass
   split
   · rfl
   · exact qclass_eq_of_rel (QuotRel.base ha hb ⟨w, hw⟩)
 
-theorem quotSet_mem_univ {u : Nat} {A R : V} (hA : A ∈ᵗ (univ u : V)) :
-    quotSet u A R ∈ᵗ (univ u : V) := by
+theorem quotSet_mem_univ {u : Nat} {A R : V} (hA : A ∈ˢ (univ u : V)) :
+    quotSet u A R ∈ˢ (univ u : V) := by
   unfold quotSet
   split
   · next h =>
     subst h
+    rw [univ_zero]
     refine mem_univZero.mpr fun z hz => ?_
     obtain ⟨-, -, rfl⟩ := mem_image.mp hz
     exact pt_mem_unitSet
@@ -115,10 +116,10 @@ theorem quotSet_mem_univ {u : Nat} {A R : V} (hA : A ∈ᵗ (univ u : V)) :
 open Classical in
 /-- A representative of a quotient class, by choice. -/
 noncomputable def qrep (u : Nat) (A R q : V) : V :=
-  if h : ∃ a, a ∈ᵗ A ∧ q = quotClass u A R a then Classical.choose h else empty
+  if h : ∃ a, a ∈ˢ A ∧ q = quotClass u A R a then Classical.choose h else empty
 
-theorem qrep_spec {u : Nat} {A R q : V} (hq : q ∈ᵗ quotSet u A R) :
-    qrep u A R q ∈ᵗ A ∧ q = quotClass u A R (qrep u A R q) := by
+theorem qrep_spec {u : Nat} {A R q : V} (hq : q ∈ˢ quotSet u A R) :
+    qrep u A R q ∈ˢ A ∧ q = quotClass u A R (qrep u A R q) := by
   unfold qrep
   rw [dif_pos (quotClass_surj hq)]
   exact Classical.choose_spec (quotClass_surj hq)
@@ -132,7 +133,7 @@ noncomputable def quotLift (u : Nat) (_v : Nat) (A R f : V) : V :=
 /-- The invariance premise extends from the base relation to its
 equivalence closure. -/
 theorem app_eq_of_rel {A R f a b : V}
-    (hinv : ∀ a' b', a' ∈ᵗ A → b' ∈ᵗ A → (∃ w, w ∈ᵗ app (app R a') b') →
+    (hinv : ∀ a' b', a' ∈ˢ A → b' ∈ˢ A → (∃ w, w ∈ˢ app (app R a') b') →
       app f a' = app f b')
     (h : QuotRel A R a b) : app f a = app f b := by
   induction h with
@@ -144,8 +145,8 @@ theorem app_eq_of_rel {A R f a b : V}
 /-- Equal classes have equal `f`-values: by closure invariance at
 `u ≠ 0`, and by the `A ⊆ {pt}` collapse at `u = 0`. -/
 theorem app_eq_of_quotClass_eq {u : Nat} {A R f a b : V}
-    (hA : A ∈ᵗ (univ u : V)) (ha : a ∈ᵗ A) (hb : b ∈ᵗ A)
-    (hinv : ∀ a' b', a' ∈ᵗ A → b' ∈ᵗ A → (∃ w, w ∈ᵗ app (app R a') b') →
+    (hA : A ∈ˢ (univ u : V)) (ha : a ∈ˢ A) (hb : b ∈ˢ A)
+    (hinv : ∀ a' b', a' ∈ˢ A → b' ∈ˢ A → (∃ w, w ∈ˢ app (app R a') b') →
       app f a' = app f b')
     (hq : quotClass u A R a = quotClass u A R b) : app f a = app f b := by
   unfold quotClass at hq
@@ -156,9 +157,9 @@ theorem app_eq_of_quotClass_eq {u : Nat} {A R f a b : V}
     rw [eq_pt_of_mem_univZero hA ha, eq_pt_of_mem_univZero hA hb]
   · exact app_eq_of_rel hinv (rel_of_qclass_eq ha hb hq)
 
-theorem quotLift_beta {u v : Nat} {A R f a : V} (hA : A ∈ᵗ (univ u : V))
-    (ha : a ∈ᵗ A)
-    (hinv : ∀ a' b', a' ∈ᵗ A → b' ∈ᵗ A → (∃ w, w ∈ᵗ app (app R a') b') →
+theorem quotLift_beta {u v : Nat} {A R f a : V} (hA : A ∈ˢ (univ u : V))
+    (ha : a ∈ˢ A)
+    (hinv : ∀ a' b', a' ∈ˢ A → b' ∈ˢ A → (∃ w, w ∈ˢ app (app R a') b') →
       app f a' = app f b') :
     app (quotLift u v A R f) (quotClass u A R a) = app f a := by
   unfold quotLift
@@ -168,11 +169,11 @@ theorem quotLift_beta {u v : Nat} {A R f a : V} (hA : A ∈ᵗ (univ u : V))
     obtain ⟨hrep, hcls⟩ := qrep_spec (quotClass_mem (u := u) (R := R) ha)
     exact app_eq_of_quotClass_eq hA hrep ha hinv hcls.symm
 
-theorem quotLift_mem {u v : Nat} {A R f B : V} (_hA : A ∈ᵗ (univ u : V))
-    (hf : f ∈ᵗ pi v A (fun _ => B))
-    (_hinv : ∀ a b, a ∈ᵗ A → b ∈ᵗ A → (∃ w, w ∈ᵗ app (app R a) b) →
+theorem quotLift_mem {u v : Nat} {A R f B : V} (_hA : A ∈ˢ (univ u : V))
+    (hf : f ∈ˢ pi v A (fun _ => B))
+    (_hinv : ∀ a b, a ∈ˢ A → b ∈ˢ A → (∃ w, w ∈ˢ app (app R a) b) →
       app f a = app f b) :
-    quotLift u v A R f ∈ᵗ pi v (quotSet u A R) (fun _ => B) := by
+    quotLift u v A R f ∈ˢ pi v (quotSet u A R) (fun _ => B) := by
   rcases Nat.eq_zero_or_pos v with rfl | hv
   · -- `f` is the proof point; the lifted product is the truth value
     -- `[∀ q ∈ quotSet, B inhabited]`, true via representatives.
@@ -192,4 +193,17 @@ theorem quotLift_mem {u v : Nat} {A R f B : V} (_hA : A ∈ᵗ (univ u : V))
     rw [hlift]
     exact graph_mem_piSet fun q hq => app_mem_of_mem_piSet hf (qrep_spec hq).1
 
-end Setlec.TG
+/- Compiler stubs (see `Derive/Empty.lean`): never executed, no logical
+content. -/
+private unsafe def quotSetImpl {V : Type u} [SetTheory V] (_u : Nat) (_A _R : V) : V := unsafeCast ()
+private unsafe def quotClassImpl {V : Type u} [SetTheory V] (_u : Nat) (_A _R _a : V) : V := unsafeCast ()
+private unsafe def quotLiftImpl {V : Type u} [SetTheory V] (_u _v : Nat) (_A _R _f : V) : V := unsafeCast ()
+
+attribute [implemented_by quotSetImpl] quotSet
+attribute [implemented_by quotClassImpl] quotClass
+attribute [implemented_by quotLiftImpl] quotLift
+
+/- Opaque interface operators (see `Derive/Empty.lean`). -/
+attribute [irreducible] quotSet quotClass quotLift
+
+end Setlec.SetTheory

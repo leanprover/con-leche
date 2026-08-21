@@ -3,9 +3,9 @@ import Setlec.SetTheory.Derive.Universe
 /-!
 # Infinity, derived: the finite ordinals
 
-nanodatg derives Infinity from Tarski + Replacement
-(`derived/src/infinity.rs`): a Grothendieck universe is an inductive
-*set* — it contains `∅` and is closed under `n ↦ n ∪ {n}` by the
+Infinity is derived from Tarski + Replacement: a Grothendieck universe
+is an inductive *set* — it contains `∅` and is closed under the von
+Neumann successor `n ↦ n ∪ {n}` (von Neumann 1923) by the
 pairing/union closures — so `ω` can be separated out of one as the
 members of *every* inductive set.  Leastness is then definitional.
 
@@ -19,30 +19,30 @@ universe `guniv ∅` as a member — arranged for the tower in
 Tarski universe without `ω`.)
 -/
 
-namespace Setlec.TG
+namespace Setlec.SetTheory
 
 universe u
 
-variable {V : Type u} [TG V]
+variable {V : Type u} [SetTheory V]
 
 /-- The von Neumann successor `n ∪ {n}`. -/
 noncomputable def vsucc (n : V) : V := binUnion n (sing n)
 
-theorem mem_vsucc {z n : V} : z ∈ᵗ vsucc n ↔ z ∈ᵗ n ∨ z = n := by
+theorem mem_vsucc {z n : V} : z ∈ˢ vsucc n ↔ z ∈ˢ n ∨ z = n := by
   rw [vsucc, mem_binUnion, mem_sing]
 
-theorem self_mem_vsucc (n : V) : n ∈ᵗ vsucc n := mem_vsucc.mpr (Or.inr rfl)
+theorem self_mem_vsucc (n : V) : n ∈ˢ vsucc n := mem_vsucc.mpr (Or.inr rfl)
 
 theorem vsucc_ne_empty (n : V) : vsucc n ≠ empty :=
   ne_empty_of_mem (self_mem_vsucc n)
 
 /-- An inductive set: contains `∅`, closed under the successor. -/
 def Inductive (I : V) : Prop :=
-  (empty : V) ∈ᵗ I ∧ ∀ n, n ∈ᵗ I → vsucc n ∈ᵗ I
+  (empty : V) ∈ˢ I ∧ ∀ n, n ∈ˢ I → vsucc n ∈ˢ I
 
 /-- An inhabited Grothendieck universe is an inductive set. -/
 theorem _root_.Setlec.IsTGUniverse.inductive_self {U y : V}
-    (hU : IsTGUniverse (Mem (V := V)) U) (hy : y ∈ᵗ U) : Inductive U :=
+    (hU : IsTGUniverse (Mem (V := V)) U) (hy : y ∈ˢ U) : Inductive U :=
   ⟨hU.empty_mem hy, fun _n hn =>
     hU.binUnion_mem hy hn (hU.sing_mem hy hn)⟩
 
@@ -52,13 +52,13 @@ theorem guniv_empty_inductive : Inductive (guniv (empty : V)) :=
 /-- The finite ordinals: the members of every inductive set, separated
 from the inductive universe `guniv ∅`. -/
 noncomputable def omega : V :=
-  sep (guniv empty) (fun n => ∀ I : V, Inductive I → n ∈ᵗ I)
+  sep (guniv empty) (fun n => ∀ I : V, Inductive I → n ∈ˢ I)
 
-theorem mem_omega {n : V} : n ∈ᵗ (omega : V) ↔ ∀ I : V, Inductive I → n ∈ᵗ I := by
+theorem mem_omega {n : V} : n ∈ˢ (omega : V) ↔ ∀ I : V, Inductive I → n ∈ˢ I := by
   rw [omega, mem_sep]
   exact ⟨fun h => h.2, fun h => ⟨h _ guniv_empty_inductive, h⟩⟩
 
-theorem omega_subset_inductive {I : V} (hI : Inductive I) : (omega : V) ⊆ᵗ I :=
+theorem omega_subset_inductive {I : V} (hI : Inductive I) : (omega : V) ⊆ˢ I :=
   fun _ hn => mem_omega.mp hn I hI
 
 theorem omega_inductive : Inductive (omega : V) := by
@@ -67,9 +67,9 @@ theorem omega_inductive : Inductive (omega : V) := by
   · intro n hn
     exact mem_omega.mpr fun I hI => hI.2 n (mem_omega.mp hn I hI)
 
-theorem empty_mem_omega : (empty : V) ∈ᵗ omega := omega_inductive.1
+theorem empty_mem_omega : (empty : V) ∈ˢ omega := omega_inductive.1
 
-theorem vsucc_mem_omega {n : V} (hn : n ∈ᵗ (omega : V)) : vsucc n ∈ᵗ (omega : V) :=
+theorem vsucc_mem_omega {n : V} (hn : n ∈ˢ (omega : V)) : vsucc n ∈ˢ (omega : V) :=
   omega_inductive.2 n hn
 
 /-- The `k`-th von Neumann natural. -/
@@ -77,12 +77,12 @@ noncomputable def vnat : Nat → V
   | 0 => empty
   | k + 1 => vsucc (vnat k)
 
-theorem vnat_mem_omega : ∀ k, (vnat k : V) ∈ᵗ omega
+theorem vnat_mem_omega : ∀ k, (vnat k : V) ∈ˢ omega
   | 0 => empty_mem_omega
   | k + 1 => vsucc_mem_omega (vnat_mem_omega k)
 
 /-- Every finite ordinal is named by a meta-level natural. -/
-theorem mem_omega_iff {n : V} : n ∈ᵗ (omega : V) ↔ ∃ k, n = vnat k := by
+theorem mem_omega_iff {n : V} : n ∈ˢ (omega : V) ↔ ∃ k, n = vnat k := by
   constructor
   · intro hn
     have hind : Inductive (sep (omega : V) (fun n => ∃ k, n = vnat k)) := by
@@ -95,7 +95,7 @@ theorem mem_omega_iff {n : V} : n ∈ᵗ (omega : V) ↔ ∃ k, n = vnat k := by
   · rintro ⟨k, rfl⟩
     exact vnat_mem_omega k
 
-theorem vnat_mem_vnat_of_lt : ∀ {k l : Nat}, k < l → (vnat k : V) ∈ᵗ vnat l := by
+theorem vnat_mem_vnat_of_lt : ∀ {k l : Nat}, k < l → (vnat k : V) ∈ˢ vnat l := by
   intro k l hkl
   induction l with
   | zero => exact absurd hkl (Nat.not_lt_zero k)
@@ -110,13 +110,25 @@ theorem vnat_inj {k l : Nat} (h : (vnat k : V) = vnat l) : k = l := by
   · exact heq
   · exact absurd (h ▸ vnat_mem_vnat_of_lt (V := V) hgt) (not_mem_self _)
 
-theorem omega_subset_guniv_empty : (omega : V) ⊆ᵗ guniv empty := sep_subset
+theorem omega_subset_guniv_empty : (omega : V) ⊆ˢ guniv empty := sep_subset
 
 /-- `ω` is a member of any universe having the inductive universe
 `guniv ∅` as a member. -/
 theorem _root_.Setlec.IsTGUniverse.omega_mem {U : V}
-    (hU : IsTGUniverse (Mem (V := V)) U) (h0 : guniv (empty : V) ∈ᵗ U) :
-    (omega : V) ∈ᵗ U :=
+    (hU : IsTGUniverse (Mem (V := V)) U) (h0 : guniv (empty : V) ∈ˢ U) :
+    (omega : V) ∈ˢ U :=
   hU.mem_of_subset_mem h0 omega_subset_guniv_empty
 
-end Setlec.TG
+/- Compiler stubs (see `Derive/Empty.lean`): never executed, no logical
+content. -/
+private unsafe def omegaImpl {V : Type u} [SetTheory V] : V := unsafeCast ()
+private unsafe def vsuccImpl {V : Type u} [SetTheory V] (_n : V) : V := unsafeCast ()
+
+attribute [implemented_by omegaImpl] omega
+attribute [implemented_by vsuccImpl] vsucc
+
+/- Opaque interface operator (see `Derive/Empty.lean`).  `vsucc` stays
+reducible: `Derive/Natrec.lean` computes with it through `vnat`. -/
+attribute [irreducible] omega
+
+end Setlec.SetTheory
