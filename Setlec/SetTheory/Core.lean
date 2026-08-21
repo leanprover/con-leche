@@ -18,10 +18,11 @@ derivable and therefore absent.
 This calibrates the axiomatic strength to exactly what the checker
 consumes — the ω-indexed tower `univ 0, univ 1, univ 2, …` — and to
 the known consistency strength of Lean itself: ZFC plus a strictly
-increasing ω-sequence of inaccessible cardinals, M. Carneiro's
+increasing ω-sequence of inaccessible cardinals — the
 `OmegaInaccessibles` hypothesis
 `∃ κ : ℕ → Cardinal, StrictMono κ ∧ ∀ n, (κ n).IsInaccessible`
-(*The Type Theory of Lean*, §1.2).  Under that hypothesis the intended
+of Mario Carneiro, *The Type Theory of Lean*, master's thesis,
+Carnegie Mellon University, 2019, §1.2.  Under that hypothesis the intended
 model takes `univChain n := V_{κ n}`.  This is strictly weaker than
 full Tarski–Grothendieck set theory (Tarski's Axiom A places a
 universe above *every* set, a proper class of inaccessibles; cf. the
@@ -117,7 +118,8 @@ class SetTheory (V : Type u) where
   /-- Characterization of the replacement image. -/
   mem_image : ∀ {f : V → V} {a z : V}, Mem z (image f a) ↔ ∃ w, Mem w a ∧ z = f w
   /-- An ω-chain of Grothendieck universes: the sets interpreting the
-  universe tower (Carneiro's ω-many inaccessibles, `V_{κ n}`). -/
+  universe tower (Carneiro's ω-many inaccessibles, op. cit.;
+  intended model `V_{κ n}`). -/
   univChain : Nat → V
   /-- The chain increases strictly: each universe is a member of the
   next. -/
