@@ -17,9 +17,16 @@ BIN=.lake/build/bin/setlec
 EXPECTED=tests/arena-expected.txt
 
 if [ ! -d "$TESTS_DIR" ]; then
-  echo "arena tests not found; fetching to $TESTS_DIR" >&2
+  # The arena tests are vendored (pinned snapshot, 2026-08-19,
+  # sha256 162c3c5f…) so CI never depends on the live arena's
+  # progression.  Refresh deliberately by replacing the tarball.
+  echo "arena tests not found; extracting vendored snapshot to $TESTS_DIR" >&2
   mkdir -p "$TESTS_DIR"
-  curl -sL https://arena.lean-lang.org/lean-arena-tests.tar.gz | tar -xz -C "$TESTS_DIR" || exit 3
+  if [ -f tests/arena/lean-arena-tests.tar.gz ]; then
+    tar -xzf tests/arena/lean-arena-tests.tar.gz -C "$TESTS_DIR" || exit 3
+  else
+    curl -sL https://arena.lean-lang.org/lean-arena-tests.tar.gz | tar -xz -C "$TESTS_DIR" || exit 3
+  fi
 fi
 
 lake build setlec >/dev/null || exit 3
