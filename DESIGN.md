@@ -600,8 +600,14 @@ modeled_rule_fold per rule.
 
 Modeled install wired end to end (2026-08-20): checkDecl's indDecl arm
 runs checkIndDecl and the frontend emits opaque blocks (the alias
-shortcut is gone).  Soundness (Setlec/Model/Extend, split out of
-Consistency for iteration speed): checkIotaRules_inv and
+shortcut is gone).  Soundness (Setlec/Model/Extend/, split out of
+Consistency for iteration speed; since 2026-08-21 a directory of
+per-lemma files re-exported by the imports-only umbrella
+Setlec/Model/Extend.lean, with the shared clause transports —
+`extend_fresh`, `extend_rec_swap`, the fresh-extension and
+rule-list-swap congruences — in Extend/Transport.lean, and the
+quotient-basis `checkDecl_sound` case in
+Setlec/Model/Basis/Quot/Consistency.lean): checkIotaRules_inv and
 checkIndMember_inv walk the (top-level-lifted) kernel functions and
 package the RuleChecked bundles; checkIndMember_sound extends the
 model per member under the BlockInstalled fold invariant (each
