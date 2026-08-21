@@ -425,8 +425,9 @@ theorem whnfCore_claims (m : EnvModel V env)
 path. -/
 theorem reduceNat_full_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
     (h : reduceNatP env fuel d e = .ok (some e₂)) :
-    (∃ a n, e = .app (.const natSuccName []) a ∧
-      natLitSupported env = true ∧ rawNatLit? a = some n ∧
+    (∃ a a' n, e = .app (.const natSuccName []) a ∧
+      natLitSupported env = true ∧
+      whnf env fuel d a = .ok a' ∧ rawNatLit? a' = some n ∧
       e₂ = .lit (.natVal (n + 1))) ∨
     (∃ a a' n, e = .app (.const natPredName []) a ∧
       natOpGuard env natPredName = true ∧
@@ -469,13 +470,19 @@ theorem reduceNat_full_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
     split
     case isTrue hg =>
       obtain ⟨rfl, hs⟩ := hg
-      cases hraw : rawNatLit? a with
+      cases hwa : whnf env fuel d a with
+      | error err => intro h; exact nomatch h
+      | ok a' =>
+      intro h
+      dsimp only at h
+      revert h
+      cases hraw : rawNatLit? a' with
       | none => intro h; simp [hraw, pure, Except.pure] at h
       | some n =>
         intro h
         simp only [hraw, pure, Except.pure, Except.ok.injEq,
           Option.some.injEq] at h
-        exact Or.inl ⟨a, n, rfl, hs, hraw, h.symm⟩
+        exact Or.inl ⟨a, a', n, rfl, hs, hwa, hraw, h.symm⟩
     case isFalse =>
       split
       case isTrue hg =>
@@ -587,11 +594,22 @@ theorem reduceNat_sound (m : EnvModel V env) {fuel d : Nat} {e e₂ : Expr}
     e₂.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded e₂ ∧
     FvarsOk V m.val env φ d ρ e₂ := by
   rcases reduceNat_full_inv h with
-    ⟨a, n, rfl, hs, hraw, rfl⟩ |
+    ⟨a, a', n, rfl, hs, hwa, hraw, rfl⟩ |
     ⟨a, a', n, rfl, hguard, hwa, hraw, rfl⟩ |
     ⟨c, a, b, a', b', n₁, n₂, rfl, hor, hguard, hwa, hraw1, hwb, hraw2,
       hres⟩
-  · -- `succ` folding
+  · -- `succ` folding (through the argument's reduction)
+    simp only [WScoped] at hw
+    simp only [looseBVarsBounded, Bool.and_eq_true] at hb
+    have hLba : Expr.LeavesBounded a := fun l hl =>
+      hLb l (by simp [fvarLeaves, hl])
+    have hoka := (FvarsOk.of_app hok).2
+    simp only [AnnotOk] at ha
+    obtain ⟨-, haa, -⟩ := ha
+    obtain ⟨hia', -⟩ := ihw hwa hw.2 hb.2 hLba hoka haa
+    have hia : interpExpr V m.val env φ d ρ a =
+        some (natLitVal V (m.val natZeroName φ) (m.val natSuccName φ) n) :=
+      hia'.symm.trans (interpExpr_rawNatLit hs hraw)
     refine ⟨?_, by simp [AnnotOk], by simp [WScoped],
       by simp [Expr.looseBVarsBounded],
       (fun l hl => by simp [Expr.fvarLeaves] at hl),
@@ -600,7 +618,7 @@ theorem reduceNat_sound (m : EnvModel V env) {fuel d : Nat} {e e₂ : Expr}
     obtain ⟨cv, caps, cv0, i0, j0, cv1, i1, j1, hnn, hzz, hss, hl1, hl2, hl3,
       -⟩ := natLitSupported_inv hs
     simp [interpExpr, hss, ConstantInfo.toConstantVal, hl3, Level.substFn_nil,
-      interpExpr_rawNatLit hs hraw, natLitVal]
+      hia, natLitVal]
   · -- `pred`
     have hs := (natOpGuard_inv hguard).1
     obtain ⟨cvp, vp, hntp, hfp, hlpp⟩ := natOpGuard_self_defn (by decide) hguard

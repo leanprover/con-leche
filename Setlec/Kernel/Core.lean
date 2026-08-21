@@ -483,7 +483,11 @@ def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
   match e with
   | .app (.const c []) a =>
     if c = natSuccName ∧ natLitSupported env then
-      match rawNatLit? a with
+      -- the argument is reduced first (as for the operations below):
+      -- literals reach `succ` wrapped in `OfNat`/instance towers, and a
+      -- missed packing here defeats the binary fast paths downstream,
+      -- which then delta-grind the `brecOn` below-tower unarily
+      match rawNatLit? (← r.whnf depth a) with
       | some n => pure (some (.lit (.natVal (n + 1))))
       | none => pure none
     else if c = natPredName ∧ natOpGuard env c = true then

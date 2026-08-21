@@ -2072,7 +2072,13 @@ theorem reduceNat_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
     split
     · intro h
       revert h
-      match rawNatLit? a with
+      cases hw0 : whnf env fuel d a with
+      | error err => intro h; exact nomatch h
+      | ok a0 =>
+      intro h
+      dsimp only at h
+      revert h
+      match rawNatLit? a0 with
       | some n =>
         intro h
         simp only [pure, Except.pure, Except.ok.injEq, Option.some.injEq] at h
