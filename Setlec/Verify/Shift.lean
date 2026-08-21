@@ -1,4 +1,5 @@
 import Setlec.Kernel.ExprOps
+import Setlec.Kernel.Level
 
 /-!
 # Free-variable bounds and shifting
@@ -285,5 +286,365 @@ theorem fvarsBelow_instantiate1 {d : Nat} {n : Name} {ty : Expr} :
     · simp [fvarsBelow]
     · split <;> simp [fvarsBelow]
   case fvar idx n' ty' ih => omega
+
+/-! ## Shift commutation lemmas
+
+The depth-invariance bisimulation (`Setlec/Verify/Deep.lean`) relates a
+checker run at depth `d` with the run at depth `d + 1` whose opened
+`fvar`s above the shift point `p` are bumped by one (`shiftFrom p`).
+Everything the checker core does to expressions commutes with the
+shift; this section collects those commutations. -/
+
+/-- A term without `fvar`s is untouched by shifting. -/
+theorem shiftFrom_eq_self_of_not_hasFvar {p : Nat} :
+    ∀ {e : Expr}, e.hasFvar = false → shiftFrom p e = e := by
+  intro e
+  induction e <;> simp_all [hasFvar, shiftFrom]
+
+/-- Shifting is untouched by (commutes trivially with) a `WScoped`
+bound below the shift point. -/
+theorem shiftFrom_eq_self_of_WScoped {p : Nat} {e : Expr}
+    (hw : WScoped p e) : shiftFrom p e = e :=
+  shiftFrom_eq_self hw.fvarsBelow
+
+/-- Shifting commutes with instantiation by an arbitrary term. -/
+theorem shiftFrom_instantiate1_gen {p : Nat} {v : Expr} :
+    ∀ (e : Expr) (k : Nat),
+      shiftFrom p (e.instantiate1 v k) =
+        (shiftFrom p e).instantiate1 (shiftFrom p v) k := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k
+    simp only [instantiate1, shiftFrom]
+    split
+    · rfl
+    · split <;> simp [shiftFrom]
+  | fvar idx n' ty' ih =>
+    intro k
+    simp only [instantiate1, shiftFrom]
+    split <;> simp [instantiate1]
+  | _ => intro k; simp_all [instantiate1, shiftFrom]
+
+/-- Shifting from `p` commutes with closing the binder opened at
+`d ≥ p`: the abstracted variable is at `d + 1` on the shifted side. -/
+theorem shiftFrom_abstract1 {p d : Nat} (hpd : p ≤ d) :
+    ∀ (e : Expr) (k : Nat),
+      shiftFrom p (e.abstract1 d k) = (shiftFrom p e).abstract1 (d + 1) k := by
+  intro e
+  induction e with
+  | fvar idx n' ty' ih =>
+    intro k
+    by_cases hi : idx = d
+    · subst hi
+      simp [abstract1, shiftFrom, hpd]
+    · by_cases hp : p ≤ idx
+      · simp [abstract1, shiftFrom, hi, hp]
+      · have hi1 : ¬ (idx = d + 1) := by omega
+        simp [abstract1, shiftFrom, hi, hp, hi1]
+  | _ => intro k; simp_all [abstract1, shiftFrom]
+
+/-- Shifting commutes with taking the application head. -/
+theorem getAppFn_shiftFrom {p : Nat} :
+    ∀ (e : Expr), (shiftFrom p e).getAppFn = shiftFrom p e.getAppFn := by
+  intro e
+  induction e <;> simp_all [shiftFrom, getAppFn]
+  case fvar idx n ty ih => split <;> simp [getAppFn]
+
+/-- Shifting commutes with taking the application spine. -/
+theorem getAppArgs_shiftFrom {p : Nat} :
+    ∀ (e : Expr), (shiftFrom p e).getAppArgs = e.getAppArgs.map (shiftFrom p) := by
+  intro e
+  induction e <;> simp_all [shiftFrom, getAppArgs]
+  case fvar idx n ty ih => split <;> simp [getAppArgs]
+
+/-- Shifting commutes with building an application spine. -/
+theorem shiftFrom_mkAppN {p : Nat} :
+    ∀ (as : List Expr) (f : Expr),
+      shiftFrom p (Expr.mkAppN f as) =
+        Expr.mkAppN (shiftFrom p f) (as.map (shiftFrom p)) := by
+  intro as
+  induction as with
+  | nil => intro f; rfl
+  | cons a as ih => intro f; simp [mkAppN, ih, shiftFrom]
+
+/-- Shifting (fvar indices) commutes with level instantiation
+(sorts and constant levels). -/
+theorem shiftFrom_instantiateLevelParams {p : Nat} (ks : List Name)
+    (us : List Level) :
+    ∀ (e : Expr), shiftFrom p (e.instantiateLevelParams ks us) =
+      (shiftFrom p e).instantiateLevelParams ks us := by
+  intro e
+  induction e with
+  | fvar idx n ty ih =>
+    simp only [instantiateLevelParams, shiftFrom]
+    split <;> simp [instantiateLevelParams, ih]
+  | _ => simp_all [shiftFrom, instantiateLevelParams]
+
+/-- The scope check tracks the shift: a shift from `p ≤ d` moves
+scoping at `d` to scoping at `d + 1`. -/
+theorem wscopedB_shiftFrom {p : Nat} :
+    ∀ (e : Expr) {d : Nat}, p ≤ d →
+      (shiftFrom p e).wscopedB (d + 1) = e.wscopedB d := by
+  intro e
+  induction e <;> intro d hpd <;> simp_all [shiftFrom, wscopedB]
+  case fvar idx n ty ih =>
+    by_cases hp : p ≤ idx
+    · rw [if_pos hp]
+      simp only [wscopedB]
+      rw [ih hp]
+      congr 1
+      simp only [decide_eq_decide]
+      omega
+    · rw [if_neg hp]
+      simp only [wscopedB]
+      congr 1
+      simp only [decide_eq_decide]
+      omega
+
+/-- Shifting never touches bound variables. -/
+theorem looseBVarsBounded_shiftFrom {p : Nat} :
+    ∀ (e : Expr) (k : Nat),
+      (shiftFrom p e).looseBVarsBounded k = e.looseBVarsBounded k := by
+  intro e
+  induction e <;> intro k <;> simp_all [shiftFrom, looseBVarsBounded]
+  case fvar idx n ty ih => split <;> simp [looseBVarsBounded]
+
+/-- The inverse of `shiftFrom p`: lower every reachable `fvar` index
+`> p` by one (shifted annotations lowered too). -/
+def unshiftFrom (p : Nat) : Expr → Expr
+  | .bvar i => .bvar i
+  | .fvar idx n ty =>
+    if idx > p then .fvar (idx - 1) n (unshiftFrom p ty) else .fvar idx n ty
+  | .sort u => .sort u
+  | .const n us => .const n us
+  | .app f a => .app (unshiftFrom p f) (unshiftFrom p a)
+  | .lam n ty body bi => .lam n (unshiftFrom p ty) (unshiftFrom p body) bi
+  | .forallE n ty body bi => .forallE n (unshiftFrom p ty) (unshiftFrom p body) bi
+  | .letE n ty val body =>
+    .letE n (unshiftFrom p ty) (unshiftFrom p val) (unshiftFrom p body)
+  | .lit l => .lit l
+  | .proj s i e => .proj s i (unshiftFrom p e)
+
+theorem unshiftFrom_shiftFrom {p : Nat} :
+    ∀ (e : Expr), unshiftFrom p (shiftFrom p e) = e := by
+  intro e
+  induction e <;> simp_all [shiftFrom, unshiftFrom]
+  case fvar idx n ty ih =>
+    by_cases hp : p ≤ idx
+    · rw [if_pos hp]
+      simp only [unshiftFrom]
+      rw [if_pos (by omega)]
+      simp [ih]
+    · rw [if_neg hp]
+      simp only [unshiftFrom]
+      rw [if_neg (by omega)]
+
+/-- Shifting is injective. -/
+theorem shiftFrom_injective {p : Nat} {a b : Expr}
+    (h : shiftFrom p a = shiftFrom p b) : a = b := by
+  have := congrArg (unshiftFrom p) h
+  rwa [unshiftFrom_shiftFrom, unshiftFrom_shiftFrom] at this
+
+/-- The action of `shiftFrom p` on one recorded `fvar` leaf. -/
+def shiftLeaf (p : Nat) : Nat × Name × Expr → Nat × Name × Expr :=
+  fun l => if p ≤ l.1 then (l.1 + 1, l.2.1, shiftFrom p l.2.2) else l
+
+theorem shiftLeaf_injective {p : Nat} {l₁ l₂ : Nat × Name × Expr}
+    (h : shiftLeaf p l₁ = shiftLeaf p l₂) : l₁ = l₂ := by
+  obtain ⟨i₁, n₁, t₁⟩ := l₁
+  obtain ⟨i₂, n₂, t₂⟩ := l₂
+  simp only [shiftLeaf] at h
+  split at h <;> split at h <;>
+    simp only [Prod.mk.injEq] at h ⊢ <;>
+    first
+    | exact ⟨by omega, h.2.1, shiftFrom_injective h.2.2⟩
+    | omega
+    | exact h
+
+/-- Every recorded leaf of a well-scoped term has index below the bound
+(hereditarily: annotations are scoped below their own leaf's index). -/
+theorem fvarLeaves_fst_lt :
+    ∀ {e : Expr} {d : Nat}, WScoped d e → ∀ l ∈ e.fvarLeaves, l.1 < d := by
+  intro e
+  induction e with
+  | fvar idx n ty ih =>
+    intro d hw l hl
+    simp only [WScoped] at hw
+    simp only [fvarLeaves, List.mem_cons] at hl
+    rcases hl with rfl | hl
+    · exact hw.1
+    · exact Nat.lt_trans (ih hw.2 l hl) hw.1
+  | app f a ihf iha =>
+    intro d hw l hl
+    simp only [WScoped] at hw
+    simp only [fvarLeaves, List.mem_append] at hl
+    rcases hl with hl | hl
+    · exact ihf hw.1 l hl
+    · exact iha hw.2 l hl
+  | lam n ty body bi ihty ihbody =>
+    intro d hw l hl
+    simp only [WScoped] at hw
+    simp only [fvarLeaves, List.mem_append] at hl
+    rcases hl with hl | hl
+    · exact ihty hw.1 l hl
+    · exact ihbody hw.2 l hl
+  | forallE n ty body bi ihty ihbody =>
+    intro d hw l hl
+    simp only [WScoped] at hw
+    simp only [fvarLeaves, List.mem_append] at hl
+    rcases hl with hl | hl
+    · exact ihty hw.1 l hl
+    · exact ihbody hw.2 l hl
+  | letE n ty val body ihty ihval ihbody =>
+    intro d hw l hl
+    simp only [WScoped] at hw
+    simp only [fvarLeaves, List.mem_append] at hl
+    rcases hl with (hl | hl) | hl
+    · exact ihty hw.1 l hl
+    · exact ihval hw.2.1 l hl
+    · exact ihbody hw.2.2 l hl
+  | proj s i e ih =>
+    intro d hw l hl
+    simp only [WScoped] at hw
+    simp only [fvarLeaves] at hl
+    exact ih hw l hl
+  | _ => intro d hw l hl; simp [fvarLeaves] at hl
+
+theorem map_shiftLeaf_eq_self {p : Nat} :
+    ∀ {ls : List (Nat × Name × Expr)}, (∀ l ∈ ls, l.1 < p) →
+      ls.map (shiftLeaf p) = ls := by
+  intro ls
+  induction ls with
+  | nil => intro _; rfl
+  | cons l ls ih =>
+    intro h
+    simp only [List.map, List.cons.injEq]
+    refine ⟨?_, ih fun l' hl' => h l' (List.mem_cons_of_mem _ hl')⟩
+    have hlt := h l (List.mem_cons_self ..)
+    simp only [shiftLeaf]
+    rw [if_neg (by omega)]
+
+/-- Shifting maps recorded leaves through `shiftLeaf` (well-scopedness
+keeps below-the-point annotations untouched hereditarily). -/
+theorem fvarLeaves_shiftFrom {p : Nat} :
+    ∀ {e : Expr} {d : Nat}, p ≤ d → WScoped d e →
+      (shiftFrom p e).fvarLeaves = e.fvarLeaves.map (shiftLeaf p) := by
+  intro e
+  induction e with
+  | fvar idx n ty ih =>
+    intro d hpd hw
+    simp only [WScoped] at hw
+    by_cases hp : p ≤ idx
+    · simp only [shiftFrom, if_pos hp, fvarLeaves, List.map, shiftLeaf]
+      exact congrArg _ (ih hp hw.2)
+    · simp only [shiftFrom, if_neg hp, fvarLeaves, List.map, shiftLeaf]
+      rw [map_shiftLeaf_eq_self (fun l hl =>
+        Nat.lt_of_lt_of_le (fvarLeaves_fst_lt hw.2 l hl) (by omega))]
+  | app f a ihf iha =>
+    intro d hpd hw
+    simp only [WScoped] at hw
+    simp only [shiftFrom, fvarLeaves, ihf hpd hw.1, iha hpd hw.2,
+      List.map_append]
+  | lam n ty body bi ihty ihbody =>
+    intro d hpd hw
+    simp only [WScoped] at hw
+    simp only [shiftFrom, fvarLeaves, ihty hpd hw.1, ihbody hpd hw.2,
+      List.map_append]
+  | forallE n ty body bi ihty ihbody =>
+    intro d hpd hw
+    simp only [WScoped] at hw
+    simp only [shiftFrom, fvarLeaves, ihty hpd hw.1, ihbody hpd hw.2,
+      List.map_append]
+  | letE n ty val body ihty ihval ihbody =>
+    intro d hpd hw
+    simp only [WScoped] at hw
+    simp only [shiftFrom, fvarLeaves, ihty hpd hw.1, ihval hpd hw.2.1,
+      ihbody hpd hw.2.2, List.map_append]
+  | proj s i e ih =>
+    intro d hpd hw
+    simp only [WScoped] at hw
+    simp only [shiftFrom, fvarLeaves, ih hpd hw]
+  | _ => intro d hpd hw; simp [shiftFrom, fvarLeaves]
+
+theorem contains_map_shiftLeaf {p : Nat} (ls : List (Nat × Name × Expr))
+    (l : Nat × Name × Expr) :
+    (ls.map (shiftLeaf p)).contains (shiftLeaf p l) = ls.contains l := by
+  induction ls with
+  | nil => rfl
+  | cons x xs ih =>
+    simp only [List.map, List.contains_cons, ih]
+    congr 1
+    cases hlx : l == x with
+    | true =>
+      have heq : l = x := eq_of_beq hlx
+      subst heq
+      exact beq_self_eq_true _
+    | false =>
+      have hne : ¬ shiftLeaf p l = shiftLeaf p x := fun h => by
+        have : l = x := shiftLeaf_injective h
+        subst this
+        simp at hlx
+      simp [hne]
+
+/-- The free-variable containment guard is shift-invariant on
+well-scoped terms. -/
+theorem fvarLeaves_all_contains_shiftFrom {p d : Nat} {a b : Expr}
+    (hpd : p ≤ d) (hwa : WScoped d a) (hwb : WScoped d b) :
+    ((shiftFrom p a).fvarLeaves.all
+        (fun l => (shiftFrom p b).fvarLeaves.contains l)) =
+      (a.fvarLeaves.all (fun l => b.fvarLeaves.contains l)) := by
+  rw [fvarLeaves_shiftFrom hpd hwa, fvarLeaves_shiftFrom hpd hwb,
+    List.all_map]
+  induction a.fvarLeaves with
+  | nil => rfl
+  | cons x xs ih =>
+    simp only [List.all_cons, ih, Function.comp_apply, contains_map_shiftLeaf]
+
+/-- Shifting preserves (in)equality under `==`. -/
+theorem shiftFrom_beq {p : Nat} (a b : Expr) :
+    (shiftFrom p a == shiftFrom p b) = (a == b) := by
+  cases hab : a == b with
+  | true =>
+    have heq : a = b := eq_of_beq hab
+    subst heq
+    exact beq_self_eq_true _
+  | false =>
+    have hne : a ≠ b := by intro h; subst h; simp at hab
+    have hne' : shiftFrom p a ≠ shiftFrom p b :=
+      fun h => hne (shiftFrom_injective h)
+    simp [hne']
+
+/-- Shifting commutes with instantiating a `∀`-telescope. -/
+theorem instPis_shiftFrom {p : Nat} :
+    ∀ (as : List Expr) (t : Expr),
+      Expr.instPis (shiftFrom p t) (as.map (shiftFrom p)) =
+        (Expr.instPis t as).map (shiftFrom p)
+  | [], t => rfl
+  | a :: as, t => by
+    cases t <;> try rfl
+    case fvar => simp only [shiftFrom]; split <;> rfl
+    case forallE n ty body mb =>
+      show Expr.instPis ((shiftFrom p body).instantiate1 (shiftFrom p a))
+        (as.map (shiftFrom p)) = _
+      rw [← shiftFrom_instantiate1_gen]
+      exact instPis_shiftFrom as _
+
+/-- Shifting commutes with converting `∀`-binders to `λ`-binders. -/
+theorem pisToLams_shiftFrom {p : Nat} :
+    ∀ (k : Nat) (t body : Expr),
+      Expr.pisToLams k (shiftFrom p t) (shiftFrom p body) =
+        (Expr.pisToLams k t body).map (shiftFrom p)
+  | 0, _, _ => rfl
+  | k + 1, t, body => by
+    cases t <;> try rfl
+    case fvar => simp only [shiftFrom]; split <;> rfl
+    case forallE n ty rest mb =>
+      show (Expr.pisToLams k (shiftFrom p rest) (shiftFrom p body)).map
+          (fun b => Expr.lam n (shiftFrom p ty) b ⟨mb.bi, none⟩) =
+        ((Expr.pisToLams k rest body).map
+          (fun b => Expr.lam n ty b ⟨mb.bi, none⟩)).map (shiftFrom p)
+      rw [pisToLams_shiftFrom k rest body]
+      cases Expr.pisToLams k rest body <;> rfl
 
 end Setlec.Expr
