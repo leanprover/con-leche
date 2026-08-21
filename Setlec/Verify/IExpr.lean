@@ -445,6 +445,171 @@ theorem internExpr_spec {st : EStore} (hwf : st.WF) (e : Expr) :
     simp only [internExpr, hI]
     exact ⟨hstep.1, hext₁.trans hstep.2.1, hstep.2.2⟩
 
+/-! ## Canonicity: index equality is expression equality -/
+
+/-- Inversion of `denoteNode` at each `Expr` head constructor. -/
+theorem denoteNode_bvar_inv {den : EIdx → Option Expr} {n : ENode} {k : Nat}
+    (h : denoteNode den n = some (.bvar k)) : n = .bvar k := by
+  cases n <;> simp_all [denoteNode, Option.map_eq_some_iff, Option.bind_eq_some_iff] <;> grind
+
+theorem denoteNode_fvar_inv {den : EIdx → Option Expr} {n : ENode}
+    {idx : Nat} {nm : Name} {ty : Expr}
+    (h : denoteNode den n = some (.fvar idx nm ty)) :
+    ∃ t, n = .fvar idx nm t ∧ den t = some ty := by
+  cases n <;> simp_all [denoteNode, Option.map_eq_some_iff, Option.bind_eq_some_iff] <;> grind
+
+theorem denoteNode_sort_inv {den : EIdx → Option Expr} {n : ENode} {u : Level}
+    (h : denoteNode den n = some (.sort u)) : n = .sort u := by
+  cases n <;> simp_all [denoteNode, Option.map_eq_some_iff, Option.bind_eq_some_iff] <;> grind
+
+theorem denoteNode_const_inv {den : EIdx → Option Expr} {n : ENode}
+    {nm : Name} {us : List Level}
+    (h : denoteNode den n = some (.const nm us)) : n = .const nm us := by
+  cases n <;> simp_all [denoteNode, Option.map_eq_some_iff, Option.bind_eq_some_iff] <;> grind
+
+theorem denoteNode_app_inv {den : EIdx → Option Expr} {n : ENode} {x y : Expr}
+    (h : denoteNode den n = some (.app x y)) :
+    ∃ f a, n = .app f a ∧ den f = some x ∧ den a = some y := by
+  cases n <;> simp_all [denoteNode, Option.map_eq_some_iff, Option.bind_eq_some_iff] <;> grind
+
+theorem denoteNode_lam_inv {den : EIdx → Option Expr} {n : ENode}
+    {nm : Name} {ty body : Expr} {m : BinderMeta}
+    (h : denoteNode den n = some (.lam nm ty body m)) :
+    ∃ t b, n = .lam nm t b m ∧ den t = some ty ∧ den b = some body := by
+  cases n <;> simp_all [denoteNode, Option.map_eq_some_iff, Option.bind_eq_some_iff] <;> grind
+
+theorem denoteNode_forallE_inv {den : EIdx → Option Expr} {n : ENode}
+    {nm : Name} {ty body : Expr} {m : BinderMeta}
+    (h : denoteNode den n = some (.forallE nm ty body m)) :
+    ∃ t b, n = .forallE nm t b m ∧ den t = some ty ∧ den b = some body := by
+  cases n <;> simp_all [denoteNode, Option.map_eq_some_iff, Option.bind_eq_some_iff] <;> grind
+
+theorem denoteNode_letE_inv {den : EIdx → Option Expr} {n : ENode}
+    {nm : Name} {ty val body : Expr}
+    (h : denoteNode den n = some (.letE nm ty val body)) :
+    ∃ t v b, n = .letE nm t v b ∧ den t = some ty ∧ den v = some val ∧
+      den b = some body := by
+  cases n <;> simp_all [denoteNode, Option.map_eq_some_iff, Option.bind_eq_some_iff] <;> grind
+
+theorem denoteNode_lit_inv {den : EIdx → Option Expr} {n : ENode} {l : Literal}
+    (h : denoteNode den n = some (.lit l)) : n = .lit l := by
+  cases n <;> simp_all [denoteNode, Option.map_eq_some_iff, Option.bind_eq_some_iff] <;> grind
+
+theorem denoteNode_proj_inv {den : EIdx → Option Expr} {n : ENode}
+    {s : Name} {j : Nat} {x : Expr}
+    (h : denoteNode den n = some (.proj s j x)) :
+    ∃ e, n = .proj s j e ∧ den e = some x := by
+  cases n <;> simp_all [denoteNode, Option.map_eq_some_iff, Option.bind_eq_some_iff] <;> grind
+
+/-- The cons-table makes stored nodes unique: two indices holding the
+same node coincide. -/
+theorem index_unique {st : EStore} (hwf : st.WF) {n : ENode} {i j : EIdx}
+    (hi : st.nodes[i]? = some n) (hj : st.nodes[j]? = some n) : i = j :=
+  Option.some.inj
+    (((hwf.cons_graph n i).mpr hi).symm.trans ((hwf.cons_graph n j).mpr hj))
+
+/-- Denotation is injective on a well-formed store: two indices denoting
+the same expression are equal (canonicity — hash-consing stores every
+expression at most once, and children determine the node). -/
+theorem denote_inj {st : EStore} (hwf : st.WF) :
+    ∀ {a : Expr} {i j : EIdx}, st.denote i = some a → st.denote j = some a →
+      i = j := by
+  intro a
+  induction a with
+  | bvar k =>
+    intro i j hi hj
+    obtain ⟨n, hn, -, hdn⟩ := denote_some_inv hi
+    obtain ⟨m, hm, -, hdm⟩ := denote_some_inv hj
+    obtain rfl := denoteNode_bvar_inv hdn
+    obtain rfl := denoteNode_bvar_inv hdm
+    exact index_unique hwf hn hm
+  | sort u =>
+    intro i j hi hj
+    obtain ⟨n, hn, -, hdn⟩ := denote_some_inv hi
+    obtain ⟨m, hm, -, hdm⟩ := denote_some_inv hj
+    obtain rfl := denoteNode_sort_inv hdn
+    obtain rfl := denoteNode_sort_inv hdm
+    exact index_unique hwf hn hm
+  | const nm us =>
+    intro i j hi hj
+    obtain ⟨n, hn, -, hdn⟩ := denote_some_inv hi
+    obtain ⟨m, hm, -, hdm⟩ := denote_some_inv hj
+    obtain rfl := denoteNode_const_inv hdn
+    obtain rfl := denoteNode_const_inv hdm
+    exact index_unique hwf hn hm
+  | lit l =>
+    intro i j hi hj
+    obtain ⟨n, hn, -, hdn⟩ := denote_some_inv hi
+    obtain ⟨m, hm, -, hdm⟩ := denote_some_inv hj
+    obtain rfl := denoteNode_lit_inv hdn
+    obtain rfl := denoteNode_lit_inv hdm
+    exact index_unique hwf hn hm
+  | fvar idx nm ty ih =>
+    intro i j hi hj
+    obtain ⟨n, hn, -, hdn⟩ := denote_some_inv hi
+    obtain ⟨m, hm, -, hdm⟩ := denote_some_inv hj
+    obtain ⟨t, rfl, ht⟩ := denoteNode_fvar_inv hdn
+    obtain ⟨t', rfl, ht'⟩ := denoteNode_fvar_inv hdm
+    obtain rfl := ih ht ht'
+    exact index_unique hwf hn hm
+  | app x y ihx ihy =>
+    intro i j hi hj
+    obtain ⟨n, hn, -, hdn⟩ := denote_some_inv hi
+    obtain ⟨m, hm, -, hdm⟩ := denote_some_inv hj
+    obtain ⟨f, a, rfl, hf, ha⟩ := denoteNode_app_inv hdn
+    obtain ⟨g, b, rfl, hg, hb⟩ := denoteNode_app_inv hdm
+    obtain rfl := ihx hf hg
+    obtain rfl := ihy ha hb
+    exact index_unique hwf hn hm
+  | lam nm ty body m ihty ihbody =>
+    intro i j hi hj
+    obtain ⟨n, hn, -, hdn⟩ := denote_some_inv hi
+    obtain ⟨m', hm, -, hdm⟩ := denote_some_inv hj
+    obtain ⟨t, b, rfl, ht, hb⟩ := denoteNode_lam_inv hdn
+    obtain ⟨t', b', rfl, ht', hb'⟩ := denoteNode_lam_inv hdm
+    obtain rfl := ihty ht ht'
+    obtain rfl := ihbody hb hb'
+    exact index_unique hwf hn hm
+  | forallE nm ty body m ihty ihbody =>
+    intro i j hi hj
+    obtain ⟨n, hn, -, hdn⟩ := denote_some_inv hi
+    obtain ⟨m', hm, -, hdm⟩ := denote_some_inv hj
+    obtain ⟨t, b, rfl, ht, hb⟩ := denoteNode_forallE_inv hdn
+    obtain ⟨t', b', rfl, ht', hb'⟩ := denoteNode_forallE_inv hdm
+    obtain rfl := ihty ht ht'
+    obtain rfl := ihbody hb hb'
+    exact index_unique hwf hn hm
+  | letE nm ty val body ihty ihval ihbody =>
+    intro i j hi hj
+    obtain ⟨n, hn, -, hdn⟩ := denote_some_inv hi
+    obtain ⟨m, hm, -, hdm⟩ := denote_some_inv hj
+    obtain ⟨t, v, b, rfl, ht, hv, hb⟩ := denoteNode_letE_inv hdn
+    obtain ⟨t', v', b', rfl, ht', hv', hb'⟩ := denoteNode_letE_inv hdm
+    obtain rfl := ihty ht ht'
+    obtain rfl := ihval hv hv'
+    obtain rfl := ihbody hb hb'
+    exact index_unique hwf hn hm
+  | proj s k x ih =>
+    intro i j hi hj
+    obtain ⟨n, hn, -, hdn⟩ := denote_some_inv hi
+    obtain ⟨m, hm, -, hdm⟩ := denote_some_inv hj
+    obtain ⟨e, rfl, he⟩ := denoteNode_proj_inv hdn
+    obtain ⟨e', rfl, he'⟩ := denoteNode_proj_inv hdm
+    obtain rfl := ih he he'
+    exact index_unique hwf hn hm
+
+/-- O(1) equality: on a well-formed store, comparing indices is
+comparing the denoted expressions. -/
+theorem denote_eq_iff {st : EStore} (hwf : st.WF) {i j : EIdx} {a b : Expr}
+    (ha : st.denote i = some a) (hb : st.denote j = some b) :
+    i = j ↔ a = b := by
+  constructor
+  · rintro rfl
+    rw [ha] at hb
+    exact Option.some.inj hb
+  · rintro rfl
+    exact denote_inj hwf ha hb
+
 end EStore
 
 end Setlec
