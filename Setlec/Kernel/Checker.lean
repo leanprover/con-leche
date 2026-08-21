@@ -2,6 +2,7 @@ import Setlec.Kernel.Env
 import Setlec.Kernel.StdAxioms
 import Setlec.Kernel.TypeChecker
 import Setlec.Kernel.TypeCheckerC
+import Setlec.Kernel.DivModPins
 
 /-!
 # The checker
@@ -700,6 +701,167 @@ def certifyNatEqs (ops : CheckerOps m) (env : Env) :
       certifyNatEqs ops env rest
     else pure false
 
+/-- The pinned defining expression of a pin-certified WF-recursive op
+(`Setlec/Kernel/DivModPins.lean`, generated from the toolchain's own
+prelude). -/
+def divModDeclPin (c : Name) : Expr :=
+  if c = natDivName then natDivDeclPin else natModDeclPin
+
+/-- The vendored certificate proof terms of a pin-certified
+WF-recursive op (`Setlec/Kernel/DivModPins.lean`), one per statement of
+`divModCertStmts`. -/
+def divModCertProofs (c : Name) : List Expr :=
+  if c = natDivName then natDivCertProofs else natModCertProofs
+
+/-- The pinned characterization statements of a pin-certified
+WF-recursive op, in *open* form over `x := fvar 0`, `y := fvar 1` (the
+hypotheses become `fvar 2, fvar 3`): per certificate, the list of
+hypothesis types and the characteristic equation `Eq Nat lhs rhs`.
+The guards are spelled with the already-certified `Nat.ble` (never the
+`Nat.le`/`Nat.lt` `Prop` inductives) and the numeral `1` as
+`Nat.succ Nat.zero`, so the model side consumes them through the
+existing `NatOpsOk` literal semantics for `ble`/`sub`.  The op's
+self-reference is `.const c []`, substituted with the stored annotated
+value before checking (all statement components are application
+spines, so `Expr.substConst0` applies). -/
+def divModCertStmts (c : Name) : List (List Expr × Expr) :=
+  let natTy : Expr := .const natName []
+  let x : Expr := .fvar 0 (.str .anonymous "x") natTy
+  let y : Expr := .fvar 1 (.str .anonymous "y") natTy
+  let one : Expr := .app (.const natSuccName []) (.const natZeroName [])
+  let ble2 : Expr → Expr → Expr := fun a b =>
+    .app (.app (.const natBleName []) a) b
+  let eqB : Expr → Expr → Expr := fun a b =>
+    .app (.app (.app (.const eqName [.succ .zero]) (.const boolName [])) a) b
+  let eqN : Expr → Expr → Expr := fun a b =>
+    .app (.app (.app (.const eqName [.succ .zero]) natTy) a) b
+  let op2 : Expr → Expr → Expr := fun a b => .app (.app (.const c []) a) b
+  let sub2 : Expr → Expr → Expr := fun a b =>
+    .app (.app (.const natSubName []) a) b
+  let bT : Expr := .const boolTrueName []
+  let bF : Expr := .const boolFalseName []
+  let recRhs : Expr :=
+    if c = natDivName then .app (.const natSuccName []) (op2 (sub2 x y) y)
+    else op2 (sub2 x y) y
+  let baseRhs : Expr := if c = natDivName then .const natZeroName [] else x
+  [([eqB (ble2 y x) bT, eqB (ble2 one y) bT], eqN (op2 x y) recRhs),
+   ([eqB (ble2 y x) bF], eqN (op2 x y) baseRhs),
+   ([eqB (ble2 one y) bF], eqN (op2 x y) baseRhs)]
+
+/-- The vendored proof applied to the statement's free variables
+(`x`, `y`, then one `fvar` per hypothesis, carrying the hypothesis
+*type* as its `fvar` annotation — the checker's implicit local
+context). -/
+def divModCertApplied (proofS : Expr) (hyps : List Expr) : Expr :=
+  let base : Expr :=
+    .app (.app proofS (.fvar 0 (.str .anonymous "x") (.const natName [])))
+      (.fvar 1 (.str .anonymous "y") (.const natName []))
+  match hyps with
+  | [h1] => .app base (.fvar 2 (.str .anonymous "h1") h1)
+  | [h1, h2] =>
+    .app (.app base (.fvar 2 (.str .anonymous "h1") h1))
+      (.fvar 3 (.str .anonymous "h2") h2)
+  | _ => base
+
+/-- The syntactic guards of one certificate check: the substituted
+proof is closed, level-monomorphic and resolving, and the substituted
+statement components resolve. -/
+def divModCertGuard (env : Env) (c : Name) (annVal : Expr)
+    (hyps : List Expr) (eqE proof : Expr) : Bool :=
+  (Expr.substConstAll c annVal proof).looseBVarsBounded 0 &&
+  !(Expr.substConstAll c annVal proof).hasFvar &&
+  (Expr.substConstAll c annVal proof).allLevelParamsDefined [] &&
+  (Expr.substConstAll c annVal proof).constsResolve env &&
+  (hyps.map (Expr.substConst0 c annVal)).all
+    (fun h => h.constsResolve env) &&
+  (Expr.substConst0 c annVal eqE).constsResolve env
+
+/-- Check the pinned certificates of op `c`: per certificate, the
+vendored proof (with the op's self-references replaced by the stored
+annotated value — the checks run in the *pre-insertion* environment,
+exactly like the structural-Nat certification: post-insertion the op's
+own just-enabled fast path would participate in checking the very
+certificates that justify it) is applied to free variables typed by
+the pinned open statement, its type inferred, and compared against the
+pinned characteristic equation.  This checks each certificate exactly
+like a theorem declaration over an opened telescope — nothing is
+installed. -/
+def checkDivModCerts (ops : CheckerOps m) (env : Env) (c : Name)
+    (annVal : Expr) : List (List Expr × Expr) → List Expr → m Bool
+  | [], [] => pure true
+  | (hyps, eqE) :: srest, proof :: prest => do
+    if divModCertGuard env c annVal hyps eqE proof then
+      let appliedA ← ops.annotate env 4
+        (divModCertApplied (Expr.substConstAll c annVal proof)
+          (hyps.map (Expr.substConst0 c annVal)))
+      let tp ← ops.inferType env 4 appliedA
+      if ← ops.isDefEq env 4 tp (Expr.substConst0 c annVal eqE) then
+        checkDivModCerts ops env c annVal srest prest
+      else pure false
+    else pure false
+  | _, _ => pure false
+
+/-- Environment prerequisites of a certified `Nat.div`/`Nat.mod`:
+dependency guard, pinned dependencies, the pinned `Eq` basis (the
+certificate statements are equations in the pinned equality), and the
+`Bool` constructors stored at the type `Bool` itself (the guards'
+`true`/`false` must inhabit the `Bool` value semantically). -/
+def divModEnvGuard (env2 : Env) (c : Name) : Bool :=
+  natOpGuard env2 c && (natOpDeps c).all (natOpStoredOk env2) &&
+  env2.find? eqName == some eqA &&
+  (match env2.find? boolTrueName with
+    | some ci => ci.toConstantVal.type == .const boolName []
+    | none => false) &&
+  (match env2.find? boolFalseName with
+    | some ci => ci.toConstantVal.type == .const boolName []
+    | none => false)
+
+/-- Syntactic guards on the vendored pin (generated; checked once at
+install rather than proven about the blob). -/
+def divModPinGuard (env : Env) (c : Name) : Bool :=
+  (divModDeclPin c).looseBVarsBounded 0 && !(divModDeclPin c).hasFvar &&
+  (divModDeclPin c).allLevelParamsDefined [] &&
+  (divModDeclPin c).constsResolve env
+
+/-- All certificates' syntactic guards at once.  Checked *before* the
+pin comparison and declined on failure: a stream may legitimately stop
+short of the constants the vendored proofs mention, which is an
+unsupported environment, not an internal inconsistency. -/
+def divModCertsGuard (env : Env) (c : Name) (annVal : Expr) : Bool :=
+  ((divModCertStmts c).zip (divModCertProofs c)).all
+    (fun p => divModCertGuard env c annVal p.1.1 p.1.2 p.2)
+
+/-- The `Nat.div`/`Nat.mod` install gate, run after the ordinary
+definition check (`env2` is the already-extended environment, `env`
+the pre-insertion one all checks run in): dependency and pinned-`Eq`
+guards, then definitional equality of the stored value against the
+vendored pin of the toolchain's own helper-unfolded definition —
+elaborator drift surfaces as a decline (exit 2), never silently — and
+on a match the pinned certificates (`checkDivModCerts`).  A
+certificate failure after a pin match is an internal inconsistency
+(exit 3). -/
+def checkDivModPin (ops : CheckerOps m) (env env2 : Env) (c : Name) :
+    m Unit := do
+  if divModEnvGuard env2 c then
+    match env2.find? c with
+    | some (.defnInfo _ value' _) =>
+      if divModPinGuard env c && divModCertsGuard env c value' then do
+        let pinA ← ops.annotate env 0 (divModDeclPin c)
+        let okPin ← ops.isDefEq env 0 value' pinA
+        if okPin then do
+          let ok ← checkDivModCerts ops env c value'
+            (divModCertStmts c) (divModCertProofs c)
+          if ok then pure ()
+          else throw (.internal
+            s!"pinned Nat.div/mod certificate failed after pin match ({c})")
+        else throw (.notImplemented
+          s!"unsupported Nat.div/mod spelling ({c})")
+      else throw (.notImplemented
+        s!"unsupported Nat.div/mod spelling ({c}: pin ground constants absent)")
+    | _ => throw (.internal s!"Nat.div/mod operation not stored ({c})")
+  else throw (.notImplemented
+    s!"unsupported Nat.div/mod environment ({c})")
+
 /-- Check a single declaration, extending the environment on success. -/
 def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
   match d with
@@ -732,6 +894,17 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
           throw (.notImplemented
             s!"nonstandard structural Nat operation ({cv.name})")
       | _ => throw (.internal s!"structural Nat operation not stored ({cv.name})")
+    -- WF-recursive Nat pins (`Nat.div`/`Nat.mod`): the stored value must
+    -- be definitionally equal to the vendored pin of the toolchain's own
+    -- (helper-unfolded) definition — elaborator drift surfaces as a
+    -- decline (exit 2), never silently.  On a match, the pinned
+    -- `Nat.ble`-guarded characterization certificates are checked (in
+    -- the pre-insertion environment, self-references substituted; see
+    -- `checkDivModCerts`) but not installed; their success is what the
+    -- model side consumes for the literal fast path.  A certificate
+    -- failure after a pin match is an internal inconsistency (exit 3).
+    if natDivModNames.contains cv.name then
+      checkDivModPin ops env env2 cv.name
     pure env2
   | .thmDecl cv value =>
     let cv ← checkConstantVal ops env cv

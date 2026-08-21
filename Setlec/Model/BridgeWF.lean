@@ -582,25 +582,43 @@ theorem checkDecl_wfimp {env env₂ : Env} {d : Declaration} {F : Nat}
     show (checkDefnVal (fueledOps F) env cvA value hint >>= _) = _
     rw [hdefn]
     simp only [Bind.bind, Except.bind]
+    obtain ⟨value', hann, hvf, henv2⟩ := checkDefnVal_run_shape hdefn
+    have hfind : env2.find? cvA.name =
+        some (.defnInfo cvA value' hint) := by
+      rw [henv2, Env.find?_cons]
+      exact if_pos rfl
+    have hval'f : value'.hasFvar = false :=
+      not_hasFvar_of_fvarsBelow_zero
+        ((annotateCore_WScoped F value hann
+          (WScoped.of_not_hasFvar hvf)).fvarsBelow)
+    have hv'fD : ∀ cv' v' h', env2.find? cvA.name =
+        some (.defnInfo cv' v' h') → v'.hasFvar = false := by
+      intro cv' v' h' hf
+      rw [hfind] at hf
+      simp only [Option.some.injEq, ConstantInfo.defnInfo.injEq] at hf
+      obtain ⟨-, rfl, -⟩ := hf
+      exact hval'f
     by_cases h1 : natOpNames.contains cvA.name = true
     case neg =>
       rw [if_neg h1] at h ⊢
+      by_cases h4 : natDivModNames.contains cvA.name = true
+      case neg =>
+        rw [if_neg h4] at h ⊢
+        exact h
+      rw [if_pos h4] at h ⊢
+      obtain ⟨u, hpinW, h⟩ := atF_bind_ok h
+      have hpin' := checkDivModPin_wfimp henv
+        (List.contains_iff_mem.mp h4) hv'fD hpinW
+      show (checkDivModPin (fueledOps F) env env2 cvA.name >>= _) = _
+      rw [hpin']
+      simp only [Bind.bind, Except.bind]
       exact h
     rw [if_pos h1] at h ⊢
     by_cases h2 : (natOpGuard env2 cvA.name &&
         (natOpDeps cvA.name).all (natOpStoredOk env2)) = true
     case neg => rw [if_neg h2] at h; exact absurd h atF_throw_bind
     rw [if_pos h2] at h ⊢
-    obtain ⟨value', hann, hvf, henv2⟩ := checkDefnVal_run_shape hdefn
-    have hfind : env2.find? cvA.name =
-        some (.defnInfo cvA value' hint) := by
-      rw [henv2, Env.find?_cons]
-      exact if_pos rfl
     rw [hfind] at h ⊢
-    have hval'f : value'.hasFvar = false :=
-      not_hasFvar_of_fvarsBelow_zero
-        ((annotateCore_WScoped F value hann
-          (WScoped.of_not_hasFvar hvf)).fvarsBelow)
     obtain ⟨ok, hcert, h⟩ := atF_bind_ok h
     have hsc : ∀ eq ∈ (natOpEquations 0 cvA.name).map
         (fun eq => (Expr.substConst0 cvA.name value' eq.1,
@@ -621,6 +639,17 @@ theorem checkDecl_wfimp {env env₂ : Env} {d : Declaration} {F : Nat}
       rw [if_neg h3] at h
       exact absurd h atF_throw_bind
     rw [if_pos h3] at h ⊢
+    by_cases h4 : natDivModNames.contains cvA.name = true
+    case neg =>
+      rw [if_neg h4] at h ⊢
+      exact h
+    rw [if_pos h4] at h ⊢
+    obtain ⟨u, hpinW, h⟩ := atF_bind_ok h
+    have hpin' := checkDivModPin_wfimp henv
+      (List.contains_iff_mem.mp h4) hv'fD hpinW
+    show (checkDivModPin (fueledOps F) env env2 cvA.name >>= _) = _
+    rw [hpin']
+    simp only [Bind.bind, Except.bind]
     exact h
   | thmDecl cv value =>
     unfold checkDecl at h ⊢

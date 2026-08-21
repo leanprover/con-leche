@@ -2,6 +2,7 @@ import Setlec.Model.Extend
 import Setlec.Model.Basis.Quot.Iota
 import Setlec.Model.Basis.Quot.Consistency
 import Setlec.Model.StdAxioms
+import Setlec.Model.DivModCert
 
 /-!
 # Consistency of the checker
@@ -108,8 +109,8 @@ sides. -/
 private theorem eqSides_defeq {env : Env} (m : EnvModel V env) (F : Nat)
     {l r : Expr} {ψ : Name → Nat} {ρ : Nat → V} {vl vr Tl Tr : V}
     (hde : isDefEqCore env F 2 l r = .ok true)
-    (hl : EqSideOk env m.val ψ ρ l vl Tl)
-    (hr : EqSideOk env m.val ψ ρ r vr Tr) :
+    (hl : EqSideOk env m.val ψ 2 ρ l vl Tl)
+    (hr : EqSideOk env m.val ψ 2 ρ r vr Tr) :
     interpExpr V m.val env ψ 2 ρ l = interpExpr V m.val env ψ 2 ρ r := by
   obtain ⟨hli, -, hlA, hlF, hlW, hlB, hlL⟩ := hl
   obtain ⟨hri, -, hrA, hrF, hrW, hrB, hrL⟩ := hr
@@ -123,7 +124,7 @@ private theorem eqSides_defeq_const {env : Env} (m : EnvModel V env)
     (F : Nat) {l : Expr} {bn : Name} {ci : ConstantInfo} {ψ : Name → Nat}
     {ρ : Nat → V} {vl Tl : V}
     (hde : isDefEqCore env F 2 l (.const bn []) = .ok true)
-    (hl : EqSideOk env m.val ψ ρ l vl Tl)
+    (hl : EqSideOk env m.val ψ 2 ρ l vl Tl)
     (hf : env.find? bn = some ci)
     (hlp : ci.toConstantVal.levelParams = []) :
     interpExpr V m.val env ψ 2 ρ l =
@@ -185,19 +186,19 @@ private theorem natop_eqs_sound {env : Env} (m : EnvModel V env) (F : Nat)
       (updV V (updV V (rho0 V) 0 x) 1 y) H := FvarsOk.of_not_hasFvar hHf
   have hHW : WScoped 2 H := WScoped.of_not_hasFvar hHf
   have hHL : Expr.LeavesBounded H := Expr.LeavesBounded.of_not_hasFvar hHf
-  have hfx : EqSideOk env m.val ψ (updV V (updV V (rho0 V) 0 x) 1 y)
+  have hfx : EqSideOk env m.val ψ 2 (updV V (updV V (rho0 V) 0 x) 1 y)
       (.fvar 0 (.str .anonymous "x") (.const natName [])) x
       (m.val natName ψ) := by
     have h0 := eqSide_fvar m hs (idx := 0) (nm := .str .anonymous "x")
-      (ρ := updV V (updV V (rho0 V) 0 x) 1 y) (by omega)
+      (dd := 2) (ρ := updV V (updV V (rho0 V) 0 x) 1 y) (by omega)
       (by rw [updV01_0]; exact hx)
     rw [updV01_0] at h0
     exact h0
-  have hfy : EqSideOk env m.val ψ (updV V (updV V (rho0 V) 0 x) 1 y)
+  have hfy : EqSideOk env m.val ψ 2 (updV V (updV V (rho0 V) 0 x) 1 y)
       (.fvar 1 (.str .anonymous "y") (.const natName [])) y
       (m.val natName ψ) := by
     have h0 := eqSide_fvar m hs (idx := 1) (nm := .str .anonymous "y")
-      (ρ := updV V (updV V (rho0 V) 0 x) 1 y) (by omega)
+      (dd := 2) (ρ := updV V (updV V (rho0 V) 0 x) 1 y) (by omega)
       (by rw [updV01_1]; exact hy)
     rw [updV01_1] at h0
     exact h0
@@ -259,7 +260,7 @@ private theorem natop_eqs_sound {env : Env} (m : EnvModel V env) (F : Nat)
     rw [hCid (by decide) (by decide)] at hHpi
     obtain ⟨cva, va, hnf2, hfa, hlpa, -, haddm⟩ :=
       natOpStored_facts m (hdeps natAddName (by decide) (by decide)) hs ψ
-    obtain ⟨Ca, haddpi, hCua, hCida⟩ := haddm (by decide)
+    obtain ⟨Ca, haddpi, hCua, hCida, -⟩ := haddm (by decide)
     rw [hCida (by decide) (by decide)] at haddpi
     simp +decide [natOpEquations, Prod.mk.injEq] at heqm
     rcases heqm with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
@@ -281,7 +282,7 @@ private theorem natop_eqs_sound {env : Env} (m : EnvModel V env) (F : Nat)
     rw [hCid (by decide) (by decide)] at hHpi
     obtain ⟨cvm', vm', hnf3, hfm, hlpm, -, hmulm⟩ :=
       natOpStored_facts m (hdeps natMulName (by decide) (by decide)) hs ψ
-    obtain ⟨Cm, hmulpi, hCum, hCidm⟩ := hmulm (by decide)
+    obtain ⟨Cm, hmulpi, hCum, hCidm, -⟩ := hmulm (by decide)
     rw [hCidm (by decide) (by decide)] at hmulpi
     simp +decide [natOpEquations, Prod.mk.injEq] at heqm
     rcases heqm with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
@@ -1690,7 +1691,11 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
           certifyNatEqs (fueledOps F) env
             ((natOpEquations 0 cv.name).map fun eq =>
               (Expr.substConst0 cv.name value' eq.1,
-               Expr.substConst0 cv.name value' eq.2)) = .ok true) := by
+               Expr.substConst0 cv.name value' eq.2)) = .ok true) ∧
+        (natDivModNames.contains cv.name = true →
+          checkDivModPin (fueledOps F) env
+            (⟨ConstantInfo.defnInfo { cv with type := type } value' hint ::
+              env.consts⟩ : Env) cv.name = .ok ()) := by
       by_cases hnop : natOpNames.contains cv.name = true
       · rw [if_pos hnop] at h
         by_cases hgd : (natOpGuard (⟨ConstantInfo.defnInfo
@@ -1726,13 +1731,43 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
               Except.pure] at h
           | true =>
             intro h
-            simp only [↓reduceIte, pure, Except.pure,
-              Except.ok.injEq] at h
-            exact ⟨h.symm, fun _ => ⟨hgd, rfl⟩⟩
+            simp only [↓reduceIte] at h
+            by_cases hdm : natDivModNames.contains cv.name = true
+            · rw [if_pos hdm] at h
+              revert h
+              cases hpin : checkDivModPin (fueledOps F) env
+                  (⟨ConstantInfo.defnInfo { cv with type := type } value'
+                    hint :: env.consts⟩ : Env) cv.name with
+              | error err => intro h; exact nomatch h
+              | ok u =>
+                intro h
+                simp only [Bind.bind, Except.bind, pure, Except.pure,
+                  Except.ok.injEq] at h
+                exact ⟨h.symm, fun _ => ⟨hgd, rfl⟩, fun _ => rfl⟩
+            · rw [if_neg hdm] at h
+              simp only [Bind.bind, Except.bind, pure, Except.pure,
+                Except.ok.injEq] at h
+              exact ⟨h.symm, fun _ => ⟨hgd, rfl⟩,
+                fun hcx => absurd hcx hdm⟩
       · rw [if_neg hnop] at h
-        simp only [pure, Except.pure, Except.ok.injEq] at h
-        exact ⟨h.symm, fun hc => absurd hc hnop⟩
-    obtain ⟨rfl, harm2⟩ := harm
+        by_cases hdm : natDivModNames.contains cv.name = true
+        · rw [if_pos hdm] at h
+          revert h
+          cases hpin : checkDivModPin (fueledOps F) env
+              (⟨ConstantInfo.defnInfo { cv with type := type } value'
+                hint :: env.consts⟩ : Env) cv.name with
+          | error err => intro h; exact nomatch h
+          | ok u =>
+            intro h
+            simp only [Bind.bind, Except.bind, pure, Except.pure,
+              Except.ok.injEq] at h
+            exact ⟨h.symm, fun hc => absurd hc hnop, fun _ => rfl⟩
+        · rw [if_neg hdm] at h
+          simp only [Bind.bind, Except.bind, pure, Except.pure,
+            Except.ok.injEq] at h
+          exact ⟨h.symm, fun hc => absurd hc hnop,
+            fun hcx => absurd hcx hdm⟩
+    obtain ⟨rfl, harm2, harm3⟩ := harm
     -- semantic facts about the annotated type
     have hwt : WScoped 0 cv.type := WScoped.of_not_hasFvar hitf
     have htf : type.hasFvar = false :=
@@ -1759,6 +1794,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       hres'
       hpshape'
       ?_
+      ?_
+    -- the structural-Nat head obligation
     intro hcontains _
     obtain ⟨hgd, hcert0⟩ := harm2 hcontains
     simp only [Bool.and_eq_true] at hgd
@@ -1830,7 +1867,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         obtain rfl := Option.some.inj hTT
         exact hmemvT
       · intro hp
-        obtain ⟨C, hCi, hCu, hCid⟩ := h2 hp
+        obtain ⟨C, hCi, hCu, hCid, -⟩ := h2 hp
         rw [hCi] at hTT
         obtain rfl := Option.some.inj hTT
         exact ⟨C, hmemvT, hCu, hCid⟩
@@ -1848,7 +1885,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
           ciF.toConstantVal.levelParams = []) := by
       intro hcb
       obtain ⟨⟨ciT, hT, hlpT⟩, ⟨ciF, hF, hlpF⟩⟩ :=
-        (natOpGuard_inv hguard2).2.2 hcb
+        (natOpGuard_inv hguard2).2.2 (by
+          rcases hcb with h' | h'
+          · exact Or.inl h'
+          · exact Or.inr (Or.inl h'))
       have hTd : (⟨ConstantInfo.defnInfo { cv with type := type } value' hint ::
           env.consts⟩ : Env).find? boolTrueName =
           env.find? boolTrueName := by
@@ -1870,6 +1910,123 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     exact natop_eqs_sound m F hcmem hsenv hvf'
       (annotateCore_looseBVars F value hannv hlbv) hAval hHm hdepsE
       hboolcE hcertE
+    -- the div/mod pin-certificate head obligation
+    intro hcontains _
+    have hcmem : cv.name ∈ natDivModNames :=
+      List.contains_iff_mem.mp hcontains
+    have hnedm := natDivModNames_ne_env hcmem
+    obtain ⟨hEnvG, cv'', value'', hint'', hfind2x, hping, -, hcerts⟩ :=
+      checkDivModPin_inv (harm3 hcontains)
+    have hfind2 : (⟨ConstantInfo.defnInfo { cv with type := type }
+        value' hint :: env.consts⟩ : Env).find? cv.name =
+        some (.defnInfo { cv with type := type } value' hint) := by
+      rw [Env.find?_cons,
+        if_pos (show (ConstantInfo.defnInfo { cv with type := type }
+          value' hint).name = cv.name from rfl)]
+    rw [hfind2] at hfind2x
+    have hveq2 : value' = value'' := by
+      have h0 := Option.some.inj hfind2x
+      simp only [ConstantInfo.defnInfo.injEq] at h0
+      exact h0.2.1
+    subst hveq2
+    obtain ⟨hguard2, hdeps2, hEqA2, hbT2, hbF2⟩ := divModEnvGuard_inv hEnvG
+    refine ⟨hguard2, ?_⟩
+    -- transports from the extended environment down to `env`
+    have hd : ∀ (n : Name), n ≠ cv.name →
+        (⟨ConstantInfo.defnInfo { cv with type := type } value' hint ::
+          env.consts⟩ : Env).find? n = env.find? n := by
+      intro n hnne
+      rw [Env.find?_cons,
+        if_neg (show ¬ ((ConstantInfo.defnInfo { cv with type := type }
+          value' hint).name = n) from fun hh => hnne hh.symm)]
+    have hsenv : natLitSupported env = true := by
+      rw [← natLitSupported_congr (hd natName (Ne.symm hnedm.1))
+        (hd natZeroName (Ne.symm hnedm.2.1))
+        (hd natSuccName (Ne.symm hnedm.2.2.1))]
+      exact (natOpGuard_inv hguard2).1
+    have hEqA : env.find? eqName = some eqA := by
+      rw [← hd eqName (Ne.symm hnedm.2.2.2.2.2.2.1)]
+      exact hEqA2
+    have hdmem : natBleName ∈ natOpDeps cv.name ∧
+        natSubName ∈ natOpDeps cv.name ∧ cv.name ∈ natOpDeps cv.name := by
+      simp only [natDivModNames, List.mem_cons, List.not_mem_nil,
+        or_false] at hcmem
+      rcases hcmem with h' | h' <;> rw [h'] <;>
+        exact ⟨by decide, by decide, by decide⟩
+    have hbleE : natOpStoredOk env natBleName = true :=
+      natOpStoredOk_cons_down
+        (c₀ := ConstantInfo.defnInfo { cv with type := type } value' hint)
+        (Ne.symm hnedm.2.2.2.2.2.2.2.1)
+        (fun hh => hnedm.2.2.2.1 hh)
+        (List.all_eq_true.mp hdeps2 natBleName hdmem.1)
+    have hsubE : natOpStoredOk env natSubName = true :=
+      natOpStoredOk_cons_down
+        (c₀ := ConstantInfo.defnInfo { cv with type := type } value' hint)
+        (Ne.symm hnedm.2.2.2.2.2.2.2.2.1)
+        (fun hh => hnedm.2.2.2.1 hh)
+        (List.all_eq_true.mp hdeps2 natSubName hdmem.2.1)
+    have hcbor : cv.name = natBeqName ∨ cv.name = natBleName ∨
+        cv.name = natDivName ∨ cv.name = natModName := by
+      simp only [natDivModNames, List.mem_cons, List.not_mem_nil,
+        or_false] at hcmem
+      rcases hcmem with h' | h'
+      · exact Or.inr (Or.inr (Or.inl h'))
+      · exact Or.inr (Or.inr (Or.inr h'))
+    obtain ⟨⟨ciT', hfT', hlpT'⟩, ⟨ciF', hfF', hlpF'⟩⟩ :=
+      (natOpGuard_inv hguard2).2.2 hcbor
+    obtain ⟨ciT, hfT, htyT⟩ := hbT2
+    obtain ⟨ciF, hfF, htyF⟩ := hbF2
+    have hciT : ciT' = ciT := by
+      rw [hfT'] at hfT
+      exact Option.some.inj hfT
+    have hciF : ciF' = ciF := by
+      rw [hfF'] at hfF
+      exact Option.some.inj hfF
+    have hbTE : ∃ ci, env.find? boolTrueName = some ci ∧
+        ci.toConstantVal.levelParams = [] ∧
+        ci.toConstantVal.type = .const boolName [] := by
+      refine ⟨ciT', ?_, hlpT', by rw [hciT]; exact htyT⟩
+      rw [← hd boolTrueName (Ne.symm hnedm.2.2.2.2.1)]
+      exact hfT'
+    have hbFE : ∃ ci, env.find? boolFalseName = some ci ∧
+        ci.toConstantVal.levelParams = [] ∧
+        ci.toConstantVal.type = .const boolName [] := by
+      refine ⟨ciF', ?_, hlpF', by rw [hciF]; exact htyF⟩
+      rw [← hd boolFalseName (Ne.symm hnedm.2.2.2.2.2.1)]
+      exact hfF'
+    -- the stored value's function-space membership from the pinned type
+    have hself : natOpStoredOk (⟨ConstantInfo.defnInfo
+        { cv with type := type } value' hint :: env.consts⟩ : Env) cv.name
+        = true :=
+      List.all_eq_true.mp hdeps2 cv.name hdmem.2.2
+    have hpin2 : natOpTyPinned (⟨ConstantInfo.defnInfo
+        { cv with type := type } value' hint :: env.consts⟩ : Env) cv.name
+        type = true := by
+      unfold natOpStoredOk at hself
+      rw [hfind2] at hself
+      simp only [Bool.and_eq_true] at hself
+      exact hself.2
+    have hbne : (⟨ConstantInfo.defnInfo { cv with type := type } value'
+        hint :: env.consts⟩ : Env).find? boolName = env.find? boolName :=
+      hd boolName (Ne.symm hnedm.2.2.2.1)
+    have hpinE : natOpTyPinned env cv.name type = true := by
+      rw [← natOpTyPinned_congr hbne]
+      exact hpin2
+    have hHmE : ∀ ψ : Name → Nat, ∃ hv,
+        interpClosed V m.val env ψ value' = some hv ∧
+        hv ∈ˢ pi 1 (m.val natName ψ) (fun _ => pi 1 (m.val natName ψ)
+          (fun _ => m.val natName ψ)) := by
+      intro ψ
+      obtain ⟨v, T, hvv, hTT, hmemvT⟩ := hkey ψ
+      obtain ⟨-, h2⟩ := natOpTyPinned_interp m hpinE hsenv ψ
+      obtain ⟨C, hCi, -, hCid, -⟩ := h2 hnedm.2.2.2.2.2.2.2.2.2.1
+      rw [hCid hnedm.2.2.2.2.2.2.2.2.2.2 hnedm.2.2.2.2.2.2.2.1] at hCi
+      rw [hCi] at hTT
+      obtain rfl := Option.some.inj hTT
+      exact ⟨v, hvv, hmemvT⟩
+    exact divmod_certs_sound m F hcmem hvf'
+      (annotateCore_looseBVars F value hannv hlbv) hAval hsenv hEqA
+      hbleE hsubE hbTE hbFE hHmE (checkDivModCerts_inv hcerts)
   | thmDecl cv value =>
     simp only [checkDecl, checkDefnVal, checkThmVal, installBasisDecl,
         fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
@@ -1958,6 +2115,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       hres'
       hpshape'
       (fun _ hex => by obtain ⟨cv₀, v₀, heq⟩ := hex; exact nomatch heq)
+      (fun _ hex => by obtain ⟨cv₀, v₀, h₀, heq⟩ := hex; exact nomatch heq)
 
   | opaqueDecl cv value =>
     simp only [checkDecl, checkDefnVal, checkOpaqueVal, installBasisDecl,
@@ -2027,6 +2185,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       hres'
       hpshape'
       (fun _ hex => by obtain ⟨cv₀, v₀, heq⟩ := hex; exact nomatch heq)
+      (fun _ hex => by obtain ⟨cv₀, v₀, h₀, heq⟩ := hex; exact nomatch heq)
 
 private theorem foldlM_sound {env' : Env} :
     ∀ (ds : List Declaration) (env : Env), Nonempty (EnvModel V env) →
@@ -2151,12 +2310,40 @@ theorem checkDecl_stores {env env₁ : Env} {cv : ConstantVal}
               Except.pure] at h
           | true =>
             intro h
-            simp only [↓reduceIte, pure, Except.pure,
+            simp only [↓reduceIte] at h
+            by_cases hdm : natDivModNames.contains cv.name = true
+            · rw [if_pos hdm] at h
+              revert h
+              cases hpin : checkDivModPin (fueledOps F) env
+                  (⟨ConstantInfo.defnInfo { cv with type := type } value'
+                    hint :: env.consts⟩ : Env) cv.name with
+              | error err => intro h; exact nomatch h
+              | ok u =>
+                intro h
+                simp only [Bind.bind, Except.bind, pure, Except.pure,
+                  Except.ok.injEq] at h
+                exact h.symm
+            · rw [if_neg hdm] at h
+              simp only [Bind.bind, Except.bind, pure, Except.pure,
+                Except.ok.injEq] at h
+              exact h.symm
+      · rw [if_neg hnop] at h
+        by_cases hdm : natDivModNames.contains cv.name = true
+        · rw [if_pos hdm] at h
+          revert h
+          cases hpin : checkDivModPin (fueledOps F) env
+              (⟨ConstantInfo.defnInfo { cv with type := type } value'
+                hint :: env.consts⟩ : Env) cv.name with
+          | error err => intro h; exact nomatch h
+          | ok u =>
+            intro h
+            simp only [Bind.bind, Except.bind, pure, Except.pure,
               Except.ok.injEq] at h
             exact h.symm
-      · rw [if_neg hnop] at h
-        simp only [pure, Except.pure, Except.ok.injEq] at h
-        exact h.symm
+        · rw [if_neg hdm] at h
+          simp only [Bind.bind, Except.bind, pure, Except.pure,
+            Except.ok.injEq] at h
+          exact h.symm
     subst henv1
     exact ⟨type, hann, _, List.mem_cons_self .., rfl⟩
   · simp only [checkDecl, checkDefnVal, checkThmVal, installBasisDecl,

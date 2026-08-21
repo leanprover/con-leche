@@ -231,7 +231,7 @@ theorem extend_rec_swap {rules' : List RecRule}
       AnnotOk V m₀.val
         (⟨.recInfo cvA nP nM nm ni rules' :: env.consts⟩ : Env) ψ d ρ e :=
     fun e ψ d ρ h => AnnotOk.recRules_swap [] rules' e ψ d ρ h
-  refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
+  refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
     fun n ψ => rfl⟩
   · -- wf
     intro c hc
@@ -486,6 +486,8 @@ theorem extend_rec_swap {rules' : List RecRule}
           (TeleFit.env_levelext henv10 natLitSupported_cons_recRules hfit)
   · -- nat_ops: lookups only differ in the head's rule list
     exact NatOpsOk.cons_recRules m₀.nat_ops
+  · -- div_mod: value-level equations, only the lookups move
+    exact DivModOk.cons_recRules m₀.div_mod
 
 end RecRulesSwap
 
@@ -582,7 +584,14 @@ theorem extend_fresh {env : Env} (m : EnvModel V env)
         interpExpr V val' (⟨ci :: env.consts⟩ : Env) ψ 2
           (updV V (updV V (rho0 V) 0 x) 1 y) eq.1 =
         interpExpr V val' (⟨ci :: env.consts⟩ : Env) ψ 2
-          (updV V (updV V (rho0 V) 0 x) 1 y) eq.2) :
+          (updV V (updV V (rho0 V) 0 x) 1 y) eq.2)
+    (hdivmod : ∀ val' : ConstVal V,
+      (∀ ψ : Name → Nat, val' ci.name ψ = v₀ ψ) →
+      (∀ n, n ≠ ci.name → ∀ ψ' : Name → Nat, val' n ψ' = m.val n ψ') →
+      ∀ cv₀ v₀' h₀', ci = .defnInfo cv₀ v₀' h₀' →
+      ci.name ∈ natDivModNames →
+      natOpGuard (⟨ci :: env.consts⟩ : Env) ci.name = true ∧
+      DivModEqs V val' ci.name) :
     ∃ m' : EnvModel V ⟨ci :: env.consts⟩,
       (∀ ψ, m'.val ci.name ψ = v₀ ψ) ∧
       (∀ n ψ, n ≠ ci.name → m'.val n ψ = m.val n ψ) := by
@@ -610,7 +619,7 @@ theorem extend_fresh {env : Env} (m : EnvModel V env)
     refine AnnotOk.mono hfind' e 0 (rho0 V) hres ?_
     exact AnnotOk.cval_ext (fun n hn ψ' => (hagree n hn ψ').symm) e 0 (rho0 V) ha
   have hwf' : EnvWF ⟨ci :: env.consts⟩ := EnvWF.cons m.wf hwf
-  refine ⟨⟨val', hwf', ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
+  refine ⟨⟨val', hwf', ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
   · -- val_params
     intro n ci2 hf ψ₁ ψ₂ hψ
     rw [Env.find?_cons] at hf
@@ -924,6 +933,12 @@ theorem extend_fresh {env : Env} (m : EnvModel V env)
     · intro n hne ψ'
       simp [hval', hne]
     · exact hnatop val' (fun ψ => by simp [hval'])
+        (fun n hne ψ' => by simp [hval', hne])
+  · -- div_mod: preservation plus the forwarded head obligations
+    refine DivModOk.cons m.div_mod hfind' ?_ ?_
+    · intro n hne ψ'
+      simp [hval', hne]
+    · exact hdivmod val' (fun ψ => by simp [hval'])
         (fun n hne ψ' => by simp [hval', hne])
   · -- the new constant's value
     intro ψ

@@ -217,7 +217,7 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
     · rw [h₀] at hf
       obtain rfl := Option.some.inj hf
       exact absurd rfl (hnr cv nP nM nm ni [])
-  refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
+  refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
     fun n ψ => rfl⟩
   · -- wf
     intro c₃ hc₃
@@ -496,6 +496,34 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
       refine hxy T ?_
       rw [hie]
       exact hT
+  · -- div_mod (value-level equations; guard and lookups transported)
+    intro c hc cv v hint hf
+    have hf₀ : env₀.find? c = some (.defnInfo cv v hint) :=
+      hfindDown _ _ hf (fun _ _ _ _ _ _ h => nomatch h)
+    obtain ⟨hg, heqs⟩ := m₀.div_mod c hc cv v hint hf₀
+    obtain ⟨hs, hdeps, hbool⟩ := natOpGuard_inv hg
+    refine ⟨natOpGuard_intro (by rw [← hnat]; exact hs) ?_ ?_, heqs⟩
+    · intro n' hn'
+      obtain ⟨cvn, vn, hintn, hfn, hlpn⟩ := hdeps n' hn'
+      exact ⟨cvn, vn, hintn,
+        hfindUp _ _ hfn (fun _ _ _ _ _ _ h => nomatch h), hlpn⟩
+    · intro hcb
+      obtain ⟨⟨ciT, hT, hlpT⟩, ⟨ciF, hF, hlpF⟩⟩ := hbool hcb
+      have conv : ∀ (nb : Name) (ci : ConstantInfo),
+          env₀.find? nb = some ci →
+          ci.toConstantVal.levelParams = [] →
+          ∃ ci₂, env₃.find? nb = some ci₂ ∧
+            ci₂.toConstantVal.levelParams = [] := by
+        intro nb ci hfb hlpb
+        have h2 := henvLev nb
+        rw [hfb] at h2
+        cases hf2 : env₃.find? nb with
+        | none => rw [hf2] at h2; exact nomatch h2
+        | some ci₂ =>
+          rw [hf2] at h2
+          simp only [Option.map_some, Option.some.injEq] at h2
+          exact ⟨ci₂, rfl, by rw [← h2, hlpb]⟩
+      exact ⟨conv _ _ hT hlpT, conv _ _ hF hlpF⟩
 
 
 end Setlec

@@ -77,7 +77,8 @@ theorem reduceNat_disc (ih : ScopedSim env f) (henv : EnvWF env)
       | [] =>
         simp only [reduceNat]
         split
-        · cases rawNatLit? a with
+        · refine DiscV.bind (ih.site_whnf henv hwfa.2) (fun w _ => ?_)
+          cases rawNatLit? w with
           | some n => exact DiscV.pure (WScopedO.some (by simp [WScoped]))
           | none => exact DiscV.pure WScopedO.none
         · split

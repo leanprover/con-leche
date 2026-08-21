@@ -36,7 +36,7 @@ theorem natOpGuard_inv {c : Name} (h : natOpGuard env c = true) :
     natLitSupported env = true ∧
     (∀ n ∈ natOpDeps c, ∃ cvn vn hn,
       env.find? n = some (.defnInfo cvn vn hn) ∧ cvn.levelParams = []) ∧
-    ((c = natBeqName ∨ c = natBleName) →
+    ((c = natBeqName ∨ c = natBleName ∨ c = natDivName ∨ c = natModName) →
       (∃ ciT, env.find? boolTrueName = some ciT ∧
         ciT.toConstantVal.levelParams = []) ∧
       (∃ ciF, env.find? boolFalseName = some ciF ∧
@@ -54,8 +54,9 @@ theorem natOpGuard_inv {c : Name} (h : natOpGuard env c = true) :
       exact ⟨cvn, vn, hn, heq, List.isEmpty_iff.mp (by simpa using hlp)⟩
     · intro hh; exact nomatch hh
   · intro hc
-    have hcb : (c = natBeqName || c = natBleName) = true := by
-      rcases hc with rfl | rfl <;> simp
+    have hcb : (c = natBeqName || c = natBleName || c = natDivName ||
+        c = natModName) = true := by
+      rcases hc with rfl | rfl | rfl | rfl <;> simp
     rw [if_pos hcb] at hbool
     simp only [Bool.and_eq_true] at hbool
     obtain ⟨hT, hF⟩ := hbool
@@ -78,7 +79,8 @@ theorem natOpGuard_intro {c : Name}
     (hs : natLitSupported env = true)
     (hdeps : ∀ n ∈ natOpDeps c, ∃ cvn vn hn,
       env.find? n = some (.defnInfo cvn vn hn) ∧ cvn.levelParams = [])
-    (hbool : (c = natBeqName ∨ c = natBleName) →
+    (hbool : (c = natBeqName ∨ c = natBleName ∨ c = natDivName ∨
+        c = natModName) →
       (∃ ciT, env.find? boolTrueName = some ciT ∧
         ciT.toConstantVal.levelParams = []) ∧
       (∃ ciF, env.find? boolFalseName = some ciF ∧
@@ -95,10 +97,13 @@ theorem natOpGuard_intro {c : Name}
   · split
     · next hcb =>
       simp only [Bool.or_eq_true, beq_iff_eq, decide_eq_true_eq] at hcb
-      have hcb' : c = natBeqName ∨ c = natBleName := by
-        rcases hcb with h | h
+      have hcb' : c = natBeqName ∨ c = natBleName ∨ c = natDivName ∨
+          c = natModName := by
+        rcases hcb with ((h | h) | h) | h
         · exact Or.inl h
-        · exact Or.inr h
+        · exact Or.inr (Or.inl h)
+        · exact Or.inr (Or.inr (Or.inl h))
+        · exact Or.inr (Or.inr (Or.inr h))
       obtain ⟨⟨ciT, hT, hlpT⟩, ⟨ciF, hF, hlpF⟩⟩ := hbool hcb'
       rw [hT, hF]
       simp [hlpT, hlpF]
@@ -653,7 +658,7 @@ theorem natOpVal_ble {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
       if a ≤ b then m.val boolTrueName ψ else m.val boolFalseName ψ := by
   obtain ⟨hg, heqs⟩ := m.nat_ops natBleName (by decide) cv v hint hf
   obtain ⟨hs, hdeps, hbool⟩ := natOpGuard_inv hg
-  obtain ⟨⟨ciT, hT, hlpT⟩, ⟨ciF, hF, hlpF⟩⟩ := hbool (Or.inr rfl)
+  obtain ⟨⟨ciT, hT, hlpT⟩, ⟨ciF, hF, hlpF⟩⟩ := hbool (Or.inr (Or.inl rfl))
   obtain ⟨cv', v', hnt', hf', hlp⟩ := hdeps natBleName (by decide)
   rw [hf] at hf'
   simp only [Option.some.injEq, ConstantInfo.defnInfo.injEq] at hf'
@@ -724,6 +729,14 @@ theorem natOpGuard_self_defn {c : Name} (hc : c ∈ natOpNames)
     ∃ cv v h, env.find? c = some (.defnInfo cv v h) ∧ cv.levelParams = [] :=
   (natOpGuard_inv hg).2.1 c (natOpDeps_self hc)
 
+/-- Same for the pin-certified WF-recursive operations. -/
+theorem natDivModGuard_self_defn {c : Name} (hc : c ∈ natDivModNames)
+    (hg : natOpGuard env c = true) :
+    ∃ cv v h, env.find? c = some (.defnInfo cv v h) ∧ cv.levelParams = [] := by
+  refine (natOpGuard_inv hg).2.1 c ?_
+  simp only [natDivModNames, List.mem_cons, List.not_mem_nil, or_false] at hc
+  rcases hc with rfl | rfl <;> decide
+
 /-- The equation sides are application spines over constants and free
 variables. -/
 def Expr.natEqShape : Expr → Bool
@@ -765,7 +778,7 @@ theorem natOpEquations_constsResolve {c : Name} (hc : c ∈ natOpNames)
   · obtain ⟨⟨ciT, hT, -⟩, ⟨ciF, hF, -⟩⟩ := hbool (Or.inl rfl)
     obtain ⟨cvc, vc, hnt12, hfc, -⟩ := hdeps natBeqName (by decide)
     simp +decide [natOpEquations, Expr.constsResolve, hnn, hzz, hss, hfc, hT, hF]
-  · obtain ⟨⟨ciT, hT, -⟩, ⟨ciF, hF, -⟩⟩ := hbool (Or.inr rfl)
+  · obtain ⟨⟨ciT, hT, -⟩, ⟨ciF, hF, -⟩⟩ := hbool (Or.inr (Or.inl rfl))
     obtain ⟨cvc, vc, hnt13, hfc, -⟩ := hdeps natBleName (by decide)
     simp +decide [natOpEquations, Expr.constsResolve, hnn, hzz, hss, hfc, hT, hF]
 
@@ -813,7 +826,8 @@ theorem natOpCod_interp (m : EnvModel V env) {c : Name} {e : Expr}
     ∃ bn C, e = .const bn [] ∧
       (∀ (d : Nat) (ρ : Nat → V),
         interpExpr V m.val env ψ d ρ e = some C) ∧ C ∈ˢ univ 1 ∧
-      (c ≠ natBeqName → c ≠ natBleName → C = m.val natName ψ) := by
+      (c ≠ natBeqName → c ≠ natBleName → C = m.val natName ψ) ∧
+      ((c = natBeqName ∨ c = natBleName) → C = m.val boolName ψ) := by
   unfold natOpCod at h
   split at h
   · next hcb =>
@@ -826,7 +840,7 @@ theorem natOpCod_interp (m : EnvModel V env) {c : Name} {e : Expr}
       simp only [Bool.and_eq_true, beq_iff_eq, List.isEmpty_iff] at hbool
       obtain ⟨hlp, hbty⟩ := hbool
       refine ⟨boolName, m.val boolName ψ, rfl,
-        fun d ρ => interp_const_mono heq hlp, ?_, ?_⟩
+        fun d ρ => interp_const_mono heq hlp, ?_, ?_, fun _ => rfl⟩
       · obtain ⟨T, hT, hmem⟩ := m.mem_type _ (find?_mem heq) ψ
         rw [find?_ciname heq] at hmem
         rw [hbty] at hT
@@ -839,11 +853,15 @@ theorem natOpCod_interp (m : EnvModel V env) {c : Name} {e : Expr}
         · exact absurd rfl h1
         · exact absurd rfl h2
     · intro hbool; exact nomatch hbool
-  · simp only [beq_iff_eq] at h
+  · next hncb =>
+    simp only [beq_iff_eq] at h
     subst h
-    exact ⟨natName, m.val natName ψ, rfl,
+    refine ⟨natName, m.val natName ψ, rfl,
       fun d ρ => interpExpr_const_nat hs, natVal_mem_univ m hs ψ,
-      fun _ _ => rfl⟩
+      fun _ _ => rfl, fun hcb => ?_⟩
+    exfalso
+    apply hncb
+    rcases hcb with rfl | rfl <;> simp
 
 /-- The pinned type's interpretation: the function space over the
 `Nat` value with the pinned codomain. -/
@@ -858,7 +876,8 @@ theorem natOpTyPinned_interp (m : EnvModel V env) {c : Name} {ty : Expr}
         some (pi 1 (m.val natName ψ)
           (fun _ => pi 1 (m.val natName ψ) (fun _ => C))) ∧
       C ∈ˢ univ 1 ∧
-      (c ≠ natBeqName → c ≠ natBleName → C = m.val natName ψ)) := by
+      (c ≠ natBeqName → c ≠ natBleName → C = m.val natName ψ) ∧
+      ((c = natBeqName ∨ c = natBleName) → C = m.val boolName ψ)) := by
   unfold natOpTyPinned at hty
   by_cases hcp : c = natPredName
   · rw [if_pos hcp] at hty
@@ -901,8 +920,8 @@ theorem natOpTyPinned_interp (m : EnvModel V env) {c : Name} {ty : Expr}
     obtain ⟨⟨⟨⟨rfl, rfl⟩, hcod⟩, hc1⟩, hc2⟩ := hty
     obtain ⟨v, hv, hev⟩ := natCod1_inv hc1
     obtain ⟨v2, hv2, hev2⟩ := natCod1_inv hc2
-    obtain ⟨bn, C, rfl, hCi, hCu, hCid⟩ := natOpCod_interp m hcod hs ψ
-    refine ⟨C, ?_, hCu, hCid⟩
+    obtain ⟨bn, C, rfl, hCi, hCu, hCid, hCbool⟩ := natOpCod_interp m hcod hs ψ
+    refine ⟨C, ?_, hCu, hCid, hCbool⟩
     unfold interpClosed
     rw [interp_forallE hv (interpExpr_const_nat hs), hev ψ]
     congr 2
@@ -956,7 +975,8 @@ theorem natOpStored_facts (m : EnvModel V env) {n : Name}
         (fun _ => m.val natName ψ)) ∧
       (n ≠ natPredName → ∃ C, m.val n ψ ∈ˢ pi 1 (m.val natName ψ)
         (fun _ => pi 1 (m.val natName ψ) (fun _ => C)) ∧ C ∈ˢ univ 1 ∧
-        (n ≠ natBeqName → n ≠ natBleName → C = m.val natName ψ)) := by
+        (n ≠ natBeqName → n ≠ natBleName → C = m.val natName ψ) ∧
+        ((n = natBeqName ∨ n = natBleName) → C = m.val boolName ψ)) := by
   unfold natOpStoredOk at hst
   revert hst
   split
@@ -974,41 +994,42 @@ theorem natOpStored_facts (m : EnvModel V env) {n : Name}
       obtain rfl := Option.some.inj hT
       exact hmem
     · intro hp
-      obtain ⟨C, hCi, hCu, hCid⟩ := h2 hp
+      obtain ⟨C, hCi, hCu, hCid, hCb⟩ := h2 hp
       rw [show (ConstantInfo.defnInfo cvn vn hn).toConstantVal.type = cvn.type
         from rfl, hCi] at hT
       obtain rfl := Option.some.inj hT
-      exact ⟨C, hmem, hCu, hCid⟩
+      exact ⟨C, hmem, hCu, hCid, hCb⟩
   · intro hst; exact nomatch hst
 
 /-- Everything a certification-equation side must satisfy to feed
 definitional-equality soundness, bundled: interpretation, membership,
-truthful annotations, and the syntactic invariants (at binder depth
-`2`, the equations' canonical depth). -/
-def EqSideOk (env : Env) (cval : ConstVal V) (ψ : Name → Nat)
+truthful annotations, and the syntactic invariants — at binder depth
+`dd` (the structural-Nat equations use `2`, the div/mod certificate
+frame `4`). -/
+def EqSideOk (env : Env) (cval : ConstVal V) (ψ : Name → Nat) (dd : Nat)
     (ρ : Nat → V) (e : Expr) (v T : V) : Prop :=
-  interpExpr V cval env ψ 2 ρ e = some v ∧ v ∈ˢ T ∧
-  AnnotOk V cval env ψ 2 ρ e ∧ FvarsOk V cval env ψ 2 ρ e ∧
-  WScoped 2 e ∧ e.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded e
+  interpExpr V cval env ψ dd ρ e = some v ∧ v ∈ˢ T ∧
+  AnnotOk V cval env ψ dd ρ e ∧ FvarsOk V cval env ψ dd ρ e ∧
+  WScoped dd e ∧ e.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded e
 
 section EqSides
 
 variable (m : EnvModel V env) (hs : natLitSupported env = true)
-  {ψ : Name → Nat} {ρ : Nat → V}
+  {ψ : Name → Nat} {dd : Nat} {ρ : Nat → V}
 
 include hs
 
 /-- `Nat.zero` as an equation side. -/
-theorem eqSide_zero : EqSideOk env m.val ψ ρ (.const natZeroName [])
+theorem eqSide_zero : EqSideOk env m.val ψ dd ρ (.const natZeroName [])
     (m.val natZeroName ψ) (m.val natName ψ) :=
   ⟨interpExpr_const_natZero hs, natZeroVal_mem m hs ψ, by simp [AnnotOk],
     fun l hl => by simp [Expr.fvarLeaves] at hl, by simp [WScoped], rfl,
     fun l hl => by simp [Expr.fvarLeaves] at hl⟩
 
 /-- An `fvar` slot valued in the `Nat` value. -/
-theorem eqSide_fvar {idx : Nat} {nm : Name} (hidx : idx < 2)
+theorem eqSide_fvar {idx : Nat} {nm : Name} (hidx : idx < dd)
     (hval : ρ idx ∈ˢ m.val natName ψ) :
-    EqSideOk env m.val ψ ρ (.fvar idx nm (.const natName []))
+    EqSideOk env m.val ψ dd ρ (.fvar idx nm (.const natName []))
       (ρ idx) (m.val natName ψ) := by
   refine ⟨interp_fvar, hval, by simp [AnnotOk], ?_, ?_, rfl, ?_⟩
   · intro l hl
@@ -1027,8 +1048,8 @@ theorem eqSide_fvar {idx : Nat} {nm : Name} (hidx : idx < 2)
 
 /-- `Nat.succ` applied to a `Nat`-valued side. -/
 theorem eqSide_succ {a : Expr} {va : V}
-    (ha : EqSideOk env m.val ψ ρ a va (m.val natName ψ)) :
-    EqSideOk env m.val ψ ρ (.app (.const natSuccName []) a)
+    (ha : EqSideOk env m.val ψ dd ρ a va (m.val natName ψ)) :
+    EqSideOk env m.val ψ dd ρ (.app (.const natSuccName []) a)
       (app (m.val natSuccName ψ) va) (m.val natName ψ) := by
   obtain ⟨hai, ham, haA, haF, haW, haB, haL⟩ := ha
   refine ⟨interp_app1 (interpExpr_const_natSucc hs) hai,
@@ -1051,17 +1072,17 @@ theorem eqSide_succ {a : Expr} {va : V}
 /-- A binary head (the head's own facts supplied) applied to two
 `Nat`-valued sides; the result lands in the head's codomain. -/
 theorem eqSide_app2 {H a b : Expr} {hv va vb C : V}
-    (hHi : interpExpr V m.val env ψ 2 ρ H = some hv)
-    (hHA : AnnotOk V m.val env ψ 2 ρ H)
-    (hHF : FvarsOk V m.val env ψ 2 ρ H)
-    (hHW : WScoped 2 H) (hHB : H.looseBVarsBounded 0 = true)
+    (hHi : interpExpr V m.val env ψ dd ρ H = some hv)
+    (hHA : AnnotOk V m.val env ψ dd ρ H)
+    (hHF : FvarsOk V m.val env ψ dd ρ H)
+    (hHW : WScoped dd H) (hHB : H.looseBVarsBounded 0 = true)
     (hHL : Expr.LeavesBounded H)
     (hHm : hv ∈ˢ pi 1 (m.val natName ψ)
       (fun _ => pi 1 (m.val natName ψ) (fun _ => C)))
     (hCu : C ∈ˢ univ 1)
-    (ha : EqSideOk env m.val ψ ρ a va (m.val natName ψ))
-    (hb : EqSideOk env m.val ψ ρ b vb (m.val natName ψ)) :
-    EqSideOk env m.val ψ ρ (.app (.app H a) b) (app (app hv va) vb) C := by
+    (ha : EqSideOk env m.val ψ dd ρ a va (m.val natName ψ))
+    (hb : EqSideOk env m.val ψ dd ρ b vb (m.val natName ψ)) :
+    EqSideOk env m.val ψ dd ρ (.app (.app H a) b) (app (app hv va) vb) C := by
   obtain ⟨hai, ham, haA, haF, haW, haB, haL⟩ := ha
   obtain ⟨hbi, hbm, hbA, hbF, hbW, hbB, hbL⟩ := hb
   have hfib1 : ∀ x, x ∈ˢ m.val natName ψ →
@@ -1102,9 +1123,9 @@ theorem eqSide_app2c {n : Name} {ci : ConstantInfo} {a b : Expr}
     (hm : m.val n ψ ∈ˢ pi 1 (m.val natName ψ)
       (fun _ => pi 1 (m.val natName ψ) (fun _ => C)))
     (hCu : C ∈ˢ univ 1)
-    (ha : EqSideOk env m.val ψ ρ a va (m.val natName ψ))
-    (hb : EqSideOk env m.val ψ ρ b vb (m.val natName ψ)) :
-    EqSideOk env m.val ψ ρ (.app (.app (.const n []) a) b)
+    (ha : EqSideOk env m.val ψ dd ρ a va (m.val natName ψ))
+    (hb : EqSideOk env m.val ψ dd ρ b vb (m.val natName ψ)) :
+    EqSideOk env m.val ψ dd ρ (.app (.app (.const n []) a) b)
       (app (app (m.val n ψ) va) vb) C :=
   eqSide_app2 m hs (interp_const_mono hf hlp) (by simp [AnnotOk])
     (fun l hl => by simp [Expr.fvarLeaves] at hl) (by simp [WScoped]) rfl
@@ -1114,15 +1135,15 @@ omit hs
 
 /-- A unary head applied to one `Nat`-valued side. -/
 theorem eqSide_app1 {H a : Expr} {hv va C : V}
-    (hHi : interpExpr V m.val env ψ 2 ρ H = some hv)
-    (hHA : AnnotOk V m.val env ψ 2 ρ H)
-    (hHF : FvarsOk V m.val env ψ 2 ρ H)
-    (hHW : WScoped 2 H) (hHB : H.looseBVarsBounded 0 = true)
+    (hHi : interpExpr V m.val env ψ dd ρ H = some hv)
+    (hHA : AnnotOk V m.val env ψ dd ρ H)
+    (hHF : FvarsOk V m.val env ψ dd ρ H)
+    (hHW : WScoped dd H) (hHB : H.looseBVarsBounded 0 = true)
     (hHL : Expr.LeavesBounded H)
     (hHm : hv ∈ˢ pi 1 (m.val natName ψ) (fun _ => C))
     (hCu : C ∈ˢ univ 1)
-    (ha : EqSideOk env m.val ψ ρ a va (m.val natName ψ)) :
-    EqSideOk env m.val ψ ρ (.app H a) (app hv va) C := by
+    (ha : EqSideOk env m.val ψ dd ρ a va (m.val natName ψ)) :
+    EqSideOk env m.val ψ dd ρ (.app H a) (app hv va) C := by
   obtain ⟨hai, ham, haA, haF, haW, haB, haL⟩ := ha
   refine ⟨interp_app1 hHi hai,
     app_mem hHm ham (fun _ _ => hCu), ?_, ?_, ?_,
@@ -1148,8 +1169,8 @@ theorem eqSide_app1c {n : Name} {ci : ConstantInfo} {a : Expr} {va C : V}
     (hf : env.find? n = some ci) (hlp : ci.toConstantVal.levelParams = [])
     (hm : m.val n ψ ∈ˢ pi 1 (m.val natName ψ) (fun _ => C))
     (hCu : C ∈ˢ univ 1)
-    (ha : EqSideOk env m.val ψ ρ a va (m.val natName ψ)) :
-    EqSideOk env m.val ψ ρ (.app (.const n []) a)
+    (ha : EqSideOk env m.val ψ dd ρ a va (m.val natName ψ)) :
+    EqSideOk env m.val ψ dd ρ (.app (.const n []) a)
       (app (m.val n ψ) va) C :=
   eqSide_app1 m (interp_const_mono hf hlp) (by simp [AnnotOk])
     (fun l hl => by simp [Expr.fvarLeaves] at hl) (by simp [WScoped]) rfl
@@ -1318,6 +1339,182 @@ theorem interp_substConst0 {c₀ : ConstantInfo} {val val' : ConstVal V}
     rw [interp_substConst0 hfresh hlp hagree hhead f hshape.1,
       interp_substConst0 hfresh hlp hagree hhead a hshape.2]
 
+/-! ## The pin-certified WF-recursive operations (`Nat.div`/`Nat.mod`)
+
+Value-level transports for `DivModOk` (the equations mention no
+expressions, so only the guard and the lookup side move), plus the
+meta-level strong inductions computing the stored operations on
+literal values from the `ble`-guarded recurrences. -/
+
+/-- The pin names are distinct from the `Nat`/`Bool` pins. -/
+theorem natDivModNames_ne_pins {c : Name} (hc : c ∈ natDivModNames) :
+    c ≠ natName ∧ c ≠ natZeroName ∧ c ≠ natSuccName ∧
+    c ≠ boolName ∧ c ≠ boolTrueName ∧ c ≠ boolFalseName := by
+  simp only [natDivModNames, List.mem_cons, List.not_mem_nil, or_false] at hc
+  rcases hc with rfl | rfl <;>
+    exact ⟨by decide, by decide, by decide, by decide, by decide, by decide⟩
+
+/-- `DivModEqs` only reads the valuation at the operation and the
+`Nat`/`ble`/`sub`/`Bool` pins. -/
+theorem DivModEqs.val_congr {val val' : ConstVal V} {c : Name}
+    (h : DivModEqs V val c)
+    (hN : ∀ ψ : Name → Nat, val' natName ψ = val natName ψ)
+    (hB : ∀ ψ : Name → Nat, val' natBleName ψ = val natBleName ψ)
+    (hS : ∀ ψ : Name → Nat, val' natSuccName ψ = val natSuccName ψ)
+    (hZ : ∀ ψ : Name → Nat, val' natZeroName ψ = val natZeroName ψ)
+    (hSub : ∀ ψ : Name → Nat, val' natSubName ψ = val natSubName ψ)
+    (hT : ∀ ψ : Name → Nat, val' boolTrueName ψ = val boolTrueName ψ)
+    (hF : ∀ ψ : Name → Nat, val' boolFalseName ψ = val boolFalseName ψ)
+    (hC : ∀ ψ : Name → Nat, val' c ψ = val c ψ) :
+    DivModEqs V val' c := by
+  intro ψ x y hx hy
+  rw [hN] at hx hy
+  simpa only [hN, hB, hS, hZ, hSub, hT, hF, hC] using h ψ x y hx hy
+
+/-- `DivModOk` extension step: preservation for the stored operations
+(every name the equations mention is stored, hence distinct from the
+fresh head), plus a handler for the case that the new constant is
+itself `Nat.div`/`Nat.mod`. -/
+theorem DivModOk.cons {val val' : ConstVal V} {c₀ : ConstantInfo}
+    (h : DivModOk V env val)
+    (hfresh : env.find? c₀.name = none)
+    (hagree : ∀ n, n ≠ c₀.name → ∀ ψ' : Name → Nat, val' n ψ' = val n ψ')
+    (hhead : ∀ cv₀ v₀ h₀, c₀ = .defnInfo cv₀ v₀ h₀ →
+      c₀.name ∈ natDivModNames →
+      natOpGuard (⟨c₀ :: env.consts⟩ : Env) c₀.name = true ∧
+      DivModEqs V val' c₀.name) :
+    DivModOk V (⟨c₀ :: env.consts⟩ : Env) val' := by
+  intro c hc cv v hv hf
+  rw [Env.find?_cons] at hf
+  by_cases hn : c₀.name = c
+  · rw [if_pos hn] at hf
+    subst hn
+    exact hhead cv v hv (Option.some.inj hf) hc
+  · rw [if_neg hn] at hf
+    obtain ⟨hg, heqs⟩ := h c hc cv v hv hf
+    have hstoredne : ∀ n, (env.find? n).isSome = true → n ≠ c₀.name := by
+      intro n hnf he
+      rw [he, hfresh] at hnf
+      exact nomatch hnf
+    obtain ⟨hs, hdeps, hbool⟩ := natOpGuard_inv hg
+    obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hnn, hzz, hss, -⟩ :=
+      natLitSupported_inv hs
+    have hcb : c = natBeqName ∨ c = natBleName ∨ c = natDivName ∨
+        c = natModName := by
+      simp only [natDivModNames, List.mem_cons, List.not_mem_nil,
+        or_false] at hc
+      rcases hc with rfl | rfl
+      · exact Or.inr (Or.inr (Or.inl rfl))
+      · exact Or.inr (Or.inr (Or.inr rfl))
+    obtain ⟨⟨ciT, hTf, -⟩, ⟨ciF, hFf, -⟩⟩ := hbool hcb
+    have hdepmem : natSubName ∈ natOpDeps c ∧ natBleName ∈ natOpDeps c ∧
+        c ∈ natOpDeps c := by
+      simp only [natDivModNames, List.mem_cons, List.not_mem_nil,
+        or_false] at hc
+      rcases hc with rfl | rfl <;> exact ⟨by decide, by decide, by decide⟩
+    obtain ⟨cvsu, vsu, hsu, hfsu, -⟩ := hdeps natSubName hdepmem.1
+    obtain ⟨cvbl, vbl, hbl, hfbl, -⟩ := hdeps natBleName hdepmem.2.1
+    obtain ⟨cvc, vc, hcc, hfc, -⟩ := hdeps c hdepmem.2.2
+    refine ⟨natOpGuard_cons hfresh hg, ?_⟩
+    refine DivModEqs.val_congr heqs ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ <;>
+      intro ψ'
+    · exact hagree _ (hstoredne _ (by simp [hnn])) ψ'
+    · exact hagree _ (hstoredne _ (by simp [hfbl])) ψ'
+    · exact hagree _ (hstoredne _ (by simp [hss])) ψ'
+    · exact hagree _ (hstoredne _ (by simp [hzz])) ψ'
+    · exact hagree _ (hstoredne _ (by simp [hfsu])) ψ'
+    · exact hagree _ (hstoredne _ (by simp [hTf])) ψ'
+    · exact hagree _ (hstoredne _ (by simp [hFf])) ψ'
+    · exact hagree _ (hstoredne _ (by simp [hfc])) ψ'
+
+/-- The `DivModOk` invariant ignores a stored recursor's rule list
+(mirror of `NatOpsOk.cons_recRules`; the equations are value-level, so
+only the guard and the lookup move). -/
+theorem DivModOk.cons_recRules {cvA : ConstantVal} {nP nM nm ni : Nat}
+    {rules₁ rules₂ : List RecRule} {val : ConstVal V}
+    (h : DivModOk V ⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ val) :
+    DivModOk V ⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ val := by
+  have henv : ∀ n,
+      ((⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env).find? n).map
+        (fun ci => ci.toConstantVal.levelParams) =
+      ((⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env).find? n).map
+        (fun ci => ci.toConstantVal.levelParams) := by
+    intro n
+    rw [Env.find?_cons, Env.find?_cons]
+    by_cases hn : (ConstantInfo.recInfo cvA nP nM nm ni rules₂).name = n
+    · rw [if_pos hn,
+        if_pos (show (ConstantInfo.recInfo cvA nP nM nm ni rules₁).name = n
+          from hn)]
+      rfl
+    · rw [if_neg hn,
+        if_neg (show ¬ (ConstantInfo.recInfo cvA nP nM nm ni rules₁).name = n
+          from hn)]
+  have hfind : ∀ n (ci : ConstantInfo),
+      (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env).find? n =
+        some ci → (∀ cv2 v2 h2, ci ≠ .defnInfo cv2 v2 h2) ∨
+      (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env).find? n =
+        some ci := by
+    intro n ci hf
+    rw [Env.find?_cons] at hf
+    rw [Env.find?_cons]
+    by_cases hn : (ConstantInfo.recInfo cvA nP nM nm ni rules₂).name = n
+    · rw [if_pos hn] at hf
+      obtain rfl := Option.some.inj hf
+      exact Or.inl (fun cv2 v2 h2 h => nomatch h)
+    · rw [if_neg hn] at hf
+      rw [if_neg (show ¬ (ConstantInfo.recInfo cvA nP nM nm ni rules₁).name = n
+        from hn)]
+      exact Or.inr hf
+  have hfind' : ∀ n (ci : ConstantInfo),
+      (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env).find? n =
+        some ci → (∀ cv2 v2 h2, ci ≠ .defnInfo cv2 v2 h2) ∨
+      (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env).find? n =
+        some ci := by
+    intro n ci hf
+    rw [Env.find?_cons] at hf
+    rw [Env.find?_cons]
+    by_cases hn : (ConstantInfo.recInfo cvA nP nM nm ni rules₁).name = n
+    · rw [if_pos hn] at hf
+      obtain rfl := Option.some.inj hf
+      exact Or.inl (fun cv2 v2 h2 h => nomatch h)
+    · rw [if_neg hn] at hf
+      rw [if_neg (show ¬ (ConstantInfo.recInfo cvA nP nM nm ni rules₂).name = n
+        from hn)]
+      exact Or.inr hf
+  have hnat : natLitSupported
+      (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env) =
+      natLitSupported (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env) :=
+    natLitSupported_cons_recRules
+  intro c hc cv v hv hf
+  rcases hfind c _ hf with hnd | hf₁
+  · exact absurd rfl (hnd cv v hv)
+  obtain ⟨hg, heqs⟩ := h c hc cv v hv hf₁
+  obtain ⟨hs, hdeps, hbool⟩ := natOpGuard_inv hg
+  refine ⟨natOpGuard_intro (by rw [hnat]; exact hs) ?_ ?_, heqs⟩
+  · intro n hn
+    obtain ⟨cvn, vn, hnt15, hfn, hlpn⟩ := hdeps n hn
+    rcases hfind' n _ hfn with hnd | hfn₂
+    · exact absurd rfl (hnd cvn vn hnt15)
+    · exact ⟨cvn, vn, hnt15, hfn₂, hlpn⟩
+  · intro hcb
+    obtain ⟨⟨ciT, hT, hlpT⟩, ⟨ciF, hF, hlpF⟩⟩ := hbool hcb
+    have conv : ∀ (nb : Name) (ci : ConstantInfo),
+        (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env).find? nb =
+          some ci → ci.toConstantVal.levelParams = [] →
+        ∃ ci₂, (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env).find?
+          nb = some ci₂ ∧ ci₂.toConstantVal.levelParams = [] := by
+      intro nb ci hfb hlpb
+      have h2 := henv nb
+      rw [hfb] at h2
+      cases hf2 : (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ :
+          Env).find? nb with
+      | none => rw [hf2] at h2; exact nomatch h2
+      | some ci₂ =>
+        rw [hf2] at h2
+        simp only [Option.map_some, Option.some.injEq] at h2
+        exact ⟨ci₂, rfl, by rw [h2, hlpb]⟩
+    exact ⟨conv _ _ hT hlpT, conv _ _ hF hlpF⟩
+
 /-- `NatOpsOk` extension step: preservation for the stored operations
 (the guard keeps every referenced constant away from the fresh name),
 plus a handler for the case that the new constant is itself an
@@ -1371,5 +1568,135 @@ theorem NatOpsOk.cons {val val' : ConstVal V} {c₀ : ConstantInfo}
       exact hT
     rw [htrans _ hres1 2 _, htrans _ hres2 2 _]
     exact heqs eq heq ψ x y hprem
+
+/-! ## `Nat.div`/`Nat.mod` on literal values
+
+Meta-level strong induction: the `ble`-guarded value-level recurrences
+(`EnvModel.div_mod`) at literal values, with the guards computed by
+`natOpVal_ble` and the argument step by `natOpVal_sub`, determine the
+stored operations to be the metatheory's own `Nat.div`/`Nat.mod`.
+This is the uniqueness argument justifying the literal fast path. -/
+
+section DivModValues
+
+variable (m : EnvModel V env)
+
+/-- The value of the literal `1` is the `succ` value on the `zero`
+value (definitional unfold of `natLitVal`, packaged for rewriting). -/
+private theorem natLitVal_one :
+    natLitVal V (m.val natZeroName ψ₀) (m.val natSuccName ψ₀) 1 =
+      SetTheory.app (m.val natSuccName ψ₀) (m.val natZeroName ψ₀) := rfl
+
+/-- The common induction: `natOpVal_div` and `natOpVal_mod` at once
+(the two operations share their guards and their step argument). -/
+private theorem natOpVal_divmod {c : Name} (hc : c ∈ natDivModNames)
+    {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
+    (hf : env.find? c = some (.defnInfo cv v hint)) (ψ : Name → Nat) :
+    ∀ a b : Nat, app (app (m.val c ψ)
+        (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a))
+        (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
+      natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ)
+        (if c = natDivName then a / b else a % b) := by
+  obtain ⟨hg, heqs⟩ := m.div_mod c hc cv v hint hf
+  obtain ⟨hs, hdeps, -⟩ := natOpGuard_inv hg
+  have hdepmem : natSubName ∈ natOpDeps c ∧ natBleName ∈ natOpDeps c := by
+    simp only [natDivModNames, List.mem_cons, List.not_mem_nil,
+      or_false] at hc
+    rcases hc with rfl | rfl <;> exact ⟨by decide, by decide⟩
+  obtain ⟨cvsu, vsu, hsu, hfsu, -⟩ := hdeps natSubName hdepmem.1
+  obtain ⟨cvbl, vbl, hbl, hfbl, -⟩ := hdeps natBleName hdepmem.2
+  intro a b
+  induction a using Nat.strongRecOn with
+  | ind a ih =>
+    have hamem := natLitVal_mem_nat m hs ψ a
+    have hbmem := natLitVal_mem_nat m hs ψ b
+    obtain ⟨hrec, hgt, hzero⟩ := heqs ψ _ _ hamem hbmem
+    by_cases hb0 : b = 0
+    · subst hb0
+      -- `ble 1 0` is `false`: the second base clause fires
+      have h1 : app (app (m.val natBleName ψ)
+          (app (m.val natSuccName ψ) (m.val natZeroName ψ)))
+          (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) 0) =
+          m.val boolFalseName ψ := by
+        have h := natOpVal_ble m hfbl ψ 1 0
+        rw [natLitVal_one] at h
+        rw [h, if_neg (by omega)]
+      rw [hzero h1]
+      simp only [natDivModNames, List.mem_cons, List.not_mem_nil,
+        or_false] at hc
+      rcases hc with rfl | rfl
+      · rw [if_pos rfl, if_pos rfl, Nat.div_zero]
+        rfl
+      · rw [if_neg (by decide), if_neg (by decide), Nat.mod_zero]
+    · by_cases hba : b ≤ a
+      · -- both guards true: the recurrence clause fires, then induct
+        have h1 : app (app (m.val natBleName ψ)
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b))
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a) =
+            m.val boolTrueName ψ := by
+          rw [natOpVal_ble m hfbl ψ b a, if_pos hba]
+        have h2 : app (app (m.val natBleName ψ)
+            (app (m.val natSuccName ψ) (m.val natZeroName ψ)))
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
+            m.val boolTrueName ψ := by
+          have h := natOpVal_ble m hfbl ψ 1 b
+          rw [natLitVal_one] at h
+          rw [h, if_pos (by omega)]
+        have hsub : app (app (m.val natSubName ψ)
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a))
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
+            natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) (a - b) :=
+          natOpVal_sub m hfsu ψ a b
+        have hlt : a - b < a := Nat.sub_lt (by omega) (by omega)
+        have hih := ih (a - b) hlt
+        rw [hrec h1 h2, hsub, hih]
+        by_cases hcd : c = natDivName
+        · subst hcd
+          rw [if_pos rfl, if_pos rfl, if_pos rfl]
+          have : a / b = (a - b) / b + 1 := by
+            rw [Nat.div_eq a b, if_pos ⟨by omega, hba⟩]
+          rw [this]
+          rfl
+        · rw [if_neg hcd, if_neg hcd, if_neg hcd]
+          have : a % b = (a - b) % b :=
+            Nat.mod_eq_sub_mod hba
+          rw [this]
+      · -- `ble b a` is `false`: the first base clause fires
+        have h1 : app (app (m.val natBleName ψ)
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b))
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a) =
+            m.val boolFalseName ψ := by
+          rw [natOpVal_ble m hfbl ψ b a, if_neg hba]
+        rw [hgt h1]
+        have hab : a < b := by omega
+        by_cases hcd : c = natDivName
+        · subst hcd
+          rw [if_pos rfl, if_pos rfl, Nat.div_eq_of_lt hab]
+          rfl
+        · rw [if_neg hcd, if_neg hcd, Nat.mod_eq_of_lt hab]
+
+/-- `Nat.div` on literal values. -/
+theorem natOpVal_div {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
+    (hf : env.find? natDivName = some (.defnInfo cv v hint)) (ψ : Name → Nat) :
+    ∀ a b : Nat, app (app (m.val natDivName ψ)
+        (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a))
+        (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
+      natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) (a / b) := by
+  intro a b
+  have h := natOpVal_divmod m (by decide) hf ψ a b
+  rwa [if_pos rfl] at h
+
+/-- `Nat.mod` on literal values. -/
+theorem natOpVal_mod {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
+    (hf : env.find? natModName = some (.defnInfo cv v hint)) (ψ : Name → Nat) :
+    ∀ a b : Nat, app (app (m.val natModName ψ)
+        (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a))
+        (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
+      natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) (a % b) := by
+  intro a b
+  have h := natOpVal_divmod m (by decide) hf ψ a b
+  rwa [if_neg (by decide)] at h
+
+end DivModValues
 
 end Setlec

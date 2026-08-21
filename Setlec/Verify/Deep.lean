@@ -401,8 +401,10 @@ private theorem reduceNat_shift (_henv : EnvWF env)
         show reduceNat _ env (d + 1) (.app (.const c []) (shiftFrom p a)) = _
         simp only [reduceNat]
         refine ite_rel _ (fun _ => ?_) (fun _ => ?_)
-        · rw [rawNatLit?_shiftFrom]
-          cases rawNatLit? a <;> rfl
+        · refine bind_rel _ _ (ih.whnf hpd hwfa.2) ?_
+          intro w _
+          rw [rawNatLit?_shiftFrom]
+          cases rawNatLit? w <;> rfl
         · refine ite_rel _ (fun _ => ?_) (fun _ => ?_)
           · refine bind_rel _ _ (ih.whnf hpd hwfa.2) ?_
             intro w _

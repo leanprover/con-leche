@@ -52,7 +52,15 @@ theorem extend_model {env : Env} (m : EnvModel V env)
         interpExpr V m.val env ψ 2 (updV V (updV V (rho0 V) 0 x) 1 y)
           (Expr.substConst0 name value eq.1) =
         interpExpr V m.val env ψ 2 (updV V (updV V (rho0 V) 0 x) 1 y)
-          (Expr.substConst0 name value eq.2)) :
+          (Expr.substConst0 name value eq.2))
+    (hdivmod : natDivModNames.contains name = true →
+      (∃ cv₀ v₀ h₀, c₀ = ConstantInfo.defnInfo cv₀ v₀ h₀) →
+      natOpGuard (⟨c₀ :: env.consts⟩ : Env) name = true ∧
+      ∀ val' : ConstVal V,
+        (∀ ψ : Name → Nat,
+          interpClosed V m.val env ψ value = some (val' name ψ)) →
+        (∀ n, n ≠ name → ∀ ψ' : Name → Nat, val' n ψ' = m.val n ψ') →
+        DivModEqs V val' name) :
     Nonempty (EnvModel V ⟨c₀ :: env.consts⟩) := by
   have hc₀fresh : env.find? c₀.name = none := by
     rw [hc₀name]
@@ -159,6 +167,28 @@ theorem extend_model {env : Env} (m : EnvModel V env)
         hc₀name]
       exact hgoal
 
+  -- the head clause of `DivModOk`: value-level, so the certification
+  -- facts transfer to any valuation agreeing off the head
+  have hdivmodhead : ∀ val' : ConstVal V,
+      (∀ ψ : Name → Nat, val' c₀.name ψ = v₀f ψ) →
+      (∀ n, n ≠ c₀.name → ∀ ψ' : Name → Nat, val' n ψ' = m.val n ψ') →
+      ∀ cv₀ v₀' h₀', c₀ = .defnInfo cv₀ v₀' h₀' →
+      c₀.name ∈ natDivModNames →
+      natOpGuard (⟨c₀ :: env.consts⟩ : Env) c₀.name = true ∧
+      DivModEqs V val' c₀.name := by
+    intro val' hvhead hagreeN cv₀ v₀' h₀' heq hcn
+    rw [hc₀name] at hcn
+    have hcontains : natDivModNames.contains name = true :=
+      List.contains_iff_mem.mpr hcn
+    obtain ⟨hguard2, heqsGen⟩ := hdivmod hcontains ⟨cv₀, v₀', h₀', heq⟩
+    refine ⟨by rw [hc₀name]; exact hguard2, ?_⟩
+    rw [hc₀name]
+    refine heqsGen val' ?_ ?_
+    · intro ψ
+      rw [← hc₀name, hvhead ψ]
+      exact hv₀ ψ
+    · intro n hne ψ'
+      exact hagreeN n (by rw [hc₀name]; exact hne) ψ'
   obtain ⟨m', -, -⟩ := extend_fresh m c₀ v₀f hc₀fresh hwf htyres0
     (fun cv2 value2 h2 heq => by
       obtain ⟨-, rfl⟩ := hc₀val cv2 value2 h2 heq
@@ -220,5 +250,6 @@ theorem extend_model {env : Env} (m : EnvModel V env)
       rw [heq] at hc₀nb
       simp [ConstantInfo.isBasis] at hc₀nb)
     hnatophead
+    hdivmodhead
   exact ⟨m'⟩
 end Setlec

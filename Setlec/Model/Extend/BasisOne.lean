@@ -97,9 +97,11 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
       (∀ n ψ, n ≠ ci.name → m'.val n ψ = m.val n ψ) := by
   refine extend_fresh m ci v₀ hfind' hwf htyres0 ?_ hkey hparams hAty
     hnewty hnewmk hnewunit hnewempty hpin hsib hrecm hctors hmodv hproj
-    hetaL hunitL ?_
+    hetaL hunitL ?_ ?_
   · intro cv2 value2 h2 heq
     exact absurd heq (hnotdefn cv2 value2 h2)
+  · intro val' _ _ cv₀ v₀' h₀' heq _
+    exact absurd heq (hnotdefn cv₀ v₀' h₀')
   · intro val' _ _ cv₀ v₀' h₀' heq _
     exact absurd heq (hnotdefn cv₀ v₀' h₀')
 end Setlec
