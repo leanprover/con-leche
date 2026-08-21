@@ -610,6 +610,128 @@ theorem denote_eq_iff {st : EStore} (hwf : st.WF) {i j : EIdx} {a b : Expr}
   · rintro rfl
     exact denote_inj hwf ha hb
 
+/-! ## Totality and extension helpers for the operation proofs -/
+
+/-- On a well-formed store, every in-range index denotes. -/
+theorem denote_total {st : EStore} (hwf : st.WF) :
+    ∀ (i : EIdx), i < st.nodes.size → ∃ x, st.denote i = some x := by
+  intro i
+  induction i using Nat.strongRecOn with
+  | _ i ih =>
+    intro hi
+    have hn : st.nodes[i]? = some st.nodes[i] := by
+      simp [hi]
+    have hc := hwf.children_lt i _ hn
+    rw [denote_node hn hc]
+    have hcs : ∀ c ∈ (st.nodes[i]).children, ∃ x, st.denote c = some x :=
+      fun c hcin => ih c (hc c hcin)
+        (Nat.lt_trans (hc c hcin) hi)
+    cases hnn : st.nodes[i] with
+    | bvar k => exact ⟨_, rfl⟩
+    | sort u => exact ⟨_, rfl⟩
+    | const nm us => exact ⟨_, rfl⟩
+    | lit l => exact ⟨_, rfl⟩
+    | fvar idx nm t =>
+      obtain ⟨x, hx⟩ := hcs t (by simp [hnn, ENode.children])
+      exact ⟨_, by rw [denoteNode, hx]; rfl⟩
+    | app f a =>
+      obtain ⟨xf, hf⟩ := hcs f (by simp [hnn, ENode.children])
+      obtain ⟨xa, ha⟩ := hcs a (by simp [hnn, ENode.children])
+      exact ⟨_, by rw [denoteNode, hf, ha]; rfl⟩
+    | lam nm t b m =>
+      obtain ⟨xt, ht⟩ := hcs t (by simp [hnn, ENode.children])
+      obtain ⟨xb, hb⟩ := hcs b (by simp [hnn, ENode.children])
+      exact ⟨_, by rw [denoteNode, ht, hb]; rfl⟩
+    | forallE nm t b m =>
+      obtain ⟨xt, ht⟩ := hcs t (by simp [hnn, ENode.children])
+      obtain ⟨xb, hb⟩ := hcs b (by simp [hnn, ENode.children])
+      exact ⟨_, by rw [denoteNode, ht, hb]; rfl⟩
+    | letE nm t vv b =>
+      obtain ⟨xt, ht⟩ := hcs t (by simp [hnn, ENode.children])
+      obtain ⟨xv, hv⟩ := hcs vv (by simp [hnn, ENode.children])
+      obtain ⟨xb, hb⟩ := hcs b (by simp [hnn, ENode.children])
+      exact ⟨_, by rw [denoteNode, ht, hv, hb]; rfl⟩
+    | proj s j e' =>
+      obtain ⟨x, hx⟩ := hcs e' (by simp [hnn, ENode.children])
+      exact ⟨_, by rw [denoteNode, hx]; rfl⟩
+
+/-- Extension never shrinks the node table. -/
+theorem Ext.size_le {st st' : EStore} (hext : Ext st st') :
+    st.nodes.size ≤ st'.nodes.size := by
+  by_cases h0 : st.nodes.size = 0
+  · omega
+  · have hlast : st.nodes[st.nodes.size - 1]? = some st.nodes[st.nodes.size - 1] := by
+      simp
+    have := hext _ _ hlast
+    have := (Array.getElem?_eq_some_iff.mp this).1
+    omega
+
+/-- Below the old size, an extension does not change the node table. -/
+theorem Ext.nodes_eq_of_lt {st st' : EStore} (hext : Ext st st') {j : EIdx}
+    (hj : j < st.nodes.size) : st'.nodes[j]? = st.nodes[j]? := by
+  have hn : st.nodes[j]? = some st.nodes[j] := by
+    simp [hj]
+  rw [hn]
+  exact hext _ _ hn
+
+/-- Below the old size, an extension does not change the denotation
+(not even `none` ones — the guards in `denote` are index-based). -/
+theorem Ext.denote_eq_of_lt {st st' : EStore} (hext : Ext st st') {j : EIdx}
+    (hj : j < st.nodes.size) : st'.denote j = st.denote j :=
+  denote_agree (fun _ hi => hext.nodes_eq_of_lt hi) j hj
+
+/-! ## The memo invariant for the index→index traversals -/
+
+/-- Invariant of a per-call memo table for an index→index traversal with
+a `Nat` cursor implementing the expression function `g`: every entry's
+key is in range and maps denotation-consistently.  (Entries for in-range
+keys that do not denote are permanently vacuous: an in-range index's
+denotation never changes under extension.) -/
+def MemoNInv (st : EStore) (g : Expr → Nat → Expr)
+    (memo : Std.HashMap (EIdx × Nat) EIdx) : Prop :=
+  ∀ (e : EIdx) (c : Nat) (r : EIdx), memo[(e, c)]? = some r →
+    e < st.nodes.size ∧ ∀ x, st.denote e = some x → st.denote r = some (g x c)
+
+theorem MemoNInv.empty {st : EStore} {g : Expr → Nat → Expr} :
+    MemoNInv st g {} := by
+  intro e c r hr
+  simp at hr
+
+theorem MemoNInv.mono {st st' : EStore} {g : Expr → Nat → Expr}
+    {memo : Std.HashMap (EIdx × Nat) EIdx} (hext : Ext st st')
+    (h : MemoNInv st g memo) : MemoNInv st' g memo := by
+  intro e c r hr
+  obtain ⟨hlt, hcond⟩ := h e c r hr
+  refine ⟨Nat.lt_of_lt_of_le hlt hext.size_le, ?_⟩
+  intro x hx
+  rw [hext.denote_eq_of_lt hlt] at hx
+  exact denote_mono hext (hcond x hx)
+
+theorem MemoNInv.insert {st : EStore} {g : Expr → Nat → Expr}
+    {memo : Std.HashMap (EIdx × Nat) EIdx} {e : EIdx} {c : Nat} {r : EIdx}
+    (h : MemoNInv st g memo) (hlt : e < st.nodes.size)
+    (hcond : ∀ x, st.denote e = some x → st.denote r = some (g x c)) :
+    MemoNInv st g (memo.insert (e, c) r) := by
+  intro e' c' r' hr'
+  rw [Std.HashMap.getElem?_insert] at hr'
+  by_cases hk : (e, c) = (e', c')
+  · obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hk
+    rw [if_pos (by simp)] at hr'
+    cases hr'
+    exact ⟨hlt, hcond⟩
+  · rw [if_neg (by simpa using hk)] at hr'
+    exact h e' c' r' hr'
+
+/-- Transport a "old-store input, new-store output" condition to the new
+store (the input's denotation is unchanged below the old size). -/
+theorem cond_transport {st st' : EStore} (hext : Ext st st') {e r : EIdx}
+    (hesz : e < st.nodes.size) {g : Expr → Expr}
+    (hcond : ∀ x, st.denote e = some x → st'.denote r = some (g x)) :
+    ∀ x, st'.denote e = some x → st'.denote r = some (g x) := by
+  intro x hx
+  rw [hext.denote_eq_of_lt hesz] at hx
+  exact hcond x hx
+
 end EStore
 
 end Setlec

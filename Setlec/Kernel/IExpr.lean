@@ -129,10 +129,10 @@ def instantiate1IGo (v : EIdx) (st : EStore) (memo : MemoN) (e : EIdx) (d : Nat)
   match memo[(e, d)]? with
   | some r => (r, st, memo)
   | none =>
-    let (r, st, memo) : EIdx × EStore × MemoN :=
-      match st.nodes[e]? with
-      | none => (e, st, memo)
-      | some n =>
+    match st.nodes[e]? with
+    | none => (e, st, memo)
+    | some n =>
+      let (r, st, memo) : EIdx × EStore × MemoN :=
         match n with
         | .bvar i =>
           if i = d then (v, st, memo)
@@ -179,7 +179,7 @@ def instantiate1IGo (v : EIdx) (st : EStore) (memo : MemoN) (e : EIdx) (d : Nat)
             let (r, st) := st.intern (.proj s i sub')
             (r, st, memo)
           else (e, st, memo)
-    (r, st, memo.insert (e, d) r)
+      (r, st, memo.insert (e, d) r)
 termination_by (e, d)
 decreasing_by all_goals (apply Prod.Lex.left; first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h)
 
@@ -197,10 +197,10 @@ def abstract1IGo (d : Nat) (st : EStore) (memo : MemoN) (e : EIdx) (k : Nat) :
   match memo[(e, k)]? with
   | some r => (r, st, memo)
   | none =>
-    let (r, st, memo) : EIdx × EStore × MemoN :=
-      match st.nodes[e]? with
-      | none => (e, st, memo)
-      | some n =>
+    match st.nodes[e]? with
+    | none => (e, st, memo)
+    | some n =>
+      let (r, st, memo) : EIdx × EStore × MemoN :=
         match n with
         | .bvar _ => (e, st, memo)
         | .fvar idx _ _ =>
@@ -246,7 +246,7 @@ def abstract1IGo (d : Nat) (st : EStore) (memo : MemoN) (e : EIdx) (k : Nat) :
             let (r, st) := st.intern (.proj s i sub')
             (r, st, memo)
           else (e, st, memo)
-    (r, st, memo.insert (e, k) r)
+      (r, st, memo.insert (e, k) r)
 termination_by (e, k)
 decreasing_by all_goals (apply Prod.Lex.left; first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h)
 
@@ -267,10 +267,10 @@ def instantiateLevelParamsIGo (ks : List Name) (us : List Level)
   match memo[e]? with
   | some r => (r, st, memo)
   | none =>
-    let (r, st, memo) : EIdx × EStore × Memo0 :=
-      match st.nodes[e]? with
-      | none => (e, st, memo)
-      | some n =>
+    match st.nodes[e]? with
+    | none => (e, st, memo)
+    | some n =>
+      let (r, st, memo) : EIdx × EStore × Memo0 :=
         match n with
         | .bvar _ => (e, st, memo)
         | .fvar idx nm ty =>
@@ -321,7 +321,7 @@ def instantiateLevelParamsIGo (ks : List Name) (us : List Level)
             let (r, st) := st.intern (.proj s i sub')
             (r, st, memo)
           else (e, st, memo)
-    (r, st, memo.insert e r)
+      (r, st, memo.insert e r)
 termination_by e
 decreasing_by all_goals first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h
 
@@ -347,10 +347,10 @@ def hasFvarIGo (st : EStore) (memo : Std.HashMap EIdx Bool) (e : EIdx) :
   match memo[e]? with
   | some r => (r, memo)
   | none =>
-    let (r, memo) : Bool × Std.HashMap EIdx Bool :=
-      match st.nodes[e]? with
-      | none => (false, memo)
-      | some n =>
+    match st.nodes[e]? with
+    | none => (false, memo)
+    | some n =>
+      let (r, memo) : Bool × Std.HashMap EIdx Bool :=
         match n with
         | .bvar _ | .sort _ | .const _ _ | .lit _ => (false, memo)
         | .fvar _ _ _ => (true, memo)
@@ -378,7 +378,7 @@ def hasFvarIGo (st : EStore) (memo : Std.HashMap EIdx Bool) (e : EIdx) :
         | .proj _ _ sub =>
           if _h : sub < e then hasFvarIGo st memo sub
           else (false, memo)
-    (r, memo.insert e r)
+      (r, memo.insert e r)
 termination_by e
 decreasing_by all_goals first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h
 
@@ -393,10 +393,10 @@ def looseBVarsBoundedIGo (st : EStore) (memo : Std.HashMap (EIdx × Nat) Bool)
   match memo[(e, k)]? with
   | some r => (r, memo)
   | none =>
-    let (r, memo) : Bool × Std.HashMap (EIdx × Nat) Bool :=
-      match st.nodes[e]? with
-      | none => (false, memo)
-      | some n =>
+    match st.nodes[e]? with
+    | none => (false, memo)
+    | some n =>
+      let (r, memo) : Bool × Std.HashMap (EIdx × Nat) Bool :=
         match n with
         | .bvar i => (decide (i < k), memo)
         | .fvar _ _ _ | .sort _ | .const _ _ | .lit _ => (true, memo)
@@ -421,7 +421,7 @@ def looseBVarsBoundedIGo (st : EStore) (memo : Std.HashMap (EIdx × Nat) Bool)
         | .proj _ _ sub =>
           if _h : sub < e then looseBVarsBoundedIGo st memo k sub
           else (false, memo)
-    (r, memo.insert (e, k) r)
+      (r, memo.insert (e, k) r)
 termination_by (e, k)
 decreasing_by all_goals (apply Prod.Lex.left; first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h)
 
@@ -437,10 +437,10 @@ def wscopedBIGo (st : EStore) (memo : Std.HashMap (EIdx × Nat) Bool)
   match memo[(e, d)]? with
   | some r => (r, memo)
   | none =>
-    let (r, memo) : Bool × Std.HashMap (EIdx × Nat) Bool :=
-      match st.nodes[e]? with
-      | none => (false, memo)
-      | some n =>
+    match st.nodes[e]? with
+    | none => (false, memo)
+    | some n =>
+      let (r, memo) : Bool × Std.HashMap (EIdx × Nat) Bool :=
         match n with
         | .bvar _ | .sort _ | .const _ _ | .lit _ => (true, memo)
         | .fvar idx _ ty =>
@@ -468,7 +468,7 @@ def wscopedBIGo (st : EStore) (memo : Std.HashMap (EIdx × Nat) Bool)
         | .proj _ _ sub =>
           if _h : sub < e then wscopedBIGo st memo d sub
           else (false, memo)
-    (r, memo.insert (e, d) r)
+      (r, memo.insert (e, d) r)
 termination_by (e, d)
 decreasing_by all_goals (apply Prod.Lex.left; first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h)
 
@@ -488,10 +488,10 @@ def fvarLeavesIGo (st : EStore)
   match memo[e]? with
   | some r => (r, memo)
   | none =>
-    let (r, memo) : List (Nat × Name × EIdx) × Std.HashMap EIdx (List (Nat × Name × EIdx)) :=
-      match st.nodes[e]? with
-      | none => ([], memo)
-      | some n =>
+    match st.nodes[e]? with
+    | none => ([], memo)
+    | some n =>
+      let (r, memo) : List (Nat × Name × EIdx) × Std.HashMap EIdx (List (Nat × Name × EIdx)) :=
         match n with
         | .bvar _ | .sort _ | .const _ _ | .lit _ => ([], memo)
         | .fvar idx nm ty =>
@@ -521,7 +521,7 @@ def fvarLeavesIGo (st : EStore)
         | .proj _ _ sub =>
           if _h : sub < e then fvarLeavesIGo st memo sub
           else ([], memo)
-    (r, memo.insert e r)
+      (r, memo.insert e r)
 termination_by e
 decreasing_by all_goals first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h
 
@@ -537,10 +537,10 @@ def constsResolveIGo (st : EStore) (env : Env)
   match memo[e]? with
   | some r => (r, memo)
   | none =>
-    let (r, memo) : Bool × Std.HashMap EIdx Bool :=
-      match st.nodes[e]? with
-      | none => (false, memo)
-      | some n =>
+    match st.nodes[e]? with
+    | none => (false, memo)
+    | some n =>
+      let (r, memo) : Bool × Std.HashMap EIdx Bool :=
         match n with
         | .bvar _ | .sort _ | .lit _ => (true, memo)
         | .const n _ => ((env.find? n).isSome, memo)
@@ -570,7 +570,7 @@ def constsResolveIGo (st : EStore) (env : Env)
             if (env.find? s).isSome then constsResolveIGo st env memo sub
             else (false, memo)
           else (false, memo)
-    (r, memo.insert e r)
+      (r, memo.insert e r)
 termination_by e
 decreasing_by all_goals first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h
 
