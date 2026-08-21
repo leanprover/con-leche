@@ -126,6 +126,64 @@ noncomputable def emptyRecVal (ψ : Name → Nat) : V :=
     (pi (ψ uN + 1) SetTheory.empty fun _ => univ (ψ uN)) fun _M =>
     SetTheory.lam (ψ uN) SetTheory.empty fun _t => pt
 
+/-- The interpreted relation space `α → α → Prop` over a domain. -/
+noncomputable def relSpace (u : Nat) (A : V) : V :=
+  pi (Nat.max u 1) A fun _ => pi 1 A fun _ => univ 0
+
+/-- The value of the basis quotient type former. -/
+noncomputable def quotVal (ψ : Name → Nat) : V :=
+  let u := ψ uN
+  SetTheory.lam (u + 1) (univ u) fun A =>
+    SetTheory.lam (u + 1) (relSpace V u A) fun R => quotSet u A R
+
+/-- The value of `Quot.mk` (class formation). -/
+noncomputable def quotMkVal (ψ : Name → Nat) : V :=
+  let u := ψ uN
+  SetTheory.lam u (univ u) fun A =>
+    SetTheory.lam u (relSpace V u A) fun R =>
+      SetTheory.lam u A fun a => quotClass u A R a
+
+/-- The interpreted invariance space `∀ a b, r a b → f a = f b`. -/
+noncomputable def quotInvSpace (A R f : V) : V :=
+  pi 0 A fun a => pi 0 A fun b =>
+    pi 0 (app (app R a) b) fun _ => eqv (app f a) (app f b)
+
+/-- The value of `Quot.lift` (the induced map on classes). -/
+noncomputable def quotLiftVal (ψ : Name → Nat) : V :=
+  let u := ψ uN
+  let v := ψ vN
+  let cq := if v = 0 then 0 else Nat.max u v
+  let cr := if v = 0 then 0 else Nat.max (v + 1) (Nat.max u v)
+  let ca := if cr = 0 then 0 else Nat.max (Nat.max u 1) cr
+  SetTheory.lam ca (univ u) fun A =>
+    SetTheory.lam cr (relSpace V u A) fun R =>
+      SetTheory.lam cq (univ v) fun B =>
+        SetTheory.lam cq (pi v A fun _ => B) fun f =>
+          SetTheory.lam cq (quotInvSpace V A R f) fun _h =>
+            SetTheory.lam v (quotSet u A R) fun q =>
+              app (quotLift u v A R f) q
+
+/-- The value of `Quot.ind` (a proof point: the motive is
+propositional). -/
+noncomputable def quotIndVal (ψ : Name → Nat) : V :=
+  let u := ψ uN
+  SetTheory.lam 0 (univ u) fun A =>
+    SetTheory.lam 0 (relSpace V u A) fun R =>
+      SetTheory.lam 0 (pi 1 (quotSet u A R) fun _ => univ 0) fun B =>
+        SetTheory.lam 0 (pi 0 A fun a => app B (quotClass u A R a))
+          fun _mk =>
+        SetTheory.lam 0 (quotSet u A R) fun _q => pt
+
+/-- The value of `Quot.sound` (a proof point: the statement is
+propositional and true — related elements share their class). -/
+noncomputable def quotSoundVal (ψ : Name → Nat) : V :=
+  let u := ψ uN
+  SetTheory.lam 0 (univ u) fun A =>
+    SetTheory.lam 0 (relSpace V u A) fun R =>
+      SetTheory.lam 0 A fun a =>
+        SetTheory.lam 0 A fun b =>
+          SetTheory.lam 0 (app (app R a) b) fun _w => pt
+
 /-- The value of one basis constant (`empty` for non-basis names). -/
 noncomputable def pinnedVal (n : Name) (ψ : Name → Nat) : V :=
   if n = eqName then eqVal V ψ
@@ -143,6 +201,11 @@ noncomputable def pinnedVal (n : Name) (ψ : Name → Nat) : V :=
   else if n = punitName.str "rec" then punitRecVal V ψ
   else if n = emptyName then SetTheory.empty
   else if n = emptyName.str "rec" then emptyRecVal V ψ
+  else if n = quotName then quotVal V ψ
+  else if n = quotMkName then quotMkVal V ψ
+  else if n = quotLiftName then quotLiftVal V ψ
+  else if n = quotIndName then quotIndVal V ψ
+  else if n = quotSoundName then quotSoundVal V ψ
   else empty
 
 /-- The pinned (annotated) declaration of one basis constant. -/
@@ -162,6 +225,11 @@ def pinnedInfo (n : Name) : ConstantInfo :=
   else if n = punitName.str "rec" then punitRecA
   else if n = emptyName then emptyA
   else if n = emptyName.str "rec" then emptyRecA
+  else if n = quotName then quotA
+  else if n = quotMkName then quotMkA
+  else if n = quotLiftName then quotLiftA
+  else if n = quotIndName then quotIndA
+  else if n = quotSoundName then quotSoundA
   else .axiomInfo ⟨n, [], .sort .zero⟩
 
 /-- Is this constant-info one of the basis kinds? -/
@@ -173,7 +241,7 @@ def ConstantInfo.isBasis : ConstantInfo → Bool
 theorem pinnedInfo_ctorInfo_cases {n : Name} {cv : ConstantVal} {nP nF : Nat}
     (h : pinnedInfo n = .ctorInfo cv nP nF) :
     n = eqReflName ∨ n = natZeroName ∨ n = natSuccName ∨
-    n = psigmaMkName ∨ n = punitUnitName := by
+    n = psigmaMkName ∨ n = punitUnitName ∨ n = quotMkName := by
   delta pinnedInfo at h
   by_cases h1 : n = eqName
   · rw [if_pos h1] at h; exact nomatch h
@@ -209,7 +277,7 @@ theorem pinnedInfo_ctorInfo_cases {n : Name} {cv : ConstantVal} {nP nF : Nat}
   · rw [if_pos h11] at h; exact nomatch h
   rw [if_neg h11] at h
   by_cases h12 : n = punitUnitName
-  · exact Or.inr (Or.inr (Or.inr (Or.inr h12)))
+  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h12))))
   rw [if_neg h12] at h
   by_cases h13 : n = punitName.str "rec"
   · rw [if_pos h13] at h; exact nomatch h
@@ -220,6 +288,21 @@ theorem pinnedInfo_ctorInfo_cases {n : Name} {cv : ConstantVal} {nP nF : Nat}
   by_cases h15 : n = emptyName.str "rec"
   · rw [if_pos h15] at h; exact nomatch h
   rw [if_neg h15] at h
+  by_cases h16 : n = quotName
+  · rw [if_pos h16] at h; exact nomatch h
+  rw [if_neg h16] at h
+  by_cases h17 : n = quotMkName
+  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr h17))))
+  rw [if_neg h17] at h
+  by_cases h18 : n = quotLiftName
+  · rw [if_pos h18] at h; exact nomatch h
+  rw [if_neg h18] at h
+  by_cases h19 : n = quotIndName
+  · rw [if_pos h19] at h; exact nomatch h
+  rw [if_neg h19] at h
+  by_cases h20 : n = quotSoundName
+  · rw [if_pos h20] at h; exact nomatch h
+  rw [if_neg h20] at h
   exact nomatch h
 
 /-- Which names carry recursor-shaped pinned declarations. -/
@@ -228,7 +311,7 @@ theorem pinnedInfo_recInfo_cases {n : Name} {cv : ConstantVal}
     (h : pinnedInfo n = .recInfo cv nP nM nm ni rules) :
     n = eqName.str "rec" ∨ n = natName.str "rec" ∨
     n = psigmaName.str "rec" ∨ n = punitName.str "rec" ∨
-    n = emptyName.str "rec" := by
+    n = emptyName.str "rec" ∨ n = quotLiftName ∨ n = quotIndName := by
   delta pinnedInfo at h
   by_cases h1 : n = eqName
   · rw [if_pos h1] at h; exact nomatch h
@@ -273,8 +356,23 @@ theorem pinnedInfo_recInfo_cases {n : Name} {cv : ConstantVal}
   · rw [if_pos h14] at h; exact nomatch h
   rw [if_neg h14] at h
   by_cases h15 : n = emptyName.str "rec"
-  · exact Or.inr (Or.inr (Or.inr (Or.inr h15)))
+  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h15))))
   rw [if_neg h15] at h
+  by_cases h16 : n = quotName
+  · rw [if_pos h16] at h; exact nomatch h
+  rw [if_neg h16] at h
+  by_cases h17 : n = quotMkName
+  · rw [if_pos h17] at h; exact nomatch h
+  rw [if_neg h17] at h
+  by_cases h18 : n = quotLiftName
+  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h18)))))
+  rw [if_neg h18] at h
+  by_cases h19 : n = quotIndName
+  · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr h19)))))
+  rw [if_neg h19] at h
+  by_cases h20 : n = quotSoundName
+  · rw [if_pos h20] at h; exact nomatch h
+  rw [if_neg h20] at h
   exact nomatch h
 
 end Setlec

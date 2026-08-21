@@ -4,6 +4,7 @@ import Setlec.Kernel.Basis.Nat
 import Setlec.Kernel.Basis.PSigma
 import Setlec.Kernel.Basis.PUnit
 import Setlec.Kernel.Basis.Empty
+import Setlec.Kernel.Basis.Quot
 
 /-!
 # The pinned basis inductives
@@ -28,6 +29,7 @@ def BasisKind.decls : BasisKind → List ConstantInfo
   | .psigmaK => psigmaBasis
   | .punitK => punitBasis
   | .emptyK => emptyBasis
+  | .quotK => quotBasis
 
 /-- The annotated constants of one basis block, in dependency order. -/
 def BasisKind.declsA : BasisKind → List ConstantInfo
@@ -36,6 +38,7 @@ def BasisKind.declsA : BasisKind → List ConstantInfo
   | .psigmaK => [psigmaA, psigmaMkA, psigmaRecA]
   | .punitK => [punitA, punitUnitA, punitRecA]
   | .emptyK => [emptyA, emptyRecA]
+  | .quotK => [quotA, quotMkA, quotLiftA, quotIndA, quotSoundA]
 
 -- placeholder annotated Empty declarations; regenerated below
 end Setlec

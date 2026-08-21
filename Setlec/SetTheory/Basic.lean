@@ -175,6 +175,34 @@ class SetTheory (V : Type u) where
   /-- Prop-tagged abstractions are the proof point (the `v = 0` case of
   `lam`'s realization). -/
   lam_zero : ∀ {A : V} {F : V → V}, lam 0 A F = pt
+  /-- Quotients.  For `u ≠ 0`, `quotSet u A R` is the set of classes of
+  the equivalence closure of "`app (app R a) b` is inhabited" on `A`,
+  `quotClass u A R a` the class of `a`, and `quotLift u v A R f` the
+  function graph `{⟨quotClass a, app f a⟩ : a ∈ A}` — a set function
+  when `f` is constant on classes.  For `u = 0` the quotient is a
+  proposition (its base `A` lives in `Prop`, so all of this collapses
+  to the proof point; realizable since `A ⊆ {pt}` there). -/
+  quotSet : Nat → V → V → V
+  quotClass : Nat → V → V → V → V
+  quotLift : Nat → Nat → V → V → V → V
+  quotSet_mem_univ : ∀ {u : Nat} {A R : V}, Mem A (univ u) →
+    Mem (quotSet u A R) (univ u)
+  quotClass_mem : ∀ {u : Nat} {A R a : V}, Mem a A →
+    Mem (quotClass u A R a) (quotSet u A R)
+  quotClass_surj : ∀ {u : Nat} {A R q : V}, Mem q (quotSet u A R) →
+    ∃ a, Mem a A ∧ q = quotClass u A R a
+  quotSound : ∀ {u : Nat} {A R a b w : V}, Mem a A → Mem b A →
+    Mem w (app (app R a) b) → quotClass u A R a = quotClass u A R b
+  quotLift_mem : ∀ {u v : Nat} {A R f B : V}, Mem A (univ u) →
+    Mem f (pi v A (fun _ => B)) →
+    (∀ a b, Mem a A → Mem b A → (∃ w, Mem w (app (app R a) b)) →
+      app f a = app f b) →
+    Mem (quotLift u v A R f) (pi v (quotSet u A R) (fun _ => B))
+  quotLift_beta : ∀ {u v : Nat} {A R f a : V}, Mem A (univ u) →
+    Mem a A →
+    (∀ a' b', Mem a' A → Mem b' A → (∃ w, Mem w (app (app R a') b')) →
+      app f a' = app f b') →
+    app (quotLift u v A R f) (quotClass u A R a) = app f a
 
 namespace SetTheory
 

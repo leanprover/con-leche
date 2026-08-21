@@ -220,7 +220,7 @@ theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
       obtain ⟨hpr, -⟩ :=
         m.ind_ok.right.right.right.left _ _ hfr rfl hgres
       have hcn : c = punitName := by
-        rcases pinnedInfo_recInfo_cases hpr.symm with hc | hc | hc | hc | hc
+        rcases pinnedInfo_recInfo_cases hpr.symm with hc | hc | hc | hc | hc | hc | hc
         · rw [hc] at hpr
           exact nomatch (congrArg ConstantInfo.recNi hpr)
         · rw [hc] at hpr
@@ -236,6 +236,8 @@ theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
         · rw [hc] at hpr
           exact nomatch
             (congrArg (fun ci => (ConstantInfo.recRules ci).length) hpr)
+        · exact absurd hc (by simp [quotLiftName, quotName])
+        · exact absurd hc (by simp [quotIndName, quotName])
       subst hcn
       obtain ⟨-, hval⟩ :=
         m.ind_ok.right.right.right.left _ _ hfind rfl (by decide)

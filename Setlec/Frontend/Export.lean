@@ -231,6 +231,14 @@ private def processLine (st : State) (j : Json)
     let cv ← parseConstantVal st v
     if (← (← v.getObjVal? "isUnsafe").getBool?) then
       return .inr "unsafe axiom"
+    -- the pinned quotient soundness axiom is installed with the `Quot`
+    -- basis block; skip its (matching) declaration record
+    if cv.name = quotSoundName then
+      if ConstantInfo.canon (.axiomInfo cv) =
+          ConstantInfo.canon (quotBasis.getD 4 (.axiomInfo default)) then
+        return .inl st
+      else
+        return .inr "quotient soundness axiom mismatch"
     return .inl { st with decls := st.decls.push (.axiomDecl cv) }
   else if let .ok v := j.getObjVal? "def" then
     let cv ← parseConstantVal st v
@@ -251,8 +259,25 @@ private def processLine (st : State) (j : Json)
       decls := st.decls.push (.thmDecl cv (← getExpr' st v "value").zetaExpand) }
   else if (j.getObjVal? "opaque").isOk then
     return .inr "opaque declaration"
-  else if (j.getObjVal? "quot").isOk then
-    return .inr "quotient declaration"
+  else if let .ok v := j.getObjVal? "quot" then
+    -- the kernel quotient bundle: each record must match its pinned
+    -- basis member; the type former's record installs the whole block
+    let cv ← parseConstantVal st v
+    let slot ← match (← (← v.getObjVal? "kind").getStr?) with
+      | "type" => pure 0
+      | "ctor" => pure 1
+      | "lift" => pure 2
+      | "ind" => pure 3
+      | k => throw s!"unknown quotient kind '{k}'"
+    let pin := (BasisKind.quotK.decls.getD slot (.axiomInfo default))
+    if (ConstantInfo.canon (.axiomInfo cv)).toConstantVal =
+        (ConstantInfo.canon pin).toConstantVal then
+      if slot = 0 then
+        return .inl { st with decls := st.decls.push (.basisDecl .quotK) }
+      else
+        return .inl st
+    else
+      return .inr "quotient declaration mismatch"
   else if let .ok v := j.getObjVal? "inductive" then
     -- Parse the block into stored-constant form; a pinned basis block
     -- becomes a `basisDecl`, anything else is converted into alias
