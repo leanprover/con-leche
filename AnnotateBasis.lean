@@ -1,5 +1,6 @@
 import Setlec.Kernel.Checker
 import Setlec.Kernel.Basis
+import Setlec.Kernel.StdAxioms
 
 open Setlec
 
@@ -45,3 +46,35 @@ def main : IO Unit := do
         IO.println (repr ci')
         IO.println "---8<---"
         env := ⟨ci' :: env.consts⟩
+  -- standard-axiom prerequisite shapes: annotate the Iff/Nonempty
+  -- families and the two axioms in dependency order, over the pinned
+  -- Eq basis
+  IO.println "===STD==="
+  let mut envS : Env := ⟨[eqA]⟩
+  for ci in iffFamily ++ nonemptyFamily do
+    let cv := ci.toConstantVal
+    match annotateCore envS checkFuel 0 cv.type with
+    | .error e =>
+      IO.println s!"ERROR annotating {cv.name}: {e}"
+      return
+    | .ok ty' =>
+      let cv' : ConstantVal := { cv with type := ty' }
+      let ci' : ConstantInfo :=
+        match ci with
+        | .indInfo _ caps => .indInfo cv' caps
+        | .ctorInfo _ nP nF => .ctorInfo cv' nP nF
+        | .recInfo _ nP nM nm ni rules => .recInfo cv' nP nM nm ni rules
+        | .axiomInfo _ => .axiomInfo cv'
+        | .defnInfo _ v => .defnInfo cv' v
+        | .thmInfo _ v => .thmInfo cv' v
+      IO.println (repr ci')
+      IO.println "---8<---"
+      envS := ⟨ci' :: envS.consts⟩
+  for cv in [propextRaw, choiceRaw] do
+    match annotateCore envS checkFuel 0 cv.type with
+    | .error e =>
+      IO.println s!"ERROR annotating {cv.name}: {e}"
+      return
+    | .ok ty' =>
+      IO.println (repr ({ cv with type := ty' } : ConstantVal))
+      IO.println "---8<---"

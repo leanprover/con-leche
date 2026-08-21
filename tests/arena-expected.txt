@@ -34,7 +34,7 @@
 0 good/tutorial/040_pUnitType.ndjson
 0 good/tutorial/041_eqType.ndjson
 0 good/tutorial/042_natDef.ndjson
-2 good/tutorial/043_rbTreeDef.ndjson
+0 good/tutorial/043_rbTreeDef.ndjson
 0 good/tutorial/053_reduceCtorParam.mk.ndjson
 0 good/tutorial/056_predWithTypeField.ndjson
 0 good/tutorial/057_typeWithTypeField.ndjson
@@ -48,7 +48,7 @@
 0 good/tutorial/066_punitRec.ndjson
 0 good/tutorial/067_eqRec.ndjson
 0 good/tutorial/068_nRec.ndjson
-2 good/tutorial/069_rbTreeRef.ndjson
+0 good/tutorial/069_rbTreeRef.ndjson
 0 good/tutorial/070_boolPropRec.ndjson
 0 good/tutorial/072_existsRec.ndjson
 0 good/tutorial/073_typeSingletonRecReduction.ndjson
@@ -58,7 +58,7 @@
 0 good/tutorial/077_prodRecEqns.ndjson
 0 good/tutorial/078_nRecReduction.ndjson
 0 good/tutorial/079_listRecReduction.ndjson
-2 good/tutorial/080_RBTree.id_spec.ndjson
+0 good/tutorial/080_RBTree.id_spec.ndjson
 0 good/tutorial/081_And.right.ndjson
 0 good/tutorial/082_Prod.snd.ndjson
 0 good/tutorial/083_PProd.snd.ndjson
@@ -78,12 +78,12 @@
 0 good/tutorial/109_structEta.ndjson
 0 good/tutorial/111_funEta.ndjson
 0 good/tutorial/112_funEtaDep.ndjson
-2 good/tutorial/118_reduceCtorParamRefl.mk.ndjson
-2 good/tutorial/119_reduceCtorParamRefl2.mk.ndjson
-2 good/tutorial/120_rTreeRec.ndjson
-2 good/tutorial/121_rtreeRecReduction.ndjson
-2 good/tutorial/122_accRecType.ndjson
-2 good/tutorial/123_accRecReduction.ndjson
+0 good/tutorial/118_reduceCtorParamRefl.mk.ndjson
+0 good/tutorial/119_reduceCtorParamRefl2.mk.ndjson
+0 good/tutorial/120_rTreeRec.ndjson
+0 good/tutorial/121_rtreeRecReduction.ndjson
+0 good/tutorial/122_accRecType.ndjson
+0 good/tutorial/123_accRecReduction.ndjson
 0 good/tutorial/125_quotMkType.ndjson
 0 good/tutorial/126_quotIndType.ndjson
 0 good/tutorial/127_quotLiftType.ndjson
@@ -93,7 +93,7 @@
 1 bad/tutorial/002_badDef.ndjson
 1 bad/tutorial/009_forallSortBad.ndjson
 1 bad/tutorial/010_nonTypeType.ndjson
-2 bad/tutorial/011_nonTypeAxiom.ndjson
+1 bad/tutorial/011_nonTypeAxiom.ndjson
 1 bad/tutorial/012_nonPropThm.ndjson
 1 bad/tutorial/017_tut06_bad01.ndjson
 1 bad/tutorial/044_inductBadNonSort.ndjson
@@ -118,7 +118,7 @@
 1 bad/tutorial/094_projIndexData.ndjson
 1 bad/tutorial/095_projIndexData2.ndjson
 1 bad/tutorial/098_ruleKbad.ndjson
-2 bad/tutorial/099_ruleKAcc.ndjson
+1 bad/tutorial/099_ruleKAcc.ndjson
 1 bad/tutorial/103_proofIrrelevanceBad.ndjson
 1 bad/tutorial/108_indexedUnitEta.ndjson
 2 bad/tutorial/110_indexedStructEta.ndjson
@@ -127,7 +127,7 @@
 1 bad/tutorial/115_etaCtor.ndjson
 2 bad/tutorial/116_reflOccLeft.ndjson
 2 bad/tutorial/117_reflOccInIndex.ndjson
-2 bad/tutorial/124_accRecNoEta.ndjson
+1 bad/tutorial/124_accRecNoEta.ndjson
 1 bad/tutorial/131_dup_defs.ndjson
 1 bad/tutorial/132_dup_ind_def.ndjson
 2 bad/tutorial/133_dup_ctor_def.ndjson

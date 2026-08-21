@@ -198,6 +198,18 @@ class SetTheory (V : Type u) where
     (∀ a b, Mem a A → Mem b A → (∃ w, Mem w (app (app R a) b)) →
       app f a = app f b) →
     Mem (quotLift u v A R f) (pi v (quotSet u A R) (fun _ => B))
+  /-- Extensionality of propositions: members of `univ 0` with the
+  same proof-point membership are equal (realizable: propositions are
+  subsets of `{pt}`). -/
+  prop_ext : ∀ {A B : V}, Mem A (univ 0) → Mem B (univ 0) →
+    (Mem pt A → Mem pt B) → (Mem pt B → Mem pt A) → A = B
+  /-- Global choice: a uniform selection from nonempty sets
+  (realizable in Tarski–Grothendieck set theory, whose universe
+  axioms are usually paired with global choice; alternatively any
+  fixed well-ordering of each universe suffices for the sets the
+  interpretation produces). -/
+  schoice : V → V
+  schoice_mem : ∀ {A x : V}, Mem x A → Mem (schoice A) A
   quotLift_beta : ∀ {u v : Nat} {A R f a : V}, Mem A (univ u) →
     Mem a A →
     (∀ a' b', Mem a' A → Mem b' A → (∃ w, Mem w (app (app R a') b')) →
