@@ -31,14 +31,14 @@ first: `h`, `f`, `β`, `r`, `α`). -/
 def qlH (u v : Nat) : Nat := if v = 0 then 0 else Nat.max u v
 def qlF (u v : Nat) : Nat :=
   if qlH u v = 0 then 0 else Nat.max 0 (qlH u v)
-def qlB (u v : Nat) : Nat :=
+def qlBI (u v : Nat) : Nat :=
   if qlF u v = 0 then 0 else Nat.max (qlH u v) (qlF u v)
-def qlR (u v : Nat) : Nat :=
-  if qlB u v = 0 then 0 else Nat.max (v + 1) (qlB u v)
-def qlA (u v : Nat) : Nat :=
-  if qlR u v = 0 then 0
+def qlRI (u v : Nat) : Nat :=
+  if qlBI u v = 0 then 0 else Nat.max (v + 1) (qlBI u v)
+def qlAI (u v : Nat) : Nat :=
+  if qlRI u v = 0 then 0
   else Nat.max (if Nat.max u 1 = 0 then 0 else Nat.max u (Nat.max u 1))
-    (qlR u v)
+    (qlRI u v)
 
 theorem qlF_eq (u v : Nat) : qlF u v = qlH u v := by
   unfold qlF qlH
@@ -47,8 +47,8 @@ theorem qlF_eq (u v : Nat) : qlF u v = qlH u v := by
   · simp only [if_neg h, if_neg (max_ne_zero_r' h)]
     exact Nat.zero_max _
 
-theorem qlB_eq (u v : Nat) : qlB u v = qlH u v := by
-  unfold qlB
+theorem qlBI_eq (u v : Nat) : qlBI u v = qlH u v := by
+  unfold qlBI
   rw [qlF_eq]
   unfold qlH
   by_cases h : v = 0
@@ -56,20 +56,20 @@ theorem qlB_eq (u v : Nat) : qlB u v = qlH u v := by
   · simp only [if_neg h, if_neg (max_ne_zero_r' h)]
     exact Nat.max_self _
 
-theorem qlR_eq (u v : Nat) :
-    qlR u v = if v = 0 then 0 else Nat.max (v + 1) (Nat.max u v) := by
-  unfold qlR
-  rw [qlB_eq]
+theorem qlRI_eq (u v : Nat) :
+    qlRI u v = if v = 0 then 0 else Nat.max (v + 1) (Nat.max u v) := by
+  unfold qlRI
+  rw [qlBI_eq]
   unfold qlH
   by_cases h : v = 0
   · simp [h]
   · simp only [if_neg h, if_neg (max_ne_zero_r' h)]
 
-theorem qlA_eq (u v : Nat) :
-    qlA u v = if v = 0 then 0
+theorem qlAI_eq (u v : Nat) :
+    qlAI u v = if v = 0 then 0
       else Nat.max (Nat.max u 1) (Nat.max (v + 1) (Nat.max u v)) := by
-  unfold qlA
-  rw [qlR_eq]
+  unfold qlAI
+  rw [qlRI_eq]
   by_cases h : v = 0
   · simp [h]
   · have h1 : Nat.max u 1 ≠ 0 := max_ne_zero_r' (by decide)
@@ -81,9 +81,9 @@ variable (V) in
 lam tags are the raw annotation evaluations; the invariance domain
 carries the `Eq`-value form of the equation fibre). -/
 noncomputable def quotLiftRhsVal (ψ : Name → Nat) : V :=
-  SetTheory.lam (qlA (ψ uN) (ψ vN)) (univ (ψ uN)) fun A =>
-    SetTheory.lam (qlR (ψ uN) (ψ vN)) (relSpace V (ψ uN) A) fun R =>
-      SetTheory.lam (qlB (ψ uN) (ψ vN)) (univ (ψ vN)) fun B =>
+  SetTheory.lam (qlAI (ψ uN) (ψ vN)) (univ (ψ uN)) fun A =>
+    SetTheory.lam (qlRI (ψ uN) (ψ vN)) (relSpace V (ψ uN) A) fun R =>
+      SetTheory.lam (qlBI (ψ uN) (ψ vN)) (univ (ψ vN)) fun B =>
         SetTheory.lam (qlF (ψ uN) (ψ vN)) (pi (ψ vN) A fun _ => B)
             fun f =>
           SetTheory.lam (qlH (ψ uN) (ψ vN))
@@ -110,7 +110,7 @@ theorem interp_quotLift_rhs {cval : ConstVal V}
     hfindE', hvalE', eqA, List.length_cons, List.length_nil, reduceIte,
     Level.substFn]
   simp [interpExpr, updV, Expr.instantiate1, uN, vN, relSpace,
-    quotLiftRhsVal, qlA, qlR, qlB, qlF, qlH,
+    quotLiftRhsVal, qlAI, qlRI, qlBI, qlF, qlH,
     hfindE', hvalE', eqA, ConstantInfo.toConstantVal,
     -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
   try rfl
@@ -609,14 +609,14 @@ private theorem quotLiftRhsVal_eq_qlVal (h0 : ψ vN ≠ 0) :
   have hq : qlH (ψ uN) (ψ vN) = Nat.max (ψ uN) (ψ vN) := by
     unfold qlH
     rw [if_neg h0]
-  have hr : qlR (ψ uN) (ψ vN) =
+  have hr : qlRI (ψ uN) (ψ vN) =
       Nat.max (ψ vN + 1) (Nat.max (ψ uN) (ψ vN)) := by
-    rw [qlR_eq, if_neg h0]
-  have ha : qlA (ψ uN) (ψ vN) = Nat.max (Nat.max (ψ uN) 1)
+    rw [qlRI_eq, if_neg h0]
+  have ha : qlAI (ψ uN) (ψ vN) = Nat.max (Nat.max (ψ uN) 1)
       (Nat.max (ψ vN + 1) (Nat.max (ψ uN) (ψ vN))) := by
-    rw [qlA_eq, if_neg h0]
+    rw [qlAI_eq, if_neg h0]
   simp only [quotLiftRhsVal, qlVal, qlL1, qlL2, qlL3, qlL4, qlL5,
-    qlF_eq, qlB_eq, hq, hr, ha]
+    qlF_eq, qlBI_eq, hq, hr, ha]
   refine lam_congr fun A _ => ?_
   refine lam_congr fun R _ => ?_
   refine lam_congr fun B hB' => ?_
@@ -667,7 +667,7 @@ theorem quotLiftIota_claims {cval : ConstVal V}
   · -- Prop collapse: both sides of the fold are the proof point
     have hRpt : (quotLiftRhsVal V ψ : V) = pt := by
       simp only [quotLiftRhsVal]
-      rw [show qlA (ψ uN) (ψ vN) = 0 from by rw [qlA_eq, if_pos h0]]
+      rw [show qlAI (ψ uN) (ψ vN) = 0 from by rw [qlAI_eq, if_pos h0]]
       exact lam_zero
     have hVpt : (quotLiftVal V ψ : V) = pt := by
       simp only [quotLiftVal, h0, reduceIte]
