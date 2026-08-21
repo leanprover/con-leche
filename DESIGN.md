@@ -420,12 +420,21 @@ under one of these names satisfies its recurrences), discharged in the
 and consumed by the whnf claims via per-op meta-level induction over
 the literal (`Setlec/Model/NatOps.lean`).  The `natOpGuard` reduction
 guard additionally requires the dependencies (`sub`→`pred`,
-`mul`→`add`, `pow`→`mul`,`add`) and, for the `Bool`-valued ops, the
-`Bool` constructors, all stored level-monomorphic.  Bodies cannot be
+`mul`→`add`, `pow`→`mul`,`add`) and, for the `Bool`-valued ops and the
+pin-certified `div`/`mod`, the `Bool` constructors, all stored
+level-monomorphic.  Bodies cannot be
 pinned instead: elaborator output is `brecOn`-compiled and is *not*
 definitionally equal to the plain `Nat.rec` spelling at stuck majors —
-only the recurrence equations are.  WF-recursive ops (`div`, `mod`,
-`gcd`) and string literals remain deferred.
+only the recurrence equations are.  `div`/`mod` land via pinned
+declarations plus checked characterization certificates (see the
+dedicated section); `gcd`, the bit operations and string literals
+remain deferred.  The `succ`-packing case of `reduceNat` reduces its
+argument first (as `pred` and the binary operations do, and as the
+reference kernels do): literals reach `Nat.succ` wrapped in
+`OfNat`/instance towers, and a missed packing defeats the binary fast
+paths downstream, which then delta-grind the `brecOn` below-tower
+unarily (55296 levels at the `isValidChar_UInt32` scale — the former
+init-prelude probe wall).
 
 ### Nat literals in the model (2026-08-20)
 
