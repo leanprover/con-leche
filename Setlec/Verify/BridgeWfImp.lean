@@ -532,4 +532,229 @@ theorem certifyNatEqs_wfimp {env : Env} (henv : EnvWF env) {F : Nat} :
     | false =>
       simpa using h
 
+set_option maxHeartbeats 1600000 in
+theorem checkIotaRule_wfimp {env' envSelf : Env} (henv' : EnvWF env')
+    (henvSelf : EnvWF envSelf) {f : Name → Name} {cvName : Name}
+    {lps : List Name} {tyA : Expr} {nP nM nm ni j : Nat} {r : RecRule}
+    {F : Nat} {v : RecRule}
+    (h : (checkIotaRule wfOpsM env' envSelf f cvName lps tyA
+      nP nM nm ni j r).val F = .ok v) :
+    checkIotaRule (fueledOps F) env' envSelf f cvName lps tyA
+      nP nM nm ni j r = .ok v := by
+  unfold checkIotaRule at h ⊢
+  dsimp only [] at h ⊢
+  revert h
+  match hf : env'.find? r.ctor with
+  | none => intro h; exact nomatch h
+  | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.defnInfo _ _ _) => intro h; exact nomatch h
+  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.indInfo _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.ctorInfo cvj cnP cnF) => ?_
+  intro h
+  dsimp only [] at h ⊢
+  by_cases h1 : cnP = nP
+  case neg => rw [if_neg h1] at h; exact absurd h atF_throw_bind
+  rw [if_pos h1] at h ⊢
+  by_cases h2 : r.nfields = cnF
+  case neg => rw [if_neg h2] at h; exact absurd h atF_throw_bind
+  rw [if_pos h2] at h ⊢
+  by_cases h3 : Expr.looseBVarsBounded 0 (RecRule.rhs r) = true
+  case neg => rw [if_neg h3] at h; exact absurd h atF_throw_bind
+  rw [if_pos h3] at h ⊢
+  by_cases h4 : (RecRule.rhs r).hasFvar = true
+  · rw [if_pos h4] at h; exact absurd h atF_throw_bind
+  rw [if_neg h4] at h ⊢
+  rw [wfOpsM_annotate henvSelf
+    (wscopedB_of_not_hasFvar (Bool.not_eq_true _ ▸ h4))] at h
+  obtain ⟨rhsA, hann, h⟩ := atF_bind_ok h
+  have hann' : annotateCore envSelf F 0 (RecRule.rhs r) = .ok rhsA := hann
+  show (annotateCore envSelf F 0 (RecRule.rhs r) >>= _) = _
+  rw [hann']
+  simp only [Bind.bind, Except.bind]
+  have hwrhsA : WScoped 0 rhsA := annotateCore_WScoped F _ hann'
+    (WScoped.of_not_hasFvar (Bool.not_eq_true _ ▸ h4))
+  by_cases h5 : Expr.allLevelParamsDefined lps rhsA = true
+  case neg => rw [if_neg h5] at h; exact absurd h atF_throw_bind
+  rw [if_pos h5] at h ⊢
+  by_cases h6 : Expr.constsResolve envSelf rhsA = true
+  case neg => rw [if_neg h6] at h; exact absurd h atF_throw_bind
+  rw [if_pos h6] at h ⊢
+  revert h
+  match hshape : checkIotaRuleShape tyA cvj.type rhsA nP nM nm ni cnP cnF
+    with
+  | none => intro h; exact nomatch h
+  | some pr => ?_
+  obtain ⟨rbinders, rbody⟩ := pr
+  intro h
+  try dsimp only [] at h ⊢
+  rw [wfOpsM_inferType henvSelf hwrhsA.to_wscopedB] at h
+  obtain ⟨rhsTy, hity, h⟩ := atF_bind_ok h
+  have hity' : inferTypeCore envSelf F 0 rhsA = .ok rhsTy := hity
+  show (inferTypeCore envSelf F 0 rhsA >>= _) = _
+  rw [hity']
+  simp only [Bind.bind, Except.bind]
+  revert h
+  match hbuild : buildIotaStmt f cvName r.ctor lps cvj.levelParams
+      nP nM nm ni cnF tyA cvj.type (RecRule.rhs r) with
+  | none => intro h; exact nomatch h
+  | some stmtRaw => ?_
+  intro h
+  dsimp only [] at h ⊢
+  have hstmtF : stmtRaw.hasFvar = false := by
+    refine buildIotaStmt_not_hasFvar hbuild (Bool.not_eq_true _ ▸ h4) ?_
+    exact (henv' _ (find?_mem hf)).1
+  rw [wfOpsM_annotate henv' (wscopedB_of_not_hasFvar hstmtF)] at h
+  obtain ⟨stmtA, hsann, h⟩ := atF_bind_ok h
+  have hsann' : annotateCore env' F 0 stmtRaw = .ok stmtA := hsann
+  show (annotateCore env' F 0 stmtRaw >>= _) = _
+  rw [hsann']
+  simp only [Bind.bind, Except.bind]
+  revert h
+  match hthm : env'.find? ((cvName.str "_model").str s!"iota_{j}") with
+  | none => intro h; exact nomatch h
+  | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.defnInfo _ _ _) => intro h; exact nomatch h
+  | some (.indInfo _ _) => intro h; exact nomatch h
+  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.thmInfo cvt tval) => ?_
+  intro h
+  dsimp only [] at h ⊢
+  by_cases h7 : cvt.levelParams = lps
+  case neg => rw [if_neg h7] at h; exact absurd h atF_throw_bind
+  rw [if_pos h7] at h ⊢
+  by_cases h8 : (cvt.type == stmtA) = true
+  case neg => rw [if_neg h8] at h; exact absurd h atF_throw_bind
+  rw [if_pos h8] at h ⊢
+  by_cases h9 : checkIotaStmtShape f cvName r.ctor lps cvj.levelParams
+      nP nM nm ni cnF cvj.type cvt.type rbinders rbody = true
+  case neg => rw [if_neg h9] at h; exact absurd h atF_throw_bind
+  rw [if_pos h9] at h ⊢
+  exact h
+
+theorem checkIotaRules_wfimp {env' envSelf : Env} (henv' : EnvWF env')
+    (henvSelf : EnvWF envSelf) {f : Name → Name} {cvName : Name}
+    {lps : List Name} {tyA : Expr} {nP nM nm ni : Nat} {F : Nat} :
+    ∀ {j : Nat} {rules rules' : List RecRule},
+      (checkIotaRules wfOpsM env' envSelf f cvName lps tyA
+        nP nM nm ni j rules).val F = .ok rules' →
+      checkIotaRules (fueledOps F) env' envSelf f cvName lps tyA
+        nP nM nm ni j rules = .ok rules'
+  | _, [], rules', h => h
+  | j, r :: rest, rules', h => by
+    unfold checkIotaRules at h ⊢
+    obtain ⟨r', hr, h⟩ := atF_bind_ok h
+    have hr' := checkIotaRule_wfimp henv' henvSelf hr
+    show (checkIotaRule (fueledOps F) env' envSelf f cvName lps tyA
+      nP nM nm ni j r >>= _) = _
+    rw [hr']
+    simp only [Bind.bind, Except.bind]
+    obtain ⟨rest', hrest, h⟩ := atF_bind_ok h
+    have hrest' := checkIotaRules_wfimp henv' henvSelf hrest
+    show (checkIotaRules (fueledOps F) env' envSelf f cvName lps tyA
+      nP nM nm ni (j + 1) rest >>= _) = _
+    rw [hrest']
+    simp only [Bind.bind, Except.bind]
+    exact h
+
+theorem checkProjRule_wfimp {env' : Env} (henv' : EnvWF env')
+    {cvj : ConstantVal} {lps : List Name} {nP nF i F : Nat} {v : Expr}
+    (h : (checkProjRule wfOpsM env' cvj lps nP nF i).val F = .ok v) :
+    checkProjRule (fueledOps F) env' cvj lps nP nF i = .ok v := by
+  unfold checkProjRule at h ⊢
+  dsimp only [] at h ⊢
+  revert h
+  match hrhs : Expr.pisToLams (nP + nF) cvj.type (.bvar (nF - 1 - i)) with
+  | none => intro h; exact nomatch h
+  | some rhs => ?_
+  intro h
+  dsimp only [] at h ⊢
+  by_cases h1 : (!rhs.hasFvar && Expr.looseBVarsBounded 0 rhs) = true
+  case neg => rw [if_neg h1] at h; exact absurd h atF_throw_bind
+  rw [if_pos h1] at h ⊢
+  have hrf : rhs.hasFvar = false := by
+    simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at h1
+    exact h1.1
+  rw [wfOpsM_annotate henv' (wscopedB_of_not_hasFvar hrf)] at h
+  obtain ⟨rhsA, hann, h⟩ := atF_bind_ok h
+  have hann' : annotateCore env' F 0 rhs = .ok rhsA := hann
+  show (annotateCore env' F 0 rhs >>= _) = _
+  rw [hann']
+  simp only [Bind.bind, Except.bind]
+  by_cases h2 : (Expr.allLevelParamsDefined lps rhsA &&
+      Expr.constsResolve env' rhsA && Expr.looseBVarsBounded 0 rhsA &&
+      !rhsA.hasFvar) = true
+  case neg => rw [if_neg h2] at h; exact absurd h atF_throw_bind
+  rw [if_pos h2] at h ⊢
+  revert h
+  match hstrip : rhsA.stripLams (nP + nF) with
+  | none => intro h; exact nomatch h
+  | some pr₁ => ?_
+  obtain ⟨rbinders, rrbody⟩ := pr₁
+  intro h
+  try dsimp only [] at h ⊢
+  by_cases h3 : (rrbody == Expr.bvar (nF - 1 - i)) = true
+  case neg => rw [if_neg h3] at h; exact absurd h atF_throw_bind
+  rw [if_pos h3] at h ⊢
+  revert h
+  match hstripC : cvj.type.stripPis (nP + nF) with
+  | none => intro h; exact nomatch h
+  | some pr₂ => ?_
+  obtain ⟨cbindersR, cbodyR⟩ := pr₂
+  intro h
+  try dsimp only [] at h ⊢
+  by_cases h4 : domsMatchAux (fun _ e => e) rbinders cbindersR 0 0
+      (nP + nF) = true
+  case neg => rw [if_neg h4] at h; exact absurd h atF_throw_bind
+  rw [if_pos h4] at h ⊢
+  exact h
+
+theorem checkProjFn_wfimp {env' : Env} (henv' : EnvWF env')
+    {T ctorName : Name} {lps : List Name} {nP nF i F : Nat} {v : Env}
+    (h : (checkProjFn wfOpsM env' T ctorName lps nP nF i).val F = .ok v) :
+    checkProjFn (fueledOps F) env' T ctorName lps nP nF i = .ok v := by
+  unfold checkProjFn at h ⊢
+  obtain ⟨⟨cvj, mcv⟩, hlk, h⟩ := atF_bind_ok h
+  rw [checkProjLookups_datF] at hlk
+  show ((checkProjLookups env' T ctorName lps nP nF i :
+    CheckM (ConstantVal × ConstantVal)) >>= _) = _
+  rw [hlk]
+  simp only [Bind.bind, Except.bind]
+  obtain ⟨pty, hty, h⟩ := atF_bind_ok h
+  rw [checkProjTy_datF] at hty
+  show ((checkProjTy env' T ctorName lps mcv.type nP nF :
+    CheckM Expr) >>= _) = _
+  rw [hty]
+  simp only [Bind.bind, Except.bind]
+  dsimp only [] at h ⊢
+  by_cases h1 : i < nF
+  case neg => rw [if_neg h1] at h; exact absurd h atF_throw_bind
+  rw [if_pos h1] at h ⊢
+  obtain ⟨rhsA, hrule, h⟩ := atF_bind_ok h
+  have hrule' := checkProjRule_wfimp henv' hrule
+  show (checkProjRule (fueledOps F) env' cvj lps nP nF i >>= _) = _
+  rw [hrule']
+  simp only [Bind.bind, Except.bind]
+  obtain ⟨u, hiota, h⟩ := atF_bind_ok h
+  rw [checkProjIota_datF] at hiota
+  show ((checkProjIota env' T ctorName lps cvj nP nF i :
+    CheckM Unit) >>= _) = _
+  rw [hiota]
+  simp only [Bind.bind, Except.bind]
+  exact h
+
+theorem installProjFnStep_wfimp {e : Env} (he : EnvWF e)
+    {T ctorName : Name} {lps : List Name} {nP nF i F : Nat} {e' : Env}
+    (h : (installProjFnStep wfOpsM T ctorName lps nP nF e i).val F =
+      .ok e') :
+    installProjFnStep (fueledOps F) T ctorName lps nP nF e i = .ok e' := by
+  unfold installProjFnStep at h ⊢
+  split at h
+  · rw [if_pos (by assumption)]
+    exact checkProjFn_wfimp he h
+  · rw [if_neg (by assumption)]
+    exact h
+
 end Setlec
