@@ -54,7 +54,7 @@ theorem check_sound (m : EnvModel V env) :
     obtain ⟨ihwc, ihw, ihd, ihi⟩ := ih
     exact ⟨whnfCore_claims m ihwc ihw ihd ihi,
       whnfLoop_claims m ihwc ihw,
-      defeq_claims m ihw ihd ihi,
+      defeq_claims m ihwc ihw ihd ihi,
       infer_claims m ihw ihd ihi⟩
 
 /-! ## Fuel-generic soundness lemmas -/

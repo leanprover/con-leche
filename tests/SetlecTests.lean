@@ -23,6 +23,7 @@ def dummyAxiom : Declaration :=
 private def mkDef (n : String) (ps : List String) (type value : Expr) : Declaration :=
   .defnDecl { name := .str .anonymous n,
               levelParams := ps.map (.str .anonymous), type := type } value
+    (.regular 0)
 
 -- `def basicDef : Type := Prop` (tutorial test 001)
 #guard (checkDecls pureOps [mkDef "basicDef" [] (.sort (.succ .zero)) (.sort .zero)]).toBool

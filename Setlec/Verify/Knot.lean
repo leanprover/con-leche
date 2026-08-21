@@ -144,6 +144,9 @@ abbrev annotateProjElimP (env : Env) (fuel : Nat) : Nat → Name → Nat →
 abbrev reduceNatP (env : Env) (fuel : Nat) : Nat → Expr →
     CheckM (Option Expr) := reduceNat (pureFns env fuel) env
 
+abbrev defeqSpineP (env : Env) (fuel : Nat) : Nat → Expr → Expr →
+    CheckM Bool := defeqSpine (pureFns env fuel) env
+
 /-! Folding rewrites: record-applied helper spellings into their fueled
 `P` names (used right after unfolding a body in an inversion proof). -/
 
@@ -180,5 +183,7 @@ theorem annotateProjElim_fold (env : Env) (fuel : Nat) :
       annotateProjElimP env fuel := rfl
 theorem reduceNat_fold (env : Env) (fuel : Nat) :
     reduceNat (pureFns env fuel) env = reduceNatP env fuel := rfl
+theorem defeqSpine_fold (env : Env) (fuel : Nat) :
+    defeqSpine (pureFns env fuel) env = defeqSpineP env fuel := rfl
 
 end Setlec

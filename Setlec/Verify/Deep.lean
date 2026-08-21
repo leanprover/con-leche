@@ -232,13 +232,13 @@ private theorem unfoldDefinition_shiftFrom {env : Env} (henv : EnvWF env)
   | none => rfl
   | some ci =>
     cases ci <;> try rfl
-    case defnInfo cv value =>
+    case defnInfo cv value hint =>
     dsimp only
     split
     · have hval : (value.instantiateLevelParams cv.levelParams
           us).hasFvar = false := by
         obtain ⟨-, -, -, -, hvalwf, -⟩ := henv _ (find?_mem hf)
-        obtain ⟨hvc, -, -, -⟩ := hvalwf cv value rfl
+        obtain ⟨hvc, -, -, -⟩ := hvalwf cv value hint rfl
         rw [hasFvar_instantiateLevelParams]
         exact hvc
       rw [getAppArgs_shiftFrom, Option.map_some]
@@ -250,6 +250,34 @@ private theorem unfoldDefinition_shiftFrom {env : Env} (henv : EnvWF env)
           e.getAppArgs) from by
         rw [shiftFrom_mkAppN, shiftFrom_eq_self_of_not_hasFvar hval]]
     · rfl
+
+/-- `headHint` only reads a head constant's name, which shifting
+preserves. -/
+private theorem headHint_shiftFrom {env : Env} (p : Nat) (e : Expr) :
+    headHint env (shiftFrom p e) = headHint env e := by
+  unfold headHint
+  rw [getAppFn_shiftFrom]
+  generalize e.getAppFn = f
+  cases f <;> try rfl
+  case fvar => rw [shiftFrom_fvar]
+
+/-- The same-head test only reads app shapes and head constants, which
+shifting preserves. -/
+private theorem sameConstHeads_shiftFrom (p : Nat) (a b : Expr) :
+    sameConstHeads (shiftFrom p a) (shiftFrom p b) = sameConstHeads a b := by
+  cases a <;> cases b <;>
+    try (first
+      | rfl
+      | (simp only [shiftFrom_fvar]; rfl))
+  case app.app f₁ x₁ f₂ x₂ =>
+    show sameConstHeads (.app (shiftFrom p f₁) (shiftFrom p x₁))
+      (.app (shiftFrom p f₂) (shiftFrom p x₂)) = _
+    unfold sameConstHeads
+    dsimp only
+    rw [getAppFn_shiftFrom, getAppFn_shiftFrom]
+    generalize f₁.getAppFn = g₁
+    generalize f₂.getAppFn = g₂
+    cases g₁ <;> cases g₂ <;> (try simp only [shiftFrom_fvar]) <;> rfl
 
 /-- Peeling a `∀`-telescope along arguments commutes with the shift. -/
 private theorem piResidual_shiftFrom {p : Nat} :
@@ -512,6 +540,37 @@ private theorem defEqList_shift (_henv : EnvWF env)
       refine ite_congr' (fun _ => ?_) (fun _ => rfl)
       exact ihas (fun x hx => hwas x (List.mem_cons_of_mem _ hx))
         (fun x hx => hwbs x (List.mem_cons_of_mem _ hx))
+
+/-- The lazy delta same-head spine congruence is invariant under the
+shift: the head constants and levels are shift-fixed, the spine
+lengths are preserved, and the argument comparisons commute
+(`defEqList_shift`). -/
+private theorem defeqSpine_shift (_henv : EnvWF env)
+    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (hwa : WScoped d a) (hwb : WScoped d b) :
+    defeqSpine (pureFns env fuel) env (d + 1) (shiftFrom p a)
+      (shiftFrom p b) = defeqSpine (pureFns env fuel) env d a b := by
+  unfold defeqSpine
+  rw [getAppFn_shiftFrom]
+  cases hfa : a.getAppFn <;> try rfl
+  case fvar => rw [shiftFrom_fvar]
+  case const n us =>
+  dsimp only
+  rw [getAppFn_shiftFrom]
+  cases hfb : b.getAppFn <;> try rfl
+  case fvar => rw [shiftFrom_fvar]; rfl
+  case const n' us' =>
+  dsimp only
+  rw [getAppArgs_shiftFrom, getAppArgs_shiftFrom]
+  simp only [List.length_map]
+  refine ite_congr' (fun _ => ?_) (fun _ => rfl)
+  cases Level.isEquivList us us' with
+  | none => rfl
+  | some r =>
+    cases r with
+    | true =>
+      exact defEqList_shift _henv ih hpd hwa.getAppArgs hwb.getAppArgs
+    | false => rfl
 
 private theorem proofIrrel_shift (henv : EnvWF env)
     (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
@@ -1838,14 +1897,67 @@ private theorem defeq_step (henv : EnvWF env)
   simp only [defeqBody]
   rw [shiftFrom_beq]
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
-  refine bind_congr _ (ih.whnf hpd hwa) ?_
+  refine bind_congr _ (ih.whnfCore hpd hwa) ?_
   intro wa hwa'
-  refine bind_congr _ (ih.whnf hpd hwb) ?_
+  refine bind_congr _ (ih.whnfCore hpd hwb) ?_
   intro wb hwb'
-  have hwwa : WScoped d wa := whnf_WScoped henv fuel hwa' hwa
-  have hwwb : WScoped d wb := whnf_WScoped henv fuel hwb' hwb
+  have hwwa : WScoped d wa := whnfCore_WScoped henv fuel hwa' hwa
+  have hwwb : WScoped d wb := whnfCore_WScoped henv fuel hwb' hwb
   rw [shiftFrom_beq]
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
+  -- literal acceleration branches
+  refine bind_congr (Option.map (shiftFrom p))
+    (reduceNat_shift henv ih hpd hwwa) ?_
+  intro oa hoa
+  cases oa with
+  | some a₂ =>
+    have hwa₂ : WScoped d a₂ := by
+      rcases reduceNat_inv hoa with ⟨n, rfl⟩ | ⟨bn, rfl⟩ <;>
+        simp [WScoped]
+    exact ih.defeq hpd hwa₂ hwwb
+  | none =>
+  refine bind_congr (Option.map (shiftFrom p))
+    (reduceNat_shift henv ih hpd hwwb) ?_
+  intro ob hob
+  cases ob with
+  | some b₂ =>
+    have hwb₂ : WScoped d b₂ := by
+      rcases reduceNat_inv hob with ⟨n, rfl⟩ | ⟨bn, rfl⟩ <;>
+        simp [WScoped]
+    exact ih.defeq hpd hwwa hwb₂
+  | none =>
+  -- the lazy delta unfolding decision
+  rw [unfoldDefinition_shiftFrom henv, unfoldDefinition_shiftFrom henv]
+  cases hua : unfoldDefinition env wa with
+  | some a₂ =>
+    have hwa₂ : WScoped d a₂ := unfoldDefinition_WScoped henv hua hwwa
+    cases hub : unfoldDefinition env wb with
+    | none =>
+      simp only [Option.map_some, Option.map_none]
+      exact ih.defeq hpd hwa₂ hwwb
+    | some b₂ =>
+      have hwb₂ : WScoped d b₂ := unfoldDefinition_WScoped henv hub hwwb
+      simp only [Option.map_some]
+      rw [headHint_shiftFrom, headHint_shiftFrom]
+      refine ite_congr' (fun _ => ?_) (fun _ => ?_)
+      · exact ih.defeq hpd hwa₂ hwwb
+      refine ite_congr' (fun _ => ?_) (fun _ => ?_)
+      · exact ih.defeq hpd hwwa hwb₂
+      rw [sameConstHeads_shiftFrom]
+      refine ite_congr' (fun _ => ?_) (fun _ => ?_)
+      · refine bind_congr_eq (defeqSpine_shift henv ih hpd hwwa hwwb) ?_
+        intro bb _
+        refine ite_congr' (fun _ => rfl) (fun _ => ?_)
+        exact ih.defeq hpd hwa₂ hwb₂
+      · exact ih.defeq hpd hwa₂ hwb₂
+  | none =>
+  cases hub : unfoldDefinition env wb with
+  | some b₂ =>
+    have hwb₂ : WScoped d b₂ := unfoldDefinition_WScoped henv hub hwwb
+    simp only [Option.map_some, Option.map_none]
+    exact ih.defeq hpd hwwa hwb₂
+  | none =>
+  simp only [Option.map_none]
   have hstuck : stuckIrrel (pureFns env fuel) env (d + 1) (shiftFrom p wa)
       (shiftFrom p wb) = stuckIrrel (pureFns env fuel) env d wa wb :=
     stuckIrrel_shift henv ih hpd hwwa hwwb

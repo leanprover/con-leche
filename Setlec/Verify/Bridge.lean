@@ -191,6 +191,17 @@ theorem structEtaProjCerts_atF (d : Nat) (F : Nat) (T : Name)
       | indInfo cv caps => rfl
       | ctorInfo cv nP nF => rfl
 
+theorem defeqSpine_atF (d : Nat) (a b : Expr) (F : Nat) :
+    (defeqSpine (fueledFns env) env d a b).val F =
+      defeqSpine (pureFns env F) env d a b := by
+  unfold defeqSpine
+  repeat (first
+    | rfl
+    | (rw [defEqList_atF])
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | (dsimp only [])
+    | split)
+
 macro "atF_step" : tactic =>
   `(tactic| repeat (first
     | rfl
@@ -405,6 +416,7 @@ macro "atF_step4" : tactic =>
     | (rw [annotateProjElim_atF])
     | (rw [stuckIrrel_atF])
     | (rw [iotaRec_atF])
+    | (rw [defeqSpine_atF])
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
     | split))
@@ -683,13 +695,13 @@ theorem envWF_of_wfB {env : Env} (h : env.wfB = true) : EnvWF env := by
   have hcw := List.all_eq_true.mp h c hc
   unfold ConstantInfo.wfB at hcw
   cases c with
-  | defnInfo cv value =>
+  | defnInfo cv value hint =>
     simp only [Bool.and_eq_true] at hcw
     obtain ⟨h1, h2, h3, h4⟩ := declWfB_parts hcw.1
     obtain ⟨h5, h6, h7, h8⟩ := declWfB_parts hcw.2
     rw [constsResolveS_eq] at h3 h7
     refine ⟨h1, h2, h3, h4, ?_, ?_⟩
-    · intro cv' value' heq
+    · intro cv' value' hint' heq
       cases heq
       exact ⟨h5, h6, h7, h8⟩
     · intro cv' nP' nM' nm' ni' rules' heq
@@ -699,7 +711,7 @@ theorem envWF_of_wfB {env : Env} (h : env.wfB = true) : EnvWF env := by
     obtain ⟨h1, h2, h3, h4⟩ := declWfB_parts hcw.1
     rw [constsResolveS_eq] at h3
     refine ⟨h1, h2, h3, h4, ?_, ?_⟩
-    · intro cv' value' heq
+    · intro cv' value' hint' heq
       exact nomatch heq
     · intro cv' nP' nM' nm' ni' rules' heq r hr
       cases heq
@@ -712,7 +724,7 @@ theorem envWF_of_wfB {env : Env} (h : env.wfB = true) : EnvWF env := by
     obtain ⟨h1, h2, h3, h4⟩ := declWfB_parts hcw.1
     rw [constsResolveS_eq] at h3
     refine ⟨h1, h2, h3, h4, ?_, ?_⟩
-    · intro cv' value' heq
+    · intro cv' value' hint' heq
       exact nomatch heq
     · intro cv' nP' nM' nm' ni' rules' heq
       exact nomatch heq
@@ -721,7 +733,7 @@ theorem envWF_of_wfB {env : Env} (h : env.wfB = true) : EnvWF env := by
     obtain ⟨h1, h2, h3, h4⟩ := declWfB_parts hcw.1
     rw [constsResolveS_eq] at h3
     refine ⟨h1, h2, h3, h4, ?_, ?_⟩
-    · intro cv' value' heq
+    · intro cv' value' hint' heq
       exact nomatch heq
     · intro cv' nP' nM' nm' ni' rules' heq
       exact nomatch heq
@@ -730,7 +742,7 @@ theorem envWF_of_wfB {env : Env} (h : env.wfB = true) : EnvWF env := by
     obtain ⟨h1, h2, h3, h4⟩ := declWfB_parts hcw.1
     rw [constsResolveS_eq] at h3
     refine ⟨h1, h2, h3, h4, ?_, ?_⟩
-    · intro cv' value' heq
+    · intro cv' value' hint' heq
       exact nomatch heq
     · intro cv' nP' nM' nm' ni' rules' heq
       exact nomatch heq
@@ -739,7 +751,7 @@ theorem envWF_of_wfB {env : Env} (h : env.wfB = true) : EnvWF env := by
     obtain ⟨h1, h2, h3, h4⟩ := declWfB_parts hcw.1
     rw [constsResolveS_eq] at h3
     refine ⟨h1, h2, h3, h4, ?_, ?_⟩
-    · intro cv' value' heq
+    · intro cv' value' hint' heq
       exact nomatch heq
     · intro cv' nP' nM' nm' ni' rules' heq
       exact nomatch heq

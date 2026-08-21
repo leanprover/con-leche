@@ -89,7 +89,7 @@ private def ConstantInfo.canon (ci : ConstantInfo) : ConstantInfo :=
     type := canonExpr m ci.toConstantVal.type }
   match ci with
   | .axiomInfo _ => .axiomInfo cv
-  | .defnInfo _ v => .defnInfo cv (canonExpr m v)
+  | .defnInfo _ v hint => .defnInfo cv (canonExpr m v) hint
   | .thmInfo _ v => .thmInfo cv (canonExpr m v)
   | .indInfo _ _ => .indInfo cv {}
   | .ctorInfo _ nP nF => .ctorInfo cv nP nF
@@ -256,6 +256,24 @@ private def parseExprEntry (st : State) (j : Json) (i : Nat) : M State := do
   else
     pure st
 
+/-- Parse a `def` record's `hints` field: `"abbrev"`, `"opaque"`, or
+`{"regular": n}`.  A missing field defaults to `regular 0` — hints
+steer only the unfolding order of lazy delta, so any default is
+behaviorally safe. -/
+private def parseHints (v : Json) : M ReducibilityHint := do
+  match v.getObjVal? "hints" with
+  | .error _ => pure (.regular 0)
+  | .ok h =>
+    if let .ok s := h.getStr? then
+      match s with
+      | "abbrev" => pure .abbrev
+      | "opaque" => pure .opaque
+      | s => throw s!"unknown reducibility hint '{s}'"
+    else if let .ok n := h.getObjVal? "regular" then
+      pure (.regular (← n.getNat?))
+    else
+      throw "malformed hints field"
+
 private def parseConstantVal (st : State) (v : Json) : M ConstantVal := do
   pure {
     name := ← getName' st v "name"
@@ -302,7 +320,8 @@ private def processLineCore (st : State) (j : Json)
       return .inl st
     match (← (← v.getObjVal? "safety").getStr?) with
     | "safe" => return .inl { st with
-        decls := st.decls.push (.defnDecl cv (← getDeclExpr' st v "value").zetaExpand) }
+        decls := st.decls.push (.defnDecl cv
+          (← getDeclExpr' st v "value").zetaExpand (← parseHints v)) }
     | s => return .inr s!"definition with safety '{s}'"
   else if let .ok v := j.getObjVal? "thm" then
     let cv ← parseConstantVal st v
@@ -381,7 +400,8 @@ private def processLineCore (st : State) (j : Json)
         for ci in block do
           let cv := ci.toConstantVal
           ds := ds.push (.defnDecl cv
-            (.const (cv.name.str "_model") (cv.levelParams.map .param)))
+            (.const (cv.name.str "_model") (cv.levelParams.map .param))
+            .abbrev)
         return .inl { st with decls := ds }
   else
     throw "unrecognized line"

@@ -559,9 +559,9 @@ macro "dsnd_tac5" : tactic =>
     dsnd_step5 <;> dsnd_step5 <;> dsnd_step5)
 
 theorem checkDefnVal_fst_dproj (env : Env) (cv : ConstantVal)
-    (value : Expr) :
-    (checkDefnVal (pairOps o₁ o₂ h) env cv value).val.1 =
-      checkDefnVal o₁ env cv value := by
+    (value : Expr) (hint : ReducibilityHint) :
+    (checkDefnVal (pairOps o₁ o₂ h) env cv value hint).val.1 =
+      checkDefnVal o₁ env cv value hint := by
   unfold checkDefnVal
   dfst_tac
 
@@ -573,9 +573,9 @@ theorem checkThmVal_fst_dproj (env : Env) (cv : ConstantVal)
   dfst_tac
 
 theorem checkDefnVal_snd_dproj (env : Env) (cv : ConstantVal)
-    (value : Expr) :
-    (checkDefnVal (pairOps o₁ o₂ h) env cv value).val.2 =
-      checkDefnVal o₂ env cv value := by
+    (value : Expr) (hint : ReducibilityHint) :
+    (checkDefnVal (pairOps o₁ o₂ h) env cv value hint).val.2 =
+      checkDefnVal o₂ env cv value hint := by
   unfold checkDefnVal
   dsnd_tac
 
@@ -647,7 +647,7 @@ theorem checkDecl_fst_dproj (env : Env) (d : Declaration) :
       checkDecl o₁ env d := by
   unfold checkDecl
   cases d with
-  | defnDecl cv value =>
+  | defnDecl cv value hint =>
     dsimp only
     rw [PairM.fst_bind, checkConstantVal_fst_dproj]
     congr 1
@@ -710,7 +710,7 @@ theorem checkDecl_snd_dproj (env : Env) (d : Declaration) :
       checkDecl o₂ env d := by
   unfold checkDecl
   cases d with
-  | defnDecl cv value =>
+  | defnDecl cv value hint =>
     dsimp only
     rw [PairM.snd_bind, checkConstantVal_snd_dproj]
     congr 1
@@ -1019,9 +1019,9 @@ macro "datF_tac5" : tactic =>
     datF_step5 <;> datF_step5 <;> datF_step5)
 
 theorem checkDefnVal_datF (env : Env) (cv : ConstantVal) (value : Expr)
-    (F : Nat) :
-    (checkDefnVal fueledOpsM env cv value).val F =
-      checkDefnVal (fueledOps F) env cv value := by
+    (hint : ReducibilityHint) (F : Nat) :
+    (checkDefnVal fueledOpsM env cv value hint).val F =
+      checkDefnVal (fueledOps F) env cv value hint := by
   unfold checkDefnVal
   datF_tac
 
@@ -1065,7 +1065,7 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
       checkDecl (fueledOps F) env d := by
   unfold checkDecl
   cases d with
-  | defnDecl cv value =>
+  | defnDecl cv value hint =>
     dsimp only
     rw [FueledM.atF_bind, checkConstantVal_datF]
     congr 1

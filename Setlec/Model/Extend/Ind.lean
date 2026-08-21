@@ -21,7 +21,7 @@ parameters) and is interpreted by it. -/
 def BlockInstalled (blockNames : List Name) (env' : Env)
     (val : ConstVal V) : Prop :=
   ∀ n, blockNames.contains n = true → ∀ ci, env'.find? n = some ci →
-    ∃ cvm mval, env'.find? (n.str "_model") = some (.defnInfo cvm mval) ∧
+    ∃ cvm mval hmcvm, env'.find? (n.str "_model") = some (.defnInfo cvm mval hmcvm) ∧
       cvm.levelParams = ci.toConstantVal.levelParams ∧
       ∀ ψ : Name → Nat, val n ψ = val (n.str "_model") ψ
 
@@ -30,10 +30,10 @@ omit [SetTheory V] in
 invariant. -/
 theorem BlockInstalled.step {blockNames : List Name} {env' : Env}
     {val val₁ : ConstVal V} {ci₁ : ConstantInfo} {cvm : ConstantVal}
-    {mval : Expr}
+    {mval : Expr} {hmcvm : ReducibilityHint}
     (hI : BlockInstalled blockNames env' val)
     (hms : ci₁.name.isModelSuffix = false)
-    (hfm : env'.find? (ci₁.name.str "_model") = some (.defnInfo cvm mval))
+    (hfm : env'.find? (ci₁.name.str "_model") = some (.defnInfo cvm mval hmcvm))
     (hlps : cvm.levelParams = ci₁.toConstantVal.levelParams)
     (hval₁ : ∀ ψ, val₁ ci₁.name ψ = val (ci₁.name.str "_model") ψ)
     (hpres₁ : ∀ n ψ, n ≠ ci₁.name → val₁ n ψ = val n ψ) :
@@ -44,15 +44,15 @@ theorem BlockInstalled.step {blockNames : List Name} {env' : Env}
   · next hh =>
     obtain rfl := Option.some.inj hf₂
     obtain rfl : ci₁.name = n := hh
-    refine ⟨cvm, mval, ?_, hlps, ?_⟩
+    refine ⟨cvm, mval, hmcvm, ?_, hlps, ?_⟩
     · rw [Env.find?_cons,
         if_neg (fun h => Name.str_ne ci₁.name "_model" h.symm)]
       exact hfm
     · intro ψ
       rw [hval₁ ψ, hpres₁ _ ψ (Name.str_ne ci₁.name "_model")]
   · next hh =>
-    obtain ⟨cvm₂, mval₂, hfm₂, hlps₂, hv₂⟩ := hI n hbn ci₂ hf₂
-    refine ⟨cvm₂, mval₂, ?_, hlps₂, ?_⟩
+    obtain ⟨cvm₂, mval₂, hm₂, hfm₂, hlps₂, hv₂⟩ := hI n hbn ci₂ hf₂
+    refine ⟨cvm₂, mval₂, hm₂, ?_, hlps₂, ?_⟩
     · rw [Env.find?_cons, if_neg (show ¬ci₁.name = n.str "_model" from
         fun h => Name.str_model_ne hms h.symm)]
       exact hfm₂
@@ -71,7 +71,7 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
     (hbn : blockNames.contains ci.name = true)
     (m : EnvModel V env') (hI : BlockInstalled blockNames env' m.val) :
     ∃ m₁ : EnvModel V env₁, BlockInstalled blockNames env₁ m₁.val := by
-  obtain ⟨cvA, cvm, mval, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
+  obtain ⟨cvA, cvm, mval, hmcvm, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
     checkIndMember_inv h
   obtain ⟨hfind0, hnres0, hpshape0, hnd, hlb, hfv, tyA, stype, u, hann,
     hlp, hres, hst, hsort, hcvA⟩ := checkConstantVal_inv hccv
@@ -122,8 +122,8 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
       dsimp only
       by_cases hc : blockNames.contains n = true
       · rw [if_pos hc]
-        obtain ⟨cvm₂, mval₂, hfm₂, hlps₂, -⟩ := hI n hc ci₂ hf₂
-        exact ⟨.defnInfo cvm₂ mval₂, hfm₂, hlps₂⟩
+        obtain ⟨cvm₂, mval₂, hm₂, hfm₂, hlps₂, -⟩ := hI n hc ci₂ hf₂
+        exact ⟨.defnInfo cvm₂ mval₂ hm₂, hfm₂, hlps₂⟩
       · rw [if_neg hc]
         exact ⟨ci₂, hf₂, rfl⟩
     · intro n hf₂
@@ -138,7 +138,7 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
         dsimp only
         by_cases hc : blockNames.contains n = true
         · rw [if_pos hc]
-          obtain ⟨cvm₂, mval₂, -, -, hv₂⟩ := hI n hc ci₂ hf₂
+          obtain ⟨cvm₂, mval₂, hm₂, -, -, hv₂⟩ := hI n hc ci₂ hf₂
           exact (hv₂ ψ).symm
         · rw [if_neg hc]
   have hrenS : cvA.type.renameConsts fS = cvm.type := by
@@ -152,7 +152,7 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
     have hwf : ConstWF ⟨.indInfo cvA caps :: env'.consts⟩
         (.indInfo cvA caps) := by
       refine ⟨htyf, htlp, Expr.constsResolve_mono htres, htyb, ?_, ?_⟩
-      · intro cv2 v2 heq; exact nomatch heq
+      · intro cv2 v2 h2 heq; exact nomatch heq
       · intro cv2 nP' nM' nm' ni' rules heq; exact nomatch heq
     obtain ⟨m₁, hval₁, hpres₁⟩ := extend_modeled_one m
       (.indInfo cvA caps) fS (cvA.name.str "_model") hfind' hnres hwf htres
@@ -167,18 +167,18 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
         have hpinsA : EtaPins env' cvA.name cvA.levelParams caps := by
           rw [hnameA, hlpsA]
           exact hpins cv caps' rfl
-        obtain ⟨tcv, tval, cvmT, mvalT, sbinders, tbindersM, sbody,
+        obtain ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody,
           tbodyM, tySlot, ℓA, hthmE, htlpsE, hTmE, hTmlpsE,
-          ⟨cvmC, mvalC, hCmE, hCmlpsE⟩, hPjE, heqfE, hS_stripE,
+          ⟨cvmC, mvalC, hmC, hCmE, hCmlpsE⟩, hPjE, heqfE, hS_stripE,
           hTm_stripE, hsdomsE, hxdomE, hsbodyE⟩ :=
           hpinsA.1 hcape
-        obtain ⟨rfl, rfl⟩ : cvm = cvmT ∧ mval = mvalT := by
+        obtain ⟨rfl, rfl, rfl⟩ : cvm = cvmT ∧ mval = mvalT ∧ hmcvm = hmT := by
           rw [hfm] at hTmE
           have h1 := Option.some.inj hTmE
-          exact ⟨by injection h1, by injection h1⟩
+          exact ⟨by injection h1, by injection h1, by injection h1⟩
         refine ⟨by rw [hCmE]; rfl, ?_, ?_⟩
         · intro j hj
-          obtain ⟨cvmj, mvalj, hfj, -⟩ := hPjE j hj
+          obtain ⟨cvmj, mvalj, hmj, hfj, -⟩ := hPjE j hj
           show (env'.find? (projModelName cvA.name j)).isSome = true
           rw [hfj]
           rfl
@@ -218,10 +218,10 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
               AnnotOk V m.val env' ψ'' 0 (rho0 V) tcv.type :=
             fun ψ'' => (m.annot_ok _ (find?_mem hthmE) ψ'').1
           exact eta_rule_fold hroS hcvp hTmE hTmlpsE
-            (cimC := .defnInfo cvmC mvalC) hCmE hCmlpsE
+            (cimC := .defnInfo cvmC mvalC hmC) hCmE hCmlpsE
             (fun j hj => by
-              obtain ⟨cvmj, mvalj, hfj, hjlps⟩ := hPjE j hj
-              exact ⟨.defnInfo cvmj mvalj, hfj, hjlps⟩)
+              obtain ⟨cvmj, mvalj, hmj, hfj, hjlps⟩ := hPjE j hj
+              exact ⟨.defnInfo cvmj mvalj hmj, hfj, hjlps⟩)
             heqfE heqval hthm_mem hthm_annot hSw hS_stripE hT_strip
             hsdomsF hxdomE hsbodyE htyf hlen hx hfit)
       (fun cv₂ caps₂ heq hcapu _hres' => by
@@ -231,14 +231,14 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
         have hpinsA : EtaPins env' cvA.name cvA.levelParams caps := by
           rw [hnameA, hlpsA]
           exact hpins cv caps' rfl
-        obtain ⟨tcv, tval, cvmT, mvalT, sbinders, tbindersM, sbody,
+        obtain ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody,
           tbodyM, tySlot, ℓA, hthmE, htlpsE, hTmE, hTmlpsE, heqfE,
           hS_stripE, hTm_stripE, hsdomsE, hxdomE, hydomE, hsbodyE⟩ :=
           hpinsA.2 hcapu
-        obtain ⟨rfl, rfl⟩ : cvm = cvmT ∧ mval = mvalT := by
+        obtain ⟨rfl, rfl, rfl⟩ : cvm = cvmT ∧ mval = mvalT ∧ hmcvm = hmT := by
           rw [hfm] at hTmE
           have h1 := Option.some.inj hTmE
-          exact ⟨by injection h1, by injection h1⟩
+          exact ⟨by injection h1, by injection h1, by injection h1⟩
         intro φ'' us ps x y d₁ ρ₁ d₂ ρ₂ rest hlen hx hy hfit
         obtain ⟨tbinders, tbody, hT_strip, hbsmap, -⟩ :=
           Expr.stripPis_renameConsts_inv (f := fS) caps.unitParams
@@ -282,7 +282,7 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
     have hwf : ConstWF ⟨.ctorInfo cvA nP nF :: env'.consts⟩
         (.ctorInfo cvA nP nF) := by
       refine ⟨htyf, htlp, Expr.constsResolve_mono htres, htyb, ?_, ?_⟩
-      · intro cv2 v2 heq; exact nomatch heq
+      · intro cv2 v2 h2 heq; exact nomatch heq
       · intro cv2 nP' nM' nm' ni' rules heq; exact nomatch heq
     obtain ⟨m₁, hval₁, hpres₁⟩ := extend_modeled_one m
       (.ctorInfo cvA nP nF) fS (cvA.name.str "_model")
@@ -352,7 +352,7 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
             if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm ni
               rules').name = n from hh)]
       refine ⟨htyf, htlp, Expr.constsResolve_mono htres, htyb, ?_, ?_⟩
-      · intro cv2 v2 heq; exact nomatch heq
+      · intro cv2 v2 h2 heq; exact nomatch heq
       · intro cv2 nP' nM' nm' ni' rules'' heq r hr
         injection heq with e1 e2 e3 e4 e5 e6
         subst e6
@@ -385,7 +385,7 @@ theorem checkIndMember_fold_names {blockNames : List Name}
     | error e => rw [hstep] at h; exact nomatch h
     | ok env₁ =>
     rw [hstep] at h
-    obtain ⟨cvA, cvm, mval, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
+    obtain ⟨cvA, cvm, mval, hmcvm, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
       checkIndMember_inv hstep
     obtain ⟨hfind0, -⟩ := checkConstantVal_inv hccv
     rw [List.mem_cons] at hci
@@ -429,7 +429,7 @@ theorem checkIndFold_sound {blockNames : List Name} {caps : IndCaps} :
       (fun cv caps₂ heq => hp cv caps₂
         (by rw [← heq]; exact List.mem_cons_self))
       (hns ci (by simp)) m hI
-    obtain ⟨cvA', cvm', mval', hccv', -, -, -, -, hkind'⟩ :=
+    obtain ⟨cvA', cvm', mval', hm', hccv', -, -, -, -, hkind'⟩ :=
       checkIndMember_inv hstep
     obtain ⟨hfind0', -, -, -, -, -, tyA', stype', u', -, -, -, -, -,
       hcvA'⟩ := checkConstantVal_inv hccv'

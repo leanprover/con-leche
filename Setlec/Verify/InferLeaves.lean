@@ -251,7 +251,7 @@ theorem unfoldDefinition_fvarLeaves {env : Env} (henv : EnvWF env)
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
-  | some (.defnInfo cv value) => ?_
+  | some (.defnInfo cv value hint) => ?_
   intro h
   dsimp only at h
   revert h
@@ -261,7 +261,7 @@ theorem unfoldDefinition_fvarLeaves {env : Env} (henv : EnvWF env)
     subst h
     intro l hl
     obtain ⟨-, -, -, -, hval, -⟩ := henv _ (find?_mem hf)
-    obtain ⟨hvc, -, -, -⟩ := hval cv value rfl
+    obtain ⟨hvc, -, -, -⟩ := hval cv value hint rfl
     rcases fvarLeaves_mkAppN hl with hl' | ⟨x, hx, hlx⟩
     · rw [fvarLeaves_eq_nil_of_not_hasFvar
         (by rw [hasFvar_instantiateLevelParams]; exact hvc)] at hl'
@@ -291,7 +291,7 @@ theorem unfoldDefinition_looseBVars {env : Env} (henv : EnvWF env)
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
-  | some (.defnInfo cv value) => ?_
+  | some (.defnInfo cv value hint) => ?_
   intro h
   dsimp only at h
   revert h
@@ -300,7 +300,7 @@ theorem unfoldDefinition_looseBVars {env : Env} (henv : EnvWF env)
     simp only [Option.some.injEq] at h
     subst h
     obtain ⟨-, -, -, -, hval, -⟩ := henv _ (find?_mem hf)
-    obtain ⟨-, -, -, hvb⟩ := hval cv value rfl
+    obtain ⟨-, -, -, hvb⟩ := hval cv value hint rfl
     refine looseBVarsBounded_mkAppN ?_ ?_
     · rw [looseBVarsBounded_instantiateLevelParams]
       exact hvb

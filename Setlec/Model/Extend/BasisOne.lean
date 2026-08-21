@@ -25,7 +25,7 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
     (hfind' : env.find? ci.name = none)
     (hwf : ConstWF ⟨ci :: env.consts⟩ ci)
     (htyres0 : ci.toConstantVal.type.constsResolve env = true)
-    (hnotdefn : ∀ cv2 value2, ci ≠ .defnInfo cv2 value2)
+    (hnotdefn : ∀ cv2 value2 h2, ci ≠ .defnInfo cv2 value2 h2)
     (hkey : ∀ ψ : Name → Nat, ∃ T,
       interpClosed V m.val env ψ ci.toConstantVal.type = some T ∧ v₀ ψ ∈ˢ T)
     (hparams : ∀ ψ₁ ψ₂ : Name → Nat,
@@ -98,8 +98,8 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
   refine extend_fresh m ci v₀ hfind' hwf htyres0 ?_ hkey hparams hAty
     hnewty hnewmk hnewunit hnewempty hpin hsib hrecm hctors hmodv hproj
     hetaL hunitL ?_
-  · intro cv2 value2 heq
-    exact absurd heq (hnotdefn cv2 value2)
-  · intro val' _ _ cv₀ v₀' heq _
-    exact absurd heq (hnotdefn cv₀ v₀')
+  · intro cv2 value2 h2 heq
+    exact absurd heq (hnotdefn cv2 value2 h2)
+  · intro val' _ _ cv₀ v₀' h₀' heq _
+    exact absurd heq (hnotdefn cv₀ v₀' h₀')
 end Setlec

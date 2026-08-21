@@ -41,7 +41,7 @@ def main : IO Unit := do
               return
             | .ok rules' => pure (.recInfo cv' nP nM nm ni rules')
           | .axiomInfo _ => pure (.axiomInfo cv')
-          | .defnInfo _ v => pure (.defnInfo cv' v)
+          | .defnInfo _ v h => pure (.defnInfo cv' v h)
           | .thmInfo _ v => pure (.thmInfo cv' v)
         IO.println (repr ci')
         IO.println "---8<---"
@@ -65,7 +65,7 @@ def main : IO Unit := do
         | .ctorInfo _ nP nF => .ctorInfo cv' nP nF
         | .recInfo _ nP nM nm ni rules => .recInfo cv' nP nM nm ni rules
         | .axiomInfo _ => .axiomInfo cv'
-        | .defnInfo _ v => .defnInfo cv' v
+        | .defnInfo _ v h => .defnInfo cv' v h
         | .thmInfo _ v => .thmInfo cv' v
       IO.println (repr ci')
       IO.println "---8<---"

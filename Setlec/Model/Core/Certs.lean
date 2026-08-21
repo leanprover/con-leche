@@ -80,6 +80,107 @@ theorem defEqList_values {m : EnvModel V env} {fuel : Nat}
           (fun x hx => ha x (List.mem_cons_of_mem _ hx))
           (fun x hx => hb x (List.mem_cons_of_mem _ hx)) hs1' hs2']
 
+/-- Soundness of the lazy delta same-head spine congruence: a positive
+`defeqSpine` verdict identifies the two interpretations.  Both sides
+are applications of the *same* constant at pointwise-equal level
+values (so the head values coincide), and the argument values agree
+pairwise (`defEqList_values`), so the interpretations — the
+set-application folds over the head value (`annotOk_spine_inv`) —
+coincide.  The reducibility hints that *scheduled* this comparison
+never enter: the fact is unconditional in them. -/
+theorem defeqSpine_values {m : EnvModel V env} {fuel : Nat}
+    (ihd : DefEqClaims m φ fuel) {d : Nat} {a b : Expr} {ρ : Nat → V}
+    (h : defeqSpineP env fuel d a b = .ok true)
+    (hwa : WScoped d a) (hwb : WScoped d b)
+    (hba : a.looseBVarsBounded 0 = true) (hbb : b.looseBVarsBounded 0 = true)
+    (hLba : Expr.LeavesBounded a) (hLbb : Expr.LeavesBounded b)
+    (hoka : FvarsOk V m.val env φ d ρ a) (hokb : FvarsOk V m.val env φ d ρ b)
+    (haa : AnnotOk V m.val env φ d ρ a) (hab : AnnotOk V m.val env φ d ρ b)
+    {va vb : V} (hva : interpExpr V m.val env φ d ρ a = some va)
+    (hvb : interpExpr V m.val env φ d ρ b = some vb) : va = vb := by
+  obtain ⟨n, us, us', hfa, hfb, hlen, hlev, hlist⟩ := defeqSpine_inv h
+  have hspa : a = Expr.mkAppN (.const n us) a.getAppArgs := by
+    have := (Expr.mkAppN_getApp a).symm
+    rw [hfa] at this
+    exact this
+  have hspb : b = Expr.mkAppN (.const n us') b.getAppArgs := by
+    have := (Expr.mkAppN_getApp b).symm
+    rw [hfb] at this
+    exact this
+  -- same head constant at equivalent levels: equal head values
+  have hconst : ∀ {w w' : V},
+      interpExpr V m.val env φ d ρ (.const n us) = some w →
+      interpExpr V m.val env φ d ρ (.const n us') = some w' → w = w' := by
+    intro w w' hw hw'
+    simp only [interpExpr] at hw hw'
+    cases hf : env.find? n with
+    | none => rw [hf] at hw; exact nomatch hw
+    | some ci =>
+    rw [hf] at hw hw'
+    dsimp only at hw hw'
+    by_cases hal : us.length = ci.toConstantVal.levelParams.length
+    · rw [if_pos hal] at hw
+      have hal' : us'.length = ci.toConstantVal.levelParams.length := by
+        have := Level.isEquivList_length hlev
+        omega
+      rw [if_pos hal'] at hw'
+      obtain rfl := Option.some.inj hw
+      obtain rfl := Option.some.inj hw'
+      rw [Level.substFn_congr (Level.isEquivList_sound hlev φ)]
+    · rw [if_neg hal] at hw
+      exact nomatch hw
+  by_cases hane : a.getAppArgs = []
+  case pos =>
+    have hbn : b.getAppArgs = [] := by
+      rw [hane] at hlen
+      exact List.eq_nil_of_length_eq_zero hlen.symm
+    rw [hspa, hane] at hva
+    rw [hspb, hbn] at hvb
+    rw [show Expr.mkAppN (.const n us) [] = (.const n us : Expr) from rfl]
+      at hva
+    rw [show Expr.mkAppN (.const n us') [] = (.const n us' : Expr) from rfl]
+      at hvb
+    exact hconst hva hvb
+  case neg =>
+    have hbne : b.getAppArgs ≠ [] := by
+      intro hnil
+      rw [hnil] at hlen
+      exact hane (List.eq_nil_of_length_eq_zero hlen)
+    have haa' : AnnotOk V m.val env φ d ρ
+        (Expr.mkAppN (.const n us) a.getAppArgs) := hspa ▸ haa
+    have hab' : AnnotOk V m.val env φ d ρ
+        (Expr.mkAppN (.const n us') b.getAppArgs) := hspb ▸ hab
+    obtain ⟨-, hxsA, vf, vs, hif, hisp, -, hifold⟩ :=
+      annotOk_spine_inv _ _ hane haa'
+    obtain ⟨-, hxsB, vg, ws, hig, hispb, -, higold⟩ :=
+      annotOk_spine_inv _ _ hbne hab'
+    have hva' : va = SpineFold V vf vs := by
+      rw [hspa, hifold] at hva
+      exact (Option.some.inj hva).symm
+    have hvb' : vb = SpineFold V vg ws := by
+      rw [hspb, higold] at hvb
+      exact (Option.some.inj hvb).symm
+    have hfacts_a : ∀ x ∈ a.getAppArgs, WScoped d x ∧
+        x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x ∧
+        FvarsOk V m.val env φ d ρ x ∧ AnnotOk V m.val env φ d ρ x :=
+      fun x hx =>
+        ⟨hwa.getAppArgs x hx, looseBVarsBounded_getAppArgs hba x hx,
+         (fun l hl => hLba l (fvarLeaves_getAppArgs hx l hl)),
+         FvarsOk.of_subset (fun l hl => fvarLeaves_getAppArgs hx l hl) hoka,
+         hxsA x hx⟩
+    have hfacts_b : ∀ x ∈ b.getAppArgs, WScoped d x ∧
+        x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x ∧
+        FvarsOk V m.val env φ d ρ x ∧ AnnotOk V m.val env φ d ρ x :=
+      fun x hx =>
+        ⟨hwb.getAppArgs x hx, looseBVarsBounded_getAppArgs hbb x hx,
+         (fun l hl => hLbb l (fvarLeaves_getAppArgs hx l hl)),
+         FvarsOk.of_subset (fun l hl => fvarLeaves_getAppArgs hx l hl) hokb,
+         hxsB x hx⟩
+    have hvs : vs = ws :=
+      defEqList_values ihd _ _ _ _ hlist hfacts_a hfacts_b hisp hispb
+    have hfg : vf = vg := hconst hif hig
+    rw [hva', hvb', hvs, hfg]
+
 /-- The iota certificates build an expression-spine telescope fit:
 each certified argument's inferred type is definitionally equal to the
 corresponding (progressively instantiated) domain, so its interpreted

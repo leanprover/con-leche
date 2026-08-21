@@ -475,8 +475,9 @@ attempted and deferred (see "Inference re-checks" above); the early
 proof-irrelevance hoist in defeq was reverted for fuel-depth reasons
 (it stays in the stuck fallback).
 
-**Deferred, tracked as tasks**: lazy delta unfolding with reducibility
-hints (+ failure cache, `tryUnfoldProjApp`, cheapProj); native `.letE`
+**Deferred, tracked as tasks**: the lazy-delta extras — failure cache,
+`tryUnfoldProjApp`, cheapProj (lazy delta itself landed, see below);
+native `.letE`
 (the frontend zeta expansion can duplicate exponentially on shared
 exports); string literals; the performance substrate (cached hashes /
 hash-consing, array spines, indexed environment, per-declaration cache
@@ -614,9 +615,37 @@ with `pt ∈ pi 0 A (fun _ => unitSet)`.  A new `IndOk` conjunct
 `BasisBlocks` records that whenever a pinned basis *recursor* is
 stored, its block siblings are stored pinned too (blocks install as a
 unit, recursor last), which resolves the constants a rule rhs
-mentions.  `whnf` is fueled and
-delta-unfolds definitions eagerly for now (the lazy strategy of real
-kernels is deferred to performance work).
+mentions.
+
+### Lazy delta reduction with reducibility hints (2026-08-21)
+
+`isDefEq` unfolds definitions lazily, the way real kernels do
+(`lazyDeltaStep`), instead of eagerly whnf-ing both sides: the defeq
+body `whnfCore`s both sides (no delta), tries the literal
+acceleration, and only then decides on delta — one-sided heads unfold
+that side; when both heads are stored definitions the *reducibility
+hint* (`ReducibilityHint`: `opaque < regular h < abbrev`, regular
+heights by `<`; parsed from the export's `hints` field, stored on
+`defnInfo`) picks the greater side to unfold; at equal hints the
+*same-head short-circuit* first tries level-and-spine congruence
+(`defeqSpine`, pairwise `defEqList` on the arguments) and only on
+failure unfolds both.  Each unfolding step recurses through
+`r.defeq`, so the reference kernels' loop is the knot recursion and
+every re-entry re-runs the syntactic fast path and `whnfCore`.  The
+hints steer *order only* — every branch is an independently sound
+reduction or comparison — so the model layer never reads them: the
+semantic invariants quantify over the stored hint and the claims
+proofs (`defeq_claims` consumes `WhnfCoreClaims`, `reduceNat_sound`,
+`unfoldDefinition_sound`, and the new `defeqSpine_values` spine
+congruence) are hint-independent.  `whnf` itself (as a normalizer)
+still unfolds eagerly in its loop.  Deviations from the reference
+kernels, all safe-side: no failure cache for the same-head check yet,
+no `tryUnfoldProjApp`, no cheapProj (tracked as deferred tasks); and
+where the official kernel guards the same-head try to
+`regular`-hinted definitions, `defeqSpine` runs whenever the hints
+are *equal* (a superset; on failure both sides unfold exactly as
+upstream, so verdicts agree).  Arena suite wall time dropped ~33%
+(47s → 31s).
 
 Modeled-install soundness architecture (2026-08-19, in progress): the
 fold facts for a modeled recursor come from eliminating its checked

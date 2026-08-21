@@ -34,7 +34,7 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
     (hkind : (∃ cv caps, ci = .indInfo cv caps) ∨
       (∃ cv nP nF, ci = .ctorInfo cv nP nF) ∨
       (∃ cv nP nM nm ni, ci = .recInfo cv nP nM nm ni []))
-    (hmodel : env.find? mname = some (.defnInfo cvm mval))
+    (hmodel : env.find? mname = some (.defnInfo cvm mval hmcvm))
     (hlps : cvm.levelParams = ci.toConstantVal.levelParams)
     (hren : ci.toConstantVal.type.renameConsts f = cvm.type)
     (hro : RenameOk m.val env f)
@@ -81,7 +81,7 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
     ∃ m' : EnvModel V ⟨ci :: env.consts⟩,
       (∀ ψ, m'.val ci.name ψ = m.val mname ψ) ∧
       (∀ n ψ, n ≠ ci.name → m'.val n ψ = m.val n ψ) := by
-  have hmm : ConstantInfo.defnInfo cvm mval ∈ env.consts :=
+  have hmm : ConstantInfo.defnInfo cvm mval hmcvm ∈ env.consts :=
     List.mem_of_find?_eq_some hmodel
   have hkey : ∀ ψ : Name → Nat, ∃ T,
       interpClosed V m.val env ψ ci.toConstantVal.type = some T ∧
@@ -99,7 +99,7 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
     exact hT
   exact extend_basis_one m ci (fun ψ => m.val (mname) ψ)
     hfind' hwf htyres0
-    (fun cv2 value2 => by
+    (fun cv2 value2 h2 => by
       rcases hkind with ⟨cv', caps', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
         ⟨cv', nP', nM', nm', ni', rfl⟩ <;> simp)
     hkey
@@ -107,7 +107,7 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
       refine m.val_params _ _ hmodel ψ₁ ψ₂ ?_
       intro p hp
       refine hψ p ?_
-      rwa [show (ConstantInfo.defnInfo cvm mval).toConstantVal = cvm from rfl,
+      rwa [show (ConstantInfo.defnInfo cvm mval hmcvm).toConstantVal = cvm from rfl,
         hlps] at hp)
     (fun ψ => by
       obtain ⟨hA, -⟩ := m.annot_ok _ hmm ψ
@@ -153,10 +153,10 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
 theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
     {env' env₁ : Env} {ci : ConstantInfo}
     (h : checkIndMember (fueledOps F) blockNames caps env' ci = .ok env₁) :
-    ∃ cvA cvm mval,
+    ∃ cvA cvm mval hmcvm,
       checkConstantVal (fueledOps F) env' ci.toConstantVal = .ok cvA ∧
       cvA.name.isModelSuffix = false ∧
-      env'.find? (cvA.name.str "_model") = some (.defnInfo cvm mval) ∧
+      env'.find? (cvA.name.str "_model") = some (.defnInfo cvm mval hmcvm) ∧
       cvm.levelParams = cvA.levelParams ∧
       cvA.type.renameConsts (fun n =>
         if blockNames.contains n then n.str "_model" else n) = cvm.type ∧
@@ -195,7 +195,7 @@ theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
-  | some (.defnInfo cvm mval) => ?_
+  | some (.defnInfo cvm mval hmcvm) => ?_
   intro h
   dsimp only at h
   by_cases hlps : cvm.levelParams = cvA.levelParams
@@ -208,10 +208,10 @@ theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
   case neg => rw [if_neg hren] at h; exact nomatch h
   rw [if_pos hren] at h
   try dsimp only at h
-  refine ⟨cvA, cvm, mval, rfl, hmsF, hfm, hlps, eq_of_beq hren, ?_⟩
+  refine ⟨cvA, cvm, mval, hmcvm, rfl, hmsF, hfm, hlps, eq_of_beq hren, ?_⟩
   cases ci with
   | axiomInfo cv => exact nomatch h
-  | defnInfo cv value => exact nomatch h
+  | defnInfo cv value hint => exact nomatch h
   | thmInfo cv value => exact nomatch h
   | indInfo cv caps' =>
     simp only [pure, Except.pure, Except.ok.injEq] at h
@@ -263,7 +263,7 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
     (hwf : ConstWF ⟨.recInfo cvA nP 1 nm ni rules' :: env.consts⟩
       (.recInfo cvA nP 1 nm ni rules'))
     (htyres0 : cvA.type.constsResolve env = true)
-    (hmodel : env.find? (cvA.name.str "_model") = some (.defnInfo cvm mval))
+    (hmodel : env.find? (cvA.name.str "_model") = some (.defnInfo cvm mval hmcvm))
     (hlps : cvm.levelParams = cvA.levelParams)
     (hren : cvA.type.renameConsts f = cvm.type)
     (f₀ : Name → Name) (hro : RenameOk m.val env f₀)
@@ -391,7 +391,7 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
           split at hf₂
           · next hh =>
             obtain rfl := Option.some.inj hf₂
-            refine ⟨.defnInfo cvm mval, ?_, ?_⟩
+            refine ⟨.defnInfo cvm mval hmcvm, ?_, ?_⟩
             · rw [show f n₂ = cvA.name.str "_model" from by
                 rw [← (show cvA.name = n₂ from hh)]
                 exact hfself]
@@ -435,7 +435,7 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
                 hro.2.2 n₂]
       have hfRm₁ : (⟨.recInfo cvA nP 1 nm ni rules' ::
           env.consts⟩ : Env).find? (f cvA.name) =
-          some (.defnInfo cvm mval) := by
+          some (.defnInfo cvm mval hmcvm) := by
         rw [hfself, Env.find?_cons,
           if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm ni
             rules').name = cvA.name.str "_model" from
@@ -492,7 +492,7 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
       have hl' : args.length = nP + 1 + nm + ni := by simpa using hl
       exact modeled_rule_fold (ni := ni) hro₁ hvp₁ hctor₁ hfRm₁
         (show (ConstantInfo.defnInfo cvm
-          mval).toConstantVal.levelParams = cvA.levelParams from hlps)
+          mval hmcvm).toConstantVal.levelParams = cvA.levelParams from hlps)
         hClps₁ heqfind₁ heqval₁ hthm_mem₁ hthm_annot₁ hthw hstripR
         hR_strip hC_strip hclen hS_strip hdomsPre hdomsF hsdoms hsbody
         hrhsf hrhsb hArhs₁ htyw₁ hCtf hCtb
