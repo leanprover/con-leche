@@ -146,7 +146,12 @@ decreasing_by all_goals first
 
 /-- Scope check: every reachable `fvar` index is below `d`,
 hereditarily through annotations (the `Bool` mirror of the
-verification-side `WScoped`). -/
+verification-side `WScoped`).
+
+TODO(cleanup, tasks #26/#43): unmemoized expression traversal — runs
+per memo op and per reduction step, so it is exponential on shared
+(DAG-shaped) terms.  Interning (#26) should cache the fvar range per
+node, making this O(1); #43 removes the memo-guard call sites. -/
 def wscopedB : (d : Nat) → Expr → Bool
   | d, .fvar idx _ ty => idx < d && wscopedB idx ty
   | d, .app f a => wscopedB d f && wscopedB d a
@@ -162,7 +167,11 @@ decreasing_by all_goals first
   | simp [Expr.sizeF]
 
 /-- Are all bound-variable references bound within the expression (below
-`k` at the root)?  Input declarations must satisfy `looseBVarsBounded 0`. -/
+`k` at the root)?  Input declarations must satisfy `looseBVarsBounded 0`.
+
+TODO(cleanup, task #26): unmemoized expression traversal (exponential
+on shared terms); interning should cache the loose-bvar bound per
+node, making this O(1). -/
 def looseBVarsBounded (k : Nat) : Expr → Bool
   | .bvar i => i < k
   | .fvar _ _ _ => true
