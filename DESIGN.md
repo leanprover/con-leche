@@ -873,7 +873,19 @@ kernel does not check for "shadowed" models, and input files are free
 to declare `Eq._model` etc. as ordinary definitions.  The `IndOk`
 pinned clause is guarded by reservedness alone: reserved names are
 rejected at install, so a reserved stored constant can only be the
-pinned declaration.
+pinned declaration.  Accordingly the frontend does *not* drop the
+stream's own basis `_model` declarations (task #27, 2026-08-21): the
+`_model` companions the preprocessor may emit for basis blocks (e.g.
+`Empty._model` and auxiliaries nested under it) flow through the
+normal declaration pipeline and are checked on their merits — they are
+ordinary defs/theorems built from earlier stream declarations, never
+consulted by the pinned basis install (a basis inductive block matches
+the pinned declarations, not the modeled path), so nothing conflicts
+and no name-pattern skip is needed.  (Historical note: an earlier
+iteration reserved the basis `_model` companions in the kernel and
+therefore had to discard them in the frontend; the 2026-08-20
+directive above removed the reservation, and the frontend drop went
+with it.)
 
 Consistency corollary (2026-08-19): the 15 pinned basis names are
 *reserved* — `checkConstantVal` (and the per-member checks of the

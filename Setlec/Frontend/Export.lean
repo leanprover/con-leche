@@ -25,28 +25,6 @@ Declaration kinds the checker cannot represent yet map to
 
 namespace Setlec.Frontend
 
-/-- Is this a `_model` companion of a reserved basis name?  The
-preprocessor emits them even for basis blocks; the pinned basis
-carries its own model, so the frontend drops them. -/
-def isBasisModelName : Name → Bool
-  | .str p "_model" => reservedBasisNames.contains p
-  | _ => false
-
-/-- Is this name a basis `_model` companion, or nested under one
-(auxiliary model lemmas like `X._model.proj_0.iota`)?  The pinned
-basis carries its own model, so the whole family is dropped. -/
-def underBasisModel : Name → Bool
-  | .str p s => isBasisModelName (.str p s) || underBasisModel p
-  | _ => false
-
-/-- Is this name a `_model` auxiliary the checker does not (yet)
-consume — an eta, unitlike or ruleK lemma?  All of them: the modeled
-install reads the `X._model` members, the `iota_j` theorems, the
-`proj_i` definitions with their iota lemmas, and the `eta`, `unitlike`
-and `ruleK` theorems that switch on the corresponding capabilities. -/
-def isModelAux : Name → Bool
-  | _ => false
-
 open Lean (Json)
 
 /-- Rename level parameters (for basis-block matching up to
@@ -312,12 +290,13 @@ private def processLineCore (st : State) (j : Json)
         return .inr "quotient soundness axiom mismatch"
     return .inl { st with decls := st.decls.push (.axiomDecl cv) }
   else if let .ok v := j.getObjVal? "def" then
+    -- Note: `_model` companions the preprocessor may emit for basis
+    -- blocks (e.g. `Eq._model`) are *not* special-cased here: `_model`
+    -- names are not reserved, so they flow through and are checked as
+    -- ordinary definitions like any other input declaration (the
+    -- pinned basis install never consults them — a basis inductive
+    -- block matches the pinned declarations, not the modeled path).
     let cv ← parseConstantVal st v
-    -- the preprocessor emits `_model` companions even for basis blocks
-    -- (e.g. `Empty._model`); the pinned basis carries its own model,
-    -- so these are dropped (their names are reserved)
-    if underBasisModel cv.name || isModelAux cv.name then
-      return .inl st
     match (← (← v.getObjVal? "safety").getStr?) with
     | "safe" => return .inl { st with
         decls := st.decls.push (.defnDecl cv
@@ -325,8 +304,6 @@ private def processLineCore (st : State) (j : Json)
     | s => return .inr s!"definition with safety '{s}'"
   else if let .ok v := j.getObjVal? "thm" then
     let cv ← parseConstantVal st v
-    if underBasisModel cv.name || isModelAux cv.name then
-      return .inl st
     return .inl { st with
       decls := st.decls.push (.thmDecl cv (← getDeclExpr' st v "value").zetaExpand) }
   else if let .ok v := j.getObjVal? "opaque" then
