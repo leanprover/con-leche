@@ -981,26 +981,10 @@ def coreKnot {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
       annotate := fun _ _ => throw (.internal "fuel exhausted: annotate") }
   | fuel + 1 =>
     wrap
-      { whnfCore := fun d e =>
-          if False ∧ fuel == 0 then
-            dbg_trace s!"whnfCore@{fuel}: {(toString (repr e)).take 220}"
-            whnfCoreBody (coreKnot env wrap fuel) env d e
-          else whnfCoreBody (coreKnot env wrap fuel) env d e
-        whnf := fun d e =>
-          if False ∧ fuel == 0 then
-            dbg_trace s!"whnf@{fuel}: {(toString (repr e)).take 220}"
-            whnfBody (coreKnot env wrap fuel) env d e
-          else whnfBody (coreKnot env wrap fuel) env d e
-        infer := fun d e =>
-          if False ∧ fuel == 0 then
-            dbg_trace s!"infer@{fuel}: {(toString (repr e)).take 220}"
-            inferBody (coreKnot env wrap fuel) env d e
-          else inferBody (coreKnot env wrap fuel) env d e
-        defeq := fun d a b =>
-          if False ∧ fuel == 0 then
-            dbg_trace s!"defeq@{fuel}: {(toString (repr a)).take 110} =?= {(toString (repr b)).take 110}"
-            defeqBody (coreKnot env wrap fuel) env d a b
-          else defeqBody (coreKnot env wrap fuel) env d a b
+      { whnfCore := fun d e => whnfCoreBody (coreKnot env wrap fuel) env d e
+        whnf := fun d e => whnfBody (coreKnot env wrap fuel) env d e
+        infer := fun d e => inferBody (coreKnot env wrap fuel) env d e
+        defeq := fun d a b => defeqBody (coreKnot env wrap fuel) env d a b
         annotate := fun d e =>
           annotateBody (coreKnot env wrap fuel) env d e }
 

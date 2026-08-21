@@ -204,14 +204,44 @@ with the recipe `rw [X_succ]; simp only [XBody, …]; simp only [*_def,
 longer consume fuel — only the knot does).  Dependent `match e, h`
 on knot-defined hypotheses times out; use `cases e` + the recipe.
 
-The planned **refinement bridge** (fuel monotonicity for the pure core
-+ a `CacheWF` invariant stating every cache entry is backed by a pure
-run) will show a successful cached run is reproduced by the pure run,
-transporting every claim to the executable.  Until it lands, the
-consistency theorems are about `pureOps`.  Both `_model` declarations
-and real Lean terms are DAGs sharing subterms; every traversal must
-eventually be memoized under a cached-hash representation, tracked as
-follow-up work.
+The **refinement bridge** (2026-08-20) transports every claim to the
+executable, in three parts built on one device — the bodies are
+monad-polymorphic, so relational statements about two instantiations
+are obtained by instantiating them *once* at a **relational pair
+monad** (`PairM rel`, `Setlec/Verify/PairM.lean`): pairs of
+computations carrying a relation closed under `bind`/`pure`/`throw`;
+the instantiated body's subtype proof *is* the per-body lemma, and
+small "projection batteries" (tactic cascades; hand-rolled commute
+lemmas only for the structurally recursive list helpers and folds)
+relate the pair's components to the plain instantiations.
+
+* **Fuel monotonicity** (`Verify/Mono.lean`): `PairM` at
+  success-refinement between two `CheckM` runs + one knot induction
+  gives `whnfCore/whnf/infer/defeq/annotate/ensureSort` monotonicity.
+* **Cache simulation** (`Verify/Bridge.lean`): `FueledM` packages
+  monotone fuel-indexed families; `CacheOK` backs every cache entry by
+  a pure run at some fuel; `simRel` (families vs. `StateT KCache`
+  computations) is `bind`-closed via monotonicity, `memoE`/`memoB`
+  wrapper lemmas + a knot induction give: every successful `cachedOps`
+  entry-point run is reproduced by the pure knot at some fuel.
+* **Declaration checker** (`Verify/BridgeDecl.lean`): the checker is
+  monad-polymorphic over `CheckerOps m`; `bridgeRel` (families vs.
+  plain `CheckM`) + the ops-record pairing + batteries over every
+  declaration-checker function yield `checkDecls_bridge`: a successful
+  `checkDecls cachedOps` run is reproduced by
+  `checkDecls (fueledOps F)` for some fuel.
+
+The consistency layer is stated fuel-generically (`fueledOps F`;
+`pureOps = fueledOps checkFuel`), so `Setlec/Model/ConsistencyC.lean`
+concludes: **every environment the executable accepts has a model**
+(`checkDeclsC_sound`), and the executable never accepts a proof of
+`Empty` (`no_proof_of_Empty_C`).  If the pair-monad batteries ever get
+unwieldy, `mvcgen` (Lean's verification-condition generator for
+monadic programs) plus precondition-carrying high-level combinators is
+the designated fallback.  Both `_model` declarations and real Lean
+terms are DAGs sharing subterms; every traversal must eventually be
+memoized under a cached-hash representation, tracked as follow-up
+work.
 
 ### Inference re-checks; infer-only deferred
 

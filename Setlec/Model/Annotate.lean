@@ -438,15 +438,15 @@ theorem annotateCore_sound (m : EnvModel V env) :
 
 
 
-/-- `annotate` (at the standard fuel) computes truthful annotations. -/
-theorem annotate_sound (m : EnvModel V env) :
+/-- `annotate` (at any fuel) computes truthful annotations. -/
+theorem annotate_sound (m : EnvModel V env) {F : Nat} :
     ∀ (e : Expr) {d : Nat} {e' : Expr},
-      annotateCore env checkFuel d e = .ok e' → WScoped d e →
+      annotateCore env F d e = .ok e' → WScoped d e →
       e.looseBVarsBounded 0 = true →
       Expr.LeavesBounded e →
       ∀ (ρ : Nat → V), FvarsOk V m.val env φ d ρ e →
         AnnotOk V m.val env φ d ρ e' := by
   intro e d e' h hw hb hLb ρ hok
-  exact annotateCore_sound m checkFuel e h hw hb hLb ρ hok
+  exact annotateCore_sound m F e h hw hb hLb ρ hok
 
 end Setlec
