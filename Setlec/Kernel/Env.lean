@@ -54,6 +54,18 @@ def lt : ReducibilityHint → ReducibilityHint → Bool
   | _, .abbrev => true
   | .regular h₁, .regular h₂ => h₁ < h₂
 
+/-- Both hints are `regular` at the *same* height — the only situation
+in which the reference kernels (nanoda `try_eq_const_app`, the official
+kernel) attempt the same-head congruence short-circuit instead of
+unfolding.  Deliberately NOT generalized to other equal hints: proof
+authors rely on `abbrev` definitions unfolding eagerly, and trying
+spine defeq first on `abbrev`-headed applications risks reduction bombs
+(spines that are only equal after reduction, retried at every
+congruence level). -/
+def sameRegular : ReducibilityHint → ReducibilityHint → Bool
+  | .regular h₁, .regular h₂ => h₁ == h₂
+  | _, _ => false
+
 end ReducibilityHint
 
 /-- The trusted basis inductives (hand-written set models; everything
