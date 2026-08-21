@@ -1,5 +1,6 @@
 import Setlec.Model.Extend
 import Setlec.Model.Basis.Quot.Iota
+import Setlec.Model.StdAxioms
 
 /-!
 # Consistency of the checker
@@ -75,11 +76,180 @@ private theorem value_facts {env : Env} (m : EnvModel V env)
 private theorem max_ne_zero_r'' {u v : Nat} (h : v ≠ 0) : Nat.max u v ≠ 0 :=
   fun hc => h (Nat.le_zero.mp (hc ▸ Nat.le_max_right u v))
 
+/-- What the `propext` branch of `stdAxiomOk` checked. -/
+private theorem stdAxiomOk_propext_inv {env : Env} {cvA : ConstantVal}
+    (hn : cvA.name = propextName) (h : stdAxiomOk env cvA = true) :
+    env.find? eqName = some eqA ∧
+    (∃ cvI caps, env.find? iffName = some (.indInfo cvI caps) ∧
+      ConstantVal.matchesPin cvI iffA.toConstantVal = true) ∧
+    (∃ cvIi, env.find? iffIntroName = some (.ctorInfo cvIi 2 2) ∧
+      ConstantVal.matchesPin cvIi iffIntroA.toConstantVal = true) ∧
+    (∃ cvIr rules, env.find? iffRecName = some (.recInfo cvIr 2 1 1 0 rules) ∧
+      ConstantVal.matchesPin cvIr iffRecA.toConstantVal = true) ∧
+    ConstantVal.matchesPin cvA propextA = true := by
+  rw [stdAxiomOk, if_pos hn] at h
+  simp only [Bool.and_eq_true, decide_eq_true_eq] at h
+  obtain ⟨⟨⟨⟨hE, hIff⟩, hIfi⟩, hIfr⟩, hpin⟩ := h
+  refine ⟨hE, ?_, ?_, ?_, hpin⟩
+  · revert hIff; split
+    · next cvI caps hfI => exact fun hp => ⟨cvI, caps, hfI, hp⟩
+    · exact fun hc => nomatch hc
+  · revert hIfi; split
+    · next cvIi hfI => exact fun hp => ⟨cvIi, hfI, hp⟩
+    · exact fun hc => nomatch hc
+  · revert hIfr; split
+    · next cvIr rules hfI => exact fun hp => ⟨cvIr, rules, hfI, hp⟩
+    · exact fun hc => nomatch hc
+
+/-- What the `Classical.choice` branch of `stdAxiomOk` checked. -/
+private theorem stdAxiomOk_choice_inv {env : Env} {cvA : ConstantVal}
+    (hn : cvA.name = choiceName) (hn' : cvA.name ≠ propextName)
+    (h : stdAxiomOk env cvA = true) :
+    (∃ cvN caps, env.find? nonemptyName = some (.indInfo cvN caps) ∧
+      ConstantVal.matchesPin cvN nonemptyA.toConstantVal = true) ∧
+    (∃ cvNi, env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1) ∧
+      ConstantVal.matchesPin cvNi nonemptyIntroA.toConstantVal = true) ∧
+    (∃ cvNr rules,
+      env.find? nonemptyRecName = some (.recInfo cvNr 1 1 1 0 rules) ∧
+      ConstantVal.matchesPin cvNr nonemptyRecA.toConstantVal = true) ∧
+    ConstantVal.matchesPin cvA choiceA = true := by
+  rw [stdAxiomOk, if_neg hn', if_pos hn] at h
+  simp only [Bool.and_eq_true] at h
+  obtain ⟨⟨⟨hN, hNi⟩, hNr⟩, hpin⟩ := h
+  refine ⟨?_, ?_, ?_, hpin⟩
+  · revert hN; split
+    · next cvN caps hfN => exact fun hp => ⟨cvN, caps, hfN, hp⟩
+    · exact fun hc => nomatch hc
+  · revert hNi; split
+    · next cvNi hfN => exact fun hp => ⟨cvNi, hfN, hp⟩
+    · exact fun hc => nomatch hc
+  · revert hNr; split
+    · next cvNr rules hfN => exact fun hp => ⟨cvNr, rules, hfN, hp⟩
+    · exact fun hc => nomatch hc
+
 /-- Checking a declaration preserves having a model. -/
 theorem checkDecl_sound {env env' : Env} {d : Declaration}
     (h : checkDecl (fueledOps F) env d = .ok env') (m : EnvModel V env) : Nonempty (EnvModel V env') := by
   cases d with
-  | axiomDecl cv => exact nomatch h
+  | axiomDecl cv =>
+    simp only [checkDecl, Bind.bind, Except.bind] at h
+    cases hccv : checkConstantVal (fueledOps F) env cv with
+    | error e => rw [hccv] at h; exact nomatch h
+    | ok cv' =>
+    rw [hccv] at h
+    try dsimp only at h
+    obtain ⟨hfind', hres', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
+      checkConstantVal_inv hccv
+    by_cases hok : stdAxiomOk env { cv with type := type } = true
+    case neg => simp [hok, pure, Except.pure] at h
+    simp only [hok, if_true, ↓reduceIte, pure, Except.pure,
+      Except.ok.injEq] at h
+    subst h
+    -- semantic facts about the annotated type
+    have hwt : WScoped 0 cv.type := WScoped.of_not_hasFvar hitf
+    have htf : type.hasFvar = false :=
+      not_hasFvar_of_fvarsBelow_zero
+        ((annotateCore_WScoped F cv.type hann hwt).fvarsBelow)
+    have hbt' : type.looseBVarsBounded 0 = true :=
+      annotateCore_looseBVars F cv.type hann hlbt
+    have hAty : ∀ ψ : Name → Nat,
+        AnnotOk V m.val env ψ 0 (rho0 V) type := fun ψ =>
+      annotate_sound m cv.type hann hwt hlbt
+        (Expr.LeavesBounded.of_not_hasFvar hitf) (rho0 V)
+        (FvarsOk.of_not_hasFvar hitf)
+    by_cases hnp : cv.name = propextName
+    · -- propext
+      obtain ⟨hE, ⟨cvI, capsI, hIf, hIp⟩, ⟨cvIi, hIif, hIip⟩,
+          ⟨cvIr, rulesI, hIrf, hIrp⟩, hpinP⟩ :=
+        stdAxiomOk_propext_inv (cvA := { cv with type := type }) hnp hok
+      have hvalE : ∀ ψ' : Name → Nat, m.val eqName ψ' = eqVal V ψ' := by
+        intro ψ'
+        obtain ⟨-, hval⟩ := m.ind_ok.right.right.right.left eqName eqA hE
+          rfl (by decide)
+        rw [hval ψ']
+        show pinnedVal V eqName ψ' = eqVal V ψ'
+        delta pinnedVal
+        rw [if_pos rfl]
+      have hkey : ∀ ψ : Name → Nat, ∃ T,
+          interpClosed V m.val env ψ type = some T ∧ propextVal V ∈ˢ T := by
+        intro ψ
+        obtain ⟨T, hT, hmem⟩ :=
+          propext_key m hE hvalE hIf hIp hIif hIip hIrf hIrp ψ
+        exact ⟨T, (interpClosed_matchesPin hpinP).trans hT, hmem⟩
+      obtain ⟨m', -, -⟩ := extend_basis_one m
+        (.axiomInfo { cv with type := type })
+        (fun _ => propextVal V)
+        hfind'
+        ⟨htf, htp, Expr.constsResolve_mono htr, hbt',
+          fun _ _ hx => ConstantInfo.noConfusion hx,
+          fun _ _ _ _ _ _ hx => ConstantInfo.noConfusion hx⟩
+        htr
+        (fun _ _ hx => nomatch hx)
+        (fun ψ => hkey ψ)
+        (fun _ _ _ => rfl)
+        (fun ψ => hAty ψ)
+        (fun _ _ hx _ => nomatch hx)
+        (fun _ _ _ hx _ => nomatch hx)
+        (fun _ _ hx _ => nomatch hx)
+        (fun hn => absurd (hnp.symm.trans hn) (by decide))
+        (fun hb _ => by simp [ConstantInfo.isBasis] at hb)
+        (fun _ _ _ _ _ _ hx => nomatch hx)
+        (fun _ _ _ _ _ _ _ _ _ hx => nomatch hx)
+        (fun _ _ _ _ _ _ hx => nomatch hx)
+        (fun _ hor => by
+          rcases hor with ⟨_, _, hx⟩ | ⟨_, _, _, hx⟩ <;> exact nomatch hx)
+        (fun T j hh => absurd (hnp.symm.trans hh).symm
+          (Name.num_ne_str _ _ _ _))
+        (fun _ _ hx _ _ => nomatch hx)
+        (fun _ _ hx _ _ => nomatch hx)
+      exact ⟨m'⟩
+    · -- Classical.choice
+      by_cases hnc : cv.name = choiceName
+      case neg =>
+        rw [stdAxiomOk, if_neg hnp, if_neg hnc] at hok
+        exact nomatch hok
+      obtain ⟨⟨cvN, capsN, hNf, hNp⟩, ⟨cvNi, hNif, hNip⟩,
+          ⟨cvNr, rulesN, hNrf, hNrp⟩, hpinC⟩ :=
+        stdAxiomOk_choice_inv (cvA := { cv with type := type }) hnc hnp hok
+      have hlp : cv.levelParams = [uN] := by
+        simp only [ConstantVal.matchesPin, Bool.and_eq_true,
+          decide_eq_true_eq] at hpinC
+        exact hpinC.1.2
+      have hkey : ∀ ψ : Name → Nat, ∃ T,
+          interpClosed V m.val env ψ type = some T ∧
+            choiceVal V (ψ uN) ∈ˢ T := by
+        intro ψ
+        obtain ⟨T, hT, hmem⟩ :=
+          choice_key m hNf hNp hNif hNip hNrf hNrp ψ
+        exact ⟨T, (interpClosed_matchesPin hpinC).trans hT, hmem⟩
+      obtain ⟨m', -, -⟩ := extend_basis_one m
+        (.axiomInfo { cv with type := type })
+        (fun ψ => choiceVal V (ψ uN))
+        hfind'
+        ⟨htf, htp, Expr.constsResolve_mono htr, hbt',
+          fun _ _ hx => ConstantInfo.noConfusion hx,
+          fun _ _ _ _ _ _ hx => ConstantInfo.noConfusion hx⟩
+        htr
+        (fun _ _ hx => nomatch hx)
+        (fun ψ => hkey ψ)
+        (fun ψ₁ ψ₂ hψ => by
+          rw [hψ uN (by rw [hlp]; exact List.mem_singleton.mpr rfl)])
+        (fun ψ => hAty ψ)
+        (fun _ _ hx _ => nomatch hx)
+        (fun _ _ _ hx _ => nomatch hx)
+        (fun _ _ hx _ => nomatch hx)
+        (fun hn => absurd (hnc.symm.trans hn) (by decide))
+        (fun hb _ => by simp [ConstantInfo.isBasis] at hb)
+        (fun _ _ _ _ _ _ hx => nomatch hx)
+        (fun _ _ _ _ _ _ _ _ _ hx => nomatch hx)
+        (fun _ _ _ _ _ _ hx => nomatch hx)
+        (fun _ hor => by
+          rcases hor with ⟨_, _, hx⟩ | ⟨_, _, _, hx⟩ <;> exact nomatch hx)
+        (fun T j hh => absurd (hnc.symm.trans hh).symm
+          (Name.num_ne_str _ _ _ _))
+        (fun _ _ hx _ _ => nomatch hx)
+        (fun _ _ hx _ _ => nomatch hx)
+      exact ⟨m'⟩
   | indDecl block => exact checkIndDecl_sound h m
   | basisDecl kind =>
     match kind, h with
