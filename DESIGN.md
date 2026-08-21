@@ -383,6 +383,32 @@ are determined by argument values).  The preprocessor's indexed
 `iota_j` statement (indices instantiated at `ı⃗_j`, never quantified)
 is pinned by the generalized `buildIotaStmt`/`checkIotaStmtShape`.
 
+## Quotients as a pinned basis block (2026-08-21)
+
+Lean's kernel quotient bundle is the sixth pinned basis block
+(`BasisKind.quotK`): `Quot` is stored as an inductive type former,
+`Quot.mk` as its constructor, and `Quot.lift`/`Quot.ind` as stored
+recursors with one synthetic rule each (`⟨Quot.mk, 1, λ … a, f a⟩`,
+resp. `mk a`), so the *generic* iota machinery reduces them — no new
+kernel reduction code.  `Quot.sound` is part of the block as a stored
+axiom: it is true in the set model, and a matching `axiom` record in
+the input is skipped by the frontend (any other axiom remains
+declined).  The frontend verifies each exporter `quot` record against
+the pinned member of its kind and installs the block at the `type`
+record.  Because the block's types mention the pinned equality former,
+`checkDecl`'s `basisDecl` arm requires `Eq` to be installed first.
+
+The set-theoretic interface gains `quotSet u A R` (for `u ≠ 0` the
+classes of the equivalence closure of "`R a b` is inhabited";
+for `u = 0` a proposition — realizable since `Quot`'s base then lives
+in `Prop`), `quotClass`, and `quotLift` (the induced map on classes),
+with laws for formation, class membership, surjectivity of classes,
+soundness (related elements share a class), and conditional lift
+membership/beta whose invariance premise is discharged from the
+`h`-argument's semantic membership.  `Quot.ind` and `Quot.sound` are
+proof points (their statements are propositions, true by class
+surjectivity resp. soundness).
+
 ## Current state
 
 Supported fragment: **`def`/`thm` declarations over sorts, dependent
