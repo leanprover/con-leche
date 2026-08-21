@@ -42,6 +42,21 @@ def punitUnitName : Name := punitName |>.str "unit"
 
 def emptyName : Name := anonymous |>.str "Empty"
 
+/-- The name of the basis quotient type. -/
+def quotName : Name := anonymous |>.str "Quot"
+
+/-- The name of the basis quotient constructor. -/
+def quotMkName : Name := quotName |>.str "mk"
+
+/-- The name of the basis quotient lift eliminator. -/
+def quotLiftName : Name := quotName |>.str "lift"
+
+/-- The name of the basis quotient induction eliminator. -/
+def quotIndName : Name := quotName |>.str "ind"
+
+/-- The name of the basis quotient soundness axiom. -/
+def quotSoundName : Name := quotName |>.str "sound"
+
 /-- Names reserved for the pinned basis blocks; no other declaration
 may use them. -/
 def reservedBasisNames : List Name :=
@@ -49,6 +64,7 @@ def reservedBasisNames : List Name :=
    natName, natZeroName, natSuccName, natName.str "rec",
    psigmaName, psigmaMkName, psigmaName.str "rec",
    punitName, punitUnitName, punitName.str "rec",
-   emptyName, emptyName.str "rec"]
+   emptyName, emptyName.str "rec",
+   quotName, quotMkName, quotLiftName, quotIndName, quotSoundName]
 
 end Setlec
