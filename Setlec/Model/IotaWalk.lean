@@ -1976,4 +1976,85 @@ theorem self_walk {φ : Name → Nat} {D : Nat} {ρ : Nat → V} :
     · exact hFfv
     · exact hspineF a ha
 
+
+/-- Renaming inside an opening-variable instantiation sequence is
+interpretation-invariant. -/
+theorem interp_instSeq_ren {f : Name → Name} (hro : RenameOk cval env f)
+    {spine : List Expr} {t : Nat} {X : Expr} {D : Nat} {ρ : Nat → V}
+    (hfv : ∀ a ∈ spine, ∃ i nm ty, a = .fvar i nm ty) :
+    interpExpr V cval env φ D ρ (instSeq spine t (X.renameConsts f)) =
+    interpExpr V cval env φ D ρ (instSeq spine t X) := by
+  have hee := instSeq_renameConsts (f := f) spine t (X := X)
+    (fun a ha => by
+      obtain ⟨i, nm, ty, rfl⟩ := hfv a ha
+      exact rfl)
+  rw [← interp_erasedEq hee D ρ]
+  exact interp_renameConsts hro _ D ρ
+
+
+omit [SetTheory V] in
+theorem looseBVarsBounded_renameConsts {f : Name → Name} :
+    ∀ (e : Expr) (k : Nat),
+      (e.renameConsts f).looseBVarsBounded k = e.looseBVarsBounded k := by
+  intro e
+  induction e <;> intro k <;>
+    simp_all [Expr.renameConsts, Expr.looseBVarsBounded]
+
+
+omit [SetTheory V] in
+theorem renameConsts_mkAppN {f : Name → Name} :
+    ∀ (xs : List Expr) (h : Expr),
+      (Expr.mkAppN h xs).renameConsts f =
+        Expr.mkAppN (h.renameConsts f) (xs.map (·.renameConsts f))
+  | [], h => rfl
+  | x :: xs, h => by
+    show (Expr.mkAppN (.app h x) xs).renameConsts f = _
+    rw [renameConsts_mkAppN xs (.app h x)]
+    rfl
+
+/-- A free-variable spine interprets pointwise to its values. -/
+theorem InterpSpine_of_FvarSpine {D : Nat} {ρ : Nat → V} :
+    ∀ {as : List Expr} {vs : List V}, FvarSpine D ρ as vs →
+      InterpSpine cval env φ D ρ as vs
+  | [], [], _ => trivial
+  | [], _ :: _, h => nomatch h
+  | _ :: _, [], h => nomatch h
+  | a :: as, v :: vs, h => by
+    obtain ⟨⟨i, n, ty, rfl, hiD, hval⟩, h'⟩ := h
+    exact ⟨by simp [interpExpr, hval], InterpSpine_of_FvarSpine h'⟩
+
+
+theorem InterpSpine.pointwise {D : Nat} {ρ : Nat → V} :
+    ∀ {as : List Expr} {vs : List V},
+      InterpSpine cval env φ D ρ as vs →
+      ∀ (k : Nat) {a : Expr} {v : V}, as[k]? = some a → vs[k]? = some v →
+        interpExpr V cval env φ D ρ a = some v
+  | [], [], _, k, a, v, ha, _ => nomatch ha
+  | [], _ :: _, h, _, _, _, _, _ => nomatch h
+  | _ :: _, [], h, _, _, _, _, _ => nomatch h
+  | a₀ :: as, v₀ :: vs, h, k, a, v, ha, hv => by
+    cases k with
+    | zero =>
+      obtain rfl := Option.some.inj ha
+      obtain rfl := Option.some.inj hv
+      exact h.1
+    | succ k =>
+      exact InterpSpine.pointwise h.2 k (by simpa using ha)
+        (by simpa using hv)
+
+theorem InterpSpine.of_pointwise {D : Nat} {ρ : Nat → V} :
+    ∀ {as : List Expr} {vs : List V},
+      as.length = vs.length →
+      (∀ (k : Nat) (a : Expr) (v : V), as[k]? = some a →
+        vs[k]? = some v → interpExpr V cval env φ D ρ a = some v) →
+      InterpSpine cval env φ D ρ as vs
+  | [], [], _, _ => trivial
+  | [], _ :: _, h, _ => nomatch h
+  | _ :: _, [], h, _ => nomatch h
+  | a₀ :: as, v₀ :: vs, hlen, hpt => by
+    refine ⟨hpt 0 a₀ v₀ rfl rfl, ?_⟩
+    exact InterpSpine.of_pointwise (by simpa using hlen)
+      (fun k a v ha hv => hpt (k + 1) a v (by simpa using ha)
+        (by simpa using hv))
+
 end Setlec
