@@ -914,7 +914,15 @@ theorem annotateBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
       (annotateBody G env d e) := by
   match e with
   | .bvar i => exact DiscV.pure (by simp [WScoped])
-  | .fvar idx n ty => exact DiscV.pure hw
+  | .fvar idx n ty =>
+    show DiscV env _
+      (if idx < d then pure (Expr.fvar idx n ty)
+       else throw (.invalid "free variable out of scope"))
+      (if idx < d then pure (Expr.fvar idx n ty)
+       else throw (.invalid "free variable out of scope"))
+    split
+    · exact DiscV.pure hw
+    · exact DiscV.throw _
   | .sort u => exact DiscV.pure (by simp [WScoped])
   | .const n us => exact DiscV.pure (by simp [WScoped])
   | .lit (.natVal n) =>
@@ -1060,14 +1068,6 @@ theorem annotateBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     · exact DiscV.pure hwproj
     · exact DiscV.throw _
 
-/-- Throw-with-inlined-continuation branches (the `unless`/`guard`
-desugaring): both sides start with the same `throw`. -/
-private def discThrowSeq {α : Type} {P : α → Prop} {x g : CheckSM α}
-    (e : CheckError) (hx : x = throw e) (hg : g = throw e) :
-    DiscV env P x g := by
-  subst hx; subst hg
-  exact DiscV.throw e
-
 set_option maxHeartbeats 1600000 in
 theorem inferBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
@@ -1079,7 +1079,14 @@ theorem inferBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
   | .fvar idx n ty =>
     have h' : idx < d ∧ WScoped idx ty := by
       simpa only [WScoped] using hw
-    exact DiscV.pure (WScoped.mono (Nat.le_of_lt h'.1) h'.2)
+    show DiscV env _
+      (if idx < d then pure ty
+       else throw (.invalid "free variable out of scope"))
+      (if idx < d then pure ty
+       else throw (.invalid "free variable out of scope"))
+    split
+    · exact DiscV.pure (WScoped.mono (Nat.le_of_lt h'.1) h'.2)
+    · exact DiscV.throw _
   | .lit (.natVal n) =>
     show DiscV env _
       (if natLitSupported env then pure (Expr.const natName [])

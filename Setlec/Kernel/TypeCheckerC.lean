@@ -11,17 +11,25 @@ different binder contexts reuses one entry.  This is justified by the
 depth invariance theorems (`Setlec/Verify/Deep.lean`): every entry
 point returns the same result at any depth at which its input is
 well-scoped, so an entry backed at *some* well-scoped depth is valid at
-every other one.  Every cache operation is guarded on `wscopedB` — an
-ill-scoped argument (impossible in disciplined runs, but the bridge
-must not assume the discipline) bypasses the cache.
+every other one.
 
-Depth invariance additionally requires a well-formed environment
-(`EnvWF`).  There is **no runtime check** for it: the checker only ever
-calls the core on environments it built itself, and the consistency
-proof carries `EnvWF` as part of the environment model invariant
-(`EnvModel.wf`), threading it into the refinement bridge
-(`Setlec/Verify/Bridge.lean`, `Setlec/Model/BridgeWF.lean`) — never
-add boolean checks for what is proven to hold.
+There is **no runtime check** on the memo operations (never add
+boolean checks for what is proven to hold):
+
+* The scoping half of depth invariance — every key consulted or
+  inserted is well-scoped at the ambient depth — is the *call
+  discipline*, proven for every core body over the cached knot
+  (`Setlec/Verify/Disc.lean`): the checker's entry points are only
+  ever invoked on well-scoped arguments (raw input is closed, checked
+  once per declaration; the `fvar` leaf checks in
+  `inferBody`/`annotateBody` enforce scoping inside traversals that
+  happen anyway), and each body passes only well-scoped arguments to
+  its recursive calls.
+* The environment half (`EnvWF`) is a hypothesis of the bridge,
+  threaded from the environment model invariant (`EnvModel.wf`)
+  through `Setlec/Verify/Bridge.lean` / `Setlec/Model/BridgeWF.lean` —
+  the checker only ever calls the core on environments it built
+  itself.
 
 This instance is what the checker executes; the pure knot
 (`Setlec.Kernel.TypeChecker`) is the verified specification and the
@@ -46,43 +54,41 @@ instance : Inhabited KCache := ⟨{}⟩
 /-- The cached checker monad. -/
 abbrev CheckSM := StateT KCache CheckM
 
-/-- Memoize a unary entry point under the expression alone; the cache
-is consulted only when the key is well-scoped at the ambient depth
-(the precondition of the depth-invariance transport). -/
+/-- Memoize a unary entry point under the expression alone.  No scope
+check: the call discipline (`Setlec/Verify/Disc.lean`) proves every
+key arrives well-scoped at the ambient depth, which is what the
+depth-invariance transport of the cache bridge needs. -/
 def memoE (get' : KCache → Std.HashMap Expr Expr)
     (set' : KCache → Std.HashMap Expr Expr → KCache)
     (f : Nat → Expr → CheckSM Expr) : Nat → Expr → CheckSM Expr :=
   fun d e => do
-    if e.wscopedB d then
-      match (get' (← get))[e]? with
-      | some r => pure r
-      | none =>
-        let r ← f d e
-        -- Detach the map from the state before inserting: `insert` on a
-        -- map still referenced from `st`'s field would copy the whole
-        -- backing array on every miss.
-        modify fun st =>
-          let mp := get' st
-          let st := set' st ∅
-          set' st (mp.insert e r)
-        pure r
-    else f d e
+    match (get' (← get))[e]? with
+    | some r => pure r
+    | none =>
+      let r ← f d e
+      -- Detach the map from the state before inserting: `insert` on a
+      -- map still referenced from `st`'s field would copy the whole
+      -- backing array on every miss.
+      modify fun st =>
+        let mp := get' st
+        let st := set' st ∅
+        set' st (mp.insert e r)
+      pure r
 
-/-- Memoize the binary definitional-equality entry point. -/
+/-- Memoize the binary definitional-equality entry point (no scope
+check, as in `memoE`). -/
 def memoB (f : Nat → Expr → Expr → CheckSM Bool) :
     Nat → Expr → Expr → CheckSM Bool :=
   fun d a b => do
-    if a.wscopedB d && b.wscopedB d then
-      match (← get).defeq[(a, b)]? with
-      | some r => pure r
-      | none =>
-        let r ← f d a b
-        modify fun st =>
-          let mp := st.defeq
-          let st := { st with defeq := ∅ }
-          { st with defeq := mp.insert (a, b) r }
-        pure r
-    else f d a b
+    match (← get).defeq[(a, b)]? with
+    | some r => pure r
+    | none =>
+      let r ← f d a b
+      modify fun st =>
+        let mp := st.defeq
+        let st := { st with defeq := ∅ }
+        { st with defeq := mp.insert (a, b) r }
+      pure r
 
 /-- The executable core: the bodies tied at `CheckSM`, every level's
 entry points wrapped with the guarded cache. -/
