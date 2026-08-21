@@ -991,7 +991,16 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
   fun depth e => do
     match ← viewM (m := m) e with
     | .sort u => pure (.sort (.succ u))
-    | .fvar _ _ ty => pure ty
+    | .fvar idx _ ty =>
+      -- Scope check at the leaf of a traversal that happens anyway
+      -- (O(1); never a fresh walk): a free variable must refer to an
+      -- enclosing opened binder.  On raw (closed) input at depth 0 this
+      -- rejects any `fvar` outright; internally the checker only opens
+      -- variables below the ambient depth, so for disciplined calls the
+      -- check always passes (and inference success implies
+      -- well-scopedness, the base case of the cache discipline).
+      if idx < depth then pure ty
+      else throw (.invalid "free variable out of scope")
     | .const n us => do
       match env.find? n with
       | none => throw (.invalid s!"unknown constant {n}")
@@ -1336,7 +1345,12 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
   fun depth e =>
     match e with
     | .bvar i => pure (.bvar i)
-    | .fvar idx n ty => pure (.fvar idx n ty)
+    | .fvar idx n ty =>
+      -- Leaf scope check, as in `inferBody`: annotation is the pass raw
+      -- input enters through, so a dangling free variable in the input
+      -- is rejected here (depth 0: any `fvar` fails).
+      if idx < depth then pure (.fvar idx n ty)
+      else throw (.invalid "free variable out of scope")
     | .sort u => pure (.sort u)
     | .const n us => pure (.const n us)
     | .lit (.natVal n) => do

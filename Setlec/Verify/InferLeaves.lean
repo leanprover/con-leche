@@ -575,10 +575,17 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
       subst h; simp [WScoped]
     | fvar idx n ty =>
       rw [inferTypeCore_succ] at h
-      simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, Except.ok.injEq] at h
-      subst h
-      simp only [WScoped] at hw
-      exact hw.2.mono (by omega)
+      simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure,
+        Except.pure] at h
+      revert h
+      split
+      · intro h
+        simp only [Except.ok.injEq] at h
+        subst h
+        simp only [WScoped] at hw
+        exact hw.2.mono (by omega)
+      · intro h
+        simp [throw, throwThe, MonadExceptOf.throw] at h
     | const n ws =>
       rw [inferTypeCore_succ] at h
       simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
@@ -670,10 +677,17 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
       subst h; intro l hl; simp [fvarLeaves] at hl
     | fvar idx n ty =>
       rw [inferTypeCore_succ] at h
-      simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, Except.ok.injEq] at h
-      subst h
-      intro l hl
-      simp [fvarLeaves, hl]
+      simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure,
+        Except.pure] at h
+      revert h
+      split
+      · intro h
+        simp only [Except.ok.injEq] at h
+        subst h
+        intro l hl
+        simp [fvarLeaves, hl]
+      · intro h
+        simp [throw, throwThe, MonadExceptOf.throw] at h
     | const n ws =>
       rw [inferTypeCore_succ] at h
       simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
@@ -788,9 +802,16 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
       subst h; simp [looseBVarsBounded]
     | fvar idx n ty =>
       rw [inferTypeCore_succ] at h
-      simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, Except.ok.injEq] at h
-      subst h
-      exact hLb (idx, n, ty) (by simp [fvarLeaves])
+      simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure,
+        Except.pure] at h
+      revert h
+      split
+      · intro h
+        simp only [Except.ok.injEq] at h
+        subst h
+        exact hLb (idx, n, ty) (by simp [fvarLeaves])
+      · intro h
+        simp [throw, throwThe, MonadExceptOf.throw] at h
     | const n ws =>
       rw [inferTypeCore_succ] at h
       simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h

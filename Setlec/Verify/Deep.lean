@@ -1748,6 +1748,9 @@ private theorem infer_step (henv : EnvWF env)
     simp only [WScoped] at hw
     rw [shiftFrom_fvar]
     simp only [inferBody, viewM, Expr.view, pure_bind]
+    rw [if_pos (show shiftIdx p idx < d + 1 by
+          simp only [shiftIdx]; split <;> omega),
+        if_pos hw.1]
     by_cases hp : p ≤ idx
     · simp [shiftTy, hp, pure, Except.pure]
     · simp only [shiftTy, if_neg hp, pure, Except.pure, map_ok]
@@ -2218,8 +2221,14 @@ private theorem annotate_step (henv : EnvWF env)
     simp only [annotateBody]
     exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
   | .fvar idx n ty =>
+    have hw' : idx < d ∧ WScoped idx ty := by
+      simpa only [WScoped] using hw
     rw [shiftFrom_fvar]
-    simp only [annotateBody, pure, Except.pure, map_ok, shiftFrom_fvar]
+    simp only [annotateBody]
+    rw [if_pos (show shiftIdx p idx < d + 1 by
+          simp only [shiftIdx]; split <;> omega),
+        if_pos hw'.1]
+    simp only [pure, Except.pure, map_ok, shiftFrom_fvar]
   | .app f a =>
     simp only [WScoped] at hw
     rw [shiftFrom_app]

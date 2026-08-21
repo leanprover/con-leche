@@ -36,10 +36,19 @@ theorem infer_claims (m : EnvModel V env)
       simp [interpExpr, Level.eval, AnnotOk]
   | fvar idx n ty =>
     rw [inferTypeCore_succ] at h
-    simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, Except.ok.injEq] at h
-    subst h
-    obtain ⟨⟨hidx, hAty, T, hT, hmem⟩, hFty⟩ := FvarsOk.of_fvar hok
-    exact ⟨⟨ρ idx, T, by simp [interpExpr], hT, hmem⟩, hAty⟩
+    simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure,
+      Except.pure] at h
+    revert h
+    split
+    case isFalse =>
+      intro h
+      simp [throw, throwThe, MonadExceptOf.throw] at h
+    case isTrue =>
+      intro h
+      simp only [Except.ok.injEq] at h
+      subst h
+      obtain ⟨⟨hidx, hAty, T, hT, hmem⟩, hFty⟩ := FvarsOk.of_fvar hok
+      exact ⟨⟨ρ idx, T, by simp [interpExpr], hT, hmem⟩, hAty⟩
   | lit l0 =>
     rw [inferTypeCore_succ] at h
     match l0, h with
