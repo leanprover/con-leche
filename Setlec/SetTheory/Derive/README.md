@@ -4,26 +4,28 @@ Goal: every operator and law of the checker's set-theoretic interface
 (surfaced by `Setlec/SetTheory/Basic.lean`) as a theorem over the
 minimal `SetTheory` class (`Setlec/SetTheory/Core.lean`), which
 axiomatizes only membership, extensionality, pairing, union, power set,
-regularity, Lean-level replacement, and Tarski's Axiom A (Tarski 1938)
-with the transitivity clause — the Tarski–Grothendieck axioms (cf.
-Trybulec, *Tarski Grothendieck Set Theory*, Formalized Mathematics
-1(1), 1990); choice is inherited from Lean's `Classical.choice` rather
-than asserted — see Core.lean's module doc.
+regularity, Lean-level replacement, and an ω-chain of Grothendieck
+universes `univChain` (universehood as Tarski's Axiom A matrix with
+transitivity) — the consistency strength of Carneiro's
+`OmegaInaccessibles` hypothesis (*The Type Theory of Lean*, §1.2);
+choice is inherited from Lean's `Classical.choice` rather than
+asserted — see Core.lean's module doc.
 
 ## Status
 
-- [x] `Core.lean` — the `SetTheory` class (7 asserted axioms +
-  `nonempty`), `Equinumerous`, `IsTGUniverse`, subset notation.
-- [x] `Derive/Empty.lean` — empty set from Tarski transitivity +
-  regularity; `not_mem_self`, `no_two_cycle`.
+- [x] `Core.lean` — the `SetTheory` class (6 ZF⁻ axioms + the
+  ω-chain `univChain`/`univChain_mem`/`univChain_tg`),
+  `Equinumerous`, `IsTGUniverse`, subset notation.
+- [x] `Derive/Empty.lean` — empty set from universe transitivity +
+  regularity at `univChain 1`; `not_mem_self`, `no_two_cycle`.
 - [x] `Derive/Sep.lean` — separation from replacement (classical
   witness default); `image_congr`.
 - [x] `Derive/Pair.lean` — singletons, binary union, Kuratowski pairs,
   `kpair_inj`, pair-members-nonempty.
 - [x] `Derive/Universe.lean` — the diagonal lemma
   `IsTGUniverse.covered_mem` (Cantor) and the closure laws: power,
-  pairing, replacement image, `⋃` of a member, family unions; `guniv`
-  via choice.
+  pairing, replacement image, `⋃` of a member, family unions;
+  `univChain_mem_of_lt`.
 - [x] `Derive/Pt.lean` — `pt = {∅}`, `unitSet = {pt}`,
   `univZero = power unitSet`, `truthVal`, `eqv`, propositional
   extensionality; `pt` is never a Kuratowski pair.
@@ -34,14 +36,16 @@ than asserted — see Core.lean's module doc.
   value, `lam 0 = pt`) with the interface laws (`v = 0` fibre
   premises phrased as `v = 0 → … ∈ˢ univZero`).
 - [x] `Derive/Omega.lean` — von Neumann naturals: `omega` separated
-  from the inductive universe `guniv empty`, `vnat : Nat → V`
-  (injective), `mem_omega_iff`; `omega ∈ U` for any universe with a
-  universe member.
+  from the inductive universe `univChain 1`, `vnat : Nat → V`
+  (injective), `mem_omega_iff`; `omega ∈ U` for any universe with
+  `univChain 1` as a member.
 - [x] `Derive/Natrec.lean` — recursion on `omega` through the
   meta-level `Nat` (each member of `omega` is a unique `vnat k`).
 - [x] `Derive/Univ.lean` — the tower `univ 0 = univZero`,
-  `univ (n+1) = guniv {univ n, guniv empty}`; cumulativity,
-  `univ_mem_univ`, `omega ∈ univ (n+1)`, closure transport.
+  `univ (n+1) = univChain (n+2)` (shifted so `univChain 1`, the first
+  chain member known inductive, is a member of every positive level);
+  cumulativity, `univ_mem_univ`, `omega ∈ univ (n+1)`, closure
+  transport.
 - [x] `Derive/Sigma.lean` — `sigmaSet` (level-0 truth value /
   `sigmaPairs`), `spair := kpair`, classical `sfst`/`ssnd` with `pt`
   defaults; all interface sigma laws.

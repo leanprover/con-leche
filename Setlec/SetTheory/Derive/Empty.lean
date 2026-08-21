@@ -3,9 +3,9 @@ import Setlec.SetTheory.Core
 /-!
 # The empty set, derived
 
-The transitivity clause added to Tarski's Axiom A makes this cheap —
-a universe is nonempty and transitive, so regularity's `∈`-minimal
-member of it has no members at all.
+The transitivity clause in `IsTGUniverse` makes this cheap —
+`univChain 1` is inhabited (by `univChain 0`) and transitive, so
+regularity's `∈`-minimal member of it has no members at all.
 
 Also here: the small consequences of regularity everything downstream
 wants — `x ∉ x` and the impossibility of membership 2-cycles.
@@ -18,9 +18,9 @@ universe u
 variable {V : Type u} [SetTheory V]
 
 theorem empty_exists : ∃ e : V, ∀ z, ¬ z ∈ˢ e := by
-  obtain ⟨x⟩ := SetTheory.nonempty (V := V)
-  obtain ⟨uu, hx, htrans, -, -, -⟩ := tarski x
-  obtain ⟨y, hy, hmin⟩ := regularity uu ⟨x, hx⟩
+  obtain ⟨htrans, -, -, -⟩ := univChain_tg (V := V) 1
+  obtain ⟨y, hy, hmin⟩ :=
+    regularity (univChain (V := V) 1) ⟨univChain 0, univChain_mem 0⟩
   exact ⟨y, fun z hz => hmin ⟨z, hz, htrans y z hy hz⟩⟩
 
 /-- The empty set. -/

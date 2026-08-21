@@ -3,18 +3,22 @@ import Setlec.SetTheory.Derive.Universe
 /-!
 # Infinity, derived: the finite ordinals
 
-Infinity is derived from Tarski + Replacement: a Grothendieck universe
-is an inductive *set* — it contains `∅` and is closed under the von
-Neumann successor `n ↦ n ∪ {n}` (von Neumann 1923) by the
-pairing/union closures — so `ω` can be separated out of one as the
-members of *every* inductive set.  Leastness is then definitional.
+Infinity is derived from the universe chain + Replacement: an
+*inhabited* Grothendieck universe is an inductive *set* — it contains
+`∅` and is closed under the von Neumann successor `n ↦ n ∪ {n}`
+(von Neumann 1923) by the pairing/union closures — so `ω` can be
+separated out of one as the members of *every* inductive set.
+Leastness is then definitional.  The inductive universe used is
+`univChain 1`: it is inhabited by `univChain 0` (note `univChain 0`
+itself need not be — the empty set satisfies `IsTGUniverse`
+vacuously).
 
 `vnat : Nat → V` names the members of `ω` from the meta-level; every
 member of `ω` is a unique `vnat k` (`mem_omega_iff`, `vnat_inj`),
 which is what makes recursion on `ω` cheap in `Derive/Natrec.lean`.
 
 `ω` itself is a *member* of any universe that has the inductive
-universe `guniv ∅` as a member — arranged for the tower in
+universe `univChain 1` as a member — arranged for the tower in
 `Derive/Univ.lean`.  (Mere universehood does not suffice: `V_ω` is a
 Tarski universe without `ω`.)
 -/
@@ -46,17 +50,17 @@ theorem _root_.Setlec.IsTGUniverse.inductive_self {U y : V}
   ⟨hU.empty_mem hy, fun _n hn =>
     hU.binUnion_mem hy hn (hU.sing_mem hy hn)⟩
 
-theorem guniv_empty_inductive : Inductive (guniv (empty : V)) :=
-  (guniv_isTGUniverse empty).inductive_self (mem_guniv empty)
+theorem univChain_one_inductive : Inductive (univChain 1 : V) :=
+  (univChain_tg 1).inductive_self (univChain_mem 0)
 
 /-- The finite ordinals: the members of every inductive set, separated
-from the inductive universe `guniv ∅`. -/
+from the inductive universe `univChain 1`. -/
 noncomputable def omega : V :=
-  sep (guniv empty) (fun n => ∀ I : V, Inductive I → n ∈ˢ I)
+  sep (univChain 1) (fun n => ∀ I : V, Inductive I → n ∈ˢ I)
 
 theorem mem_omega {n : V} : n ∈ˢ (omega : V) ↔ ∀ I : V, Inductive I → n ∈ˢ I := by
   rw [omega, mem_sep]
-  exact ⟨fun h => h.2, fun h => ⟨h _ guniv_empty_inductive, h⟩⟩
+  exact ⟨fun h => h.2, fun h => ⟨h _ univChain_one_inductive, h⟩⟩
 
 theorem omega_subset_inductive {I : V} (hI : Inductive I) : (omega : V) ⊆ˢ I :=
   fun _ hn => mem_omega.mp hn I hI
@@ -110,14 +114,14 @@ theorem vnat_inj {k l : Nat} (h : (vnat k : V) = vnat l) : k = l := by
   · exact heq
   · exact absurd (h ▸ vnat_mem_vnat_of_lt (V := V) hgt) (not_mem_self _)
 
-theorem omega_subset_guniv_empty : (omega : V) ⊆ˢ guniv empty := sep_subset
+theorem omega_subset_univChain_one : (omega : V) ⊆ˢ univChain 1 := sep_subset
 
 /-- `ω` is a member of any universe having the inductive universe
-`guniv ∅` as a member. -/
+`univChain 1` as a member. -/
 theorem _root_.Setlec.IsTGUniverse.omega_mem {U : V}
-    (hU : IsTGUniverse (Mem (V := V)) U) (h0 : guniv (empty : V) ∈ˢ U) :
+    (hU : IsTGUniverse (Mem (V := V)) U) (h1 : (univChain 1 : V) ∈ˢ U) :
     (omega : V) ∈ˢ U :=
-  hU.mem_of_subset_mem h0 omega_subset_guniv_empty
+  hU.mem_of_subset_mem h1 omega_subset_univChain_one
 
 /- Compiler stubs (see `Derive/Empty.lean`): never executed, no logical
 content. -/
