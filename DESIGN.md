@@ -105,7 +105,14 @@ custom models (level-zero-or-not case distinction may be needed). These live
 in modules analogous to `derived/` in nanodatg.
 
 Axioms: only the standard axioms are supported; anything else is
-"declined" (lean kernel arena exit convention).  `Quot.sound` is part
+"declined" (lean kernel arena exit convention).  This is a deliberate
+ceiling (owner ruling, 2026-08-21): the two tutorial tests scaffolded
+by custom axioms (`032_letTypeDep`, `033_letRed`, declining precisely
+at their `axiom` records) stay declined by design, so the vendored
+tutorial snapshot tops out at 90/92 accepted — the full non-axiom
+set.  Acceptance routes for custom axioms (opaque-with-witness,
+unfoldable-definition storage, canonical-value models) were explored
+and rejected: none is wanted.  `Quot.sound` is part
 of the pinned quotient basis block; `propext` and `Classical.choice`
 are accepted as `axiomDecl`s by `stdAxiomOk`: a pure predicate that
 requires the pinned `Eq` basis plus standardly-shaped stored `Iff`
