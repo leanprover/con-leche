@@ -591,6 +591,90 @@ private theorem constsResolveS_eq (env : Env) :
   | bvar i => rfl
   | sort u => rfl
 
+private theorem declWfB_parts {s : Std.HashSet Name} {lps : List Name} :
+    ∀ {k : Nat} {e : Expr}, Expr.declWfB s lps k e = true →
+      e.hasFvar = false ∧ e.allLevelParamsDefined lps = true ∧
+      e.constsResolveS s = true ∧ e.looseBVarsBounded k = true := by
+  intro k e
+  induction e generalizing k with
+  | bvar i =>
+    intro h
+    simp only [Expr.declWfB, decide_eq_true_eq] at h
+    simp [Expr.hasFvar, Expr.allLevelParamsDefined, Expr.constsResolveS,
+      Expr.looseBVarsBounded, h]
+  | fvar idx n ty ih =>
+    intro h
+    exact nomatch h
+  | sort u =>
+    intro h
+    simp only [Expr.declWfB] at h
+    simp [Expr.hasFvar, Expr.allLevelParamsDefined, Expr.constsResolveS,
+      Expr.looseBVarsBounded, h]
+  | const n us =>
+    intro h
+    simp only [Expr.declWfB, Bool.and_eq_true] at h
+    simp [Expr.hasFvar, Expr.allLevelParamsDefined, Expr.constsResolveS,
+      Expr.looseBVarsBounded, h.1, h.2]
+  | app f a ihf iha =>
+    intro h
+    simp only [Expr.declWfB, Bool.and_eq_true] at h
+    obtain ⟨hf, ha⟩ := h
+    obtain ⟨h1, h2, h3, h4⟩ := ihf hf
+    obtain ⟨h5, h6, h7, h8⟩ := iha ha
+    simp [Expr.hasFvar, Expr.allLevelParamsDefined, Expr.constsResolveS,
+      Expr.looseBVarsBounded, h1, h2, h3, h4, h5, h6, h7, h8]
+  | lam n t b m iht ihb =>
+    intro h
+    simp only [Expr.declWfB, Bool.and_eq_true] at h
+    obtain ⟨⟨ht, hb⟩, hm⟩ := h
+    obtain ⟨h1, h2, h3, h4⟩ := iht ht
+    obtain ⟨h5, h6, h7, h8⟩ := ihb hb
+    simp only [Expr.hasFvar, Expr.allLevelParamsDefined,
+      Expr.constsResolveS, Expr.looseBVarsBounded, h1, h2, h3, h4, h5, h6,
+      h7, h8, Bool.or_self, Bool.and_true, Bool.true_and, and_true,
+      true_and]
+    exact hm
+  | forallE n t b m iht ihb =>
+    intro h
+    simp only [Expr.declWfB, Bool.and_eq_true] at h
+    obtain ⟨⟨ht, hb⟩, hm⟩ := h
+    obtain ⟨h1, h2, h3, h4⟩ := iht ht
+    obtain ⟨h5, h6, h7, h8⟩ := ihb hb
+    simp only [Expr.hasFvar, Expr.allLevelParamsDefined,
+      Expr.constsResolveS, Expr.looseBVarsBounded, h1, h2, h3, h4, h5, h6,
+      h7, h8, Bool.or_self, Bool.and_true, Bool.true_and, and_true,
+      true_and]
+    exact hm
+  | letE n t v b iht ihv ihb =>
+    intro h
+    simp only [Expr.declWfB, Bool.and_eq_true] at h
+    obtain ⟨⟨ht, hv⟩, hb⟩ := h
+    obtain ⟨h1, h2, h3, h4⟩ := iht ht
+    obtain ⟨h5, h6, h7, h8⟩ := ihv hv
+    obtain ⟨h9, h10, h11, h12⟩ := ihb hb
+    simp [Expr.hasFvar, Expr.allLevelParamsDefined, Expr.constsResolveS,
+      Expr.looseBVarsBounded, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10,
+      h11, h12]
+  | lit l =>
+    intro h
+    cases l with
+    | natVal n =>
+      simp only [Expr.declWfB, Bool.and_eq_true] at h
+      obtain ⟨⟨ha, hb⟩, hc⟩ := h
+      refine ⟨rfl, rfl, ?_, rfl⟩
+      simp only [Expr.constsResolveS, Bool.and_eq_true]
+      exact ⟨⟨ha, hb⟩, hc⟩
+    | strVal str =>
+      simp [Expr.hasFvar, Expr.allLevelParamsDefined, Expr.constsResolveS,
+        Expr.looseBVarsBounded]
+  | proj sn i e ih =>
+    intro h
+    simp only [Expr.declWfB, Bool.and_eq_true] at h
+    obtain ⟨hs, he⟩ := h
+    obtain ⟨h1, h2, h3, h4⟩ := ih he
+    simp [Expr.hasFvar, Expr.allLevelParamsDefined, Expr.constsResolveS,
+      Expr.looseBVarsBounded, hs, h1, h2, h3, h4]
+
 /-- The `Bool` gate reflects into the `Prop` invariant the depth
 invariance theorems consume. -/
 theorem envWF_of_wfB {env : Env} (h : env.wfB = true) : EnvWF env := by
@@ -600,61 +684,61 @@ theorem envWF_of_wfB {env : Env} (h : env.wfB = true) : EnvWF env := by
   unfold ConstantInfo.wfB at hcw
   cases c with
   | defnInfo cv value =>
-    simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true,
-      constsResolveS_eq] at hcw
-    obtain ⟨⟨⟨⟨hty, hlp⟩, hres⟩, hloose⟩, ⟨⟨⟨hvf, hvlp⟩, hvres⟩, hvloose⟩⟩ := hcw
-    refine ⟨hty, hlp, hres, hloose, ?_, ?_⟩
+    simp only [Bool.and_eq_true] at hcw
+    obtain ⟨h1, h2, h3, h4⟩ := declWfB_parts hcw.1
+    obtain ⟨h5, h6, h7, h8⟩ := declWfB_parts hcw.2
+    rw [constsResolveS_eq] at h3 h7
+    refine ⟨h1, h2, h3, h4, ?_, ?_⟩
     · intro cv' value' heq
       cases heq
-      exact ⟨hvf, hvlp, hvres, hvloose⟩
+      exact ⟨h5, h6, h7, h8⟩
     · intro cv' nP' nM' nm' ni' rules' heq
       exact nomatch heq
   | recInfo cv nP nM nm ni rules =>
-    simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true,
-      constsResolveS_eq] at hcw
-    obtain ⟨⟨⟨⟨hty, hlp⟩, hres⟩, hloose⟩, hrules⟩ := hcw
-    refine ⟨hty, hlp, hres, hloose, ?_, ?_⟩
+    simp only [Bool.and_eq_true] at hcw
+    obtain ⟨h1, h2, h3, h4⟩ := declWfB_parts hcw.1
+    rw [constsResolveS_eq] at h3
+    refine ⟨h1, h2, h3, h4, ?_, ?_⟩
     · intro cv' value' heq
       exact nomatch heq
     · intro cv' nP' nM' nm' ni' rules' heq r hr
       cases heq
-      have hr' := List.all_eq_true.mp hrules r hr
-      simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true,
-        constsResolveS_eq] at hr'
-      obtain ⟨⟨⟨hrf, hrlp⟩, hrres⟩, hrloose⟩ := hr'
-      exact ⟨hrf, hrlp, hrres, hrloose⟩
+      obtain ⟨h5, h6, h7, h8⟩ :=
+        declWfB_parts (List.all_eq_true.mp hcw.2 r hr)
+      rw [constsResolveS_eq] at h7
+      exact ⟨h5, h6, h7, h8⟩
   | axiomInfo cv =>
-    simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true,
-      constsResolveS_eq] at hcw
-    obtain ⟨⟨⟨⟨hty, hlp⟩, hres⟩, hloose⟩, -⟩ := hcw
-    refine ⟨hty, hlp, hres, hloose, ?_, ?_⟩
+    simp only [Bool.and_eq_true] at hcw
+    obtain ⟨h1, h2, h3, h4⟩ := declWfB_parts hcw.1
+    rw [constsResolveS_eq] at h3
+    refine ⟨h1, h2, h3, h4, ?_, ?_⟩
     · intro cv' value' heq
       exact nomatch heq
     · intro cv' nP' nM' nm' ni' rules' heq
       exact nomatch heq
   | thmInfo cv value =>
-    simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true,
-      constsResolveS_eq] at hcw
-    obtain ⟨⟨⟨⟨hty, hlp⟩, hres⟩, hloose⟩, -⟩ := hcw
-    refine ⟨hty, hlp, hres, hloose, ?_, ?_⟩
+    simp only [Bool.and_eq_true] at hcw
+    obtain ⟨h1, h2, h3, h4⟩ := declWfB_parts hcw.1
+    rw [constsResolveS_eq] at h3
+    refine ⟨h1, h2, h3, h4, ?_, ?_⟩
     · intro cv' value' heq
       exact nomatch heq
     · intro cv' nP' nM' nm' ni' rules' heq
       exact nomatch heq
   | indInfo cv caps =>
-    simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true,
-      constsResolveS_eq] at hcw
-    obtain ⟨⟨⟨⟨hty, hlp⟩, hres⟩, hloose⟩, -⟩ := hcw
-    refine ⟨hty, hlp, hres, hloose, ?_, ?_⟩
+    simp only [Bool.and_eq_true] at hcw
+    obtain ⟨h1, h2, h3, h4⟩ := declWfB_parts hcw.1
+    rw [constsResolveS_eq] at h3
+    refine ⟨h1, h2, h3, h4, ?_, ?_⟩
     · intro cv' value' heq
       exact nomatch heq
     · intro cv' nP' nM' nm' ni' rules' heq
       exact nomatch heq
   | ctorInfo cv nP nF =>
-    simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true,
-      constsResolveS_eq] at hcw
-    obtain ⟨⟨⟨⟨hty, hlp⟩, hres⟩, hloose⟩, -⟩ := hcw
-    refine ⟨hty, hlp, hres, hloose, ?_, ?_⟩
+    simp only [Bool.and_eq_true] at hcw
+    obtain ⟨h1, h2, h3, h4⟩ := declWfB_parts hcw.1
+    rw [constsResolveS_eq] at h3
+    refine ⟨h1, h2, h3, h4, ?_, ?_⟩
     · intro cv' value' heq
       exact nomatch heq
     · intro cv' nP' nM' nm' ni' rules' heq

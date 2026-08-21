@@ -49,21 +49,41 @@ def Expr.constsResolveS (s : Std.HashSet Name) : Expr → Bool
     ty.constsResolveS s && val.constsResolveS s && body.constsResolveS s
   | .proj sn _ e => s.contains sn && e.constsResolveS s
 
+/-- One-pass conjunction of the four per-expression facts the gate
+needs: `fvar`-free, level parameters within `lps`, constants resolving
+in the name set, bound variables below the cutoff. -/
+def Expr.declWfB (s : Std.HashSet Name) (lps : List Name) :
+    Nat → Expr → Bool
+  | k, .bvar i => decide (i < k)
+  | _, .fvar _ _ _ => false
+  | _, .sort u => u.allParamsDefined lps
+  | _, .const n us => s.contains n && us.all (Level.allParamsDefined lps)
+  | k, .app f a => f.declWfB s lps k && a.declWfB s lps k
+  | k, .lam _ t b m =>
+    t.declWfB s lps k && b.declWfB s lps (k + 1) &&
+      (match m.cod with
+       | some v => v.allParamsDefined lps
+       | none => true)
+  | k, .forallE _ t b m =>
+    t.declWfB s lps k && b.declWfB s lps (k + 1) &&
+      (match m.cod with
+       | some v => v.allParamsDefined lps
+       | none => true)
+  | k, .letE _ t v b =>
+    t.declWfB s lps k && v.declWfB s lps k && b.declWfB s lps (k + 1)
+  | _, .lit (.strVal _) => true
+  | _, .lit (.natVal _) =>
+    s.contains natName && s.contains natZeroName && s.contains natSuccName
+  | k, .proj sn _ e => s.contains sn && e.declWfB s lps k
+
 /-- The `Bool` mirror of `Verify`'s per-constant `ConstWF`, resolving
 against the precomputed name set. -/
 def ConstantInfo.wfB (s : Std.HashSet Name) (c : ConstantInfo) : Bool :=
-  !c.toConstantVal.type.hasFvar &&
-  c.toConstantVal.type.allLevelParamsDefined c.toConstantVal.levelParams &&
-  c.toConstantVal.type.constsResolveS s &&
-  c.toConstantVal.type.looseBVarsBounded 0 &&
+  c.toConstantVal.type.declWfB s c.toConstantVal.levelParams 0 &&
   (match c with
-   | .defnInfo cv value =>
-     !value.hasFvar && value.allLevelParamsDefined cv.levelParams &&
-     value.constsResolveS s && value.looseBVarsBounded 0
+   | .defnInfo cv value => value.declWfB s cv.levelParams 0
    | .recInfo cv _ _ _ _ rules =>
-     rules.all fun r =>
-       !r.rhs.hasFvar && r.rhs.allLevelParamsDefined cv.levelParams &&
-       r.rhs.constsResolveS s && r.rhs.looseBVarsBounded 0
+     rules.all fun r => r.rhs.declWfB s cv.levelParams 0
    | _ => true)
 
 /-- The `Bool` mirror of `Verify`'s `EnvWF` (checked once per
