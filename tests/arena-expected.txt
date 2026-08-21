@@ -57,7 +57,7 @@
 0 good/tutorial/076_boolRecEqns.ndjson
 0 good/tutorial/077_prodRecEqns.ndjson
 0 good/tutorial/078_nRecReduction.ndjson
-2 good/tutorial/079_listRecReduction.ndjson
+0 good/tutorial/079_listRecReduction.ndjson
 2 good/tutorial/080_RBTree.id_spec.ndjson
 0 good/tutorial/081_And.right.ndjson
 0 good/tutorial/082_Prod.snd.ndjson
@@ -75,7 +75,7 @@
 0 good/tutorial/105_unitEta1.ndjson
 0 good/tutorial/106_unitEta2.ndjson
 0 good/tutorial/107_unitEta3.ndjson
-2 good/tutorial/109_structEta.ndjson
+0 good/tutorial/109_structEta.ndjson
 0 good/tutorial/111_funEta.ndjson
 0 good/tutorial/112_funEtaDep.ndjson
 2 good/tutorial/118_reduceCtorParamRefl.mk.ndjson

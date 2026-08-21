@@ -88,14 +88,20 @@ def buildIotaStmt (f : Name → Name) (recName ctorName : Name)
     (recTy ctorTy : Expr) (ruleRhs : Expr) : Option Expr := do
   let (binders, body) ← ruleRhs.stripLams (nP + nM + nm + nF)
   -- binder infos follow the recursor's telescope (then the
-  -- constructor's fields), not the rule's λs
+  -- constructor's fields), not the rule's λs; the *field* binder
+  -- names come from the constructor's telescope (the model statement
+  -- is generated from the minor premise, whose names are the
+  -- constructor's, while exported rules may rename fields)
   let bisR ← recTy.piBinderInfos (nP + nM + nm)
   let bisC ← ctorTy.piBinderInfos (nP + nF)
   let bis := bisR ++ bisC.drop nP
-  let binders := (binders.zip bis).map fun (b, bi) => (b.1, b.2.1, bi)
+  let (cbinders, cbody) ← ctorTy.stripPis (nP + nF)
+  let binders := (binders.zip bis).mapIdx fun i (b, bi) =>
+    let n := if i < nP + nM + nm then b.1
+      else ((cbinders.getD (i - (nM + nm)) b).1)
+    (n, b.2.1, bi)
   let (_, mdom, _) ← binders[nP]?
   let ℓ ← mdom.resultSort
-  let (_, cbody) ← ctorTy.stripPis (nP + nF)
   let cargs := cbody.getAppArgs
   guard (cargs.length = nP + ni)
   let iArgs := (cargs.drop nP).map fun e =>
