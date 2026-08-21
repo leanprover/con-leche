@@ -470,32 +470,27 @@ def genOp (prefixes : Std.HashMap String (List String)) (spec : OpSpec) :
     | .error m => throwError "pin conversion ({spec.op}): {m}"
   IO.println s!"{spec.op}: pin nodes = {countNodes pinS}, consts = {(constsOf pin).toList.length}"
   let opTag := if spec.op == `Nat.div then "Div" else "Mod"
-  let mut defs : List (String × String) := [(s!"nat{opTag}DeclPin", "")]
   let mut out : List (String × String) := []
   out := out.append [(s!"nat{opTag}DeclPin",
     (emitDef s!"nat{opTag}DeclPin" pinS).run' {})]
-  -- certificates
-  let mut certPairs : List String := []
+  -- certificate proofs (the statements are pinned by hand in
+  -- `Setlec/Kernel/Checker.lean` — `divModCertStmts` — in open
+  -- fvar-telescope form; only the proofs are vendored blobs)
+  let mut certNames : List String := []
   for (label, thmName) in spec.certs do
     let some ci := env.find? thmName | throwError "{thmName} missing"
-    let stmt ← inlineClosure allowedOrSelf ci.type
     let some pf := ci.value? (allowOpaque := true) | throwError "{thmName} has no value"
     let pf ← inlineClosure allowedOrSelf pf
-    checkConsts s!"cert stmt {label}" allowedOrSelf stmt
     checkConsts s!"cert proof {label}" allowedOrSelf pf
-    let stmtS ← match toSetlec stmt with
-      | .ok e => pure e | .error m => throwError "stmt conv ({label}): {m}"
     let pfS ← match toSetlec pf with
       | .ok e => pure e | .error m => throwError "proof conv ({label}): {m}"
-    IO.println s!"  cert {label}: stmt nodes = {countNodes stmtS}, proof nodes = {countNodes pfS}, proof consts = {(constsOf pf).toList}"
+    IO.println s!"  cert {label}: proof nodes = {countNodes pfS}, proof consts = {(constsOf pf).toList}"
     out := out.append
-      [(s!"{label}Stmt", (emitDef s!"{label}Stmt" stmtS).run' {}),
-       (s!"{label}Proof", (emitDef s!"{label}Proof" pfS).run' {})]
-    certPairs := certPairs.append [s!"({label}Stmt, {label}Proof)"]
-  out := out.append [(s!"nat{opTag}Certs",
-    s!"def nat{opTag}Certs : List (Expr × Expr) :=\n  [" ++
-      String.intercalate ",\n   " certPairs ++ "]\n")]
-  let _ := defs
+      [(s!"{label}Proof", (emitDef s!"{label}Proof" pfS).run' {})]
+    certNames := certNames.append [s!"{label}Proof"]
+  out := out.append [(s!"nat{opTag}CertProofs",
+    s!"def nat{opTag}CertProofs : List Expr :=\n  [" ++
+      String.intercalate ", " certNames ++ "]\n")]
   return out
 
 def header : String :=

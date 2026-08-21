@@ -354,6 +354,50 @@ theorem NatOpsOk.empty (val : ConstVal V) : NatOpsOk V Env.empty val := by
   intro c hc cv v hint h
   simp [Env.find?, Env.empty] at h
 
+/-- The value-level `Nat.ble`-guarded recurrences of a pin-certified
+WF-recursive operation `c` (`Nat.div`/`Nat.mod`), over a valuation
+`val`: for members `x`, `y` of the `Nat` value, if `ble y x` and
+`ble 1 y` are both the `true` value the operation steps through `sub`
+(with a `succ` for `div`); if either guard is the `false` value it
+collapses to its base value (`zero` for `div`, `x` for `mod`).  Purely
+value-level — no expression interpretation — so environment transports
+only touch the guard/lookup side of `DivModOk`. -/
+def DivModEqs (val : ConstVal V) (c : Name) : Prop :=
+  ∀ (ψ : Name → Nat) (x y : V),
+    x ∈ˢ val natName ψ → y ∈ˢ val natName ψ →
+    (app (app (val natBleName ψ) y) x = val boolTrueName ψ →
+     app (app (val natBleName ψ)
+       (app (val natSuccName ψ) (val natZeroName ψ))) y =
+       val boolTrueName ψ →
+     app (app (val c ψ) x) y =
+       (if c = natDivName then
+         app (val natSuccName ψ)
+           (app (app (val c ψ) (app (app (val natSubName ψ) x) y)) y)
+        else app (app (val c ψ) (app (app (val natSubName ψ) x) y)) y)) ∧
+    (app (app (val natBleName ψ) y) x = val boolFalseName ψ →
+     app (app (val c ψ) x) y =
+       (if c = natDivName then val natZeroName ψ else x)) ∧
+    (app (app (val natBleName ψ)
+       (app (val natSuccName ψ) (val natZeroName ψ))) y =
+       val boolFalseName ψ →
+     app (app (val c ψ) x) y =
+       (if c = natDivName then val natZeroName ψ else x))
+
+/-- A stored pin-certified WF-recursive operation (`Nat.div`/`Nat.mod`)
+carries its literal-fast-path guard and satisfies its guarded
+recurrences at the value level.  Established at install from the
+checked characterization certificates (checked like theorems, never
+installed); consumed by `reduceNat`'s soundness through meta-level
+strong induction (`natOpVal_div`/`natOpVal_mod`). -/
+def DivModOk (env : Env) (val : ConstVal V) : Prop :=
+  ∀ c ∈ natDivModNames, ∀ cv v hint,
+    env.find? c = some (.defnInfo cv v hint) →
+    natOpGuard env c = true ∧ DivModEqs V val c
+
+theorem DivModOk.empty (val : ConstVal V) : DivModOk V Env.empty val := by
+  intro c hc cv v hint h
+  simp [Env.find?, Env.empty] at h
+
 theorem ModeledOk.empty (val : ConstVal V) : ModeledOk V Env.empty val := by
   refine ⟨?_, ?_, ?_, ?_, ?_⟩
   · intro n cv caps h
@@ -409,6 +453,11 @@ structure EnvModel (env : Env) where
   /-- Every stored structural-Nat operation satisfies its recurrence
   equations semantically (established at install by `certifyNatEqs`). -/
   nat_ops : NatOpsOk V env val
+  /-- Every stored pin-certified WF-recursive operation
+  (`Nat.div`/`Nat.mod`) satisfies its `ble`-guarded recurrences at the
+  value level (established at install from the checked
+  characterization certificates). -/
+  div_mod : DivModOk V env val
 
 /-- The empty environment has a (trivial) model. -/
 def EnvModel.empty : EnvModel V Env.empty where
@@ -424,6 +473,7 @@ def EnvModel.empty : EnvModel V Env.empty where
   rec_rules := RecRulesOk.empty V _
   modeled_ok := ModeledOk.empty V _
   nat_ops := NatOpsOk.empty V _
+  div_mod := DivModOk.empty V _
 
 /-! ## The literal guard, inverted
 

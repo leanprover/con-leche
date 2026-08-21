@@ -321,58 +321,6 @@ def natModDeclPin : Expr :=
   let e252_301 := Setlec.Expr.lam n1 e0_2 e251_300 ⟨.default, none⟩
   e252_301
 
-def modRecStmt : Expr :=
-  let n1 := Setlec.Name.str Setlec.Name.anonymous "x"
-  let n2 := Setlec.Name.str Setlec.Name.anonymous "Nat"
-  let e0_2 := Setlec.Expr.const n2 []
-  let n3 := Setlec.Name.str Setlec.Name.anonymous "y"
-  let n4 := Setlec.Name.str Setlec.Name.anonymous "a"
-  let n5 := Setlec.Name.str Setlec.Name.anonymous "Eq"
-  let l1 := Setlec.Level.succ Setlec.Level.zero
-  let e1_7 := Setlec.Expr.const n5 [l1]
-  let n6 := Setlec.Name.str Setlec.Name.anonymous "Bool"
-  let e2_9 := Setlec.Expr.const n6 []
-  let e3_10 := Setlec.Expr.app e1_7 e2_9
-  let n7 := Setlec.Name.str n2 "ble"
-  let e4_12 := Setlec.Expr.const n7 []
-  let e5_13 := Setlec.Expr.bvar 0
-  let e6_14 := Setlec.Expr.app e4_12 e5_13
-  let e7_15 := Setlec.Expr.bvar 1
-  let e8_16 := Setlec.Expr.app e6_14 e7_15
-  let e9_17 := Setlec.Expr.app e3_10 e8_16
-  let n8 := Setlec.Name.str n6 "true"
-  let e10_19 := Setlec.Expr.const n8 []
-  let e11_20 := Setlec.Expr.app e9_17 e10_19
-  let n9 := Setlec.Name.str n2 "succ"
-  let e12_22 := Setlec.Expr.const n9 []
-  let n10 := Setlec.Name.str n2 "zero"
-  let e13_24 := Setlec.Expr.const n10 []
-  let e14_25 := Setlec.Expr.app e12_22 e13_24
-  let e15_26 := Setlec.Expr.app e4_12 e14_25
-  let e16_27 := Setlec.Expr.app e15_26 e7_15
-  let e17_28 := Setlec.Expr.app e3_10 e16_27
-  let e18_29 := Setlec.Expr.app e17_28 e10_19
-  let e19_30 := Setlec.Expr.app e1_7 e0_2
-  let n11 := Setlec.Name.str n2 "mod"
-  let e20_32 := Setlec.Expr.const n11 []
-  let e21_33 := Setlec.Expr.bvar 3
-  let e22_34 := Setlec.Expr.app e20_32 e21_33
-  let e23_35 := Setlec.Expr.bvar 2
-  let e24_36 := Setlec.Expr.app e22_34 e23_35
-  let e25_37 := Setlec.Expr.app e19_30 e24_36
-  let n12 := Setlec.Name.str n2 "sub"
-  let e26_39 := Setlec.Expr.const n12 []
-  let e27_40 := Setlec.Expr.app e26_39 e21_33
-  let e28_41 := Setlec.Expr.app e27_40 e23_35
-  let e29_42 := Setlec.Expr.app e20_32 e28_41
-  let e30_43 := Setlec.Expr.app e29_42 e23_35
-  let e31_44 := Setlec.Expr.app e25_37 e30_43
-  let e32_45 := Setlec.Expr.forallE n4 e18_29 e31_44 ⟨.default, none⟩
-  let e33_46 := Setlec.Expr.forallE n4 e11_20 e32_45 ⟨.default, none⟩
-  let e34_47 := Setlec.Expr.forallE n3 e0_2 e33_46 ⟨.default, none⟩
-  let e35_48 := Setlec.Expr.forallE n1 e0_2 e34_47 ⟨.default, none⟩
-  e35_48
-
 def modRecProof : Expr :=
   let n1 := Setlec.Name.str Setlec.Name.anonymous "x"
   let n2 := Setlec.Name.str Setlec.Name.anonymous "Nat"
@@ -4630,41 +4578,6 @@ def modRecProof : Expr :=
   let e4160_4253 := Setlec.Expr.lam n1 e0_2 e4159_4252 ⟨.default, none⟩
   e4160_4253
 
-def modBaseGtStmt : Expr :=
-  let n1 := Setlec.Name.str Setlec.Name.anonymous "x"
-  let n2 := Setlec.Name.str Setlec.Name.anonymous "Nat"
-  let e0_2 := Setlec.Expr.const n2 []
-  let n3 := Setlec.Name.str Setlec.Name.anonymous "y"
-  let n4 := Setlec.Name.str Setlec.Name.anonymous "a"
-  let n5 := Setlec.Name.str Setlec.Name.anonymous "Eq"
-  let l1 := Setlec.Level.succ Setlec.Level.zero
-  let e1_7 := Setlec.Expr.const n5 [l1]
-  let n6 := Setlec.Name.str Setlec.Name.anonymous "Bool"
-  let e2_9 := Setlec.Expr.const n6 []
-  let e3_10 := Setlec.Expr.app e1_7 e2_9
-  let n7 := Setlec.Name.str n2 "ble"
-  let e4_12 := Setlec.Expr.const n7 []
-  let e5_13 := Setlec.Expr.bvar 0
-  let e6_14 := Setlec.Expr.app e4_12 e5_13
-  let e7_15 := Setlec.Expr.bvar 1
-  let e8_16 := Setlec.Expr.app e6_14 e7_15
-  let e9_17 := Setlec.Expr.app e3_10 e8_16
-  let n8 := Setlec.Name.str n6 "false"
-  let e10_19 := Setlec.Expr.const n8 []
-  let e11_20 := Setlec.Expr.app e9_17 e10_19
-  let e12_21 := Setlec.Expr.app e1_7 e0_2
-  let n9 := Setlec.Name.str n2 "mod"
-  let e13_23 := Setlec.Expr.const n9 []
-  let e14_24 := Setlec.Expr.bvar 2
-  let e15_25 := Setlec.Expr.app e13_23 e14_24
-  let e16_26 := Setlec.Expr.app e15_25 e7_15
-  let e17_27 := Setlec.Expr.app e12_21 e16_26
-  let e18_28 := Setlec.Expr.app e17_27 e14_24
-  let e19_29 := Setlec.Expr.forallE n4 e11_20 e18_28 ⟨.default, none⟩
-  let e20_30 := Setlec.Expr.forallE n3 e0_2 e19_29 ⟨.default, none⟩
-  let e21_31 := Setlec.Expr.forallE n1 e0_2 e20_30 ⟨.default, none⟩
-  e21_31
-
 def modBaseGtProof : Expr :=
   let n1 := Setlec.Name.str Setlec.Name.anonymous "x"
   let n2 := Setlec.Name.str Setlec.Name.anonymous "Nat"
@@ -5032,46 +4945,6 @@ def modBaseGtProof : Expr :=
   let e316_363 := Setlec.Expr.lam n3 e0_2 e315_362 ⟨.default, none⟩
   let e317_364 := Setlec.Expr.lam n1 e0_2 e316_363 ⟨.default, none⟩
   e317_364
-
-def modBaseZeroStmt : Expr :=
-  let n1 := Setlec.Name.str Setlec.Name.anonymous "x"
-  let n2 := Setlec.Name.str Setlec.Name.anonymous "Nat"
-  let e0_2 := Setlec.Expr.const n2 []
-  let n3 := Setlec.Name.str Setlec.Name.anonymous "y"
-  let n4 := Setlec.Name.str Setlec.Name.anonymous "a"
-  let n5 := Setlec.Name.str Setlec.Name.anonymous "Eq"
-  let l1 := Setlec.Level.succ Setlec.Level.zero
-  let e1_7 := Setlec.Expr.const n5 [l1]
-  let n6 := Setlec.Name.str Setlec.Name.anonymous "Bool"
-  let e2_9 := Setlec.Expr.const n6 []
-  let e3_10 := Setlec.Expr.app e1_7 e2_9
-  let n7 := Setlec.Name.str n2 "ble"
-  let e4_12 := Setlec.Expr.const n7 []
-  let n8 := Setlec.Name.str n2 "succ"
-  let e5_14 := Setlec.Expr.const n8 []
-  let n9 := Setlec.Name.str n2 "zero"
-  let e6_16 := Setlec.Expr.const n9 []
-  let e7_17 := Setlec.Expr.app e5_14 e6_16
-  let e8_18 := Setlec.Expr.app e4_12 e7_17
-  let e9_19 := Setlec.Expr.bvar 0
-  let e10_20 := Setlec.Expr.app e8_18 e9_19
-  let e11_21 := Setlec.Expr.app e3_10 e10_20
-  let n10 := Setlec.Name.str n6 "false"
-  let e12_23 := Setlec.Expr.const n10 []
-  let e13_24 := Setlec.Expr.app e11_21 e12_23
-  let e14_25 := Setlec.Expr.app e1_7 e0_2
-  let n11 := Setlec.Name.str n2 "mod"
-  let e15_27 := Setlec.Expr.const n11 []
-  let e16_28 := Setlec.Expr.bvar 2
-  let e17_29 := Setlec.Expr.app e15_27 e16_28
-  let e18_30 := Setlec.Expr.bvar 1
-  let e19_31 := Setlec.Expr.app e17_29 e18_30
-  let e20_32 := Setlec.Expr.app e14_25 e19_31
-  let e21_33 := Setlec.Expr.app e20_32 e16_28
-  let e22_34 := Setlec.Expr.forallE n4 e13_24 e21_33 ⟨.default, none⟩
-  let e23_35 := Setlec.Expr.forallE n3 e0_2 e22_34 ⟨.default, none⟩
-  let e24_36 := Setlec.Expr.forallE n1 e0_2 e23_35 ⟨.default, none⟩
-  e24_36
 
 def modBaseZeroProof : Expr :=
   let n1 := Setlec.Name.str Setlec.Name.anonymous "x"
@@ -5595,10 +5468,8 @@ def modBaseZeroProof : Expr :=
   let e460_518 := Setlec.Expr.lam n1 e0_2 e459_517 ⟨.default, none⟩
   e460_518
 
-def natModCerts : List (Expr × Expr) :=
-  [(modRecStmt, modRecProof),
-   (modBaseGtStmt, modBaseGtProof),
-   (modBaseZeroStmt, modBaseZeroProof)]
+def natModCertProofs : List Expr :=
+  [modRecProof, modBaseGtProof, modBaseZeroProof]
 
 def natDivDeclPin : Expr :=
   let n1 := Setlec.Name.str Setlec.Name.anonymous "x"
@@ -5889,59 +5760,6 @@ def natDivDeclPin : Expr :=
   let e232_285 := Setlec.Expr.lam n3 e0_2 e231_284 ⟨.default, none⟩
   let e233_286 := Setlec.Expr.lam n1 e0_2 e232_285 ⟨.default, none⟩
   e233_286
-
-def divRecStmt : Expr :=
-  let n1 := Setlec.Name.str Setlec.Name.anonymous "x"
-  let n2 := Setlec.Name.str Setlec.Name.anonymous "Nat"
-  let e0_2 := Setlec.Expr.const n2 []
-  let n3 := Setlec.Name.str Setlec.Name.anonymous "y"
-  let n4 := Setlec.Name.str Setlec.Name.anonymous "a"
-  let n5 := Setlec.Name.str Setlec.Name.anonymous "Eq"
-  let l1 := Setlec.Level.succ Setlec.Level.zero
-  let e1_7 := Setlec.Expr.const n5 [l1]
-  let n6 := Setlec.Name.str Setlec.Name.anonymous "Bool"
-  let e2_9 := Setlec.Expr.const n6 []
-  let e3_10 := Setlec.Expr.app e1_7 e2_9
-  let n7 := Setlec.Name.str n2 "ble"
-  let e4_12 := Setlec.Expr.const n7 []
-  let e5_13 := Setlec.Expr.bvar 0
-  let e6_14 := Setlec.Expr.app e4_12 e5_13
-  let e7_15 := Setlec.Expr.bvar 1
-  let e8_16 := Setlec.Expr.app e6_14 e7_15
-  let e9_17 := Setlec.Expr.app e3_10 e8_16
-  let n8 := Setlec.Name.str n6 "true"
-  let e10_19 := Setlec.Expr.const n8 []
-  let e11_20 := Setlec.Expr.app e9_17 e10_19
-  let n9 := Setlec.Name.str n2 "succ"
-  let e12_22 := Setlec.Expr.const n9 []
-  let n10 := Setlec.Name.str n2 "zero"
-  let e13_24 := Setlec.Expr.const n10 []
-  let e14_25 := Setlec.Expr.app e12_22 e13_24
-  let e15_26 := Setlec.Expr.app e4_12 e14_25
-  let e16_27 := Setlec.Expr.app e15_26 e7_15
-  let e17_28 := Setlec.Expr.app e3_10 e16_27
-  let e18_29 := Setlec.Expr.app e17_28 e10_19
-  let e19_30 := Setlec.Expr.app e1_7 e0_2
-  let n11 := Setlec.Name.str n2 "div"
-  let e20_32 := Setlec.Expr.const n11 []
-  let e21_33 := Setlec.Expr.bvar 3
-  let e22_34 := Setlec.Expr.app e20_32 e21_33
-  let e23_35 := Setlec.Expr.bvar 2
-  let e24_36 := Setlec.Expr.app e22_34 e23_35
-  let e25_37 := Setlec.Expr.app e19_30 e24_36
-  let n12 := Setlec.Name.str n2 "sub"
-  let e26_39 := Setlec.Expr.const n12 []
-  let e27_40 := Setlec.Expr.app e26_39 e21_33
-  let e28_41 := Setlec.Expr.app e27_40 e23_35
-  let e29_42 := Setlec.Expr.app e20_32 e28_41
-  let e30_43 := Setlec.Expr.app e29_42 e23_35
-  let e31_44 := Setlec.Expr.app e12_22 e30_43
-  let e32_45 := Setlec.Expr.app e25_37 e31_44
-  let e33_46 := Setlec.Expr.forallE n4 e18_29 e32_45 ⟨.default, none⟩
-  let e34_47 := Setlec.Expr.forallE n4 e11_20 e33_46 ⟨.default, none⟩
-  let e35_48 := Setlec.Expr.forallE n3 e0_2 e34_47 ⟨.default, none⟩
-  let e36_49 := Setlec.Expr.forallE n1 e0_2 e35_48 ⟨.default, none⟩
-  e36_49
 
 def divRecProof : Expr :=
   let n1 := Setlec.Name.str Setlec.Name.anonymous "x"
@@ -8999,43 +8817,6 @@ def divRecProof : Expr :=
   let e2965_3052 := Setlec.Expr.lam n1 e0_2 e2964_3051 ⟨.default, none⟩
   e2965_3052
 
-def divBaseGtStmt : Expr :=
-  let n1 := Setlec.Name.str Setlec.Name.anonymous "x"
-  let n2 := Setlec.Name.str Setlec.Name.anonymous "Nat"
-  let e0_2 := Setlec.Expr.const n2 []
-  let n3 := Setlec.Name.str Setlec.Name.anonymous "y"
-  let n4 := Setlec.Name.str Setlec.Name.anonymous "a"
-  let n5 := Setlec.Name.str Setlec.Name.anonymous "Eq"
-  let l1 := Setlec.Level.succ Setlec.Level.zero
-  let e1_7 := Setlec.Expr.const n5 [l1]
-  let n6 := Setlec.Name.str Setlec.Name.anonymous "Bool"
-  let e2_9 := Setlec.Expr.const n6 []
-  let e3_10 := Setlec.Expr.app e1_7 e2_9
-  let n7 := Setlec.Name.str n2 "ble"
-  let e4_12 := Setlec.Expr.const n7 []
-  let e5_13 := Setlec.Expr.bvar 0
-  let e6_14 := Setlec.Expr.app e4_12 e5_13
-  let e7_15 := Setlec.Expr.bvar 1
-  let e8_16 := Setlec.Expr.app e6_14 e7_15
-  let e9_17 := Setlec.Expr.app e3_10 e8_16
-  let n8 := Setlec.Name.str n6 "false"
-  let e10_19 := Setlec.Expr.const n8 []
-  let e11_20 := Setlec.Expr.app e9_17 e10_19
-  let e12_21 := Setlec.Expr.app e1_7 e0_2
-  let n9 := Setlec.Name.str n2 "div"
-  let e13_23 := Setlec.Expr.const n9 []
-  let e14_24 := Setlec.Expr.bvar 2
-  let e15_25 := Setlec.Expr.app e13_23 e14_24
-  let e16_26 := Setlec.Expr.app e15_25 e7_15
-  let e17_27 := Setlec.Expr.app e12_21 e16_26
-  let n10 := Setlec.Name.str n2 "zero"
-  let e18_29 := Setlec.Expr.const n10 []
-  let e19_30 := Setlec.Expr.app e17_27 e18_29
-  let e20_31 := Setlec.Expr.forallE n4 e11_20 e19_30 ⟨.default, none⟩
-  let e21_32 := Setlec.Expr.forallE n3 e0_2 e20_31 ⟨.default, none⟩
-  let e22_33 := Setlec.Expr.forallE n1 e0_2 e21_32 ⟨.default, none⟩
-  e22_33
-
 def divBaseGtProof : Expr :=
   let n1 := Setlec.Name.str Setlec.Name.anonymous "x"
   let n2 := Setlec.Name.str Setlec.Name.anonymous "Nat"
@@ -10494,46 +10275,6 @@ def divBaseGtProof : Expr :=
   let e1373_1454 := Setlec.Expr.lam n1 e0_2 e1372_1453 ⟨.default, none⟩
   e1373_1454
 
-def divBaseZeroStmt : Expr :=
-  let n1 := Setlec.Name.str Setlec.Name.anonymous "x"
-  let n2 := Setlec.Name.str Setlec.Name.anonymous "Nat"
-  let e0_2 := Setlec.Expr.const n2 []
-  let n3 := Setlec.Name.str Setlec.Name.anonymous "y"
-  let n4 := Setlec.Name.str Setlec.Name.anonymous "a"
-  let n5 := Setlec.Name.str Setlec.Name.anonymous "Eq"
-  let l1 := Setlec.Level.succ Setlec.Level.zero
-  let e1_7 := Setlec.Expr.const n5 [l1]
-  let n6 := Setlec.Name.str Setlec.Name.anonymous "Bool"
-  let e2_9 := Setlec.Expr.const n6 []
-  let e3_10 := Setlec.Expr.app e1_7 e2_9
-  let n7 := Setlec.Name.str n2 "ble"
-  let e4_12 := Setlec.Expr.const n7 []
-  let n8 := Setlec.Name.str n2 "succ"
-  let e5_14 := Setlec.Expr.const n8 []
-  let n9 := Setlec.Name.str n2 "zero"
-  let e6_16 := Setlec.Expr.const n9 []
-  let e7_17 := Setlec.Expr.app e5_14 e6_16
-  let e8_18 := Setlec.Expr.app e4_12 e7_17
-  let e9_19 := Setlec.Expr.bvar 0
-  let e10_20 := Setlec.Expr.app e8_18 e9_19
-  let e11_21 := Setlec.Expr.app e3_10 e10_20
-  let n10 := Setlec.Name.str n6 "false"
-  let e12_23 := Setlec.Expr.const n10 []
-  let e13_24 := Setlec.Expr.app e11_21 e12_23
-  let e14_25 := Setlec.Expr.app e1_7 e0_2
-  let n11 := Setlec.Name.str n2 "div"
-  let e15_27 := Setlec.Expr.const n11 []
-  let e16_28 := Setlec.Expr.bvar 2
-  let e17_29 := Setlec.Expr.app e15_27 e16_28
-  let e18_30 := Setlec.Expr.bvar 1
-  let e19_31 := Setlec.Expr.app e17_29 e18_30
-  let e20_32 := Setlec.Expr.app e14_25 e19_31
-  let e21_33 := Setlec.Expr.app e20_32 e6_16
-  let e22_34 := Setlec.Expr.forallE n4 e13_24 e21_33 ⟨.default, none⟩
-  let e23_35 := Setlec.Expr.forallE n3 e0_2 e22_34 ⟨.default, none⟩
-  let e24_36 := Setlec.Expr.forallE n1 e0_2 e23_35 ⟨.default, none⟩
-  e24_36
-
 def divBaseZeroProof : Expr :=
   let n1 := Setlec.Name.str Setlec.Name.anonymous "x"
   let n2 := Setlec.Name.str Setlec.Name.anonymous "Nat"
@@ -10811,9 +10552,7 @@ def divBaseZeroProof : Expr :=
   let e231_273 := Setlec.Expr.lam n1 e0_2 e230_272 ⟨.default, none⟩
   e231_273
 
-def natDivCerts : List (Expr × Expr) :=
-  [(divRecStmt, divRecProof),
-   (divBaseGtStmt, divBaseGtProof),
-   (divBaseZeroStmt, divBaseZeroProof)]
+def natDivCertProofs : List Expr :=
+  [divRecProof, divBaseGtProof, divBaseZeroProof]
 
 end Setlec
