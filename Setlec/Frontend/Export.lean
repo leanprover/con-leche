@@ -105,6 +105,19 @@ structure State where
   levels : Std.HashMap Nat Level := .ofList [(0, .zero)]
   exprs : Std.HashMap Nat Expr := {}
   decls : Array Declaration := #[]
+  /-- Expression-table entries that (transitively) mention `sorryAx`,
+  maintained as entries are parsed so the check is `O(1)` per entry
+  even on heavily shared tables. -/
+  tainted : Std.HashMap Nat Unit := {}
+  /-- A `sorryAx` axiom record was skipped: the axiom has no set model
+  (`∀ α, Bool → α` is empty at `α := ∅`), so its *declaration* is
+  dropped, and any later *use* is positively declined. -/
+  sorrySkipped : Bool := false
+
+private def sorryAxName : Name := .str .anonymous "sorryAx"
+
+/-- Internal sentinel converted to a decline at the record level. -/
+private def sorrySentinel : String := "\x00uses-sorryAx"
 
 private abbrev M := Except String
 
@@ -134,6 +147,14 @@ private def getLevel' (st : State) (j : Json) (key : String) : M Level := do
 
 private def getExpr' (st : State) (j : Json) (key : String) : M Expr := do
   st.expr (← getIdx j key)
+
+/-- Declaration-level expression lookup: a reference to the skipped
+`sorryAx` is a positive decline (via `sorrySentinel`). -/
+private def getDeclExpr' (st : State) (j : Json) (key : String) : M Expr := do
+  let i ← getIdx j key
+  if st.sorrySkipped ∧ st.tainted[i]?.isSome then
+    throw sorrySentinel
+  st.expr i
 
 private def getIdxs (j : Json) (key : String) : M (Array Nat) := do
   (← (← j.getObjVal? key).getArr?).mapM (·.getNat?)
@@ -174,6 +195,22 @@ private def parseLevelEntry (st : State) (j : Json) (i : Nat) : M State := do
       throw "malformed level entry"
   pure { st with levels := st.levels.insert i l }
 
+/-- The child expression-table indices of an entry (for taint
+propagation). -/
+private def exprEntryChildren (j : Json) : M (List Nat) := do
+  if let .ok v := j.getObjVal? "app" then
+    pure [← getIdx v "fn", ← getIdx v "arg"]
+  else if let .ok v := j.getObjVal? "lam" then
+    pure [← getIdx v "type", ← getIdx v "body"]
+  else if let .ok v := j.getObjVal? "forallE" then
+    pure [← getIdx v "type", ← getIdx v "body"]
+  else if let .ok v := j.getObjVal? "letE" then
+    pure [← getIdx v "type", ← getIdx v "value", ← getIdx v "body"]
+  else if let .ok v := j.getObjVal? "proj" then
+    pure [← getIdx v "struct"]
+  else
+    pure []
+
 /-- Parse an expression table entry `{"ie": i, ...}`. -/
 private def parseExprEntry (st : State) (j : Json) (i : Nat) : M State := do
   let e ← if let .ok v := j.getObjVal? "bvar" then
@@ -205,19 +242,31 @@ private def parseExprEntry (st : State) (j : Json) (i : Nat) : M State := do
       pure <| Expr.lit (.strVal (← v.getStr?))
     else
       throw "malformed or unsupported expr entry"
-  pure { st with exprs := st.exprs.insert i e }
+  let taint : Bool ← do
+    match e with
+    | .const n _ => pure (n == sorryAxName)
+    | _ =>
+      let cs ← exprEntryChildren j
+      pure (cs.any (fun c => st.tainted[c]?.isSome))
+  let st := { st with exprs := st.exprs.insert i e }
+  if taint then
+    let t := st.tainted
+    let st := { st with tainted := {} }
+    pure { st with tainted := t.insert i () }
+  else
+    pure st
 
 private def parseConstantVal (st : State) (v : Json) : M ConstantVal := do
   pure {
     name := ← getName' st v "name"
     levelParams := (← (← getIdxs v "levelParams").mapM st.name).toList
     -- `let` is definitionally its expansion; the checker works let-free.
-    type := (← getExpr' st v "type").zetaExpand
+    type := (← getDeclExpr' st v "type").zetaExpand
   }
 
 /-- Process one line of the export file.  `Sum.inl`: fine (possibly updated
 state); `Sum.inr`: unsupported declaration kind. -/
-private def processLine (st : State) (j : Json)
+private def processLineCore (st : State) (j : Json)
     (modeled : Bool := false) : M (State ⊕ String) := do
   if let .ok v := j.getObjVal? "in" then
     return .inl (← parseNameEntry st j (← v.getNat?))
@@ -233,6 +282,10 @@ private def processLine (st : State) (j : Json)
       return .inr "unsafe axiom"
     -- the pinned quotient soundness axiom is installed with the `Quot`
     -- basis block; skip its (matching) declaration record
+    -- `sorryAx` has no set-theoretic model: skip the declaration,
+    -- decline any later use (see `State.sorrySkipped`)
+    if cv.name = sorryAxName then
+      return .inl { st with sorrySkipped := true }
     if cv.name = quotSoundName then
       if ConstantInfo.canon (.axiomInfo cv) =
           ConstantInfo.canon (quotBasis.getD 4 (.axiomInfo default)) then
@@ -249,14 +302,14 @@ private def processLine (st : State) (j : Json)
       return .inl st
     match (← (← v.getObjVal? "safety").getStr?) with
     | "safe" => return .inl { st with
-        decls := st.decls.push (.defnDecl cv (← getExpr' st v "value").zetaExpand) }
+        decls := st.decls.push (.defnDecl cv (← getDeclExpr' st v "value").zetaExpand) }
     | s => return .inr s!"definition with safety '{s}'"
   else if let .ok v := j.getObjVal? "thm" then
     let cv ← parseConstantVal st v
     if underBasisModel cv.name || isModelAux cv.name then
       return .inl st
     return .inl { st with
-      decls := st.decls.push (.thmDecl cv (← getExpr' st v "value").zetaExpand) }
+      decls := st.decls.push (.thmDecl cv (← getDeclExpr' st v "value").zetaExpand) }
   else if (j.getObjVal? "opaque").isOk then
     return .inr "opaque declaration"
   else if let .ok v := j.getObjVal? "quot" then
@@ -295,7 +348,7 @@ private def processLine (st : State) (j : Json)
       let rules ← (← (← r.getObjVal? "rules").getArr?).mapM fun ru => do
         pure (RecRule.mk (← getName' st ru "ctor")
           (← (← ru.getObjVal? "nfields").getNat?)
-          (← getExpr' st ru "rhs"))
+          (← getDeclExpr' st ru "rhs"))
       pure (ConstantInfo.recInfo (← parseConstantVal st r)
         (← (← r.getObjVal? "numParams").getNat?)
         (← (← r.getObjVal? "numMotives").getNat?)
@@ -327,6 +380,15 @@ private def processLine (st : State) (j : Json)
         return .inl { st with decls := ds }
   else
     throw "unrecognized line"
+
+/-- `processLineCore` plus the `sorryAx`-use sentinel translated into
+a decline. -/
+private def processLine (st : State) (j : Json)
+    (modeled : Bool := false) : M (State ⊕ String) :=
+  tryCatch (processLineCore st j modeled) fun e =>
+    if e = sorrySentinel then
+      pure (.inr "declaration uses the skipped sorryAx axiom")
+    else throw e
 
 /-- Parse a whole export file into the declarations it contains, in order. -/
 def parseExport (contents : String) (modeled : Bool := false) :

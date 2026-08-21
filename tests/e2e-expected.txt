@@ -14,4 +14,9 @@
 # with a data field cannot be written with the `structure` command,
 # so no .lean source exists for this fixture.)
 0 prop_proj_raw.ndjson
+# sorryAx handling: an unused sorryAx axiom record is skipped (no set
+# model exists for it), a use is positively declined.  sorry_unused is
+# hand-patched (an export never contains an unused axiom record).
+0 sorry_unused.ndjson
+2 sorry_use.ndjson
 
