@@ -146,7 +146,10 @@ def RecMemberOk (env' : Env) (val' : ConstVal V)
               (args ++ [tv]) d₁ ρ₁ rest₁ ∧
             TeleFit V val' env' φ' d₁ ρ₁
               (cvj.type.instantiateLevelParams cvj.levelParams usj)
-              margs d₂ ρ₂ rest₂) →
+              margs d₂ ρ₂ rest₂ ∧
+            (rest₂.getAppArgs.drop cnP).mapM
+              (interpExpr V val' env' φ' d₂ ρ₂) =
+              some (args.drop (nP + nM + nm))) →
           ∃ R, interpClosed V val' env' ψ (RecRule.rhs r) = some R ∧
             SpineFold V (val' ci.name ψ) (args ++ [tv]) =
               SpineFold V R (args.take (nP + nM + nm) ++ margs.drop cnP) ∧
@@ -232,16 +235,43 @@ theorem RecRulesOk.cons {env : Env} (m : EnvModel V env)
             (args ++ [tv]) d₁ ρ₁ rest₁ ∧
           TeleFit V m.val env φ' d₁ ρ₁
             (cvj.type.instantiateLevelParams cvj.levelParams usj)
-            margs d₂ ρ₂ rest₂ := by
+            margs d₂ ρ₂ rest₂ ∧
+          (rest₂.getAppArgs.drop cnP).mapM
+            (interpExpr V m.val env φ' d₂ ρ₂) =
+            some (args.drop (nP + nM + nm)) := by
         obtain ⟨φ', us, usj, d, ρ, d₁, ρ₁, rest₁, d₂, ρ₂, rest₂,
-          hψ, hψj, hf1, hf2⟩ := hfit
+          hψ, hψj, hf1, hf2, hidx⟩ := hfit
         obtain ⟨-, -, hRres, -, -, -⟩ := m.wf _ (find?_mem hfp)
         obtain ⟨-, -, hCres, -, -, -⟩ := m.wf _ (find?_mem hfj)
-        exact ⟨φ', us, usj, d, ρ, d₁, ρ₁, rest₁, d₂, ρ₂, rest₂, hψ, hψj,
+        have hCres' : (cvj.type.instantiateLevelParams cvj.levelParams
+            usj).constsResolve env = true := by
+          rw [Expr.constsResolve_instantiateLevelParams]
+          exact hCres
+        have hrres2 : rest₂.constsResolve env = true :=
+          TeleFit.rest_resolve hf2 hCres'
+        refine ⟨φ', us, usj, d, ρ, d₁, ρ₁, rest₁, d₂, ρ₂, rest₂, hψ, hψj,
           TeleFit.env_shrink hfind' hagree hf1
             (by rw [Expr.constsResolve_instantiateLevelParams]; exact hRres),
-          TeleFit.env_shrink hfind' hagree hf2
-            (by rw [Expr.constsResolve_instantiateLevelParams]; exact hCres)⟩
+          TeleFit.env_shrink hfind' hagree hf2 hCres', ?_⟩
+        rw [← hidx]
+        have htrans : ∀ (l : List Expr),
+            (∀ x ∈ l, x.constsResolve env = true) →
+            l.mapM (interpExpr V m.val env φ' d₂ ρ₂) =
+            l.mapM (interpExpr V val' (⟨c₀ :: env.consts⟩ : Env) φ' d₂
+              ρ₂) := by
+          intro l
+          induction l with
+          | nil => intro _; rfl
+          | cons x l ihl =>
+            intro hres
+            have hx' : interpExpr V m.val env φ' d₂ ρ₂ x =
+                interpExpr V val' (⟨c₀ :: env.consts⟩ : Env) φ' d₂ ρ₂ x := by
+              rw [← interp_cval_ext hagree x d₂ ρ₂,
+                ← interp_mono hfind' x d₂ ρ₂ (hres x List.mem_cons_self)]
+            simp only [List.mapM_cons, hx',
+              ihl (fun y hy => hres y (List.mem_cons_of_mem _ hy))]
+        exact htrans _ (fun x hx =>
+          Expr.constsResolve_getAppArgs hrres2 x (List.mem_of_mem_drop hx))
       obtain ⟨R, hRi, hfoldEq, hRch⟩ := hfold cvj cnP cnF hfj ψ ψj
         args margs tv hl hml hch hmch htv hpeq hlev hfit'
       refine ⟨R, ?_, ?_, hRch⟩
@@ -1199,7 +1229,7 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
     (htyres0 : ci.toConstantVal.type.constsResolve env = true)
     (hkind : (∃ cv caps, ci = .indInfo cv caps) ∨
       (∃ cv nP nF, ci = .ctorInfo cv nP nF) ∨
-      (∃ cv nP nM nm, ci = .recInfo cv nP nM nm 0 []))
+      (∃ cv nP nM nm ni, ci = .recInfo cv nP nM nm ni []))
     (hmodel : env.find? mname = some (.defnInfo cvm mval))
     (hlps : cvm.levelParams = ci.toConstantVal.levelParams)
     (hren : ci.toConstantVal.type.renameConsts f = cvm.type)
@@ -1267,7 +1297,7 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
     hfind' hwf htyres0
     (fun cv2 value2 => by
       rcases hkind with ⟨cv', caps', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
-        ⟨cv', nP', nM', nm', rfl⟩ <;> simp)
+        ⟨cv', nP', nM', nm', ni', rfl⟩ <;> simp)
     hkey
     (fun ψ₁ ψ₂ hψ => by
       refine m.val_params _ _ hmodel ψ₁ ψ₂ ?_
@@ -1288,7 +1318,7 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
     (fun _ hres2 => absurd (hres2 ▸ hnres) (by simp))
     (fun cv nP nM nm ni rules heq => by
       rcases hkind with ⟨cv', caps', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
-        ⟨cv', nP', nM', nm', rfl⟩
+        ⟨cv', nP', nM', nm', ni', rfl⟩
       · exact nomatch heq
       · exact nomatch heq
       · exact ⟨fun hn => absurd hnres (by rw [hn]; decide),
@@ -1297,7 +1327,7 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
           fun hn => absurd hnres (by rw [hn]; decide)⟩)
     (fun val' _ _ cvR nP nM nm ni rules heq => by
       rcases hkind with ⟨cv', caps', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
-        ⟨cv', nP', nM', nm', rfl⟩
+        ⟨cv', nP', nM', nm', ni', rfl⟩
       · exact nomatch heq
       · exact nomatch heq
       · injection heq with h1 h2 h3 h4 h5 h6
@@ -1306,7 +1336,7 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
         cases hr)
     (fun cvR nP nM nm ni rules heq => by
       rcases hkind with ⟨cv', caps', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
-        ⟨cv', nP', nM', nm', rfl⟩
+        ⟨cv', nP', nM', nm', ni', rfl⟩
       · exact nomatch heq
       · exact nomatch heq
       · injection heq with h1 h2 h3 h4 h5 h6
@@ -1321,7 +1351,7 @@ before the recursor's installation, `env₀` the provisional one with
 the rules-free recursor (in which the rule's right-hand side was
 annotated). -/
 def RuleChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
-    (cvA : ConstantVal) (nP nm : Nat) (r : RecRule) : Prop :=
+    (cvA : ConstantVal) (nP nm ni : Nat) (r : RecRule) : Prop :=
   ∃ (cvj : ConstantVal) (cnF : Nat) (raw : Expr)
     (rbinders tbinders cbinders sbinders :
       List (Name × Expr × BinderMeta))
@@ -1335,8 +1365,9 @@ def RuleChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
     (RecRule.rhs r).looseBVarsBounded 0 = true ∧
     (RecRule.rhs r).stripLams (nP + 1 + nm + cnF) =
       some (rbinders, rbody) ∧
-    cvA.type.stripPis (nP + 1 + nm + 1) = some (tbinders, tybody) ∧
+    cvA.type.stripPis (nP + 1 + nm + ni + 1) = some (tbinders, tybody) ∧
     cvj.type.stripPis (nP + cnF) = some (cbinders, cbody) ∧
+    cbody.getAppArgs.length = nP + ni ∧
     cvt.type.stripPis ((nP + (1 + nm)) + cnF) = some (sbinders, sbody) ∧
     (∀ (i : Nat) (b b' : Name × Expr × BinderMeta),
       i < nP + 1 + nm →
@@ -1350,17 +1381,21 @@ def RuleChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
       sbinders[i]? = some b → rbinders[i]? = some b' →
       b.2.1 = (b'.2.1).renameConsts f) ∧
     sbody = Expr.mkAppN (.const eqName [ℓA])
-      [.app (.bvar (cnF + nm))
-        (Expr.mkAppN (.const (f (RecRule.ctor r))
+      [Expr.mkAppN (.bvar (cnF + nm))
+        (((cbody.getAppArgs.drop nP).map fun e =>
+            (e.liftLooseBVars (1 + nm) cnF).renameConsts f) ++
+         [Expr.mkAppN (.const (f (RecRule.ctor r))
             (cvj.levelParams.map .param))
           (((List.range nP).map fun k =>
               Expr.bvar (nP + 1 + nm + cnF - 1 - k)) ++
-           ((List.range cnF).map fun k => Expr.bvar (cnF - 1 - k)))),
+           ((List.range cnF).map fun k => Expr.bvar (cnF - 1 - k)))]),
        Expr.mkAppN (.const (f cvA.name) (cvA.levelParams.map .param))
-        ((((List.range nP).map fun k =>
+        (((((List.range nP).map fun k =>
             Expr.bvar (nP + 1 + nm + cnF - 1 - k)) ++
           ((List.range (1 + nm)).map fun k =>
             Expr.bvar (nP + 1 + nm + cnF - 1 - nP - k))) ++
+          ((cbody.getAppArgs.drop nP).map fun e =>
+            (e.liftLooseBVars (1 + nm) cnF).renameConsts f)) ++
          [Expr.mkAppN (.const (f (RecRule.ctor r))
              (cvj.levelParams.map .param))
            (((List.range nP).map fun k =>
@@ -1384,13 +1419,13 @@ theorem domsMatchAux_inv {g : Nat → Expr → Expr}
 
 /-- Invert the pure rule-shape check. -/
 theorem checkIotaRuleShape_inv {tyA cvjty rhsA : Expr}
-    {nP nM nm cnP cnF : Nat}
+    {nP nM nm ni cnP cnF : Nat}
     {rbinders : List (Name × Expr × BinderMeta)} {rbody : Expr}
-    (h : checkIotaRuleShape tyA cvjty rhsA nP nM nm cnP cnF =
+    (h : checkIotaRuleShape tyA cvjty rhsA nP nM nm ni cnP cnF =
       some (rbinders, rbody)) :
     ∃ tbinders tybody cbinders cbody,
       rhsA.stripLams (nP + nM + nm + cnF) = some (rbinders, rbody) ∧
-      tyA.stripPis (nP + nM + nm + 1) = some (tbinders, tybody) ∧
+      tyA.stripPis (nP + nM + nm + ni + 1) = some (tbinders, tybody) ∧
       cvjty.stripPis (cnP + cnF) = some (cbinders, cbody) ∧
       domsMatchAux (fun _ e => e) rbinders tbinders 0 0 (nP + nM + nm)
         = true ∧
@@ -1399,7 +1434,7 @@ theorem checkIotaRuleShape_inv {tyA cvjty rhsA : Expr}
   unfold checkIotaRuleShape at h
   revert h
   match hstR : rhsA.stripLams (nP + nM + nm + cnF),
-      hstT : tyA.stripPis (nP + nM + nm + 1),
+      hstT : tyA.stripPis (nP + nM + nm + ni + 1),
       hstC : cvjty.stripPis (cnP + cnF) with
   | some (rb, rb'), some (tb, tb'), some (cb, cb') => ?_
   | none, _, _ => intro h; exact nomatch h
@@ -1425,40 +1460,49 @@ theorem checkIotaRuleShape_inv {tyA cvjty rhsA : Expr}
 
 /-- Invert the pure statement-shape check. -/
 theorem checkIotaStmtShape_inv {f : Name → Name} {cvName ctorName : Name}
-    {lps cvjlps : List Name} {nP nM nm cnF : Nat} {cvtType : Expr}
+    {lps cvjlps : List Name} {nP nM nm ni cnF : Nat} {cvjty cvtType : Expr}
     {rbinders : List (Name × Expr × BinderMeta)} {rbody : Expr}
-    (h : checkIotaStmtShape f cvName ctorName lps cvjlps nP nM nm cnF
-      cvtType rbinders rbody = true) :
-    ∃ sbinders sbody mna mdomA mbm ℓA,
+    (h : checkIotaStmtShape f cvName ctorName lps cvjlps nP nM nm ni cnF
+      cvjty cvtType rbinders rbody = true) :
+    ∃ sbinders sbody mna mdomA mbm ℓA cbindersS cbodyS,
       cvtType.stripPis (nP + nM + nm + cnF) = some (sbinders, sbody) ∧
       rbinders[nP]? = some (mna, mdomA, mbm) ∧
+      cvjty.stripPis (nP + cnF) = some (cbindersS, cbodyS) ∧
       mdomA.resultSort = some ℓA ∧
+      cbodyS.getAppArgs.length = nP + ni ∧
       domsMatchAux (fun _ e => e.renameConsts f) sbinders rbinders 0 0
         (nP + nM + nm + cnF) = true ∧
-      (sbody == Expr.mkAppN (.const eqName [ℓA])
-        [.app (Expr.bvar (cnF + nm + (nM - 1)))
-          (Expr.mkAppN (.const (f ctorName) (cvjlps.map .param))
+      sbody = Expr.mkAppN (.const eqName [ℓA])
+        [Expr.mkAppN (Expr.bvar (cnF + nm + (nM - 1)))
+          (((cbodyS.getAppArgs.drop nP).map fun e =>
+              (e.liftLooseBVars (nM + nm) cnF).renameConsts f) ++
+           [Expr.mkAppN (.const (f ctorName) (cvjlps.map .param))
             (((List.range nP).map fun k =>
                 Expr.bvar (nP + nM + nm + cnF - 1 - k)) ++
-             ((List.range cnF).map fun k => Expr.bvar (cnF - 1 - k)))),
+             ((List.range cnF).map fun k => Expr.bvar (cnF - 1 - k)))]),
          Expr.mkAppN (.const (f cvName) (lps.map .param))
-          ((((List.range nP).map fun k =>
+          (((((List.range nP).map fun k =>
               Expr.bvar (nP + nM + nm + cnF - 1 - k)) ++
             ((List.range (nM + nm)).map fun k =>
               Expr.bvar (nP + nM + nm + cnF - 1 - nP - k))) ++
+            ((cbodyS.getAppArgs.drop nP).map fun e =>
+              (e.liftLooseBVars (nM + nm) cnF).renameConsts f)) ++
            [Expr.mkAppN (.const (f ctorName) (cvjlps.map .param))
              (((List.range nP).map fun k =>
                  Expr.bvar (nP + nM + nm + cnF - 1 - k)) ++
               ((List.range cnF).map fun k =>
                 Expr.bvar (cnF - 1 - k)))]),
-         rbody.renameConsts f]) = true := by
+         rbody.renameConsts f] := by
   unfold checkIotaStmtShape at h
   revert h
   match hstS : cvtType.stripPis (nP + nM + nm + cnF),
-      hmb : rbinders[nP]? with
-  | some (sbinders, sbody), some (mna, mdomA, mbm) => ?_
-  | none, _ => intro h; exact nomatch h
-  | some _, none => intro h; exact nomatch h
+      hmb : rbinders[nP]?,
+      hstC : cvjty.stripPis (nP + cnF) with
+  | some (sbinders, sbody), some (mna, mdomA, mbm),
+      some (cbindersS, cbodyS) => ?_
+  | none, _, _ => intro h; exact nomatch h
+  | some _, none, _ => intro h; exact nomatch h
+  | some _, some _, none => intro h; exact nomatch h
   intro h
   dsimp only at h
   revert h
@@ -1468,20 +1512,17 @@ theorem checkIotaStmtShape_inv {f : Name → Name} {cvName ctorName : Name}
   intro h
   dsimp only at h
   simp only [Bool.and_eq_true] at h
-  first
-  | exact ⟨sbinders, sbody, mna, mdomA, mbm, ℓA, rfl, rfl, rfl, h.1, h.2⟩
-  | exact ⟨sbinders, sbody, mna, mdomA, mbm, ℓA, hstS, hmb, hms, h.1, h.2⟩
-  | exact ⟨sbinders, sbody, mna, mdomA, mbm, ℓA, rfl, rfl, hms, h.1, h.2⟩
-  | exact ⟨sbinders, sbody, mna, mdomA, mbm, ℓA, rfl, hmb, hms, h.1, h.2⟩
+  exact ⟨_, _, _, _, _, _, _, _, rfl, rfl, rfl, hms, eq_of_beq h.1.1,
+    h.1.2, eq_of_beq h.2⟩
 
 /-- Invert a successful `checkIotaRules` run: every returned rule
 carries the full `RuleChecked` hypothesis kit. -/
 theorem checkIotaRules_inv {env' envSelf : Env} {f : Name → Name}
-    {cvA : ConstantVal} {nP nm : Nat} :
+    {cvA : ConstantVal} {nP nm ni : Nat} :
     ∀ (j : Nat) (rules rules' : List RecRule),
     checkIotaRules (fueledOps F) env' envSelf f cvA.name cvA.levelParams cvA.type
-      nP 1 nm j rules = .ok rules' →
-    ∀ r' ∈ rules', RuleChecked F env' envSelf f cvA nP nm r' := by
+      nP 1 nm ni j rules = .ok rules' →
+    ∀ r' ∈ rules', RuleChecked F env' envSelf f cvA nP nm ni r' := by
   intro j rules
   induction rules generalizing j with
   | nil =>
@@ -1538,7 +1579,7 @@ theorem checkIotaRules_inv {env' envSelf : Env} {f : Name → Name}
     rw [if_pos hrres] at h
     try dsimp only at h
     revert h
-    match hshape : checkIotaRuleShape cvA.type cvj.type rhsA nP 1 nm
+    match hshape : checkIotaRuleShape cvA.type cvj.type rhsA nP 1 nm ni
         nP cnF with
     | none => intro h; exact nomatch h
     | some pr => ?_
@@ -1554,7 +1595,7 @@ theorem checkIotaRules_inv {env' envSelf : Env} {f : Name → Name}
     try dsimp only at h
     revert h
     match hbuild : buildIotaStmt f cvA.name r.ctor cvA.levelParams
-        cvj.levelParams nP 1 nm cnF cvA.type cvj.type r.rhs with
+        cvj.levelParams nP 1 nm ni cnF cvA.type cvj.type r.rhs with
     | none => intro h; exact nomatch h
     | some stmtRaw => ?_
     intro h
@@ -1584,14 +1625,16 @@ theorem checkIotaRules_inv {env' envSelf : Env} {f : Name → Name}
     rw [if_pos hbeq] at h
     try dsimp only at h
     by_cases hstmt : checkIotaStmtShape f cvA.name r.ctor cvA.levelParams
-        cvj.levelParams nP 1 nm cnF cvt.type rbinders rbody = true
+        cvj.levelParams nP 1 nm ni cnF cvj.type cvt.type rbinders
+        rbody = true
     case neg => rw [if_neg hstmt] at h; exact nomatch h
     rw [if_pos hstmt] at h
     try dsimp only at h
-    obtain ⟨sbinders, sbody, mna, mdomA, mbm, ℓA, hstS, hmb, hms, hallS,
-      hsbeq⟩ := checkIotaStmtShape_inv hstmt
+    obtain ⟨sbinders, sbody, mna, mdomA, mbm, ℓA, cbindersS, cbodyS,
+      hstS, hmb, hstC2, hms, hclen2, hallS, hsbeq⟩ :=
+      checkIotaStmtShape_inv hstmt
     cases hrec : checkIotaRules (fueledOps F) env' envSelf f cvA.name cvA.levelParams
-        cvA.type nP 1 nm (j + 1) rest with
+        cvA.type nP 1 nm ni (j + 1) rest with
     | error e => rw [hrec] at h; exact nomatch h
     | ok rest' =>
     rw [hrec] at h
@@ -1604,16 +1647,20 @@ theorem checkIotaRules_inv {env' envSelf : Env} {f : Name → Name}
     unfold RuleChecked
     have hrlen : rbinders.length = nP + 1 + nm + cnF :=
       Expr.stripLams_length _ hstR
-    have htlen : tbinders.length = nP + 1 + nm + 1 :=
+    have htlen : tbinders.length = nP + 1 + nm + ni + 1 :=
       Expr.stripPis_length _ hstT
     have hclen : cbinders.length = nP + cnF :=
       Expr.stripPis_length _ hstC
     have hslen : sbinders.length = nP + 1 + nm + cnF :=
       Expr.stripPis_length _ hstS
+    have hcc : cbinders = cbindersS ∧ cbody = cbodyS := by
+      have h2 := hstC.symm.trans hstC2
+      simpa using h2
+    obtain ⟨-, rfl⟩ := hcc
     refine ⟨cvj, cnF, r.rhs, rbinders, tbinders, cbinders, sbinders,
       rbody, tybody, cbody, sbody,
       (cvA.name.str "_model").str s!"iota_{j}", cvt, tval, ℓA,
-      hfc, hnf, hann, hrfF, hrb, ?_, ?_, hstR, hstT, hstC, ?_,
+      hfc, hnf, hann, hrfF, hrb, ?_, ?_, hstR, hstT, hstC, hclen2, ?_,
       ?_, ?_, ?_, ?_, hfthm, hlpt, hrlp, hrres⟩
     · -- rhsA has no fvars
       exact not_hasFvar_of_fvarsBelow_zero
@@ -1647,7 +1694,7 @@ theorem checkIotaRules_inv {env' envSelf : Env} {f : Name → Name}
       exact domsMatchAux_inv hallS hi
         (by rw [Nat.zero_add]; exact hsb) (by rw [Nat.zero_add]; exact hrbi)
     · -- the pinned equation body
-      exact eq_of_beq hsbeq
+      exact hsbeq
 
 set_option maxHeartbeats 1600000 in
 /-- The kernel-checked eta pins of a block's capability record,
@@ -2183,7 +2230,7 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
   obtain ⟨m₀, hval₀, hpres₀⟩ := extend_modeled_one m
     (.recInfo cvA nP 0 0 0 []) f₀ (mnameP)
     hfind' hnres hwf₀ htyres0
-    (Or.inr (Or.inr ⟨cvA, nP, 0, 0, rfl⟩)) hmodel hlps hren₀ hro
+    (Or.inr (Or.inr ⟨cvA, nP, 0, 0, 0, rfl⟩)) hmodel hlps hren₀ hro
     (fun hk => by
       rcases hk with ⟨_, _, hcon⟩ | ⟨_, _, _, hcon⟩ <;> exact nomatch hcon)
     hprojm
@@ -2485,7 +2532,7 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
       injection hje with j1 j2 j3
       subst j1 j2 j3
       obtain ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
-        hψeq, hψjeq, hfit1, hfit2⟩ := hfit
+        hψeq, hψjeq, hfit1, hfit2, hidx⟩ := hfit
       subst hψeq hψjeq
       have hro₁ : RenameOk m₀.val
           (⟨.recInfo cvA nP 0 0 0 [rule] :: env.consts⟩ : Env) f := by
@@ -2633,12 +2680,15 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
         rw [← hfindEq _ hncc]
         exact hfj
       obtain ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
-        hψeq, hψjeq, hfit1, hfit2⟩ := hfit
+        hψeq, hψjeq, hfit1, hfit2, hidx⟩ := hfit
       obtain ⟨R', hRi, hfoldEq, hRch⟩ := hfold cvj' cnP' cnF' hfj₀ ψ ψj
         args margs tv hl hml hch hmch htv hpeq hlev
         ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
           hψeq, hψjeq, TeleFit.env_levelext henv10 natLitSupported_cons_recRules hfit1,
-          TeleFit.env_levelext henv10 natLitSupported_cons_recRules hfit2⟩
+          TeleFit.env_levelext henv10 natLitSupported_cons_recRules hfit2, by
+            rw [← mapM_interp_congr (fun e => interp_env_ext henv10
+              natLitSupported_cons_recRules e dd₂ ρρ₂)]
+            exact hidx⟩
       refine ⟨R', ?_, hfoldEq, hRch⟩
       rw [hitrans]
       exact hRi
@@ -2736,14 +2786,16 @@ theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
          env₁ = ⟨.indInfo cvA caps :: env'.consts⟩ ∨
        (∃ cv nP nF, ci = .ctorInfo cv nP nF ∧
          env₁ = ⟨.ctorInfo cvA nP nF :: env'.consts⟩) ∨
-       (∃ cv nP nm rules rules', ci = .recInfo cv nP 1 nm 0 rules ∧
+       (∃ cv nP nm ni rules rules', ci = .recInfo cv nP 1 nm ni rules ∧
          blockNames.all (fun n =>
            n == cvA.name || (env'.find? n).isSome) = true ∧
          env'.find? eqName = some eqA ∧
-         checkIotaRules (fueledOps F) env' ⟨.recInfo cvA nP 1 nm 0 [] :: env'.consts⟩
+         checkIotaRules (fueledOps F) env'
+           ⟨.recInfo cvA nP 1 nm ni [] :: env'.consts⟩
            (fun n => if blockNames.contains n then n.str "_model" else n)
-           cvA.name cvA.levelParams cvA.type nP 1 nm 0 rules = .ok rules' ∧
-         env₁ = ⟨.recInfo cvA nP 1 nm 0 rules' :: env'.consts⟩)) := by
+           cvA.name cvA.levelParams cvA.type nP 1 nm ni 0 rules =
+           .ok rules' ∧
+         env₁ = ⟨.recInfo cvA nP 1 nm ni rules' :: env'.consts⟩)) := by
   simp only [checkIndMember, fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
     fueledOps_ensureSort, fueledOps_whnf, Bind.bind, Except.bind] at h
   cases hccv : checkConstantVal (fueledOps F) env' ci.toConstantVal with
@@ -2792,11 +2844,6 @@ theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
   | recInfo cv nP nM nm ni rules =>
     refine Or.inr (Or.inr ?_)
     simp only [Bind.bind, Except.bind] at h
-    by_cases hni : ni = 0
-    case neg => rw [if_neg hni] at h; exact nomatch h
-    rw [if_pos hni] at h
-    subst hni
-    try dsimp only at h
     by_cases hnM : nM = 1
     case neg => rw [if_neg hnM] at h; exact nomatch h
     rw [if_pos hnM] at h
@@ -2813,14 +2860,14 @@ theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
     try dsimp only at h
     try dsimp only at h
     cases hcir : checkIotaRules (fueledOps F) env'
-        ⟨.recInfo cvA nP 1 nm 0 [] :: env'.consts⟩
+        ⟨.recInfo cvA nP 1 nm ni [] :: env'.consts⟩
         (fun n => if blockNames.contains n then n.str "_model" else n)
-        cvA.name cvA.levelParams cvA.type nP 1 nm 0 rules with
+        cvA.name cvA.levelParams cvA.type nP 1 nm ni 0 rules with
     | error e => rw [hcir] at h; exact nomatch h
     | ok rules' =>
     rw [hcir] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
-    exact ⟨cv, nP, nm, rules, rules', rfl, hall, heqf, hcir, h.symm⟩
+    exact ⟨cv, nP, nm, ni, rules, rules', rfl, hall, heqf, hcir, h.symm⟩
 
 
 /-- Extend a model by an opaque modeled *recursor*: its value is its
@@ -2831,13 +2878,13 @@ recursor, whose model exists trivially; the final environment differs
 only in the attached rule list, which the interpretation never
 reads. -/
 theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
-    (cvA : ConstantVal) (nP nm : Nat) (rules' : List RecRule)
+    (cvA : ConstantVal) (nP nm ni : Nat) (rules' : List RecRule)
     (f : Name → Name) {cvm : ConstantVal} {mval : Expr}
     (hfind' : env.find? cvA.name = none)
     (hnres : reservedBasisNames.contains cvA.name = false)
     (hpshape : cvA.name.isProjFnShape = false)
-    (hwf : ConstWF ⟨.recInfo cvA nP 1 nm 0 rules' :: env.consts⟩
-      (.recInfo cvA nP 1 nm 0 rules'))
+    (hwf : ConstWF ⟨.recInfo cvA nP 1 nm ni rules' :: env.consts⟩
+      (.recInfo cvA nP 1 nm ni rules'))
     (htyres0 : cvA.type.constsResolve env = true)
     (hmodel : env.find? (cvA.name.str "_model") = some (.defnInfo cvm mval))
     (hlps : cvm.levelParams = cvA.levelParams)
@@ -2849,29 +2896,29 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
     (heqfind : env.find? eqName = some eqA)
     (heqval : ∀ ψ'' : Name → Nat, m.val eqName ψ'' = eqVal V ψ'')
     (hrules : ∀ r ∈ rules', RuleChecked F env
-      ⟨.recInfo cvA nP 1 nm 0 [] :: env.consts⟩ f cvA nP nm r) :
-    ∃ m' : EnvModel V ⟨.recInfo cvA nP 1 nm 0 rules' :: env.consts⟩,
+      ⟨.recInfo cvA nP 1 nm ni [] :: env.consts⟩ f cvA nP nm ni r) :
+    ∃ m' : EnvModel V ⟨.recInfo cvA nP 1 nm ni rules' :: env.consts⟩,
       (∀ ψ, m'.val cvA.name ψ = m.val (cvA.name.str "_model") ψ) ∧
       (∀ n ψ, n ≠ cvA.name → m'.val n ψ = m.val n ψ) := by
   -- phase 0: install the rules-free provisional recursor
   have hisoRes : ∀ n,
-      ((⟨.recInfo cvA nP 1 nm 0 rules' :: env.consts⟩ : Env).find? n).isSome
+      ((⟨.recInfo cvA nP 1 nm ni rules' :: env.consts⟩ : Env).find? n).isSome
       =
-      ((⟨.recInfo cvA nP 1 nm 0 [] :: env.consts⟩ : Env).find? n).isSome := by
+      ((⟨.recInfo cvA nP 1 nm ni [] :: env.consts⟩ : Env).find? n).isSome := by
     intro n
     rw [Env.find?_cons, Env.find?_cons]
     by_cases h : cvA.name = n
-    · rw [if_pos (show (ConstantInfo.recInfo cvA nP 1 nm 0
+    · rw [if_pos (show (ConstantInfo.recInfo cvA nP 1 nm ni
           rules').name = n from h),
-        if_pos (show (ConstantInfo.recInfo cvA nP 1 nm 0
+        if_pos (show (ConstantInfo.recInfo cvA nP 1 nm ni
           []).name = n from h)]
       rfl
-    · rw [if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0
+    · rw [if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm ni
           rules').name = n from h),
-        if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0
+        if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm ni
           []).name = n from h)]
-  have hwf₀ : ConstWF (⟨.recInfo cvA nP 1 nm 0 [] :: env.consts⟩ : Env)
-      (.recInfo cvA nP 1 nm 0 []) := by
+  have hwf₀ : ConstWF (⟨.recInfo cvA nP 1 nm ni [] :: env.consts⟩ : Env)
+      (.recInfo cvA nP 1 nm ni []) := by
     obtain ⟨h1, h2, h3, h4, -, -⟩ := hwf
     refine ⟨h1, h2, ?_, h4, ?_, ?_⟩
     · rw [← Expr.constsResolve_congr hisoRes]
@@ -2890,9 +2937,9 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
       cvA.type htyres0]
     exact hren
   obtain ⟨m₀, hval₀, hpres₀⟩ := extend_modeled_one m
-    (.recInfo cvA nP 1 nm 0 []) f₀ (cvA.name.str "_model")
+    (.recInfo cvA nP 1 nm ni []) f₀ (cvA.name.str "_model")
     hfind' hnres hwf₀ htyres0
-    (Or.inr (Or.inr ⟨cvA, nP, 1, nm, rfl⟩)) hmodel hlps hren₀ hro
+    (Or.inr (Or.inr ⟨cvA, nP, 1, nm, ni, rfl⟩)) hmodel hlps hren₀ hro
     (fun hk => by
       rcases hk with ⟨_, _, hcon⟩ | ⟨_, _, _, hcon⟩ <;> exact nomatch hcon)
     (fun T j hh => by
@@ -2902,48 +2949,48 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
     (fun cv caps hcon => nomatch hcon)
     (fun cv caps hcon => nomatch hcon)
   have henv01 : ∀ n,
-      ((⟨.recInfo cvA nP 1 nm 0 [] :: env.consts⟩ : Env).find? n).map
+      ((⟨.recInfo cvA nP 1 nm ni [] :: env.consts⟩ : Env).find? n).map
         (fun ci => ci.toConstantVal.levelParams) =
-      ((⟨.recInfo cvA nP 1 nm 0 rules' :: env.consts⟩ : Env).find? n).map
+      ((⟨.recInfo cvA nP 1 nm ni rules' :: env.consts⟩ : Env).find? n).map
         (fun ci => ci.toConstantVal.levelParams) := by
     intro n
     rw [Env.find?_cons, Env.find?_cons]
     by_cases h : cvA.name = n
-    · rw [if_pos (show (ConstantInfo.recInfo cvA nP 1 nm 0
+    · rw [if_pos (show (ConstantInfo.recInfo cvA nP 1 nm ni
           []).name = n from h),
-        if_pos (show (ConstantInfo.recInfo cvA nP 1 nm 0
+        if_pos (show (ConstantInfo.recInfo cvA nP 1 nm ni
           rules').name = n from h)]
       rfl
-    · rw [if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0
+    · rw [if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm ni
           []).name = n from h),
-        if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0
+        if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm ni
           rules').name = n from h)]
   -- shared transports between the provisional and final environments
   have hfindEq : ∀ n, n ≠ cvA.name →
-      (⟨.recInfo cvA nP 1 nm 0 rules' :: env.consts⟩ : Env).find? n =
-      (⟨.recInfo cvA nP 1 nm 0 [] :: env.consts⟩ : Env).find? n := by
+      (⟨.recInfo cvA nP 1 nm ni rules' :: env.consts⟩ : Env).find? n =
+      (⟨.recInfo cvA nP 1 nm ni [] :: env.consts⟩ : Env).find? n := by
     intro n hn
     rw [Env.find?_cons, Env.find?_cons,
-      if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0 rules').name = n
+      if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm ni rules').name = n
         from fun h => hn h.symm),
-      if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0 []).name = n
+      if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm ni []).name = n
         from fun h => hn h.symm)]
   have hitrans : ∀ (e : Expr) (ψ : Name → Nat),
       interpClosed V m₀.val
-        (⟨.recInfo cvA nP 1 nm 0 rules' :: env.consts⟩ : Env) ψ e =
+        (⟨.recInfo cvA nP 1 nm ni rules' :: env.consts⟩ : Env) ψ e =
       interpClosed V m₀.val
-        (⟨.recInfo cvA nP 1 nm 0 [] :: env.consts⟩ : Env) ψ e := by
+        (⟨.recInfo cvA nP 1 nm ni [] :: env.consts⟩ : Env) ψ e := by
     intro e ψ
     exact (interp_env_ext henv01 natLitSupported_cons_recRules e 0 (rho0 V)).symm
   have hAtrans01 : ∀ (e : Expr) (ψ : Name → Nat) (d : Nat) (ρ : Nat → V),
-      AnnotOk V m₀.val (⟨.recInfo cvA nP 1 nm 0 [] :: env.consts⟩ : Env)
+      AnnotOk V m₀.val (⟨.recInfo cvA nP 1 nm ni [] :: env.consts⟩ : Env)
         ψ d ρ e →
       AnnotOk V m₀.val
-        (⟨.recInfo cvA nP 1 nm 0 rules' :: env.consts⟩ : Env) ψ d ρ e :=
+        (⟨.recInfo cvA nP 1 nm ni rules' :: env.consts⟩ : Env) ψ d ρ e :=
     fun e ψ d ρ h => AnnotOk.env_ext henv01 natLitSupported_cons_recRules e d ρ h
   have hCWtrans : ∀ c,
-      ConstWF (⟨.recInfo cvA nP 1 nm 0 [] :: env.consts⟩ : Env) c →
-      ConstWF (⟨.recInfo cvA nP 1 nm 0 rules' :: env.consts⟩ : Env) c := by
+      ConstWF (⟨.recInfo cvA nP 1 nm ni [] :: env.consts⟩ : Env) c →
+      ConstWF (⟨.recInfo cvA nP 1 nm ni rules' :: env.consts⟩ : Env) c := by
     intro c hc
     obtain ⟨h1, h2, h3, h4, h5, h6⟩ := hc
     refine ⟨h1, h2, ?_, h4, ?_, ?_⟩
@@ -2960,20 +3007,20 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
   -- hoisted: parameter-dependence over the final environment, and
   -- transports from the base model
   have hvp₁ : ConstValParams m₀.val
-      (⟨.recInfo cvA nP 1 nm 0 rules' :: env.consts⟩ : Env) := by
+      (⟨.recInfo cvA nP 1 nm ni rules' :: env.consts⟩ : Env) := by
     intro n ci hf ψ₁ ψ₂ hψ
     rw [Env.find?_cons] at hf
     split at hf
     · next hn =>
       obtain rfl := Option.some.inj hf
-      exact m₀.val_params n (.recInfo cvA nP 1 nm 0 [])
+      exact m₀.val_params n (.recInfo cvA nP 1 nm ni [])
         (by rw [Env.find?_cons,
-          if_pos (show (ConstantInfo.recInfo cvA nP 1 nm 0 []).name = n
+          if_pos (show (ConstantInfo.recInfo cvA nP 1 nm ni []).name = n
             from hn)]) ψ₁ ψ₂ (by exact hψ)
     · next hn =>
       refine m₀.val_params n ci ?_ ψ₁ ψ₂ hψ
       rw [Env.find?_cons,
-        if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0 []).name = n
+        if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm ni []).name = n
           from hn)]
       exact hf
   have hagreeM : ∀ n, (env.find? n).isSome = true → ∀ ψ : Name → Nat,
@@ -2987,7 +3034,7 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
   have htransM : ∀ (e : Expr), e.constsResolve env = true →
       ∀ ψ : Name → Nat,
       interpClosed V m₀.val
-        (⟨.recInfo cvA nP 1 nm 0 rules' :: env.consts⟩ : Env) ψ e =
+        (⟨.recInfo cvA nP 1 nm ni rules' :: env.consts⟩ : Env) ψ e =
       interpClosed V m.val env ψ e := by
     intro e hres ψ
     rw [interpClosed_mono (cval := m₀.val) hfind' hres]
@@ -2996,16 +3043,16 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
       ∀ ψ : Name → Nat,
       AnnotOk V m.val env ψ 0 (rho0 V) e →
       AnnotOk V m₀.val
-        (⟨.recInfo cvA nP 1 nm 0 rules' :: env.consts⟩ : Env) ψ 0
+        (⟨.recInfo cvA nP 1 nm ni rules' :: env.consts⟩ : Env) ψ 0
         (rho0 V) e := by
     intro e hres ψ ha
     refine AnnotOk.mono hfind' e 0 (rho0 V) hres ?_
     exact AnnotOk.cval_ext (fun n hn ψ' => (hagreeM n hn ψ').symm)
       e 0 (rho0 V) ha
   have henv10 : ∀ n,
-      ((⟨.recInfo cvA nP 1 nm 0 rules' :: env.consts⟩ : Env).find? n).map
+      ((⟨.recInfo cvA nP 1 nm ni rules' :: env.consts⟩ : Env).find? n).map
         (fun ci => ci.toConstantVal.levelParams) =
-      ((⟨.recInfo cvA nP 1 nm 0 [] :: env.consts⟩ : Env).find? n).map
+      ((⟨.recInfo cvA nP 1 nm ni [] :: env.consts⟩ : Env).find? n).map
         (fun ci => ci.toConstantVal.levelParams) :=
     fun n => (henv01 n).symm
   refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
@@ -3021,20 +3068,20 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
     split at hf
     · next hn =>
       obtain rfl := Option.some.inj hf
-      exact m₀.val_params n (.recInfo cvA nP 1 nm 0 [])
+      exact m₀.val_params n (.recInfo cvA nP 1 nm ni [])
         (by rw [Env.find?_cons,
-          if_pos (show (ConstantInfo.recInfo cvA nP 1 nm 0 []).name = n
+          if_pos (show (ConstantInfo.recInfo cvA nP 1 nm ni []).name = n
             from hn)]) ψ₁ ψ₂ (by exact hψ)
     · next hn =>
       refine m₀.val_params n ci ?_ ψ₁ ψ₂ hψ
       rw [Env.find?_cons,
-        if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0 []).name = n
+        if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm ni []).name = n
           from hn)]
       exact hf
   · -- mem_type
     intro c hc ψ
     rcases List.mem_cons.mp hc with rfl | hc
-    · obtain ⟨t, ht, hmem⟩ := m₀.mem_type (.recInfo cvA nP 1 nm 0 [])
+    · obtain ⟨t, ht, hmem⟩ := m₀.mem_type (.recInfo cvA nP 1 nm ni [])
         List.mem_cons_self ψ
       exact ⟨t, by rw [hitrans]; exact ht, hmem⟩
     · obtain ⟨t, ht, hmem⟩ := m₀.mem_type c (List.mem_cons_of_mem _ hc) ψ
@@ -3049,7 +3096,7 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
   · -- annot_ok
     intro c hc ψ
     rcases List.mem_cons.mp hc with rfl | hc
-    · obtain ⟨hA1, hA2⟩ := m₀.annot_ok (.recInfo cvA nP 1 nm 0 [])
+    · obtain ⟨hA1, hA2⟩ := m₀.annot_ok (.recInfo cvA nP 1 nm ni [])
         List.mem_cons_self ψ
       exact ⟨hAtrans01 _ ψ 0 (rho0 V) hA1,
         fun cv2 v2 heq => nomatch heq⟩
@@ -3081,7 +3128,7 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
         subst hn
         rw [hnres] at hres2
         exact nomatch hres2
-      · have hfp₀ : (⟨.recInfo cvA nP 1 nm 0 [] ::
+      · have hfp₀ : (⟨.recInfo cvA nP 1 nm ni [] ::
             env.consts⟩ : Env).find? n = some ci := by
           rw [← hfindEq n (fun h => hn h.symm)]
           exact hfp
@@ -3115,7 +3162,7 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
       by_cases hn : cvA.name = n
       · subst hn
         rw [Env.find?_cons,
-          if_pos (show (ConstantInfo.recInfo cvA nP 1 nm 0
+          if_pos (show (ConstantInfo.recInfo cvA nP 1 nm ni
             rules').name = cvA.name from rfl)] at hfp
         obtain heq := Option.some.inj hfp
         injection heq with e1 e2 e3 e4 e5 e6
@@ -3124,7 +3171,7 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
           hnf, -⟩ := hrules r hr
         refine ⟨cvj, nP, cnF, ?_⟩
         rw [Env.find?_cons,
-          if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0
+          if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm ni
             rules').name = RecRule.ctor r from ?_)]
         · exact hctor
         · intro h
@@ -3134,7 +3181,7 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
             have h4 := List.find?_some hctor
             simpa using h4
           exact h2 (by rw [h3, ← h]; rfl)
-      · have hfp₀ : (⟨.recInfo cvA nP 1 nm 0 [] ::
+      · have hfp₀ : (⟨.recInfo cvA nP 1 nm ni [] ::
             env.consts⟩ : Env).find? n =
             some (.recInfo cv nP' nM' nm' ni' rules) := by
           rw [← hfindEq n (fun h => hn h.symm)]
@@ -3145,7 +3192,7 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
         have hnc : RecRule.ctor r ≠ cvA.name := by
           intro h
           rw [Env.find?_cons,
-            if_pos (show (ConstantInfo.recInfo cvA nP 1 nm 0
+            if_pos (show (ConstantInfo.recInfo cvA nP 1 nm ni
               []).name = RecRule.ctor r from h.symm)] at hc
           exact nomatch (Option.some.inj hc)
         rw [hfindEq _ hnc]
@@ -3162,7 +3209,7 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
       obtain ⟨cvj, cnF, raw, rbinders, tbinders, cbinders, sbinders,
         rbody, tybody, cbody, sbody, thmName, cvt, tval, ℓA,
         hctor, hnf, hann, hrawf, hrawb, hrhsf, hrhsb, hstripR,
-        hR_strip, hC_strip, hS_strip, hdomsPre, hdomsF, hsdoms,
+        hR_strip, hC_strip, hclen, hS_strip, hdomsPre, hdomsF, hsdoms,
         hsbody, hthm, hlpt, -, -⟩ := hrules r hr
       have hncc : RecRule.ctor r ≠ cvA.name := by
         intro h
@@ -3174,7 +3221,7 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
         exact h2 (by rw [h3, h])
       have hArhs₁ : ∀ ψ : Name → Nat,
           AnnotOk V m₀.val
-            (⟨.recInfo cvA nP 1 nm 0 rules' :: env.consts⟩ : Env) ψ 0
+            (⟨.recInfo cvA nP 1 nm ni rules' :: env.consts⟩ : Env) ψ 0
             (rho0 V) (RecRule.rhs r) := by
         intro ψ
         refine hAtrans01 _ ψ 0 (rho0 V) ?_
@@ -3184,11 +3231,11 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
       refine ⟨hArhs₁, ?_⟩
       intro cvj' cnP' cnF' hfj ψ ψj args margs tv hl hml hch hmch htv
         hpeq hlev hfit
-      have hctor₁ : (⟨.recInfo cvA nP 1 nm 0 rules' ::
+      have hctor₁ : (⟨.recInfo cvA nP 1 nm ni rules' ::
           env.consts⟩ : Env).find? (RecRule.ctor r) =
           some (.ctorInfo cvj nP cnF) := by
         rw [Env.find?_cons,
-          if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0
+          if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm ni
             rules').name = RecRule.ctor r from fun h => hncc h.symm)]
         exact hctor
       rw [hctor₁] at hfj
@@ -3196,10 +3243,10 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
       injection hje with j1 j2 j3
       subst j1 j2 j3
       obtain ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
-        hψeq, hψjeq, hfit1, hfit2⟩ := hfit
+        hψeq, hψjeq, hfit1, hfit2, hidx⟩ := hfit
       subst hψeq hψjeq
       have hro₁ : RenameOk m₀.val
-          (⟨.recInfo cvA nP 1 nm 0 rules' :: env.consts⟩ : Env) f := by
+          (⟨.recInfo cvA nP 1 nm ni rules' :: env.consts⟩ : Env) f := by
         refine ⟨?_, ?_, ?_⟩
         · intro n₂ ci₂ hf₂
           rw [Env.find?_cons] at hf₂
@@ -3211,20 +3258,20 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
                 rw [← (show cvA.name = n₂ from hh)]
                 exact hfself]
               rw [Env.find?_cons,
-                if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0
+                if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm ni
                   rules').name = cvA.name.str "_model" from
                   fun h => Name.str_ne cvA.name "_model" h.symm)]
               exact hmodel
             · show cvm.levelParams = _
               rw [hlps]
               exact (show cvA.levelParams =
-                (ConstantInfo.recInfo cvA nP 1 nm 0
+                (ConstantInfo.recInfo cvA nP 1 nm ni
                   rules').toConstantVal.levelParams from rfl)
           · next hh =>
             obtain ⟨ci₃, hf₃, hlp₃⟩ := hro.1 n₂ ci₂ hf₂
             refine ⟨ci₃, ?_, hlp₃⟩
             rw [hff₀ n₂ (fun he => hh he.symm), Env.find?_cons,
-              if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0
+              if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm ni
                 rules').name = f₀ n₂ from fun h => hfnot n₂
                   (by rw [hff₀ n₂ (fun he => hh he.symm)]; exact h.symm))]
             exact hf₃
@@ -3234,7 +3281,7 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
           · exact nomatch hf₂
           · next hh =>
             rw [hff₀ n₂ (fun he => hh he.symm), Env.find?_cons,
-              if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0
+              if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm ni
                 rules').name = f₀ n₂ from fun h => hfnot n₂
                   (by rw [hff₀ n₂ (fun he => hh he.symm)]; exact h.symm))]
             exact hro.2.1 n₂ hf₂
@@ -3248,11 +3295,11 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
             · exact absurd hh₂ (hfnot n₂)
             · rw [hpres₀ _ ψ₂ hh₂, hpres₀ _ ψ₂ hh, hff₀ n₂ hh,
                 hro.2.2 n₂]
-      have hfRm₁ : (⟨.recInfo cvA nP 1 nm 0 rules' ::
+      have hfRm₁ : (⟨.recInfo cvA nP 1 nm ni rules' ::
           env.consts⟩ : Env).find? (f cvA.name) =
           some (.defnInfo cvm mval) := by
         rw [hfself, Env.find?_cons,
-          if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0
+          if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm ni
             rules').name = cvA.name.str "_model" from
             fun h => Name.str_ne cvA.name "_model" h.symm)]
         exact hmodel
@@ -3260,10 +3307,10 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
         intro h
         rw [← h] at hnres
         exact absurd hnres (by decide)
-      have heqfind₁ : (⟨.recInfo cvA nP 1 nm 0 rules' ::
+      have heqfind₁ : (⟨.recInfo cvA nP 1 nm ni rules' ::
           env.consts⟩ : Env).find? eqName = some eqA := by
         rw [Env.find?_cons,
-          if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0
+          if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm ni
             rules').name = eqName from fun h => heqne h.symm)]
         exact heqfind
       have heqval₁ : ∀ ψ'' : Name → Nat, m₀.val eqName ψ'' = eqVal V ψ'' :=
@@ -3279,7 +3326,7 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
         exact h2 (by rw [h3, h])
       have hthm_mem₁ : ∀ ψ'' : Name → Nat, ∃ P,
           interpClosed V m₀.val
-            (⟨.recInfo cvA nP 1 nm 0 rules' :: env.consts⟩ : Env) ψ''
+            (⟨.recInfo cvA nP 1 nm ni rules' :: env.consts⟩ : Env) ψ''
             cvt.type = some P ∧
           m₀.val thmName ψ'' ∈ˢ P := by
         intro ψ''
@@ -3293,33 +3340,33 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
           exact hmem
       have hthm_annot₁ : ∀ ψ'' : Name → Nat,
           AnnotOk V m₀.val
-            (⟨.recInfo cvA nP 1 nm 0 rules' :: env.consts⟩ : Env) ψ'' 0
+            (⟨.recInfo cvA nP 1 nm ni rules' :: env.consts⟩ : Env) ψ'' 0
             (rho0 V) cvt.type := by
         intro ψ''
         obtain ⟨hA1, -⟩ := m.annot_ok _ (find?_mem hthm) ψ''
         exact hAtransM cvt.type hthres ψ'' hA1
-      obtain ⟨hCtf, hCtp, -, -, -, -⟩ := m.wf _ (find?_mem hctor)
+      obtain ⟨hCtf, hCtp, -, hCtb, -, -⟩ := m.wf _ (find?_mem hctor)
       have htyw₁ : cvA.type.hasFvar = false := hwf.1
       have hClps₁ : ∀ ψ₁ ψ₂ : Name → Nat,
           (∀ p ∈ cvj.levelParams, ψ₁ p = ψ₂ p) →
           m₀.val (RecRule.ctor r) ψ₁ = m₀.val (RecRule.ctor r) ψ₂ :=
         fun ψ₁ ψ₂ hψ => hvp₁ _ _ hctor₁ ψ₁ ψ₂ (by exact hψ)
-      have hl' : args.length = nP + 1 + nm := by simpa using hl
-      exact modeled_rule_fold hro₁ hvp₁ hctor₁ hfRm₁
+      have hl' : args.length = nP + 1 + nm + ni := by simpa using hl
+      exact modeled_rule_fold (ni := ni) hro₁ hvp₁ hctor₁ hfRm₁
         (show (ConstantInfo.defnInfo cvm
           mval).toConstantVal.levelParams = cvA.levelParams from hlps)
         hClps₁ heqfind₁ heqval₁ hthm_mem₁ hthm_annot₁ hthw hstripR
-        hR_strip hC_strip hS_strip hdomsPre hdomsF hsdoms hsbody hrhsf
-        hrhsb hArhs₁ htyw₁ hCtf
+        hR_strip hC_strip hclen hS_strip hdomsPre hdomsF hsdoms hsbody
+        hrhsf hrhsb hArhs₁ htyw₁ hCtf hCtb
         (show cvj.type.allLevelParamsDefined cvj.levelParams = true from
           hCtp)
-        hl' hml htv hpeq hlev hfit1 hfit2
+        hl' hml htv hpeq hlev hfit1 hfit2 hidx
     · next hn =>
-      have hfp₀ : (⟨.recInfo cvA nP 1 nm 0 [] ::
+      have hfp₀ : (⟨.recInfo cvA nP 1 nm ni [] ::
           env.consts⟩ : Env).find? n =
           some (.recInfo cvR nP' nM' nm' ni' rules) := by
         rw [Env.find?_cons,
-          if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0
+          if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm ni
             []).name = n from hn)]
         exact hfp
       obtain ⟨hA, hfold⟩ := m₀.rec_rules n cvR nP' nM' nm' ni' rules
@@ -3330,37 +3377,40 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
       have hncc : RecRule.ctor r ≠ cvA.name := by
         intro h
         rw [h, Env.find?_cons,
-          if_pos (show (ConstantInfo.recInfo cvA nP 1 nm 0
+          if_pos (show (ConstantInfo.recInfo cvA nP 1 nm ni
             rules').name = cvA.name from rfl)] at hfj
         exact nomatch (Option.some.inj hfj)
-      have hfj₀ : (⟨.recInfo cvA nP 1 nm 0 [] ::
+      have hfj₀ : (⟨.recInfo cvA nP 1 nm ni [] ::
           env.consts⟩ : Env).find? (RecRule.ctor r) =
           some (.ctorInfo cvj' cnP' cnF') := by
         rw [← hfindEq _ hncc]
         exact hfj
       obtain ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
-        hψeq, hψjeq, hfit1, hfit2⟩ := hfit
+        hψeq, hψjeq, hfit1, hfit2, hidx⟩ := hfit
       obtain ⟨R', hRi, hfoldEq, hRch⟩ := hfold cvj' cnP' cnF' hfj₀ ψ ψj
         args margs tv hl hml hch hmch htv hpeq hlev
         ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
           hψeq, hψjeq, TeleFit.env_levelext henv10 natLitSupported_cons_recRules hfit1,
-          TeleFit.env_levelext henv10 natLitSupported_cons_recRules hfit2⟩
+          TeleFit.env_levelext henv10 natLitSupported_cons_recRules hfit2, by
+            rw [← mapM_interp_congr (fun e => interp_env_ext henv10
+              natLitSupported_cons_recRules e dd₂ ρρ₂)]
+            exact hidx⟩
       refine ⟨R', ?_, hfoldEq, hRch⟩
       rw [hitrans]
       exact hRi
   · -- modeled_ok: lookups only differ in the head's rule list
     obtain ⟨mo1, mo2, mo3, mo4, mo5⟩ := m₀.modeled_ok
     have hisoF : ∀ n,
-        (⟨.recInfo cvA nP 1 nm 0 rules' :: env.consts⟩ : Env).find? n =
-        if cvA.name = n then some (.recInfo cvA nP 1 nm 0 rules')
-        else (⟨.recInfo cvA nP 1 nm 0 [] :: env.consts⟩ : Env).find? n := by
+        (⟨.recInfo cvA nP 1 nm ni rules' :: env.consts⟩ : Env).find? n =
+        if cvA.name = n then some (.recInfo cvA nP 1 nm ni rules')
+        else (⟨.recInfo cvA nP 1 nm ni [] :: env.consts⟩ : Env).find? n := by
       intro n
       rw [Env.find?_cons]
       by_cases h : cvA.name = n
-      · rw [if_pos (show (ConstantInfo.recInfo cvA nP 1 nm 0 rules').name = n from h), if_pos h]
-      · rw [if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0 rules').name = n from h), if_neg h,
+      · rw [if_pos (show (ConstantInfo.recInfo cvA nP 1 nm ni rules').name = n from h), if_pos h]
+      · rw [if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm ni rules').name = n from h), if_neg h,
           Env.find?_cons,
-          if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0 []).name = n from h)]
+          if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm ni []).name = n from h)]
     refine ⟨?_, ?_, ?_, ?_, ?_⟩
     · intro n cv caps hf hres
       rw [hisoF] at hf
@@ -3386,9 +3436,9 @@ theorem extend_modeled_rec {env : Env} (m : EnvModel V env)
       rw [hisoF] at hf
       split at hf
       · next hh =>
-        obtain ⟨hms, hveq⟩ := mo3 T j (.recInfo cvA nP 1 nm 0 [])
+        obtain ⟨hms, hveq⟩ := mo3 T j (.recInfo cvA nP 1 nm ni [])
           (by rw [Env.find?_cons,
-            if_pos (show (ConstantInfo.recInfo cvA nP 1 nm 0 []).name = projFnName T j from hh)])
+            if_pos (show (ConstantInfo.recInfo cvA nP 1 nm ni []).name = projFnName T j from hh)])
         refine ⟨?_, hveq⟩
         rw [hisoF]
         split
@@ -3567,7 +3617,7 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
     rw [← htypeA]
     exact hrenf
   rcases hkind with ⟨⟨cv, caps', rfl⟩, rfl⟩ | ⟨cv, nP, nF, rfl, rfl⟩ |
-    ⟨cv, nP, nm, rules, rules', rfl, hall, heqf, hcir, rfl⟩
+    ⟨cv, nP, nm, ni, rules, rules', rfl, hall, heqf, hcir, rfl⟩
   · -- inductive type former
     have hwf : ConstWF ⟨.indInfo cvA caps :: env'.consts⟩
         (.indInfo cvA caps) := by
@@ -3752,24 +3802,24 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
         m.ind_ok.2.2.2.1 eqName eqA heqf (by rfl) (by decide)
       rw [hpv ψ'']
       simp [pinnedVal]
-    have hwf : ConstWF ⟨.recInfo cvA nP 1 nm 0 rules' :: env'.consts⟩
-        (.recInfo cvA nP 1 nm 0 rules') := by
+    have hwf : ConstWF ⟨.recInfo cvA nP 1 nm ni rules' :: env'.consts⟩
+        (.recInfo cvA nP 1 nm ni rules') := by
       have hiso : ∀ n,
-          ((⟨.recInfo cvA nP 1 nm 0 [] :: env'.consts⟩ : Env).find? n).isSome
+          ((⟨.recInfo cvA nP 1 nm ni [] :: env'.consts⟩ : Env).find? n).isSome
           =
-          ((⟨.recInfo cvA nP 1 nm 0 rules' ::
+          ((⟨.recInfo cvA nP 1 nm ni rules' ::
             env'.consts⟩ : Env).find? n).isSome := by
         intro n
         rw [Env.find?_cons, Env.find?_cons]
         by_cases hh : cvA.name = n
-        · rw [if_pos (show (ConstantInfo.recInfo cvA nP 1 nm 0
+        · rw [if_pos (show (ConstantInfo.recInfo cvA nP 1 nm ni
               []).name = n from hh),
-            if_pos (show (ConstantInfo.recInfo cvA nP 1 nm 0
+            if_pos (show (ConstantInfo.recInfo cvA nP 1 nm ni
               rules').name = n from hh)]
           rfl
-        · rw [if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0
+        · rw [if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm ni
               []).name = n from hh),
-            if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm 0
+            if_neg (show ¬(ConstantInfo.recInfo cvA nP 1 nm ni
               rules').name = n from hh)]
       refine ⟨htyf, htlp, Expr.constsResolve_mono htres, htyb, ?_, ?_⟩
       · intro cv2 v2 heq; exact nomatch heq
@@ -3777,18 +3827,18 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
         injection heq with e1 e2 e3 e4 e5 e6
         subst e6
         obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -,
-          -, -, -, -, -, hrf, hrb', -, -, -, -, -, -, -, -, -, -,
+          -, -, -, -, -, hrf, hrb', -, -, -, -, -, -, -, -, -, -, -,
           hrlp, hrres⟩ :=
           checkIotaRules_inv 0 rules rules' hcir r hr
         refine ⟨hrf, by rw [← e1]; exact hrlp, ?_, hrb'⟩
         rw [← Expr.constsResolve_congr hiso]
         exact hrres
-    obtain ⟨m₁, hval₁, hpres₁⟩ := extend_modeled_rec m cvA nP nm rules'
+    obtain ⟨m₁, hval₁, hpres₁⟩ := extend_modeled_rec m cvA nP nm ni rules'
       fb hfind' hnres hshapeA hwf htres hfm hlps hrenf
       fS hroS hff₀ hfself hfnot heqf heqval
       (checkIotaRules_inv 0 rules rules' hcir)
     exact ⟨m₁, BlockInstalled.step
-      (ci₁ := .recInfo cvA nP 1 nm 0 rules') hI hms hfm hlps hval₁ hpres₁⟩
+      (ci₁ := .recInfo cvA nP 1 nm ni rules') hI hms hfm hlps hval₁ hpres₁⟩
 
 /-- A successful fold's members were all fresh at their own step, hence
 already fresh at any earlier point. -/
@@ -3859,7 +3909,7 @@ theorem checkIndFold_sound {blockNames : List Name} {caps : IndCaps} :
     have henv₁ : ∃ ci₁ : ConstantInfo, ci₁.name = cvA'.name ∧
         env₁ = ⟨ci₁ :: env'.consts⟩ := by
       rcases hkind' with ⟨-, rfl⟩ | ⟨cv, nP, nF, -, rfl⟩ |
-        ⟨cv, nP, nm, rules, rules', -, -, -, -, rfl⟩
+        ⟨cv, nP, nm, ni, rules, rules', -, -, -, -, rfl⟩
       · exact ⟨_, rfl, rfl⟩
       · exact ⟨_, rfl, rfl⟩
       · exact ⟨_, rfl, rfl⟩

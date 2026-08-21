@@ -233,6 +233,13 @@ def iotaCerts (r : CoreFns m) (env : Env) (depth : Nat) :
     else pure false
   | _, _ :: _ => pure false
 
+/-- Peel a `∀`-telescope along an argument list (the residual type of
+a fully applied telescope). -/
+def piResidual : Expr → List Expr → Option Expr
+  | e, [] => some e
+  | .forallE _ _ b _, a :: as => piResidual (b.instantiate1 a) as
+  | _, _ :: _ => none
+
 /-- Pairwise definitional equality of two spines (used to check a
 major's constructor parameters against the recursor's). -/
 def defEqList (r : CoreFns m) (env : Env) (depth : Nat) :
@@ -580,9 +587,28 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                    if ← iotaCerts r env depth
                       (cvj.type.instantiateLevelParams cvj.levelParams usj)
                       margs then
-                    pure (some (Expr.mkAppN
-                      (rl.rhs.instantiateLevelParams cv.levelParams us)
-                      (args.take (nP + nM + nm) ++ margs.drop cnP)))
+                    -- the recursor's index arguments must match the
+                    -- constructor's canonical index tuple (the residual
+                    -- of its telescope, whose head must be the stored
+                    -- family): the model's iota equation only speaks
+                    -- about the canonical indices
+                    match (cvj.type.instantiateLevelParams cvj.levelParams
+                          usj).stripPis (cnP + cnF),
+                        piResidual (cvj.type.instantiateLevelParams
+                          cvj.levelParams usj) margs with
+                    | some (_, cbody), some residual =>
+                      match cbody.getAppFn with
+                      | .const _ _ =>
+                        if ← defEqList r env depth
+                            (residual.getAppArgs.drop cnP)
+                            ((args.take (nP + nM + nm + ni)).drop
+                              (nP + nM + nm)) then
+                          pure (some (Expr.mkAppN
+                            (rl.rhs.instantiateLevelParams cv.levelParams us)
+                            (args.take (nP + nM + nm) ++ margs.drop cnP)))
+                        else pure none
+                      | _ => pure none
+                    | _, _ => pure none
                    else pure none
                   else pure none
                  else pure none

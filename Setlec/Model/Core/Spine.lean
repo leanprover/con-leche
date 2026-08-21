@@ -41,6 +41,43 @@ theorem InterpSpine.length {cval : ConstVal V} {env : Env} {φ : Name → Nat}
     simp only [List.length_cons]
     exact congrArg (· + 1) (InterpSpine.length h.2)
 
+theorem InterpSpine.of_mapM {cval : ConstVal V} {env : Env} {φ : Name → Nat}
+    {d : Nat} {ρ : Nat → V} :
+    ∀ {xs : List Expr} {vs : List V},
+      xs.mapM (interpExpr V cval env φ d ρ) = some vs →
+      InterpSpine cval env φ d ρ xs vs := by
+  intro xs
+  induction xs with
+  | nil =>
+    intro vs h
+    obtain rfl : vs = [] := by simpa using h.symm
+    trivial
+  | cons x xs ih =>
+    intro vs h
+    rw [List.mapM_cons] at h
+    cases hx : interpExpr V cval env φ d ρ x with
+    | none => rw [hx] at h; exact nomatch h
+    | some v =>
+      rw [hx] at h
+      cases hxs : xs.mapM (interpExpr V cval env φ d ρ) with
+      | none => rw [hxs] at h; exact nomatch h
+      | some vs' =>
+        rw [hxs] at h
+        obtain rfl : vs = v :: vs' := by simpa using h.symm
+        exact ⟨hx, ih hxs⟩
+
+theorem InterpSpine.mapM_eq {cval : ConstVal V} {env : Env} {φ : Name → Nat}
+    {d : Nat} {ρ : Nat → V} :
+    ∀ {xs : List Expr} {vs : List V},
+      InterpSpine cval env φ d ρ xs vs →
+      xs.mapM (interpExpr V cval env φ d ρ) = some vs
+  | [], [], _ => rfl
+  | [], _ :: _, h => nomatch h
+  | _ :: _, [], h => nomatch h
+  | x :: xs, v :: vs, h => by
+    rw [List.mapM_cons, h.1, InterpSpine.mapM_eq h.2]
+    rfl
+
 theorem InterpSpine.append_inv {cval : ConstVal V} {env : Env}
     {φ : Name → Nat} {d : Nat} {ρ : Nat → V} :
     ∀ {xs ys : List Expr} {ws : List V},

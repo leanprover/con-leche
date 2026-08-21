@@ -52,8 +52,8 @@
 0 good/tutorial/070_boolPropRec.ndjson
 0 good/tutorial/072_existsRec.ndjson
 0 good/tutorial/073_typeSingletonRecReduction.ndjson
-2 good/tutorial/074_sortElimPropRec.ndjson
-2 good/tutorial/075_sortElimProp2Rec.ndjson
+0 good/tutorial/074_sortElimPropRec.ndjson
+0 good/tutorial/075_sortElimProp2Rec.ndjson
 0 good/tutorial/076_boolRecEqns.ndjson
 0 good/tutorial/077_prodRecEqns.ndjson
 0 good/tutorial/078_nRecReduction.ndjson
@@ -120,7 +120,7 @@
 1 bad/tutorial/098_ruleKbad.ndjson
 2 bad/tutorial/099_ruleKAcc.ndjson
 1 bad/tutorial/103_proofIrrelevanceBad.ndjson
-2 bad/tutorial/108_indexedUnitEta.ndjson
+1 bad/tutorial/108_indexedUnitEta.ndjson
 2 bad/tutorial/110_indexedStructEta.ndjson
 1 bad/tutorial/113_funEtaBad.ndjson
 1 bad/tutorial/114_etaRuleK.ndjson

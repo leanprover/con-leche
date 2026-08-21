@@ -359,6 +359,20 @@ theorem looseBVarsBounded_getAppArgs {k : Nat} :
     · exact hb.2
   | _ => intro hb x hx; simp [Expr.getAppArgs] at hx
 
+theorem hasFvar_getAppArgs :
+    ∀ {e : Expr}, e.hasFvar = false →
+      ∀ x ∈ e.getAppArgs, x.hasFvar = false := by
+  intro e
+  induction e with
+  | app f a ihf iha =>
+    intro hb x hx
+    simp only [Expr.getAppArgs, List.mem_append, List.mem_singleton] at hx
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hb
+    rcases hx with hx | rfl
+    · exact ihf hb.1 x hx
+    · exact hb.2
+  | _ => intro hb x hx; simp [Expr.getAppArgs] at hx
+
 theorem Expr.mkAppN_append_one (f : Expr) (l : List Expr) (a : Expr) :
     Expr.mkAppN f (l ++ [a]) = .app (Expr.mkAppN f l) a := by
   induction l generalizing f with
@@ -563,7 +577,8 @@ theorem projCert_inv {env : Env} {fuel d : Nat} {e₂ : Expr} {i : Nat}
 /-- Inversion of a successful iota step. -/
 theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
     (h : iotaRecP env fuel d e = .ok (some eout)) :
-    ∃ c us cv nP nM nm ni rules major₀ major cj usj cvj cnP cnF r,
+    ∃ c us cv nP nM nm ni rules major₀ major cj usj cvj cnP cnF r cbinders
+      cbody residual cr usr,
       e.getAppFn = .const c us ∧
       env.find? c = some (.recInfo cv nP nM nm ni rules) ∧
       e.getAppArgs.length = nP + nM + nm + ni + 1 ∧
@@ -584,6 +599,14 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
         (e.getAppArgs.take (nP + nM + nm + ni) ++ [major]) = .ok true ∧
       iotaCertsP env fuel d (cvj.type.instantiateLevelParams cvj.levelParams usj)
         major.getAppArgs = .ok true ∧
+      (cvj.type.instantiateLevelParams cvj.levelParams usj).stripPis
+        (cnP + cnF) = some (cbinders, cbody) ∧
+      piResidual (cvj.type.instantiateLevelParams cvj.levelParams usj)
+        major.getAppArgs = some residual ∧
+      cbody.getAppFn = .const cr usr ∧
+      defEqListP env fuel d (residual.getAppArgs.drop cnP)
+        ((e.getAppArgs.take (nP + nM + nm + ni)).drop (nP + nM + nm)) =
+        .ok true ∧
       eout = Expr.mkAppN (r.rhs.instantiateLevelParams cv.levelParams us)
         (e.getAppArgs.take (nP + nM + nm) ++
           major.getAppArgs.drop cnP) := by
@@ -717,11 +740,51 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   cases rmc with
   | false => simp [pure, Except.pure] at h
   | true =>
+  simp only [↓reduceIte] at h
+  try simp only [Bind.bind, Except.bind] at h
+  revert h
+  cases hstrip : (cvj.type.instantiateLevelParams cvj.levelParams
+      usj).stripPis (cnP + cnF) with
+  | none => intro h; exact nomatch h
+  | some pr =>
+  obtain ⟨cbinders, cbody⟩ := pr
+  cases hres : piResidual
+      (cvj.type.instantiateLevelParams cvj.levelParams usj)
+      major.getAppArgs with
+  | none => intro h; exact nomatch h
+  | some residual =>
+  intro h
+  dsimp only at h
+  revert h
+  cases hrfn : cbody.getAppFn with
+  | bvar i => intro h; exact nomatch h
+  | fvar i n ty => intro h; exact nomatch h
+  | sort u => intro h; exact nomatch h
+  | app f a => intro h; exact nomatch h
+  | lam n ty body m => intro h; exact nomatch h
+  | forallE n ty body m => intro h; exact nomatch h
+  | letE n ty v body => intro h; exact nomatch h
+  | lit l => intro h; exact nomatch h
+  | proj sn i pe => intro h; exact nomatch h
+  | const cr usr =>
+  intro h
+  dsimp only at h
+  try simp only [Bind.bind, Except.bind] at h
+  cases hieq : defEqListP env fuel d (residual.getAppArgs.drop cnP)
+      ((e.getAppArgs.take (nP + nM + nm + ni)).drop (nP + nM + nm)) with
+  | error err => rw [hieq] at h; exact nomatch h
+  | ok ri =>
+  rw [hieq] at h
+  dsimp only at h
+  cases ri with
+  | false => simp [pure, Except.pure] at h
+  | true =>
   simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq,
     Option.some.injEq] at h
   exact ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major, cj, usj, cvj, cnP,
-    cnF, r, rfl, hfc, hlen, hmaj, hsub, hmfn, hfj, hrule, hml1, hml2, har1,
-    har2, hlev, hpeq, hcerts, hmcerts, h.symm⟩
+    cnF, r, cbinders, cbody, residual, cr, usr, rfl, hfc, hlen, hmaj, hsub,
+    hmfn, hfj, hrule, hml1, hml2, har1, har2, hlev, hpeq, hcerts, hmcerts,
+    hstrip, hres, hrfn, hieq, h.symm⟩
 
 /-- Inversion of the stuck-major rescue: either the major is returned
 unchanged, or a constructor application was fabricated — in the
@@ -2049,8 +2112,9 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
           exact ihCore hbeta (WScoped.instantiate1_gen hw.2 0 hwf'.2)
         · -- iota step
           obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major, cj, usj,
-            cvj, cnP, cnF, r, hfn, hfc, hlen, hmaj, hsub, hmfn, hfj, hrule,
-            hml1, hml2, har1, har2, hlev, hpeq, hcerts, hmcerts, rfl⟩ :=
+            cvj, cnP, cnF, r, -, -, -, -, -, hfn, hfc, hlen, hmaj, hsub, hmfn, hfj,
+            hrule,
+            hml1, hml2, har1, har2, hlev, hpeq, hcerts, hmcerts, -, -, -, -, rfl⟩ :=
             iotaRec_inv hio
           have hwapp : WScoped d (Expr.app f' a) := by
             simp only [WScoped]

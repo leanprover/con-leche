@@ -78,11 +78,13 @@ def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal) : m Con
   pure { cv with type := type }
 
 /-- Build the expected statement of the model's `iota_j` theorem for one
-recursor rule (non-indexed, single motive): the rule's λ-telescope,
-domains renamed to the `_model` family, closing over
-`R._model p⃗ M m⃗ (C._model p⃗ x⃗) = rhs-body`. -/
+recursor rule (single motive): the rule's λ-telescope, domains renamed
+to the `_model` family, closing over
+`R._model p⃗ M m⃗ ı⃗ (C._model p⃗ x⃗) = rhs-body`, where `ı⃗` is the
+constructor's canonical index tuple (the trailing arguments of its
+result type, lifted over the motive/minor binders). -/
 def buildIotaStmt (f : Name → Name) (recName ctorName : Name)
-    (recLPs ctorLPs : List Name) (nP nM nm nF : Nat)
+    (recLPs ctorLPs : List Name) (nP nM nm ni nF : Nat)
     (recTy ctorTy : Expr) (ruleRhs : Expr) : Option Expr := do
   let (binders, body) ← ruleRhs.stripLams (nP + nM + nm + nF)
   -- binder infos follow the recursor's telescope (then the
@@ -93,6 +95,11 @@ def buildIotaStmt (f : Name → Name) (recName ctorName : Name)
   let binders := (binders.zip bis).map fun (b, bi) => (b.1, b.2.1, bi)
   let (_, mdom, _) ← binders[nP]?
   let ℓ ← mdom.resultSort
+  let (_, cbody) ← ctorTy.stripPis (nP + nF)
+  let cargs := cbody.getAppArgs
+  guard (cargs.length = nP + ni)
+  let iArgs := (cargs.drop nP).map fun e =>
+    (e.liftLooseBVars (nM + nm) nF).renameConsts f
   let depth := nP + nM + nm + nF
   let pArgs := (List.range nP).map fun k => Expr.bvar (depth - 1 - k)
   let mmArgs := (List.range (nM + nm)).map fun k =>
@@ -101,9 +108,9 @@ def buildIotaStmt (f : Name → Name) (recName ctorName : Name)
   let ctorApp := Expr.mkAppN (.const (f ctorName) (ctorLPs.map .param))
     (pArgs ++ xArgs)
   let lhs := Expr.mkAppN (.const (f recName) (recLPs.map .param))
-    (pArgs ++ mmArgs ++ [ctorApp])
+    (pArgs ++ mmArgs ++ iArgs ++ [ctorApp])
   let motiveBVar := Expr.bvar (nF + nm + (nM - 1))
-  let α := Expr.app motiveBVar ctorApp
+  let α := Expr.mkAppN motiveBVar (iArgs ++ [ctorApp])
   let rhs := body.renameConsts f
   let eqApp := Expr.mkAppN (.const eqName [ℓ]) [α, lhs, rhs]
   pure (binders.foldr
@@ -122,9 +129,10 @@ def domsMatchAux (g : Nat → Expr → Expr)
 /-- The pure shape checks on a rule's annotated right-hand side: the
 λ-telescope's domains must match the recursor type's prefix and the
 constructor type's field domains.  Returns the stripped telescope. -/
-def checkIotaRuleShape (tyA cvjty rhsA : Expr) (nP nM nm cnP cnF : Nat) :
+def checkIotaRuleShape (tyA cvjty rhsA : Expr) (nP nM nm ni cnP cnF : Nat) :
     Option (List (Name × Expr × BinderMeta) × Expr) :=
-  match rhsA.stripLams (nP + nM + nm + cnF), tyA.stripPis (nP + nM + nm + 1),
+  match rhsA.stripLams (nP + nM + nm + cnF),
+      tyA.stripPis (nP + nM + nm + ni + 1),
       cvjty.stripPis (cnP + cnF) with
   | some (rbinders, rbody), some (tbinders, _), some (cbinders, _) =>
     if domsMatchAux (fun _ e => e) rbinders tbinders 0 0 (nP + nM + nm) &&
@@ -138,15 +146,19 @@ def checkIotaRuleShape (tyA cvjty rhsA : Expr) (nP nM nm cnP cnF : Nat) :
 its telescope domains and equation body are pinned to the rule's
 annotated data. -/
 def checkIotaStmtShape (f : Name → Name) (cvName ctorName : Name)
-    (lps cvjlps : List Name) (nP nM nm cnF : Nat) (cvtType : Expr)
+    (lps cvjlps : List Name) (nP nM nm ni cnF : Nat) (cvjty cvtType : Expr)
     (rbinders : List (Name × Expr × BinderMeta)) (rbody : Expr) : Bool :=
-  match cvtType.stripPis (nP + nM + nm + cnF), rbinders[nP]? with
-  | some (sbinders, sbody), some (_, mdomA, _) =>
+  match cvtType.stripPis (nP + nM + nm + cnF), rbinders[nP]?,
+      cvjty.stripPis (nP + cnF) with
+  | some (sbinders, sbody), some (_, mdomA, _), some (_, cbodyS) =>
     match mdomA.resultSort with
     | some ℓA =>
+      cbodyS.getAppArgs.length == nP + ni &&
       domsMatchAux (fun _ e => e.renameConsts f) sbinders rbinders 0 0
         (nP + nM + nm + cnF) &&
       (let depthS := nP + nM + nm + cnF
+       let iArgsS := (cbodyS.getAppArgs.drop nP).map fun e =>
+         (e.liftLooseBVars (nM + nm) cnF).renameConsts f
        let pArgsS := (List.range nP).map fun k => Expr.bvar (depthS - 1 - k)
        let mmArgsS := (List.range (nM + nm)).map fun k =>
          Expr.bvar (depthS - 1 - nP - k)
@@ -154,18 +166,19 @@ def checkIotaStmtShape (f : Name → Name) (cvName ctorName : Name)
        let ctorAppS := Expr.mkAppN
          (.const (f ctorName) (cvjlps.map .param)) (pArgsS ++ xArgsS)
        let lhsS := Expr.mkAppN (.const (f cvName) (lps.map .param))
-         (pArgsS ++ mmArgsS ++ [ctorAppS])
+         (pArgsS ++ mmArgsS ++ iArgsS ++ [ctorAppS])
        let motiveBVarS := Expr.bvar (cnF + nm + (nM - 1))
        sbody == Expr.mkAppN (.const eqName [ℓA])
-         [.app motiveBVarS ctorAppS, lhsS, rbody.renameConsts f])
+         [Expr.mkAppN motiveBVarS (iArgsS ++ [ctorAppS]), lhsS,
+          rbody.renameConsts f])
     | none => false
-  | _, _ => false
+  | _, _, _ => false
 
 /-- Check one modeled recursor rule against the model's `iota_j`
 theorem. -/
 def checkIotaRule (ops : CheckerOps m) (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
-    (nP nM nm j : Nat) (r : RecRule) : m RecRule := do
+    (nP nM nm ni j : Nat) (r : RecRule) : m RecRule := do
     let some (.ctorInfo cvj cnP cnF) := env'.find? r.ctor
       | throw (.invalid s!"iota rule constructor {r.ctor} not stored")
     unless cnP = nP do
@@ -182,13 +195,13 @@ def checkIotaRule (ops : CheckerOps m) (env' envSelf : Env)
     unless rhsA.constsResolve envSelf do
       throw (.invalid s!"unknown constant in rule of {cvName}")
     let some (rbinders, rbody) :=
-        checkIotaRuleShape tyA cvj.type rhsA nP nM nm cnP cnF
+        checkIotaRuleShape tyA cvj.type rhsA nP nM nm ni cnP cnF
       | throw (.notImplemented s!"rule shape mismatch for {cvName}")
     -- infer the rule's type: soundness interprets the (λ-tower)
     -- right-hand side through this inference
     let _rhsTy ← ops.inferType envSelf 0 rhsA
     let some stmtRaw := buildIotaStmt f cvName r.ctor
-        lps cvj.levelParams nP nM nm cnF
+        lps cvj.levelParams nP nM nm ni cnF
         tyA cvj.type r.rhs
       | throw (.notImplemented "iota statement construction")
     let stmtA ← ops.annotate env' 0 stmtRaw
@@ -200,18 +213,18 @@ def checkIotaRule (ops : CheckerOps m) (env' envSelf : Env)
     unless cvt.type == stmtA do
       throw (.notImplemented s!"iota statement mismatch for {cvName}")
     unless checkIotaStmtShape f cvName r.ctor lps cvj.levelParams
-        nP nM nm cnF cvt.type rbinders rbody do
+        nP nM nm ni cnF cvj.type cvt.type rbinders rbody do
       throw (.notImplemented s!"iota statement shape mismatch for {cvName}")
     pure { r with rhs := rhsA }
 
 /-- The per-rule check, folded over a modeled recursor's rules. -/
 def checkIotaRules (ops : CheckerOps m) (env' envSelf : Env) (f : Name → Name)
     (cvName : Name) (lps : List Name) (tyA : Expr)
-    (nP nM nm : Nat) : Nat → List RecRule → m (List RecRule)
+    (nP nM nm ni : Nat) : Nat → List RecRule → m (List RecRule)
   | _, [] => pure []
   | j, r :: rest => do
-    let r' ← checkIotaRule ops env' envSelf f cvName lps tyA nP nM nm j r
-    let rest' ← checkIotaRules ops env' envSelf f cvName lps tyA nP nM nm
+    let r' ← checkIotaRule ops env' envSelf f cvName lps tyA nP nM nm ni j r
+    let rest' ← checkIotaRules ops env' envSelf f cvName lps tyA nP nM nm ni
       (j + 1) rest
     pure (r' :: rest')
 
@@ -239,7 +252,6 @@ def checkIndMember (ops : CheckerOps m) (blockNames : List Name) (caps : IndCaps
   | .indInfo _ _ => pure (⟨.indInfo cvA caps :: env'.consts⟩ : Env)
   | .ctorInfo _ nP nF => pure ⟨.ctorInfo cvA nP nF :: env'.consts⟩
   | .recInfo _ nP nM nm ni rules => do
-    unless ni = 0 do throw (.notImplemented "indexed recursor")
     unless nM = 1 do throw (.notImplemented "multiple motives")
     -- the recursor comes last: with every other member installed the
     -- block renaming is exactly "installed members and the recursor"
@@ -253,7 +265,7 @@ def checkIndMember (ops : CheckerOps m) (blockNames : List Name) (caps : IndCaps
     -- mention the recursor, but nothing during their annotation may
     -- depend on its (yet unchecked) rules
     let envSelf : Env := ⟨.recInfo cvA nP nM nm ni [] :: env'.consts⟩
-    let rules' ← checkIotaRules ops env' envSelf f cvA.name cvA.levelParams cvA.type nP nM nm 0 rules
+    let rules' ← checkIotaRules ops env' envSelf f cvA.name cvA.levelParams cvA.type nP nM nm ni 0 rules
     pure ⟨.recInfo cvA nP nM nm ni rules' :: env'.consts⟩
   | _ => throw (.invalid s!"non-inductive member {cvA.name} in block")
 

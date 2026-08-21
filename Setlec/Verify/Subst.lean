@@ -99,6 +99,58 @@ theorem instantiate1_instantiate1 {a b : Expr}
   | lit l => intro j k hjk; simp [instantiate1]
   | proj s i e ih => intro j k hjk; simp [instantiate1, ih _ _ hjk]
 
+/-- A stripped telescope's body has no free variables when the
+telescope has none. -/
+theorem stripPis_body_hasFvar :
+    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+      {body : Expr},
+      e.stripPis k = some (bs, body) → e.hasFvar = false →
+      body.hasFvar = false := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs body h hf
+    simp only [stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    rw [← h.2]
+    exact hf
+  | succ k ih =>
+    intro e bs body h hf
+    match e, h with
+    | .forallE n ty b m, h =>
+      simp only [stripPis, Option.map_eq_some_iff] at h
+      obtain ⟨⟨bs', body'⟩, hb, heq⟩ := h
+      obtain ⟨-, rfl⟩ : (n, ty, m) :: bs' = bs ∧ body' = body := by
+        simpa using heq
+      simp only [hasFvar, Bool.or_eq_false_iff] at hf
+      exact ih hb hf.2
+
+/-- A stripped telescope's body stays loose-bvar-bounded by the strip
+depth. -/
+theorem stripPis_body_bounded :
+    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+      {body : Expr} {j : Nat},
+      e.stripPis k = some (bs, body) → e.looseBVarsBounded j = true →
+      body.looseBVarsBounded (j + k) = true := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs body j h hb
+    simp only [stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    rw [← h.2]
+    exact hb
+  | succ k ih =>
+    intro e bs body j h hb
+    match e, h with
+    | .forallE n ty b m, h =>
+      simp only [stripPis, Option.map_eq_some_iff] at h
+      obtain ⟨⟨bs', body'⟩, hbstrip, heq⟩ := h
+      obtain ⟨-, rfl⟩ : (n, ty, m) :: bs' = bs ∧ body' = body := by
+        simpa using heq
+      simp only [looseBVarsBounded, Bool.and_eq_true] at hb
+      have := ih hbstrip hb.2
+      rw [show j + 1 + k = j + (k + 1) from by omega] at this
+      exact this
+
 /-- Instantiation preserves a `∀`-telescope's arity. -/
 theorem stripPis_instantiate1_isSome {v : Expr} :
     ∀ (k : Nat) {e : Expr} (j : Nat), (e.stripPis k).isSome →
@@ -655,6 +707,106 @@ theorem instSeq_append :
     simp
     omega
 
+/-- Pull an instantiation at the top index out of a closed-argument
+sequence: the remaining substitutions shift its slot down by their
+count. -/
+theorem instSeq_instantiate1_out {b : Expr}
+    (hbb : b.looseBVarsBounded 0 = true) :
+    ∀ (args : List Expr) (t : Nat) (e : Expr),
+      (∀ a ∈ args, a.looseBVarsBounded 0 = true) →
+      args.length ≤ t →
+      instSeq args (t - 1) (e.instantiate1 b t) =
+        (instSeq args (t - 1) e).instantiate1 b (t - args.length) := by
+  intro args
+  induction args with
+  | nil =>
+    intro t e _ _
+    simp [instSeq]
+  | cons a as ih =>
+    intro t e hcl hlen
+    simp only [List.length_cons] at hlen
+    obtain ⟨t', rfl⟩ : ∃ t', t = t' + 1 := ⟨t - 1, by omega⟩
+    show instSeq as (t' + 1 - 1 - 1)
+        ((e.instantiate1 b (t' + 1)).instantiate1 a (t' + 1 - 1)) = _
+    rw [show t' + 1 - 1 = t' from rfl]
+    rw [instantiate1_instantiate1 hbb (hcl a List.mem_cons_self) e t' t'
+      (Nat.le_refl t')]
+    have ih' := ih t' (e.instantiate1 a t')
+      (fun x hx => hcl x (List.mem_cons_of_mem _ hx)) (by omega)
+    rw [ih']
+    show (instSeq as (t' - 1) (e.instantiate1 a t')).instantiate1 b
+        (t' - as.length) =
+      (instSeq as (t' - 1) (e.instantiate1 a t')).instantiate1 b
+        (t' + 1 - (as.length + 1))
+    congr 1
+    omega
+
+/-- Instantiating a middle segment of closed arguments through a lift
+of its width collapses the lift: the parameters land above, the fields
+below, and the middle slots eat the inserted range. -/
+theorem instSeq_mid_collapse (A B C : List Expr) {X : Expr}
+    (hA : ∀ a ∈ A, a.looseBVarsBounded 0 = true) :
+    instSeq (A ++ B ++ C) (A.length + B.length + C.length - 1)
+      (X.liftLooseBVars B.length C.length) =
+    instSeq (A ++ C) (A.length + C.length - 1) X := by
+  rw [instSeq_append (A ++ B) C, instSeq_append A B, instSeq_append A C]
+  rw [instSeq_liftLooseBVars A _ hA (by simp; omega)]
+  have h1 : A.length + B.length + C.length - 1 - B.length =
+      A.length + C.length - 1 + B.length - B.length := by omega
+  rw [h1, Nat.add_sub_cancel]
+  have h2 : A.length + B.length + C.length - 1 - A.length =
+      C.length + B.length - 1 := by omega
+  rw [h2]
+  rw [instSeq_lift_eat]
+  congr 1
+  simp only [List.length_append]
+  omega
+
+/-- A spine head is never an application. -/
+theorem getAppFn_not_app : ∀ (e f a : Expr), e.getAppFn ≠ .app f a := by
+  intro e
+  induction e with
+  | app g b ihg ihb => intro f a; exact ihg f a
+  | _ => intro f a h; exact nomatch h
+
+/-- Non-applications have no spine arguments. -/
+theorem getAppArgs_of_not_app {e : Expr}
+    (h : ∀ f a, e ≠ .app f a) : e.getAppArgs = [] := by
+  cases e with
+  | app f a => exact absurd rfl (h f a)
+  | _ => rfl
+
+/-- Instantiating with opening variables preserves non-application
+heads. -/
+theorem instSeq_fvars_not_app :
+    ∀ (args : List Expr) (t : Nat) {h : Expr},
+      (∀ a ∈ args, ∃ i n ty, a = .fvar i n ty) →
+      (∀ f a, h ≠ .app f a) →
+      ∀ f a, instSeq args t h ≠ .app f a := by
+  intro args
+  induction args with
+  | nil => intro t h _ hna f a; exact hna f a
+  | cons x xs ih =>
+    intro t h hfv hna f a
+    obtain ⟨i, n, ty, rfl⟩ := hfv x List.mem_cons_self
+    refine ih (t - 1) (fun y hy => hfv y (List.mem_cons_of_mem _ hy)) ?_ f a
+    intro f' a'
+    cases h with
+    | bvar j =>
+      simp only [instantiate1]
+      split
+      · intro hc; exact nomatch hc
+      · split <;> (intro hc; exact nomatch hc)
+    | app g b => exact absurd rfl (hna g b)
+    | fvar _ _ _ => intro hc; exact nomatch hc
+    | sort _ => intro hc; exact nomatch hc
+    | const _ _ => intro hc; exact nomatch hc
+    | lam _ _ _ _ => intro hc; exact nomatch hc
+    | forallE _ _ _ _ => intro hc; exact nomatch hc
+    | letE _ _ _ _ => intro hc; exact nomatch hc
+    | lit _ => intro hc; exact nomatch hc
+    | proj _ _ _ => intro hc; exact nomatch hc
+
 /-- An instantiation sequence is a no-op on bvar-closed expressions. -/
 theorem instSeq_eq_self :
     ∀ (args : List Expr) (t : Nat) {e : Expr},
@@ -941,6 +1093,21 @@ theorem fvarsBelow_instantiate1_gen {d : Nat} {a : Expr} (ha : fvarsBelow d a) :
     split
     · exact ha
     · split <;> simp [fvarsBelow]
+
+
+/-- Reachable-`fvar` bounds carry through an instantiation sequence. -/
+theorem fvarsBelow_instSeq {D : Nat} :
+    ∀ (args : List Expr) (t : Nat) {e : Expr},
+      (∀ a ∈ args, fvarsBelow D a) → fvarsBelow D e →
+      fvarsBelow D (instSeq args t e) := by
+  intro args
+  induction args with
+  | nil => intro t e _ he; exact he
+  | cons a as ih =>
+    intro t e hargs he
+    exact ih (t - 1)
+      (fun x hx => hargs x (List.mem_cons_of_mem _ hx))
+      (fvarsBelow_instantiate1_gen (hargs a List.mem_cons_self) t he)
 
 /-- Replace `fvar p` by `a`, lowering higher `fvar` indices. -/
 def substFvarAt (p : Nat) (a : Expr) : Expr → Expr
