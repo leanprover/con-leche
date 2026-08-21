@@ -755,6 +755,158 @@ theorem iotaRec_disc (ih : ScopedSim env f) (henv : EnvWF env)
       · exact hmaj.getAppArgs x (List.mem_of_mem_drop hx)
   · exact DiscV.pure WScopedO.none
 
+theorem whnfCoreBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
+    {d : Nat} {e : Expr} (hw : WScoped d e) :
+    DiscV env (WScoped d) (whnfCoreBody C env d e)
+      (whnfCoreBody G env d e) := by
+  match e with
+  | .sort u | .fvar _ _ _ | .forallE _ _ _ _ | .lam _ _ _ _
+  | .const _ _ | .lit _ =>
+    exact DiscV.pure hw
+  | .bvar _ | .letE _ _ _ _ => exact DiscV.throw _
+  | .app g' a =>
+    have hwfa : WScoped d g' ∧ WScoped d a := by
+      simpa only [WScoped] using hw
+    show DiscV env _
+      ((C : CoreFns CheckSM).whnfCore d g' >>= fun f' =>
+        match f' with
+        | .lam n ty body mb =>
+          match mb.cod with
+          | some v =>
+            if v.isNonZero then
+              (C : CoreFns CheckSM).whnfCore d (body.instantiate1 a)
+            else
+              (C : CoreFns CheckSM).infer d a >>= fun ta =>
+              (C : CoreFns CheckSM).defeq d ta ty >>= fun b =>
+              if b then
+                (C : CoreFns CheckSM).whnfCore d (body.instantiate1 a)
+              else pure (.app (.lam n ty body mb) a)
+          | none => pure (.app (.lam n ty body mb) a)
+        | f' =>
+          iotaRec C env d (.app f' a) >>= fun o =>
+          match o with
+          | some e'' => (C : CoreFns CheckSM).whnfCore d e''
+          | none => pure (.app f' a))
+      ((G : CoreFns CheckSM).whnfCore d g' >>= fun f' =>
+        match f' with
+        | .lam n ty body mb =>
+          match mb.cod with
+          | some v =>
+            if v.isNonZero then
+              (G : CoreFns CheckSM).whnfCore d (body.instantiate1 a)
+            else
+              (G : CoreFns CheckSM).infer d a >>= fun ta =>
+              (G : CoreFns CheckSM).defeq d ta ty >>= fun b =>
+              if b then
+                (G : CoreFns CheckSM).whnfCore d (body.instantiate1 a)
+              else pure (.app (.lam n ty body mb) a)
+          | none => pure (.app (.lam n ty body mb) a)
+        | f' =>
+          iotaRec G env d (.app f' a) >>= fun o =>
+          match o with
+          | some e'' => (G : CoreFns CheckSM).whnfCore d e''
+          | none => pure (.app f' a))
+    refine DiscV.bind (ih.site_whnfCore henv hwfa.1) (fun f' hf' => ?_)
+    split
+    · -- beta
+      rename_i n ty body mb
+      have hwtb : WScoped d ty ∧ WScoped d body := by
+        simpa only [WScoped] using hf'
+      have hwapp : WScoped d (Expr.app (.lam n ty body mb) a) := by
+        simp only [WScoped]
+        exact ⟨hwtb, hwfa.2⟩
+      have hwred : WScoped d (body.instantiate1 a) :=
+        WScoped.instantiate1_gen hwfa.2 0 hwtb.2
+      split <;> try exact DiscV.pure hwapp
+      split
+      · exact ih.site_whnfCore henv hwred
+      · refine DiscV.bind (ih.site_infer henv hwfa.2) (fun ta hta => ?_)
+        refine DiscV.bind (ih.site_defeq hta hwtb.1) (fun b _ => ?_)
+        split
+        · exact ih.site_whnfCore henv hwred
+        · exact DiscV.pure hwapp
+    · -- iota / stuck
+      rename_i hnolam
+      have hwapp : WScoped d (Expr.app f' a) := by
+        simp only [WScoped]
+        exact ⟨hf', hwfa.2⟩
+      refine DiscV.bind (iotaRec_disc ih henv hwapp) (fun o ho => ?_)
+      cases o with
+      | some e'' => exact ih.site_whnfCore henv (ho e'' rfl)
+      | none => exact DiscV.pure hwapp
+  | .proj sn i pe =>
+    have hwpe : WScoped d pe := by simpa only [WScoped] using hw
+    show DiscV env _
+      ((C : CoreFns CheckSM).whnf d pe >>= fun e' =>
+        match e'.getAppFn with
+        | .const c us =>
+          match env.find? c with
+          | some (.ctorInfo _ nP nF) =>
+            if c = psigmaMkName ∧ i < nF ∧
+                e'.getAppArgs.length = nP + nF ∧ us.length = 2 then
+              if (Level.max (us.getD 0 .zero) (us.getD 1 .zero)).isNonZero
+                  then
+                (C : CoreFns CheckSM).whnfCore d
+                  (e'.getAppArgs.getD (nP + i) (.bvar 0))
+              else
+                projCert C env d e' i us nP >>= fun b =>
+                if b then
+                  (C : CoreFns CheckSM).whnfCore d
+                    (e'.getAppArgs.getD (nP + i) (.bvar 0))
+                else pure (.proj sn i e')
+            else pure (.proj sn i e')
+          | _ => pure (.proj sn i e')
+        | _ => pure (.proj sn i e'))
+      ((G : CoreFns CheckSM).whnf d pe >>= fun e' =>
+        match e'.getAppFn with
+        | .const c us =>
+          match env.find? c with
+          | some (.ctorInfo _ nP nF) =>
+            if c = psigmaMkName ∧ i < nF ∧
+                e'.getAppArgs.length = nP + nF ∧ us.length = 2 then
+              if (Level.max (us.getD 0 .zero) (us.getD 1 .zero)).isNonZero
+                  then
+                (G : CoreFns CheckSM).whnfCore d
+                  (e'.getAppArgs.getD (nP + i) (.bvar 0))
+              else
+                projCert G env d e' i us nP >>= fun b =>
+                if b then
+                  (G : CoreFns CheckSM).whnfCore d
+                    (e'.getAppArgs.getD (nP + i) (.bvar 0))
+                else pure (.proj sn i e')
+            else pure (.proj sn i e')
+          | _ => pure (.proj sn i e')
+        | _ => pure (.proj sn i e'))
+    refine DiscV.bind (ih.site_whnf henv hwpe) (fun e' he' => ?_)
+    have hwproj : WScoped d (Expr.proj sn i e') := by
+      simpa only [WScoped] using he'
+    have hwarg : ∀ nP : Nat,
+        WScoped d (e'.getAppArgs.getD (nP + i) (.bvar 0)) :=
+      fun nP => wscoped_getD he'.getAppArgs _
+    split <;> try exact DiscV.pure hwproj
+    split <;> try exact DiscV.pure hwproj
+    split <;> try exact DiscV.pure hwproj
+    split
+    · exact ih.site_whnfCore henv (hwarg _)
+    · refine DiscV.bind (projCert_disc ih henv he') (fun b _ => ?_)
+      split
+      · exact ih.site_whnfCore henv (hwarg _)
+      · exact DiscV.pure hwproj
+
+theorem whnfBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
+    {d : Nat} {e : Expr} (hw : WScoped d e) :
+    DiscV env (WScoped d) (whnfBody C env d e)
+      (whnfBody G env d e) := by
+  unfold whnfBody
+  refine DiscV.bind (ih.site_whnfCore henv hw) (fun e₁ he₁ => ?_)
+  refine DiscV.bind (reduceNat_disc ih henv he₁) (fun o ho => ?_)
+  split
+  · exact ih.site_whnf henv (ho _ rfl)
+  · split
+    · rename_i e₂ hunf
+      exact ih.site_whnf henv (unfoldDefinition_WScoped henv hunf he₁)
+    · exact DiscV.pure he₁
+
 end Walks
 
 end Setlec
