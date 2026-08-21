@@ -16,14 +16,17 @@ It produces `Setlec/Kernel/DivModPins.lean`, containing per operation
   expression over stream-universal ground constants.  At install the checker
   compares the stream's definition value against this pin by *definitional
   equality* (robust to helper factoring/naming drift); mismatch declines.
-* the *certificate* statements and proofs: `Nat.ble`-guarded recurrence
-  characterizations of the pinned operation, elaborated against the real
-  toolchain prelude and closed over the stream prefix by inlining every
-  constant that does not exist in the stream before the operation
-  (theorems/definitions are inlined by their values; a non-prefix *inductive*
-  aborts generation).  The checker CHECKS these like theorem declarations at
-  install (but does not install them); their success is what justifies the
-  literal fast path semantically.
+* the *certificate proofs*: closed proof terms of the `Nat.ble`-guarded
+  recurrence characterizations of the pinned operation, elaborated against
+  the real toolchain prelude and closed over the stream prefix by inlining
+  every constant that does not exist in the stream before the operation
+  (theorems/definitions are inlined by their values; a non-prefix
+  *inductive* aborts generation).  The corresponding *statements* are
+  pinned by hand in `Setlec/Kernel/Checker.lean` (`divModCertStmts`), in
+  open `fvar`-telescope form; the checker applies each vendored proof to
+  the statement frame, infers, and compares against the pinned equation —
+  checked like a theorem declaration, never installed.  Their success is
+  what justifies the literal fast path semantically.
 
 The generator fails loudly if a pin or certificate mentions a constant
 outside the stream prefix (plus the operation itself).
