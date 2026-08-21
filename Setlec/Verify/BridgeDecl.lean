@@ -609,10 +609,20 @@ theorem checkDecl_fst_dproj (env : Env) (d : Declaration) :
     rw [checkThmVal_fst_dproj]
   | axiomDecl cv => rfl
   | basisDecl kind =>
-    show ((kind.declsA.foldlM installBasisDecl env : PairM rel _)).val.1
-      = _
-    rw [foldlM_fst]
-    simp only [installBasisDecl_fst_dproj]
+    dsimp only
+    by_cases hq : kind = .quotK
+    · rw [if_pos hq, if_pos hq]
+      by_cases he : env.find? eqName = some eqA
+      · rw [if_pos he, if_pos he, foldlM_fst]
+        simp only [installBasisDecl_fst_dproj]
+      · rw [if_neg he, if_neg he, PairM.fst_bind]
+        simp only [PairM.fst_throw]
+        congr 1
+        funext x
+        rw [foldlM_fst]
+        simp only [installBasisDecl_fst_dproj]
+    · rw [if_neg hq, if_neg hq, foldlM_fst]
+      simp only [installBasisDecl_fst_dproj]
   | indDecl block =>
     exact checkIndDecl_fst_dproj env block
 
@@ -639,10 +649,20 @@ theorem checkDecl_snd_dproj (env : Env) (d : Declaration) :
     rw [checkThmVal_snd_dproj]
   | axiomDecl cv => rfl
   | basisDecl kind =>
-    show ((kind.declsA.foldlM installBasisDecl env : PairM rel _)).val.2
-      = _
-    rw [foldlM_snd]
-    simp only [installBasisDecl_snd_dproj]
+    dsimp only
+    by_cases hq : kind = .quotK
+    · rw [if_pos hq, if_pos hq]
+      by_cases he : env.find? eqName = some eqA
+      · rw [if_pos he, if_pos he, foldlM_snd]
+        simp only [installBasisDecl_snd_dproj]
+      · rw [if_neg he, if_neg he, PairM.snd_bind]
+        simp only [PairM.snd_throw]
+        congr 1
+        funext x
+        rw [foldlM_snd]
+        simp only [installBasisDecl_snd_dproj]
+    · rw [if_neg hq, if_neg hq, foldlM_snd]
+      simp only [installBasisDecl_snd_dproj]
   | indDecl block =>
     exact checkIndDecl_snd_dproj env block
 
@@ -931,9 +951,20 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
     rw [checkThmVal_datF]
   | axiomDecl cv => rfl
   | basisDecl kind =>
-    show ((kind.declsA.foldlM installBasisDecl env : FueledM _)).val F = _
-    rw [foldlM_atF]
-    simp only [installBasisDecl_datF]
+    dsimp only
+    by_cases hq : kind = .quotK
+    · rw [if_pos hq, if_pos hq]
+      by_cases he : env.find? eqName = some eqA
+      · rw [if_pos he, if_pos he, foldlM_atF]
+        simp only [installBasisDecl_datF]
+      · rw [if_neg he, if_neg he, FueledM.atF_bind]
+        simp only [FueledM.atF_throw]
+        congr 1
+        funext x
+        rw [foldlM_atF]
+        simp only [installBasisDecl_datF]
+    · rw [if_neg hq, if_neg hq, foldlM_atF]
+      simp only [installBasisDecl_datF]
   | indDecl block =>
     exact checkIndDecl_datF env block F
 

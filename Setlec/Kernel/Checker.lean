@@ -594,9 +594,13 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
     let cv ← checkConstantVal ops env cv
     checkThmVal ops env cv value
   | .axiomDecl cv => throw (.notImplemented s!"axiom declaration ({cv.name})")
-  | .basisDecl kind =>
+  | .basisDecl kind => do
     -- Install the pinned (pre-annotated) basis block; the frontend has
     -- already matched the incoming record against the pinned shapes.
+    -- The quotient block's types mention the pinned equality former.
+    if kind = .quotK then
+      unless env.find? eqName = some eqA do
+        throw (.notImplemented "quotient basis requires the pinned Eq basis")
     kind.declsA.foldlM installBasisDecl env
   | .indDecl block => checkIndDecl ops env block
 

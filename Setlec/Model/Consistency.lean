@@ -90,7 +90,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     case _ =>
       simp only [checkDecl, checkDefnVal, checkThmVal, installBasisDecl,
         fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
-        fueledOps_ensureSort, fueledOps_whnf, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
+        fueledOps_ensureSort, fueledOps_whnf, BasisKind.declsA, List.foldlM, Bind.bind,
+        Except.bind, reduceCtorEq, reduceIte, pure, Except.pure] at h
       -- step 1: Nat
       by_cases h1 : (env.find? natA.name).isNone
       case neg => simp [h1, pure, Except.pure] at h
@@ -415,7 +416,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     case _ =>
       simp only [checkDecl, checkDefnVal, checkThmVal, installBasisDecl,
         fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
-        fueledOps_ensureSort, fueledOps_whnf, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
+        fueledOps_ensureSort, fueledOps_whnf, BasisKind.declsA, List.foldlM, Bind.bind,
+        Except.bind, reduceCtorEq, reduceIte, pure, Except.pure] at h
       -- step 1: PSigma'
       by_cases h1 : (env.find? psigmaA.name).isNone
       case neg => simp [h1, pure, Except.pure] at h
@@ -681,7 +683,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     case _ =>
       simp only [checkDecl, checkDefnVal, checkThmVal, installBasisDecl,
         fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
-        fueledOps_ensureSort, fueledOps_whnf, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
+        fueledOps_ensureSort, fueledOps_whnf, BasisKind.declsA, List.foldlM, Bind.bind,
+        Except.bind, reduceCtorEq, reduceIte, pure, Except.pure] at h
       -- step 1: Eq
       by_cases h1 : (env.find? eqA.name).isNone
       case neg => simp [h1, pure, Except.pure] at h
@@ -902,7 +905,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       exact ⟨m3⟩
     simp only [checkDecl, checkDefnVal, checkThmVal, installBasisDecl,
         fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
-        fueledOps_ensureSort, fueledOps_whnf, BasisKind.declsA, List.foldlM, Bind.bind, Except.bind] at h
+        fueledOps_ensureSort, fueledOps_whnf, BasisKind.declsA, List.foldlM, Bind.bind,
+        Except.bind, reduceCtorEq, reduceIte, pure, Except.pure] at h
     -- step 1: PUnit
     by_cases h1 : (env.find? punitA.name).isNone
     case neg => simp [h1, pure, Except.pure] at h
@@ -1107,7 +1111,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       simp only [checkDecl, checkDefnVal, checkThmVal, installBasisDecl,
         fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
         fueledOps_ensureSort, fueledOps_whnf, BasisKind.declsA, List.foldlM, Bind.bind,
-        Except.bind] at h
+        Except.bind, reduceCtorEq, reduceIte, pure, Except.pure] at h
       -- step 1: Empty
       by_cases h1 : (env.find? emptyA.name).isNone
       case neg => simp [h1, pure, Except.pure] at h
