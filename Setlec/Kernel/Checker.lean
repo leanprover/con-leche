@@ -319,10 +319,11 @@ def checkIndRecs (ops : CheckerOps m) (blockNames : List Name)
       throw (.notImplemented "modeled recursor requires the pinned Eq basis")
     let (envSelf, checked) ← provisionRecs ops blockNames env₂ recs
     checked.foldlM (fun (acc : Env) c => do
-        let (cvA, nP, nM, nm, ni, rules) := c
-        let rules' ← checkIotaRules ops env₂ envSelf f cvA.name
-          cvA.levelParams cvA.type nP nM nm ni 0 rules
-        pure (⟨.recInfo cvA nP nM nm ni rules' :: acc.consts⟩ : Env))
+        let rules' ← checkIotaRules ops env₂ envSelf f c.1.name
+          c.1.levelParams c.1.type c.2.1 c.2.2.1 c.2.2.2.1 c.2.2.2.2.1
+          0 c.2.2.2.2.2
+        pure (⟨.recInfo c.1 c.2.1 c.2.2.1 c.2.2.2.1 c.2.2.2.2.1
+          rules' :: acc.consts⟩ : Env))
       env₂
 
 /-- Rename a model-side projection type back to public names. -/

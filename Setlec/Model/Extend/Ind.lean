@@ -15,52 +15,6 @@ variable {V : Type u} [SetTheory V]
 
 open SetTheory Expr
 
-/-- The fold invariant of `checkIndDecl`: every installed block member
-has its `_model` companion stored (as a definition with the same level
-parameters) and is interpreted by it. -/
-def BlockInstalled (blockNames : List Name) (env' : Env)
-    (val : ConstVal V) : Prop :=
-  ∀ n, blockNames.contains n = true → ∀ ci, env'.find? n = some ci →
-    ∃ cvm mval, env'.find? (n.str "_model") = some (.defnInfo cvm mval) ∧
-      cvm.levelParams = ci.toConstantVal.levelParams ∧
-      ∀ ψ : Name → Nat, val n ψ = val (n.str "_model") ψ
-
-omit [SetTheory V] in
-/-- Installing one member with its model's value preserves the fold
-invariant. -/
-theorem BlockInstalled.step {blockNames : List Name} {env' : Env}
-    {val val₁ : ConstVal V} {ci₁ : ConstantInfo} {cvm : ConstantVal}
-    {mval : Expr}
-    (hI : BlockInstalled blockNames env' val)
-    (hms : ci₁.name.isModelSuffix = false)
-    (hfm : env'.find? (ci₁.name.str "_model") = some (.defnInfo cvm mval))
-    (hlps : cvm.levelParams = ci₁.toConstantVal.levelParams)
-    (hval₁ : ∀ ψ, val₁ ci₁.name ψ = val (ci₁.name.str "_model") ψ)
-    (hpres₁ : ∀ n ψ, n ≠ ci₁.name → val₁ n ψ = val n ψ) :
-    BlockInstalled blockNames ⟨ci₁ :: env'.consts⟩ val₁ := by
-  intro n hbn ci₂ hf₂
-  rw [Env.find?_cons] at hf₂
-  split at hf₂
-  · next hh =>
-    obtain rfl := Option.some.inj hf₂
-    obtain rfl : ci₁.name = n := hh
-    refine ⟨cvm, mval, ?_, hlps, ?_⟩
-    · rw [Env.find?_cons,
-        if_neg (fun h => Name.str_ne ci₁.name "_model" h.symm)]
-      exact hfm
-    · intro ψ
-      rw [hval₁ ψ, hpres₁ _ ψ (Name.str_ne ci₁.name "_model")]
-  · next hh =>
-    obtain ⟨cvm₂, mval₂, hfm₂, hlps₂, hv₂⟩ := hI n hbn ci₂ hf₂
-    refine ⟨cvm₂, mval₂, ?_, hlps₂, ?_⟩
-    · rw [Env.find?_cons, if_neg (show ¬ci₁.name = n.str "_model" from
-        fun h => Name.str_model_ne hms h.symm)]
-      exact hfm₂
-    · intro ψ
-      rw [hpres₁ _ ψ (fun h => hh h.symm),
-        hpres₁ _ ψ (fun h => Name.str_model_ne hms h),
-        hv₂ ψ]
-
 /-- One `checkIndMember` step preserves having a model together with
 the fold invariant. -/
 theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}

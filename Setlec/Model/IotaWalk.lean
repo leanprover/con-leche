@@ -2057,4 +2057,26 @@ theorem InterpSpine.of_pointwise {D : Nat} {ρ : Nat → V} :
       (fun k a v ha hv => hpt (k + 1) a v (by simpa using ha)
         (by simpa using hv))
 
+
+omit [SetTheory V] in
+/-- A canonical rule's constructor parameters are among the recursor's
+prefix. -/
+theorem recRulePlain_le {recTy : Expr} {nP nM nm ni cnP : Nat}
+    (h : Expr.recRulePlain recTy nP nM nm ni cnP = true) :
+    cnP ≤ nP + nM + nm := by
+  rw [Expr.recRulePlain, Bool.and_eq_true] at h
+  exact of_decide_eq_true h.1
+
+omit [SetTheory V] in
+/-- A canonical rule pins the recursor type's telescope. -/
+theorem recRulePlain_strip {recTy : Expr} {nP nM nm ni cnP : Nat}
+    (h : Expr.recRulePlain recTy nP nM nm ni cnP = true) :
+    (recTy.stripPis (nP + nM + nm + ni)).isSome = true := by
+  rw [Expr.recRulePlain, Bool.and_eq_true] at h
+  have h2 := h.2
+  revert h2
+  cases hs : recTy.stripPis (nP + nM + nm + ni) with
+  | none => intro h2; exact nomatch h2
+  | some p => intro _; rfl
+
 end Setlec
