@@ -907,6 +907,159 @@ theorem whnfBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
       exact ih.site_whnf henv (unfoldDefinition_WScoped henv hunf he₁)
     · exact DiscV.pure he₁
 
+set_option maxHeartbeats 1600000 in
+theorem annotateBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
+    {d : Nat} {e : Expr} (hw : WScoped d e) :
+    DiscV env (WScoped d) (annotateBody C env d e)
+      (annotateBody G env d e) := by
+  match e with
+  | .bvar i => exact DiscV.pure (by simp [WScoped])
+  | .fvar idx n ty => exact DiscV.pure hw
+  | .sort u => exact DiscV.pure (by simp [WScoped])
+  | .const n us => exact DiscV.pure (by simp [WScoped])
+  | .lit (.natVal n) =>
+    show DiscV env _
+      (if natLitSupported env then pure (Expr.lit (.natVal n))
+       else throw (.invalid "Nat literal without the Nat basis declarations"))
+      (if natLitSupported env then pure (Expr.lit (.natVal n))
+       else throw (.invalid "Nat literal without the Nat basis declarations"))
+    split
+    · exact DiscV.pure (by simp [WScoped])
+    · exact DiscV.throw _
+  | .lit (.strVal s) => exact DiscV.throw _
+  | .letE _ _ _ _ => exact DiscV.throw _
+  | .app g' a =>
+    have hwfa : WScoped d g' ∧ WScoped d a := by
+      simpa only [WScoped] using hw
+    show DiscV env _
+      ((C : CoreFns CheckSM).annotate d g' >>= fun f' =>
+        (C : CoreFns CheckSM).annotate d a >>= fun a' =>
+        (C : CoreFns CheckSM).infer d f' >>= fun tf =>
+        (C : CoreFns CheckSM).whnf d tf >>= fun w =>
+        match w with
+        | .forallE _ ty _ _ =>
+          (C : CoreFns CheckSM).infer d a' >>= fun ta =>
+          (C : CoreFns CheckSM).defeq d ta ty >>= fun b =>
+          if b then pure (Expr.app f' a')
+          else throw (.invalid "application argument type mismatch")
+        | _ => throw (.invalid "function expected"))
+      ((G : CoreFns CheckSM).annotate d g' >>= fun f' =>
+        (G : CoreFns CheckSM).annotate d a >>= fun a' =>
+        (G : CoreFns CheckSM).infer d f' >>= fun tf =>
+        (G : CoreFns CheckSM).whnf d tf >>= fun w =>
+        match w with
+        | .forallE _ ty _ _ =>
+          (G : CoreFns CheckSM).infer d a' >>= fun ta =>
+          (G : CoreFns CheckSM).defeq d ta ty >>= fun b =>
+          if b then pure (Expr.app f' a')
+          else throw (.invalid "application argument type mismatch")
+        | _ => throw (.invalid "function expected"))
+    refine DiscV.bind (ih.site_annotate hwfa.1) (fun f' hf' => ?_)
+    refine DiscV.bind (ih.site_annotate hwfa.2) (fun a' ha' => ?_)
+    refine DiscV.bind (ih.site_infer henv hf') (fun tf htf => ?_)
+    refine DiscV.bind (ih.site_whnf henv htf) (fun w hww => ?_)
+    split <;> try exact DiscV.throw _
+    rename_i nw tyw bodyw mbw
+    have hwty : WScoped d tyw := by
+      simp only [WScoped] at hww
+      exact hww.1
+    refine DiscV.bind (ih.site_infer henv ha') (fun ta hta => ?_)
+    refine DiscV.bind (ih.site_defeq hta hwty) (fun b _ => ?_)
+    split
+    · exact DiscV.pure (by simp only [WScoped]; exact ⟨hf', ha'⟩)
+    · exact DiscV.throw _
+  | .forallE n ty body mb =>
+    have hwtb : WScoped d ty ∧ WScoped d body := by
+      simpa only [WScoped] using hw
+    show DiscV env _
+      ((C : CoreFns CheckSM).annotate d ty >>= fun ty' =>
+        (C : CoreFns CheckSM).annotate (d + 1)
+            (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
+        (C : CoreFns CheckSM).infer (d + 1) body' >>= fun tb =>
+        ensureSort C env (d + 1) tb >>= fun v =>
+        pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, some v⟩))
+      ((G : CoreFns CheckSM).annotate d ty >>= fun ty' =>
+        (G : CoreFns CheckSM).annotate (d + 1)
+            (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
+        (G : CoreFns CheckSM).infer (d + 1) body' >>= fun tb =>
+        ensureSort G env (d + 1) tb >>= fun v =>
+        pure (Expr.forallE n ty' (body'.abstract1 d) ⟨mb.bi, some v⟩))
+    refine DiscV.bind (ih.site_annotate hwtb.1) (fun ty' hty' => ?_)
+    refine DiscV.bind (ih.site_annotate
+      (WScoped.instantiate1 hty' 0 hwtb.2)) (fun body' hbody' => ?_)
+    refine DiscV.bind (ih.site_infer henv hbody') (fun tb htb => ?_)
+    refine DiscV.bind (ensureSort_disc ih henv htb) (fun v _ => ?_)
+    refine DiscV.pure ?_
+    simp only [WScoped]
+    exact ⟨hty', WScoped.abstract1 0 hbody'⟩
+  | .lam n ty body mb =>
+    have hwtb : WScoped d ty ∧ WScoped d body := by
+      simpa only [WScoped] using hw
+    show DiscV env _
+      ((C : CoreFns CheckSM).annotate d ty >>= fun ty' =>
+        (C : CoreFns CheckSM).annotate (d + 1)
+            (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
+        (C : CoreFns CheckSM).infer (d + 1) body' >>= fun bt =>
+        (C : CoreFns CheckSM).infer (d + 1) bt >>= fun tbt =>
+        ensureSort C env (d + 1) tbt >>= fun v =>
+        pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, some v⟩))
+      ((G : CoreFns CheckSM).annotate d ty >>= fun ty' =>
+        (G : CoreFns CheckSM).annotate (d + 1)
+            (body.instantiate1 (.fvar d n ty')) >>= fun body' =>
+        (G : CoreFns CheckSM).infer (d + 1) body' >>= fun bt =>
+        (G : CoreFns CheckSM).infer (d + 1) bt >>= fun tbt =>
+        ensureSort G env (d + 1) tbt >>= fun v =>
+        pure (Expr.lam n ty' (body'.abstract1 d) ⟨mb.bi, some v⟩))
+    refine DiscV.bind (ih.site_annotate hwtb.1) (fun ty' hty' => ?_)
+    refine DiscV.bind (ih.site_annotate
+      (WScoped.instantiate1 hty' 0 hwtb.2)) (fun body' hbody' => ?_)
+    refine DiscV.bind (ih.site_infer henv hbody') (fun bt hbt => ?_)
+    refine DiscV.bind (ih.site_infer henv hbt) (fun tbt htbt => ?_)
+    refine DiscV.bind (ensureSort_disc ih henv htbt) (fun v _ => ?_)
+    refine DiscV.pure ?_
+    simp only [WScoped]
+    exact ⟨hty', WScoped.abstract1 0 hbody'⟩
+  | .proj sn i pe =>
+    have hwpe : WScoped d pe := by simpa only [WScoped] using hw
+    show DiscV env _
+      ((C : CoreFns CheckSM).annotate d pe >>= fun e' =>
+        (C : CoreFns CheckSM).infer d e' >>= fun te₀ =>
+        (C : CoreFns CheckSM).whnf d te₀ >>= fun te =>
+        match te with
+        | .app (.app (.const c _) _) _ =>
+          if c = psigmaName then
+            match env.find? c with
+            | some (.indInfo _ _) =>
+              if i < 2 then pure (Expr.proj sn i e')
+              else throw (.invalid "projection index out of range")
+            | _ => annotateProjElim C env d sn i te e'
+          else annotateProjElim C env d sn i te e'
+        | _ => annotateProjElim C env d sn i te e')
+      ((G : CoreFns CheckSM).annotate d pe >>= fun e' =>
+        (G : CoreFns CheckSM).infer d e' >>= fun te₀ =>
+        (G : CoreFns CheckSM).whnf d te₀ >>= fun te =>
+        match te with
+        | .app (.app (.const c _) _) _ =>
+          if c = psigmaName then
+            match env.find? c with
+            | some (.indInfo _ _) =>
+              if i < 2 then pure (Expr.proj sn i e')
+              else throw (.invalid "projection index out of range")
+            | _ => annotateProjElim G env d sn i te e'
+          else annotateProjElim G env d sn i te e'
+        | _ => annotateProjElim G env d sn i te e')
+    refine DiscV.bind (ih.site_annotate hwpe) (fun e' he' => ?_)
+    refine DiscV.bind (ih.site_infer henv he') (fun te₀ hte₀ => ?_)
+    refine DiscV.bind (ih.site_whnf henv hte₀) (fun te hte => ?_)
+    have hwproj : WScoped d (Expr.proj sn i e') := by
+      simpa only [WScoped] using he'
+    split <;> try exact annotateProjElim_disc ih henv hte he'
+    split <;> try exact annotateProjElim_disc ih henv hte he'
+    split <;> try exact annotateProjElim_disc ih henv hte he'
+    split
+    · exact DiscV.pure hwproj
+    · exact DiscV.throw _
+
 end Walks
 
 end Setlec
