@@ -1282,16 +1282,19 @@ theorem checkDivModPin_wfimp {env env2 : Env} (henv : EnvWF env) {F : Nat}
     | defnInfo cv' value' hint' =>
       intro h
       dsimp only at h ⊢
-      by_cases hping : divModPinGuard env c = true
+      by_cases hping : (divModPinGuard env c &&
+          divModCertsGuard env c value') = true
       case neg =>
         rw [if_neg hping] at h
         exact absurd h atF_throw
       rw [if_pos hping] at h ⊢
       have hping' := hping
-      unfold divModPinGuard at hping'
       simp only [Bool.and_eq_true] at hping'
+      have hping'' := hping'.1
+      unfold divModPinGuard at hping''
+      simp only [Bool.and_eq_true] at hping''
       have hpinF : (divModDeclPin c).hasFvar = false := by
-        simpa using hping'.1.1.2
+        simpa using hping''.1.1.2
       rw [wfOpsM_annotate henv (wscopedB_of_not_hasFvar hpinF)] at h
       obtain ⟨pinA, hann, h⟩ := atF_bind_ok h
       have hann' : annotateCore env F 0 _ = .ok pinA := hann

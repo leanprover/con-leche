@@ -977,7 +977,7 @@ theorem checkDivModPin_inv {env env2 : Env} {F : Nat} {c : Name} {u : Unit}
     divModEnvGuard env2 c = true ∧
     ∃ cv' value' hint',
       env2.find? c = some (.defnInfo cv' value' hint') ∧
-      divModPinGuard env c = true ∧
+      (divModPinGuard env c && divModCertsGuard env c value') = true ∧
       (∃ pinA, annotateCore env F 0 (divModDeclPin c) = .ok pinA ∧
         isDefEqCore env F 0 value' pinA = .ok true) ∧
       checkDivModCerts (fueledOps F) env c value'

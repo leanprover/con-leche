@@ -823,6 +823,14 @@ def divModPinGuard (env : Env) (c : Name) : Bool :=
   (divModDeclPin c).allLevelParamsDefined [] &&
   (divModDeclPin c).constsResolve env
 
+/-- All certificates' syntactic guards at once.  Checked *before* the
+pin comparison and declined on failure: a stream may legitimately stop
+short of the constants the vendored proofs mention, which is an
+unsupported environment, not an internal inconsistency. -/
+def divModCertsGuard (env : Env) (c : Name) (annVal : Expr) : Bool :=
+  ((divModCertStmts c).zip (divModCertProofs c)).all
+    (fun p => divModCertGuard env c annVal p.1.1 p.1.2 p.2)
+
 /-- The `Nat.div`/`Nat.mod` install gate, run after the ordinary
 definition check (`env2` is the already-extended environment, `env`
 the pre-insertion one all checks run in): dependency and pinned-`Eq`
@@ -837,7 +845,7 @@ def checkDivModPin (ops : CheckerOps m) (env env2 : Env) (c : Name) :
   if divModEnvGuard env2 c then
     match env2.find? c with
     | some (.defnInfo _ value' _) =>
-      if divModPinGuard env c then do
+      if divModPinGuard env c && divModCertsGuard env c value' then do
         let pinA ← ops.annotate env 0 (divModDeclPin c)
         let okPin ← ops.isDefEq env 0 value' pinA
         if okPin then do
