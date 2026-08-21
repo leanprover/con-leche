@@ -283,6 +283,33 @@ lands; until then the speculative-inference-cannot-reject property is
 weakened (a re-check could in principle fail on a reduced term whose
 annotate-time check passed; not observed on the suite).
 
+### The certified structural-Nat fast path (2026-08-21)
+
+`reduceNat` — sitting exactly where the official kernel's literal
+acceleration sits in the whnf loop — reduces `Nat.pred/add/sub/mul/
+pow/beq/ble` on literal arguments (arguments are whnf'd first, as in
+the official kernel).  Soundness comes from *install-time
+certification*: when a definition under one of these names is checked,
+`checkDecl` verifies its defining recurrence equations by definitional
+equality over fresh variables (`natOpEquations`, binder-free
+constructor forms; `certifyNatEqs`), and positively rejects a
+nonstandard definition.  Presence in the store is therefore the
+certificate — there is no runtime flag and no reduction-time
+re-check (a re-check would livelock: the certification's own
+`pred zero` equation re-enters the fast path).  The environment model
+carries the matching semantic clause (`NatOpsOk`: a stored definition
+under one of these names satisfies its recurrences), discharged in the
+`defnDecl` consistency case from the certification's defeq soundness
+and consumed by the whnf claims via per-op meta-level induction over
+the literal (`Setlec/Model/NatOps.lean`).  The `natOpGuard` reduction
+guard additionally requires the dependencies (`sub`→`pred`,
+`mul`→`add`, `pow`→`mul`,`add`) and, for the `Bool`-valued ops, the
+`Bool` constructors, all stored level-monomorphic.  Bodies cannot be
+pinned instead: elaborator output is `brecOn`-compiled and is *not*
+definitionally equal to the plain `Nat.rec` spelling at stuck majors —
+only the recurrence equations are.  WF-recursive ops (`div`, `mod`,
+`gcd`) and string literals remain deferred.
+
 ### Nat literals in the model (2026-08-20)
 
 `natLitSupported env` pins the stored `Nat`/`Nat.zero`/`Nat.succ`
