@@ -893,6 +893,76 @@ theorem certifyNatEqs_snd_dproj (env : Env) :
     | true => exact certifyNatEqs_snd_dproj env rest
     | false => rfl
 
+theorem checkDivModCerts_fst_dproj (env : Env) (c : Name) (annVal : Expr) :
+    ∀ (stmts : List (List Expr × Expr)) (proofs : List Expr),
+      (checkDivModCerts (pairOps o₁ o₂ h) env c annVal stmts proofs).val.1 =
+        checkDivModCerts o₁ env c annVal stmts proofs
+  | [], [] => rfl
+  | [], _ :: _ => rfl
+  | _ :: _, [] => rfl
+  | (hyps, eqE) :: srest, proof :: prest => by
+    simp only [checkDivModCerts]
+    split
+    · rw [PairM.fst_bind]
+      congr 1
+      funext appliedA
+      rw [PairM.fst_bind]
+      congr 1
+      funext tp
+      rw [PairM.fst_bind]
+      congr 1
+      funext b
+      cases b with
+      | true => exact checkDivModCerts_fst_dproj env c annVal srest prest
+      | false => rfl
+    · rfl
+
+theorem checkDivModCerts_snd_dproj (env : Env) (c : Name) (annVal : Expr) :
+    ∀ (stmts : List (List Expr × Expr)) (proofs : List Expr),
+      (checkDivModCerts (pairOps o₁ o₂ h) env c annVal stmts proofs).val.2 =
+        checkDivModCerts o₂ env c annVal stmts proofs
+  | [], [] => rfl
+  | [], _ :: _ => rfl
+  | _ :: _, [] => rfl
+  | (hyps, eqE) :: srest, proof :: prest => by
+    simp only [checkDivModCerts]
+    split
+    · rw [PairM.snd_bind]
+      congr 1
+      funext appliedA
+      rw [PairM.snd_bind]
+      congr 1
+      funext tp
+      rw [PairM.snd_bind]
+      congr 1
+      funext b
+      cases b with
+      | true => exact checkDivModCerts_snd_dproj env c annVal srest prest
+      | false => rfl
+    · rfl
+
+theorem checkDivModPin_fst_dproj (env env2 : Env) (c : Name) :
+    (checkDivModPin (pairOps o₁ o₂ h) env env2 c).val.1 =
+      checkDivModPin o₁ env env2 c := by
+  unfold checkDivModPin
+  repeat (first
+    | (rw [checkDivModCerts_fst_dproj])
+    | split
+    | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
+    | (simp only [PairM.fst_pure, PairM.fst_throw]))
+
+theorem checkDivModPin_snd_dproj (env env2 : Env) (c : Name) :
+    (checkDivModPin (pairOps o₁ o₂ h) env env2 c).val.2 =
+      checkDivModPin o₂ env env2 c := by
+  unfold checkDivModPin
+  repeat (first
+    | (rw [checkDivModCerts_snd_dproj])
+    | split
+    | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
+    | (simp only [PairM.snd_pure, PairM.snd_throw]))
+
 theorem checkDecl_fst_dproj (env : Env) (d : Declaration) :
     (checkDecl (pairOps o₁ o₂ h) env d).val.1 =
       checkDecl o₁ env d := by
@@ -908,6 +978,7 @@ theorem checkDecl_fst_dproj (env : Env) (d : Declaration) :
     funext env2
     repeat (first
       | (rw [certifyNatEqs_fst_dproj])
+      | (rw [checkDivModPin_fst_dproj])
       | split
       | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
       | rfl
@@ -971,6 +1042,7 @@ theorem checkDecl_snd_dproj (env : Env) (d : Declaration) :
     funext env2
     repeat (first
       | (rw [certifyNatEqs_snd_dproj])
+      | (rw [checkDivModPin_snd_dproj])
       | split
       | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
       | rfl
@@ -1377,6 +1449,42 @@ theorem certifyNatEqs_datF (env : Env) (F : Nat) :
     | true => exact certifyNatEqs_datF env F rest
     | false => rfl
 
+theorem checkDivModCerts_datF (env : Env) (c : Name) (annVal : Expr)
+    (F : Nat) :
+    ∀ (stmts : List (List Expr × Expr)) (proofs : List Expr),
+      (checkDivModCerts fueledOpsM env c annVal stmts proofs).val F =
+        checkDivModCerts (fueledOps F) env c annVal stmts proofs
+  | [], [] => rfl
+  | [], _ :: _ => rfl
+  | _ :: _, [] => rfl
+  | (hyps, eqE) :: srest, proof :: prest => by
+    simp only [checkDivModCerts]
+    split
+    · rw [FueledM.atF_bind]
+      congr 1
+      funext appliedA
+      rw [FueledM.atF_bind]
+      congr 1
+      funext tp
+      rw [FueledM.atF_bind]
+      congr 1
+      funext b
+      cases b with
+      | true => exact checkDivModCerts_datF env c annVal F srest prest
+      | false => rfl
+    · rfl
+
+theorem checkDivModPin_datF (env env2 : Env) (c : Name) (F : Nat) :
+    (checkDivModPin fueledOpsM env env2 c).val F =
+      checkDivModPin (fueledOps F) env env2 c := by
+  unfold checkDivModPin
+  repeat (first
+    | (rw [checkDivModCerts_datF])
+    | split
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
+    | (simp only [FueledM.atF_pure, FueledM.atF_throw]))
+
 theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
     (checkDecl fueledOpsM env d).val F =
       checkDecl (fueledOps F) env d := by
@@ -1392,6 +1500,7 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
     funext env2
     repeat (first
       | (rw [certifyNatEqs_datF])
+      | (rw [checkDivModPin_datF])
       | split
       | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
       | rfl

@@ -1150,4 +1150,182 @@ theorem wscopedB_substConst0 {n : Name} {r : Expr}
   | .lam _ _ _ _, _, he | .forallE _ _ _ _, _, he
   | .letE _ _ _ _, _, he | .proj _ _ _, _, he => he
 
+/-! ## The div/mod pin gate, `wfOpsM` runs to pure runs -/
+
+theorem atF_throw {α : Type} {e : CheckError} {F : Nat} {v : α}
+    (h : ((throw e : FueledM α)).val F = .ok v) : False := by
+  simp only [throw, throwThe, MonadExceptOf.throw] at h
+  exact nomatch h
+
+/-- The pinned open certificate statements are well-scoped at the
+certificate frame: hypotheses at their own binder index (they ride as
+the `fvar 2`/`fvar 3` annotations), the equation at the full frame. -/
+theorem divModCertStmts_wscopedB {c : Name} (hc : c ∈ natDivModNames) :
+    ∀ st ∈ divModCertStmts c,
+      (∀ hyp ∈ st.1, hyp.wscopedB 2 = true) ∧ st.2.wscopedB 4 = true := by
+  simp only [natDivModNames, List.mem_cons, List.not_mem_nil, or_false] at hc
+  intro st hst
+  rcases hc with rfl | rfl <;>
+    (simp only [divModCertStmts, List.mem_cons, List.not_mem_nil,
+      or_false, reduceIte] at hst
+     rcases hst with rfl | rfl | rfl <;>
+      refine ⟨fun hyp hh => ?_, by simp +decide [Expr.wscopedB]⟩ <;>
+      (simp only [List.mem_cons, List.not_mem_nil, or_false] at hh
+       first
+        | (rcases hh with rfl | rfl <;> simp +decide [Expr.wscopedB])
+        | (rcases hh with rfl; simp +decide [Expr.wscopedB])))
+
+/-- The applied certificate proof is well-scoped at the frame. -/
+theorem divModCertApplied_wscopedB {proofS : Expr} {hyps : List Expr}
+    (hp : proofS.hasFvar = false)
+    (hh : ∀ hyp ∈ hyps, hyp.wscopedB 2 = true) :
+    (divModCertApplied proofS hyps).wscopedB 4 = true := by
+  have hpw : proofS.wscopedB 4 = true := wscopedB_of_not_hasFvar hp
+  unfold divModCertApplied
+  match hyps, hh with
+  | [], hh => simp [Expr.wscopedB, hpw]
+  | [h1], hh =>
+    have h1w := hh h1 (by simp)
+    simp [Expr.wscopedB, hpw, h1w]
+  | [h1, h2], hh =>
+    have h1w := hh h1 (by simp)
+    have h2w3 : h2.wscopedB 3 = true :=
+      (WScoped.mono (by omega) (WScoped.of_wscopedB
+        (hh h2 (by simp)))).to_wscopedB
+    simp [Expr.wscopedB, hpw, h1w, h2w3]
+  | _ :: _ :: _ :: _, hh => simp [Expr.wscopedB, hpw]
+
+theorem checkDivModCerts_wfimp {env : Env} (henv : EnvWF env) {F : Nat}
+    {c : Name} {annVal : Expr} (hvf : annVal.hasFvar = false) :
+    ∀ {stmts : List (List Expr × Expr)} {proofs : List Expr},
+      (∀ st ∈ stmts, (∀ hyp ∈ st.1, hyp.wscopedB 2 = true) ∧
+        st.2.wscopedB 4 = true) →
+      ∀ {v : Bool},
+        (checkDivModCerts wfOpsM env c annVal stmts proofs).val F = .ok v →
+        checkDivModCerts (fueledOps F) env c annVal stmts proofs = .ok v
+  | [], [], _, v, h => h
+  | [], _ :: _, _, v, h => h
+  | _ :: _, [], _, v, h => h
+  | (hyps, eqE) :: srest, proof :: prest, hsc, v, h => by
+    unfold checkDivModCerts at h ⊢
+    obtain ⟨hhyps, heqw⟩ := hsc (hyps, eqE) (List.mem_cons_self ..)
+    have hhypsS : ∀ hyp ∈ hyps.map (Expr.substConst0 c annVal),
+        hyp.wscopedB 2 = true := by
+      intro hyp hh
+      obtain ⟨h₀, hh₀, rfl⟩ := List.mem_map.mp hh
+      exact wscopedB_substConst0 hvf _ (hhyps h₀ hh₀)
+    have heqS : (Expr.substConst0 c annVal eqE).wscopedB 4 = true :=
+      wscopedB_substConst0 hvf _ heqw
+    revert h
+    by_cases hguards : divModCertGuard env c annVal hyps eqE proof = true
+    case neg => rw [if_neg hguards, if_neg hguards]; intro h; exact h
+    rw [if_pos hguards, if_pos hguards]
+    have hguards' := hguards
+    unfold divModCertGuard at hguards'
+    simp only [Bool.and_eq_true] at hguards'
+    have hpf : (Expr.substConstAll c annVal proof).hasFvar = false := by
+      simpa using hguards'.1.1.1.1.2
+    have happW : (divModCertApplied (Expr.substConstAll c annVal proof)
+        (hyps.map (Expr.substConst0 c annVal))).wscopedB 4 = true :=
+      divModCertApplied_wscopedB hpf hhypsS
+    intro h
+    rw [wfOpsM_annotate henv happW] at h
+    obtain ⟨appliedA, hann, h⟩ := atF_bind_ok h
+    have hann' : annotateCore env F 4 _ = .ok appliedA := hann
+    show (annotateCore env F 4 _ >>= _) = _
+    rw [hann']
+    simp only [Bind.bind, Except.bind]
+    have happAW : WScoped 4 appliedA :=
+      annotateCore_WScoped F _ hann' (WScoped.of_wscopedB happW)
+    rw [wfOpsM_inferType henv happAW.to_wscopedB] at h
+    obtain ⟨tp, hinf, h⟩ := atF_bind_ok h
+    have hinf' : inferTypeCore env F 4 appliedA = .ok tp := hinf
+    show (inferTypeCore env F 4 appliedA >>= _) = _
+    rw [hinf']
+    simp only [Bind.bind, Except.bind]
+    have htpW : WScoped 4 tp := inferTypeCore_WScoped henv F hinf' happAW
+    rw [wfOpsM_isDefEq henv htpW.to_wscopedB heqS] at h
+    obtain ⟨b, hde, h⟩ := atF_bind_ok h
+    have hde' : isDefEqCore env F 4 tp _ = .ok b := hde
+    show (isDefEqCore env F 4 tp _ >>= _) = _
+    rw [hde']
+    simp only [Bind.bind, Except.bind]
+    cases b with
+    | true =>
+      simp only [↓reduceIte] at h ⊢
+      exact checkDivModCerts_wfimp henv hvf
+        (fun st hs => hsc st (List.mem_cons_of_mem _ hs)) h
+    | false => simpa using h
+
+theorem checkDivModPin_wfimp {env env2 : Env} (henv : EnvWF env) {F : Nat}
+    {c : Name} (hc : c ∈ natDivModNames)
+    (hv'f : ∀ cv' v' h', env2.find? c = some (.defnInfo cv' v' h') →
+      v'.hasFvar = false)
+    {u : Unit} (h : (checkDivModPin wfOpsM env env2 c).val F = .ok u) :
+    checkDivModPin (fueledOps F) env env2 c = .ok u := by
+  unfold checkDivModPin at h ⊢
+  by_cases h1 : divModEnvGuard env2 c = true
+  case neg =>
+    rw [if_neg h1] at h
+    exact absurd h atF_throw
+  rw [if_pos h1] at h ⊢
+  revert h
+  cases hfind : env2.find? c with
+  | none => intro h; exact absurd h atF_throw
+  | some ci =>
+    cases ci with
+    | axiomInfo cv' => intro h; exact absurd h atF_throw
+    | thmInfo cv' v' => intro h; exact absurd h atF_throw
+    | indInfo cv' caps => intro h; exact absurd h atF_throw
+    | ctorInfo cv' nP nF => intro h; exact absurd h atF_throw
+    | recInfo cv' nP nM nm ni rules => intro h; exact absurd h atF_throw
+    | defnInfo cv' value' hint' =>
+      intro h
+      dsimp only at h ⊢
+      by_cases hping : divModPinGuard env c = true
+      case neg =>
+        rw [if_neg hping] at h
+        exact absurd h atF_throw
+      rw [if_pos hping] at h ⊢
+      have hping' := hping
+      unfold divModPinGuard at hping'
+      simp only [Bool.and_eq_true] at hping'
+      have hpinF : (divModDeclPin c).hasFvar = false := by
+        simpa using hping'.1.1.2
+      rw [wfOpsM_annotate henv (wscopedB_of_not_hasFvar hpinF)] at h
+      obtain ⟨pinA, hann, h⟩ := atF_bind_ok h
+      have hann' : annotateCore env F 0 _ = .ok pinA := hann
+      show (annotateCore env F 0 _ >>= _) = _
+      rw [hann']
+      simp only [Bind.bind, Except.bind]
+      have hvf : value'.hasFvar = false := hv'f _ _ _ hfind
+      have hpinAW : WScoped 0 pinA :=
+        annotateCore_WScoped F _ hann' (WScoped.of_not_hasFvar hpinF)
+      rw [wfOpsM_isDefEq henv (wscopedB_of_not_hasFvar hvf)
+        hpinAW.to_wscopedB] at h
+      obtain ⟨b, hde, h⟩ := atF_bind_ok h
+      have hde' : isDefEqCore env F 0 value' pinA = .ok b := hde
+      show (isDefEqCore env F 0 value' pinA >>= _) = _
+      rw [hde']
+      simp only [Bind.bind, Except.bind]
+      cases b with
+      | false =>
+        simp only [Bool.false_eq_true, ↓reduceIte] at h ⊢
+        exact absurd h atF_throw
+      | true =>
+        simp only [↓reduceIte] at h ⊢
+        obtain ⟨ok, hcert, h⟩ := atF_bind_ok h
+        have hcert' := checkDivModCerts_wfimp henv hvf
+          (divModCertStmts_wscopedB hc) hcert
+        show (checkDivModCerts (fueledOps F) env c value' _ _ >>= _) = _
+        rw [hcert']
+        simp only [Bind.bind, Except.bind]
+        cases ok with
+        | false =>
+          simp only [Bool.false_eq_true, ↓reduceIte] at h
+          exact absurd h atF_throw
+        | true =>
+          simp only [↓reduceIte] at h ⊢
+          exact h
+
 end Setlec

@@ -763,6 +763,19 @@ def divModCertApplied (proofS : Expr) (hyps : List Expr) : Expr :=
       (.fvar 3 (.str .anonymous "h2") h2)
   | _ => base
 
+/-- The syntactic guards of one certificate check: the substituted
+proof is closed, level-monomorphic and resolving, and the substituted
+statement components resolve. -/
+def divModCertGuard (env : Env) (c : Name) (annVal : Expr)
+    (hyps : List Expr) (eqE proof : Expr) : Bool :=
+  (Expr.substConstAll c annVal proof).looseBVarsBounded 0 &&
+  !(Expr.substConstAll c annVal proof).hasFvar &&
+  (Expr.substConstAll c annVal proof).allLevelParamsDefined [] &&
+  (Expr.substConstAll c annVal proof).constsResolve env &&
+  (hyps.map (Expr.substConst0 c annVal)).all
+    (fun h => h.constsResolve env) &&
+  (Expr.substConst0 c annVal eqE).constsResolve env
+
 /-- Check the pinned certificates of op `c`: per certificate, the
 vendored proof (with the op's self-references replaced by the stored
 annotated value — the checks run in the *pre-insertion* environment,
@@ -777,20 +790,61 @@ def checkDivModCerts (ops : CheckerOps m) (env : Env) (c : Name)
     (annVal : Expr) : List (List Expr × Expr) → List Expr → m Bool
   | [], [] => pure true
   | (hyps, eqE) :: srest, proof :: prest => do
-    let hypsS := hyps.map (Expr.substConst0 c annVal)
-    let eqS := Expr.substConst0 c annVal eqE
-    let proofS := Expr.substConstAll c annVal proof
-    if proofS.looseBVarsBounded 0 && !proofS.hasFvar &&
-        proofS.allLevelParamsDefined [] && proofS.constsResolve env &&
-        hypsS.all (fun h => h.constsResolve env) && eqS.constsResolve env then
-      let applied := divModCertApplied proofS hypsS
-      let appliedA ← ops.annotate env 4 applied
+    if divModCertGuard env c annVal hyps eqE proof then
+      let appliedA ← ops.annotate env 4
+        (divModCertApplied (Expr.substConstAll c annVal proof)
+          (hyps.map (Expr.substConst0 c annVal)))
       let tp ← ops.inferType env 4 appliedA
-      if ← ops.isDefEq env 4 tp eqS then
+      if ← ops.isDefEq env 4 tp (Expr.substConst0 c annVal eqE) then
         checkDivModCerts ops env c annVal srest prest
       else pure false
     else pure false
   | _, _ => pure false
+
+/-- Environment prerequisites of a certified `Nat.div`/`Nat.mod`:
+dependency guard, pinned dependencies, and the pinned `Eq` basis (the
+certificate statements are equations in the pinned equality). -/
+def divModEnvGuard (env2 : Env) (c : Name) : Bool :=
+  natOpGuard env2 c && (natOpDeps c).all (natOpStoredOk env2) &&
+  env2.find? eqName == some eqA
+
+/-- Syntactic guards on the vendored pin (generated; checked once at
+install rather than proven about the blob). -/
+def divModPinGuard (env : Env) (c : Name) : Bool :=
+  (divModDeclPin c).looseBVarsBounded 0 && !(divModDeclPin c).hasFvar &&
+  (divModDeclPin c).allLevelParamsDefined [] &&
+  (divModDeclPin c).constsResolve env
+
+/-- The `Nat.div`/`Nat.mod` install gate, run after the ordinary
+definition check (`env2` is the already-extended environment, `env`
+the pre-insertion one all checks run in): dependency and pinned-`Eq`
+guards, then definitional equality of the stored value against the
+vendored pin of the toolchain's own helper-unfolded definition —
+elaborator drift surfaces as a decline (exit 2), never silently — and
+on a match the pinned certificates (`checkDivModCerts`).  A
+certificate failure after a pin match is an internal inconsistency
+(exit 3). -/
+def checkDivModPin (ops : CheckerOps m) (env env2 : Env) (c : Name) :
+    m Unit := do
+  if divModEnvGuard env2 c then
+    match env2.find? c with
+    | some (.defnInfo _ value' _) =>
+      if divModPinGuard env c then do
+        let pinA ← ops.annotate env 0 (divModDeclPin c)
+        let okPin ← ops.isDefEq env 0 value' pinA
+        if okPin then do
+          let ok ← checkDivModCerts ops env c value'
+            (divModCertStmts c) (divModCertProofs c)
+          if ok then pure ()
+          else throw (.internal
+            s!"pinned Nat.div/mod certificate failed after pin match ({c})")
+        else throw (.notImplemented
+          s!"unsupported Nat.div/mod spelling ({c})")
+      else throw (.notImplemented
+        s!"unsupported Nat.div/mod spelling ({c}: pin ground constants absent)")
+    | _ => throw (.internal s!"Nat.div/mod operation not stored ({c})")
+  else throw (.notImplemented
+    s!"unsupported Nat.div/mod environment ({c})")
 
 /-- Check a single declaration, extending the environment on success. -/
 def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
@@ -834,28 +888,7 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
     -- model side consumes for the literal fast path.  A certificate
     -- failure after a pin match is an internal inconsistency (exit 3).
     if natDivModNames.contains cv.name then
-      unless natOpGuard env2 cv.name &&
-          (natOpDeps cv.name).all (natOpStoredOk env2) &&
-          env2.find? eqName == some eqA do
-        throw (.notImplemented
-          s!"unsupported Nat.div/mod environment ({cv.name})")
-      match env2.find? cv.name with
-      | some (.defnInfo _ value' _) =>
-        let pin := divModDeclPin cv.name
-        unless pin.looseBVarsBounded 0 && !pin.hasFvar &&
-            pin.allLevelParamsDefined [] && pin.constsResolve env do
-          throw (.notImplemented
-            s!"unsupported Nat.div/mod spelling ({cv.name}: pin ground constants absent)")
-        let pinA ← ops.annotate env 0 pin
-        unless ← ops.isDefEq env 0 value' pinA do
-          throw (.notImplemented
-            s!"unsupported Nat.div/mod spelling ({cv.name})")
-        let ok ← checkDivModCerts ops env cv.name value'
-          (divModCertStmts cv.name) (divModCertProofs cv.name)
-        unless ok do
-          throw (.internal
-            s!"pinned Nat.div/mod certificate failed after pin match ({cv.name})")
-      | _ => throw (.internal s!"Nat.div/mod operation not stored ({cv.name})")
+      checkDivModPin ops env env2 cv.name
     pure env2
   | .thmDecl cv value =>
     let cv ← checkConstantVal ops env cv
