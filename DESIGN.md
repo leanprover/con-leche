@@ -261,21 +261,27 @@ relate the pair's components to the plain instantiations.
   a pure run at one fuel valid at *every* depth at which the key is
   well-scoped (see *Depth-free memo keys*); `simRel` (families vs.
   `StateT KCache` computations) is `bind`-closed via monotonicity,
-  `memoE`/`memoB` wrapper lemmas + a knot induction give: every
-  successful `cachedOps` entry-point run is reproduced by the pure
-  knot at some fuel.
-* **Declaration checker** (`Verify/BridgeDecl.lean`): the checker is
-  monad-polymorphic over `CheckerOps m`; `bridgeRel` (families vs.
-  plain `CheckM`) + the ops-record pairing + batteries over every
-  declaration-checker function yield `checkDecls_bridge`: a successful
-  `checkDecls cachedOps` run is reproduced by
-  `checkDecls (fueledOps F)` for some fuel.
+  `memoE`/`memoB` wrapper lemmas + a knot induction give: under
+  `EnvWF env` (a hypothesis, not a runtime check — see *Depth-free
+  memo keys*), every successful `cachedOps` entry-point run is
+  reproduced by the pure knot at some fuel.
+* **Declaration checker** (`Verify/BridgeDecl.lean` +
+  `Model/BridgeWF.lean`): the checker is monad-polymorphic over
+  `CheckerOps m`; `bridgeRel` (families vs. plain `CheckM`) + the
+  ops-record pairing against the conditional comparand `wfOpsM` +
+  batteries over every declaration-checker function yield
+  `checkDecl_wfOpsM_bridge` (unconditional), and `Model/BridgeWF.lean`'s
+  `checkDecl_bridge`: under `EnvWF env`, a successful
+  `checkDecl cachedOps` step is reproduced by
+  `checkDecl (fueledOps F)` for some fuel.
 
 The consistency layer is stated fuel-generically (`fueledOps F`;
 `pureOps = fueledOps checkFuel`), so `Setlec/Model/ConsistencyC.lean`
-concludes: **every environment the executable accepts has a model**
-(`checkDeclsC_sound`), and the executable never accepts a proof of
-`Empty` (`no_proof_of_Empty_C`).  If the pair-monad batteries ever get
+concludes by a per-declaration fold interleaving `EnvModel.wf` (which
+discharges the bridge's `EnvWF` hypothesis), the bridge, and
+`checkDecl_sound`: **every environment the executable accepts has a
+model** (`checkDeclsC_sound`), and the executable never accepts a
+proof of `Empty` (`no_proof_of_Empty_C`).  If the pair-monad batteries ever get
 unwieldy, `mvcgen` (Lean's verification-condition generator for
 monadic programs) plus precondition-carrying high-level combinators is
 the designated fallback.  Both `_model` declarations and real Lean
@@ -305,33 +311,51 @@ operations/the scope guards) lives at the end of
 `Setlec/Verify/Shift.lean`.
 
 Depth invariance holds only for well-scoped inputs under well-formed
-environments, so the memoized knot guards both, keeping the bridge
-free of any call-discipline assumption:
+environments.  The scoping half is guarded at runtime: every cache
+lookup/insert checks `wscopedB` of its key at the ambient depth (an
+ill-scoped argument bypasses the cache) — the hashing of the key walks
+the term anyway, so the guard is a constant-factor cost.  The
+environment half is **not checked at runtime** (principle, owner
+ruling 2026-08-21: *never add boolean checks for what is proven to
+hold*): the executable always runs the memoized knot, and `EnvWF` is a
+*hypothesis* of the bridge, threaded down from the model invariant
+`EnvModel.wf` — the checker only ever calls the core on environments
+it built itself, and `checkDecl_sound` proves those have models.  (An
+earlier `Env.wfB` boolean gate — one `O(|env|)` walk per top-level
+entry-point call selecting a plain uncached fallback — was deleted;
+its cost was ~1s per rbtree-sized test and a ~20% regression on
+gate-heavy tests.)
 
-* every cache lookup/insert is guarded on `wscopedB` of its key at the
-  ambient depth (an ill-scoped argument bypasses the cache) — the
-  hashing of the key walks the term anyway, so the guard is a
-  constant-factor cost;
-* memoization is gated on `Env.wfB` — a `Bool` mirror of `EnvWF`,
-  fused into one traversal per stored expression (`Expr.declWfB`)
-  and resolving constants against a precomputed name set — reflected
-  by `envWF_of_wfB`; a syntactically ill-formed environment (never
-  produced by the checker) runs the plain uncached knot (`plainFnsS`),
-  bridged directly.
+Concretely: the per-entry-point simulation (`cachedFns_sim`,
+`cachedOps_*_bridge` in `Setlec/Verify/Bridge.lean`) takes
+`henv : EnvWF env`.  To keep the pair-monad battery over the
+declaration checker unconditional, its fueled comparand is the
+classical conditional record `wfOpsM` (`Setlec/Verify/BridgeDecl.lean`):
+the pure fueled family over well-formed environments, the cached run
+itself (a constant family, trivially related) otherwise — so
+`checkDecl_wfOpsM_bridge` holds for every environment.
+`Setlec/Model/BridgeWF.lean` then turns `wfOpsM` runs into plain
+`fueledOps` runs given `EnvWF` of the *input* environment only
+(`checkDecl_bridge`): the intermediate environments `checkIndDecl`
+calls the operations at (member-install fold, provisional recursor
+self, projection-install fold) are proven well-formed from the
+checker's own guards via the `Extend` inversions and the annotation
+scoping-preservation lemmas — no residual unchecked fact remained.
+`Setlec/Model/ConsistencyC.lean` interleaves per declaration: the
+model supplies `EnvWF`, the bridge the pure run, `checkDecl_sound` the
+next model; the top-level statements (`checkDeclsC_sound`,
+`no_proof_of_Empty_C`, `no_proof_of_Empty_input_C`) are unchanged —
+acceptance by the executable, no side conditions.
 
 `CacheOK` accordingly backs an entry `e ↦ r` by
 `∃ F, ∀ d, e.wscopedB d → run F d e = .ok r`: inserts establish the
 universal form from the run at the guarded ambient depth via the
 invariance theorems, hits consume it at their own guarded depth.
-Numbers (tutorial arena): whole suite 46.7s → 42.5s;
-043_rbTreeDef 5.50s → 4.34s; 069_rbTreeRef 5.54s → 4.35s.  The
-`Env.wfB` gate costs one `O(|env|)` walk per top-level entry-point
-call (~0.9s of 043's 4.34s; small and mid-sized tests with many
-entry-point calls over recursor-heavy environments can regress ~20%,
-e.g. 120_rTreeRec 1.97s → 2.40s, while the big tests win ~20%); it
-amortizes to zero once environments carry a well-formedness
-certificate or the interned-representation work (task #26) caches
-per-constant flags — tracked as follow-up.
+Numbers (tutorial arena, fresh builds at the same base, best of 3):
+removing the gate took the whole suite 33.6s → 25.7s; 043_rbTreeDef
+2.57s → 1.57s; 069_rbTreeRef 2.57s → 1.57s; 080_RBTree.id_spec
+2.62s → 1.57s; and the gate's regression on 120_rTreeRec is gone
+(1.82s → 1.02s).
 
 ### Inference re-checks; infer-only deferred
 

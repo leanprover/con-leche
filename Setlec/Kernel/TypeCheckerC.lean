@@ -11,86 +11,24 @@ different binder contexts reuses one entry.  This is justified by the
 depth invariance theorems (`Setlec/Verify/Deep.lean`): every entry
 point returns the same result at any depth at which its input is
 well-scoped, so an entry backed at *some* well-scoped depth is valid at
-every other one.  Two guards keep that justification airtight:
+every other one.  Every cache operation is guarded on `wscopedB` — an
+ill-scoped argument (impossible in disciplined runs, but the bridge
+must not assume the discipline) bypasses the cache.
 
-* every cache operation is guarded on `wscopedB` — an ill-scoped
-  argument (impossible in disciplined runs, but the bridge must not
-  assume the discipline) bypasses the cache;
-* memoization is enabled only for syntactically well-formed
-  environments (`Env.wfB`, the `Bool` mirror of `Verify`'s `EnvWF`,
-  which the invariance theorems require) — an ill-formed environment
-  (never produced by the checker) runs the plain knot.
+Depth invariance additionally requires a well-formed environment
+(`EnvWF`).  There is **no runtime check** for it: the checker only ever
+calls the core on environments it built itself, and the consistency
+proof carries `EnvWF` as part of the environment model invariant
+(`EnvModel.wf`), threading it into the refinement bridge
+(`Setlec/Verify/Bridge.lean`, `Setlec/Model/BridgeWF.lean`) — never
+add boolean checks for what is proven to hold.
 
 This instance is what the checker executes; the pure knot
 (`Setlec.Kernel.TypeChecker`) is the verified specification and the
-refinement bridge relates the two (see DESIGN.md and
-`Setlec/Verify/Bridge.lean`).
+refinement bridge relates the two (see DESIGN.md).
 -/
 
 namespace Setlec
-
-/-- The stored names as a hash set — the gate's resolution oracle
-(`Env.find?` is list-linear; the gate must stay linear in the
-environment's total size). -/
-def Env.nameSet (env : Env) : Std.HashSet Name :=
-  env.consts.foldl (fun s c => s.insert c.name) {}
-
-/-- `Expr.constsResolve`, resolved against a name set. -/
-def Expr.constsResolveS (s : Std.HashSet Name) : Expr → Bool
-  | .bvar _ | .sort _ | .lit (.strVal _) => true
-  | .lit (.natVal _) =>
-    s.contains natName && s.contains natZeroName && s.contains natSuccName
-  | .const n _ => s.contains n
-  | .fvar _ _ ty => ty.constsResolveS s
-  | .app f a => f.constsResolveS s && a.constsResolveS s
-  | .lam _ ty body _ | .forallE _ ty body _ =>
-    ty.constsResolveS s && body.constsResolveS s
-  | .letE _ ty val body =>
-    ty.constsResolveS s && val.constsResolveS s && body.constsResolveS s
-  | .proj sn _ e => s.contains sn && e.constsResolveS s
-
-/-- One-pass conjunction of the four per-expression facts the gate
-needs: `fvar`-free, level parameters within `lps`, constants resolving
-in the name set, bound variables below the cutoff. -/
-def Expr.declWfB (s : Std.HashSet Name) (lps : List Name) :
-    Nat → Expr → Bool
-  | k, .bvar i => decide (i < k)
-  | _, .fvar _ _ _ => false
-  | _, .sort u => u.allParamsDefined lps
-  | _, .const n us => s.contains n && us.all (Level.allParamsDefined lps)
-  | k, .app f a => f.declWfB s lps k && a.declWfB s lps k
-  | k, .lam _ t b m =>
-    t.declWfB s lps k && b.declWfB s lps (k + 1) &&
-      (match m.cod with
-       | some v => v.allParamsDefined lps
-       | none => true)
-  | k, .forallE _ t b m =>
-    t.declWfB s lps k && b.declWfB s lps (k + 1) &&
-      (match m.cod with
-       | some v => v.allParamsDefined lps
-       | none => true)
-  | k, .letE _ t v b =>
-    t.declWfB s lps k && v.declWfB s lps k && b.declWfB s lps (k + 1)
-  | _, .lit (.strVal _) => true
-  | _, .lit (.natVal _) =>
-    s.contains natName && s.contains natZeroName && s.contains natSuccName
-  | k, .proj sn _ e => s.contains sn && e.declWfB s lps k
-
-/-- The `Bool` mirror of `Verify`'s per-constant `ConstWF`, resolving
-against the precomputed name set. -/
-def ConstantInfo.wfB (s : Std.HashSet Name) (c : ConstantInfo) : Bool :=
-  c.toConstantVal.type.declWfB s c.toConstantVal.levelParams 0 &&
-  (match c with
-   | .defnInfo cv value _ => value.declWfB s cv.levelParams 0
-   | .recInfo cv _ _ _ _ rules =>
-     rules.all fun r => r.rhs.declWfB s cv.levelParams 0
-   | _ => true)
-
-/-- The `Bool` mirror of `Verify`'s `EnvWF` (checked once per
-top-level entry-point call; gates memoization). -/
-def Env.wfB (env : Env) : Bool :=
-  let s := env.nameSet
-  env.consts.all (ConstantInfo.wfB s)
 
 /-- Memoization state for the five core entry points, keyed by the
 expression alone (results are depth-invariant for well-scoped inputs;
@@ -146,9 +84,9 @@ def memoB (f : Nat → Expr → Expr → CheckSM Bool) :
         pure r
     else f d a b
 
-/-- The memoized core: the bodies tied at `CheckSM`, every level's
+/-- The executable core: the bodies tied at `CheckSM`, every level's
 entry points wrapped with the guarded cache. -/
-def cachedFnsM (env : Env) : Nat → CoreFns CheckSM :=
+def cachedFns (env : Env) : Nat → CoreFns CheckSM :=
   coreKnot env fun r =>
     { whnfCore := memoE (·.whnfCore)
         (fun st mp => { st with whnfCore := mp }) r.whnfCore
@@ -157,18 +95,5 @@ def cachedFnsM (env : Env) : Nat → CoreFns CheckSM :=
       defeq := memoB r.defeq
       annotate := memoE (·.annot)
         (fun st mp => { st with annot := mp }) r.annotate }
-
-/-- The plain knot at `CheckSM` (no memoization): the fallback for
-syntactically ill-formed environments, where depth invariance — the
-cache's soundness argument — is unavailable.  The checker never
-produces such an environment; the gate keeps the bridge honest without
-trusting that. -/
-def plainFnsS (env : Env) : Nat → CoreFns CheckSM :=
-  coreKnot env fun r => r
-
-/-- The executable core: memoized for well-formed environments, plain
-otherwise. -/
-def cachedFns (env : Env) : Nat → CoreFns CheckSM :=
-  if env.wfB then cachedFnsM env else plainFnsS env
 
 end Setlec

@@ -2050,7 +2050,7 @@ theorem checkDecls_sound {ds : List Declaration} {env' : Env}
 
 /-- Model-level core of the consistency corollary: a modeled
 environment stores no constant of type `Empty`. -/
-private theorem no_constant_of_Empty {env : Env} (m : EnvModel V env)
+theorem no_constant_of_Empty {env : Env} (m : EnvModel V env)
     (c : ConstantInfo) (hc : c ∈ env.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
   obtain ⟨T, hTi, hmem⟩ := m.mem_type c hc (fun _ => 0)
@@ -2065,7 +2065,7 @@ private theorem no_constant_of_Empty {env : Env} (m : EnvModel V env)
 
 /-- A checked `def` or `theorem` stores a constant carrying the
 annotated declared type. -/
-private theorem checkDecl_stores {env env₁ : Env} {cv : ConstantVal}
+theorem checkDecl_stores {env env₁ : Env} {cv : ConstantVal}
     {value : Expr} {hint : ReducibilityHint} {d : Declaration}
     (h : checkDecl (fueledOps F) env d = .ok env₁)
     (hd : d = .defnDecl cv value hint ∨ d = .thmDecl cv value) :

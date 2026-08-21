@@ -79,13 +79,121 @@ def fueledOpsM : CheckerOps FueledM where
   whnf env d e :=
     ⟨fun F => whnf env F d e, fun hle h => whnf_mono hle h⟩
 
-/-- Part B's entry-point bridges, packaged. -/
-theorem fueledOpsM_cachedOps_rel : OpsRel bridgeRel fueledOpsM cachedOps :=
-  ⟨fun _ _ _ _ h => cachedOps_annotate_bridge h,
-   fun _ _ _ _ h => cachedOps_inferType_bridge h,
-   fun _ _ _ _ _ h => cachedOps_isDefEq_bridge h,
-   fun _ _ _ _ h => cachedOps_ensureSort_bridge h,
-   fun _ _ _ _ h => cachedOps_whnf_bridge h⟩
+/-! ## The WF-conditional fueled comparand
+
+Part B's entry-point bridges hold only over well-formed environments
+(`EnvWF` — the depth-free memo cache is justified by depth invariance,
+which needs it), and there is **no runtime check** for `EnvWF`: the
+executable always runs the memoized knot.  To keep the pair-monad
+battery unconditional, the fueled comparand is chosen per environment:
+over a well-formed environment it is the pure fueled family, otherwise
+the constant family that merely repeats the cached run (trivially
+related).  The battery then yields, for *every* environment: a
+successful cached `checkDecl` run is reproduced by its `wfOpsM`
+instantiation at some fuel (`checkDecl_wfOpsM_bridge`).
+`Setlec/Model/BridgeWF.lean` turns `wfOpsM` runs into pure `fueledOps`
+runs by threading `EnvWF` — obtained there from the environment
+model — through the declaration checker's intermediate environments,
+using the `*_wfeq` equalities below. -/
+
+open Classical in
+/-- The fueled families over well-formed environments; the cached runs
+themselves (as constant, trivially monotone families) otherwise. -/
+noncomputable def wfOpsM : CheckerOps FueledM where
+  annotate env d e :=
+    if EnvWF env then
+      ⟨fun F => annotateCore env F d e, fun hle h => annotateCore_mono hle h⟩
+    else ⟨fun _ => cachedOps.annotate env d e, fun _ h => h⟩
+  inferType env d e :=
+    if EnvWF env then
+      ⟨fun F => inferTypeCore env F d e,
+        fun hle h => inferTypeCore_mono hle h⟩
+    else ⟨fun _ => cachedOps.inferType env d e, fun _ h => h⟩
+  isDefEq env d a b :=
+    if EnvWF env then
+      ⟨fun F => isDefEqCore env F d a b, fun hle h => isDefEqCore_mono hle h⟩
+    else ⟨fun _ => cachedOps.isDefEq env d a b, fun _ h => h⟩
+  ensureSort env d e :=
+    if EnvWF env then
+      ⟨fun F => ensureSortCore env F d e,
+        fun hle h => ensureSortCore_mono hle h⟩
+    else ⟨fun _ => cachedOps.ensureSort env d e, fun _ h => h⟩
+  whnf env d e :=
+    if EnvWF env then
+      ⟨fun F => whnf env F d e, fun hle h => whnf_mono hle h⟩
+    else ⟨fun _ => cachedOps.whnf env d e, fun _ h => h⟩
+
+/-- Over a well-formed environment `wfOpsM` *is* the fueled record. -/
+theorem wfOpsM_annotate {env : Env} (henv : EnvWF env) (d : Nat) (e : Expr) :
+    wfOpsM.annotate env d e = fueledOpsM.annotate env d e := by
+  dsimp only [wfOpsM, fueledOpsM]
+  exact if_pos henv
+
+theorem wfOpsM_inferType {env : Env} (henv : EnvWF env) (d : Nat) (e : Expr) :
+    wfOpsM.inferType env d e = fueledOpsM.inferType env d e := by
+  dsimp only [wfOpsM, fueledOpsM]
+  exact if_pos henv
+
+theorem wfOpsM_isDefEq {env : Env} (henv : EnvWF env) (d : Nat) (a b : Expr) :
+    wfOpsM.isDefEq env d a b = fueledOpsM.isDefEq env d a b := by
+  dsimp only [wfOpsM, fueledOpsM]
+  exact if_pos henv
+
+theorem wfOpsM_ensureSort {env : Env} (henv : EnvWF env) (d : Nat) (e : Expr) :
+    wfOpsM.ensureSort env d e = fueledOpsM.ensureSort env d e := by
+  dsimp only [wfOpsM, fueledOpsM]
+  exact if_pos henv
+
+theorem wfOpsM_whnf {env : Env} (henv : EnvWF env) (d : Nat) (e : Expr) :
+    wfOpsM.whnf env d e = fueledOpsM.whnf env d e := by
+  dsimp only [wfOpsM, fueledOpsM]
+  exact if_pos henv
+
+/-- Part B's entry-point bridges, packaged against the conditional
+comparand — unconditional in the environment. -/
+theorem wfOpsM_cachedOps_rel : OpsRel bridgeRel wfOpsM cachedOps := by
+  refine ⟨fun env d e => ?_, fun env d e => ?_, fun env d a b => ?_,
+    fun env d e => ?_, fun env d e => ?_⟩ <;> intro v h
+  · by_cases henv : EnvWF env
+    · rw [wfOpsM_annotate henv]
+      exact cachedOps_annotate_bridge henv h
+    · refine ⟨0, ?_⟩
+      have he : wfOpsM.annotate env d e =
+          ⟨fun _ => cachedOps.annotate env d e, fun _ h => h⟩ := by
+        dsimp only [wfOpsM]; exact if_neg henv
+      rw [he]; exact h
+  · by_cases henv : EnvWF env
+    · rw [wfOpsM_inferType henv]
+      exact cachedOps_inferType_bridge henv h
+    · refine ⟨0, ?_⟩
+      have he : wfOpsM.inferType env d e =
+          ⟨fun _ => cachedOps.inferType env d e, fun _ h => h⟩ := by
+        dsimp only [wfOpsM]; exact if_neg henv
+      rw [he]; exact h
+  · by_cases henv : EnvWF env
+    · rw [wfOpsM_isDefEq henv]
+      exact cachedOps_isDefEq_bridge henv h
+    · refine ⟨0, ?_⟩
+      have he : wfOpsM.isDefEq env d a b =
+          ⟨fun _ => cachedOps.isDefEq env d a b, fun _ h => h⟩ := by
+        dsimp only [wfOpsM]; exact if_neg henv
+      rw [he]; exact h
+  · by_cases henv : EnvWF env
+    · rw [wfOpsM_ensureSort henv]
+      exact cachedOps_ensureSort_bridge henv h
+    · refine ⟨0, ?_⟩
+      have he : wfOpsM.ensureSort env d e =
+          ⟨fun _ => cachedOps.ensureSort env d e, fun _ h => h⟩ := by
+        dsimp only [wfOpsM]; exact if_neg henv
+      rw [he]; exact h
+  · by_cases henv : EnvWF env
+    · rw [wfOpsM_whnf henv]
+      exact cachedOps_whnf_bridge henv h
+    · refine ⟨0, ?_⟩
+      have he : wfOpsM.whnf env d e =
+          ⟨fun _ => cachedOps.whnf env d e, fun _ h => h⟩ := by
+        dsimp only [wfOpsM]; exact if_neg henv
+      rw [he]; exact h
 
 section DeclBattery
 
@@ -1128,20 +1236,132 @@ theorem checkDecls_datF (ds : List Declaration) (F : Nat) :
   rw [foldlM_atF]
   simp only [checkDecl_datF]
 
-/-! ## The punchline -/
+/-! ## The punchline (part one)
 
-/-- A successful executable run of the declaration checker is
-reproduced by the pure fueled checker at some fuel. -/
-theorem checkDecls_bridge {ds : List Declaration} {env' : Env}
-    (h : checkDecls cachedOps ds = .ok env') :
-    ∃ F, checkDecls (fueledOps F) ds = .ok env' := by
-  have hp := (checkDecls
-    (pairOps fueledOpsM cachedOps fueledOpsM_cachedOps_rel) ds).property
-  rw [checkDecls_fst_dproj, checkDecls_snd_dproj] at hp
-  obtain ⟨F, hF⟩ := hp env' h
-  rw [checkDecls_datF] at hF
-  exact ⟨F, hF⟩
+A successful cached `checkDecl` run is reproduced by the `wfOpsM`
+instantiation at some fuel — unconditionally in the environment (the
+conditional comparand absorbs ill-formed ones).  Turning this into a
+pure `fueledOps` run is `Setlec/Model/BridgeWF.lean`'s
+`checkDecl_bridge`, which threads `EnvWF` from the environment
+model. -/
+
+/-- A successful cached `checkDecl` run is reproduced by the `wfOpsM`
+instantiation at the same declaration and some fuel. -/
+theorem checkDecl_wfOpsM_bridge {env env₂ : Env} {d : Declaration}
+    (h : checkDecl cachedOps env d = .ok env₂) :
+    ∃ F, (checkDecl wfOpsM env d).val F = .ok env₂ := by
+  have hp := (checkDecl
+    (pairOps wfOpsM cachedOps wfOpsM_cachedOps_rel) env d).property
+  rw [checkDecl_fst_dproj, checkDecl_snd_dproj] at hp
+  exact hp env₂ h
 
 end DeclBattery
+
+/-! ## `wfOpsM` = `fueledOpsM` over well-formed environments
+
+Each declaration-checker function that calls the operations only at
+environments *fixed by its arguments* is the same `FueledM`
+computation under `wfOpsM` and under `fueledOpsM`, given `EnvWF` of
+those environments.  The functions with data-dependent intermediate
+environments (`checkIndMember`'s provisional recursor self, the
+install folds, `checkDecl` itself) are handled in
+`Setlec/Model/BridgeWF.lean`, which derives the intermediate `EnvWF`
+facts from the checker's own guards. -/
+
+section WfEq
+
+theorem checkConstantVal_wfeq {env : Env} (henv : EnvWF env)
+    (cv : ConstantVal) :
+    checkConstantVal wfOpsM env cv = checkConstantVal fueledOpsM env cv := by
+  unfold checkConstantVal
+  simp only [wfOpsM_annotate henv, wfOpsM_inferType henv,
+    wfOpsM_ensureSort henv]
+
+theorem checkDefnVal_wfeq {env : Env} (henv : EnvWF env)
+    (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint) :
+    checkDefnVal wfOpsM env cv value hint =
+      checkDefnVal fueledOpsM env cv value hint := by
+  unfold checkDefnVal
+  simp only [wfOpsM_annotate henv, wfOpsM_inferType henv,
+    wfOpsM_isDefEq henv]
+
+theorem checkThmVal_wfeq {env : Env} (henv : EnvWF env)
+    (cv : ConstantVal) (value : Expr) :
+    checkThmVal wfOpsM env cv value =
+      checkThmVal fueledOpsM env cv value := by
+  unfold checkThmVal
+  simp only [wfOpsM_annotate henv, wfOpsM_inferType henv,
+    wfOpsM_isDefEq henv, wfOpsM_ensureSort henv]
+
+theorem checkOpaqueVal_wfeq {env : Env} (henv : EnvWF env)
+    (cv : ConstantVal) (value : Expr) :
+    checkOpaqueVal wfOpsM env cv value =
+      checkOpaqueVal fueledOpsM env cv value := by
+  unfold checkOpaqueVal
+  simp only [wfOpsM_annotate henv, wfOpsM_inferType henv,
+    wfOpsM_isDefEq henv]
+
+theorem certifyNatEqs_wfeq {env : Env} (henv : EnvWF env) :
+    ∀ eqs : List (Expr × Expr),
+      certifyNatEqs wfOpsM env eqs = certifyNatEqs fueledOpsM env eqs
+  | [] => rfl
+  | eq :: rest => by
+    unfold certifyNatEqs
+    rw [wfOpsM_isDefEq henv]
+    congr 1
+    funext b
+    cases b with
+    | true =>
+      simp only [↓reduceIte]
+      exact certifyNatEqs_wfeq henv rest
+    | false => rfl
+
+theorem checkIotaRule_wfeq {env' envSelf : Env} (henv' : EnvWF env')
+    (henvSelf : EnvWF envSelf) (f : Name → Name) (cvName : Name)
+    (lps : List Name) (tyA : Expr) (nP nM nm ni j : Nat) (r : RecRule) :
+    checkIotaRule wfOpsM env' envSelf f cvName lps tyA nP nM nm ni j r =
+      checkIotaRule fueledOpsM env' envSelf f cvName lps tyA
+        nP nM nm ni j r := by
+  unfold checkIotaRule
+  simp only [wfOpsM_annotate henvSelf, wfOpsM_inferType henvSelf,
+    wfOpsM_annotate henv']
+
+theorem checkIotaRules_wfeq {env' envSelf : Env} (henv' : EnvWF env')
+    (henvSelf : EnvWF envSelf) (f : Name → Name) (cvName : Name)
+    (lps : List Name) (tyA : Expr) (nP nM nm ni : Nat) :
+    ∀ (j : Nat) (rules : List RecRule),
+      checkIotaRules wfOpsM env' envSelf f cvName lps tyA
+          nP nM nm ni j rules =
+        checkIotaRules fueledOpsM env' envSelf f cvName lps tyA
+          nP nM nm ni j rules
+  | _, [] => rfl
+  | j, r :: rest => by
+    unfold checkIotaRules
+    rw [checkIotaRule_wfeq henv' henvSelf,
+      checkIotaRules_wfeq henv' henvSelf f cvName lps tyA nP nM nm ni
+        (j + 1) rest]
+
+theorem checkProjRule_wfeq {env' : Env} (henv' : EnvWF env')
+    (cvj : ConstantVal) (lps : List Name) (nP nF i : Nat) :
+    checkProjRule wfOpsM env' cvj lps nP nF i =
+      checkProjRule fueledOpsM env' cvj lps nP nF i := by
+  unfold checkProjRule
+  simp only [wfOpsM_annotate henv']
+
+theorem checkProjFn_wfeq {env' : Env} (henv' : EnvWF env')
+    (T ctorName : Name) (lps : List Name) (nP nF i : Nat) :
+    checkProjFn wfOpsM env' T ctorName lps nP nF i =
+      checkProjFn fueledOpsM env' T ctorName lps nP nF i := by
+  unfold checkProjFn
+  simp only [checkProjRule_wfeq henv']
+
+theorem installProjFnStep_wfeq {e : Env} (he : EnvWF e)
+    (T ctorName : Name) (lps : List Name) (nP nF i : Nat) :
+    installProjFnStep wfOpsM T ctorName lps nP nF e i =
+      installProjFnStep fueledOpsM T ctorName lps nP nF e i := by
+  unfold installProjFnStep
+  simp only [checkProjFn_wfeq he]
+
+end WfEq
 
 end Setlec

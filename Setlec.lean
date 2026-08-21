@@ -25,4 +25,5 @@ import Setlec.Verify.Mono
 import Setlec.Verify.Deep
 import Setlec.Verify.Bridge
 import Setlec.Verify.BridgeDecl
+import Setlec.Model.BridgeWF
 import Setlec.Model.ConsistencyC
