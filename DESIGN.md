@@ -638,14 +638,16 @@ semantic invariants quantify over the stored hint and the claims
 proofs (`defeq_claims` consumes `WhnfCoreClaims`, `reduceNat_sound`,
 `unfoldDefinition_sound`, and the new `defeqSpine_values` spine
 congruence) are hint-independent.  `whnf` itself (as a normalizer)
-still unfolds eagerly in its loop.  Deviations from the reference
-kernels, all safe-side: no failure cache for the same-head check yet,
-no `tryUnfoldProjApp`, no cheapProj (tracked as deferred tasks); and
-where the official kernel guards the same-head try to
-`regular`-hinted definitions, `defeqSpine` runs whenever the hints
-are *equal* (a superset; on failure both sides unfold exactly as
-upstream, so verdicts agree).  Arena suite wall time dropped ~33%
-(47s → 31s).
+still unfolds eagerly in its loop.  The same-head try is guarded to
+equal *regular* hints (`ReducibilityHint.sameRegular`), mirroring the
+reference kernels exactly (owner ruling, 2026-08-21): at equal
+`abbrev`/`opaque` hints both sides unfold eagerly without a spine
+attempt — proof authors rely on abbrevs unfolding eagerly, and a
+spine defeq attempt on abbrev-headed applications risks reduction
+bombs; do not generalize the guard.  Remaining deviations from the
+reference kernels, all safe-side: no failure cache for the same-head
+check yet, no `tryUnfoldProjApp`, no cheapProj (tracked as deferred
+tasks).  Arena suite wall time dropped ~33% (47s → 31s).
 
 Modeled-install soundness architecture (2026-08-19, in progress): the
 fold facts for a modeled recursor come from eliminating its checked

@@ -1123,9 +1123,17 @@ def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
       let hb := headHint env b'
       if ReducibilityHint.lt hb ha then r.defeq depth a₂ b'
       else if ReducibilityHint.lt ha hb then r.defeq depth a' b₂
-      else if sameConstHeads a' b' then
-        -- same constant at equal hints: cheap congruence first — this
-        -- short-circuit is where lazy delta wins on large proof terms
+      else if ReducibilityHint.sameRegular ha hb && sameConstHeads a' b' then
+        -- Same constant at equal *regular* hints: cheap congruence
+        -- first — this short-circuit is where lazy delta wins on
+        -- large proof terms.  The `sameRegular` guard mirrors the
+        -- reference kernels (nanoda `try_eq_const_app`, the official
+        -- kernel) exactly and is deliberate: at equal `abbrev` (or
+        -- `opaque`) hints both sides unfold eagerly instead, because
+        -- proof authors rely on abbrevs unfolding eagerly and a spine
+        -- defeq attempt on abbrev-headed applications risks reduction
+        -- bombs (spines only equal after reduction, retried at every
+        -- congruence level).  Do not generalize this guard.
         if ← defeqSpine r env depth a' b' then pure true
         else r.defeq depth a₂ b₂
       else r.defeq depth a₂ b₂
