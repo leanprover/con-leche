@@ -2576,6 +2576,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       rfl
       hres'
       hpshape'
+      (fun _ hex => by obtain ⟨cv₀, v₀, heq⟩ := hex; exact nomatch heq)
+
 private theorem foldlM_sound {env' : Env} :
     ∀ (ds : List Declaration) (env : Env), Nonempty (EnvModel V env) →
       ds.foldlM (checkDecl (fueledOps F)) env = .ok env' → Nonempty (EnvModel V env')
