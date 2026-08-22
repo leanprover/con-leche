@@ -20,13 +20,35 @@ structure ConstantVal where
   type : Expr
   deriving DecidableEq, Repr, Inhabited
 
+/-- How a stored recursor rule may fire (install-computed; parse
+placeholder `.inert`).
+
+* `.plain` — a canonical rule (`Expr.recRulePlain`): the constructor's
+  parameters are the recursor's leading arguments and its levels link
+  to the recursor's by name.
+* `.nested lvls pins` — a certified nested-auxiliary rule: the
+  constructor's levels and parameters are *fixed instantiations*, read
+  at install off the recursor type's major-premise domain — `lvls`
+  are levels over the recursor's level parameters, `pins` expressions
+  in the recursor's `majorIdx`-binder telescope context (certified
+  only when `majorIdx = rulePrefix`, i.e. no indices).  At fire time
+  the constructor's levels and parameters are checked against these,
+  instantiated at the recursor's actual level and argument spine.
+* `.inert` — never fires; a *matched* inert rule is a positive
+  decline in `iotaRec` (an uncertified nested auxiliary rule). -/
+inductive RecRuleFire where
+  | inert
+  | plain
+  | nested (lvls : List Level) (pins : List Expr)
+  deriving DecidableEq, Repr, Inhabited
+
 /-- One iota rule of a recursor: applying the recursor (with its
 parameters, motives and minors) to a `ctor`-headed major premise reduces
 to `rhs` applied to the parameters, motives, minors and the constructor's
 `nfields` fields.  `ctorParams` (the constructor's parameter count) and
-`plain` (the canonical/inert flag, `Expr.recRulePlain`) are *computed at
+`fire` (the canonical/nested/inert firing mode) are *computed at
 install* from the stored constructor and recursor type — input rules
-carry the parse placeholders `0`/`false`; reduction reads only the
+carry the parse placeholders `0`/`.inert`; reduction reads only the
 installed values, never re-deriving them per fire. -/
 structure RecRule where
   ctor : Name
@@ -34,10 +56,10 @@ structure RecRule where
   /-- The constructor's parameter count (install-computed; parse
   placeholder `0`). -/
   ctorParams : Nat
-  /-- The canonical/inert flag: `true` iff the rule is canonical
-  (`Expr.recRulePlain`; install-computed, parse placeholder `false`).
-  `iotaRec` fires only on canonical rules. -/
-  plain : Bool
+  /-- The firing mode (install-computed, parse placeholder `.inert`):
+  `.plain` for canonical rules (`Expr.recRulePlain`), `.nested` for
+  certified nested-auxiliary rules, `.inert` otherwise. -/
+  fire : RecRuleFire
   rhs : Expr
   deriving DecidableEq, Repr, Inhabited
 

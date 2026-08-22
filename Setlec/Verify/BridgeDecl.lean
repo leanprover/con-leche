@@ -385,6 +385,36 @@ theorem checkIotaThm_snd_dproj (env' envSelf : Env)
     PairM.snd_ite, pairOps_isDefEq_snd, unwrapOr_snd_dproj,
     checkDefEqList_snd_dproj]
 
+theorem checkIotaThmN_fst_dproj (env' envSelf : Env)
+    (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
+    (mI rP j : Nat) (r : RecRule) (cvj : ConstantVal)
+    (cnP cnF : Nat) (rhsA : Expr) :
+    (checkIotaThmN (pairOps o₁ o₂ h) env' envSelf f cvName lps tyA
+      mI rP j r cvj cnP cnF rhsA).val.1 =
+    checkIotaThmN o₁ env' envSelf f cvName lps tyA mI rP j r cvj
+      cnP cnF rhsA := by
+  unfold checkIotaThmN
+  split
+  · rfl
+  · simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
+      PairM.fst_ite, pairOps_isDefEq_fst, unwrapOr_fst_dproj,
+      checkDefEqList_fst_dproj]
+
+theorem checkIotaThmN_snd_dproj (env' envSelf : Env)
+    (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
+    (mI rP j : Nat) (r : RecRule) (cvj : ConstantVal)
+    (cnP cnF : Nat) (rhsA : Expr) :
+    (checkIotaThmN (pairOps o₁ o₂ h) env' envSelf f cvName lps tyA
+      mI rP j r cvj cnP cnF rhsA).val.2 =
+    checkIotaThmN o₂ env' envSelf f cvName lps tyA mI rP j r cvj
+      cnP cnF rhsA := by
+  unfold checkIotaThmN
+  split
+  · rfl
+  · simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
+      PairM.snd_ite, pairOps_isDefEq_snd, unwrapOr_snd_dproj,
+      checkDefEqList_snd_dproj]
+
 set_option maxHeartbeats 12800000 in
 theorem checkIotaRule_fst_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
@@ -394,7 +424,9 @@ theorem checkIotaRule_fst_dproj (env' envSelf : Env)
     checkIotaRule o₁ env' envSelf f cvName lps tyA mI rP j r := by
   unfold checkIotaRule
   dfst_tac
-  all_goals rw [checkIotaThm_fst_dproj]
+  all_goals first
+  | rw [checkIotaThm_fst_dproj]
+  | rw [checkIotaThmN_fst_dproj]
 
 theorem checkIotaRules_fst_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
@@ -432,7 +464,9 @@ theorem checkIotaRule_snd_dproj (env' envSelf : Env)
     checkIotaRule o₂ env' envSelf f cvName lps tyA mI rP j r := by
   unfold checkIotaRule
   dsnd_tac
-  all_goals rw [checkIotaThm_snd_dproj]
+  all_goals first
+  | rw [checkIotaThm_snd_dproj]
+  | rw [checkIotaThmN_snd_dproj]
 
 theorem checkIotaRules_snd_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
@@ -1232,6 +1266,20 @@ theorem checkIotaThm_datF (env' envSelf : Env)
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     fueledOpsM_isDefEq_atF, unwrapOr_atF, checkDefEqList_datF]
 
+theorem checkIotaThmN_datF (env' envSelf : Env)
+    (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
+    (mI rP j : Nat) (r : RecRule) (cvj : ConstantVal)
+    (cnP cnF : Nat) (rhsA : Expr) (F : Nat) :
+    (checkIotaThmN fueledOpsM env' envSelf f cvName lps tyA
+      mI rP j r cvj cnP cnF rhsA).val F =
+    checkIotaThmN (fueledOps F) env' envSelf f cvName lps tyA mI rP
+      j r cvj cnP cnF rhsA := by
+  unfold checkIotaThmN
+  split
+  · rfl
+  · simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+      fueledOpsM_isDefEq_atF, unwrapOr_atF, checkDefEqList_datF]
+
 set_option maxHeartbeats 12800000 in
 theorem checkIotaRule_datF (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
@@ -1242,7 +1290,9 @@ theorem checkIotaRule_datF (env' envSelf : Env)
       mI rP j r := by
   unfold checkIotaRule
   datF_tac
-  all_goals rw [checkIotaThm_datF]
+  all_goals first
+  | rw [checkIotaThm_datF]
+  | rw [checkIotaThmN_datF]
 
 theorem checkIotaRules_datF (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)

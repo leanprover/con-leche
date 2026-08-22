@@ -44,7 +44,18 @@ private theorem constWF_intro {env : Env} {c : ConstantInfo}
         (RecRule.rhs r).hasFvar = false ∧
         (RecRule.rhs r).allLevelParamsDefined cv.levelParams = true ∧
         (RecRule.rhs r).constsResolve env = true ∧
-        (RecRule.rhs r).looseBVarsBounded 0 = true) :
+        (RecRule.rhs r).looseBVarsBounded 0 = true ∧
+        ∀ lvls pins, RecRule.fire r = .nested lvls pins →
+          mI = rP ∧
+          (∀ l ∈ lvls, l.allParamsDefined cv.levelParams = true) ∧
+          (∀ pin ∈ pins, pin.hasFvar = false ∧
+            pin.allLevelParamsDefined cv.levelParams = true ∧
+            pin.constsResolve env = true ∧
+            pin.looseBVarsBounded mI = true) ∧
+          ∃ pre nm dom body bm D,
+            cv.type.stripPis mI = some (pre, .forallE nm dom body bm) ∧
+            dom.getAppFn = .const D lvls ∧
+            dom.getAppArgs = pins) :
     ConstWF env c := ⟨h1, h2, h3, h4, h5, h6⟩
 
 /-- The four `ConstWF` type-slot facts for the constant returned by a
@@ -83,7 +94,7 @@ private theorem ruleChecked_rhs_facts {F : Nat} {env env₀ : Env}
     (RecRule.rhs r).allLevelParamsDefined cvA.levelParams = true ∧
     (RecRule.rhs r).constsResolve env₀ = true := by
   obtain ⟨cvj, cnP, cnF, raw, rhsTy, rbinders, rbody, -, -, -, -, -, -, -,
-    hrhsf, hrhsb, hrlp, hrres, -, -, -⟩ := h
+    -, hrhsf, hrhsb, hrlp, hrres, -, -, -⟩ := h
   exact ⟨hrhsf, hrhsb, hrlp, hrres⟩
 
 /-! ## `checkIndMember` -/
@@ -200,8 +211,14 @@ private theorem constWF_le {envA envB : Env}
     obtain ⟨g1, g2, g3, g4⟩ := h5 cv v hint heq
     exact ⟨g1, g2, Expr.constsResolve_le hle g3, g4⟩
   · intro cv a b e heq r hr
-    obtain ⟨g1, g2, g3, g4⟩ := h6 cv a b e heq r hr
-    exact ⟨g1, g2, Expr.constsResolve_le hle g3, g4⟩
+    obtain ⟨g1, g2, g3, g4, g5⟩ := h6 cv a b e heq r hr
+    refine ⟨g1, g2, Expr.constsResolve_le hle g3, g4, ?_⟩
+    intro lvls pins hf
+    obtain ⟨n1, n2, n3, n4⟩ := g5 lvls pins hf
+    refine ⟨n1, n2, ?_, n4⟩
+    intro pin hp
+    obtain ⟨p1, p2, p3, p4⟩ := n3 pin hp
+    exact ⟨p1, p2, Expr.constsResolve_le hle p3, p4⟩
 
 /-- The recursor-group check, `wfOpsM` to pure, with the final
 environment well-formed. -/
@@ -331,10 +348,21 @@ theorem checkIndRecs_wfimp {blockNames : List Name} {env₂ env₃ : Env}
         injection heq with e1 e2 e3 e4
         subst e4
         obtain ⟨cvj, cnP, cnF, raw, rhsTy, rbinders, rbody, -, -, -, -,
-          -, -, -, hrf, hrb, hrlp, hrres, -, -, -⟩ := hkits r hr
-        refine ⟨hrf, by rw [← e1]; exact hrlp, ?_, hrb⟩
-        rw [← Expr.constsResolve_congr hisoSome]
-        exact hrres
+          hnest, -, -, -, hrf, hrb, hrlp, hrres, -, -, -⟩ := hkits r hr
+        refine ⟨hrf, by rw [← e1]; exact hrlp, ?_, hrb, ?_⟩
+        · rw [← Expr.constsResolve_congr hisoSome]
+          exact hrres
+        · intro lvls pins hf
+          obtain ⟨hmi, hlvls, hpins, hshape, -⟩ := hnest lvls pins hf
+          refine ⟨by rw [← e2, ← e3]; exact hmi,
+            by rw [← e1]; exact hlvls, ?_, ?_⟩
+          · intro pin hp
+            obtain ⟨p1, p2, p3, p4⟩ := hpins pin hp
+            exact ⟨p1, by rw [← e1]; exact p2,
+              by rw [← Expr.constsResolve_congr hisoSome]; exact p3,
+              by rw [← e2]; exact p4⟩
+          · rw [← e1, ← e2]
+            exact hshape
 
 /-- The `checkIndMember` fold over a block, `wfOpsM` to pure. -/
 private theorem foldIndMember_wfimp {blockNames : List Name}
@@ -399,7 +427,10 @@ private theorem installProjFnStepE_wfimp {T ctorName : Name}
     injection heq with h1 h2 h3 h4
     subst h1; subst h4
     rcases List.mem_singleton.mp hr with rfl
-    exact ⟨hrfv, halp, Expr.constsResolve_mono hrres, hrbv⟩
+    refine ⟨hrfv, halp, Expr.constsResolve_mono hrres, hrbv, ?_⟩
+    intro lvls pins hf
+    cases hcond : Expr.recRulePlain pty nP nP nP <;>
+      simp [hcond] at hf
   · simp only [pure, Except.pure, Except.ok.injEq] at h
     subst h
     exact he

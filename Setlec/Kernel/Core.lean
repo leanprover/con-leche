@@ -996,6 +996,26 @@ def litMajorToCtor (r : CoreFns m) (env : Env) (depth : Nat) :
     else pure (.lit (.strVal s))
   | e => pure (litToCtorIfNat env e)
 
+/-- The level and constructor-parameter comparands a firing rule's
+checks compare the major's constructor levels and parameters against:
+for a canonical (`.plain`) rule the constructor's levels link to the
+recursor's by name and its parameters are the recursor's leading
+arguments; for a certified nested (`.nested`) rule both are the stored
+major-domain instantiations, at the recursor's level instantiation and
+(for the parameters) instantiated at the recursor's argument spine.
+(Junk for `.inert` rules — `iotaRec` declines before reading it.) -/
+def recFireComparands (rl : RecRule) (lps : List Name)
+    (us : List Level) (cvjLps : List Name) (args : List Expr)
+    (mI : Nat) : List Level × List Expr :=
+  match rl.fire with
+  | .nested lvls pins =>
+    (lvls.map (Level.subst lps us),
+     pins.map fun p => Expr.instSpine (args.take mI) (mI - 1)
+       (p.instantiateLevelParams lps us))
+  | _ =>
+    (cvjLps.map fun p => Level.subst lps us (.param p),
+     args.take rl.ctorParams)
+
 /-- One iota step: the expression is a stored recursor applied to
 exactly its telescope (params, motives, minors, indices, major), the
 major premise whnfs to a fully applied constructor with a matching
@@ -1028,33 +1048,34 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
               -- (install-computed); the defensive spine-length check
               -- stays
               if margs.length = rl.ctorParams + rl.nfields then
-               -- A matched non-canonical rule is a *positive
-               -- detection* of an unsupported feature: the redex
-               -- demands firing a nested-auxiliary rule (e.g.
-               -- `Syntax.rec_1` on an `Array.mk` major), whose
-               -- verified reduction is not implemented (the iota
-               -- statement pin assumes canonical constructor
-               -- parameters).  Staying silently stuck would surface
-               -- as a spurious *reject* downstream (defeq failure in
-               -- the app rule), so decline here instead.
-               if rl.plain = false then
+               -- A matched *inert* rule is a positive detection of an
+               -- unsupported feature: the redex demands firing an
+               -- uncertified nested-auxiliary rule (e.g.
+               -- `Syntax.rec_1` on an `Array.mk` major with the
+               -- nested certification absent).  Staying silently
+               -- stuck would surface as a spurious *reject*
+               -- downstream (defeq failure in the app rule), so
+               -- decline here instead.
+               if rl.fire = .inert then
                  throw (.notImplemented
                    "iota reduction over a nested auxiliary recursor rule")
                else
                if (cv.type.stripPis (mI + 1)).isSome ∧
-                  (cvj.type.stripPis (rl.ctorParams + rl.nfields)).isSome ∧
-                  -- non-canonical (nested-auxiliary) rules are inert:
-                  -- the flag is computed once at install
-                  -- (`Expr.recRulePlain`), never re-derived per fire
-                  rl.plain then
-                -- the constructor's levels must agree with the
-                -- recursor's instantiation (the rule links their
-                -- level parameters by name)
+                  (cvj.type.stripPis (rl.ctorParams + rl.nfields)).isSome
+                  then
+                -- the constructor's levels and parameters must agree
+                -- with the rule's comparands (canonical: the
+                -- recursor's own instantiation and leading arguments;
+                -- nested: the stored major-domain instantiations) —
+                -- the firing mode was computed once at install
+                -- (`Expr.recRulePlain` / the nested certification),
+                -- never re-derived per fire
                 if ← liftFueled "level comparison" (Level.isEquivList usj
-                    (cvj.levelParams.map fun p =>
-                      Level.subst cv.levelParams us (.param p))) then
+                    (recFireComparands rl cv.levelParams us
+                      cvj.levelParams args mI).1) then
                  if ← defEqList r env depth (margs.take rl.ctorParams)
-                    (args.take rl.ctorParams) then
+                    (recFireComparands rl cv.levelParams us
+                      cvj.levelParams args mI).2 then
                   if ← iotaCerts r env depth
                      (cv.type.instantiateLevelParams cv.levelParams us)
                      (args.take mI ++ [major]) then

@@ -659,7 +659,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                      psigmaMkA, psigmaA, eqRecA, eqReflA, eqA, punitRecA,
                      punitUnitA, punitA, ConstantInfo.name,
                      ConstantInfo.toConstantVal]),
-                   by decide⟩
+                   by decide,
+                   fun lvls pins hf => nomatch hf⟩
                rcases List.mem_cons.mp hr with rfl | hr
                · exact ⟨by decide, by decide,
                    (by simp +decide [Expr.constsResolve, Env.find?, List.find?,
@@ -667,7 +668,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                      psigmaMkA, psigmaA, eqRecA, eqReflA, eqA, punitRecA,
                      punitUnitA, punitA, ConstantInfo.name,
                      ConstantInfo.toConstantVal]),
-                   by decide⟩
+                   by decide,
+                   fun lvls pins hf => nomatch hf⟩
                exact absurd hr (by simp))
             | (rcases List.mem_cons.mp hr with rfl | hr
                · exact ⟨by decide, by decide,
@@ -676,7 +678,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                      psigmaMkA, psigmaA, eqRecA, eqReflA, eqA, punitRecA,
                      punitUnitA, punitA, ConstantInfo.name,
                      ConstantInfo.toConstantVal]),
-                   by decide⟩
+                   by decide,
+                   fun lvls pins hf => nomatch hf⟩
                exact absurd hr (by simp))⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
@@ -741,7 +744,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
             refine ⟨fun ψ => annotOk_natRecZero_rhs (cval := val') (ψ := ψ)
               rfl hvalN' rfl hvalZ' rfl hvalSc', fun _ => Nat.le_refl _, ?_⟩
             intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
-              htv _hpeq _hplain _hlev _hfit
+              htv _hpeq _hplain _hfit
             have hje := Option.some.inj hfj
             simp only [natZeroA] at hje
             injection hje with hj1 hj2 hj3
@@ -780,7 +783,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
             refine ⟨fun ψ => annotOk_natRecSucc_rhs (cval := val') (ψ := ψ)
               rfl hvalN' rfl hvalZ' rfl hvalSc' hfRc' hvalRc', fun _ => Nat.le_refl _, ?_⟩
             intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
-              htv _hpeq _hplain _hlev _hfit
+              htv _hpeq _hplain _hfit
             have hje := Option.some.inj hfj
             simp only [natSuccA] at hje
             injection hje with hj1 hj2 hj3
@@ -1012,7 +1015,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                      psigmaMkA, psigmaA, eqRecA, eqReflA, eqA, punitRecA,
                      punitUnitA, punitA, ConstantInfo.name,
                      ConstantInfo.toConstantVal]),
-                   by decide⟩
+                   by decide,
+                   fun lvls pins hf => nomatch hf⟩
                rcases List.mem_cons.mp hr with rfl | hr
                · exact ⟨by decide, by decide,
                    (by simp +decide [Expr.constsResolve, Env.find?, List.find?,
@@ -1020,7 +1024,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                      psigmaMkA, psigmaA, eqRecA, eqReflA, eqA, punitRecA,
                      punitUnitA, punitA, ConstantInfo.name,
                      ConstantInfo.toConstantVal]),
-                   by decide⟩
+                   by decide,
+                   fun lvls pins hf => nomatch hf⟩
                exact absurd hr (by simp))
             | (rcases List.mem_cons.mp hr with rfl | hr
                · exact ⟨by decide, by decide,
@@ -1029,7 +1034,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                      psigmaMkA, psigmaA, eqRecA, eqReflA, eqA, punitRecA,
                      punitUnitA, punitA, ConstantInfo.name,
                      ConstantInfo.toConstantVal]),
-                   by decide⟩
+                   by decide,
+                   fun lvls pins hf => nomatch hf⟩
                exact absurd hr (by simp))⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
@@ -1078,7 +1084,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
           · refine ⟨fun ψ => annotOk_psigmaRec_rhs (cval := val') (ψ := ψ)
               rfl hvalS' rfl hvalM', fun _ => Nat.le_refl _, ?_⟩
             intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
-              htv _hpeq _hplain _hlev _hfit
+              htv _hpeq _hplain _hfit
             have hje := Option.some.inj hfj
             simp only [psigmaMkA] at hje
             injection hje with hj1 hj2 hj3
@@ -1312,7 +1318,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                      psigmaMkA, psigmaA, eqRecA, eqReflA, eqA, punitRecA,
                      punitUnitA, punitA, ConstantInfo.name,
                      ConstantInfo.toConstantVal]),
-                   by decide⟩
+                   by decide,
+                   fun lvls pins hf => nomatch hf⟩
                rcases List.mem_cons.mp hr with rfl | hr
                · exact ⟨by decide, by decide,
                    (by simp +decide [Expr.constsResolve, Env.find?, List.find?,
@@ -1320,7 +1327,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                      psigmaMkA, psigmaA, eqRecA, eqReflA, eqA, punitRecA,
                      punitUnitA, punitA, ConstantInfo.name,
                      ConstantInfo.toConstantVal]),
-                   by decide⟩
+                   by decide,
+                   fun lvls pins hf => nomatch hf⟩
                exact absurd hr (by simp))
             | (rcases List.mem_cons.mp hr with rfl | hr
                · exact ⟨by decide, by decide,
@@ -1329,7 +1337,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                      psigmaMkA, psigmaA, eqRecA, eqReflA, eqA, punitRecA,
                      punitUnitA, punitA, ConstantInfo.name,
                      ConstantInfo.toConstantVal]),
-                   by decide⟩
+                   by decide,
+                   fun lvls pins hf => nomatch hf⟩
                exact absurd hr (by simp))⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
@@ -1377,7 +1386,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
           · refine ⟨fun ψ => annotOk_eqRec_rhs (cval := val') (ψ := ψ)
               rfl hvalE' rfl hvalR', fun _ => by omega, ?_⟩
             intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
-              htv _hpeq _hplain _hlev _hfit
+              htv _hpeq _hplain _hfit
             have hje := Option.some.inj hfj
             simp only [eqReflA] at hje
             injection hje with hj1 hj2 hj3
@@ -1532,7 +1541,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                      psigmaMkA, psigmaA, eqRecA, eqReflA, eqA, punitRecA,
                      punitUnitA, punitA, ConstantInfo.name,
                      ConstantInfo.toConstantVal]),
-                   by decide⟩
+                   by decide,
+                   fun lvls pins hf => nomatch hf⟩
                rcases List.mem_cons.mp hr with rfl | hr
                · exact ⟨by decide, by decide,
                    (by simp +decide [Expr.constsResolve, Env.find?, List.find?,
@@ -1540,7 +1550,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                      psigmaMkA, psigmaA, eqRecA, eqReflA, eqA, punitRecA,
                      punitUnitA, punitA, ConstantInfo.name,
                      ConstantInfo.toConstantVal]),
-                   by decide⟩
+                   by decide,
+                   fun lvls pins hf => nomatch hf⟩
                exact absurd hr (by simp))
             | (rcases List.mem_cons.mp hr with rfl | hr
                · exact ⟨by decide, by decide,
@@ -1549,7 +1560,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                      psigmaMkA, psigmaA, eqRecA, eqReflA, eqA, punitRecA,
                      punitUnitA, punitA, ConstantInfo.name,
                      ConstantInfo.toConstantVal]),
-                   by decide⟩
+                   by decide,
+                   fun lvls pins hf => nomatch hf⟩
                exact absurd hr (by simp))⟩
       rfl
       (fun _ _ _ hx => nomatch hx)
@@ -1590,7 +1602,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         · refine ⟨fun ψ => annotOk_punitRec_rhs (cval := val') (ψ := ψ)
             rfl hvalP' rfl hvalU', fun _ => Nat.le_refl _, ?_⟩
           intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
-            htv _hpeq _hplain _hlev _hfit
+            htv _hpeq _hplain _hfit
           have hje := Option.some.inj hfj
           simp only [punitUnitA] at hje
           injection hje with hj1 hj2 hj3

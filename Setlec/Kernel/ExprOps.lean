@@ -304,13 +304,25 @@ def fvarTypeD : Expr → Expr
   | .fvar _ _ ty => ty
   | e => e
 
+/-- Instantiate a telescope-context expression at an argument spine:
+`bvar t` is replaced by the first argument, descending (the per-domain
+effect of peeling a `t + 1`-binder telescope at the spine; the
+verification's `instSeq`).  Used to evaluate a nested-auxiliary rule's
+stored constructor-parameter instantiations at the recursor's actual
+arguments. -/
+def instSpine : List Expr → Nat → Expr → Expr
+  | [], _, e => e
+  | a :: as, t, e => instSpine as (t - 1) (e.instantiate1 a t)
+
 /-- A recursor rule is *canonical* when its constructor's parameters
 are exactly the recursor's own leading arguments: the major premise's
 type applies the eliminated family to the first `cnP` telescope
 variables.  Rules for nested auxiliary constructors (whose parameters
 are instantiations like `Array Syntax`) are not canonical; they are
-stored inert — `iotaRec` guards on this predicate, so they never fire
-and carry no fold obligation. -/
+stored `.nested` when the certification against the model's `iota_j`
+theorem succeeds (see `checkIotaThmN`) and `.inert` otherwise —
+`iotaRec` never fires an inert rule, so it carries no fold
+obligation. -/
 def recRulePlain (recTy : Expr) (mI rP cnP : Nat) : Bool :=
   decide (cnP ≤ rP) && decide (rP ≤ mI) &&
   match recTy.stripPis mI with

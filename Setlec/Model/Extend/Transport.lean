@@ -146,11 +146,18 @@ theorem ConstWF.recRules_swap (rules₁ rules₂ : List RecRule)
          exact cres,
       dd⟩
   · intro cv mI' rP' rules heq r hr
-    obtain ⟨a, b, cres, dd⟩ := h6 cv mI' rP' rules heq r hr
-    exact ⟨a, b,
+    obtain ⟨a, b, cres, dd, nn⟩ := h6 cv mI' rP' rules heq r hr
+    refine ⟨a, b,
       by rw [← Expr.constsResolve_congr (Env.recRules_isSome rules₁ rules₂)]
          exact cres,
-      dd⟩
+      dd, ?_⟩
+    intro lvls pins hfr
+    obtain ⟨n1, n2, n3, n4⟩ := nn lvls pins hfr
+    refine ⟨n1, n2, fun pin hpin => ?_, n4⟩
+    obtain ⟨p1, p2, p3, p4⟩ := n3 pin hpin
+    refine ⟨p1, p2, ?_, p4⟩
+    rw [← Expr.constsResolve_congr (Env.recRules_isSome rules₁ rules₂)]
+    exact p3
 
 /-- The head recursor's own `ConstWF`, with the rule list dropped (the
 rules-free provisional install). -/
@@ -380,7 +387,7 @@ theorem extend_rec_swap {rules' : List RecRule}
         hfp₀ r hr
       refine ⟨fun ψ => hAtrans01 _ ψ 0 (rho0 V) (hA ψ), hle, ?_⟩
       intro cvj' cnP' cnF' hfj ψ ψj args margs tv hl hml hch hmch htv
-        hpeq hplain hlev hfit
+        hpeq hplain hfit
       have hncc : RecRule.ctor r ≠ cvA.name := by
         intro h
         rw [h, Env.find?_cons,
@@ -393,9 +400,9 @@ theorem extend_rec_swap {rules' : List RecRule}
         rw [← hfindEq _ hncc]
         exact hfj
       obtain ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
-        hψeq, hψjeq, hfit1, hfit2, hidx⟩ := hfit
+        hψeq, hψjeq, hfit1, hfit2, hidx, hnest⟩ := hfit
       obtain ⟨R', hRi, hfoldEq, hRch⟩ := hfold cvj' cnP' cnF' hfj₀ ψ ψj
-        args margs tv hl hml hch hmch htv hpeq hplain hlev
+        args margs tv hl hml hch hmch htv hpeq hplain
         ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
           hψeq, hψjeq,
           TeleFit.env_levelext henv10 natLitSupported_cons_recRules strLitSupported_cons_recRules hfit1,
@@ -403,7 +410,15 @@ theorem extend_rec_swap {rules' : List RecRule}
             rw [← mapM_interp_congr (fun e => interp_env_ext henv10
               natLitSupported_cons_recRules strLitSupported_cons_recRules
               e dd₂ ρρ₂)]
-            exact hidx⟩
+            exact hidx, by
+            intro lvls pins hfr
+            obtain ⟨n1, n2, dP, ρP, spineP, hFv, hsh, hmapM⟩ :=
+              hnest lvls pins hfr
+            refine ⟨n1, n2, dP, ρP, spineP, hFv, hsh, ?_⟩
+            rw [← mapM_interp_congr (fun e => interp_env_ext henv10
+              natLitSupported_cons_recRules strLitSupported_cons_recRules
+              e dP ρP)]
+            exact hmapM⟩
       refine ⟨R', ?_, hfoldEq, hRch⟩
       rw [hitrans]
       exact hRi

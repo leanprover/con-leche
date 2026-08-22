@@ -596,11 +596,13 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
       major.getAppArgs.length = r.ctorParams + r.nfields ∧
       (cv.type.stripPis (mI + 1)).isSome = true ∧
       (cvj.type.stripPis (r.ctorParams + r.nfields)).isSome = true ∧
-      r.plain = true ∧
-      Level.isEquivList usj (cvj.levelParams.map fun p =>
-        Level.subst cv.levelParams us (.param p)) = some true ∧
+      r.fire ≠ .inert ∧
+      Level.isEquivList usj
+        (recFireComparands r cv.levelParams us cvj.levelParams
+          e.getAppArgs mI).1 = some true ∧
       defEqListP env fuel d (major.getAppArgs.take r.ctorParams)
-        (e.getAppArgs.take r.ctorParams) = .ok true ∧
+        (recFireComparands r cv.levelParams us cvj.levelParams
+          e.getAppArgs mI).2 = .ok true ∧
       iotaCertsP env fuel d (cv.type.instantiateLevelParams cv.levelParams us)
         (e.getAppArgs.take mI ++ [major]) = .ok true ∧
       iotaCertsP env fuel d (cvj.type.instantiateLevelParams cvj.levelParams usj)
@@ -702,19 +704,19 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   case neg => rw [if_neg hml] at h; exact nomatch h
   rw [if_pos hml] at h
   try simp only [Bind.bind, Except.bind] at h
-  by_cases hplain0 : r.plain = false
+  by_cases hplain0 : r.fire = .inert
   case pos => rw [if_pos hplain0] at h; exact nomatch h
   rw [if_neg hplain0] at h
   try simp only [Bind.bind, Except.bind] at h
   by_cases harities : (cv.type.stripPis (mI + 1)).isSome = true ∧
-      (cvj.type.stripPis (r.ctorParams + r.nfields)).isSome = true ∧
-      r.plain = true
+      (cvj.type.stripPis (r.ctorParams + r.nfields)).isSome = true
   case neg => rw [if_neg harities] at h; exact nomatch h
-  obtain ⟨har1, har2, har3⟩ := harities
-  rw [if_pos ⟨har1, har2, har3⟩] at h
+  obtain ⟨har1, har2⟩ := harities
+  rw [if_pos ⟨har1, har2⟩] at h
   try simp only [Bind.bind, Except.bind] at h
-  cases hlev : Level.isEquivList usj (cvj.levelParams.map fun p =>
-      Level.subst cv.levelParams us (.param p)) with
+  cases hlev : Level.isEquivList usj
+      (recFireComparands r cv.levelParams us cvj.levelParams
+        e.getAppArgs mI).1 with
   | none => rw [hlev] at h; simp [liftFueled] at h
   | some bl =>
   rw [hlev] at h
@@ -726,7 +728,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   simp only [↓reduceIte] at h
   try simp only [Bind.bind, Except.bind] at h
   cases hpeq : defEqListP env fuel d (major.getAppArgs.take r.ctorParams)
-      (e.getAppArgs.take r.ctorParams) with
+      (recFireComparands r cv.levelParams us cvj.levelParams e.getAppArgs mI).2 with
   | error err => rw [hpeq] at h; exact nomatch h
   | ok rp =>
   rw [hpeq] at h
@@ -801,7 +803,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
     Option.some.injEq] at h
   exact ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj, cvj, cnP,
     cnF, r, cbinders, cbody, residual, cr, usr, rfl, hfc, hlen, hmaj, hlit,
-    hsub, hmfn, hfj, hrule, hml, har1, har2, har3, hlev, hpeq, hcerts,
+    hsub, hmfn, hfj, hrule, hml, har1, har2, hplain0, hlev, hpeq, hcerts,
     hmcerts, hstrip, hres, hrfn, hieq, h.symm⟩
 
 /-- Inversion of the stuck-major rescue: either the major is returned
@@ -2325,7 +2327,7 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
           have hrhs : WScoped d
               (r.rhs.instantiateLevelParams cv.levelParams us) := by
             obtain ⟨-, -, -, -, -, hrules⟩ := henv _ (find?_mem hfc)
-            obtain ⟨hrf, -, -, -⟩ := hrules cv mI rP rules rfl r
+            obtain ⟨hrf, -, -, -, -⟩ := hrules cv mI rP rules rfl r
               (List.mem_of_find?_eq_some hrule)
             exact WScoped.of_not_hasFvar
               (by rw [hasFvar_instantiateLevelParams]; exact hrf)

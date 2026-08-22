@@ -2,6 +2,7 @@ import Setlec.Kernel.TypeChecker
 import Setlec.SetTheory.Basic
 import Setlec.Verify.Level
 import Setlec.Verify.Shift
+import Setlec.Verify.Subst
 import Setlec.Verify.EnvWF
 import Setlec.Verify.Leaves
 import Setlec.Model.BasisVal
@@ -258,6 +259,17 @@ inductive TeleFitI (V : Type u) [SetTheory V] (cval : ConstVal V)
         rest
 
 
+/-- A spine of free variables (indices below the frame) whose valuation
+values are the given list (shared with the iota-walk machinery in
+`Setlec/Model/IotaWalk.lean`, which holds its lemmas). -/
+def FvarSpine {W : Type u} (D : Nat) (ρ : Nat → W) :
+    List Expr → List W → Prop
+  | [], [] => True
+  | a :: as, v :: vs =>
+    (∃ i n ty, a = .fvar i n ty ∧ i < D ∧ ρ i = v) ∧
+    FvarSpine D ρ as vs
+  | _, _ => False
+
 /-- Fold facts for every stored recursor rule: the recursor's value
 applied through its argument spine (`args`, then the major `tv`), with
 the major a constructor-value spine, equals the interpreted rule rhs
@@ -265,16 +277,28 @@ applied to the non-index prefix and the constructor's fields — together
 with the typing slots the reduct's annotation chain needs, and the
 rhs's own annotation truthfulness.  Basis blocks discharge this from
 the hand-written values; modeled blocks will discharge it from their
-checked `_model` theorems. -/
+checked `_model` theorems.
+
+The firing premises come in a canonical and a nested flavour,
+mirroring `recFireComparands`: for a `.plain` rule the constructor's
+parameter values are the recursor's leading argument values and its
+level assignment agrees with the recursor's by name; for a `.nested`
+rule the constructor's levels are the stored instantiations evaluated
+under the recursor's assignment, and its parameter values are the
+stored parameter instantiations evaluated at the recursor's argument
+values — witnessed at some frame by a sanitized free-variable spine
+carrying those values (the fold consumer crosses frames by
+value-determinedness).  `.inert` rules never fire and carry no fold
+obligation. -/
 def RecRulesOk (env : Env) (val : ConstVal V) : Prop :=
   ∀ n cv mI rP rules,
     env.find? n = some (.recInfo cv mI rP rules) →
     ∀ r ∈ rules,
       (∀ ψ : Name → Nat, AnnotOk V val env ψ 0 (rho0 V) (RecRule.rhs r)) ∧
-      -- a canonical rule's prefix fits under the major's position (part
-      -- of `Expr.recRulePlain`, whose install-time computation backs
-      -- the stored flag)
-      (RecRule.plain r = true → rP ≤ mI) ∧
+      -- a fireable rule's prefix fits under the major's position (part
+      -- of `Expr.recRulePlain` resp. `nestedRuleShape`, whose
+      -- install-time computation backs the stored flag)
+      (RecRule.fire r ≠ .inert → rP ≤ mI) ∧
       ∀ cvj cnP cnF,
         env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF) →
         -- the spine arithmetic is over the *rule's* stored counts
@@ -286,12 +310,14 @@ def RecRulesOk (env : Env) (val : ConstVal V) : Prop :=
           ChainSlots V (val n ψ) (args ++ [tv]) →
           ChainSlots V (val (RecRule.ctor r) ψj) margs →
           tv = SpineFold V (val (RecRule.ctor r) ψj) margs →
-          margs.take (RecRule.ctorParams r) =
-            (args ++ [tv]).take (RecRule.ctorParams r) →
-          -- non-canonical (nested-auxiliary) rules are inert: `iotaRec`
-          -- guards on the stored flag, so their fold facts are vacuous
-          RecRule.plain r = true →
-          (∀ p ∈ cvj.levelParams, ψj p = ψ p) →
+          -- canonical-rule firing facts (the kernel's `defEqList` on
+          -- the leading arguments and the by-name level linking)
+          (RecRule.fire r = .plain →
+            margs.take (RecRule.ctorParams r) =
+              (args ++ [tv]).take (RecRule.ctorParams r) ∧
+            (∀ p ∈ cvj.levelParams, ψj p = ψ p)) →
+          -- inert rules never fire: their fold facts are vacuous
+          RecRule.fire r ≠ .inert →
           (∃ (φ' : Name → Nat) (us usj : List Level) (d : Nat) (ρ : Nat → V)
               (d₁ : Nat) (ρ₁ : Nat → V) (rest₁ : Expr)
               (d₂ : Nat) (ρ₂ : Nat → V) (rest₂ : Expr),
@@ -308,7 +334,20 @@ def RecRulesOk (env : Env) (val : ConstVal V) : Prop :=
             -- opened constructor residual (the kernel's index certificate)
             (rest₂.getAppArgs.drop (RecRule.ctorParams r)).mapM
               (interpExpr V val env φ' d₂ ρ₂) =
-              some (args.drop rP)) →
+              some (args.drop rP) ∧
+            -- nested-rule firing facts (the kernel's `defEqList` on the
+            -- instantiated stored parameters and its level check)
+            (∀ lvls pins, RecRule.fire r = .nested lvls pins →
+              mI = rP ∧
+              (∀ p ∈ cvj.levelParams,
+                ψj p = Level.substFn ψ cvj.levelParams lvls p) ∧
+              ∃ (dP : Nat) (ρP : Nat → V) (spineP : List Expr),
+                FvarSpine dP ρP spineP args ∧
+                (∀ a ∈ spineP, ∃ i nm, a = Expr.fvar i nm (.sort .zero)) ∧
+                (pins.map fun pin => Expr.instSeq spineP (spineP.length - 1)
+                  (pin.instantiateLevelParams cv.levelParams us)).mapM
+                  (interpExpr V val env φ' dP ρP) =
+                  some (margs.take (RecRule.ctorParams r)))) →
           ∃ R, interpClosed V val env ψ (RecRule.rhs r) = some R ∧
             SpineFold V (val n ψ) (args ++ [tv]) =
               SpineFold V R

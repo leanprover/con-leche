@@ -1,4 +1,5 @@
 import Setlec.Verify.Scoped
+import Setlec.Verify.InstSpine
 
 /-!
 # The call-discipline walks
@@ -735,7 +736,14 @@ theorem iotaRec_disc (ih : ScopedSim env f) (henv : EnvWF env)
   split <;> try exact DiscV.pure WScopedO.none
   refine DiscV.bind (defEqList_disc ih
     (fun x hx => hmaj.getAppArgs x (List.mem_of_mem_take hx))
-    (fun x hx => hw.getAppArgs x (List.mem_of_mem_take hx)))
+    (recFireComparands_snd_WScoped rl cv.levelParams us
+      cvj.levelParams e.getAppArgs mI
+      (fun x hx => hw.getAppArgs x hx)
+      (fun lvls pins hf' pin hpin => by
+        obtain ⟨-, -, -, -, -, hrules⟩ := henv _ (find?_mem hfc)
+        obtain ⟨-, -, -, -, g5⟩ := hrules cv mI rP rules rfl rl
+          (List.mem_of_find?_eq_some hrule)
+        exact ((g5 lvls pins hf').2.2.1 pin hpin).1)))
     (fun r₁ _ => ?_)
   split <;> try exact DiscV.pure WScopedO.none
   have hwrecty : WScoped d
@@ -769,7 +777,7 @@ theorem iotaRec_disc (ih : ScopedSim env f) (henv : EnvWF env)
   · refine DiscV.pure (WScopedO.some ?_)
     refine Expr.WScoped.mkAppN ?_ ?_
     · obtain ⟨-, -, -, -, -, hrules⟩ := henv _ (find?_mem hfc)
-      obtain ⟨hrf, -, -, -⟩ := hrules cv mI rP rules rfl rl
+      obtain ⟨hrf, -, -, -, -⟩ := hrules cv mI rP rules rfl rl
         (List.mem_of_find?_eq_some hrule)
       exact wscoped_instLevels_of_not_hasFvar hrf _ _
     · intro x hx

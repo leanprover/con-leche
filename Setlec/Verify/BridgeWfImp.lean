@@ -883,6 +883,277 @@ theorem checkIotaThm_wfimp {env' envSelf : Env} (henv' : EnvWF env')
   | true =>
     rw [if_pos rfl] at h ⊢
 
+/-- A successful `nestedRuleShape` guards its stored parameter
+instantiations: they are fvar-free. -/
+theorem nestedRuleShape_pins {env' envSelf : Env} {cvName : Name}
+    {lps : List Name} {tyA : Expr} {mI rP cnP j : Nat}
+    {lvls : List Level} {pins : List Expr}
+    (h : nestedRuleShape env' envSelf cvName lps tyA mI rP cnP j =
+      some (lvls, pins)) :
+    ∀ p ∈ pins, p.hasFvar = false := by
+  intro p hp
+  simp only [nestedRuleShape] at h
+  repeat split at h
+  all_goals try (simp at h; done)
+  rename_i hcond
+  simp only [Option.some.injEq, Prod.mk.injEq] at h
+  obtain ⟨-, rfl⟩ := h
+  have hall := List.all_eq_true.mp hcond.2.1 p hp
+  simp only [Bool.and_eq_true, Bool.not_eq_true'] at hall
+  exact hall.1.1.1
+
+set_option maxHeartbeats 6400000 in
+/-- The nested-auxiliary iota-theorem check, `wfOpsM` run to pure run:
+`checkIotaThm_wfimp` with the constructor's parameters and levels
+fixed at the stored instantiations. -/
+theorem checkIotaThmN_wfimp {env' envSelf : Env} (henv' : EnvWF env')
+    (henvSelf : EnvWF envSelf) {f : Name → Name} {cvName : Name}
+    {lps : List Name} {tyA : Expr} {mI rP j : Nat} {r : RecRule}
+    {cvj : ConstantVal} {cnP cnF : Nat} {rhsA : Expr} {F : Nat}
+    {v : RecRuleFire}
+    (htyA : tyA.hasFvar = false) (hctor : cvj.type.hasFvar = false)
+    (hrhsA : rhsA.hasFvar = false)
+    (h : (checkIotaThmN wfOpsM env' envSelf f cvName lps tyA
+      mI rP j r cvj cnP cnF rhsA).val F = .ok v) :
+    checkIotaThmN (fueledOps F) env' envSelf f cvName lps tyA
+      mI rP j r cvj cnP cnF rhsA = .ok v := by
+  unfold checkIotaThmN at h ⊢
+  revert h
+  cases hshape : nestedRuleShape env' envSelf cvName lps tyA mI rP
+      cnP j with
+  | none => intro h; exact h
+  | some q =>
+  obtain ⟨lvls, pins⟩ := q
+  intro h
+  try dsimp only [] at h ⊢
+  have hpinsF : ∀ p ∈ pins, p.hasFvar = false :=
+    nestedRuleShape_pins hshape
+  obtain ⟨p, hthm, h⟩ := atF_bind_ok h
+  obtain ⟨cvt, tval⟩ := p
+  have hthm' := unwrapOr_atF_ok hthm
+  show ((unwrapOr (env'.findThm?
+    ((cvName.str "_model").str s!"iota_{j}")) _ : CheckM _) >>= _) = _
+  rw [hthm']
+  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
+  try dsimp only [] at h ⊢
+  -- the stored theorem's statement is closed
+  have hcvtF : cvt.type.hasFvar = false :=
+    (henv' _ (find?_mem (findThm?_ok hthm'))).1
+  by_cases h1 : cvt.levelParams = lps
+  case neg => rw [if_neg h1] at h; exact absurd h atF_throw_bind
+  rw [if_pos h1] at h ⊢
+  obtain ⟨q, hopen, h⟩ := atF_bind_ok h
+  obtain ⟨fvs, tbody⟩ := q
+  have hopen' := unwrapOr_atF_ok hopen
+  show ((unwrapOr (openPisAtFvars (rP + cnF) cvt.type 0) _ :
+    CheckM _) >>= _) = _
+  rw [hopen']
+  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
+  try dsimp only [] at h ⊢
+  -- scoping of the opened telescope
+  have hopenW := openPisAtFvars_WScoped (rP + cnF) cvt.type 0
+    hopen' (WScoped.of_not_hasFvar hcvtF)
+  rw [Nat.zero_add] at hopenW
+  obtain ⟨hfvsW, htbodyW⟩ := hopenW
+  have htargsW : ∀ x ∈ tbody.getAppArgs,
+      WScoped (rP + cnF) x := Expr.WScoped.getAppArgs htbodyW
+  have hlhsW : WScoped (rP + cnF)
+      (tbody.getAppArgs.getD 1 (.bvar 0)) := WScoped_getD' htargsW 1
+  have hrhsSW : WScoped (rP + cnF)
+      (tbody.getAppArgs.getD 2 (.bvar 0)) := WScoped_getD' htargsW 2
+  have hlargsW : ∀ x ∈ (tbody.getAppArgs.getD 1 (.bvar 0)).getAppArgs,
+      WScoped (rP + cnF) x := Expr.WScoped.getAppArgs hlhsW
+  by_cases h2 : isEqHead tbody.getAppFn = true
+  case neg => rw [if_neg h2] at h; exact absurd h atF_throw_bind
+  rw [if_pos h2] at h ⊢
+  by_cases h3 : tbody.getAppArgs.length = 3
+  case neg => rw [if_neg h3] at h; exact absurd h atF_throw_bind
+  rw [if_pos h3] at h ⊢
+  try dsimp only [] at h ⊢
+  by_cases h4 : ((tbody.getAppArgs.getD 1 (.bvar 0)).getAppFn ==
+      Expr.const (f cvName) (lps.map .param)) = true
+  case neg => rw [if_neg h4] at h; exact absurd h atF_throw_bind
+  rw [if_pos h4] at h ⊢
+  by_cases h5 : (tbody.getAppArgs.getD 1 (.bvar 0)).getAppArgs.length =
+      mI + 1
+  case neg => rw [if_neg h5] at h; exact absurd h atF_throw_bind
+  rw [if_pos h5] at h ⊢
+  by_cases h6 : ((tbody.getAppArgs.getD 1
+      (.bvar 0)).getAppArgs.take rP ==
+      fvs.take rP) = true
+  case neg => rw [if_neg h6] at h; exact absurd h atF_throw_bind
+  rw [if_pos h6] at h ⊢
+  by_cases h7 : ((tbody.getAppArgs.getD 1
+      (.bvar 0)).getAppArgs.getLastD (.bvar 0) ==
+      Expr.mkAppN (.const (f r.ctor) lvls)
+        (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
+          (p.renameConsts f)) ++ fvs.drop rP)) = true
+  case neg => rw [if_neg h7] at h; exact absurd h atF_throw_bind
+  rw [if_pos h7] at h ⊢
+  by_cases h8 : (cvj.type.stripPis (cnP + cnF)).isSome = true
+  case neg => rw [if_neg h8] at h; exact absurd h atF_throw_bind
+  rw [if_pos h8] at h ⊢
+  obtain ⟨q2, hcinst, h⟩ := atF_bind_ok h
+  obtain ⟨cdoms, cres⟩ := q2
+  have hcinst' := unwrapOr_atF_ok hcinst
+  show ((unwrapOr (Expr.instPisAt
+    (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
+      (p.renameConsts f)) ++ fvs.drop rP)
+    ((cvj.type.instantiateLevelParams cvj.levelParams
+      lvls).renameConsts f)) _ : CheckM _) >>= _) = _
+  rw [hcinst']
+  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
+  try dsimp only [] at h ⊢
+  have hcargW : ∀ a ∈ pins.map (fun p =>
+      Expr.instSpine (fvs.take rP) (rP - 1) (p.renameConsts f)) ++
+      fvs.drop rP, WScoped (rP + cnF) a := by
+    intro a hax
+    rcases List.mem_append.mp hax with hax | hax
+    · obtain ⟨x, hx, rfl⟩ := List.mem_map.mp hax
+      exact instSpine_WScoped (rP - 1)
+        (WScoped.of_not_hasFvar (by
+          rw [hasFvar_renameConsts]
+          exact hpinsF x hx))
+        (fun a' ha' => hfvsW a' (List.mem_of_mem_take ha'))
+    · exact hfvsW a (List.mem_of_mem_drop hax)
+  have hcinstW := instPisAt_WScoped _ _ hcinst'
+    (WScoped.of_not_hasFvar (by
+      rw [hasFvar_renameConsts, hasFvar_instantiateLevelParams]
+      exact hctor)) hcargW
+  obtain ⟨hcdomsW, hcresW⟩ := hcinstW
+  by_cases h9 : cres.getAppArgs.length = cnP + (mI - rP)
+  case neg => rw [if_neg h9] at h; exact absurd h atF_throw_bind
+  rw [if_pos h9] at h ⊢
+  obtain ⟨u1, hd1, h⟩ := atF_bind_ok h
+  have hd1' := checkDefEqList_wfimp henvSelf
+    (fun a ha => hlargsW a
+      (List.mem_of_mem_drop (List.mem_of_mem_take ha)))
+    (fun b hb => Expr.WScoped.getAppArgs hcresW b
+      (List.mem_of_mem_drop hb)) hd1
+  show (checkDefEqList (fueledOps F) envSelf _ _ _ >>= _) = _
+  rw [hd1']
+  simp only [Bind.bind, Except.bind]
+  obtain ⟨u2, hd2, h⟩ := atF_bind_ok h
+  have hd2' := checkDefEqList_wfimp henvSelf
+    (fun a ha => by
+      obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
+      exact fvarTypeD_WScoped (hfvsW x (List.mem_of_mem_drop hx)))
+    (fun b hb => hcdomsW b (List.mem_of_mem_drop hb)) hd2
+  show (checkDefEqList (fueledOps F) envSelf _ _ _ >>= _) = _
+  rw [hd2']
+  simp only [Bind.bind, Except.bind]
+  obtain ⟨q3, hrinst, h⟩ := atF_bind_ok h
+  obtain ⟨rdoms, rrest⟩ := q3
+  have hrinst' := unwrapOr_atF_ok hrinst
+  show ((unwrapOr (Expr.instPisAt (fvs.take rP)
+    (tyA.renameConsts f)) _ : CheckM _) >>= _) = _
+  rw [hrinst']
+  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
+  try dsimp only [] at h ⊢
+  have hrinstW := instPisAt_WScoped _ _ hrinst'
+    (WScoped.of_not_hasFvar (by
+      rw [hasFvar_renameConsts]
+      exact htyA))
+    (fun a ha => hfvsW a (List.mem_of_mem_take ha))
+  obtain ⟨hrdomsW, -⟩ := hrinstW
+  obtain ⟨u3, hd3, h⟩ := atF_bind_ok h
+  have hd3' := checkDefEqList_wfimp henvSelf
+    (fun a ha => by
+      obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
+      exact fvarTypeD_WScoped (hfvsW x (List.mem_of_mem_take hx)))
+    (fun b hb => hrdomsW b hb) hd3
+  show (checkDefEqList (fueledOps F) envSelf _ _ _ >>= _) = _
+  rw [hd3']
+  simp only [Bind.bind, Except.bind]
+  obtain ⟨q4, hopenP, h⟩ := atF_bind_ok h
+  obtain ⟨fvsP, restP⟩ := q4
+  have hopenP' := unwrapOr_atF_ok hopenP
+  show ((unwrapOr (openPisAtFvars rP tyA 0) _ :
+    CheckM _) >>= _) = _
+  rw [hopenP']
+  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
+  try dsimp only [] at h ⊢
+  have hopenPW := openPisAtFvars_WScoped rP tyA 0 hopenP'
+    (WScoped.of_not_hasFvar htyA)
+  rw [Nat.zero_add] at hopenPW
+  obtain ⟨hfvsPW, -⟩ := hopenPW
+  obtain ⟨q5, hcinstP, h⟩ := atF_bind_ok h
+  obtain ⟨cdomsP, crestP⟩ := q5
+  have hcinstP' := unwrapOr_atF_ok hcinstP
+  show ((unwrapOr (Expr.instPisAt
+    (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p))
+    (cvj.type.instantiateLevelParams cvj.levelParams lvls)) _ :
+    CheckM _) >>= _) = _
+  rw [hcinstP']
+  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
+  try dsimp only [] at h ⊢
+  have hcinstPW := instPisAt_WScoped (d := rP) _ _ hcinstP'
+    (WScoped.of_not_hasFvar (by
+      rw [hasFvar_instantiateLevelParams]
+      exact hctor))
+    (fun a ha => by
+      obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
+      exact instSpine_WScoped (rP - 1)
+        (WScoped.of_not_hasFvar (hpinsF x hx))
+        (fun a' ha' => hfvsPW a' (List.mem_of_mem_take ha')))
+  obtain ⟨-, hcrestPW⟩ := hcinstPW
+  obtain ⟨q6, hopenX, h⟩ := atF_bind_ok h
+  obtain ⟨xFvsP, crest2⟩ := q6
+  have hopenX' := unwrapOr_atF_ok hopenX
+  show ((unwrapOr (openPisAtFvars cnF crestP rP) _ :
+    CheckM _) >>= _) = _
+  rw [hopenX']
+  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
+  try dsimp only [] at h ⊢
+  have hopenXW := openPisAtFvars_WScoped cnF crestP rP
+    hopenX' hcrestPW
+  obtain ⟨hxFvsPW, -⟩ := hopenXW
+  have hfvsPW' : ∀ a ∈ fvsP ++ xFvsP, WScoped (rP + cnF) a := by
+    intro a hax
+    rcases List.mem_append.mp hax with hax | hax
+    · exact WScoped.mono (by omega) (hfvsPW a hax)
+    · exact hxFvsPW a hax
+  obtain ⟨q7, hlinst, h⟩ := atF_bind_ok h
+  obtain ⟨ldoms, lrest⟩ := q7
+  have hlinst' := unwrapOr_atF_ok hlinst
+  show ((unwrapOr (Expr.instLamsAt (fvsP ++ xFvsP) rhsA) _ :
+    CheckM _) >>= _) = _
+  rw [hlinst']
+  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
+  try dsimp only [] at h ⊢
+  have hlinstW := instLamsAt_WScoped _ _ hlinst'
+    (WScoped.of_not_hasFvar hrhsA) hfvsPW'
+  obtain ⟨hldomsW, -⟩ := hlinstW
+  obtain ⟨u4, hd4, h⟩ := atF_bind_ok h
+  have hd4' := checkDefEqList_wfimp henvSelf
+    (fun a ha => by
+      obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
+      exact fvarTypeD_WScoped (hfvsPW' x hx))
+    (fun b hb => hldomsW b hb) hd4
+  show (checkDefEqList (fueledOps F) envSelf _ _ _ >>= _) = _
+  rw [hd4']
+  simp only [Bind.bind, Except.bind]
+  rw [wfOpsM_isDefEq henvSelf hrhsSW.to_wscopedB
+    (Expr.WScoped.mkAppN
+      (WScoped.of_not_hasFvar (by
+        rw [hasFvar_renameConsts]
+        exact hrhsA))
+      (fun x hx => hfvsW x hx)).to_wscopedB] at h
+  obtain ⟨c, hde, h⟩ := atF_bind_ok h
+  have hde' : isDefEqCore envSelf F (rP + cnF)
+      (tbody.getAppArgs.getD 2 (.bvar 0))
+      (Expr.mkAppN (rhsA.renameConsts f) fvs) = .ok c := hde
+  show (isDefEqCore envSelf F _ _ _ >>= _) = _
+  rw [hde']
+  simp only [Bind.bind, Except.bind]
+  cases c with
+  | false =>
+    rw [if_neg (by simp)] at h
+    exact nomatch h
+  | true =>
+    rw [if_pos rfl] at h ⊢
+    exact h
+
 theorem checkIotaRule_wfimp {env' envSelf : Env} (henv' : EnvWF env')
     (henvSelf : EnvWF envSelf) {f : Name → Name} {cvName : Name}
     {lps : List Name} {tyA : Expr} {mI rP j : Nat} {r : RecRule}
@@ -943,6 +1214,14 @@ theorem checkIotaRule_wfimp {env' envSelf : Env} (henv' : EnvWF env')
   by_cases h8 : Expr.recRulePlain tyA mI rP cnP = true
   case neg =>
     rw [if_neg h8] at h ⊢
+    obtain ⟨fire, hthmN, h⟩ := atF_bind_ok h
+    have hthmN' := checkIotaThmN_wfimp henv' henvSelf htyA
+      (show cvj.type.hasFvar = false from (henv' _ (find?_mem hf)).1)
+      hrhsAF hthmN
+    show (checkIotaThmN (fueledOps F) env' envSelf f cvName lps tyA
+      mI rP j r cvj cnP cnF rhsA >>= _) = _
+    rw [hthmN']
+    simp only [Bind.bind, Except.bind]
     exact h
   rw [if_pos h8] at h ⊢
   obtain ⟨u, hthm, h⟩ := atF_bind_ok h

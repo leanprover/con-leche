@@ -350,9 +350,9 @@ private def processLineCore (st : State) (j : Json)
         (← (← c.getObjVal? "numFields").getNat?))
     let recs ← (← (← v.getObjVal? "recs").getArr?).mapM fun r => do
       let rules ← (← (← r.getObjVal? "rules").getArr?).mapM fun ru => do
-        -- `ctorParams`/`plain` are install-computed; parse placeholders
+        -- `ctorParams`/`fire` are install-computed; parse placeholders
         pure (RecRule.mk (← getName' st ru "ctor")
-          (← (← ru.getObjVal? "nfields").getNat?) 0 false
+          (← (← ru.getObjVal? "nfields").getNat?) 0 .inert
           (← getDeclExpr' st ru "rhs"))
       -- only the two sums the checker reads are kept: the major's
       -- position and the rule-application prefix

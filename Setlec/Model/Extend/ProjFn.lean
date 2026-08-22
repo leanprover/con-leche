@@ -43,6 +43,7 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
     (heqfind : env.find? eqName = some eqA)
     (heqval : ∀ ψ'' : Name → Nat, m.val eqName ψ'' = eqVal V ψ'')
     (hi : i < nF)
+    (hfire : ∀ lvls pins, rule.fire ≠ .nested lvls pins)
     (hctor : env.find? (RecRule.ctor rule) = some (.ctorInfo cvj nP nF))
     (_hnf : rule.nfields = nF)
     (hcp : rule.ctorParams = nP)
@@ -179,7 +180,14 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
             (FvarsOk.of_not_hasFvar hrawf))
       refine ⟨hArhs₁, fun _ => Nat.le_refl _, ?_⟩
       intro cvj' cnP' cnF' hfj ψ ψj args margs tv hl hml hch hmch htv
-        hpeq _hplain hlev hfit
+        hpeqG hplain hfit
+      have hfr : RecRule.fire rule = .plain := by
+        rcases h : RecRule.fire rule with _ | _ | ⟨lvls, pins⟩
+        · exact absurd h hplain
+        · rfl
+        · exact absurd h (hfire lvls pins)
+      obtain ⟨hpeq, hlev⟩ := hpeqG hfr
+      clear hpeqG
       rw [hcp, _hnf] at hml
       rw [hcp] at hpeq hfit
       have hctor₁ : (⟨.recInfo cvA nP nP [rule] ::
@@ -194,7 +202,7 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
       injection hje with j1 j2 j3
       subst j1 j2 j3
       obtain ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
-        hψeq, hψjeq, hfit1, hfit2, hidx⟩ := hfit
+        hψeq, hψjeq, hfit1, hfit2, hidx, -⟩ := hfit
       subst hψeq hψjeq
       have hro₁ : RenameOk m₀.val
           (⟨.recInfo cvA nP nP [rule] :: env.consts⟩ : Env) f := by
