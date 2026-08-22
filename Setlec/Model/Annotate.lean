@@ -352,7 +352,7 @@ theorem annotateCore_sound (m : EnvModel V env) :
     have hoke₂ : FvarsOk V m.val env φ d ρ e₂ := fun l hl => hoke l (hsl l hl)
     have hAe₂ : AnnotOk V m.val env φ d ρ e₂ :=
       annotateCore_sound m fuel e he hw hb hLbe ρ hoke
-    rcases hres with ⟨us, A, B, cv, caps, hteq, hfind, hi2, rfl⟩ | hel
+    rcases hres with ⟨T, us, entry, hfn, hf, hnat, hlen, rfl⟩ | hel
     case inr =>
       obtain ⟨raw, hwsb, hrb, hall, hann⟩ := annotateProjElim_inv hel
       have hsubR : ∀ l ∈ raw.fvarLeaves, l ∈ e₂.fvarLeaves := fun l hl => by
@@ -364,6 +364,32 @@ theorem annotateCore_sound (m : EnvModel V env) :
         fun l hl => hoke l (hsl l (hsubR l hl))
       exact annotateCore_sound m fuel _ hann (WScoped.of_wscopedB hwsb)
         hrb hLbraw ρ hokraw
+    -- identify the pinned pair through `ProjOk`
+    obtain ⟨hpin, hpsig, hpsigMk⟩ :=
+      m.proj_ok _ _ (Env.findProj?_some hf) hnat
+    have hidx : entry.idx = i ∧ entry.structName = T := by
+      have h1 := List.find?_some (Env.findProj?_some hf)
+      have h2 : (ConstantInfo.projInfo entry).name = projFnName T i :=
+        eq_of_beq (by simpa using h1)
+      simp only [ConstantInfo.name, ConstantInfo.toConstantVal] at h2
+      exact ⟨(projFnName_inj h2).2, (projFnName_inj h2).1⟩
+    have hT : T = psigmaName := by
+      rw [← hidx.2]
+      rcases hpin with rfl | rfl <;> rfl
+    subst hT
+    have hi2 : i < 2 := by
+      rw [← hidx.1]
+      rcases hpin with rfl | rfl <;> decide
+    have hlen2 : te'.getAppArgs.length = 2 := by
+      rw [hlen]
+      rcases hpin with rfl | rfl <;> rfl
+    obtain ⟨A, B, hargs2⟩ := List.length_two hlen2
+    have hteq : te' = .app (.app (.const psigmaName us) A) B := by
+      have h0 := Expr.mkAppN_getApp te'
+      rw [hfn, hargs2] at h0
+      exact h0.symm
+    obtain ⟨cv, caps, hfind⟩ : ∃ cv caps, env.find? psigmaName =
+        some (.indInfo cv caps) := ⟨_, _, by rw [hpsig]; rfl⟩
     rw [hteq] at hwh0
     obtain ⟨⟨ve, vte, hei, htei, hmem⟩, hwte, hAte⟩ :=
       inferTypeCore_sound m fuel hte hwe₂ hbe₂ hLbe₂ hoke₂ hAe₂

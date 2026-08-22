@@ -152,6 +152,23 @@ def IndOk (env : Env) (val : ConstVal V) : Prop :=
   RecCtorsStored env ∧
   (∀ (ψ : Name → Nat) (x : V), x ∈ˢ val emptyName ψ → False)
 
+/-- Every stored *native* projection-table entry is one of the two
+pinned pair entries, with the pair block's members stored pinned
+alongside (native entries install only with the pinned `PSigma'`
+block; the proj rules' soundness identifies the pair through this
+clause instead of by name).  Template entries carry no obligation
+here: the fallback's output is re-checked at every use. -/
+def ProjOk (env : Env) : Prop :=
+  ∀ n entry, env.find? n = some (.projInfo entry) →
+    entry.native = true →
+    (entry = pairFstEntry ∨ entry = pairSndEntry) ∧
+    env.find? psigmaName = some psigmaA ∧
+    env.find? psigmaMkName = some psigmaMkA
+
+theorem ProjOk.empty : ProjOk Env.empty := by
+  intro n entry h
+  simp [Env.find?, Env.empty] at h
+
 theorem BasisBlocks.empty : BasisBlocks Env.empty := by
   refine ⟨?_, ?_, ?_, ?_⟩ <;>
     (intro cv mI rP rules h; simp [Env.find?, Env.empty] at h)

@@ -294,24 +294,6 @@ private theorem piResidual_shiftFrom {p : Nat} :
       rw [← shiftFrom_instantiate1_gen]
       exact piResidual_shiftFrom as _
 
-/-- Peeling a `∀`-telescope along scoped arguments preserves
-well-scopedness. -/
-theorem piResidual_WScoped {d : Nat} :
-    ∀ {as : List Expr} {t res : Expr}, piResidual t as = some res →
-      WScoped d t → (∀ x ∈ as, WScoped d x) → WScoped d res
-  | [], t, res, h, hw, _ => by
-    simp only [piResidual, Option.some.injEq] at h
-    exact h ▸ hw
-  | a :: as, t, res, h, hw, has => by
-    match t, h with
-    | .forallE n ty body mb, h =>
-      have hw' : WScoped d ty ∧ WScoped d body := by
-        simpa only [WScoped] using hw
-      have h' : piResidual (body.instantiate1 a) as = some res := h
-      exact piResidual_WScoped h'
-        (WScoped.instantiate1_gen (has a (List.mem_cons_self ..)) 0 hw'.2)
-        (fun x hx => has x (List.mem_cons_of_mem _ hx))
-
 /-! ## The bisimulation claims -/
 
 /-- `whnfCore` commutes with the fvar shift. -/
@@ -958,9 +940,11 @@ private theorem stuckIrrel_shift (henv : EnvWF env)
 
 private theorem projCert_shift (henv : EnvWF env)
     (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) {e₂ : Expr}
-    (hwe₂ : WScoped d e₂) (i : Nat) (us : List Level) (nP : Nat) :
-    projCert (pureFns env fuel) env (d + 1) (shiftFrom p e₂) i us nP =
-      projCert (pureFns env fuel) env d e₂ i us nP := by
+    (hwe₂ : WScoped d e₂) (i : Nat) (fieldLvl structLvl : Level)
+    (nP : Nat) :
+    projCert (pureFns env fuel) env (d + 1) (shiftFrom p e₂) i
+        fieldLvl structLvl nP =
+      projCert (pureFns env fuel) env d e₂ i fieldLvl structLvl nP := by
   simp only [projCert]
   rw [getAppArgs_shiftFrom, getD_map_shiftFrom]
   have hwarg : WScoped d (e₂.getAppArgs.getD (nP + i) (.bvar 0)) :=
@@ -1442,18 +1426,16 @@ private theorem pisToLams_WScoped {d : Nat} :
         exact ⟨hw'.1, pisToLams_WScoped k hin hw'.2 hwb⟩
 
 private theorem annotateProjRec_shift (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) (sn : Name)
+    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d)
+    (entry : ProjEntry)
     (i : Nat) {te e' : Expr} (us : List Level)
     (hwte : WScoped d te) (hwe' : WScoped d e') :
-    annotateProjRec (pureFns env fuel) env (d + 1) sn i (shiftFrom p te)
+    annotateProjRec (pureFns env fuel) env (d + 1) entry i
+        (shiftFrom p te)
         (shiftFrom p e') us =
-      (annotateProjRec (pureFns env fuel) env d sn i te e' us).map
+      (annotateProjRec (pureFns env fuel) env d entry i te e' us).map
         (shiftFrom p) := by
   simp only [annotateProjRec]
-  split
-  case h_2 => rfl
-  case h_1 =>
-  rename_i cvR mI rP rule cvI capsI hfrec hfind
   split
   case h_2 => rfl
   case h_1 =>
@@ -1479,8 +1461,8 @@ private theorem annotateProjRec_shift (henv : EnvWF env)
     refine bind_rel_eq _ (isPropType_shift henv ih hpd hwte) ?_
     intro structProp _
     refine bind_rel _ _
-      (projFieldDom_shift henv ih hpd structProp sn hwe' i 0
-        hwtel) ?_
+      (projFieldDom_shift henv ih hpd structProp entry.structName hwe'
+        i 0 hwtel) ?_
     intro fi hfi
     have hwfi : WScoped d fi :=
       projFieldDom_WScoped hwe' i 0 hfi hwtel
@@ -1504,16 +1486,16 @@ private theorem annotateProjRec_shift (henv : EnvWF env)
         (inferTypeCore_WScoped henv fuel htfi hwfi')) ?_
       intro sfi _
       have hraw : Expr.mkAppN
-          (Expr.const (sn.str "rec")
-            ((if cvR.levelParams.length = us.length + 1 then [sfi]
+          (Expr.const (entry.structName.str "rec")
+            ((if entry.recExtraLevel then [sfi]
               else []) ++ us))
           (te.getAppArgs.map (shiftFrom p) ++
             [.lam (.str .anonymous "t") (shiftFrom p te)
               (shiftFrom p fi) ⟨.default, none⟩,
              shiftFrom p minor, shiftFrom p e']) =
           shiftFrom p (Expr.mkAppN
-            (.const (sn.str "rec")
-              ((if cvR.levelParams.length = us.length + 1 then [sfi]
+            (.const (entry.structName.str "rec")
+              ((if entry.recExtraLevel then [sfi]
                 else []) ++ us))
             (te.getAppArgs ++
               [.lam (.str .anonymous "t") te fi ⟨.default, none⟩,
@@ -1522,8 +1504,8 @@ private theorem annotateProjRec_shift (henv : EnvWF env)
         rfl
       rw [hraw]
       have hwraw : WScoped d (Expr.mkAppN
-          (.const (sn.str "rec")
-            ((if cvR.levelParams.length = us.length + 1 then [sfi]
+          (.const (entry.structName.str "rec")
+            ((if entry.recExtraLevel then [sfi]
               else []) ++ us))
           (te.getAppArgs ++
             [.lam (.str .anonymous "t") te fi ⟨.default, none⟩,
@@ -1567,10 +1549,13 @@ private theorem annotateProjElim_shift (henv : EnvWF env)
   simp only [shiftFrom]
   refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
   cases hf : env.find? (projFnName T i) with
-  | none => exact annotateProjRec_shift henv ih hpd sn i us hwte hwe'
+  | none => rfl
   | some ci =>
-    cases ci <;>
-      try (exact annotateProjRec_shift henv ih hpd sn i us hwte hwe')
+    cases ci <;> try rfl
+    case projInfo entry =>
+      dsimp only
+      refine ite_rel _ (fun _ => rfl) (fun _ => ?_)
+      exact annotateProjRec_shift henv ih hpd entry i us hwte hwe'
     case recInfo cvp mI rP rules =>
     dsimp only
     simp only [getAppArgs_shiftFrom, List.length_map]
@@ -1681,25 +1666,26 @@ private theorem whnfCore_step (henv : EnvWF env)
     refine bind_rel _ _ (ih.whnf hpd hw) ?_
     intro e₂ he₂
     have hwe₂ : WScoped d e₂ := whnf_WScoped henv fuel he₂ hw
-    rw [getAppFn_shiftFrom]
-    cases hfn : e₂.getAppFn <;> try rfl
-    case fvar => rw [shiftFrom_fvar]; rfl
-    case const c us₂ =>
-    simp only [shiftFrom]
-    cases hfc : env.find? c with
+    cases hfp : env.findProj? sn i with
     | none => rfl
-    | some ci =>
-      cases ci <;> try rfl
-      case ctorInfo cv nP nF =>
-      dsimp only
+    | some entry =>
+      rw [getAppFn_shiftFrom]
+      cases hfn : e₂.getAppFn <;> try rfl
+      case fvar => rw [shiftFrom_fvar]; rfl
+      case const c us₂ =>
+      simp only [shiftFrom]
       simp only [getAppArgs_shiftFrom, List.length_map]
       refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
       rw [getD_map_shiftFrom]
-      have hwarg : WScoped d (e₂.getAppArgs.getD (nP + i) (.bvar 0)) :=
+      have hwarg : WScoped d
+          (e₂.getAppArgs.getD (entry.numParams + i) (.bvar 0)) :=
         WScoped_getD (fun x hx => hwe₂.getAppArgs x hx) _
       refine ite_rel _ (fun _ => ?_) (fun _ => ?_)
       · exact ih.whnfCore hpd hwarg
-      · refine bind_rel_eq _ (projCert_shift henv ih hpd hwe₂ i us₂ nP) ?_
+      · refine bind_rel_eq _ (projCert_shift henv ih hpd hwe₂ i
+          (Level.subst entry.levelParams us₂ entry.fieldSort)
+          (Level.subst entry.levelParams us₂ entry.structSort)
+          entry.numParams) ?_
         intro bb _
         refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
         exact ih.whnfCore hpd hwarg
@@ -1865,33 +1851,29 @@ private theorem infer_step (henv : EnvWF env)
     refine bind_rel _ _
       (ih.whnf hpd (inferTypeCore_WScoped henv fuel hte hw)) ?_
     intro w hww
-    cases w <;>
-      try (first
-        | rfl
-        | (simp only [shiftFrom_app, shiftFrom_fvar]; first | done | rfl))
-    case app g₁ B =>
-    cases g₁ <;>
-      try (first
-        | rfl
-        | (simp only [shiftFrom_app, shiftFrom_fvar]; first | done | rfl))
-    case app g₂ A =>
-    cases g₂ <;>
-      try (first
-        | rfl
-        | (simp only [shiftFrom_app, shiftFrom_fvar]; first | done | rfl))
-    case const c us₂ =>
+    rw [getAppFn_shiftFrom]
+    cases hfn : w.getAppFn <;> try rfl
+    case fvar => rw [shiftFrom_fvar]; rfl
+    case const T us₂ =>
     simp only [shiftFrom]
-    cases hfc : env.find? c with
+    cases hfp : env.findProj? T i with
     | none => rfl
-    | some ci =>
-      cases ci <;> try rfl
-      case indInfo cvI capsI =>
+    | some entry =>
       dsimp only
+      simp only [getAppArgs_shiftFrom, List.length_map]
       refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-      match i with
-      | 0 => rfl
-      | 1 => rfl
-      | _ + 2 => rfl
+      have hclosed : (entry.ty.instantiateLevelParams entry.levelParams
+          us₂).hasFvar = false := by
+        rw [hasFvar_instantiateLevelParams]
+        exact (henv _ (find?_mem (Env.findProj?_some hfp))).1
+      have hres := piResidual_shiftFrom (p := p) (w.getAppArgs ++ [pe])
+        (entry.ty.instantiateLevelParams entry.levelParams us₂)
+      rw [shiftFrom_eq_self_of_not_hasFvar hclosed, List.map_append] at hres
+      simp only [List.map] at hres
+      rw [hres]
+      cases hr : piResidual
+          (entry.ty.instantiateLevelParams entry.levelParams us₂)
+          (w.getAppArgs ++ [pe]) <;> rfl
 
 private theorem defeq_step (henv : EnvWF env)
     (ih : ShiftClaims env fuel) : DefEqShift env (fuel + 1) := by
@@ -2333,27 +2315,19 @@ private theorem annotate_step (henv : EnvWF env)
     have hwte : WScoped d te := whnf_WScoped henv fuel hte
       (inferTypeCore_WScoped henv fuel hte₀ hwe'')
     have helim := annotateProjElim_shift henv ih hpd sn i hwte hwe''
-    cases te <;> try exact helim
+    rw [getAppFn_shiftFrom]
+    cases hfn : te.getAppFn <;> try exact helim
     case fvar =>
-      simp only [shiftFrom_fvar] at helim ⊢
+      rw [shiftFrom_fvar]
       exact helim
-    case app g₁ B =>
-    cases g₁ <;> try exact helim
-    case fvar =>
-      simp only [shiftFrom_app, shiftFrom_fvar] at helim ⊢
-      exact helim
-    case app g₂ A =>
-    cases g₂ <;> try exact helim
-    case fvar =>
-      simp only [shiftFrom_app, shiftFrom_fvar] at helim ⊢
-      exact helim
-    case const c cus =>
-    refine ite_rel _ (fun _ => ?_) (fun _ => helim)
-    cases hfc : env.find? c with
+    case const T cus =>
+    simp only [shiftFrom]
+    cases hfp : env.findProj? T i with
     | none => exact helim
-    | some ci =>
-      cases ci <;> try exact helim
-      case indInfo cvI capsI =>
+    | some entry =>
+      dsimp only
+      simp only [getAppArgs_shiftFrom, List.length_map]
+      refine ite_rel _ (fun _ => ?_) (fun _ => helim)
       exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
 
 end Helpers

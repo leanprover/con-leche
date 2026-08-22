@@ -59,9 +59,15 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
        (∃ cv cnP cnF, ci = .ctorInfo cv cnP cnF)) →
       (env.find? (ci.name.str "_model")).isSome = true ∧
       ∀ ψ : Name → Nat, v₀ ψ = m.val (ci.name.str "_model") ψ)
-    (hproj : ∀ (T : Name) (j : Nat), ci.name = projFnName T j →
+    (hproj : ∀ (T : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat)
+      (rules : List RecRule), ci.name = projFnName T j →
+      ci = .recInfo cv mI rP rules →
       (env.find? (projModelName T j)).isSome = true ∧
       ∀ ψ : Name → Nat, v₀ ψ = m.val (projModelName T j) ψ)
+    (hprojOk : ∀ entry, ci = .projInfo entry → entry.native = true →
+      (entry = pairFstEntry ∨ entry = pairSndEntry) ∧
+      env.find? psigmaName = some psigmaA ∧
+      env.find? psigmaMkName = some psigmaMkA)
     (hetaL : ∀ cv caps, ci = .indInfo cv caps → caps.eta = true →
       reservedBasisNames.contains ci.name = false →
       (env.find? (caps.etaCtor.str "_model")).isSome = true ∧
@@ -97,7 +103,7 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
       (∀ n ψ, n ≠ ci.name → m'.val n ψ = m.val n ψ) := by
   refine extend_fresh m ci v₀ hfind' hwf htyres0 ?_ hkey hparams hAty
     hnewty hnewmk hnewunit hnewempty hpin hsib hrecm hctors hmodv hproj
-    hetaL hunitL ?_ ?_
+    hprojOk hetaL hunitL ?_ ?_
   · intro cv2 value2 h2 heq
     exact absurd heq (hnotdefn cv2 value2 h2)
   · intro val' _ _ cv₀ v₀' h₀' heq _

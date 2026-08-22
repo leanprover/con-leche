@@ -49,7 +49,9 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
         (∃ cv cnP cnF, ci = .ctorInfo cv cnP cnF)) →
       (env.find? (ci.name.str "_model")).isSome = true ∧
       ∀ ψ : Name → Nat, m.val mname ψ = m.val (ci.name.str "_model") ψ)
-    (hprojm : ∀ (T : Name) (j : Nat), ci.name = projFnName T j →
+    (hprojm : ∀ (T : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat)
+      (rules : List RecRule), ci.name = projFnName T j →
+      ci = .recInfo cv mI rP rules →
       (env.find? (projModelName T j)).isSome = true ∧
       ∀ ψ : Name → Nat, m.val mname ψ = m.val (projModelName T j) ψ)
     (hetaLm : ∀ cv caps, ci = .indInfo cv caps → caps.eta = true →
@@ -153,7 +155,11 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
         subst h4
         intro r hr
         cases hr)
-    (fun _ => hmodm) hprojm hetaLm hunitLm
+    (fun _ => hmodm) hprojm
+    (fun entry heq _ => by
+      rcases hkind with ⟨cv', caps', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
+        ⟨cv', mI', rP', rfl⟩ <;> exact nomatch heq)
+    hetaLm hunitLm
 
 /-- The fold invariant of `checkIndDecl`: every installed block member
 has its `_model` companion stored (as a definition with the same level
@@ -232,6 +238,7 @@ theorem checkMemberVal_inv {blockNames : List Name} {env' : Env}
   match hfm : env'.find? (cvA'.name.str "_model") with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
@@ -279,6 +286,7 @@ theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
   refine ⟨cvA, cvm, mval, hmcvm, hccv, hms, hfm, hlps, hren, ?_⟩
   cases ci with
   | axiomInfo cv => exact nomatch h
+  | projInfo _ => exact nomatch h
   | defnInfo cv value hint => exact nomatch h
   | thmInfo cv value => exact nomatch h
   | recInfo cv mI rP rules => exact nomatch h
@@ -306,6 +314,7 @@ theorem provisionRecs_cons_inv {blockNames : List Name}
   match ci with
   | .recInfo cv mI rP rules => ?_
   | .axiomInfo _ => intro h; exact nomatch h
+  | .projInfo _ => intro h; exact nomatch h
   | .defnInfo _ _ _ => intro h; exact nomatch h
   | .thmInfo _ _ => intro h; exact nomatch h
   | .indInfo _ _ => intro h; exact nomatch h

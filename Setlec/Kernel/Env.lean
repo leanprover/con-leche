@@ -107,6 +107,45 @@ structure IndCaps where
   ruleK : Bool := false
   deriving DecidableEq, Repr, Inhabited
 
+/-- One projection-table entry, keyed by (type former × field index):
+everything the checker's `.proj` rules consume, stored once at install
+(the key is encoded in the entry's stored *name*, `projFnName
+structName idx`; see `Env.findProj?`).
+
+* `native = true`: the `.proj` node is first-class — typed by the
+  level-parametric `ty` (`∀ p⃗ (t : T p⃗), F_i`, earlier fields spelled
+  as `.proj` nodes of the subject) and reduced by the generic
+  structural rule `proj_i (ctor p⃗ x⃗) ↦ x_i`, guarded at possibly-Prop
+  instances by the stored `fieldSort`/`structSort` levels.  Installed
+  by the pinned `PSigma'` basis block.
+* `native = false`: the Prop-structure elimination-template entry —
+  per-declaration shape facts for the permanent recursor-inlining
+  fallback (`annotateProjRec`), whose per-instantiation typing check
+  remains at use; `ty` is the closed junk `Prop` and
+  `fieldSort`/`structSort` are unused. -/
+structure ProjEntry where
+  structName : Name
+  idx : Nat
+  /-- the parent type former's level parameters -/
+  levelParams : List Name
+  /-- the parent's parameter count -/
+  numParams : Nat
+  /-- the single constructor (the structural rule's head) -/
+  ctor : Name
+  /-- its field count -/
+  numFields : Nat
+  /-- the projection's level-parametric type (native entries only) -/
+  ty : Expr
+  /-- the projected field's sort (native entries only) -/
+  fieldSort : Level
+  /-- the parent's result sort (native entries only) -/
+  structSort : Level
+  native : Bool
+  /-- the parent's recursor carries a motive-sort level parameter in
+  front of the parent's own (template entries only) -/
+  recExtraLevel : Bool
+  deriving DecidableEq, Repr, Inhabited
+
 /-- Information stored about an accepted constant. -/
 inductive ConstantInfo where
   | axiomInfo (val : ConstantVal)
@@ -124,6 +163,13 @@ inductive ConstantInfo where
   are consumed at install time only and are not stored. -/
   | recInfo (val : ConstantVal) (majorIdx rulePrefix : Nat)
       (rules : List RecRule)
+  /-- A projection-table entry (see `ProjEntry`), stored under the
+  reserved name `projFnName entry.structName entry.idx` so lookups,
+  freshness and environment extension are uniform with constants.  Its
+  `toConstantVal` carries the entry's projection type (`ty`; template
+  entries carry the closed junk `Prop` there), so the environment
+  well-formedness and model machinery cover the entry uniformly. -/
+  | projInfo (entry : ProjEntry)
   deriving DecidableEq, Repr, Inhabited
 
 /-- A declaration presented to the checker. -/
@@ -151,11 +197,17 @@ def name : Declaration → Name
 
 end Declaration
 
+/-- The public projection-table name for field `i` of structure `T` (a
+`Nat` component keeps it out of the way of exported identifiers;
+installs are duplicate-checked regardless). -/
+def projFnName (T : Name) (i : Nat) : Name := (T.str "proj").num i
+
 namespace ConstantInfo
 
 def toConstantVal : ConstantInfo → ConstantVal
   | .axiomInfo v | .defnInfo v _ _ | .thmInfo v _ => v
   | .indInfo v _ | .ctorInfo v _ _ | .recInfo v _ _ _ => v
+  | .projInfo e => ⟨projFnName e.structName e.idx, e.levelParams, e.ty⟩
 
 def name (c : ConstantInfo) : Name := c.toConstantVal.name
 
@@ -198,6 +250,12 @@ def empty : Env := ⟨[]⟩
 
 def find? (env : Env) (n : Name) : Option ConstantInfo :=
   env.consts.find? (·.name == n)
+
+/-- Look up the projection-table entry for field `i` of `T`. -/
+def findProj? (env : Env) (T : Name) (i : Nat) : Option ProjEntry :=
+  match env.find? (projFnName T i) with
+  | some (.projInfo e) => some e
+  | _ => none
 
 end Env
 

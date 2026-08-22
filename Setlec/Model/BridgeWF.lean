@@ -115,6 +115,7 @@ theorem checkIndMember_wfimp {blockNames : List Name} {caps : IndCaps}
     | .indInfo cvI capsI => intro h; exact h
     | .ctorInfo cvI nPI nFI => intro h; exact h
     | .axiomInfo _ => intro h; exact nomatch h
+    | .projInfo _ => intro h; exact nomatch h
     | .defnInfo _ _ _ => intro h; exact nomatch h
     | .thmInfo _ _ => intro h; exact nomatch h
     | .recInfo _ _ _ _ => intro h; exact nomatch h
@@ -152,6 +153,7 @@ private theorem provisionRecs_wfimp {blockNames : List Name} {F : Nat} :
     match hci : ci with
     | .recInfo cv mI rP rules => ?_
     | .axiomInfo _ => intro h; exact nomatch h
+    | .projInfo _ => intro h; exact nomatch h
     | .defnInfo _ _ _ => intro h; exact nomatch h
     | .thmInfo _ _ => intro h; exact nomatch h
     | .indInfo _ _ => intro h; exact nomatch h
@@ -436,6 +438,86 @@ private theorem foldProjFn_wfimp {T ctorName : Name} {lps : List Name}
       rw [hp]
       exact hrest
 
+/-- The template-install step, `wfOpsM`-run to pure run, preserving
+environment well-formedness (the consed entry has the closed junk
+`Prop` type). -/
+private theorem installProjTemplateStepE_wfimp {T ctorName : Name}
+    {lps : List Name} {nP nF : Nat} {e e₁ : Env} {i F : Nat}
+    (he : EnvWF e)
+    (h : (installProjTemplateStep T ctorName lps nP nF e i :
+      FueledM _).val F = .ok e₁) :
+    (installProjTemplateStep T ctorName lps nP nF e i : CheckM _)
+      = .ok e₁ ∧ EnvWF e₁ := by
+  rw [installProjTemplateStep_datF] at h
+  refine ⟨h, ?_⟩
+  revert h
+  unfold installProjTemplateStep installProjTemplate
+  split
+  case isFalse =>
+    intro h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact h ▸ he
+  case isTrue hfree =>
+    split
+    case h_2 =>
+      intro h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact h ▸ he
+    case h_1 cvR mI2 rP2 rule heqR =>
+      split
+      case isFalse =>
+        intro h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        exact h ▸ he
+      case isTrue hcond =>
+        intro h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        refine h ▸ EnvWF.cons he ?_
+        refine ⟨rfl, rfl, rfl, rfl, ?_, ?_⟩
+        · intro _ _ _ heq
+          exact nomatch heq
+        · intro _ _ _ _ heq
+          exact nomatch heq
+
+/-- The template-install fold, `wfOpsM` to pure. -/
+private theorem foldProjTemplates_wfimp {T ctorName : Name}
+    {lps : List Name} {nP nF F : Nat} :
+    ∀ (idxs : List Nat) (e : Env) {e₂ : Env},
+      EnvWF e →
+      (idxs.foldlM
+        (installProjTemplateStep (m := FueledM) T ctorName lps nP nF)
+        e).val F = .ok e₂ →
+      idxs.foldlM
+        (installProjTemplateStep (m := CheckM) T ctorName lps nP nF)
+        e = .ok e₂ ∧ EnvWF e₂
+  | [], e, e₂, he, h => by
+    have h' : (Except.ok e : CheckM Env) = Except.ok e₂ := h
+    cases h'
+    exact ⟨rfl, he⟩
+  | i :: idxs, e, e₂, he, h => by
+    have h' : ((installProjTemplateStep T ctorName lps nP nF e i >>=
+        fun e₁ => idxs.foldlM
+          (installProjTemplateStep T ctorName lps nP nF) e₁ :
+        FueledM Env)).val F = .ok e₂ := h
+    rw [FueledM.atF_bind] at h'
+    cases hm : (installProjTemplateStep T ctorName lps nP nF e i :
+        FueledM _).val F with
+    | error err => rw [hm] at h'; exact nomatch h'
+    | ok e₁ =>
+      rw [hm] at h'
+      have h'' : (idxs.foldlM
+          (installProjTemplateStep T ctorName lps nP nF) e₁ :
+          FueledM _).val F = .ok e₂ := h'
+      obtain ⟨hp, he₁⟩ := installProjTemplateStepE_wfimp he hm
+      obtain ⟨hrest, hwf⟩ := foldProjTemplates_wfimp idxs e₁ he₁ h''
+      refine ⟨?_, hwf⟩
+      show (installProjTemplateStep T ctorName lps nP nF e i >>=
+        fun e₁ => idxs.foldlM
+          (installProjTemplateStep T ctorName lps nP nF) e₁ :
+        CheckM Env) = .ok e₂
+      rw [hp]
+      exact hrest
+
 /-! ## `checkIndDecl` and `checkDecl` -/
 
 /-- A successful `wfOpsM` run of `checkIndDecl` over a well-formed
@@ -478,8 +560,15 @@ theorem checkIndDecl_wfimp {env env₂ : Env} {block : List ConstantInfo}
       rw [if_neg hguard] at h
       exact absurd h atF_throw_bind
     rw [if_pos hguard] at h ⊢
-    obtain ⟨hpp, -⟩ := foldProjFn_wfimp (List.range nF) env₃ henv₃ h
-    exact hpp
+    obtain ⟨env₄, hartW, htplW⟩ := atF_bind_ok h
+    obtain ⟨hart, henv₄⟩ := foldProjFn_wfimp (List.range nF) env₃ henv₃
+      hartW
+    obtain ⟨htpl, -⟩ := foldProjTemplates_wfimp (List.range nF) env₄
+      henv₄ htplW
+    show (_ >>= _ : CheckM Env) = _
+    rw [hart]
+    try simp only [Except.bind]
+    exact htpl
   case _ =>
     try dsimp only [] at h
     obtain ⟨env₁, hfoldW, h⟩ := atF_bind_ok h

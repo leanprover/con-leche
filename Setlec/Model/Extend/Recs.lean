@@ -216,7 +216,7 @@ theorem provisionRecs_sound {F : Nat} {blockNames : List Name} :
       (Or.inr (Or.inr ⟨cvA, mI, rP, rfl⟩)) hfm hlps hrenS hannT hroS
       (fun hk => by
         rcases hk with ⟨_, _, hcon⟩ | ⟨_, _, _, hcon⟩ <;> exact nomatch hcon)
-      (fun T j hh => by
+      (fun T j _ _ _ _ hh _ => by
         have hh' : cvA.name = projFnName T j := hh
         rw [hh'] at hpshape0
         exact nomatch hpshape0)

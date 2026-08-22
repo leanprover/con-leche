@@ -105,6 +105,30 @@ noncomputable def psigmaRecVal (ψ : Name → Nat) : V :=
           SetTheory.lam 0 (sigmaSet (Nat.max u v) A fun x => app B x)
             fun _t => pt
 
+/-- The value of the pair's first projection (the projection-table
+entry's constant): `λ α β t. sfst t`, with the lam tags the entry
+type's annotation evaluations. -/
+noncomputable def pairFstVal (ψ : Name → Nat) : V :=
+  let u := ψ uN
+  let v := ψ vN
+  let c2 := if u = 0 then 0 else Nat.max (Nat.max u v) u
+  let c1 := if c2 = 0 then 0 else Nat.max (Nat.max u (v + 1)) c2
+  SetTheory.lam c1 (univ u) fun A =>
+    SetTheory.lam c2 (pi (v + 1) A fun _ => univ v) fun B =>
+      SetTheory.lam u (sigmaSet (Nat.max u v) A fun x => SetTheory.app B x)
+        fun t => sfst t
+
+/-- The value of the pair's second projection: `λ α β t. ssnd t`. -/
+noncomputable def pairSndVal (ψ : Name → Nat) : V :=
+  let u := ψ uN
+  let v := ψ vN
+  let c2 := if v = 0 then 0 else Nat.max (Nat.max u v) v
+  let c1 := if c2 = 0 then 0 else Nat.max (Nat.max u (v + 1)) c2
+  SetTheory.lam c1 (univ u) fun A =>
+    SetTheory.lam c2 (pi (v + 1) A fun _ => univ v) fun B =>
+      SetTheory.lam v (sigmaSet (Nat.max u v) A fun x => SetTheory.app B x)
+        fun t => ssnd t
+
 /-- The value of `Nat.succ`. -/
 noncomputable def natSuccVal (_ψ : Name → Nat) : V :=
   SetTheory.lam 1 omega natsucc

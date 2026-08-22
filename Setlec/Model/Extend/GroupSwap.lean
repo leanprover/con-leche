@@ -217,7 +217,7 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
     · rw [h₀] at hf
       obtain rfl := Option.some.inj hf
       exact absurd rfl (hnr cv mI rP [])
-  refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
+  refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
     fun n ψ => rfl⟩
   · -- wf
     intro c₃ hc₃
@@ -408,6 +408,12 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
       rw [show (ConstantInfo.recInfo cv2 mI2 rP2 rules2).name =
         cv2.name from rfl, hnm] at hrecm'
       exact hrecm'
+  · -- proj_ok: the swap moves only recursor rule lists
+    refine ProjOk.env_swap (env₁ := env₀) ?_ m₀.proj_ok
+    intro n
+    rcases hcorr' n with heq | ⟨cv, mI, rP, rules, h₀, h₃, -⟩
+    · exact Or.inl heq
+    · exact Or.inr ⟨cv, mI, rP, [], rules, h₀, h₃⟩
   · -- modeled_ok
     obtain ⟨mo1, mo2, mo3, mo4, mo5⟩ := m₀.modeled_ok
     refine ⟨?_, ?_, ?_, ?_, ?_⟩
@@ -423,10 +429,10 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
       refine ⟨?_, hveq⟩
       rw [← hisoSome]
       exact hms
-    · intro T j ci hf
+    · intro T j cv3 mI3 rP3 rules3 hf
       rcases hcorr' (projFnName T j) with heq | ⟨cv2, mI2, rP2, rules2, h₀, h₃, hnm, -, hshape, -⟩
       · rw [heq] at hf
-        obtain ⟨hms, hveq⟩ := mo3 T j ci hf
+        obtain ⟨hms, hveq⟩ := mo3 T j cv3 mI3 rP3 rules3 hf
         refine ⟨?_, hveq⟩
         rw [← hisoSome]
         exact hms

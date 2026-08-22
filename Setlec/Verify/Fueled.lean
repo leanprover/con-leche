@@ -185,6 +185,7 @@ theorem structEtaProjCerts_atF (d : Nat) (F : Nat) (T : Name)
           | false => rfl
         · rfl
       | axiomInfo cv => rfl
+      | projInfo _ => rfl
       | defnInfo cv value => rfl
       | thmInfo cv value => rfl
       | indInfo cv caps => rfl
@@ -260,9 +261,10 @@ theorem etaCert_atF (d : Nat) (n : Name) (ty body : Expr) (mb : BinderMeta) (b :
   unfold etaCert
   atF_tac
 
-theorem projCert_atF (d : Nat) (e₂ : Expr) (i : Nat) (us : List Level) (nP : Nat) (F : Nat) :
-    (projCert (fueledFns env) env d e₂ i us nP).val F =
-      projCert (pureFns env F) env d e₂ i us nP := by
+theorem projCert_atF (d : Nat) (e₂ : Expr) (i : Nat)
+    (fieldLvl structLvl : Level) (nP : Nat) (F : Nat) :
+    (projCert (fueledFns env) env d e₂ i fieldLvl structLvl nP).val F =
+      projCert (pureFns env F) env d e₂ i fieldLvl structLvl nP := by
   unfold projCert
   atF_tac
 
@@ -329,10 +331,10 @@ theorem projFieldDom_atF (structProp : Bool) (sn : Name) (e₂ : Expr) :
       | (dsimp only [])
       | split)
 
-theorem annotateProjRec_atF (d : Nat) (sn : Name) (i : Nat)
+theorem annotateProjRec_atF (d : Nat) (entry : ProjEntry) (i : Nat)
     (te e₂ : Expr) (us : List Level) (F : Nat) :
-    (annotateProjRec (fueledFns env) env d sn i te e₂ us).val F =
-      annotateProjRec (pureFns env F) env d sn i te e₂ us := by
+    (annotateProjRec (fueledFns env) env d entry i te e₂ us).val F =
+      annotateProjRec (pureFns env F) env d entry i te e₂ us := by
   unfold annotateProjRec
   repeat (first
     | rfl

@@ -16,6 +16,69 @@ annotation).
 
 namespace Setlec
 
+open Expr in
+/-- Peeling a `∀`-telescope along scoped arguments preserves
+well-scopedness. -/
+theorem piResidual_WScoped {d : Nat} :
+    ∀ {as : List Expr} {t res : Expr}, piResidual t as = some res →
+      WScoped d t → (∀ x ∈ as, WScoped d x) → WScoped d res
+  | [], t, res, h, hw, _ => by
+    simp only [piResidual, Option.some.injEq] at h
+    exact h ▸ hw
+  | a :: as, t, res, h, hw, has => by
+    match t, h with
+    | .forallE n ty body mb, h =>
+      have hw' : WScoped d ty ∧ WScoped d body := by
+        simpa only [WScoped] using hw
+      have h' : piResidual (body.instantiate1 a) as = some res := h
+      exact piResidual_WScoped h'
+        (WScoped.instantiate1_gen (has a (List.mem_cons_self ..)) 0 hw'.2)
+        (fun x hx => has x (List.mem_cons_of_mem _ hx))
+
+open Expr in
+/-- Peeling only introduces the telescope's and the arguments'
+leaves. -/
+theorem piResidual_fvarLeaves :
+    ∀ {as : List Expr} {t res : Expr}, piResidual t as = some res →
+      ∀ l ∈ res.fvarLeaves,
+        l ∈ t.fvarLeaves ∨ ∃ x ∈ as, l ∈ x.fvarLeaves
+  | [], t, res, h, l, hl => by
+    simp only [piResidual, Option.some.injEq] at h
+    exact Or.inl (h ▸ hl)
+  | a :: as, t, res, h, l, hl => by
+    match t, h with
+    | .forallE n ty body mb, h =>
+      have h' : piResidual (body.instantiate1 a) as = some res := h
+      rcases piResidual_fvarLeaves h' l hl with hb | ⟨x, hx, hlx⟩
+      · rcases fvarLeaves_instantiate1 body 0 hb with hb | hb
+        · exact Or.inl (by simp [Expr.fvarLeaves, hb])
+        · exact Or.inr ⟨a, List.mem_cons_self .., hb⟩
+      · exact Or.inr ⟨x, List.mem_cons_of_mem _ hx, hlx⟩
+
+open Expr in
+/-- Peeling a bounded telescope along bounded arguments stays
+bounded. -/
+theorem piResidual_looseBVars :
+    ∀ {as : List Expr} {t res : Expr}, piResidual t as = some res →
+      t.looseBVarsBounded 0 = true →
+      (∀ x ∈ as, x.looseBVarsBounded 0 = true) →
+      res.looseBVarsBounded 0 = true
+  | [], t, res, h, hb, _ => by
+    simp only [piResidual, Option.some.injEq] at h
+    exact h ▸ hb
+  | a :: as, t, res, h, hb, has => by
+    match t, h with
+    | .forallE n ty body mb, h =>
+      have hb' : ty.looseBVarsBounded 0 = true ∧
+          body.looseBVarsBounded 1 = true := by
+        simpa only [Expr.looseBVarsBounded, Bool.and_eq_true] using hb
+      have h' : piResidual (body.instantiate1 a) as = some res := h
+      exact piResidual_looseBVars h'
+        (looseBVarsBounded_instantiate1_gen
+          (has a (List.mem_cons_self ..)) hb'.2)
+        (fun x hx => has x (List.mem_cons_of_mem _ hx))
+
+
 open Expr
 
 /-- Every leaf annotation is bvar-closed. -/
@@ -247,6 +310,7 @@ theorem unfoldDefinition_fvarLeaves {env : Env} (henv : EnvWF env)
   match hf : env.find? n with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
@@ -287,6 +351,7 @@ theorem unfoldDefinition_looseBVars {env : Env} (henv : EnvWF env)
   match hf : env.find? n with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
@@ -410,7 +475,7 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
         obtain ⟨e₂, he, hcase⟩ := whnf_proj_inv h
         simp only [fvarLeaves]
         rcases hcase with rfl |
-          ⟨us, cv, nP, nF, hfn, hf, hi, hlen, hus, hred, -⟩
+          ⟨us, entry, hfn, hf, hnat, hi, hlen, hus, hred, -⟩
         · simp only [fvarLeaves] at hl
           exact ihLoop he l hl
         · have hl2 := ihCore hred l hl
@@ -519,7 +584,7 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
         obtain ⟨e₂, he, hcase⟩ := whnf_proj_inv h
         have hbe₂ := ihLoop he hb
         rcases hcase with rfl |
-          ⟨us, cv, nP, nF, hfn, hf, hi, hlen, hus, hred, -⟩
+          ⟨us, entry, hfn, hf, hnat, hi, hlen, hus, hred, -⟩
         · simpa [looseBVarsBounded] using hbe₂
         · exact ihCore hred
             (looseBVarsBounded_getAppArgs hbe₂ _ (getD_mem (by omega)))
@@ -647,16 +712,23 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
       simp only [WScoped] at hwPi
       exact WScoped.instantiate1_gen hw.2 0 hwPi.2
     | proj sn i pe =>
-      obtain ⟨te, us, A, B, cv2, caps2, hte, hwt, hfind2, hcase⟩ :=
-        inferTypeCore_proj_inv h
+      obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
+        hus, hres⟩ := inferTypeCore_proj_inv h
       simp only [WScoped] at hw
       have hwte := inferTypeCore_WScoped henv fuel hte hw
       have hwPi := whnf_WScoped henv fuel hwt hwte
-      simp only [WScoped] at hwPi
-      rcases hcase with ⟨-, rfl⟩ | ⟨-, rfl⟩
-      · exact hwPi.1.2
-      · simp only [WScoped]
-        exact ⟨hwPi.2, hw⟩
+      -- the entry's type is a stored constant's type, hence closed
+      obtain ⟨hef, -, -, -, -, -⟩ :=
+        henv _ (find?_mem (Env.findProj?_some hfp))
+      have hwty : WScoped d (entry.ty.instantiateLevelParams
+          entry.levelParams us) :=
+        WScoped.of_not_hasFvar (by
+          rw [hasFvar_instantiateLevelParams]; exact hef)
+      exact piResidual_WScoped hres hwty (fun x hx => by
+        rcases List.mem_append.mp hx with hx | hx
+        · exact hwPi.getAppArgs x hx
+        · rcases List.mem_singleton.mp hx with rfl
+          exact hw)
     | bvar i =>
       rw [inferTypeCore_succ] at h
       simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
@@ -765,22 +837,25 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
         simp [fvarLeaves, hb]
       · exact Or.inr hb
     | proj sn i pe =>
-      obtain ⟨te, us, A, B, cv2, caps2, hte, hwt, hfind2, hcase⟩ :=
-        inferTypeCore_proj_inv h
+      obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
+        hus, hres⟩ := inferTypeCore_proj_inv h
       simp only [WScoped] at hw
       intro l hl
       simp only [fvarLeaves]
-      have hsub : ∀ l', l' ∈
-          (Expr.app (Expr.app (.const psigmaName us) A) B).fvarLeaves →
-          l' ∈ pe.fvarLeaves := fun l' hl' =>
+      obtain ⟨hef, -, -, -, -, -⟩ :=
+        henv _ (find?_mem (Env.findProj?_some hfp))
+      have hsub : ∀ l', l' ∈ te.fvarLeaves → l' ∈ pe.fvarLeaves :=
+        fun l' hl' =>
         inferTypeCore_fvarLeaves henv fuel hte hw l'
           (whnf_fvarLeaves henv fuel hwt l' hl')
-      rcases hcase with ⟨-, rfl⟩ | ⟨-, rfl⟩
-      · exact hsub l (by simp [fvarLeaves, hl])
-      · simp only [fvarLeaves, List.mem_append] at hl
-        rcases hl with hl | hl
-        · exact hsub l (by simp [fvarLeaves, hl])
-        · simpa [fvarLeaves] using hl
+      rcases piResidual_fvarLeaves hres l hl with hb | ⟨x, hx, hlx⟩
+      · rw [fvarLeaves_eq_nil_of_not_hasFvar (by
+          rw [hasFvar_instantiateLevelParams]; exact hef)] at hb
+        exact nomatch hb
+      · rcases List.mem_append.mp hx with hx | hx
+        · exact hsub l (fvarLeaves_getAppArgs hx l hlx)
+        · rcases List.mem_singleton.mp hx with rfl
+          exact hlx
     | bvar i =>
       rw [inferTypeCore_succ] at h
       simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
@@ -887,19 +962,24 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
       simp only [looseBVarsBounded, Bool.and_eq_true] at hbPi
       exact looseBVarsBounded_instantiate1_gen hb.2 hbPi.2
     | proj sn i pe =>
-      obtain ⟨te, us, A, B, cv2, caps2, hte, hwt, hfind2, hcase⟩ :=
-        inferTypeCore_proj_inv h
+      obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hfp, hnat, hlen,
+        hus, hres⟩ := inferTypeCore_proj_inv h
       simp only [WScoped] at hw
       simp only [looseBVarsBounded] at hb
       have hLbe : Expr.LeavesBounded pe := fun l hl => hLb l (by
         simp only [fvarLeaves]; exact hl)
       have hbte := inferTypeCore_looseBVars henv fuel hte hw hb hLbe
       have hbPi := whnf_looseBVars henv fuel hwt hbte
-      simp only [looseBVarsBounded, Bool.and_eq_true] at hbPi
-      rcases hcase with ⟨-, rfl⟩ | ⟨-, rfl⟩
-      · exact hbPi.1.2
-      · simp only [looseBVarsBounded, Bool.and_eq_true]
-        exact ⟨hbPi.2, hb⟩
+      obtain ⟨-, -, -, hbty, -, -⟩ :=
+        henv _ (find?_mem (Env.findProj?_some hfp))
+      refine piResidual_looseBVars hres ?_ ?_
+      · rw [looseBVarsBounded_instantiateLevelParams]
+        exact hbty
+      · intro x hx
+        rcases List.mem_append.mp hx with hx | hx
+        · exact looseBVarsBounded_getAppArgs hbPi _ hx
+        · rcases List.mem_singleton.mp hx with rfl
+          exact hb
     | bvar i =>
       rw [inferTypeCore_succ] at h
       simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h

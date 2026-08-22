@@ -111,7 +111,7 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
         exact Expr.eqUpToNames_rfl _) hannT hro
     (fun hk => by
       rcases hk with ⟨_, _, hcon⟩ | ⟨_, _, _, hcon⟩ <;> exact nomatch hcon)
-    hprojm
+    (fun T j _ _ _ _ hh _ => hprojm T j hh)
     (fun cv caps hcon => nomatch hcon)
     (fun cv caps hcon => nomatch hcon)
   -- transports from the base model into the final environment

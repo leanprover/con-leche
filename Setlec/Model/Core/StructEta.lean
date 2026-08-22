@@ -409,7 +409,7 @@ theorem structEtaWith_sound {m : EnvModel V env} {fuel : Nat}
     intro i hi
     obtain ⟨cvp, mIp, rPp, rulesp, hfpj, -, -, -⟩ :=
       hpcFacts i hi
-    obtain ⟨-, hveqP⟩ := m.modeled_ok.2.2.1 T i _ hfpj
+    obtain ⟨-, hveqP⟩ := m.modeled_ok.2.2.1 T i _ _ _ _ hfpj
     exact hveqP ψ'
   have hfldsM : ((List.range cnF).map fun i =>
       SpineFold V (m.val (projFnName T i) ψ') (psv ++ [vb])) =

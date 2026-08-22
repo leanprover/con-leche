@@ -231,7 +231,7 @@ theorem extend_rec_swap {rules' : List RecRule}
       AnnotOk V m₀.val
         (⟨.recInfo cvA mI rP rules' :: env.consts⟩ : Env) ψ d ρ e :=
     fun e ψ d ρ h => AnnotOk.recRules_swap [] rules' e ψ d ρ h
-  refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
+  refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
     fun n ψ => rfl⟩
   · -- wf
     intro c hc
@@ -406,6 +406,21 @@ theorem extend_rec_swap {rules' : List RecRule}
       refine ⟨R', ?_, hfoldEq, hRch⟩
       rw [hitrans]
       exact hRi
+  · -- proj_ok: lookups only differ in the head's rule list
+    refine ProjOk.env_swap
+      (env₁ := ⟨.recInfo cvA mI rP [] :: env.consts⟩) ?_ m₀.proj_ok
+    intro n
+    by_cases h : cvA.name = n
+    · subst h
+      exact Or.inr ⟨cvA, mI, rP, [], rules',
+        by rw [Env.find?_cons,
+          if_pos (show (ConstantInfo.recInfo cvA mI rP []).name =
+            cvA.name from rfl)],
+        by rw [Env.find?_cons,
+          if_pos (show (ConstantInfo.recInfo cvA mI rP rules').name =
+            cvA.name from rfl)]⟩
+    · exact Or.inl (Env.find?_recRules_swap rules' []
+        (fun he => h he.symm))
   · -- modeled_ok: lookups only differ in the head's rule list
     obtain ⟨mo1, mo2, mo3, mo4, mo5⟩ := m₀.modeled_ok
     have hisoF : ∀ n,
@@ -440,11 +455,14 @@ theorem extend_rec_swap {rules' : List RecRule}
         split
         · rfl
         · exact hms
-    · intro T j ci hf
+    · intro T j cv3 mI3 rP3 rules3 hf
       rw [hisoF] at hf
       split at hf
       · next hh =>
-        obtain ⟨hms, hveq⟩ := mo3 T j (.recInfo cvA mI rP [])
+        obtain hceq := Option.some.inj hf
+        injection hceq with e1 e2 e3 e4
+        subst e1 e2 e3
+        obtain ⟨hms, hveq⟩ := mo3 T j cvA mI rP []
           (by rw [Env.find?_cons,
             if_pos (show (ConstantInfo.recInfo cvA mI rP []).name = projFnName T j from hh)])
         refine ⟨?_, hveq⟩
@@ -452,7 +470,7 @@ theorem extend_rec_swap {rules' : List RecRule}
         split
         · rfl
         · exact hms
-      · obtain ⟨hms, hveq⟩ := mo3 T j ci hf
+      · obtain ⟨hms, hveq⟩ := mo3 T j cv3 mI3 rP3 rules3 hf
         refine ⟨?_, hveq⟩
         rw [hisoF]
         split
@@ -540,9 +558,15 @@ theorem extend_fresh {env : Env} (m : EnvModel V env)
        (∃ cv cnP cnF, ci = .ctorInfo cv cnP cnF)) →
       (env.find? (ci.name.str "_model")).isSome = true ∧
       ∀ ψ : Name → Nat, v₀ ψ = m.val (ci.name.str "_model") ψ)
-    (hproj : ∀ (T : Name) (j : Nat), ci.name = projFnName T j →
+    (hproj : ∀ (T : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat)
+      (rules : List RecRule), ci.name = projFnName T j →
+      ci = .recInfo cv mI rP rules →
       (env.find? (projModelName T j)).isSome = true ∧
       ∀ ψ : Name → Nat, v₀ ψ = m.val (projModelName T j) ψ)
+    (hprojOk : ∀ entry, ci = .projInfo entry → entry.native = true →
+      (entry = pairFstEntry ∨ entry = pairSndEntry) ∧
+      env.find? psigmaName = some psigmaA ∧
+      env.find? psigmaMkName = some psigmaMkA)
     (hetaL : ∀ cv caps, ci = .indInfo cv caps → caps.eta = true →
       reservedBasisNames.contains ci.name = false →
       (env.find? (caps.etaCtor.str "_model")).isSome = true ∧
@@ -619,7 +643,7 @@ theorem extend_fresh {env : Env} (m : EnvModel V env)
     refine AnnotOk.mono hfind' e 0 (rho0 V) hres ?_
     exact AnnotOk.cval_ext (fun n hn ψ' => (hagree n hn ψ').symm) e 0 (rho0 V) ha
   have hwf' : EnvWF ⟨ci :: env.consts⟩ := EnvWF.cons m.wf hwf
-  refine ⟨⟨val', hwf', ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
+  refine ⟨⟨val', hwf', ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
   · -- val_params
     intro n ci2 hf ψ₁ ψ₂ hψ
     rw [Env.find?_cons] at hf
@@ -804,6 +828,8 @@ theorem extend_fresh {env : Env} (m : EnvModel V env)
       (fun e hres ψ hAe => hAtrans e hres ψ hAe)
       (hrecm val' (fun ψ => by simp [hval'])
         (fun n ψ hne => by simp [hval', hne]))
+  · -- proj_ok
+    exact ProjOk.cons m.proj_ok hfind' hprojOk
   · -- modeled_ok
     refine ModeledOk.cons m.modeled_ok m.wf hfind' ?_ ?_ ?_ ?_ ?_ ?_
     · intro n ψ hn
@@ -838,8 +864,8 @@ theorem extend_fresh {env : Env} (m : EnvModel V env)
             m.val (ci.name.str "_model") ψ := by
           simp [hval', hmne2]
         rw [h1, h2, hveq ψ]
-    · intro T j hh
-      obtain ⟨hms, hveq⟩ := hproj T j hh
+    · intro T j cv3 mI3 rP3 rules3 hh hceq
+      obtain ⟨hms, hveq⟩ := hproj T j cv3 mI3 rP3 rules3 hh hceq
       have hpmne : projModelName T j ≠ ci.name := by
         intro he
         rw [he, hfind'] at hms

@@ -239,10 +239,16 @@ theorem extend_model {env : Env} (m : EnvModel V env)
     (fun _ hk => by
       rcases hk with ⟨cv, caps, heq⟩ | ⟨cv, cnP, cnF, heq⟩ <;>
         (rw [heq] at hc₀nb; simp [ConstantInfo.isBasis] at hc₀nb))
-    (fun T j hh => by
+    (fun T j _ _ _ _ hh _ => by
       exfalso
       rw [hc₀name.symm.trans hh] at hc₀pshape
       exact nomatch hc₀pshape)
+    (fun entry heq _ => by
+      exfalso
+      rw [heq] at hc₀name
+      rw [← hc₀name] at hc₀pshape
+      simp [ConstantInfo.name, ConstantInfo.toConstantVal, projFnName,
+        Name.isProjFnShape] at hc₀pshape)
     (fun cv caps heq _ _ => by
       rw [heq] at hc₀nb
       simp [ConstantInfo.isBasis] at hc₀nb)

@@ -275,7 +275,9 @@ theorem ModeledOk.cons {env : Env} {val val' : ConstVal V}
       ((⟨c₀ :: env.consts⟩ : Env).find? (c₀.name.str "_model")).isSome
         = true ∧
       ∀ ψ : Name → Nat, val' c₀.name ψ = val' (c₀.name.str "_model") ψ)
-    (hheadProj : ∀ (T : Name) (j : Nat), c₀.name = projFnName T j →
+    (hheadProj : ∀ (T : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat)
+      (rules : List RecRule), c₀.name = projFnName T j →
+      c₀ = .recInfo cv mI rP rules →
       ((⟨c₀ :: env.consts⟩ : Env).find? (projModelName T j)).isSome
         = true ∧
       ∀ ψ : Name → Nat,
@@ -330,11 +332,14 @@ theorem ModeledOk.cons {env : Env} {val val' : ConstVal V}
         exact hms
       · intro ψ
         rw [hpres _ ψ hn, hpres _ ψ hmne, hveq ψ]
-  · intro T j ci hf
+  · intro T j cv2 mI2 rP2 rules2 hf
     by_cases hn : projFnName T j = c₀.name
-    · exact hn ▸ hheadProj T j hn.symm
+    · have hc₀ : c₀ = .recInfo cv2 mI2 rP2 rules2 := by
+        rw [Env.find?_cons, if_pos hn.symm] at hf
+        exact Option.some.inj hf
+      exact hn ▸ hheadProj T j cv2 mI2 rP2 rules2 hn.symm hc₀
     · rw [hfind _ hn] at hf
-      obtain ⟨hms, hveq⟩ := h.2.2.1 T j ci hf
+      obtain ⟨hms, hveq⟩ := h.2.2.1 T j cv2 mI2 rP2 rules2 hf
       have hmne : projModelName T j ≠ c₀.name := by
         intro he
         rw [he, hfresh] at hms

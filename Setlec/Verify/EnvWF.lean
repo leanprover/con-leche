@@ -14,6 +14,23 @@ delta-unfolding and monotonicity lemmas need it.
 
 namespace Setlec
 
+/-- The projection-table name shape is injective. -/
+theorem projFnName_inj {T T' : Name} {i i' : Nat}
+    (h : projFnName T i = projFnName T' i') : T = T' ∧ i = i' := by
+  simp only [projFnName, Name.num.injEq, Name.str.injEq] at h
+  exact ⟨h.1.1, h.2⟩
+
+/-- Unfold a successful projection-table lookup to the stored
+constant. -/
+theorem Env.findProj?_some {env : Env} {T : Name} {i : Nat}
+    {entry : ProjEntry} (h : env.findProj? T i = some entry) :
+    env.find? (projFnName T i) = some (.projInfo entry) := by
+  unfold Env.findProj? at h
+  split at h
+  next e heq => exact (Option.some.inj h) ▸ heq
+  next => exact nomatch h
+
+
 /-- Syntactic well-formedness of one stored constant w.r.t. `env`. -/
 def ConstWF (env : Env) (c : ConstantInfo) : Prop :=
   c.toConstantVal.type.hasFvar = false ∧

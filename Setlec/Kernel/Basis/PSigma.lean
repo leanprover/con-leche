@@ -391,4 +391,124 @@ def psigmaRecA : ConstantInfo :=
                                    (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))
                                    (Setlec.Level.zero)))))) } }]
 
+
+/-! ## The pinned pair projection-table entries
+
+The two `native` projection-table entries for the basis pair,
+installed with the block: `.proj` nodes on `PSigma'` are typed by
+these level-parametric types and reduced by the generic structural
+rule.  The types are the checker's own `annotate` output over the
+pinned block (generated; do not edit by hand). -/
+
+/-- Annotated projection type of the pair's first component
+(generated). -/
+def pairFstTyA : Expr :=
+  Setlec.Expr.forallE
+    (Setlec.Name.str (Setlec.Name.anonymous) "α")
+    (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
+    (Setlec.Expr.forallE
+      (Setlec.Name.str (Setlec.Name.anonymous) "β")
+      (Setlec.Expr.forallE
+        (Setlec.Name.str (Setlec.Name.anonymous) "x")
+        (Setlec.Expr.bvar 0)
+        (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
+        { bi := Setlec.BinderInfo.default,
+          cod := some (Setlec.Level.succ (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))) })
+      (Setlec.Expr.forallE
+        (Setlec.Name.str (Setlec.Name.anonymous) "t")
+        (Setlec.Expr.app
+          (Setlec.Expr.app
+            (Setlec.Expr.const
+              (Setlec.Name.str (Setlec.Name.anonymous) "PSigma'")
+              [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"),
+               Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")])
+            (Setlec.Expr.bvar 1))
+          (Setlec.Expr.bvar 0))
+        (Setlec.Expr.bvar 2)
+        { bi := Setlec.BinderInfo.default,
+          cod := some (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")) })
+      { bi := Setlec.BinderInfo.implicit,
+        cod := some (Setlec.Level.imax
+                 (Setlec.Level.max
+                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
+                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))) })
+    { bi := Setlec.BinderInfo.implicit,
+      cod := some (Setlec.Level.imax
+               (Setlec.Level.imax
+                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                 (Setlec.Level.succ (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))))
+               (Setlec.Level.imax
+                 (Setlec.Level.max
+                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
+                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))) }
+
+/-- Annotated projection type of the pair's second component
+(generated). -/
+def pairSndTyA : Expr :=
+  Setlec.Expr.forallE
+    (Setlec.Name.str (Setlec.Name.anonymous) "α")
+    (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
+    (Setlec.Expr.forallE
+      (Setlec.Name.str (Setlec.Name.anonymous) "β")
+      (Setlec.Expr.forallE
+        (Setlec.Name.str (Setlec.Name.anonymous) "x")
+        (Setlec.Expr.bvar 0)
+        (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
+        { bi := Setlec.BinderInfo.default,
+          cod := some (Setlec.Level.succ (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))) })
+      (Setlec.Expr.forallE
+        (Setlec.Name.str (Setlec.Name.anonymous) "t")
+        (Setlec.Expr.app
+          (Setlec.Expr.app
+            (Setlec.Expr.const
+              (Setlec.Name.str (Setlec.Name.anonymous) "PSigma'")
+              [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"),
+               Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")])
+            (Setlec.Expr.bvar 1))
+          (Setlec.Expr.bvar 0))
+        (Setlec.Expr.app
+          (Setlec.Expr.bvar 1)
+          (Setlec.Expr.proj (Setlec.Name.str (Setlec.Name.anonymous) "PSigma'") 0 (Setlec.Expr.bvar 0)))
+        { bi := Setlec.BinderInfo.default,
+          cod := some (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")) })
+      { bi := Setlec.BinderInfo.implicit,
+        cod := some (Setlec.Level.imax
+                 (Setlec.Level.max
+                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
+                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))) })
+    { bi := Setlec.BinderInfo.implicit,
+      cod := some (Setlec.Level.imax
+               (Setlec.Level.imax
+                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                 (Setlec.Level.succ (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))))
+               (Setlec.Level.imax
+                 (Setlec.Level.max
+                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
+                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))) }
+
+/-- The pinned first-projection entry of the basis pair. -/
+def pairFstEntry : ProjEntry :=
+  ⟨psigmaName, 0, [anonymous |>.str "u", anonymous |>.str "v"],
+    2, psigmaMkName, 2, pairFstTyA,
+    .param (anonymous |>.str "u"),
+    .max (.param (anonymous |>.str "u")) (.param (anonymous |>.str "v")),
+    true, false⟩
+
+/-- The pinned second-projection entry of the basis pair. -/
+def pairSndEntry : ProjEntry :=
+  ⟨psigmaName, 1, [anonymous |>.str "u", anonymous |>.str "v"],
+    2, psigmaMkName, 2, pairSndTyA,
+    .param (anonymous |>.str "v"),
+    .max (.param (anonymous |>.str "u")) (.param (anonymous |>.str "v")),
+    true, false⟩
+
+/-- The pinned pair projection-table constants. -/
+def pairFstA : ConstantInfo := .projInfo pairFstEntry
+
+def pairSndA : ConstantInfo := .projInfo pairSndEntry
+
 end Setlec

@@ -324,7 +324,32 @@ theorem infer_claims (m : EnvModel V env)
       simpa using happ
     · exact AnnotOk_beta hfb' hw.2 hb.2 hai haa 0 hAopened
   | proj sn i e =>
-    obtain ⟨te, us, A, B, cv, caps, hte, hwt, hfind, hcase⟩ := inferTypeCore_proj_inv h
+    obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hf, hnat, hlen, husl,
+      hres⟩ := inferTypeCore_proj_inv h
+    obtain ⟨hpin, hpsig, hpsigMk⟩ :=
+      m.proj_ok _ _ (Env.findProj?_some hf) hnat
+    -- the entry's stored name pins the head and the index
+    have hidx : entry.idx = i ∧ entry.structName = T := by
+      have h1 := List.find?_some (Env.findProj?_some hf)
+      have h2 : (ConstantInfo.projInfo entry).name = projFnName T i :=
+        eq_of_beq (by simpa using h1)
+      simp only [ConstantInfo.name, ConstantInfo.toConstantVal] at h2
+      exact ⟨(projFnName_inj h2).2, (projFnName_inj h2).1⟩
+    have hT : T = psigmaName := by
+      rw [← hidx.2]
+      rcases hpin with rfl | rfl <;> rfl
+    subst hT
+    have hlen2 : te.getAppArgs.length = 2 := by
+      rw [hlen]
+      rcases hpin with rfl | rfl <;> rfl
+    obtain ⟨A, B, hargs2⟩ := List.length_two hlen2
+    have hteEq : te = .app (.app (.const psigmaName us) A) B := by
+      have h0 := Expr.mkAppN_getApp te
+      rw [hfn, hargs2] at h0
+      exact h0.symm
+    subst hteEq
+    obtain ⟨cvP, capsP, hfind⟩ : ∃ cvP capsP, env.find? psigmaName =
+        some (.indInfo cvP capsP) := ⟨_, _, by rw [hpsig]; rfl⟩
     simp only [WScoped] at hw
     simp only [looseBVarsBounded] at hb
     have hLbe : Expr.LeavesBounded e := fun l hl => hLb l (by
@@ -337,9 +362,9 @@ theorem infer_claims (m : EnvModel V env)
     -- reduce the type to the pair form and transfer facts
     have hwte := inferTypeCore_WScoped m.wf fuel hte hw
     have hbte := inferTypeCore_looseBVars m.wf fuel hte hw hb hLbe
-    have hLbte : Expr.LeavesBounded te := fun l hl =>
+    have hLbte : Expr.LeavesBounded tpe := fun l hl =>
       hLbe l (inferTypeCore_fvarLeaves m.wf fuel hte hw l hl)
-    have hokte : FvarsOk V m.val env φ d ρ te :=
+    have hokte : FvarsOk V m.val env φ d ρ tpe :=
       FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hte hw) hoke
     obtain ⟨hiw, haPi⟩ := ihw hwt hwte hbte hLbte hokte hAte
     have hPii : interpExpr V m.val env φ d ρ
@@ -352,9 +377,9 @@ theorem infer_claims (m : EnvModel V env)
     -- the head is the pair former's value
     rw [interpExpr, hfind] at hci
     dsimp only [ConstantInfo.toConstantVal] at hci
-    obtain ⟨ψ', hψ'⟩ : ∃ ψ', ψ' = Level.substFn φ cv.levelParams us := ⟨_, rfl⟩
+    obtain ⟨ψ', hψ'⟩ : ∃ ψ', ψ' = Level.substFn φ cvP.levelParams us := ⟨_, rfl⟩
     rw [← hψ'] at hci
-    by_cases hal : us.length = cv.levelParams.length
+    by_cases hal : us.length = cvP.levelParams.length
     case neg => simp only [hal, if_false] at hci; exact nomatch hci
     simp only [hal, if_true] at hci
     have hval : interpExpr V m.val env φ d ρ (.const psigmaName us) =
@@ -364,7 +389,7 @@ theorem infer_claims (m : EnvModel V env)
       rw [← hψ']
       simp only [hal, if_true]
     have hvf₀ : vf₀ = m.val psigmaName ψ' := (Option.some.inj hci).symm
-    have hfacts := ((m.ind_ok.1 cv caps hfind).2 ψ')
+    have hfacts := ((m.ind_ok.1 cvP capsP hfind).2 ψ')
     have hAmem : vA ∈ˢ univ (ψ' uN) := hfacts.dom₀ (hvf₀ ▸ hpi₀) hvA₀
     -- the partial application and its second argument
     have hf₁ : vf₁ = app (m.val psigmaName ψ') vA := by
@@ -394,13 +419,37 @@ theorem infer_claims (m : EnvModel V env)
         rwa [← this]
       · rw [hpair hw0, sfst_spair]
         exact ha'
+    -- compute the pinned entry type's residual (the inferred type);
+    -- the no-op instantiations on the (bvar-closed) components vanish
+    have hbPair := whnf_looseBVars m.wf fuel hwt hbte
+    simp only [looseBVarsBounded, Bool.and_eq_true] at hbPair
+    obtain ⟨⟨-, hbA⟩, hbB⟩ := hbPair
+    have hcase : (i = 0 ∧ t = A) ∨
+        (i = 1 ∧ t = .app B (.proj psigmaName 0 e)) := by
+      rcases hpin with rfl | rfl
+      · refine Or.inl ⟨hidx.1.symm, ?_⟩
+        rw [hargs2] at hres
+        simp [pairFstEntry, pairFstTyA, piResidual,
+          Expr.instantiateLevelParams, Expr.instantiate1, Level.subst,
+          Level.subst.go,
+          instantiate1_eq_self (looseBVarsBounded_mono (Nat.zero_le _) hbA),
+          instantiate1_eq_self hbA] at hres
+        exact hres.symm
+      · refine Or.inr ⟨hidx.1.symm, ?_⟩
+        rw [hargs2] at hres
+        simp [pairSndEntry, pairSndTyA, piResidual,
+          Expr.instantiateLevelParams, Expr.instantiate1, Level.subst,
+          Level.subst.go,
+          instantiate1_eq_self (looseBVarsBounded_mono (Nat.zero_le _) hbB),
+          instantiate1_eq_self hbB] at hres
+        exact hres.symm
     rcases hcase with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
     · -- i = 0 : the first component
       refine ⟨⟨sfst ve, vA, ?_, hAi, hsfst⟩, haA⟩
       simp only [interpExpr, hei]
       rfl
     · -- i = 1 : the second component
-      have hproj0 : interpExpr V m.val env φ d ρ (.proj sn 0 e) = some (sfst ve) := by
+      have hproj0 : interpExpr V m.val env φ d ρ (.proj psigmaName 0 e) = some (sfst ve) := by
         simp only [interpExpr, hei]
         rfl
       have hfib : ∀ x, x ∈ˢ vA → app vB x ∈ˢ univ (ψ' vN) := fun x hx =>

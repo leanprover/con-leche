@@ -120,7 +120,7 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
       (Or.inl ⟨_, _, rfl⟩) hfm hlps hrenS hannT hroS
       (fun _ => ⟨show (env'.find? (cvA.name.str "_model")).isSome = true
         by rw [hfm]; rfl, fun ψ => rfl⟩)
-      (fun T j hh => hprojRef T j hh)
+      (fun T j _ _ _ _ hh _ => hprojRef T j hh)
       (fun cv₂ caps₂ heq hcape _hres' => by
         injection heq with hcv hcaps
         subst hcv
@@ -279,7 +279,7 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
       (Or.inr (Or.inl ⟨_, _, _, rfl⟩)) hfm hlps hrenS hannT hroS
       (fun _ => ⟨show (env'.find? (cvA.name.str "_model")).isSome = true
         by rw [hfm]; rfl, fun ψ => rfl⟩)
-      (fun T j hh => hprojRef T j hh)
+      (fun T j _ _ _ _ hh _ => hprojRef T j hh)
       (fun cv₂ caps₂ hcon => nomatch hcon)
       (fun cv₂ caps₂ hcon => nomatch hcon)
     exact ⟨m₁, BlockInstalled.step hI hms hfm hlps hval₁ hpres₁⟩

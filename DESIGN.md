@@ -1361,6 +1361,51 @@ r.ctorParams + r.nfields` etc.), since those are what `iotaRec`
 checks; the `ctorInfo` lookup stays a hypothesis only for the
 constructor's type/levels.
 
+**Projection table — de-basing the core (2026-08-22, task #18).**
+The core knows no basis names for projections: every projection rule
+is driven by a *projection table* keyed by (structure name, field
+index).  An entry is a stored constant — `ConstantInfo.projInfo` with
+a `ProjEntry` record `{structName, idx, levelParams, numParams, ctor,
+numFields, ty, fieldSort, structSort, native, recExtraLevel}` — filed
+under the reserved `projFnName` shape (`(T.proj).i`), looked up with
+`Env.findProj?`.  Core consumption: `whnfCore` reduces `.proj T i (mk
+p⃗ f⃗)` structurally through the entry (ctor/counts/certificates via
+the generalized `projCert` over the entry's field/struct sorts);
+`infer` types a bare `.proj` node as `piResidual` of the entry's
+level-instantiated `ty` along the subject type's arguments and the
+subject; `annotate` keeps the node when the subject's type head has a
+`native` entry (normalizing the stored name to the type head) and
+otherwise rewrites — `annotateProjElim` dispatches on what is stored
+under the `projFnName` shape: a `recInfo` (artifact-installed
+projection function → rewrite into its application, unchanged
+behavior), a non-native `projInfo` *template* (Prop structure-likes →
+fabricate the recursor elimination `annotateProjRec`, now entry-based;
+the fabrication is re-annotated so its shape is re-checked per
+instantiation, amortized by the template's install-time check), else
+a single throw (`invalid` out-of-range if field 0 exists, otherwise
+`notImplemented`).  Population is two-phase in `checkIndDecl`:
+the artifact phase installs projection *functions* (as before —
+scoped finding: bare `.proj` nodes on non-Prop modeled structures
+have no compositional set interpretation, model bodies being opaque,
+so the artifact route must keep rewriting into named constants whose
+values are the model projections), then a second pass installs the
+Prop-shape templates (`installProjTemplateStep`); templates must come
+second because entries interleaved with the member fold would break
+`RenameOk`/`projFwd` (template names have no `_model` companions).
+The only `native = true` entries are the two pinned basis-pair
+members `pairFstA`/`pairSndA` in `BasisKind.declsA psigmaK` (types
+generated, sorts `u`/`v` under `max u v`), which replace the last
+psigma special cases: `Setlec/Kernel/Core.lean` now contains *zero*
+basis-pair names (remaining basis knowledge: nat-literal ops and the
+`reservedBasisNames` recursor hints, by design).  Model side:
+`EnvModel` gains a `ProjOk` clause — every stored *native* entry is
+one of the two pinned pair entries and `PSigma'`/`PSigma'.mk` are the
+pinned declarations — so the semantic proofs (`Whnf`/`Infer` claims,
+`annotate_sound`) identify a native `.proj` as a pair projection and
+interpret it with `sfst`/`ssnd` (values `pairFstVal`/`pairSndVal`,
+lambda towers with computed classifiers); `ProjOk.cons`/`env_swap`
+transport it, `extend_fresh` takes the corresponding hypothesis.
+
 **Recursor group install.**  Mutual/nested blocks' rule right-hand
 sides may mention sibling recursors, so no intermediate environment
 may store a recursor whose rules dangle: `checkIndDecl` requires the

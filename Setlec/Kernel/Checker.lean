@@ -568,12 +568,44 @@ def piResultSort (e : Expr) : Option Level :=
   | .sort u => some u
   | _ => none
 
+/-- Install the Prop-fallback elimination-template entry for field `i`
+of a single-constructor block whose `_model.proj_i` artifact is absent
+(Prop structures whose projections only exist at certain level
+instantiations): the parent's elimination *shape* — a structure
+recursor with one rule for the block's constructor, no indices, and a
+prefix of params + one motive + one minor — is checked here, once, and
+recorded as a `native = false` projection-table entry consumed by
+`annotateProjRec`.  When the shape does not support the elimination
+the entry is simply not installed, and use sites positively decline —
+exactly as the per-use shape checks did before. -/
+def installProjTemplate (env : Env) (T ctorName : Name) (lps : List Name)
+    (nP nF i : Nat) : m Env := do
+  match env.find? (T.str "rec") with
+  | some (.recInfo cvR mI rP [rule]) =>
+    if (env.find? (projFnName T i)).isNone ∧
+        mI = rP ∧ rP = nP + 2 ∧ rule.ctor = ctorName ∧ i < nF then
+      pure ⟨.projInfo ⟨T, i, lps, nP, ctorName, nF, .sort .zero,
+        .zero, .zero, false,
+        cvR.levelParams.length = lps.length + 1⟩ :: env.consts⟩
+    else pure env
+  | _ => pure env
+
 /-- One projection-function install step (skipped where the model's
-projection artifact is absent). -/
+projection artifact is absent; those fields get elimination-template
+entries in a second pass, `installProjTemplateStep`, so the artifact
+phase never sees a template entry). -/
 def installProjFnStep (ops : CheckerOps m) (T ctorName : Name)
     (lps : List Name) (nP nF : Nat) (e : Env) (i : Nat) : m Env :=
   if (e.find? (projModelName T i)).isSome then
     checkProjFn ops e T ctorName lps nP nF i
+  else pure e
+
+/-- One elimination-template install step (the second pass): indices
+whose artifact phase installed a projection function are skipped. -/
+def installProjTemplateStep (T ctorName : Name) (lps : List Name)
+    (nP nF : Nat) (e : Env) (i : Nat) : m Env :=
+  if (e.find? (projFnName T i)).isNone then
+    installProjTemplate e T ctorName lps nP nF i
   else pure e
 
 /-- Install one pinned basis declaration (duplicate-checked). -/
@@ -629,8 +661,11 @@ def checkIndDecl (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) : 
     unless (List.range nF).all
         (fun j => (env₃.find? (projFnName cvT.name j)).isNone) do
       throw (.invalid "projection name family taken")
-    (List.range nF).foldlM
+    let env₄ ← (List.range nF).foldlM
       (installProjFnStep ops cvT.name cvC.name cvT.levelParams nP nF) env₃
+    (List.range nF).foldlM
+      (installProjTemplateStep cvT.name cvC.name cvT.levelParams nP nF)
+      env₄
   | _, _ => do
     let env₂ ← nonrecs.foldlM (checkIndMember ops blockNames {}) env
     checkIndRecs ops blockNames env₂ recs

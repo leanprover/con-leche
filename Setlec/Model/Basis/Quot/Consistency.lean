@@ -100,7 +100,8 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
           absurd hx (by simp [quotA]))
         (fun _ _ _ _ hx => absurd hx (by simp [quotA]))
         (fun hres _ => absurd hres (by decide))
-        (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
+        (fun T j _ _ _ _ hh _ => absurd hh.symm (Name.num_ne_str _ _ _ _))
+        (fun _ hx _ => nomatch hx)
         (fun _ _ _ _ hres => absurd hres (by decide))
         (fun _ _ _ _ hres => absurd hres (by decide))
       have hvalQ1 : ∀ ψ' : Name → Nat, m1.val quotName ψ' = quotVal V ψ' :=
@@ -129,7 +130,8 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
           absurd hx (by simp [quotMkA]))
         (fun _ _ _ _ hx => absurd hx (by simp [quotMkA]))
         (fun hres _ => absurd hres (by decide))
-        (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
+        (fun T j _ _ _ _ hh _ => absurd hh.symm (Name.num_ne_str _ _ _ _))
+        (fun _ hx _ => nomatch hx)
         (fun _ _ _ _ hres => absurd hres (by decide))
         (fun _ _ _ _ hres => absurd hres (by decide))
       have hvalQ2 : ∀ ψ' : Name → Nat, m2.val quotName ψ' = quotVal V ψ' :=
@@ -334,7 +336,8 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
             exact ⟨_, _, _, hf⟩
           · cases hr)
         (fun hres _ => absurd hres (by decide))
-        (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
+        (fun T j _ _ _ _ hh _ => absurd hh.symm (Name.num_ne_str _ _ _ _))
+        (fun _ hx _ => nomatch hx)
         (fun _ _ _ _ hres => absurd hres (by decide))
         (fun _ _ _ _ hres => absurd hres (by decide))
       have hvalQ3 : ∀ ψ' : Name → Nat, m3.val quotName ψ' = quotVal V ψ' :=
@@ -474,7 +477,8 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
             exact ⟨_, _, _, hf⟩
           · cases hr)
         (fun hres _ => absurd hres (by decide))
-        (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
+        (fun T j _ _ _ _ hh _ => absurd hh.symm (Name.num_ne_str _ _ _ _))
+        (fun _ hx _ => nomatch hx)
         (fun _ _ _ _ hres => absurd hres (by decide))
         (fun _ _ _ _ hres => absurd hres (by decide))
       have hvalQ4 : ∀ ψ' : Name → Nat, m4.val quotName ψ' = quotVal V ψ' :=
@@ -571,7 +575,8 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
           absurd hx (by simp [quotSoundA]))
         (fun _ _ _ _ hx => absurd hx (by simp [quotSoundA]))
         (fun hres _ => absurd hres (by decide))
-        (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
+        (fun T j _ _ _ _ hh _ => absurd hh.symm (Name.num_ne_str _ _ _ _))
+        (fun _ hx _ => nomatch hx)
         (fun _ _ _ _ hres => absurd hres (by decide))
         (fun _ _ _ _ hres => absurd hres (by decide))
       exact ⟨m5⟩

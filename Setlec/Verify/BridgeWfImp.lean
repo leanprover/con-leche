@@ -615,6 +615,7 @@ theorem findThm?_ok {env : Env} {n : Name} {cvt : ConstantVal}
   match hf : env.find? n with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
@@ -896,6 +897,7 @@ theorem checkIotaRule_wfimp {env' envSelf : Env} (henv' : EnvWF env')
   match hf : env'.find? r.ctor with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
@@ -999,6 +1001,7 @@ theorem checkMemberVal_wfimp {blockNames : List Name} {env' : Env}
   match hm : env'.find? (cvA.name.str "_model") with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
@@ -1112,7 +1115,19 @@ theorem installProjFnStep_wfimp {e : Env} (he : EnvWF e)
   · rw [if_pos (by assumption)]
     exact checkProjFn_wfimp he h
   · rw [if_neg (by assumption)]
-    exact h
+    simp only [FueledM.atF_pure] at h
+    exact h ▸ rfl
+
+/-- The template-install step, `wfOpsM` run to pure run (the step is
+ops-free, so the runs coincide). -/
+theorem installProjTemplateStep_wfimp {T ctorName : Name}
+    {lps : List Name} {nP nF : Nat} {e e' : Env} {i F : Nat}
+    (h : (installProjTemplateStep T ctorName lps nP nF e i :
+      FueledM _).val F = .ok e') :
+    (installProjTemplateStep T ctorName lps nP nF e i : CheckM _)
+      = .ok e' := by
+  rw [installProjTemplateStep_datF] at h
+  exact h
 
 /-! ## Scoping of the structural-Nat certification equations -/
 
@@ -1279,6 +1294,7 @@ theorem checkDivModPin_wfimp {env env2 : Env} (henv : EnvWF env) {F : Nat}
     | indInfo cv' caps => intro h; exact absurd h atF_throw
     | ctorInfo cv' nP nF => intro h; exact absurd h atF_throw
     | recInfo cv' mI rP rules => intro h; exact absurd h atF_throw
+    | projInfo _ => intro h; exact absurd h atF_throw
     | defnInfo cv' value' hint' =>
       intro h
       dsimp only at h ⊢

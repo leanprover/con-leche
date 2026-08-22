@@ -275,6 +275,62 @@ theorem RecRulesOk.empty (val : ConstVal V) :
   intro n cv mI rP rules h
   simp [Env.find?, Env.empty] at h
 
+/-- `ProjOk` is preserved by a fresh extension, given the head's own
+obligation (vacuous unless the head is a native entry). -/
+theorem ProjOk.cons {env : Env} {c₀ : ConstantInfo}
+    (h : ProjOk env) (hfresh : env.find? c₀.name = none)
+    (hhead : ∀ entry, c₀ = .projInfo entry → entry.native = true →
+      (entry = pairFstEntry ∨ entry = pairSndEntry) ∧
+      env.find? psigmaName = some psigmaA ∧
+      env.find? psigmaMkName = some psigmaMkA) :
+    ProjOk ⟨c₀ :: env.consts⟩ := by
+  have keep : ∀ {s : Name} {X : ConstantInfo}, env.find? s = some X →
+      Env.find? ⟨c₀ :: env.consts⟩ s = some X := by
+    intro s X hs
+    rw [Env.find?_cons, if_neg ?_]
+    · exact hs
+    · intro he
+      rw [← he, hfresh] at hs
+      exact nomatch hs
+  intro n entry hf hnat
+  rw [Env.find?_cons] at hf
+  split at hf
+  · next hn =>
+    obtain hceq := Option.some.inj hf
+    obtain ⟨hpin, h1, h2⟩ := hhead entry hceq hnat
+    exact ⟨hpin, keep h1, keep h2⟩
+  · next hn =>
+    obtain ⟨hpin, h1, h2⟩ := h n entry hf hnat
+    exact ⟨hpin, keep h1, keep h2⟩
+
+/-- `ProjOk` only reads lookups, so it transports across any
+environment correspondence that at most swaps stored recursors' rule
+lists. -/
+theorem ProjOk.env_swap {env₁ env₂ : Env}
+    (hcorr : ∀ n : Name, env₂.find? n = env₁.find? n ∨
+      ∃ cv mI rP rules₁ rules₂,
+        env₁.find? n = some (.recInfo cv mI rP rules₁) ∧
+        env₂.find? n = some (.recInfo cv mI rP rules₂))
+    (h : ProjOk env₁) : ProjOk env₂ := by
+  intro n entry hf hnat
+  have hf₁ : env₁.find? n = some (.projInfo entry) := by
+    rcases hcorr n with heq | ⟨cv, mI, rP, rules₁, rules₂, h₁, h₂⟩
+    · rw [← heq]; exact hf
+    · rw [h₂] at hf
+      exact nomatch (Option.some.inj hf)
+  obtain ⟨hpin, h1, h2⟩ := h n entry hf₁ hnat
+  have move : ∀ {s : Name} {X : ConstantInfo},
+      (∀ cv mI rP rules, X ≠ .recInfo cv mI rP rules) →
+      env₁.find? s = some X → env₂.find? s = some X := by
+    intro s X hnr hs
+    rcases hcorr s with heq | ⟨cv, mI, rP, rules₁, rules₂, h₁, h₂⟩
+    · rw [heq]; exact hs
+    · rw [h₁] at hs
+      exact absurd (Option.some.inj hs).symm (hnr cv mI rP rules₁)
+  exact ⟨hpin, move (fun _ _ _ _ h => by simp [psigmaA] at h) h1,
+    move (fun _ _ _ _ h => by simp [psigmaMkA] at h) h2⟩
+
+
 /-- The semantic eta law of an eta-capable stored structure: every
 member of the interpreted type (fitting the type former's parameter
 telescope) is the constructor model's value applied to the projection
@@ -327,8 +383,9 @@ def ModeledOk (env : Env) (val : ConstVal V) : Prop :=
     reservedBasisNames.contains n = false →
     (env.find? (n.str "_model")).isSome = true ∧
     ∀ ψ : Name → Nat, val n ψ = val (n.str "_model") ψ) ∧
-  (∀ (T : Name) (j : Nat) (ci : ConstantInfo),
-    env.find? (projFnName T j) = some ci →
+  (∀ (T : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat)
+      (rules : List RecRule),
+    env.find? (projFnName T j) = some (.recInfo cv mI rP rules) →
     (env.find? (projModelName T j)).isSome = true ∧
     ∀ ψ : Name → Nat,
       val (projFnName T j) ψ = val (projModelName T j) ψ) ∧
@@ -414,7 +471,7 @@ theorem ModeledOk.empty (val : ConstVal V) : ModeledOk V Env.empty val := by
     simp [Env.find?, Env.empty] at h
   · intro n cv cnP cnF h
     simp [Env.find?, Env.empty] at h
-  · intro T j ci h
+  · intro T j cv mI rP rules h
     simp [Env.find?, Env.empty] at h
   · intro T cvT caps h
     simp [Env.find?, Env.empty] at h
@@ -458,6 +515,9 @@ structure EnvModel (env : Env) where
   ind_ok : IndOk V env val
   /-- Every stored recursor rule has a verified fold equation. -/
   rec_rules : RecRulesOk V env val
+  /-- Every stored native projection-table entry is a pinned pair
+  entry with its block stored (see `ProjOk`). -/
+  proj_ok : ProjOk env
   /-- Non-reserved inductive-kind constants carry their model values. -/
   modeled_ok : ModeledOk V env val
   /-- Every stored structural-Nat operation satisfies its recurrence
@@ -481,6 +541,7 @@ def EnvModel.empty : EnvModel V Env.empty where
   annot_ok := by intro c hc; cases hc
   ind_ok := IndOk.empty V _ (fun _ x hx => SetTheory.not_mem_empty x hx)
   rec_rules := RecRulesOk.empty V _
+  proj_ok := ProjOk.empty
   modeled_ok := ModeledOk.empty V _
   nat_ops := NatOpsOk.empty V _
   div_mod := DivModOk.empty V _

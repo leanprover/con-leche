@@ -73,6 +73,9 @@ private def ConstantInfo.canon (ci : ConstantInfo) : ConstantInfo :=
   | .ctorInfo _ nP nF => .ctorInfo cv nP nF
   | .recInfo _ mI rP rules => .recInfo cv mI rP
       (rules.map fun r => { r with rhs := canonExpr m r.rhs })
+  -- table entries never occur in parsed input; identity keeps the
+  -- match total
+  | .projInfo e => .projInfo e
 
 inductive FrontendError where
   | parseError (line : Nat) (msg : String)

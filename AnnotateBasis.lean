@@ -53,6 +53,7 @@ def main : IO Unit := do
           | .axiomInfo _ => pure (.axiomInfo cv')
           | .defnInfo _ v h => pure (.defnInfo cv' v h)
           | .thmInfo _ v => pure (.thmInfo cv' v)
+          | .projInfo e => pure (.projInfo e)
         IO.println (repr ci')
         IO.println "---8<---"
         env := ⟨ci' :: env.consts⟩
@@ -77,6 +78,7 @@ def main : IO Unit := do
         | .axiomInfo _ => .axiomInfo cv'
         | .defnInfo _ v h => .defnInfo cv' v h
         | .thmInfo _ v => .thmInfo cv' v
+        | .projInfo e => .projInfo e
       IO.println (repr ci')
       IO.println "---8<---"
       envS := ⟨ci' :: envS.consts⟩

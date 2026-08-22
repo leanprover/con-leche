@@ -660,6 +660,14 @@ theorem installProjFnStep_fst_dproj (T ctorName : Name)
   · exact checkProjFn_fst_dproj e T ctorName lps nP nF i
   · rfl
 
+theorem installProjTemplateStep_fst_dproj (T ctorName : Name)
+    (lps : List Name) (nP nF : Nat) (e : Env) (i : Nat) :
+    (installProjTemplateStep T ctorName lps nP nF e i :
+        PairM rel _).val.1 =
+      (installProjTemplateStep T ctorName lps nP nF e i : M₁ _) := by
+  unfold installProjTemplateStep installProjTemplate
+  dfst_tac
+
 theorem installBasisDecl_fst_dproj (env : Env) (ci : ConstantInfo) :
     (installBasisDecl env ci : PairM rel _).val.1 =
       (installBasisDecl env ci : M₁ _) := by
@@ -674,6 +682,34 @@ theorem installProjFnStep_snd_dproj (T ctorName : Name)
   split
   · exact checkProjFn_snd_dproj e T ctorName lps nP nF i
   · rfl
+
+theorem installProjTemplateStep_snd_dproj (T ctorName : Name)
+    (lps : List Name) (nP nF : Nat) (e : Env) (i : Nat) :
+    (installProjTemplateStep T ctorName lps nP nF e i :
+        PairM rel _).val.2 =
+      (installProjTemplateStep T ctorName lps nP nF e i : M₂ _) := by
+  unfold installProjTemplateStep installProjTemplate
+  dsnd_tac
+
+theorem installProjTemplateStep_fst_fun (T ctorName : Name)
+    (lps : List Name) (nP nF : Nat) :
+    (fun (e : Env) (i : Nat) =>
+      (installProjTemplateStep T ctorName lps nP nF e i :
+        PairM rel _).val.1) =
+    (installProjTemplateStep T ctorName lps nP nF :
+      Env → Nat → M₁ Env) :=
+  funext fun e => funext fun i =>
+    installProjTemplateStep_fst_dproj T ctorName lps nP nF e i
+
+theorem installProjTemplateStep_snd_fun (T ctorName : Name)
+    (lps : List Name) (nP nF : Nat) :
+    (fun (e : Env) (i : Nat) =>
+      (installProjTemplateStep T ctorName lps nP nF e i :
+        PairM rel _).val.2) =
+    (installProjTemplateStep T ctorName lps nP nF :
+      Env → Nat → M₂ Env) :=
+  funext fun e => funext fun i =>
+    installProjTemplateStep_snd_dproj T ctorName lps nP nF e i
 
 theorem installBasisDecl_snd_dproj (env : Env) (ci : ConstantInfo) :
     (installBasisDecl env ci : PairM rel _).val.2 =
@@ -698,6 +734,7 @@ macro "dfst_step4" : tactic =>
     | (rw [checkIndRecs_fst_dproj])
     | (rw [checkProjFn_fst_dproj])
     | (rw [checkIndDecl_fst_dproj])
+    | (rw [installProjTemplateStep_fst_fun])
     | split
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
@@ -726,6 +763,7 @@ macro "dsnd_step4" : tactic =>
     | (rw [checkIndRecs_snd_dproj])
     | (rw [checkProjFn_snd_dproj])
     | (rw [checkIndDecl_snd_dproj])
+    | (rw [installProjTemplateStep_snd_fun])
     | split
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
@@ -1337,6 +1375,24 @@ theorem installProjFnStep_datF (T ctorName : Name)
   · exact checkProjFn_datF e T ctorName lps nP nF i F
   · rfl
 
+theorem installProjTemplateStep_datF (T ctorName : Name)
+    (lps : List Name) (nP nF : Nat) (e : Env) (i : Nat) (F : Nat) :
+    (installProjTemplateStep T ctorName lps nP nF e i :
+        FueledM _).val F =
+      (installProjTemplateStep T ctorName lps nP nF e i : CheckM _) := by
+  unfold installProjTemplateStep installProjTemplate
+  datF_tac
+
+theorem installProjTemplateStep_datF_fun (T ctorName : Name)
+    (lps : List Name) (nP nF : Nat) (F : Nat) :
+    (fun (e : Env) (i : Nat) =>
+      (installProjTemplateStep T ctorName lps nP nF e i :
+        FueledM _).val F) =
+    (installProjTemplateStep T ctorName lps nP nF :
+      Env → Nat → CheckM Env) :=
+  funext fun e => funext fun i =>
+    installProjTemplateStep_datF T ctorName lps nP nF e i F
+
 theorem installBasisDecl_datF (env : Env) (ci : ConstantInfo) (F : Nat) :
     (installBasisDecl env ci : FueledM _).val F =
       (installBasisDecl env ci : CheckM _) := by
@@ -1360,6 +1416,7 @@ macro "datF_step4" : tactic =>
     | (rw [checkIndRecs_datF])
     | (rw [checkProjFn_datF])
     | (rw [checkIndDecl_datF])
+    | (rw [installProjTemplateStep_datF_fun])
     | split
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl

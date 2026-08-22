@@ -81,6 +81,7 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   match hfthm : env'.find? ((cvA.name.str "_model").str s!"iota_{j}") with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
@@ -272,6 +273,7 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
   match hfc : env'.find? (RecRule.ctor r) with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
@@ -487,6 +489,7 @@ theorem checkUnitThm_inv {env' : Env} {T : Name}
   match hthm : env'.find? ((T.str "_model").str "unitlike") with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
@@ -497,6 +500,7 @@ theorem checkUnitThm_inv {env' : Env} {T : Name}
   match hTm : env'.find? (T.str "_model") with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
@@ -647,6 +651,7 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
   match hthm : env'.find? ((T.str "_model").str "eta") with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
@@ -657,6 +662,7 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
   match hTm : env'.find? (T.str "_model") with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
@@ -667,6 +673,7 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
   match hCm : env'.find? (ctorName.str "_model") with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
@@ -689,6 +696,7 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
     match hfj : env'.find? (projModelName T j) with
     | none => intro h1; exact nomatch h1
     | some (.axiomInfo _) => intro h1; exact nomatch h1
+    | some (.projInfo _) => intro h1; exact nomatch h1
     | some (.thmInfo _ _) => intro h1; exact nomatch h1
     | some (.indInfo _ _) => intro h1; exact nomatch h1
     | some (.ctorInfo _ _ _) => intro h1; exact nomatch h1
