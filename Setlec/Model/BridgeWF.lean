@@ -804,7 +804,8 @@ theorem checkDecl_wfimp {env env₂ : Env} {d : Declaration} {F : Nat}
     · rw [if_pos h1] at h ⊢
       exact h
     · rw [if_neg h1] at h ⊢
-      rw [FueledM.atF_ite, FueledM.atF_throw, FueledM.atF_pure] at h
+      rw [FueledM.atF_ite, FueledM.atF_throw, FueledM.atF_ite,
+        FueledM.atF_pure, FueledM.atF_throw] at h
       exact h
   | basisDecl kind =>
     have heq : checkDecl wfOpsM env (.basisDecl kind) =

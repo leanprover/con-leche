@@ -13,10 +13,16 @@ open Setlec
 def dummyAxiom : Declaration :=
   .axiomDecl { name := .str .anonymous "foo", levelParams := [], type := .sort .zero }
 
--- Non-pinned axioms are invisible (user ruling): the record is
--- well-formedness-checked but not installed — the environment is
--- unchanged (the frontend positively declines any later use).
-#guard match checkDecl pureOps Env.empty dummyAxiom with
+-- An arbitrary custom axiom is a positive decline at its own record
+-- (user ruling: only the tolerated whitelist may be declared).
+#guard checkDecl pureOps Env.empty dummyAxiom matches .error (.notImplemented _)
+
+-- A tolerated axiom (whitelist: sorryAx and the Init compiler-trust
+-- axioms) is well-formedness-checked but not installed — the
+-- environment is unchanged (the frontend declines any later use).
+#guard match checkDecl pureOps Env.empty
+    (.axiomDecl { name := .str .anonymous "sorryAx", levelParams := [],
+                  type := .sort .zero }) with
   | .ok e => e.consts.isEmpty
   | .error _ => false
 

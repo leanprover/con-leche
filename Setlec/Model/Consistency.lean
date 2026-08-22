@@ -413,9 +413,11 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       rw [if_neg hok] at h
       split at h
       · simp [pure, Except.pure] at h
-      · simp only [pure, Except.pure, Except.ok.injEq] at h
-        subst h
-        exact ⟨m⟩
+      · split at h
+        · simp only [pure, Except.pure, Except.ok.injEq] at h
+          subst h
+          exact ⟨m⟩
+        · simp [pure, Except.pure] at h
     simp only [hok, if_true, ↓reduceIte, pure, Except.pure,
       Except.ok.injEq] at h
     subst h
