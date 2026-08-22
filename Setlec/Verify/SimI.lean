@@ -166,8 +166,13 @@ denotes the fueled value, well-scoped at the ambient depth. -/
 def RelE (d : Nat) (s : IState) (j : EIdx) (v : Expr) : Prop :=
   s.store.denote j = some v ∧ WScoped d v
 
-/-- The result relation for `Bool`/`Level` and other data results. -/
+/-- The result relation for `Bool` and other data results. -/
 def RelV {α : Type} (_s : IState) (b : α) (a : α) : Prop := b = a
+
+/-- The result relation for level results: the index denotes the
+fueled value (task #62). -/
+def RelL (s : IState) (u : LIdx) (l : Level) : Prop :=
+  s.store.denoteL u = some l
 
 /-- The result relation for optional expression results. -/
 def RelO (d : Nat) (s : IState) : Option EIdx → Option Expr → Prop

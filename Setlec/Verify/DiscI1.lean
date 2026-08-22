@@ -128,11 +128,13 @@ theorem iotaCertsIAux_sim (ih : SSimI env f) {d : Nat} :
       | forallE nm t b m =>
         rw [denoteNode, Option.bind_eq_some_iff] at hd
         obtain ⟨et, hth, hd⟩ := hd
+        rw [Option.bind_eq_some_iff] at hd
+        obtain ⟨eb, hbh, hd⟩ := hd
         rw [Option.map_eq_some_iff] at hd
-        obtain ⟨eb, hbh, rfl⟩ := hd
-        rw [show (Expr.forallE nm et eb m).instantiateList ws
+        obtain ⟨bm, hbmDen, rfl⟩ := hd
+        rw [show (Expr.forallE nm et eb bm).instantiateList ws
             = .forallE nm (et.instantiateList ws)
-                (eb.instantiateList ws 1) m by
+                (eb.instantiateList ws 1) bm by
           simp [Expr.instantiateList]] at hwty ⊢
         have hwtb : WScoped d (et.instantiateList ws)
             ∧ WScoped d (eb.instantiateList ws 1) := by
@@ -195,13 +197,15 @@ theorem iotaCertsIAux_sim (ih : SSimI env f) {d : Nat} :
             (⟨denote_mono hext₁ hax, hasxs.mono hext₁⟩) hwargs
           rwa [Expr.instantiateList_nil] at this
       | sort u =>
-        cases hd
-        rw [show (Expr.sort u).instantiateList ws = .sort u by
+        rw [denoteNode, Option.map_eq_some_iff] at hd
+        obtain ⟨lu, _, rfl⟩ := hd
+        rw [show (Expr.sort lu).instantiateList ws = .sort lu by
           simp [Expr.instantiateList]]
         exact SimAt.pure hs rfl
       | const nm us =>
-        cases hd
-        rw [show (Expr.const nm us).instantiateList ws = .const nm us by
+        rw [denoteNode, Option.map_eq_some_iff] at hd
+        obtain ⟨lus, _, rfl⟩ := hd
+        rw [show (Expr.const nm lus).instantiateList ws = .const nm lus by
           simp [Expr.instantiateList]]
         exact SimAt.pure hs rfl
       | lit l =>
@@ -227,11 +231,13 @@ theorem iotaCertsIAux_sim (ih : SSimI env f) {d : Nat} :
       | lam nm t b m =>
         rw [denoteNode, Option.bind_eq_some_iff] at hd
         obtain ⟨et, _, hd⟩ := hd
+        rw [Option.bind_eq_some_iff] at hd
+        obtain ⟨eb, _, hd⟩ := hd
         rw [Option.map_eq_some_iff] at hd
-        obtain ⟨eb, _, rfl⟩ := hd
-        rw [show (Expr.lam nm et eb m).instantiateList ws
+        obtain ⟨bm, hbmDen, rfl⟩ := hd
+        rw [show (Expr.lam nm et eb bm).instantiateList ws
             = .lam nm (et.instantiateList ws)
-                (eb.instantiateList ws 1) m by
+                (eb.instantiateList ws 1) bm by
           simp [Expr.instantiateList]]
         exact SimAt.pure hs rfl
       | letE nm t v b =>
@@ -282,9 +288,9 @@ variable {env : Env} {f : Nat}
 theorem ensureSortI_sim (ih : SSimI env f) {d : Nat} {i : EIdx} {e : Expr}
     {s₀ : IState} (hs : ISOK env s₀)
     (hden : s₀.store.denote i = some e) (hw : WScoped d e) :
-    SimAt env s₀ RelV (ensureSortI (coreKnotI (mkFEnv env) f) d i)
+    SimAt env s₀ RelL (ensureSortI (coreKnotI (mkFEnv env) f) d i)
       (ensureSort (fueledFns env) env d e) := by
-  show SimAt env s₀ RelV
+  show SimAt env s₀ RelL
     ((coreKnotI (mkFEnv env) f).whnf d i >>= fun w =>
       viewI w >>= fun n =>
       match n with
@@ -300,9 +306,12 @@ theorem ensureSortI_sim (ih : SSimI env f) {d : Nat} {i : EIdx} {e : Expr}
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hwden
   rw [hn]
   cases n with
-  | sort u => cases hd; exact SimAt.pure hs₁ rfl
+  | sort u =>
+    rw [denoteNode, Option.map_eq_some_iff] at hd
+    obtain ⟨lu, hlu, rfl⟩ := hd
+    exact SimAt.pure hs₁ hlu
   | bvar k => cases hd; exact SimAt.throw
-  | const nm us => cases hd; exact SimAt.throw
+  | const nm us => invert_node hd; exact SimAt.throw
   | lit l => cases hd; exact SimAt.throw
   | fvar idx nm t => invert_node hd; exact SimAt.throw
   | app f' a' => invert_node hd; exact SimAt.throw
@@ -347,10 +356,12 @@ theorem litToCtorIfNatI_eff {s₀ : IState} (hs : ISOK env s₀)
     cases hd
     exact IEff.pure hs (by simpa [litToCtorIfNat] using hden)
   | sort u =>
-    cases hd
+    rw [denoteNode, Option.map_eq_some_iff] at hd
+    obtain ⟨lu, _, rfl⟩ := hd
     exact IEff.pure hs (by simpa [litToCtorIfNat] using hden)
   | const nm us =>
-    cases hd
+    rw [denoteNode, Option.map_eq_some_iff] at hd
+    obtain ⟨lus, _, rfl⟩ := hd
     exact IEff.pure hs (by simpa [litToCtorIfNat] using hden)
   | fvar idx nm t =>
     rw [denoteNode, Option.map_eq_some_iff] at hd
@@ -408,7 +419,8 @@ theorem unfoldDefinitionI_eff {s₀ : IState} (hs : ISOK env s₀)
       | _ => none) := rfl
   cases n with
   | const nm us =>
-    have hxf := Option.some.inj hd
+    rw [denoteNode, Option.map_eq_some_iff] at hd
+    obtain ⟨lus, hlusDen, hxf⟩ := hd
     rw [hspec, ← hxf]
     dsimp only
     rw [mkFEnv_find?]
@@ -418,16 +430,17 @@ theorem unfoldDefinitionI_eff {s₀ : IState} (hs : ISOK env s₀)
       cases ci with
       | defnInfo cv value hint =>
         dsimp only
+        have hleneq : us.length = lus.length := denoteLList_length hlusDen
         by_cases hlen : us.length = cv.levelParams.length
-        · rw [if_pos hlen, if_pos hlen]
-          refine IEff.bind (constValAtM_eff hs hfc) ?_
+        · rw [if_pos hlen, if_pos (by omega)]
+          refine IEff.bind (constValAtM_eff hs hlusDen hfc) ?_
           intro s₁ v hs₁ hext₁ hQv
           refine IEff.withStore ?_
           have hargs := getAppArgsI_spec hs₁.wf (denote_mono hext₁ hden)
           refine IEff.bind (mkAppNM_eff hs₁ hQv hargs) ?_
           intro s₂ r hs₂ hext₂ hQr
           exact IEff.pure hs₂ hQr
-        · rw [if_neg hlen, if_neg hlen]
+        · rw [if_neg hlen, if_neg (by omega)]
           exact IEff.pure hs trivial
       | axiomInfo cv => exact IEff.pure hs trivial
       | thmInfo cv v => exact IEff.pure hs trivial
@@ -440,7 +453,8 @@ theorem unfoldDefinitionI_eff {s₀ : IState} (hs : ISOK env s₀)
     rw [hspec, ← hxf]
     exact IEff.pure hs trivial
   | sort u =>
-    have hxf := Option.some.inj hd
+    rw [denoteNode, Option.map_eq_some_iff] at hd
+    obtain ⟨lu, hluDen, hxf⟩ := hd
     rw [hspec, ← hxf]
     exact IEff.pure hs trivial
   | lit l =>
@@ -462,15 +476,19 @@ theorem unfoldDefinitionI_eff {s₀ : IState} (hs : ISOK env s₀)
   | lam nm t b m =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨et, _, hd⟩ := hd
-    rw [Option.map_eq_some_iff] at hd
+    rw [Option.bind_eq_some_iff] at hd
     obtain ⟨eb, _, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨bm, hbmDen, hd⟩ := hd
     rw [hspec, ← hd]
     exact IEff.pure hs trivial
   | forallE nm t b m =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨et, _, hd⟩ := hd
-    rw [Option.map_eq_some_iff] at hd
+    rw [Option.bind_eq_some_iff] at hd
     obtain ⟨eb, _, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨bm, hbmDen, hd⟩ := hd
     rw [hspec, ← hd]
     exact IEff.pure hs trivial
   | letE nm t v b =>
@@ -549,11 +567,13 @@ theorem litMajorToCtorI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
     refine SimAt.of_eff (litToCtorIfNatI_eff hs hden) _
       (fun s b hQ => ⟨hQ, litToCtorIfNat_WScoped hw⟩)
   | sort u =>
-    cases hd
+    rw [denoteNode, Option.map_eq_some_iff] at hd
+    obtain ⟨lu, _, rfl⟩ := hd
     refine SimAt.of_eff (litToCtorIfNatI_eff hs hden) _
       (fun s b hQ => ⟨hQ, litToCtorIfNat_WScoped hw⟩)
   | const nm us =>
-    cases hd
+    rw [denoteNode, Option.map_eq_some_iff] at hd
+    obtain ⟨lus, _, rfl⟩ := hd
     refine SimAt.of_eff (litToCtorIfNatI_eff hs hden) _
       (fun s b hQ => ⟨hQ, litToCtorIfNat_WScoped hw⟩)
   | fvar idx nm t =>
@@ -624,10 +644,12 @@ theorem projLitToCtorI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
     cases hd
     exact SimAt.pure hs ⟨hden, hw⟩
   | sort u =>
-    cases hd
+    rw [denoteNode, Option.map_eq_some_iff] at hd
+    obtain ⟨lu, _, rfl⟩ := hd
     exact SimAt.pure hs ⟨hden, hw⟩
   | const nm us =>
-    cases hd
+    rw [denoteNode, Option.map_eq_some_iff] at hd
+    obtain ⟨lus, _, rfl⟩ := hd
     exact SimAt.pure hs ⟨hden, hw⟩
   | fvar idx nm t =>
     invert_node hd
@@ -665,8 +687,8 @@ theorem defeqSpineI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
         | some (.const nm' us') => do
           let aargs ← Setlec.withStore (·.getAppArgsI i)
           let bargs ← Setlec.withStore (·.getAppArgsI j)
-          if nm = nm' ∧ aargs.length = bargs.length then
-            match Level.isEquivList us us' with
+          if nm = nm' ∧ aargs.length = bargs.length then do
+            match ← isEquivListLM us us' with
             | some true =>
               defEqListI (coreKnotI (mkFEnv env) f) (mkFEnv env) d aargs bargs
             | _ => pure false
@@ -692,7 +714,8 @@ theorem defeqSpineI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
       | _ => pure false) := rfl
   cases n with
   | const nm us =>
-    have hxa := Option.some.inj hd
+    rw [denoteNode, Option.map_eq_some_iff] at hd
+    obtain ⟨lus, hlusDen, hxa⟩ := hd
     rw [hspec, ← hxa]
     dsimp only
     refine SimAt.withStore ?_
@@ -700,7 +723,8 @@ theorem defeqSpineI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
     rw [hn']
     cases n' with
     | const nm' us' =>
-      have hxb := Option.some.inj hd'
+      rw [denoteNode, Option.map_eq_some_iff] at hd'
+      obtain ⟨lus', hlusDen', hxb⟩ := hd'
       rw [← hxb]
       dsimp only
       refine SimAt.withStore ?_
@@ -709,17 +733,23 @@ theorem defeqSpineI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
       have hbargs := getAppArgsI_spec hs.wf hdenb
       rw [haargs.length_eq, hbargs.length_eq]
       split
-      · cases hlv : Level.isEquivList us us' with
+      · refine SimAt.bind_left (isEquivListLM_eff hs hlusDen hlusDen') ?_
+        intro s₁ ob hs₁ hext₁ hob
+        subst hob
+        cases hlv : Level.isEquivList lus lus' with
         | some tv =>
           cases tv with
           | true =>
-            exact defEqListI_sim ih hs haargs hbargs hwa.getAppArgs
-              hwb.getAppArgs
-          | false => exact SimAt.pure hs rfl
-        | none => exact SimAt.pure hs rfl
+            exact defEqListI_sim ih hs₁ (haargs.mono hext₁)
+              (hbargs.mono hext₁) hwa.getAppArgs hwb.getAppArgs
+          | false => exact SimAt.pure hs₁ rfl
+        | none => exact SimAt.pure hs₁ rfl
       · exact SimAt.pure hs rfl
     | bvar k => rw [← Option.some.inj hd']; exact SimAt.pure hs rfl
-    | sort u' => rw [← Option.some.inj hd']; exact SimAt.pure hs rfl
+    | sort u' =>
+      rw [denoteNode, Option.map_eq_some_iff] at hd'
+      obtain ⟨lu, hluDen, hd'⟩ := hd'
+      rw [← hd']; exact SimAt.pure hs rfl
     | lit l' => rw [← Option.some.inj hd']; exact SimAt.pure hs rfl
     | fvar idx' nm₂ t' =>
       rw [denoteNode, Option.map_eq_some_iff] at hd'
@@ -734,14 +764,18 @@ theorem defeqSpineI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
     | lam nm₂ t' b' m' =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd'
       obtain ⟨et, _, hd'⟩ := hd'
-      rw [Option.map_eq_some_iff] at hd'
+      rw [Option.bind_eq_some_iff] at hd'
       obtain ⟨eb, _, hd'⟩ := hd'
+      rw [Option.map_eq_some_iff] at hd'
+      obtain ⟨bm, hbmDen, hd'⟩ := hd'
       rw [← hd']; exact SimAt.pure hs rfl
     | forallE nm₂ t' b' m' =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd'
       obtain ⟨et, _, hd'⟩ := hd'
-      rw [Option.map_eq_some_iff] at hd'
+      rw [Option.bind_eq_some_iff] at hd'
       obtain ⟨eb, _, hd'⟩ := hd'
+      rw [Option.map_eq_some_iff] at hd'
+      obtain ⟨bm, hbmDen, hd'⟩ := hd'
       rw [← hd']; exact SimAt.pure hs rfl
     | letE nm₂ t' v' b' =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd'
@@ -756,7 +790,10 @@ theorem defeqSpineI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
       obtain ⟨ee, _, hd'⟩ := hd'
       rw [← hd']; exact SimAt.pure hs rfl
   | bvar k => rw [hspec, ← Option.some.inj hd]; exact SimAt.pure hs rfl
-  | sort u => rw [hspec, ← Option.some.inj hd]; exact SimAt.pure hs rfl
+  | sort u =>
+    rw [denoteNode, Option.map_eq_some_iff] at hd
+    obtain ⟨lu, hluDen, hd⟩ := hd
+    rw [hspec, ← hd]; exact SimAt.pure hs rfl
   | lit l => rw [hspec, ← Option.some.inj hd]; exact SimAt.pure hs rfl
   | fvar idx nm t =>
     rw [denoteNode, Option.map_eq_some_iff] at hd
@@ -771,14 +808,18 @@ theorem defeqSpineI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
   | lam nm t b' m =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨et, _, hd⟩ := hd
-    rw [Option.map_eq_some_iff] at hd
+    rw [Option.bind_eq_some_iff] at hd
     obtain ⟨eb, _, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨bm, hbmDen, hd⟩ := hd
     rw [hspec, ← hd]; exact SimAt.pure hs rfl
   | forallE nm t b' m =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨et, _, hd⟩ := hd
-    rw [Option.map_eq_some_iff] at hd
+    rw [Option.bind_eq_some_iff] at hd
     obtain ⟨eb, _, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨bm, hbmDen, hd⟩ := hd
     rw [hspec, ← hd]; exact SimAt.pure hs rfl
   | letE nm t v b' =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
@@ -915,12 +956,17 @@ theorem reduceNatI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
     rw [hn']
     cases n' with
     | const c us =>
-      have hxf := Option.some.inj hd'
+      rw [denoteNode, Option.map_eq_some_iff] at hd'
+      obtain ⟨lus, hlusDen, hxf⟩ := hd'
       subst hxf
       cases us with
       | cons u us' =>
+        simp only [denoteLList, Option.bind_eq_some_iff,
+          Option.map_eq_some_iff] at hlusDen
+        obtain ⟨l0, -, ls0, -, rfl⟩ := hlusDen
         exact SimAt.pure hs trivial
       | nil =>
+        cases hlusDen
         dsimp only
         rw [show reduceNat (fueledFns env) env d (.app (.const c []) xb) =
           (if c = natSuccName ∧ natLitSupported env then
@@ -1027,11 +1073,17 @@ theorem reduceNatI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
       rw [hn'']
       cases n'' with
       | const c us =>
-        have hxf := Option.some.inj hd''
+        rw [denoteNode, Option.map_eq_some_iff] at hd''
+        obtain ⟨lus, hlusDen, hxf⟩ := hd''
         subst hxf
         cases us with
-        | cons u us' => exact SimAt.pure hs trivial
+        | cons u us' =>
+          simp only [denoteLList, Option.bind_eq_some_iff,
+            Option.map_eq_some_iff] at hlusDen
+          obtain ⟨l0, -, ls0, -, rfl⟩ := hlusDen
+          exact SimAt.pure hs trivial
         | nil =>
+          cases hlusDen
           dsimp only
           rw [show reduceNat (fueledFns env) env d
             (.app (.app (.const c []) xa) xb) =

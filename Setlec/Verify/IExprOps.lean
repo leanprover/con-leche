@@ -280,6 +280,20 @@ theorem denoteBM_bi {denL : LIdx → Option Level} {m : IBinderMeta}
   · simp only [denoteBM, Option.map_eq_some_iff] at h
     obtain ⟨l, -, rfl⟩ := h; rfl
 
+/-- Level-index lists and their denotations have equal length. -/
+theorem denoteLList_length {denL : LIdx → Option Level} :
+    ∀ {us : List LIdx} {ls : List Level},
+      denoteLList denL us = some ls → us.length = ls.length := by
+  intro us
+  induction us with
+  | nil => intro ls h; cases h; rfl
+  | cons u us ih =>
+    intro ls h
+    simp only [denoteLList, Option.bind_eq_some_iff,
+      Option.map_eq_some_iff] at h
+    obtain ⟨l, -, ls', hls', rfl⟩ := h
+    simp [ih hls']
+
 /-- A denoted node's level references denote. -/
 theorem denoteNode_levels_some {den : EIdx → Option Expr}
     {denL : LIdx → Option Level} {n : ENode} {a : Expr}

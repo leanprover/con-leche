@@ -205,8 +205,10 @@ theorem etaCertI_sim (ih : SSimI env f) {d : Nat} {n₁ : Name}
   | forallE nm ty₂ b₂ m₂ =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨ty₂x, hty₂, hd⟩ := hd
-    rw [Option.map_eq_some_iff] at hd
+    rw [Option.bind_eq_some_iff] at hd
     obtain ⟨b₂x, hb₂, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨bm, hbmDen, hd⟩ := hd
     subst hd
     dsimp only
     have hwty₂ : WScoped d ty₂x := by
@@ -503,14 +505,18 @@ theorem structUnitCertI_sim (ih : SSimI env f) (henv : EnvWF env)
   | lam nm t b' m =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨et, _, hd⟩ := hd
-    rw [Option.map_eq_some_iff] at hd
+    rw [Option.bind_eq_some_iff] at hd
     obtain ⟨eb, _, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨bm, hbmDen, hd⟩ := hd
     rw [← hd]; exact SimAt.pure hs₂ rfl
   | forallE nm t b' m =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨et, _, hd⟩ := hd
-    rw [Option.map_eq_some_iff] at hd
+    rw [Option.bind_eq_some_iff] at hd
     obtain ⟨eb, _, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨bm, hbmDen, hd⟩ := hd
     rw [← hd]; exact SimAt.pure hs₂ rfl
   | letE nm t v b' =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
@@ -1272,7 +1278,10 @@ theorem structEtaCertWithI_sim (ih : SSimI env f) (henv : EnvWF env)
               | recInfo cv mI rP rules => exact SimAt.pure hs rfl
               | projInfo entry => exact SimAt.pure hs rfl
           | bvar k => rw [← Option.some.inj hd']; exact SimAt.pure hs rfl
-          | sort u => rw [← Option.some.inj hd']; exact SimAt.pure hs rfl
+          | sort u =>
+            rw [denoteNode, Option.map_eq_some_iff] at hd'
+            obtain ⟨lu, hluDen, hd'⟩ := hd'
+            rw [← hd']; exact SimAt.pure hs rfl
           | lit l => rw [← Option.some.inj hd']; exact SimAt.pure hs rfl
           | fvar idx nm t =>
             rw [denoteNode, Option.map_eq_some_iff] at hd'
@@ -1287,14 +1296,18 @@ theorem structEtaCertWithI_sim (ih : SSimI env f) (henv : EnvWF env)
           | lam nm t b' m =>
             rw [denoteNode, Option.bind_eq_some_iff] at hd'
             obtain ⟨et, _, hd'⟩ := hd'
-            rw [Option.map_eq_some_iff] at hd'
+            rw [Option.bind_eq_some_iff] at hd'
             obtain ⟨eb, _, hd'⟩ := hd'
+            rw [Option.map_eq_some_iff] at hd'
+            obtain ⟨bm, hbmDen, hd'⟩ := hd'
             rw [← hd']; exact SimAt.pure hs rfl
           | forallE nm t b' m =>
             rw [denoteNode, Option.bind_eq_some_iff] at hd'
             obtain ⟨et, _, hd'⟩ := hd'
-            rw [Option.map_eq_some_iff] at hd'
+            rw [Option.bind_eq_some_iff] at hd'
             obtain ⟨eb, _, hd'⟩ := hd'
+            rw [Option.map_eq_some_iff] at hd'
+            obtain ⟨bm, hbmDen, hd'⟩ := hd'
             rw [← hd']; exact SimAt.pure hs rfl
           | letE nm t v b' =>
             rw [denoteNode, Option.bind_eq_some_iff] at hd'
@@ -1316,7 +1329,10 @@ theorem structEtaCertWithI_sim (ih : SSimI env f) (henv : EnvWF env)
       | recInfo cv mI rP rules => exact SimAt.pure hs rfl
       | projInfo entry => exact SimAt.pure hs rfl
   | bvar k => rw [← Option.some.inj hd]; exact SimAt.pure hs rfl
-  | sort u => rw [← Option.some.inj hd]; exact SimAt.pure hs rfl
+  | sort u =>
+    rw [denoteNode, Option.map_eq_some_iff] at hd
+    obtain ⟨lu, hluDen, hd⟩ := hd
+    rw [← hd]; exact SimAt.pure hs rfl
   | lit l => rw [← Option.some.inj hd]; exact SimAt.pure hs rfl
   | fvar idx nm t =>
     rw [denoteNode, Option.map_eq_some_iff] at hd
@@ -1331,14 +1347,18 @@ theorem structEtaCertWithI_sim (ih : SSimI env f) (henv : EnvWF env)
   | lam nm t b' m =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨et, _, hd⟩ := hd
-    rw [Option.map_eq_some_iff] at hd
+    rw [Option.bind_eq_some_iff] at hd
     obtain ⟨eb, _, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨bm, hbmDen, hd⟩ := hd
     rw [← hd]; exact SimAt.pure hs rfl
   | forallE nm t b' m =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨et, _, hd⟩ := hd
-    rw [Option.map_eq_some_iff] at hd
+    rw [Option.bind_eq_some_iff] at hd
     obtain ⟨eb, _, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨bm, hbmDen, hd⟩ := hd
     rw [← hd]; exact SimAt.pure hs rfl
   | letE nm t v b' =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd

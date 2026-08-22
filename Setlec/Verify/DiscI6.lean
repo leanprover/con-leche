@@ -64,15 +64,23 @@ theorem projFieldDomI_sim (ih : SSimI env f) (henv : EnvWF env)
     | forallE nm dom rest mb =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
       obtain ⟨domx, hdom, hd⟩ := hd
-      rw [Option.map_eq_some_iff] at hd
+      rw [Option.bind_eq_some_iff] at hd
       obtain ⟨restx, hrest, hd⟩ := hd
+      rw [Option.map_eq_some_iff] at hd
+      obtain ⟨bm, hbmDen, hd⟩ := hd
       subst hd
       have hw' : WScoped d domx ∧ WScoped d restx := by
         simpa only [WScoped] using hwtel
       exact SimAt.pure hs ⟨hdom, hw'.1⟩
     | bvar k => cases hd; exact SimAt.throw
-    | sort u => cases hd; exact SimAt.throw
-    | const nm us => cases hd; exact SimAt.throw
+    | sort u =>
+      rw [denoteNode, Option.map_eq_some_iff] at hd
+      obtain ⟨lu, _, rfl⟩ := hd
+      exact SimAt.throw
+    | const nm us =>
+      rw [denoteNode, Option.map_eq_some_iff] at hd
+      obtain ⟨lus, _, rfl⟩ := hd
+      exact SimAt.throw
     | lit l => cases hd; exact SimAt.throw
     | fvar idx nm t => invert_node hd; exact SimAt.throw
     | app f' a' => invert_node hd; exact SimAt.throw
@@ -88,8 +96,10 @@ theorem projFieldDomI_sim (ih : SSimI env f) (henv : EnvWF env)
     | forallE nm dom rest mb =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
       obtain ⟨domx, hdom, hd⟩ := hd
-      rw [Option.map_eq_some_iff] at hd
+      rw [Option.bind_eq_some_iff] at hd
       obtain ⟨restx, hrest, hd⟩ := hd
+      rw [Option.map_eq_some_iff] at hd
+      obtain ⟨bm, hbmDen, hd⟩ := hd
       subst hd
       have hw' : WScoped d domx ∧ WScoped d restx := by
         simpa only [WScoped] using hwtel
@@ -140,8 +150,14 @@ theorem projFieldDomI_sim (ih : SSimI env f) (henv : EnvWF env)
           exact projFieldDomI_sim ih henv hwe k (jj + 1) hs₃
             (denote_mono (hext₂.trans hext₃) hde) hQr hwrest'
     | bvar k' => cases hd; exact SimAt.throw
-    | sort u => cases hd; exact SimAt.throw
-    | const nm us => cases hd; exact SimAt.throw
+    | sort u =>
+      rw [denoteNode, Option.map_eq_some_iff] at hd
+      obtain ⟨lu, _, rfl⟩ := hd
+      exact SimAt.throw
+    | const nm us =>
+      rw [denoteNode, Option.map_eq_some_iff] at hd
+      obtain ⟨lus, _, rfl⟩ := hd
+      exact SimAt.throw
     | lit l => cases hd; exact SimAt.throw
     | fvar idx nm t => invert_node hd; exact SimAt.throw
     | app f' a' => invert_node hd; exact SimAt.throw
@@ -453,10 +469,12 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     cases hd
     exact SimAt.pure hs ⟨hden, hw⟩
   | sort u =>
-    cases hd
+    rw [denoteNode, Option.map_eq_some_iff] at hd
+    obtain ⟨lu, _, rfl⟩ := hd
     exact SimAt.pure hs ⟨hden, hw⟩
   | const nm us =>
-    cases hd
+    rw [denoteNode, Option.map_eq_some_iff] at hd
+    obtain ⟨lus, _, rfl⟩ := hd
     exact SimAt.pure hs ⟨hden, hw⟩
   | letE nm t v b =>
     invert_node hd
@@ -522,8 +540,10 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     | forallE nm ty body mb =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd'
       obtain ⟨tyx, hty, hd'⟩ := hd'
-      rw [Option.map_eq_some_iff] at hd'
+      rw [Option.bind_eq_some_iff] at hd'
       obtain ⟨bodyx, hbody, hd'⟩ := hd'
+      rw [Option.map_eq_some_iff] at hd'
+      obtain ⟨bm, hbmDen, hd'⟩ := hd'
       subst hd'
       have hwtb : WScoped d tyx ∧ WScoped d bodyx := by
         simpa only [WScoped] using hww
@@ -564,8 +584,10 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
   | forallE nm t b m =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨tyx, hty, hd⟩ := hd
-    rw [Option.map_eq_some_iff] at hd
+    rw [Option.bind_eq_some_iff] at hd
     obtain ⟨bodyx, hbody, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨bm, hbmDen, hd⟩ := hd
     subst hd
     have hwtb : WScoped d tyx ∧ WScoped d bodyx := by
       simpa only [WScoped] using hw
@@ -608,8 +630,10 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
   | lam nm t b m =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨tyx, hty, hd⟩ := hd
-    rw [Option.map_eq_some_iff] at hd
+    rw [Option.bind_eq_some_iff] at hd
     obtain ⟨bodyx, hbody, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨bm, hbmDen, hd⟩ := hd
     subst hd
     have hwtb : WScoped d tyx ∧ WScoped d bodyx := by
       simpa only [WScoped] using hw

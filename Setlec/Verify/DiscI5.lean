@@ -280,8 +280,10 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                           | lam nm₂ t₂ b₂ m₂ =>
                             rw [denoteNode, Option.bind_eq_some_iff] at hdb
                             obtain ⟨ty₂x, hty₂, hdb⟩ := hdb
-                            rw [Option.map_eq_some_iff] at hdb
+                            rw [Option.bind_eq_some_iff] at hdb
                             obtain ⟨body₂x, hbody₂, hdb⟩ := hdb
+                            rw [Option.map_eq_some_iff] at hdb
+                            obtain ⟨bm, hbmDen, hdb⟩ := hdb
                             subst hdb
                             try dsimp only
                             exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbS hwa' hwb'
@@ -410,8 +412,10 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             | lam nm₂ t₂ b₂ m₂ =>
                               rw [denoteNode, Option.bind_eq_some_iff] at hdb
                               obtain ⟨ty₂x, hty₂, hdb⟩ := hdb
-                              rw [Option.map_eq_some_iff] at hdb
+                              rw [Option.bind_eq_some_iff] at hdb
                               obtain ⟨body₂x, hbody₂, hdb⟩ := hdb
+                              rw [Option.map_eq_some_iff] at hdb
+                              obtain ⟨bm, hbmDen, hdb⟩ := hdb
                               subst hdb
                               try dsimp only
                               exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbS hwa' hwb'
@@ -518,8 +522,10 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             | lam nm₂ t₂ b₂ m₂ =>
                               rw [denoteNode, Option.bind_eq_some_iff] at hdb
                               obtain ⟨ty₂x, hty₂, hdb⟩ := hdb
-                              rw [Option.map_eq_some_iff] at hdb
+                              rw [Option.bind_eq_some_iff] at hdb
                               obtain ⟨body₂x, hbody₂, hdb⟩ := hdb
+                              rw [Option.map_eq_some_iff] at hdb
+                              obtain ⟨bm, hbmDen, hdb⟩ := hdb
                               subst hdb
                               try dsimp only
                               exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbS hwa' hwb'
@@ -577,8 +583,10 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                           | lam nm₂ t₂ b₂ m₂ =>
                             rw [denoteNode, Option.bind_eq_some_iff] at hdb
                             obtain ⟨ty₂x, hty₂, hdb⟩ := hdb
-                            rw [Option.map_eq_some_iff] at hdb
+                            rw [Option.bind_eq_some_iff] at hdb
                             obtain ⟨body₂x, hbody₂, hdb⟩ := hdb
+                            rw [Option.map_eq_some_iff] at hdb
+                            obtain ⟨bm, hbmDen, hdb⟩ := hdb
                             subst hdb
                             try dsimp only
                             exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbS hwa' hwb'
@@ -657,8 +665,10 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                           | lam nm₂ t₂ b₂ m₂ =>
                             rw [denoteNode, Option.bind_eq_some_iff] at hdb
                             obtain ⟨ty₂x, hty₂, hdb⟩ := hdb
-                            rw [Option.map_eq_some_iff] at hdb
+                            rw [Option.bind_eq_some_iff] at hdb
                             obtain ⟨body₂x, hbody₂, hdb⟩ := hdb
+                            rw [Option.map_eq_some_iff] at hdb
+                            obtain ⟨bm, hbmDen, hdb⟩ := hdb
                             subst hdb
                             try dsimp only
                             exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbS hwa' hwb'
@@ -677,8 +687,10 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                         | forallE nm₁ t₁ b₁ m₁ =>
                           rw [denoteNode, Option.bind_eq_some_iff] at hda
                           obtain ⟨ty₁x, hty₁, hda⟩ := hda
-                          rw [Option.map_eq_some_iff] at hda
+                          rw [Option.bind_eq_some_iff] at hda
                           obtain ⟨body₁x, hbody₁, hda⟩ := hda
+                          rw [Option.map_eq_some_iff] at hda
+                          obtain ⟨bm, hbmDen, hda⟩ := hda
                           subst hda
                           have h1 : WScoped d ty₁x ∧ WScoped d body₁x := by
                             simpa only [WScoped] using hwa'
@@ -686,8 +698,10 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                           | forallE nm₂ t₂ b₂ m₂ =>
                             rw [denoteNode, Option.bind_eq_some_iff] at hdb
                             obtain ⟨ty₂x, hty₂, hdb⟩ := hdb
-                            rw [Option.map_eq_some_iff] at hdb
+                            rw [Option.bind_eq_some_iff] at hdb
                             obtain ⟨body₂x, hbody₂, hdb⟩ := hdb
+                            rw [Option.map_eq_some_iff] at hdb
+                            obtain ⟨bm, hbmDen, hdb⟩ := hdb
                             subst hdb
                             have h2 : WScoped d ty₂x ∧ WScoped d body₂x := by
                               simpa only [WScoped] using hwb'
@@ -778,8 +792,10 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                           | lam nm₂ t₂ b₂ m₂ =>
                             rw [denoteNode, Option.bind_eq_some_iff] at hdb
                             obtain ⟨ty₂x, hty₂, hdb⟩ := hdb
-                            rw [Option.map_eq_some_iff] at hdb
+                            rw [Option.bind_eq_some_iff] at hdb
                             obtain ⟨body₂x, hbody₂, hdb⟩ := hdb
+                            rw [Option.map_eq_some_iff] at hdb
+                            obtain ⟨bm, hbmDen, hdb⟩ := hdb
                             subst hdb
                             try dsimp only
                             exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbS hwa' hwb'
@@ -794,8 +810,10 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                         | lam nm₁ t₁ b₁ m₁ =>
                           rw [denoteNode, Option.bind_eq_some_iff] at hda
                           obtain ⟨ty₁x, hty₁, hda⟩ := hda
-                          rw [Option.map_eq_some_iff] at hda
+                          rw [Option.bind_eq_some_iff] at hda
                           obtain ⟨body₁x, hbody₁, hda⟩ := hda
+                          rw [Option.map_eq_some_iff] at hda
+                          obtain ⟨bm, hbmDen, hda⟩ := hda
                           subst hda
                           have h1 : WScoped d ty₁x ∧ WScoped d body₁x := by
                             simpa only [WScoped] using hwa'
@@ -803,8 +821,10 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                           | lam nm₂ t₂ b₂ m₂ =>
                             rw [denoteNode, Option.bind_eq_some_iff] at hdb
                             obtain ⟨ty₂x, hty₂, hdb⟩ := hdb
-                            rw [Option.map_eq_some_iff] at hdb
+                            rw [Option.bind_eq_some_iff] at hdb
                             obtain ⟨body₂x, hbody₂, hdb⟩ := hdb
+                            rw [Option.map_eq_some_iff] at hdb
+                            obtain ⟨bm, hbmDen, hdb⟩ := hdb
                             subst hdb
                             have h2 : WScoped d ty₂x ∧ WScoped d body₂x := by
                               simpa only [WScoped] using hwb'
@@ -1098,8 +1118,10 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                           | lam nm₂ t₂ b₂ m₂ =>
                             rw [denoteNode, Option.bind_eq_some_iff] at hdb
                             obtain ⟨ty₂x, hty₂, hdb⟩ := hdb
-                            rw [Option.map_eq_some_iff] at hdb
+                            rw [Option.bind_eq_some_iff] at hdb
                             obtain ⟨body₂x, hbody₂, hdb⟩ := hdb
+                            rw [Option.map_eq_some_iff] at hdb
+                            obtain ⟨bm, hbmDen, hdb⟩ := hdb
                             subst hdb
                             try dsimp only
                             exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbS hwa' hwb'
@@ -1145,8 +1167,10 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                           | lam nm₂ t₂ b₂ m₂ =>
                             rw [denoteNode, Option.bind_eq_some_iff] at hdb
                             obtain ⟨ty₂x, hty₂, hdb⟩ := hdb
-                            rw [Option.map_eq_some_iff] at hdb
+                            rw [Option.bind_eq_some_iff] at hdb
                             obtain ⟨body₂x, hbody₂, hdb⟩ := hdb
+                            rw [Option.map_eq_some_iff] at hdb
+                            obtain ⟨bm, hbmDen, hdb⟩ := hdb
                             subst hdb
                             try dsimp only
                             exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbS hwa' hwb'
@@ -1192,8 +1216,10 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                           | lam nm₂ t₂ b₂ m₂ =>
                             rw [denoteNode, Option.bind_eq_some_iff] at hdb
                             obtain ⟨ty₂x, hty₂, hdb⟩ := hdb
-                            rw [Option.map_eq_some_iff] at hdb
+                            rw [Option.bind_eq_some_iff] at hdb
                             obtain ⟨body₂x, hbody₂, hdb⟩ := hdb
+                            rw [Option.map_eq_some_iff] at hdb
+                            obtain ⟨bm, hbmDen, hdb⟩ := hdb
                             subst hdb
                             try dsimp only
                             exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbS hwa' hwb'
@@ -1269,8 +1295,10 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                           | lam nm₂ t₂ b₂ m₂ =>
                             rw [denoteNode, Option.bind_eq_some_iff] at hdb
                             obtain ⟨ty₂x, hty₂, hdb⟩ := hdb
-                            rw [Option.map_eq_some_iff] at hdb
+                            rw [Option.bind_eq_some_iff] at hdb
                             obtain ⟨body₂x, hbody₂, hdb⟩ := hdb
+                            rw [Option.map_eq_some_iff] at hdb
+                            obtain ⟨bm, hbmDen, hdb⟩ := hdb
                             subst hdb
                             try dsimp only
                             exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbS hwa' hwb'
