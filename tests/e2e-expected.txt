@@ -28,6 +28,11 @@
 # structure rescue covers 0-field structures; dependency-closure slice
 # of the Init export through `Unit.sizeOf`.
 0 unit_sizeof_rescue.ndjson
+# Frontend zeta-expands rec-rule right-hand sides (task #60): the
+# preprocessor emits a `let` in `Std.Packages.PreorderOfLEArgs`'s
+# recursor rule; install annotates the rhs and must not see `letE`.
+# Init-export slice through the block (committed gzipped).
+0 let_rec_rhs.ndjson
 
 0 opaque_decl.ndjson
 0 nat_ops.ndjson

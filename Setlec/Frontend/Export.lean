@@ -350,10 +350,13 @@ private def processLineCore (st : State) (j : Json)
         (← (← c.getObjVal? "numFields").getNat?))
     let recs ← (← (← v.getObjVal? "recs").getArr?).mapM fun r => do
       let rules ← (← (← r.getObjVal? "rules").getArr?).mapM fun ru => do
-        -- `ctorParams`/`fire` are install-computed; parse placeholders
+        -- `ctorParams`/`fire` are install-computed; parse placeholders.
+        -- The rhs is zeta-expanded like every other parsed expression
+        -- (the checker works let-free; install annotates the rhs and
+        -- would otherwise decline on `letE`).
         pure (RecRule.mk (← getName' st ru "ctor")
           (← (← ru.getObjVal? "nfields").getNat?) 0 .inert
-          (← getDeclExpr' st ru "rhs"))
+          (← getDeclExpr' st ru "rhs").zetaExpand)
       -- only the two sums the checker reads are kept: the major's
       -- position and the rule-application prefix
       let nP ← (← r.getObjVal? "numParams").getNat?

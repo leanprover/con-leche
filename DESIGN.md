@@ -928,6 +928,14 @@ substitution `instantiate1Lift` (`instantiate1`'s contract requires a
 closed replacement; the old code silently corrupted nested lets —
 surfaced by the preprocessor's let-heavy `iota_0` proofs).
 
+The frontend zeta-expands every parsed type and value (the checker
+works let-free); the recursor-rule `rhs` slot was the one parsed
+expression missed (fixed 2026-08-22, task #60): a preprocessor-emitted
+`let` in a modeled recursor's rule (`Std.Packages.PreorderOfLEArgs`)
+hit install's `letE` decline.  The rule rhs now goes through the same
+`.zetaExpand` — pure input normalization ahead of annotation; the
+model layer only ever consumes the stored (annotated) rules.
+
 ### Basis `PUnit` 0-field rescue (2026-08-22, task #59)
 
 The pinned `PUnit` block now carries `eta := true` (ctor `PUnit.unit`,
