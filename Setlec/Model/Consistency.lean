@@ -150,9 +150,10 @@ private theorem natop_eqs_sound {env : Env} (m : EnvModel V env) (F : Nat)
     (hHA : ∀ ψ : Name → Nat, AnnotOk V m.val env ψ 0 (rho0 V) H)
     (hHm : ∀ ψ : Name → Nat, ∃ hv,
       interpClosed V m.val env ψ H = some hv ∧
-      (c = natPredName → hv ∈ˢ pi 1 (m.val natName ψ)
+      (c = natPredName ∨ c = natLog2Name → hv ∈ˢ pi 1 (m.val natName ψ)
         (fun _ => m.val natName ψ)) ∧
-      (c ≠ natPredName → ∃ C, hv ∈ˢ pi 1 (m.val natName ψ)
+      (¬(c = natPredName ∨ c = natLog2Name) → ∃ C,
+        hv ∈ˢ pi 1 (m.val natName ψ)
         (fun _ => pi 1 (m.val natName ψ) (fun _ => C)) ∧ C ∈ˢ univ 1 ∧
         (c ≠ natBeqName → c ≠ natBleName → C = m.val natName ψ)))
     (hdeps : ∀ n ∈ natOpDeps c, n ≠ c → natOpStoredOk env n = true)
@@ -205,7 +206,7 @@ private theorem natop_eqs_sound {env : Env} (m : EnvModel V env) (F : Nat)
   simp only [natOpNames, List.mem_cons, List.not_mem_nil, or_false] at hc
   rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl
   · -- pred
-    have hHpi := hHmem.1 rfl
+    have hHpi := hHmem.1 (Or.inl rfl)
     simp +decide [natOpEquations, Prod.mk.injEq] at heqm
     rcases heqm with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
     · simp +decide only [Expr.substConst0] at hde ⊢
@@ -240,7 +241,7 @@ private theorem natop_eqs_sound {env : Env} (m : EnvModel V env) (F : Nat)
     rw [hCid (by decide) (by decide)] at hHpi
     obtain ⟨cvp, vp, hnf1, hfp, hlpp, hpredm, -⟩ :=
       natOpStored_facts m (hdeps natPredName (by decide) (by decide)) hs ψ
-    have hpredpi := hpredm rfl
+    have hpredpi := hpredm (Or.inl rfl)
     simp +decide [natOpEquations, Prod.mk.injEq] at heqm
     rcases heqm with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
     · simp +decide only [Expr.substConst0] at hde ⊢
@@ -1968,9 +1969,11 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       exact hpin2
     have hHm : ∀ ψ : Name → Nat, ∃ hv,
         interpClosed V m.val env ψ value' = some hv ∧
-        (cv.name = natPredName → hv ∈ˢ pi 1 (m.val natName ψ)
+        (cv.name = natPredName ∨ cv.name = natLog2Name →
+          hv ∈ˢ pi 1 (m.val natName ψ)
           (fun _ => m.val natName ψ)) ∧
-        (cv.name ≠ natPredName → ∃ C, hv ∈ˢ pi 1 (m.val natName ψ)
+        (¬(cv.name = natPredName ∨ cv.name = natLog2Name) → ∃ C,
+          hv ∈ˢ pi 1 (m.val natName ψ)
           (fun _ => pi 1 (m.val natName ψ) (fun _ => C)) ∧ C ∈ˢ univ 1 ∧
           (cv.name ≠ natBeqName → cv.name ≠ natBleName →
             C = m.val natName ψ)) := by
@@ -2063,33 +2066,20 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     have hEqA : env.find? eqName = some eqA := by
       rw [← hd eqName (Ne.symm hnedm.2.2.2.2.2.2.1)]
       exact hEqA2
-    have hdmem : natBleName ∈ natOpDeps cv.name ∧
-        natSubName ∈ natOpDeps cv.name ∧ cv.name ∈ natOpDeps cv.name := by
+    have hselfmem : cv.name ∈ natOpDeps cv.name := by
       simp only [natDivModNames, List.mem_cons, List.not_mem_nil,
         or_false] at hcmem
-      rcases hcmem with h' | h' <;> rw [h'] <;>
-        exact ⟨by decide, by decide, by decide⟩
-    have hbleE : natOpStoredOk env natBleName = true :=
-      natOpStoredOk_cons_down
+      rcases hcmem with h' | h' | h' | h' | h' | h' | h' | h' | h' <;>
+        rw [h'] <;> decide
+    have hdepsOkE : ∀ n ∈ natOpDeps cv.name, n ≠ cv.name →
+        natOpStoredOk env n = true := by
+      intro n hn hne
+      exact natOpStoredOk_cons_down
         (c₀ := ConstantInfo.defnInfo { cv with type := type } value' hint)
-        (Ne.symm hnedm.2.2.2.2.2.2.2.1)
-        (fun hh => hnedm.2.2.2.1 hh)
-        (List.all_eq_true.mp hdeps2 natBleName hdmem.1)
-    have hsubE : natOpStoredOk env natSubName = true :=
-      natOpStoredOk_cons_down
-        (c₀ := ConstantInfo.defnInfo { cv with type := type } value' hint)
-        (Ne.symm hnedm.2.2.2.2.2.2.2.2.1)
-        (fun hh => hnedm.2.2.2.1 hh)
-        (List.all_eq_true.mp hdeps2 natSubName hdmem.2.1)
-    have hcbor : cv.name = natBeqName ∨ cv.name = natBleName ∨
-        cv.name = natDivName ∨ cv.name = natModName := by
-      simp only [natDivModNames, List.mem_cons, List.not_mem_nil,
-        or_false] at hcmem
-      rcases hcmem with h' | h'
-      · exact Or.inr (Or.inr (Or.inl h'))
-      · exact Or.inr (Or.inr (Or.inr h'))
+        hne (fun hh => hnedm.2.2.2.1 hh)
+        (List.all_eq_true.mp hdeps2 n hn)
     obtain ⟨⟨ciT', hfT', hlpT'⟩, ⟨ciF', hfF', hlpF'⟩⟩ :=
-      (natOpGuard_inv hguard2).2.2 hcbor
+      (natOpGuard_inv hguard2).2.2 (Or.inr (Or.inr hcmem))
     obtain ⟨ciT, hfT, htyT⟩ := hbT2
     obtain ⟨ciF, hfF, htyF⟩ := hbF2
     have hciT : ciT' = ciT := by
@@ -2114,7 +2104,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     have hself : natOpStoredOk (⟨ConstantInfo.defnInfo
         { cv with type := type } value' hint :: env.consts⟩ : Env) cv.name
         = true :=
-      List.all_eq_true.mp hdeps2 cv.name hdmem.2.2
+      List.all_eq_true.mp hdeps2 cv.name hselfmem
     have hpin2 : natOpTyPinned (⟨ConstantInfo.defnInfo
         { cv with type := type } value' hint :: env.consts⟩ : Env) cv.name
         type = true := by
@@ -2128,21 +2118,31 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     have hpinE : natOpTyPinned env cv.name type = true := by
       rw [← natOpTyPinned_congr hbne]
       exact hpin2
-    have hHmE : ∀ ψ : Name → Nat, ∃ hv,
+    have hHmE : cv.name ≠ natLog2Name → ∀ ψ : Name → Nat, ∃ hv,
         interpClosed V m.val env ψ value' = some hv ∧
         hv ∈ˢ pi 1 (m.val natName ψ) (fun _ => pi 1 (m.val natName ψ)
           (fun _ => m.val natName ψ)) := by
-      intro ψ
+      intro hlg ψ
       obtain ⟨v, T, hvv, hTT, hmemvT⟩ := hkey ψ
       obtain ⟨-, h2⟩ := natOpTyPinned_interp m hpinE hsenv ψ
-      obtain ⟨C, hCi, -, hCid, -⟩ := h2 hnedm.2.2.2.2.2.2.2.2.2.1
+      obtain ⟨C, hCi, -, hCid, -⟩ := h2 (fun hh =>
+        hh.elim (fun hp => hnedm.2.2.2.2.2.2.2.2.2.1 hp) hlg)
       rw [hCid hnedm.2.2.2.2.2.2.2.2.2.2 hnedm.2.2.2.2.2.2.2.1] at hCi
       rw [hCi] at hTT
       obtain rfl := Option.some.inj hTT
       exact ⟨v, hvv, hmemvT⟩
+    have hHmUE : cv.name = natLog2Name → ∀ ψ : Name → Nat, ∃ hv,
+        interpClosed V m.val env ψ value' = some hv ∧
+        hv ∈ˢ pi 1 (m.val natName ψ) (fun _ => m.val natName ψ) := by
+      intro hlg ψ
+      obtain ⟨v, T, hvv, hTT, hmemvT⟩ := hkey ψ
+      obtain ⟨h1, -⟩ := natOpTyPinned_interp m hpinE hsenv ψ
+      rw [h1 (Or.inr hlg)] at hTT
+      obtain rfl := Option.some.inj hTT
+      exact ⟨v, hvv, hmemvT⟩
     exact divmod_certs_sound m F hcmem hvf'
       (annotateCore_looseBVars F value hannv hlbv) hAval hsenv hEqA
-      hbleE hsubE hbTE hbFE hHmE (checkDivModCerts_inv hcerts)
+      hdepsOkE hbTE hbFE hHmE hHmUE (checkDivModCerts_inv hcerts)
   | thmDecl cv value =>
     simp only [checkDecl, checkDefnVal, checkThmVal, installBasisDecl,
         fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,

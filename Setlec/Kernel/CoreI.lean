@@ -87,7 +87,7 @@ def natOpGuardF (fe : FEnv) (c : Name) : Bool :=
   (natOpDeps c).all (fun n => match fe.find? n with
     | some (.defnInfo cv _ _) => cv.levelParams.isEmpty
     | _ => false) &&
-  (if c = natBeqName || c = natBleName || c = natDivName || c = natModName then
+  (if c = natBeqName || c = natBleName || natDivModNames.contains c then
     (match fe.find? boolTrueName with
       | some ci => ci.toConstantVal.levelParams.isEmpty
       | none => false) &&
@@ -368,7 +368,17 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
               pure (some r)
             | none => pure none
           | none => pure none
-        else if c = natName.str "log2" ∧ natLitSupportedF fe then do
+        else if c = natLog2Name ∧ natOpGuardF fe c = true then do
+          let w ← r.whnf depth b
+          match ← withStore (rawNatLitI? · w) with
+          | some n =>
+            match natOpResult c n 0 with
+            | some x => do
+              let r ← internExprM x
+              pure (some r)
+            | none => pure none
+          | none => pure none
+        else if c = natLog2Name ∧ natLitSupportedF fe then do
           let w ← r.whnf depth b
           match ← withStore (rawNatLitI? · w) with
           | some _ => throw (.notImplemented
@@ -383,7 +393,9 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
         | [] =>
           if (c = natAddName ∨ c = natSubName ∨ c = natMulName ∨
               c = natPowName ∨ c = natBeqName ∨ c = natBleName ∨
-              c = natDivName ∨ c = natModName) ∧
+              c = natDivName ∨ c = natModName ∨ c = natGcdName ∨
+              c = natLandName ∨ c = natLorName ∨ c = natXorName ∨
+              c = natShiftLeftName ∨ c = natShiftRightName) ∧
               natOpGuardF fe c = true then do
             let w₁ ← r.whnf depth a
             let w₂ ← r.whnf depth b

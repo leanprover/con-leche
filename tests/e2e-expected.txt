@@ -102,3 +102,25 @@
 # annotate: decline (2) — the guard front-door fires before any
 # reduction, so the stuck-proj behavior never becomes a verdict.
 2 str_proj_declined.ndjson
+
+# Pin-certified GMP Nat operations (task #54): per operation, a
+# dependency-closure slice of the full-Init export through the
+# operation's own declaration (scripts/mk_natop_fixture.py; committed
+# gzipped) plus an Eq.refl theorem on literals exercising the certified
+# literal fast path; and the same slice with the operation's body
+# replaced by a type-correct but different definition, which the pin
+# gate must positively decline.
+0 nat_gcd_ok.ndjson
+2 nat_gcd_perturbed.ndjson
+0 nat_land_ok.ndjson
+2 nat_land_perturbed.ndjson
+0 nat_lor_ok.ndjson
+2 nat_lor_perturbed.ndjson
+0 nat_xor_ok.ndjson
+2 nat_xor_perturbed.ndjson
+0 nat_shiftleft_ok.ndjson
+2 nat_shiftleft_perturbed.ndjson
+0 nat_shiftright_ok.ndjson
+2 nat_shiftright_perturbed.ndjson
+0 nat_log2_ok.ndjson
+2 nat_log2_perturbed.ndjson

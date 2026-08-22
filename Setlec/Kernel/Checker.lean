@@ -3,7 +3,7 @@ import Setlec.Kernel.StdAxioms
 import Setlec.Kernel.TypeChecker
 import Setlec.Kernel.TypeCheckerC
 import Setlec.Kernel.CoreI
-import Setlec.Kernel.DivModPins
+import Setlec.Kernel.NatOpPins
 
 /-!
 # The checker
@@ -878,16 +878,32 @@ def certifyNatEqs (ops : CheckerOps m) (env : Env) :
     else pure false
 
 /-- The pinned defining expression of a pin-certified WF-recursive op
-(`Setlec/Kernel/DivModPins.lean`, generated from the toolchain's own
+(`Setlec/Kernel/NatOpPins.lean`, generated at build time from the toolchain's own
 prelude). -/
 def divModDeclPin (c : Name) : Expr :=
-  if c = natDivName then natDivDeclPin else natModDeclPin
+  if c = natDivName then natDivDeclPin
+  else if c = natGcdName then natGcdDeclPin
+  else if c = natLandName then natLandDeclPin
+  else if c = natLorName then natLorDeclPin
+  else if c = natXorName then natXorDeclPin
+  else if c = natShiftLeftName then natShiftLeftDeclPin
+  else if c = natShiftRightName then natShiftRightDeclPin
+  else if c = natLog2Name then natLog2DeclPin
+  else natModDeclPin
 
 /-- The vendored certificate proof terms of a pin-certified
-WF-recursive op (`Setlec/Kernel/DivModPins.lean`), one per statement of
+WF-recursive op (`Setlec/Kernel/NatOpPins.lean`), one per statement of
 `divModCertStmts`. -/
 def divModCertProofs (c : Name) : List Expr :=
-  if c = natDivName then natDivCertProofs else natModCertProofs
+  if c = natDivName then natDivCertProofs
+  else if c = natGcdName then natGcdCertProofs
+  else if c = natLandName then natLandCertProofs
+  else if c = natLorName then natLorCertProofs
+  else if c = natXorName then natXorCertProofs
+  else if c = natShiftLeftName then natShiftLeftCertProofs
+  else if c = natShiftRightName then natShiftRightCertProofs
+  else if c = natLog2Name then natLog2CertProofs
+  else natModCertProofs
 
 /-- The pinned characterization statements of a pin-certified
 WF-recursive op, in *open* form over `x := fvar 0`, `y := fvar 1` (the
@@ -916,6 +932,58 @@ def divModCertStmts (c : Name) : List (List Expr × Expr) :=
     .app (.app (.const natSubName []) a) b
   let bT : Expr := .const boolTrueName []
   let bF : Expr := .const boolFalseName []
+  let z : Expr := .const natZeroName []
+  let two : Expr := .app (.const natSuccName []) one
+  let mod2 : Expr → Expr → Expr := fun a b =>
+    .app (.app (.const natModName []) a) b
+  let div2 : Expr → Expr → Expr := fun a b =>
+    .app (.app (.const natDivName []) a) b
+  let add2 : Expr → Expr → Expr := fun a b =>
+    .app (.app (.const natAddName []) a) b
+  let mul2 : Expr → Expr → Expr := fun a b =>
+    .app (.app (.const natMulName []) a) b
+  let op1 : Expr → Expr := fun a => .app (.const c []) a
+  let s1 : Expr → Expr := fun a => .app (.const natSuccName []) a
+  if c = natGcdName then
+    -- `gcd`: `1 ≤ x → gcd x y = gcd (y % x) x`, `x = 0 → gcd x y = y`
+    [([eqB (ble2 one x) bT], eqN (op2 x y) (op2 (mod2 y x) x)),
+     ([eqB (ble2 one x) bF], eqN (op2 x y) y)]
+  else if c = natShiftLeftName then
+    -- `1 ≤ y → x <<< y = (2*x) <<< (y-1)`, `y = 0 → x <<< y = x`
+    [([eqB (ble2 one y) bT], eqN (op2 x y) (op2 (mul2 two x) (sub2 y one))),
+     ([eqB (ble2 one y) bF], eqN (op2 x y) x)]
+  else if c = natShiftRightName then
+    -- `1 ≤ y → x >>> y = (x >>> (y-1)) / 2`, `y = 0 → x >>> y = x`
+    [([eqB (ble2 one y) bT], eqN (op2 x y) (div2 (op2 x (sub2 y one)) two)),
+     ([eqB (ble2 one y) bF], eqN (op2 x y) x)]
+  else if c = natLog2Name then
+    -- unary: `2 ≤ x → log2 x = succ (log2 (x/2))`, `x < 2 → log2 x = 0`
+    -- (the statement frame still has both variables; `y` is unused)
+    [([eqB (ble2 two x) bT], eqN (op1 x) (s1 (op1 (div2 x two)))),
+     ([eqB (ble2 two x) bF], eqN (op1 x) z)]
+  else if c = natLandName then
+    -- `1 ≤ x → x &&& y = 2*((x/2) &&& (y/2)) + (x%2)*(y%2)`,
+    -- `x = 0 → x &&& y = 0`
+    [([eqB (ble2 one x) bT],
+      eqN (op2 x y) (add2 (mul2 two (op2 (div2 x two) (div2 y two)))
+        (mul2 (mod2 x two) (mod2 y two)))),
+     ([eqB (ble2 one x) bF], eqN (op2 x y) z)]
+  else if c = natLorName then
+    -- `1 ≤ x → x ||| y = 2*((x/2) ||| (y/2)) + (x%2 + y%2 - (x%2)*(y%2))`,
+    -- `x = 0 → x ||| y = y`
+    [([eqB (ble2 one x) bT],
+      eqN (op2 x y) (add2 (mul2 two (op2 (div2 x two) (div2 y two)))
+        (sub2 (add2 (mod2 x two) (mod2 y two))
+          (mul2 (mod2 x two) (mod2 y two))))),
+     ([eqB (ble2 one x) bF], eqN (op2 x y) y)]
+  else if c = natXorName then
+    -- `1 ≤ x → x ^^^ y = 2*((x/2) ^^^ (y/2)) + (x%2 + y%2) % 2`,
+    -- `x = 0 → x ^^^ y = y`
+    [([eqB (ble2 one x) bT],
+      eqN (op2 x y) (add2 (mul2 two (op2 (div2 x two) (div2 y two)))
+        (mod2 (add2 (mod2 x two) (mod2 y two)) two))),
+     ([eqB (ble2 one x) bF], eqN (op2 x y) y)]
+  else
   let recRhs : Expr :=
     if c = natDivName then .app (.const natSuccName []) (op2 (sub2 x y) y)
     else op2 (sub2 x y) y

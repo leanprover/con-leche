@@ -66,7 +66,14 @@ if [ -f "$E2E_EXPECTED" ]; then
   while read -r want rel; do
     case "$want" in ''|'#'*) continue;; esac
     e2e_total=$((e2e_total+1))
-    timeout 60 "$BIN" "tests/e2e/$rel" >/dev/null 2>&1
+    src="tests/e2e/$rel"
+    if [ ! -f "$src" ] && [ -f "$src.gz" ]; then
+      # large fixtures are committed gzipped
+      tmpf="${TMPDIR:-/tmp}/setlec-e2e-$(basename "$rel")"
+      gunzip -c "$src.gz" > "$tmpf" || { echo "E2E FAIL $rel: gunzip failed"; fail=1; continue; }
+      src="$tmpf"
+    fi
+    timeout 60 "$BIN" "$src" >/dev/null 2>&1
     got=$?
     if [ "$got" != "$want" ]; then
       echo "E2E FAIL $rel: expected exit $want, got $got"; fail=1
