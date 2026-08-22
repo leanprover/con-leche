@@ -280,12 +280,12 @@ Char)))` — the official kernel's `strLitToConstructor`, spelling as in
 lean4lean (`Expr.strLitToConstructor`) and nanoda
 (`str_lit_to_constructor`). -/
 def strLitToConstructor (s : String) : Expr :=
-  let char := Expr.const charName []
-  let listNil := Expr.app (.const listNilName [.zero]) char
-  let listCons := Expr.app (.const listConsName [.zero]) char
   .app (.const stringOfListName []) <|
-    s.toList.foldr (init := listNil) fun c e =>
-      .app (.app listCons (.app (.const charOfNatName []) (.lit (.natVal c.toNat)))) e
+    s.toList.foldr
+      (init := .app (.const listNilName [.zero]) (.const charName []))
+      fun c e =>
+        .app (.app (.app (.const listConsName [.zero]) (.const charName []))
+          (.app (.const charOfNatName []) (.lit (.natVal c.toNat)))) e
 
 /-- The stored `String` declaration has the expected shape
 (`String : Type`, no level parameters; any constant kind). -/
