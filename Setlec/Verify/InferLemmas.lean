@@ -418,39 +418,47 @@ theorem List.length_two {α : Type _} {l : List α} (h : l.length = 2) :
   match l, h with
   | [a, b], _ => exact ⟨a, b, rfl⟩
 
-/-- Inversion for `whnfCore` on projections. -/
+/-- Inversion for `whnfCore` on projections: the scrutinee whnf, then
+the string-literal expansion step (`projLitToCtorP`), then either a
+stuck projection of the converted scrutinee or a firing table entry. -/
 theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : Expr}
     (h : whnfCore env (fuel + 1) d (.proj sn i e) = .ok e') :
-    ∃ e₂, whnf env fuel d e = .ok e₂ ∧
-      (e' = .proj sn i e₂ ∨
-        ∃ us entry, e₂.getAppFn = .const entry.ctor us ∧
+    ∃ e₂ e₃, whnf env fuel d e = .ok e₂ ∧
+      projLitToCtorP env fuel d e₂ = .ok e₃ ∧
+      (e' = .proj sn i e₃ ∨
+        ∃ us entry, e₃.getAppFn = .const entry.ctor us ∧
           env.findProj? sn i = some entry ∧ entry.native = true ∧
           i < entry.numFields ∧
-          e₂.getAppArgs.length = entry.numParams + entry.numFields ∧
+          e₃.getAppArgs.length = entry.numParams + entry.numFields ∧
           us.length = entry.levelParams.length ∧
           whnfCore env fuel d
-            (e₂.getAppArgs.getD (entry.numParams + i) (.bvar 0)) = .ok e' ∧
+            (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) = .ok e' ∧
           ((Level.subst entry.levelParams us entry.structSort).isNonZero
               = true ∨
-            projCertP env fuel d e₂ i
+            projCertP env fuel d e₃ i
               (Level.subst entry.levelParams us entry.fieldSort)
               (Level.subst entry.levelParams us entry.structSort)
               entry.numParams = .ok true)) := by
   rw [whnfCore_succ] at h
   simp only [whnfCoreBody, Bind.bind, Except.bind] at h
-  simp only [whnfCore_def, whnf_def, projCert_fold] at h
+  simp only [whnfCore_def, whnf_def, projCert_fold, projLitToCtor_fold] at h
   cases he : whnf env fuel d e with
   | error err => rw [he] at h; exact nomatch h
   | ok e₂ =>
   rw [he] at h
   dsimp only at h
-  refine ⟨e₂, rfl, ?_⟩
+  cases hlit : projLitToCtorP env fuel d e₂ with
+  | error err => rw [hlit] at h; exact nomatch h
+  | ok e₃ =>
+  rw [hlit] at h
+  dsimp only at h
+  refine ⟨e₂, e₃, rfl, hlit, ?_⟩
   cases hfp : env.findProj? sn i with
   | none => rw [hfp] at h; exact Or.inl (Except.ok.inj h).symm
   | some entry =>
   rw [hfp] at h
   dsimp only at h
-  cases hfn : e₂.getAppFn with
+  cases hfn : e₃.getAppFn with
   | const c us =>
     rw [hfn] at h
     dsimp only at h
@@ -464,7 +472,7 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
       next hnz =>
         try simp only [Bind.bind, Except.bind] at h
         try dsimp only at h
-        cases hcert : projCertP env fuel d e₂ i
+        cases hcert : projCertP env fuel d e₃ i
             (Level.subst entry.levelParams us entry.fieldSort)
             (Level.subst entry.levelParams us entry.structSort)
             entry.numParams with
@@ -2053,6 +2061,35 @@ theorem litMajorToCtorP_inv {env : Env} {fuel d : Nat} {e e₁ : Expr}
       Except.ok.injEq] at h
     exact Or.inl h.symm
 
+/-- Inversion of the projection-scrutinee literal conversion: either the
+identity, or the scrutinee was a supported string literal and the
+result is the reduced constructor form. -/
+theorem projLitToCtorP_inv {env : Env} {fuel d : Nat} {e e₁ : Expr}
+    (h : projLitToCtorP env fuel d e = .ok e₁) :
+    e₁ = e ∨
+    ∃ s, e = .lit (.strVal s) ∧ strLitSupported env = true ∧
+      whnf env fuel d (strLitToConstructor s) = .ok e₁ := by
+  match e with
+  | .lit (.strVal s) =>
+    dsimp only [projLitToCtorP, projLitToCtor] at h
+    revert h
+    split
+    · intro h
+      exact Or.inr ⟨s, rfl, by assumption, h⟩
+    · intro h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      subst h
+      exact Or.inl rfl
+  | .lit (.natVal n) =>
+    simp only [projLitToCtorP, projLitToCtor, pure, Except.pure,
+      Except.ok.injEq] at h
+    exact Or.inl h.symm
+  | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
+  | .lam _ _ _ _ | .forallE _ _ _ _ | .letE _ _ _ _ | .proj _ _ _ =>
+    simp only [projLitToCtorP, projLitToCtor, pure, Except.pure,
+      Except.ok.injEq] at h
+    exact Or.inl h.symm
+
 /-- The literal-major conversion preserves well-scopedness. -/
 theorem litToCtorIfNat_WScoped {env : Env} {d : Nat} {e : Expr}
     (hw : WScoped d e) : WScoped d (litToCtorIfNat env e) := by
@@ -2351,12 +2388,16 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
           exact ⟨hwf', hw.2⟩
       | proj sn i pe =>
         simp only [WScoped] at hw
-        obtain ⟨e₂, he, hcase⟩ := whnf_proj_inv h
+        obtain ⟨e₂, e₃, he, hlit, hcase⟩ := whnf_proj_inv h
         have hwe₂ : WScoped d e₂ := ihLoop he hw
+        have hwe₃ : WScoped d e₃ := by
+          rcases projLitToCtorP_inv hlit with rfl | ⟨s, -, -, hred⟩
+          · exact hwe₂
+          · exact ihLoop hred (strLitToConstructor_WScoped s d)
         rcases hcase with rfl |
           ⟨us, entry, hfn, hf, hnat, hi, hlen, hus, hred, -⟩
-        · simpa [WScoped] using hwe₂
-        · exact ihCore hred (hwe₂.getAppArgs _ (getD_mem (by omega)))
+        · simpa [WScoped] using hwe₃
+        · exact ihCore hred (hwe₃.getAppArgs _ (getD_mem (by omega)))
     · -- whnf loop
       intro d e e' h hw
       obtain ⟨e₁, hwc, hcase⟩ := whnf_loop_inv h

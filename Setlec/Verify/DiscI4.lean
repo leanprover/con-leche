@@ -49,6 +49,7 @@ private theorem whnfCoreBody_unfold (env : Env) (d : Nat) (e : Expr) :
         | none => pure (.app f' a)
     | .proj sn i pe =>
       (fueledFns env).whnf d pe >>= fun e' =>
+      projLitToCtor (fueledFns env) env d e' >>= fun e' =>
       match env.findProj? sn i with
       | some entry =>
         match e'.getAppFn with
@@ -247,6 +248,9 @@ theorem whnfCoreBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     subst hd
     have hwpe : WScoped d pex := by simpa only [WScoped] using hw
     refine SimAt.bind (ih.whnf hs hpe hwpe)
+      (fun s₀' e₀ e₀x hs₀' hext₀ hP₀ => ?_)
+    obtain ⟨he₀d, hwe₀⟩ := hP₀
+    refine SimAt.bind (projLitToCtorI_sim ih hs₀' he₀d hwe₀)
       (fun s₁ e' e'x hs₁ hext₁ hP => ?_)
     obtain ⟨he'd, hwe'⟩ := hP
     have hwproj : WScoped d (Expr.proj sn ip e'x) := by

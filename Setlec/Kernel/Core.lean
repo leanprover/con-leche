@@ -996,6 +996,22 @@ def litMajorToCtor (r : CoreFns m) (env : Env) (depth : Nat) :
     else pure (.lit (.strVal s))
   | e => pure (litToCtorIfNat env e)
 
+/-- Convert a string-literal projection scrutinee to its *reduced*
+constructor form — the references' proj expansion site (official
+`reduce_proj_core`, `type_checker.cpp:383-384`; lean4lean
+`TypeChecker.lean` proj clause; nanoda `tc.rs` `reduce_proj`): the
+expansion's head `String.ofList` is a definition, so the whnf grinds it
+to the real `String.ofByteArray` constructor form.  Only `String`
+literals — no reference touches other scrutinees here.  An unsupported
+literal passes through (stuck; sound, and unreachable for annotated
+input). -/
+def projLitToCtor (r : CoreFns m) (env : Env) (depth : Nat) :
+    Expr → m Expr
+  | .lit (.strVal s) =>
+    if strLitSupported env then r.whnf depth (strLitToConstructor s)
+    else pure (.lit (.strVal s))
+  | e => pure e
+
 /-- The level and constructor-parameter comparands a firing rule's
 checks compare the major's constructor levels and parameters against:
 for a canonical (`.plain`) rule the constructor's levels link to the
@@ -1177,6 +1193,10 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         | none => pure (.app f' a)
     | .proj sn i pe => do
       let e' ← r.whnf depth pe
+      -- A string-literal scrutinee first expands to its reduced
+      -- constructor form (`projLitToCtor`) — the references' proj
+      -- expansion site.
+      let e' ← projLitToCtor r env depth e'
       -- The structural rule `proj_i (ctor p⃗ x⃗) ↦ x_i`, driven by the
       -- projection table (never by basis names): a `native` entry for
       -- (structName, i) supplies the constructor, the counts, and the

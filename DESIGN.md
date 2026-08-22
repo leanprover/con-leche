@@ -481,6 +481,23 @@ otherwise basis-generic.  Use sites, each mirroring the references:
   `whnf (strLitToConstructor s)` — the references re-reduce because the
   expansion's head is a definition (lean4lean `Inductive/Reduce.lean`,
   nanoda `str_lit_to_ctor_reducing`).
+* projection scrutinees (`projLitToCtor`, in the `.proj` whnf clause
+  between the scrutinee whnf and the projection-table match): a
+  string-literal scrutinee becomes `whnf (strLitToConstructor s)` —
+  the references' `reduce_proj_core` step (official
+  `type_checker.cpp:383-384`, lean4lean `TypeChecker.lean` proj
+  clause, nanoda `tc.rs` `reduce_proj`), completing all five official
+  literal sites (task #52).  NOTE: for *annotated* input this site is
+  unreachable — annotate rewrites every template-entry projection into
+  the installed projection recursor (native `.proj` nodes exist only
+  for the pinned `PSigma'` basis, whose scrutinee can never be a
+  `String` literal on well-typed input), so a stream-level
+  `.proj String 0 "s"` is in fact forced through the *rec-major*
+  expansion above (e2e `str_proj.ndjson`, the
+  `String.utf8ByteSize_empty` shape, is accepted through that route
+  even without this site).  The site is kept for reference-exact
+  reduction on the raw core and as the load-bearing step should native
+  projection entries ever extend beyond the pair basis.
 * `defeqBody` stuck phase: a literal against a *unary application of
   the bare `String.ofList` constant* expands and recurses — exactly the
   references' `tryStringLitExpansion` shape test, no more (lean4lean
@@ -518,6 +535,41 @@ constants, and the env-relating lemmas carry the guard across like the
 `Nat` one (`strLitSupported_cons_recRules`, `strLitSupported_env_ext`
 — the type pins read stored constants only through `toConstantVal`, so
 kind-preserving lookup changes transport).
+
+Reference-comparison findings (string-literal survey, 2026-08-22;
+official = v4.33/v4.35, byte-identical in the relevant code):
+
+* **D1 — unvalidated primitives.**  The official kernel builds and
+  *uses* the expansion whatever `String.ofList`/`Char.ofNat` happen to
+  be declared as (no environment check at all; infer of a literal is
+  env-blind, `type_checker.cpp:301`), and nanoda checks existence
+  only.  A stream may declare `String.ofList` at an arbitrary type and
+  official still expands `"s"` to an application of it inside
+  defeq/iota/proj.  lean4lean closes this at declaration time
+  (`Primitive.lean:443-461` defeq-checks the types, hard error on
+  mismatch); setlec's `strLitSupported` closes it at use time.
+  Candidate adversarial-prelude unsoundness report against the
+  official kernel (same family as the Nat-op acceleration concerns).
+* **D2 — nanoda ignores levels on `String.ofList`** in its defeq
+  string expansion (`tc.rs:302`, name-only match, "levels should be
+  empty" comment) where official/lean4lean require the whole constant
+  `== String.ofList []` — possible verdict divergence on a stream
+  declaring `String.ofList.{u}`.
+* **D3 — no common reference verdict for a literal in an impoverished
+  environment.**  Typing (never forcing) a literal without
+  `Char.ofNat`/`String.ofList`: official ACCEPTS (env-blind infer),
+  lean4lean REJECTS (`env.get` throws in infer), nanoda
+  panics/config-rejects.  Setlec's decline (2) is a fourth behavior,
+  already ratified above; there is no single reference verdict to
+  match.
+* **D4 — the proj expansion site** was setlec's one missing reference
+  site; now landed (`projLitToCtor`, above).  Contrary to the survey's
+  initial verdict-relevance claim, setlec's annotate-time projection
+  rewrite means the rec-major site already covered stream-level
+  string-literal projections (the 86 literal-forcing Init theorems
+  reduce through the projection recursor), so landing it changed no
+  verdict on annotated input; it restores site-for-site reference
+  parity of the reduction strategy.
 
 ### Certified structural-Nat fast path (2026-08-21)
 

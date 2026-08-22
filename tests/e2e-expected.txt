@@ -83,3 +83,22 @@
 # `Tree.size`'s below/brecOn machinery only typechecks when they fire,
 # and `size_example`'s rfl fires them on concrete majors.
 0 nested_rec.ndjson
+
+# str_proj.ndjson (tests/e2e/src/str_proj.lean): a theorem forcing
+# `.proj String 0 ""` (the `String.utf8ByteSize_empty` shape:
+# `utf8ByteSize` is `ByteArray.size ∘ toByteArray` and `toByteArray`'s
+# value is `fun s => .proj String 0 s`).  Covers the references' proj
+# expansion site (task #52).  NOTE: on annotated input the literal is
+# in fact forced through the *rec-major* expansion (annotate rewrites
+# template-entry projections into the installed projection recursor,
+# so `.proj` nodes with a String scrutinee never survive annotation);
+# the whnf proj-site expansion itself is reference-mirroring but
+# unreachable for annotated input — see DESIGN.md "String literals".
+0 str_proj.ndjson
+# str_proj_declined.ndjson: the same stream with Char.ofNat perturbed
+# to carry a (unused, unreferenced — the stream stays valid) level
+# parameter, so `strLitSupported` fails.  The literal in the theorem
+# statement is then a positively detected unsupported feature at
+# annotate: decline (2) — the guard front-door fires before any
+# reduction, so the stuck-proj behavior never becomes a verdict.
+2 str_proj_declined.ndjson

@@ -703,6 +703,17 @@ theorem litMajorToCtor_disc (ih : ScopedSim env f) (henv : EnvWF env)
     · exact DiscV.pure hw
   · exact DiscV.pure (litToCtorIfNat_WScoped hw)
 
+theorem projLitToCtor_disc (ih : ScopedSim env f) (henv : EnvWF env)
+    {d : Nat} {e : Expr} (hw : WScoped d e) :
+    DiscV env (WScoped d) (projLitToCtor C env d e)
+      (projLitToCtor G env d e) := by
+  unfold projLitToCtor
+  split
+  · split
+    · exact ih.site_whnf henv (strLitToConstructor_WScoped _ d)
+    · exact DiscV.pure hw
+  · exact DiscV.pure hw
+
 theorem iotaRec_disc (ih : ScopedSim env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
     DiscV env (WScopedO d) (iotaRec C env d e)
@@ -869,6 +880,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     have hwpe : WScoped d pe := by simpa only [WScoped] using hw
     show DiscV env _
       ((C : CoreFns CheckSM).whnf d pe >>= fun e' =>
+        projLitToCtor C env d e' >>= fun e' =>
         match env.findProj? sn i with
         | some entry =>
           match e'.getAppFn with
@@ -893,6 +905,7 @@ theorem whnfCoreBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
           | _ => pure (.proj sn i e')
         | none => pure (.proj sn i e'))
       ((G : CoreFns CheckSM).whnf d pe >>= fun e' =>
+        projLitToCtor G env d e' >>= fun e' =>
         match env.findProj? sn i with
         | some entry =>
           match e'.getAppFn with
@@ -916,7 +929,8 @@ theorem whnfCoreBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
             else pure (.proj sn i e')
           | _ => pure (.proj sn i e')
         | none => pure (.proj sn i e'))
-    refine DiscV.bind (ih.site_whnf henv hwpe) (fun e' he' => ?_)
+    refine DiscV.bind (ih.site_whnf henv hwpe) (fun e0 he0 => ?_)
+    refine DiscV.bind (projLitToCtor_disc ih henv he0) (fun e' he' => ?_)
     have hwproj : WScoped d (Expr.proj sn i e') := by
       simpa only [WScoped] using he'
     have hwarg : ∀ nP : Nat,

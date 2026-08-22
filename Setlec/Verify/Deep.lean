@@ -1205,6 +1205,39 @@ private theorem litMajorToCtor_shift (_henv : EnvWF env)
     rw [litToCtorIfNat_shiftFrom]
     rfl
 
+/-- Shifting commutes with the projection-scrutinee literal conversion
+(the string branch reduces a closed term, invariant under shifting). -/
+private theorem projLitToCtor_shift (_henv : EnvWF env)
+    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) :
+    ∀ {e : Expr}, WScoped d e →
+    projLitToCtor (pureFns env fuel) env (d + 1) (shiftFrom p e) =
+      (projLitToCtor (pureFns env fuel) env d e).map (shiftFrom p)
+  | .lit (.strVal s), _ => by
+    show projLitToCtor (pureFns env fuel) env (d + 1) (.lit (.strVal s)) = _
+    simp only [projLitToCtor]
+    split
+    · have hres := ih.whnf (p := p) hpd (strLitToConstructor_WScoped s d)
+      rw [strLitToConstructor_shiftFrom] at hres
+      exact hres
+    · rfl
+  | .lit (.natVal n), _ => rfl
+  | .bvar i, _ => rfl
+  | .sort u, _ => rfl
+  | .const n us, _ => rfl
+  | .fvar idx n ty, _ => by
+    rw [shiftFrom_fvar]
+    show pure (Expr.fvar (shiftIdx p idx) n (shiftTy p idx ty)) = _
+    rw [show (projLitToCtor (pureFns env fuel) env d (.fvar idx n ty)) =
+      pure (.fvar idx n ty) from rfl]
+    rw [show (Except.map (shiftFrom p) (pure (Expr.fvar idx n ty)) :
+        CheckM Expr) = pure (shiftFrom p (.fvar idx n ty)) from rfl]
+    rw [shiftFrom_fvar]
+  | .app f a, _ => rfl
+  | .lam n ty body bi, _ => rfl
+  | .forallE n ty body bi, _ => rfl
+  | .letE n ty v body, _ => rfl
+  | .proj sn i pe, _ => rfl
+
 private theorem iotaRec_shift (henv : EnvWF env)
     (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) {e : Expr}
     (hwe : WScoped d e) :
@@ -1757,11 +1790,17 @@ private theorem whnfCore_step (henv : EnvWF env)
     refine bind_rel _ _ (ih.whnf hpd hw) ?_
     intro e₂ he₂
     have hwe₂ : WScoped d e₂ := whnf_WScoped henv fuel he₂ hw
+    refine bind_rel _ _ (projLitToCtor_shift henv ih hpd hwe₂) ?_
+    intro e₃ he₃
+    have hwe₃ : WScoped d e₃ := by
+      rcases projLitToCtorP_inv he₃ with rfl | ⟨s, -, -, hred⟩
+      · exact hwe₂
+      · exact whnf_WScoped henv fuel hred (strLitToConstructor_WScoped s d)
     cases hfp : env.findProj? sn i with
     | none => rfl
     | some entry =>
       rw [getAppFn_shiftFrom]
-      cases hfn : e₂.getAppFn <;> try rfl
+      cases hfn : e₃.getAppFn <;> try rfl
       case fvar => rw [shiftFrom_fvar]; rfl
       case const c us₂ =>
       simp only [shiftFrom]
@@ -1769,11 +1808,11 @@ private theorem whnfCore_step (henv : EnvWF env)
       refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
       rw [getD_map_shiftFrom]
       have hwarg : WScoped d
-          (e₂.getAppArgs.getD (entry.numParams + i) (.bvar 0)) :=
-        WScoped_getD (fun x hx => hwe₂.getAppArgs x hx) _
+          (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) :=
+        WScoped_getD (fun x hx => hwe₃.getAppArgs x hx) _
       refine ite_rel _ (fun _ => ?_) (fun _ => ?_)
       · exact ih.whnfCore hpd hwarg
-      · refine bind_rel_eq _ (projCert_shift henv ih hpd hwe₂ i
+      · refine bind_rel_eq _ (projCert_shift henv ih hpd hwe₃ i
           (Level.subst entry.levelParams us₂ entry.fieldSort)
           (Level.subst entry.levelParams us₂ entry.structSort)
           entry.numParams) ?_

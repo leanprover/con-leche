@@ -163,6 +163,42 @@ theorem litMajorToCtor_claims (hwc : WhnfClaims m φ fuel)
       rw [strLitToConstructor_fvarLeaves] at this
       cases this
 
+/-- The projection-scrutinee literal conversion's claims package
+(`projLitToCtor`: the identity except on a supported `String` literal,
+which becomes the whnf-reduced constructor form; the string branch
+consumes the whnf claims on the closed `strLitToConstructor` term,
+exactly as in `litMajorToCtor_claims`). -/
+theorem projLitToCtor_claims (hwc : WhnfClaims m φ fuel)
+    {d : Nat} {ρ : Nat → V} {e e₁ : Expr}
+    (h : projLitToCtorP env fuel d e = .ok e₁)
+    (hw : WScoped d e) (hb : e.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded e) (hok : FvarsOk V m.val env φ d ρ e)
+    (hA : AnnotOk V m.val env φ d ρ e) :
+    interpExpr V m.val env φ d ρ e₁ = interpExpr V m.val env φ d ρ e ∧
+    AnnotOk V m.val env φ d ρ e₁ ∧ WScoped d e₁ ∧
+    e₁.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded e₁ ∧
+    FvarsOk V m.val env φ d ρ e₁ := by
+  rcases projLitToCtorP_inv h with rfl | ⟨s, rfl, hs, hred⟩
+  · exact ⟨rfl, hA, hw, hb, hLb, hok⟩
+  · have hLbS : Expr.LeavesBounded (strLitToConstructor s) := by
+      intro l hl
+      rw [strLitToConstructor_fvarLeaves] at hl
+      cases hl
+    have hokS : FvarsOk V m.val env φ d ρ (strLitToConstructor s) :=
+      FvarsOk.of_not_hasFvar (strLitToConstructor_hasFvar s)
+    obtain ⟨hieq, hA₁⟩ := hwc hred (strLitToConstructor_WScoped s d)
+      (strLitToConstructor_looseBVars s 0) hLbS hokS
+      (annotOk_strLitToConstructor m hs)
+    refine ⟨?_, hA₁,
+      whnf_WScoped m.wf fuel hred (strLitToConstructor_WScoped s d),
+      whnf_looseBVars m.wf fuel hred (strLitToConstructor_looseBVars s 0),
+      ?_, FvarsOk.of_subset (whnf_fvarLeaves m.wf fuel hred) hokS⟩
+    · rw [hieq, interpExpr_strLitToConstructor hs]
+    · intro l hl
+      have := whnf_fvarLeaves m.wf fuel hred l hl
+      rw [strLitToConstructor_fvarLeaves] at this
+      cases this
+
 /-- A whnf result of `.sort u` identifies the interpretation with a
 universe (the inlined-`ensureSort` pattern of the inference rules). -/
 theorem sort_result (hwc : WhnfClaims m φ fuel) {d : Nat} {t : Expr} {u : Level}

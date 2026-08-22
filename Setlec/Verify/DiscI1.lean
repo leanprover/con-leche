@@ -512,6 +512,73 @@ theorem litMajorToCtorI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
     refine SimAt.of_eff (litToCtorIfNatI_eff hs hden) _
       (fun s b hQ => ⟨hQ, litToCtorIfNat_WScoped hw⟩)
 
+theorem projLitToCtorI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
+    {e : Expr} {s₀ : IState} (hs : ISOK env s₀)
+    (hden : s₀.store.denote i = some e) (hw : WScoped d e) :
+    SimAt env s₀ (RelE d)
+      (projLitToCtorI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i)
+      (projLitToCtor (fueledFns env) env d e) := by
+  show SimAt env s₀ (RelE d)
+    (viewI i >>= fun n =>
+      match n with
+      | some (.lit (.strVal s)) =>
+        if strLitSupportedF (mkFEnv env) then do
+          let x ← internExprM (strLitToConstructor s)
+          (coreKnotI (mkFEnv env) f).whnf d x
+        else pure i
+      | _ => pure i)
+    (projLitToCtor (fueledFns env) env d e)
+  refine SimAt.view ?_
+  obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hden
+  rw [hn]
+  cases n with
+  | lit l =>
+    cases hd
+    cases l with
+    | strVal str =>
+      dsimp only
+      rw [show projLitToCtor (fueledFns env) env d (.lit (.strVal str)) =
+        (if strLitSupported env then
+          (fueledFns env).whnf d (strLitToConstructor str)
+         else pure (.lit (.strVal str))) from rfl]
+      rw [strLitSupportedF_eq]
+      by_cases hg : strLitSupported env
+      · rw [if_pos hg, if_pos hg]
+        refine SimAt.bind_left (internExprM_eff hs (strLitToConstructor str))
+          (fun s₁ x hs₁ hext₁ hQ => ?_)
+        exact ih.whnf hs₁ hQ (strLitToConstructor_WScoped str d)
+      · rw [if_neg hg, if_neg hg]
+        exact SimAt.pure hs ⟨hden, hw⟩
+    | natVal k =>
+      exact SimAt.pure hs ⟨hden, hw⟩
+  | bvar k =>
+    cases hd
+    exact SimAt.pure hs ⟨hden, hw⟩
+  | sort u =>
+    cases hd
+    exact SimAt.pure hs ⟨hden, hw⟩
+  | const nm us =>
+    cases hd
+    exact SimAt.pure hs ⟨hden, hw⟩
+  | fvar idx nm t =>
+    invert_node hd
+    exact SimAt.pure hs ⟨hden, hw⟩
+  | app f' a' =>
+    invert_node hd
+    exact SimAt.pure hs ⟨hden, hw⟩
+  | lam nm t b m =>
+    invert_node hd
+    exact SimAt.pure hs ⟨hden, hw⟩
+  | forallE nm t b m =>
+    invert_node hd
+    exact SimAt.pure hs ⟨hden, hw⟩
+  | letE nm t v b =>
+    invert_node hd
+    exact SimAt.pure hs ⟨hden, hw⟩
+  | proj s' j e' =>
+    invert_node hd
+    exact SimAt.pure hs ⟨hden, hw⟩
+
 theorem defeqSpineI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
     {a b : Expr} {s₀ : IState} (hs : ISOK env s₀)
     (hdena : s₀.store.denote i = some a)

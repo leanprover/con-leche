@@ -212,8 +212,19 @@ theorem whnfCore_claims (m : EnvModel V env)
       simp only [fvarLeaves]; exact hl)
     simp only [AnnotOk] at ha
     obtain ⟨hae, hilt, veC, uC, vC, AC, BfC, hveiC, hsigC, hAuC, hBfC⟩ := ha
-    obtain ⟨e₂, he, hcase⟩ := whnf_proj_inv h
-    obtain ⟨hie, hae₂⟩ := ihw he hw hb hLbe hoke hae
+    obtain ⟨e₁', e₂, he, hlit, hcase⟩ := whnf_proj_inv h
+    obtain ⟨hie₁, hae₁⟩ := ihw he hw hb hLbe hoke hae
+    -- the string-literal expansion step's claims package (identity
+    -- except on a supported string literal)
+    have hw₁ := whnf_WScoped m.wf fuel he hw
+    have hb₁ := whnf_looseBVars m.wf fuel he hb
+    have hLb₁ : Expr.LeavesBounded e₁' := fun l hl =>
+      hLbe l (whnf_fvarLeaves m.wf fuel he l hl)
+    have hok₁ := whnf_FvarsOk m.wf fuel he hoke
+    obtain ⟨hie₂, hae₂, hwC, hbC, hLbC, hokC⟩ :=
+      projLitToCtor_claims ihw hlit hw₁ hb₁ hLb₁ hok₁ hae₁
+    have hie : interpExpr V m.val env φ d ρ e₂ =
+        interpExpr V m.val env φ d ρ e := hie₂.trans hie₁
     rcases hcase with rfl |
       ⟨us, entry, hfn, hf, hnat, hi2, hlen, hus, hred, hcert⟩
     · -- stuck projection
@@ -277,12 +288,8 @@ theorem whnfCore_claims (m : EnvModel V env)
         rcases hi2' with rfl | rfl
         · rfl
         · rfl
-      -- pristine invariants of the whnf'd struct (for the certificates)
-      have hwC := whnf_WScoped m.wf fuel he hw
-      have hbC := whnf_looseBVars m.wf fuel he hb
-      have hLbC : Expr.LeavesBounded e₂ := fun l hl =>
-        hLbe l (whnf_fvarLeaves m.wf fuel he l hl)
-      have hokC := whnf_FvarsOk m.wf fuel he hoke
+      -- pristine invariants of the converted struct (for the
+      -- certificates; already assembled by `projLitToCtor_claims`)
       have haC := hae₂
       -- decomposed (substituted) forms
       have hwe₂ := hwC
