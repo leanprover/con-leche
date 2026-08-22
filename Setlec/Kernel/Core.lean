@@ -223,13 +223,22 @@ def natLitSupported (env : Env) : Bool :=
 
 /-- Do all constants referenced in `e` (including inside `fvar` type
 annotations) resolve in `env`?  A `Nat` literal implicitly references
-the `Nat` basis constants.  Checked once per declaration; keeps the
+the `Nat` basis constants (and a `String` literal additionally the
+string-support constants).  Checked once per declaration; keeps the
 environment well-formedness invariant syntactic. -/
 def Expr.constsResolve (env : Env) : Expr → Bool
-  | .bvar _ | .sort _ | .lit (.strVal _) => true
+  | .bvar _ | .sort _ => true
   | .lit (.natVal _) =>
     (env.find? natName).isSome && (env.find? natZeroName).isSome &&
       (env.find? natSuccName).isSome
+  | .lit (.strVal _) =>
+    -- a string literal implicitly references the `Nat` trio (its
+    -- character numerals) and the seven string-support constants
+    (env.find? natName).isSome && (env.find? natZeroName).isSome &&
+      (env.find? natSuccName).isSome && (env.find? stringName).isSome &&
+      (env.find? stringOfListName).isSome && (env.find? listName).isSome &&
+      (env.find? listNilName).isSome && (env.find? listConsName).isSome &&
+      (env.find? charName).isSome && (env.find? charOfNatName).isSome
   | .const n _ => (env.find? n).isSome
   | .fvar _ _ ty => ty.constsResolve env
   | .app f a => f.constsResolve env && a.constsResolve env
@@ -252,6 +261,141 @@ def rawNatLit? : Expr → Option Nat
   | .lit (.natVal n) => some n
   | .const c [] => if c = natZeroName then some 0 else none
   | _ => none
+
+/-! ## String literals
+
+A string literal unfolds on demand to `String.ofList [c₁, …, cₙ]` with
+each character built by `Char.ofNat` from a `Nat` literal — the
+reference kernels' `strLitToConstructor` (lean4lean `Expr.lean`, nanoda
+`expr.rs`), mirrored exactly.  The names below are *pinned* like the
+`Nat` literal names: the guard `strLitSupported` checks that the stored
+declarations have exactly the expected (annotated) types, which is what
+the model's interpretation of a string literal reads its meaning off.
+A string literal in the input while the guard fails is a positively
+detected unsupported feature — annotation *declines* (exit 2). -/
+
+/-- The constructor form of a `String` literal:
+`String.ofList (List.cons.{0} Char (Char.ofNat (lit c₁)) (… (List.nil.{0}
+Char)))` — the official kernel's `strLitToConstructor`, spelling as in
+lean4lean (`Expr.strLitToConstructor`) and nanoda
+(`str_lit_to_constructor`). -/
+def strLitToConstructor (s : String) : Expr :=
+  let char := Expr.const charName []
+  let listNil := Expr.app (.const listNilName [.zero]) char
+  let listCons := Expr.app (.const listConsName [.zero]) char
+  .app (.const stringOfListName []) <|
+    s.toList.foldr (init := listNil) fun c e =>
+      .app (.app listCons (.app (.const charOfNatName []) (.lit (.natVal c.toNat)))) e
+
+/-- The stored `String` declaration has the expected shape
+(`String : Type`, no level parameters; any constant kind). -/
+def stringTyOk : Option ConstantInfo → Bool
+  | some ci =>
+    ci.toConstantVal.levelParams.isEmpty &&
+      ci.toConstantVal.type == .sort (.succ .zero)
+  | none => false
+
+/-- The stored `Char` declaration has the expected shape (`Char : Type`,
+no level parameters). -/
+def charTyOk : Option ConstantInfo → Bool
+  | some ci =>
+    ci.toConstantVal.levelParams.isEmpty &&
+      ci.toConstantVal.type == .sort (.succ .zero)
+  | none => false
+
+/-- The stored `List` declaration has the expected (annotated) shape
+`List.{p} : Type p → Type p`. -/
+def listTyOk : Option ConstantInfo → Bool
+  | some ci =>
+    match ci.toConstantVal.levelParams with
+    | [p] =>
+      (match ci.toConstantVal.type with
+       | .forallE _ (.sort u1) (.sort u2) mb =>
+         u1 == .succ (.param p) && u2 == .succ (.param p) &&
+           mb.cod == some (.succ (.succ (.param p)))
+       | _ => false)
+    | _ => false
+  | none => false
+
+/-- The stored `List.nil` declaration has the expected (annotated) shape
+`List.nil.{p} : ∀ (α : Type p), List.{p} α`. -/
+def listNilTyOk : Option ConstantInfo → Bool
+  | some ci =>
+    match ci.toConstantVal.levelParams with
+    | [p] =>
+      (match ci.toConstantVal.type with
+       | .forallE _ (.sort u1) (.app (.const l1 us1) (.bvar 0)) mb =>
+         u1 == .succ (.param p) && l1 == listName && us1 == [.param p] &&
+           mb.cod == some (.succ (.param p))
+       | _ => false)
+    | _ => false
+  | none => false
+
+/-- The stored `List.cons` declaration has the expected (annotated) shape
+`List.cons.{p} : ∀ (α : Type p) (head : α) (tail : List.{p} α),
+List.{p} α` (with the codomain-sort annotations the annotation pass
+produces on that type). -/
+def listConsTyOk : Option ConstantInfo → Bool
+  | some ci =>
+    match ci.toConstantVal.levelParams with
+    | [p] =>
+      (match ci.toConstantVal.type with
+       | .forallE _ (.sort u1)
+           (.forallE _ (.bvar 0)
+             (.forallE _ (.app (.const l1 us1) (.bvar 1))
+               (.app (.const l2 us2) (.bvar 2)) mb3) mb2) mb1 =>
+         u1 == .succ (.param p) && l1 == listName && l2 == listName &&
+           us1 == [.param p] && us2 == [.param p] &&
+           mb3.cod == some (.succ (.param p)) &&
+           mb2.cod == some (.imax (.succ (.param p)) (.succ (.param p))) &&
+           mb1.cod == some (.imax (.succ (.param p))
+             (.imax (.succ (.param p)) (.succ (.param p))))
+       | _ => false)
+    | _ => false
+  | none => false
+
+/-- The stored `Char.ofNat` declaration has the expected (annotated)
+shape `Char.ofNat : Nat → Char`. -/
+def charOfNatTyOk : Option ConstantInfo → Bool
+  | some ci =>
+    ci.toConstantVal.levelParams.isEmpty &&
+      (match ci.toConstantVal.type with
+       | .forallE _ (.const c1 []) (.const c2 []) mb =>
+         c1 == natName && c2 == charName && mb.cod == some (.succ .zero)
+       | _ => false)
+  | none => false
+
+/-- The stored `String.ofList` declaration has the expected (annotated)
+shape `String.ofList : List.{0} Char → String`. -/
+def stringOfListTyOk : Option ConstantInfo → Bool
+  | some ci =>
+    ci.toConstantVal.levelParams.isEmpty &&
+      (match ci.toConstantVal.type with
+       | .forallE _ (.app (.const l1 us1) (.const c1 [])) (.const c2 []) mb =>
+         l1 == listName && us1 == [.zero] && c1 == charName &&
+           c2 == stringName && mb.cod == some (.succ .zero)
+       | _ => false)
+  | none => false
+
+/-- Whether the environment supports `String` literals: the `Nat`
+literal guard plus `String`, `String.ofList`, `List`, `List.nil`,
+`List.cons`, `Char` and `Char.ofNat` stored with exactly the expected
+level parameters and (annotated) types.  Every string-literal code path
+is guarded on this; the model interprets a string literal through the
+values of these constants, and the soundness proofs read the
+declaration shapes off this guard.  (The reference kernels only check
+*existence* of `Char.ofNat` and `String.ofList`; the type pins are what
+makes the interpretation well-defined, in the spirit of the `Nat`
+literal guard.) -/
+def strLitSupported (env : Env) : Bool :=
+  natLitSupported env &&
+    stringTyOk (env.find? stringName) &&
+    stringOfListTyOk (env.find? stringOfListName) &&
+    listTyOk (env.find? listName) &&
+    listNilTyOk (env.find? listNilName) &&
+    listConsTyOk (env.find? listConsName) &&
+    charTyOk (env.find? charName) &&
+    charOfNatTyOk (env.find? charOfNatName)
 
 /-! ## Structural-Nat literal acceleration
 

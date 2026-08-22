@@ -1565,7 +1565,8 @@ theorem TeleFit.env_levelext {env₁ env₂ : Env}
     (henv : ∀ n, (env₁.find? n).map
         (fun ci => ci.toConstantVal.levelParams) =
       (env₂.find? n).map (fun ci => ci.toConstantVal.levelParams))
-    (hnat : natLitSupported env₁ = natLitSupported env₂) :
+    (hnat : natLitSupported env₁ = natLitSupported env₂)
+    (hstr : strLitSupported env₁ = strLitSupported env₂) :
     ∀ {d : Nat} {ρ : Nat → V} {e : Expr} {vs : List V} {d' : Nat}
       {ρ' : Nat → V} {rest : Expr},
       TeleFit V cval env₁ φ d ρ e vs d' ρ' rest →
@@ -1575,7 +1576,7 @@ theorem TeleFit.env_levelext {env₁ env₂ : Env}
   | nil => exact TeleFit.nil
   | cons hity hx ht ih =>
     refine TeleFit.cons ?_ hx ih
-    rw [← interp_env_ext henv hnat _ _ _]
+    rw [← interp_env_ext henv hnat hstr _ _ _]
     exact hity
 
 end Setlec

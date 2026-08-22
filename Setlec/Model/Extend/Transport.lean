@@ -116,7 +116,7 @@ theorem interpClosed_recRules_swap {val : ConstVal V}
     interpClosed V val
       (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env) ψ e :=
   interp_env_ext (Env.recRules_levelext rules₁ rules₂)
-    natLitSupported_cons_recRules e 0 (rho0 V)
+    natLitSupported_cons_recRules strLitSupported_cons_recRules e 0 (rho0 V)
 
 /-- `AnnotOk` ignores the head recursor's rule list. -/
 theorem AnnotOk.recRules_swap {val : ConstVal V}
@@ -127,7 +127,7 @@ theorem AnnotOk.recRules_swap {val : ConstVal V}
     AnnotOk V val
       (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env) ψ d ρ e :=
   AnnotOk.env_ext (Env.recRules_levelext rules₁ rules₂)
-    natLitSupported_cons_recRules e d ρ h
+    natLitSupported_cons_recRules strLitSupported_cons_recRules e d ρ h
 
 /-- `ConstWF` of a stored constant ignores the head recursor's rule
 list. -/
@@ -398,10 +398,11 @@ theorem extend_rec_swap {rules' : List RecRule}
         args margs tv hl hml hch hmch htv hpeq hplain hlev
         ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
           hψeq, hψjeq,
-          TeleFit.env_levelext henv10 natLitSupported_cons_recRules hfit1,
-          TeleFit.env_levelext henv10 natLitSupported_cons_recRules hfit2, by
+          TeleFit.env_levelext henv10 natLitSupported_cons_recRules strLitSupported_cons_recRules hfit1,
+          TeleFit.env_levelext henv10 natLitSupported_cons_recRules strLitSupported_cons_recRules hfit2, by
             rw [← mapM_interp_congr (fun e => interp_env_ext henv10
-              natLitSupported_cons_recRules e dd₂ ρρ₂)]
+              natLitSupported_cons_recRules strLitSupported_cons_recRules
+              e dd₂ ρρ₂)]
             exact hidx⟩
       refine ⟨R', ?_, hfoldEq, hRch⟩
       rw [hitrans]
@@ -475,7 +476,7 @@ theorem extend_rec_swap {rules' : List RecRule}
           · exact hmsP j hj
         · intro φ'' us ps x dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hfit
           exact hlaw φ'' us ps x dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx
-            (TeleFit.env_levelext henv10 natLitSupported_cons_recRules hfit)
+            (TeleFit.env_levelext henv10 natLitSupported_cons_recRules strLitSupported_cons_recRules hfit)
     · intro T cvT caps hf hcapu hres
       rw [hisoF] at hf
       split at hf
@@ -483,7 +484,7 @@ theorem extend_rec_swap {rules' : List RecRule}
       · have hlaw := mo5 T cvT caps hf hcapu hres
         intro φ'' us ps x y dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hy hfit
         exact hlaw φ'' us ps x y dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hy
-          (TeleFit.env_levelext henv10 natLitSupported_cons_recRules hfit)
+          (TeleFit.env_levelext henv10 natLitSupported_cons_recRules strLitSupported_cons_recRules hfit)
   · -- nat_ops: lookups only differ in the head's rule list
     exact NatOpsOk.cons_recRules m₀.nat_ops
   · -- div_mod: value-level equations, only the lookups move
