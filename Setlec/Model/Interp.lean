@@ -1,4 +1,5 @@
 import Setlec.Kernel.TypeChecker
+import Setlec.Kernel.Checker
 import Setlec.SetTheory.Basic
 import Setlec.Verify.Level
 import Setlec.Verify.Shift
@@ -269,6 +270,53 @@ def FvarSpine {W : Type u} (D : Nat) (ρ : Nat → W) :
     (∃ i n ty, a = .fvar i n ty ∧ i < D ∧ ρ i = v) ∧
     FvarSpine D ρ as vs
   | _, _ => False
+
+/-- Close a λ-tower over opened frame variables: each variable
+(outermost first, frame-ordered) becomes a `λ`-binder whose domain is
+the variable's own type annotation, paired with the given binder
+metadata; the variable is abstracted from everything inside.  Inverse
+of the interpretation's own binder opening when the variables sit at
+consecutive indices starting at the interpretation depth. -/
+def closeLamsAt : List (Expr × BinderMeta) → Expr → Expr
+  | [], b => b
+  | (.fvar i nm ty, m) :: rest, b =>
+    .lam nm ty ((closeLamsAt rest b).abstract1 i) m
+  | (_, _) :: rest, b => closeLamsAt rest b
+
+/-- The canonical iota left-hand side of a fireable recursor rule `r`
+of recursor `n` (stored value `cv`, non-index prefix `rP`), as a
+closed λ-tower: the binders are the recursor's non-index prefix
+(opened on its stored type at frame indices `0..rP-1`) followed by the
+constructor's fields (opened on the stored constructor type at
+`rP..rP+nfields-1`, parameters instantiated at the leading prefix
+variables for a `.plain` rule and at the stored pin expressions for a
+`.nested` one), with binder metadata copied from the stored rule
+right-hand side; the body applies the recursor to the prefix
+variables, the constructor's canonical index tuple (the trailing
+arguments of its instantiated residual type), and the constructor
+spine.  `RecRulesOk` states that its interpretation **equals** the
+rule right-hand side's — the total λ-equality of function graphs that
+the iota step's soundness consumes by pure `app` congruence. -/
+def ruleLhs (n : Name) (cv : ConstantVal) (rP : Nat) (r : RecRule)
+    (cvj : ConstantVal) : Option Expr := do
+  let (fvsP, _) ← openPisAtFvars rP cv.type 0
+  let (usC, cargs) ←
+    match RecRule.fire r with
+    | .plain =>
+      some (cvj.levelParams.map Level.param, fvsP.take (RecRule.ctorParams r))
+    | .nested lvls pins =>
+      some (lvls, pins.map fun p => Expr.instSpine fvsP (rP - 1) p)
+    | .inert => none
+  let cty := match RecRule.fire r with
+    | .nested lvls _ => cvj.type.instantiateLevelParams cvj.levelParams lvls
+    | _ => cvj.type
+  let (_, crest) ← Expr.instPisAt cargs cty
+  let (xFvs, crest2) ← openPisAtFvars (RecRule.nfields r) crest rP
+  let (rbs, _) ← (RecRule.rhs r).stripLams (rP + RecRule.nfields r)
+  let body := Expr.mkAppN (.const n (cv.levelParams.map .param))
+    (fvsP ++ crest2.getAppArgs.drop (RecRule.ctorParams r) ++
+      [Expr.mkAppN (.const (RecRule.ctor r) usC) (cargs ++ xFvs)])
+  some (closeLamsAt ((fvsP ++ xFvs).zip (rbs.map (·.2.2))) body)
 
 /-- Fold facts for every stored recursor rule: the recursor's value
 applied through its argument spine (`args`, then the major `tv`), with
