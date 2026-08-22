@@ -1580,3 +1580,32 @@ directly.  The ~100x gap decomposes into known causes:
 
 The main open lever is (2); (1) is the price of checking the models
 rather than trusting the preprocessor, and is considered inherent.
+
+### Fair comparison on the identical preprocessed stream (2026-08-22)
+
+Reference checkers were run on the *same* preprocessed init-prelude
+stream setlec checks (3136 decl blocks / 3653 constants, `_model`
+artifacts included; `_tmp/perfcmp/`):
+
+* official C++ kernel (arena `official-v4.33.0`): **0.31 s / 3.9 G
+  instructions** — the headline fair row.  The raw-vs-preprocessed
+  penalty for fast checkers is only ~1.8×, so the workload difference
+  does NOT explain setlec's gap: setlec is ~129× (wall) / ~149×
+  (instructions) behind on identical input.  Preprocessing itself is
+  negligible (0.45 s; setlec −1 s when fed the preprocessed file
+  directly).
+* nanodatg (TG proof-carrying, the closest certifying analog):
+  28.6–34.8 s raw, **467–565 s preprocessed** at ~1 GB RSS — setlec is
+  currently the *fastest certifying checker* on this workload by
+  12–14×, and with complete verification (nanodatg reports tens of
+  thousands of open TG gaps).
+* **Divergence finding**: on the preprocessed stream, upstream nanoda
+  **panics** (`infer_proj prop`, tc.rs:471) and lean4lean (arena
+  branch ecb3b66) **rejects** (`at PSigma'.fst: (kernel) invalid
+  projection`) — while the official kernel accepts.  A real
+  reimplementation divergence on Prop-structure projections; worth
+  reporting upstream.
+
+Perf attribution and the fix stack (Env index −30 %, interning,
+per-declaration cache sharing, per-fire iota certification) are in the
+2026-08-22 performance-audit notes (tasks #26, #49, #50).
