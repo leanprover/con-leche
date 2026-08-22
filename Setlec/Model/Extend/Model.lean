@@ -71,7 +71,7 @@ theorem extend_model {env : Env} (m : EnvModel V env)
     · intro cv2 value2 h2 heq
       obtain ⟨rfl, rfl⟩ := hc₀val cv2 value2 h2 heq
       exact ⟨hvf, hvp, Expr.constsResolve_mono hvr, hvb⟩
-    · intro cv nP nM nm ni rules heq
+    · intro cv mI rP rules heq
       rw [heq] at hc₀nb
       simp [ConstantInfo.isBasis] at hc₀nb
   have htyres0 : c₀.toConstantVal.type.constsResolve env = true := by
@@ -227,22 +227,28 @@ theorem extend_model {env : Env} (m : EnvModel V env)
     (fun hb _ => by
       rw [hc₀nb] at hb
       exact nomatch hb)
-    (fun cv nP nM nm ni rules heq => by
+    (fun cv mI rP rules heq => by
       rw [heq] at hc₀nb
       simp [ConstantInfo.isBasis] at hc₀nb)
-    (fun val' _ _ cvR nP nM nm ni rules heq => by
+    (fun val' _ _ cvR mI rP rules heq => by
       rw [heq] at hc₀nb
       simp [ConstantInfo.isBasis] at hc₀nb)
-    (fun cvR nP nM nm ni rules heq => by
+    (fun cvR mI rP rules heq => by
       rw [heq] at hc₀nb
       simp [ConstantInfo.isBasis] at hc₀nb)
     (fun _ hk => by
       rcases hk with ⟨cv, caps, heq⟩ | ⟨cv, cnP, cnF, heq⟩ <;>
         (rw [heq] at hc₀nb; simp [ConstantInfo.isBasis] at hc₀nb))
-    (fun T j hh => by
+    (fun T j _ _ _ _ hh _ => by
       exfalso
       rw [hc₀name.symm.trans hh] at hc₀pshape
       exact nomatch hc₀pshape)
+    (fun entry heq _ => by
+      exfalso
+      rw [heq] at hc₀name
+      rw [← hc₀name] at hc₀pshape
+      simp [ConstantInfo.name, ConstantInfo.toConstantVal, projFnName,
+        Name.isProjFnShape] at hc₀pshape)
     (fun cv caps heq _ _ => by
       rw [heq] at hc₀nb
       simp [ConstantInfo.isBasis] at hc₀nb)

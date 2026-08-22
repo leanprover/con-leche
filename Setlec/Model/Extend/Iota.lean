@@ -23,7 +23,7 @@ everything `modeled_rule_fold` consumes.  `env` is the environment the
 theorem is stored in, `env₀` the provisional one carrying the block's
 rule-less recursors (the definitional-equality checks ran there). -/
 def PlainChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
-    (cvA : ConstantVal) (nP nM nm ni cnP cnF : Nat) (r : RecRule)
+    (cvA : ConstantVal) (mI rP cnP cnF : Nat) (r : RecRule)
     (cvj : ConstantVal) : Prop :=
   ∃ (thmName : Name) (cvt : ConstantVal) (tval : Expr)
     (fvs : List Expr) (tbody : Expr) (ℓA : Level) (αS lhsS rhsS : Expr)
@@ -33,46 +33,46 @@ def PlainChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
     (ldoms : List Expr) (lrest : Expr),
     env.find? thmName = some (.thmInfo cvt tval) ∧
     cvt.levelParams = cvA.levelParams ∧
-    openPisAtFvars (nP + nM + nm + cnF) cvt.type 0 = some (fvs, tbody) ∧
+    openPisAtFvars (rP + cnF) cvt.type 0 = some (fvs, tbody) ∧
     tbody.getAppFn = .const eqName [ℓA] ∧
     tbody.getAppArgs = [αS, lhsS, rhsS] ∧
     lhsS.getAppFn = Expr.const (f cvA.name) (cvA.levelParams.map .param) ∧
-    lhsS.getAppArgs.length = nP + nM + nm + ni + 1 ∧
-    lhsS.getAppArgs.take (nP + nM + nm) = fvs.take (nP + nM + nm) ∧
+    lhsS.getAppArgs.length = mI + 1 ∧
+    lhsS.getAppArgs.take rP = fvs.take rP ∧
     lhsS.getAppArgs.getLastD (.bvar 0) =
       Expr.mkAppN (.const (f (RecRule.ctor r)) (cvj.levelParams.map .param))
-        (fvs.take cnP ++ fvs.drop (nP + nM + nm)) ∧
+        (fvs.take cnP ++ fvs.drop rP) ∧
     (cvj.type.stripPis (cnP + cnF)).isSome = true ∧
-    Expr.instPisAt (fvs.take cnP ++ fvs.drop (nP + nM + nm))
+    Expr.instPisAt (fvs.take cnP ++ fvs.drop rP)
       (cvj.type.renameConsts f) = some (cdoms, cres) ∧
-    cres.getAppArgs.length = cnP + ni ∧
-    DefEqListOk F env₀ (nP + nM + nm + cnF)
-      ((lhsS.getAppArgs.drop (nP + nM + nm)).take ni)
+    cres.getAppArgs.length = cnP + (mI - rP) ∧
+    DefEqListOk F env₀ (rP + cnF)
+      ((lhsS.getAppArgs.drop rP).take (mI - rP))
       (cres.getAppArgs.drop cnP) ∧
-    DefEqListOk F env₀ (nP + nM + nm + cnF)
-      ((fvs.drop (nP + nM + nm)).map Expr.fvarTypeD) (cdoms.drop cnP) ∧
-    Expr.instPisAt (fvs.take (nP + nM + nm)) (cvA.type.renameConsts f) =
+    DefEqListOk F env₀ (rP + cnF)
+      ((fvs.drop rP).map Expr.fvarTypeD) (cdoms.drop cnP) ∧
+    Expr.instPisAt (fvs.take rP) (cvA.type.renameConsts f) =
       some (rdoms, rrest) ∧
-    DefEqListOk F env₀ (nP + nM + nm + cnF)
-      ((fvs.take (nP + nM + nm)).map Expr.fvarTypeD) rdoms ∧
-    openPisAtFvars (nP + nM + nm) cvA.type 0 = some (fvsP, restP) ∧
+    DefEqListOk F env₀ (rP + cnF)
+      ((fvs.take rP).map Expr.fvarTypeD) rdoms ∧
+    openPisAtFvars rP cvA.type 0 = some (fvsP, restP) ∧
     Expr.instPisAt (fvsP.take cnP) cvj.type = some (cdomsP, crestP) ∧
-    openPisAtFvars cnF crestP (nP + nM + nm) = some (xFvsP, crest2) ∧
+    openPisAtFvars cnF crestP rP = some (xFvsP, crest2) ∧
     Expr.instLamsAt (fvsP ++ xFvsP) (RecRule.rhs r) =
       some (ldoms, lrest) ∧
-    DefEqListOk F env₀ (nP + nM + nm + cnF)
+    DefEqListOk F env₀ (rP + cnF)
       ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldoms ∧
-    isDefEqCore env₀ F (nP + nM + nm + cnF) rhsS
+    isDefEqCore env₀ F (rP + cnF) rhsS
       (Expr.mkAppN ((RecRule.rhs r).renameConsts f) fvs) = .ok true
 
 /-- Invert a successful `checkIotaThm` run (on the rule as returned,
 whose `rhs` is the annotated right-hand side). -/
 theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
-    {cvA cvj : ConstantVal} {nP nM nm ni j cnP cnF : Nat}
+    {cvA cvj : ConstantVal} {mI rP j cnP cnF : Nat}
     {r : RecRule} {rhsA : Expr} {u : Unit}
     (h : checkIotaThm (fueledOps F) env' env₀ f cvA.name cvA.levelParams
-      cvA.type nP nM nm ni j r cvj cnP cnF rhsA = .ok u) :
-    PlainChecked F env' env₀ f cvA nP nM nm ni cnP cnF
+      cvA.type mI rP j r cvj cnP cnF rhsA = .ok u) :
+    PlainChecked F env' env₀ f cvA mI rP cnP cnF
       { r with rhs := rhsA } cvj := by
   simp only [checkIotaThm, unwrapOr, Env.findThm?, fueledOps_annotate,
     fueledOps_inferType, fueledOps_isDefEq, fueledOps_ensureSort,
@@ -81,10 +81,11 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   match hfthm : env'.find? ((cvA.name.str "_model").str s!"iota_{j}") with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.thmInfo cvt tval) => ?_
   intro h
   try simp only [Except.bind, pure, Except.pure] at h
@@ -94,7 +95,7 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   rw [if_pos hlpt] at h
   try dsimp only at h
   revert h
-  match hopen : openPisAtFvars (nP + nM + nm + cnF) cvt.type 0 with
+  match hopen : openPisAtFvars (rP + cnF) cvt.type 0 with
   | none => intro h; exact nomatch h
   | some (fvs, tbody) => ?_
   intro h
@@ -123,18 +124,18 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   case neg => rw [if_neg hlhead] at h; exact nomatch h
   rw [if_pos hlhead] at h
   try dsimp only at h
-  by_cases hlarity : lhsS.getAppArgs.length = nP + nM + nm + ni + 1
+  by_cases hlarity : lhsS.getAppArgs.length = mI + 1
   case neg => rw [if_neg hlarity] at h; exact nomatch h
   rw [if_pos hlarity] at h
   try dsimp only at h
-  by_cases hlpre : (lhsS.getAppArgs.take (nP + nM + nm) ==
-      fvs.take (nP + nM + nm)) = true
+  by_cases hlpre : (lhsS.getAppArgs.take rP ==
+      fvs.take rP) = true
   case neg => rw [if_neg hlpre] at h; exact nomatch h
   rw [if_pos hlpre] at h
   try dsimp only at h
   by_cases hmaj : (lhsS.getAppArgs.getLastD (.bvar 0) ==
       Expr.mkAppN (.const (f (RecRule.ctor r)) (cvj.levelParams.map .param))
-        (fvs.take cnP ++ fvs.drop (nP + nM + nm))) = true
+        (fvs.take cnP ++ fvs.drop rP)) = true
   case neg => rw [if_neg hmaj] at h; exact nomatch h
   rw [if_pos hmaj] at h
   try dsimp only at h
@@ -143,47 +144,47 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   rw [if_pos hcstrip] at h
   try dsimp only at h
   revert h
-  match hcinst : Expr.instPisAt (fvs.take cnP ++ fvs.drop (nP + nM + nm))
+  match hcinst : Expr.instPisAt (fvs.take cnP ++ fvs.drop rP)
       (cvj.type.renameConsts f) with
   | none => intro h; exact nomatch h
   | some (cdoms, cres) => ?_
   intro h
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
-  by_cases hclen : cres.getAppArgs.length = cnP + ni
+  by_cases hclen : cres.getAppArgs.length = cnP + (mI - rP)
   case neg => rw [if_neg hclen] at h; exact nomatch h
   rw [if_pos hclen] at h
   try dsimp only at h
-  cases hdq1 : checkDefEqList (fueledOps F) env₀ (nP + nM + nm + cnF)
-      ((lhsS.getAppArgs.drop (nP + nM + nm)).take ni)
+  cases hdq1 : checkDefEqList (fueledOps F) env₀ (rP + cnF)
+      ((lhsS.getAppArgs.drop rP).take (mI - rP))
       (cres.getAppArgs.drop cnP) with
   | error e => rw [hdq1] at h; exact nomatch h
   | ok u1 =>
   rw [hdq1] at h
   try dsimp only at h
-  cases hdq2 : checkDefEqList (fueledOps F) env₀ (nP + nM + nm + cnF)
-      ((fvs.drop (nP + nM + nm)).map Expr.fvarTypeD)
+  cases hdq2 : checkDefEqList (fueledOps F) env₀ (rP + cnF)
+      ((fvs.drop rP).map Expr.fvarTypeD)
       (cdoms.drop cnP) with
   | error e => rw [hdq2] at h; exact nomatch h
   | ok u2 =>
   rw [hdq2] at h
   try dsimp only at h
   revert h
-  match hrinst : Expr.instPisAt (fvs.take (nP + nM + nm))
+  match hrinst : Expr.instPisAt (fvs.take rP)
       (cvA.type.renameConsts f) with
   | none => intro h; exact nomatch h
   | some (rdoms, rrest) => ?_
   intro h
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
-  cases hdq3 : checkDefEqList (fueledOps F) env₀ (nP + nM + nm + cnF)
-      ((fvs.take (nP + nM + nm)).map Expr.fvarTypeD) rdoms with
+  cases hdq3 : checkDefEqList (fueledOps F) env₀ (rP + cnF)
+      ((fvs.take rP).map Expr.fvarTypeD) rdoms with
   | error e => rw [hdq3] at h; exact nomatch h
   | ok u3 =>
   rw [hdq3] at h
   try dsimp only at h
   revert h
-  match hopenP : openPisAtFvars (nP + nM + nm) cvA.type 0 with
+  match hopenP : openPisAtFvars rP cvA.type 0 with
   | none => intro h; exact nomatch h
   | some (fvsP, restP) => ?_
   intro h
@@ -197,7 +198,7 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
   revert h
-  match hopenX : openPisAtFvars cnF crestP (nP + nM + nm) with
+  match hopenX : openPisAtFvars cnF crestP rP with
   | none => intro h; exact nomatch h
   | some (xFvsP, crest2) => ?_
   intro h
@@ -210,14 +211,14 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   intro h
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
-  cases hdq4 : checkDefEqList (fueledOps F) env₀ (nP + nM + nm + cnF)
+  cases hdq4 : checkDefEqList (fueledOps F) env₀ (rP + cnF)
       ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldoms with
   | error e => rw [hdq4] at h; exact nomatch h
   | ok u4 =>
   rw [hdq4] at h
   try dsimp only at h
   revert h
-  cases hde : isDefEqCore env₀ F (nP + nM + nm + cnF) rhsS
+  cases hde : isDefEqCore env₀ F (rP + cnF) rhsS
       (Expr.mkAppN (rhsA.renameConsts f) fvs) with
   | error e => intro h; exact nomatch h
   | ok v =>
@@ -240,29 +241,31 @@ before the recursor group's installation, `env₀` the provisional one
 with the block's rule-less recursors (in which the rule's right-hand
 side was annotated). -/
 def RuleChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
-    (cvA : ConstantVal) (nP nM nm ni : Nat) (r : RecRule) : Prop :=
+    (cvA : ConstantVal) (mI rP : Nat) (r : RecRule) : Prop :=
   ∃ (cvj : ConstantVal) (cnP cnF : Nat) (raw rhsTy : Expr)
     (rbinders : List (Name × Expr × BinderMeta)) (rbody : Expr),
     env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF) ∧
     RecRule.nfields r = cnF ∧
+    RecRule.ctorParams r = cnP ∧
+    RecRule.plain r = Expr.recRulePlain cvA.type mI rP cnP ∧
     raw.hasFvar = false ∧ raw.looseBVarsBounded 0 = true ∧
     annotateCore env₀ F 0 raw = .ok (RecRule.rhs r) ∧
     (RecRule.rhs r).hasFvar = false ∧
     (RecRule.rhs r).looseBVarsBounded 0 = true ∧
     (RecRule.rhs r).allLevelParamsDefined cvA.levelParams = true ∧
     (RecRule.rhs r).constsResolve env₀ = true ∧
-    (RecRule.rhs r).stripLams (nP + nM + nm + cnF) =
+    (RecRule.rhs r).stripLams (rP + cnF) =
       some (rbinders, rbody) ∧
     inferTypeCore env₀ F 0 (RecRule.rhs r) = .ok rhsTy ∧
-    (Expr.recRulePlain cvA.type nP nM nm ni cnP = true →
-      PlainChecked F env env₀ f cvA nP nM nm ni cnP cnF r cvj)
+    (Expr.recRulePlain cvA.type mI rP cnP = true →
+      PlainChecked F env env₀ f cvA mI rP cnP cnF r cvj)
 
 /-- Invert one `checkIotaRule` run. -/
 theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
-    {cvA : ConstantVal} {nP nM nm ni j : Nat} {r r' : RecRule}
+    {cvA : ConstantVal} {mI rP j : Nat} {r r' : RecRule}
     (h : checkIotaRule (fueledOps F) env' env₀ f cvA.name cvA.levelParams
-      cvA.type nP nM nm ni j r = .ok r') :
-    RuleChecked F env' env₀ f cvA nP nM nm ni r' := by
+      cvA.type mI rP j r = .ok r') :
+    RuleChecked F env' env₀ f cvA mI rP r' := by
   simp only [checkIotaRule, fueledOps_annotate, fueledOps_inferType,
     fueledOps_isDefEq, fueledOps_ensureSort, fueledOps_whnf, Bind.bind,
     Except.bind, pure, Except.pure] at h
@@ -270,10 +273,11 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
   match hfc : env'.find? (RecRule.ctor r) with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.ctorInfo cvj cnP cnF) => ?_
   intro h
   dsimp only at h
@@ -304,7 +308,7 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
   case neg => rw [if_neg hrres] at h; exact nomatch h
   rw [if_pos hrres] at h
   try dsimp only at h
-  by_cases hstrip : (rhsA.stripLams (nP + nM + nm + cnF)).isSome = true
+  by_cases hstrip : (rhsA.stripLams (rP + cnF)).isSome = true
   case neg => rw [if_neg hstrip] at h; exact nomatch h
   rw [if_pos hstrip] at h
   obtain ⟨⟨rbinders, rbody⟩, hstripEq⟩ :=
@@ -315,12 +319,12 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
   | ok rhsTy =>
   rw [hity] at h
   try dsimp only at h
-  by_cases hplain : Expr.recRulePlain cvA.type nP nM nm ni cnP = true
+  by_cases hplain : Expr.recRulePlain cvA.type mI rP cnP = true
   case pos =>
     rw [if_pos hplain] at h
     revert h
     cases hthm : checkIotaThm (fueledOps F) env' env₀ f cvA.name
-        cvA.levelParams cvA.type nP nM nm ni j r cvj cnP cnF rhsA with
+        cvA.levelParams cvA.type mI rP j r cvj cnP cnF rhsA with
     | error e => intro h; exact nomatch h
     | ok u =>
       intro h
@@ -328,7 +332,7 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
       subst h
       have hkit := checkIotaThm_inv (cvA := cvA) hthm
       exact ⟨cvj, cnP, cnF, RecRule.rhs r, rhsTy, rbinders, rbody,
-        hfc, hnf, hrfF, hrb, hann,
+        hfc, hnf, rfl, rfl, hrfF, hrb, hann,
         not_hasFvar_of_fvarsBelow_zero
           ((annotateCore_WScoped F _ hann
             (WScoped.of_not_hasFvar hrfF)).fvarsBelow),
@@ -340,7 +344,7 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
     simp only [Except.ok.injEq] at h
     subst h
     exact ⟨cvj, cnP, cnF, RecRule.rhs r, rhsTy, rbinders, rbody,
-      hfc, hnf, hrfF, hrb, hann,
+      hfc, hnf, rfl, rfl, hrfF, hrb, hann,
       not_hasFvar_of_fvarsBelow_zero
         ((annotateCore_WScoped F _ hann
           (WScoped.of_not_hasFvar hrfF)).fvarsBelow),
@@ -350,11 +354,11 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
 /-- Invert a successful `checkIotaRules` run: every returned rule
 carries the full `RuleChecked` hypothesis kit. -/
 theorem checkIotaRules_inv {env' env₀ : Env} {f : Name → Name}
-    {cvA : ConstantVal} {nP nM nm ni : Nat} :
+    {cvA : ConstantVal} {mI rP : Nat} :
     ∀ (j : Nat) (rules rules' : List RecRule),
     checkIotaRules (fueledOps F) env' env₀ f cvA.name cvA.levelParams
-      cvA.type nP nM nm ni j rules = .ok rules' →
-    ∀ r' ∈ rules', RuleChecked F env' env₀ f cvA nP nM nm ni r' := by
+      cvA.type mI rP j rules = .ok rules' →
+    ∀ r' ∈ rules', RuleChecked F env' env₀ f cvA mI rP r' := by
   intro j rules
   induction rules generalizing j with
   | nil =>
@@ -367,14 +371,14 @@ theorem checkIotaRules_inv {env' env₀ : Env} {f : Name → Name}
     simp only [checkIotaRules, Bind.bind, Except.bind] at h
     revert h
     cases hr1 : checkIotaRule (fueledOps F) env' env₀ f cvA.name
-        cvA.levelParams cvA.type nP nM nm ni j r with
+        cvA.levelParams cvA.type mI rP j r with
     | error e => intro h; exact nomatch h
     | ok r₁ => ?_
     intro h
     try dsimp only at h
     revert h
     cases hrest : checkIotaRules (fueledOps F) env' env₀ f cvA.name
-        cvA.levelParams cvA.type nP nM nm ni (j + 1) rest with
+        cvA.levelParams cvA.type mI rP (j + 1) rest with
     | error e => intro h; exact nomatch h
     | ok rest' => ?_
     intro h
@@ -485,20 +489,22 @@ theorem checkUnitThm_inv {env' : Env} {T : Name}
   match hthm : env'.find? ((T.str "_model").str "unitlike") with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.thmInfo tcv tval) => ?_
   intro h
   revert h
   match hTm : env'.find? (T.str "_model") with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.defnInfo cvmT mvalT hmcvmT) => ?_
   intro h
   revert h
@@ -645,30 +651,33 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
   match hthm : env'.find? ((T.str "_model").str "eta") with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.thmInfo tcv tval) => ?_
   intro h
   revert h
   match hTm : env'.find? (T.str "_model") with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.defnInfo cvmT mvalT hmcvmT) => ?_
   intro h
   revert h
   match hCm : env'.find? (ctorName.str "_model") with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.defnInfo cvmC mvalC hmcvmC) => ?_
   intro h
   revert h
@@ -687,10 +696,11 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
     match hfj : env'.find? (projModelName T j) with
     | none => intro h1; exact nomatch h1
     | some (.axiomInfo _) => intro h1; exact nomatch h1
+    | some (.projInfo _) => intro h1; exact nomatch h1
     | some (.thmInfo _ _) => intro h1; exact nomatch h1
     | some (.indInfo _ _) => intro h1; exact nomatch h1
     | some (.ctorInfo _ _ _) => intro h1; exact nomatch h1
-    | some (.recInfo _ _ _ _ _ _) => intro h1; exact nomatch h1
+    | some (.recInfo _ _ _ _) => intro h1; exact nomatch h1
     | some (.defnInfo cvmj mvalj hmcvmj) =>
       intro h1
       exact ⟨cvmj, mvalj, hmcvmj, rfl, eq_of_beq h1⟩

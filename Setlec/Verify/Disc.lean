@@ -322,7 +322,7 @@ theorem structEtaProjCerts_disc (ih : ScopedSim env f) (henv : EnvWF env)
   | cons i rest ihrest =>
     show DiscV env _
       (match env.find? (projFnName T i) with
-        | some (.recInfo cvp _ _ _ _ _) =>
+        | some (.recInfo cvp _ _ _) =>
           if cvp.levelParams = lpsT ∧
               (cvp.type.stripPis (targs.length + 1)).isSome = true then
             iotaCerts C env d
@@ -333,7 +333,7 @@ theorem structEtaProjCerts_disc (ih : ScopedSim env f) (henv : EnvWF env)
           else pure false
         | _ => pure false)
       (match env.find? (projFnName T i) with
-        | some (.recInfo cvp _ _ _ _ _) =>
+        | some (.recInfo cvp _ _ _) =>
           if cvp.levelParams = lpsT ∧
               (cvp.type.stripPis (targs.length + 1)).isSome = true then
             iotaCerts G env d
@@ -347,7 +347,7 @@ theorem structEtaProjCerts_disc (ih : ScopedSim env f) (henv : EnvWF env)
     | none => exact DiscV.pure trivial
     | some ci =>
       cases ci with
-      | recInfo cvp nP nM nm ni rules =>
+      | recInfo cvp mI rP rules =>
         dsimp only
         split
         · have htyw : WScoped d
@@ -369,6 +369,7 @@ theorem structEtaProjCerts_disc (ih : ScopedSim env f) (henv : EnvWF env)
           | false => exact DiscV.pure trivial
         · exact DiscV.pure trivial
       | axiomInfo cv => exact DiscV.pure trivial
+      | projInfo _ => exact DiscV.pure trivial
       | defnInfo cv value hint => exact DiscV.pure trivial
       | thmInfo cv value => exact DiscV.pure trivial
       | indInfo cv caps => exact DiscV.pure trivial
@@ -479,10 +480,12 @@ theorem etaCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
       exact ⟨WScoped.mono (Nat.le_succ d) hwb, Nat.lt_succ_self d, hwty⟩
 
 theorem projCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
-    {d : Nat} {e₂ : Expr} {i : Nat} {us : List Level} {nP : Nat}
+    {d : Nat} {e₂ : Expr} {i : Nat} {fieldLvl structLvl : Level}
+    {nP : Nat}
     (hwe : WScoped d e₂) :
-    DiscV env (fun _ => True) (projCert C env d e₂ i us nP)
-      (projCert G env d e₂ i us nP) := by
+    DiscV env (fun _ => True)
+      (projCert C env d e₂ i fieldLvl structLvl nP)
+      (projCert G env d e₂ i fieldLvl structLvl nP) := by
   unfold projCert
   have hwarg : WScoped d (e₂.getAppArgs.getD (nP + i) (.bvar 0)) :=
     wscoped_getD hwe.getAppArgs _
@@ -620,13 +623,12 @@ theorem projFieldDom_disc (ih : ScopedSim env f) (henv : EnvWF env)
         · exact ihk (j + 1) hwrest'
 
 theorem annotateProjRec_disc (ih : ScopedSim env f) (henv : EnvWF env)
-    {d : Nat} {sn : Name} {i : Nat} {te e' : Expr} {us : List Level}
+    {d : Nat} {entry : ProjEntry} {i : Nat} {te e' : Expr}
+    {us : List Level}
     (hwte : WScoped d te) (hwe : WScoped d e') :
-    DiscV env (WScoped d) (annotateProjRec C env d sn i te e' us)
-      (annotateProjRec G env d sn i te e' us) := by
+    DiscV env (WScoped d) (annotateProjRec C env d entry i te e' us)
+      (annotateProjRec G env d entry i te e' us) := by
   unfold annotateProjRec
-  split <;> try exact DiscV.throw _
-  rename_i cvR nP rule cvI capsI hfR hfI
   split <;> try exact DiscV.throw _
   rename_i cvC cnFdummy cnF hfC
   dsimp only []
@@ -673,16 +675,21 @@ theorem annotateProjElim_disc (ih : ScopedSim env f) (henv : EnvWF env)
   unfold annotateProjElim
   split <;> try exact DiscV.throw _
   split <;> try exact DiscV.throw _
-  · split
-    · dsimp only []
-      split
-      · split
-        · rename_i hguard
-          exact ih.site_annotate (WScoped.of_wscopedB
-            (by simp only [Bool.and_eq_true] at hguard; exact hguard.1.1))
-        · exact DiscV.throw _
+  split
+  · -- installed projection function: the scope-guarded rewrite
+    dsimp only []
+    split
+    · split
+      · rename_i hguard
+        exact ih.site_annotate (WScoped.of_wscopedB
+          (by simp only [Bool.and_eq_true] at hguard; exact hguard.1.1))
       · exact DiscV.throw _
+    · exact DiscV.throw _
+  · -- table entry: the template fallback (native entries throw)
+    split
+    · exact DiscV.throw _
     · exact annotateProjRec_disc ih henv hwte hwe
+  · exact DiscV.throw _
 
 theorem litMajorToCtor_disc (ih : ScopedSim env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
@@ -703,7 +710,7 @@ theorem iotaRec_disc (ih : ScopedSim env f) (henv : EnvWF env)
   split <;> try exact DiscV.pure WScopedO.none
   rename_i c us heqfn
   split <;> try exact DiscV.pure WScopedO.none
-  rename_i cv nP nM nm ni rules hfc
+  rename_i cv mI rP rules hfc
   dsimp only []
   split <;> try exact DiscV.pure WScopedO.none
   refine DiscV.bind
@@ -721,6 +728,8 @@ theorem iotaRec_disc (ih : ScopedSim env f) (henv : EnvWF env)
   split <;> try exact DiscV.pure WScopedO.none
   rename_i rl hrule
   split <;> try exact DiscV.pure WScopedO.none
+  split
+  · exact DiscV.throw _
   split <;> try exact DiscV.pure WScopedO.none
   refine DiscV.bind (DiscV.liftFueled_true _ _) (fun okl _ => ?_)
   split <;> try exact DiscV.pure WScopedO.none
@@ -760,7 +769,7 @@ theorem iotaRec_disc (ih : ScopedSim env f) (henv : EnvWF env)
   · refine DiscV.pure (WScopedO.some ?_)
     refine Expr.WScoped.mkAppN ?_ ?_
     · obtain ⟨-, -, -, -, -, hrules⟩ := henv _ (find?_mem hfc)
-      obtain ⟨hrf, -, -, -⟩ := hrules cv nP nM nm ni rules rfl rl
+      obtain ⟨hrf, -, -, -⟩ := hrules cv mI rP rules rfl rl
         (List.mem_of_find?_eq_some hrule)
       exact wscoped_instLevels_of_not_hasFvar hrf _ _
     · intro x hx
@@ -852,45 +861,53 @@ theorem whnfCoreBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     have hwpe : WScoped d pe := by simpa only [WScoped] using hw
     show DiscV env _
       ((C : CoreFns CheckSM).whnf d pe >>= fun e' =>
-        match e'.getAppFn with
-        | .const c us =>
-          match env.find? c with
-          | some (.ctorInfo _ nP nF) =>
-            if c = psigmaMkName ∧ i < nF ∧
-                e'.getAppArgs.length = nP + nF ∧ us.length = 2 then
-              if (Level.max (us.getD 0 .zero) (us.getD 1 .zero)).isNonZero
-                  then
+        match env.findProj? sn i with
+        | some entry =>
+          match e'.getAppFn with
+          | .const c us =>
+            if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
+                e'.getAppArgs.length = entry.numParams + entry.numFields ∧
+                us.length = entry.levelParams.length then
+              if (Level.subst entry.levelParams us
+                  entry.structSort).isNonZero then
                 (C : CoreFns CheckSM).whnfCore d
-                  (e'.getAppArgs.getD (nP + i) (.bvar 0))
+                  (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
               else
-                projCert C env d e' i us nP >>= fun b =>
+                projCert C env d e' i
+                  (Level.subst entry.levelParams us entry.fieldSort)
+                  (Level.subst entry.levelParams us entry.structSort)
+                  entry.numParams >>= fun b =>
                 if b then
                   (C : CoreFns CheckSM).whnfCore d
-                    (e'.getAppArgs.getD (nP + i) (.bvar 0))
+                    (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
                 else pure (.proj sn i e')
             else pure (.proj sn i e')
           | _ => pure (.proj sn i e')
-        | _ => pure (.proj sn i e'))
+        | none => pure (.proj sn i e'))
       ((G : CoreFns CheckSM).whnf d pe >>= fun e' =>
-        match e'.getAppFn with
-        | .const c us =>
-          match env.find? c with
-          | some (.ctorInfo _ nP nF) =>
-            if c = psigmaMkName ∧ i < nF ∧
-                e'.getAppArgs.length = nP + nF ∧ us.length = 2 then
-              if (Level.max (us.getD 0 .zero) (us.getD 1 .zero)).isNonZero
-                  then
+        match env.findProj? sn i with
+        | some entry =>
+          match e'.getAppFn with
+          | .const c us =>
+            if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
+                e'.getAppArgs.length = entry.numParams + entry.numFields ∧
+                us.length = entry.levelParams.length then
+              if (Level.subst entry.levelParams us
+                  entry.structSort).isNonZero then
                 (G : CoreFns CheckSM).whnfCore d
-                  (e'.getAppArgs.getD (nP + i) (.bvar 0))
+                  (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
               else
-                projCert G env d e' i us nP >>= fun b =>
+                projCert G env d e' i
+                  (Level.subst entry.levelParams us entry.fieldSort)
+                  (Level.subst entry.levelParams us entry.structSort)
+                  entry.numParams >>= fun b =>
                 if b then
                   (G : CoreFns CheckSM).whnfCore d
-                    (e'.getAppArgs.getD (nP + i) (.bvar 0))
+                    (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
                 else pure (.proj sn i e')
             else pure (.proj sn i e')
           | _ => pure (.proj sn i e')
-        | _ => pure (.proj sn i e'))
+        | none => pure (.proj sn i e'))
     refine DiscV.bind (ih.site_whnf henv hwpe) (fun e' he' => ?_)
     have hwproj : WScoped d (Expr.proj sn i e') := by
       simpa only [WScoped] using he'
@@ -1057,40 +1074,43 @@ theorem annotateBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
       ((C : CoreFns CheckSM).annotate d pe >>= fun e' =>
         (C : CoreFns CheckSM).infer d e' >>= fun te₀ =>
         (C : CoreFns CheckSM).whnf d te₀ >>= fun te =>
-        match te with
-        | .app (.app (.const c _) _) _ =>
-          if c = psigmaName then
-            match env.find? c with
-            | some (.indInfo _ _) =>
-              if i < 2 then pure (Expr.proj sn i e')
-              else throw (.invalid "projection index out of range")
-            | _ => annotateProjElim C env d sn i te e'
-          else annotateProjElim C env d sn i te e'
+        match te.getAppFn with
+        | .const T _ =>
+          match env.findProj? T i with
+          | some entry =>
+            if entry.native then
+              if te.getAppArgs.length = entry.numParams then
+                pure (Expr.proj T i e')
+              else throw (.invalid "projection parameter mismatch")
+            else annotateProjElim C env d sn i te e'
+          | none => annotateProjElim C env d sn i te e'
         | _ => annotateProjElim C env d sn i te e')
       ((G : CoreFns CheckSM).annotate d pe >>= fun e' =>
         (G : CoreFns CheckSM).infer d e' >>= fun te₀ =>
         (G : CoreFns CheckSM).whnf d te₀ >>= fun te =>
-        match te with
-        | .app (.app (.const c _) _) _ =>
-          if c = psigmaName then
-            match env.find? c with
-            | some (.indInfo _ _) =>
-              if i < 2 then pure (Expr.proj sn i e')
-              else throw (.invalid "projection index out of range")
-            | _ => annotateProjElim G env d sn i te e'
-          else annotateProjElim G env d sn i te e'
+        match te.getAppFn with
+        | .const T _ =>
+          match env.findProj? T i with
+          | some entry =>
+            if entry.native then
+              if te.getAppArgs.length = entry.numParams then
+                pure (Expr.proj T i e')
+              else throw (.invalid "projection parameter mismatch")
+            else annotateProjElim G env d sn i te e'
+          | none => annotateProjElim G env d sn i te e'
         | _ => annotateProjElim G env d sn i te e')
     refine DiscV.bind (ih.site_annotate hwpe) (fun e' he' => ?_)
     refine DiscV.bind (ih.site_infer henv he') (fun te₀ hte₀ => ?_)
     refine DiscV.bind (ih.site_whnf henv hte₀) (fun te hte => ?_)
-    have hwproj : WScoped d (Expr.proj sn i e') := by
-      simpa only [WScoped] using he'
-    split <;> try exact annotateProjElim_disc ih henv hte he'
     split <;> try exact annotateProjElim_disc ih henv hte he'
     split <;> try exact annotateProjElim_disc ih henv hte he'
     split
-    · exact DiscV.pure hwproj
-    · exact DiscV.throw _
+    · split
+      · refine DiscV.pure ?_
+        show WScoped d (Expr.proj _ i e')
+        simpa only [WScoped] using he'
+      · exact DiscV.throw _
+    · exact annotateProjElim_disc ih henv hte he'
 
 set_option maxHeartbeats 1600000 in
 theorem inferBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
@@ -1206,17 +1226,24 @@ theorem inferBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     refine DiscV.bind (ih.site_infer henv hwpe) (fun tpe htpe => ?_)
     refine DiscV.bind (ih.site_whnf henv htpe) (fun w hww => ?_)
     split <;> try exact DiscV.throw _
-    rename_i cw usw Aw Bw
-    have hwAB : (WScoped d (Expr.const cw usw) ∧ WScoped d Aw) ∧
-        WScoped d Bw := by
-      simpa only [WScoped] using hww
+    rename_i Tw usw hfnw
     split <;> try exact DiscV.throw _
+    rename_i entry hfpw
     split <;> try exact DiscV.throw _
-    split <;> try exact DiscV.throw _
-    · exact DiscV.pure hwAB.1.2
-    · refine DiscV.pure ?_
-      simp only [WScoped]
-      exact ⟨hwAB.2, hwpe⟩
+    rename_i hcond
+    split
+    · rename_i resTy hres
+      refine DiscV.pure ?_
+      have hclosed := (henv _ (find?_mem (Env.findProj?_some hfpw))).1
+      exact piResidual_WScoped hres
+        (WScoped.of_not_hasFvar (by
+          rw [hasFvar_instantiateLevelParams]; exact hclosed))
+        (fun x hx => by
+          rcases List.mem_append.mp hx with hx | hx
+          · exact hww.getAppArgs x hx
+          · rcases List.mem_singleton.mp hx with rfl
+            exact hwpe)
+    · exact DiscV.throw _
 
 set_option maxHeartbeats 1600000 in
 theorem defeqBody_disc (ih : ScopedSim env f) (henv : EnvWF env)

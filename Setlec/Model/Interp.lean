@@ -267,22 +267,30 @@ rhs's own annotation truthfulness.  Basis blocks discharge this from
 the hand-written values; modeled blocks will discharge it from their
 checked `_model` theorems. -/
 def RecRulesOk (env : Env) (val : ConstVal V) : Prop :=
-  ∀ n cv nP nM nm ni rules,
-    env.find? n = some (.recInfo cv nP nM nm ni rules) →
+  ∀ n cv mI rP rules,
+    env.find? n = some (.recInfo cv mI rP rules) →
     ∀ r ∈ rules,
       (∀ ψ : Name → Nat, AnnotOk V val env ψ 0 (rho0 V) (RecRule.rhs r)) ∧
+      -- a canonical rule's prefix fits under the major's position (part
+      -- of `Expr.recRulePlain`, whose install-time computation backs
+      -- the stored flag)
+      (RecRule.plain r = true → rP ≤ mI) ∧
       ∀ cvj cnP cnF,
         env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF) →
+        -- the spine arithmetic is over the *rule's* stored counts
+        -- (`ctorParams`/`nfields`, install-computed): `iotaRec` reads
+        -- only the rule fields, never the constructor's stored counts
         ∀ (ψ ψj : Name → Nat) (args margs : List V) (tv : V),
-          args.length = nP + nM + nm + ni →
-          margs.length = cnP + cnF →
+          args.length = mI →
+          margs.length = RecRule.ctorParams r + RecRule.nfields r →
           ChainSlots V (val n ψ) (args ++ [tv]) →
           ChainSlots V (val (RecRule.ctor r) ψj) margs →
           tv = SpineFold V (val (RecRule.ctor r) ψj) margs →
-          margs.take cnP = (args ++ [tv]).take cnP →
+          margs.take (RecRule.ctorParams r) =
+            (args ++ [tv]).take (RecRule.ctorParams r) →
           -- non-canonical (nested-auxiliary) rules are inert: `iotaRec`
-          -- guards on `recRulePlain`, so their fold facts are vacuous
-          Expr.recRulePlain cv.type nP nM nm ni cnP = true →
+          -- guards on the stored flag, so their fold facts are vacuous
+          RecRule.plain r = true →
           (∀ p ∈ cvj.levelParams, ψj p = ψ p) →
           (∃ (φ' : Name → Nat) (us usj : List Level) (d : Nat) (ρ : Nat → V)
               (d₁ : Nat) (ρ₁ : Nat → V) (rest₁ : Expr)
@@ -298,18 +306,76 @@ def RecRulesOk (env : Env) (val : ConstVal V) : Prop :=
             -- the recursor's index-argument values are the constructor's
             -- canonical index tuple: the trailing interpretations of the
             -- opened constructor residual (the kernel's index certificate)
-            (rest₂.getAppArgs.drop cnP).mapM
+            (rest₂.getAppArgs.drop (RecRule.ctorParams r)).mapM
               (interpExpr V val env φ' d₂ ρ₂) =
-              some (args.drop (nP + nM + nm))) →
+              some (args.drop rP)) →
           ∃ R, interpClosed V val env ψ (RecRule.rhs r) = some R ∧
             SpineFold V (val n ψ) (args ++ [tv]) =
-              SpineFold V R (args.take (nP + nM + nm) ++ margs.drop cnP) ∧
-            ChainSlots V R (args.take (nP + nM + nm) ++ margs.drop cnP)
+              SpineFold V R
+                (args.take rP ++ margs.drop (RecRule.ctorParams r)) ∧
+            ChainSlots V R
+              (args.take rP ++ margs.drop (RecRule.ctorParams r))
 
 theorem RecRulesOk.empty (val : ConstVal V) :
     RecRulesOk V Env.empty val := by
-  intro n cv nP nM nm ni rules h
+  intro n cv mI rP rules h
   simp [Env.find?, Env.empty] at h
+
+/-- `ProjOk` is preserved by a fresh extension, given the head's own
+obligation (vacuous unless the head is a native entry). -/
+theorem ProjOk.cons {env : Env} {c₀ : ConstantInfo}
+    (h : ProjOk env) (hfresh : env.find? c₀.name = none)
+    (hhead : ∀ entry, c₀ = .projInfo entry → entry.native = true →
+      (entry = pairFstEntry ∨ entry = pairSndEntry) ∧
+      env.find? psigmaName = some psigmaA ∧
+      env.find? psigmaMkName = some psigmaMkA) :
+    ProjOk ⟨c₀ :: env.consts⟩ := by
+  have keep : ∀ {s : Name} {X : ConstantInfo}, env.find? s = some X →
+      Env.find? ⟨c₀ :: env.consts⟩ s = some X := by
+    intro s X hs
+    rw [Env.find?_cons, if_neg ?_]
+    · exact hs
+    · intro he
+      rw [← he, hfresh] at hs
+      exact nomatch hs
+  intro n entry hf hnat
+  rw [Env.find?_cons] at hf
+  split at hf
+  · next hn =>
+    obtain hceq := Option.some.inj hf
+    obtain ⟨hpin, h1, h2⟩ := hhead entry hceq hnat
+    exact ⟨hpin, keep h1, keep h2⟩
+  · next hn =>
+    obtain ⟨hpin, h1, h2⟩ := h n entry hf hnat
+    exact ⟨hpin, keep h1, keep h2⟩
+
+/-- `ProjOk` only reads lookups, so it transports across any
+environment correspondence that at most swaps stored recursors' rule
+lists. -/
+theorem ProjOk.env_swap {env₁ env₂ : Env}
+    (hcorr : ∀ n : Name, env₂.find? n = env₁.find? n ∨
+      ∃ cv mI rP rules₁ rules₂,
+        env₁.find? n = some (.recInfo cv mI rP rules₁) ∧
+        env₂.find? n = some (.recInfo cv mI rP rules₂))
+    (h : ProjOk env₁) : ProjOk env₂ := by
+  intro n entry hf hnat
+  have hf₁ : env₁.find? n = some (.projInfo entry) := by
+    rcases hcorr n with heq | ⟨cv, mI, rP, rules₁, rules₂, h₁, h₂⟩
+    · rw [← heq]; exact hf
+    · rw [h₂] at hf
+      exact nomatch (Option.some.inj hf)
+  obtain ⟨hpin, h1, h2⟩ := h n entry hf₁ hnat
+  have move : ∀ {s : Name} {X : ConstantInfo},
+      (∀ cv mI rP rules, X ≠ .recInfo cv mI rP rules) →
+      env₁.find? s = some X → env₂.find? s = some X := by
+    intro s X hnr hs
+    rcases hcorr s with heq | ⟨cv, mI, rP, rules₁, rules₂, h₁, h₂⟩
+    · rw [heq]; exact hs
+    · rw [h₁] at hs
+      exact absurd (Option.some.inj hs).symm (hnr cv mI rP rules₁)
+  exact ⟨hpin, move (fun _ _ _ _ h => by simp [psigmaA] at h) h1,
+    move (fun _ _ _ _ h => by simp [psigmaMkA] at h) h2⟩
+
 
 /-- The semantic eta law of an eta-capable stored structure: every
 member of the interpreted type (fitting the type former's parameter
@@ -363,8 +429,9 @@ def ModeledOk (env : Env) (val : ConstVal V) : Prop :=
     reservedBasisNames.contains n = false →
     (env.find? (n.str "_model")).isSome = true ∧
     ∀ ψ : Name → Nat, val n ψ = val (n.str "_model") ψ) ∧
-  (∀ (T : Name) (j : Nat) (ci : ConstantInfo),
-    env.find? (projFnName T j) = some ci →
+  (∀ (T : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat)
+      (rules : List RecRule),
+    env.find? (projFnName T j) = some (.recInfo cv mI rP rules) →
     (env.find? (projModelName T j)).isSome = true ∧
     ∀ ψ : Name → Nat,
       val (projFnName T j) ψ = val (projModelName T j) ψ) ∧
@@ -450,7 +517,7 @@ theorem ModeledOk.empty (val : ConstVal V) : ModeledOk V Env.empty val := by
     simp [Env.find?, Env.empty] at h
   · intro n cv cnP cnF h
     simp [Env.find?, Env.empty] at h
-  · intro T j ci h
+  · intro T j cv mI rP rules h
     simp [Env.find?, Env.empty] at h
   · intro T cvT caps h
     simp [Env.find?, Env.empty] at h
@@ -494,6 +561,9 @@ structure EnvModel (env : Env) where
   ind_ok : IndOk V env val
   /-- Every stored recursor rule has a verified fold equation. -/
   rec_rules : RecRulesOk V env val
+  /-- Every stored native projection-table entry is a pinned pair
+  entry with its block stored (see `ProjOk`). -/
+  proj_ok : ProjOk env
   /-- Non-reserved inductive-kind constants carry their model values. -/
   modeled_ok : ModeledOk V env val
   /-- Every stored structural-Nat operation satisfies its recurrence
@@ -517,6 +587,7 @@ def EnvModel.empty : EnvModel V Env.empty where
   annot_ok := by intro c hc; cases hc
   ind_ok := IndOk.empty V _ (fun _ x hx => SetTheory.not_mem_empty x hx)
   rec_rules := RecRulesOk.empty V _
+  proj_ok := ProjOk.empty
   modeled_ok := ModeledOk.empty V _
   nat_ops := NatOpsOk.empty V _
   div_mod := DivModOk.empty V _
@@ -570,10 +641,10 @@ theorem natLitSupported_inv {env : Env} (hs : natLitSupported env = true) :
 
 /-- The literal guard ignores a stored recursor's rule list (the slot
 checks only ever accept inductive/constructor kinds). -/
-theorem natLitSupported_cons_recRules {cvA : ConstantVal} {nP nM nm ni : Nat}
+theorem natLitSupported_cons_recRules {cvA : ConstantVal} {mI rP : Nat}
     {rules₁ rules₂ : List RecRule} {env : Env} :
-    natLitSupported ⟨ConstantInfo.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ =
-    natLitSupported ⟨ConstantInfo.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ := by
+    natLitSupported ⟨ConstantInfo.recInfo cvA mI rP rules₁ :: env.consts⟩ =
+    natLitSupported ⟨ConstantInfo.recInfo cvA mI rP rules₂ :: env.consts⟩ := by
   unfold natLitSupported
   rw [Env.find?_cons, Env.find?_cons, Env.find?_cons, Env.find?_cons,
     Env.find?_cons, Env.find?_cons]
@@ -744,18 +815,18 @@ theorem strTyOk_toCV : ∀ {o₁ o₂ : Option ConstantInfo},
   | some _, none, h => by simp at h
 
 /-- The string-literal guard ignores a stored recursor's rule list. -/
-theorem strLitSupported_cons_recRules {cvA : ConstantVal} {nP nM nm ni : Nat}
+theorem strLitSupported_cons_recRules {cvA : ConstantVal} {mI rP : Nat}
     {rules₁ rules₂ : List RecRule} {env : Env} :
-    strLitSupported ⟨ConstantInfo.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ =
-    strLitSupported ⟨ConstantInfo.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ := by
+    strLitSupported ⟨ConstantInfo.recInfo cvA mI rP rules₁ :: env.consts⟩ =
+    strLitSupported ⟨ConstantInfo.recInfo cvA mI rP rules₂ :: env.consts⟩ := by
   have hfind : ∀ n : Name,
-      ((⟨ConstantInfo.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ :
+      ((⟨ConstantInfo.recInfo cvA mI rP rules₁ :: env.consts⟩ :
         Env).find? n).map ConstantInfo.toConstantVal =
-      ((⟨ConstantInfo.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ :
+      ((⟨ConstantInfo.recInfo cvA mI rP rules₂ :: env.consts⟩ :
         Env).find? n).map ConstantInfo.toConstantVal := by
     intro n
     rw [Env.find?_cons, Env.find?_cons]
-    by_cases h : (ConstantInfo.recInfo cvA nP nM nm ni rules₁).name = n
+    by_cases h : (ConstantInfo.recInfo cvA mI rP rules₁).name = n
     · rw [if_pos h, if_pos (by simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using h)]
       rfl
     · rw [if_neg h, if_neg (by simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using h)]

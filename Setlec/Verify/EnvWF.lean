@@ -14,6 +14,23 @@ delta-unfolding and monotonicity lemmas need it.
 
 namespace Setlec
 
+/-- The projection-table name shape is injective. -/
+theorem projFnName_inj {T T' : Name} {i i' : Nat}
+    (h : projFnName T i = projFnName T' i') : T = T' ∧ i = i' := by
+  simp only [projFnName, Name.num.injEq, Name.str.injEq] at h
+  exact ⟨h.1.1, h.2⟩
+
+/-- Unfold a successful projection-table lookup to the stored
+constant. -/
+theorem Env.findProj?_some {env : Env} {T : Name} {i : Nat}
+    {entry : ProjEntry} (h : env.findProj? T i = some entry) :
+    env.find? (projFnName T i) = some (.projInfo entry) := by
+  unfold Env.findProj? at h
+  split at h
+  next e heq => exact (Option.some.inj h) ▸ heq
+  next => exact nomatch h
+
+
 /-- Syntactic well-formedness of one stored constant w.r.t. `env`. -/
 def ConstWF (env : Env) (c : ConstantInfo) : Prop :=
   c.toConstantVal.type.hasFvar = false ∧
@@ -25,7 +42,7 @@ def ConstWF (env : Env) (c : ConstantInfo) : Prop :=
     value.allLevelParamsDefined cv.levelParams = true ∧
     value.constsResolve env = true ∧
     value.looseBVarsBounded 0 = true) ∧
-  (∀ cv nP nM nm ni rules, c = .recInfo cv nP nM nm ni rules →
+  (∀ cv mI rP rules, c = .recInfo cv mI rP rules →
     ∀ r, r ∈ rules →
       (RecRule.rhs r).hasFvar = false ∧
       (RecRule.rhs r).allLevelParamsDefined cv.levelParams = true ∧
@@ -277,8 +294,8 @@ theorem EnvWF.cons {c : ConstantInfo} {env : Env}
     refine ⟨h1, h2, Expr.constsResolve_mono h3, h4, fun cv value hint heq =>
       let ⟨g1, g2, g3, g4⟩ := h5 cv value hint heq
       ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩, ?_⟩
-    intro cv nP nM nm ni rules heq r hr
-    obtain ⟨g1, g2, g3, g4⟩ := h6 cv nP nM nm ni rules heq r hr
+    intro cv mI rP rules heq r hr
+    obtain ⟨g1, g2, g3, g4⟩ := h6 cv mI rP rules heq r hr
     exact ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩
 
 end Setlec

@@ -39,7 +39,7 @@ private theorem constWF_intro {env : Env} {c : ConstantInfo}
       value.allLevelParamsDefined cv.levelParams = true ∧
       value.constsResolve env = true ∧
       value.looseBVarsBounded 0 = true)
-    (h6 : ∀ cv nP nM nm ni rules, c = .recInfo cv nP nM nm ni rules →
+    (h6 : ∀ cv mI rP rules, c = .recInfo cv mI rP rules →
       ∀ r, r ∈ rules →
         (RecRule.rhs r).hasFvar = false ∧
         (RecRule.rhs r).allLevelParamsDefined cv.levelParams = true ∧
@@ -76,13 +76,13 @@ private theorem find?_isSome_cons_swap {env : Env} {c₁ c₂ : ConstantInfo}
 /-- The four `ConstWF` facts `RuleChecked` provides for a checked
 rule's right-hand side. -/
 private theorem ruleChecked_rhs_facts {F : Nat} {env env₀ : Env}
-    {f : Name → Name} {cvA : ConstantVal} {nP nM nm ni : Nat}
-    {r : RecRule} (h : RuleChecked F env env₀ f cvA nP nM nm ni r) :
+    {f : Name → Name} {cvA : ConstantVal} {mI rP : Nat}
+    {r : RecRule} (h : RuleChecked F env env₀ f cvA mI rP r) :
     (RecRule.rhs r).hasFvar = false ∧
     (RecRule.rhs r).looseBVarsBounded 0 = true ∧
     (RecRule.rhs r).allLevelParamsDefined cvA.levelParams = true ∧
     (RecRule.rhs r).constsResolve env₀ = true := by
-  obtain ⟨cvj, cnP, cnF, raw, rhsTy, rbinders, rbody, -, -, -, -, -,
+  obtain ⟨cvj, cnP, cnF, raw, rhsTy, rbinders, rbody, -, -, -, -, -, -, -,
     hrhsf, hrhsb, hrlp, hrres, -, -, -⟩ := h
   exact ⟨hrhsf, hrhsb, hrlp, hrres⟩
 
@@ -115,9 +115,10 @@ theorem checkIndMember_wfimp {blockNames : List Name} {caps : IndCaps}
     | .indInfo cvI capsI => intro h; exact h
     | .ctorInfo cvI nPI nFI => intro h; exact h
     | .axiomInfo _ => intro h; exact nomatch h
+    | .projInfo _ => intro h; exact nomatch h
     | .defnInfo _ _ _ => intro h; exact nomatch h
     | .thmInfo _ _ => intro h; exact nomatch h
-    | .recInfo _ _ _ _ _ _ => intro h; exact nomatch h
+    | .recInfo _ _ _ _ => intro h; exact nomatch h
   refine ⟨hpure, ?_⟩
   obtain ⟨cvA', cvm, mval, hmcvm, hccv', hms, hfm, hlps, hren, hcases⟩ :=
     checkIndMember_inv hpure
@@ -126,18 +127,17 @@ theorem checkIndMember_wfimp {blockNames : List Name} {caps : IndCaps}
   · exact EnvWF.cons henv' (constWF_intro htf htp
       (Expr.constsResolve_mono htr) htb
       (fun _ _ _ heq => nomatch heq)
-      (fun _ _ _ _ _ _ heq => nomatch heq))
+      (fun _ _ _ _ heq => nomatch heq))
   · exact EnvWF.cons henv' (constWF_intro htf htp
       (Expr.constsResolve_mono htr) htb
       (fun _ _ _ heq => nomatch heq)
-      (fun _ _ _ _ _ _ heq => nomatch heq))
+      (fun _ _ _ _ heq => nomatch heq))
 
 /-- The recursor-provisioning fold, `wfOpsM` to pure, with the
 provisional environment well-formed. -/
 private theorem provisionRecs_wfimp {blockNames : List Name} {F : Nat} :
     ∀ (recs : List ConstantInfo) (envAcc : Env)
-      {p : Env × List (ConstantVal × Nat × Nat × Nat × Nat ×
-        List RecRule)},
+      {p : Env × List (ConstantVal × Nat × Nat × List RecRule)},
       EnvWF envAcc →
       (provisionRecs wfOpsM blockNames envAcc recs).val F = .ok p →
       provisionRecs (fueledOps F) blockNames envAcc recs = .ok p ∧
@@ -151,8 +151,9 @@ private theorem provisionRecs_wfimp {blockNames : List Name} {F : Nat} :
     unfold provisionRecs at h ⊢
     revert h
     match hci : ci with
-    | .recInfo cv nP nM nm ni rules => ?_
+    | .recInfo cv mI rP rules => ?_
     | .axiomInfo _ => intro h; exact nomatch h
+    | .projInfo _ => intro h; exact nomatch h
     | .defnInfo _ _ _ => intro h; exact nomatch h
     | .thmInfo _ _ => intro h; exact nomatch h
     | .indInfo _ _ => intro h; exact nomatch h
@@ -163,14 +164,14 @@ private theorem provisionRecs_wfimp {blockNames : List Name} {F : Nat} :
     have hcmv := checkMemberVal_wfimp henv hcmvW
     obtain ⟨hccv, -, -, -, -, -, -, -⟩ := checkMemberVal_inv hcmv
     obtain ⟨htf, htp, htr, htb⟩ := cvA_type_facts hccv
-    have henv₁ : EnvWF ⟨.recInfo cvA nP nM nm ni [] ::
+    have henv₁ : EnvWF ⟨.recInfo cvA mI rP [] ::
         envAcc.consts⟩ :=
       EnvWF.cons henv (constWF_intro htf htp
         (Expr.constsResolve_mono htr) htb
         (fun _ _ _ heq => nomatch heq)
-        (fun cvR nP' nM' nm' ni' rules' heq r hr => by
-          injection heq with h1 h2 h3 h4 h5 h6
-          subst h6
+        (fun cvR mI' rP' rules' heq r hr => by
+          injection heq with h1 h2 h3 h4
+          subst h4
           exact nomatch hr))
     obtain ⟨p', hrecW, h⟩ := atF_bind_ok h
     obtain ⟨hrec, hwfS⟩ := provisionRecs_wfimp rest _ henv₁ hrecW
@@ -183,7 +184,7 @@ private theorem provisionRecs_wfimp {blockNames : List Name} {F : Nat} :
       rw [hrec]
       simp only [Bind.bind, Except.bind]
       exact h
-    · have h' : (Except.ok ((envSelf, (cvA, nP, nM, nm, ni, rules) ::
+    · have h' : (Except.ok ((envSelf, (cvA, mI, rP, rules) ::
           others) : Env × _) : Except CheckError _) = Except.ok p := h
       cases h'
       exact hwfS
@@ -198,8 +199,8 @@ private theorem constWF_le {envA envB : Env}
   · intro cv v hint heq
     obtain ⟨g1, g2, g3, g4⟩ := h5 cv v hint heq
     exact ⟨g1, g2, Expr.constsResolve_le hle g3, g4⟩
-  · intro cv a b c' d e heq r hr
-    obtain ⟨g1, g2, g3, g4⟩ := h6 cv a b c' d e heq r hr
+  · intro cv a b e heq r hr
+    obtain ⟨g1, g2, g3, g4⟩ := h6 cv a b e heq r hr
     exact ⟨g1, g2, Expr.constsResolve_le hle g3, g4⟩
 
 /-- The recursor-group check, `wfOpsM` to pure, with the final
@@ -231,25 +232,24 @@ theorem checkIndRecs_wfimp {blockNames : List Name} {env₂ env₃ : Env}
   have hProv := provisionRecs_facts recs env₂ (envSelf, checked)
     hprov hbn
   -- the rule-checking fold, `wfOpsM` to pure
-  have hfold : ∀ (cs : List (ConstantVal × Nat × Nat × Nat × Nat ×
-      List RecRule)),
+  have hfold : ∀ (cs : List (ConstantVal × Nat × Nat × List RecRule)),
       (∀ c ∈ cs, c.1.type.hasFvar = false) →
       ∀ (acc : Env) {envO : Env},
       (cs.foldlM (fun (acc : Env)
-          (c : ConstantVal × Nat × Nat × Nat × Nat × List RecRule) => do
+          (c : ConstantVal × Nat × Nat × List RecRule) => do
           let rules' ← checkIotaRules wfOpsM env₂ envSelf
             (fun n => if blockNames.contains n then n.str "_model"
               else n) c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1
-            c.2.2.2.1 c.2.2.2.2.1 0 c.2.2.2.2.2
-          pure (⟨.recInfo c.1 c.2.1 c.2.2.1 c.2.2.2.1 c.2.2.2.2.1
+            0 c.2.2.2
+          pure (⟨.recInfo c.1 c.2.1 c.2.2.1
             rules' :: acc.consts⟩ : Env)) acc).val F = .ok envO →
       cs.foldlM (fun (acc : Env)
-          (c : ConstantVal × Nat × Nat × Nat × Nat × List RecRule) => do
+          (c : ConstantVal × Nat × Nat × List RecRule) => do
           let rules' ← checkIotaRules (fueledOps F) env₂ envSelf
             (fun n => if blockNames.contains n then n.str "_model"
               else n) c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1
-            c.2.2.2.1 c.2.2.2.2.1 0 c.2.2.2.2.2
-          pure (⟨.recInfo c.1 c.2.1 c.2.2.1 c.2.2.2.1 c.2.2.2.2.1
+            0 c.2.2.2
+          pure (⟨.recInfo c.1 c.2.1 c.2.2.1
             rules' :: acc.consts⟩ : Env)) acc = .ok envO := by
     intro cs
     induction cs with
@@ -263,17 +263,17 @@ theorem checkIndRecs_wfimp {blockNames : List Name} {env₂ env₃ : Env}
       obtain ⟨rules', hir, hstep⟩ := atF_bind_ok hstep
       have hir' := checkIotaRules_wfimp henv₂ henvSelf
         (hty c List.mem_cons_self) hir
-      have hstep' : (⟨.recInfo c.1 c.2.1 c.2.2.1 c.2.2.2.1 c.2.2.2.2.1
+      have hstep' : (⟨.recInfo c.1 c.2.1 c.2.2.1
           rules' :: acc.consts⟩ : Env) = e₁ := by
-        have hs : (Except.ok (⟨.recInfo c.1 c.2.1 c.2.2.1 c.2.2.2.1
-            c.2.2.2.2.1 rules' :: acc.consts⟩ : Env) :
+        have hs : (Except.ok (⟨.recInfo c.1 c.2.1 c.2.2.1
+            rules' :: acc.consts⟩ : Env) :
             Except CheckError Env) = .ok e₁ := hstep
         exact Except.ok.inj hs
       show ((do
           let rules' ← checkIotaRules (fueledOps F) env₂ envSelf _
-            c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 c.2.2.2.1
-            c.2.2.2.2.1 0 c.2.2.2.2.2
-          pure (⟨.recInfo c.1 c.2.1 c.2.2.1 c.2.2.2.1 c.2.2.2.2.1
+            c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1
+            0 c.2.2.2
+          pure (⟨.recInfo c.1 c.2.1 c.2.2.1
             rules' :: acc.consts⟩ : Env)) >>= _) = _
       rw [hir']
       simp only [Bind.bind, Except.bind, pure, Except.pure]
@@ -301,7 +301,7 @@ theorem checkIndRecs_wfimp {blockNames : List Name} {env₂ env₃ : Env}
     have hisoSome : ∀ n, (envSelf.find? n).isSome =
         (env₃.find? n).isSome := by
       intro n
-      rcases hcorr n with heq | ⟨cv, a, b, c, d, e0, h₀, h₃, -⟩
+      rcases hcorr n with heq | ⟨cv, a, b, e0, h₀, h₃, -⟩
       · rw [heq]
       · rw [h₀, h₃]
         rfl
@@ -327,11 +327,11 @@ theorem checkIndRecs_wfimp {blockNames : List Name} {env₂ env₃ : Env}
         (fun _ _ _ heq => nomatch heq) ?_
       · rw [← Expr.constsResolve_congr hisoSome]
         exact htres
-      · intro cvR nP' nM' nm' ni' rules'' heq r hr
-        injection heq with e1 e2 e3 e4 e5 e6
-        subst e6
+      · intro cvR mI' rP' rules'' heq r hr
+        injection heq with e1 e2 e3 e4
+        subst e4
         obtain ⟨cvj, cnP, cnF, raw, rhsTy, rbinders, rbody, -, -, -, -,
-          -, hrf, hrb, hrlp, hrres, -, -, -⟩ := hkits r hr
+          -, -, -, hrf, hrb, hrlp, hrres, -, -, -⟩ := hkits r hr
         refine ⟨hrf, by rw [← e1]; exact hrlp, ?_, hrb⟩
         rw [← Expr.constsResolve_congr hisoSome]
         exact hrres
@@ -395,9 +395,9 @@ private theorem installProjFnStepE_wfimp {T ctorName : Name}
     refine EnvWF.cons he (constWF_intro hfv hlp
       (Expr.constsResolve_mono hres) hbv
       (fun _ _ _ heq => nomatch heq) ?_)
-    intro cvR nP' nM' nm' ni' rules'' heq r hr
-    injection heq with h1 h2 h3 h4 h5 h6
-    subst h1; subst h6
+    intro cvR mI' rP' rules'' heq r hr
+    injection heq with h1 h2 h3 h4
+    subst h1; subst h4
     rcases List.mem_singleton.mp hr with rfl
     exact ⟨hrfv, halp, Expr.constsResolve_mono hrres, hrbv⟩
   · simp only [pure, Except.pure, Except.ok.injEq] at h
@@ -435,6 +435,86 @@ private theorem foldProjFn_wfimp {T ctorName : Name} {lps : List Name}
       show (installProjFnStep (fueledOps F) T ctorName lps nP nF e i >>=
         fun e₁ => idxs.foldlM (installProjFnStep (fueledOps F) T ctorName
           lps nP nF) e₁) = .ok e₂
+      rw [hp]
+      exact hrest
+
+/-- The template-install step, `wfOpsM`-run to pure run, preserving
+environment well-formedness (the consed entry has the closed junk
+`Prop` type). -/
+private theorem installProjTemplateStepE_wfimp {T ctorName : Name}
+    {lps : List Name} {nP nF : Nat} {e e₁ : Env} {i F : Nat}
+    (he : EnvWF e)
+    (h : (installProjTemplateStep T ctorName lps nP nF e i :
+      FueledM _).val F = .ok e₁) :
+    (installProjTemplateStep T ctorName lps nP nF e i : CheckM _)
+      = .ok e₁ ∧ EnvWF e₁ := by
+  rw [installProjTemplateStep_datF] at h
+  refine ⟨h, ?_⟩
+  revert h
+  unfold installProjTemplateStep installProjTemplate
+  split
+  case isFalse =>
+    intro h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact h ▸ he
+  case isTrue hfree =>
+    split
+    case h_2 =>
+      intro h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact h ▸ he
+    case h_1 cvR mI2 rP2 rule heqR =>
+      split
+      case isFalse =>
+        intro h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        exact h ▸ he
+      case isTrue hcond =>
+        intro h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        refine h ▸ EnvWF.cons he ?_
+        refine ⟨rfl, rfl, rfl, rfl, ?_, ?_⟩
+        · intro _ _ _ heq
+          exact nomatch heq
+        · intro _ _ _ _ heq
+          exact nomatch heq
+
+/-- The template-install fold, `wfOpsM` to pure. -/
+private theorem foldProjTemplates_wfimp {T ctorName : Name}
+    {lps : List Name} {nP nF F : Nat} :
+    ∀ (idxs : List Nat) (e : Env) {e₂ : Env},
+      EnvWF e →
+      (idxs.foldlM
+        (installProjTemplateStep (m := FueledM) T ctorName lps nP nF)
+        e).val F = .ok e₂ →
+      idxs.foldlM
+        (installProjTemplateStep (m := CheckM) T ctorName lps nP nF)
+        e = .ok e₂ ∧ EnvWF e₂
+  | [], e, e₂, he, h => by
+    have h' : (Except.ok e : CheckM Env) = Except.ok e₂ := h
+    cases h'
+    exact ⟨rfl, he⟩
+  | i :: idxs, e, e₂, he, h => by
+    have h' : ((installProjTemplateStep T ctorName lps nP nF e i >>=
+        fun e₁ => idxs.foldlM
+          (installProjTemplateStep T ctorName lps nP nF) e₁ :
+        FueledM Env)).val F = .ok e₂ := h
+    rw [FueledM.atF_bind] at h'
+    cases hm : (installProjTemplateStep T ctorName lps nP nF e i :
+        FueledM _).val F with
+    | error err => rw [hm] at h'; exact nomatch h'
+    | ok e₁ =>
+      rw [hm] at h'
+      have h'' : (idxs.foldlM
+          (installProjTemplateStep T ctorName lps nP nF) e₁ :
+          FueledM _).val F = .ok e₂ := h'
+      obtain ⟨hp, he₁⟩ := installProjTemplateStepE_wfimp he hm
+      obtain ⟨hrest, hwf⟩ := foldProjTemplates_wfimp idxs e₁ he₁ h''
+      refine ⟨?_, hwf⟩
+      show (installProjTemplateStep T ctorName lps nP nF e i >>=
+        fun e₁ => idxs.foldlM
+          (installProjTemplateStep T ctorName lps nP nF) e₁ :
+        CheckM Env) = .ok e₂
       rw [hp]
       exact hrest
 
@@ -480,8 +560,15 @@ theorem checkIndDecl_wfimp {env env₂ : Env} {block : List ConstantInfo}
       rw [if_neg hguard] at h
       exact absurd h atF_throw_bind
     rw [if_pos hguard] at h ⊢
-    obtain ⟨hpp, -⟩ := foldProjFn_wfimp (List.range nF) env₃ henv₃ h
-    exact hpp
+    obtain ⟨env₄, hartW, htplW⟩ := atF_bind_ok h
+    obtain ⟨hart, henv₄⟩ := foldProjFn_wfimp (List.range nF) env₃ henv₃
+      hartW
+    obtain ⟨htpl, -⟩ := foldProjTemplates_wfimp (List.range nF) env₄
+      henv₄ htplW
+    show (_ >>= _ : CheckM Env) = _
+    rw [hart]
+    try simp only [Except.bind]
+    exact htpl
   case _ =>
     try dsimp only [] at h
     obtain ⟨env₁, hfoldW, h⟩ := atF_bind_ok h

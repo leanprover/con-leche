@@ -105,6 +105,30 @@ noncomputable def psigmaRecVal (ψ : Name → Nat) : V :=
           SetTheory.lam 0 (sigmaSet (Nat.max u v) A fun x => app B x)
             fun _t => pt
 
+/-- The value of the pair's first projection (the projection-table
+entry's constant): `λ α β t. sfst t`, with the lam tags the entry
+type's annotation evaluations. -/
+noncomputable def pairFstVal (ψ : Name → Nat) : V :=
+  let u := ψ uN
+  let v := ψ vN
+  let c2 := if u = 0 then 0 else Nat.max (Nat.max u v) u
+  let c1 := if c2 = 0 then 0 else Nat.max (Nat.max u (v + 1)) c2
+  SetTheory.lam c1 (univ u) fun A =>
+    SetTheory.lam c2 (pi (v + 1) A fun _ => univ v) fun B =>
+      SetTheory.lam u (sigmaSet (Nat.max u v) A fun x => SetTheory.app B x)
+        fun t => sfst t
+
+/-- The value of the pair's second projection: `λ α β t. ssnd t`. -/
+noncomputable def pairSndVal (ψ : Name → Nat) : V :=
+  let u := ψ uN
+  let v := ψ vN
+  let c2 := if v = 0 then 0 else Nat.max (Nat.max u v) v
+  let c1 := if c2 = 0 then 0 else Nat.max (Nat.max u (v + 1)) c2
+  SetTheory.lam c1 (univ u) fun A =>
+    SetTheory.lam c2 (pi (v + 1) A fun _ => univ v) fun B =>
+      SetTheory.lam v (sigmaSet (Nat.max u v) A fun x => SetTheory.app B x)
+        fun t => ssnd t
+
 /-- The value of `Nat.succ`. -/
 noncomputable def natSuccVal (_ψ : Name → Nat) : V :=
   SetTheory.lam 1 omega natsucc
@@ -234,7 +258,7 @@ def pinnedInfo (n : Name) : ConstantInfo :=
 
 /-- Is this constant-info one of the basis kinds? -/
 def ConstantInfo.isBasis : ConstantInfo → Bool
-  | .indInfo _ _ | .ctorInfo _ _ _ | .recInfo _ _ _ _ _ _ => true
+  | .indInfo _ _ | .ctorInfo _ _ _ | .recInfo _ _ _ _ => true
   | _ => false
 
 /-- Which names carry constructor-shaped pinned declarations. -/
@@ -307,8 +331,8 @@ theorem pinnedInfo_ctorInfo_cases {n : Name} {cv : ConstantVal} {nP nF : Nat}
 
 /-- Which names carry recursor-shaped pinned declarations. -/
 theorem pinnedInfo_recInfo_cases {n : Name} {cv : ConstantVal}
-    {nP nM nm ni : Nat} {rules : List RecRule}
-    (h : pinnedInfo n = .recInfo cv nP nM nm ni rules) :
+    {mI rP : Nat} {rules : List RecRule}
+    (h : pinnedInfo n = .recInfo cv mI rP rules) :
     n = eqName.str "rec" ∨ n = natName.str "rec" ∨
     n = psigmaName.str "rec" ∨ n = punitName.str "rec" ∨
     n = emptyName.str "rec" ∨ n = quotLiftName ∨ n = quotIndName := by

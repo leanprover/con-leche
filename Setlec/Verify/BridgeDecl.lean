@@ -361,11 +361,11 @@ theorem checkDefEqList_snd_dproj (env : Env) (depth : Nat) :
 
 theorem checkIotaThm_fst_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
-    (nP nM nm ni j : Nat) (r : RecRule) (cvj : ConstantVal)
+    (mI rP j : Nat) (r : RecRule) (cvj : ConstantVal)
     (cnP cnF : Nat) (rhsA : Expr) :
     (checkIotaThm (pairOps o₁ o₂ h) env' envSelf f cvName lps tyA
-      nP nM nm ni j r cvj cnP cnF rhsA).val.1 =
-    checkIotaThm o₁ env' envSelf f cvName lps tyA nP nM nm ni j r cvj
+      mI rP j r cvj cnP cnF rhsA).val.1 =
+    checkIotaThm o₁ env' envSelf f cvName lps tyA mI rP j r cvj
       cnP cnF rhsA := by
   unfold checkIotaThm
   simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
@@ -374,11 +374,11 @@ theorem checkIotaThm_fst_dproj (env' envSelf : Env)
 
 theorem checkIotaThm_snd_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
-    (nP nM nm ni j : Nat) (r : RecRule) (cvj : ConstantVal)
+    (mI rP j : Nat) (r : RecRule) (cvj : ConstantVal)
     (cnP cnF : Nat) (rhsA : Expr) :
     (checkIotaThm (pairOps o₁ o₂ h) env' envSelf f cvName lps tyA
-      nP nM nm ni j r cvj cnP cnF rhsA).val.2 =
-    checkIotaThm o₂ env' envSelf f cvName lps tyA nP nM nm ni j r cvj
+      mI rP j r cvj cnP cnF rhsA).val.2 =
+    checkIotaThm o₂ env' envSelf f cvName lps tyA mI rP j r cvj
       cnP cnF rhsA := by
   unfold checkIotaThm
   simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
@@ -388,77 +388,77 @@ theorem checkIotaThm_snd_dproj (env' envSelf : Env)
 set_option maxHeartbeats 12800000 in
 theorem checkIotaRule_fst_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
-    (nP nM nm ni j : Nat) (r : RecRule) :
+    (mI rP j : Nat) (r : RecRule) :
     (checkIotaRule (pairOps o₁ o₂ h) env' envSelf f cvName lps tyA
-      nP nM nm ni j r).val.1 =
-    checkIotaRule o₁ env' envSelf f cvName lps tyA nP nM nm ni j r := by
+      mI rP j r).val.1 =
+    checkIotaRule o₁ env' envSelf f cvName lps tyA mI rP j r := by
   unfold checkIotaRule
   dfst_tac
   all_goals rw [checkIotaThm_fst_dproj]
 
 theorem checkIotaRules_fst_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
-    (nP nM nm ni : Nat) :
+    (mI rP : Nat) :
     ∀ (j : Nat) (rules : List RecRule),
       (checkIotaRules (pairOps o₁ o₂ h) env' envSelf f cvName lps tyA
-        nP nM nm ni j rules).val.1 =
-      checkIotaRules o₁ env' envSelf f cvName lps tyA nP nM nm ni j rules
+        mI rP j rules).val.1 =
+      checkIotaRules o₁ env' envSelf f cvName lps tyA mI rP j rules
   | _, [] => rfl
   | j, r :: rest => by
     show ((do
         let r' ← checkIotaRule (pairOps o₁ o₂ h) env' envSelf f cvName
-          lps tyA nP nM nm ni j r
+          lps tyA mI rP j r
         let rest' ← checkIotaRules (pairOps o₁ o₂ h) env' envSelf f
-          cvName lps tyA nP nM nm ni (j + 1) rest
+          cvName lps tyA mI rP (j + 1) rest
         pure (r' :: rest') : PairM rel _)).val.1 = (do
         let r' ← checkIotaRule o₁ env' envSelf f cvName lps tyA
-          nP nM nm ni j r
+          mI rP j r
         let rest' ← checkIotaRules o₁ env' envSelf f cvName lps tyA
-          nP nM nm ni (j + 1) rest
+          mI rP (j + 1) rest
         pure (r' :: rest'))
     rw [PairM.fst_bind, checkIotaRule_fst_dproj]
     congr 1
     funext r'
     rw [PairM.fst_bind, checkIotaRules_fst_dproj env' envSelf f cvName lps tyA
-      nP nM nm ni (j + 1) rest]
+      mI rP (j + 1) rest]
     rfl
 
 set_option maxHeartbeats 12800000 in
 theorem checkIotaRule_snd_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
-    (nP nM nm ni j : Nat) (r : RecRule) :
+    (mI rP j : Nat) (r : RecRule) :
     (checkIotaRule (pairOps o₁ o₂ h) env' envSelf f cvName lps tyA
-      nP nM nm ni j r).val.2 =
-    checkIotaRule o₂ env' envSelf f cvName lps tyA nP nM nm ni j r := by
+      mI rP j r).val.2 =
+    checkIotaRule o₂ env' envSelf f cvName lps tyA mI rP j r := by
   unfold checkIotaRule
   dsnd_tac
   all_goals rw [checkIotaThm_snd_dproj]
 
 theorem checkIotaRules_snd_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
-    (nP nM nm ni : Nat) :
+    (mI rP : Nat) :
     ∀ (j : Nat) (rules : List RecRule),
       (checkIotaRules (pairOps o₁ o₂ h) env' envSelf f cvName lps tyA
-        nP nM nm ni j rules).val.2 =
-      checkIotaRules o₂ env' envSelf f cvName lps tyA nP nM nm ni j rules
+        mI rP j rules).val.2 =
+      checkIotaRules o₂ env' envSelf f cvName lps tyA mI rP j rules
   | _, [] => rfl
   | j, r :: rest => by
     show ((do
         let r' ← checkIotaRule (pairOps o₁ o₂ h) env' envSelf f cvName
-          lps tyA nP nM nm ni j r
+          lps tyA mI rP j r
         let rest' ← checkIotaRules (pairOps o₁ o₂ h) env' envSelf f
-          cvName lps tyA nP nM nm ni (j + 1) rest
+          cvName lps tyA mI rP (j + 1) rest
         pure (r' :: rest') : PairM rel _)).val.2 = (do
         let r' ← checkIotaRule o₂ env' envSelf f cvName lps tyA
-          nP nM nm ni j r
+          mI rP j r
         let rest' ← checkIotaRules o₂ env' envSelf f cvName lps tyA
-          nP nM nm ni (j + 1) rest
+          mI rP (j + 1) rest
         pure (r' :: rest'))
     rw [PairM.snd_bind, checkIotaRule_snd_dproj]
     congr 1
     funext r'
     rw [PairM.snd_bind, checkIotaRules_snd_dproj env' envSelf f cvName lps tyA
-      nP nM nm ni (j + 1) rest]
+      mI rP (j + 1) rest]
     rfl
 
 macro "dfst_step2" : tactic =>
@@ -660,6 +660,14 @@ theorem installProjFnStep_fst_dproj (T ctorName : Name)
   · exact checkProjFn_fst_dproj e T ctorName lps nP nF i
   · rfl
 
+theorem installProjTemplateStep_fst_dproj (T ctorName : Name)
+    (lps : List Name) (nP nF : Nat) (e : Env) (i : Nat) :
+    (installProjTemplateStep T ctorName lps nP nF e i :
+        PairM rel _).val.1 =
+      (installProjTemplateStep T ctorName lps nP nF e i : M₁ _) := by
+  unfold installProjTemplateStep installProjTemplate
+  dfst_tac
+
 theorem installBasisDecl_fst_dproj (env : Env) (ci : ConstantInfo) :
     (installBasisDecl env ci : PairM rel _).val.1 =
       (installBasisDecl env ci : M₁ _) := by
@@ -674,6 +682,34 @@ theorem installProjFnStep_snd_dproj (T ctorName : Name)
   split
   · exact checkProjFn_snd_dproj e T ctorName lps nP nF i
   · rfl
+
+theorem installProjTemplateStep_snd_dproj (T ctorName : Name)
+    (lps : List Name) (nP nF : Nat) (e : Env) (i : Nat) :
+    (installProjTemplateStep T ctorName lps nP nF e i :
+        PairM rel _).val.2 =
+      (installProjTemplateStep T ctorName lps nP nF e i : M₂ _) := by
+  unfold installProjTemplateStep installProjTemplate
+  dsnd_tac
+
+theorem installProjTemplateStep_fst_fun (T ctorName : Name)
+    (lps : List Name) (nP nF : Nat) :
+    (fun (e : Env) (i : Nat) =>
+      (installProjTemplateStep T ctorName lps nP nF e i :
+        PairM rel _).val.1) =
+    (installProjTemplateStep T ctorName lps nP nF :
+      Env → Nat → M₁ Env) :=
+  funext fun e => funext fun i =>
+    installProjTemplateStep_fst_dproj T ctorName lps nP nF e i
+
+theorem installProjTemplateStep_snd_fun (T ctorName : Name)
+    (lps : List Name) (nP nF : Nat) :
+    (fun (e : Env) (i : Nat) =>
+      (installProjTemplateStep T ctorName lps nP nF e i :
+        PairM rel _).val.2) =
+    (installProjTemplateStep T ctorName lps nP nF :
+      Env → Nat → M₂ Env) :=
+  funext fun e => funext fun i =>
+    installProjTemplateStep_snd_dproj T ctorName lps nP nF e i
 
 theorem installBasisDecl_snd_dproj (env : Env) (ci : ConstantInfo) :
     (installBasisDecl env ci : PairM rel _).val.2 =
@@ -698,6 +734,7 @@ macro "dfst_step4" : tactic =>
     | (rw [checkIndRecs_fst_dproj])
     | (rw [checkProjFn_fst_dproj])
     | (rw [checkIndDecl_fst_dproj])
+    | (rw [installProjTemplateStep_fst_fun])
     | split
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
@@ -726,6 +763,7 @@ macro "dsnd_step4" : tactic =>
     | (rw [checkIndRecs_snd_dproj])
     | (rw [checkProjFn_snd_dproj])
     | (rw [checkIndDecl_snd_dproj])
+    | (rw [installProjTemplateStep_snd_fun])
     | split
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl
@@ -1184,12 +1222,12 @@ theorem checkDefEqList_datF (env : Env) (depth F : Nat) :
 
 theorem checkIotaThm_datF (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
-    (nP nM nm ni j : Nat) (r : RecRule) (cvj : ConstantVal)
+    (mI rP j : Nat) (r : RecRule) (cvj : ConstantVal)
     (cnP cnF : Nat) (rhsA : Expr) (F : Nat) :
     (checkIotaThm fueledOpsM env' envSelf f cvName lps tyA
-      nP nM nm ni j r cvj cnP cnF rhsA).val F =
-    checkIotaThm (fueledOps F) env' envSelf f cvName lps tyA nP nM nm
-      ni j r cvj cnP cnF rhsA := by
+      mI rP j r cvj cnP cnF rhsA).val F =
+    checkIotaThm (fueledOps F) env' envSelf f cvName lps tyA mI rP
+      j r cvj cnP cnF rhsA := by
   unfold checkIotaThm
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     fueledOpsM_isDefEq_atF, unwrapOr_atF, checkDefEqList_datF]
@@ -1197,41 +1235,41 @@ theorem checkIotaThm_datF (env' envSelf : Env)
 set_option maxHeartbeats 12800000 in
 theorem checkIotaRule_datF (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
-    (nP nM nm ni j : Nat) (r : RecRule) (F : Nat) :
+    (mI rP j : Nat) (r : RecRule) (F : Nat) :
     (checkIotaRule fueledOpsM env' envSelf f cvName lps tyA
-      nP nM nm ni j r).val F =
+      mI rP j r).val F =
     checkIotaRule (fueledOps F) env' envSelf f cvName lps tyA
-      nP nM nm ni j r := by
+      mI rP j r := by
   unfold checkIotaRule
   datF_tac
   all_goals rw [checkIotaThm_datF]
 
 theorem checkIotaRules_datF (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
-    (nP nM nm ni : Nat) (F : Nat) :
+    (mI rP : Nat) (F : Nat) :
     ∀ (j : Nat) (rules : List RecRule),
       (checkIotaRules fueledOpsM env' envSelf f cvName lps tyA
-        nP nM nm ni j rules).val F =
+        mI rP j rules).val F =
       checkIotaRules (fueledOps F) env' envSelf f cvName lps tyA
-        nP nM nm ni j rules
+        mI rP j rules
   | _, [] => rfl
   | j, r :: rest => by
     show ((do
         let r' ← checkIotaRule fueledOpsM env' envSelf f cvName lps tyA
-          nP nM nm ni j r
+          mI rP j r
         let rest' ← checkIotaRules fueledOpsM env' envSelf f cvName lps
-          tyA nP nM nm ni (j + 1) rest
+          tyA mI rP (j + 1) rest
         pure (r' :: rest') : FueledM _)).val F = (do
         let r' ← checkIotaRule (fueledOps F) env' envSelf f cvName lps
-          tyA nP nM nm ni j r
+          tyA mI rP j r
         let rest' ← checkIotaRules (fueledOps F) env' envSelf f cvName
-          lps tyA nP nM nm ni (j + 1) rest
+          lps tyA mI rP (j + 1) rest
         pure (r' :: rest'))
     rw [FueledM.atF_bind, checkIotaRule_datF]
     congr 1
     funext r'
     rw [FueledM.atF_bind, checkIotaRules_datF env' envSelf f cvName lps
-      tyA nP nM nm ni F (j + 1) rest]
+      tyA mI rP F (j + 1) rest]
     rfl
 
 macro "datF_step2" : tactic =>
@@ -1337,6 +1375,24 @@ theorem installProjFnStep_datF (T ctorName : Name)
   · exact checkProjFn_datF e T ctorName lps nP nF i F
   · rfl
 
+theorem installProjTemplateStep_datF (T ctorName : Name)
+    (lps : List Name) (nP nF : Nat) (e : Env) (i : Nat) (F : Nat) :
+    (installProjTemplateStep T ctorName lps nP nF e i :
+        FueledM _).val F =
+      (installProjTemplateStep T ctorName lps nP nF e i : CheckM _) := by
+  unfold installProjTemplateStep installProjTemplate
+  datF_tac
+
+theorem installProjTemplateStep_datF_fun (T ctorName : Name)
+    (lps : List Name) (nP nF : Nat) (F : Nat) :
+    (fun (e : Env) (i : Nat) =>
+      (installProjTemplateStep T ctorName lps nP nF e i :
+        FueledM _).val F) =
+    (installProjTemplateStep T ctorName lps nP nF :
+      Env → Nat → CheckM Env) :=
+  funext fun e => funext fun i =>
+    installProjTemplateStep_datF T ctorName lps nP nF e i F
+
 theorem installBasisDecl_datF (env : Env) (ci : ConstantInfo) (F : Nat) :
     (installBasisDecl env ci : FueledM _).val F =
       (installBasisDecl env ci : CheckM _) := by
@@ -1360,6 +1416,7 @@ macro "datF_step4" : tactic =>
     | (rw [checkIndRecs_datF])
     | (rw [checkProjFn_datF])
     | (rw [checkIndDecl_datF])
+    | (rw [installProjTemplateStep_datF_fun])
     | split
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
     | rfl

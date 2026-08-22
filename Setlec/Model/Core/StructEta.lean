@@ -244,9 +244,9 @@ theorem structEtaWith_sound {m : EnvModel V env} {fuel : Nat}
     exact haargswf x (List.mem_of_mem_take hx)
   -- the projection certificates
   have hpcFacts : ∀ i, i < cnF → ∃ (cvp : ConstantVal)
-      (nPp nMp nmp nip : Nat) (rulesp : List RecRule),
+      (mIp rPp : Nat) (rulesp : List RecRule),
       env.find? (projFnName T i) =
-        some (.recInfo cvp nPp nMp nmp nip rulesp) ∧
+        some (.recInfo cvp mIp rPp rulesp) ∧
       cvp.levelParams = cvT.levelParams ∧
       (cvp.type.stripPis (wtb.getAppArgs.length + 1)).isSome = true ∧
       iotaCertsP env fuel d
@@ -265,7 +265,7 @@ theorem structEtaWith_sound {m : EnvModel V env} {fuel : Nat}
           (wtb.getAppArgs ++ [b])) =
       some (SpineFold V (m.val (projFnName T j) ψ') (psv ++ [vb])) := by
     intro j hj
-    obtain ⟨cvp, nPp, nMp, nmp, nip, rulesp, hfpj, hplps,
+    obtain ⟨cvp, mIp, rPp, rulesp, hfpj, hplps,
       hpstrip, hicj⟩ := hpcFacts j hj
     have hpname : cvp.name = projFnName T j := by
       have h1 := List.find?_some hfpj
@@ -280,9 +280,9 @@ theorem structEtaWith_sound {m : EnvModel V env} {fuel : Nat}
         some (m.val (projFnName T j) ψ') := by
       simp only [interpExpr, hfpj]
       rw [if_pos (show us'.length =
-        (ConstantInfo.recInfo cvp nPp nMp nmp nip
+        (ConstantInfo.recInfo cvp mIp rPp
           rulesp).toConstantVal.levelParams.length from hplen)]
-      rw [show (ConstantInfo.recInfo cvp nPp nMp nmp nip
+      rw [show (ConstantInfo.recInfo cvp mIp rPp
         rulesp).toConstantVal.levelParams = cvp.levelParams from rfl, hψp]
     -- the projection function's type facts
     obtain ⟨hPtf, -, -, hPtb, -, -⟩ := m.wf _ (find?_mem hfpj)
@@ -407,9 +407,9 @@ theorem structEtaWith_sound {m : EnvModel V env} {fuel : Nat}
   have hvalPM : ∀ i, i < cnF →
       m.val (projFnName T i) ψ' = m.val (projModelName T i) ψ' := by
     intro i hi
-    obtain ⟨cvp, nPp, nMp, nmp, nip, rulesp, hfpj, -, -, -⟩ :=
+    obtain ⟨cvp, mIp, rPp, rulesp, hfpj, -, -, -⟩ :=
       hpcFacts i hi
-    obtain ⟨-, hveqP⟩ := m.modeled_ok.2.2.1 T i _ hfpj
+    obtain ⟨-, hveqP⟩ := m.modeled_ok.2.2.1 T i _ _ _ _ hfpj
     exact hveqP ψ'
   have hfldsM : ((List.range cnF).map fun i =>
       SpineFold V (m.val (projFnName T i) ψ') (psv ++ [vb])) =

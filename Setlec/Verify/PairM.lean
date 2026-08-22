@@ -250,7 +250,7 @@ theorem structEtaProjCerts_fst (d : Nat) (T : Name) (us' : List Level)
   | i :: rest => by
     show ((do
         match env.find? (projFnName T i) with
-        | some (.recInfo cvp _ _ _ _ _) =>
+        | some (.recInfo cvp _ _ _) =>
           if cvp.levelParams = lpsT ∧
               (cvp.type.stripPis (targs.length + 1)).isSome = true then
             if ← iotaCerts (pairFns r₁ r₂ h) env d
@@ -262,7 +262,7 @@ theorem structEtaProjCerts_fst (d : Nat) (T : Name) (us' : List Level)
           else pure false
         | _ => pure false : PairM rel Bool)).val.1 = (do
         match env.find? (projFnName T i) with
-        | some (.recInfo cvp _ _ _ _ _) =>
+        | some (.recInfo cvp _ _ _) =>
           if cvp.levelParams = lpsT ∧
               (cvp.type.stripPis (targs.length + 1)).isSome = true then
             if ← iotaCerts r₁ env d
@@ -276,7 +276,7 @@ theorem structEtaProjCerts_fst (d : Nat) (T : Name) (us' : List Level)
     | none => rfl
     | some ci =>
       cases ci with
-      | recInfo cvp nP nM nm ni rules =>
+      | recInfo cvp mI rP rules =>
         dsimp only
         split
         · rw [PairM.fst_bind, iotaCerts_fst]
@@ -289,6 +289,7 @@ theorem structEtaProjCerts_fst (d : Nat) (T : Name) (us' : List Level)
           | false => rfl
         · rfl
       | axiomInfo cv => rfl
+      | projInfo _ => rfl
       | defnInfo cv value => rfl
       | thmInfo cv value => rfl
       | indInfo cv caps => rfl
@@ -304,7 +305,7 @@ theorem structEtaProjCerts_snd (d : Nat) (T : Name) (us' : List Level)
   | i :: rest => by
     show ((do
         match env.find? (projFnName T i) with
-        | some (.recInfo cvp _ _ _ _ _) =>
+        | some (.recInfo cvp _ _ _) =>
           if cvp.levelParams = lpsT ∧
               (cvp.type.stripPis (targs.length + 1)).isSome = true then
             if ← iotaCerts (pairFns r₁ r₂ h) env d
@@ -316,7 +317,7 @@ theorem structEtaProjCerts_snd (d : Nat) (T : Name) (us' : List Level)
           else pure false
         | _ => pure false : PairM rel Bool)).val.2 = (do
         match env.find? (projFnName T i) with
-        | some (.recInfo cvp _ _ _ _ _) =>
+        | some (.recInfo cvp _ _ _) =>
           if cvp.levelParams = lpsT ∧
               (cvp.type.stripPis (targs.length + 1)).isSome = true then
             if ← iotaCerts r₂ env d
@@ -330,7 +331,7 @@ theorem structEtaProjCerts_snd (d : Nat) (T : Name) (us' : List Level)
     | none => rfl
     | some ci =>
       cases ci with
-      | recInfo cvp nP nM nm ni rules =>
+      | recInfo cvp mI rP rules =>
         dsimp only
         split
         · rw [PairM.snd_bind, iotaCerts_snd]
@@ -343,6 +344,7 @@ theorem structEtaProjCerts_snd (d : Nat) (T : Name) (us' : List Level)
           | false => rfl
         · rfl
       | axiomInfo cv => rfl
+      | projInfo _ => rfl
       | defnInfo cv value => rfl
       | thmInfo cv value => rfl
       | indInfo cv caps => rfl
@@ -474,15 +476,17 @@ theorem etaCert_snd_proj (d : Nat) (n : Name) (ty body : Expr) (mb : BinderMeta)
   unfold etaCert
   snd_tac
 
-theorem projCert_fst_proj (d : Nat) (e₂ : Expr) (i : Nat) (us : List Level) (nP : Nat) :
-    (projCert (pairFns r₁ r₂ h) env d e₂ i us nP).val.1 =
-      projCert r₁ env d e₂ i us nP := by
+theorem projCert_fst_proj (d : Nat) (e₂ : Expr) (i : Nat)
+    (fieldLvl structLvl : Level) (nP : Nat) :
+    (projCert (pairFns r₁ r₂ h) env d e₂ i fieldLvl structLvl nP).val.1 =
+      projCert r₁ env d e₂ i fieldLvl structLvl nP := by
   unfold projCert
   fst_tac
 
-theorem projCert_snd_proj (d : Nat) (e₂ : Expr) (i : Nat) (us : List Level) (nP : Nat) :
-    (projCert (pairFns r₁ r₂ h) env d e₂ i us nP).val.2 =
-      projCert r₂ env d e₂ i us nP := by
+theorem projCert_snd_proj (d : Nat) (e₂ : Expr) (i : Nat)
+    (fieldLvl structLvl : Level) (nP : Nat) :
+    (projCert (pairFns r₁ r₂ h) env d e₂ i fieldLvl structLvl nP).val.2 =
+      projCert r₂ env d e₂ i fieldLvl structLvl nP := by
   unfold projCert
   snd_tac
 
@@ -624,10 +628,10 @@ theorem projFieldDom_snd_proj (structProp : Bool) (sn : Name) (e₂ : Expr) :
       | (dsimp only [])
       | split)
 
-theorem annotateProjRec_fst_proj (d : Nat) (sn : Name) (i : Nat)
+theorem annotateProjRec_fst_proj (d : Nat) (entry : ProjEntry) (i : Nat)
     (te e₂ : Expr) (us : List Level) :
-    (annotateProjRec (pairFns r₁ r₂ h) env d sn i te e₂ us).val.1 =
-      annotateProjRec r₁ env d sn i te e₂ us := by
+    (annotateProjRec (pairFns r₁ r₂ h) env d entry i te e₂ us).val.1 =
+      annotateProjRec r₁ env d entry i te e₂ us := by
   unfold annotateProjRec
   repeat (first
     | rfl
@@ -639,10 +643,10 @@ theorem annotateProjRec_fst_proj (d : Nat) (sn : Name) (i : Nat)
     | (dsimp only [])
     | split)
 
-theorem annotateProjRec_snd_proj (d : Nat) (sn : Name) (i : Nat)
+theorem annotateProjRec_snd_proj (d : Nat) (entry : ProjEntry) (i : Nat)
     (te e₂ : Expr) (us : List Level) :
-    (annotateProjRec (pairFns r₁ r₂ h) env d sn i te e₂ us).val.2 =
-      annotateProjRec r₂ env d sn i te e₂ us := by
+    (annotateProjRec (pairFns r₁ r₂ h) env d entry i te e₂ us).val.2 =
+      annotateProjRec r₂ env d entry i te e₂ us := by
   unfold annotateProjRec
   repeat (first
     | rfl

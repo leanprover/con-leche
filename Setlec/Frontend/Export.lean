@@ -71,8 +71,11 @@ private def ConstantInfo.canon (ci : ConstantInfo) : ConstantInfo :=
   | .thmInfo _ v => .thmInfo cv (canonExpr m v)
   | .indInfo _ _ => .indInfo cv {}
   | .ctorInfo _ nP nF => .ctorInfo cv nP nF
-  | .recInfo _ nP nM nm ni rules => .recInfo cv nP nM nm ni
+  | .recInfo _ mI rP rules => .recInfo cv mI rP
       (rules.map fun r => { r with rhs := canonExpr m r.rhs })
+  -- table entries never occur in parsed input; identity keeps the
+  -- match total
+  | .projInfo e => .projInfo e
 
 inductive FrontendError where
   | parseError (line : Nat) (msg : String)
@@ -347,14 +350,18 @@ private def processLineCore (st : State) (j : Json)
         (← (← c.getObjVal? "numFields").getNat?))
     let recs ← (← (← v.getObjVal? "recs").getArr?).mapM fun r => do
       let rules ← (← (← r.getObjVal? "rules").getArr?).mapM fun ru => do
+        -- `ctorParams`/`plain` are install-computed; parse placeholders
         pure (RecRule.mk (← getName' st ru "ctor")
-          (← (← ru.getObjVal? "nfields").getNat?)
+          (← (← ru.getObjVal? "nfields").getNat?) 0 false
           (← getDeclExpr' st ru "rhs"))
+      -- only the two sums the checker reads are kept: the major's
+      -- position and the rule-application prefix
+      let nP ← (← r.getObjVal? "numParams").getNat?
+      let nM ← (← r.getObjVal? "numMotives").getNat?
+      let nm ← (← r.getObjVal? "numMinors").getNat?
+      let ni ← (← r.getObjVal? "numIndices").getNat?
       pure (ConstantInfo.recInfo (← parseConstantVal st r)
-        (← (← r.getObjVal? "numParams").getNat?)
-        (← (← r.getObjVal? "numMotives").getNat?)
-        (← (← r.getObjVal? "numMinors").getNat?)
-        (← (← r.getObjVal? "numIndices").getNat?) rules.toList)
+        (nP + nM + nm + ni) (nP + nM + nm) rules.toList)
     let block := types.toList ++ ctors.toList ++ recs.toList
     let blockC := block.map ConstantInfo.canon
     if blockC = BasisKind.eqK.decls.map ConstantInfo.canon then

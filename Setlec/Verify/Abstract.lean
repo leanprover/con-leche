@@ -131,9 +131,10 @@ theorem looseBVarsBounded_abstract1 {d : Nat} :
 
 /-- Inversion for the recursor-inlining projection fallback: whatever
 the rewrite was, it passed the scope guard and was re-annotated. -/
-theorem annotateProjRec_inv {env : Env} {fuel d : Nat} {sn : Name}
+theorem annotateProjRec_inv {env : Env} {fuel d : Nat}
+    {entry : ProjEntry}
     {i : Nat} {te e₂ e' : Expr} {us : List Level}
-    (h : annotateProjRecP env fuel d sn i te e₂ us = .ok e') :
+    (h : annotateProjRecP env fuel d entry i te e₂ us = .ok e') :
     ∃ raw : Expr,
       raw.wscopedB d = true ∧
       raw.looseBVarsBounded 0 = true ∧
@@ -141,8 +142,6 @@ theorem annotateProjRec_inv {env : Env} {fuel d : Nat} {sn : Name}
       annotateCore env fuel d raw = .ok e' := by
   simp only [annotateProjRecP, annotateProjRec, Bind.bind, Except.bind,
     annotate_def, infer_def] at h
-  split at h
-  case h_2 => exact nomatch h
   split at h
   case h_2 => exact nomatch h
   split at h
@@ -156,7 +155,8 @@ theorem annotateProjRec_inv {env : Env} {fuel d : Nat} {sn : Name}
   intro h
   dsimp only at h
   revert h
-  cases hf : projFieldDom (pureFns env fuel) env d structProp sn e₂ 0 i _ with
+  cases hf : projFieldDom (pureFns env fuel) env d structProp
+      entry.structName e₂ 0 i _ with
   | error err => intro h; exact nomatch h
   | ok fi =>
   intro h
@@ -275,16 +275,22 @@ theorem annotateProjElim_inv {env : Env} {fuel d : Nat} {sn : Name}
   try dsimp only at h
   revert h
   match hfp : env.find? (projFnName T i) with
-  | none => intro h; exact annotateProjRec_inv h
-  | some (.axiomInfo _) => intro h; exact annotateProjRec_inv h
-  | some (.defnInfo _ _ _) => intro h; exact annotateProjRec_inv h
-  | some (.thmInfo _ _) => intro h; exact annotateProjRec_inv h
-  | some (.indInfo _ _) => intro h; exact annotateProjRec_inv h
-  | some (.ctorInfo _ _ _) => intro h; exact annotateProjRec_inv h
-  | some (.recInfo pcv nP nM nm ni rules) => ?_
+  | none => intro h; exact nomatch h
+  | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.defnInfo _ _ _) => intro h; exact nomatch h
+  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.indInfo _ _) => intro h; exact nomatch h
+  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+  | some (.projInfo entry) =>
+    intro h
+    dsimp only at h
+    split at h
+    case isTrue => exact nomatch h
+    case isFalse => exact annotateProjRec_inv h
+  | some (.recInfo pcv mI rP rules) => ?_
   intro h
   dsimp only at h
-  by_cases hlen : te.getAppArgs.length = nP
+  by_cases hlen : te.getAppArgs.length = rP
   case neg => rw [if_neg hlen] at h; exact nomatch h
   rw [if_pos hlen] at h
   try dsimp only at h
@@ -301,20 +307,23 @@ theorem annotateProjElim_inv {env : Env} {fuel d : Nat} {sn : Name}
   · rw [if_neg hg] at h
     exact nomatch h
 
-/-- Inversion for `annotate` on projections: either the native basis
-pair rule ran, or the projection was eliminated through a recursor. -/
+/-- Inversion for `annotate` on projections: either a native
+projection-table entry typed the node (which stays, with the display
+name normalized to the type's head), or the projection was rewritten
+through the elimination dispatch. -/
 theorem annotateCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
     {i : Nat} {e e' : Expr}
     (h : annotateCore env (fuel + 1) d (.proj sn i e) = .ok e') :
     ∃ e₂ tt te, annotateCore env fuel d e = .ok e₂ ∧
       inferTypeCore env fuel d e₂ = .ok tt ∧ whnf env fuel d tt = .ok te ∧
-      ((∃ us A B cv caps, te = .app (.app (.const psigmaName us) A) B ∧
-          env.find? psigmaName = some (.indInfo cv caps) ∧
-          i < 2 ∧ e' = .proj sn i e₂) ∨
+      ((∃ T us entry, te.getAppFn = .const T us ∧
+          env.findProj? T i = some entry ∧ entry.native = true ∧
+          te.getAppArgs.length = entry.numParams ∧
+          e' = .proj T i e₂) ∨
         annotateProjElimP env fuel d sn i te e₂ = .ok e') := by
   rw [annotateCore_succ] at h
   simp only [annotateBody, Bind.bind, Except.bind] at h
-  simp only [annotate_def, infer_def, whnf_def] at h
+  simp only [annotate_def, infer_def, whnf_def, annotateProjElim_fold] at h
   cases he : annotateCore env fuel d e with
   | error err => rw [he] at h; exact nomatch h
   | ok e₂ =>
@@ -332,59 +341,35 @@ theorem annotateCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
   dsimp only at h
   refine ⟨e₂, tt, te, rfl, hte, hw, ?_⟩
   revert h
-  match te with
-  | .app (.app (.const c us) A) B => ?_
-  | .sort u => intro h; exact Or.inr h
-  | .fvar i2 n2 t2 => intro h; exact Or.inr h
-  | .const n2 us2 => intro h; exact Or.inr h
-  | .lam n2 t2 b2 m2 => intro h; exact Or.inr h
-  | .forallE n2 t2 b2 m2 => intro h; exact Or.inr h
-  | .bvar i2 => intro h; exact Or.inr h
-  | .letE n2 t2 v2 b2 => intro h; exact Or.inr h
-  | .lit l2 => intro h; exact Or.inr h
-  | .proj s2 i2 e2 => intro h; exact Or.inr h
-  | .app (.app (.app f3 a3) A) B => intro h; exact Or.inr h
-  | .app (.app (.sort u3) A) B => intro h; exact Or.inr h
-  | .app (.app (.fvar i3 n3 t3) A) B => intro h; exact Or.inr h
-  | .app (.app (.lam n3 t3 b3 m3) A) B => intro h; exact Or.inr h
-  | .app (.app (.forallE n3 t3 b3 m3) A) B => intro h; exact Or.inr h
-  | .app (.app (.bvar i3) A) B => intro h; exact Or.inr h
-  | .app (.app (.letE n3 t3 v3 b3) A) B => intro h; exact Or.inr h
-  | .app (.app (.lit l3) A) B => intro h; exact Or.inr h
-  | .app (.app (.proj s3 i3 e3) A) B => intro h; exact Or.inr h
-  | .app (.sort u3) B => intro h; exact Or.inr h
-  | .app (.fvar i3 n3 t3) B => intro h; exact Or.inr h
-  | .app (.const n3 us3) B => intro h; exact Or.inr h
-  | .app (.lam n3 t3 b3 m3) B => intro h; exact Or.inr h
-  | .app (.forallE n3 t3 b3 m3) B => intro h; exact Or.inr h
-  | .app (.bvar i3) B => intro h; exact Or.inr h
-  | .app (.letE n3 t3 v3 b3) B => intro h; exact Or.inr h
-  | .app (.lit l3) B => intro h; exact Or.inr h
-  | .app (.proj s3 i3 e3) B => intro h; exact Or.inr h
+  cases hfn : te.getAppFn with
+  | const T us => ?_
+  | bvar i2 => intro h; exact Or.inr h
+  | sort u => intro h; exact Or.inr h
+  | fvar i2 n2 t2 => intro h; exact Or.inr h
+  | app f2 a2 => intro h; exact Or.inr h
+  | lam n2 t2 b2 m2 => intro h; exact Or.inr h
+  | forallE n2 t2 b2 m2 => intro h; exact Or.inr h
+  | letE n2 t2 v2 b2 => intro h; exact Or.inr h
+  | lit l2 => intro h; exact Or.inr h
+  | proj s2 i2 e2 => intro h; exact Or.inr h
   intro h
   dsimp only at h
-  by_cases hc : c = psigmaName
-  · subst hc
-    rw [if_pos rfl] at h
+  revert h
+  cases hfp : env.findProj? T i with
+  | none => intro h; exact Or.inr h
+  | some entry => ?_
+  intro h
+  dsimp only at h
+  split at h
+  case isFalse => exact Or.inr h
+  case isTrue hnat =>
     revert h
-    match hfind : env.find? psigmaName with
-    | none => intro h; exact Or.inr h
-    | some (.axiomInfo cv) => intro h; exact Or.inr h
-    | some (.defnInfo cv v hint) => intro h; exact Or.inr h
-    | some (.thmInfo cv v) => intro h; exact Or.inr h
-    | some (.ctorInfo cv nP nF) => intro h; exact Or.inr h
-    | some (.recInfo cv nP nM nm ni rules) => intro h; exact Or.inr h
-    | some (.indInfo cv _) => ?_
-    intro h
-    dsimp only at h
-    by_cases hi : i < 2
-    · simp only [hi, if_true, ↓reduceIte, pure, Except.pure,
-        Except.ok.injEq] at h
-      exact Or.inl ⟨us, A, B, cv, _, rfl, rfl, hi, h.symm⟩
-    · rw [if_neg hi] at h
-      exact nomatch h
-  · rw [if_neg hc] at h
-    exact Or.inr h
+    split
+    case isFalse => intro h; exact nomatch h
+    case isTrue hlen =>
+      intro h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl ⟨T, us, entry, rfl, hfp, hnat, hlen, h.symm⟩
 
 /-- Inversion for `annotate` on applications: the two annotated subterms
 are reassembled, and the application-rule check ran successfully. -/

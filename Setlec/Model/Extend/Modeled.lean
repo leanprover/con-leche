@@ -37,7 +37,7 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
     (htyres0 : ci.toConstantVal.type.constsResolve env = true)
     (hkind : (∃ cv caps, ci = .indInfo cv caps) ∨
       (∃ cv nP nF, ci = .ctorInfo cv nP nF) ∨
-      (∃ cv nP nM nm ni, ci = .recInfo cv nP nM nm ni []))
+      (∃ cv mI rP, ci = .recInfo cv mI rP []))
     (hmodel : env.find? mname = some (.defnInfo cvm mval hmcvm))
     (hlps : cvm.levelParams = ci.toConstantVal.levelParams)
     (hren : Expr.eqUpToNames (ci.toConstantVal.type.renameConsts f)
@@ -49,7 +49,9 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
         (∃ cv cnP cnF, ci = .ctorInfo cv cnP cnF)) →
       (env.find? (ci.name.str "_model")).isSome = true ∧
       ∀ ψ : Name → Nat, m.val mname ψ = m.val (ci.name.str "_model") ψ)
-    (hprojm : ∀ (T : Name) (j : Nat), ci.name = projFnName T j →
+    (hprojm : ∀ (T : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat)
+      (rules : List RecRule), ci.name = projFnName T j →
+      ci = .recInfo cv mI rP rules →
       (env.find? (projModelName T j)).isSome = true ∧
       ∀ ψ : Name → Nat, m.val mname ψ = m.val (projModelName T j) ψ)
     (hetaLm : ∀ cv caps, ci = .indInfo cv caps → caps.eta = true →
@@ -112,7 +114,7 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
     hfind' hwf htyres0
     (fun cv2 value2 h2 => by
       rcases hkind with ⟨cv', caps', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
-        ⟨cv', nP', nM', nm', ni', rfl⟩ <;> simp)
+        ⟨cv', mI', rP', rfl⟩ <;> simp)
     hkey
     (fun ψ₁ ψ₂ hψ => by
       refine m.val_params _ _ hmodel ψ₁ ψ₂ ?_
@@ -126,34 +128,38 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
     (fun cv caps heq hn => absurd (hn ▸ hnres) (by decide))
     (fun hn => absurd (hn ▸ hnres) (by decide))
     (fun _ hres2 => absurd (hres2 ▸ hnres) (by simp))
-    (fun cv nP nM nm ni rules heq => by
+    (fun cv mI rP rules heq => by
       rcases hkind with ⟨cv', caps', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
-        ⟨cv', nP', nM', nm', ni', rfl⟩
+        ⟨cv', mI', rP', rfl⟩
       · exact nomatch heq
       · exact nomatch heq
       · exact ⟨fun hn => absurd hnres (by rw [hn]; decide),
           fun hn => absurd hnres (by rw [hn]; decide),
           fun hn => absurd hnres (by rw [hn]; decide),
           fun hn => absurd hnres (by rw [hn]; decide)⟩)
-    (fun val' _ _ cvR nP nM nm ni rules heq => by
+    (fun val' _ _ cvR mI rP rules heq => by
       rcases hkind with ⟨cv', caps', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
-        ⟨cv', nP', nM', nm', ni', rfl⟩
+        ⟨cv', mI', rP', rfl⟩
       · exact nomatch heq
       · exact nomatch heq
-      · injection heq with h1 h2 h3 h4 h5 h6
-        subst h6
+      · injection heq with h1 h2 h3 h4
+        subst h4
         intro r hr
         cases hr)
-    (fun cvR nP nM nm ni rules heq => by
+    (fun cvR mI rP rules heq => by
       rcases hkind with ⟨cv', caps', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
-        ⟨cv', nP', nM', nm', ni', rfl⟩
+        ⟨cv', mI', rP', rfl⟩
       · exact nomatch heq
       · exact nomatch heq
-      · injection heq with h1 h2 h3 h4 h5 h6
-        subst h6
+      · injection heq with h1 h2 h3 h4
+        subst h4
         intro r hr
         cases hr)
-    (fun _ => hmodm) hprojm hetaLm hunitLm
+    (fun _ => hmodm) hprojm
+    (fun entry heq _ => by
+      rcases hkind with ⟨cv', caps', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
+        ⟨cv', mI', rP', rfl⟩ <;> exact nomatch heq)
+    hetaLm hunitLm
 
 /-- The fold invariant of `checkIndDecl`: every installed block member
 has its `_model` companion stored (as a definition with the same level
@@ -232,10 +238,11 @@ theorem checkMemberVal_inv {blockNames : List Name} {env' : Env}
   match hfm : env'.find? (cvA'.name.str "_model") with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.defnInfo cvm mval hmcvm) => ?_
   intro h
   dsimp only at h
@@ -279,9 +286,10 @@ theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
   refine ⟨cvA, cvm, mval, hmcvm, hccv, hms, hfm, hlps, hren, ?_⟩
   cases ci with
   | axiomInfo cv => exact nomatch h
+  | projInfo _ => exact nomatch h
   | defnInfo cv value hint => exact nomatch h
   | thmInfo cv value => exact nomatch h
-  | recInfo cv nP nM nm ni rules => exact nomatch h
+  | recInfo cv mI rP rules => exact nomatch h
   | indInfo cv caps' =>
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact Or.inl ⟨⟨cv, caps', rfl⟩, h.symm⟩
@@ -292,20 +300,21 @@ theorem checkIndMember_inv {blockNames : List Name} {caps : IndCaps}
 /-- One step of `provisionRecs`. -/
 theorem provisionRecs_cons_inv {blockNames : List Name}
     {envAcc : Env} {ci : ConstantInfo} {rest : List ConstantInfo}
-    {p : Env × List (ConstantVal × Nat × Nat × Nat × Nat × List RecRule)}
+    {p : Env × List (ConstantVal × Nat × Nat × List RecRule)}
     (h : provisionRecs (fueledOps F) blockNames envAcc (ci :: rest) =
       .ok p) :
-    ∃ cv nP nM nm ni rules cvA p',
-      ci = .recInfo cv nP nM nm ni rules ∧
+    ∃ cv mI rP rules cvA p',
+      ci = .recInfo cv mI rP rules ∧
       checkMemberVal (fueledOps F) blockNames envAcc ci.toConstantVal =
         .ok cvA ∧
       provisionRecs (fueledOps F) blockNames
-        ⟨.recInfo cvA nP nM nm ni [] :: envAcc.consts⟩ rest = .ok p' ∧
-      p = (p'.1, (cvA, nP, nM, nm, ni, rules) :: p'.2) := by
+        ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩ rest = .ok p' ∧
+      p = (p'.1, (cvA, mI, rP, rules) :: p'.2) := by
   revert h
   match ci with
-  | .recInfo cv nP nM nm ni rules => ?_
+  | .recInfo cv mI rP rules => ?_
   | .axiomInfo _ => intro h; exact nomatch h
+  | .projInfo _ => intro h; exact nomatch h
   | .defnInfo _ _ _ => intro h; exact nomatch h
   | .thmInfo _ _ => intro h; exact nomatch h
   | .indInfo _ _ => intro h; exact nomatch h
@@ -313,17 +322,17 @@ theorem provisionRecs_cons_inv {blockNames : List Name}
   intro h
   simp only [provisionRecs, Bind.bind, Except.bind] at h
   cases hcmv : checkMemberVal (fueledOps F) blockNames envAcc
-      (ConstantInfo.recInfo cv nP nM nm ni rules).toConstantVal with
+      (ConstantInfo.recInfo cv mI rP rules).toConstantVal with
   | error e => rw [hcmv] at h; exact nomatch h
   | ok cvA =>
   rw [hcmv] at h
   try dsimp only at h
   cases hrec : provisionRecs (fueledOps F) blockNames
-      ⟨.recInfo cvA nP nM nm ni [] :: envAcc.consts⟩ rest with
+      ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩ rest with
   | error e => rw [hrec] at h; exact nomatch h
   | ok p' =>
   rw [hrec] at h
   simp only [pure, Except.pure, Except.ok.injEq] at h
-  exact ⟨cv, nP, nM, nm, ni, rules, cvA, p', rfl, rfl, hrec, h.symm⟩
+  exact ⟨cv, mI, rP, rules, cvA, p', rfl, rfl, hrec, h.symm⟩
 
 end Setlec

@@ -251,7 +251,7 @@ theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
       have hoktx : FvarsOk V m.val env φ d ρ tx :=
         FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel htx hwx) hokx
       obtain ⟨hiw, -⟩ := ihw hwtx hwtxW hbtx hLbtx hoktx hATx
-      obtain ⟨c, us, cvi, capsi, cvr, nP, nM, nm, r, rfl, hfind, hfr, hrf,
+      obtain ⟨c, us, cvi, capsi, cvr, mI, rP, r, rfl, hfind, hfr, hmirp, hrf,
         hgres⟩ := isUnitLikeTy_inv hux
       -- identify the unit type through the pinned recursor
       obtain ⟨hpr, -⟩ :=
@@ -259,7 +259,10 @@ theorem proofIrrel_pt {m : EnvModel V env} {fuel : Nat}
       have hcn : c = punitName := by
         rcases pinnedInfo_recInfo_cases hpr.symm with hc | hc | hc | hc | hc | hc | hc
         · rw [hc] at hpr
-          exact nomatch (congrArg ConstantInfo.recNi hpr)
+          rw [show pinnedInfo (eqName.str "rec") = eqRecA from rfl] at hpr
+          have h1 := congrArg ConstantInfo.recNi hpr
+          rw [hmirp] at h1
+          simp [eqRecA, ConstantInfo.recNi] at h1
         · rw [hc] at hpr
           exact nomatch
             (congrArg (fun ci => (ConstantInfo.recRules ci).length) hpr)

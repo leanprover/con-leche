@@ -15,8 +15,8 @@ open Name (anonymous)
 def psigmaBasis : List ConstantInfo := [
   .indInfo ⟨(anonymous |>.str "PSigma'"), [(anonymous |>.str "u"), (anonymous |>.str "v")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "β") (.forallE (anonymous |>.str "x") (.bvar 0) (.sort (.param (anonymous |>.str "v"))) ⟨.default, none⟩) (.sort (.max (.param (anonymous |>.str "u")) (.param (anonymous |>.str "v")))) ⟨.default, none⟩) ⟨.implicit, none⟩)⟩ ⟨true, psigmaMkName, 2, 2, false, 0, false⟩,
   .ctorInfo ⟨((anonymous |>.str "PSigma'") |>.str "mk"), [(anonymous |>.str "u"), (anonymous |>.str "v")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "β") (.forallE (anonymous |>.str "x") (.bvar 0) (.sort (.param (anonymous |>.str "v"))) ⟨.default, none⟩) (.forallE (anonymous |>.str "fst") (.bvar 1) (.forallE (anonymous |>.str "snd") (.app (.bvar 1) (.bvar 0)) (.app (.app (.const (anonymous |>.str "PSigma'") [(.param (anonymous |>.str "u")), (.param (anonymous |>.str "v"))]) (.bvar 3)) (.bvar 2)) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩) ⟨.implicit, none⟩)⟩ 2 2,
-  .recInfo ⟨((anonymous |>.str "PSigma'") |>.str "rec"), [(anonymous |>.str "u"), (anonymous |>.str "v")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "β") (.forallE (anonymous |>.str "x") (.bvar 0) (.sort (.param (anonymous |>.str "v"))) ⟨.default, none⟩) (.forallE (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.app (.app (.const (anonymous |>.str "PSigma'") [(.param (anonymous |>.str "u")), (.param (anonymous |>.str "v"))]) (.bvar 1)) (.bvar 0)) (.sort .zero) ⟨.default, none⟩) (.forallE (anonymous |>.str "mk") (.forallE (anonymous |>.str "fst") (.bvar 2) (.forallE (anonymous |>.str "snd") (.app (.bvar 2) (.bvar 0)) (.app (.bvar 2) (.app (.app (.app (.app (.const ((anonymous |>.str "PSigma'") |>.str "mk") [(.param (anonymous |>.str "u")), (.param (anonymous |>.str "v"))]) (.bvar 4)) (.bvar 3)) (.bvar 1)) (.bvar 0))) ⟨.default, none⟩) ⟨.default, none⟩) (.forallE (anonymous |>.str "t") (.app (.app (.const (anonymous |>.str "PSigma'") [(.param (anonymous |>.str "u")), (.param (anonymous |>.str "v"))]) (.bvar 3)) (.bvar 2)) (.app (.bvar 2) (.bvar 0)) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩) ⟨.implicit, none⟩) ⟨.implicit, none⟩)⟩ 2 1 1 0
-    [⟨((anonymous |>.str "PSigma'") |>.str "mk"), 2, (.lam (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.lam (anonymous |>.str "β") (.forallE (anonymous |>.str "x") (.bvar 0) (.sort (.param (anonymous |>.str "v"))) ⟨.default, none⟩) (.lam (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.app (.app (.const (anonymous |>.str "PSigma'") [(.param (anonymous |>.str "u")), (.param (anonymous |>.str "v"))]) (.bvar 1)) (.bvar 0)) (.sort .zero) ⟨.default, none⟩) (.lam (anonymous |>.str "mk") (.forallE (anonymous |>.str "fst") (.bvar 2) (.forallE (anonymous |>.str "snd") (.app (.bvar 2) (.bvar 0)) (.app (.bvar 2) (.app (.app (.app (.app (.const ((anonymous |>.str "PSigma'") |>.str "mk") [(.param (anonymous |>.str "u")), (.param (anonymous |>.str "v"))]) (.bvar 4)) (.bvar 3)) (.bvar 1)) (.bvar 0))) ⟨.default, none⟩) ⟨.default, none⟩) (.lam (anonymous |>.str "fst") (.bvar 3) (.lam (anonymous |>.str "snd") (.app (.bvar 3) (.bvar 0)) (.app (.app (.bvar 2) (.bvar 1)) (.bvar 0)) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩)⟩]]
+  .recInfo ⟨((anonymous |>.str "PSigma'") |>.str "rec"), [(anonymous |>.str "u"), (anonymous |>.str "v")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "β") (.forallE (anonymous |>.str "x") (.bvar 0) (.sort (.param (anonymous |>.str "v"))) ⟨.default, none⟩) (.forallE (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.app (.app (.const (anonymous |>.str "PSigma'") [(.param (anonymous |>.str "u")), (.param (anonymous |>.str "v"))]) (.bvar 1)) (.bvar 0)) (.sort .zero) ⟨.default, none⟩) (.forallE (anonymous |>.str "mk") (.forallE (anonymous |>.str "fst") (.bvar 2) (.forallE (anonymous |>.str "snd") (.app (.bvar 2) (.bvar 0)) (.app (.bvar 2) (.app (.app (.app (.app (.const ((anonymous |>.str "PSigma'") |>.str "mk") [(.param (anonymous |>.str "u")), (.param (anonymous |>.str "v"))]) (.bvar 4)) (.bvar 3)) (.bvar 1)) (.bvar 0))) ⟨.default, none⟩) ⟨.default, none⟩) (.forallE (anonymous |>.str "t") (.app (.app (.const (anonymous |>.str "PSigma'") [(.param (anonymous |>.str "u")), (.param (anonymous |>.str "v"))]) (.bvar 3)) (.bvar 2)) (.app (.bvar 2) (.bvar 0)) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩) ⟨.implicit, none⟩) ⟨.implicit, none⟩)⟩ 4 4
+    [⟨((anonymous |>.str "PSigma'") |>.str "mk"), 2, 0, false, (.lam (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.lam (anonymous |>.str "β") (.forallE (anonymous |>.str "x") (.bvar 0) (.sort (.param (anonymous |>.str "v"))) ⟨.default, none⟩) (.lam (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.app (.app (.const (anonymous |>.str "PSigma'") [(.param (anonymous |>.str "u")), (.param (anonymous |>.str "v"))]) (.bvar 1)) (.bvar 0)) (.sort .zero) ⟨.default, none⟩) (.lam (anonymous |>.str "mk") (.forallE (anonymous |>.str "fst") (.bvar 2) (.forallE (anonymous |>.str "snd") (.app (.bvar 2) (.bvar 0)) (.app (.bvar 2) (.app (.app (.app (.app (.const ((anonymous |>.str "PSigma'") |>.str "mk") [(.param (anonymous |>.str "u")), (.param (anonymous |>.str "v"))]) (.bvar 4)) (.bvar 3)) (.bvar 1)) (.bvar 0))) ⟨.default, none⟩) ⟨.default, none⟩) (.lam (anonymous |>.str "fst") (.bvar 3) (.lam (anonymous |>.str "snd") (.app (.bvar 3) (.bvar 0)) (.app (.app (.bvar 2) (.bvar 1)) (.bvar 0)) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩)⟩]]
 
 /-! ## The annotated declarations
 
@@ -259,12 +259,12 @@ def psigmaRecA : ConstantInfo :=
                                    (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
                                    (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
                                  (Setlec.Level.zero))))) } }
-    2
-    1
-    1
-    0
+    4
+    4
     [{ ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "PSigma'") "mk",
        nfields := 2,
+       ctorParams := 2,
+       plain := true,
        rhs := Setlec.Expr.lam
                 (Setlec.Name.str (Setlec.Name.anonymous) "α")
                 (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
@@ -390,5 +390,125 @@ def psigmaRecA : ConstantInfo :=
                                  (Setlec.Level.imax
                                    (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))
                                    (Setlec.Level.zero)))))) } }]
+
+
+/-! ## The pinned pair projection-table entries
+
+The two `native` projection-table entries for the basis pair,
+installed with the block: `.proj` nodes on `PSigma'` are typed by
+these level-parametric types and reduced by the generic structural
+rule.  The types are the checker's own `annotate` output over the
+pinned block (generated; do not edit by hand). -/
+
+/-- Annotated projection type of the pair's first component
+(generated). -/
+def pairFstTyA : Expr :=
+  Setlec.Expr.forallE
+    (Setlec.Name.str (Setlec.Name.anonymous) "α")
+    (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
+    (Setlec.Expr.forallE
+      (Setlec.Name.str (Setlec.Name.anonymous) "β")
+      (Setlec.Expr.forallE
+        (Setlec.Name.str (Setlec.Name.anonymous) "x")
+        (Setlec.Expr.bvar 0)
+        (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
+        { bi := Setlec.BinderInfo.default,
+          cod := some (Setlec.Level.succ (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))) })
+      (Setlec.Expr.forallE
+        (Setlec.Name.str (Setlec.Name.anonymous) "t")
+        (Setlec.Expr.app
+          (Setlec.Expr.app
+            (Setlec.Expr.const
+              (Setlec.Name.str (Setlec.Name.anonymous) "PSigma'")
+              [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"),
+               Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")])
+            (Setlec.Expr.bvar 1))
+          (Setlec.Expr.bvar 0))
+        (Setlec.Expr.bvar 2)
+        { bi := Setlec.BinderInfo.default,
+          cod := some (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")) })
+      { bi := Setlec.BinderInfo.implicit,
+        cod := some (Setlec.Level.imax
+                 (Setlec.Level.max
+                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
+                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))) })
+    { bi := Setlec.BinderInfo.implicit,
+      cod := some (Setlec.Level.imax
+               (Setlec.Level.imax
+                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                 (Setlec.Level.succ (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))))
+               (Setlec.Level.imax
+                 (Setlec.Level.max
+                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
+                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))) }
+
+/-- Annotated projection type of the pair's second component
+(generated). -/
+def pairSndTyA : Expr :=
+  Setlec.Expr.forallE
+    (Setlec.Name.str (Setlec.Name.anonymous) "α")
+    (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
+    (Setlec.Expr.forallE
+      (Setlec.Name.str (Setlec.Name.anonymous) "β")
+      (Setlec.Expr.forallE
+        (Setlec.Name.str (Setlec.Name.anonymous) "x")
+        (Setlec.Expr.bvar 0)
+        (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
+        { bi := Setlec.BinderInfo.default,
+          cod := some (Setlec.Level.succ (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))) })
+      (Setlec.Expr.forallE
+        (Setlec.Name.str (Setlec.Name.anonymous) "t")
+        (Setlec.Expr.app
+          (Setlec.Expr.app
+            (Setlec.Expr.const
+              (Setlec.Name.str (Setlec.Name.anonymous) "PSigma'")
+              [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"),
+               Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")])
+            (Setlec.Expr.bvar 1))
+          (Setlec.Expr.bvar 0))
+        (Setlec.Expr.app
+          (Setlec.Expr.bvar 1)
+          (Setlec.Expr.proj (Setlec.Name.str (Setlec.Name.anonymous) "PSigma'") 0 (Setlec.Expr.bvar 0)))
+        { bi := Setlec.BinderInfo.default,
+          cod := some (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")) })
+      { bi := Setlec.BinderInfo.implicit,
+        cod := some (Setlec.Level.imax
+                 (Setlec.Level.max
+                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
+                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))) })
+    { bi := Setlec.BinderInfo.implicit,
+      cod := some (Setlec.Level.imax
+               (Setlec.Level.imax
+                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                 (Setlec.Level.succ (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))))
+               (Setlec.Level.imax
+                 (Setlec.Level.max
+                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
+                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
+                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))) }
+
+/-- The pinned first-projection entry of the basis pair. -/
+def pairFstEntry : ProjEntry :=
+  ⟨psigmaName, 0, [anonymous |>.str "u", anonymous |>.str "v"],
+    2, psigmaMkName, 2, pairFstTyA,
+    .param (anonymous |>.str "u"),
+    .max (.param (anonymous |>.str "u")) (.param (anonymous |>.str "v")),
+    true, false⟩
+
+/-- The pinned second-projection entry of the basis pair. -/
+def pairSndEntry : ProjEntry :=
+  ⟨psigmaName, 1, [anonymous |>.str "u", anonymous |>.str "v"],
+    2, psigmaMkName, 2, pairSndTyA,
+    .param (anonymous |>.str "v"),
+    .max (.param (anonymous |>.str "u")) (.param (anonymous |>.str "v")),
+    true, false⟩
+
+/-- The pinned pair projection-table constants. -/
+def pairFstA : ConstantInfo := .projInfo pairFstEntry
+
+def pairSndA : ConstantInfo := .projInfo pairSndEntry
 
 end Setlec

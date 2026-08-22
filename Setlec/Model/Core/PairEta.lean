@@ -39,7 +39,7 @@ theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
     (hvb : interpExpr V m.val env φ d ρ b = some vb) :
     va = vb := by
   obtain ⟨c, us, pα, pβ, s₁, s₂, cvm, tb, c', us', A, B, cvi, capsi, cvr,
-    nPr, nMr, nmr, r, rfl, hfindM, htb, hwtb, hfindI, hfr, hrc, hrf,
+    mIr, rPr, r, rfl, hfindM, htb, hwtb, hfindI, hfr, hrc, hrf, hmirp,
     hgres, hlev, hd1, hd2⟩ := pairEtaCert_inv h
   -- identify the structure through the pinned recursor, then the
   -- constructor through the recursor's rule
@@ -48,7 +48,10 @@ theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
     rcases pinnedInfo_recInfo_cases hpr.symm
       with hc' | hc' | hc' | hc' | hc' | hc' | hc'
     · rw [hc'] at hpr
-      exact nomatch (congrArg ConstantInfo.recNi hpr)
+      rw [show pinnedInfo (eqName.str "rec") = eqRecA from rfl] at hpr
+      have h1 := congrArg ConstantInfo.recNi hpr
+      rw [hmirp] at h1
+      simp [eqRecA, ConstantInfo.recNi] at h1
     · rw [hc'] at hpr
       exact nomatch
         (congrArg (fun ci => (ConstantInfo.recRules ci).length) hpr)

@@ -35,7 +35,7 @@ def BasisKind.decls : BasisKind → List ConstantInfo
 def BasisKind.declsA : BasisKind → List ConstantInfo
   | .eqK => [eqA, eqReflA, eqRecA]
   | .natK => [natA, natZeroA, natSuccA, natRecA]
-  | .psigmaK => [psigmaA, psigmaMkA, psigmaRecA]
+  | .psigmaK => [psigmaA, psigmaMkA, psigmaRecA, pairFstA, pairSndA]
   | .punitK => [punitA, punitUnitA, punitRecA]
   | .emptyK => [emptyA, emptyRecA]
   | .quotK => [quotA, quotMkA, quotLiftA, quotIndA, quotSoundA]

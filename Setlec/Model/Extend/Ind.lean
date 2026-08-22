@@ -114,13 +114,13 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
         (.indInfo cvA caps) := by
       refine ⟨htyf, htlp, Expr.constsResolve_mono htres, htyb, ?_, ?_⟩
       · intro cv2 v2 h2 heq; exact nomatch heq
-      · intro cv2 nP' nM' nm' ni' rules heq; exact nomatch heq
+      · intro cv2 mI' rP' rules heq; exact nomatch heq
     obtain ⟨m₁, hval₁, hpres₁⟩ := extend_modeled_one m
       (.indInfo cvA caps) fS (cvA.name.str "_model") hfind' hnres hwf htres
       (Or.inl ⟨_, _, rfl⟩) hfm hlps hrenS hannT hroS
       (fun _ => ⟨show (env'.find? (cvA.name.str "_model")).isSome = true
         by rw [hfm]; rfl, fun ψ => rfl⟩)
-      (fun T j hh => hprojRef T j hh)
+      (fun T j _ _ _ _ hh _ => hprojRef T j hh)
       (fun cv₂ caps₂ heq hcape _hres' => by
         injection heq with hcv hcaps
         subst hcv
@@ -272,14 +272,14 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
         (.ctorInfo cvA nP nF) := by
       refine ⟨htyf, htlp, Expr.constsResolve_mono htres, htyb, ?_, ?_⟩
       · intro cv2 v2 h2 heq; exact nomatch heq
-      · intro cv2 nP' nM' nm' ni' rules heq; exact nomatch heq
+      · intro cv2 mI' rP' rules heq; exact nomatch heq
     obtain ⟨m₁, hval₁, hpres₁⟩ := extend_modeled_one m
       (.ctorInfo cvA nP nF) fS (cvA.name.str "_model")
       hfind' hnres hwf htres
       (Or.inr (Or.inl ⟨_, _, _, rfl⟩)) hfm hlps hrenS hannT hroS
       (fun _ => ⟨show (env'.find? (cvA.name.str "_model")).isSome = true
         by rw [hfm]; rfl, fun ψ => rfl⟩)
-      (fun T j hh => hprojRef T j hh)
+      (fun T j _ _ _ _ hh _ => hprojRef T j hh)
       (fun cv₂ caps₂ hcon => nomatch hcon)
       (fun cv₂ caps₂ hcon => nomatch hcon)
     exact ⟨m₁, BlockInstalled.step hI hms hfm hlps hval₁ hpres₁⟩

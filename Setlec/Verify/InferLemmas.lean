@@ -423,12 +423,19 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
     (h : whnfCore env (fuel + 1) d (.proj sn i e) = .ok e') :
     ∃ e₂, whnf env fuel d e = .ok e₂ ∧
       (e' = .proj sn i e₂ ∨
-        ∃ us cv nP nF, e₂.getAppFn = .const psigmaMkName us ∧
-          env.find? psigmaMkName = some (.ctorInfo cv nP nF) ∧
-          i < nF ∧ e₂.getAppArgs.length = nP + nF ∧ us.length = 2 ∧
-          whnfCore env fuel d (e₂.getAppArgs.getD (nP + i) (.bvar 0)) = .ok e' ∧
-          ((Level.max (us.getD 0 .zero) (us.getD 1 .zero)).isNonZero = true ∨
-            projCertP env fuel d e₂ i us nP = .ok true)) := by
+        ∃ us entry, e₂.getAppFn = .const entry.ctor us ∧
+          env.findProj? sn i = some entry ∧ entry.native = true ∧
+          i < entry.numFields ∧
+          e₂.getAppArgs.length = entry.numParams + entry.numFields ∧
+          us.length = entry.levelParams.length ∧
+          whnfCore env fuel d
+            (e₂.getAppArgs.getD (entry.numParams + i) (.bvar 0)) = .ok e' ∧
+          ((Level.subst entry.levelParams us entry.structSort).isNonZero
+              = true ∨
+            projCertP env fuel d e₂ i
+              (Level.subst entry.levelParams us entry.fieldSort)
+              (Level.subst entry.levelParams us entry.structSort)
+              entry.numParams = .ok true)) := by
   rw [whnfCore_succ] at h
   simp only [whnfCoreBody, Bind.bind, Except.bind] at h
   simp only [whnfCore_def, whnf_def, projCert_fold] at h
@@ -438,47 +445,43 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
   rw [he] at h
   dsimp only at h
   refine ⟨e₂, rfl, ?_⟩
+  cases hfp : env.findProj? sn i with
+  | none => rw [hfp] at h; exact Or.inl (Except.ok.inj h).symm
+  | some entry =>
+  rw [hfp] at h
+  dsimp only at h
   cases hfn : e₂.getAppFn with
   | const c us =>
     rw [hfn] at h
     dsimp only at h
-    cases hf : env.find? c with
-    | none =>
-      rw [hf] at h
-      exact Or.inl (Except.ok.inj h).symm
-    | some ci =>
-      rw [hf] at h
-      cases ci with
-      | ctorInfo cv nP nF =>
-        dsimp only at h
-        split at h
-        next hcond =>
-          obtain ⟨rfl, hi, hlen, hus⟩ := hcond
-          split at h
-          next hnz =>
-            exact Or.inr ⟨us, cv, nP, nF, rfl, hf, hi, hlen, hus, h, Or.inl hnz⟩
-          next hnz =>
-            try simp only [Bind.bind, Except.bind] at h
-            try dsimp only at h
-            cases hcert : projCertP env fuel d e₂ i us nP with
-            | error err => rw [hcert] at h; exact nomatch h
-            | ok b =>
-            rw [hcert] at h
-            cases b with
-            | true =>
-              simp only [if_true] at h
-              try dsimp only at h
-              exact Or.inr ⟨us, cv, nP, nF, rfl, hf, hi, hlen, hus, h, Or.inr hcert⟩
-            | false =>
-              simp only [Bool.false_eq_true, if_false] at h
-              exact Or.inl (Except.ok.inj h).symm
-        next hcond =>
+    split at h
+    next hcond =>
+      obtain ⟨hnat, rfl, hi, hlen, hus⟩ := hcond
+      split at h
+      next hnz =>
+        exact Or.inr ⟨us, entry, rfl, rfl, hnat, hi, hlen, hus, h,
+          Or.inl hnz⟩
+      next hnz =>
+        try simp only [Bind.bind, Except.bind] at h
+        try dsimp only at h
+        cases hcert : projCertP env fuel d e₂ i
+            (Level.subst entry.levelParams us entry.fieldSort)
+            (Level.subst entry.levelParams us entry.structSort)
+            entry.numParams with
+        | error err => rw [hcert] at h; exact nomatch h
+        | ok b =>
+        rw [hcert] at h
+        cases b with
+        | true =>
+          simp only [if_true] at h
+          try dsimp only at h
+          exact Or.inr ⟨us, entry, rfl, rfl, hnat, hi, hlen, hus, h,
+            Or.inr hcert⟩
+        | false =>
+          simp only [Bool.false_eq_true, if_false] at h
           exact Or.inl (Except.ok.inj h).symm
-      | axiomInfo cv => exact Or.inl (Except.ok.inj h).symm
-      | defnInfo cv value hint => exact Or.inl (Except.ok.inj h).symm
-      | thmInfo cv value => exact Or.inl (Except.ok.inj h).symm
-      | indInfo cv _ => exact Or.inl (Except.ok.inj h).symm
-      | recInfo cv nP nM nm ni rules => exact Or.inl (Except.ok.inj h).symm
+    next hcond =>
+      exact Or.inl (Except.ok.inj h).symm
   | bvar i2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
   | sort u => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
   | fvar i2 n2 t2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
@@ -491,17 +494,17 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
 
 /-- Inversion for a successful projection certification. -/
 theorem projCert_inv {env : Env} {fuel d : Nat} {e₂ : Expr} {i : Nat}
-    {us : List Level} {nP : Nat}
-    (h : projCertP env fuel d e₂ i us nP = .ok true) :
+    {fieldLvl structLvl : Level} {nP : Nat}
+    (h : projCertP env fuel d e₂ i fieldLvl structLvl nP = .ok true) :
     ∃ ta sta uT te ste wT,
       inferTypeCore env fuel d (e₂.getAppArgs.getD (nP + i) (.bvar 0)) = .ok ta ∧
       inferTypeCore env fuel d ta = .ok sta ∧
       whnf env fuel d sta = .ok (.sort uT) ∧
-      Level.isEquiv uT (us.getD i .zero) = some true ∧
+      Level.isEquiv uT fieldLvl = some true ∧
       inferTypeCore env fuel d e₂ = .ok te ∧
       inferTypeCore env fuel d te = .ok ste ∧
       whnf env fuel d ste = .ok (.sort wT) ∧
-      Level.isEquiv wT (.max (us.getD 0 .zero) (us.getD 1 .zero)) = some true := by
+      Level.isEquiv wT structLvl = some true := by
   dsimp only [projCertP] at h
   simp only [projCert, Bind.bind, Except.bind] at h
   simp only [infer_def, whnf_def] at h
@@ -531,7 +534,7 @@ theorem projCert_inv {env : Env} {fuel d : Nat} {e₂ : Expr} {i : Nat}
   | .lit l2, h => exact nomatch h
   | .proj s2 i2 e3, h => exact nomatch h
   dsimp only at h
-  cases heq1 : Level.isEquiv uT (us.getD i .zero) with
+  cases heq1 : Level.isEquiv uT fieldLvl with
   | none => rw [heq1] at h; simp [liftFueled] at h
   | some okT =>
   rw [heq1] at h
@@ -564,7 +567,7 @@ theorem projCert_inv {env : Env} {fuel d : Nat} {e₂ : Expr} {i : Nat}
   | .lit l2, h => exact nomatch h
   | .proj s2 i2 e3, h => exact nomatch h
   dsimp only at h
-  cases heq2 : Level.isEquiv wT (.max (us.getD 0 .zero) (us.getD 1 .zero)) with
+  cases heq2 : Level.isEquiv wT structLvl with
   | none => rw [heq2] at h; simp [liftFueled] at h
   | some okW =>
   rw [heq2] at h
@@ -578,41 +581,41 @@ theorem projCert_inv {env : Env} {fuel d : Nat} {e₂ : Expr} {i : Nat}
 /-- Inversion of a successful iota step. -/
 theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
     (h : iotaRecP env fuel d e = .ok (some eout)) :
-    ∃ c us cv nP nM nm ni rules major₀ major₁ major cj usj cvj cnP cnF r
-      cbinders cbody residual cr usr,
+    ∃ c us cv mI rP rules major₀ major₁ major cj usj cvj cnP cnF r cbinders
+      cbody residual cr usr,
       e.getAppFn = .const c us ∧
-      env.find? c = some (.recInfo cv nP nM nm ni rules) ∧
-      e.getAppArgs.length = nP + nM + nm + ni + 1 ∧
-      whnf env fuel d (e.getAppArgs.getD (nP + nM + nm + ni) (.bvar 0)) =
+      env.find? c = some (.recInfo cv mI rP rules) ∧
+      e.getAppArgs.length = mI + 1 ∧
+      whnf env fuel d (e.getAppArgs.getD mI (.bvar 0)) =
         .ok major₀ ∧
       litMajorToCtorP env fuel d major₀ = .ok major₁ ∧
       majorToCtorP env fuel d c rules major₁ = .ok major ∧
       major.getAppFn = .const cj usj ∧
       env.find? cj = some (.ctorInfo cvj cnP cnF) ∧
       rules.find? (fun r' => r'.ctor == cj) = some r ∧
-      major.getAppArgs.length = cnP + cnF ∧ r.nfields = cnF ∧
-      (cv.type.stripPis (nP + nM + nm + ni + 1)).isSome = true ∧
-      (cvj.type.stripPis (cnP + cnF)).isSome = true ∧
-      Expr.recRulePlain cv.type nP nM nm ni cnP = true ∧
+      major.getAppArgs.length = r.ctorParams + r.nfields ∧
+      (cv.type.stripPis (mI + 1)).isSome = true ∧
+      (cvj.type.stripPis (r.ctorParams + r.nfields)).isSome = true ∧
+      r.plain = true ∧
       Level.isEquivList usj (cvj.levelParams.map fun p =>
         Level.subst cv.levelParams us (.param p)) = some true ∧
-      defEqListP env fuel d (major.getAppArgs.take cnP)
-        (e.getAppArgs.take cnP) = .ok true ∧
+      defEqListP env fuel d (major.getAppArgs.take r.ctorParams)
+        (e.getAppArgs.take r.ctorParams) = .ok true ∧
       iotaCertsP env fuel d (cv.type.instantiateLevelParams cv.levelParams us)
-        (e.getAppArgs.take (nP + nM + nm + ni) ++ [major]) = .ok true ∧
+        (e.getAppArgs.take mI ++ [major]) = .ok true ∧
       iotaCertsP env fuel d (cvj.type.instantiateLevelParams cvj.levelParams usj)
         major.getAppArgs = .ok true ∧
       (cvj.type.instantiateLevelParams cvj.levelParams usj).stripPis
-        (cnP + cnF) = some (cbinders, cbody) ∧
+        (r.ctorParams + r.nfields) = some (cbinders, cbody) ∧
       piResidual (cvj.type.instantiateLevelParams cvj.levelParams usj)
         major.getAppArgs = some residual ∧
       cbody.getAppFn = .const cr usr ∧
-      defEqListP env fuel d (residual.getAppArgs.drop cnP)
-        ((e.getAppArgs.take (nP + nM + nm + ni)).drop (nP + nM + nm)) =
+      defEqListP env fuel d (residual.getAppArgs.drop r.ctorParams)
+        ((e.getAppArgs.take mI).drop rP) =
         .ok true ∧
       eout = Expr.mkAppN (r.rhs.instantiateLevelParams cv.levelParams us)
-        (e.getAppArgs.take (nP + nM + nm) ++
-          major.getAppArgs.drop cnP) := by
+        (e.getAppArgs.take rP ++
+          major.getAppArgs.drop r.ctorParams) := by
   dsimp only [iotaRecP] at h
   simp only [iotaRec, Bind.bind, Except.bind] at h
   simp only [whnf_def, majorToCtor_fold, litMajorToCtor_fold, defEqList_fold,
@@ -635,19 +638,20 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   match hfc : env.find? c with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo cv nP nM nm ni rules) => ?_
+  | some (.recInfo cv mI rP rules) => ?_
   intro h
   dsimp only at h
-  by_cases hlen : e.getAppArgs.length = nP + nM + nm + ni + 1
+  by_cases hlen : e.getAppArgs.length = mI + 1
   case neg => rw [if_neg hlen] at h; exact nomatch h
   rw [if_pos hlen] at h
   try simp only [Bind.bind, Except.bind] at h
   cases hmaj : whnf env fuel d
-      (e.getAppArgs.getD (nP + nM + nm + ni) (.bvar 0)) with
+      (e.getAppArgs.getD mI (.bvar 0)) with
   | error err => rw [hmaj] at h; exact nomatch h
   | ok major₀ =>
   rw [hmaj] at h
@@ -680,10 +684,11 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   match hfj : env.find? cj with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.ctorInfo cvj cnP cnF) => ?_
   intro h
   dsimp only at h
@@ -693,14 +698,17 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   | some r =>
   intro h
   dsimp only at h
-  by_cases hml : major.getAppArgs.length = cnP + cnF ∧ r.nfields = cnF
+  by_cases hml : major.getAppArgs.length = r.ctorParams + r.nfields
   case neg => rw [if_neg hml] at h; exact nomatch h
-  obtain ⟨hml1, hml2⟩ := hml
-  rw [if_pos ⟨hml1, hml2⟩] at h
+  rw [if_pos hml] at h
   try simp only [Bind.bind, Except.bind] at h
-  by_cases harities : (cv.type.stripPis (nP + nM + nm + ni + 1)).isSome = true ∧
-      (cvj.type.stripPis (cnP + cnF)).isSome = true ∧
-      Expr.recRulePlain cv.type nP nM nm ni cnP = true
+  by_cases hplain0 : r.plain = false
+  case pos => rw [if_pos hplain0] at h; exact nomatch h
+  rw [if_neg hplain0] at h
+  try simp only [Bind.bind, Except.bind] at h
+  by_cases harities : (cv.type.stripPis (mI + 1)).isSome = true ∧
+      (cvj.type.stripPis (r.ctorParams + r.nfields)).isSome = true ∧
+      r.plain = true
   case neg => rw [if_neg harities] at h; exact nomatch h
   obtain ⟨har1, har2, har3⟩ := harities
   rw [if_pos ⟨har1, har2, har3⟩] at h
@@ -717,8 +725,8 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   | true =>
   simp only [↓reduceIte] at h
   try simp only [Bind.bind, Except.bind] at h
-  cases hpeq : defEqListP env fuel d (major.getAppArgs.take cnP)
-      (e.getAppArgs.take cnP) with
+  cases hpeq : defEqListP env fuel d (major.getAppArgs.take r.ctorParams)
+      (e.getAppArgs.take r.ctorParams) with
   | error err => rw [hpeq] at h; exact nomatch h
   | ok rp =>
   rw [hpeq] at h
@@ -730,7 +738,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   try simp only [Bind.bind, Except.bind] at h
   cases hcerts : iotaCertsP env fuel d
       (cv.type.instantiateLevelParams cv.levelParams us)
-      (e.getAppArgs.take (nP + nM + nm + ni) ++ [major]) with
+      (e.getAppArgs.take mI ++ [major]) with
   | error err => rw [hcerts] at h; exact nomatch h
   | ok rc =>
   rw [hcerts] at h
@@ -754,7 +762,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   try simp only [Bind.bind, Except.bind] at h
   revert h
   cases hstrip : (cvj.type.instantiateLevelParams cvj.levelParams
-      usj).stripPis (cnP + cnF) with
+      usj).stripPis (r.ctorParams + r.nfields) with
   | none => intro h; exact nomatch h
   | some pr =>
   obtain ⟨cbinders, cbody⟩ := pr
@@ -780,8 +788,8 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   intro h
   dsimp only at h
   try simp only [Bind.bind, Except.bind] at h
-  cases hieq : defEqListP env fuel d (residual.getAppArgs.drop cnP)
-      ((e.getAppArgs.take (nP + nM + nm + ni)).drop (nP + nM + nm)) with
+  cases hieq : defEqListP env fuel d (residual.getAppArgs.drop r.ctorParams)
+      ((e.getAppArgs.take mI).drop rP) with
   | error err => rw [hieq] at h; exact nomatch h
   | ok ri =>
   rw [hieq] at h
@@ -791,10 +799,10 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   | true =>
   simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq,
     Option.some.injEq] at h
-  exact ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major₁, major, cj, usj,
-    cvj, cnP, cnF, r, cbinders, cbody, residual, cr, usr, rfl, hfc, hlen,
-    hmaj, hlit, hsub, hmfn, hfj, hrule, hml1, hml2, har1, har2, har3, hlev,
-    hpeq, hcerts, hmcerts, hstrip, hres, hrfn, hieq, h.symm⟩
+  exact ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj, cvj, cnP,
+    cnF, r, cbinders, cbody, residual, cr, usr, rfl, hfc, hlen, hmaj, hlit,
+    hsub, hmfn, hfj, hrule, hml, har1, har2, har3, hlev, hpeq, hcerts,
+    hmcerts, hstrip, hres, hrfn, hieq, h.symm⟩
 
 /-- Inversion of the stuck-major rescue: either the major is returned
 unchanged, or a constructor application was fabricated — in the
@@ -862,7 +870,8 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact Or.inl h.symm
   | some (.axiomInfo _) | some (.defnInfo _ _ _) | some (.thmInfo _ _)
-  | some (.indInfo _ _) | some (.recInfo _ _ _ _ _ _) =>
+  | some (.indInfo _ _) | some (.recInfo _ _ _ _)
+  | some (.projInfo _) =>
     intro h; dsimp only at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact Or.inl h.symm
@@ -886,7 +895,8 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact Or.inl h.symm
   | some (.axiomInfo _) | some (.defnInfo _ _ _) | some (.thmInfo _ _)
-  | some (.ctorInfo _ _ _) | some (.recInfo _ _ _ _ _ _) =>
+  | some (.ctorInfo _ _ _) | some (.recInfo _ _ _ _)
+  | some (.projInfo _) =>
     intro h; dsimp only at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact Or.inl h.symm
@@ -1199,10 +1209,10 @@ theorem iotaCerts_step_inv {env : Env} {fuel d : Nat} {n : Name}
 /-- Inversion of the unit-type check. -/
 theorem isUnitLikeTy_inv {env : Env} {e : Expr}
     (h : isUnitLikeTy env e = true) :
-    ∃ c us cvi capsi cvr nP nM nm r, e = .const c us ∧
+    ∃ c us cvi capsi cvr mI rP r, e = .const c us ∧
       env.find? c = some (.indInfo cvi capsi) ∧
-      env.find? (c.str "rec") = some (.recInfo cvr nP nM nm 0 [r]) ∧
-      r.nfields = 0 ∧
+      env.find? (c.str "rec") = some (.recInfo cvr mI rP [r]) ∧
+      mI = rP ∧ r.nfields = 0 ∧
       reservedBasisNames.contains (c.str "rec") = true := by
   match e, h with
   | .const c us, h =>
@@ -1212,29 +1222,31 @@ theorem isUnitLikeTy_inv {env : Env} {e : Expr}
     match hfc : env.find? c with
     | none => intro h1; exact nomatch h1
     | some (.axiomInfo _) => intro h1; exact nomatch h1
+    | some (.projInfo _) => intro h1; exact nomatch h1
     | some (.defnInfo _ _ _) => intro h1; exact nomatch h1
     | some (.thmInfo _ _) => intro h1; exact nomatch h1
     | some (.ctorInfo _ _ _) => intro h1; exact nomatch h1
-    | some (.recInfo _ _ _ _ _ _) => intro h1; exact nomatch h1
+    | some (.recInfo _ _ _ _) => intro h1; exact nomatch h1
     | some (.indInfo cvi capsi) => ?_
     intro _
     revert h2
     match hfr : env.find? (c.str "rec") with
     | none => intro h2; exact nomatch h2
     | some (.axiomInfo _) => intro h2; exact nomatch h2
+    | some (.projInfo _) => intro h2; exact nomatch h2
     | some (.defnInfo _ _ _) => intro h2; exact nomatch h2
     | some (.thmInfo _ _) => intro h2; exact nomatch h2
     | some (.ctorInfo _ _ _) => intro h2; exact nomatch h2
     | some (.indInfo _ _) => intro h2; exact nomatch h2
-    | some (.recInfo cvr nP nM nm ni rules) => ?_
+    | some (.recInfo cvr mI rP rules) => ?_
     intro h2
-    match ni, rules, h2 with
-    | 0, [r], h2 =>
-      have hr0 : r.nfields = 0 := by simpa using h2
-      exact ⟨c, us, cvi, capsi, cvr, nP, nM, nm, r, rfl, hfc, hfr, hr0, hres⟩
-    | 0, [], h2 => exact nomatch h2
-    | 0, _ :: _ :: _, h2 => exact nomatch h2
-    | _ + 1, _, h2 => exact nomatch h2
+    match rules, h2 with
+    | [r], h2 =>
+      simp only [Bool.and_eq_true, beq_iff_eq] at h2
+      exact ⟨c, us, cvi, capsi, cvr, mI, rP, r, rfl, hfc, hfr, h2.1, h2.2,
+        hres⟩
+    | [], h2 => exact nomatch h2
+    | _ :: _ :: _, h2 => exact nomatch h2
 
 /-- Inversion of a successful proof-irrelevance certification: either
 both sides' types whnf to the basis unit type, or both types' sorts are
@@ -1359,14 +1371,14 @@ theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
 /-- Inversion of a successful pair-eta certification. -/
 theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
     (h : pairEtaCertP env fuel d a b = .ok true) :
-    ∃ c us pα pβ s₁ s₂ cvm tb c' us' A B cvi capsi cvr nP nM nm rr,
+    ∃ c us pα pβ s₁ s₂ cvm tb c' us' A B cvi capsi cvr mI rP rr,
       a = .app (.app (.app (.app (.const c us) pα) pβ) s₁) s₂ ∧
       env.find? c = some (.ctorInfo cvm 2 2) ∧
       inferTypeCore env fuel d b = .ok tb ∧
       whnf env fuel d tb = .ok (.app (.app (.const c' us') A) B) ∧
       env.find? c' = some (.indInfo cvi capsi) ∧
-      env.find? (c'.str "rec") = some (.recInfo cvr nP nM nm 0 [rr]) ∧
-      rr.ctor = c ∧ rr.nfields = 2 ∧
+      env.find? (c'.str "rec") = some (.recInfo cvr mI rP [rr]) ∧
+      rr.ctor = c ∧ rr.nfields = 2 ∧ mI = rP ∧
       reservedBasisNames.contains (c'.str "rec") = true ∧
       Level.isEquivList us us' = some true ∧
       isDefEqCore env fuel d s₁ (.proj c' 0 b) = .ok true ∧
@@ -1434,10 +1446,11 @@ theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   match hfc : env.find? c with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.ctorInfo cvm nPm nFm) => ?_
   intro h
   try dsimp only at h
@@ -1499,10 +1512,11 @@ theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   match hfi : env.find? c' with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.indInfo cvi capsi) => ?_
   intro h
   dsimp only at h
@@ -1510,25 +1524,25 @@ theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   match hfr : env.find? (c'.str "rec") with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo cvr nP nM nm ni rules) => ?_
+  | some (.recInfo cvr mI rP rules) => ?_
   intro h
-  match ni, rules, h with
-  | 0, [], h => exact nomatch h
-  | 0, _ :: _ :: _, h => exact nomatch h
-  | _ + 1, _, h => exact nomatch h
-  | 0, [rr], h => ?_
+  match rules, h with
+  | [], h => exact nomatch h
+  | _ :: _ :: _, h => exact nomatch h
+  | [rr], h => ?_
   simp only [reduceCtorEq] at h
   try dsimp only at h
   try simp only [] at h
-  by_cases hcond : rr.ctor = c ∧ rr.nfields = 2 ∧
+  by_cases hcond : rr.ctor = c ∧ rr.nfields = 2 ∧ mI = rP ∧
       reservedBasisNames.contains (c'.str "rec") = true
   case neg => rw [if_neg hcond] at h; exact nomatch h
   rw [if_pos hcond] at h
-  obtain ⟨hrc, hrf, hres⟩ := hcond
+  obtain ⟨hrc, hrf, hmirp, hres⟩ := hcond
   try simp only [Bind.bind, Except.bind] at h
   cases hlev : Level.isEquivList us us' with
   | none => rw [hlev] at h; simp [liftFueled] at h
@@ -1552,7 +1566,7 @@ theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   | true =>
   simp only [↓reduceIte] at h
   exact ⟨c, us, pα, pβ, s₁, s₂, cvm, tb, c', us', A, B, cvi, capsi, cvr,
-    nP, nM, nm, rr, rfl, hfc, rfl, hwtb, hfi, hfr, hrc, hrf, hres, hlev,
+    mI, rP, rr, rfl, hfc, rfl, hwtb, hfi, hfr, hrc, hrf, hmirp, hres, hlev,
     hd1, h⟩
 
 
@@ -1562,9 +1576,9 @@ theorem structEtaProjCerts_inv {env : Env} {fuel d : Nat} {T : Name}
     ∀ (idxs : List Nat),
       structEtaProjCertsP env fuel d T us' targs b lpsT idxs = .ok true →
       ∀ i ∈ idxs, ∃ (cvp : ConstantVal)
-        (nPp nMp nmp nip : Nat) (rulesp : List RecRule),
+        (mIp rPp : Nat) (rulesp : List RecRule),
         env.find? (projFnName T i) =
-          some (.recInfo cvp nPp nMp nmp nip rulesp) ∧
+          some (.recInfo cvp mIp rPp rulesp) ∧
         cvp.levelParams = lpsT ∧
         (cvp.type.stripPis (targs.length + 1)).isSome = true ∧
         iotaCertsP env fuel d
@@ -1579,11 +1593,12 @@ theorem structEtaProjCerts_inv {env : Env} {fuel d : Nat} {T : Name}
     match hfp : env.find? (projFnName T i₀) with
     | none => intro h; exact nomatch h
     | some (.axiomInfo _) => intro h; exact nomatch h
+    | some (.projInfo _) => intro h; exact nomatch h
     | some (.defnInfo _ _ _) => intro h; exact nomatch h
     | some (.thmInfo _ _) => intro h; exact nomatch h
     | some (.indInfo _ _) => intro h; exact nomatch h
     | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-    | some (.recInfo cvp nPp nMp nmp nip rulesp) => ?_
+    | some (.recInfo cvp mIp rPp rulesp) => ?_
     intro h
     dsimp only at h
     by_cases hlps : cvp.levelParams = lpsT ∧
@@ -1603,7 +1618,7 @@ theorem structEtaProjCerts_inv {env : Env} {fuel d : Nat} {T : Name}
     | true => ?_
     simp only [↓reduceIte] at h
     rcases List.mem_cons.mp hi with rfl | hi'
-    · exact ⟨cvp, nPp, nMp, nmp, nip, rulesp, hfp, hlps, hstrp, hic⟩
+    · exact ⟨cvp, mIp, rPp, rulesp, hfp, hlps, hstrp, hic⟩
     · exact structEtaProjCerts_inv rest h i hi'
 
 
@@ -1660,10 +1675,11 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   match hfc : env.find? c with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.ctorInfo cvc cnP cnF) => ?_
   intro h
   dsimp only at h
@@ -1688,10 +1704,11 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   match hfT : env.find? T with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.indInfo cvT caps) => ?_
   intro h
   dsimp only at h
@@ -1828,10 +1845,11 @@ theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   match hfT : env.find? T with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.indInfo cvT caps) => ?_
   intro h
   dsimp only at h
@@ -1932,86 +1950,70 @@ theorem etaCert_inv {env : Env} {fuel d : Nat} {n₁ : Name} {ty₁ body₁ b : 
   simp only [↓reduceIte] at h
   exact ⟨tb, n₂, ty₂, fb, m₂, v₁, v₂, rfl, hwtb, rfl, hm₂, heq, hd1, h⟩
 
-/-- Inversion for the projection rule of `inferTypeCore`. -/
+/-- Inversion for the projection rule of `inferTypeCore`: the subject's
+type whnfs to a type application whose head has a native
+projection-table entry, and the result is the entry type's residual
+along the arguments and the subject. -/
 theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
     {e t : Expr}
     (h : inferTypeCore env (fuel + 1) d (.proj sn i e) = .ok t) :
-    ∃ te us A B cv caps, inferTypeCore env fuel d e = .ok te ∧
-      whnf env fuel d te = .ok (.app (.app (.const psigmaName us) A) B) ∧
-      env.find? psigmaName = some (.indInfo cv caps) ∧
-      ((i = 0 ∧ t = A) ∨ (i = 1 ∧ t = .app B (.proj sn 0 e))) := by
+    ∃ tpe te T us entry,
+      inferTypeCore env fuel d e = .ok tpe ∧
+      whnf env fuel d tpe = .ok te ∧
+      te.getAppFn = .const T us ∧
+      env.findProj? T i = some entry ∧ entry.native = true ∧
+      te.getAppArgs.length = entry.numParams ∧
+      us.length = entry.levelParams.length ∧
+      piResidual (entry.ty.instantiateLevelParams entry.levelParams us)
+        (te.getAppArgs ++ [e]) = some t := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind] at h
   simp only [infer_def, whnf_def] at h
   cases hte : inferTypeCore env fuel d e with
   | error err => rw [hte] at h; exact nomatch h
-  | ok te =>
+  | ok tpe =>
   rw [hte] at h
   dsimp only at h
-  cases hw : whnf env fuel d te with
+  cases hw : whnf env fuel d tpe with
   | error err => rw [hw] at h; exact nomatch h
-  | ok w =>
+  | ok te =>
   rw [hw] at h
   dsimp only at h
-  match w, h with
-  | .app w1 B, h => ?_
-  | .sort u, h => exact nomatch h
-  | .fvar i2 n2 t2, h => exact nomatch h
-  | .const n2 us2, h => exact nomatch h
-  | .lam n2 t2 b2 m2, h => exact nomatch h
-  | .forallE n2 t2 b2 m2, h => exact nomatch h
-  | .bvar i2, h => exact nomatch h
-  | .letE n2 t2 v2 b2, h => exact nomatch h
-  | .lit l2, h => exact nomatch h
-  | .proj s2 i2 e2, h => exact nomatch h
-  match w1, h with
-  | .app w2 A, h => ?_
-  | .sort u, h => exact nomatch h
-  | .fvar i2 n2 t2, h => exact nomatch h
-  | .const n2 us2, h => exact nomatch h
-  | .lam n2 t2 b2 m2, h => exact nomatch h
-  | .forallE n2 t2 b2 m2, h => exact nomatch h
-  | .bvar i2, h => exact nomatch h
-  | .letE n2 t2 v2 b2, h => exact nomatch h
-  | .lit l2, h => exact nomatch h
-  | .proj s2 i2 e2, h => exact nomatch h
-  match w2, h with
-  | .const c us, h => ?_
-  | .sort u, h => exact nomatch h
-  | .fvar i2 n2 t2, h => exact nomatch h
-  | .app f2 a2, h => exact nomatch h
-  | .lam n2 t2 b2 m2, h => exact nomatch h
-  | .forallE n2 t2 b2 m2, h => exact nomatch h
-  | .bvar i2, h => exact nomatch h
-  | .letE n2 t2 v2 b2, h => exact nomatch h
-  | .lit l2, h => exact nomatch h
-  | .proj s2 i2 e2, h => exact nomatch h
+  revert h
+  cases hfn : te.getAppFn with
+  | const T us => ?_
+  | bvar i2 => intro h; exact nomatch h
+  | sort u => intro h; exact nomatch h
+  | fvar i2 n2 t2 => intro h; exact nomatch h
+  | app f2 a2 => intro h; exact nomatch h
+  | lam n2 t2 b2 m2 => intro h; exact nomatch h
+  | forallE n2 t2 b2 m2 => intro h; exact nomatch h
+  | letE n2 t2 v2 b2 => intro h; exact nomatch h
+  | lit l2 => intro h; exact nomatch h
+  | proj s2 i2 e2 => intro h; exact nomatch h
+  intro h
   dsimp only at h
-  cases hfind : env.find? c with
-  | none => rw [hfind] at h; exact nomatch h
-  | some ci =>
-  rw [hfind] at h
-  cases ci with
-  | indInfo cv _ => ?_
-  | axiomInfo cv => exact nomatch h
-  | defnInfo cv value hint => exact nomatch h
-  | thmInfo cv value => exact nomatch h
-  | ctorInfo cv nP nF => exact nomatch h
-  | recInfo cv nP nM nm ni rules => exact nomatch h
+  revert h
+  cases hfp : env.findProj? T i with
+  | none => intro h; exact nomatch h
+  | some entry => ?_
+  intro h
   dsimp only at h
-  by_cases hc : c = psigmaName
-  · rw [if_pos hc] at h
-    subst hc
-    match i, h with
-    | 0, h =>
+  split at h
+  case isFalse => exact nomatch h
+  case isTrue hcond =>
+    obtain ⟨hnat, hlen, hus⟩ := hcond
+    revert h
+    cases hres : piResidual
+        (entry.ty.instantiateLevelParams entry.levelParams us)
+        (te.getAppArgs ++ [e]) with
+    | none => intro h; exact nomatch h
+    | some resTy =>
+      intro h
       simp only [pure, Except.pure, Except.ok.injEq] at h
-      exact ⟨te, us, A, B, cv, _, rfl, hw, hfind, Or.inl ⟨rfl, h.symm⟩⟩
-    | 1, h =>
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      exact ⟨te, us, A, B, cv, _, rfl, hw, hfind, Or.inr ⟨rfl, h.symm⟩⟩
-    | (n + 2), h => exact nomatch h
-  · rw [if_neg hc] at h
-    exact nomatch h
+      subst h
+      exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hnat, hlen, hus,
+        hres⟩
 
 /-! ## Well-scopedness preservation through reduction -/
 
@@ -2231,10 +2233,11 @@ theorem unfoldDefinition_WScoped {env : Env} (henv : EnvWF env)
   match hf : env.find? n with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.defnInfo cv value hint) => ?_
   intro h
   dsimp only at h
@@ -2308,12 +2311,11 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
         · simp only [WScoped] at hwf'
           exact ihCore hbeta (WScoped.instantiate1_gen hw.2 0 hwf'.2)
         · -- iota step
-          obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major₁, major,
-            cj, usj,
-            cvj, cnP, cnF, r, -, -, -, -, -, hfn, hfc, hlen, hmaj, hlit, hsub,
-            hmfn, hfj,
+          obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj,
+            cvj, cnP, cnF, r, -, -, -, -, -, hfn, hfc, hlen, hmaj, hlit,
+            hsub, hmfn, hfj,
             hrule,
-            hml1, hml2, har1, har2, -, hlev, hpeq, hcerts, hmcerts, -, -, -, -, rfl⟩ :=
+            hml, har1, har2, -, hlev, hpeq, hcerts, hmcerts, -, -, -, -, rfl⟩ :=
             iotaRec_inv hio
           have hwapp : WScoped d (Expr.app f' a) := by
             simp only [WScoped]
@@ -2323,7 +2325,7 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
           have hrhs : WScoped d
               (r.rhs.instantiateLevelParams cv.levelParams us) := by
             obtain ⟨-, -, -, -, -, hrules⟩ := henv _ (find?_mem hfc)
-            obtain ⟨hrf, -, -, -⟩ := hrules cv nP nM nm ni rules rfl r
+            obtain ⟨hrf, -, -, -⟩ := hrules cv mI rP rules rfl r
               (List.mem_of_find?_eq_some hrule)
             exact WScoped.of_not_hasFvar
               (by rw [hasFvar_instantiateLevelParams]; exact hrf)
@@ -2350,7 +2352,7 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
         obtain ⟨e₂, he, hcase⟩ := whnf_proj_inv h
         have hwe₂ : WScoped d e₂ := ihLoop he hw
         rcases hcase with rfl |
-          ⟨us, cv, nP, nF, hfn, hf, hi, hlen, hus, hred, -⟩
+          ⟨us, entry, hfn, hf, hnat, hi, hlen, hus, hred, -⟩
         · simpa [WScoped] using hwe₂
         · exact ihCore hred (hwe₂.getAppArgs _ (getD_mem (by omega)))
     · -- whnf loop

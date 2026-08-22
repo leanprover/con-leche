@@ -1191,64 +1191,64 @@ theorem natOpNames_ne_pins {c : Name} (hc : c ∈ natOpNames) :
 /-- The invariant ignores a stored recursor's rule list (the operations
 are stored definitions, and neither the guard nor the interpretation
 reads a recursor's rules). -/
-theorem NatOpsOk.cons_recRules {cvA : ConstantVal} {nP nM nm ni : Nat}
+theorem NatOpsOk.cons_recRules {cvA : ConstantVal} {mI rP : Nat}
     {rules₁ rules₂ : List RecRule} {val : ConstVal V}
-    (h : NatOpsOk V ⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ val) :
-    NatOpsOk V ⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ val := by
+    (h : NatOpsOk V ⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ val) :
+    NatOpsOk V ⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ val := by
   have henv : ∀ n,
-      ((⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env).find? n).map
+      ((⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env).find? n).map
         (fun ci => ci.toConstantVal.levelParams) =
-      ((⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env).find? n).map
+      ((⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env).find? n).map
         (fun ci => ci.toConstantVal.levelParams) := by
     intro n
     rw [Env.find?_cons, Env.find?_cons]
-    by_cases hn : (ConstantInfo.recInfo cvA nP nM nm ni rules₂).name = n
+    by_cases hn : (ConstantInfo.recInfo cvA mI rP rules₂).name = n
     · rw [if_pos hn,
-        if_pos (show (ConstantInfo.recInfo cvA nP nM nm ni rules₁).name = n
+        if_pos (show (ConstantInfo.recInfo cvA mI rP rules₁).name = n
           from hn)]
       rfl
     · rw [if_neg hn,
-        if_neg (show ¬ (ConstantInfo.recInfo cvA nP nM nm ni rules₁).name = n
+        if_neg (show ¬ (ConstantInfo.recInfo cvA mI rP rules₁).name = n
           from hn)]
   have hfind : ∀ n (ci : ConstantInfo),
-      (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env).find? n =
+      (⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env).find? n =
         some ci → (∀ cv2 v2 h2, ci ≠ .defnInfo cv2 v2 h2) ∨
-      (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env).find? n =
+      (⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env).find? n =
         some ci := by
     intro n ci hf
     rw [Env.find?_cons] at hf
     rw [Env.find?_cons]
-    by_cases hn : (ConstantInfo.recInfo cvA nP nM nm ni rules₂).name = n
+    by_cases hn : (ConstantInfo.recInfo cvA mI rP rules₂).name = n
     · rw [if_pos hn] at hf
       obtain rfl := Option.some.inj hf
       exact Or.inl (fun cv2 v2 h2 h => nomatch h)
     · rw [if_neg hn] at hf
-      rw [if_neg (show ¬ (ConstantInfo.recInfo cvA nP nM nm ni rules₁).name = n
+      rw [if_neg (show ¬ (ConstantInfo.recInfo cvA mI rP rules₁).name = n
         from hn)]
       exact Or.inr hf
   have hfind' : ∀ n (ci : ConstantInfo),
-      (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env).find? n =
+      (⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env).find? n =
         some ci → (∀ cv2 v2 h2, ci ≠ .defnInfo cv2 v2 h2) ∨
-      (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env).find? n =
+      (⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env).find? n =
         some ci := by
     intro n ci hf
     rw [Env.find?_cons] at hf
     rw [Env.find?_cons]
-    by_cases hn : (ConstantInfo.recInfo cvA nP nM nm ni rules₁).name = n
+    by_cases hn : (ConstantInfo.recInfo cvA mI rP rules₁).name = n
     · rw [if_pos hn] at hf
       obtain rfl := Option.some.inj hf
       exact Or.inl (fun cv2 v2 h2 h => nomatch h)
     · rw [if_neg hn] at hf
-      rw [if_neg (show ¬ (ConstantInfo.recInfo cvA nP nM nm ni rules₂).name = n
+      rw [if_neg (show ¬ (ConstantInfo.recInfo cvA mI rP rules₂).name = n
         from hn)]
       exact Or.inr hf
   have hnat : natLitSupported
-      (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env) =
-      natLitSupported (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env) :=
+      (⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env) =
+      natLitSupported (⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env) :=
     natLitSupported_cons_recRules
   have hstr : strLitSupported
-      (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env) =
-      strLitSupported (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env) :=
+      (⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env) =
+      strLitSupported (⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env) :=
     strLitSupported_cons_recRules
   intro c hc cv v hv hf
   rcases hfind c _ hf with hnd | hf₁
@@ -1264,14 +1264,14 @@ theorem NatOpsOk.cons_recRules {cvA : ConstantVal} {nP nM nm ni : Nat}
   · intro hcb
     obtain ⟨⟨ciT, hT, hlpT⟩, ⟨ciF, hF, hlpF⟩⟩ := hbool hcb
     have conv : ∀ (nb : Name) (ci : ConstantInfo),
-        (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env).find? nb =
+        (⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env).find? nb =
           some ci → ci.toConstantVal.levelParams = [] →
-        ∃ ci₂, (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env).find?
+        ∃ ci₂, (⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env).find?
           nb = some ci₂ ∧ ci₂.toConstantVal.levelParams = [] := by
       intro nb ci hfb hlpb
       have h2 := henv nb
       rw [hfb] at h2
-      cases hf2 : (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ :
+      cases hf2 : (⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ :
           Env).find? nb with
       | none => rw [hf2] at h2; exact nomatch h2
       | some ci₂ =>
@@ -1282,9 +1282,9 @@ theorem NatOpsOk.cons_recRules {cvA : ConstantVal} {nP nM nm ni : Nat}
   · intro eq heq ψ x y hxy
     have hie : ∀ (e : Expr) (dd : Nat) (ρ : Nat → V),
         interpExpr V val
-          (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env) ψ dd ρ e =
+          (⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env) ψ dd ρ e =
         interpExpr V val
-          (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env) ψ dd ρ e :=
+          (⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env) ψ dd ρ e :=
       fun e dd ρ => interp_env_ext henv hnat hstr e dd ρ
     rw [hie eq.1 2 _, hie eq.2 2 _]
     refine heqs eq heq ψ x y ?_
@@ -1434,64 +1434,64 @@ theorem DivModOk.cons {val val' : ConstVal V} {c₀ : ConstantInfo}
 /-- The `DivModOk` invariant ignores a stored recursor's rule list
 (mirror of `NatOpsOk.cons_recRules`; the equations are value-level, so
 only the guard and the lookup move). -/
-theorem DivModOk.cons_recRules {cvA : ConstantVal} {nP nM nm ni : Nat}
+theorem DivModOk.cons_recRules {cvA : ConstantVal} {mI rP : Nat}
     {rules₁ rules₂ : List RecRule} {val : ConstVal V}
-    (h : DivModOk V ⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ val) :
-    DivModOk V ⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ val := by
+    (h : DivModOk V ⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ val) :
+    DivModOk V ⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ val := by
   have henv : ∀ n,
-      ((⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env).find? n).map
+      ((⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env).find? n).map
         (fun ci => ci.toConstantVal.levelParams) =
-      ((⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env).find? n).map
+      ((⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env).find? n).map
         (fun ci => ci.toConstantVal.levelParams) := by
     intro n
     rw [Env.find?_cons, Env.find?_cons]
-    by_cases hn : (ConstantInfo.recInfo cvA nP nM nm ni rules₂).name = n
+    by_cases hn : (ConstantInfo.recInfo cvA mI rP rules₂).name = n
     · rw [if_pos hn,
-        if_pos (show (ConstantInfo.recInfo cvA nP nM nm ni rules₁).name = n
+        if_pos (show (ConstantInfo.recInfo cvA mI rP rules₁).name = n
           from hn)]
       rfl
     · rw [if_neg hn,
-        if_neg (show ¬ (ConstantInfo.recInfo cvA nP nM nm ni rules₁).name = n
+        if_neg (show ¬ (ConstantInfo.recInfo cvA mI rP rules₁).name = n
           from hn)]
   have hfind : ∀ n (ci : ConstantInfo),
-      (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env).find? n =
+      (⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env).find? n =
         some ci → (∀ cv2 v2 h2, ci ≠ .defnInfo cv2 v2 h2) ∨
-      (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env).find? n =
+      (⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env).find? n =
         some ci := by
     intro n ci hf
     rw [Env.find?_cons] at hf
     rw [Env.find?_cons]
-    by_cases hn : (ConstantInfo.recInfo cvA nP nM nm ni rules₂).name = n
+    by_cases hn : (ConstantInfo.recInfo cvA mI rP rules₂).name = n
     · rw [if_pos hn] at hf
       obtain rfl := Option.some.inj hf
       exact Or.inl (fun cv2 v2 h2 h => nomatch h)
     · rw [if_neg hn] at hf
-      rw [if_neg (show ¬ (ConstantInfo.recInfo cvA nP nM nm ni rules₁).name = n
+      rw [if_neg (show ¬ (ConstantInfo.recInfo cvA mI rP rules₁).name = n
         from hn)]
       exact Or.inr hf
   have hfind' : ∀ n (ci : ConstantInfo),
-      (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env).find? n =
+      (⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env).find? n =
         some ci → (∀ cv2 v2 h2, ci ≠ .defnInfo cv2 v2 h2) ∨
-      (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env).find? n =
+      (⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env).find? n =
         some ci := by
     intro n ci hf
     rw [Env.find?_cons] at hf
     rw [Env.find?_cons]
-    by_cases hn : (ConstantInfo.recInfo cvA nP nM nm ni rules₁).name = n
+    by_cases hn : (ConstantInfo.recInfo cvA mI rP rules₁).name = n
     · rw [if_pos hn] at hf
       obtain rfl := Option.some.inj hf
       exact Or.inl (fun cv2 v2 h2 h => nomatch h)
     · rw [if_neg hn] at hf
-      rw [if_neg (show ¬ (ConstantInfo.recInfo cvA nP nM nm ni rules₂).name = n
+      rw [if_neg (show ¬ (ConstantInfo.recInfo cvA mI rP rules₂).name = n
         from hn)]
       exact Or.inr hf
   have hnat : natLitSupported
-      (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env) =
-      natLitSupported (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env) :=
+      (⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env) =
+      natLitSupported (⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env) :=
     natLitSupported_cons_recRules
   have hstr : strLitSupported
-      (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env) =
-      strLitSupported (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env) :=
+      (⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env) =
+      strLitSupported (⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env) :=
     strLitSupported_cons_recRules
   intro c hc cv v hv hf
   rcases hfind c _ hf with hnd | hf₁
@@ -1507,14 +1507,14 @@ theorem DivModOk.cons_recRules {cvA : ConstantVal} {nP nM nm ni : Nat}
   · intro hcb
     obtain ⟨⟨ciT, hT, hlpT⟩, ⟨ciF, hF, hlpF⟩⟩ := hbool hcb
     have conv : ∀ (nb : Name) (ci : ConstantInfo),
-        (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env).find? nb =
+        (⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env).find? nb =
           some ci → ci.toConstantVal.levelParams = [] →
-        ∃ ci₂, (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env).find?
+        ∃ ci₂, (⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env).find?
           nb = some ci₂ ∧ ci₂.toConstantVal.levelParams = [] := by
       intro nb ci hfb hlpb
       have h2 := henv nb
       rw [hfb] at h2
-      cases hf2 : (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ :
+      cases hf2 : (⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ :
           Env).find? nb with
       | none => rw [hf2] at h2; exact nomatch h2
       | some ci₂ =>

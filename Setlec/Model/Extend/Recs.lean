@@ -24,11 +24,11 @@ open SetTheory Expr
 provisional environments. -/
 inductive ProvFacts (F : Nat) (blockNames : List Name) :
     Env → Env →
-    List (ConstantVal × Nat × Nat × Nat × Nat × List RecRule) → Prop
+    List (ConstantVal × Nat × Nat × List RecRule) → Prop
   | nil {env : Env} : ProvFacts F blockNames env env []
   | cons {envAcc envSelf : Env} {cvA : ConstantVal}
-      {nP nM nm ni : Nat} {rules : List RecRule}
-      {rest : List (ConstantVal × Nat × Nat × Nat × Nat × List RecRule)} :
+      {mI rP : Nat} {rules : List RecRule}
+      {rest : List (ConstantVal × Nat × Nat × List RecRule)} :
       envAcc.find? cvA.name = none →
       reservedBasisNames.contains cvA.name = false →
       cvA.name.isProjFnShape = false →
@@ -45,22 +45,21 @@ inductive ProvFacts (F : Nat) (blockNames : List Name) :
           if blockNames.contains n then n.str "_model" else n))
           cvm.type = true) →
       ProvFacts F blockNames
-        ⟨.recInfo cvA nP nM nm ni [] :: envAcc.consts⟩ envSelf rest →
+        ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩ envSelf rest →
       ProvFacts F blockNames envAcc envSelf
-        ((cvA, nP, nM, nm, ni, rules) :: rest)
+        ((cvA, mI, rP, rules) :: rest)
 
 /-- Lookups below the provisional chain are preserved. -/
 theorem ProvFacts.find?_preserved {F : Nat} {blockNames : List Name} :
     ∀ {envAcc envSelf : Env}
-      {checked : List (ConstantVal × Nat × Nat × Nat × Nat ×
-        List RecRule)},
+      {checked : List (ConstantVal × Nat × Nat × List RecRule)},
       ProvFacts F blockNames envAcc envSelf checked →
       ∀ (n : Name) (ci : ConstantInfo), envAcc.find? n = some ci →
         envSelf.find? n = some ci := by
   intro envAcc envSelf checked h
   induction h with
   | nil => intro n ci h; exact h
-  | @cons envAcc envSelf cvA nP nM nm ni rules rest hfresh _ _ _ _ _ _ _
+  | @cons envAcc envSelf cvA mI rP rules rest hfresh _ _ _ _ _ _ _
       _ _ _ ih =>
     intro n ci hf
     refine ih n ci ?_
@@ -71,29 +70,28 @@ theorem ProvFacts.find?_preserved {F : Nat} {blockNames : List Name} :
 lookup is either preserved or hits a provisioned recursor. -/
 theorem ProvFacts.find?_corr {F : Nat} {blockNames : List Name} :
     ∀ {envAcc envSelf : Env}
-      {checked : List (ConstantVal × Nat × Nat × Nat × Nat ×
-        List RecRule)},
+      {checked : List (ConstantVal × Nat × Nat × List RecRule)},
       ProvFacts F blockNames envAcc envSelf checked →
       ∀ n : Name, envSelf.find? n = envAcc.find? n ∨
-        ∃ cvA nP nM nm ni,
-          envSelf.find? n = some (.recInfo cvA nP nM nm ni []) ∧
+        ∃ cvA mI rP,
+          envSelf.find? n = some (.recInfo cvA mI rP []) ∧
           cvA.name = n := by
   intro envAcc envSelf checked h
   induction h with
   | nil => intro n; exact Or.inl rfl
-  | @cons envAcc envSelf cvA nP nM nm ni rules rest hfresh _ _ _ _ _ _ _
+  | @cons envAcc envSelf cvA mI rP rules rest hfresh _ _ _ _ _ _ _
       _ _ _ ih =>
     intro n
     rcases ih n with heq | hrec
     · by_cases hn : cvA.name = n
       · subst hn
-        refine Or.inr ⟨cvA, nP, nM, nm, ni, ?_, rfl⟩
+        refine Or.inr ⟨cvA, mI, rP, ?_, rfl⟩
         rw [heq, Env.find?_cons,
-          if_pos (show (ConstantInfo.recInfo cvA nP nM nm ni
+          if_pos (show (ConstantInfo.recInfo cvA mI rP
             []).name = cvA.name from rfl)]
       · left
         rw [heq, Env.find?_cons,
-          if_neg (show ¬(ConstantInfo.recInfo cvA nP nM nm ni
+          if_neg (show ¬(ConstantInfo.recInfo cvA mI rP
             []).name = n from hn)]
     · exact Or.inr hrec
 
@@ -102,8 +100,7 @@ having a model with the block invariant, and records the per-item
 facts. -/
 theorem provisionRecs_sound {F : Nat} {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) (envAcc : Env)
-      (p : Env × List (ConstantVal × Nat × Nat × Nat × Nat ×
-        List RecRule)),
+      (p : Env × List (ConstantVal × Nat × Nat × List RecRule)),
     provisionRecs (fueledOps F) blockNames envAcc recs = .ok p →
     (∀ ci ∈ recs, blockNames.contains ci.name = true) →
     ∀ (m : EnvModel V envAcc), BlockInstalled blockNames envAcc m.val →
@@ -117,7 +114,7 @@ theorem provisionRecs_sound {F : Nat} {blockNames : List Name} :
     subst h
     exact ⟨m, hI, fun n ψ _ => rfl, ProvFacts.nil⟩
   | ci :: rest, envAcc, p, h, hbn, m, hI => by
-    obtain ⟨cv, nP, nM, nm, ni, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
+    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
       provisionRecs_cons_inv h
     obtain ⟨hccv, hms, cvm, mval, hmcvm, hfm, hlps, hrenf⟩ :=
       checkMemberVal_inv hcmv
@@ -135,7 +132,7 @@ theorem provisionRecs_sound {F : Nat} {blockNames : List Name} :
       exact hpshape0raw
     have hbnA : blockNames.contains cvA.name = true := by
       rw [hnameA]
-      exact hbn (ConstantInfo.recInfo cv nP nM nm ni rules)
+      exact hbn (ConstantInfo.recInfo cv mI rP rules)
         List.mem_cons_self
     have htyf : cvA.type.hasFvar = false := by
       rw [hcvA]
@@ -204,30 +201,30 @@ theorem provisionRecs_sound {F : Nat} {blockNames : List Name} :
       exact annotate_sound m _ hann (WScoped.of_not_hasFvar hfv) hlb
         (Expr.LeavesBounded.of_not_hasFvar hfv) (rho0 V)
         (FvarsOk.of_not_hasFvar hfv)
-    have hwf₀ : ConstWF ⟨.recInfo cvA nP nM nm ni [] :: envAcc.consts⟩
-        (.recInfo cvA nP nM nm ni []) := by
+    have hwf₀ : ConstWF ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩
+        (.recInfo cvA mI rP []) := by
       refine ⟨htyf, htlp, Expr.constsResolve_mono htres, htyb, ?_, ?_⟩
       · intro cv2 v2 h2 heq
         exact nomatch heq
-      · intro cv2 nP' nM' nm' ni' rules'' heq r hr
-        injection heq with e1 e2 e3 e4 e5 e6
-        subst e6
+      · intro cv2 mI' rP' rules'' heq r hr
+        injection heq with e1 e2 e3 e4
+        subst e4
         exact nomatch hr
     obtain ⟨m₁, hval₁, hpres₁⟩ := extend_modeled_one m
-      (.recInfo cvA nP nM nm ni []) fS (cvA.name.str "_model")
+      (.recInfo cvA mI rP []) fS (cvA.name.str "_model")
       hfind0 hnres0 hwf₀ htres
-      (Or.inr (Or.inr ⟨cvA, nP, nM, nm, ni, rfl⟩)) hfm hlps hrenS hannT hroS
+      (Or.inr (Or.inr ⟨cvA, mI, rP, rfl⟩)) hfm hlps hrenS hannT hroS
       (fun hk => by
         rcases hk with ⟨_, _, hcon⟩ | ⟨_, _, _, hcon⟩ <;> exact nomatch hcon)
-      (fun T j hh => by
+      (fun T j _ _ _ _ hh _ => by
         have hh' : cvA.name = projFnName T j := hh
         rw [hh'] at hpshape0
         exact nomatch hpshape0)
       (fun cv2 caps hcon => nomatch hcon)
       (fun cv2 caps hcon => nomatch hcon)
     have hI₁ : BlockInstalled blockNames
-        ⟨.recInfo cvA nP nM nm ni [] :: envAcc.consts⟩ m₁.val :=
-      BlockInstalled.step (ci₁ := .recInfo cvA nP nM nm ni []) hI hms hfm
+        ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩ m₁.val :=
+      BlockInstalled.step (ci₁ := .recInfo cvA mI rP []) hI hms hfm
         hlps hval₁ hpres₁
     obtain ⟨mS, hIS, hpresS, hchain⟩ := provisionRecs_sound rest _ p' hrec
       (fun cj hcj => hbn cj (List.mem_cons_of_mem _ hcj)) m₁ hI₁
@@ -237,10 +234,10 @@ theorem provisionRecs_sound {F : Nat} {blockNames : List Name} :
         intro he
         rw [he, hfind0] at hn
         exact nomatch hn
-      have hn₁ : ((⟨.recInfo cvA nP nM nm ni [] ::
+      have hn₁ : ((⟨.recInfo cvA mI rP [] ::
           envAcc.consts⟩ : Env).find? n).isSome = true := by
         rw [Env.find?_cons,
-          if_neg (show ¬(ConstantInfo.recInfo cvA nP nM nm ni
+          if_neg (show ¬(ConstantInfo.recInfo cvA mI rP
             []).name = n from fun h => hne h.symm)]
         exact hn
       rw [hpresS n ψ hn₁, hpres₁ n ψ hne]
@@ -305,8 +302,8 @@ theorem Expr.constsResolve_le {envA envB : Env}
 /-- The shape-level swap pair (no obligations). -/
 def SwapPairSh (c₀ c₃ : ConstantInfo) : Prop :=
   c₀ = c₃ ∨
-  ∃ cv nP nM nm ni rules,
-    c₀ = .recInfo cv nP nM nm ni [] ∧ c₃ = .recInfo cv nP nM nm ni rules
+  ∃ cv mI rP rules,
+    c₀ = .recInfo cv mI rP [] ∧ c₃ = .recInfo cv mI rP rules
 
 /-- Pointwise shape-level swap of two constant lists. -/
 inductive SwapShList : List ConstantInfo → List ConstantInfo → Prop
@@ -321,7 +318,7 @@ theorem SwapShList.of_eq : ∀ (l : List ConstantInfo), SwapShList l l
 
 theorem SwapPairSh.name_eq {c₀ c₃ : ConstantInfo}
     (h : SwapPairSh c₀ c₃) : c₀.name = c₃.name := by
-  rcases h with rfl | ⟨cv, nP, nM, nm, ni, rules, rfl, rfl⟩
+  rcases h with rfl | ⟨cv, mI, rP, rules, rfl, rfl⟩
   · rfl
   · rfl
 
@@ -331,9 +328,9 @@ theorem swapSh_find?_corr :
     SwapShList consts₀ consts₃ →
     ∀ n : Name,
     (Env.mk consts₃).find? n = (Env.mk consts₀).find? n ∨
-    ∃ cv nP nM nm ni rules,
-      (Env.mk consts₀).find? n = some (.recInfo cv nP nM nm ni []) ∧
-      (Env.mk consts₃).find? n = some (.recInfo cv nP nM nm ni rules) ∧
+    ∃ cv mI rP rules,
+      (Env.mk consts₀).find? n = some (.recInfo cv mI rP []) ∧
+      (Env.mk consts₃).find? n = some (.recInfo cv mI rP rules) ∧
       cv.name = n := by
   intro consts₀ consts₃ hsw
   induction hsw with
@@ -348,9 +345,9 @@ theorem swapSh_find?_corr :
       have h₀ : (Env.mk (c₀ :: rest₀)).find? n = some c₀ := by
         show (c₀ :: rest₀).find? (·.name == n) = some c₀
         rw [List.find?_cons_of_pos (by simp [hn₀])]
-      rcases hpair with rfl | ⟨cv, nP, nM, nm, ni, rules, rfl, rfl⟩
+      rcases hpair with rfl | ⟨cv, mI, rP, rules, rfl, rfl⟩
       · exact Or.inl (h₃.trans h₀.symm)
-      · exact Or.inr ⟨cv, nP, nM, nm, ni, rules, h₀, h₃,
+      · exact Or.inr ⟨cv, mI, rP, rules, h₀, h₃,
           (show cv.name = n from hn)⟩
     · have hn₀ : ¬c₀.name = n := by
         rw [SwapPairSh.name_eq hpair]
@@ -373,30 +370,26 @@ environments; the list pairs each provisioned item with its checked
 rule list. -/
 inductive RulesChain (F : Nat) (env' envS : Env) (f : Name → Name) :
     Env → Env →
-    List ((ConstantVal × Nat × Nat × Nat × Nat × List RecRule) ×
+    List ((ConstantVal × Nat × Nat × List RecRule) ×
       List RecRule) → Prop
   | nil {env : Env} : RulesChain F env' envS f env env []
-  | cons {envAcc env₃ : Env} {cvA : ConstantVal} {nP nM nm ni : Nat}
+  | cons {envAcc env₃ : Env} {cvA : ConstantVal} {mI rP : Nat}
       {rules rules' : List RecRule}
-      {rest : List ((ConstantVal × Nat × Nat × Nat × Nat ×
-        List RecRule) × List RecRule)} :
+      {rest : List ((ConstantVal × Nat × Nat × List RecRule) × List RecRule)} :
       checkIotaRules (fueledOps F) env' envS f cvA.name cvA.levelParams
-        cvA.type nP nM nm ni 0 rules = .ok rules' →
+        cvA.type mI rP 0 rules = .ok rules' →
       RulesChain F env' envS f
-        ⟨.recInfo cvA nP nM nm ni rules' :: envAcc.consts⟩ env₃ rest →
+        ⟨.recInfo cvA mI rP rules' :: envAcc.consts⟩ env₃ rest →
       RulesChain F env' envS f envAcc env₃
-        (((cvA, nP, nM, nm, ni, rules), rules') :: rest)
+        (((cvA, mI, rP, rules), rules') :: rest)
 
 /-- Invert the rule-checking fold into its chain. -/
 theorem rulesFold_inv {F : Nat} {env' envS : Env} {f : Name → Name} :
-    ∀ (checked : List (ConstantVal × Nat × Nat × Nat × Nat ×
-        List RecRule)) (envAcc env₃ : Env),
+    ∀ (checked : List (ConstantVal × Nat × Nat × List RecRule)) (envAcc env₃ : Env),
     checked.foldlM (fun (acc : Env) c => do
         let rules' ← checkIotaRules (fueledOps F) env' envS f c.1.name
-          c.1.levelParams c.1.type c.2.1 c.2.2.1 c.2.2.2.1 c.2.2.2.2.1
-          0 c.2.2.2.2.2
-        pure (⟨.recInfo c.1 c.2.1 c.2.2.1 c.2.2.2.1 c.2.2.2.2.1
-          rules' :: acc.consts⟩ : Env)) envAcc = .ok env₃ →
+          c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
+        pure (⟨.recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts⟩ : Env)) envAcc = .ok env₃ →
     ∃ zipped, zipped.map Prod.fst = checked ∧
       RulesChain F env' envS f envAcc env₃ zipped
   | [], envAcc, env₃, h => by
@@ -408,22 +401,20 @@ theorem rulesFold_inv {F : Nat} {env' envS : Env} {f : Name → Name} :
     simp only [Bind.bind, Except.bind] at h
     revert h
     cases hcir : checkIotaRules (fueledOps F) env' envS f c.1.name
-        c.1.levelParams c.1.type c.2.1 c.2.2.1 c.2.2.2.1 c.2.2.2.2.1
-        0 c.2.2.2.2.2 with
+        c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2 with
     | error e => intro h; exact nomatch h
     | ok rules' => ?_
     intro h
     try dsimp only at h
     obtain ⟨zipped, hmap, hchain⟩ := rulesFold_inv rest _ env₃ h
     exact ⟨(c, rules') :: zipped, by rw [List.map_cons, hmap], by
-      obtain ⟨cvA, nP, nM, nm, ni, rules⟩ := c
+      obtain ⟨cvA, mI, rP, rules⟩ := c
       exact RulesChain.cons hcir hchain⟩
 
 /-- The two chains' environments correspond pointwise (shape level). -/
 theorem chains_swapSh {F : Nat} {blockNames : List Name}
     {env' envS : Env} {f : Name → Name} :
-    ∀ {zipped : List ((ConstantVal × Nat × Nat × Nat × Nat ×
-        List RecRule) × List RecRule)}
+    ∀ {zipped : List ((ConstantVal × Nat × Nat × List RecRule) × List RecRule)}
       {accS acc₃ envSelf env₃ : Env},
       ProvFacts F blockNames accS envSelf (zipped.map Prod.fst) →
       RulesChain F env' envS f acc₃ env₃ zipped →
@@ -438,26 +429,25 @@ theorem chains_swapSh {F : Nat} {blockNames : List Name}
     exact hacc
   | cons z rest ih =>
     intro accS acc₃ envSelf env₃ hp hr hacc
-    obtain ⟨⟨cvA, nP, nM, nm, ni, rules⟩, rules'⟩ := z
+    obtain ⟨⟨cvA, mI, rP, rules⟩, rules'⟩ := z
     cases hp with
     | cons hfresh hnres hshape hms hbn htyf htyb htlp htres hmodel hp' =>
       cases hr with
       | cons hcir hr' =>
         exact ih hp' hr'
-          (SwapShList.cons (Or.inr ⟨cvA, nP, nM, nm, ni, rules', rfl,
+          (SwapShList.cons (Or.inr ⟨cvA, mI, rP, rules', rfl,
             rfl⟩) hacc)
 
 /-- Per-item extraction from the rule chain. -/
 theorem RulesChain.mem_facts {F : Nat} {env' envS : Env}
     {f : Name → Name} :
     ∀ {envAcc env₃ : Env}
-      {zipped : List ((ConstantVal × Nat × Nat × Nat × Nat ×
-        List RecRule) × List RecRule)},
+      {zipped : List ((ConstantVal × Nat × Nat × List RecRule) × List RecRule)},
       RulesChain F env' envS f envAcc env₃ zipped →
       ∀ z ∈ zipped,
         checkIotaRules (fueledOps F) env' envS f z.1.1.name
-          z.1.1.levelParams z.1.1.type z.1.2.1 z.1.2.2.1 z.1.2.2.2.1
-          z.1.2.2.2.2.1 0 z.1.2.2.2.2.2 = .ok z.2 := by
+          z.1.1.levelParams z.1.1.type z.1.2.1 z.1.2.2.1
+          0 z.1.2.2.2 = .ok z.2 := by
   intro envAcc env₃ zipped h
   induction h with
   | nil => intro z hz; exact nomatch hz
@@ -472,8 +462,7 @@ recorded facts, its stored provisional recursor, and the embedding of
 its own environment into the final provisional one. -/
 theorem ProvFacts.mem_facts {F : Nat} {blockNames : List Name} :
     ∀ {envAcc envSelf : Env}
-      {checked : List (ConstantVal × Nat × Nat × Nat × Nat ×
-        List RecRule)},
+      {checked : List (ConstantVal × Nat × Nat × List RecRule)},
       ProvFacts F blockNames envAcc envSelf checked →
       ∀ c ∈ checked,
         reservedBasisNames.contains c.1.name = false ∧
@@ -491,24 +480,24 @@ theorem ProvFacts.mem_facts {F : Nat} {blockNames : List Name} :
             if blockNames.contains n then n.str "_model" else n))
             cvm.type = true) ∧
         envSelf.find? c.1.name =
-          some (.recInfo c.1 c.2.1 c.2.2.1 c.2.2.2.1 c.2.2.2.2.1 []) := by
+          some (.recInfo c.1 c.2.1 c.2.2.1 []) := by
   intro envAcc envSelf checked h
   induction h with
   | nil => intro c hc; exact nomatch hc
-  | @cons envAcc envSelf cvA nP nM nm ni rules rest hfresh hnres hshape
+  | @cons envAcc envSelf cvA mI rP rules rest hfresh hnres hshape
       hms hbnc htyf htyb htlp htres hmodel hrest ih =>
     intro c hc
     rcases List.mem_cons.mp hc with rfl | hc
     · have hupN : ∀ (n : Name) (ci : ConstantInfo),
-          (⟨.recInfo cvA nP nM nm ni [] ::
+          (⟨.recInfo cvA mI rP [] ::
             envAcc.consts⟩ : Env).find? n = some ci →
           envSelf.find? n = some ci :=
         ProvFacts.find?_preserved hrest
       have hself : envSelf.find? cvA.name =
-          some (.recInfo cvA nP nM nm ni []) := by
+          some (.recInfo cvA mI rP []) := by
         refine hupN cvA.name _ ?_
         rw [Env.find?_cons,
-          if_pos (show (ConstantInfo.recInfo cvA nP nM nm ni
+          if_pos (show (ConstantInfo.recInfo cvA mI rP
             []).name = cvA.name from rfl)]
       obtain ⟨cvm, mval, hmcvm, hfm, hlps, hren⟩ := hmodel
       refine ⟨hnres, hshape, hms, hbnc, htyf, htyb, htlp, ?_, ?_, hself⟩
@@ -517,7 +506,7 @@ theorem ProvFacts.mem_facts {F : Nat} {blockNames : List Name} :
         cases hf : envAcc.find? n with
         | none => rw [hf] at hn; exact nomatch hn
         | some ci =>
-          have h1 : (⟨.recInfo cvA nP nM nm ni [] ::
+          have h1 : (⟨.recInfo cvA mI rP [] ::
               envAcc.consts⟩ : Env).find? n = some ci := by
             rw [Env.find?_cons_of_isSome hfresh (by rw [hf]; rfl)]
             exact hf
@@ -545,22 +534,23 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
       (env₃.find? n).map (fun ci => ci.toConstantVal.levelParams))
     (hnat : natLitSupported envS = natLitSupported env₃)
     (hcorr : ∀ n : Name, env₃.find? n = envS.find? n ∨
-      ∃ cv nP' nM' nm' ni' rules',
-        envS.find? n = some (.recInfo cv nP' nM' nm' ni' []) ∧
-        env₃.find? n = some (.recInfo cv nP' nM' nm' ni' rules') ∧
+      ∃ cv mI' rP' rules',
+        envS.find? n = some (.recInfo cv mI' rP' []) ∧
+        env₃.find? n = some (.recInfo cv mI' rP' rules') ∧
         cv.name = n)
-    {cvA : ConstantVal} {nP nM nm ni : Nat} {rules' : List RecRule}
+    {cvA : ConstantVal} {mI rP : Nat} {rules' : List RecRule}
     (hbnA : blockNames.contains cvA.name = true)
-    (hself : envS.find? cvA.name = some (.recInfo cvA nP nM nm ni []))
+    (hself : envS.find? cvA.name = some (.recInfo cvA mI rP []))
     (heqfind : env₂.find? eqName = some eqA)
     (hkits : ∀ r' ∈ rules',
-      RuleChecked F env₂ envS f cvA nP nM nm ni r') :
+      RuleChecked F env₂ envS f cvA mI rP r') :
     RecMemberOk (V := V) env₃ mS.val
-      (.recInfo cvA nP nM nm ni rules') := by
-  intro cvR nP' nM' nm' ni' rules₀ hceq r hr
-  injection hceq with e1 e2 e3 e4 e5 e6
-  subst e1 e2 e3 e4 e5 e6
-  obtain ⟨cvj, cnP, cnF, raw, rhsTy, rbinders, rbody, hfc, hnf, hrawf,
+      (.recInfo cvA mI rP rules') := by
+  intro cvR mI' rP' rules₀ hceq r hr
+  injection hceq with e1 e2 e3 e4
+  subst e1 e2 e3 e4
+  obtain ⟨cvj, cnP, cnF, raw, rhsTy, rbinders, rbody, hfc, hnf, hcp, hpl,
+    hrawf,
     hrawb, hann, hrhsf, hrhsb, hrlp, hrres, hstripR, hity, hplainImp⟩ :=
     hkits r hr
   have henvLev' : ∀ n, (env₃.find? n).map
@@ -570,7 +560,7 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
   have htoCV : ∀ n, (envS.find? n).map ConstantInfo.toConstantVal =
       (env₃.find? n).map ConstantInfo.toConstantVal := by
     intro n
-    rcases hcorr n with heq | ⟨cv, a', b', c', d', e', hS0, h30, -⟩
+    rcases hcorr n with heq | ⟨cv, a', b', c', hS0, h30, -⟩
     · rw [heq]
     · rw [hS0, h30]; rfl
   have hstr : strLitSupported envS = strLitSupported env₃ :=
@@ -583,13 +573,21 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
       hrawb (Expr.LeavesBounded.of_not_hasFvar hrawf) (rho0 V)
       (FvarsOk.of_not_hasFvar hrawf)
   refine ⟨fun ψ => AnnotOk.env_ext henvLev hnat hstr _ 0 (rho0 V)
-    (hArhsS ψ), ?_⟩
+    (hArhsS ψ), ?_, ?_⟩
+  · intro hpt
+    exact recRulePlain_le_mI (hpl ▸ hpt)
   intro cvj' cnP' cnF' hfj ψ ψj args margs tv hl hml hch hmch htv hpeq
-    hplain hlev hfit
+    hplainB hlev hfit
+  -- the stored flag is the computed predicate
+  have hplain : Expr.recRulePlain cvA.type mI rP cnP = true :=
+    hpl ▸ hplainB
+  -- the spine arithmetic in constructor counts
+  rw [hcp, hnf] at hml
+  rw [hcp] at hpeq hfit
   -- identify the constructor
   have hfjS : envS.find? (RecRule.ctor r) =
       some (.ctorInfo cvj' cnP' cnF') := by
-    rcases hcorr (RecRule.ctor r) with heq | ⟨cv2, a, b, c, d, e0, h₀,
+    rcases hcorr (RecRule.ctor r) with heq | ⟨cv2, a, b, e0, h₀,
       h₃, -⟩
     · rw [← heq]
       exact hfj
@@ -700,6 +698,7 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
     hfcS hfCm hCmlps heqfindS heqval
     hthm_mem hthm_annot hSw hSb
     (recRulePlain_strip hplain)
+    (recRulePlain_le_mI hplain)
     hopen hheadEq hargs3 hlhead hlarity hlpre hmaj hcstrip hcinst hclen
     hdeIdx hdeFld hrinst hdePre hopenP hcinstP hopenX hlinst hdeLam
     hdeRhs hstripR hrhsf hrhsb hArhsS hIrhs htyw htyb htyps hAty hIty
@@ -712,6 +711,7 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
         interp_env_ext henvLev' hnat.symm hstr.symm e dd₂ ρρ₂)]
       exact hidx)
   obtain ⟨Rv, hRi, hfoldEq, hRch⟩ := hfold
+  rw [hcp]
   refine ⟨Rv, ?_, hfoldEq, hRch⟩
   show interpClosed V mS.val env₃ (Level.substFn φ' cvA.levelParams us)
     (RecRule.rhs r) = some Rv
@@ -728,14 +728,13 @@ theorem SwapList.of_eq {env₃ : Env} {val : ConstVal V} :
 obligations. -/
 theorem chains_swap {F : Nat} {blockNames : List Name}
     {env' envS env₃ : Env} {f : Name → Name} {val : ConstVal V} :
-    ∀ {zipped : List ((ConstantVal × Nat × Nat × Nat × Nat ×
-        List RecRule) × List RecRule)}
+    ∀ {zipped : List ((ConstantVal × Nat × Nat × List RecRule) × List RecRule)}
       {accS acc₃ envSelf env₃' : Env},
       ProvFacts F blockNames accS envSelf (zipped.map Prod.fst) →
       RulesChain F env' envS f acc₃ env₃' zipped →
       (∀ z ∈ zipped, SwapPair env₃ val
-        (.recInfo z.1.1 z.1.2.1 z.1.2.2.1 z.1.2.2.2.1 z.1.2.2.2.2.1 [])
-        (.recInfo z.1.1 z.1.2.1 z.1.2.2.1 z.1.2.2.2.1 z.1.2.2.2.2.1
+        (.recInfo z.1.1 z.1.2.1 z.1.2.2.1 [])
+        (.recInfo z.1.1 z.1.2.1 z.1.2.2.1
           z.2)) →
       SwapList env₃ val accS.consts acc₃.consts →
       SwapList env₃ val envSelf.consts env₃'.consts := by
@@ -748,7 +747,7 @@ theorem chains_swap {F : Nat} {blockNames : List Name}
     exact hacc
   | cons z rest ih =>
     intro accS acc₃ envSelf env₃' hp hr hob hacc
-    obtain ⟨⟨cvA, nP, nM, nm, ni, rules⟩, rules'⟩ := z
+    obtain ⟨⟨cvA, mI, rP, rules⟩, rules'⟩ := z
     cases hp with
     | cons hfresh hnres hshape hms hbn htyf htyb htlp htres hmodel hp' =>
       cases hr with
@@ -760,19 +759,18 @@ theorem chains_swap {F : Nat} {blockNames : List Name}
 /-- Every input recursor is represented in the provisioned list. -/
 theorem provisionRecs_names {F : Nat} {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) (envAcc : Env)
-      (p : Env × List (ConstantVal × Nat × Nat × Nat × Nat ×
-        List RecRule)),
+      (p : Env × List (ConstantVal × Nat × Nat × List RecRule)),
     provisionRecs (fueledOps F) blockNames envAcc recs = .ok p →
     ∀ ci ∈ recs, ∃ c ∈ p.2, c.1.name = ci.name
   | [], envAcc, p, h, ci, hci => nomatch hci
   | ci₀ :: rest, envAcc, p, h, ci, hci => by
-    obtain ⟨cv, nP, nM, nm, ni, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
+    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
       provisionRecs_cons_inv h
     obtain ⟨hccv, -, -, -, -, -, -⟩ := checkMemberVal_inv hcmv
     obtain ⟨-, -, -, -, -, -, tyA, stype, u, -, -, -, -, -, hcvA⟩ :=
       checkConstantVal_inv hccv
     rcases List.mem_cons.mp hci with rfl | hci
-    · refine ⟨(cvA, nP, nM, nm, ni, rules), List.mem_cons_self, ?_⟩
+    · refine ⟨(cvA, mI, rP, rules), List.mem_cons_self, ?_⟩
       rw [hcvA]
       rfl
     · obtain ⟨c, hc, hcn⟩ := provisionRecs_names rest _ p' hrec ci hci
@@ -818,50 +816,49 @@ theorem checkIndRecs_sound {F : Nat} {blockNames : List Name}
   have hswSh := chains_swapSh hProv hchain (SwapShList.of_eq env₂.consts)
   have hcorr0 := swapSh_find?_corr hswSh
   have hcorr : ∀ n : Name, env₃.find? n = envSelf.find? n ∨
-      ∃ cv nP' nM' nm' ni' rules',
-        envSelf.find? n = some (.recInfo cv nP' nM' nm' ni' []) ∧
-        env₃.find? n = some (.recInfo cv nP' nM' nm' ni' rules') ∧
+      ∃ cv mI' rP' rules',
+        envSelf.find? n = some (.recInfo cv mI' rP' []) ∧
+        env₃.find? n = some (.recInfo cv mI' rP' rules') ∧
         cv.name = n := hcorr0
   have henvLev : ∀ n, (envSelf.find? n).map
       (fun ci => ci.toConstantVal.levelParams) =
       (env₃.find? n).map (fun ci => ci.toConstantVal.levelParams) := by
     intro n
-    rcases hcorr n with heq | ⟨cv, a, b, c, d, e0, h₀, h₃, -⟩
+    rcases hcorr n with heq | ⟨cv, a, b, e0, h₀, h₃, -⟩
     · rw [heq]
     · rw [h₀, h₃]
       rfl
   have hisoSome : ∀ n, (envSelf.find? n).isSome =
       (env₃.find? n).isSome := by
     intro n
-    rcases hcorr n with heq | ⟨cv, a, b, c, d, e0, h₀, h₃, -⟩
+    rcases hcorr n with heq | ⟨cv, a, b, e0, h₀, h₃, -⟩
     · rw [heq]
     · rw [h₀, h₃]
       rfl
   have hnat : natLitSupported envSelf = natLitSupported env₃ := by
     unfold natLitSupported
     have hone : ∀ (chk : Option ConstantInfo → Bool) (n : Name),
-        (∀ cv nP' nM' nm' ni' rules',
-          chk (some (.recInfo cv nP' nM' nm' ni' rules')) = false) →
+        (∀ cv mI' rP' rules',
+          chk (some (.recInfo cv mI' rP' rules')) = false) →
         chk (envSelf.find? n) = chk (env₃.find? n) := by
       intro chk n hrec
-      rcases hcorr n with heq | ⟨cv, a, b, c, d, e0, h₀, h₃, -⟩
+      rcases hcorr n with heq | ⟨cv, a, b, e0, h₀, h₃, -⟩
       · rw [heq]
       · rw [h₀, h₃, hrec, hrec]
-    rw [hone natIndOk natName (fun _ _ _ _ _ _ => rfl),
-      hone natZeroOk natZeroName (fun _ _ _ _ _ _ => rfl),
-      hone natSuccOk natSuccName (fun _ _ _ _ _ _ => rfl)]
+    rw [hone natIndOk natName (fun _ _ _ _ => rfl),
+      hone natZeroOk natZeroName (fun _ _ _ _ => rfl),
+      hone natSuccOk natSuccName (fun _ _ _ _ => rfl)]
   have hfindUp3 : ∀ (n : Name) (ci : ConstantInfo),
       envSelf.find? n = some ci →
-      (∀ cv nP' nM' nm' ni' rules', ci ≠ .recInfo cv nP' nM' nm' ni'
-        rules') →
+      (∀ cv mI' rP' rules', ci ≠ .recInfo cv mI' rP' rules') →
       env₃.find? n = some ci := by
     intro n ci hfx hnr
-    rcases hcorr n with heq | ⟨cv, a, b, c, d, e0, h₀, h₃, -⟩
+    rcases hcorr n with heq | ⟨cv, a, b, e0, h₀, h₃, -⟩
     · rw [heq]
       exact hfx
     · rw [h₀] at hfx
       obtain rfl := Option.some.inj hfx
-      exact absurd rfl (hnr cv a b c d [])
+      exact absurd rfl (hnr cv a b [])
   -- all block members are stored in the provisional environment
   have hnames : ∀ n, blockNames.contains n = true →
       (envSelf.find? n).isSome = true := by
@@ -916,8 +913,8 @@ theorem checkIndRecs_sound {F : Nat} {blockNames : List Name}
       · rw [if_neg hc]
   -- per-item swap obligations
   have hob : ∀ z ∈ zipped, SwapPair env₃ mS.val
-      (.recInfo z.1.1 z.1.2.1 z.1.2.2.1 z.1.2.2.2.1 z.1.2.2.2.2.1 [])
-      (.recInfo z.1.1 z.1.2.1 z.1.2.2.1 z.1.2.2.2.1 z.1.2.2.2.2.1
+      (.recInfo z.1.1 z.1.2.1 z.1.2.2.1 [])
+      (.recInfo z.1.1 z.1.2.1 z.1.2.2.1
         z.2) := by
     intro z hz
     have hz1 : z.1 ∈ zipped.map Prod.fst := List.mem_map_of_mem hz
@@ -926,21 +923,21 @@ theorem checkIndRecs_sound {F : Nat} {blockNames : List Name}
     have hcir := RulesChain.mem_facts hchain z hz
     have hkits : ∀ r' ∈ z.2, RuleChecked F env₂ envSelf (fun n =>
         if blockNames.contains n then n.str "_model" else n)
-        z.1.1 z.1.2.1 z.1.2.2.1 z.1.2.2.2.1 z.1.2.2.2.2.1 r' :=
+        z.1.1 z.1.2.1 z.1.2.2.1 r' :=
       checkIotaRules_inv 0 _ _ hcir
-    refine Or.inr ⟨z.1.1, z.1.2.1, z.1.2.2.1, z.1.2.2.2.1,
-      z.1.2.2.2.2.1, z.2, rfl, rfl, hnres, hshape, ?_, ?_, ?_⟩
+    refine Or.inr ⟨z.1.1, z.1.2.1, z.1.2.2.1,
+      z.2, rfl, rfl, hnres, hshape, ?_, ?_, ?_⟩
     · -- ConstWF at the final environment
       refine ⟨htyf, htlp, ?_, htyb, ?_, ?_⟩
       · rw [← Expr.constsResolve_congr hisoSome]
         exact htres
       · intro cv2 v2 h2 heq
         exact nomatch heq
-      · intro cv2 nP2 nM2 nm2 ni2 rules2 heq r hr
-        injection heq with e1 e2 e3 e4 e5 e6
-        subst e6
+      · intro cv2 mI2 rP2 rules2 heq r hr
+        injection heq with e1 e2 e3 e4
+        subst e4
         obtain ⟨cvj, cnP, cnF, raw, rhsTy, rbinders, rbody, -, -, -, -,
-          -, hrf, hrb, hrlp, hrres, -, -, -⟩ := hkits r hr
+          -, -, -, hrf, hrb, hrlp, hrres, -, -, -⟩ := hkits r hr
         refine ⟨hrf, by rw [← e1]; exact hrlp, ?_, hrb⟩
         rw [← Expr.constsResolve_congr hisoSome]
         exact hrres
@@ -950,7 +947,7 @@ theorem checkIndRecs_sound {F : Nat} {blockNames : List Name}
         hkits r hr
       refine ⟨cvj, cnP, cnF, ?_⟩
       refine hfindUp3 _ _ (ProvFacts.find?_preserved hProv _ _ hfc)
-        (fun _ _ _ _ _ _ hcon => nomatch hcon)
+        (fun _ _ _ _ hcon => nomatch hcon)
     · -- the fold obligations
       exact recMemberOk_of_kit mS F rfl hro hIS
         (ProvFacts.find?_preserved hProv) henvLev hnat hcorr hbnc hself
@@ -961,11 +958,11 @@ theorem checkIndRecs_sound {F : Nat} {blockNames : List Name}
   obtain ⟨m₃, hveq⟩ := extend_rules_eq mS hswap
   refine ⟨m₃, ?_⟩
   intro n hn ci₃ hf₃
-  rcases hcorr n with heq | ⟨cv, a, b, c, d, e0, h₀, h₃, -⟩
+  rcases hcorr n with heq | ⟨cv, a, b, e0, h₀, h₃, -⟩
   · rw [heq] at hf₃
     obtain ⟨cvm₂, mval₂, hm₂, hfm₂, hlps₂, hv₂⟩ := hIS n hn ci₃ hf₃
     refine ⟨cvm₂, mval₂, hm₂, ?_, hlps₂, ?_⟩
-    · exact hfindUp3 _ _ hfm₂ (fun _ _ _ _ _ _ hcon => nomatch hcon)
+    · exact hfindUp3 _ _ hfm₂ (fun _ _ _ _ hcon => nomatch hcon)
     · intro ψ
       rw [hveq n ψ, hveq (n.str "_model") ψ]
       exact hv₂ ψ
@@ -973,7 +970,7 @@ theorem checkIndRecs_sound {F : Nat} {blockNames : List Name}
     obtain rfl := Option.some.inj hf₃
     obtain ⟨cvm₂, mval₂, hm₂, hfm₂, hlps₂, hv₂⟩ := hIS n hn _ h₀
     refine ⟨cvm₂, mval₂, hm₂, ?_, hlps₂, ?_⟩
-    · exact hfindUp3 _ _ hfm₂ (fun _ _ _ _ _ _ hcon => nomatch hcon)
+    · exact hfindUp3 _ _ hfm₂ (fun _ _ _ _ hcon => nomatch hcon)
     · intro ψ
       rw [hveq n ψ, hveq (n.str "_model") ψ]
       exact hv₂ ψ
@@ -983,13 +980,12 @@ theorem checkIndRecs_sound {F : Nat} {blockNames : List Name}
 chain. -/
 theorem provisionRecs_fresh {F : Nat} {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) (envAcc : Env)
-      (p : Env × List (ConstantVal × Nat × Nat × Nat × Nat ×
-        List RecRule)),
+      (p : Env × List (ConstantVal × Nat × Nat × List RecRule)),
     provisionRecs (fueledOps F) blockNames envAcc recs = .ok p →
     ∀ ci ∈ recs, envAcc.find? ci.name = none
   | [], _, _, _, ci, hci => nomatch hci
   | ci₀ :: rest, envAcc, p, h, ci, hci => by
-    obtain ⟨cv, nP, nM, nm, ni, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
+    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
       provisionRecs_cons_inv h
     obtain ⟨hccv, -, -, -, -, -, -⟩ := checkMemberVal_inv hcmv
     obtain ⟨hfind0, -, -, -, -, -, tyA, stype, u, -, -, -, -, -, -⟩ :=
@@ -1030,8 +1026,7 @@ theorem checkIndRecs_names {F : Nat} {blockNames : List Name}
 `EnvWF` threading). -/
 theorem provisionRecs_facts {F : Nat} {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) (envAcc : Env)
-      (p : Env × List (ConstantVal × Nat × Nat × Nat × Nat ×
-        List RecRule)),
+      (p : Env × List (ConstantVal × Nat × Nat × List RecRule)),
     provisionRecs (fueledOps F) blockNames envAcc recs = .ok p →
     (∀ ci ∈ recs, blockNames.contains ci.name = true) →
     ProvFacts F blockNames envAcc p.1 p.2
@@ -1040,7 +1035,7 @@ theorem provisionRecs_facts {F : Nat} {blockNames : List Name} :
     subst h
     exact ProvFacts.nil
   | ci :: rest, envAcc, p, h, hbn => by
-    obtain ⟨cv, nP, nM, nm, ni, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
+    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
       provisionRecs_cons_inv h
     obtain ⟨hccv, hms, cvm, mval, hmcvm, hfm, hlps, hrenf⟩ :=
       checkMemberVal_inv hcmv
@@ -1058,7 +1053,7 @@ theorem provisionRecs_facts {F : Nat} {blockNames : List Name} :
       exact hpshape0raw
     have hbnA : blockNames.contains cvA.name = true := by
       rw [hnameA]
-      exact hbn (ConstantInfo.recInfo cv nP nM nm ni rules)
+      exact hbn (ConstantInfo.recInfo cv mI rP rules)
         List.mem_cons_self
     have htyf : cvA.type.hasFvar = false := by
       rw [hcvA]
@@ -1100,20 +1095,18 @@ theorem swapSh_mem_corr :
 an accumulator constant or an installed recursor of the chain. -/
 theorem rulesChain_mem {F : Nat} {env' envS : Env} {f : Name → Name} :
     ∀ {envAcc env₃ : Env}
-      {zipped : List ((ConstantVal × Nat × Nat × Nat × Nat ×
-        List RecRule) × List RecRule)},
+      {zipped : List ((ConstantVal × Nat × Nat × List RecRule) × List RecRule)},
       RulesChain F env' envS f envAcc env₃ zipped →
       ∀ c ∈ env₃.consts, c ∈ envAcc.consts ∨
-        ∃ z ∈ zipped, c = .recInfo z.1.1 z.1.2.1 z.1.2.2.1 z.1.2.2.2.1
-          z.1.2.2.2.2.1 z.2 := by
+        ∃ z ∈ zipped, c = .recInfo z.1.1 z.1.2.1 z.1.2.2.1 z.2 := by
   intro envAcc env₃ zipped h
   induction h with
   | nil => intro c hc; exact Or.inl hc
-  | @cons envAcc env₃ cvA nP nM nm ni rules rules' rest hcir hrest ih =>
+  | @cons envAcc env₃ cvA mI rP rules rules' rest hcir hrest ih =>
     intro c hc
     rcases ih c hc with hc' | ⟨z, hz, rfl⟩
     · rcases List.mem_cons.mp hc' with rfl | hc''
-      · exact Or.inr ⟨((cvA, nP, nM, nm, ni, rules), rules'),
+      · exact Or.inr ⟨((cvA, mI, rP, rules), rules'),
           List.mem_cons_self, rfl⟩
       · exact Or.inl hc''
     · exact Or.inr ⟨z, List.mem_cons_of_mem _ hz, rfl⟩

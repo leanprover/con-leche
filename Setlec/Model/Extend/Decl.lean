@@ -125,9 +125,12 @@ theorem checkIndDecl_sound {env env₂ : Env} {block : List ConstantInfo}
         have hnone := List.all_eq_true.mp hfresh j (List.mem_range.mpr hj)
         rw [Option.isNone_iff_eq_none.mp hnone] at hf
         exact nomatch hf
-    obtain ⟨mf, -⟩ :=
-      checkProjFold_sound (List.range nF) env₃ env₂ h m₃ hinv₀
-    exact ⟨mf⟩
+    -- two phases: the artifact installs, then the template entries
+    try simp only [Bind.bind, Except.bind] at h
+    obtain ⟨env₄, hart, htpl⟩ := Except.bind_ok h
+    obtain ⟨m₄, -⟩ :=
+      checkProjFold_sound (List.range nF) env₃ env₄ hart m₃ hinv₀
+    exact installProjTemplates_sound (List.range nF) env₄ env₂ htpl m₄
   · -- no single-constructor structure: member fold, then the recursors
     try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
     obtain ⟨env₁, hfold, hrecs⟩ := Except.bind_ok h

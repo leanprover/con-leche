@@ -16,9 +16,9 @@ def natBasis : List ConstantInfo := [
   .indInfo ⟨(anonymous |>.str "Nat"), [], (.sort (.succ .zero))⟩ {},
   .ctorInfo ⟨((anonymous |>.str "Nat") |>.str "zero"), [], (.const (anonymous |>.str "Nat") [])⟩ 0 0,
   .ctorInfo ⟨((anonymous |>.str "Nat") |>.str "succ"), [], (.forallE (anonymous |>.str "n") (.const (anonymous |>.str "Nat") []) (.const (anonymous |>.str "Nat") []) ⟨.default, none⟩)⟩ 0 1,
-  .recInfo ⟨((anonymous |>.str "Nat") |>.str "rec"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "Nat") []) (.sort (.param (anonymous |>.str "u"))) ⟨.default, none⟩) (.forallE (anonymous |>.str "zero") (.app (.bvar 0) (.const ((anonymous |>.str "Nat") |>.str "zero") [])) (.forallE (anonymous |>.str "succ") (.forallE (anonymous |>.str "n") (.const (anonymous |>.str "Nat") []) (.forallE (anonymous |>.str "n_ih") (.app (.bvar 2) (.bvar 0)) (.app (.bvar 3) (.app (.const ((anonymous |>.str "Nat") |>.str "succ") []) (.bvar 1))) ⟨.default, none⟩) ⟨.default, none⟩) (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "Nat") []) (.app (.bvar 3) (.bvar 0)) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩)⟩ 0 1 2 0
-    [⟨((anonymous |>.str "Nat") |>.str "zero"), 0, (.lam (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "Nat") []) (.sort (.param (anonymous |>.str "u"))) ⟨.default, none⟩) (.lam (anonymous |>.str "zero") (.app (.bvar 0) (.const ((anonymous |>.str "Nat") |>.str "zero") [])) (.lam (anonymous |>.str "succ") (.forallE (anonymous |>.str "n") (.const (anonymous |>.str "Nat") []) (.forallE (anonymous |>.str "n_ih") (.app (.bvar 2) (.bvar 0)) (.app (.bvar 3) (.app (.const ((anonymous |>.str "Nat") |>.str "succ") []) (.bvar 1))) ⟨.default, none⟩) ⟨.default, none⟩) (.bvar 1) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩)⟩,
-      ⟨((anonymous |>.str "Nat") |>.str "succ"), 1, (.lam (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "Nat") []) (.sort (.param (anonymous |>.str "u"))) ⟨.default, none⟩) (.lam (anonymous |>.str "zero") (.app (.bvar 0) (.const ((anonymous |>.str "Nat") |>.str "zero") [])) (.lam (anonymous |>.str "succ") (.forallE (anonymous |>.str "n") (.const (anonymous |>.str "Nat") []) (.forallE (anonymous |>.str "n_ih") (.app (.bvar 2) (.bvar 0)) (.app (.bvar 3) (.app (.const ((anonymous |>.str "Nat") |>.str "succ") []) (.bvar 1))) ⟨.default, none⟩) ⟨.default, none⟩) (.lam (anonymous |>.str "n") (.const (anonymous |>.str "Nat") []) (.app (.app (.bvar 1) (.bvar 0)) (.app (.app (.app (.app (.const ((anonymous |>.str "Nat") |>.str "rec") [(.param (anonymous |>.str "u"))]) (.bvar 3)) (.bvar 2)) (.bvar 1)) (.bvar 0))) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩)⟩]]
+  .recInfo ⟨((anonymous |>.str "Nat") |>.str "rec"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "Nat") []) (.sort (.param (anonymous |>.str "u"))) ⟨.default, none⟩) (.forallE (anonymous |>.str "zero") (.app (.bvar 0) (.const ((anonymous |>.str "Nat") |>.str "zero") [])) (.forallE (anonymous |>.str "succ") (.forallE (anonymous |>.str "n") (.const (anonymous |>.str "Nat") []) (.forallE (anonymous |>.str "n_ih") (.app (.bvar 2) (.bvar 0)) (.app (.bvar 3) (.app (.const ((anonymous |>.str "Nat") |>.str "succ") []) (.bvar 1))) ⟨.default, none⟩) ⟨.default, none⟩) (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "Nat") []) (.app (.bvar 3) (.bvar 0)) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩)⟩ 3 3
+    [⟨((anonymous |>.str "Nat") |>.str "zero"), 0, 0, false, (.lam (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "Nat") []) (.sort (.param (anonymous |>.str "u"))) ⟨.default, none⟩) (.lam (anonymous |>.str "zero") (.app (.bvar 0) (.const ((anonymous |>.str "Nat") |>.str "zero") [])) (.lam (anonymous |>.str "succ") (.forallE (anonymous |>.str "n") (.const (anonymous |>.str "Nat") []) (.forallE (anonymous |>.str "n_ih") (.app (.bvar 2) (.bvar 0)) (.app (.bvar 3) (.app (.const ((anonymous |>.str "Nat") |>.str "succ") []) (.bvar 1))) ⟨.default, none⟩) ⟨.default, none⟩) (.bvar 1) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩)⟩,
+      ⟨((anonymous |>.str "Nat") |>.str "succ"), 1, 0, false, (.lam (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "Nat") []) (.sort (.param (anonymous |>.str "u"))) ⟨.default, none⟩) (.lam (anonymous |>.str "zero") (.app (.bvar 0) (.const ((anonymous |>.str "Nat") |>.str "zero") [])) (.lam (anonymous |>.str "succ") (.forallE (anonymous |>.str "n") (.const (anonymous |>.str "Nat") []) (.forallE (anonymous |>.str "n_ih") (.app (.bvar 2) (.bvar 0)) (.app (.bvar 3) (.app (.const ((anonymous |>.str "Nat") |>.str "succ") []) (.bvar 1))) ⟨.default, none⟩) ⟨.default, none⟩) (.lam (anonymous |>.str "n") (.const (anonymous |>.str "Nat") []) (.app (.app (.bvar 1) (.bvar 0)) (.app (.app (.app (.app (.const ((anonymous |>.str "Nat") |>.str "rec") [(.param (anonymous |>.str "u"))]) (.bvar 3)) (.bvar 2)) (.bvar 1)) (.bvar 0))) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩)⟩]]
 
 /-! ## The annotated declarations
 
@@ -128,12 +128,12 @@ def natRecA : ConstantInfo :=
                              (Setlec.Level.imax
                                (Setlec.Level.succ (Setlec.Level.zero))
                                (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))))) } }
-    0
-    1
-    2
-    0
+    3
+    3
     [{ ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nat") "zero",
        nfields := 0,
+       ctorParams := 0,
+       plain := true,
        rhs := Setlec.Expr.lam
                 (Setlec.Name.str (Setlec.Name.anonymous) "motive")
                 (Setlec.Expr.forallE
@@ -191,6 +191,8 @@ def natRecA : ConstantInfo :=
                              (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))) } },
      { ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Nat") "succ",
        nfields := 1,
+       ctorParams := 0,
+       plain := true,
        rhs := Setlec.Expr.lam
                 (Setlec.Name.str (Setlec.Name.anonymous) "motive")
                 (Setlec.Expr.forallE

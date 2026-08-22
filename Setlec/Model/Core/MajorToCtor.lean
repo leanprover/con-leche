@@ -39,8 +39,7 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuel : Nat}
     (hsub : majorToCtorP env fuel d recName rules major₀ = .ok major)
     (hmfn : major.getAppFn = .const cj usj)
     (hfj : env.find? cj = some (.ctorInfo cvj cnP cnF))
-    (hml1 : major.getAppArgs.length = cnP + cnF)
-    (har2 : (cvj.type.stripPis (cnP + cnF)).isSome = true)
+    (hstripLen : (cvj.type.stripPis major.getAppArgs.length).isSome = true)
     (hmcerts : iotaCertsP env fuel d
       (cvj.type.instantiateLevelParams cvj.levelParams usj)
       major.getAppArgs = .ok true)
@@ -194,9 +193,8 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuel : Nat}
     obtain ⟨restC, hfitIC⟩ := certs_fit ihd ihi _ _ _ TC
       hmcerts hCw hCb (Expr.LeavesBounded.of_not_hasFvar hChf)
       (FvarsOk.of_not_hasFvar hChf) hCA hCT hmargswf hspM
-    obtain ⟨dC, ρC, restC', hfitC⟩ := TeleFitI.toTeleFit hfitIC hCw (by
-      rw [hml1]
-      exact stripPis_instantiateLevelParams_isSome _ _ _ har2)
+    obtain ⟨dC, ρC, restC', hfitC⟩ := TeleFitI.toTeleFit hfitIC hCw
+      (stripPis_instantiateLevelParams_isSome _ _ _ hstripLen)
     have hch := TeleFit.chainSlots hfitC hCA hCT hCmem
     obtain ⟨hAfab, hIfab⟩ := annotOk_spine major.getAppArgs
       (.const cj usj) hconstA hvalC
@@ -246,9 +244,9 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuel : Nat}
       rfl
     -- the projection certificates
     have hpcFacts : ∀ i, i < cnF → ∃ (cvp : ConstantVal)
-        (nPp nMp nmp nip : Nat) (rulesp : List RecRule),
+        (mIp rPp : Nat) (rulesp : List RecRule),
         env.find? (projFnName T i) =
-          some (.recInfo cvp nPp nMp nmp nip rulesp) ∧
+          some (.recInfo cvp mIp rPp rulesp) ∧
         cvp.levelParams = cvT.levelParams ∧
         (cvp.type.stripPis (tmaj.getAppArgs.length + 1)).isSome = true ∧
         iotaCertsP env fuel d
@@ -268,7 +266,7 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuel : Nat}
         some (SpineFold V (m.val (projFnName T j)
           (Level.substFn φ cvT.levelParams usj)) (psv ++ [vM])) := by
       intro j hj
-      obtain ⟨cvp, nPp, nMp, nmp, nip, rulesp, hfpj, hplps,
+      obtain ⟨cvp, mIp, rPp, rulesp, hfpj, hplps,
         hpstrip, hicj⟩ := hpcFacts j hj
       have hpname : cvp.name = projFnName T j := by
         have h1 := find?_name hfpj
@@ -285,9 +283,9 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuel : Nat}
             (Level.substFn φ cvT.levelParams usj)) := by
         simp only [interpExpr, hfpj]
         rw [if_pos (show usj.length =
-          (ConstantInfo.recInfo cvp nPp nMp nmp nip
+          (ConstantInfo.recInfo cvp mIp rPp
             rulesp).toConstantVal.levelParams.length from hplen)]
-        rw [show (ConstantInfo.recInfo cvp nPp nMp nmp nip
+        rw [show (ConstantInfo.recInfo cvp mIp rPp
           rulesp).toConstantVal.levelParams = cvp.levelParams from rfl, hψp]
       obtain ⟨hPtf, -, -, hPtb, -, -⟩ := m.wf _ (find?_mem hfpj)
       have hPhf : (cvp.type.instantiateLevelParams cvp.levelParams
@@ -434,9 +432,8 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuel : Nat}
     obtain ⟨restC, hfitIC⟩ := certs_fit ihd ihi _ _ _
       TC hmcerts hCw hCb (Expr.LeavesBounded.of_not_hasFvar hChf)
       (FvarsOk.of_not_hasFvar hChf) hCA hCT hmargswf hspM
-    obtain ⟨dC, ρC, restC', hfitC⟩ := TeleFitI.toTeleFit hfitIC hCw (by
-      rw [hml1]
-      exact stripPis_instantiateLevelParams_isSome _ _ _ har2)
+    obtain ⟨dC, ρC, restC', hfitC⟩ := TeleFitI.toTeleFit hfitIC hCw
+      (stripPis_instantiateLevelParams_isSome _ _ _ hstripLen)
     have hch := TeleFit.chainSlots hfitC hCA hCT hCmem
     obtain ⟨hAfab, hIfab⟩ := annotOk_spine major.getAppArgs
       (.const cj usj) hconstA hvalC

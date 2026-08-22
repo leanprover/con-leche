@@ -34,15 +34,26 @@ def main : IO Unit := do
           match ci with
           | .indInfo _ caps => pure (.indInfo cv' caps)
           | .ctorInfo _ nP nF => pure (.ctorInfo cv' nP nF)
-          | .recInfo _ nP nM nm ni rules =>
-            match annotateRules rules (.recInfo cv' nP nM nm ni rules) with
+          | .recInfo _ mI rP rules =>
+            -- fill the install-computed rule fields (constructor
+            -- parameter count and the canonical flag) exactly as
+            -- `checkIotaRule` does, from the block members annotated
+            -- so far, then annotate the right-hand sides
+            let rules := rules.map fun r =>
+              let cnP := match env.find? r.ctor with
+                | some (.ctorInfo _ nP _) => nP
+                | _ => 0
+              { r with ctorParams := cnP
+                       plain := Expr.recRulePlain ty' mI rP cnP }
+            match annotateRules rules (.recInfo cv' mI rP rules) with
             | .error e =>
               IO.println s!"ERROR annotating rules of {cv.name}: {e}"
               return
-            | .ok rules' => pure (.recInfo cv' nP nM nm ni rules')
+            | .ok rules' => pure (.recInfo cv' mI rP rules')
           | .axiomInfo _ => pure (.axiomInfo cv')
           | .defnInfo _ v h => pure (.defnInfo cv' v h)
           | .thmInfo _ v => pure (.thmInfo cv' v)
+          | .projInfo e => pure (.projInfo e)
         IO.println (repr ci')
         IO.println "---8<---"
         env := ⟨ci' :: env.consts⟩
@@ -63,10 +74,11 @@ def main : IO Unit := do
         match ci with
         | .indInfo _ caps => .indInfo cv' caps
         | .ctorInfo _ nP nF => .ctorInfo cv' nP nF
-        | .recInfo _ nP nM nm ni rules => .recInfo cv' nP nM nm ni rules
+        | .recInfo _ mI rP rules => .recInfo cv' mI rP rules
         | .axiomInfo _ => .axiomInfo cv'
         | .defnInfo _ v h => .defnInfo cv' v h
         | .thmInfo _ v => .thmInfo cv' v
+        | .projInfo e => .projInfo e
       IO.println (repr ci')
       IO.println "---8<---"
       envS := ⟨ci' :: envS.consts⟩

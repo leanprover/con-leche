@@ -214,7 +214,8 @@ theorem whnfCore_claims (m : EnvModel V env)
     obtain ⟨hae, hilt, veC, uC, vC, AC, BfC, hveiC, hsigC, hAuC, hBfC⟩ := ha
     obtain ⟨e₂, he, hcase⟩ := whnf_proj_inv h
     obtain ⟨hie, hae₂⟩ := ihw he hw hb hLbe hoke hae
-    rcases hcase with rfl | ⟨us, cv, nP, nF, hfn, hf, hi2, hlen, hus, hred, hcert⟩
+    rcases hcase with rfl |
+      ⟨us, entry, hfn, hf, hnat, hi2, hlen, hus, hred, hcert⟩
     · -- stuck projection
       refine ⟨?_, ?_⟩
       · simp only [interpExpr]
@@ -222,16 +223,55 @@ theorem whnfCore_claims (m : EnvModel V env)
       · simp only [AnnotOk]
         refine ⟨hae₂, hilt, veC, uC, vC, AC, BfC, ?_, hsigC, hAuC, hBfC⟩
         rw [hie]; exact hveiC
-    · -- projection of the pair constructor
-      obtain ⟨hnP, hnF, hlp, hmkfacts⟩ := m.ind_ok.right.left cv nP nF hf
-      subst hnP; subst hnF
-      obtain ⟨l0, l1, rfl⟩ := List.length_two hus
+    · -- projection through a native table entry: the model identifies
+      -- the pinned pair through `ProjOk`, never by name
+      obtain ⟨hpin, hpsig, hpsigMk⟩ :=
+        m.proj_ok _ _ (Env.findProj?_some hf) hnat
+      have hidx : entry.idx = i := by
+        have h1 := List.find?_some (Env.findProj?_some hf)
+        have h2 : (ConstantInfo.projInfo entry).name = projFnName sn i :=
+          eq_of_beq (by simpa using h1)
+        simp only [ConstantInfo.name, ConstantInfo.toConstantVal] at h2
+        exact (projFnName_inj h2).2
+      -- concrete fields of the pinned entries
+      have hctor : entry.ctor = psigmaMkName := by
+        rcases hpin with rfl | rfl <;> rfl
+      have hnPe : entry.numParams = 2 := by
+        rcases hpin with rfl | rfl <;> rfl
+      have hnFe : entry.numFields = 2 := by
+        rcases hpin with rfl | rfl <;> rfl
+      have hus2 : us.length = 2 := by
+        rw [hus]
+        rcases hpin with rfl | rfl <;> rfl
+      rw [hctor] at hfn
+      rw [hnPe] at hred
+      rw [hnPe, hnFe] at hlen
+      -- the pinned constructor's stored facts
+      obtain ⟨cvMk, hfMk⟩ : ∃ cvMk, env.find? psigmaMkName =
+          some (.ctorInfo cvMk 2 2) := ⟨_, by rw [hpsigMk]; rfl⟩
+      obtain ⟨-, -, hlp, hmkfacts⟩ := m.ind_ok.right.left cvMk 2 2 hfMk
+      obtain ⟨l0, l1, rfl⟩ := List.length_two hus2
+      -- the level guards, in the pinned entries' concrete shape
+      have hstructS : Level.subst entry.levelParams [l0, l1]
+          entry.structSort = .max l0 l1 := by
+        rcases hpin with rfl | rfl <;>
+          simp [pairFstEntry, pairSndEntry, Level.subst, Level.subst.go,
+            uN, vN]
+      have hfieldS : Level.subst entry.levelParams [l0, l1]
+          entry.fieldSort = ([l0, l1].getD i .zero) := by
+        rcases hpin with rfl | rfl <;>
+          (rw [← hidx];
+           simp [pairFstEntry, pairSndEntry, Level.subst, Level.subst.go,
+             uN, vN])
+      rw [hstructS, hfieldS] at hcert
       obtain ⟨α, β, a, b, hargs⟩ := List.length_four hlen
       have he₂ : e₂ = .app (.app (.app (.app (.const psigmaMkName [l0, l1]) α) β) a) b := by
         have h0 := Expr.mkAppN_getApp e₂
         rw [hfn, hargs] at h0
         exact h0.symm
-      have hi2' : i = 0 ∨ i = 1 := by omega
+      have hi2' : i = 0 ∨ i = 1 := by
+        rw [hnFe] at hi2
+        omega
       have hargd : e₂.getAppArgs.getD (2 + i) (.bvar 0) = if i = 0 then a else b := by
         rw [hargs]
         rcases hi2' with rfl | rfl
@@ -280,16 +320,16 @@ theorem whnfCore_claims (m : EnvModel V env)
       try simp only [AnnotOk] at ha1
       obtain ⟨hac, haα, vf₀, vα, vE₀, A₀, B₀, hci, hαi, hpi₀, hvα₀, hfib₀⟩ := ha1
       -- the head constant's value
-      rw [interpExpr, hf] at hci
+      rw [interpExpr, hfMk] at hci
       dsimp only [ConstantInfo.toConstantVal] at hci
-      obtain ⟨ψ', hψ'⟩ : ∃ ψ', ψ' = Level.substFn φ cv.levelParams [l0, l1] := ⟨_, rfl⟩
+      obtain ⟨ψ', hψ'⟩ : ∃ ψ', ψ' = Level.substFn φ cvMk.levelParams [l0, l1] := ⟨_, rfl⟩
       rw [← hψ'] at hci
-      by_cases hal : ([l0, l1] : List Level).length = cv.levelParams.length
+      by_cases hal : ([l0, l1] : List Level).length = cvMk.levelParams.length
       case neg => simp only [hal, if_false] at hci; exact nomatch hci
       simp only [hal, if_true] at hci
       have hval : interpExpr V m.val env φ d ρ (.const psigmaMkName [l0, l1]) =
           some (m.val psigmaMkName ψ') := by
-        rw [interpExpr, hf]
+        rw [interpExpr, hfMk]
         dsimp only [ConstantInfo.toConstantVal]
         rw [← hψ']
         simp only [hal, if_true]
@@ -348,6 +388,7 @@ theorem whnfCore_claims (m : EnvModel V env)
             rw [← hveiC, ← hie, hept]
           exact Option.some.inj this
         -- the projected argument is a proof point too
+        rw [hnPe] at hta
         rw [hargd] at hta
         have huT0 : Level.eval φ uT = 0 := by
           rw [Level.isEquiv_sound heq1 φ]
@@ -809,10 +850,11 @@ theorem unfoldDefinition_inv {env : Env} {e e₂ : Expr}
   match hf : env.find? n with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.defnInfo cv value hint) => ?_
   intro h
   dsimp only at h

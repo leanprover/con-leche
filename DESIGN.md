@@ -1373,16 +1373,127 @@ multi-motive-general (all of `nP nM nm ni cnP cnF` abstract).
 
 **Canonical rules only; nested-aux rules are inert.**  A rule is
 *canonical* (`Expr.recRulePlain`) when its constructor-parameter count
-is within the recursor prefix and the major's domain starts with the
-recursor's own leading binders.  Nested/auxiliary rules (e.g. the
+is within the recursor prefix, the prefix fits under the major's
+position, and the major's domain starts with the recursor's own
+leading binders.  Nested/auxiliary rules (e.g. the
 `List.cons` rule of a nested recursor, whose major lives at an inner
 type former) have no `iota_j` theorem and no provable fold fact — they
-are stored **inert**: `iotaRec` guards on `recRulePlain` before firing
-(runtime), `checkIotaRule` only consults the theorem for canonical
-rules (install), and `RecRulesOk`'s fold clause hypothesizes
-`recRulePlain` (soundness), so inert rules' obligations are vacuous.
+are stored **inert**: `iotaRec` guards on the rule's stored `plain`
+flag before firing (runtime; see the slim-metadata section below),
+`checkIotaRule` only consults the theorem for canonical
+rules (install), and `RecRulesOk`'s fold clause hypothesizes the
+stored flag (soundness), so inert rules' obligations are vacuous.
 No completeness is lost on the tutorial arena (no nested blocks) and
 declines stay declines.
+
+*Matched inert rules decline (2026-08-22).*  A silently-stuck
+nested-aux redex is not always benign: `Lean.Syntax.brecOn_1.go`
+(init-prelude DECL 2217) applies its functional to an ih of `PProd`
+type where the expected domain is `Syntax.below_1 … (Array.mk …)` —
+an abbrev over `Syntax.rec_1`, whose sole (`Array.mk`) rule is
+inert — so the app rule's defeq stayed stuck and the declaration was
+*rejected* (exit 1) although it is a perfectly good kernel term (the
+official kernel fires nested rules by taking the last `nfields` major
+arguments).  Diagnosis: not a metadata bug — a deliberate
+verified-reduction restriction surfacing as the wrong verdict.
+`iotaRec` now treats a *matched* non-canonical rule (recursor fully
+applied, major whnfs to a constructor application of the rule's ctor
+at the right arity, `plain = false`) as a positive detection of the
+unsupported feature and throws a decline ("iota reduction over a
+nested auxiliary recursor rule").  Empirically no other init-prelude
+declaration (1–2216), arena test, or e2e fixture reaches such a
+match, so verdicts elsewhere are unchanged; the probe still reaches
+DECL 2217 and now declines there instead of rejecting.  The real fix
+is a follow-up feature: the preprocessor *does* emit
+`rec_1._model.iota_0`-style theorems for nested rules, so firing them
+verified needs a generalized statement pin (constructor parameters
+and levels pinned to arbitrary closed instantiations stored on the
+rule, fire-checked by defeq) plus the corresponding `RecRulesOk` fold
+clause and `iota_sound` extension.
+
+**Slim recursor metadata (2026-08-22, task #46).**  Stored recursor
+metadata is exactly what the firing path reads.
+`ConstantInfo.recInfo` keeps two sums instead of the four counts:
+`majorIdx` (= numParams + numMotives + numMinors + numIndices, the
+major premise's argument position) and `rulePrefix` (= numParams +
+numMotives + numMinors, the length of the prefix a rule's rhs is
+applied to); reduction, the install checks (`checkIotaThm` /
+`checkIotaRules` consume only these sums — verified during the
+refactor: nothing anywhere needs the individual counts), and the whole
+model layer are stated over the sums, with the index count recovered
+as `majorIdx - rulePrefix` where needed.  The frontend collapses the
+four exported numbers at parse time.  `RecRule` gains two
+install-computed fields (input rules carry parse placeholders `0` /
+`false`): `ctorParams` — the constructor's parameter count, so
+`iotaRec` no longer reads the counts off the per-fire `ctorInfo`
+lookup (the lookup itself remains: the constructor's *type* and level
+parameters still drive the level linking, the iota certificates and
+the canonical-index residual) — and `plain`, the canonical/inert flag:
+previously `Expr.recRulePlain` re-walked the recursor type on every
+iota step (a per-step traversal of install-time-known data, forbidden);
+now it is computed once per rule at install (`checkIotaRule`,
+`checkProjFn`, the pinned basis blocks) and `iotaRec` reads the flag.
+Findings from the refactor: (1) with sums stored,
+`rulePrefix ≤ majorIdx` is no longer true by construction — it is
+folded into `recRulePlain` (one extra comparison at install) and
+carried as a `RecRulesOk` conjunct (`plain = true → rulePrefix ≤
+majorIdx`), which `iota_sound`'s spine arithmetic consumes; (2) the
+Prop-projection fallback `annotateProjRec` was the one genuine
+individual-count consumer (it pinned the split `nM = 1 ∧ nm = 1 ∧
+ni = 0`) — weakened to `majorIdx = rulePrefix = params + 2`, safe
+because the fabricated elimination is re-annotated so the ordinary
+rules re-check its shape; the `stdAxiomOk` shape checks similarly
+weakened their splits to sums (the semantic content flows from the
+type-pin comparison).  `RecRulesOk`'s fold clause states the spine
+arithmetic over the *rule's* stored counts (`margs.length =
+r.ctorParams + r.nfields` etc.), since those are what `iotaRec`
+checks; the `ctorInfo` lookup stays a hypothesis only for the
+constructor's type/levels.
+
+**Projection table — de-basing the core (2026-08-22, task #18).**
+The core knows no basis names for projections: every projection rule
+is driven by a *projection table* keyed by (structure name, field
+index).  An entry is a stored constant — `ConstantInfo.projInfo` with
+a `ProjEntry` record `{structName, idx, levelParams, numParams, ctor,
+numFields, ty, fieldSort, structSort, native, recExtraLevel}` — filed
+under the reserved `projFnName` shape (`(T.proj).i`), looked up with
+`Env.findProj?`.  Core consumption: `whnfCore` reduces `.proj T i (mk
+p⃗ f⃗)` structurally through the entry (ctor/counts/certificates via
+the generalized `projCert` over the entry's field/struct sorts);
+`infer` types a bare `.proj` node as `piResidual` of the entry's
+level-instantiated `ty` along the subject type's arguments and the
+subject; `annotate` keeps the node when the subject's type head has a
+`native` entry (normalizing the stored name to the type head) and
+otherwise rewrites — `annotateProjElim` dispatches on what is stored
+under the `projFnName` shape: a `recInfo` (artifact-installed
+projection function → rewrite into its application, unchanged
+behavior), a non-native `projInfo` *template* (Prop structure-likes →
+fabricate the recursor elimination `annotateProjRec`, now entry-based;
+the fabrication is re-annotated so its shape is re-checked per
+instantiation, amortized by the template's install-time check), else
+a single throw (`invalid` out-of-range if field 0 exists, otherwise
+`notImplemented`).  Population is two-phase in `checkIndDecl`:
+the artifact phase installs projection *functions* (as before —
+scoped finding: bare `.proj` nodes on non-Prop modeled structures
+have no compositional set interpretation, model bodies being opaque,
+so the artifact route must keep rewriting into named constants whose
+values are the model projections), then a second pass installs the
+Prop-shape templates (`installProjTemplateStep`); templates must come
+second because entries interleaved with the member fold would break
+`RenameOk`/`projFwd` (template names have no `_model` companions).
+The only `native = true` entries are the two pinned basis-pair
+members `pairFstA`/`pairSndA` in `BasisKind.declsA psigmaK` (types
+generated, sorts `u`/`v` under `max u v`), which replace the last
+psigma special cases: `Setlec/Kernel/Core.lean` now contains *zero*
+basis-pair names (remaining basis knowledge: nat-literal ops and the
+`reservedBasisNames` recursor hints, by design).  Model side:
+`EnvModel` gains a `ProjOk` clause — every stored *native* entry is
+one of the two pinned pair entries and `PSigma'`/`PSigma'.mk` are the
+pinned declarations — so the semantic proofs (`Whnf`/`Infer` claims,
+`annotate_sound`) identify a native `.proj` as a pair projection and
+interpret it with `sfst`/`ssnd` (values `pairFstVal`/`pairSndVal`,
+lambda towers with computed classifiers); `ProjOk.cons`/`env_swap`
+transport it, `extend_fresh` takes the corresponding hypothesis.
 
 **Recursor group install.**  Mutual/nested blocks' rule right-hand
 sides may mention sibling recursors, so no intermediate environment

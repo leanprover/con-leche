@@ -33,10 +33,11 @@ theorem checkProjLookups_inv {env' : Env} {T ctorName : Name}
   match hctor : env'.find? ctorName with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.ctorInfo cvj' cnP cnF) => ?_
   intro h
   dsimp only at h
@@ -49,10 +50,11 @@ theorem checkProjLookups_inv {env' : Env} {T ctorName : Name}
   match hfm : env'.find? (projModelName T i) with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.defnInfo mcv' mval hmv') => ?_
   intro h
   dsimp only at h
@@ -227,10 +229,11 @@ theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
   match hthm : env'.find? ((projModelName T i).str "iota") with
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.thmInfo tcv tval) => ?_
   intro h
   dsimp only at h
@@ -342,8 +345,8 @@ theorem checkProjFn_inv {env' env₁ : Env} {T ctorName : Name}
       ∃ rhsA, checkProjRule (fueledOps F) env' cvj lps nP nF i = .ok rhsA ∧
       (∃ u : Unit, (checkProjIota env' T ctorName lps cvj nP nF i : CheckM _)
         = .ok u) ∧
-      env₁ = ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP 0 0 0
-        [⟨ctorName, nF, rhsA⟩] :: env'.consts⟩ := by
+      env₁ = ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
+        [⟨ctorName, nF, nP, Expr.recRulePlain pty nP nP nP, rhsA⟩] :: env'.consts⟩ := by
   simp only [checkProjFn, fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
     fueledOps_ensureSort, fueledOps_whnf, Bind.bind, Except.bind] at h
   cases hlk : (checkProjLookups env' T ctorName lps nP nF i : CheckM _) with
@@ -372,6 +375,79 @@ theorem checkProjFn_inv {env' env₁ : Env} {T ctorName : Name}
   rw [hio] at h
   simp only [pure, Except.pure, Except.ok.injEq] at h
   exact ⟨cvj, mcv, rfl, pty, hty, hi, rhsA, hrule, ⟨u, hio⟩, h.symm⟩
+
+/-- Extend a model by a Prop-fallback elimination-template entry: a
+`native = false` projection-table constant with the closed junk type
+`Prop` and a junk truth-value valuation.  Every semantic clause is
+vacuous for template entries (the fallback's output is re-checked at
+every use). -/
+theorem extend_proj_template {env : Env} (m : EnvModel V env)
+    (entry : ProjEntry)
+    (hnat : entry.native = false)
+    (hty : entry.ty = .sort .zero)
+    (hfind' : env.find? (projFnName entry.structName entry.idx) = none) :
+    ∃ m' : EnvModel V ⟨.projInfo entry :: env.consts⟩,
+      (∀ ψ, m'.val (projFnName entry.structName entry.idx) ψ =
+        eqv pt pt) ∧
+      (∀ n ψ, n ≠ projFnName entry.structName entry.idx →
+        m'.val n ψ = m.val n ψ) := by
+  have hname : (ConstantInfo.projInfo entry).name =
+      projFnName entry.structName entry.idx := rfl
+  have hwf : ConstWF ⟨.projInfo entry :: env.consts⟩ (.projInfo entry) := by
+    refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
+    · show entry.ty.hasFvar = false
+      rw [hty]; rfl
+    · show entry.ty.allLevelParamsDefined _ = true
+      rw [hty]; rfl
+    · show entry.ty.constsResolve _ = true
+      rw [hty]; rfl
+    · show entry.ty.looseBVarsBounded 0 = true
+      rw [hty]; rfl
+    · intro cv2 v2 h2 heq
+      exact nomatch heq
+    · intro cv2 mI2 rP2 rules2 heq
+      exact nomatch heq
+  refine extend_fresh m (.projInfo entry) (fun _ => eqv pt pt)
+    (hname ▸ hfind') hwf
+    (by show entry.ty.constsResolve env = true
+        rw [hty]; rfl)
+    (fun cv2 v2 h2 heq => nomatch heq)
+    (fun ψ => ?_)
+    (fun _ _ _ => rfl)
+    (fun ψ => by
+      show AnnotOk V m.val env ψ 0 (rho0 V) entry.ty
+      rw [hty]
+      simp [AnnotOk])
+    (fun cv caps heq _ => nomatch heq)
+    (fun cv nP2 nF2 heq _ => nomatch heq)
+    (fun cv caps heq _ => nomatch heq)
+    (fun hn => by
+      exfalso
+      revert hn
+      show ¬(ConstantInfo.projInfo entry).name = emptyName
+      rw [hname]
+      simp [projFnName, emptyName])
+    (fun hb _ => nomatch hb)
+    (fun _ _ _ _ hx => nomatch hx)
+    (fun _ _ _ _ _ _ _ hx => nomatch hx)
+    (fun _ _ _ _ hx => nomatch hx)
+    (fun _ hor => by
+      rcases hor with ⟨_, _, hx⟩ | ⟨_, _, _, hx⟩ <;> exact nomatch hx)
+    (fun _ _ _ _ _ _ _ hx => nomatch hx)
+    (fun e2 heq hnat2 => by
+      obtain rfl := ConstantInfo.projInfo.inj heq
+      rw [hnat] at hnat2
+      exact nomatch hnat2)
+    (fun _ _ hx _ _ => nomatch hx)
+    (fun _ _ hx _ _ => nomatch hx)
+    (fun _ _ _ _ _ _ heq _ => nomatch heq)
+    (fun _ _ _ _ _ _ heq _ => nomatch heq)
+  · -- the junk value inhabits `Prop`
+    show ∃ T, interpClosed V m.val env ψ entry.ty = some T ∧
+      eqv pt pt ∈ˢ T
+    rw [hty]
+    exact ⟨univ 0, by simp [interpClosed, interpExpr, Level.eval],
+      eqv_mem_univ pt pt⟩
 
 /-- The projection-phase fold invariant: the parent type and the
 constructor still carry their model values, and every installed
@@ -590,17 +666,17 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
     rw [hpv ψ'']
     simp [pinnedVal]
   have hwf : ConstWF
-      ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP 0 0 0
-        [⟨ctorName, nF, rhsA⟩] :: env'.consts⟩
-      (.recInfo ⟨projFnName T i, lps, pty⟩ nP 0 0 0
-        [⟨ctorName, nF, rhsA⟩]) := by
+      ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
+        [⟨ctorName, nF, nP, Expr.recRulePlain pty nP nP nP, rhsA⟩] :: env'.consts⟩
+      (.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
+        [⟨ctorName, nF, nP, Expr.recRulePlain pty nP nP nP, rhsA⟩]) := by
     refine ⟨hptyf, hptylp, Expr.constsResolve_mono hptyres, hptyb,
       ?_, ?_⟩
     · intro cv2 v2 h2 heq
       exact nomatch heq
-    · intro cv2 nP' nM' nm' ni' rules'' heq r hr
-      injection heq with e1 e2 e3 e4 e5 e6
-      subst e6
+    · intro cv2 mI' rP' rules'' heq r hr
+      injection heq with e1 e2 e3 e4
+      subst e4
       rcases List.mem_cons.mp hr with rfl | hr
       · refine ⟨hrf, ?_, Expr.constsResolve_mono hrres, hrb⟩
         rw [← e1]
@@ -642,10 +718,11 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
     subst hT
     exact ⟨by rw [hfm]; rfl, fun ψ => rfl⟩
   obtain ⟨m₁, hval₁, hpres₁⟩ := extend_proj_fn m
-    ⟨projFnName T i, lps, pty⟩ nP nF i ⟨ctorName, nF, rhsA⟩ f
+    ⟨projFnName T i, lps, pty⟩ nP nF i
+    ⟨ctorName, nF, nP, Expr.recRulePlain pty nP nP nP, rhsA⟩ f
     (projModelName T i) hpnone
     (reservedBasisNames_not_num _ _) hwf hptyres hfm hmlps hprojmArg hren
-    f₀ hro hff₀ hfself hfnot heqf heqval hi hctor rfl
+    f₀ hro hff₀ hfself hfnot heqf heqval hi hctor rfl rfl
     hann hrawf hrawb hrf hrb hrres hstripR rfl hC_strip hS_strip
     hdoms hsdoms hsbody' hthm htlps
   have hval₁' : ∀ ψ : Name → Nat,
@@ -653,13 +730,14 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
   have hpres₁' : ∀ (n : Name) (ψ : Name → Nat), n ≠ projFnName T i →
       m₁.val n ψ = m.val n ψ := hpres₁
   have hfindNe : ∀ n : Name, n ≠ projFnName T i →
-      (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP 0 0 0
-        [⟨ctorName, nF, rhsA⟩] :: env'.consts⟩ : Env).find? n
+      (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
+        [⟨ctorName, nF, nP, Expr.recRulePlain pty nP nP nP, rhsA⟩] :: env'.consts⟩ : Env).find? n
         = env'.find? n := by
     intro n hn
     rw [Env.find?_cons,
       if_neg (show ¬(ConstantInfo.recInfo ⟨projFnName T i, lps, pty⟩
-        nP 0 0 0 [⟨ctorName, nF, rhsA⟩]).name = n from
+        nP nP [⟨ctorName, nF, nP, Expr.recRulePlain pty nP nP nP,
+          rhsA⟩]).name = n from
         fun hh => hn hh.symm)]
   refine ⟨m₁, ?_, ?_, ?_⟩
   · -- the parent type's clause
@@ -700,7 +778,8 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
         exact hfm
       · rw [Env.find?_cons,
           if_pos (show (ConstantInfo.recInfo ⟨projFnName T j, lps, pty⟩
-            nP 0 0 0 [⟨ctorName, nF, rhsA⟩]).name = projFnName T j
+            nP nP [⟨ctorName, nF, nP, Expr.recRulePlain pty nP nP nP,
+              rhsA⟩]).name = projFnName T j
             from rfl)] at hf₂
         obtain rfl := Option.some.inj hf₂
         exact hmlps
@@ -726,10 +805,8 @@ the phase invariant. -/
 theorem checkProjFold_sound {T ctorName : Name} {lps : List Name}
     {nP nF : Nat} :
     ∀ (idxs : List Nat) (env' env₁ : Env),
-    idxs.foldlM (fun e i =>
-      if (e.find? (projModelName T i)).isSome then
-        checkProjFn (fueledOps F) e T ctorName lps nP nF i
-      else pure e) env' = .ok env₁ →
+    idxs.foldlM (installProjFnStep (fueledOps F) T ctorName lps nP nF)
+      env' = .ok env₁ →
     ∀ m : EnvModel V env', ProjPhaseInv T ctorName nF env' m.val →
     ∃ m₁ : EnvModel V env₁, ProjPhaseInv T ctorName nF env₁ m₁.val
   | [], env', env₁, h, m, hinv => by
@@ -738,6 +815,7 @@ theorem checkProjFold_sound {T ctorName : Name} {lps : List Name}
   | i₀ :: rest, env', env₁, h, m, hinv => by
     rw [List.foldlM_cons] at h
     simp only [Bind.bind, Except.bind] at h
+    unfold installProjFnStep at h
     by_cases hm : (env'.find? (projModelName T i₀)).isSome = true
     · rw [if_pos hm] at h
       cases hstep : checkProjFn (fueledOps F) env' T ctorName lps nP nF i₀ with
@@ -749,5 +827,57 @@ theorem checkProjFold_sound {T ctorName : Name} {lps : List Name}
     · rw [if_neg hm] at h
       simp only [pure, Except.pure, Except.bind] at h
       exact checkProjFold_sound rest env' env₁ h m hinv
+
+/-- The elimination-template fold preserves having a model: each
+installed entry is fresh (runtime-checked) and semantically inert. -/
+theorem installProjTemplates_sound {T ctorName : Name} {lps : List Name}
+    {nP nF : Nat} :
+    ∀ (idxs : List Nat) (env' env₁ : Env),
+    idxs.foldlM
+      (installProjTemplateStep (m := CheckM) T ctorName lps nP nF)
+      env' = .ok env₁ →
+    ∀ _ : EnvModel V env', Nonempty (EnvModel V env₁)
+  | [], env', env₁, h, m => by
+    simp only [List.foldlM_nil, pure, Except.pure, Except.ok.injEq] at h
+    exact h ▸ ⟨m⟩
+  | i₀ :: rest, env', env₁, h, m => by
+    rw [List.foldlM_cons] at h
+    simp only [Bind.bind, Except.bind] at h
+    cases hstep : installProjTemplateStep (m := CheckM) T ctorName lps
+        nP nF env' i₀ with
+    | error e => rw [hstep] at h; exact nomatch h
+    | ok env₂ =>
+      rw [hstep] at h
+      have hnext : Nonempty (EnvModel V env₂) := by
+        revert hstep
+        unfold installProjTemplateStep installProjTemplate
+        split
+        case isFalse =>
+          intro hstep
+          simp only [pure, Except.pure, Except.ok.injEq] at hstep
+          exact ⟨hstep ▸ m⟩
+        case isTrue hfree =>
+          split
+          case h_2 =>
+            intro hstep
+            simp only [pure, Except.pure, Except.ok.injEq] at hstep
+            exact ⟨hstep ▸ m⟩
+          case h_1 cvR mI2 rP2 rule heqR =>
+            split
+            case isFalse =>
+              intro hstep
+              simp only [pure, Except.pure, Except.ok.injEq] at hstep
+              exact ⟨hstep ▸ m⟩
+            case isTrue hcond =>
+              intro hstep
+              simp only [pure, Except.pure, Except.ok.injEq] at hstep
+              obtain ⟨m₂, -, -⟩ := extend_proj_template m
+                ⟨T, i₀, lps, nP, ctorName, nF, .sort .zero, .zero,
+                  .zero, false,
+                  decide (cvR.levelParams.length = lps.length + 1)⟩
+                rfl rfl (Option.isNone_iff_eq_none.mp hcond.1)
+              exact ⟨hstep ▸ m₂⟩
+      obtain ⟨m₂⟩ := hnext
+      exact installProjTemplates_sound rest env₂ env₁ h m₂
 
 end Setlec
