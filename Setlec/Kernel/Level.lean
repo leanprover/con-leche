@@ -39,6 +39,17 @@ def allParamsDefined (params : List Name) : Level → Bool
   | .max l r | .imax l r => allParamsDefined params l && allParamsDefined params r
   | .param n => params.contains n
 
+/-- Is this level provably nonzero at every parameter assignment
+(official kernel `is_never_zero`)?  Syntactic and incomplete, exactly
+as the reference: `succ` is, `max` if either side is, `imax` if the
+right side is; `zero` and `param` are not. -/
+def isNeverZero : Level → Bool
+  | .zero => false
+  | .param _ => false
+  | .succ _ => true
+  | .max l r => isNeverZero l || isNeverZero r
+  | .imax _ r => isNeverZero r
+
 /-- `max` of two simplified levels, pulling out common `succ`s. -/
 def combining : Level → Level → Level
   | .zero, r => r

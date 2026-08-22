@@ -1075,7 +1075,9 @@ theorem checkDecl_fst_dproj (env : Env) (d : Declaration) :
     show ((checkConstantVal (pairOps o₁ o₂ h) env cv >>= fun cvA =>
       if stdAxiomOk env cvA then
         pure (⟨.axiomInfo cvA :: env.consts⟩ : Env)
-      else throw (.notImplemented s!"axiom declaration ({cv.name})")
+      else if cvA.name = propextName ∨ cvA.name = choiceName then
+        throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
+      else pure env
       : PairM rel _)).val.1 = _
     rw [PairM.fst_bind, checkConstantVal_fst_dproj]
     congr 1
@@ -1139,7 +1141,9 @@ theorem checkDecl_snd_dproj (env : Env) (d : Declaration) :
     show ((checkConstantVal (pairOps o₁ o₂ h) env cv >>= fun cvA =>
       if stdAxiomOk env cvA then
         pure (⟨.axiomInfo cvA :: env.consts⟩ : Env)
-      else throw (.notImplemented s!"axiom declaration ({cv.name})")
+      else if cvA.name = propextName ∨ cvA.name = choiceName then
+        throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
+      else pure env
       : PairM rel _)).val.2 = _
     rw [PairM.snd_bind, checkConstantVal_snd_dproj]
     congr 1
@@ -1630,7 +1634,9 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
     show ((checkConstantVal fueledOpsM env cv >>= fun cvA =>
       if stdAxiomOk env cvA then
         pure (⟨.axiomInfo cvA :: env.consts⟩ : Env)
-      else throw (.notImplemented s!"axiom declaration ({cv.name})")
+      else if cvA.name = propextName ∨ cvA.name = choiceName then
+        throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
+      else pure env
       : FueledM _)).val F = _
     rw [FueledM.atF_bind, checkConstantVal_datF]
     congr 1

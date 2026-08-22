@@ -20,9 +20,27 @@
 0 prop_proj_raw.ndjson
 # sorryAx handling: an unused sorryAx axiom record is skipped (no set
 # model exists for it), a use is positively declined.  sorry_unused is
-# hand-patched (an export never contains an unused axiom record).
+# hand-patched (an export never contains an unused axiom record; the
+# patched record's type is Bool-free since skipped axiom records are
+# still well-formedness-checked, and the slice does not declare Bool).
 0 sorry_unused.ndjson
 2 sorry_use.ndjson
+# Non-pinned axioms are invisible (user ruling): the axiom
+# record is skipped without stopping the run — an independent theorem
+# after it is still accepted — and any declaration referencing the
+# skipped axiom is positively declined.  Hand-written minimal streams.
+0 custom_axiom_unused.ndjson
+2 custom_axiom_use.ndjson
+# Basis PUnit 0-field stuck-major rescue (task #59): `Unit.sizeOf`
+# needs `PUnit.rec _ 1 u ≡ 1` at a neutral `u` — the official kernel's
+# structure rescue covers 0-field structures; dependency-closure slice
+# of the Init export through `Unit.sizeOf`.
+0 unit_sizeof_rescue.ndjson
+# Frontend zeta-expands rec-rule right-hand sides (task #60): the
+# preprocessor emits a `let` in `Std.Packages.PreorderOfLEArgs`'s
+# recursor rule; install annotates the rhs and must not see `letE`.
+# Init-export slice through the block (committed gzipped).
+0 let_rec_rhs.ndjson
 
 0 opaque_decl.ndjson
 0 nat_ops.ndjson

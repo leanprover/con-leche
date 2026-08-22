@@ -67,6 +67,14 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
                     structEtaCertWith (fueledFns env) env d fab major
                         tmaj >>= fun r =>
                     if r then pure fab
+                    else if caps.etaFields = 0 ∧
+                        cvj.levelParams.length = ust.length ∧
+                        piResultNeverZero cvT.levelParams ust cvT.type
+                          = true then
+                      proofIrrel (fueledFns env) env d fab major >>=
+                        fun r' =>
+                      if r' then pure fab
+                      else pure major
                     else pure major
                   else pure major
                 else pure major
@@ -146,6 +154,14 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                       structEtaCertWithI (coreKnotI (mkFEnv env) f)
                           (mkFEnv env) d fab i tmaj >>= fun r =>
                       if r then pure fab
+                      else if caps.etaFields = 0 ∧
+                          cvj.levelParams.length = ust.length ∧
+                          piResultNeverZero cvT.levelParams ust cvT.type
+                            = true then
+                        proofIrrelI (coreKnotI (mkFEnv env) f)
+                            (mkFEnv env) d fab i >>= fun r' =>
+                        if r' then pure fab
+                        else pure i
                       else pure i
                     else pure i
                   else pure i
@@ -341,9 +357,29 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                               ⟨denote_mono hext₆ hQfab, hwfab⟩
                           | false =>
                             simp only [Bool.false_eq_true, ↓reduceIte]
-                            exact SimAt.pure hs₆
-                              ⟨denote_mono (hext₀₅.trans hext₆) hden,
-                                hmaj⟩
+                            split
+                            · refine SimAt.bind (proofIrrelI_sim ih hs₆
+                                (denote_mono hext₆ hQfab)
+                                (denote_mono (hext₀₅.trans hext₆) hden)
+                                hwfab hmaj)
+                                (fun s₇ r₂ r₂' hs₇ hext₇ hPr₂ => ?_)
+                              obtain rfl : r₂ = r₂' := hPr₂
+                              cases r₂ with
+                              | true =>
+                                simp only [↓reduceIte]
+                                exact SimAt.pure hs₇
+                                  ⟨denote_mono hext₇
+                                    (denote_mono hext₆ hQfab), hwfab⟩
+                              | false =>
+                                simp only [Bool.false_eq_true,
+                                  ↓reduceIte]
+                                exact SimAt.pure hs₇
+                                  ⟨denote_mono
+                                    ((hext₀₅.trans hext₆).trans hext₇)
+                                    hden, hmaj⟩
+                            · exact SimAt.pure hs₆
+                                ⟨denote_mono (hext₀₅.trans hext₆) hden,
+                                  hmaj⟩
                         · exact SimAt.pure hs₅
                             ⟨denote_mono hext₀₅ hden, hmaj⟩
                       · exact SimAt.pure hs₂

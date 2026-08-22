@@ -1,14 +1,4 @@
 {"meta":{"exporter":{"name":"lean4export","version":"3.1.0"},"format":{"version":"3.1.0"},"lean":{"githash":"f72c35b3f637c8c6571d353742168ab66cc22c00","version":"4.29.1"}}}
-{"in": 88, "str": {"pre": 0, "str": "sorryAx"}}
-{"in": 89, "str": {"pre": 0, "str": "u"}}
-{"in": 90, "str": {"pre": 0, "str": "Bool"}}
-{"il": 9, "param": 89}
-{"ie": 349, "sort": 9}
-{"ie": 350, "const": {"name": 90, "us": []}}
-{"ie": 351, "bvar": 1}
-{"ie": 352, "forallE": {"binderInfo": "default", "body": 351, "name": 90, "type": 350}}
-{"ie": 353, "forallE": {"binderInfo": "implicit", "body": 352, "name": 89, "type": 349}}
-{"axiom": {"isUnsafe": false, "levelParams": [89], "name": 88, "type": 353}}
 {"in":1,"str":{"pre":0,"str":"Eq"}}
 {"in":2,"str":{"pre":0,"str":"u_1"}}
 {"il":1,"param":2}
@@ -467,3 +457,13 @@
 {"app":{"arg":43,"fn":346},"ie":347}
 {"app":{"arg":344,"fn":347},"ie":348}
 {"thm":{"all":[13],"levelParams":[],"name":13,"type":345,"value":348}}
+{"in": 88, "str": {"pre": 0, "str": "sorryAx"}}
+{"in": 89, "str": {"pre": 0, "str": "u"}}
+{"in": 90, "str": {"pre": 0, "str": "Bool"}}
+{"il": 9, "param": 89}
+{"ie": 349, "sort": 9}
+{"ie": 350, "bvar": 0}
+{"ie": 351, "bvar": 1}
+{"ie": 352, "forallE": {"binderInfo": "default", "body": 351, "name": 90, "type": 350}}
+{"ie": 353, "forallE": {"binderInfo": "implicit", "body": 352, "name": 89, "type": 349}}
+{"axiom": {"isUnsafe": false, "levelParams": [89], "name": 88, "type": 353}}

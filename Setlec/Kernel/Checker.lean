@@ -1158,17 +1158,25 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
     checkOpaqueVal ops env cv value
   | .axiomDecl cv => do
     -- Only the two standard axioms the preprocessor's generated routes
-    -- use are accepted, with their types and the shapes of the
+    -- use are *installed*, with their types and the shapes of the
     -- inductives they quantify over pinned (up to the exporter's
     -- unstable hygienic binder names); both are true in the set model
     -- (`propext` via the stored `Iff` recursor and extensionality of
     -- propositions, `Classical.choice` via the stored `Nonempty`
-    -- recursor and global choice).
+    -- recursor and global choice).  Every other axiom is invisible
+    -- (user ruling): its record is still well-formedness-checked (the
+    -- official kernel checks the declaration, so a garbage record must
+    -- keep rejecting) but nothing is stored and the run continues —
+    -- the frontend positively declines any later declaration that
+    -- references the skipped axiom.  A *pinned name* with a non-pinned
+    -- shape stays a positive decline (the pin would otherwise shadow).
     let cvA ← checkConstantVal ops env cv
     if stdAxiomOk env cvA then
       pure ⟨.axiomInfo cvA :: env.consts⟩
+    else if cvA.name = propextName ∨ cvA.name = choiceName then
+      throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
     else
-      throw (.notImplemented s!"axiom declaration ({cv.name})")
+      pure env
   | .basisDecl kind => do
     -- Install the pinned (pre-annotated) basis block; the frontend has
     -- already matched the incoming record against the pinned shapes.

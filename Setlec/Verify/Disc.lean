@@ -583,7 +583,13 @@ theorem majorToCtor_disc (ih : ScopedSim env f) (henv : EnvWF env)
         (fun r _ => ?_)
       split
       · exact DiscV.pure hwfab
-      · exact DiscV.pure hmaj
+      · split
+        · refine DiscV.bind (proofIrrel_disc ih henv hwfab hmaj)
+            (fun r' _ => ?_)
+          split
+          · exact DiscV.pure hwfab
+          · exact DiscV.pure hmaj
+        · exact DiscV.pure hmaj
     · exact DiscV.pure hmaj
   · exact DiscV.pure hmaj
 

@@ -13,7 +13,9 @@ open Name (anonymous)
 
 /-- The pinned `PUnit` basis block. -/
 def punitBasis : List ConstantInfo := [
-  .indInfo ⟨(anonymous |>.str "PUnit"), [(anonymous |>.str "u")], (.sort (.param (anonymous |>.str "u")))⟩ { unitlike := true },
+  .indInfo ⟨(anonymous |>.str "PUnit"), [(anonymous |>.str "u")], (.sort (.param (anonymous |>.str "u")))⟩
+    { eta := true, etaCtor := ((anonymous |>.str "PUnit") |>.str "unit"),
+      etaParams := 0, etaFields := 0, unitlike := true },
   .ctorInfo ⟨((anonymous |>.str "PUnit") |>.str "unit"), [(anonymous |>.str "u")], (.const (anonymous |>.str "PUnit") [(.param (anonymous |>.str "u"))])⟩ 0 0,
   .recInfo ⟨((anonymous |>.str "PUnit") |>.str "rec"), [(anonymous |>.str "u_1"), (anonymous |>.str "u")], (.forallE (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "PUnit") [(.param (anonymous |>.str "u"))]) (.sort (.param (anonymous |>.str "u_1"))) ⟨.default, none⟩) (.forallE (anonymous |>.str "unit") (.app (.bvar 0) (.const ((anonymous |>.str "PUnit") |>.str "unit") [(.param (anonymous |>.str "u"))])) (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "PUnit") [(.param (anonymous |>.str "u"))]) (.app (.bvar 2) (.bvar 0)) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩)⟩ 2 2
     [⟨((anonymous |>.str "PUnit") |>.str "unit"), 0, 0, .inert, (.lam (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "PUnit") [(.param (anonymous |>.str "u"))]) (.sort (.param (anonymous |>.str "u_1"))) ⟨.default, none⟩) (.lam (anonymous |>.str "unit") (.app (.bvar 0) (.const ((anonymous |>.str "PUnit") |>.str "unit") [(.param (anonymous |>.str "u"))])) (.bvar 0) ⟨.default, none⟩) ⟨.default, none⟩)⟩]]
@@ -31,7 +33,9 @@ def punitA : ConstantInfo :=
     { name := Setlec.Name.str (Setlec.Name.anonymous) "PUnit",
       levelParams := [Setlec.Name.str (Setlec.Name.anonymous) "u"],
       type := Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")) }
-    { eta := false, etaCtor := Setlec.Name.anonymous, etaParams := 0, etaFields := 0, unitlike := true, ruleK := false }
+    { eta := true,
+      etaCtor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "PUnit") "unit",
+      etaParams := 0, etaFields := 0, unitlike := true, ruleK := false }
 
 /-- Annotated basis declaration (generated). -/
 def punitUnitA : ConstantInfo :=

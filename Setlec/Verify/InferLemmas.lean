@@ -817,8 +817,9 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
 /-- Inversion of the stuck-major rescue: either the major is returned
 unchanged, or a constructor application was fabricated — in the
 K branch certified by proof irrelevance, in the structure-eta branch by
-the structure-eta certificate — and its scoping was checked
-syntactically (the scope guard). -/
+the structure-eta certificate (or, at zero fields, by proof
+irrelevance) — and its scoping was checked syntactically (the scope
+guard). -/
 theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     {rules : List RecRule} {major major' : Expr}
     (h : majorToCtorP env fuel d recName rules major = .ok major') :
@@ -848,7 +849,9 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
              (List.range caps.etaFields).map fun j =>
                Expr.mkAppN (.const (projFnName T j) ust)
                  (tmaj.getAppArgs ++ [major])) ∧
-         structEtaCertWithP env fuel d major' major tmaj = .ok true))) := by
+         (structEtaCertWithP env fuel d major' major tmaj = .ok true ∨
+          (caps.etaFields = 0 ∧ cvj.levelParams.length = ust.length ∧
+           proofIrrelP env fuel d major' major = .ok true))))) := by
   dsimp only [majorToCtorP] at h
   simp only [majorToCtor, Bind.bind, Except.bind] at h
   simp only [infer_def, whnf_def, proofIrrel_fold,
@@ -1116,9 +1119,40 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     dsimp only at h
     cases bse with
     | false =>
-      simp only [Bool.false_eq_true, ↓reduceIte, pure, Except.pure,
-        Except.ok.injEq] at h
-      exact Or.inl h.symm
+      simp only [Bool.false_eq_true, ↓reduceIte] at h
+      by_cases hZ : caps.etaFields = 0 ∧
+          cvj.levelParams.length = ust.length ∧
+          piResultNeverZero cvT.levelParams ust cvT.type = true
+      case neg =>
+        rw [if_neg hZ] at h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        exact Or.inl h.symm
+      rw [if_pos hZ] at h
+      try simp only [Bind.bind, Except.bind] at h
+      cases hpi : proofIrrelP env fuel d
+          (Expr.mkAppN (.const caps.etaCtor ust)
+            (tmaj.getAppArgs ++
+              (List.range caps.etaFields).map fun j =>
+                Expr.mkAppN (.const (projFnName T' j) ust)
+                  (tmaj.getAppArgs ++ [major]))) major with
+      | error err => rw [hpi] at h; exact nomatch h
+      | ok bpi =>
+      rw [hpi] at h
+      dsimp only at h
+      cases bpi with
+      | false =>
+        simp only [Bool.false_eq_true, ↓reduceIte, pure, Except.pure,
+          Except.ok.injEq] at h
+        exact Or.inl h.symm
+      | true =>
+      simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq] at h
+      subst h
+      simp only [Bool.and_eq_true] at hguard
+      exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
+        rl, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
+        rfl, hfj, hpr, hfT, rfl, htw, hth,
+        Or.inr ⟨hE.1, hE.2.1, hE.2.2.1, hE.2.2.2, hplen, hlvl, rfl,
+          Or.inr ⟨hZ.1, hZ.2.1, hpi⟩⟩⟩
     | true =>
     simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq] at h
     subst h
@@ -1126,7 +1160,8 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
       rl, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
       rfl, hfj, hpr, hfT, rfl, htw, hth,
-      Or.inr ⟨hE.1, hE.2.1, hE.2.2.1, hE.2.2.2, hplen, hlvl, rfl, hse⟩⟩
+      Or.inr ⟨hE.1, hE.2.1, hE.2.2.1, hE.2.2.2, hplen, hlvl, rfl,
+        Or.inl hse⟩⟩
 
 
 /-- Inversion of one pairwise-defeq step. -/

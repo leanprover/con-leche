@@ -1118,6 +1118,11 @@ private theorem majorToCtor_shift (henv : EnvWF env)
             refine bind_rel_eq _
               (structEtaCertWith_shift henv ih hpd hwfab hwmaj hwtmaj) ?_
             intro bb _
+            refine ite_rel _ (fun _ => rfl) (fun _ => ?_)
+            refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
+            refine bind_rel_eq _
+              (proofIrrel_shift henv ih hpd hwfab hwmaj) ?_
+            intro bb' _
             exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
 
 /-- The scoping of an iota reduct (the `iotaRec` slice of the

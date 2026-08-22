@@ -106,13 +106,25 @@ in modules analogous to `derived/` in nanodatg.
 
 Axioms: only the standard axioms are supported; anything else is
 "declined" (lean kernel arena exit convention).  This is a deliberate
-ceiling (owner ruling, 2026-08-21): the two tutorial tests scaffolded
-by custom axioms (`032_letTypeDep`, `033_letRed`, declining precisely
-at their `axiom` records) stay declined by design, so the vendored
-tutorial snapshot tops out at 90/92 accepted — the full non-axiom
-set.  Acceptance routes for custom axioms (opaque-with-witness,
-unfoldable-definition storage, canonical-value models) were explored
-and rejected: none is wanted.  `Quot.sound` is part
+ceiling (owner ruling, 2026-08-21): acceptance routes for custom
+axioms (opaque-with-witness, unfoldable-definition storage,
+canonical-value models) were explored and rejected: none is wanted.
+Refinement (user ruling, 2026-08-22): non-pinned axioms are
+*invisible*; their uses are unsupported.  A non-pinned `axiom` record
+no longer stops the run — the record is still well-formedness-checked
+(the official kernel checks the declaration, so a garbage record such
+as arena `bad/011_nonTypeAxiom` keeps rejecting) but nothing is
+installed, and the frontend taints the axiom's name
+(`State.skippedAxioms`, generalizing the previous `sorryAx`-only
+mechanism): any later declaration whose type or value references a
+skipped axiom is positively declined at its own record.  The two
+tutorial tests scaffolded by custom axioms (`032_letTypeDep`,
+`033_letRed`) thus now decline at their first *use* of the axiom
+rather than at the `axiom` record — still exit 2, so the vendored
+tutorial snapshot stays at 90/92 accepted, the full non-axiom set.
+This lets streams like `Init.Core` run past `Lean.trustCompiler`
+instead of dying there (the next blocker is then the first
+declaration that *uses* it, e.g. `Lean.reduceNat`).  `Quot.sound` is part
 of the pinned quotient basis block; `propext` and `Classical.choice`
 are accepted as `axiomDecl`s by `stdAxiomOk`: a pure predicate that
 requires the pinned `Eq` basis plus standardly-shaped stored `Iff`
@@ -842,9 +854,10 @@ induction over the literal), consumed by `reduceNat_sound`.
   ble-guarded defeq-checkable statement forms.  The full Init stream
   itself still does not check end-to-end for unrelated reasons
   (frontend memory on the 336 MB export; the `Lean.trustCompiler`
-  axiom declines by design; the known `Unit.sizeOf` mismatch) — the
-  previous positive declines at `Nat.land`/`Nat.shiftRight`/… literal
-  uses are gone.
+  axiom declines by design — since 2026-08-22 at its first *use*, not
+  its record; the `Unit.sizeOf` mismatch is fixed, see the basis
+  `PUnit` rescue note) — the previous positive declines at
+  `Nat.land`/`Nat.shiftRight`/… literal uses are gone.
 
 ## Kernel design review triage (2026-08-20)
 
@@ -927,6 +940,51 @@ terms, so substituting them under binders needs the lifting
 substitution `instantiate1Lift` (`instantiate1`'s contract requires a
 closed replacement; the old code silently corrupted nested lets —
 surfaced by the preprocessor's let-heavy `iota_0` proofs).
+
+The frontend zeta-expands every parsed type and value (the checker
+works let-free); the recursor-rule `rhs` slot was the one parsed
+expression missed (fixed 2026-08-22, task #60): a preprocessor-emitted
+`let` in a modeled recursor's rule (`Std.Packages.PreorderOfLEArgs`)
+hit install's `letE` decline.  The rule rhs now goes through the same
+`.zetaExpand` — pure input normalization ahead of annotation; the
+model layer only ever consumes the stored (annotated) rules.
+
+### Basis `PUnit` 0-field rescue (2026-08-22, task #59)
+
+The pinned `PUnit` block now carries `eta := true` (ctor `PUnit.unit`,
+0 params, 0 fields), matching the official kernel's structure-rescue
+eligibility — `to_cnstr_when_structure` covers 0-field structures, so
+`Unit.sizeOf : sizeOf u = 1 := rfl` needs `PUnit.rec _ 1 u ≡ 1` at a
+neutral `u`.  The generic structure-eta certificate excludes reserved
+basis names (its soundness runs through `_model` value bridges the
+pins do not have), so the rescue's eta branch gains a 0-field
+fallback: the fabrication is the bare constructor, certified by
+`proofIrrel`, whose unit-likeness branch (`isUnitLikeTy`, native basis
+semantics `val PUnit = unitSet`, every member `pt`) covers exactly the
+pinned `PUnit`.  Two gates keep the strategy aligned with the
+official kernel: the constructor's level-parameter count must match
+the head's level list (mirroring the K branch's runtime gate), and
+the *instantiated* result sort must be provably nonzero
+(`Level.isNeverZero`, the official `is_never_zero`: the official
+rescue refuses a structure that could be a proposition at the given
+levels — `Unit = PUnit.{1}` passes, a bare parameter `u` does not).
+Soundness is a third `majorToCtor_claims` case mirroring the K case
+(`proofIrrel_pt`); no new model obligations — `ModeledOk`'s eta
+clause stays guarded on non-reserved names.
+
+Pin audit against official structure-rescue eligibility: `Empty` (no
+constructor) and `Nat` (two constructors) are ineligible; `Eq` has an
+index (ineligible; its `ruleK` pin covers the official K rescue);
+`Quot` has no recursor rules.  `PSigma'` *is* eligible and already
+pins `eta := true` with 2 fields — but the reserved-name gate in
+`structEtaCertWith` makes the declared capability inert for the
+stuck-major rescue (defeq-side pair eta is covered separately by
+`pairEtaCert`), so a stuck `PSigma'.rec` major is still not rescued.
+Open finding: fixing it needs a pair-eta-based rescue certificate for
+the basis pair (or restating the eta law in public names).  Note also
+the modeled eta branch still gates on the *static* `piResultIsProp`
+rather than the official instantiated `is_never_zero`; for the
+Type-valued structures the preprocessor emits the two agree.
 
 ## Indexed recursors (2026-08-21)
 

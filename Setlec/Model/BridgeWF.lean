@@ -803,8 +803,9 @@ theorem checkDecl_wfimp {env env₂ : Env} {d : Declaration} {F : Nat}
     by_cases h1 : stdAxiomOk env cvA = true
     · rw [if_pos h1] at h ⊢
       exact h
-    · rw [if_neg h1] at h
-      exact nomatch h
+    · rw [if_neg h1] at h ⊢
+      rw [FueledM.atF_ite, FueledM.atF_throw, FueledM.atF_pure] at h
+      exact h
   | basisDecl kind =>
     have heq : checkDecl wfOpsM env (.basisDecl kind) =
         checkDecl fueledOpsM env (.basisDecl kind) := rfl
