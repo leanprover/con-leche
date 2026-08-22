@@ -352,7 +352,7 @@ def FrameWf : Nat → List (Expr × BinderMeta) → Expr → Prop
   | d, [], bL => Expr.WScoped d bL ∧ bL.looseBVarsBounded 0 = true
   | d, (fv, m) :: rest, bL =>
     (∃ nm ty, fv = .fvar d nm ty ∧ Expr.WScoped d ty ∧
-      ty.looseBVarsBounded 0 = true ∧ (∃ cod, m.cod = some cod) ∧
+      ty.looseBVarsBounded 0 = true ∧
       Expr.fvarConsistent d nm ty bL ∧
       ∀ p ∈ rest, Expr.fvarConsistent d nm ty (Expr.fvarTypeD p.1)) ∧
     FrameWf (d + 1) rest bL

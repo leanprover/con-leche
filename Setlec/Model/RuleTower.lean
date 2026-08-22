@@ -57,7 +57,7 @@ theorem FrameWf.closeLamsAt_bounded :
     exact h.2
   | cons p rest ih =>
     intro d bL h
-    obtain ⟨⟨nm, ty, heq, hw, hb, -, -, -⟩, hrest⟩ := h
+    obtain ⟨⟨nm, ty, heq, hw, hb, -, -⟩, hrest⟩ := h
     obtain ⟨fv, m⟩ := p
     subst heq
     show (Expr.lam nm ty ((closeLamsAt rest bL).abstract1 d) m).looseBVarsBounded
@@ -78,7 +78,7 @@ theorem FrameWf.closeLamsAt_wscoped :
     exact h.1
   | cons p rest ih =>
     intro d bL h
-    obtain ⟨⟨nm, ty, heq, hw, -, -, -, -⟩, hrest⟩ := h
+    obtain ⟨⟨nm, ty, heq, hw, -, -, -⟩, hrest⟩ := h
     obtain ⟨fv, m⟩ := p
     subst heq
     show WScoped d (Expr.lam nm ty ((closeLamsAt rest bL).abstract1 d) m)
@@ -100,7 +100,7 @@ theorem closeLamsAt_fvarConsistent {dv : Nat} {nv : Name} {tyv : Expr} :
     exact hc
   | cons p rest ih =>
     intro d bL hlt h hc htys
-    obtain ⟨⟨nm, ty, heq, -, -, -, -, -⟩, hrest⟩ := h
+    obtain ⟨⟨nm, ty, heq, -, -, -, -⟩, hrest⟩ := h
     obtain ⟨fv, m⟩ := p
     subst heq
     show Expr.fvarConsistent dv nv tyv
@@ -119,7 +119,7 @@ theorem FrameWf.roundtrip {d : Nat} {nm : Name} {ty : Expr}
     (h : FrameWf d ((.fvar d nm ty, m) :: fvms) bL) :
     ((closeLamsAt fvms bL).abstract1 d).instantiate1 (.fvar d nm ty) 0 =
       closeLamsAt fvms bL := by
-  obtain ⟨⟨nm', ty', heq, -, -, -, hcb, htys⟩, hrest⟩ := h
+  obtain ⟨⟨nm', ty', heq, -, -, hcb, htys⟩, hrest⟩ := h
   injection heq with _ hnm hty'
   subst hnm
   subst hty'
@@ -195,14 +195,14 @@ theorem TowerOk.out :
     exact ⟨⟨_, hbL, heR⟩, hA⟩
   | @cons d ρ nm ty m fvms bL nmR tyR bodyR A hty htyR hAty hrec ih =>
     intro hwf hAR
-    obtain ⟨⟨nm', ty', heq, hwty, hbty, ⟨cod, hcod⟩, hcb, htys⟩, hwfT⟩ := hwf
+    obtain ⟨⟨nm', ty', heq, hwty, hbty, hcb, htys⟩, hwfT⟩ := hwf
     injection heq with _ hnm hty'
     subst hnm
     subst hty'
     have hwf' : FrameWf d ((Expr.fvar d nm ty, m) :: fvms) bL :=
-      ⟨⟨nm, ty, rfl, hwty, hbty, ⟨cod, hcod⟩, hcb, htys⟩, hwfT⟩
+      ⟨⟨nm, ty, rfl, hwty, hbty, hcb, htys⟩, hwfT⟩
     simp only [AnnotOk] at hAR
-    obtain ⟨hAtyR, -, hcondR⟩ := hAR
+    obtain ⟨hAtyR, ⟨cod, hcod⟩, hcondR⟩ := hAR
     -- pointwise facts of the two fibres
     have hfib : ∀ x, x ∈ˢ A →
         (∃ v, interpExpr V cval env φ (d + 1) (updV V ρ d x)
@@ -301,12 +301,17 @@ theorem closeLamsAt_fold :
     exact ⟨L, hi, rfl, trivial⟩
   | @cons d ρ nm ty m fvms x xs A hty hx hfit ih =>
     intro hwf hA L hi
-    obtain ⟨⟨nm', ty', heq, hwty, hbty, ⟨cod, hcod⟩, hcb, htys⟩, hwfT⟩ := hwf
+    obtain ⟨⟨nm', ty', heq, hwty, hbty, hcb, htys⟩, hwfT⟩ := hwf
     injection heq with _ hnm hty'
     subst hnm
     subst hty'
     have hwf' : FrameWf d ((Expr.fvar d nm ty, m) :: fvms) bL :=
-      ⟨⟨nm, ty, rfl, hwty, hbty, ⟨cod, hcod⟩, hcb, htys⟩, hwfT⟩
+      ⟨⟨nm, ty, rfl, hwty, hbty, hcb, htys⟩, hwfT⟩
+    obtain ⟨cod, hcod⟩ : ∃ cod, m.cod = some cod := by
+      have hA' : AnnotOk V cval env φ d ρ
+          (.lam nm ty ((closeLamsAt fvms bL).abstract1 d) m) := hA
+      simp only [AnnotOk] at hA'
+      exact hA'.2.1
     rw [interp_closeLamsAt_cons hwf' hcod, hty] at hi
     obtain rfl := Option.some.inj hi
     have hrt := hwf'.roundtrip

@@ -533,7 +533,7 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
         ty.looseBVarsBounded 0 = true := by
     intro k a ha
     obtain ⟨mb, hp⟩ := hzipfst' k a ha
-    obtain ⟨nm, ty, h1, h2, h3, -⟩ := hFwf.get k (a, mb) hp
+    obtain ⟨nm, ty, h1, h2, h3⟩ := hFwf.get k (a, mb) hp
     exact ⟨nm, ty, by simpa using h1, by simpa using h2, h3⟩
   -- the canonical frame
   have hρval : ∀ (k : Nat) (v : V),
@@ -878,7 +878,7 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
       0 (rho0 V) fvms (vsi.take rP ++ ws.drop r.ctorParams) := by
     refine FrameFit.of_pointwise (by rw [hflen, hxslen']) ?_ ?_
     · intro k p hp
-      obtain ⟨nm, ty, h1, -, -, -⟩ := hFwf.get k p hp
+      obtain ⟨nm, ty, h1, -, -⟩ := hFwf.get k p hp
       exact ⟨nm, ty, p.2, by rw [← h1]⟩
     · intro k nm ty mb x hp hx
       have haC : (fvsP ++ xFvs)[k]? = some (.fvar (0 + k) nm ty) := by
@@ -889,7 +889,7 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
         · exact hlt
         · rw [List.getElem?_eq_none (by rw [hspineLen]; omega)] at haC
           exact nomatch haC
-      obtain ⟨nm2, ty2, h1, hwty2, -, -⟩ := hFwf.get k _ hp
+      obtain ⟨nm2, ty2, h1, hwty2, -⟩ := hFwf.get k _ hp
       have hwty : WScoped (0 + k) ty := by
         have h1' : Expr.fvar (0 + k) nm ty = Expr.fvar (0 + k) nm2 ty2 := h1
         injection h1' with e1 e2 e3

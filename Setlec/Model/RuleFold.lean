@@ -279,7 +279,7 @@ theorem FrameWf.get :
       FrameWf d fvms bL →
       ∀ (k : Nat) (p : Expr × BinderMeta), fvms[k]? = some p →
         ∃ nm ty, p.1 = .fvar (d + k) nm ty ∧ WScoped (d + k) ty ∧
-          ty.looseBVarsBounded 0 = true ∧ (∃ cod, p.2.cod = some cod) := by
+          ty.looseBVarsBounded 0 = true := by
   intro fvms
   induction fvms with
   | nil =>
@@ -287,16 +287,16 @@ theorem FrameWf.get :
     exact nomatch hp
   | cons q fvms ih =>
     intro d bL h k p hp
-    obtain ⟨⟨nm, ty, heq, hw, hb, hcod, -, -⟩, hrest⟩ := h
+    obtain ⟨⟨nm, ty, heq, hw, hb, -, -⟩, hrest⟩ := h
     cases k with
     | zero =>
       obtain rfl : q = p := by simpa using hp
-      exact ⟨nm, ty, heq, hw, hb, hcod⟩
+      exact ⟨nm, ty, heq, hw, hb⟩
     | succ k =>
-      obtain ⟨nm', ty', h1, h2, h3, h4⟩ := ih hrest k p (by simpa using hp)
+      obtain ⟨nm', ty', h1, h2, h3⟩ := ih hrest k p (by simpa using hp)
       exact ⟨nm', ty', by rw [h1]; congr 1; omega,
         by rw [show d + (k + 1) = d + 1 + k from by omega]; exact h2,
-        h3, h4⟩
+        h3⟩
 
 omit [SetTheory V] in
 /-- Defined level parameters of a stripped telescope's domains. -/
@@ -473,5 +473,932 @@ theorem instantiateLevelParams_eq_const {ks : List Name}
     injection h with h1 h2
     exact ⟨ls0, by rw [h1], h2.symm⟩
   all_goals exact nomatch h
+
+
+/-! ## Syntactic well-formedness of the canonical tower (install side) -/
+
+omit [SetTheory V] in
+/-- An expression without free variables is consistent at any index. -/
+theorem Expr.fvarConsistent_of_not_hasFvar {d : Nat} {n : Name}
+    {ty : Expr} :
+    ∀ {e : Expr}, e.hasFvar = false → Expr.fvarConsistent d n ty e := by
+  intro e
+  induction e <;> intro h <;>
+    simp_all [Expr.hasFvar, Expr.fvarConsistent]
+
+omit [SetTheory V] in
+/-- Consistency is preserved by instantiation with a consistent
+argument. -/
+theorem Expr.fvarConsistent_instantiate1_arg {d : Nat} {n : Name}
+    {ty : Expr} {a : Expr} (ha : Expr.fvarConsistent d n ty a) :
+    ∀ (e : Expr) (k : Nat), Expr.fvarConsistent d n ty e →
+      Expr.fvarConsistent d n ty (e.instantiate1 a k) := by
+  intro e
+  induction e <;> intro k hc <;>
+    simp_all [Expr.instantiate1, Expr.fvarConsistent]
+  case bvar i =>
+    split
+    · exact ha
+    · split <;> simp [Expr.fvarConsistent]
+
+omit [SetTheory V] in
+/-- Consistency through an instantiation sequence with consistent
+arguments. -/
+theorem Expr.fvarConsistent_instSeq {d : Nat} {n : Name} {ty : Expr} :
+    ∀ (args : List Expr) (t : Nat) {e : Expr},
+      (∀ a ∈ args, Expr.fvarConsistent d n ty a) →
+      Expr.fvarConsistent d n ty e →
+      Expr.fvarConsistent d n ty (instSeq args t e) := by
+  intro args
+  induction args with
+  | nil => intro t e _ he; exact he
+  | cons a as ih =>
+    intro t e hargs he
+    exact ih (t - 1)
+      (fun b hb => hargs b (List.mem_cons_of_mem _ hb))
+      (Expr.fvarConsistent_instantiate1_arg
+        (hargs a List.mem_cons_self) e t he)
+
+omit [SetTheory V] in
+/-- The canonical consistency facts of an opened telescope: outer
+consistency is preserved onto every product, and each newly opened
+variable is mentioned consistently by the residual and by every later
+variable's annotation. -/
+theorem openPisAtFvars_consistent :
+    ∀ (n : Nat) {e : Expr} (i₀ : Nat) {fvs : List Expr} {rest : Expr},
+      openPisAtFvars n e i₀ = some (fvs, rest) →
+      WScoped i₀ e →
+      (∀ (dv : Nat) (nv : Name) (tv : Expr),
+        Expr.fvarConsistent dv nv tv e → dv < i₀ →
+        Expr.fvarConsistent dv nv tv rest ∧
+        ∀ a ∈ fvs, Expr.fvarConsistent dv nv tv (Expr.fvarTypeD a)) ∧
+      (∀ (k : Nat) (nm : Name) (ty : Expr),
+        fvs[k]? = some (.fvar (i₀ + k) nm ty) →
+        Expr.fvarConsistent (i₀ + k) nm ty rest ∧
+        ∀ (j : Nat) (b : Expr), fvs[j]? = some b → k < j →
+          Expr.fvarConsistent (i₀ + k) nm ty (Expr.fvarTypeD b))
+  | 0, e, i₀, fvs, rest, h, _ => by
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    refine ⟨fun dv nv tv hc _ => ⟨hc, fun a ha => by simp at ha⟩,
+      fun k nm ty hk => by simp at hk⟩
+  | n + 1, e, i₀, fvs, rest, h, hW => by
+    match e, h with
+    | .forallE nm0 dom0 body0 m0, h =>
+      simp only [openPisAtFvars] at h
+      cases hrec : openPisAtFvars n
+          (body0.instantiate1 (.fvar i₀ nm0 dom0)) (i₀ + 1) with
+      | none => rw [hrec] at h; exact nomatch h
+      | some pr =>
+        rw [hrec] at h
+        obtain ⟨fvs', rest'⟩ := pr
+        simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        have hWb : WScoped i₀ dom0 ∧ WScoped i₀ body0 := by
+          simpa [WScoped] using hW
+        have hWb' : WScoped (i₀ + 1)
+            (body0.instantiate1 (.fvar i₀ nm0 dom0)) :=
+          WScoped.instantiate1 hWb.1 0 hWb.2
+        obtain ⟨hpres, hcanon⟩ :=
+          openPisAtFvars_consistent n (i₀ + 1) hrec hWb'
+        constructor
+        · intro dv nv tv hc hdv
+          simp only [Expr.fvarConsistent] at hc
+          have hcb : Expr.fvarConsistent dv nv tv
+              (body0.instantiate1 (.fvar i₀ nm0 dom0)) :=
+            Expr.fvarConsistent_instantiate1_arg
+              (by simp [Expr.fvarConsistent]; omega) body0 0 hc.2
+          obtain ⟨h1, h2⟩ := hpres dv nv tv hcb (by omega)
+          refine ⟨h1, ?_⟩
+          intro a ha
+          rcases List.mem_cons.mp ha with rfl | ha
+          · exact hc.1
+          · exact h2 a ha
+        · intro k nm ty hk
+          cases k with
+          | zero =>
+            have hk0 : Expr.fvar i₀ nm0 dom0 = .fvar (i₀ + 0) nm ty := by
+              simpa using hk
+            injection hk0 with e1 e2 e3
+            have hcb0 : Expr.fvarConsistent i₀ nm ty
+                (body0.instantiate1 (.fvar i₀ nm0 dom0)) := by
+              rw [show (Expr.fvar i₀ nm0 dom0) =
+                .fvar i₀ nm ty from by rw [← e2, ← e3]]
+              exact fvarConsistent_instantiate1 body0 0
+                hWb.2.fvarsBelow
+            have hcb : Expr.fvarConsistent (i₀ + 0) nm ty
+                (body0.instantiate1 (.fvar i₀ nm0 dom0)) := hcb0
+            obtain ⟨h1, h2⟩ := hpres (i₀ + 0) nm ty hcb (by omega)
+            refine ⟨h1, ?_⟩
+            intro j b hj hlt
+            cases j with
+            | zero => omega
+            | succ j => exact h2 b (List.mem_of_getElem? (by simpa using hj))
+          | succ k =>
+            have hk' : fvs'[k]? = some (.fvar (i₀ + 1 + k) nm ty) := by
+              rw [show i₀ + (k + 1) = i₀ + 1 + k from by omega] at hk
+              simpa using hk
+            obtain ⟨h1, h2⟩ := hcanon k nm ty hk'
+            rw [show i₀ + 1 + k = i₀ + (k + 1) from by omega] at h1 h2
+            refine ⟨h1, ?_⟩
+            intro j b hj hlt
+            cases j with
+            | zero => omega
+            | succ j =>
+              exact h2 j b (by simpa using hj) (by omega)
+
+
+omit [SetTheory V] in
+/-- Consistency through an instantiation walk. -/
+theorem instPisAt_consistent {d : Nat} {n : Name} {ty : Expr} :
+    ∀ (args : List Expr) {e : Expr} {ds : List Expr} {rest : Expr},
+      Expr.instPisAt args e = some (ds, rest) →
+      Expr.fvarConsistent d n ty e →
+      (∀ a ∈ args, Expr.fvarConsistent d n ty a) →
+      Expr.fvarConsistent d n ty rest
+  | [], e, ds, rest, h, hc, _ => by
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
+    rw [← h.2]
+    exact hc
+  | a :: args, e, ds, rest, h, hc, hargs => by
+    match e, h with
+    | .forallE nm0 dom0 body0 m0, h =>
+      simp only [Expr.instPisAt] at h
+      cases hrec : Expr.instPisAt args (body0.instantiate1 a) with
+      | none => rw [hrec] at h; exact nomatch h
+      | some pr =>
+        rw [hrec] at h
+        obtain ⟨ds', rest'⟩ := pr
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨-, rfl⟩ := h
+        have hc' : Expr.fvarConsistent d n ty
+            (body0.instantiate1 a) :=
+          Expr.fvarConsistent_instantiate1_arg
+            (hargs a List.mem_cons_self) body0 0
+            (by simp only [Expr.fvarConsistent] at hc; exact hc.2)
+        exact instPisAt_consistent args hrec hc'
+          (fun b hb => hargs b (List.mem_cons_of_mem _ hb))
+
+omit [SetTheory V] in
+/-- Assemble the frame invariant from positional facts. -/
+theorem FrameWf.of_pointwise :
+    ∀ {fvms : List (Expr × BinderMeta)} {d : Nat} {bL : Expr},
+      (∀ (k : Nat) (p : Expr × BinderMeta), fvms[k]? = some p →
+        ∃ nm ty, p.1 = .fvar (d + k) nm ty ∧ WScoped (d + k) ty ∧
+          ty.looseBVarsBounded 0 = true ∧
+          Expr.fvarConsistent (d + k) nm ty bL ∧
+          ∀ (j : Nat) (q : Expr × BinderMeta), fvms[j]? = some q →
+            k < j →
+            Expr.fvarConsistent (d + k) nm ty (Expr.fvarTypeD q.1)) →
+      WScoped (d + fvms.length) bL → bL.looseBVarsBounded 0 = true →
+      FrameWf d fvms bL := by
+  intro fvms
+  induction fvms with
+  | nil =>
+    intro d bL _ hW hb
+    exact ⟨by simpa using hW, hb⟩
+  | cons p fvms ih =>
+    intro d bL hpt hW hb
+    obtain ⟨nm, ty, h1, h2, h3, h4, h5⟩ := hpt 0 p (by simp)
+    obtain ⟨fv, mb⟩ := p
+    simp only at h1
+    subst h1
+    refine ⟨⟨nm, ty, rfl, by simpa using h2, h3, by simpa using h4, ?_⟩,
+      ?_⟩
+    · intro q hq
+      obtain ⟨j, hj⟩ := List.getElem?_of_mem hq
+      have := h5 (j + 1) q (by simpa using hj) (by omega)
+      simpa using this
+    · refine ih ?_ ?_ hb
+      · intro k q hq
+        obtain ⟨nm', ty', g1, g2, g3, g4, g5⟩ :=
+          hpt (k + 1) q (by simpa using hq)
+        refine ⟨nm', ty', by
+          rw [g1]
+          congr 1
+          omega, by
+          rw [show d + 1 + k = d + (k + 1) from by omega]
+          exact g2, g3, by
+          rw [show d + 1 + k = d + (k + 1) from by omega]
+          exact g4, ?_⟩
+        intro j q' hj hlt
+        have := g5 (j + 1) q' (by simpa using hj) (by omega)
+        rw [show d + 1 + k = d + (k + 1) from by omega]
+        exact this
+      · rw [show d + 1 + fvms.length = d + (fvms.length + 1) from by
+          omega]
+        simpa using hW
+
+
+omit [SetTheory V] in
+/-- A frame variable is consistent at its own data and vacuously at
+any other index. -/
+theorem Expr.fvarConsistent_fvar {d : Nat} {n : Name} {ty : Expr}
+    {i : Nat} {n' : Name} {ty' : Expr}
+    (h : i = d → n' = n ∧ ty' = ty) :
+    Expr.fvarConsistent d n ty (.fvar i n' ty') := h
+
+omit [SetTheory V] in
+/-- Consistency is closed under application spines. -/
+theorem Expr.fvarConsistent_mkAppN {d : Nat} {n : Name} {ty : Expr} :
+    ∀ (xs : List Expr) (f0 : Expr), Expr.fvarConsistent d n ty f0 →
+      (∀ x ∈ xs, Expr.fvarConsistent d n ty x) →
+      Expr.fvarConsistent d n ty (Expr.mkAppN f0 xs)
+  | [], _, hf, _ => hf
+  | x :: xs, f0, hf, hxs =>
+    Expr.fvarConsistent_mkAppN xs (.app f0 x)
+      ⟨hf, hxs x List.mem_cons_self⟩
+      (fun y hy => hxs y (List.mem_cons_of_mem _ hy))
+
+omit [SetTheory V] in
+/-- Application-spine components inherit consistency. -/
+theorem Expr.fvarConsistent_getAppArgs {d : Nat} {n : Name} {ty : Expr} :
+    ∀ {e : Expr}, Expr.fvarConsistent d n ty e →
+      ∀ x ∈ e.getAppArgs, Expr.fvarConsistent d n ty x := by
+  intro e
+  induction e <;> intro hc x hx <;>
+    simp only [Expr.getAppArgs] at hx
+  case app f a ihf iha =>
+    rcases List.mem_append.mp hx with hx | hx
+    · exact ihf hc.1 x hx
+    · obtain rfl : x = a := by simpa using hx
+      exact hc.2
+  all_goals exact absurd hx (by simp)
+
+omit [SetTheory V] in
+/-- Bvar-closure through an instantiation walk at closed arguments. -/
+theorem instPisAt_bclosed :
+    ∀ (args : List Expr) {e : Expr} {ds : List Expr} {rest : Expr},
+      Expr.instPisAt args e = some (ds, rest) →
+      e.looseBVarsBounded 0 = true →
+      (∀ a ∈ args, a.looseBVarsBounded 0 = true) →
+      rest.looseBVarsBounded 0 = true
+  | [], e, ds, rest, h, hb, _ => by
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
+    rw [← h.2]
+    exact hb
+  | a :: args, e, ds, rest, h, hb, hargs => by
+    match e, h with
+    | .forallE nm0 dom0 body0 m0, h =>
+      simp only [Expr.instPisAt] at h
+      cases hrec : Expr.instPisAt args (body0.instantiate1 a) with
+      | none => rw [hrec] at h; exact nomatch h
+      | some pr =>
+        rw [hrec] at h
+        obtain ⟨ds', rest'⟩ := pr
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨-, rfl⟩ := h
+        have hb' : (body0.instantiate1 a).looseBVarsBounded 0 = true := by
+          have hbb : body0.looseBVarsBounded 1 = true := by
+            revert hb
+            simp [Expr.looseBVarsBounded]
+          exact looseBVarsBounded_instantiate1_gen
+            (hargs a List.mem_cons_self) hbb
+        exact instPisAt_bclosed args hrec hb'
+          (fun b hb2 => hargs b (List.mem_cons_of_mem _ hb2))
+
+omit [SetTheory V] in
+/-- Leaf-boundedness through an instantiation walk. -/
+theorem instPisAt_leaves :
+    ∀ (args : List Expr) {e : Expr} {ds : List Expr} {rest : Expr},
+      Expr.instPisAt args e = some (ds, rest) →
+      Expr.LeavesBounded e →
+      (∀ a ∈ args, Expr.LeavesBounded a) →
+      Expr.LeavesBounded rest
+  | [], e, ds, rest, h, hL, _ => by
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
+    rw [← h.2]
+    exact hL
+  | a :: args, e, ds, rest, h, hL, hargs => by
+    match e, h with
+    | .forallE nm0 dom0 body0 m0, h =>
+      simp only [Expr.instPisAt] at h
+      cases hrec : Expr.instPisAt args (body0.instantiate1 a) with
+      | none => rw [hrec] at h; exact nomatch h
+      | some pr =>
+        rw [hrec] at h
+        obtain ⟨ds', rest'⟩ := pr
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨-, rfl⟩ := h
+        have hL' : Expr.LeavesBounded (body0.instantiate1 a) :=
+          LeavesBounded.instantiate1
+            (LeavesBounded.of_forallE_body hL)
+            (hargs a List.mem_cons_self)
+        exact instPisAt_leaves args hrec hL'
+          (fun b hb2 => hargs b (List.mem_cons_of_mem _ hb2))
+
+
+omit [SetTheory V] in
+/-- Terms scoped below an index are vacuously consistent at it. -/
+theorem Expr.fvarConsistent_of_wscoped_lt {D d : Nat} {n : Name}
+    {ty : Expr} (hDd : D ≤ d) :
+    ∀ {e : Expr}, WScoped D e → Expr.fvarConsistent d n ty e := by
+  intro e
+  induction e <;> intro h <;>
+    simp_all [WScoped, Expr.fvarConsistent]
+  omega
+
+omit [SetTheory V] in
+/-- The opened variables' annotations are bvar-closed. -/
+theorem openPisAtFvars_ty_bounded :
+    ∀ (n : Nat) {e : Expr} (i₀ : Nat) {fvs : List Expr} {rest : Expr},
+      openPisAtFvars n e i₀ = some (fvs, rest) →
+      e.looseBVarsBounded 0 = true →
+      ∀ a ∈ fvs, (Expr.fvarTypeD a).looseBVarsBounded 0 = true
+  | 0, e, i₀, fvs, rest, h, _ => by
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, -⟩ := h
+    intro a ha
+    simp at ha
+  | n + 1, e, i₀, fvs, rest, h, hb => by
+    match e, h with
+    | .forallE nm0 dom0 body0 m0, h =>
+      simp only [openPisAtFvars] at h
+      cases hrec : openPisAtFvars n
+          (body0.instantiate1 (.fvar i₀ nm0 dom0)) (i₀ + 1) with
+      | none => rw [hrec] at h; exact nomatch h
+      | some pr =>
+        rw [hrec] at h
+        obtain ⟨fvs', rest'⟩ := pr
+        simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        have hb2 : dom0.looseBVarsBounded 0 = true ∧
+            body0.looseBVarsBounded 1 = true := by
+          revert hb
+          simp [Expr.looseBVarsBounded]
+        intro a ha
+        rcases List.mem_cons.mp ha with rfl | ha
+        · simpa [Expr.fvarTypeD] using hb2.1
+        · exact openPisAtFvars_ty_bounded n (i₀ + 1) hrec
+            (looseBVarsBounded_instantiate1 body0 0 hb2.2) a ha
+
+omit [SetTheory V] in
+/-- Leaf-boundedness through an instantiation sequence. -/
+theorem LeavesBounded_instSeq :
+    ∀ (args : List Expr) (t : Nat) {e : Expr},
+      Expr.LeavesBounded e → (∀ a ∈ args, Expr.LeavesBounded a) →
+      Expr.LeavesBounded (instSeq args t e) := by
+  intro args
+  induction args with
+  | nil => intro t e hL _; exact hL
+  | cons a as ih =>
+    intro t e hL hargs
+    exact ih (t - 1)
+      (LeavesBounded.instantiate1 hL (hargs a List.mem_cons_self))
+      (fun b hb => hargs b (List.mem_cons_of_mem _ hb))
+
+/-- The canonical tower's frame is well-formed, from stored data
+alone: the syntactic half of a `RecRulesOk` clause, shared by the
+modeled install, the basis blocks and the projection functions. -/
+theorem ruleLhsParts_frameWf {n : Name} {cv : ConstantVal} {rP : Nat}
+    {r : RecRule} {cvj : ConstantVal}
+    {fvms : List (Expr × BinderMeta)} {bL : Expr}
+    (hparts : ruleLhsParts n cv rP r cvj = some (fvms, bL))
+    (hTcl : cv.type.hasFvar = false)
+    (hTb : cv.type.looseBVarsBounded 0 = true)
+    (hCcl : cvj.type.hasFvar = false)
+    (hCb : cvj.type.looseBVarsBounded 0 = true)
+    (hpins : ∀ lvls pins, RecRule.fire r = .nested lvls pins →
+      ∀ p ∈ pins, p.hasFvar = false ∧ p.looseBVarsBounded rP = true) :
+    FrameWf 0 fvms bL ∧ fvms.length = rP + RecRule.nfields r := by
+  obtain ⟨fvsP, rest0, usC, cargs, cdoms, crestP, xFvs, crest2, rbs, rb,
+    heqO, hcinst, hopenX, hstripR, hfireCase, hfvmsEq, hbLEq⟩ :=
+    ruleLhsParts_inv hparts
+  obtain ⟨hfvsPinst, hfvsPlen, hfvsPshape⟩ := openPisAtFvars_spec rP 0 heqO
+  obtain ⟨hxFvsInst, hxFvsLen, hxFvsShape⟩ :=
+    openPisAtFvars_spec (RecRule.nfields r) rP hopenX
+  have hrbsLen : rbs.length = rP + RecRule.nfields r :=
+    Expr.stripLams_length _ hstripR
+  -- prefix walk facts
+  obtain ⟨hfvsWf, hrest0Wf⟩ := openPisAtFvars_wf rP 0 heqO
+    (WScoped.of_not_hasFvar hTcl) hTb
+    (Expr.LeavesBounded.of_not_hasFvar hTcl)
+  obtain ⟨-, hcanon0⟩ := openPisAtFvars_consistent rP 0 heqO
+    (WScoped.of_not_hasFvar hTcl)
+  have htyB0 := openPisAtFvars_ty_bounded rP 0 heqO hTb
+  -- per-position canonical consistency inside the prefix spine
+  have hfvsPK : ∀ (k : Nat) (nm : Name) (ty : Expr),
+      fvsP[k]? = some (.fvar k nm ty) →
+      ∀ a ∈ fvsP, Expr.fvarConsistent k nm ty a := by
+    intro k nm ty hk a ha
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem ha
+    obtain ⟨nmj, haj⟩ := hfvsPshape j a hj
+    rw [Nat.zero_add] at haj
+    rw [haj]
+    refine Expr.fvarConsistent_fvar ?_
+    intro hjk
+    subst hjk
+    rw [hj] at hk
+    have := Option.some.inj hk
+    rw [haj] at this
+    injection this with e1 e2 e3
+    exact ⟨e2, e3⟩
+  -- the fire-generic constructor telescope
+  obtain ⟨hctyCl, hctyB, hcargsW, hcargsB0, hcargsL, hcargsK⟩ :
+      (match RecRule.fire r with
+        | RecRuleFire.nested lvls _ =>
+          cvj.type.instantiateLevelParams cvj.levelParams lvls
+        | _ => cvj.type).hasFvar = false ∧
+      (match RecRule.fire r with
+        | RecRuleFire.nested lvls _ =>
+          cvj.type.instantiateLevelParams cvj.levelParams lvls
+        | _ => cvj.type).looseBVarsBounded 0 = true ∧
+      (∀ a ∈ cargs, WScoped rP a) ∧
+      (∀ a ∈ cargs, a.looseBVarsBounded 0 = true) ∧
+      (∀ a ∈ cargs, Expr.LeavesBounded a) ∧
+      (∀ (k : Nat) (nm : Name) (ty : Expr),
+        fvsP[k]? = some (.fvar k nm ty) →
+        ∀ a ∈ cargs, Expr.fvarConsistent k nm ty a) := by
+    rcases hfireCase with ⟨hfp, -, hce⟩ | ⟨lvls, pins, hfn', -, hce⟩
+    · rw [hfp, hce]
+      refine ⟨hCcl, hCb, ?_, ?_, ?_, ?_⟩
+      · intro a ha
+        exact (hfvsWf a (List.mem_of_mem_take ha)).1.mono (by omega)
+      · intro a ha
+        exact (hfvsWf a (List.mem_of_mem_take ha)).2.1
+      · intro a ha
+        exact (hfvsWf a (List.mem_of_mem_take ha)).2.2
+      · intro k nm ty hk a ha
+        exact hfvsPK k nm ty hk a (List.mem_of_mem_take ha)
+    · rw [hfn', hce]
+      refine ⟨by rw [hasFvar_instantiateLevelParams]; exact hCcl,
+        by rw [looseBVarsBounded_instantiateLevelParams]; exact hCb,
+        ?_, ?_, ?_, ?_⟩
+      · intro a ha
+        obtain ⟨p, hp, rfl⟩ := List.mem_map.mp ha
+        rw [Expr.instSpine_eq_instSeq]
+        exact instSeq_wscoped _
+          (WScoped.of_not_hasFvar (hpins lvls pins hfn' p hp).1)
+          (fun b hb => (hfvsWf b hb).1.mono (by omega))
+      · intro a ha
+        obtain ⟨p, hp, rfl⟩ := List.mem_map.mp ha
+        rw [Expr.instSpine_eq_instSeq,
+          show (rP : Nat) - 1 = fvsP.length - 1 from by rw [hfvsPlen]]
+        refine instSeq_bclosed (fun b hb => (hfvsWf b hb).2.1) ?_
+        rw [hfvsPlen]
+        exact (hpins lvls pins hfn' p hp).2
+      · intro a ha
+        obtain ⟨p, hp, rfl⟩ := List.mem_map.mp ha
+        rw [Expr.instSpine_eq_instSeq]
+        exact LeavesBounded_instSeq _ _
+          (Expr.LeavesBounded.of_not_hasFvar
+            (hpins lvls pins hfn' p hp).1)
+          (fun b hb => (hfvsWf b hb).2.2)
+      · intro k nm ty hk a ha
+        obtain ⟨p, hp, rfl⟩ := List.mem_map.mp ha
+        rw [Expr.instSpine_eq_instSeq]
+        exact Expr.fvarConsistent_instSeq _ _
+          (fun b hb => hfvsPK k nm ty hk b hb)
+          (Expr.fvarConsistent_of_not_hasFvar
+            (hpins lvls pins hfn' p hp).1)
+  -- the instantiated constructor residual and the field walk
+  have hcrW : WScoped rP crestP :=
+    (instPisAt_wscoped cargs hcinst (WScoped.of_not_hasFvar hctyCl)
+      hcargsW).2
+  have hcrB : crestP.looseBVarsBounded 0 = true :=
+    instPisAt_bclosed cargs hcinst hctyB hcargsB0
+  have hcrL : Expr.LeavesBounded crestP :=
+    instPisAt_leaves cargs hcinst
+      (Expr.LeavesBounded.of_not_hasFvar hctyCl) hcargsL
+  have hcrK : ∀ (k : Nat) (nm : Name) (ty : Expr),
+      fvsP[k]? = some (.fvar k nm ty) →
+      Expr.fvarConsistent k nm ty crestP := by
+    intro k nm ty hk
+    exact instPisAt_consistent cargs hcinst
+      (Expr.fvarConsistent_of_not_hasFvar hctyCl)
+      (fun a ha => hcargsK k nm ty hk a ha)
+  obtain ⟨hxFvsWf, hcrest2Wf⟩ := openPisAtFvars_wf (RecRule.nfields r) rP
+    hopenX hcrW hcrB hcrL
+  obtain ⟨hpresX, hcanonX⟩ := openPisAtFvars_consistent
+    (RecRule.nfields r) rP hopenX hcrW
+  have htyBX := openPisAtFvars_ty_bounded (RecRule.nfields r) rP hopenX
+    hcrB
+  have hxFvsK : ∀ (k : Nat) (nm : Name) (ty : Expr),
+      xFvs[k]? = some (.fvar (rP + k) nm ty) →
+      ∀ a ∈ xFvs, Expr.fvarConsistent (rP + k) nm ty a := by
+    intro k nm ty hk a ha
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem ha
+    obtain ⟨nmj, haj⟩ := hxFvsShape j a hj
+    rw [haj]
+    refine Expr.fvarConsistent_fvar ?_
+    intro hjk
+    have hjk' : j = k := by omega
+    subst hjk'
+    rw [hj] at hk
+    have := Option.some.inj hk
+    rw [haj] at this
+    injection this with e1 e2 e3
+    exact ⟨e2, e3⟩
+  -- the spine of the tower and its positional entries
+  have hspLen : (fvsP ++ xFvs).length = rP + RecRule.nfields r := by
+    rw [List.length_append, hfvsPlen, hxFvsLen]
+  have hspineAt : ∀ (k : Nat) (p : Expr × BinderMeta),
+      fvms[k]? = some p → (fvsP ++ xFvs)[k]? = some p.1 := by
+    intro k p hp
+    rw [hfvmsEq] at hp
+    exact (zip_getElem?_parts _ _ k p hp).1
+  -- canonical consistency of the body at every frame index
+  have hbLK : ∀ (k : Nat) (nm : Name) (ty : Expr),
+      (fvsP ++ xFvs)[k]? = some (.fvar k nm ty) →
+      Expr.fvarConsistent k nm ty bL := by
+    intro k nm ty hk
+    -- position class
+    rcases Nat.lt_or_ge k rP with hkP | hkP
+    · -- prefix index
+      have hkF : fvsP[k]? = some (.fvar k nm ty) := by
+        rw [List.getElem?_append_left (by rw [hfvsPlen]; omega)] at hk
+        exact hk
+      have hcr2 : Expr.fvarConsistent k nm ty crest2 :=
+        (hpresX k nm ty (hcrK k nm ty hkF) (by omega)).1
+      rw [hbLEq]
+      refine Expr.fvarConsistent_mkAppN _ _ trivial ?_
+      intro x hx
+      rcases List.mem_append.mp hx with hx | hx
+      · rcases List.mem_append.mp hx with hx | hx
+        · exact hfvsPK k nm ty hkF x hx
+        · exact Expr.fvarConsistent_getAppArgs hcr2 x
+            (List.mem_of_mem_drop hx)
+      · obtain rfl : x = Expr.mkAppN (.const (RecRule.ctor r) usC)
+            (cargs ++ xFvs) := by simpa using hx
+        refine Expr.fvarConsistent_mkAppN _ _ trivial ?_
+        intro y hy
+        rcases List.mem_append.mp hy with hy | hy
+        · exact hcargsK k nm ty hkF y hy
+        · obtain ⟨j, hj⟩ := List.getElem?_of_mem hy
+          obtain ⟨nmj, hyj⟩ := hxFvsShape j y hj
+          rw [hyj]
+          exact Expr.fvarConsistent_fvar (fun hcon => by omega)
+    · -- field index
+      obtain ⟨j, rfl⟩ : ∃ j, k = rP + j := ⟨k - rP, by omega⟩
+      have hkX : xFvs[j]? = some (.fvar (rP + j) nm ty) := by
+        rw [List.getElem?_append_right (by rw [hfvsPlen]; omega)] at hk
+        rw [show rP + j - fvsP.length = j from by rw [hfvsPlen]; omega]
+          at hk
+        exact hk
+      have hcr2 : Expr.fvarConsistent (rP + j) nm ty crest2 :=
+        (hcanonX j nm ty hkX).1
+      rw [hbLEq]
+      refine Expr.fvarConsistent_mkAppN _ _ trivial ?_
+      intro x hx
+      rcases List.mem_append.mp hx with hx | hx
+      · rcases List.mem_append.mp hx with hx | hx
+        · exact Expr.fvarConsistent_of_wscoped_lt (by omega)
+            (hfvsWf x hx).1
+        · exact Expr.fvarConsistent_getAppArgs hcr2 x
+            (List.mem_of_mem_drop hx)
+      · obtain rfl : x = Expr.mkAppN (.const (RecRule.ctor r) usC)
+            (cargs ++ xFvs) := by simpa using hx
+        refine Expr.fvarConsistent_mkAppN _ _ trivial ?_
+        intro y hy
+        rcases List.mem_append.mp hy with hy | hy
+        · exact Expr.fvarConsistent_of_wscoped_lt (by omega)
+            (hcargsW y hy)
+        · exact hxFvsK j nm ty hkX y hy
+  -- scoping and closure of the body
+  have hWbL : WScoped (rP + RecRule.nfields r) bL := by
+    rw [hbLEq]
+    refine Expr.WScoped.mkAppN (by simp [WScoped]) ?_
+    intro x hx
+    rcases List.mem_append.mp hx with hx | hx
+    · rcases List.mem_append.mp hx with hx | hx
+      · exact (hfvsWf x hx).1.mono (by omega)
+      · exact hcrest2Wf.1.getAppArgs x (List.mem_of_mem_drop hx)
+    · obtain rfl : x = Expr.mkAppN (.const (RecRule.ctor r) usC)
+          (cargs ++ xFvs) := by simpa using hx
+      refine Expr.WScoped.mkAppN (by simp [WScoped]) ?_
+      intro y hy
+      rcases List.mem_append.mp hy with hy | hy
+      · exact (hcargsW y hy).mono (by omega)
+      · exact (hxFvsWf y hy).1
+  have hbbL : bL.looseBVarsBounded 0 = true := by
+    rw [hbLEq]
+    refine looseBVarsBounded_mkAppN (by simp [Expr.looseBVarsBounded]) ?_
+    intro x hx
+    rcases List.mem_append.mp hx with hx | hx
+    · rcases List.mem_append.mp hx with hx | hx
+      · exact (hfvsWf x hx).2.1
+      · exact looseBVarsBounded_getAppArgs hcrest2Wf.2.1 x
+          (List.mem_of_mem_drop hx)
+    · obtain rfl : x = Expr.mkAppN (.const (RecRule.ctor r) usC)
+          (cargs ++ xFvs) := by simpa using hx
+      refine looseBVarsBounded_mkAppN
+        (by simp [Expr.looseBVarsBounded]) ?_
+      intro y hy
+      rcases List.mem_append.mp hy with hy | hy
+      · exact hcargsB0 y hy
+      · exact (hxFvsWf y hy).2.1
+  -- assemble
+  have hlen : fvms.length = rP + RecRule.nfields r := by
+    rw [hfvmsEq, List.length_zip, List.length_append, hfvsPlen,
+      hxFvsLen, List.length_map, hrbsLen]
+    omega
+  refine ⟨FrameWf.of_pointwise ?_ (by
+    first
+      | exact hWbL
+      | (simp only [Nat.zero_add, hlen]; exact hWbL)) hbbL, hlen⟩
+  intro k p hp
+  have hkN : k < rP + RecRule.nfields r := by
+    rcases Nat.lt_or_ge k (rP + RecRule.nfields r) with hlt | hge
+    · exact hlt
+    · rw [List.getElem?_eq_none (by rw [hlen]; omega)] at hp
+      exact nomatch hp
+  have hpa := hspineAt k p hp
+  rcases Nat.lt_or_ge k rP with hkP | hkP
+  · have hkF : fvsP[k]? = some p.1 := by
+      rw [List.getElem?_append_left (by rw [hfvsPlen]; omega)] at hpa
+      exact hpa
+    obtain ⟨nm, ha⟩ := hfvsPshape k p.1 hkF
+    rw [Nat.zero_add] at ha
+    have hkF' : fvsP[k]? = some (.fvar k nm (Expr.fvarTypeD p.1)) := by
+      rw [hkF, ha]
+      rfl
+    refine ⟨nm, Expr.fvarTypeD p.1, by
+      rw [show (0 : Nat) + k = k from by omega]
+      exact ha, ?_, ?_, ?_, ?_⟩
+    · rw [show (0 : Nat) + k = k from by omega]
+      have := (hfvsWf p.1 (List.mem_of_getElem? hkF)).1
+      rw [ha] at this
+      simp only [WScoped] at this
+      exact this.2
+    · exact htyB0 p.1 (List.mem_of_getElem? hkF)
+    · rw [show (0 : Nat) + k = k from by omega]
+      exact hbLK k nm (Expr.fvarTypeD p.1) (by rw [hpa, ha]; rfl)
+    · intro j q hq hlt
+      rw [show (0 : Nat) + k = k from by omega]
+      have hqa := hspineAt j q hq
+      have hjN : j < rP + RecRule.nfields r := by
+        rcases Nat.lt_or_ge j (rP + RecRule.nfields r) with h2 | h2
+        · exact h2
+        · rw [List.getElem?_eq_none (by rw [hspLen]; omega)] at hqa
+          exact nomatch hqa
+      rcases Nat.lt_or_ge j rP with hjP | hjP
+      · have hjF : fvsP[j]? = some q.1 := by
+          rw [List.getElem?_append_left (by rw [hfvsPlen]; omega)] at hqa
+          exact hqa
+        have h0 := (hcanon0 k nm (Expr.fvarTypeD p.1)
+          (by rw [Nat.zero_add]; exact hkF')).2 j q.1 hjF (by omega)
+        rw [Nat.zero_add] at h0
+        exact h0
+      · have hjX : xFvs[j - rP]? = some q.1 := by
+          rw [List.getElem?_append_right
+            (by rw [hfvsPlen]; omega)] at hqa
+          rw [show j - fvsP.length = j - rP from by rw [hfvsPlen]] at hqa
+          exact hqa
+        exact (hpresX k nm (Expr.fvarTypeD p.1)
+          (hcrK k nm (Expr.fvarTypeD p.1) hkF') (by omega)).2
+          q.1 (List.mem_of_getElem? hjX)
+  · obtain ⟨j0, rfl⟩ : ∃ j0, k = rP + j0 := ⟨k - rP, by omega⟩
+    have hkX : xFvs[j0]? = some p.1 := by
+      rw [List.getElem?_append_right (by rw [hfvsPlen]; omega)] at hpa
+      rw [show rP + j0 - fvsP.length = j0 from by
+        rw [hfvsPlen]; omega] at hpa
+      exact hpa
+    obtain ⟨nm, ha⟩ := hxFvsShape j0 p.1 hkX
+    have hkX' : xFvs[j0]? = some
+        (.fvar (rP + j0) nm (Expr.fvarTypeD p.1)) := by
+      rw [hkX, ha]
+      rfl
+    refine ⟨nm, Expr.fvarTypeD p.1, by
+      rw [show (0 : Nat) + (rP + j0) = rP + j0 from by omega]
+      exact ha, ?_, ?_, ?_, ?_⟩
+    · rw [show (0 : Nat) + (rP + j0) = rP + j0 from by omega]
+      have := (hxFvsWf p.1 (List.mem_of_getElem? hkX)).1
+      rw [ha] at this
+      simp only [WScoped] at this
+      exact this.2
+    · exact htyBX p.1 (List.mem_of_getElem? hkX)
+    · rw [show (0 : Nat) + (rP + j0) = rP + j0 from by omega]
+      exact hbLK (rP + j0) nm (Expr.fvarTypeD p.1)
+        (by rw [hpa, ha]; rfl)
+    · intro j q hq hlt
+      rw [show (0 : Nat) + (rP + j0) = rP + j0 from by omega]
+      have hqa := hspineAt j q hq
+      rcases Nat.lt_or_ge j rP with hjP | hjP
+      · omega
+      · have hjX : xFvs[j - rP]? = some q.1 := by
+          rw [List.getElem?_append_right
+            (by rw [hfvsPlen]; omega)] at hqa
+          rw [show j - fvsP.length = j - rP from by rw [hfvsPlen]] at hqa
+          exact hqa
+        exact (hcanonX j0 nm (Expr.fvarTypeD p.1) hkX').2 (j - rP) q.1
+          hjX (by omega)
+
+
+omit [SetTheory V] in
+/-- Closing a binder keeps constants resolving. -/
+theorem constsResolve_abstract1 {env : Env} :
+    ∀ {e : Expr} (d k : Nat), e.constsResolve env = true →
+      (e.abstract1 d k).constsResolve env = true := by
+  intro e
+  induction e <;> intro d k h
+  case fvar idx nm ty ih =>
+    simp only [Expr.abstract1]
+    split
+    · simp [Expr.constsResolve]
+    · simpa [Expr.constsResolve] using h
+  all_goals simp_all [Expr.abstract1, Expr.constsResolve]
+
+omit [SetTheory V] in
+/-- Resolution through an instantiation walk. -/
+theorem instPisAt_resolve {env : Env} :
+    ∀ (args : List Expr) {e : Expr} {ds : List Expr} {rest : Expr},
+      Expr.instPisAt args e = some (ds, rest) →
+      e.constsResolve env = true →
+      (∀ a ∈ args, a.constsResolve env = true) →
+      rest.constsResolve env = true
+  | [], e, ds, rest, h, hr, _ => by
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
+    rw [← h.2]
+    exact hr
+  | a :: args, e, ds, rest, h, hr, hargs => by
+    match e, h with
+    | .forallE nm0 dom0 body0 m0, h =>
+      simp only [Expr.instPisAt] at h
+      cases hrec : Expr.instPisAt args (body0.instantiate1 a) with
+      | none => rw [hrec] at h; exact nomatch h
+      | some pr =>
+        rw [hrec] at h
+        obtain ⟨ds', rest'⟩ := pr
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨-, rfl⟩ := h
+        have hr2 : dom0.constsResolve env = true ∧
+            body0.constsResolve env = true := by
+          revert hr
+          simp [Expr.constsResolve]
+        exact instPisAt_resolve args hrec
+          (Expr.constsResolve_instantiate1_gen
+            (hargs a List.mem_cons_self) 0 hr2.2)
+          (fun b hb => hargs b (List.mem_cons_of_mem _ hb))
+
+omit [SetTheory V] in
+/-- The opened variables' annotations resolve. -/
+theorem openPisAtFvars_resolve {env : Env} :
+    ∀ (n : Nat) {e : Expr} (i₀ : Nat) {fvs : List Expr} {rest : Expr},
+      openPisAtFvars n e i₀ = some (fvs, rest) →
+      e.constsResolve env = true →
+      (∀ a ∈ fvs, a.constsResolve env = true) ∧
+      rest.constsResolve env = true
+  | 0, e, i₀, fvs, rest, h, hr => by
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨fun a ha => by simp at ha, hr⟩
+  | n + 1, e, i₀, fvs, rest, h, hr => by
+    match e, h with
+    | .forallE nm0 dom0 body0 m0, h =>
+      simp only [openPisAtFvars] at h
+      cases hrec : openPisAtFvars n
+          (body0.instantiate1 (.fvar i₀ nm0 dom0)) (i₀ + 1) with
+      | none => rw [hrec] at h; exact nomatch h
+      | some pr =>
+        rw [hrec] at h
+        obtain ⟨fvs', rest'⟩ := pr
+        simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        have hr2 : dom0.constsResolve env = true ∧
+            body0.constsResolve env = true := by
+          revert hr
+          simp [Expr.constsResolve]
+        have hfv : (Expr.fvar i₀ nm0 dom0).constsResolve env = true := by
+          simpa [Expr.constsResolve] using hr2.1
+        obtain ⟨h1, h2⟩ := openPisAtFvars_resolve n (i₀ + 1) hrec
+          (Expr.constsResolve_instantiate1_gen hfv 0 hr2.2)
+        refine ⟨?_, h2⟩
+        intro a ha
+        rcases List.mem_cons.mp ha with rfl | ha
+        · exact hfv
+        · exact h1 a ha
+
+omit [SetTheory V] in
+/-- Resolution of a closed tower from its components. -/
+theorem closeLamsAt_resolve {env : Env} :
+    ∀ (fvms : List (Expr × BinderMeta)) {bL : Expr},
+      (∀ p ∈ fvms, (Expr.fvarTypeD p.1).constsResolve env = true) →
+      bL.constsResolve env = true →
+      (closeLamsAt fvms bL).constsResolve env = true
+  | [], bL, _, hb => hb
+  | (fv, m) :: fvms, bL, htys, hb => by
+    cases fv with
+    | fvar i nm ty =>
+      show (Expr.lam nm ty ((closeLamsAt fvms bL).abstract1 i)
+        m).constsResolve env = true
+      have h1 : ty.constsResolve env = true := by
+        have := htys _ List.mem_cons_self
+        simpa [Expr.fvarTypeD] using this
+      have h2 := constsResolve_abstract1 i 0
+        (closeLamsAt_resolve fvms
+          (fun p hp => htys p (List.mem_cons_of_mem _ hp)) hb)
+      simp [Expr.constsResolve, h1, h2]
+    | bvar i =>
+      exact closeLamsAt_resolve fvms
+        (fun p hp => htys p (List.mem_cons_of_mem _ hp)) hb
+    | sort u =>
+      exact closeLamsAt_resolve fvms
+        (fun p hp => htys p (List.mem_cons_of_mem _ hp)) hb
+    | const n0 us0 =>
+      exact closeLamsAt_resolve fvms
+        (fun p hp => htys p (List.mem_cons_of_mem _ hp)) hb
+    | app f0 a0 =>
+      exact closeLamsAt_resolve fvms
+        (fun p hp => htys p (List.mem_cons_of_mem _ hp)) hb
+    | lam n0 t0 b0 m0 =>
+      exact closeLamsAt_resolve fvms
+        (fun p hp => htys p (List.mem_cons_of_mem _ hp)) hb
+    | forallE n0 t0 b0 m0 =>
+      exact closeLamsAt_resolve fvms
+        (fun p hp => htys p (List.mem_cons_of_mem _ hp)) hb
+    | letE n0 t0 v0 b0 =>
+      exact closeLamsAt_resolve fvms
+        (fun p hp => htys p (List.mem_cons_of_mem _ hp)) hb
+    | lit l0 =>
+      exact closeLamsAt_resolve fvms
+        (fun p hp => htys p (List.mem_cons_of_mem _ hp)) hb
+    | proj s0 i0 e0 =>
+      exact closeLamsAt_resolve fvms
+        (fun p hp => htys p (List.mem_cons_of_mem _ hp)) hb
+
+omit [SetTheory V] in
+/-- Resolution of the mkAppN spine. -/
+theorem constsResolve_mkAppN {env : Env} :
+    ∀ (xs : List Expr) (f0 : Expr), f0.constsResolve env = true →
+      (∀ x ∈ xs, x.constsResolve env = true) →
+      (Expr.mkAppN f0 xs).constsResolve env = true
+  | [], _, hf, _ => hf
+  | x :: xs, f0, hf, hxs =>
+    constsResolve_mkAppN xs (.app f0 x)
+      (by simp [Expr.constsResolve, hf, hxs x List.mem_cons_self])
+      (fun y hy => hxs y (List.mem_cons_of_mem _ hy))
+
+/-- The canonical tower's constants resolve, from stored data alone:
+the resolution half of a `RecRulesOk` clause. -/
+theorem ruleLhsParts_resolve {env : Env} {n : Name} {cv : ConstantVal}
+    {rP : Nat} {r : RecRule} {cvj : ConstantVal}
+    {fvms : List (Expr × BinderMeta)} {bL : Expr}
+    (hparts : ruleLhsParts n cv rP r cvj = some (fvms, bL))
+    (hfR : (env.find? n).isSome = true)
+    (hfC : (env.find? (RecRule.ctor r)).isSome = true)
+    (hTres : cv.type.constsResolve env = true)
+    (hCres : cvj.type.constsResolve env = true)
+    (hpins : ∀ lvls pins, RecRule.fire r = .nested lvls pins →
+      ∀ p ∈ pins, p.constsResolve env = true) :
+    (closeLamsAt fvms bL).constsResolve env = true := by
+  obtain ⟨fvsP, rest0, usC, cargs, cdoms, crestP, xFvs, crest2, rbs, rb,
+    heqO, hcinst, hopenX, hstripR, hfireCase, hfvmsEq, hbLEq⟩ :=
+    ruleLhsParts_inv hparts
+  obtain ⟨hfvsPres, -⟩ := openPisAtFvars_resolve rP 0 heqO hTres
+  have hcargsRes : ∀ a ∈ cargs, a.constsResolve env = true := by
+    rcases hfireCase with ⟨-, -, hce⟩ | ⟨lvls, pins, hfn', -, hce⟩
+    · rw [hce]
+      intro a ha
+      exact hfvsPres a (List.mem_of_mem_take ha)
+    · rw [hce]
+      intro a ha
+      obtain ⟨p, hp, rfl⟩ := List.mem_map.mp ha
+      rw [Expr.instSpine_eq_instSeq, ← Expr.instSpine_eq_instSeq]
+      exact instSpine_constsResolve _ (hpins lvls pins hfn' p hp)
+        hfvsPres
+  have hctyRes : (match RecRule.fire r with
+      | RecRuleFire.nested lvls _ =>
+        cvj.type.instantiateLevelParams cvj.levelParams lvls
+      | _ => cvj.type).constsResolve env = true := by
+    rcases hfireCase with ⟨hfp, -, -⟩ | ⟨lvls, pins, hfn', -, -⟩
+    · rw [hfp]
+      exact hCres
+    · rw [hfn']
+      rw [Expr.constsResolve_instantiateLevelParams]
+      exact hCres
+  have hcrRes : crestP.constsResolve env = true :=
+    instPisAt_resolve cargs hcinst hctyRes hcargsRes
+  obtain ⟨hxFvsRes, hcrest2Res⟩ := openPisAtFvars_resolve
+    (RecRule.nfields r) rP hopenX hcrRes
+  refine closeLamsAt_resolve fvms ?_ ?_
+  · intro p hp
+    rw [hfvmsEq] at hp
+    obtain ⟨h1, -⟩ := zip_getElem?_parts _ _ _ p
+      (List.getElem?_of_mem hp).choose_spec
+    have hmem := List.mem_of_getElem? h1
+    rcases List.mem_append.mp hmem with hm | hm
+    · have := hfvsPres p.1 hm
+      cases p1 : p.1 <;> rw [p1] at this <;>
+        simp_all [Expr.fvarTypeD, Expr.constsResolve]
+    · have := hxFvsRes p.1 hm
+      cases p1 : p.1 <;> rw [p1] at this <;>
+        simp_all [Expr.fvarTypeD, Expr.constsResolve]
+  · rw [hbLEq]
+    refine constsResolve_mkAppN _ _ (by simp [Expr.constsResolve, hfR])
+      ?_
+    intro x hx
+    rcases List.mem_append.mp hx with hx | hx
+    · rcases List.mem_append.mp hx with hx | hx
+      · exact hfvsPres x hx
+      · exact Expr.constsResolve_getAppArgs hcrest2Res x
+          (List.mem_of_mem_drop hx)
+    · obtain rfl : x = Expr.mkAppN (.const (RecRule.ctor r) usC)
+          (cargs ++ xFvs) := by simpa using hx
+      refine constsResolve_mkAppN _ _
+        (by simp [Expr.constsResolve, hfC]) ?_
+      intro y hy
+      rcases List.mem_append.mp hy with hy | hy
+      · exact hcargsRes y hy
+      · exact hxFvsRes y hy
 
 end Setlec
