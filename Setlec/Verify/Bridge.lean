@@ -1,4 +1,5 @@
 import Setlec.Verify.Disc
+import Setlec.Verify.BridgeI
 import Setlec.Kernel.Checker
 
 /-!
@@ -398,64 +399,48 @@ memoized knot; the invariants are threaded down from the model
 (`EnvModel.wf`) and the declaration checker's input validation at the
 consistency layer's call sites. -/
 
-private theorem run'_inv {α : Type} {c : CheckSM α} {v : α}
-    (h : c.run' {} = .ok v) : ∃ σ', c.run {} = .ok (v, σ') := by
-  simp only [StateT.run', StateT.run, Functor.map, Except.map] at h
-  revert h
-  cases hc : c {} with
-  | error e => intro h; exact nomatch h
-  | ok p =>
-    intro h
-    obtain ⟨a, σ'⟩ := p
-    simp only [Except.map, Except.ok.injEq] at h
-    exact ⟨σ', by rw [show c.run {} = c {} from rfl, hc, h]⟩
-
 theorem cachedOps_whnf_bridge {env : Env} (henv : EnvWF env)
     {d : Nat} {e v : Expr} (hg : e.wscopedB d = true)
     (h : cachedOps.whnf env d e = .ok v) :
-    ∃ F, whnf env F d e = .ok v := by
-  obtain ⟨σ', hrun⟩ := run'_inv h
-  exact ((scopedSim env henv checkFuel).whnf hg {} (CacheOK.empty env)
-    v σ' hrun).1
+    ∃ F, whnf env F d e = .ok v :=
+  runEntryE_bridge (pf := (fueledFns env).whnf d e)
+    (fun hs hden => (ssimI env henv checkFuel).whnf hs hden
+      (WScoped.of_wscopedB hg)) h
 
 theorem cachedOps_inferType_bridge {env : Env} (henv : EnvWF env)
     {d : Nat} {e v : Expr} (hg : e.wscopedB d = true)
     (h : cachedOps.inferType env d e = .ok v) :
-    ∃ F, inferTypeCore env F d e = .ok v := by
-  obtain ⟨σ', hrun⟩ := run'_inv h
-  exact ((scopedSim env henv checkFuel).infer hg {} (CacheOK.empty env)
-    v σ' hrun).1
+    ∃ F, inferTypeCore env F d e = .ok v :=
+  runEntryE_bridge (pf := (fueledFns env).infer d e)
+    (fun hs hden => (ssimI env henv checkFuel).infer hs hden
+      (WScoped.of_wscopedB hg)) h
 
 theorem cachedOps_isDefEq_bridge {env : Env} (henv : EnvWF env)
     {d : Nat} {a b : Expr} {v : Bool} (hga : a.wscopedB d = true)
     (hgb : b.wscopedB d = true)
     (h : cachedOps.isDefEq env d a b = .ok v) :
-    ∃ F, isDefEqCore env F d a b = .ok v := by
-  obtain ⟨σ', hrun⟩ := run'_inv h
-  exact ((scopedSim env henv checkFuel).defeq hga hgb {}
-    (CacheOK.empty env) v σ' hrun).1
+    ∃ F, isDefEqCore env F d a b = .ok v :=
+  runEntryB_bridge (pf := (fueledFns env).defeq d a b)
+    (fun hs hdena hdenb => (ssimI env henv checkFuel).defeq hs hdena
+      hdenb (WScoped.of_wscopedB hga) (WScoped.of_wscopedB hgb)) h
 
 theorem cachedOps_annotate_bridge {env : Env} (henv : EnvWF env)
     {d : Nat} {e v : Expr} (hg : e.wscopedB d = true)
     (h : cachedOps.annotate env d e = .ok v) :
-    ∃ F, annotateCore env F d e = .ok v := by
-  obtain ⟨σ', hrun⟩ := run'_inv h
-  exact ((scopedSim env henv checkFuel).annotate hg {}
-    (CacheOK.empty env) v σ' hrun).1
+    ∃ F, annotateCore env F d e = .ok v :=
+  runEntryE_bridge (pf := (fueledFns env).annotate d e)
+    (fun hs hden => (ssimI env henv checkFuel).annotate hs hden
+      (WScoped.of_wscopedB hg)) h
 
 theorem cachedOps_ensureSort_bridge {env : Env} (henv : EnvWF env)
     {d : Nat} {e : Expr} {u : Level} (hg : e.wscopedB d = true)
     (h : cachedOps.ensureSort env d e = .ok u) :
     ∃ F, ensureSortCore env F d e = .ok u := by
-  obtain ⟨σ', hrun⟩ := run'_inv h
-  have hgb := (ensureSort_disc (scopedSim env henv checkFuel) henv
-    (WScoped.of_wscopedB hg) {} (CacheOK.empty env) u σ' hrun).1
-  have hpair := (ensureSort
-    (pairFns (fueledFns env) (gFns env checkFuel)
-      (gFns_rel (scopedSim env henv checkFuel))) env d e).property
-  rw [ensureSort_fst_proj, ensureSort_snd_proj] at hpair
-  obtain ⟨⟨F, hF⟩, -⟩ := hpair {} (CacheOK.empty env) u σ' hgb
-  rw [ensureSort_atF] at hF
+  obtain ⟨F, hF⟩ := runEntryS_bridge
+    (pf := ensureSort (fueledFns env) env d e)
+    (fun hs hden => ensureSortI_sim (ssimI env henv checkFuel) hs hden
+      (WScoped.of_wscopedB hg)) h
+  rw [ensureSort_atF, ensureSort_def] at hF
   exact ⟨F, hF⟩
 
 end Setlec
