@@ -645,6 +645,44 @@ theorem checkDefEqList_wfimp {env : Env} (henv : EnvWF env)
         (fun x hx => ha x (List.mem_cons_of_mem _ hx))
         (fun y hy => hb y (List.mem_cons_of_mem _ hy)) h
 
+/-- The pairwise inferred-type check, `wfOpsM` run to pure run. -/
+theorem checkTypedList_wfimp {env : Env} (henv : EnvWF env)
+    {depth : Nat} {F : Nat} :
+    ∀ {as bs : List Expr},
+      (∀ a ∈ as, WScoped depth a) → (∀ b ∈ bs, WScoped depth b) →
+      ∀ {v : Unit},
+      (checkTypedList wfOpsM env depth as bs).val F = .ok v →
+      checkTypedList (fueledOps F) env depth as bs = .ok v
+  | [], [], _, _, _, h => h
+  | [], _ :: _, _, _, _, h => nomatch h
+  | _ :: _, [], _, _, _, h => nomatch h
+  | a :: as, b :: bs, ha, hb, v, h => by
+    unfold checkTypedList at h ⊢
+    rw [wfOpsM_inferType henv (ha a List.mem_cons_self).to_wscopedB] at h
+    obtain ⟨ty, hty, h⟩ := atF_bind_ok h
+    have hty' : inferTypeCore env F depth a = .ok ty := hty
+    have htyW : WScoped depth ty :=
+      inferTypeCore_WScoped henv F hty' (ha a List.mem_cons_self)
+    show (inferTypeCore env F depth a >>= _) = _
+    rw [hty']
+    simp only [Bind.bind, Except.bind]
+    rw [wfOpsM_isDefEq henv htyW.to_wscopedB
+      (hb b List.mem_cons_self).to_wscopedB] at h
+    obtain ⟨c, hc, h⟩ := atF_bind_ok h
+    have hc' : isDefEqCore env F depth ty b = .ok c := hc
+    show (isDefEqCore env F depth ty b >>= _) = _
+    rw [hc']
+    simp only [Bind.bind, Except.bind]
+    cases c with
+    | false =>
+      rw [if_neg (by simp)] at h
+      exact absurd h atF_throw_bind
+    | true =>
+      rw [if_pos rfl] at h ⊢
+      exact checkTypedList_wfimp henv
+        (fun x hx => ha x (List.mem_cons_of_mem _ hx))
+        (fun y hy => hb y (List.mem_cons_of_mem _ hy)) h
+
 set_option maxHeartbeats 6400000 in
 /-- The iota-theorem check, `wfOpsM` run to pure run.  The recursor
 type, the constructor type and the annotated rule right-hand side are
@@ -814,7 +852,17 @@ theorem checkIotaThm_wfimp {env' envSelf : Env} (henv' : EnvWF env')
   have hcinstPW := instPisAt_WScoped (d := rP) _ _ hcinstP'
     (WScoped.of_not_hasFvar hctor)
     (fun a ha => hfvsPW a (List.mem_of_mem_take ha))
-  obtain ⟨-, hcrestPW⟩ := hcinstPW
+  obtain ⟨hcdomsPW, hcrestPW⟩ := hcinstPW
+  obtain ⟨uP, hdP, h⟩ := atF_bind_ok h
+  have hdP' := checkDefEqList_wfimp henvSelf
+    (fun a ha => by
+      obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
+      exact (fvarTypeD_WScoped
+        (hfvsPW x (List.mem_of_mem_take hx))).mono (by omega))
+    (fun b hb => (hcdomsPW b hb).mono (by omega)) hdP
+  show (checkDefEqList (fueledOps F) envSelf _ _ _ >>= _) = _
+  rw [hdP']
+  simp only [Bind.bind, Except.bind]
   obtain ⟨q6, hopenX, h⟩ := atF_bind_ok h
   obtain ⟨xFvsP, crest2⟩ := q6
   have hopenX' := unwrapOr_atF_ok hopenX
@@ -1084,7 +1132,19 @@ theorem checkIotaThmN_wfimp {env' envSelf : Env} (henv' : EnvWF env')
       exact instSpine_WScoped (rP - 1)
         (WScoped.of_not_hasFvar (hpinsF x hx))
         (fun a' ha' => hfvsPW a' (List.mem_of_mem_take ha')))
-  obtain ⟨-, hcrestPW⟩ := hcinstPW
+  obtain ⟨hcdomsPW, hcrestPW⟩ := hcinstPW
+  obtain ⟨uP, hdP, h⟩ := atF_bind_ok h
+  have hdP' := checkTypedList_wfimp henvSelf
+    (fun a ha => by
+      obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
+      exact (instSpine_WScoped (rP - 1)
+        (WScoped.of_not_hasFvar (hpinsF x hx))
+        (fun a' ha' => hfvsPW a' (List.mem_of_mem_take ha'))).mono
+        (by omega))
+    (fun b hb => (hcdomsPW b hb).mono (by omega)) hdP
+  show (checkTypedList (fueledOps F) envSelf _ _ _ >>= _) = _
+  rw [hdP']
+  simp only [Bind.bind, Except.bind]
   obtain ⟨q6, hopenX, h⟩ := atF_bind_ok h
   obtain ⟨xFvsP, crest2⟩ := q6
   have hopenX' := unwrapOr_atF_ok hopenX

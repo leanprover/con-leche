@@ -106,6 +106,20 @@ def openPisAtFvars : Nat → Expr → Nat → Option (List Expr × Expr)
     | none => none
   | _ + 1, _, _ => none
 
+/-- Check each expression's inferred type against the corresponding
+expected type (definitionally); throws on a length mismatch.  Used to
+pin a nested rule's stored parameter instantiations to the
+constructor's parameter domains. -/
+def checkTypedList (ops : CheckerOps m) (env : Env) (depth : Nat) :
+    List Expr → List Expr → m Unit
+  | [], [] => pure ()
+  | a :: as, t :: ts => do
+    let ty ← ops.inferType env depth a
+    unless ← ops.isDefEq env depth ty t do
+      throw (.notImplemented "nested pin type mismatch")
+    checkTypedList ops env depth as ts
+  | _, _ => throw (.notImplemented "nested pin arity mismatch")
+
 /-- Is the expression the pinned equality former at one level? -/
 def isEqHead : Expr → Bool
   | .const c [_ℓ] => c == eqName
@@ -214,8 +228,13 @@ def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
     -- the public telescopes; these equalities let them fit the λs)
     let (fvsP, _) ← unwrapOr (openPisAtFvars rP tyA 0)
       (.notImplemented s!"iota recursor telescope for {cvName}")
-    let (_, crestP) ← unwrapOr (Expr.instPisAt (fvsP.take cnP) cvj.type)
+    let (cdomsP, crestP) ← unwrapOr
+      (Expr.instPisAt (fvsP.take cnP) cvj.type)
       (.notImplemented s!"iota constructor telescope for {cvName}")
+    -- the constructor's parameter domains are the recursor's (the
+    -- λ-tower's parameter values fit both telescopes)
+    checkDefEqList ops envSelf depth
+      ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP
     let (xFvsP, _) ← unwrapOr (openPisAtFvars cnF crestP rP)
       (.notImplemented s!"iota constructor telescope for {cvName}")
     let (ldoms, _) ← unwrapOr (Expr.instLamsAt (fvsP ++ xFvsP) rhsA)
@@ -337,9 +356,12 @@ def checkIotaThmN (ops : CheckerOps m) (env' envSelf : Env)
       (.notImplemented s!"iota recursor telescope for {cvName}")
     let pinsP := pins.map fun p =>
       Expr.instSpine (fvsP.take rP) (rP - 1) p
-    let (_, crestP) ← unwrapOr (Expr.instPisAt pinsP
+    let (cdomsP, crestP) ← unwrapOr (Expr.instPisAt pinsP
         (cvj.type.instantiateLevelParams cvj.levelParams lvls))
       (.notImplemented s!"iota constructor telescope for {cvName}")
+    -- the stored parameter instantiations inhabit the constructor's
+    -- parameter domains (the λ-tower's parameter values fit them)
+    checkTypedList ops envSelf depth pinsP cdomsP
     let (xFvsP, _) ← unwrapOr (openPisAtFvars cnF crestP rP)
       (.notImplemented s!"iota constructor telescope for {cvName}")
     let (ldoms, _) ← unwrapOr (Expr.instLamsAt (fvsP ++ xFvsP) rhsA)

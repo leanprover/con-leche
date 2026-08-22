@@ -392,8 +392,11 @@ def checkIotaThmF (ops : CheckerOps m) (fe' feSelf : FEnv)
       ((fvs.take rP).map Expr.fvarTypeD) rdoms
     let (fvsP, _) ← unwrapOr (openPisAtFvars rP tyA 0)
       (.notImplemented s!"iota recursor telescope for {cvName}")
-    let (_, crestP) ← unwrapOr (Expr.instPisAt (fvsP.take cnP) cvj.type)
+    let (cdomsP, crestP) ← unwrapOr
+      (Expr.instPisAt (fvsP.take cnP) cvj.type)
       (.notImplemented s!"iota constructor telescope for {cvName}")
+    checkDefEqList ops feSelf.env depth
+      ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP
     let (xFvsP, _) ← unwrapOr (openPisAtFvars cnF crestP rP)
       (.notImplemented s!"iota constructor telescope for {cvName}")
     let (ldoms, _) ← unwrapOr (Expr.instLamsAt (fvsP ++ xFvsP) rhsA)
@@ -484,9 +487,10 @@ def checkIotaThmNF (ops : CheckerOps m) (fe' feSelf : FEnv)
       (.notImplemented s!"iota recursor telescope for {cvName}")
     let pinsP := pins.map fun p =>
       Expr.instSpine (fvsP.take rP) (rP - 1) p
-    let (_, crestP) ← unwrapOr (Expr.instPisAt pinsP
+    let (cdomsP, crestP) ← unwrapOr (Expr.instPisAt pinsP
         (cvj.type.instantiateLevelParams cvj.levelParams lvls))
       (.notImplemented s!"iota constructor telescope for {cvName}")
+    checkTypedList ops feSelf.env depth pinsP cdomsP
     let (xFvsP, _) ← unwrapOr (openPisAtFvars cnF crestP rP)
       (.notImplemented s!"iota constructor telescope for {cvName}")
     let (ldoms, _) ← unwrapOr (Expr.instLamsAt (fvsP ++ xFvsP) rhsA)

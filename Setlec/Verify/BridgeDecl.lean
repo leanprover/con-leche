@@ -333,6 +333,40 @@ theorem unwrapOr_snd_dproj {α : Type} (o : Option α) (e : CheckError) :
     (unwrapOr o e : PairM rel α).val.2 = (unwrapOr o e : M₂ α) := by
   cases o <;> rfl
 
+theorem pairOps_inferType_fst (env : Env) (d : Nat) (a : Expr) :
+    ((pairOps o₁ o₂ h).inferType env d a).val.1 =
+      o₁.inferType env d a := rfl
+
+theorem pairOps_inferType_snd (env : Env) (d : Nat) (a : Expr) :
+    ((pairOps o₁ o₂ h).inferType env d a).val.2 =
+      o₂.inferType env d a := rfl
+
+theorem checkTypedList_fst_dproj (env : Env) (depth : Nat) :
+    ∀ (as bs : List Expr),
+      (checkTypedList (pairOps o₁ o₂ h) env depth as bs).val.1 =
+      checkTypedList o₁ env depth as bs
+  | [], [] => rfl
+  | [], _ :: _ => rfl
+  | _ :: _, [] => rfl
+  | a :: as, b :: bs => by
+    unfold checkTypedList
+    simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
+      PairM.fst_ite, pairOps_isDefEq_fst, pairOps_inferType_fst,
+      checkTypedList_fst_dproj env depth as bs]
+
+theorem checkTypedList_snd_dproj (env : Env) (depth : Nat) :
+    ∀ (as bs : List Expr),
+      (checkTypedList (pairOps o₁ o₂ h) env depth as bs).val.2 =
+      checkTypedList o₂ env depth as bs
+  | [], [] => rfl
+  | [], _ :: _ => rfl
+  | _ :: _, [] => rfl
+  | a :: as, b :: bs => by
+    unfold checkTypedList
+    simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
+      PairM.snd_ite, pairOps_isDefEq_snd, pairOps_inferType_snd,
+      checkTypedList_snd_dproj env depth as bs]
+
 theorem checkDefEqList_fst_dproj (env : Env) (depth : Nat) :
     ∀ (as bs : List Expr),
       (checkDefEqList (pairOps o₁ o₂ h) env depth as bs).val.1 =
@@ -370,7 +404,7 @@ theorem checkIotaThm_fst_dproj (env' envSelf : Env)
   unfold checkIotaThm
   simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
     PairM.fst_ite, pairOps_isDefEq_fst, unwrapOr_fst_dproj,
-    checkDefEqList_fst_dproj]
+    checkDefEqList_fst_dproj, checkTypedList_fst_dproj]
 
 theorem checkIotaThm_snd_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
@@ -383,7 +417,7 @@ theorem checkIotaThm_snd_dproj (env' envSelf : Env)
   unfold checkIotaThm
   simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
     PairM.snd_ite, pairOps_isDefEq_snd, unwrapOr_snd_dproj,
-    checkDefEqList_snd_dproj]
+    checkDefEqList_snd_dproj, checkTypedList_snd_dproj]
 
 theorem checkIotaThmN_fst_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
@@ -398,7 +432,7 @@ theorem checkIotaThmN_fst_dproj (env' envSelf : Env)
   · rfl
   · simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
       PairM.fst_ite, pairOps_isDefEq_fst, unwrapOr_fst_dproj,
-      checkDefEqList_fst_dproj]
+      checkDefEqList_fst_dproj, checkTypedList_fst_dproj]
 
 theorem checkIotaThmN_snd_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
@@ -413,7 +447,7 @@ theorem checkIotaThmN_snd_dproj (env' envSelf : Env)
   · rfl
   · simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
       PairM.snd_ite, pairOps_isDefEq_snd, unwrapOr_snd_dproj,
-      checkDefEqList_snd_dproj]
+      checkDefEqList_snd_dproj, checkTypedList_snd_dproj]
 
 set_option maxHeartbeats 12800000 in
 theorem checkIotaRule_fst_dproj (env' envSelf : Env)
@@ -1260,6 +1294,24 @@ theorem checkDefEqList_datF (env : Env) (depth F : Nat) :
     simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
       fueledOpsM_isDefEq_atF, checkDefEqList_datF env depth F as bs]
 
+theorem fueledOpsM_inferType_atF (env : Env) (d : Nat) (a : Expr)
+    (F : Nat) :
+    (fueledOpsM.inferType env d a).val F =
+      (fueledOps F).inferType env d a := rfl
+
+theorem checkTypedList_datF (env : Env) (depth F : Nat) :
+    ∀ (as bs : List Expr),
+      (checkTypedList fueledOpsM env depth as bs).val F =
+      checkTypedList (fueledOps F) env depth as bs
+  | [], [] => rfl
+  | [], _ :: _ => rfl
+  | _ :: _, [] => rfl
+  | a :: as, b :: bs => by
+    unfold checkTypedList
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+      FueledM.atF_ite, fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF,
+      checkTypedList_datF env depth F as bs]
+
 theorem checkIotaThm_datF (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
     (mI rP j : Nat) (r : RecRule) (cvj : ConstantVal)
@@ -1270,7 +1322,8 @@ theorem checkIotaThm_datF (env' envSelf : Env)
       j r cvj cnP cnF rhsA := by
   unfold checkIotaThm
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    fueledOpsM_isDefEq_atF, unwrapOr_atF, checkDefEqList_datF]
+    fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF, unwrapOr_atF,
+    checkDefEqList_datF, checkTypedList_datF]
 
 theorem checkIotaThmN_datF (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
@@ -1284,7 +1337,8 @@ theorem checkIotaThmN_datF (env' envSelf : Env)
   split
   · rfl
   · simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-      fueledOpsM_isDefEq_atF, unwrapOr_atF, checkDefEqList_datF]
+      fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF, unwrapOr_atF,
+      checkDefEqList_datF, checkTypedList_datF]
 
 set_option maxHeartbeats 12800000 in
 theorem checkIotaRule_datF (env' envSelf : Env)

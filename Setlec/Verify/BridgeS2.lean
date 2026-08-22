@@ -31,6 +31,36 @@ protected theorem SimAt.unwrapOr' {α : Type} {o : Option α}
   | none => exact SimAt.throw
   | some a => exact SimAt.pure hs ⟨rfl, rfl⟩
 
+/-- `checkTypedList` at the shared operations. -/
+theorem checkTypedListS_sim (henv : EnvWF env) {depth : Nat} :
+    ∀ {as bs : List Expr},
+      (∀ a ∈ as, WScoped depth a) → (∀ b ∈ bs, WScoped depth b) →
+      ∀ {s₀ : IState}, ISOK env s₀ →
+      SimAt env s₀ RelV
+        (checkTypedList (sharedOps (mkFEnv env)) env depth as bs)
+        (checkTypedList fueledOpsM env depth as bs)
+  | [], [], _, _, s₀, hs => SimAt.pure hs rfl
+  | [], _ :: _, _, _, s₀, hs => SimAt.throw
+  | _ :: _, [], _, _, s₀, hs => SimAt.throw
+  | a :: as, b :: bs, ha, hb, s₀, hs => by
+    unfold checkTypedList
+    dsimp only [sharedOps]
+    refine SimAt.bind (opE_infer_sim henv hs (ha a List.mem_cons_self))
+      (fun s₁ ty ty' hs₁ hext₁ hP => ?_)
+    obtain ⟨rfl, htyW⟩ := hP
+    refine SimAt.bind (opB_sim henv hs₁ htyW (hb b List.mem_cons_self))
+      (fun s₂ c c' hs₂ hext₂ hC => ?_)
+    obtain rfl : c = c' := hC
+    cases c with
+    | false =>
+      simp only [Bool.false_eq_true, ↓reduceIte]
+      exact SimAt.throw_bind
+    | true =>
+      simp only [↓reduceIte]
+      exact checkTypedListS_sim henv
+        (fun x hx => ha x (List.mem_cons_of_mem _ hx))
+        (fun y hy => hb y (List.mem_cons_of_mem _ hy)) hs₂
+
 /-- `checkDefEqList` at the shared operations. -/
 theorem checkDefEqListS_sim (henv : EnvWF env) {depth : Nat} :
     ∀ {as bs : List Expr},
@@ -190,8 +220,15 @@ theorem checkIotaThmS_sim {env' : Env} (henv' : EnvWF env')
   have hcinstPW := instPisAt_WScoped (d := rP) _ _ hcinstP
     (WScoped.of_not_hasFvar hctor)
     (fun a ha => hfvsPW a (List.mem_of_mem_take ha))
-  obtain ⟨-, hcrestPW⟩ := hcinstPW
-  refine SimAt.bind (SimAt.unwrapOr' hs₉) (fun s10 q6 q6' hs10 hext10 hQ6 => ?_)
+  obtain ⟨hcdomsPW, hcrestPW⟩ := hcinstPW
+  refine SimAt.bind (checkDefEqListS_sim henv
+      (fun a ha => by
+        obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
+        exact (fvarTypeD_WScoped
+          (hfvsPW x (List.mem_of_mem_take hx))).mono (by omega))
+      (fun b hb => (hcdomsPW b hb).mono (by omega)) hs₉)
+    (fun s₉b uP uP' hs₉b hext₉b hUP => ?_)
+  refine SimAt.bind (SimAt.unwrapOr' hs₉b) (fun s10 q6 q6' hs10 hext10 hQ6 => ?_)
   obtain ⟨rfl, hopenX⟩ := hQ6
   obtain ⟨xFvsP, crest2⟩ := q6
   dsimp only
@@ -379,8 +416,17 @@ theorem checkIotaThmNS_sim {env' : Env} (henv' : EnvWF env')
       exact instSpine_WScoped (rP - 1)
         (WScoped.of_not_hasFvar (hpinsF x hx))
         (fun a' ha' => hfvsPW a' (List.mem_of_mem_take ha')))
-  obtain ⟨-, hcrestPW⟩ := hcinstPW
-  refine SimAt.bind (SimAt.unwrapOr' hs₉) (fun s10 q6 q6' hs10 hext10 hQ6 => ?_)
+  obtain ⟨hcdomsPW, hcrestPW⟩ := hcinstPW
+  refine SimAt.bind (checkTypedListS_sim henv
+      (fun a ha => by
+        obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
+        exact (instSpine_WScoped (rP - 1)
+          (WScoped.of_not_hasFvar (hpinsF x hx))
+          (fun a' ha' => hfvsPW a' (List.mem_of_mem_take ha'))).mono
+          (by omega))
+      (fun b hb => (hcdomsPW b hb).mono (by omega)) hs₉)
+    (fun s₉b uP uP' hs₉b hext₉b hUP => ?_)
+  refine SimAt.bind (SimAt.unwrapOr' hs₉b) (fun s10 q6 q6' hs10 hext10 hQ6 => ?_)
   obtain ⟨rfl, hopenX⟩ := hQ6
   obtain ⟨xFvsP, crest2⟩ := q6
   dsimp only
