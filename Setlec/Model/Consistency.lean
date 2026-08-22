@@ -406,7 +406,16 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     obtain ⟨hfind', hres', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
       checkConstantVal_inv hccv
     by_cases hok : stdAxiomOk env { cv with type := type } = true
-    case neg => simp [hok, pure, Except.pure] at h
+    case neg =>
+      -- non-pinned axiom: checked but not installed (user ruling) —
+      -- the environment is unchanged, so the model carries over; a
+      -- pinned name with a non-pinned shape throws
+      rw [if_neg hok] at h
+      split at h
+      · simp [pure, Except.pure] at h
+      · simp only [pure, Except.pure, Except.ok.injEq] at h
+        subst h
+        exact ⟨m⟩
     simp only [hok, if_true, ↓reduceIte, pure, Except.pure,
       Except.ok.injEq] at h
     subst h

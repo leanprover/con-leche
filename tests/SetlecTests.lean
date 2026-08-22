@@ -13,8 +13,18 @@ open Setlec
 def dummyAxiom : Declaration :=
   .axiomDecl { name := .str .anonymous "foo", levelParams := [], type := .sort .zero }
 
--- Axioms are declined (not yet implemented).
-#guard (checkDecl pureOps Env.empty dummyAxiom).toBool == false
+-- Non-pinned axioms are invisible (user ruling): the record is
+-- well-formedness-checked but not installed — the environment is
+-- unchanged (the frontend positively declines any later use).
+#guard match checkDecl pureOps Env.empty dummyAxiom with
+  | .ok e => e.consts.isEmpty
+  | .error _ => false
+
+-- A garbage axiom record (its type is not a type) still rejects.
+#guard checkDecl pureOps Env.empty
+    (.axiomDecl { name := .str .anonymous "foo", levelParams := [],
+                  type := .bvar 0 })
+  matches .error _
 
 -- The empty list of declarations is accepted.
 #guard (checkDecls pureOps []).toBool == true

@@ -2,6 +2,7 @@ import Lean.Data.Json
 import Setlec.Kernel.Env
 import Setlec.Kernel.ExprOps
 import Setlec.Kernel.Basis
+import Setlec.Kernel.StdAxioms
 
 /-!
 # Reading lean4export ndjson files
@@ -86,19 +87,19 @@ structure State where
   levels : Std.HashMap Nat Level := .ofList [(0, .zero)]
   exprs : Std.HashMap Nat Expr := {}
   decls : Array Declaration := #[]
-  /-- Expression-table entries that (transitively) mention `sorryAx`,
-  maintained as entries are parsed so the check is `O(1)` per entry
-  even on heavily shared tables. -/
+  /-- Expression-table entries that (transitively) mention a skipped
+  axiom, maintained as entries are parsed so the check is `O(1)` per
+  entry even on heavily shared tables. -/
   tainted : Std.HashMap Nat Unit := {}
-  /-- A `sorryAx` axiom record was skipped: the axiom has no set model
-  (`∀ α, Bool → α` is empty at `α := ∅`), so its *declaration* is
-  dropped, and any later *use* is positively declined. -/
-  sorrySkipped : Bool := false
-
-private def sorryAxName : Name := .str .anonymous "sorryAx"
+  /-- Names of skipped axiom records.  Non-pinned axioms are invisible
+  (user ruling: only the pinned standard axioms are ever accepted, see
+  DESIGN.md): the *declaration* is dropped without stopping the run —
+  like `sorryAx`, which has no set model (`∀ α, Bool → α` is empty at
+  `α := ∅`) — and any later *use* is positively declined. -/
+  skippedAxioms : Std.HashMap Name Unit := {}
 
 /-- Internal sentinel converted to a decline at the record level. -/
-private def sorrySentinel : String := "\x00uses-sorryAx"
+private def taintSentinel : String := "\x00uses-skipped-axiom"
 
 private abbrev M := Except String
 
@@ -129,12 +130,12 @@ private def getLevel' (st : State) (j : Json) (key : String) : M Level := do
 private def getExpr' (st : State) (j : Json) (key : String) : M Expr := do
   st.expr (← getIdx j key)
 
-/-- Declaration-level expression lookup: a reference to the skipped
-`sorryAx` is a positive decline (via `sorrySentinel`). -/
+/-- Declaration-level expression lookup: a reference to a skipped
+(non-pinned) axiom is a positive decline (via `taintSentinel`). -/
 private def getDeclExpr' (st : State) (j : Json) (key : String) : M Expr := do
   let i ← getIdx j key
-  if st.sorrySkipped ∧ st.tainted[i]?.isSome then
-    throw sorrySentinel
+  if st.tainted[i]?.isSome then
+    throw taintSentinel
   st.expr i
 
 private def getIdxs (j : Json) (key : String) : M (Array Nat) := do
@@ -225,7 +226,7 @@ private def parseExprEntry (st : State) (j : Json) (i : Nat) : M State := do
       throw "malformed or unsupported expr entry"
   let taint : Bool ← do
     match e with
-    | .const n _ => pure (n == sorryAxName)
+    | .const n _ => pure (st.skippedAxioms.contains n)
     | _ =>
       let cs ← exprEntryChildren j
       pure (cs.any (fun c => st.tainted[c]?.isSome))
@@ -276,22 +277,30 @@ private def processLineCore (st : State) (j : Json)
   else if (j.getObjVal? "meta").isOk then
     return .inl st
   else if let .ok v := j.getObjVal? "axiom" then
+    -- an axiom whose own type references a previously skipped axiom
+    -- is itself a *use*: the sentinel in `parseConstantVal` declines
     let cv ← parseConstantVal st v
     if (← (← v.getObjVal? "isUnsafe").getBool?) then
       return .inr "unsafe axiom"
     -- the pinned quotient soundness axiom is installed with the `Quot`
     -- basis block; skip its (matching) declaration record
-    -- `sorryAx` has no set-theoretic model: skip the declaration,
-    -- decline any later use (see `State.sorrySkipped`)
-    if cv.name = sorryAxName then
-      return .inl { st with sorrySkipped := true }
     if cv.name = quotSoundName then
       if ConstantInfo.canon (.axiomInfo cv) =
           ConstantInfo.canon (quotBasis.getD 4 (.axiomInfo default)) then
         return .inl st
       else
         return .inr "quotient soundness axiom mismatch"
-    return .inl { st with decls := st.decls.push (.axiomDecl cv) }
+    -- every axiom record is forwarded (the checker well-formedness-
+    -- checks it — a garbage record must keep rejecting), but only the
+    -- pinned standard axioms are installed; every other axiom is
+    -- invisible after its check (user ruling): the run continues, and
+    -- any later declaration referencing the skipped axiom is
+    -- positively declined (see `State.skippedAxioms`)
+    if cv.name = propextName ∨ cv.name = choiceName then
+      return .inl { st with decls := st.decls.push (.axiomDecl cv) }
+    return .inl { st with
+      decls := st.decls.push (.axiomDecl cv),
+      skippedAxioms := st.skippedAxioms.insert cv.name () }
   else if let .ok v := j.getObjVal? "def" then
     -- Note: `_model` companions the preprocessor may emit for basis
     -- blocks (e.g. `Eq._model`) are *not* special-cased here: `_model`
@@ -393,13 +402,13 @@ private def processLineCore (st : State) (j : Json)
   else
     throw "unrecognized line"
 
-/-- `processLineCore` plus the `sorryAx`-use sentinel translated into
-a decline. -/
+/-- `processLineCore` plus the skipped-axiom-use sentinel translated
+into a decline. -/
 private def processLine (st : State) (j : Json)
     (modeled : Bool := false) : M (State ⊕ String) :=
   tryCatch (processLineCore st j modeled) fun e =>
-    if e = sorrySentinel then
-      pure (.inr "declaration uses the skipped sorryAx axiom")
+    if e = taintSentinel then
+      pure (.inr "declaration uses a skipped (non-pinned) axiom")
     else throw e
 
 /-- Parse a whole export file into the declarations it contains, in order. -/

@@ -106,13 +106,25 @@ in modules analogous to `derived/` in nanodatg.
 
 Axioms: only the standard axioms are supported; anything else is
 "declined" (lean kernel arena exit convention).  This is a deliberate
-ceiling (owner ruling, 2026-08-21): the two tutorial tests scaffolded
-by custom axioms (`032_letTypeDep`, `033_letRed`, declining precisely
-at their `axiom` records) stay declined by design, so the vendored
-tutorial snapshot tops out at 90/92 accepted — the full non-axiom
-set.  Acceptance routes for custom axioms (opaque-with-witness,
-unfoldable-definition storage, canonical-value models) were explored
-and rejected: none is wanted.  `Quot.sound` is part
+ceiling (owner ruling, 2026-08-21): acceptance routes for custom
+axioms (opaque-with-witness, unfoldable-definition storage,
+canonical-value models) were explored and rejected: none is wanted.
+Refinement (user ruling, 2026-08-22): non-pinned axioms are
+*invisible*; their uses are unsupported.  A non-pinned `axiom` record
+no longer stops the run — the record is still well-formedness-checked
+(the official kernel checks the declaration, so a garbage record such
+as arena `bad/011_nonTypeAxiom` keeps rejecting) but nothing is
+installed, and the frontend taints the axiom's name
+(`State.skippedAxioms`, generalizing the previous `sorryAx`-only
+mechanism): any later declaration whose type or value references a
+skipped axiom is positively declined at its own record.  The two
+tutorial tests scaffolded by custom axioms (`032_letTypeDep`,
+`033_letRed`) thus now decline at their first *use* of the axiom
+rather than at the `axiom` record — still exit 2, so the vendored
+tutorial snapshot stays at 90/92 accepted, the full non-axiom set.
+This lets streams like `Init.Core` run past `Lean.trustCompiler`
+instead of dying there (the next blocker is then the first
+declaration that *uses* it, e.g. `Lean.reduceNat`).  `Quot.sound` is part
 of the pinned quotient basis block; `propext` and `Classical.choice`
 are accepted as `axiomDecl`s by `stdAxiomOk`: a pure predicate that
 requires the pinned `Eq` basis plus standardly-shaped stored `Iff`
@@ -842,9 +854,10 @@ induction over the literal), consumed by `reduceNat_sound`.
   ble-guarded defeq-checkable statement forms.  The full Init stream
   itself still does not check end-to-end for unrelated reasons
   (frontend memory on the 336 MB export; the `Lean.trustCompiler`
-  axiom declines by design; the known `Unit.sizeOf` mismatch) — the
-  previous positive declines at `Nat.land`/`Nat.shiftRight`/… literal
-  uses are gone.
+  axiom declines by design — since 2026-08-22 at its first *use*, not
+  its record; the `Unit.sizeOf` mismatch is fixed, see the basis
+  `PUnit` rescue note) — the previous positive declines at
+  `Nat.land`/`Nat.shiftRight`/… literal uses are gone.
 
 ## Kernel design review triage (2026-08-20)
 
