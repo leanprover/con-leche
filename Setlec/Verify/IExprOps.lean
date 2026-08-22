@@ -332,6 +332,24 @@ theorem denoteLList_nil_iff {denL : LIdx → Option Level}
     | nil => rfl
     | cons u us' => simp at this
 
+/-- `denoteLList` distributes over append. -/
+theorem denoteLList_append {denL : LIdx → Option Level} :
+    ∀ {us vs : List LIdx} {ls ms : List Level},
+      denoteLList denL us = some ls → denoteLList denL vs = some ms →
+      denoteLList denL (us ++ vs) = some (ls ++ ms) := by
+  intro us
+  induction us with
+  | nil =>
+    intro vs ls ms h1 h2
+    cases h1
+    simpa using h2
+  | cons u us ih =>
+    intro vs ls ms h1 h2
+    simp only [denoteLList, Option.bind_eq_some_iff,
+      Option.map_eq_some_iff] at h1
+    obtain ⟨l, hl, ls', hls', rfl⟩ := h1
+    simp [denoteLList, hl, ih hls' h2]
+
 /-- A denoted node's level references denote. -/
 theorem denoteNode_levels_some {den : EIdx → Option Expr}
     {denL : LIdx → Option Level} {n : ENode} {a : Expr}
