@@ -475,17 +475,30 @@ theorem annotateCore_WScoped {env : Env} :
   | fuel + 1, .lit l, d, e', h, hw => by
     rw [annotateCore_succ] at h
     match l, h with
-    | .natVal n, h => ?_
-    dsimp only [annotateBody] at h
-    revert h
-    split
-    case isFalse =>
-      intro h
-      simp [throw, throwThe, MonadExceptOf.throw] at h
-    case isTrue =>
-      intro h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      exact h ▸ hw
+    | .natVal n, h => ?natCase
+    | .strVal sv, h => ?strCase
+    case strCase =>
+      dsimp only [annotateBody] at h
+      revert h
+      split
+      case isFalse =>
+        intro h
+        simp [throw, throwThe, MonadExceptOf.throw] at h
+      case isTrue =>
+        intro h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        exact h ▸ hw
+    case natCase =>
+      dsimp only [annotateBody] at h
+      revert h
+      split
+      case isFalse =>
+        intro h
+        simp [throw, throwThe, MonadExceptOf.throw] at h
+      case isTrue =>
+        intro h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        exact h ▸ hw
   | fuel + 1, .app f a, d, e', h, hw => by
     simp only [WScoped] at hw
     obtain ⟨f', a', hf, ha, rfl, -⟩ := annotateCore_app_inv h
@@ -594,17 +607,30 @@ theorem annotateCore_looseBVars {env : Env} :
   | fuel + 1, .lit l, d, e', h, hb => by
     rw [annotateCore_succ] at h
     match l, h with
-    | .natVal n, h => ?_
-    dsimp only [annotateBody] at h
-    revert h
-    split
-    case isFalse =>
-      intro h
-      simp [throw, throwThe, MonadExceptOf.throw] at h
-    case isTrue =>
-      intro h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      exact h ▸ hb
+    | .natVal n, h => ?natCase
+    | .strVal sv, h => ?strCase
+    case strCase =>
+      dsimp only [annotateBody] at h
+      revert h
+      split
+      case isFalse =>
+        intro h
+        simp [throw, throwThe, MonadExceptOf.throw] at h
+      case isTrue =>
+        intro h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        exact h ▸ hb
+    case natCase =>
+      dsimp only [annotateBody] at h
+      revert h
+      split
+      case isFalse =>
+        intro h
+        simp [throw, throwThe, MonadExceptOf.throw] at h
+      case isTrue =>
+        intro h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        exact h ▸ hb
   | fuel + 1, .proj sn i e, d, e', h, hb => by
     simp only [Expr.looseBVarsBounded] at hb
     obtain ⟨e₂, tt, te, he, -, -, hres⟩ := annotateCore_proj_inv h

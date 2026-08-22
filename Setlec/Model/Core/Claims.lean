@@ -1,4 +1,4 @@
-import Setlec.Model.NatLit
+import Setlec.Model.StrLit
 import Setlec.Model.FvarsOkLemmas
 import Setlec.Model.Subst
 import Setlec.Verify.Leaves
@@ -125,6 +125,43 @@ section Claims
 variable {m : EnvModel V env} {fuel : Nat}
 variable (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
   (ihi : InferClaims m φ fuel)
+
+/-- The full literal-major conversion's claims package
+(`litMajorToCtor`: `Nat` literals one layer, `String` literals via the
+whnf-reduced constructor form; the string branch consumes the whnf
+claims on the closed `strLitToConstructor` term). -/
+theorem litMajorToCtor_claims (hwc : WhnfClaims m φ fuel)
+    {d : Nat} {ρ : Nat → V} {e e₁ : Expr}
+    (h : litMajorToCtorP env fuel d e = .ok e₁)
+    (hw : WScoped d e) (hb : e.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded e) (hok : FvarsOk V m.val env φ d ρ e)
+    (hA : AnnotOk V m.val env φ d ρ e) :
+    interpExpr V m.val env φ d ρ e₁ = interpExpr V m.val env φ d ρ e ∧
+    AnnotOk V m.val env φ d ρ e₁ ∧ WScoped d e₁ ∧
+    e₁.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded e₁ ∧
+    FvarsOk V m.val env φ d ρ e₁ := by
+  rcases litMajorToCtorP_inv h with rfl | ⟨s, rfl, hs, hred⟩
+  · obtain ⟨h1, h2, h3, h4, h5, h6⟩ :=
+      litToCtorIfNat_claims (e := e) m hw hb hLb hok hA
+    exact ⟨h1, h2, h3, h4, h5, h6⟩
+  · have hLbS : Expr.LeavesBounded (strLitToConstructor s) := by
+      intro l hl
+      rw [strLitToConstructor_fvarLeaves] at hl
+      cases hl
+    have hokS : FvarsOk V m.val env φ d ρ (strLitToConstructor s) :=
+      FvarsOk.of_not_hasFvar (strLitToConstructor_hasFvar s)
+    obtain ⟨hieq, hA₁⟩ := hwc hred (strLitToConstructor_WScoped s d)
+      (strLitToConstructor_looseBVars s 0) hLbS hokS
+      (annotOk_strLitToConstructor m hs)
+    refine ⟨?_, hA₁,
+      whnf_WScoped m.wf fuel hred (strLitToConstructor_WScoped s d),
+      whnf_looseBVars m.wf fuel hred (strLitToConstructor_looseBVars s 0),
+      ?_, FvarsOk.of_subset (whnf_fvarLeaves m.wf fuel hred) hokS⟩
+    · rw [hieq, interpExpr_strLitToConstructor hs]
+    · intro l hl
+      have := whnf_fvarLeaves m.wf fuel hred l hl
+      rw [strLitToConstructor_fvarLeaves] at this
+      cases this
 
 /-- A whnf result of `.sort u` identifies the interpretation with a
 universe (the inlined-`ensureSort` pattern of the inference rules). -/

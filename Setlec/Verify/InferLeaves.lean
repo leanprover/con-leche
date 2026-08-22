@@ -366,17 +366,26 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
           · exact Or.inl (ihCore hwf l (by simp [fvarLeaves, hb]))
           · exact Or.inr hb
         · -- iota step
-          obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major, cj, usj,
-            cvj, cnP, cnF, r, -, -, -, -, -, hfn, hfc, hlen, hmaj, hsub, hmfn, hfj,
+          obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major₁, major,
+            cj, usj,
+            cvj, cnP, cnF, r, -, -, -, -, -, hfn, hfc, hlen, hmaj, hlit, hsub,
+            hmfn, hfj,
             hrule,
             hml1, hml2, har1, har2, -, hlev, hpeq, hcerts, hmcerts, -, -, -, -, rfl⟩ :=
             iotaRec_inv hio
-          have hsubM : ∀ l ∈ major.fvarLeaves, l ∈ major₀.fvarLeaves := by
-            rcases majorToCtor_inv hsub with rfl | ⟨-, -, hall, -⟩
+          have hsubM1 : ∀ l ∈ major₁.fvarLeaves, l ∈ major₀.fvarLeaves := by
+            rcases litMajorToCtorP_inv hlit with rfl | ⟨s, -, -, hred⟩
             · exact fun l' hl' => litToCtorIfNat_fvarLeaves l' hl'
             · intro l' hl'
+              have h0 := ihLoop hred l' hl'
+              rw [strLitToConstructor_fvarLeaves] at h0
+              cases h0
+          have hsubM : ∀ l ∈ major.fvarLeaves, l ∈ major₀.fvarLeaves := by
+            rcases majorToCtor_inv hsub with rfl | ⟨-, -, hall, -⟩
+            · exact hsubM1
+            · intro l' hl'
               have := List.all_eq_true.mp hall l' hl'
-              exact litToCtorIfNat_fvarLeaves l' (by simpa using this)
+              exact hsubM1 l' (by simpa using this)
           have hl2 := ihCore hwe'' l hl
           rcases fvarLeaves_mkAppN hl2 with hrl | ⟨x, hx, hlx⟩
           · obtain ⟨-, -, -, -, -, hrules⟩ := henv _ (find?_mem hfc)
@@ -484,8 +493,10 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
           exact ihCore hbeta
             (looseBVarsBounded_instantiate1_gen hb.2 hbf'.2)
         · -- iota step
-          obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major, cj, usj,
-            cvj, cnP, cnF, r, -, -, -, -, -, hfn, hfc, hlen, hmaj, hsub, hmfn, hfj,
+          obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major₁, major,
+            cj, usj,
+            cvj, cnP, cnF, r, -, -, -, -, -, hfn, hfc, hlen, hmaj, hlit, hsub,
+            hmfn, hfj,
             hrule,
             hml1, hml2, har1, har2, -, hlev, hpeq, hcerts, hmcerts, -, -, -, -, rfl⟩ :=
             iotaRec_inv hio
@@ -495,9 +506,13 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
           have hbmaj0 : major₀.looseBVarsBounded 0 = true :=
             ihLoop hmaj
               (looseBVarsBounded_getAppArgs hbapp _ (getD_mem (by omega)))
+          have hbmaj1 : major₁.looseBVarsBounded 0 = true := by
+            rcases litMajorToCtorP_inv hlit with rfl | ⟨s, -, -, hred⟩
+            · exact litToCtorIfNat_looseBVars hbmaj0
+            · exact ihLoop hred (strLitToConstructor_looseBVars s 0)
           have hbmaj : major.looseBVarsBounded 0 = true := by
             rcases majorToCtor_inv hsub with rfl | ⟨-, hbM, -, -⟩
-            · exact litToCtorIfNat_looseBVars hbmaj0
+            · exact hbmaj1
             · exact hbM
           refine ihCore hwe'' ?_
           refine looseBVarsBounded_mkAppN ?_ ?_
@@ -607,19 +622,30 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
     | lit l0 =>
       rw [inferTypeCore_succ] at h
       match l0, h with
-      | .natVal n, h => ?_
-      | .strVal s, h =>
-        simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
-      dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
-      revert h
-      split
-      case isFalse =>
-        intro h
-        simp [throw, throwThe, MonadExceptOf.throw] at h
-      case isTrue =>
-        intro h
-        simp only [Except.ok.injEq] at h
-        subst h; simp [WScoped]
+      | .natVal n, h => ?natCase
+      | .strVal s, h => ?strCase
+      case strCase =>
+        dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
+        revert h
+        split
+        case isFalse =>
+          intro h
+          simp [throw, throwThe, MonadExceptOf.throw] at h
+        case isTrue =>
+          intro h
+          simp only [Except.ok.injEq] at h
+          subst h; simp [WScoped]
+      case natCase =>
+        dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
+        revert h
+        split
+        case isFalse =>
+          intro h
+          simp [throw, throwThe, MonadExceptOf.throw] at h
+        case isTrue =>
+          intro h
+          simp only [Except.ok.injEq] at h
+          subst h; simp [WScoped]
     | forallE n ty body m =>
       cases hc : m.cod with
       | none =>
@@ -711,19 +737,30 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
     | lit l0 =>
       rw [inferTypeCore_succ] at h
       match l0, h with
-      | .natVal n, h => ?_
-      | .strVal s, h =>
-        simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
-      dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
-      revert h
-      split
-      case isFalse =>
-        intro h
-        simp [throw, throwThe, MonadExceptOf.throw] at h
-      case isTrue =>
-        intro h
-        simp only [Except.ok.injEq] at h
-        subst h; intro l hl; simp [fvarLeaves] at hl
+      | .natVal n, h => ?natCase
+      | .strVal s, h => ?strCase
+      case strCase =>
+        dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
+        revert h
+        split
+        case isFalse =>
+          intro h
+          simp [throw, throwThe, MonadExceptOf.throw] at h
+        case isTrue =>
+          intro h
+          simp only [Except.ok.injEq] at h
+          subst h; intro l hl; simp [fvarLeaves] at hl
+      case natCase =>
+        dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
+        revert h
+        split
+        case isFalse =>
+          intro h
+          simp [throw, throwThe, MonadExceptOf.throw] at h
+        case isTrue =>
+          intro h
+          simp only [Except.ok.injEq] at h
+          subst h; intro l hl; simp [fvarLeaves] at hl
     | forallE n ty body m =>
       cases hc : m.cod with
       | none =>
@@ -833,19 +870,30 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
     | lit l0 =>
       rw [inferTypeCore_succ] at h
       match l0, h with
-      | .natVal n, h => ?_
-      | .strVal s, h =>
-        simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
-      dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
-      revert h
-      split
-      case isFalse =>
-        intro h
-        simp [throw, throwThe, MonadExceptOf.throw] at h
-      case isTrue =>
-        intro h
-        simp only [Except.ok.injEq] at h
-        subst h; simp [looseBVarsBounded]
+      | .natVal n, h => ?natCase
+      | .strVal s, h => ?strCase
+      case strCase =>
+        dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
+        revert h
+        split
+        case isFalse =>
+          intro h
+          simp [throw, throwThe, MonadExceptOf.throw] at h
+        case isTrue =>
+          intro h
+          simp only [Except.ok.injEq] at h
+          subst h; simp [looseBVarsBounded]
+      case natCase =>
+        dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
+        revert h
+        split
+        case isFalse =>
+          intro h
+          simp [throw, throwThe, MonadExceptOf.throw] at h
+        case isTrue =>
+          intro h
+          simp only [Except.ok.injEq] at h
+          subst h; simp [looseBVarsBounded]
     | forallE n ty body m =>
       cases hc : m.cod with
       | none =>

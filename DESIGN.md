@@ -427,8 +427,8 @@ pinned instead: elaborator output is `brecOn`-compiled and is *not*
 definitionally equal to the plain `Nat.rec` spelling at stuck majors —
 only the recurrence equations are.  `div`/`mod` land via pinned
 declarations plus checked characterization certificates (see the
-dedicated section); `gcd`, the bit operations and string literals
-remain deferred.  The `succ`-packing case of `reduceNat` reduces its
+dedicated section); `gcd` and the bit operations
+remain deferred; string literals have their own section below.  The `succ`-packing case of `reduceNat` reduces its
 argument first (as `pred` and the binary operations do, and as the
 reference kernels do): literals reach `Nat.succ` wrapped in
 `OfNat`/instance towers, and a missed packing defeats the binary fast
@@ -454,6 +454,70 @@ presence), and the env-relating lemmas (`interp_env_ext`,
 `AnnotOk.env_ext`, `TeleFit.env_levelext`) carry the guard across
 explicitly (`natLitSupported_cons_recRules` for the recursor-rules
 swap the install proofs perform).
+
+### String literals (2026-08-22)
+
+A string literal unfolds on demand to the reference kernels' exact
+constructor spelling (`strLitToConstructor`, mirroring lean4lean
+`Expr.strLitToConstructor` and nanoda `str_lit_to_constructor` at this
+toolchain):
+
+    String.ofList (List.cons.{0} Char (Char.ofNat (lit c₁)) (… (List.nil.{0} Char)))
+
+`String.ofList` and `Char.ofNat` are ordinary *definitions* in the
+stream (at v4.29 `String` is the ByteArray-backed structure with
+constructor `String.ofByteArray`), so the expansion is not itself a
+constructor form; wherever the references reduce after expanding, so
+does setlec.  The pinned names `String`/`String.ofList`/`List`/
+`List.nil`/`List.cons`/`Char`/`Char.ofNat` are an acceptable core pin
+per the `Nat`-literal precedent (`natName` etc.); the core stays
+otherwise basis-generic.  Use sites, each mirroring the references:
+
+* `inferBody`/`annotateBody`: a literal types as `String` (the
+  references' `Literal.typeName`); the literal itself is annotation-
+  and shift-invariant.
+* recursor majors (`litMajorToCtor`, in `iotaRec` next to
+  `litToCtorIfNat`): a string-literal major becomes
+  `whnf (strLitToConstructor s)` — the references re-reduce because the
+  expansion's head is a definition (lean4lean `Inductive/Reduce.lean`,
+  nanoda `str_lit_to_ctor_reducing`).
+* `defeqBody` stuck phase: a literal against a *unary application of
+  the bare `String.ofList` constant* expands and recurses — exactly the
+  references' `tryStringLitExpansion` shape test, no more (lean4lean
+  `tryStringLitExpansionCore`); literal-vs-literal was already decided
+  by `BEq`.  (No interning back and no accelerated `String` operations:
+  the references have none in the kernel.)
+
+Guarding deviates from the references in one deliberate way: they only
+check *existence* of `Char.ofNat`/`String.ofList`; `strLitSupported`
+additionally pins the seven constants' level parameters and exact
+annotated types (`stringTyOk` … `charOfNatTyOk`, plus
+`natLitSupported` for the character numerals) — the shape facts the
+model reads the literal's meaning off, in the spirit of the
+`Nat`-literal guard.  A string literal in the input while the guard
+fails is a *positively detected* unsupported feature: `annotate`/
+`infer` decline (exit 2), unlike the `Nat` case (whose basis is always
+pinned-installed, so absence is invalid input).  Inside `whnf`/`defeq`
+an unsupported literal simply stays stuck (sound; unreachable for
+annotated input).
+
+Model: `.lit (.strVal s)` interprets as `strLitVal` — the value-level
+reading of the constructor form, each pinned constant valued exactly as
+the `.const` clause values it on that form (`List.nil`/`List.cons` at
+their own stored parameter instantiated to `0`,
+`Env.levelParamsAt`).  `interpExpr_strLitToConstructor` identifies the
+form's interpretation with the literal's, so reduction may switch
+representations; membership of the value in the `String` value and
+truthful annotations (`AnnotOk`) of the form derive from
+`EnvModel.mem_type` and the guard's shape facts alone
+(`Setlec/Model/StrLit.lean`, mirroring `Setlec/Model/NatLit.lean`; the
+syntactic closedness facts live in `Setlec/Verify/StrLitExpr.lean` —
+the expansion is a closed term, which keeps the Deep/Disc walks easy).
+`constsResolve` counts a string literal as referencing the ten support
+constants, and the env-relating lemmas carry the guard across like the
+`Nat` one (`strLitSupported_cons_recRules`, `strLitSupported_env_ext`
+— the type pins read stored constants only through `toConstantVal`, so
+kind-preserving lookup changes transport).
 
 ### Certified structural-Nat fast path (2026-08-21)
 

@@ -543,10 +543,17 @@ def constsResolveIGo (st : EStore) (env : Env)
     | some n =>
       let (r, memo) : Bool × Std.HashMap EIdx Bool :=
         match n with
-        | .bvar _ | .sort _ | .lit (.strVal _) => (true, memo)
+        | .bvar _ | .sort _ => (true, memo)
         | .lit (.natVal _) =>
           ((env.find? natName).isSome && (env.find? natZeroName).isSome &&
             (env.find? natSuccName).isSome, memo)
+        | .lit (.strVal _) =>
+          ((env.find? natName).isSome && (env.find? natZeroName).isSome &&
+            (env.find? natSuccName).isSome && (env.find? stringName).isSome &&
+            (env.find? stringOfListName).isSome &&
+            (env.find? listName).isSome && (env.find? listNilName).isSome &&
+            (env.find? listConsName).isSome && (env.find? charName).isSome &&
+            (env.find? charOfNatName).isSome, memo)
         | .const n _ => ((env.find? n).isSome, memo)
         | .fvar _ _ ty =>
           if _h : ty < e then constsResolveIGo st env memo ty

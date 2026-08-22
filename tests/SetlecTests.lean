@@ -144,4 +144,29 @@ private def v : Level := .param (.str .anonymous "v")
 #guard Level.leq .zero u == some true
 #guard Level.leq (.succ .zero) u == some false
 
+/-! ## String literals
+
+The constructor form pins the reference kernels' exact spelling
+(lean4lean `Expr.strLitToConstructor`, nanoda
+`str_lit_to_constructor`): `String.ofList` applied to a
+`List.cons.{0} Char (Char.ofNat (lit cᵢ.toNat))` chain ending in
+`List.nil.{0} Char`. -/
+
+#guard strLitToConstructor "" ==
+  .app (.const stringOfListName [])
+    (.app (.const listNilName [.zero]) (.const charName []))
+
+#guard strLitToConstructor "ab" ==
+  .app (.const stringOfListName [])
+    (.app
+      (.app (.app (.const listConsName [.zero]) (.const charName []))
+        (.app (.const charOfNatName []) (.lit (.natVal 97))))
+      (.app
+        (.app (.app (.const listConsName [.zero]) (.const charName []))
+          (.app (.const charOfNatName []) (.lit (.natVal 98))))
+        (.app (.const listNilName [.zero]) (.const charName []))))
+
+-- the guard is `false` without the support declarations
+#guard strLitSupported Env.empty == false
+
 end SetlecTests

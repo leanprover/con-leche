@@ -124,6 +124,9 @@ abbrev etaCertP (env : Env) (fuel : Nat) (d : Nat) (n : Name)
 abbrev majorToCtorP (env : Env) (fuel : Nat) : Nat → Name →
     List RecRule → Expr → CheckM Expr := majorToCtor (pureFns env fuel) env
 
+abbrev litMajorToCtorP (env : Env) (fuel : Nat) : Nat → Expr →
+    CheckM Expr := litMajorToCtor (pureFns env fuel) env
+
 abbrev projCertP (env : Env) (fuel : Nat) : Nat → Expr → Nat →
     List Level → Nat → CheckM Bool := projCert (pureFns env fuel) env
 
@@ -176,6 +179,8 @@ theorem etaCert_fold (env : Env) (fuel : Nat) :
     etaCert (pureFns env fuel) env = etaCertP env fuel := rfl
 theorem majorToCtor_fold (env : Env) (fuel : Nat) :
     majorToCtor (pureFns env fuel) env = majorToCtorP env fuel := rfl
+theorem litMajorToCtor_fold (env : Env) (fuel : Nat) :
+    litMajorToCtor (pureFns env fuel) env = litMajorToCtorP env fuel := rfl
 theorem projCert_fold (env : Env) (fuel : Nat) :
     projCert (pureFns env fuel) env = projCertP env fuel := rfl
 theorem annotateProjElim_fold (env : Env) (fuel : Nat) :

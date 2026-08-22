@@ -423,8 +423,19 @@ theorem annotateCore_sound (m : EnvModel V env) :
     rw [annotateCore_succ] at h
     match l0, h with
     | .natVal n, h => ?_
-    | .strVal sv, h =>
-      simp [annotateBody, throw, throwThe, MonadExceptOf.throw] at h
+    | .strVal sv, h => ?strCase
+    case strCase =>
+      dsimp only [annotateBody] at h
+      revert h
+      split
+      case isFalse =>
+        intro h
+        simp [throw, throwThe, MonadExceptOf.throw] at h
+      case isTrue =>
+        intro h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        subst h
+        simp [AnnotOk]
     dsimp only [annotateBody] at h
     revert h
     split

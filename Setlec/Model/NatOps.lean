@@ -1246,6 +1246,10 @@ theorem NatOpsOk.cons_recRules {cvA : ConstantVal} {nP nM nm ni : Nat}
       (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env) =
       natLitSupported (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env) :=
     natLitSupported_cons_recRules
+  have hstr : strLitSupported
+      (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env) =
+      strLitSupported (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env) :=
+    strLitSupported_cons_recRules
   intro c hc cv v hv hf
   rcases hfind c _ hf with hnd | hf₁
   · exact absurd rfl (hnd cv v hv)
@@ -1281,7 +1285,7 @@ theorem NatOpsOk.cons_recRules {cvA : ConstantVal} {nP nM nm ni : Nat}
           (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env) ψ dd ρ e =
         interpExpr V val
           (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env) ψ dd ρ e :=
-      fun e dd ρ => interp_env_ext henv hnat e dd ρ
+      fun e dd ρ => interp_env_ext henv hnat hstr e dd ρ
     rw [hie eq.1 2 _, hie eq.2 2 _]
     refine heqs eq heq ψ x y ?_
     intro T hT
@@ -1485,6 +1489,10 @@ theorem DivModOk.cons_recRules {cvA : ConstantVal} {nP nM nm ni : Nat}
       (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env) =
       natLitSupported (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env) :=
     natLitSupported_cons_recRules
+  have hstr : strLitSupported
+      (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env) =
+      strLitSupported (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env) :=
+    strLitSupported_cons_recRules
   intro c hc cv v hv hf
   rcases hfind c _ hf with hnd | hf₁
   · exact absurd rfl (hnd cv v hv)
