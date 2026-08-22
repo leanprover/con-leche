@@ -576,6 +576,18 @@ theorem litMajorToCtor_snd_proj (d : Nat) (e : Expr) :
   unfold litMajorToCtor
   snd_tac2
 
+theorem projLitToCtor_fst_proj (d : Nat) (e : Expr) :
+    (projLitToCtor (pairFns r₁ r₂ h) env d e).val.1 =
+      projLitToCtor r₁ env d e := by
+  unfold projLitToCtor
+  fst_tac2
+
+theorem projLitToCtor_snd_proj (d : Nat) (e : Expr) :
+    (projLitToCtor (pairFns r₁ r₂ h) env d e).val.2 =
+      projLitToCtor r₂ env d e := by
+  unfold projLitToCtor
+  snd_tac2
+
 theorem isPropType_fst_proj (d : Nat) (ty : Expr) :
     (isPropType (pairFns r₁ r₂ h) env d ty).val.1 =
       isPropType r₁ env d ty := by
@@ -698,6 +710,7 @@ macro "fst_step3" : tactic =>
     | (rw [structEtaCert_fst_proj])
     | (rw [majorToCtor_fst_proj])
     | (rw [litMajorToCtor_fst_proj])
+    | (rw [projLitToCtor_fst_proj])
     | (rw [annotateProjElim_fst_proj])
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
@@ -727,6 +740,7 @@ macro "snd_step3" : tactic =>
     | (rw [structEtaCert_snd_proj])
     | (rw [majorToCtor_snd_proj])
     | (rw [litMajorToCtor_snd_proj])
+    | (rw [projLitToCtor_snd_proj])
     | (rw [annotateProjElim_snd_proj])
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
@@ -782,6 +796,7 @@ macro "fst_step4" : tactic =>
     | (rw [annotateProjElim_fst_proj])
     | (rw [stuckIrrel_fst_proj])
     | (rw [iotaRec_fst_proj])
+    | (rw [projLitToCtor_fst_proj])
     | (rw [defeqSpine_fst])
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
@@ -813,6 +828,7 @@ macro "snd_step4" : tactic =>
     | (rw [annotateProjElim_snd_proj])
     | (rw [stuckIrrel_snd_proj])
     | (rw [iotaRec_snd_proj])
+    | (rw [projLitToCtor_snd_proj])
     | (rw [defeqSpine_snd])
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])

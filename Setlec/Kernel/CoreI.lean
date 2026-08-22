@@ -726,6 +726,17 @@ def litMajorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
     else pure e
   | _ => litToCtorIfNatI fe e
 
+/-- Twin of `projLitToCtor`. -/
+def projLitToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
+    CheckIM EIdx := do
+  match ← viewI e with
+  | some (.lit (.strVal s)) =>
+    if strLitSupportedF fe then do
+      let x ← internExprM (strLitToConstructor s)
+      r.whnf depth x
+    else pure e
+  | _ => pure e
+
 /-- The interned nested-rule pin instantiations (structural recursion;
 the spec side is `(recFireComparands …).2`'s `List.map`). -/
 def pinArgsI (lps : List Name) (us : List Level) (args : List EIdx)
@@ -871,6 +882,7 @@ def whnfCoreBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
         | none => pure fa
     | some (.proj sn i pe) => do
       let e' ← r.whnf depth pe
+      let e' ← projLitToCtorI r fe depth e'
       match fe.findProj? sn i with
       | some entry =>
         match ← withStore (fun st => st.nodes[st.getAppFnI e']?) with

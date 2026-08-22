@@ -480,15 +480,22 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
           · exact Or.inr hl
       | proj sn i pe =>
         intro l hl
-        obtain ⟨e₂, he, hcase⟩ := whnf_proj_inv h
+        obtain ⟨e₂, e₃, he, hlit, hcase⟩ := whnf_proj_inv h
+        have hsub₃ : ∀ l ∈ e₃.fvarLeaves, l ∈ e₂.fvarLeaves := by
+          rcases projLitToCtorP_inv hlit with rfl | ⟨s, -, -, hred⟩
+          · exact fun l hl => hl
+          · intro l hl
+            have := ihLoop hred l hl
+            rw [strLitToConstructor_fvarLeaves] at this
+            cases this
         simp only [fvarLeaves]
         rcases hcase with rfl |
           ⟨us, entry, hfn, hf, hnat, hi, hlen, hus, hred, -⟩
         · simp only [fvarLeaves] at hl
-          exact ihLoop he l hl
+          exact ihLoop he l (hsub₃ l hl)
         · have hl2 := ihCore hred l hl
-          exact ihLoop he l
-            (fvarLeaves_getAppArgs (getD_mem (by omega)) l hl2)
+          exact ihLoop he l (hsub₃ l
+            (fvarLeaves_getAppArgs (getD_mem (by omega)) l hl2))
     · -- whnf loop
       intro d e e' h l hl
       obtain ⟨e₁, hwc, hcase⟩ := whnf_loop_inv h
@@ -594,13 +601,17 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
           exact ⟨hbf', hb.2⟩
       | proj sn i pe =>
         simp only [looseBVarsBounded] at hb
-        obtain ⟨e₂, he, hcase⟩ := whnf_proj_inv h
+        obtain ⟨e₂, e₃, he, hlit, hcase⟩ := whnf_proj_inv h
         have hbe₂ := ihLoop he hb
+        have hbe₃ : e₃.looseBVarsBounded 0 = true := by
+          rcases projLitToCtorP_inv hlit with rfl | ⟨s, -, -, hred⟩
+          · exact hbe₂
+          · exact ihLoop hred (strLitToConstructor_looseBVars s 0)
         rcases hcase with rfl |
           ⟨us, entry, hfn, hf, hnat, hi, hlen, hus, hred, -⟩
-        · simpa [looseBVarsBounded] using hbe₂
+        · simpa [looseBVarsBounded] using hbe₃
         · exact ihCore hred
-            (looseBVarsBounded_getAppArgs hbe₂ _ (getD_mem (by omega)))
+            (looseBVarsBounded_getAppArgs hbe₃ _ (getD_mem (by omega)))
     · -- whnf loop
       intro d e e' h hb
       obtain ⟨e₁, hwc, hcase⟩ := whnf_loop_inv h

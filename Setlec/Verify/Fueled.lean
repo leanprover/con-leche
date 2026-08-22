@@ -311,6 +311,12 @@ theorem litMajorToCtor_atF (d : Nat) (e : Expr) (F : Nat) :
   unfold litMajorToCtor
   atF_tac2
 
+theorem projLitToCtor_atF (d : Nat) (e : Expr) (F : Nat) :
+    (projLitToCtor (fueledFns env) env d e).val F =
+      projLitToCtor (pureFns env F) env d e := by
+  unfold projLitToCtor
+  atF_tac2
+
 theorem isPropType_atF (d : Nat) (ty : Expr) (F : Nat) :
     (isPropType (fueledFns env) env d ty).val F =
       isPropType (pureFns env F) env d ty := by
@@ -424,6 +430,7 @@ macro "atF_step4" : tactic =>
     | (rw [annotateProjElim_atF])
     | (rw [stuckIrrel_atF])
     | (rw [iotaRec_atF])
+    | (rw [projLitToCtor_atF])
     | (rw [defeqSpine_atF])
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])

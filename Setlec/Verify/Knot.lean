@@ -127,6 +127,9 @@ abbrev majorToCtorP (env : Env) (fuel : Nat) : Nat → Name →
 abbrev litMajorToCtorP (env : Env) (fuel : Nat) : Nat → Expr →
     CheckM Expr := litMajorToCtor (pureFns env fuel) env
 
+abbrev projLitToCtorP (env : Env) (fuel : Nat) : Nat → Expr →
+    CheckM Expr := projLitToCtor (pureFns env fuel) env
+
 abbrev projCertP (env : Env) (fuel : Nat) : Nat → Expr → Nat →
     Level → Level → Nat → CheckM Bool := projCert (pureFns env fuel) env
 
@@ -181,6 +184,8 @@ theorem majorToCtor_fold (env : Env) (fuel : Nat) :
     majorToCtor (pureFns env fuel) env = majorToCtorP env fuel := rfl
 theorem litMajorToCtor_fold (env : Env) (fuel : Nat) :
     litMajorToCtor (pureFns env fuel) env = litMajorToCtorP env fuel := rfl
+theorem projLitToCtor_fold (env : Env) (fuel : Nat) :
+    projLitToCtor (pureFns env fuel) env = projLitToCtorP env fuel := rfl
 theorem projCert_fold (env : Env) (fuel : Nat) :
     projCert (pureFns env fuel) env = projCertP env fuel := rfl
 theorem annotateProjElim_fold (env : Env) (fuel : Nat) :
