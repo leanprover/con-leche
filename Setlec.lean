@@ -28,6 +28,8 @@ import Setlec.Verify.BridgeDecl
 import Setlec.Model.BridgeWF
 import Setlec.Model.ConsistencyC
 import Setlec.Kernel.CheckerS
+import Setlec.Kernel.CoreNC
+import Setlec.Kernel.CheckerNC
 import Setlec.Verify.SimS
 import Setlec.Verify.BridgeS1
 import Setlec.Verify.BridgeS2
