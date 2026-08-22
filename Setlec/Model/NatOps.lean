@@ -1,5 +1,6 @@
 import Setlec.Model.NatLit
 import Setlec.Verify.InferLeaves
+import Setlec.PinGen.Certs
 
 /-!
 # The structural-Nat operations in the model
@@ -36,7 +37,7 @@ theorem natOpGuard_inv {c : Name} (h : natOpGuard env c = true) :
     natLitSupported env = true ∧
     (∀ n ∈ natOpDeps c, ∃ cvn vn hn,
       env.find? n = some (.defnInfo cvn vn hn) ∧ cvn.levelParams = []) ∧
-    ((c = natBeqName ∨ c = natBleName ∨ c = natDivName ∨ c = natModName) →
+    ((c = natBeqName ∨ c = natBleName ∨ c ∈ natDivModNames) →
       (∃ ciT, env.find? boolTrueName = some ciT ∧
         ciT.toConstantVal.levelParams = []) ∧
       (∃ ciF, env.find? boolFalseName = some ciF ∧
@@ -54,9 +55,12 @@ theorem natOpGuard_inv {c : Name} (h : natOpGuard env c = true) :
       exact ⟨cvn, vn, hn, heq, List.isEmpty_iff.mp (by simpa using hlp)⟩
     · intro hh; exact nomatch hh
   · intro hc
-    have hcb : (c = natBeqName || c = natBleName || c = natDivName ||
-        c = natModName) = true := by
-      rcases hc with rfl | rfl | rfl | rfl <;> simp
+    have hcb : (c = natBeqName || c = natBleName ||
+        natDivModNames.contains c) = true := by
+      rcases hc with rfl | rfl | hm
+      · simp
+      · simp
+      · rw [List.contains_iff_mem.mpr hm, Bool.or_true]
     rw [if_pos hcb] at hbool
     simp only [Bool.and_eq_true] at hbool
     obtain ⟨hT, hF⟩ := hbool
@@ -79,8 +83,7 @@ theorem natOpGuard_intro {c : Name}
     (hs : natLitSupported env = true)
     (hdeps : ∀ n ∈ natOpDeps c, ∃ cvn vn hn,
       env.find? n = some (.defnInfo cvn vn hn) ∧ cvn.levelParams = [])
-    (hbool : (c = natBeqName ∨ c = natBleName ∨ c = natDivName ∨
-        c = natModName) →
+    (hbool : (c = natBeqName ∨ c = natBleName ∨ c ∈ natDivModNames) →
       (∃ ciT, env.find? boolTrueName = some ciT ∧
         ciT.toConstantVal.levelParams = []) ∧
       (∃ ciF, env.find? boolFalseName = some ciF ∧
@@ -97,13 +100,11 @@ theorem natOpGuard_intro {c : Name}
   · split
     · next hcb =>
       simp only [Bool.or_eq_true, beq_iff_eq, decide_eq_true_eq] at hcb
-      have hcb' : c = natBeqName ∨ c = natBleName ∨ c = natDivName ∨
-          c = natModName := by
-        rcases hcb with ((h | h) | h) | h
+      have hcb' : c = natBeqName ∨ c = natBleName ∨ c ∈ natDivModNames := by
+        rcases hcb with (h | h) | h
         · exact Or.inl h
         · exact Or.inr (Or.inl h)
-        · exact Or.inr (Or.inr (Or.inl h))
-        · exact Or.inr (Or.inr (Or.inr h))
+        · exact Or.inr (Or.inr (List.contains_iff_mem.mp h))
       obtain ⟨⟨ciT, hT, hlpT⟩, ⟨ciF, hF, hlpF⟩⟩ := hbool hcb'
       rw [hT, hF]
       simp [hlpT, hlpF]
@@ -735,7 +736,7 @@ theorem natDivModGuard_self_defn {c : Name} (hc : c ∈ natDivModNames)
     ∃ cv v h, env.find? c = some (.defnInfo cv v h) ∧ cv.levelParams = [] := by
   refine (natOpGuard_inv hg).2.1 c ?_
   simp only [natDivModNames, List.mem_cons, List.not_mem_nil, or_false] at hc
-  rcases hc with rfl | rfl <;> decide
+  rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
 
 /-- The equation sides are application spines over constants and free
 variables. -/
@@ -868,10 +869,10 @@ theorem natOpCod_interp (m : EnvModel V env) {c : Name} {e : Expr}
 theorem natOpTyPinned_interp (m : EnvModel V env) {c : Name} {ty : Expr}
     (hty : natOpTyPinned env c ty = true) (hs : natLitSupported env = true)
     (ψ : Name → Nat) :
-    (c = natPredName →
+    (c = natPredName ∨ c = natLog2Name →
       interpClosed V m.val env ψ ty =
         some (pi 1 (m.val natName ψ) (fun _ => m.val natName ψ))) ∧
-    (c ≠ natPredName → ∃ C,
+    (¬(c = natPredName ∨ c = natLog2Name) → ∃ C,
       interpClosed V m.val env ψ ty =
         some (pi 1 (m.val natName ψ)
           (fun _ => pi 1 (m.val natName ψ) (fun _ => C))) ∧
@@ -879,8 +880,8 @@ theorem natOpTyPinned_interp (m : EnvModel V env) {c : Name} {ty : Expr}
       (c ≠ natBeqName → c ≠ natBleName → C = m.val natName ψ) ∧
       ((c = natBeqName ∨ c = natBleName) → C = m.val boolName ψ)) := by
   unfold natOpTyPinned at hty
-  by_cases hcp : c = natPredName
-  · rw [if_pos hcp] at hty
+  by_cases hcp : c = natPredName ∨ c = natLog2Name
+  · rw [if_pos (by rcases hcp with rfl | rfl <;> simp)] at hty
     refine ⟨fun _ => ?_, fun hne => absurd hcp hne⟩
     revert hty
     match ty with
@@ -893,7 +894,7 @@ theorem natOpTyPinned_interp (m : EnvModel V env) {c : Name} {ty : Expr}
     obtain ⟨⟨rfl, hcod⟩, hc1⟩ := hty
     have hbody : body = .const natName [] := by
       unfold natOpCod at hcod
-      rw [if_neg (by rw [hcp]; decide)] at hcod
+      rw [if_neg (by rcases hcp with rfl | rfl <;> decide)] at hcod
       simpa using hcod
     subst hbody
     obtain ⟨v, hv, hev⟩ := natCod1_inv hc1
@@ -902,7 +903,9 @@ theorem natOpTyPinned_interp (m : EnvModel V env) {c : Name} {ty : Expr}
     congr 2
     funext x
     simp [Expr.instantiate1, interpExpr_const_nat hs]
-  · rw [if_neg hcp] at hty
+  · rw [if_neg (by
+        simp only [Bool.or_eq_true, decide_eq_true_eq]
+        exact fun h => hcp (h.imp id id))] at hty
     refine ⟨fun heq => absurd heq hcp, fun _ => ?_⟩
     revert hty
     match ty with
@@ -971,9 +974,11 @@ theorem natOpStored_facts (m : EnvModel V env) {n : Name}
     (ψ : Name → Nat) :
     ∃ cvn vn hn, env.find? n = some (.defnInfo cvn vn hn) ∧
       cvn.levelParams = [] ∧
-      (n = natPredName → m.val n ψ ∈ˢ pi 1 (m.val natName ψ)
+      (n = natPredName ∨ n = natLog2Name →
+        m.val n ψ ∈ˢ pi 1 (m.val natName ψ)
         (fun _ => m.val natName ψ)) ∧
-      (n ≠ natPredName → ∃ C, m.val n ψ ∈ˢ pi 1 (m.val natName ψ)
+      (¬(n = natPredName ∨ n = natLog2Name) →
+        ∃ C, m.val n ψ ∈ˢ pi 1 (m.val natName ψ)
         (fun _ => pi 1 (m.val natName ψ) (fun _ => C)) ∧ C ∈ˢ univ 1 ∧
         (n ≠ natBeqName → n ≠ natBleName → C = m.val natName ψ) ∧
         ((n = natBeqName ∨ n = natBleName) → C = m.val boolName ψ)) := by
@@ -1355,25 +1360,32 @@ theorem natDivModNames_ne_pins {c : Name} (hc : c ∈ natDivModNames) :
     c ≠ natName ∧ c ≠ natZeroName ∧ c ≠ natSuccName ∧
     c ≠ boolName ∧ c ≠ boolTrueName ∧ c ≠ boolFalseName := by
   simp only [natDivModNames, List.mem_cons, List.not_mem_nil, or_false] at hc
-  rcases hc with rfl | rfl <;>
+  rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
     exact ⟨by decide, by decide, by decide, by decide, by decide, by decide⟩
 
-/-- `DivModEqs` only reads the valuation at the operation and the
-`Nat`/`ble`/`sub`/`Bool` pins. -/
+/-- `DivModClauses` only reads the valuation at the `Nat`/`Bool` pins,
+the operation's dependencies, and the operation itself (which is among
+its own dependencies). -/
 theorem DivModEqs.val_congr {val val' : ConstVal V} {c : Name}
+    (hc : c ∈ natDivModNames)
     (h : DivModEqs V val c)
     (hN : ∀ ψ : Name → Nat, val' natName ψ = val natName ψ)
-    (hB : ∀ ψ : Name → Nat, val' natBleName ψ = val natBleName ψ)
     (hS : ∀ ψ : Name → Nat, val' natSuccName ψ = val natSuccName ψ)
     (hZ : ∀ ψ : Name → Nat, val' natZeroName ψ = val natZeroName ψ)
-    (hSub : ∀ ψ : Name → Nat, val' natSubName ψ = val natSubName ψ)
     (hT : ∀ ψ : Name → Nat, val' boolTrueName ψ = val boolTrueName ψ)
     (hF : ∀ ψ : Name → Nat, val' boolFalseName ψ = val boolFalseName ψ)
-    (hC : ∀ ψ : Name → Nat, val' c ψ = val c ψ) :
+    (hdep : ∀ n, n ∈ natOpDeps c → ∀ ψ' : Name → Nat,
+      val' n ψ' = val n ψ') :
     DivModEqs V val' c := by
   intro ψ x y hx hy
   rw [hN] at hx hy
-  simpa only [hN, hB, hS, hZ, hSub, hT, hF, hC] using h ψ x y hx hy
+  have hcl := h ψ x y hx hy
+  simp only [natDivModNames, List.mem_cons, List.not_mem_nil,
+    or_false] at hc
+  rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
+    (simp +decide only [DivModClauses, hN, hS, hZ, hT, hF, hdep]
+       at hcl ⊢
+     exact hcl)
 
 /-- `DivModOk` extension step: preservation for the stored operations
 (every name the equations mention is stored, hence distinct from the
@@ -1403,33 +1415,23 @@ theorem DivModOk.cons {val val' : ConstVal V} {c₀ : ConstantInfo}
     obtain ⟨hs, hdeps, hbool⟩ := natOpGuard_inv hg
     obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hnn, hzz, hss, -⟩ :=
       natLitSupported_inv hs
-    have hcb : c = natBeqName ∨ c = natBleName ∨ c = natDivName ∨
-        c = natModName := by
-      simp only [natDivModNames, List.mem_cons, List.not_mem_nil,
-        or_false] at hc
-      rcases hc with rfl | rfl
-      · exact Or.inr (Or.inr (Or.inl rfl))
-      · exact Or.inr (Or.inr (Or.inr rfl))
-    obtain ⟨⟨ciT, hTf, -⟩, ⟨ciF, hFf, -⟩⟩ := hbool hcb
-    have hdepmem : natSubName ∈ natOpDeps c ∧ natBleName ∈ natOpDeps c ∧
-        c ∈ natOpDeps c := by
-      simp only [natDivModNames, List.mem_cons, List.not_mem_nil,
-        or_false] at hc
-      rcases hc with rfl | rfl <;> exact ⟨by decide, by decide, by decide⟩
-    obtain ⟨cvsu, vsu, hsu, hfsu, -⟩ := hdeps natSubName hdepmem.1
-    obtain ⟨cvbl, vbl, hbl, hfbl, -⟩ := hdeps natBleName hdepmem.2.1
-    obtain ⟨cvc, vc, hcc, hfc, -⟩ := hdeps c hdepmem.2.2
+    obtain ⟨⟨ciT, hTf, -⟩, ⟨ciF, hFf, -⟩⟩ :=
+      hbool (Or.inr (Or.inr hc))
     refine ⟨natOpGuard_cons hfresh hg, ?_⟩
-    refine DivModEqs.val_congr heqs ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ <;>
-      intro ψ'
-    · exact hagree _ (hstoredne _ (by simp [hnn])) ψ'
-    · exact hagree _ (hstoredne _ (by simp [hfbl])) ψ'
-    · exact hagree _ (hstoredne _ (by simp [hss])) ψ'
-    · exact hagree _ (hstoredne _ (by simp [hzz])) ψ'
-    · exact hagree _ (hstoredne _ (by simp [hfsu])) ψ'
-    · exact hagree _ (hstoredne _ (by simp [hTf])) ψ'
-    · exact hagree _ (hstoredne _ (by simp [hFf])) ψ'
-    · exact hagree _ (hstoredne _ (by simp [hfc])) ψ'
+    refine DivModEqs.val_congr hc heqs ?_ ?_ ?_ ?_ ?_ ?_
+    · intro ψ'
+      exact hagree _ (hstoredne _ (by simp [hnn])) ψ'
+    · intro ψ'
+      exact hagree _ (hstoredne _ (by simp [hss])) ψ'
+    · intro ψ'
+      exact hagree _ (hstoredne _ (by simp [hzz])) ψ'
+    · intro ψ'
+      exact hagree _ (hstoredne _ (by simp [hTf])) ψ'
+    · intro ψ'
+      exact hagree _ (hstoredne _ (by simp [hFf])) ψ'
+    · intro n hmem ψ'
+      obtain ⟨cvn, vn, hn2, hfn, -⟩ := hdeps n hmem
+      exact hagree _ (hstoredne _ (by simp [hfn])) ψ'
 
 /-- The `DivModOk` invariant ignores a stored recursor's rule list
 (mirror of `NatOpsOk.cons_recRules`; the equations are value-level, so
@@ -1595,9 +1597,37 @@ private theorem natLitVal_one :
     natLitVal V (m.val natZeroName ψ₀) (m.val natSuccName ψ₀) 1 =
       SetTheory.app (m.val natSuccName ψ₀) (m.val natZeroName ψ₀) := rfl
 
+/-- For `c` one of `Nat.div`/`Nat.mod`, the clause dispatch collapses
+to the original three `ble`-guarded clauses. -/
+private theorem DivModClauses.divmod {val : ConstVal V} {c : Name}
+    {ψ : Name → Nat} {x y : V}
+    (hc : c = natDivName ∨ c = natModName)
+    (h : DivModClauses V val c ψ x y) :
+    (app (app (val natBleName ψ) y) x = val boolTrueName ψ →
+     app (app (val natBleName ψ)
+       (app (val natSuccName ψ) (val natZeroName ψ))) y =
+       val boolTrueName ψ →
+     app (app (val c ψ) x) y =
+       (if c = natDivName then
+         app (val natSuccName ψ)
+           (app (app (val c ψ) (app (app (val natSubName ψ) x) y)) y)
+        else app (app (val c ψ) (app (app (val natSubName ψ) x) y)) y)) ∧
+    (app (app (val natBleName ψ) y) x = val boolFalseName ψ →
+     app (app (val c ψ) x) y =
+       (if c = natDivName then val natZeroName ψ else x)) ∧
+    (app (app (val natBleName ψ)
+       (app (val natSuccName ψ) (val natZeroName ψ))) y =
+       val boolFalseName ψ →
+     app (app (val c ψ) x) y =
+       (if c = natDivName then val natZeroName ψ else x)) := by
+  rcases hc with rfl | rfl <;>
+    simpa +decide only [DivModClauses, if_false, if_true,
+      reduceCtorEq, decide_true, decide_false] using h
+
 /-- The common induction: `natOpVal_div` and `natOpVal_mod` at once
 (the two operations share their guards and their step argument). -/
-private theorem natOpVal_divmod {c : Name} (hc : c ∈ natDivModNames)
+private theorem natOpVal_divmod {c : Name}
+    (hc : c = natDivName ∨ c = natModName)
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
     (hf : env.find? c = some (.defnInfo cv v hint)) (ψ : Name → Nat) :
     ∀ a b : Nat, app (app (m.val c ψ)
@@ -1605,11 +1635,11 @@ private theorem natOpVal_divmod {c : Name} (hc : c ∈ natDivModNames)
         (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
       natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ)
         (if c = natDivName then a / b else a % b) := by
-  obtain ⟨hg, heqs⟩ := m.div_mod c hc cv v hint hf
+  have hcmem : c ∈ natDivModNames := by
+    rcases hc with rfl | rfl <;> decide
+  obtain ⟨hg, heqs⟩ := m.div_mod c hcmem cv v hint hf
   obtain ⟨hs, hdeps, -⟩ := natOpGuard_inv hg
   have hdepmem : natSubName ∈ natOpDeps c ∧ natBleName ∈ natOpDeps c := by
-    simp only [natDivModNames, List.mem_cons, List.not_mem_nil,
-      or_false] at hc
     rcases hc with rfl | rfl <;> exact ⟨by decide, by decide⟩
   obtain ⟨cvsu, vsu, hsu, hfsu, -⟩ := hdeps natSubName hdepmem.1
   obtain ⟨cvbl, vbl, hbl, hfbl, -⟩ := hdeps natBleName hdepmem.2
@@ -1618,7 +1648,8 @@ private theorem natOpVal_divmod {c : Name} (hc : c ∈ natDivModNames)
   | ind a ih =>
     have hamem := natLitVal_mem_nat m hs ψ a
     have hbmem := natLitVal_mem_nat m hs ψ b
-    obtain ⟨hrec, hgt, hzero⟩ := heqs ψ _ _ hamem hbmem
+    obtain ⟨hrec, hgt, hzero⟩ :=
+      DivModClauses.divmod hc (heqs ψ _ _ hamem hbmem)
     by_cases hb0 : b = 0
     · subst hb0
       -- `ble 1 0` is `false`: the second base clause fires
@@ -1630,8 +1661,6 @@ private theorem natOpVal_divmod {c : Name} (hc : c ∈ natDivModNames)
         rw [natLitVal_one] at h
         rw [h, if_neg (by omega)]
       rw [hzero h1]
-      simp only [natDivModNames, List.mem_cons, List.not_mem_nil,
-        or_false] at hc
       rcases hc with rfl | rfl
       · rw [if_pos rfl, if_pos rfl, Nat.div_zero]
         rfl
@@ -1705,6 +1734,394 @@ theorem natOpVal_mod {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
   have h := natOpVal_divmod m (by decide) hf ψ a b
   rwa [if_neg (by decide)] at h
 
+
+/-! ## The remaining pin-certified operations on literal values
+
+Per operation, the clause dispatch is collapsed to its two `ble`-guarded
+clauses and a meta-level strong induction computes the stored operation
+on literals; the metatheory-side recurrences for the bit operations are
+the pin generator's own certificate theorems
+(`Setlec.PinGen.landRecCert` …), reused at the meta level. -/
+
+private theorem natLitVal_two :
+    natLitVal V (m.val natZeroName ψ₀) (m.val natSuccName ψ₀) 2 =
+      SetTheory.app (m.val natSuccName ψ₀)
+        (SetTheory.app (m.val natSuccName ψ₀) (m.val natZeroName ψ₀)) := rfl
+
+private theorem clauses_collapse {val : ConstVal V} {c : Name}
+    {ψ : Name → Nat} {x y : V} {P : Prop}
+    (h : DivModClauses V val c ψ x y)
+    (hP : DivModClauses V val c ψ x y = P) : P := hP ▸ h
+
 end DivModValues
+
+section WfOpValues
+
+variable (m : EnvModel V env)
+
+theorem natOpVal_gcd {cv : ConstantVal} {v : Expr}
+    {hint : ReducibilityHint}
+    (hf : env.find? natGcdName = some (.defnInfo cv v hint)) (ψ : Name → Nat) :
+    ∀ a b : Nat, app (app (m.val natGcdName ψ)
+        (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a))
+        (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
+      natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ)
+        (Nat.gcd a b) := by
+  obtain ⟨hg, heqs⟩ := m.div_mod natGcdName (by decide) cv v hint hf
+  obtain ⟨hs, hdeps, -⟩ := natOpGuard_inv hg
+  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps natBleName (by decide)
+  obtain ⟨cvmo, vmo, himo, hfmo, -⟩ := hdeps natModName (by decide)
+  intro a b
+  induction a using Nat.strongRecOn generalizing b with
+  | ind a ih =>
+    obtain ⟨hrec, hbase⟩ :=
+      (by simpa +decide only [DivModClauses, if_false, if_true,
+          reduceCtorEq, decide_true, decide_false] using
+        heqs ψ _ _ (natLitVal_mem_nat m hs ψ a) (natLitVal_mem_nat m hs ψ b) :
+        (app (app (m.val natBleName ψ) (app (m.val natSuccName ψ)
+            (m.val natZeroName ψ)))
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a) =
+            m.val boolTrueName ψ →
+          app (app (m.val natGcdName ψ)
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a))
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
+          app (app (m.val natGcdName ψ)
+            (app (app (m.val natModName ψ)
+              (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b))
+              (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)))
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) ∧
+        (app (app (m.val natBleName ψ) (app (m.val natSuccName ψ)
+            (m.val natZeroName ψ)))
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a) =
+            m.val boolFalseName ψ →
+          app (app (m.val natGcdName ψ)
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a))
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
+          natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b))
+    by_cases ha0 : a = 0
+    · subst ha0
+      have h1 := natOpVal_ble m hfbl ψ 1 0
+      rw [natLitVal_one, if_neg (by omega)] at h1
+      rw [hbase h1, Nat.gcd_zero_left]
+    · have h1 := natOpVal_ble m hfbl ψ 1 a
+      rw [natLitVal_one] at h1
+      rw [hrec (by rw [h1, if_pos (by omega)]),
+        natOpVal_mod m hfmo ψ b a,
+        ih (b % a) (Nat.mod_lt _ (by omega)) a, Nat.gcd_rec a b]
+
+
+theorem natOpVal_shiftLeft {cv : ConstantVal} {v : Expr}
+    {hint : ReducibilityHint}
+    (hf : env.find? natShiftLeftName = some (.defnInfo cv v hint))
+    (ψ : Name → Nat) :
+    ∀ a b : Nat, app (app (m.val natShiftLeftName ψ)
+        (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a))
+        (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
+      natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ)
+        (Nat.shiftLeft a b) := by
+  obtain ⟨hg, heqs⟩ := m.div_mod natShiftLeftName (by decide) cv v hint hf
+  obtain ⟨hs, hdeps, -⟩ := natOpGuard_inv hg
+  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps natBleName (by decide)
+  obtain ⟨cvsu, vsu, hisu, hfsu, -⟩ := hdeps natSubName (by decide)
+  obtain ⟨cvmu, vmu, himu, hfmu, -⟩ := hdeps natMulName (by decide)
+  intro a b
+  induction b using Nat.strongRecOn generalizing a with
+  | ind b ih =>
+    obtain ⟨hrec, hbase⟩ :=
+      (by simpa +decide only [DivModClauses, if_false, if_true,
+          reduceCtorEq, decide_true, decide_false] using
+        heqs ψ _ _ (natLitVal_mem_nat m hs ψ a) (natLitVal_mem_nat m hs ψ b) :
+        (app (app (m.val natBleName ψ) (app (m.val natSuccName ψ)
+            (m.val natZeroName ψ)))
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
+            m.val boolTrueName ψ →
+          app (app (m.val natShiftLeftName ψ)
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a))
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
+          app (app (m.val natShiftLeftName ψ)
+            (app (app (m.val natMulName ψ)
+              (app (m.val natSuccName ψ) (app (m.val natSuccName ψ)
+                (m.val natZeroName ψ))))
+              (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)))
+            (app (app (m.val natSubName ψ)
+              (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b))
+              (app (m.val natSuccName ψ) (m.val natZeroName ψ)))) ∧
+        (app (app (m.val natBleName ψ) (app (m.val natSuccName ψ)
+            (m.val natZeroName ψ)))
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
+            m.val boolFalseName ψ →
+          app (app (m.val natShiftLeftName ψ)
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a))
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
+          natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a))
+    by_cases hb0 : b = 0
+    · subst hb0
+      have h1 := natOpVal_ble m hfbl ψ 1 0
+      rw [natLitVal_one, if_neg (by omega)] at h1
+      rw [hbase h1]
+      exact rfl
+    · have h1 := natOpVal_ble m hfbl ψ 1 b
+      rw [natLitVal_one, if_pos (by omega)] at h1
+      have hmu := natOpVal_mul m hfmu ψ 2 a
+      rw [natLitVal_two] at hmu
+      have hsu := natOpVal_sub m hfsu ψ b 1
+      rw [natLitVal_one] at hsu
+      rw [hrec h1, hmu, hsu, ih (b - 1) (by omega) (2 * a)]
+      obtain ⟨k, rfl⟩ : ∃ k, b = k + 1 := ⟨b - 1, by omega⟩
+      simp only [Nat.add_sub_cancel]
+      rfl
+
+theorem natOpVal_shiftRight {cv : ConstantVal} {v : Expr}
+    {hint : ReducibilityHint}
+    (hf : env.find? natShiftRightName = some (.defnInfo cv v hint))
+    (ψ : Name → Nat) :
+    ∀ a b : Nat, app (app (m.val natShiftRightName ψ)
+        (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a))
+        (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
+      natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ)
+        (Nat.shiftRight a b) := by
+  obtain ⟨hg, heqs⟩ := m.div_mod natShiftRightName (by decide) cv v hint hf
+  obtain ⟨hs, hdeps, -⟩ := natOpGuard_inv hg
+  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps natBleName (by decide)
+  obtain ⟨cvsu, vsu, hisu, hfsu, -⟩ := hdeps natSubName (by decide)
+  obtain ⟨cvdi, vdi, hidi, hfdi, -⟩ := hdeps natDivName (by decide)
+  intro a b
+  induction b using Nat.strongRecOn generalizing a with
+  | ind b ih =>
+    obtain ⟨hrec, hbase⟩ :=
+      (by simpa +decide only [DivModClauses, if_false, if_true,
+          reduceCtorEq, decide_true, decide_false] using
+        heqs ψ _ _ (natLitVal_mem_nat m hs ψ a) (natLitVal_mem_nat m hs ψ b) :
+        (app (app (m.val natBleName ψ) (app (m.val natSuccName ψ)
+            (m.val natZeroName ψ)))
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
+            m.val boolTrueName ψ →
+          app (app (m.val natShiftRightName ψ)
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a))
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
+          app (app (m.val natDivName ψ)
+            (app (app (m.val natShiftRightName ψ)
+              (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a))
+              (app (app (m.val natSubName ψ)
+                (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b))
+                (app (m.val natSuccName ψ) (m.val natZeroName ψ)))))
+            (app (m.val natSuccName ψ) (app (m.val natSuccName ψ)
+              (m.val natZeroName ψ)))) ∧
+        (app (app (m.val natBleName ψ) (app (m.val natSuccName ψ)
+            (m.val natZeroName ψ)))
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
+            m.val boolFalseName ψ →
+          app (app (m.val natShiftRightName ψ)
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a))
+            (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
+          natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a))
+    by_cases hb0 : b = 0
+    · subst hb0
+      have h1 := natOpVal_ble m hfbl ψ 1 0
+      rw [natLitVal_one, if_neg (by omega)] at h1
+      rw [hbase h1]
+      exact rfl
+    · have h1 := natOpVal_ble m hfbl ψ 1 b
+      rw [natLitVal_one, if_pos (by omega)] at h1
+      have hsu := natOpVal_sub m hfsu ψ b 1
+      rw [natLitVal_one] at hsu
+      have hdi := natOpVal_div m hfdi ψ (Nat.shiftRight a (b - 1)) 2
+      rw [natLitVal_two] at hdi
+      rw [hrec h1, hsu, ih (b - 1) (by omega) a, hdi]
+      obtain ⟨k, rfl⟩ : ∃ k, b = k + 1 := ⟨b - 1, by omega⟩
+      simp only [Nat.add_sub_cancel]
+      rfl
+
+
+theorem natOpVal_log2 {cv : ConstantVal} {v : Expr}
+    {hint : ReducibilityHint}
+    (hf : env.find? natLog2Name = some (.defnInfo cv v hint))
+    (ψ : Name → Nat) :
+    ∀ a : Nat, app (m.val natLog2Name ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a) =
+      natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) (Nat.log2 a) := by
+  obtain ⟨hg, heqs⟩ := m.div_mod natLog2Name (by decide) cv v hint hf
+  obtain ⟨hs, hdeps, -⟩ := natOpGuard_inv hg
+  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps natBleName (by decide)
+  obtain ⟨cvdi, vdi, hidi, hfdi, -⟩ := hdeps natDivName (by decide)
+  intro a
+  induction a using Nat.strongRecOn with
+  | ind a ih =>
+    obtain ⟨hrec, hbase⟩ :=
+      (by simpa +decide only [DivModClauses, if_false, if_true,
+          reduceCtorEq, decide_true, decide_false] using
+        heqs ψ _ _ (natLitVal_mem_nat m hs ψ a) (natLitVal_mem_nat m hs ψ a) :
+        ((app (app (m.val natBleName ψ) (app (m.val natSuccName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ)))) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) =
+            m.val boolTrueName ψ →
+          (app (m.val natLog2Name ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) = (app (m.val natSuccName ψ) (app (m.val natLog2Name ψ) (app (app (m.val natDivName ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) (app (m.val natSuccName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ))))))) ∧
+        ((app (app (m.val natBleName ψ) (app (m.val natSuccName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ)))) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) =
+            m.val boolFalseName ψ →
+          (app (m.val natLog2Name ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) = m.val natZeroName ψ))
+    by_cases ha2 : 2 ≤ a
+    · have h1 := natOpVal_ble m hfbl ψ 2 a
+      rw [natLitVal_two, if_pos ha2] at h1
+      have hdi := natOpVal_div m hfdi ψ a 2
+      rw [natLitVal_two] at hdi
+      rw [hrec h1, hdi, ih (a / 2) (Nat.div_lt_self (by omega) (by omega)),
+        show Nat.log2 a = Nat.log2 (a / 2) + 1 from by
+          rw [Nat.log2_def]; exact if_pos ha2]
+      exact rfl
+    · have h1 := natOpVal_ble m hfbl ψ 2 a
+      rw [natLitVal_two, if_neg ha2] at h1
+      rw [hbase h1, Nat.log2_def, if_neg ha2]
+      exact rfl
+
+
+theorem natOpVal_land {cv : ConstantVal} {v : Expr}
+    {hint : ReducibilityHint}
+    (hf : env.find? natLandName = some (.defnInfo cv v hint))
+    (ψ : Name → Nat) :
+    ∀ a b : Nat, app (app (m.val natLandName ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
+      natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) (Nat.land a b) := by
+  obtain ⟨hg, heqs⟩ := m.div_mod natLandName (by decide) cv v hint hf
+  obtain ⟨hs, hdeps, -⟩ := natOpGuard_inv hg
+  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps natBleName (by decide)
+  obtain ⟨cvad, vad, hiad, hfad, -⟩ := hdeps natAddName (by decide)
+  obtain ⟨cvmu, vmu, himu, hfmu, -⟩ := hdeps natMulName (by decide)
+  obtain ⟨cvdi, vdi, hidi, hfdi, -⟩ := hdeps natDivName (by decide)
+  obtain ⟨cvmo, vmo, himo, hfmo, -⟩ := hdeps natModName (by decide)
+  intro a b
+  induction a using Nat.strongRecOn generalizing b with
+  | ind a ih =>
+    obtain ⟨hrec, hbase⟩ :=
+      (by simpa +decide only [DivModClauses, if_false, if_true,
+          reduceCtorEq, decide_true, decide_false] using
+        heqs ψ _ _ (natLitVal_mem_nat m hs ψ a) (natLitVal_mem_nat m hs ψ b) :
+        ((app (app (m.val natBleName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ))) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) = m.val boolTrueName ψ →
+          (app (app (m.val natLandName ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b)) = (app (app (m.val natAddName ψ) (app (app (m.val natMulName ψ) (app (m.val natSuccName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ)))) (app (app (m.val natLandName ψ) (app (app (m.val natDivName ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) (app (m.val natSuccName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ))))) (app (app (m.val natDivName ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b)) (app (m.val natSuccName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ))))))) (app (app (m.val natMulName ψ) (app (app (m.val natModName ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) (app (m.val natSuccName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ))))) (app (app (m.val natModName ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b)) (app (m.val natSuccName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ))))))) ∧
+        ((app (app (m.val natBleName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ))) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) = m.val boolFalseName ψ →
+          (app (app (m.val natLandName ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b)) = m.val natZeroName ψ))
+    by_cases ha0 : a = 0
+    · subst ha0
+      have h1 := natOpVal_ble m hfbl ψ 1 0
+      rw [natLitVal_one, if_neg (by omega)] at h1
+      rw [hbase h1, show Nat.land 0 b = 0 from PinGen.landBaseCert 0 b rfl]
+      exact rfl
+    · have h1 := natOpVal_ble m hfbl ψ 1 a
+      rw [natLitVal_one, if_pos (by omega)] at h1
+      have hdia := natOpVal_div m hfdi ψ a 2
+      have hdib := natOpVal_div m hfdi ψ b 2
+      rw [natLitVal_two] at hdia hdib
+      have hmoa := natOpVal_mod m hfmo ψ a 2
+      have hmob := natOpVal_mod m hfmo ψ b 2
+      rw [natLitVal_two] at hmoa hmob
+      have hih := ih (a / 2) (Nat.div_lt_self (by omega) (by omega)) (b / 2)
+      have hmu2 := natOpVal_mul m hfmu ψ 2 (Nat.land (a / 2) (b / 2))
+      rw [natLitVal_two] at hmu2
+      rw [hrec h1, hdia, hdib, hih, hmu2, hmoa, hmob]
+      rw [natOpVal_mul m hfmu ψ (a % 2) (b % 2)]
+      rw [natOpVal_add m hfad ψ (2 * Nat.land (a / 2) (b / 2)) _,
+        show Nat.land a b = 2 * Nat.land (a / 2) (b / 2) + _ from
+          PinGen.landRecCert a b
+            (Nat.ble_eq_true_of_le (by omega : 1 ≤ a))]
+      exact rfl
+
+theorem natOpVal_lor {cv : ConstantVal} {v : Expr}
+    {hint : ReducibilityHint}
+    (hf : env.find? natLorName = some (.defnInfo cv v hint))
+    (ψ : Name → Nat) :
+    ∀ a b : Nat, app (app (m.val natLorName ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
+      natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) (Nat.lor a b) := by
+  obtain ⟨hg, heqs⟩ := m.div_mod natLorName (by decide) cv v hint hf
+  obtain ⟨hs, hdeps, -⟩ := natOpGuard_inv hg
+  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps natBleName (by decide)
+  obtain ⟨cvad, vad, hiad, hfad, -⟩ := hdeps natAddName (by decide)
+  obtain ⟨cvmu, vmu, himu, hfmu, -⟩ := hdeps natMulName (by decide)
+  obtain ⟨cvdi, vdi, hidi, hfdi, -⟩ := hdeps natDivName (by decide)
+  obtain ⟨cvmo, vmo, himo, hfmo, -⟩ := hdeps natModName (by decide)
+  obtain ⟨cvsu, vsu, hisu, hfsu, -⟩ := hdeps natSubName (by decide)
+  intro a b
+  induction a using Nat.strongRecOn generalizing b with
+  | ind a ih =>
+    obtain ⟨hrec, hbase⟩ :=
+      (by simpa +decide only [DivModClauses, if_false, if_true,
+          reduceCtorEq, decide_true, decide_false] using
+        heqs ψ _ _ (natLitVal_mem_nat m hs ψ a) (natLitVal_mem_nat m hs ψ b) :
+        ((app (app (m.val natBleName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ))) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) = m.val boolTrueName ψ →
+          (app (app (m.val natLorName ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b)) = (app (app (m.val natAddName ψ) (app (app (m.val natMulName ψ) (app (m.val natSuccName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ)))) (app (app (m.val natLorName ψ) (app (app (m.val natDivName ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) (app (m.val natSuccName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ))))) (app (app (m.val natDivName ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b)) (app (m.val natSuccName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ))))))) (app (app (m.val natSubName ψ) (app (app (m.val natAddName ψ) (app (app (m.val natModName ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) (app (m.val natSuccName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ))))) (app (app (m.val natModName ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b)) (app (m.val natSuccName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ)))))) (app (app (m.val natMulName ψ) (app (app (m.val natModName ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) (app (m.val natSuccName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ))))) (app (app (m.val natModName ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b)) (app (m.val natSuccName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ)))))))) ∧
+        ((app (app (m.val natBleName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ))) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) = m.val boolFalseName ψ →
+          (app (app (m.val natLorName ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b)) = (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b)))
+    by_cases ha0 : a = 0
+    · subst ha0
+      have h1 := natOpVal_ble m hfbl ψ 1 0
+      rw [natLitVal_one, if_neg (by omega)] at h1
+      rw [hbase h1, show Nat.lor 0 b = b from PinGen.lorBaseCert 0 b rfl]
+    · have h1 := natOpVal_ble m hfbl ψ 1 a
+      rw [natLitVal_one, if_pos (by omega)] at h1
+      have hdia := natOpVal_div m hfdi ψ a 2
+      have hdib := natOpVal_div m hfdi ψ b 2
+      rw [natLitVal_two] at hdia hdib
+      have hmoa := natOpVal_mod m hfmo ψ a 2
+      have hmob := natOpVal_mod m hfmo ψ b 2
+      rw [natLitVal_two] at hmoa hmob
+      have hih := ih (a / 2) (Nat.div_lt_self (by omega) (by omega)) (b / 2)
+      have hmu2 := natOpVal_mul m hfmu ψ 2 (Nat.lor (a / 2) (b / 2))
+      rw [natLitVal_two] at hmu2
+      rw [hrec h1, hdia, hdib, hih, hmu2, hmoa, hmob]
+      rw [natOpVal_add m hfad ψ (a % 2) (b % 2),
+        natOpVal_mul m hfmu ψ (a % 2) (b % 2),
+        natOpVal_sub m hfsu ψ (a % 2 + b % 2) (a % 2 * (b % 2))]
+      rw [natOpVal_add m hfad ψ (2 * Nat.lor (a / 2) (b / 2)) _,
+        show Nat.lor a b = 2 * Nat.lor (a / 2) (b / 2) + _ from
+          PinGen.lorRecCert a b
+            (Nat.ble_eq_true_of_le (by omega : 1 ≤ a))]
+      exact rfl
+
+theorem natOpVal_xor {cv : ConstantVal} {v : Expr}
+    {hint : ReducibilityHint}
+    (hf : env.find? natXorName = some (.defnInfo cv v hint))
+    (ψ : Name → Nat) :
+    ∀ a b : Nat, app (app (m.val natXorName ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b) =
+      natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) (Nat.xor a b) := by
+  obtain ⟨hg, heqs⟩ := m.div_mod natXorName (by decide) cv v hint hf
+  obtain ⟨hs, hdeps, -⟩ := natOpGuard_inv hg
+  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps natBleName (by decide)
+  obtain ⟨cvad, vad, hiad, hfad, -⟩ := hdeps natAddName (by decide)
+  obtain ⟨cvmu, vmu, himu, hfmu, -⟩ := hdeps natMulName (by decide)
+  obtain ⟨cvdi, vdi, hidi, hfdi, -⟩ := hdeps natDivName (by decide)
+  obtain ⟨cvmo, vmo, himo, hfmo, -⟩ := hdeps natModName (by decide)
+  intro a b
+  induction a using Nat.strongRecOn generalizing b with
+  | ind a ih =>
+    obtain ⟨hrec, hbase⟩ :=
+      (by simpa +decide only [DivModClauses, if_false, if_true,
+          reduceCtorEq, decide_true, decide_false] using
+        heqs ψ _ _ (natLitVal_mem_nat m hs ψ a) (natLitVal_mem_nat m hs ψ b) :
+        ((app (app (m.val natBleName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ))) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) = m.val boolTrueName ψ →
+          (app (app (m.val natXorName ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b)) = (app (app (m.val natAddName ψ) (app (app (m.val natMulName ψ) (app (m.val natSuccName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ)))) (app (app (m.val natXorName ψ) (app (app (m.val natDivName ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) (app (m.val natSuccName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ))))) (app (app (m.val natDivName ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b)) (app (m.val natSuccName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ))))))) (app (app (m.val natModName ψ) (app (app (m.val natAddName ψ) (app (app (m.val natModName ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) (app (m.val natSuccName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ))))) (app (app (m.val natModName ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b)) (app (m.val natSuccName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ)))))) (app (m.val natSuccName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ)))))) ∧
+        ((app (app (m.val natBleName ψ) (app (m.val natSuccName ψ) (m.val natZeroName ψ))) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) = m.val boolFalseName ψ →
+          (app (app (m.val natXorName ψ) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) a)) (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b)) = (natLitVal V (m.val natZeroName ψ) (m.val natSuccName ψ) b)))
+    by_cases ha0 : a = 0
+    · subst ha0
+      have h1 := natOpVal_ble m hfbl ψ 1 0
+      rw [natLitVal_one, if_neg (by omega)] at h1
+      rw [hbase h1, show Nat.xor 0 b = b from PinGen.xorBaseCert 0 b rfl]
+    · have h1 := natOpVal_ble m hfbl ψ 1 a
+      rw [natLitVal_one, if_pos (by omega)] at h1
+      have hdia := natOpVal_div m hfdi ψ a 2
+      have hdib := natOpVal_div m hfdi ψ b 2
+      rw [natLitVal_two] at hdia hdib
+      have hmoa := natOpVal_mod m hfmo ψ a 2
+      have hmob := natOpVal_mod m hfmo ψ b 2
+      rw [natLitVal_two] at hmoa hmob
+      have hih := ih (a / 2) (Nat.div_lt_self (by omega) (by omega)) (b / 2)
+      have hmu2 := natOpVal_mul m hfmu ψ 2 (Nat.xor (a / 2) (b / 2))
+      rw [natLitVal_two] at hmu2
+      rw [hrec h1, hdia, hdib, hih, hmu2, hmoa, hmob]
+      have hbm := natOpVal_mod m hfmo ψ (a % 2 + b % 2) 2
+      rw [natLitVal_two] at hbm
+      rw [natOpVal_add m hfad ψ (a % 2) (b % 2), hbm]
+      rw [natOpVal_add m hfad ψ (2 * Nat.xor (a / 2) (b / 2)) _,
+        show Nat.xor a b = 2 * Nat.xor (a / 2) (b / 2) + _ from
+          PinGen.xorRecCert a b
+            (Nat.ble_eq_true_of_le (by omega : 1 ≤ a))]
+      exact rfl
+
+end WfOpValues
+
 
 end Setlec

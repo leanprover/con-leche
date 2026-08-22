@@ -1,3 +1,5 @@
+module
+
 /-!
 # Kernel expressions
 
@@ -13,6 +15,8 @@ Design decisions (see DESIGN.md):
   use only `bvar` (de Bruijn *indices*).
 * No metavariables, no `mdata`: those never reach a kernel.
 -/
+
+@[expose] public section
 
 namespace Setlec
 

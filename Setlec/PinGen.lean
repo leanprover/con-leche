@@ -1,0 +1,540 @@
+module
+public import Lean
+public meta import Setlec.Kernel.Expr
+
+/-!
+# Elab-time generator for the pinned Nat-operation declarations
+
+This module is the *elab-time* successor of the offline
+`scripts/GenDivModPins.lean` generator (task #47): instead of vendoring
+generated blobs, the `#gen_natop_pins` command (invoked from
+`Setlec/Kernel/NatOpPins.lean`) reads the pin-certified operations from
+its **own compiling environment** — the toolchain prelude — at `lake
+build` time and splices the pinned definitions into the invoking
+module:
+
+* per operation, the *pinned defining expression*: the toolchain's own
+  definition value with every local helper (`Nat.modCore`,
+  `Nat.div.go`, `._unary` functionals, matchers, …) delta-unfolded and
+  every non-stream-prefix definition inlined, so the pin is one closed
+  expression over stream-present ground constants.  At install the
+  checker compares the stream's definition value against the pin by
+  *definitional equality*; mismatch declines.
+* per certificate, the *proof blob*: the proof of the corresponding
+  theorem from `Setlec/PinGen/Certs.lean`, elaborated against the real
+  toolchain prelude and closed over the stream prefix by inlining every
+  non-prefix constant.  An out-of-prefix dependency that cannot be
+  inlined (an inductive, a recursor …) is a **hard build error**.
+
+The corresponding *certificate statements* stay hand-pinned in
+`Setlec/Kernel/Checker.lean` — they are the stable specification
+interface; a toolchain bump regenerates pins and proofs, and the
+checker does not care as long as the statements still check.
+
+Each operation gets one pinned definition (`…DeclPin : Expr`) and one
+certificate-proof list (`…CertProofs : List Expr`), under the same
+names the vendored `Setlec/Kernel/DivModPins.lean` used.
+
+The stream-prefix allowlists are extracted by
+`scripts/extract_natop_prefix.py` into `scripts/natop_prefix.json`
+(embedded below via `include_str`).
+
+Layering: this module (and everything importing it) depends on `Lean`
+at *elaboration* time; the definitions it splices mention only
+`Setlec.Expr` and friends.  No checker runtime code may call into
+`Lean.*` APIs.
+-/
+
+public meta section
+
+namespace Setlec.PinGen
+
+open Lean
+
+/-! ## `ToExpr` instances for the checker's expression types -/
+
+def nameT : Lean.Expr := .const ``Setlec.Name []
+def levelT : Lean.Expr := .const ``Setlec.Level []
+def exprT : Lean.Expr := .const ``Setlec.Expr []
+
+def toExprName : Setlec.Name → Lean.Expr
+  | .anonymous => .const ``Setlec.Name.anonymous []
+  | .str p s => mkApp2 (.const ``Setlec.Name.str []) (toExprName p) (mkStrLit s)
+  | .num p n => mkApp2 (.const ``Setlec.Name.num []) (toExprName p) (mkRawNatLit n)
+
+instance : ToExpr Setlec.Name where
+  toExpr := toExprName
+  toTypeExpr := nameT
+
+def toExprLevel : Setlec.Level → Lean.Expr
+  | .zero => .const ``Setlec.Level.zero []
+  | .succ u => .app (.const ``Setlec.Level.succ []) (toExprLevel u)
+  | .max u v =>
+    mkApp2 (.const ``Setlec.Level.max []) (toExprLevel u) (toExprLevel v)
+  | .imax u v =>
+    mkApp2 (.const ``Setlec.Level.imax []) (toExprLevel u) (toExprLevel v)
+  | .param n => .app (.const ``Setlec.Level.param []) (toExpr n)
+
+instance : ToExpr Setlec.Level where
+  toExpr := toExprLevel
+  toTypeExpr := levelT
+
+instance : ToExpr Setlec.BinderInfo where
+  toExpr
+    | .default => .const ``Setlec.BinderInfo.default []
+    | .implicit => .const ``Setlec.BinderInfo.implicit []
+    | .strictImplicit => .const ``Setlec.BinderInfo.strictImplicit []
+    | .instImplicit => .const ``Setlec.BinderInfo.instImplicit []
+  toTypeExpr := .const ``Setlec.BinderInfo []
+
+instance : ToExpr Setlec.BinderMeta where
+  toExpr m :=
+    mkApp2 (.const ``Setlec.BinderMeta.mk []) (toExpr m.bi) (toExpr m.cod)
+  toTypeExpr := .const ``Setlec.BinderMeta []
+
+instance : ToExpr Setlec.Literal where
+  toExpr
+    | .natVal n =>
+      .app (.const ``Setlec.Literal.natVal []) (mkRawNatLit n)
+    | .strVal s =>
+      .app (.const ``Setlec.Literal.strVal []) (mkStrLit s)
+  toTypeExpr := .const ``Setlec.Literal []
+
+/-- Plain structural `ToExpr` for `Setlec.Expr`.  Fine for small terms
+(the pinned statements); the *pins* are emitted through the sharing
+builder below, which represents every distinct subobject once. -/
+def toExprExpr : Setlec.Expr → Lean.Expr
+  | .bvar i => .app (.const ``Setlec.Expr.bvar []) (mkRawNatLit i)
+  | .fvar idx n ty =>
+    mkApp3 (.const ``Setlec.Expr.fvar []) (mkRawNatLit idx) (toExpr n)
+      (toExprExpr ty)
+  | .sort u => .app (.const ``Setlec.Expr.sort []) (toExpr u)
+  | .const n us =>
+    mkApp2 (.const ``Setlec.Expr.const []) (toExpr n) (toExpr us)
+  | .app f a => mkApp2 (.const ``Setlec.Expr.app []) (toExprExpr f) (toExprExpr a)
+  | .lam n ty b m =>
+    mkApp4 (.const ``Setlec.Expr.lam []) (toExpr n) (toExprExpr ty)
+      (toExprExpr b) (toExpr m)
+  | .forallE n ty b m =>
+    mkApp4 (.const ``Setlec.Expr.forallE []) (toExpr n) (toExprExpr ty)
+      (toExprExpr b) (toExpr m)
+  | .letE n ty v b =>
+    mkApp4 (.const ``Setlec.Expr.letE []) (toExpr n) (toExprExpr ty)
+      (toExprExpr v) (toExprExpr b)
+  | .lit l => .app (.const ``Setlec.Expr.lit []) (toExpr l)
+  | .proj s i e =>
+    mkApp3 (.const ``Setlec.Expr.proj []) (toExpr s) (mkRawNatLit i)
+      (toExprExpr e)
+
+instance : ToExpr Setlec.Expr where
+  toExpr := toExprExpr
+  toTypeExpr := exprT
+
+/-! ## Conversion `Lean.Expr` → `Setlec.Expr` -/
+
+def toSetlecName : Lean.Name → Setlec.Name := Setlec.Name.ofLeanName
+
+partial def toSetlecLevel : Lean.Level → Except String Setlec.Level
+  | .zero => .ok .zero
+  | .succ u => .succ <$> toSetlecLevel u
+  | .max u v => Setlec.Level.max <$> toSetlecLevel u <*> toSetlecLevel v
+  | .imax u v => Setlec.Level.imax <$> toSetlecLevel u <*> toSetlecLevel v
+  | .param n => .ok (.param (toSetlecName n))
+  | .mvar _ => .error "level mvar"
+
+def toSetlecBI : Lean.BinderInfo → Setlec.BinderInfo
+  | .default => .default
+  | .implicit => .implicit
+  | .strictImplicit => .strictImplicit
+  | .instImplicit => .instImplicit
+
+/-- Binder names are display-only in the checker; erase hygiene scopes so
+the generated pins stay small. -/
+def sanitizeBinderName (n : Lean.Name) : Setlec.Name :=
+  toSetlecName n.eraseMacroScopes
+
+/-- Conversion; `letE` is zeta-expanded (the checker frontend does the
+same), `mdata` stripped, binder metadata carries `cod := none` (the raw
+form: the checker's annotation pass computes the codomain sorts). -/
+partial def toSetlec : Lean.Expr → Except String Setlec.Expr
+  | .bvar i => .ok (.bvar i)
+  | .sort u => (Setlec.Expr.sort ·) <$> toSetlecLevel u
+  | .const c us => do
+    .ok (.const (toSetlecName c) (← us.mapM toSetlecLevel))
+  | .app f a => Setlec.Expr.app <$> toSetlec f <*> toSetlec a
+  | .lam n ty b bi => do
+    .ok (.lam (sanitizeBinderName n) (← toSetlec ty) (← toSetlec b)
+      ⟨toSetlecBI bi, none⟩)
+  | .forallE n ty b bi => do
+    .ok (.forallE (sanitizeBinderName n) (← toSetlec ty) (← toSetlec b)
+      ⟨toSetlecBI bi, none⟩)
+  | .letE _ _ v b _ => toSetlec (b.instantiate1 v)
+  | .lit (.natVal n) => .ok (.lit (.natVal n))
+  | .lit (.strVal s) => .ok (.lit (.strVal s))
+  | .mdata _ e => toSetlec e
+  | .proj s i e => (Setlec.Expr.proj (toSetlecName s) i ·) <$> toSetlec e
+  | .fvar _ => .error "fvar in closed term"
+  | .mvar _ => .error "mvar in closed term"
+
+/-! ## Helper unfolding and prefix-closure inlining -/
+
+/-- One pass of delta-expansion of the constants selected by `p`. -/
+def unfoldStep (p : Lean.Name → Bool) (e : Lean.Expr) : CoreM Lean.Expr := do
+  let env ← getEnv
+  Core.transform e (pre := fun e => do
+    let .const c us := e.getAppFn | return .continue
+    unless p c do return .continue
+    let some ci := env.find? c | return .continue
+    let some v := ci.value? (allowOpaque := true) | return .continue
+    let v := v.instantiateLevelParams ci.levelParams us
+    return .visit (v.beta e.getAppArgs))
+
+partial def unfoldFix (p : Lean.Name → Bool) (e : Lean.Expr) :
+    CoreM Lean.Expr := do
+  let e' ← unfoldStep p e
+  if e' == e then return e else unfoldFix p e'
+
+/-- Collect the constants of an expression. -/
+def constsOf (e : Lean.Expr) : NameSet :=
+  e.foldConsts {} fun c s => s.insert c
+
+/-- Inline every constant not accepted by `allowed`: theorems and
+definitions are replaced by their (level-instantiated) values; anything
+else — an inductive, a constructor, a recursor outside the stream
+prefix — aborts the build. -/
+partial def inlineClosure (allowed : Lean.Name → Bool) (e : Lean.Expr) :
+    CoreM Lean.Expr := do
+  let env ← getEnv
+  let e' ← unfoldStep (fun c => !allowed c) e
+  if e' == e then
+    -- fixpoint: check nothing un-inlinable remains
+    for c in (constsOf e).toList do
+      unless allowed c do
+        let kind := match env.find? c with
+          | some ci =>
+            if (ci.value? (allowOpaque := true)).isSome then "has value"
+            else "NO VALUE (inductive-kind?)"
+          | none => "absent"
+        throwError "cannot inline non-prefix constant {c} ({kind})"
+    return e
+  else inlineClosure allowed e'
+
+def checkConsts (what : String) (allowed : Lean.Name → Bool)
+    (e : Lean.Expr) : CoreM Unit := do
+  let bad := (constsOf e).toList.filter (fun c => !allowed c)
+  unless bad.isEmpty do
+    throwError "{what}: constants outside the allowed prefix: {bad}"
+
+/-! ## The sharing builder
+
+The pins share subterms heavily (every distinct name, level and
+expression node occurs many times).  Emitting them through the plain
+`ToExpr` instance would lose all sharing, so each distinct subobject is
+bound once in a `let`-chain: during construction, references are
+*absolute* entry indices disguised as `.bvar j`; `assemble` converts
+them to proper de Bruijn indices.  (The built constructor applications
+contain no real bound variables, so the disguise is unambiguous.) -/
+
+structure ShareSt where
+  /-- Emitted let entries: binder name, type, value (with absolute
+  `.bvar` entry references). -/
+  entries : Array (Lean.Name × Lean.Expr × Lean.Expr) := #[]
+  nameMap : Std.HashMap Setlec.Name Lean.Expr := {}
+  levelMap : Std.HashMap Setlec.Level Lean.Expr := {}
+  exprMap : Std.HashMap Setlec.Expr Lean.Expr := {}
+
+abbrev ShareM := StateM ShareSt
+
+def pushEntry (pfx : String) (ty val : Lean.Expr) :
+    ShareM Lean.Expr := do
+  let n := (← get).entries.size
+  modify fun st =>
+    { st with entries := st.entries.push (.mkSimple s!"{pfx}{n}", ty, val) }
+  return .bvar n
+
+partial def shareName (n : Setlec.Name) : ShareM Lean.Expr := do
+  if let some r := (← get).nameMap[n]? then return r
+  let r ← match n with
+    | .anonymous => pure (toExpr Setlec.Name.anonymous)
+    | .str p s => do
+      let pv ← shareName p
+      pushEntry "n" nameT (mkApp2 (.const ``Setlec.Name.str []) pv (mkStrLit s))
+    | .num p i => do
+      let pv ← shareName p
+      pushEntry "n" nameT
+        (mkApp2 (.const ``Setlec.Name.num []) pv (mkRawNatLit i))
+  modify fun st => { st with nameMap := st.nameMap.insert n r }
+  return r
+
+partial def shareLevel (l : Setlec.Level) : ShareM Lean.Expr := do
+  if let some r := (← get).levelMap[l]? then return r
+  let r ← match l with
+    | .zero => pure (toExpr Setlec.Level.zero)
+    | .succ u => do
+      let uv ← shareLevel u
+      pushEntry "l" levelT (.app (.const ``Setlec.Level.succ []) uv)
+    | .max u w => do
+      let uv ← shareLevel u; let wv ← shareLevel w
+      pushEntry "l" levelT (mkApp2 (.const ``Setlec.Level.max []) uv wv)
+    | .imax u w => do
+      let uv ← shareLevel u; let wv ← shareLevel w
+      pushEntry "l" levelT (mkApp2 (.const ``Setlec.Level.imax []) uv wv)
+    | .param n => do
+      let nv ← shareName n
+      pushEntry "l" levelT (.app (.const ``Setlec.Level.param []) nv)
+  modify fun st => { st with levelMap := st.levelMap.insert l r }
+  return r
+
+def levelListE (us : List Lean.Expr) : Lean.Expr :=
+  us.foldr (fun u acc => mkApp3 (.const ``List.cons [.zero]) levelT u acc)
+    (.app (.const ``List.nil [.zero]) levelT)
+
+partial def shareExpr (e : Setlec.Expr) : ShareM Lean.Expr := do
+  if let some r := (← get).exprMap[e]? then return r
+  let r ← match e with
+    | .bvar i =>
+      pushEntry "e" exprT (.app (.const ``Setlec.Expr.bvar []) (mkRawNatLit i))
+    | .fvar idx n ty => do
+      let nv ← shareName n
+      let tv ← shareExpr ty
+      pushEntry "e" exprT
+        (mkApp3 (.const ``Setlec.Expr.fvar []) (mkRawNatLit idx) nv tv)
+    | .sort u => do
+      let uv ← shareLevel u
+      pushEntry "e" exprT (.app (.const ``Setlec.Expr.sort []) uv)
+    | .const n us => do
+      let nv ← shareName n
+      let uvs ← us.mapM shareLevel
+      pushEntry "e" exprT
+        (mkApp2 (.const ``Setlec.Expr.const []) nv (levelListE uvs))
+    | .app f a => do
+      let fv ← shareExpr f
+      let av ← shareExpr a
+      pushEntry "e" exprT (mkApp2 (.const ``Setlec.Expr.app []) fv av)
+    | .lam n ty b m => do
+      let nv ← shareName n
+      let tv ← shareExpr ty
+      let bv ← shareExpr b
+      pushEntry "e" exprT
+        (mkApp4 (.const ``Setlec.Expr.lam []) nv tv bv (toExpr m))
+    | .forallE n ty b m => do
+      let nv ← shareName n
+      let tv ← shareExpr ty
+      let bv ← shareExpr b
+      pushEntry "e" exprT
+        (mkApp4 (.const ``Setlec.Expr.forallE []) nv tv bv (toExpr m))
+    | .letE n ty v b => do
+      let nv ← shareName n
+      let tv ← shareExpr ty
+      let vv ← shareExpr v
+      let bv ← shareExpr b
+      pushEntry "e" exprT (mkApp4 (.const ``Setlec.Expr.letE []) nv tv vv bv)
+    | .lit l =>
+      pushEntry "e" exprT (.app (.const ``Setlec.Expr.lit []) (toExpr l))
+    | .proj s i x => do
+      let sv ← shareName s
+      let xv ← shareExpr x
+      pushEntry "e" exprT
+        (mkApp3 (.const ``Setlec.Expr.proj []) sv (mkRawNatLit i) xv)
+  modify fun st => { st with exprMap := st.exprMap.insert e r }
+  return r
+
+/-- Convert absolute entry references (`.bvar j`) into de Bruijn indices
+for a position under `k` enclosing let binders.  The emitted values are
+pure application trees, so only `app` recurses. -/
+partial def relat (k : Nat) : Lean.Expr → Lean.Expr
+  | .bvar j => .bvar (k - 1 - j)
+  | .app f a => .app (relat k f) (relat k a)
+  | e => e
+
+/-- Wrap `root` (with absolute references) in the collected `let`-chain. -/
+def assemble (entries : Array (Lean.Name × Lean.Expr × Lean.Expr))
+    (root : Lean.Expr) : Lean.Expr := Id.run do
+  let n := entries.size
+  let mut body := relat n root
+  for i in [0:n] do
+    let k := n - 1 - i
+    let (nm, ty, v) := entries[k]!
+    body := .letE nm ty (relat k v) body false
+  return body
+
+/-- Build the value of a single-expression definition (`… : Expr`) as a
+shared `let`-chain. -/
+def buildExprValue (e : Setlec.Expr) : Lean.Expr :=
+  let (root, st) := Id.run (StateT.run (s := ({} : ShareSt)) (shareExpr e))
+  assemble st.entries root
+
+/-- Build the value of an expression-list definition
+(`… : List Expr`) as one shared `let`-chain. -/
+def buildExprListValue (es : List Setlec.Expr) : Lean.Expr :=
+  let (root, st) := Id.run <| StateT.run (s := ({} : ShareSt)) do
+    let refs ← es.mapM shareExpr
+    return refs.foldr
+      (fun p acc => mkApp3 (.const ``List.cons [.zero]) exprT p acc)
+      (.app (.const ``List.nil [.zero]) exprT)
+  assemble st.entries root
+
+/-! ## Operation specifications -/
+
+/-- Name-component prefixes of local helper machinery.  Any *definition*
+under one of these (except the public operations themselves) is
+delta-unfolded into the pin, so the pin survives helper refactoring in
+either the toolchain or the stream. -/
+structure OpSpec where
+  /-- The pinned operation. -/
+  op : Lean.Name
+  /-- The generated definitions' names: `pinName : Expr` (the pinned
+  defining expression) and `proofsName : List Expr` (the certificate
+  proofs). -/
+  pinName : Lean.Name
+  proofsName : Lean.Name
+  /-- Helper-name prefixes to delta-unfold into the pin. -/
+  helperPrefixes : List Lean.Name
+  /-- Certificate proofs: generator theorem names, in the order of the
+  hand-pinned statements (`Setlec/Kernel/Checker.lean`). -/
+  certs : List Lean.Name
+
+def opSpecs : List OpSpec :=
+  [{ op := `Nat.mod, pinName := `Setlec.natModDeclPin,
+     proofsName := `Setlec.natModCertProofs,
+     helperPrefixes := [`Nat.div, `Nat.mod, `Nat.modCore, `Nat.divCore],
+     certs := [`Setlec.PinGen.modRecCert, `Setlec.PinGen.modBaseGtCert, `Setlec.PinGen.modBaseZeroCert] },
+   { op := `Nat.div, pinName := `Setlec.natDivDeclPin,
+     proofsName := `Setlec.natDivCertProofs,
+     helperPrefixes := [`Nat.div, `Nat.mod, `Nat.modCore, `Nat.divCore],
+     certs := [`Setlec.PinGen.divRecCert, `Setlec.PinGen.divBaseGtCert, `Setlec.PinGen.divBaseZeroCert] },
+   { op := `Nat.gcd, pinName := `Setlec.natGcdDeclPin,
+     proofsName := `Setlec.natGcdCertProofs,
+     helperPrefixes := [`Nat.gcd],
+     certs := [`Setlec.PinGen.gcdRecCert, `Setlec.PinGen.gcdBaseCert] },
+   { op := `Nat.shiftLeft, pinName := `Setlec.natShiftLeftDeclPin,
+     proofsName := `Setlec.natShiftLeftCertProofs,
+     helperPrefixes := [`Nat.shiftLeft],
+     certs := [`Setlec.PinGen.shiftLeftRecCert, `Setlec.PinGen.shiftLeftBaseCert] },
+   { op := `Nat.shiftRight, pinName := `Setlec.natShiftRightDeclPin,
+     proofsName := `Setlec.natShiftRightCertProofs,
+     helperPrefixes := [`Nat.shiftRight],
+     certs := [`Setlec.PinGen.shiftRightRecCert, `Setlec.PinGen.shiftRightBaseCert] },
+   { op := `Nat.log2, pinName := `Setlec.natLog2DeclPin,
+     proofsName := `Setlec.natLog2CertProofs,
+     helperPrefixes := [`Nat.log2],
+     certs := [`Setlec.PinGen.log2RecCert, `Setlec.PinGen.log2BaseCert] },
+   { op := `Nat.land, pinName := `Setlec.natLandDeclPin,
+     proofsName := `Setlec.natLandCertProofs,
+     helperPrefixes := [`Nat.land],
+     certs := [`Setlec.PinGen.landRecCert, `Setlec.PinGen.landBaseCert] },
+   { op := `Nat.lor, pinName := `Setlec.natLorDeclPin,
+     proofsName := `Setlec.natLorCertProofs,
+     helperPrefixes := [`Nat.lor],
+     certs := [`Setlec.PinGen.lorRecCert, `Setlec.PinGen.lorBaseCert] },
+   { op := `Nat.xor, pinName := `Setlec.natXorDeclPin,
+     proofsName := `Setlec.natXorCertProofs,
+     helperPrefixes := [`Nat.xor],
+     certs := [`Setlec.PinGen.xorRecCert, `Setlec.PinGen.xorBaseCert] }]
+
+/-! ## The generator command -/
+
+/-- The stream-prefix allowlists (`scripts/extract_natop_prefix.py`). -/
+def natopPrefixJson : String :=
+  include_str "../scripts/natop_prefix.json"
+
+def loadPrefixes : Except String (Std.HashMap String (List String)) := do
+  let j ← Json.parse natopPrefixJson
+  let o ← j.getObj?
+  let mut m : Std.HashMap String (List String) := {}
+  for ⟨k, v⟩ in o.toArray do
+    let arr ← v.getArr?
+    m := m.insert k (arr.toList.filterMap (·.getStr?.toOption))
+  return m
+
+def isHelper (env : Environment) (spec : OpSpec) (c : Lean.Name) :
+    Bool :=
+  c != spec.op &&
+  spec.helperPrefixes.any (·.isPrefixOf c) &&
+  match env.find? c with
+  | some (.defnInfo _) => true
+  | _ => false
+
+/-- Compute one operation's pin and certificate proofs from the
+compiling environment (no splicing). -/
+def computeOp (prefixes : Std.HashMap String (List String)) (spec : OpSpec) :
+    MetaM (Setlec.Expr × List Setlec.Expr) := do
+  let env ← getEnv
+  let some allowedList := prefixes[spec.op.toString]? |
+    throwError "no stream prefix for {spec.op} in scripts/natop_prefix.json"
+  let allowedSet : NameSet :=
+    allowedList.foldl (fun s n => s.insert n.toName) {}
+  let allowed := fun c => allowedSet.contains c
+  let allowedOrSelf := fun c => allowed c || c == spec.op
+  -- the pinned defining expression: unfold local helpers, then inline
+  -- any remaining non-prefix definition (e.g. `and` spelled `Bool.and`
+  -- in the stream)
+  let some (.defnInfo v) := env.find? spec.op |
+    throwError "{spec.op} is not a definition in the compiling environment"
+  let pin ← unfoldFix (isHelper env spec) v.value
+  let pin ← inlineClosure allowed pin
+  checkConsts s!"pin {spec.op}" allowed pin
+  let pinS ← match toSetlec pin with
+    | .ok e => pure e
+    | .error m => throwError "pin conversion ({spec.op}): {m}"
+  -- the certificate proofs, closed over the stream prefix
+  let mut proofsS : List Setlec.Expr := []
+  for thmName in spec.certs do
+    let some ci := env.find? thmName | throwError "{thmName} missing"
+    let some pf := ci.value? (allowOpaque := true) |
+      throwError "{thmName} has no value"
+    let pf ← inlineClosure allowedOrSelf pf
+    checkConsts s!"certificate proof {thmName}" allowedOrSelf pf
+    match toSetlec pf with
+    | .ok e => proofsS := proofsS ++ [e]
+    | .error m => throwError "proof conversion ({thmName}): {m}"
+  return (pinS, proofsS)
+
+/-- Splice one operation's computed pin and certificate proofs into the
+ambient environment (kernel-checked, then compiled). -/
+def spliceOp (spec : OpSpec) (pinS : Setlec.Expr)
+    (proofsS : List Setlec.Expr) : Elab.TermElabM Unit := do
+  let pinDecl := Declaration.defnDecl {
+    name := spec.pinName, levelParams := [], type := exprT,
+    value := buildExprValue pinS, hints := .abbrev, safety := .safe }
+  addDecl pinDecl
+  compileDecl pinDecl
+  let proofsDecl := Declaration.defnDecl {
+    name := spec.proofsName, levelParams := [],
+    type := Lean.Expr.app (.const ``List [.zero]) exprT,
+    value := buildExprListValue proofsS, hints := .abbrev, safety := .safe }
+  addDecl proofsDecl
+  compileDecl proofsDecl
+
+/-- Generate the pin definitions for every operation in `opSpecs`.
+
+The *computation* runs in a dedicated full-view environment
+(`importModules` at `OLeanLevel.private`, over the same oleans the
+compiling environment was built from): the invoking module is a
+`module`, whose ambient environment has imported theorem *proofs*
+stripped, and the generator must inline exactly those proofs when it
+closes the certificates over the stream prefix.  The *splicing* targets
+the ambient environment. -/
+elab "#gen_natop_pins" : command => do
+  let prefixes ← match loadPrefixes with
+    | .ok m => pure m
+    | .error e => throwError "bad scripts/natop_prefix.json: {e}"
+  let genEnv ← importModules (loadExts := false) (level := .private)
+    #[{module := `Init}, {module := `Setlec.PinGen.Certs}] {} 0
+  let mut results : List (OpSpec × Setlec.Expr × List Setlec.Expr) := []
+  let opts ← getOptions
+  for spec in opSpecs do
+    let (r, _, _) ←
+      try
+        (computeOp prefixes spec).toIO
+          { fileName := "<gen_natop_pins>", fileMap := default,
+            options := opts, maxRecDepth := 1000000, maxHeartbeats := 0 }
+          { env := genEnv }
+      catch e =>
+        throwError "pin generation for {spec.op} failed: {e.toMessageData}"
+    results := results ++ [(spec, r.1, r.2)]
+  Elab.Command.liftTermElabM do
+    for (spec, pinS, proofsS) in results do
+      spliceOp spec pinS proofsS
+
+end Setlec.PinGen

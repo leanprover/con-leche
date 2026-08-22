@@ -430,6 +430,13 @@ def natBeqName : Name := natName.str "beq"
 def natBleName : Name := natName.str "ble"
 def natDivName : Name := natName.str "div"
 def natModName : Name := natName.str "mod"
+def natGcdName : Name := natName.str "gcd"
+def natLandName : Name := natName.str "land"
+def natLorName : Name := natName.str "lor"
+def natXorName : Name := natName.str "xor"
+def natShiftLeftName : Name := natName.str "shiftLeft"
+def natShiftRightName : Name := natName.str "shiftRight"
+def natLog2Name : Name := natName.str "log2"
 def boolName : Name := .str .anonymous "Bool"
 def boolTrueName : Name := boolName.str "true"
 def boolFalseName : Name := boolName.str "false"
@@ -444,11 +451,15 @@ fast path: at install, `checkDecl` compares the stream's definition
 against a vendored pin of the toolchain's own (helper-unfolded)
 definition by definitional equality, and then checks the pinned
 `Nat.ble`-guarded characterization certificates
-(`Setlec/Kernel/DivModPins.lean`) like theorem declarations — without
+(`Setlec/Kernel/NatOpPins.lean`) like theorem declarations — without
 installing them.  Presence in the store is therefore again the
-capability: a stored `Nat.div`/`Nat.mod` has passed pin and
-certificates, or the install declined. -/
-def natDivModNames : List Name := [natDivName, natModName]
+capability: a stored operation under one of these names has passed pin
+and certificates, or the install declined.  (The name is historic:
+the family started with `Nat.div`/`Nat.mod` and now covers every
+pin-certified WF-recursive kernel-accelerated `Nat` operation.) -/
+def natDivModNames : List Name :=
+  [natDivName, natModName, natGcdName, natLandName, natLorName,
+   natXorName, natShiftLeftName, natShiftRightName, natLog2Name]
 
 /-- The operations (transitively) involved in `c`'s recurrences. -/
 def natOpDeps (c : Name) : List Name :=
@@ -461,6 +472,19 @@ def natOpDeps (c : Name) : List Name :=
   else if c = natBleName then [natBleName]
   else if c = natDivName then [natPredName, natSubName, natBleName, natDivName]
   else if c = natModName then [natPredName, natSubName, natBleName, natModName]
+  else if c = natGcdName then [natBleName, natModName, natGcdName]
+  else if c = natLandName then
+    [natAddName, natMulName, natBleName, natDivName, natModName, natLandName]
+  else if c = natLorName then
+    [natAddName, natSubName, natMulName, natBleName, natDivName, natModName,
+     natLorName]
+  else if c = natXorName then
+    [natAddName, natMulName, natBleName, natDivName, natModName, natXorName]
+  else if c = natShiftLeftName then
+    [natSubName, natMulName, natBleName, natShiftLeftName]
+  else if c = natShiftRightName then
+    [natSubName, natBleName, natDivName, natShiftRightName]
+  else if c = natLog2Name then [natBleName, natDivName, natLog2Name]
   else []
 
 /-- The defining recurrence equations of a structural-Nat operation,
@@ -504,6 +528,15 @@ def natOpResult (c : Name) (a b : Nat) : Option Expr :=
   else if c = natPowName then some (.lit (.natVal (a ^ b)))
   else if c = natDivName then some (.lit (.natVal (a / b)))
   else if c = natModName then some (.lit (.natVal (a % b)))
+  else if c = natGcdName then some (.lit (.natVal (Nat.gcd a b)))
+  else if c = natLandName then some (.lit (.natVal (Nat.land a b)))
+  else if c = natLorName then some (.lit (.natVal (Nat.lor a b)))
+  else if c = natXorName then some (.lit (.natVal (Nat.xor a b)))
+  else if c = natShiftLeftName then
+    some (.lit (.natVal (Nat.shiftLeft a b)))
+  else if c = natShiftRightName then
+    some (.lit (.natVal (Nat.shiftRight a b)))
+  else if c = natLog2Name then some (.lit (.natVal (Nat.log2 a)))
   else if c = natBeqName then
     some (.const (if a = b then boolTrueName else boolFalseName) [])
   else if c = natBleName then
@@ -519,7 +552,7 @@ def natOpGuard (env : Env) (c : Name) : Bool :=
   (natOpDeps c).all (fun n => match env.find? n with
     | some (.defnInfo cv _ _) => cv.levelParams.isEmpty
     | _ => false) &&
-  (if c = natBeqName || c = natBleName || c = natDivName || c = natModName then
+  (if c = natBeqName || c = natBleName || natDivModNames.contains c then
     (match env.find? boolTrueName with
       | some ci => ci.toConstantVal.levelParams.isEmpty
       | none => false) &&
@@ -528,20 +561,17 @@ def natOpGuard (env : Env) (c : Name) : Bool :=
       | none => false)
    else true)
 
-/-- WF-recursive `Nat` operations *without* a verified fast path
-(`gcd`, the bit operations, `log2`), plus — as a safety net — the
-pin-certified `div`/`mod`, which the preceding certified branch
-normally intercepts: when their capability is absent (op not stored,
-or a dependency missing — a mismatching declaration already declined
-at install), a *literal application* is positively declined (arena
-exit 2) rather than ground unary through the fuel recursion.
-Declaring the functions themselves is unaffected: only the reduction
-path declines. -/
+/-- The pin-certified WF-recursive `Nat` operations, as a *safety
+net*: the preceding certified branches normally intercept literal
+applications, so this list only fires when a capability is absent
+(op not stored, or a dependency missing — a mismatching declaration
+already declined at install); such a *literal application* is then
+positively declined (arena exit 2) rather than ground unary through
+the fuel recursion.  Declaring the functions themselves is
+unaffected: only the reduction path declines. -/
 def natOpWfNames : List Name :=
-  [natDivName, natModName, natName.str "gcd",
-   natName.str "land", natName.str "lor", natName.str "xor",
-   natName.str "shiftLeft", natName.str "shiftRight",
-   natName.str "log2"]
+  [natDivName, natModName, natGcdName, natLandName, natLorName,
+   natXorName, natShiftLeftName, natShiftRightName, natLog2Name]
 
 /-- Substitute the level-monomorphic constant `n` by `r` through an
 application spine (the certification equations' self-references; the
@@ -593,7 +623,7 @@ operations, `Nat → Nat → Bool` for the comparisons.  The codomain-sort
 annotations must be equivalent to `1`.  The model reads the
 operations' function-space memberships off this shape. -/
 def natOpTyPinned (env : Env) (c : Name) (ty : Expr) : Bool :=
-  if c = natPredName then
+  if c = natPredName || c = natLog2Name then
     match ty with
     | .forallE _ dom body mb =>
       dom == .const natName [] && natOpCod env c body && natCod1 mb
@@ -634,7 +664,13 @@ def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
       match rawNatLit? (← r.whnf depth a) with
       | some n => pure (natOpResult c n 0)
       | none => pure none
-    else if c = natName.str "log2" ∧ natLitSupported env then
+    else if c = natLog2Name ∧ natOpGuard env c = true then
+      match rawNatLit? (← r.whnf depth a) with
+      | some n => pure (natOpResult c n 0)
+      | none => pure none
+    else if c = natLog2Name ∧ natLitSupported env then
+      -- capless `log2` literal: positively decline (safety net; a
+      -- mismatching declaration already declined at install)
       match rawNatLit? (← r.whnf depth a) with
       | some _ => throw (.notImplemented
           s!"native Nat computation on literals ({c})")
@@ -643,7 +679,9 @@ def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
   | .app (.app (.const c []) a) b =>
     if (c = natAddName ∨ c = natSubName ∨ c = natMulName ∨
         c = natPowName ∨ c = natBeqName ∨ c = natBleName ∨
-        c = natDivName ∨ c = natModName) ∧
+        c = natDivName ∨ c = natModName ∨ c = natGcdName ∨
+        c = natLandName ∨ c = natLorName ∨ c = natXorName ∨
+        c = natShiftLeftName ∨ c = natShiftRightName) ∧
         natOpGuard env c = true then
       match rawNatLit? (← r.whnf depth a),
           rawNatLit? (← r.whnf depth b) with

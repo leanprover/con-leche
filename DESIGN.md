@@ -630,14 +630,16 @@ literal fast path through **pinned declarations plus checked
 characterization certificates** — never by grinding the fuel recursion
 on literals.
 
-* **Pinned defining expressions.**  A dev-time generator
-  (`scripts/GenDivModPins.lean`, run against the toolchain's own
-  prelude — nothing hand-transcribed) reads `Nat.div`/`Nat.mod` from
-  the ambient environment and delta-unfolds every local helper
+* **Pinned defining expressions.**  An *elab-time* generator
+  (`Setlec/PinGen.lean`, see "Elab-time pin generation" below — run
+  against the toolchain's own prelude at `lake build` time, nothing
+  hand-transcribed and nothing vendored) reads `Nat.div`/`Nat.mod`
+  from the compiling environment and delta-unfolds every local helper
   (`Nat.modCore`, `Nat.modCore.go`, `Nat.div.go`, matchers, `._f`
-  functionals) into one closed expression per op over stream-universal
-  ground constants, vendored with hash-consed `let`-sharing as
-  `Setlec/Kernel/DivModPins.lean`.  At install (`checkDivModPin`,
+  functionals) into one closed expression per op over stream-present
+  ground constants (non-prefix *definitions* are inlined too, e.g.
+  `and`), spliced with hash-consed `let`-sharing into
+  `Setlec/Kernel/NatOpPins.lean`.  At install (`checkDivModPin`,
   after the ordinary definition check) the stream's stored value is
   compared against the pin by **definitional equality** (one
   `isDefEq` at depth 0) — robust to helper factoring/naming drift
@@ -664,10 +666,12 @@ on literals.
   fuel-congruence and one-step `eq_def` unfoldings are reproved from
   scratch), then closed over the stream prefix by inlining every
   constant that is not declared before the op in the stream (the
-  allowlist is extracted from the stream by
-  `scripts/extract_divmod_prefix.py`; a non-prefix *inductive* aborts
-  generation loudly).  At install each certificate is checked exactly
-  like a theorem over an opened telescope — the vendored proof,
+  allowlists are extracted from the supported streams — intersected
+  per op — by `scripts/extract_natop_prefix.py` into
+  `scripts/natop_prefix.json`; a non-prefix *inductive* aborts
+  generation loudly, i.e. fails the build).  At install each
+  certificate is checked exactly
+  like a theorem over an opened telescope — the generated proof,
   self-references substituted with the stored annotated value
   (pre-insertion, like the structural-Nat certification: post-insertion
   the op's own just-enabled fast path would participate in checking
@@ -712,6 +716,135 @@ on literals.
   over the literal, with the guards computed by `natOpVal_ble` and the
   step by `natOpVal_sub`, pins the op's value on literals to the
   metatheory's own `Nat.div`/`Nat.mod`.
+
+### Elab-time pin generation (2026-08-22, task #53)
+
+The vendored pin blobs of task #47 are replaced by **generation at
+`lake build` time**: `Setlec/PinGen.lean` provides `ToExpr` instances
+for the checker's `Name`/`Level`/`Expr` types, the helper-unfolding and
+prefix-closure machinery, and a command elaborator `#gen_natop_pins`
+that `Setlec/Kernel/NatOpPins.lean` invokes.  The command reads each
+pinned operation and its certificate proofs (theorems in
+`Setlec/PinGen/Certs.lean`, elaborated against the real toolchain
+prelude) from the build's own oleans, closes them over the stream
+prefix, and splices `nat…DeclPin : Expr` / `nat…CertProofs : List Expr`
+into the invoking module as kernel-checked, compiled definitions with
+hash-consed `let`-sharing (a memoized builder; the plain `ToExpr`
+instances would lose all sharing).  An out-of-prefix dependency is a
+hard build error.  Contract points:
+
+* **Statements are the interface.**  The certificate *statements* stay
+  hand-pinned in `Setlec/Kernel/Checker.lean` (`divModCertStmts`); only
+  def pins and proof blobs are generated.  A toolchain bump regenerates
+  those silently; the checker cares only that the pinned statements
+  still check.  One pin and one proof list per op (no multi-variant
+  lists — revisit only if two prelude spellings must be supported at
+  once).
+* **Layering via the module system.**  `Setlec/Kernel/Expr.lean`,
+  `Setlec/PinGen/*.lean` and `Setlec/Kernel/NatOpPins.lean` are
+  `module`s; `NatOpPins` reaches the generator through
+  `meta import Setlec.PinGen`, so `Lean.*` stays out of the runtime
+  import closure (the setlec binary grew ~2 MB for the pins data, not
+  ~100 MB for libLean; checker runtime code never touches `Lean.*`
+  APIs).  Because a `module`'s ambient environment strips imported
+  theorem *proofs* (and `meta import all Lean` does not restore
+  cross-package proofs — probed: `dif_pos` has no value there), the
+  generator computes in a dedicated full-view environment
+  (`importModules` at `OLeanLevel.private` over `Init` and the
+  certificate module) and splices into the ambient one.
+* **Prefix allowlists** (`scripts/natop_prefix.json`, from
+  `scripts/extract_natop_prefix.py`) are checked-in generator *input*
+  (an allowlist of stream-declared names, not a blob), extracted from
+  the supported streams and intersected per op.  The install-time
+  `constsResolve` guards remain the actual gate; the allowlist only
+  makes generation fail early and loudly.
+* **StdAxioms pins** are small and stay vendored
+  (`Setlec/Kernel/StdAxioms.lean`); basis blocks (`PSigma'` …) are
+  preprocessor-owned and out of scope for the generator.
+
+### The remaining GMP `Nat` operations (2026-08-22, task #54)
+
+The official accelerator whitelist's seven remaining operations —
+`Nat.gcd`, `Nat.land`, `Nat.lor`, `Nat.xor`, `Nat.shiftLeft`,
+`Nat.shiftRight`, `Nat.log2` — join the `div`/`mod` family (the
+`natDivModNames` list, now nine operations; the name is historic).
+Each follows exactly the pinned-declaration pattern: elab-time def pin
+(defeq gate, mismatch declines), hand-pinned `ble`-guarded
+characterization statements in `divModCertStmts`, generated proof
+blobs checked pre-insertion, capability = presence, value-level
+clauses in `DivModClauses` (per-op dispatch), once-per-op uniqueness
+lemmas (`natOpVal_gcd` … in `Setlec/Model/NatOps.lean`, strong
+induction over the literal), consumed by `reduceNat_sound`.
+
+* **Statements** (all over the `x`/`y` frame; guards via certified
+  `Nat.ble`; numerals as `succ`/`zero` chains):
+  - `gcd`: `1 ≤ x → gcd x y = gcd (y % x) x`; `x = 0 → gcd x y = y`.
+  - `shiftLeft`: `1 ≤ y → x <<< y = (2*x) <<< (y-1)`; `y = 0 → = x`.
+  - `shiftRight`: `1 ≤ y → x >>> y = (x >>> (y-1)) / 2`; `y = 0 → = x`.
+  - `log2`: `2 ≤ x → log2 x = succ (log2 (x/2))`; `x < 2 → = 0`.
+    `log2` is **unary**: the statements still quantify over both frame
+    variables (`y` unused), so the certificate check, `checkDivModCerts`
+    and the frame machinery stay uniform; only the *model* side
+    branches (a unary `natOpTyPinned` shape shared with `pred`, a
+    unary function-space membership, and `eqSide_app1` in place of
+    `eqSide_app2` in the bridge).
+  - `land`/`lor`/`xor` (`Nat.bitwise` at `and`/`or`/`bne`): the
+    recurrence characterizes the operation **arithmetically** — the
+    combined low bit is `(x%2)*(y%2)` for `and`,
+    `x%2 + y%2 - (x%2)*(y%2)` for `or`, `(x%2 + y%2) % 2` for `bne` —
+    `1 ≤ x → op x y = 2*(op (x/2) (y/2)) + bit`, with bases
+    `x = 0 → land x y = 0` and `x = 0 → lor/xor x y = y`.  This keeps
+    the statements over already-certified ground only (`add`/`sub`/
+    `mul`/`div`/`mod`) — no `Bool` combinators, no `ite`, no
+    per-bit-case guard explosion.
+
+* **Certificate-proof constraints.**  The bit operations sit in the
+  stream's `Init.Prelude` region — before `HAnd`/`AndOp`, `testBit`,
+  `Trans`, `Subsingleton`, `Lean.RArray` even exist — so their proofs
+  can use neither `omega` (RArray in the atom certificates), `calc`
+  (`Trans`), the public bitwise lemma API (`HAnd` in the statements),
+  nor the auto-generated `Nat.bitwise.eq_def` (its proof mentions
+  `Subsingleton`).  Instead `Setlec/PinGen/Certs.lean` derives a
+  one-step unfolding from `WellFounded.Nat.fix_eq` directly (via
+  `delta`; WF definitions are irreducible) and finishes with
+  elementary `Nat` rewriting.  The later ops (`gcd` at its stream
+  position, `log2`) have `Iff`/`And`/`propext`/`Int` prefix-present
+  and use ordinary core lemmas (`Nat.gcd_succ`, `Nat.log2_def`); the
+  shifts are structural and their recurrences are `rfl`.
+
+* **Uniqueness lemma shapes.**  `gcd`/`land`/`lor`/`xor`: strong
+  induction on the first literal with the second generalized (step at
+  `y % x` resp. `x/2`, `y/2`); shifts: strong induction on the second
+  literal with the first generalized; `log2`: strong induction on the
+  single literal.  The bit operations' metatheory-side recurrences are
+  the *generator's own certificate theorems reused at the meta level*
+  (`Setlec/Model/NatOps.lean` imports `Setlec.PinGen.Certs`); their
+  guards are bridged with `Nat.ble_eq_true_of_le`.
+
+* **Model plumbing.**  `DivModEqs` is now
+  `∀ ψ x y ∈ Nat, DivModClauses val c ψ x y` with a per-op clause
+  dispatch mirroring the pinned statements; `DivModEqs.val_congr` and
+  `DivModOk.cons` are generic over the family (agreement at the
+  `Nat`/`Bool` pins plus `natOpDeps c`, which by construction contains
+  every operation a clause mentions).  The certificate bridge
+  (`divmod_certs_sound`) is one nine-case proof over generalized
+  clause extractors (`clause_extract1/2` now take the equation's
+  left-hand side as an arbitrary `Nat`-typed spine).
+
+* **Fixtures.**  `scripts/mk_natop_fixture.py` builds per-op e2e
+  fixtures by *dependency-closure slicing* of the full-Init export
+  (keeping the preprocessor's `_model` companion families and every
+  pin/certificate ground constant, incl. those of pin-ops pulled into
+  the closure), plus a literal `Eq.refl` use (accept) or a perturbed
+  op body (decline); committed gzipped under `tests/e2e/`.
+
+* **Findings.**  No operation resisted: all seven land with the
+  ble-guarded defeq-checkable statement forms.  The full Init stream
+  itself still does not check end-to-end for unrelated reasons
+  (frontend memory on the 336 MB export; the `Lean.trustCompiler`
+  axiom declines by design; the known `Unit.sizeOf` mismatch) — the
+  previous positive declines at `Nat.land`/`Nat.shiftRight`/… literal
+  uses are gone.
 
 ## Kernel design review triage (2026-08-20)
 

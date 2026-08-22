@@ -2,8 +2,19 @@ name = "setlec"
 defaultTargets = ["Setlec", "setlec"]
 testDriver = "SetlecTests"
 
+# The pin-generator's certificate theorems (Setlec/PinGen/Certs.lean) are
+# a classic (non-`module`) library: the proofs unfold core definition
+# bodies, which the module system hides.  `Setlec/Kernel/NatOpPins.lean`
+# loads the built olean into the generator's full-view environment at
+# elaboration time, so it must be built first — hence the
+# `extraDepTargets` below.
+[[lean_lib]]
+name = "SetlecPinCerts"
+roots = ["Setlec.PinGen.Certs"]
+
 [[lean_lib]]
 name = "Setlec"
+extraDepTargets = ["SetlecPinCerts"]
 
 [[lean_lib]]
 name = "SetlecTests"
@@ -12,7 +23,9 @@ srcDir = "tests"
 [[lean_exe]]
 name = "setlec"
 root = "Main"
+extraDepTargets = ["SetlecPinCerts"]
 
 [[lean_exe]]
 name = "annotate-basis"
 root = "AnnotateBasis"
+extraDepTargets = ["SetlecPinCerts"]
