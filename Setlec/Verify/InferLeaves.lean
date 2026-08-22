@@ -607,19 +607,30 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
     | lit l0 =>
       rw [inferTypeCore_succ] at h
       match l0, h with
-      | .natVal n, h => ?_
-      | .strVal s, h =>
-        simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
-      dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
-      revert h
-      split
-      case isFalse =>
-        intro h
-        simp [throw, throwThe, MonadExceptOf.throw] at h
-      case isTrue =>
-        intro h
-        simp only [Except.ok.injEq] at h
-        subst h; simp [WScoped]
+      | .natVal n, h => ?natCase
+      | .strVal s, h => ?strCase
+      case strCase =>
+        dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
+        revert h
+        split
+        case isFalse =>
+          intro h
+          simp [throw, throwThe, MonadExceptOf.throw] at h
+        case isTrue =>
+          intro h
+          simp only [Except.ok.injEq] at h
+          subst h; simp [WScoped]
+      case natCase =>
+        dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
+        revert h
+        split
+        case isFalse =>
+          intro h
+          simp [throw, throwThe, MonadExceptOf.throw] at h
+        case isTrue =>
+          intro h
+          simp only [Except.ok.injEq] at h
+          subst h; simp [WScoped]
     | forallE n ty body m =>
       cases hc : m.cod with
       | none =>
@@ -711,19 +722,30 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
     | lit l0 =>
       rw [inferTypeCore_succ] at h
       match l0, h with
-      | .natVal n, h => ?_
-      | .strVal s, h =>
-        simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
-      dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
-      revert h
-      split
-      case isFalse =>
-        intro h
-        simp [throw, throwThe, MonadExceptOf.throw] at h
-      case isTrue =>
-        intro h
-        simp only [Except.ok.injEq] at h
-        subst h; intro l hl; simp [fvarLeaves] at hl
+      | .natVal n, h => ?natCase
+      | .strVal s, h => ?strCase
+      case strCase =>
+        dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
+        revert h
+        split
+        case isFalse =>
+          intro h
+          simp [throw, throwThe, MonadExceptOf.throw] at h
+        case isTrue =>
+          intro h
+          simp only [Except.ok.injEq] at h
+          subst h; intro l hl; simp [fvarLeaves] at hl
+      case natCase =>
+        dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
+        revert h
+        split
+        case isFalse =>
+          intro h
+          simp [throw, throwThe, MonadExceptOf.throw] at h
+        case isTrue =>
+          intro h
+          simp only [Except.ok.injEq] at h
+          subst h; intro l hl; simp [fvarLeaves] at hl
     | forallE n ty body m =>
       cases hc : m.cod with
       | none =>
@@ -833,19 +855,30 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
     | lit l0 =>
       rw [inferTypeCore_succ] at h
       match l0, h with
-      | .natVal n, h => ?_
-      | .strVal s, h =>
-        simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
-      dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
-      revert h
-      split
-      case isFalse =>
-        intro h
-        simp [throw, throwThe, MonadExceptOf.throw] at h
-      case isTrue =>
-        intro h
-        simp only [Except.ok.injEq] at h
-        subst h; simp [looseBVarsBounded]
+      | .natVal n, h => ?natCase
+      | .strVal s, h => ?strCase
+      case strCase =>
+        dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
+        revert h
+        split
+        case isFalse =>
+          intro h
+          simp [throw, throwThe, MonadExceptOf.throw] at h
+        case isTrue =>
+          intro h
+          simp only [Except.ok.injEq] at h
+          subst h; simp [looseBVarsBounded]
+      case natCase =>
+        dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
+        revert h
+        split
+        case isFalse =>
+          intro h
+          simp [throw, throwThe, MonadExceptOf.throw] at h
+        case isTrue =>
+          intro h
+          simp only [Except.ok.injEq] at h
+          subst h; simp [looseBVarsBounded]
     | forallE n ty body m =>
       cases hc : m.cod with
       | none =>

@@ -935,7 +935,17 @@ theorem annotateBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     split
     · exact DiscV.pure (by simp [WScoped])
     · exact DiscV.throw _
-  | .lit (.strVal s) => exact DiscV.throw _
+  | .lit (.strVal s) =>
+    show DiscV env _
+      (if strLitSupported env then pure (Expr.lit (.strVal s))
+       else throw (.notImplemented
+         "string literals before the String support declarations"))
+      (if strLitSupported env then pure (Expr.lit (.strVal s))
+       else throw (.notImplemented
+         "string literals before the String support declarations"))
+    split
+    · exact DiscV.pure (by simp [WScoped])
+    · exact DiscV.throw _
   | .letE _ _ _ _ => exact DiscV.throw _
   | .app g' a =>
     have hwfa : WScoped d g' ∧ WScoped d a := by
@@ -1075,7 +1085,18 @@ theorem inferBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     DiscV env (WScoped d) (inferBody C env d e)
       (inferBody G env d e) := by
   match e with
-  | .bvar _ | .letE _ _ _ _ | .lit (.strVal _) => exact DiscV.throw _
+  | .bvar _ | .letE _ _ _ _ => exact DiscV.throw _
+  | .lit (.strVal s) =>
+    show DiscV env _
+      (if strLitSupported env then pure (Expr.const stringName [])
+       else throw (.notImplemented
+         "string literals before the String support declarations"))
+      (if strLitSupported env then pure (Expr.const stringName [])
+       else throw (.notImplemented
+         "string literals before the String support declarations"))
+    split
+    · exact DiscV.pure (by simp [WScoped])
+    · exact DiscV.throw _
   | .sort u => exact DiscV.pure (by simp [WScoped])
   | .fvar idx n ty =>
     have h' : idx < d ∧ WScoped idx ty := by

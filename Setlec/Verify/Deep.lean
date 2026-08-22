@@ -1745,7 +1745,12 @@ private theorem infer_step (henv : EnvWF env)
         (shiftFrom p)
     simp only [inferBody, viewM, Expr.view, pure_bind]
     exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
-  | .lit (.strVal str) => rfl
+  | .lit (.strVal str) =>
+    show inferBody (pureFns env fuel) env (d + 1) (.lit (.strVal str)) =
+      (inferBody (pureFns env fuel) env d (.lit (.strVal str))).map
+        (shiftFrom p)
+    simp only [inferBody, viewM, Expr.view, pure_bind]
+    exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
   | .fvar idx n ty =>
     simp only [WScoped] at hw
     rw [shiftFrom_fvar]
@@ -2214,7 +2219,12 @@ private theorem annotate_step (henv : EnvWF env)
   | .bvar i => rfl
   | .sort u => rfl
   | .const n us => rfl
-  | .lit (.strVal str) => rfl
+  | .lit (.strVal str) =>
+    show annotateBody (pureFns env fuel) env (d + 1) (.lit (.strVal str)) =
+      (annotateBody (pureFns env fuel) env d (.lit (.strVal str))).map
+        (shiftFrom p)
+    simp only [annotateBody]
+    exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
   | .letE n ty v body => rfl
   | .lit (.natVal n) =>
     show annotateBody (pureFns env fuel) env (d + 1) (.lit (.natVal n)) =

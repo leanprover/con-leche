@@ -1,4 +1,4 @@
-import Setlec.Model.NatLit
+import Setlec.Model.StrLit
 import Setlec.Model.FvarsOkLemmas
 import Setlec.Model.Subst
 import Setlec.Verify.Leaves

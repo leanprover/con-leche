@@ -1201,7 +1201,13 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
     | .lit (.natVal _) => do
       if natLitSupported env then pure (.const natName [])
       else throw (.invalid "Nat literal without the Nat basis declarations")
-    | .lit (.strVal _) => throw (.notImplemented "string literals")
+    | .lit (.strVal _) => do
+      -- a string literal types as `String` (the reference kernels'
+      -- `Literal.typeName`); without the pinned support declarations
+      -- this is a positively detected unsupported feature: decline
+      if strLitSupported env then pure (.const stringName [])
+      else throw (.notImplemented
+        "string literals before the String support declarations")
     | .forallE _ ty _ mb => do
       -- The codomain-sort annotation is trusted: the body was checked once,
       -- by real inference, when the annotation was created (`annotate`).
@@ -1547,7 +1553,12 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       -- are stored in the expected shape
       if natLitSupported env then pure (.lit (.natVal n))
       else throw (.invalid "Nat literal without the Nat basis declarations")
-    | .lit (.strVal _) => throw (.notImplemented "string literals")
+    | .lit (.strVal s) => do
+      -- as for `Nat` literals; the missing-support verdict is a
+      -- decline (exit 2), the feature being positively detected
+      if strLitSupported env then pure (.lit (.strVal s))
+      else throw (.notImplemented
+        "string literals before the String support declarations")
     | .app f a => do
       let f' ← r.annotate depth f
       let a' ← r.annotate depth a
