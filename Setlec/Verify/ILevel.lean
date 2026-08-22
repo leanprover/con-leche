@@ -744,4 +744,291 @@ theorem simplifyLIGo_spec :
                 cases hgo
                 exact hElse hSI (by simp [hxls]) (by simp [hxls])
 
+/-! ## `isNonZeroLIGo` -/
+
+/-- Invariant of a level→`Bool` memo implementing `g`. -/
+def LvlQMemoInv (st : EStore) (g : Level → Bool)
+    (memo : Std.HashMap LIdx Bool) : Prop :=
+  ∀ u b, memo[u]? = some b → u < st.lnodes.size ∧
+    ∀ x, st.denoteL u = some x → g x = b
+
+theorem LvlQMemoInv.empty {st : EStore} {g : Level → Bool} :
+    LvlQMemoInv st g {} := by
+  intro u b h
+  simp at h
+
+theorem LvlQMemoInv.mono {st st' : EStore} {g : Level → Bool}
+    {memo : Std.HashMap LIdx Bool} (hext : Ext st st')
+    (h : LvlQMemoInv st g memo) : LvlQMemoInv st' g memo := by
+  intro u b hb
+  obtain ⟨hlt, hcond⟩ := h u b hb
+  refine ⟨Nat.lt_of_lt_of_le hlt hext.lsize_le, ?_⟩
+  intro x hx
+  rw [hext.denoteL_eq_of_lt hlt] at hx
+  exact hcond x hx
+
+theorem LvlQMemoInv.insert {st : EStore} {g : Level → Bool}
+    {memo : Std.HashMap LIdx Bool} {u : LIdx} {b : Bool}
+    (h : LvlQMemoInv st g memo) (hlt : u < st.lnodes.size)
+    (hcond : ∀ x, st.denoteL u = some x → g x = b) :
+    LvlQMemoInv st g (memo.insert u b) := by
+  intro u' b' hb'
+  rw [Std.HashMap.getElem?_insert] at hb'
+  by_cases hk : u = u'
+  · subst hk
+    rw [if_pos (by simp)] at hb'
+    cases hb'
+    exact ⟨hlt, hcond⟩
+  · rw [if_neg (by simpa using hk)] at hb'
+    exact h u' b' hb'
+
+theorem isNonZeroLIGo_spec {st : EStore} (hwf : st.WF) :
+    ∀ (u : LIdx) {memo : Std.HashMap LIdx Bool} {b : Bool}
+      {memo' : Std.HashMap LIdx Bool},
+      LvlQMemoInv st Level.isNonZero memo →
+      isNonZeroLIGo st memo u = (b, memo') →
+      LvlQMemoInv st Level.isNonZero memo' ∧
+        ∀ x, st.denoteL u = some x → x.isNonZero = b := by
+  intro u
+  induction u using Nat.strongRecOn with
+  | _ u ih =>
+    intro memo b memo' hinv hgo
+    unfold isNonZeroLIGo at hgo
+    split at hgo
+    · rename_i hhit
+      cases hgo
+      exact ⟨hinv, (hinv _ _ hhit).2⟩
+    · split at hgo
+      · rename_i hnone
+        cases hgo
+        refine ⟨hinv, ?_⟩
+        intro x hx
+        obtain ⟨n, hn, -, -⟩ := denoteL_some_inv hx
+        rw [hn] at hnone
+        cases hnone
+      · rename_i n hn
+        have husz : u < st.lnodes.size := (Array.getElem?_eq_some_iff.mp hn).1
+        have hcl := hwf.lchildren_lt u n hn
+        have hde := denoteL_node hn hcl
+        cases n with
+        | zero =>
+          dsimp only at hgo
+          cases hgo
+          have hcond : ∀ x, st.denoteL u = some x → x.isNonZero = false := by
+            intro x hxx
+            rw [hde] at hxx
+            cases hxx
+            rfl
+          exact ⟨hinv.insert husz hcond, hcond⟩
+        | param p =>
+          dsimp only at hgo
+          cases hgo
+          have hcond : ∀ x, st.denoteL u = some x → x.isNonZero = false := by
+            intro x hxx
+            rw [hde] at hxx
+            cases hxx
+            rfl
+          exact ⟨hinv.insert husz hcond, hcond⟩
+        | succ l =>
+          dsimp only at hgo
+          cases hgo
+          have hcond : ∀ x, st.denoteL u = some x → x.isNonZero = true := by
+            intro x hxx
+            rw [hde] at hxx
+            rw [denoteLNode, Option.map_eq_some_iff] at hxx
+            obtain ⟨y, -, rfl⟩ := hxx
+            rfl
+          exact ⟨hinv.insert husz hcond, hcond⟩
+        | max a b' =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd ⟨hcl a (by simp [LNode.children]),
+              hcl b' (by simp [LNode.children])⟩ hguard
+          case isTrue hguard =>
+            obtain ⟨xa, hxa⟩ := denoteL_total hwf a
+              (Nat.lt_trans hguard.1 husz)
+            obtain ⟨xb, hxb⟩ := denoteL_total hwf b'
+              (Nat.lt_trans hguard.2 husz)
+            have hx : st.denoteL u = some (.max xa xb) := by
+              rw [hde, denoteLNode, hxa, hxb]; rfl
+            rcases h₁ : isNonZeroLIGo st memo a with ⟨ra, memo₁⟩
+            rw [h₁] at hgo
+            obtain ⟨hinv₁, hden₁⟩ := ih a hguard.1 hinv h₁
+            have hra := hden₁ xa hxa
+            cases hb : ra with
+            | true =>
+              rw [hb] at hgo
+              dsimp only at hgo
+              cases hgo
+              have hcond : ∀ x, st.denoteL u = some x →
+                  x.isNonZero = true := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                simp only [Level.isNonZero]
+                rw [hra, hb, Bool.true_or]
+              exact ⟨hinv₁.insert husz hcond, hcond⟩
+            | false =>
+              rw [hb] at hgo
+              dsimp only at hgo
+              rcases h₂ : isNonZeroLIGo st memo₁ b' with ⟨rb, memo₂⟩
+              rw [h₂] at hgo
+              cases hgo
+              obtain ⟨hinv₂, hden₂⟩ := ih b' hguard.2 hinv₁ h₂
+              have hrb := hden₂ xb hxb
+              have hcond : ∀ x, st.denoteL u = some x →
+                  x.isNonZero = rb := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                simp only [Level.isNonZero]
+                rw [hra, hb, hrb, Bool.false_or]
+              exact ⟨hinv₂.insert husz hcond, hcond⟩
+        | imax a b' =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd (hcl b' (by simp [LNode.children])) hguard
+          case isTrue hguard =>
+            obtain ⟨xa, hxa⟩ := denoteL_total hwf a
+              (Nat.lt_trans (hcl a (by simp [LNode.children])) husz)
+            obtain ⟨xb, hxb⟩ := denoteL_total hwf b'
+              (Nat.lt_trans hguard husz)
+            have hx : st.denoteL u = some (.imax xa xb) := by
+              rw [hde, denoteLNode, hxa, hxb]; rfl
+            rcases h₂ : isNonZeroLIGo st memo b' with ⟨rb, memo₂⟩
+            rw [h₂] at hgo
+            cases hgo
+            obtain ⟨hinv₂, hden₂⟩ := ih b' hguard hinv h₂
+            have hrb := hden₂ xb hxb
+            have hcond : ∀ x, st.denoteL u = some x →
+                x.isNonZero = rb := by
+              intro x hxx
+              rw [hx] at hxx; cases hxx
+              simp only [Level.isNonZero]
+              exact hrb
+            exact ⟨hinv₂.insert husz hcond, hcond⟩
+
+/-! ## `internLevelSubst` -/
+
+theorem internLevelSubst_spec {ks : List Name} {us : List LIdx}
+    {lus : List Level} :
+    ∀ (l : Level) {st : EStore} {r : LIdx} {st' : EStore},
+      st.WF → denoteLList st.denoteL us = some lus →
+      st.internLevelSubst ks us l = (r, st') →
+      st'.WF ∧ Ext st st' ∧
+        st'.denoteL r = some (Level.subst ks lus l) := by
+  intro l
+  induction l with
+  | zero =>
+    intro st r st' hwf hus hgo
+    unfold internLevelSubst at hgo
+    obtain ⟨hwf₁, hext₁, hden₁⟩ := internL_step (n := .zero) hwf
+      (by simp [LNode.children]) (a := .zero) rfl
+    rw [hgo] at hwf₁ hext₁ hden₁
+    exact ⟨hwf₁, hext₁, by simpa [Level.subst] using hden₁⟩
+  | param n =>
+    intro st r st' hwf hus hgo
+    unfold internLevelSubst at hgo
+    cases hv : substLGo? ks us n with
+    | some v =>
+      rw [hv] at hgo
+      dsimp only at hgo
+      cases hgo
+      refine ⟨hwf, Ext.refl st, ?_⟩
+      simpa [Level.subst] using (substLGo?_spec n hus).1 _ hv
+    | none =>
+      rw [hv] at hgo
+      dsimp only at hgo
+      obtain ⟨hwf₁, hext₁, hden₁⟩ := internL_step (n := .param n) hwf
+        (by simp [LNode.children]) (a := .param n) rfl
+      rw [hgo] at hwf₁ hext₁ hden₁
+      refine ⟨hwf₁, hext₁, ?_⟩
+      rw [Level.subst, (substLGo?_spec n hus).2 hv]
+      exact hden₁
+  | succ x ih =>
+    intro st r st' hwf hus hgo
+    unfold internLevelSubst at hgo
+    rcases h₁ : st.internLevelSubst ks us x with ⟨x', st₁⟩
+    rw [h₁] at hgo
+    dsimp only at hgo
+    obtain ⟨hwf₁, hext₁, hden₁⟩ := ih hwf hus h₁
+    obtain ⟨hwf₂, hext₂, hden₂⟩ := internL_step (n := .succ x') hwf₁
+      (by simpa [LNode.children] using denoteL_lt_size hden₁)
+      (a := .succ (Level.subst ks lus x)) (by rw [denoteLNode, hden₁]; rfl)
+    rw [hgo] at hwf₂ hext₂ hden₂
+    exact ⟨hwf₂, hext₁.trans hext₂, by simpa [Level.subst] using hden₂⟩
+  | max x y ihx ihy =>
+    intro st r st' hwf hus hgo
+    unfold internLevelSubst at hgo
+    rcases h₁ : st.internLevelSubst ks us x with ⟨x', st₁⟩
+    rw [h₁] at hgo
+    dsimp only at hgo
+    rcases h₂ : st₁.internLevelSubst ks us y with ⟨y', st₂⟩
+    rw [h₂] at hgo
+    dsimp only at hgo
+    obtain ⟨hwf₁, hext₁, hden₁⟩ := ihx hwf hus h₁
+    obtain ⟨hwf₂, hext₂, hden₂⟩ := ihy hwf₁ (denoteLList_mono hext₁ hus) h₂
+    obtain ⟨hwf₃, hext₃, hden₃⟩ := internL_step (n := .max x' y') hwf₂
+      (by
+        simp only [LNode.children, List.mem_cons, List.not_mem_nil, or_false]
+        rintro c (rfl | rfl)
+        · exact denoteL_lt_size (denoteL_mono hext₂ hden₁)
+        · exact denoteL_lt_size hden₂)
+      (a := .max (Level.subst ks lus x) (Level.subst ks lus y))
+      (by rw [denoteLNode, denoteL_mono hext₂ hden₁, hden₂]; rfl)
+    rw [hgo] at hwf₃ hext₃ hden₃
+    exact ⟨hwf₃, hext₁.trans (hext₂.trans hext₃),
+      by simpa [Level.subst] using hden₃⟩
+  | imax x y ihx ihy =>
+    intro st r st' hwf hus hgo
+    unfold internLevelSubst at hgo
+    rcases h₁ : st.internLevelSubst ks us x with ⟨x', st₁⟩
+    rw [h₁] at hgo
+    dsimp only at hgo
+    rcases h₂ : st₁.internLevelSubst ks us y with ⟨y', st₂⟩
+    rw [h₂] at hgo
+    dsimp only at hgo
+    obtain ⟨hwf₁, hext₁, hden₁⟩ := ihx hwf hus h₁
+    obtain ⟨hwf₂, hext₂, hden₂⟩ := ihy hwf₁ (denoteLList_mono hext₁ hus) h₂
+    obtain ⟨hwf₃, hext₃, hden₃⟩ := internL_step (n := .imax x' y') hwf₂
+      (by
+        simp only [LNode.children, List.mem_cons, List.not_mem_nil, or_false]
+        rintro c (rfl | rfl)
+        · exact denoteL_lt_size (denoteL_mono hext₂ hden₁)
+        · exact denoteL_lt_size hden₂)
+      (a := .imax (Level.subst ks lus x) (Level.subst ks lus y))
+      (by rw [denoteLNode, denoteL_mono hext₂ hden₁, hden₂]; rfl)
+    rw [hgo] at hwf₃ hext₃ hden₃
+    exact ⟨hwf₃, hext₁.trans (hext₂.trans hext₃),
+      by simpa [Level.subst] using hden₃⟩
+
+theorem internLevelSubsts_spec {ks : List Name} {us : List LIdx}
+    {lus : List Level} :
+    ∀ (ls : List Level) {st : EStore} {rs : List LIdx} {st' : EStore},
+      st.WF → denoteLList st.denoteL us = some lus →
+      st.internLevelSubsts ks us ls = (rs, st') →
+      st'.WF ∧ Ext st st' ∧
+        denoteLList st'.denoteL rs
+          = some (ls.map (Level.subst ks lus)) := by
+  intro ls
+  induction ls with
+  | nil =>
+    intro st rs st' hwf hus hgo
+    cases hgo
+    exact ⟨hwf, Ext.refl st, rfl⟩
+  | cons l ls ih =>
+    intro st rs st' hwf hus hgo
+    unfold internLevelSubsts at hgo
+    rcases h₁ : st.internLevelSubst ks us l with ⟨r, st₁⟩
+    rw [h₁] at hgo
+    dsimp only at hgo
+    rcases h₂ : st₁.internLevelSubsts ks us ls with ⟨rs', st₂⟩
+    rw [h₂] at hgo
+    dsimp only at hgo
+    cases hgo
+    obtain ⟨hwf₁, hext₁, hden₁⟩ := internLevelSubst_spec l hwf hus h₁
+    obtain ⟨hwf₂, hext₂, hden₂⟩ := ih hwf₁ (denoteLList_mono hext₁ hus) h₂
+    refine ⟨hwf₂, hext₁.trans hext₂, ?_⟩
+    simp [denoteLList, denoteL_mono hext₂ hden₁, hden₂]
+
 end Setlec
