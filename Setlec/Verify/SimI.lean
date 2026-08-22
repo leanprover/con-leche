@@ -215,6 +215,24 @@ protected theorem bind_pure_left {β β' α : Type}
   simpa only [Bind.bind, StateT.bind, pure, StateT.pure, Except.pure,
     Except.bind] using hr
 
+/-- Peel a pure value bound on the fueled side. -/
+protected theorem bind_pure_right {β α α' : Type}
+    {P : IState → β → α' → Prop} {c : CheckIM β} {a : α}
+    {k : α → FueledM α'}
+    (h : SimAt env s₀ P c (k a)) :
+    SimAt env s₀ P c (pure a >>= k) := by
+  intro v' s' hr
+  obtain ⟨hs', hext, v, hP, F, hp⟩ := h v' s' hr
+  exact ⟨hs', hext, v, hP, F, hp⟩
+
+/-- A twin-side `throw` composed with anything never succeeds. -/
+protected theorem throw_bind {β β' α : Type}
+    {P : IState → β' → α → Prop} {er : CheckError}
+    {k : β → CheckIM β'} {p : FueledM α} :
+    SimAt env s₀ P ((throw er : CheckIM β) >>= k) p := by
+  intro v' s' hr
+  exact nomatch hr
+
 /-- Peel a read (`viewI`): same state, value = the node lookup. -/
 protected theorem view {β α : Type} {P : IState → β → α → Prop}
     {e : EIdx} {k : Option ENode → CheckIM β} {p : FueledM α}
