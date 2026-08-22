@@ -347,6 +347,11 @@ private theorem inst1M_run (e v : EIdx) (d : Nat) (s : IState) :
     inst1M e v d s = .ok ((s.store.instantiate1I e v d).1,
       { s with store := (s.store.instantiate1I e v d).2 }) := rfl
 
+private theorem instListM_run (e : EIdx) (vs : List EIdx) (d : Nat)
+    (s : IState) :
+    instListM e vs d s = .ok ((s.store.instantiateListI e vs d).1,
+      { s with store := (s.store.instantiateListI e vs d).2 }) := rfl
+
 private theorem abstract1M_run (e : EIdx) (d : Nat) (s : IState) :
     abstract1M e d s = .ok ((s.store.abstract1I e d).1,
       { s with store := (s.store.abstract1I e d).2 }) := rfl
@@ -394,6 +399,19 @@ theorem inst1M_eff (hs : ISOK env s₀) {e v : EIdx} {d : Nat} {a w : Expr}
   intro v' s' hr
   rw [inst1M_run] at hr
   obtain ⟨hwf', hext, hden⟩ := instantiate1I_spec (d := d) hs.wf he hv
+  injection hr with h1
+  obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
+  exact ⟨hs.withStore hwf' hext, hext, hden⟩
+
+theorem instListM_eff (hs : ISOK env s₀) {e : EIdx} {vs : List EIdx}
+    {d : Nat} {a : Expr} {ws : List Expr}
+    (he : s₀.store.denote e = some a) (hvs : DenL s₀.store vs ws) :
+    IEff env s₀
+      (fun s i => s.store.denote i = some (a.instantiateList ws d))
+      (instListM e vs d) := by
+  intro v' s' hr
+  rw [instListM_run] at hr
+  obtain ⟨hwf', hext, hden⟩ := instantiateListI_spec (d := d) hs.wf he hvs
   injection hr with h1
   obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
   exact ⟨hs.withStore hwf' hext, hext, hden⟩

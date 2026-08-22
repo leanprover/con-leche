@@ -200,6 +200,16 @@ stored-constant instantiations entering the arena). -/
     let (r, store) := store.instantiate1I e v d
     (r, { s with store := store })
 
+/-- Memoized interned `Expr.instantiateList` (bulk instantiation,
+task #50). -/
+@[inline] def instListM (e : EIdx) (vs : List EIdx) (d : Nat := 0) :
+    CheckIM EIdx :=
+  modifyGet fun s =>
+    let store := s.store
+    let s := { s with store := EStore.empty }
+    let (r, store) := store.instantiateListI e vs d
+    (r, { s with store := store })
+
 /-- Memoized interned `Expr.abstract1`. -/
 @[inline] def abstract1M (e : EIdx) (d : Nat) : CheckIM EIdx :=
   modifyGet fun s =>
@@ -399,19 +409,40 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
     | _ => pure none
   | _ => pure none
 
-/-- Twin of `iotaCerts`. -/
-def iotaCertsI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
-    EIdx → List EIdx → CheckIM Bool
-  | _, [] => pure true
-  | ty, arg :: rest => do
+/-- Twin of `iotaCerts`, bulk form (task #50): peel the raw telescope
+while accumulating the certified arguments, substituting only each
+binder's *domain* (small) instead of copying the whole residual
+telescope per argument.  A raw `bvar` body (whose substitution could
+expose further `∀`-binders — the fold semantics) substitutes the
+accumulator and re-enters. -/
+def iotaCertsIAux (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
+    EIdx → List EIdx → List EIdx → CheckIM Bool
+  | _, _, [] => pure true
+  | ty, acc, arg :: rest => do
     match ← viewI ty with
     | some (.forallE _ dom body _) => do
+      let dom' ← instListM dom acc
       let ta ← r.infer depth arg
-      if ← r.defeq depth ta dom then do
-        let body' ← inst1M body arg
-        iotaCertsI r fe depth body' rest
+      if ← r.defeq depth ta dom' then
+        iotaCertsIAux r fe depth body (arg :: acc) rest
       else pure false
+    | some (.bvar _) =>
+      match acc with
+      | [] => pure false
+      | _ :: _ => do
+        let ty' ← instListM ty acc
+        iotaCertsIAux r fe depth ty' [] (arg :: rest)
     | _ => pure false
+termination_by _ acc args => (args.length, acc.length)
+decreasing_by
+  · apply Prod.Lex.left; simp
+  · apply Prod.Lex.right' <;> simp
+
+/-- Twin of `iotaCerts` (certify a spine against a recursor telescope);
+the bulk-instantiating accumulator loop at the empty accumulator. -/
+def iotaCertsI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (ty : EIdx) (args : List EIdx) : CheckIM Bool :=
+  iotaCertsIAux r fe depth ty [] args
 
 /-- Twin of `defEqList`. -/
 def defEqListI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
