@@ -1371,45 +1371,69 @@ theorem's own opening frame and the fold clause's fit frames.
 `modeled_rule_fold` (`Setlec/Model/IndInstall.lean`) is fully
 multi-motive-general (all of `nP nM nm ni cnP cnF` abstract).
 
-**Canonical rules only; nested-aux rules are inert.**  A rule is
-*canonical* (`Expr.recRulePlain`) when its constructor-parameter count
-is within the recursor prefix, the prefix fits under the major's
-position, and the major's domain starts with the recursor's own
-leading binders.  Nested/auxiliary rules (e.g. the
-`List.cons` rule of a nested recursor, whose major lives at an inner
-type former) have no `iota_j` theorem and no provable fold fact — they
-are stored **inert**: `iotaRec` guards on the rule's stored `plain`
-flag before firing (runtime; see the slim-metadata section below),
-`checkIotaRule` only consults the theorem for canonical
-rules (install), and `RecRulesOk`'s fold clause hypothesizes the
-stored flag (soundness), so inert rules' obligations are vacuous.
-No completeness is lost on the tutorial arena (no nested blocks) and
-declines stay declines.
+**Firing modes: canonical, nested, inert (2026-08-22, task #48).**  A
+rule is *canonical* (`Expr.recRulePlain`) when its constructor-
+parameter count is within the recursor prefix, the prefix fits under
+the major's position, and the major's domain starts with the
+recursor's own leading binders.  A *nested-auxiliary* rule (the
+`Array.mk`/`List.nil`/`List.cons` rules of `Lean.Syntax.rec_1/rec_2`,
+whose major lives at an inner type former) instead has constructor
+parameters and levels that are **fixed instantiations** — exactly the
+recursor type's major-premise domain application `D.{lvls} p⃗` (the
+preprocessor emits `rec_1._model.iota_j` theorems for these rules
+too, with the statement's major the constructor at `lvls` applied to
+the `p⃗` instantiations and the field variables).  The stored flag is
+a three-state `RecRuleFire` (`.plain` / `.nested lvls pins` /
+`.inert`), computed once at install:
 
-*Matched inert rules decline (2026-08-22).*  A silently-stuck
-nested-aux redex is not always benign: `Lean.Syntax.brecOn_1.go`
-(init-prelude DECL 2217) applies its functional to an ih of `PProd`
-type where the expected domain is `Syntax.below_1 … (Array.mk …)` —
-an abbrev over `Syntax.rec_1`, whose sole (`Array.mk`) rule is
-inert — so the app rule's defeq stayed stuck and the declaration was
-*rejected* (exit 1) although it is a perfectly good kernel term (the
-official kernel fires nested rules by taking the last `nfields` major
-arguments).  Diagnosis: not a metadata bug — a deliberate
-verified-reduction restriction surfacing as the wrong verdict.
-`iotaRec` now treats a *matched* non-canonical rule (recursor fully
-applied, major whnfs to a constructor application of the rule's ctor
-at the right arity, `plain = false`) as a positive detection of the
-unsupported feature and throws a decline ("iota reduction over a
-nested auxiliary recursor rule").  Empirically no other init-prelude
-declaration (1–2216), arena test, or e2e fixture reaches such a
-match, so verdicts elsewhere are unchanged; the probe still reaches
-DECL 2217 and now declines there instead of rejecting.  The real fix
-is a follow-up feature: the preprocessor *does* emit
-`rec_1._model.iota_0`-style theorems for nested rules, so firing them
-verified needs a generalized statement pin (constructor parameters
-and levels pinned to arbitrary closed instantiations stored on the
-rule, fire-checked by defeq) plus the corresponding `RecRulesOk` fold
-clause and `iota_sound` extension.
+* `.plain` — `checkIotaThm` pins the theorem as before.
+* `.nested lvls pins` — for non-canonical rules whose *shape*
+  certifies (`nestedRuleShape`: the `iota_j` theorem exists, the
+  recursor has no index premises — `majorIdx = rulePrefix`, the only
+  sub-shape the soundness covers; an indexed nested-aux rule stays
+  inert — the major domain is a constant-headed application of
+  exactly `cnP` arguments, and the instantiations pass the syntactic
+  well-formedness guards recorded in `EnvWF`), `checkIotaThmN`
+  re-runs the `checkIotaThm` pin with the constructor at the stored
+  `lvls` applied to the stored `pins` opened at the statement's
+  prefix variables (`Expr.instSpine`) in place of the leading
+  telescope variables, and the constructor-telescope walks at the
+  `lvls`-instantiated type.  A certifiable shape whose theorem then
+  fails the pin declines positively at install.
+* `.inert` — everything else (no theorem, indexed shape).  `iotaRec`
+  treats a *matched* inert rule (recursor fully applied, major whnfs
+  to a constructor application of the rule's ctor at the right arity)
+  as a positive detection of the unsupported feature and declines
+  ("iota reduction over a nested auxiliary recursor rule") — a
+  silently-stuck nested redex would surface as a spurious *reject*
+  downstream (this is how `Lean.Syntax.brecOn_1.go`, init-prelude
+  DECL 2217, originally failed).
+
+At fire time both fireable modes run the same generic path; only the
+two comparands differ (`recFireComparands`): the constructor's levels
+are checked against the by-name linking (`.plain`) resp. the stored
+`lvls` under the recursor's instantiation (`.nested`), and its
+leading arguments `defEqList`-checked against the recursor's leading
+arguments (`.plain`) resp. the stored `pins` instantiated at the
+fire-time argument spine (`.nested`; `Expr.instSpine`, the kernel
+spelling of the verification's `instSeq`).  The reduct is the same
+rhs application in both modes.  Soundness: `RecRulesOk`'s fold clause
+guards the canonical value-premises on `.plain` and carries a nested
+premise (constructor level assignment = stored `lvls` evaluated under
+the recursor's; constructor parameter values = stored `pins`
+evaluated at the argument values, witnessed over a sanitized
+free-variable spine so the fold consumer crosses frames by
+value-determinedness); `iota_sound` produces it via
+`nested_fire_premise` (`Setlec/Model/Core/NestedFire.lean`), reading
+the comparand's annotation truthfulness off the recursor-type
+telescope walk — its residual after the non-major arguments is a `∀`
+over the instantiated major domain, which by `EnvWF`'s shape clause
+*is* the constructor family applied to the stored instantiations —
+and `modeled_rule_fold_nested` (`Setlec/Model/IndInstallN.lean`)
+discharges the fold obligation from the checked theorem
+(`NestedChecked` kit), the nested analogue of `modeled_rule_fold`.
+With this the *last* init-prelude blocker is gone: the full stream
+(3653 declarations) is accepted end to end in ~41s.
 
 **Slim recursor metadata (2026-08-22, task #46).**  Stored recursor
 metadata is exactly what the firing path reads.
@@ -1428,15 +1452,17 @@ install-computed fields (input rules carry parse placeholders `0` /
 `iotaRec` no longer reads the counts off the per-fire `ctorInfo`
 lookup (the lookup itself remains: the constructor's *type* and level
 parameters still drive the level linking, the iota certificates and
-the canonical-index residual) — and `plain`, the canonical/inert flag:
-previously `Expr.recRulePlain` re-walked the recursor type on every
-iota step (a per-step traversal of install-time-known data, forbidden);
-now it is computed once per rule at install (`checkIotaRule`,
-`checkProjFn`, the pinned basis blocks) and `iotaRec` reads the flag.
+the canonical-index residual) — and `fire`, the firing mode
+(since task #48 the three-state `RecRuleFire`; historically a
+`plain : Bool`): previously `Expr.recRulePlain` re-walked the
+recursor type on every iota step (a per-step traversal of
+install-time-known data, forbidden); now it is computed once per rule
+at install (`checkIotaRule`, `checkProjFn`, the pinned basis blocks)
+and `iotaRec` reads the flag.
 Findings from the refactor: (1) with sums stored,
 `rulePrefix ≤ majorIdx` is no longer true by construction — it is
 folded into `recRulePlain` (one extra comparison at install) and
-carried as a `RecRulesOk` conjunct (`plain = true → rulePrefix ≤
+carried as a `RecRulesOk` conjunct (`fire ≠ .inert → rulePrefix ≤
 majorIdx`), which `iota_sound`'s spine arithmetic consumes; (2) the
 Prop-projection fallback `annotateProjRec` was the one genuine
 individual-count consumer (it pinned the split `nM = 1 ∧ nm = 1 ∧

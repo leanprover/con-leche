@@ -678,9 +678,12 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
       injection heq with e1 e2 e3 e4
       subst e4
       rcases List.mem_cons.mp hr with rfl | hr
-      · refine ⟨hrf, ?_, Expr.constsResolve_mono hrres, hrb⟩
-        rw [← e1]
-        exact hrlp
+      · refine ⟨hrf, ?_, Expr.constsResolve_mono hrres, hrb, ?_⟩
+        · rw [← e1]
+          exact hrlp
+        · intro lvls pins h
+          cases hcond : Expr.recRulePlain pty nP nP nP <;>
+            simp [hcond] at h
       · exact absurd hr List.not_mem_nil
   have hsbody' : (Expr.app (.app (.app (.const eqName [ℓA]) tySlot)
       (Expr.mkAppN (.const (projModelName T i) (lps.map .param))
@@ -722,7 +725,10 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
     ⟨ctorName, nF, nP, (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain else .inert), rhsA⟩ f
     (projModelName T i) hpnone
     (reservedBasisNames_not_num _ _) hwf hptyres hfm hmlps hprojmArg hren
-    f₀ hro hff₀ hfself hfnot heqf heqval hi hctor rfl rfl
+    f₀ hro hff₀ hfself hfnot heqf heqval hi
+    (fun lvls pins => by
+      cases h : Expr.recRulePlain pty nP nP nP <;> simp [h])
+    hctor rfl rfl
     hann hrawf hrawb hrf hrb hrres hstripR rfl hC_strip hS_strip
     hdoms hsdoms hsbody' hthm htlps
   have hval₁' : ∀ ψ : Name → Nat,

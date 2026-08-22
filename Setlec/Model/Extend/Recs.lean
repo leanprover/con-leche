@@ -1,5 +1,6 @@
 import Setlec.Model.Extend.Modeled
 import Setlec.Model.Extend.GroupSwap
+import Setlec.Model.IndInstallN
 
 /-!
 # Recs — soundness of the recursor-group install
@@ -518,6 +519,27 @@ theorem ProvFacts.mem_facts {F : Nat} {blockNames : List Name} :
         exact hfm
     · exact ih c hc
 
+/-- A successful `Option`-`mapM` preserves length. -/
+private theorem mapM_option_length {α : Type _} {β : Type _}
+    {g : α → Option β} :
+    ∀ {l : List α} {ys : List β}, l.mapM g = some ys →
+      l.length = ys.length
+  | [], _, h => by
+    simp only [List.mapM_nil, Option.pure_def, Option.some.injEq] at h
+    subst h
+    rfl
+  | x :: l, ys, h => by
+    cases hg : g x with
+    | none => rw [List.mapM_cons, hg] at h; simp at h
+    | some y =>
+      cases hl : l.mapM g with
+      | none => rw [List.mapM_cons, hg, hl] at h; simp at h
+      | some ys' =>
+        rw [List.mapM_cons, hg, hl] at h
+        have h' : some (y :: ys') = some ys := h
+        obtain rfl := Option.some.inj h'
+        simpa using mapM_option_length hl
+
 set_option maxHeartbeats 1600000 in
 /-- One installed recursor's fold obligations at the final environment,
 from its checked rule kits over the provisional one. -/
@@ -549,8 +571,8 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
   intro cvR mI' rP' rules₀ hceq r hr
   injection hceq with e1 e2 e3 e4
   subst e1 e2 e3 e4
-  obtain ⟨cvj, cnP, cnF, raw, rhsTy, rbinders, rbody, hfc, hnf, hcp, hpl,
-    hrawf,
+  obtain ⟨cvj, cnP, cnF, raw, rhsTy, rbinders, rbody, hfc, hnf, hcp,
+    hplIff, hnestK, hrawf,
     hrawb, hann, hrhsf, hrhsb, hrlp, hrres, hstripR, hity, hplainImp⟩ :=
     hkits r hr
   have henvLev' : ∀ n, (env₃.find? n).map
@@ -575,19 +597,16 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
   refine ⟨fun ψ => AnnotOk.env_ext henvLev hnat hstr _ 0 (rho0 V)
     (hArhsS ψ), ?_, ?_⟩
   · intro hpt
-    refine recRulePlain_le_mI (recTy := cvA.type) (cnP := cnP) ?_
-    rw [hpt] at hpl
-    by_cases hc : Expr.recRulePlain cvA.type mI rP cnP = true
-    · exact hc
-    · rw [if_neg hc] at hpl; exact nomatch hpl
+    cases hfr : RecRule.fire r with
+    | inert => exact absurd hfr hpt
+    | plain =>
+      exact recRulePlain_le_mI (recTy := cvA.type) (cnP := cnP)
+        (hplIff.mp hfr)
+    | nested lvls pins =>
+      have h0 := (hnestK lvls pins hfr).1
+      omega
   intro cvj' cnP' cnF' hfj ψ ψj args margs tv hl hml hch hmch htv hpeq
-    hplainB hlev hfit
-  -- the stored flag is the computed predicate
-  have hplain : Expr.recRulePlain cvA.type mI rP cnP = true := by
-    rw [hplainB] at hpl
-    by_cases hc : Expr.recRulePlain cvA.type mI rP cnP = true
-    · exact hc
-    · rw [if_neg hc] at hpl; exact nomatch hpl
+    hplainB hfit
   -- the spine arithmetic in constructor counts
   rw [hcp, hnf] at hml
   rw [hcp] at hpeq hfit
@@ -608,6 +627,166 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
     injection h0 with a1 a2 a3
     exact ⟨a1, a2, a3⟩
   subst cvj' cnP' cnF'
+  -- fire-mode case split
+  cases hfr : RecRule.fire r with
+  | inert => exact absurd hfr hplainB
+  | nested lvls pins =>
+    obtain ⟨hmIrP, hlvlsWF, hpinsWF, hshape6, hkitN⟩ :=
+      hnestK lvls pins hfr
+    obtain ⟨thmName, cvt, tval, fvs, tbody, ℓA, αS, lhsS, rhsS, cdoms,
+      cres, rdoms, rrest, fvsP, restP, cdomsP, crestP, xFvsP, crest2,
+      ldoms, lrest, hfthm, hlpt, hopen, hheadEq, hargs3, hlhead,
+      hlarity, hlpre, hmaj, hcstrip, hcinst, hclen, hdeIdx, hdeFld,
+      hrinst, hdePre, hopenP, hcinstP, hopenX, hlinst, hdeLam,
+      hdeRhs⟩ := hkitN
+    -- the recursor's own stored facts
+    have hselfMem := find?_mem hself
+    obtain ⟨htyw, htyps, htyres, htyb, -, -⟩ := mS.wf _ hselfMem
+    have hAty : ∀ ψ'' : Name → Nat,
+        AnnotOk V mS.val envS ψ'' 0 (rho0 V) cvA.type :=
+      fun ψ'' => (mS.annot_ok _ hselfMem ψ'').1
+    have hIty : ∀ ψ'' : Name → Nat, ∃ T,
+        interpClosed V mS.val envS ψ'' cvA.type = some T := by
+      intro ψ''
+      obtain ⟨t, ht, -⟩ := mS.mem_type _ hselfMem ψ''
+      exact ⟨t, ht⟩
+    -- the constructor's stored facts
+    have hfcMem := find?_mem hfcS
+    obtain ⟨hCw, hCps, hCres, hCb, -, -⟩ := mS.wf _ hfcMem
+    have hACty : ∀ ψ'' : Name → Nat,
+        AnnotOk V mS.val envS ψ'' 0 (rho0 V) cvj.type :=
+      fun ψ'' => (mS.annot_ok _ hfcMem ψ'').1
+    have hICty : ∀ ψ'' : Name → Nat, ∃ T,
+        interpClosed V mS.val envS ψ'' cvj.type = some T := by
+      intro ψ''
+      obtain ⟨t, ht, -⟩ := mS.mem_type _ hfcMem ψ''
+      exact ⟨t, ht⟩
+    -- the recursor's model
+    obtain ⟨cvm, mval, hm, hfm, hlpsm, -⟩ := hIS cvA.name hbnA _ hself
+    have hfRm : envS.find? (f cvA.name) =
+        some (.defnInfo cvm mval hm) := by
+      rw [hf]
+      dsimp only
+      rw [if_pos hbnA]
+      exact hfm
+    -- the constructor's renamed head is stored with the right
+    -- parameters
+    obtain ⟨cimC, hfCm, hCmlps⟩ : ∃ cimC,
+        envS.find? (f (RecRule.ctor r)) = some cimC ∧
+        cimC.toConstantVal.levelParams = cvj.levelParams := by
+      by_cases hbc : blockNames.contains (RecRule.ctor r) = true
+      · obtain ⟨cvmC, mvalC, hmC, hfmC, hlpsC, -⟩ := hIS _ hbc _ hfcS
+        refine ⟨.defnInfo cvmC mvalC hmC, ?_, hlpsC⟩
+        rw [hf]
+        dsimp only
+        rw [if_pos hbc]
+        exact hfmC
+      · refine ⟨.ctorInfo cvj cnP cnF, ?_, rfl⟩
+        rw [hf]
+        dsimp only
+        rw [if_neg hbc]
+        exact hfcS
+    -- the pinned equality
+    have heqfindS : envS.find? eqName = some eqA := hup _ _ heqfind
+    have heqval : ∀ ψ'' : Name → Nat,
+        mS.val eqName ψ'' = eqVal V ψ'' := by
+      intro ψ''
+      obtain ⟨-, hpv⟩ :=
+        mS.ind_ok.2.2.2.1 eqName eqA heqfindS (by rfl) (by decide)
+      rw [hpv ψ'']
+      simp [pinnedVal]
+    -- the theorem's facts
+    have hfthmS : envS.find? thmName = some (.thmInfo cvt tval) :=
+      hup _ _ hfthm
+    have hthmMem := find?_mem hfthmS
+    obtain ⟨hSw, -, -, hSb, -, -⟩ := mS.wf _ hthmMem
+    have hthm_mem : ∀ ψ'' : Name → Nat, ∃ P,
+        interpClosed V mS.val envS ψ'' cvt.type = some P ∧
+        mS.val thmName ψ'' ∈ˢ P := by
+      intro ψ''
+      obtain ⟨P, hP, hmm⟩ := mS.mem_type _ hthmMem ψ''
+      have h3 : (ConstantInfo.thmInfo cvt tval).name = thmName := by
+        simpa using List.find?_some hfthmS
+      exact ⟨P, hP, by rw [← h3]; exact hmm⟩
+    have hthm_annot : ∀ ψ'' : Name → Nat,
+        AnnotOk V mS.val envS ψ'' 0 (rho0 V) cvt.type :=
+      fun ψ'' => (mS.annot_ok _ hthmMem ψ'').1
+    -- the rule's interpretation exists
+    have hIrhs : ∀ ψ'' : Name → Nat, ∃ L,
+        interpClosed V mS.val envS ψ'' (RecRule.rhs r) = some L := by
+      intro ψ''
+      obtain ⟨⟨v, tv', hiv, -, -⟩, -, -⟩ :=
+        inferTypeCore_sound (φ := ψ'') mS F hity
+          (WScoped.of_not_hasFvar hrhsf) hrhsb
+          (Expr.LeavesBounded.of_not_hasFvar hrhsf)
+          (FvarsOk.of_not_hasFvar hrhsf) (hArhsS ψ'')
+      exact ⟨v, hiv⟩
+    -- transport the fold inputs down to the provisional environment
+    obtain ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
+      hψeq, hψjeq, hf1, hf2, hidx, hnest⟩ := hfit
+    subst hψeq hψjeq
+    obtain ⟨-, hlevN, hpinsVal⟩ := hnest lvls pins hfr
+    -- the premises at the provisional environment
+    have hpinsValS : ∃ (dP : Nat) (ρP : Nat → V) (spineP : List Expr),
+        FvarSpine dP ρP spineP args ∧
+        (∀ a ∈ spineP, ∃ i nm, a = Expr.fvar i nm (.sort .zero)) ∧
+        (pins.map fun pin => Expr.instSeq spineP (spineP.length - 1)
+          (pin.instantiateLevelParams cvA.levelParams us)).mapM
+          (interpExpr V mS.val envS φ' dP ρP) =
+          some (margs.take cnP) := by
+      obtain ⟨dP, ρP, spineP, hFv, hsh, hmapM⟩ := hpinsVal
+      refine ⟨dP, ρP, spineP, hFv, hsh, ?_⟩
+      rw [← mapM_interp_congr (fun e =>
+        interp_env_ext henvLev' hnat.symm hstr.symm e dP ρP)]
+      exact hmapM
+    -- the stored instantiation count
+    have hpinslen : pins.length = cnP := by
+      obtain ⟨dP, ρP, spineP, -, -, hmapM⟩ := hpinsValS
+      have h0 := mapM_option_length hmapM
+      rw [List.length_map, List.length_take] at h0
+      omega
+    have hfold := modeled_rule_fold_nested mS F hro
+      (fun n ci hfx => mS.val_params n ci hfx)
+      hfRm (show (ConstantInfo.defnInfo cvm mval
+        hm).toConstantVal.levelParams = cvA.levelParams from hlpsm)
+      hfcS hfCm hCmlps heqfindS heqval
+      hthm_mem hthm_annot hSw hSb
+      hmIrP
+      (fun pin hpin => (hpinsWF pin hpin).1)
+      (fun pin hpin => (hpinsWF pin hpin).2.2.2)
+      hpinslen
+      (by
+        obtain ⟨pre, nm, dom, body, bm, D, hs1, hs2, hs3⟩ := hshape6
+        exact ⟨pre, nm, dom, body, bm, hs1, hs3⟩)
+      (by
+        obtain ⟨pre, nm, dom, body, bm, D, hs1, -, -⟩ := hshape6
+        rw [hs1]
+        rfl)
+      (by omega)
+      hopen hheadEq hargs3 hlhead hlarity hlpre hmaj hcstrip hcinst
+      hclen hdeIdx hdeFld hrinst hdePre hopenP hcinstP hopenX hlinst
+      hdeLam hdeRhs hstripR hrhsf hrhsb hArhsS hIrhs htyw htyb htyps
+      hAty hIty hCw hCb hCps hACty hICty
+      hl hml htv hlevN
+      (TeleFit.env_levelext henvLev' hnat.symm hstr.symm hf1)
+      (TeleFit.env_levelext henvLev' hnat.symm hstr.symm hf2)
+      (by
+        rw [← mapM_interp_congr (fun e =>
+          interp_env_ext henvLev' hnat.symm hstr.symm e dd₂ ρρ₂)]
+        exact hidx)
+      hpinsValS
+    obtain ⟨Rv, hRi, hfoldEq, hRch⟩ := hfold
+    rw [hcp]
+    refine ⟨Rv, ?_, hfoldEq, hRch⟩
+    show interpClosed V mS.val env₃
+      (Level.substFn φ' cvA.levelParams us) (RecRule.rhs r) = some Rv
+    unfold interpClosed
+    rw [← interp_env_ext henvLev hnat hstr (RecRule.rhs r) 0 (rho0 V)]
+    exact hRi
+  | plain =>
+  have hplain : Expr.recRulePlain cvA.type mI rP cnP = true :=
+    hplIff.mp hfr
+  obtain ⟨hparameq, hlev⟩ := hpeq hfr
   -- the plain kit
   have hkit := hplainImp hplain
   obtain ⟨thmName, cvt, tval, fvs, tbody, ℓA, αS, lhsS, rhsS, cdoms,
@@ -696,7 +875,7 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
     exact ⟨v, hiv⟩
   -- transport the fold inputs down to the provisional environment
   obtain ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
-    hψeq, hψjeq, hf1, hf2, hidx⟩ := hfit
+    hψeq, hψjeq, hf1, hf2, hidx, -⟩ := hfit
   subst hψeq hψjeq
   have hfold := modeled_rule_fold mS F hro
     (fun n ci hfx => mS.val_params n ci hfx)
@@ -710,7 +889,7 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
     hdeIdx hdeFld hrinst hdePre hopenP hcinstP hopenX hlinst hdeLam
     hdeRhs hstripR hrhsf hrhsb hArhsS hIrhs htyw htyb htyps hAty hIty
     hCw hCb hCps hACty hICty
-    (recRulePlain_le hplain) hl hml htv hpeq hlev
+    (recRulePlain_le hplain) hl hml htv hparameq hlev
     (TeleFit.env_levelext henvLev' hnat.symm hstr.symm hf1)
     (TeleFit.env_levelext henvLev' hnat.symm hstr.symm hf2)
     (by
@@ -944,10 +1123,22 @@ theorem checkIndRecs_sound {F : Nat} {blockNames : List Name}
         injection heq with e1 e2 e3 e4
         subst e4
         obtain ⟨cvj, cnP, cnF, raw, rhsTy, rbinders, rbody, -, -, -, -,
-          -, -, -, hrf, hrb, hrlp, hrres, -, -, -⟩ := hkits r hr
-        refine ⟨hrf, by rw [← e1]; exact hrlp, ?_, hrb⟩
-        rw [← Expr.constsResolve_congr hisoSome]
-        exact hrres
+          hnestK, -, -, -, hrf, hrb, hrlp, hrres, -, -, -⟩ := hkits r hr
+        refine ⟨hrf, by rw [← e1]; exact hrlp, ?_, hrb, ?_⟩
+        · rw [← Expr.constsResolve_congr hisoSome]
+          exact hrres
+        · intro lvls pins hfr
+          obtain ⟨n1, n2, n3, n4, -⟩ := hnestK lvls pins hfr
+          refine ⟨by rw [← e2, ← e3]; exact n1,
+            by rw [← e1]; exact n2, ?_, ?_⟩
+          · intro pin hpin
+            obtain ⟨p1, p2, p3, p4⟩ := n3 pin hpin
+            refine ⟨p1, by rw [← e1]; exact p2, ?_,
+              by rw [← e2]; exact p4⟩
+            rw [← Expr.constsResolve_congr hisoSome]
+            exact p3
+          · rw [← e1, ← e2]
+            exact n4
     · -- the rules' constructors are stored
       intro r hr
       obtain ⟨cvj, cnP, cnF, raw, rhsTy, rbinders, rbody, hfc, -⟩ :=

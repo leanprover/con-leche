@@ -6,6 +6,7 @@ import Setlec.Verify.Knot
 import Setlec.Verify.InferLemmas
 import Setlec.Verify.InferLeaves
 import Setlec.Verify.Abstract
+import Setlec.Verify.InstSpine
 
 /-!
 # Depth invariance of the checker core
@@ -1122,7 +1123,7 @@ private theorem iotaRec_WScoped (henv : EnvWF env)
   have hrhs : WScoped d
       (r.rhs.instantiateLevelParams cv.levelParams us) := by
     obtain ⟨-, -, -, -, -, hrules⟩ := henv _ (find?_mem hfc)
-    obtain ⟨hrf, -, -, -⟩ := hrules cv mI rP rules rfl r
+    obtain ⟨hrf, -, -, -, -⟩ := hrules cv mI rP rules rfl r
       (List.mem_of_find?_eq_some hrule)
     exact WScoped.of_not_hasFvar
       (by rw [hasFvar_instantiateLevelParams]; exact hrf)
@@ -1262,15 +1263,33 @@ private theorem iotaRec_shift (henv : EnvWF env)
         refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
         refine ite_rel _ (fun _ => rfl) (fun _ => ?_)
         refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-        refine bind_rel_eq _ rfl ?_
+        -- the level comparand does not read the argument spine
+        refine bind_rel_eq _
+          (by rw [recFireComparands_fst_congr rl cv.levelParams us
+            cvj.levelParams (e.getAppArgs.map (shiftFrom p))
+            e.getAppArgs mI]) ?_
         intro okl _
         refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
+        -- the stored nested instantiations are fvar-free (`EnvWF`)
+        have hpins : ∀ lvls pins, rl.fire = .nested lvls pins →
+            ∀ pin ∈ pins, pin.hasFvar = false := by
+          intro lvls pins hf' pin hpin
+          obtain ⟨-, -, -, -, g5⟩ :=
+            (henv _ (find?_mem hfc)).2.2.2.2.2 cv mI rP rules rfl rl
+              (List.mem_of_find?_eq_some hrule)
+          exact ((g5 lvls pins hf').2.2.1 pin hpin).1
+
         have h1 := defEqList_shift henv ih hpd
           (as := major.getAppArgs.take rl.ctorParams)
-          (bs := e.getAppArgs.take rl.ctorParams)
+          (bs := (recFireComparands rl cv.levelParams us
+            cvj.levelParams e.getAppArgs mI).2)
           (fun x hx => hwmaj.getAppArgs x (List.mem_of_mem_take hx))
-          (fun x hx => hwe.getAppArgs x (List.mem_of_mem_take hx))
-        simp only [List.map_take] at h1
+          (recFireComparands_snd_WScoped rl cv.levelParams us
+            cvj.levelParams e.getAppArgs mI
+            (fun x hx => hwe.getAppArgs x hx) hpins)
+        rw [← recFireComparands_snd_shift rl cv.levelParams us
+          cvj.levelParams e.getAppArgs mI hpins,
+          List.map_take] at h1
         refine bind_rel_eq _ h1 ?_
         intro b₁ _
         refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
@@ -1340,7 +1359,7 @@ private theorem iotaRec_shift (henv : EnvWF env)
             have hrhs : (rl.rhs.instantiateLevelParams cv.levelParams
                 us).hasFvar = false := by
               obtain ⟨-, -, -, -, -, hrules⟩ := henv _ (find?_mem hfc)
-              obtain ⟨hrf, -, -, -⟩ := hrules cv mI rP rules rfl rl
+              obtain ⟨hrf, -, -, -, -⟩ := hrules cv mI rP rules rfl rl
                 (List.mem_of_find?_eq_some hrule)
               rw [hasFvar_instantiateLevelParams]
               exact hrf

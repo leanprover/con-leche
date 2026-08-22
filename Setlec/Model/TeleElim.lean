@@ -799,6 +799,20 @@ theorem InstArgs.lift {D : Nat} {ρ : Nat → V} :
     rw [interp_lift hw D' hle ρ ρ' hag]
     exact hi
 
+/-- `InstArgs` restricts to a prefix. -/
+theorem InstArgs.take {D : Nat} {ρ : Nat → V} (k : Nat) :
+    ∀ {args : List Expr} {vs : List V},
+      InstArgs cval env φ D ρ args vs →
+      InstArgs cval env φ D ρ (args.take k) (vs.take k) := by
+  induction k with
+  | zero => intro args vs _; simp only [List.take_zero]; trivial
+  | succ k ih =>
+    intro args vs h
+    match args, vs, h with
+    | [], [], _ => simp only [List.take_nil]; trivial
+    | a :: as, v :: vs, ⟨ha, h'⟩ =>
+      exact ⟨ha, ih h'⟩
+
 /-- For opening-variable spines the level assignment is irrelevant:
 `InstArgs` transfers across any two assignments. -/
 theorem InstArgs.of_fvars_ext {φ₂ : Name → Nat} {D : Nat} {ρ : Nat → V} :
@@ -1578,5 +1592,97 @@ theorem TeleFit.env_levelext {env₁ env₂ : Env}
     refine TeleFit.cons ?_ hx ih
     rw [← interp_env_ext henv hnat hstr _ _ _]
     exact hity
+
+
+/-! ## Free-variable spine kit (shared with the iota walks) -/
+
+omit [SetTheory V] in
+theorem FvarSpine.take {D : Nat} {ρ : Nat → V} :
+    ∀ (k : Nat) {as : List Expr} {vs : List V},
+      FvarSpine D ρ as vs → FvarSpine D ρ (as.take k) (vs.take k)
+  | 0, as, vs, _ => by
+    simp only [List.take_zero]
+    trivial
+  | k + 1, [], vs, h => by
+    match vs, h with
+    | [], _ =>
+      show FvarSpine D ρ [] []
+      trivial
+  | k + 1, a :: as, vs, h => by
+    match vs, h with
+    | v :: vs, ⟨ha, h'⟩ =>
+      exact ⟨ha, FvarSpine.take k h'⟩
+
+omit [SetTheory V] in
+/-- Sanitizing a free-variable spine's annotations preserves it. -/
+theorem FvarSpine.sanitize {D : Nat} {ρ : Nat → V} :
+    ∀ {as : List Expr} {vs : List V}, FvarSpine D ρ as vs →
+      FvarSpine D ρ (as.map sanitizeArg) vs
+  | [], [], _ => trivial
+  | _ :: _, [], h => nomatch h
+  | [], _ :: _, h => nomatch h
+  | a :: as, v :: vs, h => by
+    obtain ⟨⟨i, n, ty, rfl, hiD, hv⟩, h'⟩ := h
+    exact ⟨⟨i, n, .sort .zero, rfl, hiD, hv⟩, FvarSpine.sanitize h'⟩
+
+omit [SetTheory V] in
+/-- A sanitized free-variable spine's elements are sanitized-shaped. -/
+theorem FvarSpine.sanitize_shapes {D : Nat} {ρ : Nat → V} :
+    ∀ {as : List Expr} {vs : List V}, FvarSpine D ρ as vs →
+      ∀ a ∈ as.map sanitizeArg, ∃ i n, a = Expr.fvar i n (.sort .zero)
+  | [], [], _ => by intro a ha; exact absurd ha (List.not_mem_nil)
+  | _ :: _, [], h => nomatch h
+  | [], _ :: _, h => nomatch h
+  | a :: as, v :: vs, h => by
+    obtain ⟨⟨i, n, ty, rfl, hiD, hv⟩, h'⟩ := h
+    intro b hb
+    rcases List.mem_cons.mp hb with rfl | hb
+    · exact ⟨i, n, rfl⟩
+    · exact FvarSpine.sanitize_shapes h' b hb
+
+/-- A sanitized free-variable spine is an argument spine with the same
+values. -/
+theorem InstArgs_of_FvarSpine_sanitized {D : Nat} {ρ : Nat → V} :
+    ∀ {as : List Expr} {vs : List V}, FvarSpine D ρ as vs →
+      (∀ a ∈ as, ∃ i n, a = Expr.fvar i n (.sort .zero)) →
+      InstArgs cval env φ D ρ as vs
+  | [], [], _, _ => trivial
+  | _ :: _, [], h, _ => nomatch h
+  | [], _ :: _, h, _ => nomatch h
+  | a :: as, v :: vs, h, hsh => by
+    obtain ⟨⟨i, n, ty, rfl, hiD, hv⟩, h'⟩ := h
+    obtain ⟨i', n', heq⟩ := hsh _ List.mem_cons_self
+    refine ⟨⟨?_, by simp [Expr.looseBVarsBounded], by
+      simp only [interpExpr]; rw [hv]⟩,
+      InstArgs_of_FvarSpine_sanitized h'
+        (fun b hb => hsh b (List.mem_cons_of_mem _ hb))⟩
+    cases heq
+    simp only [WScoped]
+    exact ⟨hiD, trivial⟩
+
+
+/-- Extract a value spine from an all-`fvar` fit. -/
+theorem FvarSpine_of_fit {D : Nat} {ρ : Nat → V} :
+    ∀ {ty : Expr} {args : List Expr} {vs : List V} {rest : Expr},
+      TeleFitI V cval env φ D ρ ty args vs rest →
+      (∀ a ∈ args, ∃ i n t, a = .fvar i n t) →
+      FvarSpine D ρ args vs := by
+  intro ty args vs rest h
+  induction h with
+  | nil => intro _; trivial
+  | @cons n ty₀ body m arg args x xs A rest hity hiarg hx hfb hwa hba hAa
+      ht ih =>
+    intro hshape
+    obtain ⟨i, nm, t, rfl⟩ := hshape _ List.mem_cons_self
+    have hiD : i < D := by
+      have h2 : i < D ∧ WScoped i t := by simpa [WScoped] using hwa
+      exact h2.1
+    have hval : ρ i = x := by
+      have : interpExpr V cval env φ D ρ (.fvar i nm t) = some (ρ i) := by
+        simp [interpExpr]
+      rw [this] at hiarg
+      exact Option.some.inj hiarg
+    exact ⟨⟨i, nm, t, rfl, hiD, hval⟩,
+      ih (fun a ha => hshape a (List.mem_cons_of_mem _ ha))⟩
 
 end Setlec

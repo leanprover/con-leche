@@ -244,14 +244,8 @@ theorem instSeq_proj :
 
 /-! ## Free-variable spines with values -/
 
-/-- A spine of free variables (indices below the frame) whose valuation
-values are the given list. -/
-def FvarSpine (D : Nat) (ρ : Nat → V) : List Expr → List V → Prop
-  | [], [] => True
-  | a :: as, v :: vs =>
-    (∃ i n ty, a = .fvar i n ty ∧ i < D ∧ ρ i = v) ∧
-    FvarSpine D ρ as vs
-  | _, _ => False
+-- (`FvarSpine` itself now lives next to `RecRulesOk` in
+-- `Setlec/Model/Interp.lean`; its lemmas stay here.)
 
 omit [SetTheory V] in
 theorem FvarSpine.length {D : Nat} {ρ : Nat → V} :
@@ -1290,23 +1284,6 @@ theorem TeleFitI.toInstPisAt {d : Nat} {ρ : Nat → V} :
         exact hpt k a v (by simpa using ha) (by simpa using hv)
 
 omit [SetTheory V] in
-theorem FvarSpine.take {D : Nat} {ρ : Nat → V} :
-    ∀ (k : Nat) {as : List Expr} {vs : List V},
-      FvarSpine D ρ as vs → FvarSpine D ρ (as.take k) (vs.take k)
-  | 0, as, vs, _ => by
-    simp only [List.take_zero]
-    trivial
-  | k + 1, [], vs, h => by
-    match vs, h with
-    | [], _ =>
-      show FvarSpine D ρ [] []
-      trivial
-  | k + 1, a :: as, vs, h => by
-    match vs, h with
-    | v :: vs, ⟨ha, h'⟩ =>
-      exact ⟨ha, FvarSpine.take k h'⟩
-
-omit [SetTheory V] in
 theorem FvarSpine.drop {D : Nat} {ρ : Nat → V} :
     ∀ (k : Nat) {as : List Expr} {vs : List V},
       FvarSpine D ρ as vs → FvarSpine D ρ (as.drop k) (vs.drop k)
@@ -1805,29 +1782,6 @@ theorem openPisAtFvars_wf :
         · obtain ⟨h1, h2, h3⟩ := hrec.2
           exact ⟨h1.mono (by omega), h2, h3⟩
 
-/-- Extract a value spine from an all-`fvar` fit. -/
-theorem FvarSpine_of_fit {D : Nat} {ρ : Nat → V} :
-    ∀ {ty : Expr} {args : List Expr} {vs : List V} {rest : Expr},
-      TeleFitI V cval env φ D ρ ty args vs rest →
-      (∀ a ∈ args, ∃ i n t, a = .fvar i n t) →
-      FvarSpine D ρ args vs := by
-  intro ty args vs rest h
-  induction h with
-  | nil => intro _; trivial
-  | @cons n ty₀ body m arg args x xs A rest hity hiarg hx hfb hwa hba hAa
-      ht ih =>
-    intro hshape
-    obtain ⟨i, nm, t, rfl⟩ := hshape _ List.mem_cons_self
-    have hiD : i < D := by
-      have h2 : i < D ∧ WScoped i t := by simpa [WScoped] using hwa
-      exact h2.1
-    have hval : ρ i = x := by
-      have : interpExpr V cval env φ D ρ (.fvar i nm t) = some (ρ i) := by
-        simp [interpExpr]
-      rw [this] at hiarg
-      exact Option.some.inj hiarg
-    exact ⟨⟨i, nm, t, rfl, hiD, hval⟩,
-      ih (fun a ha => hshape a (List.mem_cons_of_mem _ ha))⟩
 
 /-- Transfer a fit's pointwise domain memberships onto another
 free-variable spine with the same values: the instantiated domains of

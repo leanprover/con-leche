@@ -219,12 +219,137 @@ def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
     unless ← ops.isDefEq envSelf depth rhsS rhsApplied do
       throw (.notImplemented s!"iota statement mismatch for {cvName}")
 
+/-- The nested-shape data of a non-canonical rule: the constructor's
+level and parameter instantiations, read off the recursor type's
+major-premise domain (`∀ …prefix…, ∀ (t : D.{lvls} p₁ … p_cnP), …`).
+`none` — the rule stays inert, and a matched major declines at fire
+time — when the model has no `iota_j` theorem, the recursor has index
+premises (`mI ≠ rP`; not covered by the certified shape), the major
+domain is not a constant-headed application of exactly `cnP`
+arguments, or an instantiation fails the syntactic well-formedness
+guards (closed, bounded by the telescope, constants resolving, levels
+declared — the facts `EnvWF` records for the stored rule). -/
+def nestedRuleShape (env' envSelf : Env) (cvName : Name)
+    (lps : List Name) (tyA : Expr) (mI rP cnP j : Nat) :
+    Option (List Level × List Expr) :=
+  if (env'.findThm? ((cvName.str "_model").str s!"iota_{j}")).isSome ∧
+      mI = rP then
+    match tyA.stripPis mI with
+    | some (_, .forallE _ dom _ _) =>
+      match dom.getAppFn with
+      | .const _D lvls =>
+        let pins := dom.getAppArgs
+        if pins.length = cnP ∧
+            pins.all (fun p => !p.hasFvar && p.looseBVarsBounded mI &&
+              p.constsResolve envSelf && p.allLevelParamsDefined lps) ∧
+            lvls.all (Level.allParamsDefined lps) then
+          some (lvls, pins)
+        else none
+      | _ => none
+    | _ => none
+  else none
+
+/-- Check a *nested-auxiliary* recursor rule's `iota_j` theorem — the
+generalization of `checkIotaThm` to rules whose constructor parameters
+and levels are fixed instantiations (`nestedRuleShape`): the theorem's
+canonical major applies the constructor at the stored level
+instantiations to the stored parameter instantiations (opened at the
+statement's prefix variables) and the field variables, and the
+constructor's telescope walks are taken at those instantiations.  When
+the rule has no certifiable shape the rule is stored inert (`.inert`;
+a matched major positively declines at fire time); a shape whose
+theorem then fails the pin is a positive decline here. -/
+def checkIotaThmN (ops : CheckerOps m) (env' envSelf : Env)
+    (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
+    (mI rP j : Nat) (r : RecRule) (cvj : ConstantVal)
+    (cnP cnF : Nat) (rhsA : Expr) : m RecRuleFire := do
+    match nestedRuleShape env' envSelf cvName lps tyA mI rP cnP j with
+    | none => pure .inert
+    | some (lvls, pins) => do
+    let (cvt, _) ← unwrapOr
+        (env'.findThm? ((cvName.str "_model").str s!"iota_{j}"))
+        (.notImplemented s!"missing iota theorem for {cvName}")
+    unless cvt.levelParams = lps do
+      throw (.notImplemented s!"iota theorem level mismatch for {cvName}")
+    -- open the theorem's telescope: params, motives, minors, fields
+    let depth := rP + cnF
+    let (fvs, tbody) ← unwrapOr (openPisAtFvars depth cvt.type 0)
+      (.notImplemented s!"iota statement shape mismatch for {cvName}")
+    let targs := tbody.getAppArgs
+    unless isEqHead tbody.getAppFn do
+      throw (.notImplemented s!"iota statement not an equation for {cvName}")
+    unless targs.length = 3 do
+      throw (.notImplemented s!"iota statement not an equation for {cvName}")
+    let lhsS := targs.getD 1 (.bvar 0)
+    let rhsS := targs.getD 2 (.bvar 0)
+    -- the equation's left side: structurally the renamed recursor
+    -- applied to the opened prefix variables and the constructor at
+    -- the stored level instantiations, applied to the stored parameter
+    -- instantiations (renamed, opened at the prefix variables) and the
+    -- field variables
+    let xFvs := fvs.drop rP
+    let pinsF := pins.map fun p =>
+      Expr.instSpine (fvs.take rP) (rP - 1) (p.renameConsts f)
+    let largs := lhsS.getAppArgs
+    unless lhsS.getAppFn == Expr.const (f cvName) (lps.map .param) do
+      throw (.notImplemented s!"iota statement head mismatch for {cvName}")
+    unless largs.length = mI + 1 do
+      throw (.notImplemented s!"iota statement arity mismatch for {cvName}")
+    unless largs.take rP == fvs.take rP do
+      throw (.notImplemented s!"iota statement prefix mismatch for {cvName}")
+    let major := largs.getLastD (.bvar 0)
+    unless major == Expr.mkAppN (.const (f r.ctor) lvls)
+        (pinsF ++ xFvs) do
+      throw (.notImplemented s!"iota statement major mismatch for {cvName}")
+    -- the constructor's telescope at the stored level instantiations
+    -- (renamed), instantiated at the major's arguments: field domains
+    -- and (`mI = rP`) an index-free residual
+    unless (cvj.type.stripPis (cnP + cnF)).isSome do
+      throw (.notImplemented s!"iota constructor telescope for {cvName}")
+    let (cdoms, cres) ← unwrapOr
+        (Expr.instPisAt (pinsF ++ xFvs)
+          ((cvj.type.instantiateLevelParams cvj.levelParams
+            lvls).renameConsts f))
+        (.notImplemented s!"iota constructor telescope for {cvName}")
+    unless cres.getAppArgs.length = cnP + (mI - rP) do
+      throw (.notImplemented s!"iota constructor indices for {cvName}")
+    checkDefEqList ops envSelf depth ((largs.drop rP).take (mI - rP))
+      (cres.getAppArgs.drop cnP)
+    checkDefEqList ops envSelf depth (xFvs.map Expr.fvarTypeD)
+      (cdoms.drop cnP)
+    -- the statement's prefix domains are the recursor's (renamed)
+    let (rdoms, _) ← unwrapOr
+        (Expr.instPisAt (fvs.take rP) (tyA.renameConsts f))
+        (.notImplemented s!"iota recursor telescope for {cvName}")
+    checkDefEqList ops envSelf depth
+      ((fvs.take rP).map Expr.fvarTypeD) rdoms
+    -- the rule's λ-domains are the public recursor prefix and the
+    -- constructor's field domains at the public instantiations
+    let (fvsP, _) ← unwrapOr (openPisAtFvars rP tyA 0)
+      (.notImplemented s!"iota recursor telescope for {cvName}")
+    let pinsP := pins.map fun p =>
+      Expr.instSpine (fvsP.take rP) (rP - 1) p
+    let (_, crestP) ← unwrapOr (Expr.instPisAt pinsP
+        (cvj.type.instantiateLevelParams cvj.levelParams lvls))
+      (.notImplemented s!"iota constructor telescope for {cvName}")
+    let (xFvsP, _) ← unwrapOr (openPisAtFvars cnF crestP rP)
+      (.notImplemented s!"iota constructor telescope for {cvName}")
+    let (ldoms, _) ← unwrapOr (Expr.instLamsAt (fvsP ++ xFvsP) rhsA)
+      (.notImplemented s!"rule shape mismatch for {cvName}")
+    checkDefEqList ops envSelf depth ((fvsP ++ xFvsP).map Expr.fvarTypeD)
+      ldoms
+    -- the right side: definitionally the rule's applied rhs
+    let rhsApplied := Expr.mkAppN (rhsA.renameConsts f) fvs
+    unless ← ops.isDefEq envSelf depth rhsS rhsApplied do
+      throw (.notImplemented s!"iota statement mismatch for {cvName}")
+    pure (.nested lvls pins)
+
 /-- Check one modeled recursor rule: generic well-formedness of the
-right-hand side, then — for canonical rules — the model's `iota_j`
-theorem (`checkIotaThm`).  A rule that is not canonical
-(`Expr.recRulePlain`; nested auxiliary constructors) is stored *inert*
-after the well-formedness checks: `iotaRec` never fires on it, so no
-model theorem is consulted. -/
+right-hand side, then the model's `iota_j` theorem — for canonical
+rules the plain statement pin (`checkIotaThm`), for nested-auxiliary
+rules the generalized pin over the stored instantiations
+(`checkIotaThmN`; rules without a certifiable shape are stored inert:
+`iotaRec` never fires on them and a matched major declines). -/
 def checkIotaRule (ops : CheckerOps m) (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
     (mI rP j : Nat) (r : RecRule) : m RecRule := do
@@ -251,12 +376,14 @@ def checkIotaRule (ops : CheckerOps m) (env' envSelf : Env)
     -- the firing mode is computed once, here, and stored on the rule;
     -- `iotaRec` reads the flag instead of re-walking the recursor type
     -- on every fire
-    if Expr.recRulePlain tyA mI rP cnP then
-      checkIotaThm ops env' envSelf f cvName lps tyA mI rP j r
-        cvj cnP cnF rhsA
-    pure { r with rhs := rhsA, ctorParams := cnP
-                  fire := if Expr.recRulePlain tyA mI rP cnP then
-                    .plain else .inert }
+    let fire ← if Expr.recRulePlain tyA mI rP cnP then do
+        checkIotaThm ops env' envSelf f cvName lps tyA mI rP j r
+          cvj cnP cnF rhsA
+        pure RecRuleFire.plain
+      else
+        checkIotaThmN ops env' envSelf f cvName lps tyA mI rP j r
+          cvj cnP cnF rhsA
+    pure { r with rhs := rhsA, ctorParams := cnP, fire := fire }
 
 /-- The per-rule check, folded over a modeled recursor's rules. -/
 def checkIotaRules (ops : CheckerOps m) (env' envSelf : Env) (f : Name → Name)

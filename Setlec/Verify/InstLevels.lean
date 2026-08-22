@@ -545,4 +545,17 @@ theorem allLevelParamsDefined_instSeq_fvars {ps : List Name} :
 
 end Expr
 
+
+/-- Level instantiation distributes over an application spine. -/
+theorem instantiateLevelParams_mkAppN (ks : List Name) (us : List Level) :
+    ∀ (xs : List Expr) (h : Expr),
+      (Expr.mkAppN h xs).instantiateLevelParams ks us =
+        Expr.mkAppN (h.instantiateLevelParams ks us)
+          (xs.map (fun x => x.instantiateLevelParams ks us))
+  | [], _ => rfl
+  | x :: xs, h => by
+    show (Expr.mkAppN (.app h x) xs).instantiateLevelParams ks us = _
+    rw [instantiateLevelParams_mkAppN ks us xs]
+    rfl
+
 end Setlec

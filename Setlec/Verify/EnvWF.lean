@@ -47,7 +47,22 @@ def ConstWF (env : Env) (c : ConstantInfo) : Prop :=
       (RecRule.rhs r).hasFvar = false ∧
       (RecRule.rhs r).allLevelParamsDefined cv.levelParams = true ∧
       (RecRule.rhs r).constsResolve env = true ∧
-      (RecRule.rhs r).looseBVarsBounded 0 = true)
+      (RecRule.rhs r).looseBVarsBounded 0 = true ∧
+      -- a certified nested rule's stored instantiations are
+      -- syntactically well-formed in the recursor's telescope context
+      -- and are exactly the recursor type's major-premise domain
+      -- application (validated once at install, `nestedRuleShape`)
+      ∀ lvls pins, RecRule.fire r = .nested lvls pins →
+        mI = rP ∧
+        (∀ l ∈ lvls, l.allParamsDefined cv.levelParams = true) ∧
+        (∀ pin ∈ pins, pin.hasFvar = false ∧
+          pin.allLevelParamsDefined cv.levelParams = true ∧
+          pin.constsResolve env = true ∧
+          pin.looseBVarsBounded mI = true) ∧
+        ∃ pre nm dom body bm D,
+          cv.type.stripPis mI = some (pre, .forallE nm dom body bm) ∧
+          dom.getAppFn = .const D lvls ∧
+          dom.getAppArgs = pins)
 
 /-- Every stored constant is syntactically well-formed. -/
 def EnvWF (env : Env) : Prop := ∀ c ∈ env.consts, ConstWF env c
@@ -295,7 +310,12 @@ theorem EnvWF.cons {c : ConstantInfo} {env : Env}
       let ⟨g1, g2, g3, g4⟩ := h5 cv value hint heq
       ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩, ?_⟩
     intro cv mI rP rules heq r hr
-    obtain ⟨g1, g2, g3, g4⟩ := h6 cv mI rP rules heq r hr
-    exact ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩
+    obtain ⟨g1, g2, g3, g4, g5⟩ := h6 cv mI rP rules heq r hr
+    refine ⟨g1, g2, Expr.constsResolve_mono g3, g4, ?_⟩
+    intro lvls pins hfr
+    obtain ⟨n1, n2, n3, n4⟩ := g5 lvls pins hfr
+    exact ⟨n1, n2, fun pin hpin =>
+      let ⟨p1, p2, p3, p4⟩ := n3 pin hpin
+      ⟨p1, p2, Expr.constsResolve_mono p3, p4⟩, n4⟩
 
 end Setlec

@@ -243,10 +243,17 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
         rw [← Expr.constsResolve_congr hisoSome]
         exact g3
       · intro cv2 mI2 rP2 rules2 heq r hr
-        obtain ⟨g1, g2, g3, g4⟩ := h6 cv2 mI2 rP2 rules2 heq r hr
-        refine ⟨g1, g2, ?_, g4⟩
-        rw [← Expr.constsResolve_congr hisoSome]
-        exact g3
+        obtain ⟨g1, g2, g3, g4, g5⟩ := h6 cv2 mI2 rP2 rules2 heq r hr
+        refine ⟨g1, g2, ?_, g4, ?_⟩
+        · rw [← Expr.constsResolve_congr hisoSome]
+          exact g3
+        · intro lvls pins hfr
+          obtain ⟨n1, n2, n3, n4⟩ := g5 lvls pins hfr
+          refine ⟨n1, n2, fun pin hpin => ?_, n4⟩
+          obtain ⟨p1, p2, p3, p4⟩ := n3 pin hpin
+          refine ⟨p1, p2, ?_, p4⟩
+          rw [← Expr.constsResolve_congr hisoSome]
+          exact p3
     · exact hwf
   · -- val_params
     intro n ci₃ hf₃ ψ₁ ψ₂ hψ
@@ -387,26 +394,33 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
         hfp r hr
       refine ⟨fun ψ => hAtrans _ ψ 0 (rho0 V) (hA ψ), hle, ?_⟩
       intro cvj cnP cnF hfj ψ ψj args margs tv hl hml hch hmch htv hpeq
-        hplain hlev hfit
+        hplain hfit
       have hfj₀ : env₀.find? (RecRule.ctor r) =
           some (.ctorInfo cvj cnP cnF) :=
         hfindDown _ _ hfj (fun _ _ _ _ h => nomatch h)
       obtain ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
-        hψeq, hψjeq, hf1, hf2, hidx⟩ := hfit
+        hψeq, hψjeq, hf1, hf2, hidx, hnest⟩ := hfit
       have henvLev' : ∀ n', (env₃.find? n').map
           (fun ci => ci.toConstantVal.levelParams) =
           (env₀.find? n').map
             (fun ci => ci.toConstantVal.levelParams) :=
         fun n' => (henvLev n').symm
       obtain ⟨R', hRi, hfoldEq, hRch⟩ := hfold cvj cnP cnF hfj₀ ψ ψj
-        args margs tv hl hml hch hmch htv hpeq hplain hlev
+        args margs tv hl hml hch hmch htv hpeq hplain
         ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
           hψeq, hψjeq,
           TeleFit.env_levelext henvLev' hnat.symm hstr.symm hf1,
           TeleFit.env_levelext henvLev' hnat.symm hstr.symm hf2, by
             rw [← mapM_interp_congr (fun e =>
               interp_env_ext henvLev' hnat.symm hstr.symm e dd₂ ρρ₂)]
-            exact hidx⟩
+            exact hidx, by
+            intro lvls pins hfr
+            obtain ⟨n1, n2, dP, ρP, spineP, hFv, hsh, hmapM⟩ :=
+              hnest lvls pins hfr
+            refine ⟨n1, n2, dP, ρP, spineP, hFv, hsh, ?_⟩
+            rw [← mapM_interp_congr (fun e =>
+              interp_env_ext henvLev' hnat.symm hstr.symm e dP ρP)]
+            exact hmapM⟩
       refine ⟨R', ?_, hfoldEq, hRch⟩
       rw [hitrans]
       exact hRi

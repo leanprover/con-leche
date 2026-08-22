@@ -1,4 +1,5 @@
 import Setlec.Model.Core.MajorToCtor
+import Setlec.Model.Core.NestedFire
 
 /-!
 # Checker-core soundness: Iota
@@ -94,7 +95,7 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
       (by rw [hml]; exact har2)
       hmcerts hcvtW hcvtB hcvtL hcvtO hcvtA
   obtain ⟨-, -, -, -, -, hrules⟩ := m.wf _ (find?_mem hfc)
-  obtain ⟨hrf, hrlp, hrres, hrlb⟩ := hrules cv mI rP rules rfl r
+  obtain ⟨hrf, hrlp, hrres, hrlb, hnestWF⟩ := hrules cv mI rP rules rfl r
     (List.mem_of_find?_eq_some hrule)
   have hclInst : (r.rhs.instantiateLevelParams cv.levelParams
       us).hasFvar = false := by
@@ -204,15 +205,21 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
       tvv = SpineFold V (m.val (RecRule.ctor r)
         (Level.substFn φ (ConstantInfo.ctorInfo cvj cnP
           cnF).toConstantVal.levelParams usj)) ws ∧
-      ws.length = r.ctorParams + r.nfields := by
+      ws.length = r.ctorParams + r.nfields ∧
+      usj.length = cvj.levelParams.length := by
     by_cases hm0 : major.getAppArgs = []
     · refine ⟨[], by simp [hm0], by simp [hm0, InterpSpine], trivial,
-        ?_, by rw [hm0] at hml; exact hml⟩
-      rw [hmspine, hm0] at himaj
-      simp only [Expr.mkAppN, interpExpr, hfj] at himaj
-      split at himaj
-      · exact (Option.some.inj himaj).symm
-      · exact nomatch himaj
+        ?_, by rw [hm0] at hml; exact hml, ?_⟩
+      · rw [hmspine, hm0] at himaj
+        simp only [Expr.mkAppN, interpExpr, hfj] at himaj
+        split at himaj
+        · exact (Option.some.inj himaj).symm
+        · exact nomatch himaj
+      · rw [hmspine, hm0] at himaj
+        simp only [Expr.mkAppN, interpExpr, hfj] at himaj
+        split at himaj
+        · next _ hcond => exact hcond
+        · exact nomatch himaj
     · have hmA' : AnnotOk V m.val env φ d ρ
           (Expr.mkAppN (.const (RecRule.ctor r) usj) major.getAppArgs) :=
         hmspine ▸ hmA
@@ -220,15 +227,16 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
         annotOk_spine_inv _ _ hm0 hmA'
       simp only [interpExpr, hfj] at hiw0
       split at hiw0
-      · obtain hw0 := (Option.some.inj hiw0)
+      · next _ hcond =>
+        obtain hw0 := (Option.some.inj hiw0)
         subst hw0
         refine ⟨ws, hmxsA, hmsp, hmchain, ?_,
-          by rw [InterpSpine.length hmsp, hml]⟩
+          by rw [InterpSpine.length hmsp, hml], hcond⟩
         rw [hmspine] at himaj
         rw [hmfold] at himaj
         exact (Option.some.inj himaj).symm
       · exact nomatch hiw0
-  obtain ⟨ws, hmxsA, hmsp, hmchain, htveq, hwslen⟩ := hctor
+  obtain ⟨ws, hmxsA, hmsp, hmchain, htveq, hwslen, husjlen⟩ := hctor
   -- the certified telescope fits
   obtain ⟨hRtf, -, -, hRtb, -, -⟩ := m.wf _ (find?_mem hfc)
   have hRhf : (cv.type.instantiateLevelParams cv.levelParams us).hasFvar
@@ -315,7 +323,8 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
     _ _ _ TC hmcerts hCw hCb (Expr.LeavesBounded.of_not_hasFvar hChf)
     (FvarsOk.of_not_hasFvar hChf) hCA hCT hcertmargs hmsp
   -- rebase the constructor fit at the recursor fit's final frame
-  obtain ⟨hdR, hagrR, -⟩ := TeleFit.toTeleFitI hfitR hRw
+  obtain ⟨hdR, hagrR, argsRF, hfitRF, hfvRF⟩ :=
+    TeleFit.toTeleFitI hfitR hRw
   have hfitIC' := TeleFitI.lift hfitIC hCw hdR hagrR
   obtain ⟨dC, ρC, restC', hfitC⟩ := TeleFitI.toTeleFit hfitIC'
     (hCw.mono hdR) (by
@@ -522,57 +531,95 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
         (fun x hx => List.mem_of_mem_drop hx) hspineM
       rw [hrArgsF, ← List.map_drop, ← hvals]
       exact InterpSpine.mapM_eq hspineF
-  have hparameq : ws.take r.ctorParams = (vsi ++ [tvv]).take r.ctorParams := by
-    have hspT1 : InterpSpine m.val env φ d ρ
-        (major.getAppArgs.take r.ctorParams) (ws.take r.ctorParams) :=
-      InterpSpine.take _ hmsp
-    have hspT2 : InterpSpine m.val env φ d ρ
-        ((Expr.app fe ae).getAppArgs.take r.ctorParams)
-        ((vsi ++ [tvv]).take r.ctorParams) := by
-      have := InterpSpine.take r.ctorParams hisp
-      rw [← hxeq] at this
-      exact this
-    refine defEqList_values ihd
-      _ _ _ _ hpeq ?_ ?_ hspT1 hspT2
-    · intro x hx
-      have hxm := List.mem_of_mem_take hx
-      exact ⟨hmajW.getAppArgs _ hxm,
-        looseBVarsBounded_getAppArgs hmajB _ hxm,
-        fun l hl => hmajL l (fvarLeaves_getAppArgs hxm l hl),
-        FvarsOk.of_subset
-          (fun l hl => fvarLeaves_getAppArgs hxm l hl) hmajO,
-        hmxsA _ hxm⟩
-    · intro x hx
-      have hxm := List.mem_of_mem_take hx
-      exact ⟨hargsW _ hxm, hargsB _ hxm, hargsL _ hxm, hargsO _ hxm,
-        hxsA _ hxm⟩
-  have hψeq : ∀ p ∈ cvj.levelParams,
-      Level.substFn φ
-        (ConstantInfo.ctorInfo cvj cnP cnF).toConstantVal.levelParams usj p =
-      Level.substFn φ
-        (ConstantInfo.recInfo cv mI rP rules).toConstantVal.levelParams
-        us p := by
-    intro p hp
-    have h1 : Level.substFn φ cvj.levelParams usj =
-        Level.substFn φ cvj.levelParams
-          (cvj.levelParams.map fun q =>
-            Level.subst cv.levelParams us (.param q)) :=
-      Level.substFn_congr (Level.isEquivList_sound hlev φ)
-    have h2 : (cvj.levelParams.map fun q =>
-        Level.subst cv.levelParams us (.param q)) =
-        (cvj.levelParams.map Level.param).map
-          (Level.subst cv.levelParams us) := by
-      simp [List.map_map, Function.comp]
-    have h3 := Level.substFn_map_subst (φ := φ) (ks := cv.levelParams)
-      (vs := us) (ks' := cvj.levelParams)
-      (ws := cvj.levelParams.map Level.param) (by simp) hp
-    show Level.substFn φ cvj.levelParams usj p = _
-    rw [h1, h2, h3, Level.substFn_map_param]
-    rfl
+  -- the fire-mode premises, specialized from the kernel's comparand
+  -- checks (`recFireComparands`)
+  have hplainPrem : r.fire = RecRuleFire.plain →
+      ws.take r.ctorParams = (vsi ++ [tvv]).take r.ctorParams ∧
+      ∀ p ∈ cvj.levelParams,
+        Level.substFn φ
+          (ConstantInfo.ctorInfo cvj cnP cnF).toConstantVal.levelParams
+          usj p =
+        Level.substFn φ
+          (ConstantInfo.recInfo cv mI rP rules).toConstantVal.levelParams
+          us p := by
+    intro hfp
+    have hpeq' : defEqListP env fuel d
+        (major.getAppArgs.take r.ctorParams)
+        ((Expr.app fe ae).getAppArgs.take r.ctorParams) = .ok true := by
+      have h0 := hpeq
+      simp only [recFireComparands, hfp] at h0
+      exact h0
+    have hlev' : Level.isEquivList usj (cvj.levelParams.map fun p =>
+        Level.subst cv.levelParams us (.param p)) = some true := by
+      have h0 := hlev
+      simp only [recFireComparands, hfp] at h0
+      exact h0
+    constructor
+    · have hspT1 : InterpSpine m.val env φ d ρ
+          (major.getAppArgs.take r.ctorParams) (ws.take r.ctorParams) :=
+        InterpSpine.take _ hmsp
+      have hspT2 : InterpSpine m.val env φ d ρ
+          ((Expr.app fe ae).getAppArgs.take r.ctorParams)
+          ((vsi ++ [tvv]).take r.ctorParams) := by
+        have := InterpSpine.take r.ctorParams hisp
+        rw [← hxeq] at this
+        exact this
+      refine defEqList_values ihd
+        _ _ _ _ hpeq' ?_ ?_ hspT1 hspT2
+      · intro x hx
+        have hxm := List.mem_of_mem_take hx
+        exact ⟨hmajW.getAppArgs _ hxm,
+          looseBVarsBounded_getAppArgs hmajB _ hxm,
+          fun l hl => hmajL l (fvarLeaves_getAppArgs hxm l hl),
+          FvarsOk.of_subset
+            (fun l hl => fvarLeaves_getAppArgs hxm l hl) hmajO,
+          hmxsA _ hxm⟩
+      · intro x hx
+        have hxm := List.mem_of_mem_take hx
+        exact ⟨hargsW _ hxm, hargsB _ hxm, hargsL _ hxm, hargsO _ hxm,
+          hxsA _ hxm⟩
+    · intro p hp
+      have h1 : Level.substFn φ cvj.levelParams usj =
+          Level.substFn φ cvj.levelParams
+            (cvj.levelParams.map fun q =>
+              Level.subst cv.levelParams us (.param q)) :=
+        Level.substFn_congr (Level.isEquivList_sound hlev' φ)
+      have h2 : (cvj.levelParams.map fun q =>
+          Level.subst cv.levelParams us (.param q)) =
+          (cvj.levelParams.map Level.param).map
+            (Level.subst cv.levelParams us) := by
+        simp [List.map_map, Function.comp]
+      have h3 := Level.substFn_map_subst (φ := φ) (ks := cv.levelParams)
+        (vs := us) (ks' := cvj.levelParams)
+        (ws := cvj.levelParams.map Level.param) (by simp) hp
+      show Level.substFn φ cvj.levelParams usj p = _
+      rw [h1, h2, h3, Level.substFn_map_param]
+      rfl
+  have hnestedPrem : ∀ lvls pins,
+      r.fire = RecRuleFire.nested lvls pins →
+      mI = rP ∧
+      (∀ p ∈ cvj.levelParams,
+        Level.substFn φ
+          (ConstantInfo.ctorInfo cvj cnP cnF).toConstantVal.levelParams
+          usj p =
+        Level.substFn (Level.substFn φ
+          (ConstantInfo.recInfo cv mI rP
+            rules).toConstantVal.levelParams us)
+          cvj.levelParams lvls p) ∧
+      ∃ (dP : Nat) (ρP : Nat → V) (spineP : List Expr),
+        FvarSpine dP ρP spineP vsi ∧
+        (∀ a ∈ spineP, ∃ i nm, a = Expr.fvar i nm (.sort .zero)) ∧
+        (pins.map fun pin => Expr.instSeq spineP (spineP.length - 1)
+          (pin.instantiateLevelParams cv.levelParams us)).mapM
+          (interpExpr V m.val env φ dP ρP) =
+          some (ws.take r.ctorParams) :=
+    nested_fire_premise ihd hnestWF hpeq hlev husjlen hml hvsilen har1
+      htakelen hargsW hargsB hargsL hargsO hmajW hmajB hmajL hmajO
+      hmxsA hmsp hspi hRw hRb hRA hRhf hfitIR hdR hagrR hfitRF hfvRF
   obtain ⟨R, hRi, hfoldEq, hRchain⟩ := hfolds cvj cnP cnF hfj _ _
-    vsi ws tvv hvsilen hwslen hchain' hmchain htveq hparameq hplain hψeq
+    vsi ws tvv hvsilen hwslen hchain' hmchain htveq hplainPrem hplain
     ⟨φ, us, usj, d, ρ, dR, ρR, restR', dC, ρC, restC', rfl, rfl,
-      hfitR, hfitC, hmapM⟩
+      hfitR, hfitC, hmapM, hnestedPrem⟩
   -- the reduct's interpretation and annotation chain
   have hRinst : interpExpr V m.val env φ d ρ
       (r.rhs.instantiateLevelParams cv.levelParams us) = some R := by

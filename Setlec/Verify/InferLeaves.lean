@@ -453,7 +453,7 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
           have hl2 := ihCore hwe'' l hl
           rcases fvarLeaves_mkAppN hl2 with hrl | ⟨x, hx, hlx⟩
           · obtain ⟨-, -, -, -, -, hrules⟩ := henv _ (find?_mem hfc)
-            obtain ⟨hrf, -, -, -⟩ := hrules cv mI rP rules rfl r
+            obtain ⟨hrf, -, -, -, -⟩ := hrules cv mI rP rules rfl r
               (List.mem_of_find?_eq_some hrule)
             rw [fvarLeaves_eq_nil_of_not_hasFvar
               (by rw [hasFvar_instantiateLevelParams]; exact hrf)] at hrl
@@ -580,7 +580,7 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
           refine ihCore hwe'' ?_
           refine looseBVarsBounded_mkAppN ?_ ?_
           · obtain ⟨-, -, -, -, -, hrules⟩ := henv _ (find?_mem hfc)
-            obtain ⟨-, -, -, hrb⟩ := hrules cv mI rP rules rfl r
+            obtain ⟨-, -, -, hrb, -⟩ := hrules cv mI rP rules rfl r
               (List.mem_of_find?_eq_some hrule)
             rw [looseBVarsBounded_instantiateLevelParams]
             exact hrb
