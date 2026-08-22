@@ -346,7 +346,7 @@ theorem checkProjFn_inv {env' env₁ : Env} {T ctorName : Name}
       (∃ u : Unit, (checkProjIota env' T ctorName lps cvj nP nF i : CheckM _)
         = .ok u) ∧
       env₁ = ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
-        [⟨ctorName, nF, nP, Expr.recRulePlain pty nP nP nP, rhsA⟩] :: env'.consts⟩ := by
+        [⟨ctorName, nF, nP, (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain else .inert), rhsA⟩] :: env'.consts⟩ := by
   simp only [checkProjFn, fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
     fueledOps_ensureSort, fueledOps_whnf, Bind.bind, Except.bind] at h
   cases hlk : (checkProjLookups env' T ctorName lps nP nF i : CheckM _) with
@@ -667,9 +667,9 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
     simp [pinnedVal]
   have hwf : ConstWF
       ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
-        [⟨ctorName, nF, nP, Expr.recRulePlain pty nP nP nP, rhsA⟩] :: env'.consts⟩
+        [⟨ctorName, nF, nP, (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain else .inert), rhsA⟩] :: env'.consts⟩
       (.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
-        [⟨ctorName, nF, nP, Expr.recRulePlain pty nP nP nP, rhsA⟩]) := by
+        [⟨ctorName, nF, nP, (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain else .inert), rhsA⟩]) := by
     refine ⟨hptyf, hptylp, Expr.constsResolve_mono hptyres, hptyb,
       ?_, ?_⟩
     · intro cv2 v2 h2 heq
@@ -719,7 +719,7 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
     exact ⟨by rw [hfm]; rfl, fun ψ => rfl⟩
   obtain ⟨m₁, hval₁, hpres₁⟩ := extend_proj_fn m
     ⟨projFnName T i, lps, pty⟩ nP nF i
-    ⟨ctorName, nF, nP, Expr.recRulePlain pty nP nP nP, rhsA⟩ f
+    ⟨ctorName, nF, nP, (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain else .inert), rhsA⟩ f
     (projModelName T i) hpnone
     (reservedBasisNames_not_num _ _) hwf hptyres hfm hmlps hprojmArg hren
     f₀ hro hff₀ hfself hfnot heqf heqval hi hctor rfl rfl
@@ -731,12 +731,12 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
       m₁.val n ψ = m.val n ψ := hpres₁
   have hfindNe : ∀ n : Name, n ≠ projFnName T i →
       (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
-        [⟨ctorName, nF, nP, Expr.recRulePlain pty nP nP nP, rhsA⟩] :: env'.consts⟩ : Env).find? n
+        [⟨ctorName, nF, nP, (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain else .inert), rhsA⟩] :: env'.consts⟩ : Env).find? n
         = env'.find? n := by
     intro n hn
     rw [Env.find?_cons,
       if_neg (show ¬(ConstantInfo.recInfo ⟨projFnName T i, lps, pty⟩
-        nP nP [⟨ctorName, nF, nP, Expr.recRulePlain pty nP nP nP,
+        nP nP [⟨ctorName, nF, nP, (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain else .inert),
           rhsA⟩]).name = n from
         fun hh => hn hh.symm)]
   refine ⟨m₁, ?_, ?_, ?_⟩
@@ -778,7 +778,7 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
         exact hfm
       · rw [Env.find?_cons,
           if_pos (show (ConstantInfo.recInfo ⟨projFnName T j, lps, pty⟩
-            nP nP [⟨ctorName, nF, nP, Expr.recRulePlain pty nP nP nP,
+            nP nP [⟨ctorName, nF, nP, (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain else .inert),
               rhsA⟩]).name = projFnName T j
             from rfl)] at hf₂
         obtain rfl := Option.some.inj hf₂

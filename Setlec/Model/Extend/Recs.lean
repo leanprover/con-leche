@@ -575,12 +575,19 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
   refine ⟨fun ψ => AnnotOk.env_ext henvLev hnat hstr _ 0 (rho0 V)
     (hArhsS ψ), ?_, ?_⟩
   · intro hpt
-    exact recRulePlain_le_mI (hpl ▸ hpt)
+    refine recRulePlain_le_mI (recTy := cvA.type) (cnP := cnP) ?_
+    rw [hpt] at hpl
+    by_cases hc : Expr.recRulePlain cvA.type mI rP cnP = true
+    · exact hc
+    · rw [if_neg hc] at hpl; exact nomatch hpl
   intro cvj' cnP' cnF' hfj ψ ψj args margs tv hl hml hch hmch htv hpeq
     hplainB hlev hfit
   -- the stored flag is the computed predicate
-  have hplain : Expr.recRulePlain cvA.type mI rP cnP = true :=
-    hpl ▸ hplainB
+  have hplain : Expr.recRulePlain cvA.type mI rP cnP = true := by
+    rw [hplainB] at hpl
+    by_cases hc : Expr.recRulePlain cvA.type mI rP cnP = true
+    · exact hc
+    · rw [if_neg hc] at hpl; exact nomatch hpl
   -- the spine arithmetic in constructor counts
   rw [hcp, hnf] at hml
   rw [hcp] at hpeq hfit

@@ -247,7 +247,8 @@ def RuleChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
     env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF) ∧
     RecRule.nfields r = cnF ∧
     RecRule.ctorParams r = cnP ∧
-    RecRule.plain r = Expr.recRulePlain cvA.type mI rP cnP ∧
+    RecRule.fire r = (if Expr.recRulePlain cvA.type mI rP cnP then
+      RecRuleFire.plain else .inert) ∧
     raw.hasFvar = false ∧ raw.looseBVarsBounded 0 = true ∧
     annotateCore env₀ F 0 raw = .ok (RecRule.rhs r) ∧
     (RecRule.rhs r).hasFvar = false ∧

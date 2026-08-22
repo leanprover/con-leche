@@ -97,7 +97,7 @@ def RecMemberOk (env' : Env) (val' : ConstVal V)
   ∀ cvR mI rP rules, ci = .recInfo cvR mI rP rules →
     ∀ r ∈ rules,
       (∀ ψ : Name → Nat, AnnotOk V val' env' ψ 0 (rho0 V) (RecRule.rhs r)) ∧
-      (RecRule.plain r = true → rP ≤ mI) ∧
+      (RecRule.fire r = .plain → rP ≤ mI) ∧
       ∀ cvj cnP cnF,
         env'.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF) →
         ∀ (ψ ψj : Name → Nat) (args margs : List V) (tv : V),
@@ -108,7 +108,7 @@ def RecMemberOk (env' : Env) (val' : ConstVal V)
           tv = SpineFold V (val' (RecRule.ctor r) ψj) margs →
           margs.take (RecRule.ctorParams r) =
             (args ++ [tv]).take (RecRule.ctorParams r) →
-          RecRule.plain r = true →
+          RecRule.fire r = .plain →
           (∀ p ∈ cvj.levelParams, ψj p = ψ p) →
           (∃ (φ' : Name → Nat) (us usj : List Level) (d : Nat) (ρ : Nat → V)
               (d₁ : Nat) (ρ₁ : Nat → V) (rest₁ : Expr)

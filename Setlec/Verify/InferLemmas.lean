@@ -596,7 +596,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
       major.getAppArgs.length = r.ctorParams + r.nfields ∧
       (cv.type.stripPis (mI + 1)).isSome = true ∧
       (cvj.type.stripPis (r.ctorParams + r.nfields)).isSome = true ∧
-      r.plain = true ∧
+      r.fire = .plain ∧
       Level.isEquivList usj (cvj.levelParams.map fun p =>
         Level.subst cv.levelParams us (.param p)) = some true ∧
       defEqListP env fuel d (major.getAppArgs.take r.ctorParams)
@@ -702,13 +702,13 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   case neg => rw [if_neg hml] at h; exact nomatch h
   rw [if_pos hml] at h
   try simp only [Bind.bind, Except.bind] at h
-  by_cases hplain0 : r.plain = false
+  by_cases hplain0 : r.fire = .inert
   case pos => rw [if_pos hplain0] at h; exact nomatch h
   rw [if_neg hplain0] at h
   try simp only [Bind.bind, Except.bind] at h
   by_cases harities : (cv.type.stripPis (mI + 1)).isSome = true ∧
       (cvj.type.stripPis (r.ctorParams + r.nfields)).isSome = true ∧
-      r.plain = true
+      r.fire = .plain
   case neg => rw [if_neg harities] at h; exact nomatch h
   obtain ⟨har1, har2, har3⟩ := harities
   rw [if_pos ⟨har1, har2, har3⟩] at h

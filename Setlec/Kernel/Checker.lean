@@ -248,14 +248,15 @@ def checkIotaRule (ops : CheckerOps m) (env' envSelf : Env)
     -- infer the rule's type: soundness interprets the (λ-tower)
     -- right-hand side through this inference
     let _rhsTy ← ops.inferType envSelf 0 rhsA
-    -- the canonical/inert flag is computed once, here, and stored on
-    -- the rule; `iotaRec` reads the flag instead of re-walking the
-    -- recursor type on every fire
+    -- the firing mode is computed once, here, and stored on the rule;
+    -- `iotaRec` reads the flag instead of re-walking the recursor type
+    -- on every fire
     if Expr.recRulePlain tyA mI rP cnP then
       checkIotaThm ops env' envSelf f cvName lps tyA mI rP j r
         cvj cnP cnF rhsA
     pure { r with rhs := rhsA, ctorParams := cnP
-                  plain := Expr.recRulePlain tyA mI rP cnP }
+                  fire := if Expr.recRulePlain tyA mI rP cnP then
+                    .plain else .inert }
 
 /-- The per-rule check, folded over a modeled recursor's rules. -/
 def checkIotaRules (ops : CheckerOps m) (env' envSelf : Env) (f : Name → Name)
@@ -482,7 +483,8 @@ def checkProjFn (ops : CheckerOps m) (env' : Env) (T ctorName : Name) (lps : Lis
   -- major sits at position nP and the rule prefix is the parameters;
   -- the canonical flag is computed here, once, like `checkIotaRule`
   pure ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
-    [⟨ctorName, nF, nP, Expr.recRulePlain pty nP nP nP, rhsA⟩] ::
+    [⟨ctorName, nF, nP,
+      if Expr.recRulePlain pty nP nP nP then .plain else .inert, rhsA⟩] ::
     env'.consts⟩
 
 /-- Does the model document structural eta for this single-constructor

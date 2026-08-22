@@ -274,7 +274,7 @@ def RecRulesOk (env : Env) (val : ConstVal V) : Prop :=
       -- a canonical rule's prefix fits under the major's position (part
       -- of `Expr.recRulePlain`, whose install-time computation backs
       -- the stored flag)
-      (RecRule.plain r = true → rP ≤ mI) ∧
+      (RecRule.fire r = .plain → rP ≤ mI) ∧
       ∀ cvj cnP cnF,
         env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF) →
         -- the spine arithmetic is over the *rule's* stored counts
@@ -290,7 +290,7 @@ def RecRulesOk (env : Env) (val : ConstVal V) : Prop :=
             (args ++ [tv]).take (RecRule.ctorParams r) →
           -- non-canonical (nested-auxiliary) rules are inert: `iotaRec`
           -- guards on the stored flag, so their fold facts are vacuous
-          RecRule.plain r = true →
+          RecRule.fire r = .plain →
           (∀ p ∈ cvj.levelParams, ψj p = ψ p) →
           (∃ (φ' : Name → Nat) (us usj : List Level) (d : Nat) (ρ : Nat → V)
               (d₁ : Nat) (ρ₁ : Nat → V) (rest₁ : Expr)
