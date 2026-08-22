@@ -499,11 +499,14 @@ def isEquivListLI (st : EStore) (memo : EStore.LMemo) :
       | (some bs, st, memo) => (some (b && bs), st, memo)
   | _, _ => (some false, st, memo)
 
-/-- Monadic wrapper for `isEquivLI` (threads the persistent simplify
-memo), with a persistent *result* cache (`eqvC`): on a canonical arena
-the pair of indices determines the pair of levels, so a decided
-equivalence never needs recomputing — the `byCases` cascades of
-parameterized `imax` levels run once per distinct pair. -/
+/-- Monadic level equivalence: simplify both sides on the arena
+(persistent memo — repeat subterms are free), read the *small*
+simplified levels back and run the spec `Level.leqCore` on the
+transient trees (the `byCases` cascades allocate transient trees like
+the `Expr`-level checker did, instead of interning every intermediate
+level), with a persistent *result* cache (`eqvC`): on a canonical
+arena the pair of indices determines the pair of levels, so a decided
+equivalence never needs recomputing. -/
 @[inline] def isEquivLM (l r : LIdx) : CheckIM (Option Bool) :=
   modifyGet fun s =>
     match s.eqvC[(l, r)]? with
@@ -513,11 +516,22 @@ parameterized `imax` levels run once per distinct pair. -/
       let memo := s.lsimpC
       let ec := s.eqvC
       let s := { s with store := EStore.empty, lsimpC := {}, eqvC := {} }
-      match isEquivLI store memo l r with
-      | (some b, store, memo) =>
-        (some b, { s with store := store, lsimpC := memo,
-                          eqvC := ec.insert (l, r) b })
-      | (none, store, memo) =>
+      let (ls, store, memo) := store.simplifyLIGo memo l
+      let (rs, store, memo) := store.simplifyLIGo memo r
+      match store.readbackL ls, store.readbackL rs with
+      | some la, some ra =>
+        match Level.leqCore Level.defaultFuel la ra 0 with
+        | some b1 =>
+          match Level.leqCore Level.defaultFuel ra la 0 with
+          | some b2 =>
+            let b := b1 && b2
+            (some b, { s with store := store, lsimpC := memo,
+                              eqvC := ec.insert (l, r) b })
+          | none =>
+            (none, { s with store := store, lsimpC := memo, eqvC := ec })
+        | none =>
+          (none, { s with store := store, lsimpC := memo, eqvC := ec })
+      | _, _ =>
         (none, { s with store := store, lsimpC := memo, eqvC := ec })
 
 /-- Pointwise `isEquivLM` (each pair through the result cache). -/

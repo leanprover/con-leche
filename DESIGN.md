@@ -1906,10 +1906,13 @@ hash was tried and *regressed* — the `_model.iota_j`/`_model.proj_i`
 naming convention makes truncated-suffix hashes collide across every
 modeled inductive; solved structurally by the per-decl cache sharing
 follow-up), the interned instantiation's per-call memo maps ≈ 13 %, `Level` ops (`simplify`/`leqCore`, semantic — untouched
-by interning) ≈ 7 %, `Level.decEq` now only ≈ 3 % (the audit's
-level-interning priority was measured against a pointer-equality
-proxy; with real interning the remaining level-comparison cost is
-small).
+by interning) ≈ 7 %, `Level.decEq` now only ≈ 3 %.  (An earlier
+version of this note concluded from these numbers that level interning
+was moot — **wrong**: the init-prelude profile under-represents deep
+levels.  The scale harness (task #56) found `spine`/`telescope` at
+exponent ~2.7 dominated 57–59 % by structural `Level` hashing — deep
+`imax` trees re-hashed on every hash-cons/memo touch.  Level interning
+landed as task #62 below.)
 
 **Deferred follow-ups** (validated by the 2026-08-22 performance
 audit, in expected-value order): intra-declaration cache sharing —
@@ -2184,3 +2187,123 @@ O(k)-deep `imax` level trees, and every hash-cons/memo touch of a
 per-binder walks).  These corroborate the performance-roadmap items
 (memoize infer/whnf/defeq, incremental env index, interned levels);
 re-run the harness after each to watch the exponents drop.
+
+## Interned levels (2026-08-22, task #62)
+
+Levels live in the arena alongside expressions: `EStore` gains
+`lnodes : Array LNode` / `lcons : HashMap LNode LIdx` (`LNode` =
+`zero/succ/max/imax/param` over `LIdx` children), and `ENode` carries
+level *ids* — `sort (u : LIdx)`, `const (us : List LIdx)`, and binder
+metadata as `IBinderMeta` (`bi`, `cod : Option LIdx`).  Hash-consing a
+`sort`/`const` node now hashes a handful of `Nat`s instead of
+re-hashing a deep `Level` tree on every memo touch, which was the
+scale harness's dominant cost (`spine`/`telescope` at exponent ~2.7).
+
+Interning happens at `internExprM`/`internL`; readback
+(`readbackL`/`readbackBM`) reconstructs `Level`s only at the arena
+boundary.  The hot level operations get interned twins, DAG-memoized
+where recursive: `simplifyLIGo` (persistent memo `IState.lsimpC`),
+`isNonZeroLIGo` (`lnzC`), `substLIGo`/`internLevelSubst(s)`,
+`instantiateLevelParamsIGo`, and the full `leqCore` mutual family
+(`leqCoreLI`/`leqRestLI`/`imaxRulesLI`/`imaxRulesRestLI`/
+`imaxRulesRightLI`/`byCasesLI` plus `leqLI`/`isEquivLI`) as *pure*
+arena functions threading the simplify memo — the monadic wrappers
+(`isEquivLM` etc.) are single `modifyGet`s, so the faithfulness proofs
+stay pure lemmas.  `isEquivLM` additionally carries a persistent
+*result* cache (`eqvC : HashMap (LIdx × LIdx) Bool`): on a canonical
+arena the index pair determines the level pair, so a decided
+equivalence is never recomputed.
+
+Verification: `denoteL : LIdx → Option Level` extends the denotation
+layer (`denoteLList`, `denoteBM`); `EStore.WF` gains `levels_lt` /
+`lchildren_lt` / `lcons_graph` clauses and canonicity gives
+`denoteL_inj`.  Level-memo invariants (`LvlMemoInv`, `LvlQMemoInv`,
+`EqvMemoInv`) mirror the expression memo invariants; `ISOK` gains the
+`lsimp`/`lnz`/`eqv` clauses and the lazy stored-constant caches are
+re-keyed by level-*index* lists (each entry carrying its key's
+denotation).  The twin faithfulness of the `leqCore` family is
+`Setlec/Verify/ILevel.lean` (~2 700 lines; spec-side reduction
+equations for the fueled mutual family, per-arm `imaxRules` lemmas);
+the walks in `Setlec/Verify/DiscI*.lean` consume the level ops through
+`RelL` (`denoteL u = some l`) and the `*_eff` lemmas.  The `Expr`-level
+spec and everything in `Setlec/Model/*` are untouched.
+
+**Scale harness effect** (kernel change alone): `spine` 2.70 → 2.11,
+`telescope` 2.62 → 1.94 (3.4×/3.6× absolute at n = 400); `chain`/
+`many` unchanged (fixed by task #63 below).  The residual
+`spine`/`telescope` ~n² is *not* level-related: profiles show the
+per-binder opening walks — `instantiate1IGo`/`abstract1IGo` visit the
+whole remaining telescope per binder, and the accumulator-based spine
+walkers convert the accumulator per argument (`List.toArrayAux`/
+`lengthTR`).  The fix is the official-kernel discipline — accumulate
+fvars, bulk-instantiate only each *domain* against the accumulator,
+instantiate the body once at the end (`instantiateListI` exists for
+exactly this) — applied to the annotate/infer/whnf binder cases, plus
+the deferred per-node scope data (loose-bvar bound) for O(1) identity
+shortcuts.  That rework touches the `DiscI` binder walks and is left
+as the next performance task.
+
+**init-prelude regression note**: on the (shallow-level) init-prelude
+stream the interned level ops are *slower* than the structural ones —
+`byCases` cascades intern every intermediate level and thread HashMap
+memos where the `Expr`-level code allocated transient trees.  Measured
+445 G instructions vs 212.6 G pre-#62 (after task #63's index
+threading; the eqv cache does not help — the pairs are mostly
+distinct).  See the follow-ups at the end of the task #63 section.
+
+## Cross-declaration environment index; kind-agnostic certificates (2026-08-22, task #63)
+
+Two changes, one theme: no executable-path environment lookup walks
+`env.consts`.
+
+**`Env.findThm?` is gone.**  The iota-certificate checks consumed a
+stored `_model.iota_j` *theorem*'s statement; the theorem-kind filter
+was an over-restriction — any stored constant witnesses its type's
+inhabitation in the model (`EnvModel.mem_type` is kind-agnostic).
+`Env.findCV?` returns the stored constant's `ConstantVal`;
+`PlainChecked`/`NestedChecked` carry a generic `ConstantInfo` plus its
+`toConstantVal` equation, and the `Extend/Recs`, `BridgeWfImp`,
+`BridgeS2` consumers use `find?_mem` directly.
+
+**The index is threaded across declarations.**  `checkDeclSF :
+FEnv → Declaration → CheckIM FEnv` replaces the per-declaration
+`mkFEnv` rebuild: the index is built once (`mkFEnv Env.empty`) and
+each accepted constant is one `FEnv.push` (definitionally `mkFEnv` of
+the cons-extended environment, `mkFEnv_push`).  Every checker-side
+lookup goes through the index: `Setlec/Kernel/CheckerS.lean` holds
+`F`-mirrors of the generic checker functions (`checkConstantValF`,
+`checkMemberValF`, the iota pipeline `checkIotaThmF/NF`,
+`nestedRuleShapeF`, `checkIotaRuleF/RulesF`, the projection stages,
+`checkDefnValF/ThmValF/OpaqueValF`, `installBasisDeclF`,
+`checkDivModCertsF/PinF`) and indexed guard twins (`constsResolveF`,
+`natOpStoredOkF`, `stdAxiomOkF`, `divMod*F`, `checkEtaThmF`,
+`checkUnitThmF`, `indBlockCapsF`), extending the existing
+`natOpGuardF` family.
+
+Verification (`Setlec/Verify/CheckerF.lean`): under `mkFEnv` each
+mirror *is* its generic counterpart — the mirrors differ only in pure
+lookup subterms, which `mkFEnv_find?` rewrites away (`simp only`
+plus a final defeq `rfl` across the distinct matcher constants).
+Environment-extending mirrors are related in *push form*
+(`checkDefnValF_push` …: mirror `= generic >>= pure ∘ mkFEnv`, proven
+by monad-law normalization at `CheckIM`; `throw`-bind and
+`push_mkFEnv` are definitional).  `checkDeclSF_nonind` assembles the
+non-inductive branches, so `Setlec/Model/BridgeS.lean` rewrites the
+mirrors away and reuses the existing single-environment walks; the
+run lemmas thread the `fe = mkFEnv fe.env` shape through every push,
+and `Setlec/Model/ConsistencyS.lean` folds the index with that shape
+invariant.  The consistency statements' shapes are unchanged
+(`checkDeclsShared : List Declaration → CheckM Env`).
+
+**Measured**: scale harness `chain` 1.59 → **1.04**, `many` 1.56 →
+**1.04** (PASS; `spine` 2.11 / `telescope` 1.94 remain, diagnosed
+above); init-prelude 488 G → 445 G instructions.
+
+**Follow-ups** (performance, in expected-value order): (1) the
+binder-walk rework (accumulated fvars + bulk domain instantiation) for
+`spine`/`telescope` and the real init-prelude binder costs; (2) level-
+op constant factors on shallow levels — avoid per-call memo/`Option`
+allocation in `leqCoreLI`'s node views and `byCasesLI`'s four
+fresh-memo substitutions (persistent keyed subst memo, or a small-level
+fast path); (3) per-node scope data for O(1) instantiate/abstract
+identity shortcuts.
