@@ -1553,3 +1553,30 @@ throw, ite, the ops atoms, `unwrapOr`, `checkDefEqList`) — `let some
 … := … | throw` patterns compile to matcher applications that block
 both `simp` and (at this term size) `split`, so new monad-polymorphic
 kernel functions should prefer `unwrapOr`.
+
+## init-prelude milestone and the lean4lean comparison (2026-08-22)
+
+The full preprocessed `Init.Prelude` stream is accepted end to end:
+exit 0, 3131 progress-reported declarations (3653 accepted constants),
+**40.9 s wall / 166 MB peak RSS** under an 8 GB limit.
+
+Baseline (same machine, 2026-08-21): lean4lean at `e0e3f6b`
+(toolchain v4.33.0-rc2), `lean4lean --fresh Init.Prelude`: **0.37 s /
+100 MB / 1975 declarations**, reading compacted `.olean` regions
+directly.  The ~100x gap decomposes into known causes:
+
+1. **Different work**: 1147 of the 3131 checked declarations (~37 %)
+   are preprocessor `_model` artifacts — model definitions and large
+   certification proofs lean4lean never sees — plus the install-time
+   iota/projection/capability certification against them.
+2. **No interning yet** (task #26): every memo lookup deep-hashes and
+   deep-compares expressions; lean4lean inherits pointer equality and
+   cached hashes from the Lean runtime.
+3. **Text export parsing** versus mmap'd olean environment loading.
+4. **Per-declaration fresh caches** (the `CacheOK` bridge assumes a
+   fixed env per cache lifetime) versus a persistent kernel cache.
+5. lean4lean is a port of the C++ kernel's algorithms (including
+   `cheapProj`-style shortcuts we deliberately defer).
+
+The main open lever is (2); (1) is the price of checking the models
+rather than trusting the preprocessor, and is considered inherent.
