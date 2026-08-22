@@ -1028,6 +1028,19 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
               -- (install-computed); the defensive spine-length check
               -- stays
               if margs.length = rl.ctorParams + rl.nfields then
+               -- A matched non-canonical rule is a *positive
+               -- detection* of an unsupported feature: the redex
+               -- demands firing a nested-auxiliary rule (e.g.
+               -- `Syntax.rec_1` on an `Array.mk` major), whose
+               -- verified reduction is not implemented (the iota
+               -- statement pin assumes canonical constructor
+               -- parameters).  Staying silently stuck would surface
+               -- as a spurious *reject* downstream (defeq failure in
+               -- the app rule), so decline here instead.
+               if rl.plain = false then
+                 throw (.notImplemented
+                   "iota reduction over a nested auxiliary recursor rule")
+               else
                if (cv.type.stripPis (mI + 1)).isSome ∧
                   (cvj.type.stripPis (rl.ctorParams + rl.nfields)).isSome ∧
                   -- non-canonical (nested-auxiliary) rules are inert:

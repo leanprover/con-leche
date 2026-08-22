@@ -1386,6 +1386,31 @@ stored flag (soundness), so inert rules' obligations are vacuous.
 No completeness is lost on the tutorial arena (no nested blocks) and
 declines stay declines.
 
+*Matched inert rules decline (2026-08-22).*  A silently-stuck
+nested-aux redex is not always benign: `Lean.Syntax.brecOn_1.go`
+(init-prelude DECL 2217) applies its functional to an ih of `PProd`
+type where the expected domain is `Syntax.below_1 … (Array.mk …)` —
+an abbrev over `Syntax.rec_1`, whose sole (`Array.mk`) rule is
+inert — so the app rule's defeq stayed stuck and the declaration was
+*rejected* (exit 1) although it is a perfectly good kernel term (the
+official kernel fires nested rules by taking the last `nfields` major
+arguments).  Diagnosis: not a metadata bug — a deliberate
+verified-reduction restriction surfacing as the wrong verdict.
+`iotaRec` now treats a *matched* non-canonical rule (recursor fully
+applied, major whnfs to a constructor application of the rule's ctor
+at the right arity, `plain = false`) as a positive detection of the
+unsupported feature and throws a decline ("iota reduction over a
+nested auxiliary recursor rule").  Empirically no other init-prelude
+declaration (1–2216), arena test, or e2e fixture reaches such a
+match, so verdicts elsewhere are unchanged; the probe still reaches
+DECL 2217 and now declines there instead of rejecting.  The real fix
+is a follow-up feature: the preprocessor *does* emit
+`rec_1._model.iota_0`-style theorems for nested rules, so firing them
+verified needs a generalized statement pin (constructor parameters
+and levels pinned to arbitrary closed instantiations stored on the
+rule, fire-checked by defeq) plus the corresponding `RecRulesOk` fold
+clause and `iota_sound` extension.
+
 **Slim recursor metadata (2026-08-22, task #46).**  Stored recursor
 metadata is exactly what the firing path reads.
 `ConstantInfo.recInfo` keeps two sums instead of the four counts:

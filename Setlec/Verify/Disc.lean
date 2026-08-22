@@ -728,6 +728,8 @@ theorem iotaRec_disc (ih : ScopedSim env f) (henv : EnvWF env)
   split <;> try exact DiscV.pure WScopedO.none
   rename_i rl hrule
   split <;> try exact DiscV.pure WScopedO.none
+  split
+  · exact DiscV.throw _
   split <;> try exact DiscV.pure WScopedO.none
   refine DiscV.bind (DiscV.liftFueled_true _ _) (fun okl _ => ?_)
   split <;> try exact DiscV.pure WScopedO.none

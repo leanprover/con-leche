@@ -702,6 +702,10 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   case neg => rw [if_neg hml] at h; exact nomatch h
   rw [if_pos hml] at h
   try simp only [Bind.bind, Except.bind] at h
+  by_cases hplain0 : r.plain = false
+  case pos => rw [if_pos hplain0] at h; exact nomatch h
+  rw [if_neg hplain0] at h
+  try simp only [Bind.bind, Except.bind] at h
   by_cases harities : (cv.type.stripPis (mI + 1)).isSome = true ∧
       (cvj.type.stripPis (r.ctorParams + r.nfields)).isSome = true ∧
       r.plain = true

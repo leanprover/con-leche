@@ -1260,6 +1260,7 @@ private theorem iotaRec_shift (henv : EnvWF env)
         dsimp only
         simp only [getAppArgs_shiftFrom, List.length_map]
         refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
+        refine ite_rel _ (fun _ => rfl) (fun _ => ?_)
         refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
         refine bind_rel_eq _ rfl ?_
         intro okl _
