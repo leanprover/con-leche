@@ -139,6 +139,7 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                 match n with
                 | some (.const T' ust) =>
                   Setlec.withStore (·.getAppArgsI tmaj) >>= fun margs =>
+                  readbackLevelsM ust >>= fun ustL =>
                   if T' = T ∧ margs.length = caps.etaParams ∧
                       ust.length = cvT.levelParams.length then
                     projAppsI T ust margs i
@@ -156,7 +157,7 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                       if r then pure fab
                       else if caps.etaFields = 0 ∧
                           cvj.levelParams.length = ust.length ∧
-                          piResultNeverZero cvT.levelParams ust cvT.type
+                          piResultNeverZero cvT.levelParams ustL cvT.type
                             = true then
                         proofIrrelI (coreKnotI (mkFEnv env) f)
                             (mkFEnv env) d fab i >>= fun r' =>
@@ -218,14 +219,20 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                   have hext₀₂ := hext₁.trans hext₂
                   cases n with
                   | const T' ust =>
-                    rw [← Option.some.inj hd]
+                    rw [denoteNode, Option.map_eq_some_iff] at hd
+                    obtain ⟨lust, hlustDen, hd⟩ := hd
+                    rw [← hd]
+                    have hlen := denoteLList_length hlustDen
                     dsimp only
+                    rw [← hlen]
                     split
                     · refine SimAt.withStore ?_
                       have hmargs := getAppArgsI_spec hs₂.wf htmajd
                       have hcn : denoteNode s₂.store.denote
-                          (.const rl.ctor ust)
-                          = some (.const rl.ctor ust) := rfl
+                          s₂.store.denoteL (.const rl.ctor ust)
+                          = some (.const rl.ctor lust) := by
+                        rw [denoteNode, hlustDen]
+                        rfl
                       refine SimAt.bind_left (internI_eff hs₂ hcn)
                         (fun s₃ h hs₃ hext₃ hQh => ?_)
                       refine SimAt.bind_left (mkAppNM_eff hs₃ hQh
@@ -311,28 +318,40 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                     have hext₀₂ := hext₁.trans hext₂
                     cases n with
                     | const T' ust =>
-                      rw [← Option.some.inj hd]
+                      rw [denoteNode, Option.map_eq_some_iff] at hd
+                      obtain ⟨lust, hlustDen, hd⟩ := hd
+                      rw [← hd]
+                      have hlen := denoteLList_length hlustDen
                       dsimp only
                       refine SimAt.withStore ?_
                       have hmargs := getAppArgsI_spec hs₂.wf htmajd
-                      rw [hmargs.length_eq]
+                      refine SimAt.bind_left
+                        (readbackLevelsM_eff hs₂ hlustDen)
+                        (fun s₂r ustL hs₂r hext₂r hustL => ?_)
+                      rw [hustL, hmargs.length_eq, ← hlen]
                       split
                       · refine SimAt.bind_left (projAppsI_eff T ust
-                          (List.range caps.etaFields) hs₂ hmargs
-                          (denote_mono hext₀₂ hden))
+                          lust (List.range caps.etaFields) hs₂r
+                          (denoteLList_mono hext₂r hlustDen)
+                          (hmargs.mono hext₂r)
+                          (denote_mono (hext₀₂.trans hext₂r) hden))
                           (fun s₃ projs hs₃ hext₃ hQp => ?_)
                         have hcn : denoteNode s₃.store.denote
-                            (.const caps.etaCtor ust)
-                            = some (.const caps.etaCtor ust) := rfl
+                            s₃.store.denoteL (.const caps.etaCtor ust)
+                            = some (.const caps.etaCtor lust) := by
+                          rw [denoteNode, denoteLList_mono
+                            (hext₂r.trans hext₃) hlustDen]
+                          rfl
                         refine SimAt.bind_left (internI_eff hs₃ hcn)
                           (fun s₄ h hs₄ hext₄ hQh => ?_)
                         refine SimAt.bind_left (mkAppNM_eff hs₄ hQh
-                          (((hmargs.mono hext₃).mono hext₄).append
-                            (hQp.mono hext₄)))
+                          ((((hmargs.mono hext₂r).mono hext₃).mono
+                            hext₄).append (hQp.mono hext₄)))
                           (fun s₅ fab hs₅ hext₅ hQfab => ?_)
                         refine SimAt.withStore ?_
                         have hext₀₅ :=
-                          ((hext₀₂.trans hext₃).trans hext₄).trans hext₅
+                          (((hext₀₂.trans hext₂r).trans hext₃).trans
+                            hext₄).trans hext₅
                         rw [wscopedBI_spec hs₅.wf hQfab,
                           looseBVarsBoundedI_spec hs₅.wf hQfab,
                           leafGuardI_spec hs₅.wf hQfab
@@ -346,7 +365,8 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                             henv hs₅ hQfab
                             (denote_mono hext₀₅ hden)
                             (denote_mono
-                              (((hext₃.trans hext₄).trans hext₅)) htmajd)
+                              ((((hext₂r.trans hext₃).trans hext₄).trans
+                                hext₅)) htmajd)
                             hwfab hmaj hwtmaj)
                             (fun s₆ r r' hs₆ hext₆ hPr => ?_)
                           obtain rfl : r = r' := hPr
@@ -382,8 +402,8 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                                   hmaj⟩
                         · exact SimAt.pure hs₅
                             ⟨denote_mono hext₀₅ hden, hmaj⟩
-                      · exact SimAt.pure hs₂
-                          ⟨denote_mono hext₀₂ hden, hmaj⟩
+                      · exact SimAt.pure hs₂r
+                          ⟨denote_mono (hext₀₂.trans hext₂r) hden, hmaj⟩
                     | bvar k =>
                       invert_head hd
                       exact SimAt.pure hs₂
@@ -453,27 +473,35 @@ variable {env : Env} {f : Nat}
 
 /-- The interned pin instantiations denote the nested comparand's
 mapped list. -/
-theorem pinArgsI_eff (lps : List Name) (us : List Level) :
+theorem pinArgsI_eff (lps : List Name) (us : List LIdx)
+    (lus : List Level) :
     ∀ (ps : List Expr) {s₀ : IState}, ISOK env s₀ →
+      denoteLList s₀.store.denoteL us = some lus →
       ∀ {args : List EIdx} {xs : List Expr} (t : Nat),
       DenL s₀.store args xs →
       IEff env s₀ (fun s rs => DenL s.store rs
           (ps.map fun p => Expr.instSpine xs t
-            (p.instantiateLevelParams lps us)))
+            (p.instantiateLevelParams lps lus)))
         (pinArgsI lps us args t ps)
-  | [], s₀, hs, args, xs, t, hargs => by
+  | [], s₀, hs, hus, args, xs, t, hargs => by
     exact IEff.pure hs trivial
-  | p :: ps, s₀, hs, args, xs, t, hargs => by
+  | p :: ps, s₀, hs, hus, args, xs, t, hargs => by
     show IEff env s₀ _
-      (internExprM (p.instantiateLevelParams lps us) >>= fun pi =>
+      (internExprM p >>= fun praw =>
+        instLevelParamsM lps us praw >>= fun pi =>
         instSpineM args t pi >>= fun r =>
         pinArgsI lps us args t ps >>= fun rs =>
         pure (r :: rs))
-    refine IEff.bind (internExprM_eff hs _) (fun s₁ pi hs₁ hext₁ hQp => ?_)
-    refine IEff.bind (instSpineM_eff hs₁ hQp (hargs.mono hext₁))
+    refine IEff.bind (internExprM_eff hs _) (fun s₁ praw hs₁ hext₁ hQpr => ?_)
+    refine IEff.bind (instLevelParamsM_eff hs₁
+      (denoteLList_mono hext₁ hus) hQpr)
+      (fun s₁' pi hs₁' hext₁' hQp => ?_)
+    refine IEff.bind (instSpineM_eff hs₁' hQp
+      (hargs.mono (hext₁.trans hext₁')))
       (fun s₂ r hs₂ hext₂ hQr => ?_)
-    refine IEff.bind (pinArgsI_eff lps us ps hs₂ t
-      (hargs.mono (hext₁.trans hext₂)))
+    refine IEff.bind (pinArgsI_eff lps us lus ps hs₂
+      (denoteLList_mono (((hext₁.trans hext₁').trans hext₂)) hus) t
+      (hargs.mono ((hext₁.trans hext₁').trans hext₂)))
       (fun s₃ rs hs₃ hext₃ hQrs => ?_)
     exact IEff.pure hs₃ ⟨denote_mono hext₃ hQr, hQrs⟩
 
@@ -482,9 +510,12 @@ comparands): recursor/constructor telescope certificates, the
 canonical-index check, and the reduct. -/
 private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
     {d : Nat} {i major : EIdx} {ex majorx : Expr} {c cj : Name}
-    {us usj : List Level} {cv cvj : ConstantVal} {mI rP cnP cnF : Nat}
+    {us usj : List LIdx} {lus lusj : List Level}
+    {cv cvj : ConstantVal} {mI rP cnP cnF : Nat}
     {rules : List RecRule} {rl : RecRule}
     {args margs : List EIdx} {s₀ : IState} (hs : ISOK env s₀)
+    (hus : denoteLList s₀.store.denoteL us = some lus)
+    (husj : denoteLList s₀.store.denoteL usj = some lusj)
     (_hden : s₀.store.denote i = some ex) (hw : WScoped d ex)
     (hfc : env.find? c = some (.recInfo cv mI rP rules))
     (hfj : env.find? cj = some (.ctorInfo cvj cnP cnF))
@@ -526,17 +557,17 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
           else pure none
         else pure none)
       (iotaCerts (fueledFns env) env d
-          (cv.type.instantiateLevelParams cv.levelParams us)
+          (cv.type.instantiateLevelParams cv.levelParams lus)
           (ex.getAppArgs.take mI ++ [majorx]) >>= fun r₂ =>
         if r₂ then
           iotaCerts (fueledFns env) env d
-              (cvj.type.instantiateLevelParams cvj.levelParams usj)
+              (cvj.type.instantiateLevelParams cvj.levelParams lusj)
               majorx.getAppArgs >>= fun r₃ =>
           if r₃ then
             match (cvj.type.instantiateLevelParams cvj.levelParams
-                  usj).stripPis (rl.ctorParams + rl.nfields),
+                  lusj).stripPis (rl.ctorParams + rl.nfields),
                 piResidual (cvj.type.instantiateLevelParams
-                  cvj.levelParams usj) majorx.getAppArgs with
+                  cvj.levelParams lusj) majorx.getAppArgs with
             | some (_, cbody), some residual =>
               match cbody.getAppFn with
               | .const _ _ =>
@@ -545,7 +576,7 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
                     ((ex.getAppArgs.take mI).drop rP) >>= fun r₄ =>
                 if r₄ then
                   pure (some (Expr.mkAppN
-                    (rl.rhs.instantiateLevelParams cv.levelParams us)
+                    (rl.rhs.instantiateLevelParams cv.levelParams lus)
                     (ex.getAppArgs.take rP ++
                       majorx.getAppArgs.drop rl.ctorParams)))
                 else pure none
@@ -554,14 +585,14 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
           else pure none
         else pure none) := by
   have hwrecty : WScoped d
-      (cv.type.instantiateLevelParams cv.levelParams us) := by
+      (cv.type.instantiateLevelParams cv.levelParams lus) := by
     obtain ⟨htf, -⟩ := henv _ (find?_mem hfc)
     exact wscoped_instLevels_of_not_hasFvar htf _ _
   have hwctorty : WScoped d
-      (cvj.type.instantiateLevelParams cvj.levelParams usj) := by
+      (cvj.type.instantiateLevelParams cvj.levelParams lusj) := by
     obtain ⟨htf, -⟩ := henv _ (find?_mem hfj)
     exact wscoped_instLevels_of_not_hasFvar htf _ _
-  refine SimAt.bind_left (constTyAtM_eff hs hfc)
+  refine SimAt.bind_left (constTyAtM_eff hs hus hfc)
     (fun s₁ tyRec hs₁ hext₁ hQrec => ?_)
   simp only [ConstantInfo.toConstantVal] at hQrec
   refine SimAt.bind (iotaCertsI_sim ih hs₁ hQrec hwrecty
@@ -580,7 +611,8 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
     exact SimAt.pure hs₂ trivial
   | true =>
     simp only [↓reduceIte]
-    refine SimAt.bind_left (constTyAtM_eff hs₂ hfj)
+    refine SimAt.bind_left (constTyAtM_eff hs₂
+      (denoteLList_mono (hext₁.trans hext₂) husj) hfj)
       (fun s₃ tyCtor hs₃ hext₃ hQctor => ?_)
     simp only [ConstantInfo.toConstantVal] at hQctor
     have hext₀₃ := (hext₁.trans hext₂).trans hext₃
@@ -603,7 +635,7 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
         (hmargs.mono (hext₀₃.trans hext₄)))
         (fun s₅ ores hs₅ hext₅ hQres => ?_)
       cases hspx : (cvj.type.instantiateLevelParams cvj.levelParams
-          usj).stripPis (rl.ctorParams + rl.nfields) with
+          lusj).stripPis (rl.ctorParams + rl.nfields) with
       | none =>
         rw [hspx] at hsp
         cases hocb : s₄.store.stripPisBodyI
@@ -611,7 +643,7 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
         | some cb => rw [hocb] at hsp; exact nomatch hsp
         | none =>
           cases hresx : piResidual (cvj.type.instantiateLevelParams
-              cvj.levelParams usj) majorx.getAppArgs with
+              cvj.levelParams lusj) majorx.getAppArgs with
           | none =>
             cases ores with
             | none => exact SimAt.pure hs₅ trivial
@@ -630,7 +662,7 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
           rw [hocb] at hsp
           have hcbd : s₄.store.denote cb = some cbody := hsp
           cases hresx : piResidual (cvj.type.instantiateLevelParams
-              cvj.levelParams usj) majorx.getAppArgs with
+              cvj.levelParams lusj) majorx.getAppArgs with
           | none =>
             rw [hresx] at hQres
             cases ores with
@@ -650,7 +682,9 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
               rw [hn'']
               cases n'' with
               | const cn cus =>
-                rw [← Option.some.inj hd'']
+                rw [denoteNode, Option.map_eq_some_iff] at hd''
+                obtain ⟨lcus, hlcusDen, hd''⟩ := hd''
+                rw [← hd'']
                 dsimp only
                 refine SimAt.withStore ?_
                 have hres := getAppArgsI_spec hs₅.wf hresd
@@ -672,7 +706,11 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
                   exact SimAt.pure hs₆ trivial
                 | true =>
                   simp only [↓reduceIte]
-                  refine SimAt.bind_left (ruleRhsAtM_eff hs₆ hfc hrule)
+                  refine SimAt.bind_left (ruleRhsAtM_eff hs₆
+                    (denoteLList_mono
+                      ((((hext₁.trans hext₂).trans hext₃).trans
+                        hext₄).trans (hext₅.trans hext₆)) hus)
+                    hfc hrule)
                     (fun s₇ rhs hs₇ hext₇ hQrhs => ?_)
                   have hext₀₇ :=
                     (((hext₀₃.trans hext₄).trans hext₅).trans
@@ -806,7 +844,9 @@ theorem iotaRecI_sim (ih : SSimI env f) (henv : EnvWF env)
   rw [hn]
   cases n with
   | const c us =>
-    rw [← Option.some.inj hd]
+    rw [denoteNode, Option.map_eq_some_iff] at hd
+    obtain ⟨lus, hlusDen, hd⟩ := hd
+    rw [← hd]
     dsimp only
     rw [mkFEnv_find?]
     cases hfc : env.find? c with
@@ -846,7 +886,9 @@ theorem iotaRecI_sim (ih : SSimI env f) (henv : EnvWF env)
             ((hext₁.trans hext₂).trans hext₃).trans hext₄
           cases n' with
           | const cj usj =>
-            rw [← Option.some.inj hd']
+            rw [denoteNode, Option.map_eq_some_iff] at hd'
+            obtain ⟨lusj, hlusjDen, hd'⟩ := hd'
+            rw [← hd']
             dsimp only
             rw [mkFEnv_find?]
             cases hfj : env.find? cj with
@@ -892,14 +934,24 @@ theorem iotaRecI_sim (ih : SSimI env f) (henv : EnvWF env)
                             rfl rl (List.mem_of_find?_eq_some hrule)
                           exact ((g5 lvls pins hf').2.2.1 pin hpin).1
                         have hcmpW := recFireComparands_snd_WScoped rl
-                          cv.levelParams us cvj.levelParams
+                          cv.levelParams lus cvj.levelParams
                           ex.getAppArgs mI hargsW hpinsW
                         cases hfire : rl.fire with
                         | inert => simp [hfire] at *
                         | plain =>
                           simp only [recFireComparands, hfire] at hcmpW ⊢
+                          refine SimAt.bind_left (substLevelTreesM_eff hs₄
+                            (ks := cv.levelParams)
+                            (cvj.levelParams.map Level.param)
+                            (denoteLList_mono hext₀₄ hlusDen))
+                            (fun s₄l cmpLvls hs₄l hext₄l hQl => ?_)
+                          rw [List.map_map] at hQl
                           refine SimAt.bind_pure_left ?_
-                          refine SimAt.bind (SimAt.liftFueled _ _ hs₄)
+                          refine SimAt.bind_left (isEquivListLM_eff hs₄l
+                            (denoteLList_mono hext₄l hlusjDen) hQl)
+                            (fun s₄o oL hs₄o hext₄o hoL => ?_)
+                          subst hoL
+                          refine SimAt.bind (SimAt.liftFueled _ _ hs₄o)
                             (fun s₆ okl okl' hs₆ hext₆ hPok => ?_)
                           obtain rfl : okl = okl' := hPok
                           cases okl with
@@ -908,9 +960,11 @@ theorem iotaRecI_sim (ih : SSimI env f) (henv : EnvWF env)
                             exact SimAt.pure hs₆ trivial
                           | true =>
                             simp only [↓reduceIte]
-                            have hext₀₆ := hext₀₄.trans hext₆
+                            have hext₄₆ :=
+                              (hext₄l.trans hext₄o).trans hext₆
+                            have hext₀₆ := hext₀₄.trans hext₄₆
                             refine SimAt.bind (defEqListI_sim ih hs₆
-                              ((hmargs.mono hext₆).take rl.ctorParams)
+                              ((hmargs.mono hext₄₆).take rl.ctorParams)
                               ((hargs.mono hext₀₆).take rl.ctorParams)
                               (fun x hx => hmaj.getAppArgs x
                                 (List.mem_of_mem_take hx))
@@ -925,22 +979,39 @@ theorem iotaRecI_sim (ih : SSimI env f) (henv : EnvWF env)
                             | true =>
                               simp only [↓reduceIte]
                               exact iotaRec_certs_tail ih henv hs₇
+                                (denoteLList_mono
+                                  (hext₀₆.trans hext₇) hlusDen)
+                                (denoteLList_mono
+                                  (hext₄₆.trans hext₇) hlusjDen)
                                 (denote_mono (hext₀₆.trans hext₇) hden)
                                 hw hfc hfj hrule
                                 (denote_mono
-                                  ((hext₆.trans hext₇))
+                                  ((hext₄₆.trans hext₇))
                                   hmd)
                                 hmaj
                                 (hargs.mono (hext₀₆.trans hext₇))
                                 (hmargs.mono
-                                  (hext₆.trans hext₇))
+                                  (hext₄₆.trans hext₇))
                         | nested lvls pins =>
                           simp only [recFireComparands, hfire] at hcmpW ⊢
+                          refine SimAt.bind_left (substLevelTreesM_eff hs₄
+                            (ks := cv.levelParams) lvls
+                            (denoteLList_mono hext₀₄ hlusDen))
+                            (fun s₄l cmpLvls hs₄l hext₄l hQl => ?_)
                           refine SimAt.bind_left (pinArgsI_eff
-                            cv.levelParams us pins hs₄ (mI - 1)
-                            ((hargs.mono hext₀₄).take mI))
+                            cv.levelParams us
+                            lus pins hs₄l
+                            (denoteLList_mono (hext₀₄.trans hext₄l)
+                              hlusDen) (mI - 1)
+                            ((hargs.mono (hext₀₄.trans hext₄l)).take mI))
                             (fun s₅ cmpArgs hs₅ hext₅ hQc => ?_)
-                          refine SimAt.bind (SimAt.liftFueled _ _ hs₅)
+                          refine SimAt.bind_left (isEquivListLM_eff hs₅
+                            (denoteLList_mono (hext₄l.trans hext₅)
+                              hlusjDen)
+                            (denoteLList_mono hext₅ hQl))
+                            (fun s₄o oL hs₄o hext₄o hoL => ?_)
+                          subst hoL
+                          refine SimAt.bind (SimAt.liftFueled _ _ hs₄o)
                             (fun s₆ okl okl' hs₆ hext₆ hPok => ?_)
                           obtain rfl : okl = okl' := hPok
                           cases okl with
@@ -949,12 +1020,13 @@ theorem iotaRecI_sim (ih : SSimI env f) (henv : EnvWF env)
                             exact SimAt.pure hs₆ trivial
                           | true =>
                             simp only [↓reduceIte]
-                            have hext₀₆ :=
-                              (hext₀₄.trans hext₅).trans hext₆
+                            have hext₄₆ :=
+                              ((hext₄l.trans hext₅).trans hext₄o).trans
+                                hext₆
+                            have hext₀₆ := hext₀₄.trans hext₄₆
                             refine SimAt.bind (defEqListI_sim ih hs₆
-                              ((hmargs.mono
-                                ((hext₅.trans hext₆))).take rl.ctorParams)
-                              (hQc.mono hext₆)
+                              ((hmargs.mono hext₄₆).take rl.ctorParams)
+                              (hQc.mono (hext₄o.trans hext₆))
                               (fun x hx => hmaj.getAppArgs x
                                 (List.mem_of_mem_take hx))
                               hcmpW)
@@ -967,15 +1039,19 @@ theorem iotaRecI_sim (ih : SSimI env f) (henv : EnvWF env)
                             | true =>
                               simp only [↓reduceIte]
                               exact iotaRec_certs_tail ih henv hs₇
+                                (denoteLList_mono
+                                  (hext₀₆.trans hext₇) hlusDen)
+                                (denoteLList_mono
+                                  (hext₄₆.trans hext₇) hlusjDen)
                                 (denote_mono (hext₀₆.trans hext₇) hden)
                                 hw hfc hfj hrule
                                 (denote_mono
-                                  (((hext₅.trans hext₆).trans hext₇))
+                                  (hext₄₆.trans hext₇)
                                   hmd)
                                 hmaj
                                 (hargs.mono (hext₀₆.trans hext₇))
                                 (hmargs.mono
-                                  ((hext₅.trans hext₆).trans hext₇))
+                                  (hext₄₆.trans hext₇))
                     · rw [if_pos hin, if_pos hin]
                       exact SimAt.throw
               | axiomInfo cv' => exact SimAt.pure hs₄ trivial
