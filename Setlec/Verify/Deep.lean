@@ -1161,7 +1161,7 @@ private theorem iotaRec_WScoped (henv : EnvWF env)
 
 /-- Shifting commutes with the literal-major conversion (the string
 branch reduces a closed term, invariant under shifting). -/
-private theorem litMajorToCtor_shift (henv : EnvWF env)
+private theorem litMajorToCtor_shift (_henv : EnvWF env)
     (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) :
     ∀ {e : Expr}, WScoped d e →
     litMajorToCtor (pureFns env fuel) env (d + 1) (shiftFrom p e) =
