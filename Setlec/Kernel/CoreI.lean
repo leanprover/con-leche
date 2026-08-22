@@ -575,19 +575,15 @@ def projAppsI (T : Name) (us' : List Level) (targs : List EIdx)
     pure (r :: rs)
 
 /-- Twin of `structEtaProjCerts`. -/
-def structEtaProjCertsI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
-    (T : Name) (us' : List Level) (targs : List EIdx) (b : EIdx)
+def structEtaProjCertsI (_r : CoreFnsI) (fe : FEnv) (_depth : Nat)
+    (T : Name) (_us' : List Level) (_targs : List EIdx) (_b : EIdx)
     (lpsT : List Name) : List Nat → CheckIM Bool
   | [] => pure true
   | i :: rest => do
     match fe.find? (projFnName T i) with
     | some (.recInfo cvp _ _ _) =>
-      if cvp.levelParams = lpsT ∧
-          (cvp.type.stripPis (targs.length + 1)).isSome = true then do
-        let pty ← constTyAtM fe (projFnName T i) us'
-        if ← iotaCertsI r fe depth pty (targs ++ [b]) then
-          structEtaProjCertsI r fe depth T us' targs b lpsT rest
-        else pure false
+      if cvp.levelParams = lpsT then
+        structEtaProjCertsI _r fe _depth T _us' _targs _b lpsT rest
       else pure false
     | _ => pure false
 
@@ -611,18 +607,14 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                 reservedBasisNames.contains c = false ∧
                 targs.length = cnP ∧
                 us'.length = cvT.levelParams.length ∧
-                cvc.levelParams = cvT.levelParams ∧
-                (cvT.type.stripPis cnP).isSome = true then do
+                cvc.levelParams = cvT.levelParams then do
               if ← liftFueled "level comparison"
                   (Level.isEquivList us us') then do
-                let tyT ← constTyAtM fe T us'
-                if ← iotaCertsI r fe depth tyT targs then do
-                  if ← structEtaProjCertsI r fe depth T us'
-                      targs b cvT.levelParams (List.range cnF) then do
-                    if ← defEqListI r fe depth (aargs.take cnP) targs then do
-                      let projs ← projAppsI T us' targs b (List.range cnF)
-                      defEqListI r fe depth (aargs.drop cnP) projs
-                    else pure false
+                if ← structEtaProjCertsI r fe depth T us'
+                    targs b cvT.levelParams (List.range cnF) then do
+                  if ← defEqListI r fe depth (aargs.take cnP) targs then do
+                    let projs ← projAppsI T us' targs b (List.range cnF)
+                    defEqListI r fe depth (aargs.drop cnP) projs
                   else pure false
                 else pure false
               else pure false
@@ -653,14 +645,10 @@ def structUnitCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
       if caps.unitlike = true ∧
           reservedBasisNames.contains T = false ∧
           targs.length = caps.unitParams ∧
-          us'.length = cvT.levelParams.length ∧
-          (cvT.type.stripPis caps.unitParams).isSome = true then do
+          us'.length = cvT.levelParams.length then do
         let tb ← r.infer depth b
         let wtb ← r.whnf depth tb
-        if ← r.defeq depth wta wtb then do
-          let tyT ← constTyAtM fe T us'
-          iotaCertsI r fe depth tyT targs
-        else pure false
+        r.defeq depth wta wtb
       else pure false
     | _ => pure false
   | _ => pure false
@@ -723,7 +711,12 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                     st.looseBVarsBoundedI 0 fab &&
                     (st.fvarLeavesI fab).all
                       (fun l => (st.fvarLeavesI major).contains l)) then do
-                  if ← proofIrrelI r fe depth fab major then pure fab
+                  -- the official `to_cnstr_when_K` fabrication type
+                  -- check (task #49; see the spec body)
+                  let tfab ← r.infer depth fab
+                  if ← r.defeq depth tmaj tfab then
+                    if ← proofIrrelI r fe depth fab major then pure fab
+                    else pure major
                   else pure major
                 else pure major
               else pure major
@@ -813,7 +806,7 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
         match ← withStore (fun st => st.nodes[st.getAppFnI major]?) with
         | some (.const cj usj) =>
           match fe.find? cj with
-          | some (.ctorInfo cvj _ _) =>
+          | some (.ctorInfo _ _ _) =>
             match rules.find? (fun r' => r'.ctor == cj) with
             | some rl => do
               let margs ← withStore (·.getAppArgsI major)
@@ -821,55 +814,28 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
                if rl.fire = .inert then
                  throw (.notImplemented
                    "iota reduction over a nested auxiliary recursor rule")
-               else
-               if (cv.type.stripPis (mI + 1)).isSome ∧
-                  (cvj.type.stripPis (rl.ctorParams + rl.nfields)).isSome
-                  then do
-                -- the comparands (canonical: recursor's levels/args;
-                -- nested: the stored major-domain instantiations)
-                let cmpLvls : List Level :=
-                  match rl.fire with
-                  | .nested lvls _ => lvls.map (Level.subst cv.levelParams us)
-                  | _ => cvj.levelParams.map fun p =>
-                      Level.subst cv.levelParams us (.param p)
-                let cmpArgs : List EIdx ←
-                  match rl.fire with
-                  | .nested _ pins =>
-                    pinArgsI cv.levelParams us (args.take mI) (mI - 1) pins
-                  | _ => pure (args.take rl.ctorParams)
-                if ← liftFueled "level comparison"
-                    (Level.isEquivList usj cmpLvls) then do
-                 if ← defEqListI r fe depth (margs.take rl.ctorParams)
-                    cmpArgs then do
-                  let tyRec ← constTyAtM fe c us
-                  if ← iotaCertsI r fe depth tyRec
-                     (args.take mI ++ [major]) then do
-                   let tyCtor ← constTyAtM fe cj usj
-                   if ← iotaCertsI r fe depth tyCtor margs then do
-                    match ← withStore (fun st =>
-                          st.stripPisBodyI (rl.ctorParams + rl.nfields)
-                            tyCtor),
-                        ← piResidualM tyCtor margs with
-                    | some cbody, some residual =>
-                      match ← withStore (fun st =>
-                          st.nodes[st.getAppFnI cbody]?) with
-                      | some (.const _ _) => do
-                        let resArgs ← withStore (·.getAppArgsI residual)
-                        if ← defEqListI r fe depth
-                            (resArgs.drop rl.ctorParams)
-                            ((args.take mI).drop rP) then do
-                          let rhs ← ruleRhsAtM fe c cj us
-                          let red ← mkAppNM rhs
-                            (args.take rP ++ margs.drop rl.ctorParams)
-                          pure (some red)
-                        else pure none
-                      | _ => pure none
-                    | _, _ => pure none
-                   else pure none
-                  else pure none
-                 else pure none
+               else do
+                -- Nested rules keep their comparand checks (the stored
+                -- major-domain instantiations); canonical rules fire
+                -- with no per-fire re-checks, as in the reference
+                -- kernels (task #49; see the spec body).
+                let ok ← match rl.fire with
+                  | .nested lvls pins => do
+                    let cmpLvls := lvls.map (Level.subst cv.levelParams us)
+                    let cmpArgs ←
+                      pinArgsI cv.levelParams us (args.take mI) (mI - 1) pins
+                    if ← liftFueled "level comparison"
+                        (Level.isEquivList usj cmpLvls) then
+                      defEqListI r fe depth (margs.take rl.ctorParams)
+                        cmpArgs
+                    else pure false
+                  | _ => pure true
+                if ok then do
+                  let rhs ← ruleRhsAtM fe c cj us
+                  let red ← mkAppNM rhs
+                    (args.take rP ++ margs.drop rl.ctorParams)
+                  pure (some red)
                 else pure none
-               else pure none
               else pure none
             | none => pure none
           | _ => pure none
@@ -1008,17 +974,10 @@ def whnfCoreBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
           if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length then do
-            let mx : Level := Level.subst entry.levelParams us
-              entry.structSort
+            -- Unconditional structural reduction, as in the reference
+            -- kernels (task #49; see the spec body).
             let bvar0 ← internI (.bvar 0)
-            let arg := args.getD (entry.numParams + i) bvar0
-            if mx.isNonZero then r.whnfCore depth arg
-            else do
-              if ← projCertI r fe depth e' i
-                  (Level.subst entry.levelParams us entry.fieldSort)
-                  mx entry.numParams then
-                r.whnfCore depth arg
-              else internI (.proj sn i e')
+            r.whnfCore depth (args.getD (entry.numParams + i) bvar0)
           else internI (.proj sn i e')
         | _ => internI (.proj sn i e')
       | none => internI (.proj sn i e')

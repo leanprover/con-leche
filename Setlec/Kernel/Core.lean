@@ -807,24 +807,22 @@ def pairEtaCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     | _ => pure false
   | _ => pure false
 
-/-- The per-projection telescope certificates of a structural eta
-certification: for every field index, the installed projection
-function's telescope is certified against the type's arguments and the
-stuck side. -/
-def structEtaProjCerts (r : CoreFns m) (env : Env) (depth : Nat)
-    (T : Name) (us' : List Level) (targs : List Expr) (b : Expr)
+/-- The per-projection guards of a structural eta certification: every
+field's installed projection function must be stored with the type
+former's level parameters (the comparand applications built from it
+would otherwise throw in inference).  The per-projection telescope
+certificates were removed (task #49): the reference `tryEtaStructCore`
+runs none, and the soundness claims recover the memberships from the
+annotation invariant. -/
+def structEtaProjCerts (_r : CoreFns m) (env : Env) (_depth : Nat)
+    (T : Name) (_us' : List Level) (_targs : List Expr) (_b : Expr)
     (lpsT : List Name) : List Nat → m Bool
   | [] => pure true
   | i :: rest => do
     match env.find? (projFnName T i) with
     | some (.recInfo cvp _ _ _) =>
-      if cvp.levelParams = lpsT ∧
-          (cvp.type.stripPis (targs.length + 1)).isSome = true then
-        if ← iotaCerts r env depth
-            (cvp.type.instantiateLevelParams cvp.levelParams us')
-            (targs ++ [b]) then
-          structEtaProjCerts r env depth T us' targs b lpsT rest
-        else pure false
+      if cvp.levelParams = lpsT then
+        structEtaProjCerts _r env _depth T _us' _targs _b lpsT rest
       else pure false
     | _ => pure false
 
@@ -849,23 +847,21 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
                 reservedBasisNames.contains c = false ∧
                 wtb.getAppArgs.length = cnP ∧
                 us'.length = cvT.levelParams.length ∧
-                cvc.levelParams = cvT.levelParams ∧
-                (cvT.type.stripPis cnP).isSome = true then
+                cvc.levelParams = cvT.levelParams then
               if ← liftFueled "level comparison"
                   (Level.isEquivList us us') then
-                if ← iotaCerts r env depth
-                    (cvT.type.instantiateLevelParams cvT.levelParams
-                      us') wtb.getAppArgs then
-                  if ← structEtaProjCerts r env depth T us'
-                      wtb.getAppArgs b cvT.levelParams
-                      (List.range cnF) then
-                    if ← defEqList r env depth
-                        (a.getAppArgs.take cnP) wtb.getAppArgs then
-                      defEqList r env depth (a.getAppArgs.drop cnP)
-                        ((List.range cnF).map fun i =>
-                          Expr.mkAppN (.const (projFnName T i) us')
-                            (wtb.getAppArgs ++ [b]))
-                    else pure false
+                -- no telescope certificates (task #49): the reference
+                -- `tryEtaStructCore` checks the two sides' types and
+                -- the fields against the projections, nothing more
+                if ← structEtaProjCerts r env depth T us'
+                    wtb.getAppArgs b cvT.levelParams
+                    (List.range cnF) then
+                  if ← defEqList r env depth
+                      (a.getAppArgs.take cnP) wtb.getAppArgs then
+                    defEqList r env depth (a.getAppArgs.drop cnP)
+                      ((List.range cnF).map fun i =>
+                        Expr.mkAppN (.const (projFnName T i) us')
+                          (wtb.getAppArgs ++ [b]))
                   else pure false
                 else pure false
               else pure false
@@ -890,9 +886,10 @@ def structEtaCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
   structEtaCertWith r env depth a b wtb
 
 /-- Unit-likeness certification: `a` and `b` inhabit the same stored
-unit-like family (the types are definitionally equal and the type
-application is certified against the family's telescope), so their
-values coincide by the stored unit law. -/
+unit-like family (the types are definitionally equal), so their values
+coincide by the stored unit law.  This is exactly the reference check
+(lean4lean `isDefEqUnitLike`: shape lookup plus one type defeq); the
+family-telescope certificates were removed (task #49). -/
 def structUnitCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     m Bool := do
   let ta ← r.infer depth a
@@ -904,15 +901,10 @@ def structUnitCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
       if caps.unitlike = true ∧
           reservedBasisNames.contains T = false ∧
           wta.getAppArgs.length = caps.unitParams ∧
-          us'.length = cvT.levelParams.length ∧
-          (cvT.type.stripPis caps.unitParams).isSome = true then
+          us'.length = cvT.levelParams.length then
         let tb ← r.infer depth b
         let wtb ← r.whnf depth tb
-        if ← r.defeq depth wta wtb then
-          iotaCerts r env depth
-            (cvT.type.instantiateLevelParams cvT.levelParams us')
-            wta.getAppArgs
-        else pure false
+        r.defeq depth wta wtb
       else pure false
     | _ => pure false
   | _ => pure false
@@ -988,13 +980,18 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                 if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
                     fab.fvarLeaves.all
                       (fun l => major.fvarLeaves.contains l) then
-                  -- no explicit type check on the fabrication: the
-                  -- endpoint condition (`Eq`: defeq endpoints) is
-                  -- enforced by the iota certificates on the major
-                  -- slot, which the soundness proof makes
-                  -- load-bearing — a machine-checked invariant (see
-                  -- DESIGN.md, design-review triage)
-                  if ← proofIrrel r env depth fab major then pure fab
+                  -- The official `to_cnstr_when_K` type check on the
+                  -- fabrication: the constructor application's type
+                  -- must be defeq to the major's (for `Eq` this is the
+                  -- endpoint condition — `Eq.refl a : Eq a a` against
+                  -- the major's `Eq a b` forces `a ≡ b`).  Before task
+                  -- #49 this was implied by the per-fire iota
+                  -- certificates on the major slot; with those gone
+                  -- the reference check is load-bearing (arena
+                  -- 098_ruleKbad).
+                  if ← r.defeq depth tmaj (← r.infer depth fab) then
+                    if ← proofIrrel r env depth fab major then pure fab
+                    else pure major
                   else pure major
                 else pure major
               else pure major
@@ -1095,15 +1092,16 @@ def recFireComparands (rl : RecRule) (lps : List Name)
      args.take rl.ctorParams)
 
 /-- One iota step: the expression is a stored recursor applied to
-exactly its telescope (params, motives, minors, indices, major), the
+exactly its telescope (params, motives, minors, indices, major), and the
 major premise whnfs to a fully applied constructor with a matching
 rule (a literal major converts to constructor form — see
 `litMajorToCtor` —, a
-stuck major may be rescued — see `majorToCtor`), and the spine is
-certified against the recursor's own (pinned, annotated) type.  The
+stuck major may be rescued — see `majorToCtor`).  The
 result is the rule's rhs applied to the non-index prefix and the
 constructor's fields; over-application is handled by the outer app
-recursion. -/
+recursion.  No per-fire spine certification (task #49): the reference
+kernels fire iota with none, and the soundness claims recover the
+argument memberships from the redex's own annotation invariant. -/
 def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
     m (Option Expr) := do
   match e.getAppFn with
@@ -1137,55 +1135,35 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                if rl.fire = .inert then
                  throw (.notImplemented
                    "iota reduction over a nested auxiliary recursor rule")
-               else
-               if (cv.type.stripPis (mI + 1)).isSome ∧
-                  (cvj.type.stripPis (rl.ctorParams + rl.nfields)).isSome
-                  then
-                -- the constructor's levels and parameters must agree
-                -- with the rule's comparands (canonical: the
-                -- recursor's own instantiation and leading arguments;
-                -- nested: the stored major-domain instantiations) —
-                -- the firing mode was computed once at install
-                -- (`Expr.recRulePlain` / the nested certification),
-                -- never re-derived per fire
-                if ← liftFueled "level comparison" (Level.isEquivList usj
-                    (recFireComparands rl cv.levelParams us
-                      cvj.levelParams args mI).1) then
-                 if ← defEqList r env depth (margs.take rl.ctorParams)
-                    (recFireComparands rl cv.levelParams us
-                      cvj.levelParams args mI).2 then
-                  if ← iotaCerts r env depth
-                     (cv.type.instantiateLevelParams cv.levelParams us)
-                     (args.take mI ++ [major]) then
-                   if ← iotaCerts r env depth
-                      (cvj.type.instantiateLevelParams cvj.levelParams usj)
-                      margs then
-                    -- the recursor's index arguments must match the
-                    -- constructor's canonical index tuple (the residual
-                    -- of its telescope, whose head must be the stored
-                    -- family): the model's iota equation only speaks
-                    -- about the canonical indices
-                    match (cvj.type.instantiateLevelParams cvj.levelParams
-                          usj).stripPis (rl.ctorParams + rl.nfields),
-                        piResidual (cvj.type.instantiateLevelParams
-                          cvj.levelParams usj) margs with
-                    | some (_, cbody), some residual =>
-                      match cbody.getAppFn with
-                      | .const _ _ =>
-                        if ← defEqList r env depth
-                            (residual.getAppArgs.drop rl.ctorParams)
-                            ((args.take mI).drop rP) then
-                          pure (some (Expr.mkAppN
-                            (rl.rhs.instantiateLevelParams cv.levelParams us)
-                            (args.take rP ++ margs.drop rl.ctorParams)))
-                        else pure none
-                      | _ => pure none
-                    | _, _ => pure none
-                   else pure none
-                  else pure none
-                 else pure none
+               else do
+                -- A *nested* rule's constructor levels and parameters
+                -- must agree with the stored major-domain
+                -- instantiations (the semantic content the nested fold
+                -- fact is stated over; the firing mode was computed
+                -- once at install).  A canonical (`.plain`) rule fires
+                -- with no per-fire re-checks, exactly like the
+                -- reference kernels (official `inductive_reduce_rec`,
+                -- lean4lean `inductiveReduceRec`): the per-spine iota
+                -- certificates, the plain-mode level/parameter
+                -- comparisons, and the canonical-index check were
+                -- re-derivations of the annotation invariant and were
+                -- removed (task #49) — the claims now decompose the
+                -- redex's `AnnotOk` app chain instead.
+                let ok ← match rl.fire with
+                  | .nested _ _ =>
+                    if ← liftFueled "level comparison" (Level.isEquivList usj
+                        (recFireComparands rl cv.levelParams us
+                          cvj.levelParams args mI).1) then
+                      defEqList r env depth (margs.take rl.ctorParams)
+                        (recFireComparands rl cv.levelParams us
+                          cvj.levelParams args mI).2
+                    else pure false
+                  | _ => pure true
+                if ok then
+                  pure (some (Expr.mkAppN
+                    (rl.rhs.instantiateLevelParams cv.levelParams us)
+                    (args.take rP ++ margs.drop rl.ctorParams)))
                 else pure none
-               else pure none
               else pure none
             | none => pure none
           | _ => pure none
@@ -1271,20 +1249,12 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length then
-            let mx : Level := Level.subst entry.levelParams us
-              entry.structSort
-            let arg := args.getD (entry.numParams + i) (.bvar 0)
-            if mx.isNonZero then r.whnfCore depth arg
-            else do
-              -- Possibly-Prop subject: certify that at Prop instances
-              -- both the projected argument and the subject collapse
-              -- to the proof point (see DESIGN.md on beta
-              -- certification).
-              if ← projCert r env depth e' i
-                  (Level.subst entry.levelParams us entry.fieldSort)
-                  mx entry.numParams then
-                r.whnfCore depth arg
-              else pure (.proj sn i e')
+            -- Unconditional structural reduction, as in the reference
+            -- kernels (`reduce_proj_core`): the possibly-Prop
+            -- projection certificate was removed (task #49) — the
+            -- claims read the collapse facts off the scrutinee's
+            -- annotation invariant.
+            r.whnfCore depth (args.getD (entry.numParams + i) (.bvar 0))
           else pure (.proj sn i e')
         | _ => pure (.proj sn i e')
       | none => pure (.proj sn i e')
