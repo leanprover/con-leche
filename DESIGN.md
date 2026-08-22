@@ -1647,6 +1647,27 @@ three entry-runner bridges close the loop; the consistency layer
 (`checkDeclsC_sound`, `no_proof_of_Empty_C`,
 `no_proof_of_Empty_input_C`) keeps exactly its statements.
 
+**Measured** (init-prelude probe, 8 GB limit; instructions are the
+primary metric, `perf stat`):
+
+| configuration | wall | instructions | peak RSS |
+|---|---|---|---|
+| Expr-level cached core (baseline) | 41.0 s | 590.2 G | 166 MB |
+| interned core (this change) | 26.3 s | 306.4 G | 113 MB |
+
+−48 % instructions, −36 % wall, −32 % RSS; arena suite 33.1 s → 30.8 s
+(dominated by per-test process startup); verdicts identical everywhere
+(90/92 + e2e 25/25).  Post-change profile: the per-entry-call `mkFEnv`
+build plus structural `Name` hashing ≈ 15 % (a depth-capped `Name`
+hash was tried and *regressed* — the `_model.iota_j`/`_model.proj_i`
+naming convention makes truncated-suffix hashes collide across every
+modeled inductive; solved structurally by the per-decl cache sharing
+follow-up), the interned instantiation's per-call memo maps ≈ 13 %, `Level` ops (`simplify`/`leqCore`, semantic — untouched
+by interning) ≈ 7 %, `Level.decEq` now only ≈ 3 % (the audit's
+level-interning priority was measured against a pointer-equality
+proxy; with real interning the remaining level-comparison cost is
+small).
+
 **Deferred follow-ups** (validated by the 2026-08-22 performance
 audit, in expected-value order): intra-declaration cache sharing (one
 `IState` threaded through a declaration's phases — measured −30 %
