@@ -383,11 +383,11 @@ theorem extend_rec_swap {rules' : List RecRule}
           if_neg (show ¬(ConstantInfo.recInfo cvA mI rP
             []).name = n from hn)]
         exact hfp
-      obtain ⟨hA, hle, hfold⟩ := m₀.rec_rules n cvR mI' rP' rules
-        hfp₀ r hr
-      refine ⟨fun ψ => hAtrans01 _ ψ 0 (rho0 V) (hA ψ), hle, ?_⟩
-      intro cvj' cnP' cnF' hfj ψ ψj args margs tv hl hml hch hmch htv
-        hpeq hplain hfit
+      obtain ⟨hA, hle, hple, hpinsLen, hfold⟩ :=
+        m₀.rec_rules n cvR mI' rP' rules hfp₀ r hr
+      refine ⟨fun ψ => hAtrans01 _ ψ 0 (rho0 V) (hA ψ), hle, hple,
+        hpinsLen, ?_⟩
+      intro cvj' cnP' cnF' hfj hfire
       have hncc : RecRule.ctor r ≠ cvA.name := by
         intro h
         rw [h, Env.find?_cons,
@@ -399,29 +399,16 @@ theorem extend_rec_swap {rules' : List RecRule}
           some (.ctorInfo cvj' cnP' cnF') := by
         rw [← hfindEq _ hncc]
         exact hfj
-      obtain ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
-        hψeq, hψjeq, hfit1, hfit2, hidx, hnest⟩ := hfit
-      obtain ⟨R', hRi, hfoldEq, hRch⟩ := hfold cvj' cnP' cnF' hfj₀ ψ ψj
-        args margs tv hl hml hch hmch htv hpeq hplain
-        ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
-          hψeq, hψjeq,
-          TeleFit.env_levelext henv10 natLitSupported_cons_recRules strLitSupported_cons_recRules hfit1,
-          TeleFit.env_levelext henv10 natLitSupported_cons_recRules strLitSupported_cons_recRules hfit2, by
-            rw [← mapM_interp_congr (fun e => interp_env_ext henv10
-              natLitSupported_cons_recRules strLitSupported_cons_recRules
-              e dd₂ ρρ₂)]
-            exact hidx, by
-            intro lvls pins hfr
-            obtain ⟨n1, n2, dP, ρP, spineP, hFv, hsh, hmapM⟩ :=
-              hnest lvls pins hfr
-            refine ⟨n1, n2, dP, ρP, spineP, hFv, hsh, ?_⟩
-            rw [← mapM_interp_congr (fun e => interp_env_ext henv10
-              natLitSupported_cons_recRules strLitSupported_cons_recRules
-              e dP ρP)]
-            exact hmapM⟩
-      refine ⟨R', ?_, hfoldEq, hRch⟩
-      rw [hitrans]
-      exact hRi
+      obtain ⟨fvms, bL, hparts, hwfF, hlenF, hres, hψ⟩ :=
+        hfold cvj' cnP' cnF' hfj₀ hfire
+      refine ⟨fvms, bL, hparts, hwfF, hlenF, ?_, ?_⟩
+      · rw [Expr.constsResolve_congr (Env.recRules_isSome rules' [])]
+        exact hres
+      · intro ψ
+        obtain ⟨hAL, Rv, hLi, hRi⟩ := hψ ψ
+        exact ⟨hAtrans01 _ ψ 0 (rho0 V) hAL, Rv,
+          by rw [hitrans]; exact hLi,
+          by rw [hitrans]; exact hRi⟩
   · -- proj_ok: lookups only differ in the head's rule list
     refine ProjOk.env_swap
       (env₁ := ⟨.recInfo cvA mI rP [] :: env.consts⟩) ?_ m₀.proj_ok

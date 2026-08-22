@@ -318,4 +318,56 @@ theorem EnvWF.cons {c : ConstantInfo} {env : Env}
       let ⟨p1, p2, p3, p4⟩ := n3 pin hpin
       ⟨p1, p2, Expr.constsResolve_mono p3, p4⟩, n4⟩
 
+/-- Resolution is monotone under lookup-preserving extension. -/
+theorem Expr.constsResolve_le {envA envB : Env}
+    (hf : ∀ n, (envA.find? n).isSome = true →
+      (envB.find? n).isSome = true) :
+    ∀ {e : Expr}, e.constsResolve envA = true →
+      e.constsResolve envB = true := by
+  intro e
+  induction e with
+  | bvar i => intro h; simp [Expr.constsResolve]
+  | sort u => intro h; simp [Expr.constsResolve]
+  | const n us =>
+    intro h
+    simp only [Expr.constsResolve] at h ⊢
+    exact hf _ h
+  | lit l =>
+    cases l with
+    | natVal n =>
+      intro h
+      simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
+      exact ⟨⟨hf _ h.1.1, hf _ h.1.2⟩, hf _ h.2⟩
+    | strVal s =>
+      intro h
+      simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
+      exact ⟨⟨⟨⟨⟨⟨⟨⟨⟨hf _ h.1.1.1.1.1.1.1.1.1, hf _ h.1.1.1.1.1.1.1.1.2⟩,
+        hf _ h.1.1.1.1.1.1.1.2⟩, hf _ h.1.1.1.1.1.1.2⟩,
+        hf _ h.1.1.1.1.1.2⟩, hf _ h.1.1.1.1.2⟩, hf _ h.1.1.1.2⟩,
+        hf _ h.1.1.2⟩, hf _ h.1.2⟩, hf _ h.2⟩
+  | fvar idx nm ty ih =>
+    intro h
+    simp only [Expr.constsResolve] at h ⊢
+    exact ih h
+  | app f a ihf iha =>
+    intro h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
+    exact ⟨ihf h.1, iha h.2⟩
+  | lam nm ty body mb ihty ihbody =>
+    intro h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
+    exact ⟨ihty h.1, ihbody h.2⟩
+  | forallE nm ty body mb ihty ihbody =>
+    intro h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
+    exact ⟨ihty h.1, ihbody h.2⟩
+  | letE nm ty val body ihty ihval ihbody =>
+    intro h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
+    exact ⟨⟨ihty h.1.1, ihval h.1.2⟩, ihbody h.2⟩
+  | proj s i e ih =>
+    intro h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
+    exact ⟨hf _ h.1, ih h.2⟩
+
 end Setlec

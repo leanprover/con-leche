@@ -1,5 +1,6 @@
 import Setlec.Kernel.TypeChecker
 import Setlec.Kernel.Checker
+import Setlec.Verify.Abstract
 import Setlec.SetTheory.Basic
 import Setlec.Verify.Level
 import Setlec.Verify.Shift
@@ -297,111 +298,105 @@ arguments of its instantiated residual type), and the constructor
 spine.  `RecRulesOk` states that its interpretation **equals** the
 rule right-hand side's — the total λ-equality of function graphs that
 the iota step's soundness consumes by pure `app` congruence. -/
-def ruleLhs (n : Name) (cv : ConstantVal) (rP : Nat) (r : RecRule)
-    (cvj : ConstantVal) : Option Expr := do
-  let (fvsP, _) ← openPisAtFvars rP cv.type 0
-  let (usC, cargs) ←
+def ruleLhsAux (n : Name) (cv : ConstantVal) (rP : Nat) (r : RecRule)
+    (fvsP : List Expr) (usC : List Level) (cargs : List Expr)
+    (cty : Expr) : Option (List (Expr × BinderMeta) × Expr) :=
+  match Expr.instPisAt cargs cty with
+  | none => none
+  | some (cdoms, crest) =>
+    match openPisAtFvars (RecRule.nfields r) crest rP with
+    | none => none
+    | some (xFvs, crest2) =>
+      match (RecRule.rhs r).stripLams (rP + RecRule.nfields r) with
+      | none => none
+      | some (rbs, rbody) =>
+        some ((fvsP ++ xFvs).zip (rbs.map (·.2.2)),
+          Expr.mkAppN (.const n (cv.levelParams.map .param))
+            (fvsP ++ crest2.getAppArgs.drop (RecRule.ctorParams r) ++
+              [Expr.mkAppN (.const (RecRule.ctor r) usC) (cargs ++ xFvs)]))
+
+/-- The frame/body decomposition behind `ruleLhs` (see the
+construction's docstring on `ruleLhsAux`): the closing frame paired
+with the recursor-redex body, before `closeLamsAt` assembles the
+tower.  `RecRulesOk` is stated against this decomposition so consumers
+recover the components deterministically. -/
+def ruleLhsParts (n : Name) (cv : ConstantVal) (rP : Nat) (r : RecRule)
+    (cvj : ConstantVal) : Option (List (Expr × BinderMeta) × Expr) :=
+  match openPisAtFvars rP cv.type 0 with
+  | none => none
+  | some (fvsP, rest0) =>
     match RecRule.fire r with
     | .plain =>
-      some (cvj.levelParams.map Level.param, fvsP.take (RecRule.ctorParams r))
+      ruleLhsAux n cv rP r fvsP (cvj.levelParams.map Level.param)
+        (fvsP.take (RecRule.ctorParams r)) cvj.type
     | .nested lvls pins =>
-      some (lvls, pins.map fun p => Expr.instSpine fvsP (rP - 1) p)
+      ruleLhsAux n cv rP r fvsP lvls
+        (pins.map fun p => Expr.instSpine fvsP (rP - 1) p)
+        (cvj.type.instantiateLevelParams cvj.levelParams lvls)
     | .inert => none
-  let cty := match RecRule.fire r with
-    | .nested lvls _ => cvj.type.instantiateLevelParams cvj.levelParams lvls
-    | _ => cvj.type
-  let (_, crest) ← Expr.instPisAt cargs cty
-  let (xFvs, crest2) ← openPisAtFvars (RecRule.nfields r) crest rP
-  let (rbs, _) ← (RecRule.rhs r).stripLams (rP + RecRule.nfields r)
-  let body := Expr.mkAppN (.const n (cv.levelParams.map .param))
-    (fvsP ++ crest2.getAppArgs.drop (RecRule.ctorParams r) ++
-      [Expr.mkAppN (.const (RecRule.ctor r) usC) (cargs ++ xFvs)])
-  some (closeLamsAt ((fvsP ++ xFvs).zip (rbs.map (·.2.2))) body)
 
-/-- Fold facts for every stored recursor rule: the recursor's value
-applied through its argument spine (`args`, then the major `tv`), with
-the major a constructor-value spine, equals the interpreted rule rhs
-applied to the non-index prefix and the constructor's fields — together
-with the typing slots the reduct's annotation chain needs, and the
-rhs's own annotation truthfulness.  Basis blocks discharge this from
-the hand-written values; modeled blocks will discharge it from their
-checked `_model` theorems.
+/-- The canonical iota left-hand side λ-tower itself (documentation
+form; the contract and its consumers work with `ruleLhsParts`). -/
+def ruleLhs (n : Name) (cv : ConstantVal) (rP : Nat) (r : RecRule)
+    (cvj : ConstantVal) : Option Expr :=
+  (ruleLhsParts n cv rP r cvj).map fun p => closeLamsAt p.1 p.2
 
-The firing premises come in a canonical and a nested flavour,
-mirroring `recFireComparands`: for a `.plain` rule the constructor's
-parameter values are the recursor's leading argument values and its
-level assignment agrees with the recursor's by name; for a `.nested`
-rule the constructor's levels are the stored instantiations evaluated
-under the recursor's assignment, and its parameter values are the
-stored parameter instantiations evaluated at the recursor's argument
-values — witnessed at some frame by a sanitized free-variable spine
-carrying those values (the fold consumer crosses frames by
-value-determinedness).  `.inert` rules never fire and carry no fold
-obligation. -/
+/-- Well-formedness of a closing frame over a body: the variables sit
+at consecutive indices starting at `d`; each annotation is scoped
+below its own index, free of loose bvars, and paired with a
+codomain-sort annotation; and each variable is mentioned
+*consistently* (same name and annotation) by the body and by every
+later variable's annotation — what the abstraction/instantiation
+roundtrip of `closeLamsAt` needs (`Setlec/Model/RuleTower.lean`). -/
+def FrameWf : Nat → List (Expr × BinderMeta) → Expr → Prop
+  | d, [], bL => Expr.WScoped d bL ∧ bL.looseBVarsBounded 0 = true
+  | d, (fv, m) :: rest, bL =>
+    (∃ nm ty, fv = .fvar d nm ty ∧ Expr.WScoped d ty ∧
+      ty.looseBVarsBounded 0 = true ∧ (∃ cod, m.cod = some cod) ∧
+      Expr.fvarConsistent d nm ty bL ∧
+      ∀ p ∈ rest, Expr.fvarConsistent d nm ty (Expr.fvarTypeD p.1)) ∧
+    FrameWf (d + 1) rest bL
+
+/-- The **total λ-equality** of every stored fireable recursor rule
+(task #58): the interpretation of the rule's canonical left-hand side
+λ-tower (`ruleLhs` — the recursor applied, under the telescope of its
+non-index prefix and the constructor's fields, to the prefix, the
+canonical index tuple and the constructor spine) **equals** the
+interpretation of the stored rule right-hand side, *as sets*, at every
+level assignment — together with the tower's and the rhs's truthful
+annotations.  Two dependent-function graphs over interp-equal domain
+chains are equal iff they agree on fitting inputs (off-domain both
+apply to canonical junk; under the Prop collapse both are the proof
+point), which is exactly what the checked `_model.iota_j` theorem
+supplies at install; the iota step's soundness consumes the equality
+by pure `app` congruence plus the tower's own beta fold
+(`closeLamsAt_fold`).  Basis blocks discharge this from the
+hand-written values; modeled blocks from their checked `_model`
+theorems.  `.inert` rules never fire and carry no obligation. -/
 def RecRulesOk (env : Env) (val : ConstVal V) : Prop :=
   ∀ n cv mI rP rules,
     env.find? n = some (.recInfo cv mI rP rules) →
     ∀ r ∈ rules,
       (∀ ψ : Name → Nat, AnnotOk V val env ψ 0 (rho0 V) (RecRule.rhs r)) ∧
-      -- a fireable rule's prefix fits under the major's position (part
-      -- of `Expr.recRulePlain` resp. `nestedRuleShape`, whose
+      -- a fireable rule's prefix fits under the major's position, and a
+      -- canonical rule's constructor parameters sit inside the prefix
+      -- (part of `Expr.recRulePlain` resp. `nestedRuleShape`, whose
       -- install-time computation backs the stored flag)
       (RecRule.fire r ≠ .inert → rP ≤ mI) ∧
+      (RecRule.fire r = .plain → RecRule.ctorParams r ≤ rP) ∧
+      (∀ lvls pins, RecRule.fire r = .nested lvls pins →
+        pins.length = RecRule.ctorParams r) ∧
       ∀ cvj cnP cnF,
         env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF) →
-        -- the spine arithmetic is over the *rule's* stored counts
-        -- (`ctorParams`/`nfields`, install-computed): `iotaRec` reads
-        -- only the rule fields, never the constructor's stored counts
-        ∀ (ψ ψj : Name → Nat) (args margs : List V) (tv : V),
-          args.length = mI →
-          margs.length = RecRule.ctorParams r + RecRule.nfields r →
-          ChainSlots V (val n ψ) (args ++ [tv]) →
-          ChainSlots V (val (RecRule.ctor r) ψj) margs →
-          tv = SpineFold V (val (RecRule.ctor r) ψj) margs →
-          -- canonical-rule firing facts (the kernel's `defEqList` on
-          -- the leading arguments and the by-name level linking)
-          (RecRule.fire r = .plain →
-            margs.take (RecRule.ctorParams r) =
-              (args ++ [tv]).take (RecRule.ctorParams r) ∧
-            (∀ p ∈ cvj.levelParams, ψj p = ψ p)) →
-          -- inert rules never fire: their fold facts are vacuous
-          RecRule.fire r ≠ .inert →
-          (∃ (φ' : Name → Nat) (us usj : List Level) (d : Nat) (ρ : Nat → V)
-              (d₁ : Nat) (ρ₁ : Nat → V) (rest₁ : Expr)
-              (d₂ : Nat) (ρ₂ : Nat → V) (rest₂ : Expr),
-            ψ = Level.substFn φ' cv.levelParams us ∧
-            ψj = Level.substFn φ' cvj.levelParams usj ∧
-            TeleFit V val env φ' d ρ
-              (cv.type.instantiateLevelParams cv.levelParams us)
-              (args ++ [tv]) d₁ ρ₁ rest₁ ∧
-            TeleFit V val env φ' d₁ ρ₁
-              (cvj.type.instantiateLevelParams cvj.levelParams usj)
-              margs d₂ ρ₂ rest₂ ∧
-            -- the recursor's index-argument values are the constructor's
-            -- canonical index tuple: the trailing interpretations of the
-            -- opened constructor residual (the kernel's index certificate)
-            (rest₂.getAppArgs.drop (RecRule.ctorParams r)).mapM
-              (interpExpr V val env φ' d₂ ρ₂) =
-              some (args.drop rP) ∧
-            -- nested-rule firing facts (the kernel's `defEqList` on the
-            -- instantiated stored parameters and its level check)
-            (∀ lvls pins, RecRule.fire r = .nested lvls pins →
-              mI = rP ∧
-              (∀ p ∈ cvj.levelParams,
-                ψj p = Level.substFn ψ cvj.levelParams lvls p) ∧
-              ∃ (dP : Nat) (ρP : Nat → V) (spineP : List Expr),
-                FvarSpine dP ρP spineP args ∧
-                (∀ a ∈ spineP, ∃ i nm, a = Expr.fvar i nm (.sort .zero)) ∧
-                (pins.map fun pin => Expr.instSeq spineP (spineP.length - 1)
-                  (pin.instantiateLevelParams cv.levelParams us)).mapM
-                  (interpExpr V val env φ' dP ρP) =
-                  some (margs.take (RecRule.ctorParams r)))) →
-          ∃ R, interpClosed V val env ψ (RecRule.rhs r) = some R ∧
-            SpineFold V (val n ψ) (args ++ [tv]) =
-              SpineFold V R
-                (args.take rP ++ margs.drop (RecRule.ctorParams r)) ∧
-            ChainSlots V R
-              (args.take rP ++ margs.drop (RecRule.ctorParams r))
+        RecRule.fire r ≠ .inert →
+        ∃ fvms bL, ruleLhsParts n cv rP r cvj = some (fvms, bL) ∧
+          FrameWf 0 fvms bL ∧
+          fvms.length = rP + RecRule.nfields r ∧
+          (closeLamsAt fvms bL).constsResolve env = true ∧
+          ∀ ψ : Name → Nat,
+            AnnotOk V val env ψ 0 (rho0 V) (closeLamsAt fvms bL) ∧
+            ∃ Rv, interpClosed V val env ψ (closeLamsAt fvms bL) = some Rv ∧
+              interpClosed V val env ψ (RecRule.rhs r) = some Rv
 
 theorem RecRulesOk.empty (val : ConstVal V) :
     RecRulesOk V Env.empty val := by

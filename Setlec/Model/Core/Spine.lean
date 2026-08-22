@@ -124,6 +124,16 @@ theorem InterpSpine.append {cval : ConstVal V} {env : Env} {φ : Name → Nat}
   | _ :: _, _, _ :: _, _, h1, h2 =>
     ⟨h1.1, InterpSpine.append h1.2 h2⟩
 
+/-- An argument spine interprets pointwise to its values. -/
+theorem InstArgs.toInterpSpine {cval : ConstVal V} {env : Env}
+    {φ : Name → Nat} {D : Nat} {ρ : Nat → V} :
+    ∀ {as : List Expr} {vs : List V},
+      InstArgs cval env φ D ρ as vs → InterpSpine cval env φ D ρ as vs
+  | [], [], _ => trivial
+  | [], _ :: _, h => nomatch h
+  | _ :: _, [], h => nomatch h
+  | _ :: _, _ :: _, h => ⟨h.1.2.2, InstArgs.toInterpSpine h.2⟩
+
 /-- Inversion of an application spine's `AnnotOk`: the head and every
 argument are `AnnotOk`, the head interprets, and the argument values
 form a typed chain interpreting the whole spine. -/

@@ -39,23 +39,10 @@ variable {V : Type u} [SetTheory V] {cval : ConstVal V} {env : Env}
 
 open SetTheory Expr
 
-/-! ## The syntactic frame invariant -/
+/-! ## The syntactic frame invariant
 
-/-- Well-formedness of a closing frame over a body: the variables sit
-at consecutive indices starting at `d`; each annotation is scoped
-below its own index, free of loose bvars, and paired with a
-codomain-sort annotation; and each variable is mentioned
-*consistently* (same name and annotation) by the body and by every
-later variable's annotation — what the abstraction/instantiation
-roundtrip of `closeLamsAt` needs. -/
-def FrameWf : Nat → List (Expr × BinderMeta) → Expr → Prop
-  | d, [], bL => WScoped d bL ∧ bL.looseBVarsBounded 0 = true
-  | d, (fv, m) :: rest, bL =>
-    (∃ nm ty, fv = .fvar d nm ty ∧ WScoped d ty ∧
-      ty.looseBVarsBounded 0 = true ∧ (∃ cod, m.cod = some cod) ∧
-      Expr.fvarConsistent d nm ty bL ∧
-      ∀ p ∈ rest, Expr.fvarConsistent d nm ty (Expr.fvarTypeD p.1)) ∧
-    FrameWf (d + 1) rest bL
+`FrameWf` itself lives next to `RecRulesOk` in
+`Setlec/Model/Interp.lean`; its `closeLamsAt` bookkeeping is here. -/
 
 /-- A closed tower has bounded loose bvars: each abstraction step
 introduces exactly the bvar its `λ` binds. -/
