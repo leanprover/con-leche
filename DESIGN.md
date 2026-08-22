@@ -2243,13 +2243,21 @@ the deferred per-node scope data (loose-bvar bound) for O(1) identity
 shortcuts.  That rework touches the `DiscI` binder walks and is left
 as the next performance task.
 
-**init-prelude regression note**: on the (shallow-level) init-prelude
-stream the interned level ops are *slower* than the structural ones —
-`byCases` cascades intern every intermediate level and thread HashMap
-memos where the `Expr`-level code allocated transient trees.  Measured
-445 G instructions vs 212.6 G pre-#62 (after task #63's index
-threading; the eqv cache does not help — the pairs are mostly
-distinct).  See the follow-ups at the end of the task #63 section.
+**Shallow-level regression and its fix**: on the (shallow-level)
+init-prelude stream the interned `leqCore` twin family was *slower*
+than the structural ops — the `byCases` cascades interned every
+intermediate level and threaded HashMap memos where the `Expr`-level
+code allocated transient trees (445 G instructions vs 212.6 G pre-#62,
+even after task #63's index threading; the result cache alone did not
+help — the pairs are mostly distinct).  Resolution: `isEquivLM`
+simplifies both sides on the arena (persistent memo), reads the small
+*simplified* levels back and runs the **spec** `Level.leqCore` on
+transient trees, caching the verdict per index pair — faithfulness is
+`simplifyLIGo_spec` + `readbackL_spec` + the spec function itself.
+This turned the regression into a win (init-prelude 171.7 G / 12.4 s,
+−18 % vs the pre-#62 baseline).  The unused pure `leqCoreLI` family
+and its `ILevel` faithfulness proofs are retained for reference; they
+can be deleted if the readback approach is kept.
 
 ## Cross-declaration environment index; kind-agnostic certificates (2026-08-22, task #63)
 
@@ -2297,7 +2305,10 @@ invariant.  The consistency statements' shapes are unchanged
 
 **Measured**: scale harness `chain` 1.59 → **1.04**, `many` 1.56 →
 **1.04** (PASS; `spine` 2.11 / `telescope` 1.94 remain, diagnosed
-above); init-prelude 488 G → 445 G instructions.
+above); init-prelude 488 G → 445 G instructions from the threading
+alone, then 171.7 G / 12.4 s with the readback `leqCore` (task #62
+note above) — **−18 % instructions vs the pre-#62 baseline**
+(208.3 G / 15.5 s, same machine/day).
 
 **Follow-ups** (performance, in expected-value order): (1) the
 binder-walk rework (accumulated fvars + bulk domain instantiation) for
