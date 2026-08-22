@@ -224,14 +224,17 @@ theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
       h.symm⟩
 
 /-- Inversion for the application rule of `inferTypeCore` (infer-only:
-no argument check — that ran once, in the annotation pass). -/
+no argument check — that ran once, in the annotation pass; since task
+#49 the possibly-Prop-gated re-check runs only when the Π's
+codomain-sort annotation is not provably nonzero). -/
 theorem inferTypeCore_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
     (h : inferTypeCore env (fuel + 1) d (.app f a) = .ok t) :
-    ∃ tf n' ty' body' m' ta, inferTypeCore env fuel d f = .ok tf ∧
+    ∃ tf n' ty' body' m', inferTypeCore env fuel d f = .ok tf ∧
       whnf env fuel d tf = .ok (.forallE n' ty' body' m') ∧
-      inferTypeCore env fuel d a = .ok ta ∧
-      isDefEqCore env fuel d ta ty' = .ok true ∧
-      t = body'.instantiate1 a := by
+      t = body'.instantiate1 a ∧
+      (codNonZero m' = true ∨
+       ∃ ta, inferTypeCore env fuel d a = .ok ta ∧
+         isDefEqCore env fuel d ta ty' = .ok true) := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind] at h
   simp only [infer_def, whnf_def, defeq_def] at h
@@ -256,20 +259,27 @@ theorem inferTypeCore_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
   | .letE n2 t2 v2 b2, h => exact nomatch h
   | .lit l2, h => exact nomatch h
   | .proj s2 i2 e2, h => exact nomatch h
-  cases hta : inferTypeCore env fuel d a with
-  | error err => rw [hta] at h; exact nomatch h
-  | ok ta =>
-  rw [hta] at h
   dsimp only at h
-  cases hde : isDefEqCore env fuel d ta ty' with
-  | error err => rw [hde] at h; exact nomatch h
-  | ok r =>
-  rw [hde] at h
-  cases r with
-  | false => simp [throw, throwThe, MonadExceptOf.throw] at h
-  | true =>
-    simp only [if_true, pure, Except.pure, Except.ok.injEq] at h
-    exact ⟨tf, n', ty', body', m', ta, rfl, hw, rfl, hde, h.symm⟩
+  by_cases hnz : codNonZero m' = true
+  · rw [if_pos hnz] at h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact ⟨tf, n', ty', body', m', rfl, hw, h.symm, Or.inl hnz⟩
+  · rw [if_neg hnz] at h
+    cases hta : inferTypeCore env fuel d a with
+    | error err => rw [hta] at h; exact nomatch h
+    | ok ta =>
+    rw [hta] at h
+    dsimp only at h
+    cases hde : isDefEqCore env fuel d ta ty' with
+    | error err => rw [hde] at h; exact nomatch h
+    | ok r =>
+    rw [hde] at h
+    cases r with
+    | false => simp [throw, throwThe, MonadExceptOf.throw] at h
+    | true =>
+      simp only [if_true, pure, Except.pure, Except.ok.injEq] at h
+      exact ⟨tf, n', ty', body', m', rfl, hw, h.symm,
+        Or.inr ⟨ta, rfl, hde⟩⟩
 
 /-- Inversion for the ∀-rule of `inferTypeCore`. -/
 theorem inferTypeCore_forall_inv {env : Env} {fuel d : Nat} {n : Name}
@@ -1250,6 +1260,16 @@ theorem iotaCerts_step_inv {env : Env} {fuel d : Nat} {n : Name}
   | true =>
   simp only [↓reduceIte] at h
   exact ⟨ta, rfl, hde, h⟩
+
+/-- Unfold the possibly-Prop gate: a true verdict pins a provably
+nonzero codomain-sort annotation. -/
+theorem codNonZero_eq_true {m : BinderMeta} (h : codNonZero m = true) :
+    ∃ v, m.cod = some v ∧ v.isNonZero = true := by
+  unfold codNonZero at h
+  revert h
+  cases hcod : m.cod with
+  | some v => intro h; exact ⟨v, rfl, h⟩
+  | none => intro h; exact nomatch h
 
 /-- Inversion of the unit-type check. -/
 theorem isUnitLikeTy_inv {env : Env} {e : Expr}

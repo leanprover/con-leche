@@ -396,21 +396,34 @@ hits consume it at their own depth.  Numbers for the guard removal
 key per memo op, but hashing already walked it; the leaf scope checks
 cost nothing measurable).
 
-### Inference re-checks; infer-only deferred
+### Inference re-checks: possibly-Prop-gated (2026-08-22, task #49)
 
 The official kernel's inference is *infer-only* inside reduction
-(argument checks ran once, at declaration time).  Setlec's `inferBody`
-**re-checks** the application argument (defeq against the domain) and
-the λ-annotation (against the body's inferred sort), as the
-pre-restructure checker did: the soundness claims re-derive their
-membership slots (`⟦a⟧ ∈ ⟦domain⟧`, fibres-in-universe) from those
-checks at the claims' own fuel.  Deriving them without the checks
-would need the annotation-time facts, which live at a *different*
-fuel — i.e. the fuel-determinism machinery of the refinement bridge —
-plus a strengthened `AnnotOk` app clause.  Revisit once the bridge
-lands; until then the speculative-inference-cannot-reject property is
-weakened (a re-check could in principle fail on a reduced term whose
-annotate-time check passed; not observed on the suite).
+(argument checks ran once, at declaration time; lean4lean's `inferApp`
+walks the Π-telescope with no per-argument checks).  Setlec's
+`inferBody` app rule (and the interned spine loop `inferSpineI`) now
+runs the argument re-check (infer + defeq against the domain) **only
+when the Π's codomain-sort annotation is not provably nonzero**
+(`codNonZero`, `Level.isNonZero` on the instantiated annotation — an
+all-assignments guarantee).  At a provably nonzero Π the soundness
+claims recover `⟦a⟧ ∈ ⟦domain⟧` from the app node's own `AnnotOk`
+slot by *domain determination*: the function's value sits both in the
+Π-type's interpretation (a `pi` at a nonzero sort, whose members are
+graphs — `eq_graph_app_of_mem_piSet`) and in the slot's existential
+pi, and graphs determine their domains (`graph_dom_of_mem_piSet`);
+the mismatched-level case is vacuous (`graph_ne_pt`).  At a
+possibly-Prop Π (`Sort u` codomains included: the claims quantify
+over *every* level assignment, and at `u := 0` the interpretation
+collapses to the proof point) **no semantic invariant can recover the
+membership** — impredicativity, the same analysis as the beta
+certificate — so the defeq re-check stays exactly there; this is the
+minimal-cert residue, a finding, not an oversight.  The λ-annotation
+re-check (against the body's inferred sort) is unchanged.  Measured
+in isolation (init-prelude probe): 284.8 G → 272.2 G instructions
+(−4.4 %), 24.6 s → 23.4 s; verdicts identical (arena 90/92, e2e
+46/46, probe exit 0 / 3653).  The speculative-inference-cannot-reject
+property is correspondingly strengthened on gated slots and unchanged
+on the possibly-Prop residue.
 
 ### The certified structural-Nat fast path (2026-08-21)
 
@@ -899,6 +912,16 @@ threading, possibly-Prop-gated iota certificates); per-loop fuel
 budgets; instrumenting the possibly-Prop beta wedge (3.5) as an
 internal-error signal; removing the codomain-annotation comparison in
 binder defeq (documented deviation, benign for well-typed input).
+Task #49 measured (implementation-only toggles, init-prelude probe,
+284.8 G baseline; proofs not landed, numbers inform the follow-ups):
+possibly-Prop-gated *iota* certificates + comparand/index checks kept
+−23.5 G (−8.3 %); lazy delta *materialization* in `defeqBodyI`
+(probe both heads, unfold only the chosen side) −0.2 G — the
+`(name, levels)` value cache already absorbs it, not worth the walk
+rework; removing the possibly-Prop *beta* certificate −2.2 G — never
+landable (unprovable, the impredicativity analysis above).  The
+gated infer-app re-check (−4.4 % standalone) landed; see "Inference
+re-checks" below.
 
 ## Stuck-major rescue: rule K and structure eta in iota (2026-08-20)
 
@@ -2255,9 +2278,9 @@ simplifies both sides on the arena (persistent memo), reads the small
 transient trees, caching the verdict per index pair — faithfulness is
 `simplifyLIGo_spec` + `readbackL_spec` + the spec function itself.
 This turned the regression into a win (init-prelude 171.7 G / 12.4 s,
-−18 % vs the pre-#62 baseline).  The unused pure `leqCoreLI` family
-and its `ILevel` faithfulness proofs are retained for reference; they
-can be deleted if the readback approach is kept.
+−18 % vs the pre-#62 baseline).  The superseded pure `leqCoreLI`
+family and its `ILevel` faithfulness proofs (~1 800 lines) were
+deleted once the readback approach was confirmed.
 
 ## Cross-declaration environment index; kind-agnostic certificates (2026-08-22, task #63)
 

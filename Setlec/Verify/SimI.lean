@@ -681,6 +681,26 @@ theorem isNonZeroLM_eff (hs : ISOK env s₀) {u : LIdx} {la : Level}
   obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
   exact ⟨hs.withLnz hinv', Ext.refl _, (hden la hl).symm⟩
 
+
+/-- Twin gate of `codNonZero` (task #49): the interned binder
+annotation's codomain slot denotes the spec annotation's, so the
+memoized nonzero test returns exactly `codNonZero` of the denoted
+binder metadata. -/
+theorem codNonZeroIM_eff (hs : ISOK env s₀) {mt : IBinderMeta}
+    {bm : BinderMeta}
+    (hbm : denoteBM s₀.store.denoteL mt = some bm) :
+    IEff env s₀ (fun _s b => b = codNonZero bm) (codNonZeroIM mt) := by
+  obtain ⟨bi, cod⟩ := mt
+  cases cod with
+  | none =>
+    simp only [denoteBM, Option.some.injEq] at hbm
+    subst hbm
+    exact IEff.pure hs rfl
+  | some v =>
+    simp only [denoteBM, Option.map_eq_some_iff] at hbm
+    obtain ⟨l, hl, rfl⟩ := hbm
+    exact isNonZeroLM_eff hs hl
+
 theorem instLevelParamsM_eff (hs : ISOK env s₀) {ks : List Name}
     {us : List LIdx} {lus : List Level} {e : EIdx} {a : Expr}
     (hus : denoteLList s₀.store.denoteL us = some lus)

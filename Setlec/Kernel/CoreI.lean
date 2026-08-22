@@ -318,6 +318,14 @@ by level index alone, so it survives across calls). -/
     let (r, memo) := s.store.isNonZeroLIGo memo u
     (r, { s with lnzC := memo })
 
+/-- Twin of `codNonZero` (task #49) on an interned binder annotation:
+the codomain-sort slot is a level index, so the nonzero test runs
+through the persistently memoized `isNonZeroLM`. -/
+@[inline] def codNonZeroIM (mt : IBinderMeta) : CheckIM Bool :=
+  match mt.cod with
+  | some v => isNonZeroLM v
+  | none => pure false
+
 /-- Interned `Expr.instantiateLevelParams` (interned replacement
 levels; fresh per-call memos). -/
 @[inline] def instLevelParamsM (ks : List Name) (us : List LIdx)
@@ -327,177 +335,6 @@ levels; fresh per-call memos). -/
     let s := { s with store := EStore.empty }
     let (r, store) := store.instantiateLevelParamsI ks us e
     (r, { s with store := store })
-
-mutual
-
-/-- Twin of `Level.leqCore` on level indices (task #62), as a pure
-arena function threading the persistent simplify memo: same fuel
-discipline, same case order; the `imax` distribution cases intern
-their fabricated levels, `byCasesLI` substitutes and simplifies
-interned.  The `imax`-reflexivity shortcut compares indices — equal
-denotations have equal indices on canonical stores. -/
-def leqCoreLI (st : EStore) (memo : EStore.LMemo) (fuel : Nat)
-    (l r : LIdx) (diff : Int) : Option Bool × EStore × EStore.LMemo :=
-  match fuel with
-  | 0 => (none, st, memo)
-  | fuel + 1 =>
-    if st.lnodes[l]? = some .zero ∧ diff ≥ 0 then (some true, st, memo)
-    else if st.lnodes[r]? = some .zero ∧ diff < 0 then (some false, st, memo)
-    else leqRestLI st memo fuel l r diff
-
-/-- Twin of `Level.rest` (the cases after the cheap `zero` short-cuts,
-in nanoda's order, replayed by sequential node views). -/
-def leqRestLI (st : EStore) (memo : EStore.LMemo) (fuel : Nat)
-    (l r : LIdx) (diff : Int) : Option Bool × EStore × EStore.LMemo :=
-  match st.lnodes[l]?, st.lnodes[r]? with
-  | some (.param a), some (.param x) => (some (a = x && diff ≥ 0), st, memo)
-  | some (.param _), some .zero => (some false, st, memo)
-  | some .zero, some (.param _) => (some (diff ≥ 0), st, memo)
-  | some (.succ s), _ => leqCoreLI st memo fuel s r (diff - 1)
-  | _, some (.succ s) => leqCoreLI st memo fuel l s (diff + 1)
-  | some (.max a b), _ =>
-    match leqCoreLI st memo fuel a r diff with
-    | (none, st, memo) => (none, st, memo)
-    | (some ba, st, memo) =>
-      match leqCoreLI st memo fuel b r diff with
-      | (none, st, memo) => (none, st, memo)
-      | (some bb, st, memo) => (some (ba && bb), st, memo)
-  | some (.param _), some (.max x y) =>
-    match leqCoreLI st memo fuel l x diff with
-    | (none, st, memo) => (none, st, memo)
-    | (some bx, st, memo) =>
-      match leqCoreLI st memo fuel l y diff with
-      | (none, st, memo) => (none, st, memo)
-      | (some bY, st, memo) => (some (bx || bY), st, memo)
-  | some .zero, some (.max x y) =>
-    match leqCoreLI st memo fuel l x diff with
-    | (none, st, memo) => (none, st, memo)
-    | (some bx, st, memo) =>
-      match leqCoreLI st memo fuel l y diff with
-      | (none, st, memo) => (none, st, memo)
-      | (some bY, st, memo) => (some (bx || bY), st, memo)
-  | some (.imax a b), some (.imax x y) =>
-    if a = x && b = y && diff ≥ 0 then (some true, st, memo)
-    else imaxRulesLI st memo fuel l r diff
-  | _, _ => imaxRulesLI st memo fuel l r diff
-
-/-- Twin of `Level.imaxRules` (nanoda's cases 10–15). -/
-def imaxRulesLI (st : EStore) (memo : EStore.LMemo) (fuel : Nat)
-    (l r : LIdx) (diff : Int) : Option Bool × EStore × EStore.LMemo :=
-  match st.lnodes[l]? with
-  | some (.imax a b) =>
-    match st.lnodes[b]? with
-    | some (.param p) => byCasesLI st memo fuel p l r diff
-    | _ =>
-      match st.lnodes[r]? with
-      | some (.imax _x' y') =>
-        match st.lnodes[y']? with
-        | some (.param p) => byCasesLI st memo fuel p l r diff
-        | _ => imaxRulesRestLI st memo fuel l r diff a b
-      | _ => imaxRulesRestLI st memo fuel l r diff a b
-  | _ =>
-    match st.lnodes[r]? with
-    | some (.imax x' y') =>
-      match st.lnodes[y']? with
-      | some (.param p) => byCasesLI st memo fuel p l r diff
-      | _ => imaxRulesRightLI st memo fuel l diff x' y'
-    | _ => (none, st, memo)
-
-/-- The left-`imax` distribution cases of `imaxRulesLI` (the left side
-is `.imax a b` with `b` not a parameter). -/
-def imaxRulesRestLI (st : EStore) (memo : EStore.LMemo) (fuel : Nat)
-    (l r : LIdx) (diff : Int) (a b : LIdx) :
-    Option Bool × EStore × EStore.LMemo :=
-  match st.lnodes[b]? with
-  | some (.imax x y) =>
-    let (i1, st) := st.internL (.imax a y)
-    let (i2, st) := st.internL (.imax x y)
-    let (m, st) := st.internL (.max i1 i2)
-    leqCoreLI st memo fuel m r diff
-  | some (.max x y) =>
-    let (i1, st) := st.internL (.imax a x)
-    let (i2, st) := st.internL (.imax a y)
-    let (m, st) := st.internL (.max i1 i2)
-    let (ms, st, memo) := st.simplifyLIGo memo m
-    leqCoreLI st memo fuel ms r diff
-  | _ =>
-    match st.lnodes[r]? with
-    | some (.imax x' y') => imaxRulesRightLI st memo fuel l diff x' y'
-    | _ => (none, st, memo)
-
-/-- The right-`imax` distribution cases of `imaxRulesLI` (the right
-side is `.imax x y` with `y` not a parameter). -/
-def imaxRulesRightLI (st : EStore) (memo : EStore.LMemo) (fuel : Nat)
-    (l : LIdx) (diff : Int) (x y : LIdx) :
-    Option Bool × EStore × EStore.LMemo :=
-  match st.lnodes[y]? with
-  | some (.imax j k) =>
-    let (i1, st) := st.internL (.imax x k)
-    let (i2, st) := st.internL (.imax j k)
-    let (m, st) := st.internL (.max i1 i2)
-    leqCoreLI st memo fuel l m diff
-  | some (.max j k) =>
-    let (i1, st) := st.internL (.imax x j)
-    let (i2, st) := st.internL (.imax x k)
-    let (m, st) := st.internL (.max i1 i2)
-    let (ms, st, memo) := st.simplifyLIGo memo m
-    leqCoreLI st memo fuel l ms diff
-  | _ => (none, st, memo)
-
-/-- Twin of `Level.byCases` (split on the parameter `p` being zero or
-positive). -/
-def byCasesLI (st : EStore) (memo : EStore.LMemo) (fuel : Nat) (p : Name)
-    (l r : LIdx) (diff : Int) : Option Bool × EStore × EStore.LMemo :=
-  let (z, st) := st.internL .zero
-  let (pp, st) := st.internL (.param p)
-  let (sp, st) := st.internL (.succ pp)
-  let (l0', st) := st.substLI [p] [z] l
-  let (l0, st, memo) := st.simplifyLIGo memo l0'
-  let (r0', st) := st.substLI [p] [z] r
-  let (r0, st, memo) := st.simplifyLIGo memo r0'
-  let (ls', st) := st.substLI [p] [sp] l
-  let (ls, st, memo) := st.simplifyLIGo memo ls'
-  let (rs', st) := st.substLI [p] [sp] r
-  let (rs, st, memo) := st.simplifyLIGo memo rs'
-  match leqCoreLI st memo fuel l0 r0 diff with
-  | (none, st, memo) => (none, st, memo)
-  | (some b0, st, memo) =>
-    match leqCoreLI st memo fuel ls rs diff with
-    | (none, st, memo) => (none, st, memo)
-    | (some bs, st, memo) => (some (b0 && bs), st, memo)
-
-end
-
-/-- Twin of `Level.leq` (simplify both sides, compare at the default
-fuel). -/
-def leqLI (st : EStore) (memo : EStore.LMemo) (l r : LIdx) :
-    Option Bool × EStore × EStore.LMemo :=
-  let (ls, st, memo) := st.simplifyLIGo memo l
-  let (rs, st, memo) := st.simplifyLIGo memo r
-  leqCoreLI st memo Level.defaultFuel ls rs 0
-
-/-- Twin of `Level.isEquiv`. -/
-def isEquivLI (st : EStore) (memo : EStore.LMemo) (l r : LIdx) :
-    Option Bool × EStore × EStore.LMemo :=
-  match leqLI st memo l r with
-  | (none, st, memo) => (none, st, memo)
-  | (some b1, st, memo) =>
-    match leqLI st memo r l with
-    | (none, st, memo) => (none, st, memo)
-    | (some b2, st, memo) => (some (b1 && b2), st, memo)
-
-/-- Twin of `Level.isEquivList`. -/
-def isEquivListLI (st : EStore) (memo : EStore.LMemo) :
-    List LIdx → List LIdx → Option Bool × EStore × EStore.LMemo
-  | [], [] => (some true, st, memo)
-  | l :: ls, r :: rs =>
-    match isEquivLI st memo l r with
-    | (none, st, memo) => (none, st, memo)
-    | (some b, st, memo) =>
-      match isEquivListLI st memo ls rs with
-      | (none, st, memo) => (none, st, memo)
-      | (some bs, st, memo) => (some (b && bs), st, memo)
-  | _, _ => (some false, st, memo)
 
 /-- Monadic level equivalence: simplify both sides on the arena
 (persistent memo — repeat subterms are free), read the *small*
@@ -1356,21 +1193,27 @@ def inferSpineI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
   | ty, acc, [] => instListM ty acc
   | ty, acc, a :: rest => do
     match ← viewI ty with
-    | some (.forallE _ dom body _) => do
-      let dom' ← instListM dom acc
-      let ta ← r.infer depth a
-      unless ← r.defeq depth ta dom' do
-        throw (.invalid "application type mismatch")
-      inferSpineI r fe depth body (a :: acc) rest
+    | some (.forallE _ dom body mt) => do
+      -- possibly-Prop-gated argument re-check (task #49; see the
+      -- spec body `inferBody` and `codNonZero`)
+      if ← codNonZeroIM mt then inferSpineI r fe depth body (a :: acc) rest
+      else do
+        let dom' ← instListM dom acc
+        let ta ← r.infer depth a
+        unless ← r.defeq depth ta dom' do
+          throw (.invalid "application type mismatch")
+        inferSpineI r fe depth body (a :: acc) rest
     | _ => do
       let ty' ← instListM ty acc
       let w ← r.whnf depth ty'
       match ← viewI w with
-      | some (.forallE _ dom body _) => do
-        let ta ← r.infer depth a
-        unless ← r.defeq depth ta dom do
-          throw (.invalid "application type mismatch")
-        inferSpineI r fe depth body [a] rest
+      | some (.forallE _ dom body mt) => do
+        if ← codNonZeroIM mt then inferSpineI r fe depth body [a] rest
+        else do
+          let ta ← r.infer depth a
+          unless ← r.defeq depth ta dom do
+            throw (.invalid "application type mismatch")
+          inferSpineI r fe depth body [a] rest
       | _ => throw (.invalid "function expected")
 
 /-- Twin of `whnfBody`. -/

@@ -916,11 +916,13 @@ step substitutes and normalizes, exactly like the chained body. -/
 part's inference. -/
 def inferStep (r : CoreFns m) (depth : Nat) (tf a : Expr) : m Expr := do
   match ← r.whnf depth tf with
-  | .forallE _ ty body _ => do
-    let ta ← r.infer depth a
-    unless ← r.defeq depth ta ty do
-      throw (.invalid "application type mismatch")
-    pure (body.instantiate1 a)
+  | .forallE _ ty body mt => do
+    if codNonZero mt then pure (body.instantiate1 a)
+    else do
+      let ta ← r.infer depth a
+      unless ← r.defeq depth ta ty do
+        throw (.invalid "application type mismatch")
+      pure (body.instantiate1 a)
   | _ => throw (.invalid "function expected")
 
 /-- `inferBody`'s app case at the pure knot is one inference followed
@@ -938,37 +940,46 @@ def inferSpine (r : CoreFns m) (depth : Nat) :
   | ty, acc, [] => pure (ty.instantiateList acc)
   | ty, acc, a :: rest =>
     match ty with
-    | .forallE _ dom body _ => do
-      let ta ← r.infer depth a
-      unless ← r.defeq depth ta (dom.instantiateList acc) do
-        throw (.invalid "application type mismatch")
-      inferSpine r depth body (a :: acc) rest
+    | .forallE _ dom body mt => do
+      if codNonZero mt then inferSpine r depth body (a :: acc) rest
+      else do
+        let ta ← r.infer depth a
+        unless ← r.defeq depth ta (dom.instantiateList acc) do
+          throw (.invalid "application type mismatch")
+        inferSpine r depth body (a :: acc) rest
     | ty => do
       match ← r.whnf depth (ty.instantiateList acc) with
-      | .forallE _ dom body _ => do
-        let ta ← r.infer depth a
-        unless ← r.defeq depth ta dom do
-          throw (.invalid "application type mismatch")
-        inferSpine r depth body [a] rest
+      | .forallE _ dom body mt => do
+        if codNonZero mt then inferSpine r depth body [a] rest
+        else do
+          let ta ← r.infer depth a
+          unless ← r.defeq depth ta dom do
+            throw (.invalid "application type mismatch")
+          inferSpine r depth body [a] rest
       | _ => throw (.invalid "function expected")
 
 /-- The syntactic-`∀` arm of `inferSpine`. -/
 def inferSpinePi (r : CoreFns m) (depth : Nat) (dom body : Expr)
-    (acc : List Expr) (a : Expr) (rest : List Expr) : m Expr := do
-  let ta ← r.infer depth a
-  unless ← r.defeq depth ta (dom.instantiateList acc) do
-    throw (.invalid "application type mismatch")
-  inferSpine r depth body (a :: acc) rest
+    (mt : BinderMeta) (acc : List Expr) (a : Expr) (rest : List Expr) :
+    m Expr := do
+  if codNonZero mt then inferSpine r depth body (a :: acc) rest
+  else do
+    let ta ← r.infer depth a
+    unless ← r.defeq depth ta (dom.instantiateList acc) do
+      throw (.invalid "application type mismatch")
+    inferSpine r depth body (a :: acc) rest
 
 /-- The normalize-and-retry arm of `inferSpine`. -/
 def inferSpineWhnf (r : CoreFns m) (depth : Nat) (ty : Expr)
     (acc : List Expr) (a : Expr) (rest : List Expr) : m Expr := do
   match ← r.whnf depth (ty.instantiateList acc) with
-  | .forallE _ dom body _ => do
-    let ta ← r.infer depth a
-    unless ← r.defeq depth ta dom do
-      throw (.invalid "application type mismatch")
-    inferSpine r depth body [a] rest
+  | .forallE _ dom body mt => do
+    if codNonZero mt then inferSpine r depth body [a] rest
+    else do
+      let ta ← r.infer depth a
+      unless ← r.defeq depth ta dom do
+        throw (.invalid "application type mismatch")
+      inferSpine r depth body [a] rest
   | _ => throw (.invalid "function expected")
 
 theorem inferSpine_nil (r : CoreFns m) (depth : Nat) (ty : Expr)
@@ -980,7 +991,7 @@ theorem inferSpine_pi (r : CoreFns m) (depth : Nat) (n : Name)
     (dom body : Expr) (bi : BinderMeta) (acc : List Expr) (a : Expr)
     (rest : List Expr) :
     inferSpine r depth (.forallE n dom body bi) acc (a :: rest)
-      = inferSpinePi r depth dom body acc a rest := by
+      = inferSpinePi r depth dom body bi acc a rest := by
   rw [inferSpine, inferSpinePi]
 
 theorem inferSpine_ne_pi (r : CoreFns m) (depth : Nat) {ty : Expr}
@@ -1020,18 +1031,22 @@ theorem inferSpine_atF (d : Nat) :
     · obtain ⟨n, dom, body, bi, rfl⟩ := hpi
       rw [inferSpine_pi, inferSpine_pi]
       unfold inferSpinePi
-      rw [FueledM.atF_bind]
-      congr 1
-      funext ta
-      rw [FueledM.atF_bind]
-      congr 1
-      funext b
-      cases b with
-      | true =>
-        show (inferSpine (fueledFns env) d body (a :: acc) rest).val F = _
-        rw [inferSpine_atF d rest body (a :: acc) F]
-        rfl
-      | false => rfl
+      by_cases hnz : codNonZero bi = true
+      · rw [if_pos hnz, if_pos hnz]
+        exact inferSpine_atF d rest body (a :: acc) F
+      · rw [if_neg hnz, if_neg hnz]
+        rw [FueledM.atF_bind]
+        congr 1
+        funext ta
+        rw [FueledM.atF_bind]
+        congr 1
+        funext b
+        cases b with
+        | true =>
+          show (inferSpine (fueledFns env) d body (a :: acc) rest).val F = _
+          rw [inferSpine_atF d rest body (a :: acc) F]
+          rfl
+        | false => rfl
     · have hty : ∀ n dom body bi, ty ≠ Expr.forallE n dom body bi :=
         fun n dom b bi hh => hpi ⟨n, dom, b, bi, hh⟩
       rw [inferSpine_ne_pi _ _ hty, inferSpine_ne_pi _ _ hty]
@@ -1042,18 +1057,22 @@ theorem inferSpine_atF (d : Nat) :
       cases w with
       | forallE n dom body bi =>
         dsimp only
-        rw [FueledM.atF_bind]
-        congr 1
-        funext ta
-        rw [FueledM.atF_bind]
-        congr 1
-        funext b
-        cases b with
-        | true =>
-          show (inferSpine (fueledFns env) d body [a] rest).val F = _
-          rw [inferSpine_atF d rest body [a] F]
-          rfl
-        | false => rfl
+        by_cases hnz : codNonZero bi = true
+        · rw [if_pos hnz, if_pos hnz]
+          exact inferSpine_atF d rest body [a] F
+        · rw [if_neg hnz, if_neg hnz]
+          rw [FueledM.atF_bind]
+          congr 1
+          funext ta
+          rw [FueledM.atF_bind]
+          congr 1
+          funext b
+          cases b with
+          | true =>
+            show (inferSpine (fueledFns env) d body [a] rest).val F = _
+            rw [inferSpine_atF d rest body [a] F]
+            rfl
+          | false => rfl
       | _ => rfl
 
 theorem inferSpine_mono {d : Nat} {xs acc : List Expr} {ty : Expr}
@@ -1108,14 +1127,8 @@ theorem inferSpine_snoc {d : Nat} :
     · obtain ⟨n, dom, body, bi, rfl⟩ := hpi
       rw [inferSpine_pi] at H
       unfold inferSpinePi at H
-      obtain ⟨ta, hta, H⟩ := bind_ok H
-      obtain ⟨b, hb, H⟩ := bind_ok H
-      cases b with
-      | false =>
-        simp only [Bool.false_eq_true, ↓reduceIte] at H
-        exact nomatch H
-      | true =>
-        simp only [↓reduceIte] at H
+      by_cases hnz : codNonZero bi = true
+      · rw [if_pos hnz] at H
         rw [inferSpine_nil] at H
         injection H with h
         subst h
@@ -1123,12 +1136,31 @@ theorem inferSpine_snoc {d : Nat} :
         unfold inferStep
         rw [instList_forallE, whnf_def, whnf_forallE, ok_bind]
         dsimp only
-        rw [infer_def, inferTypeCore_mono (Nat.le_add_right F 2) hta,
-          ok_bind, defeq_def, isDefEqCore_mono (Nat.le_add_right F 2) hb,
-          ok_bind]
-        simp only [↓reduceIte]
-        rw [← instList_cons0]
+        rw [if_pos hnz, ← instList_cons0]
         rfl
+      · rw [if_neg hnz] at H
+        obtain ⟨ta, hta, H⟩ := bind_ok H
+        obtain ⟨b, hb, H⟩ := bind_ok H
+        cases b with
+        | false =>
+          simp only [Bool.false_eq_true, ↓reduceIte] at H
+          exact nomatch H
+        | true =>
+          simp only [↓reduceIte] at H
+          rw [inferSpine_nil] at H
+          injection H with h
+          subst h
+          refine ⟨F + 2, _, by rw [inferSpine_nil]; rfl, ?_⟩
+          unfold inferStep
+          rw [instList_forallE, whnf_def, whnf_forallE, ok_bind]
+          dsimp only
+          rw [if_neg hnz]
+          rw [infer_def, inferTypeCore_mono (Nat.le_add_right F 2) hta,
+            ok_bind, defeq_def, isDefEqCore_mono (Nat.le_add_right F 2) hb,
+            ok_bind]
+          simp only [↓reduceIte]
+          rw [← instList_cons0]
+          rfl
     · have hty : ∀ n dom body bi, ty ≠ Expr.forallE n dom body bi :=
         fun n dom b bi hh => hpi ⟨n, dom, b, bi, hh⟩
       rw [inferSpine_ne_pi _ _ hty] at H
@@ -1143,17 +1175,22 @@ theorem inferSpine_snoc {d : Nat} :
       cases w₀ with
       | forallE n dom body bi =>
         dsimp only at H ⊢
-        obtain ⟨ta, hta, H⟩ := bind_ok H
-        obtain ⟨b, hb, H⟩ := bind_ok H
-        rw [hta, ok_bind, hb, ok_bind]
-        cases b with
-        | false =>
-          simp only [Bool.false_eq_true, ↓reduceIte] at H
-          exact nomatch H
-        | true =>
-          simp only [↓reduceIte] at H ⊢
+        by_cases hnz : codNonZero bi = true
+        · rw [if_pos hnz] at H ⊢
           rw [inferSpine_nil, instList_single] at H
           exact H
+        · rw [if_neg hnz] at H ⊢
+          obtain ⟨ta, hta, H⟩ := bind_ok H
+          obtain ⟨b, hb, H⟩ := bind_ok H
+          rw [hta, ok_bind, hb, ok_bind]
+          cases b with
+          | false =>
+            simp only [Bool.false_eq_true, ↓reduceIte] at H
+            exact nomatch H
+          | true =>
+            simp only [↓reduceIte] at H ⊢
+            rw [inferSpine_nil, instList_single] at H
+            exact H
       | bvar i => exact nomatch H
       | fvar idx nm t => exact nomatch H
       | sort u => exact nomatch H
@@ -1170,33 +1207,16 @@ theorem inferSpine_snoc {d : Nat} :
     · obtain ⟨n, dom, body, bi, rfl⟩ := hpi
       rw [inferSpine_pi] at H
       unfold inferSpinePi at H
-      obtain ⟨ta, hta, H⟩ := bind_ok H
-      obtain ⟨b, hb, H⟩ := bind_ok H
-      cases b with
-      | false =>
-        simp only [Bool.false_eq_true, ↓reduceIte] at H
-        exact nomatch H
-      | true =>
-        simp only [↓reduceIte] at H
+      by_cases hnz : codNonZero bi = true
+      · rw [if_pos hnz] at H
         obtain ⟨F₁, w, hw, hstep⟩ :=
           inferSpine_snoc xs' body (x :: acc) a F vres H
-        refine ⟨max F F₁, w, ?_,
-          inferStep_mono (Nat.le_max_right F F₁) hstep⟩
+        refine ⟨F₁, w, ?_, hstep⟩
         rw [inferSpine_pi]
         unfold inferSpinePi
-        rw [infer_def, inferTypeCore_mono (Nat.le_max_left F F₁) hta,
-          ok_bind, defeq_def, isDefEqCore_mono (Nat.le_max_left F F₁) hb,
-          ok_bind]
-        simp only [↓reduceIte]
-        exact inferSpine_mono (Nat.le_max_right F F₁) hw
-    · have hty : ∀ n dom body bi, ty ≠ Expr.forallE n dom body bi :=
-        fun n dom b bi hh => hpi ⟨n, dom, b, bi, hh⟩
-      rw [inferSpine_ne_pi _ _ hty] at H
-      unfold inferSpineWhnf at H
-      obtain ⟨w₀, hw₀, H⟩ := bind_ok H
-      cases w₀ with
-      | forallE n dom body bi =>
-        dsimp only at H
+        rw [if_pos hnz]
+        exact hw
+      · rw [if_neg hnz] at H
         obtain ⟨ta, hta, H⟩ := bind_ok H
         obtain ⟨b, hb, H⟩ := bind_ok H
         cases b with
@@ -1205,6 +1225,28 @@ theorem inferSpine_snoc {d : Nat} :
           exact nomatch H
         | true =>
           simp only [↓reduceIte] at H
+          obtain ⟨F₁, w, hw, hstep⟩ :=
+            inferSpine_snoc xs' body (x :: acc) a F vres H
+          refine ⟨max F F₁, w, ?_,
+            inferStep_mono (Nat.le_max_right F F₁) hstep⟩
+          rw [inferSpine_pi]
+          unfold inferSpinePi
+          rw [if_neg hnz]
+          rw [infer_def, inferTypeCore_mono (Nat.le_max_left F F₁) hta,
+            ok_bind, defeq_def, isDefEqCore_mono (Nat.le_max_left F F₁) hb,
+            ok_bind]
+          simp only [↓reduceIte]
+          exact inferSpine_mono (Nat.le_max_right F F₁) hw
+    · have hty : ∀ n dom body bi, ty ≠ Expr.forallE n dom body bi :=
+        fun n dom b bi hh => hpi ⟨n, dom, b, bi, hh⟩
+      rw [inferSpine_ne_pi _ _ hty] at H
+      unfold inferSpineWhnf at H
+      obtain ⟨w₀, hw₀, H⟩ := bind_ok H
+      cases w₀ with
+      | forallE n dom body bi =>
+        dsimp only at H
+        by_cases hnz : codNonZero bi = true
+        · rw [if_pos hnz] at H
           obtain ⟨F₁, w, hw, hstep⟩ :=
             inferSpine_snoc xs' body [x] a F vres H
           refine ⟨max F F₁, w, ?_,
@@ -1215,11 +1257,33 @@ theorem inferSpine_snoc {d : Nat} :
           show (whnf env (max F F₁) d (ty.instantiateList acc) >>= _) = _
           rw [whnf_mono (Nat.le_max_left F F₁) hw₀, ok_bind]
           dsimp only
-          rw [infer_def, inferTypeCore_mono (Nat.le_max_left F F₁) hta,
-            ok_bind, defeq_def,
-            isDefEqCore_mono (Nat.le_max_left F F₁) hb, ok_bind]
-          simp only [↓reduceIte]
+          rw [if_pos hnz]
           exact inferSpine_mono (Nat.le_max_right F F₁) hw
+        · rw [if_neg hnz] at H
+          obtain ⟨ta, hta, H⟩ := bind_ok H
+          obtain ⟨b, hb, H⟩ := bind_ok H
+          cases b with
+          | false =>
+            simp only [Bool.false_eq_true, ↓reduceIte] at H
+            exact nomatch H
+          | true =>
+            simp only [↓reduceIte] at H
+            obtain ⟨F₁, w, hw, hstep⟩ :=
+              inferSpine_snoc xs' body [x] a F vres H
+            refine ⟨max F F₁, w, ?_,
+              inferStep_mono (Nat.le_max_right F F₁) hstep⟩
+            rw [inferSpine_ne_pi _ _ hty]
+            unfold inferSpineWhnf
+            rw [whnf_def]
+            show (whnf env (max F F₁) d (ty.instantiateList acc) >>= _) = _
+            rw [whnf_mono (Nat.le_max_left F F₁) hw₀, ok_bind]
+            dsimp only
+            rw [if_neg hnz]
+            rw [infer_def, inferTypeCore_mono (Nat.le_max_left F F₁) hta,
+              ok_bind, defeq_def,
+              isDefEqCore_mono (Nat.le_max_left F F₁) hb, ok_bind]
+            simp only [↓reduceIte]
+            exact inferSpine_mono (Nat.le_max_right F F₁) hw
       | bvar i => exact nomatch H
       | fvar idx nm t => exact nomatch H
       | sort u => exact nomatch H

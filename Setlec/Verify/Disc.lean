@@ -1250,14 +1250,16 @@ theorem inferBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     rename_i nw tyw bodyw mbw
     have hwtb : WScoped d tyw ∧ WScoped d bodyw := by
       simpa only [WScoped] using hww
-    refine DiscV.bind (ih.site_infer henv hwfa.2) (fun ta hta => ?_)
-    refine DiscV.bind (ih.site_defeq hta hwtb.1) (fun b _ => ?_)
     split
     · exact DiscV.pure (WScoped.instantiate1_gen hwfa.2 0 hwtb.2)
-    · first
-        | exact DiscV.throw _
-        | exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
-            (fun _ h => h.elim)
+    · refine DiscV.bind (ih.site_infer henv hwfa.2) (fun ta hta => ?_)
+      refine DiscV.bind (ih.site_defeq hta hwtb.1) (fun b _ => ?_)
+      split
+      · exact DiscV.pure (WScoped.instantiate1_gen hwfa.2 0 hwtb.2)
+      · first
+          | exact DiscV.throw _
+          | exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
+              (fun _ h => h.elim)
   | .proj sn i pe =>
     have hwpe : WScoped d pe := by simpa only [WScoped] using hw
     unfold inferBody
