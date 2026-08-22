@@ -1985,14 +1985,17 @@ private theorem infer_step (henv : EnvWF env)
     have hwPi : WScoped d (Expr.forallE n' ty' body' m') :=
       whnf_WScoped henv fuel hww (inferTypeCore_WScoped henv fuel htf hw.1)
     simp only [WScoped] at hwPi
-    refine bind_rel _ _ (ih.infer hpd hw.2) ?_
-    intro ta hta
-    refine bind_rel_eq _
-      (ih.defeq hpd (inferTypeCore_WScoped henv fuel hta hw.2) hwPi.1) ?_
-    intro bb _
-    refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-    rw [← shiftFrom_instantiate1_gen]
-    rfl
+    refine ite_rel _ (fun _ => ?_) (fun _ => ?_)
+    · rw [← shiftFrom_instantiate1_gen]
+      rfl
+    · refine bind_rel _ _ (ih.infer hpd hw.2) ?_
+      intro ta hta
+      refine bind_rel_eq _
+        (ih.defeq hpd (inferTypeCore_WScoped henv fuel hta hw.2) hwPi.1) ?_
+      intro bb _
+      refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
+      rw [← shiftFrom_instantiate1_gen]
+      rfl
   | .proj sn i pe =>
     simp only [WScoped] at hw
     show inferBody (pureFns env fuel) env (d + 1)

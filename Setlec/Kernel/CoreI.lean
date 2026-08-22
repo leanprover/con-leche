@@ -332,6 +332,7 @@ def unfoldDefinitionI (fe : FEnv) (e : EIdx) : CheckIM (Option EIdx) := do
       else pure none
     | _ => pure none
   | _ => pure none
+
 /-- Twin of `litToCtorIfNat`. -/
 def litToCtorIfNatI (fe : FEnv) (e : EIdx) : CheckIM EIdx := do
   match ← viewI e with
@@ -454,50 +455,6 @@ the bulk-instantiating accumulator loop at the empty accumulator. -/
 def iotaCertsI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (ty : EIdx) (args : List EIdx) : CheckIM Bool :=
   iotaCertsIAux r fe depth ty [] args
-
-/-- Twin of `iotaCertsG` (task #49), bulk form: a slot whose
-codomain-sort annotation is provably nonzero skips the per-fire
-infer+defeq (and the domain substitution). -/
-def iotaCertsGIAux (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
-    EIdx → List EIdx → List EIdx → CheckIM Bool
-  | _, _, [] => pure true
-  | ty, acc, arg :: rest => do
-    match ← viewI ty with
-    | some (.forallE _ dom body mt) => do
-      match mt.cod with
-      | some v =>
-        if v.isNonZero then
-          iotaCertsGIAux r fe depth body (arg :: acc) rest
-        else do
-          let dom' ← instListM dom acc
-          let ta ← r.infer depth arg
-          if ← r.defeq depth ta dom' then
-            iotaCertsGIAux r fe depth body (arg :: acc) rest
-          else pure false
-      | none => do
-        let dom' ← instListM dom acc
-        let ta ← r.infer depth arg
-        if ← r.defeq depth ta dom' then
-          iotaCertsGIAux r fe depth body (arg :: acc) rest
-        else pure false
-    | some (.bvar _) =>
-      match acc with
-      | [] => pure false
-      | _ :: _ => do
-        let ty' ← instListM ty acc
-        iotaCertsGIAux r fe depth ty' [] (arg :: rest)
-    | _ => pure false
-termination_by _ acc args => (args.length, acc.length)
-decreasing_by
-  all_goals first
-    | (apply Prod.Lex.left; simp; done)
-    | (apply Prod.Lex.right' <;> simp)
-
-/-- Twin of `iotaCertsG`; the gated bulk loop at the empty
-accumulator. -/
-def iotaCertsGI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
-    (ty : EIdx) (args : List EIdx) : CheckIM Bool :=
-  iotaCertsGIAux r fe depth ty [] args
 
 /-- Twin of `defEqList`. -/
 def defEqListI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
@@ -766,12 +723,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                     st.looseBVarsBoundedI 0 fab &&
                     (st.fvarLeavesI fab).all
                       (fun l => (st.fvarLeavesI major).contains l)) then do
-                  -- the official `to_cnstr_when_K` fabrication type
-                  -- check (task #49; see the spec body)
-                  let tfab ← r.infer depth fab
-                  if ← r.defeq depth tmaj tfab then
-                    if ← proofIrrelI r fe depth fab major then pure fab
-                    else pure major
+                  if ← proofIrrelI r fe depth fab major then pure fab
                   else pure major
                 else pure major
               else pure major
@@ -890,10 +842,10 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
                  if ← defEqListI r fe depth (margs.take rl.ctorParams)
                     cmpArgs then do
                   let tyRec ← constTyAtM fe c us
-                  if ← iotaCertsGI r fe depth tyRec
+                  if ← iotaCertsI r fe depth tyRec
                      (args.take mI ++ [major]) then do
                    let tyCtor ← constTyAtM fe cj usj
-                   if ← iotaCertsGI r fe depth tyCtor margs then do
+                   if ← iotaCertsI r fe depth tyCtor margs then do
                     match ← withStore (fun st =>
                           st.stripPisBodyI (rl.ctorParams + rl.nfields)
                             tyCtor),
@@ -1088,17 +1040,9 @@ def inferSpineI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     match ← viewI ty with
     | some (.forallE _ dom body mt) => do
       -- possibly-Prop-gated argument re-check (task #49; see the
-      -- spec body `inferBody`)
-      match mt.cod with
-      | some v =>
-        if v.isNonZero then inferSpineI r fe depth body (a :: acc) rest
-        else do
-          let dom' ← instListM dom acc
-          let ta ← r.infer depth a
-          unless ← r.defeq depth ta dom' do
-            throw (.invalid "application type mismatch")
-          inferSpineI r fe depth body (a :: acc) rest
-      | none => do
+      -- spec body `inferBody` and `codNonZero`)
+      if codNonZero mt then inferSpineI r fe depth body (a :: acc) rest
+      else do
         let dom' ← instListM dom acc
         let ta ← r.infer depth a
         unless ← r.defeq depth ta dom' do
@@ -1109,15 +1053,8 @@ def inferSpineI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
       let w ← r.whnf depth ty'
       match ← viewI w with
       | some (.forallE _ dom body mt) => do
-        match mt.cod with
-        | some v =>
-          if v.isNonZero then inferSpineI r fe depth body [a] rest
-          else do
-            let ta ← r.infer depth a
-            unless ← r.defeq depth ta dom do
-              throw (.invalid "application type mismatch")
-            inferSpineI r fe depth body [a] rest
-        | none => do
+        if codNonZero mt then inferSpineI r fe depth body [a] rest
+        else do
           let ta ← r.infer depth a
           unless ← r.defeq depth ta dom do
             throw (.invalid "application type mismatch")

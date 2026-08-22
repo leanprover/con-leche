@@ -722,40 +722,6 @@ def iotaCerts (r : CoreFns m) (env : Env) (depth : Nat) :
     else pure false
   | _, _ :: _ => pure false
 
-/-- Possibly-Prop-gated variant of `iotaCerts` (task #49), used by
-`iotaRec`, whose spine comes from the redex's own annotated
-application chain: a slot whose (instantiated) codomain-sort
-annotation is provably nonzero skips the per-fire infer+defeq — the
-soundness claims recover the argument's domain membership from the
-chain's `AnnotOk` slot and the telescope membership by domain
-determination (graphs determine their domains; the pi at a nonzero
-sort contains only graphs).  At a possibly-Prop slot no semantic
-invariant can recover the membership (impredicativity — the same
-analysis as the beta certificate, DESIGN.md), so the certificate
-still runs.  The reference kernels run no certification here; the
-gate is the provable middle ground.  Sites with *synthetic* spines
-(structure eta, unit-likeness, the projection telescopes) have no
-annotated chain to recover from and keep the ungated `iotaCerts`. -/
-def iotaCertsG (r : CoreFns m) (env : Env) (depth : Nat) :
-    Expr → List Expr → m Bool
-  | _, [] => pure true
-  | .forallE _ ty body mt, arg :: rest => do
-    match mt.cod with
-    | some v =>
-      if v.isNonZero then
-        iotaCertsG r env depth (body.instantiate1 arg) rest
-      else do
-        let ta ← r.infer depth arg
-        if ← r.defeq depth ta ty then
-          iotaCertsG r env depth (body.instantiate1 arg) rest
-        else pure false
-    | none => do
-      let ta ← r.infer depth arg
-      if ← r.defeq depth ta ty then
-        iotaCertsG r env depth (body.instantiate1 arg) rest
-      else pure false
-  | _, _ :: _ => pure false
-
 /-- Peel a `∀`-telescope along an argument list (the residual type of
 a fully applied telescope). -/
 def piResidual : Expr → List Expr → Option Expr
@@ -1022,18 +988,13 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                 if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
                     fab.fvarLeaves.all
                       (fun l => major.fvarLeaves.contains l) then
-                  -- The official `to_cnstr_when_K` type check on the
-                  -- fabrication: the constructor application's type
-                  -- must be defeq to the major's (for `Eq` this is
-                  -- the endpoint condition).  With the fire-path
-                  -- certificates possibly-Prop-gated (task #49) the
-                  -- major-slot certificate no longer runs at nonzero
-                  -- motives, so the reference check is load-bearing
-                  -- there (arena bad/098_ruleKbad fires at
-                  -- `Eq.rec.{3,3}`).
-                  if ← r.defeq depth tmaj (← r.infer depth fab) then
-                    if ← proofIrrel r env depth fab major then pure fab
-                    else pure major
+                  -- no explicit type check on the fabrication: the
+                  -- endpoint condition (`Eq`: defeq endpoints) is
+                  -- enforced by the iota certificates on the major
+                  -- slot, which the soundness proof makes
+                  -- load-bearing — a machine-checked invariant (see
+                  -- DESIGN.md, design-review triage)
+                  if ← proofIrrel r env depth fab major then pure fab
                   else pure major
                 else pure major
               else pure major
@@ -1193,10 +1154,10 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                  if ← defEqList r env depth (margs.take rl.ctorParams)
                     (recFireComparands rl cv.levelParams us
                       cvj.levelParams args mI).2 then
-                  if ← iotaCertsG r env depth
+                  if ← iotaCerts r env depth
                      (cv.type.instantiateLevelParams cv.levelParams us)
                      (args.take mI ++ [major]) then
-                   if ← iotaCertsG r env depth
+                   if ← iotaCerts r env depth
                       (cvj.type.instantiateLevelParams cvj.levelParams usj)
                       margs then
                     -- the recursor's index arguments must match the
@@ -1353,6 +1314,23 @@ def ensureSort (r : CoreFns m) (_env : Env) (depth : Nat) (e : Expr) :
 /-- Destructure a term one level (see `ExprView`). -/
 @[inline] def viewM (e : Expr) : m (ExprView Expr) := pure e.view
 
+/-- The possibly-Prop gate (task #49): is the binder's codomain-sort
+annotation present and provably nonzero (at *every* level assignment,
+`Level.isNonZero`)?  Where it holds, an application argument's domain
+membership is recoverable from the app node's own `AnnotOk` slot by
+domain determination — the pi at a nonzero sort contains only graphs,
+and graphs determine their domains — so the inference re-check below
+is skipped, as in the reference kernels' infer-only mode.  At a
+possibly-Prop Π no semantic invariant can recover the membership
+(impredicativity: the interpretation of a proposition collapses to a
+point, so the domain of a proof-λ is not determined by its value —
+the same analysis as the beta certificate, DESIGN.md), so the defeq
+re-check stays exactly there. -/
+def codNonZero (mt : BinderMeta) : Bool :=
+  match mt.cod with
+  | some v => v.isNonZero
+  | none => false
+
 /-- The inference body — **infer-only**: the application rule's
 argument check ran once, in the annotation pass, and is trusted here
 (so speculative inference inside reduction cannot reject). -/
@@ -1422,22 +1400,13 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       let tf ← r.infer depth f
       match ← r.whnf depth tf with
       | .forallE _ ty body mt => do
-        -- Possibly-Prop-gated argument re-check (task #49): when the
-        -- Π's codomain-sort annotation is provably nonzero, the
-        -- argument's domain membership is recovered by the claims
-        -- from the app node's own `AnnotOk` slot (graphs determine
-        -- their domains), as in the reference kernels' infer-only
-        -- mode.  At a possibly-Prop Π no semantic invariant can
-        -- recover it (impredicativity), so the defeq re-check stays.
-        match mt.cod with
-        | some v =>
-          if v.isNonZero then pure (body.instantiate1 a)
-          else do
-            let ta ← r.infer depth a
-            unless ← r.defeq depth ta ty do
-              throw (.invalid "application type mismatch")
-            pure (body.instantiate1 a)
-        | none => do
+        -- Possibly-Prop-gated argument re-check (task #49): at a Π
+        -- whose codomain-sort annotation is provably nonzero the
+        -- argument's fact comes from the app node's own `AnnotOk`
+        -- slot (see `codNonZero`); the re-check runs only on the
+        -- possibly-Prop residue.
+        if codNonZero mt then pure (body.instantiate1 a)
+        else do
           let ta ← r.infer depth a
           unless ← r.defeq depth ta ty do
             throw (.invalid "application type mismatch")
