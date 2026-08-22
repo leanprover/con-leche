@@ -332,7 +332,6 @@ def unfoldDefinitionI (fe : FEnv) (e : EIdx) : CheckIM (Option EIdx) := do
       else pure none
     | _ => pure none
   | _ => pure none
-
 /-- Twin of `litToCtorIfNat`. -/
 def litToCtorIfNatI (fe : FEnv) (e : EIdx) : CheckIM EIdx := do
   match ← viewI e with
@@ -456,6 +455,50 @@ def iotaCertsI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (ty : EIdx) (args : List EIdx) : CheckIM Bool :=
   iotaCertsIAux r fe depth ty [] args
 
+/-- Twin of `iotaCertsG` (task #49), bulk form: a slot whose
+codomain-sort annotation is provably nonzero skips the per-fire
+infer+defeq (and the domain substitution). -/
+def iotaCertsGIAux (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
+    EIdx → List EIdx → List EIdx → CheckIM Bool
+  | _, _, [] => pure true
+  | ty, acc, arg :: rest => do
+    match ← viewI ty with
+    | some (.forallE _ dom body mt) => do
+      match mt.cod with
+      | some v =>
+        if v.isNonZero then
+          iotaCertsGIAux r fe depth body (arg :: acc) rest
+        else do
+          let dom' ← instListM dom acc
+          let ta ← r.infer depth arg
+          if ← r.defeq depth ta dom' then
+            iotaCertsGIAux r fe depth body (arg :: acc) rest
+          else pure false
+      | none => do
+        let dom' ← instListM dom acc
+        let ta ← r.infer depth arg
+        if ← r.defeq depth ta dom' then
+          iotaCertsGIAux r fe depth body (arg :: acc) rest
+        else pure false
+    | some (.bvar _) =>
+      match acc with
+      | [] => pure false
+      | _ :: _ => do
+        let ty' ← instListM ty acc
+        iotaCertsGIAux r fe depth ty' [] (arg :: rest)
+    | _ => pure false
+termination_by _ acc args => (args.length, acc.length)
+decreasing_by
+  all_goals first
+    | (apply Prod.Lex.left; simp; done)
+    | (apply Prod.Lex.right' <;> simp)
+
+/-- Twin of `iotaCertsG`; the gated bulk loop at the empty
+accumulator. -/
+def iotaCertsGI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (ty : EIdx) (args : List EIdx) : CheckIM Bool :=
+  iotaCertsGIAux r fe depth ty [] args
+
 /-- Twin of `defEqList`. -/
 def defEqListI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     List EIdx → List EIdx → CheckIM Bool
@@ -575,15 +618,19 @@ def projAppsI (T : Name) (us' : List Level) (targs : List EIdx)
     pure (r :: rs)
 
 /-- Twin of `structEtaProjCerts`. -/
-def structEtaProjCertsI (_r : CoreFnsI) (fe : FEnv) (_depth : Nat)
-    (T : Name) (_us' : List Level) (_targs : List EIdx) (_b : EIdx)
+def structEtaProjCertsI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (T : Name) (us' : List Level) (targs : List EIdx) (b : EIdx)
     (lpsT : List Name) : List Nat → CheckIM Bool
   | [] => pure true
   | i :: rest => do
     match fe.find? (projFnName T i) with
     | some (.recInfo cvp _ _ _) =>
-      if cvp.levelParams = lpsT then
-        structEtaProjCertsI _r fe _depth T _us' _targs _b lpsT rest
+      if cvp.levelParams = lpsT ∧
+          (cvp.type.stripPis (targs.length + 1)).isSome = true then do
+        let pty ← constTyAtM fe (projFnName T i) us'
+        if ← iotaCertsI r fe depth pty (targs ++ [b]) then
+          structEtaProjCertsI r fe depth T us' targs b lpsT rest
+        else pure false
       else pure false
     | _ => pure false
 
@@ -607,14 +654,18 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                 reservedBasisNames.contains c = false ∧
                 targs.length = cnP ∧
                 us'.length = cvT.levelParams.length ∧
-                cvc.levelParams = cvT.levelParams then do
+                cvc.levelParams = cvT.levelParams ∧
+                (cvT.type.stripPis cnP).isSome = true then do
               if ← liftFueled "level comparison"
                   (Level.isEquivList us us') then do
-                if ← structEtaProjCertsI r fe depth T us'
-                    targs b cvT.levelParams (List.range cnF) then do
-                  if ← defEqListI r fe depth (aargs.take cnP) targs then do
-                    let projs ← projAppsI T us' targs b (List.range cnF)
-                    defEqListI r fe depth (aargs.drop cnP) projs
+                let tyT ← constTyAtM fe T us'
+                if ← iotaCertsI r fe depth tyT targs then do
+                  if ← structEtaProjCertsI r fe depth T us'
+                      targs b cvT.levelParams (List.range cnF) then do
+                    if ← defEqListI r fe depth (aargs.take cnP) targs then do
+                      let projs ← projAppsI T us' targs b (List.range cnF)
+                      defEqListI r fe depth (aargs.drop cnP) projs
+                    else pure false
                   else pure false
                 else pure false
               else pure false
@@ -645,10 +696,14 @@ def structUnitCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
       if caps.unitlike = true ∧
           reservedBasisNames.contains T = false ∧
           targs.length = caps.unitParams ∧
-          us'.length = cvT.levelParams.length then do
+          us'.length = cvT.levelParams.length ∧
+          (cvT.type.stripPis caps.unitParams).isSome = true then do
         let tb ← r.infer depth b
         let wtb ← r.whnf depth tb
-        r.defeq depth wta wtb
+        if ← r.defeq depth wta wtb then do
+          let tyT ← constTyAtM fe T us'
+          iotaCertsI r fe depth tyT targs
+        else pure false
       else pure false
     | _ => pure false
   | _ => pure false
@@ -806,7 +861,7 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
         match ← withStore (fun st => st.nodes[st.getAppFnI major]?) with
         | some (.const cj usj) =>
           match fe.find? cj with
-          | some (.ctorInfo _ _ _) =>
+          | some (.ctorInfo cvj _ _) =>
             match rules.find? (fun r' => r'.ctor == cj) with
             | some rl => do
               let margs ← withStore (·.getAppArgsI major)
@@ -814,28 +869,55 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
                if rl.fire = .inert then
                  throw (.notImplemented
                    "iota reduction over a nested auxiliary recursor rule")
-               else do
-                -- Nested rules keep their comparand checks (the stored
-                -- major-domain instantiations); canonical rules fire
-                -- with no per-fire re-checks, as in the reference
-                -- kernels (task #49; see the spec body).
-                let ok ← match rl.fire with
-                  | .nested lvls pins => do
-                    let cmpLvls := lvls.map (Level.subst cv.levelParams us)
-                    let cmpArgs ←
-                      pinArgsI cv.levelParams us (args.take mI) (mI - 1) pins
-                    if ← liftFueled "level comparison"
-                        (Level.isEquivList usj cmpLvls) then
-                      defEqListI r fe depth (margs.take rl.ctorParams)
-                        cmpArgs
-                    else pure false
-                  | _ => pure true
-                if ok then do
-                  let rhs ← ruleRhsAtM fe c cj us
-                  let red ← mkAppNM rhs
-                    (args.take rP ++ margs.drop rl.ctorParams)
-                  pure (some red)
+               else
+               if (cv.type.stripPis (mI + 1)).isSome ∧
+                  (cvj.type.stripPis (rl.ctorParams + rl.nfields)).isSome
+                  then do
+                -- the comparands (canonical: recursor's levels/args;
+                -- nested: the stored major-domain instantiations)
+                let cmpLvls : List Level :=
+                  match rl.fire with
+                  | .nested lvls _ => lvls.map (Level.subst cv.levelParams us)
+                  | _ => cvj.levelParams.map fun p =>
+                      Level.subst cv.levelParams us (.param p)
+                let cmpArgs : List EIdx ←
+                  match rl.fire with
+                  | .nested _ pins =>
+                    pinArgsI cv.levelParams us (args.take mI) (mI - 1) pins
+                  | _ => pure (args.take rl.ctorParams)
+                if ← liftFueled "level comparison"
+                    (Level.isEquivList usj cmpLvls) then do
+                 if ← defEqListI r fe depth (margs.take rl.ctorParams)
+                    cmpArgs then do
+                  let tyRec ← constTyAtM fe c us
+                  if ← iotaCertsGI r fe depth tyRec
+                     (args.take mI ++ [major]) then do
+                   let tyCtor ← constTyAtM fe cj usj
+                   if ← iotaCertsGI r fe depth tyCtor margs then do
+                    match ← withStore (fun st =>
+                          st.stripPisBodyI (rl.ctorParams + rl.nfields)
+                            tyCtor),
+                        ← piResidualM tyCtor margs with
+                    | some cbody, some residual =>
+                      match ← withStore (fun st =>
+                          st.nodes[st.getAppFnI cbody]?) with
+                      | some (.const _ _) => do
+                        let resArgs ← withStore (·.getAppArgsI residual)
+                        if ← defEqListI r fe depth
+                            (resArgs.drop rl.ctorParams)
+                            ((args.take mI).drop rP) then do
+                          let rhs ← ruleRhsAtM fe c cj us
+                          let red ← mkAppNM rhs
+                            (args.take rP ++ margs.drop rl.ctorParams)
+                          pure (some red)
+                        else pure none
+                      | _ => pure none
+                    | _, _ => pure none
+                   else pure none
+                  else pure none
+                 else pure none
                 else pure none
+               else pure none
               else pure none
             | none => pure none
           | _ => pure none
@@ -974,10 +1056,17 @@ def whnfCoreBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
           if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length then do
-            -- Unconditional structural reduction, as in the reference
-            -- kernels (task #49; see the spec body).
+            let mx : Level := Level.subst entry.levelParams us
+              entry.structSort
             let bvar0 ← internI (.bvar 0)
-            r.whnfCore depth (args.getD (entry.numParams + i) bvar0)
+            let arg := args.getD (entry.numParams + i) bvar0
+            if mx.isNonZero then r.whnfCore depth arg
+            else do
+              if ← projCertI r fe depth e' i
+                  (Level.subst entry.levelParams us entry.fieldSort)
+                  mx entry.numParams then
+                r.whnfCore depth arg
+              else internI (.proj sn i e')
           else internI (.proj sn i e')
         | _ => internI (.proj sn i e')
       | none => internI (.proj sn i e')
@@ -997,21 +1086,42 @@ def inferSpineI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
   | ty, acc, [] => instListM ty acc
   | ty, acc, a :: rest => do
     match ← viewI ty with
-    | some (.forallE _ dom body _) => do
-      let dom' ← instListM dom acc
-      let ta ← r.infer depth a
-      unless ← r.defeq depth ta dom' do
-        throw (.invalid "application type mismatch")
-      inferSpineI r fe depth body (a :: acc) rest
+    | some (.forallE _ dom body mt) => do
+      -- possibly-Prop-gated argument re-check (task #49; see the
+      -- spec body `inferBody`)
+      match mt.cod with
+      | some v =>
+        if v.isNonZero then inferSpineI r fe depth body (a :: acc) rest
+        else do
+          let dom' ← instListM dom acc
+          let ta ← r.infer depth a
+          unless ← r.defeq depth ta dom' do
+            throw (.invalid "application type mismatch")
+          inferSpineI r fe depth body (a :: acc) rest
+      | none => do
+        let dom' ← instListM dom acc
+        let ta ← r.infer depth a
+        unless ← r.defeq depth ta dom' do
+          throw (.invalid "application type mismatch")
+        inferSpineI r fe depth body (a :: acc) rest
     | _ => do
       let ty' ← instListM ty acc
       let w ← r.whnf depth ty'
       match ← viewI w with
-      | some (.forallE _ dom body _) => do
-        let ta ← r.infer depth a
-        unless ← r.defeq depth ta dom do
-          throw (.invalid "application type mismatch")
-        inferSpineI r fe depth body [a] rest
+      | some (.forallE _ dom body mt) => do
+        match mt.cod with
+        | some v =>
+          if v.isNonZero then inferSpineI r fe depth body [a] rest
+          else do
+            let ta ← r.infer depth a
+            unless ← r.defeq depth ta dom do
+              throw (.invalid "application type mismatch")
+            inferSpineI r fe depth body [a] rest
+        | none => do
+          let ta ← r.infer depth a
+          unless ← r.defeq depth ta dom do
+            throw (.invalid "application type mismatch")
+          inferSpineI r fe depth body [a] rest
       | _ => throw (.invalid "function expected")
 
 /-- Twin of `whnfBody`. -/

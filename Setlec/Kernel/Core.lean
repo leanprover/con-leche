@@ -722,6 +722,40 @@ def iotaCerts (r : CoreFns m) (env : Env) (depth : Nat) :
     else pure false
   | _, _ :: _ => pure false
 
+/-- Possibly-Prop-gated variant of `iotaCerts` (task #49), used by
+`iotaRec`, whose spine comes from the redex's own annotated
+application chain: a slot whose (instantiated) codomain-sort
+annotation is provably nonzero skips the per-fire infer+defeq — the
+soundness claims recover the argument's domain membership from the
+chain's `AnnotOk` slot and the telescope membership by domain
+determination (graphs determine their domains; the pi at a nonzero
+sort contains only graphs).  At a possibly-Prop slot no semantic
+invariant can recover the membership (impredicativity — the same
+analysis as the beta certificate, DESIGN.md), so the certificate
+still runs.  The reference kernels run no certification here; the
+gate is the provable middle ground.  Sites with *synthetic* spines
+(structure eta, unit-likeness, the projection telescopes) have no
+annotated chain to recover from and keep the ungated `iotaCerts`. -/
+def iotaCertsG (r : CoreFns m) (env : Env) (depth : Nat) :
+    Expr → List Expr → m Bool
+  | _, [] => pure true
+  | .forallE _ ty body mt, arg :: rest => do
+    match mt.cod with
+    | some v =>
+      if v.isNonZero then
+        iotaCertsG r env depth (body.instantiate1 arg) rest
+      else do
+        let ta ← r.infer depth arg
+        if ← r.defeq depth ta ty then
+          iotaCertsG r env depth (body.instantiate1 arg) rest
+        else pure false
+    | none => do
+      let ta ← r.infer depth arg
+      if ← r.defeq depth ta ty then
+        iotaCertsG r env depth (body.instantiate1 arg) rest
+      else pure false
+  | _, _ :: _ => pure false
+
 /-- Peel a `∀`-telescope along an argument list (the residual type of
 a fully applied telescope). -/
 def piResidual : Expr → List Expr → Option Expr
@@ -807,22 +841,24 @@ def pairEtaCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     | _ => pure false
   | _ => pure false
 
-/-- The per-projection guards of a structural eta certification: every
-field's installed projection function must be stored with the type
-former's level parameters (the comparand applications built from it
-would otherwise throw in inference).  The per-projection telescope
-certificates were removed (task #49): the reference `tryEtaStructCore`
-runs none, and the soundness claims recover the memberships from the
-annotation invariant. -/
-def structEtaProjCerts (_r : CoreFns m) (env : Env) (_depth : Nat)
-    (T : Name) (_us' : List Level) (_targs : List Expr) (_b : Expr)
+/-- The per-projection telescope certificates of a structural eta
+certification: for every field index, the installed projection
+function's telescope is certified against the type's arguments and the
+stuck side. -/
+def structEtaProjCerts (r : CoreFns m) (env : Env) (depth : Nat)
+    (T : Name) (us' : List Level) (targs : List Expr) (b : Expr)
     (lpsT : List Name) : List Nat → m Bool
   | [] => pure true
   | i :: rest => do
     match env.find? (projFnName T i) with
     | some (.recInfo cvp _ _ _) =>
-      if cvp.levelParams = lpsT then
-        structEtaProjCerts _r env _depth T _us' _targs _b lpsT rest
+      if cvp.levelParams = lpsT ∧
+          (cvp.type.stripPis (targs.length + 1)).isSome = true then
+        if ← iotaCerts r env depth
+            (cvp.type.instantiateLevelParams cvp.levelParams us')
+            (targs ++ [b]) then
+          structEtaProjCerts r env depth T us' targs b lpsT rest
+        else pure false
       else pure false
     | _ => pure false
 
@@ -847,21 +883,23 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
                 reservedBasisNames.contains c = false ∧
                 wtb.getAppArgs.length = cnP ∧
                 us'.length = cvT.levelParams.length ∧
-                cvc.levelParams = cvT.levelParams then
+                cvc.levelParams = cvT.levelParams ∧
+                (cvT.type.stripPis cnP).isSome = true then
               if ← liftFueled "level comparison"
                   (Level.isEquivList us us') then
-                -- no telescope certificates (task #49): the reference
-                -- `tryEtaStructCore` checks the two sides' types and
-                -- the fields against the projections, nothing more
-                if ← structEtaProjCerts r env depth T us'
-                    wtb.getAppArgs b cvT.levelParams
-                    (List.range cnF) then
-                  if ← defEqList r env depth
-                      (a.getAppArgs.take cnP) wtb.getAppArgs then
-                    defEqList r env depth (a.getAppArgs.drop cnP)
-                      ((List.range cnF).map fun i =>
-                        Expr.mkAppN (.const (projFnName T i) us')
-                          (wtb.getAppArgs ++ [b]))
+                if ← iotaCerts r env depth
+                    (cvT.type.instantiateLevelParams cvT.levelParams
+                      us') wtb.getAppArgs then
+                  if ← structEtaProjCerts r env depth T us'
+                      wtb.getAppArgs b cvT.levelParams
+                      (List.range cnF) then
+                    if ← defEqList r env depth
+                        (a.getAppArgs.take cnP) wtb.getAppArgs then
+                      defEqList r env depth (a.getAppArgs.drop cnP)
+                        ((List.range cnF).map fun i =>
+                          Expr.mkAppN (.const (projFnName T i) us')
+                            (wtb.getAppArgs ++ [b]))
+                    else pure false
                   else pure false
                 else pure false
               else pure false
@@ -886,10 +924,9 @@ def structEtaCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
   structEtaCertWith r env depth a b wtb
 
 /-- Unit-likeness certification: `a` and `b` inhabit the same stored
-unit-like family (the types are definitionally equal), so their values
-coincide by the stored unit law.  This is exactly the reference check
-(lean4lean `isDefEqUnitLike`: shape lookup plus one type defeq); the
-family-telescope certificates were removed (task #49). -/
+unit-like family (the types are definitionally equal and the type
+application is certified against the family's telescope), so their
+values coincide by the stored unit law. -/
 def structUnitCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     m Bool := do
   let ta ← r.infer depth a
@@ -901,10 +938,15 @@ def structUnitCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
       if caps.unitlike = true ∧
           reservedBasisNames.contains T = false ∧
           wta.getAppArgs.length = caps.unitParams ∧
-          us'.length = cvT.levelParams.length then
+          us'.length = cvT.levelParams.length ∧
+          (cvT.type.stripPis caps.unitParams).isSome = true then
         let tb ← r.infer depth b
         let wtb ← r.whnf depth tb
-        r.defeq depth wta wtb
+        if ← r.defeq depth wta wtb then
+          iotaCerts r env depth
+            (cvT.type.instantiateLevelParams cvT.levelParams us')
+            wta.getAppArgs
+        else pure false
       else pure false
     | _ => pure false
   | _ => pure false
@@ -982,13 +1024,13 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                       (fun l => major.fvarLeaves.contains l) then
                   -- The official `to_cnstr_when_K` type check on the
                   -- fabrication: the constructor application's type
-                  -- must be defeq to the major's (for `Eq` this is the
-                  -- endpoint condition — `Eq.refl a : Eq a a` against
-                  -- the major's `Eq a b` forces `a ≡ b`).  Before task
-                  -- #49 this was implied by the per-fire iota
-                  -- certificates on the major slot; with those gone
-                  -- the reference check is load-bearing (arena
-                  -- 098_ruleKbad).
+                  -- must be defeq to the major's (for `Eq` this is
+                  -- the endpoint condition).  With the fire-path
+                  -- certificates possibly-Prop-gated (task #49) the
+                  -- major-slot certificate no longer runs at nonzero
+                  -- motives, so the reference check is load-bearing
+                  -- there (arena bad/098_ruleKbad fires at
+                  -- `Eq.rec.{3,3}`).
                   if ← r.defeq depth tmaj (← r.infer depth fab) then
                     if ← proofIrrel r env depth fab major then pure fab
                     else pure major
@@ -1092,16 +1134,15 @@ def recFireComparands (rl : RecRule) (lps : List Name)
      args.take rl.ctorParams)
 
 /-- One iota step: the expression is a stored recursor applied to
-exactly its telescope (params, motives, minors, indices, major), and the
+exactly its telescope (params, motives, minors, indices, major), the
 major premise whnfs to a fully applied constructor with a matching
 rule (a literal major converts to constructor form — see
 `litMajorToCtor` —, a
-stuck major may be rescued — see `majorToCtor`).  The
+stuck major may be rescued — see `majorToCtor`), and the spine is
+certified against the recursor's own (pinned, annotated) type.  The
 result is the rule's rhs applied to the non-index prefix and the
 constructor's fields; over-application is handled by the outer app
-recursion.  No per-fire spine certification (task #49): the reference
-kernels fire iota with none, and the soundness claims recover the
-argument memberships from the redex's own annotation invariant. -/
+recursion. -/
 def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
     m (Option Expr) := do
   match e.getAppFn with
@@ -1135,35 +1176,55 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                if rl.fire = .inert then
                  throw (.notImplemented
                    "iota reduction over a nested auxiliary recursor rule")
-               else do
-                -- A *nested* rule's constructor levels and parameters
-                -- must agree with the stored major-domain
-                -- instantiations (the semantic content the nested fold
-                -- fact is stated over; the firing mode was computed
-                -- once at install).  A canonical (`.plain`) rule fires
-                -- with no per-fire re-checks, exactly like the
-                -- reference kernels (official `inductive_reduce_rec`,
-                -- lean4lean `inductiveReduceRec`): the per-spine iota
-                -- certificates, the plain-mode level/parameter
-                -- comparisons, and the canonical-index check were
-                -- re-derivations of the annotation invariant and were
-                -- removed (task #49) — the claims now decompose the
-                -- redex's `AnnotOk` app chain instead.
-                let ok ← match rl.fire with
-                  | .nested _ _ =>
-                    if ← liftFueled "level comparison" (Level.isEquivList usj
-                        (recFireComparands rl cv.levelParams us
-                          cvj.levelParams args mI).1) then
-                      defEqList r env depth (margs.take rl.ctorParams)
-                        (recFireComparands rl cv.levelParams us
-                          cvj.levelParams args mI).2
-                    else pure false
-                  | _ => pure true
-                if ok then
-                  pure (some (Expr.mkAppN
-                    (rl.rhs.instantiateLevelParams cv.levelParams us)
-                    (args.take rP ++ margs.drop rl.ctorParams)))
+               else
+               if (cv.type.stripPis (mI + 1)).isSome ∧
+                  (cvj.type.stripPis (rl.ctorParams + rl.nfields)).isSome
+                  then
+                -- the constructor's levels and parameters must agree
+                -- with the rule's comparands (canonical: the
+                -- recursor's own instantiation and leading arguments;
+                -- nested: the stored major-domain instantiations) —
+                -- the firing mode was computed once at install
+                -- (`Expr.recRulePlain` / the nested certification),
+                -- never re-derived per fire
+                if ← liftFueled "level comparison" (Level.isEquivList usj
+                    (recFireComparands rl cv.levelParams us
+                      cvj.levelParams args mI).1) then
+                 if ← defEqList r env depth (margs.take rl.ctorParams)
+                    (recFireComparands rl cv.levelParams us
+                      cvj.levelParams args mI).2 then
+                  if ← iotaCertsG r env depth
+                     (cv.type.instantiateLevelParams cv.levelParams us)
+                     (args.take mI ++ [major]) then
+                   if ← iotaCertsG r env depth
+                      (cvj.type.instantiateLevelParams cvj.levelParams usj)
+                      margs then
+                    -- the recursor's index arguments must match the
+                    -- constructor's canonical index tuple (the residual
+                    -- of its telescope, whose head must be the stored
+                    -- family): the model's iota equation only speaks
+                    -- about the canonical indices
+                    match (cvj.type.instantiateLevelParams cvj.levelParams
+                          usj).stripPis (rl.ctorParams + rl.nfields),
+                        piResidual (cvj.type.instantiateLevelParams
+                          cvj.levelParams usj) margs with
+                    | some (_, cbody), some residual =>
+                      match cbody.getAppFn with
+                      | .const _ _ =>
+                        if ← defEqList r env depth
+                            (residual.getAppArgs.drop rl.ctorParams)
+                            ((args.take mI).drop rP) then
+                          pure (some (Expr.mkAppN
+                            (rl.rhs.instantiateLevelParams cv.levelParams us)
+                            (args.take rP ++ margs.drop rl.ctorParams)))
+                        else pure none
+                      | _ => pure none
+                    | _, _ => pure none
+                   else pure none
+                  else pure none
+                 else pure none
                 else pure none
+               else pure none
               else pure none
             | none => pure none
           | _ => pure none
@@ -1249,12 +1310,20 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length then
-            -- Unconditional structural reduction, as in the reference
-            -- kernels (`reduce_proj_core`): the possibly-Prop
-            -- projection certificate was removed (task #49) — the
-            -- claims read the collapse facts off the scrutinee's
-            -- annotation invariant.
-            r.whnfCore depth (args.getD (entry.numParams + i) (.bvar 0))
+            let mx : Level := Level.subst entry.levelParams us
+              entry.structSort
+            let arg := args.getD (entry.numParams + i) (.bvar 0)
+            if mx.isNonZero then r.whnfCore depth arg
+            else do
+              -- Possibly-Prop subject: certify that at Prop instances
+              -- both the projected argument and the subject collapse
+              -- to the proof point (see DESIGN.md on beta
+              -- certification).
+              if ← projCert r env depth e' i
+                  (Level.subst entry.levelParams us entry.fieldSort)
+                  mx entry.numParams then
+                r.whnfCore depth arg
+              else pure (.proj sn i e')
           else pure (.proj sn i e')
         | _ => pure (.proj sn i e')
       | none => pure (.proj sn i e')
@@ -1352,15 +1421,27 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
     | .app f a => do
       let tf ← r.infer depth f
       match ← r.whnf depth tf with
-      | .forallE _ ty body _ => do
-        -- The argument check stays in inference for now: the soundness
-        -- claim's `⟦a⟧ ∈ ⟦domain⟧` slot is re-derived here, at the
-        -- claims' own fuel.  A later infer-only mode needs the fuel
-        -- determinism machinery of the refinement bridge (DESIGN.md).
-        let ta ← r.infer depth a
-        unless ← r.defeq depth ta ty do
-          throw (.invalid "application type mismatch")
-        pure (body.instantiate1 a)
+      | .forallE _ ty body mt => do
+        -- Possibly-Prop-gated argument re-check (task #49): when the
+        -- Π's codomain-sort annotation is provably nonzero, the
+        -- argument's domain membership is recovered by the claims
+        -- from the app node's own `AnnotOk` slot (graphs determine
+        -- their domains), as in the reference kernels' infer-only
+        -- mode.  At a possibly-Prop Π no semantic invariant can
+        -- recover it (impredicativity), so the defeq re-check stays.
+        match mt.cod with
+        | some v =>
+          if v.isNonZero then pure (body.instantiate1 a)
+          else do
+            let ta ← r.infer depth a
+            unless ← r.defeq depth ta ty do
+              throw (.invalid "application type mismatch")
+            pure (body.instantiate1 a)
+        | none => do
+          let ta ← r.infer depth a
+          unless ← r.defeq depth ta ty do
+            throw (.invalid "application type mismatch")
+          pure (body.instantiate1 a)
       | _ => throw (.invalid "function expected")
     | .proj _sn i pe => do
       -- A `.proj` node is typed by its projection-table entry: the
