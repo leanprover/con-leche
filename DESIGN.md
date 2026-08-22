@@ -1912,17 +1912,111 @@ proxy; with real interning the remaining level-comparison cost is
 small).
 
 **Deferred follow-ups** (validated by the 2026-08-22 performance
-audit, in expected-value order): intra-declaration cache sharing (one
-`IState` threaded through a declaration's phases — measured −30 %
-relative on the Expr-level prototype; needs an env-stamp discipline
-across `checkDecl`'s provisional environments, whose proof lands in
-the `BridgeWfImp` walks); Level/`BinderMeta.cod` interning (after the
+audit, in expected-value order): intra-declaration cache sharing —
+**landed**, see "Per-declaration state sharing" below;
+Level/`BinderMeta.cod` interning (after the
 env index the profile is dominated by `Level.decEq` — requires
 level-ids inside `ENode`, i.e. reworking `Verify/IExpr.lean`);
 parse-time interning with a persistent per-run store (nanoda's
 export-file dag; entry calls currently intern their argument tree
 each time); per-node cached scope data (loose-bvar bound, fvar range)
 in the arena; a defeq failure cache.
+
+
+## Per-declaration state sharing (2026-08-22, task #51)
+
+One `IState` per **declaration**: every checker operation within one
+`checkDecl` — annotate, inferType, isDefEq, ensureSort across all
+phases, members and rules — runs in a single shared `CheckIM` state,
+so the arena and the memo caches survive across entry calls instead of
+being rebuilt per call.
+
+**The flush discipline** (the load-bearing decision).  Cache entries
+are only valid for the environment they were created under, and the
+environment is not constant inside `checkIndDecl` (member folds, the
+rule-less `envSelf`, the `envSelf → env₃` rule-filling swap).  A
+runtime environment stamp was rejected: a *complete* cheap equality on
+`Env` does not exist (lengths and heads collide exactly at the
+`envSelf`/`env₃` swap, and structural comparison is `O(env)`), and an
+incomplete check cannot back the bridge ("invariants over runtime
+gates").  Instead the discipline is **driver-directed**: thin phase
+drivers (`Setlec/Kernel/CheckerS.lean`) mirror `checkDecl`'s phase
+structure and call `flushS` at every environment transition — the memo
+and lazy-constant caches are dropped, the **arena survives** (it is
+environment-independent: `EStore.WF` and `denote` mention no
+environment, so `ISOK.fresh` re-establishes the invariant for *any*
+environment from `store.WF` alone — `flushS_isok`).  Within a phase
+nothing is checked at runtime; the walks prove `ISOK env_phase` holds
+at every call site.  Single-environment stretches reuse the *generic*
+checker functions verbatim, instantiated at `sharedOps fe : CheckerOps
+CheckIM` (methods ignore the per-call env argument; the walks
+instantiate them only at `fe.env`).  The iota phase is one flush for
+the whole rule fold — every rule of every recursor of the block shares
+one cache at `envSelf`.  Non-inductive declarations are the generic
+`checkDecl` at `sharedOps` outright: one state, no flushes.
+
+**Incremental index.**  `FEnv` is built once per declaration and
+maintained across the provisional environments by `FEnv.push` — the
+index of a cons-extension is one insert, and `mkFEnv_push` makes the
+pushed index *definitionally* `mkFEnv` of the extended environment
+(the `foldr` build peels its head), so the walks carry `fe = mkFEnv
+env_phase` by `rfl`-steps and `ssimI` applies unchanged.  The recursor
+group keeps the `env₂` snapshot and rebuilds the final environments
+from it by pushes.  The install path's direct linear `Env.find?` call
+sites are routed through the index in the drivers: the recursor
+group's `Eq` pin, the projection-family guard, the artifact and
+template install steps' lookups.  Still linear (inside untouched
+generic code): `checkConstantVal`'s duplicate check, the iota checks'
+`findThm?` model lookups, `checkIotaRule`'s constructor lookup,
+`checkProjLookups`, and `indBlockCaps`' capability probes — routing
+those needs a lookup method on `CheckerOps` (or twinning the checked
+functions) and is left as follow-up.
+
+**The bridge** extends the interned faithfulness layer to the
+per-declaration lifetime with *no new state invariant*: `ISOK`/`SimAt`
+(`Setlec/Verify/SimI.lean`) were already stated for arbitrary initial
+states, so entries surviving across entry calls within a phase is just
+`SimAt`-threading; `opE`/`opB`/`opS` runner simulations
+(`Setlec/Verify/SimS.lean`) are the per-declaration analogs of the
+entry-runner bridges, keeping the final state facts.  One `SimAt` walk
+per single-environment checker function relates the `sharedOps` and
+`fueledOpsM` instantiations of the *same generic body*
+(`Setlec/Verify/BridgeS1.lean` non-inductive, `BridgeS2.lean`
+inductive-install; per-site scoping facts mirror the `_wfimp` walks).
+`Setlec/Model/BridgeS.lean` composes them along the thin drivers at
+the run level — across a flush only `EStore.WF` is threaded — and
+derives the intermediate `EnvWF` facts from the pure runs over the
+public inversion kit (`ProvFacts`/`RulesChain`; the small `ConstWF`
+helpers are replicated from `BridgeWF`'s private ones).  The pure runs
+come from the existing `_datF` equations; twin-vs-generic matcher
+constants (same source, different elaborations) are bridged by
+`split` + definitional coercion of the phase equations, never by
+rewriting.  Punchline: `checkDeclShared_bridge` — a successful
+shared-state run over a well-formed environment is reproduced by
+`checkDecl (fueledOps F)`.  `Setlec/Model/ConsistencyS.lean` restates
+the consistency layer for `checkDeclsShared` (which `Main` now runs)
+with identical statement shapes; `cachedOps`, `ConsistencyC` and the
+whole existing stack are untouched (the change is purely additive,
+like task #26).
+
+**Out of scope**: cross-declaration cache sharing (provisional-env
+interactions and an env-extension-stable `CacheOK` story) and carrying
+the `FEnv` index across declarations (sound — the index has an
+unconditional pointwise spec — but it changes the consistency
+statement's shape); both are future work.  Flushing at every member
+install also discards cross-member sharing within a block that an
+extension-stable cache could keep.
+
+**Measured** (init-prelude probe, 8 GB limit, same machine/day):
+
+| configuration | wall | instructions | peak RSS |
+|---|---|---|---|
+| per-entry-call state (task #26) | 24.7 s | 284.7 G | 113 MB |
+| per-declaration sharing (this change) | 15.9 s | 212.6 G | 112 MB |
+
+−25 % instructions, −36 % wall (allocation/locality gains exceed the
+instruction win); arena + e2e suite 107 s → 85 s; verdicts identical
+everywhere (arena 90/92, e2e 45/45).
 
 ## init-prelude milestone and the lean4lean comparison (2026-08-22)
 
