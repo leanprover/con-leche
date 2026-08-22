@@ -1314,6 +1314,23 @@ def ensureSort (r : CoreFns m) (_env : Env) (depth : Nat) (e : Expr) :
 /-- Destructure a term one level (see `ExprView`). -/
 @[inline] def viewM (e : Expr) : m (ExprView Expr) := pure e.view
 
+/-- The possibly-Prop gate (task #49): is the binder's codomain-sort
+annotation present and provably nonzero (at *every* level assignment,
+`Level.isNonZero`)?  Where it holds, an application argument's domain
+membership is recoverable from the app node's own `AnnotOk` slot by
+domain determination — the pi at a nonzero sort contains only graphs,
+and graphs determine their domains — so the inference re-check below
+is skipped, as in the reference kernels' infer-only mode.  At a
+possibly-Prop Π no semantic invariant can recover the membership
+(impredicativity: the interpretation of a proposition collapses to a
+point, so the domain of a proof-λ is not determined by its value —
+the same analysis as the beta certificate, DESIGN.md), so the defeq
+re-check stays exactly there. -/
+def codNonZero (mt : BinderMeta) : Bool :=
+  match mt.cod with
+  | some v => v.isNonZero
+  | none => false
+
 /-- The inference body — **infer-only**: the application rule's
 argument check ran once, in the annotation pass, and is trusted here
 (so speculative inference inside reduction cannot reject). -/
@@ -1382,15 +1399,18 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
     | .app f a => do
       let tf ← r.infer depth f
       match ← r.whnf depth tf with
-      | .forallE _ ty body _ => do
-        -- The argument check stays in inference for now: the soundness
-        -- claim's `⟦a⟧ ∈ ⟦domain⟧` slot is re-derived here, at the
-        -- claims' own fuel.  A later infer-only mode needs the fuel
-        -- determinism machinery of the refinement bridge (DESIGN.md).
-        let ta ← r.infer depth a
-        unless ← r.defeq depth ta ty do
-          throw (.invalid "application type mismatch")
-        pure (body.instantiate1 a)
+      | .forallE _ ty body mt => do
+        -- Possibly-Prop-gated argument re-check (task #49): at a Π
+        -- whose codomain-sort annotation is provably nonzero the
+        -- argument's fact comes from the app node's own `AnnotOk`
+        -- slot (see `codNonZero`); the re-check runs only on the
+        -- possibly-Prop residue.
+        if codNonZero mt then pure (body.instantiate1 a)
+        else do
+          let ta ← r.infer depth a
+          unless ← r.defeq depth ta ty do
+            throw (.invalid "application type mismatch")
+          pure (body.instantiate1 a)
       | _ => throw (.invalid "function expected")
     | .proj _sn i pe => do
       -- A `.proj` node is typed by its projection-table entry: the

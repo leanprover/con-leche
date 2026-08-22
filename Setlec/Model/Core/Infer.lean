@@ -251,13 +251,14 @@ theorem infer_claims (m : EnvModel V env)
       obtain rfl : v = v'' := by rw [hc] at hv''; injection hv''
       exact ⟨tw, hbti, htwu⟩
   | app f a =>
-    obtain ⟨tf, n', ty', body', mPi, ta, htf, hwh, hta, hde, rfl⟩ :=
+    obtain ⟨tf, n', ty', body', mPi, htf, hwh, rfl, hgate⟩ :=
       inferTypeCore_app_inv h
     simp only [WScoped] at hw
     simp only [looseBVarsBounded, Bool.and_eq_true] at hb
     obtain ⟨hokf, hoka⟩ := FvarsOk.of_app hok
     simp only [AnnotOk] at ha
-    obtain ⟨haf, haa, -⟩ := ha
+    obtain ⟨haf, haa, vfA, vaA, vEc, Ac, Bc, hifA, hiaA, hpiA, hmemA, -⟩ :=
+      ha
     have hLbf : Expr.LeavesBounded f := fun l hl => hLb l (by simp [fvarLeaves, hl])
     have hLba : Expr.LeavesBounded a := fun l hl => hLb l (by simp [fvarLeaves, hl])
     -- infer f, reduce its type to a Π
@@ -292,24 +293,56 @@ theorem infer_claims (m : EnvModel V env)
     | some A' =>
     rw [htyPi] at hPii
     simp only [Option.some.injEq] at hPii
-    -- infer a; its type is defeq to the domain
-    obtain ⟨⟨va, vta, hai, htai, hmema⟩, hAta⟩ :=
-      ihi hta hw.2 hb.2 hLba hoka haa
     simp only [AnnotOk] at haPi
     obtain ⟨haty', -, hcond'⟩ := haPi
-    have hLbta : Expr.LeavesBounded ta := fun l hl =>
-      hLba l (inferTypeCore_fvarLeaves m.wf fuel hta hw.2 l hl)
     have hLbty' : Expr.LeavesBounded ty' := fun l hl =>
       hLbPi l (by simp [fvarLeaves, hl])
-    have hAeq : vta = A' :=
-      ihd hde
-        (inferTypeCore_WScoped m.wf fuel hta hw.2) hwPi.1
-        (inferTypeCore_looseBVars m.wf fuel hta hw.2 hb.2 hLba) hbPi.1
-        hLbta hLbty'
-        (FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hta hw.2) hoka)
-        ((FvarsOk.of_forallE hokPi).1)
-        hAta haty' htai htyPi
-    have hva : va ∈ˢ A' := hAeq ▸ hmema
+    -- the argument is in the Π's domain: at a provably nonzero
+    -- codomain sort by domain determination (the function value is a
+    -- graph over the domain, and graphs determine their domains, so
+    -- the app node's own `AnnotOk` slot supplies the membership); on
+    -- the possibly-Prop residue from the runtime re-check (task #49)
+    obtain ⟨va, hai, hva⟩ : ∃ va,
+        interpExpr V m.val env φ d ρ a = some va ∧ va ∈ˢ A' := by
+      rcases hgate with hnz | ⟨ta, hta, hde⟩
+      · obtain ⟨v0, hcod0, hnz0⟩ := codNonZero_eq_true hnz
+        have hveq : v0 = vPi := by
+          rw [hcod0] at hcPi
+          exact Option.some.inj hcPi
+        rw [hveq] at hnz0
+        have hcne : vPi.eval φ ≠ 0 := Level.isNonZero_sound hnz0 φ
+        refine ⟨vaA, hiaA, ?_⟩
+        have hfeq : vfA = vf := by
+          rw [hifA] at hfi
+          exact Option.some.inj hfi
+        rw [hfeq] at hpiA
+        have hpiM : vf ∈ˢ pi (vPi.eval φ) A'
+            (fun x => (interpExpr V m.val env φ (d + 1) (updV V ρ d x)
+              (body'.instantiate1 (.fvar d n' ty'))).getD
+                SetTheory.empty) := by
+          rw [hPii]; exact hmemf
+        rw [pi_pos hcne] at hpiM
+        have hgr := eq_graph_app_of_mem_piSet hpiM
+        by_cases hvE : vEc = 0
+        · subst hvE
+          exact absurd (mem_pi_zero hpiA)
+            (by rw [← hgr]; exact graph_ne_pt)
+        · rw [← hgr, pi_pos hvE] at hpiA
+          exact graph_dom_of_mem_piSet hpiA vaA hmemA
+      · obtain ⟨⟨va, vta, hai, htai, hmema⟩, hAta⟩ :=
+          ihi hta hw.2 hb.2 hLba hoka haa
+        have hLbta : Expr.LeavesBounded ta := fun l hl =>
+          hLba l (inferTypeCore_fvarLeaves m.wf fuel hta hw.2 l hl)
+        have hAeq : vta = A' :=
+          ihd hde
+            (inferTypeCore_WScoped m.wf fuel hta hw.2) hwPi.1
+            (inferTypeCore_looseBVars m.wf fuel hta hw.2 hb.2 hLba)
+            hbPi.1 hLbta hLbty'
+            (FvarsOk.of_subset
+              (inferTypeCore_fvarLeaves m.wf fuel hta hw.2) hoka)
+            ((FvarsOk.of_forallE hokPi).1)
+            hAta haty' htai htyPi
+        exact ⟨va, hai, hAeq ▸ hmema⟩
     obtain ⟨hAopened, hwfact'⟩ := hcond' va A' htyPi hva
     obtain ⟨w', hwi', hmem'⟩ := hwfact' vPi hcPi
     have hfb' : fvarsBelow d body' := hwPi.2.fvarsBelow
