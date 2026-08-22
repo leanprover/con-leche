@@ -519,6 +519,18 @@ def pairEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
     | _ => pure false
   | _ => pure false
 
+/-- The interned projection-application spine
+`[proj_0 targs b, …]` (structural recursion; the spec side is a pure
+`List.map`). -/
+def projAppsI (T : Name) (us' : List Level) (targs : List EIdx)
+    (b : EIdx) : List Nat → CheckIM (List EIdx)
+  | [] => pure []
+  | i :: rest => do
+    let h ← internI (.const (projFnName T i) us')
+    let r ← mkAppNM h (targs ++ [b])
+    let rs ← projAppsI T us' targs b rest
+    pure (r :: rs)
+
 /-- Twin of `structEtaProjCerts`. -/
 def structEtaProjCertsI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (T : Name) (us' : List Level) (targs : List EIdx) (b : EIdx)
@@ -565,9 +577,7 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                   if ← structEtaProjCertsI r fe depth T us'
                       targs b cvT.levelParams (List.range cnF) then do
                     if ← defEqListI r fe depth (aargs.take cnP) targs then do
-                      let projs ← (List.range cnF).mapM fun i => do
-                        let h ← internI (.const (projFnName T i) us')
-                        mkAppNM h (targs ++ [b])
+                      let projs ← projAppsI T us' targs b (List.range cnF)
                       defEqListI r fe depth (aargs.drop cnP) projs
                     else pure false
                   else pure false
@@ -685,9 +695,8 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
               let margs ← withStore (·.getAppArgsI tmaj)
               if T' = T ∧ margs.length = caps.etaParams ∧
                   ust.length = cvT.levelParams.length then do
-                let projs ← (List.range caps.etaFields).mapM fun j => do
-                  let h ← internI (.const (projFnName T j) ust)
-                  mkAppNM h (margs ++ [major])
+                let projs ← projAppsI T ust margs major
+                  (List.range caps.etaFields)
                 let h ← internI (.const caps.etaCtor ust)
                 let fab ← mkAppNM h (margs ++ projs)
                 if ← withStore (fun st => st.wscopedBI depth fab &&
