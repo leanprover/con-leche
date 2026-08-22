@@ -67,7 +67,8 @@ def opB (fe : FEnv) (d : Nat) (a b : Expr) : CheckIM Bool := do
 /-- Shared-state sort-ensuring entry point. -/
 def opS (fe : FEnv) (d : Nat) (e : Expr) : CheckIM Level := do
   let i ← internExprM e
-  ensureSortI (coreKnotI fe checkFuel) d i
+  let u ← ensureSortI (coreKnotI fe checkFuel) d i
+  readbackLevelM u
 
 /-- The per-declaration shared operations at a fixed environment index.
 The methods ignore the per-call environment argument: the drivers

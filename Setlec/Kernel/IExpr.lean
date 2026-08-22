@@ -30,34 +30,62 @@ namespace Setlec
 /-- Index of an interned expression node in an `EStore` arena. -/
 abbrev EIdx := Nat
 
+/-- Index of an interned level node in an `EStore` arena's level table
+(task #62). -/
+abbrev LIdx := Nat
+
+/-- One interned level node: the constructors of `Setlec.Level` with
+sublevels replaced by arena indices. -/
+inductive LNode where
+  | zero
+  | succ (u : LIdx)
+  | max (u v : LIdx)
+  | imax (u v : LIdx)
+  | param (n : Name)
+  deriving DecidableEq, Repr, Inhabited, Hashable
+
+/-- Interned binder metadata: `BinderMeta` with the codomain sort
+annotation as a level index. -/
+structure IBinderMeta where
+  bi : BinderInfo
+  cod : Option LIdx := none
+  deriving DecidableEq, Repr, Hashable
+
+instance : Inhabited IBinderMeta := ⟨⟨.default, none⟩⟩
+
 /-- One interned expression node: the constructors of `Setlec.Expr` with
-subexpressions replaced by arena indices.  Leaf data (names, levels,
-binder metadata, literals) is carried unchanged. -/
+subexpressions replaced by arena indices and levels by level indices
+(task #62: `O(1)` node hashing/equality even for level-deep terms).
+Leaf data (names, binder infos, literals) is carried unchanged. -/
 inductive ENode where
   | bvar (i : Nat)
   | fvar (idx : Nat) (name : Name) (type : EIdx)
-  | sort (u : Level)
-  | const (n : Name) (us : List Level)
+  | sort (u : LIdx)
+  | const (n : Name) (us : List LIdx)
   | app (f a : EIdx)
-  | lam (n : Name) (type body : EIdx) (m : BinderMeta)
-  | forallE (n : Name) (type body : EIdx) (m : BinderMeta)
+  | lam (n : Name) (type body : EIdx) (m : IBinderMeta)
+  | forallE (n : Name) (type body : EIdx) (m : IBinderMeta)
   | letE (n : Name) (type value body : EIdx)
   | lit (l : Literal)
   | proj (structName : Name) (idx : Nat) (e : EIdx)
   deriving DecidableEq, Repr, Inhabited, Hashable
 
-/-- The interning arena: the node table (index = position) and the
-cons-table sending every stored node to its index.  Invariant (stated
-and maintained in `Setlec/Verify/IExpr.lean`): children of a node are
-strictly smaller indices, and `cons` is exactly the graph of `nodes`. -/
+/-- The interning arena: the expression node table (index = position)
+with its cons-table, and the level node table with its cons-table.
+Invariant (stated and maintained in `Setlec/Verify/IExpr.lean`):
+children of a node are strictly smaller indices, level references of
+expression nodes are in range, and each cons-table is exactly the graph
+of its node table. -/
 structure EStore where
   nodes : Array ENode
   cons : Std.HashMap ENode EIdx
+  lnodes : Array LNode
+  lcons : Std.HashMap LNode LIdx
 
 namespace EStore
 
 /-- The empty arena. -/
-def empty : EStore := ⟨#[], {}⟩
+def empty : EStore := ⟨#[], {}, #[], {}⟩
 
 instance : Inhabited EStore := ⟨empty⟩
 
@@ -71,9 +99,51 @@ def intern (st : EStore) (n : ENode) : EIdx × EStore :=
   | some i => (i, st)
   | none =>
     match st with
-    | ⟨nodes, cons⟩ =>
+    | ⟨nodes, cons, lnodes, lcons⟩ =>
       let i := nodes.size
-      (i, ⟨nodes.push n, cons.insert n i⟩)
+      (i, ⟨nodes.push n, cons.insert n i, lnodes, lcons⟩)
+
+/-- Intern one level node (the level-table analog of `intern`). -/
+def internL (st : EStore) (n : LNode) : LIdx × EStore :=
+  match st.lcons[n]? with
+  | some i => (i, st)
+  | none =>
+    match st with
+    | ⟨nodes, cons, lnodes, lcons⟩ =>
+      let i := lnodes.size
+      (i, ⟨nodes, cons, lnodes.push n, lcons.insert n i⟩)
+
+/-- Intern a whole level bottom-up. -/
+def internLevel (st : EStore) : Level → LIdx × EStore
+  | .zero => st.internL .zero
+  | .succ u =>
+    let (u', st) := st.internLevel u
+    st.internL (.succ u')
+  | .max u v =>
+    let (u', st) := st.internLevel u
+    let (v', st) := st.internLevel v
+    st.internL (.max u' v')
+  | .imax u v =>
+    let (u', st) := st.internLevel u
+    let (v', st) := st.internLevel v
+    st.internL (.imax u' v')
+  | .param n => st.internL (.param n)
+
+/-- Intern a list of levels. -/
+def internLevels (st : EStore) : List Level → List LIdx × EStore
+  | [] => ([], st)
+  | u :: us =>
+    let (u', st) := st.internLevel u
+    let (us', st) := st.internLevels us
+    (u' :: us', st)
+
+/-- Intern binder metadata (the codomain annotation level, if any). -/
+def internBM (st : EStore) (m : BinderMeta) : IBinderMeta × EStore :=
+  match m.cod with
+  | none => (⟨m.bi, none⟩, st)
+  | some u =>
+    let (u', st) := st.internLevel u
+    (⟨m.bi, some u'⟩, st)
 
 /-- Intern a whole expression bottom-up. -/
 def internExpr (st : EStore) : Expr → EIdx × EStore
@@ -81,8 +151,12 @@ def internExpr (st : EStore) : Expr → EIdx × EStore
   | .fvar idx n ty =>
     let (t, st) := st.internExpr ty
     st.intern (.fvar idx n t)
-  | .sort u => st.intern (.sort u)
-  | .const n us => st.intern (.const n us)
+  | .sort u =>
+    let (u', st) := st.internLevel u
+    st.intern (.sort u')
+  | .const n us =>
+    let (us', st) := st.internLevels us
+    st.intern (.const n us')
   | .app f a =>
     let (f', st) := st.internExpr f
     let (a', st) := st.internExpr a
@@ -90,11 +164,13 @@ def internExpr (st : EStore) : Expr → EIdx × EStore
   | .lam n ty body m =>
     let (t, st) := st.internExpr ty
     let (b, st) := st.internExpr body
-    st.intern (.lam n t b m)
+    let (m', st) := st.internBM m
+    st.intern (.lam n t b m')
   | .forallE n ty body m =>
     let (t, st) := st.internExpr ty
     let (b, st) := st.internExpr body
-    st.intern (.forallE n t b m)
+    let (m', st) := st.internBM m
+    st.intern (.forallE n t b m')
   | .letE n ty val body =>
     let (t, st) := st.internExpr ty
     let (v, st) := st.internExpr val
@@ -104,6 +180,244 @@ def internExpr (st : EStore) : Expr → EIdx × EStore
   | .proj s i e =>
     let (e', st) := st.internExpr e
     st.intern (.proj s i e')
+
+/-!
+## Level operations on indices (task #62)
+
+Each mirrors its `Setlec.Level` counterpart; recursive traversals into
+child indices use `if _h : c < u` guards for unconditional termination
+(the guards never fail on well-formed stores), and the DAG-shaped
+recursions thread a memo table so shared sublevels are visited once.
+-/
+
+/-- Core of `readbackL` (memoized level readback). -/
+def readbackLGo (st : EStore) (memo : Std.HashMap LIdx Level) (u : LIdx) :
+    Option Level × Std.HashMap LIdx Level :=
+  match memo[u]? with
+  | some x => (some x, memo)
+  | none =>
+    match st.lnodes[u]? with
+    | none => (none, memo)
+    | some n =>
+      let (r, memo) : Option Level × Std.HashMap LIdx Level :=
+        match n with
+        | .zero => (some .zero, memo)
+        | .param p => (some (.param p), memo)
+        | .succ l =>
+          if _h : l < u then
+            match readbackLGo st memo l with
+            | (some x, memo) => (some (.succ x), memo)
+            | (none, memo) => (none, memo)
+          else (none, memo)
+        | .max l r =>
+          if _h : l < u ∧ r < u then
+            match readbackLGo st memo l with
+            | (some x, memo) =>
+              match readbackLGo st memo r with
+              | (some y, memo) => (some (.max x y), memo)
+              | (none, memo) => (none, memo)
+            | (none, memo) => (none, memo)
+          else (none, memo)
+        | .imax l r =>
+          if _h : l < u ∧ r < u then
+            match readbackLGo st memo l with
+            | (some x, memo) =>
+              match readbackLGo st memo r with
+              | (some y, memo) => (some (.imax x y), memo)
+              | (none, memo) => (none, memo)
+            | (none, memo) => (none, memo)
+          else (none, memo)
+      match r with
+      | some x => (some x, memo.insert u x)
+      | none => (none, memo)
+termination_by u
+decreasing_by all_goals first | exact _h.1 | exact _h.2 | exact _h
+
+/-- Read an interned level back as a `Level` tree (memoized: rebuilt
+sublevels are shared in memory).  Agrees with the verification's
+structural level denotation on well-formed stores. -/
+def readbackL (st : EStore) (u : LIdx) : Option Level :=
+  (readbackLGo st {} u).1
+
+/-- Memo table for level index→index traversals. -/
+abbrev LMemo := Std.HashMap LIdx LIdx
+
+/-- Parameter lookup of `Level.subst.go` with interned replacement
+levels: the replacement index for `n`, or `none` when `n` is unlisted
+(the caller keeps the `param` node unchanged). -/
+def substLGo? : List Name → List LIdx → Name → Option LIdx
+  | k :: ks, v :: vs, n => if k = n then some v else substLGo? ks vs n
+  | _, _, _ => none
+
+/-- Core of `substLI` (interned `Level.subst`, memoized per call). -/
+def substLIGo (ks : List Name) (us : List LIdx) (st : EStore)
+    (memo : LMemo) (u : LIdx) : LIdx × EStore × LMemo :=
+  match memo[u]? with
+  | some r => (r, st, memo)
+  | none =>
+    match st.lnodes[u]? with
+    | none => (u, st, memo)
+    | some n =>
+      let (r, st, memo) : LIdx × EStore × LMemo :=
+        match n with
+        | .zero => (u, st, memo)
+        | .param p =>
+          match substLGo? ks us p with
+          | some v => (v, st, memo)
+          | none => (u, st, memo)
+        | .succ l =>
+          if _h : l < u then
+            let (l', st, memo) := substLIGo ks us st memo l
+            let (r, st) := st.internL (.succ l')
+            (r, st, memo)
+          else (u, st, memo)
+        | .max l r =>
+          if _h : l < u ∧ r < u then
+            let (l', st, memo) := substLIGo ks us st memo l
+            let (r', st, memo) := substLIGo ks us st memo r
+            let (x, st) := st.internL (.max l' r')
+            (x, st, memo)
+          else (u, st, memo)
+        | .imax l r =>
+          if _h : l < u ∧ r < u then
+            let (l', st, memo) := substLIGo ks us st memo l
+            let (r', st, memo) := substLIGo ks us st memo r
+            let (x, st) := st.internL (.imax l' r')
+            (x, st, memo)
+          else (u, st, memo)
+      (r, st, memo.insert u r)
+termination_by u
+decreasing_by all_goals first | exact _h.1 | exact _h.2 | exact _h
+
+/-- Interned counterpart of `Level.subst ks us` on a level index
+(fresh memo). -/
+def substLI (st : EStore) (ks : List Name) (us : List LIdx) (u : LIdx) :
+    LIdx × EStore :=
+  let (r, st, _) := substLIGo ks us st {} u
+  (r, st)
+
+/-- Interned `Level.subst ks us` applied to a level *tree* (stored
+levels enter the arena through this; parameters hit the interned
+replacements directly). -/
+def internLevelSubst (st : EStore) (ks : List Name) (us : List LIdx) :
+    Level → LIdx × EStore
+  | .zero => st.internL .zero
+  | .succ u =>
+    let (u', st) := st.internLevelSubst ks us u
+    st.internL (.succ u')
+  | .max u v =>
+    let (u', st) := st.internLevelSubst ks us u
+    let (v', st) := st.internLevelSubst ks us v
+    st.internL (.max u' v')
+  | .imax u v =>
+    let (u', st) := st.internLevelSubst ks us u
+    let (v', st) := st.internLevelSubst ks us v
+    st.internL (.imax u' v')
+  | .param n =>
+    match substLGo? ks us n with
+    | some v => (v, st)
+    | none => st.internL (.param n)
+
+/-- Interned counterpart of `Level.combining` (pull common `succ`s out
+of a `max` of simplified levels). -/
+def combiningLI (st : EStore) (a b : LIdx) : LIdx × EStore :=
+  match st.lnodes[a]?, st.lnodes[b]? with
+  | some .zero, _ => (b, st)
+  | _, some .zero => (a, st)
+  | some (.succ l), some (.succ r) =>
+    if _h : l < a then
+      let (c, st) := st.combiningLI l r
+      st.internL (.succ c)
+    else st.internL (.max a b)
+  | _, _ => st.internL (.max a b)
+termination_by a
+
+/-- Core of `simplifyLI` (interned `Level.simplify`, memoized; the memo
+is parameter-free, so callers may share it across calls — the
+persistent simplify cache of `Setlec/Kernel/CoreI.lean`). -/
+def simplifyLIGo (st : EStore) (memo : LMemo) (u : LIdx) :
+    LIdx × EStore × LMemo :=
+  match memo[u]? with
+  | some r => (r, st, memo)
+  | none =>
+    match st.lnodes[u]? with
+    | none => (u, st, memo)
+    | some n =>
+      let (r, st, memo) : LIdx × EStore × LMemo :=
+        match n with
+        | .zero => (u, st, memo)
+        | .param _ => (u, st, memo)
+        | .succ l =>
+          if _h : l < u then
+            let (l', st, memo) := simplifyLIGo st memo l
+            let (r, st) := st.internL (.succ l')
+            (r, st, memo)
+          else (u, st, memo)
+        | .max l r =>
+          if _h : l < u ∧ r < u then
+            let (l', st, memo) := simplifyLIGo st memo l
+            let (r', st, memo) := simplifyLIGo st memo r
+            let (x, st) := st.combiningLI l' r'
+            (x, st, memo)
+          else (u, st, memo)
+        | .imax l r =>
+          if _h : l < u ∧ r < u then
+            let (ls, st, memo) := simplifyLIGo st memo l
+            let (rs, st, memo) := simplifyLIGo st memo r
+            let lsIsOne : Bool :=
+              match st.lnodes[ls]? with
+              | some (.succ z) => st.lnodes[z]? == some .zero
+              | _ => false
+            if st.lnodes[ls]? == some .zero || lsIsOne then (rs, st, memo)
+            else
+              match st.lnodes[rs]? with
+              | some .zero => (rs, st, memo)
+              | some (.succ _) =>
+                let (x, st) := st.combiningLI ls rs
+                (x, st, memo)
+              | _ =>
+                let (x, st) := st.internL (.imax ls rs)
+                (x, st, memo)
+          else (u, st, memo)
+      (r, st, memo.insert u r)
+termination_by u
+decreasing_by all_goals first | exact _h.1 | exact _h.2 | exact _h
+
+/-- Interned counterpart of `Level.simplify` (fresh memo). -/
+def simplifyLI (st : EStore) (u : LIdx) : LIdx × EStore :=
+  let (r, st, _) := simplifyLIGo st {} u
+  (r, st)
+
+/-- Core of `isNonZeroLI` (memoized; the memo is shareable across
+calls, like `simplifyLIGo`'s). -/
+def isNonZeroLIGo (st : EStore) (memo : Std.HashMap LIdx Bool) (u : LIdx) :
+    Bool × Std.HashMap LIdx Bool :=
+  match memo[u]? with
+  | some r => (r, memo)
+  | none =>
+    match st.lnodes[u]? with
+    | none => (false, memo)
+    | some n =>
+      let (r, memo) : Bool × Std.HashMap LIdx Bool :=
+        match n with
+        | .zero => (false, memo)
+        | .param _ => (false, memo)
+        | .succ _ => (true, memo)
+        | .max a b =>
+          if _h : a < u ∧ b < u then
+            let (ra, memo) := isNonZeroLIGo st memo a
+            if ra then (true, memo) else isNonZeroLIGo st memo b
+          else (false, memo)
+        | .imax _ b =>
+          if _h : b < u then isNonZeroLIGo st memo b
+          else (false, memo)
+      (r, memo.insert u r)
+termination_by u
+decreasing_by all_goals first | exact _h.1 | exact _h.2 | exact _h
+
+/-- Interned counterpart of `Level.isNonZero` (fresh memo). -/
+def isNonZeroLI (st : EStore) (u : LIdx) : Bool :=
+  (isNonZeroLIGo st {} u).1
 
 /-!
 ## Syntactic operations on indices
@@ -362,77 +676,114 @@ def abstract1I (st : EStore) (e : EIdx) (d : Nat) (k : Nat := 0) : EIdx × EStor
 /-- Memo table for cursor-free index→index traversals. -/
 abbrev Memo0 := Std.HashMap EIdx EIdx
 
+/-- Interned level-list substitution (shared level memo). -/
+def substLIList (ks : List Name) (us : List LIdx) (st : EStore)
+    (memo : LMemo) : List LIdx → List LIdx × EStore × LMemo
+  | [] => ([], st, memo)
+  | v :: vs =>
+    let (v', st, memo) := substLIGo ks us st memo v
+    let (vs', st, memo) := substLIList ks us st memo vs
+    (v' :: vs', st, memo)
+
+/-- Interned binder-meta level substitution (shared level memo). -/
+def substLIBM (ks : List Name) (us : List LIdx) (st : EStore)
+    (memo : LMemo) (m : IBinderMeta) : IBinderMeta × EStore × LMemo :=
+  match m.cod with
+  | none => (⟨m.bi, none⟩, st, memo)
+  | some u =>
+    let (u', st, memo) := substLIGo ks us st memo u
+    (⟨m.bi, some u'⟩, st, memo)
+
 /-- Core of `instantiateLevelParamsI` (no cursor; mirrors
-`Expr.instantiateLevelParams ks us`). -/
-def instantiateLevelParamsIGo (ks : List Name) (us : List Level)
-    (st : EStore) (memo : Memo0) (e : EIdx) : EIdx × EStore × Memo0 :=
+`Expr.instantiateLevelParams ks us`; the replacement levels are
+interned, and one level memo is shared across the expression
+traversal). -/
+def instantiateLevelParamsIGo (ks : List Name) (us : List LIdx)
+    (st : EStore) (memo : Memo0) (lmemo : LMemo) (e : EIdx) :
+    EIdx × EStore × Memo0 × LMemo :=
   match memo[e]? with
-  | some r => (r, st, memo)
+  | some r => (r, st, memo, lmemo)
   | none =>
     match st.nodes[e]? with
-    | none => (e, st, memo)
+    | none => (e, st, memo, lmemo)
     | some n =>
-      let (r, st, memo) : EIdx × EStore × Memo0 :=
+      let (r, st, memo, lmemo) : EIdx × EStore × Memo0 × LMemo :=
         match n with
-        | .bvar _ => (e, st, memo)
+        | .bvar _ => (e, st, memo, lmemo)
         | .fvar idx nm ty =>
           if _h : ty < e then
-            let (ty', st, memo) := instantiateLevelParamsIGo ks us st memo ty
+            let (ty', st, memo, lmemo) :=
+              instantiateLevelParamsIGo ks us st memo lmemo ty
             let (r, st) := st.intern (.fvar idx nm ty')
-            (r, st, memo)
-          else (e, st, memo)
+            (r, st, memo, lmemo)
+          else (e, st, memo, lmemo)
         | .sort u =>
-          let (r, st) := st.intern (.sort (Level.subst ks us u))
-          (r, st, memo)
+          let (u', st, lmemo) := substLIGo ks us st lmemo u
+          let (r, st) := st.intern (.sort u')
+          (r, st, memo, lmemo)
         | .const n vs =>
-          let (r, st) := st.intern (.const n (vs.map (Level.subst ks us)))
-          (r, st, memo)
+          let (vs', st, lmemo) := substLIList ks us st lmemo vs
+          let (r, st) := st.intern (.const n vs')
+          (r, st, memo, lmemo)
         | .app f a =>
           if _h : f < e ∧ a < e then
-            let (f', st, memo) := instantiateLevelParamsIGo ks us st memo f
-            let (a', st, memo) := instantiateLevelParamsIGo ks us st memo a
+            let (f', st, memo, lmemo) :=
+              instantiateLevelParamsIGo ks us st memo lmemo f
+            let (a', st, memo, lmemo) :=
+              instantiateLevelParamsIGo ks us st memo lmemo a
             let (r, st) := st.intern (.app f' a')
-            (r, st, memo)
-          else (e, st, memo)
+            (r, st, memo, lmemo)
+          else (e, st, memo, lmemo)
         | .lam n ty body m =>
           if _h : ty < e ∧ body < e then
-            let (ty', st, memo) := instantiateLevelParamsIGo ks us st memo ty
-            let (body', st, memo) := instantiateLevelParamsIGo ks us st memo body
-            let (r, st) := st.intern (.lam n ty' body' ⟨m.bi, m.cod.map (Level.subst ks us)⟩)
-            (r, st, memo)
-          else (e, st, memo)
+            let (ty', st, memo, lmemo) :=
+              instantiateLevelParamsIGo ks us st memo lmemo ty
+            let (body', st, memo, lmemo) :=
+              instantiateLevelParamsIGo ks us st memo lmemo body
+            let (m', st, lmemo) := substLIBM ks us st lmemo m
+            let (r, st) := st.intern (.lam n ty' body' m')
+            (r, st, memo, lmemo)
+          else (e, st, memo, lmemo)
         | .forallE n ty body m =>
           if _h : ty < e ∧ body < e then
-            let (ty', st, memo) := instantiateLevelParamsIGo ks us st memo ty
-            let (body', st, memo) := instantiateLevelParamsIGo ks us st memo body
-            let (r, st) := st.intern (.forallE n ty' body' ⟨m.bi, m.cod.map (Level.subst ks us)⟩)
-            (r, st, memo)
-          else (e, st, memo)
+            let (ty', st, memo, lmemo) :=
+              instantiateLevelParamsIGo ks us st memo lmemo ty
+            let (body', st, memo, lmemo) :=
+              instantiateLevelParamsIGo ks us st memo lmemo body
+            let (m', st, lmemo) := substLIBM ks us st lmemo m
+            let (r, st) := st.intern (.forallE n ty' body' m')
+            (r, st, memo, lmemo)
+          else (e, st, memo, lmemo)
         | .letE n ty val body =>
           if _h : ty < e ∧ val < e ∧ body < e then
-            let (ty', st, memo) := instantiateLevelParamsIGo ks us st memo ty
-            let (val', st, memo) := instantiateLevelParamsIGo ks us st memo val
-            let (body', st, memo) := instantiateLevelParamsIGo ks us st memo body
+            let (ty', st, memo, lmemo) :=
+              instantiateLevelParamsIGo ks us st memo lmemo ty
+            let (val', st, memo, lmemo) :=
+              instantiateLevelParamsIGo ks us st memo lmemo val
+            let (body', st, memo, lmemo) :=
+              instantiateLevelParamsIGo ks us st memo lmemo body
             let (r, st) := st.intern (.letE n ty' val' body')
-            (r, st, memo)
-          else (e, st, memo)
-        | .lit _ => (e, st, memo)
+            (r, st, memo, lmemo)
+          else (e, st, memo, lmemo)
+        | .lit _ => (e, st, memo, lmemo)
         | .proj s i sub =>
           if _h : sub < e then
-            let (sub', st, memo) := instantiateLevelParamsIGo ks us st memo sub
+            let (sub', st, memo, lmemo) :=
+              instantiateLevelParamsIGo ks us st memo lmemo sub
             let (r, st) := st.intern (.proj s i sub')
-            (r, st, memo)
-          else (e, st, memo)
-      (r, st, memo.insert e r)
+            (r, st, memo, lmemo)
+          else (e, st, memo, lmemo)
+      (r, st, memo.insert e r, lmemo)
 termination_by e
 decreasing_by all_goals first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h
 
 /-- Interned counterpart of `Expr.instantiateLevelParams ks us`:
 substitute level parameters throughout (sorts, constant level arguments,
-binder codomain annotations, and `fvar` type annotations). -/
-def instantiateLevelParamsI (st : EStore) (ks : List Name) (us : List Level)
+binder codomain annotations, and `fvar` type annotations); the
+replacement levels are interned. -/
+def instantiateLevelParamsI (st : EStore) (ks : List Name) (us : List LIdx)
     (e : EIdx) : EIdx × EStore :=
-  let (r, st, _) := instantiateLevelParamsIGo ks us st {} e
+  let (r, st, _) := instantiateLevelParamsIGo ks us st {} {} e
   (r, st)
 
 /-!
@@ -804,76 +1155,113 @@ def stripPisBodyI (st : EStore) : Nat → EIdx → Option EIdx
     | some (.forallE _ _ b _) => stripPisBodyI st k b
     | _ => none
 
+/-- Memoized level-list readback (shared level memo). -/
+def readbackLList (st : EStore) (memo : Std.HashMap LIdx Level) :
+    List LIdx → Option (List Level) × Std.HashMap LIdx Level
+  | [] => (some [], memo)
+  | u :: us =>
+    match readbackLGo st memo u with
+    | (some l, memo) =>
+      match readbackLList st memo us with
+      | (some ls, memo) => (some (l :: ls), memo)
+      | (none, memo) => (none, memo)
+    | (none, memo) => (none, memo)
+
+/-- Memoized binder-meta readback (shared level memo). -/
+def readbackBM (st : EStore) (memo : Std.HashMap LIdx Level)
+    (m : IBinderMeta) : Option BinderMeta × Std.HashMap LIdx Level :=
+  match m.cod with
+  | none => (some ⟨m.bi, none⟩, memo)
+  | some u =>
+    match readbackLGo st memo u with
+    | (some l, memo) => (some ⟨m.bi, some l⟩, memo)
+    | (none, memo) => (none, memo)
+
 /-- Core of `readbackI` (memoized, so shared subterms are rebuilt once
-and share the resulting `Expr` values in memory). -/
-def readbackGo (st : EStore) (memo : Std.HashMap EIdx Expr) (e : EIdx) :
-    Option Expr × Std.HashMap EIdx Expr :=
+and share the resulting `Expr` values in memory; one level memo is
+shared across the traversal). -/
+def readbackGo (st : EStore) (memo : Std.HashMap EIdx Expr)
+    (lmemo : Std.HashMap LIdx Level) (e : EIdx) :
+    Option Expr × Std.HashMap EIdx Expr × Std.HashMap LIdx Level :=
   match memo[e]? with
-  | some x => (some x, memo)
+  | some x => (some x, memo, lmemo)
   | none =>
     match st.nodes[e]? with
-    | none => (none, memo)
+    | none => (none, memo, lmemo)
     | some n =>
-      let (r, memo) : Option Expr × Std.HashMap EIdx Expr :=
+      let (r, memo, lmemo) :
+          Option Expr × Std.HashMap EIdx Expr × Std.HashMap LIdx Level :=
         match n with
-        | .bvar i => (some (.bvar i), memo)
+        | .bvar i => (some (.bvar i), memo, lmemo)
         | .fvar idx nm ty =>
           if _h : ty < e then
-            match readbackGo st memo ty with
-            | (some t, memo) => (some (.fvar idx nm t), memo)
-            | (none, memo) => (none, memo)
-          else (none, memo)
-        | .sort u => (some (.sort u), memo)
-        | .const n us => (some (.const n us), memo)
+            match readbackGo st memo lmemo ty with
+            | (some t, memo, lmemo) => (some (.fvar idx nm t), memo, lmemo)
+            | (none, memo, lmemo) => (none, memo, lmemo)
+          else (none, memo, lmemo)
+        | .sort u =>
+          match readbackLGo st lmemo u with
+          | (some l, lmemo) => (some (.sort l), memo, lmemo)
+          | (none, lmemo) => (none, memo, lmemo)
+        | .const n us =>
+          match readbackLList st lmemo us with
+          | (some ls, lmemo) => (some (.const n ls), memo, lmemo)
+          | (none, lmemo) => (none, memo, lmemo)
         | .app f a =>
           if _h : f < e ∧ a < e then
-            match readbackGo st memo f with
-            | (some xf, memo) =>
-              match readbackGo st memo a with
-              | (some xa, memo) => (some (.app xf xa), memo)
-              | (none, memo) => (none, memo)
-            | (none, memo) => (none, memo)
-          else (none, memo)
+            match readbackGo st memo lmemo f with
+            | (some xf, memo, lmemo) =>
+              match readbackGo st memo lmemo a with
+              | (some xa, memo, lmemo) => (some (.app xf xa), memo, lmemo)
+              | (none, memo, lmemo) => (none, memo, lmemo)
+            | (none, memo, lmemo) => (none, memo, lmemo)
+          else (none, memo, lmemo)
         | .lam n ty body mb =>
           if _h : ty < e ∧ body < e then
-            match readbackGo st memo ty with
-            | (some xt, memo) =>
-              match readbackGo st memo body with
-              | (some xb, memo) => (some (.lam n xt xb mb), memo)
-              | (none, memo) => (none, memo)
-            | (none, memo) => (none, memo)
-          else (none, memo)
+            match readbackGo st memo lmemo ty with
+            | (some xt, memo, lmemo) =>
+              match readbackGo st memo lmemo body with
+              | (some xb, memo, lmemo) =>
+                match readbackBM st lmemo mb with
+                | (some m, lmemo) => (some (.lam n xt xb m), memo, lmemo)
+                | (none, lmemo) => (none, memo, lmemo)
+              | (none, memo, lmemo) => (none, memo, lmemo)
+            | (none, memo, lmemo) => (none, memo, lmemo)
+          else (none, memo, lmemo)
         | .forallE n ty body mb =>
           if _h : ty < e ∧ body < e then
-            match readbackGo st memo ty with
-            | (some xt, memo) =>
-              match readbackGo st memo body with
-              | (some xb, memo) => (some (.forallE n xt xb mb), memo)
-              | (none, memo) => (none, memo)
-            | (none, memo) => (none, memo)
-          else (none, memo)
+            match readbackGo st memo lmemo ty with
+            | (some xt, memo, lmemo) =>
+              match readbackGo st memo lmemo body with
+              | (some xb, memo, lmemo) =>
+                match readbackBM st lmemo mb with
+                | (some m, lmemo) => (some (.forallE n xt xb m), memo, lmemo)
+                | (none, lmemo) => (none, memo, lmemo)
+              | (none, memo, lmemo) => (none, memo, lmemo)
+            | (none, memo, lmemo) => (none, memo, lmemo)
+          else (none, memo, lmemo)
         | .letE n ty val body =>
           if _h : ty < e ∧ val < e ∧ body < e then
-            match readbackGo st memo ty with
-            | (some xt, memo) =>
-              match readbackGo st memo val with
-              | (some xv, memo) =>
-                match readbackGo st memo body with
-                | (some xb, memo) => (some (.letE n xt xv xb), memo)
-                | (none, memo) => (none, memo)
-              | (none, memo) => (none, memo)
-            | (none, memo) => (none, memo)
-          else (none, memo)
-        | .lit l => (some (.lit l), memo)
+            match readbackGo st memo lmemo ty with
+            | (some xt, memo, lmemo) =>
+              match readbackGo st memo lmemo val with
+              | (some xv, memo, lmemo) =>
+                match readbackGo st memo lmemo body with
+                | (some xb, memo, lmemo) => (some (.letE n xt xv xb), memo, lmemo)
+                | (none, memo, lmemo) => (none, memo, lmemo)
+              | (none, memo, lmemo) => (none, memo, lmemo)
+            | (none, memo, lmemo) => (none, memo, lmemo)
+          else (none, memo, lmemo)
+        | .lit l => (some (.lit l), memo, lmemo)
         | .proj s i sub =>
           if _h : sub < e then
-            match readbackGo st memo sub with
-            | (some xs, memo) => (some (.proj s i xs), memo)
-            | (none, memo) => (none, memo)
-          else (none, memo)
+            match readbackGo st memo lmemo sub with
+            | (some xs, memo, lmemo) => (some (.proj s i xs), memo, lmemo)
+            | (none, memo, lmemo) => (none, memo, lmemo)
+          else (none, memo, lmemo)
       match r with
-      | some x => (some x, memo.insert e x)
-      | none => (none, memo)
+      | some x => (some x, memo.insert e x, lmemo)
+      | none => (none, memo, lmemo)
 termination_by e
 decreasing_by all_goals first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h
 
@@ -882,7 +1270,7 @@ rebuilt subtrees are shared in memory).  Agrees with the verification's
 structural denotation on well-formed stores
 (`Setlec/Verify/IExprOps.lean`). -/
 def readbackI (st : EStore) (e : EIdx) : Option Expr :=
-  (readbackGo st {} e).1
+  (readbackGo st {} {} e).1
 
 end EStore
 
