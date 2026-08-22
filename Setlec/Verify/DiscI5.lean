@@ -37,25 +37,26 @@ private theorem beq_transfer {st : EStore} (hwf : st.WF) {i j : EIdx}
 /-- The one-sided-λ (right) stuck arm. -/
 private theorem defeqI_etaR_arm (ih : SSimI env f) (henv : EnvWF env)
     {d : Nat} {a' b' t₂ b₂ : EIdx} {a'x ty₂x body₂x : Expr} {nm₂ : Name}
-    {m₂ : BinderMeta} {s₀ : IState} (hs : ISOK env s₀)
+    {m₂ : IBinderMeta} {bm₂ : BinderMeta} {s₀ : IState} (hs : ISOK env s₀)
     (haS : s₀.store.denote a' = some a'x)
     (hty₂ : s₀.store.denote t₂ = some ty₂x)
     (hbody₂ : s₀.store.denote b₂ = some body₂x)
-    (hbS : s₀.store.denote b' = some (.lam nm₂ ty₂x body₂x m₂))
+    (hm₂ : denoteBM s₀.store.denoteL m₂ = some bm₂)
+    (hbS : s₀.store.denote b' = some (.lam nm₂ ty₂x body₂x bm₂))
     (hwa' : WScoped d a'x)
-    (hwb' : WScoped d (Expr.lam nm₂ ty₂x body₂x m₂)) :
+    (hwb' : WScoped d (Expr.lam nm₂ ty₂x body₂x bm₂)) :
     SimAt env s₀ RelV
       (etaCertI (coreKnotI (mkFEnv env) f) (mkFEnv env) d nm₂ t₂ b₂ m₂
           a' >>= fun r =>
         if r then pure true
         else stuckIrrelI (coreKnotI (mkFEnv env) f) (mkFEnv env) d a' b')
-      (etaCert (fueledFns env) env d nm₂ ty₂x body₂x m₂ a'x >>= fun r =>
+      (etaCert (fueledFns env) env d nm₂ ty₂x body₂x bm₂ a'x >>= fun r =>
         if r then pure true
         else stuckIrrel (fueledFns env) env d a'x
-          (.lam nm₂ ty₂x body₂x m₂)) := by
+          (.lam nm₂ ty₂x body₂x bm₂)) := by
   have h2 : WScoped d ty₂x ∧ WScoped d body₂x := by
     simpa only [WScoped] using hwb'
-  refine SimAt.bind (etaCertI_sim ih hty₂ hbody₂ haS h2.1 h2.2 hwa'
+  refine SimAt.bind (etaCertI_sim ih hty₂ hbody₂ haS hm₂ h2.1 h2.2 hwa'
     (s₀ := s₀) (hs := hs)) (fun s₁ r r' hs₁ hext₁ hP => ?_)
   obtain rfl : r = r' := hP
   cases r with
@@ -70,25 +71,26 @@ private theorem defeqI_etaR_arm (ih : SSimI env f) (henv : EnvWF env)
 /-- The one-sided-λ (left) stuck arm. -/
 private theorem defeqI_etaL_arm (ih : SSimI env f) (henv : EnvWF env)
     {d : Nat} {a' b' t₁ b₁ : EIdx} {b'x ty₁x body₁x : Expr} {nm₁ : Name}
-    {m₁ : BinderMeta} {s₀ : IState} (hs : ISOK env s₀)
-    (haS : s₀.store.denote a' = some (.lam nm₁ ty₁x body₁x m₁))
+    {m₁ : IBinderMeta} {bm₁ : BinderMeta} {s₀ : IState} (hs : ISOK env s₀)
+    (haS : s₀.store.denote a' = some (.lam nm₁ ty₁x body₁x bm₁))
     (hty₁ : s₀.store.denote t₁ = some ty₁x)
     (hbody₁ : s₀.store.denote b₁ = some body₁x)
+    (hm₁ : denoteBM s₀.store.denoteL m₁ = some bm₁)
     (hbS : s₀.store.denote b' = some b'x)
-    (hwa' : WScoped d (Expr.lam nm₁ ty₁x body₁x m₁))
+    (hwa' : WScoped d (Expr.lam nm₁ ty₁x body₁x bm₁))
     (hwb' : WScoped d b'x) :
     SimAt env s₀ RelV
       (etaCertI (coreKnotI (mkFEnv env) f) (mkFEnv env) d nm₁ t₁ b₁ m₁
           b' >>= fun r =>
         if r then pure true
         else stuckIrrelI (coreKnotI (mkFEnv env) f) (mkFEnv env) d a' b')
-      (etaCert (fueledFns env) env d nm₁ ty₁x body₁x m₁ b'x >>= fun r =>
+      (etaCert (fueledFns env) env d nm₁ ty₁x body₁x bm₁ b'x >>= fun r =>
         if r then pure true
         else stuckIrrel (fueledFns env) env d
-          (.lam nm₁ ty₁x body₁x m₁) b'x) := by
+          (.lam nm₁ ty₁x body₁x bm₁) b'x) := by
   have h1 : WScoped d ty₁x ∧ WScoped d body₁x := by
     simpa only [WScoped] using hwa'
-  refine SimAt.bind (etaCertI_sim ih hty₁ hbody₁ hbS h1.1 h1.2 hwb'
+  refine SimAt.bind (etaCertI_sim ih hty₁ hbody₁ hbS hm₁ h1.1 h1.2 hwb'
     (s₀ := s₀) (hs := hs)) (fun s₁ r r' hs₁ hext₁ hP => ?_)
   obtain rfl : r = r' := hP
   cases r with
@@ -251,18 +253,25 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                         rw [hnb]
                         cases na with
                         | sort u₁ =>
-                          cases hda
+                          rw [denoteNode, Option.map_eq_some_iff] at hda
+                          obtain ⟨luu₁, hluu₁, rfl⟩ := hda
                           cases nb with
                           | sort u₂ =>
-                            cases hdb
+                            rw [denoteNode, Option.map_eq_some_iff] at hdb
+                            obtain ⟨luu₂, hluu₂, rfl⟩ := hdb
                             try dsimp only
-                            exact SimAt.liftFueled _ _ hs₆
+                            refine SimAt.bind_left
+                              (isEquivLM_eff hs₆ hluu₁ hluu₂)
+                              (fun sE o hsE hextE ho => ?_)
+                            subst ho
+                            exact SimAt.liftFueled _ _ hsE
                           | bvar k₂ =>
                             cases hdb
                             try dsimp only
                             exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                           | const c₂ us₂ =>
-                            cases hdb
+                            rw [denoteNode, Option.map_eq_some_iff] at hdb
+                            obtain ⟨lus₂, hlus₂, rfl⟩ := hdb
                             try dsimp only
                             exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                           | lit l₂ =>
@@ -286,7 +295,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             obtain ⟨bm, hbmDen, hdb⟩ := hdb
                             subst hdb
                             try dsimp only
-                            exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbS hwa' hwb'
+                            exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbmDen hbS hwa' hwb'
                           | forallE nm₂ t₂ b₂ m₂ =>
                             invert_node hdb
                             try dsimp only
@@ -309,15 +318,18 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                               try dsimp only
                               exact SimAt.pure hs₆ rfl
                             | const c₂ us₂ =>
-                              cases hdb
+                              rw [denoteNode, Option.map_eq_some_iff] at hdb
+                              obtain ⟨lus₂, hlus₂, rfl⟩ := hdb
                               try dsimp only
+                              have hnil := denoteLList_nil_iff hlus₂
                               by_cases hz : c₂ = natZeroName ∧ us₂ = []
                               try dsimp only
-                              · rw [if_pos hz, if_pos hz]
+                              · rw [if_pos hz, if_pos ⟨hz.1, hnil.mp hz.2⟩]
                                 try dsimp only
                                 exact SimAt.pure hs₆ rfl
                               try dsimp only
-                              · rw [if_neg hz, if_neg hz]
+                              · rw [if_neg hz, if_neg
+                                  (fun hc => hz ⟨hc.1, hnil.mpr hc.2⟩)]
                                 try dsimp only
                                 exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                             | app f₂ a₂ =>
@@ -337,10 +349,16 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                 rw [hnf]
                                 cases nf with
                                 | const cf usf =>
-                                  cases hdf
+                                  rw [denoteNode, Option.map_eq_some_iff] at hdf
+                                  obtain ⟨lusf, hlusf, rfl⟩ := hdf
                                   cases usf with
-                                  | cons u us' => exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
+                                  | cons u us' =>
+                                    simp only [denoteLList, Option.bind_eq_some_iff,
+                                      Option.map_eq_some_iff] at hlusf
+                                    obtain ⟨l0, -, ls0, -, rfl⟩ := hlusf
+                                    exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                                   | nil =>
+                                    cases hlusf
                                     dsimp only
                                     try dsimp only
                                     by_cases hsc : cf = natSuccName
@@ -366,7 +384,8 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                   try dsimp only
                                   exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                                 | sort uf =>
-                                  cases hdf
+                                  rw [denoteNode, Option.map_eq_some_iff] at hdf
+                                  obtain ⟨luuf, hluuf, rfl⟩ := hdf
                                   try dsimp only
                                   exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                                 | lit lf =>
@@ -402,7 +421,8 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                               try dsimp only
                               exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                             | sort u₂ =>
-                              cases hdb
+                              rw [denoteNode, Option.map_eq_some_iff] at hdb
+                              obtain ⟨luu₂, hluu₂, rfl⟩ := hdb
                               try dsimp only
                               exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                             | fvar i₂ nm₂ t₂ =>
@@ -418,7 +438,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                               obtain ⟨bm, hbmDen, hdb⟩ := hdb
                               subst hdb
                               try dsimp only
-                              exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbS hwa' hwb'
+                              exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbmDen hbS hwa' hwb'
                             | forallE nm₂ t₂ b₂ m₂ =>
                               invert_node hdb
                               try dsimp only
@@ -449,13 +469,16 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                               rw [hnf]
                               cases nf with
                               | const cf usf =>
-                                cases hdf
+                                rw [denoteNode, Option.map_eq_some_iff] at hdf
+                                obtain ⟨lusf, hlusf, rfl⟩ := hdf
                                 rw [strLitSupportedF_eq]
                                 try dsimp only
+                                have hnilf := denoteLList_nil_iff hlusf
                                 by_cases hsc : cf = stringOfListName ∧ usf = [] ∧
                                     strLitSupported env = true
                                 try dsimp only
-                                · rw [if_pos hsc, if_pos hsc]
+                                · rw [if_pos hsc, if_pos
+                                    ⟨hsc.1, hnilf.mp hsc.2.1, hsc.2.2⟩]
                                   try dsimp only
                                   refine SimAt.bind_left (internExprM_eff hs₆
                                     (strLitToConstructor str))
@@ -464,7 +487,9 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                   exact ih.defeq hs₇ hQs (denote_mono hext₇ hbS)
                                     (strLitToConstructor_WScoped str d) hwb'
                                 try dsimp only
-                                · rw [if_neg hsc, if_neg hsc]
+                                · rw [if_neg hsc, if_neg
+                                    (fun hc => hsc ⟨hc.1, hnilf.mpr hc.2.1,
+                                      hc.2.2⟩)]
                                   try dsimp only
                                   exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                               | bvar kf =>
@@ -472,7 +497,8 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                 try dsimp only
                                 exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                               | sort uf =>
-                                cases hdf
+                                rw [denoteNode, Option.map_eq_some_iff] at hdf
+                                obtain ⟨luuf, hluuf, rfl⟩ := hdf
                                 try dsimp only
                                 exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                               | lit lf =>
@@ -508,11 +534,13 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                               try dsimp only
                               exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                             | sort u₂ =>
-                              cases hdb
+                              rw [denoteNode, Option.map_eq_some_iff] at hdb
+                              obtain ⟨luu₂, hluu₂, rfl⟩ := hdb
                               try dsimp only
                               exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                             | const c₂ us₂ =>
-                              cases hdb
+                              rw [denoteNode, Option.map_eq_some_iff] at hdb
+                              obtain ⟨lus₂, hlus₂, rfl⟩ := hdb
                               try dsimp only
                               exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                             | fvar i₂ nm₂ t₂ =>
@@ -528,7 +556,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                               obtain ⟨bm, hbmDen, hdb⟩ := hdb
                               subst hdb
                               try dsimp only
-                              exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbS hwa' hwb'
+                              exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbmDen hbS hwa' hwb'
                             | forallE nm₂ t₂ b₂ m₂ =>
                               invert_node hdb
                               try dsimp only
@@ -565,11 +593,13 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             try dsimp only
                             exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                           | sort u₂ =>
-                            cases hdb
+                            rw [denoteNode, Option.map_eq_some_iff] at hdb
+                            obtain ⟨luu₂, hluu₂, rfl⟩ := hdb
                             try dsimp only
                             exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                           | const c₂ us₂ =>
-                            cases hdb
+                            rw [denoteNode, Option.map_eq_some_iff] at hdb
+                            obtain ⟨lus₂, hlus₂, rfl⟩ := hdb
                             try dsimp only
                             exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                           | lit l₂ =>
@@ -589,7 +619,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             obtain ⟨bm, hbmDen, hdb⟩ := hdb
                             subst hdb
                             try dsimp only
-                            exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbS hwa' hwb'
+                            exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbmDen hbS hwa' hwb'
                           | forallE nm₂ t₂ b₂ m₂ =>
                             invert_node hdb
                             try dsimp only
@@ -603,16 +633,22 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             try dsimp only
                             exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                         | const c₁ us₁ =>
-                          cases hda
+                          rw [denoteNode, Option.map_eq_some_iff] at hda
+                          obtain ⟨lus₁, hlus₁, rfl⟩ := hda
                           cases nb with
                           | const c₂ us₂ =>
-                            cases hdb
+                            rw [denoteNode, Option.map_eq_some_iff] at hdb
+                            obtain ⟨lus₂, hlus₂, rfl⟩ := hdb
                             try dsimp only
                             by_cases hcc : c₁ = c₂
                             try dsimp only
                             · rw [if_pos hcc, if_pos hcc]
                               try dsimp only
-                              refine SimAt.bind (SimAt.liftFueled _ _ hs₆)
+                              refine SimAt.bind_left
+                                (isEquivListLM_eff hs₆ hlus₁ hlus₂)
+                                (fun sE o hsE hextE ho => ?_)
+                              subst ho
+                              refine SimAt.bind (SimAt.liftFueled _ _ hsE)
                                 (fun s₇ ok ok' hs₇ hext₇ hPok => ?_)
                               obtain rfl : ok = ok' := hPok
                               cases ok with
@@ -623,8 +659,10 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                               | false =>
                                 simp only [Bool.false_eq_true, ↓reduceIte]
                                 try dsimp only
-                                exact stuckIrrelI_sim ih henv hs₇ (denote_mono hext₇ haS)
-                                  (denote_mono hext₇ hbS) hwa' hwb'
+                                exact stuckIrrelI_sim ih henv hs₇
+                                  (denote_mono (hextE.trans hext₇) haS)
+                                  (denote_mono (hextE.trans hext₇) hbS)
+                                  hwa' hwb'
                             try dsimp only
                             · rw [if_neg hcc, if_neg hcc]
                               try dsimp only
@@ -634,13 +672,15 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             cases l₂ with
                             | natVal n₂ =>
                               try dsimp only
+                              have hnil := denoteLList_nil_iff hlus₁
                               by_cases hz : c₁ = natZeroName ∧ us₁ = []
                               try dsimp only
-                              · rw [if_pos hz, if_pos hz]
+                              · rw [if_pos hz, if_pos ⟨hz.1, hnil.mp hz.2⟩]
                                 try dsimp only
                                 exact SimAt.pure hs₆ rfl
                               try dsimp only
-                              · rw [if_neg hz, if_neg hz]
+                              · rw [if_neg hz, if_neg
+                                  (fun hc => hz ⟨hc.1, hnil.mpr hc.2⟩)]
                                 try dsimp only
                                 exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                             | strVal str =>
@@ -651,7 +691,8 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             try dsimp only
                             exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                           | sort u₂ =>
-                            cases hdb
+                            rw [denoteNode, Option.map_eq_some_iff] at hdb
+                            obtain ⟨luu₂, hluu₂, rfl⟩ := hdb
                             try dsimp only
                             exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                           | fvar i₂ nm₂ t₂ =>
@@ -671,7 +712,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             obtain ⟨bm, hbmDen, hdb⟩ := hdb
                             subst hdb
                             try dsimp only
-                            exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbS hwa' hwb'
+                            exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbmDen hbS hwa' hwb'
                           | forallE nm₂ t₂ b₂ m₂ =>
                             invert_node hdb
                             try dsimp only
@@ -690,7 +731,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                           rw [Option.bind_eq_some_iff] at hda
                           obtain ⟨body₁x, hbody₁, hda⟩ := hda
                           rw [Option.map_eq_some_iff] at hda
-                          obtain ⟨bm, hbmDen, hda⟩ := hda
+                          obtain ⟨bm₁, hbmDen₁, hda⟩ := hda
                           subst hda
                           have h1 : WScoped d ty₁x ∧ WScoped d body₁x := by
                             simpa only [WScoped] using hwa'
@@ -701,7 +742,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             rw [Option.bind_eq_some_iff] at hdb
                             obtain ⟨body₂x, hbody₂, hdb⟩ := hdb
                             rw [Option.map_eq_some_iff] at hdb
-                            obtain ⟨bm, hbmDen, hdb⟩ := hdb
+                            obtain ⟨bm₂, hbmDen₂, hdb⟩ := hdb
                             subst hdb
                             have h2 : WScoped d ty₂x ∧ WScoped d body₂x := by
                               simpa only [WScoped] using hwb'
@@ -756,25 +797,59 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                 obtain ⟨bi₁, cod₁⟩ := m₁
                                 obtain ⟨bi₂, cod₂⟩ := m₂
                                 dsimp only
+                                have hextC :=
+                                  ((((hext₇.trans hext₈).trans hext₉).trans
+                                    hext₁₀).trans hext₁₁).trans hext₁₂
                                 cases cod₁ with
-                                | none => cases cod₂ <;> exact SimAt.throw
-                                | some v₁ =>
+                                | none =>
+                                  simp only [denoteBM,
+                                    Option.some.injEq] at hbmDen₁
+                                  subst hbmDen₁
                                   cases cod₂ with
-                                  | none => exact SimAt.throw
+                                  | none =>
+                                    simp only [denoteBM,
+                                      Option.some.injEq] at hbmDen₂
+                                    subst hbmDen₂
+                                    exact SimAt.throw
                                   | some v₂ =>
+                                    simp only [denoteBM,
+                                      Option.map_eq_some_iff] at hbmDen₂
+                                    obtain ⟨lv₂, hlv₂, rfl⟩ := hbmDen₂
+                                    exact SimAt.throw
+                                | some v₁ =>
+                                  simp only [denoteBM,
+                                    Option.map_eq_some_iff] at hbmDen₁
+                                  obtain ⟨lv₁, hlv₁, rfl⟩ := hbmDen₁
+                                  cases cod₂ with
+                                  | none =>
+                                    simp only [denoteBM,
+                                      Option.some.injEq] at hbmDen₂
+                                    subst hbmDen₂
+                                    exact SimAt.throw
+                                  | some v₂ =>
+                                    simp only [denoteBM,
+                                      Option.map_eq_some_iff] at hbmDen₂
+                                    obtain ⟨lv₂, hlv₂, rfl⟩ := hbmDen₂
                                     dsimp only
-                                    try dsimp only
-                                    exact SimAt.liftFueled _ _ hs₁₂
+                                    refine SimAt.bind_left
+                                      (isEquivLM_eff hs₁₂
+                                        (denoteL_mono hextC hlv₁)
+                                        (denoteL_mono hextC hlv₂))
+                                      (fun sE o hsE hextE ho => ?_)
+                                    subst ho
+                                    exact SimAt.liftFueled _ _ hsE
                           | bvar k₂ =>
                             cases hdb
                             try dsimp only
                             exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                           | sort u₂ =>
-                            cases hdb
+                            rw [denoteNode, Option.map_eq_some_iff] at hdb
+                            obtain ⟨luu₂, hluu₂, rfl⟩ := hdb
                             try dsimp only
                             exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                           | const c₂ us₂ =>
-                            cases hdb
+                            rw [denoteNode, Option.map_eq_some_iff] at hdb
+                            obtain ⟨lus₂, hlus₂, rfl⟩ := hdb
                             try dsimp only
                             exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                           | lit l₂ =>
@@ -798,7 +873,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             obtain ⟨bm, hbmDen, hdb⟩ := hdb
                             subst hdb
                             try dsimp only
-                            exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbS hwa' hwb'
+                            exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbmDen hbS hwa' hwb'
                           | letE nm₂ t₂ v₂ b₂ =>
                             invert_node hdb
                             try dsimp only
@@ -813,7 +888,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                           rw [Option.bind_eq_some_iff] at hda
                           obtain ⟨body₁x, hbody₁, hda⟩ := hda
                           rw [Option.map_eq_some_iff] at hda
-                          obtain ⟨bm, hbmDen, hda⟩ := hda
+                          obtain ⟨bm₁, hbmDen₁, hda⟩ := hda
                           subst hda
                           have h1 : WScoped d ty₁x ∧ WScoped d body₁x := by
                             simpa only [WScoped] using hwa'
@@ -824,7 +899,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             rw [Option.bind_eq_some_iff] at hdb
                             obtain ⟨body₂x, hbody₂, hdb⟩ := hdb
                             rw [Option.map_eq_some_iff] at hdb
-                            obtain ⟨bm, hbmDen, hdb⟩ := hdb
+                            obtain ⟨bm₂, hbmDen₂, hdb⟩ := hdb
                             subst hdb
                             have h2 : WScoped d ty₂x ∧ WScoped d body₂x := by
                               simpa only [WScoped] using hwb'
@@ -879,51 +954,85 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                 obtain ⟨bi₁, cod₁⟩ := m₁
                                 obtain ⟨bi₂, cod₂⟩ := m₂
                                 dsimp only
+                                have hextC :=
+                                  ((((hext₇.trans hext₈).trans hext₉).trans
+                                    hext₁₀).trans hext₁₁).trans hext₁₂
                                 cases cod₁ with
-                                | none => cases cod₂ <;> exact SimAt.throw
-                                | some v₁ =>
+                                | none =>
+                                  simp only [denoteBM,
+                                    Option.some.injEq] at hbmDen₁
+                                  subst hbmDen₁
                                   cases cod₂ with
-                                  | none => exact SimAt.throw
+                                  | none =>
+                                    simp only [denoteBM,
+                                      Option.some.injEq] at hbmDen₂
+                                    subst hbmDen₂
+                                    exact SimAt.throw
                                   | some v₂ =>
+                                    simp only [denoteBM,
+                                      Option.map_eq_some_iff] at hbmDen₂
+                                    obtain ⟨lv₂, hlv₂, rfl⟩ := hbmDen₂
+                                    exact SimAt.throw
+                                | some v₁ =>
+                                  simp only [denoteBM,
+                                    Option.map_eq_some_iff] at hbmDen₁
+                                  obtain ⟨lv₁, hlv₁, rfl⟩ := hbmDen₁
+                                  cases cod₂ with
+                                  | none =>
+                                    simp only [denoteBM,
+                                      Option.some.injEq] at hbmDen₂
+                                    subst hbmDen₂
+                                    exact SimAt.throw
+                                  | some v₂ =>
+                                    simp only [denoteBM,
+                                      Option.map_eq_some_iff] at hbmDen₂
+                                    obtain ⟨lv₂, hlv₂, rfl⟩ := hbmDen₂
                                     dsimp only
-                                    try dsimp only
-                                    exact SimAt.liftFueled _ _ hs₁₂
+                                    refine SimAt.bind_left
+                                      (isEquivLM_eff hs₁₂
+                                        (denoteL_mono hextC hlv₁)
+                                        (denoteL_mono hextC hlv₂))
+                                      (fun sE o hsE hextE ho => ?_)
+                                    subst ho
+                                    exact SimAt.liftFueled _ _ hsE
                           | bvar k₂ =>
                             cases hdb
                             try dsimp only
-                            exact defeqI_etaL_arm ih henv hs₆ haS hty₁ hbody₁ hbS hwa' hwb'
+                            exact defeqI_etaL_arm ih henv hs₆ haS hty₁ hbody₁ hbmDen₁ hbS hwa' hwb'
                           | sort u₂ =>
-                            cases hdb
+                            rw [denoteNode, Option.map_eq_some_iff] at hdb
+                            obtain ⟨luu₂, hluu₂, rfl⟩ := hdb
                             try dsimp only
-                            exact defeqI_etaL_arm ih henv hs₆ haS hty₁ hbody₁ hbS hwa' hwb'
+                            exact defeqI_etaL_arm ih henv hs₆ haS hty₁ hbody₁ hbmDen₁ hbS hwa' hwb'
                           | const c₂ us₂ =>
-                            cases hdb
+                            rw [denoteNode, Option.map_eq_some_iff] at hdb
+                            obtain ⟨lus₂, hlus₂, rfl⟩ := hdb
                             try dsimp only
-                            exact defeqI_etaL_arm ih henv hs₆ haS hty₁ hbody₁ hbS hwa' hwb'
+                            exact defeqI_etaL_arm ih henv hs₆ haS hty₁ hbody₁ hbmDen₁ hbS hwa' hwb'
                           | lit l₂ =>
                             cases hdb
                             try dsimp only
-                            exact defeqI_etaL_arm ih henv hs₆ haS hty₁ hbody₁ hbS hwa' hwb'
+                            exact defeqI_etaL_arm ih henv hs₆ haS hty₁ hbody₁ hbmDen₁ hbS hwa' hwb'
                           | fvar i₂ nm₂ t₂ =>
                             invert_node hdb
                             try dsimp only
-                            exact defeqI_etaL_arm ih henv hs₆ haS hty₁ hbody₁ hbS hwa' hwb'
+                            exact defeqI_etaL_arm ih henv hs₆ haS hty₁ hbody₁ hbmDen₁ hbS hwa' hwb'
                           | app f₂ a₂ =>
                             invert_node hdb
                             try dsimp only
-                            exact defeqI_etaL_arm ih henv hs₆ haS hty₁ hbody₁ hbS hwa' hwb'
+                            exact defeqI_etaL_arm ih henv hs₆ haS hty₁ hbody₁ hbmDen₁ hbS hwa' hwb'
                           | forallE nm₂ t₂ b₂ m₂ =>
                             invert_node hdb
                             try dsimp only
-                            exact defeqI_etaL_arm ih henv hs₆ haS hty₁ hbody₁ hbS hwa' hwb'
+                            exact defeqI_etaL_arm ih henv hs₆ haS hty₁ hbody₁ hbmDen₁ hbS hwa' hwb'
                           | letE nm₂ t₂ v₂ b₂ =>
                             invert_node hdb
                             try dsimp only
-                            exact defeqI_etaL_arm ih henv hs₆ haS hty₁ hbody₁ hbS hwa' hwb'
+                            exact defeqI_etaL_arm ih henv hs₆ haS hty₁ hbody₁ hbmDen₁ hbS hwa' hwb'
                           | proj s₂' j₂ e₂ =>
                             invert_node hdb
                             try dsimp only
-                            exact defeqI_etaL_arm ih henv hs₆ haS hty₁ hbody₁ hbS hwa' hwb'
+                            exact defeqI_etaL_arm ih henv hs₆ haS hty₁ hbody₁ hbmDen₁ hbS hwa' hwb'
                         | app f₁ a₁ =>
                           rw [denoteNode, Option.bind_eq_some_iff] at hda
                           obtain ⟨xf₁, hf₁, hda⟩ := hda
@@ -982,10 +1091,16 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                 rw [hnf]
                                 cases nf with
                                 | const cf usf =>
-                                  cases hdf
+                                  rw [denoteNode, Option.map_eq_some_iff] at hdf
+                                  obtain ⟨lusf, hlusf, rfl⟩ := hdf
                                   cases usf with
-                                  | cons u us' => exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
+                                  | cons u us' =>
+                                    simp only [denoteLList, Option.bind_eq_some_iff,
+                                      Option.map_eq_some_iff] at hlusf
+                                    obtain ⟨l0, -, ls0, -, rfl⟩ := hlusf
+                                    exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                                   | nil =>
+                                    cases hlusf
                                     dsimp only
                                     try dsimp only
                                     by_cases hsc : cf = natSuccName
@@ -1007,7 +1122,8 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                   try dsimp only
                                   exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                                 | sort uf =>
-                                  cases hdf
+                                  rw [denoteNode, Option.map_eq_some_iff] at hdf
+                                  obtain ⟨luuf, hluuf, rfl⟩ := hdf
                                   try dsimp only
                                   exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                                 | lit lf =>
@@ -1045,13 +1161,16 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                               rw [hnf]
                               cases nf with
                               | const cf usf =>
-                                cases hdf
+                                rw [denoteNode, Option.map_eq_some_iff] at hdf
+                                obtain ⟨lusf, hlusf, rfl⟩ := hdf
                                 rw [strLitSupportedF_eq]
                                 try dsimp only
+                                have hnilf := denoteLList_nil_iff hlusf
                                 by_cases hsc : cf = stringOfListName ∧ usf = [] ∧
                                     strLitSupported env = true
                                 try dsimp only
-                                · rw [if_pos hsc, if_pos hsc]
+                                · rw [if_pos hsc, if_pos
+                                    ⟨hsc.1, hnilf.mp hsc.2.1, hsc.2.2⟩]
                                   try dsimp only
                                   refine SimAt.bind_left (internExprM_eff hs₆
                                     (strLitToConstructor str))
@@ -1060,7 +1179,9 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                   exact ih.defeq hs₇ (denote_mono hext₇ haS) hQs hwa'
                                     (strLitToConstructor_WScoped str d)
                                 try dsimp only
-                                · rw [if_neg hsc, if_neg hsc]
+                                · rw [if_neg hsc, if_neg
+                                    (fun hc => hsc ⟨hc.1, hnilf.mpr hc.2.1,
+                                      hc.2.2⟩)]
                                   try dsimp only
                                   exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                               | bvar kf =>
@@ -1068,7 +1189,8 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                 try dsimp only
                                 exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                               | sort uf =>
-                                cases hdf
+                                rw [denoteNode, Option.map_eq_some_iff] at hdf
+                                obtain ⟨luuf, hluuf, rfl⟩ := hdf
                                 try dsimp only
                                 exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                               | lit lf =>
@@ -1104,11 +1226,13 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             try dsimp only
                             exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                           | sort u₂ =>
-                            cases hdb
+                            rw [denoteNode, Option.map_eq_some_iff] at hdb
+                            obtain ⟨luu₂, hluu₂, rfl⟩ := hdb
                             try dsimp only
                             exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                           | const c₂ us₂ =>
-                            cases hdb
+                            rw [denoteNode, Option.map_eq_some_iff] at hdb
+                            obtain ⟨lus₂, hlus₂, rfl⟩ := hdb
                             try dsimp only
                             exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                           | fvar i₂ nm₂ t₂ =>
@@ -1124,7 +1248,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             obtain ⟨bm, hbmDen, hdb⟩ := hdb
                             subst hdb
                             try dsimp only
-                            exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbS hwa' hwb'
+                            exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbmDen hbS hwa' hwb'
                           | forallE nm₂ t₂ b₂ m₂ =>
                             invert_node hdb
                             try dsimp only
@@ -1145,11 +1269,13 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             try dsimp only
                             exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                           | sort u₂ =>
-                            cases hdb
+                            rw [denoteNode, Option.map_eq_some_iff] at hdb
+                            obtain ⟨luu₂, hluu₂, rfl⟩ := hdb
                             try dsimp only
                             exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                           | const c₂ us₂ =>
-                            cases hdb
+                            rw [denoteNode, Option.map_eq_some_iff] at hdb
+                            obtain ⟨lus₂, hlus₂, rfl⟩ := hdb
                             try dsimp only
                             exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                           | lit l₂ =>
@@ -1173,7 +1299,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             obtain ⟨bm, hbmDen, hdb⟩ := hdb
                             subst hdb
                             try dsimp only
-                            exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbS hwa' hwb'
+                            exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbmDen hbS hwa' hwb'
                           | forallE nm₂ t₂ b₂ m₂ =>
                             invert_node hdb
                             try dsimp only
@@ -1194,11 +1320,13 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             try dsimp only
                             exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                           | sort u₂ =>
-                            cases hdb
+                            rw [denoteNode, Option.map_eq_some_iff] at hdb
+                            obtain ⟨luu₂, hluu₂, rfl⟩ := hdb
                             try dsimp only
                             exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                           | const c₂ us₂ =>
-                            cases hdb
+                            rw [denoteNode, Option.map_eq_some_iff] at hdb
+                            obtain ⟨lus₂, hlus₂, rfl⟩ := hdb
                             try dsimp only
                             exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                           | lit l₂ =>
@@ -1222,7 +1350,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             obtain ⟨bm, hbmDen, hdb⟩ := hdb
                             subst hdb
                             try dsimp only
-                            exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbS hwa' hwb'
+                            exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbmDen hbS hwa' hwb'
                           | forallE nm₂ t₂ b₂ m₂ =>
                             invert_node hdb
                             try dsimp only
@@ -1273,11 +1401,13 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             try dsimp only
                             exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                           | sort u₂ =>
-                            cases hdb
+                            rw [denoteNode, Option.map_eq_some_iff] at hdb
+                            obtain ⟨luu₂, hluu₂, rfl⟩ := hdb
                             try dsimp only
                             exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                           | const c₂ us₂ =>
-                            cases hdb
+                            rw [denoteNode, Option.map_eq_some_iff] at hdb
+                            obtain ⟨lus₂, hlus₂, rfl⟩ := hdb
                             try dsimp only
                             exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
                           | lit l₂ =>
@@ -1301,7 +1431,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             obtain ⟨bm, hbmDen, hdb⟩ := hdb
                             subst hdb
                             try dsimp only
-                            exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbS hwa' hwb'
+                            exact defeqI_etaR_arm ih henv hs₆ haS hty₂ hbody₂ hbmDen hbS hwa' hwb'
                           | forallE nm₂ t₂ b₂ m₂ =>
                             invert_node hdb
                             try dsimp only

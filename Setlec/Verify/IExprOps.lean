@@ -317,6 +317,21 @@ theorem denoteBM_some {denL : LIdx → Option Level} {m : IBinderMeta}
     obtain ⟨l, hl, rfl⟩ := h
     exact ⟨l, hl, rfl⟩
 
+/-- Level-index lists and their denotations are `nil` together. -/
+theorem denoteLList_nil_iff {denL : LIdx → Option Level}
+    {us : List LIdx} {ls : List Level}
+    (h : denoteLList denL us = some ls) : us = [] ↔ ls = [] := by
+  have := denoteLList_length h
+  constructor
+  · rintro rfl
+    cases ls with
+    | nil => rfl
+    | cons l ls' => simp at this
+  · rintro rfl
+    cases us with
+    | nil => rfl
+    | cons u us' => simp at this
+
 /-- A denoted node's level references denote. -/
 theorem denoteNode_levels_some {den : EIdx → Option Expr}
     {denL : LIdx → Option Level} {n : ENode} {a : Expr}
