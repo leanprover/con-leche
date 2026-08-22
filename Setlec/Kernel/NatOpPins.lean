@@ -15,6 +15,11 @@ certificate *statements* the proofs are checked against.
 
 An out-of-prefix dependency in a pin or proof is a hard build error
 here, at `lake build` time.
+
+Rebuild caveat: Lake sees no dependency edge from this module to
+`Setlec/PinGen/Certs.lean` (loaded by olean name at elaboration time)
+or to `scripts/natop_prefix.json`; after editing either, `touch` this
+file (or `lake build --rebuild`) to force regeneration.
 -/
 
 set_option maxRecDepth 1000000
