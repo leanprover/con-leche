@@ -2065,6 +2065,10 @@ private theorem defeq_step (henv : EnvWF env)
   have hwwb : WScoped d wb := whnfCore_WScoped henv fuel hwb' hwb
   rw [shiftFrom_beq]
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
+  -- hoisted proof irrelevance
+  refine bind_congr_eq (proofIrrel_shift henv ih hpd hwwa hwwb) ?_
+  rintro rpi -
+  refine ite_congr' (fun _ => rfl) (fun _ => ?_)
   -- literal acceleration branches
   refine bind_congr (Option.map (shiftFrom p))
     (reduceNat_shift henv ih hpd hwwa) ?_

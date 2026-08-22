@@ -1342,6 +1342,9 @@ def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM Bo
     let a' ← r.whnfCore depth a
     let b' ← r.whnfCore depth b
     if a' == b' then pure true else
+    -- proof irrelevance hoisted before lazy delta, as in the spec
+    -- (and the official kernel)
+    if ← proofIrrelI r fe depth a' b' then pure true else
     match ← reduceNatI r fe depth a' with
     | some a₂ => r.defeq depth a₂ b'
     | none =>

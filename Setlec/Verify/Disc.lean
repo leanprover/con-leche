@@ -1299,6 +1299,9 @@ theorem defeqBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
   refine DiscV.bind (ih.site_whnfCore henv hwb) (fun b' hb' => ?_)
   split
   · exact DiscV.pure trivial
+  refine DiscV.bind (proofIrrel_disc ih henv ha' hb') (fun rpi _ => ?_)
+  split
+  · exact DiscV.pure trivial
   refine DiscV.bind (reduceNat_disc ih henv ha') (fun o₁ ho₁ => ?_)
   split
   · exact ih.site_defeq (ho₁ _ rfl) hb'

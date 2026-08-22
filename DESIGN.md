@@ -913,6 +913,19 @@ already the value's interpretation), and `unfoldDefinition_sound`
 consumes either `defn_eq` or `thm_ok`.  E2e fixture:
 `subject_reduction_redex.ndjson`.
 
+With theorems unfoldable, the earlier deviation of keeping proof
+irrelevance only in the stuck fallback (design-review triage) became
+expensive: proof-typed comparisons delta-ground through proof bodies
+before the fallback could fire (init-prelude probe 167.9 G → 227.3 G
+instructions).  `defeqBody` therefore now runs `proofIrrel` right
+after the `whnfCore` fast path and before lazy delta — exactly the
+official kernel's `is_def_eq_proof_irrel` position — recovering to
+205.2 G / 15.6 s; the residual ≈ +22 % over the pre-#66 numbers is
+the price of actually performing the reference kernels' theorem
+delta (majors and proof arguments now reduce where they used to stay
+stuck).  The stuck-fallback copy stays (memoized) for sides rewritten
+by a reduction step after the hoist ran.
+
 ### Memory blowups: DAG budget and OOM supervision (2026-08-22, task #65)
 
 Findings from the arena `good/perf` OOM pair:

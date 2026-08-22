@@ -31,7 +31,7 @@ theorem defeq_claims (m : EnvModel V env)
   rw [isDefEqCore_succ] at h
   simp only [defeqBody, Bind.bind, Except.bind] at h
   simp only [whnfCore_def, whnf_def, defeq_def, infer_def, stuckIrrel_fold,
-    etaCert_fold, reduceNat_fold, defeqSpine_fold] at h
+    etaCert_fold, reduceNat_fold, defeqSpine_fold, proofIrrel_fold] at h
   by_cases heqab : (a == b) = true
   · obtain rfl : a = b := eq_of_beq heqab
     rw [hva] at hvb
@@ -71,6 +71,22 @@ theorem defeq_claims (m : EnvModel V env)
     rw [hva] at hvb
     exact Option.some.inj hvb
   rw [if_neg heqab'] at h
+  -- proof irrelevance, hoisted before lazy delta (official kernel
+  -- order): a positive certification collapses both sides to `pt`
+  cases hpi : proofIrrelP env fuel d a' b' with
+  | error e => rw [hpi] at h; exact nomatch h
+  | ok rpi =>
+  rw [hpi] at h
+  dsimp only at h
+  cases rpi with
+  | true =>
+    obtain ⟨hpa, hpb⟩ := proofIrrel_pt ihw ihi hpi hwa' hwb' hba' hbb'
+      hLba' hLbb' hoka' hokb' haa' hab'
+    rw [hva] at hpa
+    rw [hvb] at hpb
+    exact (Option.some.inj hpa).trans (Option.some.inj hpb).symm
+  | false =>
+  simp only [Bool.false_eq_true, ↓reduceIte] at h
   -- literal acceleration before delta (mirrors the whnf loop order)
   cases hrna : reduceNatP env fuel d a' with
   | error e => rw [hrna] at h; exact nomatch h
