@@ -589,6 +589,158 @@ decreasing_by all_goals first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact
 def constsResolveI (st : EStore) (env : Env) (e : EIdx) : Bool :=
   (constsResolveIGo st env {} e).1
 
+/-!
+## Spine and telescope operations (task #26)
+
+The remaining `Expr` operations the interned checker core
+(`Setlec/Kernel/CoreI.lean`) needs.  Each mirrors its `Setlec.Expr`
+counterpart exactly; traversals into child indices use the
+`if _h : c < e` guards for unconditional termination (the guards never
+fail on well-formed stores — `Setlec/Verify/IExprOps.lean`).
+-/
+
+/-- Interned counterpart of `Expr.getAppFn`. -/
+def getAppFnI (st : EStore) (e : EIdx) : EIdx :=
+  match st.nodes[e]? with
+  | some (.app f _) => if _h : f < e then getAppFnI st f else e
+  | _ => e
+termination_by e
+
+/-- Interned counterpart of `Expr.getAppArgs` (outermost last). -/
+def getAppArgsI (st : EStore) (e : EIdx) : List EIdx :=
+  match st.nodes[e]? with
+  | some (.app f a) => if _h : f < e then getAppArgsI st f ++ [a] else []
+  | _ => []
+termination_by e
+
+/-- Interned counterpart of `Expr.mkAppN`. -/
+def mkAppNI (st : EStore) (f : EIdx) : List EIdx → EIdx × EStore
+  | [] => (f, st)
+  | a :: as =>
+    let (fa, st) := st.intern (.app f a)
+    mkAppNI st fa as
+
+/-- Interned counterpart of `Expr.instSpine`. -/
+def instSpineI (st : EStore) : List EIdx → Nat → EIdx → EIdx × EStore
+  | [], _, e => (e, st)
+  | a :: as, t, e =>
+    let (e', st) := st.instantiate1I e a t
+    instSpineI st as (t - 1) e'
+
+/-- Interned counterpart of `Expr.piResidual` (= `Expr.instPis`: the two
+`Expr` functions have identical equations). -/
+def piResidualI (st : EStore) : EIdx → List EIdx → Option EIdx × EStore
+  | e, [] => (some e, st)
+  | e, a :: as =>
+    match st.nodes[e]? with
+    | some (.forallE _ _ b _) =>
+      let (b', st) := st.instantiate1I b a
+      piResidualI st b' as
+    | _ => (none, st)
+
+/-- Interned counterpart of `Expr.pisToLams`. -/
+def pisToLamsI (st : EStore) : Nat → EIdx → EIdx → Option EIdx × EStore
+  | 0, _, body => (some body, st)
+  | k + 1, e, body =>
+    match st.nodes[e]? with
+    | some (.forallE n ty rest mb) =>
+      match pisToLamsI st k rest body with
+      | (some b, st) =>
+        let (r, st) := st.intern (.lam n ty b ⟨mb.bi, none⟩)
+        (some r, st)
+      | (none, st) => (none, st)
+    | _ => (none, st)
+
+/-- The body after `k` leading `∀`-binders (the second component of
+`Expr.stripPis k`; the interned iota step only tests `isSome` and reads
+the body). -/
+def stripPisBodyI (st : EStore) : Nat → EIdx → Option EIdx
+  | 0, e => some e
+  | k + 1, e =>
+    match st.nodes[e]? with
+    | some (.forallE _ _ b _) => stripPisBodyI st k b
+    | _ => none
+
+/-- Core of `readbackI` (memoized, so shared subterms are rebuilt once
+and share the resulting `Expr` values in memory). -/
+def readbackGo (st : EStore) (memo : Std.HashMap EIdx Expr) (e : EIdx) :
+    Option Expr × Std.HashMap EIdx Expr :=
+  match memo[e]? with
+  | some x => (some x, memo)
+  | none =>
+    match st.nodes[e]? with
+    | none => (none, memo)
+    | some n =>
+      let (r, memo) : Option Expr × Std.HashMap EIdx Expr :=
+        match n with
+        | .bvar i => (some (.bvar i), memo)
+        | .fvar idx nm ty =>
+          if _h : ty < e then
+            match readbackGo st memo ty with
+            | (some t, memo) => (some (.fvar idx nm t), memo)
+            | (none, memo) => (none, memo)
+          else (none, memo)
+        | .sort u => (some (.sort u), memo)
+        | .const n us => (some (.const n us), memo)
+        | .app f a =>
+          if _h : f < e ∧ a < e then
+            match readbackGo st memo f with
+            | (some xf, memo) =>
+              match readbackGo st memo a with
+              | (some xa, memo) => (some (.app xf xa), memo)
+              | (none, memo) => (none, memo)
+            | (none, memo) => (none, memo)
+          else (none, memo)
+        | .lam n ty body mb =>
+          if _h : ty < e ∧ body < e then
+            match readbackGo st memo ty with
+            | (some xt, memo) =>
+              match readbackGo st memo body with
+              | (some xb, memo) => (some (.lam n xt xb mb), memo)
+              | (none, memo) => (none, memo)
+            | (none, memo) => (none, memo)
+          else (none, memo)
+        | .forallE n ty body mb =>
+          if _h : ty < e ∧ body < e then
+            match readbackGo st memo ty with
+            | (some xt, memo) =>
+              match readbackGo st memo body with
+              | (some xb, memo) => (some (.forallE n xt xb mb), memo)
+              | (none, memo) => (none, memo)
+            | (none, memo) => (none, memo)
+          else (none, memo)
+        | .letE n ty val body =>
+          if _h : ty < e ∧ val < e ∧ body < e then
+            match readbackGo st memo ty with
+            | (some xt, memo) =>
+              match readbackGo st memo val with
+              | (some xv, memo) =>
+                match readbackGo st memo body with
+                | (some xb, memo) => (some (.letE n xt xv xb), memo)
+                | (none, memo) => (none, memo)
+              | (none, memo) => (none, memo)
+            | (none, memo) => (none, memo)
+          else (none, memo)
+        | .lit l => (some (.lit l), memo)
+        | .proj s i sub =>
+          if _h : sub < e then
+            match readbackGo st memo sub with
+            | (some xs, memo) => (some (.proj s i xs), memo)
+            | (none, memo) => (none, memo)
+          else (none, memo)
+      match r with
+      | some x => (some x, memo.insert e x)
+      | none => (none, memo)
+termination_by e
+decreasing_by all_goals first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h
+
+/-- Read an interned expression back as an `Expr` tree (memoized: the
+rebuilt subtrees are shared in memory).  Agrees with the verification's
+structural denotation on well-formed stores
+(`Setlec/Verify/IExprOps.lean`). -/
+def readbackI (st : EStore) (e : EIdx) : Option Expr :=
+  (readbackGo st {} e).1
+
 end EStore
 
 end Setlec
