@@ -341,6 +341,19 @@ def combiningLI (st : EStore) (a b : LIdx) : LIdx × EStore :=
   | _, _ => st.internL (.max a b)
 termination_by a
 
+/-- The non-collapsing `imax` result of `simplifyLIGo`: dispatch on the
+simplified right side's node. -/
+def simplifyImax (st : EStore) (memo : LMemo) (ls rs : LIdx) :
+    LIdx × EStore × LMemo :=
+  match st.lnodes[rs]? with
+  | some .zero => (rs, st, memo)
+  | some (.succ _) =>
+    let (x, st) := st.combiningLI ls rs
+    (x, st, memo)
+  | _ =>
+    let (x, st) := st.internL (.imax ls rs)
+    (x, st, memo)
+
 /-- Core of `simplifyLI` (interned `Level.simplify`, memoized; the memo
 is parameter-free, so callers may share it across calls — the
 persistent simplify cache of `Setlec/Kernel/CoreI.lean`). -/
@@ -378,15 +391,7 @@ def simplifyLIGo (st : EStore) (memo : LMemo) (u : LIdx) :
               | some (.succ z) => st.lnodes[z]? == some .zero
               | _ => false
             if st.lnodes[ls]? == some .zero || lsIsOne then (rs, st, memo)
-            else
-              match st.lnodes[rs]? with
-              | some .zero => (rs, st, memo)
-              | some (.succ _) =>
-                let (x, st) := st.combiningLI ls rs
-                (x, st, memo)
-              | _ =>
-                let (x, st) := st.internL (.imax ls rs)
-                (x, st, memo)
+            else simplifyImax st memo ls rs
           else (u, st, memo)
       (r, st, memo.insert u r)
 termination_by u

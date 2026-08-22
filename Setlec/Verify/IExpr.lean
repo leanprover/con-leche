@@ -111,7 +111,7 @@ theorem denoteL_node {st : EStore} {u : LIdx} {n : LNode}
   rw [denoteL.eq_def, hn]
   exact denoteLNode_congr fun c h => dif_pos (hc c h)
 
-private theorem dite_denoteL_some {st : EStore} {c u : LIdx} {x : Level}
+theorem dite_denoteL_some {st : EStore} {c u : LIdx} {x : Level}
     (h : (if _h : c < u then st.denoteL c else none) = some x) :
     c < u ∧ st.denoteL c = some x := by
   by_cases hc : c < u <;> simp_all
@@ -788,7 +788,7 @@ theorem internL_denoteL {st : EStore} {n : LNode} (hwf : st.WF)
     exact denoteLNode_congr fun c hcin => hagree c (hc c hcin)
 
 /-- One level-interning step. -/
-private theorem internL_step {st : EStore} {n : LNode} (hwf : st.WF)
+theorem internL_step {st : EStore} {n : LNode} (hwf : st.WF)
     (hc : ∀ c ∈ n.children, c < st.lnodes.size) {a : Level}
     (hd : denoteLNode st.denoteL n = some a) :
     (st.internL n).2.WF ∧ Ext st (st.internL n).2 ∧
