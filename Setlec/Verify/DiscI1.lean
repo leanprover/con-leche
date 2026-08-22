@@ -102,34 +102,25 @@ theorem defEqListI_sim (ih : SSimI env f) {d : Nat} :
           simp only [Bool.false_eq_true, ↓reduceIte]
           exact SimAt.pure hs₁ rfl
 
-theorem iotaCertsI_sim (ih : SSimI env f) {d : Nat} :
-    ∀ {args : List EIdx} {xs : List Expr} {ty : EIdx} {tyx : Expr}
-      {s₀ : IState}, ISOK env s₀ →
-      s₀.store.denote ty = some tyx → WScoped d tyx →
+theorem iotaCertsIAux_sim (ih : SSimI env f) {d : Nat} :
+    ∀ {args : List EIdx} {xs : List Expr} {acc : List EIdx}
+      {ws : List Expr} {ty : EIdx} {tyx : Expr} {s₀ : IState}, ISOK env s₀ →
+      s₀.store.denote ty = some tyx → DenL s₀.store acc ws →
+      WScoped d (tyx.instantiateList ws) →
       DenL s₀.store args xs → (∀ x ∈ xs, WScoped d x) →
-      SimAt env s₀ RelV (iotaCertsI (coreKnotI (mkFEnv env) f) (mkFEnv env) d ty args)
-        (iotaCerts (fueledFns env) env d tyx xs) := by
-  intro args
-  induction args with
-  | nil =>
-    intro xs ty tyx s₀ hs hty hwty hargs _
+      SimAt env s₀ RelV
+        (iotaCertsIAux (coreKnotI (mkFEnv env) f) (mkFEnv env) d ty acc args)
+        (iotaCerts (fueledFns env) env d (tyx.instantiateList ws) xs)
+  | [], xs, acc, ws, ty, tyx, s₀, hs, hty, hacc, hwty, hargs, hwargs => by
     match xs, hargs with
-    | [], _ => exact SimAt.pure hs rfl
-  | cons a as iha =>
-    intro xs ty tyx s₀ hs hty hwty hargs hwargs
+    | [], _ =>
+      rw [iotaCertsIAux.eq_def]
+      dsimp only
+      exact SimAt.pure hs rfl
+  | a :: as, xs, acc, ws, ty, tyx, s₀, hs, hty, hacc, hwty, hargs, hwargs => by
     match xs, hargs with
     | x :: xs, ⟨hax, hasxs⟩ =>
-      show SimAt env s₀ RelV
-        (viewI ty >>= fun n =>
-          match n with
-          | some (.forallE _ dom body _) => do
-            let ta ← (coreKnotI (mkFEnv env) f).infer d a
-            if ← (coreKnotI (mkFEnv env) f).defeq d ta dom then do
-              let body' ← inst1M body a
-              iotaCertsI (coreKnotI (mkFEnv env) f) (mkFEnv env) d body' as
-            else pure false
-          | _ => pure false)
-        (iotaCerts (fueledFns env) env d tyx (x :: xs))
+      rw [iotaCertsIAux.eq_def]
       refine SimAt.view ?_
       obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hty
       rw [hn]
@@ -139,57 +130,109 @@ theorem iotaCertsI_sim (ih : SSimI env f) {d : Nat} :
         obtain ⟨et, hth, hd⟩ := hd
         rw [Option.map_eq_some_iff] at hd
         obtain ⟨eb, hbh, rfl⟩ := hd
-        have hwtb : WScoped d et ∧ WScoped d eb := by
+        rw [show (Expr.forallE nm et eb m).instantiateList ws
+            = .forallE nm (et.instantiateList ws)
+                (eb.instantiateList ws 1) m by
+          simp [Expr.instantiateList]] at hwty ⊢
+        have hwtb : WScoped d (et.instantiateList ws)
+            ∧ WScoped d (eb.instantiateList ws 1) := by
           simpa only [WScoped] using hwty
         show SimAt env s₀ RelV
-          ((coreKnotI (mkFEnv env) f).infer d a >>= fun ta =>
-            (coreKnotI (mkFEnv env) f).defeq d ta t >>= fun r =>
-            if r then inst1M b a >>= fun body' =>
-              iotaCertsI (coreKnotI (mkFEnv env) f) (mkFEnv env) d body' as
+          (instListM t acc >>= fun dom' =>
+            (coreKnotI (mkFEnv env) f).infer d a >>= fun ta =>
+            (coreKnotI (mkFEnv env) f).defeq d ta dom' >>= fun r =>
+            if r then iotaCertsIAux (coreKnotI (mkFEnv env) f)
+              (mkFEnv env) d b (a :: acc) as
             else pure false)
           ((fueledFns env).infer d x >>= fun ta =>
-            (fueledFns env).defeq d ta et >>= fun r =>
-            if r then iotaCerts (fueledFns env) env d (eb.instantiate1 x) xs
+            (fueledFns env).defeq d ta (et.instantiateList ws) >>= fun r =>
+            if r then iotaCerts (fueledFns env) env d
+              ((eb.instantiateList ws 1).instantiate1 x) xs
             else pure false)
         have hwx : WScoped d x := hwargs x (List.mem_cons_self ..)
-        refine SimAt.bind (ih.infer hs hax hwx)
-          (fun s₁ ta tax hs₁ hext₁ hP => ?_)
+        refine SimAt.bind_left (instListM_eff (d := 0) hs hth hacc)
+          (fun s₁ dom' hs₁ hext₁ hQdom => ?_)
+        refine SimAt.bind (ih.infer hs₁ (denote_mono hext₁ hax) hwx)
+          (fun s₂ ta tax hs₂ hext₂ hP => ?_)
         obtain ⟨htax, hwtax⟩ := hP
-        refine SimAt.bind (ih.defeq hs₁ htax (denote_mono hext₁ hth)
-          hwtax hwtb.1) (fun s₂ rb r hs₂ hext₂ hP₂ => ?_)
+        refine SimAt.bind (ih.defeq hs₂ htax
+          (denote_mono hext₂ hQdom) hwtax hwtb.1)
+          (fun s₃ rb r hs₃ hext₃ hP₂ => ?_)
         obtain rfl : rb = r := hP₂
         cases rb with
         | true =>
           simp only [↓reduceIte]
-          refine SimAt.bind_left (inst1M_eff hs₂
-            (denote_mono (hext₁.trans hext₂) hbh)
-            (denote_mono (hext₁.trans hext₂) hax))
-            (fun s₃ body' hs₃ hext₃ hQ => ?_)
-          exact iha hs₃ hQ (WScoped.instantiate1_gen hwx 0 hwtb.2)
-            (hasxs.mono ((hext₁.trans hext₂).trans hext₃))
+          rw [← Expr.instantiateList_cons]
+          have hextAll := (hext₁.trans hext₂).trans hext₃
+          refine iotaCertsIAux_sim ih hs₃
+            (denote_mono hextAll hbh)
+            ⟨denote_mono hextAll hax, hacc.mono hextAll⟩
+            ?_ (hasxs.mono hextAll)
             (fun x' hx' => hwargs x' (List.mem_cons_of_mem _ hx'))
+          rw [Expr.instantiateList_cons]
+          exact WScoped.instantiate1_gen hwx 0 hwtb.2
         | false =>
           simp only [Bool.false_eq_true, ↓reduceIte]
-          exact SimAt.pure hs₂ rfl
-      | bvar k => cases hd; exact SimAt.pure hs rfl
-      | sort u => cases hd; exact SimAt.pure hs rfl
-      | const nm us => cases hd; exact SimAt.pure hs rfl
-      | lit l => cases hd; exact SimAt.pure hs rfl
+          exact SimAt.pure hs₃ rfl
+      | bvar k =>
+        cases hd
+        match hacceq : acc, ws, hacc with
+        | [], [], _ =>
+          rw [Expr.instantiateList_nil]
+          exact SimAt.pure hs rfl
+        | a' :: acc', w :: ws', hacc =>
+          show SimAt env s₀ RelV
+            (instListM ty (a' :: acc') >>= fun ty' =>
+              iotaCertsIAux (coreKnotI (mkFEnv env) f) (mkFEnv env)
+                d ty' [] (a :: as))
+            (iotaCerts (fueledFns env) env d
+              ((Expr.bvar k).instantiateList (w :: ws')) (x :: xs))
+          refine SimAt.bind_left (instListM_eff (d := 0) hs hty hacc)
+            (fun s₁ ty' hs₁ hext₁ hQty => ?_)
+          have := iotaCertsIAux_sim ih (acc := []) (ws := [])
+            (args := a :: as) (xs := x :: xs) hs₁ hQty DenL.nil
+            (by rw [Expr.instantiateList_nil]; exact hwty)
+            (⟨denote_mono hext₁ hax, hasxs.mono hext₁⟩) hwargs
+          rwa [Expr.instantiateList_nil] at this
+      | sort u =>
+        cases hd
+        rw [show (Expr.sort u).instantiateList ws = .sort u by
+          simp [Expr.instantiateList]]
+        exact SimAt.pure hs rfl
+      | const nm us =>
+        cases hd
+        rw [show (Expr.const nm us).instantiateList ws = .const nm us by
+          simp [Expr.instantiateList]]
+        exact SimAt.pure hs rfl
+      | lit l =>
+        cases hd
+        rw [show (Expr.lit l).instantiateList ws = .lit l by
+          simp [Expr.instantiateList]]
+        exact SimAt.pure hs rfl
       | fvar idx nm t =>
         rw [denoteNode, Option.map_eq_some_iff] at hd
         obtain ⟨t', _, rfl⟩ := hd
+        rw [show (Expr.fvar idx nm t').instantiateList ws
+            = .fvar idx nm t' by simp [Expr.instantiateList]]
         exact SimAt.pure hs rfl
       | app f' a' =>
         rw [denoteNode, Option.bind_eq_some_iff] at hd
         obtain ⟨ef, _, hd⟩ := hd
         rw [Option.map_eq_some_iff] at hd
         obtain ⟨ea, _, rfl⟩ := hd
+        rw [show (Expr.app ef ea).instantiateList ws
+            = .app (ef.instantiateList ws) (ea.instantiateList ws) by
+          simp [Expr.instantiateList]]
         exact SimAt.pure hs rfl
       | lam nm t b m =>
         rw [denoteNode, Option.bind_eq_some_iff] at hd
         obtain ⟨et, _, hd⟩ := hd
         rw [Option.map_eq_some_iff] at hd
         obtain ⟨eb, _, rfl⟩ := hd
+        rw [show (Expr.lam nm et eb m).instantiateList ws
+            = .lam nm (et.instantiateList ws)
+                (eb.instantiateList ws 1) m by
+          simp [Expr.instantiateList]]
         exact SimAt.pure hs rfl
       | letE nm t v b =>
         rw [denoteNode, Option.bind_eq_some_iff] at hd
@@ -198,11 +241,37 @@ theorem iotaCertsI_sim (ih : SSimI env f) {d : Nat} :
         obtain ⟨ev, _, hd⟩ := hd
         rw [Option.map_eq_some_iff] at hd
         obtain ⟨eb, _, rfl⟩ := hd
+        rw [show (Expr.letE nm et ev eb).instantiateList ws
+            = .letE nm (et.instantiateList ws) (ev.instantiateList ws)
+                (eb.instantiateList ws 1) by
+          simp [Expr.instantiateList]]
         exact SimAt.pure hs rfl
       | proj s' j e' =>
         rw [denoteNode, Option.map_eq_some_iff] at hd
         obtain ⟨ee, _, rfl⟩ := hd
+        rw [show (Expr.proj s' j ee).instantiateList ws
+            = .proj s' j (ee.instantiateList ws) by
+          simp [Expr.instantiateList]]
         exact SimAt.pure hs rfl
+termination_by args _ acc => (args.length, acc.length)
+decreasing_by
+  · apply Prod.Lex.right'
+    · simp
+    · rw [hacceq]; simp
+  · apply Prod.Lex.left; simp
+
+theorem iotaCertsI_sim (ih : SSimI env f) {d : Nat} :
+    ∀ {args : List EIdx} {xs : List Expr} {ty : EIdx} {tyx : Expr}
+      {s₀ : IState}, ISOK env s₀ →
+      s₀.store.denote ty = some tyx → WScoped d tyx →
+      DenL s₀.store args xs → (∀ x ∈ xs, WScoped d x) →
+      SimAt env s₀ RelV (iotaCertsI (coreKnotI (mkFEnv env) f) (mkFEnv env) d ty args)
+        (iotaCerts (fueledFns env) env d tyx xs) := by
+  intro args xs ty tyx s₀ hs hty hwty hargs hwargs
+  have := iotaCertsIAux_sim ih (acc := []) (ws := []) hs hty DenL.nil
+    (by rw [Expr.instantiateList_nil]; exact hwty) hargs hwargs
+  rw [Expr.instantiateList_nil] at this
+  exact this
 
 end Walks
 

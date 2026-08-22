@@ -1921,3 +1921,79 @@ artifacts included; `_tmp/perfcmp/`):
 Perf attribution and the fix stack (Env index −30 %, interning,
 per-declaration cache sharing, per-fire iota certification) are in the
 2026-08-22 performance-audit notes (tasks #26, #49, #50).
+
+## Bulk instantiation, lean4lean-style (task #50)
+
+Chains of `instantiate1` that consume an argument spine copied the
+whole codomain/body once per argument (lean4lean defers and
+substitutes n arguments in one `instantiateRevRange` traversal).  The
+bulk entry points:
+
+* **`Expr.instantiateList e vs d`** (`Setlec/Kernel/ExprOps.lean`) —
+  substitute the whole replacement list in one traversal, `vs[0]` for
+  `bvar d` (innermost binder first — the natural accumulator order
+  when peeling a telescope outermost-first).  Its semantics is **by
+  construction the `instantiate1` fold**:
+  `instantiateList e (v :: vs) d = (instantiateList e vs (d+1)).instantiate1 v d`
+  holds *unconditionally* (`Setlec/Verify/InstList.lean`; a `bvar` hit
+  recurses into its replacement with the earlier-listed entries,
+  reproducing what the fold does on open replacements — identity on
+  the `bvar`-closed replacements every call site passes).  Companion
+  equations: `_nil`, `_append_one` (snoc), and
+  `instSpine_eq_instantiateList` for the descending-cursor form.
+* **`EStore.instantiateListI`** (`Setlec/Kernel/IExpr.lean`) — the
+  interned twin, one memoized DAG traversal keyed
+  `(node, live-prefix, cursor)` (nanoda's `ExprCache` discipline);
+  `instantiateListIGo_spec` commutes it with `denote`.
+
+**Converted sites** (interned executables only; the `Expr`-level
+bodies stay the spec, so Model/Verify statements are unchanged):
+
+* `piResidualI`, `instSpineI` (spanning shape), `iotaCertsI` — peel
+  the raw telescope with an argument accumulator, substitute domains
+  (small) per argument and the residual once; spec/sim statements kept
+  (`piResidualI_spec`, `iotaCertsI_sim`), so all call sites and the
+  Model layer are untouched.  `getAppArgsI` also went accumulator
+  (linear instead of quadratic append).
+* **`whnfCoreBodyI`'s beta** (`whnfAppI`/`betaPeelI`,
+  `Setlec/Kernel/CoreI.lean`): the app case normalizes the spine head
+  once and consumes the whole spine in a loop, batching consecutive
+  λ-binders into one substitution (possibly-Prop certificates still
+  run per binder, against the bulk-substituted *domain* only).
+* **`inferBodyI`'s app case** (`inferSpineI`): the Π-telescope is
+  walked with deferred substitution; syntactic `∀`s are peeled
+  without copying the codomain, `whnf` runs only when the telescope
+  is not syntactic (on a syntactic `∀` it is the identity).
+
+**Verification seam** (`Setlec/Verify/BetaSpine.lean` + the reworked
+walks in `DiscI4`): the loops have pure mirrors (`whnfApp`/`betaPeel`/
+`inferSpine`, generic over the core record), and a *soundness of the
+loop against the chained spec*: a successful loop run at the pure
+fueled knot is reproduced by the original one-argument-at-a-time body
+at some fuel (`whnfApp_sound_body`, `inferSpine_sound_body`).  The
+crux is a snoc decomposition (`whnfApp_snoc` …): peeling the last
+argument off a loop run yields a loop run of the prefix followed by
+one body step, with `instantiateList_cons` splitting the bulk
+substitutions and every mirror fuel-monotone via its `_atF` equation.
+The interned walks compose their simulation against the mirror with
+`SimAt.wr` (weaken the fueled side by a value-level implication) —
+the `Expr`-level bodies, all Model/Core proofs, the claims, and the
+bridge statements are untouched.  Observable change: none in verdicts
+or stuck shapes (the loop replays exactly the per-level checks, in
+order); the interned knot consumes *less recursion depth* per spine
+(the per-prefix `whnfCore`/`infer` levels collapse into one loop),
+which only matters within 100000 of `checkFuel` exhaustion.
+
+**Measured** (init-prelude probe, `perf stat` instructions primary):
+306.3 G / 26.2 s baseline → 301.7 G after the telescope helpers →
+**285.1 G / 24.6 s** after the beta/infer spine loops (−6.9 %
+instructions, −6 % wall); verdicts identical everywhere (90/92 arena
++ e2e 27/27; arena suite wall unchanged within noise, dominated by
+per-test process startup).  Site attribution
+beforehand (per-site clones of `instantiate1IGo`): beta chains 3.3 %
+self + memo share, binder opens 2.8 %, infer-app 0.6 %, iotaCerts
+0.3 %, telescope helpers 0.1 %.  The remaining instantiation cost is
+binder *opening* (`fvar` substitution when descending under λ/∀ in
+infer/defeq/annotate, one pass per binder) — batching those needs
+lean4lean's `inferLambda`-style telescope loops across knot bodies, a
+follow-up of the same shape as the beta loop.
