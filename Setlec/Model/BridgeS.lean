@@ -510,4 +510,291 @@ theorem checkIndRecsS_run {blockNames : List Name} {env₂ : Env}
     simp only [Bind.bind, Except.bind]
     exact hF₂M
 
+/-! ## The projection phases -/
+
+/-- The projection-function install (mirrors `checkProjFn`). -/
+theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
+    {T ctorName : Name} {lps : List Name} {nP nF i : Nat}
+    {s₀ : IState} (hs : ISOK env s₀) {fe' : FEnv} {s' : IState}
+    (h : checkProjFnS (mkFEnv env) T ctorName lps nP nF i s₀ =
+      .ok (fe', s')) :
+    s'.store.WF ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
+    ∃ F, (checkProjFn fueledOpsM env T ctorName lps nP nF i).val F =
+      .ok fe'.env := by
+  unfold checkProjFnS at h
+  obtain ⟨pr, s₁, hlk, h⟩ := bindI_ok h
+  obtain ⟨hs₁, hext₁, pr', hPlk, F₀, hFlk⟩ :=
+    (checkProjLookupsS_sim hs) pr s₁ hlk
+  obtain rfl : pr = pr' := hPlk
+  obtain ⟨cvj, mcv⟩ := pr
+  obtain ⟨pty, s₂, hty, h⟩ := bindI_ok h
+  obtain ⟨hs₂, hext₂, pty', hPty, F₀', hFty⟩ :=
+    (checkProjTyS_sim hs₁) pty s₂ hty
+  obtain rfl : pty = pty' := hPty
+  by_cases hi : i < nF
+  case neg =>
+    rw [if_neg hi] at h
+    exact absurd h throwI_bind_ok
+  rw [if_pos hi] at h
+  obtain ⟨rhsA, s₃, hrule, h⟩ := bindI_ok h
+  obtain ⟨hs₃, hext₃, rhsA', hPr, F₁, hFr⟩ :=
+    (checkProjRuleS_sim henv hs₂) rhsA s₃ hrule
+  obtain rfl : rhsA = rhsA' := hPr
+  obtain ⟨u, s₄, hio, h⟩ := bindI_ok h
+  obtain ⟨hs₄, hext₄, u', hPu, F₂, hFio⟩ :=
+    (checkProjIotaS_sim hs₃) u s₄ hio
+  obtain ⟨hfe, rfl⟩ := pureI_ok h
+  subst hfe
+  -- the ops-free stages, `CheckM`-level
+  have hLKc : (checkProjLookups env T ctorName lps nP nF i :
+      CheckM _) = .ok (cvj, mcv) := by
+    rw [← checkProjLookups_datF (F := F₀)]
+    exact hFlk
+  have hTYc : (checkProjTy env T ctorName lps mcv.type nP nF :
+      CheckM _) = .ok pty := by
+    rw [← checkProjTy_datF (F := F₀')]
+    exact hFty
+  have hIOc : (checkProjIota env T ctorName lps cvj nP nF i :
+      CheckM _) = .ok u := by
+    rw [← checkProjIota_datF (F := F₂)]
+    exact hFio
+  have hFrp : checkProjRule (fueledOps F₁) env cvj lps nP nF i =
+      .ok rhsA := by
+    rw [← checkProjRule_datF]
+    exact hFr
+  have hFnp : checkProjFn (fueledOps F₁) env T ctorName lps nP nF i =
+      .ok (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
+        [⟨ctorName, nF, nP, if Expr.recRulePlain pty nP nP nP then
+          .plain else .inert, rhsA⟩] :: env.consts⟩ : Env) := by
+    unfold checkProjFn
+    show ((checkProjLookups env T ctorName lps nP nF i :
+      CheckM _) >>= _) = _
+    rw [hLKc]
+    simp only [Bind.bind, Except.bind]
+    show ((checkProjTy env T ctorName lps mcv.type nP nF :
+      CheckM _) >>= _) = _
+    rw [hTYc]
+    simp only [Bind.bind, Except.bind]
+    try dsimp only
+    rw [if_pos hi]
+    show (checkProjRule (fueledOps F₁) env cvj lps nP nF i >>= _) = _
+    rw [hFrp]
+    simp only [Bind.bind, Except.bind]
+    show ((checkProjIota env T ctorName lps cvj nP nF i :
+      CheckM _) >>= _) = _
+    rw [hIOc]
+    simp only [Bind.bind, Except.bind]
+    rfl
+  have hFn : (checkProjFn fueledOpsM env T ctorName lps nP nF
+      i).val F₁ = .ok (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
+        [⟨ctorName, nF, nP, if Expr.recRulePlain pty nP nP nP then
+          .plain else .inert, rhsA⟩] :: env.consts⟩ : Env) := by
+    rw [checkProjFn_datF]
+    exact hFnp
+  refine ⟨hs₄.wf, rfl, ?_, F₁, hFn⟩
+  -- the installed projection recursor is well-formed
+  obtain ⟨cvj', mcv', hlk', pty', hty', hi', rhsA', hrule', ⟨_, hio'⟩,
+    heq⟩ := checkProjFn_inv hFnp
+  have heq' := heq
+  simp only [Env.mk.injEq, List.cons.injEq] at heq'
+  obtain ⟨hrecEq, -⟩ := heq'
+  obtain ⟨-, -, hres, hbv, hfv, hlp⟩ := checkProjTy_inv hty'
+  obtain ⟨raw, rb, cb, cbody, hraw, hrf, hrb, hann, halp, hrres, hrbv,
+    hrfv, hsl, hsp, hdm⟩ := checkProjRule_inv hrule'
+  show EnvWF (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
+      [⟨ctorName, nF, nP, if Expr.recRulePlain pty nP nP nP then
+        RecRuleFire.plain else .inert, rhsA⟩] :: env.consts⟩ : Env)
+  rw [show (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
+      [⟨ctorName, nF, nP, if Expr.recRulePlain pty nP nP nP then
+        RecRuleFire.plain else .inert, rhsA⟩] :: env.consts⟩ : Env) =
+    ⟨.recInfo ⟨projFnName T i, lps, pty'⟩ nP nP
+      [⟨ctorName, nF, nP, if Expr.recRulePlain pty' nP nP nP then
+        RecRuleFire.plain else .inert, rhsA'⟩] :: env.consts⟩
+    from by rw [hrecEq]]
+  refine EnvWF.cons henv (constWF_intro' hfv hlp
+    (Expr.constsResolve_mono hres) hbv
+    (fun _ _ _ heq2 => nomatch heq2) ?_)
+  intro cvR mI' rP' rules'' heq2 r hr
+  injection heq2 with e1 e2 e3 e4
+  subst e1
+  subst e4
+  rcases List.mem_singleton.mp hr with rfl
+  refine ⟨hrfv, halp, Expr.constsResolve_mono hrres, hrbv, ?_⟩
+  intro lvls pins hf
+  cases hcond : Expr.recRulePlain pty' nP nP nP <;>
+    simp [hcond] at hf
+
+/-- One projection-function install step. -/
+theorem installProjFnStepS_run {env : Env} (henv : EnvWF env)
+    {T ctorName : Name} {lps : List Name} {nP nF i : Nat}
+    {s₀ : IState} (hwf : s₀.store.WF) {fe' : FEnv} {s' : IState}
+    (h : installProjFnStepS T ctorName lps nP nF (mkFEnv env) i s₀ =
+      .ok (fe', s')) :
+    s'.store.WF ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
+    ∃ F, (installProjFnStep fueledOpsM T ctorName lps nP nF env
+      i).val F = .ok fe'.env := by
+  unfold installProjFnStepS at h
+  rw [mkFEnv_find?] at h
+  by_cases hart : (env.find? (projModelName T i)).isSome = true
+  · rw [if_pos hart] at h
+    obtain ⟨u, s₁, hflush, h⟩ := bindI_ok h
+    rw [flushS_run] at hflush
+    injection hflush with hflush
+    obtain rfl : ({ store := s₀.store } : IState) = s₁ :=
+      congrArg Prod.snd hflush
+    obtain ⟨hwf', hfe', henv', F, hF⟩ :=
+      checkProjFnS_run henv (ISOK.fresh env hwf) h
+    refine ⟨hwf', hfe', henv', F, ?_⟩
+    unfold installProjFnStep
+    rw [FueledM.atF_ite, if_pos hart]
+    exact hF
+  · rw [if_neg hart] at h
+    obtain ⟨hfe, rfl⟩ := pureI_ok h
+    subst hfe
+    refine ⟨hwf, rfl, henv, 0, ?_⟩
+    unfold installProjFnStep
+    rw [FueledM.atF_ite, if_neg hart]
+    rfl
+
+/-- The artifact-phase fold. -/
+theorem foldProjFnS_run {T ctorName : Name} {lps : List Name}
+    {nP nF : Nat} :
+    ∀ (idxs : List Nat) (env : Env) {s₀ : IState} {fe' : FEnv}
+      {s' : IState},
+      EnvWF env → s₀.store.WF →
+      (idxs.foldlM (installProjFnStepS T ctorName lps nP nF)
+        (mkFEnv env)) s₀ = .ok (fe', s') →
+      s'.store.WF ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
+      ∃ F, (idxs.foldlM (installProjFnStep fueledOpsM T ctorName lps
+        nP nF) env).val F = .ok fe'.env
+  | [], env, s₀, fe', s', henv, hwf, h => by
+    obtain ⟨hfe, rfl⟩ := pureI_ok h
+    subst hfe
+    exact ⟨hwf, rfl, henv, 0, rfl⟩
+  | i :: idxs, env, s₀, fe', s', henv, hwf, h => by
+    rw [List.foldlM_cons] at h
+    obtain ⟨fe₁, s₁, hstep, h⟩ := bindI_ok h
+    obtain ⟨hwf₁, hfe₁, henv₁, F₁, hF₁⟩ :=
+      installProjFnStepS_run henv hwf hstep
+    rw [hfe₁] at h
+    obtain ⟨hwf', hfe', henv', F₂, hF₂⟩ :=
+      foldProjFnS_run idxs fe₁.env henv₁ hwf₁ h
+    refine ⟨hwf', hfe', henv', max F₁ F₂, ?_⟩
+    rw [List.foldlM_cons]
+    exact atF_bind_intro hF₁ hF₂
+
+/-- One template install step (operation-free; state unchanged; the
+comparand computed at the `CheckM` instantiation). -/
+theorem installProjTemplateStepS_run {env : Env}
+    {T ctorName : Name} {lps : List Name} {nP nF i : Nat}
+    {s₀ : IState} {fe' : FEnv} {s' : IState}
+    (h : installProjTemplateStepS T ctorName lps nP nF (mkFEnv env) i
+      s₀ = .ok (fe', s')) :
+    s₀ = s' ∧ fe' = mkFEnv fe'.env ∧
+    (installProjTemplateStep T ctorName lps nP nF env i :
+      CheckM Env) = .ok fe'.env := by
+  unfold installProjTemplateStepS installProjTemplateS at h
+  unfold installProjTemplateStep installProjTemplate
+  simp only [mkFEnv_find?] at h
+  by_cases hfn : (env.find? (projFnName T i)).isNone = true
+  case neg =>
+    rw [if_neg hfn] at h ⊢
+    obtain ⟨hfe, rfl⟩ := pureI_ok h
+    subst hfe
+    exact ⟨rfl, rfl, rfl⟩
+  rw [if_pos hfn] at h ⊢
+  cases hrec : env.find? (T.str "rec") with
+  | none =>
+    rw [hrec] at h
+    obtain ⟨hfe, rfl⟩ := pureI_ok h
+    subst hfe
+    exact ⟨rfl, rfl, rfl⟩
+  | some ci =>
+    rw [hrec] at h
+    cases ci with
+    | recInfo cvR mI rP rules =>
+      cases rules with
+      | nil =>
+        obtain ⟨hfe, rfl⟩ := pureI_ok h
+        subst hfe
+        exact ⟨rfl, rfl, rfl⟩
+      | cons rule rules' =>
+        cases rules' with
+        | cons _ _ =>
+          obtain ⟨hfe, rfl⟩ := pureI_ok h
+          subst hfe
+          exact ⟨rfl, rfl, rfl⟩
+        | nil =>
+          dsimp only at h ⊢
+          by_cases hcond : (env.find? (projFnName T i)).isNone =
+              true ∧ mI = rP ∧ rP = nP + 2 ∧ rule.ctor = ctorName ∧
+              i < nF
+          · rw [if_pos hcond] at h ⊢
+            obtain ⟨hfe, rfl⟩ := pureI_ok h
+            subst hfe
+            exact ⟨rfl, rfl, rfl⟩
+          · rw [if_neg hcond] at h ⊢
+            obtain ⟨hfe, rfl⟩ := pureI_ok h
+            subst hfe
+            exact ⟨rfl, rfl, rfl⟩
+    | axiomInfo cv =>
+      obtain ⟨hfe, rfl⟩ := pureI_ok h
+      subst hfe
+      exact ⟨rfl, rfl, rfl⟩
+    | projInfo e =>
+      obtain ⟨hfe, rfl⟩ := pureI_ok h
+      subst hfe
+      exact ⟨rfl, rfl, rfl⟩
+    | defnInfo cv v hint =>
+      obtain ⟨hfe, rfl⟩ := pureI_ok h
+      subst hfe
+      exact ⟨rfl, rfl, rfl⟩
+    | thmInfo cv v =>
+      obtain ⟨hfe, rfl⟩ := pureI_ok h
+      subst hfe
+      exact ⟨rfl, rfl, rfl⟩
+    | indInfo cv caps =>
+      obtain ⟨hfe, rfl⟩ := pureI_ok h
+      subst hfe
+      exact ⟨rfl, rfl, rfl⟩
+    | ctorInfo cv nP' nF' =>
+      obtain ⟨hfe, rfl⟩ := pureI_ok h
+      subst hfe
+      exact ⟨rfl, rfl, rfl⟩
+
+/-- The template-phase fold. -/
+theorem foldProjTemplatesS_run {T ctorName : Name} {lps : List Name}
+    {nP nF : Nat} :
+    ∀ (idxs : List Nat) (env : Env) {s₀ : IState} {fe' : FEnv}
+      {s' : IState},
+      (idxs.foldlM (installProjTemplateStepS T ctorName lps nP nF)
+        (mkFEnv env)) s₀ = .ok (fe', s') →
+      ∃ F, (idxs.foldlM (fun (e : Env) (i : Nat) =>
+        (installProjTemplateStep T ctorName lps nP nF e i :
+          FueledM Env)) env).val F = .ok fe'.env
+  | [], env, s₀, fe', s', h => by
+    obtain ⟨hfe, rfl⟩ := pureI_ok h
+    subst hfe
+    exact ⟨0, rfl⟩
+  | i :: idxs, env, s₀, fe', s', h => by
+    rw [List.foldlM_cons] at h
+    obtain ⟨fe₁, s₁, hstep, h⟩ := bindI_ok h
+    obtain ⟨hs01, hfe₁, hpure⟩ := installProjTemplateStepS_run hstep
+    rw [hfe₁] at h
+    obtain ⟨F₂, hF₂⟩ := foldProjTemplatesS_run idxs fe₁.env h
+    have hstepF : (installProjTemplateStep T ctorName lps nP nF env i :
+        FueledM Env).val F₂ = .ok fe₁.env := by
+      rw [installProjTemplateStep_datF]
+      exact hpure
+    refine ⟨F₂, ?_⟩
+    rw [List.foldlM_cons]
+    have := atF_bind_intro
+      (x := (installProjTemplateStep T ctorName lps nP nF env i :
+        FueledM Env))
+      (g := fun e => idxs.foldlM (fun (e : Env) (i : Nat) =>
+        (installProjTemplateStep T ctorName lps nP nF e i :
+          FueledM Env)) e)
+      hstepF hF₂
+    simpa [Nat.max_self] using this
+
 end Setlec
