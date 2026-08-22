@@ -1,4 +1,4 @@
-import Setlec.Kernel.Checker
+import Setlec.Kernel.CheckerS
 import Setlec.Frontend.Export
 
 /-!
@@ -70,14 +70,14 @@ def main (args : List String) : IO UInt32 := do
         for d in decls do
           IO.println s!"DECL: {d.name}"
           (← IO.getStdout).flush
-          match checkDecl cachedOps env d with
+          match checkDeclShared env d with
           | .ok env' => env := env'
           | .error e =>
             IO.eprintln s!"setlec: {e}"
             return e.exitCode
         IO.println s!"setlec: accepted {env.consts.length} declarations"
         return 0
-      match checkDecls cachedOps decls.toList with
+      match checkDeclsShared decls.toList with
       | .ok env =>
         IO.println s!"setlec: accepted {env.consts.length} declarations"
         return 0
@@ -96,7 +96,7 @@ def main (args : List String) : IO UInt32 := do
         let ctx := Id.run do
           let mut env := Setlec.Env.empty
           for d in decls do
-            match checkDecl cachedOps env d with
+            match checkDeclShared env d with
             | .ok env' => env := env'
             | .error _ => return s!" [at {declName d}]"
           return ""
