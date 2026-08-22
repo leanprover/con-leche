@@ -267,7 +267,13 @@ theorem Expr.constsResolve_le {envA envB : Env}
       intro h
       simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
       exact ⟨⟨hf _ h.1.1, hf _ h.1.2⟩, hf _ h.2⟩
-    | strVal s => intro h; simp [Expr.constsResolve]
+    | strVal s =>
+      intro h
+      simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
+      exact ⟨⟨⟨⟨⟨⟨⟨⟨⟨hf _ h.1.1.1.1.1.1.1.1.1, hf _ h.1.1.1.1.1.1.1.1.2⟩,
+        hf _ h.1.1.1.1.1.1.1.2⟩, hf _ h.1.1.1.1.1.1.2⟩,
+        hf _ h.1.1.1.1.1.2⟩, hf _ h.1.1.1.1.2⟩, hf _ h.1.1.1.2⟩,
+        hf _ h.1.1.2⟩, hf _ h.1.2⟩, hf _ h.2⟩
   | fvar idx nm ty ih =>
     intro h
     simp only [Expr.constsResolve] at h ⊢
@@ -551,6 +557,14 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
       (fun ci => ci.toConstantVal.levelParams) =
       (envS.find? n).map (fun ci => ci.toConstantVal.levelParams) :=
     fun n => (henvLev n).symm
+  have htoCV : ∀ n, (envS.find? n).map ConstantInfo.toConstantVal =
+      (env₃.find? n).map ConstantInfo.toConstantVal := by
+    intro n
+    rcases hcorr n with heq | ⟨cv, a', b', c', hS0, h30, -⟩
+    · rw [heq]
+    · rw [hS0, h30]; rfl
+  have hstr : strLitSupported envS = strLitSupported env₃ :=
+    strLitSupported_env_ext htoCV hnat
   -- the rule right-hand side's truthfulness, transported up
   have hArhsS : ∀ ψ : Name → Nat,
       AnnotOk V mS.val envS ψ 0 (rho0 V) (RecRule.rhs r) := by
@@ -558,7 +572,7 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
     exact annotate_sound mS raw hann (WScoped.of_not_hasFvar hrawf)
       hrawb (Expr.LeavesBounded.of_not_hasFvar hrawf) (rho0 V)
       (FvarsOk.of_not_hasFvar hrawf)
-  refine ⟨fun ψ => AnnotOk.env_ext henvLev hnat _ 0 (rho0 V)
+  refine ⟨fun ψ => AnnotOk.env_ext henvLev hnat hstr _ 0 (rho0 V)
     (hArhsS ψ), ?_, ?_⟩
   · intro hpt
     exact recRulePlain_le_mI (hpl ▸ hpt)
@@ -690,11 +704,11 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
     hdeRhs hstripR hrhsf hrhsb hArhsS hIrhs htyw htyb htyps hAty hIty
     hCw hCb hCps hACty hICty
     (recRulePlain_le hplain) hl hml htv hpeq hlev
-    (TeleFit.env_levelext henvLev' hnat.symm hf1)
-    (TeleFit.env_levelext henvLev' hnat.symm hf2)
+    (TeleFit.env_levelext henvLev' hnat.symm hstr.symm hf1)
+    (TeleFit.env_levelext henvLev' hnat.symm hstr.symm hf2)
     (by
       rw [← mapM_interp_congr (fun e =>
-        interp_env_ext henvLev' hnat.symm e dd₂ ρρ₂)]
+        interp_env_ext henvLev' hnat.symm hstr.symm e dd₂ ρρ₂)]
       exact hidx)
   obtain ⟨Rv, hRi, hfoldEq, hRch⟩ := hfold
   rw [hcp]
@@ -702,7 +716,7 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
   show interpClosed V mS.val env₃ (Level.substFn φ' cvA.levelParams us)
     (RecRule.rhs r) = some Rv
   unfold interpClosed
-  rw [← interp_env_ext henvLev hnat (RecRule.rhs r) 0 (rho0 V)]
+  rw [← interp_env_ext henvLev hnat hstr (RecRule.rhs r) 0 (rho0 V)]
   exact hRi
 
 theorem SwapList.of_eq {env₃ : Env} {val : ConstVal V} :

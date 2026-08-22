@@ -2989,7 +2989,15 @@ theorem constsResolveIGo_spec {st : EStore} {env : Env} (hwf : st.WF) :
             have hx : st.denote e = some (.lit (.strVal sv)) := by
               rw [hde]; rfl
             have hcond : ∀ x, st.denote e = some x →
-                true = x.constsResolve env := by
+                ((env.find? natName).isSome && (env.find? natZeroName).isSome &&
+                  (env.find? natSuccName).isSome &&
+                  (env.find? stringName).isSome &&
+                  (env.find? stringOfListName).isSome &&
+                  (env.find? listName).isSome &&
+                  (env.find? listNilName).isSome &&
+                  (env.find? listConsName).isSome &&
+                  (env.find? charName).isSome &&
+                  (env.find? charOfNatName).isSome) = x.constsResolve env := by
               intro x hxx
               rw [hx] at hxx; cases hxx
               simp [Expr.constsResolve]

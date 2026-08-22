@@ -543,16 +543,29 @@ theorem annotateCore_leaves_sub {env : Env} :
   | fuel + 1, .lit l, d, e', h, _, _ => by
     rw [annotateCore_succ] at h
     match l, h with
-    | .natVal n, h => ?_
-    dsimp only [annotateBody] at h
-    revert h
-    split
-    case isFalse =>
-      intro h
-      simp [throw, throwThe, MonadExceptOf.throw] at h
-    case isTrue =>
-      intro h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      subst h; intro l' hl'; exact hl' 
+    | .natVal n, h => ?natCase
+    | .strVal sv, h => ?strCase
+    case strCase =>
+      dsimp only [annotateBody] at h
+      revert h
+      split
+      case isFalse =>
+        intro h
+        simp [throw, throwThe, MonadExceptOf.throw] at h
+      case isTrue =>
+        intro h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        subst h; intro l' hl'; exact hl'
+    case natCase =>
+      dsimp only [annotateBody] at h
+      revert h
+      split
+      case isFalse =>
+        intro h
+        simp [throw, throwThe, MonadExceptOf.throw] at h
+      case isTrue =>
+        intro h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        subst h; intro l' hl'; exact hl'
 
 end Setlec

@@ -589,7 +589,33 @@ theorem defeq_claims (m : EnvModel V env)
     | k + 1, .letE _ _ _ _, h => exact hPI h
     | k + 1, .lit _, h => exact hPI h
     | k + 1, .proj _ _ _, h => exact hPI h
-  | Expr.lit (.strVal _), Expr.app _ _, h => exact hPI h
+  | Expr.lit (.strVal st), Expr.app f x, h =>
+    match f, h with
+    | .const cO usO, h =>
+      dsimp only at h
+      split at h
+      case isTrue hc =>
+        obtain ⟨rfl, rfl, hs⟩ := hc
+        have hLbS : Expr.LeavesBounded (strLitToConstructor st) :=
+          fun l hl => by
+            rw [strLitToConstructor_fvarLeaves] at hl
+            cases hl
+        refine ihd h (strLitToConstructor_WScoped st d) hwb'
+          (strLitToConstructor_looseBVars st 0) hbb' hLbS hLbb'
+          (FvarsOk.of_not_hasFvar (strLitToConstructor_hasFvar st)) hokb'
+          (annotOk_strLitToConstructor m hs) hab' ?_ hvb
+        rw [interpExpr_strLitToConstructor hs]
+        exact hva
+      case isFalse => exact hPI h
+    | .bvar _, h => exact hPI h
+    | .fvar _ _ _, h => exact hPI h
+    | .sort _, h => exact hPI h
+    | .app _ _, h => exact hPI h
+    | .lam _ _ _ _, h => exact hPI h
+    | .forallE _ _ _ _, h => exact hPI h
+    | .letE _ _ _ _, h => exact hPI h
+    | .lit _, h => exact hPI h
+    | .proj _ _ _, h => exact hPI h
   | Expr.lit _, Expr.bvar _, h => exact hPI h
   | Expr.lit _, Expr.letE _ _ _ _, h => exact hPI h
   | Expr.lit l₁, Expr.lit l₂, h =>
@@ -670,7 +696,33 @@ theorem defeq_claims (m : EnvModel V env)
     | k + 1, .letE _ _ _ _, h => exact hPI h
     | k + 1, .lit _, h => exact hPI h
     | k + 1, .proj _ _ _, h => exact hPI h
-  | Expr.app _ _, Expr.lit (.strVal _), h => exact hPI h
+  | Expr.app f x, Expr.lit (.strVal st), h =>
+    match f, h with
+    | .const cO usO, h =>
+      dsimp only at h
+      split at h
+      case isTrue hc =>
+        obtain ⟨rfl, rfl, hs⟩ := hc
+        have hLbS : Expr.LeavesBounded (strLitToConstructor st) :=
+          fun l hl => by
+            rw [strLitToConstructor_fvarLeaves] at hl
+            cases hl
+        refine ihd h hwa' (strLitToConstructor_WScoped st d)
+          hba' (strLitToConstructor_looseBVars st 0) hLba' hLbS hoka'
+          (FvarsOk.of_not_hasFvar (strLitToConstructor_hasFvar st))
+          haa' (annotOk_strLitToConstructor m hs) hva ?_
+        rw [interpExpr_strLitToConstructor hs]
+        exact hvb
+      case isFalse => exact hPI h
+    | .bvar _, h => exact hPI h
+    | .fvar _ _ _, h => exact hPI h
+    | .sort _, h => exact hPI h
+    | .app _ _, h => exact hPI h
+    | .lam _ _ _ _, h => exact hPI h
+    | .forallE _ _ _ _, h => exact hPI h
+    | .letE _ _ _ _, h => exact hPI h
+    | .lit _, h => exact hPI h
+    | .proj _ _ _, h => exact hPI h
   | Expr.proj s₁ i₁ e₁, Expr.lam n₂ ty₂ body₂ m₂, h =>
     exact etaBranch_sound' ihw ihd ihi h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab' hva hvb
   | Expr.proj _ _ _, Expr.sort _, h => exact hPI h

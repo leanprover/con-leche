@@ -64,3 +64,15 @@
 # by Nat.modCore's (extensionally equal, definitionally distinct) —
 # the pin gate must positively decline the drifted spelling.
 2 nat_mod_perturbed.ndjson
+
+# str_lit.ndjson (tests/e2e/src/str_lit.lean): a definition with a
+# string-literal value and an Eq.refl theorem `strA ≡ "ab"` — the
+# annotate/infer literal rule (type String, guarded by strLitSupported)
+# and the literal-literal defeq fast path, over the stream-installed
+# String/Char/List support declarations.
+0 str_lit.ndjson
+# str_lit_declined.ndjson: hand-patched (opaque_decl + a def whose value
+# is the literal "a" before any String support declaration exists) —
+# a string literal without the pinned support constants is a positively
+# detected unsupported feature: decline, never reject or crash.
+2 str_lit_declined.ndjson

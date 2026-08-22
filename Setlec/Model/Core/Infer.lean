@@ -53,8 +53,22 @@ theorem infer_claims (m : EnvModel V env)
     rw [inferTypeCore_succ] at h
     match l0, h with
     | .natVal n, h => ?_
-    | .strVal sv, h =>
-      simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
+    | .strVal sv, h => ?strCase
+    case strCase =>
+      dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure,
+        Except.pure] at h
+      revert h
+      split
+      case isFalse =>
+        intro h
+        simp [throw, throwThe, MonadExceptOf.throw] at h
+      case isTrue hs =>
+        intro h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        subst h
+        exact ⟨⟨strLitVal V m.val env φ sv, m.val stringName φ,
+          interpExpr_strLit (V := V) hs, interpExpr_const_string hs,
+          strLitVal_mem_string m hs φ sv⟩, by simp [AnnotOk]⟩
     dsimp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure] at h
     revert h
     split

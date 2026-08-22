@@ -41,9 +41,9 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
      AnnotOk V m.val env φ d ρ e'') ∧
     WScoped d e'' ∧ e''.looseBVarsBounded 0 = true ∧
     Expr.LeavesBounded e'' ∧ FvarsOk V m.val env φ d ρ e'' := by
-  obtain ⟨c, us, cv, mI, rP, rules, major₀, major, cj, usj, cvj,
+  obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj, cvj,
     cnP, cnF, r, cbinders, cbody, residual, cr, usr, hfn, hfc, hlen, hmaj,
-    hsub, hmfn, hfj, hrule, hml, har1, har2, hplain, hlev, hpeq, hcerts,
+    hlit, hsub, hmfn, hfj, hrule, hml, har1, har2, hplain, hlev, hpeq, hcerts,
     hmcerts, hstrip, hres, hrfn, hieq, heout⟩ :=
     iotaRec_inv hio
   obtain rfl : cj = r.ctor :=
@@ -88,7 +88,7 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
   obtain ⟨hmieq0, hmA0⟩ := ihw hmaj (hargsW _ hmajarg) (hargsB _ hmajarg)
     (hargsL _ hmajarg) (hargsO _ hmajarg) (hxsA0 _ hmajarg)
   obtain ⟨hcvteq, hcvtA, hcvtW, hcvtB, hcvtL, hcvtO⟩ :=
-    litToCtorIfNat_claims (e := major₀) m hmaj0W hmaj0B hmaj0L hmaj0O hmA0
+    litMajorToCtor_claims ihw hlit hmaj0W hmaj0B hmaj0L hmaj0O hmA0
   obtain ⟨hmieqS, hmA, hmajW, hmajB, hmajL, hmajO⟩ :=
     majorToCtor_claims ihw ihd ihi hsub hmfn hfj
       (by rw [hml]; exact har2)

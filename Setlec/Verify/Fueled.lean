@@ -305,6 +305,12 @@ theorem majorToCtor_atF (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) (
   unfold majorToCtor
   atF_tac2
 
+theorem litMajorToCtor_atF (d : Nat) (e : Expr) (F : Nat) :
+    (litMajorToCtor (fueledFns env) env d e).val F =
+      litMajorToCtor (pureFns env F) env d e := by
+  unfold litMajorToCtor
+  atF_tac2
+
 theorem isPropType_atF (d : Nat) (ty : Expr) (F : Nat) :
     (isPropType (fueledFns env) env d ty).val F =
       isPropType (pureFns env F) env d ty := by
@@ -374,6 +380,7 @@ macro "atF_step3" : tactic =>
     | (rw [projCert_atF])
     | (rw [structEtaCert_atF])
     | (rw [majorToCtor_atF])
+    | (rw [litMajorToCtor_atF])
     | (rw [annotateProjElim_atF])
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])

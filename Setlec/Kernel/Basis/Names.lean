@@ -57,6 +57,34 @@ def quotIndName : Name := quotName |>.str "ind"
 /-- The name of the basis quotient soundness axiom. -/
 def quotSoundName : Name := quotName |>.str "sound"
 
+/-! The names of the string-literal support constants (see
+`strLitSupported` in `Setlec.Kernel.Core`).  These are *not* basis
+names — the constants are ordinary stream-installed declarations
+(preprocessor-modeled inductives and plain definitions); the names are
+pinned only so that a string literal knows what it unfolds to
+(`strLitToConstructor`), exactly like the `Nat` literal names above. -/
+
+/-- The name `String`. -/
+def stringName : Name := anonymous |>.str "String"
+
+/-- The name `String.ofList`. -/
+def stringOfListName : Name := stringName.str "ofList"
+
+/-- The name `List`. -/
+def listName : Name := anonymous |>.str "List"
+
+/-- The name `List.nil`. -/
+def listNilName : Name := listName.str "nil"
+
+/-- The name `List.cons`. -/
+def listConsName : Name := listName.str "cons"
+
+/-- The name `Char`. -/
+def charName : Name := anonymous |>.str "Char"
+
+/-- The name `Char.ofNat`. -/
+def charOfNatName : Name := charName.str "ofNat"
+
 /-- Names reserved for the pinned basis blocks; no other declaration
 may use them. -/
 def reservedBasisNames : List Name :=

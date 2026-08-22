@@ -61,6 +61,47 @@ def natLitVal (zv sv : V) : Nat → V
   | 0 => zv
   | n + 1 => SetTheory.app sv (natLitVal zv sv n)
 
+/-- The value of the character-list part of a string literal's
+constructor form (`strLitToConstructor`): the `List.cons.{0} Char`
+value folded over the characters' `Char.ofNat`-of-numeral values, ending
+in the `List.nil.{0} Char` value. -/
+def charListVal (nilV consV ofNatV zv sv : V) : List Char → V
+  | [] => nilV
+  | c :: cs =>
+    SetTheory.app
+      (SetTheory.app consV (SetTheory.app ofNatV (natLitVal V zv sv c.toNat)))
+      (charListVal nilV consV ofNatV zv sv cs)
+
+/-- The stored level-parameter list of a constant (`[]` when absent) —
+what the interpretation of a string literal instantiates the
+`List.nil`/`List.cons` valuations with (their one parameter at level
+`0`, exactly as the `.const` case does on the literal's constructor
+form). -/
+def Env.levelParamsAt (env : Env) (n : Name) : List Name :=
+  match env.find? n with
+  | some ci => ci.toConstantVal.levelParams
+  | none => []
+
+/-- The value of a `String` literal: the interpretation of its
+constructor form (`strLitToConstructor`), written out value-level —
+each constant valued exactly as the interpretation's `.const` clause
+values it on that form.  Meaningful under `strLitSupported`. -/
+def strLitVal (cval : ConstVal V) (env : Env) (φ : Name → Nat) (s : String) : V :=
+  SetTheory.app (cval stringOfListName (Level.substFn φ [] []))
+    (charListVal V
+      (SetTheory.app
+        (cval listNilName
+          (Level.substFn φ (env.levelParamsAt listNilName) [.zero]))
+        (cval charName (Level.substFn φ [] [])))
+      (SetTheory.app
+        (cval listConsName
+          (Level.substFn φ (env.levelParamsAt listConsName) [.zero]))
+        (cval charName (Level.substFn φ [] [])))
+      (cval charOfNatName (Level.substFn φ [] []))
+      (cval natZeroName (Level.substFn φ [] []))
+      (cval natSuccName (Level.substFn φ [] []))
+      s.toList)
+
 /-- Interpret an expression under constant valuation `cval`, level
 assignment `φ`, binder depth `d` and free-variable valuation `ρ`. -/
 def interpExpr (cval : ConstVal V) (env : Env) (φ : Name → Nat) :
@@ -107,6 +148,11 @@ def interpExpr (cval : ConstVal V) (env : Env) (φ : Name → Nat) :
     if natLitSupported env then
       some (natLitVal V (cval natZeroName (Level.substFn φ [] []))
         (cval natSuccName (Level.substFn φ [] [])) n)
+    else none
+  | _, _, .lit (.strVal s) =>
+    -- the interpretation of the literal's constructor form
+    -- (`strLitToConstructor`), written out value-level (`strLitVal`)
+    if strLitSupported env then some (strLitVal V cval env φ s)
     else none
   | _, _, _ => none
 termination_by _ _ e => e.sizeB
@@ -615,5 +661,275 @@ theorem natLitSupported_congr {env₁ env₂ : Env}
     natLitSupported env₁ = natLitSupported env₂ := by
   unfold natLitSupported
   rw [h1, h2, h3]
+
+/-- The names the string-literal guard (and the string-literal clause of
+the interpretation) reads off the environment: the `Nat` literal slots
+plus the seven string-support slots. -/
+def strLitNames : List Name :=
+  [natName, natZeroName, natSuccName, stringName, stringOfListName,
+    listName, listNilName, listConsName, charName, charOfNatName]
+
+/-- Everything `strLitSupported` checked beyond `natLitSupported`, as
+separate facts (level-parameter lists and exact annotated types of the
+seven string-support constants). -/
+theorem strLitSupported_inv {env : Env} (hs : strLitSupported env = true) :
+    natLitSupported env = true ∧
+    ∃ ciS ciO ciL ciN ciC ciH ciF pL pN pC,
+      env.find? stringName = some ciS ∧
+      env.find? stringOfListName = some ciO ∧
+      env.find? listName = some ciL ∧
+      env.find? listNilName = some ciN ∧
+      env.find? listConsName = some ciC ∧
+      env.find? charName = some ciH ∧
+      env.find? charOfNatName = some ciF ∧
+      ciS.toConstantVal.levelParams = [] ∧
+      ciO.toConstantVal.levelParams = [] ∧
+      ciL.toConstantVal.levelParams = [pL] ∧
+      ciN.toConstantVal.levelParams = [pN] ∧
+      ciC.toConstantVal.levelParams = [pC] ∧
+      ciH.toConstantVal.levelParams = [] ∧
+      ciF.toConstantVal.levelParams = [] ∧
+      ciS.toConstantVal.type = .sort (.succ .zero) ∧
+      ciH.toConstantVal.type = .sort (.succ .zero) ∧
+      (∃ nm mb, ciO.toConstantVal.type =
+        .forallE nm (.app (.const listName [.zero]) (.const charName []))
+          (.const stringName []) mb ∧ mb.cod = some (.succ .zero)) ∧
+      (∃ nm mb, ciL.toConstantVal.type =
+        .forallE nm (.sort (.succ (.param pL))) (.sort (.succ (.param pL))) mb ∧
+        mb.cod = some (.succ (.succ (.param pL)))) ∧
+      (∃ nm mb, ciN.toConstantVal.type =
+        .forallE nm (.sort (.succ (.param pN)))
+          (.app (.const listName [.param pN]) (.bvar 0)) mb ∧
+        mb.cod = some (.succ (.param pN))) ∧
+      (∃ nm1 nm2 nm3 mb1 mb2 mb3, ciC.toConstantVal.type =
+        .forallE nm1 (.sort (.succ (.param pC)))
+          (.forallE nm2 (.bvar 0)
+            (.forallE nm3 (.app (.const listName [.param pC]) (.bvar 1))
+              (.app (.const listName [.param pC]) (.bvar 2)) mb3) mb2) mb1 ∧
+        mb3.cod = some (.succ (.param pC)) ∧
+        mb2.cod = some (.imax (.succ (.param pC)) (.succ (.param pC))) ∧
+        mb1.cod = some (.imax (.succ (.param pC))
+          (.imax (.succ (.param pC)) (.succ (.param pC))))) ∧
+      (∃ nm mb, ciF.toConstantVal.type =
+        .forallE nm (.const natName []) (.const charName []) mb ∧
+        mb.cod = some (.succ .zero)) := by
+  unfold strLitSupported at hs
+  simp only [Bool.and_eq_true] at hs
+  obtain ⟨⟨⟨⟨⟨⟨⟨hnat, hS⟩, hO⟩, hL⟩, hN⟩, hC⟩, hH⟩, hF⟩ := hs
+  refine ⟨hnat, ?_⟩
+  unfold stringTyOk at hS
+  unfold stringOfListTyOk at hO
+  unfold listTyOk at hL
+  unfold listNilTyOk at hN
+  unfold listConsTyOk at hC
+  unfold charTyOk at hH
+  unfold charOfNatTyOk at hF
+  split at hS; case h_2 => simp at hS
+  next ciS heqS =>
+  split at hO; case h_2 => simp at hO
+  next ciO heqO =>
+  split at hL; case h_2 => simp at hL
+  next ciL heqL =>
+  split at hN; case h_2 => simp at hN
+  next ciN heqN =>
+  split at hC; case h_2 => simp at hC
+  next ciC heqC =>
+  split at hH; case h_2 => simp at hH
+  next ciH heqH =>
+  split at hF; case h_2 => simp at hF
+  next ciF heqF =>
+  simp only [Bool.and_eq_true, List.isEmpty_iff, beq_iff_eq] at hS hH
+  -- List: one level parameter, pinned type
+  revert hL
+  split; case h_2 => intro h; exact nomatch h
+  next pL heqPL =>
+  split
+  case h_2 => intro h; simp at h
+  next nmL u1L u2L mbL heqTL =>
+  intro hL
+  simp only [Bool.and_eq_true, beq_iff_eq] at hL
+  -- List.nil
+  revert hN
+  split; case h_2 => intro h; exact nomatch h
+  next pN heqPN =>
+  split
+  case h_2 => intro h; simp at h
+  next nmN u1N l1N us1N mbN heqTN =>
+  intro hN
+  simp only [Bool.and_eq_true, beq_iff_eq] at hN
+  -- List.cons
+  revert hC
+  split; case h_2 => intro h; exact nomatch h
+  next pC heqPC =>
+  split
+  case h_2 => intro h; simp at h
+  next nmC1 u1C nmC2 nmC3 l1C us1C l2C us2C mb3C mb2C mb1C heqTC =>
+  intro hC
+  simp only [Bool.and_eq_true, beq_iff_eq] at hC
+  -- Char.ofNat
+  revert hF
+  simp only [Bool.and_eq_true, List.isEmpty_iff]
+  rintro ⟨hF1, hF2⟩
+  revert hF2
+  split
+  case h_2 => intro h; simp at h
+  next nmF c1F c2F mbF heqTF =>
+  intro hF2
+  simp only [Bool.and_eq_true, beq_iff_eq] at hF2
+  -- String.ofList
+  simp only [Bool.and_eq_true, List.isEmpty_iff] at hO
+  obtain ⟨hO1, hO2⟩ := hO
+  revert hO2
+  split
+  case h_2 => intro h; simp at h
+  next nmO l1O us1O c1O c2O mbO heqTO =>
+  intro hO2
+  simp only [Bool.and_eq_true, beq_iff_eq] at hO2
+  refine ⟨ciS, ciO, ciL, ciN, ciC, ciH, ciF, pL, pN, pC,
+    heqS, heqO, heqL, heqN, heqC, heqH, heqF,
+    hS.1, hO1, heqPL, heqPN, heqPC, hH.1, hF1, hS.2, hH.2, ?_, ?_, ?_, ?_, ?_⟩
+  · exact ⟨nmO, mbO, by
+      rw [heqTO, hO2.1.1.1.1, hO2.1.1.1.2, hO2.1.1.2, hO2.1.2], hO2.2⟩
+  · exact ⟨nmL, mbL, by rw [heqTL, hL.1.1, hL.1.2], hL.2⟩
+  · exact ⟨nmN, mbN, by rw [heqTN, hN.1.1.1, hN.1.1.2, hN.1.2], hN.2⟩
+  · exact ⟨nmC1, nmC2, nmC3, mb1C, mb2C, mb3C, by
+      rw [heqTC, hC.1.1.1.1.1.1.1, hC.1.1.1.1.1.1.2, hC.1.1.1.1.1.2,
+        hC.1.1.1.1.2, hC.1.1.1.2],
+      hC.1.1.2, hC.1.2, hC.2⟩
+  · exact ⟨nmF, mbF, by rw [heqTF, hF2.1.1, hF2.1.2], hF2.2⟩
+
+/-- The string-support shape checks read a stored constant only through
+its `toConstantVal`. -/
+theorem strTyOk_toCV : ∀ {o₁ o₂ : Option ConstantInfo},
+    o₁.map ConstantInfo.toConstantVal = o₂.map ConstantInfo.toConstantVal →
+    stringTyOk o₁ = stringTyOk o₂ ∧ stringOfListTyOk o₁ = stringOfListTyOk o₂ ∧
+    listTyOk o₁ = listTyOk o₂ ∧ listNilTyOk o₁ = listNilTyOk o₂ ∧
+    listConsTyOk o₁ = listConsTyOk o₂ ∧ charTyOk o₁ = charTyOk o₂ ∧
+    charOfNatTyOk o₁ = charOfNatTyOk o₂
+  | none, none, _ => by simp
+  | some ci₁, some ci₂, h => by
+    simp only [Option.map_some, Option.some.injEq] at h
+    simp [stringTyOk, stringOfListTyOk, listTyOk, listNilTyOk,
+      listConsTyOk, charTyOk, charOfNatTyOk, h]
+  | none, some _, h => by simp at h
+  | some _, none, h => by simp at h
+
+/-- The string-literal guard ignores a stored recursor's rule list. -/
+theorem strLitSupported_cons_recRules {cvA : ConstantVal} {mI rP : Nat}
+    {rules₁ rules₂ : List RecRule} {env : Env} :
+    strLitSupported ⟨ConstantInfo.recInfo cvA mI rP rules₁ :: env.consts⟩ =
+    strLitSupported ⟨ConstantInfo.recInfo cvA mI rP rules₂ :: env.consts⟩ := by
+  have hfind : ∀ n : Name,
+      ((⟨ConstantInfo.recInfo cvA mI rP rules₁ :: env.consts⟩ :
+        Env).find? n).map ConstantInfo.toConstantVal =
+      ((⟨ConstantInfo.recInfo cvA mI rP rules₂ :: env.consts⟩ :
+        Env).find? n).map ConstantInfo.toConstantVal := by
+    intro n
+    rw [Env.find?_cons, Env.find?_cons]
+    by_cases h : (ConstantInfo.recInfo cvA mI rP rules₁).name = n
+    · rw [if_pos h, if_pos (by simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using h)]
+      rfl
+    · rw [if_neg h, if_neg (by simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using h)]
+  unfold strLitSupported
+  rw [natLitSupported_cons_recRules (rules₁ := rules₁) (rules₂ := rules₂),
+    (strTyOk_toCV (hfind stringName)).1,
+    (strTyOk_toCV (hfind stringOfListName)).2.1,
+    (strTyOk_toCV (hfind listName)).2.2.1,
+    (strTyOk_toCV (hfind listNilName)).2.2.2.1,
+    (strTyOk_toCV (hfind listConsName)).2.2.2.2.1,
+    (strTyOk_toCV (hfind charName)).2.2.2.2.2.1,
+    (strTyOk_toCV (hfind charOfNatName)).2.2.2.2.2.2]
+
+/-- The string-literal guard transfers between environments whose
+lookups agree up to constant kind (`toConstantVal`), given the `Nat`
+guard transfers (the latter also reads kinds). -/
+theorem strLitSupported_env_ext {env₁ env₂ : Env}
+    (htoCV : ∀ n, (env₁.find? n).map ConstantInfo.toConstantVal =
+      (env₂.find? n).map ConstantInfo.toConstantVal)
+    (hnat : natLitSupported env₁ = natLitSupported env₂) :
+    strLitSupported env₁ = strLitSupported env₂ := by
+  unfold strLitSupported
+  rw [hnat, (strTyOk_toCV (htoCV stringName)).1,
+    (strTyOk_toCV (htoCV stringOfListName)).2.1,
+    (strTyOk_toCV (htoCV listName)).2.2.1,
+    (strTyOk_toCV (htoCV listNilName)).2.2.2.1,
+    (strTyOk_toCV (htoCV listConsName)).2.2.2.2.1,
+    (strTyOk_toCV (htoCV charName)).2.2.2.2.2.1,
+    (strTyOk_toCV (htoCV charOfNatName)).2.2.2.2.2.2]
+
+/-- The string-literal guard only reads the pinned slots
+(`strLitNames`). -/
+theorem strLitSupported_congr {env₁ env₂ : Env}
+    (hNat : env₁.find? natName = env₂.find? natName)
+    (hZero : env₁.find? natZeroName = env₂.find? natZeroName)
+    (hSucc : env₁.find? natSuccName = env₂.find? natSuccName)
+    (hS : env₁.find? stringName = env₂.find? stringName)
+    (hO : env₁.find? stringOfListName = env₂.find? stringOfListName)
+    (hL : env₁.find? listName = env₂.find? listName)
+    (hN : env₁.find? listNilName = env₂.find? listNilName)
+    (hC : env₁.find? listConsName = env₂.find? listConsName)
+    (hH : env₁.find? charName = env₂.find? charName)
+    (hF : env₁.find? charOfNatName = env₂.find? charOfNatName) :
+    strLitSupported env₁ = strLitSupported env₂ := by
+  unfold strLitSupported
+  rw [natLitSupported_congr hNat hZero hSucc, hS, hO, hL, hN, hC, hH, hF]
+
+/-- The stored level-parameter list only reads the constant's slot. -/
+theorem Env.levelParamsAt_congr {env₁ env₂ : Env} {n : Name}
+    (h : env₁.find? n = env₂.find? n) :
+    env₁.levelParamsAt n = env₂.levelParamsAt n := by
+  unfold Env.levelParamsAt
+  rw [h]
+
+/-- The stored level-parameter list only reads the constant's
+level-parameter slot. -/
+theorem Env.levelParamsAt_congr' {env₁ env₂ : Env} {n : Name}
+    (h : (env₁.find? n).map (fun ci => ci.toConstantVal.levelParams) =
+      (env₂.find? n).map (fun ci => ci.toConstantVal.levelParams)) :
+    env₁.levelParamsAt n = env₂.levelParamsAt n := by
+  unfold Env.levelParamsAt
+  cases h1 : env₁.find? n <;> cases h2 : env₂.find? n <;>
+    rw [h1, h2] at h <;> simp at h ⊢ <;> exact h
+
+/-- The interpretation of a string literal, unfolded through the
+guard. -/
+theorem interpExpr_strLit {env : Env} {cval : ConstVal V} {φ : Name → Nat}
+    (hs : strLitSupported env = true) {d : Nat} {ρ : Nat → V} {s : String} :
+    interpExpr V cval env φ d ρ (.lit (.strVal s)) =
+      some (strLitVal V cval env φ s) := by
+  simp [interpExpr, hs]
+
+/-- The interpretation of a string literal without the guard is
+undefined. -/
+theorem interpExpr_strLit_none {env : Env} {cval : ConstVal V} {φ : Name → Nat}
+    (hs : ¬ strLitSupported env = true) {d : Nat} {ρ : Nat → V} {s : String} :
+    interpExpr V cval env φ d ρ (.lit (.strVal s)) = none := by
+  simp [interpExpr, hs]
+
+/-- Congruence for the string-literal value: it reads the valuations
+only at the seven pinned slots (each at the displayed assignment). -/
+theorem strLitVal_congr {cval₁ cval₂ : ConstVal V} {env₁ env₂ : Env}
+    {φ₁ φ₂ : Name → Nat} {s : String}
+    (h1 : cval₁ stringOfListName (Level.substFn φ₁ [] []) =
+      cval₂ stringOfListName (Level.substFn φ₂ [] []))
+    (h2 : cval₁ listNilName
+        (Level.substFn φ₁ (env₁.levelParamsAt listNilName) [.zero]) =
+      cval₂ listNilName
+        (Level.substFn φ₂ (env₂.levelParamsAt listNilName) [.zero]))
+    (h3 : cval₁ listConsName
+        (Level.substFn φ₁ (env₁.levelParamsAt listConsName) [.zero]) =
+      cval₂ listConsName
+        (Level.substFn φ₂ (env₂.levelParamsAt listConsName) [.zero]))
+    (h4 : cval₁ charName (Level.substFn φ₁ [] []) =
+      cval₂ charName (Level.substFn φ₂ [] []))
+    (h5 : cval₁ charOfNatName (Level.substFn φ₁ [] []) =
+      cval₂ charOfNatName (Level.substFn φ₂ [] []))
+    (h6 : cval₁ natZeroName (Level.substFn φ₁ [] []) =
+      cval₂ natZeroName (Level.substFn φ₂ [] []))
+    (h7 : cval₁ natSuccName (Level.substFn φ₁ [] []) =
+      cval₂ natSuccName (Level.substFn φ₂ [] [])) :
+    strLitVal V cval₁ env₁ φ₁ s = strLitVal V cval₂ env₂ φ₂ s := by
+  unfold strLitVal
+  rw [h1, h2, h3, h4, h5, h6, h7]
 
 end Setlec

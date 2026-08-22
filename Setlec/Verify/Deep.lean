@@ -1111,8 +1111,9 @@ private theorem iotaRec_WScoped (henv : EnvWF env)
     {d : Nat} {e e'' : Expr}
     (h : iotaRec (pureFns env fuel) env d e = .ok (some e''))
     (hw : WScoped d e) : WScoped d e'' := by
-  obtain ⟨c, us, cv, mI, rP, rules, major₀, major, cj, usj,
-    cvj, cnP, cnF, r, -, -, -, -, -, hfn, hfc, hlen, hmaj, hsub, hmfn, hfj,
+  obtain ⟨c, us, cv, mI, rP, rules, major₀, major₁, major, cj, usj,
+    cvj, cnP, cnF, r, -, -, -, -, -, hfn, hfc, hlen, hmaj, hlit, hsub,
+    hmfn, hfj,
     hrule,
     hml, har1, har2, -, hlev, hpeq, hcerts, hmcerts, -, -, -, -, rfl⟩ :=
     iotaRec_inv h
@@ -1127,15 +1128,81 @@ private theorem iotaRec_WScoped (henv : EnvWF env)
       (by rw [hasFvar_instantiateLevelParams]; exact hrf)
   have hmaj0w : WScoped d major₀ := whnf_WScoped henv fuel hmaj
     (hargs _ (getD_mem (by omega)))
+  have hmaj1w : WScoped d major₁ := by
+    rcases litMajorToCtorP_inv hlit with rfl | ⟨s, -, -, hred⟩
+    · exact litToCtorIfNat_WScoped hmaj0w
+    · exact whnf_WScoped henv fuel hred (strLitToConstructor_WScoped s d)
   have hmajw : WScoped d major := by
     rcases majorToCtor_inv hsub with rfl | ⟨hwsc, -, -, -⟩
-    · exact litToCtorIfNat_WScoped hmaj0w
+    · exact hmaj1w
     · exact WScoped.of_wscopedB hwsc
   refine Expr.WScoped.mkAppN hrhs ?_
   intro x hx
   rcases List.mem_append.mp hx with hx | hx
   · exact hargs _ (List.mem_of_mem_take hx)
   · exact hmajw.getAppArgs _ (List.mem_of_mem_drop hx)
+
+/-- Shifting commutes with the literal-major conversion (the string
+branch reduces a closed term, invariant under shifting). -/
+private theorem litMajorToCtor_shift (_henv : EnvWF env)
+    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) :
+    ∀ {e : Expr}, WScoped d e →
+    litMajorToCtor (pureFns env fuel) env (d + 1) (shiftFrom p e) =
+      (litMajorToCtor (pureFns env fuel) env d e).map (shiftFrom p)
+  | .lit (.strVal s), _ => by
+    show litMajorToCtor (pureFns env fuel) env (d + 1) (.lit (.strVal s)) = _
+    simp only [litMajorToCtor]
+    split
+    · have hres := ih.whnf (p := p) hpd (strLitToConstructor_WScoped s d)
+      rw [strLitToConstructor_shiftFrom] at hres
+      exact hres
+    · rfl
+  | .lit (.natVal n), _ => by
+    show pure (litToCtorIfNat env (shiftFrom p (.lit (.natVal n)))) = _
+    rw [litToCtorIfNat_shiftFrom]
+    rfl
+  | .bvar i, _ => by
+    show pure (litToCtorIfNat env (shiftFrom p (.bvar i))) = _
+    rw [litToCtorIfNat_shiftFrom]
+    rfl
+  | .sort u, _ => by
+    show pure (litToCtorIfNat env (shiftFrom p (.sort u))) = _
+    rw [litToCtorIfNat_shiftFrom]
+    rfl
+  | .const n us, _ => by
+    show pure (litToCtorIfNat env (shiftFrom p (.const n us))) = _
+    rw [litToCtorIfNat_shiftFrom]
+    rfl
+  | .fvar idx n ty, _ => by
+    rw [shiftFrom_fvar]
+    show pure (litToCtorIfNat env (.fvar (shiftIdx p idx) n (shiftTy p idx ty))) = _
+    rw [show (litToCtorIfNat env (.fvar (shiftIdx p idx) n (shiftTy p idx ty))) =
+      .fvar (shiftIdx p idx) n (shiftTy p idx ty) from rfl]
+    rw [show (litMajorToCtor (pureFns env fuel) env d (.fvar idx n ty)) =
+      pure (.fvar idx n ty) from rfl]
+    rw [show (Except.map (shiftFrom p) (pure (Expr.fvar idx n ty)) :
+        CheckM Expr) = pure (shiftFrom p (.fvar idx n ty)) from rfl]
+    rw [shiftFrom_fvar]
+  | .app f a, _ => by
+    show pure (litToCtorIfNat env (shiftFrom p (.app f a))) = _
+    rw [litToCtorIfNat_shiftFrom]
+    rfl
+  | .lam n ty body bi, _ => by
+    show pure (litToCtorIfNat env (shiftFrom p (.lam n ty body bi))) = _
+    rw [litToCtorIfNat_shiftFrom]
+    rfl
+  | .forallE n ty body bi, _ => by
+    show pure (litToCtorIfNat env (shiftFrom p (.forallE n ty body bi))) = _
+    rw [litToCtorIfNat_shiftFrom]
+    rfl
+  | .letE n ty v body, _ => by
+    show pure (litToCtorIfNat env (shiftFrom p (.letE n ty v body))) = _
+    rw [litToCtorIfNat_shiftFrom]
+    rfl
+  | .proj sn i pe, _ => by
+    show pure (litToCtorIfNat env (shiftFrom p (.proj sn i pe))) = _
+    rw [litToCtorIfNat_shiftFrom]
+    rfl
 
 private theorem iotaRec_shift (henv : EnvWF env)
     (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) {e : Expr}
@@ -1163,14 +1230,18 @@ private theorem iotaRec_shift (henv : EnvWF env)
     refine bind_rel _ _ (ih.whnf hpd hwgd) ?_
     intro major₀ hmaj₀
     have hwmaj₀ : WScoped d major₀ := whnf_WScoped henv fuel hmaj₀ hwgd
-    rw [litToCtorIfNat_shiftFrom]
+    refine bind_rel _ _ (litMajorToCtor_shift henv ih hpd hwmaj₀) ?_
+    intro major₁ hmaj₁
+    have hwmaj₁ : WScoped d major₁ := by
+      rcases litMajorToCtorP_inv hmaj₁ with rfl | ⟨s, -, -, hred⟩
+      · exact litToCtorIfNat_WScoped hwmaj₀
+      · exact whnf_WScoped henv fuel hred (strLitToConstructor_WScoped s d)
     refine bind_rel _ _
-      (majorToCtor_shift henv ih hpd c rules
-        (litToCtorIfNat_WScoped hwmaj₀)) ?_
+      (majorToCtor_shift henv ih hpd c rules hwmaj₁) ?_
     intro major hmaj
     have hwmaj : WScoped d major := by
       rcases majorToCtor_inv hmaj with rfl | ⟨hwsc, -, -, -⟩
-      · exact litToCtorIfNat_WScoped hwmaj₀
+      · exact hwmaj₁
       · exact WScoped.of_wscopedB hwsc
     rw [getAppFn_shiftFrom]
     cases hmfn : major.getAppFn <;> try rfl
@@ -1729,7 +1800,12 @@ private theorem infer_step (henv : EnvWF env)
         (shiftFrom p)
     simp only [inferBody, viewM, Expr.view, pure_bind]
     exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
-  | .lit (.strVal str) => rfl
+  | .lit (.strVal str) =>
+    show inferBody (pureFns env fuel) env (d + 1) (.lit (.strVal str)) =
+      (inferBody (pureFns env fuel) env d (.lit (.strVal str))).map
+        (shiftFrom p)
+    simp only [inferBody, viewM, Expr.view, pure_bind]
+    exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
   | .fvar idx n ty =>
     simp only [WScoped] at hw
     rw [shiftFrom_fvar]
@@ -1971,7 +2047,20 @@ private theorem defeq_step (henv : EnvWF env)
   case lit.app l f x hne =>
     simp only [WScoped] at hwwb
     cases l with
-    | strVal str => exact hstuck
+    | strVal str =>
+      cases f <;>
+        try (first
+          | exact hstuck
+          | (simp only [shiftFrom_app, shiftFrom_fvar] at hstuck ⊢
+             exact hstuck))
+      case const cn cus =>
+      refine ite_congr' (fun _ => ?_) (fun _ => hstuck)
+      have hres := ih.defeq (p := p) hpd
+        (strLitToConstructor_WScoped str d)
+        (show WScoped d (Expr.app (.const cn cus) x) by
+          simp only [WScoped]; exact ⟨trivial, hwwb.2⟩)
+      rw [strLitToConstructor_shiftFrom] at hres
+      exact hres
     | natVal nn =>
       cases nn with
       | zero => exact hstuck
@@ -1990,7 +2079,20 @@ private theorem defeq_step (henv : EnvWF env)
   case app.lit f x l hne =>
     simp only [WScoped] at hwwa
     cases l with
-    | strVal str => exact hstuck
+    | strVal str =>
+      cases f <;>
+        try (first
+          | exact hstuck
+          | (simp only [shiftFrom_app, shiftFrom_fvar] at hstuck ⊢
+             exact hstuck))
+      case const cn cus =>
+      refine ite_congr' (fun _ => ?_) (fun _ => hstuck)
+      have hres := ih.defeq (p := p) hpd
+        (show WScoped d (Expr.app (.const cn cus) x) by
+          simp only [WScoped]; exact ⟨trivial, hwwa.2⟩)
+        (strLitToConstructor_WScoped str d)
+      rw [strLitToConstructor_shiftFrom] at hres
+      exact hres
     | natVal nn =>
       cases nn with
       | zero => exact hstuck
@@ -2194,7 +2296,12 @@ private theorem annotate_step (henv : EnvWF env)
   | .bvar i => rfl
   | .sort u => rfl
   | .const n us => rfl
-  | .lit (.strVal str) => rfl
+  | .lit (.strVal str) =>
+    show annotateBody (pureFns env fuel) env (d + 1) (.lit (.strVal str)) =
+      (annotateBody (pureFns env fuel) env d (.lit (.strVal str))).map
+        (shiftFrom p)
+    simp only [annotateBody]
+    exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
   | .letE n ty v body => rfl
   | .lit (.natVal n) =>
     show annotateBody (pureFns env fuel) env (d + 1) (.lit (.natVal n)) =

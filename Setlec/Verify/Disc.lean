@@ -691,6 +691,17 @@ theorem annotateProjElim_disc (ih : ScopedSim env f) (henv : EnvWF env)
     · exact annotateProjRec_disc ih henv hwte hwe
   · exact DiscV.throw _
 
+theorem litMajorToCtor_disc (ih : ScopedSim env f) (henv : EnvWF env)
+    {d : Nat} {e : Expr} (hw : WScoped d e) :
+    DiscV env (WScoped d) (litMajorToCtor C env d e)
+      (litMajorToCtor G env d e) := by
+  unfold litMajorToCtor
+  split
+  · split
+    · exact ih.site_whnf henv (strLitToConstructor_WScoped _ d)
+    · exact DiscV.pure hw
+  · exact DiscV.pure (litToCtorIfNat_WScoped hw)
+
 theorem iotaRec_disc (ih : ScopedSim env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
     DiscV env (WScopedO d) (iotaRec C env d e)
@@ -705,8 +716,10 @@ theorem iotaRec_disc (ih : ScopedSim env f) (henv : EnvWF env)
   refine DiscV.bind
     (ih.site_whnf henv (wscoped_getD hw.getAppArgs _))
     (fun major₀ hmaj₀ => ?_)
+  refine DiscV.bind (litMajorToCtor_disc ih henv hmaj₀)
+    (fun major₁ hmaj₁ => ?_)
   refine DiscV.bind
-    (majorToCtor_disc ih henv (litToCtorIfNat_WScoped hmaj₀))
+    (majorToCtor_disc ih henv hmaj₁)
     (fun major hmaj => ?_)
   split <;> try exact DiscV.pure WScopedO.none
   rename_i cj usj heqmfn
@@ -950,7 +963,17 @@ theorem annotateBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     split
     · exact DiscV.pure (by simp [WScoped])
     · exact DiscV.throw _
-  | .lit (.strVal s) => exact DiscV.throw _
+  | .lit (.strVal s) =>
+    show DiscV env _
+      (if strLitSupported env then pure (Expr.lit (.strVal s))
+       else throw (.notImplemented
+         "string literals before the String support declarations"))
+      (if strLitSupported env then pure (Expr.lit (.strVal s))
+       else throw (.notImplemented
+         "string literals before the String support declarations"))
+    split
+    · exact DiscV.pure (by simp [WScoped])
+    · exact DiscV.throw _
   | .letE _ _ _ _ => exact DiscV.throw _
   | .app g' a =>
     have hwfa : WScoped d g' ∧ WScoped d a := by
@@ -1093,7 +1116,18 @@ theorem inferBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     DiscV env (WScoped d) (inferBody C env d e)
       (inferBody G env d e) := by
   match e with
-  | .bvar _ | .letE _ _ _ _ | .lit (.strVal _) => exact DiscV.throw _
+  | .bvar _ | .letE _ _ _ _ => exact DiscV.throw _
+  | .lit (.strVal s) =>
+    show DiscV env _
+      (if strLitSupported env then pure (Expr.const stringName [])
+       else throw (.notImplemented
+         "string literals before the String support declarations"))
+      (if strLitSupported env then pure (Expr.const stringName [])
+       else throw (.notImplemented
+         "string literals before the String support declarations"))
+    split
+    · exact DiscV.pure (by simp [WScoped])
+    · exact DiscV.throw _
   | .sort u => exact DiscV.pure (by simp [WScoped])
   | .fvar idx n ty =>
     have h' : idx < d ∧ WScoped idx ty := by
@@ -1285,53 +1319,63 @@ theorem defeqBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
         · exact stuckIrrel_disc ih henv ha' hb'
       case h_2 => exact stuckIrrel_disc ih henv ha' hb'
     case h_7 =>
+      rename_i st cO usO x hne
+      split
+      · exact ih.site_defeq (strLitToConstructor_WScoped st d) hb'
+      · exact stuckIrrel_disc ih henv ha' hb'
+    case h_8 =>
+      rename_i cO usO x st hne
+      split
+      · exact ih.site_defeq ha' (strLitToConstructor_WScoped st d)
+      · exact stuckIrrel_disc ih henv ha' hb'
+    case h_9 =>
       split
       · exact DiscV.pure trivial
       · exact stuckIrrel_disc ih henv ha' hb'
-    case h_8 =>
+    case h_10 =>
       split
       · refine DiscV.bind (DiscV.liftFueled_true _ _) (fun ok _ => ?_)
         split
         · exact DiscV.pure trivial
         · exact stuckIrrel_disc ih henv ha' hb'
       · exact stuckIrrel_disc ih henv ha' hb'
-    case h_9 =>
-      rename_i n₁ ty₁ body₁ m₁ n₂ ty₂ body₂ m₂ hne
-      have h1 : WScoped d ty₁ ∧ WScoped d body₁ := by
-        simpa only [WScoped] using ha'
-      have h2 : WScoped d ty₂ ∧ WScoped d body₂ := by
-        simpa only [WScoped] using hb'
-      refine DiscV.bind (ih.site_defeq h1.1 h2.1) (fun r₁ _ => ?_)
-      split
-      · dsimp only []
-        refine DiscV.bind (ih.site_defeq
-          (WScoped.instantiate1 h1.1 0 h1.2)
-          (WScoped.instantiate1 h2.1 0 h2.2)) (fun r₂ _ => ?_)
-        split
-        · split <;> first
-            | exact DiscV.liftFueled_true _ _
-            | exact DiscV.throw _
-        · exact DiscV.pure trivial
-      · exact DiscV.pure trivial
-    case h_10 =>
-      rename_i n₁ ty₁ body₁ m₁ n₂ ty₂ body₂ m₂ hne
-      have h1 : WScoped d ty₁ ∧ WScoped d body₁ := by
-        simpa only [WScoped] using ha'
-      have h2 : WScoped d ty₂ ∧ WScoped d body₂ := by
-        simpa only [WScoped] using hb'
-      refine DiscV.bind (ih.site_defeq h1.1 h2.1) (fun r₁ _ => ?_)
-      split
-      · dsimp only []
-        refine DiscV.bind (ih.site_defeq
-          (WScoped.instantiate1 h1.1 0 h1.2)
-          (WScoped.instantiate1 h2.1 0 h2.2)) (fun r₂ _ => ?_)
-        split
-        · split <;> first
-            | exact DiscV.liftFueled_true _ _
-            | exact DiscV.throw _
-        · exact DiscV.pure trivial
-      · exact DiscV.pure trivial
     case h_11 =>
+      rename_i n₁ ty₁ body₁ m₁ n₂ ty₂ body₂ m₂ hne
+      have h1 : WScoped d ty₁ ∧ WScoped d body₁ := by
+        simpa only [WScoped] using ha'
+      have h2 : WScoped d ty₂ ∧ WScoped d body₂ := by
+        simpa only [WScoped] using hb'
+      refine DiscV.bind (ih.site_defeq h1.1 h2.1) (fun r₁ _ => ?_)
+      split
+      · dsimp only []
+        refine DiscV.bind (ih.site_defeq
+          (WScoped.instantiate1 h1.1 0 h1.2)
+          (WScoped.instantiate1 h2.1 0 h2.2)) (fun r₂ _ => ?_)
+        split
+        · split <;> first
+            | exact DiscV.liftFueled_true _ _
+            | exact DiscV.throw _
+        · exact DiscV.pure trivial
+      · exact DiscV.pure trivial
+    case h_12 =>
+      rename_i n₁ ty₁ body₁ m₁ n₂ ty₂ body₂ m₂ hne
+      have h1 : WScoped d ty₁ ∧ WScoped d body₁ := by
+        simpa only [WScoped] using ha'
+      have h2 : WScoped d ty₂ ∧ WScoped d body₂ := by
+        simpa only [WScoped] using hb'
+      refine DiscV.bind (ih.site_defeq h1.1 h2.1) (fun r₁ _ => ?_)
+      split
+      · dsimp only []
+        refine DiscV.bind (ih.site_defeq
+          (WScoped.instantiate1 h1.1 0 h1.2)
+          (WScoped.instantiate1 h2.1 0 h2.2)) (fun r₂ _ => ?_)
+        split
+        · split <;> first
+            | exact DiscV.liftFueled_true _ _
+            | exact DiscV.throw _
+        · exact DiscV.pure trivial
+      · exact DiscV.pure trivial
+    case h_13 =>
       rename_i f₁ a₁ f₂ a₂ hne
       have h1 : WScoped d f₁ ∧ WScoped d a₁ := by
         simpa only [WScoped] using ha'
@@ -1344,7 +1388,7 @@ theorem defeqBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
         · exact DiscV.pure trivial
         · exact stuckIrrel_disc ih henv ha' hb'
       · exact stuckIrrel_disc ih henv ha' hb'
-    case h_12 =>
+    case h_14 =>
       rename_i s₁ i₁ e₁ s₂ i₂ e₂ hne
       have h1 : WScoped d e₁ := by simpa only [WScoped] using ha'
       have h2 : WScoped d e₂ := by simpa only [WScoped] using hb'
@@ -1354,7 +1398,7 @@ theorem defeqBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
         · exact DiscV.pure trivial
         · exact stuckIrrel_disc ih henv ha' hb'
       · exact stuckIrrel_disc ih henv ha' hb'
-    case h_13 =>
+    case h_15 =>
       rename_i n₁ ty₁ body₁ m₁ hne hx₁
       have h1 : WScoped d ty₁ ∧ WScoped d body₁ := by
         simpa only [WScoped] using ha'
@@ -1363,7 +1407,7 @@ theorem defeqBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
       split
       · exact DiscV.pure trivial
       · exact stuckIrrel_disc ih henv ha' hb'
-    case h_14 =>
+    case h_16 =>
       rename_i n₂ ty₂ body₂ m₂ hne hx₁
       have h2 : WScoped d ty₂ ∧ WScoped d body₂ := by
         simpa only [WScoped] using hb'
@@ -1372,7 +1416,7 @@ theorem defeqBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
       split
       · exact DiscV.pure trivial
       · exact stuckIrrel_disc ih henv ha' hb'
-    case h_15 => exact stuckIrrel_disc ih henv ha' hb'
+    case h_17 => exact stuckIrrel_disc ih henv ha' hb'
 
 end Walks
 

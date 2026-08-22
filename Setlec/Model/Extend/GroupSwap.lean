@@ -188,12 +188,20 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
     rw [hone natIndOk natName (fun _ _ _ _ => rfl),
       hone natZeroOk natZeroName (fun _ _ _ _ => rfl),
       hone natSuccOk natSuccName (fun _ _ _ _ => rfl)]
+  have htoCV : ∀ n, (env₀.find? n).map ConstantInfo.toConstantVal =
+      (env₃.find? n).map ConstantInfo.toConstantVal := by
+    intro n
+    rcases hcorr' n with heq | ⟨cv, mI, rP, rules, h₀, h₃, -⟩
+    · rw [heq]
+    · rw [h₀, h₃]; rfl
+  have hstr : strLitSupported env₀ = strLitSupported env₃ :=
+    strLitSupported_env_ext htoCV hnat
   have hitrans : ∀ (e : Expr) (ψ : Name → Nat),
       interpClosed V m₀.val env₃ ψ e = interpClosed V m₀.val env₀ ψ e :=
-    fun e ψ => (interp_env_ext henvLev hnat e 0 (rho0 V)).symm
+    fun e ψ => (interp_env_ext henvLev hnat hstr e 0 (rho0 V)).symm
   have hAtrans : ∀ (e : Expr) (ψ : Name → Nat) (d : Nat) (ρ : Nat → V),
       AnnotOk V m₀.val env₀ ψ d ρ e → AnnotOk V m₀.val env₃ ψ d ρ e :=
-    fun e ψ d ρ h => AnnotOk.env_ext henvLev hnat e d ρ h
+    fun e ψ d ρ h => AnnotOk.env_ext henvLev hnat hstr e d ρ h
   -- shape-based lookup transports
   have hfindDown : ∀ (n : Name) (ci : ConstantInfo),
       env₃.find? n = some ci →
@@ -394,10 +402,10 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
         args margs tv hl hml hch hmch htv hpeq hplain hlev
         ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
           hψeq, hψjeq,
-          TeleFit.env_levelext henvLev' hnat.symm hf1,
-          TeleFit.env_levelext henvLev' hnat.symm hf2, by
+          TeleFit.env_levelext henvLev' hnat.symm hstr.symm hf1,
+          TeleFit.env_levelext henvLev' hnat.symm hstr.symm hf2, by
             rw [← mapM_interp_congr (fun e =>
-              interp_env_ext henvLev' hnat.symm e dd₂ ρρ₂)]
+              interp_env_ext henvLev' hnat.symm hstr.symm e dd₂ ρρ₂)]
             exact hidx⟩
       refine ⟨R', ?_, hfoldEq, hRch⟩
       rw [hitrans]
@@ -450,14 +458,14 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
       · intro φ'' us ps x dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hfit
         exact hlaw φ'' us ps x dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx
           (TeleFit.env_levelext (fun n' => (henvLev n').symm) hnat.symm
-            hfit)
+            hstr.symm hfit)
     · intro T cvT caps hf hcapu hres
       have hlaw := mo5 T cvT caps
         (hfindDown _ _ hf (fun _ _ _ _ h => nomatch h)) hcapu hres
       intro φ'' us ps x y dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hy hfit
       exact hlaw φ'' us ps x y dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hy
         (TeleFit.env_levelext (fun n' => (henvLev n').symm) hnat.symm
-          hfit)
+          hstr.symm hfit)
   · -- nat_ops
     intro c hc cv v hint hf
     have hf₀ : env₀.find? c = some (.defnInfo cv v hint) :=
@@ -467,7 +475,7 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
     have hie : ∀ (e : Expr) (ψ : Name → Nat) (dd : Nat) (ρ : Nat → V),
         interpExpr V m₀.val env₃ ψ dd ρ e =
         interpExpr V m₀.val env₀ ψ dd ρ e :=
-      fun e ψ dd ρ => (interp_env_ext henvLev hnat e dd ρ).symm
+      fun e ψ dd ρ => (interp_env_ext henvLev hnat hstr e dd ρ).symm
     refine ⟨natOpGuard_intro (by rw [← hnat]; exact hs) ?_ ?_, ?_⟩
     · intro n' hn'
       obtain ⟨cvn, vn, hintn, hfn, hlpn⟩ := hdeps n' hn'

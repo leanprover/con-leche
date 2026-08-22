@@ -93,7 +93,13 @@ theorem Expr.constsResolve_mono {c : ConstantInfo} {env : Env} :
       intro h
       simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
       exact ⟨⟨hf _ h.1.1, hf _ h.1.2⟩, hf _ h.2⟩
-    | strVal s => intro h; simp [Expr.constsResolve]
+    | strVal s =>
+      intro h
+      simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
+      exact ⟨⟨⟨⟨⟨⟨⟨⟨⟨hf _ h.1.1.1.1.1.1.1.1.1, hf _ h.1.1.1.1.1.1.1.1.2⟩,
+        hf _ h.1.1.1.1.1.1.1.2⟩, hf _ h.1.1.1.1.1.1.2⟩,
+        hf _ h.1.1.1.1.1.2⟩, hf _ h.1.1.1.1.2⟩, hf _ h.1.1.1.2⟩,
+        hf _ h.1.1.2⟩, hf _ h.1.2⟩, hf _ h.2⟩
   | fvar idx nm ty ih =>
     intro h
     simp only [Expr.constsResolve] at h ⊢

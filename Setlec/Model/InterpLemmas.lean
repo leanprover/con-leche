@@ -42,6 +42,40 @@ theorem interp_const {n : Name} {ws : List Level} {ci : ConstantInfo} {d : Nat} 
   simp only [interpExpr, hf]
   rw [if_pos hal]
 
+/-- Under `ConstValParams`, the string-literal value ignores the ambient
+level assignment: every slot is valued at its own (pinned) parameters,
+each instantiated at level `0`. -/
+theorem strLitVal_params (hcp : ConstValParams cval env)
+    (hs : strLitSupported env = true) {φ₁ φ₂ : Name → Nat} {s : String} :
+    strLitVal V cval env φ₁ s = strLitVal V cval env φ₂ s := by
+  obtain ⟨hnat, ciS, ciO, ciL, ciN, ciC, ciH, ciF, pL, pN, pC, hfS, hfO,
+    hfL, hfN, hfC, hfH, hfF, hpS, hpO, hpL, hpN, hpC, hpH, hpF, -⟩ :=
+    strLitSupported_inv hs
+  obtain ⟨cv, caps, cv0, i0, j0, cv1, i1, j1, hn, hz, hsc, h1, h2, h3, -⟩ :=
+    natLitSupported_inv hnat
+  have hNparams : env.levelParamsAt listNilName = [pN] := by
+    simp only [Env.levelParamsAt, hfN, hpN]
+  have hCparams : env.levelParamsAt listConsName = [pC] := by
+    simp only [Env.levelParamsAt, hfC, hpC]
+  refine strLitVal_congr V (hcp _ _ hfO _ _ (by simp only [hpO, List.not_mem_nil, false_implies, implies_true])) ?_ ?_
+    (hcp _ _ hfH _ _ (by simp only [hpH, List.not_mem_nil, false_implies, implies_true])) (hcp _ _ hfF _ _ (by simp only [hpF, List.not_mem_nil, false_implies, implies_true]))
+    (hcp _ _ hz _ _ (by simp only [ConstantInfo.toConstantVal, h2, List.not_mem_nil, false_implies, implies_true]))
+    (hcp _ _ hsc _ _ (by simp only [ConstantInfo.toConstantVal, h3, List.not_mem_nil, false_implies, implies_true]))
+  · rw [hNparams]
+    refine hcp _ _ hfN _ _ ?_
+    rw [hpN]
+    intro p hp
+    simp only [List.mem_singleton] at hp
+    subst hp
+    simp only [Level.substFn, ↓reduceIte, Level.eval]
+  · rw [hCparams]
+    refine hcp _ _ hfC _ _ ?_
+    rw [hpC]
+    intro p hp
+    simp only [List.mem_singleton] at hp
+    subst hp
+    simp only [Level.substFn, ↓reduceIte, Level.eval]
+
 /-- Insert `x` at position `p`, shifting the valuation above it. -/
 def insV (ρ : Nat → V) (p : Nat) (x : V) : Nat → V :=
   fun i => if i < p then ρ i else if i = p then x else ρ (i - 1)
@@ -290,7 +324,13 @@ theorem interp_instLevels (hcp : ConstValParams cval env)
   | .letE _ _ _ _, _, _ => by simp [interpExpr, instantiateLevelParams]
   | .lit l, d, ρ => by
     cases l with
-    | strVal s => simp [interpExpr, instantiateLevelParams]
+    | strVal s =>
+      simp only [instantiateLevelParams]
+      by_cases hs : strLitSupported env
+      · rw [interpExpr_strLit (V := V) (φ := φ) hs,
+          interpExpr_strLit (V := V) (φ := Level.substFn φ ks vs) hs,
+          strLitVal_params hcp hs]
+      · rw [interpExpr_strLit_none (V := V) hs, interpExpr_strLit_none (V := V) hs]
     | natVal n =>
       simp only [instantiateLevelParams]
       by_cases hs : natLitSupported env
@@ -459,7 +499,11 @@ theorem interp_params_ext (hcp : ConstValParams cval env)
   | .letE _ _ _ _, _, _, _ => by simp [interpExpr]
   | .lit l, d, ρ, _ => by
     cases l with
-    | strVal s => simp [interpExpr]
+    | strVal s =>
+      by_cases hs : strLitSupported env
+      · rw [interpExpr_strLit (V := V) (φ := φ₁) hs, interpExpr_strLit (V := V) (φ := φ₂) hs,
+          strLitVal_params hcp hs]
+      · rw [interpExpr_strLit_none (V := V) hs, interpExpr_strLit_none (V := V) hs]
     | natVal n =>
       by_cases hs : natLitSupported env
       · obtain ⟨cv, caps, cv0, i0, j0, cv1, i1, j1, hn, hz, hsc, h1, h2, h3,
@@ -531,7 +575,26 @@ theorem interp_mono {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none) 
   | .letE _ _ _ _, _, _, _ => by simp [interpExpr]
   | .lit l, d, ρ, hres => by
     cases l with
-    | strVal s => simp [interpExpr]
+    | strVal s =>
+      simp only [constsResolve, Bool.and_eq_true] at hres
+      obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨hNat, hZero⟩, hSucc⟩, hS⟩, hO⟩, hL⟩, hN⟩, hC⟩, hH⟩,
+        hF⟩ := hres
+      have hg : strLitSupported (⟨c₀ :: env.consts⟩ : Env) =
+          strLitSupported env :=
+        strLitSupported_congr
+          (Env.find?_cons_of_isSome hfresh hNat)
+          (Env.find?_cons_of_isSome hfresh hZero)
+          (Env.find?_cons_of_isSome hfresh hSucc)
+          (Env.find?_cons_of_isSome hfresh hS)
+          (Env.find?_cons_of_isSome hfresh hO)
+          (Env.find?_cons_of_isSome hfresh hL)
+          (Env.find?_cons_of_isSome hfresh hN)
+          (Env.find?_cons_of_isSome hfresh hC)
+          (Env.find?_cons_of_isSome hfresh hH)
+          (Env.find?_cons_of_isSome hfresh hF)
+      simp only [interpExpr, hg, strLitVal,
+        Env.levelParamsAt_congr (Env.find?_cons_of_isSome hfresh hN),
+        Env.levelParamsAt_congr (Env.find?_cons_of_isSome hfresh hC)]
     | natVal n =>
       simp only [constsResolve, Bool.and_eq_true] at hres
       have hg : natLitSupported (⟨c₀ :: env.consts⟩ : Env) =
@@ -609,7 +672,19 @@ theorem interp_cval_ext {cval₁ cval₂ : ConstVal V}
   | .letE _ _ _ _, _, _ => by simp [interpExpr]
   | .lit l, d, ρ => by
     cases l with
-    | strVal s => simp [interpExpr]
+    | strVal s =>
+      by_cases hs : strLitSupported env
+      · obtain ⟨hnat, ciS, ciO, ciL, ciN, ciC, ciH, ciF, pL, pN, pC, hfS, hfO,
+          hfL, hfN, hfC, hfH, hfF, -⟩ := strLitSupported_inv hs
+        obtain ⟨cv, caps, cv0, i0, j0, cv1, i1, j1, hn, hz, hsc, -⟩ :=
+          natLitSupported_inv hnat
+        rw [interpExpr_strLit (V := V) (cval := cval₁) hs, interpExpr_strLit (V := V) (cval := cval₂) hs]
+        exact congrArg some (strLitVal_congr V
+          (hagree _ (by simp [hfO]) _) (hagree _ (by simp [hfN]) _)
+          (hagree _ (by simp [hfC]) _) (hagree _ (by simp [hfH]) _)
+          (hagree _ (by simp [hfF]) _) (hagree _ (by simp [hz]) _)
+          (hagree _ (by simp [hsc]) _))
+      · rw [interpExpr_strLit_none (V := V) hs, interpExpr_strLit_none (V := V) hs]
     | natVal n =>
       by_cases hs : natLitSupported env
       · obtain ⟨cv, caps, cv0, i0, j0, cv1, i1, j1, hn, hz, hsc, -⟩ :=
@@ -646,7 +721,8 @@ recursor's rule list) interpret every expression alike. -/
 theorem interp_env_ext {env₁ env₂ : Env}
     (henv : ∀ n, (env₁.find? n).map (fun ci => ci.toConstantVal.levelParams) =
         (env₂.find? n).map (fun ci => ci.toConstantVal.levelParams))
-    (hnat : natLitSupported env₁ = natLitSupported env₂) :
+    (hnat : natLitSupported env₁ = natLitSupported env₂)
+    (hstr : strLitSupported env₁ = strLitSupported env₂) :
     ∀ (e : Expr) (d : Nat) (ρ : Nat → V),
       interpExpr V cval env₁ φ d ρ e = interpExpr V cval env₂ φ d ρ e
   | .sort u, d, ρ => by simp [interpExpr]
@@ -675,37 +751,43 @@ theorem interp_env_ext {env₁ env₂ : Env}
     | none => rfl
     | some v =>
       simp only []
-      rw [interp_env_ext henv hnat ty d ρ]
+      rw [interp_env_ext henv hnat hstr ty d ρ]
       cases hty : interpExpr V cval env₂ φ d ρ ty with
       | none => rfl
       | some A =>
         simp only [Option.some.injEq]
         congr 1
         funext x
-        rw [interp_env_ext henv hnat (body.instantiate1 (.fvar d n ty)) (d + 1) (updV V ρ d x)]
+        rw [interp_env_ext henv hnat hstr (body.instantiate1 (.fvar d n ty)) (d + 1) (updV V ρ d x)]
   | .lam n ty body m, d, ρ => by
     simp only [interpExpr]
     cases m.cod with
     | none => rfl
     | some v =>
       simp only []
-      rw [interp_env_ext henv hnat ty d ρ]
+      rw [interp_env_ext henv hnat hstr ty d ρ]
       cases hty : interpExpr V cval env₂ φ d ρ ty with
       | none => rfl
       | some A =>
         simp only [Option.some.injEq]
         congr 1
         funext x
-        rw [interp_env_ext henv hnat (body.instantiate1 (.fvar d n ty)) (d + 1) (updV V ρ d x)]
+        rw [interp_env_ext henv hnat hstr (body.instantiate1 (.fvar d n ty)) (d + 1) (updV V ρ d x)]
   | .app f a, d, ρ => by
     simp only [interpExpr]
-    rw [interp_env_ext henv hnat f d ρ, interp_env_ext henv hnat a d ρ]
+    rw [interp_env_ext henv hnat hstr f d ρ, interp_env_ext henv hnat hstr a d ρ]
   | .bvar _, _, _ => by simp [interpExpr]
   | .letE _ _ _ _, _, _ => by simp [interpExpr]
-  | .lit l, _, _ => by cases l <;> simp [interpExpr, hnat]
+  | .lit l, _, _ => by
+    cases l with
+    | natVal n => simp [interpExpr, hnat]
+    | strVal s =>
+      simp only [interpExpr, hstr, strLitVal,
+        Env.levelParamsAt_congr' (henv listNilName),
+        Env.levelParamsAt_congr' (henv listConsName)]
   | .proj s' i e, d, ρ => by
     simp only [interpExpr]
-    rw [interp_env_ext henv hnat e d ρ]
+    rw [interp_env_ext henv hnat hstr e d ρ]
 termination_by e => e.sizeB
 decreasing_by
   all_goals first
