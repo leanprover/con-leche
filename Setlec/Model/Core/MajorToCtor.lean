@@ -150,7 +150,8 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuel : Nat}
     simp [AnnotOk]
   -- branch on the fabrication kind
   rcases hcase with ⟨hKrule, hcnF0, hlvlK, hfabeq, hpi⟩ |
-    ⟨hEeta, hEctor, hEproj, -, hplenE, hlvlE, hfabeq, hse⟩
+    ⟨hEeta, hEctor, hEproj, -, hplenE, hlvlE, hfabeq,
+      hse | ⟨hZ0, hlvlZ, hpi⟩⟩
   · -- ── K: the fabricated `refl`-like application ──
     have heqc : cj = r.ctor ∧ usj = ust := by
       have hgfn := congrArg Expr.getAppFn hfabeq
@@ -443,6 +444,58 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuel : Nat}
     have hveq := structEtaWith_sound ihw ihd ihi hse hti htw
       hwM hw hbM hb hLbM hLb hokM hok hAfab hA hIfab hMi
     exact ⟨by rw [hIfab, hMi, hveq], hAfab, hwM, hbM, hLbM, hokM⟩
+  · -- ── 0-field eta: the bare-constructor fabrication, certified by
+    -- proof irrelevance (the pinned basis `PUnit` rescue) ──
+    have heqc : cj = caps.etaCtor ∧ usj = ust := by
+      have hgfn := congrArg Expr.getAppFn hfabeq
+      rw [Expr.getAppFn_mkAppN, hmfn] at hgfn
+      exact ⟨(Expr.const.inj hgfn).1, (Expr.const.inj hgfn).2⟩
+    rw [← heqc.1, ← heqc.2] at hfabeq
+    -- identify the rule-constructor entry with the continuation's
+    rw [hEctor, ← heqc.1] at hfj'
+    obtain ⟨heqv, heqp, heqf⟩ : cvj' = cvj ∧ cnP' = cnP ∧ cnF' = cnF := by
+      rw [hfj'] at hfj
+      injection hfj with h1
+      injection h1 with h1 h2 h3
+      exact ⟨h1, h2, h3⟩
+    rw [heqv] at hlvlZ
+    have hmargs : major.getAppArgs = tmaj.getAppArgs := by
+      have hgargs := congrArg Expr.getAppArgs hfabeq
+      rw [Expr.getAppArgs_mkAppN] at hgargs
+      simpa [Expr.getAppArgs, hZ0] using hgargs
+    have hlenj : usj.length = cvj.levelParams.length := by
+      rw [heqc.2]
+      exact hlvlZ.symm
+    have hvalC : interpExpr V m.val env φ d ρ (.const cj usj) =
+        some (m.val cj (Level.substFn φ cvj.levelParams usj)) := by
+      simp only [interpExpr, hfj]
+      rw [if_pos (show usj.length =
+        (ConstantInfo.ctorInfo cvj cnP cnF).toConstantVal.levelParams.length
+        from hlenj)]
+      rfl
+    have hmargswf : ∀ x ∈ major.getAppArgs,
+        WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded x ∧ FvarsOk V m.val env φ d ρ x ∧
+        AnnotOk V m.val env φ d ρ x := by
+      rw [hmargs]
+      exact htargswf
+    have hspM : InterpSpine m.val env φ d ρ major.getAppArgs psv := by
+      rw [hmargs]
+      exact hspT
+    obtain ⟨restC, hfitIC⟩ := certs_fit ihd ihi _ _ _ TC
+      hmcerts hCw hCb (Expr.LeavesBounded.of_not_hasFvar hChf)
+      (FvarsOk.of_not_hasFvar hChf) hCA hCT hmargswf hspM
+    obtain ⟨dC, ρC, restC', hfitC⟩ := TeleFitI.toTeleFit hfitIC hCw
+      (stripPis_instantiateLevelParams_isSome _ _ _ hstripLen)
+    have hch := TeleFit.chainSlots hfitC hCA hCT hCmem
+    obtain ⟨hAfab, hIfab⟩ := annotOk_spine major.getAppArgs
+      (.const cj usj) hconstA hvalC
+      (fun x hx => (hmargswf x hx).2.2.2.2) hspM hch
+    rw [hmspine] at hAfab hIfab
+    -- proof irrelevance identifies the values
+    obtain ⟨hptM, hptM0⟩ := proofIrrel_pt ihw ihi hpi hwM hw hbM hb
+      hLbM hLb hokM hok hAfab hA
+    exact ⟨by rw [hptM, hptM0], hAfab, hwM, hbM, hLbM, hokM⟩
 
 end Claims
 

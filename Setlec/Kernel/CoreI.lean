@@ -748,6 +748,12 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                       (fun l => (st.fvarLeavesI major).contains l)) then do
                   if ← structEtaCertWithI r fe depth fab major tmaj then
                     pure fab
+                  else if caps.etaFields = 0 ∧
+                      cvj.levelParams.length = ust.length ∧
+                      piResultNeverZero cvT.levelParams ust cvT.type
+                        = true then
+                    if ← proofIrrelI r fe depth fab major then pure fab
+                    else pure major
                   else pure major
                 else pure major
               else pure major

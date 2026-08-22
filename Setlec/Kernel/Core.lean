@@ -121,6 +121,18 @@ def piResultIsProp (e : Expr) : Bool :=
   | .sort u => Level.isEquiv u .zero == some true
   | _ => false
 
+/-- Is the result sort of a stored inductive's type, instantiated at
+the given levels, provably nonzero (official `is_never_zero`)?  The
+official kernel's structure rescue (`to_cnstr_when_structure`)
+requires this of the major's type; the basis `PUnit` rescue mirrors
+it (`Sort u` at a concrete level such as `Unit`'s `1` passes, the
+parameter `u` itself does not). -/
+def piResultNeverZero (lps : List Name) (us : List Level) (e : Expr) :
+    Bool :=
+  match e.piResult with
+  | .sort u => (Level.subst lps us u).isNeverZero
+  | _ => false
+
 /-- Is this (whnf'd) type expression a unit-like inductive type — a
 stored inductive whose recursor (under the `<ind>.rec` naming
 convention) has no indices and a single zero-field rule?  All of its
@@ -1010,6 +1022,18 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                       (fun l => major.fvarLeaves.contains l) then
                   if ← structEtaCertWith r env depth fab major tmaj then
                     pure fab
+                  -- 0-field rescue for the pinned basis `PUnit` (the
+                  -- generic certificate excludes reserved names): the
+                  -- fabrication is the bare constructor, certified by
+                  -- proof irrelevance's unit-likeness branch; the
+                  -- official rescue additionally requires the
+                  -- instantiated result sort to be provably nonzero
+                  else if caps.etaFields = 0 ∧
+                      cvj.levelParams.length = ust.length ∧
+                      piResultNeverZero cvT.levelParams ust cvT.type
+                        = true then
+                    if ← proofIrrel r env depth fab major then pure fab
+                    else pure major
                   else pure major
                 else pure major
               else pure major

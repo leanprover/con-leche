@@ -23,6 +23,11 @@
 # hand-patched (an export never contains an unused axiom record).
 0 sorry_unused.ndjson
 2 sorry_use.ndjson
+# Basis PUnit 0-field stuck-major rescue (task #59): `Unit.sizeOf`
+# needs `PUnit.rec _ 1 u ≡ 1` at a neutral `u` — the official kernel's
+# structure rescue covers 0-field structures; dependency-closure slice
+# of the Init export through `Unit.sizeOf`.
+0 unit_sizeof_rescue.ndjson
 
 0 opaque_decl.ndjson
 0 nat_ops.ndjson
