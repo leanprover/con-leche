@@ -130,11 +130,13 @@ def unwrapOr {α : Type} (o : Option α) (err : CheckError) : m α :=
   | some a => pure a
   | none => throw err
 
-/-- The stored theorem constant and statement value, if any. -/
-def Env.findThm? (env : Env) (n : Name) : Option (ConstantVal × Expr) :=
-  match env.find? n with
-  | some (.thmInfo cv v) => some (cv, v)
-  | _ => none
+/-- The stored constant under `n`, as a `ConstantVal`, if any.  The
+iota-certificate checks below consume only the stored constant's
+*type* (any stored constant witnesses its type's inhabitation in the
+model — `EnvModel.mem_type` is kind-agnostic), so no theorem-kind
+filter is imposed. -/
+def Env.findCV? (env : Env) (n : Name) : Option ConstantVal :=
+  (env.find? n).map (·.toConstantVal)
 
 /-- Check a *canonical* recursor rule's `iota_j` theorem,
 *semantically*: the stored theorem's telescope is opened at free
@@ -153,8 +155,8 @@ def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
     (mI rP j : Nat) (r : RecRule) (cvj : ConstantVal)
     (cnP cnF : Nat) (rhsA : Expr) : m Unit := do
-    let (cvt, _) ← unwrapOr
-        (env'.findThm? ((cvName.str "_model").str s!"iota_{j}"))
+    let cvt ← unwrapOr
+        (env'.findCV? ((cvName.str "_model").str s!"iota_{j}"))
         (.notImplemented s!"missing iota theorem for {cvName}")
     unless cvt.levelParams = lps do
       throw (.notImplemented s!"iota theorem level mismatch for {cvName}")
@@ -229,7 +231,7 @@ def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
 level and parameter instantiations, read off the recursor type's
 major-premise domain (`∀ …prefix…, ∀ (t : D.{lvls} p₁ … p_cnP), …`).
 `none` — the rule stays inert, and a matched major declines at fire
-time — when the model has no `iota_j` theorem, the recursor has index
+time — when the model stores no `iota_j` constant, the recursor has index
 premises (`mI ≠ rP`; not covered by the certified shape), the major
 domain is not a constant-headed application of exactly `cnP`
 arguments, or an instantiation fails the syntactic well-formedness
@@ -238,7 +240,7 @@ declared — the facts `EnvWF` records for the stored rule). -/
 def nestedRuleShape (env' envSelf : Env) (cvName : Name)
     (lps : List Name) (tyA : Expr) (mI rP cnP j : Nat) :
     Option (List Level × List Expr) :=
-  if (env'.findThm? ((cvName.str "_model").str s!"iota_{j}")).isSome ∧
+  if (env'.findCV? ((cvName.str "_model").str s!"iota_{j}")).isSome ∧
       mI = rP then
     match tyA.stripPis mI with
     | some (_, .forallE _ dom _ _) =>
@@ -272,8 +274,8 @@ def checkIotaThmN (ops : CheckerOps m) (env' envSelf : Env)
     match nestedRuleShape env' envSelf cvName lps tyA mI rP cnP j with
     | none => pure .inert
     | some (lvls, pins) => do
-    let (cvt, _) ← unwrapOr
-        (env'.findThm? ((cvName.str "_model").str s!"iota_{j}"))
+    let cvt ← unwrapOr
+        (env'.findCV? ((cvName.str "_model").str s!"iota_{j}"))
         (.notImplemented s!"missing iota theorem for {cvName}")
     unless cvt.levelParams = lps do
       throw (.notImplemented s!"iota theorem level mismatch for {cvName}")

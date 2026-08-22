@@ -149,8 +149,9 @@ def rawNatLitI? (st : EStore) (e : EIdx) : Option Nat :=
 entry points, lazy caches for level-instantiated stored constants
 (type / definition value / recursor-rule right-hand side), keyed by name
 and level-index instantiation, and the level-operation memo tables
-(task #62: `lsimpC` for `simplifyLM`, `lnzC` for `isNonZeroLM` — both
-environment-independent, keyed by level index alone). -/
+(task #62: `lsimpC` for `simplifyLM`, `lnzC` for `isNonZeroLM`, `eqvC`
+for `isEquivLM` — all environment-independent, keyed by level indices
+alone: on a canonical arena a level index determines its denotation). -/
 structure IState where
   store : EStore := .empty
   constTyAt : Std.HashMap (Name × List LIdx) EIdx := {}
@@ -163,6 +164,7 @@ structure IState where
   annotC : Std.HashMap EIdx EIdx := {}
   lsimpC : EStore.LMemo := {}
   lnzC : Std.HashMap LIdx Bool := {}
+  eqvC : Std.HashMap (LIdx × LIdx) Bool := {}
 
 instance : Inhabited IState := ⟨{}⟩
 
@@ -498,23 +500,38 @@ def isEquivListLI (st : EStore) (memo : EStore.LMemo) :
   | _, _ => (some false, st, memo)
 
 /-- Monadic wrapper for `isEquivLI` (threads the persistent simplify
-memo). -/
+memo), with a persistent *result* cache (`eqvC`): on a canonical arena
+the pair of indices determines the pair of levels, so a decided
+equivalence never needs recomputing — the `byCases` cascades of
+parameterized `imax` levels run once per distinct pair. -/
 @[inline] def isEquivLM (l r : LIdx) : CheckIM (Option Bool) :=
   modifyGet fun s =>
-    let store := s.store
-    let memo := s.lsimpC
-    let s := { s with store := EStore.empty, lsimpC := {} }
-    let (r', store, memo) := isEquivLI store memo l r
-    (r', { s with store := store, lsimpC := memo })
+    match s.eqvC[(l, r)]? with
+    | some b => (some b, s)
+    | none =>
+      let store := s.store
+      let memo := s.lsimpC
+      let ec := s.eqvC
+      let s := { s with store := EStore.empty, lsimpC := {}, eqvC := {} }
+      match isEquivLI store memo l r with
+      | (some b, store, memo) =>
+        (some b, { s with store := store, lsimpC := memo,
+                          eqvC := ec.insert (l, r) b })
+      | (none, store, memo) =>
+        (none, { s with store := store, lsimpC := memo, eqvC := ec })
 
-/-- Monadic wrapper for `isEquivListLI`. -/
-@[inline] def isEquivListLM (ls rs : List LIdx) : CheckIM (Option Bool) :=
-  modifyGet fun s =>
-    let store := s.store
-    let memo := s.lsimpC
-    let s := { s with store := EStore.empty, lsimpC := {} }
-    let (r', store, memo) := isEquivListLI store memo ls rs
-    (r', { s with store := store, lsimpC := memo })
+/-- Pointwise `isEquivLM` (each pair through the result cache). -/
+def isEquivListLM : List LIdx → List LIdx → CheckIM (Option Bool)
+  | [], [] => pure (some true)
+  | l :: ls, r :: rs => do
+    match ← isEquivLM l r with
+    | none => pure none
+    | some b =>
+      match ← isEquivListLM ls rs with
+      | none => pure none
+      | some bs => pure (some (b && bs))
+  | _, _ => pure (some false)
+
 
 /-- Read a level index back as a `Level` tree (an internal error when
 the index is dangling — never on the bridge invariant). -/

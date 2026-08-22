@@ -782,6 +782,42 @@ theorem LvlQMemoInv.insert {st : EStore} {g : Level → Bool}
   · rw [if_neg (by simpa using hk)] at hb'
     exact h u' b' hb'
 
+/-- Invariant of the `isEquiv` *result* cache (`IState.eqvC`): a
+stored verdict is the spec verdict on the denotations of its key
+pair (which the arena determines). -/
+def EqvMemoInv (st : EStore)
+    (memo : Std.HashMap (LIdx × LIdx) Bool) : Prop :=
+  ∀ l r b, memo[(l, r)]? = some b →
+    ∃ la ra, st.denoteL l = some la ∧ st.denoteL r = some ra ∧
+      Level.isEquiv la ra = some b
+
+theorem EqvMemoInv.empty {st : EStore} : EqvMemoInv st {} := by
+  intro l r b h
+  simp at h
+
+theorem EqvMemoInv.mono {st st' : EStore}
+    {memo : Std.HashMap (LIdx × LIdx) Bool} (hext : Ext st st')
+    (h : EqvMemoInv st memo) : EqvMemoInv st' memo := by
+  intro l r b hb
+  obtain ⟨la, ra, hl, hr, he⟩ := h l r b hb
+  exact ⟨la, ra, denoteL_mono hext hl, denoteL_mono hext hr, he⟩
+
+theorem EqvMemoInv.insert {st : EStore}
+    {memo : Std.HashMap (LIdx × LIdx) Bool} {l r : LIdx}
+    {la ra : Level} {b : Bool} (h : EqvMemoInv st memo)
+    (hl : st.denoteL l = some la) (hr : st.denoteL r = some ra)
+    (he : Level.isEquiv la ra = some b) :
+    EqvMemoInv st (memo.insert (l, r) b) := by
+  intro l' r' b' hb'
+  rw [Std.HashMap.getElem?_insert] at hb'
+  by_cases hk : l = l' ∧ r = r'
+  · obtain ⟨rfl, rfl⟩ := hk
+    rw [if_pos (by simp)] at hb'
+    cases hb'
+    exact ⟨la, ra, hl, hr, he⟩
+  · rw [if_neg (by simpa [Prod.ext_iff] using hk)] at hb'
+    exact h l' r' b' hb'
+
 theorem isNonZeroLIGo_spec {st : EStore} (hwf : st.WF) :
     ∀ (u : LIdx) {memo : Std.HashMap LIdx Bool} {b : Bool}
       {memo' : Std.HashMap LIdx Bool},

@@ -25,13 +25,14 @@ rule-less recursors (the definitional-equality checks ran there). -/
 def PlainChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
     (cvA : ConstantVal) (mI rP cnP cnF : Nat) (r : RecRule)
     (cvj : ConstantVal) : Prop :=
-  ∃ (thmName : Name) (cvt : ConstantVal) (tval : Expr)
+  ∃ (thmName : Name) (cvt : ConstantVal) (ci : ConstantInfo)
     (fvs : List Expr) (tbody : Expr) (ℓA : Level) (αS lhsS rhsS : Expr)
     (cdoms : List Expr) (cres : Expr) (rdoms : List Expr) (rrest : Expr)
     (fvsP : List Expr) (restP : Expr) (cdomsP : List Expr)
     (crestP : Expr) (xFvsP : List Expr) (crest2 : Expr)
     (ldoms : List Expr) (lrest : Expr),
-    env.find? thmName = some (.thmInfo cvt tval) ∧
+    env.find? thmName = some ci ∧
+    ci.toConstantVal = cvt ∧
     cvt.levelParams = cvA.levelParams ∧
     openPisAtFvars (rP + cnF) cvt.type 0 = some (fvs, tbody) ∧
     tbody.getAppFn = .const eqName [ℓA] ∧
@@ -76,13 +77,14 @@ index-free shape (`mI = rP`, recorded next to this kit in
 def NestedChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
     (cvA : ConstantVal) (mI rP cnP cnF : Nat) (r : RecRule)
     (cvj : ConstantVal) (lvls : List Level) (pins : List Expr) : Prop :=
-  ∃ (thmName : Name) (cvt : ConstantVal) (tval : Expr)
+  ∃ (thmName : Name) (cvt : ConstantVal) (ci : ConstantInfo)
     (fvs : List Expr) (tbody : Expr) (ℓA : Level) (αS lhsS rhsS : Expr)
     (cdoms : List Expr) (cres : Expr) (rdoms : List Expr) (rrest : Expr)
     (fvsP : List Expr) (restP : Expr) (cdomsP : List Expr)
     (crestP : Expr) (xFvsP : List Expr) (crest2 : Expr)
     (ldoms : List Expr) (lrest : Expr),
-    env.find? thmName = some (.thmInfo cvt tval) ∧
+    env.find? thmName = some ci ∧
+    ci.toConstantVal = cvt ∧
     cvt.levelParams = cvA.levelParams ∧
     openPisAtFvars (rP + cnF) cvt.type 0 = some (fvs, tbody) ∧
     tbody.getAppFn = .const eqName [ℓA] ∧
@@ -132,20 +134,17 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
       cvA.type mI rP j r cvj cnP cnF rhsA = .ok u) :
     PlainChecked F env' env₀ f cvA mI rP cnP cnF
       { r with rhs := rhsA } cvj := by
-  simp only [checkIotaThm, unwrapOr, Env.findThm?, fueledOps_annotate,
+  simp only [checkIotaThm, unwrapOr, Env.findCV?, fueledOps_annotate,
     fueledOps_inferType, fueledOps_isDefEq, fueledOps_ensureSort,
     fueledOps_whnf, Bind.bind, Except.bind, pure, Except.pure] at h
   revert h
   match hfthm : env'.find? ((cvA.name.str "_model").str s!"iota_{j}") with
   | none => intro h; exact nomatch h
-  | some (.axiomInfo _) => intro h; exact nomatch h
-  | some (.projInfo _) => intro h; exact nomatch h
-  | some (.defnInfo _ _ _) => intro h; exact nomatch h
-  | some (.indInfo _ _) => intro h; exact nomatch h
-  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
-  | some (.thmInfo cvt tval) => ?_
+  | some ci => ?_
   intro h
+  obtain ⟨cvt, hcvt⟩ : ∃ cvt, ci.toConstantVal = cvt := ⟨_, rfl⟩
+  simp only [Option.map_some] at h
+  rw [hcvt] at h
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
   by_cases hlpt : cvt.levelParams = cvA.levelParams
@@ -284,10 +283,10 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
     | false => intro h; simp at h
     | true =>
       intro h
-      exact ⟨(cvA.name.str "_model").str s!"iota_{j}", cvt, tval, fvs,
+      exact ⟨(cvA.name.str "_model").str s!"iota_{j}", cvt, ci, fvs,
         tbody, ℓA, αS, lhsS, rhsS, cdoms, cres, rdoms, rrest, fvsP,
         restP, cdomsP, crestP, xFvsP, crest2, ldoms, lrest,
-        hfthm, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
+        hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
         eq_of_beq hlpre, eq_of_beq hmaj, hcstrip, hcinst, hclen,
         checkDefEqList_inv hdq1, checkDefEqList_inv hdq2, hrinst,
         checkDefEqList_inv hdq3, hopenP, hcinstP, hopenX, hlinst,
@@ -385,20 +384,17 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
   | some q => ?_
   obtain ⟨lvls, pins⟩ := q
   intro h
-  simp only [unwrapOr, Env.findThm?, fueledOps_annotate,
+  simp only [unwrapOr, Env.findCV?, fueledOps_annotate,
     fueledOps_inferType, fueledOps_isDefEq, fueledOps_ensureSort,
     fueledOps_whnf, Bind.bind, Except.bind, pure, Except.pure] at h
   revert h
   match hfthm : env'.find? ((cvA.name.str "_model").str s!"iota_{j}") with
   | none => intro h; exact nomatch h
-  | some (.axiomInfo _) => intro h; exact nomatch h
-  | some (.projInfo _) => intro h; exact nomatch h
-  | some (.defnInfo _ _ _) => intro h; exact nomatch h
-  | some (.indInfo _ _) => intro h; exact nomatch h
-  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
-  | some (.thmInfo cvt tval) => ?_
+  | some ci => ?_
   intro h
+  obtain ⟨cvt, hcvt⟩ : ∃ cvt, ci.toConstantVal = cvt := ⟨_, rfl⟩
+  simp only [Option.map_some] at h
+  rw [hcvt] at h
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
   by_cases hlpt : cvt.levelParams = cvA.levelParams
@@ -545,10 +541,10 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
       intro h
       simp only [if_true, Except.ok.injEq] at h
       exact Or.inr ⟨lvls, pins, h.symm, rfl,
-        (cvA.name.str "_model").str s!"iota_{j}", cvt, tval, fvs,
+        (cvA.name.str "_model").str s!"iota_{j}", cvt, ci, fvs,
         tbody, ℓA, αS, lhsS, rhsS, cdoms, cres, rdoms, rrest, fvsP,
         restP, cdomsP, crestP, xFvsP, crest2, ldoms, lrest,
-        hfthm, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
+        hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
         eq_of_beq hlpre, eq_of_beq hmaj, hcstrip, hcinst, hclen,
         checkDefEqList_inv hdq1, checkDefEqList_inv hdq2, hrinst,
         checkDefEqList_inv hdq3, hopenP, hcinstP, hopenX, hlinst,

@@ -74,15 +74,17 @@ structure ISOK (env : Env) (s : IState) : Prop where
       isDefEqCore env F d a b = .ok r
   lsimp : LvlMemoInv s.store Level.simplify s.lsimpC
   lnz : LvlQMemoInv s.store Level.isNonZero s.lnzC
+  eqv : EqvMemoInv s.store s.eqvC
 
 /-- The invariant holds for a fresh state over any canonical arena
 (all caches empty). -/
 theorem ISOK.fresh (env : Env) {store : EStore} (hwf : store.WF) :
     ISOK env { store := store } := by
-  refine ⟨hwf, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
+  refine ⟨hwf, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     first
       | exact LvlMemoInv.empty
       | exact LvlQMemoInv.empty
+      | exact EqvMemoInv.empty
       | (intros; simp_all)
 
 /-- Replacing the arena by a well-formed extension preserves the
@@ -91,7 +93,7 @@ invariant (all clauses only assert denotations, which are
 theorem ISOK.withStore {env : Env} {s : IState} (h : ISOK env s)
     {st' : EStore} (hwf' : st'.WF) (hext : Ext s.store st') :
     ISOK env { s with store := st' } := by
-  refine ⟨hwf', ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨hwf', ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · intro n us i hl
     obtain ⟨lus, ci, h0, h1, h2⟩ := h.constTy n us i hl
     exact ⟨lus, ci, denoteLList_mono hext h0, h1, denote_mono hext h2⟩
@@ -121,6 +123,7 @@ theorem ISOK.withStore {env : Env} {s : IState} (h : ISOK env s)
     exact ⟨a, b, denote_mono hext h1, denote_mono hext h2, h3⟩
   · exact h.lsimp.mono hext
   · exact h.lnz.mono hext
+  · exact h.eqv.mono hext
 
 /-- Replacing the arena and the simplify memo together (the
 `simplifyLM`/`isEquivLM` wrappers). -/
@@ -132,7 +135,7 @@ theorem ISOK.withStoreLsimp {env : Env} {s : IState} (h : ISOK env s)
   have base := h.withStore hwf' hext
   exact ⟨base.wf, base.constTy, base.constVal, base.ruleRhs,
     base.whnfCoreC, base.whnfC, base.inferC, base.annotC, base.defeqC,
-    hinv', base.lnz⟩
+    hinv', base.lnz, base.eqv⟩
 
 /-- Replacing the `isNonZero` memo (the `isNonZeroLM` wrapper; the
 arena is untouched). -/
@@ -141,7 +144,21 @@ theorem ISOK.withLnz {env : Env} {s : IState} (h : ISOK env s)
     (hinv' : LvlQMemoInv s.store Level.isNonZero m') :
     ISOK env { s with lnzC := m' } :=
   ⟨h.wf, h.constTy, h.constVal, h.ruleRhs, h.whnfCoreC, h.whnfC,
-    h.inferC, h.annotC, h.defeqC, h.lsimp, hinv'⟩
+    h.inferC, h.annotC, h.defeqC, h.lsimp, hinv', h.eqv⟩
+
+/-- Replacing the arena, the simplify memo and the equivalence result
+cache together (the `isEquivLM` wrapper). -/
+theorem ISOK.withStoreLsimpEqv {env : Env} {s : IState} (h : ISOK env s)
+    {st' : EStore} {m' : EStore.LMemo}
+    {ec' : Std.HashMap (LIdx × LIdx) Bool} (hwf' : st'.WF)
+    (hext : Ext s.store st')
+    (hinv' : LvlMemoInv st' Level.simplify m')
+    (heqv' : EqvMemoInv st' ec') :
+    ISOK env { s with store := st', lsimpC := m', eqvC := ec' } := by
+  have base := h.withStore hwf' hext
+  exact ⟨base.wf, base.constTy, base.constVal, base.ruleRhs,
+    base.whnfCoreC, base.whnfC, base.inferC, base.annotC, base.defeqC,
+    hinv', base.lnz, heqv'⟩
 
 /-! ## The simulation and effect relations -/
 
@@ -575,15 +592,16 @@ private theorem instLevelParamsM_run (ks : List Name) (us : List LIdx)
       := rfl
 
 private theorem isEquivLM_run (l r : LIdx) (s : IState) :
-    isEquivLM l r s = .ok ((isEquivLI s.store s.lsimpC l r).1,
-      { s with store := (isEquivLI s.store s.lsimpC l r).2.1,
-               lsimpC := (isEquivLI s.store s.lsimpC l r).2.2 }) := rfl
-
-private theorem isEquivListLM_run (ls rs : List LIdx) (s : IState) :
-    isEquivListLM ls rs s = .ok ((isEquivListLI s.store s.lsimpC ls rs).1,
-      { s with store := (isEquivListLI s.store s.lsimpC ls rs).2.1,
-               lsimpC := (isEquivListLI s.store s.lsimpC ls rs).2.2 })
-      := rfl
+    isEquivLM l r s = .ok (match s.eqvC[(l, r)]? with
+      | some b => (some b, s)
+      | none =>
+        match isEquivLI s.store s.lsimpC l r with
+        | (some b, store, memo) =>
+          (some b, { s with store := store, lsimpC := memo,
+                            eqvC := s.eqvC.insert (l, r) b })
+        | (none, store, memo) =>
+          (none, { s with store := store, lsimpC := memo,
+                          eqvC := s.eqvC })) := rfl
 
 theorem internLM_eff (hs : ISOK env s₀) {n : LNode} {l : Level}
     (hd : denoteLNode s₀.store.denoteL n = some l) :
@@ -694,29 +712,96 @@ theorem isEquivLM_eff (hs : ISOK env s₀) {l r : LIdx} {la ra : Level}
       (isEquivLM l r) := by
   intro v' s' hrun
   rw [isEquivLM_run] at hrun
-  rcases hgo : isEquivLI s₀.store s₀.lsimpC l r with ⟨ob, st', memo'⟩
-  obtain ⟨hwf', hext, hinv', hob⟩ :=
-    isEquivLI_spec hs.wf hs.lsimp hl hr hgo
-  rw [hgo] at hrun
-  injection hrun with h1
-  obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
-  exact ⟨hs.withStoreLsimp hwf' hext hinv', hext, hob⟩
+  cases hc : s₀.eqvC[(l, r)]? with
+  | some b =>
+    rw [hc] at hrun
+    injection hrun with h1
+    obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
+    obtain ⟨la', ra', hl', hr', heq⟩ := hs.eqv l r b hc
+    cases Option.some.inj (hl.symm.trans hl')
+    cases Option.some.inj (hr.symm.trans hr')
+    exact ⟨hs, Ext.refl _, heq.symm⟩
+  | none =>
+    rw [hc] at hrun
+    rcases hgo : isEquivLI s₀.store s₀.lsimpC l r with ⟨ob, st', memo'⟩
+    obtain ⟨hwf', hext, hinv', hob⟩ :=
+      isEquivLI_spec hs.wf hs.lsimp hl hr hgo
+    rw [hgo] at hrun
+    cases ob with
+    | none =>
+      injection hrun with h1
+      obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
+      exact ⟨hs.withStoreLsimpEqv hwf' hext hinv' (hs.eqv.mono hext),
+        hext, hob⟩
+    | some b =>
+      injection hrun with h1
+      obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
+      refine ⟨hs.withStoreLsimpEqv hwf' hext hinv'
+        ((hs.eqv.mono hext).insert (denoteL_mono hext hl)
+          (denoteL_mono hext hr) hob.symm), hext, hob⟩
 
-theorem isEquivListLM_eff (hs : ISOK env s₀) {ls rs : List LIdx}
-    {las ras : List Level}
-    (hls : denoteLList s₀.store.denoteL ls = some las)
-    (hrs : denoteLList s₀.store.denoteL rs = some ras) :
-    IEff env s₀ (fun _s ob => ob = Level.isEquivList las ras)
-      (isEquivListLM ls rs) := by
-  intro v' s' hrun
-  rw [isEquivListLM_run] at hrun
-  rcases hgo : isEquivListLI s₀.store s₀.lsimpC ls rs with ⟨ob, st', memo'⟩
-  obtain ⟨hwf', hext, hinv', hob⟩ :=
-    isEquivListLI_spec hs.wf hs.lsimp hls hrs hgo
-  rw [hgo] at hrun
-  injection hrun with h1
-  obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
-  exact ⟨hs.withStoreLsimp hwf' hext hinv', hext, hob⟩
+theorem isEquivListLM_eff :
+    ∀ {ls rs : List LIdx} {s₀ : IState} {las ras : List Level},
+      ISOK env s₀ →
+      denoteLList s₀.store.denoteL ls = some las →
+      denoteLList s₀.store.denoteL rs = some ras →
+      IEff env s₀ (fun _s ob => ob = Level.isEquivList las ras)
+        (isEquivListLM ls rs) := by
+  intro ls
+  induction ls with
+  | nil =>
+    intro rs s₀ las ras hs hls hrs
+    cases rs with
+    | nil =>
+      cases hls
+      cases hrs
+      exact IEff.pure hs rfl
+    | cons r rs' =>
+      simp only [denoteLList, Option.bind_eq_some_iff,
+        Option.map_eq_some_iff] at hls hrs
+      cases hls
+      obtain ⟨rb, hrb, rsb, hrsb, rfl⟩ := hrs
+      exact IEff.pure hs rfl
+  | cons l ls' ih =>
+    intro rs s₀ las ras hs hls hrs
+    simp only [denoteLList, Option.bind_eq_some_iff,
+      Option.map_eq_some_iff] at hls
+    obtain ⟨lb, hlb, lsb, hlsb, rfl⟩ := hls
+    cases rs with
+    | nil =>
+      cases hrs
+      exact IEff.pure hs rfl
+    | cons r rs' =>
+      simp only [denoteLList, Option.bind_eq_some_iff,
+        Option.map_eq_some_iff] at hrs
+      obtain ⟨rb, hrb, rsb, hrsb, rfl⟩ := hrs
+      rw [show isEquivListLM (l :: ls') (r :: rs') = (do
+        match ← isEquivLM l r with
+        | none => pure none
+        | some b =>
+          match ← isEquivListLM ls' rs' with
+          | none => pure none
+          | some bs => pure (some (b && bs)) :
+        CheckIM (Option Bool)) from rfl]
+      refine (isEquivLM_eff hs hlb hrb).bind ?_
+      intro s₁ ob hs₁ hext₁ hob
+      subst hob
+      cases hE : Level.isEquiv lb rb with
+      | none =>
+        refine IEff.pure hs₁ ?_
+        simp [Level.isEquivList, hE]
+      | some b =>
+        refine (ih hs₁ (denoteLList_mono hext₁ hlsb)
+          (denoteLList_mono hext₁ hrsb)).bind ?_
+        intro s₂ obs hs₂ hext₂ hobs
+        subst hobs
+        cases hE₂ : Level.isEquivList lsb rsb with
+        | none =>
+          refine IEff.pure hs₂ ?_
+          simp [Level.isEquivList, hE, hE₂]
+        | some bs =>
+          refine IEff.pure hs₂ ?_
+          simp [Level.isEquivList, hE, hE₂]
 
 theorem readbackLevelM_eff (hs : ISOK env s₀) {u : LIdx} {la : Level}
     (hl : s₀.store.denoteL u = some la) :
@@ -782,7 +867,7 @@ theorem ISOK.insertConstTy {s : IState} (hs : ISOK env s)
         ci.toConstantVal.levelParams lus)) :
     ISOK env { s with constTyAt := s.constTyAt.insert (n, us) i } := by
   refine ⟨hs.wf, ?_, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfC,
-    hs.inferC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz⟩
+    hs.inferC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv⟩
   intro n' us' i' hl
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
@@ -806,7 +891,7 @@ theorem ISOK.insertConstVal {s : IState} (hs : ISOK env s)
       (v.instantiateLevelParams cv.levelParams lus)) :
     ISOK env { s with constValAt := s.constValAt.insert (n, us) i } := by
   refine ⟨hs.wf, hs.constTy, ?_, hs.ruleRhs, hs.whnfCoreC, hs.whnfC,
-    hs.inferC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz⟩
+    hs.inferC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv⟩
   intro n' us' i' hl
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
@@ -832,7 +917,7 @@ theorem ISOK.insertRuleRhs {s : IState} (hs : ISOK env s)
       (rl.rhs.instantiateLevelParams cv.levelParams lus)) :
     ISOK env { s with ruleRhsAt := s.ruleRhsAt.insert (c, j, us) i } := by
   refine ⟨hs.wf, hs.constTy, hs.constVal, ?_, hs.whnfCoreC, hs.whnfC,
-    hs.inferC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz⟩
+    hs.inferC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv⟩
   intro c' j' us' i' hl
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
