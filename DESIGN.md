@@ -762,6 +762,90 @@ hard build error.  Contract points:
   (`Setlec/Kernel/StdAxioms.lean`); basis blocks (`PSigma'` …) are
   preprocessor-owned and out of scope for the generator.
 
+### The remaining GMP `Nat` operations (2026-08-22, task #54)
+
+The official accelerator whitelist's seven remaining operations —
+`Nat.gcd`, `Nat.land`, `Nat.lor`, `Nat.xor`, `Nat.shiftLeft`,
+`Nat.shiftRight`, `Nat.log2` — join the `div`/`mod` family (the
+`natDivModNames` list, now nine operations; the name is historic).
+Each follows exactly the pinned-declaration pattern: elab-time def pin
+(defeq gate, mismatch declines), hand-pinned `ble`-guarded
+characterization statements in `divModCertStmts`, generated proof
+blobs checked pre-insertion, capability = presence, value-level
+clauses in `DivModClauses` (per-op dispatch), once-per-op uniqueness
+lemmas (`natOpVal_gcd` … in `Setlec/Model/NatOps.lean`, strong
+induction over the literal), consumed by `reduceNat_sound`.
+
+* **Statements** (all over the `x`/`y` frame; guards via certified
+  `Nat.ble`; numerals as `succ`/`zero` chains):
+  - `gcd`: `1 ≤ x → gcd x y = gcd (y % x) x`; `x = 0 → gcd x y = y`.
+  - `shiftLeft`: `1 ≤ y → x <<< y = (2*x) <<< (y-1)`; `y = 0 → = x`.
+  - `shiftRight`: `1 ≤ y → x >>> y = (x >>> (y-1)) / 2`; `y = 0 → = x`.
+  - `log2`: `2 ≤ x → log2 x = succ (log2 (x/2))`; `x < 2 → = 0`.
+    `log2` is **unary**: the statements still quantify over both frame
+    variables (`y` unused), so the certificate check, `checkDivModCerts`
+    and the frame machinery stay uniform; only the *model* side
+    branches (a unary `natOpTyPinned` shape shared with `pred`, a
+    unary function-space membership, and `eqSide_app1` in place of
+    `eqSide_app2` in the bridge).
+  - `land`/`lor`/`xor` (`Nat.bitwise` at `and`/`or`/`bne`): the
+    recurrence characterizes the operation **arithmetically** — the
+    combined low bit is `(x%2)*(y%2)` for `and`,
+    `x%2 + y%2 - (x%2)*(y%2)` for `or`, `(x%2 + y%2) % 2` for `bne` —
+    `1 ≤ x → op x y = 2*(op (x/2) (y/2)) + bit`, with bases
+    `x = 0 → land x y = 0` and `x = 0 → lor/xor x y = y`.  This keeps
+    the statements over already-certified ground only (`add`/`sub`/
+    `mul`/`div`/`mod`) — no `Bool` combinators, no `ite`, no
+    per-bit-case guard explosion.
+
+* **Certificate-proof constraints.**  The bit operations sit in the
+  stream's `Init.Prelude` region — before `HAnd`/`AndOp`, `testBit`,
+  `Trans`, `Subsingleton`, `Lean.RArray` even exist — so their proofs
+  can use neither `omega` (RArray in the atom certificates), `calc`
+  (`Trans`), the public bitwise lemma API (`HAnd` in the statements),
+  nor the auto-generated `Nat.bitwise.eq_def` (its proof mentions
+  `Subsingleton`).  Instead `Setlec/PinGen/Certs.lean` derives a
+  one-step unfolding from `WellFounded.Nat.fix_eq` directly (via
+  `delta`; WF definitions are irreducible) and finishes with
+  elementary `Nat` rewriting.  The later ops (`gcd` at its stream
+  position, `log2`) have `Iff`/`And`/`propext`/`Int` prefix-present
+  and use ordinary core lemmas (`Nat.gcd_succ`, `Nat.log2_def`); the
+  shifts are structural and their recurrences are `rfl`.
+
+* **Uniqueness lemma shapes.**  `gcd`/`land`/`lor`/`xor`: strong
+  induction on the first literal with the second generalized (step at
+  `y % x` resp. `x/2`, `y/2`); shifts: strong induction on the second
+  literal with the first generalized; `log2`: strong induction on the
+  single literal.  The bit operations' metatheory-side recurrences are
+  the *generator's own certificate theorems reused at the meta level*
+  (`Setlec/Model/NatOps.lean` imports `Setlec.PinGen.Certs`); their
+  guards are bridged with `Nat.ble_eq_true_of_le`.
+
+* **Model plumbing.**  `DivModEqs` is now
+  `∀ ψ x y ∈ Nat, DivModClauses val c ψ x y` with a per-op clause
+  dispatch mirroring the pinned statements; `DivModEqs.val_congr` and
+  `DivModOk.cons` are generic over the family (agreement at the
+  `Nat`/`Bool` pins plus `natOpDeps c`, which by construction contains
+  every operation a clause mentions).  The certificate bridge
+  (`divmod_certs_sound`) is one nine-case proof over generalized
+  clause extractors (`clause_extract1/2` now take the equation's
+  left-hand side as an arbitrary `Nat`-typed spine).
+
+* **Fixtures.**  `scripts/mk_natop_fixture.py` builds per-op e2e
+  fixtures by *dependency-closure slicing* of the full-Init export
+  (keeping the preprocessor's `_model` companion families and every
+  pin/certificate ground constant, incl. those of pin-ops pulled into
+  the closure), plus a literal `Eq.refl` use (accept) or a perturbed
+  op body (decline); committed gzipped under `tests/e2e/`.
+
+* **Findings.**  No operation resisted: all seven land with the
+  ble-guarded defeq-checkable statement forms.  The full Init stream
+  itself still does not check end-to-end for unrelated reasons
+  (frontend memory on the 336 MB export; the `Lean.trustCompiler`
+  axiom declines by design; the known `Unit.sizeOf` mismatch) — the
+  previous positive declines at `Nat.land`/`Nat.shiftRight`/… literal
+  uses are gone.
+
 ## Kernel design review triage (2026-08-20)
 
 A fresh-context implementation review compared the core against nanoda,

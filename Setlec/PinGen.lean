@@ -1,7 +1,6 @@
 module
 public import Lean
 public meta import Setlec.Kernel.Expr
-public import Setlec.PinGen.Certs
 
 /-!
 # Elab-time generator for the pinned Nat-operation declarations
@@ -399,11 +398,39 @@ def opSpecs : List OpSpec :=
   [{ op := `Nat.mod, pinName := `Setlec.natModDeclPin,
      proofsName := `Setlec.natModCertProofs,
      helperPrefixes := [`Nat.div, `Nat.mod, `Nat.modCore, `Nat.divCore],
-     certs := [``modRecCert, ``modBaseGtCert, ``modBaseZeroCert] },
+     certs := [`Setlec.PinGen.modRecCert, `Setlec.PinGen.modBaseGtCert, `Setlec.PinGen.modBaseZeroCert] },
    { op := `Nat.div, pinName := `Setlec.natDivDeclPin,
      proofsName := `Setlec.natDivCertProofs,
      helperPrefixes := [`Nat.div, `Nat.mod, `Nat.modCore, `Nat.divCore],
-     certs := [``divRecCert, ``divBaseGtCert, ``divBaseZeroCert] }]
+     certs := [`Setlec.PinGen.divRecCert, `Setlec.PinGen.divBaseGtCert, `Setlec.PinGen.divBaseZeroCert] },
+   { op := `Nat.gcd, pinName := `Setlec.natGcdDeclPin,
+     proofsName := `Setlec.natGcdCertProofs,
+     helperPrefixes := [`Nat.gcd],
+     certs := [`Setlec.PinGen.gcdRecCert, `Setlec.PinGen.gcdBaseCert] },
+   { op := `Nat.shiftLeft, pinName := `Setlec.natShiftLeftDeclPin,
+     proofsName := `Setlec.natShiftLeftCertProofs,
+     helperPrefixes := [`Nat.shiftLeft],
+     certs := [`Setlec.PinGen.shiftLeftRecCert, `Setlec.PinGen.shiftLeftBaseCert] },
+   { op := `Nat.shiftRight, pinName := `Setlec.natShiftRightDeclPin,
+     proofsName := `Setlec.natShiftRightCertProofs,
+     helperPrefixes := [`Nat.shiftRight],
+     certs := [`Setlec.PinGen.shiftRightRecCert, `Setlec.PinGen.shiftRightBaseCert] },
+   { op := `Nat.log2, pinName := `Setlec.natLog2DeclPin,
+     proofsName := `Setlec.natLog2CertProofs,
+     helperPrefixes := [`Nat.log2],
+     certs := [`Setlec.PinGen.log2RecCert, `Setlec.PinGen.log2BaseCert] },
+   { op := `Nat.land, pinName := `Setlec.natLandDeclPin,
+     proofsName := `Setlec.natLandCertProofs,
+     helperPrefixes := [`Nat.land],
+     certs := [`Setlec.PinGen.landRecCert, `Setlec.PinGen.landBaseCert] },
+   { op := `Nat.lor, pinName := `Setlec.natLorDeclPin,
+     proofsName := `Setlec.natLorCertProofs,
+     helperPrefixes := [`Nat.lor],
+     certs := [`Setlec.PinGen.lorRecCert, `Setlec.PinGen.lorBaseCert] },
+   { op := `Nat.xor, pinName := `Setlec.natXorDeclPin,
+     proofsName := `Setlec.natXorCertProofs,
+     helperPrefixes := [`Nat.xor],
+     certs := [`Setlec.PinGen.xorRecCert, `Setlec.PinGen.xorBaseCert] }]
 
 /-! ## The generator command -/
 
@@ -495,10 +522,16 @@ elab "#gen_natop_pins" : command => do
   let genEnv ← importModules (loadExts := false) (level := .private)
     #[{module := `Init}, {module := `Setlec.PinGen.Certs}] {} 0
   let mut results : List (OpSpec × Setlec.Expr × List Setlec.Expr) := []
+  let opts ← getOptions
   for spec in opSpecs do
-    let (r, _, _) ← (computeOp prefixes spec).toIO
-      { fileName := "<gen_natop_pins>", fileMap := default }
-      { env := genEnv }
+    let (r, _, _) ←
+      try
+        (computeOp prefixes spec).toIO
+          { fileName := "<gen_natop_pins>", fileMap := default,
+            options := opts, maxRecDepth := 1000000, maxHeartbeats := 0 }
+          { env := genEnv }
+      catch e =>
+        throwError "pin generation for {spec.op} failed: {e.toMessageData}"
     results := results ++ [(spec, r.1, r.2)]
   Elab.Command.liftTermElabM do
     for (spec, pinS, proofsS) in results do

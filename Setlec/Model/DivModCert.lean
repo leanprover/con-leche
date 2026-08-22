@@ -498,19 +498,15 @@ private theorem fvSide (hs : natLitSupported env = true) {x y : V}
       (m.val natName ψ) :=
   eqSide_fvar m hs hidx hval
 
-/-- Two-hypothesis clause: a successful run identifies the applied
-operation's value with the right-hand side's. -/
+/-- Two-hypothesis clause: a successful run identifies the equation's
+left-hand value with the right-hand side's (the sides are arbitrary
+`Nat`-typed spines, so unary and binary operations ride the same
+extraction). -/
 private theorem clause_extract2 (F : Nat)
     (hs : natLitSupported env = true)
     (hEqA : env.find? eqName = some eqA)
     {ciN : ConstantInfo} (hNf : env.find? natName = some ciN)
     (hNlp : ciN.toConstantVal.levelParams = [])
-    {value' : Expr} (hvf : value'.hasFvar = false)
-    (hvb : value'.looseBVarsBounded 0 = true)
-    (hAv : AnnotOk V m.val env ψ 0 (rho0 V) value')
-    {hv : V} (hvi : interpClosed V m.val env ψ value' = some hv)
-    (hHm : hv ∈ˢ pi 1 (m.val natName ψ)
-      (fun _ => pi 1 (m.val natName ψ) (fun _ => m.val natName ψ)))
     {x y : V} (hx : x ∈ˢ m.val natName ψ) (hy : y ∈ˢ m.val natName ψ)
     {h1E h2E : Expr} {H1 H2 : V}
     (hs1 : EqSideOk env m.val ψ 4 (rho4 x y) h1E H1 (univ 0))
@@ -518,7 +514,8 @@ private theorem clause_extract2 (F : Nat)
     (hs2 : EqSideOk env m.val ψ 4 (rho4 x y) h2E H2 (univ 0))
     (hpt2 : (pt : V) ∈ˢ H2)
     (hw1 : h1E.wscopedB 2 = true) (hw2 : h2E.wscopedB 2 = true)
-    {rhsE : Expr} {vr : V}
+    {lhsE rhsE : Expr} {vl vr : V}
+    (hlhs : EqSideOk env m.val ψ 4 (rho4 x y) lhsE vl (m.val natName ψ))
     (hrhs : EqSideOk env m.val ψ 4 (rho4 x y) rhsE vr (m.val natName ψ))
     {proofS : Expr} (hpf : proofS.hasFvar = false)
     (hpb : proofS.looseBVarsBounded 0 = true)
@@ -528,24 +525,8 @@ private theorem clause_extract2 (F : Nat)
     (hinf : inferTypeCore env F 4 appliedA = .ok tp)
     (hde : isDefEqCore env F 4 tp
       (.app (.app (.app (.const eqName [.succ .zero]) (.const natName []))
-        (.app (.app value'
-          (.fvar 0 (.str .anonymous "x") (.const natName [])))
-          (.fvar 1 (.str .anonymous "y") (.const natName []))))
-        rhsE) = .ok true) :
-    SetTheory.app (SetTheory.app hv x) y = vr := by
-  have hfx := fvSide m hs (idx := 0) (nm := .str .anonymous "x")
-    (x := x) (y := y) (by omega) (by rw [rho4_0]; exact hx)
-  have hfy := fvSide m hs (idx := 1) (nm := .str .anonymous "y")
-    (x := x) (y := y) (by omega) (by rw [rho4_1]; exact hy)
-  rw [rho4_0] at hfx
-  rw [rho4_1] at hfy
-  have hHi4 : interpExpr V m.val env ψ 4 (rho4 x y) value' = some hv :=
-    (interp_closed_invariant hvf 4 _).trans hvi
-  have hlhs := eqSide_app2 m hs hHi4
-    (AnnotOk.closed_invariant hvf 4 _ hAv)
-    (FvarsOk.of_not_hasFvar hvf) (WScoped.of_not_hasFvar hvf) hvb
-    (Expr.LeavesBounded.of_not_hasFvar hvf) hHm
-    (natVal_mem_univ m hs ψ) hfx hfy
+        lhsE) rhsE) = .ok true) :
+    vl = vr := by
   have heqS := eqSide_eqApp m hEqA hNf hNlp (natVal_mem_univ m hs ψ)
     hlhs hrhs
   obtain ⟨hF, hW, hB, hL⟩ := applied_facts2 m hpf hpb hs
@@ -561,18 +542,13 @@ private theorem clause_extract1 (F : Nat)
     (hEqA : env.find? eqName = some eqA)
     {ciN : ConstantInfo} (hNf : env.find? natName = some ciN)
     (hNlp : ciN.toConstantVal.levelParams = [])
-    {value' : Expr} (hvf : value'.hasFvar = false)
-    (hvb : value'.looseBVarsBounded 0 = true)
-    (hAv : AnnotOk V m.val env ψ 0 (rho0 V) value')
-    {hv : V} (hvi : interpClosed V m.val env ψ value' = some hv)
-    (hHm : hv ∈ˢ pi 1 (m.val natName ψ)
-      (fun _ => pi 1 (m.val natName ψ) (fun _ => m.val natName ψ)))
     {x y : V} (hx : x ∈ˢ m.val natName ψ) (hy : y ∈ˢ m.val natName ψ)
     {h1E : Expr} {H1 : V}
     (hs1 : EqSideOk env m.val ψ 4 (rho4 x y) h1E H1 (univ 0))
     (hpt1 : (pt : V) ∈ˢ H1)
     (hw1 : h1E.wscopedB 2 = true)
-    {rhsE : Expr} {vr : V}
+    {lhsE rhsE : Expr} {vl vr : V}
+    (hlhs : EqSideOk env m.val ψ 4 (rho4 x y) lhsE vl (m.val natName ψ))
     (hrhs : EqSideOk env m.val ψ 4 (rho4 x y) rhsE vr (m.val natName ψ))
     {proofS : Expr} (hpf : proofS.hasFvar = false)
     (hpb : proofS.looseBVarsBounded 0 = true)
@@ -582,24 +558,8 @@ private theorem clause_extract1 (F : Nat)
     (hinf : inferTypeCore env F 4 appliedA = .ok tp)
     (hde : isDefEqCore env F 4 tp
       (.app (.app (.app (.const eqName [.succ .zero]) (.const natName []))
-        (.app (.app value'
-          (.fvar 0 (.str .anonymous "x") (.const natName [])))
-          (.fvar 1 (.str .anonymous "y") (.const natName []))))
-        rhsE) = .ok true) :
-    SetTheory.app (SetTheory.app hv x) y = vr := by
-  have hfx := fvSide m hs (idx := 0) (nm := .str .anonymous "x")
-    (x := x) (y := y) (by omega) (by rw [rho4_0]; exact hx)
-  have hfy := fvSide m hs (idx := 1) (nm := .str .anonymous "y")
-    (x := x) (y := y) (by omega) (by rw [rho4_1]; exact hy)
-  rw [rho4_0] at hfx
-  rw [rho4_1] at hfy
-  have hHi4 : interpExpr V m.val env ψ 4 (rho4 x y) value' = some hv :=
-    (interp_closed_invariant hvf 4 _).trans hvi
-  have hlhs := eqSide_app2 m hs hHi4
-    (AnnotOk.closed_invariant hvf 4 _ hAv)
-    (FvarsOk.of_not_hasFvar hvf) (WScoped.of_not_hasFvar hvf) hvb
-    (Expr.LeavesBounded.of_not_hasFvar hvf) hHm
-    (natVal_mem_univ m hs ψ) hfx hfy
+        lhsE) rhsE) = .ok true) :
+    vl = vr := by
   have heqS := eqSide_eqApp m hEqA hNf hNlp (natVal_mem_univ m hs ψ)
     hlhs hrhs
   obtain ⟨hF, hW, hB, hL⟩ := applied_facts1 m hpf hpb hs
@@ -627,9 +587,13 @@ theorem natOpStoredOk_tyPinned {n : Name}
     exact ⟨cv, v, hint, heq, h.2⟩
   · intro h; exact nomatch h
 
-set_option maxHeartbeats 1600000 in
+/-- `pt` inhabits the equality value of two equal points. -/
+private theorem pt_mem_eqv_of_eq {a b : V} (h : a = b) :
+    (pt : V) ∈ˢ eqv a b := h ▸ pt_mem_eqv_self a
+
+set_option maxHeartbeats 6400000 in
 /-- The checked certificates make the stored operation satisfy its
-`ble`-guarded value-level recurrences, for any valuation that maps the
+`ble`-guarded value-level clauses, for any valuation that maps the
 operation to the stored value's interpretation and agrees with the
 model elsewhere — the head obligation `extend_model` forwards into
 `DivModOk`. -/
@@ -641,18 +605,20 @@ theorem divmod_certs_sound (m : EnvModel V env) (F : Nat)
     (hAval : ∀ ψ' : Name → Nat, AnnotOk V m.val env ψ' 0 (rho0 V) value')
     (hs : natLitSupported env = true)
     (hEqA : env.find? eqName = some eqA)
-    (hble : natOpStoredOk env natBleName = true)
-    (hsub : natOpStoredOk env natSubName = true)
+    (hdepsOk : ∀ n ∈ natOpDeps c, n ≠ c → natOpStoredOk env n = true)
     (hbT : ∃ ci, env.find? boolTrueName = some ci ∧
       ci.toConstantVal.levelParams = [] ∧
       ci.toConstantVal.type = .const boolName [])
     (hbF : ∃ ci, env.find? boolFalseName = some ci ∧
       ci.toConstantVal.levelParams = [] ∧
       ci.toConstantVal.type = .const boolName [])
-    (hHm : ∀ ψ' : Name → Nat, ∃ hv,
+    (hHm : c ≠ natLog2Name → ∀ ψ' : Name → Nat, ∃ hv,
       interpClosed V m.val env ψ' value' = some hv ∧
       hv ∈ˢ pi 1 (m.val natName ψ') (fun _ => pi 1 (m.val natName ψ')
         (fun _ => m.val natName ψ')))
+    (hHmU : c = natLog2Name → ∀ ψ' : Name → Nat, ∃ hv,
+      interpClosed V m.val env ψ' value' = some hv ∧
+      hv ∈ˢ pi 1 (m.val natName ψ') (fun _ => m.val natName ψ'))
     (hruns : CertRuns (CertRunFacts env F c value')
       (divModCertStmts c) (divModCertProofs c)) :
     ∀ val' : ConstVal V,
@@ -661,308 +627,1138 @@ theorem divmod_certs_sound (m : EnvModel V env) (F : Nat)
       (∀ n, n ≠ c → ∀ ψ' : Name → Nat, val' n ψ' = m.val n ψ') →
       DivModEqs V val' c := by
   intro val' hval'c hval'ne
-  -- name disequalities: everything the equations mention is not `c`
-  have hne : natName ≠ c ∧ natZeroName ≠ c ∧ natSuccName ≠ c ∧
-      natBleName ≠ c ∧ natSubName ≠ c ∧ boolTrueName ≠ c ∧
-      boolFalseName ≠ c := by
-    simp only [natDivModNames, List.mem_cons, List.not_mem_nil,
-      or_false] at hc
-    rcases hc with rfl | rfl <;>
-      exact ⟨by decide, by decide, by decide, by decide, by decide,
-        by decide, by decide⟩
   intro ψ0 x y hx hy
-  -- move the frame memberships to the model's valuation
-  rw [hval'ne natName hne.1 ψ0] at hx hy
-  -- the stored value's interpretation is `val' c`
-  obtain ⟨hv, hvi, hvPi⟩ := hHm ψ0
-  have hveq : val' c ψ0 = hv := by
-    have h1 := hval'c ψ0
-    rw [hvi] at h1
-    exact (Option.some.inj h1).symm
-  -- `ble`/`sub`/`Bool` facts at `ψ0`
-  obtain ⟨cvbl, vbl, hintbl, hfbl, hlpbl, -, hbleFn⟩ :=
-    natOpStored_facts m hble hs ψ0
-  obtain ⟨Cb, hblePi, hCbu, -, hCbBool⟩ := hbleFn (by decide)
-  rw [hCbBool (Or.inr rfl)] at hblePi
-  have hBu : m.val boolName ψ0 ∈ˢ (univ 1 : V) := by
-    rw [← hCbBool (Or.inr rfl)]
-    exact hCbu
-  obtain ⟨cvsu, vsu, hintsu, hfsu, hlpsu, -, hsubFn⟩ :=
-    natOpStored_facts m hsub hs ψ0
-  obtain ⟨Cs, hsubPi, -, hCsid, -⟩ := hsubFn (by decide)
-  rw [hCsid (by decide) (by decide)] at hsubPi
-  obtain ⟨cvbl', vbl', hintbl', hfbl', htybl'⟩ := natOpStoredOk_tyPinned hble
-  obtain ⟨ciB, hBf, hBlp, -⟩ := natOpTyPinned_boolFacts (by
-    rw [show cvbl' = cvbl from by
-      rw [hfbl] at hfbl'
-      exact (ConstantInfo.defnInfo.injEq .. ▸ Option.some.inj hfbl').1.symm]
-      at htybl'
-    exact htybl')
-  obtain ⟨ciT, hTf, hTlp, hTty⟩ := hbT
-  obtain ⟨ciF, hFf, hFlp, hFty⟩ := hbF
-  obtain ⟨cvN, capsN, cv0, i0, j0, cv1, i1, j1, hnn, hzz, hss, hlN, -⟩ :=
-    natLitSupported_inv hs
-  -- frame variable sides
-  have hfx := fvSide m hs (idx := 0) (nm := .str .anonymous "x")
-    (x := x) (y := y) (by omega) (by rw [rho4_0]; exact hx)
-  have hfy := fvSide m hs (idx := 1) (nm := .str .anonymous "y")
-    (x := x) (y := y) (by omega) (by rw [rho4_1]; exact hy)
-  rw [rho4_0] at hfx
-  rw [rho4_1] at hfy
-  -- `Bool`-side components
-  have htrueSide : EqSideOk env m.val ψ0 4 (rho4 x y)
-      (.const boolTrueName []) (m.val boolTrueName ψ0)
-      (m.val boolName ψ0) :=
-    eqSide_boolCtor m hTf hTlp hTty hBf hBlp
-  have hfalseSide : EqSideOk env m.val ψ0 4 (rho4 x y)
-      (.const boolFalseName []) (m.val boolFalseName ψ0)
-      (m.val boolName ψ0) :=
-    eqSide_boolCtor m hFf hFlp hFty hBf hBlp
-  have hbleYX : EqSideOk env m.val ψ0 4 (rho4 x y)
-      (.app (.app (.const natBleName [])
-        (.fvar 1 (.str .anonymous "y") (.const natName [])))
-        (.fvar 0 (.str .anonymous "x") (.const natName [])))
-      (SetTheory.app (SetTheory.app (m.val natBleName ψ0) y) x)
-      (m.val boolName ψ0) :=
-    eqSide_app2c m hs hfbl hlpbl hblePi hBu hfy hfx
-  have hone : EqSideOk env m.val ψ0 4 (rho4 x y)
-      (.app (.const natSuccName []) (.const natZeroName []))
-      (SetTheory.app (m.val natSuccName ψ0) (m.val natZeroName ψ0))
-      (m.val natName ψ0) :=
-    eqSide_succ m hs (eqSide_zero m hs)
-  have hble1Y : EqSideOk env m.val ψ0 4 (rho4 x y)
-      (.app (.app (.const natBleName [])
-        (.app (.const natSuccName []) (.const natZeroName [])))
-        (.fvar 1 (.str .anonymous "y") (.const natName [])))
-      (SetTheory.app (SetTheory.app (m.val natBleName ψ0)
-        (SetTheory.app (m.val natSuccName ψ0) (m.val natZeroName ψ0))) y)
-      (m.val boolName ψ0) :=
-    eqSide_app2c m hs hfbl hlpbl hblePi hBu hone hfy
-  -- the hypothesis types, assembled
-  have hyp1T := eqSide_eqApp m hEqA hBf hBlp hBu hbleYX htrueSide
-  have hyp1F := eqSide_eqApp m hEqA hBf hBlp hBu hbleYX hfalseSide
-  have hyp2T := eqSide_eqApp m hEqA hBf hBlp hBu hble1Y htrueSide
-  have hyp2F := eqSide_eqApp m hEqA hBf hBlp hBu hble1Y hfalseSide
-  -- scoping of the hypothesis types (kernel-computed)
-  have hwYXT : (Expr.app (.app (.app (.const eqName [.succ .zero])
-      (.const boolName []))
-      (.app (.app (.const natBleName [])
-        (.fvar 1 (.str .anonymous "y") (.const natName [])))
-        (.fvar 0 (.str .anonymous "x") (.const natName []))))
-      (.const boolTrueName [])).wscopedB 2 = true := by decide +kernel
-  have hwYXF : (Expr.app (.app (.app (.const eqName [.succ .zero])
-      (.const boolName []))
-      (.app (.app (.const natBleName [])
-        (.fvar 1 (.str .anonymous "y") (.const natName [])))
-        (.fvar 0 (.str .anonymous "x") (.const natName []))))
-      (.const boolFalseName [])).wscopedB 2 = true := by decide +kernel
-  have hw1YT : (Expr.app (.app (.app (.const eqName [.succ .zero])
-      (.const boolName []))
-      (.app (.app (.const natBleName [])
-        (.app (.const natSuccName []) (.const natZeroName [])))
-        (.fvar 1 (.str .anonymous "y") (.const natName []))))
-      (.const boolTrueName [])).wscopedB 2 = true := by decide +kernel
-  have hw1YF : (Expr.app (.app (.app (.const eqName [.succ .zero])
-      (.const boolName []))
-      (.app (.app (.const natBleName [])
-        (.app (.const natSuccName []) (.const natZeroName [])))
-        (.fvar 1 (.str .anonymous "y") (.const natName []))))
-      (.const boolFalseName [])).wscopedB 2 = true := by decide +kernel
-  -- the stored value's facts at frame depth
-  have hNatU := natVal_mem_univ m hs ψ0
-  have hsubXY : EqSideOk env m.val ψ0 4 (rho4 x y)
-      (.app (.app (.const natSubName [])
-        (.fvar 0 (.str .anonymous "x") (.const natName [])))
-        (.fvar 1 (.str .anonymous "y") (.const natName [])))
-      (SetTheory.app (SetTheory.app (m.val natSubName ψ0) x) y)
-      (m.val natName ψ0) :=
-    eqSide_app2c m hs hfsu hlpsu hsubPi hNatU hfx hfy
-  have hHi4 : interpExpr V m.val env ψ0 4 (rho4 x y) value' = some hv :=
-    (interp_closed_invariant hvf 4 _).trans hvi
-  have hHA4 := AnnotOk.closed_invariant hvf 4 (rho4 x y) (hAval ψ0)
-  have hHF4 : FvarsOk V m.val env ψ0 4 (rho4 x y) value' :=
-    FvarsOk.of_not_hasFvar hvf
-  have hHW4 : WScoped 4 value' := WScoped.of_not_hasFvar hvf
-  have hHL4 : Expr.LeavesBounded value' :=
-    Expr.LeavesBounded.of_not_hasFvar hvf
-  have hopSub : EqSideOk env m.val ψ0 4 (rho4 x y)
-      (.app (.app value'
-        (.app (.app (.const natSubName [])
-          (.fvar 0 (.str .anonymous "x") (.const natName [])))
-          (.fvar 1 (.str .anonymous "y") (.const natName []))))
-        (.fvar 1 (.str .anonymous "y") (.const natName [])))
-      (SetTheory.app (SetTheory.app hv
-        (SetTheory.app (SetTheory.app (m.val natSubName ψ0) x) y)) y)
-      (m.val natName ψ0) :=
-    eqSide_app2 m hs hHi4 hHA4 hHF4 hHW4 hvb hHL4 hvPi hNatU hsubXY hfy
-  have hNlp' : (ConstantInfo.indInfo cvN capsN).toConstantVal.levelParams
-      = [] := hlN
-  -- split on the operation: the pinned statement lists become concrete
   simp only [natDivModNames, List.mem_cons, List.not_mem_nil,
     or_false] at hc
-  rcases hc with rfl | rfl
-  case inl =>
-    -- Nat.div (the proof blobs stay abstract: only their guard facts
-    -- are consumed)
-    simp +decide only [divModCertStmts] at hruns
-    rcases hruns with _ | ⟨hcert1, _ | ⟨hcert2, _ | ⟨hcert3, _⟩⟩⟩
-    obtain ⟨hg1, appliedA1, tp1, hann1, hinf1, hde1⟩ := hcert1
-    obtain ⟨hg2, appliedA2, tp2, hann2, hinf2, hde2⟩ := hcert2
-    obtain ⟨hg3, appliedA3, tp3, hann3, hinf3, hde3⟩ := hcert3
-    simp +decide only [Expr.substConst0, List.map] at hann1 hann2 hann3
-    simp +decide only [Expr.substConst0, List.map] at hde1 hde2 hde3
-    unfold divModCertGuard at hg1 hg2 hg3
-    simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true]
-      at hg1 hg2 hg3
-    have hpf1 := hg1.1.1.1.1.2
-    have hpb1 := hg1.1.1.1.1.1
-    have hpf2 := hg2.1.1.1.1.2
-    have hpb2 := hg2.1.1.1.1.1
-    have hpf3 := hg3.1.1.1.1.2
-    have hpb3 := hg3.1.1.1.1.1
-    refine ⟨?_, ?_, ?_⟩
-    · -- the recurrence clause
-      intro hgv1 hgv2
-      rw [hval'ne natBleName hne.2.2.2.1 ψ0,
-        hval'ne boolTrueName hne.2.2.2.2.2.1 ψ0] at hgv1
-      rw [hval'ne natBleName hne.2.2.2.1 ψ0,
-        hval'ne natSuccName hne.2.2.1 ψ0,
-        hval'ne natZeroName hne.2.1 ψ0,
-        hval'ne boolTrueName hne.2.2.2.2.2.1 ψ0] at hgv2
-      have hpt1 : (pt : V) ∈ˢ eqv (SetTheory.app (SetTheory.app
-          (m.val natBleName ψ0) y) x) (m.val boolTrueName ψ0) := by
-        rw [hgv1]
-        exact pt_mem_eqv_self _
-      have hpt2 : (pt : V) ∈ˢ eqv (SetTheory.app (SetTheory.app
-          (m.val natBleName ψ0) (SetTheory.app (m.val natSuccName ψ0)
-            (m.val natZeroName ψ0))) y) (m.val boolTrueName ψ0) := by
-        rw [hgv2]
-        exact pt_mem_eqv_self _
-      have hrhs : EqSideOk env m.val ψ0 4 (rho4 x y)
-          (.app (.const natSuccName [])
-            (.app (.app value'
-              (.app (.app (.const natSubName [])
-                (.fvar 0 (.str .anonymous "x") (.const natName [])))
-                (.fvar 1 (.str .anonymous "y") (.const natName []))))
-              (.fvar 1 (.str .anonymous "y") (.const natName []))))
-          (SetTheory.app (m.val natSuccName ψ0)
-            (SetTheory.app (SetTheory.app hv
-              (SetTheory.app (SetTheory.app (m.val natSubName ψ0) x) y))
-              y))
-          (m.val natName ψ0) := eqSide_succ m hs hopSub
-      have heq := clause_extract2 m F hs hEqA hnn hNlp' hvf hvb
-        (hAval ψ0) hvi hvPi hx hy hyp1T hpt1 hyp2T hpt2 hwYXT hw1YT
-        hrhs hpf1 hpb1 hann1 hinf1 hde1
-      rw [if_pos rfl, hveq, hval'ne natSuccName hne.2.2.1 ψ0,
-        hval'ne natSubName hne.2.2.2.2.1 ψ0]
-      exact heq
-    · -- base: `ble y x = false`
-      intro hgv1
-      rw [hval'ne natBleName hne.2.2.2.1 ψ0,
-        hval'ne boolFalseName hne.2.2.2.2.2.2 ψ0] at hgv1
-      have hpt1 : (pt : V) ∈ˢ eqv (SetTheory.app (SetTheory.app
-          (m.val natBleName ψ0) y) x) (m.val boolFalseName ψ0) := by
-        rw [hgv1]
-        exact pt_mem_eqv_self _
-      have hrhs : EqSideOk env m.val ψ0 4 (rho4 x y)
+  rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
+    rw [hval'ne natName (by decide) ψ0] at hx hy
+  case _ =>
+    -- Nat.div
+      -- dependency and pin facts at `ψ0`
+      have hblOk := hdepsOk natBleName (by decide) (by decide)
+      obtain ⟨cvbl, vbl, hintbl, hfbl, hlpbl, -, hblFn⟩ :=
+        natOpStored_facts m hblOk hs ψ0
+      obtain ⟨Cbl, hblPi, hCblu, -, hCblBool⟩ := hblFn (by decide)
+      rw [hCblBool (Or.inr rfl)] at hblPi
+      have hBu : m.val boolName ψ0 ∈ˢ (univ 1 : V) := by
+        rw [← hCblBool (Or.inr rfl)]
+        exact hCblu
+      have hsuOk := hdepsOk natSubName (by decide) (by decide)
+      obtain ⟨cvsu, vsu, hintsu, hfsu, hlpsu, -, hsuFn⟩ :=
+        natOpStored_facts m hsuOk hs ψ0
+      obtain ⟨Csu, hsuPi, -, hCsuid, -⟩ := hsuFn (by decide)
+      rw [hCsuid (by decide) (by decide)] at hsuPi
+      obtain ⟨cvbl', vbl', hintbl', hfbl', htybl'⟩ :=
+        natOpStoredOk_tyPinned hblOk
+      obtain ⟨ciB, hBf, hBlp, -⟩ := natOpTyPinned_boolFacts (by
+        rw [show cvbl' = cvbl from by
+          rw [hfbl] at hfbl'
+          exact (ConstantInfo.defnInfo.injEq .. ▸ Option.some.inj hfbl').1.symm]
+          at htybl'
+        exact htybl')
+      obtain ⟨ciT, hTf, hTlp, hTty⟩ := hbT
+      obtain ⟨ciF, hFf, hFlp, hFty⟩ := hbF
+      obtain ⟨cvN, capsN, cv0, i0, j0, cv1, i1, j1, hnn, hzz, hss, hlN, -⟩ :=
+        natLitSupported_inv hs
+      have hNlp' : (ConstantInfo.indInfo cvN capsN).toConstantVal.levelParams
+          = [] := hlN
+      have hNatU := natVal_mem_univ m hs ψ0
+      have hfx := fvSide m hs (idx := 0) (nm := .str .anonymous "x")
+        (x := x) (y := y) (by omega) (by rw [rho4_0]; exact hx)
+      have hfy := fvSide m hs (idx := 1) (nm := .str .anonymous "y")
+        (x := x) (y := y) (by omega) (by rw [rho4_1]; exact hy)
+      rw [rho4_0] at hfx
+      rw [rho4_1] at hfy
+      have htrueSide : EqSideOk env m.val ψ0 4 (rho4 x y)
+          (.const boolTrueName []) (m.val boolTrueName ψ0)
+          (m.val boolName ψ0) :=
+        eqSide_boolCtor m hTf hTlp hTty hBf hBlp
+      have hfalseSide : EqSideOk env m.val ψ0 4 (rho4 x y)
+          (.const boolFalseName []) (m.val boolFalseName ψ0)
+          (m.val boolName ψ0) :=
+        eqSide_boolCtor m hFf hFlp hFty hBf hBlp
+      have hzeroS : EqSideOk env m.val ψ0 4 (rho4 x y)
           (.const natZeroName []) (m.val natZeroName ψ0)
           (m.val natName ψ0) := eqSide_zero m hs
-      have heq := clause_extract1 m F hs hEqA hnn hNlp' hvf hvb
-        (hAval ψ0) hvi hvPi hx hy hyp1F hpt1 hwYXF
-        hrhs hpf2 hpb2 hann2 hinf2 hde2
-      rw [if_pos rfl, hveq, hval'ne natZeroName hne.2.1 ψ0]
-      exact heq
-    · -- base: `ble 1 y = false`
-      intro hgv1
-      rw [hval'ne natBleName hne.2.2.2.1 ψ0,
-        hval'ne natSuccName hne.2.2.1 ψ0,
-        hval'ne natZeroName hne.2.1 ψ0,
-        hval'ne boolFalseName hne.2.2.2.2.2.2 ψ0] at hgv1
-      have hpt1 : (pt : V) ∈ˢ eqv (SetTheory.app (SetTheory.app
-          (m.val natBleName ψ0) (SetTheory.app (m.val natSuccName ψ0)
-            (m.val natZeroName ψ0))) y) (m.val boolFalseName ψ0) := by
-        rw [hgv1]
-        exact pt_mem_eqv_self _
-      have hrhs : EqSideOk env m.val ψ0 4 (rho4 x y)
+      have honeS := eqSide_succ m hs hzeroS
+      obtain ⟨hv, hvi, hvPi⟩ := hHm (by decide) ψ0
+      have hveq : val' natDivName ψ0 = hv := by
+        have h1 := hval'c ψ0
+        rw [hvi] at h1
+        exact (Option.some.inj h1).symm
+      have hHi4 : interpExpr V m.val env ψ0 4 (rho4 x y) value' = some hv :=
+        (interp_closed_invariant hvf 4 _).trans hvi
+      have hHA4 := AnnotOk.closed_invariant hvf 4 (rho4 x y) (hAval ψ0)
+      have hHF4 : FvarsOk V m.val env ψ0 4 (rho4 x y) value' :=
+        FvarsOk.of_not_hasFvar hvf
+      have hHW4 : WScoped 4 value' := WScoped.of_not_hasFvar hvf
+      have hHL4 : Expr.LeavesBounded value' :=
+        Expr.LeavesBounded.of_not_hasFvar hvf
+      have hsubXY := eqSide_app2c m hs hfsu hlpsu hsuPi hNatU hfx hfy
+      have hopSub := eqSide_app2 m hs hHi4 hHA4 hHF4 hHW4 hvb hHL4 hvPi hNatU
+        hsubXY hfy
+      have hrhsRec := eqSide_succ m hs hopSub
+      have hguardYX := eqSide_app2c m hs hfbl hlpbl hblPi hBu hfy hfx
+      have hguard1Y := eqSide_app2c m hs hfbl hlpbl hblPi hBu honeS hfy
+      have hlhsS := eqSide_app2 m hs hHi4 hHA4 hHF4 hHW4 hvb hHL4 hvPi hNatU
+        hfx hfy
+      have hypYXT := eqSide_eqApp m hEqA hBf hBlp hBu hguardYX htrueSide
+      have hypYXF := eqSide_eqApp m hEqA hBf hBlp hBu hguardYX hfalseSide
+      have hyp1YT := eqSide_eqApp m hEqA hBf hBlp hBu hguard1Y htrueSide
+      have hyp1YF := eqSide_eqApp m hEqA hBf hBlp hBu hguard1Y hfalseSide
+      simp +decide only [divModCertStmts] at hruns
+      rcases hruns with _ | ⟨hcert1, _ | ⟨hcert2, _ | ⟨hcert3, _⟩⟩⟩
+      obtain ⟨hg1, appliedA1, tp1, hann1, hinf1, hde1⟩ := hcert1
+      obtain ⟨hg2, appliedA2, tp2, hann2, hinf2, hde2⟩ := hcert2
+      obtain ⟨hg3, appliedA3, tp3, hann3, hinf3, hde3⟩ := hcert3
+      simp +decide only [Expr.substConst0, List.map]
+        at hann1 hann2 hann3 hde1 hde2 hde3
+      unfold divModCertGuard at hg1 hg2 hg3
+      simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true]
+        at hg1 hg2 hg3
+      have hpf1 := hg1.1.1.1.1.2
+      have hpb1 := hg1.1.1.1.1.1
+      have hpf2 := hg2.1.1.1.1.2
+      have hpb2 := hg2.1.1.1.1.1
+      have hpf3 := hg3.1.1.1.1.2
+      have hpb3 := hg3.1.1.1.1.1
+      simp +decide only [DivModClauses, if_false, if_true, reduceCtorEq,
+        decide_true, decide_false]
+      refine ⟨?_, ?_, ?_⟩
+      · intro hgv1 hgv2
+        rw [hval'ne natBleName (by decide) ψ0,
+          hval'ne boolTrueName (by decide) ψ0] at hgv1
+        rw [hval'ne natBleName (by decide) ψ0,
+          hval'ne natSuccName (by decide) ψ0,
+          hval'ne natZeroName (by decide) ψ0,
+          hval'ne boolTrueName (by decide) ψ0] at hgv2
+        have hpt1 := pt_mem_eqv_of_eq hgv1
+        have hpt2 := pt_mem_eqv_of_eq hgv2
+        have heq := clause_extract2 m F hs hEqA hnn hNlp' hx hy hypYXT hpt1
+          hyp1YT hpt2 (by decide +kernel) (by decide +kernel) hlhsS hrhsRec
+          hpf1 hpb1 hann1 hinf1 hde1
+        rw [hveq,
+          hval'ne natSuccName (by decide) ψ0,
+          hval'ne natSubName (by decide) ψ0]
+        exact heq
+      · intro hgv1
+        rw [hval'ne natBleName (by decide) ψ0,
+          hval'ne boolFalseName (by decide) ψ0] at hgv1
+        have hpt1 := pt_mem_eqv_of_eq hgv1
+        have heq := clause_extract1 m F hs hEqA hnn hNlp' hx hy hypYXF hpt1
+          (by decide +kernel) hlhsS hzeroS hpf2 hpb2 hann2
+          hinf2 hde2
+        rw [hveq,
+          hval'ne natZeroName (by decide) ψ0]
+        exact heq
+      · intro hgv1
+        rw [hval'ne natBleName (by decide) ψ0,
+          hval'ne natSuccName (by decide) ψ0,
+          hval'ne natZeroName (by decide) ψ0,
+          hval'ne boolFalseName (by decide) ψ0] at hgv1
+        have hpt1 := pt_mem_eqv_of_eq hgv1
+        have heq := clause_extract1 m F hs hEqA hnn hNlp' hx hy hyp1YF hpt1
+          (by decide +kernel) hlhsS hzeroS hpf3 hpb3 hann3
+          hinf3 hde3
+        rw [hveq,
+          hval'ne natZeroName (by decide) ψ0]
+        exact heq
+  case _ =>
+    -- Nat.mod
+      -- dependency and pin facts at `ψ0`
+      have hblOk := hdepsOk natBleName (by decide) (by decide)
+      obtain ⟨cvbl, vbl, hintbl, hfbl, hlpbl, -, hblFn⟩ :=
+        natOpStored_facts m hblOk hs ψ0
+      obtain ⟨Cbl, hblPi, hCblu, -, hCblBool⟩ := hblFn (by decide)
+      rw [hCblBool (Or.inr rfl)] at hblPi
+      have hBu : m.val boolName ψ0 ∈ˢ (univ 1 : V) := by
+        rw [← hCblBool (Or.inr rfl)]
+        exact hCblu
+      have hsuOk := hdepsOk natSubName (by decide) (by decide)
+      obtain ⟨cvsu, vsu, hintsu, hfsu, hlpsu, -, hsuFn⟩ :=
+        natOpStored_facts m hsuOk hs ψ0
+      obtain ⟨Csu, hsuPi, -, hCsuid, -⟩ := hsuFn (by decide)
+      rw [hCsuid (by decide) (by decide)] at hsuPi
+      obtain ⟨cvbl', vbl', hintbl', hfbl', htybl'⟩ :=
+        natOpStoredOk_tyPinned hblOk
+      obtain ⟨ciB, hBf, hBlp, -⟩ := natOpTyPinned_boolFacts (by
+        rw [show cvbl' = cvbl from by
+          rw [hfbl] at hfbl'
+          exact (ConstantInfo.defnInfo.injEq .. ▸ Option.some.inj hfbl').1.symm]
+          at htybl'
+        exact htybl')
+      obtain ⟨ciT, hTf, hTlp, hTty⟩ := hbT
+      obtain ⟨ciF, hFf, hFlp, hFty⟩ := hbF
+      obtain ⟨cvN, capsN, cv0, i0, j0, cv1, i1, j1, hnn, hzz, hss, hlN, -⟩ :=
+        natLitSupported_inv hs
+      have hNlp' : (ConstantInfo.indInfo cvN capsN).toConstantVal.levelParams
+          = [] := hlN
+      have hNatU := natVal_mem_univ m hs ψ0
+      have hfx := fvSide m hs (idx := 0) (nm := .str .anonymous "x")
+        (x := x) (y := y) (by omega) (by rw [rho4_0]; exact hx)
+      have hfy := fvSide m hs (idx := 1) (nm := .str .anonymous "y")
+        (x := x) (y := y) (by omega) (by rw [rho4_1]; exact hy)
+      rw [rho4_0] at hfx
+      rw [rho4_1] at hfy
+      have htrueSide : EqSideOk env m.val ψ0 4 (rho4 x y)
+          (.const boolTrueName []) (m.val boolTrueName ψ0)
+          (m.val boolName ψ0) :=
+        eqSide_boolCtor m hTf hTlp hTty hBf hBlp
+      have hfalseSide : EqSideOk env m.val ψ0 4 (rho4 x y)
+          (.const boolFalseName []) (m.val boolFalseName ψ0)
+          (m.val boolName ψ0) :=
+        eqSide_boolCtor m hFf hFlp hFty hBf hBlp
+      have hzeroS : EqSideOk env m.val ψ0 4 (rho4 x y)
           (.const natZeroName []) (m.val natZeroName ψ0)
           (m.val natName ψ0) := eqSide_zero m hs
-      have heq := clause_extract1 m F hs hEqA hnn hNlp' hvf hvb
-        (hAval ψ0) hvi hvPi hx hy hyp2F hpt1 hw1YF
-        hrhs hpf3 hpb3 hann3 hinf3 hde3
-      rw [if_pos rfl, hveq, hval'ne natZeroName hne.2.1 ψ0]
-      exact heq
-  case inr =>
-    -- Nat.mod (the proof blobs stay abstract: only their guard facts
-    -- are consumed)
-    simp +decide only [divModCertStmts] at hruns
-    rcases hruns with _ | ⟨hcert1, _ | ⟨hcert2, _ | ⟨hcert3, _⟩⟩⟩
-    obtain ⟨hg1, appliedA1, tp1, hann1, hinf1, hde1⟩ := hcert1
-    obtain ⟨hg2, appliedA2, tp2, hann2, hinf2, hde2⟩ := hcert2
-    obtain ⟨hg3, appliedA3, tp3, hann3, hinf3, hde3⟩ := hcert3
-    simp +decide only [Expr.substConst0, List.map] at hann1 hann2 hann3
-    simp +decide only [Expr.substConst0, List.map] at hde1 hde2 hde3
-    unfold divModCertGuard at hg1 hg2 hg3
-    simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true]
-      at hg1 hg2 hg3
-    have hpf1 := hg1.1.1.1.1.2
-    have hpb1 := hg1.1.1.1.1.1
-    have hpf2 := hg2.1.1.1.1.2
-    have hpb2 := hg2.1.1.1.1.1
-    have hpf3 := hg3.1.1.1.1.2
-    have hpb3 := hg3.1.1.1.1.1
-    refine ⟨?_, ?_, ?_⟩
-    · -- the recurrence clause
-      intro hgv1 hgv2
-      rw [hval'ne natBleName hne.2.2.2.1 ψ0,
-        hval'ne boolTrueName hne.2.2.2.2.2.1 ψ0] at hgv1
-      rw [hval'ne natBleName hne.2.2.2.1 ψ0,
-        hval'ne natSuccName hne.2.2.1 ψ0,
-        hval'ne natZeroName hne.2.1 ψ0,
-        hval'ne boolTrueName hne.2.2.2.2.2.1 ψ0] at hgv2
-      have hpt1 : (pt : V) ∈ˢ eqv (SetTheory.app (SetTheory.app
-          (m.val natBleName ψ0) y) x) (m.val boolTrueName ψ0) := by
-        rw [hgv1]
-        exact pt_mem_eqv_self _
-      have hpt2 : (pt : V) ∈ˢ eqv (SetTheory.app (SetTheory.app
-          (m.val natBleName ψ0) (SetTheory.app (m.val natSuccName ψ0)
-            (m.val natZeroName ψ0))) y) (m.val boolTrueName ψ0) := by
-        rw [hgv2]
-        exact pt_mem_eqv_self _
-      have heq := clause_extract2 m F hs hEqA hnn hNlp' hvf hvb
-        (hAval ψ0) hvi hvPi hx hy hyp1T hpt1 hyp2T hpt2 hwYXT hw1YT
-        hopSub hpf1 hpb1 hann1 hinf1 hde1
-      rw [if_neg (by decide), hveq,
-        hval'ne natSubName hne.2.2.2.2.1 ψ0]
-      exact heq
-    · -- base: `ble y x = false`
-      intro hgv1
-      rw [hval'ne natBleName hne.2.2.2.1 ψ0,
-        hval'ne boolFalseName hne.2.2.2.2.2.2 ψ0] at hgv1
-      have hpt1 : (pt : V) ∈ˢ eqv (SetTheory.app (SetTheory.app
-          (m.val natBleName ψ0) y) x) (m.val boolFalseName ψ0) := by
-        rw [hgv1]
-        exact pt_mem_eqv_self _
-      have heq := clause_extract1 m F hs hEqA hnn hNlp' hvf hvb
-        (hAval ψ0) hvi hvPi hx hy hyp1F hpt1 hwYXF
-        hfx hpf2 hpb2 hann2 hinf2 hde2
-      rw [if_neg (by decide), hveq]
-      exact heq
-    · -- base: `ble 1 y = false`
-      intro hgv1
-      rw [hval'ne natBleName hne.2.2.2.1 ψ0,
-        hval'ne natSuccName hne.2.2.1 ψ0,
-        hval'ne natZeroName hne.2.1 ψ0,
-        hval'ne boolFalseName hne.2.2.2.2.2.2 ψ0] at hgv1
-      have hpt1 : (pt : V) ∈ˢ eqv (SetTheory.app (SetTheory.app
-          (m.val natBleName ψ0) (SetTheory.app (m.val natSuccName ψ0)
-            (m.val natZeroName ψ0))) y) (m.val boolFalseName ψ0) := by
-        rw [hgv1]
-        exact pt_mem_eqv_self _
-      have heq := clause_extract1 m F hs hEqA hnn hNlp' hvf hvb
-        (hAval ψ0) hvi hvPi hx hy hyp2F hpt1 hw1YF
-        hfx hpf3 hpb3 hann3 hinf3 hde3
-      rw [if_neg (by decide), hveq]
-      exact heq
+      have honeS := eqSide_succ m hs hzeroS
+      obtain ⟨hv, hvi, hvPi⟩ := hHm (by decide) ψ0
+      have hveq : val' natModName ψ0 = hv := by
+        have h1 := hval'c ψ0
+        rw [hvi] at h1
+        exact (Option.some.inj h1).symm
+      have hHi4 : interpExpr V m.val env ψ0 4 (rho4 x y) value' = some hv :=
+        (interp_closed_invariant hvf 4 _).trans hvi
+      have hHA4 := AnnotOk.closed_invariant hvf 4 (rho4 x y) (hAval ψ0)
+      have hHF4 : FvarsOk V m.val env ψ0 4 (rho4 x y) value' :=
+        FvarsOk.of_not_hasFvar hvf
+      have hHW4 : WScoped 4 value' := WScoped.of_not_hasFvar hvf
+      have hHL4 : Expr.LeavesBounded value' :=
+        Expr.LeavesBounded.of_not_hasFvar hvf
+      have hsubXY := eqSide_app2c m hs hfsu hlpsu hsuPi hNatU hfx hfy
+      have hopSub := eqSide_app2 m hs hHi4 hHA4 hHF4 hHW4 hvb hHL4 hvPi hNatU
+        hsubXY hfy
+      have hrhsRec := hopSub
+      have hguardYX := eqSide_app2c m hs hfbl hlpbl hblPi hBu hfy hfx
+      have hguard1Y := eqSide_app2c m hs hfbl hlpbl hblPi hBu honeS hfy
+      have hlhsS := eqSide_app2 m hs hHi4 hHA4 hHF4 hHW4 hvb hHL4 hvPi hNatU
+        hfx hfy
+      have hypYXT := eqSide_eqApp m hEqA hBf hBlp hBu hguardYX htrueSide
+      have hypYXF := eqSide_eqApp m hEqA hBf hBlp hBu hguardYX hfalseSide
+      have hyp1YT := eqSide_eqApp m hEqA hBf hBlp hBu hguard1Y htrueSide
+      have hyp1YF := eqSide_eqApp m hEqA hBf hBlp hBu hguard1Y hfalseSide
+      simp +decide only [divModCertStmts] at hruns
+      rcases hruns with _ | ⟨hcert1, _ | ⟨hcert2, _ | ⟨hcert3, _⟩⟩⟩
+      obtain ⟨hg1, appliedA1, tp1, hann1, hinf1, hde1⟩ := hcert1
+      obtain ⟨hg2, appliedA2, tp2, hann2, hinf2, hde2⟩ := hcert2
+      obtain ⟨hg3, appliedA3, tp3, hann3, hinf3, hde3⟩ := hcert3
+      simp +decide only [Expr.substConst0, List.map]
+        at hann1 hann2 hann3 hde1 hde2 hde3
+      unfold divModCertGuard at hg1 hg2 hg3
+      simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true]
+        at hg1 hg2 hg3
+      have hpf1 := hg1.1.1.1.1.2
+      have hpb1 := hg1.1.1.1.1.1
+      have hpf2 := hg2.1.1.1.1.2
+      have hpb2 := hg2.1.1.1.1.1
+      have hpf3 := hg3.1.1.1.1.2
+      have hpb3 := hg3.1.1.1.1.1
+      simp +decide only [DivModClauses, if_false, if_true, reduceCtorEq,
+        decide_true, decide_false]
+      refine ⟨?_, ?_, ?_⟩
+      · intro hgv1 hgv2
+        rw [hval'ne natBleName (by decide) ψ0,
+          hval'ne boolTrueName (by decide) ψ0] at hgv1
+        rw [hval'ne natBleName (by decide) ψ0,
+          hval'ne natSuccName (by decide) ψ0,
+          hval'ne natZeroName (by decide) ψ0,
+          hval'ne boolTrueName (by decide) ψ0] at hgv2
+        have hpt1 := pt_mem_eqv_of_eq hgv1
+        have hpt2 := pt_mem_eqv_of_eq hgv2
+        have heq := clause_extract2 m F hs hEqA hnn hNlp' hx hy hypYXT hpt1
+          hyp1YT hpt2 (by decide +kernel) (by decide +kernel) hlhsS hrhsRec
+          hpf1 hpb1 hann1 hinf1 hde1
+        rw [hveq,
+          hval'ne natSubName (by decide) ψ0]
+        exact heq
+      · intro hgv1
+        rw [hval'ne natBleName (by decide) ψ0,
+          hval'ne boolFalseName (by decide) ψ0] at hgv1
+        have hpt1 := pt_mem_eqv_of_eq hgv1
+        have heq := clause_extract1 m F hs hEqA hnn hNlp' hx hy hypYXF hpt1
+          (by decide +kernel) hlhsS hfx hpf2 hpb2 hann2
+          hinf2 hde2
+        rw [hveq]
+        exact heq
+      · intro hgv1
+        rw [hval'ne natBleName (by decide) ψ0,
+          hval'ne natSuccName (by decide) ψ0,
+          hval'ne natZeroName (by decide) ψ0,
+          hval'ne boolFalseName (by decide) ψ0] at hgv1
+        have hpt1 := pt_mem_eqv_of_eq hgv1
+        have heq := clause_extract1 m F hs hEqA hnn hNlp' hx hy hyp1YF hpt1
+          (by decide +kernel) hlhsS hfx hpf3 hpb3 hann3
+          hinf3 hde3
+        rw [hveq]
+        exact heq
+  case _ =>
+    -- Nat.gcd
+      -- dependency and pin facts at `ψ0`
+      have hblOk := hdepsOk natBleName (by decide) (by decide)
+      obtain ⟨cvbl, vbl, hintbl, hfbl, hlpbl, -, hblFn⟩ :=
+        natOpStored_facts m hblOk hs ψ0
+      obtain ⟨Cbl, hblPi, hCblu, -, hCblBool⟩ := hblFn (by decide)
+      rw [hCblBool (Or.inr rfl)] at hblPi
+      have hBu : m.val boolName ψ0 ∈ˢ (univ 1 : V) := by
+        rw [← hCblBool (Or.inr rfl)]
+        exact hCblu
+      have hmoOk := hdepsOk natModName (by decide) (by decide)
+      obtain ⟨cvmo, vmo, hintmo, hfmo, hlpmo, -, hmoFn⟩ :=
+        natOpStored_facts m hmoOk hs ψ0
+      obtain ⟨Cmo, hmoPi, -, hCmoid, -⟩ := hmoFn (by decide)
+      rw [hCmoid (by decide) (by decide)] at hmoPi
+      obtain ⟨cvbl', vbl', hintbl', hfbl', htybl'⟩ :=
+        natOpStoredOk_tyPinned hblOk
+      obtain ⟨ciB, hBf, hBlp, -⟩ := natOpTyPinned_boolFacts (by
+        rw [show cvbl' = cvbl from by
+          rw [hfbl] at hfbl'
+          exact (ConstantInfo.defnInfo.injEq .. ▸ Option.some.inj hfbl').1.symm]
+          at htybl'
+        exact htybl')
+      obtain ⟨ciT, hTf, hTlp, hTty⟩ := hbT
+      obtain ⟨ciF, hFf, hFlp, hFty⟩ := hbF
+      obtain ⟨cvN, capsN, cv0, i0, j0, cv1, i1, j1, hnn, hzz, hss, hlN, -⟩ :=
+        natLitSupported_inv hs
+      have hNlp' : (ConstantInfo.indInfo cvN capsN).toConstantVal.levelParams
+          = [] := hlN
+      have hNatU := natVal_mem_univ m hs ψ0
+      have hfx := fvSide m hs (idx := 0) (nm := .str .anonymous "x")
+        (x := x) (y := y) (by omega) (by rw [rho4_0]; exact hx)
+      have hfy := fvSide m hs (idx := 1) (nm := .str .anonymous "y")
+        (x := x) (y := y) (by omega) (by rw [rho4_1]; exact hy)
+      rw [rho4_0] at hfx
+      rw [rho4_1] at hfy
+      have htrueSide : EqSideOk env m.val ψ0 4 (rho4 x y)
+          (.const boolTrueName []) (m.val boolTrueName ψ0)
+          (m.val boolName ψ0) :=
+        eqSide_boolCtor m hTf hTlp hTty hBf hBlp
+      have hfalseSide : EqSideOk env m.val ψ0 4 (rho4 x y)
+          (.const boolFalseName []) (m.val boolFalseName ψ0)
+          (m.val boolName ψ0) :=
+        eqSide_boolCtor m hFf hFlp hFty hBf hBlp
+      have hzeroS : EqSideOk env m.val ψ0 4 (rho4 x y)
+          (.const natZeroName []) (m.val natZeroName ψ0)
+          (m.val natName ψ0) := eqSide_zero m hs
+      have honeS := eqSide_succ m hs hzeroS
+      obtain ⟨hv, hvi, hvPi⟩ := hHm (by decide) ψ0
+      have hveq : val' natGcdName ψ0 = hv := by
+        have h1 := hval'c ψ0
+        rw [hvi] at h1
+        exact (Option.some.inj h1).symm
+      have hHi4 : interpExpr V m.val env ψ0 4 (rho4 x y) value' = some hv :=
+        (interp_closed_invariant hvf 4 _).trans hvi
+      have hHA4 := AnnotOk.closed_invariant hvf 4 (rho4 x y) (hAval ψ0)
+      have hHF4 : FvarsOk V m.val env ψ0 4 (rho4 x y) value' :=
+        FvarsOk.of_not_hasFvar hvf
+      have hHW4 : WScoped 4 value' := WScoped.of_not_hasFvar hvf
+      have hHL4 : Expr.LeavesBounded value' :=
+        Expr.LeavesBounded.of_not_hasFvar hvf
+      have hmodYX := eqSide_app2c m hs hfmo hlpmo hmoPi hNatU hfy hfx
+      have hrhsRec := eqSide_app2 m hs hHi4 hHA4 hHF4 hHW4 hvb hHL4 hvPi hNatU
+        hmodYX hfx
+      have hguardS := eqSide_app2c m hs hfbl hlpbl hblPi hBu honeS hfx
+      have hlhsS := eqSide_app2 m hs hHi4 hHA4 hHF4 hHW4 hvb hHL4 hvPi hNatU
+        hfx hfy
+      have hypT := eqSide_eqApp m hEqA hBf hBlp hBu hguardS htrueSide
+      have hypF := eqSide_eqApp m hEqA hBf hBlp hBu hguardS hfalseSide
+      simp +decide only [divModCertStmts] at hruns
+      rcases hruns with _ | ⟨hcert1, _ | ⟨hcert2, _⟩⟩
+      obtain ⟨hg1, appliedA1, tp1, hann1, hinf1, hde1⟩ := hcert1
+      obtain ⟨hg2, appliedA2, tp2, hann2, hinf2, hde2⟩ := hcert2
+      simp +decide only [Expr.substConst0, List.map] at hann1 hann2 hde1 hde2
+      unfold divModCertGuard at hg1 hg2
+      simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true]
+        at hg1 hg2
+      have hpf1 := hg1.1.1.1.1.2
+      have hpb1 := hg1.1.1.1.1.1
+      have hpf2 := hg2.1.1.1.1.2
+      have hpb2 := hg2.1.1.1.1.1
+      simp +decide only [DivModClauses, if_false, if_true, reduceCtorEq,
+        decide_true, decide_false]
+      refine ⟨?_, ?_⟩
+      · intro hgv1
+        rw [hval'ne natBleName (by decide) ψ0,
+          hval'ne natSuccName (by decide) ψ0,
+          hval'ne natZeroName (by decide) ψ0,
+          hval'ne boolTrueName (by decide) ψ0] at hgv1
+        have hpt1 := pt_mem_eqv_of_eq hgv1
+        have heq := clause_extract1 m F hs hEqA hnn hNlp' hx hy hypT hpt1
+          (by decide +kernel) hlhsS hrhsRec hpf1 hpb1 hann1
+          hinf1 hde1
+        rw [hveq,
+          hval'ne natModName (by decide) ψ0]
+        exact heq
+      · intro hgv1
+        rw [hval'ne natBleName (by decide) ψ0,
+          hval'ne natSuccName (by decide) ψ0,
+          hval'ne natZeroName (by decide) ψ0,
+          hval'ne boolFalseName (by decide) ψ0] at hgv1
+        have hpt1 := pt_mem_eqv_of_eq hgv1
+        have heq := clause_extract1 m F hs hEqA hnn hNlp' hx hy hypF hpt1
+          (by decide +kernel) hlhsS hfy hpf2 hpb2 hann2
+          hinf2 hde2
+        rw [hveq]
+        exact heq
+  case _ =>
+    -- Nat.land
+      -- dependency and pin facts at `ψ0`
+      have hblOk := hdepsOk natBleName (by decide) (by decide)
+      obtain ⟨cvbl, vbl, hintbl, hfbl, hlpbl, -, hblFn⟩ :=
+        natOpStored_facts m hblOk hs ψ0
+      obtain ⟨Cbl, hblPi, hCblu, -, hCblBool⟩ := hblFn (by decide)
+      rw [hCblBool (Or.inr rfl)] at hblPi
+      have hBu : m.val boolName ψ0 ∈ˢ (univ 1 : V) := by
+        rw [← hCblBool (Or.inr rfl)]
+        exact hCblu
+      have hadOk := hdepsOk natAddName (by decide) (by decide)
+      obtain ⟨cvad, vad, hintad, hfad, hlpad, -, hadFn⟩ :=
+        natOpStored_facts m hadOk hs ψ0
+      obtain ⟨Cad, hadPi, -, hCadid, -⟩ := hadFn (by decide)
+      rw [hCadid (by decide) (by decide)] at hadPi
+      have hmuOk := hdepsOk natMulName (by decide) (by decide)
+      obtain ⟨cvmu, vmu, hintmu, hfmu, hlpmu, -, hmuFn⟩ :=
+        natOpStored_facts m hmuOk hs ψ0
+      obtain ⟨Cmu, hmuPi, -, hCmuid, -⟩ := hmuFn (by decide)
+      rw [hCmuid (by decide) (by decide)] at hmuPi
+      have hdiOk := hdepsOk natDivName (by decide) (by decide)
+      obtain ⟨cvdi, vdi, hintdi, hfdi, hlpdi, -, hdiFn⟩ :=
+        natOpStored_facts m hdiOk hs ψ0
+      obtain ⟨Cdi, hdiPi, -, hCdiid, -⟩ := hdiFn (by decide)
+      rw [hCdiid (by decide) (by decide)] at hdiPi
+      have hmoOk := hdepsOk natModName (by decide) (by decide)
+      obtain ⟨cvmo, vmo, hintmo, hfmo, hlpmo, -, hmoFn⟩ :=
+        natOpStored_facts m hmoOk hs ψ0
+      obtain ⟨Cmo, hmoPi, -, hCmoid, -⟩ := hmoFn (by decide)
+      rw [hCmoid (by decide) (by decide)] at hmoPi
+      obtain ⟨cvbl', vbl', hintbl', hfbl', htybl'⟩ :=
+        natOpStoredOk_tyPinned hblOk
+      obtain ⟨ciB, hBf, hBlp, -⟩ := natOpTyPinned_boolFacts (by
+        rw [show cvbl' = cvbl from by
+          rw [hfbl] at hfbl'
+          exact (ConstantInfo.defnInfo.injEq .. ▸ Option.some.inj hfbl').1.symm]
+          at htybl'
+        exact htybl')
+      obtain ⟨ciT, hTf, hTlp, hTty⟩ := hbT
+      obtain ⟨ciF, hFf, hFlp, hFty⟩ := hbF
+      obtain ⟨cvN, capsN, cv0, i0, j0, cv1, i1, j1, hnn, hzz, hss, hlN, -⟩ :=
+        natLitSupported_inv hs
+      have hNlp' : (ConstantInfo.indInfo cvN capsN).toConstantVal.levelParams
+          = [] := hlN
+      have hNatU := natVal_mem_univ m hs ψ0
+      have hfx := fvSide m hs (idx := 0) (nm := .str .anonymous "x")
+        (x := x) (y := y) (by omega) (by rw [rho4_0]; exact hx)
+      have hfy := fvSide m hs (idx := 1) (nm := .str .anonymous "y")
+        (x := x) (y := y) (by omega) (by rw [rho4_1]; exact hy)
+      rw [rho4_0] at hfx
+      rw [rho4_1] at hfy
+      have htrueSide : EqSideOk env m.val ψ0 4 (rho4 x y)
+          (.const boolTrueName []) (m.val boolTrueName ψ0)
+          (m.val boolName ψ0) :=
+        eqSide_boolCtor m hTf hTlp hTty hBf hBlp
+      have hfalseSide : EqSideOk env m.val ψ0 4 (rho4 x y)
+          (.const boolFalseName []) (m.val boolFalseName ψ0)
+          (m.val boolName ψ0) :=
+        eqSide_boolCtor m hFf hFlp hFty hBf hBlp
+      have hzeroS : EqSideOk env m.val ψ0 4 (rho4 x y)
+          (.const natZeroName []) (m.val natZeroName ψ0)
+          (m.val natName ψ0) := eqSide_zero m hs
+      have honeS := eqSide_succ m hs hzeroS
+      obtain ⟨hv, hvi, hvPi⟩ := hHm (by decide) ψ0
+      have hveq : val' natLandName ψ0 = hv := by
+        have h1 := hval'c ψ0
+        rw [hvi] at h1
+        exact (Option.some.inj h1).symm
+      have hHi4 : interpExpr V m.val env ψ0 4 (rho4 x y) value' = some hv :=
+        (interp_closed_invariant hvf 4 _).trans hvi
+      have hHA4 := AnnotOk.closed_invariant hvf 4 (rho4 x y) (hAval ψ0)
+      have hHF4 : FvarsOk V m.val env ψ0 4 (rho4 x y) value' :=
+        FvarsOk.of_not_hasFvar hvf
+      have hHW4 : WScoped 4 value' := WScoped.of_not_hasFvar hvf
+      have hHL4 : Expr.LeavesBounded value' :=
+        Expr.LeavesBounded.of_not_hasFvar hvf
+      have htwoS := eqSide_succ m hs honeS
+      have hdivX2 := eqSide_app2c m hs hfdi hlpdi hdiPi hNatU hfx htwoS
+      have hdivY2 := eqSide_app2c m hs hfdi hlpdi hdiPi hNatU hfy htwoS
+      have hopDD := eqSide_app2 m hs hHi4 hHA4 hHF4 hHW4 hvb hHL4 hvPi hNatU
+        hdivX2 hdivY2
+      have hmulTwoOp := eqSide_app2c m hs hfmu hlpmu hmuPi hNatU htwoS hopDD
+      have hmodX2 := eqSide_app2c m hs hfmo hlpmo hmoPi hNatU hfx htwoS
+      have hmodY2 := eqSide_app2c m hs hfmo hlpmo hmoPi hNatU hfy htwoS
+      have hbit := eqSide_app2c m hs hfmu hlpmu hmuPi hNatU hmodX2 hmodY2
+      have hrhsRec := eqSide_app2c m hs hfad hlpad hadPi hNatU hmulTwoOp hbit
+      have hguardS := eqSide_app2c m hs hfbl hlpbl hblPi hBu honeS hfx
+      have hlhsS := eqSide_app2 m hs hHi4 hHA4 hHF4 hHW4 hvb hHL4 hvPi hNatU
+        hfx hfy
+      have hypT := eqSide_eqApp m hEqA hBf hBlp hBu hguardS htrueSide
+      have hypF := eqSide_eqApp m hEqA hBf hBlp hBu hguardS hfalseSide
+      simp +decide only [divModCertStmts] at hruns
+      rcases hruns with _ | ⟨hcert1, _ | ⟨hcert2, _⟩⟩
+      obtain ⟨hg1, appliedA1, tp1, hann1, hinf1, hde1⟩ := hcert1
+      obtain ⟨hg2, appliedA2, tp2, hann2, hinf2, hde2⟩ := hcert2
+      simp +decide only [Expr.substConst0, List.map] at hann1 hann2 hde1 hde2
+      unfold divModCertGuard at hg1 hg2
+      simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true]
+        at hg1 hg2
+      have hpf1 := hg1.1.1.1.1.2
+      have hpb1 := hg1.1.1.1.1.1
+      have hpf2 := hg2.1.1.1.1.2
+      have hpb2 := hg2.1.1.1.1.1
+      simp +decide only [DivModClauses, if_false, if_true, reduceCtorEq,
+        decide_true, decide_false]
+      refine ⟨?_, ?_⟩
+      · intro hgv1
+        rw [hval'ne natBleName (by decide) ψ0,
+          hval'ne natSuccName (by decide) ψ0,
+          hval'ne natZeroName (by decide) ψ0,
+          hval'ne boolTrueName (by decide) ψ0] at hgv1
+        have hpt1 := pt_mem_eqv_of_eq hgv1
+        have heq := clause_extract1 m F hs hEqA hnn hNlp' hx hy hypT hpt1
+          (by decide +kernel) hlhsS hrhsRec hpf1 hpb1 hann1
+          hinf1 hde1
+        rw [hveq,
+          hval'ne natAddName (by decide) ψ0,
+          hval'ne natMulName (by decide) ψ0,
+          hval'ne natSuccName (by decide) ψ0,
+          hval'ne natZeroName (by decide) ψ0,
+          hval'ne natDivName (by decide) ψ0,
+          hval'ne natModName (by decide) ψ0]
+        exact heq
+      · intro hgv1
+        rw [hval'ne natBleName (by decide) ψ0,
+          hval'ne natSuccName (by decide) ψ0,
+          hval'ne natZeroName (by decide) ψ0,
+          hval'ne boolFalseName (by decide) ψ0] at hgv1
+        have hpt1 := pt_mem_eqv_of_eq hgv1
+        have heq := clause_extract1 m F hs hEqA hnn hNlp' hx hy hypF hpt1
+          (by decide +kernel) hlhsS hzeroS hpf2 hpb2 hann2
+          hinf2 hde2
+        rw [hveq,
+          hval'ne natZeroName (by decide) ψ0]
+        exact heq
+  case _ =>
+    -- Nat.lor
+      -- dependency and pin facts at `ψ0`
+      have hblOk := hdepsOk natBleName (by decide) (by decide)
+      obtain ⟨cvbl, vbl, hintbl, hfbl, hlpbl, -, hblFn⟩ :=
+        natOpStored_facts m hblOk hs ψ0
+      obtain ⟨Cbl, hblPi, hCblu, -, hCblBool⟩ := hblFn (by decide)
+      rw [hCblBool (Or.inr rfl)] at hblPi
+      have hBu : m.val boolName ψ0 ∈ˢ (univ 1 : V) := by
+        rw [← hCblBool (Or.inr rfl)]
+        exact hCblu
+      have hadOk := hdepsOk natAddName (by decide) (by decide)
+      obtain ⟨cvad, vad, hintad, hfad, hlpad, -, hadFn⟩ :=
+        natOpStored_facts m hadOk hs ψ0
+      obtain ⟨Cad, hadPi, -, hCadid, -⟩ := hadFn (by decide)
+      rw [hCadid (by decide) (by decide)] at hadPi
+      have hmuOk := hdepsOk natMulName (by decide) (by decide)
+      obtain ⟨cvmu, vmu, hintmu, hfmu, hlpmu, -, hmuFn⟩ :=
+        natOpStored_facts m hmuOk hs ψ0
+      obtain ⟨Cmu, hmuPi, -, hCmuid, -⟩ := hmuFn (by decide)
+      rw [hCmuid (by decide) (by decide)] at hmuPi
+      have hdiOk := hdepsOk natDivName (by decide) (by decide)
+      obtain ⟨cvdi, vdi, hintdi, hfdi, hlpdi, -, hdiFn⟩ :=
+        natOpStored_facts m hdiOk hs ψ0
+      obtain ⟨Cdi, hdiPi, -, hCdiid, -⟩ := hdiFn (by decide)
+      rw [hCdiid (by decide) (by decide)] at hdiPi
+      have hmoOk := hdepsOk natModName (by decide) (by decide)
+      obtain ⟨cvmo, vmo, hintmo, hfmo, hlpmo, -, hmoFn⟩ :=
+        natOpStored_facts m hmoOk hs ψ0
+      obtain ⟨Cmo, hmoPi, -, hCmoid, -⟩ := hmoFn (by decide)
+      rw [hCmoid (by decide) (by decide)] at hmoPi
+      have hsuOk := hdepsOk natSubName (by decide) (by decide)
+      obtain ⟨cvsu, vsu, hintsu, hfsu, hlpsu, -, hsuFn⟩ :=
+        natOpStored_facts m hsuOk hs ψ0
+      obtain ⟨Csu, hsuPi, -, hCsuid, -⟩ := hsuFn (by decide)
+      rw [hCsuid (by decide) (by decide)] at hsuPi
+      obtain ⟨cvbl', vbl', hintbl', hfbl', htybl'⟩ :=
+        natOpStoredOk_tyPinned hblOk
+      obtain ⟨ciB, hBf, hBlp, -⟩ := natOpTyPinned_boolFacts (by
+        rw [show cvbl' = cvbl from by
+          rw [hfbl] at hfbl'
+          exact (ConstantInfo.defnInfo.injEq .. ▸ Option.some.inj hfbl').1.symm]
+          at htybl'
+        exact htybl')
+      obtain ⟨ciT, hTf, hTlp, hTty⟩ := hbT
+      obtain ⟨ciF, hFf, hFlp, hFty⟩ := hbF
+      obtain ⟨cvN, capsN, cv0, i0, j0, cv1, i1, j1, hnn, hzz, hss, hlN, -⟩ :=
+        natLitSupported_inv hs
+      have hNlp' : (ConstantInfo.indInfo cvN capsN).toConstantVal.levelParams
+          = [] := hlN
+      have hNatU := natVal_mem_univ m hs ψ0
+      have hfx := fvSide m hs (idx := 0) (nm := .str .anonymous "x")
+        (x := x) (y := y) (by omega) (by rw [rho4_0]; exact hx)
+      have hfy := fvSide m hs (idx := 1) (nm := .str .anonymous "y")
+        (x := x) (y := y) (by omega) (by rw [rho4_1]; exact hy)
+      rw [rho4_0] at hfx
+      rw [rho4_1] at hfy
+      have htrueSide : EqSideOk env m.val ψ0 4 (rho4 x y)
+          (.const boolTrueName []) (m.val boolTrueName ψ0)
+          (m.val boolName ψ0) :=
+        eqSide_boolCtor m hTf hTlp hTty hBf hBlp
+      have hfalseSide : EqSideOk env m.val ψ0 4 (rho4 x y)
+          (.const boolFalseName []) (m.val boolFalseName ψ0)
+          (m.val boolName ψ0) :=
+        eqSide_boolCtor m hFf hFlp hFty hBf hBlp
+      have hzeroS : EqSideOk env m.val ψ0 4 (rho4 x y)
+          (.const natZeroName []) (m.val natZeroName ψ0)
+          (m.val natName ψ0) := eqSide_zero m hs
+      have honeS := eqSide_succ m hs hzeroS
+      obtain ⟨hv, hvi, hvPi⟩ := hHm (by decide) ψ0
+      have hveq : val' natLorName ψ0 = hv := by
+        have h1 := hval'c ψ0
+        rw [hvi] at h1
+        exact (Option.some.inj h1).symm
+      have hHi4 : interpExpr V m.val env ψ0 4 (rho4 x y) value' = some hv :=
+        (interp_closed_invariant hvf 4 _).trans hvi
+      have hHA4 := AnnotOk.closed_invariant hvf 4 (rho4 x y) (hAval ψ0)
+      have hHF4 : FvarsOk V m.val env ψ0 4 (rho4 x y) value' :=
+        FvarsOk.of_not_hasFvar hvf
+      have hHW4 : WScoped 4 value' := WScoped.of_not_hasFvar hvf
+      have hHL4 : Expr.LeavesBounded value' :=
+        Expr.LeavesBounded.of_not_hasFvar hvf
+      have htwoS := eqSide_succ m hs honeS
+      have hdivX2 := eqSide_app2c m hs hfdi hlpdi hdiPi hNatU hfx htwoS
+      have hdivY2 := eqSide_app2c m hs hfdi hlpdi hdiPi hNatU hfy htwoS
+      have hopDD := eqSide_app2 m hs hHi4 hHA4 hHF4 hHW4 hvb hHL4 hvPi hNatU
+        hdivX2 hdivY2
+      have hmulTwoOp := eqSide_app2c m hs hfmu hlpmu hmuPi hNatU htwoS hopDD
+      have hmodX2 := eqSide_app2c m hs hfmo hlpmo hmoPi hNatU hfx htwoS
+      have hmodY2 := eqSide_app2c m hs hfmo hlpmo hmoPi hNatU hfy htwoS
+      have hsumM := eqSide_app2c m hs hfad hlpad hadPi hNatU hmodX2 hmodY2
+      have hprodM := eqSide_app2c m hs hfmu hlpmu hmuPi hNatU hmodX2 hmodY2
+      have hbit := eqSide_app2c m hs hfsu hlpsu hsuPi hNatU hsumM hprodM
+      have hrhsRec := eqSide_app2c m hs hfad hlpad hadPi hNatU hmulTwoOp hbit
+      have hguardS := eqSide_app2c m hs hfbl hlpbl hblPi hBu honeS hfx
+      have hlhsS := eqSide_app2 m hs hHi4 hHA4 hHF4 hHW4 hvb hHL4 hvPi hNatU
+        hfx hfy
+      have hypT := eqSide_eqApp m hEqA hBf hBlp hBu hguardS htrueSide
+      have hypF := eqSide_eqApp m hEqA hBf hBlp hBu hguardS hfalseSide
+      simp +decide only [divModCertStmts] at hruns
+      rcases hruns with _ | ⟨hcert1, _ | ⟨hcert2, _⟩⟩
+      obtain ⟨hg1, appliedA1, tp1, hann1, hinf1, hde1⟩ := hcert1
+      obtain ⟨hg2, appliedA2, tp2, hann2, hinf2, hde2⟩ := hcert2
+      simp +decide only [Expr.substConst0, List.map] at hann1 hann2 hde1 hde2
+      unfold divModCertGuard at hg1 hg2
+      simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true]
+        at hg1 hg2
+      have hpf1 := hg1.1.1.1.1.2
+      have hpb1 := hg1.1.1.1.1.1
+      have hpf2 := hg2.1.1.1.1.2
+      have hpb2 := hg2.1.1.1.1.1
+      simp +decide only [DivModClauses, if_false, if_true, reduceCtorEq,
+        decide_true, decide_false]
+      refine ⟨?_, ?_⟩
+      · intro hgv1
+        rw [hval'ne natBleName (by decide) ψ0,
+          hval'ne natSuccName (by decide) ψ0,
+          hval'ne natZeroName (by decide) ψ0,
+          hval'ne boolTrueName (by decide) ψ0] at hgv1
+        have hpt1 := pt_mem_eqv_of_eq hgv1
+        have heq := clause_extract1 m F hs hEqA hnn hNlp' hx hy hypT hpt1
+          (by decide +kernel) hlhsS hrhsRec hpf1 hpb1 hann1
+          hinf1 hde1
+        rw [hveq,
+          hval'ne natAddName (by decide) ψ0,
+          hval'ne natMulName (by decide) ψ0,
+          hval'ne natSuccName (by decide) ψ0,
+          hval'ne natZeroName (by decide) ψ0,
+          hval'ne natDivName (by decide) ψ0,
+          hval'ne natModName (by decide) ψ0,
+          hval'ne natSubName (by decide) ψ0]
+        exact heq
+      · intro hgv1
+        rw [hval'ne natBleName (by decide) ψ0,
+          hval'ne natSuccName (by decide) ψ0,
+          hval'ne natZeroName (by decide) ψ0,
+          hval'ne boolFalseName (by decide) ψ0] at hgv1
+        have hpt1 := pt_mem_eqv_of_eq hgv1
+        have heq := clause_extract1 m F hs hEqA hnn hNlp' hx hy hypF hpt1
+          (by decide +kernel) hlhsS hfy hpf2 hpb2 hann2
+          hinf2 hde2
+        rw [hveq]
+        exact heq
+  case _ =>
+    -- Nat.xor
+      -- dependency and pin facts at `ψ0`
+      have hblOk := hdepsOk natBleName (by decide) (by decide)
+      obtain ⟨cvbl, vbl, hintbl, hfbl, hlpbl, -, hblFn⟩ :=
+        natOpStored_facts m hblOk hs ψ0
+      obtain ⟨Cbl, hblPi, hCblu, -, hCblBool⟩ := hblFn (by decide)
+      rw [hCblBool (Or.inr rfl)] at hblPi
+      have hBu : m.val boolName ψ0 ∈ˢ (univ 1 : V) := by
+        rw [← hCblBool (Or.inr rfl)]
+        exact hCblu
+      have hadOk := hdepsOk natAddName (by decide) (by decide)
+      obtain ⟨cvad, vad, hintad, hfad, hlpad, -, hadFn⟩ :=
+        natOpStored_facts m hadOk hs ψ0
+      obtain ⟨Cad, hadPi, -, hCadid, -⟩ := hadFn (by decide)
+      rw [hCadid (by decide) (by decide)] at hadPi
+      have hmuOk := hdepsOk natMulName (by decide) (by decide)
+      obtain ⟨cvmu, vmu, hintmu, hfmu, hlpmu, -, hmuFn⟩ :=
+        natOpStored_facts m hmuOk hs ψ0
+      obtain ⟨Cmu, hmuPi, -, hCmuid, -⟩ := hmuFn (by decide)
+      rw [hCmuid (by decide) (by decide)] at hmuPi
+      have hdiOk := hdepsOk natDivName (by decide) (by decide)
+      obtain ⟨cvdi, vdi, hintdi, hfdi, hlpdi, -, hdiFn⟩ :=
+        natOpStored_facts m hdiOk hs ψ0
+      obtain ⟨Cdi, hdiPi, -, hCdiid, -⟩ := hdiFn (by decide)
+      rw [hCdiid (by decide) (by decide)] at hdiPi
+      have hmoOk := hdepsOk natModName (by decide) (by decide)
+      obtain ⟨cvmo, vmo, hintmo, hfmo, hlpmo, -, hmoFn⟩ :=
+        natOpStored_facts m hmoOk hs ψ0
+      obtain ⟨Cmo, hmoPi, -, hCmoid, -⟩ := hmoFn (by decide)
+      rw [hCmoid (by decide) (by decide)] at hmoPi
+      obtain ⟨cvbl', vbl', hintbl', hfbl', htybl'⟩ :=
+        natOpStoredOk_tyPinned hblOk
+      obtain ⟨ciB, hBf, hBlp, -⟩ := natOpTyPinned_boolFacts (by
+        rw [show cvbl' = cvbl from by
+          rw [hfbl] at hfbl'
+          exact (ConstantInfo.defnInfo.injEq .. ▸ Option.some.inj hfbl').1.symm]
+          at htybl'
+        exact htybl')
+      obtain ⟨ciT, hTf, hTlp, hTty⟩ := hbT
+      obtain ⟨ciF, hFf, hFlp, hFty⟩ := hbF
+      obtain ⟨cvN, capsN, cv0, i0, j0, cv1, i1, j1, hnn, hzz, hss, hlN, -⟩ :=
+        natLitSupported_inv hs
+      have hNlp' : (ConstantInfo.indInfo cvN capsN).toConstantVal.levelParams
+          = [] := hlN
+      have hNatU := natVal_mem_univ m hs ψ0
+      have hfx := fvSide m hs (idx := 0) (nm := .str .anonymous "x")
+        (x := x) (y := y) (by omega) (by rw [rho4_0]; exact hx)
+      have hfy := fvSide m hs (idx := 1) (nm := .str .anonymous "y")
+        (x := x) (y := y) (by omega) (by rw [rho4_1]; exact hy)
+      rw [rho4_0] at hfx
+      rw [rho4_1] at hfy
+      have htrueSide : EqSideOk env m.val ψ0 4 (rho4 x y)
+          (.const boolTrueName []) (m.val boolTrueName ψ0)
+          (m.val boolName ψ0) :=
+        eqSide_boolCtor m hTf hTlp hTty hBf hBlp
+      have hfalseSide : EqSideOk env m.val ψ0 4 (rho4 x y)
+          (.const boolFalseName []) (m.val boolFalseName ψ0)
+          (m.val boolName ψ0) :=
+        eqSide_boolCtor m hFf hFlp hFty hBf hBlp
+      have hzeroS : EqSideOk env m.val ψ0 4 (rho4 x y)
+          (.const natZeroName []) (m.val natZeroName ψ0)
+          (m.val natName ψ0) := eqSide_zero m hs
+      have honeS := eqSide_succ m hs hzeroS
+      obtain ⟨hv, hvi, hvPi⟩ := hHm (by decide) ψ0
+      have hveq : val' natXorName ψ0 = hv := by
+        have h1 := hval'c ψ0
+        rw [hvi] at h1
+        exact (Option.some.inj h1).symm
+      have hHi4 : interpExpr V m.val env ψ0 4 (rho4 x y) value' = some hv :=
+        (interp_closed_invariant hvf 4 _).trans hvi
+      have hHA4 := AnnotOk.closed_invariant hvf 4 (rho4 x y) (hAval ψ0)
+      have hHF4 : FvarsOk V m.val env ψ0 4 (rho4 x y) value' :=
+        FvarsOk.of_not_hasFvar hvf
+      have hHW4 : WScoped 4 value' := WScoped.of_not_hasFvar hvf
+      have hHL4 : Expr.LeavesBounded value' :=
+        Expr.LeavesBounded.of_not_hasFvar hvf
+      have htwoS := eqSide_succ m hs honeS
+      have hdivX2 := eqSide_app2c m hs hfdi hlpdi hdiPi hNatU hfx htwoS
+      have hdivY2 := eqSide_app2c m hs hfdi hlpdi hdiPi hNatU hfy htwoS
+      have hopDD := eqSide_app2 m hs hHi4 hHA4 hHF4 hHW4 hvb hHL4 hvPi hNatU
+        hdivX2 hdivY2
+      have hmulTwoOp := eqSide_app2c m hs hfmu hlpmu hmuPi hNatU htwoS hopDD
+      have hmodX2 := eqSide_app2c m hs hfmo hlpmo hmoPi hNatU hfx htwoS
+      have hmodY2 := eqSide_app2c m hs hfmo hlpmo hmoPi hNatU hfy htwoS
+      have hsumM := eqSide_app2c m hs hfad hlpad hadPi hNatU hmodX2 hmodY2
+      have hbit := eqSide_app2c m hs hfmo hlpmo hmoPi hNatU hsumM htwoS
+      have hrhsRec := eqSide_app2c m hs hfad hlpad hadPi hNatU hmulTwoOp hbit
+      have hguardS := eqSide_app2c m hs hfbl hlpbl hblPi hBu honeS hfx
+      have hlhsS := eqSide_app2 m hs hHi4 hHA4 hHF4 hHW4 hvb hHL4 hvPi hNatU
+        hfx hfy
+      have hypT := eqSide_eqApp m hEqA hBf hBlp hBu hguardS htrueSide
+      have hypF := eqSide_eqApp m hEqA hBf hBlp hBu hguardS hfalseSide
+      simp +decide only [divModCertStmts] at hruns
+      rcases hruns with _ | ⟨hcert1, _ | ⟨hcert2, _⟩⟩
+      obtain ⟨hg1, appliedA1, tp1, hann1, hinf1, hde1⟩ := hcert1
+      obtain ⟨hg2, appliedA2, tp2, hann2, hinf2, hde2⟩ := hcert2
+      simp +decide only [Expr.substConst0, List.map] at hann1 hann2 hde1 hde2
+      unfold divModCertGuard at hg1 hg2
+      simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true]
+        at hg1 hg2
+      have hpf1 := hg1.1.1.1.1.2
+      have hpb1 := hg1.1.1.1.1.1
+      have hpf2 := hg2.1.1.1.1.2
+      have hpb2 := hg2.1.1.1.1.1
+      simp +decide only [DivModClauses, if_false, if_true, reduceCtorEq,
+        decide_true, decide_false]
+      refine ⟨?_, ?_⟩
+      · intro hgv1
+        rw [hval'ne natBleName (by decide) ψ0,
+          hval'ne natSuccName (by decide) ψ0,
+          hval'ne natZeroName (by decide) ψ0,
+          hval'ne boolTrueName (by decide) ψ0] at hgv1
+        have hpt1 := pt_mem_eqv_of_eq hgv1
+        have heq := clause_extract1 m F hs hEqA hnn hNlp' hx hy hypT hpt1
+          (by decide +kernel) hlhsS hrhsRec hpf1 hpb1 hann1
+          hinf1 hde1
+        rw [hveq,
+          hval'ne natAddName (by decide) ψ0,
+          hval'ne natMulName (by decide) ψ0,
+          hval'ne natSuccName (by decide) ψ0,
+          hval'ne natZeroName (by decide) ψ0,
+          hval'ne natDivName (by decide) ψ0,
+          hval'ne natModName (by decide) ψ0]
+        exact heq
+      · intro hgv1
+        rw [hval'ne natBleName (by decide) ψ0,
+          hval'ne natSuccName (by decide) ψ0,
+          hval'ne natZeroName (by decide) ψ0,
+          hval'ne boolFalseName (by decide) ψ0] at hgv1
+        have hpt1 := pt_mem_eqv_of_eq hgv1
+        have heq := clause_extract1 m F hs hEqA hnn hNlp' hx hy hypF hpt1
+          (by decide +kernel) hlhsS hfy hpf2 hpb2 hann2
+          hinf2 hde2
+        rw [hveq]
+        exact heq
+  case _ =>
+    -- Nat.shiftLeft
+      -- dependency and pin facts at `ψ0`
+      have hblOk := hdepsOk natBleName (by decide) (by decide)
+      obtain ⟨cvbl, vbl, hintbl, hfbl, hlpbl, -, hblFn⟩ :=
+        natOpStored_facts m hblOk hs ψ0
+      obtain ⟨Cbl, hblPi, hCblu, -, hCblBool⟩ := hblFn (by decide)
+      rw [hCblBool (Or.inr rfl)] at hblPi
+      have hBu : m.val boolName ψ0 ∈ˢ (univ 1 : V) := by
+        rw [← hCblBool (Or.inr rfl)]
+        exact hCblu
+      have hsuOk := hdepsOk natSubName (by decide) (by decide)
+      obtain ⟨cvsu, vsu, hintsu, hfsu, hlpsu, -, hsuFn⟩ :=
+        natOpStored_facts m hsuOk hs ψ0
+      obtain ⟨Csu, hsuPi, -, hCsuid, -⟩ := hsuFn (by decide)
+      rw [hCsuid (by decide) (by decide)] at hsuPi
+      have hmuOk := hdepsOk natMulName (by decide) (by decide)
+      obtain ⟨cvmu, vmu, hintmu, hfmu, hlpmu, -, hmuFn⟩ :=
+        natOpStored_facts m hmuOk hs ψ0
+      obtain ⟨Cmu, hmuPi, -, hCmuid, -⟩ := hmuFn (by decide)
+      rw [hCmuid (by decide) (by decide)] at hmuPi
+      obtain ⟨cvbl', vbl', hintbl', hfbl', htybl'⟩ :=
+        natOpStoredOk_tyPinned hblOk
+      obtain ⟨ciB, hBf, hBlp, -⟩ := natOpTyPinned_boolFacts (by
+        rw [show cvbl' = cvbl from by
+          rw [hfbl] at hfbl'
+          exact (ConstantInfo.defnInfo.injEq .. ▸ Option.some.inj hfbl').1.symm]
+          at htybl'
+        exact htybl')
+      obtain ⟨ciT, hTf, hTlp, hTty⟩ := hbT
+      obtain ⟨ciF, hFf, hFlp, hFty⟩ := hbF
+      obtain ⟨cvN, capsN, cv0, i0, j0, cv1, i1, j1, hnn, hzz, hss, hlN, -⟩ :=
+        natLitSupported_inv hs
+      have hNlp' : (ConstantInfo.indInfo cvN capsN).toConstantVal.levelParams
+          = [] := hlN
+      have hNatU := natVal_mem_univ m hs ψ0
+      have hfx := fvSide m hs (idx := 0) (nm := .str .anonymous "x")
+        (x := x) (y := y) (by omega) (by rw [rho4_0]; exact hx)
+      have hfy := fvSide m hs (idx := 1) (nm := .str .anonymous "y")
+        (x := x) (y := y) (by omega) (by rw [rho4_1]; exact hy)
+      rw [rho4_0] at hfx
+      rw [rho4_1] at hfy
+      have htrueSide : EqSideOk env m.val ψ0 4 (rho4 x y)
+          (.const boolTrueName []) (m.val boolTrueName ψ0)
+          (m.val boolName ψ0) :=
+        eqSide_boolCtor m hTf hTlp hTty hBf hBlp
+      have hfalseSide : EqSideOk env m.val ψ0 4 (rho4 x y)
+          (.const boolFalseName []) (m.val boolFalseName ψ0)
+          (m.val boolName ψ0) :=
+        eqSide_boolCtor m hFf hFlp hFty hBf hBlp
+      have hzeroS : EqSideOk env m.val ψ0 4 (rho4 x y)
+          (.const natZeroName []) (m.val natZeroName ψ0)
+          (m.val natName ψ0) := eqSide_zero m hs
+      have honeS := eqSide_succ m hs hzeroS
+      obtain ⟨hv, hvi, hvPi⟩ := hHm (by decide) ψ0
+      have hveq : val' natShiftLeftName ψ0 = hv := by
+        have h1 := hval'c ψ0
+        rw [hvi] at h1
+        exact (Option.some.inj h1).symm
+      have hHi4 : interpExpr V m.val env ψ0 4 (rho4 x y) value' = some hv :=
+        (interp_closed_invariant hvf 4 _).trans hvi
+      have hHA4 := AnnotOk.closed_invariant hvf 4 (rho4 x y) (hAval ψ0)
+      have hHF4 : FvarsOk V m.val env ψ0 4 (rho4 x y) value' :=
+        FvarsOk.of_not_hasFvar hvf
+      have hHW4 : WScoped 4 value' := WScoped.of_not_hasFvar hvf
+      have hHL4 : Expr.LeavesBounded value' :=
+        Expr.LeavesBounded.of_not_hasFvar hvf
+      have htwoS := eqSide_succ m hs honeS
+      have hmul2X := eqSide_app2c m hs hfmu hlpmu hmuPi hNatU htwoS hfx
+      have hsubY1 := eqSide_app2c m hs hfsu hlpsu hsuPi hNatU hfy honeS
+      have hrhsRec := eqSide_app2 m hs hHi4 hHA4 hHF4 hHW4 hvb hHL4 hvPi hNatU
+        hmul2X hsubY1
+      have hguardS := eqSide_app2c m hs hfbl hlpbl hblPi hBu honeS hfy
+      have hlhsS := eqSide_app2 m hs hHi4 hHA4 hHF4 hHW4 hvb hHL4 hvPi hNatU
+        hfx hfy
+      have hypT := eqSide_eqApp m hEqA hBf hBlp hBu hguardS htrueSide
+      have hypF := eqSide_eqApp m hEqA hBf hBlp hBu hguardS hfalseSide
+      simp +decide only [divModCertStmts] at hruns
+      rcases hruns with _ | ⟨hcert1, _ | ⟨hcert2, _⟩⟩
+      obtain ⟨hg1, appliedA1, tp1, hann1, hinf1, hde1⟩ := hcert1
+      obtain ⟨hg2, appliedA2, tp2, hann2, hinf2, hde2⟩ := hcert2
+      simp +decide only [Expr.substConst0, List.map] at hann1 hann2 hde1 hde2
+      unfold divModCertGuard at hg1 hg2
+      simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true]
+        at hg1 hg2
+      have hpf1 := hg1.1.1.1.1.2
+      have hpb1 := hg1.1.1.1.1.1
+      have hpf2 := hg2.1.1.1.1.2
+      have hpb2 := hg2.1.1.1.1.1
+      simp +decide only [DivModClauses, if_false, if_true, reduceCtorEq,
+        decide_true, decide_false]
+      refine ⟨?_, ?_⟩
+      · intro hgv1
+        rw [hval'ne natBleName (by decide) ψ0,
+          hval'ne natSuccName (by decide) ψ0,
+          hval'ne natZeroName (by decide) ψ0,
+          hval'ne boolTrueName (by decide) ψ0] at hgv1
+        have hpt1 := pt_mem_eqv_of_eq hgv1
+        have heq := clause_extract1 m F hs hEqA hnn hNlp' hx hy hypT hpt1
+          (by decide +kernel) hlhsS hrhsRec hpf1 hpb1 hann1
+          hinf1 hde1
+        rw [hveq,
+          hval'ne natMulName (by decide) ψ0,
+          hval'ne natSuccName (by decide) ψ0,
+          hval'ne natZeroName (by decide) ψ0,
+          hval'ne natSubName (by decide) ψ0]
+        exact heq
+      · intro hgv1
+        rw [hval'ne natBleName (by decide) ψ0,
+          hval'ne natSuccName (by decide) ψ0,
+          hval'ne natZeroName (by decide) ψ0,
+          hval'ne boolFalseName (by decide) ψ0] at hgv1
+        have hpt1 := pt_mem_eqv_of_eq hgv1
+        have heq := clause_extract1 m F hs hEqA hnn hNlp' hx hy hypF hpt1
+          (by decide +kernel) hlhsS hfx hpf2 hpb2 hann2
+          hinf2 hde2
+        rw [hveq]
+        exact heq
+  case _ =>
+    -- Nat.shiftRight
+      -- dependency and pin facts at `ψ0`
+      have hblOk := hdepsOk natBleName (by decide) (by decide)
+      obtain ⟨cvbl, vbl, hintbl, hfbl, hlpbl, -, hblFn⟩ :=
+        natOpStored_facts m hblOk hs ψ0
+      obtain ⟨Cbl, hblPi, hCblu, -, hCblBool⟩ := hblFn (by decide)
+      rw [hCblBool (Or.inr rfl)] at hblPi
+      have hBu : m.val boolName ψ0 ∈ˢ (univ 1 : V) := by
+        rw [← hCblBool (Or.inr rfl)]
+        exact hCblu
+      have hsuOk := hdepsOk natSubName (by decide) (by decide)
+      obtain ⟨cvsu, vsu, hintsu, hfsu, hlpsu, -, hsuFn⟩ :=
+        natOpStored_facts m hsuOk hs ψ0
+      obtain ⟨Csu, hsuPi, -, hCsuid, -⟩ := hsuFn (by decide)
+      rw [hCsuid (by decide) (by decide)] at hsuPi
+      have hdiOk := hdepsOk natDivName (by decide) (by decide)
+      obtain ⟨cvdi, vdi, hintdi, hfdi, hlpdi, -, hdiFn⟩ :=
+        natOpStored_facts m hdiOk hs ψ0
+      obtain ⟨Cdi, hdiPi, -, hCdiid, -⟩ := hdiFn (by decide)
+      rw [hCdiid (by decide) (by decide)] at hdiPi
+      obtain ⟨cvbl', vbl', hintbl', hfbl', htybl'⟩ :=
+        natOpStoredOk_tyPinned hblOk
+      obtain ⟨ciB, hBf, hBlp, -⟩ := natOpTyPinned_boolFacts (by
+        rw [show cvbl' = cvbl from by
+          rw [hfbl] at hfbl'
+          exact (ConstantInfo.defnInfo.injEq .. ▸ Option.some.inj hfbl').1.symm]
+          at htybl'
+        exact htybl')
+      obtain ⟨ciT, hTf, hTlp, hTty⟩ := hbT
+      obtain ⟨ciF, hFf, hFlp, hFty⟩ := hbF
+      obtain ⟨cvN, capsN, cv0, i0, j0, cv1, i1, j1, hnn, hzz, hss, hlN, -⟩ :=
+        natLitSupported_inv hs
+      have hNlp' : (ConstantInfo.indInfo cvN capsN).toConstantVal.levelParams
+          = [] := hlN
+      have hNatU := natVal_mem_univ m hs ψ0
+      have hfx := fvSide m hs (idx := 0) (nm := .str .anonymous "x")
+        (x := x) (y := y) (by omega) (by rw [rho4_0]; exact hx)
+      have hfy := fvSide m hs (idx := 1) (nm := .str .anonymous "y")
+        (x := x) (y := y) (by omega) (by rw [rho4_1]; exact hy)
+      rw [rho4_0] at hfx
+      rw [rho4_1] at hfy
+      have htrueSide : EqSideOk env m.val ψ0 4 (rho4 x y)
+          (.const boolTrueName []) (m.val boolTrueName ψ0)
+          (m.val boolName ψ0) :=
+        eqSide_boolCtor m hTf hTlp hTty hBf hBlp
+      have hfalseSide : EqSideOk env m.val ψ0 4 (rho4 x y)
+          (.const boolFalseName []) (m.val boolFalseName ψ0)
+          (m.val boolName ψ0) :=
+        eqSide_boolCtor m hFf hFlp hFty hBf hBlp
+      have hzeroS : EqSideOk env m.val ψ0 4 (rho4 x y)
+          (.const natZeroName []) (m.val natZeroName ψ0)
+          (m.val natName ψ0) := eqSide_zero m hs
+      have honeS := eqSide_succ m hs hzeroS
+      obtain ⟨hv, hvi, hvPi⟩ := hHm (by decide) ψ0
+      have hveq : val' natShiftRightName ψ0 = hv := by
+        have h1 := hval'c ψ0
+        rw [hvi] at h1
+        exact (Option.some.inj h1).symm
+      have hHi4 : interpExpr V m.val env ψ0 4 (rho4 x y) value' = some hv :=
+        (interp_closed_invariant hvf 4 _).trans hvi
+      have hHA4 := AnnotOk.closed_invariant hvf 4 (rho4 x y) (hAval ψ0)
+      have hHF4 : FvarsOk V m.val env ψ0 4 (rho4 x y) value' :=
+        FvarsOk.of_not_hasFvar hvf
+      have hHW4 : WScoped 4 value' := WScoped.of_not_hasFvar hvf
+      have hHL4 : Expr.LeavesBounded value' :=
+        Expr.LeavesBounded.of_not_hasFvar hvf
+      have htwoS := eqSide_succ m hs honeS
+      have hsubY1 := eqSide_app2c m hs hfsu hlpsu hsuPi hNatU hfy honeS
+      have hopX := eqSide_app2 m hs hHi4 hHA4 hHF4 hHW4 hvb hHL4 hvPi hNatU
+        hfx hsubY1
+      have hrhsRec := eqSide_app2c m hs hfdi hlpdi hdiPi hNatU hopX htwoS
+      have hguardS := eqSide_app2c m hs hfbl hlpbl hblPi hBu honeS hfy
+      have hlhsS := eqSide_app2 m hs hHi4 hHA4 hHF4 hHW4 hvb hHL4 hvPi hNatU
+        hfx hfy
+      have hypT := eqSide_eqApp m hEqA hBf hBlp hBu hguardS htrueSide
+      have hypF := eqSide_eqApp m hEqA hBf hBlp hBu hguardS hfalseSide
+      simp +decide only [divModCertStmts] at hruns
+      rcases hruns with _ | ⟨hcert1, _ | ⟨hcert2, _⟩⟩
+      obtain ⟨hg1, appliedA1, tp1, hann1, hinf1, hde1⟩ := hcert1
+      obtain ⟨hg2, appliedA2, tp2, hann2, hinf2, hde2⟩ := hcert2
+      simp +decide only [Expr.substConst0, List.map] at hann1 hann2 hde1 hde2
+      unfold divModCertGuard at hg1 hg2
+      simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true]
+        at hg1 hg2
+      have hpf1 := hg1.1.1.1.1.2
+      have hpb1 := hg1.1.1.1.1.1
+      have hpf2 := hg2.1.1.1.1.2
+      have hpb2 := hg2.1.1.1.1.1
+      simp +decide only [DivModClauses, if_false, if_true, reduceCtorEq,
+        decide_true, decide_false]
+      refine ⟨?_, ?_⟩
+      · intro hgv1
+        rw [hval'ne natBleName (by decide) ψ0,
+          hval'ne natSuccName (by decide) ψ0,
+          hval'ne natZeroName (by decide) ψ0,
+          hval'ne boolTrueName (by decide) ψ0] at hgv1
+        have hpt1 := pt_mem_eqv_of_eq hgv1
+        have heq := clause_extract1 m F hs hEqA hnn hNlp' hx hy hypT hpt1
+          (by decide +kernel) hlhsS hrhsRec hpf1 hpb1 hann1
+          hinf1 hde1
+        rw [hveq,
+          hval'ne natDivName (by decide) ψ0,
+          hval'ne natSubName (by decide) ψ0,
+          hval'ne natSuccName (by decide) ψ0,
+          hval'ne natZeroName (by decide) ψ0]
+        exact heq
+      · intro hgv1
+        rw [hval'ne natBleName (by decide) ψ0,
+          hval'ne natSuccName (by decide) ψ0,
+          hval'ne natZeroName (by decide) ψ0,
+          hval'ne boolFalseName (by decide) ψ0] at hgv1
+        have hpt1 := pt_mem_eqv_of_eq hgv1
+        have heq := clause_extract1 m F hs hEqA hnn hNlp' hx hy hypF hpt1
+          (by decide +kernel) hlhsS hfx hpf2 hpb2 hann2
+          hinf2 hde2
+        rw [hveq]
+        exact heq
+  case _ =>
+    -- Nat.log2
+      -- dependency and pin facts at `ψ0`
+      have hblOk := hdepsOk natBleName (by decide) (by decide)
+      obtain ⟨cvbl, vbl, hintbl, hfbl, hlpbl, -, hblFn⟩ :=
+        natOpStored_facts m hblOk hs ψ0
+      obtain ⟨Cbl, hblPi, hCblu, -, hCblBool⟩ := hblFn (by decide)
+      rw [hCblBool (Or.inr rfl)] at hblPi
+      have hBu : m.val boolName ψ0 ∈ˢ (univ 1 : V) := by
+        rw [← hCblBool (Or.inr rfl)]
+        exact hCblu
+      have hdiOk := hdepsOk natDivName (by decide) (by decide)
+      obtain ⟨cvdi, vdi, hintdi, hfdi, hlpdi, -, hdiFn⟩ :=
+        natOpStored_facts m hdiOk hs ψ0
+      obtain ⟨Cdi, hdiPi, -, hCdiid, -⟩ := hdiFn (by decide)
+      rw [hCdiid (by decide) (by decide)] at hdiPi
+      obtain ⟨cvbl', vbl', hintbl', hfbl', htybl'⟩ :=
+        natOpStoredOk_tyPinned hblOk
+      obtain ⟨ciB, hBf, hBlp, -⟩ := natOpTyPinned_boolFacts (by
+        rw [show cvbl' = cvbl from by
+          rw [hfbl] at hfbl'
+          exact (ConstantInfo.defnInfo.injEq .. ▸ Option.some.inj hfbl').1.symm]
+          at htybl'
+        exact htybl')
+      obtain ⟨ciT, hTf, hTlp, hTty⟩ := hbT
+      obtain ⟨ciF, hFf, hFlp, hFty⟩ := hbF
+      obtain ⟨cvN, capsN, cv0, i0, j0, cv1, i1, j1, hnn, hzz, hss, hlN, -⟩ :=
+        natLitSupported_inv hs
+      have hNlp' : (ConstantInfo.indInfo cvN capsN).toConstantVal.levelParams
+          = [] := hlN
+      have hNatU := natVal_mem_univ m hs ψ0
+      have hfx := fvSide m hs (idx := 0) (nm := .str .anonymous "x")
+        (x := x) (y := y) (by omega) (by rw [rho4_0]; exact hx)
+      have hfy := fvSide m hs (idx := 1) (nm := .str .anonymous "y")
+        (x := x) (y := y) (by omega) (by rw [rho4_1]; exact hy)
+      rw [rho4_0] at hfx
+      rw [rho4_1] at hfy
+      have htrueSide : EqSideOk env m.val ψ0 4 (rho4 x y)
+          (.const boolTrueName []) (m.val boolTrueName ψ0)
+          (m.val boolName ψ0) :=
+        eqSide_boolCtor m hTf hTlp hTty hBf hBlp
+      have hfalseSide : EqSideOk env m.val ψ0 4 (rho4 x y)
+          (.const boolFalseName []) (m.val boolFalseName ψ0)
+          (m.val boolName ψ0) :=
+        eqSide_boolCtor m hFf hFlp hFty hBf hBlp
+      have hzeroS : EqSideOk env m.val ψ0 4 (rho4 x y)
+          (.const natZeroName []) (m.val natZeroName ψ0)
+          (m.val natName ψ0) := eqSide_zero m hs
+      have honeS := eqSide_succ m hs hzeroS
+      obtain ⟨hv, hvi, hvPi⟩ := hHmU rfl ψ0
+      have hveq : val' natLog2Name ψ0 = hv := by
+        have h1 := hval'c ψ0
+        rw [hvi] at h1
+        exact (Option.some.inj h1).symm
+      have hHi4 : interpExpr V m.val env ψ0 4 (rho4 x y) value' = some hv :=
+        (interp_closed_invariant hvf 4 _).trans hvi
+      have hHA4 := AnnotOk.closed_invariant hvf 4 (rho4 x y) (hAval ψ0)
+      have hHF4 : FvarsOk V m.val env ψ0 4 (rho4 x y) value' :=
+        FvarsOk.of_not_hasFvar hvf
+      have hHW4 : WScoped 4 value' := WScoped.of_not_hasFvar hvf
+      have hHL4 : Expr.LeavesBounded value' :=
+        Expr.LeavesBounded.of_not_hasFvar hvf
+      have htwoS := eqSide_succ m hs honeS
+      have hdivX2 := eqSide_app2c m hs hfdi hlpdi hdiPi hNatU hfx htwoS
+      have hopD := eqSide_app1 m hHi4 hHA4 hHF4 hHW4 hvb hHL4 hvPi hNatU hdivX2
+      have hrhsRec := eqSide_succ m hs hopD
+      have hguardS := eqSide_app2c m hs hfbl hlpbl hblPi hBu htwoS hfx
+      have hlhsS := eqSide_app1 m hHi4 hHA4 hHF4 hHW4 hvb hHL4 hvPi hNatU hfx
+      have hypT := eqSide_eqApp m hEqA hBf hBlp hBu hguardS htrueSide
+      have hypF := eqSide_eqApp m hEqA hBf hBlp hBu hguardS hfalseSide
+      simp +decide only [divModCertStmts] at hruns
+      rcases hruns with _ | ⟨hcert1, _ | ⟨hcert2, _⟩⟩
+      obtain ⟨hg1, appliedA1, tp1, hann1, hinf1, hde1⟩ := hcert1
+      obtain ⟨hg2, appliedA2, tp2, hann2, hinf2, hde2⟩ := hcert2
+      simp +decide only [Expr.substConst0, List.map] at hann1 hann2 hde1 hde2
+      unfold divModCertGuard at hg1 hg2
+      simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true]
+        at hg1 hg2
+      have hpf1 := hg1.1.1.1.1.2
+      have hpb1 := hg1.1.1.1.1.1
+      have hpf2 := hg2.1.1.1.1.2
+      have hpb2 := hg2.1.1.1.1.1
+      simp +decide only [DivModClauses, if_false, if_true, reduceCtorEq,
+        decide_true, decide_false]
+      refine ⟨?_, ?_⟩
+      · intro hgv1
+        rw [hval'ne natBleName (by decide) ψ0,
+          hval'ne natSuccName (by decide) ψ0,
+          hval'ne natZeroName (by decide) ψ0,
+          hval'ne boolTrueName (by decide) ψ0] at hgv1
+        have hpt1 := pt_mem_eqv_of_eq hgv1
+        have heq := clause_extract1 m F hs hEqA hnn hNlp' hx hy hypT hpt1
+          (by decide +kernel) hlhsS hrhsRec hpf1 hpb1 hann1 hinf1 hde1
+        rw [hveq,
+          hval'ne natSuccName (by decide) ψ0,
+          hval'ne natZeroName (by decide) ψ0,
+          hval'ne natDivName (by decide) ψ0]
+        exact heq
+      · intro hgv1
+        rw [hval'ne natBleName (by decide) ψ0,
+          hval'ne natSuccName (by decide) ψ0,
+          hval'ne natZeroName (by decide) ψ0,
+          hval'ne boolFalseName (by decide) ψ0] at hgv1
+        have hpt1 := pt_mem_eqv_of_eq hgv1
+        have heq := clause_extract1 m F hs hEqA hnn hNlp' hx hy hypF hpt1
+          (by decide +kernel) hlhsS hzeroS hpf2 hpb2 hann2 hinf2 hde2
+        rw [hveq,
+          hval'ne natZeroName (by decide) ψ0]
+        exact heq
 
 
 /-! ## Inversion of the fueled pin-gate run -/
@@ -1041,7 +1837,7 @@ theorem natDivModNames_ne_env {c : Name} (hc : c ∈ natDivModNames) :
     c ≠ natBeqName := by
   simp only [natDivModNames, List.mem_cons, List.not_mem_nil,
     or_false] at hc
-  rcases hc with rfl | rfl <;>
+  rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
     exact ⟨by decide, by decide, by decide, by decide, by decide,
       by decide, by decide, by decide, by decide, by decide, by decide⟩
 

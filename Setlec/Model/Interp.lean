@@ -506,34 +506,73 @@ theorem NatOpsOk.empty (val : ConstVal V) : NatOpsOk V Env.empty val := by
   intro c hc cv v hint h
   simp [Env.find?, Env.empty] at h
 
-/-- The value-level `Nat.ble`-guarded recurrences of a pin-certified
-WF-recursive operation `c` (`Nat.div`/`Nat.mod`), over a valuation
-`val`: for members `x`, `y` of the `Nat` value, if `ble y x` and
-`ble 1 y` are both the `true` value the operation steps through `sub`
-(with a `succ` for `div`); if either guard is the `false` value it
-collapses to its base value (`zero` for `div`, `x` for `mod`).  Purely
-value-level — no expression interpretation — so environment transports
-only touch the guard/lookup side of `DivModOk`. -/
+/-- The value-level clauses of a pin-certified WF-recursive operation
+`c` at valuation `val`, mirroring the pinned certificate statements
+(`divModCertStmts`) clause for clause: `ble`-guarded recurrences over
+the already-certified ground operations' values, with the base cases
+on the guard's `false` value.  Purely value-level — no expression
+interpretation — so environment transports only touch the guard/lookup
+side of `DivModOk`. -/
+def DivModClauses (val : ConstVal V) (c : Name) (ψ : Name → Nat)
+    (x y : V) : Prop :=
+  let vT := val boolTrueName ψ
+  let vF := val boolFalseName ψ
+  let one : V := app (val natSuccName ψ) (val natZeroName ψ)
+  let two : V := app (val natSuccName ψ) one
+  let ble2 : V → V → V := fun a b => app (app (val natBleName ψ) a) b
+  let op2 : V → V → V := fun a b => app (app (val c ψ) a) b
+  let sub2 : V → V → V := fun a b => app (app (val natSubName ψ) a) b
+  let add2 : V → V → V := fun a b => app (app (val natAddName ψ) a) b
+  let mul2 : V → V → V := fun a b => app (app (val natMulName ψ) a) b
+  let div2 : V → V → V := fun a b => app (app (val natDivName ψ) a) b
+  let mod2 : V → V → V := fun a b => app (app (val natModName ψ) a) b
+  if c = natGcdName then
+    (ble2 one x = vT → op2 x y = op2 (mod2 y x) x) ∧
+    (ble2 one x = vF → op2 x y = y)
+  else if c = natShiftLeftName then
+    (ble2 one y = vT → op2 x y = op2 (mul2 two x) (sub2 y one)) ∧
+    (ble2 one y = vF → op2 x y = x)
+  else if c = natShiftRightName then
+    (ble2 one y = vT → op2 x y = div2 (op2 x (sub2 y one)) two) ∧
+    (ble2 one y = vF → op2 x y = x)
+  else if c = natLog2Name then
+    (ble2 two x = vT →
+      app (val c ψ) x =
+        app (val natSuccName ψ) (app (val c ψ) (div2 x two))) ∧
+    (ble2 two x = vF → app (val c ψ) x = val natZeroName ψ)
+  else if c = natLandName then
+    (ble2 one x = vT →
+      op2 x y = add2 (mul2 two (op2 (div2 x two) (div2 y two)))
+        (mul2 (mod2 x two) (mod2 y two))) ∧
+    (ble2 one x = vF → op2 x y = val natZeroName ψ)
+  else if c = natLorName then
+    (ble2 one x = vT →
+      op2 x y = add2 (mul2 two (op2 (div2 x two) (div2 y two)))
+        (sub2 (add2 (mod2 x two) (mod2 y two))
+          (mul2 (mod2 x two) (mod2 y two)))) ∧
+    (ble2 one x = vF → op2 x y = y)
+  else if c = natXorName then
+    (ble2 one x = vT →
+      op2 x y = add2 (mul2 two (op2 (div2 x two) (div2 y two)))
+        (mod2 (add2 (mod2 x two) (mod2 y two)) two)) ∧
+    (ble2 one x = vF → op2 x y = y)
+  else
+    -- `Nat.div`/`Nat.mod`
+    (ble2 y x = vT → ble2 one y = vT →
+     op2 x y =
+       (if c = natDivName then app (val natSuccName ψ) (op2 (sub2 x y) y)
+        else op2 (sub2 x y) y)) ∧
+    (ble2 y x = vF →
+     op2 x y = (if c = natDivName then val natZeroName ψ else x)) ∧
+    (ble2 one y = vF →
+     op2 x y = (if c = natDivName then val natZeroName ψ else x))
+
+/-- The `ble`-guarded value-level clauses of a pin-certified operation,
+for all members of the `Nat` value. -/
 def DivModEqs (val : ConstVal V) (c : Name) : Prop :=
   ∀ (ψ : Name → Nat) (x y : V),
     x ∈ˢ val natName ψ → y ∈ˢ val natName ψ →
-    (app (app (val natBleName ψ) y) x = val boolTrueName ψ →
-     app (app (val natBleName ψ)
-       (app (val natSuccName ψ) (val natZeroName ψ))) y =
-       val boolTrueName ψ →
-     app (app (val c ψ) x) y =
-       (if c = natDivName then
-         app (val natSuccName ψ)
-           (app (app (val c ψ) (app (app (val natSubName ψ) x) y)) y)
-        else app (app (val c ψ) (app (app (val natSubName ψ) x) y)) y)) ∧
-    (app (app (val natBleName ψ) y) x = val boolFalseName ψ →
-     app (app (val c ψ) x) y =
-       (if c = natDivName then val natZeroName ψ else x)) ∧
-    (app (app (val natBleName ψ)
-       (app (val natSuccName ψ) (val natZeroName ψ))) y =
-       val boolFalseName ψ →
-     app (app (val c ψ) x) y =
-       (if c = natDivName then val natZeroName ψ else x))
+    DivModClauses V val c ψ x y
 
 /-- A stored pin-certified WF-recursive operation (`Nat.div`/`Nat.mod`)
 carries its literal-fast-path guard and satisfies its guarded

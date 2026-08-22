@@ -1458,16 +1458,8 @@ theorem divModCertStmts_wscopedB {c : Name} (hc : c ∈ natDivModNames) :
     ∀ st ∈ divModCertStmts c,
       (∀ hyp ∈ st.1, hyp.wscopedB 2 = true) ∧ st.2.wscopedB 4 = true := by
   simp only [natDivModNames, List.mem_cons, List.not_mem_nil, or_false] at hc
-  intro st hst
-  rcases hc with rfl | rfl <;>
-    (simp only [divModCertStmts, List.mem_cons, List.not_mem_nil,
-      or_false, reduceIte] at hst
-     rcases hst with rfl | rfl | rfl <;>
-      refine ⟨fun hyp hh => ?_, by simp +decide [Expr.wscopedB]⟩ <;>
-      (simp only [List.mem_cons, List.not_mem_nil, or_false] at hh
-       first
-        | (rcases hh with rfl | rfl <;> simp +decide [Expr.wscopedB])
-        | (rcases hh with rfl; simp +decide [Expr.wscopedB])))
+  rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
+    decide +kernel
 
 /-- The applied certificate proof is well-scoped at the frame. -/
 theorem divModCertApplied_wscopedB {proofS : Expr} {hyps : List Expr}

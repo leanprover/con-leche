@@ -477,14 +477,17 @@ theorem reduceNat_full_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
       natLitSupported env = true ∧
       whnf env fuel d a = .ok a' ∧ rawNatLit? a' = some n ∧
       e₂ = .lit (.natVal (n + 1))) ∨
-    (∃ a a' n, e = .app (.const natPredName []) a ∧
-      natOpGuard env natPredName = true ∧
+    (∃ c a a' n, e = .app (.const c []) a ∧
+      (c = natPredName ∨ c = natLog2Name) ∧
+      natOpGuard env c = true ∧
       whnf env fuel d a = .ok a' ∧ rawNatLit? a' = some n ∧
-      e₂ = .lit (.natVal (n - 1))) ∨
+      natOpResult c n 0 = some e₂) ∨
     (∃ c a b a' b' n₁ n₂, e = .app (.app (.const c []) a) b ∧
       (c = natAddName ∨ c = natSubName ∨ c = natMulName ∨
        c = natPowName ∨ c = natBeqName ∨ c = natBleName ∨
-       c = natDivName ∨ c = natModName) ∧
+       c = natDivName ∨ c = natModName ∨ c = natGcdName ∨
+       c = natLandName ∨ c = natLorName ∨ c = natXorName ∨
+       c = natShiftLeftName ∨ c = natShiftRightName) ∧
       natOpGuard env c = true ∧
       whnf env fuel d a = .ok a' ∧ rawNatLit? a' = some n₁ ∧
       whnf env fuel d b = .ok b' ∧ rawNatLit? b' = some n₂ ∧
@@ -552,22 +555,47 @@ theorem reduceNat_full_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
         rw [hres] at h
         simp only [pure, Except.pure, Except.ok.injEq,
           Option.some.injEq] at h
-        exact Or.inr (Or.inl ⟨a, a', n, rfl, hguard, hwa, hraw, h.symm⟩)
+        exact Or.inr (Or.inl ⟨natPredName, a, a', n, rfl, Or.inl rfl,
+          hguard, hwa, hraw, h ▸ hres⟩)
       case isFalse =>
-        -- the log2 decline branch never returns a reduct
         split
-        · intro h
-          revert h
-          cases hw : whnf env fuel d a with
+        case isTrue hg =>
+          -- the certified `log2` branch
+          obtain ⟨rfl, hguard⟩ := hg
+          cases hwa : whnf env fuel d a with
           | error err => intro h; exact nomatch h
           | ok a' =>
           intro h
           dsimp only at h
           revert h
-          match rawNatLit? a' with
-          | some _ => intro h; exact nomatch h
+          match hraw : rawNatLit? a' with
+          | some n => ?_
           | none => intro h; simp [pure, Except.pure] at h
-        · intro h; simp [pure, Except.pure] at h
+          intro h
+          dsimp only at h
+          cases hres : natOpResult natLog2Name n 0 with
+          | none => rw [hres] at h; simp [pure, Except.pure] at h
+          | some r =>
+            rw [hres] at h
+            simp only [pure, Except.pure, Except.ok.injEq,
+              Option.some.injEq] at h
+            exact Or.inr (Or.inl ⟨natLog2Name, a, a', n, rfl, Or.inr rfl,
+              hguard, hwa, hraw, h ▸ hres⟩)
+        case isFalse =>
+          -- the capless `log2` decline branch never returns a reduct
+          split
+          · intro h
+            revert h
+            cases hw : whnf env fuel d a with
+            | error err => intro h; exact nomatch h
+            | ok a' =>
+            intro h
+            dsimp only at h
+            revert h
+            match rawNatLit? a' with
+            | some _ => intro h; exact nomatch h
+            | none => intro h; simp [pure, Except.pure] at h
+          · intro h; simp [pure, Except.pure] at h
   · -- binary fast paths
     intro h
     simp only [reduceNat, Bind.bind, Except.bind, whnf_def] at h
@@ -643,7 +671,7 @@ theorem reduceNat_sound (m : EnvModel V env) {fuel d : Nat} {e e₂ : Expr}
     FvarsOk V m.val env φ d ρ e₂ := by
   rcases reduceNat_full_inv h with
     ⟨a, a', n, rfl, hs, hwa, hraw, rfl⟩ |
-    ⟨a, a', n, rfl, hguard, hwa, hraw, rfl⟩ |
+    ⟨c, a, a', n, rfl, hunary, hguard, hwa, hraw, hres⟩ |
     ⟨c, a, b, a', b', n₁, n₂, rfl, hor, hguard, hwa, hraw1, hwb, hraw2,
       hres⟩
   · -- `succ` folding (through the argument's reduction)
@@ -667,9 +695,14 @@ theorem reduceNat_sound (m : EnvModel V env) {fuel d : Nat} {e e₂ : Expr}
       -⟩ := natLitSupported_inv hs
     simp [interpExpr, hss, ConstantInfo.toConstantVal, hl3, Level.substFn_nil,
       hia, natLitVal]
-  · -- `pred`
+  · -- the unary fast paths (`pred`, and the pin-certified `log2`)
     have hs := (natOpGuard_inv hguard).1
-    obtain ⟨cvp, vp, hntp, hfp, hlpp⟩ := natOpGuard_self_defn (by decide) hguard
+    obtain ⟨cvp, vp, hntp, hfp, hlpp⟩ :
+        ∃ cv v h, env.find? c = some (.defnInfo cv v h) ∧
+          cv.levelParams = [] := by
+      rcases hunary with rfl | rfl
+      · exact natOpGuard_self_defn (by decide) hguard
+      · exact natDivModGuard_self_defn (by decide) hguard
     simp only [WScoped] at hw
     simp only [looseBVarsBounded, Bool.and_eq_true] at hb
     have hLba : Expr.LeavesBounded a := fun l hl =>
@@ -681,18 +714,43 @@ theorem reduceNat_sound (m : EnvModel V env) {fuel d : Nat} {e e₂ : Expr}
     have hia : interpExpr V m.val env φ d ρ a =
         some (natLitVal V (m.val natZeroName φ) (m.val natSuccName φ) n) :=
       hia'.symm.trans (interpExpr_rawNatLit hs hraw)
-    refine ⟨?_, by simp [AnnotOk], by simp [WScoped],
-      by simp [Expr.looseBVarsBounded],
-      (fun l hl => by simp [Expr.fvarLeaves] at hl),
-      (fun l hl => by simp [Expr.fvarLeaves] at hl)⟩
-    rw [interpExpr_lit hs,
-      interp_app1 (interp_const_mono hfp
-        (show (ConstantInfo.defnInfo cvp vp hntp).toConstantVal.levelParams = []
-          from hlpp)) hia,
-      natOpVal_pred m hfp φ n]
+    rcases hunary with rfl | rfl
+    · -- pred
+      have he₂ : e₂ = .lit (.natVal (n - 1)) := by
+        rw [show natOpResult natPredName n 0 =
+            some (.lit (.natVal (n - 1))) by simp +decide [natOpResult]]
+          at hres
+        exact (Option.some.inj hres).symm
+      subst he₂
+      refine ⟨?_, by simp [AnnotOk], by simp [WScoped],
+        by simp [Expr.looseBVarsBounded],
+        (fun l hl => by simp [Expr.fvarLeaves] at hl),
+        (fun l hl => by simp [Expr.fvarLeaves] at hl)⟩
+      rw [interpExpr_lit hs,
+        interp_app1 (interp_const_mono hfp
+          (show (ConstantInfo.defnInfo cvp vp hntp).toConstantVal.levelParams
+            = [] from hlpp)) hia,
+        natOpVal_pred m hfp φ n]
+    · -- log2 (pin-certified: `EnvModel.div_mod` via `natOpVal_log2`)
+      have he₂ : e₂ = .lit (.natVal (Nat.log2 n)) := by
+        rw [show natOpResult natLog2Name n 0 =
+            some (.lit (.natVal (Nat.log2 n))) by simp +decide [natOpResult]]
+          at hres
+        exact (Option.some.inj hres).symm
+      subst he₂
+      refine ⟨?_, by simp [AnnotOk], by simp [WScoped],
+        by simp [Expr.looseBVarsBounded],
+        (fun l hl => by simp [Expr.fvarLeaves] at hl),
+        (fun l hl => by simp [Expr.fvarLeaves] at hl)⟩
+      rw [interpExpr_lit hs,
+        interp_app1 (interp_const_mono hfp
+          (show (ConstantInfo.defnInfo cvp vp hntp).toConstantVal.levelParams
+            = [] from hlpp)) hia,
+        natOpVal_log2 m hfp φ n]
   · -- binary operations
     have hcd : c ∈ natOpNames ∨ c ∈ natDivModNames := by
-      rcases hor with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
+      rcases hor with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
+        rfl | rfl | rfl | rfl | rfl <;>
         first
         | exact Or.inl (by decide)
         | exact Or.inr (by decide)
@@ -726,7 +784,8 @@ theorem reduceNat_sound (m : EnvModel V env) {fuel d : Nat} {e e₂ : Expr}
       interp_app1 (interp_app1 (interp_const_mono hfc
         (show (ConstantInfo.defnInfo cvc vc hntc).toConstantVal.levelParams = []
           from hlpc)) hia) hib
-    rcases hor with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+    rcases hor with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
+      rfl | rfl | rfl | rfl | rfl
     · -- add
       have he₂ : e₂ = .lit (.natVal (n₁ + n₂)) := by
         rw [show natOpResult natAddName n₁ n₂ =
@@ -835,6 +894,78 @@ theorem reduceNat_sound (m : EnvModel V env) {fuel d : Nat} {e e₂ : Expr}
         (fun l hl => by simp [Expr.fvarLeaves] at hl),
         (fun l hl => by simp [Expr.fvarLeaves] at hl)⟩
       rw [interpExpr_lit hs, hie, natOpVal_mod m hfc φ n₁ n₂]
+    · -- gcd (pin-certified: `EnvModel.div_mod` via `natOpVal_gcd`)
+      have he₂ : e₂ = .lit (.natVal (Nat.gcd n₁ n₂)) := by
+        rw [show natOpResult natGcdName n₁ n₂ =
+            some (.lit (.natVal (Nat.gcd n₁ n₂))) by simp +decide [natOpResult]]
+          at hres
+        exact (Option.some.inj hres).symm
+      subst he₂
+      refine ⟨?_, by simp [AnnotOk], by simp [WScoped],
+        by simp [Expr.looseBVarsBounded],
+        (fun l hl => by simp [Expr.fvarLeaves] at hl),
+        (fun l hl => by simp [Expr.fvarLeaves] at hl)⟩
+      rw [interpExpr_lit hs, hie, natOpVal_gcd m hfc φ n₁ n₂]
+    · -- land (pin-certified: `EnvModel.div_mod` via `natOpVal_land`)
+      have he₂ : e₂ = .lit (.natVal (Nat.land n₁ n₂)) := by
+        rw [show natOpResult natLandName n₁ n₂ =
+            some (.lit (.natVal (Nat.land n₁ n₂))) by simp +decide [natOpResult]]
+          at hres
+        exact (Option.some.inj hres).symm
+      subst he₂
+      refine ⟨?_, by simp [AnnotOk], by simp [WScoped],
+        by simp [Expr.looseBVarsBounded],
+        (fun l hl => by simp [Expr.fvarLeaves] at hl),
+        (fun l hl => by simp [Expr.fvarLeaves] at hl)⟩
+      rw [interpExpr_lit hs, hie, natOpVal_land m hfc φ n₁ n₂]
+    · -- lor (pin-certified: `EnvModel.div_mod` via `natOpVal_lor`)
+      have he₂ : e₂ = .lit (.natVal (Nat.lor n₁ n₂)) := by
+        rw [show natOpResult natLorName n₁ n₂ =
+            some (.lit (.natVal (Nat.lor n₁ n₂))) by simp +decide [natOpResult]]
+          at hres
+        exact (Option.some.inj hres).symm
+      subst he₂
+      refine ⟨?_, by simp [AnnotOk], by simp [WScoped],
+        by simp [Expr.looseBVarsBounded],
+        (fun l hl => by simp [Expr.fvarLeaves] at hl),
+        (fun l hl => by simp [Expr.fvarLeaves] at hl)⟩
+      rw [interpExpr_lit hs, hie, natOpVal_lor m hfc φ n₁ n₂]
+    · -- xor (pin-certified: `EnvModel.div_mod` via `natOpVal_xor`)
+      have he₂ : e₂ = .lit (.natVal (Nat.xor n₁ n₂)) := by
+        rw [show natOpResult natXorName n₁ n₂ =
+            some (.lit (.natVal (Nat.xor n₁ n₂))) by simp +decide [natOpResult]]
+          at hres
+        exact (Option.some.inj hres).symm
+      subst he₂
+      refine ⟨?_, by simp [AnnotOk], by simp [WScoped],
+        by simp [Expr.looseBVarsBounded],
+        (fun l hl => by simp [Expr.fvarLeaves] at hl),
+        (fun l hl => by simp [Expr.fvarLeaves] at hl)⟩
+      rw [interpExpr_lit hs, hie, natOpVal_xor m hfc φ n₁ n₂]
+    · -- shiftLeft (pin-certified: `EnvModel.div_mod` via `natOpVal_shiftLeft`)
+      have he₂ : e₂ = .lit (.natVal (Nat.shiftLeft n₁ n₂)) := by
+        rw [show natOpResult natShiftLeftName n₁ n₂ =
+            some (.lit (.natVal (Nat.shiftLeft n₁ n₂))) by simp +decide [natOpResult]]
+          at hres
+        exact (Option.some.inj hres).symm
+      subst he₂
+      refine ⟨?_, by simp [AnnotOk], by simp [WScoped],
+        by simp [Expr.looseBVarsBounded],
+        (fun l hl => by simp [Expr.fvarLeaves] at hl),
+        (fun l hl => by simp [Expr.fvarLeaves] at hl)⟩
+      rw [interpExpr_lit hs, hie, natOpVal_shiftLeft m hfc φ n₁ n₂]
+    · -- shiftRight (pin-certified: `EnvModel.div_mod` via `natOpVal_shiftRight`)
+      have he₂ : e₂ = .lit (.natVal (Nat.shiftRight n₁ n₂)) := by
+        rw [show natOpResult natShiftRightName n₁ n₂ =
+            some (.lit (.natVal (Nat.shiftRight n₁ n₂))) by simp +decide [natOpResult]]
+          at hres
+        exact (Option.some.inj hres).symm
+      subst he₂
+      refine ⟨?_, by simp [AnnotOk], by simp [WScoped],
+        by simp [Expr.looseBVarsBounded],
+        (fun l hl => by simp [Expr.fvarLeaves] at hl),
+        (fun l hl => by simp [Expr.fvarLeaves] at hl)⟩
+      rw [interpExpr_lit hs, hie, natOpVal_shiftRight m hfc φ n₁ n₂]
 
 /-- Inversion of a one-step delta unfolding. -/
 theorem unfoldDefinition_inv {env : Env} {e e₂ : Expr}
