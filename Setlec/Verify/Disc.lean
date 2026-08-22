@@ -684,6 +684,17 @@ theorem annotateProjElim_disc (ih : ScopedSim env f) (henv : EnvWF env)
       · exact DiscV.throw _
     · exact annotateProjRec_disc ih henv hwte hwe
 
+theorem litMajorToCtor_disc (ih : ScopedSim env f) (henv : EnvWF env)
+    {d : Nat} {e : Expr} (hw : WScoped d e) :
+    DiscV env (WScoped d) (litMajorToCtor C env d e)
+      (litMajorToCtor G env d e) := by
+  unfold litMajorToCtor
+  split
+  · split
+    · exact ih.site_whnf henv (strLitToConstructor_WScoped _ d)
+    · exact DiscV.pure hw
+  · exact DiscV.pure (litToCtorIfNat_WScoped hw)
+
 theorem iotaRec_disc (ih : ScopedSim env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
     DiscV env (WScopedO d) (iotaRec C env d e)
@@ -698,8 +709,10 @@ theorem iotaRec_disc (ih : ScopedSim env f) (henv : EnvWF env)
   refine DiscV.bind
     (ih.site_whnf henv (wscoped_getD hw.getAppArgs _))
     (fun major₀ hmaj₀ => ?_)
+  refine DiscV.bind (litMajorToCtor_disc ih henv hmaj₀)
+    (fun major₁ hmaj₁ => ?_)
   refine DiscV.bind
-    (majorToCtor_disc ih henv (litToCtorIfNat_WScoped hmaj₀))
+    (majorToCtor_disc ih henv hmaj₁)
     (fun major hmaj => ?_)
   split <;> try exact DiscV.pure WScopedO.none
   rename_i cj usj heqmfn

@@ -986,10 +986,25 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
     | _ => pure major
   | _ => pure major
 
+/-- Convert a literal major premise to constructor form: a `Nat`
+literal one layer (`litToCtorIfNat`); a `String` literal to its
+*reduced* constructor form — the reference kernels re-reduce after
+`strLitToConstructor` (lean4lean `Inductive/Reduce.lean`, nanoda
+`str_lit_to_ctor_reducing`) since `String.ofList` is a definition, not
+a constructor.  An unsupported literal passes through (stuck; sound,
+and unreachable for annotated input). -/
+def litMajorToCtor (r : CoreFns m) (env : Env) (depth : Nat) :
+    Expr → m Expr
+  | .lit (.strVal s) =>
+    if strLitSupported env then r.whnf depth (strLitToConstructor s)
+    else pure (.lit (.strVal s))
+  | e => pure (litToCtorIfNat env e)
+
 /-- One iota step: the expression is a stored recursor applied to
 exactly its telescope (params, motives, minors, indices, major), the
 major premise whnfs to a fully applied constructor with a matching
-rule (a `Nat`-literal major converts to constructor form one layer, a
+rule (a literal major converts to constructor form — see
+`litMajorToCtor` —, a
 stuck major may be rescued — see `majorToCtor`), and the spine is
 certified against the recursor's own (pinned, annotated) type.  The
 result is the rule's rhs applied to the non-index prefix and the
@@ -1005,7 +1020,8 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
       if args.length = nP + nM + nm + ni + 1 then
         let major₀ ← r.whnf depth
           (args.getD (nP + nM + nm + ni) (.bvar 0))
-        let major ← majorToCtor r env depth c rules (litToCtorIfNat env major₀)
+        let major₁ ← litMajorToCtor r env depth major₀
+        let major ← majorToCtor r env depth c rules major₁
         match major.getAppFn with
         | .const cj usj =>
           match env.find? cj with

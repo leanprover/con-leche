@@ -3,6 +3,7 @@ import Setlec.Verify.Shift
 import Setlec.Verify.InstLevels
 import Setlec.Verify.EnvWF
 import Setlec.Verify.Knot
+import Setlec.Verify.StrLitExpr
 
 /-!
 # Preservation and inversion lemmas for the checker core
@@ -577,14 +578,15 @@ theorem projCert_inv {env : Env} {fuel d : Nat} {e₂ : Expr} {i : Nat}
 /-- Inversion of a successful iota step. -/
 theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
     (h : iotaRecP env fuel d e = .ok (some eout)) :
-    ∃ c us cv nP nM nm ni rules major₀ major cj usj cvj cnP cnF r cbinders
-      cbody residual cr usr,
+    ∃ c us cv nP nM nm ni rules major₀ major₁ major cj usj cvj cnP cnF r
+      cbinders cbody residual cr usr,
       e.getAppFn = .const c us ∧
       env.find? c = some (.recInfo cv nP nM nm ni rules) ∧
       e.getAppArgs.length = nP + nM + nm + ni + 1 ∧
       whnf env fuel d (e.getAppArgs.getD (nP + nM + nm + ni) (.bvar 0)) =
         .ok major₀ ∧
-      majorToCtorP env fuel d c rules (litToCtorIfNat env major₀) = .ok major ∧
+      litMajorToCtorP env fuel d major₀ = .ok major₁ ∧
+      majorToCtorP env fuel d c rules major₁ = .ok major ∧
       major.getAppFn = .const cj usj ∧
       env.find? cj = some (.ctorInfo cvj cnP cnF) ∧
       rules.find? (fun r' => r'.ctor == cj) = some r ∧
@@ -613,7 +615,8 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
           major.getAppArgs.drop cnP) := by
   dsimp only [iotaRecP] at h
   simp only [iotaRec, Bind.bind, Except.bind] at h
-  simp only [whnf_def, majorToCtor_fold, defEqList_fold, iotaCerts_fold] at h
+  simp only [whnf_def, majorToCtor_fold, litMajorToCtor_fold, defEqList_fold,
+    iotaCerts_fold] at h
   revert h
   cases hfn : e.getAppFn with
   | bvar i => intro h; exact nomatch h
@@ -649,7 +652,12 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   | ok major₀ =>
   rw [hmaj] at h
   dsimp only at h
-  cases hsub : majorToCtorP env fuel d c rules (litToCtorIfNat env major₀) with
+  cases hlit : litMajorToCtorP env fuel d major₀ with
+  | error err => rw [hlit] at h; exact nomatch h
+  | ok major₁ =>
+  rw [hlit] at h
+  dsimp only at h
+  cases hsub : majorToCtorP env fuel d c rules major₁ with
   | error err => rw [hsub] at h; exact nomatch h
   | ok major =>
   rw [hsub] at h
@@ -783,10 +791,10 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   | true =>
   simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq,
     Option.some.injEq] at h
-  exact ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major, cj, usj, cvj, cnP,
-    cnF, r, cbinders, cbody, residual, cr, usr, rfl, hfc, hlen, hmaj, hsub,
-    hmfn, hfj, hrule, hml1, hml2, har1, har2, har3, hlev, hpeq, hcerts,
-    hmcerts, hstrip, hres, hrfn, hieq, h.symm⟩
+  exact ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major₁, major, cj, usj,
+    cvj, cnP, cnF, r, cbinders, cbody, residual, cr, usr, rfl, hfc, hlen,
+    hmaj, hlit, hsub, hmfn, hfj, hrule, hml1, hml2, har1, har2, har3, hlev,
+    hpeq, hcerts, hmcerts, hstrip, hres, hrfn, hieq, h.symm⟩
 
 /-- Inversion of the stuck-major rescue: either the major is returned
 unchanged, or a constructor application was fabricated — in the
@@ -2012,6 +2020,35 @@ theorem natLitToConstructor_WScoped (n : Nat) {d : Nat} :
     WScoped d (natLitToConstructor n) := by
   cases n <;> simp [natLitToConstructor, WScoped]
 
+/-- Inversion of the literal-major conversion: either the one-layer
+`Nat` conversion applied, or the major was a supported string literal
+and the result is the reduced constructor form. -/
+theorem litMajorToCtorP_inv {env : Env} {fuel d : Nat} {e e₁ : Expr}
+    (h : litMajorToCtorP env fuel d e = .ok e₁) :
+    e₁ = litToCtorIfNat env e ∨
+    ∃ s, e = .lit (.strVal s) ∧ strLitSupported env = true ∧
+      whnf env fuel d (strLitToConstructor s) = .ok e₁ := by
+  match e with
+  | .lit (.strVal s) =>
+    dsimp only [litMajorToCtorP, litMajorToCtor] at h
+    revert h
+    split
+    · intro h
+      exact Or.inr ⟨s, rfl, by assumption, h⟩
+    · intro h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      subst h
+      exact Or.inl rfl
+  | .lit (.natVal n) =>
+    simp only [litMajorToCtorP, litMajorToCtor, pure, Except.pure,
+      Except.ok.injEq] at h
+    exact Or.inl h.symm
+  | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
+  | .lam _ _ _ _ | .forallE _ _ _ _ | .letE _ _ _ _ | .proj _ _ _ =>
+    simp only [litMajorToCtorP, litMajorToCtor, pure, Except.pure,
+      Except.ok.injEq] at h
+    exact Or.inl h.symm
+
 /-- The literal-major conversion preserves well-scopedness. -/
 theorem litToCtorIfNat_WScoped {env : Env} {d : Nat} {e : Expr}
     (hw : WScoped d e) : WScoped d (litToCtorIfNat env e) := by
@@ -2271,8 +2308,10 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
         · simp only [WScoped] at hwf'
           exact ihCore hbeta (WScoped.instantiate1_gen hw.2 0 hwf'.2)
         · -- iota step
-          obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major, cj, usj,
-            cvj, cnP, cnF, r, -, -, -, -, -, hfn, hfc, hlen, hmaj, hsub, hmfn, hfj,
+          obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major₁, major,
+            cj, usj,
+            cvj, cnP, cnF, r, -, -, -, -, -, hfn, hfc, hlen, hmaj, hlit, hsub,
+            hmfn, hfj,
             hrule,
             hml1, hml2, har1, har2, -, hlev, hpeq, hcerts, hmcerts, -, -, -, -, rfl⟩ :=
             iotaRec_inv hio
@@ -2290,9 +2329,13 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
               (by rw [hasFvar_instantiateLevelParams]; exact hrf)
           have hmaj0w : WScoped d major₀ := ihLoop hmaj
             (hargs _ (getD_mem (by omega)))
+          have hmaj1w : WScoped d major₁ := by
+            rcases litMajorToCtorP_inv hlit with rfl | ⟨s, -, -, hred⟩
+            · exact litToCtorIfNat_WScoped hmaj0w
+            · exact ihLoop hred (strLitToConstructor_WScoped s d)
           have hmajw : WScoped d major := by
             rcases majorToCtor_inv hsub with rfl | ⟨hwsc, -, -, -⟩
-            · exact litToCtorIfNat_WScoped hmaj0w
+            · exact hmaj1w
             · exact WScoped.of_wscopedB hwsc
           refine ihCore hwe'' ?_
           refine Expr.WScoped.mkAppN hrhs ?_

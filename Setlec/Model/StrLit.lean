@@ -1,4 +1,5 @@
 import Setlec.Model.NatLit
+import Setlec.Verify.StrLitExpr
 
 /-!
 # The string-literal fragment of the model
@@ -27,31 +28,6 @@ private theorem find?_name' {env : Env} {n : Name} {ci : ConstantInfo}
     (h : env.find? n = some ci) : ci.name = n := by
   have := List.find?_some h
   simpa using this
-
-/-- The character-list part of `strLitToConstructor`, as a standalone
-recursion (the kernel function folds; this is its unfolding). -/
-def strLitList : List Char → Expr
-  | [] => .app (.const listNilName [.zero]) (.const charName [])
-  | c :: cs =>
-    .app (.app (.app (.const listConsName [.zero]) (.const charName []))
-      (.app (.const charOfNatName []) (.lit (.natVal c.toNat))))
-      (strLitList cs)
-
-private theorem strLitList_foldr : ∀ cs : List Char,
-    cs.foldr
-      (fun c e =>
-        .app (.app (.app (.const listConsName [.zero]) (.const charName []))
-          (.app (.const charOfNatName []) (.lit (.natVal c.toNat)))) e)
-      (.app (.const listNilName [.zero]) (.const charName [])) =
-    strLitList cs
-  | [] => rfl
-  | c :: cs => by rw [List.foldr_cons, strLitList_foldr cs, strLitList]
-
-theorem strLitToConstructor_eq (s : String) :
-    strLitToConstructor s =
-      .app (.const stringOfListName []) (strLitList s.toList) := by
-  unfold strLitToConstructor
-  rw [strLitList_foldr s.toList]
 
 /-! ## Interpretation equations for the pinned constants -/
 
