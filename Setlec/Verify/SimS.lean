@@ -22,7 +22,7 @@ one declaration needs no new state invariant: this file provides
   family — the per-declaration analog of `runEntry*_bridge`, keeping
   the final state facts instead of discarding them.
 
-The driver-level walks composing these along `checkDeclS` are in
+The driver-level walks composing these along `checkDeclSF` are in
 `Setlec/Verify/BridgeS*.lean`.
 -/
 
