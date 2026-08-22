@@ -1382,6 +1382,20 @@ def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
         if c = natSuccName then r.defeq depth x (.lit (.natVal k))
         else stuckIrrel r env depth (.app f x) (.lit (.natVal nn))
       | _, _ => stuckIrrel r env depth (.app f x) (.lit (.natVal nn))
+    -- a string literal against a unary `String.ofList` application:
+    -- expand the literal to its constructor form and compare — the
+    -- reference kernels' `tryStringLitExpansion` (lean4lean
+    -- `TypeChecker.lean`, nanoda `try_string_lit_expansion`), which
+    -- fires exactly when the other side's function part is the bare
+    -- `String.ofList` constant
+    | .lit (.strVal st), .app (.const cO usO) x =>
+      if cO = stringOfListName ∧ usO = [] ∧ strLitSupported env then
+        r.defeq depth (strLitToConstructor st) (.app (.const cO usO) x)
+      else stuckIrrel r env depth (.lit (.strVal st)) (.app (.const cO usO) x)
+    | .app (.const cO usO) x, .lit (.strVal st) =>
+      if cO = stringOfListName ∧ usO = [] ∧ strLitSupported env then
+        r.defeq depth (.app (.const cO usO) x) (strLitToConstructor st)
+      else stuckIrrel r env depth (.app (.const cO usO) x) (.lit (.strVal st))
     | .fvar i n₁ ty₁, .fvar j n₂ ty₂ =>
       if i == j then pure true
       else stuckIrrel r env depth (.fvar i n₁ ty₁) (.fvar j n₂ ty₂)

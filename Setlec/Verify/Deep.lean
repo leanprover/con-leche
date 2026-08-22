@@ -2067,7 +2067,20 @@ private theorem defeq_step (henv : EnvWF env)
   case lit.app l f x hne =>
     simp only [WScoped] at hwwb
     cases l with
-    | strVal str => exact hstuck
+    | strVal str =>
+      cases f <;>
+        try (first
+          | exact hstuck
+          | (simp only [shiftFrom_app, shiftFrom_fvar] at hstuck ⊢
+             exact hstuck))
+      case const cn cus =>
+      refine ite_congr' (fun _ => ?_) (fun _ => hstuck)
+      have hres := ih.defeq (p := p) hpd
+        (strLitToConstructor_WScoped str d)
+        (show WScoped d (Expr.app (.const cn cus) x) by
+          simp only [WScoped]; exact ⟨trivial, hwwb.2⟩)
+      rw [strLitToConstructor_shiftFrom] at hres
+      exact hres
     | natVal nn =>
       cases nn with
       | zero => exact hstuck
@@ -2086,7 +2099,20 @@ private theorem defeq_step (henv : EnvWF env)
   case app.lit f x l hne =>
     simp only [WScoped] at hwwa
     cases l with
-    | strVal str => exact hstuck
+    | strVal str =>
+      cases f <;>
+        try (first
+          | exact hstuck
+          | (simp only [shiftFrom_app, shiftFrom_fvar] at hstuck ⊢
+             exact hstuck))
+      case const cn cus =>
+      refine ite_congr' (fun _ => ?_) (fun _ => hstuck)
+      have hres := ih.defeq (p := p) hpd
+        (show WScoped d (Expr.app (.const cn cus) x) by
+          simp only [WScoped]; exact ⟨trivial, hwwa.2⟩)
+        (strLitToConstructor_WScoped str d)
+      rw [strLitToConstructor_shiftFrom] at hres
+      exact hres
     | natVal nn =>
       cases nn with
       | zero => exact hstuck
