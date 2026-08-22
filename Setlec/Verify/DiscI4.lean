@@ -97,7 +97,7 @@ private theorem whnfCoreI_iota_tail (ih : SSimI env f) (henv : EnvWF env)
   have hwapp : WScoped d (Expr.app f'x xa) := by
     simp only [WScoped]
     exact ⟨hwf', hwa⟩
-  have hfa : denoteNode s₀.store.denote (ENode.app f' a)
+  have hfa : denoteNode s₀.store.denote s₀.store.denoteL (ENode.app f' a)
       = some (.app f'x xa) := by
     rw [denoteNode, hf'd, had]; rfl
   refine SimAt.bind_left (internI_eff hs hfa)
@@ -167,7 +167,7 @@ theorem whnfAppI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         dsimp only
         cases cod with
         | none =>
-          have hfa : denoteNode s₀.store.denote (.app v a)
+          have hfa : denoteNode s₀.store.denote s₀.store.denoteL (.app v a)
               = some (.app (.lam nm tyx bodyx ⟨bi, none⟩) xa) := by
             rw [denoteNode, hv, hax]; rfl
           refine SimAt.bind_left (internI_eff hs hfa)
@@ -200,7 +200,7 @@ theorem whnfAppI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
                 hwsub (hrest.mono (hext₁.trans hext₂)) hwrest
             | false =>
               simp only [Bool.false_eq_true, ↓reduceIte]
-              have hfa : denoteNode s₂.store.denote (.app v a)
+              have hfa : denoteNode s₂.store.denote s₂.store.denoteL (.app v a)
                   = some (.app (.lam nm tyx bodyx ⟨bi, some lv⟩) xa) := by
                 rw [denoteNode,
                   denote_mono (hext₁.trans hext₂) hv,
@@ -321,7 +321,7 @@ theorem whnfAppIotaI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat}
     have hwapp : WScoped d (.app vx xa) := by
       simp only [WScoped]
       exact ⟨hwv, hwxa⟩
-    have hfa : denoteNode s₀.store.denote (.app v a)
+    have hfa : denoteNode s₀.store.denote s₀.store.denoteL (.app v a)
         = some (.app vx xa) := by
       rw [denoteNode, hv, hax]; rfl
     refine SimAt.bind_left (internI_eff hs hfa)
@@ -401,7 +401,7 @@ theorem betaPeelI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         | none =>
           refine SimAt.bind_left (instListM_eff (d := 0) hs ht hacc)
             (fun s₁ f' hs₁ hext₁ hQf' => ?_)
-          have hfa : denoteNode s₁.store.denote (.app f' a)
+          have hfa : denoteNode s₁.store.denote s₁.store.denoteL (.app f' a)
               = some (.app ((Expr.lam nm tyx bodyx
                 ⟨bi, none⟩).instantiateList ws) xa) := by
             rw [denoteNode, hQf', denote_mono hext₁ hax]
@@ -443,7 +443,7 @@ theorem betaPeelI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
               refine SimAt.bind_left (instListM_eff (d := 0) hs₃
                 (denote_mono hextAll ht) (hacc.mono hextAll))
                 (fun s₄ f' hs₄ hext₄ hQf' => ?_)
-              have hfa : denoteNode s₄.store.denote (.app f' a)
+              have hfa : denoteNode s₄.store.denote s₄.store.denoteL (.app f' a)
                   = some (.app ((Expr.lam nm tyx bodyx
                     ⟨bi, some lv⟩).instantiateList ws) xa) := by
                 rw [denoteNode, hQf',
@@ -690,7 +690,7 @@ theorem whnfCoreBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
             (e'x.getAppArgs.getD (entry.numParams + ip) (.bvar 0)) :=
           wscoped_getD hwe'.getAppArgs _
         split
-        · have hbv : denoteNode s₁.store.denote (.bvar 0)
+        · have hbv : denoteNode s₁.store.denote s₁.store.denoteL (.bvar 0)
               = some (.bvar 0) := rfl
           refine SimAt.bind_left (internI_eff hs₁ hbv)
             (fun s₂ bvar0 hs₂ hext₂ hQ0 => ?_)
@@ -1625,7 +1625,7 @@ theorem inferBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
       | sort u =>
         cases hd'
         have hext₀₂ := hext₁.trans hext₂
-        have hfvd : denoteNode s₂.store.denote (.fvar d nm t)
+        have hfvd : denoteNode s₂.store.denote s₂.store.denoteL (.fvar d nm t)
             = some (.fvar d nm tyx) := by
           rw [denoteNode, denote_mono hext₀₂ hty]; rfl
         refine SimAt.bind_left (internI_eff hs₂ hfvd)

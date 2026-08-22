@@ -716,7 +716,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                               exact SimAt.pure hs₇ rfl
                             | true =>
                               simp only [↓reduceIte]
-                              have hfv₁ : denoteNode s₇.store.denote (.fvar d nm₁ t₁)
+                              have hfv₁ : denoteNode s₇.store.denote s₇.store.denoteL (.fvar d nm₁ t₁)
                                   = some (.fvar d nm₁ ty₁x) := by
                                 rw [denoteNode, denote_mono hext₇ hty₁]; rfl
                               try dsimp only
@@ -726,7 +726,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                               refine SimAt.bind_left (inst1M_eff hs₈
                                 (denote_mono (hext₇.trans hext₈) hbody₁) hQf₁)
                                 (fun s₉ ob₁ hs₉ hext₉ hQo₁ => ?_)
-                              have hfv₂ : denoteNode s₉.store.denote (.fvar d nm₂ t₂)
+                              have hfv₂ : denoteNode s₉.store.denote s₉.store.denoteL (.fvar d nm₂ t₂)
                                   = some (.fvar d nm₂ ty₂x) := by
                                 rw [denoteNode, denote_mono
                                   ((hext₇.trans hext₈).trans hext₉) hty₂]
@@ -839,7 +839,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                               exact SimAt.pure hs₇ rfl
                             | true =>
                               simp only [↓reduceIte]
-                              have hfv₁ : denoteNode s₇.store.denote (.fvar d nm₁ t₁)
+                              have hfv₁ : denoteNode s₇.store.denote s₇.store.denoteL (.fvar d nm₁ t₁)
                                   = some (.fvar d nm₁ ty₁x) := by
                                 rw [denoteNode, denote_mono hext₇ hty₁]; rfl
                               try dsimp only
@@ -849,7 +849,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                               refine SimAt.bind_left (inst1M_eff hs₈
                                 (denote_mono (hext₇.trans hext₈) hbody₁) hQf₁)
                                 (fun s₉ ob₁ hs₉ hext₉ hQo₁ => ?_)
-                              have hfv₂ : denoteNode s₉.store.denote (.fvar d nm₂ t₂)
+                              have hfv₂ : denoteNode s₉.store.denote s₉.store.denoteL (.fvar d nm₂ t₂)
                                   = some (.fvar d nm₂ ty₂x) := by
                                 rw [denoteNode, denote_mono
                                   ((hext₇.trans hext₈).trans hext₉) hty₂]

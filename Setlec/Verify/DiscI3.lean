@@ -823,7 +823,7 @@ theorem iotaRecI_sim (ih : SSimI env f) (henv : EnvWF env)
         · rw [if_neg hlen, if_neg hlen]
           exact SimAt.pure hs trivial
         rw [if_pos hlen, if_pos hlen]
-        · have hbv : denoteNode s₀.store.denote (.bvar 0)
+        · have hbv : denoteNode s₀.store.denote s₀.store.denoteL (.bvar 0)
               = some (.bvar 0) := rfl
           refine SimAt.bind_left (internI_eff hs hbv)
             (fun s₁ bvar0 hs₁ hext₁ hQ0 => ?_)

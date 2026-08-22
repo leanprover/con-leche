@@ -294,6 +294,29 @@ theorem denoteLList_length {denL : LIdx → Option Level} :
     obtain ⟨l, -, ls', hls', rfl⟩ := h
     simp [ih hls']
 
+/-- `denoteBM` codomain inversion: `none` maps to `none`. -/
+theorem denoteBM_none_iff {denL : LIdx → Option Level} {m : IBinderMeta}
+    {bm : BinderMeta} (h : denoteBM denL m = some bm) :
+    m.cod = none ↔ bm.cod = none := by
+  obtain ⟨bi, (_ | u)⟩ := m
+  · simp only [denoteBM, Option.some.injEq] at h
+    subst h
+    simp
+  · simp only [denoteBM, Option.map_eq_some_iff] at h
+    obtain ⟨l, -, rfl⟩ := h
+    simp
+
+/-- `denoteBM` codomain inversion: a `some` codomain denotes. -/
+theorem denoteBM_some {denL : LIdx → Option Level} {m : IBinderMeta}
+    {bm : BinderMeta} {u : LIdx} (h : denoteBM denL m = some bm)
+    (hc : m.cod = some u) : ∃ l, denL u = some l ∧ bm.cod = some l := by
+  obtain ⟨bi, (_ | v)⟩ := m
+  · cases hc
+  · cases hc
+    simp only [denoteBM, Option.map_eq_some_iff] at h
+    obtain ⟨l, hl, rfl⟩ := h
+    exact ⟨l, hl, rfl⟩
+
 /-- A denoted node's level references denote. -/
 theorem denoteNode_levels_some {den : EIdx → Option Expr}
     {denL : LIdx → Option Level} {n : ENode} {a : Expr}
