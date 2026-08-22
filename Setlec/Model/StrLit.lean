@@ -297,15 +297,15 @@ theorem listVal_app_mem_univ (m : EnvModel V env)
       x ∈ˢ (univ 1 : V) :=
   app_mem (listVal_mem_pi m hs φ) hx (fun _ _ => univ_mem_univ 1)
 
-/-- The `List.nil.{0} Char` value is a member of the `List.{0} Char`
-value. -/
-theorem listNilCharVal_mem (m : EnvModel V env)
+/-- The `List.nil.{0} Char` value... helper: `List.nil` itself lives in
+the dependent product over `univ 1` with the canonical `List` family. -/
+theorem listNilVal_mem_pi (m : EnvModel V env)
     (hs : strLitSupported env = true) (φ : Name → Nat) :
-    SetTheory.app
-        (m.val listNilName
-          (Level.substFn φ (env.levelParamsAt listNilName) [.zero]))
-        (m.val charName φ) ∈ˢ
-      listCharVal m.val env φ := by
+    m.val listNilName
+        (Level.substFn φ (env.levelParamsAt listNilName) [.zero]) ∈ˢ
+      pi 1 (univ 1 : V) (fun x => SetTheory.app
+        (m.val listName
+          (Level.substFn φ (env.levelParamsAt listName) [.zero])) x) := by
   obtain ⟨-, ciS, ciO, ciL, ciN, ciC, ciH, ciF, pL, pN, pC, hfS, hfO, hfL,
     hfN, hfC, hfH, hfF, hpS, hpO, hpL, hpN, hpC, hpH, hpF, htS, htH, htO,
     htL, htN, -⟩ := strLitSupported_inv hs
@@ -314,7 +314,7 @@ theorem listNilCharVal_mem (m : EnvModel V env)
     simp [Env.levelParamsAt, hfN, hpN]
   have hlpL : env.levelParamsAt listName = [pL] := by
     simp [Env.levelParamsAt, hfL, hpL]
-  rw [hlpN]
+  rw [hlpN, hlpL]
   obtain ⟨t, ht, hmem⟩ := m.mem_type _ (find?_mem hfN)
     (Level.substFn φ [pN] [.zero])
   rw [htyN] at ht
@@ -332,8 +332,8 @@ theorem listNilCharVal_mem (m : EnvModel V env)
       Level.substFn]
   rw [hIN] at ht
   obtain rfl := Option.some.inj ht
-  -- the family's `List` instantiation agrees with the canonical one at
-  -- `List`'s own parameter (both send it to `0`)
+  -- canonicalize the family's `List` instantiation (both send `List`'s
+  -- parameter to `0`)
   have hvals : m.val listName
       (Level.substFn (Level.substFn φ [pN] [Level.zero]) [pL] [.param pN]) =
       m.val listName (Level.substFn φ [pL] [Level.zero]) := by
@@ -343,26 +343,34 @@ theorem listNilCharVal_mem (m : EnvModel V env)
     simp only [List.mem_singleton] at hp
     subst hp
     simp [Level.substFn, Level.eval]
-  have happ := app_mem hmem (charVal_mem_univ m hs φ)
-    (fun x hx => by
-      rw [hvals, ← hlpL]
-      exact listVal_app_mem_univ m hs φ hx)
-  rw [hvals] at happ
-  rw [listCharVal, hlpL]
-  exact happ
+  rw [hvals] at hmem
+  exact hmem
 
-/-- The `List.cons.{0} Char` value is a member of the function space
-`Char → List Char → List Char` (constant families over the canonical
-values). -/
-theorem listConsCharVal_mem_pi (m : EnvModel V env)
+/-- The `List.nil.{0} Char` value is a member of the `List.{0} Char`
+value. -/
+theorem listNilCharVal_mem (m : EnvModel V env)
     (hs : strLitSupported env = true) (φ : Name → Nat) :
     SetTheory.app
-        (m.val listConsName
-          (Level.substFn φ (env.levelParamsAt listConsName) [.zero]))
+        (m.val listNilName
+          (Level.substFn φ (env.levelParamsAt listNilName) [.zero]))
         (m.val charName φ) ∈ˢ
-      pi 1 (m.val charName φ)
-        (fun _ => pi 1 (listCharVal m.val env φ)
-          (fun _ => listCharVal m.val env φ)) := by
+      listCharVal m.val env φ := by
+  rw [listCharVal]
+  exact app_mem (listNilVal_mem_pi m hs φ) (charVal_mem_univ m hs φ)
+    (fun x hx => listVal_app_mem_univ m hs φ hx)
+
+/-- The `List.cons.{0} Char` machinery, step one: `List.cons` itself
+lives in the dependent product over `univ 1` with the canonical
+families. -/
+theorem listConsVal_mem_pi (m : EnvModel V env)
+    (hs : strLitSupported env = true) (φ : Name → Nat) :
+    m.val listConsName
+        (Level.substFn φ (env.levelParamsAt listConsName) [.zero]) ∈ˢ
+      pi 1 (univ 1 : V) (fun x => pi 1 x (fun _ =>
+        pi 1 (SetTheory.app (m.val listName
+            (Level.substFn φ (env.levelParamsAt listName) [.zero])) x)
+          (fun _ => SetTheory.app (m.val listName
+            (Level.substFn φ (env.levelParamsAt listName) [.zero])) x))) := by
   obtain ⟨-, ciS, ciO, ciL, ciN, ciC, ciH, ciF, pL, pN, pC, hfS, hfO, hfL,
     hfN, hfC, hfH, hfF, hpS, hpO, hpL, hpN, hpC, hpH, hpF, htS, htH, htO,
     htL, htN, htC, -⟩ := strLitSupported_inv hs
@@ -371,7 +379,7 @@ theorem listConsCharVal_mem_pi (m : EnvModel V env)
     simp [Env.levelParamsAt, hfC, hpC]
   have hlpL : env.levelParamsAt listName = [pL] := by
     simp [Env.levelParamsAt, hfL, hpL]
-  rw [hlpC]
+  rw [hlpC, hlpL]
   obtain ⟨t, ht, hmem⟩ := m.mem_type _ (find?_mem hfC)
     (Level.substFn φ [pC] [.zero])
   rw [htyC] at ht
@@ -404,25 +412,278 @@ theorem listConsCharVal_mem_pi (m : EnvModel V env)
       Level.eval, Level.substFn]
   rw [hIC] at ht
   obtain rfl := Option.some.inj ht
-  -- peel the outer application onto the `Char` value
-  have hLmem : ∀ x : V, x ∈ˢ (univ 1 : V) →
-      SetTheory.app (m.val listName
-        (Level.substFn (Level.substFn φ [pC] [Level.zero]) [pL]
-          [.param pC])) x ∈ˢ (univ 1 : V) := by
-    intro x hx
-    rw [hvals, ← hlpL]
-    exact listVal_app_mem_univ m hs φ hx
-  have happ := app_mem hmem (charVal_mem_univ m hs φ) (fun x hx => by
-    have h1 : pi 1 (SetTheory.app (m.val listName
-        (Level.substFn (Level.substFn φ [pC] [Level.zero]) [pL]
-          [.param pC])) x) (fun _ => SetTheory.app (m.val listName
-        (Level.substFn (Level.substFn φ [pC] [Level.zero]) [pL]
-          [.param pC])) x) ∈ˢ (univ 1 : V) := by
-      simpa using pi_mem_univ (u := 1) (v := 1) (hLmem x hx)
-        (fun _ _ => hLmem x hx)
-    simpa using pi_mem_univ (u := 1) (v := 1) hx (fun _ _ => h1))
-  rw [hvals] at happ
-  rw [listCharVal, hlpL]
+  rw [hvals] at hmem
+  exact hmem
+
+/-- The `List.cons.{0} Char` value is a member of the function space
+`Char → List Char → List Char` (constant families over the canonical
+values). -/
+theorem listConsCharVal_mem_pi (m : EnvModel V env)
+    (hs : strLitSupported env = true) (φ : Name → Nat) :
+    SetTheory.app
+        (m.val listConsName
+          (Level.substFn φ (env.levelParamsAt listConsName) [.zero]))
+        (m.val charName φ) ∈ˢ
+      pi 1 (m.val charName φ)
+        (fun _ => pi 1 (listCharVal m.val env φ)
+          (fun _ => listCharVal m.val env φ)) := by
+  have happ := app_mem (listConsVal_mem_pi m hs φ) (charVal_mem_univ m hs φ)
+    (fun x hx => by
+      have hLx : SetTheory.app (m.val listName
+          (Level.substFn φ (env.levelParamsAt listName) [.zero])) x ∈ˢ
+          (univ 1 : V) := listVal_app_mem_univ m hs φ hx
+      have h1 : pi 1 (SetTheory.app (m.val listName
+          (Level.substFn φ (env.levelParamsAt listName) [.zero])) x)
+          (fun _ => SetTheory.app (m.val listName
+            (Level.substFn φ (env.levelParamsAt listName) [.zero])) x) ∈ˢ
+          (univ 1 : V) := by
+        simpa using pi_mem_univ (u := 1) (v := 1) hLx (fun _ _ => hLx)
+      simpa using pi_mem_univ (u := 1) (v := 1) hx (fun _ _ => h1))
+  rw [listCharVal]
   exact happ
+
+/-- Every character-list value is a member of the `List.{0} Char`
+value. -/
+theorem charListVal_mem (m : EnvModel V env)
+    (hs : strLitSupported env = true) (φ : Name → Nat) :
+    ∀ cs : List Char,
+      charListVal V
+        (SetTheory.app
+          (m.val listNilName
+            (Level.substFn φ (env.levelParamsAt listNilName) [.zero]))
+          (m.val charName φ))
+        (SetTheory.app
+          (m.val listConsName
+            (Level.substFn φ (env.levelParamsAt listConsName) [.zero]))
+          (m.val charName φ))
+        (m.val charOfNatName φ) (m.val natZeroName φ) (m.val natSuccName φ)
+        cs ∈ˢ listCharVal m.val env φ
+  | [] => by
+    rw [charListVal]
+    exact listNilCharVal_mem m hs φ
+  | c :: cs => by
+    obtain ⟨hnat, -⟩ := strLitSupported_inv hs
+    rw [charListVal]
+    have hchar : SetTheory.app (m.val charOfNatName φ)
+        (natLitVal V (m.val natZeroName φ) (m.val natSuccName φ) c.toNat) ∈ˢ
+        m.val charName φ :=
+      charOfNatVal_app_mem m hs φ (natLitVal_mem_nat m hnat φ c.toNat)
+    have hlist : pi 1 (listCharVal m.val env φ)
+        (fun _ => listCharVal m.val env φ) ∈ˢ (univ 1 : V) := by
+      simpa using pi_mem_univ (u := 1) (v := 1)
+        (listCharVal_mem_univ m hs φ) (fun _ _ => listCharVal_mem_univ m hs φ)
+    have hcons := app_mem (listConsCharVal_mem_pi m hs φ) hchar
+      (fun _ _ => hlist)
+    exact app_mem hcons (charListVal_mem m hs φ cs)
+      (fun _ _ => listCharVal_mem_univ m hs φ)
+
+/-- The `String.ofList` value is a member of the constant function
+space from the `List.{0} Char` value to the `String` value. -/
+theorem stringOfListVal_mem_pi (m : EnvModel V env)
+    (hs : strLitSupported env = true) (φ : Name → Nat) :
+    m.val stringOfListName φ ∈ˢ
+      pi 1 (listCharVal m.val env φ) (fun _ => m.val stringName φ) := by
+  obtain ⟨-, ciS, ciO, ciL, ciN, ciC, ciH, ciF, pL, pN, pC, hfS, hfO, hfL,
+    hfN, hfC, hfH, hfF, hpS, hpO, hpL, hpN, hpC, hpH, hpF, htS, htH, htO,
+    -⟩ := strLitSupported_inv hs
+  obtain ⟨nm, mb, htyO, hcodO⟩ := htO
+  obtain ⟨t, ht, hmem⟩ := m.mem_type _ (find?_mem hfO) φ
+  rw [htyO] at ht
+  rw [find?_name' hfO] at hmem
+  have hIO : interpClosed V m.val env φ
+      (Expr.forallE nm
+        (.app (.const listName [Level.zero]) (.const charName []))
+        (.const stringName []) mb) =
+      some (pi 1 (listCharVal m.val env φ)
+        (fun _ => m.val stringName φ)) := by
+    rw [interpClosed, interpExpr, hcodO]
+    rw [interpExpr_listChar hs]
+    simp only [instantiate1, interpExpr_const_string hs, Option.getD_some,
+      Level.eval]
+  rw [hIO] at ht
+  obtain rfl := Option.some.inj ht
+  exact hmem
+
+/-- The value of a string literal is a member of the `String` value —
+the membership fact behind the literal's inference rule. -/
+theorem strLitVal_mem_string (m : EnvModel V env)
+    (hs : strLitSupported env = true) (φ : Name → Nat) (s : String) :
+    strLitVal V m.val env φ s ∈ˢ m.val stringName φ := by
+  rw [strLitVal]
+  simp only [Level.substFn_nil]
+  exact app_mem (stringOfListVal_mem_pi m hs φ)
+    (charListVal_mem m hs φ s.toList)
+    (fun _ _ => stringVal_mem_univ m hs φ)
+
+/-! ## Truthful annotations on the constructor form -/
+
+/-- The interpretation of the bare `List.nil.{0}` constant (given the
+guard). -/
+theorem interpExpr_const_listNil {cval : ConstVal V}
+    (hs : strLitSupported env = true) {d : Nat} {ρ : Nat → V} :
+    interpExpr V cval env φ d ρ (.const listNilName [.zero]) =
+      some (cval listNilName
+        (Level.substFn φ (env.levelParamsAt listNilName) [.zero])) := by
+  obtain ⟨-, ciS, ciO, ciL, ciN, ciC, ciH, ciF, pL, pN, pC, hfS, hfO, hfL,
+    hfN, hfC, hfH, hfF, hpS, hpO, hpL, hpN, hpC, hpH, hpF, -⟩ :=
+    strLitSupported_inv hs
+  have hlp : env.levelParamsAt listNilName = ciN.toConstantVal.levelParams := by
+    simp [Env.levelParamsAt, hfN]
+  rw [hlp]
+  simp [interpExpr, hfN, hpN]
+
+/-- The interpretation of the bare `List.cons.{0}` constant (given the
+guard). -/
+theorem interpExpr_const_listCons {cval : ConstVal V}
+    (hs : strLitSupported env = true) {d : Nat} {ρ : Nat → V} :
+    interpExpr V cval env φ d ρ (.const listConsName [.zero]) =
+      some (cval listConsName
+        (Level.substFn φ (env.levelParamsAt listConsName) [.zero])) := by
+  obtain ⟨-, ciS, ciO, ciL, ciN, ciC, ciH, ciF, pL, pN, pC, hfS, hfO, hfL,
+    hfN, hfC, hfH, hfF, hpS, hpO, hpL, hpN, hpC, hpH, hpF, -⟩ :=
+    strLitSupported_inv hs
+  have hlp : env.levelParamsAt listConsName = ciC.toConstantVal.levelParams := by
+    simp [Env.levelParamsAt, hfC]
+  rw [hlp]
+  simp [interpExpr, hfC, hpC]
+
+/-- The character-list expression carries truthful annotations: every
+application spine slot is semantically well-typed. -/
+theorem annotOk_strLitList (m : EnvModel V env)
+    (hs : strLitSupported env = true) {d : Nat} {ρ : Nat → V} :
+    ∀ cs : List Char, AnnotOk V m.val env φ d ρ (strLitList cs)
+  | [] => by
+    rw [strLitList]
+    simp only [AnnotOk]
+    exact ⟨trivial, trivial,
+      m.val listNilName
+        (Level.substFn φ (env.levelParamsAt listNilName) [.zero]),
+      m.val charName φ, 1, univ 1,
+      fun x => SetTheory.app
+        (m.val listName
+          (Level.substFn φ (env.levelParamsAt listName) [.zero])) x,
+      interpExpr_const_listNil hs, interpExpr_const_char hs,
+      listNilVal_mem_pi m hs φ, charVal_mem_univ m hs φ,
+      fun x hx => listVal_app_mem_univ m hs φ hx⟩
+  | c :: cs => by
+    obtain ⟨hnat, -⟩ := strLitSupported_inv hs
+    -- shared values
+    have hchar : SetTheory.app (m.val charOfNatName φ)
+        (natLitVal V (m.val natZeroName φ) (m.val natSuccName φ) c.toNat) ∈ˢ
+        m.val charName φ :=
+      charOfNatVal_app_mem m hs φ (natLitVal_mem_nat m hnat φ c.toNat)
+    have hLCV : listCharVal m.val env φ ∈ˢ (univ 1 : V) :=
+      listCharVal_mem_univ m hs φ
+    have hpiLCV : pi 1 (listCharVal m.val env φ)
+        (fun _ => listCharVal m.val env φ) ∈ˢ (univ 1 : V) := by
+      simpa using pi_mem_univ (u := 1) (v := 1) hLCV (fun _ _ => hLCV)
+    -- interp of `Char.ofNat (lit c)`
+    have hIofNat : interpExpr V m.val env φ d ρ
+        (.app (.const charOfNatName []) (.lit (.natVal c.toNat))) =
+        some (SetTheory.app (m.val charOfNatName φ)
+          (natLitVal V (m.val natZeroName φ) (m.val natSuccName φ)
+            c.toNat)) := by
+      simp only [interpExpr, interpExpr_const_charOfNat hs,
+        interpExpr_lit hnat]
+    -- interp of `List.cons.{0} Char (Char.ofNat (lit c))`
+    have hIcons2 : interpExpr V m.val env φ d ρ
+        (.app (.app (.const listConsName [.zero]) (.const charName []))
+          (.app (.const charOfNatName []) (.lit (.natVal c.toNat)))) =
+        some (SetTheory.app (SetTheory.app
+          (m.val listConsName
+            (Level.substFn φ (env.levelParamsAt listConsName) [.zero]))
+          (m.val charName φ))
+          (SetTheory.app (m.val charOfNatName φ)
+            (natLitVal V (m.val natZeroName φ) (m.val natSuccName φ)
+              c.toNat))) := by
+      simp only [interpExpr, interpExpr_listConsChar hs, hIofNat]
+    rw [strLitList]
+    simp only [AnnotOk]
+    refine ⟨⟨?_, ?_, ?_⟩, annotOk_strLitList m hs cs, ?_⟩
+    · -- `List.cons.{0} Char` node
+      exact ⟨trivial, trivial,
+        m.val listConsName
+          (Level.substFn φ (env.levelParamsAt listConsName) [.zero]),
+        m.val charName φ, 1, univ 1,
+        fun x => pi 1 x (fun _ =>
+          pi 1 (SetTheory.app (m.val listName
+              (Level.substFn φ (env.levelParamsAt listName) [.zero])) x)
+            (fun _ => SetTheory.app (m.val listName
+              (Level.substFn φ (env.levelParamsAt listName) [.zero])) x)),
+        interpExpr_const_listCons hs, interpExpr_const_char hs,
+        listConsVal_mem_pi m hs φ, charVal_mem_univ m hs φ,
+        fun x hx => by
+          have hLx := listVal_app_mem_univ m hs φ hx
+          have h1 : pi 1 (SetTheory.app (m.val listName
+              (Level.substFn φ (env.levelParamsAt listName) [.zero])) x)
+              (fun _ => SetTheory.app (m.val listName
+                (Level.substFn φ (env.levelParamsAt listName) [.zero])) x)
+              ∈ˢ (univ 1 : V) := by
+            simpa using pi_mem_univ (u := 1) (v := 1) hLx (fun _ _ => hLx)
+          simpa using pi_mem_univ (u := 1) (v := 1) hx (fun _ _ => h1)⟩
+    · -- `Char.ofNat (lit c)` node
+      exact ⟨trivial, trivial, m.val charOfNatName φ,
+        natLitVal V (m.val natZeroName φ) (m.val natSuccName φ) c.toNat,
+        1, m.val natName φ, fun _ => m.val charName φ,
+        interpExpr_const_charOfNat hs, interpExpr_lit hnat,
+        charOfNatVal_mem_pi m hs φ, natLitVal_mem_nat m hnat φ c.toNat,
+        fun _ _ => charVal_mem_univ m hs φ⟩
+    · -- `(cons Char) (ofNat c)` application facts
+      exact ⟨SetTheory.app
+          (m.val listConsName
+            (Level.substFn φ (env.levelParamsAt listConsName) [.zero]))
+          (m.val charName φ),
+        SetTheory.app (m.val charOfNatName φ)
+          (natLitVal V (m.val natZeroName φ) (m.val natSuccName φ) c.toNat),
+        1, m.val charName φ,
+        fun _ => pi 1 (listCharVal m.val env φ)
+          (fun _ => listCharVal m.val env φ),
+        interpExpr_listConsChar hs, hIofNat,
+        listConsCharVal_mem_pi m hs φ, hchar, fun _ _ => hpiLCV⟩
+    · -- top application onto the tail
+      exact ⟨SetTheory.app (SetTheory.app
+          (m.val listConsName
+            (Level.substFn φ (env.levelParamsAt listConsName) [.zero]))
+          (m.val charName φ))
+          (SetTheory.app (m.val charOfNatName φ)
+            (natLitVal V (m.val natZeroName φ) (m.val natSuccName φ)
+              c.toNat)),
+        charListVal V
+          (SetTheory.app (m.val listNilName
+            (Level.substFn φ (env.levelParamsAt listNilName) [.zero]))
+            (m.val charName φ))
+          (SetTheory.app (m.val listConsName
+            (Level.substFn φ (env.levelParamsAt listConsName) [.zero]))
+            (m.val charName φ))
+          (m.val charOfNatName φ) (m.val natZeroName φ)
+          (m.val natSuccName φ) cs,
+        1, listCharVal m.val env φ, fun _ => listCharVal m.val env φ,
+        hIcons2, interpExpr_strLitList hs cs,
+        app_mem (listConsCharVal_mem_pi m hs φ) hchar
+          (fun _ _ => hpiLCV),
+        charListVal_mem m hs φ cs, fun _ _ => hLCV⟩
+
+/-- The constructor form of a string literal carries truthful
+annotations. -/
+theorem annotOk_strLitToConstructor (m : EnvModel V env)
+    (hs : strLitSupported env = true) {d : Nat} {ρ : Nat → V} {s : String} :
+    AnnotOk V m.val env φ d ρ (strLitToConstructor s) := by
+  rw [strLitToConstructor_eq]
+  simp only [AnnotOk]
+  exact ⟨trivial, annotOk_strLitList m hs s.toList,
+    m.val stringOfListName φ,
+    charListVal V
+      (SetTheory.app (m.val listNilName
+        (Level.substFn φ (env.levelParamsAt listNilName) [.zero]))
+        (m.val charName φ))
+      (SetTheory.app (m.val listConsName
+        (Level.substFn φ (env.levelParamsAt listConsName) [.zero]))
+        (m.val charName φ))
+      (m.val charOfNatName φ) (m.val natZeroName φ) (m.val natSuccName φ)
+      s.toList,
+    1, listCharVal m.val env φ, fun _ => m.val stringName φ,
+    interpExpr_const_stringOfList hs, interpExpr_strLitList hs s.toList,
+    stringOfListVal_mem_pi m hs φ, charListVal_mem m hs φ s.toList,
+    fun _ _ => stringVal_mem_univ m hs φ⟩
 
 end Setlec
