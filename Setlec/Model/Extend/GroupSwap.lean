@@ -225,7 +225,7 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
     · rw [h₀] at hf
       obtain rfl := Option.some.inj hf
       exact absurd rfl (hnr cv mI rP [])
-  refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
+  refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
     fun n ψ => rfl⟩
   · -- wf
     intro c₃ hc₃
@@ -233,8 +233,8 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
     rcases hpair with rfl | ⟨cv, mI, rP, rules, rfl, rfl, -, -,
       hwf, -, -⟩
     · -- unchanged member: transport the well-formedness
-      obtain ⟨h1, h2, h3, h4, h5, h6⟩ := m₀.wf _ hc₀
-      refine ⟨h1, h2, ?_, h4, ?_, ?_⟩
+      obtain ⟨h1, h2, h3, h4, h5, h6, h7⟩ := m₀.wf _ hc₀
+      refine ⟨h1, h2, ?_, h4, ?_, ?_, ?_⟩
       · rw [← Expr.constsResolve_congr hisoSome]
         exact h3
       · intro cv2 v2 h2 heq
@@ -254,6 +254,11 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
           refine ⟨p1, p2, ?_, p4⟩
           rw [← Expr.constsResolve_congr hisoSome]
           exact p3
+      · intro cv2 v2 heq
+        obtain ⟨g1, g2, g3, g4⟩ := h7 cv2 v2 heq
+        refine ⟨g1, g2, ?_, g4⟩
+        rw [← Expr.constsResolve_congr hisoSome]
+        exact g3
     · exact hwf
   · -- val_params
     intro n ci₃ hf₃ ψ₁ ψ₂ hψ
@@ -282,6 +287,16 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
     subst hc₀eq
     rw [hitrans]
     exact m₀.defn_eq cv2 v2 h2 hc₀ ψ
+  · -- thm_ok
+    intro cv2 v2 hmem2 ψ
+    obtain ⟨c₀, hc₀, hpair⟩ := swap_mem_corr hsw _ hmem2
+    have hc₀eq : c₀ = .thmInfo cv2 v2 := by
+      rcases hpair with rfl | ⟨cv, mI, rP, rules, -, hcon, -⟩
+      · rfl
+      · exact nomatch hcon
+    subst hc₀eq
+    obtain ⟨hde, hAv⟩ := m₀.thm_ok cv2 v2 hc₀ ψ
+    exact ⟨by rw [hitrans]; exact hde, hAtrans _ ψ 0 (rho0 V) hAv⟩
   · -- annot_ok
     intro c₃ hc₃ ψ
     obtain ⟨c₀, hc₀, hpair⟩ := swap_mem_corr hsw c₃ hc₃

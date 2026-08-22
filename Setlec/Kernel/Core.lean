@@ -152,8 +152,12 @@ def isUnitLikeTy (env : Env) : Expr → Bool
     reservedBasisNames.contains (c.str "rec")
   | _ => false
 
-/-- Unfold the (application of a) definition at the head, one step.
-`none` when the head is not an unfoldable definition. -/
+/-- Unfold the (application of a) definition or theorem at the head,
+one step.  `none` when the head is not an unfoldable constant.
+Theorems unfold like the reference kernels' delta step (official
+`is_delta`: any constant with a value; theorems at hint `opaque`) —
+needed e.g. when a recursor major is a theorem application whose value
+reduces to a constructor (arena `subject-reduction-redex`). -/
 def unfoldDefinition (env : Env) (e : Expr) : Option Expr :=
   match e.getAppFn with
   | .const n us =>
@@ -163,12 +167,18 @@ def unfoldDefinition (env : Env) (e : Expr) : Option Expr :=
         some (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
           e.getAppArgs)
       else none
+    | some (.thmInfo cv value) =>
+      if us.length = cv.levelParams.length then
+        some (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
+          e.getAppArgs)
+      else none
     | _ => none
   | _ => none
 
 /-- The reducibility hint of the constant at the head of `e` (`opaque`
-when the head is not a stored definition — such a head never unfolds,
-so the value is only read where `unfoldDefinition` succeeded). -/
+when the head is not a stored definition; in particular a theorem
+unfolds at hint `opaque`, exactly the official kernel's
+`constant_info::get_hints`). -/
 def headHint (env : Env) (e : Expr) : ReducibilityHint :=
   match e.getAppFn with
   | .const n _ =>

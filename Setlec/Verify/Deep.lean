@@ -234,23 +234,41 @@ private theorem unfoldDefinition_shiftFrom {env : Env} (henv : EnvWF env)
   | some ci =>
     cases ci <;> try rfl
     case defnInfo cv value hint =>
-    dsimp only
-    split
-    · have hval : (value.instantiateLevelParams cv.levelParams
-          us).hasFvar = false := by
-        obtain ⟨-, -, -, -, hvalwf, -⟩ := henv _ (find?_mem hf)
-        obtain ⟨hvc, -, -, -⟩ := hvalwf cv value hint rfl
-        rw [hasFvar_instantiateLevelParams]
-        exact hvc
-      rw [getAppArgs_shiftFrom, Option.map_some]
-      rw [show Expr.mkAppN
-          (value.instantiateLevelParams cv.levelParams us)
-          (e.getAppArgs.map (shiftFrom p)) =
-        shiftFrom p (Expr.mkAppN
-          (value.instantiateLevelParams cv.levelParams us)
-          e.getAppArgs) from by
-        rw [shiftFrom_mkAppN, shiftFrom_eq_self_of_not_hasFvar hval]]
-    · rfl
+      dsimp only
+      split
+      · have hval : (value.instantiateLevelParams cv.levelParams
+            us).hasFvar = false := by
+          obtain ⟨-, -, -, -, hvalwf, -⟩ := henv _ (find?_mem hf)
+          obtain ⟨hvc, -, -, -⟩ := hvalwf cv value hint rfl
+          rw [hasFvar_instantiateLevelParams]
+          exact hvc
+        rw [getAppArgs_shiftFrom, Option.map_some]
+        rw [show Expr.mkAppN
+            (value.instantiateLevelParams cv.levelParams us)
+            (e.getAppArgs.map (shiftFrom p)) =
+          shiftFrom p (Expr.mkAppN
+            (value.instantiateLevelParams cv.levelParams us)
+            e.getAppArgs) from by
+          rw [shiftFrom_mkAppN, shiftFrom_eq_self_of_not_hasFvar hval]]
+      · rfl
+    case thmInfo cv value =>
+      dsimp only
+      split
+      · have hval : (value.instantiateLevelParams cv.levelParams
+            us).hasFvar = false := by
+          obtain ⟨-, -, -, -, -, -, hvalwf⟩ := henv _ (find?_mem hf)
+          obtain ⟨hvc, -, -, -⟩ := hvalwf cv value rfl
+          rw [hasFvar_instantiateLevelParams]
+          exact hvc
+        rw [getAppArgs_shiftFrom, Option.map_some]
+        rw [show Expr.mkAppN
+            (value.instantiateLevelParams cv.levelParams us)
+            (e.getAppArgs.map (shiftFrom p)) =
+          shiftFrom p (Expr.mkAppN
+            (value.instantiateLevelParams cv.levelParams us)
+            e.getAppArgs) from by
+          rw [shiftFrom_mkAppN, shiftFrom_eq_self_of_not_hasFvar hval]]
+      · rfl
 
 /-- `headHint` only reads a head constant's name, which shifting
 preserves. -/
@@ -1141,7 +1159,7 @@ private theorem iotaRec_WScoped (henv : EnvWF env)
     fun x hx => hw.getAppArgs x hx
   have hrhs : WScoped d
       (r.rhs.instantiateLevelParams cv.levelParams us) := by
-    obtain ⟨-, -, -, -, -, hrules⟩ := henv _ (find?_mem hfc)
+    obtain ⟨-, -, -, -, -, hrules, -⟩ := henv _ (find?_mem hfc)
     obtain ⟨hrf, -, -, -, -⟩ := hrules cv mI rP rules rfl r
       (List.mem_of_find?_eq_some hrule)
     exact WScoped.of_not_hasFvar
@@ -1327,7 +1345,7 @@ private theorem iotaRec_shift (henv : EnvWF env)
             ∀ pin ∈ pins, pin.hasFvar = false := by
           intro lvls pins hf' pin hpin
           obtain ⟨-, -, -, -, g5⟩ :=
-            (henv _ (find?_mem hfc)).2.2.2.2.2 cv mI rP rules rfl rl
+            (henv _ (find?_mem hfc)).2.2.2.2.2.1 cv mI rP rules rfl rl
               (List.mem_of_find?_eq_some hrule)
           exact ((g5 lvls pins hf').2.2.1 pin hpin).1
 
@@ -1410,7 +1428,7 @@ private theorem iotaRec_shift (henv : EnvWF env)
             refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
             have hrhs : (rl.rhs.instantiateLevelParams cv.levelParams
                 us).hasFvar = false := by
-              obtain ⟨-, -, -, -, -, hrules⟩ := henv _ (find?_mem hfc)
+              obtain ⟨-, -, -, -, -, hrules, -⟩ := henv _ (find?_mem hfc)
               obtain ⟨hrf, -, -, -, -⟩ := hrules cv mI rP rules rfl rl
                 (List.mem_of_find?_eq_some hrule)
               rw [hasFvar_instantiateLevelParams]

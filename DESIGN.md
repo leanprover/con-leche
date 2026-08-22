@@ -872,6 +872,32 @@ induction over the literal), consumed by `reduceNat_sound`.
   `PUnit` rescue note) — the previous positive declines at
   `Nat.land`/`Nat.shiftRight`/… literal uses are gone.
 
+### Theorem values delta-unfold (2026-08-22, task #66)
+
+`unfoldDefinition` (and the interned `unfoldDefinitionI`/`constValAtM`)
+unfolds *theorem* values exactly like definition values, at reducibility
+hint `opaque` — the reference kernels' `is_delta` accepts any constant
+with a value, and the official `constant_info::get_hints` gives theorems
+`opaque` (so they unfold last, and a theorem-vs-theorem comparison at
+equal opaque hints unfolds both sides with no spine shortcut).
+Previously theorems never unfolded, which wrongly *rejected* the arena's
+`good/undecidability/subject-reduction-redex`: its `x2 x4` application
+needs `f 1 (proof_2 x0) ≡ f 0 (proof_1 x0)`, where `proof_2` is a
+theorem whose value reduces to an `Acc.intro` application — without
+unfolding it the `Acc.rec` iota step cannot fire and both sides stay
+stuck with mismatched indices (`1` vs `0`).  (The test's outer
+beta-redex is the transitivity trap: `f 1 x0 ≡ f 1 (proof_2 x0)` holds
+only via the same-head spine shortcut + proof irrelevance on the `Acc`
+argument — over-reducing that side breaks it — which the lazy-delta
+`defeqSpine` shortcut already handled.)  Claims impact: `ConstWF` gains
+a theorem-value clause (same four syntactic facts as definition
+values), `EnvModel` gains `thm_ok` (a theorem constant is interpreted
+by its proof value, which carries truthful annotations — established
+by `extend_model` exactly as for definitions, since the valuation was
+already the value's interpretation), and `unfoldDefinition_sound`
+consumes either `defn_eq` or `thm_ok`.  E2e fixture:
+`subject_reduction_redex.ndjson`.
+
 ## Kernel design review triage (2026-08-20)
 
 A fresh-context implementation review compared the core against nanoda,

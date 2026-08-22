@@ -40,6 +40,8 @@ theorem extend_model {env : Env} (m : EnvModel V env)
     (hc₀name : c₀.name = name)
     (hc₀val : ∀ cv2 value2 h2, c₀ = ConstantInfo.defnInfo cv2 value2 h2 →
       cv2 = ⟨name, lps, type⟩ ∧ value2 = value)
+    (hc₀thm : ∀ cv2 value2, c₀ = ConstantInfo.thmInfo cv2 value2 →
+      cv2 = ⟨name, lps, type⟩ ∧ value2 = value)
     (hc₀nb : c₀.isBasis = false)
     (hc₀nres : reservedBasisNames.contains name = false)
     (hc₀pshape : name.isProjFnShape = false)
@@ -67,13 +69,16 @@ theorem extend_model {env : Env} (m : EnvModel V env)
     exact hfind'
   have hwf : ConstWF ⟨c₀ :: env.consts⟩ c₀ := by
     rw [ConstWF, hc₀cv]
-    refine ⟨htf, htp, Expr.constsResolve_mono htr, htb, ?_, ?_⟩
+    refine ⟨htf, htp, Expr.constsResolve_mono htr, htb, ?_, ?_, ?_⟩
     · intro cv2 value2 h2 heq
       obtain ⟨rfl, rfl⟩ := hc₀val cv2 value2 h2 heq
       exact ⟨hvf, hvp, Expr.constsResolve_mono hvr, hvb⟩
     · intro cv mI rP rules heq
       rw [heq] at hc₀nb
       simp [ConstantInfo.isBasis] at hc₀nb
+    · intro cv2 value2 heq
+      obtain ⟨rfl, rfl⟩ := hc₀thm cv2 value2 heq
+      exact ⟨hvf, hvp, Expr.constsResolve_mono hvr, hvb⟩
   have htyres0 : c₀.toConstantVal.type.constsResolve env = true := by
     rw [hc₀cv]
     exact htr
@@ -192,6 +197,9 @@ theorem extend_model {env : Env} (m : EnvModel V env)
   obtain ⟨m', -, -⟩ := extend_fresh m c₀ v₀f hc₀fresh hwf htyres0
     (fun cv2 value2 h2 heq => by
       obtain ⟨-, rfl⟩ := hc₀val cv2 value2 h2 heq
+      exact ⟨hvr, hAval, hv₀⟩)
+    (fun cv2 value2 heq => by
+      obtain ⟨-, rfl⟩ := hc₀thm cv2 value2 heq
       exact ⟨hvr, hAval, hv₀⟩)
     (fun ψ => by
       obtain ⟨v, T, hv, hT, hmem⟩ := hkey ψ

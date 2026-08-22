@@ -48,7 +48,8 @@ structure ISOK (env : Env) (s : IState) : Prop where
         ci.toConstantVal.levelParams lus)
   constVal : ∀ n us i, s.constValAt[(n, us)]? = some i → ∃ lus cv v h,
     denoteLList s.store.denoteL us = some lus ∧
-    env.find? n = some (.defnInfo cv v h) ∧ s.store.denote i = some
+    (env.find? n = some (.defnInfo cv v h) ∨
+      env.find? n = some (.thmInfo cv v)) ∧ s.store.denote i = some
       (v.instantiateLevelParams cv.levelParams lus)
   ruleRhs : ∀ c j us i, s.ruleRhsAt[(c, j, us)]? = some i →
     ∃ lus cv mI rP rules rl,
@@ -942,7 +943,8 @@ theorem ISOK.insertConstVal {s : IState} (hs : ISOK env s)
     {n : Name} {us : List LIdx} {lus : List Level} {i : EIdx}
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
     (hus : denoteLList s.store.denoteL us = some lus)
-    (hfind : env.find? n = some (.defnInfo cv v hint))
+    (hfind : env.find? n = some (.defnInfo cv v hint) ∨
+      env.find? n = some (.thmInfo cv v))
     (hden : s.store.denote i = some
       (v.instantiateLevelParams cv.levelParams lus)) :
     ISOK env { s with constValAt := s.constValAt.insert (n, us) i } := by
@@ -1057,12 +1059,14 @@ theorem constTyAtM_eff (hs : ISOK env s₀) {n : Name} {us : List LIdx}
           (denoteLList_mono hext₂ (denoteLList_mono hext₁ hus))
           hfind hden, hext₁.trans hext₂, hden⟩
 
-/-- `constValAtM` under the index of `env`. -/
+/-- `constValAtM` under the index of `env` (the head is a stored
+definition or theorem). -/
 theorem constValAtM_eff (hs : ISOK env s₀) {n : Name} {us : List LIdx}
     {lus : List Level}
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
     (hus : denoteLList s₀.store.denoteL us = some lus)
-    (hfind : env.find? n = some (.defnInfo cv v hint)) :
+    (hfind : env.find? n = some (.defnInfo cv v hint) ∨
+      env.find? n = some (.thmInfo cv v)) :
     IEff env s₀ (fun s i => s.store.denote i = some
         (v.instantiateLevelParams cv.levelParams lus))
       (constValAtM (mkFEnv env) n us) := by
@@ -1073,6 +1077,14 @@ theorem constValAtM_eff (hs : ISOK env s₀) {n : Name} {us : List LIdx}
       | none =>
         match (mkFEnv env).find? n with
         | some (.defnInfo cv v _) =>
+          let raw ← internExprM v
+          let i ← instLevelParamsM cv.levelParams us raw
+          modify fun s =>
+            let mp := s.constValAt
+            let s := { s with constValAt := ∅ }
+            { s with constValAt := mp.insert (n, us) i }
+          pure i
+        | some (.thmInfo cv v) =>
           let raw ← internExprM v
           let i ← instLevelParamsM cv.levelParams us raw
           modify fun s =>
@@ -1091,38 +1103,43 @@ theorem constValAtM_eff (hs : ISOK env s₀) {n : Name} {us : List LIdx}
     obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
     obtain ⟨lus', cv', v'', hint', hus', hfind', hden⟩ :=
       hs.constVal n us _ hl
-    rw [hfind] at hfind'
-    cases hfind'
-    rw [hus] at hus'
-    cases hus'
-    exact ⟨hs, Ext.refl _, hden⟩
+    rcases hfind with hfind | hfind <;>
+      rcases hfind' with hfind' | hfind' <;>
+      rw [hfind] at hfind' <;> cases hfind' <;>
+      rw [hus] at hus' <;> cases hus' <;>
+      exact ⟨hs, Ext.refl _, hden⟩
   | none =>
     rw [hl] at hr
-    rw [mkFEnv_find?, hfind] at hr
-    dsimp only at hr
-    simp only [Bind.bind, StateT.bind, Except.bind] at hr
-    cases hrun : internExprM v s₀ with
-    | error he => rw [hrun] at hr; exact nomatch hr
-    | ok pr =>
-      obtain ⟨raw, s₁⟩ := pr
-      rw [hrun] at hr
+    rcases hfind with hfind | hfind <;>
+    · rw [mkFEnv_find?, hfind] at hr
       dsimp only at hr
-      obtain ⟨hs₁, hext₁, hdenraw⟩ := internExprM_eff hs _ raw s₁ hrun
-      cases hrun₂ : instLevelParamsM cv.levelParams us raw s₁ with
-      | error he => rw [hrun₂] at hr; exact nomatch hr
-      | ok pr₂ =>
-        obtain ⟨i, s₂⟩ := pr₂
-        rw [hrun₂] at hr
+      simp only [Bind.bind, StateT.bind, Except.bind] at hr
+      cases hrun : internExprM v s₀ with
+      | error he => rw [hrun] at hr; exact nomatch hr
+      | ok pr =>
+        obtain ⟨raw, s₁⟩ := pr
+        rw [hrun] at hr
         dsimp only at hr
-        obtain ⟨hs₂, hext₂, hden⟩ := instLevelParamsM_eff hs₁
-          (denoteLList_mono hext₁ hus) hdenraw i s₂ hrun₂
-        simp only [modify, modifyGet, MonadStateOf.modifyGet,
-          StateT.modifyGet, Bind.bind, StateT.bind, Except.bind, pure,
-          StateT.pure, Except.pure, Except.ok.injEq] at hr
-        obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
-        exact ⟨hs₂.insertConstVal
-          (denoteLList_mono hext₂ (denoteLList_mono hext₁ hus))
-          hfind hden, hext₁.trans hext₂, hden⟩
+        obtain ⟨hs₁, hext₁, hdenraw⟩ := internExprM_eff hs _ raw s₁ hrun
+        cases hrun₂ : instLevelParamsM cv.levelParams us raw s₁ with
+        | error he => rw [hrun₂] at hr; exact nomatch hr
+        | ok pr₂ =>
+          obtain ⟨i, s₂⟩ := pr₂
+          rw [hrun₂] at hr
+          dsimp only at hr
+          obtain ⟨hs₂, hext₂, hden⟩ := instLevelParamsM_eff hs₁
+            (denoteLList_mono hext₁ hus) hdenraw i s₂ hrun₂
+          simp only [modify, modifyGet, MonadStateOf.modifyGet,
+            StateT.modifyGet, Bind.bind, StateT.bind, Except.bind, pure,
+            StateT.pure, Except.pure, Except.ok.injEq] at hr
+          obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
+          first
+          | exact ⟨hs₂.insertConstVal
+              (denoteLList_mono hext₂ (denoteLList_mono hext₁ hus))
+              (Or.inl hfind) hden, hext₁.trans hext₂, hden⟩
+          | exact ⟨hs₂.insertConstVal (hint := .opaque)
+              (denoteLList_mono hext₂ (denoteLList_mono hext₁ hus))
+              (Or.inr hfind) hden, hext₁.trans hext₂, hden⟩
 
 /-- `ruleRhsAtM` under the index of `env`. -/
 theorem ruleRhsAtM_eff (hs : ISOK env s₀) {c j : Name} {us : List LIdx}

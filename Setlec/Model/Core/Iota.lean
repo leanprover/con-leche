@@ -94,7 +94,7 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
     majorToCtor_claims ihw ihd ihi hsub hmfn hfj
       (by rw [hml]; exact har2)
       hmcerts hcvtW hcvtB hcvtL hcvtO hcvtA
-  obtain ⟨-, -, -, -, -, hrules⟩ := m.wf _ (find?_mem hfc)
+  obtain ⟨-, -, -, -, -, hrules, -⟩ := m.wf _ (find?_mem hfc)
   obtain ⟨hrf, hrlp, hrres, hrlb, hnestWF⟩ := hrules cv mI rP rules rfl r
     (List.mem_of_find?_eq_some hrule)
   have hclInst : (r.rhs.instantiateLevelParams cv.levelParams

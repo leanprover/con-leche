@@ -143,3 +143,10 @@
 2 nat_shiftright_perturbed.ndjson
 0 nat_log2_ok.ndjson
 2 nat_log2_perturbed.ndjson
+# subject_reduction_redex (arena good/undecidability/subject-reduction-redex):
+# `x2 x4` needs `f 1 (proof_2 x0) ≡ f 0 (proof_1 x0)` where the proofs
+# are *theorems* whose values must delta-unfold for the Acc iota step
+# to fire — theorem values unfold like the reference kernels' delta
+# step (task #66); the outer redex additionally exercises the
+# same-head spine shortcut with proof irrelevance on the Acc argument.
+0 subject_reduction_redex.ndjson

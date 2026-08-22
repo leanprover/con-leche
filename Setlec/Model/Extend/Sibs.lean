@@ -193,7 +193,7 @@ theorem RecRulesOk.cons {env : Env} (m : EnvModel V env)
     exact hnewrec cvR mI rP rules hceq r hr
   · next hn =>
     obtain ⟨hA, hle, hfold⟩ := m.rec_rules n cvR mI rP rules hfp r hr
-    obtain ⟨-, -, -, -, -, hrules⟩ := m.wf _ (find?_mem hfp)
+    obtain ⟨-, -, -, -, -, hrules, -⟩ := m.wf _ (find?_mem hfp)
     obtain ⟨-, -, hrres, -, -⟩ := hrules cvR mI rP rules rfl r hr
     have hvaln : ∀ ψ : Name → Nat, val' n ψ = m.val n ψ :=
       fun ψ => hagree n (by rw [hfp]; rfl) ψ
