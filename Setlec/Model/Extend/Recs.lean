@@ -204,13 +204,15 @@ theorem provisionRecs_sound {F : Nat} {blockNames : List Name} :
         (FvarsOk.of_not_hasFvar hfv)
     have hwf₀ : ConstWF ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩
         (.recInfo cvA mI rP []) := by
-      refine ⟨htyf, htlp, Expr.constsResolve_mono htres, htyb, ?_, ?_⟩
+      refine ⟨htyf, htlp, Expr.constsResolve_mono htres, htyb, ?_, ?_, ?_⟩
       · intro cv2 v2 h2 heq
         exact nomatch heq
       · intro cv2 mI' rP' rules'' heq r hr
         injection heq with e1 e2 e3 e4
         subst e4
         exact nomatch hr
+      · intro cv2 v2 heq
+        exact nomatch heq
     obtain ⟨m₁, hval₁, hpres₁⟩ := extend_modeled_one m
       (.recInfo cvA mI rP []) fS (cvA.name.str "_model")
       hfind0 hnres0 hwf₀ htres
@@ -1120,7 +1122,8 @@ theorem checkIndRecs_sound {F : Nat} {blockNames : List Name}
     refine Or.inr ⟨z.1.1, z.1.2.1, z.1.2.2.1,
       z.2, rfl, rfl, hnres, hshape, ?_, ?_, ?_⟩
     · -- ConstWF at the final environment
-      refine ⟨htyf, htlp, ?_, htyb, ?_, ?_⟩
+      refine ⟨htyf, htlp, ?_, htyb, ?_, ?_,
+        fun cv2 v2 heq => nomatch heq⟩
       · rw [← Expr.constsResolve_congr hisoSome]
         exact htres
       · intro cv2 v2 h2 heq

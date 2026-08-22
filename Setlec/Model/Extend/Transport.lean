@@ -135,8 +135,8 @@ theorem ConstWF.recRules_swap (rules₁ rules₂ : List RecRule)
     {c : ConstantInfo}
     (hc : ConstWF (⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env) c) :
     ConstWF (⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env) c := by
-  obtain ⟨h1, h2, h3, h4, h5, h6⟩ := hc
-  refine ⟨h1, h2, ?_, h4, ?_, ?_⟩
+  obtain ⟨h1, h2, h3, h4, h5, h6, h7⟩ := hc
+  refine ⟨h1, h2, ?_, h4, ?_, ?_, ?_⟩
   · rw [← Expr.constsResolve_congr (Env.recRules_isSome rules₁ rules₂)]
     exact h3
   · intro cv2 v2 h2 heq
@@ -158,6 +158,12 @@ theorem ConstWF.recRules_swap (rules₁ rules₂ : List RecRule)
     refine ⟨p1, p2, ?_, p4⟩
     rw [← Expr.constsResolve_congr (Env.recRules_isSome rules₁ rules₂)]
     exact p3
+  · intro cv2 v2 heq
+    obtain ⟨a, b, cres, dd⟩ := h7 cv2 v2 heq
+    exact ⟨a, b,
+      by rw [← Expr.constsResolve_congr (Env.recRules_isSome rules₁ rules₂)]
+         exact cres,
+      dd⟩
 
 /-- The head recursor's own `ConstWF`, with the rule list dropped (the
 rules-free provisional install). -/
@@ -166,8 +172,8 @@ theorem ConstWF.recRules_head_empty {rules' : List RecRule}
       (.recInfo cvA mI rP rules')) :
     ConstWF (⟨.recInfo cvA mI rP [] :: env.consts⟩ : Env)
       (.recInfo cvA mI rP []) := by
-  obtain ⟨h1, h2, h3, h4, -, -⟩ := hwf
-  refine ⟨h1, h2, ?_, h4, ?_, ?_⟩
+  obtain ⟨h1, h2, h3, h4, -, -, -⟩ := hwf
+  refine ⟨h1, h2, ?_, h4, ?_, ?_, ?_⟩
   · rw [← Expr.constsResolve_congr (Env.recRules_isSome rules' [])]
     exact h3
   · intro cv2 v2 h2 heq
@@ -177,6 +183,8 @@ theorem ConstWF.recRules_head_empty {rules' : List RecRule}
     subst e4
     intro r hr
     cases hr
+  · intro cv2 v2 heq
+    exact nomatch heq
 
 omit [SetTheory V] in
 /-- `ConstValParams` ignores the head recursor's rule list. -/
@@ -238,7 +246,7 @@ theorem extend_rec_swap {rules' : List RecRule}
       AnnotOk V m₀.val
         (⟨.recInfo cvA mI rP rules' :: env.consts⟩ : Env) ψ d ρ e :=
     fun e ψ d ρ h => AnnotOk.recRules_swap [] rules' e ψ d ρ h
-  refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
+  refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
     fun n ψ => rfl⟩
   · -- wf
     intro c hc
@@ -263,6 +271,12 @@ theorem extend_rec_swap {rules' : List RecRule}
     · have h := m₀.defn_eq cv2 v2 h2 (List.mem_cons_of_mem _ hmem2) ψ
       rw [hitrans]
       exact h
+  · -- thm_ok
+    intro cv2 v2 hmem2 ψ
+    rcases List.mem_cons.mp hmem2 with heq | hmem2
+    · exact nomatch heq
+    · obtain ⟨h1, h2⟩ := m₀.thm_ok cv2 v2 (List.mem_cons_of_mem _ hmem2) ψ
+      exact ⟨by rw [hitrans]; exact h1, hAtrans01 _ ψ 0 (rho0 V) h2⟩
   · -- annot_ok
     intro c hc ψ
     rcases List.mem_cons.mp hc with rfl | hc
@@ -541,6 +555,11 @@ theorem extend_fresh {env : Env} (m : EnvModel V env)
       (∀ ψ : Name → Nat, AnnotOk V m.val env ψ 0 (rho0 V) value2) ∧
       ∀ ψ : Name → Nat,
         interpClosed V m.val env ψ value2 = some (v₀ ψ))
+    (hthm : ∀ cv2 value2, ci = .thmInfo cv2 value2 →
+      value2.constsResolve env = true ∧
+      (∀ ψ : Name → Nat, AnnotOk V m.val env ψ 0 (rho0 V) value2) ∧
+      ∀ ψ : Name → Nat,
+        interpClosed V m.val env ψ value2 = some (v₀ ψ))
     (hkey : ∀ ψ : Name → Nat, ∃ T,
       interpClosed V m.val env ψ ci.toConstantVal.type = some T ∧ v₀ ψ ∈ˢ T)
     (hparams : ∀ ψ₁ ψ₂ : Name → Nat,
@@ -659,7 +678,7 @@ theorem extend_fresh {env : Env} (m : EnvModel V env)
     refine AnnotOk.mono hfind' e 0 (rho0 V) hres ?_
     exact AnnotOk.cval_ext (fun n hn ψ' => (hagree n hn ψ').symm) e 0 (rho0 V) ha
   have hwf' : EnvWF ⟨ci :: env.consts⟩ := EnvWF.cons m.wf hwf
-  refine ⟨⟨val', hwf', ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
+  refine ⟨⟨val', hwf', ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
   · -- val_params
     intro n ci2 hf ψ₁ ψ₂ hψ
     rw [Env.find?_cons] at hf
@@ -709,6 +728,27 @@ theorem extend_fresh {env : Env} (m : EnvModel V env)
         have := hfresh (.defnInfo cv2 value2 h2) hmem2
         simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using this
       simp [hval', hne]
+  · -- thm_ok
+    intro cv2 value2 hmem2 ψ
+    rcases List.mem_cons.mp hmem2 with heq | hmem2
+    · obtain ⟨hres2, hAv, hveq⟩ := hthm cv2 value2 heq.symm
+      constructor
+      · rw [htrans _ hres2 ψ, hveq ψ]
+        have h1 : val' cv2.name ψ = v₀ ψ := by
+          have hn2 : cv2.name = ci.name := by rw [← heq]; rfl
+          simp [hval', hn2]
+        rw [h1]
+      · exact hAtrans _ hres2 ψ (hAv ψ)
+    · obtain ⟨-, -, -, -, -, -, hvalwf⟩ := m.wf _ hmem2
+      obtain ⟨-, -, hres2, -⟩ := hvalwf cv2 value2 rfl
+      obtain ⟨hde, hAv⟩ := m.thm_ok cv2 value2 hmem2 ψ
+      constructor
+      · rw [htrans _ hres2 ψ, hde]
+        have hne : cv2.name ≠ ci.name := by
+          have := hfresh (.thmInfo cv2 value2) hmem2
+          simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using this
+        simp [hval', hne]
+      · exact hAtrans _ hres2 ψ hAv
   · -- annot_ok
     intro c hc ψ
     rcases List.mem_cons.mp hc with rfl | hc

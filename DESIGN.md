@@ -141,6 +141,21 @@ model (`SetTheory.prop_ext`) via the stored `Iff.rec`'s member fact;
 operator (`SetTheory.schoice`), with nonemptiness extracted from the
 stored `Nonempty.rec`'s member fact (`Setlec/Model/StdAxioms.lean`).
 
+Consequence for the arena's non-tutorial good roots (finding,
+2026-08-22, task #67): `good/proof-irrel.ndjson`,
+`good/level-index-out-of-order.ndjson` and
+`good/sparse-name-index.ndjson` all *decline* (exit 2) **because they
+are scaffolded by custom axioms** (`axiom foo : Sort 2`, `axiom foo :
+Prop`, and an `A`/`P`/`Q`/`foo` axiom frame respectively) — exactly
+the pinned `custom_axiom_declined` e2e behavior, not a frontend
+restriction.  The features their names advertise are in fact
+supported: the export tables are hash-map-backed, so sparse and
+out-of-order `in`/`il`/`ie` indices parse fine (the declines name the
+axioms, which requires the sparse indices to have resolved), and
+algorithmic proof irrelevance is implemented (`proofIrrel`,
+exercised by the accepted `subject-reduction-redex` test).  These
+three stay declined by design under the axiom ceiling.
+
 ## Term representation
 
 * Our own inductives (`Setlec.Expr` etc.), not `Lean.Expr`: no cached
@@ -871,6 +886,82 @@ induction over the literal), consumed by `reduceNat_sound`.
   its record; the `Unit.sizeOf` mismatch is fixed, see the basis
   `PUnit` rescue note) — the previous positive declines at
   `Nat.land`/`Nat.shiftRight`/… literal uses are gone.
+
+### Theorem values delta-unfold (2026-08-22, task #66)
+
+`unfoldDefinition` (and the interned `unfoldDefinitionI`/`constValAtM`)
+unfolds *theorem* values exactly like definition values, at reducibility
+hint `opaque` — the reference kernels' `is_delta` accepts any constant
+with a value, and the official `constant_info::get_hints` gives theorems
+`opaque` (so they unfold last, and a theorem-vs-theorem comparison at
+equal opaque hints unfolds both sides with no spine shortcut).
+Previously theorems never unfolded, which wrongly *rejected* the arena's
+`good/undecidability/subject-reduction-redex`: its `x2 x4` application
+needs `f 1 (proof_2 x0) ≡ f 0 (proof_1 x0)`, where `proof_2` is a
+theorem whose value reduces to an `Acc.intro` application — without
+unfolding it the `Acc.rec` iota step cannot fire and both sides stay
+stuck with mismatched indices (`1` vs `0`).  (The test's outer
+beta-redex is the transitivity trap: `f 1 x0 ≡ f 1 (proof_2 x0)` holds
+only via the same-head spine shortcut + proof irrelevance on the `Acc`
+argument — over-reducing that side breaks it — which the lazy-delta
+`defeqSpine` shortcut already handled.)  Claims impact: `ConstWF` gains
+a theorem-value clause (same four syntactic facts as definition
+values), `EnvModel` gains `thm_ok` (a theorem constant is interpreted
+by its proof value, which carries truthful annotations — established
+by `extend_model` exactly as for definitions, since the valuation was
+already the value's interpretation), and `unfoldDefinition_sound`
+consumes either `defn_eq` or `thm_ok`.  E2e fixture:
+`subject_reduction_redex.ndjson`.
+
+With theorems unfoldable, the earlier deviation of keeping proof
+irrelevance only in the stuck fallback (design-review triage) became
+expensive: proof-typed comparisons delta-ground through proof bodies
+before the fallback could fire (init-prelude probe 167.9 G → 227.3 G
+instructions).  `defeqBody` therefore now runs `proofIrrel` right
+after the `whnfCore` fast path and before lazy delta — exactly the
+official kernel's `is_def_eq_proof_irrel` position — recovering to
+205.2 G / 15.6 s; the residual ≈ +22 % over the pre-#66 numbers is
+the price of actually performing the reference kernels' theorem
+delta (majors and proof arguments now reduce where they used to stay
+stuck).  The stuck-fallback copy stays (memoized) for sides rewritten
+by a reduction step after the hoist ran.
+
+### Memory blowups: DAG budget and OOM supervision (2026-08-22, task #65)
+
+Findings from the arena `good/perf` OOM pair:
+
+* `beta-ladder` (2000 nested `(λx. …) 0` redexes whose innermost body
+  reads every binder) now **accepts** (~25 s, ~1.8 GB peak): the
+  Θ(n²) substitution copies are inherent (each beta step re-interns
+  the remaining ladder — the eliminated binder shifts every `bvar`
+  below), and the single-tier arena *retains* all Θ(n²) reducts by
+  design until #64's two-tier arena; at n = 2000 that fits.
+* `app-lam` is a different beast: its `dag_app_binder` value is a
+  `wrap2 f f` doubling tower — DAG size 24 001, **unshared tree size
+  ≈ 10¹¹⁶⁰**.  Every tree-materializing pass (the frontend's
+  `zetaExpand`, the raw syntactic checks, arena interning of `Expr`
+  trees) is exponential on it; the OOM happened already inside
+  `parseExport`.  This is exactly the `no-unmemoized-traversals`
+  architectural gap (the raw-`Expr` pipeline walks trees), not a
+  reduction-sharing bug.  Until the pipeline is DAG-preserving
+  end-to-end, the frontend now tracks each expression-table entry's
+  *saturated unshared tree size* (`State.sizes`, `O(1)` per entry) and
+  **positively declines** any declaration whose tree size reaches
+  `declTreeSizeBudget` (2^25) at its own record — beyond that scale
+  the tree-materializing pipeline could not represent the declaration
+  anyway, and every supported stream is far below it.
+* Exit-code hardening: the Lean runtime's out-of-memory handler
+  (`lean_internal_panic_out_of_memory`) prints `INTERNAL PANIC: out
+  of memory` and calls `exit(1)` — in-process it is uncatchable, and
+  exit 1 reads as *reject* under the arena convention.  `main` now
+  supervises: it re-execs the checker as a child
+  (`SETLEC_SUPERVISED` guard), and a child that exits 1 with a panic
+  marker on stderr is reported as exit 3 (error).  Genuine rejects,
+  declines and accepts pass through unchanged; abort-style deaths
+  (stack overflow = 134, SIGKILL = 137) were never 1 and stay as-is.
+  Known limitation: an external `timeout` killing the supervisor
+  orphans the child; the arena harness kills process groups, and the
+  in-repo scripts use `timeout` on the whole invocation.
 
 ## Kernel design review triage (2026-08-20)
 

@@ -130,6 +130,19 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     · rw [if_pos hab', if_pos hab']
       exact SimAt.pure hs₂ rfl
     · rw [if_neg hab', if_neg hab']
+      -- hoisted proof irrelevance
+      refine SimAt.bind (proofIrrelI_sim ih hs₂ ha'd₂ hb'd hwa' hwb')
+        (fun s₂p rpi rpix hs₂p hext₂p hPpi => ?_)
+      cases hPpi
+      cases rpi with
+      | true =>
+        simp only [↓reduceIte]
+        exact SimAt.pure hs₂p rfl
+      | false =>
+      simp only [Bool.false_eq_true, ↓reduceIte]
+      have ha'd₂ := denote_mono hext₂p ha'd₂
+      have hb'd := denote_mono hext₂p hb'd
+      have hs₂ := hs₂p
       refine SimAt.bind (reduceNatI_sim ih hs₂ ha'd₂ hwa')
         (fun s₃ o₁ o₁x hs₃ hext₃ hPo₁ => ?_)
       cases o₁ with

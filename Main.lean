@@ -50,9 +50,8 @@ def preprocess (file : String) (contents : String) : IO String := do
   catch _ =>
     return contents
 
-def main (args : List String) : IO UInt32 := do
-  match args with
-  | [file] =>
+/-- The real driver (run in the supervised child process). -/
+def checkMain (file : String) : IO UInt32 := do
     let contents ← preprocess file (← IO.FS.readFile file)
     match Frontend.parseExport contents (modeled := true) with
     | .error (.unsupported what) =>
@@ -102,6 +101,35 @@ def main (args : List String) : IO UInt32 := do
           return ""
         IO.eprintln s!"setlec: {e}{ctx}"
         return e.exitCode
+
+def main (args : List String) : IO UInt32 := do
+  match args with
+  | [file] =>
+    -- OOM supervision: the Lean runtime's out-of-memory handler
+    -- (`lean_internal_panic_out_of_memory`) prints "INTERNAL PANIC:
+    -- out of memory" and calls `exit(1)` — not catchable in-process
+    -- and indistinguishable from a *reject* at the exit-code level.
+    -- Re-exec the checker as a supervised child and translate a
+    -- panicking child (exit 1 with a panic marker on stderr) into
+    -- exit 3 (error), per the arena convention that 1 means "invalid
+    -- input proof".  Progress output streams through (stdout is
+    -- inherited); stderr is buffered for inspection and re-printed.
+    if (← IO.getEnv "SETLEC_SUPERVISED").isSome then
+      checkMain file
+    else
+      let child ← IO.Process.spawn {
+        cmd := (← IO.appPath).toString
+        args := #[file]
+        env := #[("SETLEC_SUPERVISED", some "1")]
+        stdout := .inherit
+        stderr := .piped }
+      let err ← child.stderr.readToEnd
+      let code ← child.wait
+      IO.eprint err
+      if code = 1 ∧ (err.splitOn "INTERNAL PANIC").length > 1 then
+        IO.eprintln "setlec: internal panic in the checker process"
+        return 3
+      return code
   | _ =>
     IO.eprintln "usage: setlec FILE.ndjson"
     return 3

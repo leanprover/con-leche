@@ -394,7 +394,7 @@ theorem extend_proj_template {env : Env} (m : EnvModel V env)
   have hname : (ConstantInfo.projInfo entry).name =
       projFnName entry.structName entry.idx := rfl
   have hwf : ConstWF ⟨.projInfo entry :: env.consts⟩ (.projInfo entry) := by
-    refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
+    refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
     · show entry.ty.hasFvar = false
       rw [hty]; rfl
     · show entry.ty.allLevelParamsDefined _ = true
@@ -407,11 +407,14 @@ theorem extend_proj_template {env : Env} (m : EnvModel V env)
       exact nomatch heq
     · intro cv2 mI2 rP2 rules2 heq
       exact nomatch heq
+    · intro cv2 v2 heq
+      exact nomatch heq
   refine extend_fresh m (.projInfo entry) (fun _ => eqv pt pt)
     (hname ▸ hfind') hwf
     (by show entry.ty.constsResolve env = true
         rw [hty]; rfl)
     (fun cv2 v2 h2 heq => nomatch heq)
+    (fun cv2 v2 heq => nomatch heq)
     (fun ψ => ?_)
     (fun _ _ _ => rfl)
     (fun ψ => by
@@ -671,7 +674,7 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
       (.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
         [⟨ctorName, nF, nP, (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain else .inert), rhsA⟩]) := by
     refine ⟨hptyf, hptylp, Expr.constsResolve_mono hptyres, hptyb,
-      ?_, ?_⟩
+      ?_, ?_, ?_⟩
     · intro cv2 v2 h2 heq
       exact nomatch heq
     · intro cv2 mI' rP' rules'' heq r hr
@@ -685,6 +688,8 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
           cases hcond : Expr.recRulePlain pty nP nP nP <;>
             simp [hcond] at h
       · exact absurd hr List.not_mem_nil
+    · intro cv2 v2 heq
+      exact nomatch heq
   have hsbody' : (Expr.app (.app (.app (.const eqName [ℓA]) tySlot)
       (Expr.mkAppN (.const (projModelName T i) (lps.map .param))
         (((List.range nP).map fun k => Expr.bvar (nP + nF - 1 - k)) ++

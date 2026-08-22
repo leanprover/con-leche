@@ -435,6 +435,14 @@ def constValAtM (fe : FEnv) (n : Name) (us : List LIdx) : CheckIM EIdx := do
         let s := { s with constValAt := ∅ }
         { s with constValAt := mp.insert (n, us) i }
       pure i
+    | some (.thmInfo cv v) =>
+      let raw ← internExprM v
+      let i ← instLevelParamsM cv.levelParams us raw
+      modify fun s =>
+        let mp := s.constValAt
+        let s := { s with constValAt := ∅ }
+        { s with constValAt := mp.insert (n, us) i }
+      pure i
     | _ => throw (.internal "constValAtM: not a stored definition")
 
 /-- The interned level-instantiated right-hand side of the rule for
@@ -468,12 +476,20 @@ structure CoreFnsI where
   annotate : Nat → EIdx → CheckIM EIdx
 
 /-- Twin of `unfoldDefinition` (monadic: the unfolded value is interned
-through the `(name, levels)` cache). -/
+through the `(name, levels)` cache).  Like the spec, theorem values
+unfold too. -/
 def unfoldDefinitionI (fe : FEnv) (e : EIdx) : CheckIM (Option EIdx) := do
   match ← withStore (fun st => st.nodes[st.getAppFnI e]?) with
   | some (.const n us) =>
     match fe.find? n with
     | some (.defnInfo cv _ _) =>
+      if us.length = cv.levelParams.length then do
+        let v ← constValAtM fe n us
+        let args ← withStore (·.getAppArgsI e)
+        let r ← mkAppNM v args
+        pure (some r)
+      else pure none
+    | some (.thmInfo cv _) =>
       if us.length = cv.levelParams.length then do
         let v ← constValAtM fe n us
         let args ← withStore (·.getAppArgsI e)
@@ -1326,6 +1342,9 @@ def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM Bo
     let a' ← r.whnfCore depth a
     let b' ← r.whnfCore depth b
     if a' == b' then pure true else
+    -- proof irrelevance hoisted before lazy delta, as in the spec
+    -- (and the official kernel)
+    if ← proofIrrelI r fe depth a' b' then pure true else
     match ← reduceNatI r fe depth a' with
     | some a₂ => r.defeq depth a₂ b'
     | none =>
