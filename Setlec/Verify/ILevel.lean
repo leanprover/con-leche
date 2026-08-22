@@ -2021,4 +2021,622 @@ private theorem imaxRulesLI_spec {fuel : Nat} (ihc : LeqIH fuel)
       rw [hrn] at hnr
       cases hnr
 
+private theorem leqRestLI_spec {fuel : Nat} (ihc : LeqIH fuel)
+    {st : EStore} {memo : EStore.LMemo} {l r : LIdx} {diff : Int}
+    {la ra : Level} {ob : Option Bool} {st' : EStore}
+    {memo' : EStore.LMemo}
+    (hwf : st.WF) (hinv : LvlMemoInv st Level.simplify memo)
+    (hl : st.denoteL l = some la) (hr : st.denoteL r = some ra)
+    (hgo : leqRestLI st memo fuel l r diff = (ob, st', memo')) :
+    st'.WF ∧ Ext st st' ∧ LvlMemoInv st' Level.simplify memo' ∧
+      ob = Level.rest fuel la ra diff := by
+  obtain ⟨nl, hln, hlc, hld⟩ := denoteL_some_inv hl
+  obtain ⟨nr, hrn, hrc, hrd⟩ := denoteL_some_inv hr
+  unfold leqRestLI at hgo
+  rw [hln, hrn] at hgo
+  cases nl with
+  | zero =>
+    rw [denoteLNode] at hld
+    cases hld
+    cases nr with
+    | zero =>
+      rw [denoteLNode] at hrd
+      cases hrd
+      dsimp only at hgo
+      obtain ⟨hwf1, hext1, hinv1, hob⟩ :=
+        imaxRulesLI_spec ihc hwf hinv hl hr hgo
+      refine ⟨hwf1, hext1, hinv1, ?_⟩
+      rw [hob]
+      simp [Level.rest]
+    | param bp =>
+      rw [denoteLNode] at hrd
+      cases hrd
+      dsimp only at hgo
+      cases hgo
+      exact ⟨hwf, Ext.refl st, hinv, by simp [Level.rest]⟩
+    | succ bsl =>
+      rw [denoteLNode, Option.map_eq_some_iff] at hrd
+      obtain ⟨bsx, hbsx, rfl⟩ := hrd
+      dsimp only at hgo
+      obtain ⟨hwf1, hext1, hinv1, hob⟩ := ihc hwf hinv hl hbsx hgo
+      refine ⟨hwf1, hext1, hinv1, ?_⟩
+      rw [hob]
+      simp [Level.rest]
+    | max bx by2 =>
+      rw [denoteLNode, Option.bind_eq_some_iff] at hrd
+      obtain ⟨bxx, hbxx, hrd⟩ := hrd
+      rw [Option.map_eq_some_iff] at hrd
+      obtain ⟨byy, hbyy, rfl⟩ := hrd
+      dsimp only at hgo
+      rcases h1 : leqCoreLI st memo fuel l bx diff with ⟨ob1, st1, memo1⟩
+      rw [h1] at hgo
+      obtain ⟨hwf1, hext1, hinv1, hob1⟩ := ihc hwf hinv hl hbxx h1
+      cases ob1 with
+      | none =>
+        dsimp only at hgo
+        cases hgo
+        refine ⟨hwf1, hext1, hinv1, ?_⟩
+        simp [Level.rest, ← hob1]
+      | some b1 =>
+        dsimp only at hgo
+        rcases h2 : leqCoreLI st1 memo1 fuel l by2 diff with ⟨ob2, st2, memo2⟩
+        rw [h2] at hgo
+        obtain ⟨hwf2, hext2, hinv2, hob2⟩ := ihc hwf1 hinv1
+          (denoteL_mono hext1 hl) (denoteL_mono hext1 hbyy) h2
+        cases ob2 with
+        | none =>
+          dsimp only at hgo
+          cases hgo
+          refine ⟨hwf2, hext1.trans hext2, hinv2, ?_⟩
+          simp [Level.rest, ← hob1, ← hob2]
+        | some b2 =>
+          dsimp only at hgo
+          cases hgo
+          refine ⟨hwf2, hext1.trans hext2, hinv2, ?_⟩
+          simp [Level.rest, ← hob1, ← hob2]
+    | imax bx by2 =>
+      rw [denoteLNode, Option.bind_eq_some_iff] at hrd
+      obtain ⟨bxx, hbxx, hrd⟩ := hrd
+      rw [Option.map_eq_some_iff] at hrd
+      obtain ⟨byy, hbyy, rfl⟩ := hrd
+      dsimp only at hgo
+      obtain ⟨hwf1, hext1, hinv1, hob⟩ :=
+        imaxRulesLI_spec ihc hwf hinv hl hr hgo
+      refine ⟨hwf1, hext1, hinv1, ?_⟩
+      rw [hob]
+      simp [Level.rest]
+  | param ap =>
+    rw [denoteLNode] at hld
+    cases hld
+    cases nr with
+    | zero =>
+      rw [denoteLNode] at hrd
+      cases hrd
+      dsimp only at hgo
+      cases hgo
+      exact ⟨hwf, Ext.refl st, hinv, by simp [Level.rest]⟩
+    | param bp =>
+      rw [denoteLNode] at hrd
+      cases hrd
+      dsimp only at hgo
+      cases hgo
+      exact ⟨hwf, Ext.refl st, hinv, by simp [Level.rest]⟩
+    | succ bsl =>
+      rw [denoteLNode, Option.map_eq_some_iff] at hrd
+      obtain ⟨bsx, hbsx, rfl⟩ := hrd
+      dsimp only at hgo
+      obtain ⟨hwf1, hext1, hinv1, hob⟩ := ihc hwf hinv hl hbsx hgo
+      refine ⟨hwf1, hext1, hinv1, ?_⟩
+      rw [hob]
+      simp [Level.rest]
+    | max bx by2 =>
+      rw [denoteLNode, Option.bind_eq_some_iff] at hrd
+      obtain ⟨bxx, hbxx, hrd⟩ := hrd
+      rw [Option.map_eq_some_iff] at hrd
+      obtain ⟨byy, hbyy, rfl⟩ := hrd
+      dsimp only at hgo
+      rcases h1 : leqCoreLI st memo fuel l bx diff with ⟨ob1, st1, memo1⟩
+      rw [h1] at hgo
+      obtain ⟨hwf1, hext1, hinv1, hob1⟩ := ihc hwf hinv hl hbxx h1
+      cases ob1 with
+      | none =>
+        dsimp only at hgo
+        cases hgo
+        refine ⟨hwf1, hext1, hinv1, ?_⟩
+        simp [Level.rest, ← hob1]
+      | some b1 =>
+        dsimp only at hgo
+        rcases h2 : leqCoreLI st1 memo1 fuel l by2 diff with ⟨ob2, st2, memo2⟩
+        rw [h2] at hgo
+        obtain ⟨hwf2, hext2, hinv2, hob2⟩ := ihc hwf1 hinv1
+          (denoteL_mono hext1 hl) (denoteL_mono hext1 hbyy) h2
+        cases ob2 with
+        | none =>
+          dsimp only at hgo
+          cases hgo
+          refine ⟨hwf2, hext1.trans hext2, hinv2, ?_⟩
+          simp [Level.rest, ← hob1, ← hob2]
+        | some b2 =>
+          dsimp only at hgo
+          cases hgo
+          refine ⟨hwf2, hext1.trans hext2, hinv2, ?_⟩
+          simp [Level.rest, ← hob1, ← hob2]
+    | imax bx by2 =>
+      rw [denoteLNode, Option.bind_eq_some_iff] at hrd
+      obtain ⟨bxx, hbxx, hrd⟩ := hrd
+      rw [Option.map_eq_some_iff] at hrd
+      obtain ⟨byy, hbyy, rfl⟩ := hrd
+      dsimp only at hgo
+      obtain ⟨hwf1, hext1, hinv1, hob⟩ :=
+        imaxRulesLI_spec ihc hwf hinv hl hr hgo
+      refine ⟨hwf1, hext1, hinv1, ?_⟩
+      rw [hob]
+      simp [Level.rest]
+  | succ asl =>
+    rw [denoteLNode, Option.map_eq_some_iff] at hld
+    obtain ⟨asx, hasx, rfl⟩ := hld
+    cases nr with
+    | zero =>
+      rw [denoteLNode] at hrd
+      cases hrd
+      dsimp only at hgo
+      obtain ⟨hwf1, hext1, hinv1, hob⟩ := ihc hwf hinv hasx hr hgo
+      refine ⟨hwf1, hext1, hinv1, ?_⟩
+      rw [hob]
+      simp [Level.rest]
+    | param bp =>
+      rw [denoteLNode] at hrd
+      cases hrd
+      dsimp only at hgo
+      obtain ⟨hwf1, hext1, hinv1, hob⟩ := ihc hwf hinv hasx hr hgo
+      refine ⟨hwf1, hext1, hinv1, ?_⟩
+      rw [hob]
+      simp [Level.rest]
+    | succ bsl =>
+      rw [denoteLNode, Option.map_eq_some_iff] at hrd
+      obtain ⟨bsx, hbsx, rfl⟩ := hrd
+      dsimp only at hgo
+      obtain ⟨hwf1, hext1, hinv1, hob⟩ := ihc hwf hinv hasx hr hgo
+      refine ⟨hwf1, hext1, hinv1, ?_⟩
+      rw [hob]
+      simp [Level.rest]
+    | max bx by2 =>
+      rw [denoteLNode, Option.bind_eq_some_iff] at hrd
+      obtain ⟨bxx, hbxx, hrd⟩ := hrd
+      rw [Option.map_eq_some_iff] at hrd
+      obtain ⟨byy, hbyy, rfl⟩ := hrd
+      dsimp only at hgo
+      obtain ⟨hwf1, hext1, hinv1, hob⟩ := ihc hwf hinv hasx hr hgo
+      refine ⟨hwf1, hext1, hinv1, ?_⟩
+      rw [hob]
+      simp [Level.rest]
+    | imax bx by2 =>
+      rw [denoteLNode, Option.bind_eq_some_iff] at hrd
+      obtain ⟨bxx, hbxx, hrd⟩ := hrd
+      rw [Option.map_eq_some_iff] at hrd
+      obtain ⟨byy, hbyy, rfl⟩ := hrd
+      dsimp only at hgo
+      obtain ⟨hwf1, hext1, hinv1, hob⟩ := ihc hwf hinv hasx hr hgo
+      refine ⟨hwf1, hext1, hinv1, ?_⟩
+      rw [hob]
+      simp [Level.rest]
+  | max ax ay =>
+    rw [denoteLNode, Option.bind_eq_some_iff] at hld
+    obtain ⟨axx, haxx, hld⟩ := hld
+    rw [Option.map_eq_some_iff] at hld
+    obtain ⟨ayy, hayy, rfl⟩ := hld
+    cases nr with
+    | zero =>
+      rw [denoteLNode] at hrd
+      cases hrd
+      dsimp only at hgo
+      rcases h1 : leqCoreLI st memo fuel ax r diff with ⟨ob1, st1, memo1⟩
+      rw [h1] at hgo
+      obtain ⟨hwf1, hext1, hinv1, hob1⟩ := ihc hwf hinv haxx hr h1
+      cases ob1 with
+      | none =>
+        dsimp only at hgo
+        cases hgo
+        refine ⟨hwf1, hext1, hinv1, ?_⟩
+        simp [Level.rest, ← hob1]
+      | some b1 =>
+        dsimp only at hgo
+        rcases h2 : leqCoreLI st1 memo1 fuel ay r diff with ⟨ob2, st2, memo2⟩
+        rw [h2] at hgo
+        obtain ⟨hwf2, hext2, hinv2, hob2⟩ := ihc hwf1 hinv1
+          (denoteL_mono hext1 hayy) (denoteL_mono hext1 hr) h2
+        cases ob2 with
+        | none =>
+          dsimp only at hgo
+          cases hgo
+          refine ⟨hwf2, hext1.trans hext2, hinv2, ?_⟩
+          simp [Level.rest, ← hob1, ← hob2]
+        | some b2 =>
+          dsimp only at hgo
+          cases hgo
+          refine ⟨hwf2, hext1.trans hext2, hinv2, ?_⟩
+          simp [Level.rest, ← hob1, ← hob2]
+    | param bp =>
+      rw [denoteLNode] at hrd
+      cases hrd
+      dsimp only at hgo
+      rcases h1 : leqCoreLI st memo fuel ax r diff with ⟨ob1, st1, memo1⟩
+      rw [h1] at hgo
+      obtain ⟨hwf1, hext1, hinv1, hob1⟩ := ihc hwf hinv haxx hr h1
+      cases ob1 with
+      | none =>
+        dsimp only at hgo
+        cases hgo
+        refine ⟨hwf1, hext1, hinv1, ?_⟩
+        simp [Level.rest, ← hob1]
+      | some b1 =>
+        dsimp only at hgo
+        rcases h2 : leqCoreLI st1 memo1 fuel ay r diff with ⟨ob2, st2, memo2⟩
+        rw [h2] at hgo
+        obtain ⟨hwf2, hext2, hinv2, hob2⟩ := ihc hwf1 hinv1
+          (denoteL_mono hext1 hayy) (denoteL_mono hext1 hr) h2
+        cases ob2 with
+        | none =>
+          dsimp only at hgo
+          cases hgo
+          refine ⟨hwf2, hext1.trans hext2, hinv2, ?_⟩
+          simp [Level.rest, ← hob1, ← hob2]
+        | some b2 =>
+          dsimp only at hgo
+          cases hgo
+          refine ⟨hwf2, hext1.trans hext2, hinv2, ?_⟩
+          simp [Level.rest, ← hob1, ← hob2]
+    | succ bsl =>
+      rw [denoteLNode, Option.map_eq_some_iff] at hrd
+      obtain ⟨bsx, hbsx, rfl⟩ := hrd
+      dsimp only at hgo
+      obtain ⟨hwf1, hext1, hinv1, hob⟩ := ihc hwf hinv hl hbsx hgo
+      refine ⟨hwf1, hext1, hinv1, ?_⟩
+      rw [hob]
+      simp [Level.rest]
+    | max bx by2 =>
+      rw [denoteLNode, Option.bind_eq_some_iff] at hrd
+      obtain ⟨bxx, hbxx, hrd⟩ := hrd
+      rw [Option.map_eq_some_iff] at hrd
+      obtain ⟨byy, hbyy, rfl⟩ := hrd
+      dsimp only at hgo
+      rcases h1 : leqCoreLI st memo fuel ax r diff with ⟨ob1, st1, memo1⟩
+      rw [h1] at hgo
+      obtain ⟨hwf1, hext1, hinv1, hob1⟩ := ihc hwf hinv haxx hr h1
+      cases ob1 with
+      | none =>
+        dsimp only at hgo
+        cases hgo
+        refine ⟨hwf1, hext1, hinv1, ?_⟩
+        simp [Level.rest, ← hob1]
+      | some b1 =>
+        dsimp only at hgo
+        rcases h2 : leqCoreLI st1 memo1 fuel ay r diff with ⟨ob2, st2, memo2⟩
+        rw [h2] at hgo
+        obtain ⟨hwf2, hext2, hinv2, hob2⟩ := ihc hwf1 hinv1
+          (denoteL_mono hext1 hayy) (denoteL_mono hext1 hr) h2
+        cases ob2 with
+        | none =>
+          dsimp only at hgo
+          cases hgo
+          refine ⟨hwf2, hext1.trans hext2, hinv2, ?_⟩
+          simp [Level.rest, ← hob1, ← hob2]
+        | some b2 =>
+          dsimp only at hgo
+          cases hgo
+          refine ⟨hwf2, hext1.trans hext2, hinv2, ?_⟩
+          simp [Level.rest, ← hob1, ← hob2]
+    | imax bx by2 =>
+      rw [denoteLNode, Option.bind_eq_some_iff] at hrd
+      obtain ⟨bxx, hbxx, hrd⟩ := hrd
+      rw [Option.map_eq_some_iff] at hrd
+      obtain ⟨byy, hbyy, rfl⟩ := hrd
+      dsimp only at hgo
+      rcases h1 : leqCoreLI st memo fuel ax r diff with ⟨ob1, st1, memo1⟩
+      rw [h1] at hgo
+      obtain ⟨hwf1, hext1, hinv1, hob1⟩ := ihc hwf hinv haxx hr h1
+      cases ob1 with
+      | none =>
+        dsimp only at hgo
+        cases hgo
+        refine ⟨hwf1, hext1, hinv1, ?_⟩
+        simp [Level.rest, ← hob1]
+      | some b1 =>
+        dsimp only at hgo
+        rcases h2 : leqCoreLI st1 memo1 fuel ay r diff with ⟨ob2, st2, memo2⟩
+        rw [h2] at hgo
+        obtain ⟨hwf2, hext2, hinv2, hob2⟩ := ihc hwf1 hinv1
+          (denoteL_mono hext1 hayy) (denoteL_mono hext1 hr) h2
+        cases ob2 with
+        | none =>
+          dsimp only at hgo
+          cases hgo
+          refine ⟨hwf2, hext1.trans hext2, hinv2, ?_⟩
+          simp [Level.rest, ← hob1, ← hob2]
+        | some b2 =>
+          dsimp only at hgo
+          cases hgo
+          refine ⟨hwf2, hext1.trans hext2, hinv2, ?_⟩
+          simp [Level.rest, ← hob1, ← hob2]
+  | imax ax ay =>
+    rw [denoteLNode, Option.bind_eq_some_iff] at hld
+    obtain ⟨axx, haxx, hld⟩ := hld
+    rw [Option.map_eq_some_iff] at hld
+    obtain ⟨ayy, hayy, rfl⟩ := hld
+    cases nr with
+    | zero =>
+      rw [denoteLNode] at hrd
+      cases hrd
+      dsimp only at hgo
+      obtain ⟨hwf1, hext1, hinv1, hob⟩ :=
+        imaxRulesLI_spec ihc hwf hinv hl hr hgo
+      refine ⟨hwf1, hext1, hinv1, ?_⟩
+      rw [hob]
+      simp [Level.rest]
+    | param bp =>
+      rw [denoteLNode] at hrd
+      cases hrd
+      dsimp only at hgo
+      obtain ⟨hwf1, hext1, hinv1, hob⟩ :=
+        imaxRulesLI_spec ihc hwf hinv hl hr hgo
+      refine ⟨hwf1, hext1, hinv1, ?_⟩
+      rw [hob]
+      simp [Level.rest]
+    | succ bsl =>
+      rw [denoteLNode, Option.map_eq_some_iff] at hrd
+      obtain ⟨bsx, hbsx, rfl⟩ := hrd
+      dsimp only at hgo
+      obtain ⟨hwf1, hext1, hinv1, hob⟩ := ihc hwf hinv hl hbsx hgo
+      refine ⟨hwf1, hext1, hinv1, ?_⟩
+      rw [hob]
+      simp [Level.rest]
+    | max bx by2 =>
+      rw [denoteLNode, Option.bind_eq_some_iff] at hrd
+      obtain ⟨bxx, hbxx, hrd⟩ := hrd
+      rw [Option.map_eq_some_iff] at hrd
+      obtain ⟨byy, hbyy, rfl⟩ := hrd
+      dsimp only at hgo
+      obtain ⟨hwf1, hext1, hinv1, hob⟩ :=
+        imaxRulesLI_spec ihc hwf hinv hl hr hgo
+      refine ⟨hwf1, hext1, hinv1, ?_⟩
+      rw [hob]
+      simp [Level.rest]
+    | imax bx by2 =>
+      rw [denoteLNode, Option.bind_eq_some_iff] at hrd
+      obtain ⟨bxx, hbxx, hrd⟩ := hrd
+      rw [Option.map_eq_some_iff] at hrd
+      obtain ⟨byy, hbyy, rfl⟩ := hrd
+      dsimp only at hgo
+      by_cases hids : (ax = bx && ay = by2 && decide (diff ≥ 0)) = true
+      · rw [if_pos hids] at hgo
+        cases hgo
+        refine ⟨hwf, Ext.refl st, hinv, ?_⟩
+        simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hids
+        obtain ⟨⟨rfl, rfl⟩, hdge⟩ := hids
+        have e1 : axx = bxx := by
+          rw [haxx] at hbxx; exact Option.some.inj hbxx
+        have e2 : ayy = byy := by
+          rw [hayy] at hbyy; exact Option.some.inj hbyy
+        subst e1; subst e2
+        simp [Level.rest, hdge]
+      · rw [if_neg hids] at hgo
+        obtain ⟨hwf1, hext1, hinv1, hob⟩ :=
+          imaxRulesLI_spec ihc hwf hinv hl hr hgo
+        refine ⟨hwf1, hext1, hinv1, ?_⟩
+        rw [hob]
+        have hneq : ¬ (axx = bxx ∧ ayy = byy ∧ diff ≥ 0) := by
+          rintro ⟨rfl, rfl, hdge⟩
+          apply hids
+          have e1 : ax = bx := denoteL_inj hwf haxx hbxx
+          have e2 : ay = by2 := denoteL_inj hwf hayy hbyy
+          subst e1; subst e2
+          simp [hdge]
+        simp only [Level.rest]
+        rw [if_neg (by
+          simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq]
+          rintro ⟨⟨rfl, rfl⟩, hdge⟩
+          exact hneq ⟨rfl, rfl, hdge⟩)]
+
+/-- `leqCoreLI` is faithful at every fuel. -/
+theorem leqCoreLI_spec : ∀ fuel, LeqIH fuel := by
+  intro fuel
+  induction fuel with
+  | zero =>
+    intro st memo l r diff la ra ob st' memo' hwf hinv hl hr hgo
+    unfold leqCoreLI at hgo
+    cases hgo
+    exact ⟨hwf, Ext.refl st, hinv, by simp [Level.leqCore]⟩
+  | succ fuel ih =>
+    intro st memo l r diff la ra ob st' memo' hwf hinv hl hr hgo
+    unfold leqCoreLI at hgo
+    have hzl : (st.lnodes[l]? = some LNode.zero) ↔ (la = .zero) := by
+      constructor
+      · intro hn
+        have := denoteL_head hl hn
+        simpa [denoteLNode] using this.symm
+      · rintro rfl
+        exact denoteL_zero_node hl
+    have hzr : (st.lnodes[r]? = some LNode.zero) ↔ (ra = .zero) := by
+      constructor
+      · intro hn
+        have := denoteL_head hr hn
+        simpa [denoteLNode] using this.symm
+      · rintro rfl
+        exact denoteL_zero_node hr
+    by_cases h1 : la = .zero ∧ diff ≥ 0
+    · rw [if_pos ⟨hzl.mpr h1.1, h1.2⟩] at hgo
+      cases hgo
+      refine ⟨hwf, Ext.refl st, hinv, ?_⟩
+      rw [show Level.leqCore (fuel + 1) la ra diff =
+        (if la = .zero ∧ diff ≥ 0 then some true
+         else if ra = .zero ∧ diff < 0 then some false
+         else Level.rest fuel la ra diff) from by
+          simp [Level.leqCore]]
+      rw [if_pos h1]
+    · rw [if_neg (fun hc => h1 ⟨hzl.mp hc.1, hc.2⟩)] at hgo
+      by_cases h2 : ra = .zero ∧ diff < 0
+      · rw [if_pos ⟨hzr.mpr h2.1, h2.2⟩] at hgo
+        cases hgo
+        refine ⟨hwf, Ext.refl st, hinv, ?_⟩
+        rw [show Level.leqCore (fuel + 1) la ra diff =
+          (if la = .zero ∧ diff ≥ 0 then some true
+           else if ra = .zero ∧ diff < 0 then some false
+           else Level.rest fuel la ra diff) from by
+            simp [Level.leqCore]]
+        rw [if_neg h1, if_pos h2]
+      · rw [if_neg (fun hc => h2 ⟨hzr.mp hc.1, hc.2⟩)] at hgo
+        obtain ⟨hwf1, hext1, hinv1, hob⟩ :=
+          leqRestLI_spec ih hwf hinv hl hr hgo
+        refine ⟨hwf1, hext1, hinv1, ?_⟩
+        rw [hob]
+        rw [show Level.leqCore (fuel + 1) la ra diff =
+          (if la = .zero ∧ diff ≥ 0 then some true
+           else if ra = .zero ∧ diff < 0 then some false
+           else Level.rest fuel la ra diff) from by
+            simp [Level.leqCore]]
+        rw [if_neg h1, if_neg h2]
+
+/-- `leqLI` computes `Level.leq` under the denotation. -/
+theorem leqLI_spec {st : EStore} {memo : EStore.LMemo} {l r : LIdx}
+    {la ra : Level} {ob : Option Bool} {st' : EStore} {memo' : EStore.LMemo}
+    (hwf : st.WF) (hinv : LvlMemoInv st Level.simplify memo)
+    (hl : st.denoteL l = some la) (hr : st.denoteL r = some ra)
+    (hgo : leqLI st memo l r = (ob, st', memo')) :
+    st'.WF ∧ Ext st st' ∧ LvlMemoInv st' Level.simplify memo' ∧
+      ob = Level.leq la ra := by
+  unfold leqLI at hgo
+  rcases h1 : simplifyLIGo st memo l with ⟨ls, st1, memo1⟩
+  rw [h1] at hgo
+  dsimp only at hgo
+  obtain ⟨hwf1, hext1, hinv1, hden1⟩ := simplifyLIGo_spec l hwf hinv h1
+  rcases h2 : simplifyLIGo st1 memo1 r with ⟨rs, st2, memo2⟩
+  rw [h2] at hgo
+  dsimp only at hgo
+  obtain ⟨hwf2, hext2, hinv2, hden2⟩ := simplifyLIGo_spec r hwf1 hinv1 h2
+  obtain ⟨hwf3, hext3, hinv3, hob⟩ := leqCoreLI_spec Level.defaultFuel
+    hwf2 hinv2
+    (denoteL_mono hext2 (hden1 la hl))
+    (hden2 ra (denoteL_mono hext1 hr)) hgo
+  exact ⟨hwf3, (hext1.trans hext2).trans hext3, hinv3, hob⟩
+
+/-- `isEquivLI` computes `Level.isEquiv` under the denotation. -/
+theorem isEquivLI_spec {st : EStore} {memo : EStore.LMemo} {l r : LIdx}
+    {la ra : Level} {ob : Option Bool} {st' : EStore} {memo' : EStore.LMemo}
+    (hwf : st.WF) (hinv : LvlMemoInv st Level.simplify memo)
+    (hl : st.denoteL l = some la) (hr : st.denoteL r = some ra)
+    (hgo : isEquivLI st memo l r = (ob, st', memo')) :
+    st'.WF ∧ Ext st st' ∧ LvlMemoInv st' Level.simplify memo' ∧
+      ob = Level.isEquiv la ra := by
+  unfold isEquivLI at hgo
+  rcases h1 : leqLI st memo l r with ⟨ob1, st1, memo1⟩
+  rw [h1] at hgo
+  obtain ⟨hwf1, hext1, hinv1, hob1⟩ := leqLI_spec hwf hinv hl hr h1
+  cases ob1 with
+  | none =>
+    dsimp only at hgo
+    cases hgo
+    refine ⟨hwf1, hext1, hinv1, ?_⟩
+    rw [Level.isEquiv, ← hob1]
+    rfl
+  | some b1 =>
+    dsimp only at hgo
+    rcases h2 : leqLI st1 memo1 r l with ⟨ob2, st2, memo2⟩
+    rw [h2] at hgo
+    obtain ⟨hwf2, hext2, hinv2, hob2⟩ := leqLI_spec hwf1 hinv1
+      (denoteL_mono hext1 hr) (denoteL_mono hext1 hl) h2
+    cases ob2 with
+    | none =>
+      dsimp only at hgo
+      cases hgo
+      refine ⟨hwf2, hext1.trans hext2, hinv2, ?_⟩
+      rw [Level.isEquiv, ← hob1, ← hob2]
+      rfl
+    | some b2 =>
+      dsimp only at hgo
+      cases hgo
+      refine ⟨hwf2, hext1.trans hext2, hinv2, ?_⟩
+      rw [Level.isEquiv, ← hob1, ← hob2]
+      rfl
+
+/-- `isEquivListLI` computes `Level.isEquivList` under the denotation. -/
+theorem isEquivListLI_spec :
+    ∀ {ls rs : List LIdx} {st : EStore} {memo : EStore.LMemo}
+      {las ras : List Level} {ob : Option Bool} {st' : EStore}
+      {memo' : EStore.LMemo},
+      st.WF → LvlMemoInv st Level.simplify memo →
+      denoteLList st.denoteL ls = some las →
+      denoteLList st.denoteL rs = some ras →
+      isEquivListLI st memo ls rs = (ob, st', memo') →
+      st'.WF ∧ Ext st st' ∧ LvlMemoInv st' Level.simplify memo' ∧
+        ob = Level.isEquivList las ras := by
+  intro ls
+  induction ls with
+  | nil =>
+    intro rs st memo las ras ob st' memo' hwf hinv hls hrs hgo
+    cases hls
+    cases rs with
+    | nil =>
+      cases hrs
+      cases hgo
+      exact ⟨hwf, Ext.refl st, hinv, rfl⟩
+    | cons r rs' =>
+      simp only [denoteLList, Option.bind_eq_some_iff,
+        Option.map_eq_some_iff] at hrs
+      obtain ⟨x, -, xs, -, rfl⟩ := hrs
+      cases hgo
+      exact ⟨hwf, Ext.refl st, hinv, rfl⟩
+  | cons l ls' ih =>
+    intro rs st memo las ras ob st' memo' hwf hinv hls hrs hgo
+    simp only [denoteLList, Option.bind_eq_some_iff,
+      Option.map_eq_some_iff] at hls
+    obtain ⟨x, hx, xs, hxs, rfl⟩ := hls
+    cases rs with
+    | nil =>
+      cases hrs
+      cases hgo
+      exact ⟨hwf, Ext.refl st, hinv, rfl⟩
+    | cons r rs' =>
+      simp only [denoteLList, Option.bind_eq_some_iff,
+        Option.map_eq_some_iff] at hrs
+      obtain ⟨y, hy, ys, hys, rfl⟩ := hrs
+      unfold isEquivListLI at hgo
+      rcases h1 : isEquivLI st memo l r with ⟨ob1, st1, memo1⟩
+      rw [h1] at hgo
+      obtain ⟨hwf1, hext1, hinv1, hob1⟩ := isEquivLI_spec hwf hinv hx hy h1
+      cases ob1 with
+      | none =>
+        dsimp only at hgo
+        cases hgo
+        refine ⟨hwf1, hext1, hinv1, ?_⟩
+        rw [show Level.isEquivList (x :: xs) (y :: ys)
+          = (do return (← Level.isEquiv x y)
+              && (← Level.isEquivList xs ys) : Option Bool) from rfl,
+          ← hob1]
+        rfl
+      | some b1 =>
+        dsimp only at hgo
+        rcases h2 : isEquivListLI st1 memo1 ls' rs' with ⟨ob2, st2, memo2⟩
+        rw [h2] at hgo
+        obtain ⟨hwf2, hext2, hinv2, hob2⟩ := ih hwf1 hinv1
+          (denoteLList_mono hext1 hxs) (denoteLList_mono hext1 hys) h2
+        cases ob2 with
+        | none =>
+          dsimp only at hgo
+          cases hgo
+          refine ⟨hwf2, hext1.trans hext2, hinv2, ?_⟩
+          rw [show Level.isEquivList (x :: xs) (y :: ys)
+            = (do return (← Level.isEquiv x y)
+                && (← Level.isEquivList xs ys) : Option Bool) from rfl,
+            ← hob1, ← hob2]
+          rfl
+        | some b2 =>
+          dsimp only at hgo
+          cases hgo
+          refine ⟨hwf2, hext1.trans hext2, hinv2, ?_⟩
+          rw [show Level.isEquivList (x :: xs) (y :: ys)
+            = (do return (← Level.isEquiv x y)
+                && (← Level.isEquivList xs ys) : Option Bool) from rfl,
+            ← hob1, ← hob2]
+          rfl
+
 end Setlec
