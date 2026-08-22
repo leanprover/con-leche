@@ -255,6 +255,19 @@ protected theorem withStore {β α γ : Type} {P : IState → β → α → Prop
     StateT.map, get, getThe, MonadStateOf.get, StateT.get, Except.map,
     Except.bind, pure, StateT.pure, Except.pure] using hr
 
+/-- Weaken the fueled side: any computation whose successful values
+subsume `p`'s (at some fuel) can replace it. -/
+protected theorem wr {β α : Type} {P : IState → β → α → Prop}
+    {c : CheckIM β} {p q : FueledM α}
+    (h : SimAt env s₀ P c p)
+    (himp : ∀ (v : α) (F : Nat), p.val F = .ok v →
+      ∃ F', q.val F' = .ok v) :
+    SimAt env s₀ P c q := by
+  intro v' s' hr
+  obtain ⟨hs', hext, v, hP, F, hp⟩ := h v' s' hr
+  obtain ⟨F', hq⟩ := himp v F hp
+  exact ⟨hs', hext, v, hP, F', hq⟩
+
 /-- Weaken the value relation. -/
 protected theorem mono {β α : Type} {P Q : IState → β → α → Prop}
     {c : CheckIM β} {p : FueledM α}

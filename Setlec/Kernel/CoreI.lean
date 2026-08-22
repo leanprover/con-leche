@@ -860,6 +860,87 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
     | _ => pure none
   | _ => pure none
 
+mutual
+
+/-- Bulk-beta argument loop (task #50): consume the whole application
+spine against the whnf'd head `v`.  A lambda head enters the peel loop
+(first binder inline, which keeps the argument count decreasing);
+other heads try iota with one more argument and otherwise accumulate a
+stuck application — exactly the per-level `whnfCoreBody` app clauses,
+but with the chained per-argument `instantiate1` of the beta path
+replaced by one bulk substitution per peeled group
+(`Setlec/Verify/BetaSpine.lean` proves the identification). -/
+def whnfAppI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
+    EIdx → List EIdx → CheckIM EIdx
+  | v, [] => pure v
+  | v, a :: rest => do
+    match ← viewI v with
+    | some (.lam _ ty body mb) =>
+      match mb.cod with
+      | some lv =>
+        if lv.isNonZero then betaPeelI r fe depth body [a] rest
+        else do
+          let ta ← r.infer depth a
+          if ← r.defeq depth ta ty then betaPeelI r fe depth body [a] rest
+          else do
+            let fa ← internI (.app v a)
+            mkAppNM fa rest
+      | none => do
+        let fa ← internI (.app v a)
+        mkAppNM fa rest
+    | _ => do
+      let fa ← internI (.app v a)
+      match ← iotaRecI r fe depth fa with
+      | some e'' => do
+        let v' ← r.whnfCore depth e''
+        whnfAppI r fe depth v' rest
+      | none => whnfAppI r fe depth fa rest
+termination_by _ args => (args.length, 0)
+decreasing_by
+  all_goals first
+    | (apply Prod.Lex.left; simp; done)
+    | (apply Prod.Lex.right' <;> simp)
+
+/-- Peel loop of `whnfAppI`: `t` is the raw (unsubstituted) lambda body
+after the binders consumed so far, `acc` their arguments (innermost
+first).  Each binder's possibly-Prop certificate substitutes only the
+*domain*; the body is substituted once, when peeling stops. -/
+def betaPeelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
+    EIdx → List EIdx → List EIdx → CheckIM EIdx
+  | t, acc, [] => do
+    let e' ← instListM t acc
+    r.whnfCore depth e'
+  | t, acc, a :: rest => do
+    match ← viewI t with
+    | some (.lam _ ty body mb) =>
+      match mb.cod with
+      | some lv =>
+        if lv.isNonZero then betaPeelI r fe depth body (a :: acc) rest
+        else do
+          let ty' ← instListM ty acc
+          let ta ← r.infer depth a
+          if ← r.defeq depth ta ty' then
+            betaPeelI r fe depth body (a :: acc) rest
+          else do
+            let f' ← instListM t acc
+            let fa ← internI (.app f' a)
+            mkAppNM fa rest
+      | none => do
+        let f' ← instListM t acc
+        let fa ← internI (.app f' a)
+        mkAppNM fa rest
+    | _ => do
+      let e' ← instListM t acc
+      let v ← r.whnfCore depth e'
+      whnfAppI r fe depth v (a :: rest)
+termination_by _ _acc args => (args.length, 1)
+decreasing_by
+  all_goals first
+    | (apply Prod.Lex.left; simp; done)
+    | (apply Prod.Lex.right' <;> simp)
+
+end
+
 /-- Twin of `projCert`. -/
 def projCertI (r : CoreFnsI) (_fe : FEnv) (depth : Nat)
     (e₂ : EIdx) (i : Nat) (fieldLvl structLvl : Level) (nP : Nat) :
@@ -890,27 +971,14 @@ def whnfCoreBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
     match ← viewI e with
     | some (.sort _) | some (.fvar ..) | some (.forallE ..)
     | some (.lam ..) | some (.const ..) | some (.lit _) => pure e
-    | some (.app f a) => do
-      let f' ← r.whnfCore depth f
-      match ← viewI f' with
-      | some (.lam _ ty body mb) =>
-        match mb.cod with
-        | some v =>
-          if v.isNonZero then do
-            let e' ← inst1M body a
-            r.whnfCore depth e'
-          else do
-            let ta ← r.infer depth a
-            if ← r.defeq depth ta ty then do
-              let e' ← inst1M body a
-              r.whnfCore depth e'
-            else internI (.app f' a)
-        | none => internI (.app f' a)
-      | _ => do
-        let fa ← internI (.app f' a)
-        match ← iotaRecI r fe depth fa with
-        | some e'' => r.whnfCore depth e''
-        | none => pure fa
+    | some (.app _ _) => do
+      -- Bulk beta (task #50): normalize the spine head once and run the
+      -- argument loop over the whole spine, batching consecutive
+      -- lambda binders into one substitution.
+      let h ← withStore (fun st => st.getAppFnI e)
+      let args ← withStore (·.getAppArgsI e)
+      let v ← r.whnfCore depth h
+      whnfAppI r fe depth v args
     | some (.proj sn i pe) => do
       let e' ← r.whnf depth pe
       let e' ← projLitToCtorI r fe depth e'
@@ -939,6 +1007,35 @@ def whnfCoreBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
     | some (.bvar _) | some (.letE ..) =>
       throw (.notImplemented "whnf beyond the supported fragment")
     | none => throw (.internal "interned node missing")
+
+/-- Application-inference spine loop (task #50): walk the raw
+Π-telescope against the arguments with deferred substitution — each
+argument's certificate substitutes only its *domain*; the codomain is
+substituted once per peeled group.  A non-syntactic telescope step
+substitutes and normalizes, exactly like the chained `inferBody`
+recursion (`Setlec/Verify/BetaSpine.lean` proves the
+identification). -/
+def inferSpineI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
+    EIdx → List EIdx → List EIdx → CheckIM EIdx
+  | ty, acc, [] => instListM ty acc
+  | ty, acc, a :: rest => do
+    match ← viewI ty with
+    | some (.forallE _ dom body _) => do
+      let dom' ← instListM dom acc
+      let ta ← r.infer depth a
+      unless ← r.defeq depth ta dom' do
+        throw (.invalid "application type mismatch")
+      inferSpineI r fe depth body (a :: acc) rest
+    | _ => do
+      let ty' ← instListM ty acc
+      let w ← r.whnf depth ty'
+      match ← viewI w with
+      | some (.forallE _ dom body _) => do
+        let ta ← r.infer depth a
+        unless ← r.defeq depth ta dom do
+          throw (.invalid "application type mismatch")
+        inferSpineI r fe depth body [a] rest
+      | _ => throw (.invalid "function expected")
 
 /-- Twin of `whnfBody`. -/
 def whnfBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
@@ -1011,16 +1108,13 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
           | _ => throw (.invalid "expected a sort")
         | _ => throw (.invalid "expected a sort")
       | none => throw (.internal "unannotated λ-binder reached inferType")
-    | some (.app f a) => do
-      let tf ← r.infer depth f
-      let wtf ← r.whnf depth tf
-      match ← viewI wtf with
-      | some (.forallE _ ty body _) => do
-        let ta ← r.infer depth a
-        unless ← r.defeq depth ta ty do
-          throw (.invalid "application type mismatch")
-        inst1M body a
-      | _ => throw (.invalid "function expected")
+    | some (.app _ _) => do
+      -- Bulk telescope consumption (task #50): infer the spine head
+      -- once and walk its Π-telescope against the whole spine.
+      let h ← withStore (fun st => st.getAppFnI e)
+      let args ← withStore (·.getAppArgsI e)
+      let tf ← r.infer depth h
+      inferSpineI r fe depth tf [] args
     | some (.proj _sn i pe) => do
       let tpe ← r.infer depth pe
       let te ← r.whnf depth tpe
