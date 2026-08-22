@@ -250,7 +250,7 @@ theorem unfoldDefinition_fvarLeaves {env : Env} (henv : EnvWF env)
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.defnInfo cv value hint) => ?_
   intro h
   dsimp only at h
@@ -290,7 +290,7 @@ theorem unfoldDefinition_looseBVars {env : Env} (henv : EnvWF env)
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.defnInfo cv value hint) => ?_
   intro h
   dsimp only at h
@@ -366,10 +366,10 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
           · exact Or.inl (ihCore hwf l (by simp [fvarLeaves, hb]))
           · exact Or.inr hb
         · -- iota step
-          obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major, cj, usj,
+          obtain ⟨c, us, cv, mI, rP, rules, major₀, major, cj, usj,
             cvj, cnP, cnF, r, -, -, -, -, -, hfn, hfc, hlen, hmaj, hsub, hmfn, hfj,
             hrule,
-            hml1, hml2, har1, har2, -, hlev, hpeq, hcerts, hmcerts, -, -, -, -, rfl⟩ :=
+            hml, har1, har2, -, hlev, hpeq, hcerts, hmcerts, -, -, -, -, rfl⟩ :=
             iotaRec_inv hio
           have hsubM : ∀ l ∈ major.fvarLeaves, l ∈ major₀.fvarLeaves := by
             rcases majorToCtor_inv hsub with rfl | ⟨-, -, hall, -⟩
@@ -380,7 +380,7 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
           have hl2 := ihCore hwe'' l hl
           rcases fvarLeaves_mkAppN hl2 with hrl | ⟨x, hx, hlx⟩
           · obtain ⟨-, -, -, -, -, hrules⟩ := henv _ (find?_mem hfc)
-            obtain ⟨hrf, -, -, -⟩ := hrules cv nP nM nm ni rules rfl r
+            obtain ⟨hrf, -, -, -⟩ := hrules cv mI rP rules rfl r
               (List.mem_of_find?_eq_some hrule)
             rw [fvarLeaves_eq_nil_of_not_hasFvar
               (by rw [hasFvar_instantiateLevelParams]; exact hrf)] at hrl
@@ -484,10 +484,10 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
           exact ihCore hbeta
             (looseBVarsBounded_instantiate1_gen hb.2 hbf'.2)
         · -- iota step
-          obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major, cj, usj,
+          obtain ⟨c, us, cv, mI, rP, rules, major₀, major, cj, usj,
             cvj, cnP, cnF, r, -, -, -, -, -, hfn, hfc, hlen, hmaj, hsub, hmfn, hfj,
             hrule,
-            hml1, hml2, har1, har2, -, hlev, hpeq, hcerts, hmcerts, -, -, -, -, rfl⟩ :=
+            hml, har1, har2, -, hlev, hpeq, hcerts, hmcerts, -, -, -, -, rfl⟩ :=
             iotaRec_inv hio
           have hbapp : (Expr.app f' a).looseBVarsBounded 0 = true := by
             simp only [looseBVarsBounded, Bool.and_eq_true]
@@ -502,7 +502,7 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
           refine ihCore hwe'' ?_
           refine looseBVarsBounded_mkAppN ?_ ?_
           · obtain ⟨-, -, -, -, -, hrules⟩ := henv _ (find?_mem hfc)
-            obtain ⟨-, -, -, hrb⟩ := hrules cv nP nM nm ni rules rfl r
+            obtain ⟨-, -, -, hrb⟩ := hrules cv mI rP rules rfl r
               (List.mem_of_find?_eq_some hrule)
             rw [looseBVarsBounded_instantiateLevelParams]
             exact hrb

@@ -250,7 +250,7 @@ theorem structEtaProjCerts_fst (d : Nat) (T : Name) (us' : List Level)
   | i :: rest => by
     show ((do
         match env.find? (projFnName T i) with
-        | some (.recInfo cvp _ _ _ _ _) =>
+        | some (.recInfo cvp _ _ _) =>
           if cvp.levelParams = lpsT ∧
               (cvp.type.stripPis (targs.length + 1)).isSome = true then
             if ← iotaCerts (pairFns r₁ r₂ h) env d
@@ -262,7 +262,7 @@ theorem structEtaProjCerts_fst (d : Nat) (T : Name) (us' : List Level)
           else pure false
         | _ => pure false : PairM rel Bool)).val.1 = (do
         match env.find? (projFnName T i) with
-        | some (.recInfo cvp _ _ _ _ _) =>
+        | some (.recInfo cvp _ _ _) =>
           if cvp.levelParams = lpsT ∧
               (cvp.type.stripPis (targs.length + 1)).isSome = true then
             if ← iotaCerts r₁ env d
@@ -276,7 +276,7 @@ theorem structEtaProjCerts_fst (d : Nat) (T : Name) (us' : List Level)
     | none => rfl
     | some ci =>
       cases ci with
-      | recInfo cvp nP nM nm ni rules =>
+      | recInfo cvp mI rP rules =>
         dsimp only
         split
         · rw [PairM.fst_bind, iotaCerts_fst]
@@ -304,7 +304,7 @@ theorem structEtaProjCerts_snd (d : Nat) (T : Name) (us' : List Level)
   | i :: rest => by
     show ((do
         match env.find? (projFnName T i) with
-        | some (.recInfo cvp _ _ _ _ _) =>
+        | some (.recInfo cvp _ _ _) =>
           if cvp.levelParams = lpsT ∧
               (cvp.type.stripPis (targs.length + 1)).isSome = true then
             if ← iotaCerts (pairFns r₁ r₂ h) env d
@@ -316,7 +316,7 @@ theorem structEtaProjCerts_snd (d : Nat) (T : Name) (us' : List Level)
           else pure false
         | _ => pure false : PairM rel Bool)).val.2 = (do
         match env.find? (projFnName T i) with
-        | some (.recInfo cvp _ _ _ _ _) =>
+        | some (.recInfo cvp _ _ _) =>
           if cvp.levelParams = lpsT ∧
               (cvp.type.stripPis (targs.length + 1)).isSome = true then
             if ← iotaCerts r₂ env d
@@ -330,7 +330,7 @@ theorem structEtaProjCerts_snd (d : Nat) (T : Name) (us' : List Level)
     | none => rfl
     | some ci =>
       cases ci with
-      | recInfo cvp nP nM nm ni rules =>
+      | recInfo cvp mI rP rules =>
         dsimp only
         split
         · rw [PairM.snd_bind, iotaCerts_snd]

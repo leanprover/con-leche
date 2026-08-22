@@ -14,7 +14,7 @@ open Name (anonymous)
 /-- The pinned `Empty` basis block (no constructors, no iota rules). -/
 def emptyBasis : List ConstantInfo := [
   .indInfo ⟨(anonymous |>.str "Empty"), [], (.sort (.succ .zero))⟩ {},
-  .recInfo ⟨((anonymous |>.str "Empty") |>.str "rec"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "Empty") []) (.sort (.param (anonymous |>.str "u"))) ⟨.default, none⟩) (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "Empty") []) (.app (.bvar 1) (.bvar 0)) ⟨.default, none⟩) ⟨.default, none⟩)⟩ 0 1 0 0 []]
+  .recInfo ⟨((anonymous |>.str "Empty") |>.str "rec"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "Empty") []) (.sort (.param (anonymous |>.str "u"))) ⟨.default, none⟩) (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "Empty") []) (.app (.bvar 1) (.bvar 0)) ⟨.default, none⟩) ⟨.default, none⟩)⟩ 1 1 []]
 
 /-! ## The annotated declarations
 
@@ -54,10 +54,8 @@ def emptyRecA : ConstantInfo :=
                   cod := some (Setlec.Level.imax
                            (Setlec.Level.succ (Setlec.Level.zero))
                            (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))) } }
-    0
     1
-    0
-    0
+    1
     []
 
 end Setlec

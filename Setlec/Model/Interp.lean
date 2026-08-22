@@ -221,22 +221,30 @@ rhs's own annotation truthfulness.  Basis blocks discharge this from
 the hand-written values; modeled blocks will discharge it from their
 checked `_model` theorems. -/
 def RecRulesOk (env : Env) (val : ConstVal V) : Prop :=
-  ∀ n cv nP nM nm ni rules,
-    env.find? n = some (.recInfo cv nP nM nm ni rules) →
+  ∀ n cv mI rP rules,
+    env.find? n = some (.recInfo cv mI rP rules) →
     ∀ r ∈ rules,
       (∀ ψ : Name → Nat, AnnotOk V val env ψ 0 (rho0 V) (RecRule.rhs r)) ∧
+      -- a canonical rule's prefix fits under the major's position (part
+      -- of `Expr.recRulePlain`, whose install-time computation backs
+      -- the stored flag)
+      (RecRule.plain r = true → rP ≤ mI) ∧
       ∀ cvj cnP cnF,
         env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF) →
+        -- the spine arithmetic is over the *rule's* stored counts
+        -- (`ctorParams`/`nfields`, install-computed): `iotaRec` reads
+        -- only the rule fields, never the constructor's stored counts
         ∀ (ψ ψj : Name → Nat) (args margs : List V) (tv : V),
-          args.length = nP + nM + nm + ni →
-          margs.length = cnP + cnF →
+          args.length = mI →
+          margs.length = RecRule.ctorParams r + RecRule.nfields r →
           ChainSlots V (val n ψ) (args ++ [tv]) →
           ChainSlots V (val (RecRule.ctor r) ψj) margs →
           tv = SpineFold V (val (RecRule.ctor r) ψj) margs →
-          margs.take cnP = (args ++ [tv]).take cnP →
+          margs.take (RecRule.ctorParams r) =
+            (args ++ [tv]).take (RecRule.ctorParams r) →
           -- non-canonical (nested-auxiliary) rules are inert: `iotaRec`
-          -- guards on `recRulePlain`, so their fold facts are vacuous
-          Expr.recRulePlain cv.type nP nM nm ni cnP = true →
+          -- guards on the stored flag, so their fold facts are vacuous
+          RecRule.plain r = true →
           (∀ p ∈ cvj.levelParams, ψj p = ψ p) →
           (∃ (φ' : Name → Nat) (us usj : List Level) (d : Nat) (ρ : Nat → V)
               (d₁ : Nat) (ρ₁ : Nat → V) (rest₁ : Expr)
@@ -252,17 +260,19 @@ def RecRulesOk (env : Env) (val : ConstVal V) : Prop :=
             -- the recursor's index-argument values are the constructor's
             -- canonical index tuple: the trailing interpretations of the
             -- opened constructor residual (the kernel's index certificate)
-            (rest₂.getAppArgs.drop cnP).mapM
+            (rest₂.getAppArgs.drop (RecRule.ctorParams r)).mapM
               (interpExpr V val env φ' d₂ ρ₂) =
-              some (args.drop (nP + nM + nm))) →
+              some (args.drop rP)) →
           ∃ R, interpClosed V val env ψ (RecRule.rhs r) = some R ∧
             SpineFold V (val n ψ) (args ++ [tv]) =
-              SpineFold V R (args.take (nP + nM + nm) ++ margs.drop cnP) ∧
-            ChainSlots V R (args.take (nP + nM + nm) ++ margs.drop cnP)
+              SpineFold V R
+                (args.take rP ++ margs.drop (RecRule.ctorParams r)) ∧
+            ChainSlots V R
+              (args.take rP ++ margs.drop (RecRule.ctorParams r))
 
 theorem RecRulesOk.empty (val : ConstVal V) :
     RecRulesOk V Env.empty val := by
-  intro n cv nP nM nm ni rules h
+  intro n cv mI rP rules h
   simp [Env.find?, Env.empty] at h
 
 /-- The semantic eta law of an eta-capable stored structure: every
@@ -524,10 +534,10 @@ theorem natLitSupported_inv {env : Env} (hs : natLitSupported env = true) :
 
 /-- The literal guard ignores a stored recursor's rule list (the slot
 checks only ever accept inductive/constructor kinds). -/
-theorem natLitSupported_cons_recRules {cvA : ConstantVal} {nP nM nm ni : Nat}
+theorem natLitSupported_cons_recRules {cvA : ConstantVal} {mI rP : Nat}
     {rules₁ rules₂ : List RecRule} {env : Env} :
-    natLitSupported ⟨ConstantInfo.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ =
-    natLitSupported ⟨ConstantInfo.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ := by
+    natLitSupported ⟨ConstantInfo.recInfo cvA mI rP rules₁ :: env.consts⟩ =
+    natLitSupported ⟨ConstantInfo.recInfo cvA mI rP rules₂ :: env.consts⟩ := by
   unfold natLitSupported
   rw [Env.find?_cons, Env.find?_cons, Env.find?_cons, Env.find?_cons,
     Env.find?_cons, Env.find?_cons]

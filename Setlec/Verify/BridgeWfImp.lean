@@ -618,7 +618,7 @@ theorem findThm?_ok {env : Env} {n : Name} {cvt : ConstantVal}
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.thmInfo cv v) =>
     intro h
     simp only [Option.some.injEq, Prod.mk.injEq] at h
@@ -663,15 +663,15 @@ closed; everything the check compares is scoped at the opened
 telescope's depth. -/
 theorem checkIotaThm_wfimp {env' envSelf : Env} (henv' : EnvWF env')
     (henvSelf : EnvWF envSelf) {f : Name → Name} {cvName : Name}
-    {lps : List Name} {tyA : Expr} {nP nM nm ni j : Nat} {r : RecRule}
+    {lps : List Name} {tyA : Expr} {mI rP j : Nat} {r : RecRule}
     {cvj : ConstantVal} {cnP cnF : Nat} {rhsA : Expr} {F : Nat}
     {v : Unit}
     (htyA : tyA.hasFvar = false) (hctor : cvj.type.hasFvar = false)
     (hrhsA : rhsA.hasFvar = false)
     (h : (checkIotaThm wfOpsM env' envSelf f cvName lps tyA
-      nP nM nm ni j r cvj cnP cnF rhsA).val F = .ok v) :
+      mI rP j r cvj cnP cnF rhsA).val F = .ok v) :
     checkIotaThm (fueledOps F) env' envSelf f cvName lps tyA
-      nP nM nm ni j r cvj cnP cnF rhsA = .ok v := by
+      mI rP j r cvj cnP cnF rhsA = .ok v := by
   unfold checkIotaThm at h ⊢
   try dsimp only [] at h ⊢
   obtain ⟨p, hthm, h⟩ := atF_bind_ok h
@@ -691,24 +691,24 @@ theorem checkIotaThm_wfimp {env' envSelf : Env} (henv' : EnvWF env')
   obtain ⟨q, hopen, h⟩ := atF_bind_ok h
   obtain ⟨fvs, tbody⟩ := q
   have hopen' := unwrapOr_atF_ok hopen
-  show ((unwrapOr (openPisAtFvars (nP + nM + nm + cnF) cvt.type 0) _ :
+  show ((unwrapOr (openPisAtFvars (rP + cnF) cvt.type 0) _ :
     CheckM _) >>= _) = _
   rw [hopen']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   try dsimp only [] at h ⊢
   -- scoping of the opened telescope
-  have hopenW := openPisAtFvars_WScoped (nP + nM + nm + cnF) cvt.type 0
+  have hopenW := openPisAtFvars_WScoped (rP + cnF) cvt.type 0
     hopen' (WScoped.of_not_hasFvar hcvtF)
   rw [Nat.zero_add] at hopenW
   obtain ⟨hfvsW, htbodyW⟩ := hopenW
   have htargsW : ∀ x ∈ tbody.getAppArgs,
-      WScoped (nP + nM + nm + cnF) x := Expr.WScoped.getAppArgs htbodyW
-  have hlhsW : WScoped (nP + nM + nm + cnF)
+      WScoped (rP + cnF) x := Expr.WScoped.getAppArgs htbodyW
+  have hlhsW : WScoped (rP + cnF)
       (tbody.getAppArgs.getD 1 (.bvar 0)) := WScoped_getD' htargsW 1
-  have hrhsSW : WScoped (nP + nM + nm + cnF)
+  have hrhsSW : WScoped (rP + cnF)
       (tbody.getAppArgs.getD 2 (.bvar 0)) := WScoped_getD' htargsW 2
   have hlargsW : ∀ x ∈ (tbody.getAppArgs.getD 1 (.bvar 0)).getAppArgs,
-      WScoped (nP + nM + nm + cnF) x := Expr.WScoped.getAppArgs hlhsW
+      WScoped (rP + cnF) x := Expr.WScoped.getAppArgs hlhsW
   by_cases h2 : isEqHead tbody.getAppFn = true
   case neg => rw [if_neg h2] at h; exact absurd h atF_throw_bind
   rw [if_pos h2] at h ⊢
@@ -721,18 +721,18 @@ theorem checkIotaThm_wfimp {env' envSelf : Env} (henv' : EnvWF env')
   case neg => rw [if_neg h4] at h; exact absurd h atF_throw_bind
   rw [if_pos h4] at h ⊢
   by_cases h5 : (tbody.getAppArgs.getD 1 (.bvar 0)).getAppArgs.length =
-      nP + nM + nm + ni + 1
+      mI + 1
   case neg => rw [if_neg h5] at h; exact absurd h atF_throw_bind
   rw [if_pos h5] at h ⊢
   by_cases h6 : ((tbody.getAppArgs.getD 1
-      (.bvar 0)).getAppArgs.take (nP + nM + nm) ==
-      fvs.take (nP + nM + nm)) = true
+      (.bvar 0)).getAppArgs.take rP ==
+      fvs.take rP) = true
   case neg => rw [if_neg h6] at h; exact absurd h atF_throw_bind
   rw [if_pos h6] at h ⊢
   by_cases h7 : ((tbody.getAppArgs.getD 1
       (.bvar 0)).getAppArgs.getLastD (.bvar 0) ==
       Expr.mkAppN (.const (f r.ctor) (cvj.levelParams.map .param))
-        (fvs.take cnP ++ fvs.drop (nP + nM + nm))) = true
+        (fvs.take cnP ++ fvs.drop rP)) = true
   case neg => rw [if_neg h7] at h; exact absurd h atF_throw_bind
   rw [if_pos h7] at h ⊢
   by_cases h8 : (cvj.type.stripPis (cnP + cnF)).isSome = true
@@ -742,13 +742,13 @@ theorem checkIotaThm_wfimp {env' envSelf : Env} (henv' : EnvWF env')
   obtain ⟨cdoms, cres⟩ := q2
   have hcinst' := unwrapOr_atF_ok hcinst
   show ((unwrapOr (Expr.instPisAt (fvs.take cnP ++
-    fvs.drop (nP + nM + nm)) (cvj.type.renameConsts f)) _ :
+    fvs.drop rP) (cvj.type.renameConsts f)) _ :
     CheckM _) >>= _) = _
   rw [hcinst']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   try dsimp only [] at h ⊢
-  have hcargW : ∀ a ∈ fvs.take cnP ++ fvs.drop (nP + nM + nm),
-      WScoped (nP + nM + nm + cnF) a := by
+  have hcargW : ∀ a ∈ fvs.take cnP ++ fvs.drop rP,
+      WScoped (rP + cnF) a := by
     intro a hax
     rcases List.mem_append.mp hax with hax | hax
     · exact hfvsW a (List.mem_of_mem_take hax)
@@ -758,7 +758,7 @@ theorem checkIotaThm_wfimp {env' envSelf : Env} (henv' : EnvWF env')
       rw [hasFvar_renameConsts]
       exact hctor)) hcargW
   obtain ⟨hcdomsW, hcresW⟩ := hcinstW
-  by_cases h9 : cres.getAppArgs.length = cnP + ni
+  by_cases h9 : cres.getAppArgs.length = cnP + (mI - rP)
   case neg => rw [if_neg h9] at h; exact absurd h atF_throw_bind
   rw [if_pos h9] at h ⊢
   obtain ⟨u1, hd1, h⟩ := atF_bind_ok h
@@ -782,7 +782,7 @@ theorem checkIotaThm_wfimp {env' envSelf : Env} (henv' : EnvWF env')
   obtain ⟨q3, hrinst, h⟩ := atF_bind_ok h
   obtain ⟨rdoms, rrest⟩ := q3
   have hrinst' := unwrapOr_atF_ok hrinst
-  show ((unwrapOr (Expr.instPisAt (fvs.take (nP + nM + nm))
+  show ((unwrapOr (Expr.instPisAt (fvs.take rP)
     (tyA.renameConsts f)) _ : CheckM _) >>= _) = _
   rw [hrinst']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
@@ -805,12 +805,12 @@ theorem checkIotaThm_wfimp {env' envSelf : Env} (henv' : EnvWF env')
   obtain ⟨q4, hopenP, h⟩ := atF_bind_ok h
   obtain ⟨fvsP, restP⟩ := q4
   have hopenP' := unwrapOr_atF_ok hopenP
-  show ((unwrapOr (openPisAtFvars (nP + nM + nm) tyA 0) _ :
+  show ((unwrapOr (openPisAtFvars rP tyA 0) _ :
     CheckM _) >>= _) = _
   rw [hopenP']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   try dsimp only [] at h ⊢
-  have hopenPW := openPisAtFvars_WScoped (nP + nM + nm) tyA 0 hopenP'
+  have hopenPW := openPisAtFvars_WScoped rP tyA 0 hopenP'
     (WScoped.of_not_hasFvar htyA)
   rw [Nat.zero_add] at hopenPW
   obtain ⟨hfvsPW, -⟩ := hopenPW
@@ -822,22 +822,22 @@ theorem checkIotaThm_wfimp {env' envSelf : Env} (henv' : EnvWF env')
   rw [hcinstP']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   try dsimp only [] at h ⊢
-  have hcinstPW := instPisAt_WScoped (d := nP + nM + nm) _ _ hcinstP'
+  have hcinstPW := instPisAt_WScoped (d := rP) _ _ hcinstP'
     (WScoped.of_not_hasFvar hctor)
     (fun a ha => hfvsPW a (List.mem_of_mem_take ha))
   obtain ⟨-, hcrestPW⟩ := hcinstPW
   obtain ⟨q6, hopenX, h⟩ := atF_bind_ok h
   obtain ⟨xFvsP, crest2⟩ := q6
   have hopenX' := unwrapOr_atF_ok hopenX
-  show ((unwrapOr (openPisAtFvars cnF crestP (nP + nM + nm)) _ :
+  show ((unwrapOr (openPisAtFvars cnF crestP rP) _ :
     CheckM _) >>= _) = _
   rw [hopenX']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   try dsimp only [] at h ⊢
-  have hopenXW := openPisAtFvars_WScoped cnF crestP (nP + nM + nm)
+  have hopenXW := openPisAtFvars_WScoped cnF crestP rP
     hopenX' hcrestPW
   obtain ⟨hxFvsPW, -⟩ := hopenXW
-  have hfvsPW' : ∀ a ∈ fvsP ++ xFvsP, WScoped (nP + nM + nm + cnF) a := by
+  have hfvsPW' : ∀ a ∈ fvsP ++ xFvsP, WScoped (rP + cnF) a := by
     intro a hax
     rcases List.mem_append.mp hax with hax | hax
     · exact WScoped.mono (by omega) (hfvsPW a hax)
@@ -869,7 +869,7 @@ theorem checkIotaThm_wfimp {env' envSelf : Env} (henv' : EnvWF env')
         exact hrhsA))
       (fun x hx => hfvsW x hx)).to_wscopedB] at h
   obtain ⟨c, hde, h⟩ := atF_bind_ok h
-  have hde' : isDefEqCore envSelf F (nP + nM + nm + cnF)
+  have hde' : isDefEqCore envSelf F (rP + cnF)
       (tbody.getAppArgs.getD 2 (.bvar 0))
       (Expr.mkAppN (rhsA.renameConsts f) fvs) = .ok c := hde
   show (isDefEqCore envSelf F _ _ _ >>= _) = _
@@ -884,12 +884,12 @@ theorem checkIotaThm_wfimp {env' envSelf : Env} (henv' : EnvWF env')
 
 theorem checkIotaRule_wfimp {env' envSelf : Env} (henv' : EnvWF env')
     (henvSelf : EnvWF envSelf) {f : Name → Name} {cvName : Name}
-    {lps : List Name} {tyA : Expr} {nP nM nm ni j : Nat} {r : RecRule}
+    {lps : List Name} {tyA : Expr} {mI rP j : Nat} {r : RecRule}
     {F : Nat} {v : RecRule} (htyA : tyA.hasFvar = false)
     (h : (checkIotaRule wfOpsM env' envSelf f cvName lps tyA
-      nP nM nm ni j r).val F = .ok v) :
+      mI rP j r).val F = .ok v) :
     checkIotaRule (fueledOps F) env' envSelf f cvName lps tyA
-      nP nM nm ni j r = .ok v := by
+      mI rP j r = .ok v := by
   unfold checkIotaRule at h ⊢
   dsimp only [] at h ⊢
   revert h
@@ -899,7 +899,7 @@ theorem checkIotaRule_wfimp {env' envSelf : Env} (henv' : EnvWF env')
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.ctorInfo cvj cnP cnF) => ?_
   intro h
   dsimp only [] at h ⊢
@@ -929,7 +929,7 @@ theorem checkIotaRule_wfimp {env' envSelf : Env} (henv' : EnvWF env')
   by_cases h6 : Expr.constsResolve envSelf rhsA = true
   case neg => rw [if_neg h6] at h; exact absurd h atF_throw_bind
   rw [if_pos h6] at h ⊢
-  by_cases h7 : (rhsA.stripLams (nP + nM + nm + cnF)).isSome = true
+  by_cases h7 : (rhsA.stripLams (rP + cnF)).isSome = true
   case neg => rw [if_neg h7] at h; exact absurd h atF_throw_bind
   rw [if_pos h7] at h ⊢
   rw [wfOpsM_inferType henvSelf hwrhsA.to_wscopedB] at h
@@ -938,7 +938,7 @@ theorem checkIotaRule_wfimp {env' envSelf : Env} (henv' : EnvWF env')
   show (inferTypeCore envSelf F 0 rhsA >>= _) = _
   rw [hity']
   simp only [Bind.bind, Except.bind]
-  by_cases h8 : Expr.recRulePlain tyA nP nM nm ni cnP = true
+  by_cases h8 : Expr.recRulePlain tyA mI rP cnP = true
   case neg =>
     rw [if_neg h8] at h ⊢
     exact h
@@ -948,33 +948,33 @@ theorem checkIotaRule_wfimp {env' envSelf : Env} (henv' : EnvWF env')
     (show cvj.type.hasFvar = false from (henv' _ (find?_mem hf)).1)
     hrhsAF hthm
   show (checkIotaThm (fueledOps F) env' envSelf f cvName lps tyA
-    nP nM nm ni j r cvj cnP cnF rhsA >>= _) = _
+    mI rP j r cvj cnP cnF rhsA >>= _) = _
   rw [hthm']
   simp only [Bind.bind, Except.bind]
   exact h
 
 theorem checkIotaRules_wfimp {env' envSelf : Env} (henv' : EnvWF env')
     (henvSelf : EnvWF envSelf) {f : Name → Name} {cvName : Name}
-    {lps : List Name} {tyA : Expr} {nP nM nm ni : Nat} {F : Nat}
+    {lps : List Name} {tyA : Expr} {mI rP : Nat} {F : Nat}
     (htyA : tyA.hasFvar = false) :
     ∀ {j : Nat} {rules rules' : List RecRule},
       (checkIotaRules wfOpsM env' envSelf f cvName lps tyA
-        nP nM nm ni j rules).val F = .ok rules' →
+        mI rP j rules).val F = .ok rules' →
       checkIotaRules (fueledOps F) env' envSelf f cvName lps tyA
-        nP nM nm ni j rules = .ok rules'
+        mI rP j rules = .ok rules'
   | _, [], rules', h => h
   | j, r :: rest, rules', h => by
     unfold checkIotaRules at h ⊢
     obtain ⟨r', hr, h⟩ := atF_bind_ok h
     have hr' := checkIotaRule_wfimp henv' henvSelf htyA hr
     show (checkIotaRule (fueledOps F) env' envSelf f cvName lps tyA
-      nP nM nm ni j r >>= _) = _
+      mI rP j r >>= _) = _
     rw [hr']
     simp only [Bind.bind, Except.bind]
     obtain ⟨rest', hrest, h⟩ := atF_bind_ok h
     have hrest' := checkIotaRules_wfimp henv' henvSelf htyA hrest
     show (checkIotaRules (fueledOps F) env' envSelf f cvName lps tyA
-      nP nM nm ni (j + 1) rest >>= _) = _
+      mI rP (j + 1) rest >>= _) = _
     rw [hrest']
     simp only [Bind.bind, Except.bind]
     exact h
@@ -1002,7 +1002,7 @@ theorem checkMemberVal_wfimp {blockNames : List Name} {env' : Env}
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.defnInfo cvm mval mhint) => ?_
   intro h
   dsimp only [] at h ⊢
@@ -1278,7 +1278,7 @@ theorem checkDivModPin_wfimp {env env2 : Env} (henv : EnvWF env) {F : Nat}
     | thmInfo cv' v' => intro h; exact absurd h atF_throw
     | indInfo cv' caps => intro h; exact absurd h atF_throw
     | ctorInfo cv' nP nF => intro h; exact absurd h atF_throw
-    | recInfo cv' nP nM nm ni rules => intro h; exact absurd h atF_throw
+    | recInfo cv' mI rP rules => intro h; exact absurd h atF_throw
     | defnInfo cv' value' hint' =>
       intro h
       dsimp only at h ⊢

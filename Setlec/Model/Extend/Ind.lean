@@ -114,7 +114,7 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
         (.indInfo cvA caps) := by
       refine ⟨htyf, htlp, Expr.constsResolve_mono htres, htyb, ?_, ?_⟩
       · intro cv2 v2 h2 heq; exact nomatch heq
-      · intro cv2 nP' nM' nm' ni' rules heq; exact nomatch heq
+      · intro cv2 mI' rP' rules heq; exact nomatch heq
     obtain ⟨m₁, hval₁, hpres₁⟩ := extend_modeled_one m
       (.indInfo cvA caps) fS (cvA.name.str "_model") hfind' hnres hwf htres
       (Or.inl ⟨_, _, rfl⟩) hfm hlps hrenS hannT hroS
@@ -272,7 +272,7 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
         (.ctorInfo cvA nP nF) := by
       refine ⟨htyf, htlp, Expr.constsResolve_mono htres, htyb, ?_, ?_⟩
       · intro cv2 v2 h2 heq; exact nomatch heq
-      · intro cv2 nP' nM' nm' ni' rules heq; exact nomatch heq
+      · intro cv2 mI' rP' rules heq; exact nomatch heq
     obtain ⟨m₁, hval₁, hpres₁⟩ := extend_modeled_one m
       (.ctorInfo cvA nP nF) fS (cvA.name.str "_model")
       hfind' hnres hwf htres

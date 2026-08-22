@@ -41,9 +41,9 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
      AnnotOk V m.val env φ d ρ e'') ∧
     WScoped d e'' ∧ e''.looseBVarsBounded 0 = true ∧
     Expr.LeavesBounded e'' ∧ FvarsOk V m.val env φ d ρ e'' := by
-  obtain ⟨c, us, cv, nP, nM, nm, ni, rules, major₀, major, cj, usj, cvj,
+  obtain ⟨c, us, cv, mI, rP, rules, major₀, major, cj, usj, cvj,
     cnP, cnF, r, cbinders, cbody, residual, cr, usr, hfn, hfc, hlen, hmaj,
-    hsub, hmfn, hfj, hrule, hml1, hml2, har1, har2, hplain, hlev, hpeq, hcerts,
+    hsub, hmfn, hfj, hrule, hml, har1, har2, hplain, hlev, hpeq, hcerts,
     hmcerts, hstrip, hres, hrfn, hieq, heout⟩ :=
     iotaRec_inv hio
   obtain rfl : cj = r.ctor :=
@@ -61,7 +61,7 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
     fun x hx => FvarsOk.of_subset (fun l hl => fvarLeaves_getAppArgs hx l hl)
       hok
   have hmajarg := getD_mem (l := (Expr.app fe ae).getAppArgs)
-    (i := nP + nM + nm + ni) (dflt := Expr.bvar 0) (by omega)
+    (i := mI) (dflt := Expr.bvar 0) (by omega)
   have hmaj0W : WScoped d major₀ := whnf_WScoped m.wf fuel hmaj
     (hargsW _ hmajarg)
   have hmaj0B : major₀.looseBVarsBounded 0 = true :=
@@ -90,37 +90,38 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
   obtain ⟨hcvteq, hcvtA, hcvtW, hcvtB, hcvtL, hcvtO⟩ :=
     litToCtorIfNat_claims (e := major₀) m hmaj0W hmaj0B hmaj0L hmaj0O hmA0
   obtain ⟨hmieqS, hmA, hmajW, hmajB, hmajL, hmajO⟩ :=
-    majorToCtor_claims ihw ihd ihi hsub hmfn hfj hml1 har2
+    majorToCtor_claims ihw ihd ihi hsub hmfn hfj
+      (by rw [hml]; exact har2)
       hmcerts hcvtW hcvtB hcvtL hcvtO hcvtA
   obtain ⟨-, -, -, -, -, hrules⟩ := m.wf _ (find?_mem hfc)
-  obtain ⟨hrf, hrlp, hrres, hrlb⟩ := hrules cv nP nM nm ni rules rfl r
+  obtain ⟨hrf, hrlp, hrres, hrlb⟩ := hrules cv mI rP rules rfl r
     (List.mem_of_find?_eq_some hrule)
   have hclInst : (r.rhs.instantiateLevelParams cv.levelParams
       us).hasFvar = false := by
     rw [hasFvar_instantiateLevelParams]; exact hrf
   have hrhsW : WScoped d (r.rhs.instantiateLevelParams cv.levelParams us) :=
     WScoped.of_not_hasFvar hclInst
-  have hallW : ∀ x ∈ ((Expr.app fe ae).getAppArgs.take (nP + nM + nm) ++
-      major.getAppArgs.drop cnP), WScoped d x := by
+  have hallW : ∀ x ∈ ((Expr.app fe ae).getAppArgs.take rP ++
+      major.getAppArgs.drop r.ctorParams), WScoped d x := by
     intro x hx
     rcases List.mem_append.mp hx with hx | hx
     · exact hargsW _ (List.mem_of_mem_take hx)
     · exact hmajW.getAppArgs _ (List.mem_of_mem_drop hx)
-  have hallB : ∀ x ∈ ((Expr.app fe ae).getAppArgs.take (nP + nM + nm) ++
-      major.getAppArgs.drop cnP), x.looseBVarsBounded 0 = true := by
+  have hallB : ∀ x ∈ ((Expr.app fe ae).getAppArgs.take rP ++
+      major.getAppArgs.drop r.ctorParams), x.looseBVarsBounded 0 = true := by
     intro x hx
     rcases List.mem_append.mp hx with hx | hx
     · exact hargsB _ (List.mem_of_mem_take hx)
     · exact looseBVarsBounded_getAppArgs hmajB _ (List.mem_of_mem_drop hx)
-  have hallL : ∀ x ∈ ((Expr.app fe ae).getAppArgs.take (nP + nM + nm) ++
-      major.getAppArgs.drop cnP), Expr.LeavesBounded x := by
+  have hallL : ∀ x ∈ ((Expr.app fe ae).getAppArgs.take rP ++
+      major.getAppArgs.drop r.ctorParams), Expr.LeavesBounded x := by
     intro x hx
     rcases List.mem_append.mp hx with hx | hx
     · exact hargsL _ (List.mem_of_mem_take hx)
     · exact fun l hl => hmajL l
         (fvarLeaves_getAppArgs (List.mem_of_mem_drop hx) l hl)
-  have hallO : ∀ x ∈ ((Expr.app fe ae).getAppArgs.take (nP + nM + nm) ++
-      major.getAppArgs.drop cnP), FvarsOk V m.val env φ d ρ x := by
+  have hallO : ∀ x ∈ ((Expr.app fe ae).getAppArgs.take rP ++
+      major.getAppArgs.drop r.ctorParams), FvarsOk V m.val env φ d ρ x := by
     intro x hx
     rcases List.mem_append.mp hx with hx | hx
     · exact hargsO _ (List.mem_of_mem_take hx)
@@ -167,14 +168,14 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
   obtain hv0 := (Option.some.inj hif0)
   -- split off the major argument
   obtain ⟨xl, hxeq, hxg⟩ := take_concat_of_length
-    (l := (Expr.app fe ae).getAppArgs) (n := nP + nM + nm + ni) hlen
+    (l := (Expr.app fe ae).getAppArgs) (n := mI) hlen
   have hxlmem : xl ∈ (Expr.app fe ae).getAppArgs := by
     rw [hxeq]
     exact List.mem_append.mpr (Or.inr List.mem_cons_self)
   have hmieq : interpExpr V m.val env φ d ρ major =
       interpExpr V m.val env φ d ρ xl := by
     rw [hmieqS, hcvteq]
-    rw [show (Expr.app fe ae).getAppArgs.getD (nP + nM + nm + ni)
+    rw [show (Expr.app fe ae).getAppArgs.getD mI
         (Expr.bvar 0) = xl from by
       rw [List.getD_eq_getElem?_getD, hxg]
       rfl] at hmieq0
@@ -203,10 +204,10 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
       tvv = SpineFold V (m.val (RecRule.ctor r)
         (Level.substFn φ (ConstantInfo.ctorInfo cvj cnP
           cnF).toConstantVal.levelParams usj)) ws ∧
-      ws.length = cnP + cnF := by
+      ws.length = r.ctorParams + r.nfields := by
     by_cases hm0 : major.getAppArgs = []
     · refine ⟨[], by simp [hm0], by simp [hm0, InterpSpine], trivial,
-        ?_, by rw [hm0] at hml1; exact hml1⟩
+        ?_, by rw [hm0] at hml; exact hml⟩
       rw [hmspine, hm0] at himaj
       simp only [Expr.mkAppN, interpExpr, hfj] at himaj
       split at himaj
@@ -222,7 +223,7 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
       · obtain hw0 := (Option.some.inj hiw0)
         subst hw0
         refine ⟨ws, hmxsA, hmsp, hmchain, ?_,
-          by rw [InterpSpine.length hmsp, hml1]⟩
+          by rw [InterpSpine.length hmsp, hml]⟩
         rw [hmspine] at himaj
         rw [hmfold] at himaj
         exact (Option.some.inj himaj).symm
@@ -254,7 +255,7 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
     rw [interp_instLevels m.val_params]
     exact hT0
   have hcertargs : ∀ x ∈ ((Expr.app fe ae).getAppArgs.take
-      (nP + nM + nm + ni) ++ [major]),
+      mI ++ [major]),
       WScoped d x ∧ x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x ∧
       FvarsOk V m.val env φ d ρ x ∧ AnnotOk V m.val env φ d ρ x := by
     intro x hx
@@ -265,15 +266,15 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
     · obtain rfl : x = major := by simpa using hx
       exact ⟨hmajW, hmajB, hmajL, hmajO, hmA⟩
   have hspR : InterpSpine m.val env φ d ρ
-      ((Expr.app fe ae).getAppArgs.take (nP + nM + nm + ni) ++ [major])
+      ((Expr.app fe ae).getAppArgs.take mI ++ [major])
       (vsi ++ [tvv]) :=
     InterpSpine.append hspi ⟨himaj, trivial⟩
   obtain ⟨restR, hfitIR⟩ := certs_fit ihd ihi
     _ _ _ T hcerts hRw hRb (Expr.LeavesBounded.of_not_hasFvar hRhf)
     (FvarsOk.of_not_hasFvar hRhf) hRA hRT hcertargs hspR
   obtain ⟨dR, ρR, restR', hfitR⟩ := TeleFitI.toTeleFit hfitIR hRw (by
-    rw [show ((Expr.app fe ae).getAppArgs.take (nP + nM + nm + ni) ++
-        [major]).length = nP + nM + nm + ni + 1 from by
+    rw [show ((Expr.app fe ae).getAppArgs.take mI ++
+        [major]).length = mI + 1 from by
       rw [List.length_append, List.length_take]
       simp [hlen]]
     exact stripPis_instantiateLevelParams_isSome _ _ _ har1)
@@ -318,17 +319,18 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
   have hfitIC' := TeleFitI.lift hfitIC hCw hdR hagrR
   obtain ⟨dC, ρC, restC', hfitC⟩ := TeleFitI.toTeleFit hfitIC'
     (hCw.mono hdR) (by
-    rw [show major.getAppArgs.length = cnP + cnF from hml1]
+    rw [show major.getAppArgs.length = r.ctorParams + r.nfields from hml]
     exact stripPis_instantiateLevelParams_isSome _ _ _ har2)
   -- the rule's fold facts
-  obtain ⟨hrhsA, hfolds⟩ := m.rec_rules c cv nP nM nm ni rules hfc r
+  obtain ⟨hrhsA, hlemi', hfolds⟩ := m.rec_rules c cv mI rP rules hfc r
     (List.mem_of_find?_eq_some hrule)
+  have hlemi : rP ≤ mI := hlemi' hplain
   have hchain' : ChainSlots V (m.val c
-      (Level.substFn φ (ConstantInfo.recInfo cv nP nM nm ni
+      (Level.substFn φ (ConstantInfo.recInfo cv mI rP
         rules).toConstantVal.levelParams us)) (vsi ++ [tvv]) := by
     rw [hv0]
     exact hchain
-  have hvsilen : vsi.length = nP + nM + nm + ni := by
+  have hvsilen : vsi.length = mI := by
     have := InterpSpine.length hspi
     rw [this, List.length_take]
     rw [hxeq] at hlen
@@ -357,7 +359,7 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
     · exact (hcertmargs a ha).2.2.2.1 l hla
   have hlenieq := defEqList_length (env := env) (fuel := fuel) _ _ hieq
   have htakelen : ((Expr.app fe ae).getAppArgs.take
-      (nP + nM + nm + ni)).length = nP + nM + nm + ni := by
+      mI).length = mI := by
     rw [List.length_take, hlen]
     omega
   -- frame bookkeeping
@@ -370,54 +372,54 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
     rw [hagrRC i (by omega), hagrR i hi]
   -- both residuals are instantiation sequences of the constructor's
   -- stripped result
-  have hlenCF : argsCF.length = cnP + cnF := by
+  have hlenCF : argsCF.length = r.ctorParams + r.nfields := by
     have h1 := TeleFitI.vs_length hfitCF
     rw [hwslen] at h1
     omega
   obtain ⟨mid, hmid, bs', body', hstripMid, hbodyMid, -⟩ :=
-    telescopeInst_stripPis (cnP + cnF) major.getAppArgs 0 hml1
+    telescopeInst_stripPis (r.ctorParams + r.nfields) major.getAppArgs 0 hml
       (by simpa using hstrip)
   rw [TeleFitI.rest_eq hfitIC] at hmid
   obtain rfl : restC = mid := Option.some.inj hmid
-  have hrestCeq : restC = instSeq major.getAppArgs (cnP + cnF - 1) cbody := by
+  have hrestCeq : restC = instSeq major.getAppArgs (r.ctorParams + r.nfields - 1) cbody := by
     simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at hstripMid
     rw [hstripMid.2, hbodyMid]
     simp
   obtain ⟨midF, hmidF, bsF', bodyF', hstripF, hbodyF, -⟩ :=
-    telescopeInst_stripPis (cnP + cnF) argsCF 0 hlenCF
+    telescopeInst_stripPis (r.ctorParams + r.nfields) argsCF 0 hlenCF
       (by simpa using hstrip)
   rw [TeleFitI.rest_eq hfitCF] at hmidF
   obtain rfl : restC' = midF := Option.some.inj hmidF
-  have hrestC'eq : restC' = instSeq argsCF (cnP + cnF - 1) cbody := by
+  have hrestC'eq : restC' = instSeq argsCF (r.ctorParams + r.nfields - 1) cbody := by
     simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at hstripF
     rw [hstripF.2, hbodyF]
     simp
   -- the stripped result's own well-formedness and constant head
   have hcbodyF : cbody.hasFvar = false :=
     stripPis_body_hasFvar _ hstrip hChf
-  have hcbodyB : cbody.looseBVarsBounded (cnP + cnF) = true := by
+  have hcbodyB : cbody.looseBVarsBounded (r.ctorParams + r.nfields) = true := by
     have := stripPis_body_bounded _ hstrip hCb
     simpa using this
   have hcspine : cbody = Expr.mkAppN (.const cr usr) cbody.getAppArgs := by
     have := (Expr.mkAppN_getApp cbody).symm
     rw [hrfn] at this
     exact this
-  have hinstM : instSeq major.getAppArgs (cnP + cnF - 1) cbody =
+  have hinstM : instSeq major.getAppArgs (r.ctorParams + r.nfields - 1) cbody =
       Expr.mkAppN (.const cr usr)
-        (cbody.getAppArgs.map (instSeq major.getAppArgs (cnP + cnF - 1) ·)) := by
+        (cbody.getAppArgs.map (instSeq major.getAppArgs (r.ctorParams + r.nfields - 1) ·)) := by
     conv => lhs; rw [hcspine]
     rw [instSeq_mkAppN, instSeq_eq_self _ _ (by simp [Expr.looseBVarsBounded])]
-  have hinstF : instSeq argsCF (cnP + cnF - 1) cbody =
+  have hinstF : instSeq argsCF (r.ctorParams + r.nfields - 1) cbody =
       Expr.mkAppN (.const cr usr)
-        (cbody.getAppArgs.map (instSeq argsCF (cnP + cnF - 1) ·)) := by
+        (cbody.getAppArgs.map (instSeq argsCF (r.ctorParams + r.nfields - 1) ·)) := by
     conv => lhs; rw [hcspine]
     rw [instSeq_mkAppN, instSeq_eq_self _ _ (by simp [Expr.looseBVarsBounded])]
   have hrArgs : restC.getAppArgs =
-      cbody.getAppArgs.map (instSeq major.getAppArgs (cnP + cnF - 1) ·) := by
+      cbody.getAppArgs.map (instSeq major.getAppArgs (r.ctorParams + r.nfields - 1) ·) := by
     rw [hrestCeq, hinstM, Expr.getAppArgs_mkAppN]
     simp [Expr.getAppArgs]
   have hrArgsF : restC'.getAppArgs =
-      cbody.getAppArgs.map (instSeq argsCF (cnP + cnF - 1) ·) := by
+      cbody.getAppArgs.map (instSeq argsCF (r.ctorParams + r.nfields - 1) ·) := by
     rw [hrestC'eq, hinstF, Expr.getAppArgs_mkAppN]
     simp [Expr.getAppArgs]
   -- argument spines with the constructor values, at the final frame
@@ -425,18 +427,18 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
     TeleFitI.toInstArgs hfitCF
   have hInstM : InstArgs m.val env φ dC ρC major.getAppArgs ws :=
     InstArgs.lift (TeleFitI.toInstArgs hfitIC) hdC hagrC
-  have hmapM : (restC'.getAppArgs.drop cnP).mapM
-      (interpExpr V m.val env φ dC ρC) = some (vsi.drop (nP + nM + nm)) := by
+  have hmapM : (restC'.getAppArgs.drop r.ctorParams).mapM
+      (interpExpr V m.val env φ dC ρC) = some (vsi.drop rP) := by
     by_cases hrnil : restC.getAppArgs = []
     · have hcnil : cbody.getAppArgs = [] := by
         rw [hrArgs] at hrnil
         exact List.map_eq_nil_iff.mp hrnil
-      have hni : ni = 0 := by
+      have hni : mI ≤ rP := by
         rw [hrnil] at hlenieq
         simp only [List.drop_nil, List.length_nil, List.length_drop,
           htakelen] at hlenieq
         omega
-      have hvnil : vsi.drop (nP + nM + nm) = [] :=
+      have hvnil : vsi.drop rP = [] :=
         List.drop_eq_nil_of_le (by rw [hvsilen]; omega)
       rw [hrArgsF, hcnil, hvnil]
       simp
@@ -448,9 +450,9 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
           (Expr.mkAppN (.const cr usr) restC.getAppArgs) := hrspine ▸ hrA
       obtain ⟨-, hrxsA, vr0, vsRes, hir0, hispRes, -, -⟩ :=
         annotOk_spine_inv _ _ hrnil hrA'
-      have hvals : vsRes.drop cnP = vsi.drop (nP + nM + nm) := by
+      have hvals : vsRes.drop r.ctorParams = vsi.drop rP := by
         refine defEqList_values ihd _ _ _ _ hieq ?_ ?_
-          (InterpSpine.drop cnP hispRes) ?_
+          (InterpSpine.drop r.ctorParams hispRes) ?_
         · intro x hx
           have hxm := List.mem_of_mem_drop hx
           exact ⟨hrw.getAppArgs _ hxm,
@@ -463,22 +465,22 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
           have hxm := List.mem_of_mem_take (List.mem_of_mem_drop hx)
           exact ⟨hargsW _ hxm, hargsB _ hxm, hargsL _ hxm, hargsO _ hxm,
             hxsA _ hxm⟩
-        · exact InterpSpine.drop (nP + nM + nm) hspi
+        · exact InterpSpine.drop rP hspi
       -- convert the dropped spine to the fvar-instantiated exprs at the
       -- final frame
       have hspineM : InterpSpine m.val env φ d ρ
-          ((cbody.getAppArgs.drop cnP).map
-            (instSeq major.getAppArgs (cnP + cnF - 1) ·))
-          (vsRes.drop cnP) := by
-        have := InterpSpine.drop cnP hispRes
+          ((cbody.getAppArgs.drop r.ctorParams).map
+            (instSeq major.getAppArgs (r.ctorParams + r.nfields - 1) ·))
+          (vsRes.drop r.ctorParams) := by
+        have := InterpSpine.drop r.ctorParams hispRes
         rw [hrArgs, ← List.map_drop] at this
         exact this
       have hconv : ∀ (l : List Expr) (vs0 : List V),
           (∀ x ∈ l, x ∈ cbody.getAppArgs) →
           InterpSpine m.val env φ d ρ
-            (l.map (instSeq major.getAppArgs (cnP + cnF - 1) ·)) vs0 →
+            (l.map (instSeq major.getAppArgs (r.ctorParams + r.nfields - 1) ·)) vs0 →
           InterpSpine m.val env φ dC ρC
-            (l.map (instSeq argsCF (cnP + cnF - 1) ·)) vs0 := by
+            (l.map (instSeq argsCF (r.ctorParams + r.nfields - 1) ·)) vs0 := by
         intro l
         induction l with
         | nil =>
@@ -493,41 +495,41 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
               (fun y hy => hmem y (List.mem_cons_of_mem _ hy)) hrest⟩
             have hxmem := hmem x List.mem_cons_self
             have hxw : WScoped d (instSeq major.getAppArgs
-                (cnP + cnF - 1) x) := by
-              have : instSeq major.getAppArgs (cnP + cnF - 1) x ∈
+                (r.ctorParams + r.nfields - 1) x) := by
+              have : instSeq major.getAppArgs (r.ctorParams + r.nfields - 1) x ∈
                   restC.getAppArgs := by
                 rw [hrArgs]
                 exact List.mem_map.mpr ⟨x, hxmem, rfl⟩
               exact hrw.getAppArgs _ this
-            have hxb : x.looseBVarsBounded (cnP + cnF) = true :=
+            have hxb : x.looseBVarsBounded (r.ctorParams + r.nfields) = true :=
               looseBVarsBounded_getAppArgs hcbodyB _ hxmem
             have hxfb : Expr.fvarsBelow dC x :=
               (WScoped.of_not_hasFvar
                 (hasFvar_getAppArgs hcbodyF _ hxmem)).fvarsBelow
             have hlift : interpExpr V m.val env φ dC ρC
-                (instSeq major.getAppArgs (cnP + cnF - 1) x) = some v := by
+                (instSeq major.getAppArgs (r.ctorParams + r.nfields - 1) x) = some v := by
               rw [interp_lift hxw dC hdC ρ ρC hagrC]
               exact hix
             have hcongr := interp_instSeq_congr hInstF hInstM hxfb
               (by rw [hlenCF]; exact hxb)
-            rw [show argsCF.length - 1 = cnP + cnF - 1 from by
+            rw [show argsCF.length - 1 = r.ctorParams + r.nfields - 1 from by
                 rw [hlenCF]] at hcongr
-            rw [show major.getAppArgs.length - 1 = cnP + cnF - 1 from by
-                rw [hml1]] at hcongr
+            rw [show major.getAppArgs.length - 1 = r.ctorParams + r.nfields - 1 from by
+                rw [hml]] at hcongr
             rw [hcongr]
             exact hlift
-      have hspineF := hconv (cbody.getAppArgs.drop cnP) (vsRes.drop cnP)
+      have hspineF := hconv (cbody.getAppArgs.drop r.ctorParams) (vsRes.drop r.ctorParams)
         (fun x hx => List.mem_of_mem_drop hx) hspineM
       rw [hrArgsF, ← List.map_drop, ← hvals]
       exact InterpSpine.mapM_eq hspineF
-  have hparameq : ws.take cnP = (vsi ++ [tvv]).take cnP := by
+  have hparameq : ws.take r.ctorParams = (vsi ++ [tvv]).take r.ctorParams := by
     have hspT1 : InterpSpine m.val env φ d ρ
-        (major.getAppArgs.take cnP) (ws.take cnP) :=
+        (major.getAppArgs.take r.ctorParams) (ws.take r.ctorParams) :=
       InterpSpine.take _ hmsp
     have hspT2 : InterpSpine m.val env φ d ρ
-        ((Expr.app fe ae).getAppArgs.take cnP)
-        ((vsi ++ [tvv]).take cnP) := by
-      have := InterpSpine.take cnP hisp
+        ((Expr.app fe ae).getAppArgs.take r.ctorParams)
+        ((vsi ++ [tvv]).take r.ctorParams) := by
+      have := InterpSpine.take r.ctorParams hisp
       rw [← hxeq] at this
       exact this
     refine defEqList_values ihd
@@ -548,7 +550,7 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
       Level.substFn φ
         (ConstantInfo.ctorInfo cvj cnP cnF).toConstantVal.levelParams usj p =
       Level.substFn φ
-        (ConstantInfo.recInfo cv nP nM nm ni rules).toConstantVal.levelParams
+        (ConstantInfo.recInfo cv mI rP rules).toConstantVal.levelParams
         us p := by
     intro p hp
     have h1 : Level.substFn φ cvj.levelParams usj =
@@ -584,21 +586,21 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
       m.val_params r.rhs 0 (rho0 V)
       (hrhsA (Level.substFn φ cv.levelParams us))
     exact AnnotOk.closed_invariant hclInst d ρ h1
-  have htake : (Expr.app fe ae).getAppArgs.take (nP + nM + nm) =
-      ((Expr.app fe ae).getAppArgs.take (nP + nM + nm + ni)).take
-        (nP + nM + nm) := by
+  have htake : (Expr.app fe ae).getAppArgs.take rP =
+      ((Expr.app fe ae).getAppArgs.take mI).take
+        rP := by
     rw [List.take_take]
     congr 1
     omega
   have hspR : InterpSpine m.val env φ d ρ
-      ((Expr.app fe ae).getAppArgs.take (nP + nM + nm) ++
-        major.getAppArgs.drop cnP)
-      (vsi.take (nP + nM + nm) ++ ws.drop cnP) := by
-    refine InterpSpine.append ?_ (InterpSpine.drop cnP hmsp)
+      ((Expr.app fe ae).getAppArgs.take rP ++
+        major.getAppArgs.drop r.ctorParams)
+      (vsi.take rP ++ ws.drop r.ctorParams) := by
+    refine InterpSpine.append ?_ (InterpSpine.drop r.ctorParams hmsp)
     rw [htake]
     exact InterpSpine.take _ hspi
-  have hxsAR : ∀ x ∈ ((Expr.app fe ae).getAppArgs.take (nP + nM + nm) ++
-      major.getAppArgs.drop cnP), AnnotOk V m.val env φ d ρ x := by
+  have hxsAR : ∀ x ∈ ((Expr.app fe ae).getAppArgs.take rP ++
+      major.getAppArgs.drop r.ctorParams), AnnotOk V m.val env φ d ρ x := by
     intro x hx
     rcases List.mem_append.mp hx with hx | hx
     · exact hxsA _ (List.mem_of_mem_take hx)

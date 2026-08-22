@@ -56,65 +56,65 @@ theorem AnnotOk.extend_fresh {env : Env} {c₀ : ConstantInfo}
 
 section RecRulesSwap
 
-variable {env : Env} {cvA : ConstantVal} {nP nM nm ni : Nat}
+variable {env : Env} {cvA : ConstantVal} {mI rP : Nat}
 
 /-- Lookups of other names ignore the head recursor's rule list. -/
 theorem Env.find?_recRules_swap (rules₁ rules₂ : List RecRule) {n : Name}
     (hn : n ≠ cvA.name) :
-    (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env).find? n =
-    (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env).find? n := by
+    (⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env).find? n =
+    (⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env).find? n := by
   rw [Env.find?_cons, Env.find?_cons,
-    if_neg (show ¬(ConstantInfo.recInfo cvA nP nM nm ni rules₁).name = n
+    if_neg (show ¬(ConstantInfo.recInfo cvA mI rP rules₁).name = n
       from fun h => hn h.symm),
-    if_neg (show ¬(ConstantInfo.recInfo cvA nP nM nm ni rules₂).name = n
+    if_neg (show ¬(ConstantInfo.recInfo cvA mI rP rules₂).name = n
       from fun h => hn h.symm)]
 
 /-- Stored level parameters ignore the head recursor's rule list. -/
 theorem Env.recRules_levelext (rules₁ rules₂ : List RecRule) :
     ∀ n,
-      ((⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env).find? n).map
+      ((⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env).find? n).map
         (fun ci => ci.toConstantVal.levelParams) =
-      ((⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env).find? n).map
+      ((⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env).find? n).map
         (fun ci => ci.toConstantVal.levelParams) := by
   intro n
   rw [Env.find?_cons, Env.find?_cons]
   by_cases h : cvA.name = n
-  · rw [if_pos (show (ConstantInfo.recInfo cvA nP nM nm ni
+  · rw [if_pos (show (ConstantInfo.recInfo cvA mI rP
         rules₁).name = n from h),
-      if_pos (show (ConstantInfo.recInfo cvA nP nM nm ni
+      if_pos (show (ConstantInfo.recInfo cvA mI rP
         rules₂).name = n from h)]
     rfl
-  · rw [if_neg (show ¬(ConstantInfo.recInfo cvA nP nM nm ni
+  · rw [if_neg (show ¬(ConstantInfo.recInfo cvA mI rP
         rules₁).name = n from h),
-      if_neg (show ¬(ConstantInfo.recInfo cvA nP nM nm ni
+      if_neg (show ¬(ConstantInfo.recInfo cvA mI rP
         rules₂).name = n from h)]
 
 /-- Lookup success ignores the head recursor's rule list. -/
 theorem Env.recRules_isSome (rules₁ rules₂ : List RecRule) :
     ∀ n,
-      ((⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env).find? n).isSome
+      ((⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env).find? n).isSome
       =
-      ((⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env).find? n).isSome := by
+      ((⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env).find? n).isSome := by
   intro n
   rw [Env.find?_cons, Env.find?_cons]
   by_cases h : cvA.name = n
-  · rw [if_pos (show (ConstantInfo.recInfo cvA nP nM nm ni
+  · rw [if_pos (show (ConstantInfo.recInfo cvA mI rP
         rules₁).name = n from h),
-      if_pos (show (ConstantInfo.recInfo cvA nP nM nm ni
+      if_pos (show (ConstantInfo.recInfo cvA mI rP
         rules₂).name = n from h)]
     rfl
-  · rw [if_neg (show ¬(ConstantInfo.recInfo cvA nP nM nm ni
+  · rw [if_neg (show ¬(ConstantInfo.recInfo cvA mI rP
         rules₁).name = n from h),
-      if_neg (show ¬(ConstantInfo.recInfo cvA nP nM nm ni
+      if_neg (show ¬(ConstantInfo.recInfo cvA mI rP
         rules₂).name = n from h)]
 
 /-- The interpretation ignores the head recursor's rule list. -/
 theorem interpClosed_recRules_swap {val : ConstVal V}
     (rules₁ rules₂ : List RecRule) (e : Expr) (ψ : Name → Nat) :
     interpClosed V val
-      (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env) ψ e =
+      (⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env) ψ e =
     interpClosed V val
-      (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env) ψ e :=
+      (⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env) ψ e :=
   interp_env_ext (Env.recRules_levelext rules₁ rules₂)
     natLitSupported_cons_recRules e 0 (rho0 V)
 
@@ -123,9 +123,9 @@ theorem AnnotOk.recRules_swap {val : ConstVal V}
     (rules₁ rules₂ : List RecRule) (e : Expr) (ψ : Name → Nat) (d : Nat)
     (ρ : Nat → V)
     (h : AnnotOk V val
-      (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env) ψ d ρ e) :
+      (⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env) ψ d ρ e) :
     AnnotOk V val
-      (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env) ψ d ρ e :=
+      (⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env) ψ d ρ e :=
   AnnotOk.env_ext (Env.recRules_levelext rules₁ rules₂)
     natLitSupported_cons_recRules e d ρ h
 
@@ -133,8 +133,8 @@ theorem AnnotOk.recRules_swap {val : ConstVal V}
 list. -/
 theorem ConstWF.recRules_swap (rules₁ rules₂ : List RecRule)
     {c : ConstantInfo}
-    (hc : ConstWF (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env) c) :
-    ConstWF (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env) c := by
+    (hc : ConstWF (⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env) c) :
+    ConstWF (⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env) c := by
   obtain ⟨h1, h2, h3, h4, h5, h6⟩ := hc
   refine ⟨h1, h2, ?_, h4, ?_, ?_⟩
   · rw [← Expr.constsResolve_congr (Env.recRules_isSome rules₁ rules₂)]
@@ -145,8 +145,8 @@ theorem ConstWF.recRules_swap (rules₁ rules₂ : List RecRule)
       by rw [← Expr.constsResolve_congr (Env.recRules_isSome rules₁ rules₂)]
          exact cres,
       dd⟩
-  · intro cv nP' nM' nm' ni' rules heq r hr
-    obtain ⟨a, b, cres, dd⟩ := h6 cv nP' nM' nm' ni' rules heq r hr
+  · intro cv mI' rP' rules heq r hr
+    obtain ⟨a, b, cres, dd⟩ := h6 cv mI' rP' rules heq r hr
     exact ⟨a, b,
       by rw [← Expr.constsResolve_congr (Env.recRules_isSome rules₁ rules₂)]
          exact cres,
@@ -155,19 +155,19 @@ theorem ConstWF.recRules_swap (rules₁ rules₂ : List RecRule)
 /-- The head recursor's own `ConstWF`, with the rule list dropped (the
 rules-free provisional install). -/
 theorem ConstWF.recRules_head_empty {rules' : List RecRule}
-    (hwf : ConstWF (⟨.recInfo cvA nP nM nm ni rules' :: env.consts⟩ : Env)
-      (.recInfo cvA nP nM nm ni rules')) :
-    ConstWF (⟨.recInfo cvA nP nM nm ni [] :: env.consts⟩ : Env)
-      (.recInfo cvA nP nM nm ni []) := by
+    (hwf : ConstWF (⟨.recInfo cvA mI rP rules' :: env.consts⟩ : Env)
+      (.recInfo cvA mI rP rules')) :
+    ConstWF (⟨.recInfo cvA mI rP [] :: env.consts⟩ : Env)
+      (.recInfo cvA mI rP []) := by
   obtain ⟨h1, h2, h3, h4, -, -⟩ := hwf
   refine ⟨h1, h2, ?_, h4, ?_, ?_⟩
   · rw [← Expr.constsResolve_congr (Env.recRules_isSome rules' [])]
     exact h3
   · intro cv2 v2 h2 heq
     exact nomatch heq
-  · intro cv nP' nM' nm' ni' rules heq
-    injection heq with e1 e2 e3 e4 e5 e6
-    subst e6
+  · intro cv mI' rP' rules heq
+    injection heq with e1 e2 e3 e4
+    subst e4
     intro r hr
     cases hr
 
@@ -176,22 +176,22 @@ omit [SetTheory V] in
 theorem ConstValParams.recRules_swap {val : ConstVal V}
     (rules₁ rules₂ : List RecRule)
     (h : ConstValParams val
-      (⟨.recInfo cvA nP nM nm ni rules₁ :: env.consts⟩ : Env)) :
+      (⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ : Env)) :
     ConstValParams val
-      (⟨.recInfo cvA nP nM nm ni rules₂ :: env.consts⟩ : Env) := by
+      (⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ : Env) := by
   intro n ci hf ψ₁ ψ₂ hψ
   rw [Env.find?_cons] at hf
   split at hf
   · next hn =>
     obtain rfl := Option.some.inj hf
-    exact h n (.recInfo cvA nP nM nm ni rules₁)
+    exact h n (.recInfo cvA mI rP rules₁)
       (by rw [Env.find?_cons,
-        if_pos (show (ConstantInfo.recInfo cvA nP nM nm ni rules₁).name = n
+        if_pos (show (ConstantInfo.recInfo cvA mI rP rules₁).name = n
           from hn)]) ψ₁ ψ₂ (by exact hψ)
   · next hn =>
     refine h n ci ?_ ψ₁ ψ₂ hψ
     rw [Env.find?_cons,
-      if_neg (show ¬(ConstantInfo.recInfo cvA nP nM nm ni rules₁).name = n
+      if_neg (show ¬(ConstantInfo.recInfo cvA mI rP rules₁).name = n
         from hn)]
     exact hf
 
@@ -201,35 +201,35 @@ attached: only the head's own fold obligations (`RecMemberOk`) and
 stored-constructor facts are new, everything else ignores the rule
 list. -/
 theorem extend_rec_swap {rules' : List RecRule}
-    (m₀ : EnvModel V ⟨.recInfo cvA nP nM nm ni [] :: env.consts⟩)
+    (m₀ : EnvModel V ⟨.recInfo cvA mI rP [] :: env.consts⟩)
     (hfind' : env.find? cvA.name = none)
     (hnres : reservedBasisNames.contains cvA.name = false)
-    (hwf : ConstWF ⟨.recInfo cvA nP nM nm ni rules' :: env.consts⟩
-      (.recInfo cvA nP nM nm ni rules'))
+    (hwf : ConstWF ⟨.recInfo cvA mI rP rules' :: env.consts⟩
+      (.recInfo cvA mI rP rules'))
     (hctors : ∀ r ∈ rules', ∃ cvj cnP cnF,
       env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF))
     (hrecm : RecMemberOk (V := V)
-      ⟨.recInfo cvA nP nM nm ni rules' :: env.consts⟩ m₀.val
-      (.recInfo cvA nP nM nm ni rules')) :
-    ∃ m' : EnvModel V ⟨.recInfo cvA nP nM nm ni rules' :: env.consts⟩,
+      ⟨.recInfo cvA mI rP rules' :: env.consts⟩ m₀.val
+      (.recInfo cvA mI rP rules')) :
+    ∃ m' : EnvModel V ⟨.recInfo cvA mI rP rules' :: env.consts⟩,
       ∀ (n : Name) (ψ : Name → Nat), m'.val n ψ = m₀.val n ψ := by
   have hfindEq : ∀ n, n ≠ cvA.name →
-      (⟨.recInfo cvA nP nM nm ni rules' :: env.consts⟩ : Env).find? n =
-      (⟨.recInfo cvA nP nM nm ni [] :: env.consts⟩ : Env).find? n :=
+      (⟨.recInfo cvA mI rP rules' :: env.consts⟩ : Env).find? n =
+      (⟨.recInfo cvA mI rP [] :: env.consts⟩ : Env).find? n :=
     fun n hn => Env.find?_recRules_swap rules' [] hn
   have henv10 := Env.recRules_levelext (env := env) (cvA := cvA)
-    (nP := nP) (nM := nM) (nm := nm) (ni := ni) rules' []
+    (mI := mI) (rP := rP) rules' []
   have hitrans : ∀ (e : Expr) (ψ : Name → Nat),
       interpClosed V m₀.val
-        (⟨.recInfo cvA nP nM nm ni rules' :: env.consts⟩ : Env) ψ e =
+        (⟨.recInfo cvA mI rP rules' :: env.consts⟩ : Env) ψ e =
       interpClosed V m₀.val
-        (⟨.recInfo cvA nP nM nm ni [] :: env.consts⟩ : Env) ψ e :=
+        (⟨.recInfo cvA mI rP [] :: env.consts⟩ : Env) ψ e :=
     fun e ψ => interpClosed_recRules_swap rules' [] e ψ
   have hAtrans01 : ∀ (e : Expr) (ψ : Name → Nat) (d : Nat) (ρ : Nat → V),
-      AnnotOk V m₀.val (⟨.recInfo cvA nP nM nm ni [] :: env.consts⟩ : Env)
+      AnnotOk V m₀.val (⟨.recInfo cvA mI rP [] :: env.consts⟩ : Env)
         ψ d ρ e →
       AnnotOk V m₀.val
-        (⟨.recInfo cvA nP nM nm ni rules' :: env.consts⟩ : Env) ψ d ρ e :=
+        (⟨.recInfo cvA mI rP rules' :: env.consts⟩ : Env) ψ d ρ e :=
     fun e ψ d ρ h => AnnotOk.recRules_swap [] rules' e ψ d ρ h
   refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
     fun n ψ => rfl⟩
@@ -244,7 +244,7 @@ theorem extend_rec_swap {rules' : List RecRule}
   · -- mem_type
     intro c hc ψ
     rcases List.mem_cons.mp hc with rfl | hc
-    · obtain ⟨t, ht, hmem⟩ := m₀.mem_type (.recInfo cvA nP nM nm ni [])
+    · obtain ⟨t, ht, hmem⟩ := m₀.mem_type (.recInfo cvA mI rP [])
         List.mem_cons_self ψ
       exact ⟨t, by rw [hitrans]; exact ht, hmem⟩
     · obtain ⟨t, ht, hmem⟩ := m₀.mem_type c (List.mem_cons_of_mem _ hc) ψ
@@ -259,7 +259,7 @@ theorem extend_rec_swap {rules' : List RecRule}
   · -- annot_ok
     intro c hc ψ
     rcases List.mem_cons.mp hc with rfl | hc
-    · obtain ⟨hA1, hA2⟩ := m₀.annot_ok (.recInfo cvA nP nM nm ni [])
+    · obtain ⟨hA1, hA2⟩ := m₀.annot_ok (.recInfo cvA mI rP [])
         List.mem_cons_self ψ
       exact ⟨hAtrans01 _ ψ 0 (rho0 V) hA1,
         fun cv2 v2 h2 heq => nomatch heq⟩
@@ -291,7 +291,7 @@ theorem extend_rec_swap {rules' : List RecRule}
         subst hn
         rw [hnres] at hres2
         exact nomatch hres2
-      · have hfp₀ : (⟨.recInfo cvA nP nM nm ni [] ::
+      · have hfp₀ : (⟨.recInfo cvA mI rP [] ::
             env.consts⟩ : Env).find? n = some ci := by
           rw [← hfindEq n (fun h => hn h.symm)]
           exact hfp
@@ -299,41 +299,41 @@ theorem extend_rec_swap {rules' : List RecRule}
     · -- BasisBlocks
       obtain ⟨b1, b2, b3, b4⟩ := i5
       refine ⟨?_, ?_, ?_, ?_⟩
-      · intro cv nP' nM' nm' ni' rules hfp
+      · intro cv mI' rP' rules hfp
         rw [hfindEq _ (hneName _ (by decide))] at hfp
-        obtain ⟨f1, f2⟩ := b1 cv nP' nM' nm' ni' rules hfp
+        obtain ⟨f1, f2⟩ := b1 cv mI' rP' rules hfp
         exact ⟨by rw [hfindEq _ (hneName _ (by decide))]; exact f1,
           by rw [hfindEq _ (hneName _ (by decide))]; exact f2⟩
-      · intro cv nP' nM' nm' ni' rules hfp
+      · intro cv mI' rP' rules hfp
         rw [hfindEq _ (hneName _ (by decide))] at hfp
-        obtain ⟨f1, f2, f3⟩ := b2 cv nP' nM' nm' ni' rules hfp
+        obtain ⟨f1, f2, f3⟩ := b2 cv mI' rP' rules hfp
         exact ⟨by rw [hfindEq _ (hneName _ (by decide))]; exact f1,
           by rw [hfindEq _ (hneName _ (by decide))]; exact f2,
           by rw [hfindEq _ (hneName _ (by decide))]; exact f3⟩
-      · intro cv nP' nM' nm' ni' rules hfp
+      · intro cv mI' rP' rules hfp
         rw [hfindEq _ (hneName _ (by decide))] at hfp
-        obtain ⟨f1, f2⟩ := b3 cv nP' nM' nm' ni' rules hfp
+        obtain ⟨f1, f2⟩ := b3 cv mI' rP' rules hfp
         exact ⟨by rw [hfindEq _ (hneName _ (by decide))]; exact f1,
           by rw [hfindEq _ (hneName _ (by decide))]; exact f2⟩
-      · intro cv nP' nM' nm' ni' rules hfp
+      · intro cv mI' rP' rules hfp
         rw [hfindEq _ (hneName _ (by decide))] at hfp
-        obtain ⟨f1, f2⟩ := b4 cv nP' nM' nm' ni' rules hfp
+        obtain ⟨f1, f2⟩ := b4 cv mI' rP' rules hfp
         exact ⟨by rw [hfindEq _ (hneName _ (by decide))]; exact f1,
           by rw [hfindEq _ (hneName _ (by decide))]; exact f2⟩
     · -- RecCtorsStored
-      intro n cv nP' nM' nm' ni' rules hfp r hr
+      intro n cv mI' rP' rules hfp r hr
       by_cases hn : cvA.name = n
       · subst hn
         rw [Env.find?_cons,
-          if_pos (show (ConstantInfo.recInfo cvA nP nM nm ni
+          if_pos (show (ConstantInfo.recInfo cvA mI rP
             rules').name = cvA.name from rfl)] at hfp
         obtain heq := Option.some.inj hfp
-        injection heq with e1 e2 e3 e4 e5 e6
-        subst e6
+        injection heq with e1 e2 e3 e4
+        subst e4
         obtain ⟨cvj, cnP, cnF, hctor⟩ := hctors r hr
         refine ⟨cvj, cnP, cnF, ?_⟩
         rw [Env.find?_cons,
-          if_neg (show ¬(ConstantInfo.recInfo cvA nP nM nm ni
+          if_neg (show ¬(ConstantInfo.recInfo cvA mI rP
             rules').name = RecRule.ctor r from ?_)]
         · exact hctor
         · intro h
@@ -343,51 +343,51 @@ theorem extend_rec_swap {rules' : List RecRule}
             have h4 := List.find?_some hctor
             simpa using h4
           exact h2 (by rw [h3, ← h]; rfl)
-      · have hfp₀ : (⟨.recInfo cvA nP nM nm ni [] ::
+      · have hfp₀ : (⟨.recInfo cvA mI rP [] ::
             env.consts⟩ : Env).find? n =
-            some (.recInfo cv nP' nM' nm' ni' rules) := by
+            some (.recInfo cv mI' rP' rules) := by
           rw [← hfindEq n (fun h => hn h.symm)]
           exact hfp
-        obtain ⟨cvj, cnP', cnF', hc⟩ := i6 n cv nP' nM' nm' ni' rules
+        obtain ⟨cvj, cnP', cnF', hc⟩ := i6 n cv mI' rP' rules
           hfp₀ r hr
         refine ⟨cvj, cnP', cnF', ?_⟩
         have hnc : RecRule.ctor r ≠ cvA.name := by
           intro h
           rw [Env.find?_cons,
-            if_pos (show (ConstantInfo.recInfo cvA nP nM nm ni
+            if_pos (show (ConstantInfo.recInfo cvA mI rP
               []).name = RecRule.ctor r from h.symm)] at hc
           exact nomatch (Option.some.inj hc)
         rw [hfindEq _ hnc]
         exact hc
   · -- rec_rules: the head's fold obligations are supplied, the rest
     -- ignores the rule list
-    intro n cvR nP' nM' nm' ni' rules hfp r hr
+    intro n cvR mI' rP' rules hfp r hr
     rw [Env.find?_cons] at hfp
     split at hfp
     · next hn =>
       obtain rfl : cvA.name = n := hn
       obtain hceq := Option.some.inj hfp
-      exact hrecm cvR nP' nM' nm' ni' rules hceq r hr
+      exact hrecm cvR mI' rP' rules hceq r hr
     · next hn =>
-      have hfp₀ : (⟨.recInfo cvA nP nM nm ni [] ::
+      have hfp₀ : (⟨.recInfo cvA mI rP [] ::
           env.consts⟩ : Env).find? n =
-          some (.recInfo cvR nP' nM' nm' ni' rules) := by
+          some (.recInfo cvR mI' rP' rules) := by
         rw [Env.find?_cons,
-          if_neg (show ¬(ConstantInfo.recInfo cvA nP nM nm ni
+          if_neg (show ¬(ConstantInfo.recInfo cvA mI rP
             []).name = n from hn)]
         exact hfp
-      obtain ⟨hA, hfold⟩ := m₀.rec_rules n cvR nP' nM' nm' ni' rules
+      obtain ⟨hA, hle, hfold⟩ := m₀.rec_rules n cvR mI' rP' rules
         hfp₀ r hr
-      refine ⟨fun ψ => hAtrans01 _ ψ 0 (rho0 V) (hA ψ), ?_⟩
+      refine ⟨fun ψ => hAtrans01 _ ψ 0 (rho0 V) (hA ψ), hle, ?_⟩
       intro cvj' cnP' cnF' hfj ψ ψj args margs tv hl hml hch hmch htv
         hpeq hplain hlev hfit
       have hncc : RecRule.ctor r ≠ cvA.name := by
         intro h
         rw [h, Env.find?_cons,
-          if_pos (show (ConstantInfo.recInfo cvA nP nM nm ni
+          if_pos (show (ConstantInfo.recInfo cvA mI rP
             rules').name = cvA.name from rfl)] at hfj
         exact nomatch (Option.some.inj hfj)
-      have hfj₀ : (⟨.recInfo cvA nP nM nm ni [] ::
+      have hfj₀ : (⟨.recInfo cvA mI rP [] ::
           env.consts⟩ : Env).find? (RecRule.ctor r) =
           some (.ctorInfo cvj' cnP' cnF') := by
         rw [← hfindEq _ hncc]
@@ -409,16 +409,16 @@ theorem extend_rec_swap {rules' : List RecRule}
   · -- modeled_ok: lookups only differ in the head's rule list
     obtain ⟨mo1, mo2, mo3, mo4, mo5⟩ := m₀.modeled_ok
     have hisoF : ∀ n,
-        (⟨.recInfo cvA nP nM nm ni rules' :: env.consts⟩ : Env).find? n =
-        if cvA.name = n then some (.recInfo cvA nP nM nm ni rules')
-        else (⟨.recInfo cvA nP nM nm ni [] :: env.consts⟩ : Env).find? n := by
+        (⟨.recInfo cvA mI rP rules' :: env.consts⟩ : Env).find? n =
+        if cvA.name = n then some (.recInfo cvA mI rP rules')
+        else (⟨.recInfo cvA mI rP [] :: env.consts⟩ : Env).find? n := by
       intro n
       rw [Env.find?_cons]
       by_cases h : cvA.name = n
-      · rw [if_pos (show (ConstantInfo.recInfo cvA nP nM nm ni rules').name = n from h), if_pos h]
-      · rw [if_neg (show ¬(ConstantInfo.recInfo cvA nP nM nm ni rules').name = n from h), if_neg h,
+      · rw [if_pos (show (ConstantInfo.recInfo cvA mI rP rules').name = n from h), if_pos h]
+      · rw [if_neg (show ¬(ConstantInfo.recInfo cvA mI rP rules').name = n from h), if_neg h,
           Env.find?_cons,
-          if_neg (show ¬(ConstantInfo.recInfo cvA nP nM nm ni []).name = n from h)]
+          if_neg (show ¬(ConstantInfo.recInfo cvA mI rP []).name = n from h)]
     refine ⟨?_, ?_, ?_, ?_, ?_⟩
     · intro n cv caps hf hres
       rw [hisoF] at hf
@@ -444,9 +444,9 @@ theorem extend_rec_swap {rules' : List RecRule}
       rw [hisoF] at hf
       split at hf
       · next hh =>
-        obtain ⟨hms, hveq⟩ := mo3 T j (.recInfo cvA nP nM nm ni [])
+        obtain ⟨hms, hveq⟩ := mo3 T j (.recInfo cvA mI rP [])
           (by rw [Env.find?_cons,
-            if_pos (show (ConstantInfo.recInfo cvA nP nM nm ni []).name = projFnName T j from hh)])
+            if_pos (show (ConstantInfo.recInfo cvA mI rP []).name = projFnName T j from hh)])
         refine ⟨?_, hveq⟩
         rw [hisoF]
         split
@@ -531,8 +531,8 @@ theorem extend_fresh {env : Env} (m : EnvModel V env)
       (∀ ψ : Name → Nat, val' ci.name ψ = v₀ ψ) →
       (∀ (n : Name) (ψ : Name → Nat), n ≠ ci.name → val' n ψ = m.val n ψ) →
       RecMemberOk (V := V) ⟨ci :: env.consts⟩ val' ci)
-    (hctors : ∀ cvR nP nM nm ni rules,
-      ci = .recInfo cvR nP nM nm ni rules →
+    (hctors : ∀ cvR mI rP rules,
+      ci = .recInfo cvR mI rP rules →
       ∀ r ∈ rules, ∃ cvj cnP cnF,
         env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF))
     (hmodv : reservedBasisNames.contains ci.name = false →

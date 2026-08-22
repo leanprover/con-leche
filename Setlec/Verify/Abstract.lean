@@ -281,10 +281,10 @@ theorem annotateProjElim_inv {env : Env} {fuel d : Nat} {sn : Name}
   | some (.thmInfo _ _) => intro h; exact annotateProjRec_inv h
   | some (.indInfo _ _) => intro h; exact annotateProjRec_inv h
   | some (.ctorInfo _ _ _) => intro h; exact annotateProjRec_inv h
-  | some (.recInfo pcv nP nM nm ni rules) => ?_
+  | some (.recInfo pcv mI rP rules) => ?_
   intro h
   dsimp only at h
-  by_cases hlen : te.getAppArgs.length = nP
+  by_cases hlen : te.getAppArgs.length = rP
   case neg => rw [if_neg hlen] at h; exact nomatch h
   rw [if_pos hlen] at h
   try dsimp only at h
@@ -373,7 +373,7 @@ theorem annotateCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
     | some (.defnInfo cv v hint) => intro h; exact Or.inr h
     | some (.thmInfo cv v) => intro h; exact Or.inr h
     | some (.ctorInfo cv nP nF) => intro h; exact Or.inr h
-    | some (.recInfo cv nP nM nm ni rules) => intro h; exact Or.inr h
+    | some (.recInfo cv mI rP rules) => intro h; exact Or.inr h
     | some (.indInfo cv _) => ?_
     intro h
     dsimp only at h

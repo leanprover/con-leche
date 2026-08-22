@@ -50,8 +50,8 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
       (∀ ψ : Name → Nat, val' ci.name ψ = v₀ ψ) →
       (∀ (n : Name) (ψ : Name → Nat), n ≠ ci.name → val' n ψ = m.val n ψ) →
       RecMemberOk (V := V) ⟨ci :: env.consts⟩ val' ci)
-    (hctors : ∀ cvR nP nM nm ni rules,
-      ci = .recInfo cvR nP nM nm ni rules →
+    (hctors : ∀ cvR mI rP rules,
+      ci = .recInfo cvR mI rP rules →
       ∀ r ∈ rules, ∃ cvj cnP cnF,
         env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF))
     (hmodv : reservedBasisNames.contains ci.name = false →

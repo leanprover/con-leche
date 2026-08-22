@@ -137,7 +137,8 @@ def isUnitLikeTy (env : Env) : Expr → Bool
       | some (.indInfo _ _) => true
       | _ => false) &&
     (match env.find? (c.str "rec") with
-      | some (.recInfo _ _ _ _ 0 [r]) => r.nfields == 0
+      -- no indices: the major's position equals the rule prefix
+      | some (.recInfo _ mI rP [r]) => mI == rP && r.nfields == 0
       | _ => false) &&
     -- native unit semantics: pinned basis blocks only (env-stored
     -- capability flags will replace this)
@@ -601,8 +602,8 @@ def pairEtaCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
         match env.find? c' with
         | some (.indInfo _ _) =>
           match env.find? (c'.str "rec") with
-          | some (.recInfo _ _ _ _ 0 [rr]) =>
-            if rr.ctor = c ∧ rr.nfields = 2 ∧
+          | some (.recInfo _ mI rP [rr]) =>
+            if rr.ctor = c ∧ rr.nfields = 2 ∧ mI = rP ∧
                 reservedBasisNames.contains (c'.str "rec") = true then
               if ← liftFueled "level comparison"
                   (Level.isEquivList us us') then
@@ -627,7 +628,7 @@ def structEtaProjCerts (r : CoreFns m) (env : Env) (depth : Nat)
   | [] => pure true
   | i :: rest => do
     match env.find? (projFnName T i) with
-    | some (.recInfo cvp _ _ _ _ _) =>
+    | some (.recInfo cvp _ _ _) =>
       if cvp.levelParams = lpsT ∧
           (cvp.type.stripPis (targs.length + 1)).isSome = true then
         if ← iotaCerts r env depth
@@ -856,36 +857,39 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
   match e.getAppFn with
   | .const c us =>
     match env.find? c with
-    | some (.recInfo cv nP nM nm ni rules) =>
+    | some (.recInfo cv mI rP rules) =>
       let args := e.getAppArgs
-      if args.length = nP + nM + nm + ni + 1 then
-        let major₀ ← r.whnf depth
-          (args.getD (nP + nM + nm + ni) (.bvar 0))
+      if args.length = mI + 1 then
+        let major₀ ← r.whnf depth (args.getD mI (.bvar 0))
         let major ← majorToCtor r env depth c rules (litToCtorIfNat env major₀)
         match major.getAppFn with
         | .const cj usj =>
           match env.find? cj with
-          | some (.ctorInfo cvj cnP cnF) =>
+          | some (.ctorInfo cvj _ _) =>
             match rules.find? (fun r' => r'.ctor == cj) with
             | some rl =>
               let margs := major.getAppArgs
-              if margs.length = cnP + cnF ∧ rl.nfields = cnF then
-               if (cv.type.stripPis (nP + nM + nm + ni + 1)).isSome ∧
-                  (cvj.type.stripPis (cnP + cnF)).isSome ∧
+              -- the constructor's counts are read off the stored rule
+              -- (install-computed); the defensive spine-length check
+              -- stays
+              if margs.length = rl.ctorParams + rl.nfields then
+               if (cv.type.stripPis (mI + 1)).isSome ∧
+                  (cvj.type.stripPis (rl.ctorParams + rl.nfields)).isSome ∧
                   -- non-canonical (nested-auxiliary) rules are inert:
-                  -- their fold facts carry this guard
-                  Expr.recRulePlain cv.type nP nM nm ni cnP then
+                  -- the flag is computed once at install
+                  -- (`Expr.recRulePlain`), never re-derived per fire
+                  rl.plain then
                 -- the constructor's levels must agree with the
                 -- recursor's instantiation (the rule links their
                 -- level parameters by name)
                 if ← liftFueled "level comparison" (Level.isEquivList usj
                     (cvj.levelParams.map fun p =>
                       Level.subst cv.levelParams us (.param p))) then
-                 if ← defEqList r env depth (margs.take cnP)
-                    (args.take cnP) then
+                 if ← defEqList r env depth (margs.take rl.ctorParams)
+                    (args.take rl.ctorParams) then
                   if ← iotaCerts r env depth
                      (cv.type.instantiateLevelParams cv.levelParams us)
-                     (args.take (nP + nM + nm + ni) ++ [major]) then
+                     (args.take mI ++ [major]) then
                    if ← iotaCerts r env depth
                       (cvj.type.instantiateLevelParams cvj.levelParams usj)
                       margs then
@@ -895,19 +899,18 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                     -- family): the model's iota equation only speaks
                     -- about the canonical indices
                     match (cvj.type.instantiateLevelParams cvj.levelParams
-                          usj).stripPis (cnP + cnF),
+                          usj).stripPis (rl.ctorParams + rl.nfields),
                         piResidual (cvj.type.instantiateLevelParams
                           cvj.levelParams usj) margs with
                     | some (_, cbody), some residual =>
                       match cbody.getAppFn with
                       | .const _ _ =>
                         if ← defEqList r env depth
-                            (residual.getAppArgs.drop cnP)
-                            ((args.take (nP + nM + nm + ni)).drop
-                              (nP + nM + nm)) then
+                            (residual.getAppArgs.drop rl.ctorParams)
+                            ((args.take mI).drop rP) then
                           pure (some (Expr.mkAppN
                             (rl.rhs.instantiateLevelParams cv.levelParams us)
-                            (args.take (nP + nM + nm) ++ margs.drop cnP)))
+                            (args.take rP ++ margs.drop rl.ctorParams)))
                         else pure none
                       | _ => pure none
                     | _, _ => pure none
@@ -1315,11 +1318,15 @@ stored recursor's fixed motive sort cannot reach the field's. -/
 def annotateProjRec (r : CoreFns m) (env : Env) (depth : Nat) (sn : Name)
     (i : Nat) (te e' : Expr) (us : List Level) : m Expr := do
   match env.find? (sn.str "rec"), env.find? sn with
-  | some (.recInfo cvR nP 1 1 0 [rule]), some (.indInfo _ _) =>
+  | some (.recInfo cvR mI rP [rule]), some (.indInfo _ _) =>
     match env.find? (RecRule.ctor rule) with
     | some (.ctorInfo cvC _ cnF) =>
       let params := te.getAppArgs
-      if params.length = nP then
+      -- a structure recursor: no indices (mI = rP) and a prefix of
+      -- params + one motive + one minor (the individual counts are
+      -- not stored; the fabricated application is re-annotated, so
+      -- the ordinary rules re-check its shape)
+      if mI = rP ∧ params.length + 2 = rP then
         let ctorTy := cvC.type.instantiateLevelParams cvC.levelParams us
         match ctorTy.instPis params with
         | some tel =>
@@ -1366,8 +1373,11 @@ def annotateProjElim (r : CoreFns m) (env : Env) (depth : Nat) (sn : Name)
   | .const T us =>
     if T = sn then
       match env.find? (projFnName T i) with
-      | some (.recInfo _ nP _ _ _ _) =>
-        if te.getAppArgs.length = nP then
+      | some (.recInfo _ _ rP _) =>
+        -- a projection function is a degenerate recursor: no motive,
+        -- no minors, no indices, so its rule prefix is exactly the
+        -- parameter count
+        if te.getAppArgs.length = rP then
           let raw := Expr.mkAppN (.const (projFnName T i) us)
             (te.getAppArgs ++ [e'])
           if raw.wscopedB depth && raw.looseBVarsBounded 0 &&

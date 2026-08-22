@@ -322,7 +322,7 @@ theorem structEtaProjCerts_disc (ih : ScopedSim env f) (henv : EnvWF env)
   | cons i rest ihrest =>
     show DiscV env _
       (match env.find? (projFnName T i) with
-        | some (.recInfo cvp _ _ _ _ _) =>
+        | some (.recInfo cvp _ _ _) =>
           if cvp.levelParams = lpsT ∧
               (cvp.type.stripPis (targs.length + 1)).isSome = true then
             iotaCerts C env d
@@ -333,7 +333,7 @@ theorem structEtaProjCerts_disc (ih : ScopedSim env f) (henv : EnvWF env)
           else pure false
         | _ => pure false)
       (match env.find? (projFnName T i) with
-        | some (.recInfo cvp _ _ _ _ _) =>
+        | some (.recInfo cvp _ _ _) =>
           if cvp.levelParams = lpsT ∧
               (cvp.type.stripPis (targs.length + 1)).isSome = true then
             iotaCerts G env d
@@ -347,7 +347,7 @@ theorem structEtaProjCerts_disc (ih : ScopedSim env f) (henv : EnvWF env)
     | none => exact DiscV.pure trivial
     | some ci =>
       cases ci with
-      | recInfo cvp nP nM nm ni rules =>
+      | recInfo cvp mI rP rules =>
         dsimp only
         split
         · have htyw : WScoped d
@@ -692,7 +692,7 @@ theorem iotaRec_disc (ih : ScopedSim env f) (henv : EnvWF env)
   split <;> try exact DiscV.pure WScopedO.none
   rename_i c us heqfn
   split <;> try exact DiscV.pure WScopedO.none
-  rename_i cv nP nM nm ni rules hfc
+  rename_i cv mI rP rules hfc
   dsimp only []
   split <;> try exact DiscV.pure WScopedO.none
   refine DiscV.bind
@@ -747,7 +747,7 @@ theorem iotaRec_disc (ih : ScopedSim env f) (henv : EnvWF env)
   · refine DiscV.pure (WScopedO.some ?_)
     refine Expr.WScoped.mkAppN ?_ ?_
     · obtain ⟨-, -, -, -, -, hrules⟩ := henv _ (find?_mem hfc)
-      obtain ⟨hrf, -, -, -⟩ := hrules cv nP nM nm ni rules rfl rl
+      obtain ⟨hrf, -, -, -⟩ := hrules cv mI rP rules rfl rl
         (List.mem_of_find?_eq_some hrule)
       exact wscoped_instLevels_of_not_hasFvar hrf _ _
     · intro x hx

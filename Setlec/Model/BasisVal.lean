@@ -234,7 +234,7 @@ def pinnedInfo (n : Name) : ConstantInfo :=
 
 /-- Is this constant-info one of the basis kinds? -/
 def ConstantInfo.isBasis : ConstantInfo → Bool
-  | .indInfo _ _ | .ctorInfo _ _ _ | .recInfo _ _ _ _ _ _ => true
+  | .indInfo _ _ | .ctorInfo _ _ _ | .recInfo _ _ _ _ => true
   | _ => false
 
 /-- Which names carry constructor-shaped pinned declarations. -/
@@ -307,8 +307,8 @@ theorem pinnedInfo_ctorInfo_cases {n : Name} {cv : ConstantVal} {nP nF : Nat}
 
 /-- Which names carry recursor-shaped pinned declarations. -/
 theorem pinnedInfo_recInfo_cases {n : Name} {cv : ConstantVal}
-    {nP nM nm ni : Nat} {rules : List RecRule}
-    (h : pinnedInfo n = .recInfo cv nP nM nm ni rules) :
+    {mI rP : Nat} {rules : List RecRule}
+    (h : pinnedInfo n = .recInfo cv mI rP rules) :
     n = eqName.str "rec" ∨ n = natName.str "rec" ∨
     n = psigmaName.str "rec" ∨ n = punitName.str "rec" ∨
     n = emptyName.str "rec" ∨ n = quotLiftName ∨ n = quotIndName := by

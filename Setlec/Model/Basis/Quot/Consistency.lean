@@ -82,7 +82,7 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
         (Option.isNone_iff_eq_none.mp h1)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [quotA]),
-          fun _ _ _ _ _ _ hx => absurd hx (by simp [quotA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [quotA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => quot_key)
@@ -95,10 +95,10 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
         (fun cv _ hx hn => absurd hn (by decide))
         (fun hn => absurd hn (by decide))
         (fun _ _ => ⟨rfl, fun _ => rfl⟩)
-        (fun _ _ _ _ _ _ hx => nomatch hx)
-        (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+        (fun _ _ _ _ hx => nomatch hx)
+        (fun _val' _h1 _h2 cvR mI rP rules hx =>
           absurd hx (by simp [quotA]))
-        (fun _ _ _ _ _ _ hx => absurd hx (by simp [quotA]))
+        (fun _ _ _ _ hx => absurd hx (by simp [quotA]))
         (fun hres _ => absurd hres (by decide))
         (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
         (fun _ _ _ _ hres => absurd hres (by decide))
@@ -111,7 +111,7 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
         (Option.isNone_iff_eq_none.mp h2)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [quotMkA]),
-          fun _ _ _ _ _ _ hx => absurd hx (by simp [quotMkA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [quotMkA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => quotMk_key rfl hvalQ1)
@@ -124,10 +124,10 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
         (fun cv _ hx hn => absurd hn (by decide))
         (fun hn => absurd hn (by decide))
         (fun _ _ => ⟨rfl, fun _ => rfl⟩)
-        (fun _ _ _ _ _ _ hx => nomatch hx)
-        (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+        (fun _ _ _ _ hx => nomatch hx)
+        (fun _val' _h1 _h2 cvR mI rP rules hx =>
           absurd hx (by simp [quotMkA]))
-        (fun _ _ _ _ _ _ hx => absurd hx (by simp [quotMkA]))
+        (fun _ _ _ _ hx => absurd hx (by simp [quotMkA]))
         (fun hres _ => absurd hres (by decide))
         (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
         (fun _ _ _ _ hres => absurd hres (by decide))
@@ -204,10 +204,10 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
         (Option.isNone_iff_eq_none.mp h3)
         ⟨rfl, rfl, hresL, rfl,
           fun _ _ _ hx => absurd hx (by simp [quotLiftA]),
-          fun cv nP nM nm ni rules heq r hr => by
+          fun cv mI rP rules heq r hr => by
             simp only [quotLiftA] at heq
-            injection heq with e1 e2 e3 e4 e5 e6
-            subst e1 e2 e3 e4 e5 e6
+            injection heq with e1 e2 e3 e4
+            subst e1 e2 e3 e4
             rcases List.mem_cons.mp hr with rfl | hr
             · exact ⟨rfl, rfl, hresLr, rfl⟩
             · cases hr⟩
@@ -224,15 +224,15 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
         (fun cv _ hx hn => absurd hn (by decide))
         (fun hn => absurd hn (by decide))
         (fun _ _ => ⟨rfl, fun _ => rfl⟩)
-        (fun cv nP nM nm ni rules heq =>
+        (fun cv mI rP rules heq =>
           ⟨fun hn => absurd hn (by decide),
            fun hn => absurd hn (by decide),
            fun hn => absurd hn (by decide),
            fun hn => absurd hn (by decide)⟩)
-        (fun val' hv1 hv2 cvR nP nM nm ni rules heq => by
+        (fun val' hv1 hv2 cvR mI rP rules heq => by
           simp only [quotLiftA] at heq
-          injection heq with e1 e2 e3 e4 e5 e6
-          subst e1 e2 e3 e4 e5 e6
+          injection heq with e1 e2 e3 e4
+          subst e1 e2 e3 e4
           intro r hr
           have hfE' : Env.find?
               (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩ : Env)
@@ -250,7 +250,7 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
             exact hvalM2 ψ'
           rcases List.mem_cons.mp hr with rfl | hr
           · refine ⟨fun ψ => annotOk_quotLift_rhs (cval := val') (ψ := ψ)
-              hfE' hvalE', ?_⟩
+              hfE' hvalE', fun _ => Nat.le_refl _, ?_⟩
             intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
               htv hpeq _hplain hlev hfit
             have hje := Option.some.inj hfj
@@ -321,10 +321,10 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
               exact hfold
             · exact hchainR
           · cases hr)
-        (fun cvR nP nM nm ni rules heq => by
+        (fun cvR mI rP rules heq => by
           simp only [quotLiftA] at heq
-          injection heq with e1 e2 e3 e4 e5 e6
-          subst e6
+          injection heq with e1 e2 e3 e4
+          subst e4
           intro r hr
           rcases List.mem_cons.mp hr with rfl | hr
           · have hf : Env.find?
@@ -359,10 +359,10 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
         (Option.isNone_iff_eq_none.mp h4)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [quotIndA]),
-          fun cv nP nM nm ni rules heq r hr => by
+          fun cv mI rP rules heq r hr => by
             simp only [quotIndA] at heq
-            injection heq with e1 e2 e3 e4 e5 e6
-            subst e1 e2 e3 e4 e5 e6
+            injection heq with e1 e2 e3 e4
+            subst e1 e2 e3 e4
             rcases List.mem_cons.mp hr with rfl | hr
             · exact ⟨rfl, rfl, rfl, rfl⟩
             · cases hr⟩
@@ -378,15 +378,15 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
         (fun cv _ hx hn => absurd hn (by decide))
         (fun hn => absurd hn (by decide))
         (fun _ _ => ⟨rfl, fun _ => rfl⟩)
-        (fun cv nP nM nm ni rules heq =>
+        (fun cv mI rP rules heq =>
           ⟨fun hn => absurd hn (by decide),
            fun hn => absurd hn (by decide),
            fun hn => absurd hn (by decide),
            fun hn => absurd hn (by decide)⟩)
-        (fun val' hv1 hv2 cvR nP nM nm ni rules heq => by
+        (fun val' hv1 hv2 cvR mI rP rules heq => by
           simp only [quotIndA] at heq
-          injection heq with e1 e2 e3 e4 e5 e6
-          subst e1 e2 e3 e4 e5 e6
+          injection heq with e1 e2 e3 e4
+          subst e1 e2 e3 e4
           intro r hr
           have hfQ' : Env.find?
               (⟨quotIndA :: quotLiftA :: quotMkA :: quotA ::
@@ -410,7 +410,7 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
             exact hvalM3 ψ'
           rcases List.mem_cons.mp hr with rfl | hr
           · refine ⟨fun ψ => annotOk_quotInd_rhs (cval := val') (ψ := ψ)
-              hfQ' hvalQ' hfM' hvalM', ?_⟩
+              hfQ' hvalQ' hfM' hvalM', fun _ => Nat.le_refl _, ?_⟩
             intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
               htv hpeq _hplain hlev hfit
             have hje := Option.some.inj hfj
@@ -460,10 +460,10 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
               exact hfold
             · exact hchainR
           · cases hr)
-        (fun cvR nP nM nm ni rules heq => by
+        (fun cvR mI rP rules heq => by
           simp only [quotIndA] at heq
-          injection heq with e1 e2 e3 e4 e5 e6
-          subst e6
+          injection heq with e1 e2 e3 e4
+          subst e4
           intro r hr
           rcases List.mem_cons.mp hr with rfl | hr
           · have hf : Env.find?
@@ -553,7 +553,7 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
         (Option.isNone_iff_eq_none.mp h5)
         ⟨rfl, rfl, hresS, rfl,
           fun _ _ _ hx => absurd hx (by simp [quotSoundA]),
-          fun _ _ _ _ _ _ hx => absurd hx (by simp [quotSoundA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [quotSoundA])⟩
         hresS0
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => quotSound_key hfE4 hvalE4 rfl hvalQ4 rfl hvalM4)
@@ -566,10 +566,10 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
         (fun cv _ hx hn => nomatch hx)
         (fun hn => absurd hn (by decide))
         (fun hb _ => by simp [quotSoundA, ConstantInfo.isBasis] at hb)
-        (fun _ _ _ _ _ _ hx => nomatch hx)
-        (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+        (fun _ _ _ _ hx => nomatch hx)
+        (fun _val' _h1 _h2 cvR mI rP rules hx =>
           absurd hx (by simp [quotSoundA]))
-        (fun _ _ _ _ _ _ hx => absurd hx (by simp [quotSoundA]))
+        (fun _ _ _ _ hx => absurd hx (by simp [quotSoundA]))
         (fun hres _ => absurd hres (by decide))
         (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
         (fun _ _ _ _ hres => absurd hres (by decide))

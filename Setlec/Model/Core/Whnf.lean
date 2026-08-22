@@ -812,7 +812,7 @@ theorem unfoldDefinition_inv {env : Env} {e e₂ : Expr}
   | some (.thmInfo _ _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.defnInfo cv value hint) => ?_
   intro h
   dsimp only at h

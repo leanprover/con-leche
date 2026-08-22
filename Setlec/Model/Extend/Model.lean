@@ -71,7 +71,7 @@ theorem extend_model {env : Env} (m : EnvModel V env)
     · intro cv2 value2 h2 heq
       obtain ⟨rfl, rfl⟩ := hc₀val cv2 value2 h2 heq
       exact ⟨hvf, hvp, Expr.constsResolve_mono hvr, hvb⟩
-    · intro cv nP nM nm ni rules heq
+    · intro cv mI rP rules heq
       rw [heq] at hc₀nb
       simp [ConstantInfo.isBasis] at hc₀nb
   have htyres0 : c₀.toConstantVal.type.constsResolve env = true := by
@@ -227,13 +227,13 @@ theorem extend_model {env : Env} (m : EnvModel V env)
     (fun hb _ => by
       rw [hc₀nb] at hb
       exact nomatch hb)
-    (fun cv nP nM nm ni rules heq => by
+    (fun cv mI rP rules heq => by
       rw [heq] at hc₀nb
       simp [ConstantInfo.isBasis] at hc₀nb)
-    (fun val' _ _ cvR nP nM nm ni rules heq => by
+    (fun val' _ _ cvR mI rP rules heq => by
       rw [heq] at hc₀nb
       simp [ConstantInfo.isBasis] at hc₀nb)
-    (fun cvR nP nM nm ni rules heq => by
+    (fun cvR mI rP rules heq => by
       rw [heq] at hc₀nb
       simp [ConstantInfo.isBasis] at hc₀nb)
     (fun _ hk => by

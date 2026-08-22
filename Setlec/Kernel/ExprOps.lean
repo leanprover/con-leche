@@ -311,12 +311,12 @@ variables.  Rules for nested auxiliary constructors (whose parameters
 are instantiations like `Array Syntax`) are not canonical; they are
 stored inert — `iotaRec` guards on this predicate, so they never fire
 and carry no fold obligation. -/
-def recRulePlain (recTy : Expr) (nP nM nm ni cnP : Nat) : Bool :=
-  decide (cnP ≤ nP + nM + nm) &&
-  match recTy.stripPis (nP + nM + nm + ni) with
+def recRulePlain (recTy : Expr) (mI rP cnP : Nat) : Bool :=
+  decide (cnP ≤ rP) && decide (rP ≤ mI) &&
+  match recTy.stripPis mI with
   | some (_, .forallE _ dom _ _) =>
     dom.getAppArgs.take cnP ==
-      (List.range cnP).map (fun k => Expr.bvar (nP + nM + nm + ni - 1 - k))
+      (List.range cnP).map (fun k => Expr.bvar (mI - 1 - k))
   | _ => false
 
 /-- Convert the first `k` `∀`-binders into `λ`-binders over a body. -/

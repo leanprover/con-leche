@@ -348,7 +348,7 @@ private theorem stdAxiomOk_propext_inv {env : Env} {cvA : ConstantVal}
       ConstantVal.matchesPin cvI iffA.toConstantVal = true) ∧
     (∃ cvIi, env.find? iffIntroName = some (.ctorInfo cvIi 2 2) ∧
       ConstantVal.matchesPin cvIi iffIntroA.toConstantVal = true) ∧
-    (∃ cvIr rules, env.find? iffRecName = some (.recInfo cvIr 2 1 1 0 rules) ∧
+    (∃ cvIr rules, env.find? iffRecName = some (.recInfo cvIr 4 4 rules) ∧
       ConstantVal.matchesPin cvIr iffRecA.toConstantVal = true) ∧
     ConstantVal.matchesPin cvA propextA = true := by
   rw [stdAxiomOk, if_pos hn] at h
@@ -374,7 +374,7 @@ private theorem stdAxiomOk_choice_inv {env : Env} {cvA : ConstantVal}
     (∃ cvNi, env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1) ∧
       ConstantVal.matchesPin cvNi nonemptyIntroA.toConstantVal = true) ∧
     (∃ cvNr rules,
-      env.find? nonemptyRecName = some (.recInfo cvNr 1 1 1 0 rules) ∧
+      env.find? nonemptyRecName = some (.recInfo cvNr 3 3 rules) ∧
       ConstantVal.matchesPin cvNr nonemptyRecA.toConstantVal = true) ∧
     ConstantVal.matchesPin cvA choiceA = true := by
   rw [stdAxiomOk, if_neg hn', if_pos hn] at h
@@ -446,7 +446,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         hfind'
         ⟨htf, htp, Expr.constsResolve_mono htr, hbt',
           fun _ _ _ hx => ConstantInfo.noConfusion hx,
-          fun _ _ _ _ _ _ hx => ConstantInfo.noConfusion hx⟩
+          fun _ _ _ _ hx => ConstantInfo.noConfusion hx⟩
         htr
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => hkey ψ)
@@ -457,9 +457,9 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun _ _ hx _ => nomatch hx)
         (fun hn => absurd (hnp.symm.trans hn) (by decide))
         (fun hb _ => by simp [ConstantInfo.isBasis] at hb)
-        (fun _ _ _ _ _ _ hx => nomatch hx)
-        (fun _ _ _ _ _ _ _ _ _ hx => nomatch hx)
-        (fun _ _ _ _ _ _ hx => nomatch hx)
+        (fun _ _ _ _ hx => nomatch hx)
+        (fun _ _ _ _ _ _ _ hx => nomatch hx)
+        (fun _ _ _ _ hx => nomatch hx)
         (fun _ hor => by
           rcases hor with ⟨_, _, hx⟩ | ⟨_, _, _, hx⟩ <;> exact nomatch hx)
         (fun T j hh => absurd (hnp.symm.trans hh).symm
@@ -492,7 +492,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         hfind'
         ⟨htf, htp, Expr.constsResolve_mono htr, hbt',
           fun _ _ _ hx => ConstantInfo.noConfusion hx,
-          fun _ _ _ _ _ _ hx => ConstantInfo.noConfusion hx⟩
+          fun _ _ _ _ hx => ConstantInfo.noConfusion hx⟩
         htr
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => hkey ψ)
@@ -504,9 +504,9 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun _ _ hx _ => nomatch hx)
         (fun hn => absurd (hnc.symm.trans hn) (by decide))
         (fun hb _ => by simp [ConstantInfo.isBasis] at hb)
-        (fun _ _ _ _ _ _ hx => nomatch hx)
-        (fun _ _ _ _ _ _ _ _ _ hx => nomatch hx)
-        (fun _ _ _ _ _ _ hx => nomatch hx)
+        (fun _ _ _ _ hx => nomatch hx)
+        (fun _ _ _ _ _ _ _ hx => nomatch hx)
+        (fun _ _ _ _ hx => nomatch hx)
         (fun _ hor => by
           rcases hor with ⟨_, _, hx⟩ | ⟨_, _, _, hx⟩ <;> exact nomatch hx)
         (fun T j hh => absurd (hnc.symm.trans hh).symm
@@ -558,7 +558,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (Option.isNone_iff_eq_none.mp h1)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [natA]),
-          fun _ _ _ _ _ _ hx => absurd hx (by simp [natA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [natA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => nat_key)
@@ -569,10 +569,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv _ hx hn => absurd hn (by decide))
         (fun hn => absurd hn (by decide))
         (fun _ _ => ⟨rfl, fun _ => rfl⟩)
-        (fun _ _ _ _ _ _ hx => nomatch hx)
-        (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+        (fun _ _ _ _ hx => nomatch hx)
+        (fun _val' _h1 _h2 cvR mI rP rules hx =>
           absurd hx (by simp [natA]))
-        (fun _ _ _ _ _ _ hx =>
+        (fun _ _ _ _ hx =>
           absurd hx (by simp [natA]))
         (fun hres _ => absurd hres (by decide))
         (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
@@ -583,7 +583,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (Option.isNone_iff_eq_none.mp h2)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [natZeroA]),
-          fun _ _ _ _ _ _ hx => absurd hx (by simp [natZeroA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [natZeroA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => natZero_key rfl (fun ψ' => hval1 ψ'))
@@ -594,10 +594,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv _ hx _ => nomatch hx)
         (fun hn => absurd hn (by decide))
         (fun _ _ => ⟨rfl, fun _ => rfl⟩)
-        (fun _ _ _ _ _ _ hx => nomatch hx)
-        (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+        (fun _ _ _ _ hx => nomatch hx)
+        (fun _val' _h1 _h2 cvR mI rP rules hx =>
           absurd hx (by simp [natZeroA]))
-        (fun _ _ _ _ _ _ hx =>
+        (fun _ _ _ _ hx =>
           absurd hx (by simp [natZeroA]))
         (fun hres _ => absurd hres (by decide))
         (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
@@ -611,7 +611,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (Option.isNone_iff_eq_none.mp h3)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [natSuccA]),
-          fun _ _ _ _ _ _ hx => absurd hx (by simp [natSuccA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [natSuccA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => natSucc_key rfl hvalN2)
@@ -622,10 +622,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv _ hx _ => nomatch hx)
         (fun hn => absurd hn (by decide))
         (fun _ _ => ⟨rfl, fun _ => rfl⟩)
-        (fun _ _ _ _ _ _ hx => nomatch hx)
-        (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+        (fun _ _ _ _ hx => nomatch hx)
+        (fun _val' _h1 _h2 cvR mI rP rules hx =>
           absurd hx (by simp [natSuccA]))
-        (fun _ _ _ _ _ _ hx =>
+        (fun _ _ _ _ hx =>
           absurd hx (by simp [natSuccA]))
         (fun hres _ => absurd hres (by decide))
         (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
@@ -642,10 +642,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (Option.isNone_iff_eq_none.mp h4)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [natRecA]),
-          fun cv nP nM nm ni rules heq r hr => by
+          fun cv mI rP rules heq r hr => by
             simp only [natRecA] at heq
-            injection heq with h1 h2 h3 h4 h5 h6
-            subst h1 h2 h3 h4 h5 h6
+            injection heq with h1 h2 h3 h4
+            subst h1 h2 h3 h4
             first
             | (rcases List.mem_cons.mp hr with rfl | hr
                · exact ⟨by decide, by decide,
@@ -686,7 +686,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv _ hx _ => nomatch hx)
         (fun hn => absurd hn (by decide))
         (fun _ _ => ⟨rfl, fun _ => rfl⟩)
-        (fun cv nP nM nm ni rules heq =>
+        (fun cv mI rP rules heq =>
           ⟨fun hn => absurd hn (by decide),
            fun _ => ⟨by
               rw [Env.find?_cons, if_neg (by decide), Env.find?_cons,
@@ -698,10 +698,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
               rw [Env.find?_cons, if_pos (by decide)]⟩,
            fun hn => absurd hn (by decide),
            fun hn => absurd hn (by decide)⟩)
-        (fun val' hv1 hv2 cvR nP nM nm ni rules heq => by
+        (fun val' hv1 hv2 cvR mI rP rules heq => by
           simp only [natRecA] at heq
-          injection heq with h1 h2 h3 h4 h5 h6
-          subst h1 h2 h3 h4 h5 h6
+          injection heq with h1 h2 h3 h4
+          subst h1 h2 h3 h4
           intro r hr
           have hvalN' : ∀ ψ' : Name → Nat, val' natName ψ' = omega := by
             intro ψ'
@@ -734,7 +734,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
           rcases List.mem_cons.mp hr with rfl | hr
           · -- zero rule
             refine ⟨fun ψ => annotOk_natRecZero_rhs (cval := val') (ψ := ψ)
-              rfl hvalN' rfl hvalZ' rfl hvalSc', ?_⟩
+              rfl hvalN' rfl hvalZ' rfl hvalSc', fun _ => Nat.le_refl _, ?_⟩
             intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
               htv _hpeq _hplain _hlev _hfit
             have hje := Option.some.inj hfj
@@ -773,7 +773,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
           rcases List.mem_cons.mp hr with rfl | hr
           · -- successor rule
             refine ⟨fun ψ => annotOk_natRecSucc_rhs (cval := val') (ψ := ψ)
-              rfl hvalN' rfl hvalZ' rfl hvalSc' hfRc' hvalRc', ?_⟩
+              rfl hvalN' rfl hvalZ' rfl hvalSc' hfRc' hvalRc', fun _ => Nat.le_refl _, ?_⟩
             intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
               htv _hpeq _hplain _hlev _hfit
             have hje := Option.some.inj hfj
@@ -825,10 +825,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                 ⟨vS3, AS3, BS3, hq7, hq8, hq9⟩,
                 ⟨vS4, AS4, BS4, hq10, hq11, hq12⟩, trivial⟩
           · cases hr)
-        (fun cvR nP nM nm ni rules heq => by
+        (fun cvR mI rP rules heq => by
           simp only [natRecA] at heq
-          injection heq with h1 h2 h3 h4 h5 h6
-          subst h1 h2 h3 h4 h5 h6
+          injection heq with h1 h2 h3 h4
+          subst h1 h2 h3 h4
           intro r hr
           rcases List.mem_cons.mp hr with rfl | hr
           · have hf : Env.find?
@@ -916,7 +916,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (Option.isNone_iff_eq_none.mp h1)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [psigmaA]),
-          fun _ _ _ _ _ _ hx => absurd hx (by simp [psigmaA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [psigmaA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => psigma_key)
@@ -930,10 +930,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv _ hx hn => absurd hn (by decide))
         (fun hn => absurd hn (by decide))
         (fun _ _ => ⟨rfl, fun _ => rfl⟩)
-        (fun _ _ _ _ _ _ hx => nomatch hx)
-        (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+        (fun _ _ _ _ hx => nomatch hx)
+        (fun _val' _h1 _h2 cvR mI rP rules hx =>
           absurd hx (by simp [psigmaA]))
-        (fun _ _ _ _ _ _ hx =>
+        (fun _ _ _ _ hx =>
           absurd hx (by simp [psigmaA]))
         (fun hres _ => absurd hres (by decide))
         (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
@@ -944,7 +944,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (Option.isNone_iff_eq_none.mp h2)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [psigmaMkA]),
-          fun _ _ _ _ _ _ hx => absurd hx (by simp [psigmaMkA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [psigmaMkA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => psigmaMk_key rfl (fun ψ' => hval1 ψ'))
@@ -960,10 +960,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv _ hx _ => nomatch hx)
         (fun hn => absurd hn (by decide))
         (fun _ _ => ⟨rfl, fun _ => rfl⟩)
-        (fun _ _ _ _ _ _ hx => nomatch hx)
-        (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+        (fun _ _ _ _ hx => nomatch hx)
+        (fun _val' _h1 _h2 cvR mI rP rules hx =>
           absurd hx (by simp [psigmaMkA]))
-        (fun _ _ _ _ _ _ hx =>
+        (fun _ _ _ _ hx =>
           absurd hx (by simp [psigmaMkA]))
         (fun hres _ => absurd hres (by decide))
         (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
@@ -978,10 +978,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (Option.isNone_iff_eq_none.mp h3)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [psigmaRecA]),
-          fun cv nP nM nm ni rules heq r hr => by
+          fun cv mI rP rules heq r hr => by
             simp only [psigmaRecA] at heq
-            injection heq with h1 h2 h3 h4 h5 h6
-            subst h1 h2 h3 h4 h5 h6
+            injection heq with h1 h2 h3 h4
+            subst h1 h2 h3 h4
             first
             | (rcases List.mem_cons.mp hr with rfl | hr
                · exact ⟨by decide, by decide,
@@ -1022,7 +1022,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv _ hx _ => nomatch hx)
         (fun hn => absurd hn (by decide))
         (fun _ _ => ⟨rfl, fun _ => rfl⟩)
-        (fun cv nP nM nm ni rules heq =>
+        (fun cv mI rP rules heq =>
           ⟨fun hn => absurd hn (by decide),
            fun hn => absurd hn (by decide),
            fun _ => ⟨by
@@ -1031,10 +1031,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
             by
               rw [Env.find?_cons, if_pos (by decide)]⟩,
            fun hn => absurd hn (by decide)⟩)
-        (fun val' hv1 hv2 cvR nP nM nm ni rules heq => by
+        (fun val' hv1 hv2 cvR mI rP rules heq => by
           simp only [psigmaRecA] at heq
-          injection heq with h1 h2 h3 h4 h5 h6
-          subst h1 h2 h3 h4 h5 h6
+          injection heq with h1 h2 h3 h4
+          subst h1 h2 h3 h4
           intro r hr
           have hvalS' : ∀ ψ' : Name → Nat,
               val' psigmaName ψ' = psigmaVal V ψ' := by
@@ -1054,7 +1054,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
               psigmaMkName = some psigmaMkA := rfl
           rcases List.mem_cons.mp hr with rfl | hr
           · refine ⟨fun ψ => annotOk_psigmaRec_rhs (cval := val') (ψ := ψ)
-              rfl hvalS' rfl hvalM', ?_⟩
+              rfl hvalS' rfl hvalM', fun _ => Nat.le_refl _, ?_⟩
             intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
               htv _hpeq _hplain _hlev _hfit
             have hje := Option.some.inj hfj
@@ -1098,10 +1098,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                 ⟨vS5, AS5, BS5, hq13, hq14, hq15⟩,
                 ⟨vS6, AS6, BS6, hq16, hq17, hq18⟩, trivial⟩
           · cases hr)
-        (fun cvR nP nM nm ni rules heq => by
+        (fun cvR mI rP rules heq => by
           simp only [psigmaRecA] at heq
-          injection heq with h1 h2 h3 h4 h5 h6
-          subst h1 h2 h3 h4 h5 h6
+          injection heq with h1 h2 h3 h4
+          subst h1 h2 h3 h4
           intro r hr
           rcases List.mem_cons.mp hr with rfl | hr
           · have hf : Env.find?
@@ -1145,7 +1145,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (Option.isNone_iff_eq_none.mp h1)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [eqA]),
-          fun _ _ _ _ _ _ hx => absurd hx (by simp [eqA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [eqA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => eq_key)
@@ -1158,10 +1158,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv _ hx hn => absurd hn (by decide))
         (fun hn => absurd hn (by decide))
         (fun _ _ => ⟨rfl, fun _ => rfl⟩)
-        (fun _ _ _ _ _ _ hx => nomatch hx)
-        (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+        (fun _ _ _ _ hx => nomatch hx)
+        (fun _val' _h1 _h2 cvR mI rP rules hx =>
           absurd hx (by simp [eqA]))
-        (fun _ _ _ _ _ _ hx =>
+        (fun _ _ _ _ hx =>
           absurd hx (by simp [eqA]))
         (fun hres _ => absurd hres (by decide))
         (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
@@ -1172,7 +1172,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (Option.isNone_iff_eq_none.mp h2)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [eqReflA]),
-          fun _ _ _ _ _ _ hx => absurd hx (by simp [eqReflA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [eqReflA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => eqRefl_key rfl (fun ψ' => hval1 ψ'))
@@ -1185,10 +1185,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv _ hx _ => nomatch hx)
         (fun hn => absurd hn (by decide))
         (fun _ _ => ⟨rfl, fun _ => rfl⟩)
-        (fun _ _ _ _ _ _ hx => nomatch hx)
-        (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+        (fun _ _ _ _ hx => nomatch hx)
+        (fun _val' _h1 _h2 cvR mI rP rules hx =>
           absurd hx (by simp [eqReflA]))
-        (fun _ _ _ _ _ _ hx =>
+        (fun _ _ _ _ hx =>
           absurd hx (by simp [eqReflA]))
         (fun hres _ => absurd hres (by decide))
         (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
@@ -1202,10 +1202,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (Option.isNone_iff_eq_none.mp h3)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [eqRecA]),
-          fun cv nP nM nm ni rules heq r hr => by
+          fun cv mI rP rules heq r hr => by
             simp only [eqRecA] at heq
-            injection heq with h1 h2 h3 h4 h5 h6
-            subst h1 h2 h3 h4 h5 h6
+            injection heq with h1 h2 h3 h4
+            subst h1 h2 h3 h4
             first
             | (rcases List.mem_cons.mp hr with rfl | hr
                · exact ⟨by decide, by decide,
@@ -1246,7 +1246,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv _ hx _ => nomatch hx)
         (fun hn => absurd hn (by decide))
         (fun _ _ => ⟨rfl, fun _ => rfl⟩)
-        (fun cv nP nM nm ni rules heq =>
+        (fun cv mI rP rules heq =>
           ⟨fun _ => ⟨by
               rw [Env.find?_cons, if_neg (by decide), Env.find?_cons,
                 if_pos (by decide)],
@@ -1255,10 +1255,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
            fun hn => absurd hn (by decide),
            fun hn => absurd hn (by decide),
            fun hn => absurd hn (by decide)⟩)
-        (fun val' hv1 hv2 cvR nP nM nm ni rules heq => by
+        (fun val' hv1 hv2 cvR mI rP rules heq => by
           simp only [eqRecA] at heq
-          injection heq with h1 h2 h3 h4 h5 h6
-          subst h1 h2 h3 h4 h5 h6
+          injection heq with h1 h2 h3 h4
+          subst h1 h2 h3 h4
           intro r hr
           have hvalE' : ∀ ψ' : Name → Nat, val' eqName ψ' = eqVal V ψ' := by
             intro ψ'
@@ -1277,7 +1277,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
               eqReflName = some eqReflA := rfl
           rcases List.mem_cons.mp hr with rfl | hr
           · refine ⟨fun ψ => annotOk_eqRec_rhs (cval := val') (ψ := ψ)
-              rfl hvalE' rfl hvalR', ?_⟩
+              rfl hvalE' rfl hvalR', fun _ => by omega, ?_⟩
             intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
               htv _hpeq _hplain _hlev _hfit
             have hje := Option.some.inj hfj
@@ -1322,10 +1322,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                 ⟨vS3, AS3, BS3, hq7, hq8, hq9⟩,
                 ⟨vS4, AS4, BS4, hq10, hq11, hq12⟩, trivial⟩
           · cases hr)
-        (fun cvR nP nM nm ni rules heq => by
+        (fun cvR mI rP rules heq => by
           simp only [eqRecA] at heq
-          injection heq with h1 h2 h3 h4 h5 h6
-          subst h1 h2 h3 h4 h5 h6
+          injection heq with h1 h2 h3 h4
+          subst h1 h2 h3 h4
           intro r hr
           rcases List.mem_cons.mp hr with rfl | hr
           · have hf : Env.find?
@@ -1367,7 +1367,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (Option.isNone_iff_eq_none.mp h1)
       ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [punitA]),
-          fun _ _ _ _ _ _ hx => absurd hx (by simp [punitA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [punitA])⟩
       rfl
       (fun _ _ _ hx => nomatch hx)
       (fun ψ => punit_key)
@@ -1378,10 +1378,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (fun cv _ _ _ ψ x hx => mem_unitSet hx)
       (fun hn => absurd hn (by decide))
       (fun _ _ => ⟨rfl, fun _ => rfl⟩)
-        (fun _ _ _ _ _ _ hx => nomatch hx)
-      (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+        (fun _ _ _ _ hx => nomatch hx)
+      (fun _val' _h1 _h2 cvR mI rP rules hx =>
         absurd hx (by simp [punitA]))
-      (fun _ _ _ _ _ _ hx =>
+      (fun _ _ _ _ hx =>
         absurd hx (by simp [punitA]))
       (fun hres _ => absurd hres (by decide))
       (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
@@ -1391,7 +1391,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (Option.isNone_iff_eq_none.mp h2)
       ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [punitUnitA]),
-          fun _ _ _ _ _ _ hx => absurd hx (by simp [punitUnitA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [punitUnitA])⟩
       rfl
       (fun _ _ _ hx => nomatch hx)
       (fun ψ => punitUnit_key rfl (fun ψ' => hval1 ψ'))
@@ -1402,10 +1402,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (fun cv _ hx _ => nomatch hx)
       (fun hn => absurd hn (by decide))
       (fun _ _ => ⟨rfl, fun _ => rfl⟩)
-        (fun _ _ _ _ _ _ hx => nomatch hx)
-      (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+        (fun _ _ _ _ hx => nomatch hx)
+      (fun _val' _h1 _h2 cvR mI rP rules hx =>
         absurd hx (by simp [punitUnitA]))
-      (fun _ _ _ _ _ _ hx =>
+      (fun _ _ _ _ hx =>
         absurd hx (by simp [punitUnitA]))
       (fun hres _ => absurd hres (by decide))
       (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
@@ -1419,10 +1419,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (Option.isNone_iff_eq_none.mp h3)
       ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [punitRecA]),
-          fun cv nP nM nm ni rules heq r hr => by
+          fun cv mI rP rules heq r hr => by
             simp only [punitRecA] at heq
-            injection heq with h1 h2 h3 h4 h5 h6
-            subst h1 h2 h3 h4 h5 h6
+            injection heq with h1 h2 h3 h4
+            subst h1 h2 h3 h4
             first
             | (rcases List.mem_cons.mp hr with rfl | hr
                · exact ⟨by decide, by decide,
@@ -1463,7 +1463,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (fun cv _ hx _ => nomatch hx)
       (fun hn => absurd hn (by decide))
       (fun _ _ => ⟨rfl, fun _ => rfl⟩)
-        (fun cv nP nM nm ni rules heq =>
+        (fun cv mI rP rules heq =>
           ⟨fun hn => absurd hn (by decide),
            fun hn => absurd hn (by decide),
            fun hn => absurd hn (by decide),
@@ -1472,10 +1472,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                 if_pos (by decide)],
             by
               rw [Env.find?_cons, if_pos (by decide)]⟩⟩)
-      (fun val' hv1 hv2 cvR nP nM nm ni rules heq => by
+      (fun val' hv1 hv2 cvR mI rP rules heq => by
         simp only [punitRecA] at heq
-        injection heq with h1 h2 h3 h4 h5 h6
-        subst h1 h2 h3 h4 h5 h6
+        injection heq with h1 h2 h3 h4
+        subst h1 h2 h3 h4
         intro r hr
         have hvalP' : ∀ ψ' : Name → Nat, val' punitName ψ' = unitSet := by
           intro ψ'
@@ -1487,7 +1487,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
           exact hval2 ψ'
         rcases List.mem_cons.mp hr with rfl | hr
         · refine ⟨fun ψ => annotOk_punitRec_rhs (cval := val') (ψ := ψ)
-            rfl hvalP' rfl hvalU', ?_⟩
+            rfl hvalP' rfl hvalU', fun _ => Nat.le_refl _, ?_⟩
           intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
             htv _hpeq _hplain _hlev _hfit
           have hje := Option.some.inj hfj
@@ -1525,10 +1525,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
           · exact ⟨⟨vS1, AS1, BS1, hq1, hq2, hq3⟩,
               ⟨vS2, AS2, BS2, hq4, hq5, hq6⟩, trivial⟩
         · cases hr)
-      (fun cvR nP nM nm ni rules heq => by
+      (fun cvR mI rP rules heq => by
         simp only [punitRecA] at heq
-        injection heq with h1 h2 h3 h4 h5 h6
-        subst h1 h2 h3 h4 h5 h6
+        injection heq with h1 h2 h3 h4
+        subst h1 h2 h3 h4
         intro r hr
         rcases List.mem_cons.mp hr with rfl | hr
         · have hf : Env.find?
@@ -1567,7 +1567,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (Option.isNone_iff_eq_none.mp h1)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [emptyA]),
-          fun _ _ _ _ _ _ hx => absurd hx (by simp [emptyA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [emptyA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => empty_key)
@@ -1578,10 +1578,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv _ hx hn => absurd hn (by decide))
         (fun _ ψ x hx' => not_mem_empty x hx')
         (fun _ _ => ⟨rfl, fun _ => rfl⟩)
-        (fun _ _ _ _ _ _ hx => nomatch hx)
-        (fun _val' _h1 _h2 cvR nP nM nm ni rules hx =>
+        (fun _ _ _ _ hx => nomatch hx)
+        (fun _val' _h1 _h2 cvR mI rP rules hx =>
           absurd hx (by simp [emptyA]))
-        (fun _ _ _ _ _ _ hx => absurd hx (by simp [emptyA]))
+        (fun _ _ _ _ hx => absurd hx (by simp [emptyA]))
         (fun hres _ => absurd hres (by decide))
         (fun T j hh => absurd hh.symm (Name.num_ne_str _ _ _ _))
         (fun _ _ _ _ hres => absurd hres (by decide))
@@ -1593,10 +1593,10 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (Option.isNone_iff_eq_none.mp h2)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [emptyRecA]),
-          fun cv nP nM nm ni rules heq r hr => by
+          fun cv mI rP rules heq r hr => by
             simp only [emptyRecA] at heq
-            injection heq with h1 h2 h3 h4 h5 h6
-            subst h6
+            injection heq with h1 h2 h3 h4
+            subst h4
             cases hr⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
@@ -1610,21 +1610,21 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun cv _ hx _ => nomatch hx)
         (fun hn => absurd hn (by decide))
         (fun _ _ => ⟨rfl, fun _ => rfl⟩)
-        (fun cv nP nM nm ni rules heq =>
+        (fun cv mI rP rules heq =>
           ⟨fun hn => absurd hn (by decide),
            fun hn => absurd hn (by decide),
            fun hn => absurd hn (by decide),
            fun hn => absurd hn (by decide)⟩)
-        (fun val' hv1 hv2 cvR nP nM nm ni rules heq => by
+        (fun val' hv1 hv2 cvR mI rP rules heq => by
           simp only [emptyRecA] at heq
-          injection heq with h1 h2 h3 h4 h5 h6
-          subst h6
+          injection heq with h1 h2 h3 h4
+          subst h4
           intro r hr
           cases hr)
-        (fun cvR nP nM nm ni rules heq => by
+        (fun cvR mI rP rules heq => by
           simp only [emptyRecA] at heq
-          injection heq with h1 h2 h3 h4 h5 h6
-          subst h6
+          injection heq with h1 h2 h3 h4
+          subst h4
           intro r hr
           cases hr)
         (fun hres _ => absurd hres (by decide))

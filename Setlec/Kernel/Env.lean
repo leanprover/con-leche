@@ -23,10 +23,21 @@ structure ConstantVal where
 /-- One iota rule of a recursor: applying the recursor (with its
 parameters, motives and minors) to a `ctor`-headed major premise reduces
 to `rhs` applied to the parameters, motives, minors and the constructor's
-`nfields` fields. -/
+`nfields` fields.  `ctorParams` (the constructor's parameter count) and
+`plain` (the canonical/inert flag, `Expr.recRulePlain`) are *computed at
+install* from the stored constructor and recursor type — input rules
+carry the parse placeholders `0`/`false`; reduction reads only the
+installed values, never re-deriving them per fire. -/
 structure RecRule where
   ctor : Name
   nfields : Nat
+  /-- The constructor's parameter count (install-computed; parse
+  placeholder `0`). -/
+  ctorParams : Nat
+  /-- The canonical/inert flag: `true` iff the rule is canonical
+  (`Expr.recRulePlain`; install-computed, parse placeholder `false`).
+  `iotaRec` fires only on canonical rules. -/
+  plain : Bool
   rhs : Expr
   deriving DecidableEq, Repr, Inhabited
 
@@ -105,8 +116,13 @@ inductive ConstantInfo where
   | indInfo (val : ConstantVal) (caps : IndCaps)
   /-- A basis constructor (whnf-stuck; the iota target). -/
   | ctorInfo (val : ConstantVal) (numParams numFields : Nat)
-  /-- A basis recursor with its iota rules. -/
-  | recInfo (val : ConstantVal) (numParams numMotives numMinors numIndices : Nat)
+  /-- A basis recursor with its iota rules.  Only the two sums the
+  firing path reads are stored: `majorIdx` (= numParams + numMotives +
+  numMinors + numIndices, the major premise's argument position) and
+  `rulePrefix` (= numParams + numMotives + numMinors, the length of the
+  argument prefix a rule's rhs is applied to).  The individual counts
+  are consumed at install time only and are not stored. -/
+  | recInfo (val : ConstantVal) (majorIdx rulePrefix : Nat)
       (rules : List RecRule)
   deriving DecidableEq, Repr, Inhabited
 
@@ -139,18 +155,19 @@ namespace ConstantInfo
 
 def toConstantVal : ConstantInfo → ConstantVal
   | .axiomInfo v | .defnInfo v _ _ | .thmInfo v _ => v
-  | .indInfo v _ | .ctorInfo v _ _ | .recInfo v _ _ _ _ _ => v
+  | .indInfo v _ | .ctorInfo v _ _ | .recInfo v _ _ _ => v
 
 def name (c : ConstantInfo) : Name := c.toConstantVal.name
 
-/-- The index count of a recursor (junk elsewhere). -/
+/-- The index count of a recursor (majorIdx − rulePrefix; junk
+elsewhere). -/
 def recNi : ConstantInfo → Nat
-  | .recInfo _ _ _ _ ni _ => ni
+  | .recInfo _ mI rP _ => mI - rP
   | _ => 0
 
 /-- The iota rules of a recursor (junk elsewhere). -/
 def recRules : ConstantInfo → List RecRule
-  | .recInfo _ _ _ _ _ rs => rs
+  | .recInfo _ _ _ rs => rs
   | _ => []
 
 /-- The parameter count of a constructor (junk elsewhere). -/

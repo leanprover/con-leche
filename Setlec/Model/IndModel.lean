@@ -105,32 +105,32 @@ the other members of its block are stored (pinned) too.  This holds
 because blocks install as a unit with the recursor last; iota soundness
 uses it to resolve the constants a rule right-hand side mentions. -/
 def BasisBlocks (env : Env) : Prop :=
-  (∀ cv nP nM nm ni rules,
-    env.find? (eqName.str "rec") = some (.recInfo cv nP nM nm ni rules) →
+  (∀ cv mI rP rules,
+    env.find? (eqName.str "rec") = some (.recInfo cv mI rP rules) →
     env.find? eqName = some eqA ∧ env.find? eqReflName = some eqReflA) ∧
-  (∀ cv nP nM nm ni rules,
-    env.find? (natName.str "rec") = some (.recInfo cv nP nM nm ni rules) →
+  (∀ cv mI rP rules,
+    env.find? (natName.str "rec") = some (.recInfo cv mI rP rules) →
     env.find? natName = some natA ∧ env.find? natZeroName = some natZeroA ∧
     env.find? natSuccName = some natSuccA) ∧
-  (∀ cv nP nM nm ni rules,
-    env.find? (psigmaName.str "rec") = some (.recInfo cv nP nM nm ni rules) →
+  (∀ cv mI rP rules,
+    env.find? (psigmaName.str "rec") = some (.recInfo cv mI rP rules) →
     env.find? psigmaName = some psigmaA ∧
     env.find? psigmaMkName = some psigmaMkA) ∧
-  (∀ cv nP nM nm ni rules,
-    env.find? (punitName.str "rec") = some (.recInfo cv nP nM nm ni rules) →
+  (∀ cv mI rP rules,
+    env.find? (punitName.str "rec") = some (.recInfo cv mI rP rules) →
     env.find? punitName = some punitA ∧
     env.find? punitUnitName = some punitUnitA)
 
 /-- Every stored recursor rule's constructor is itself stored: blocks
 carry their constructors, and the recursor is installed after them. -/
 def RecCtorsStored (env : Env) : Prop :=
-  ∀ n cv nP nM nm ni rules,
-    env.find? n = some (.recInfo cv nP nM nm ni rules) →
+  ∀ n cv mI rP rules,
+    env.find? n = some (.recInfo cv mI rP rules) →
     ∀ r ∈ rules, ∃ cvj cnP cnF,
       env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF)
 
 theorem RecCtorsStored.empty : RecCtorsStored Env.empty := by
-  intro n cv nP nM nm ni rules h
+  intro n cv mI rP rules h
   simp [Env.find?, Env.empty] at h
 
 /-- The environment's inductive-kind constants have models: every fact
@@ -154,7 +154,7 @@ def IndOk (env : Env) (val : ConstVal V) : Prop :=
 
 theorem BasisBlocks.empty : BasisBlocks Env.empty := by
   refine ⟨?_, ?_, ?_, ?_⟩ <;>
-    (intro cv nP nM nm ni rules h; simp [Env.find?, Env.empty] at h)
+    (intro cv mI rP rules h; simp [Env.find?, Env.empty] at h)
 
 theorem IndOk.empty (val : ConstVal V)
     (hE : ∀ (ψ : Name → Nat) (x : V), x ∈ˢ val emptyName ψ → False) :

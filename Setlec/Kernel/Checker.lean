@@ -145,7 +145,7 @@ comparison makes the checks insensitive to hygienic binder names and
 reducible wrappers (`optParam` etc.) in the stored types. -/
 def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
-    (nP nM nm ni j : Nat) (r : RecRule) (cvj : ConstantVal)
+    (mI rP j : Nat) (r : RecRule) (cvj : ConstantVal)
     (cnP cnF : Nat) (rhsA : Expr) : m Unit := do
     let (cvt, _) ← unwrapOr
         (env'.findThm? ((cvName.str "_model").str s!"iota_{j}"))
@@ -153,7 +153,7 @@ def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
     unless cvt.levelParams = lps do
       throw (.notImplemented s!"iota theorem level mismatch for {cvName}")
     -- open the theorem's telescope: params, motives, minors, fields
-    let depth := nP + nM + nm + cnF
+    let depth := rP + cnF
     let (fvs, tbody) ← unwrapOr (openPisAtFvars depth cvt.type 0)
       (.notImplemented s!"iota statement shape mismatch for {cvName}")
     -- the body is an equation (at one level, like the pinned `Eq`)
@@ -165,17 +165,17 @@ def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
     let lhsS := targs.getD 1 (.bvar 0)
     let rhsS := targs.getD 2 (.bvar 0)
     -- the equation's left side: structurally the renamed recursor
-    -- applied to the opened prefix variables, `ni` index arguments
+    -- applied to the opened prefix variables, `mI - rP` index arguments
     -- (checked below against the constructor's canonical tuple),
     -- and the constructor at its own level parameters applied to
     -- the leading parameter variables and the field variables
-    let xFvs := fvs.drop (nP + nM + nm)
+    let xFvs := fvs.drop rP
     let largs := lhsS.getAppArgs
     unless lhsS.getAppFn == Expr.const (f cvName) (lps.map .param) do
       throw (.notImplemented s!"iota statement head mismatch for {cvName}")
-    unless largs.length = nP + nM + nm + ni + 1 do
+    unless largs.length = mI + 1 do
       throw (.notImplemented s!"iota statement arity mismatch for {cvName}")
-    unless largs.take (nP + nM + nm) == fvs.take (nP + nM + nm) do
+    unless largs.take rP == fvs.take rP do
       throw (.notImplemented s!"iota statement prefix mismatch for {cvName}")
     let major := largs.getLastD (.bvar 0)
     unless major == Expr.mkAppN
@@ -189,26 +189,26 @@ def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
     let (cdoms, cres) ← unwrapOr
         (Expr.instPisAt (fvs.take cnP ++ xFvs) (cvj.type.renameConsts f))
         (.notImplemented s!"iota constructor telescope for {cvName}")
-    unless cres.getAppArgs.length = cnP + ni do
+    unless cres.getAppArgs.length = cnP + (mI - rP) do
       throw (.notImplemented s!"iota constructor indices for {cvName}")
-    checkDefEqList ops envSelf depth ((largs.drop (nP + nM + nm)).take ni)
+    checkDefEqList ops envSelf depth ((largs.drop rP).take (mI - rP))
       (cres.getAppArgs.drop cnP)
     checkDefEqList ops envSelf depth (xFvs.map Expr.fvarTypeD)
       (cdoms.drop cnP)
     -- the statement's prefix domains are the recursor's (renamed)
     let (rdoms, _) ← unwrapOr
-        (Expr.instPisAt (fvs.take (nP + nM + nm)) (tyA.renameConsts f))
+        (Expr.instPisAt (fvs.take rP) (tyA.renameConsts f))
         (.notImplemented s!"iota recursor telescope for {cvName}")
     checkDefEqList ops envSelf depth
-      ((fvs.take (nP + nM + nm)).map Expr.fvarTypeD) rdoms
+      ((fvs.take rP).map Expr.fvarTypeD) rdoms
     -- the rule's λ-domains are the public recursor prefix and
     -- constructor field domains (the fold fact's value spines fit
     -- the public telescopes; these equalities let them fit the λs)
-    let (fvsP, _) ← unwrapOr (openPisAtFvars (nP + nM + nm) tyA 0)
+    let (fvsP, _) ← unwrapOr (openPisAtFvars rP tyA 0)
       (.notImplemented s!"iota recursor telescope for {cvName}")
     let (_, crestP) ← unwrapOr (Expr.instPisAt (fvsP.take cnP) cvj.type)
       (.notImplemented s!"iota constructor telescope for {cvName}")
-    let (xFvsP, _) ← unwrapOr (openPisAtFvars cnF crestP (nP + nM + nm))
+    let (xFvsP, _) ← unwrapOr (openPisAtFvars cnF crestP rP)
       (.notImplemented s!"iota constructor telescope for {cvName}")
     let (ldoms, _) ← unwrapOr (Expr.instLamsAt (fvsP ++ xFvsP) rhsA)
       (.notImplemented s!"rule shape mismatch for {cvName}")
@@ -227,7 +227,7 @@ after the well-formedness checks: `iotaRec` never fires on it, so no
 model theorem is consulted. -/
 def checkIotaRule (ops : CheckerOps m) (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
-    (nP nM nm ni j : Nat) (r : RecRule) : m RecRule := do
+    (mI rP j : Nat) (r : RecRule) : m RecRule := do
     let some (.ctorInfo cvj cnP cnF) := env'.find? r.ctor
       | throw (.invalid s!"iota rule constructor {r.ctor} not stored")
     unless r.nfields = cnF do
@@ -243,24 +243,28 @@ def checkIotaRule (ops : CheckerOps m) (env' envSelf : Env)
       throw (.invalid s!"unknown constant in rule of {cvName}")
     -- the rule's rhs must be a λ-telescope over the recursor prefix
     -- and the constructor fields (so it can be applied positionally)
-    unless (rhsA.stripLams (nP + nM + nm + cnF)).isSome do
+    unless (rhsA.stripLams (rP + cnF)).isSome do
       throw (.notImplemented s!"rule shape mismatch for {cvName}")
     -- infer the rule's type: soundness interprets the (λ-tower)
     -- right-hand side through this inference
     let _rhsTy ← ops.inferType envSelf 0 rhsA
-    if Expr.recRulePlain tyA nP nM nm ni cnP then
-      checkIotaThm ops env' envSelf f cvName lps tyA nP nM nm ni j r
+    -- the canonical/inert flag is computed once, here, and stored on
+    -- the rule; `iotaRec` reads the flag instead of re-walking the
+    -- recursor type on every fire
+    if Expr.recRulePlain tyA mI rP cnP then
+      checkIotaThm ops env' envSelf f cvName lps tyA mI rP j r
         cvj cnP cnF rhsA
-    pure { r with rhs := rhsA }
+    pure { r with rhs := rhsA, ctorParams := cnP
+                  plain := Expr.recRulePlain tyA mI rP cnP }
 
 /-- The per-rule check, folded over a modeled recursor's rules. -/
 def checkIotaRules (ops : CheckerOps m) (env' envSelf : Env) (f : Name → Name)
     (cvName : Name) (lps : List Name) (tyA : Expr)
-    (nP nM nm ni : Nat) : Nat → List RecRule → m (List RecRule)
+    (mI rP : Nat) : Nat → List RecRule → m (List RecRule)
   | _, [] => pure []
   | j, r :: rest => do
-    let r' ← checkIotaRule ops env' envSelf f cvName lps tyA nP nM nm ni j r
-    let rest' ← checkIotaRules ops env' envSelf f cvName lps tyA nP nM nm ni
+    let r' ← checkIotaRule ops env' envSelf f cvName lps tyA mI rP j r
+    let rest' ← checkIotaRules ops env' envSelf f cvName lps tyA mI rP
       (j + 1) rest
     pure (r' :: rest')
 
@@ -313,15 +317,15 @@ order).  Rule right-hand sides may mention any recursor of the block
 fully provisioned environment. -/
 def provisionRecs (ops : CheckerOps m) (blockNames : List Name) :
     Env → List ConstantInfo →
-    m (Env × List (ConstantVal × Nat × Nat × Nat × Nat × List RecRule))
+    m (Env × List (ConstantVal × Nat × Nat × List RecRule))
   | envAcc, [] => pure (envAcc, [])
   | envAcc, ci :: rest =>
     match ci with
-    | .recInfo _ nP nM nm ni rules => do
+    | .recInfo _ mI rP rules => do
       let cvA ← checkMemberVal ops blockNames envAcc ci.toConstantVal
       let (envSelf, others) ← provisionRecs ops blockNames
-        ⟨.recInfo cvA nP nM nm ni [] :: envAcc.consts⟩ rest
-      pure (envSelf, (cvA, nP, nM, nm, ni, rules) :: others)
+        ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩ rest
+      pure (envSelf, (cvA, mI, rP, rules) :: others)
     | _ => throw (.notImplemented "recursor before other block members")
 
 /-- Check and install a block's recursors *as a group*: every rule
@@ -342,10 +346,8 @@ def checkIndRecs (ops : CheckerOps m) (blockNames : List Name)
     let (envSelf, checked) ← provisionRecs ops blockNames env₂ recs
     checked.foldlM (fun (acc : Env) c => do
         let rules' ← checkIotaRules ops env₂ envSelf f c.1.name
-          c.1.levelParams c.1.type c.2.1 c.2.2.1 c.2.2.2.1 c.2.2.2.2.1
-          0 c.2.2.2.2.2
-        pure (⟨.recInfo c.1 c.2.1 c.2.2.1 c.2.2.2.1 c.2.2.2.2.1
-          rules' :: acc.consts⟩ : Env))
+          c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
+        pure (⟨.recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts⟩ : Env))
       env₂
 
 /-- Rename a model-side projection type back to public names. -/
@@ -476,8 +478,12 @@ def checkProjFn (ops : CheckerOps m) (env' : Env) (T ctorName : Name) (lps : Lis
     throw (.invalid "projection index out of range")
   let rhsA ← checkProjRule ops env' cvj lps nP nF i
   checkProjIota env' T ctorName lps cvj nP nF i
-  pure ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP 0 0 0
-    [⟨ctorName, nF, rhsA⟩] :: env'.consts⟩
+  -- a degenerate recursor: no motive, no minors, no indices, so the
+  -- major sits at position nP and the rule prefix is the parameters;
+  -- the canonical flag is computed here, once, like `checkIotaRule`
+  pure ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
+    [⟨ctorName, nF, nP, Expr.recRulePlain pty nP nP nP, rhsA⟩] ::
+    env'.consts⟩
 
 /-- Does the model document structural eta for this single-constructor
 block — a `T._model.eta` theorem with the pinned statement
@@ -604,9 +610,9 @@ def checkIndDecl (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) : 
   -- mention each other, so they install as a group after everything
   -- else
   let recs := block.filter (fun ci => match ci with
-    | .recInfo _ _ _ _ _ _ => true | _ => false)
+    | .recInfo _ _ _ _ => true | _ => false)
   let nonrecs := block.filter (fun ci => match ci with
-    | .recInfo _ _ _ _ _ _ => false | _ => true)
+    | .recInfo _ _ _ _ => false | _ => true)
   unless block = nonrecs ++ recs do
     throw (.notImplemented "recursor before other block members")
   let blockNames := block.map (·.name)

@@ -21,7 +21,7 @@ open SetTheory Expr
 extending by one (fresh) constant: if the constant is a recursor-kind
 record, the members of its block are already stored. -/
 def SibFinds (env : Env) (c₀ : ConstantInfo) : Prop :=
-  ∀ cv nP nM nm ni rules, c₀ = .recInfo cv nP nM nm ni rules →
+  ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
     (c₀.name = eqName.str "rec" →
       env.find? eqName = some eqA ∧ env.find? eqReflName = some eqReflA) ∧
     (c₀.name = natName.str "rec" →
@@ -45,68 +45,70 @@ theorem BasisBlocks.cons {env : Env} {c₀ : ConstantInfo}
     rw [Env.find?_cons_of_isSome hfind' (by rw [hs]; rfl)]
     exact hs
   refine ⟨?_, ?_, ?_, ?_⟩
-  · intro cv nP nM nm ni rules h
+  · intro cv mI rP rules h
     rw [Env.find?_cons] at h
     split at h
     · next hn =>
       obtain heq := (Option.some.inj h)
-      obtain ⟨hs, -, -, -⟩ := hsib cv nP nM nm ni rules heq
+      obtain ⟨hs, -, -, -⟩ := hsib cv mI rP rules heq
       obtain ⟨h1, h2⟩ := hs hn
       exact ⟨keep h1, keep h2⟩
     · next hn =>
-      obtain ⟨h1, h2⟩ := hb.1 cv nP nM nm ni rules h
+      obtain ⟨h1, h2⟩ := hb.1 cv mI rP rules h
       exact ⟨keep h1, keep h2⟩
-  · intro cv nP nM nm ni rules h
+  · intro cv mI rP rules h
     rw [Env.find?_cons] at h
     split at h
     · next hn =>
       obtain heq := (Option.some.inj h)
-      obtain ⟨-, hs, -, -⟩ := hsib cv nP nM nm ni rules heq
+      obtain ⟨-, hs, -, -⟩ := hsib cv mI rP rules heq
       obtain ⟨h1, h2, h3⟩ := hs hn
       exact ⟨keep h1, keep h2, keep h3⟩
     · next hn =>
-      obtain ⟨h1, h2, h3⟩ := hb.right.left cv nP nM nm ni rules h
+      obtain ⟨h1, h2, h3⟩ := hb.right.left cv mI rP rules h
       exact ⟨keep h1, keep h2, keep h3⟩
-  · intro cv nP nM nm ni rules h
+  · intro cv mI rP rules h
     rw [Env.find?_cons] at h
     split at h
     · next hn =>
       obtain heq := (Option.some.inj h)
-      obtain ⟨-, -, hs, -⟩ := hsib cv nP nM nm ni rules heq
+      obtain ⟨-, -, hs, -⟩ := hsib cv mI rP rules heq
       obtain ⟨h1, h2⟩ := hs hn
       exact ⟨keep h1, keep h2⟩
     · next hn =>
-      obtain ⟨h1, h2⟩ := hb.right.right.left cv nP nM nm ni rules h
+      obtain ⟨h1, h2⟩ := hb.right.right.left cv mI rP rules h
       exact ⟨keep h1, keep h2⟩
-  · intro cv nP nM nm ni rules h
+  · intro cv mI rP rules h
     rw [Env.find?_cons] at h
     split at h
     · next hn =>
       obtain heq := (Option.some.inj h)
-      obtain ⟨-, -, -, hs⟩ := hsib cv nP nM nm ni rules heq
+      obtain ⟨-, -, -, hs⟩ := hsib cv mI rP rules heq
       obtain ⟨h1, h2⟩ := hs hn
       exact ⟨keep h1, keep h2⟩
     · next hn =>
-      obtain ⟨h1, h2⟩ := hb.right.right.right cv nP nM nm ni rules h
+      obtain ⟨h1, h2⟩ := hb.right.right.right cv mI rP rules h
       exact ⟨keep h1, keep h2⟩
 
 /-- The fold facts a single (freshly installed) recursor-kind member
 must supply, phrased over the extended environment and valuation. -/
 def RecMemberOk (env' : Env) (val' : ConstVal V)
     (ci : ConstantInfo) : Prop :=
-  ∀ cvR nP nM nm ni rules, ci = .recInfo cvR nP nM nm ni rules →
+  ∀ cvR mI rP rules, ci = .recInfo cvR mI rP rules →
     ∀ r ∈ rules,
       (∀ ψ : Name → Nat, AnnotOk V val' env' ψ 0 (rho0 V) (RecRule.rhs r)) ∧
+      (RecRule.plain r = true → rP ≤ mI) ∧
       ∀ cvj cnP cnF,
         env'.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF) →
         ∀ (ψ ψj : Name → Nat) (args margs : List V) (tv : V),
-          args.length = nP + nM + nm + ni →
-          margs.length = cnP + cnF →
+          args.length = mI →
+          margs.length = RecRule.ctorParams r + RecRule.nfields r →
           ChainSlots V (val' ci.name ψ) (args ++ [tv]) →
           ChainSlots V (val' (RecRule.ctor r) ψj) margs →
           tv = SpineFold V (val' (RecRule.ctor r) ψj) margs →
-          margs.take cnP = (args ++ [tv]).take cnP →
-          Expr.recRulePlain cvR.type nP nM nm ni cnP = true →
+          margs.take (RecRule.ctorParams r) =
+            (args ++ [tv]).take (RecRule.ctorParams r) →
+          RecRule.plain r = true →
           (∀ p ∈ cvj.levelParams, ψj p = ψ p) →
           (∃ (φ' : Name → Nat) (us usj : List Level) (d : Nat) (ρ : Nat → V)
               (d₁ : Nat) (ρ₁ : Nat → V) (rest₁ : Expr)
@@ -119,34 +121,36 @@ def RecMemberOk (env' : Env) (val' : ConstVal V)
             TeleFit V val' env' φ' d₁ ρ₁
               (cvj.type.instantiateLevelParams cvj.levelParams usj)
               margs d₂ ρ₂ rest₂ ∧
-            (rest₂.getAppArgs.drop cnP).mapM
+            (rest₂.getAppArgs.drop (RecRule.ctorParams r)).mapM
               (interpExpr V val' env' φ' d₂ ρ₂) =
-              some (args.drop (nP + nM + nm))) →
+              some (args.drop rP)) →
           ∃ R, interpClosed V val' env' ψ (RecRule.rhs r) = some R ∧
             SpineFold V (val' ci.name ψ) (args ++ [tv]) =
-              SpineFold V R (args.take (nP + nM + nm) ++ margs.drop cnP) ∧
-            ChainSlots V R (args.take (nP + nM + nm) ++ margs.drop cnP)
+              SpineFold V R
+                (args.take rP ++ margs.drop (RecRule.ctorParams r)) ∧
+            ChainSlots V R
+              (args.take rP ++ margs.drop (RecRule.ctorParams r))
 
 /-- `RecCtorsStored` is preserved by a fresh extension, given the
 stored-constructor facts for the new member (vacuous unless it is a
 recursor). -/
 theorem RecCtorsStored.cons {env : Env} {c₀ : ConstantInfo}
     (hold : RecCtorsStored env) (hfresh : env.find? c₀.name = none)
-    (hnew : ∀ cvR nP nM nm ni rules, c₀ = .recInfo cvR nP nM nm ni rules →
+    (hnew : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
       ∀ r ∈ rules, ∃ cvj cnP cnF,
         env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF)) :
     RecCtorsStored (⟨c₀ :: env.consts⟩ : Env) := by
-  intro n cv nP nM nm ni rules hfp r hr
+  intro n cv mI rP rules hfp r hr
   rw [Env.find?_cons] at hfp
   split at hfp
   · next hn =>
     obtain hceq := Option.some.inj hfp
-    obtain ⟨cvj, cnP, cnF, hf⟩ := hnew _ _ _ _ _ _ hceq r hr
+    obtain ⟨cvj, cnP, cnF, hf⟩ := hnew _ _ _ _ hceq r hr
     refine ⟨cvj, cnP, cnF, ?_⟩
     rw [Env.find?_cons_of_isSome hfresh (by rw [hf]; rfl)]
     exact hf
   · next hn =>
-    obtain ⟨cvj, cnP, cnF, hf⟩ := hold n cv nP nM nm ni rules hfp r hr
+    obtain ⟨cvj, cnP, cnF, hf⟩ := hold n cv mI rP rules hfp r hr
     refine ⟨cvj, cnP, cnF, ?_⟩
     rw [Env.find?_cons_of_isSome hfresh (by rw [hf]; rfl)]
     exact hf
@@ -166,27 +170,27 @@ theorem RecRulesOk.cons {env : Env} (m : EnvModel V env)
       AnnotOk V val' (⟨c₀ :: env.consts⟩ : Env) ψ 0 (rho0 V) e)
     (hnewrec : RecMemberOk (V := V) ⟨c₀ :: env.consts⟩ val' c₀) :
     RecRulesOk V ⟨c₀ :: env.consts⟩ val' := by
-  intro n cvR nP nM nm ni rules hfp r hr
+  intro n cvR mI rP rules hfp r hr
   rw [Env.find?_cons] at hfp
   split at hfp
   · next hn =>
     obtain hceq := Option.some.inj hfp
     subst hn
-    exact hnewrec cvR nP nM nm ni rules hceq r hr
+    exact hnewrec cvR mI rP rules hceq r hr
   · next hn =>
-    obtain ⟨hA, hfold⟩ := m.rec_rules n cvR nP nM nm ni rules hfp r hr
+    obtain ⟨hA, hle, hfold⟩ := m.rec_rules n cvR mI rP rules hfp r hr
     obtain ⟨-, -, -, -, -, hrules⟩ := m.wf _ (find?_mem hfp)
-    obtain ⟨-, -, hrres, -⟩ := hrules cvR nP nM nm ni rules rfl r hr
+    obtain ⟨-, -, hrres, -⟩ := hrules cvR mI rP rules rfl r hr
     have hvaln : ∀ ψ : Name → Nat, val' n ψ = m.val n ψ :=
       fun ψ => hagree n (by rw [hfp]; rfl) ψ
-    refine ⟨fun ψ => hAtrans _ hrres ψ (hA ψ), ?_⟩
+    refine ⟨fun ψ => hAtrans _ hrres ψ (hA ψ), hle, ?_⟩
     intro cvj cnP cnF hfj ψ ψj args margs tv hl hml hch hmch htv hpeq
       hplain hlev hfit
     rw [Env.find?_cons] at hfj
     split at hfj
     · next hnc =>
       obtain ⟨cvj2, cnP2, cnF2, hfc2⟩ :=
-        m.ind_ok.right.right.right.right.right.left n cvR nP nM nm ni rules
+        m.ind_ok.right.right.right.right.right.left n cvR mI rP rules
           hfp r hr
       rw [← hnc] at hfc2
       rw [hfind'] at hfc2
@@ -208,9 +212,9 @@ theorem RecRulesOk.cons {env : Env} (m : EnvModel V env)
           TeleFit V m.val env φ' d₁ ρ₁
             (cvj.type.instantiateLevelParams cvj.levelParams usj)
             margs d₂ ρ₂ rest₂ ∧
-          (rest₂.getAppArgs.drop cnP).mapM
+          (rest₂.getAppArgs.drop (RecRule.ctorParams r)).mapM
             (interpExpr V m.val env φ' d₂ ρ₂) =
-            some (args.drop (nP + nM + nm)) := by
+            some (args.drop rP) := by
         obtain ⟨φ', us, usj, d, ρ, d₁, ρ₁, rest₁, d₂, ρ₂, rest₂,
           hψ, hψj, hf1, hf2, hidx⟩ := hfit
         obtain ⟨-, -, hRres, -, -, -⟩ := m.wf _ (find?_mem hfp)

@@ -290,7 +290,7 @@ theorem iffRecVal_mem (m : EnvModel V env)
     (hIif : env.find? iffIntroName = some (.ctorInfo cvIi 2 2))
     (hIip : ConstantVal.matchesPin cvIi iffIntroA.toConstantVal = true)
     {cvIr : ConstantVal} {rules : List RecRule}
-    (hIrf : env.find? iffRecName = some (.recInfo cvIr 2 1 1 0 rules))
+    (hIrf : env.find? iffRecName = some (.recInfo cvIr 4 4 rules))
     (hIrp : ConstantVal.matchesPin cvIr iffRecA.toConstantVal = true)
     {ψ0 : Name → Nat} (h0 : ψ0 uN = 0) :
     m.val iffRecName ψ0 ∈ˢ
@@ -307,13 +307,13 @@ theorem iffRecVal_mem (m : EnvModel V env)
   have hlpI : cvI.levelParams = [] := (ConstantVal.matchesPin_inv hIp).2
   have hlpIi : cvIi.levelParams = [] := (ConstantVal.matchesPin_inv hIip).2
   obtain ⟨t, ht, hmem⟩ := m.mem_type _ (find?_mem hIrf) ψ0
-  rw [show (ConstantInfo.recInfo cvIr 2 1 1 0 rules).toConstantVal = cvIr
+  rw [show (ConstantInfo.recInfo cvIr 4 4 rules).toConstantVal = cvIr
     from rfl] at ht
   rw [interpClosed_matchesPin hIrp,
     interp_iffRec_type h0 hIf hlpI hIif hlpIi] at ht
   obtain rfl := Option.some.inj ht
   have hname : cvIr.name = iffRecName := (ConstantVal.matchesPin_inv hIrp).1
-  rw [show (ConstantInfo.recInfo cvIr 2 1 1 0 rules).name = cvIr.name
+  rw [show (ConstantInfo.recInfo cvIr 4 4 rules).name = cvIr.name
     from rfl, hname] at hmem
   exact hmem
 
@@ -328,7 +328,7 @@ theorem iff_forces_eq (m : EnvModel V env)
     (hIif : env.find? iffIntroName = some (.ctorInfo cvIi 2 2))
     (hIip : ConstantVal.matchesPin cvIi iffIntroA.toConstantVal = true)
     {cvIr : ConstantVal} {rules : List RecRule}
-    (hIrf : env.find? iffRecName = some (.recInfo cvIr 2 1 1 0 rules))
+    (hIrf : env.find? iffRecName = some (.recInfo cvIr 4 4 rules))
     (hIrp : ConstantVal.matchesPin cvIr iffRecA.toConstantVal = true)
     (ψ' : Name → Nat) {A B w : V} (hA : A ∈ˢ univ 0) (hB : B ∈ˢ univ 0)
     (hw : w ∈ˢ SetTheory.app (SetTheory.app (m.val iffName ψ') A) B) :
@@ -492,7 +492,7 @@ theorem propext_key {env : Env} (m : EnvModel V env)
     (hIif : env.find? iffIntroName = some (.ctorInfo cvIi 2 2))
     (hIip : ConstantVal.matchesPin cvIi iffIntroA.toConstantVal = true)
     {cvIr : ConstantVal} {rules : List RecRule}
-    (hIrf : env.find? iffRecName = some (.recInfo cvIr 2 1 1 0 rules))
+    (hIrf : env.find? iffRecName = some (.recInfo cvIr 4 4 rules))
     (hIrp : ConstantVal.matchesPin cvIr iffRecA.toConstantVal = true)
     (ψ : Name → Nat) :
     ∃ T, interpClosed V m.val env ψ propextA.type = some T ∧
@@ -670,7 +670,7 @@ theorem nonemptyRecVal_mem (m : EnvModel V env)
     (hNif : env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1))
     (hNip : ConstantVal.matchesPin cvNi nonemptyIntroA.toConstantVal = true)
     {cvNr : ConstantVal} {rulesN : List RecRule}
-    (hNrf : env.find? nonemptyRecName = some (.recInfo cvNr 1 1 1 0 rulesN))
+    (hNrf : env.find? nonemptyRecName = some (.recInfo cvNr 3 3 rulesN))
     (hNrp : ConstantVal.matchesPin cvNr nonemptyRecA.toConstantVal = true)
     (ψ' : Name → Nat) :
     m.val nonemptyRecName ψ' ∈ˢ
@@ -686,14 +686,14 @@ theorem nonemptyRecVal_mem (m : EnvModel V env)
   have hlpNi : cvNi.levelParams = [uN] :=
     (ConstantVal.matchesPin_inv hNip).2
   obtain ⟨t, ht, hmem⟩ := m.mem_type _ (find?_mem hNrf) ψ'
-  rw [show (ConstantInfo.recInfo cvNr 1 1 1 0 rulesN).toConstantVal = cvNr
+  rw [show (ConstantInfo.recInfo cvNr 3 3 rulesN).toConstantVal = cvNr
     from rfl] at ht
   rw [interpClosed_matchesPin hNrp,
     interp_nonemptyRec_type hNf hlpN hNif hlpNi] at ht
   obtain rfl := Option.some.inj ht
   have hname : cvNr.name = nonemptyRecName :=
     (ConstantVal.matchesPin_inv hNrp).1
-  rw [show (ConstantInfo.recInfo cvNr 1 1 1 0 rulesN).name = cvNr.name
+  rw [show (ConstantInfo.recInfo cvNr 3 3 rulesN).name = cvNr.name
     from rfl, hname] at hmem
   exact hmem
 
@@ -709,7 +709,7 @@ theorem nonemptyVal_forces (m : EnvModel V env)
     (hNif : env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1))
     (hNip : ConstantVal.matchesPin cvNi nonemptyIntroA.toConstantVal = true)
     {cvNr : ConstantVal} {rulesN : List RecRule}
-    (hNrf : env.find? nonemptyRecName = some (.recInfo cvNr 1 1 1 0 rulesN))
+    (hNrf : env.find? nonemptyRecName = some (.recInfo cvNr 3 3 rulesN))
     (hNrp : ConstantVal.matchesPin cvNr nonemptyRecA.toConstantVal = true)
     (ψ' : Name → Nat) {A h : V} (hA : A ∈ˢ univ (ψ' uN))
     (hh : h ∈ˢ SetTheory.app (m.val nonemptyName ψ') A) :
@@ -813,7 +813,7 @@ theorem choice_key {env : Env} (m : EnvModel V env)
     (hNif : env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1))
     (hNip : ConstantVal.matchesPin cvNi nonemptyIntroA.toConstantVal = true)
     {cvNr : ConstantVal} {rulesN : List RecRule}
-    (hNrf : env.find? nonemptyRecName = some (.recInfo cvNr 1 1 1 0 rulesN))
+    (hNrf : env.find? nonemptyRecName = some (.recInfo cvNr 3 3 rulesN))
     (hNrp : ConstantVal.matchesPin cvNr nonemptyRecA.toConstantVal = true)
     (ψ : Name → Nat) :
     ∃ T, interpClosed V m.val env ψ choiceA.type = some T ∧

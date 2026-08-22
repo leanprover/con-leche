@@ -50,7 +50,7 @@ theorem modeled_rule_fold
     (hcvp : ConstValParams m₀.val env₀)
     -- the recursor and its model
     {R : Name} {lps : List Name} {tyA : Expr}
-    {nP nM nm ni : Nat}
+    {mI rP : Nat}
     {cim : ConstantInfo}
     (hfRm : env₀.find? (f R) = some cim)
     (hRmlps : cim.toConstantVal.levelParams = lps)
@@ -80,43 +80,46 @@ theorem modeled_rule_fold
     {fvsP : List Expr} {restP : Expr} {cdomsP : List Expr}
     {crestP : Expr} {xFvsP : List Expr} {crest2 : Expr}
     {ldoms : List Expr} {lrest : Expr}
-    (htyStrip : (tyA.stripPis (nP + nM + nm + ni)).isSome = true)
-    (hopen : openPisAtFvars (nP + nM + nm + cnF) cvt.type 0 =
+    (htyStrip : (tyA.stripPis (mI)).isSome = true)
+    -- the rule prefix fits under the major's position (from the
+    -- canonical-rule computation at install)
+    (hrPmI : rP ≤ mI)
+    (hopen : openPisAtFvars (rP + cnF) cvt.type 0 =
       some (fvs, tbody))
     (hheadEq : tbody.getAppFn = .const eqName [ℓA])
     (hargs3 : tbody.getAppArgs = [αS, lhsS, rhsS])
     (hlhead : lhsS.getAppFn = Expr.const (f R) (lps.map .param))
-    (hlarity : lhsS.getAppArgs.length = nP + nM + nm + ni + 1)
-    (hlpre : lhsS.getAppArgs.take (nP + nM + nm) =
-      fvs.take (nP + nM + nm))
+    (hlarity : lhsS.getAppArgs.length = mI + 1)
+    (hlpre : lhsS.getAppArgs.take (rP) =
+      fvs.take (rP))
     (hmaj : lhsS.getAppArgs.getLastD (.bvar 0) =
       Expr.mkAppN (.const (f ctor) (cvj.levelParams.map .param))
-        (fvs.take cnP ++ fvs.drop (nP + nM + nm)))
+        (fvs.take cnP ++ fvs.drop (rP)))
     (hcstrip : (cvj.type.stripPis (cnP + cnF)).isSome = true)
-    (hcinst : Expr.instPisAt (fvs.take cnP ++ fvs.drop (nP + nM + nm))
+    (hcinst : Expr.instPisAt (fvs.take cnP ++ fvs.drop (rP))
       (cvj.type.renameConsts f) = some (cdoms, cres))
-    (hclen : cres.getAppArgs.length = cnP + ni)
-    (hdeIdx : DefEqListOk F env₀ (nP + nM + nm + cnF)
-      ((lhsS.getAppArgs.drop (nP + nM + nm)).take ni)
+    (hclen : cres.getAppArgs.length = cnP + (mI - rP))
+    (hdeIdx : DefEqListOk F env₀ (rP + cnF)
+      ((lhsS.getAppArgs.drop (rP)).take (mI - rP))
       (cres.getAppArgs.drop cnP))
-    (hdeFld : DefEqListOk F env₀ (nP + nM + nm + cnF)
-      ((fvs.drop (nP + nM + nm)).map Expr.fvarTypeD) (cdoms.drop cnP))
-    (hrinst : Expr.instPisAt (fvs.take (nP + nM + nm))
+    (hdeFld : DefEqListOk F env₀ (rP + cnF)
+      ((fvs.drop (rP)).map Expr.fvarTypeD) (cdoms.drop cnP))
+    (hrinst : Expr.instPisAt (fvs.take (rP))
       (tyA.renameConsts f) = some (rdoms, rrest))
-    (hdePre : DefEqListOk F env₀ (nP + nM + nm + cnF)
-      ((fvs.take (nP + nM + nm)).map Expr.fvarTypeD) rdoms)
-    (hopenP : openPisAtFvars (nP + nM + nm) tyA 0 = some (fvsP, restP))
+    (hdePre : DefEqListOk F env₀ (rP + cnF)
+      ((fvs.take (rP)).map Expr.fvarTypeD) rdoms)
+    (hopenP : openPisAtFvars (rP) tyA 0 = some (fvsP, restP))
     (hcinstP : Expr.instPisAt (fvsP.take cnP) cvj.type =
       some (cdomsP, crestP))
-    (hopenX : openPisAtFvars cnF crestP (nP + nM + nm) =
+    (hopenX : openPisAtFvars cnF crestP (rP) =
       some (xFvsP, crest2))
     (hlinst : Expr.instLamsAt (fvsP ++ xFvsP) rhsA = some (ldoms, lrest))
-    (hdeLam : DefEqListOk F env₀ (nP + nM + nm + cnF)
+    (hdeLam : DefEqListOk F env₀ (rP + cnF)
       ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldoms)
-    (hdeRhs : isDefEqCore env₀ F (nP + nM + nm + cnF) rhsS
+    (hdeRhs : isDefEqCore env₀ F (rP + cnF) rhsS
       (Expr.mkAppN (rhsA.renameConsts f) fvs) = .ok true)
     -- rule right-hand-side facts
-    (_hstripR : rhsA.stripLams (nP + nM + nm + cnF) =
+    (_hstripR : rhsA.stripLams (rP + cnF) =
       some (rbinders, rbody))
     (hrhsw : rhsA.hasFvar = false)
     (hrhsb : rhsA.looseBVarsBounded 0 = true)
@@ -141,8 +144,8 @@ theorem modeled_rule_fold
       interpClosed V m₀.val env₀ ψ'' cvj.type = some T)
     -- fold clause inputs
     {us usj : List Level} {args margs : List V} {tv : V}
-    (hplainLe : cnP ≤ nP + nM + nm)
-    (hlena : args.length = nP + nM + nm + ni)
+    (hplainLe : cnP ≤ rP)
+    (hlena : args.length = mI)
     (hlenm : margs.length = cnP + cnF)
     (htv : tv = SpineFold V (m₀.val ctor
       (Level.substFn φ' cvj.levelParams usj)) margs)
@@ -158,40 +161,40 @@ theorem modeled_rule_fold
       d₂ ρ₂ rest₂)
     (hidx : (rest₂.getAppArgs.drop cnP).mapM
       (interpExpr V m₀.val env₀ φ' d₂ ρ₂) =
-      some (args.drop (nP + nM + nm))) :
+      some (args.drop (rP))) :
     ∃ Rv, interpClosed V m₀.val env₀ (Level.substFn φ' lps us) rhsA =
         some Rv ∧
       SpineFold V (m₀.val R (Level.substFn φ' lps us)) (args ++ [tv]) =
-        SpineFold V Rv (args.take (nP + nM + nm) ++ margs.drop cnP) ∧
-      ChainSlots V Rv (args.take (nP + nM + nm) ++ margs.drop cnP) := by
+        SpineFold V Rv (args.take (rP) ++ margs.drop cnP) ∧
+      ChainSlots V Rv (args.take (rP) ++ margs.drop cnP) := by
   -- ===== S0: the master frame =====
   obtain ⟨hfvsInst, hfvsLen, hfvsShape⟩ :=
-    openPisAtFvars_spec (nP + nM + nm + cnF) 0 hopen
-  have hpreLen : (args.take (nP + nM + nm)).length = nP + nM + nm := by
+    openPisAtFvars_spec (rP + cnF) 0 hopen
+  have hpreLen : (args.take (rP)).length = rP := by
     rw [List.length_take, hlena]; omega
-  have hwsLen : (args.take (nP + nM + nm) ++ margs.drop cnP).length =
-      nP + nM + nm + cnF := by
+  have hwsLen : (args.take (rP) ++ margs.drop cnP).length =
+      rP + cnF := by
     simp only [List.length_append, List.length_drop, hpreLen, hlenm]
     omega
   have hρWval : ∀ (k : Nat) (v : V),
-      (args.take (nP + nM + nm) ++ margs.drop cnP)[k]? = some v →
-      (fun j => (args.take (nP + nM + nm) ++
+      (args.take (rP) ++ margs.drop cnP)[k]? = some v →
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty) (0 + k) = v := by
     intro k v hv
-    show (args.take (nP + nM + nm) ++ margs.drop cnP).getD (0 + k)
+    show (args.take (rP) ++ margs.drop cnP).getD (0 + k)
       SetTheory.empty = v
     rw [List.getD_eq_getElem?_getD, Nat.zero_add, hv]
     rfl
-  have hspW : FvarSpine (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+  have hspW : FvarSpine (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty) fvs
-      (args.take (nP + nM + nm) ++ margs.drop cnP) :=
+      (args.take (rP) ++ margs.drop cnP) :=
     FvarSpine_of_open hopen hwsLen (by omega) hρWval
   obtain ⟨hfvsWf, htbodyWf⟩ :=
-    openPisAtFvars_wf (nP + nM + nm + cnF) 0 hopen
+    openPisAtFvars_wf (rP + cnF) 0 hopen
       (WScoped.of_not_hasFvar hSw) hSb
       (Expr.LeavesBounded.of_not_hasFvar hSw)
-  have hfvsW : ∀ a ∈ fvs, WScoped (nP + nM + nm + cnF) a := by
+  have hfvsW : ∀ a ∈ fvs, WScoped (rP + cnF) a := by
     intro a ha
     have := (hfvsWf a ha).1
     simpa using this
@@ -206,7 +209,7 @@ theorem modeled_rule_fold
       (by rw [hasFvar_instantiateLevelParams]; exact htyw)
   obtain ⟨hdd₁, hagr₁, argsR0, hfitL1, hfvR0⟩ :=
     TeleFit.toTeleFitI hfit1 (hTw d)
-  have hlenR0 : argsR0.length = nP + nM + nm + ni + 1 := by
+  have hlenR0 : argsR0.length = mI + 1 := by
     have h1 := TeleFitI.vs_length hfitL1
     simp only [List.length_append, List.length_cons, List.length_nil,
       hlena] at h1
@@ -214,22 +217,23 @@ theorem modeled_rule_fold
   -- prefix restriction
   have hfitL1' : TeleFitI V m₀.val env₀ φ' d₁ ρ₁
       (tyA.instantiateLevelParams lps us)
-      (argsR0.take (nP + nM + nm) ++ argsR0.drop (nP + nM + nm))
+      (argsR0.take (rP) ++ argsR0.drop (rP))
       (args ++ [tv]) rest₁ := by
     rw [List.take_append_drop]
     exact hfitL1
   obtain ⟨midR, hpreR0⟩ := TeleFitI.take_prefix hfitL1'
-  have hpreR0len : (argsR0.take (nP + nM + nm)).length = nP + nM + nm := by
+  have hpreR0len : (argsR0.take (rP)).length = rP := by
     rw [List.length_take, hlenR0]; omega
   have hpreRvals : (args ++ [tv]).take
-      ((argsR0.take (nP + nM + nm)).length) = args.take (nP + nM + nm) := by
+      ((argsR0.take (rP)).length) = args.take (rP) := by
     rw [hpreR0len, List.take_append_of_le_length (by omega)]
   rw [hpreRvals] at hpreR0
   -- the raw prefix telescope strips
   obtain ⟨⟨bsTy, restTy⟩, htyStripSome⟩ :=
     Option.isSome_iff_exists.mp htyStrip
   obtain ⟨restTyPre, htyPreStrip⟩ :=
-    Expr.stripPis_prefix (nP + nM + nm) ni htyStripSome
+    Expr.stripPis_prefix rP (mI - rP)
+      (by rw [show rP + (mI - rP) = mI from by omega]; exact htyStripSome)
   -- sanitize and uninstantiate the levels
   obtain ⟨midR2, hpreRS⟩ := TeleFitI.sanitize hpreR0
     (by
@@ -237,7 +241,7 @@ theorem modeled_rule_fold
       exact Expr.stripPis_instantiateLevelParams_isSome _ _ _
         (by rw [htyPreStrip]; rfl))
     (fun a ha => hfvR0 a (List.mem_of_mem_take ha))
-  have hshR : ∀ a ∈ (argsR0.take (nP + nM + nm)).map sanitizeArg,
+  have hshR : ∀ a ∈ (argsR0.take (rP)).map sanitizeArg,
       ∃ i n, a = Expr.fvar i n (.sort .zero) := by
     intro a ha
     obtain ⟨a₀, ha₀, rfl⟩ := List.mem_map.mp ha
@@ -245,32 +249,32 @@ theorem modeled_rule_fold
     exact ⟨i, n, rfl⟩
   obtain ⟨midR3, hfitRawR⟩ := TeleFitI.instLev_down hcvp hpreRS hshR
     (WScoped.of_not_hasFvar htyw (d := d₁)).fvarsBelow
-  have hshR' : ∀ a ∈ (argsR0.take (nP + nM + nm)).map sanitizeArg,
+  have hshR' : ∀ a ∈ (argsR0.take (rP)).map sanitizeArg,
       ∃ i n t, a = Expr.fvar i n t := by
     intro a ha
     obtain ⟨i, n, rfl⟩ := hshR a ha
     exact ⟨i, n, _, rfl⟩
   have hspR : FvarSpine d₁ ρ₁
-      ((argsR0.take (nP + nM + nm)).map sanitizeArg)
-      (args.take (nP + nM + nm)) :=
+      ((argsR0.take (rP)).map sanitizeArg)
+      (args.take (rP)) :=
     FvarSpine_of_fit hfitRawR hshR'
   -- the public prefix walk of the recursor's type
   obtain ⟨⟨dsPubT, restPubT⟩, hpubT⟩ := Option.isSome_iff_exists.mp
-    (instPisAt_isSome_of_stripPis (fvs.take (nP + nM + nm))
+    (instPisAt_isSome_of_stripPis (fvs.take (rP))
       (by
         rw [List.length_take, hfvsLen,
           Nat.min_eq_left (by omega), htyPreStrip]
         rfl))
-  have hwsTake : (args.take (nP + nM + nm) ++ margs.drop cnP).take
-      (nP + nM + nm) = args.take (nP + nM + nm) := by
+  have hwsTake : (args.take (rP) ++ margs.drop cnP).take
+      (rP) = args.take (rP) := by
     rw [List.take_append_of_le_length (by rw [hpreLen]; exact Nat.le_refl _),
       List.take_take, Nat.min_self]
 
-  have hspWpre : FvarSpine (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+  have hspWpre : FvarSpine (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty)
-      (fvs.take (nP + nM + nm)) (args.take (nP + nM + nm)) := by
-    have h0 := FvarSpine.take (nP + nM + nm) hspW
+      (fvs.take (rP)) (args.take (rP)) := by
+    have h0 := FvarSpine.take (rP) hspW
     rwa [hwsTake] at h0
   -- pointwise packages for the public prefix domains, at the master
   -- frame
@@ -279,39 +283,39 @@ theorem modeled_rule_fold
     (by rw [List.length_take, hfvsLen]; omega)
     hspWpre hspR hfitRawR
   -- packages for the renamed prefix domains (`rdoms`)
-  have htyPreRen : (tyA.renameConsts f).stripPis (nP + nM + nm) =
-      some ((bsTy.take (nP + nM + nm)).map
+  have htyPreRen : (tyA.renameConsts f).stripPis (rP) =
+      some ((bsTy.take (rP)).map
         (fun b => (b.1, b.2.1.renameConsts f, b.2.2)),
         restTyPre.renameConsts f) :=
-    stripPis_renameConsts (nP + nM + nm) htyPreStrip
-  have hfvsPreLen : (fvs.take (nP + nM + nm)).length = nP + nM + nm := by
+    stripPis_renameConsts (rP) htyPreStrip
+  have hfvsPreLen : (fvs.take (rP)).length = rP := by
     rw [List.length_take, hfvsLen]; omega
   obtain ⟨-, hrdomsPt⟩ := instPisAt_stripPis _ hrinst
     (by rw [hfvsPreLen]; exact htyPreRen)
   obtain ⟨-, hpubTPt⟩ := instPisAt_stripPis _ hpubT
     (by rw [hfvsPreLen]; exact htyPreStrip)
-  have hfvsPreShapes : ∀ a ∈ fvs.take (nP + nM + nm),
+  have hfvsPreShapes : ∀ a ∈ fvs.take (rP),
       ∃ i n t, a = .fvar i n t :=
     fun a ha => hfvsShapes a (List.mem_of_mem_take ha)
-  have hbsTyLen : bsTy.length = nP + nM + nm + ni :=
+  have hbsTyLen : bsTy.length = mI :=
     Expr.stripPis_length _ htyStripSome
   have hmemR : ∀ (k : Nat) (a : Expr) (v : V), rdoms[k]? = some a →
-      (args.take (nP + nM + nm))[k]? = some v →
+      (args.take (rP))[k]? = some v →
       ∃ B, interpExpr V m₀.val env₀ (Level.substFn φ' lps us)
-        (nP + nM + nm + cnF)
-        (fun j => (args.take (nP + nM + nm) ++
+        (rP + cnF)
+        (fun j => (args.take (rP) ++
           margs.drop cnP).getD j SetTheory.empty) a = some B ∧
         v ∈ˢ B := by
     intro k a v ha hv
-    have hk : k < nP + nM + nm := by
+    have hk : k < rP := by
       have hl := instPisAt_length _ hrinst
-      rcases Nat.lt_or_ge k (nP + nM + nm) with hlt | hge
+      rcases Nat.lt_or_ge k (rP) with hlt | hge
       · exact hlt
       · rw [List.getElem?_eq_none (by rw [hl, hfvsPreLen]; omega)] at ha
         exact nomatch ha
-    obtain ⟨b, hb⟩ : ∃ b, (bsTy.take (nP + nM + nm))[k]? = some b :=
+    obtain ⟨b, hb⟩ : ∃ b, (bsTy.take (rP))[k]? = some b :=
       ⟨_, List.getElem?_eq_getElem (by rw [List.length_take]; omega)⟩
-    have hbren : ((bsTy.take (nP + nM + nm)).map
+    have hbren : ((bsTy.take (rP)).map
         (fun b => (b.1, b.2.1.renameConsts f, b.2.2)))[k]? =
         some (b.1, b.2.1.renameConsts f, b.2.2) := by
       rw [List.getElem?_map, hb]
@@ -328,7 +332,7 @@ theorem modeled_rule_fold
     obtain rfl := Option.some.inj hdp'
     refine ⟨B, ?_, hvB⟩
     show interpExpr V m₀.val env₀ (Level.substFn φ' lps us) _ _
-      (instSeq ((fvs.take (nP + nM + nm)).take k) (k - 1)
+      (instSeq ((fvs.take (rP)).take k) (k - 1)
         ((b.1, b.2.1.renameConsts f, b.2.2) :
           Name × Expr × BinderMeta).2.1) = some B
     rw [show ((b.1, b.2.1.renameConsts f, b.2.2) :
@@ -376,28 +380,28 @@ theorem modeled_rule_fold
     rw [← hparam']
     exact (List.take_append_drop cnP margs).symm
   -- the theorem-side constructor spine (`fvs`-based)
-  have hfvsCLen : (fvs.take cnP ++ fvs.drop (nP + nM + nm)).length =
+  have hfvsCLen : (fvs.take cnP ++ fvs.drop (rP)).length =
       cnP + cnF := by
     simp only [List.length_append, List.length_take, List.length_drop,
       hfvsLen]
     omega
-  have hspWctor : FvarSpine (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+  have hspWctor : FvarSpine (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty)
-      (fvs.take cnP ++ fvs.drop (nP + nM + nm)) margs := by
-    have hA : FvarSpine (nP + nM + nm + cnF)
-        (fun j => (args.take (nP + nM + nm) ++
+      (fvs.take cnP ++ fvs.drop (rP)) margs := by
+    have hA : FvarSpine (rP + cnF)
+        (fun j => (args.take (rP) ++
           margs.drop cnP).getD j SetTheory.empty)
         (fvs.take cnP) (args.take cnP) := by
       have h0 := FvarSpine.take cnP hspWpre
       rw [List.take_take, Nat.min_eq_left hplainLe] at h0
       rwa [List.take_take, Nat.min_eq_left (by omega)] at h0
-    have hB : FvarSpine (nP + nM + nm + cnF)
-        (fun j => (args.take (nP + nM + nm) ++
+    have hB : FvarSpine (rP + cnF)
+        (fun j => (args.take (rP) ++
           margs.drop cnP).getD j SetTheory.empty)
-        (fvs.drop (nP + nM + nm)) (margs.drop cnP) := by
-      have h0 := FvarSpine.drop (nP + nM + nm) hspW
-      have h1 := List.drop_left (l₁ := args.take (nP + nM + nm))
+        (fvs.drop (rP)) (margs.drop cnP) := by
+      have h0 := FvarSpine.drop (rP) hspW
+      have h1 := List.drop_left (l₁ := args.take (rP))
         (l₂ := margs.drop cnP)
       rw [hpreLen] at h1
       rwa [h1] at h0
@@ -405,7 +409,7 @@ theorem modeled_rule_fold
     rwa [← hmargsSplit] at h2
   -- public constructor walk at the theorem's variables
   obtain ⟨⟨dsPubC, restPubC⟩, hpubC⟩ := Option.isSome_iff_exists.mp
-    (instPisAt_isSome_of_stripPis (fvs.take cnP ++ fvs.drop (nP + nM + nm))
+    (instPisAt_isSome_of_stripPis (fvs.take cnP ++ fvs.drop (rP))
       (by rw [hfvsCLen]; exact hcstrip))
   obtain ⟨⟨bsC, cbody⟩, hCstripSome⟩ := Option.isSome_iff_exists.mp hcstrip
   have hmemPubC := fit_mem_transfer (φ := Level.substFn φ' lps us)
@@ -421,7 +425,7 @@ theorem modeled_rule_fold
     (by rw [hfvsCLen]; exact hCstripSome)
   have hbsCLen : bsC.length = cnP + cnF :=
     Expr.stripPis_length _ hCstripSome
-  have hfvsCShapes : ∀ a ∈ fvs.take cnP ++ fvs.drop (nP + nM + nm),
+  have hfvsCShapes : ∀ a ∈ fvs.take cnP ++ fvs.drop (rP),
       ∃ i n t, a = .fvar i n t := by
     intro a ha
     rcases List.mem_append.mp ha with ha | ha
@@ -430,8 +434,8 @@ theorem modeled_rule_fold
   have hmemC : ∀ (k : Nat) (a : Expr) (v : V), cdoms[k]? = some a →
       margs[k]? = some v →
       ∃ B, interpExpr V m₀.val env₀ (Level.substFn φ' lps us)
-        (nP + nM + nm + cnF)
-        (fun j => (args.take (nP + nM + nm) ++
+        (rP + cnF)
+        (fun j => (args.take (rP) ++
           margs.drop cnP).getD j SetTheory.empty) a = some B ∧
         v ∈ˢ B := by
     intro k a v ha hv
@@ -460,7 +464,7 @@ theorem modeled_rule_fold
     obtain rfl := Option.some.inj hdp'
     refine ⟨B, ?_, hvB⟩
     show interpExpr V m₀.val env₀ (Level.substFn φ' lps us) _ _
-      (instSeq ((fvs.take cnP ++ fvs.drop (nP + nM + nm)).take k) (k - 1)
+      (instSeq ((fvs.take cnP ++ fvs.drop (rP)).take k) (k - 1)
         ((b.1, b.2.1.renameConsts f, b.2.2) :
           Name × Expr × BinderMeta).2.1) = some B
     rw [show ((b.1, b.2.1.renameConsts f, b.2.2) :
@@ -471,45 +475,45 @@ theorem modeled_rule_fold
   -- ===== S2: the theorem walk =====
   -- split the theorem's opening at the prefix/field boundary
   have hfvsInst' : Expr.instPisAt
-      (fvs.take (nP + nM + nm) ++ fvs.drop (nP + nM + nm)) cvt.type =
+      (fvs.take (rP) ++ fvs.drop (rP)) cvt.type =
       some (fvs.map Expr.fvarTypeD, tbody) := by
     rw [List.take_append_drop]
     exact hfvsInst
   obtain ⟨dsS1, midS, dsS2, hopS1, hopS2, hdsSplit⟩ :=
     instPisAt_append _ _ hfvsInst'
-  have hdsS1len : dsS1.length = nP + nM + nm := by
+  have hdsS1len : dsS1.length = rP := by
     rw [instPisAt_length _ hopS1, hfvsPreLen]
-  obtain ⟨hdsS1eq, hdsS2eq⟩ : dsS1 = (fvs.take (nP + nM + nm)).map
-      Expr.fvarTypeD ∧ dsS2 = (fvs.drop (nP + nM + nm)).map
+  obtain ⟨hdsS1eq, hdsS2eq⟩ : dsS1 = (fvs.take (rP)).map
+      Expr.fvarTypeD ∧ dsS2 = (fvs.drop (rP)).map
       Expr.fvarTypeD := by
     have hmap : fvs.map Expr.fvarTypeD =
-        (fvs.take (nP + nM + nm)).map Expr.fvarTypeD ++
-        (fvs.drop (nP + nM + nm)).map Expr.fvarTypeD := by
+        (fvs.take (rP)).map Expr.fvarTypeD ++
+        (fvs.drop (rP)).map Expr.fvarTypeD := by
       rw [← List.map_append, List.take_append_drop]
     rw [hmap] at hdsSplit
     exact List.append_inj hdsSplit.symm (by
       rw [hdsS1len, List.length_map, hfvsPreLen])
   subst hdsS1eq hdsS2eq
   -- the master frame's theorem-side invariants
-  have hWS : WScoped (nP + nM + nm + cnF) cvt.type :=
+  have hWS : WScoped (rP + cnF) cvt.type :=
     WScoped.of_not_hasFvar hSw
   have hLS : Expr.LeavesBounded cvt.type :=
     Expr.LeavesBounded.of_not_hasFvar hSw
   have hFS : FvarsOk V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty) cvt.type :=
     FvarsOk.of_not_hasFvar hSw
   have hAS : AnnotOk V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty) cvt.type :=
     AnnotOk.closed_invariant hSw _ _
       (hthm_annot (Level.substFn φ' lps us))
   obtain ⟨P, hPc, hPmem⟩ := hthm_mem (Level.substFn φ' lps us)
   have hPI : interpExpr V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty) cvt.type = some P := by
     rw [interp_closed_invariant hSw _ _]
     exact hPc
@@ -521,16 +525,16 @@ theorem modeled_rule_fold
     rw [looseBVarsBounded_renameConsts]
     exact htyb
   have hAtyR : AnnotOk V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty) (tyA.renameConsts f) :=
     AnnotOk.closed_invariant htyRw _ _
       (AnnotOk.renameConsts hro tyA 0 (rho0 V)
         (hAty (Level.substFn φ' lps us)))
   obtain ⟨Tty, hTtyc⟩ := hIty (Level.substFn φ' lps us)
   have hItyR : ∃ TR, interpExpr V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty) (tyA.renameConsts f) =
       some TR := by
     refine ⟨Tty, ?_⟩
@@ -553,8 +557,8 @@ theorem modeled_rule_fold
   obtain ⟨hWmidS, hbmidS, -, hleavesMidS⟩ :=
     TeleFitI.rest_wf hfitS1 hWS hSb hAS
   have hFmidS : FvarsOk V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty) midS := by
     intro l hl
     rcases hleavesMidS l hl with hl' | ⟨a, ha, hla⟩
@@ -577,8 +581,8 @@ theorem modeled_rule_fold
     rw [hcdomsSplit, List.drop_append_of_le_length (by omega),
       List.drop_eq_nil_of_le (by omega), List.nil_append]
   have hACtyR : AnnotOk V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty)
       (cvj.type.renameConsts f) := by
     have hCRw : (cvj.type.renameConsts f).hasFvar = false := by
@@ -591,8 +595,8 @@ theorem modeled_rule_fold
   have hCRb : (cvj.type.renameConsts f).looseBVarsBounded 0 = true := by
     rw [looseBVarsBounded_renameConsts]; exact hCb
   have hICtyR : ∃ TR, interpExpr V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty)
       (cvj.type.renameConsts f) = some TR := by
     obtain ⟨TC, hTCc⟩ := hICty (Level.substFn φ' lps us)
@@ -602,8 +606,8 @@ theorem modeled_rule_fold
     unfold interpClosed
     rw [interp_renameConsts hro cvj.type 0 (rho0 V)]
     exact hTCc
-  have hspWctorPre : FvarSpine (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+  have hspWctorPre : FvarSpine (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty)
       (fvs.take cnP) (margs.take cnP) := by
     have h0 := FvarSpine.take cnP hspWctor
@@ -628,15 +632,15 @@ theorem modeled_rule_fold
   obtain ⟨hWmidC, hbmidC, hAmidC, hleavesMidC⟩ :=
     TeleFitI.rest_wf hfitC1 (WScoped.of_not_hasFvar hCRw) hCRb hACtyR
   have hFmidC : FvarsOk V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty) midC := by
     intro l hl
     rcases hleavesMidC l hl with hl' | ⟨a, ha, hla⟩
     · rw [fvarLeaves_eq_nil_of_not_hasFvar hCRw] at hl'
       cases hl'
     · refine hΘpre a ?_ l hla
-      have heq : fvs.take cnP = (fvs.take (nP + nM + nm)).take cnP := by
+      have heq : fvs.take cnP = (fvs.take (rP)).take cnP := by
         rw [List.take_take, Nat.min_eq_left hplainLe]
       rw [heq] at ha
       exact List.mem_of_mem_take ha
@@ -647,12 +651,12 @@ theorem modeled_rule_fold
       cases hl'
     · exact (hfvsWf a (List.mem_of_mem_take ha)).2.2 l hla
   -- stage 2: the field walk
-  have hspWdrop : FvarSpine (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+  have hspWdrop : FvarSpine (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty)
-      (fvs.drop (nP + nM + nm)) (margs.drop cnP) := by
-    have h0 := FvarSpine.drop (nP + nM + nm) hspW
-    have h1 := List.drop_left (l₁ := args.take (nP + nM + nm))
+      (fvs.drop (rP)) (margs.drop cnP) := by
+    have h0 := FvarSpine.drop (rP) hspW
+    have h1 := List.drop_left (l₁ := args.take (rP))
       (l₂ := margs.drop cnP)
     rw [hpreLen] at h1
     rwa [h1] at h0
@@ -673,7 +677,7 @@ theorem modeled_rule_fold
   obtain ⟨Q, hQI, hQmem0, hAtbody⟩ :=
     TeleFitI.elim hfitS2 hAmidS hQmidI hQmidMem
   have hQmem : SpineFold V (m₀.val thmName (Level.substFn φ' lps us))
-      (args.take (nP + nM + nm) ++ margs.drop cnP) ∈ˢ Q := by
+      (args.take (rP) ++ margs.drop cnP) ∈ˢ Q := by
     rw [SpineFold_append]
     exact hQmem0
   -- ===== S3: the Eq collapse =====
@@ -740,8 +744,8 @@ theorem modeled_rule_fold
     rw [hlhead] at h0
     exact h0.symm
   have hAlhs : AnnotOk V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty) lhsS :=
     hcompsA lhsS (by simp)
   rw [hlhsEq] at hAlhs
@@ -757,8 +761,8 @@ theorem modeled_rule_fold
     exact Option.some.inj hil |>.symm
   -- the head is the recursor's value
   have hcRi : interpExpr V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty)
       (.const (f R) (lps.map .param)) =
       some (m₀.val R (Level.substFn φ' lps us)) := by
@@ -775,7 +779,7 @@ theorem modeled_rule_fold
   -- ===== S4b: the argument values =====
   -- the whole equation body's syntactic facts (for the components)
   obtain ⟨hWtbody0, hbtbody0, htbodyL0⟩ := htbodyWf
-  have hWtbody : WScoped (nP + nM + nm + cnF)
+  have hWtbody : WScoped (rP + cnF)
       (Expr.mkAppN (.const eqName [ℓA]) [αS, lhsS, rhsS]) := by
     rw [← htbodyEq]
     simpa using hWtbody0
@@ -786,8 +790,8 @@ theorem modeled_rule_fold
   obtain ⟨-, -, -, hleavesTbody⟩ := TeleFitI.rest_wf hfitS2 hWmidS hbmidS
     hAmidS
   have hFtbody : FvarsOk V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty) tbody := by
     intro l hl
     rcases hleavesTbody l hl with hl' | ⟨a, ha, hla⟩
@@ -799,14 +803,14 @@ theorem modeled_rule_fold
   -- lhsS component facts
   have hlhsMem : lhsS ∈ tbody.getAppArgs := by
     rw [hargs3]; simp
-  have hWlhs : WScoped (nP + nM + nm + cnF) lhsS := by
+  have hWlhs : WScoped (rP + cnF) lhsS := by
     have h0 := hWtbody0.getAppArgs lhsS hlhsMem
     rwa [Nat.zero_add] at h0
   have hblhs : lhsS.looseBVarsBounded 0 = true :=
     looseBVarsBounded_getAppArgs hbtbody0 _ hlhsMem
   have hFlhs : FvarsOk V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty) lhsS :=
     FvarsOk.of_subset (fun l hl => fvarLeaves_getAppArgs hlhsMem l hl)
       hFtbody
@@ -815,38 +819,38 @@ theorem modeled_rule_fold
   -- rhsS component facts
   have hrhsMem : rhsS ∈ tbody.getAppArgs := by
     rw [hargs3]; simp
-  have hWrhsS : WScoped (nP + nM + nm + cnF) rhsS := by
+  have hWrhsS : WScoped (rP + cnF) rhsS := by
     have h0 := hWtbody0.getAppArgs rhsS hrhsMem
     rwa [Nat.zero_add] at h0
   have hbrhsS : rhsS.looseBVarsBounded 0 = true :=
     looseBVarsBounded_getAppArgs hbtbody0 _ hrhsMem
   have hFrhsS : FvarsOk V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty) rhsS :=
     FvarsOk.of_subset (fun l hl => fvarLeaves_getAppArgs hrhsMem l hl)
       hFtbody
   have hLrhsS : Expr.LeavesBounded rhsS :=
     fun l hl => htbodyL0 l (fvarLeaves_getAppArgs hrhsMem l hl)
   have hArhsS : AnnotOk V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty) rhsS :=
     hcompsA rhsS (by simp)
   -- the full constructor fit and the residual `cres`'s facts
   have hfitCfull : TeleFitI V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty)
       (cvj.type.renameConsts f)
-      (fvs.take cnP ++ fvs.drop (nP + nM + nm)) margs cres := by
+      (fvs.take cnP ++ fvs.drop (rP)) margs cres := by
     have h0 := TeleFitI.append hfitC1 hfitR2
     rwa [List.take_append_drop] at h0
   obtain ⟨hWcres, hbcres, hAcres, hleavesCres⟩ :=
     TeleFitI.rest_wf hfitCfull (WScoped.of_not_hasFvar hCRw) hCRb hACtyR
   have hFcres : FvarsOk V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty) cres := by
     intro l hl
     rcases hleavesCres l hl with hl' | ⟨a, ha, hla⟩
@@ -854,7 +858,7 @@ theorem modeled_rule_fold
       cases hl'
     · rcases List.mem_append.mp ha with ha | ha
       · refine hΘpre a ?_ l hla
-        have heq : fvs.take cnP = (fvs.take (nP + nM + nm)).take cnP := by
+        have heq : fvs.take cnP = (fvs.take (rP)).take cnP := by
           rw [List.take_take, Nat.min_eq_left hplainLe]
         rw [heq] at ha
         exact List.mem_of_mem_take ha
@@ -918,7 +922,7 @@ theorem modeled_rule_fold
             Expr.getAppArgs_instantiateLevelParams, List.map_map]
           simp [Function.comp]
   -- `cres`'s arguments are the renamed constructor result's
-  have hcresEq' : cres = instSeq (fvs.take cnP ++ fvs.drop (nP + nM + nm))
+  have hcresEq' : cres = instSeq (fvs.take cnP ++ fvs.drop (rP))
       (cnP + cnF - 1) (cbody.renameConsts f) := by
     rw [hcresEq, hfvsCLen]
   have hheadRenNotApp : ∀ f' a',
@@ -936,20 +940,20 @@ theorem modeled_rule_fold
     | lit _ => rw [hfn] at hcon; exact nomatch hcon
     | proj _ _ _ => rw [hfn] at hcon; exact nomatch hcon
   have hcresArgs : cres.getAppArgs = cbody.getAppArgs.map
-      (fun e => instSeq (fvs.take cnP ++ fvs.drop (nP + nM + nm))
+      (fun e => instSeq (fvs.take cnP ++ fvs.drop (rP))
         (cnP + cnF - 1) (e.renameConsts f)) := by
     rw [hcresEq']
-    calc (instSeq (fvs.take cnP ++ fvs.drop (nP + nM + nm))
+    calc (instSeq (fvs.take cnP ++ fvs.drop (rP))
           (cnP + cnF - 1) (cbody.renameConsts f)).getAppArgs
-        = (instSeq (fvs.take cnP ++ fvs.drop (nP + nM + nm))
+        = (instSeq (fvs.take cnP ++ fvs.drop (rP))
             (cnP + cnF - 1)
             (Expr.mkAppN (cbody.getAppFn.renameConsts f)
               (cbody.getAppArgs.map (·.renameConsts f)))).getAppArgs := by
           rw [← renameConsts_mkAppN, Expr.mkAppN_getApp]
-      _ = (Expr.mkAppN (instSeq (fvs.take cnP ++ fvs.drop (nP + nM + nm))
+      _ = (Expr.mkAppN (instSeq (fvs.take cnP ++ fvs.drop (rP))
             (cnP + cnF - 1) (cbody.getAppFn.renameConsts f))
             ((cbody.getAppArgs.map (·.renameConsts f)).map
-              (instSeq (fvs.take cnP ++ fvs.drop (nP + nM + nm))
+              (instSeq (fvs.take cnP ++ fvs.drop (rP))
                 (cnP + cnF - 1) ·))).getAppArgs := by
           rw [instSeq_mkAppN]
       _ = _ := by
@@ -978,10 +982,10 @@ theorem modeled_rule_fold
     rw [h0, List.map_id]
   have hcanVal : ∀ (j : Nat) (e : Expr) (v : V),
       (cres.getAppArgs.drop cnP)[j]? = some e →
-      (args.drop (nP + nM + nm))[j]? = some v →
+      (args.drop (rP))[j]? = some v →
       interpExpr V m₀.val env₀ (Level.substFn φ' lps us)
-        (nP + nM + nm + cnF)
-        (fun j' => (args.take (nP + nM + nm) ++
+        (rP + cnF)
+        (fun j' => (args.take (rP) ++
           margs.drop cnP).getD j' SetTheory.empty) e = some v := by
     intro j e v he hv
     rw [hcresArgs, ← List.map_drop, List.getElem?_map] at he
@@ -1037,18 +1041,18 @@ theorem modeled_rule_fold
     rw [hsanLen, hlenC0] at hcross2
     rw [hcross2]
     exact hval
-  have hcresArgsLen : cres.getAppArgs.length = cnP + ni := hclen
+  have hcresArgsLen : cres.getAppArgs.length = cnP + (mI - rP) := hclen
   have hspIdxCan : InterpSpine m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j' => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j' => (args.take (rP) ++
         margs.drop cnP).getD j' SetTheory.empty)
-      (cres.getAppArgs.drop cnP) (args.drop (nP + nM + nm)) :=
+      (cres.getAppArgs.drop cnP) (args.drop (rP)) :=
     InterpSpine.of_pointwise (by
       rw [List.length_drop, hcresArgsLen, List.length_drop, hlena]
       omega) hcanVal
   -- `cres`'s per-argument facts (for the defeq side conditions)
   have hcresArgW : ∀ e ∈ cres.getAppArgs,
-      WScoped (nP + nM + nm + cnF) e :=
+      WScoped (rP + cnF) e :=
     fun e he => hWcres.getAppArgs e he
   have hcresArgB : ∀ e ∈ cres.getAppArgs,
       e.looseBVarsBounded 0 = true :=
@@ -1057,15 +1061,15 @@ theorem modeled_rule_fold
     fun e he l hl => hLcres l (fvarLeaves_getAppArgs he l hl)
   have hcresArgF : ∀ e ∈ cres.getAppArgs,
       FvarsOk V m₀.val env₀ (Level.substFn φ' lps us)
-        (nP + nM + nm + cnF)
-        (fun j' => (args.take (nP + nM + nm) ++
+        (rP + cnF)
+        (fun j' => (args.take (rP) ++
           margs.drop cnP).getD j' SetTheory.empty) e :=
     fun e he => FvarsOk.of_subset
       (fun l hl => fvarLeaves_getAppArgs he l hl) hFcres
   have hcresArgA : ∀ e ∈ cres.getAppArgs,
       AnnotOk V m₀.val env₀ (Level.substFn φ' lps us)
-        (nP + nM + nm + cnF)
-        (fun j' => (args.take (nP + nM + nm) ++
+        (rP + cnF)
+        (fun j' => (args.take (rP) ++
           margs.drop cnP).getD j' SetTheory.empty) e := by
     intro e he
     have hne : cres.getAppArgs ≠ [] := by
@@ -1073,8 +1077,8 @@ theorem modeled_rule_fold
       rw [h0] at he
       exact nomatch he
     have hAcres' : AnnotOk V m₀.val env₀ (Level.substFn φ' lps us)
-        (nP + nM + nm + cnF)
-        (fun j' => (args.take (nP + nM + nm) ++
+        (rP + cnF)
+        (fun j' => (args.take (rP) ++
           margs.drop cnP).getD j' SetTheory.empty)
         (Expr.mkAppN cres.getAppFn cres.getAppArgs) := by
       rw [Expr.mkAppN_getApp]
@@ -1083,7 +1087,7 @@ theorem modeled_rule_fold
     exact hargsA e he
   -- lhsS's per-argument facts
   have hlargsW : ∀ e ∈ lhsS.getAppArgs,
-      WScoped (nP + nM + nm + cnF) e :=
+      WScoped (rP + cnF) e :=
     fun e he => hWlhs.getAppArgs e he
   have hlargsB : ∀ e ∈ lhsS.getAppArgs, e.looseBVarsBounded 0 = true :=
     fun e he => looseBVarsBounded_getAppArgs hblhs e he
@@ -1091,25 +1095,25 @@ theorem modeled_rule_fold
     fun e he l hl => hLlhs l (fvarLeaves_getAppArgs he l hl)
   have hlargsF : ∀ e ∈ lhsS.getAppArgs,
       FvarsOk V m₀.val env₀ (Level.substFn φ' lps us)
-        (nP + nM + nm + cnF)
-        (fun j' => (args.take (nP + nM + nm) ++
+        (rP + cnF)
+        (fun j' => (args.take (rP) ++
           margs.drop cnP).getD j' SetTheory.empty) e :=
     fun e he => FvarsOk.of_subset
       (fun l hl => fvarLeaves_getAppArgs he l hl) hFlhs
   -- the index arguments' values, via the kernel's defeqs
-  have hlvalsLen : lvals.length = nP + nM + nm + ni + 1 := by
+  have hlvalsLen : lvals.length = mI + 1 := by
     have h0 := InterpSpine.length hspL
     omega
   have hidxArgsVal : ∀ (j : Nat) (e : Expr) (v : V),
-      ((lhsS.getAppArgs.drop (nP + nM + nm)).take ni)[j]? = some e →
-      (args.drop (nP + nM + nm))[j]? = some v →
+      ((lhsS.getAppArgs.drop (rP)).take (mI - rP))[j]? = some e →
+      (args.drop (rP))[j]? = some v →
       interpExpr V m₀.val env₀ (Level.substFn φ' lps us)
-        (nP + nM + nm + cnF)
-        (fun j' => (args.take (nP + nM + nm) ++
+        (rP + cnF)
+        (fun j' => (args.take (rP) ++
           margs.drop cnP).getD j' SetTheory.empty) e = some v := by
     intro j e v he hv
-    have hj : j < ni := by
-      rcases Nat.lt_or_ge j ni with hlt | hge
+    have hj : j < mI - rP := by
+      rcases Nat.lt_or_ge j (mI - rP) with hlt | hge
       · exact hlt
       · rw [List.getElem?_eq_none (by
           rw [List.length_take]
@@ -1120,14 +1124,14 @@ theorem modeled_rule_fold
         rw [List.length_drop, hcresArgsLen]; omega)⟩
     have hde := DefEqListOk.pointwise hdeIdx j he hce
     have hcei := hcanVal j ce v hce hv
-    have hepos : lhsS.getAppArgs[nP + nM + nm + j]? = some e := by
+    have hepos : lhsS.getAppArgs[rP + j]? = some e := by
       rw [List.getElem?_take_of_lt hj] at he
       rw [← List.getElem?_drop]
       exact he
     have heMem : e ∈ lhsS.getAppArgs := List.mem_of_getElem? hepos
     have hceMem : ce ∈ cres.getAppArgs :=
       List.mem_of_mem_drop (List.mem_of_getElem? hce)
-    obtain ⟨ve, hvepos⟩ : ∃ ve, lvals[nP + nM + nm + j]? = some ve :=
+    obtain ⟨ve, hvepos⟩ : ∃ ve, lvals[rP + j]? = some ve :=
       ⟨_, List.getElem?_eq_getElem (by omega)⟩
     have hei := InterpSpine.pointwise hspL _ hepos hvepos
     have hvv : ve = v :=
@@ -1137,19 +1141,19 @@ theorem modeled_rule_fold
         (hlargsA e heMem) (hcresArgA ce hceMem) hei hcei
     rw [hei, hvv]
   have hspIdx : InterpSpine m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j' => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j' => (args.take (rP) ++
         margs.drop cnP).getD j' SetTheory.empty)
-      ((lhsS.getAppArgs.drop (nP + nM + nm)).take ni)
-      (args.drop (nP + nM + nm)) :=
+      ((lhsS.getAppArgs.drop (rP)).take (mI - rP))
+      (args.drop (rP)) :=
     InterpSpine.of_pointwise (by
       rw [List.length_take, List.length_drop, hlarity,
         List.length_drop, hlena]
       omega) hidxArgsVal
   -- ===== S4d: the major's value =====
   have hcCi : interpExpr V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j' => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j' => (args.take (rP) ++
         margs.drop cnP).getD j' SetTheory.empty)
       (.const (f ctor) (cvj.levelParams.map .param)) =
       some (m₀.val ctor (Level.substFn φ' cvj.levelParams usj)) := by
@@ -1163,19 +1167,19 @@ theorem modeled_rule_fold
     exact congrArg some (hcvp _ _ hfj _ _
       (fun p hp => (hleveq p hp).symm))
   have hmajorI : interpExpr V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j' => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j' => (args.take (rP) ++
         margs.drop cnP).getD j' SetTheory.empty)
       (lhsS.getAppArgs.getLastD (.bvar 0)) = some tv := by
     rw [hmaj, interp_mkAppN _ _ hcCi (InterpSpine_of_FvarSpine hspWctor),
       htv]
   -- ===== S4e: the whole left value =====
   obtain ⟨lastE, hlastE⟩ : ∃ x,
-      lhsS.getAppArgs.drop (nP + nM + nm + ni) = [x] := by
-    have hlen1 : (lhsS.getAppArgs.drop (nP + nM + nm + ni)).length = 1 := by
+      lhsS.getAppArgs.drop (mI) = [x] := by
+    have hlen1 : (lhsS.getAppArgs.drop (mI)).length = 1 := by
       rw [List.length_drop, hlarity]
       omega
-    cases hdd : lhsS.getAppArgs.drop (nP + nM + nm + ni) with
+    cases hdd : lhsS.getAppArgs.drop (mI) with
     | nil => rw [hdd] at hlen1; exact nomatch hlen1
     | cons x xs =>
       rw [hdd] at hlen1
@@ -1186,60 +1190,62 @@ theorem modeled_rule_fold
         | cons _ _ => simp at hlen1
       subst this
       exact ⟨x, rfl⟩
-  have hlastIdx : lhsS.getAppArgs[nP + nM + nm + ni]? = some lastE := by
+  have hlastIdx : lhsS.getAppArgs[mI]? = some lastE := by
     have h0 := congrArg (fun l => l[0]?) hlastE
     simp only [List.getElem?_drop] at h0
     simpa using h0
   have hlastD : lhsS.getAppArgs.getLastD (.bvar 0) = lastE := by
     rw [List.getLastD_eq_getLast?, List.getLast?_eq_getElem?]
-    rw [hlarity, show nP + nM + nm + ni + 1 - 1 = nP + nM + nm + ni
+    rw [hlarity, show mI + 1 - 1 = mI
       from by omega, hlastIdx]
     rfl
   have hlargsDecomp : lhsS.getAppArgs =
-      lhsS.getAppArgs.take (nP + nM + nm) ++
-      ((lhsS.getAppArgs.drop (nP + nM + nm)).take ni ++ [lastE]) := by
-    have h0 := List.take_append_drop (nP + nM + nm) lhsS.getAppArgs
-    have h1 := List.take_append_drop ni
-      (lhsS.getAppArgs.drop (nP + nM + nm))
-    have h2 : (lhsS.getAppArgs.drop (nP + nM + nm)).drop ni =
+      lhsS.getAppArgs.take (rP) ++
+      ((lhsS.getAppArgs.drop (rP)).take (mI - rP) ++ [lastE]) := by
+    have h0 := List.take_append_drop (rP) lhsS.getAppArgs
+    have h1 := List.take_append_drop (mI - rP)
+      (lhsS.getAppArgs.drop (rP))
+    have h2 : (lhsS.getAppArgs.drop (rP)).drop (mI - rP) =
         [lastE] := by
       rw [List.drop_drop]
       first
         | exact hlastE
-        | (rw [show ni + (nP + nM + nm) = nP + nM + nm + ni from by
+        | (rw [show (mI - rP) + rP = mI from by
             omega]; exact hlastE)
-        | (rw [show nP + nM + nm + ni = ni + (nP + nM + nm) from by
+        | (rw [show rP + (mI - rP) = mI from by
+            omega]; exact hlastE)
+        | (rw [show mI = (mI - rP) + rP from by
             omega] at hlastE; exact hlastE)
     rw [← h2, h1, h0]
   have hspPrefix : InterpSpine m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j' => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j' => (args.take (rP) ++
         margs.drop cnP).getD j' SetTheory.empty)
-      (lhsS.getAppArgs.take (nP + nM + nm)) (args.take (nP + nM + nm)) := by
+      (lhsS.getAppArgs.take (rP)) (args.take (rP)) := by
     rw [hlpre]
     exact InterpSpine_of_FvarSpine hspWpre
   have hmajorI' : interpExpr V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j' => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j' => (args.take (rP) ++
         margs.drop cnP).getD j' SetTheory.empty) lastE = some tv := by
     rw [← hlastD]
     exact hmajorI
   have hspFull : InterpSpine m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j' => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j' => (args.take (rP) ++
         margs.drop cnP).getD j' SetTheory.empty)
       lhsS.getAppArgs
-      (args.take (nP + nM + nm) ++ (args.drop (nP + nM + nm) ++ [tv])) := by
+      (args.take (rP) ++ (args.drop (rP) ++ [tv])) := by
     have h0 := InterpSpine.append hspPrefix
       (InterpSpine.append hspIdx
         (show InterpSpine m₀.val env₀ (Level.substFn φ' lps us)
-          (nP + nM + nm + cnF)
-          (fun j' => (args.take (nP + nM + nm) ++
+          (rP + cnF)
+          (fun j' => (args.take (rP) ++
             margs.drop cnP).getD j' SetTheory.empty) [lastE] [tv] from
           ⟨hmajorI', trivial⟩))
     rwa [← hlargsDecomp] at h0
   have hlvalsEq : lvals =
-      args.take (nP + nM + nm) ++ (args.drop (nP + nM + nm) ++ [tv]) := by
+      args.take (rP) ++ (args.drop (rP) ++ [tv]) := by
     have h1 := InterpSpine.mapM_eq hspL
     have h2 := InterpSpine.mapM_eq hspFull
     rw [h1] at h2
@@ -1252,9 +1258,9 @@ theorem modeled_rule_fold
   -- ===== S5: the right side is the applied rule =====
   -- mkAppN closure helpers
   have hWapp : ∀ (xs : List Expr) (h : Expr),
-      WScoped (nP + nM + nm + cnF) h →
-      (∀ x ∈ xs, WScoped (nP + nM + nm + cnF) x) →
-      WScoped (nP + nM + nm + cnF) (Expr.mkAppN h xs) := by
+      WScoped (rP + cnF) h →
+      (∀ x ∈ xs, WScoped (rP + cnF) x) →
+      WScoped (rP + cnF) (Expr.mkAppN h xs) := by
     intro xs
     induction xs with
     | nil => intro h hh _; exact hh
@@ -1293,19 +1299,19 @@ theorem modeled_rule_fold
       · exact Or.inr ⟨y, List.mem_cons_of_mem _ hy, hly⟩
   -- public prefix Θ
   obtain ⟨hfvsPInst, hfvsPLen, hfvsPShape⟩ :=
-    openPisAtFvars_spec (nP + nM + nm) 0 hopenP
-  obtain ⟨hfvsPWf, hrestPWf⟩ := openPisAtFvars_wf (nP + nM + nm) 0 hopenP
+    openPisAtFvars_spec (rP) 0 hopenP
+  obtain ⟨hfvsPWf, hrestPWf⟩ := openPisAtFvars_wf (rP) 0 hopenP
     (WScoped.of_not_hasFvar htyw) htyb
     (Expr.LeavesBounded.of_not_hasFvar htyw)
-  have hspP : FvarSpine (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+  have hspP : FvarSpine (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty)
-      fvsP (args.take (nP + nM + nm)) := by
+      fvsP (args.take (rP)) := by
     refine FvarSpine_of_open hopenP (by rw [hpreLen]) (by omega) ?_
     intro k v hkv
     refine hρWval k v ?_
-    have hk : k < (args.take (nP + nM + nm)).length := by
-      rcases Nat.lt_or_ge k (args.take (nP + nM + nm)).length with h | h
+    have hk : k < (args.take (rP)).length := by
+      rcases Nat.lt_or_ge k (args.take (rP)).length with h | h
       · exact h
       · rw [List.getElem?_eq_none (by omega)] at hkv
         exact nomatch hkv
@@ -1321,8 +1327,8 @@ theorem modeled_rule_fold
     (AnnotOk.closed_invariant htyw _ _ (hAty (Level.substFn φ' lps us)))
     hmemP
   -- the constructor's public parameter walk
-  have hspPtake : FvarSpine (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+  have hspPtake : FvarSpine (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty)
       (fvsP.take cnP) (margs.take cnP) := by
     have h0 := FvarSpine.take cnP hspP
@@ -1330,26 +1336,26 @@ theorem modeled_rule_fold
     rwa [← hparam'] at h0
   -- full public constructor packages at the (fvsP ++ xFvsP) spine
   obtain ⟨hxInst, hxLen, hxShape⟩ :=
-    openPisAtFvars_spec cnF (nP + nM + nm) hopenX
+    openPisAtFvars_spec cnF (rP) hopenX
   have hpubP := instPisAt_append_of (fvsP.take cnP) hcinstP hxInst
-  have hspX : FvarSpine (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+  have hspX : FvarSpine (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty)
       xFvsP (margs.drop cnP) := by
     refine FvarSpine_of_open hopenX (by rw [List.length_drop, hlenm]; omega)
       (by omega) ?_
     intro k v hkv
-    have h0 : (args.take (nP + nM + nm) ++
-        margs.drop cnP)[nP + nM + nm + k]? = some v := by
+    have h0 : (args.take (rP) ++
+        margs.drop cnP)[rP + k]? = some v := by
       rw [List.getElem?_append_right (by rw [hpreLen]; omega), hpreLen,
-        show nP + nM + nm + k - (nP + nM + nm) = k from by omega]
+        show rP + k - (rP) = k from by omega]
       exact hkv
-    show (args.take (nP + nM + nm) ++
-      margs.drop cnP).getD (nP + nM + nm + k) SetTheory.empty = v
+    show (args.take (rP) ++
+      margs.drop cnP).getD (rP + k) SetTheory.empty = v
     rw [List.getD_eq_getElem?_getD, h0]
     rfl
-  have hspPXctor : FvarSpine (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+  have hspPXctor : FvarSpine (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty)
       (fvsP.take cnP ++ xFvsP) margs := by
     have h0 := FvarSpine.append hspPtake hspX
@@ -1363,11 +1369,11 @@ theorem modeled_rule_fold
     rw [instPisAt_length _ hcinstP, List.length_take, hfvsPLen]
     omega
   -- crestP's facts
-  have hfvsPWs : ∀ a ∈ fvsP.take cnP, WScoped (nP + nM + nm) a := by
+  have hfvsPWs : ∀ a ∈ fvsP.take cnP, WScoped (rP) a := by
     intro a ha
     have := (hfvsPWf a (List.mem_of_mem_take ha)).1
     simpa using this
-  have hWcrestPre : WScoped (nP + nM + nm) crestP :=
+  have hWcrestPre : WScoped (rP) crestP :=
     (instPisAt_wscoped _ hcinstP
       (WScoped.of_not_hasFvar hCw) hfvsPWs).2
   obtain ⟨hfitCP, hIcrestP⟩ := peel_walk hcinstP hspPtake
@@ -1395,8 +1401,8 @@ theorem modeled_rule_fold
     TeleFitI.rest_wf hfitCP (WScoped.of_not_hasFvar hCw) hCb
       (AnnotOk.closed_invariant hCw _ _ (hACty (Level.substFn φ' lps us)))
   have hFcrestP : FvarsOk V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty) crestP := by
     intro l hl
     rcases hleavesCrestP l hl with hl' | ⟨a, ha, hla⟩
@@ -1409,7 +1415,7 @@ theorem modeled_rule_fold
     · rw [fvarLeaves_eq_nil_of_not_hasFvar hCw] at hl'
       cases hl'
     · exact (hfvsPWf a (List.mem_of_mem_take ha)).2.2 l hla
-  obtain ⟨hxWf, -⟩ := openPisAtFvars_wf cnF (nP + nM + nm) hopenX
+  obtain ⟨hxWf, -⟩ := openPisAtFvars_wf cnF (rP) hopenX
     hWcrestPre hbcrestP hLcrestP
   obtain ⟨hfitXP, hΘX2⟩ := self_walk hxInst hspX
     (fun a ha => ((hxWf a ha).1).mono (by omega))
@@ -1424,8 +1430,8 @@ theorem modeled_rule_fold
   -- the λ-tower walk of the rule's right-hand side
   have hΘfull : ∀ a ∈ fvsP ++ xFvsP,
       FvarsOk V m₀.val env₀ (Level.substFn φ' lps us)
-        (nP + nM + nm + cnF)
-        (fun j => (args.take (nP + nM + nm) ++
+        (rP + cnF)
+        (fun j => (args.take (rP) ++
           margs.drop cnP).getD j SetTheory.empty) a := by
     intro a ha
     rcases List.mem_append.mp ha with ha | ha
@@ -1437,26 +1443,26 @@ theorem modeled_rule_fold
     · exact (hfvsPWf a ha).2.2
     · exact (hxWf a ha).2.2
   have hWfull : ∀ a ∈ fvsP ++ xFvsP,
-      WScoped (nP + nM + nm + cnF) a := by
+      WScoped (rP + cnF) a := by
     intro a ha
     rcases List.mem_append.mp ha with ha | ha
     · exact ((hfvsPWf a ha).1).mono (by omega)
     · exact ((hxWf a ha).1).mono (by omega)
-  have hspPX : FvarSpine (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+  have hspPX : FvarSpine (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty)
       (fvsP ++ xFvsP)
-      (args.take (nP + nM + nm) ++ margs.drop cnP) :=
+      (args.take (rP) ++ margs.drop cnP) :=
     FvarSpine.append hspP hspX
   have hArhsW : AnnotOk V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty) rhsA :=
     AnnotOk.closed_invariant hrhsw _ _ (hArhs (Level.substFn φ' lps us))
   obtain ⟨L0, hL0c⟩ := hIrhs (Level.substFn φ' lps us)
   have hL0 : interpExpr V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty) rhsA = some L0 := by
     rw [interp_closed_invariant hrhsw _ _]
     exact hL0c
@@ -1470,22 +1476,22 @@ theorem modeled_rule_fold
     rw [hasFvar_renameConsts]
     exact hrhsw
   have hArhsRen : AnnotOk V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty) (rhsA.renameConsts f) :=
     AnnotOk.closed_invariant hrhsRw _ _
       (AnnotOk.renameConsts hro rhsA 0 (rho0 V)
         (hArhs (Level.substFn φ' lps us)))
   have hLren : interpExpr V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty)
       (rhsA.renameConsts f) = some L0 := by
     rw [interp_renameConsts hro]
     exact hL0
   have hfvsA : ∀ x ∈ fvs, AnnotOk V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty) x := by
     intro x hx
     obtain ⟨i, n, t, rfl⟩ := hfvsShapes x hx
@@ -1495,15 +1501,15 @@ theorem modeled_rule_fold
   -- side conditions for the statement's right side
   have hΘfvs : ∀ a ∈ fvs,
       FvarsOk V m₀.val env₀ (Level.substFn φ' lps us)
-        (nP + nM + nm + cnF)
-        (fun j => (args.take (nP + nM + nm) ++
+        (rP + cnF)
+        (fun j => (args.take (rP) ++
           margs.drop cnP).getD j SetTheory.empty) a := by
     intro a ha
-    rw [← List.take_append_drop (nP + nM + nm) fvs] at ha
+    rw [← List.take_append_drop (rP) fvs] at ha
     rcases List.mem_append.mp ha with ha | ha
     · exact hΘpre a ha
     · exact hΘx a ha
-  have hWappF : WScoped (nP + nM + nm + cnF)
+  have hWappF : WScoped (rP + cnF)
       (Expr.mkAppN (rhsA.renameConsts f) fvs) :=
     hWapp fvs _ (WScoped.of_not_hasFvar hrhsRw) hfvsW
   have hbappF : (Expr.mkAppN (rhsA.renameConsts f)
@@ -1519,8 +1525,8 @@ theorem modeled_rule_fold
       cases hl'
     · exact (hfvsWf x hx).2.2 l hlx
   have hFappF : FvarsOk V m₀.val env₀ (Level.substFn φ' lps us)
-      (nP + nM + nm + cnF)
-      (fun j => (args.take (nP + nM + nm) ++
+      (rP + cnF)
+      (fun j => (args.take (rP) ++
         margs.drop cnP).getD j SetTheory.empty)
       (Expr.mkAppN (rhsA.renameConsts f) fvs) := by
     intro l hl
@@ -1529,7 +1535,7 @@ theorem modeled_rule_fold
       cases hl'
     · exact hΘfvs x hx l hlx
   have hvrFold : vr = SpineFold V L0
-      (args.take (nP + nM + nm) ++ margs.drop cnP) :=
+      (args.take (rP) ++ margs.drop cnP) :=
     isDefEqCore_sound m₀ F hdeRhs hWrhsS hWappF hbrhsS hbappF hLrhsS
       hLappF hFrhsS hFappF hArhsS hAappF hir hIappF
   -- ===== S6: conclusion =====

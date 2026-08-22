@@ -15,8 +15,8 @@ open Name (anonymous)
 def eqBasis : List ConstantInfo := [
   .indInfo ⟨(anonymous |>.str "Eq"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "a") (.bvar 0) (.forallE (anonymous |>.str "b") (.bvar 1) (.sort .zero) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩)⟩ { ruleK := true },
   .ctorInfo ⟨((anonymous |>.str "Eq") |>.str "refl"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "a") (.bvar 0) (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "u"))]) (.bvar 1)) (.bvar 0)) (.bvar 0)) ⟨.default, none⟩) ⟨.implicit, none⟩)⟩ 2 0,
-  .recInfo ⟨((anonymous |>.str "Eq") |>.str "rec"), [(anonymous |>.str "u_1"), (anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "a") (.bvar 0) (.forallE (anonymous |>.str "motive") (.forallE (anonymous |>.str "b") (.bvar 1) (.forallE (anonymous |>.str "t") (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "u"))]) (.bvar 2)) (.bvar 1)) (.bvar 0)) (.sort (.param (anonymous |>.str "u_1"))) ⟨.default, none⟩) ⟨.default, none⟩) (.forallE (anonymous |>.str "refl") (.app (.app (.bvar 0) (.bvar 1)) (.app (.app (.const ((anonymous |>.str "Eq") |>.str "refl") [(.param (anonymous |>.str "u"))]) (.bvar 2)) (.bvar 1))) (.forallE (anonymous |>.str "b") (.bvar 3) (.forallE (anonymous |>.str "t") (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "u"))]) (.bvar 4)) (.bvar 3)) (.bvar 0)) (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0)) ⟨.default, none⟩) ⟨.implicit, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩) ⟨.implicit, none⟩) ⟨.implicit, none⟩)⟩ 2 1 1 1
-    [⟨((anonymous |>.str "Eq") |>.str "refl"), 0, (.lam (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.lam (anonymous |>.str "a") (.bvar 0) (.lam (anonymous |>.str "motive") (.forallE (anonymous |>.str "b") (.bvar 1) (.forallE (anonymous |>.str "t") (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "u"))]) (.bvar 2)) (.bvar 1)) (.bvar 0)) (.sort (.param (anonymous |>.str "u_1"))) ⟨.default, none⟩) ⟨.default, none⟩) (.lam (anonymous |>.str "refl") (.app (.app (.bvar 0) (.bvar 1)) (.app (.app (.const ((anonymous |>.str "Eq") |>.str "refl") [(.param (anonymous |>.str "u"))]) (.bvar 2)) (.bvar 1))) (.bvar 0) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩)⟩]]
+  .recInfo ⟨((anonymous |>.str "Eq") |>.str "rec"), [(anonymous |>.str "u_1"), (anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "a") (.bvar 0) (.forallE (anonymous |>.str "motive") (.forallE (anonymous |>.str "b") (.bvar 1) (.forallE (anonymous |>.str "t") (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "u"))]) (.bvar 2)) (.bvar 1)) (.bvar 0)) (.sort (.param (anonymous |>.str "u_1"))) ⟨.default, none⟩) ⟨.default, none⟩) (.forallE (anonymous |>.str "refl") (.app (.app (.bvar 0) (.bvar 1)) (.app (.app (.const ((anonymous |>.str "Eq") |>.str "refl") [(.param (anonymous |>.str "u"))]) (.bvar 2)) (.bvar 1))) (.forallE (anonymous |>.str "b") (.bvar 3) (.forallE (anonymous |>.str "t") (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "u"))]) (.bvar 4)) (.bvar 3)) (.bvar 0)) (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0)) ⟨.default, none⟩) ⟨.implicit, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩) ⟨.implicit, none⟩) ⟨.implicit, none⟩)⟩ 5 4
+    [⟨((anonymous |>.str "Eq") |>.str "refl"), 0, 0, false, (.lam (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.lam (anonymous |>.str "a") (.bvar 0) (.lam (anonymous |>.str "motive") (.forallE (anonymous |>.str "b") (.bvar 1) (.forallE (anonymous |>.str "t") (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "u"))]) (.bvar 2)) (.bvar 1)) (.bvar 0)) (.sort (.param (anonymous |>.str "u_1"))) ⟨.default, none⟩) ⟨.default, none⟩) (.lam (anonymous |>.str "refl") (.app (.app (.bvar 0) (.bvar 1)) (.app (.app (.const ((anonymous |>.str "Eq") |>.str "refl") [(.param (anonymous |>.str "u"))]) (.bvar 2)) (.bvar 1))) (.bvar 0) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩)⟩]]
 
 /-! ## The annotated declarations
 
@@ -197,12 +197,12 @@ def eqRecA : ConstantInfo :=
                                  (Setlec.Level.imax
                                    (Setlec.Level.zero)
                                    (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))))))) } }
-    2
-    1
-    1
-    1
+    5
+    4
     [{ ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Eq") "refl",
        nfields := 0,
+       ctorParams := 2,
+       plain := true,
        rhs := Setlec.Expr.lam
                 (Setlec.Name.str (Setlec.Name.anonymous) "α")
                 (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))

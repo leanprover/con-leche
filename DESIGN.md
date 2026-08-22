@@ -1309,16 +1309,57 @@ multi-motive-general (all of `nP nM nm ni cnP cnF` abstract).
 
 **Canonical rules only; nested-aux rules are inert.**  A rule is
 *canonical* (`Expr.recRulePlain`) when its constructor-parameter count
-is within the recursor prefix and the major's domain starts with the
-recursor's own leading binders.  Nested/auxiliary rules (e.g. the
+is within the recursor prefix, the prefix fits under the major's
+position, and the major's domain starts with the recursor's own
+leading binders.  Nested/auxiliary rules (e.g. the
 `List.cons` rule of a nested recursor, whose major lives at an inner
 type former) have no `iota_j` theorem and no provable fold fact — they
-are stored **inert**: `iotaRec` guards on `recRulePlain` before firing
-(runtime), `checkIotaRule` only consults the theorem for canonical
-rules (install), and `RecRulesOk`'s fold clause hypothesizes
-`recRulePlain` (soundness), so inert rules' obligations are vacuous.
+are stored **inert**: `iotaRec` guards on the rule's stored `plain`
+flag before firing (runtime; see the slim-metadata section below),
+`checkIotaRule` only consults the theorem for canonical
+rules (install), and `RecRulesOk`'s fold clause hypothesizes the
+stored flag (soundness), so inert rules' obligations are vacuous.
 No completeness is lost on the tutorial arena (no nested blocks) and
 declines stay declines.
+
+**Slim recursor metadata (2026-08-22, task #46).**  Stored recursor
+metadata is exactly what the firing path reads.
+`ConstantInfo.recInfo` keeps two sums instead of the four counts:
+`majorIdx` (= numParams + numMotives + numMinors + numIndices, the
+major premise's argument position) and `rulePrefix` (= numParams +
+numMotives + numMinors, the length of the prefix a rule's rhs is
+applied to); reduction, the install checks (`checkIotaThm` /
+`checkIotaRules` consume only these sums — verified during the
+refactor: nothing anywhere needs the individual counts), and the whole
+model layer are stated over the sums, with the index count recovered
+as `majorIdx - rulePrefix` where needed.  The frontend collapses the
+four exported numbers at parse time.  `RecRule` gains two
+install-computed fields (input rules carry parse placeholders `0` /
+`false`): `ctorParams` — the constructor's parameter count, so
+`iotaRec` no longer reads the counts off the per-fire `ctorInfo`
+lookup (the lookup itself remains: the constructor's *type* and level
+parameters still drive the level linking, the iota certificates and
+the canonical-index residual) — and `plain`, the canonical/inert flag:
+previously `Expr.recRulePlain` re-walked the recursor type on every
+iota step (a per-step traversal of install-time-known data, forbidden);
+now it is computed once per rule at install (`checkIotaRule`,
+`checkProjFn`, the pinned basis blocks) and `iotaRec` reads the flag.
+Findings from the refactor: (1) with sums stored,
+`rulePrefix ≤ majorIdx` is no longer true by construction — it is
+folded into `recRulePlain` (one extra comparison at install) and
+carried as a `RecRulesOk` conjunct (`plain = true → rulePrefix ≤
+majorIdx`), which `iota_sound`'s spine arithmetic consumes; (2) the
+Prop-projection fallback `annotateProjRec` was the one genuine
+individual-count consumer (it pinned the split `nM = 1 ∧ nm = 1 ∧
+ni = 0`) — weakened to `majorIdx = rulePrefix = params + 2`, safe
+because the fabricated elimination is re-annotated so the ordinary
+rules re-check its shape; the `stdAxiomOk` shape checks similarly
+weakened their splits to sums (the semantic content flows from the
+type-pin comparison).  `RecRulesOk`'s fold clause states the spine
+arithmetic over the *rule's* stored counts (`margs.length =
+r.ctorParams + r.nfields` etc.), since those are what `iotaRec`
+checks; the `ctorInfo` lookup stays a hypothesis only for the
+constructor's type/levels.
 
 **Recursor group install.**  Mutual/nested blocks' rule right-hand
 sides may mention sibling recursors, so no intermediate environment
