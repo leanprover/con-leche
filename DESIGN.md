@@ -2191,6 +2191,85 @@ Perf attribution and the fix stack (Env index −30 %, interning,
 per-declaration cache sharing, per-fire iota certification) are in the
 2026-08-22 performance-audit notes (tasks #26, #49, #50).
 
+## The verification-tax flag: SETLEC_NO_PROOF_CERTS (task #76)
+
+`SETLEC_NO_PROOF_CERTS=1` is an **unverified measurement mode**: it
+selects, once in `Main`, a second driver stack
+(`Setlec/Kernel/CoreNC.lean`, `Setlec/Kernel/CheckerNC.lean`) whose
+core knot skips the infer/defeq calls that exist only to feed the
+soundness proofs — the calls the reference kernels do not perform.
+Purpose: keep the lean4lean/official-kernel comparison honest by
+splitting the gap into *verification tax* (flag-off − flag-on) and
+*engineering quality* (flag-on − official).
+
+**Structure.**  The flag never reaches the kernel as data: `Main`
+picks `checkDeclsShared` (default) or `checkDeclsSharedNC`.  The NC
+stack is a verbatim duplicate of the shared-state drivers at
+`sharedOpsNC`, whose knot (`coreKnotNC`) ties cert-skipping twins of
+exactly the affected bodies (`iotaRecNC`, `majorToCtorNC`,
+`whnfAppNC`/`betaPeelNC`, `inferSpineNC`, `structEtaCertWithNC`,
+`structUnitCertNC`, `stuckIrrelNC`, and the three knot bodies that
+reach them); every other body and all mirrors/phase drivers are the
+shared (generic-in-ops) originals.  The default path is byte-identical
+— no existing kernel/proof module changed — so every consistency
+statement (`Setlec/Model/ConsistencyS.lean`) still speaks about what
+the binary runs by default, and **no proof covers the flag-on path**.
+
+**Skipped** (site list; reference citations in `CoreNC.lean`'s
+header): the per-fire recursor/constructor telescope certifications
+and the ordinary plain-rule parameter and canonical-index
+re-comparisons in `iotaRec` (lean4lean's `inductiveReduceRec` checks
+none of these), the possibly-Prop per-binder beta re-checks in
+`whnfApp`/`betaPeel`, the possibly-Prop-gated infer-app argument
+residue in `inferSpine`, and the type-former/per-projection telescope
+certifications of the structure-eta and unit-like certificates (the
+references' `tryEtaStructCore`/`isDefEqUnitLike` keep only the type
+defeq and per-field checks, which stay).  **Kept always**: every
+arity/ctor-identity/shape check, the ctor↔recursor level linkage, the
+nested-rule comparand values, all front-door annotate/infer checking,
+the install-time checks, and the K/eta fabrication type checks.
+`projCertI` (possibly-Prop projection reduction) is proof-only by the
+same reference comparison but outside the task-#76 site list and
+still runs in both modes.
+
+**Findings** (verdict-relevant checks the site list predicted as
+proof-only):
+
+1. *Projection-rule parameter comparison.*  Projection functions are
+   a setlec-specific recursor encoding; the references reduce `.proj`
+   nodes by direct field selection and never splice the outer
+   application's parameters into a reduct.  Skipping the parameter
+   comparison for projection-shaped rules rejects five good
+   arena/e2e tests (`118/119_reduceCtorParamRefl`, `120_rTreeRec`,
+   `121_rtreeRecReduction`, `080_RBTree`, `nested_rec`,
+   `let_rec_rhs`) — it is part of matching reference behavior, not a
+   proof artifact.  It stays in the NC path.
+2. *K-rescue index comparison.*  The certified `majorToCtor` K path
+   certifies the fabrication by `proofIrrel`, which never compares
+   the major's type against the fabricated constructor's — the index
+   comparison the official `toCtorWhenK` performs (`isDefEq appType
+   (inferType newCtorApp)`) is subsumed by the major-slot telescope
+   certificate of the certified `iotaCerts`.  Skipping the
+   certificates without restoring the reference check *accepts* arena
+   `bad/098_ruleKbad`; `majorToCtorNC` therefore carries the official
+   check verbatim.
+
+**Measured** (init-prelude probe, `perf stat` instructions, 8 GB
+limit; verdicts identical in both modes — arena 90/92, e2e 48/48,
+probe exit 0 / 3653 accepted):
+
+| configuration | instructions | wall |
+| --- | --- | --- |
+| default (certified) | 204.9 G | 15.5 s |
+| `SETLEC_NO_PROOF_CERTS=1` | 151.1 G | 10.4 s |
+| official C++ kernel (same stream) | 3.9 G | 0.31 s |
+
+Verification tax: **53.7 G ≈ 26 %** of the default run.  Engineering
+gap: **~39×** over the official kernel (of the total ~53×).  The tax
+is dominated by the per-fire telescope certifications; the remaining
+gap is the interning/parsing/cache substrate (see the performance
+roadmap).
+
 ## Bulk instantiation, lean4lean-style (task #50)
 
 Chains of `instantiate1` that consume an argument spine copied the

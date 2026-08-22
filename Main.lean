@@ -1,4 +1,5 @@
 import Setlec.Kernel.CheckerS
+import Setlec.Kernel.CheckerNC
 import Setlec.Frontend.Export
 
 /-!
@@ -52,6 +53,14 @@ def preprocess (file : String) (contents : String) : IO String := do
 
 /-- The real driver (run in the supervised child process). -/
 def checkMain (file : String) : IO UInt32 := do
+    -- Measurement mode (task #76): SETLEC_NO_PROOF_CERTS=1 selects the
+    -- cert-skipping knot (Setlec/Kernel/CheckerNC.lean) — the
+    -- proof-feeding infer/defeq calls the reference kernels do not
+    -- perform are skipped.  UNVERIFIED: the consistency statements
+    -- cover only the default drivers below.
+    let noCerts := (← IO.getEnv "SETLEC_NO_PROOF_CERTS") == some "1"
+    let stepF := if noCerts then checkDeclSharedNC else checkDeclSharedF
+    let foldF := if noCerts then checkDeclsSharedNC else checkDeclsShared
     let contents ← preprocess file (← IO.FS.readFile file)
     match Frontend.parseExport contents (modeled := true) with
     | .error (.unsupported what) =>
@@ -69,14 +78,14 @@ def checkMain (file : String) : IO UInt32 := do
         for d in decls do
           IO.println s!"DECL: {d.name}"
           (← IO.getStdout).flush
-          match checkDeclSharedF fe d with
+          match stepF fe d with
           | .ok fe' => fe := fe'
           | .error e =>
             IO.eprintln s!"setlec: {e}"
             return e.exitCode
         IO.println s!"setlec: accepted {fe.env.consts.length} declarations"
         return 0
-      match checkDeclsShared decls.toList with
+      match foldF decls.toList with
       | .ok env =>
         IO.println s!"setlec: accepted {env.consts.length} declarations"
         return 0
@@ -95,7 +104,7 @@ def checkMain (file : String) : IO UInt32 := do
         let ctx := Id.run do
           let mut fe := Setlec.mkFEnv Setlec.Env.empty
           for d in decls do
-            match checkDeclSharedF fe d with
+            match stepF fe d with
             | .ok fe' => fe := fe'
             | .error _ => return s!" [at {declName d}]"
           return ""
