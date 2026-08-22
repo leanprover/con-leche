@@ -444,7 +444,7 @@ fast path: at install, `checkDecl` compares the stream's definition
 against a vendored pin of the toolchain's own (helper-unfolded)
 definition by definitional equality, and then checks the pinned
 `Nat.ble`-guarded characterization certificates
-(`Setlec/Kernel/DivModPins.lean`) like theorem declarations — without
+(`Setlec/Kernel/NatOpPins.lean`) like theorem declarations — without
 installing them.  Presence in the store is therefore again the
 capability: a stored `Nat.div`/`Nat.mod` has passed pin and
 certificates, or the install declined. -/

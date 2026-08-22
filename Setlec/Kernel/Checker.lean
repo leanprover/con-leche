@@ -3,7 +3,7 @@ import Setlec.Kernel.StdAxioms
 import Setlec.Kernel.TypeChecker
 import Setlec.Kernel.TypeCheckerC
 import Setlec.Kernel.CoreI
-import Setlec.Kernel.DivModPins
+import Setlec.Kernel.NatOpPins
 
 /-!
 # The checker
@@ -878,13 +878,13 @@ def certifyNatEqs (ops : CheckerOps m) (env : Env) :
     else pure false
 
 /-- The pinned defining expression of a pin-certified WF-recursive op
-(`Setlec/Kernel/DivModPins.lean`, generated from the toolchain's own
+(`Setlec/Kernel/NatOpPins.lean`, generated at build time from the toolchain's own
 prelude). -/
 def divModDeclPin (c : Name) : Expr :=
   if c = natDivName then natDivDeclPin else natModDeclPin
 
 /-- The vendored certificate proof terms of a pin-certified
-WF-recursive op (`Setlec/Kernel/DivModPins.lean`), one per statement of
+WF-recursive op (`Setlec/Kernel/NatOpPins.lean`), one per statement of
 `divModCertStmts`. -/
 def divModCertProofs (c : Name) : List Expr :=
   if c = natDivName then natDivCertProofs else natModCertProofs

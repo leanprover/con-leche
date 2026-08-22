@@ -802,9 +802,9 @@ theorem divmod_certs_sound (m : EnvModel V env) (F : Nat)
     or_false] at hc
   rcases hc with rfl | rfl
   case inl =>
-    -- Nat.div
-    simp +decide only [divModCertStmts, divModCertProofs,
-      natDivCertProofs] at hruns
+    -- Nat.div (the proof blobs stay abstract: only their guard facts
+    -- are consumed)
+    simp +decide only [divModCertStmts] at hruns
     rcases hruns with _ | ⟨hcert1, _ | ⟨hcert2, _ | ⟨hcert3, _⟩⟩⟩
     obtain ⟨hg1, appliedA1, tp1, hann1, hinf1, hde1⟩ := hcert1
     obtain ⟨hg2, appliedA2, tp2, hann2, hinf2, hde2⟩ := hcert2
@@ -812,15 +812,13 @@ theorem divmod_certs_sound (m : EnvModel V env) (F : Nat)
     simp +decide only [Expr.substConst0, List.map] at hann1 hann2 hann3
     simp +decide only [Expr.substConst0, List.map] at hde1 hde2 hde3
     unfold divModCertGuard at hg1 hg2 hg3
-    simp only [Bool.and_eq_true] at hg1 hg2 hg3
-    have hpf1 : (Expr.substConstAll natDivName value'
-        divRecProof).hasFvar = false := by simpa using hg1.1.1.1.1.2
+    simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true]
+      at hg1 hg2 hg3
+    have hpf1 := hg1.1.1.1.1.2
     have hpb1 := hg1.1.1.1.1.1
-    have hpf2 : (Expr.substConstAll natDivName value'
-        divBaseGtProof).hasFvar = false := by simpa using hg2.1.1.1.1.2
+    have hpf2 := hg2.1.1.1.1.2
     have hpb2 := hg2.1.1.1.1.1
-    have hpf3 : (Expr.substConstAll natDivName value'
-        divBaseZeroProof).hasFvar = false := by simpa using hg3.1.1.1.1.2
+    have hpf3 := hg3.1.1.1.1.2
     have hpb3 := hg3.1.1.1.1.1
     refine ⟨?_, ?_, ?_⟩
     · -- the recurrence clause
@@ -894,9 +892,9 @@ theorem divmod_certs_sound (m : EnvModel V env) (F : Nat)
       rw [if_pos rfl, hveq, hval'ne natZeroName hne.2.1 ψ0]
       exact heq
   case inr =>
-    -- Nat.mod
-    simp +decide only [divModCertStmts, divModCertProofs,
-      natModCertProofs] at hruns
+    -- Nat.mod (the proof blobs stay abstract: only their guard facts
+    -- are consumed)
+    simp +decide only [divModCertStmts] at hruns
     rcases hruns with _ | ⟨hcert1, _ | ⟨hcert2, _ | ⟨hcert3, _⟩⟩⟩
     obtain ⟨hg1, appliedA1, tp1, hann1, hinf1, hde1⟩ := hcert1
     obtain ⟨hg2, appliedA2, tp2, hann2, hinf2, hde2⟩ := hcert2
@@ -904,15 +902,13 @@ theorem divmod_certs_sound (m : EnvModel V env) (F : Nat)
     simp +decide only [Expr.substConst0, List.map] at hann1 hann2 hann3
     simp +decide only [Expr.substConst0, List.map] at hde1 hde2 hde3
     unfold divModCertGuard at hg1 hg2 hg3
-    simp only [Bool.and_eq_true] at hg1 hg2 hg3
-    have hpf1 : (Expr.substConstAll natModName value'
-        modRecProof).hasFvar = false := by simpa using hg1.1.1.1.1.2
+    simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true]
+      at hg1 hg2 hg3
+    have hpf1 := hg1.1.1.1.1.2
     have hpb1 := hg1.1.1.1.1.1
-    have hpf2 : (Expr.substConstAll natModName value'
-        modBaseGtProof).hasFvar = false := by simpa using hg2.1.1.1.1.2
+    have hpf2 := hg2.1.1.1.1.2
     have hpb2 := hg2.1.1.1.1.1
-    have hpf3 : (Expr.substConstAll natModName value'
-        modBaseZeroProof).hasFvar = false := by simpa using hg3.1.1.1.1.2
+    have hpf3 := hg3.1.1.1.1.2
     have hpb3 := hg3.1.1.1.1.1
     refine ⟨?_, ?_, ?_⟩
     · -- the recurrence clause

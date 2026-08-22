@@ -630,14 +630,16 @@ literal fast path through **pinned declarations plus checked
 characterization certificates** — never by grinding the fuel recursion
 on literals.
 
-* **Pinned defining expressions.**  A dev-time generator
-  (`scripts/GenDivModPins.lean`, run against the toolchain's own
-  prelude — nothing hand-transcribed) reads `Nat.div`/`Nat.mod` from
-  the ambient environment and delta-unfolds every local helper
+* **Pinned defining expressions.**  An *elab-time* generator
+  (`Setlec/PinGen.lean`, see "Elab-time pin generation" below — run
+  against the toolchain's own prelude at `lake build` time, nothing
+  hand-transcribed and nothing vendored) reads `Nat.div`/`Nat.mod`
+  from the compiling environment and delta-unfolds every local helper
   (`Nat.modCore`, `Nat.modCore.go`, `Nat.div.go`, matchers, `._f`
-  functionals) into one closed expression per op over stream-universal
-  ground constants, vendored with hash-consed `let`-sharing as
-  `Setlec/Kernel/DivModPins.lean`.  At install (`checkDivModPin`,
+  functionals) into one closed expression per op over stream-present
+  ground constants (non-prefix *definitions* are inlined too, e.g.
+  `and`), spliced with hash-consed `let`-sharing into
+  `Setlec/Kernel/NatOpPins.lean`.  At install (`checkDivModPin`,
   after the ordinary definition check) the stream's stored value is
   compared against the pin by **definitional equality** (one
   `isDefEq` at depth 0) — robust to helper factoring/naming drift
@@ -664,10 +666,12 @@ on literals.
   fuel-congruence and one-step `eq_def` unfoldings are reproved from
   scratch), then closed over the stream prefix by inlining every
   constant that is not declared before the op in the stream (the
-  allowlist is extracted from the stream by
-  `scripts/extract_divmod_prefix.py`; a non-prefix *inductive* aborts
-  generation loudly).  At install each certificate is checked exactly
-  like a theorem over an opened telescope — the vendored proof,
+  allowlists are extracted from the supported streams — intersected
+  per op — by `scripts/extract_natop_prefix.py` into
+  `scripts/natop_prefix.json`; a non-prefix *inductive* aborts
+  generation loudly, i.e. fails the build).  At install each
+  certificate is checked exactly
+  like a theorem over an opened telescope — the generated proof,
   self-references substituted with the stored annotated value
   (pre-insertion, like the structural-Nat certification: post-insertion
   the op's own just-enabled fast path would participate in checking
@@ -712,6 +716,51 @@ on literals.
   over the literal, with the guards computed by `natOpVal_ble` and the
   step by `natOpVal_sub`, pins the op's value on literals to the
   metatheory's own `Nat.div`/`Nat.mod`.
+
+### Elab-time pin generation (2026-08-22, task #53)
+
+The vendored pin blobs of task #47 are replaced by **generation at
+`lake build` time**: `Setlec/PinGen.lean` provides `ToExpr` instances
+for the checker's `Name`/`Level`/`Expr` types, the helper-unfolding and
+prefix-closure machinery, and a command elaborator `#gen_natop_pins`
+that `Setlec/Kernel/NatOpPins.lean` invokes.  The command reads each
+pinned operation and its certificate proofs (theorems in
+`Setlec/PinGen/Certs.lean`, elaborated against the real toolchain
+prelude) from the build's own oleans, closes them over the stream
+prefix, and splices `nat…DeclPin : Expr` / `nat…CertProofs : List Expr`
+into the invoking module as kernel-checked, compiled definitions with
+hash-consed `let`-sharing (a memoized builder; the plain `ToExpr`
+instances would lose all sharing).  An out-of-prefix dependency is a
+hard build error.  Contract points:
+
+* **Statements are the interface.**  The certificate *statements* stay
+  hand-pinned in `Setlec/Kernel/Checker.lean` (`divModCertStmts`); only
+  def pins and proof blobs are generated.  A toolchain bump regenerates
+  those silently; the checker cares only that the pinned statements
+  still check.  One pin and one proof list per op (no multi-variant
+  lists — revisit only if two prelude spellings must be supported at
+  once).
+* **Layering via the module system.**  `Setlec/Kernel/Expr.lean`,
+  `Setlec/PinGen/*.lean` and `Setlec/Kernel/NatOpPins.lean` are
+  `module`s; `NatOpPins` reaches the generator through
+  `meta import Setlec.PinGen`, so `Lean.*` stays out of the runtime
+  import closure (the setlec binary grew ~2 MB for the pins data, not
+  ~100 MB for libLean; checker runtime code never touches `Lean.*`
+  APIs).  Because a `module`'s ambient environment strips imported
+  theorem *proofs* (and `meta import all Lean` does not restore
+  cross-package proofs — probed: `dif_pos` has no value there), the
+  generator computes in a dedicated full-view environment
+  (`importModules` at `OLeanLevel.private` over `Init` and the
+  certificate module) and splices into the ambient one.
+* **Prefix allowlists** (`scripts/natop_prefix.json`, from
+  `scripts/extract_natop_prefix.py`) are checked-in generator *input*
+  (an allowlist of stream-declared names, not a blob), extracted from
+  the supported streams and intersected per op.  The install-time
+  `constsResolve` guards remain the actual gate; the allowlist only
+  makes generation fail early and loudly.
+* **StdAxioms pins** are small and stay vendored
+  (`Setlec/Kernel/StdAxioms.lean`); basis blocks (`PSigma'` …) are
+  preprocessor-owned and out of scope for the generator.
 
 ## Kernel design review triage (2026-08-20)
 
