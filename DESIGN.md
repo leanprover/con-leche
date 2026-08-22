@@ -141,6 +141,21 @@ model (`SetTheory.prop_ext`) via the stored `Iff.rec`'s member fact;
 operator (`SetTheory.schoice`), with nonemptiness extracted from the
 stored `Nonempty.rec`'s member fact (`Setlec/Model/StdAxioms.lean`).
 
+Consequence for the arena's non-tutorial good roots (finding,
+2026-08-22, task #67): `good/proof-irrel.ndjson`,
+`good/level-index-out-of-order.ndjson` and
+`good/sparse-name-index.ndjson` all *decline* (exit 2) **because they
+are scaffolded by custom axioms** (`axiom foo : Sort 2`, `axiom foo :
+Prop`, and an `A`/`P`/`Q`/`foo` axiom frame respectively) — exactly
+the pinned `custom_axiom_declined` e2e behavior, not a frontend
+restriction.  The features their names advertise are in fact
+supported: the export tables are hash-map-backed, so sparse and
+out-of-order `in`/`il`/`ie` indices parse fine (the declines name the
+axioms, which requires the sparse indices to have resolved), and
+algorithmic proof irrelevance is implemented (`proofIrrel`,
+exercised by the accepted `subject-reduction-redex` test).  These
+three stay declined by design under the axiom ceiling.
+
 ## Term representation
 
 * Our own inductives (`Setlec.Expr` etc.), not `Lean.Expr`: no cached
