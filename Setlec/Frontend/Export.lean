@@ -101,6 +101,7 @@ structure State where
 /-- Internal sentinel converted to a decline at the record level. -/
 private def taintSentinel : String := "\x00uses-skipped-axiom"
 
+
 private abbrev M := Except String
 
 private def State.name (st : State) (i : Nat) : M Name :=
@@ -291,16 +292,16 @@ private def processLineCore (st : State) (j : Json)
       else
         return .inr "quotient soundness axiom mismatch"
     -- every axiom record is forwarded (the checker well-formedness-
-    -- checks it — a garbage record must keep rejecting), but only the
-    -- pinned standard axioms are installed; every other axiom is
-    -- invisible after its check (user ruling): the run continues, and
-    -- any later declaration referencing the skipped axiom is
-    -- positively declined (see `State.skippedAxioms`)
-    if cv.name = propextName ∨ cv.name = choiceName then
-      return .inl { st with decls := st.decls.push (.axiomDecl cv) }
-    return .inl { st with
-      decls := st.decls.push (.axiomDecl cv),
-      skippedAxioms := st.skippedAxioms.insert cv.name () }
+    -- checks it first — a garbage record must keep *rejecting* — and
+    -- then installs the pinned standard axioms, skips the tolerated
+    -- whitelist, and positively declines the rest).  For a tolerated
+    -- axiom the run continues and any later declaration referencing
+    -- it is positively declined here (see `State.skippedAxioms`).
+    if toleratedAxiomNames.contains cv.name then
+      return .inl { st with
+        decls := st.decls.push (.axiomDecl cv),
+        skippedAxioms := st.skippedAxioms.insert cv.name () }
+    return .inl { st with decls := st.decls.push (.axiomDecl cv) }
   else if let .ok v := j.getObjVal? "def" then
     -- Note: `_model` companions the preprocessor may emit for basis
     -- blocks (e.g. `Eq._model`) are *not* special-cased here: `_model`

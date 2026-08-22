@@ -29,8 +29,9 @@
 # record is skipped without stopping the run — an independent theorem
 # after it is still accepted — and any declaration referencing the
 # skipped axiom is positively declined.  Hand-written minimal streams.
-0 custom_axiom_unused.ndjson
-2 custom_axiom_use.ndjson
+0 tolerated_axiom_unused.ndjson
+2 tolerated_axiom_use.ndjson
+2 custom_axiom_declined.ndjson
 # Basis PUnit 0-field stuck-major rescue (task #59): `Unit.sizeOf`
 # needs `PUnit.rec _ 1 u ≡ 1` at a neutral `u` — the official kernel's
 # structure rescue covers 0-field structures; dependency-closure slice

@@ -25,6 +25,18 @@ def propextName : Name := anonymous |>.str "propext"
 /-- The name `Classical.choice`. -/
 def choiceName : Name := (anonymous |>.str "Classical") |>.str "choice"
 
+/-- The axioms tolerated as *declarations* (well-formedness-checked
+but not installed; any use is positively declined by the frontend's
+taint): `sorryAx` and the compiler-trust axioms of `Init`.  Exactly
+this whitelist (user ruling) — any other non-pinned axiom is a
+positive decline at its own record. -/
+def toleratedAxiomNames : List Name :=
+  let lean := anonymous |>.str "Lean"
+  [ anonymous |>.str "sorryAx",
+    lean |>.str "trustCompiler",
+    lean |>.str "ofReduceNat",
+    lean |>.str "ofReduceBool" ]
+
 /-- The name `Iff`. -/
 def iffName : Name := anonymous |>.str "Iff"
 

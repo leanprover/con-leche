@@ -1163,20 +1163,23 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
     -- unstable hygienic binder names); both are true in the set model
     -- (`propext` via the stored `Iff` recursor and extensionality of
     -- propositions, `Classical.choice` via the stored `Nonempty`
-    -- recursor and global choice).  Every other axiom is invisible
-    -- (user ruling): its record is still well-formedness-checked (the
-    -- official kernel checks the declaration, so a garbage record must
-    -- keep rejecting) but nothing is stored and the run continues —
-    -- the frontend positively declines any later declaration that
-    -- references the skipped axiom.  A *pinned name* with a non-pinned
-    -- shape stays a positive decline (the pin would otherwise shadow).
+    -- recursor and global choice).  The tolerated whitelist
+    -- (`toleratedAxiomNames` — `sorryAx` and the `Init` compiler-trust
+    -- axioms, user ruling: exactly these) is well-formedness-checked
+    -- but not stored; the run continues and the frontend positively
+    -- declines any later declaration that references the skipped
+    -- axiom.  Any other axiom is a positive decline at its own record;
+    -- a *pinned name* with a non-pinned shape likewise (the pin would
+    -- otherwise shadow).
     let cvA ← checkConstantVal ops env cv
     if stdAxiomOk env cvA then
       pure ⟨.axiomInfo cvA :: env.consts⟩
     else if cvA.name = propextName ∨ cvA.name = choiceName then
       throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
-    else
+    else if toleratedAxiomNames.contains cvA.name then
       pure env
+    else
+      throw (.notImplemented s!"non-standard axiom ({cv.name})")
   | .basisDecl kind => do
     -- Install the pinned (pre-annotated) basis block; the frontend has
     -- already matched the incoming record against the pinned shapes.
