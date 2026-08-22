@@ -495,7 +495,11 @@ theorem checkDeclS_nonind_sim (henv : EnvWF env) (hs : ISOK env s₀)
       · simp only [if_pos h2]
         exact SimAt.throw
       · simp only [if_neg h2]
-        exact SimAt.pure hs₁ rfl
+        by_cases h3 : toleratedAxiomNames.contains cvA.name = true
+        · simp only [if_pos h3]
+          exact SimAt.pure hs₁ rfl
+        · simp only [if_neg h3]
+          exact SimAt.throw
   | basisDecl kind =>
     unfold checkDecl
     dsimp only
