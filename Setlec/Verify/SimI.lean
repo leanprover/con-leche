@@ -1,4 +1,5 @@
 import Setlec.Verify.IExprOps
+import Setlec.Verify.ILevel
 import Setlec.Verify.Fueled
 import Setlec.Verify.InferLeaves
 import Setlec.Verify.InferLemmas
@@ -35,21 +36,26 @@ open EStore Expr
 
 /-! ## The state invariant -/
 
-/-- The interned-state invariant (see module docstring). -/
+/-- The interned-state invariant (see module docstring).  The lazy
+stored-constant caches are keyed by level-*index* lists; each entry
+carries the denotation of its key (task #62). -/
 structure ISOK (env : Env) (s : IState) : Prop where
   wf : s.store.WF
-  constTy : ∀ n us i, s.constTyAt[(n, us)]? = some i → ∃ ci,
+  constTy : ∀ n us i, s.constTyAt[(n, us)]? = some i → ∃ lus ci,
+    denoteLList s.store.denoteL us = some lus ∧
     env.find? n = some ci ∧ s.store.denote i = some
       (ci.toConstantVal.type.instantiateLevelParams
-        ci.toConstantVal.levelParams us)
-  constVal : ∀ n us i, s.constValAt[(n, us)]? = some i → ∃ cv v h,
+        ci.toConstantVal.levelParams lus)
+  constVal : ∀ n us i, s.constValAt[(n, us)]? = some i → ∃ lus cv v h,
+    denoteLList s.store.denoteL us = some lus ∧
     env.find? n = some (.defnInfo cv v h) ∧ s.store.denote i = some
-      (v.instantiateLevelParams cv.levelParams us)
+      (v.instantiateLevelParams cv.levelParams lus)
   ruleRhs : ∀ c j us i, s.ruleRhsAt[(c, j, us)]? = some i →
-    ∃ cv mI rP rules rl,
+    ∃ lus cv mI rP rules rl,
+    denoteLList s.store.denoteL us = some lus ∧
     env.find? c = some (.recInfo cv mI rP rules) ∧
     rules.find? (fun r' => r'.ctor == j) = some rl ∧
-    s.store.denote i = some (rl.rhs.instantiateLevelParams cv.levelParams us)
+    s.store.denote i = some (rl.rhs.instantiateLevelParams cv.levelParams lus)
   whnfCoreC : ∀ i j, s.whnfCoreC[i]? = some j → ∃ a b,
     s.store.denote i = some a ∧ s.store.denote j = some b ∧
     ∃ F, ∀ d, a.wscopedB d = true → whnfCore env F d a = .ok b
@@ -66,13 +72,20 @@ structure ISOK (env : Env) (s : IState) : Prop where
     s.store.denote i = some a ∧ s.store.denote j = some b ∧
     ∃ F, ∀ d, a.wscopedB d = true → b.wscopedB d = true →
       isDefEqCore env F d a b = .ok r
+  lsimp : LvlMemoInv s.store Level.simplify s.lsimpC
+  lnz : LvlQMemoInv s.store Level.isNonZero s.lnzC
+  eqv : EqvMemoInv s.store s.eqvC
 
 /-- The invariant holds for a fresh state over any canonical arena
 (all caches empty). -/
 theorem ISOK.fresh (env : Env) {store : EStore} (hwf : store.WF) :
     ISOK env { store := store } := by
-  refine ⟨hwf, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
-    (intros; simp_all)
+  refine ⟨hwf, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
+    first
+      | exact LvlMemoInv.empty
+      | exact LvlQMemoInv.empty
+      | exact EqvMemoInv.empty
+      | (intros; simp_all)
 
 /-- Replacing the arena by a well-formed extension preserves the
 invariant (all clauses only assert denotations, which are
@@ -80,16 +93,19 @@ invariant (all clauses only assert denotations, which are
 theorem ISOK.withStore {env : Env} {s : IState} (h : ISOK env s)
     {st' : EStore} (hwf' : st'.WF) (hext : Ext s.store st') :
     ISOK env { s with store := st' } := by
-  refine ⟨hwf', ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨hwf', ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · intro n us i hl
-    obtain ⟨ci, h1, h2⟩ := h.constTy n us i hl
-    exact ⟨ci, h1, denote_mono hext h2⟩
+    obtain ⟨lus, ci, h0, h1, h2⟩ := h.constTy n us i hl
+    exact ⟨lus, ci, denoteLList_mono hext h0, h1, denote_mono hext h2⟩
   · intro n us i hl
-    obtain ⟨cv, v, hh, h1, h2⟩ := h.constVal n us i hl
-    exact ⟨cv, v, hh, h1, denote_mono hext h2⟩
+    obtain ⟨lus, cv, v, hh, h0, h1, h2⟩ := h.constVal n us i hl
+    exact ⟨lus, cv, v, hh, denoteLList_mono hext h0, h1,
+      denote_mono hext h2⟩
   · intro c j us i hl
-    obtain ⟨cv, mI, rP, rules, rl, h1, h2, h3⟩ := h.ruleRhs c j us i hl
-    exact ⟨cv, mI, rP, rules, rl, h1, h2, denote_mono hext h3⟩
+    obtain ⟨lus, cv, mI, rP, rules, rl, h0, h1, h2, h3⟩ :=
+      h.ruleRhs c j us i hl
+    exact ⟨lus, cv, mI, rP, rules, rl, denoteLList_mono hext h0, h1, h2,
+      denote_mono hext h3⟩
   · intro i j hl
     obtain ⟨a, b, h1, h2, h3⟩ := h.whnfCoreC i j hl
     exact ⟨a, b, denote_mono hext h1, denote_mono hext h2, h3⟩
@@ -105,6 +121,44 @@ theorem ISOK.withStore {env : Env} {s : IState} (h : ISOK env s)
   · intro i j r hl
     obtain ⟨a, b, h1, h2, h3⟩ := h.defeqC i j r hl
     exact ⟨a, b, denote_mono hext h1, denote_mono hext h2, h3⟩
+  · exact h.lsimp.mono hext
+  · exact h.lnz.mono hext
+  · exact h.eqv.mono hext
+
+/-- Replacing the arena and the simplify memo together (the
+`simplifyLM`/`isEquivLM` wrappers). -/
+theorem ISOK.withStoreLsimp {env : Env} {s : IState} (h : ISOK env s)
+    {st' : EStore} {m' : EStore.LMemo} (hwf' : st'.WF)
+    (hext : Ext s.store st')
+    (hinv' : LvlMemoInv st' Level.simplify m') :
+    ISOK env { s with store := st', lsimpC := m' } := by
+  have base := h.withStore hwf' hext
+  exact ⟨base.wf, base.constTy, base.constVal, base.ruleRhs,
+    base.whnfCoreC, base.whnfC, base.inferC, base.annotC, base.defeqC,
+    hinv', base.lnz, base.eqv⟩
+
+/-- Replacing the `isNonZero` memo (the `isNonZeroLM` wrapper; the
+arena is untouched). -/
+theorem ISOK.withLnz {env : Env} {s : IState} (h : ISOK env s)
+    {m' : Std.HashMap LIdx Bool}
+    (hinv' : LvlQMemoInv s.store Level.isNonZero m') :
+    ISOK env { s with lnzC := m' } :=
+  ⟨h.wf, h.constTy, h.constVal, h.ruleRhs, h.whnfCoreC, h.whnfC,
+    h.inferC, h.annotC, h.defeqC, h.lsimp, hinv', h.eqv⟩
+
+/-- Replacing the arena, the simplify memo and the equivalence result
+cache together (the `isEquivLM` wrapper). -/
+theorem ISOK.withStoreLsimpEqv {env : Env} {s : IState} (h : ISOK env s)
+    {st' : EStore} {m' : EStore.LMemo}
+    {ec' : Std.HashMap (LIdx × LIdx) Bool} (hwf' : st'.WF)
+    (hext : Ext s.store st')
+    (hinv' : LvlMemoInv st' Level.simplify m')
+    (heqv' : EqvMemoInv st' ec') :
+    ISOK env { s with store := st', lsimpC := m', eqvC := ec' } := by
+  have base := h.withStore hwf' hext
+  exact ⟨base.wf, base.constTy, base.constVal, base.ruleRhs,
+    base.whnfCoreC, base.whnfC, base.inferC, base.annotC, base.defeqC,
+    hinv', base.lnz, heqv'⟩
 
 /-! ## The simulation and effect relations -/
 
@@ -129,8 +183,13 @@ denotes the fueled value, well-scoped at the ambient depth. -/
 def RelE (d : Nat) (s : IState) (j : EIdx) (v : Expr) : Prop :=
   s.store.denote j = some v ∧ WScoped d v
 
-/-- The result relation for `Bool`/`Level` and other data results. -/
+/-- The result relation for `Bool` and other data results. -/
 def RelV {α : Type} (_s : IState) (b : α) (a : α) : Prop := b = a
+
+/-- The result relation for level results: the index denotes the
+fueled value (task #62). -/
+def RelL (s : IState) (u : LIdx) (l : Level) : Prop :=
+  s.store.denoteL u = some l
 
 /-- The result relation for optional expression results. -/
 def RelO (d : Nat) (s : IState) : Option EIdx → Option Expr → Prop
@@ -387,7 +446,7 @@ private theorem pisToLamsM_run (k : Nat) (e body : EIdx) (s : IState) :
       { s with store := (s.store.pisToLamsI k e body).2 }) := rfl
 
 theorem internI_eff (hs : ISOK env s₀) {n : ENode} {x : Expr}
-    (hd : denoteNode s₀.store.denote n = some x) :
+    (hd : denoteNode s₀.store.denote s₀.store.denoteL n = some x) :
     IEff env s₀ (fun s i => s.store.denote i = some x) (internI n) := by
   intro v' s' hr
   rw [internI_run] at hr
@@ -490,6 +549,358 @@ theorem pisToLamsM_eff (hs : ISOK env s₀) {k : Nat} {e body : EIdx}
 
 end Effects
 
+/-! ## Level-operation effects (task #62) -/
+
+section LevelEffects
+
+variable {env : Env} {s₀ : IState}
+
+private theorem internLM_run (n : LNode) (s : IState) :
+    internLM n s = .ok ((s.store.internL n).1,
+      { s with store := (s.store.internL n).2 }) := rfl
+
+private theorem substLM_run (ks : List Name) (us : List LIdx) (u : LIdx)
+    (s : IState) :
+    substLM ks us u s = .ok ((s.store.substLI ks us u).1,
+      { s with store := (s.store.substLI ks us u).2 }) := rfl
+
+private theorem substLevelTreeM_run (ks : List Name) (us : List LIdx)
+    (l : Level) (s : IState) :
+    substLevelTreeM ks us l s = .ok ((s.store.internLevelSubst ks us l).1,
+      { s with store := (s.store.internLevelSubst ks us l).2 }) := rfl
+
+private theorem substLevelTreesM_run (ks : List Name) (us : List LIdx)
+    (ls : List Level) (s : IState) :
+    substLevelTreesM ks us ls s
+      = .ok ((s.store.internLevelSubsts ks us ls).1,
+        { s with store := (s.store.internLevelSubsts ks us ls).2 }) := rfl
+
+private theorem simplifyLM_run (u : LIdx) (s : IState) :
+    simplifyLM u s = .ok ((simplifyLIGo s.store s.lsimpC u).1,
+      { s with store := (simplifyLIGo s.store s.lsimpC u).2.1,
+               lsimpC := (simplifyLIGo s.store s.lsimpC u).2.2 }) := rfl
+
+private theorem isNonZeroLM_run (u : LIdx) (s : IState) :
+    isNonZeroLM u s = .ok ((isNonZeroLIGo s.store s.lnzC u).1,
+      { s with lnzC := (isNonZeroLIGo s.store s.lnzC u).2 }) := rfl
+
+private theorem instLevelParamsM_run (ks : List Name) (us : List LIdx)
+    (e : EIdx) (s : IState) :
+    instLevelParamsM ks us e s
+      = .ok ((s.store.instantiateLevelParamsI ks us e).1,
+        { s with store := (s.store.instantiateLevelParamsI ks us e).2 })
+      := rfl
+
+private theorem modifyGetI_run {α : Type} (f : IState → α × IState)
+    (s : IState) : (modifyGet f : CheckIM α) s = .ok (f s) := rfl
+
+theorem internLM_eff (hs : ISOK env s₀) {n : LNode} {l : Level}
+    (hd : denoteLNode s₀.store.denoteL n = some l) :
+    IEff env s₀ (fun s u => s.store.denoteL u = some l) (internLM n) := by
+  intro v' s' hr
+  rw [internLM_run] at hr
+  have hc : ∀ c ∈ n.children, c < s₀.store.lnodes.size := by
+    intro c hcin
+    obtain ⟨b, hb⟩ := denoteLNode_children_some hd c hcin
+    exact denoteL_lt_size hb
+  obtain ⟨hwf', hext, hden⟩ := internL_step hs.wf hc hd
+  injection hr with h1
+  obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
+  exact ⟨hs.withStore hwf' hext, hext, hden⟩
+
+theorem substLM_eff (hs : ISOK env s₀) {ks : List Name} {us : List LIdx}
+    {lus : List Level} {u : LIdx} {la : Level}
+    (hus : denoteLList s₀.store.denoteL us = some lus)
+    (hl : s₀.store.denoteL u = some la) :
+    IEff env s₀
+      (fun s v => s.store.denoteL v = some (Level.subst ks lus la))
+      (substLM ks us u) := by
+  intro v' s' hr
+  rw [substLM_run] at hr
+  rcases hgo : s₀.store.substLI ks us u with ⟨r, st'⟩
+  obtain ⟨hwf', hext, hden⟩ := substLI_spec hs.wf hus hl hgo
+  rw [hgo] at hr
+  injection hr with h1
+  obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
+  exact ⟨hs.withStore hwf' hext, hext, hden⟩
+
+theorem substLevelTreeM_eff (hs : ISOK env s₀) {ks : List Name}
+    {us : List LIdx} {lus : List Level} (l : Level)
+    (hus : denoteLList s₀.store.denoteL us = some lus) :
+    IEff env s₀
+      (fun s v => s.store.denoteL v = some (Level.subst ks lus l))
+      (substLevelTreeM ks us l) := by
+  intro v' s' hr
+  rw [substLevelTreeM_run] at hr
+  rcases hgo : s₀.store.internLevelSubst ks us l with ⟨r, st'⟩
+  obtain ⟨hwf', hext, hden⟩ := internLevelSubst_spec l hs.wf hus hgo
+  rw [hgo] at hr
+  injection hr with h1
+  obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
+  exact ⟨hs.withStore hwf' hext, hext, hden⟩
+
+theorem substLevelTreesM_eff (hs : ISOK env s₀) {ks : List Name}
+    {us : List LIdx} {lus : List Level} (ls : List Level)
+    (hus : denoteLList s₀.store.denoteL us = some lus) :
+    IEff env s₀
+      (fun s vs => denoteLList s.store.denoteL vs
+        = some (ls.map (Level.subst ks lus)))
+      (substLevelTreesM ks us ls) := by
+  intro v' s' hr
+  rw [substLevelTreesM_run] at hr
+  rcases hgo : s₀.store.internLevelSubsts ks us ls with ⟨rs, st'⟩
+  obtain ⟨hwf', hext, hden⟩ := internLevelSubsts_spec ls hs.wf hus hgo
+  rw [hgo] at hr
+  injection hr with h1
+  obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
+  exact ⟨hs.withStore hwf' hext, hext, hden⟩
+
+theorem simplifyLM_eff (hs : ISOK env s₀) {u : LIdx} {la : Level}
+    (hl : s₀.store.denoteL u = some la) :
+    IEff env s₀ (fun s v => s.store.denoteL v = some la.simplify)
+      (simplifyLM u) := by
+  intro v' s' hr
+  rw [simplifyLM_run] at hr
+  rcases hgo : simplifyLIGo s₀.store s₀.lsimpC u with ⟨r, st', memo'⟩
+  obtain ⟨hwf', hext, hinv', hden⟩ :=
+    simplifyLIGo_spec u hs.wf hs.lsimp hgo
+  rw [hgo] at hr
+  injection hr with h1
+  obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
+  exact ⟨hs.withStoreLsimp hwf' hext hinv', hext, hden la hl⟩
+
+theorem isNonZeroLM_eff (hs : ISOK env s₀) {u : LIdx} {la : Level}
+    (hl : s₀.store.denoteL u = some la) :
+    IEff env s₀ (fun _s b => b = la.isNonZero) (isNonZeroLM u) := by
+  intro v' s' hr
+  rw [isNonZeroLM_run] at hr
+  rcases hgo : isNonZeroLIGo s₀.store s₀.lnzC u with ⟨b, memo'⟩
+  obtain ⟨hinv', hden⟩ := isNonZeroLIGo_spec hs.wf u hs.lnz hgo
+  rw [hgo] at hr
+  injection hr with h1
+  obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
+  exact ⟨hs.withLnz hinv', Ext.refl _, (hden la hl).symm⟩
+
+
+/-- Twin gate of `codNonZero` (task #49): the interned binder
+annotation's codomain slot denotes the spec annotation's, so the
+memoized nonzero test returns exactly `codNonZero` of the denoted
+binder metadata. -/
+theorem codNonZeroIM_eff (hs : ISOK env s₀) {mt : IBinderMeta}
+    {bm : BinderMeta}
+    (hbm : denoteBM s₀.store.denoteL mt = some bm) :
+    IEff env s₀ (fun _s b => b = codNonZero bm) (codNonZeroIM mt) := by
+  obtain ⟨bi, cod⟩ := mt
+  cases cod with
+  | none =>
+    simp only [denoteBM, Option.some.injEq] at hbm
+    subst hbm
+    exact IEff.pure hs rfl
+  | some v =>
+    simp only [denoteBM, Option.map_eq_some_iff] at hbm
+    obtain ⟨l, hl, rfl⟩ := hbm
+    exact isNonZeroLM_eff hs hl
+
+theorem instLevelParamsM_eff (hs : ISOK env s₀) {ks : List Name}
+    {us : List LIdx} {lus : List Level} {e : EIdx} {a : Expr}
+    (hus : denoteLList s₀.store.denoteL us = some lus)
+    (he : s₀.store.denote e = some a) :
+    IEff env s₀
+      (fun s i => s.store.denote i
+        = some (a.instantiateLevelParams ks lus))
+      (instLevelParamsM ks us e) := by
+  intro v' s' hr
+  rw [instLevelParamsM_run] at hr
+  obtain ⟨hwf', hext, hden⟩ := instantiateLevelParamsI_spec hs.wf hus he
+  injection hr with h1
+  obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
+  exact ⟨hs.withStore hwf' hext, hext, hden⟩
+
+theorem isEquivLM_eff (hs : ISOK env s₀) {l r : LIdx} {la ra : Level}
+    (hl : s₀.store.denoteL l = some la)
+    (hr : s₀.store.denoteL r = some ra) :
+    IEff env s₀ (fun _s ob => ob = Level.isEquiv la ra)
+      (isEquivLM l r) := by
+  intro v' s' hrun
+  unfold isEquivLM at hrun
+  rw [modifyGetI_run] at hrun
+  dsimp only at hrun
+  cases hc : s₀.eqvC[(l, r)]? with
+  | some b =>
+    rw [hc] at hrun
+    injection hrun with h1
+    obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
+    obtain ⟨la', ra', hl', hr', heq⟩ := hs.eqv l r b hc
+    cases Option.some.inj (hl.symm.trans hl')
+    cases Option.some.inj (hr.symm.trans hr')
+    exact ⟨hs, Ext.refl _, heq.symm⟩
+  | none =>
+    rw [hc] at hrun
+    rcases hgo1 : simplifyLIGo s₀.store s₀.lsimpC l with ⟨ls, st₁, m₁⟩
+    obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ :=
+      simplifyLIGo_spec l hs.wf hs.lsimp hgo1
+    rcases hgo2 : simplifyLIGo st₁ m₁ r with ⟨rs, st₂, m₂⟩
+    obtain ⟨hwf₂, hext₂, hinv₂, hden₂⟩ :=
+      simplifyLIGo_spec r hwf₁ hinv₁ hgo2
+    have hext : Ext s₀.store st₂ := hext₁.trans hext₂
+    have hls : st₂.denoteL ls = some la.simplify :=
+      denoteL_mono hext₂ (hden₁ la hl)
+    have hrs : st₂.denoteL rs = some ra.simplify :=
+      hden₂ ra (denoteL_mono hext₁ hr)
+    rw [hgo1] at hrun
+    try dsimp only at hrun
+    rw [hgo2] at hrun
+    try dsimp only at hrun
+    rw [readbackL_spec hls, readbackL_spec hrs] at hrun
+    try dsimp only at hrun
+    have hisoE : Level.isEquiv la ra =
+        match Level.leqCore Level.defaultFuel la.simplify ra.simplify 0 with
+        | none => none
+        | some b1 =>
+          match Level.leqCore Level.defaultFuel ra.simplify la.simplify 0 with
+          | none => none
+          | some b2 => some (b1 && b2) := by
+      simp only [Level.isEquiv, Level.leq, Bind.bind, Option.bind]
+      cases Level.leqCore Level.defaultFuel la.simplify ra.simplify 0 with
+      | none => rfl
+      | some b1 =>
+        cases Level.leqCore Level.defaultFuel ra.simplify la.simplify 0 with
+        | none => rfl
+        | some b2 => rfl
+    cases hb1 : Level.leqCore Level.defaultFuel la.simplify ra.simplify 0 with
+    | none =>
+      rw [hb1] at hrun
+      injection hrun with h1
+      obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
+      refine ⟨hs.withStoreLsimpEqv hwf₂ hext hinv₂ (hs.eqv.mono hext),
+        hext, ?_⟩
+      rw [hisoE, hb1]
+    | some b1 =>
+      rw [hb1] at hrun
+      cases hb2 : Level.leqCore Level.defaultFuel ra.simplify la.simplify 0 with
+      | none =>
+        rw [hb2] at hrun
+        injection hrun with h1
+        obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
+        refine ⟨hs.withStoreLsimpEqv hwf₂ hext hinv₂ (hs.eqv.mono hext),
+          hext, ?_⟩
+        rw [hisoE, hb1, hb2]
+      | some b2 =>
+        rw [hb2] at hrun
+        injection hrun with h1
+        obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
+        have hob : (some (b1 && b2) : Option Bool)
+            = Level.isEquiv la ra := by
+          rw [hisoE, hb1, hb2]
+        refine ⟨hs.withStoreLsimpEqv hwf₂ hext hinv₂
+          ((hs.eqv.mono hext).insert (denoteL_mono hext hl)
+            (denoteL_mono hext hr) hob.symm), hext, hob⟩
+
+theorem isEquivListLM_eff :
+    ∀ {ls rs : List LIdx} {s₀ : IState} {las ras : List Level},
+      ISOK env s₀ →
+      denoteLList s₀.store.denoteL ls = some las →
+      denoteLList s₀.store.denoteL rs = some ras →
+      IEff env s₀ (fun _s ob => ob = Level.isEquivList las ras)
+        (isEquivListLM ls rs) := by
+  intro ls
+  induction ls with
+  | nil =>
+    intro rs s₀ las ras hs hls hrs
+    cases rs with
+    | nil =>
+      cases hls
+      cases hrs
+      exact IEff.pure hs rfl
+    | cons r rs' =>
+      simp only [denoteLList, Option.bind_eq_some_iff,
+        Option.map_eq_some_iff] at hls hrs
+      cases hls
+      obtain ⟨rb, hrb, rsb, hrsb, rfl⟩ := hrs
+      exact IEff.pure hs rfl
+  | cons l ls' ih =>
+    intro rs s₀ las ras hs hls hrs
+    simp only [denoteLList, Option.bind_eq_some_iff,
+      Option.map_eq_some_iff] at hls
+    obtain ⟨lb, hlb, lsb, hlsb, rfl⟩ := hls
+    cases rs with
+    | nil =>
+      cases hrs
+      exact IEff.pure hs rfl
+    | cons r rs' =>
+      simp only [denoteLList, Option.bind_eq_some_iff,
+        Option.map_eq_some_iff] at hrs
+      obtain ⟨rb, hrb, rsb, hrsb, rfl⟩ := hrs
+      rw [show isEquivListLM (l :: ls') (r :: rs') = (do
+        match ← isEquivLM l r with
+        | none => pure none
+        | some b =>
+          match ← isEquivListLM ls' rs' with
+          | none => pure none
+          | some bs => pure (some (b && bs)) :
+        CheckIM (Option Bool)) from rfl]
+      refine (isEquivLM_eff hs hlb hrb).bind ?_
+      intro s₁ ob hs₁ hext₁ hob
+      subst hob
+      cases hE : Level.isEquiv lb rb with
+      | none =>
+        refine IEff.pure hs₁ ?_
+        simp [Level.isEquivList, hE]
+      | some b =>
+        refine (ih hs₁ (denoteLList_mono hext₁ hlsb)
+          (denoteLList_mono hext₁ hrsb)).bind ?_
+        intro s₂ obs hs₂ hext₂ hobs
+        subst hobs
+        cases hE₂ : Level.isEquivList lsb rsb with
+        | none =>
+          refine IEff.pure hs₂ ?_
+          simp [Level.isEquivList, hE, hE₂]
+        | some bs =>
+          refine IEff.pure hs₂ ?_
+          simp [Level.isEquivList, hE, hE₂]
+
+theorem readbackLevelM_eff (hs : ISOK env s₀) {u : LIdx} {la : Level}
+    (hl : s₀.store.denoteL u = some la) :
+    IEff env s₀ (fun _s lv => lv = la) (readbackLevelM u) := by
+  rw [show readbackLevelM u = (Setlec.withStore (·.readbackL u) >>=
+    fun o => match o with
+    | some l => pure l
+    | none => throw (.internal "interned level readback failed") :
+    CheckIM Level) from rfl]
+  refine IEff.withStore ?_
+  rw [readbackL_spec hl]
+  exact IEff.pure hs rfl
+
+theorem readbackLevelsM_eff :
+    ∀ {us : List LIdx} {s₀ : IState} {las : List Level},
+      ISOK env s₀ →
+      denoteLList s₀.store.denoteL us = some las →
+      IEff env s₀ (fun _s lvs => lvs = las) (readbackLevelsM us) := by
+  intro us
+  induction us with
+  | nil =>
+    intro s₀ las hs hus
+    cases hus
+    exact IEff.pure hs rfl
+  | cons u us' ih =>
+    intro s₀ las hs hus
+    simp only [denoteLList, Option.bind_eq_some_iff,
+      Option.map_eq_some_iff] at hus
+    obtain ⟨l, hl, ls, hls, rfl⟩ := hus
+    rw [show readbackLevelsM (u :: us') = (do
+      let l ← readbackLevelM u
+      let ls ← readbackLevelsM us'
+      pure (l :: ls) : CheckIM (List Level)) from rfl]
+    refine (readbackLevelM_eff hs hl).bind ?_
+    intro s₁ b hs₁ hext₁ hb
+    subst hb
+    refine (ih hs₁ (denoteLList_mono hext₁ hls)).bind ?_
+    intro s₂ bs hs₂ hext₂ hbs
+    subst hbs
+    exact IEff.pure hs₂ rfl
+
+end LevelEffects
+
 /-! ## Cache-fill effects (the lazy stored-constant caches) -/
 
 section CacheFill
@@ -503,82 +914,89 @@ private theorem modify_run (f : IState → IState) (s : IState) :
 
 /-- Inserting a backed entry into `constTyAt` preserves the invariant. -/
 theorem ISOK.insertConstTy {s : IState} (hs : ISOK env s)
-    {n : Name} {us : List Level} {i : EIdx} {ci : ConstantInfo}
+    {n : Name} {us : List LIdx} {lus : List Level} {i : EIdx}
+    {ci : ConstantInfo}
+    (hus : denoteLList s.store.denoteL us = some lus)
     (hfind : env.find? n = some ci)
     (hden : s.store.denote i = some
       (ci.toConstantVal.type.instantiateLevelParams
-        ci.toConstantVal.levelParams us)) :
+        ci.toConstantVal.levelParams lus)) :
     ISOK env { s with constTyAt := s.constTyAt.insert (n, us) i } := by
   refine ⟨hs.wf, ?_, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfC,
-    hs.inferC, hs.annotC, hs.defeqC⟩
+    hs.inferC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv⟩
   intro n' us' i' hl
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
-  by_cases hk : ((n, us) : Name × List Level) == (n', us')
+  by_cases hk : ((n, us) : Name × List LIdx) == (n', us')
   · rw [if_pos hk] at hl
     obtain ⟨rfl, rfl⟩ : n = n' ∧ us = us' := by
       have := eq_of_beq hk
       exact ⟨congrArg Prod.fst this, congrArg Prod.snd this⟩
     cases hl
-    exact ⟨ci, hfind, hden⟩
+    exact ⟨lus, ci, hus, hfind, hden⟩
   · rw [if_neg hk] at hl
     exact hs.constTy n' us' i' hl
 
 /-- Inserting a backed entry into `constValAt` preserves the invariant. -/
 theorem ISOK.insertConstVal {s : IState} (hs : ISOK env s)
-    {n : Name} {us : List Level} {i : EIdx} {cv : ConstantVal} {v : Expr}
-    {hint : ReducibilityHint}
+    {n : Name} {us : List LIdx} {lus : List Level} {i : EIdx}
+    {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
+    (hus : denoteLList s.store.denoteL us = some lus)
     (hfind : env.find? n = some (.defnInfo cv v hint))
     (hden : s.store.denote i = some
-      (v.instantiateLevelParams cv.levelParams us)) :
+      (v.instantiateLevelParams cv.levelParams lus)) :
     ISOK env { s with constValAt := s.constValAt.insert (n, us) i } := by
   refine ⟨hs.wf, hs.constTy, ?_, hs.ruleRhs, hs.whnfCoreC, hs.whnfC,
-    hs.inferC, hs.annotC, hs.defeqC⟩
+    hs.inferC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv⟩
   intro n' us' i' hl
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
-  by_cases hk : ((n, us) : Name × List Level) == (n', us')
+  by_cases hk : ((n, us) : Name × List LIdx) == (n', us')
   · rw [if_pos hk] at hl
     obtain ⟨rfl, rfl⟩ : n = n' ∧ us = us' := by
       have := eq_of_beq hk
       exact ⟨congrArg Prod.fst this, congrArg Prod.snd this⟩
     cases hl
-    exact ⟨cv, v, hint, hfind, hden⟩
+    exact ⟨lus, cv, v, hint, hus, hfind, hden⟩
   · rw [if_neg hk] at hl
     exact hs.constVal n' us' i' hl
 
 /-- Inserting a backed entry into `ruleRhsAt` preserves the invariant. -/
 theorem ISOK.insertRuleRhs {s : IState} (hs : ISOK env s)
-    {c j : Name} {us : List Level} {i : EIdx} {cv : ConstantVal}
+    {c j : Name} {us : List LIdx} {lus : List Level} {i : EIdx}
+    {cv : ConstantVal}
     {mI rP : Nat} {rules : List RecRule} {rl : RecRule}
+    (hus : denoteLList s.store.denoteL us = some lus)
     (hfind : env.find? c = some (.recInfo cv mI rP rules))
     (hrl : rules.find? (fun r' => r'.ctor == j) = some rl)
     (hden : s.store.denote i = some
-      (rl.rhs.instantiateLevelParams cv.levelParams us)) :
+      (rl.rhs.instantiateLevelParams cv.levelParams lus)) :
     ISOK env { s with ruleRhsAt := s.ruleRhsAt.insert (c, j, us) i } := by
   refine ⟨hs.wf, hs.constTy, hs.constVal, ?_, hs.whnfCoreC, hs.whnfC,
-    hs.inferC, hs.annotC, hs.defeqC⟩
+    hs.inferC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv⟩
   intro c' j' us' i' hl
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
-  by_cases hk : ((c, j, us) : Name × Name × List Level) == (c', j', us')
+  by_cases hk : ((c, j, us) : Name × Name × List LIdx) == (c', j', us')
   · rw [if_pos hk] at hl
     obtain ⟨rfl, rfl, rfl⟩ : c = c' ∧ j = j' ∧ us = us' := by
       have := eq_of_beq hk
       exact ⟨congrArg Prod.fst this, congrArg (·.2.1) this,
         congrArg (·.2.2) this⟩
     cases hl
-    exact ⟨cv, mI, rP, rules, rl, hfind, hrl, hden⟩
+    exact ⟨lus, cv, mI, rP, rules, rl, hus, hfind, hrl, hden⟩
   · rw [if_neg hk] at hl
     exact hs.ruleRhs c' j' us' i' hl
 
 /-- `constTyAtM` under the index of `env`: the result denotes the
-level-instantiated stored type. -/
-theorem constTyAtM_eff (hs : ISOK env s₀) {n : Name} {us : List Level}
-    {ci : ConstantInfo} (hfind : env.find? n = some ci) :
+level-instantiated stored type at the key's denotation. -/
+theorem constTyAtM_eff (hs : ISOK env s₀) {n : Name} {us : List LIdx}
+    {lus : List Level} {ci : ConstantInfo}
+    (hus : denoteLList s₀.store.denoteL us = some lus)
+    (hfind : env.find? n = some ci) :
     IEff env s₀ (fun s i => s.store.denote i = some
         (ci.toConstantVal.type.instantiateLevelParams
-          ci.toConstantVal.levelParams us))
+          ci.toConstantVal.levelParams lus))
       (constTyAtM (mkFEnv env) n us) := by
   intro v' s' hr
   rw [show constTyAtM (mkFEnv env) n us = (do
@@ -588,8 +1006,8 @@ theorem constTyAtM_eff (hs : ISOK env s₀) {n : Name} {us : List Level}
         match (mkFEnv env).find? n with
         | some ci =>
           let cv := ci.toConstantVal
-          let i ← internExprM
-            (cv.type.instantiateLevelParams cv.levelParams us)
+          let raw ← internExprM cv.type
+          let i ← instLevelParamsM cv.levelParams us raw
           modify fun s =>
             let mp := s.constTyAt
             let s := { s with constTyAt := ∅ }
@@ -604,35 +1022,49 @@ theorem constTyAtM_eff (hs : ISOK env s₀) {n : Name} {us : List Level}
     rw [hl] at hr
     simp only [pure, StateT.pure, Except.pure, Except.ok.injEq] at hr
     obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
-    obtain ⟨ci', hfind', hden⟩ := hs.constTy n us _ hl
+    obtain ⟨lus', ci', hus', hfind', hden⟩ := hs.constTy n us _ hl
     rw [hfind] at hfind'
     cases hfind'
+    rw [hus] at hus'
+    cases hus'
     exact ⟨hs, Ext.refl _, hden⟩
   | none =>
     rw [hl] at hr
     rw [mkFEnv_find?, hfind] at hr
     dsimp only at hr
     simp only [Bind.bind, StateT.bind, Except.bind] at hr
-    cases hrun : internExprM (ci.toConstantVal.type.instantiateLevelParams
-        ci.toConstantVal.levelParams us) s₀ with
+    cases hrun : internExprM ci.toConstantVal.type s₀ with
     | error he => rw [hrun] at hr; exact nomatch hr
     | ok pr =>
-      obtain ⟨i, s₁⟩ := pr
+      obtain ⟨raw, s₁⟩ := pr
       rw [hrun] at hr
       dsimp only at hr
-      obtain ⟨hs₁, hext₁, hden⟩ := internExprM_eff hs _ i s₁ hrun
-      simp only [modify, modifyGet, MonadStateOf.modifyGet,
-        StateT.modifyGet, Bind.bind, StateT.bind, Except.bind, pure,
-        StateT.pure, Except.pure, Except.ok.injEq] at hr
-      obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
-      exact ⟨hs₁.insertConstTy hfind hden, hext₁, hden⟩
+      obtain ⟨hs₁, hext₁, hdenraw⟩ := internExprM_eff hs _ raw s₁ hrun
+      cases hrun₂ : instLevelParamsM ci.toConstantVal.levelParams us raw s₁
+          with
+      | error he => rw [hrun₂] at hr; exact nomatch hr
+      | ok pr₂ =>
+        obtain ⟨i, s₂⟩ := pr₂
+        rw [hrun₂] at hr
+        dsimp only at hr
+        obtain ⟨hs₂, hext₂, hden⟩ := instLevelParamsM_eff hs₁
+          (denoteLList_mono hext₁ hus) hdenraw i s₂ hrun₂
+        simp only [modify, modifyGet, MonadStateOf.modifyGet,
+          StateT.modifyGet, Bind.bind, StateT.bind, Except.bind, pure,
+          StateT.pure, Except.pure, Except.ok.injEq] at hr
+        obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
+        exact ⟨hs₂.insertConstTy
+          (denoteLList_mono hext₂ (denoteLList_mono hext₁ hus))
+          hfind hden, hext₁.trans hext₂, hden⟩
 
 /-- `constValAtM` under the index of `env`. -/
-theorem constValAtM_eff (hs : ISOK env s₀) {n : Name} {us : List Level}
+theorem constValAtM_eff (hs : ISOK env s₀) {n : Name} {us : List LIdx}
+    {lus : List Level}
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
+    (hus : denoteLList s₀.store.denoteL us = some lus)
     (hfind : env.find? n = some (.defnInfo cv v hint)) :
     IEff env s₀ (fun s i => s.store.denote i = some
-        (v.instantiateLevelParams cv.levelParams us))
+        (v.instantiateLevelParams cv.levelParams lus))
       (constValAtM (mkFEnv env) n us) := by
   intro v' s' hr
   rw [show constValAtM (mkFEnv env) n us = (do
@@ -641,7 +1073,8 @@ theorem constValAtM_eff (hs : ISOK env s₀) {n : Name} {us : List Level}
       | none =>
         match (mkFEnv env).find? n with
         | some (.defnInfo cv v _) =>
-          let i ← internExprM (v.instantiateLevelParams cv.levelParams us)
+          let raw ← internExprM v
+          let i ← instLevelParamsM cv.levelParams us raw
           modify fun s =>
             let mp := s.constValAt
             let s := { s with constValAt := ∅ }
@@ -656,36 +1089,50 @@ theorem constValAtM_eff (hs : ISOK env s₀) {n : Name} {us : List Level}
     rw [hl] at hr
     simp only [pure, StateT.pure, Except.pure, Except.ok.injEq] at hr
     obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
-    obtain ⟨cv', v'', hint', hfind', hden⟩ := hs.constVal n us _ hl
+    obtain ⟨lus', cv', v'', hint', hus', hfind', hden⟩ :=
+      hs.constVal n us _ hl
     rw [hfind] at hfind'
     cases hfind'
+    rw [hus] at hus'
+    cases hus'
     exact ⟨hs, Ext.refl _, hden⟩
   | none =>
     rw [hl] at hr
     rw [mkFEnv_find?, hfind] at hr
     dsimp only at hr
     simp only [Bind.bind, StateT.bind, Except.bind] at hr
-    cases hrun : internExprM (v.instantiateLevelParams cv.levelParams us) s₀
-        with
+    cases hrun : internExprM v s₀ with
     | error he => rw [hrun] at hr; exact nomatch hr
     | ok pr =>
-      obtain ⟨i, s₁⟩ := pr
+      obtain ⟨raw, s₁⟩ := pr
       rw [hrun] at hr
       dsimp only at hr
-      obtain ⟨hs₁, hext₁, hden⟩ := internExprM_eff hs _ i s₁ hrun
-      simp only [modify, modifyGet, MonadStateOf.modifyGet,
-        StateT.modifyGet, Bind.bind, StateT.bind, Except.bind, pure,
-        StateT.pure, Except.pure, Except.ok.injEq] at hr
-      obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
-      exact ⟨hs₁.insertConstVal hfind hden, hext₁, hden⟩
+      obtain ⟨hs₁, hext₁, hdenraw⟩ := internExprM_eff hs _ raw s₁ hrun
+      cases hrun₂ : instLevelParamsM cv.levelParams us raw s₁ with
+      | error he => rw [hrun₂] at hr; exact nomatch hr
+      | ok pr₂ =>
+        obtain ⟨i, s₂⟩ := pr₂
+        rw [hrun₂] at hr
+        dsimp only at hr
+        obtain ⟨hs₂, hext₂, hden⟩ := instLevelParamsM_eff hs₁
+          (denoteLList_mono hext₁ hus) hdenraw i s₂ hrun₂
+        simp only [modify, modifyGet, MonadStateOf.modifyGet,
+          StateT.modifyGet, Bind.bind, StateT.bind, Except.bind, pure,
+          StateT.pure, Except.pure, Except.ok.injEq] at hr
+        obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
+        exact ⟨hs₂.insertConstVal
+          (denoteLList_mono hext₂ (denoteLList_mono hext₁ hus))
+          hfind hden, hext₁.trans hext₂, hden⟩
 
 /-- `ruleRhsAtM` under the index of `env`. -/
-theorem ruleRhsAtM_eff (hs : ISOK env s₀) {c j : Name} {us : List Level}
+theorem ruleRhsAtM_eff (hs : ISOK env s₀) {c j : Name} {us : List LIdx}
+    {lus : List Level}
     {cv : ConstantVal} {mI rP : Nat} {rules : List RecRule} {rl : RecRule}
+    (hus : denoteLList s₀.store.denoteL us = some lus)
     (hfind : env.find? c = some (.recInfo cv mI rP rules))
     (hrl : rules.find? (fun r' => r'.ctor == j) = some rl) :
     IEff env s₀ (fun s i => s.store.denote i = some
-        (rl.rhs.instantiateLevelParams cv.levelParams us))
+        (rl.rhs.instantiateLevelParams cv.levelParams lus))
       (ruleRhsAtM (mkFEnv env) c j us) := by
   intro v' s' hr
   rw [show ruleRhsAtM (mkFEnv env) c j us = (do
@@ -696,8 +1143,8 @@ theorem ruleRhsAtM_eff (hs : ISOK env s₀) {c j : Name} {us : List Level}
         | some (.recInfo cv _ _ rules) =>
           match rules.find? (fun r' => r'.ctor == j) with
           | some rl =>
-            let i ← internExprM
-              (rl.rhs.instantiateLevelParams cv.levelParams us)
+            let raw ← internExprM rl.rhs
+            let i ← instLevelParamsM cv.levelParams us raw
             modify fun s =>
               let mp := s.ruleRhsAt
               let s := { s with ruleRhsAt := ∅ }
@@ -713,12 +1160,14 @@ theorem ruleRhsAtM_eff (hs : ISOK env s₀) {c j : Name} {us : List Level}
     rw [hl] at hr
     simp only [pure, StateT.pure, Except.pure, Except.ok.injEq] at hr
     obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
-    obtain ⟨cv', mI', rP', rules', rl', hfind', hrl', hden⟩ :=
+    obtain ⟨lus', cv', mI', rP', rules', rl', hus', hfind', hrl', hden⟩ :=
       hs.ruleRhs c j us _ hl
     rw [hfind] at hfind'
     cases hfind'
     rw [hrl] at hrl'
     cases hrl'
+    rw [hus] at hus'
+    cases hus'
     exact ⟨hs, Ext.refl _, hden⟩
   | none =>
     rw [hl] at hr
@@ -727,19 +1176,28 @@ theorem ruleRhsAtM_eff (hs : ISOK env s₀) {c j : Name} {us : List Level}
     rw [hrl] at hr
     dsimp only at hr
     simp only [Bind.bind, StateT.bind, Except.bind] at hr
-    cases hrun : internExprM (rl.rhs.instantiateLevelParams
-        cv.levelParams us) s₀ with
+    cases hrun : internExprM rl.rhs s₀ with
     | error he => rw [hrun] at hr; exact nomatch hr
     | ok pr =>
-      obtain ⟨i, s₁⟩ := pr
+      obtain ⟨raw, s₁⟩ := pr
       rw [hrun] at hr
       dsimp only at hr
-      obtain ⟨hs₁, hext₁, hden⟩ := internExprM_eff hs _ i s₁ hrun
-      simp only [modify, modifyGet, MonadStateOf.modifyGet,
-        StateT.modifyGet, Bind.bind, StateT.bind, Except.bind, pure,
-        StateT.pure, Except.pure, Except.ok.injEq] at hr
-      obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
-      exact ⟨hs₁.insertRuleRhs hfind hrl hden, hext₁, hden⟩
+      obtain ⟨hs₁, hext₁, hdenraw⟩ := internExprM_eff hs _ raw s₁ hrun
+      cases hrun₂ : instLevelParamsM cv.levelParams us raw s₁ with
+      | error he => rw [hrun₂] at hr; exact nomatch hr
+      | ok pr₂ =>
+        obtain ⟨i, s₂⟩ := pr₂
+        rw [hrun₂] at hr
+        dsimp only at hr
+        obtain ⟨hs₂, hext₂, hden⟩ := instLevelParamsM_eff hs₁
+          (denoteLList_mono hext₁ hus) hdenraw i s₂ hrun₂
+        simp only [modify, modifyGet, MonadStateOf.modifyGet,
+          StateT.modifyGet, Bind.bind, StateT.bind, Except.bind, pure,
+          StateT.pure, Except.pure, Except.ok.injEq] at hr
+        obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
+        exact ⟨hs₂.insertRuleRhs
+          (denoteLList_mono hext₂ (denoteLList_mono hext₁ hus))
+          hfind hrl hden, hext₁.trans hext₂, hden⟩
 
 end CacheFill
 

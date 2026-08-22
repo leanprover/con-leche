@@ -76,12 +76,12 @@ theorem checkIotaThmS_sim {env' : Env} (henv' : EnvWF env')
         mI rP j r cvj cnP cnF rhsA) := by
   unfold checkIotaThm
   dsimp only [sharedOps]
-  refine SimAt.bind (SimAt.unwrapOr' hs) (fun s₁ p p' hs₁ hext₁ hP => ?_)
+  refine SimAt.bind (SimAt.unwrapOr' hs) (fun s₁ cvt p' hs₁ hext₁ hP => ?_)
   obtain ⟨rfl, hthm⟩ := hP
-  obtain ⟨cvt, tval⟩ := p
-  dsimp only
-  have hcvtF : cvt.type.hasFvar = false :=
-    (henv' _ (find?_mem (findThm?_ok hthm))).1
+  try dsimp only
+  have hcvtF : cvt.type.hasFvar = false := by
+    obtain ⟨ci, hci, hcvt⟩ := findCV?_ok hthm
+    exact hcvt ▸ (henv' _ (find?_mem hci)).1
   by_cases h1 : cvt.levelParams = lps
   case neg => simp only [if_neg h1]; exact SimAt.throw_bind
   simp only [if_pos h1]
@@ -252,12 +252,12 @@ theorem checkIotaThmNS_sim {env' : Env} (henv' : EnvWF env')
   dsimp only
   have hpinsF : ∀ p ∈ pins, p.hasFvar = false :=
     nestedRuleShape_pins hshape
-  refine SimAt.bind (SimAt.unwrapOr' hs) (fun s₁ p p' hs₁ hext₁ hP => ?_)
+  refine SimAt.bind (SimAt.unwrapOr' hs) (fun s₁ cvt p' hs₁ hext₁ hP => ?_)
   obtain ⟨rfl, hthm⟩ := hP
-  obtain ⟨cvt, tval⟩ := p
-  dsimp only
-  have hcvtF : cvt.type.hasFvar = false :=
-    (henv' _ (find?_mem (findThm?_ok hthm))).1
+  try dsimp only
+  have hcvtF : cvt.type.hasFvar = false := by
+    obtain ⟨ci, hci, hcvt⟩ := findCV?_ok hthm
+    exact hcvt ▸ (henv' _ (find?_mem hci)).1
   by_cases h1 : cvt.levelParams = lps
   case neg => simp only [if_neg h1]; exact SimAt.throw_bind
   simp only [if_pos h1]

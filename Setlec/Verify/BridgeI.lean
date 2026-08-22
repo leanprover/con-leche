@@ -137,12 +137,13 @@ theorem runEntryB_bridge {pf : FueledM Bool} {d : Nat} {a b : Expr}
       Except.ok.injEq] at h
     exact h ▸ ⟨F, hF⟩
 
-/-- Sort-entry-runner bridge (`ensureSort`). -/
+/-- Sort-entry-runner bridge (`ensureSort`): the interned entry returns
+a level index which the runner reads back. -/
 theorem runEntryS_bridge {pf : FueledM Level} {d : Nat} {e : Expr}
     {u : Level}
     (hsim : ∀ {s₀ : IState} {i : EIdx}, ISOK env s₀ →
       s₀.store.denote i = some e →
-      SimAt env s₀ RelV
+      SimAt env s₀ RelL
         (ensureSortI (coreKnotI (mkFEnv env) checkFuel) d i) pf)
     (h : runEntryS env d e = .ok u) :
     ∃ F, pf.val F = .ok u := by
@@ -151,25 +152,20 @@ theorem runEntryS_bridge {pf : FueledM Level} {d : Nat} {e : Expr}
   rw [hie] at h
   obtain ⟨hwf0, -, hden0⟩ := internExpr_spec empty_wf e
   rw [hie] at hwf0 hden0
-  simp only [StateT.run'] at h
+  simp only [Bind.bind, Except.bind] at h
   cases hrun : (ensureSortI (coreKnotI (mkFEnv env) checkFuel) d i0).run
       { store := st0 } with
   | error er =>
-    rw [show (ensureSortI (coreKnotI (mkFEnv env) checkFuel) d i0).run
-      { store := st0 } = ensureSortI (coreKnotI (mkFEnv env) checkFuel)
-      d i0 { store := st0 } from rfl] at hrun
-    simp only [Functor.map, StateT.run, hrun, Except.map] at h
+    rw [hrun] at h
     exact nomatch h
   | ok pr =>
     obtain ⟨r, s'⟩ := pr
     obtain ⟨hs', hext, vv, hPv, F, hF⟩ :=
       hsim (ISOK.fresh env hwf0) hden0 r s' (run_inv hrun)
-    obtain rfl : r = vv := hPv
-    rw [show (ensureSortI (coreKnotI (mkFEnv env) checkFuel) d i0).run
-      { store := st0 } = ensureSortI (coreKnotI (mkFEnv env) checkFuel)
-      d i0 { store := st0 } from rfl] at hrun
-    simp only [Functor.map, StateT.run, hrun, Except.map,
-      Except.ok.injEq] at h
+    rw [hrun] at h
+    dsimp only at h
+    rw [readbackL_spec (hPv : s'.store.denoteL r = some vv)] at h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
     exact h ▸ ⟨F, hF⟩
 
 end Runners

@@ -146,19 +146,25 @@ def rawNatLitI? (st : EStore) (e : EIdx) : Option Nat :=
 /-! ## The interned checker state and monad -/
 
 /-- Per-entry-call state: the arena, id-keyed memo caches for the five
-entry points, and lazy caches for level-instantiated stored constants
+entry points, lazy caches for level-instantiated stored constants
 (type / definition value / recursor-rule right-hand side), keyed by name
-and level instantiation. -/
+and level-index instantiation, and the level-operation memo tables
+(task #62: `lsimpC` for `simplifyLM`, `lnzC` for `isNonZeroLM`, `eqvC`
+for `isEquivLM` — all environment-independent, keyed by level indices
+alone: on a canonical arena a level index determines its denotation). -/
 structure IState where
   store : EStore := .empty
-  constTyAt : Std.HashMap (Name × List Level) EIdx := {}
-  constValAt : Std.HashMap (Name × List Level) EIdx := {}
-  ruleRhsAt : Std.HashMap (Name × Name × List Level) EIdx := {}
+  constTyAt : Std.HashMap (Name × List LIdx) EIdx := {}
+  constValAt : Std.HashMap (Name × List LIdx) EIdx := {}
+  ruleRhsAt : Std.HashMap (Name × Name × List LIdx) EIdx := {}
   whnfCoreC : Std.HashMap EIdx EIdx := {}
   whnfC : Std.HashMap EIdx EIdx := {}
   inferC : Std.HashMap EIdx EIdx := {}
   defeqC : Std.HashMap (EIdx × EIdx) Bool := {}
   annotC : Std.HashMap EIdx EIdx := {}
+  lsimpC : EStore.LMemo := {}
+  lnzC : Std.HashMap LIdx Bool := {}
+  eqvC : Std.HashMap (LIdx × LIdx) Bool := {}
 
 instance : Inhabited IState := ⟨{}⟩
 
@@ -252,19 +258,161 @@ task #50). -/
     let (r, store) := store.pisToLamsI k e body
     (r, { s with store := store })
 
+/-! ### Interned level operations (task #62) -/
+
+/-- Read a level node (no store change). -/
+@[inline] def viewLM (u : LIdx) : CheckIM (Option LNode) :=
+  (fun s => s.store.lnodes[u]?) <$> get
+
+/-- Intern one level node. -/
+@[inline] def internLM (n : LNode) : CheckIM LIdx :=
+  modifyGet fun s =>
+    let store := s.store
+    let s := { s with store := EStore.empty }
+    let (i, store) := store.internL n
+    (i, { s with store := store })
+
+/-- Interned `Level.subst` on a level index (fresh per-call memo). -/
+@[inline] def substLM (ks : List Name) (us : List LIdx) (u : LIdx) :
+    CheckIM LIdx :=
+  modifyGet fun s =>
+    let store := s.store
+    let s := { s with store := EStore.empty }
+    let (r, store) := store.substLI ks us u
+    (r, { s with store := store })
+
+/-- Interned `Level.subst` applied to a stored level *tree*. -/
+@[inline] def substLevelTreeM (ks : List Name) (us : List LIdx) (l : Level) :
+    CheckIM LIdx :=
+  modifyGet fun s =>
+    let store := s.store
+    let s := { s with store := EStore.empty }
+    let (r, store) := store.internLevelSubst ks us l
+    (r, { s with store := store })
+
+/-- Interned `Level.subst` over a list of stored level trees
+(the spec side is a pure `List.map`). -/
+@[inline] def substLevelTreesM (ks : List Name) (us : List LIdx)
+    (ls : List Level) : CheckIM (List LIdx) :=
+  modifyGet fun s =>
+    let store := s.store
+    let s := { s with store := EStore.empty }
+    let (rs, store) := store.internLevelSubsts ks us ls
+    (rs, { s with store := store })
+
+/-- Interned `Level.simplify` (persistently memoized: the memo is keyed
+by level index alone, so it survives across calls). -/
+@[inline] def simplifyLM (u : LIdx) : CheckIM LIdx :=
+  modifyGet fun s =>
+    let store := s.store
+    let memo := s.lsimpC
+    let s := { s with store := EStore.empty, lsimpC := {} }
+    let (r, store, memo) := store.simplifyLIGo memo u
+    (r, { s with store := store, lsimpC := memo })
+
+/-- Interned `Level.isNonZero` (persistently memoized). -/
+@[inline] def isNonZeroLM (u : LIdx) : CheckIM Bool :=
+  modifyGet fun s =>
+    let memo := s.lnzC
+    let s := { s with lnzC := {} }
+    let (r, memo) := s.store.isNonZeroLIGo memo u
+    (r, { s with lnzC := memo })
+
+/-- Twin of `codNonZero` (task #49) on an interned binder annotation:
+the codomain-sort slot is a level index, so the nonzero test runs
+through the persistently memoized `isNonZeroLM`. -/
+@[inline] def codNonZeroIM (mt : IBinderMeta) : CheckIM Bool :=
+  match mt.cod with
+  | some v => isNonZeroLM v
+  | none => pure false
+
+/-- Interned `Expr.instantiateLevelParams` (interned replacement
+levels; fresh per-call memos). -/
+@[inline] def instLevelParamsM (ks : List Name) (us : List LIdx)
+    (e : EIdx) : CheckIM EIdx :=
+  modifyGet fun s =>
+    let store := s.store
+    let s := { s with store := EStore.empty }
+    let (r, store) := store.instantiateLevelParamsI ks us e
+    (r, { s with store := store })
+
+/-- Monadic level equivalence: simplify both sides on the arena
+(persistent memo — repeat subterms are free), read the *small*
+simplified levels back and run the spec `Level.leqCore` on the
+transient trees (the `byCases` cascades allocate transient trees like
+the `Expr`-level checker did, instead of interning every intermediate
+level), with a persistent *result* cache (`eqvC`): on a canonical
+arena the pair of indices determines the pair of levels, so a decided
+equivalence never needs recomputing. -/
+@[inline] def isEquivLM (l r : LIdx) : CheckIM (Option Bool) :=
+  modifyGet fun s =>
+    match s.eqvC[(l, r)]? with
+    | some b => (some b, s)
+    | none =>
+      let store := s.store
+      let memo := s.lsimpC
+      let ec := s.eqvC
+      let s := { s with store := EStore.empty, lsimpC := {}, eqvC := {} }
+      let (ls, store, memo) := store.simplifyLIGo memo l
+      let (rs, store, memo) := store.simplifyLIGo memo r
+      match store.readbackL ls, store.readbackL rs with
+      | some la, some ra =>
+        match Level.leqCore Level.defaultFuel la ra 0 with
+        | some b1 =>
+          match Level.leqCore Level.defaultFuel ra la 0 with
+          | some b2 =>
+            let b := b1 && b2
+            (some b, { s with store := store, lsimpC := memo,
+                              eqvC := ec.insert (l, r) b })
+          | none =>
+            (none, { s with store := store, lsimpC := memo, eqvC := ec })
+        | none =>
+          (none, { s with store := store, lsimpC := memo, eqvC := ec })
+      | _, _ =>
+        (none, { s with store := store, lsimpC := memo, eqvC := ec })
+
+/-- Pointwise `isEquivLM` (each pair through the result cache). -/
+def isEquivListLM : List LIdx → List LIdx → CheckIM (Option Bool)
+  | [], [] => pure (some true)
+  | l :: ls, r :: rs => do
+    match ← isEquivLM l r with
+    | none => pure none
+    | some b =>
+      match ← isEquivListLM ls rs with
+      | none => pure none
+      | some bs => pure (some (b && bs))
+  | _, _ => pure (some false)
+
+
+/-- Read a level index back as a `Level` tree (an internal error when
+the index is dangling — never on the bridge invariant). -/
+def readbackLevelM (u : LIdx) : CheckIM Level := do
+  match ← withStore (·.readbackL u) with
+  | some l => pure l
+  | none => throw (.internal "interned level readback failed")
+
+/-- Read a list of level indices back (structural recursion). -/
+def readbackLevelsM : List LIdx → CheckIM (List Level)
+  | [] => pure []
+  | u :: us => do
+    let l ← readbackLevelM u
+    let ls ← readbackLevelsM us
+    pure (l :: ls)
+
 /-! ### Lazy interned stored-constant instantiations -/
 
 /-- The interned level-instantiated *type* of the stored constant `n`
 (cached by `(n, us)`; the constant must be stored — callers have already
 matched the lookup). -/
-def constTyAtM (fe : FEnv) (n : Name) (us : List Level) : CheckIM EIdx := do
+def constTyAtM (fe : FEnv) (n : Name) (us : List LIdx) : CheckIM EIdx := do
   match (← get).constTyAt[(n, us)]? with
   | some i => pure i
   | none =>
     match fe.find? n with
     | some ci =>
       let cv := ci.toConstantVal
-      let i ← internExprM (cv.type.instantiateLevelParams cv.levelParams us)
+      let raw ← internExprM cv.type
+      let i ← instLevelParamsM cv.levelParams us raw
       modify fun s =>
         let mp := s.constTyAt
         let s := { s with constTyAt := ∅ }
@@ -274,13 +422,14 @@ def constTyAtM (fe : FEnv) (n : Name) (us : List Level) : CheckIM EIdx := do
 
 /-- The interned level-instantiated *value* of the stored definition `n`
 (cached by `(n, us)`). -/
-def constValAtM (fe : FEnv) (n : Name) (us : List Level) : CheckIM EIdx := do
+def constValAtM (fe : FEnv) (n : Name) (us : List LIdx) : CheckIM EIdx := do
   match (← get).constValAt[(n, us)]? with
   | some i => pure i
   | none =>
     match fe.find? n with
     | some (.defnInfo cv v _) =>
-      let i ← internExprM (v.instantiateLevelParams cv.levelParams us)
+      let raw ← internExprM v
+      let i ← instLevelParamsM cv.levelParams us raw
       modify fun s =>
         let mp := s.constValAt
         let s := { s with constValAt := ∅ }
@@ -290,7 +439,7 @@ def constValAtM (fe : FEnv) (n : Name) (us : List Level) : CheckIM EIdx := do
 
 /-- The interned level-instantiated right-hand side of the rule for
 constructor `j` of the stored recursor `c` (cached by `(c, j, us)`). -/
-def ruleRhsAtM (fe : FEnv) (c j : Name) (us : List Level) : CheckIM EIdx := do
+def ruleRhsAtM (fe : FEnv) (c j : Name) (us : List LIdx) : CheckIM EIdx := do
   match (← get).ruleRhsAt[(c, j, us)]? with
   | some i => pure i
   | none =>
@@ -298,7 +447,8 @@ def ruleRhsAtM (fe : FEnv) (c j : Name) (us : List Level) : CheckIM EIdx := do
     | some (.recInfo cv _ _ rules) =>
       match rules.find? (fun r' => r'.ctor == j) with
       | some rl =>
-        let i ← internExprM (rl.rhs.instantiateLevelParams cv.levelParams us)
+        let raw ← internExprM rl.rhs
+        let i ← instLevelParamsM cv.levelParams us raw
         modify fun s =>
           let mp := s.ruleRhsAt
           let s := { s with ruleRhsAt := ∅ }
@@ -476,7 +626,7 @@ def defeqSpineI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
       let aargs ← withStore (·.getAppArgsI a)
       let bargs ← withStore (·.getAppArgsI b)
       if n = n' ∧ aargs.length = bargs.length then
-        match Level.isEquivList us us' with
+        match ← isEquivListLM us us' with
         | some true => defEqListI r fe depth aargs bargs
         | _ => pure false
       else pure false
@@ -500,13 +650,15 @@ def proofIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
     let wtta ← r.whnf depth tta
     match ← viewI wtta with
     | some (.sort uT) => do
-      let okA ← liftFueled "level comparison" (Level.isEquiv uT .zero)
+      let z ← internLM .zero
+      let okA ← liftFueled "level comparison" (← isEquivLM uT z)
       let tb ← r.infer depth b
       let ttb ← r.infer depth tb
       let wttb ← r.whnf depth ttb
       match ← viewI wttb with
       | some (.sort vT) => do
-        let okB ← liftFueled "level comparison" (Level.isEquiv vT .zero)
+        let z ← internLM .zero
+        let okB ← liftFueled "level comparison" (← isEquivLM vT z)
         pure (okA && okB)
       | _ => pure false
     | _ => pure false
@@ -542,7 +694,7 @@ def pairEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
                             reservedBasisNames.contains (c'.str "rec")
                               = true then do
                           if ← liftFueled "level comparison"
-                              (Level.isEquivList us us') then do
+                              (← isEquivListLM us us') then do
                             let p₀ ← internI (.proj c' 0 b)
                             if ← r.defeq depth s₁ p₀ then do
                               let p₁ ← internI (.proj c' 1 b)
@@ -565,7 +717,7 @@ def pairEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
 /-- The interned projection-application spine
 `[proj_0 targs b, …]` (structural recursion; the spec side is a pure
 `List.map`). -/
-def projAppsI (T : Name) (us' : List Level) (targs : List EIdx)
+def projAppsI (T : Name) (us' : List LIdx) (targs : List EIdx)
     (b : EIdx) : List Nat → CheckIM (List EIdx)
   | [] => pure []
   | i :: rest => do
@@ -576,7 +728,7 @@ def projAppsI (T : Name) (us' : List Level) (targs : List EIdx)
 
 /-- Twin of `structEtaProjCerts`. -/
 def structEtaProjCertsI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
-    (T : Name) (us' : List Level) (targs : List EIdx) (b : EIdx)
+    (T : Name) (us' : List LIdx) (targs : List EIdx) (b : EIdx)
     (lpsT : List Name) : List Nat → CheckIM Bool
   | [] => pure true
   | i :: rest => do
@@ -614,7 +766,7 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                 cvc.levelParams = cvT.levelParams ∧
                 (cvT.type.stripPis cnP).isSome = true then do
               if ← liftFueled "level comparison"
-                  (Level.isEquivList us us') then do
+                  (← isEquivListLM us us') then do
                 let tyT ← constTyAtM fe T us'
                 if ← iotaCertsI r fe depth tyT targs then do
                   if ← structEtaProjCertsI r fe depth T us'
@@ -668,7 +820,7 @@ def structUnitCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
 /-- Twin of `etaCert` (the λ's pieces come pre-destructured, as in the
 spec). -/
 def etaCertI (r : CoreFnsI) (_fe : FEnv) (depth : Nat)
-    (n₁ : Name) (ty₁ body₁ : EIdx) (m₁ : BinderMeta) (b : EIdx) :
+    (n₁ : Name) (ty₁ body₁ : EIdx) (m₁ : IBinderMeta) (b : EIdx) :
     CheckIM Bool := do
   let tb ← r.infer depth b
   let wtb ← r.whnf depth tb
@@ -676,7 +828,7 @@ def etaCertI (r : CoreFnsI) (_fe : FEnv) (depth : Nat)
   | some (.forallE _ ty₂ _ m₂) =>
     match m₁.cod, m₂.cod with
     | some v₁, some v₂ => do
-      if ← liftFueled "level comparison" (Level.isEquiv v₁ v₂) then do
+      if ← liftFueled "level comparison" (← isEquivLM v₁ v₂) then do
         if ← r.defeq depth ty₂ ty₁ then do
           let fv ← internI (.fvar depth n₁ ty₁)
           let b₁ ← inst1M body₁ fv
@@ -736,6 +888,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             match ← withStore (fun st => st.nodes[st.getAppFnI tmaj]?) with
             | some (.const T' ust) => do
               let margs ← withStore (·.getAppArgsI tmaj)
+              let ustL ← readbackLevelsM ust
               if T' = T ∧ margs.length = caps.etaParams ∧
                   ust.length = cvT.levelParams.length then do
                 let projs ← projAppsI T ust margs major
@@ -750,7 +903,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                     pure fab
                   else if caps.etaFields = 0 ∧
                       cvj.levelParams.length = ust.length ∧
-                      piResultNeverZero cvT.levelParams ust cvT.type
+                      piResultNeverZero cvT.levelParams ustL cvT.type
                         = true then
                     if ← proofIrrelI r fe depth fab major then pure fab
                     else pure major
@@ -788,11 +941,12 @@ def projLitToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
 
 /-- The interned nested-rule pin instantiations (structural recursion;
 the spec side is `(recFireComparands …).2`'s `List.map`). -/
-def pinArgsI (lps : List Name) (us : List Level) (args : List EIdx)
+def pinArgsI (lps : List Name) (us : List LIdx) (args : List EIdx)
     (t : Nat) : List Expr → CheckIM (List EIdx)
   | [] => pure []
   | p :: ps => do
-    let pi ← internExprM (p.instantiateLevelParams lps us)
+    let praw ← internExprM p
+    let pi ← instLevelParamsM lps us praw
     let r ← instSpineM args t pi
     let rs ← pinArgsI lps us args t ps
     pure (r :: rs)
@@ -827,18 +981,19 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
                   then do
                 -- the comparands (canonical: recursor's levels/args;
                 -- nested: the stored major-domain instantiations)
-                let cmpLvls : List Level :=
+                let cmpLvls : List LIdx ←
                   match rl.fire with
-                  | .nested lvls _ => lvls.map (Level.subst cv.levelParams us)
-                  | _ => cvj.levelParams.map fun p =>
-                      Level.subst cv.levelParams us (.param p)
+                  | .nested lvls _ => substLevelTreesM cv.levelParams us lvls
+                  | _ =>
+                    substLevelTreesM cv.levelParams us
+                      (cvj.levelParams.map Level.param)
                 let cmpArgs : List EIdx ←
                   match rl.fire with
                   | .nested _ pins =>
                     pinArgsI cv.levelParams us (args.take mI) (mI - 1) pins
                   | _ => pure (args.take rl.ctorParams)
                 if ← liftFueled "level comparison"
-                    (Level.isEquivList usj cmpLvls) then do
+                    (← isEquivListLM usj cmpLvls) then do
                  if ← defEqListI r fe depth (margs.take rl.ctorParams)
                     cmpArgs then do
                   let tyRec ← constTyAtM fe c us
@@ -896,7 +1051,7 @@ def whnfAppI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     | some (.lam _ ty body mb) =>
       match mb.cod with
       | some lv =>
-        if lv.isNonZero then betaPeelI r fe depth body [a] rest
+        if ← isNonZeroLM lv then betaPeelI r fe depth body [a] rest
         else do
           let ta ← r.infer depth a
           if ← r.defeq depth ta ty then betaPeelI r fe depth body [a] rest
@@ -933,7 +1088,7 @@ def betaPeelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     | some (.lam _ ty body mb) =>
       match mb.cod with
       | some lv =>
-        if lv.isNonZero then betaPeelI r fe depth body (a :: acc) rest
+        if ← isNonZeroLM lv then betaPeelI r fe depth body (a :: acc) rest
         else do
           let ty' ← instListM ty acc
           let ta ← r.infer depth a
@@ -961,7 +1116,7 @@ end
 
 /-- Twin of `projCert`. -/
 def projCertI (r : CoreFnsI) (_fe : FEnv) (depth : Nat)
-    (e₂ : EIdx) (i : Nat) (fieldLvl structLvl : Level) (nP : Nat) :
+    (e₂ : EIdx) (i : Nat) (fieldLvl structLvl : LIdx) (nP : Nat) :
     CheckIM Bool := do
   let bvar0 ← internI (.bvar 0)
   let args ← withStore (·.getAppArgsI e₂)
@@ -971,14 +1126,14 @@ def projCertI (r : CoreFnsI) (_fe : FEnv) (depth : Nat)
   let wtta ← r.whnf depth tta
   match ← viewI wtta with
   | some (.sort uT) => do
-    let okT ← liftFueled "level comparison" (Level.isEquiv uT fieldLvl)
+    let okT ← liftFueled "level comparison" (← isEquivLM uT fieldLvl)
     let te ← r.infer depth e₂
     let tte ← r.infer depth te
     let wtte ← r.whnf depth tte
     match ← viewI wtte with
     | some (.sort wT) => do
       let okW ← liftFueled "level comparison"
-        (Level.isEquiv wT structLvl)
+        (← isEquivLM wT structLvl)
       pure (okT && okW)
     | _ => pure false
   | _ => pure false
@@ -1008,14 +1163,14 @@ def whnfCoreBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
           if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length then do
-            let mx : Level := Level.subst entry.levelParams us
+            let mx ← substLevelTreeM entry.levelParams us
               entry.structSort
             let bvar0 ← internI (.bvar 0)
             let arg := args.getD (entry.numParams + i) bvar0
-            if mx.isNonZero then r.whnfCore depth arg
+            if ← isNonZeroLM mx then r.whnfCore depth arg
             else do
-              if ← projCertI r fe depth e' i
-                  (Level.subst entry.levelParams us entry.fieldSort)
+              let fl ← substLevelTreeM entry.levelParams us entry.fieldSort
+              if ← projCertI r fe depth e' i fl
                   mx entry.numParams then
                 r.whnfCore depth arg
               else internI (.proj sn i e')
@@ -1041,7 +1196,7 @@ def inferSpineI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     | some (.forallE _ dom body mt) => do
       -- possibly-Prop-gated argument re-check (task #49; see the
       -- spec body `inferBody` and `codNonZero`)
-      if codNonZero mt then inferSpineI r fe depth body (a :: acc) rest
+      if ← codNonZeroIM mt then inferSpineI r fe depth body (a :: acc) rest
       else do
         let dom' ← instListM dom acc
         let ta ← r.infer depth a
@@ -1053,7 +1208,7 @@ def inferSpineI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
       let w ← r.whnf depth ty'
       match ← viewI w with
       | some (.forallE _ dom body mt) => do
-        if codNonZero mt then inferSpineI r fe depth body [a] rest
+        if ← codNonZeroIM mt then inferSpineI r fe depth body [a] rest
         else do
           let ta ← r.infer depth a
           unless ← r.defeq depth ta dom do
@@ -1073,7 +1228,7 @@ def whnfBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
       | none => pure e₁
 
 /-- Twin of `ensureSort` (returns the level; no readback needed). -/
-def ensureSortI (r : CoreFnsI) (depth : Nat) (e : EIdx) : CheckIM Level := do
+def ensureSortI (r : CoreFnsI) (depth : Nat) (e : EIdx) : CheckIM LIdx := do
   let w ← r.whnf depth e
   match ← viewI w with
   | some (.sort u) => pure u
@@ -1083,7 +1238,9 @@ def ensureSortI (r : CoreFnsI) (depth : Nat) (e : EIdx) : CheckIM Level := do
 def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
   fun depth e => do
     match ← viewI e with
-    | some (.sort u) => internI (.sort (.succ u))
+    | some (.sort u) => do
+      let su ← internLM (.succ u)
+      internI (.sort su)
     | some (.fvar idx _ ty) =>
       if idx < depth then pure ty
       else throw (.invalid "free variable out of scope")
@@ -1108,7 +1265,9 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
         let tty ← r.infer depth ty
         let wtty ← r.whnf depth tty
         match ← viewI wtty with
-        | some (.sort u) => internI (.sort (.imax u v))
+        | some (.sort u) => do
+          let iv ← internLM (.imax u v)
+          internI (.sort iv)
         | _ => throw (.invalid "expected a sort")
       | none => throw (.internal "unannotated ∀-binder reached inferType")
     | some (.lam n ty body mb) => do
@@ -1125,7 +1284,7 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
           let wtbt ← r.whnf (depth + 1) tbt
           match ← viewI wtbt with
           | some (.sort v') => do
-            unless ← liftFueled "level comparison" (Level.isEquiv v v') do
+            unless ← liftFueled "level comparison" (← isEquivLM v v') do
               throw (.invalid "λ-annotation does not match the body's sort")
             let btAbs ← abstract1M bt depth
             internI (.forallE n ty btAbs mb)
@@ -1188,8 +1347,8 @@ def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM Bo
       else r.defeq depth a₂ b₂
     | none, none =>
     match ← viewI a', ← viewI b' with
-    | some (.sort u), some (.sort v) =>
-      liftFueled "level comparison" (Level.isEquiv u v)
+    | some (.sort u), some (.sort v) => do
+      liftFueled "level comparison" (← isEquivLM u v)
     | some (.lit l₁), some (.lit l₂) => pure (l₁ == l₂)
     | some (.lit (.natVal n)), some (.const c us) =>
       if c = natZeroName ∧ us = [] then pure (n == 0)
@@ -1234,7 +1393,7 @@ def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM Bo
       else stuckIrrelI r fe depth a' b'
     | some (.const n us), some (.const n' us') =>
       if n = n' then do
-        if ← liftFueled "level comparison" (Level.isEquivList us us') then
+        if ← liftFueled "level comparison" (← isEquivListLM us us') then
           pure true
         else stuckIrrelI r fe depth a' b'
       else stuckIrrelI r fe depth a' b'
@@ -1246,8 +1405,8 @@ def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM Bo
       let b₂ ← inst1M body₂ fv₂
       unless ← r.defeq (depth + 1) b₁ b₂ do return false
       match m₁.cod, m₂.cod with
-      | some v₁, some v₂ =>
-        liftFueled "level comparison" (Level.isEquiv v₁ v₂)
+      | some v₁, some v₂ => do
+        liftFueled "level comparison" (← isEquivLM v₁ v₂)
       | _, _ => throw (.internal "unannotated ∀-binder reached isDefEq")
     | some (.lam n₁ ty₁ body₁ m₁), some (.lam n₂ ty₂ body₂ m₂) => do
       unless ← r.defeq depth ty₁ ty₂ do return false
@@ -1257,8 +1416,8 @@ def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM Bo
       let b₂ ← inst1M body₂ fv₂
       unless ← r.defeq (depth + 1) b₁ b₂ do return false
       match m₁.cod, m₂.cod with
-      | some v₁, some v₂ =>
-        liftFueled "level comparison" (Level.isEquiv v₁ v₂)
+      | some v₁, some v₂ => do
+        liftFueled "level comparison" (← isEquivLM v₁ v₂)
       | _, _ => throw (.internal "unannotated λ-binder reached isDefEq")
     | some (.app f₁ a₁), some (.app f₂ a₂) => do
       if ← r.defeq depth f₁ f₂ then do
@@ -1286,7 +1445,8 @@ def isPropTypeI (r : CoreFnsI) (_fe : FEnv) (depth : Nat) (ty : EIdx) :
   let ty' ← r.annotate depth ty
   let tty ← r.infer depth ty'
   let s ← ensureSortI r depth tty
-  liftFueled "level comparison" (Level.isEquiv s Level.zero)
+  let z ← internLM .zero
+  liftFueled "level comparison" (← isEquivLM s z)
 
 /-- Twin of `projFieldDom`. -/
 def projFieldDomI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
@@ -1313,7 +1473,7 @@ def projFieldDomI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
 
 /-- Twin of `annotateProjRec`. -/
 def annotateProjRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
-    (entry : ProjEntry) (i : Nat) (te e' : EIdx) (us : List Level) :
+    (entry : ProjEntry) (i : Nat) (te e' : EIdx) (us : List LIdx) :
     CheckIM EIdx := do
   match fe.find? entry.ctor with
   | some (.ctorInfo _cvC _ cnF) => do
@@ -1332,8 +1492,9 @@ def annotateProjRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
           let tfi ← r.infer depth fi'
           let sfi ← ensureSortI r depth tfi
           if structProp then do
+            let z ← internLM .zero
             unless ← liftFueled "level comparison"
-                (Level.isEquiv sfi Level.zero) do
+                (← isEquivLM sfi z) do
               throw (.invalid "non-Prop projection from a Prop structure")
           let uf := if entry.recExtraLevel then [sfi] else []
           let recC ← internI
@@ -1534,6 +1695,9 @@ def runEntryB (env : Env) (d : Nat) (a b : Expr) : CheckM Bool := do
 def runEntryS (env : Env) (d : Nat) (e : Expr) : CheckM Level := do
   let fe := mkFEnv env
   let (i, store) := EStore.empty.internExpr e
-  (ensureSortI (coreKnotI fe checkFuel) d i).run' { store := store }
+  let (u, s) ← (ensureSortI (coreKnotI fe checkFuel) d i).run { store := store }
+  match s.store.readbackL u with
+  | some l => pure l
+  | none => throw (.internal "interned level readback failed")
 
 end Setlec

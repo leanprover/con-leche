@@ -22,7 +22,7 @@ one declaration needs no new state invariant: this file provides
   family — the per-declaration analog of `runEntry*_bridge`, keeping
   the final state facts instead of discarding them.
 
-The driver-level walks composing these along `checkDeclS` are in
+The driver-level walks composing these along `checkDeclSF` are in
 `Setlec/Verify/BridgeS*.lean`.
 -/
 
@@ -140,17 +140,33 @@ theorem opS_sim (henv : EnvWF env) {d : Nat} {e : Expr}
     SimAt env s₀ RelV (opS (mkFEnv env) d e)
       (fueledOpsM.ensureSort env d e) := by
   have h1 : SimAt env s₀ RelV (opS (mkFEnv env) d e)
-      (ensureSort (fueledFns env) env d e) := by
+      (ensureSort (fueledFns env) env d e >>= pure) := by
     show SimAt env s₀ RelV
       (internExprM e >>= fun i =>
-        ensureSortI (coreKnotI (mkFEnv env) checkFuel) d i)
-      (ensureSort (fueledFns env) env d e)
+        ensureSortI (coreKnotI (mkFEnv env) checkFuel) d i >>= fun u =>
+        readbackLevelM u)
+      (ensureSort (fueledFns env) env d e >>= pure)
     refine SimAt.bind_left (internExprM_eff hs e)
       (fun s₁ i hs₁ hext₁ hden => ?_)
-    exact ensureSortI_sim (ssimI env henv checkFuel) hs₁ hden hw
+    refine SimAt.bind
+      (ensureSortI_sim (ssimI env henv checkFuel) hs₁ hden hw)
+      (fun s₂ u lu hs₂ hext₂ hPu => ?_)
+    exact SimAt.of_eff (readbackLevelM_eff hs₂
+      (hPu : s₂.store.denoteL u = some lu)) lu (fun s r hQ => hQ)
   refine SimAt.wr h1 (fun u F h => ⟨F, ?_⟩)
-  rw [ensureSort_atF, ensureSort_def] at h
-  exact h
+  rw [FueledM.atF_bind] at h
+  simp only [Bind.bind] at h
+  cases hx : (ensureSort (fueledFns env) env d e).val F with
+  | error er =>
+    rw [hx] at h
+    exact nomatch h
+  | ok v =>
+    rw [hx] at h
+    dsimp only [Except.bind] at h
+    obtain rfl : v = u := by
+      simpa [pure, Except.pure] using h
+    rw [ensureSort_atF, ensureSort_def] at hx
+    exact hx
 
 end Runners
 

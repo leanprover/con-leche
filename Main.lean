@@ -66,16 +66,16 @@ def main (args : List String) : IO UInt32 := do
       -- with SETLEC_PROGRESS set, check declaration by declaration and
       -- print a `DECL:` line before each (fold state as in checkDecls).
       if (← IO.getEnv "SETLEC_PROGRESS").isSome then
-        let mut env := Setlec.Env.empty
+        let mut fe := Setlec.mkFEnv Setlec.Env.empty
         for d in decls do
           IO.println s!"DECL: {d.name}"
           (← IO.getStdout).flush
-          match checkDeclShared env d with
-          | .ok env' => env := env'
+          match checkDeclSharedF fe d with
+          | .ok fe' => fe := fe'
           | .error e =>
             IO.eprintln s!"setlec: {e}"
             return e.exitCode
-        IO.println s!"setlec: accepted {env.consts.length} declarations"
+        IO.println s!"setlec: accepted {fe.env.consts.length} declarations"
         return 0
       match checkDeclsShared decls.toList with
       | .ok env =>
@@ -94,10 +94,10 @@ def main (args : List String) : IO UInt32 := do
           | .indDecl b => s!"inductive {(b.head?.map (·.name)).getD .anonymous}"
           | .basisDecl k => s!"basis block {repr k}"
         let ctx := Id.run do
-          let mut env := Setlec.Env.empty
+          let mut fe := Setlec.mkFEnv Setlec.Env.empty
           for d in decls do
-            match checkDeclShared env d with
-            | .ok env' => env := env'
+            match checkDeclSharedF fe d with
+            | .ok fe' => fe := fe'
             | .error _ => return s!" [at {declName d}]"
           return ""
         IO.eprintln s!"setlec: {e}{ctx}"

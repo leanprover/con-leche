@@ -606,25 +606,13 @@ theorem unwrapOr_atF_ok {α : Type} {o : Option α} {err : CheckError}
       exact Except.ok.inj h'
     rw [hb]
 
-/-- Invert a stored-theorem lookup. -/
-theorem findThm?_ok {env : Env} {n : Name} {cvt : ConstantVal}
-    {tval : Expr} (h : env.findThm? n = some (cvt, tval)) :
-    env.find? n = some (.thmInfo cvt tval) := by
-  unfold Env.findThm? at h
-  revert h
-  match hf : env.find? n with
-  | none => intro h; exact nomatch h
-  | some (.axiomInfo _) => intro h; exact nomatch h
-  | some (.projInfo _) => intro h; exact nomatch h
-  | some (.defnInfo _ _ _) => intro h; exact nomatch h
-  | some (.indInfo _ _) => intro h; exact nomatch h
-  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
-  | some (.thmInfo cv v) =>
-    intro h
-    simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    rfl
+/-- Invert a stored-constant lookup (kind-agnostic: the certificate
+checks consume only the stored constant's type). -/
+theorem findCV?_ok {env : Env} {n : Name} {cvt : ConstantVal}
+    (h : env.findCV? n = some cvt) :
+    ∃ ci, env.find? n = some ci ∧ ci.toConstantVal = cvt := by
+  simp only [Env.findCV?, Option.map_eq_some_iff] at h
+  exact h
 
 /-- The pairwise defeq check, `wfOpsM` run to pure run (the arguments
 are scoped at the check's depth). -/
@@ -675,17 +663,17 @@ theorem checkIotaThm_wfimp {env' envSelf : Env} (henv' : EnvWF env')
       mI rP j r cvj cnP cnF rhsA = .ok v := by
   unfold checkIotaThm at h ⊢
   try dsimp only [] at h ⊢
-  obtain ⟨p, hthm, h⟩ := atF_bind_ok h
-  obtain ⟨cvt, tval⟩ := p
+  obtain ⟨cvt, hthm, h⟩ := atF_bind_ok h
   have hthm' := unwrapOr_atF_ok hthm
-  show ((unwrapOr (env'.findThm?
+  show ((unwrapOr (env'.findCV?
     ((cvName.str "_model").str s!"iota_{j}")) _ : CheckM _) >>= _) = _
   rw [hthm']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   try dsimp only [] at h ⊢
-  -- the stored theorem's statement is closed
-  have hcvtF : cvt.type.hasFvar = false :=
-    (henv' _ (find?_mem (findThm?_ok hthm'))).1
+  -- the stored constant's statement is closed (kind-agnostic)
+  have hcvtF : cvt.type.hasFvar = false := by
+    obtain ⟨ci, hci, hcvt⟩ := findCV?_ok hthm'
+    exact hcvt ▸ (henv' _ (find?_mem hci)).1
   by_cases h1 : cvt.levelParams = lps
   case neg => rw [if_neg h1] at h; exact absurd h atF_throw_bind
   rw [if_pos h1] at h ⊢
@@ -928,17 +916,17 @@ theorem checkIotaThmN_wfimp {env' envSelf : Env} (henv' : EnvWF env')
   try dsimp only [] at h ⊢
   have hpinsF : ∀ p ∈ pins, p.hasFvar = false :=
     nestedRuleShape_pins hshape
-  obtain ⟨p, hthm, h⟩ := atF_bind_ok h
-  obtain ⟨cvt, tval⟩ := p
+  obtain ⟨cvt, hthm, h⟩ := atF_bind_ok h
   have hthm' := unwrapOr_atF_ok hthm
-  show ((unwrapOr (env'.findThm?
+  show ((unwrapOr (env'.findCV?
     ((cvName.str "_model").str s!"iota_{j}")) _ : CheckM _) >>= _) = _
   rw [hthm']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   try dsimp only [] at h ⊢
-  -- the stored theorem's statement is closed
-  have hcvtF : cvt.type.hasFvar = false :=
-    (henv' _ (find?_mem (findThm?_ok hthm'))).1
+  -- the stored constant's statement is closed (kind-agnostic)
+  have hcvtF : cvt.type.hasFvar = false := by
+    obtain ⟨ci, hci, hcvt⟩ := findCV?_ok hthm'
+    exact hcvt ▸ (henv' _ (find?_mem hci)).1
   by_cases h1 : cvt.levelParams = lps
   case neg => rw [if_neg h1] at h; exact absurd h atF_throw_bind
   rw [if_pos h1] at h ⊢

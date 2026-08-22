@@ -633,9 +633,9 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
   | nested lvls pins =>
     obtain ⟨hmIrP, hlvlsWF, hpinsWF, hshape6, hkitN⟩ :=
       hnestK lvls pins hfr
-    obtain ⟨thmName, cvt, tval, fvs, tbody, ℓA, αS, lhsS, rhsS, cdoms,
+    obtain ⟨thmName, cvt, ci, fvs, tbody, ℓA, αS, lhsS, rhsS, cdoms,
       cres, rdoms, rrest, fvsP, restP, cdomsP, crestP, xFvsP, crest2,
-      ldoms, lrest, hfthm, hlpt, hopen, hheadEq, hargs3, hlhead,
+      ldoms, lrest, hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, hlhead,
       hlarity, hlpre, hmaj, hcstrip, hcinst, hclen, hdeIdx, hdeFld,
       hrinst, hdePre, hopenP, hcinstP, hopenX, hlinst, hdeLam,
       hdeRhs⟩ := hkitN
@@ -695,22 +695,25 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
         mS.ind_ok.2.2.2.1 eqName eqA heqfindS (by rfl) (by decide)
       rw [hpv ψ'']
       simp [pinnedVal]
-    -- the theorem's facts
-    have hfthmS : envS.find? thmName = some (.thmInfo cvt tval) :=
+    -- the theorem's facts (kind-agnostic: any stored constant
+    -- witnesses its type's inhabitation, `mem_type`)
+    have hfthmS : envS.find? thmName = some ci :=
       hup _ _ hfthm
     have hthmMem := find?_mem hfthmS
     obtain ⟨hSw, -, -, hSb, -, -⟩ := mS.wf _ hthmMem
+    rw [hcvt] at hSw hSb
     have hthm_mem : ∀ ψ'' : Name → Nat, ∃ P,
         interpClosed V mS.val envS ψ'' cvt.type = some P ∧
         mS.val thmName ψ'' ∈ˢ P := by
       intro ψ''
       obtain ⟨P, hP, hmm⟩ := mS.mem_type _ hthmMem ψ''
-      have h3 : (ConstantInfo.thmInfo cvt tval).name = thmName := by
+      rw [hcvt] at hP
+      have h3 : ci.name = thmName := by
         simpa using List.find?_some hfthmS
       exact ⟨P, hP, by rw [← h3]; exact hmm⟩
     have hthm_annot : ∀ ψ'' : Name → Nat,
         AnnotOk V mS.val envS ψ'' 0 (rho0 V) cvt.type :=
-      fun ψ'' => (mS.annot_ok _ hthmMem ψ'').1
+      fun ψ'' => hcvt ▸ (mS.annot_ok _ hthmMem ψ'').1
     -- the rule's interpretation exists
     have hIrhs : ∀ ψ'' : Name → Nat, ∃ L,
         interpClosed V mS.val envS ψ'' (RecRule.rhs r) = some L := by
@@ -789,9 +792,9 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
   obtain ⟨hparameq, hlev⟩ := hpeq hfr
   -- the plain kit
   have hkit := hplainImp hplain
-  obtain ⟨thmName, cvt, tval, fvs, tbody, ℓA, αS, lhsS, rhsS, cdoms,
+  obtain ⟨thmName, cvt, ci, fvs, tbody, ℓA, αS, lhsS, rhsS, cdoms,
     cres, rdoms, rrest, fvsP, restP, cdomsP, crestP, xFvsP, crest2,
-    ldoms, lrest, hfthm, hlpt, hopen, hheadEq, hargs3, hlhead, hlarity,
+    ldoms, lrest, hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, hlhead, hlarity,
     hlpre, hmaj, hcstrip, hcinst, hclen, hdeIdx, hdeFld, hrinst, hdePre,
     hopenP, hcinstP, hopenX, hlinst, hdeLam, hdeRhs⟩ := hkit
   -- the recursor's own stored facts
@@ -847,22 +850,25 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
       mS.ind_ok.2.2.2.1 eqName eqA heqfindS (by rfl) (by decide)
     rw [hpv ψ'']
     simp [pinnedVal]
-  -- the theorem's facts
-  have hfthmS : envS.find? thmName = some (.thmInfo cvt tval) :=
+  -- the theorem's facts (kind-agnostic: any stored constant
+  -- witnesses its type's inhabitation, `mem_type`)
+  have hfthmS : envS.find? thmName = some ci :=
     hup _ _ hfthm
   have hthmMem := find?_mem hfthmS
   obtain ⟨hSw, -, -, hSb, -, -⟩ := mS.wf _ hthmMem
+  rw [hcvt] at hSw hSb
   have hthm_mem : ∀ ψ'' : Name → Nat, ∃ P,
       interpClosed V mS.val envS ψ'' cvt.type = some P ∧
       mS.val thmName ψ'' ∈ˢ P := by
     intro ψ''
     obtain ⟨P, hP, hm⟩ := mS.mem_type _ hthmMem ψ''
-    have h3 : (ConstantInfo.thmInfo cvt tval).name = thmName := by
+    rw [hcvt] at hP
+    have h3 : ci.name = thmName := by
       simpa using List.find?_some hfthmS
     exact ⟨P, hP, by rw [← h3]; exact hm⟩
   have hthm_annot : ∀ ψ'' : Name → Nat,
       AnnotOk V mS.val envS ψ'' 0 (rho0 V) cvt.type :=
-    fun ψ'' => (mS.annot_ok _ hthmMem ψ'').1
+    fun ψ'' => hcvt ▸ (mS.annot_ok _ hthmMem ψ'').1
   -- the rule's interpretation exists
   have hIrhs : ∀ ψ'' : Name → Nat, ∃ L,
       interpClosed V mS.val envS ψ'' (RecRule.rhs r) = some L := by
