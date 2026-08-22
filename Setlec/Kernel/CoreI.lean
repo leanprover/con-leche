@@ -289,14 +289,14 @@ task #50). -/
     (r, { s with store := store })
 
 /-- Interned `Level.subst` over a list of stored level trees
-(structural recursion; the spec side is a pure `List.map`). -/
-def substLevelTreesM (ks : List Name) (us : List LIdx) :
-    List Level → CheckIM (List LIdx)
-  | [] => pure []
-  | l :: ls => do
-    let r ← substLevelTreeM ks us l
-    let rs ← substLevelTreesM ks us ls
-    pure (r :: rs)
+(the spec side is a pure `List.map`). -/
+@[inline] def substLevelTreesM (ks : List Name) (us : List LIdx)
+    (ls : List Level) : CheckIM (List LIdx) :=
+  modifyGet fun s =>
+    let store := s.store
+    let s := { s with store := EStore.empty }
+    let (rs, store) := store.internLevelSubsts ks us ls
+    (rs, { s with store := store })
 
 /-- Interned `Level.simplify` (persistently memoized: the memo is keyed
 by level index alone, so it survives across calls). -/
@@ -328,162 +328,193 @@ levels; fresh per-call memos). -/
 
 mutual
 
-/-- Twin of `Level.leqCore` on level indices (task #62): same fuel
-discipline, same case order; the `imax` distribution cases intern their
-fabricated levels, `byCasesLM` substitutes and simplifies interned. -/
-def leqCoreLM (fuel : Nat) (l r : LIdx) (diff : Int) :
-    CheckIM (Option Bool) := do
+/-- Twin of `Level.leqCore` on level indices (task #62), as a pure
+arena function threading the persistent simplify memo: same fuel
+discipline, same case order; the `imax` distribution cases intern
+their fabricated levels, `byCasesLI` substitutes and simplifies
+interned.  The `imax`-reflexivity shortcut compares indices — equal
+denotations have equal indices on canonical stores. -/
+def leqCoreLI (st : EStore) (memo : EStore.LMemo) (fuel : Nat)
+    (l r : LIdx) (diff : Int) : Option Bool × EStore × EStore.LMemo :=
   match fuel with
-  | 0 => pure none
+  | 0 => (none, st, memo)
   | fuel + 1 =>
-    if (← viewLM l) = some .zero ∧ diff ≥ 0 then pure (some true)
-    else if (← viewLM r) = some .zero ∧ diff < 0 then pure (some false)
-    else leqRestLM fuel l r diff
+    if st.lnodes[l]? = some .zero ∧ diff ≥ 0 then (some true, st, memo)
+    else if st.lnodes[r]? = some .zero ∧ diff < 0 then (some false, st, memo)
+    else leqRestLI st memo fuel l r diff
 
-/-- Twin of `Level.rest` (the cases after the cheap `zero`
-short-cuts, in nanoda's order, replayed by sequential node views). -/
-def leqRestLM (fuel : Nat) (l r : LIdx) (diff : Int) :
-    CheckIM (Option Bool) := do
-  match ← viewLM l, ← viewLM r with
-  | some (.param a), some (.param x) => pure (some (a = x && diff ≥ 0))
-  | some (.param _), some .zero => pure (some false)
-  | some .zero, some (.param _) => pure (some (diff ≥ 0))
-  | some (.succ s), _ => leqCoreLM fuel s r (diff - 1)
-  | _, some (.succ s) => leqCoreLM fuel l s (diff + 1)
-  | some (.max a b), _ => do
-    match ← leqCoreLM fuel a r diff with
-    | none => pure none
-    | some ba =>
-      match ← leqCoreLM fuel b r diff with
-      | none => pure none
-      | some bb => pure (some (ba && bb))
-  | some (.param _), some (.max x y) => do
-    match ← leqCoreLM fuel l x diff with
-    | none => pure none
-    | some bx =>
-      match ← leqCoreLM fuel l y diff with
-      | none => pure none
-      | some bY => pure (some (bx || bY))
-  | some .zero, some (.max x y) => do
-    match ← leqCoreLM fuel l x diff with
-    | none => pure none
-    | some bx =>
-      match ← leqCoreLM fuel l y diff with
-      | none => pure none
-      | some bY => pure (some (bx || bY))
+/-- Twin of `Level.rest` (the cases after the cheap `zero` short-cuts,
+in nanoda's order, replayed by sequential node views). -/
+def leqRestLI (st : EStore) (memo : EStore.LMemo) (fuel : Nat)
+    (l r : LIdx) (diff : Int) : Option Bool × EStore × EStore.LMemo :=
+  match st.lnodes[l]?, st.lnodes[r]? with
+  | some (.param a), some (.param x) => (some (a = x && diff ≥ 0), st, memo)
+  | some (.param _), some .zero => (some false, st, memo)
+  | some .zero, some (.param _) => (some (diff ≥ 0), st, memo)
+  | some (.succ s), _ => leqCoreLI st memo fuel s r (diff - 1)
+  | _, some (.succ s) => leqCoreLI st memo fuel l s (diff + 1)
+  | some (.max a b), _ =>
+    match leqCoreLI st memo fuel a r diff with
+    | (none, st, memo) => (none, st, memo)
+    | (some ba, st, memo) =>
+      match leqCoreLI st memo fuel b r diff with
+      | (none, st, memo) => (none, st, memo)
+      | (some bb, st, memo) => (some (ba && bb), st, memo)
+  | some (.param _), some (.max x y) =>
+    match leqCoreLI st memo fuel l x diff with
+    | (none, st, memo) => (none, st, memo)
+    | (some bx, st, memo) =>
+      match leqCoreLI st memo fuel l y diff with
+      | (none, st, memo) => (none, st, memo)
+      | (some bY, st, memo) => (some (bx || bY), st, memo)
+  | some .zero, some (.max x y) =>
+    match leqCoreLI st memo fuel l x diff with
+    | (none, st, memo) => (none, st, memo)
+    | (some bx, st, memo) =>
+      match leqCoreLI st memo fuel l y diff with
+      | (none, st, memo) => (none, st, memo)
+      | (some bY, st, memo) => (some (bx || bY), st, memo)
   | some (.imax a b), some (.imax x y) =>
-    if a = x && b = y && diff ≥ 0 then pure (some true)
-    else imaxRulesLM fuel l r diff
-  | _, _ => imaxRulesLM fuel l r diff
+    if a = x && b = y && diff ≥ 0 then (some true, st, memo)
+    else imaxRulesLI st memo fuel l r diff
+  | _, _ => imaxRulesLI st memo fuel l r diff
 
 /-- Twin of `Level.imaxRules` (nanoda's cases 10–15). -/
-def imaxRulesLM (fuel : Nat) (l r : LIdx) (diff : Int) :
-    CheckIM (Option Bool) := do
-  match ← viewLM l with
+def imaxRulesLI (st : EStore) (memo : EStore.LMemo) (fuel : Nat)
+    (l r : LIdx) (diff : Int) : Option Bool × EStore × EStore.LMemo :=
+  match st.lnodes[l]? with
   | some (.imax a b) =>
-    match ← viewLM b with
-    | some (.param p) => byCasesLM fuel p l r diff
+    match st.lnodes[b]? with
+    | some (.param p) => byCasesLI st memo fuel p l r diff
     | _ =>
-      match ← viewLM r with
+      match st.lnodes[r]? with
       | some (.imax _x' y') =>
-        match ← viewLM y' with
-        | some (.param p) => byCasesLM fuel p l r diff
-        | _ => imaxRulesRestLM fuel l r diff a b
-      | _ => imaxRulesRestLM fuel l r diff a b
+        match st.lnodes[y']? with
+        | some (.param p) => byCasesLI st memo fuel p l r diff
+        | _ => imaxRulesRestLI st memo fuel l r diff a b
+      | _ => imaxRulesRestLI st memo fuel l r diff a b
   | _ =>
-    match ← viewLM r with
+    match st.lnodes[r]? with
     | some (.imax x' y') =>
-      match ← viewLM y' with
-      | some (.param p) => byCasesLM fuel p l r diff
-      | _ => imaxRulesRightLM fuel l r diff x' y'
-    | _ => pure none
+      match st.lnodes[y']? with
+      | some (.param p) => byCasesLI st memo fuel p l r diff
+      | _ => imaxRulesRightLI st memo fuel l diff x' y'
+    | _ => (none, st, memo)
 
-/-- The left-`imax` distribution cases of `imaxRulesLM` (the left side
+/-- The left-`imax` distribution cases of `imaxRulesLI` (the left side
 is `.imax a b` with `b` not a parameter). -/
-def imaxRulesRestLM (fuel : Nat) (l r : LIdx) (diff : Int) (a b : LIdx) :
-    CheckIM (Option Bool) := do
-  match ← viewLM b with
-  | some (.imax x y) => do
-    let i1 ← internLM (.imax a y)
-    let i2 ← internLM (.imax x y)
-    let m ← internLM (.max i1 i2)
-    leqCoreLM fuel m r diff
-  | some (.max x y) => do
-    let i1 ← internLM (.imax a x)
-    let i2 ← internLM (.imax a y)
-    let m ← internLM (.max i1 i2)
-    let ms ← simplifyLM m
-    leqCoreLM fuel ms r diff
+def imaxRulesRestLI (st : EStore) (memo : EStore.LMemo) (fuel : Nat)
+    (l r : LIdx) (diff : Int) (a b : LIdx) :
+    Option Bool × EStore × EStore.LMemo :=
+  match st.lnodes[b]? with
+  | some (.imax x y) =>
+    let (i1, st) := st.internL (.imax a y)
+    let (i2, st) := st.internL (.imax x y)
+    let (m, st) := st.internL (.max i1 i2)
+    leqCoreLI st memo fuel m r diff
+  | some (.max x y) =>
+    let (i1, st) := st.internL (.imax a x)
+    let (i2, st) := st.internL (.imax a y)
+    let (m, st) := st.internL (.max i1 i2)
+    let (ms, st, memo) := st.simplifyLIGo memo m
+    leqCoreLI st memo fuel ms r diff
   | _ =>
-    match ← viewLM r with
-    | some (.imax x' y') => imaxRulesRightLM fuel l r diff x' y'
-    | _ => pure none
+    match st.lnodes[r]? with
+    | some (.imax x' y') => imaxRulesRightLI st memo fuel l diff x' y'
+    | _ => (none, st, memo)
 
-/-- The right-`imax` distribution cases of `imaxRulesLM` (the right
+/-- The right-`imax` distribution cases of `imaxRulesLI` (the right
 side is `.imax x y` with `y` not a parameter). -/
-def imaxRulesRightLM (fuel : Nat) (l _r : LIdx) (diff : Int) (x y : LIdx) :
-    CheckIM (Option Bool) := do
-  match ← viewLM y with
-  | some (.imax j k) => do
-    let i1 ← internLM (.imax x k)
-    let i2 ← internLM (.imax j k)
-    let m ← internLM (.max i1 i2)
-    leqCoreLM fuel l m diff
-  | some (.max j k) => do
-    let i1 ← internLM (.imax x j)
-    let i2 ← internLM (.imax x k)
-    let m ← internLM (.max i1 i2)
-    let ms ← simplifyLM m
-    leqCoreLM fuel l ms diff
-  | _ => pure none
+def imaxRulesRightLI (st : EStore) (memo : EStore.LMemo) (fuel : Nat)
+    (l : LIdx) (diff : Int) (x y : LIdx) :
+    Option Bool × EStore × EStore.LMemo :=
+  match st.lnodes[y]? with
+  | some (.imax j k) =>
+    let (i1, st) := st.internL (.imax x k)
+    let (i2, st) := st.internL (.imax j k)
+    let (m, st) := st.internL (.max i1 i2)
+    leqCoreLI st memo fuel l m diff
+  | some (.max j k) =>
+    let (i1, st) := st.internL (.imax x j)
+    let (i2, st) := st.internL (.imax x k)
+    let (m, st) := st.internL (.max i1 i2)
+    let (ms, st, memo) := st.simplifyLIGo memo m
+    leqCoreLI st memo fuel l ms diff
+  | _ => (none, st, memo)
 
 /-- Twin of `Level.byCases` (split on the parameter `p` being zero or
 positive). -/
-def byCasesLM (fuel : Nat) (p : Name) (l r : LIdx) (diff : Int) :
-    CheckIM (Option Bool) := do
-  let z ← internLM .zero
-  let pp ← internLM (.param p)
-  let sp ← internLM (.succ pp)
-  let l0 ← simplifyLM (← substLM [p] [z] l)
-  let r0 ← simplifyLM (← substLM [p] [z] r)
-  let ls ← simplifyLM (← substLM [p] [sp] l)
-  let rs ← simplifyLM (← substLM [p] [sp] r)
-  match ← leqCoreLM fuel l0 r0 diff with
-  | none => pure none
-  | some b0 =>
-    match ← leqCoreLM fuel ls rs diff with
-    | none => pure none
-    | some bs => pure (some (b0 && bs))
+def byCasesLI (st : EStore) (memo : EStore.LMemo) (fuel : Nat) (p : Name)
+    (l r : LIdx) (diff : Int) : Option Bool × EStore × EStore.LMemo :=
+  let (z, st) := st.internL .zero
+  let (pp, st) := st.internL (.param p)
+  let (sp, st) := st.internL (.succ pp)
+  let (l0', st) := st.substLI [p] [z] l
+  let (l0, st, memo) := st.simplifyLIGo memo l0'
+  let (r0', st) := st.substLI [p] [z] r
+  let (r0, st, memo) := st.simplifyLIGo memo r0'
+  let (ls', st) := st.substLI [p] [sp] l
+  let (ls, st, memo) := st.simplifyLIGo memo ls'
+  let (rs', st) := st.substLI [p] [sp] r
+  let (rs, st, memo) := st.simplifyLIGo memo rs'
+  match leqCoreLI st memo fuel l0 r0 diff with
+  | (none, st, memo) => (none, st, memo)
+  | (some b0, st, memo) =>
+    match leqCoreLI st memo fuel ls rs diff with
+    | (none, st, memo) => (none, st, memo)
+    | (some bs, st, memo) => (some (b0 && bs), st, memo)
 
 end
 
 /-- Twin of `Level.leq` (simplify both sides, compare at the default
 fuel). -/
-def leqLM (l r : LIdx) : CheckIM (Option Bool) := do
-  let ls ← simplifyLM l
-  let rs ← simplifyLM r
-  leqCoreLM Level.defaultFuel ls rs 0
+def leqLI (st : EStore) (memo : EStore.LMemo) (l r : LIdx) :
+    Option Bool × EStore × EStore.LMemo :=
+  let (ls, st, memo) := st.simplifyLIGo memo l
+  let (rs, st, memo) := st.simplifyLIGo memo r
+  leqCoreLI st memo Level.defaultFuel ls rs 0
 
 /-- Twin of `Level.isEquiv`. -/
-def isEquivLM (l r : LIdx) : CheckIM (Option Bool) := do
-  match ← leqLM l r with
-  | none => pure none
-  | some b1 =>
-    match ← leqLM r l with
-    | none => pure none
-    | some b2 => pure (some (b1 && b2))
+def isEquivLI (st : EStore) (memo : EStore.LMemo) (l r : LIdx) :
+    Option Bool × EStore × EStore.LMemo :=
+  match leqLI st memo l r with
+  | (none, st, memo) => (none, st, memo)
+  | (some b1, st, memo) =>
+    match leqLI st memo r l with
+    | (none, st, memo) => (none, st, memo)
+    | (some b2, st, memo) => (some (b1 && b2), st, memo)
 
 /-- Twin of `Level.isEquivList`. -/
-def isEquivListLM : List LIdx → List LIdx → CheckIM (Option Bool)
-  | [], [] => pure (some true)
-  | l :: ls, r :: rs => do
-    match ← isEquivLM l r with
-    | none => pure none
-    | some b =>
-      match ← isEquivListLM ls rs with
-      | none => pure none
-      | some bs => pure (some (b && bs))
-  | _, _ => pure (some false)
+def isEquivListLI (st : EStore) (memo : EStore.LMemo) :
+    List LIdx → List LIdx → Option Bool × EStore × EStore.LMemo
+  | [], [] => (some true, st, memo)
+  | l :: ls, r :: rs =>
+    match isEquivLI st memo l r with
+    | (none, st, memo) => (none, st, memo)
+    | (some b, st, memo) =>
+      match isEquivListLI st memo ls rs with
+      | (none, st, memo) => (none, st, memo)
+      | (some bs, st, memo) => (some (b && bs), st, memo)
+  | _, _ => (some false, st, memo)
+
+/-- Monadic wrapper for `isEquivLI` (threads the persistent simplify
+memo). -/
+@[inline] def isEquivLM (l r : LIdx) : CheckIM (Option Bool) :=
+  modifyGet fun s =>
+    let store := s.store
+    let memo := s.lsimpC
+    let s := { s with store := EStore.empty, lsimpC := {} }
+    let (r', store, memo) := isEquivLI store memo l r
+    (r', { s with store := store, lsimpC := memo })
+
+/-- Monadic wrapper for `isEquivListLI`. -/
+@[inline] def isEquivListLM (ls rs : List LIdx) : CheckIM (Option Bool) :=
+  modifyGet fun s =>
+    let store := s.store
+    let memo := s.lsimpC
+    let s := { s with store := EStore.empty, lsimpC := {} }
+    let (r', store, memo) := isEquivListLI store memo ls rs
+    (r', { s with store := store, lsimpC := memo })
 
 /-- Read a level index back as a `Level` tree (an internal error when
 the index is dangling — never on the bridge invariant). -/

@@ -318,6 +318,15 @@ def internLevelSubst (st : EStore) (ks : List Name) (us : List LIdx) :
     | some v => (v, st)
     | none => st.internL (.param n)
 
+/-- `internLevelSubst` over a list of stored level trees. -/
+def internLevelSubsts (st : EStore) (ks : List Name) (us : List LIdx) :
+    List Level → List LIdx × EStore
+  | [] => ([], st)
+  | l :: ls =>
+    let (r, st) := st.internLevelSubst ks us l
+    let (rs, st) := st.internLevelSubsts ks us ls
+    (r :: rs, st)
+
 /-- Interned counterpart of `Level.combining` (pull common `succ`s out
 of a `max` of simplified levels). -/
 def combiningLI (st : EStore) (a b : LIdx) : LIdx × EStore :=
