@@ -34,6 +34,52 @@ def instantiate1 (e : Expr) (v : Expr) (d : Nat := 0) : Expr :=
   | .lit l => .lit l
   | .proj s i e => .proj s i (instantiate1 e v d)
 
+/-- Bulk instantiation (task #50): substitute the replacement list `vs`
+for the bound variables `bvar d, bvar (d + 1), …` in one traversal —
+`vs[0]` replaces `bvar d` (the *innermost* binder of a peeled
+telescope), `vs[i]` replaces `bvar (d + i)`; loose `bvar`s above the
+range are lowered by `vs.length`.
+
+The semantics is by construction the *fold* of `instantiate1`:
+
+  `instantiateList e (v :: vs) d
+     = (instantiateList e vs (d + 1)).instantiate1 v d`
+
+(`instantiateList_cons`, unconditional) — so a chain that consumes a
+spine `a₁ … aₖ` outermost-first equals one call at the accumulator list
+`[aₖ, …, a₁]`.  In the fold, a replacement inserted early is traversed
+again by the later `instantiate1` passes; the `bvar` case reproduces
+this by recursing into the replacement with the *earlier-listed*
+entries (`vs.take i` — the substitutions the fold applies after
+inserting `vs[i]`).  On `bvar`-closed replacements (every checker call
+site) that recursion is the identity, and the cost is a single
+traversal of `e` instead of `vs.length` traversals. -/
+def instantiateList (e : Expr) (vs : List Expr) (d : Nat := 0) : Expr :=
+  match e with
+  | .bvar j =>
+    if j < d then .bvar j
+    else if h : j - d < vs.length then
+      instantiateList vs[j - d] (vs.take (j - d)) d
+    else .bvar (j - vs.length)
+  | .fvar idx n ty => .fvar idx n ty
+  | .sort u => .sort u
+  | .const n us => .const n us
+  | .app f a => .app (instantiateList f vs d) (instantiateList a vs d)
+  | .lam n ty body bi =>
+    .lam n (instantiateList ty vs d) (instantiateList body vs (d + 1)) bi
+  | .forallE n ty body bi =>
+    .forallE n (instantiateList ty vs d) (instantiateList body vs (d + 1)) bi
+  | .letE n ty val body =>
+    .letE n (instantiateList ty vs d) (instantiateList val vs d)
+      (instantiateList body vs (d + 1))
+  | .lit l => .lit l
+  | .proj s i e => .proj s i (instantiateList e vs d)
+termination_by (vs.length, sizeOf e)
+decreasing_by
+  all_goals first
+    | (apply Prod.Lex.left; simp [List.length_take]; omega)
+    | (apply Prod.Lex.right; simp; omega)
+
 /-- Bump every loose bound variable `≥ cutoff` by `amount`.  Used to
 transport a constructor-telescope field domain (parameters, then prior
 fields) into a recursor-rule telescope (parameters, motive, minors,

@@ -191,6 +191,107 @@ def instantiate1I (st : EStore) (e v : EIdx) (d : Nat := 0) : EIdx × EStore :=
   let (r, st, _) := instantiate1IGo v st {} e d
   (r, st)
 
+/-- Memo table for the bulk-instantiation traversal, keyed by the node
+index, the live prefix length of the replacement array, and the binder
+cursor (nanoda's `ExprCache` discipline: a shared subterm is
+substituted once per distinct (node, prefix, cursor) triple). -/
+abbrev MemoNL := Std.HashMap (EIdx × Nat × Nat) EIdx
+
+/-- Core of `instantiateListI` (task #50): `vs` holds the replacement
+indices innermost binder first, `k ≤ vs.size` the live prefix length —
+the call implements `Expr.instantiateList e (ws.take k) d` on the
+denotations in **one** DAG traversal, where an `instantiate1` fold
+would traverse once per replacement.  A `bvar` hit recurses into its
+replacement with the shorter prefix `i - d`, mirroring the `Expr`
+fold's semantics on open replacements; on `bvar`-closed replacements
+(every call site) that recursion is the identity, memoized like any
+other node.  `k > vs.size` (never produced by the wrapper) degrades to
+the identity on the missing entries — garbage in, garbage out. -/
+def instantiateListIGo (vs : Array EIdx) (st : EStore) (memo : MemoNL)
+    (e : EIdx) (k : Nat) (d : Nat) : EIdx × EStore × MemoNL :=
+  if k = 0 then (e, st, memo)
+  else
+    match memo[(e, k, d)]? with
+    | some r => (r, st, memo)
+    | none =>
+      match st.nodes[e]? with
+      | none => (e, st, memo)
+      | some n =>
+        let (r, st, memo) : EIdx × EStore × MemoNL :=
+          match n with
+          | .bvar i =>
+            if i < d then (e, st, memo)
+            else if _h : i - d < k then
+              if _h2 : i - d < vs.size then
+                instantiateListIGo vs st memo vs[i - d] (i - d) d
+              else (e, st, memo)
+            else
+              let (r, st) := st.intern (.bvar (i - k))
+              (r, st, memo)
+          | .fvar _ _ _ => (e, st, memo)
+          | .sort _ => (e, st, memo)
+          | .const _ _ => (e, st, memo)
+          | .app f a =>
+            if _h : f < e ∧ a < e then
+              let (f', st, memo) := instantiateListIGo vs st memo f k d
+              let (a', st, memo) := instantiateListIGo vs st memo a k d
+              let (r, st) := st.intern (.app f' a')
+              (r, st, memo)
+            else (e, st, memo)
+          | .lam n ty body m =>
+            if _h : ty < e ∧ body < e then
+              let (ty', st, memo) := instantiateListIGo vs st memo ty k d
+              let (body', st, memo) :=
+                instantiateListIGo vs st memo body k (d + 1)
+              let (r, st) := st.intern (.lam n ty' body' m)
+              (r, st, memo)
+            else (e, st, memo)
+          | .forallE n ty body m =>
+            if _h : ty < e ∧ body < e then
+              let (ty', st, memo) := instantiateListIGo vs st memo ty k d
+              let (body', st, memo) :=
+                instantiateListIGo vs st memo body k (d + 1)
+              let (r, st) := st.intern (.forallE n ty' body' m)
+              (r, st, memo)
+            else (e, st, memo)
+          | .letE n ty val body =>
+            if _h : ty < e ∧ val < e ∧ body < e then
+              let (ty', st, memo) := instantiateListIGo vs st memo ty k d
+              let (val', st, memo) := instantiateListIGo vs st memo val k d
+              let (body', st, memo) :=
+                instantiateListIGo vs st memo body k (d + 1)
+              let (r, st) := st.intern (.letE n ty' val' body')
+              (r, st, memo)
+            else (e, st, memo)
+          | .lit _ => (e, st, memo)
+          | .proj s i sub =>
+            if _h : sub < e then
+              let (sub', st, memo) := instantiateListIGo vs st memo sub k d
+              let (r, st) := st.intern (.proj s i sub')
+              (r, st, memo)
+            else (e, st, memo)
+        (r, st, memo.insert (e, k, d) r)
+termination_by (k, e)
+decreasing_by
+  all_goals first
+    | (apply Prod.Lex.left; omega)
+    | (apply Prod.Lex.right; first
+        | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h)
+
+/-- Interned counterpart of `Expr.instantiateList e ws d` (bulk
+instantiation, task #50): substitute a whole replacement list —
+innermost binder first, `vs[0]` for `bvar d` — in one memoized DAG
+traversal.  Equal, under the denotation, to the `instantiate1I` chain
+(`Expr.instantiateList_cons`). -/
+def instantiateListI (st : EStore) (e : EIdx) (vs : List EIdx)
+    (d : Nat := 0) : EIdx × EStore :=
+  match vs with
+  | [] => (e, st)
+  | _ :: _ =>
+    let a := vs.toArray
+    let (r, st, _) := instantiateListIGo a st {} e a.size d
+    (r, st)
+
 /-- Core of `abstract1I`; `d` is the abstracted fvar's de Bruijn level
 (fixed), `k` the binder cursor (mirrors `Expr.abstract1 e d k`). -/
 def abstract1IGo (d : Nat) (st : EStore) (memo : MemoN) (e : EIdx) (k : Nat) :
@@ -606,12 +707,20 @@ def getAppFnI (st : EStore) (e : EIdx) : EIdx :=
   | _ => e
 termination_by e
 
+/-- Core of `getAppArgsI`: prepend the spine arguments of `e`
+(outermost last) to `acc` — linear in the spine length (task #50; the
+previous append-per-node form was quadratic). -/
+def getAppArgsAccI (st : EStore) : EIdx → List EIdx → List EIdx
+  | e, acc =>
+    match st.nodes[e]? with
+    | some (.app f a) =>
+      if _h : f < e then getAppArgsAccI st f (a :: acc) else acc
+    | _ => acc
+termination_by e _ => e
+
 /-- Interned counterpart of `Expr.getAppArgs` (outermost last). -/
 def getAppArgsI (st : EStore) (e : EIdx) : List EIdx :=
-  match st.nodes[e]? with
-  | some (.app f a) => if _h : f < e then getAppArgsI st f ++ [a] else []
-  | _ => []
-termination_by e
+  getAppArgsAccI st e []
 
 /-- Interned counterpart of `Expr.mkAppN`. -/
 def mkAppNI (st : EStore) (f : EIdx) : List EIdx → EIdx × EStore
@@ -620,23 +729,57 @@ def mkAppNI (st : EStore) (f : EIdx) : List EIdx → EIdx × EStore
     let (fa, st) := st.intern (.app f a)
     mkAppNI st fa as
 
-/-- Interned counterpart of `Expr.instSpine`. -/
-def instSpineI (st : EStore) : List EIdx → Nat → EIdx → EIdx × EStore
+/-- The `instantiate1I` chain of `Expr.instSpine` — the fallback for
+argument lists that do not span the whole telescope context (`t + 1`
+entries); the spanning case is bulk-instantiated (`instSpineI`). -/
+def instSpineChainI (st : EStore) : List EIdx → Nat → EIdx → EIdx × EStore
   | [], _, e => (e, st)
   | a :: as, t, e =>
     let (e', st) := st.instantiate1I e a t
-    instSpineI st as (t - 1) e'
+    instSpineChainI st as (t - 1) e'
 
-/-- Interned counterpart of `Expr.piResidual` (= `Expr.instPis`: the two
-`Expr` functions have identical equations). -/
-def piResidualI (st : EStore) : EIdx → List EIdx → Option EIdx × EStore
-  | e, [] => (some e, st)
-  | e, a :: as =>
+/-- Interned counterpart of `Expr.instSpine`.  When the arguments span
+the whole telescope context (`t + 1` of them, the only shape the
+checker produces) this is one bulk instantiation of the reversed spine
+(`Expr.instSpine_eq_instantiateList`, task #50); otherwise the
+`instantiate1I` chain. -/
+def instSpineI (st : EStore) (args : List EIdx) (t : Nat) (e : EIdx) :
+    EIdx × EStore :=
+  if args.length = t + 1 then st.instantiateListI e args.reverse
+  else instSpineChainI st args t e
+
+/-- Interned counterpart of `Expr.piResidual` (= `Expr.instPis`: the
+two `Expr` functions have identical equations).  Bulk form (task #50):
+peel the syntactic `∀`-binders while accumulating the arguments and
+substitute once at the end — one traversal, where the fold copied the
+residual telescope per argument.  A `bvar` telescope body (whose
+substitution could itself expose `∀`-binders — never produced by the
+checker, but the fold semantics allows it) substitutes the accumulator
+and re-enters. -/
+def piResidualAccI (st : EStore) : List EIdx → EIdx → List EIdx →
+    Option EIdx × EStore
+  | acc, e, [] =>
+    let (r, st) := st.instantiateListI e acc
+    (some r, st)
+  | acc, e, a :: as =>
     match st.nodes[e]? with
-    | some (.forallE _ _ b _) =>
-      let (b', st) := st.instantiate1I b a
-      piResidualI st b' as
+    | some (.forallE _ _ b _) => piResidualAccI st (a :: acc) b as
+    | some (.bvar _) =>
+      match acc with
+      | [] => (none, st)
+      | _ :: _ =>
+        let (e', st) := st.instantiateListI e acc
+        piResidualAccI st [] e' (a :: as)
     | _ => (none, st)
+termination_by acc _e as => (as.length, acc.length)
+decreasing_by
+  · apply Prod.Lex.left; simp
+  · apply Prod.Lex.right' <;> simp
+
+@[inherit_doc piResidualAccI]
+def piResidualI (st : EStore) (e : EIdx) (args : List EIdx) :
+    Option EIdx × EStore :=
+  piResidualAccI st [] e args
 
 /-- Interned counterpart of `Expr.pisToLams`. -/
 def pisToLamsI (st : EStore) : Nat → EIdx → EIdx → Option EIdx × EStore
