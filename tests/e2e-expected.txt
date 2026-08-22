@@ -76,3 +76,10 @@
 # a string literal without the pinned support constants is a positively
 # detected unsupported feature: decline, never reject or crash.
 2 str_lit_declined.ndjson
+
+# nested_rec.ndjson: nested inductive with a parameter (task #48) —
+# `Tree.rec_1`'s List.nil/List.cons rules are `.nested`-certified iota
+# rules with an *open* stored parameter instantiation (`Tree α`);
+# `Tree.size`'s below/brecOn machinery only typechecks when they fire,
+# and `size_example`'s rfl fires them on concrete majors.
+0 nested_rec.ndjson
