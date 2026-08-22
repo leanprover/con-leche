@@ -317,7 +317,8 @@ def unfoldDefinitionI (fe : FEnv) (e : EIdx) : CheckIM (Option EIdx) := do
       if us.length = cv.levelParams.length then do
         let v ← constValAtM fe n us
         let args ← withStore (·.getAppArgsI e)
-        some <$> mkAppNM v args
+        let r ← mkAppNM v args
+        pure (some r)
       else pure none
     | _ => pure none
   | _ => pure none
@@ -343,14 +344,18 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
         if c = natSuccName ∧ natLitSupportedF fe then do
           let w ← r.whnf depth b
           match ← withStore (rawNatLitI? · w) with
-          | some n => some <$> internExprM (.lit (.natVal (n + 1)))
+          | some n => do
+            let r ← internExprM (.lit (.natVal (n + 1)))
+            pure (some r)
           | none => pure none
         else if c = natPredName ∧ natOpGuardF fe c = true then do
           let w ← r.whnf depth b
           match ← withStore (rawNatLitI? · w) with
           | some n =>
             match natOpResult c n 0 with
-            | some x => some <$> internExprM x
+            | some x => do
+              let r ← internExprM x
+              pure (some r)
             | none => pure none
           | none => pure none
         else if c = natName.str "log2" ∧ natLitSupportedF fe then do
@@ -376,7 +381,9 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
                 ← withStore (rawNatLitI? · w₂) with
             | some n₁, some n₂ =>
               match natOpResult c n₁ n₂ with
-              | some x => some <$> internExprM x
+              | some x => do
+              let r ← internExprM x
+              pure (some r)
               | none => pure none
             | _, _ => pure none
           else if natOpWfNames.contains c ∧ natLitSupportedF fe then do
@@ -774,8 +781,9 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
                             (resArgs.drop rl.ctorParams)
                             ((args.take mI).drop rP) then do
                           let rhs ← ruleRhsAtM fe c cj us
-                          some <$> mkAppNM rhs
+                          let red ← mkAppNM rhs
                             (args.take rP ++ margs.drop rl.ctorParams)
+                          pure (some red)
                         else pure none
                       | _ => pure none
                     | _, _ => pure none
