@@ -2500,7 +2500,7 @@ theorem substLGo?_spec {st : EStore} :
       by_cases hkn : k = n
       · subst hkn
         refine ⟨fun v hv => ?_, fun hnone => ?_⟩
-        · simp only [substLGo?, if_pos rfl] at hv
+        · simp only [substLGo?] at hv
           cases hv
           simpa [Level.subst.go] using hl
         · simp [substLGo?] at hnone
