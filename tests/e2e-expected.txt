@@ -150,3 +150,9 @@
 # step (task #66); the outer redex additionally exercises the
 # same-head spine shortcut with proof irrelevance on the Acc argument.
 0 subject_reduction_redex.ndjson
+# dag_tower_declined (task #65): a 2^28-node doubling tower
+# (add e e at 27 levels) over the beta-ladder prelude — DAG-shared far
+# beyond the frontend's unshared-tree-size budget; the record is
+# positively declined (the pipeline materializes trees; cf. arena
+# good/perf/app-lam at 2^4000).
+2 dag_tower_declined.ndjson
