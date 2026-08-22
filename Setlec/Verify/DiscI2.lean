@@ -930,7 +930,7 @@ variable {env : Env} {f : Nat}
 
 /-- The interned projection-application spine denotes the spec's
 mapped list. -/
-private theorem projAppsI_eff (T : Name) (us' : List Level) :
+theorem projAppsI_eff (T : Name) (us' : List Level) :
     ∀ (l : List Nat) {s₀ : IState}, ISOK env s₀ →
       ∀ {targs : List EIdx} {xs : List Expr} {b : EIdx} {xb : Expr},
       DenL s₀.store targs xs → s₀.store.denote b = some xb →

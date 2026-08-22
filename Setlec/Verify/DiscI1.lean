@@ -35,6 +35,24 @@ macro "invert_node" hd:ident : tactic => `(tactic| (
         obtain ⟨_, _, hInvEq⟩ := $hd:ident; subst hInvEq))
   | (cases $hd:ident)))
 
+/-- Like `invert_node`, but for a hypothesis whose right-hand side is a
+compound expression (e.g. `some x.getAppFn`): rewrite it backwards
+instead of substituting. -/
+macro "invert_head" hd:ident : tactic => `(tactic| (
+  first
+  | (rw [denoteNode, Option.map_eq_some_iff] at $hd:ident;
+     obtain ⟨_, _, $hd:ident⟩ := $hd:ident; rw [← $hd:ident])
+  | (rw [denoteNode, Option.bind_eq_some_iff] at $hd:ident;
+     obtain ⟨_, _, $hd:ident⟩ := $hd:ident;
+     first
+     | (rw [Option.map_eq_some_iff] at $hd:ident;
+        obtain ⟨_, _, $hd:ident⟩ := $hd:ident; rw [← $hd:ident])
+     | (rw [Option.bind_eq_some_iff] at $hd:ident;
+        obtain ⟨_, _, $hd:ident⟩ := $hd:ident;
+        rw [Option.map_eq_some_iff] at $hd:ident;
+        obtain ⟨_, _, $hd:ident⟩ := $hd:ident; rw [← $hd:ident]))
+  | (rw [← Option.some.inj $hd:ident])))
+
 section Walks
 
 variable {env : Env} {f : Nat}

@@ -204,6 +204,17 @@ protected theorem bind_left {β β' α : Type}
     obtain ⟨hs', hext₂, a, hP, F, hp⟩ := hf s₁ b hs₁ hext₁ hQ v' s' hr
     exact ⟨hs', hext₁.trans hext₂, a, hP, F, hp⟩
 
+/-- Peel a pure value bound on the twin side. -/
+protected theorem bind_pure_left {β β' α : Type}
+    {P : IState → β' → α → Prop} {c : β} {k : β → CheckIM β'}
+    {p : FueledM α}
+    (h : SimAt env s₀ P (k c) p) :
+    SimAt env s₀ P (pure c >>= k) p := by
+  intro v' s' hr
+  apply h v' s'
+  simpa only [Bind.bind, StateT.bind, pure, StateT.pure, Except.pure,
+    Except.bind] using hr
+
 /-- Peel a read (`viewI`): same state, value = the node lookup. -/
 protected theorem view {β α : Type} {P : IState → β → α → Prop}
     {e : EIdx} {k : Option ENode → CheckIM β} {p : FueledM α}

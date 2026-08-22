@@ -726,6 +726,17 @@ def litMajorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
     else pure e
   | _ => litToCtorIfNatI fe e
 
+/-- The interned nested-rule pin instantiations (structural recursion;
+the spec side is `(recFireComparands …).2`'s `List.map`). -/
+def pinArgsI (lps : List Name) (us : List Level) (args : List EIdx)
+    (t : Nat) : List Expr → CheckIM (List EIdx)
+  | [] => pure []
+  | p :: ps => do
+    let pi ← internExprM (p.instantiateLevelParams lps us)
+    let r ← instSpineM args t pi
+    let rs ← pinArgsI lps us args t ps
+    pure (r :: rs)
+
 /-- Twin of `iotaRec`. -/
 def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
     CheckIM (Option EIdx) := do
@@ -763,10 +774,8 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
                       Level.subst cv.levelParams us (.param p)
                 let cmpArgs : List EIdx ←
                   match rl.fire with
-                  | .nested _ pins => pins.mapM fun p => do
-                      let pi ← internExprM
-                        (p.instantiateLevelParams cv.levelParams us)
-                      instSpineM (args.take mI) (mI - 1) pi
+                  | .nested _ pins =>
+                    pinArgsI cv.levelParams us (args.take mI) (mI - 1) pins
                   | _ => pure (args.take rl.ctorParams)
                 if ← liftFueled "level comparison"
                     (Level.isEquivList usj cmpLvls) then do
