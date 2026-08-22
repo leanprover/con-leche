@@ -39,7 +39,8 @@ theorem interpExpr_const_string {cval : ConstVal V}
   obtain ⟨-, ciS, ciO, ciL, ciN, ciC, ciH, ciF, pL, pN, pC, hfS, hfO, hfL,
     hfN, hfC, hfH, hfF, hpS, hpO, hpL, hpN, hpC, hpH, hpF, -⟩ :=
     strLitSupported_inv hs
-  simp [interpExpr, hfS, hpS, Level.substFn_nil]
+  simp only [interpExpr, hfS, List.length_nil, hpS, ↓reduceIte,
+    Level.substFn_nil]
 
 /-- The interpretation of `Char` (given the guard). -/
 theorem interpExpr_const_char {cval : ConstVal V}
@@ -49,7 +50,8 @@ theorem interpExpr_const_char {cval : ConstVal V}
   obtain ⟨-, ciS, ciO, ciL, ciN, ciC, ciH, ciF, pL, pN, pC, hfS, hfO, hfL,
     hfN, hfC, hfH, hfF, hpS, hpO, hpL, hpN, hpC, hpH, hpF, -⟩ :=
     strLitSupported_inv hs
-  simp [interpExpr, hfH, hpH, Level.substFn_nil]
+  simp only [interpExpr, hfH, List.length_nil, hpH, ↓reduceIte,
+    Level.substFn_nil]
 
 /-- The interpretation of `String.ofList` (given the guard). -/
 theorem interpExpr_const_stringOfList {cval : ConstVal V}
@@ -59,7 +61,8 @@ theorem interpExpr_const_stringOfList {cval : ConstVal V}
   obtain ⟨-, ciS, ciO, ciL, ciN, ciC, ciH, ciF, pL, pN, pC, hfS, hfO, hfL,
     hfN, hfC, hfH, hfF, hpS, hpO, hpL, hpN, hpC, hpH, hpF, -⟩ :=
     strLitSupported_inv hs
-  simp [interpExpr, hfO, hpO, Level.substFn_nil]
+  simp only [interpExpr, hfO, List.length_nil, hpO, ↓reduceIte,
+    Level.substFn_nil]
 
 /-- The interpretation of `Char.ofNat` (given the guard). -/
 theorem interpExpr_const_charOfNat {cval : ConstVal V}
@@ -69,7 +72,8 @@ theorem interpExpr_const_charOfNat {cval : ConstVal V}
   obtain ⟨-, ciS, ciO, ciL, ciN, ciC, ciH, ciF, pL, pN, pC, hfS, hfO, hfL,
     hfN, hfC, hfH, hfF, hpS, hpO, hpL, hpN, hpC, hpH, hpF, -⟩ :=
     strLitSupported_inv hs
-  simp [interpExpr, hfF, hpF, Level.substFn_nil]
+  simp only [interpExpr, hfF, List.length_nil, hpF, ↓reduceIte,
+    Level.substFn_nil]
 
 /-- The interpretation of `List.nil.{0} Char` (given the guard). -/
 theorem interpExpr_listNilChar {cval : ConstVal V}
@@ -84,9 +88,10 @@ theorem interpExpr_listNilChar {cval : ConstVal V}
     hfN, hfC, hfH, hfF, hpS, hpO, hpL, hpN, hpC, hpH, hpF, -⟩ :=
     strLitSupported_inv hs
   have hlp : env.levelParamsAt listNilName = ciN.toConstantVal.levelParams := by
-    simp [Env.levelParamsAt, hfN]
+    simp only [Env.levelParamsAt, hfN]
   rw [hlp]
-  simp [interpExpr, hfN, hfH, hpH, hpN, Level.substFn_nil]
+  simp only [interpExpr, hfN, List.length_cons, List.length_nil,
+    Nat.zero_add, hpN, ↓reduceIte, hfH, hpH, Level.substFn_nil]
 
 /-- The interpretation of `List.cons.{0} Char` (given the guard). -/
 theorem interpExpr_listConsChar {cval : ConstVal V}
@@ -101,9 +106,10 @@ theorem interpExpr_listConsChar {cval : ConstVal V}
     hfN, hfC, hfH, hfF, hpS, hpO, hpL, hpN, hpC, hpH, hpF, -⟩ :=
     strLitSupported_inv hs
   have hlp : env.levelParamsAt listConsName = ciC.toConstantVal.levelParams := by
-    simp [Env.levelParamsAt, hfC]
+    simp only [Env.levelParamsAt, hfC]
   rw [hlp]
-  simp [interpExpr, hfC, hfH, hpH, hpC, Level.substFn_nil]
+  simp only [interpExpr, hfC, List.length_cons, List.length_nil,
+    Nat.zero_add, hpC, ↓reduceIte, hfH, hpH, Level.substFn_nil]
 
 /-- The character-list expression interprets to `charListVal` (given
 the guard). -/
@@ -149,9 +155,10 @@ theorem interpExpr_listChar {cval : ConstVal V}
     hfN, hfC, hfH, hfF, hpS, hpO, hpL, hpN, hpC, hpH, hpF, -⟩ :=
     strLitSupported_inv hs
   have hlp : env.levelParamsAt listName = ciL.toConstantVal.levelParams := by
-    simp [Env.levelParamsAt, hfL]
+    simp only [Env.levelParamsAt, hfL]
   rw [listCharVal, hlp]
-  simp [interpExpr, hfL, hfH, hpH, hpL, Level.substFn_nil]
+  simp only [interpExpr, hfL, List.length_cons, List.length_nil,
+    Nat.zero_add, hpL, ↓reduceIte, hfH, hpH, Level.substFn_nil]
 
 /-- The constructor form of a string literal interprets to the
 literal's value (given the guard). -/
@@ -163,7 +170,7 @@ theorem interpExpr_strLitToConstructor {cval : ConstVal V}
   simp only [interpExpr, interpExpr_const_stringOfList hs,
     interpExpr_strLitList hs s.toList]
   rw [strLitVal]
-  simp [Level.substFn_nil]
+  simp only [Level.substFn_nil]
 
 /-! ## Membership facts (environments with a model)
 
@@ -210,7 +217,7 @@ theorem listVal_mem_pi (m : EnvModel V env)
     htL, -⟩ := strLitSupported_inv hs
   obtain ⟨nm, mb, htyL, hcodL⟩ := htL
   have hlp : env.levelParamsAt listName = [pL] := by
-    simp [Env.levelParamsAt, hfL, hpL]
+    simp only [Env.levelParamsAt, hfL, hpL]
   rw [hlp]
   obtain ⟨t, ht, hmem⟩ := m.mem_type _ (find?_mem hfL)
     (Level.substFn φ [pL] [.zero])
@@ -287,9 +294,9 @@ theorem listNilVal_mem_pi (m : EnvModel V env)
     htL, htN, -⟩ := strLitSupported_inv hs
   obtain ⟨nm, mb, htyN, hcodN⟩ := htN
   have hlpN : env.levelParamsAt listNilName = [pN] := by
-    simp [Env.levelParamsAt, hfN, hpN]
+    simp only [Env.levelParamsAt, hfN, hpN]
   have hlpL : env.levelParamsAt listName = [pL] := by
-    simp [Env.levelParamsAt, hfL, hpL]
+    simp only [Env.levelParamsAt, hfL, hpL]
   rw [hlpN, hlpL]
   obtain ⟨t, ht, hmem⟩ := m.mem_type _ (find?_mem hfN)
     (Level.substFn φ [pN] [.zero])
@@ -304,8 +311,9 @@ theorem listNilVal_mem_pi (m : EnvModel V env)
           (Level.substFn (Level.substFn φ [pN] [Level.zero]) [pL]
             [.param pN])) x)) := by
     rw [interpClosed, interpExpr, hcodN]
-    simp [interpExpr, instantiate1, hfL, hpL, updV, Level.eval,
-      Level.substFn]
+    simp only [Level.substFn, Level.eval, interpExpr, ↓reduceIte,
+      Nat.zero_add, instantiate1, hfL, List.length_cons, List.length_nil,
+      hpL, updV, Option.getD_some]
   rw [hIN] at ht
   obtain rfl := Option.some.inj ht
   -- canonicalize the family's `List` instantiation (both send `List`'s
@@ -318,7 +326,7 @@ theorem listNilVal_mem_pi (m : EnvModel V env)
     intro p hp
     simp only [List.mem_singleton] at hp
     subst hp
-    simp [Level.substFn, Level.eval]
+    simp only [Level.substFn, ↓reduceIte, Level.eval]
   rw [hvals] at hmem
   exact hmem
 
@@ -352,9 +360,9 @@ theorem listConsVal_mem_pi (m : EnvModel V env)
     htL, htN, htC, -⟩ := strLitSupported_inv hs
   obtain ⟨nm1, nm2, nm3, mb1, mb2, mb3, htyC, hcod3, hcod2, hcod1⟩ := htC
   have hlpC : env.levelParamsAt listConsName = [pC] := by
-    simp [Env.levelParamsAt, hfC, hpC]
+    simp only [Env.levelParamsAt, hfC, hpC]
   have hlpL : env.levelParamsAt listName = [pL] := by
-    simp [Env.levelParamsAt, hfL, hpL]
+    simp only [Env.levelParamsAt, hfL, hpL]
   rw [hlpC, hlpL]
   obtain ⟨t, ht, hmem⟩ := m.mem_type _ (find?_mem hfC)
     (Level.substFn φ [pC] [.zero])
@@ -369,7 +377,7 @@ theorem listConsVal_mem_pi (m : EnvModel V env)
     intro p hp
     simp only [List.mem_singleton] at hp
     subst hp
-    simp [Level.substFn, Level.eval]
+    simp only [Level.substFn, ↓reduceIte, Level.eval]
   -- the stored type's interpretation, computed
   have hIC : interpClosed V m.val env (Level.substFn φ [pC] [Level.zero])
       (Expr.forallE nm1 (.sort (.succ (.param pC)))
@@ -384,8 +392,10 @@ theorem listConsVal_mem_pi (m : EnvModel V env)
             (Level.substFn (Level.substFn φ [pC] [Level.zero]) [pL]
               [.param pC])) x)))) := by
     rw [interpClosed, interpExpr, hcod1]
-    simp [interpExpr, instantiate1, hcod2, hcod3, hfL, hpL, updV,
-      Level.eval, Level.substFn]
+    simp only [Level.substFn, Level.eval, interpExpr, ↓reduceIte,
+      Nat.zero_add, Nat.succ_ne_self, Std.le_refl, Nat.max_eq_right,
+      instantiate1, Nat.reduceAdd, hcod2, updV, hcod3, hfL, List.length_cons,
+      List.length_nil, hpL, Nat.zero_ne_one, reduceCtorEq, Option.getD_some]
   rw [hIC] at ht
   obtain rfl := Option.some.inj ht
   rw [hvals] at hmem
@@ -504,9 +514,10 @@ theorem interpExpr_const_listNil {cval : ConstVal V}
     hfN, hfC, hfH, hfF, hpS, hpO, hpL, hpN, hpC, hpH, hpF, -⟩ :=
     strLitSupported_inv hs
   have hlp : env.levelParamsAt listNilName = ciN.toConstantVal.levelParams := by
-    simp [Env.levelParamsAt, hfN]
+    simp only [Env.levelParamsAt, hfN]
   rw [hlp]
-  simp [interpExpr, hfN, hpN]
+  simp only [interpExpr, hfN, List.length_cons, List.length_nil,
+    Nat.zero_add, hpN, ↓reduceIte]
 
 /-- The interpretation of the bare `List.cons.{0}` constant (given the
 guard). -/
@@ -519,9 +530,10 @@ theorem interpExpr_const_listCons {cval : ConstVal V}
     hfN, hfC, hfH, hfF, hpS, hpO, hpL, hpN, hpC, hpH, hpF, -⟩ :=
     strLitSupported_inv hs
   have hlp : env.levelParamsAt listConsName = ciC.toConstantVal.levelParams := by
-    simp [Env.levelParamsAt, hfC]
+    simp only [Env.levelParamsAt, hfC]
   rw [hlp]
-  simp [interpExpr, hfC, hpC]
+  simp only [interpExpr, hfC, List.length_cons, List.length_nil,
+    Nat.zero_add, hpC, ↓reduceIte]
 
 /-- The character-list expression carries truthful annotations: every
 application spine slot is semantically well-typed. -/

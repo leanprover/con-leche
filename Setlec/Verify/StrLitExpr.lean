@@ -45,19 +45,19 @@ theorem strLitList_hasFvar : ∀ cs : List Char,
     (strLitList cs).hasFvar = false
   | [] => rfl
   | c :: cs => by
-    simp [strLitList, hasFvar, strLitList_hasFvar cs]
+    simp only [strLitList, hasFvar, Bool.or_self, strLitList_hasFvar cs]
 
 /-- The constructor form of a string literal has no free variables. -/
 theorem strLitToConstructor_hasFvar (s : String) :
     (strLitToConstructor s).hasFvar = false := by
   rw [strLitToConstructor_eq]
-  simp [hasFvar, strLitList_hasFvar s.toList]
+  simp only [hasFvar, strLitList_hasFvar s.toList, Bool.or_self]
 
 theorem strLitList_looseBVarsBounded : ∀ (cs : List Char) (k : Nat),
     (strLitList cs).looseBVarsBounded k = true
   | [], k => rfl
   | c :: cs, k => by
-    simp [strLitList, looseBVarsBounded,
+    simp only [strLitList, looseBVarsBounded, Bool.and_self,
       strLitList_looseBVarsBounded cs k]
 
 /-- The constructor form of a string literal has no loose bound
@@ -65,7 +65,8 @@ variables. -/
 theorem strLitToConstructor_looseBVars (s : String) (k : Nat) :
     (strLitToConstructor s).looseBVarsBounded k = true := by
   rw [strLitToConstructor_eq]
-  simp [looseBVarsBounded, strLitList_looseBVarsBounded s.toList k]
+  simp only [looseBVarsBounded, strLitList_looseBVarsBounded s.toList k,
+    Bool.and_self]
 
 /-- The constructor form of a string literal is well-scoped at every
 depth. -/
@@ -75,16 +76,17 @@ theorem strLitToConstructor_WScoped (s : String) (d : Nat) :
 
 theorem strLitList_fvarLeaves : ∀ cs : List Char,
     (strLitList cs).fvarLeaves = []
-  | [] => by simp [strLitList, fvarLeaves]
+  | [] => by simp only [strLitList, fvarLeaves, List.append_nil]
   | c :: cs => by
-    simp [strLitList, fvarLeaves, strLitList_fvarLeaves cs]
+    simp only [strLitList, fvarLeaves, List.append_nil,
+      strLitList_fvarLeaves cs]
 
 /-- The constructor form of a string literal has no free-variable
 leaves. -/
 theorem strLitToConstructor_fvarLeaves (s : String) :
     (strLitToConstructor s).fvarLeaves = [] := by
   rw [strLitToConstructor_eq]
-  simp [fvarLeaves, strLitList_fvarLeaves s.toList]
+  simp only [fvarLeaves, strLitList_fvarLeaves s.toList, List.append_nil]
 
 /-- The constructor form of a string literal is invariant under
 depth-shifting (it is closed). -/

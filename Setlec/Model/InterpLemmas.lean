@@ -54,27 +54,27 @@ theorem strLitVal_params (hcp : ConstValParams cval env)
   obtain ⟨cv, caps, cv0, i0, j0, cv1, i1, j1, hn, hz, hsc, h1, h2, h3, -⟩ :=
     natLitSupported_inv hnat
   have hNparams : env.levelParamsAt listNilName = [pN] := by
-    simp [Env.levelParamsAt, hfN, hpN]
+    simp only [Env.levelParamsAt, hfN, hpN]
   have hCparams : env.levelParamsAt listConsName = [pC] := by
-    simp [Env.levelParamsAt, hfC, hpC]
-  refine strLitVal_congr V (hcp _ _ hfO _ _ (by simp [hpO])) ?_ ?_
-    (hcp _ _ hfH _ _ (by simp [hpH])) (hcp _ _ hfF _ _ (by simp [hpF]))
-    (hcp _ _ hz _ _ (by simp [ConstantInfo.toConstantVal, h2]))
-    (hcp _ _ hsc _ _ (by simp [ConstantInfo.toConstantVal, h3]))
+    simp only [Env.levelParamsAt, hfC, hpC]
+  refine strLitVal_congr V (hcp _ _ hfO _ _ (by simp only [hpO, List.not_mem_nil, false_implies, implies_true])) ?_ ?_
+    (hcp _ _ hfH _ _ (by simp only [hpH, List.not_mem_nil, false_implies, implies_true])) (hcp _ _ hfF _ _ (by simp only [hpF, List.not_mem_nil, false_implies, implies_true]))
+    (hcp _ _ hz _ _ (by simp only [ConstantInfo.toConstantVal, h2, List.not_mem_nil, false_implies, implies_true]))
+    (hcp _ _ hsc _ _ (by simp only [ConstantInfo.toConstantVal, h3, List.not_mem_nil, false_implies, implies_true]))
   · rw [hNparams]
     refine hcp _ _ hfN _ _ ?_
     rw [hpN]
     intro p hp
     simp only [List.mem_singleton] at hp
     subst hp
-    simp [Level.substFn, Level.eval]
+    simp only [Level.substFn, ↓reduceIte, Level.eval]
   · rw [hCparams]
     refine hcp _ _ hfC _ _ ?_
     rw [hpC]
     intro p hp
     simp only [List.mem_singleton] at hp
     subst hp
-    simp [Level.substFn, Level.eval]
+    simp only [Level.substFn, ↓reduceIte, Level.eval]
 
 /-- Insert `x` at position `p`, shifting the valuation above it. -/
 def insV (ρ : Nat → V) (p : Nat) (x : V) : Nat → V :=
