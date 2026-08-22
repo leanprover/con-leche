@@ -1554,6 +1554,112 @@ throw, ite, the ops atoms, `unwrapOr`, `checkDefEqList`) — `let some
 both `simp` and (at this term size) `split`, so new monad-polymorphic
 kernel functions should prefer `unwrapOr`.
 
+## Interned checking: the hash-consed arena core (2026-08-22, task #26)
+
+The executable core operates on **arena indices**, nanoda's
+expression-pointer design (`nanoda_lib/src/util.rs`: `Ptr` = integer
+index into hash-consing `IndexSet`s; `expr.rs`: nodes carry cached
+hashes and locally-nameless metadata; `TcCache` keyed by pointers).
+Setlec's rendition:
+
+* **Arena** (`Setlec/Kernel/IExpr.lean`): `EStore` = a node table
+  (`Array ENode`, children are `EIdx` indices) plus the cons-table
+  `HashMap ENode EIdx` — structurally equal terms get equal indices,
+  so equality of interned terms is `Nat` comparison and hashing is
+  `O(1)`.  The syntactic operations (`instantiate1I`, `abstract1I`,
+  `instantiateLevelParamsI`, spine/telescope ops, the scope/leaf
+  queries, and the memoized `readbackI`) traverse the DAG with
+  per-call memo tables — shared subterms are visited once, where the
+  `Expr` originals walk trees.
+* **Interned twins** (`Setlec/Kernel/CoreI.lean`): every core body and
+  helper has a hand-written twin over `EIdx` at the concrete monad
+  `CheckIM := StateT IState CheckM`, mirroring its `Core.lean`
+  original clause by clause (same record-call order, same
+  short-circuits; the only extra effects are node views, interning,
+  and cache fills).  `defeq`'s syntactic fast paths compare indices.
+* **State** (`IState`): the arena, id-keyed memo caches for the five
+  entry points (`HashMap EIdx EIdx`, pair-keyed for defeq), and lazy
+  caches for level-instantiated stored constants (`constTyAt`,
+  `constValAt`, `ruleRhsAt`, keyed by name and level list) — repeated
+  delta-unfoldings of the same constant at the same levels stop
+  rebuilding its value.  Lifetime: **one top-level entry-point call**
+  (exactly the old `KCache`'s, and nanoda's per-`TypeChecker`
+  temporary dag) — so the environment is fixed for every cache's
+  lifetime and the bridge invariant stays call-local.
+* **Environment index** (`FEnv`): executable lookups go through a
+  `HashMap Name ConstantInfo` built once per entry call by folding
+  `env.consts` from the back (newest insert wins), which makes the
+  index's lookup function *equal* to `Env.find?` unconditionally
+  (`mkFEnv_find?` — no freshness hypothesis, no invariant threading);
+  the spec `Env.find?` (linear `List.find?` — 913k calls scanning
+  973M list entries per init-prelude run before this change) and the
+  whole Model/Extend stack are untouched.
+* **Entry runners**: each `CheckerOps` entry interns its argument into
+  a fresh arena, runs the interned knot, and reads the result back
+  (`runEntryE`/`runEntryB`/`runEntryS` in `CoreI.lean`); `cachedOps`
+  in `Setlec/Kernel/Checker.lean` is now this instantiation.
+  **Linearity**: the arena and every cache are threaded strictly
+  linearly through the state monad; every mutation detaches the
+  component from the state record before updating (the `memoE`
+  discipline), no `IO.Ref`s, no sharing of a mutable structure across
+  binders.
+
+**The verification seam** (the load-bearing decision).  Three options
+were considered (see the task notes): (1) τ-generic core bodies (views
++ op records, instantiated at `Expr` and at indices, simulation by a
+relational instantiation à la `PairM`) — rejected: it restructures the
+match compilation of every body, which the entire existing proof stack
+(`Model/Core/*`, `Verify/Deep|Disc|InferLemmas|Mono`, claims,
+inversions) reduces through `simp only [XBody, …]` recipes; (2)
+wrapper-level interning (intern at each memo call, bodies stay on
+`Expr`) — rejected: interning is a full tree walk per call, the same
+asymptotic disease as deep hashing (terms are DAGs; pure Lean cannot
+see sharing), so the recursion itself must pass indices; (3)
+**interned twins + a run-by-run denote-simulation** — chosen: purely
+additive, the existing stack is untouched, and the seam sits entirely
+below `CheckerOps` so `BridgeDecl`/`BridgeWfImp`/`BridgeWF`/
+`ConsistencyC`/`Main` do not change at all — only the five
+`cachedOps_*_bridge` lemmas in `Setlec/Verify/Bridge.lean` were
+re-proven against the new definition, with identical statements.
+
+**Faithfulness statement.**  A store is *canonical* when children sit
+below their parents and the cons-table is exactly the node-table graph
+(`EStore.WF`); then the structural denotation `denote : EStore → EIdx
+→ Option Expr` is total on in-range indices and **injective**
+(`denote_inj`) — index equality decides expression equality, which is
+what makes the fast-path index comparisons verdict-preserving.  The
+state invariant `ISOK env s` (`Setlec/Verify/SimI.lean`) carries: the
+arena's `WF`; for each lazy constant cache, that entries denote the
+level-instantiated stored data; and for each entry-point memo the
+`CacheOK` shape transported along `denote` — every entry `i ↦ j` is
+backed by expressions `a, b` with `denote i = some a`, `denote j =
+some b`, and a pure run `∀ d, a.wscopedB d → whnfCore env F d a = .ok
+b` at some fuel (inserts re-use the depth-invariance theorems, hits
+consume at the call's depth — exactly the Expr-level bridge's
+discipline).  The simulation relation `SimAt env s₀ P c p`: every
+successful interned run of `c` from `s₀` preserves `ISOK`, extends the
+arena, and its value is `P`-related (denotation + well-scopedness) to
+a successful run of the fueled computation `p` at some fuel.  One walk
+per twin body (`Setlec/Verify/DiscI1–6.lean`, mirroring the
+`Verify/Disc.lean` walks site by site), five memo-wrapper steps
+(`SimIKnot.lean`), one knot induction (`ssimI`, `BridgeI.lean`), and
+three entry-runner bridges close the loop; the consistency layer
+(`checkDeclsC_sound`, `no_proof_of_Empty_C`,
+`no_proof_of_Empty_input_C`) keeps exactly its statements.
+
+**Deferred follow-ups** (validated by the 2026-08-22 performance
+audit, in expected-value order): intra-declaration cache sharing (one
+`IState` threaded through a declaration's phases — measured −30 %
+relative on the Expr-level prototype; needs an env-stamp discipline
+across `checkDecl`'s provisional environments, whose proof lands in
+the `BridgeWfImp` walks); Level/`BinderMeta.cod` interning (after the
+env index the profile is dominated by `Level.decEq` — requires
+level-ids inside `ENode`, i.e. reworking `Verify/IExpr.lean`);
+parse-time interning with a persistent per-run store (nanoda's
+export-file dag; entry calls currently intern their argument tree
+each time); per-node cached scope data (loose-bvar bound, fvar range)
+in the arena; a defeq failure cache.
+
 ## init-prelude milestone and the lean4lean comparison (2026-08-22)
 
 The full preprocessed `Init.Prelude` stream is accepted end to end:

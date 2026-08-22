@@ -2,6 +2,7 @@ import Setlec.Kernel.Env
 import Setlec.Kernel.StdAxioms
 import Setlec.Kernel.TypeChecker
 import Setlec.Kernel.TypeCheckerC
+import Setlec.Kernel.CoreI
 import Setlec.Kernel.DivModPins
 
 /-!
@@ -41,15 +42,20 @@ def fueledOps (F : Nat) : CheckerOps CheckM where
 /-- The pure instantiation, at the standard fuel. -/
 def pureOps : CheckerOps CheckM := fueledOps checkFuel
 
-/-- The memoized instantiation, at the standard fuel; each call starts
-from a fresh cache (the environment differs between calls). -/
+/-- The *interned* executable instantiation, at the standard fuel; each
+entry call interns its argument into a fresh arena, runs the id-keyed
+memoized interned knot (`Setlec/Kernel/CoreI.lean`), and reads the
+result back — cache lifetime is exactly the old `KCache`'s (one entry
+call, fixed environment).  Faithfulness: `Setlec/Verify/BridgeI.lean`,
+consumed by the `cachedOps_*_bridge` lemmas in
+`Setlec/Verify/Bridge.lean` — everything above them (the declaration
+checker bridge and the consistency layer) is untouched. -/
 def cachedOps : CheckerOps CheckM where
-  annotate env d e := ((cachedFns env checkFuel).annotate d e).run' {}
-  inferType env d e := ((cachedFns env checkFuel).infer d e).run' {}
-  isDefEq env d a b := ((cachedFns env checkFuel).defeq d a b).run' {}
-  ensureSort env d e :=
-    (ensureSort (cachedFns env checkFuel) env d e).run' {}
-  whnf env d e := ((cachedFns env checkFuel).whnf d e).run' {}
+  annotate env d e := runEntryE env (fun r => r.annotate) d e
+  inferType env d e := runEntryE env (fun r => r.infer) d e
+  isDefEq env d a b := runEntryB env d a b
+  ensureSort env d e := runEntryS env d e
+  whnf env d e := runEntryE env (fun r => r.whnf) d e
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
