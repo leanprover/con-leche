@@ -2055,3 +2055,38 @@ binder *opening* (`fvar` substitution when descending under λ/∀ in
 infer/defeq/annotate, one pass per binder) — batching those needs
 lean4lean's `inferLambda`-style telescope loops across knot bodies, a
 follow-up of the same shape as the beta loop.
+
+## Testing: asymptotic scalability harness (2026-08-22, task #56)
+
+`tests/scale.sh` catches superlinear checker behavior with doubling-n
+growth tests.  `tests/scale/gen.py SHAPE N` emits self-contained
+export-format streams (ndjson 3.1.0, like `tests/e2e/*`), one shape per
+subsystem:
+
+* `chain` — n defs `d_i : Type := d_{i-1}` plus `top : d_n :=
+  ∀ p : Prop, p → p`, whose check forces the full n-step delta chain
+  (env growth + unfold path);
+* `spine` — `f : Prop → … → Prop` (n arrows) applied to n arguments
+  (application-spine walking, Π stepping);
+* `many` — n independent tiny defs (env insertion / per-decl setup);
+* `telescope` — one def with a dependent Π/λ telescope of depth n
+  (binder opening and instantiation).
+
+The runner measures retired instructions (`perf stat`; wall-time
+fallback), subtracts a measured 1-decl startup baseline (basis install,
+~0.4 G instructions), and fits the growth exponent between successive
+doublings; a shape PASSes iff the largest-step exponent is ≤ 1.3
+(expected ~1.0 when healthy).  Deliberately **not** part of
+`lake test` — run manually or as an optional CI job.
+
+First measurement (2026-08-22, all four shapes FAIL — findings, not
+yet fixed): `chain` 1.89 and `many` 1.88 (quadratic: `mkFEnv` rebuilds
+the whole name-index `HashMap` from `env.consts` on every top-level
+entry call, `Setlec/Kernel/CoreI.lean`); `spine` 2.72 and `telescope`
+2.64 (cubic-ish: profiles are dominated by structural `Level`
+hashing/equality — inferring a depth-k telescope/spine builds
+O(k)-deep `imax` level trees, and every hash-cons/memo touch of a
+`sort`/`const` node re-hashes them, an O(n) factor on top of the
+per-binder walks).  These corroborate the performance-roadmap items
+(memoize infer/whnf/defeq, incremental env index, interned levels);
+re-run the harness after each to watch the exponents drop.
