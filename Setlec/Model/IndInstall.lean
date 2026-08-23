@@ -2590,7 +2590,6 @@ theorem modeled_bottom_plain
     {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat) {ψ : Name → Nat}
     {f : Name → Name}
     (hro : RenameOk m₀.val env₀ f)
-    (hcvp : ConstValParams m₀.val env₀)
     -- the recursor, its public entry and its model
     {R : Name} {lps : List Name} {tyA : Expr} {mI rP : Nat}
     {ciR cim : ConstantInfo}
@@ -3864,6 +3863,143 @@ theorem modeled_bottom_plain
             (fvsP.take cnP ++ xFvsP)])) = some vl := by
     rw [hbLI, hvlfold, hvhead]
     exact congrArg some (congrArg _ hlvalsRebuild.symm)
-  sorry
+  -- ===== S5: the right side is the applied rule =====
+  have hWapp : ∀ (zs : List Expr) (h : Expr),
+      WScoped (rP + cnF) h →
+      (∀ x ∈ zs, WScoped (rP + cnF) x) →
+      WScoped (rP + cnF) (Expr.mkAppN h zs) := by
+    intro zs
+    induction zs with
+    | nil => intro h hh _; exact hh
+    | cons x zs ih =>
+      intro h hh hxs
+      show WScoped _ (Expr.mkAppN (.app h x) zs)
+      refine ih _ ?_ (fun y hy => hxs y (List.mem_cons_of_mem _ hy))
+      simp only [WScoped]
+      exact ⟨hh, hxs x List.mem_cons_self⟩
+  have hbapp : ∀ (zs : List Expr) (h : Expr),
+      h.looseBVarsBounded 0 = true →
+      (∀ x ∈ zs, x.looseBVarsBounded 0 = true) →
+      (Expr.mkAppN h zs).looseBVarsBounded 0 = true := by
+    intro zs
+    induction zs with
+    | nil => intro h hh _; exact hh
+    | cons x zs ih =>
+      intro h hh hxs
+      show (Expr.mkAppN (.app h x) zs).looseBVarsBounded 0 = true
+      refine ih _ ?_ (fun y hy => hxs y (List.mem_cons_of_mem _ hy))
+      simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
+      exact ⟨hh, hxs x List.mem_cons_self⟩
+  have hlapp : ∀ (zs : List Expr) (h : Expr) {l},
+      l ∈ (Expr.mkAppN h zs).fvarLeaves →
+      l ∈ h.fvarLeaves ∨ ∃ x ∈ zs, l ∈ x.fvarLeaves := by
+    intro zs
+    induction zs with
+    | nil => intro h l hl; exact Or.inl hl
+    | cons x zs ih =>
+      intro h l hl
+      rcases ih (.app h x) hl with hl' | ⟨y, hy, hly⟩
+      · simp only [fvarLeaves, List.mem_append] at hl'
+        rcases hl' with hl' | hl'
+        · exact Or.inl hl'
+        · exact Or.inr ⟨x, List.mem_cons_self, hl'⟩
+      · exact Or.inr ⟨y, List.mem_cons_of_mem _ hy, hly⟩
+  -- the rule tower's walk at the public frame
+  have hspPX : FvarSpine (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) (fvsP ++ xFvsP) xs := by
+    have h := FvarSpine.append hspP hspX
+    rwa [List.take_append_drop] at h
+  have hWfull : ∀ a ∈ fvsP ++ xFvsP, WScoped (rP + cnF) a := by
+    intro a ha
+    rcases List.mem_append.mp ha with ha | ha
+    · exact hwsP a ha
+    · exact hwsX a ha
+  have hΘfull : ∀ a ∈ fvsP ++ xFvsP,
+      FvarsOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) a := by
+    intro a ha
+    rcases List.mem_append.mp ha with ha | ha
+    · exact hΘP a ha
+    · exact hΘX a ha
+  have hLfull : ∀ a ∈ fvsP ++ xFvsP, Expr.LeavesBounded a := by
+    intro a ha
+    rcases List.mem_append.mp ha with ha | ha
+    · exact (hfvsPWf a ha).2.2
+    · exact hLsX a ha
+  have hArhsW : AnnotOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) rhsA :=
+    AnnotOk.closed_invariant hrhsw _ _ hArhs
+  obtain ⟨L0, hL0c⟩ := hIrhs
+  have hL0 : interpExpr V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) rhsA = some L0 := by
+    rw [interp_closed_invariant hrhsw _ _]
+    exact hL0c
+  have hfitLam := lam_walk m₀ F hlinst hdeLam hspPX hWfull hΘfull
+    hLfull (WScoped.of_not_hasFvar hrhsw) hrhsb
+    (Expr.LeavesBounded.of_not_hasFvar hrhsw)
+    (FvarsOk.of_not_hasFvar hrhsw) hArhsW ⟨L0, hL0⟩
+  obtain ⟨Bf, hBfI, hBfold, hchainL2⟩ := TeleFitLam.fold hfitLam
+    hArhsW hL0
+  -- the applied renamed rule at the theorem frame
+  have hrhsRw : (rhsA.renameConsts f).hasFvar = false := by
+    rw [hasFvar_renameConsts]
+    exact hrhsw
+  have hArhsRen : AnnotOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) (rhsA.renameConsts f) :=
+    AnnotOk.closed_invariant hrhsRw _ _
+      (AnnotOk.renameConsts hro rhsA 0 (rho0 V) hArhs)
+  have hLren : interpExpr V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty)
+      (rhsA.renameConsts f) = some L0 := by
+    rw [interp_renameConsts hro]
+    exact hL0
+  have hfvsA : ∀ x ∈ fvs, AnnotOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) x := by
+    intro x hx
+    obtain ⟨i, n, t, rfl⟩ := hfvsShapes x hx
+    simp [AnnotOk]
+  obtain ⟨hAappF, hIappF⟩ := annotOk_spine fvs (rhsA.renameConsts f)
+    hArhsRen hLren hfvsA (InterpSpine_of_FvarSpine hspW) hchainL2
+  -- side conditions for the statement's right side
+  have hΘfvs : ∀ a ∈ fvs,
+      FvarsOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) a := by
+    intro a ha
+    rw [← List.take_append_drop rP fvs] at ha
+    rcases List.mem_append.mp ha with ha | ha
+    · exact hΘpre a ha
+    · exact hΘx a ha
+  have hWappF : WScoped (rP + cnF)
+      (Expr.mkAppN (rhsA.renameConsts f) fvs) :=
+    hWapp fvs _ (WScoped.of_not_hasFvar hrhsRw) hfvsW
+  have hbappF : (Expr.mkAppN (rhsA.renameConsts f)
+      fvs).looseBVarsBounded 0 = true := by
+    refine hbapp fvs _ ?_ (FvarSpine.bounded hspW)
+    rw [looseBVarsBounded_renameConsts]
+    exact hrhsb
+  have hLappF : Expr.LeavesBounded
+      (Expr.mkAppN (rhsA.renameConsts f) fvs) := by
+    intro l hl
+    rcases hlapp fvs _ hl with hl' | ⟨x, hx, hlx⟩
+    · rw [fvarLeaves_eq_nil_of_not_hasFvar hrhsRw] at hl'
+      cases hl'
+    · exact (hfvsWf x hx).2.2 l hlx
+  have hFappF : FvarsOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty)
+      (Expr.mkAppN (rhsA.renameConsts f) fvs) := by
+    intro l hl
+    rcases hlapp fvs _ hl with hl' | ⟨x, hx, hlx⟩
+    · rw [fvarLeaves_eq_nil_of_not_hasFvar hrhsRw] at hl'
+      cases hl'
+    · exact hΘfvs x hx l hlx
+  have hvrFold : vr = SpineFold V L0 xs :=
+    isDefEqCore_sound m₀ F hdeRhs hWrhsS hWappF hbrhsS hbappF hLrhsS
+      hLappF hFrhsS hFappF hArhsS hAappF hir hIappF
+  -- ===== S6: conclusion =====
+  refine ⟨⟨vl, hbLvl, ?_⟩, hAbL⟩
+  intro e hee
+  rw [interp_erasedEq hee _ _, hBfI]
+  refine congrArg some ?_
+  rw [← hBfold, ← hvrFold, ← hvlvr]
 
 end Setlec
