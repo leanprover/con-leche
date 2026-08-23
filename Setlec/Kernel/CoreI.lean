@@ -244,12 +244,6 @@ structure IState where
   lsimpC : EStore.LMemo := {}
   lnzC : Std.HashMap LIdx Bool := {}
   eqvC : Std.HashMap (LIdx × LIdx) Bool := {}
-  bvarB : EStore.BMemo := {}
-  /-- The persistent per-node fvar-range cache (task #86, the mirror
-  of `bvarB`): the least `d` with `fvarsBelow d` for a node.  Like the
-  bound, the range depends only on the node's immutable sub-DAG, so
-  the cache survives arena extension and every flush. -/
-  fvarB : EStore.BMemo := {}
 
 instance : Inhabited IState := ⟨{}⟩
 
@@ -293,36 +287,23 @@ def internExprM (x : Expr) : CheckIM EIdx :=
     let (i, store) := store.internExprFast x
     (i, { s with store := store })
 
-/-- The persistent loose-bvar-bound cache (task #72): the least `k`
-with `looseBVarsBounded k` for a node.  The bound depends only on the
-node's immutable sub-DAG, so the cache survives arena extension and
-every node is bounded at most once per run. -/
+/-- The per-node loose-bvar bound — an `O(1)` read of the eager
+derived-field array (tasks #72/#87). -/
 def bvarBoundM (e : EIdx) : CheckIM Nat :=
-  modifyGet fun s =>
-    let bm := s.bvarB
-    let s := { s with bvarB := {} }
-    let (b, memo) := EStore.bvarBoundIGo s.store bm e
-    (b, { s with bvarB := memo })
+  withStore (fun st => st.bvarBoundD e)
 
 /-- Memoized interned `Expr.instantiate1`; the identity — same index —
 when the target has no loose bvar at or above the cursor (task #72's
-scope shortcut; on a canonical arena the traversal would rebuild the
-same index node by node). -/
+scope shortcut, an `O(1)` eager-array read since task #87; on a
+canonical arena the traversal would rebuild the same index node by
+node). -/
 def inst1M (e v : EIdx) (d : Nat := 0) : CheckIM EIdx :=
   modifyGet fun s =>
-    let bm := s.bvarB
-    let s := { s with bvarB := {} }
-    let r := EStore.bvarBoundIGo s.store bm e
-    let s : IState := { s with bvarB := r.2 }
-    if r.1 ≤ d then (e, s)
+    if s.store.bvarBoundD e ≤ d then (e, s)
     else
-      let bm := s.bvarB
-      let s := { s with bvarB := {} }
-      let bm := EStore.bvarBoundsLGo s.store bm [v]
-      let s : IState := { s with bvarB := bm }
       let store := s.store
       let s := { s with store := EStore.empty }
-      let (r', store) := store.instantiate1I e v d bm
+      let (r', store) := store.instantiate1I e v d
       (r', { s with store := store })
 
 /-- Memoized interned `Expr.instantiateList` (bulk instantiation,
@@ -330,19 +311,11 @@ task #50); identity shortcut as in `inst1M` (task #72). -/
 def instListM (e : EIdx) (vs : List EIdx) (d : Nat := 0) :
     CheckIM EIdx :=
   modifyGet fun s =>
-    let bm := s.bvarB
-    let s := { s with bvarB := {} }
-    let r := EStore.bvarBoundIGo s.store bm e
-    let s : IState := { s with bvarB := r.2 }
-    if r.1 ≤ d then (e, s)
+    if s.store.bvarBoundD e ≤ d then (e, s)
     else
-      let bm := s.bvarB
-      let s := { s with bvarB := {} }
-      let bm := EStore.bvarBoundsLGo s.store bm vs
-      let s : IState := { s with bvarB := bm }
       let store := s.store
       let s := { s with store := EStore.empty }
-      let (r', store) := store.instantiateListI e vs d bm
+      let (r', store) := store.instantiateListI e vs d
       (r', { s with store := store })
 
 /-- Memoized interned `Expr.abstract1`. -/
@@ -355,21 +328,15 @@ def abstract1M (e : EIdx) (d : Nat) : CheckIM EIdx :=
 
 /-- Memoized interned `Expr.abstractRange` (bulk abstraction,
 task #72); the identity — same index — when the target has no fvar at
-or above the range base (task #86's fvar-range shortcut, mirroring
-`inst1M`; the root's range walk fills the persistent cache for the
-whole sub-DAG, so the traversal prunes at every fvar-free node). -/
+or above the range base (task #86's fvar-range shortcut, an `O(1)`
+eager-array read since task #87, mirroring `inst1M`). -/
 def abstractRangeM (e : EIdx) (d k : Nat) : CheckIM EIdx :=
   modifyGet fun s =>
-    let fm := s.fvarB
-    let s := { s with fvarB := {} }
-    let r := EStore.fvarRangeIGo s.store fm e
-    let s : IState := { s with fvarB := r.2 }
-    if r.1 ≤ d then (e, s)
+    if s.store.fvarRangeD e ≤ d then (e, s)
     else
-      let fm := s.fvarB
       let store := s.store
       let s := { s with store := EStore.empty }
-      let (r', store) := store.abstractRangeI e d k 0 fm
+      let (r', store) := store.abstractRangeI e d k 0
       (r', { s with store := store })
 
 /-- Interned `Expr.mkAppN`. -/
@@ -380,33 +347,24 @@ def mkAppNM (f : EIdx) (args : List EIdx) : CheckIM EIdx :=
     let (r, store) := store.mkAppNI f args
     (r, { s with store := store })
 
-/-- Interned `Expr.instSpine` (per-node bound shortcut: the root's
-bound walk fills the persistent cache for the whole sub-DAG, task
-#84). -/
+/-- Interned `Expr.instSpine` (per-node bound shortcut through the
+eager derived-field array, tasks #84/#87). -/
 def instSpineM (args : List EIdx) (t : Nat) (e : EIdx) :
     CheckIM EIdx :=
   modifyGet fun s =>
-    let bm := s.bvarB
-    let s := { s with bvarB := {} }
-    let bm := EStore.bvarBoundsLGo s.store bm (e :: args)
-    let s : IState := { s with bvarB := bm }
     let store := s.store
     let s := { s with store := EStore.empty }
-    let (r', store) := store.instSpineI args t e bm
+    let (r', store) := store.instSpineI args t e
     (r', { s with store := store })
 
 /-- Interned `Expr.piResidual`/`Expr.instPis` (per-node bound
-shortcut as in `instSpineM`, task #84). -/
+shortcut as in `instSpineM`, tasks #84/#87). -/
 def piResidualM (e : EIdx) (args : List EIdx) :
     CheckIM (Option EIdx) :=
   modifyGet fun s =>
-    let bm := s.bvarB
-    let s := { s with bvarB := {} }
-    let bm := EStore.bvarBoundsLGo s.store bm (e :: args)
-    let s : IState := { s with bvarB := bm }
     let store := s.store
     let s := { s with store := EStore.empty }
-    let (r', store) := store.piResidualI e args bm
+    let (r', store) := store.piResidualI e args
     (r', { s with store := store })
 
 /-- Interned `Expr.pisToLams`. -/

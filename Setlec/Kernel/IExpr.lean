@@ -70,38 +70,100 @@ inductive ENode where
   | proj (structName : Name) (idx : Nat) (e : EIdx)
   deriving DecidableEq, Repr, Inhabited, Hashable
 
+/-! ### Eager derived per-node fields (task #87)
+
+Each node carries derived data computed at intern time from its
+children's already-present entries (the arena is append-only and
+children are interned before parents, so the recurrence reads are
+`O(1)` `Array.getD`s).  The fields live in parallel arrays beside
+`nodes` — a derived field is a function of the cons key and must not
+pollute the node (or its hash).  Current fields: the loose-bvar
+*bound* (least `k` with `looseBVarsBounded k`; instantiation at or
+above the bound is the identity — nanoda's per-node `num_loose_bvars`,
+tasks #72/#84) and the fvar *range* (max fvar index + 1, `0` =
+fvar-free, `fvar` type annotations not descended — matching the
+abstraction traversals; abstraction at or above the range is the
+identity, task #86). -/
+
+/-- The loose-bvar-bound recurrence of one node over its children's
+entries (`bs` is the bound array; children of a stored node are in
+range, so the `getD` default is never hit on well-formed stores). -/
+@[inline] def ENode.bvarBoundOf (bs : Array Nat) : ENode → Nat
+  | .bvar i => i + 1
+  | .fvar _ _ _ | .sort _ | .const _ _ | .lit _ => 0
+  | .app f a => max (bs.getD f 0) (bs.getD a 0)
+  | .lam _ ty body _ | .forallE _ ty body _ =>
+    max (bs.getD ty 0) (bs.getD body 0 - 1)
+  | .letE _ ty val body =>
+    max (max (bs.getD ty 0) (bs.getD val 0)) (bs.getD body 0 - 1)
+  | .proj _ _ sub => bs.getD sub 0
+
+/-- The fvar-range recurrence of one node over its children's entries
+(`fvar` type annotations are not descended, matching the abstraction
+traversals). -/
+@[inline] def ENode.fvarRangeOf (fs : Array Nat) : ENode → Nat
+  | .fvar idx _ _ => idx + 1
+  | .bvar _ | .sort _ | .const _ _ | .lit _ => 0
+  | .app f a => max (fs.getD f 0) (fs.getD a 0)
+  | .lam _ ty body _ | .forallE _ ty body _ =>
+    max (fs.getD ty 0) (fs.getD body 0)
+  | .letE _ ty val body =>
+    max (max (fs.getD ty 0) (fs.getD val 0)) (fs.getD body 0)
+  | .proj _ _ sub => fs.getD sub 0
+
 /-- The interning arena: the expression node table (index = position)
-with its cons-table, and the level node table with its cons-table.
+with its cons-table, the level node table with its cons-table, and the
+eager derived-field arrays kept congruent with `nodes` (task #87).
 Invariant (stated and maintained in `Setlec/Verify/IExpr.lean`):
 children of a node are strictly smaller indices, level references of
-expression nodes are in range, and each cons-table is exactly the graph
-of its node table. -/
+expression nodes are in range, each cons-table is exactly the graph
+of its node table, and each derived-field array has one entry per node
+satisfying its recurrence. -/
 structure EStore where
   nodes : Array ENode
   cons : Std.HashMap ENode EIdx
   lnodes : Array LNode
   lcons : Std.HashMap LNode LIdx
+  /-- Eager per-node loose-bvar bound (`bvarBs.size = nodes.size`). -/
+  bvarBs : Array Nat
+  /-- Eager per-node fvar range (`fvarBs.size = nodes.size`). -/
+  fvarBs : Array Nat
 
 namespace EStore
 
 /-- The empty arena. -/
-def empty : EStore := ⟨#[], {}, #[], {}⟩
+def empty : EStore := ⟨#[], {}, #[], {}, #[], #[]⟩
 
 instance : Inhabited EStore := ⟨empty⟩
 
 /-- Intern one node: the existing index when the node is already in the
-cons-table, else the next fresh index (pushing the node and recording it).
-The store is destructured before updating so the node table and the
-cons-table are uniquely referenced during `push`/`insert` (avoiding
-whole-table copies). -/
+cons-table, else the next fresh index (pushing the node and recording it,
+and pushing its derived-field entries computed from the children's).
+The store is destructured before updating so the tables are uniquely
+referenced during `push`/`insert` (avoiding whole-table copies). -/
 def intern (st : EStore) (n : ENode) : EIdx × EStore :=
   match st.cons[n]? with
   | some i => (i, st)
   | none =>
     match st with
-    | ⟨nodes, cons, lnodes, lcons⟩ =>
+    | ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs⟩ =>
       let i := nodes.size
-      (i, ⟨nodes.push n, cons.insert n i, lnodes, lcons⟩)
+      let bb := n.bvarBoundOf bvarBs
+      let fb := n.fvarRangeOf fvarBs
+      (i, ⟨nodes.push n, cons.insert n i, lnodes, lcons,
+        bvarBs.push bb, fvarBs.push fb⟩)
+
+/-- The eager per-node loose-bvar bound (task #87): the least `k` with
+`looseBVarsBounded k` for the node's denotation; `0` (also the
+out-of-range default) means bvar-closed. -/
+@[inline] def bvarBoundD (st : EStore) (e : EIdx) : Nat :=
+  st.bvarBs.getD e 0
+
+/-- The eager per-node fvar range (task #87): max fvar index + 1 of
+the node's denotation (annotations not descended); `0` (also the
+out-of-range default) means fvar-free. -/
+@[inline] def fvarRangeD (st : EStore) (e : EIdx) : Nat :=
+  st.fvarBs.getD e 0
 
 /-- Intern one level node (the level-table analog of `intern`). -/
 def internL (st : EStore) (n : LNode) : LIdx × EStore :=
@@ -109,9 +171,9 @@ def internL (st : EStore) (n : LNode) : LIdx × EStore :=
   | some i => (i, st)
   | none =>
     match st with
-    | ⟨nodes, cons, lnodes, lcons⟩ =>
+    | ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs⟩ =>
       let i := lnodes.size
-      (i, ⟨nodes, cons, lnodes.push n, lcons.insert n i⟩)
+      (i, ⟨nodes, cons, lnodes.push n, lcons.insert n i, bvarBs, fvarBs⟩)
 
 /-- Intern a whole level bottom-up. -/
 def internLevel (st : EStore) : Level → LIdx × EStore
@@ -547,71 +609,19 @@ the operation returns the child unchanged — garbage in, garbage out; the
 verification only speaks about well-formed stores).
 -/
 
-/-- Dense per-node `Nat` cache (task #78; used for the loose-bvar
-bound and, task #86, the fvar range): on binder-heavy DAG input such a
-cache acquires an entry for essentially every arena node, so it is a
-plain array indexed by node id (slot = value + 1, `0` = unfilled;
-geometric growth) instead of a hash map — ~6x smaller per entry and
-`O(1)` without hashing. -/
-structure BMemo where
-  arr : Array Nat
-
-namespace BMemo
-
-/-- The empty cache. -/
-def empty : BMemo := ⟨#[]⟩
-
-instance : EmptyCollection BMemo := ⟨empty⟩
-instance : Inhabited BMemo := ⟨empty⟩
-
-/-- Cached bound of a node, if filled. -/
-def get? (m : BMemo) (e : EIdx) : Option Nat :=
-  match m.arr[e]? with
-  | some (b + 1) => some b
-  | _ => none
-
-/-- Record a node's bound (growing geometrically so the amortized cost
-per insert is `O(1)`). -/
-def insert (m : BMemo) (e : EIdx) (b : Nat) : BMemo :=
-  let arr := if e < m.arr.size then m.arr
-    else m.arr ++ Array.replicate (e + 1) 0
-  ⟨arr.set! e (b + 1)⟩
-
-/-- Number of slots (diagnostics only). -/
-def size (m : BMemo) : Nat := m.arr.size
-
-/-- Whether the cached bound certifies that a traversal at binder
-cursor `d` leaves node `e` unchanged (`bound ≤ d`: no loose bvar at or
-above the cursor).  `false` when the node is not in the cache — the
-traversal then proceeds structurally (nanoda's per-node
-`num_loose_bvars` shortcut, task #84). -/
-@[inline] def cutoff (m : BMemo) (e : EIdx) (d : Nat) : Bool :=
-  -- slot encoding: 0 = unfilled, b + 1 = bound b.  Read through `getD`
-  -- (no `Option` allocation; this runs once per traversal node).
-  let s := m.arr.getD e 0
-  0 < s && s ≤ d + 1
-
-/-- Whether the node's bound is cached (slot nonzero; allocation-free
-like `cutoff`). -/
-@[inline] def covers (m : BMemo) (e : EIdx) : Bool :=
-  m.arr.getD e 0 != 0
-
-end BMemo
-
 /-- Memo table for index→index traversals with a `Nat` cursor. -/
 abbrev MemoN := Std.HashMap (EIdx × Nat) EIdx
 
 /-- Core of `instantiate1I`; `v` is the replacement index, `d` the
-binder depth cursor (mirrors `Expr.instantiate1 e v d`).  `bm` is a
-read-only view of the persistent loose-bvar-bound cache: a node whose
-cached bound is at or below the cursor has no loose bvar the
+binder depth cursor (mirrors `Expr.instantiate1 e v d`).  A node whose
+eager bound entry is at or below the cursor has no loose bvar the
 substitution could touch, so it is returned unchanged without
 traversal (nanoda's per-node `num_loose_bvars <= offset` shortcut,
-task #84; on a canonical arena the traversal would rebuild the same
-index node by node). -/
-def instantiate1IGo (v : EIdx) (st : EStore) (bm : BMemo) (memo : MemoN)
+tasks #84/#87; on a canonical arena the traversal would rebuild the
+same index node by node). -/
+def instantiate1IGo (v : EIdx) (st : EStore) (memo : MemoN)
     (e : EIdx) (d : Nat) : EIdx × EStore × MemoN :=
-  if bm.cutoff e d then (e, st, memo) else
+  if st.bvarBoundD e ≤ d then (e, st, memo) else
   match memo[(e, d)]? with
   | some r => (r, st, memo)
   | none =>
@@ -631,37 +641,37 @@ def instantiate1IGo (v : EIdx) (st : EStore) (bm : BMemo) (memo : MemoN)
         | .const _ _ => (e, st, memo)
         | .app f a =>
           if _h : f < e ∧ a < e then
-            let (f', st, memo) := instantiate1IGo v st bm memo f d
-            let (a', st, memo) := instantiate1IGo v st bm memo a d
+            let (f', st, memo) := instantiate1IGo v st memo f d
+            let (a', st, memo) := instantiate1IGo v st memo a d
             let (r, st) := st.intern (.app f' a')
             (r, st, memo)
           else (e, st, memo)
         | .lam n ty body m =>
           if _h : ty < e ∧ body < e then
-            let (ty', st, memo) := instantiate1IGo v st bm memo ty d
-            let (body', st, memo) := instantiate1IGo v st bm memo body (d + 1)
+            let (ty', st, memo) := instantiate1IGo v st memo ty d
+            let (body', st, memo) := instantiate1IGo v st memo body (d + 1)
             let (r, st) := st.intern (.lam n ty' body' m)
             (r, st, memo)
           else (e, st, memo)
         | .forallE n ty body m =>
           if _h : ty < e ∧ body < e then
-            let (ty', st, memo) := instantiate1IGo v st bm memo ty d
-            let (body', st, memo) := instantiate1IGo v st bm memo body (d + 1)
+            let (ty', st, memo) := instantiate1IGo v st memo ty d
+            let (body', st, memo) := instantiate1IGo v st memo body (d + 1)
             let (r, st) := st.intern (.forallE n ty' body' m)
             (r, st, memo)
           else (e, st, memo)
         | .letE n ty val body =>
           if _h : ty < e ∧ val < e ∧ body < e then
-            let (ty', st, memo) := instantiate1IGo v st bm memo ty d
-            let (val', st, memo) := instantiate1IGo v st bm memo val d
-            let (body', st, memo) := instantiate1IGo v st bm memo body (d + 1)
+            let (ty', st, memo) := instantiate1IGo v st memo ty d
+            let (val', st, memo) := instantiate1IGo v st memo val d
+            let (body', st, memo) := instantiate1IGo v st memo body (d + 1)
             let (r, st) := st.intern (.letE n ty' val' body')
             (r, st, memo)
           else (e, st, memo)
         | .lit _ => (e, st, memo)
         | .proj s i sub =>
           if _h : sub < e then
-            let (sub', st, memo) := instantiate1IGo v st bm memo sub d
+            let (sub', st, memo) := instantiate1IGo v st memo sub d
             let (r, st) := st.intern (.proj s i sub')
             (r, st, memo)
           else (e, st, memo)
@@ -672,9 +682,9 @@ decreasing_by all_goals (apply Prod.Lex.left; first | exact _h.1 | exact _h.2.1 
 /-- Interned counterpart of `Expr.instantiate1 e v d`: replace `bvar d`
 by `v` (which must denote a `bvar`-closed expression; it is not shifted),
 lowering loose `bvar`s above `d` by one. -/
-def instantiate1I (st : EStore) (e v : EIdx) (d : Nat := 0)
-    (bm : BMemo := {}) : EIdx × EStore :=
-  let (r, st, _) := instantiate1IGo v st bm {} e d
+def instantiate1I (st : EStore) (e v : EIdx) (d : Nat := 0) :
+    EIdx × EStore :=
+  let (r, st, _) := instantiate1IGo v st {} e d
   (r, st)
 
 /-- Memo table for the bulk-instantiation traversal, keyed by the node
@@ -693,13 +703,13 @@ fold's semantics on open replacements; on `bvar`-closed replacements
 (every call site) that recursion is the identity, memoized like any
 other node.  `k > vs.size` (never produced by the wrapper) degrades to
 the identity on the missing entries — garbage in, garbage out.
-`bm` is the read-only loose-bvar-bound view; nodes bounded at or below
-the cursor are returned unchanged (see `instantiate1IGo`). -/
-def instantiateListIGo (vs : Array EIdx) (st : EStore) (bm : BMemo)
+Nodes whose eager bound entry is at or below the cursor are returned
+unchanged (see `instantiate1IGo`). -/
+def instantiateListIGo (vs : Array EIdx) (st : EStore)
     (memo : MemoNL) (e : EIdx) (k : Nat) (d : Nat) :
     EIdx × EStore × MemoNL :=
   if k = 0 then (e, st, memo)
-  else if bm.cutoff e d then (e, st, memo)
+  else if st.bvarBoundD e ≤ d then (e, st, memo)
   else
     match memo[(e, k, d)]? with
     | some r => (r, st, memo)
@@ -713,7 +723,7 @@ def instantiateListIGo (vs : Array EIdx) (st : EStore) (bm : BMemo)
             if i < d then (e, st, memo)
             else if _h : i - d < k then
               if _h2 : i - d < vs.size then
-                instantiateListIGo vs st bm memo vs[i - d] (i - d) d
+                instantiateListIGo vs st memo vs[i - d] (i - d) d
               else (e, st, memo)
             else
               let (r, st) := st.intern (.bvar (i - k))
@@ -723,40 +733,40 @@ def instantiateListIGo (vs : Array EIdx) (st : EStore) (bm : BMemo)
           | .const _ _ => (e, st, memo)
           | .app f a =>
             if _h : f < e ∧ a < e then
-              let (f', st, memo) := instantiateListIGo vs st bm memo f k d
-              let (a', st, memo) := instantiateListIGo vs st bm memo a k d
+              let (f', st, memo) := instantiateListIGo vs st memo f k d
+              let (a', st, memo) := instantiateListIGo vs st memo a k d
               let (r, st) := st.intern (.app f' a')
               (r, st, memo)
             else (e, st, memo)
           | .lam n ty body m =>
             if _h : ty < e ∧ body < e then
-              let (ty', st, memo) := instantiateListIGo vs st bm memo ty k d
+              let (ty', st, memo) := instantiateListIGo vs st memo ty k d
               let (body', st, memo) :=
-                instantiateListIGo vs st bm memo body k (d + 1)
+                instantiateListIGo vs st memo body k (d + 1)
               let (r, st) := st.intern (.lam n ty' body' m)
               (r, st, memo)
             else (e, st, memo)
           | .forallE n ty body m =>
             if _h : ty < e ∧ body < e then
-              let (ty', st, memo) := instantiateListIGo vs st bm memo ty k d
+              let (ty', st, memo) := instantiateListIGo vs st memo ty k d
               let (body', st, memo) :=
-                instantiateListIGo vs st bm memo body k (d + 1)
+                instantiateListIGo vs st memo body k (d + 1)
               let (r, st) := st.intern (.forallE n ty' body' m)
               (r, st, memo)
             else (e, st, memo)
           | .letE n ty val body =>
             if _h : ty < e ∧ val < e ∧ body < e then
-              let (ty', st, memo) := instantiateListIGo vs st bm memo ty k d
-              let (val', st, memo) := instantiateListIGo vs st bm memo val k d
+              let (ty', st, memo) := instantiateListIGo vs st memo ty k d
+              let (val', st, memo) := instantiateListIGo vs st memo val k d
               let (body', st, memo) :=
-                instantiateListIGo vs st bm memo body k (d + 1)
+                instantiateListIGo vs st memo body k (d + 1)
               let (r, st) := st.intern (.letE n ty' val' body')
               (r, st, memo)
             else (e, st, memo)
           | .lit _ => (e, st, memo)
           | .proj s i sub =>
             if _h : sub < e then
-              let (sub', st, memo) := instantiateListIGo vs st bm memo sub k d
+              let (sub', st, memo) := instantiateListIGo vs st memo sub k d
               let (r, st) := st.intern (.proj s i sub')
               (r, st, memo)
             else (e, st, memo)
@@ -774,12 +784,12 @@ innermost binder first, `vs[0]` for `bvar d` — in one memoized DAG
 traversal.  Equal, under the denotation, to the `instantiate1I` chain
 (`Expr.instantiateList_cons`). -/
 def instantiateListI (st : EStore) (e : EIdx) (vs : List EIdx)
-    (d : Nat := 0) (bm : BMemo := {}) : EIdx × EStore :=
+    (d : Nat := 0) : EIdx × EStore :=
   match vs with
   | [] => (e, st)
   | _ :: _ =>
     let a := vs.toArray
-    let (r, st, _) := instantiateListIGo a st bm {} e a.size d
+    let (r, st, _) := instantiateListIGo a st {} e a.size d
     (r, st)
 
 /-- Core of `abstract1I`; `d` is the abstracted fvar's de Bruijn level
@@ -851,15 +861,14 @@ def abstract1I (st : EStore) (e : EIdx) (d : Nat) (k : Nat := 0) : EIdx × EStor
 
 /-- Core of `abstractRangeI` (task #72); `d`/`k` fix the abstracted
 fvar-level range `[d, d + k)`, `c` is the binder cursor (mirrors
-`Expr.abstractRange e d k c`).  `fm` is a read-only view of the
-persistent fvar-range cache: a node whose cached range is at or below
-`d` has no fvar the abstraction could touch, so it is returned
-unchanged without traversal (nanoda's per-node `!has_fvars` shortcut
-in `abstr_aux`, task #86; on a canonical arena the traversal would
-rebuild the same index node by node). -/
-def abstractRangeIGo (d k : Nat) (st : EStore) (fm : BMemo)
+`Expr.abstractRange e d k c`).  A node whose eager range entry is at
+or below `d` has no fvar the abstraction could touch, so it is
+returned unchanged without traversal (nanoda's per-node `!has_fvars`
+shortcut in `abstr_aux`, tasks #86/#87; on a canonical arena the
+traversal would rebuild the same index node by node). -/
+def abstractRangeIGo (d k : Nat) (st : EStore)
     (memo : MemoN) (e : EIdx) (c : Nat) : EIdx × EStore × MemoN :=
-  if fm.cutoff e d then (e, st, memo) else
+  if st.fvarRangeD e ≤ d then (e, st, memo) else
   match memo[(e, c)]? with
   | some r => (r, st, memo)
   | none =>
@@ -878,37 +887,37 @@ def abstractRangeIGo (d k : Nat) (st : EStore) (fm : BMemo)
         | .const _ _ => (e, st, memo)
         | .app f a =>
           if _h : f < e ∧ a < e then
-            let (f', st, memo) := abstractRangeIGo d k st fm memo f c
-            let (a', st, memo) := abstractRangeIGo d k st fm memo a c
+            let (f', st, memo) := abstractRangeIGo d k st memo f c
+            let (a', st, memo) := abstractRangeIGo d k st memo a c
             let (r, st) := st.intern (.app f' a')
             (r, st, memo)
           else (e, st, memo)
         | .lam n ty body m =>
           if _h : ty < e ∧ body < e then
-            let (ty', st, memo) := abstractRangeIGo d k st fm memo ty c
-            let (body', st, memo) := abstractRangeIGo d k st fm memo body (c + 1)
+            let (ty', st, memo) := abstractRangeIGo d k st memo ty c
+            let (body', st, memo) := abstractRangeIGo d k st memo body (c + 1)
             let (r, st) := st.intern (.lam n ty' body' m)
             (r, st, memo)
           else (e, st, memo)
         | .forallE n ty body m =>
           if _h : ty < e ∧ body < e then
-            let (ty', st, memo) := abstractRangeIGo d k st fm memo ty c
-            let (body', st, memo) := abstractRangeIGo d k st fm memo body (c + 1)
+            let (ty', st, memo) := abstractRangeIGo d k st memo ty c
+            let (body', st, memo) := abstractRangeIGo d k st memo body (c + 1)
             let (r, st) := st.intern (.forallE n ty' body' m)
             (r, st, memo)
           else (e, st, memo)
         | .letE n ty val body =>
           if _h : ty < e ∧ val < e ∧ body < e then
-            let (ty', st, memo) := abstractRangeIGo d k st fm memo ty c
-            let (val', st, memo) := abstractRangeIGo d k st fm memo val c
-            let (body', st, memo) := abstractRangeIGo d k st fm memo body (c + 1)
+            let (ty', st, memo) := abstractRangeIGo d k st memo ty c
+            let (val', st, memo) := abstractRangeIGo d k st memo val c
+            let (body', st, memo) := abstractRangeIGo d k st memo body (c + 1)
             let (r, st) := st.intern (.letE n ty' val' body')
             (r, st, memo)
           else (e, st, memo)
         | .lit _ => (e, st, memo)
         | .proj s i sub =>
           if _h : sub < e then
-            let (sub', st, memo) := abstractRangeIGo d k st fm memo sub c
+            let (sub', st, memo) := abstractRangeIGo d k st memo sub c
             let (r, st) := st.intern (.proj s i sub')
             (r, st, memo)
           else (e, st, memo)
@@ -921,14 +930,14 @@ abstraction, task #72): close the `k` fvar levels `[d, d + k)` —
 innermost bound tightest — in one memoized DAG traversal.  Equal,
 under the denotation, to the innermost-first `abstract1I` chain
 (`Expr.abstractRange_succ`).  `k = 0` is the identity and skips the
-traversal.  `fm` is the read-only fvar-range view; nodes ranged at or
-below `d` are returned unchanged (see `abstractRangeIGo`). -/
-def abstractRangeI (st : EStore) (e : EIdx) (d k : Nat) (c : Nat := 0)
-    (fm : BMemo := {}) : EIdx × EStore :=
+traversal.  Nodes whose eager range entry is at or below `d` are
+returned unchanged (see `abstractRangeIGo`). -/
+def abstractRangeI (st : EStore) (e : EIdx) (d k : Nat) (c : Nat := 0) :
+    EIdx × EStore :=
   match k with
   | 0 => (e, st)
   | _ + 1 =>
-    let (r, st, _) := abstractRangeIGo d k st fm {} e c
+    let (r, st, _) := abstractRangeIGo d k st {} e c
     (r, st)
 
 /-- Memo table for cursor-free index→index traversals. -/
@@ -1051,51 +1060,12 @@ Boolean/list queries mirror their `Expr` counterparts; each threads a
 per-call memo where the recursion can revisit shared children.
 -/
 
-/-- Core of `hasFvarI` (mirrors `Expr.hasFvar`; `fvar` leaves are hits
-without descending into their annotations, so no cursor). -/
-def hasFvarIGo (st : EStore) (memo : Std.HashMap EIdx Bool) (e : EIdx) :
-    Bool × Std.HashMap EIdx Bool :=
-  match memo[e]? with
-  | some r => (r, memo)
-  | none =>
-    match st.nodes[e]? with
-    | none => (false, memo)
-    | some n =>
-      let (r, memo) : Bool × Std.HashMap EIdx Bool :=
-        match n with
-        | .bvar _ | .sort _ | .const _ _ | .lit _ => (false, memo)
-        | .fvar _ _ _ => (true, memo)
-        | .app f a =>
-          if _h : f < e ∧ a < e then
-            let (rf, memo) := hasFvarIGo st memo f
-            if rf then (true, memo)
-            else hasFvarIGo st memo a
-          else (false, memo)
-        | .lam _ ty body _ | .forallE _ ty body _ =>
-          if _h : ty < e ∧ body < e then
-            let (rt, memo) := hasFvarIGo st memo ty
-            if rt then (true, memo)
-            else hasFvarIGo st memo body
-          else (false, memo)
-        | .letE _ ty val body =>
-          if _h : ty < e ∧ val < e ∧ body < e then
-            let (rt, memo) := hasFvarIGo st memo ty
-            if rt then (true, memo)
-            else
-              let (rv, memo) := hasFvarIGo st memo val
-              if rv then (true, memo)
-              else hasFvarIGo st memo body
-          else (false, memo)
-        | .proj _ _ sub =>
-          if _h : sub < e then hasFvarIGo st memo sub
-          else (false, memo)
-      (r, memo.insert e r)
-termination_by e
-decreasing_by all_goals first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h
-
-/-- Interned counterpart of `Expr.hasFvar`. -/
+/-- Interned counterpart of `Expr.hasFvar` — an `O(1)` read of the
+eager fvar-range entry (task #87; a node has a reachable fvar leaf iff
+its range is nonzero: `hasFvar` and the range both treat `fvar` leaves
+as hits without descending into their annotations). -/
 def hasFvarI (st : EStore) (e : EIdx) : Bool :=
-  (hasFvarIGo st {} e).1
+  st.fvarRangeD e != 0
 
 /-- Core of `looseBVarsBoundedI`; `k` is the bound cursor (mirrors
 `Expr.looseBVarsBounded k`). -/
@@ -1260,7 +1230,8 @@ pass checks child/level ranges and that the cons-table maps each node
 back to its index; the cons-table passes check the reverse graph
 direction, so no counting argument is needed. -/
 
-/-- Range and cons-graph facts for the expression nodes below `k`. -/
+/-- Range, cons-graph and derived-field facts for the expression nodes
+below `k`. -/
 def wfBNodes (st : EStore) : Nat → Bool
   | 0 => true
   | k + 1 =>
@@ -1283,7 +1254,9 @@ def wfBNodes (st : EStore) : Nat → Bool
           | some u => u < st.lnodes.size
           | none => true
         | _ => true) &&
-       st.cons[n]? == some k
+       st.cons[n]? == some k &&
+       st.bvarBs[k]? == some (n.bvarBoundOf st.bvarBs) &&
+       st.fvarBs[k]? == some (n.fvarRangeOf st.fvarBs)
      | none => false)
 
 /-- Range and cons-graph facts for the level nodes below `k`. -/
@@ -1306,125 +1279,9 @@ interned operations preserve `WF` from there on. -/
 def wfB (st : EStore) : Bool :=
   wfBNodes st st.nodes.size && wfBLNodes st st.lnodes.size &&
   st.cons.toList.all (fun p => st.nodes[p.2]? == some p.1) &&
-  st.lcons.toList.all (fun p => st.lnodes[p.2]? == some p.1)
+  st.lcons.toList.all (fun p => st.lnodes[p.2]? == some p.1) &&
+  st.bvarBs.size == st.nodes.size && st.fvarBs.size == st.nodes.size
 
-
-/-- Core of the loose-bvar *bound* (task #72): the least `k` with
-`looseBVarsBounded k` for a node, memoized cursor-free — a node's
-bound depends only on its immutable sub-DAG, so callers thread a
-*persistent* memo (`IState.bvarB`) and every node is visited at most
-once over a whole checker run.  Instantiation at or above the bound is
-the identity (`instListM`/`inst1M` short-circuit). -/
-def bvarBoundIGo (st : EStore) (memo : BMemo) (e : EIdx) :
-    Nat × BMemo :=
-  match memo.get? e with
-  | some b => (b, memo)
-  | none =>
-    match st.nodes[e]? with
-    | none => (0, memo)
-    | some n =>
-      let (b, memo) : Nat × BMemo :=
-        match n with
-        | .bvar i => (i + 1, memo)
-        | .fvar _ _ _ | .sort _ | .const _ _ | .lit _ => (0, memo)
-        | .app f a =>
-          if _h : f < e ∧ a < e then
-            let (bf, memo) := bvarBoundIGo st memo f
-            let (ba, memo) := bvarBoundIGo st memo a
-            (max bf ba, memo)
-          else (0, memo)
-        | .lam _ ty body _ | .forallE _ ty body _ =>
-          if _h : ty < e ∧ body < e then
-            let (bt, memo) := bvarBoundIGo st memo ty
-            let (bb, memo) := bvarBoundIGo st memo body
-            (max bt (bb - 1), memo)
-          else (0, memo)
-        | .letE _ ty val body =>
-          if _h : ty < e ∧ val < e ∧ body < e then
-            let (bt, memo) := bvarBoundIGo st memo ty
-            let (bv, memo) := bvarBoundIGo st memo val
-            let (bb, memo) := bvarBoundIGo st memo body
-            (max (max bt bv) (bb - 1), memo)
-          else (0, memo)
-        | .proj _ _ sub =>
-          if _h : sub < e then bvarBoundIGo st memo sub
-          else (0, memo)
-      (b, memo.insert e b)
-termination_by e
-decreasing_by all_goals first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h
-
-/-- Fold of `bvarBoundIGo` over a list of roots: fills the persistent
-bound cache for each root's whole sub-DAG, so a following instantiation
-traversal prunes at every closed replacement (task #84; the bounds
-themselves are discarded). -/
-def bvarBoundsLGo (st : EStore) (memo : BMemo) : List EIdx → BMemo
-  | [] => memo
-  | e :: es =>
-    -- an already-bounded root is skipped without entering the walk
-    -- (the walk's hit branch would return the memo unchanged, at the
-    -- cost of a pair allocation per root — measurable on telescope
-    -- shapes where the replacement lists are all fvar leaves)
-    if memo.covers e then bvarBoundsLGo st memo es
-    else bvarBoundsLGo st (bvarBoundIGo st memo e).2 es
-
-/-- Core of the fvar *range* (task #86): the least `d` with
-`fvarsBelow d` for a node — max fvar index + 1, `0` = fvar-free — not
-descending into `fvar` type annotations, matching the abstraction
-traversals.  Memoized cursor-free like `bvarBoundIGo`: a node's range
-depends only on its immutable sub-DAG, so callers thread a
-*persistent* memo (`IState.fvarB`, the mirror of `IState.bvarB`) and
-every node is visited at most once over a whole checker run.
-Abstraction of a range at or above a node's fvar range is the identity
-(`abstractRangeM`'s short-circuit; nanoda's per-node `has_fvars`
-pruning in `abstr_aux`). -/
-def fvarRangeIGo (st : EStore) (memo : BMemo) (e : EIdx) :
-    Nat × BMemo :=
-  match memo.get? e with
-  | some b => (b, memo)
-  | none =>
-    match st.nodes[e]? with
-    | none => (0, memo)
-    | some n =>
-      let (b, memo) : Nat × BMemo :=
-        match n with
-        | .fvar idx _ _ => (idx + 1, memo)
-        | .bvar _ | .sort _ | .const _ _ | .lit _ => (0, memo)
-        | .app f a =>
-          if _h : f < e ∧ a < e then
-            let (bf, memo) := fvarRangeIGo st memo f
-            let (ba, memo) := fvarRangeIGo st memo a
-            (max bf ba, memo)
-          else (0, memo)
-        | .lam _ ty body _ | .forallE _ ty body _ =>
-          if _h : ty < e ∧ body < e then
-            let (bt, memo) := fvarRangeIGo st memo ty
-            let (bb, memo) := fvarRangeIGo st memo body
-            (max bt bb, memo)
-          else (0, memo)
-        | .letE _ ty val body =>
-          if _h : ty < e ∧ val < e ∧ body < e then
-            let (bt, memo) := fvarRangeIGo st memo ty
-            let (bv, memo) := fvarRangeIGo st memo val
-            let (bb, memo) := fvarRangeIGo st memo body
-            (max (max bt bv) bb, memo)
-          else (0, memo)
-        | .proj _ _ sub =>
-          if _h : sub < e then fvarRangeIGo st memo sub
-          else (0, memo)
-      (b, memo.insert e b)
-termination_by e
-decreasing_by all_goals first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h
-
-/-- Fold of `fvarRangeIGo` over a list of roots (the mirror of
-`bvarBoundsLGo`, task #86): fills the persistent range cache for each
-root's whole sub-DAG; an already-ranged root is skipped without
-entering the walk (allocation-free `covers` slot read — the #84
-prepass regression trap). -/
-def fvarRangesLGo (st : EStore) (memo : BMemo) : List EIdx → BMemo
-  | [] => memo
-  | e :: es =>
-    if memo.covers e then fvarRangesLGo st memo es
-    else fvarRangesLGo st (fvarRangeIGo st memo e).2 es
 
 /-- Core of `wscopedBI`; `d` is the scope cursor (mirrors
 `Expr.wscopedB d`; an `fvar idx _ ty` leaf checks `idx < d` and recurses
@@ -1687,23 +1544,23 @@ def mkAppNI (st : EStore) (f : EIdx) : List EIdx → EIdx × EStore
 /-- The `instantiate1I` chain of `Expr.instSpine` — the fallback for
 argument lists that do not span the whole telescope context (`t + 1`
 entries); the spanning case is bulk-instantiated (`instSpineI`). -/
-def instSpineChainI (st : EStore) (bm : BMemo) :
+def instSpineChainI (st : EStore) :
     List EIdx → Nat → EIdx → EIdx × EStore
   | [], _, e => (e, st)
   | a :: as, t, e =>
-    let (e', st) := st.instantiate1I e a t bm
-    instSpineChainI st bm as (t - 1) e'
+    let (e', st) := st.instantiate1I e a t
+    instSpineChainI st as (t - 1) e'
 
 /-- Interned counterpart of `Expr.instSpine`.  When the arguments span
 the whole telescope context (`t + 1` of them, the only shape the
 checker produces) this is one bulk instantiation of the reversed spine
 (`Expr.instSpine_eq_instantiateList`, task #50); otherwise the
 `instantiate1I` chain. -/
-def instSpineI (st : EStore) (args : List EIdx) (t : Nat) (e : EIdx)
-    (bm : BMemo := {}) : EIdx × EStore :=
+def instSpineI (st : EStore) (args : List EIdx) (t : Nat) (e : EIdx) :
+    EIdx × EStore :=
   if args.length = t + 1 then
-    st.instantiateListI e args.reverse 0 bm
-  else instSpineChainI st bm args t e
+    st.instantiateListI e args.reverse 0
+  else instSpineChainI st args t e
 
 /-- Interned counterpart of `Expr.piResidual` (= `Expr.instPis`: the
 two `Expr` functions have identical equations).  Bulk form (task #50):
@@ -1713,20 +1570,20 @@ residual telescope per argument.  A `bvar` telescope body (whose
 substitution could itself expose `∀`-binders — never produced by the
 checker, but the fold semantics allows it) substitutes the accumulator
 and re-enters. -/
-def piResidualAccI (st : EStore) (bm : BMemo) : List EIdx → EIdx → List EIdx →
+def piResidualAccI (st : EStore) : List EIdx → EIdx → List EIdx →
     Option EIdx × EStore
   | acc, e, [] =>
-    let (r, st) := st.instantiateListI e acc 0 bm
+    let (r, st) := st.instantiateListI e acc 0
     (some r, st)
   | acc, e, a :: as =>
     match st.nodes[e]? with
-    | some (.forallE _ _ b _) => piResidualAccI st bm (a :: acc) b as
+    | some (.forallE _ _ b _) => piResidualAccI st (a :: acc) b as
     | some (.bvar _) =>
       match acc with
       | [] => (none, st)
       | _ :: _ =>
-        let (e', st) := st.instantiateListI e acc 0 bm
-        piResidualAccI st bm [] e' (a :: as)
+        let (e', st) := st.instantiateListI e acc 0
+        piResidualAccI st [] e' (a :: as)
     | _ => (none, st)
 termination_by acc _e as => (as.length, acc.length)
 decreasing_by
@@ -1734,9 +1591,9 @@ decreasing_by
   · apply Prod.Lex.right' <;> simp
 
 @[inherit_doc piResidualAccI]
-def piResidualI (st : EStore) (e : EIdx) (args : List EIdx)
-    (bm : BMemo := {}) : Option EIdx × EStore :=
-  piResidualAccI st bm [] e args
+def piResidualI (st : EStore) (e : EIdx) (args : List EIdx) :
+    Option EIdx × EStore :=
+  piResidualAccI st [] e args
 
 /-- Interned counterpart of `Expr.pisToLams`. -/
 def pisToLamsI (st : EStore) : Nat → EIdx → EIdx → Option EIdx × EStore
