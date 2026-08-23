@@ -423,29 +423,6 @@ theorem interpSpine_fvars_exists {d : Nat} {ρ : Nat → V} :
         have := hpos j (by omega)
         simpa [show off + (j + 1) = off + 1 + j from by omega] using this
 
-/-- Pointwise spine interpretation is functional in the values. -/
-theorem InterpSpine.functional {d : Nat} {ρ : Nat → V} :
-    ∀ {xs : List Expr} {vs vs' : List V},
-      InterpSpine cval env φ d ρ xs vs →
-      InterpSpine cval env φ d ρ xs vs' → vs = vs' := by
-  intro xs
-  induction xs with
-  | nil =>
-    intro vs vs' h h'
-    match vs, h with
-    | [], _ =>
-      match vs', h' with
-      | [], _ => rfl
-  | cons x xs ih =>
-    intro vs vs' h h'
-    match vs, h with
-    | v :: vs, ⟨hv, hrest⟩ =>
-      match vs', h' with
-      | v' :: vs', ⟨hv', hrest'⟩ =>
-        rw [hv] at hv'
-        obtain rfl := Option.some.inj hv'
-        rw [ih hrest hrest']
-
 set_option maxHeartbeats 3200000 in
 /-- The projection rule's bottom fact (`Hbot` of `TowerOk.of_stages`):
 over any full frame-fitting value list, the canonical body (the

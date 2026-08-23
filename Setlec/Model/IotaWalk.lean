@@ -794,6 +794,64 @@ decreasing_by
 
 /-! ## One-sided walks -/
 
+/-- `peel_walk` over a general *expression* spine: the arguments'
+interpretations are supplied directly (rather than read off a
+free-variable frame). -/
+theorem expr_peel_walk {φ : Name → Nat} {D : Nat} {ρ : Nat → V} :
+    ∀ {spine : List Expr} {vs : List V} {ty : Expr} {ds : List Expr}
+      {rest : Expr},
+      Expr.instPisAt spine ty = some (ds, rest) →
+      InterpSpine cval env φ D ρ spine vs →
+      (∀ a ∈ spine, WScoped D a ∧ a.looseBVarsBounded 0 = true ∧
+        AnnotOk V cval env φ D ρ a) →
+      WScoped D ty →
+      AnnotOk V cval env φ D ρ ty →
+      (∃ P, interpExpr V cval env φ D ρ ty = some P) →
+      (∀ (k : Nat) (a : Expr) (v : V), ds[k]? = some a →
+        vs[k]? = some v →
+        ∃ B, interpExpr V cval env φ D ρ a = some B ∧ v ∈ˢ B) →
+      TeleFitI V cval env φ D ρ ty spine vs rest ∧
+      (∃ P', interpExpr V cval env φ D ρ rest = some P') := by
+  intro spine
+  induction spine with
+  | nil =>
+    intro vs ty ds rest hop hsp hws hW hA hI hmem
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at hop
+    obtain ⟨-, rfl⟩ := hop
+    match vs, hsp with
+    | [], _ => exact ⟨TeleFitI.nil, hI⟩
+  | cons a spine' ih =>
+    intro vs ty ds rest hop hsp hws hW hA hI hmem
+    match vs, hsp with
+    | v :: vs', hsp =>
+    obtain ⟨hia, hsp'⟩ := hsp
+    obtain ⟨n, dom, body, m, ds', rfl, rfl, h0⟩ := instPisAt_cons_inv hop
+    have hWd : WScoped D dom ∧ WScoped D body := by
+      simpa [WScoped] using hW
+    have hA' := hA
+    simp only [AnnotOk] at hA'
+    obtain ⟨hAdom, ⟨cod, hcod⟩, hcond⟩ := hA'
+    obtain ⟨B, hBi, hvB⟩ := hmem 0 dom v rfl rfl
+    obtain ⟨hWa, hba, hAa⟩ := hws a List.mem_cons_self
+    obtain ⟨hAop, hfib⟩ := hcond v B hBi hvB
+    have hAbody : AnnotOk V cval env φ D ρ (body.instantiate1 a) :=
+      AnnotOk_beta hWd.2.fvarsBelow hWa hba hia hAa 0 hAop
+    obtain ⟨w, hwI, -⟩ := hfib cod hcod
+    have hIbody : ∃ P, interpExpr V cval env φ D ρ
+        (body.instantiate1 a) = some P := by
+      refine ⟨w, ?_⟩
+      rw [interp_beta (n := n) (ty := dom) hWd.2.fvarsBelow hWa hba
+        hia 0]
+      exact hwI
+    obtain ⟨hfit, hIrest⟩ := ih h0 hsp'
+      (fun x hx => hws x (List.mem_cons_of_mem _ hx))
+      (WScoped.instantiate1_gen hWa 0 hWd.2) hAbody hIbody
+      (fun k x v' hx hv' => hmem (k + 1) x v'
+        (show (dom :: ds')[k + 1]? = some x from by simpa using hx)
+        (show (v :: vs')[k + 1]? = some v' from by simpa using hv'))
+    exact ⟨TeleFitI.cons hBi hia hvB hWd.2.fvarsBelow hWa hba hAa hfit,
+      hIrest⟩
+
 /-- Build a `∀`-telescope fit at a free-variable frame from pointwise
 memberships in the walk's own (instantiated) domains. -/
 theorem peel_walk {φ : Name → Nat} {D : Nat} {ρ : Nat → V} :
