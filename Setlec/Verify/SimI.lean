@@ -529,7 +529,7 @@ private theorem pisToLamsM_run (k : Nat) (e body : EIdx) (s : IState) :
       { s with store := (s.store.pisToLamsI k e body).2 }) := rfl
 
 theorem internI_eff (hs : ISOK env s₀) {n : ENode} {x : Expr}
-    (hd : denoteNode s₀.store.denote s₀.store.denoteL n = some x) :
+    (hd : denoteNode s₀.store.denote s₀.store.denoteL s₀.store.denoteN n = some x) :
     IEff env s₀ (fun s i => s.store.denote i = some x) (internI n) := by
   intro v' s' hr
   rw [internI_run] at hr
@@ -547,6 +547,72 @@ theorem internExprM_eff (hs : ISOK env s₀) (x : Expr) :
   injection hr with h1
   obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
   exact ⟨hs.withStore hwf' hext, hext, hden⟩
+
+/-- Name-layer effects (task #88). -/
+private theorem internNameM_run (nm : Name) (s : IState) :
+    internNameM nm s = .ok ((s.store.internName nm).1,
+      { s with store := (s.store.internName nm).2 }) := rfl
+
+private theorem internNM_run (n : NNode) (s : IState) :
+    internNM n s = .ok ((s.store.internN n).1,
+      { s with store := (s.store.internN n).2 }) := rfl
+
+theorem internNameM_eff (hs : ISOK env s₀) (nm : Name) :
+    IEff env s₀ (fun s i => s.store.denoteN i = some nm)
+      (internNameM nm) := by
+  intro v' s' hr
+  rw [internNameM_run] at hr
+  obtain ⟨hwf', hext, hden⟩ := internName_spec hs.wf nm
+  injection hr with h1
+  obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
+  exact ⟨hs.withStore hwf' hext, hext, hden⟩
+
+theorem internNM_eff (hs : ISOK env s₀) {n : NNode} {nm : Name}
+    (hd : denoteNNode s₀.store.denoteN n = some nm) :
+    IEff env s₀ (fun s i => s.store.denoteN i = some nm) (internNM n) := by
+  intro v' s' hr
+  rw [internNM_run] at hr
+  have hc : ∀ c ∈ n.children, c < s₀.store.nnodes.size := by
+    intro c hcin
+    obtain ⟨b, hb⟩ := denoteNNode_children_some hd c hcin
+    exact denoteN_lt_size hb
+  obtain ⟨hwf', hext, hden⟩ := internN_step hs.wf hc hd
+  injection hr with h1
+  obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
+  exact ⟨hs.withStore hwf' hext, hext, hden⟩
+
+theorem readbackNM_eff (hs : ISOK env s₀) {i : NIdx} {nm : Name}
+    (h : s₀.store.denoteN i = some nm) :
+    IEff env s₀ (fun _s v => v = nm) (readbackNM i) := by
+  rw [show readbackNM i = (Setlec.withStore (·.readbackN i) >>=
+    fun o => match o with
+    | some n => pure n
+    | none => throw (.internal "interned name readback failed") :
+    CheckIM Name) from rfl]
+  refine IEff.withStore ?_
+  rw [readbackN_eq_denoteN, h]
+  exact IEff.pure hs rfl
+
+theorem beqNameM_eff (hs : ISOK env s₀) {i : NIdx} {a : Name}
+    (h : s₀.store.denoteN i = some a) (nm : Name) :
+    IEff env s₀ (fun _s b => b = (a == nm)) (beqNameM i nm) := by
+  intro v' s' hr
+  injection hr with h1
+  obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
+  exact ⟨hs, Ext.refl _, beqNameI_eq h⟩
+
+theorem projFnIdxM_eff (hs : ISOK env s₀) {T : NIdx} {Tn : Name}
+    (h : s₀.store.denoteN T = some Tn) (i : Nat) :
+    IEff env s₀ (fun s r => s.store.denoteN r = some (projFnName Tn i))
+      (projFnIdxM T i) := by
+  rw [show projFnIdxM T i = (do
+      let p ← internNM (.str T "proj")
+      internNM (.num p i) : CheckIM NIdx) from rfl]
+  refine (internNM_eff hs (nm := Tn.str "proj")
+    (by rw [denoteNNode, h]; rfl)).bind ?_
+  intro s₁ p hs₁ hext₁ hp
+  exact internNM_eff hs₁ (nm := (Tn.str "proj").num i)
+    (by rw [denoteNNode, hp]; rfl)
 
 /-- `storedTyIdxM` yields an index denoting the given type — the
 interned-environment hit path via the self-certifying `ienv` clause

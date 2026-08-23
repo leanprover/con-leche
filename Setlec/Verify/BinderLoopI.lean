@@ -34,7 +34,7 @@ def RelD (s : IState) (j : EIdx) (v : Expr) : Prop :=
 /-- Pointwise relation of `inferLamsI` stack entries. -/
 def DenILE (s : IState) : InferLamEntry → InferLamEntryX → Prop
   | (n, tyo, mb, v, u), (nx, tyox, mbx, vx, ux) =>
-    n = nx ∧ s.store.denote tyo = some tyox ∧
+    s.store.denoteN n = some nx ∧ s.store.denote tyo = some tyox ∧
     denoteBM s.store.denoteL mb = some mbx ∧
     s.store.denoteL v = some vx ∧ s.store.denoteL u = some ux
 
@@ -49,7 +49,7 @@ theorem DenILE.mono {s s' : IState} (hext : Ext s.store s'.store)
   obtain ⟨n, tyo, mb, v, u⟩ := e
   obtain ⟨nx, tyox, mbx, vx, ux⟩ := ex
   obtain ⟨h1, h2, h3, h4, h5⟩ := h
-  exact ⟨h1, denote_mono hext h2, denoteBM_mono hext h3,
+  exact ⟨denoteN_mono hext h1, denote_mono hext h2, denoteBM_mono hext h3,
     denoteL_mono hext h4, denoteL_mono hext h5⟩
 
 theorem DenILStk.mono {s s' : IState} (hext : Ext s.store s'.store) :
@@ -65,7 +65,8 @@ def DenAStk (s : IState) (d : Nat) :
     List AnnotBinderEntry → List AnnotBinderEntryX → Nat → Prop
   | [], [], _ => True
   | (n, ty', bi) :: r, (nx, tyx', bix) :: rx, j =>
-    (n = nx ∧ bi = bix ∧ s.store.denote ty' = some tyx' ∧
+    (s.store.denoteN n = some nx ∧ bi = bix ∧
+      s.store.denote ty' = some tyx' ∧
       WScoped (d + j) tyx') ∧ DenAStk s d r rx (j - 1)
   | _, _, _ => False
 
@@ -75,7 +76,8 @@ theorem DenAStk.mono {s s' : IState} (hext : Ext s.store s'.store)
       {j : Nat}, DenAStk s d stk stkx j → DenAStk s' d stk stkx j
   | [], [], _, _ => trivial
   | (_, _, _) :: _, (_, _, _) :: _, _, h =>
-    ⟨⟨h.1.1, h.1.2.1, denote_mono hext h.1.2.2.1, h.1.2.2.2⟩,
+    ⟨⟨denoteN_mono hext h.1.1, h.1.2.1, denote_mono hext h.1.2.2.1,
+      h.1.2.2.2⟩,
       DenAStk.mono hext h.2⟩
 
 /-! ## The infer-λ loop walks -/
@@ -102,7 +104,7 @@ theorem inferLamsOutI_sim {d : Nat} :
     | nil => exact absurd hstk (by simp [DenILStk])
     | cons ex rx =>
       obtain ⟨nx, tyox, mbx, vax, ux⟩ := ex
-      obtain ⟨⟨rfl, htyo, hmb, hva, hu⟩, hrest⟩ := hstk
+      obtain ⟨⟨hnnm, htyo, hmb, hva, hu⟩, hrest⟩ := hstk
       show SimAt env s₀ RelD
         (do
           unless ← liftFueled "level comparison" (← isEquivLM va v) do
@@ -115,7 +117,7 @@ theorem inferLamsOutI_sim {d : Nat} :
             let v' ← internLM (.imax u va)
             inferLamsOutI d rest (j - 1) v' node)
         _
-      rw [inferLamsOut_cons' (m := FueledM) n tyox mbx vax ux rx j lv curx]
+      rw [inferLamsOut_cons' (m := FueledM) nx tyox mbx vax ux rx j lv curx]
       refine SimAt.bind_left (isEquivLM_eff hs hva hlv)
         (fun s₁ o hs₁ hext₁ ho => ?_)
       subst ho
@@ -133,10 +135,11 @@ theorem inferLamsOutI_sim {d : Nat} :
           (denote_mono hext₀₂ htyo)) (fun s₃ tyAbs hs₃ hext₃ hQab => ?_)
         have hext₀₃ := hext₀₂.trans hext₃
         have hnd : denoteNode s₃.store.denote s₃.store.denoteL
-            (.forallE n tyAbs cur mb)
-            = some (.forallE n (tyox.abstractRange d j) curx mbx) := by
+            s₃.store.denoteN (.forallE n tyAbs cur mb)
+            = some (.forallE nx (tyox.abstractRange d j) curx mbx) := by
           rw [denoteNode, hQab, denote_mono hext₀₃ hcur,
-            denoteBM_mono hext₀₃ hmb]
+            denoteBM_mono hext₀₃ hmb,
+            denoteN_mono hext₀₃ hnnm]
           rfl
         refine SimAt.bind_left (internI_eff hs₃ hnd)
           (fun s₄ node hs₄ hext₄ hQnode => ?_)

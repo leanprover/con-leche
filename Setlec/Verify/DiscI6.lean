@@ -133,7 +133,7 @@ theorem projFieldDomI_sim (ih : SSimI env f) (henv : EnvWF env)
             exact SimAt.throw_bind
           | true =>
             simp only [↓reduceIte]
-            have hpj : denoteNode s₁.store.denote s₁.store.denoteL (.proj sn jj e')
+            have hpj : denoteNode s₁.store.denote s₁.store.denoteL s₁.store.denoteN (.proj sn jj e')
                 = some (.proj sn jj e'x) := by
               rw [denoteNode, denote_mono hext₁ hde]; rfl
             refine SimAt.bind_left (internI_eff hs₁ hpj)
@@ -146,7 +146,7 @@ theorem projFieldDomI_sim (ih : SSimI env f) (henv : EnvWF env)
               hQr hwrest'
         | false =>
           simp only [Bool.false_eq_true, ↓reduceIte]
-          have hpj : denoteNode s₀.store.denote s₀.store.denoteL (.proj sn jj e')
+          have hpj : denoteNode s₀.store.denote s₀.store.denoteL s₀.store.denoteN (.proj sn jj e')
               = some (.proj sn jj e'x) := by
             rw [denoteNode, hde]; rfl
           refine SimAt.bind_left (internI_eff hs hpj)
@@ -305,7 +305,7 @@ theorem annotateProjRecI_sim (ih : SSimI env f) (henv : EnvWF env)
               (denote_mono hext₃ hQtel) hwtel)
               (fun s₄ fi fix hs₄ hext₄ hPfi => ?_)
             obtain ⟨hfid, hwfi⟩ := hPfi
-            have hbv : denoteNode s₄.store.denote s₄.store.denoteL (.bvar (cnF - 1 - ip))
+            have hbv : denoteNode s₄.store.denote s₄.store.denoteL s₄.store.denoteN (.bvar (cnF - 1 - ip))
                 = some (.bvar (cnF - 1 - ip)) := rfl
             refine SimAt.bind_left (internI_eff hs₄ hbv)
               (fun s₅ fieldBvar hs₅ hext₅ hQbv => ?_)
@@ -677,7 +677,7 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     refine SimAt.bind (ih.annotate hs hty hwtb.1)
       (fun s₁ ty' ty'x hs₁ hext₁ hP => ?_)
     obtain ⟨hty'd, hwty'⟩ := hP
-    have hfvd : denoteNode s₁.store.denote s₁.store.denoteL (.fvar d nm ty')
+    have hfvd : denoteNode s₁.store.denote s₁.store.denoteL s₁.store.denoteN (.fvar d nm ty')
         = some (.fvar d nm ty'x) := by
       rw [denoteNode, hty'd]; rfl
     refine SimAt.bind_left (internI_eff hs₁ hfvd)
@@ -724,7 +724,7 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
       refine SimAt.bind (ih.annotate hsb (denote_mono hextb hty) hwtb.1)
         (fun s₁ ty' ty'x hs₁ hext₁ hP => ?_)
       obtain ⟨hty'd, hwty'⟩ := hP
-      have hfvd : denoteNode s₁.store.denote s₁.store.denoteL (.fvar d nm ty')
+      have hfvd : denoteNode s₁.store.denote s₁.store.denoteL s₁.store.denoteN (.fvar d nm ty')
           = some (.fvar d nm ty'x) := by
         rw [denoteNode, hty'd]; rfl
       refine SimAt.bind_left (internI_eff hs₁ hfvd)

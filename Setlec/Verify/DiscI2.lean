@@ -275,7 +275,7 @@ theorem etaCertI_sim (ih : SSimI env f) {d : Nat} {n₁ : Name}
             simp only [↓reduceIte]
             have hext₀₄ :=
               (((hext₁.trans hext₂).trans hext₂o).trans hext₃).trans hext₄
-            have hfvd : denoteNode s₄.store.denote s₄.store.denoteL (.fvar d n₁ ty₁)
+            have hfvd : denoteNode s₄.store.denote s₄.store.denoteL s₄.store.denoteN (.fvar d n₁ ty₁)
                 = some (.fvar d n₁ ty₁x) := by
               rw [denoteNode, denote_mono hext₀₄ hty]; rfl
             refine SimAt.bind_left (internI_eff hs₄ hfvd)
@@ -283,7 +283,7 @@ theorem etaCertI_sim (ih : SSimI env f) {d : Nat} {n₁ : Name}
             refine SimAt.bind_left (inst1M_eff hs₅
               (denote_mono (hext₀₄.trans hext₅) hbody) hQfv)
               (fun s₆ b₁ hs₆ hext₆ hQb₁ => ?_)
-            have hbad : denoteNode s₆.store.denote s₆.store.denoteL (.app b fv)
+            have hbad : denoteNode s₆.store.denote s₆.store.denoteL s₆.store.denoteN (.app b fv)
                 = some (.app bx (.fvar d n₁ ty₁x)) := by
               rw [denoteNode,
                 denote_mono ((hext₀₄.trans hext₅).trans hext₆) hb,
@@ -341,7 +341,7 @@ theorem projCertI_sim (ih : SSimI env f) {d : Nat} {i : EIdx} {e₂ : Expr}
         | _ => pure false
       | _ => pure false)
     (projCert (fueledFns env) env d e₂ idx fieldLvl structLvl nP)
-  have hbv : denoteNode s₀.store.denote s₀.store.denoteL (.bvar 0) = some (.bvar 0) := rfl
+  have hbv : denoteNode s₀.store.denote s₀.store.denoteL s₀.store.denoteN (.bvar 0) = some (.bvar 0) := rfl
   refine SimAt.bind_left (internI_eff hs hbv)
     (fun s₁ bvar0 hs₁ hext₁ hQ0 => ?_)
   refine SimAt.withStore ?_
