@@ -595,6 +595,99 @@ theorem FrameOk.weaken_top {cval : ConstVal V} {env : Env} {φ : Name → Nat}
     AnnotOk.weaken_top h.ws h.an,
     P, by rw [interp_weaken_top h.ws]; exact hP⟩
 
+/-- A term scoped below a fit's starting frame interprets the same at
+the fit's end. -/
+theorem interp_weaken_fit {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
+    ∀ {d : Nat} {ρ : Nat → V} {ty : Expr} {vs : List V} {d' : Nat}
+      {ρ' : Nat → V} {rest : Expr},
+      TeleFit V cval env φ d ρ ty vs d' ρ' rest →
+      ∀ {e : Expr}, Expr.WScoped d e →
+        interpExpr V cval env φ d' ρ' e = interpExpr V cval env φ d ρ e := by
+  intro d ρ ty vs d' ρ' rest hfit
+  induction hfit with
+  | nil => intro e _; rfl
+  | @cons d ρ n dom body mb x xs d' ρ' rest A hdom hx hfit ih =>
+    intro e hw
+    rw [ih (hw.mono (by omega)), interp_weaken_top hw]
+
+/-- The frame conditions survive a fit that starts above the term. -/
+theorem FrameOk.weaken_fit {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
+    ∀ {d : Nat} {ρ : Nat → V} {ty : Expr} {vs : List V} {d' : Nat}
+      {ρ' : Nat → V} {rest : Expr},
+      TeleFit V cval env φ d ρ ty vs d' ρ' rest →
+      ∀ {e : Expr}, FrameOk V cval env φ d ρ e →
+        FrameOk V cval env φ d' ρ' e := by
+  intro d ρ ty vs d' ρ' rest hfit
+  induction hfit with
+  | nil => intro e h; exact h
+  | @cons d ρ n dom body mb x xs d' ρ' rest A hdom hx hfit ih =>
+    intro e h; exact ih h.weaken_top
+
+/-- An opening variable is frame-ok when its annotation is and the
+valuation puts it in the annotation's interpretation. -/
+theorem FrameOk.fvar {cval : ConstVal V} {env : Env} {φ : Name → Nat}
+    {d D : Nat} {ρ : Nat → V} {n : Name} {dom : Expr} {A : V}
+    (hdom : FrameOk V cval env φ D ρ dom) (hlt : d < D)
+    (hws : Expr.WScoped d dom)
+    (hA : interpExpr V cval env φ D ρ dom = some A) (hmem : ρ d ∈ˢ A) :
+    FrameOk V cval env φ D ρ (.fvar d n dom) := by
+  refine ⟨by simp only [Expr.WScoped]; exact ⟨hlt, hws⟩, rfl, ?_, ?_,
+    by simp only [AnnotOk], ρ d, by rw [interpExpr]⟩
+  · intro l hl
+    simp only [Expr.fvarLeaves, List.mem_cons] at hl
+    rcases hl with rfl | hl
+    · exact hdom.bb
+    · exact hdom.lb l hl
+  · intro l hl
+    simp only [Expr.fvarLeaves, List.mem_cons] at hl
+    rcases hl with rfl | hl
+    · exact ⟨hlt, hdom.an, A, hA, hmem⟩
+    · exact hdom.fv l hl
+
+/-- Every variable an opening introduces is frame-ok at the fit's end
+frame: its annotation is the binder domain the fit interpreted, and the
+valuation carries the fitting value. -/
+theorem FrameOk.openVars {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
+    ∀ (k : Nat) {d : Nat} {ρ : Nat → V} {ty : Expr} {fvs : List Expr}
+      {rest : Expr} {vs : List V} {d' : Nat} {ρ' : Nat → V},
+      openPisAtFvars k ty d = some (fvs, rest) →
+      TeleFit V cval env φ d ρ ty vs d' ρ' rest →
+      vs.length = k →
+      FrameOk V cval env φ d ρ ty →
+      ∀ a ∈ fvs, FrameOk V cval env φ d' ρ' a := by
+  intro k
+  induction k with
+  | zero =>
+    intro d ρ ty fvs rest vs d' ρ' hop _ _ _ a ha
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
+    obtain ⟨rfl, -⟩ := hop
+    exact nomatch ha
+  | succ k ih =>
+    intro d ρ ty fvs rest vs d' ρ' hop hfit hlen hfr a ha
+    match ty with
+    | .forallE n dom body mb =>
+      cases hfit with
+      | nil => exact absurd hlen (by simp)
+      | @cons _ _ _ _ _ _ x xs _ _ _ A hdomI hx hfit' =>
+        simp only [openPisAtFvars] at hop
+        cases hrec : openPisAtFvars k
+            (body.instantiate1 (.fvar d n dom)) (d + 1) with
+        | none => rw [hrec] at hop; exact nomatch hop
+        | some q =>
+          rw [hrec] at hop
+          simp only [Option.some.injEq, Prod.mk.injEq] at hop
+          obtain ⟨rfl, rfl⟩ := hop
+          rcases List.mem_cons.mp ha with rfl | ha
+          · refine FrameOk.weaken_fit hfit' ?_
+            refine FrameOk.fvar (A := A) (FrameOk.weaken_top hfr.dom)
+              (by omega) hfr.dom.ws ?_ ?_
+            · rw [interp_weaken_top hfr.dom.ws]; exact hdomI
+            · simpa only [updV, if_pos] using hx
+          · exact ih hrec hfit' (by simpa using hlen) (hfr.body hdomI hx) a ha
+    | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
+    | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+      simp only [openPisAtFvars] at hop; exact nomatch hop
+
 /-- The frame conditions along an `Expr.instPisAt` walk at another
 telescope's opening variables: each step is `FrameOk.body_at` at the
 walked domain's interpretation, which the install's per-frame pins
