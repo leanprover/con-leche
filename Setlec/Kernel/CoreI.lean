@@ -313,8 +313,8 @@ def inst1M (e v : EIdx) (d : Nat := 0) : CheckIM EIdx :=
     else
       let store := s.store
       let s := { s with store := EStore.empty }
-      let (r, store) := store.instantiate1I e v d
-      (r, { s with store := store })
+      let (r', store) := store.instantiate1I e v d r.2
+      (r', { s with store := store })
 
 /-- Memoized interned `Expr.instantiateList` (bulk instantiation,
 task #50); identity shortcut as in `inst1M` (task #72). -/
@@ -329,8 +329,8 @@ def instListM (e : EIdx) (vs : List EIdx) (d : Nat := 0) :
     else
       let store := s.store
       let s := { s with store := EStore.empty }
-      let (r, store) := store.instantiateListI e vs d
-      (r, { s with store := store })
+      let (r', store) := store.instantiateListI e vs d r.2
+      (r', { s with store := store })
 
 /-- Memoized interned `Expr.abstract1`. -/
 def abstract1M (e : EIdx) (d : Nat) : CheckIM EIdx :=
@@ -357,23 +357,34 @@ def mkAppNM (f : EIdx) (args : List EIdx) : CheckIM EIdx :=
     let (r, store) := store.mkAppNI f args
     (r, { s with store := store })
 
-/-- Interned `Expr.instSpine`. -/
+/-- Interned `Expr.instSpine` (per-node bound shortcut: the root's
+bound walk fills the persistent cache for the whole sub-DAG, task
+#84). -/
 def instSpineM (args : List EIdx) (t : Nat) (e : EIdx) :
     CheckIM EIdx :=
   modifyGet fun s =>
+    let bm := s.bvarB
+    let s := { s with bvarB := {} }
+    let r := EStore.bvarBoundIGo s.store bm e
+    let s : IState := { s with bvarB := r.2 }
     let store := s.store
     let s := { s with store := EStore.empty }
-    let (r, store) := store.instSpineI args t e
-    (r, { s with store := store })
+    let (r', store) := store.instSpineI args t e r.2
+    (r', { s with store := store })
 
-/-- Interned `Expr.piResidual`/`Expr.instPis`. -/
+/-- Interned `Expr.piResidual`/`Expr.instPis` (per-node bound
+shortcut as in `instSpineM`, task #84). -/
 def piResidualM (e : EIdx) (args : List EIdx) :
     CheckIM (Option EIdx) :=
   modifyGet fun s =>
+    let bm := s.bvarB
+    let s := { s with bvarB := {} }
+    let r := EStore.bvarBoundIGo s.store bm e
+    let s : IState := { s with bvarB := r.2 }
     let store := s.store
     let s := { s with store := EStore.empty }
-    let (r, store) := store.piResidualI e args
-    (r, { s with store := store })
+    let (r', store) := store.piResidualI e args r.2
+    (r', { s with store := store })
 
 /-- Interned `Expr.pisToLams`. -/
 def pisToLamsM (k : Nat) (e body : EIdx) : CheckIM (Option EIdx) :=
