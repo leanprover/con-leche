@@ -2429,4 +2429,152 @@ theorem modeled_stage {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat)
     rw [List.getElem?_eq_none hlen] at hjv
     exact nomatch hjv
 
+/-- The constructor-residual package of a **plain** rule: the
+constructor type is walked at the leading recursor parameters, whose
+memberships transfer into the walk's domains along the kernel's
+parameter-domain pins (`pi_walk_src` over `hdePars`). -/
+theorem ctor_pkg_plain {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat)
+    {ψ : Name → Nat} {tyA : Expr} {rP cnP cnF : Nat} {cty : Expr}
+    {fvsP : List Expr} {restP : Expr} {cdomsP : List Expr}
+    {crestP : Expr} {xFvsP : List Expr}
+    (hopenP : openPisAtFvars rP tyA 0 = some (fvsP, restP))
+    (htyw : tyA.hasFvar = false)
+    (htyb : tyA.looseBVarsBounded 0 = true)
+    (hAty : AnnotOk V m₀.val env₀ ψ 0 (rho0 V) tyA)
+    (hcinstP : Expr.instPisAt (fvsP.take cnP) cty =
+      some (cdomsP, crestP))
+    (hdePars : DefEqListOk F env₀ (rP + cnF)
+      ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP)
+    (hplainLe : cnP ≤ rP)
+    (hCw : cty.hasFvar = false)
+    (hCb : cty.looseBVarsBounded 0 = true)
+    (hACty : AnnotOk V m₀.val env₀ ψ 0 (rho0 V) cty)
+    (hICty : ∃ T, interpClosed V m₀.val env₀ ψ cty = some T) :
+    ∀ (xs : List V), xs.length ≤ rP + cnF → rP ≤ xs.length →
+      FramePref m₀.val env₀ ψ (fvsP ++ xFvsP) xs →
+      WScoped rP crestP ∧ crestP.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded crestP ∧
+      FvarsOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) crestP ∧
+      AnnotOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) crestP ∧
+      ∃ P, interpExpr V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) crestP = some P := by
+  intro xs hlen hge hpref
+  obtain ⟨hfvsPInst, hfvsPLen, hfvsPShape⟩ :=
+    openPisAtFvars_spec rP 0 hopenP
+  obtain ⟨hfvsPWf, hrestPWf⟩ := openPisAtFvars_wf rP 0 hopenP
+    (WScoped.of_not_hasFvar htyw) htyb
+    (Expr.LeavesBounded.of_not_hasFvar htyw)
+  -- the full recursor-prefix spine and its typing packages
+  have hspP : FvarSpine (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) fvsP (xs.take rP) := by
+    refine FvarSpine_of_open hopenP
+      (by rw [List.length_take]; omega) (by omega) ?_
+    intro j v hjv
+    have hjr : j < rP := by
+      rcases Nat.lt_or_ge j rP with h | h
+      · exact h
+      · rw [List.getElem?_eq_none
+          (by rw [List.length_take]; omega)] at hjv
+        exact nomatch hjv
+    rw [List.getElem?_take_of_lt hjr] at hjv
+    show xs.getD (0 + j) SetTheory.empty = v
+    rw [Nat.zero_add, List.getD_eq_getElem?_getD, hjv]
+    rfl
+  have hwsP : ∀ a ∈ fvsP, WScoped (rP + cnF) a := fun a ha =>
+    ((hfvsPWf a ha).1).mono (by omega)
+  have hmemP : ∀ (i : Nat) (a : Expr) (v : V),
+      (fvsP.map Expr.fvarTypeD)[i]? = some a →
+      (xs.take rP)[i]? = some v →
+      ∃ B, interpExpr V m₀.val env₀ ψ (rP + cnF)
+        (fun l => xs.getD l SetTheory.empty) a = some B ∧ v ∈ˢ B := by
+    intro i a v ha hv
+    have hir : i < rP := by
+      rcases Nat.lt_or_ge i rP with h | h
+      · exact h
+      · rw [List.getElem?_eq_none
+          (by rw [List.length_take]; omega)] at hv
+        exact nomatch hv
+    rw [List.getElem?_take_of_lt hir] at hv
+    have hifv : i < fvsP.length := by omega
+    obtain ⟨fvi, hfvi⟩ : ∃ fvi, fvsP[i]? = some fvi :=
+      ⟨fvsP[i]'hifv, List.getElem?_eq_getElem hifv⟩
+    have ha' : a = Expr.fvarTypeD fvi := by
+      rw [List.getElem?_map, hfvi] at ha
+      exact (Option.some.inj ha).symm
+    subst ha'
+    have hsp : (fvsP ++ xFvsP)[i]? = some fvi := by
+      rw [List.getElem?_append_left (by omega)]
+      exact hfvi
+    obtain ⟨B, hB, hvB⟩ := hpref i v fvi hv hsp
+    obtain ⟨nmi, hshapei⟩ := hfvsPShape i fvi hfvi
+    rw [Nat.zero_add] at hshapei
+    have hWi : WScoped i (Expr.fvarTypeD fvi) := by
+      have hW := (hfvsPWf fvi (List.mem_of_getElem? hfvi)).1
+      rw [hshapei] at hW
+      simp only [WScoped] at hW
+      rw [hshapei]
+      exact hW.2
+    have hcan := interp_getD_canon (cval := m₀.val) (env := env₀)
+      (φ := ψ) (e := Expr.fvarTypeD fvi) (xs := xs) (D := rP + cnF)
+      hWi (by omega) (by omega)
+    rw [hcan]
+    exact ⟨B, hB, hvB⟩
+  have hWty : WScoped (rP + cnF) tyA := WScoped.of_not_hasFvar htyw
+  have hΘP := (self_walk hfvsPInst hspP hwsP hWty htyb
+    (Expr.LeavesBounded.of_not_hasFvar htyw)
+    (FvarsOk.of_not_hasFvar htyw)
+    (AnnotOk.closed_invariant htyw _ _ hAty) hmemP).2
+  -- restrict to the constructor parameters
+  have hspC : FvarSpine (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) (fvsP.take cnP)
+      (xs.take cnP) := by
+    have h := FvarSpine.take cnP hspP
+    rwa [List.take_take, Nat.min_eq_left hplainLe] at h
+  have hwsC : ∀ a ∈ fvsP.take cnP, WScoped (rP + cnF) a := fun a ha =>
+    hwsP a (List.mem_of_mem_take ha)
+  have hLsC : ∀ a ∈ fvsP.take cnP, Expr.LeavesBounded a := fun a ha =>
+    (hfvsPWf a (List.mem_of_mem_take ha)).2.2
+  have hFsC : ∀ a ∈ fvsP.take cnP,
+      FvarsOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) a := fun a ha =>
+    hΘP a (List.mem_of_mem_take ha)
+  -- the constructor type's closed facts at the frame
+  have hWc : WScoped (rP + cnF) cty := WScoped.of_not_hasFvar hCw
+  have hAc : AnnotOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) cty :=
+    AnnotOk.closed_invariant hCw _ _ hACty
+  have hIc : ∃ T, interpExpr V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) cty = some T := by
+    obtain ⟨T, hT⟩ := hICty
+    refine ⟨T, ?_⟩
+    rw [interp_closed_invariant hCw _ _]
+    exact hT
+  -- walk the parameters, transferring along the parameter-domain pins
+  obtain ⟨hfitC, hpackC⟩ := pi_walk_src m₀ F hcinstP hdePars hspC hwsC
+    hLsC hFsC hWc hCb (Expr.LeavesBounded.of_not_hasFvar hCw)
+    (FvarsOk.of_not_hasFvar hCw) hAc hIc
+  obtain ⟨-, hPcr⟩ := peel_walk hcinstP hspC hwsC hWc hAc hIc hpackC
+  obtain ⟨Pcr, hPcr⟩ := hPcr
+  obtain ⟨hWcrD, hbcr, hAcr, hlcr⟩ := TeleFitI.rest_wf hfitC hWc hCb hAc
+  -- residual scoping at the recursor prefix
+  have hwsCrP : ∀ a ∈ fvsP.take cnP, WScoped rP a := by
+    intro a ha
+    have h := (hfvsPWf a (List.mem_of_mem_take ha)).1
+    rwa [Nat.zero_add] at h
+  obtain ⟨-, hWcr⟩ := instPisAt_wscoped (D := rP) (fvsP.take cnP)
+    hcinstP (WScoped.of_not_hasFvar hCw) hwsCrP
+  refine ⟨hWcr, hbcr, ?_, ?_, hAcr, ⟨Pcr, hPcr⟩⟩
+  · intro l hl
+    rcases hlcr l hl with hl' | ⟨a, ha, hla⟩
+    · rw [fvarLeaves_eq_nil_of_not_hasFvar hCw] at hl'
+      cases hl'
+    · exact hLsC a ha l hla
+  · intro l hl
+    rcases hlcr l hl with hl' | ⟨a, ha, hla⟩
+    · rw [fvarLeaves_eq_nil_of_not_hasFvar hCw] at hl'
+      cases hl'
+    · exact hFsC a ha l hla
+
 end Setlec
