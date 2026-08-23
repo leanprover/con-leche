@@ -3118,11 +3118,12 @@ sanctioned `projFnName` projection-table family, nothing else).
   was built, so a basis pin, an artifact check and a direct
   construction all discharge them the same way — the `IndOk` pattern,
   and the move `RecRulesOk` made in task #58.  `UnitLaw` is already
-  free of `_model` names, and the direct install discharges it from
-  `directTyVal_unitlike`.  `EtaLaw` still reaches the constructor and
+  free of `_model` names; `EtaLaw` still reaches the constructor and
   the projections through *their* `_model` names, which is why the
-  direct install declares `eta := false`; making it public-named is the
-  one piece a direct-eta would need.
+  direct install declares `eta := false` (making it public-named is the
+  one piece a direct-eta would need).  See "The two frame-relative
+  capabilities" below for why the direct install declares
+  `unitlike := false` as well.
 * **The artifact linkage is existence-premised.**  "`val n` is
   `val (n._model)`" now takes *the companion being stored* as a
   hypothesis rather than asserting it.  For an artifact-installed
@@ -3195,19 +3196,87 @@ would stop firing here.  So before any skip rule can ship:
   clause is exactly the record that makes that possible).  This is the
   reason the restatement was not folded into this landing.
 
+### The install order, and why the type former's tower is guarded
+
+**Finding (2026-08-23, the assembly).**  The four constants are
+installed in the order the checker stores them, and the *first* of them
+is the type former — the constructor's type ends in `T p⃗`, so it does
+not resolve, cannot be annotated, and cannot be universe-checked until
+`T` is stored.  So at the type former's own install the per-field
+universe bound has not been checked yet: its semantic content
+(`FieldTele`) is read off `inferTypeCore`/`ensureSortCore` runs in the
+*extended* environment, and turning those into interpretation facts
+needs `inferTypeCore_sound`, i.e. an `EnvModel` of that environment —
+which is exactly what the type former's install is constructing.  A
+plain "the tower is small" obligation at the type former is therefore
+**circular**.
+
+The fix is local to the constructed value: `directTyBody` is the
+dependent-pair tower **guarded by its own smallness** (the tower when
+it lands in `univ w`, the singleton otherwise).  Then
+
+* the type former's `mem_type` is unconditional (`directTyVal_mem`
+  takes no `FieldTele`), so its install goes through, and
+* every later member of the block — the constructor, the recursor, the
+  projections — *does* have the checked bound in scope, discharges the
+  guard (`directTyBody_eq`) and sees the plain tower.
+
+The junk branch is unreachable on any block the checker accepts.  The
+alternative — proving that the core operations are invariant under a
+fresh environment extension, so the bound could be re-read in the
+pre-block environment — is a whole-core mutual induction and buys
+nothing else.
+
+### The two frame-relative capabilities
+
+**Finding.**  `EtaLaw` and `UnitLaw` are the only `EnvModel` clauses
+that quantify over a parameter-telescope fit at an **arbitrary** frame
+(`d₁`, `ρ₁`), while every constructed value is a λ-tower over the
+telescope's *frame-0* opening (`teleLamV … 0 (rho0 V)`).  Folding such
+a tower needs a fit at frame 0 — `teleLamV_fold` is frame-matched — so
+discharging either law needs to relocate a closed telescope's
+value-spine fit onto the canonical frame-0 opening.  The pieces for
+that exist (`TeleFit.toTeleFitI`, `TeleFitI.sanitize`,
+`interp_instSeq_fvarFrames`, `peel_walk`), but `TeleFitI.toTeleFit`
+reproduces the frame it is given, so none of them lands at frame 0; a
+dedicated relocation lemma is missing.
+
+The direct install therefore declares **both** `eta := false` and
+`unitlike := false`.  Claiming fewer capabilities only ever removes
+reductions, so this is sound, and it costs nothing today: the path is
+artifact-*absence* gated, so every structure that has a capability
+today keeps the modeled route.  `directTyVal_unitlike` is proved and
+kept — it is the whole semantic content of the unit-like law for this
+class, waiting only on the relocation lemma.  Both capabilities are
+preconditions of the endgame, not of this landing.
+
 ### One opening for the block, one frame per field
 
 Two shape decisions exist purely so the model can read the checks off
 the same frames it computes in:
 
-* `checkDirectCtor` opens the **type former's** parameter telescope and
-  instantiates the constructor's into those very variables (rather than
-  opening the constructor's own).  The reference kernels compare the two
-  parameter telescopes by `isDefEq` (`Add.lean:220-222`); instantiating
-  one into the other is that check done once, and it means the field
-  types carry the annotations the type former's own telescope walk
-  produces — otherwise `FvarsOk` for the field-universe walk would need
-  a separate definitional bridge between two openings.
+* `checkDirectCtor` opens the **constructor's own** parameter telescope
+  and instantiates the type former's into those very variables.  That
+  opening is where every value-spine fit of the constructor's type at
+  the canonical frame lands (`TeleFit_open`), so the field types carry
+  exactly the annotations the model's walks produce, and it is the
+  telescope `directCRest` — hence the tower, the constructor value and
+  the projections — is read off.  The reference kernels compare the two
+  parameter telescopes by `isDefEq` (`Add.lean:220-222`); running that
+  comparison over this opening produces the shape `pi_walk` consumes
+  (spine, source annotations, `DefEqListOk` against the instantiated
+  domains), which is what carries a parameter value's membership from
+  the constructor's telescope to the type former's, so the family's own
+  value folds at the very same parameters.
+* `checkDirectCtor` additionally re-checks that every **annotated**
+  opened field domain resolves in the *pre-block* environment.
+  `directNonRec` says that of the raw domains — it is the recognition
+  filter — and the model needs it of the annotated ones: the type
+  former's value was fixed one install earlier, from those domains'
+  interpretations in the pre-block environment, so the later members'
+  proofs must move that value across the block's own extensions
+  (`interp_mono` + `interp_cval_ext`), which needs the domains to
+  resolve there.  Same raw/annotated discipline `directShape` follows.
 * `checkDirectFieldUniv` infers each field's sort at **its own** frame
   (`nP + j`) rather than at the block's widest frame.  Depth invariance
   makes this the same verdict and removes a frame-padding step: the
@@ -3257,11 +3326,12 @@ a field-free structure, `rfl`s through both projection iota rules and
 through the recursor rule) — verified by running it, and re-verified
 after each subsequent change.
 
-**Not yet landed: the environment assembly of the install
-soundness.**  `checkIndDecl` therefore does not yet dispatch to
+**Not yet landed: the rest of the environment assembly of the install
+soundness** (the type former's extension *is* landed; see the list
+below).  `checkIndDecl` therefore does not yet dispatch to
 `checkDirectStruct`, and the raw fixture is pinned at *decline* in the
-expectations; enabling the clause is a two-line change (one per checker
-copy) once the assembly lands — verified by temporarily enabling it at
+expectations; enabling the clause is a three-line change per checker
+copy once the assembly lands — verified by temporarily enabling it at
 every step of this work, which accepts the fixture and leaves the arena
 at 90/92.
 
@@ -3277,51 +3347,73 @@ implications (`Setlec/Verify/BridgeWfImp.lean`, with the reusable
 as `installProjFnStep`'s are.  `Setlec/Kernel/CheckerNC.lean` carries
 the cert-skipping twin.
 
+Landed since (2026-08-23, the assembly pass):
+
+* the reference `isDefEq` between the two parameter telescopes
+  (`Add.lean:220-222`) is now checked, over the constructor's own
+  opening.  The battery obstruction was **not** the distinct-instance
+  trap the earlier pass diagnosed: `checkDefEqList`'s three commute
+  lemmas (`_fst_dproj`, `_snd_dproj`, `_datF`) were simply missing from
+  the `checkDirectCtor` batteries' simp sets.  Adding them makes all
+  three fire; nothing about the call shape or the `PairM` instances
+  needed changing.
+* the install order finding and the guarded tower (see "The install
+  order, and why the type former's tower is guarded"), which is what
+  makes an inductive one-constant-at-a-time assembly possible at all;
+* `FieldTele_of_walk` now applies verbatim: `checkDirectFieldUniv` runs
+  in the environment carrying the type former, which is exactly the
+  environment whose model is in hand when the *constructor* is
+  installed;
+* **`extend_direct_ind`** (`Setlec/Model/DirectDecl.lean`): the type
+  former's model extension, complete and sorry-free —
+  `checkDirectInd_inv`, `mem_type` from `directTyVal_mem`,
+  `val_params` from `directTyVal_params`, `annot_ok` from
+  `annotate_sound`, every capability and `ModeledOk` clause vacuous;
+* `TeleFit.instLev_down`, the value-spine counterpart of
+  `TeleFitI.instLev_down`.
+
+Everything above was re-validated with the clause temporarily enabled
+at each step: arena 90/92, `direct_struct_raw` accepted, the three
+duplicate-declaration fixtures rejecting.
+
 What remains, in dependency order:
 
-1. **`FieldTele` from the universe walk.**  `checkDirectFieldUniv_inv`
-   (landed) gives, per field, the inferred sort and the `Level.leq`
-   result; turning that into `FieldTele` needs the growing-frame
-   invariant (`FvarsOk`/`AnnotOk` at each opened field) — the analogue
-   at `TeleFit` frames of what `Setlec/Model/IotaWalk.lean`'s
-   `pi_walk`/`peel_walk` do at a fixed frame.  This is the one
-   genuinely new piece of telescope machinery.
-2. **`mem_type` for the four constants**, from `directTyVal_mem`,
-   `directCtorVal_mem`, `directRecVal_mem`/`directRec_body_mem` and
+1. **A cross-environment congruence for the constructed values.**  The
+   type former's value is fixed over the *pre-block* pair
+   (`m.val`, `env`), while the constructor's, the recursor's and the
+   projections' obligations are stated over the pair of their own
+   install.  `teleLamV`, `sigmaTowerV` and `FieldTele` read the
+   telescope only through its binder domains' interpretations, and
+   those domains resolve in the pre-block environment (now checked), so
+   the congruence is a `k`-indexed induction over the opened telescope
+   with `interp_mono` + `interp_cval_ext` at each domain.  Needed
+   before item 2 and reused at every later install.
+2. **`mem_type` for the constructor**, from `directCtorVal_mem`: the
+   field telescope from `FieldTele_of_walk`, and the residual identity
+   `⟦T p⃗⟧ = tower` from `directTyVal_fold` — whose parameter fit comes
+   from the constructor's own fit through `pi_walk` at the checked
+   parameter-domain `isDefEq`.
+3. **`mem_type` for the recursor and the projections**, from
+   `directRecVal_mem`/`directRec_body_mem` and
    `directProjVal_mem`/`directProj_body_mem`, with the residual
-   identities read off `checkDirectCtor`'s opened-residual pin and
-   `checkDirectRecTy`'s definitional pins (via `isDefEqCore_sound`).
-   The constructor's parameter-domain membership additionally needs the
-   reference kernels' `isDefEq` between the two parameter telescopes
-   (`Add.lean:220-222`) added to `checkDirectCtor`.  **Diagnosed
-   blocker** (the check is written and works; only its battery does
-   not): at that position the pair-monad projection battery does not
-   fire.  It is *not* a lemma defect — `checkDefEqList_fst_dproj`
-   rewrites fine in an isolated `example`, and hoisting the call into
-   its own non-recursive wrapper constant, binding its result
-   explicitly, and running the `dfst_step`-style cascade all fail the
-   same way.  A `pp.explicit` diff of the two sides pins the cause as
-   the **distinct-instance trap**: the goal's
-   `Monad (PairM …)` / `MonadExceptOf CheckError (PairM …)` arguments
-   at that node are not the instance terms the battery lemma
-   elaborates to, so simp's post-discrimination match fails even though
-   the terms are defeq.  Next step is to state the battery against the
-   goal's own instances (or make the `PairM` instances reducible), not
-   to reshape the kernel function further — the same call shape in
-   `checkDirectRecTy` rewrites, so the two elaborations must be
-   compared.
-3. **The rules' fold obligation** (`RecMemberOk`) for the recursor rule
+   identities read off `checkDirectRecTy`'s definitional pins (via
+   `isDefEqCore_sound`).
+4. **The rules' fold obligation** (`RecMemberOk`) for the recursor rule
    and the `nF` projection rules, through `TowerOk.of_stages`
-   (`Setlec/Model/RuleFold.lean:1706`): the per-stage facts are the
+   (`Setlec/Model/RuleFold.lean`): the per-stage facts are the
    install's definitional domain pins, the bottom fact is
    `teleLamV_fold` composed with `directRec_iota` / `directProj_iota`.
-4. **The chain**: `extend_fresh` for the `3 + nF` constants (the
-   `ModeledOk` obligations are already vacuous for this class — `eta`
-   is `false`, the linkage is existence-premised and no companion
-   exists — so only `mem_type`, `annot_ok`, `val_params` and the folds
-   remain per constant), then the direct case of `checkIndDecl_sound`
-   (`Setlec/Model/Extend/Decl.lean`).
-5. **`Setlec/Model/BridgeS.lean`**: `checkDirectStructS`'s
+5. **The chain**: `extend_basis_one` for the remaining `2 + nF`
+   constants and `extend_rec_swap` for the rule-carrying ones (the
+   `ModeledOk` obligations are vacuous for this class — `eta` and
+   `unitlike` are `false`, the linkage is existence-premised and no
+   companion exists — so only `mem_type`, `annot_ok`, `val_params` and
+   the folds remain per constant), then the direct case of
+   `checkIndDecl_sound` (`Setlec/Model/Extend/Decl.lean`).
+6. **`Setlec/Model/BridgeS.lean`**: `checkDirectStructS`'s
    shared-state-to-pure bridge, including the `flushS`/`ISOK`
    re-establishment at each of the five phases, and the run-tied
    `EnvWF` discharges `checkDirectStruct_wfimp` is waiting on.
+7. **Enable**: the clause in `checkIndDecl` and its `S`/`NC` mirrors
+   (three lines each, verified to work), and the four expectation
+   flips (`direct_struct_raw` 2→0; `bad/tutorial/13{3,4,7}` 2→1).
