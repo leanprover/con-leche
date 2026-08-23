@@ -843,15 +843,18 @@ telescope: every field's sort must be `≤` the structure's result sort
 the class requires a nonzero result sort).  Walks the fields from the
 last to the first. -/
 def checkDirectFieldUniv (ops : CheckerOps m) (env : Env) (s : Level)
-    (depth nP : Nat) (fvs : List Expr) : Nat → m Unit
+    (nP : Nat) (fvs : List Expr) : Nat → m Unit
   | 0 => pure ()
   | j + 1 => do
-    let fv ← unwrapOr fvs[nP + j]? (.internal "direct structure: field index")
-    let ty ← ops.inferType env depth fv.fvarTypeD
-    let u ← ops.ensureSort env depth ty
+    let fv ← unwrapOr fvs[j]? (.internal "direct structure: field index")
+    -- each field's domain is inferred at *its own* frame: the variable
+    -- `fvs[j]` sits at index `nP + j`, so everything below it is in
+    -- scope and nothing above is
+    let ty ← ops.inferType env (nP + j) fv.fvarTypeD
+    let u ← ops.ensureSort env (nP + j) ty
     unless ← liftFueled "level comparison" (Level.leq u s) do
       throw (.invalid "direct structure: field universe too large")
-    checkDirectFieldUniv ops env s depth nP fvs j
+    checkDirectFieldUniv ops env s nP fvs j
 
 /-- Stage 1: the type former.  The ordinary constant check plus a
 re-verification of the *annotated* shape — the model reads the
@@ -898,7 +901,7 @@ def checkDirectCtor (ops : CheckerOps m) (env : Env) (p : DirectParts)
   unless cresid == Expr.mkAppN
       (.const p.cvT.name (p.cvT.levelParams.map .param)) fvsP do
     throw (.notImplemented "direct structure: opened constructor residual")
-  checkDirectFieldUniv ops env p.resSort (p.nP + p.nF) 0 xFvs p.nF
+  checkDirectFieldUniv ops env p.resSort p.nP xFvs p.nF
   pure (⟨.ctorInfo cvCa p.nP p.nF ::
     .axiomInfo ⟨p.cvC.name.str "_model", cvCa.levelParams, cvCa.type⟩ ::
     env.consts⟩, cvCa)

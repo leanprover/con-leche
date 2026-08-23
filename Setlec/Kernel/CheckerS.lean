@@ -770,15 +770,15 @@ def directPartsF? (fe : FEnv) (block : List ConstantInfo) :
 
 /-- `checkDirectFieldUniv` through the index. -/
 def checkDirectFieldUnivF (ops : CheckerOps m) (fe : FEnv) (s : Level)
-    (depth nP : Nat) (fvs : List Expr) : Nat → m Unit
+    (nP : Nat) (fvs : List Expr) : Nat → m Unit
   | 0 => pure ()
   | j + 1 => do
-    let fv ← unwrapOr fvs[nP + j]? (.internal "direct structure: field index")
-    let ty ← ops.inferType fe.env depth fv.fvarTypeD
-    let u ← ops.ensureSort fe.env depth ty
+    let fv ← unwrapOr fvs[j]? (.internal "direct structure: field index")
+    let ty ← ops.inferType fe.env (nP + j) fv.fvarTypeD
+    let u ← ops.ensureSort fe.env (nP + j) ty
     unless ← liftFueled "level comparison" (Level.leq u s) do
       throw (.invalid "direct structure: field universe too large")
-    checkDirectFieldUnivF ops fe s depth nP fvs j
+    checkDirectFieldUnivF ops fe s nP fvs j
 
 /-- `checkDirectInd` through the index. -/
 def checkDirectIndF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts) :
@@ -809,7 +809,7 @@ def checkDirectCtorF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts)
   unless cresid == Expr.mkAppN
       (.const p.cvT.name (p.cvT.levelParams.map .param)) fvsP do
     throw (.notImplemented "direct structure: opened constructor residual")
-  checkDirectFieldUnivF ops fe p.resSort (p.nP + p.nF) 0 xFvs p.nF
+  checkDirectFieldUnivF ops fe p.resSort p.nP xFvs p.nF
   pure ((fe.push
     (.axiomInfo ⟨p.cvC.name.str "_model", cvCa.levelParams, cvCa.type⟩)).push
     (.ctorInfo cvCa p.nP p.nF), cvCa)

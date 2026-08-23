@@ -23,6 +23,57 @@ variable {V : Type u} [SetTheory V]
 
 open SetTheory Expr
 
+/-! ### The per-field universe walk -/
+
+/-- Inversion of the field-universe walk: every field's domain was
+inferred, its sort ensured, and that sort checked `≤` the structure's
+result sort. -/
+theorem checkDirectFieldUniv_inv {env : Env} {F : Nat} {s : Level}
+    {depth nP : Nat} {fvs : List Expr} :
+    ∀ (k : Nat),
+      checkDirectFieldUniv (fueledOps F) env s depth nP fvs k = .ok () →
+      ∀ j, j < k → ∃ fv ty u, fvs[nP + j]? = some fv ∧
+        inferTypeCore env F depth (Expr.fvarTypeD fv) = .ok ty ∧
+        ensureSortCore env F depth ty = .ok u ∧
+        Level.leq u s = some true := by
+  intro k
+  induction k with
+  | zero => intro _ j hj; exact absurd hj (by omega)
+  | succ k ih =>
+    intro h j hj
+    rw [checkDirectFieldUniv] at h
+    simp only [fueledOps_inferType, fueledOps_ensureSort, Bind.bind,
+      Except.bind, unwrapOr] at h
+    cases hfv : fvs[nP + k]? with
+    | none => rw [hfv] at h; exact nomatch h
+    | some fv =>
+      rw [hfv] at h
+      simp only [pure, Except.pure] at h
+      cases hty : inferTypeCore env F depth (Expr.fvarTypeD fv) with
+      | error _ => rw [hty] at h; exact nomatch h
+      | ok ty =>
+        rw [hty] at h
+        dsimp only [] at h
+        cases hu : ensureSortCore env F depth ty with
+        | error _ => rw [hu] at h; exact nomatch h
+        | ok u =>
+          rw [hu] at h
+          simp only [liftFueled] at h
+          cases hle : Level.leq u s with
+          | none => rw [hle] at h; exact nomatch h
+          | some b =>
+            rw [hle] at h
+            cases b with
+            | false =>
+              simp only [pure, Except.pure, Bool.false_eq_true, if_false,
+                throw, throwThe, MonadExceptOf.throw] at h
+              exact nomatch h
+            | true =>
+              simp only [pure, Except.pure, if_true] at h
+              rcases Nat.lt_succ_iff_lt_or_eq.mp hj with hj' | rfl
+              · exact ih h j hj'
+              · exact ⟨fv, ty, u, hfv, hty, hu, hle⟩
+
 /-- Install a direct block's **model companion**: an opaque constant of
 a given type carrying a given value.  An `axiomInfo` triggers none of
 the inductive-kind obligations, so the only real inputs are the type's

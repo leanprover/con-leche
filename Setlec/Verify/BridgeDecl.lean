@@ -822,30 +822,30 @@ theorem pairOps_ensureSort_snd (env : Env) (d : Nat) (a : Expr) :
       o₂.ensureSort env d a := rfl
 
 theorem checkDirectFieldUniv_fst_dproj (env : Env) (s : Level)
-    (depth nP : Nat) (fvs : List Expr) :
+    (nP : Nat) (fvs : List Expr) :
     ∀ j : Nat,
-      (checkDirectFieldUniv (pairOps o₁ o₂ h) env s depth nP fvs j).val.1 =
-        checkDirectFieldUniv o₁ env s depth nP fvs j
+      (checkDirectFieldUniv (pairOps o₁ o₂ h) env s nP fvs j).val.1 =
+        checkDirectFieldUniv o₁ env s nP fvs j
   | 0 => rfl
   | j + 1 => by
     unfold checkDirectFieldUniv
     simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
       PairM.fst_ite, pairOps_inferType_fst, pairOps_ensureSort_fst,
       liftFueled_fst_proj, unwrapOr_fst_dproj,
-      checkDirectFieldUniv_fst_dproj env s depth nP fvs j]
+      checkDirectFieldUniv_fst_dproj env s nP fvs j]
 
 theorem checkDirectFieldUniv_snd_dproj (env : Env) (s : Level)
-    (depth nP : Nat) (fvs : List Expr) :
+    (nP : Nat) (fvs : List Expr) :
     ∀ j : Nat,
-      (checkDirectFieldUniv (pairOps o₁ o₂ h) env s depth nP fvs j).val.2 =
-        checkDirectFieldUniv o₂ env s depth nP fvs j
+      (checkDirectFieldUniv (pairOps o₁ o₂ h) env s nP fvs j).val.2 =
+        checkDirectFieldUniv o₂ env s nP fvs j
   | 0 => rfl
   | j + 1 => by
     unfold checkDirectFieldUniv
     simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
       PairM.snd_ite, pairOps_inferType_snd, pairOps_ensureSort_snd,
       liftFueled_snd_proj, unwrapOr_snd_dproj,
-      checkDirectFieldUniv_snd_dproj env s depth nP fvs j]
+      checkDirectFieldUniv_snd_dproj env s nP fvs j]
 
 theorem checkDirectInd_fst_dproj (env : Env) (p : DirectParts) :
     (checkDirectInd (pairOps o₁ o₂ h) env p).val.1 =
@@ -1726,17 +1726,17 @@ theorem fueledOpsM_ensureSort_atF (env : Env) (d : Nat) (a : Expr)
       (fueledOps F).ensureSort env d a := rfl
 
 theorem checkDirectFieldUniv_datF (env : Env) (s : Level)
-    (depth nP : Nat) (fvs : List Expr) (F : Nat) :
+    (nP : Nat) (fvs : List Expr) (F : Nat) :
     ∀ j : Nat,
-      (checkDirectFieldUniv fueledOpsM env s depth nP fvs j).val F =
-        checkDirectFieldUniv (fueledOps F) env s depth nP fvs j
+      (checkDirectFieldUniv fueledOpsM env s nP fvs j).val F =
+        checkDirectFieldUniv (fueledOps F) env s nP fvs j
   | 0 => rfl
   | j + 1 => by
     unfold checkDirectFieldUniv
     simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
       FueledM.atF_ite, fueledOpsM_inferType_atF, fueledOpsM_ensureSort_atF,
       liftFueled_atF, unwrapOr_atF,
-      checkDirectFieldUniv_datF env s depth nP fvs F j]
+      checkDirectFieldUniv_datF env s nP fvs F j]
 
 theorem checkDirectInd_datF (env : Env) (p : DirectParts) (F : Nat) :
     (checkDirectInd fueledOpsM env p).val F =

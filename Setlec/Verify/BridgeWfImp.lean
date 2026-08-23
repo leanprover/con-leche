@@ -438,6 +438,47 @@ theorem WScoped_getD' {d : Nat} :
     | succ n =>
       exact ih (fun y hy => h y (List.mem_cons_of_mem _ hy)) n
 
+/-- `openPisAtFvars` puts the variable it creates for binder `j` at
+index `i + j` — the positional companion of `openPisAtFvars_WScoped`,
+needed wherever a check runs at each binder's *own* frame. -/
+theorem openPisAtFvars_index :
+    ∀ (n : Nat) (e : Expr) (i : Nat) {fvs : List Expr} {body : Expr},
+      openPisAtFvars n e i = some (fvs, body) →
+      ∀ (j : Nat) (x : Expr), fvs[j]? = some x →
+        ∃ nm ty, x = Expr.fvar (i + j) nm ty := by
+  intro n
+  induction n with
+  | zero =>
+    intro e i fvs body h j x hx
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h
+    rw [← h.1] at hx
+    exact nomatch hx
+  | succ n ih =>
+    intro e i fvs body h j x hx
+    cases e with
+    | forallE nm dom bodyE mb =>
+      simp only [openPisAtFvars] at h
+      revert h
+      cases hrec : openPisAtFvars n
+          (bodyE.instantiate1 (.fvar i nm dom)) (i + 1) with
+      | none => intro h; exact nomatch h
+      | some p =>
+        obtain ⟨fvs', bodyR⟩ := p
+        intro h
+        simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        cases j with
+        | zero =>
+          simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
+          exact ⟨nm, dom, by rw [← hx, Nat.add_zero]⟩
+        | succ j =>
+          simp only [List.getElem?_cons_succ] at hx
+          obtain ⟨nm', ty', hx'⟩ := ih _ (i + 1) hrec j x hx
+          exact ⟨nm', ty', by rw [hx']; congr 1; omega⟩
+    | bvar _ | fvar _ _ _ | sort _ | const _ _ | app _ _
+    | lam _ _ _ _ | letE _ _ _ _ | lit _ | proj _ _ _ =>
+      exact nomatch h
+
 /-- Opening a `∀`-telescope at fresh free variables produces variables
 and a body scoped at the extended frame. -/
 theorem openPisAtFvars_WScoped :
@@ -1879,32 +1920,32 @@ right-hand side — the last two are checked closed by the checker's own
 
 /-- The per-field universe bound, `wfOpsM` run to pure run. -/
 theorem checkDirectFieldUniv_wfimp {env : Env} (henv : EnvWF env)
-    {s : Level} {depth nP F : Nat} {fvs : List Expr}
-    (hfvs : ∀ x ∈ fvs, WScoped depth x) :
+    {s : Level} {nP F : Nat} {fvs : List Expr}
+    (hfvs : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+      WScoped (nP + i) (Expr.fvarTypeD x)) :
     ∀ {j : Nat} {v : Unit},
-      (checkDirectFieldUniv wfOpsM env s depth nP fvs j).val F = .ok v →
-      checkDirectFieldUniv (fueledOps F) env s depth nP fvs j = .ok v
+      (checkDirectFieldUniv wfOpsM env s nP fvs j).val F = .ok v →
+      checkDirectFieldUniv (fueledOps F) env s nP fvs j = .ok v
   | 0, _, h => h
   | j + 1, v, h => by
     unfold checkDirectFieldUniv at h ⊢
     obtain ⟨fv, hfv, h⟩ := atF_bind_ok h
     have hfv' := unwrapOr_atF_ok hfv
-    show ((unwrapOr fvs[nP + j]? _ : CheckM _) >>= _) = _
+    show ((unwrapOr fvs[j]? _ : CheckM _) >>= _) = _
     rw [hfv']
     simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
-    have hfvW : WScoped depth fv := hfvs fv (List.mem_of_getElem? hfv')
-    have htyW : WScoped depth fv.fvarTypeD := fvarTypeD_WScoped hfvW
+    have htyW : WScoped (nP + j) fv.fvarTypeD := hfvs j fv hfv'
     rw [wfOpsM_inferType henv htyW.to_wscopedB] at h
     obtain ⟨ty, hty, h⟩ := atF_bind_ok h
-    have hty' : inferTypeCore env F depth fv.fvarTypeD = .ok ty := hty
-    show (inferTypeCore env F depth fv.fvarTypeD >>= _) = _
+    have hty' : inferTypeCore env F (nP + j) fv.fvarTypeD = .ok ty := hty
+    show (inferTypeCore env F (nP + j) fv.fvarTypeD >>= _) = _
     rw [hty']
     simp only [Bind.bind, Except.bind]
-    have htyW' : WScoped depth ty := inferTypeCore_WScoped henv F hty' htyW
+    have htyW' : WScoped (nP + j) ty := inferTypeCore_WScoped henv F hty' htyW
     rw [wfOpsM_ensureSort henv htyW'.to_wscopedB] at h
     obtain ⟨u, hu, h⟩ := atF_bind_ok h
-    have hu' : ensureSortCore env F depth ty = .ok u := hu
-    show (ensureSortCore env F depth ty >>= _) = _
+    have hu' : ensureSortCore env F (nP + j) ty = .ok u := hu
+    show (ensureSortCore env F (nP + j) ty >>= _) = _
     rw [hu']
     simp only [Bind.bind, Except.bind]
     obtain ⟨b, hb, h⟩ := atF_bind_ok h
@@ -2115,14 +2156,21 @@ theorem checkDirectCtor_wfimp {env : Env} (henv : EnvWF env)
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   try dsimp only []
   obtain ⟨hxW, -⟩ := openPisAtFvars_WScoped p.nF crest p.nP hox' hcrW
+  have hxPos : ∀ (i : Nat) (x : Expr), xFvs[i]? = some x →
+      WScoped (p.nP + i) (Expr.fvarTypeD x) := by
+    intro i x hx
+    obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index p.nF crest p.nP hox' i x hx
+    have hw := hxW _ (List.mem_of_getElem? hx)
+    simp only [WScoped] at hw
+    exact hw.2
   by_cases h2 : (cresid == Expr.mkAppN
       (.const p.cvT.name (p.cvT.levelParams.map .param)) fvsP) = true
   case neg => rw [if_neg h2] at h; exact absurd h atF_throw_bind
   rw [if_pos h2] at h ⊢
   obtain ⟨u0, hfu, h⟩ := atF_bind_ok h
-  have hfu' := checkDirectFieldUniv_wfimp henv hxW hfu
-  show (checkDirectFieldUniv (fueledOps F) env p.resSort (p.nP + p.nF)
-    0 xFvs p.nF >>= _) = _
+  have hfu' := checkDirectFieldUniv_wfimp henv hxPos hfu
+  show (checkDirectFieldUniv (fueledOps F) env p.resSort p.nP xFvs p.nF
+    >>= _) = _
   rw [hfu']
   simp only [Bind.bind, Except.bind]
   exact h
