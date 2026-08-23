@@ -3019,6 +3019,54 @@ with `sigmaTowerV_split` supplying both the recursor's `mem_type`
 `tupleV (projs x) = x`) and the rule's fold equation
 (`projV_tupleV`).
 
+### The model companions: the direct path is its own preprocessor
+
+`ModeledOk` (the environment invariant's modeled-value bridges) demands
+that every non-reserved stored inductive-kind constant carries a
+`_model` companion with the *same value*, and the eta capability's law
+is spelled in `_model` names.  Rather than weaken that shared invariant
+— which turns out to be load-bearing: the bridges are owed at the
+*type former's* install, when neither the constructor nor the
+projections are stored yet, so no public-name restatement is
+establishable there without new caps-swap or one-shot-block transport
+machinery — the direct path **emits the companions itself**.
+
+Alongside the type former, the constructor and each projection
+function, `checkDirectStruct` stores an opaque constant of the same
+type carrying the same value, under `T._model`, `C._model` and
+`T._model.proj_j`.  `directNoModel` guarantees those names are free, so
+nothing is shadowed; every `ModeledOk` clause then holds verbatim for a
+directly installed block, and not one shared invariant, transport or
+consumer had to change.  The companions are `axiomInfo`s, which trigger
+none of the inductive-kind obligations, so installing one is uniform
+(`extend_direct_companion`).
+
+### One opening for the block, one frame per field
+
+Two shape decisions exist purely so the model can read the checks off
+the same frames it computes in:
+
+* `checkDirectCtor` opens the **type former's** parameter telescope and
+  instantiates the constructor's into those very variables (rather than
+  opening the constructor's own).  The reference kernels compare the two
+  parameter telescopes by `isDefEq` (`Add.lean:220-222`); instantiating
+  one into the other is that check done once, and it means the field
+  types carry the annotations the type former's own telescope walk
+  produces — otherwise `FvarsOk` for the field-universe walk would need
+  a separate definitional bridge between two openings.
+* `checkDirectFieldUniv` infers each field's sort at **its own** frame
+  (`nP + j`) rather than at the block's widest frame.  Depth invariance
+  makes this the same verdict and removes a frame-padding step: the
+  sorts come out at exactly the valuation the dependent-pair tower's
+  recursion uses.
+
+`checkDirectStructS` additionally `flushS`es at each of its five
+environment transitions, like every other driver in
+`Setlec/Kernel/CheckerS.lean` — the memo caches are only valid for the
+environment that created them.  (Found by the verification pass; the
+clause was parked, so no verdict was ever affected.)
+
+
 `Setlec/Model/DirectInstall.lean` assembles them and proves the
 value-level content:
 
@@ -3050,40 +3098,54 @@ shared-state twin `checkDirectStructS`), and a **raw** e2e fixture
 committed unfiltered, run by `tests/arena.sh` with
 `SETLEC_INDUCTIVE_MODELS=/nonexistent` via the new `raw` marker in
 `tests/e2e-expected.txt`).  With the clause enabled the fixture is
-**accepted** (20 declarations: two parameters, two dependent fields, a
-field-free structure, `rfl`s through both projection iota rules and
-through the recursor rule) — verified by running it.
+**accepted** (a structure with two parameters and two dependent fields,
+a field-free structure, `rfl`s through both projection iota rules and
+through the recursor rule) — verified by running it, and re-verified
+after each subsequent change.
 
 **Not yet landed: the environment assembly of the install
 soundness.**  `checkIndDecl` therefore does not yet dispatch to
 `checkDirectStruct`, and the raw fixture is pinned at *decline* in the
-expectations; enabling the clause is a two-line change once the
-assembly lands.  What remains, in dependency order:
+expectations; enabling the clause is a two-line change (one per checker
+copy) once the assembly lands — verified by temporarily enabling it at
+every step of this work, which accepts the fixture and leaves the arena
+at 90/92.
 
-1. `checkDirectStruct_sound`: the `extend_fresh` chain for the
-   `3 + nF` new constants.  The *values* and their membership content
-   are done (above); what is left is environment bookkeeping —
-   reading the syntactic facts off `checkConstantVal_inv` and the
-   install's `checkDefEqList` pins (via `isDefEqCore_sound`) to
-   discharge the `hfield`/`hresid`/`hbody` hypotheses, and transporting
-   interpretations from the pre-block pair `(m.val, env)` to each
-   intermediate one (`interpClosed_mono`, `interp_cval_ext`, already
-   supplied by `extend_fresh`'s own `htrans`).
-2. The rules' fold obligation (`RecMemberOk`) for the recursor rule and
-   the `nF` projection rules, through `TowerOk.of_stages`
+Landed on the verification side, so that enabling the clause is
+possible at all: the pair-monad projection batteries and the
+fuel-indexed `_datF` battery for every new declaration-checker function
+(`Setlec/Verify/BridgeDecl.lean`), and the run-level `wfOpsM`-to-pure
+implications (`Setlec/Verify/BridgeWfImp.lean`, with the reusable
+`checkConstantVal_typeWF`, `stripPis_WScoped` and
+`openPisAtFvars_index`).  `checkDirectStruct_wfimp`'s intermediate
+`EnvWF` hypotheses are *run-tied*, to be discharged in
+`Setlec/Model/BridgeWF.lean` from the declaration inversions, exactly
+as `installProjFnStep`'s are.  `Setlec/Kernel/CheckerNC.lean` carries
+the cert-skipping twin.
+
+What remains, in dependency order:
+
+1. **`FieldTele` from the universe walk.**  `checkDirectFieldUniv_inv`
+   (landed) gives, per field, the inferred sort and the `Level.leq`
+   result; turning that into `FieldTele` needs the growing-frame
+   invariant (`FvarsOk`/`AnnotOk` at each opened field) — the analogue
+   at `TeleFit` frames of what `Setlec/Model/IotaWalk.lean`'s
+   `pi_walk`/`peel_walk` do at a fixed frame.  This is the one
+   genuinely new piece of telescope machinery.
+2. **`mem_type` for the four constants**, from `directTyVal_mem`,
+   `directCtorVal_mem`, `directRecVal_mem`/`directRec_body_mem` and
+   `directProjVal_mem`/`directProj_body_mem`, with the residual
+   identities read off `checkDirectCtor`'s opened-residual pin and
+   `checkDirectRecTy`'s definitional pins (via `isDefEqCore_sound`).
+3. **The rules' fold obligation** (`RecMemberOk`) for the recursor rule
+   and the `nF` projection rules, through `TowerOk.of_stages`
    (`Setlec/Model/RuleFold.lean:1706`): the per-stage facts are the
-   install's definitional domain pins, and the bottom fact is
-   `teleLamV_fold` composed with `directRec_iota` /
-   `directProj_iota`.
-3. A weakening of `ModeledOk`'s three `_model`-bridge clauses by the
-   premise "`n._model` is stored" — sound (a weakening), discharged by
-   the existing modeled proofs with one extra `intro`, and vacuously
-   satisfied by this class, which only fires when no artifact is
-   present (`directNoModel`).
-4. The executable-bridge plumbing for the new declaration-checker
-   functions: `Verify/BridgeDecl.lean` `_fst_dproj`/`_snd_dproj`
-   projection batteries, `Verify/BridgeWfImp.lean` run-level
-   implications with the per-site scoping facts for the fabricated
-   projection types and rule right-hand sides, and `Model/BridgeS.lean`
-   for the shared-state twin — plus the missing
-   `Setlec/Kernel/CheckerNC.lean` twin (`SETLEC_NO_PROOF_CERTS`).
+   install's definitional domain pins, the bottom fact is
+   `teleLamV_fold` composed with `directRec_iota` / `directProj_iota`.
+4. **The chain**: `extend_direct_companion` (landed) interleaved with
+   `extend_fresh` for the four real constants, then the direct case of
+   `checkIndDecl_sound` (`Setlec/Model/Extend/Decl.lean`).
+5. **`Setlec/Model/BridgeS.lean`**: `checkDirectStructS`'s
+   shared-state-to-pure bridge, including the `flushS`/`ISOK`
+   re-establishment at each of the five phases, and the run-tied
+   `EnvWF` discharges `checkDirectStruct_wfimp` is waiting on.
