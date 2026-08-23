@@ -990,6 +990,348 @@ theorem instSeq_bvar :
       exact ih (t - 1) j (fun x hx => hb x (List.mem_cons_of_mem _ hx))
         (by omega) (by simp at hr; omega)
 
+/-! ### The capture-avoiding instantiation sequence
+
+`Expr.instPisAtLift` (the opener behind `directProjTy`) substitutes
+*open* arguments, so it lifts each inserted copy past the binders it
+descends under.  What the model needs is that a subsequent **closed**
+instantiation of the ambient variables collapses the whole thing onto
+the plain `instSeq` at the already-substituted arguments — the
+substitution lemma for `instantiate1Lift`. -/
+
+/-- Instantiating a bvar-closed expression is the identity, also for
+the capture-avoiding substitution. -/
+theorem instantiate1Lift_eq_self {v : Expr} :
+    ∀ {e : Expr} {k : Nat}, looseBVarsBounded k e = true →
+      e.instantiate1Lift v k = e := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k hb
+    simp only [looseBVarsBounded, decide_eq_true_eq] at hb
+    simp only [instantiate1Lift]
+    rw [if_neg (by omega), if_neg (by omega)]
+  | _ => intro k hb; simp_all [instantiate1Lift, looseBVarsBounded]
+
+/-- At a bvar-closed argument the capture-avoiding substitution is the
+plain one: there is nothing to lift. -/
+theorem instantiate1Lift_eq_instantiate1 {v : Expr}
+    (hbv : v.looseBVarsBounded 0 = true) :
+    ∀ (e : Expr) (k : Nat), e.instantiate1Lift v k = e.instantiate1 v k := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k
+    simp only [instantiate1Lift, instantiate1]
+    by_cases h : i = k
+    · rw [if_pos h, if_pos h,
+        liftLooseBVars_eq_self (looseBVarsBounded_mono (Nat.zero_le _) hbv)]
+    · rw [if_neg h, if_neg h]
+  | _ => intro k; simp_all [instantiate1Lift, instantiate1]
+
+/-- **The substitution lemma for `instantiate1Lift`.**  Instantiating
+the ambient variable `k + u` by a *closed* term commutes with the
+capture-avoiding substitution at `k`: the inserted copy's own ambient
+variable is instantiated instead. -/
+theorem instantiate1Lift_instantiate1 {a s : Expr}
+    (hs : s.looseBVarsBounded 0 = true) :
+    ∀ (e : Expr) (k u : Nat),
+      (e.instantiate1Lift a k).instantiate1 s (k + u) =
+        (e.instantiate1 s (k + 1 + u)).instantiate1Lift
+          (a.instantiate1 s u) k := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k u
+    by_cases hik : i = k
+    · subst hik
+      rw [show (Expr.bvar i).instantiate1Lift a i =
+            Expr.liftLooseBVars i 0 a from by
+          simp [instantiate1Lift],
+        show (Expr.bvar i).instantiate1 s (i + 1 + u) = Expr.bvar i from by
+          simp only [instantiate1]; rw [if_neg (by omega), if_neg (by omega)],
+        show (Expr.bvar i).instantiate1Lift (a.instantiate1 s u) i =
+            Expr.liftLooseBVars i 0 (a.instantiate1 s u) from by
+          simp [instantiate1Lift],
+        show i + u = u + i from by omega]
+      exact liftLooseBVars_instantiate1 hs (Nat.zero_le u)
+    · by_cases hgt : i > k
+      · rw [show (Expr.bvar i).instantiate1Lift a k = Expr.bvar (i - 1) from by
+            simp only [instantiate1Lift]; rw [if_neg hik, if_pos hgt]]
+        by_cases h1 : i = k + 1 + u
+        · rw [show (Expr.bvar (i - 1)).instantiate1 s (k + u) = s from by
+              simp only [instantiate1]; rw [if_pos (by omega)],
+            show (Expr.bvar i).instantiate1 s (k + 1 + u) = s from by
+              simp only [instantiate1]; rw [if_pos h1]]
+          exact (instantiate1Lift_eq_self
+            (looseBVarsBounded_mono (Nat.zero_le k) hs)).symm
+        · by_cases h2 : i > k + 1 + u
+          · rw [show (Expr.bvar (i - 1)).instantiate1 s (k + u) =
+                  Expr.bvar (i - 2) from by
+                simp only [instantiate1]
+                rw [if_neg (by omega), if_pos (by omega)]
+                exact congrArg _ (by omega),
+              show (Expr.bvar i).instantiate1 s (k + 1 + u) =
+                  Expr.bvar (i - 1) from by
+                simp only [instantiate1]; rw [if_neg h1, if_pos h2]]
+            simp only [instantiate1Lift]
+            rw [if_neg (by omega), if_pos (by omega)]
+            exact (congrArg _ (by omega)).symm
+          · rw [show (Expr.bvar (i - 1)).instantiate1 s (k + u) =
+                  Expr.bvar (i - 1) from by
+                simp only [instantiate1]
+                rw [if_neg (by omega), if_neg (by omega)],
+              show (Expr.bvar i).instantiate1 s (k + 1 + u) = Expr.bvar i from by
+                simp only [instantiate1]; rw [if_neg h1, if_neg h2]]
+            simp only [instantiate1Lift]
+            rw [if_neg hik, if_pos hgt]
+      · rw [show (Expr.bvar i).instantiate1Lift a k = Expr.bvar i from by
+              simp only [instantiate1Lift]; rw [if_neg hik, if_neg hgt],
+          show (Expr.bvar i).instantiate1 s (k + u) = Expr.bvar i from by
+              simp only [instantiate1]
+              rw [if_neg (by omega), if_neg (by omega)],
+          show (Expr.bvar i).instantiate1 s (k + 1 + u) = Expr.bvar i from by
+              simp only [instantiate1]
+              rw [if_neg (by omega), if_neg (by omega)]]
+        simp only [instantiate1Lift]
+        rw [if_neg hik, if_neg hgt]
+  | fvar idx n ty => intro k u; rfl
+  | sort v => intro k u; rfl
+  | const n us => intro k u; rfl
+  | lit l => intro k u; rfl
+  | app f b ihf ihb =>
+    intro k u
+    simp only [instantiate1Lift, instantiate1, ihf, ihb]
+  | proj sn i pe ih =>
+    intro k u
+    simp only [instantiate1Lift, instantiate1, ih]
+  | lam n ty body m ihty ihbody =>
+    intro k u
+    simp only [instantiate1Lift, instantiate1, ihty]
+    rw [show k + u + 1 = (k + 1) + u from by omega,
+      show k + 1 + u + 1 = (k + 1) + 1 + u from by omega, ihbody]
+  | forallE n ty body m ihty ihbody =>
+    intro k u
+    simp only [instantiate1Lift, instantiate1, ihty]
+    rw [show k + u + 1 = (k + 1) + u from by omega,
+      show k + 1 + u + 1 = (k + 1) + 1 + u from by omega, ihbody]
+  | letE n ty vl body ihty ihv ihbody =>
+    intro k u
+    simp only [instantiate1Lift, instantiate1, ihty, ihv]
+    rw [show k + u + 1 = (k + 1) + u from by omega,
+      show k + 1 + u + 1 = (k + 1) + 1 + u from by omega, ihbody]
+
+/-- The substitution lemma folded over a closed argument spine: a
+capture-avoiding substitution followed by the ambient spine is the
+plain substitution at the already-instantiated argument. -/
+theorem instSeq_instantiate1Lift :
+    ∀ (sp : List Expr) (t : Nat),
+      (∀ s ∈ sp, s.looseBVarsBounded 0 = true) → sp.length = t + 1 →
+      ∀ {a : Expr}, a.looseBVarsBounded (t + 1) = true →
+      ∀ (e : Expr) (k : Nat),
+        instSeq sp (k + t) (e.instantiate1Lift a k) =
+          (instSeq sp (k + t + 1) e).instantiate1 (instSeq sp t a) k := by
+  intro sp
+  induction sp with
+  | nil => intro t _ hlen; exact absurd hlen (by simp)
+  | cons s ss ih =>
+    intro t hsp hlen a ha e k
+    have hss : ss.length = t := by simpa using hlen
+    have hs : s.looseBVarsBounded 0 = true := hsp s List.mem_cons_self
+    have hsp' : ∀ x ∈ ss, x.looseBVarsBounded 0 = true :=
+      fun x hx => hsp x (List.mem_cons_of_mem _ hx)
+    show instSeq ss (k + t - 1)
+      ((e.instantiate1Lift a k).instantiate1 s (k + t)) = _
+    rw [instantiate1Lift_instantiate1 hs]
+    cases t with
+    | zero =>
+      obtain rfl : ss = [] := List.eq_nil_of_length_eq_zero hss
+      show (e.instantiate1 s (k + 1)).instantiate1Lift
+        (a.instantiate1 s 0) k = _
+      rw [instantiate1Lift_eq_instantiate1
+        (looseBVarsBounded_instantiate1_gen hs ha)]
+      rfl
+    | succ t' =>
+      have ha' : (a.instantiate1 s (t' + 1)).looseBVarsBounded (t' + 1) = true :=
+        looseBVarsBounded_instantiate1_gen hs ha
+      rw [show k + (t' + 1) - 1 = k + t' from by omega]
+      rw [ih t' hsp' hss ha' (e.instantiate1 s (k + 1 + (t' + 1))) k]
+      show _ = Expr.instantiate1 (instSeq ss (k + (t' + 1) + 1 - 1)
+          (e.instantiate1 s (k + (t' + 1) + 1)))
+        (instSeq ss (t' + 1 - 1) (a.instantiate1 s (t' + 1))) k
+      rw [show k + (t' + 1) + 1 - 1 = k + t' + 1 from by omega,
+        show k + (t' + 1) + 1 = k + 1 + (t' + 1) from by omega,
+        show t' + 1 - 1 = t' from by omega]
+
+/-- `instSeq` with the *capture-avoiding* substitution: the per-domain
+effect of peeling a telescope at **open** arguments
+(`Expr.instPisAtLift`, which is what a projection's generated type is
+built with). -/
+def instSeqLift : List Expr → Nat → Expr → Expr
+  | [], _, e => e
+  | a :: as, t, e => instSeqLift as (t - 1) (e.instantiate1Lift a t)
+
+/-- **The collapse.**  A closed instantiation of the ambient variables
+turns the capture-avoiding sequence into the plain one at the
+already-instantiated arguments. -/
+theorem instSeq_instSeqLift (sp : List Expr) (t : Nat)
+    (hsp : ∀ s ∈ sp, s.looseBVarsBounded 0 = true) (hlen : sp.length = t + 1) :
+    ∀ (args : List Expr), (∀ a ∈ args, a.looseBVarsBounded (t + 1) = true) →
+      ∀ (e : Expr),
+        instSeq sp t (instSeqLift args (args.length - 1) e) =
+          instSeq (args.map (fun a => instSeq sp t a)) (args.length - 1)
+            (instSeq sp (args.length + t) e) := by
+  intro args
+  induction args with
+  | nil => intro _ e; simp [instSeqLift, instSeq]
+  | cons a as ih =>
+    intro hargs e
+    show instSeq sp t (instSeqLift as (as.length + 1 - 1 - 1)
+      (e.instantiate1Lift a (as.length + 1 - 1))) = _
+    rw [show as.length + 1 - 1 - 1 = as.length - 1 from by omega,
+      show as.length + 1 - 1 = as.length from by omega]
+    rw [ih (fun x hx => hargs x (List.mem_cons_of_mem _ hx))
+      (e.instantiate1Lift a as.length)]
+    rw [instSeq_instantiate1Lift sp t hsp hlen
+      (hargs a List.mem_cons_self) e as.length]
+    show _ = instSeq ((fun x => instSeq sp t x) a ::
+      as.map (fun x => instSeq sp t x)) (as.length + 1 - 1)
+        (instSeq sp (as.length + 1 + t) e)
+    rw [show as.length + 1 - 1 = as.length from by omega]
+    show _ = instSeq (as.map (fun x => instSeq sp t x)) (as.length - 1)
+      ((instSeq sp (as.length + 1 + t) e).instantiate1 (instSeq sp t a)
+        as.length)
+    rw [show as.length + 1 + t = as.length + t + 1 from by omega]
+
+/-- Peel `instSeqLift` through a `∀`-binder (the shift index stays in
+step with the remaining arguments), exactly as `instSeq_forallE`. -/
+theorem instSeqLift_forallE :
+    ∀ (args : List Expr) (t : Nat) (n : Name) (d b : Expr)
+      (m : BinderMeta), args.length ≤ t + 1 →
+      instSeqLift args t (.forallE n d b m) =
+        .forallE n (instSeqLift args t d) (instSeqLift args (t + 1) b) m := by
+  intro args
+  induction args with
+  | nil => intro t n d b m _; rfl
+  | cons a as ih =>
+    intro t n d b m hlen
+    show instSeqLift as (t - 1)
+      (.forallE n (d.instantiate1Lift a t) (b.instantiate1Lift a (t + 1)) m)
+      = _
+    rw [ih (t - 1) n (d.instantiate1Lift a t) (b.instantiate1Lift a (t + 1)) m
+      (by simp only [List.length_cons] at hlen; omega)]
+    show Expr.forallE n (instSeqLift as (t - 1) (d.instantiate1Lift a t))
+        (instSeqLift as (t - 1 + 1) (b.instantiate1Lift a (t + 1))) m =
+      Expr.forallE n (instSeqLift as (t - 1) (d.instantiate1Lift a t))
+        (instSeqLift as (t + 1 - 1) (b.instantiate1Lift a (t + 1))) m
+    cases as with
+    | nil => rfl
+    | cons a2 as2 =>
+      have ht : t - 1 + 1 = t + 1 - 1 := by
+        simp only [List.length_cons] at hlen
+        omega
+      rw [ht]
+
+/-- `stripPis` commutes with the capture-avoiding substitution. -/
+theorem stripPis_instantiate1Lift_full {v : Expr} :
+    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+      {body : Expr} (j : Nat),
+      e.stripPis k = some (bs, body) →
+      ∃ bs', (e.instantiate1Lift v j).stripPis k =
+          some (bs', body.instantiate1Lift v (j + k)) ∧
+        ∀ (i : Nat) (b : Name × Expr × BinderMeta), bs[i]? = some b →
+          bs'[i]? = some (b.1, b.2.1.instantiate1Lift v (j + i), b.2.2) := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs body j h
+    simp only [stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨[], by simp [stripPis], fun i b hb => by simp at hb⟩
+  | succ k ih =>
+    intro e bs body j h
+    match e, h with
+    | .forallE n d bo m, h =>
+      simp only [stripPis] at h
+      cases hs : bo.stripPis k with
+      | none => rw [hs] at h; exact nomatch h
+      | some p =>
+        rw [hs] at h
+        simp only [Option.map_some, Option.some.injEq] at h
+        obtain ⟨hb, hbody⟩ : (n, d, m) :: p.1 = bs ∧ p.2 = body := by
+          cases h; exact ⟨rfl, rfl⟩
+        subst hbody
+        obtain ⟨bs', h1, h2⟩ := ih (j + 1) (by rw [hs])
+        refine ⟨(n, d.instantiate1Lift v j, m) :: bs', ?_, ?_⟩
+        · simp only [instantiate1Lift, stripPis, h1,
+            show j + 1 + k = j + (k + 1) from by omega, Option.map_some]
+        · intro i b hbi
+          rw [← hb] at hbi
+          cases i with
+          | zero =>
+            obtain rfl : (n, d, m) = b := by simpa using hbi
+            rfl
+          | succ i =>
+            simp only [List.getElem?_cons_succ] at hbi ⊢
+            rw [show j + (i + 1) = j + 1 + i from by omega]
+            exact h2 i b hbi
+
+/-- The head binder of a partial capture-avoiding `∀`-instantiation
+walk, characterized by the raw telescope's binder list. -/
+theorem instPisAtLift_head :
+    ∀ (args : List Expr) {e : Expr} {rest : Expr} {mrem : Nat}
+      {bs : List (Name × Expr × BinderMeta)} {body : Expr}
+      {b : Name × Expr × BinderMeta},
+      Expr.instPisAtLift args e = some rest →
+      e.stripPis (args.length + (mrem + 1)) = some (bs, body) →
+      bs[args.length]? = some b →
+      ∃ bodyR, rest = .forallE b.1
+        (instSeqLift args (args.length - 1) b.2.1) bodyR b.2.2 := by
+  intro args
+  induction args with
+  | nil =>
+    intro e rest mrem bs body b h hstrip hb
+    simp only [instPisAtLift, Option.some.injEq] at h
+    subst h
+    rw [show [].length + (mrem + 1) = mrem + 1 from by simp] at hstrip
+    match e, hstrip with
+    | .forallE n d bo m, hstrip =>
+      simp only [stripPis] at hstrip
+      cases hs : bo.stripPis mrem with
+      | none => rw [hs] at hstrip; exact nomatch hstrip
+      | some p =>
+        rw [hs] at hstrip
+        simp only [Option.map_some, Option.some.injEq] at hstrip
+        obtain ⟨hbs, -⟩ : (n, d, m) :: p.1 = bs ∧ p.2 = body := by
+          cases hstrip; exact ⟨rfl, rfl⟩
+        rw [← hbs] at hb
+        obtain rfl : (n, d, m) = b := by simpa using hb
+        exact ⟨bo, rfl⟩
+  | cons a as ih =>
+    intro e rest mrem bs body b h hstrip hb
+    match e, h with
+    | .forallE n d bo m, h =>
+      simp only [instPisAtLift] at h
+      rw [show (a :: as).length + (mrem + 1) =
+        (as.length + (mrem + 1)) + 1 from by simp; omega] at hstrip
+      simp only [stripPis] at hstrip
+      cases hs : bo.stripPis (as.length + (mrem + 1)) with
+      | none => rw [hs] at hstrip; exact nomatch hstrip
+      | some q =>
+        rw [hs] at hstrip
+        simp only [Option.map_some, Option.some.injEq] at hstrip
+        obtain ⟨hbs, -⟩ : (n, d, m) :: q.1 = bs ∧ q.2 = body := by
+          cases hstrip; exact ⟨rfl, rfl⟩
+        rw [← hbs] at hb
+        simp only [List.length_cons, List.getElem?_cons_succ] at hb
+        obtain ⟨bs', hstrip', hpos⟩ :=
+          stripPis_instantiate1Lift_full (v := a)
+            (as.length + (mrem + 1)) 0 hs
+        obtain ⟨bodyR, hhead⟩ := ih (b := (b.1,
+            b.2.1.instantiate1Lift a as.length, b.2.2)) h hstrip'
+          (by rw [hpos as.length b hb]; simp)
+        exact ⟨bodyR, by rw [hhead]; rfl⟩
+
 /-- A successful λ-tower decomposition has exactly `k` binders. -/
 theorem stripLams_length :
     ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
