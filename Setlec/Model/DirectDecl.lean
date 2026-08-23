@@ -205,4 +205,151 @@ theorem extend_direct_ind {env : Env} (m : EnvModel V env) {p : DirectParts}
     exact directTyVal_params m.val_params (ps := cvTa.levelParams) hψ
       htlp hctyP hsP
 
+/-- Inversion for `checkDirectParamDoms`. -/
+theorem checkDirectParamDoms_inv {env : Env} {F : Nat}
+    {cfvs tfvs : List Expr} :
+    ∀ (k : Nat),
+      checkDirectParamDoms (fueledOps F) env cfvs tfvs k = .ok () →
+      ∀ j, j < k → ∀ a b, cfvs[j]? = some a → tfvs[j]? = some b →
+        isDefEqCore env F j (Expr.fvarTypeD a) (Expr.fvarTypeD b)
+          = .ok true := by
+  intro k
+  induction k with
+  | zero => intro _ j hj; exact absurd hj (by omega)
+  | succ k ih =>
+    intro h j hj a b ha hb
+    rw [checkDirectParamDoms] at h
+    simp only [fueledOps_isDefEq, Bind.bind, Except.bind, unwrapOr] at h
+    cases hca : cfvs[k]? with
+    | none => rw [hca] at h; exact nomatch h
+    | some a₀ =>
+      rw [hca] at h
+      simp only [pure, Except.pure] at h
+      cases hcb : tfvs[k]? with
+      | none => rw [hcb] at h; exact nomatch h
+      | some b₀ =>
+        rw [hcb] at h
+        simp only [pure, Except.pure] at h
+        cases hde : isDefEqCore env F k (Expr.fvarTypeD a₀)
+            (Expr.fvarTypeD b₀) with
+        | error _ => rw [hde] at h; exact nomatch h
+        | ok v =>
+          rw [hde] at h
+          cases v with
+          | false =>
+            simp only [Bool.false_eq_true, if_false, throw, throwThe,
+              MonadExceptOf.throw] at h
+            exact nomatch h
+          | true =>
+            simp only [if_true] at h
+            rcases Nat.lt_succ_iff_lt_or_eq.mp hj with hj' | rfl
+            · exact ih h j hj' a b ha hb
+            · obtain rfl : a₀ = a := Option.some.inj (hca.symm.trans ha)
+              obtain rfl : b₀ = b := Option.some.inj (hcb.symm.trans hb)
+              exact hde
+
+/-- Inversion for `checkDirectCtor` (stage 2). -/
+theorem checkDirectCtor_inv {env₀ env : Env} {p : DirectParts}
+    {cvTa : ConstantVal} {F : Nat} {v : Env × ConstantVal}
+    (h : checkDirectCtor (fueledOps F) env₀ env p cvTa = .ok v) :
+    ∃ cvCa cbs fvsP crest tfvs trest xFvs,
+      checkConstantVal (fueledOps F) env p.cvC = .ok cvCa ∧
+      Expr.stripPis (p.nP + p.nF) cvCa.type =
+        some (cbs, directFam p.cvT.name p.cvT.levelParams p.nP p.nF) ∧
+      openPisAtFvars p.nP cvCa.type 0 = some (fvsP, crest) ∧
+      openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest) ∧
+      checkDirectParamDoms (fueledOps F) env fvsP tfvs p.nP = .ok () ∧
+      openPisAtFvars p.nF crest p.nP = some (xFvs,
+        Expr.mkAppN (.const p.cvT.name (p.cvT.levelParams.map .param))
+          fvsP) ∧
+      (∀ x ∈ xFvs, (Expr.fvarTypeD x).constsResolve env₀ = true) ∧
+      checkDirectFieldUniv (fueledOps F) env p.resSort p.nP xFvs p.nF
+        = .ok () ∧
+      v = (⟨.ctorInfo cvCa p.nP p.nF :: env.consts⟩, cvCa) := by
+  rw [checkDirectCtor] at h
+  simp only [Bind.bind, Except.bind] at h
+  obtain ⟨cvCa, hcv, h⟩ := Except.bind_ok h
+  -- the annotated constructor telescope
+  obtain ⟨q1, hq1⟩ : ∃ q, Expr.stripPis (p.nP + p.nF) cvCa.type = some q := by
+    cases hh : Expr.stripPis (p.nP + p.nF) cvCa.type with
+    | none =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+    | some q => exact ⟨q, rfl⟩
+  rw [hq1] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind] at h
+  by_cases hb : (q1.2 == directFam p.cvT.name p.cvT.levelParams p.nP p.nF)
+      = true
+  case neg =>
+    rw [if_neg hb] at h
+    simp only [throw, throwThe, MonadExceptOf.throw, Except.bind] at h
+    exact nomatch h
+  rw [if_pos hb] at h
+  have hq1b : Expr.stripPis (p.nP + p.nF) cvCa.type =
+      some (q1.1, directFam p.cvT.name p.cvT.levelParams p.nP p.nF) := by
+    rw [hq1]
+    congr 1
+    exact (Prod.mk.injEq _ _ _ _).mpr ⟨rfl, eq_of_beq hb⟩ ▸ rfl
+  -- the two openings
+  obtain ⟨cq, hcq⟩ : ∃ q, openPisAtFvars p.nP cvCa.type 0 = some q := by
+    cases hh : openPisAtFvars p.nP cvCa.type 0 with
+    | none =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+    | some q => exact ⟨q, rfl⟩
+  rw [hcq] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind] at h
+  obtain ⟨tq, htq⟩ : ∃ q, openPisAtFvars p.nP cvTa.type 0 = some q := by
+    cases hh : openPisAtFvars p.nP cvTa.type 0 with
+    | none =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+    | some q => exact ⟨q, rfl⟩
+  rw [htq] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind] at h
+  -- the per-frame parameter-domain pins
+  obtain ⟨u0, hpins, h⟩ := Except.bind_ok h
+  obtain rfl : u0 = () := rfl
+  -- the field telescope
+  obtain ⟨xq, hxq⟩ : ∃ q, openPisAtFvars p.nF cq.2 p.nP = some q := by
+    cases hh : openPisAtFvars p.nF cq.2 p.nP with
+    | none =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+    | some q => exact ⟨q, rfl⟩
+  rw [hxq] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind] at h
+  by_cases hr : (xq.2 == Expr.mkAppN
+      (.const p.cvT.name (p.cvT.levelParams.map .param)) cq.1) = true
+  case neg =>
+    rw [if_neg hr] at h
+    simp only [throw, throwThe, MonadExceptOf.throw, Except.bind] at h
+    exact nomatch h
+  rw [if_pos hr] at h
+  have hxqb : openPisAtFvars p.nF cq.2 p.nP = some (xq.1, Expr.mkAppN
+      (.const p.cvT.name (p.cvT.levelParams.map .param)) cq.1) := by
+    rw [hxq]
+    congr 1
+    exact (Prod.mk.injEq _ _ _ _).mpr ⟨rfl, eq_of_beq hr⟩ ▸ rfl
+  by_cases hres : (xq.1.all fun x => (Expr.fvarTypeD x).constsResolve env₀)
+      = true
+  case neg =>
+    rw [if_neg hres] at h
+    simp only [throw, throwThe, MonadExceptOf.throw, Except.bind] at h
+    exact nomatch h
+  rw [if_pos hres] at h
+  obtain ⟨u1, hfu, h⟩ := Except.bind_ok h
+  obtain rfl : u1 = () := rfl
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  exact ⟨cvCa, q1.1, cq.1, cq.2, tq.1, tq.2, xq.1, hcv, hq1b, hcq, htq,
+    hpins, hxqb, fun x hx => List.all_eq_true.mp hres x hx, hfu, h.symm⟩
+
 end Setlec

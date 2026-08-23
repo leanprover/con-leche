@@ -240,6 +240,43 @@ theorem TeleFit.transfer {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
       | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
         exact hdoms.elim
 
+/-- A value-spine fit leaves the valuation below its starting frame
+alone. -/
+theorem TeleFit.rho_below {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
+    ∀ {d : Nat} {ρ : Nat → V} {e : Expr} {vs : List V} {d' : Nat}
+      {ρ' : Nat → V} {rest : Expr},
+      TeleFit V cval env φ d ρ e vs d' ρ' rest →
+      ∀ i, i < d → ρ' i = ρ i := by
+  intro d ρ e vs d' ρ' rest hfit
+  induction hfit with
+  | nil => intro _ _; rfl
+  | @cons d ρ n ty body m x xs d' ρ' rest A hity hx hfit ih =>
+    intro i hi
+    rw [ih i (by omega)]
+    simp only [updV]
+    rw [if_neg (by omega)]
+
+/-- A value-spine fit puts its `i`-th value in slot `d + i`. -/
+theorem TeleFit.slots {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
+    ∀ {d : Nat} {ρ : Nat → V} {e : Expr} {vs : List V} {d' : Nat}
+      {ρ' : Nat → V} {rest : Expr},
+      TeleFit V cval env φ d ρ e vs d' ρ' rest →
+      ∀ i, i < vs.length → ρ' (d + i) = vs.getD i SetTheory.empty := by
+  intro d ρ e vs d' ρ' rest hfit
+  induction hfit with
+  | nil => intro i hi; exact absurd hi (by simp)
+  | @cons d ρ n ty body m x xs d' ρ' rest A hity hx hfit ih =>
+    intro i hi
+    cases i with
+    | zero =>
+      rw [Nat.add_zero, hfit.rho_below d (by omega)]
+      simp [updV]
+    | succ i =>
+      have h := ih i (by simpa using hi)
+      rw [show d + (i + 1) = d + 1 + i from by omega]
+      rw [h]
+      rfl
+
 /-- **`DomsInterpEq` from the kernel's per-frame pins.**
 
 `checkDirectParamDoms` compares parameter domain `j` at frame `j`, with
