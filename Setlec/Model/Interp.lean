@@ -671,6 +671,12 @@ structure EnvModel (env : Env) where
   /-- Every definition is interpreted by its body. -/
   defn_eq : ∀ cv value hint, ConstantInfo.defnInfo cv value hint ∈ env.consts → ∀ φ : Name → Nat,
     interpClosed V val env φ value = some (val cv.name φ)
+  /-- Every theorem is interpreted by its proof value, which carries
+  truthful annotations (theorem values delta-unfold in reduction, like
+  the reference kernels'). -/
+  thm_ok : ∀ cv value, ConstantInfo.thmInfo cv value ∈ env.consts → ∀ φ : Name → Nat,
+    interpClosed V val env φ value = some (val cv.name φ) ∧
+    AnnotOk V val env φ 0 (rho0 V) value
   /-- Stored types (and definition bodies) carry truthful annotations. -/
   annot_ok : ∀ c ∈ env.consts, ∀ φ : Name → Nat,
     AnnotOk V val env φ 0 (rho0 V) c.toConstantVal.type ∧
@@ -705,6 +711,7 @@ def EnvModel.empty : EnvModel V Env.empty where
     simp [Env.find?, Env.empty] at h
   mem_type := by intro c hc; cases hc
   defn_eq := by intro cv value hint h; cases h
+  thm_ok := by intro cv value h; cases h
   annot_ok := by intro c hc; cases hc
   ind_ok := IndOk.empty V _ (fun _ x hx => SetTheory.not_mem_empty x hx)
   rec_rules := RecRulesOk.empty V _

@@ -458,7 +458,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         hfind'
         ⟨htf, htp, Expr.constsResolve_mono htr, hbt',
           fun _ _ _ hx => ConstantInfo.noConfusion hx,
-          fun _ _ _ _ hx => ConstantInfo.noConfusion hx⟩
+          fun _ _ _ _ hx => ConstantInfo.noConfusion hx,
+          fun _ _ hx => ConstantInfo.noConfusion hx⟩
         htr
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => hkey ψ)
@@ -505,7 +506,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         hfind'
         ⟨htf, htp, Expr.constsResolve_mono htr, hbt',
           fun _ _ _ hx => ConstantInfo.noConfusion hx,
-          fun _ _ _ _ hx => ConstantInfo.noConfusion hx⟩
+          fun _ _ _ _ hx => ConstantInfo.noConfusion hx,
+          fun _ _ hx => ConstantInfo.noConfusion hx⟩
         htr
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => hkey ψ)
@@ -572,7 +574,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (Option.isNone_iff_eq_none.mp h1)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [natA]),
-          fun _ _ _ _ hx => absurd hx (by simp [natA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [natA]),
+          fun _ _ hx => absurd hx (by simp [natA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => nat_key)
@@ -598,7 +601,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (Option.isNone_iff_eq_none.mp h2)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [natZeroA]),
-          fun _ _ _ _ hx => absurd hx (by simp [natZeroA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [natZeroA]),
+          fun _ _ hx => absurd hx (by simp [natZeroA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => natZero_key rfl (fun ψ' => hval1 ψ'))
@@ -627,7 +631,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (Option.isNone_iff_eq_none.mp h3)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [natSuccA]),
-          fun _ _ _ _ hx => absurd hx (by simp [natSuccA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [natSuccA]),
+          fun _ _ hx => absurd hx (by simp [natSuccA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => natSucc_key rfl hvalN2)
@@ -692,7 +697,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                      ConstantInfo.toConstantVal]),
                    by decide,
                    fun lvls pins hf => RecRuleFire.noConfusion hf⟩
-               exact absurd hr (by simp))⟩
+               exact absurd hr (by simp)),
+          fun _ _ hx => absurd hx (by simp [natRecA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => natRec_key rfl hvalN3 rfl hvalZ3 rfl (fun ψ' => hval3 ψ'))
@@ -883,7 +889,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (Option.isNone_iff_eq_none.mp h1)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [psigmaA]),
-          fun _ _ _ _ hx => absurd hx (by simp [psigmaA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [psigmaA]),
+          fun _ _ hx => absurd hx (by simp [psigmaA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => psigma_key)
@@ -912,7 +919,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (Option.isNone_iff_eq_none.mp h2)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [psigmaMkA]),
-          fun _ _ _ _ hx => absurd hx (by simp [psigmaMkA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [psigmaMkA]),
+          fun _ _ hx => absurd hx (by simp [psigmaMkA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => psigmaMk_key rfl (fun ψ' => hval1 ψ'))
@@ -980,7 +988,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                      ConstantInfo.toConstantVal]),
                    by decide,
                    fun lvls pins hf => RecRuleFire.noConfusion hf⟩
-               exact absurd hr (by simp))⟩
+               exact absurd hr (by simp)),
+          fun _ _ hx => absurd hx (by simp [psigmaRecA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => psigmaRec_key rfl hvalS2 rfl (fun ψ' => hval2 ψ'))
@@ -1069,7 +1078,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (Option.isNone_iff_eq_none.mp h4)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [pairFstA]),
-          fun _ _ _ _ hx => absurd hx (by simp [pairFstA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [pairFstA]),
+          fun _ _ hx => absurd hx (by simp [pairFstA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => pairFst_key rfl hvalS3)
@@ -1105,7 +1115,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (Option.isNone_iff_eq_none.mp h5)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [pairSndA]),
-          fun _ _ _ _ hx => absurd hx (by simp [pairSndA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [pairSndA]),
+          fun _ _ hx => absurd hx (by simp [pairSndA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => pairSnd_key rfl hvalS4)
@@ -1162,7 +1173,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (Option.isNone_iff_eq_none.mp h1)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [eqA]),
-          fun _ _ _ _ hx => absurd hx (by simp [eqA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [eqA]),
+          fun _ _ hx => absurd hx (by simp [eqA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => eq_key)
@@ -1190,7 +1202,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (Option.isNone_iff_eq_none.mp h2)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [eqReflA]),
-          fun _ _ _ _ hx => absurd hx (by simp [eqReflA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [eqReflA]),
+          fun _ _ hx => absurd hx (by simp [eqReflA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => eqRefl_key rfl (fun ψ' => hval1 ψ'))
@@ -1254,7 +1267,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                      ConstantInfo.toConstantVal]),
                    by decide,
                    fun lvls pins hf => RecRuleFire.noConfusion hf⟩
-               exact absurd hr (by simp))⟩
+               exact absurd hr (by simp)),
+          fun _ _ hx => absurd hx (by simp [eqRecA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => eqRec_key rfl hvalE2 rfl (fun ψ' => hval2 ψ'))
@@ -1360,7 +1374,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (Option.isNone_iff_eq_none.mp h1)
       ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [punitA]),
-          fun _ _ _ _ hx => absurd hx (by simp [punitA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [punitA]),
+          fun _ _ hx => absurd hx (by simp [punitA])⟩
       rfl
       (fun _ _ _ hx => nomatch hx)
       (fun ψ => punit_key)
@@ -1385,7 +1400,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       (Option.isNone_iff_eq_none.mp h2)
       ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [punitUnitA]),
-          fun _ _ _ _ hx => absurd hx (by simp [punitUnitA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [punitUnitA]),
+          fun _ _ hx => absurd hx (by simp [punitUnitA])⟩
       rfl
       (fun _ _ _ hx => nomatch hx)
       (fun ψ => punitUnit_key rfl (fun ψ' => hval1 ψ'))
@@ -1447,7 +1463,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
                      ConstantInfo.toConstantVal]),
                    by decide,
                    fun lvls pins hf => RecRuleFire.noConfusion hf⟩
-               exact absurd hr (by simp))⟩
+               exact absurd hr (by simp)),
+          fun _ _ hx => absurd hx (by simp [punitRecA])⟩
       rfl
       (fun _ _ _ hx => nomatch hx)
       (fun ψ => punitRec_key rfl hvalP2 rfl (fun ψ' => hval2 ψ'))
@@ -1549,7 +1566,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (Option.isNone_iff_eq_none.mp h1)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [emptyA]),
-          fun _ _ _ _ hx => absurd hx (by simp [emptyA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [emptyA]),
+          fun _ _ hx => absurd hx (by simp [emptyA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => empty_key)
@@ -1576,11 +1594,12 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (Option.isNone_iff_eq_none.mp h2)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [emptyRecA]),
-          fun cv mI rP rules heq r hr => by
+          (fun cv mI rP rules heq r hr => by
             simp only [emptyRecA] at heq
             injection heq with h1 h2 h3 h4
             subst h4
-            cases hr⟩
+            cases hr),
+          fun _ _ hx => absurd hx (by simp [emptyRecA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => emptyRec_key rfl (fun ψ' => hvalE1 ψ'))
@@ -1774,6 +1793,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       hvp hvf' hvr (annotateCore_looseBVars F value hannv hlbv) hkey hAty hAval
       (ConstantInfo.defnInfo { cv with type := type } value' hint) rfl rfl
       (fun cv2 value2 h2v heq => by injection heq with h1 h2; exact ⟨h1.symm, h2.symm⟩)
+      (fun cv2 value2 heq => nomatch heq)
       rfl
       hres'
       hpshape'
@@ -2094,6 +2114,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       hvp hvf' hvr (annotateCore_looseBVars F value hannv hlbv) hkey hAty hAval
       (ConstantInfo.thmInfo { cv with type := type } value') rfl rfl
       (fun cv2 value2 h2 heq => nomatch heq)
+      (fun cv2 value2 heq => by injection heq with h1 h2; exact ⟨h1.symm, h2.symm⟩)
       rfl
       hres'
       hpshape'
@@ -2164,6 +2185,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       hvp hvf' hvr (annotateCore_looseBVars F value hannv hlbv) hkey hAty hAval
       (ConstantInfo.thmInfo { cv with type := type } value') rfl rfl
       (fun cv2 value2 h2 heq => nomatch heq)
+      (fun cv2 value2 heq => by injection heq with h1 h2; exact ⟨h1.symm, h2.symm⟩)
       rfl
       hres'
       hpshape'

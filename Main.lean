@@ -1,4 +1,5 @@
 import Setlec.Kernel.CheckerS
+import Setlec.Kernel.CheckerNC
 import Setlec.Frontend.Export
 
 /-!
@@ -50,9 +51,16 @@ def preprocess (file : String) (contents : String) : IO String := do
   catch _ =>
     return contents
 
-def main (args : List String) : IO UInt32 := do
-  match args with
-  | [file] =>
+/-- The real driver (run in the supervised child process). -/
+def checkMain (file : String) : IO UInt32 := do
+    -- Measurement mode (task #76): SETLEC_NO_PROOF_CERTS=1 selects the
+    -- cert-skipping knot (Setlec/Kernel/CheckerNC.lean) — the
+    -- proof-feeding infer/defeq calls the reference kernels do not
+    -- perform are skipped.  UNVERIFIED: the consistency statements
+    -- cover only the default drivers below.
+    let noCerts := (← IO.getEnv "SETLEC_NO_PROOF_CERTS") == some "1"
+    let stepF := if noCerts then checkDeclSharedNC else checkDeclSharedF
+    let foldF := if noCerts then checkDeclsSharedNC else checkDeclsShared
     let contents ← preprocess file (← IO.FS.readFile file)
     match Frontend.parseExport contents (modeled := true) with
     | .error (.unsupported what) =>
@@ -70,14 +78,14 @@ def main (args : List String) : IO UInt32 := do
         for d in decls do
           IO.println s!"DECL: {d.name}"
           (← IO.getStdout).flush
-          match checkDeclSharedF fe d with
+          match stepF fe d with
           | .ok fe' => fe := fe'
           | .error e =>
             IO.eprintln s!"setlec: {e}"
             return e.exitCode
         IO.println s!"setlec: accepted {fe.env.consts.length} declarations"
         return 0
-      match checkDeclsShared decls.toList with
+      match foldF decls.toList with
       | .ok env =>
         IO.println s!"setlec: accepted {env.consts.length} declarations"
         return 0
@@ -96,12 +104,41 @@ def main (args : List String) : IO UInt32 := do
         let ctx := Id.run do
           let mut fe := Setlec.mkFEnv Setlec.Env.empty
           for d in decls do
-            match checkDeclSharedF fe d with
+            match stepF fe d with
             | .ok fe' => fe := fe'
             | .error _ => return s!" [at {declName d}]"
           return ""
         IO.eprintln s!"setlec: {e}{ctx}"
         return e.exitCode
+
+def main (args : List String) : IO UInt32 := do
+  match args with
+  | [file] =>
+    -- OOM supervision: the Lean runtime's out-of-memory handler
+    -- (`lean_internal_panic_out_of_memory`) prints "INTERNAL PANIC:
+    -- out of memory" and calls `exit(1)` — not catchable in-process
+    -- and indistinguishable from a *reject* at the exit-code level.
+    -- Re-exec the checker as a supervised child and translate a
+    -- panicking child (exit 1 with a panic marker on stderr) into
+    -- exit 3 (error), per the arena convention that 1 means "invalid
+    -- input proof".  Progress output streams through (stdout is
+    -- inherited); stderr is buffered for inspection and re-printed.
+    if (← IO.getEnv "SETLEC_SUPERVISED").isSome then
+      checkMain file
+    else
+      let child ← IO.Process.spawn {
+        cmd := (← IO.appPath).toString
+        args := #[file]
+        env := #[("SETLEC_SUPERVISED", some "1")]
+        stdout := .inherit
+        stderr := .piped }
+      let err ← child.stderr.readToEnd
+      let code ← child.wait
+      IO.eprint err
+      if code = 1 ∧ (err.splitOn "INTERNAL PANIC").length > 1 then
+        IO.eprintln "setlec: internal panic in the checker process"
+        return 3
+      return code
   | _ =>
     IO.eprintln "usage: setlec FILE.ndjson"
     return 3

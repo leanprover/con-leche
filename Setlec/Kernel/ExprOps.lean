@@ -165,6 +165,38 @@ def abstract1 (e : Expr) (d : Nat) (k : Nat := 0) : Expr :=
   | .lit l => .lit l
   | .proj s i e => .proj s i (abstract1 e d k)
 
+/-- Bulk abstraction (task #72): close `k` binders in one traversal —
+replace `fvar (d + i) …` leaves (`i < k`) by the bound variable of the
+`i`-th binder counted outermost-first, i.e. `bvar (c + (d + k - 1 - idx))`
+at the traversal cursor `c` (bumped under binders; `fvar` type
+annotations are not descended into, as in `abstract1`).  The semantics
+is by construction the *fold* of `abstract1`, innermost binder first:
+
+  `abstractRange e d (k + 1) c
+     = abstractRange (e.abstract1 (d + k) c) d k (c + 1)`
+
+(`abstractRange_succ`, `Setlec/Verify/Abstract.lean`) — so the nested
+per-binder `abstract1` chain of a telescope rebuild equals one
+`abstractRange` pass per binder domain and one over the leaf. -/
+def abstractRange (e : Expr) (d k : Nat) (c : Nat := 0) : Expr :=
+  match e with
+  | .bvar i => .bvar i
+  | .fvar idx n ty =>
+    if d ≤ idx ∧ idx < d + k then .bvar (c + (d + k - 1 - idx))
+    else .fvar idx n ty
+  | .sort u => .sort u
+  | .const n us => .const n us
+  | .app f a => .app (abstractRange f d k c) (abstractRange a d k c)
+  | .lam n ty body m =>
+    .lam n (abstractRange ty d k c) (abstractRange body d k (c + 1)) m
+  | .forallE n ty body m =>
+    .forallE n (abstractRange ty d k c) (abstractRange body d k (c + 1)) m
+  | .letE n ty val body =>
+    .letE n (abstractRange ty d k c) (abstractRange val d k c)
+      (abstractRange body d k (c + 1))
+  | .lit l => .lit l
+  | .proj s i e => .proj s i (abstractRange e d k c)
+
 /-- Full node count, including `fvar` type annotations.  Termination
 measure for predicates that recurse into annotations (but never into
 instantiated bodies). -/

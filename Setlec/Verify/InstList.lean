@@ -31,6 +31,22 @@ theorem instantiateList_nil : ∀ (e : Expr) (d : Nat),
   intro e
   induction e <;> intro d <;> simp [instantiateList, *] <;> omega
 
+/-- Bulk instantiation at or above the loose-bvar bound is the
+identity (task #72's scope shortcut). -/
+theorem instantiateList_eq_self {vs : List Expr} :
+    ∀ {e : Expr} {d : Nat}, looseBVarsBounded d e = true →
+      e.instantiateList vs d = e := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro d hb
+    have h1 : i < d := by
+      simpa [looseBVarsBounded] using hb
+    simp [instantiateList, h1]
+  | _ =>
+    intro d hb <;>
+    simp_all [looseBVarsBounded, instantiateList, Bool.and_eq_true]
+
 theorem instantiateList_cons :
     ∀ (vs : List Expr) (e : Expr) (v : Expr) (d : Nat),
       e.instantiateList (v :: vs) d

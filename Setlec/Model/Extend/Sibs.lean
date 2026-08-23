@@ -167,7 +167,7 @@ theorem RecRulesOk.cons {env : Env} (m : EnvModel V env)
   · next hn =>
     obtain ⟨hA, hle, hple, hpinsLen, hfold⟩ :=
       m.rec_rules n cvR mI rP rules hfp r hr
-    obtain ⟨-, -, -, -, -, hrules⟩ := m.wf _ (find?_mem hfp)
+    obtain ⟨-, -, -, -, -, hrules, -⟩ := m.wf _ (find?_mem hfp)
     obtain ⟨-, -, hrres, -, -⟩ := hrules cvR mI rP rules rfl r hr
     refine ⟨fun ψ => hAtrans _ hrres ψ (hA ψ), hle, hple, hpinsLen, ?_⟩
     intro cvj cnP cnF hfj hfire

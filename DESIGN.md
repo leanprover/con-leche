@@ -141,6 +141,21 @@ model (`SetTheory.prop_ext`) via the stored `Iff.rec`'s member fact;
 operator (`SetTheory.schoice`), with nonemptiness extracted from the
 stored `Nonempty.rec`'s member fact (`Setlec/Model/StdAxioms.lean`).
 
+Consequence for the arena's non-tutorial good roots (finding,
+2026-08-22, task #67): `good/proof-irrel.ndjson`,
+`good/level-index-out-of-order.ndjson` and
+`good/sparse-name-index.ndjson` all *decline* (exit 2) **because they
+are scaffolded by custom axioms** (`axiom foo : Sort 2`, `axiom foo :
+Prop`, and an `A`/`P`/`Q`/`foo` axiom frame respectively) — exactly
+the pinned `custom_axiom_declined` e2e behavior, not a frontend
+restriction.  The features their names advertise are in fact
+supported: the export tables are hash-map-backed, so sparse and
+out-of-order `in`/`il`/`ie` indices parse fine (the declines name the
+axioms, which requires the sparse indices to have resolved), and
+algorithmic proof irrelevance is implemented (`proofIrrel`,
+exercised by the accepted `subject-reduction-redex` test).  These
+three stay declined by design under the axiom ceiling.
+
 ## Term representation
 
 * Our own inductives (`Setlec.Expr` etc.), not `Lean.Expr`: no cached
@@ -871,6 +886,82 @@ induction over the literal), consumed by `reduceNat_sound`.
   its record; the `Unit.sizeOf` mismatch is fixed, see the basis
   `PUnit` rescue note) — the previous positive declines at
   `Nat.land`/`Nat.shiftRight`/… literal uses are gone.
+
+### Theorem values delta-unfold (2026-08-22, task #66)
+
+`unfoldDefinition` (and the interned `unfoldDefinitionI`/`constValAtM`)
+unfolds *theorem* values exactly like definition values, at reducibility
+hint `opaque` — the reference kernels' `is_delta` accepts any constant
+with a value, and the official `constant_info::get_hints` gives theorems
+`opaque` (so they unfold last, and a theorem-vs-theorem comparison at
+equal opaque hints unfolds both sides with no spine shortcut).
+Previously theorems never unfolded, which wrongly *rejected* the arena's
+`good/undecidability/subject-reduction-redex`: its `x2 x4` application
+needs `f 1 (proof_2 x0) ≡ f 0 (proof_1 x0)`, where `proof_2` is a
+theorem whose value reduces to an `Acc.intro` application — without
+unfolding it the `Acc.rec` iota step cannot fire and both sides stay
+stuck with mismatched indices (`1` vs `0`).  (The test's outer
+beta-redex is the transitivity trap: `f 1 x0 ≡ f 1 (proof_2 x0)` holds
+only via the same-head spine shortcut + proof irrelevance on the `Acc`
+argument — over-reducing that side breaks it — which the lazy-delta
+`defeqSpine` shortcut already handled.)  Claims impact: `ConstWF` gains
+a theorem-value clause (same four syntactic facts as definition
+values), `EnvModel` gains `thm_ok` (a theorem constant is interpreted
+by its proof value, which carries truthful annotations — established
+by `extend_model` exactly as for definitions, since the valuation was
+already the value's interpretation), and `unfoldDefinition_sound`
+consumes either `defn_eq` or `thm_ok`.  E2e fixture:
+`subject_reduction_redex.ndjson`.
+
+With theorems unfoldable, the earlier deviation of keeping proof
+irrelevance only in the stuck fallback (design-review triage) became
+expensive: proof-typed comparisons delta-ground through proof bodies
+before the fallback could fire (init-prelude probe 167.9 G → 227.3 G
+instructions).  `defeqBody` therefore now runs `proofIrrel` right
+after the `whnfCore` fast path and before lazy delta — exactly the
+official kernel's `is_def_eq_proof_irrel` position — recovering to
+205.2 G / 15.6 s; the residual ≈ +22 % over the pre-#66 numbers is
+the price of actually performing the reference kernels' theorem
+delta (majors and proof arguments now reduce where they used to stay
+stuck).  The stuck-fallback copy stays (memoized) for sides rewritten
+by a reduction step after the hoist ran.
+
+### Memory blowups: DAG budget and OOM supervision (2026-08-22, task #65)
+
+Findings from the arena `good/perf` OOM pair:
+
+* `beta-ladder` (2000 nested `(λx. …) 0` redexes whose innermost body
+  reads every binder) now **accepts** (~25 s, ~1.8 GB peak): the
+  Θ(n²) substitution copies are inherent (each beta step re-interns
+  the remaining ladder — the eliminated binder shifts every `bvar`
+  below), and the single-tier arena *retains* all Θ(n²) reducts by
+  design until #64's two-tier arena; at n = 2000 that fits.
+* `app-lam` is a different beast: its `dag_app_binder` value is a
+  `wrap2 f f` doubling tower — DAG size 24 001, **unshared tree size
+  ≈ 10¹¹⁶⁰**.  Every tree-materializing pass (the frontend's
+  `zetaExpand`, the raw syntactic checks, arena interning of `Expr`
+  trees) is exponential on it; the OOM happened already inside
+  `parseExport`.  This is exactly the `no-unmemoized-traversals`
+  architectural gap (the raw-`Expr` pipeline walks trees), not a
+  reduction-sharing bug.  Until the pipeline is DAG-preserving
+  end-to-end, the frontend now tracks each expression-table entry's
+  *saturated unshared tree size* (`State.sizes`, `O(1)` per entry) and
+  **positively declines** any declaration whose tree size reaches
+  `declTreeSizeBudget` (2^25) at its own record — beyond that scale
+  the tree-materializing pipeline could not represent the declaration
+  anyway, and every supported stream is far below it.
+* Exit-code hardening: the Lean runtime's out-of-memory handler
+  (`lean_internal_panic_out_of_memory`) prints `INTERNAL PANIC: out
+  of memory` and calls `exit(1)` — in-process it is uncatchable, and
+  exit 1 reads as *reject* under the arena convention.  `main` now
+  supervises: it re-execs the checker as a child
+  (`SETLEC_SUPERVISED` guard), and a child that exits 1 with a panic
+  marker on stderr is reported as exit 3 (error).  Genuine rejects,
+  declines and accepts pass through unchanged; abort-style deaths
+  (stack overflow = 134, SIGKILL = 137) were never 1 and stay as-is.
+  Known limitation: an external `timeout` killing the supervisor
+  orphans the child; the arena harness kills process groups, and the
+  in-repo scripts use `timeout` on the whole invocation.
 
 ## Kernel design review triage (2026-08-20)
 
@@ -2100,6 +2191,85 @@ Perf attribution and the fix stack (Env index −30 %, interning,
 per-declaration cache sharing, per-fire iota certification) are in the
 2026-08-22 performance-audit notes (tasks #26, #49, #50).
 
+## The verification-tax flag: SETLEC_NO_PROOF_CERTS (task #76)
+
+`SETLEC_NO_PROOF_CERTS=1` is an **unverified measurement mode**: it
+selects, once in `Main`, a second driver stack
+(`Setlec/Kernel/CoreNC.lean`, `Setlec/Kernel/CheckerNC.lean`) whose
+core knot skips the infer/defeq calls that exist only to feed the
+soundness proofs — the calls the reference kernels do not perform.
+Purpose: keep the lean4lean/official-kernel comparison honest by
+splitting the gap into *verification tax* (flag-off − flag-on) and
+*engineering quality* (flag-on − official).
+
+**Structure.**  The flag never reaches the kernel as data: `Main`
+picks `checkDeclsShared` (default) or `checkDeclsSharedNC`.  The NC
+stack is a verbatim duplicate of the shared-state drivers at
+`sharedOpsNC`, whose knot (`coreKnotNC`) ties cert-skipping twins of
+exactly the affected bodies (`iotaRecNC`, `majorToCtorNC`,
+`whnfAppNC`/`betaPeelNC`, `inferSpineNC`, `structEtaCertWithNC`,
+`structUnitCertNC`, `stuckIrrelNC`, and the three knot bodies that
+reach them); every other body and all mirrors/phase drivers are the
+shared (generic-in-ops) originals.  The default path is byte-identical
+— no existing kernel/proof module changed — so every consistency
+statement (`Setlec/Model/ConsistencyS.lean`) still speaks about what
+the binary runs by default, and **no proof covers the flag-on path**.
+
+**Skipped** (site list; reference citations in `CoreNC.lean`'s
+header): the per-fire recursor/constructor telescope certifications
+and the ordinary plain-rule parameter and canonical-index
+re-comparisons in `iotaRec` (lean4lean's `inductiveReduceRec` checks
+none of these), the possibly-Prop per-binder beta re-checks in
+`whnfApp`/`betaPeel`, the possibly-Prop-gated infer-app argument
+residue in `inferSpine`, and the type-former/per-projection telescope
+certifications of the structure-eta and unit-like certificates (the
+references' `tryEtaStructCore`/`isDefEqUnitLike` keep only the type
+defeq and per-field checks, which stay).  **Kept always**: every
+arity/ctor-identity/shape check, the ctor↔recursor level linkage, the
+nested-rule comparand values, all front-door annotate/infer checking,
+the install-time checks, and the K/eta fabrication type checks.
+`projCertI` (possibly-Prop projection reduction) is proof-only by the
+same reference comparison but outside the task-#76 site list and
+still runs in both modes.
+
+**Findings** (verdict-relevant checks the site list predicted as
+proof-only):
+
+1. *Projection-rule parameter comparison.*  Projection functions are
+   a setlec-specific recursor encoding; the references reduce `.proj`
+   nodes by direct field selection and never splice the outer
+   application's parameters into a reduct.  Skipping the parameter
+   comparison for projection-shaped rules rejects five good
+   arena/e2e tests (`118/119_reduceCtorParamRefl`, `120_rTreeRec`,
+   `121_rtreeRecReduction`, `080_RBTree`, `nested_rec`,
+   `let_rec_rhs`) — it is part of matching reference behavior, not a
+   proof artifact.  It stays in the NC path.
+2. *K-rescue index comparison.*  The certified `majorToCtor` K path
+   certifies the fabrication by `proofIrrel`, which never compares
+   the major's type against the fabricated constructor's — the index
+   comparison the official `toCtorWhenK` performs (`isDefEq appType
+   (inferType newCtorApp)`) is subsumed by the major-slot telescope
+   certificate of the certified `iotaCerts`.  Skipping the
+   certificates without restoring the reference check *accepts* arena
+   `bad/098_ruleKbad`; `majorToCtorNC` therefore carries the official
+   check verbatim.
+
+**Measured** (init-prelude probe, `perf stat` instructions, 8 GB
+limit; verdicts identical in both modes — arena 90/92, e2e 48/48,
+probe exit 0 / 3653 accepted):
+
+| configuration | instructions | wall |
+| --- | --- | --- |
+| default (certified) | 204.9 G | 15.5 s |
+| `SETLEC_NO_PROOF_CERTS=1` | 151.1 G | 10.4 s |
+| official C++ kernel (same stream) | 3.9 G | 0.31 s |
+
+Verification tax: **53.7 G ≈ 26 %** of the default run.  Engineering
+gap: **~39×** over the official kernel (of the total ~53×).  The tax
+is dominated by the per-fire telescope certifications; the remaining
+gap is the interning/parsing/cache substrate (see the performance
+roadmap).
+
 ## Bulk instantiation, lean4lean-style (task #50)
 
 Chains of `instantiate1` that consume an argument spine copied the
@@ -2335,9 +2505,121 @@ note above) — **−18 % instructions vs the pre-#62 baseline**
 
 **Follow-ups** (performance, in expected-value order): (1) the
 binder-walk rework (accumulated fvars + bulk domain instantiation) for
-`spine`/`telescope` and the real init-prelude binder costs; (2) level-
-op constant factors on shallow levels — avoid per-call memo/`Option`
-allocation in `leqCoreLI`'s node views and `byCasesLI`'s four
-fresh-memo substitutions (persistent keyed subst memo, or a small-level
-fast path); (3) per-node scope data for O(1) instantiate/abstract
-identity shortcuts.
+`spine`/`telescope` and the real init-prelude binder costs — done,
+task #72 below; (2) level-op constant factors on shallow levels —
+avoid per-call memo/`Option` allocation in `leqCoreLI`'s node views
+and `byCasesLI`'s four fresh-memo substitutions (persistent keyed
+subst memo, or a small-level fast path); (3) per-node scope data for
+O(1) instantiate/abstract identity shortcuts — done for instantiation
+(the `bvarB` bound cache, task #72 below).
+
+## Binder-opening discipline: telescope loops, chain-sharing intern, scope shortcut (2026-08-23, task #72)
+
+The residual `spine`/`telescope` ~n² (exponent 1.94 each) had three
+sources; all three are fixed, `tests/scale.sh` passes all four shapes
+(chain 1.04, spine 1.29, many 1.04, telescope 1.17):
+
+**1. Binder-telescope loops** (the official-kernel discipline;
+lean4lean's `inferLambda`/`inferForall`, `Lean4Lean/TypeChecker.lean`).
+The interned annotate/infer binder cases peeled one binder per knot
+level, with a whole-body `instantiate1IGo` on the way in and a
+whole-body `abstract1IGo` on the way out — O(n²) on a depth-n
+telescope.  `annotatePisI`/`annotateLamsI`/`inferLamsI`
+(`Setlec/Kernel/CoreI.lean`) now peel the whole raw chain in one loop:
+opened free variables accumulate, only each binder's *domain* is
+substituted on the way in (`instListM` against the accumulator;
+domains are small), the leaf is annotated/inferred once on the
+bulk-opened body, and the chain is rebuilt with one bulk
+`abstractRange` per domain and one over the leaf
+(`Expr.abstractRange` + `EStore.abstractRangeIGo`, the innermost-first
+`abstract1` fold in one pass — `abstractRange_succ`).  The chained
+re-inferences of freshly built binder nodes are value-determined by
+the peel phase's domain sorts (an annotated `∀`'s type is
+`imax`-algebra), so the out phase replays only the fallible checks —
+the per-level "expected a sort" domain checks and λ-annotation
+re-checks, in the chained order.  The lam cases of `inferBodyNC` share
+`inferLamsI`; `coreKnotNC`'s annotate is the shared certified body, so
+the `SETLEC_NO_PROOF_CERTS` knot gets the loops for free.
+
+The λ-annotation loop is guarded on the node's loose-bvar bound (O(1)
+from the `bvarB` cache): the chained tails re-open exactly the body
+they just closed, which is the identity only on bvar-closed nodes —
+disciplined inputs always are, and the unguarded per-binder body
+remains as the (unreachable in practice) fallback arm.
+
+**Verification seam** (`Setlec/Verify/BinderLoop.lean` +
+`BinderLoopI.lean`; the `Expr`-level spec bodies are untouched): pure
+mirrors of the loops (generic over the core record), `_atF`/`_mono`
+batteries, and *soundness of each loop against the chained spec* — a
+successful mirror run at the pure fueled knot is reproduced by the
+original one-binder-at-a-time body at some fuel.  The induction is
+direct (head-first, no snoc): the chained tails are folded as *wraps*
+(`inferLamsWrap` …), the loop's out phase is identified with them
+per-entry (the rebuild equality is the `abstractRange_succ` fold; the
+λ-annotate wrap's reopen is `abstract1_instantiate1` with
+`LeafCond`/`looseBVars` invariants carried through the peel via the
+`annotateCore` leaf/scope preservation toolkit).  The interned walks
+(`DiscI4`/`DiscI6` binder cases) relate the loops to the mirrors under
+denotation only (`RelD`), then compose with `SimAt.wr` (mirror run →
+chained run, via the soundness theorems) and `SimAt.wp` (result
+scoping recovered from the chained run); `SimAt.bindR` remembers the
+walked pre-checks' fueled runs to seed the wraps' domain facts.
+Claims, Model, and the bridges are unchanged.
+
+**2. Entry-boundary level interning** (`EStore.internExprFast`,
+`Setlec/Kernel/IExpr.lean`).  An annotated telescope's codomain
+annotations are `imax`-chains of depth O(n); each entry runner
+re-interns the annotated expression into a fresh arena, and
+`internLevel` walked each chain structurally — O(n²) *per entry call*
+even though `readbackI` shares the chains in memory (one level memo
+per readback).  `internExprFast` exploits exactly that sharing: at a
+binder whose annotation is `imax _ (child's cod)` — pointer-checked by
+`withPtrEq`, which is *definitionally* its structural continuation, so
+proofs see plain equality — the already-interned child index is reused
+instead of walking the tail.  `internExprFast_eq` proves it equal to
+`internExpr` as a function (`internLevel_of_denoteL`: re-interning a
+stored level is a pure lookup), so the entry-runner bridges rewrite it
+away.  Raw inputs carry no codomain annotations, so the fallback
+structural comparison never walks deep unequal trees.
+
+**3. The scope shortcut** (`IState.bvarB` + `EStore.bvarBoundIGo`).
+Each interned node's least loose-bvar bound is cached *persistently*
+(a node's bound depends only on its immutable sub-DAG, so the cache
+survives arena extension and every node is bounded at most once per
+run); `inst1M`/`instListM` return their argument index untraversed
+when the cursor is at or above the bound (`instantiate1_eq_self`/
+`instantiateList_eq_self`; on a canonical arena the traversal would
+rebuild the same index).  This is what makes `inferSpineI`'s deferred
+residual substitutions O(1) on non-dependent telescopes (the `spine`
+shape's remaining cost).  `ISOK` gains the `bvarB` clause
+(`BoundMemoInv`).
+
+**Measured** (init-prelude probe, instructions): 205.5 G / 15.6 s →
+**187.8 G / 14.0 s** certified (−8.6 %), 151.8 G / 10.5 s →
+**142.8 G / 9.7 s** with `SETLEC_NO_PROOF_CERTS=1` (−5.9 %); verdicts
+identical everywhere (arena 90/92, e2e 48/48, both modes).  Remaining
+known superlinear residues (small constants, below the harness gate at
+its sizes): the per-prefix `inferSpineI` re-walk when `annotate`'s app
+case infers every spine prefix against the root telescope (Σ O(i)
+view-steps and per-prefix argument-list allocation; a spine loop in
+`annotateBodyI`'s app case would remove it), the `List.toArray`
+conversion inside `instantiateListI` per non-identity call with a
+growing accumulator, and `Expr.allLevelParamsDefined` walking deep
+codomain-annotation trees once per declaration guard.
+
+### Theorems are delta-unfoldable (verified 2026-08-23)
+
+The kernel delta-unfolds theorems, with the implicit `opaque` hint
+(unfold last) — matching the *current* official kernel: C++
+`constant_info::has_value()` (`declaration.h:466`, byte-identical on
+lean4 master as of 2026-08-20) includes theorems and is what
+`type_checker::is_delta` consults.  Trap for the reader: lean4#12973
+made the *elaborator-facing* `declaration::has_value` /
+`ConstantInfo.value?` exclude theorems ("now treated like opaque
+declarations"), but left the kernel predicate untouched — the two
+`has_value`s differ.  Empirical confirmation: the official arena
+binary accepts `good/undecidability/subject-reduction-redex` (whose
+only unfoldable constants are theorems) and rejects it with the
+theorems rewritten as axioms.  See lean4lean
+`Lean4Lean/Declaration.lean` (`deltaValue?` doc comment) for the same
+observation.

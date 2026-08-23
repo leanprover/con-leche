@@ -401,6 +401,13 @@ theorem unfoldDefinitionI_eff {s₀ : IState} (hs : ISOK env s₀)
             let r ← mkAppNM v args
             pure (some r)
           else pure none
+        | some (.thmInfo cv _) =>
+          if us.length = cv.levelParams.length then do
+            let v ← constValAtM (mkFEnv env) n us
+            let args ← Setlec.withStore (·.getAppArgsI i)
+            let r ← mkAppNM v args
+            pure (some r)
+          else pure none
         | _ => pure none
       | _ => pure none)
   refine IEff.withStore ?_
@@ -411,6 +418,11 @@ theorem unfoldDefinitionI_eff {s₀ : IState} (hs : ISOK env s₀)
       | .const n us =>
         match env.find? n with
         | some (.defnInfo cv value _) =>
+          if us.length = cv.levelParams.length then
+            some (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
+              e.getAppArgs)
+          else none
+        | some (.thmInfo cv value) =>
           if us.length = cv.levelParams.length then
             some (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
               e.getAppArgs)
@@ -433,7 +445,7 @@ theorem unfoldDefinitionI_eff {s₀ : IState} (hs : ISOK env s₀)
         have hleneq : us.length = lus.length := denoteLList_length hlusDen
         by_cases hlen : us.length = cv.levelParams.length
         · rw [if_pos hlen, if_pos (by omega)]
-          refine IEff.bind (constValAtM_eff hs hlusDen hfc) ?_
+          refine IEff.bind (constValAtM_eff hs hlusDen (Or.inl hfc)) ?_
           intro s₁ v hs₁ hext₁ hQv
           refine IEff.withStore ?_
           have hargs := getAppArgsI_spec hs₁.wf (denote_mono hext₁ hden)
@@ -443,7 +455,21 @@ theorem unfoldDefinitionI_eff {s₀ : IState} (hs : ISOK env s₀)
         · rw [if_neg hlen, if_neg (by omega)]
           exact IEff.pure hs trivial
       | axiomInfo cv => exact IEff.pure hs trivial
-      | thmInfo cv v => exact IEff.pure hs trivial
+      | thmInfo cv value =>
+        dsimp only
+        have hleneq : us.length = lus.length := denoteLList_length hlusDen
+        by_cases hlen : us.length = cv.levelParams.length
+        · rw [if_pos hlen, if_pos (by omega)]
+          refine IEff.bind (constValAtM_eff (hint := .opaque) hs hlusDen
+            (Or.inr hfc)) ?_
+          intro s₁ v hs₁ hext₁ hQv
+          refine IEff.withStore ?_
+          have hargs := getAppArgsI_spec hs₁.wf (denote_mono hext₁ hden)
+          refine IEff.bind (mkAppNM_eff hs₁ hQv hargs) ?_
+          intro s₂ r hs₂ hext₂ hQr
+          exact IEff.pure hs₂ hQr
+        · rw [if_neg hlen, if_neg (by omega)]
+          exact IEff.pure hs trivial
       | indInfo cv caps => exact IEff.pure hs trivial
       | ctorInfo cv nP nF => exact IEff.pure hs trivial
       | recInfo cv mI rP rules => exact IEff.pure hs trivial

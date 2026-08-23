@@ -55,8 +55,15 @@ private theorem constWF_intro {env : Env} {c : ConstantInfo}
           ∃ pre nm dom body bm D,
             cv.type.stripPis mI = some (pre, .forallE nm dom body bm) ∧
             dom.getAppFn = .const D lvls ∧
-            dom.getAppArgs = pins) :
-    ConstWF env c := ⟨h1, h2, h3, h4, h5, h6⟩
+            dom.getAppArgs = pins)
+    (h7 : ∀ cv value, c = .thmInfo cv value →
+      value.hasFvar = false ∧
+      value.allLevelParamsDefined cv.levelParams = true ∧
+      value.constsResolve env = true ∧
+      value.looseBVarsBounded 0 = true := by
+        intro cv value h
+        exact ConstantInfo.noConfusion h) :
+    ConstWF env c := ⟨h1, h2, h3, h4, h5, h6, h7⟩
 
 /-- The four `ConstWF` type-slot facts for the constant returned by a
 successful `checkConstantVal` run: level parameters and constant
@@ -205,8 +212,11 @@ private theorem constWF_le {envA envB : Env}
     (hle : ∀ n, (envA.find? n).isSome = true →
       (envB.find? n).isSome = true)
     {c : ConstantInfo} (h : ConstWF envA c) : ConstWF envB c := by
-  obtain ⟨h1, h2, h3, h4, h5, h6⟩ := h
-  refine ⟨h1, h2, Expr.constsResolve_le hle h3, h4, ?_, ?_⟩
+  obtain ⟨h1, h2, h3, h4, h5, h6, h7⟩ := h
+  refine ⟨h1, h2, Expr.constsResolve_le hle h3, h4, ?_, ?_,
+    fun cv value heq =>
+      let ⟨g1, g2, g3, g4⟩ := h7 cv value heq
+      ⟨g1, g2, Expr.constsResolve_le hle g3, g4⟩⟩
   · intro cv v hint heq
     obtain ⟨g1, g2, g3, g4⟩ := h5 cv v hint heq
     exact ⟨g1, g2, Expr.constsResolve_le hle g3, g4⟩
@@ -504,10 +514,12 @@ private theorem installProjTemplateStepE_wfimp {T ctorName : Name}
         intro h
         simp only [pure, Except.pure, Except.ok.injEq] at h
         refine h ▸ EnvWF.cons he ?_
-        refine ⟨rfl, rfl, rfl, rfl, ?_, ?_⟩
+        refine ⟨rfl, rfl, rfl, rfl, ?_, ?_, ?_⟩
         · intro _ _ _ heq
           exact nomatch heq
         · intro _ _ _ _ heq
+          exact nomatch heq
+        · intro _ _ heq
           exact nomatch heq
 
 /-- The template-install fold, `wfOpsM` to pure. -/

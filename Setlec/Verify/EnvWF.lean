@@ -62,7 +62,15 @@ def ConstWF (env : Env) (c : ConstantInfo) : Prop :=
         ∃ pre nm dom body bm D,
           cv.type.stripPis mI = some (pre, .forallE nm dom body bm) ∧
           dom.getAppFn = .const D lvls ∧
-          dom.getAppArgs = pins)
+          dom.getAppArgs = pins) ∧
+  -- theorem values unfold in reduction (like the reference kernels'
+  -- delta step), so they carry the same syntactic facts as
+  -- definition values
+  (∀ cv value, c = .thmInfo cv value →
+    value.hasFvar = false ∧
+    value.allLevelParamsDefined cv.levelParams = true ∧
+    value.constsResolve env = true ∧
+    value.looseBVarsBounded 0 = true)
 
 /-- Every stored constant is syntactically well-formed. -/
 def EnvWF (env : Env) : Prop := ∀ c ∈ env.consts, ConstWF env c
@@ -339,10 +347,13 @@ theorem EnvWF.cons {c : ConstantInfo} {env : Env}
   intro c' hc'
   rcases List.mem_cons.mp hc' with rfl | hmem
   · exact hc
-  · obtain ⟨h1, h2, h3, h4, h5, h6⟩ := henv c' hmem
+  · obtain ⟨h1, h2, h3, h4, h5, h6, h7⟩ := henv c' hmem
     refine ⟨h1, h2, Expr.constsResolve_mono h3, h4, fun cv value hint heq =>
       let ⟨g1, g2, g3, g4⟩ := h5 cv value hint heq
-      ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩, ?_⟩
+      ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩, ?_,
+      fun cv value heq =>
+        let ⟨g1, g2, g3, g4⟩ := h7 cv value heq
+        ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩⟩
     intro cv mI rP rules heq r hr
     obtain ⟨g1, g2, g3, g4, g5⟩ := h6 cv mI rP rules heq r hr
     refine ⟨g1, g2, Expr.constsResolve_mono g3, g4, ?_⟩

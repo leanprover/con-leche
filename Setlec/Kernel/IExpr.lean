@@ -181,6 +181,97 @@ def internExpr (st : EStore) : Expr → EIdx × EStore
     let (e', st) := st.internExpr e
     st.intern (.proj s i e')
 
+/-! ### Boundary interning with the codomain-chain fast path (task #72)
+
+An annotated binder telescope of depth `n` carries codomain-sort
+annotations `vᵢ = imax uᵢ₊₁ vᵢ₊₁` — level *trees* of depth `O(n)`, so
+structurally re-interning an annotated expression at the entry-runner
+boundary costs `O(n²)` even though the readback shares the chains in
+memory (one level memo per `readbackI`).  `internExprFast` exploits
+exactly that sharing: at a binder node whose annotation is
+`imax _ (child's cod)` — pointer-checked via `withPtrEq`, which is
+definitionally its structural continuation, so proofs see plain
+equality — the already-interned child index is reused instead of
+walking the tail again.  Function-equal to `internExpr`
+(`internExprFast_eq`, `Setlec/Verify/IExpr.lean`). -/
+
+/-- Structural level equality with a physical-equality shortcut
+(`withPtrEq` is definitionally its continuation `a == b`). -/
+@[inline] def levelPtrBEq (a b : Level) : Bool :=
+  withPtrEq a b (fun _ => a == b) (fun h => by subst h; simp)
+
+/-- `internBM` reusing the direct child binder's codomain index when
+this binder's annotation is `imax _ (child's cod)` — the shape
+`annotate` produces on a binder telescope. -/
+def internBMFast (st : EStore) (m : BinderMeta)
+    (child : Option (Level × LIdx)) : IBinderMeta × EStore :=
+  match m.cod with
+  | none => (⟨m.bi, none⟩, st)
+  | some v =>
+    match child, v with
+    | some (vc, ic), .imax u vtail =>
+      if levelPtrBEq vtail vc then
+        let (u', st) := st.internLevel u
+        let (i, st) := st.internL (.imax u' ic)
+        (⟨m.bi, some i⟩, st)
+      else
+        let (i, st) := st.internLevel v
+        (⟨m.bi, some i⟩, st)
+    | _, _ =>
+      let (i, st) := st.internLevel v
+      (⟨m.bi, some i⟩, st)
+
+/-- Core of `internExprFast`: returns the interned index and, for a
+binder node, its codomain annotation (tree and interned index) for the
+parent's `internBMFast`. -/
+def internExprFastGo (st : EStore) :
+    Expr → (EIdx × EStore) × Option (Level × LIdx)
+  | .bvar i => (st.intern (.bvar i), none)
+  | .fvar idx n ty =>
+    let ((t, st), _) := st.internExprFastGo ty
+    (st.intern (.fvar idx n t), none)
+  | .sort u =>
+    let (u', st) := st.internLevel u
+    (st.intern (.sort u'), none)
+  | .const n us =>
+    let (us', st) := st.internLevels us
+    (st.intern (.const n us'), none)
+  | .app f a =>
+    let ((f', st), _) := st.internExprFastGo f
+    let ((a', st), _) := st.internExprFastGo a
+    (st.intern (.app f' a'), none)
+  | .lam n ty body m =>
+    let ((t, st), _) := st.internExprFastGo ty
+    let ((b, st), child) := st.internExprFastGo body
+    let (m', st) := st.internBMFast m child
+    let cod := match m.cod, m'.cod with
+      | some v, some i => some (v, i)
+      | _, _ => none
+    (st.intern (.lam n t b m'), cod)
+  | .forallE n ty body m =>
+    let ((t, st), _) := st.internExprFastGo ty
+    let ((b, st), child) := st.internExprFastGo body
+    let (m', st) := st.internBMFast m child
+    let cod := match m.cod, m'.cod with
+      | some v, some i => some (v, i)
+      | _, _ => none
+    (st.intern (.forallE n t b m'), cod)
+  | .letE n ty val body =>
+    let ((t, st), _) := st.internExprFastGo ty
+    let ((v, st), _) := st.internExprFastGo val
+    let ((b, st), _) := st.internExprFastGo body
+    (st.intern (.letE n t v b), none)
+  | .lit l => (st.intern (.lit l), none)
+  | .proj s i e =>
+    let ((e', st), _) := st.internExprFastGo e
+    (st.intern (.proj s i e'), none)
+
+/-- `internExpr` with the codomain-chain fast path (task #72; equal to
+`internExpr` by `internExprFast_eq`).  Used by the entry runners, whose
+inputs are readbacks of a previous arena. -/
+def internExprFast (st : EStore) (e : Expr) : EIdx × EStore :=
+  (st.internExprFastGo e).1
+
 /-!
 ## Level operations on indices (task #62)
 
@@ -687,6 +778,81 @@ def abstract1I (st : EStore) (e : EIdx) (d : Nat) (k : Nat := 0) : EIdx × EStor
   let (r, st, _) := abstract1IGo d st {} e k
   (r, st)
 
+/-- Core of `abstractRangeI` (task #72); `d`/`k` fix the abstracted
+fvar-level range `[d, d + k)`, `c` is the binder cursor (mirrors
+`Expr.abstractRange e d k c`). -/
+def abstractRangeIGo (d k : Nat) (st : EStore) (memo : MemoN) (e : EIdx)
+    (c : Nat) : EIdx × EStore × MemoN :=
+  match memo[(e, c)]? with
+  | some r => (r, st, memo)
+  | none =>
+    match st.nodes[e]? with
+    | none => (e, st, memo)
+    | some n =>
+      let (r, st, memo) : EIdx × EStore × MemoN :=
+        match n with
+        | .bvar _ => (e, st, memo)
+        | .fvar idx _ _ =>
+          if d ≤ idx ∧ idx < d + k then
+            let (r, st) := st.intern (.bvar (c + (d + k - 1 - idx)))
+            (r, st, memo)
+          else (e, st, memo)
+        | .sort _ => (e, st, memo)
+        | .const _ _ => (e, st, memo)
+        | .app f a =>
+          if _h : f < e ∧ a < e then
+            let (f', st, memo) := abstractRangeIGo d k st memo f c
+            let (a', st, memo) := abstractRangeIGo d k st memo a c
+            let (r, st) := st.intern (.app f' a')
+            (r, st, memo)
+          else (e, st, memo)
+        | .lam n ty body m =>
+          if _h : ty < e ∧ body < e then
+            let (ty', st, memo) := abstractRangeIGo d k st memo ty c
+            let (body', st, memo) := abstractRangeIGo d k st memo body (c + 1)
+            let (r, st) := st.intern (.lam n ty' body' m)
+            (r, st, memo)
+          else (e, st, memo)
+        | .forallE n ty body m =>
+          if _h : ty < e ∧ body < e then
+            let (ty', st, memo) := abstractRangeIGo d k st memo ty c
+            let (body', st, memo) := abstractRangeIGo d k st memo body (c + 1)
+            let (r, st) := st.intern (.forallE n ty' body' m)
+            (r, st, memo)
+          else (e, st, memo)
+        | .letE n ty val body =>
+          if _h : ty < e ∧ val < e ∧ body < e then
+            let (ty', st, memo) := abstractRangeIGo d k st memo ty c
+            let (val', st, memo) := abstractRangeIGo d k st memo val c
+            let (body', st, memo) := abstractRangeIGo d k st memo body (c + 1)
+            let (r, st) := st.intern (.letE n ty' val' body')
+            (r, st, memo)
+          else (e, st, memo)
+        | .lit _ => (e, st, memo)
+        | .proj s i sub =>
+          if _h : sub < e then
+            let (sub', st, memo) := abstractRangeIGo d k st memo sub c
+            let (r, st) := st.intern (.proj s i sub')
+            (r, st, memo)
+          else (e, st, memo)
+      (r, st, memo.insert (e, c) r)
+termination_by (e, c)
+decreasing_by all_goals (apply Prod.Lex.left; first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h)
+
+/-- Interned counterpart of `Expr.abstractRange e d k c` (bulk
+abstraction, task #72): close the `k` fvar levels `[d, d + k)` —
+innermost bound tightest — in one memoized DAG traversal.  Equal,
+under the denotation, to the innermost-first `abstract1I` chain
+(`Expr.abstractRange_succ`).  `k = 0` is the identity and skips the
+traversal. -/
+def abstractRangeI (st : EStore) (e : EIdx) (d k : Nat) (c : Nat := 0) :
+    EIdx × EStore :=
+  match k with
+  | 0 => (e, st)
+  | _ + 1 =>
+    let (r, st, _) := abstractRangeIGo d k st {} e c
+    (r, st)
+
 /-- Memo table for cursor-free index→index traversals. -/
 abbrev Memo0 := Std.HashMap EIdx EIdx
 
@@ -895,6 +1061,50 @@ decreasing_by all_goals (apply Prod.Lex.left; first | exact _h.1 | exact _h.2.1 
 /-- Interned counterpart of `Expr.looseBVarsBounded k`. -/
 def looseBVarsBoundedI (st : EStore) (k : Nat) (e : EIdx) : Bool :=
   (looseBVarsBoundedIGo st {} k e).1
+
+/-- Core of the loose-bvar *bound* (task #72): the least `k` with
+`looseBVarsBounded k` for a node, memoized cursor-free — a node's
+bound depends only on its immutable sub-DAG, so callers thread a
+*persistent* memo (`IState.bvarB`) and every node is visited at most
+once over a whole checker run.  Instantiation at or above the bound is
+the identity (`instListM`/`inst1M` short-circuit). -/
+def bvarBoundIGo (st : EStore) (memo : Std.HashMap EIdx Nat) (e : EIdx) :
+    Nat × Std.HashMap EIdx Nat :=
+  match memo[e]? with
+  | some b => (b, memo)
+  | none =>
+    match st.nodes[e]? with
+    | none => (0, memo)
+    | some n =>
+      let (b, memo) : Nat × Std.HashMap EIdx Nat :=
+        match n with
+        | .bvar i => (i + 1, memo)
+        | .fvar _ _ _ | .sort _ | .const _ _ | .lit _ => (0, memo)
+        | .app f a =>
+          if _h : f < e ∧ a < e then
+            let (bf, memo) := bvarBoundIGo st memo f
+            let (ba, memo) := bvarBoundIGo st memo a
+            (max bf ba, memo)
+          else (0, memo)
+        | .lam _ ty body _ | .forallE _ ty body _ =>
+          if _h : ty < e ∧ body < e then
+            let (bt, memo) := bvarBoundIGo st memo ty
+            let (bb, memo) := bvarBoundIGo st memo body
+            (max bt (bb - 1), memo)
+          else (0, memo)
+        | .letE _ ty val body =>
+          if _h : ty < e ∧ val < e ∧ body < e then
+            let (bt, memo) := bvarBoundIGo st memo ty
+            let (bv, memo) := bvarBoundIGo st memo val
+            let (bb, memo) := bvarBoundIGo st memo body
+            (max (max bt bv) (bb - 1), memo)
+          else (0, memo)
+        | .proj _ _ sub =>
+          if _h : sub < e then bvarBoundIGo st memo sub
+          else (0, memo)
+      (b, memo.insert e b)
+termination_by e
+decreasing_by all_goals first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h
 
 /-- Core of `wscopedBI`; `d` is the scope cursor (mirrors
 `Expr.wscopedB d`; an `fvar idx _ ty` leaf checks `idx < d` and recurses

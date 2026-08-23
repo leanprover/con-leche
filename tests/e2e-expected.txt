@@ -143,3 +143,16 @@
 2 nat_shiftright_perturbed.ndjson
 0 nat_log2_ok.ndjson
 2 nat_log2_perturbed.ndjson
+# subject_reduction_redex (arena good/undecidability/subject-reduction-redex):
+# `x2 x4` needs `f 1 (proof_2 x0) ≡ f 0 (proof_1 x0)` where the proofs
+# are *theorems* whose values must delta-unfold for the Acc iota step
+# to fire — theorem values unfold like the reference kernels' delta
+# step (task #66); the outer redex additionally exercises the
+# same-head spine shortcut with proof irrelevance on the Acc argument.
+0 subject_reduction_redex.ndjson
+# dag_tower_declined (task #65): a 2^28-node doubling tower
+# (add e e at 27 levels) over the beta-ladder prelude — DAG-shared far
+# beyond the frontend's unshared-tree-size budget; the record is
+# positively declined (the pipeline materializes trees; cf. arena
+# good/perf/app-lam at 2^4000).
+2 dag_tower_declined.ndjson

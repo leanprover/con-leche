@@ -97,9 +97,29 @@ structure State where
   like `sorryAx`, which has no set model (`∀ α, Bool → α` is empty at
   `α := ∅`) — and any later *use* is positively declined. -/
   skippedAxioms : Std.HashMap Name Unit := {}
+  /-- Saturated *unshared tree size* per expression-table entry,
+  maintained incrementally (`O(1)` per entry).  The whole pipeline
+  (zeta expansion here, the raw syntactic passes and arena interning
+  in the checker) materializes or walks the tree, so a declaration
+  whose tree size exceeds `declTreeSizeBudget` — reachable only
+  through heavy DAG sharing, e.g. the arena `app-lam` doubling tower
+  with 2^4000 unshared nodes — is *positively declined* at its record
+  (see DESIGN.md, task #65). -/
+  sizes : Std.HashMap Nat Nat := {}
 
 /-- Internal sentinel converted to a decline at the record level. -/
 private def taintSentinel : String := "\x00uses-skipped-axiom"
+
+/-- Internal sentinel converted to a decline at the record level. -/
+private def sizeSentinel : String := "\x00tree-size-budget"
+
+/-- Cap on a declaration's *unshared tree size* (nodes of the
+expression tree with all sharing expanded).  `2^25`: at and beyond
+this scale the tree-materializing pipeline could not represent the
+declaration within the arena budget anyway; every stream the checker
+supports today is far below it, while adversarial DAG towers
+(arena `good/perf/app-lam`, 2^4000 nodes) are cleanly declined. -/
+def declTreeSizeBudget : Nat := 33554432
 
 
 private abbrev M := Except String
@@ -137,6 +157,8 @@ private def getDeclExpr' (st : State) (j : Json) (key : String) : M Expr := do
   let i ← getIdx j key
   if st.tainted[i]?.isSome then
     throw taintSentinel
+  if (st.sizes[i]?.getD 1) ≥ declTreeSizeBudget then
+    throw sizeSentinel
   st.expr i
 
 private def getIdxs (j : Json) (key : String) : M (Array Nat) := do
@@ -225,13 +247,20 @@ private def parseExprEntry (st : State) (j : Json) (i : Nat) : M State := do
       pure <| Expr.lit (.strVal (← v.getStr?))
     else
       throw "malformed or unsupported expr entry"
-  let taint : Bool ← do
-    match e with
-    | .const n _ => pure (st.skippedAxioms.contains n)
-    | _ =>
-      let cs ← exprEntryChildren j
-      pure (cs.any (fun c => st.tainted[c]?.isSome))
+  let cs ← exprEntryChildren j
+  let taint : Bool := (match e with
+    | .const n _ => st.skippedAxioms.contains n
+    | _ => cs.any (fun c => st.tainted[c]?.isSome))
+  -- saturated unshared tree size (children default to 1: leaf entries
+  -- are never inserted into `sizes` below the cap check's default)
+  let size : Nat := min declTreeSizeBudget
+    (cs.foldl (fun acc c => acc + (st.sizes[c]?.getD 1)) 1)
   let st := { st with exprs := st.exprs.insert i e }
+  let st := if size > 1 then
+    let m := st.sizes
+    let st := { st with sizes := {} }
+    { st with sizes := m.insert i size }
+  else st
   if taint then
     let t := st.tainted
     let st := { st with tainted := {} }
@@ -410,6 +439,8 @@ private def processLine (st : State) (j : Json)
   tryCatch (processLineCore st j modeled) fun e =>
     if e = taintSentinel then
       pure (.inr "declaration uses a skipped (non-pinned) axiom")
+    else if e = sizeSentinel then
+      pure (.inr "declaration's unshared tree size exceeds the frontend budget (heavily DAG-shared input; the pipeline materializes trees)")
     else throw e
 
 /-- Parse a whole export file into the declarations it contains, in order. -/

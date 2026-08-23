@@ -1,4 +1,5 @@
 import Setlec.Verify.DiscI3
+import Setlec.Verify.BinderLoopI
 import Setlec.Verify.BetaSpine
 
 /-!
@@ -1786,11 +1787,11 @@ theorem inferBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
       simp only [denoteBM, Option.map_eq_some_iff] at hbmDen
       obtain ⟨lv, hlv, rfl⟩ := hbmDen
       dsimp only
-      refine SimAt.bind (ih.infer hs hty hwtb.1)
-        (fun s₁ tty ttyx hs₁ hext₁ hP => ?_)
+      refine SimAt.bindR (ih.infer hs hty hwtb.1)
+        (fun s₁ tty ttyx hs₁ hext₁ hP hRtty => ?_)
       obtain ⟨httyd, hwtty⟩ := hP
-      refine SimAt.bind (ih.whnf hs₁ httyd hwtty)
-        (fun s₂ w wx hs₂ hext₂ hP₂ => ?_)
+      refine SimAt.bindR (ih.whnf hs₁ httyd hwtty)
+        (fun s₂ w wx hs₂ hext₂ hP₂ hRw => ?_)
       obtain ⟨hwd, hww⟩ := hP₂
       refine SimAt.view ?_
       obtain ⟨n', hn', hc', hd'⟩ := denote_some_inv hwd
@@ -1800,69 +1801,23 @@ theorem inferBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
         rw [denoteNode, Option.map_eq_some_iff] at hd'
         obtain ⟨lu, hlu, rfl⟩ := hd'
         have hext₀₂ := hext₁.trans hext₂
-        have hfvd : denoteNode s₂.store.denote s₂.store.denoteL (.fvar d nm t)
-            = some (.fvar d nm tyx) := by
+        have hfvd : denoteNode s₂.store.denote s₂.store.denoteL
+            (.fvar d nm t) = some (.fvar d nm tyx) := by
           rw [denoteNode, denote_mono hext₀₂ hty]; rfl
         refine SimAt.bind_left (internI_eff hs₂ hfvd)
           (fun s₃ fv hs₃ hext₃ hQfv => ?_)
-        refine SimAt.bind_left (inst1M_eff hs₃
-          (denote_mono (hext₀₂.trans hext₃) hbody) hQfv)
-          (fun s₄ ob hs₄ hext₄ hQob => ?_)
-        refine SimAt.bind (ih.infer hs₄ hQob
-          (WScoped.instantiate1 hwtb.1 0 hwtb.2))
-          (fun s₅ bt btx hs₅ hext₅ hP₅ => ?_)
-        obtain ⟨hbtd, hwbt⟩ := hP₅
-        refine SimAt.bind (ih.infer hs₅ hbtd hwbt)
-          (fun s₆ tbt tbtx hs₆ hext₆ hP₆ => ?_)
-        obtain ⟨htbtd, hwtbt⟩ := hP₆
-        refine SimAt.bind (ih.whnf hs₆ htbtd hwtbt)
-          (fun s₇ w' w'x hs₇ hext₇ hP₇ => ?_)
-        obtain ⟨hw'd, hww'⟩ := hP₇
-        refine SimAt.view ?_
-        obtain ⟨n'', hn'', hc'', hd''⟩ := denote_some_inv hw'd
-        rw [hn'']
-        cases n'' with
-        | sort v' =>
-          rw [denoteNode, Option.map_eq_some_iff] at hd''
-          obtain ⟨lv', hlv', rfl⟩ := hd''
-          refine SimAt.bind_left (isEquivLM_eff hs₇
-            (denoteL_mono ((((((hext₀₂.trans hext₃).trans hext₄).trans
-              hext₅).trans hext₆).trans hext₇)) hlv) hlv')
-            (fun s₇o o hs₇o hext₇o ho => ?_)
-          subst ho
-          refine SimAt.bind (SimAt.liftFueled _ _ hs₇o)
-            (fun s₈ ok ok' hs₈ hext₈ hPok => ?_)
-          obtain rfl : ok = ok' := hPok
-          cases ok with
-          | false =>
-            simp only [Bool.false_eq_true, ↓reduceIte]
-            exact SimAt.throw_bind
-          | true =>
-            simp only [↓reduceIte]
-            refine SimAt.bind_left (abstract1M_eff hs₈
-              (denote_mono (((hext₆.trans hext₇).trans hext₇o).trans
-                hext₈) hbtd))
-              (fun s₉ btAbs hs₉ hext₉ hQabs => ?_)
-            refine SimAt.of_eff (internI_eff hs₉
-              (x := .forallE nm tyx (btx.abstract1 d) ⟨mbbi, some lv⟩) ?_)
-              _ (fun s r hQ => ?_)
-            · have hextF := hext₀₂.trans (hext₃.trans (hext₄.trans
-                (hext₅.trans (hext₆.trans (hext₇.trans (hext₇o.trans
-                  (hext₈.trans hext₉)))))))
-              rw [denoteNode, denote_mono hextF hty, hQabs]
-              simp [denoteBM, denoteL_mono hextF hlv]
-            · refine ⟨hQ, ?_⟩
-              simp only [WScoped]
-              exact ⟨hwtb.1, WScoped.abstract1 0 hwbt⟩
-        | bvar k => invert_node hd''; exact SimAt.throw
-        | const nm' us => invert_node hd''; exact SimAt.throw
-        | lit l => invert_node hd''; exact SimAt.throw
-        | fvar idx nm' t' => invert_node hd''; exact SimAt.throw
-        | app f' a' => invert_node hd''; exact SimAt.throw
-        | lam nm' t' b' m' => invert_node hd''; exact SimAt.throw
-        | forallE nm' t' b' m' => invert_node hd''; exact SimAt.throw
-        | letE nm' t' v' b' => invert_node hd''; exact SimAt.throw
-        | proj s' j' e' => invert_node hd''; exact SimAt.throw
+        refine SimAt.withStore ?_
+        refine inferLamsI_tail_sim ih henv hs₃
+          (denote_mono (hext₀₂.trans hext₃) hbody)
+          (denote_mono (hext₀₂.trans hext₃) hty)
+          (denoteL_mono (hext₀₂.trans hext₃) hlv)
+          (denoteL_mono hext₃ hlu)
+          hQfv hwtb.1 hwtb.2 ?_
+        obtain ⟨F₁, h1⟩ := hRtty
+        obtain ⟨F₂, h2⟩ := hRw
+        exact ⟨max F₁ F₂, ttyx,
+          inferTypeCore_mono (Nat.le_max_left F₁ F₂) h1,
+          whnf_mono (Nat.le_max_right F₁ F₂) h2⟩
       | bvar k => invert_node hd'; exact SimAt.throw
       | const nm' us => invert_node hd'; exact SimAt.throw
       | lit l => invert_node hd'; exact SimAt.throw

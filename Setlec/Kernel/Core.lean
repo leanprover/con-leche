@@ -152,8 +152,12 @@ def isUnitLikeTy (env : Env) : Expr → Bool
     reservedBasisNames.contains (c.str "rec")
   | _ => false
 
-/-- Unfold the (application of a) definition at the head, one step.
-`none` when the head is not an unfoldable definition. -/
+/-- Unfold the (application of a) definition or theorem at the head,
+one step.  `none` when the head is not an unfoldable constant.
+Theorems unfold like the reference kernels' delta step (official
+`is_delta`: any constant with a value; theorems at hint `opaque`) —
+needed e.g. when a recursor major is a theorem application whose value
+reduces to a constructor (arena `subject-reduction-redex`). -/
 def unfoldDefinition (env : Env) (e : Expr) : Option Expr :=
   match e.getAppFn with
   | .const n us =>
@@ -163,12 +167,18 @@ def unfoldDefinition (env : Env) (e : Expr) : Option Expr :=
         some (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
           e.getAppArgs)
       else none
+    | some (.thmInfo cv value) =>
+      if us.length = cv.levelParams.length then
+        some (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
+          e.getAppArgs)
+      else none
     | _ => none
   | _ => none
 
 /-- The reducibility hint of the constant at the head of `e` (`opaque`
-when the head is not a stored definition — such a head never unfolds,
-so the value is only read where `unfoldDefinition` succeeded). -/
+when the head is not a stored definition; in particular a theorem
+unfolds at hint `opaque`, exactly the official kernel's
+`constant_info::get_hints`). -/
 def headHint (env : Env) (e : Expr) : ReducibilityHint :=
   match e.getAppFn with
   | .const n _ =>
@@ -1458,7 +1468,9 @@ def defeqSpine (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
   | _ => pure false
 
 /-- The definitional-equality body: syntactic fast path, head
-normalization of both sides (**no delta** — `whnfCore`), then the
+normalization of both sides (**no delta** — `whnfCore`), proof
+irrelevance (the official kernel's `is_def_eq_proof_irrel`, run after
+`whnf_core` and before any delta), then the
 *lazy delta* strategy of real kernels: literal acceleration first
 (mirroring the `whnf` loop order), then — when a side's head is an
 unfoldable definition — unfold lazily, guided by the reducibility
@@ -1479,6 +1491,14 @@ def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
     let a' ← r.whnfCore depth a
     let b' ← r.whnfCore depth b
     if a' == b' then pure true else
+    -- Proof irrelevance, hoisted before lazy delta exactly as in the
+    -- official kernel (`is_def_eq_proof_irrel` runs after `whnf_core`
+    -- and before `lazy_delta_reduction`): with theorem values
+    -- delta-unfolding (task #66), leaving it in the stuck fallback
+    -- would grind through proof bodies first (init-prelude probe:
+    -- 227 G → recovered by the hoist).  The fallback's copy stays
+    -- (memoized; reachable when a reduction step rewrites a side).
+    if ← proofIrrel r env depth a' b' then pure true else
     match ← reduceNat r env depth a' with
     | some a₂ => r.defeq depth a₂ b'
     | none =>
@@ -1575,11 +1595,11 @@ def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
       | some v₁, some v₂ => liftFueled "level comparison" (Level.isEquiv v₁ v₂)
       | _, _ => throw (.internal "unannotated λ-binder reached isDefEq")
     | .app f₁ a₁, .app f₂ a₂ => do
-      -- Stuck applications: congruence, then the stuck fallbacks (the
-      -- official kernel hoists proof irrelevance before congruence;
-      -- with a shared depth fuel the hoist multiplies the depth cost
-      -- of every comparison, so it stays in the fallback — same
-      -- verdicts, different cost profile).
+      -- Stuck applications: congruence, then the stuck fallbacks
+      -- (proof irrelevance is additionally hoisted before lazy delta
+      -- at the top of this body, as in the official kernel; the
+      -- fallback copy here fires when a reduction step rewrote a
+      -- side after the hoist ran).
       if ← r.defeq depth f₁ f₂ then
         if ← r.defeq depth a₁ a₂ then
           pure true

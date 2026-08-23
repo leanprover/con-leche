@@ -82,7 +82,8 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
         (Option.isNone_iff_eq_none.mp h1)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [quotA]),
-          fun _ _ _ _ hx => absurd hx (by simp [quotA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [quotA]),
+          fun _ _ hx => absurd hx (by simp [quotA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => quot_key)
@@ -112,7 +113,8 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
         (Option.isNone_iff_eq_none.mp h2)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [quotMkA]),
-          fun _ _ _ _ hx => absurd hx (by simp [quotMkA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [quotMkA]),
+          fun _ _ hx => absurd hx (by simp [quotMkA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => quotMk_key rfl hvalQ1)
@@ -206,13 +208,14 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
         (Option.isNone_iff_eq_none.mp h3)
         ⟨rfl, rfl, hresL, rfl,
           fun _ _ _ hx => absurd hx (by simp [quotLiftA]),
-          fun cv mI rP rules heq r hr => by
+          (fun cv mI rP rules heq r hr => by
             simp only [quotLiftA] at heq
             injection heq with e1 e2 e3 e4
             subst e1 e2 e3 e4
             rcases List.mem_cons.mp hr with rfl | hr
             · exact ⟨rfl, rfl, hresLr, rfl, fun lvls pins hf => RecRuleFire.noConfusion hf⟩
-            · cases hr⟩
+            · cases hr),
+          fun _ _ hx => absurd hx (by simp [quotLiftA])⟩
         hresL0
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => quotLift_key hfE2 hvalE2 rfl hvalQ2)
@@ -318,13 +321,14 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
         (Option.isNone_iff_eq_none.mp h4)
         ⟨rfl, rfl, rfl, rfl,
           fun _ _ _ hx => absurd hx (by simp [quotIndA]),
-          fun cv mI rP rules heq r hr => by
+          (fun cv mI rP rules heq r hr => by
             simp only [quotIndA] at heq
             injection heq with e1 e2 e3 e4
             subst e1 e2 e3 e4
             rcases List.mem_cons.mp hr with rfl | hr
             · exact ⟨rfl, rfl, rfl, rfl, fun lvls pins hf => RecRuleFire.noConfusion hf⟩
-            · cases hr⟩
+            · cases hr),
+          fun _ _ hx => absurd hx (by simp [quotIndA])⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => quotInd_key rfl hvalQ3 rfl hvalM3)
@@ -479,7 +483,8 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
         (Option.isNone_iff_eq_none.mp h5)
         ⟨rfl, rfl, hresS, rfl,
           fun _ _ _ hx => absurd hx (by simp [quotSoundA]),
-          fun _ _ _ _ hx => absurd hx (by simp [quotSoundA])⟩
+          fun _ _ _ _ hx => absurd hx (by simp [quotSoundA]),
+          fun _ _ hx => absurd hx (by simp [quotSoundA])⟩
         hresS0
         (fun _ _ _ hx => nomatch hx)
         (fun ψ => quotSound_key hfE4 hvalE4 rfl hvalQ4 rfl hvalM4)

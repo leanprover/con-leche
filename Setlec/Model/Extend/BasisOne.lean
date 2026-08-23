@@ -97,15 +97,20 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
         TeleFit V m.val env φ'' d₁ ρ₁
           (cv.type.instantiateLevelParams cv.levelParams us) ps d₂ ρ₂
           rest →
-        x = y) :
+        x = y)
+    (hnotthm : ∀ cv2 value2, ci ≠ .thmInfo cv2 value2 := by
+      intro cv2 value2 h
+      exact ConstantInfo.noConfusion h) :
     ∃ m' : EnvModel V ⟨ci :: env.consts⟩,
       (∀ ψ, m'.val ci.name ψ = v₀ ψ) ∧
       (∀ n ψ, n ≠ ci.name → m'.val n ψ = m.val n ψ) := by
-  refine extend_fresh m ci v₀ hfind' hwf htyres0 ?_ hkey hparams hAty
+  refine extend_fresh m ci v₀ hfind' hwf htyres0 ?_ ?_ hkey hparams hAty
     hnewty hnewmk hnewunit hnewempty hpin hsib hrecm hctors hmodv hproj
     hprojOk hetaL hunitL ?_ ?_
   · intro cv2 value2 h2 heq
     exact absurd heq (hnotdefn cv2 value2 h2)
+  · intro cv2 value2 heq
+    exact absurd heq (hnotthm cv2 value2)
   · intro val' _ _ cv₀ v₀' h₀' heq _
     exact absurd heq (hnotdefn cv₀ v₀' h₀')
   · intro val' _ _ cv₀ v₀' h₀' heq _

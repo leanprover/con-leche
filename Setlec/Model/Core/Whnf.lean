@@ -967,11 +967,14 @@ theorem reduceNat_sound (m : EnvModel V env) {fuel d : Nat} {e e₂ : Expr}
         (fun l hl => by simp [Expr.fvarLeaves] at hl)⟩
       rw [interpExpr_lit hs, hie, natOpVal_shiftRight m hfc φ n₁ n₂]
 
-/-- Inversion of a one-step delta unfolding. -/
+/-- Inversion of a one-step delta unfolding: the head is a stored
+definition or theorem with a matching level-list length, and the
+result is the (instantiated) value re-applied to the spine. -/
 theorem unfoldDefinition_inv {env : Env} {e e₂ : Expr}
     (h : unfoldDefinition env e = some e₂) :
-    ∃ n us cv value hint, e.getAppFn = .const n us ∧
-      env.find? n = some (.defnInfo cv value hint) ∧
+    ∃ n us cv value, e.getAppFn = .const n us ∧
+      ((∃ hint, env.find? n = some (.defnInfo cv value hint)) ∨
+        env.find? n = some (.thmInfo cv value)) ∧
       us.length = cv.levelParams.length ∧
       e₂ = Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
         e.getAppArgs := by
@@ -989,7 +992,17 @@ theorem unfoldDefinition_inv {env : Env} {e e₂ : Expr}
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
   | some (.projInfo _) => intro h; exact nomatch h
-  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.thmInfo cv value) =>
+    intro h
+    dsimp only at h
+    revert h
+    split
+    case isTrue hal =>
+      intro h
+      simp only [Option.some.injEq] at h
+      exact ⟨n, us, cv, value, rfl, Or.inr hf, hal, h.symm⟩
+    case isFalse =>
+      intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _) => intro h; exact nomatch h
@@ -1001,7 +1014,7 @@ theorem unfoldDefinition_inv {env : Env} {e e₂ : Expr}
   case isTrue hal =>
     intro h
     simp only [Option.some.injEq] at h
-    exact ⟨n, us, cv, value, hint, rfl, hf, hal, h.symm⟩
+    exact ⟨n, us, cv, value, rfl, Or.inl ⟨hint, hf⟩, hal, h.symm⟩
   case isFalse =>
     intro h; exact nomatch h
 
@@ -1025,36 +1038,56 @@ theorem unfoldDefinition_sound (m : EnvModel V env) {d : Nat}
     hLb l (unfoldDefinition_fvarLeaves m.wf hu l hl)
   have hsynO : FvarsOk V m.val env φ d ρ e₂ :=
     FvarsOk.of_subset (unfoldDefinition_fvarLeaves m.wf hu) hok
-  obtain ⟨n, us, cv, value, hint, hfn, hf, hal, rfl⟩ := unfoldDefinition_inv hu
-  -- head facts
-  obtain ⟨-, -, -, -, hval, -⟩ := m.wf _ (List.mem_of_find?_eq_some hf)
-  obtain ⟨hvc, -, -, hvb⟩ := hval cv value hint rfl
+  obtain ⟨n, us, cv, value, hfn, hfd, hal, rfl⟩ := unfoldDefinition_inv hu
+  -- head facts, uniform over the definition/theorem cases: the stored
+  -- value is closed, carries truthful annotations, interprets to the
+  -- constant's value, and the head constant interprets accordingly
+  obtain ⟨hvc, hvb, hstored, hde, hi₁⟩ :
+      value.hasFvar = false ∧ value.looseBVarsBounded 0 = true ∧
+      AnnotOk V m.val env (Level.substFn φ cv.levelParams us) 0 (rho0 V)
+        value ∧
+      interpClosed V m.val env (Level.substFn φ cv.levelParams us) value =
+        some (m.val n (Level.substFn φ cv.levelParams us)) ∧
+      interpExpr V m.val env φ d ρ (.const n us) =
+        some (m.val n (Level.substFn φ cv.levelParams us)) := by
+    rcases hfd with ⟨hint, hf⟩ | hf
+    · obtain ⟨-, -, -, -, hval, -⟩ := m.wf _ (List.mem_of_find?_eq_some hf)
+      obtain ⟨hvc, -, -, hvb⟩ := hval cv value hint rfl
+      have hname : cv.name = n := by
+        have := find?_name hf
+        simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using this
+      refine ⟨hvc, hvb,
+        (m.annot_ok _ (List.mem_of_find?_eq_some hf)
+          (Level.substFn φ cv.levelParams us)).2 cv value hint rfl,
+        hname ▸ m.defn_eq cv value hint (List.mem_of_find?_eq_some hf)
+          (Level.substFn φ cv.levelParams us), ?_⟩
+      rw [interp_const hf hal]
+      rfl
+    · obtain ⟨-, -, -, -, -, -, hval⟩ := m.wf _ (List.mem_of_find?_eq_some hf)
+      obtain ⟨hvc, -, -, hvb⟩ := hval cv value rfl
+      have hname : cv.name = n := by
+        have := find?_name hf
+        simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using this
+      obtain ⟨hde, hAv⟩ := m.thm_ok cv value (List.mem_of_find?_eq_some hf)
+        (Level.substFn φ cv.levelParams us)
+      refine ⟨hvc, hvb, hAv, hname ▸ hde, ?_⟩
+      rw [interp_const hf hal]
+      rfl
   have hcl : (value.instantiateLevelParams cv.levelParams us).hasFvar
       = false := by
     rw [hasFvar_instantiateLevelParams]; exact hvc
-  have hstored := (m.annot_ok _ (List.mem_of_find?_eq_some hf)
-    (Level.substFn φ cv.levelParams us)).2 cv value hint rfl
   have hinst := AnnotOk.instLevels m.val_params value 0 (rho0 V) hstored
   have hA₂ : AnnotOk V m.val env φ d ρ
       (value.instantiateLevelParams cv.levelParams us) :=
     AnnotOk.closed_invariant hcl d ρ hinst
-  have hname : cv.name = n := by
-    have := find?_name hf
-    simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using this
   have hi₂ : interpExpr V m.val env φ d ρ
       (value.instantiateLevelParams cv.levelParams us) =
       some (m.val n (Level.substFn φ cv.levelParams us)) := by
     rw [interp_closed_invariant hcl]
     unfold interpClosed
     rw [interp_instLevels m.val_params]
-    have hde := m.defn_eq cv value hint (List.mem_of_find?_eq_some hf)
-      (Level.substFn φ cv.levelParams us)
     unfold interpClosed at hde
-    rw [hde, hname]
-  have hi₁ : interpExpr V m.val env φ d ρ (.const n us) =
-      some (m.val n (Level.substFn φ cv.levelParams us)) := by
-    rw [interp_const hf hal]
-    rfl
+    rw [hde]
   have hspine : e = Expr.mkAppN (.const n us) e.getAppArgs := by
     have := (Expr.mkAppN_getApp e).symm
     rw [hfn] at this
