@@ -1156,67 +1156,32 @@ theorem proj_bottom
 /-! ## The projection rule's total λ-equality -/
 
 set_option maxHeartbeats 1600000 in
-/-- The single projection rule's `RecRulesOk` obligation tail: the
-canonical left-hand side λ-tower exists, is well-formed and resolves,
-and its interpretation **equals** the stored rule right-hand side's at
-every level assignment — glued from the flat stage facts
-(`modeled_stage` over the kernel's definitional parameter pins) and
-the checked `proj_i.iota` theorem's bottom (`proj_bottom`), through
-`TowerOk.of_stages`/`TowerOk.out`, with the stage facts transported
-across the fresh recursor extension. -/
-theorem proj_rule_eq
+/-- The single projection rule's `RecRulesOk` obligation tail,
+**parametric in the bottom fact**: the canonical left-hand side λ-tower
+exists, is well-formed and resolves, and its interpretation equals the
+stored rule right-hand side's at every level assignment.  Everything
+but the bottom is provenance-free — the flat stage facts come from the
+kernel's definitional parameter pins (`modeled_stage`), the gluing from
+`TowerOk.of_stages`/`TowerOk.out` — so the modeled path (`proj_bottom`,
+off the checked `proj_i.iota` theorem) and the direct path (off the
+constructed values' fold equations) share it. -/
+theorem proj_rule_eq_of_bottom
     {env : Env} (m : EnvModel V env) (F : Nat)
     {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none)
     {val' : ConstVal V}
     (hagree : ∀ n, (env.find? n).isSome = true → ∀ ψ'' : Name → Nat,
       val' n ψ'' = m.val n ψ'')
-    {f f₀ : Name → Name}
-    (hff₀ : ∀ n, (env.find? n).isSome = true → f n = f₀ n)
-    (hro₀ : RenameOk m.val env f₀)
-    (hro₁ : RenameOk val' (⟨c₀ :: env.consts⟩ : Env) f)
-    {P : Name} {nP nF i : Nat} (hi : i < nF)
-    {rule : RecRule} {cvA cvj cvt : ConstantVal}
+    {P : Name} {nP nF : Nat}
+    {rule : RecRule} {cvA cvj : ConstantVal}
     (hfP₁ : (⟨c₀ :: env.consts⟩ : Env).find? P = some c₀)
-    (hlpsP : c₀.toConstantVal.levelParams = cvA.levelParams)
     (hfj : env.find? (RecRule.ctor rule) = some (.ctorInfo cvj nP nF))
-    {cimP : ConstantInfo}
-    (hfPm : env.find? (f P) = some cimP)
-    (hPmlps : cimP.toConstantVal.levelParams = cvA.levelParams)
-    (heqfind : env.find? eqName = some eqA)
-    (heqval₁ : ∀ ψ'' : Name → Nat, val' eqName ψ'' = eqVal V ψ'')
-    {thmName : Name}
-    (hthm_mem : ∀ ψ'' : Name → Nat, ∃ Pv,
-      interpClosed V m.val env ψ'' cvt.type = some Pv ∧
-      m.val thmName ψ'' ∈ˢ Pv)
-    (hthm_annot : ∀ ψ'' : Name → Nat,
-      AnnotOk V m.val env ψ'' 0 (rho0 V) cvt.type)
-    (hSw : cvt.type.hasFvar = false)
-    (hSres : cvt.type.constsResolve env = true)
     (hfirep : RecRule.fire rule = .plain)
     (hcp : RecRule.ctorParams rule = nP)
     (hnf : RecRule.nfields rule = nF)
     {rbs : List (Name × Expr × BinderMeta)} {rbody : Expr}
     (hstripR : (RecRule.rhs rule).stripLams (nP + nF) = some (rbs, rbody))
-    (hrbody : rbody = .bvar (nF - 1 - i))
     {cbinders : List (Name × Expr × BinderMeta)} {cbody : Expr}
     (hC_strip : cvj.type.stripPis (nP + nF) = some (cbinders, cbody))
-    {sbinders : List (Name × Expr × BinderMeta)} {sbody : Expr}
-    (hS_strip : cvt.type.stripPis (nP + nF) = some (sbinders, sbody))
-    (hsdoms : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta),
-      sbinders[k]? = some b → cbinders[k]? = some b' →
-      b.2.1 = (b'.2.1).renameConsts f)
-    {tySlot : Expr} {ℓA : Level}
-    (hsbody : sbody = Expr.mkAppN (.const eqName [ℓA])
-      [tySlot,
-       Expr.mkAppN (.const (f P) (cvA.levelParams.map .param))
-        (((List.range nP).map fun k =>
-            Expr.bvar (nP + nF - 1 - k)) ++
-         [Expr.mkAppN (.const (f (RecRule.ctor rule))
-             (cvj.levelParams.map .param))
-           (((List.range nP).map fun k =>
-               Expr.bvar (nP + nF - 1 - k)) ++
-            ((List.range nF).map fun k => Expr.bvar (nF - 1 - k)))]),
-       .bvar (nF - 1 - i)])
     {dN : Name} {dus : List Level} {dargs : List Expr}
     (hcbody : cbody = Expr.mkAppN (.const dN dus) dargs)
     (hdargs : dargs.length = nP)
@@ -1254,7 +1219,26 @@ theorem proj_rule_eq
     (hArhs : ∀ ψ'' : Name → Nat,
       AnnotOk V m.val env ψ'' 0 (rho0 V) (RecRule.rhs rule))
     (hIrhs : ∀ ψ'' : Name → Nat, ∃ L,
-      interpClosed V m.val env ψ'' (RecRule.rhs rule) = some L) :
+      interpClosed V m.val env ψ'' (RecRule.rhs rule) = some L)
+    (Hbot : ∀ (ψ : Name → Nat) (xs : List V), xs.length = nP + nF →
+      FramePref m.val env ψ (fvsP ++ xFvs) xs →
+      (∃ w, interpExpr V val' (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF)
+          (fun l => xs.getD l SetTheory.empty)
+          (Expr.mkAppN (.const P (cvA.levelParams.map .param))
+            ((fvsP ++ xFvs).take nP ++
+              [Expr.mkAppN (.const (RecRule.ctor rule)
+                  (cvj.levelParams.map .param))
+                (fvsP ++ xFvs)])) = some w ∧
+        ∀ e, Expr.ErasedEq e lrestL →
+          interpExpr V val' (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF)
+            (fun l => xs.getD l SetTheory.empty) e = some w) ∧
+      AnnotOk V val' (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF)
+        (fun l => xs.getD l SetTheory.empty)
+        (Expr.mkAppN (.const P (cvA.levelParams.map .param))
+          ((fvsP ++ xFvs).take nP ++
+            [Expr.mkAppN (.const (RecRule.ctor rule)
+                (cvj.levelParams.map .param))
+              (fvsP ++ xFvs)]))) :
     ∃ fvms bL, ruleLhsParts P cvA nP rule cvj = some (fvms, bL) ∧
       FrameWf 0 fvms bL ∧
       fvms.length = nP + RecRule.nfields rule ∧
@@ -1391,12 +1375,7 @@ theorem proj_rule_eq
     rw [List.length_zip, hspineLen, List.length_map, hrbsLen]
     simp
   -- the tower spec from the transported stage facts and the bottom
-  have hbot := proj_bottom m F hfresh hagree hff₀ hro₀ hro₁ hi hfP₁
-    hlpsP hfj
-    hfPm hPmlps heqfind heqval₁ hthm_mem hthm_annot hSw hSres hC_strip
-    hS_strip hsdoms hsbody hstripR hrbody hopenP hcinstP hdeParsP
-    hopenX hlinstP hTcl hTb hTres (hAty ψ) hCcl hCb hCres (hACty ψ)
-    (hICty ψ) (ψ := ψ)
+  have hbot := Hbot ψ
   have htower := TowerOk.of_stages (cval := val')
     (env := (⟨c₀ :: env.consts⟩ : Env)) (φ := ψ)
     (bL := Expr.mkAppN (.const P (cvA.levelParams.map .param))
@@ -1575,3 +1554,119 @@ theorem proj_rule_eq
       (AnnotOk.cval_ext (fun n hn ψ' => (hagree n hn ψ').symm)
         _ 0 (rho0 V) (hArhs ψ)))
   exact ⟨hAL, Rv, hL, hR⟩
+
+
+/-- The modeled projection rule's obligation: `proj_rule_eq_of_bottom`
+at the bottom fact the checked `proj_i.iota` theorem supplies. -/
+theorem proj_rule_eq
+    {env : Env} (m : EnvModel V env) (F : Nat)
+    {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none)
+    {val' : ConstVal V}
+    (hagree : ∀ n, (env.find? n).isSome = true → ∀ ψ'' : Name → Nat,
+      val' n ψ'' = m.val n ψ'')
+    {f f₀ : Name → Name}
+    (hff₀ : ∀ n, (env.find? n).isSome = true → f n = f₀ n)
+    (hro₀ : RenameOk m.val env f₀)
+    (hro₁ : RenameOk val' (⟨c₀ :: env.consts⟩ : Env) f)
+    {P : Name} {nP nF i : Nat} (hi : i < nF)
+    {rule : RecRule} {cvA cvj cvt : ConstantVal}
+    (hfP₁ : (⟨c₀ :: env.consts⟩ : Env).find? P = some c₀)
+    (hlpsP : c₀.toConstantVal.levelParams = cvA.levelParams)
+    (hfj : env.find? (RecRule.ctor rule) = some (.ctorInfo cvj nP nF))
+    {cimP : ConstantInfo}
+    (hfPm : env.find? (f P) = some cimP)
+    (hPmlps : cimP.toConstantVal.levelParams = cvA.levelParams)
+    (heqfind : env.find? eqName = some eqA)
+    (heqval₁ : ∀ ψ'' : Name → Nat, val' eqName ψ'' = eqVal V ψ'')
+    {thmName : Name}
+    (hthm_mem : ∀ ψ'' : Name → Nat, ∃ Pv,
+      interpClosed V m.val env ψ'' cvt.type = some Pv ∧
+      m.val thmName ψ'' ∈ˢ Pv)
+    (hthm_annot : ∀ ψ'' : Name → Nat,
+      AnnotOk V m.val env ψ'' 0 (rho0 V) cvt.type)
+    (hSw : cvt.type.hasFvar = false)
+    (hSres : cvt.type.constsResolve env = true)
+    (hfirep : RecRule.fire rule = .plain)
+    (hcp : RecRule.ctorParams rule = nP)
+    (hnf : RecRule.nfields rule = nF)
+    {rbs : List (Name × Expr × BinderMeta)} {rbody : Expr}
+    (hstripR : (RecRule.rhs rule).stripLams (nP + nF) = some (rbs, rbody))
+    (hrbody : rbody = .bvar (nF - 1 - i))
+    {cbinders : List (Name × Expr × BinderMeta)} {cbody : Expr}
+    (hC_strip : cvj.type.stripPis (nP + nF) = some (cbinders, cbody))
+    {sbinders : List (Name × Expr × BinderMeta)} {sbody : Expr}
+    (hS_strip : cvt.type.stripPis (nP + nF) = some (sbinders, sbody))
+    (hsdoms : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta),
+      sbinders[k]? = some b → cbinders[k]? = some b' →
+      b.2.1 = (b'.2.1).renameConsts f)
+    {tySlot : Expr} {ℓA : Level}
+    (hsbody : sbody = Expr.mkAppN (.const eqName [ℓA])
+      [tySlot,
+       Expr.mkAppN (.const (f P) (cvA.levelParams.map .param))
+        (((List.range nP).map fun k =>
+            Expr.bvar (nP + nF - 1 - k)) ++
+         [Expr.mkAppN (.const (f (RecRule.ctor rule))
+             (cvj.levelParams.map .param))
+           (((List.range nP).map fun k =>
+               Expr.bvar (nP + nF - 1 - k)) ++
+            ((List.range nF).map fun k => Expr.bvar (nF - 1 - k)))]),
+       .bvar (nF - 1 - i)])
+    {dN : Name} {dus : List Level} {dargs : List Expr}
+    (hcbody : cbody = Expr.mkAppN (.const dN dus) dargs)
+    (hdargs : dargs.length = nP)
+    -- the kernel pins over the base environment
+    {fvsP : List Expr} {restP : Expr} {cdomsP : List Expr}
+    {crestP : Expr} {xFvs : List Expr} {crest2X : Expr}
+    {ldoms : List Expr} {lrestL : Expr}
+    (hopenP : openPisAtFvars nP cvA.type 0 = some (fvsP, restP))
+    (hcinstP : Expr.instPisAt fvsP cvj.type = some (cdomsP, crestP))
+    (hdeParsP : DefEqListOk F env (nP + nF)
+      (fvsP.map Expr.fvarTypeD) cdomsP)
+    (hopenX : openPisAtFvars nF crestP nP = some (xFvs, crest2X))
+    (hlinstP : Expr.instLamsAt (fvsP ++ xFvs) (RecRule.rhs rule) =
+      some (ldoms, lrestL))
+    (hdeLamP : DefEqListOk F env (nP + nF)
+      ((fvsP ++ xFvs).map Expr.fvarTypeD) ldoms)
+    -- well-formedness over the base environment
+    (hTcl : cvA.type.hasFvar = false)
+    (hTb : cvA.type.looseBVarsBounded 0 = true)
+    (hCcl : cvj.type.hasFvar = false)
+    (hCb : cvj.type.looseBVarsBounded 0 = true)
+    (hTres : cvA.type.constsResolve env = true)
+    (hCres : cvj.type.constsResolve env = true)
+    (hRres : (RecRule.rhs rule).constsResolve env = true)
+    (hrhsw : (RecRule.rhs rule).hasFvar = false)
+    (hrhsb : (RecRule.rhs rule).looseBVarsBounded 0 = true)
+    (hAty : ∀ ψ'' : Name → Nat,
+      AnnotOk V m.val env ψ'' 0 (rho0 V) cvA.type)
+    (hIty : ∀ ψ'' : Name → Nat, ∃ T,
+      interpClosed V m.val env ψ'' cvA.type = some T)
+    (hACty : ∀ ψ'' : Name → Nat,
+      AnnotOk V m.val env ψ'' 0 (rho0 V) cvj.type)
+    (hICty : ∀ ψ'' : Name → Nat, ∃ T,
+      interpClosed V m.val env ψ'' cvj.type = some T)
+    (hArhs : ∀ ψ'' : Name → Nat,
+      AnnotOk V m.val env ψ'' 0 (rho0 V) (RecRule.rhs rule))
+    (hIrhs : ∀ ψ'' : Name → Nat, ∃ L,
+      interpClosed V m.val env ψ'' (RecRule.rhs rule) = some L) :
+    ∃ fvms bL, ruleLhsParts P cvA nP rule cvj = some (fvms, bL) ∧
+      FrameWf 0 fvms bL ∧
+      fvms.length = nP + RecRule.nfields rule ∧
+      (closeLamsAt fvms bL).constsResolve
+        (⟨c₀ :: env.consts⟩ : Env) = true ∧
+      ∀ ψ'' : Name → Nat,
+        AnnotOk V val' (⟨c₀ :: env.consts⟩ : Env) ψ'' 0 (rho0 V)
+          (closeLamsAt fvms bL) ∧
+        ∃ Rv, interpClosed V val' (⟨c₀ :: env.consts⟩ : Env) ψ''
+            (closeLamsAt fvms bL) = some Rv ∧
+          interpClosed V val' (⟨c₀ :: env.consts⟩ : Env) ψ''
+            (RecRule.rhs rule) = some Rv :=
+  proj_rule_eq_of_bottom m F hfresh hagree hfP₁ hfj hfirep hcp hnf
+    hstripR hC_strip hcbody hdargs hopenP hcinstP hdeParsP hopenX hlinstP
+    hdeLamP hTcl hTb hCcl hCb hTres hCres hRres hrhsw hrhsb hAty hIty
+    hACty hICty hArhs hIrhs
+    (fun ψ => proj_bottom m F hfresh hagree hff₀ hro₀ hro₁ hi hfP₁
+      hlpsP hfj hfPm hPmlps heqfind heqval₁ hthm_mem hthm_annot hSw hSres
+      hC_strip hS_strip hsdoms hsbody hstripR hrbody hopenP hcinstP
+      hdeParsP hopenX hlinstP hTcl hTb hTres (hAty ψ) hCcl hCb hCres
+      (hACty ψ) (hICty ψ) (ψ := ψ))
