@@ -1,4 +1,5 @@
 import Setlec.Kernel.Checker
+import Setlec.Kernel.DeclI
 
 /-!
 # The shared-state declaration checker (task #51)
@@ -245,9 +246,18 @@ def indBlockCapsF (fe : FEnv) (cvT cvC : ConstantVal) (nP nF : Nat) :
   ruleK := nF == 0 && piResultIsProp cvT.type
 
 /-- Drop the memo and lazy stored-constant caches (an environment
-transition); the arena is environment-independent and survives. -/
+transition).  The environment-independent components survive: the
+arena, the interned environment (`ienv`, self-certified by denotation
+tags), the loose-bvar-bound cache and the level-operation caches —
+none of their invariants mention the environment. -/
+def IState.flushed (s : IState) : IState :=
+  { s with
+      constTyAt := {}, constValAt := {}, ruleRhsAt := {},
+      whnfCoreC := {}, whnfC := {}, inferC := {}, defeqC := {},
+      annotC := {} }
+
 def flushS : CheckIM Unit :=
-  modify fun s => { store := s.store }
+  modify (·.flushed)
 
 /-- Shared-state unary entry point: intern into the ambient arena, run
 the interned knot, read back.  Unlike `runEntryE` the state is the
@@ -1140,6 +1150,222 @@ def checkDeclSharedF (fe : FEnv) (d : Declaration) : CheckM FEnv :=
 /-- The declaration fold of the shared-state checker. -/
 def checkDeclsShared (ds : List Declaration) : CheckM Env := do
   let fe ← ds.foldlM checkDeclSharedF (mkFEnv Env.empty)
+  pure fe.env
+
+/-! ## The parsed-index drivers (task #78)
+
+The frontend parses expression-table entries directly into the arena
+(`Setlec/Frontend/Export.lean`); declarations arrive as `DeclP` — arena
+indices instead of `Expr` trees — over the parse store, which seeds the
+run's single `IState`.  The drivers below mirror the non-inductive
+branches of `checkDeclSF` clause by clause, with
+
+* the raw syntactic checks (`looseBVarsBounded`/`hasFvar`) and the
+  post-annotate checks (`allLevelParamsDefined`/`constsResolveF`) run
+  DAG-memoized on the arena,
+* the entry operations called on indices (no per-entry tree interning),
+* the accepted constant's annotated type/value *indices* recorded in
+  the interned environment (`IState.ienv`), so later delta-unfoldings
+  instantiate on the arena instead of re-interning read-back trees.
+
+Inductive and basis blocks reuse the `Expr`-level drivers verbatim
+(their inputs are read back at parse under the tree-size budget).
+The state persists across declarations: `checkDeclsSP` runs the whole
+fold in one `IState` seeded from the parse store, flushing the
+environment-dependent caches at each declaration boundary. -/
+
+/-- Parsed-index `ensureSort`: the interned entry plus the level
+readback (the `opS` tail without the per-call tree interning). -/
+def opSIx (fe : FEnv) (d : Nat) (i : EIdx) : CheckIM Level := do
+  let u ← ensureSortI (coreKnotI fe checkFuel) d i
+  readbackLevelM u
+
+/-- Read back an interned expression (internal error on a dangling
+index — never on the bridge invariant). -/
+def readbackEM (i : EIdx) : CheckIM Expr := do
+  match ← withStore (fun st => st.readbackI i) with
+  | some v => pure v
+  | none => throw (.internal "interned readback failed")
+
+/-- Record an accepted constant's interned type/value in the interned
+environment.  The tags (`tyE`, the value tag) must be the very objects
+pushed into the environment, so the pointer validation in
+`constTyAtM`/`constValAtM` succeeds. -/
+def recordIConst (n : Name) (tyE : Expr) (ty : EIdx)
+    (val : Option (Expr × EIdx)) : CheckIM Unit :=
+  modify fun s =>
+    let m := s.ienv
+    let s := { s with ienv := {} }
+    { s with ienv := m.insert n ⟨tyE, ty, val⟩ }
+
+/-- `checkConstantVal` on a parsed index: the checks of
+`checkConstantValF` with the syntactic passes memoized on the arena and
+the operations on indices.  Returns the annotated `ConstantVal` (type
+read back once, for the environment) and the annotated type's index. -/
+def checkConstantValP (fe : FEnv) (cv : ConstantValP) :
+    CheckIM (ConstantVal × EIdx) := do
+  if (fe.find? cv.name).isSome then
+    throw (.invalid s!"duplicate declaration {cv.name}")
+  if reservedBasisNames.contains cv.name then
+    throw (.invalid s!"reserved basis name {cv.name}")
+  if modelFamilyTaken fe.env cv.name then
+    throw (.invalid s!"model companion {cv.name} declared after its \
+      constant (the `_model` family of an installed constant is closed)")
+  if cv.name.isProjFnShape then
+    throw (.invalid s!"reserved projection name {cv.name}")
+  unless Name.nodup cv.levelParams do
+    throw (.invalid s!"duplicate universe parameters in {cv.name}")
+  unless ← withStore (fun st => st.looseBVarsBoundedI 0 cv.type) do
+    throw (.invalid s!"loose bound variable in type of {cv.name}")
+  if ← withStore (fun st => st.hasFvarI cv.type) then
+    throw (.invalid s!"unexpected free variable in type of {cv.name}")
+  let jty ← (coreKnotI fe checkFuel).annotate 0 cv.type
+  unless ← withStore (fun st => st.allLevelParamsDefinedI cv.levelParams jty) do
+    throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
+  unless ← withStore (fun st => constsResolveFI st fe jty) do
+    throw (.invalid s!"unknown constant in type of {cv.name}")
+  let jsty ← (coreKnotI fe checkFuel).infer 0 jty
+  let _u ← opSIx fe 0 jsty
+  let tyE ← readbackEM jty
+  pure (⟨cv.name, cv.levelParams, tyE⟩, jty)
+
+/-- `checkDefnValF` on parsed indices, recording the interned entry
+(the value sequence is inlined flat so the simulation walk mirrors it
+clause by clause). -/
+def checkDefnValP (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
+    (value : EIdx) (hint : ReducibilityHint) : CheckIM FEnv := do
+  unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
+    throw (.invalid s!"loose bound variable in value of {cvA.name}")
+  if ← withStore (fun st => st.hasFvarI value) then
+    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
+  let jv ← (coreKnotI fe checkFuel).annotate 0 value
+  unless ← withStore
+      (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
+    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
+  unless ← withStore (fun st => constsResolveFI st fe jv) do
+    throw (.invalid s!"unknown constant in value of {cvA.name}")
+  let jvt ← (coreKnotI fe checkFuel).infer 0 jv
+  unless ← (coreKnotI fe checkFuel).defeq 0 jvt jty do
+    throw (.invalid s!"type mismatch in definition {cvA.name}")
+  let vE ← readbackEM jv
+  recordIConst cvA.name cvA.type jty (some (vE, jv))
+  pure (fe.push (.defnInfo cvA vE hint))
+
+/-- `checkThmValF` on parsed indices. -/
+def checkThmValP (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
+    (value : EIdx) : CheckIM FEnv := do
+  let jsty ← (coreKnotI fe checkFuel).infer 0 jty
+  let ul ← opSIx fe 0 jsty
+  unless (← liftFueled "level comparison" (Level.isEquiv ul .zero)) do
+    throw (.invalid s!"type of theorem {cvA.name} is not a proposition")
+  unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
+    throw (.invalid s!"loose bound variable in value of {cvA.name}")
+  if ← withStore (fun st => st.hasFvarI value) then
+    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
+  let jv ← (coreKnotI fe checkFuel).annotate 0 value
+  unless ← withStore
+      (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
+    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
+  unless ← withStore (fun st => constsResolveFI st fe jv) do
+    throw (.invalid s!"unknown constant in value of {cvA.name}")
+  let jvt ← (coreKnotI fe checkFuel).infer 0 jv
+  unless ← (coreKnotI fe checkFuel).defeq 0 jvt jty do
+    throw (.invalid s!"type mismatch in theorem {cvA.name}")
+  let vE ← readbackEM jv
+  recordIConst cvA.name cvA.type jty (some (vE, jv))
+  pure (fe.push (.thmInfo cvA vE))
+
+/-- `checkOpaqueValF` on parsed indices (stored as a theorem, exactly
+as the `Expr`-level driver does). -/
+def checkOpaqueValP (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
+    (value : EIdx) : CheckIM FEnv := do
+  unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
+    throw (.invalid s!"loose bound variable in value of {cvA.name}")
+  if ← withStore (fun st => st.hasFvarI value) then
+    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
+  let jv ← (coreKnotI fe checkFuel).annotate 0 value
+  unless ← withStore
+      (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
+    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
+  unless ← withStore (fun st => constsResolveFI st fe jv) do
+    throw (.invalid s!"unknown constant in value of {cvA.name}")
+  let jvt ← (coreKnotI fe checkFuel).infer 0 jv
+  unless ← (coreKnotI fe checkFuel).defeq 0 jvt jty do
+    throw (.invalid s!"type mismatch in opaque {cvA.name}")
+  let vE ← readbackEM jv
+  recordIConst cvA.name cvA.type jty (some (vE, jv))
+  pure (fe.push (.thmInfo cvA vE))
+
+/-- One parsed declaration (mirrors `checkDeclSF` branch by branch;
+inductive/basis blocks reuse the `Expr`-level drivers). -/
+def checkDeclSP (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
+  match pd with
+  | .defnDecl cv value hint => do
+    let (cvA, jty) ← checkConstantValP fe cv
+    let fe2 ← checkDefnValP fe cvA jty value hint
+    if natOpNames.contains cvA.name then
+      unless natOpGuardF fe2 cvA.name &&
+          (natOpDeps cvA.name).all (natOpStoredOkF fe2) do
+        throw (.notImplemented
+          s!"nonstandard structural Nat operation environment ({cvA.name})")
+      match fe2.find? cvA.name with
+      | some (.defnInfo _ value' _) =>
+        let ok ← certifyNatEqs (sharedOps fe) fe.env
+          ((natOpEquations 0 cvA.name).map fun eq =>
+            (Expr.substConst0 cvA.name value' eq.1,
+             Expr.substConst0 cvA.name value' eq.2))
+        unless ok do
+          throw (.notImplemented
+            s!"nonstandard structural Nat operation ({cvA.name})")
+      | _ => throw (.internal
+          s!"structural Nat operation not stored ({cvA.name})")
+    if natDivModNames.contains cvA.name then
+      checkDivModPinF (sharedOps fe) fe fe2 cvA.name
+    pure fe2
+  | .thmDecl cv value => do
+    let (cvA, jty) ← checkConstantValP fe cv
+    checkThmValP fe cvA jty value
+  | .opaqueDecl cv value => do
+    let (cvA, jty) ← checkConstantValP fe cv
+    checkOpaqueValP fe cvA jty value
+  | .axiomDecl cv => do
+    let (cvA, jty) ← checkConstantValP fe cv
+    if stdAxiomOkF fe cvA then do
+      recordIConst cvA.name cvA.type jty none
+      pure (fe.push (.axiomInfo cvA))
+    else if cvA.name = propextName ∨ cvA.name = choiceName then
+      throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
+    else if toleratedAxiomNames.contains cvA.name then
+      pure fe
+    else
+      throw (.notImplemented s!"non-standard axiom ({cv.name})")
+  | .basisDecl kind => do
+    if kind = .quotK then
+      unless fe.find? eqName = some eqA do
+        throw (.notImplemented "quotient basis requires the pinned Eq basis")
+    kind.declsA.foldlM installBasisDeclF fe
+  | .indDecl block => checkIndDeclSF fe block
+
+/-- One step of the parsed-declaration fold: validate the indices
+against the parse store's range (`O(1)`; in-range indices denote under
+the store invariant), flush the environment-dependent caches, check. -/
+def checkDeclSPStep (n0 : Nat) (fe : FEnv) (pd : DeclP) : CheckIM FEnv := do
+  unless pd.inRangeB n0 do
+    throw (.internal "parsed declaration index out of range")
+  flushS
+  checkDeclSP fe pd
+
+/-- The parsed-declaration checker the binary runs: the parse store is
+validated once (`wfB` — the invariant every interned operation
+preserves), seeds the run's single interned state, and the whole fold
+shares it (the arena, the interned environment and the
+environment-independent caches persist; the environment-dependent
+caches are flushed per declaration). -/
+def checkDeclsSP (st : EStore) (pds : List DeclP) : CheckM Env := do
+  unless st.wfB do
+    throw (.internal "parse store not canonical")
+  let fe ← (pds.foldlM (checkDeclSPStep st.nodes.size)
+    (mkFEnv Env.empty)).run' { store := st }
   pure fe.env
 
 end Setlec

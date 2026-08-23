@@ -150,12 +150,20 @@
 # step (task #66); the outer redex additionally exercises the
 # same-head spine shortcut with proof irrelevance on the Acc argument.
 0 subject_reduction_redex.ndjson
-# dag_tower_declined (task #65): a 2^28-node doubling tower
-# (add e e at 27 levels) over the beta-ladder prelude — DAG-shared far
-# beyond the frontend's unshared-tree-size budget; the record is
-# positively declined (the pipeline materializes trees; cf. arena
-# good/perf/app-lam at 2^4000).
-2 dag_tower_declined.ndjson
+# dag_tower (task #65/#78): a 2^28-node doubling tower (add e e at 27
+# levels) over the beta-ladder prelude, DAG-shared through export-table
+# indices.  Since parse-time interning (task #78) the ordinary
+# definition pipeline is DAG-preserving end to end, so the record now
+# ACCEPTS (formerly dag_tower_declined under the tree-size budget; cf.
+# arena good/perf/app-lam at 2^4000, also accepted).
+0 dag_tower.ndjson
+# dag_tower_unfold (task #78): dag_tower plus a second definition with
+# the same DAG-tower value and a theorem `dagTower = dagTower2 := rfl`
+# whose check delta-unfolds both stored DAG-shaped values — exercising
+# the interned-environment path (`IState.ienv`): the stored values are
+# consumed as arena indices; re-interning the read-back tree would be
+# 2^28 nodes.
+0 dag_tower_unfold.ndjson
 # The direct simple-structure install (task #82).  A *raw* lean4export
 # fixture, run with the preprocessor made unavailable, so the stream
 # carries no `_model` declaration at all.  Pinned at 2 (decline) while

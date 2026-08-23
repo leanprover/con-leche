@@ -5445,17 +5445,61 @@ theorem lbbMono : ∀ {e : Expr} {k k' : Nat}, k ≤ k' →
     intro k k' hle hb
     exact ihe hle hb
 
+/-- The dense bound cache is empty at `∅`. -/
+theorem BMemo.get?_empty {e : EIdx} : (∅ : BMemo).get? e = none := by
+  simp [BMemo.get?, EmptyCollection.emptyCollection, BMemo.empty]
+
+/-- `get?` after `insert`: the inserted slot, other slots untouched
+(the geometric padding is all-zero = unfilled). -/
+theorem BMemo.get?_insert {m : BMemo} {e : EIdx} {b : Nat} (e' : EIdx) :
+    (m.insert e b).get? e' = if e' = e then some b else m.get? e' := by
+  have main : ∀ (arr : Array Nat), e < arr.size →
+      (∀ j, arr[j]? = m.arr[j]? ∨ (m.arr.size ≤ j ∧ arr[j]? = some 0) ∨
+        (m.arr.size ≤ j ∧ arr[j]? = none)) →
+      BMemo.get? ⟨arr.set! e (b + 1)⟩ e' =
+        if e' = e then some b else m.get? e' := by
+    intro arr he hj
+    unfold BMemo.get?
+    simp only [Array.set!]
+    rw [Array.getElem?_setIfInBounds]
+    by_cases hk : e = e'
+    · subst hk
+      rw [if_pos rfl, if_pos he, if_pos rfl]
+    · rw [if_neg hk, if_neg (fun h => hk h.symm)]
+      rcases hj e' with h | ⟨hle, h⟩ | ⟨hle, h⟩ <;> rw [h] <;>
+        try rw [Array.getElem?_eq_none hle]
+  unfold BMemo.insert
+  by_cases h : e < m.arr.size
+  · rw [if_pos h]
+    exact main m.arr h (fun j => .inl rfl)
+  · rw [if_neg h]
+    have hsz : e < (m.arr ++ Array.replicate (e + 1) 0).size := by
+      simp only [Array.size_append, Array.size_replicate]
+      exact Nat.lt_of_lt_of_le (Nat.lt_succ_self e)
+        (Nat.le_add_left (e + 1) m.arr.size)
+    refine main _ hsz (fun j => ?_)
+    by_cases hjl : j < m.arr.size
+    · exact .inl (Array.getElem?_append_left hjl)
+    · by_cases hjr : j - m.arr.size < e + 1
+      · refine .inr (.inl ⟨by omega, ?_⟩)
+        rw [Array.getElem?_append_right (by omega), Array.getElem?_replicate,
+          if_pos hjr]
+      · refine .inr (.inr ⟨by omega, ?_⟩)
+        exact Array.getElem?_eq_none
+          (by simp only [Array.size_append, Array.size_replicate]; omega)
+
 /-- Memo invariant of the persistent loose-bvar-bound cache: every
 cached bound is sound for its node's denotation. -/
-def BoundMemoInv (st : EStore) (memo : Std.HashMap EIdx Nat) : Prop :=
-  ∀ e b, memo[e]? = some b → e < st.nodes.size ∧
+def BoundMemoInv (st : EStore) (memo : BMemo) : Prop :=
+  ∀ e b, memo.get? e = some b → e < st.nodes.size ∧
     ∀ x, st.denote e = some x → x.looseBVarsBounded b = true
 
 theorem BoundMemoInv.empty {st : EStore} : BoundMemoInv st {} := by
   intro e b h
-  simp at h
+  rw [BMemo.get?_empty] at h
+  cases h
 
-theorem BoundMemoInv.mono {st st' : EStore} {memo : Std.HashMap EIdx Nat}
+theorem BoundMemoInv.mono {st st' : EStore} {memo : BMemo}
     (hext : Ext st st') (hwf : st.WF) (h : BoundMemoInv st memo) :
     BoundMemoInv st' memo := by
   intro e b hb
@@ -5465,26 +5509,26 @@ theorem BoundMemoInv.mono {st st' : EStore} {memo : Std.HashMap EIdx Nat}
   rw [hext.denote_eq_of_lt hwf hlt] at hx
   exact hcond x hx
 
-theorem BoundMemoInv.insert {st : EStore} {memo : Std.HashMap EIdx Nat}
+theorem BoundMemoInv.insert {st : EStore} {memo : BMemo}
     {e : EIdx} {b : Nat} (h : BoundMemoInv st memo)
     (hlt : e < st.nodes.size)
     (hcond : ∀ x, st.denote e = some x → x.looseBVarsBounded b = true) :
     BoundMemoInv st (memo.insert e b) := by
   intro e' b' hb'
-  rw [Std.HashMap.getElem?_insert] at hb'
-  by_cases hk : e = e'
-  · subst hk
-    rw [if_pos (by simp)] at hb'
+  rw [BMemo.get?_insert] at hb'
+  by_cases hk : e' = e
+  · rw [if_pos hk] at hb'
     cases hb'
+    subst hk
     exact ⟨hlt, hcond⟩
-  · rw [if_neg (by simpa using hk)] at hb'
+  · rw [if_neg hk] at hb'
     exact h e' b' hb'
 
 /-- The bound walk is sound: the result bounds the loose bvars of the
 node's denotation, and the memo invariant is preserved. -/
 theorem bvarBoundIGo_spec :
-    ∀ (e : EIdx) {st : EStore} {memo : Std.HashMap EIdx Nat}
-      {b : Nat} {memo' : Std.HashMap EIdx Nat},
+    ∀ (e : EIdx) {st : EStore} {memo : BMemo}
+      {b : Nat} {memo' : BMemo},
       st.WF → BoundMemoInv st memo →
       bvarBoundIGo st memo e = (b, memo') →
       BoundMemoInv st memo' ∧

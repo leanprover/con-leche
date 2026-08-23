@@ -3,12 +3,14 @@ import Setlec.Kernel.Env
 import Setlec.Kernel.ExprOps
 import Setlec.Kernel.Basis
 import Setlec.Kernel.StdAxioms
+import Setlec.Kernel.DeclI
+import Setlec.Kernel.Core
 
 /-!
 # Reading lean4export ndjson files
 
 Parses the lean4export NDJSON format (version 3.x, see `format_ndjson.md` in
-the lean4export repository) into `Setlec.Declaration`s.
+the lean4export repository) into `Setlec.DeclP`s over a parse arena.
 
 The file is a sequence of JSON objects: an initial `meta` object, then
 name/level/expression table entries (keys `in`/`il`/`ie` give the table
@@ -18,6 +20,18 @@ implicit.  Indices need not be dense or in order (hand-crafted arena tests
 have gaps), so the tables are maps; entries are resolved eagerly when
 inserted, so a later re-binding of an index cannot retroactively change
 anything built earlier.
+
+**Parse-time interning (task #78).**  Expression- and level-table entries
+are interned *directly into an `EStore`* — one `intern` per record,
+children resolved to already-interned indices, `O(1)` per entry — so the
+export format's structural sharing is preserved: a DAG-shaped table
+(arena `good/perf/app-lam`: 24k entries, ~10^1160 unshared tree nodes)
+parses in linear time and the checker's drivers consume the indices
+without ever materializing a tree.  Declarations carry indices (`DeclP`);
+`Expr` trees are read back only where a genuinely bounded consumer needs
+them — basis/quotient pin matching and inductive blocks (whose install
+pipeline compares member types against `_model` artifacts with tree
+traversals) — all guarded by the unshared-tree-size budget.
 
 Declaration kinds the checker cannot represent yet map to
 `FrontendError.unsupported`, which the driver turns into the arena's
@@ -83,10 +97,13 @@ inductive FrontendError where
   | unsupported (what : String)
 
 structure State where
+  /-- The parse arena: every expression/level-table entry interned on
+  arrival.  Seeded with the implicit level-table index 0 (`zero`). -/
+  store : EStore := .empty
   names : Std.HashMap Nat Name := .ofList [(0, .anonymous)]
-  levels : Std.HashMap Nat Level := .ofList [(0, .zero)]
-  exprs : Std.HashMap Nat Expr := {}
-  decls : Array Declaration := #[]
+  levels : Std.HashMap Nat LIdx := {}
+  exprs : Std.HashMap Nat EIdx := {}
+  decls : Array DeclP := #[]
   /-- Expression-table entries that (transitively) mention a skipped
   axiom, maintained as entries are parsed so the check is `O(1)` per
   entry even on heavily shared tables. -/
@@ -98,16 +115,11 @@ structure State where
   `α := ∅`) — and any later *use* is positively declined. -/
   skippedAxioms : Std.HashMap Name Unit := {}
   /-- Saturated *unshared tree size* per expression-table entry,
-  maintained incrementally (`O(1)` per entry).  The raw syntactic
-  passes and the arena interning in the checker still materialize or
-  walk the tree, so a declaration whose tree size exceeds
-  `declTreeSizeBudget` — reachable only through heavy DAG sharing,
-  e.g. the arena `app-lam` doubling tower with 2^4000 unshared
-  nodes — is *positively declined* at its record (see DESIGN.md,
-  task #65).  `letE` counts its three children linearly (zeta
-  saturation is *not* counted — annotate's on-demand expansion runs
-  sharing-preserved on the arena; this matches the pre-#79 pipeline,
-  whose budget also measured the unexpanded tree). -/
+  maintained incrementally (`O(1)` per entry).  Since parse-time
+  interning (task #78) the ordinary definition/theorem/opaque pipeline
+  is DAG-preserving end to end and needs no budget; the budget guards
+  exactly the remaining tree-materializing consumers (see
+  `budgetExempt` below). -/
   sizes : Std.HashMap Nat Nat := {}
 
 /-- Internal sentinel converted to a decline at the record level. -/
@@ -117,13 +129,39 @@ private def taintSentinel : String := "\x00uses-skipped-axiom"
 private def sizeSentinel : String := "\x00tree-size-budget"
 
 /-- Cap on a declaration's *unshared tree size* (nodes of the
-expression tree with all sharing expanded).  `2^25`: at and beyond
-this scale the tree-materializing pipeline could not represent the
-declaration within the arena budget anyway; every stream the checker
-supports today is far below it, while adversarial DAG towers
-(arena `good/perf/app-lam`, 2^4000 nodes) are cleanly declined. -/
+expression tree with all sharing expanded).  `2^25`: at and beyond this
+scale the remaining tree-materializing consumers could not represent
+the declaration anyway; every stream the checker supports today is far
+below it, while adversarial DAG towers are cleanly declined.  Since
+parse-time interning (task #78) the budget no longer applies to
+ordinary definition/theorem/opaque records (whose whole pipeline is
+DAG-preserving; arena `good/perf/app-lam` accepts) — it guards exactly
+the consumers that still materialize or walk trees:
+
+* inductive and quotient blocks (read back for basis-pin matching, and
+  the install pipeline compares member types/rule right-hand sides
+  against `_model` artifacts with tree traversals),
+* axiom records (standard-axiom pin matching walks the stored type),
+* records whose name contains a `_model` component (their stored types
+  are consumed by tree traversals at a later inductive install:
+  iota/eta/unitlike statements, model types, projection models),
+* the certified `Nat` operations (`natOpNames`/`natDivModNames`; the
+  install-time certification substitutes the stored value into the
+  recurrence equations and re-interns the result). -/
 def declTreeSizeBudget : Nat := 33554432
 
+/-- Any name component is `_model` (the preprocessor's model-family
+shape: `T._model`, `T._model.iota_j`, `T._model.proj_i.iota`, …). -/
+private def anyComponentModel : Name → Bool
+  | .anonymous => false
+  | .str p s => s == "_model" || anyComponentModel p
+  | .num p _ => anyComponentModel p
+
+/-- Does the budget apply to a definition/theorem/opaque record of
+this name?  (Inductive, quotient and axiom records are always
+budgeted.) -/
+private def budgetedName (n : Name) : Bool :=
+  anyComponentModel n || natOpNames.contains n || natDivModNames.contains n
 
 private abbrev M := Except String
 
@@ -132,12 +170,12 @@ private def State.name (st : State) (i : Nat) : M Name :=
   | some n => pure n
   | none => throw s!"undefined name index {i}"
 
-private def State.level (st : State) (i : Nat) : M Level :=
+private def State.level (st : State) (i : Nat) : M LIdx :=
   match st.levels[i]? with
   | some l => pure l
   | none => throw s!"undefined level index {i}"
 
-private def State.expr (st : State) (i : Nat) : M Expr :=
+private def State.expr (st : State) (i : Nat) : M EIdx :=
   match st.exprs[i]? with
   | some e => pure e
   | none => throw s!"undefined expr index {i}"
@@ -148,21 +186,30 @@ private def getIdx (j : Json) (key : String) : M Nat := do
 private def getName' (st : State) (j : Json) (key : String) : M Name := do
   st.name (← getIdx j key)
 
-private def getLevel' (st : State) (j : Json) (key : String) : M Level := do
-  st.level (← getIdx j key)
-
-private def getExpr' (st : State) (j : Json) (key : String) : M Expr := do
+private def getExprIdx' (st : State) (j : Json) (key : String) : M EIdx := do
   st.expr (← getIdx j key)
 
 /-- Declaration-level expression lookup: a reference to a skipped
-(non-pinned) axiom is a positive decline (via `taintSentinel`). -/
-private def getDeclExpr' (st : State) (j : Json) (key : String) : M Expr := do
+(non-pinned) axiom is a positive decline (via `taintSentinel`).  The
+tree-size budget is applied only when `budgeted` (see
+`declTreeSizeBudget`). -/
+private def getDeclEIdx' (st : State) (j : Json) (key : String)
+    (budgeted : Bool) : M EIdx := do
   let i ← getIdx j key
   if st.tainted[i]?.isSome then
     throw taintSentinel
-  if (st.sizes[i]?.getD 1) ≥ declTreeSizeBudget then
+  if budgeted ∧ (st.sizes[i]?.getD 1) ≥ declTreeSizeBudget then
     throw sizeSentinel
   st.expr i
+
+/-- Declaration-level *tree* lookup for the bounded consumers
+(basis/quotient pin matching, inductive blocks): taint check, budget
+check, memoized readback (pointer-shared, `O(DAG)`). -/
+private def getDeclExpr' (st : State) (j : Json) (key : String) : M Expr := do
+  let i ← getDeclEIdx' st j key (budgeted := true)
+  match st.store.readbackI i with
+  | some e => pure e
+  | none => throw "internal: parse-arena readback failed"
 
 private def getIdxs (j : Json) (key : String) : M (Array Nat) := do
   (← (← j.getObjVal? key).getArr?).mapM (·.getNat?)
@@ -185,25 +232,41 @@ private def parseNameEntry (st : State) (j : Json) (i : Nat) : M State := do
       throw "malformed name entry"
   pure { st with names := st.names.insert i n }
 
-/-- Parse a level table entry `{"il": i, ...}`. -/
+/-- Intern one level node into the parse arena (linear threading: the
+store is detached from the state before the update). -/
+private def State.internL' (st : State) (n : LNode) : LIdx × State :=
+  let store := st.store
+  let st := { st with store := EStore.empty }
+  let (u, store) := store.internL n
+  (u, { st with store := store })
+
+/-- Intern one expression node into the parse arena. -/
+private def State.intern' (st : State) (n : ENode) : EIdx × State :=
+  let store := st.store
+  let st := { st with store := EStore.empty }
+  let (i, store) := store.intern n
+  (i, { st with store := store })
+
+/-- Parse a level table entry `{"il": i, ...}`, interning the node. -/
 private def parseLevelEntry (st : State) (j : Json) (i : Nat) : M State := do
-  let l ← if let .ok v := j.getObjVal? "succ" then
-      pure <| Level.succ (← st.level (← v.getNat?))
+  let (l, st) ←
+    if let .ok v := j.getObjVal? "succ" then
+      pure <| st.internL' (.succ (← st.level (← v.getNat?)))
     else if let .ok v := j.getObjVal? "max" then
       match ← (← v.getArr?).mapM (·.getNat?) with
-      | #[a, b] => pure <| Level.max (← st.level a) (← st.level b)
+      | #[a, b] => pure <| st.internL' (.max (← st.level a) (← st.level b))
       | _ => throw "malformed max level"
     else if let .ok v := j.getObjVal? "imax" then
       match ← (← v.getArr?).mapM (·.getNat?) with
-      | #[a, b] => pure <| Level.imax (← st.level a) (← st.level b)
+      | #[a, b] => pure <| st.internL' (.imax (← st.level a) (← st.level b))
       | _ => throw "malformed imax level"
     else if let .ok v := j.getObjVal? "param" then
-      pure <| Level.param (← st.name (← v.getNat?))
+      pure <| st.internL' (.param (← st.name (← v.getNat?)))
     else
       throw "malformed level entry"
   pure { st with levels := st.levels.insert i l }
 
-/-- The child expression-table indices of an entry (for taint
+/-- The child expression-table indices of an entry (for taint and size
 propagation). -/
 private def exprEntryChildren (j : Json) : M (List Nat) := do
   if let .ok v := j.getObjVal? "app" then
@@ -219,41 +282,59 @@ private def exprEntryChildren (j : Json) : M (List Nat) := do
   else
     pure []
 
-/-- Parse an expression table entry `{"ie": i, ...}`. -/
+/-- Parse an expression table entry `{"ie": i, ...}`: build the node
+over the children's arena indices and intern it — `O(1)` per entry,
+sharing preserved. -/
 private def parseExprEntry (st : State) (j : Json) (i : Nat) : M State := do
-  let e ← if let .ok v := j.getObjVal? "bvar" then
-      pure <| Expr.bvar (← v.getNat?)
+  let (e, taintConst, st) ←
+    if let .ok v := j.getObjVal? "bvar" then
+      let (e, st) := st.intern' (.bvar (← v.getNat?))
+      pure (e, false, st)
     else if let .ok v := j.getObjVal? "sort" then
-      pure <| Expr.sort (← st.level (← v.getNat?))
+      let (e, st) := st.intern' (.sort (← st.level (← v.getNat?)))
+      pure (e, false, st)
     else if let .ok v := j.getObjVal? "const" then
-      pure <| Expr.const (← getName' st v "name")
-        (← (← (← v.getObjVal? "us").getArr?).mapM (fun u => do st.level (← u.getNat?))).toList
+      let n ← getName' st v "name"
+      let us ← (← (← v.getObjVal? "us").getArr?).mapM
+        (fun u => do st.level (← u.getNat?))
+      let (e, st) := st.intern' (.const n us.toList)
+      pure (e, st.skippedAxioms.contains n, st)
     else if let .ok v := j.getObjVal? "app" then
-      pure <| Expr.app (← getExpr' st v "fn") (← getExpr' st v "arg")
+      let (e, st) := st.intern'
+        (.app (← getExprIdx' st v "fn") (← getExprIdx' st v "arg"))
+      pure (e, false, st)
     else if let .ok v := j.getObjVal? "lam" then
-      pure <| Expr.lam (← getName' st v "name") (← getExpr' st v "type")
-        (← getExpr' st v "body") ⟨← parseBinderInfo v, none⟩
+      let (e, st) := st.intern' (.lam (← getName' st v "name")
+        (← getExprIdx' st v "type") (← getExprIdx' st v "body")
+        ⟨← parseBinderInfo v, none⟩)
+      pure (e, false, st)
     else if let .ok v := j.getObjVal? "forallE" then
-      pure <| Expr.forallE (← getName' st v "name") (← getExpr' st v "type")
-        (← getExpr' st v "body") ⟨← parseBinderInfo v, none⟩
+      let (e, st) := st.intern' (.forallE (← getName' st v "name")
+        (← getExprIdx' st v "type") (← getExprIdx' st v "body")
+        ⟨← parseBinderInfo v, none⟩)
+      pure (e, false, st)
     else if let .ok v := j.getObjVal? "letE" then
-      pure <| Expr.letE (← getName' st v "name") (← getExpr' st v "type")
-        (← getExpr' st v "value") (← getExpr' st v "body")
+      let (e, st) := st.intern' (.letE (← getName' st v "name")
+        (← getExprIdx' st v "type") (← getExprIdx' st v "value")
+        (← getExprIdx' st v "body"))
+      pure (e, false, st)
     else if let .ok v := j.getObjVal? "proj" then
-      pure <| Expr.proj (← getName' st v "typeName") (← (← v.getObjVal? "idx").getNat?)
-        (← getExpr' st v "struct")
+      let (e, st) := st.intern' (.proj (← getName' st v "typeName")
+        (← (← v.getObjVal? "idx").getNat?) (← getExprIdx' st v "struct"))
+      pure (e, false, st)
     else if let .ok v := j.getObjVal? "natVal" then
       match (← v.getStr?).toNat? with
-      | some n => pure <| Expr.lit (.natVal n)
+      | some n =>
+        let (e, st) := st.intern' (.lit (.natVal n))
+        pure (e, false, st)
       | none => throw "malformed natVal literal"
     else if let .ok v := j.getObjVal? "strVal" then
-      pure <| Expr.lit (.strVal (← v.getStr?))
+      let (e, st) := st.intern' (.lit (.strVal (← v.getStr?)))
+      pure (e, false, st)
     else
       throw "malformed or unsupported expr entry"
   let cs ← exprEntryChildren j
-  let taint : Bool := (match e with
-    | .const n _ => st.skippedAxioms.contains n
-    | _ => cs.any (fun c => st.tainted[c]?.isSome))
+  let taint : Bool := taintConst || cs.any (fun c => st.tainted[c]?.isSome)
   -- saturated unshared tree size (children default to 1: leaf entries
   -- are never inserted into `sizes` below the cap check's default)
   let size : Nat := min declTreeSizeBudget
@@ -289,12 +370,24 @@ private def parseHints (v : Json) : M ReducibilityHint := do
     else
       throw "malformed hints field"
 
+/-- Parse a record's constant-value header with the type as an arena
+index (`letE` flows through unexpanded: the kernel zeta-reduces
+lazily, task #79). -/
+private def parseConstantValP (st : State) (v : Json) (budgeted : Bool) :
+    M ConstantValP := do
+  let name ← getName' st v "name"
+  pure {
+    name := name
+    levelParams := (← (← getIdxs v "levelParams").mapM st.name).toList
+    type := ← getDeclEIdx' st v "type" (budgeted || budgetedName name)
+  }
+
+/-- Parse a record's constant-value header as a tree (the bounded
+consumers: basis/quotient matching, inductive blocks). -/
 private def parseConstantVal (st : State) (v : Json) : M ConstantVal := do
   pure {
     name := ← getName' st v "name"
     levelParams := (← (← getIdxs v "levelParams").mapM st.name).toList
-    -- `letE` flows through unexpanded: the kernel zeta-reduces lazily
-    -- (task #79); eager expansion duplicated shared let-values.
     type := ← getDeclExpr' st v "type"
   }
 
@@ -312,13 +405,16 @@ private def processLineCore (st : State) (j : Json)
     return .inl st
   else if let .ok v := j.getObjVal? "axiom" then
     -- an axiom whose own type references a previously skipped axiom
-    -- is itself a *use*: the sentinel in `parseConstantVal` declines
-    let cv ← parseConstantVal st v
+    -- is itself a *use*: the sentinel in `parseConstantValP` declines.
+    -- Axiom records stay budgeted: standard-axiom pin matching walks
+    -- the stored type as a tree.
+    let cvp ← parseConstantValP st v (budgeted := true)
     if (← (← v.getObjVal? "isUnsafe").getBool?) then
       return .inr "unsafe axiom"
     -- the pinned quotient soundness axiom is installed with the `Quot`
     -- basis block; skip its (matching) declaration record
-    if cv.name = quotSoundName then
+    if cvp.name = quotSoundName then
+      let cv ← parseConstantVal st v
       if ConstantInfo.canon (.axiomInfo cv) =
           ConstantInfo.canon (quotBasis.getD 4 (.axiomInfo default)) then
         return .inl st
@@ -330,11 +426,11 @@ private def processLineCore (st : State) (j : Json)
     -- whitelist, and positively declines the rest).  For a tolerated
     -- axiom the run continues and any later declaration referencing
     -- it is positively declined here (see `State.skippedAxioms`).
-    if toleratedAxiomNames.contains cv.name then
+    if toleratedAxiomNames.contains cvp.name then
       return .inl { st with
-        decls := st.decls.push (.axiomDecl cv),
-        skippedAxioms := st.skippedAxioms.insert cv.name () }
-    return .inl { st with decls := st.decls.push (.axiomDecl cv) }
+        decls := st.decls.push (.axiomDecl cvp),
+        skippedAxioms := st.skippedAxioms.insert cvp.name () }
+    return .inl { st with decls := st.decls.push (.axiomDecl cvp) }
   else if let .ok v := j.getObjVal? "def" then
     -- Note: `_model` companions the preprocessor may emit for basis
     -- blocks (e.g. `Eq._model`) are *not* special-cased here: `_model`
@@ -342,23 +438,25 @@ private def processLineCore (st : State) (j : Json)
     -- ordinary definitions like any other input declaration (the
     -- pinned basis install never consults them — a basis inductive
     -- block matches the pinned declarations, not the modeled path).
-    let cv ← parseConstantVal st v
+    let cvp ← parseConstantValP st v (budgeted := false)
     match (← (← v.getObjVal? "safety").getStr?) with
     | "safe" => return .inl { st with
-        decls := st.decls.push (.defnDecl cv
-          (← getDeclExpr' st v "value") (← parseHints v)) }
+        decls := st.decls.push (.defnDecl cvp
+          (← getDeclEIdx' st v "value" (budgetedName cvp.name))
+          (← parseHints v)) }
     | s => return .inr s!"definition with safety '{s}'"
   else if let .ok v := j.getObjVal? "thm" then
-    let cv ← parseConstantVal st v
+    let cvp ← parseConstantValP st v (budgeted := false)
     return .inl { st with
-      decls := st.decls.push (.thmDecl cv (← getDeclExpr' st v "value")) }
+      decls := st.decls.push (.thmDecl cvp
+        (← getDeclEIdx' st v "value" (budgetedName cvp.name))) }
   else if let .ok v := j.getObjVal? "opaque" then
-    let cv ← parseConstantVal st v
+    let cvp ← parseConstantValP st v (budgeted := false)
     if (← (← v.getObjVal? "isUnsafe").getBool?) then
       return .inr "unsafe opaque declaration"
     return .inl { st with
       decls := st.decls.push
-        (.opaqueDecl cv (← getDeclExpr' st v "value")) }
+        (.opaqueDecl cvp (← getDeclEIdx' st v "value" (budgetedName cvp.name))) }
   else if let .ok v := j.getObjVal? "quot" then
     -- the kernel quotient bundle: each record must match its pinned
     -- basis member; the type former's record installs the whole block
@@ -379,7 +477,9 @@ private def processLineCore (st : State) (j : Json)
     else
       return .inr "quotient declaration mismatch"
   else if let .ok v := j.getObjVal? "inductive" then
-    -- Parse the block into stored-constant form; a pinned basis block
+    -- Parse the block into stored-constant form (read back under the
+    -- budget: the install pipeline compares member types against the
+    -- `_model` family with tree traversals); a pinned basis block
     -- becomes a `basisDecl`, anything else is converted into alias
     -- definitions `T := T._model` etc. (the lean-inductive-models
     -- preprocessor has emitted the `_model` family earlier in the
@@ -424,14 +524,22 @@ private def processLineCore (st : State) (j : Json)
         -- store the block opaquely, checked against its `_model` family
         return .inl { st with decls := st.decls.push (.indDecl block) }
       else
-        -- alias every member to its `_model` counterpart
-        let mut ds := st.decls
+        -- alias every member to its `_model` counterpart (interning the
+        -- small synthetic alias value and re-interning the member type
+        -- gives the parsed-index record shape; the block was read back
+        -- under the budget, so the tree walk is bounded)
+        let mut st := st
         for ci in block do
           let cv := ci.toConstantVal
-          ds := ds.push (.defnDecl cv
-            (.const (cv.name.str "_model") (cv.levelParams.map .param))
-            .abbrev)
-        return .inl { st with decls := ds }
+          let store := st.store
+          st := { st with store := EStore.empty }
+          let (us, store) := store.internLevels (cv.levelParams.map .param)
+          let (vi, store) := store.intern (.const (cv.name.str "_model") us)
+          let (ti, store) := store.internExprFast cv.type
+          let ds := st.decls.push
+            (.defnDecl ⟨cv.name, cv.levelParams, ti⟩ vi .abbrev)
+          st := { st with store := store, decls := ds }
+        return .inl st
   else
     throw "unrecognized line"
 
@@ -443,13 +551,16 @@ private def processLine (st : State) (j : Json)
     if e = taintSentinel then
       pure (.inr "declaration uses a skipped (non-pinned) axiom")
     else if e = sizeSentinel then
-      pure (.inr "declaration's unshared tree size exceeds the frontend budget (heavily DAG-shared input; the pipeline materializes trees)")
+      pure (.inr "declaration's unshared tree size exceeds the frontend budget (heavily DAG-shared input; this record kind still materializes trees)")
     else throw e
 
-/-- Parse a whole export file into the declarations it contains, in order. -/
+/-- Parse a whole export file into the parse arena and the declarations
+it contains, in order. -/
 def parseExport (contents : String) (modeled : Bool := false) :
-    Except FrontendError (Array Declaration) := do
-  let mut st : State := {}
+    Except FrontendError (EStore × Array DeclP) := do
+  -- pre-intern the implicit level-table index 0 (`zero`)
+  let (z0, store0) := EStore.empty.internL .zero
+  let mut st : State := { store := store0, levels := .ofList [(0, z0)] }
   let mut lineNo := 0
   for line in contents.splitToList (· == '\n') do
     lineNo := lineNo + 1
@@ -459,6 +570,6 @@ def parseExport (contents : String) (modeled : Bool := false) :
     | .error msg => throw (.parseError lineNo msg)
     | .ok (.inr what) => throw (.unsupported what)
     | .ok (.inl st') => st := st'
-  return st.decls
+  return (st.store, st.decls)
 
 end Setlec.Frontend

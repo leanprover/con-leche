@@ -138,12 +138,21 @@ private def emptyModelAuxName : Name :=
 -- The frontend keeps both declarations (`def Eq._model : Type := Prop`,
 -- `def Empty._model.proj_0 : Type := Prop`) …
 #guard match Frontend.parseExport basisModelExport with
-  | .ok ds => ds.map (·.name) == #[eqModelName, emptyModelAuxName]
+  | .ok (_, ds) => ds.map (·.name) == #[eqModelName, emptyModelAuxName]
   | .error _ => false
 
--- … and the checker accepts them as ordinary definitions.
+-- … and the checker accepts them as ordinary definitions (the parsed
+-- indices read back to the spec declarations the spec checker takes).
 #guard match Frontend.parseExport basisModelExport with
-  | .ok ds => (checkDecls pureOps ds.toList).toBool
+  | .ok (st, ds) =>
+    match ds.toList.mapM st.readbackDecl with
+    | some decls => (checkDecls pureOps decls).toBool
+    | none => false
+  | .error _ => false
+
+-- … and the parsed-index checker itself accepts them.
+#guard match Frontend.parseExport basisModelExport with
+  | .ok (st, ds) => (checkDeclsSP st ds.toList).toBool
   | .error _ => false
 
 /-! ## Level algebra -/

@@ -66,7 +66,8 @@ theorem ISOK.insertWhnfCoreC {s : IState} (hs : ISOK env s)
     (hrun : ∃ F, ∀ d, a.wscopedB d = true → whnfCore env F d a = .ok b) :
     ISOK env { s with whnfCoreC := s.whnfCoreC.insert i j } := by
   refine ⟨hs.wf, hs.constTy, hs.constVal, hs.ruleRhs, ?_, hs.whnfC,
-    hs.inferC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv, hs.bvarB⟩
+    hs.inferC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv, hs.bvarB,
+    hs.ienv⟩
   intro i' j' hl
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
@@ -84,7 +85,8 @@ theorem ISOK.insertWhnfC {s : IState} (hs : ISOK env s)
     (hrun : ∃ F, ∀ d, a.wscopedB d = true → whnf env F d a = .ok b) :
     ISOK env { s with whnfC := s.whnfC.insert i j } := by
   refine ⟨hs.wf, hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, ?_,
-    hs.inferC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv, hs.bvarB⟩
+    hs.inferC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv, hs.bvarB,
+    hs.ienv⟩
   intro i' j' hl
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
@@ -103,7 +105,8 @@ theorem ISOK.insertInferC {s : IState} (hs : ISOK env s)
       inferTypeCore env F d a = .ok b) :
     ISOK env { s with inferC := s.inferC.insert i j } := by
   refine ⟨hs.wf, hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC,
-    hs.whnfC, ?_, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv, hs.bvarB⟩
+    hs.whnfC, ?_, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv, hs.bvarB,
+    hs.ienv⟩
   intro i' j' hl
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
@@ -122,7 +125,8 @@ theorem ISOK.insertAnnotC {s : IState} (hs : ISOK env s)
       annotateCore env F d a = .ok b) :
     ISOK env { s with annotC := s.annotC.insert i j } := by
   refine ⟨hs.wf, hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC,
-    hs.whnfC, hs.inferC, ?_, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv, hs.bvarB⟩
+    hs.whnfC, hs.inferC, ?_, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv, hs.bvarB,
+    hs.ienv⟩
   intro i' j' hl
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
@@ -141,7 +145,8 @@ theorem ISOK.insertDefeqC {s : IState} (hs : ISOK env s)
       isDefEqCore env F d a b = .ok r) :
     ISOK env { s with defeqC := s.defeqC.insert (i, j) r } := by
   refine ⟨hs.wf, hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC,
-    hs.whnfC, hs.inferC, hs.annotC, ?_, hs.lsimp, hs.lnz, hs.eqv, hs.bvarB⟩
+    hs.whnfC, hs.inferC, hs.annotC, ?_, hs.lsimp, hs.lnz, hs.eqv, hs.bvarB,
+    hs.ienv⟩
   intro i' j' r' hl
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
