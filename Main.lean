@@ -131,7 +131,17 @@ def checkMain (file : String) (yolo : Bool) : IO UInt32 := do
       | .error (.parseError line msg) =>
         IO.eprintln s!"setlec: {file}:{line}: {msg}"
         return 3
-      | .ok (store, decls) =>
+      | .ok ⟨store, decls, taintSkipped⟩ =>
+        -- Taint-skip verdict (user directive 2026-08-24): declarations
+        -- using tolerated axioms were *skipped* during parsing (they
+        -- are absent from `decls`, so nothing tainted can be checked
+        -- or installed) and the rest of the stream was checked; a
+        -- clean run over a stream with skips is still a decline —
+        -- uses of tolerated axioms are never accepted.
+        let finish : UInt32 → IO UInt32 := fun code => do
+          if taintSkipped.isEmpty then return code
+          IO.eprintln s!"setlec: declined: {Frontend.taintSummary taintSkipped}"
+          return (if code = 0 then 2 else code)
         -- Progress instrumentation for long runs (init-prelude probes):
         -- with SETLEC_PROGRESS set, check declaration by declaration and
         -- print a `DECL:` line before each (fold and interned state
@@ -142,12 +152,12 @@ def checkMain (file : String) (yolo : Bool) : IO UInt32 := do
             IO.eprintln "setlec: parse store not canonical"
             return 3
           let stats := (← IO.getEnv "SETLEC_STATS").isSome
-          return ← progressLoop stats stepF n0 decls 0
-            (Setlec.mkFEnv Setlec.Env.empty) { store := store }
+          return ← finish (← progressLoop stats stepF n0 decls 0
+            (Setlec.mkFEnv Setlec.Env.empty) { store := store })
         match foldF store decls.toList with
         | .ok env =>
           IO.println s!"setlec: accepted {env.consts.length} declarations"
-          return 0
+          return ← finish 0
         | .error e =>
           -- Diagnostic second pass: the verdict above is the verified
           -- run; this only locates the failing declaration for the
@@ -165,7 +175,7 @@ def checkMain (file : String) (yolo : Bool) : IO UInt32 := do
             | .basisDecl k => s!"basis block {repr k}"
           let ctx := match ← Frontend.parseExportStream path (modeled := true) with
             | .error _ => ""
-            | .ok (store2, decls2) => Id.run do
+            | .ok ⟨store2, decls2, _⟩ => Id.run do
               let n2 := store2.nodes.size
               let mut fe := Setlec.mkFEnv Setlec.Env.empty
               let mut s : Setlec.IState := { store := store2 }
@@ -175,7 +185,7 @@ def checkMain (file : String) (yolo : Bool) : IO UInt32 := do
                 | .error _ => return s!" [at {declName d}]"
               return ""
           IO.eprintln s!"setlec: {e}{ctx}"
-          return e.exitCode
+          return ← finish e.exitCode
     finally
       if isTemp then
         try IO.FS.removeFile path catch _ => pure ()
