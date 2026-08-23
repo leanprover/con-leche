@@ -834,6 +834,97 @@ theorem DomsAgree.of_pins_inst {env : Env} (m : EnvModel V env) (F : Nat)
     | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
       simp only [openPisAtFvars] at hopS; exact nomatch hopS
 
+/-- `DomsAgree` is symmetric once the left telescope is known to
+interpret at every stage (`FrameOk`): the relation is an equality of
+domain interpretations, stated one-directionally because the right side
+need not be known to interpret. -/
+theorem DomsAgree.symm {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
+    ∀ (k : Nat) {d₁ d₂ : Nat} {ρ₁ ρ₂ : Nat → V} {t₁ t₂ : Expr},
+      FrameOk V cval env φ d₁ ρ₁ t₁ →
+      DomsAgree V cval env φ k d₁ ρ₁ t₁ d₂ ρ₂ t₂ →
+      DomsAgree V cval env φ k d₂ ρ₂ t₂ d₁ ρ₁ t₁ := by
+  intro k
+  induction k with
+  | zero => intro _ _ _ _ _ _ _ _; trivial
+  | succ k ih =>
+    intro d₁ d₂ ρ₁ ρ₂ t₁ t₂ hfr hag
+    match t₁, t₂ with
+    | .forallE n₁ dom₁ body₁ m₁, .forallE n₂ dom₂ body₂ m₂ =>
+      obtain ⟨hdomEq, hstep⟩ := hag
+      obtain ⟨A₁, hA₁⟩ := hfr.dom.it
+      have hpin := hdomEq A₁ hA₁
+      refine ⟨fun A hA => ?_, fun x A hA hx => ?_⟩
+      · obtain rfl : A = A₁ := Option.some.inj (hA.symm.trans hpin)
+        exact hA₁
+      · obtain rfl : A = A₁ := Option.some.inj (hA.symm.trans hpin)
+        exact ih (hfr.body hA₁ hx) (hstep x A hA₁ hx)
+    | .forallE _ _ _ _, .bvar _ | .forallE _ _ _ _, .fvar _ _ _
+    | .forallE _ _ _ _, .sort _ | .forallE _ _ _ _, .const _ _
+    | .forallE _ _ _ _, .app _ _ | .forallE _ _ _ _, .lam _ _ _ _
+    | .forallE _ _ _ _, .letE _ _ _ _ | .forallE _ _ _ _, .lit _
+    | .forallE _ _ _ _, .proj _ _ _ => exact hag.elim
+    | .bvar _, _ | .fvar _ _ _, _ | .sort _, _ | .const _ _, _
+    | .app _ _, _ | .lam _ _ _ _, _ | .letE _ _ _ _, _ | .lit _, _
+    | .proj _ _ _, _ => exact hag.elim
+
+/-- `DomsAgree` moves across the block's own extensions, like the
+towers it relocates: it reads the two telescopes only through their
+binder domains' interpretations, and those domains resolve before the
+extension. -/
+theorem DomsAgree.congr {cval₁ cval₂ : ConstVal V} {env₁ env₂ : Env}
+    {φ : Name → Nat} (h : InterpAgree V cval₁ env₁ cval₂ env₂ φ) :
+    ∀ (k : Nat) {d₁ d₂ : Nat} {ρ₁ ρ₂ : Nat → V} {t₁ t₂ : Expr}
+      {fvs₁ fvs₂ : List Expr} {r₁ r₂ : Expr},
+      openPisAtFvars k t₁ d₁ = some (fvs₁, r₁) →
+      openPisAtFvars k t₂ d₂ = some (fvs₂, r₂) →
+      (∀ x ∈ fvs₁, (Expr.fvarTypeD x).constsResolve env₁ = true) →
+      (∀ x ∈ fvs₂, (Expr.fvarTypeD x).constsResolve env₁ = true) →
+      DomsAgree V cval₁ env₁ φ k d₁ ρ₁ t₁ d₂ ρ₂ t₂ →
+      DomsAgree V cval₂ env₂ φ k d₁ ρ₁ t₁ d₂ ρ₂ t₂ := by
+  intro k
+  induction k with
+  | zero => intro _ _ _ _ _ _ _ _ _ _ _ _ _ _ _; trivial
+  | succ k ih =>
+    intro d₁ d₂ ρ₁ ρ₂ t₁ t₂ fvs₁ fvs₂ r₁ r₂ hop₁ hop₂ hres₁ hres₂ hag
+    match t₁, t₂ with
+    | .forallE n₁ dom₁ body₁ m₁, .forallE n₂ dom₂ body₂ m₂ =>
+      simp only [openPisAtFvars] at hop₁ hop₂
+      cases hrec₁ : openPisAtFvars k
+          (body₁.instantiate1 (.fvar d₁ n₁ dom₁)) (d₁ + 1) with
+      | none => rw [hrec₁] at hop₁; exact nomatch hop₁
+      | some q₁ =>
+      cases hrec₂ : openPisAtFvars k
+          (body₂.instantiate1 (.fvar d₂ n₂ dom₂)) (d₂ + 1) with
+      | none => rw [hrec₂] at hop₂; exact nomatch hop₂
+      | some q₂ =>
+        rw [hrec₁] at hop₁
+        rw [hrec₂] at hop₂
+        simp only [Option.some.injEq, Prod.mk.injEq] at hop₁ hop₂
+        obtain ⟨rfl, rfl⟩ := hop₁
+        obtain ⟨rfl, rfl⟩ := hop₂
+        obtain ⟨hdomEq, hstep⟩ := hag
+        have hr₁ : dom₁.constsResolve env₁ = true := by
+          simpa [Expr.fvarTypeD] using hres₁ _ List.mem_cons_self
+        have hr₂ : dom₂.constsResolve env₁ = true := by
+          simpa [Expr.fvarTypeD] using hres₂ _ List.mem_cons_self
+        refine ⟨fun A hA => ?_, fun x A hA hx => ?_⟩
+        · rw [← h dom₂ hr₂ d₂ ρ₂]
+          exact hdomEq A (by rw [h dom₁ hr₁ d₁ ρ₁]; exact hA)
+        · exact ih hrec₁ hrec₂
+            (fun y hy => hres₁ y (List.mem_cons_of_mem _ hy))
+            (fun y hy => hres₂ y (List.mem_cons_of_mem _ hy))
+            (hstep x A (by rw [h dom₁ hr₁ d₁ ρ₁]; exact hA) hx)
+    | .forallE _ _ _ _, .bvar _ | .forallE _ _ _ _, .fvar _ _ _
+    | .forallE _ _ _ _, .sort _ | .forallE _ _ _ _, .const _ _
+    | .forallE _ _ _ _, .app _ _ | .forallE _ _ _ _, .lam _ _ _ _
+    | .forallE _ _ _ _, .letE _ _ _ _ | .forallE _ _ _ _, .lit _
+    | .forallE _ _ _ _, .proj _ _ _ =>
+      simp only [openPisAtFvars] at hop₂; exact nomatch hop₂
+    | .bvar _, _ | .fvar _ _ _, _ | .sort _, _ | .const _ _, _
+    | .app _ _, _ | .lam _ _ _ _, _ | .letE _ _ _ _, _ | .lit _, _
+    | .proj _ _ _, _ =>
+      simp only [openPisAtFvars] at hop₁; exact nomatch hop₁
+
 /-- The per-field universe bound relocates across frames too. -/
 theorem FieldTele_reframe {cval : ConstVal V} {env : Env}
     {φ : Name → Nat} {w : Nat} :
