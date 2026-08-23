@@ -156,3 +156,14 @@
 # positively declined (the pipeline materializes trees; cf. arena
 # good/perf/app-lam at 2^4000).
 2 dag_tower_declined.ndjson
+# The direct simple-structure install (task #82).  A *raw* lean4export
+# fixture, run with the preprocessor made unavailable, so the stream
+# carries no `_model` declaration at all.  Pinned at 2 (decline) while
+# the install soundness is being written: the kernel path exists
+# (`checkDirectStruct`) but is not yet reachable from `checkIndDecl`.
+# Enabling the clause turns this into 0, and the three arena
+# bad/tutorial/13{3,4,7} duplicate fixtures from 2 into 1 (reject,
+# reference-correct) — re-verified after every change on this branch.
+2 direct_struct_raw.ndjson raw
+0 direct_nested_dep.ndjson
+1 direct_nested_dep_broken.ndjson raw

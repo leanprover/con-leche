@@ -45,6 +45,11 @@ theorem extend_model {env : Env} (m : EnvModel V env)
     (hc₀nb : c₀.isBasis = false)
     (hc₀nres : reservedBasisNames.contains name = false)
     (hc₀pshape : name.isProjFnShape = false)
+    -- the model-family guard: installing an `X._model` for an
+    -- already-stored `X` would activate the artifact linkage for a
+    -- constant whose value was fixed without it.  `checkConstantVal`
+    -- rejects that, so these are discharged by contradiction.
+    (hmft : modelFamilyTaken env name = false)
     (hnatop : natOpNames.contains name = true →
       (∃ cv₀ v₀ h₀, c₀ = ConstantInfo.defnInfo cv₀ v₀ h₀) →
       natOpGuard (⟨c₀ :: env.consts⟩ : Env) name = true ∧
@@ -245,12 +250,18 @@ theorem extend_model {env : Env} (m : EnvModel V env)
       rw [heq] at hc₀nb
       simp [ConstantInfo.isBasis] at hc₀nb)
     (fun _ hk => by
-      rcases hk with ⟨cv, caps, heq⟩ | ⟨cv, cnP, cnF, heq⟩ <;>
-        (rw [heq] at hc₀nb; simp [ConstantInfo.isBasis] at hc₀nb))
+      obtain ⟨cv, cnP, cnF, heq⟩ := hk
+      rw [heq] at hc₀nb
+      simp [ConstantInfo.isBasis] at hc₀nb)
     (fun T j _ _ _ _ hh _ => by
       exfalso
       rw [hc₀name.symm.trans hh] at hc₀pshape
       exact nomatch hc₀pshape)
+    (hc₀name ▸ hmft)
+    (fun T j cv mI rP rules hnm heq => by
+      exfalso
+      rw [heq] at hc₀nb
+      simp [ConstantInfo.isBasis] at hc₀nb)
     (fun entry heq _ => by
       exfalso
       rw [heq] at hc₀name

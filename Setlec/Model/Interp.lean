@@ -516,27 +516,54 @@ def UnitLaw (env : Env) (val : ConstVal V) (T : Name)
       rest →
     x = y
 
-/-- Modeled-install bookkeeping: every *non-reserved* stored inductive
-type former or constructor carries its `_model` companion's value (and
-that companion is stored), and every installed projection function its
-`_model.proj_j`'s.  Only the inductive-declaration install path
-creates such constants, so these value bridges hold globally; the
-capability rules' soundness consumes them. -/
+/-- **The artifact linkage.**  Every constant the *modeled* install
+path creates is valued by its `_model` companion; this clause records
+that assignment.
+
+*Why it exists.*  The preprocessor proves its certificate theorems over
+`_model` names — it cannot say anything about the opaque public
+constants — so when a later modeled block's rules mention an
+**earlier** artifact-installed constant, the rename-and-transport step
+that checks them needs `val T = val (T._model)` for that earlier `T`.
+
+*Lifetime.*  Per constant, from its artifact install to the end of the
+stream — **not** group-local: models are built out of earlier models,
+so block 500 may consume block 3's linkage.
+
+*Why it is free to carry.*  It records the valuation assignment the
+modeled install *makes* (`val T := val (T._model)`), not an extra
+obligation on anybody.
+
+*End of life.*  Vacuous for basis blocks (reserved names) and for
+directly installed blocks (no companion exists, so the premise fails);
+its footprint shrinks as directly recognised classes displace
+`lean-inductive-models`, and the clause is deletable once the last
+modeled class is gone.
+
+The companion's *existence* is a **premise**, not a conclusion: an
+artifact-installed constant has one, so this is exactly as strong as an
+unconditional bridge there, while a directly installed constant — which
+has no companion by construction (`directNoModel`) — owes nothing. -/
 def ModeledOk (env : Env) (val : ConstVal V) : Prop :=
-  (∀ n cv caps, env.find? n = some (.indInfo cv caps) →
-    reservedBasisNames.contains n = false →
-    (env.find? (n.str "_model")).isSome = true ∧
-    ∀ ψ : Name → Nat, val n ψ = val (n.str "_model") ψ) ∧
   (∀ n cv cnP cnF, env.find? n = some (.ctorInfo cv cnP cnF) →
     reservedBasisNames.contains n = false →
-    (env.find? (n.str "_model")).isSome = true ∧
+    (env.find? (n.str "_model")).isSome = true →
     ∀ ψ : Name → Nat, val n ψ = val (n.str "_model") ψ) ∧
-  (∀ (T : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat)
-      (rules : List RecRule),
+  (∀ (T : Name) (cvT : ConstantVal) (capsT : IndCaps) (j : Nat)
+      (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+    env.find? T = some (.indInfo cvT capsT) →
     env.find? (projFnName T j) = some (.recInfo cv mI rP rules) →
-    (env.find? (projModelName T j)).isSome = true ∧
+    (env.find? (projModelName T j)).isSome = true →
     ∀ ψ : Name → Nat,
       val (projFnName T j) ψ = val (projModelName T j) ψ) ∧
+  -- The capability laws below are **provenance-abstract** by design:
+  -- they say what the reduction rules consume and nothing about how the
+  -- family was built, so a basis pin, an artifact check and a direct
+  -- construction all discharge them the same way (the `IndOk` pattern,
+  -- and the move `RecRulesOk` made in task #58).  `UnitLaw` is already
+  -- free of `_model` names; `EtaLaw` still reaches the constructor and
+  -- the projections through theirs, which is why the direct install
+  -- declares `eta := false` — see DESIGN.md.
   (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
     env.find? T = some (.indInfo cvT caps) → caps.eta = true →
     reservedBasisNames.contains T = false →
@@ -547,7 +574,13 @@ def ModeledOk (env : Env) (val : ConstVal V) : Prop :=
   (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
     env.find? T = some (.indInfo cvT caps) → caps.unitlike = true →
     reservedBasisNames.contains T = false →
-    UnitLaw V env val T cvT caps)
+    UnitLaw V env val T cvT caps) ∧
+  -- a stored projection function's parent is stored (blocks install the
+  -- type former first); monotone, so extensions preserve it for free
+  (∀ (T : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat)
+      (rules : List RecRule),
+    env.find? (projFnName T j) = some (.recInfo cv mI rP rules) →
+    (env.find? T).isSome = true)
 
 /-- A stored structural-Nat operation's semantic certificate
 (established at install by `certifyNatEqs` and the pinned-shape
@@ -654,15 +687,15 @@ theorem DivModOk.empty (val : ConstVal V) : DivModOk V Env.empty val := by
 
 theorem ModeledOk.empty (val : ConstVal V) : ModeledOk V Env.empty val := by
   refine ⟨?_, ?_, ?_, ?_, ?_⟩
-  · intro n cv caps h
-    simp [Env.find?, Env.empty] at h
   · intro n cv cnP cnF h
     simp [Env.find?, Env.empty] at h
+  · intro T cvT capsT j cv mI rP rules h
+    simp [Env.find?, Env.empty] at h
+  · intro T cvT caps h
+    simp [Env.find?, Env.empty] at h
+  · intro T cvT caps h
+    simp [Env.find?, Env.empty] at h
   · intro T j cv mI rP rules h
-    simp [Env.find?, Env.empty] at h
-  · intro T cvT caps h
-    simp [Env.find?, Env.empty] at h
-  · intro T cvT caps h
     simp [Env.find?, Env.empty] at h
 
 /-- A model of an environment: a set-theoretic value for every constant

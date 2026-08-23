@@ -347,6 +347,16 @@ def instPisAt : List Expr → Expr → Option (List Expr × Expr)
       (dom :: ds, rest)
   | _ :: _, _ => none
 
+/-- Instantiate the leading `∀`-binders at *open* arguments, returning
+the residual.  Unlike `instPisAt` this uses the general
+capture-avoiding substitution (`instantiate1Lift`), so an argument may
+mention loose `bvar`s of the surrounding context — which is what
+building a projection's type out of the constructor telescope needs. -/
+def instPisAtLift : List Expr → Expr → Option Expr
+  | [], e => some e
+  | a :: as, .forallE _ _ body _ => instPisAtLift as (body.instantiate1Lift a)
+  | _ :: _, _ => none
+
 /-- `instPisAt` for `λ`-binders. -/
 def instLamsAt : List Expr → Expr → Option (List Expr × Expr)
   | [], e => some ([], e)
@@ -394,6 +404,14 @@ def pisToLams : Nat → Expr → Expr → Option Expr
   | 0, _, body => some body
   | k + 1, .forallE n ty rest m, body =>
     (pisToLams k rest body).map fun b => .lam n ty b ⟨m.bi, none⟩
+  | _ + 1, _, _ => none
+
+/-- Replace the body under the first `k` `∀`-binders (binder domains and
+names kept, codomain-sort annotations reset — the caller annotates). -/
+def replacePiBody : Nat → Expr → Expr → Option Expr
+  | 0, _, b => some b
+  | k + 1, .forallE n ty rest m, b =>
+    (replacePiBody k rest b).map fun r => .forallE n ty r ⟨m.bi, none⟩
   | _ + 1, _, _ => none
 
 /-- The length of the leading `∀`-telescope. -/

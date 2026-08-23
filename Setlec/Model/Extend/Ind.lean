@@ -27,7 +27,7 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
     ∃ m₁ : EnvModel V env₁, BlockInstalled blockNames env₁ m₁.val := by
   obtain ⟨cvA, cvm, mval, hmcvm, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
     checkIndMember_inv h
-  obtain ⟨hfind0, hnres0, hpshape0, hnd, hlb, hfv, tyA, stype, u, hann,
+  obtain ⟨hfind0, hnres0, hmft0, hpshape0, hnd, hlb, hfv, tyA, stype, u, hann,
     hlp, hres, hst, hsort, hcvA⟩ := checkConstantVal_inv hccv
   have hnameA : cvA.name = ci.name := by rw [hcvA]; rfl
   have hlpsA : cvA.levelParams = ci.toConstantVal.levelParams := by
@@ -122,6 +122,9 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
       (fun _ => ⟨show (env'.find? (cvA.name.str "_model")).isSome = true
         by rw [hfm]; rfl, fun ψ => rfl⟩)
       (fun T j _ _ _ _ hh _ => hprojRef T j hh)
+      (fun T j _ _ _ _ hh heq => by exact nomatch heq)
+      (show modelFamilyTaken env' cvA.name = false by
+        rw [hnameA]; exact hmft0)
       (fun cv₂ caps₂ heq hcape _hres' => by
         injection heq with hcv hcaps
         subst hcv
@@ -282,6 +285,9 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
       (fun _ => ⟨show (env'.find? (cvA.name.str "_model")).isSome = true
         by rw [hfm]; rfl, fun ψ => rfl⟩)
       (fun T j _ _ _ _ hh _ => hprojRef T j hh)
+      (fun T j _ _ _ _ hh heq => by exact nomatch heq)
+      (show modelFamilyTaken env' cvA.name = false by
+        rw [hnameA]; exact hmft0)
       (fun cv₂ caps₂ hcon => nomatch hcon)
       (fun cv₂ caps₂ hcon => nomatch hcon)
     exact ⟨m₁, BlockInstalled.step hI hms hfm hlps hval₁ hpres₁⟩
@@ -337,7 +343,7 @@ theorem checkIndFold_modelfree {blockNames : List Name}
     rcases hci with rfl | hci
     · obtain ⟨cvA, cvm, mval, hmcvm, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
         checkIndMember_inv hstep
-      obtain ⟨-, -, -, -, -, -, tyA, stype, u, -, -, -, -, -, hcvA⟩ :=
+      obtain ⟨-, -, -, -, -, -, -, tyA, stype, u, -, -, -, -, -, hcvA⟩ :=
         checkConstantVal_inv hccv
       rw [hcvA] at hms
       rcases hkind with ⟨⟨cv, caps', rfl⟩, -⟩ | ⟨cv, nP, nF, rfl, -⟩ <;>
@@ -371,7 +377,7 @@ theorem checkIndFold_sound {blockNames : List Name} {caps : IndCaps} :
       (hns ci (by simp)) m hI
     obtain ⟨cvA', cvm', mval', hm', hccv', -, -, -, -, hkind'⟩ :=
       checkIndMember_inv hstep
-    obtain ⟨hfind0', -, -, -, -, -, tyA', stype', u', -, -, -, -, -,
+    obtain ⟨hfind0', -, -, -, -, -, -, tyA', stype', u', -, -, -, -, -,
       hcvA'⟩ := checkConstantVal_inv hccv'
     have hnameA' : cvA'.name = ci.name := by
       rw [hcvA']
@@ -442,7 +448,7 @@ theorem checkIndFold_stored {blockNames : List Name} {caps : IndCaps} :
     rw [hstep] at h
     obtain ⟨cvA, cvm, mval, hmcvm, hccv, -, -, -, -, hkind⟩ :=
       checkIndMember_inv hstep
-    obtain ⟨-, -, -, -, -, -, tyA, stype, u, -, -, -, -, -, hcvA⟩ :=
+    obtain ⟨-, -, -, -, -, -, -, tyA, stype, u, -, -, -, -, -, hcvA⟩ :=
       checkConstantVal_inv hccv
     have hnameA : cvA.name = ci₀.name := by rw [hcvA]; rfl
     have henv₁ : ∃ ci₁ : ConstantInfo, ci₁.name = cvA.name ∧

@@ -205,21 +205,32 @@ theorem ModeledOk.cons {env : Env} {val val' : ConstVal V}
     (hfresh : env.find? c₀.name = none)
     (hpres : ∀ (n : Name) (ψ : Name → Nat), n ≠ c₀.name →
       val' n ψ = val n ψ)
-    (hheadInd : ∀ cv caps, c₀ = .indInfo cv caps →
-      reservedBasisNames.contains c₀.name = false →
-      ((⟨c₀ :: env.consts⟩ : Env).find? (c₀.name.str "_model")).isSome
-        = true ∧
-      ∀ ψ : Name → Nat, val' c₀.name ψ = val' (c₀.name.str "_model") ψ)
     (hheadCtor : ∀ cv cnP cnF, c₀ = .ctorInfo cv cnP cnF →
       reservedBasisNames.contains c₀.name = false →
       ((⟨c₀ :: env.consts⟩ : Env).find? (c₀.name.str "_model")).isSome
-        = true ∧
+        = true →
       ∀ ψ : Name → Nat, val' c₀.name ψ = val' (c₀.name.str "_model") ψ)
     (hheadProj : ∀ (T : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat)
       (rules : List RecRule), c₀.name = projFnName T j →
       c₀ = .recInfo cv mI rP rules →
       ((⟨c₀ :: env.consts⟩ : Env).find? (projModelName T j)).isSome
-        = true ∧
+        = true →
+      ∀ ψ : Name → Nat,
+        val' (projFnName T j) ψ = val' (projModelName T j) ψ)
+    -- the *companion* side of the linkage: installing an `X._model`
+    -- for an already-stored `X` would activate the clause for a
+    -- constant whose value was fixed without it.  The checker rejects
+    -- that (`checkConstantVal`'s model-family guard), so every call
+    -- site discharges this by contradiction.
+    (hheadCompanionCtor : ∀ (n : Name) cv cnP cnF,
+      c₀.name = n.str "_model" →
+      env.find? n = some (.ctorInfo cv cnP cnF) →
+      reservedBasisNames.contains n = false →
+      ∀ ψ : Name → Nat, val' n ψ = val' (n.str "_model") ψ)
+    (hheadCompanionProj : ∀ (T : Name) (j : Nat) cv mI rP rules,
+      c₀.name = projModelName T j →
+      (env.find? T).isSome = true →
+      env.find? (projFnName T j) = some (.recInfo cv mI rP rules) →
       ∀ ψ : Name → Nat,
         val' (projFnName T j) ψ = val' (projModelName T j) ψ)
     (hheadEta : ∀ cv caps, c₀ = .indInfo cv caps → caps.eta = true →
@@ -233,69 +244,57 @@ theorem ModeledOk.cons {env : Env} {val val' : ConstVal V}
     (hheadUnit : ∀ cv caps, c₀ = .indInfo cv caps →
       caps.unitlike = true →
       reservedBasisNames.contains c₀.name = false →
-      UnitLaw V ⟨c₀ :: env.consts⟩ val' c₀.name cv caps) :
+      UnitLaw V ⟨c₀ :: env.consts⟩ val' c₀.name cv caps)
+    (hheadParent : ∀ (T : Name) (j : Nat) cv mI rP rules,
+      c₀.name = projFnName T j → c₀ = .recInfo cv mI rP rules →
+      ((⟨c₀ :: env.consts⟩ : Env).find? T).isSome = true) :
     ModeledOk V ⟨c₀ :: env.consts⟩ val' := by
   have hfind : ∀ n, n ≠ c₀.name →
       (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n := by
     intro n hn
     rw [Env.find?_cons, if_neg (fun hh => hn hh.symm)]
   refine ⟨?_, ?_, ?_, ?_, ?_⟩
-  · intro n cv caps hf hres
+  · intro n cv cnP cnF hf hres hmsN
     by_cases hn : n = c₀.name
     · subst hn
       rw [Env.find?_cons, if_pos rfl] at hf
-      exact hheadInd cv caps (Option.some.inj hf) hres
+      exact hheadCtor cv cnP cnF (Option.some.inj hf) hres hmsN
     · rw [hfind n hn] at hf
-      obtain ⟨hms, hveq⟩ := h.1 n cv caps hf hres
-      have hmne : n.str "_model" ≠ c₀.name := by
-        intro he
-        rw [he, hfresh] at hms
-        exact nomatch hms
-      refine ⟨?_, ?_⟩
-      · rw [hfind _ hmne]
-        exact hms
-      · intro ψ
-        rw [hpres _ ψ hn, hpres _ ψ hmne, hveq ψ]
-  · intro n cv cnP cnF hf hres
-    by_cases hn : n = c₀.name
-    · subst hn
-      rw [Env.find?_cons, if_pos rfl] at hf
-      exact hheadCtor cv cnP cnF (Option.some.inj hf) hres
-    · rw [hfind n hn] at hf
-      obtain ⟨hms, hveq⟩ := h.2.1 n cv cnP cnF hf hres
-      have hmne : n.str "_model" ≠ c₀.name := by
-        intro he
-        rw [he, hfresh] at hms
-        exact nomatch hms
-      refine ⟨?_, ?_⟩
-      · rw [hfind _ hmne]
-        exact hms
-      · intro ψ
-        rw [hpres _ ψ hn, hpres _ ψ hmne, hveq ψ]
-  · intro T j cv2 mI2 rP2 rules2 hf
+      by_cases hmne : n.str "_model" = c₀.name
+      · exact hheadCompanionCtor n cv cnP cnF hmne.symm hf hres
+      · rw [hfind _ hmne] at hmsN
+        intro ψ
+        rw [hpres _ ψ hn, hpres _ ψ hmne]
+        exact h.1 n cv cnP cnF hf hres hmsN ψ
+  · intro T cvT capsT j cv2 mI2 rP2 rules2 hfT hf hmsP
     by_cases hn : projFnName T j = c₀.name
     · have hc₀ : c₀ = .recInfo cv2 mI2 rP2 rules2 := by
         rw [Env.find?_cons, if_pos hn.symm] at hf
         exact Option.some.inj hf
-      exact hn ▸ hheadProj T j cv2 mI2 rP2 rules2 hn.symm hc₀
+      exact hheadProj T j cv2 mI2 rP2 rules2 hn.symm hc₀ hmsP
     · rw [hfind _ hn] at hf
-      obtain ⟨hms, hveq⟩ := h.2.2.1 T j cv2 mI2 rP2 rules2 hf
-      have hmne : projModelName T j ≠ c₀.name := by
-        intro he
-        rw [he, hfresh] at hms
-        exact nomatch hms
-      refine ⟨?_, ?_⟩
-      · rw [hfind _ hmne]
-        exact hms
-      · intro ψ
-        rw [hpres _ ψ hn, hpres _ ψ hmne, hveq ψ]
+      by_cases hnT : T = c₀.name
+      · -- the parent would be the constant being installed, but a
+        -- stored projection function's parent is stored already
+        exfalso
+        have := h.2.2.2.2 T j cv2 mI2 rP2 rules2 hf
+        rw [hnT, hfresh] at this
+        exact nomatch this
+      · rw [hfind _ hnT] at hfT
+        by_cases hmne : projModelName T j = c₀.name
+        · exact hheadCompanionProj T j cv2 mI2 rP2 rules2 hmne.symm
+            (by rw [hfT]; rfl) hf
+        · rw [hfind _ hmne] at hmsP
+          intro ψ
+          rw [hpres _ ψ hn, hpres _ ψ hmne]
+          exact h.2.1 T cvT capsT j cv2 mI2 rP2 rules2 hfT hf hmsP ψ
   · intro T cvT caps hf hcape hres
     by_cases hn : T = c₀.name
     · subst hn
       rw [Env.find?_cons, if_pos rfl] at hf
       exact hheadEta cvT caps (Option.some.inj hf) hcape hres
     · rw [hfind _ hn] at hf
-      obtain ⟨hmsC, hmsP, hlaw⟩ := h.2.2.2.1 T cvT caps hf hcape hres
+      obtain ⟨hmsC, hmsP, hlaw⟩ := h.2.2.1 T cvT caps hf hcape hres
       have hCne : caps.etaCtor.str "_model" ≠ c₀.name := by
         intro he
         rw [he, hfresh] at hmsC
@@ -349,7 +348,7 @@ theorem ModeledOk.cons {env : Env} {val val' : ConstVal V}
       rw [Env.find?_cons, if_pos rfl] at hf
       exact hheadUnit cvT caps (Option.some.inj hf) hcapu hres
     · rw [hfind _ hn] at hf
-      have hlaw := h.2.2.2.2 T cvT caps hf hcapu hres
+      have hlaw := h.2.2.2.1 T cvT caps hf hcapu hres
       have hagree : ∀ n, (env.find? n).isSome = true →
           ∀ ψ' : Name → Nat, val' n ψ' = val n ψ' := by
         intro n hnf ψ'
@@ -373,5 +372,16 @@ theorem ModeledOk.cons {env : Env} {val val' : ConstVal V}
         rw [← hpres T _ hn]
         exact hy
       exact hlaw φ'' us ps x y d₁ ρ₁ d₂ ρ₂ rest hlen hx' hy' hfit'
+  · intro T j cv2 mI2 rP2 rules2 hf
+    by_cases hn : projFnName T j = c₀.name
+    · have hc₀ : c₀ = .recInfo cv2 mI2 rP2 rules2 := by
+        rw [Env.find?_cons, if_pos hn.symm] at hf
+        exact Option.some.inj hf
+      exact hheadParent T j cv2 mI2 rP2 rules2 hn.symm hc₀
+    · rw [hfind _ hn] at hf
+      have hp := h.2.2.2.2 T j cv2 mI2 rP2 rules2 hf
+      by_cases hnT : T = c₀.name
+      · rw [hnT, Env.find?_cons, if_pos rfl]; rfl
+      · rw [hfind _ hnT]; exact hp
 
 end Setlec

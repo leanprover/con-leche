@@ -119,7 +119,7 @@ theorem provisionRecs_sound {F : Nat} {blockNames : List Name} :
       provisionRecs_cons_inv h
     obtain ⟨hccv, hms, cvm, mval, hmcvm, hfm, hlps, hrenf⟩ :=
       checkMemberVal_inv hcmv
-    obtain ⟨hfind0raw, hnres0raw, hpshape0raw, hnd, hlb, hfv, tyA, stype,
+    obtain ⟨hfind0raw, hnres0raw, hmft0raw, hpshape0raw, hnd, hlb, hfv, tyA, stype,
       u, hann, hlp, hres, hst, hsort, hcvA⟩ := checkConstantVal_inv hccv
     have hnameA : cvA.name = cv.name := by rw [hcvA]; rfl
     have hfind0 : envAcc.find? cvA.name = none := by
@@ -131,6 +131,9 @@ theorem provisionRecs_sound {F : Nat} {blockNames : List Name} :
     have hpshape0 : cvA.name.isProjFnShape = false := by
       rw [hnameA]
       exact hpshape0raw
+    have hmft0 : modelFamilyTaken envAcc cvA.name = false := by
+      rw [hnameA]
+      exact hmft0raw
     have hbnA : blockNames.contains cvA.name = true := by
       rw [hnameA]
       exact hbn (ConstantInfo.recInfo cv mI rP rules)
@@ -223,6 +226,11 @@ theorem provisionRecs_sound {F : Nat} {blockNames : List Name} :
         have hh' : cvA.name = projFnName T j := hh
         rw [hh'] at hpshape0
         exact nomatch hpshape0)
+      (fun T j _ _ _ _ hh _ => by
+        have hh' : cvA.name = projFnName T j := hh
+        rw [hh'] at hpshape0
+        exact nomatch hpshape0)
+      (show modelFamilyTaken envAcc cvA.name = false from hmft0)
       (fun cv2 caps hcon => nomatch hcon)
       (fun cv2 caps hcon => nomatch hcon)
     have hI₁ : BlockInstalled blockNames
@@ -936,7 +944,7 @@ theorem provisionRecs_names {F : Nat} {blockNames : List Name} :
     obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
       provisionRecs_cons_inv h
     obtain ⟨hccv, -, -, -, -, -, -⟩ := checkMemberVal_inv hcmv
-    obtain ⟨-, -, -, -, -, -, tyA, stype, u, -, -, -, -, -, hcvA⟩ :=
+    obtain ⟨-, -, -, -, -, -, -, tyA, stype, u, -, -, -, -, -, hcvA⟩ :=
       checkConstantVal_inv hccv
     rcases List.mem_cons.mp hci with rfl | hci
     · refine ⟨(cvA, mI, rP, rules), List.mem_cons_self, ?_⟩
@@ -1172,7 +1180,7 @@ theorem provisionRecs_fresh {F : Nat} {blockNames : List Name} :
     obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
       provisionRecs_cons_inv h
     obtain ⟨hccv, -, -, -, -, -, -⟩ := checkMemberVal_inv hcmv
-    obtain ⟨hfind0, -, -, -, -, -, tyA, stype, u, -, -, -, -, -, -⟩ :=
+    obtain ⟨hfind0, -, -, -, -, -, -, tyA, stype, u, -, -, -, -, -, -⟩ :=
       checkConstantVal_inv hccv
     rcases List.mem_cons.mp hci with rfl | hci
     · exact hfind0
@@ -1218,7 +1226,7 @@ theorem provisionRecs_modelfree {F : Nat} {blockNames : List Name} :
       provisionRecs_cons_inv h
     rcases List.mem_cons.mp hci with rfl | hci
     · obtain ⟨hccv, hms, -⟩ := checkMemberVal_inv hcmv
-      obtain ⟨-, -, -, -, -, -, tyA, stype, u, -, -, -, -, -, hcvA⟩ :=
+      obtain ⟨-, -, -, -, -, -, -, tyA, stype, u, -, -, -, -, -, hcvA⟩ :=
         checkConstantVal_inv hccv
       rw [hcvA] at hms
       exact hms
@@ -1264,7 +1272,7 @@ theorem provisionRecs_facts {F : Nat} {blockNames : List Name} :
       provisionRecs_cons_inv h
     obtain ⟨hccv, hms, cvm, mval, hmcvm, hfm, hlps, hrenf⟩ :=
       checkMemberVal_inv hcmv
-    obtain ⟨hfind0raw, hnres0raw, hpshape0raw, hnd, hlb, hfv, tyA, stype,
+    obtain ⟨hfind0raw, hnres0raw, hmft0raw, hpshape0raw, hnd, hlb, hfv, tyA, stype,
       u, hann, hlp, hres, hst, hsort, hcvA⟩ := checkConstantVal_inv hccv
     have hnameA : cvA.name = cv.name := by rw [hcvA]; rfl
     have hfind0 : envAcc.find? cvA.name = none := by
@@ -1276,6 +1284,9 @@ theorem provisionRecs_facts {F : Nat} {blockNames : List Name} :
     have hpshape0 : cvA.name.isProjFnShape = false := by
       rw [hnameA]
       exact hpshape0raw
+    have hmft0 : modelFamilyTaken envAcc cvA.name = false := by
+      rw [hnameA]
+      exact hmft0raw
     have hbnA : blockNames.contains cvA.name = true := by
       rw [hnameA]
       exact hbn (ConstantInfo.recInfo cv mI rP rules)
