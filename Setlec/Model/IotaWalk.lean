@@ -536,14 +536,17 @@ theorem typed_walk {env : Env} (m : EnvModel V env) (F : Nat)
       ∃ vs, TeleFitI V m.val env φ D ρ tyR args vs restR ∧
         (∀ (k : Nat) (a : Expr) (v : V), dsR[k]? = some a →
           vs[k]? = some v →
-          ∃ B, interpExpr V m.val env φ D ρ a = some B ∧ v ∈ˢ B) := by
+          ∃ B, interpExpr V m.val env φ D ρ a = some B ∧ v ∈ˢ B) ∧
+        (∃ P', interpExpr V m.val env φ D ρ restR = some P') := by
   intro args
   induction args with
   | nil =>
     intro tyR dsR restR hopR htl hargs hWR hbR hLR hFR hAR hIR
     simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at hopR
     obtain ⟨rfl, rfl⟩ := hopR
-    exact ⟨[], TeleFitI.nil, fun k a v ha _ => nomatch ha⟩
+    refine ⟨[], TeleFitI.nil, ?_, hIR⟩
+    intro k a v ha _
+    exact nomatch ha
   | cons a args' ih =>
     intro tyR dsR restR hopR htl hargs hWR hbR hLR hFR hAR hIR
     obtain ⟨nR, domR, bodyR, mR, dsR', rfl, hdsRc, hR0⟩ :=
@@ -599,7 +602,7 @@ theorem typed_walk {env : Env} (m : EnvModel V env) (F : Nat)
         hba hiv 0]
       exact hwR
     -- recursive call
-    obtain ⟨vs', hfit', hpack'⟩ := ih hR0 htl'
+    obtain ⟨vs', hfit', hpack', hIrest⟩ := ih hR0 htl'
       (fun x hx => hargs x (List.mem_cons_of_mem _ hx))
       (WScoped.instantiate1_gen hWa 0 hWdomR.2)
       (looseBVarsBounded_instantiate1_gen hba hbdomR.2)
@@ -612,7 +615,7 @@ theorem typed_walk {env : Env} (m : EnvModel V env) (F : Nat)
             exact Or.inr hl')
         · exact hFa l hl')
       hAbodyR hIbodyR
-    refine ⟨v :: vs', ?_, ?_⟩
+    refine ⟨v :: vs', ?_, ?_, hIrest⟩
     · exact TeleFitI.cons hBi hiv hvB hWdomR.2.fvarsBelow hWa hba hAa
         hfit'
     · intro k x v' hx hv'

@@ -1076,6 +1076,277 @@ theorem ctor_pkg_plain {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat)
       cases hl'
     · exact hFsC a ha l hla
 
+/-- The constructor-residual package of a **nested** rule: the
+level-instantiated constructor type is walked at the stored parameter
+instantiations (opened at the prefix variables), whose memberships
+come through the kernel's typed pins (`typed_walk` over
+`TypedListOk`); the instantiations' own typing packages fall out of
+the member type's major-premise domain. -/
+theorem ctor_pkg_nested {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat)
+    {ψ : Name → Nat} {tyA : Expr} {rP cnF : Nat} {cty : Expr}
+    {fvsP : List Expr} {restP : Expr} {cdomsP : List Expr}
+    {crestP : Expr} {xFvsP : List Expr}
+    {pins : List Expr} {Dn : Name} {lvls : List Level}
+    {preM : List (Name × Expr × BinderMeta)}
+    {nmM : Name} {domM bodyM : Expr} {bmM : BinderMeta}
+    (hopenP : openPisAtFvars rP tyA 0 = some (fvsP, restP))
+    (htyw : tyA.hasFvar = false)
+    (htyb : tyA.looseBVarsBounded 0 = true)
+    (hAty : AnnotOk V m₀.val env₀ ψ 0 (rho0 V) tyA)
+    (hIty : ∃ T, interpClosed V m₀.val env₀ ψ tyA = some T)
+    (hstripM : tyA.stripPis rP = some (preM, .forallE nmM domM bodyM bmM))
+    (hdomFn : domM.getAppFn = .const Dn lvls)
+    (hdomArgs : domM.getAppArgs = pins)
+    (hpinsW : ∀ p ∈ pins, p.hasFvar = false ∧
+      p.looseBVarsBounded rP = true)
+    (hcinstN : Expr.instPisAt
+      (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p)) cty =
+      some (cdomsP, crestP))
+    (htlP : TypedListOk F env₀ (rP + cnF)
+      (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p)) cdomsP)
+    (hCtw : cty.hasFvar = false)
+    (hCtb : cty.looseBVarsBounded 0 = true)
+    (hACt : AnnotOk V m₀.val env₀ ψ 0 (rho0 V) cty)
+    (hICt : ∃ T, interpClosed V m₀.val env₀ ψ cty = some T) :
+    ∀ (xs : List V), xs.length ≤ rP + cnF → rP ≤ xs.length →
+      FramePref m₀.val env₀ ψ (fvsP ++ xFvsP) xs →
+      WScoped rP crestP ∧ crestP.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded crestP ∧
+      FvarsOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) crestP ∧
+      AnnotOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) crestP ∧
+      ∃ P, interpExpr V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) crestP = some P := by
+  intro xs hlen hge hpref
+  obtain ⟨hfvsPInst, hfvsPLen, hfvsPShape⟩ :=
+    openPisAtFvars_spec rP 0 hopenP
+  obtain ⟨hfvsPWf, hrestPWf⟩ := openPisAtFvars_wf rP 0 hopenP
+    (WScoped.of_not_hasFvar htyw) htyb
+    (Expr.LeavesBounded.of_not_hasFvar htyw)
+  -- the full recursor-prefix spine and its typing packages
+  have hspP : FvarSpine (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) fvsP (xs.take rP) := by
+    refine FvarSpine_of_open hopenP
+      (by rw [List.length_take]; omega) (by omega) ?_
+    intro j v hjv
+    have hjr : j < rP := by
+      rcases Nat.lt_or_ge j rP with h | h
+      · exact h
+      · rw [List.getElem?_eq_none
+          (by rw [List.length_take]; omega)] at hjv
+        exact nomatch hjv
+    rw [List.getElem?_take_of_lt hjr] at hjv
+    show xs.getD (0 + j) SetTheory.empty = v
+    rw [Nat.zero_add, List.getD_eq_getElem?_getD, hjv]
+    rfl
+  have hwsP : ∀ a ∈ fvsP, WScoped (rP + cnF) a := fun a ha =>
+    ((hfvsPWf a ha).1).mono (by omega)
+  have hmemP : ∀ (i : Nat) (a : Expr) (v : V),
+      (fvsP.map Expr.fvarTypeD)[i]? = some a →
+      (xs.take rP)[i]? = some v →
+      ∃ B, interpExpr V m₀.val env₀ ψ (rP + cnF)
+        (fun l => xs.getD l SetTheory.empty) a = some B ∧ v ∈ˢ B := by
+    intro i a v ha hv
+    have hir : i < rP := by
+      rcases Nat.lt_or_ge i rP with h | h
+      · exact h
+      · rw [List.getElem?_eq_none
+          (by rw [List.length_take]; omega)] at hv
+        exact nomatch hv
+    rw [List.getElem?_take_of_lt hir] at hv
+    have hifv : i < fvsP.length := by omega
+    obtain ⟨fvi, hfvi⟩ : ∃ fvi, fvsP[i]? = some fvi :=
+      ⟨fvsP[i]'hifv, List.getElem?_eq_getElem hifv⟩
+    have ha' : a = Expr.fvarTypeD fvi := by
+      rw [List.getElem?_map, hfvi] at ha
+      exact (Option.some.inj ha).symm
+    subst ha'
+    have hsp : (fvsP ++ xFvsP)[i]? = some fvi := by
+      rw [List.getElem?_append_left (by omega)]
+      exact hfvi
+    obtain ⟨B, hB, hvB⟩ := hpref i v fvi hv hsp
+    obtain ⟨nmi, hshapei⟩ := hfvsPShape i fvi hfvi
+    rw [Nat.zero_add] at hshapei
+    have hWi : WScoped i (Expr.fvarTypeD fvi) := by
+      have hW := (hfvsPWf fvi (List.mem_of_getElem? hfvi)).1
+      rw [hshapei] at hW
+      simp only [WScoped] at hW
+      rw [hshapei]
+      exact hW.2
+    have hcan := interp_getD_canon (cval := m₀.val) (env := env₀)
+      (φ := ψ) (e := Expr.fvarTypeD fvi) (xs := xs) (D := rP + cnF)
+      hWi (by omega) (by omega)
+    rw [hcan]
+    exact ⟨B, hB, hvB⟩
+  have hWty : WScoped (rP + cnF) tyA := WScoped.of_not_hasFvar htyw
+  have hAty' : AnnotOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) tyA :=
+    AnnotOk.closed_invariant htyw _ _ hAty
+  have hIty' : ∃ T, interpExpr V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) tyA = some T := by
+    obtain ⟨T, hT⟩ := hIty
+    refine ⟨T, ?_⟩
+    rw [interp_closed_invariant htyw _ _]
+    exact hT
+  obtain ⟨hfitP, hΘP⟩ := self_walk hfvsPInst hspP hwsP hWty htyb
+    (Expr.LeavesBounded.of_not_hasFvar htyw)
+    (FvarsOk.of_not_hasFvar htyw) hAty' hmemP
+  obtain ⟨-, hPrestEx⟩ := peel_walk hfvsPInst hspP hwsP hWty hAty'
+    hIty' hmemP
+  obtain ⟨Prest, hPrest⟩ := hPrestEx
+  obtain ⟨hWrest, hbrest, hArest, hlrest⟩ :=
+    TeleFitI.rest_wf hfitP hWty htyb hAty'
+  have hFrest : FvarsOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) restP := by
+    intro l hl
+    rcases hlrest l hl with hl' | ⟨a, ha, hla⟩
+    · rw [fvarLeaves_eq_nil_of_not_hasFvar htyw] at hl'
+      cases hl'
+    · exact hΘP a ha l hla
+  have hLrest : Expr.LeavesBounded restP := by
+    intro l hl
+    rcases hlrest l hl with hl' | ⟨a, ha, hla⟩
+    · rw [fvarLeaves_eq_nil_of_not_hasFvar htyw] at hl'
+      cases hl'
+    · exact (hfvsPWf a ha).2.2 l hla
+  -- the major premise's domain, instantiated at the prefix
+  have hrestEq : restP = .forallE nmM
+      (instSeq fvsP (rP - 1) domM)
+      (instSeq fvsP (rP - 1 + 1) bodyM) bmM := by
+    obtain ⟨h1, -⟩ := instPisAt_stripPis fvsP hfvsPInst
+      (by rw [hfvsPLen]; exact hstripM)
+    rw [h1, hfvsPLen, instSeq_forallE fvsP (rP - 1) nmM domM bodyM bmM
+      (by rw [hfvsPLen]; omega)]
+  -- the instantiated parameter spine and its typing packages
+  have hdomEq : instSeq fvsP (rP - 1) domM =
+      Expr.mkAppN (.const Dn lvls)
+        (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p)) := by
+    conv => lhs; rw [show domM = Expr.mkAppN domM.getAppFn
+      domM.getAppArgs from (Expr.mkAppN_getApp domM).symm]
+    rw [hdomFn, hdomArgs, Expr.instSeq_mkAppN,
+      Expr.instSeq_eq_self _ _ (by rfl)]
+    congr 1
+    refine List.map_congr_left ?_
+    intro p hp
+    rw [Expr.instSpine_eq_instSeq]
+  rw [hrestEq] at hArest hPrest hWrest hbrest hFrest hLrest
+  have hAdomI : AnnotOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty)
+      (instSeq fvsP (rP - 1) domM) := by
+    have h := hArest
+    simp only [AnnotOk] at h
+    exact h.1
+  have hFdomI : FvarsOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty)
+      (instSeq fvsP (rP - 1) domM) :=
+    FvarsOk.of_subset (fun l hl => by
+      simp only [fvarLeaves, List.mem_append]; exact Or.inl hl) hFrest
+  have hLdomI : Expr.LeavesBounded (instSeq fvsP (rP - 1) domM) :=
+    LeavesBounded.of_forallE_ty hLrest
+  -- per-argument facts of the instantiated parameters
+  have hcargW : ∀ a ∈ pins.map (fun p => Expr.instSpine fvsP (rP - 1) p),
+      WScoped (rP + cnF) a := by
+    intro a ha
+    obtain ⟨p, hp, rfl⟩ := List.mem_map.mp ha
+    exact instSpine_WScoped (rP - 1)
+      (WScoped.of_not_hasFvar (hpinsW p hp).1) hwsP
+  have hcargB : ∀ a ∈ pins.map (fun p => Expr.instSpine fvsP (rP - 1) p),
+      a.looseBVarsBounded 0 = true := by
+    intro a ha
+    obtain ⟨p, hp, rfl⟩ := List.mem_map.mp ha
+    rw [Expr.instSpine_eq_instSeq,
+      show rP - 1 = fvsP.length - 1 from by rw [hfvsPLen]]
+    refine instSeq_bclosed ?_ ?_
+    · intro x hx
+      obtain ⟨j, hj⟩ := List.getElem?_of_mem hx
+      obtain ⟨nm, hsh⟩ := hfvsPShape j x hj
+      rw [hsh]
+      rfl
+    · rw [hfvsPLen]
+      exact (hpinsW p hp).2
+  have hcargL : ∀ a ∈ pins.map (fun p => Expr.instSpine fvsP (rP - 1) p),
+      Expr.LeavesBounded a := by
+    intro a ha
+    obtain ⟨p, hp, rfl⟩ := List.mem_map.mp ha
+    rw [Expr.instSpine_eq_instSeq]
+    refine LeavesBounded_instSeq _ _ ?_ ?_
+    · exact Expr.LeavesBounded.of_not_hasFvar (hpinsW p hp).1
+    · intro x hx
+      exact (hfvsPWf x hx).2.2
+  have hcargF : ∀ a ∈ pins.map (fun p => Expr.instSpine fvsP (rP - 1) p),
+      FvarsOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) a := by
+    intro a ha
+    refine FvarsOk.of_subset (fun l hl => ?_) hFdomI
+    rw [hdomEq]
+    refine fvarLeaves_getAppArgs ?_ l hl
+    rw [Expr.getAppArgs_mkAppN,
+      show (Expr.const Dn lvls).getAppArgs = [] from rfl,
+      List.nil_append]
+    exact ha
+  have hcargA : ∀ a ∈ pins.map (fun p => Expr.instSpine fvsP (rP - 1) p),
+      AnnotOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) a := by
+    intro a ha
+    have hne : pins.map (fun p => Expr.instSpine fvsP (rP - 1) p) ≠
+        [] := by
+      intro h0
+      rw [h0] at ha
+      exact nomatch ha
+    have hAdom' : AnnotOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty)
+        (Expr.mkAppN (.const Dn lvls)
+          (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p))) := by
+      rw [← hdomEq]
+      exact hAdomI
+    obtain ⟨-, hargsA, -⟩ := annotOk_spine_inv _ (.const Dn lvls) hne
+      hAdom'
+    exact hargsA a ha
+  -- walk the level-instantiated constructor type at the pins
+  have hWct : WScoped (rP + cnF) cty := WScoped.of_not_hasFvar hCtw
+  have hACt' : AnnotOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) cty :=
+    AnnotOk.closed_invariant hCtw _ _ hACt
+  have hICt' : ∃ T, interpExpr V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) cty = some T := by
+    obtain ⟨T, hT⟩ := hICt
+    refine ⟨T, ?_⟩
+    rw [interp_closed_invariant hCtw _ _]
+    exact hT
+  obtain ⟨cvals, hfitC, hpackC, PcrEx⟩ := typed_walk m₀ F hcinstN htlP
+    (fun a ha => ⟨hcargW a ha, hcargB a ha, hcargL a ha, hcargF a ha,
+      hcargA a ha⟩)
+    hWct hCtb (Expr.LeavesBounded.of_not_hasFvar hCtw)
+    (FvarsOk.of_not_hasFvar hCtw) hACt' hICt'
+  obtain ⟨Pcr, hPcr⟩ := PcrEx
+  obtain ⟨hWcrD, hbcr, hAcr, hlcr⟩ := TeleFitI.rest_wf hfitC hWct hCtb
+    hACt'
+  -- residual scoping at the recursor prefix
+  have hcargWrP : ∀ a ∈ pins.map (fun p => Expr.instSpine fvsP (rP - 1) p),
+      WScoped rP a := by
+    intro a ha
+    obtain ⟨p, hp, rfl⟩ := List.mem_map.mp ha
+    refine instSpine_WScoped (rP - 1)
+      (WScoped.of_not_hasFvar (hpinsW p hp).1) ?_
+    intro x hx
+    have h := (hfvsPWf x hx).1
+    rwa [Nat.zero_add] at h
+  obtain ⟨-, hWcr⟩ := instPisAt_wscoped (D := rP)
+    (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p)) hcinstN
+    (WScoped.of_not_hasFvar hCtw) hcargWrP
+  refine ⟨hWcr, hbcr, ?_, ?_, hAcr, ⟨Pcr, hPcr⟩⟩
+  · intro l hl
+    rcases hlcr l hl with hl' | ⟨a, ha, hla⟩
+    · rw [fvarLeaves_eq_nil_of_not_hasFvar hCtw] at hl'
+      cases hl'
+    · exact hcargL a ha l hla
+  · intro l hl
+    rcases hlcr l hl with hl' | ⟨a, ha, hla⟩
+    · rw [fvarLeaves_eq_nil_of_not_hasFvar hCtw] at hl'
+      cases hl'
+    · exact hcargF a ha l hla
+
 set_option maxHeartbeats 3200000 in
 /-- The bottom fact (`Hbot` of `TowerOk.of_stages`) of a **plain**
 modeled rule: over any full frame-fitting value list, the canonical
