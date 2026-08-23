@@ -849,18 +849,6 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
        .bvar (nF - 1 - i)] := by
     rw [hfself, hfctor]
     rfl
-  have hprojmArg : ∀ (T' : Name) (j : Nat),
-      projFnName T i = projFnName T' j →
-      (env'.find? (projModelName T' j)).isSome = true ∧
-      ∀ ψ : Name → Nat,
-        m.val (projModelName T i) ψ = m.val (projModelName T' j) ψ := by
-    intro T' j hh
-    have hh' : Name.num (T.str "proj") i = Name.num (T'.str "proj") j := hh
-    injection hh' with hp hij
-    injection hp with hT hs
-    subst hij
-    subst hT
-    exact ⟨by rw [hfm]; rfl, fun ψ => rfl⟩
   have hnotb : blockNames.contains (projFnName T i) = false := by
     cases hc : blockNames.contains (projFnName T i) with
     | false => rfl
@@ -1002,7 +990,7 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
     ⟨ctorName, nF, nP, (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain else .inert), rhsA⟩ f
     (projModelName T i) hpnone
     (reservedBasisNames_not_num _ _) hwf hptyres hfm hmlps
-    ⟨T, rfl, hTf⟩ hprojmArg hren
+    hren
     f₀ hro hff₀ hfself hfnot heqf heqval hi
     (fun lvls pins => by
       cases h : Expr.recRulePlain pty nP nP nP <;> simp [h])

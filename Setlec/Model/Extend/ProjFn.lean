@@ -32,11 +32,6 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
     (htyres0 : cvA.type.constsResolve env = true)
     (hmodel : env.find? mnameP = some (.defnInfo cvm mval hmcvm))
     (hlps : cvm.levelParams = cvA.levelParams)
-    (hnameP : ∃ Tn, cvA.name = projFnName Tn i ∧
-      (env.find? Tn).isSome = true)
-    (hprojm : ∀ (T : Name) (j : Nat), cvA.name = projFnName T j →
-      (env.find? (projModelName T j)).isSome = true ∧
-      ∀ ψ : Name → Nat, m.val mnameP ψ = m.val (projModelName T j) ψ)
     (hren : cvA.type.renameConsts f = cvm.type)
     (f₀ : Name → Name) (hro : RenameOk m.val env f₀)
     (hff₀ : ∀ n, n ≠ cvA.name → f n = f₀ n)

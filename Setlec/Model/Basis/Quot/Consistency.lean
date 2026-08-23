@@ -22,7 +22,8 @@ open SetTheory Expr
 quotient basis block preserves having a model. -/
 theorem installQuotBasis_sound {F : Nat} {env env' : Env}
     (h : checkDecl (fueledOps F) env (.basisDecl .quotK) = .ok env')
-    (m : EnvModel V env) : Nonempty (EnvModel V env') := by
+    (m : EnvModel V env) (hE1 : EtaFamiliesClosed env) :
+    Nonempty (EnvModel V env') ∧ EtaFamiliesClosed env' := by
       simp only [checkDecl, checkDefnVal, checkThmVal, installBasisDecl,
         fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
         fueledOps_ensureSort, fueledOps_whnf, BasisKind.declsA, List.foldlM, Bind.bind,
@@ -100,11 +101,7 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
         (fun _val' _h1 _h2 cvR mI rP rules hx =>
           absurd hx (by simp [quotA]))
         (fun _ _ _ _ hx => absurd hx (by simp [quotA]))
-        (fun hres _ => absurd hres (by decide))
-        (fun T j _ _ _ _ hh _ => absurd hh.symm (Name.num_ne_str _ _ _ _))
         (fun _ hx _ => nomatch hx)
-        (fun _ _ _ _ hres => absurd hres (by decide))
-        (fun _ _ _ _ hres => absurd hres (by decide))
       have hvalQ1 : ∀ ψ' : Name → Nat, m1.val quotName ψ' = quotVal V ψ' :=
         fun ψ' => hval1 ψ'
       -- step 2: Quot.mk
@@ -131,11 +128,7 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
         (fun _val' _h1 _h2 cvR mI rP rules hx =>
           absurd hx (by simp [quotMkA]))
         (fun _ _ _ _ hx => absurd hx (by simp [quotMkA]))
-        (fun hres _ => absurd hres (by decide))
-        (fun T j _ _ _ _ hh _ => absurd hh.symm (Name.num_ne_str _ _ _ _))
         (fun _ hx _ => nomatch hx)
-        (fun _ _ _ _ hres => absurd hres (by decide))
-        (fun _ _ _ _ hres => absurd hres (by decide))
       have hvalQ2 : ∀ ψ' : Name → Nat, m2.val quotName ψ' = quotVal V ψ' :=
         fun ψ' => by
           rw [hpres2 quotName ψ' (by decide)]
@@ -294,11 +287,7 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
               rw [Env.find?_cons, if_pos (by decide)]
             exact ⟨_, _, _, hf⟩
           · cases hr)
-        (fun hres _ => absurd hres (by decide))
-        (fun T j _ _ _ _ hh _ => absurd hh.symm (Name.num_ne_str _ _ _ _))
         (fun _ hx _ => nomatch hx)
-        (fun _ _ _ _ hres => absurd hres (by decide))
-        (fun _ _ _ _ hres => absurd hres (by decide))
       have hvalQ3 : ∀ ψ' : Name → Nat, m3.val quotName ψ' = quotVal V ψ' :=
         fun ψ' => by
           rw [hpres3 quotName ψ' (by decide)]
@@ -402,11 +391,7 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
                 if_pos (by decide)]
             exact ⟨_, _, _, hf⟩
           · cases hr)
-        (fun hres _ => absurd hres (by decide))
-        (fun T j _ _ _ _ hh _ => absurd hh.symm (Name.num_ne_str _ _ _ _))
         (fun _ hx _ => nomatch hx)
-        (fun _ _ _ _ hres => absurd hres (by decide))
-        (fun _ _ _ _ hres => absurd hres (by decide))
       have hvalQ4 : ∀ ψ' : Name → Nat, m4.val quotName ψ' = quotVal V ψ' :=
         fun ψ' => by
           rw [hpres4 quotName ψ' (by decide)]
@@ -501,11 +486,15 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
         (fun _val' _h1 _h2 cvR mI rP rules hx =>
           absurd hx (by simp [quotSoundA]))
         (fun _ _ _ _ hx => absurd hx (by simp [quotSoundA]))
-        (fun hres _ => absurd hres (by decide))
-        (fun T j _ _ _ _ hh _ => absurd hh.symm (Name.num_ne_str _ _ _ _))
         (fun _ hx _ => nomatch hx)
-        (fun _ _ _ _ hres => absurd hres (by decide))
-        (fun _ _ _ _ hres => absurd hres (by decide))
-      exact ⟨m5⟩
+      refine ⟨⟨m5⟩, ?_⟩
+      exact EtaFamiliesClosed.cons_nonind (EtaFamiliesClosed.cons_nonind
+        (EtaFamiliesClosed.cons_nonind (EtaFamiliesClosed.cons_nonind
+          (EtaFamiliesClosed.cons_nonind hE1
+            (Option.isNone_iff_eq_none.mp h1) (fun _ _ _ _ => by decide))
+          (Option.isNone_iff_eq_none.mp h2) (fun _ _ _ _ => by decide))
+        (Option.isNone_iff_eq_none.mp h3) (fun _ _ _ _ => by decide))
+        (Option.isNone_iff_eq_none.mp h4) (fun _ _ _ _ => by decide))
+        (Option.isNone_iff_eq_none.mp h5) (fun _ _ _ _ => by decide)
 
 end Setlec

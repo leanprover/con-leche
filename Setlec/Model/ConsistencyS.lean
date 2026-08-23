@@ -24,13 +24,14 @@ private theorem foldlM_soundS {V : Type u} [SetTheory V] :
     ∀ (ds : List Declaration) (fe : FEnv) {fe' : FEnv},
       fe = mkFEnv fe.env →
       Nonempty (EnvModel V fe.env) →
+      EtaFamiliesClosed fe.env →
       ds.foldlM checkDeclSharedF fe = .ok fe' →
       Nonempty (EnvModel V fe'.env)
-  | [], fe, fe', _, hm, h => by
+  | [], fe, fe', _, hm, _, h => by
     have h' : (Except.ok fe : CheckM FEnv) = Except.ok fe' := h
     cases h'
     exact hm
-  | d :: ds, fe, fe', hfe, hm, h => by
+  | d :: ds, fe, fe', hfe, hm, hE1, h => by
     simp only [List.foldlM, Bind.bind, Except.bind] at h
     cases hd : checkDeclSharedF fe d with
     | error e => rw [hd] at h; exact nomatch h
@@ -39,7 +40,8 @@ private theorem foldlM_soundS {V : Type u} [SetTheory V] :
       obtain ⟨m⟩ := hm
       rw [hfe] at hd
       obtain ⟨hfe1, F, hF⟩ := checkDeclSharedF_bridge m.wf hd
-      exact foldlM_soundS ds fe1 hfe1 (checkDecl_sound hF m) h
+      obtain ⟨hm1, hE1'⟩ := checkDecl_sound hF m hE1
+      exact foldlM_soundS ds fe1 hfe1 hm1 hE1' h
 
 /-- Soundness of the **shared-state executable** checker: every
 environment it accepts has a set-theoretic model. -/
@@ -56,7 +58,8 @@ theorem checkDeclsS_sound (V : Type u) [SetTheory V]
     obtain rfl : fe.env = env' := by
       have h' : (Except.ok fe.env : CheckM Env) = .ok env' := h
       exact Except.ok.inj h'
-    exact foldlM_soundS ds (mkFEnv Env.empty) rfl ⟨EnvModel.empty V⟩ hf
+    exact foldlM_soundS ds (mkFEnv Env.empty) rfl ⟨EnvModel.empty V⟩
+      EtaFamiliesClosed.empty hf
 
 /-- The shared-state executable never accepts a declaration list
 containing a `def` or `theorem` whose stated type is `Empty`. -/
@@ -70,6 +73,7 @@ theorem no_proof_of_Empty_input_S (V : Type u) [SetTheory V]
   suffices hgen : ∀ (ds : List Declaration) (fe : FEnv) {fe' : FEnv},
       fe = mkFEnv fe.env →
       Nonempty (EnvModel V fe.env) →
+      EtaFamiliesClosed fe.env →
       ds.foldlM checkDeclSharedF fe = .ok fe' →
       (Declaration.defnDecl cv value hint ∈ ds ∨
         Declaration.thmDecl cv value ∈ ds) → False by
@@ -78,14 +82,15 @@ theorem no_proof_of_Empty_input_S (V : Type u) [SetTheory V]
     cases hf : ds.foldlM checkDeclSharedF (mkFEnv Env.empty) with
     | error e => rw [hf] at h; exact nomatch h
     | ok fe =>
-      exact hgen ds (mkFEnv Env.empty) rfl ⟨EnvModel.empty V⟩ hf hd
+      exact hgen ds (mkFEnv Env.empty) rfl ⟨EnvModel.empty V⟩
+        EtaFamiliesClosed.empty hf hd
   intro ds
   induction ds with
   | nil =>
-    intro fe fe' _ _ _ hd
+    intro fe fe' _ _ _ _ hd
     rcases hd with hd | hd <;> cases hd
   | cons d ds ih =>
-    intro fe fe' hfe hm h hd
+    intro fe fe' hfe hm hE1 h hd
     simp only [List.foldlM, Bind.bind, Except.bind] at h
     cases hdd : checkDeclSharedF fe d with
     | error e => rw [hdd] at h; exact nomatch h
@@ -108,7 +113,7 @@ theorem no_proof_of_Empty_input_S (V : Type u) [SetTheory V]
           | succ F' =>
             rw [annotateCore_succ] at h1
             simpa [annotateBody, pure, Except.pure] using h1
-        obtain ⟨m1⟩ := checkDecl_sound hF m
+        obtain ⟨⟨m1⟩, -⟩ := checkDecl_sound hF m hE1
         exact no_constant_of_Empty m1 c hc (by rw [hcv])
       · have hd' : Declaration.defnDecl cv value hint ∈ ds ∨
             Declaration.thmDecl cv value ∈ ds := by
@@ -119,7 +124,8 @@ theorem no_proof_of_Empty_input_S (V : Type u) [SetTheory V]
           · rcases List.mem_cons.mp hd with rfl | hmem
             · exact absurd (Or.inr rfl) hdis
             · exact Or.inr hmem
-        exact ih fe1 hfe1 (checkDecl_sound hF m) h hd'
+        obtain ⟨hm1, hE1'⟩ := checkDecl_sound hF m hE1
+        exact ih fe1 hfe1 hm1 hE1' h hd'
 
 /-- **No proof of `Empty` is ever accepted by the shared-state
 executable checker**: if it accepts a declaration list, no constant in

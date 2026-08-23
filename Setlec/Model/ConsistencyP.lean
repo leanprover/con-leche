@@ -91,15 +91,16 @@ private theorem foldSP {V : Type u} [SetTheory V] {st0 : EStore}
     ∀ (pds : List DeclP) (fe : FEnv) {fe' : FEnv} {s₀ s' : IState},
       fe = mkFEnv fe.env →
       Nonempty (EnvModel V fe.env) →
+      EtaFamiliesClosed fe.env →
       ISOKF s₀ → Ext st0 s₀.store →
       (pds.foldlM (checkDeclSPStep st0.nodes.size) fe) s₀ =
         .ok (fe', s') →
       Nonempty (EnvModel V fe'.env)
-  | [], fe, fe', s₀, s', _, hm, _, _, h => by
+  | [], fe, fe', s₀, s', _, hm, _, _, _, h => by
     obtain ⟨hfe, rfl⟩ := pureI_ok h
     subst hfe
     exact hm
-  | pd :: pds, fe, fe', s₀, s', hfe, hm, hres, hext0, h => by
+  | pd :: pds, fe, fe', s₀, s', hfe, hm, hE1, hres, hext0, h => by
     rw [List.foldlM_cons] at h
     obtain ⟨fe₁, s₁, hstep, h⟩ := bindI_ok h
     obtain ⟨m⟩ := hm
@@ -110,7 +111,8 @@ private theorem foldSP {V : Type u} [SetTheory V] {st0 : EStore}
     rw [hfe] at hstep
     obtain ⟨hres₁, hext₁, hfe₁, F, hF⟩ :=
       checkDeclSPStep_run m.wf hres hd hstep
-    exact foldSP hwfst pds fe₁ hfe₁ (checkDecl_sound hF m) hres₁
+    obtain ⟨hm1, hE1'⟩ := checkDecl_sound hF m hE1
+    exact foldSP hwfst pds fe₁ hfe₁ hm1 hE1' hres₁
       (hext0.trans hext₁) h
 
 /-- Soundness of the **parsed-index executable** checker: every
@@ -147,7 +149,8 @@ theorem checkDeclsSP_sound (V : Type u) [SetTheory V]
       simp only [Functor.map, Except.map, Except.ok.injEq] at hf
       subst hf
       exact foldSP hwf pds (mkFEnv Env.empty) rfl
-        ⟨EnvModel.empty V⟩ (ISOKF.fresh hwf) (Ext.refl _) hrun
+        ⟨EnvModel.empty V⟩ EtaFamiliesClosed.empty (ISOKF.fresh hwf)
+        (Ext.refl _) hrun
 
 /-- **No proof of `Empty` is ever accepted by the parsed-index
 executable checker**: if it accepts, no constant in the resulting
@@ -191,21 +194,22 @@ theorem no_proof_of_Empty_input_SP (V : Type u) [SetTheory V]
         {s₀ s' : IState},
         fe = mkFEnv fe.env →
         Nonempty (EnvModel V fe.env) →
+        EtaFamiliesClosed fe.env →
         ISOKF s₀ → Ext st s₀.store →
         (pds.foldlM (checkDeclSPStep st.nodes.size) fe) s₀ =
           .ok (fe', s') →
         ((∃ hint, DeclP.defnDecl cvp value hint ∈ pds) ∨
           DeclP.thmDecl cvp value ∈ pds) → False by
       exact hgen pds (mkFEnv Env.empty) rfl ⟨EnvModel.empty V⟩
-        (ISOKF.fresh hwf) (Ext.refl _) hrun hd
+        EtaFamiliesClosed.empty (ISOKF.fresh hwf) (Ext.refl _) hrun hd
     clear hrun hd
     intro pds
     induction pds with
     | nil =>
-      intro fe fe' s₀ s' _ _ _ _ _ hd
+      intro fe fe' s₀ s' _ _ _ _ _ _ hd
       rcases hd with ⟨_, hd⟩ | hd <;> cases hd
     | cons pd pds ih =>
-      intro fe fe' s₀ s' hfe hm hres hext0 h hd
+      intro fe fe' s₀ s' hfe hm hE1 hres hext0 h hd
       rw [List.foldlM_cons] at h
       obtain ⟨fe₁, s₁, hstep, h⟩ := bindI_ok h
       obtain ⟨m⟩ := hm
@@ -268,7 +272,7 @@ theorem no_proof_of_Empty_input_SP (V : Type u) [SetTheory V]
             | succ F' =>
               rw [annotateCore_succ] at h1
               simpa [annotateBody, pure, Except.pure] using h1
-          obtain ⟨m1⟩ := checkDecl_sound hF m
+          obtain ⟨⟨m1⟩, -⟩ := checkDecl_sound hF m hE1
           exact no_constant_of_Empty m1 c hc (by rw [hcv])
         rcases hdd with ⟨hint, rfl⟩ | rfl
         · exact hfin (.inr ⟨hint, rfl⟩)
@@ -282,7 +286,8 @@ theorem no_proof_of_Empty_input_SP (V : Type u) [SetTheory V]
           · rcases List.mem_cons.mp hdm with heq | hmem
             · exact absurd (.inr heq.symm) hdis
             · exact .inr hmem
-        exact ih fe₁ hfe₁ (checkDecl_sound hF m) hres₁
+        obtain ⟨hm1, hE1'⟩ := checkDecl_sound hF m hE1
+        exact ih fe₁ hfe₁ hm1 hE1' hres₁
           (hext0.trans hext₁) h hd'
 
 end Setlec

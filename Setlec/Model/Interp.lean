@@ -584,6 +584,27 @@ theorem EtaFamiliesClosed.empty : EtaFamiliesClosed Env.empty := by
   intro T cvT caps h
   simp [Env.find?, Env.empty] at h
 
+/-- Prepending one fresh constant that is not a non-reserved
+eta-capable former keeps the stored eta families closed. -/
+theorem EtaFamiliesClosed.cons_nonind {env : Env} {c₀ : ConstantInfo}
+    (hE1 : EtaFamiliesClosed env)
+    (hfresh : env.find? c₀.name = none)
+    (hknd : ∀ cv caps, c₀ = .indInfo cv caps → caps.eta = true →
+      reservedBasisNames.contains c₀.name = true) :
+    EtaFamiliesClosed (⟨c₀ :: env.consts⟩ : Env) := by
+  intro T cvT caps hf he hr
+  rw [Env.find?_cons] at hf
+  split at hf
+  · next hh =>
+    obtain rfl := Option.some.inj hf
+    rw [← hh] at hr
+    rw [hknd cvT caps rfl he] at hr
+    exact nomatch hr
+  · obtain ⟨cvC, hfC⟩ := hE1 T cvT caps hf he hr
+    refine ⟨cvC, ?_⟩
+    rw [Env.find?_cons_of_isSome hfresh (by rw [hfC]; rfl)]
+    exact hfC
+
 /-- A stored structural-Nat operation's semantic certificate
 (established at install by `certifyNatEqs` and the pinned-shape
 checks): its literal fast-path guard holds, and it satisfies its

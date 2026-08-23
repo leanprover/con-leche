@@ -35,6 +35,7 @@ variable {V : Type u} [SetTheory V]
 
 open SetTheory Expr
 
+omit [SetTheory V] in
 /-- The semantically pruned block renaming is `RenameOk` at any
 environment/valuation pair carrying the block-install invariant. -/
 theorem BlockInstalled.renameOk {blockNames : List Name} {env₁ : Env}
@@ -113,7 +114,6 @@ variable {env : Env} (m : EnvModel V env)
   (hcinres : reservedBasisNames.contains ci.name = false)
   (hcikindT : ∀ cv2 v2, ci ≠ .thmInfo cv2 v2)
 
-include m hfresh hagree in
 /-- A stored theorem's lookup at the extended environment lands below
 a non-theorem head, and its `m`-side membership/annotation facts
 transport up. -/
@@ -203,7 +203,7 @@ theorem modeled_caps_eta
     simp [pinnedVal]
   -- the artifact theorem's facts, transported up
   have hthmE₀ : env.find? ((T.str "_model").str "eta") =
-      some (.thmInfo tcv tval) := thm_below m hfresh hagree hcikindT hthmE
+      some (.thmInfo tcv tval) := thm_below hcikindT hthmE
   have hSw : tcv.type.hasFvar = false := by
     obtain ⟨h1, -⟩ := m.wf _ (find?_mem hthmE₀)
     exact h1
@@ -355,7 +355,7 @@ theorem modeled_caps_unit
     rw [hagree eqName ψ'' heqne, hpv ψ'']
     simp [pinnedVal]
   have hthmE₀ : env.find? ((T.str "_model").str "unitlike") =
-      some (.thmInfo tcv tval) := thm_below m hfresh hagree hcikindT hthmE
+      some (.thmInfo tcv tval) := thm_below hcikindT hthmE
   have hSw : tcv.type.hasFvar = false := by
     obtain ⟨h1, -⟩ := m.wf _ (find?_mem hthmE₀)
     exact h1

@@ -111,7 +111,7 @@ theorem extend_direct_ind {env : Env} (m : EnvModel V env) {p : DirectParts}
     -- from `directNoModel`, part of recognition: the block is the
     -- artifact-free route, so the type former has no companion and the
     -- artifact linkage is vacuous for it
-    (hnomodel : (env.find? (p.cvT.name.str "_model")).isNone = true) :
+    (_hnomodel : (env.find? (p.cvT.name.str "_model")).isNone = true) :
     ∃ m₁ : EnvModel V ⟨.indInfo cvTa (directCaps p) :: env.consts⟩,
       (∀ ψ, m₁.val cvTa.name ψ =
         directTyVal V m.val env cvTa.type cty p.nP p.nF p.resSort ψ) ∧
