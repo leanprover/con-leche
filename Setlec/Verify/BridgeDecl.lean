@@ -551,6 +551,7 @@ macro "dfst_step2" : tactic =>
     | (rw [checkProjShape_fst_dproj])
     | (rw [checkProjIota_fst_dproj])
     | (rw [checkProjRule_fst_dproj])
+    | (rw [checkDefEqList_fst_dproj])
     | (rw [checkIndMember_fst_dproj])
     | (rw [checkIotaRule_fst_dproj])
     | (rw [checkIotaRules_fst_dproj])
@@ -575,6 +576,7 @@ macro "dsnd_step2" : tactic =>
     | (rw [checkProjShape_snd_dproj])
     | (rw [checkProjIota_snd_dproj])
     | (rw [checkProjRule_snd_dproj])
+    | (rw [checkDefEqList_snd_dproj])
     | (rw [checkIndMember_snd_dproj])
     | (rw [checkIotaRule_snd_dproj])
     | (rw [checkIotaRules_snd_dproj])
@@ -589,17 +591,17 @@ macro "dsnd_tac2" : tactic =>
     dsnd_step2 <;> dsnd_step2 <;> dsnd_step2 <;>
     dsnd_step2 <;> dsnd_step2 <;> dsnd_step2)
 
-theorem checkProjRule_fst_dproj (env' : Env) (cvj : ConstantVal) (lps : List Name) (nP nF i : Nat) :
-    (checkProjRule (pairOps o₁ o₂ h) env' cvj lps nP nF i).val.1 =
-      checkProjRule o₁ env' cvj lps nP nF i := by
+theorem checkProjRule_fst_dproj (env' : Env) (pty : Expr) (cvj : ConstantVal) (lps : List Name) (nP nF i : Nat) :
+    (checkProjRule (pairOps o₁ o₂ h) env' pty cvj lps nP nF i).val.1 =
+      checkProjRule o₁ env' pty cvj lps nP nF i := by
   unfold checkProjRule
-  dfst_tac2
+  dfst_tac2 <;> dfst_step2 <;> dfst_step2
 
-theorem checkProjRule_snd_dproj (env' : Env) (cvj : ConstantVal) (lps : List Name) (nP nF i : Nat) :
-    (checkProjRule (pairOps o₁ o₂ h) env' cvj lps nP nF i).val.2 =
-      checkProjRule o₂ env' cvj lps nP nF i := by
+theorem checkProjRule_snd_dproj (env' : Env) (pty : Expr) (cvj : ConstantVal) (lps : List Name) (nP nF i : Nat) :
+    (checkProjRule (pairOps o₁ o₂ h) env' pty cvj lps nP nF i).val.2 =
+      checkProjRule o₂ env' pty cvj lps nP nF i := by
   unfold checkProjRule
-  dsnd_tac2
+  dsnd_tac2 <;> dsnd_step2 <;> dsnd_step2
 
 theorem checkMemberVal_fst_dproj (blockNames : List Name)
     (env' : Env) (cv : ConstantVal) :
@@ -1418,6 +1420,7 @@ macro "datF_step2" : tactic =>
     | (rw [checkProjShape_datF])
     | (rw [checkProjIota_datF])
     | (rw [checkProjRule_datF])
+    | (rw [checkDefEqList_datF])
     | (rw [checkIndMember_datF])
     | (rw [checkIotaRule_datF])
     | (rw [checkIotaRules_datF])
@@ -1432,11 +1435,11 @@ macro "datF_tac2" : tactic =>
     datF_step2 <;> datF_step2 <;> datF_step2 <;>
     datF_step2 <;> datF_step2 <;> datF_step2)
 
-theorem checkProjRule_datF (env' : Env) (cvj : ConstantVal) (lps : List Name) (nP nF i : Nat) (F : Nat) :
-    (checkProjRule fueledOpsM env' cvj lps nP nF i).val F =
-      checkProjRule (fueledOps F) env' cvj lps nP nF i := by
+theorem checkProjRule_datF (env' : Env) (pty : Expr) (cvj : ConstantVal) (lps : List Name) (nP nF i : Nat) (F : Nat) :
+    (checkProjRule fueledOpsM env' pty cvj lps nP nF i).val F =
+      checkProjRule (fueledOps F) env' pty cvj lps nP nF i := by
   unfold checkProjRule
-  datF_tac2
+  datF_tac2 <;> datF_step2 <;> datF_step2
 
 theorem checkMemberVal_datF (blockNames : List Name)
     (env' : Env) (cv : ConstantVal) (F : Nat) :
@@ -1483,6 +1486,7 @@ macro "datF_step3" : tactic =>
     | (rw [checkProjShape_datF])
     | (rw [checkProjIota_datF])
     | (rw [checkProjRule_datF])
+    | (rw [checkDefEqList_datF])
     | (rw [checkIndMember_datF])
     | (rw [checkIotaRule_datF])
     | (rw [checkIotaRules_datF])
@@ -1549,6 +1553,7 @@ macro "datF_step4" : tactic =>
     | (rw [checkProjShape_datF])
     | (rw [checkProjIota_datF])
     | (rw [checkProjRule_datF])
+    | (rw [checkDefEqList_datF])
     | (rw [checkIndMember_datF])
     | (rw [checkIotaRule_datF])
     | (rw [checkIotaRules_datF])
@@ -1586,6 +1591,7 @@ macro "datF_step5" : tactic =>
     | (rw [checkProjShape_datF])
     | (rw [checkProjIota_datF])
     | (rw [checkProjRule_datF])
+    | (rw [checkDefEqList_datF])
     | (rw [checkIndMember_datF])
     | (rw [checkIotaRule_datF])
     | (rw [checkIotaRules_datF])

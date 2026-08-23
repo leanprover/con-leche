@@ -571,12 +571,10 @@ rule's total λ-equality derivation folds over (task #58; completeness-
 safe: both telescopes spell the family's parameter types, and a
 structure constructor targets the family at its parameters). -/
 def checkProjShape (pty ctorTy : Expr) (nP nF : Nat) : m Unit := do
-  let some (abinders, _) := pty.stripPis nP
+  let some (_abinders, _) := pty.stripPis nP
     | throw (.notImplemented "projection type telescope")
-  let some (cbindersR, cbody) := ctorTy.stripPis (nP + nF)
+  let some (_, cbody) := ctorTy.stripPis (nP + nF)
     | throw (.notImplemented "projection constructor telescope")
-  unless domsMatchAux (fun _ e => e) abinders cbindersR 0 0 nP do
-    throw (.notImplemented "projection parameter domain mismatch")
   unless cbody.getAppArgs.length == nP do
     throw (.notImplemented "projection constructor residual arity")
   match cbody.getAppFn with
@@ -585,7 +583,7 @@ def checkProjShape (pty ctorTy : Expr) (nP nF : Nat) : m Unit := do
 
 /-- Stage 3: the reduction rule — λ over the constructor telescope
 returning field `i`, annotated; its λ-domains stay the constructor's. -/
-def checkProjRule (ops : CheckerOps m) (env' : Env) (cvj : ConstantVal) (lps : List Name)
+def checkProjRule (ops : CheckerOps m) (env' : Env) (pty : Expr) (cvj : ConstantVal) (lps : List Name)
     (nP nF i : Nat) : m Expr := do
   let some rhs := Expr.pisToLams (nP + nF) cvj.type (.bvar (nF - 1 - i))
     | throw (.notImplemented "projection rule telescope")
@@ -603,6 +601,22 @@ def checkProjRule (ops : CheckerOps m) (env' : Env) (cvj : ConstantVal) (lps : L
     | throw (.notImplemented "projection constructor telescope")
   unless domsMatchAux (fun _ e => e) rbinders cbindersR 0 0 (nP + nF) do
     throw (.notImplemented "projection rule domain mismatch")
+  -- the frame walks and the definitional parameter/domain pins
+  -- (task #58): the projection type's opened parameter annotations are
+  -- definitionally the constructor's instantiated parameter domains,
+  -- and the whole frame's annotations are definitionally the rule
+  -- λ-tower's instantiated domains
+  let some (fvsP, _) := openPisAtFvars nP pty 0
+    | throw (.notImplemented "projection type telescope")
+  let some (cdomsP, crestP) := Expr.instPisAt fvsP cvj.type
+    | throw (.notImplemented "projection constructor telescope")
+  checkDefEqList ops env' (nP + nF) (fvsP.map Expr.fvarTypeD) cdomsP
+  let some (xFvs, _) := openPisAtFvars nF crestP nP
+    | throw (.notImplemented "projection constructor telescope")
+  let some (ldoms, _) := Expr.instLamsAt (fvsP ++ xFvs) rhsA
+    | throw (.notImplemented "projection rule telescope")
+  checkDefEqList ops env' (nP + nF) ((fvsP ++ xFvs).map Expr.fvarTypeD)
+    ldoms
   pure rhsA
 
 /-- Stage 4: the model's `proj_i.iota` theorem pins the rule — the
@@ -654,7 +668,7 @@ def checkProjFn (ops : CheckerOps m) (env' : Env) (T ctorName : Name) (lps : Lis
   checkProjShape pty cvj.type nP nF
   unless i < nF do
     throw (.invalid "projection index out of range")
-  let rhsA ← checkProjRule ops env' cvj lps nP nF i
+  let rhsA ← checkProjRule ops env' pty cvj lps nP nF i
   checkProjIota env' T ctorName lps cvj nP nF i
   -- a degenerate recursor: no motive, no minors, no indices, so the
   -- major sits at position nP and the rule prefix is the parameters;

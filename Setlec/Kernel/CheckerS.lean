@@ -577,7 +577,7 @@ def checkProjTyF (fe : FEnv) (T ctorName : Name) (lps : List Name)
   pure pty
 
 /-- `checkProjRule` through the index. -/
-def checkProjRuleF (ops : CheckerOps m) (fe : FEnv) (cvj : ConstantVal)
+def checkProjRuleF (ops : CheckerOps m) (fe : FEnv) (pty : Expr) (cvj : ConstantVal)
     (lps : List Name) (nP nF i : Nat) : m Expr := do
   let some rhs := Expr.pisToLams (nP + nF) cvj.type (.bvar (nF - 1 - i))
     | throw (.notImplemented "projection rule telescope")
@@ -595,6 +595,17 @@ def checkProjRuleF (ops : CheckerOps m) (fe : FEnv) (cvj : ConstantVal)
     | throw (.notImplemented "projection constructor telescope")
   unless domsMatchAux (fun _ e => e) rbinders cbindersR 0 0 (nP + nF) do
     throw (.notImplemented "projection rule domain mismatch")
+  let some (fvsP, _) := openPisAtFvars nP pty 0
+    | throw (.notImplemented "projection type telescope")
+  let some (cdomsP, crestP) := Expr.instPisAt fvsP cvj.type
+    | throw (.notImplemented "projection constructor telescope")
+  checkDefEqList ops fe.env (nP + nF) (fvsP.map Expr.fvarTypeD) cdomsP
+  let some (xFvs, _) := openPisAtFvars nF crestP nP
+    | throw (.notImplemented "projection constructor telescope")
+  let some (ldoms, _) := Expr.instLamsAt (fvsP ++ xFvs) rhsA
+    | throw (.notImplemented "projection rule telescope")
+  checkDefEqList ops fe.env (nP + nF) ((fvsP ++ xFvs).map Expr.fvarTypeD)
+    ldoms
   pure rhsA
 
 /-- `checkProjIota` through the index. -/
@@ -797,7 +808,7 @@ def checkProjFnS (fe : FEnv) (T ctorName : Name) (lps : List Name)
   checkProjShape (m := CheckIM) pty cvj.type nP nF
   unless i < nF do
     throw (.invalid "projection index out of range")
-  let rhsA ← checkProjRuleF (sharedOps fe) fe cvj lps nP nF i
+  let rhsA ← checkProjRuleF (sharedOps fe) fe pty cvj lps nP nF i
   checkProjIotaF (m := CheckIM) fe T ctorName lps cvj nP nF i
   pure (fe.push (.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
     [⟨ctorName, nF, nP,

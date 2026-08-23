@@ -125,9 +125,10 @@ theorem checkProjTy_inv {env' : Env} {T ctorName : Name} {lps : List Name}
   exact ⟨rfl, eq_of_beq hround, hres, hptyb, hptyf, hptylp⟩
 
 /-- Invert stage 3 of `checkProjFn` (the reduction rule). -/
-theorem checkProjRule_inv {env' : Env} {cvj : ConstantVal} {lps : List Name}
-    {nP nF i : Nat} {rhsA : Expr}
-    (h : checkProjRule (fueledOps F) env' cvj lps nP nF i = .ok rhsA) :
+theorem checkProjRule_inv {env' : Env} {pty : Expr} {cvj : ConstantVal}
+    {lps : List Name} {nP nF i : Nat} {rhsA : Expr}
+    (h : checkProjRule (fueledOps F) env' pty cvj lps nP nF i =
+      .ok rhsA) :
     ∃ raw rbinders cbindersR cbody,
       Expr.pisToLams (nP + nF) cvj.type (.bvar (nF - 1 - i)) = some raw ∧
       raw.hasFvar = false ∧
@@ -140,7 +141,15 @@ theorem checkProjRule_inv {env' : Env} {cvj : ConstantVal} {lps : List Name}
       rhsA.stripLams (nP + nF) = some (rbinders, .bvar (nF - 1 - i)) ∧
       cvj.type.stripPis (nP + nF) = some (cbindersR, cbody) ∧
       domsMatchAux (fun _ e => e) rbinders cbindersR 0 0 (nP + nF)
-        = true := by
+        = true ∧
+      ∃ fvsP rest0 cdomsP crestP xFvs crest2X ldoms lrestL,
+        openPisAtFvars nP pty 0 = some (fvsP, rest0) ∧
+        Expr.instPisAt fvsP cvj.type = some (cdomsP, crestP) ∧
+        DefEqListOk F env' (nP + nF) (fvsP.map Expr.fvarTypeD) cdomsP ∧
+        openPisAtFvars nF crestP nP = some (xFvs, crest2X) ∧
+        Expr.instLamsAt (fvsP ++ xFvs) rhsA = some (ldoms, lrestL) ∧
+        DefEqListOk F env' (nP + nF)
+          ((fvsP ++ xFvs).map Expr.fvarTypeD) ldoms := by
   simp only [checkProjRule, fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
     fueledOps_ensureSort, fueledOps_whnf, Bind.bind, Except.bind] at h
   revert h
@@ -195,10 +204,53 @@ theorem checkProjRule_inv {env' : Env} {cvj : ConstantVal} {lps : List Name}
       (nP + nF) = true
   case neg => rw [if_neg hdomsB] at h; exact nomatch h
   rw [if_pos hdomsB] at h
+  try dsimp only at h
+  revert h
+  match hopenP : openPisAtFvars nP pty 0 with
+  | none => intro h; exact nomatch h
+  | some (fvsP, rest0) => ?_
+  intro h
+  try dsimp only at h
+  revert h
+  match hcinstP : Expr.instPisAt fvsP cvj.type with
+  | none => intro h; exact nomatch h
+  | some (cdomsP, crestP) => ?_
+  intro h
+  try dsimp only at h
+  revert h
+  cases hde1 : checkDefEqList (fueledOps F) env' (nP + nF)
+      (fvsP.map Expr.fvarTypeD) cdomsP with
+  | error e => intro h; rw [hde1] at h; exact nomatch h
+  | ok u1 => ?_
+  intro h
+  rw [hde1] at h
+  try dsimp only at h
+  revert h
+  match hopenX : openPisAtFvars nF crestP nP with
+  | none => intro h; exact nomatch h
+  | some (xFvs, crest2X) => ?_
+  intro h
+  try dsimp only at h
+  revert h
+  match hlinst : Expr.instLamsAt (fvsP ++ xFvs) rhsA' with
+  | none => intro h; exact nomatch h
+  | some (ldoms, lrestL) => ?_
+  intro h
+  try dsimp only at h
+  revert h
+  cases hde2 : checkDefEqList (fueledOps F) env' (nP + nF)
+      ((fvsP ++ xFvs).map Expr.fvarTypeD) ldoms with
+  | error e => intro h; rw [hde2] at h; exact nomatch h
+  | ok u2 => ?_
+  intro h
+  rw [hde2] at h
   simp only [pure, Except.pure, Except.ok.injEq] at h
   subst h
   exact ⟨raw, rbinders, cbindersR, cbody, rfl, hrawf, hrawb, hann,
-    hrlp, hrres, hrb, hrf, hstripR, rfl, hdomsB⟩
+    hrlp, hrres, hrb, hrf, hstripR, rfl, hdomsB,
+    fvsP, rest0, cdomsP, crestP, xFvs, crest2X, ldoms, lrestL,
+    hopenP, hcinstP, checkDefEqList_inv hde1, hopenX, hlinst,
+    checkDefEqList_inv hde2⟩
 
 /-- Invert stage 4 of `checkProjFn` (the pinned iota statement). -/
 theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
