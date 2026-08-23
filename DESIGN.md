@@ -3702,18 +3702,39 @@ What remains, in dependency order:
 3. **`mem_type` for the recursor and the projections**, from
    `directRecVal_mem`/`directRec_body_mem` and
    `directProjVal_mem`/`directProj_body_mem`.  The shape prerequisite
-   is **landed**: `checkDirectRecTy` now pins the parameters, the
-   motive's domain, the minor's field domains and the major's domain
-   each at its own frame (see "Three shape decisions"), so the
-   recursor's obligations line up with `DomsInterpEq`/`TeleFit.transfer`
-   exactly as the constructor's do.  What is left is the inversion of
-   the reshaped stage and the two `TeleBody` discharges: the minor's
-   fit transfers onto the constructor's field telescope, the major's
-   membership unfolds `⟦T p⃗⟧` to the tower through `directTyVal_fold`
-   (as `directCtor_resid` already does), and `directRec_body_mem`
-   closes it — with the constructor's own value folding to `tupleV`
-   through `teleLamV_fold` for the minor's conclusion
-   `motive (C p⃗ f⃗)`.
+   is landed and `checkDirectRecTy_inv` exposes every intermediate with
+   each pin at the frame it was checked at.
+
+   **What is left is one genuinely new piece: relocating the tower
+   across frames.**  The type former's value is a λ-tower whose body is
+   the dependent-pair tower over the *constructor's own* opening, whose
+   field binders sit at frames `nP … nP+nF-1`.  The recursor's telescope
+   puts the motive and the minor in between, so its field binders sit at
+   `nP+2 … nP+2+nF-1`.  `directRec_body_mem` needs the major's
+   membership `x ∈ˢ sigmaTowerV … mid` and the minor's obligation over
+   fits of that *same* `mid` — and `mid` is fixed at the constructor's
+   frames by `directTyVal_fold`, while the minor's own telescope lives
+   two frames higher with different opening variables.  Nothing in the
+   per-frame pin work bridges that: the pins line up domains at *equal*
+   frames, and here the frames genuinely differ.
+
+   The required lemma is that `sigmaTowerV`, `FieldTele` and `TeleFit`
+   are invariant under moving to another frame with **pointwise equal
+   values** — the spine-relocation fact
+   `interp_instSeq_fvarFrames` (`Setlec/Model/InstFrames.lean`) was
+   built for exactly this ("two spines with pointwise equal values, at
+   possibly unrelated frames, yield equal interpretations").  Note this
+   is the same lemma family as `TeleFit.reframe0`, the endgame
+   precondition for `eta`/`unitlike`: writing the relocation once would
+   unlock both this item and those two capabilities.
+
+   A smaller open choice rides along: the recursor's parameter pins
+   currently target the **constructor's** parameter domains
+   (`instPisAt` at the recursor's variables).  Targeting the *type
+   former's* own opening instead would let `DomsInterpEq.of_pins` apply
+   directly, at the cost of a fifth pin-site change; with the
+   relocation lemma in hand either target works, so the choice should be
+   made when that lemma lands.
 
 4. **The rules' fold obligation** (`RecMemberOk`) for the recursor rule
    and the `nF` projection rules, through `TowerOk.of_stages`
