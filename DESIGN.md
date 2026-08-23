@@ -3170,15 +3170,40 @@ models: the only failure mode is the decline/reject pinned by the
 model that was not generated → "unknown constant `X._model`", exit 1).
 It never accepts such a stream.
 
-**Hard precondition: `EtaLaw` must go public-named first.**  The direct
-install currently declares `eta := false`, which is safe only because
-the path is absence-gated: today every structure that *has* an artifact
-keeps the modeled route, and with it its eta capability.  The moment a
-skip rule deploys, a directly installed structure would be the only
-one without eta — and that **diverges from the reference kernels**: the
+**Hard preconditions: the two capabilities the direct install
+declares `false`.**  It declares `eta := false` *and*
+`unitlike := false`, which is safe only because the path is
+absence-gated: today every structure that *has* an artifact keeps the
+modeled route, and with it both capabilities.  The moment a skip rule
+deploys, a directly installed structure would be the only one without
+them — and for eta that **diverges from the reference kernels**: the
 official kernel offers `to_cnstr_when_structure` to every non-`Prop`
 single-constructor structure, so a stuck-major rescue that fires there
-would stop firing here.  So before any skip rule can ship:
+would stop firing here.  So before any skip rule can ship, both of the
+following must land.
+
+*Shared prerequisite — the frame-relocation lemma
+(`TeleFit.reframe0`, not yet written).*  Both `EtaLaw` and `UnitLaw`
+quantify over a parameter-telescope fit at an **arbitrary** frame,
+while every constructed value is a λ-tower over the telescope's
+*frame-0* opening, and `teleLamV_fold` is frame-matched.  So both need:
+a value-spine fit of a **closed** telescope at any `(d, ρ)` yields one
+at `(0, rho0 V)` with the same values.  The pieces exist —
+`TeleFit.toTeleFitI`, `TeleFitI.sanitize`, `TeleFitI.instLev_down`,
+`interp_instSeq_fvarFrames`, `peel_walk` — but `TeleFitI.toTeleFit`
+reproduces whatever frame it is handed, so none of them lands at frame
+0; the relocation has to be built explicitly (rebuild the canonical
+opening at `0 … k-1` and lower the frames with `interp_lift`).  See
+"The two frame-relative capabilities" above.
+
+*1. `unitlike`.*  Needs nothing but the relocation lemma: the semantic
+content is already proved (`directTyVal_unitlike` — a field-free direct
+structure's tower is the singleton, so any two members coincide), and
+`UnitLaw` is already free of `_model` names.  This is the cheaper of
+the two and should land first, as the relocation lemma's first
+consumer.
+
+*2. `eta`.*  Additionally needs `EtaLaw` restated over public names:
 
 * restate `EtaLaw` over the **public** constructor and projection-
   function names (`val caps.etaCtor`, `val (projFnName T j)`) instead
@@ -3235,11 +3260,12 @@ that quantify over a parameter-telescope fit at an **arbitrary** frame
 telescope's *frame-0* opening (`teleLamV … 0 (rho0 V)`).  Folding such
 a tower needs a fit at frame 0 — `teleLamV_fold` is frame-matched — so
 discharging either law needs to relocate a closed telescope's
-value-spine fit onto the canonical frame-0 opening.  The pieces for
-that exist (`TeleFit.toTeleFitI`, `TeleFitI.sanitize`,
-`interp_instSeq_fvarFrames`, `peel_walk`), but `TeleFitI.toTeleFit`
-reproduces the frame it is given, so none of them lands at frame 0; a
-dedicated relocation lemma is missing.
+value-spine fit onto the canonical frame-0 opening.  The missing piece
+is one lemma, called `TeleFit.reframe0` below and spelled out once in
+"The endgame" section: the existing kit (`TeleFit.toTeleFitI`,
+`TeleFitI.sanitize`, `interp_instSeq_fvarFrames`, `peel_walk`) gets
+close, but `TeleFitI.toTeleFit` reproduces the frame it is given, so
+none of it lands at frame 0.
 
 The direct install therefore declares **both** `eta := false` and
 `unitlike := false`.  Claiming fewer capabilities only ever removes
@@ -3247,8 +3273,10 @@ reductions, so this is sound, and it costs nothing today: the path is
 artifact-*absence* gated, so every structure that has a capability
 today keeps the modeled route.  `directTyVal_unitlike` is proved and
 kept — it is the whole semantic content of the unit-like law for this
-class, waiting only on the relocation lemma.  Both capabilities are
-preconditions of the endgame, not of this landing.
+class, waiting only on `TeleFit.reframe0`.  Both capabilities are
+**endgame preconditions**, listed with eta's public-naming work in
+"The endgame: ind-models' skip rule must be dependency-aware"; neither
+is a precondition of this landing.
 
 ### One opening for the block, one frame per field
 

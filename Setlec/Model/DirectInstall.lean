@@ -18,6 +18,34 @@ This module builds them and proves the facts the environment invariant
 consumes.  Everything is stated over the *pre-block* environment and
 valuation: the class is non-recursive (`directNonRec`), so every field
 type already resolves there.
+
+## The guard on the type former's body, and why it is not a hole
+
+`⟦T⟧`'s body is `directTyBody`, the dependent-pair tower **guarded by
+its own smallness** — the tower when it lands in `univ w`, the
+singleton otherwise.  The guard exists because of the block's install
+*order*, not because the tower might really be large:
+
+* the type former is stored **first** (the constructor's type ends in
+  `T p⃗`, so it neither resolves nor annotates before that), so the
+  per-field universe bound has not been checked when `⟦T⟧` is fixed;
+* the bound's semantic content (`FieldTele`) is read off
+  `inferTypeCore`/`ensureSortCore` runs in the environment that already
+  carries `T`, and turning those into interpretation facts needs an
+  `EnvModel` of that environment — which is exactly what the type
+  former's install is constructing.  Demanding the tower's smallness at
+  the type former is therefore circular.
+
+The junk branch is **unreachable on any block the checker accepts**:
+`checkDirectCtor` checks the per-field universe bound
+(`Inductive/Add.lean:225-228`), `FieldTele_of_walk` turns it into
+`FieldTele`, and `sigmaTowerV_mem_univ` then says the tower *is* small,
+so `directTyBody_eq` rewrites the guard away.  Every later member of
+the block — the constructor, the recursor, the projections — has that
+bound in scope and goes through `directTyBody_eq`; none of them can be
+installed without it.  The guard is thus a construction-time
+case split inside a value, never a runtime gate and never a weakening
+of what the model asserts about an accepted block.
 -/
 
 namespace Setlec
