@@ -95,6 +95,28 @@ theorem DefEqListOk.pointwise {F : Nat} {env : Env} {d : Nat} :
         exact h₀
       | i + 1, ha, hb => exact ih h i (by simpa using ha) (by simpa using hb)
 
+omit [SetTheory V] in
+theorem DefEqListOk.take {F : Nat} {env : Env} {d : Nat} :
+    ∀ {as bs : List Expr} (n : Nat), DefEqListOk F env d as bs →
+      DefEqListOk F env d (as.take n) (bs.take n) := by
+  intro as
+  induction as with
+  | nil =>
+    intro bs n h
+    match bs, h with
+    | [], _ =>
+      simp only [List.take_nil]
+      trivial
+  | cons a as ih =>
+    intro bs n h
+    match bs, h with
+    | b :: bs, ⟨h₀, h⟩ =>
+      cases n with
+      | zero => trivial
+      | succ n =>
+        simp only [List.take_succ_cons]
+        exact ⟨h₀, ih n h⟩
+
 /-- Invert a successful `checkDefEqList` run. -/
 theorem checkDefEqList_inv {F : Nat} {env : Env} {d : Nat} :
     ∀ {as bs : List Expr} {u : Unit},

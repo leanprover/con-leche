@@ -1,5 +1,6 @@
 import Setlec.Model.TypeChecker
 import Setlec.Model.IotaWalk
+import Setlec.Model.RuleFold
 
 /-!
 # Fold facts for a modeled recursor
@@ -1542,5 +1543,192 @@ theorem modeled_rule_fold
   refine ⟨L0, hL0c, ?_, ?_⟩
   · rw [← hvlEq, hvlvr, hvrFold]
   · exact hchainL2
+
+/-! ## The stage facts of the total rule equality (task #58)
+
+`RecRulesOk`'s per-rule clause is the total λ-equality of the
+canonical iota left-hand side tower against the stored rule right-hand
+side.  `TowerOk.of_stages` assembles the pointwise tower spec from
+*flat stage facts at the canonical list valuations*; this section
+derives those facts from the kernel-checked `_model.iota_j` pins:
+per stage, the frame annotation and the rule tower's instantiated
+binder domain are kernel-definitionally equal (`hdeLam`), so their
+interpretations agree — the wf packages on both sides come from
+sequential telescope walks over the value prefix. -/
+
+/-- The pointwise membership invariant carried through the tower
+stages: each chosen value inhabits its frame annotation's
+interpretation at the *prefix* canonical valuation. -/
+def FramePref (cval : ConstVal V) (env : Env) (φ : Name → Nat)
+    (spine : List Expr) (xs : List V) : Prop :=
+  ∀ (j : Nat) (v : V) (fv : Expr), xs[j]? = some v →
+    spine[j]? = some fv →
+    ∃ B, interpExpr V cval env φ j
+        (fun i => (xs.take j).getD i SetTheory.empty)
+        (Expr.fvarTypeD fv) = some B ∧ v ∈ˢ B
+
+/-- Everything `isDefEqCore_sound` wants of one side. -/
+def InterpPkg (cval : ConstVal V) (env : Env) (φ : Name → Nat)
+    (D : Nat) (ρ : Nat → V) (e : Expr) : Prop :=
+  WScoped D e ∧ e.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded e ∧
+  FvarsOk V cval env φ D ρ e ∧ AnnotOk V cval env φ D ρ e ∧
+  ∃ P, interpExpr V cval env φ D ρ e = some P
+
+/-- The stage-fact tail: a kernel definitional equality between two
+packaged sides at the padded master frame canonicalizes onto the stage
+frame — the annotation side's interpretation and truthfulness, and the
+(erased-)interpretation of the walk side, agree there. -/
+theorem stage_out {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat)
+    {ψ : Name → Nat} {a b : Expr} {k D : Nat} {xs : List V}
+    (hk : xs.length = k) (hkD : k ≤ D)
+    (hde : isDefEqCore env₀ F D a b = .ok true)
+    (hpa : InterpPkg m₀.val env₀ ψ D
+      (fun i => xs.getD i SetTheory.empty) a)
+    (hpb : InterpPkg m₀.val env₀ ψ D
+      (fun i => xs.getD i SetTheory.empty) b)
+    (hwa : WScoped k a) (hwb : WScoped k b) :
+    ∃ A, interpExpr V m₀.val env₀ ψ k
+        (fun i => xs.getD i SetTheory.empty) a = some A ∧
+      (∀ e, Expr.ErasedEq e b → interpExpr V m₀.val env₀ ψ k
+        (fun i => xs.getD i SetTheory.empty) e = some A) ∧
+      AnnotOk V m₀.val env₀ ψ k
+        (fun i => xs.getD i SetTheory.empty) a := by
+  obtain ⟨hWa, hba, hLa, hFa, hAa, Pa, hPa⟩ := hpa
+  obtain ⟨hWb, hbb, hLb, hFb, hAb, Pb, hPb⟩ := hpb
+  have hPab : Pa = Pb :=
+    isDefEqCore_sound m₀ F hde hWa hWb hba hbb hLa hLb hFa hFb hAa hAb
+      hPa hPb
+  subst hk
+  have htake : xs.take xs.length = xs := List.take_of_length_le
+    (Nat.le_refl _)
+  -- canonicalize the annotation side
+  have hcanA := interp_getD_canon (cval := m₀.val) (env := env₀)
+    (φ := ψ) (e := a) (xs := xs) hwa (Nat.le_refl _) hkD
+  rw [htake] at hcanA
+  have hcanB := interp_getD_canon (cval := m₀.val) (env := env₀)
+    (φ := ψ) (e := b) (xs := xs) hwb (Nat.le_refl _) hkD
+  rw [htake] at hcanB
+  refine ⟨Pa, by rw [← hcanA]; exact hPa, ?_, ?_⟩
+  · intro e hee
+    rw [interp_erasedEq hee, ← hcanB, hPb, hPab]
+  · have h := annotOk_getD_canon (cval := m₀.val) (env := env₀)
+      (φ := ψ) (e := a) (xs := xs) hwa (Nat.le_refl _) hkD hAa
+    rwa [htake] at h
+
+/-- The rule-tower side's stage package: walking the rule right-hand
+side's λ-tower along the frame prefix packages the current stage's
+instantiated binder domain at the padded master frame. -/
+theorem stage_pkg_lam {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat)
+    {ψ : Name → Nat} {D : Nat} {ρ : Nat → V}
+    {spine : List Expr} {rhsA lrest ld : Expr} {ldoms : List Expr}
+    (hlinst : Expr.instLamsAt spine rhsA = some (ldoms, lrest))
+    (hdeLam : DefEqListOk F env₀ D (spine.map Expr.fvarTypeD) ldoms)
+    {k : Nat} {vs : List V}
+    (hk : k < spine.length)
+    (hld : ldoms[k]? = some ld)
+    (hsp : FvarSpine D ρ (spine.take k) vs)
+    (hws : ∀ a ∈ spine.take k, WScoped D a)
+    (hΘ : ∀ a ∈ spine.take k, FvarsOk V m₀.val env₀ ψ D ρ a)
+    (hLs : ∀ a ∈ spine.take k, Expr.LeavesBounded a)
+    (hwsK : ∀ a ∈ spine.take k, WScoped k a)
+    (hrhsw : rhsA.hasFvar = false)
+    (hrhsb : rhsA.looseBVarsBounded 0 = true)
+    (hArhs : AnnotOk V m₀.val env₀ ψ 0 (rho0 V) rhsA)
+    (hIrhs : ∃ L, interpClosed V m₀.val env₀ ψ rhsA = some L) :
+    InterpPkg m₀.val env₀ ψ D ρ ld ∧ WScoped k ld := by
+  -- split the λ-walk at the prefix
+  have hlinst' : Expr.instLamsAt (spine.take k ++ spine.drop k) rhsA =
+      some (ldoms, lrest) := by
+    rw [List.take_append_drop]
+    exact hlinst
+  obtain ⟨lds₁, lamMid, lds₂, hopL1, hopL2, hldsSplit⟩ :=
+    instLamsAt_append (spine.take k) (spine.drop k) hlinst'
+  have hlds₁len : lds₁.length = k := by
+    rw [instLamsAt_length _ hopL1, List.length_take]
+    omega
+  have hlds₁ : lds₁ = ldoms.take k := by
+    have h := congrArg (List.take k) hldsSplit
+    rw [List.take_append_of_le_length (by omega)] at h
+    rw [List.take_of_length_le (l := lds₁) (by omega)] at h
+    exact h.symm
+  -- the prefix defeq facts
+  have hdeTk : DefEqListOk F env₀ D ((spine.take k).map Expr.fvarTypeD)
+      lds₁ := by
+    have h := DefEqListOk.take k hdeLam
+    rwa [← List.map_take, ← hlds₁] at h
+  -- the right-hand side's closed facts at the frame
+  have hWr : WScoped D rhsA := WScoped.of_not_hasFvar hrhsw
+  have hLr : Expr.LeavesBounded rhsA :=
+    Expr.LeavesBounded.of_not_hasFvar hrhsw
+  have hFr : FvarsOk V m₀.val env₀ ψ D ρ rhsA :=
+    FvarsOk.of_not_hasFvar hrhsw
+  have hAr : AnnotOk V m₀.val env₀ ψ D ρ rhsA :=
+    AnnotOk.closed_invariant hrhsw _ _ hArhs
+  obtain ⟨L0, hL0c⟩ := hIrhs
+  have hL0 : interpExpr V m₀.val env₀ ψ D ρ rhsA = some L0 := by
+    rw [interp_closed_invariant hrhsw _ _]
+    exact hL0c
+  -- walk the λ-tower along the prefix
+  have hfitLam := lam_walk m₀ F hopL1 hdeTk hsp hws hΘ hLs hWr hrhsb
+    hLr hFr hAr ⟨L0, hL0⟩
+  obtain ⟨Bmid, hBmid, -, -⟩ := TeleFitLam.fold hfitLam hAr hL0
+  obtain ⟨hWlm, hblm, hAlm, hllm⟩ := TeleFitLam.rest_wf hfitLam hWr
+    hrhsb hAr
+  have hFlm : FvarsOk V m₀.val env₀ ψ D ρ lamMid := by
+    intro l hl
+    rcases hllm l hl with hl' | ⟨a, ha, hla⟩
+    · rw [fvarLeaves_eq_nil_of_not_hasFvar hrhsw] at hl'
+      cases hl'
+    · exact hΘ a ha l hla
+  have hLlm : Expr.LeavesBounded lamMid := by
+    intro l hl
+    rcases hllm l hl with hl' | ⟨a, ha, hla⟩
+    · rw [fvarLeaves_eq_nil_of_not_hasFvar hrhsw] at hl'
+      cases hl'
+    · exact hLs a ha l hla
+  -- scoping at the stage frame
+  obtain ⟨-, hWlmK⟩ := instLamsAt_wscoped (D := k) (spine.take k)
+    hopL1 (WScoped.of_not_hasFvar hrhsw) hwsK
+  -- invert the head binder
+  have hdropC : spine.drop k = spine[k] :: spine.drop (k + 1) :=
+    List.drop_eq_getElem_cons hk
+  rw [hdropC] at hopL2
+  obtain ⟨nL, domL, bodyL, mL, lds₂', rfl, hlds₂c, -⟩ :=
+    instLamsAt_cons_inv hopL2
+  have hdomL : domL = ld := by
+    have h0 : ldoms[k]? = some domL := by
+      rw [hldsSplit, List.getElem?_append_right (by omega), hlds₁len,
+        Nat.sub_self, hlds₂c]
+      rfl
+    rw [hld] at h0
+    exact (Option.some.inj h0).symm
+  replace hdomL : ld = domL := hdomL.symm
+  subst hdomL
+  -- unpack the head binder's facts
+  have hAlm' := hAlm
+  simp only [AnnotOk] at hAlm'
+  obtain ⟨hAld, ⟨cod, hcod⟩, -⟩ := hAlm'
+  have hWld : WScoped D ld ∧ WScoped D bodyL := by
+    simpa [WScoped] using hWlm
+  have hbld : ld.looseBVarsBounded 0 = true ∧
+      bodyL.looseBVarsBounded 1 = true := by
+    revert hblm; simp [Expr.looseBVarsBounded]
+  have hLld : Expr.LeavesBounded ld := fun l hl =>
+    hLlm l (by
+      simp only [fvarLeaves, List.mem_append]; exact Or.inl hl)
+  have hFld : FvarsOk V m₀.val env₀ ψ D ρ ld :=
+    FvarsOk.of_subset (fun l hl => by
+      simp only [fvarLeaves, List.mem_append]; exact Or.inl hl) hFlm
+  have hIld : ∃ B, interpExpr V m₀.val env₀ ψ D ρ ld = some B := by
+    revert hBmid
+    simp only [interpExpr, hcod]
+    cases hB0 : interpExpr V m₀.val env₀ ψ D ρ ld with
+    | none => intro h; exact nomatch h
+    | some B => intro _; exact ⟨B, rfl⟩
+  have hWldK : WScoped k ld := by
+    have h := hWlmK
+    simp only [WScoped] at h
+    exact h.1
+  exact ⟨⟨hWld.1, hbld.1, hLld, hFld, hAld, hIld⟩, hWldK⟩
 
 end Setlec

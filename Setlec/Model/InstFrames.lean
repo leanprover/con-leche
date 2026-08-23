@@ -1316,6 +1316,30 @@ theorem instPisAt_wscoped {D : Nat} :
     · exact hrec.1 x hx
 
 omit [SetTheory V] in
+/-- λ-version of `instPisAt_wscoped`. -/
+theorem instLamsAt_wscoped {D : Nat} :
+    ∀ (args : List Expr) {e : Expr} {ds : List Expr} {rest : Expr},
+      Expr.instLamsAt args e = some (ds, rest) →
+      WScoped D e → (∀ a ∈ args, WScoped D a) →
+      (∀ dEl ∈ ds, WScoped D dEl) ∧ WScoped D rest
+  | [], e, ds, rest, h, hW, _ => by
+    simp only [Expr.instLamsAt, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨(fun x hx => nomatch hx), hW⟩
+  | a :: as, e, ds, rest, h, hW, hargs => by
+    obtain ⟨n, dom, body, m, ds', rfl, rfl, h0⟩ := instLamsAt_cons_inv h
+    have hW' : WScoped D dom ∧ WScoped D body := by
+      simpa [WScoped] using hW
+    have hrec := instLamsAt_wscoped as h0
+      (WScoped.instantiate1_gen (hargs a List.mem_cons_self) 0 hW'.2)
+      (fun x hx => hargs x (List.mem_cons_of_mem _ hx))
+    refine ⟨?_, hrec.2⟩
+    intro x hx
+    rcases List.mem_cons.mp hx with rfl | hx
+    · exact hW'.1
+    · exact hrec.1 x hx
+
+omit [SetTheory V] in
 /-- Well-formedness of the opened variables: scoping, closed
 annotations, bounded leaf annotations. -/
 theorem openPisAtFvars_wf :
