@@ -440,6 +440,95 @@ in isolation (init-prelude probe): 284.8 G → 272.2 G instructions
 property is correspondingly strengthened on gated slots and unchanged
 on the possibly-Prop residue.
 
+### Finding: the possibly-Prop infer residue is not removable (2026-08-23, task #73)
+
+Task #73 proposed dropping the residual checks at possibly-Prop-*codomain*
+slots too, restating the internal claims disjunctively per level
+assignment: either the strong membership fact, or φ collapses the
+subject's type-sort to `Prop` (the subject interprets to the proof
+point).  The collapse branch itself *is* nearly free — the
+interpretation is already annotation-directed to `pt`: `lam 0 A F =
+pt` (`lam_zero`), `app pt a = pt` (`app_pt`), members of `pi 0`/truth
+values/`univ 0`-members are `pt` (`mem_pi_zero`, `mem_univ_zero`), and
+`sfst pt = pt` — so app/proj/letE cases *propagate* a collapsed claim,
+and the app case could even dispatch semantically per φ (nonzero
+codomain-sort evaluation → domain determination exactly as the `#49`
+gate branch; zero evaluation with the argument's value in the domain,
+by classical case split → the strong fact via the `pi_zero`
+all-fibres-inhabited characterization).  The residue would survive
+only as the case "argument value off the Π's domain".
+
+**Why it cannot go**: the check is not only a membership check — it is
+the guard that keeps inference *outputs* (the instantiated codomains
+`body[a]`) inside the invariant-carrying fragment.  The strong branch
+of the infer claims delivers `AnnotOk t` and the interpretability of
+`t`; at an off-domain argument the output type is junk (its binder
+annotations need not be truthful, its interpretation is unrelated to
+any fibre), and there is no collapse-branch statement about `t` that
+is both provable at the emission site and usable by consumers.  Every
+consumer that runs checker chains *on inferred types* needs those
+type-side invariants as hypotheses of the mutual claims: the retained
+possibly-Prop **beta certificate** (its soundness identifies
+`⟦inferType a⟧` with the λ-domain via the defeq claims — impossible
+without the argument's strong branch), the **iota certificates**'
+telescope fit (`certs_fit`), the **λ-rule**'s body-type/annotation
+re-check chain, and `proofIrrel`'s sort-certification chain
+(`sortCert_pt`).
+
+**Countermodel** (falsifies `WhnfCoreClaims` as stated, before any
+restatement of the infer claims): in any modeled environment
+containing `True`, `False` and `g : False → False := fun h => h`,
+take the fabricated redex
+
+    (λ x : False. ∀ z : x, True)  (g True.intro)
+
+with codomain-sort annotations `0` throughout.  All claim hypotheses
+hold: it is closed, and `AnnotOk` is satisfiable — the λ-clause is
+vacuous over `⟦False⟧ = ∅`, and the app slots are the existential
+`vf ∈ pi 0 A B ∧ va ∈ A` clauses, satisfied with `vf = pt` (both
+`⟦g⟧` and `⟦λ…⟧` are Prop-λs, hence `pt`) at suitably chosen
+truth-value sets: at `Prop`, `pi`-membership does not determine the
+domain (impredicativity), so the slot cannot see that `True.intro` is
+fed to a `False`-expecting function.  Without the residue,
+`inferType (g True.intro)` succeeds with `False`, the beta
+certificate's `defeq (inferType a) ty` compares `False` with `False`
+and **passes**, and the redex reduces — but `⟦redex⟧ = app pt pt =
+pt` while `⟦∀ z : (g True.intro), True⟧ = pi 0 pt (λ_. ⟦True⟧) =
+truthVal True = unitSet ≠ pt`: the interp-equality conclusion is
+**false**.  With the residue, the same run positively rejects inside
+`inferType` (`defeq True False` fails), the certificate propagates
+the throw, and the claim is vacuous — exactly the pre-#73 status.
+The reduct re-enters *type*-land (a Π formed over a junk proof), which
+is why the pt-collapse intuition ("the collapsing φ trivializes the
+subject's claim") fails: Prop-collapse of the redex does not collapse
+the *reduct*, whose interpretation is a truth value, not the point.
+
+No claim-shape fix exists within the design: weakening the whnf/defeq
+claims to tolerate the drift cascades into the final membership
+transport of `checkDecl`, whose refutation of the drift branch would
+need the unformalized "reachable from annotate-checked input"
+invariant — i.e. subject-reduction metatheory (plus
+sort-substitution-stability of inference for the λ-rule consumer),
+exactly what the annotation design exists to avoid; and `AnnotOk`'s
+app slot cannot be strengthened to pin a Prop-function's domain, since
+at `Prop` values do not determine domains (the same impredicativity
+analysis as the beta certificate).  The official kernel checks nothing
+here because its internal terms are well-typed by subject reduction;
+setlec's residue is the annotation-design's price for skipping that
+metatheory, and is hereby established as *necessary*, not an
+oversight.
+
+**Measured bounty** (kernel-only A/B probe, committed and reverted on
+the task branch; `perf stat` instructions, best of 2; verdicts
+identical everywhere — arena 90/92, e2e 48/48, equal accepted-count on
+both probes, both modes): `repro-extract-proof11-pre` default
+184.7 G → 173.9 G (**−5.9 %**), `init-sizeof` default 193.4 G →
+164.2 G (**−15.1 %**); the NC mode is unchanged (135.9 G / 147.1 G —
+it already skips the site), so the numbers are also the current
+measure of this residue's engineering-quality tax.  Worth revisiting
+only together with genuine syntactic metatheory or a
+certified-redex/argument cache.
+
 ### The certified structural-Nat fast path (2026-08-21)
 
 `reduceNat` — sitting exactly where the official kernel's literal
