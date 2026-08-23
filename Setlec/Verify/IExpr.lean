@@ -1,5 +1,6 @@
 import Setlec.Kernel.IExpr
 import Setlec.Kernel.Core
+import Setlec.Verify.AbstractRange
 
 /-!
 # Verification of the interned expression arena
@@ -2373,6 +2374,393 @@ theorem abstract1IGo_spec {dd : Nat} :
             exact (hinv₁.mono hext₂ hwf₁).insert
               (Nat.lt_of_lt_of_le hesz hextAll.size_le)
               (cond_transport hextAll hwf hesz hcond)
+
+/-! ## `abstractRangeI` commutes with `denote` (task #72) -/
+
+theorem abstractRangeIGo_spec {dd kk : Nat} :
+    ∀ (e : EIdx) {st : EStore} {memo : MemoN} {k : Nat} {r : EIdx}
+      {st' : EStore} {memo' : MemoN},
+      st.WF →
+      MemoNInv st (fun x c => x.abstractRange dd kk c) memo →
+      abstractRangeIGo dd kk st memo e k = (r, st', memo') →
+      st'.WF ∧ Ext st st' ∧
+        MemoNInv st' (fun x c => x.abstractRange dd kk c) memo' ∧
+        ∀ x, st.denote e = some x → st'.denote r = some (x.abstractRange dd kk k) := by
+  intro e
+  induction e using Nat.strongRecOn with
+  | _ e ih =>
+    intro st memo k r st' memo' hwf hinv hgo
+    unfold abstractRangeIGo at hgo
+    split at hgo
+    · rename_i hhit
+      cases hgo
+      exact ⟨hwf, Ext.refl st, hinv, (hinv _ _ _ hhit).2⟩
+    · split at hgo
+      · rename_i hnone
+        cases hgo
+        refine ⟨hwf, Ext.refl st, hinv, ?_⟩
+        intro x hx
+        obtain ⟨n, hn, -, -⟩ := denote_some_inv hx
+        rw [hn] at hnone
+        cases hnone
+      · rename_i n hn
+        have hesz : e < st.nodes.size := (Array.getElem?_eq_some_iff.mp hn).1
+        have hcl := hwf.children_lt e n hn
+        have hde := denote_node hn hcl
+        cases n with
+        | bvar i =>
+          dsimp only at hgo
+          cases hgo
+          have hx : st.denote e = some (.bvar i) := by rw [hde]; rfl
+          have hcond : ∀ x, st.denote e = some x →
+              st.denote e = some (x.abstractRange dd kk k) := by
+            intro x hxx
+            rw [hx] at hxx; cases hxx
+            simpa [Expr.abstractRange] using hx
+          exact ⟨hwf, Ext.refl st, hinv.insert hesz hcond, hcond⟩
+        | fvar idx nm t =>
+          dsimp only at hgo
+          obtain ⟨xt, hxt⟩ := denote_total hwf t
+            (Nat.lt_trans (hcl t (by simp [ENode.children])) hesz)
+          have hx : st.denote e = some (.fvar idx nm xt) := by
+            rw [hde, denoteNode, hxt]; rfl
+          split at hgo
+          · -- dd ≤ idx < dd + kk: abstracted to the range's bvar
+            rename_i hid
+            rcases hI : st.intern (.bvar (k + (dd + kk - 1 - idx)))
+              with ⟨ri, sti⟩
+            rw [hI] at hgo
+            cases hgo
+            have hwfI : (st.intern (.bvar (k + (dd + kk - 1 - idx)))).2.WF :=
+              intern_wf hwf (by simp [ENode.children]) (by simp [ENode.levels])
+            have hextI : Ext st (st.intern (.bvar (k + (dd + kk - 1 - idx)))).2 :=
+              intern_ext _ _
+            have hdI := intern_denote (n := .bvar (k + (dd + kk - 1 - idx)))
+              hwf (by simp [ENode.children])
+            rw [hI] at hwfI hextI hdI
+            have hcond : ∀ x, st.denote e = some x →
+                sti.denote ri = some (x.abstractRange dd kk k) := by
+              intro x hxx
+              rw [hx] at hxx; cases hxx
+              rw [hdI]
+              simp [Expr.abstractRange, denoteNode, hid]
+            refine ⟨hwfI, hextI, ?_, hcond⟩
+            exact (hinv.mono hextI hwf).insert
+              (Nat.lt_of_lt_of_le hesz hextI.size_le)
+              (cond_transport hextI hwf hesz hcond)
+          · -- outside the range: unchanged
+            rename_i hid
+            cases hgo
+            have hcond : ∀ x, st.denote e = some x →
+                st.denote e = some (x.abstractRange dd kk k) := by
+              intro x hxx
+              rw [hx] at hxx; cases hxx
+              simpa [Expr.abstractRange, hid] using hx
+            exact ⟨hwf, Ext.refl st, hinv.insert hesz hcond, hcond⟩
+        | sort u =>
+          dsimp only at hgo
+          cases hgo
+          obtain ⟨lu, hlu⟩ := denoteL_total hwf u
+            (hwf.levels_lt e _ hn u (by simp [ENode.levels]))
+          have hx : st.denote e = some (.sort lu) := by
+            rw [hde, denoteNode, hlu]; rfl
+          have hcond : ∀ x, st.denote e = some x →
+              st.denote e = some (x.abstractRange dd kk k) := by
+            intro x hxx
+            rw [hx] at hxx; cases hxx
+            simpa [Expr.abstractRange] using hx
+          exact ⟨hwf, Ext.refl st, hinv.insert hesz hcond, hcond⟩
+        | const nm us =>
+          dsimp only at hgo
+          cases hgo
+          obtain ⟨lus, hlus⟩ := denoteLList_total hwf us
+            (fun u hu => hwf.levels_lt e _ hn u (by simp [ENode.levels, hu]))
+          have hx : st.denote e = some (.const nm lus) := by
+            rw [hde, denoteNode, hlus]; rfl
+          have hcond : ∀ x, st.denote e = some x →
+              st.denote e = some (x.abstractRange dd kk k) := by
+            intro x hxx
+            rw [hx] at hxx; cases hxx
+            simpa [Expr.abstractRange] using hx
+          exact ⟨hwf, Ext.refl st, hinv.insert hesz hcond, hcond⟩
+        | lit l =>
+          dsimp only at hgo
+          cases hgo
+          have hx : st.denote e = some (.lit l) := by rw [hde]; rfl
+          have hcond : ∀ x, st.denote e = some x →
+              st.denote e = some (x.abstractRange dd kk k) := by
+            intro x hxx
+            rw [hx] at hxx; cases hxx
+            simpa [Expr.abstractRange] using hx
+          exact ⟨hwf, Ext.refl st, hinv.insert hesz hcond, hcond⟩
+        | app f a =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd ⟨hcl f (by simp [ENode.children]),
+              hcl a (by simp [ENode.children])⟩ hguard
+          case isTrue hguard =>
+            rcases h₁ : abstractRangeIGo dd kk st memo f k with ⟨f', st₁, memo₁⟩
+            rw [h₁] at hgo
+            rcases h₂ : abstractRangeIGo dd kk st₁ memo₁ a k with ⟨a', st₂, memo₂⟩
+            rw [h₂] at hgo
+            rcases h₃ : st₂.intern (.app f' a') with ⟨ri, st₃⟩
+            rw [h₃] at hgo
+            cases hgo
+            obtain ⟨xf, hf⟩ := denote_total hwf f (Nat.lt_trans hguard.1 hesz)
+            obtain ⟨xa, ha⟩ := denote_total hwf a (Nat.lt_trans hguard.2 hesz)
+            have hx : st.denote e = some (.app xf xa) := by
+              rw [hde, denoteNode, hf, ha]; rfl
+            obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ := ih f hguard.1 hwf hinv h₁
+            obtain ⟨hwf₂, hext₂, hinv₂, hden₂⟩ := ih a hguard.2 hwf₁ hinv₁ h₂
+            have hf₂ : st₂.denote f' = some (xf.abstractRange dd kk k) :=
+              denote_mono hext₂ (hden₁ xf hf)
+            have ha₂ : st₂.denote a' = some (xa.abstractRange dd kk k) :=
+              hden₂ xa (denote_mono hext₁ ha)
+            have hcI : ∀ c ∈ (ENode.app f' a').children, c < st₂.nodes.size := by
+              simp only [ENode.children, List.mem_cons, List.not_mem_nil, or_false]
+              rintro c (rfl | rfl)
+              · exact denote_lt_size hf₂
+              · exact denote_lt_size ha₂
+            have hwf₃ : (st₂.intern (.app f' a')).2.WF := intern_wf hwf₂ hcI (by simp [ENode.levels])
+            have hext₃ : Ext st₂ (st₂.intern (.app f' a')).2 := intern_ext _ _
+            have hdI := intern_denote (n := .app f' a') hwf₂ hcI
+            rw [h₃] at hwf₃ hext₃ hdI
+            have hextAll : Ext st st₃ := hext₁.trans (hext₂.trans hext₃)
+            have hcond : ∀ x, st.denote e = some x →
+                st₃.denote ri = some (x.abstractRange dd kk k) := by
+              intro x hxx
+              rw [hx] at hxx; cases hxx
+              rw [hdI, denoteNode, hf₂, ha₂]
+              simp [Expr.abstractRange]
+            refine ⟨hwf₃, hextAll, ?_, hcond⟩
+            exact (hinv₂.mono hext₃ hwf₂).insert
+              (Nat.lt_of_lt_of_le hesz hextAll.size_le)
+              (cond_transport hextAll hwf hesz hcond)
+        | lam nm ty body m =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd ⟨hcl ty (by simp [ENode.children]),
+              hcl body (by simp [ENode.children])⟩ hguard
+          case isTrue hguard =>
+            rcases h₁ : abstractRangeIGo dd kk st memo ty k with ⟨ty', st₁, memo₁⟩
+            rw [h₁] at hgo
+            rcases h₂ : abstractRangeIGo dd kk st₁ memo₁ body (k + 1) with ⟨body', st₂, memo₂⟩
+            rw [h₂] at hgo
+            rcases h₃ : st₂.intern (.lam nm ty' body' m) with ⟨ri, st₃⟩
+            rw [h₃] at hgo
+            cases hgo
+            obtain ⟨xt, ht⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
+            obtain ⟨xb, hb⟩ := denote_total hwf body (Nat.lt_trans hguard.2 hesz)
+            obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
+              (fun u hu => hwf.levels_lt e _ hn u
+                (by simpa [ENode.levels] using hu))
+            have hx : st.denote e = some (.lam nm xt xb bm) := by
+              rw [hde, denoteNode, ht, hb, hbm]; rfl
+            obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ := ih ty hguard.1 hwf hinv h₁
+            obtain ⟨hwf₂, hext₂, hinv₂, hden₂⟩ := ih body hguard.2 hwf₁ hinv₁ h₂
+            have ht₂ : st₂.denote ty' = some (xt.abstractRange dd kk k) :=
+              denote_mono hext₂ (hden₁ xt ht)
+            have hb₂ : st₂.denote body' = some (xb.abstractRange dd kk (k + 1)) :=
+              hden₂ xb (denote_mono hext₁ hb)
+            have hcI : ∀ c ∈ (ENode.lam nm ty' body' m).children,
+                c < st₂.nodes.size := by
+              simp only [ENode.children, List.mem_cons, List.not_mem_nil, or_false]
+              rintro c (rfl | rfl)
+              · exact denote_lt_size ht₂
+              · exact denote_lt_size hb₂
+            have hlvI : ∀ u ∈ (ENode.lam nm ty' body' m).levels,
+                u < st₂.lnodes.size := fun u hu =>
+              Nat.lt_of_lt_of_le
+                (hwf.levels_lt e _ hn u (by simpa [ENode.levels] using hu))
+                (hext₁.trans hext₂).lsize_le
+            have hwf₃ : (st₂.intern (.lam nm ty' body' m)).2.WF :=
+              intern_wf hwf₂ hcI hlvI
+            have hext₃ : Ext st₂ (st₂.intern (.lam nm ty' body' m)).2 := intern_ext _ _
+            have hdI := intern_denote (n := .lam nm ty' body' m) hwf₂ hcI
+            rw [h₃] at hwf₃ hext₃ hdI
+            have hextAll : Ext st st₃ := hext₁.trans (hext₂.trans hext₃)
+            have hbm₂ : denoteBM st₂.denoteL m = some bm :=
+              denoteBM_mono (hext₁.trans hext₂) hbm
+            have hcond : ∀ x, st.denote e = some x →
+                st₃.denote ri = some (x.abstractRange dd kk k) := by
+              intro x hxx
+              rw [hx] at hxx; cases hxx
+              rw [hdI, denoteNode, ht₂, hb₂, hbm₂]
+              simp [Expr.abstractRange]
+            refine ⟨hwf₃, hextAll, ?_, hcond⟩
+            exact (hinv₂.mono hext₃ hwf₂).insert
+              (Nat.lt_of_lt_of_le hesz hextAll.size_le)
+              (cond_transport hextAll hwf hesz hcond)
+        | forallE nm ty body m =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd ⟨hcl ty (by simp [ENode.children]),
+              hcl body (by simp [ENode.children])⟩ hguard
+          case isTrue hguard =>
+            rcases h₁ : abstractRangeIGo dd kk st memo ty k with ⟨ty', st₁, memo₁⟩
+            rw [h₁] at hgo
+            rcases h₂ : abstractRangeIGo dd kk st₁ memo₁ body (k + 1) with ⟨body', st₂, memo₂⟩
+            rw [h₂] at hgo
+            rcases h₃ : st₂.intern (.forallE nm ty' body' m) with ⟨ri, st₃⟩
+            rw [h₃] at hgo
+            cases hgo
+            obtain ⟨xt, ht⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
+            obtain ⟨xb, hb⟩ := denote_total hwf body (Nat.lt_trans hguard.2 hesz)
+            obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
+              (fun u hu => hwf.levels_lt e _ hn u
+                (by simpa [ENode.levels] using hu))
+            have hx : st.denote e = some (.forallE nm xt xb bm) := by
+              rw [hde, denoteNode, ht, hb, hbm]; rfl
+            obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ := ih ty hguard.1 hwf hinv h₁
+            obtain ⟨hwf₂, hext₂, hinv₂, hden₂⟩ := ih body hguard.2 hwf₁ hinv₁ h₂
+            have ht₂ : st₂.denote ty' = some (xt.abstractRange dd kk k) :=
+              denote_mono hext₂ (hden₁ xt ht)
+            have hb₂ : st₂.denote body' = some (xb.abstractRange dd kk (k + 1)) :=
+              hden₂ xb (denote_mono hext₁ hb)
+            have hcI : ∀ c ∈ (ENode.forallE nm ty' body' m).children,
+                c < st₂.nodes.size := by
+              simp only [ENode.children, List.mem_cons, List.not_mem_nil, or_false]
+              rintro c (rfl | rfl)
+              · exact denote_lt_size ht₂
+              · exact denote_lt_size hb₂
+            have hlvI : ∀ u ∈ (ENode.forallE nm ty' body' m).levels,
+                u < st₂.lnodes.size := fun u hu =>
+              Nat.lt_of_lt_of_le
+                (hwf.levels_lt e _ hn u (by simpa [ENode.levels] using hu))
+                (hext₁.trans hext₂).lsize_le
+            have hwf₃ : (st₂.intern (.forallE nm ty' body' m)).2.WF :=
+              intern_wf hwf₂ hcI hlvI
+            have hext₃ : Ext st₂ (st₂.intern (.forallE nm ty' body' m)).2 :=
+              intern_ext _ _
+            have hdI := intern_denote (n := .forallE nm ty' body' m) hwf₂ hcI
+            rw [h₃] at hwf₃ hext₃ hdI
+            have hextAll : Ext st st₃ := hext₁.trans (hext₂.trans hext₃)
+            have hbm₂ : denoteBM st₂.denoteL m = some bm :=
+              denoteBM_mono (hext₁.trans hext₂) hbm
+            have hcond : ∀ x, st.denote e = some x →
+                st₃.denote ri = some (x.abstractRange dd kk k) := by
+              intro x hxx
+              rw [hx] at hxx; cases hxx
+              rw [hdI, denoteNode, ht₂, hb₂, hbm₂]
+              simp [Expr.abstractRange]
+            refine ⟨hwf₃, hextAll, ?_, hcond⟩
+            exact (hinv₂.mono hext₃ hwf₂).insert
+              (Nat.lt_of_lt_of_le hesz hextAll.size_le)
+              (cond_transport hextAll hwf hesz hcond)
+        | letE nm ty val body =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd ⟨hcl ty (by simp [ENode.children]),
+              hcl val (by simp [ENode.children]),
+              hcl body (by simp [ENode.children])⟩ hguard
+          case isTrue hguard =>
+            rcases h₁ : abstractRangeIGo dd kk st memo ty k with ⟨ty', st₁, memo₁⟩
+            rw [h₁] at hgo
+            rcases h₂ : abstractRangeIGo dd kk st₁ memo₁ val k with ⟨val', st₂, memo₂⟩
+            rw [h₂] at hgo
+            rcases h₃ : abstractRangeIGo dd kk st₂ memo₂ body (k + 1) with ⟨body', st₃, memo₃⟩
+            rw [h₃] at hgo
+            rcases h₄ : st₃.intern (.letE nm ty' val' body') with ⟨ri, st₄⟩
+            rw [h₄] at hgo
+            cases hgo
+            obtain ⟨xt, ht⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
+            obtain ⟨xv, hvv⟩ := denote_total hwf val (Nat.lt_trans hguard.2.1 hesz)
+            obtain ⟨xb, hb⟩ := denote_total hwf body (Nat.lt_trans hguard.2.2 hesz)
+            have hx : st.denote e = some (.letE nm xt xv xb) := by
+              rw [hde, denoteNode, ht, hvv, hb]; rfl
+            obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ := ih ty hguard.1 hwf hinv h₁
+            obtain ⟨hwf₂, hext₂, hinv₂, hden₂⟩ :=
+              ih val hguard.2.1 hwf₁ hinv₁ h₂
+            obtain ⟨hwf₃, hext₃, hinv₃, hden₃⟩ :=
+              ih body hguard.2.2 hwf₂ hinv₂ h₃
+            have ht₃ : st₃.denote ty' = some (xt.abstractRange dd kk k) :=
+              denote_mono hext₃ (denote_mono hext₂ (hden₁ xt ht))
+            have hvv₃ : st₃.denote val' = some (xv.abstractRange dd kk k) :=
+              denote_mono hext₃ (hden₂ xv (denote_mono hext₁ hvv))
+            have hb₃ : st₃.denote body' = some (xb.abstractRange dd kk (k + 1)) :=
+              hden₃ xb (denote_mono hext₂ (denote_mono hext₁ hb))
+            have hcI : ∀ c ∈ (ENode.letE nm ty' val' body').children,
+                c < st₃.nodes.size := by
+              simp only [ENode.children, List.mem_cons, List.not_mem_nil, or_false]
+              rintro c (rfl | rfl | rfl)
+              · exact denote_lt_size ht₃
+              · exact denote_lt_size hvv₃
+              · exact denote_lt_size hb₃
+            have hwf₄ : (st₃.intern (.letE nm ty' val' body')).2.WF :=
+              intern_wf hwf₃ hcI (by simp [ENode.levels])
+            have hext₄ : Ext st₃ (st₃.intern (.letE nm ty' val' body')).2 :=
+              intern_ext _ _
+            have hdI := intern_denote (n := .letE nm ty' val' body') hwf₃ hcI
+            rw [h₄] at hwf₄ hext₄ hdI
+            have hextAll : Ext st st₄ :=
+              hext₁.trans (hext₂.trans (hext₃.trans hext₄))
+            have hcond : ∀ x, st.denote e = some x →
+                st₄.denote ri = some (x.abstractRange dd kk k) := by
+              intro x hxx
+              rw [hx] at hxx; cases hxx
+              rw [hdI, denoteNode, ht₃, hvv₃, hb₃]
+              simp [Expr.abstractRange]
+            refine ⟨hwf₄, hextAll, ?_, hcond⟩
+            exact (hinv₃.mono hext₄ hwf₃).insert
+              (Nat.lt_of_lt_of_le hesz hextAll.size_le)
+              (cond_transport hextAll hwf hesz hcond)
+        | proj s j sub =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd (hcl sub (by simp [ENode.children])) hguard
+          case isTrue hguard =>
+            rcases h₁ : abstractRangeIGo dd kk st memo sub k with ⟨sub', st₁, memo₁⟩
+            rw [h₁] at hgo
+            rcases h₂ : st₁.intern (.proj s j sub') with ⟨ri, st₂⟩
+            rw [h₂] at hgo
+            cases hgo
+            obtain ⟨xs, hs⟩ := denote_total hwf sub (Nat.lt_trans hguard hesz)
+            have hx : st.denote e = some (.proj s j xs) := by
+              rw [hde, denoteNode, hs]; rfl
+            obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ := ih sub hguard hwf hinv h₁
+            have hs₁ : st₁.denote sub' = some (xs.abstractRange dd kk k) := hden₁ xs hs
+            have hcI : ∀ c ∈ (ENode.proj s j sub').children,
+                c < st₁.nodes.size := by
+              simpa [ENode.children] using denote_lt_size hs₁
+            have hwf₂ : (st₁.intern (.proj s j sub')).2.WF := intern_wf hwf₁ hcI (by simp [ENode.levels])
+            have hext₂ : Ext st₁ (st₁.intern (.proj s j sub')).2 := intern_ext _ _
+            have hdI := intern_denote (n := .proj s j sub') hwf₁ hcI
+            rw [h₂] at hwf₂ hext₂ hdI
+            have hextAll : Ext st st₂ := hext₁.trans hext₂
+            have hcond : ∀ x, st.denote e = some x →
+                st₂.denote ri = some (x.abstractRange dd kk k) := by
+              intro x hxx
+              rw [hx] at hxx; cases hxx
+              rw [hdI, denoteNode, hs₁]
+              simp [Expr.abstractRange]
+            refine ⟨hwf₂, hextAll, ?_, hcond⟩
+            exact (hinv₁.mono hext₂ hwf₁).insert
+              (Nat.lt_of_lt_of_le hesz hextAll.size_le)
+              (cond_transport hextAll hwf hesz hcond)
+
+/-- `abstractRangeI` commutes with `denote`.  The `k = 0` shortcut is
+covered by `abstractRange_zero`. -/
+theorem abstractRangeI_spec {st : EStore} {e : EIdx} {d k c : Nat} {a : Expr}
+    (hwf : st.WF) (he : st.denote e = some a) :
+    (st.abstractRangeI e d k c).2.WF ∧ Ext st (st.abstractRangeI e d k c).2 ∧
+      (st.abstractRangeI e d k c).2.denote (st.abstractRangeI e d k c).1
+        = some (a.abstractRange d k c) := by
+  match k with
+  | 0 =>
+    refine ⟨hwf, Ext.refl st, ?_⟩
+    rw [abstractRange_zero]
+    exact he
+  | k + 1 =>
+    rcases hgo : abstractRangeIGo d (k + 1) st {} e c with ⟨r, st', memo'⟩
+    obtain ⟨hwf', hext', -, hcond⟩ :=
+      abstractRangeIGo_spec e hwf MemoNInv.empty hgo
+    simp only [abstractRangeI, hgo]
+    exact ⟨hwf', hext', hcond a he⟩
 
 /-- `abstract1I` commutes with `denote`. -/
 theorem abstract1I_spec {st : EStore} {e : EIdx} {d k : Nat} {a : Expr}
@@ -5021,6 +5409,580 @@ theorem fvarLeavesI_spec {st : EStore} {e : EIdx} {a : Expr}
   simp only [fvarLeavesI, hgo]
   exact hcond a he
 
+
+/-! ## The loose-bvar-bound cache (task #72) -/
+
+/-- `looseBVarsBounded` is monotone in the bound. -/
+theorem lbbMono : ∀ {e : Expr} {k k' : Nat}, k ≤ k' →
+    e.looseBVarsBounded k = true → e.looseBVarsBounded k' = true := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k k' hle hb
+    simp only [Expr.looseBVarsBounded, decide_eq_true_eq] at hb ⊢
+    omega
+  | fvar idx n ty ih => intro k k' hle hb; exact hb
+  | sort u => intro k k' hle hb; exact hb
+  | const n us => intro k k' hle hb; exact hb
+  | lit l => intro k k' hle hb; exact hb
+  | app f a ihf iha =>
+    intro k k' hle hb
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb ⊢
+    exact ⟨ihf hle hb.1, iha hle hb.2⟩
+  | lam n ty body m iht ihb =>
+    intro k k' hle hb
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb ⊢
+    exact ⟨iht hle hb.1, ihb (Nat.succ_le_succ hle) hb.2⟩
+  | forallE n ty body m iht ihb =>
+    intro k k' hle hb
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb ⊢
+    exact ⟨iht hle hb.1, ihb (Nat.succ_le_succ hle) hb.2⟩
+  | letE n ty val body iht ihv ihb =>
+    intro k k' hle hb
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb ⊢
+    exact ⟨⟨iht hle hb.1.1, ihv hle hb.1.2⟩, ihb (Nat.succ_le_succ hle) hb.2⟩
+  | proj s j e ihe =>
+    intro k k' hle hb
+    exact ihe hle hb
+
+/-- Memo invariant of the persistent loose-bvar-bound cache: every
+cached bound is sound for its node's denotation. -/
+def BoundMemoInv (st : EStore) (memo : Std.HashMap EIdx Nat) : Prop :=
+  ∀ e b, memo[e]? = some b → e < st.nodes.size ∧
+    ∀ x, st.denote e = some x → x.looseBVarsBounded b = true
+
+theorem BoundMemoInv.empty {st : EStore} : BoundMemoInv st {} := by
+  intro e b h
+  simp at h
+
+theorem BoundMemoInv.mono {st st' : EStore} {memo : Std.HashMap EIdx Nat}
+    (hext : Ext st st') (hwf : st.WF) (h : BoundMemoInv st memo) :
+    BoundMemoInv st' memo := by
+  intro e b hb
+  obtain ⟨hlt, hcond⟩ := h e b hb
+  refine ⟨Nat.lt_of_lt_of_le hlt hext.size_le, ?_⟩
+  intro x hx
+  rw [hext.denote_eq_of_lt hwf hlt] at hx
+  exact hcond x hx
+
+theorem BoundMemoInv.insert {st : EStore} {memo : Std.HashMap EIdx Nat}
+    {e : EIdx} {b : Nat} (h : BoundMemoInv st memo)
+    (hlt : e < st.nodes.size)
+    (hcond : ∀ x, st.denote e = some x → x.looseBVarsBounded b = true) :
+    BoundMemoInv st (memo.insert e b) := by
+  intro e' b' hb'
+  rw [Std.HashMap.getElem?_insert] at hb'
+  by_cases hk : e = e'
+  · subst hk
+    rw [if_pos (by simp)] at hb'
+    cases hb'
+    exact ⟨hlt, hcond⟩
+  · rw [if_neg (by simpa using hk)] at hb'
+    exact h e' b' hb'
+
+/-- The bound walk is sound: the result bounds the loose bvars of the
+node's denotation, and the memo invariant is preserved. -/
+theorem bvarBoundIGo_spec :
+    ∀ (e : EIdx) {st : EStore} {memo : Std.HashMap EIdx Nat}
+      {b : Nat} {memo' : Std.HashMap EIdx Nat},
+      st.WF → BoundMemoInv st memo →
+      bvarBoundIGo st memo e = (b, memo') →
+      BoundMemoInv st memo' ∧
+        ∀ x, st.denote e = some x → x.looseBVarsBounded b = true := by
+  intro e
+  induction e using Nat.strongRecOn with
+  | _ e ih =>
+    intro st memo b memo' hwf hinv hgo
+    unfold bvarBoundIGo at hgo
+    split at hgo
+    · rename_i hhit
+      cases hgo
+      exact ⟨hinv, (hinv _ _ hhit).2⟩
+    · split at hgo
+      · rename_i hnone
+        cases hgo
+        refine ⟨hinv, ?_⟩
+        intro x hx
+        obtain ⟨n, hn, -, -⟩ := denote_some_inv hx
+        rw [hn] at hnone
+        cases hnone
+      · rename_i n hn
+        have hesz : e < st.nodes.size := (Array.getElem?_eq_some_iff.mp hn).1
+        have hcl := hwf.children_lt e n hn
+        have hde := denote_node hn hcl
+        cases n with
+        | bvar i =>
+          dsimp only at hgo
+          cases hgo
+          have hcond : ∀ x, st.denote e = some x →
+              x.looseBVarsBounded (i + 1) = true := by
+            intro x hx
+            rw [hde] at hx
+            cases hx
+            simp [Expr.looseBVarsBounded]
+          exact ⟨hinv.insert hesz hcond, hcond⟩
+        | fvar idx nm t =>
+          dsimp only at hgo
+          cases hgo
+          obtain ⟨xt, hxt⟩ := denote_total hwf t
+            (Nat.lt_trans (hcl t (by simp [ENode.children])) hesz)
+          have hcond : ∀ x, st.denote e = some x →
+              x.looseBVarsBounded 0 = true := by
+            intro x hx
+            rw [hde, denoteNode, hxt] at hx
+            cases hx
+            simp [Expr.looseBVarsBounded]
+          exact ⟨hinv.insert hesz hcond, hcond⟩
+        | sort u =>
+          dsimp only at hgo
+          cases hgo
+          obtain ⟨lu, hlu⟩ := denoteL_total hwf u
+            (hwf.levels_lt e _ hn u (by simp [ENode.levels]))
+          have hcond : ∀ x, st.denote e = some x →
+              x.looseBVarsBounded 0 = true := by
+            intro x hx
+            rw [hde, denoteNode, hlu] at hx
+            cases hx
+            simp [Expr.looseBVarsBounded]
+          exact ⟨hinv.insert hesz hcond, hcond⟩
+        | const nm us =>
+          dsimp only at hgo
+          cases hgo
+          obtain ⟨lus, hlus⟩ := denoteLList_total hwf us
+            (fun u hu => hwf.levels_lt e _ hn u (by simp [ENode.levels, hu]))
+          have hcond : ∀ x, st.denote e = some x →
+              x.looseBVarsBounded 0 = true := by
+            intro x hx
+            rw [hde, denoteNode, hlus] at hx
+            cases hx
+            simp [Expr.looseBVarsBounded]
+          exact ⟨hinv.insert hesz hcond, hcond⟩
+        | lit l =>
+          dsimp only at hgo
+          cases hgo
+          have hcond : ∀ x, st.denote e = some x →
+              x.looseBVarsBounded 0 = true := by
+            intro x hx
+            rw [hde] at hx
+            cases hx
+            simp [Expr.looseBVarsBounded]
+          exact ⟨hinv.insert hesz hcond, hcond⟩
+        | app f a =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd ⟨hcl f (by simp [ENode.children]),
+              hcl a (by simp [ENode.children])⟩ hguard
+          case isTrue hguard =>
+            rcases h₁ : bvarBoundIGo st memo f with ⟨bf, memo₁⟩
+            rw [h₁] at hgo
+            rcases h₂ : bvarBoundIGo st memo₁ a with ⟨ba, memo₂⟩
+            rw [h₂] at hgo
+            cases hgo
+            obtain ⟨hinv₁, hf⟩ := ih f hguard.1 hwf hinv h₁
+            obtain ⟨hinv₂, ha⟩ := ih a hguard.2 hwf hinv₁ h₂
+            obtain ⟨xf, hxf⟩ := denote_total hwf f (Nat.lt_trans hguard.1 hesz)
+            obtain ⟨xa, hxa⟩ := denote_total hwf a (Nat.lt_trans hguard.2 hesz)
+            have hcond : ∀ x, st.denote e = some x →
+                x.looseBVarsBounded (max bf ba) = true := by
+              intro x hx
+              rw [hde, denoteNode, hxf, hxa] at hx
+              cases hx
+              simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
+              exact ⟨lbbMono (Nat.le_max_left _ _) (hf xf hxf),
+                lbbMono (Nat.le_max_right _ _) (ha xa hxa)⟩
+            exact ⟨hinv₂.insert hesz hcond, hcond⟩
+        | lam nm ty body m =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd ⟨hcl ty (by simp [ENode.children]),
+              hcl body (by simp [ENode.children])⟩ hguard
+          case isTrue hguard =>
+            rcases h₁ : bvarBoundIGo st memo ty with ⟨bt, memo₁⟩
+            rw [h₁] at hgo
+            rcases h₂ : bvarBoundIGo st memo₁ body with ⟨bb, memo₂⟩
+            rw [h₂] at hgo
+            cases hgo
+            obtain ⟨hinv₁, ht⟩ := ih ty hguard.1 hwf hinv h₁
+            obtain ⟨hinv₂, hb⟩ := ih body hguard.2 hwf hinv₁ h₂
+            obtain ⟨xt, hxt⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
+            obtain ⟨xb, hxb⟩ := denote_total hwf body (Nat.lt_trans hguard.2 hesz)
+            obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
+              (fun u hu => hwf.levels_lt e _ hn u
+                (by simpa [ENode.levels] using hu))
+            have hcond : ∀ x, st.denote e = some x →
+                x.looseBVarsBounded (max bt (bb - 1)) = true := by
+              intro x hx
+              rw [hde, denoteNode, hxt, hxb, hbm] at hx
+              cases hx
+              simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
+              exact ⟨lbbMono (Nat.le_max_left _ _) (ht xt hxt),
+                lbbMono (by omega) (hb xb hxb)⟩
+            exact ⟨hinv₂.insert hesz hcond, hcond⟩
+        | forallE nm ty body m =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd ⟨hcl ty (by simp [ENode.children]),
+              hcl body (by simp [ENode.children])⟩ hguard
+          case isTrue hguard =>
+            rcases h₁ : bvarBoundIGo st memo ty with ⟨bt, memo₁⟩
+            rw [h₁] at hgo
+            rcases h₂ : bvarBoundIGo st memo₁ body with ⟨bb, memo₂⟩
+            rw [h₂] at hgo
+            cases hgo
+            obtain ⟨hinv₁, ht⟩ := ih ty hguard.1 hwf hinv h₁
+            obtain ⟨hinv₂, hb⟩ := ih body hguard.2 hwf hinv₁ h₂
+            obtain ⟨xt, hxt⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
+            obtain ⟨xb, hxb⟩ := denote_total hwf body (Nat.lt_trans hguard.2 hesz)
+            obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
+              (fun u hu => hwf.levels_lt e _ hn u
+                (by simpa [ENode.levels] using hu))
+            have hcond : ∀ x, st.denote e = some x →
+                x.looseBVarsBounded (max bt (bb - 1)) = true := by
+              intro x hx
+              rw [hde, denoteNode, hxt, hxb, hbm] at hx
+              cases hx
+              simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
+              exact ⟨lbbMono (Nat.le_max_left _ _) (ht xt hxt),
+                lbbMono (by omega) (hb xb hxb)⟩
+            exact ⟨hinv₂.insert hesz hcond, hcond⟩
+        | letE nm ty val body =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd ⟨hcl ty (by simp [ENode.children]),
+              hcl val (by simp [ENode.children]),
+              hcl body (by simp [ENode.children])⟩ hguard
+          case isTrue hguard =>
+            rcases h₁ : bvarBoundIGo st memo ty with ⟨bt, memo₁⟩
+            rw [h₁] at hgo
+            rcases h₂ : bvarBoundIGo st memo₁ val with ⟨bv, memo₂⟩
+            rw [h₂] at hgo
+            rcases h₃ : bvarBoundIGo st memo₂ body with ⟨bb, memo₃⟩
+            rw [h₃] at hgo
+            cases hgo
+            obtain ⟨hinv₁, ht⟩ := ih ty hguard.1 hwf hinv h₁
+            obtain ⟨hinv₂, hv⟩ := ih val hguard.2.1 hwf hinv₁ h₂
+            obtain ⟨hinv₃, hb⟩ := ih body hguard.2.2 hwf hinv₂ h₃
+            obtain ⟨xt, hxt⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
+            obtain ⟨xv, hxv⟩ := denote_total hwf val
+              (Nat.lt_trans hguard.2.1 hesz)
+            obtain ⟨xb, hxb⟩ := denote_total hwf body
+              (Nat.lt_trans hguard.2.2 hesz)
+            have hcond : ∀ x, st.denote e = some x →
+                x.looseBVarsBounded (max (max bt bv) (bb - 1)) = true := by
+              intro x hx
+              rw [hde, denoteNode, hxt, hxv, hxb] at hx
+              cases hx
+              simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
+              refine ⟨⟨lbbMono (by omega) (ht xt hxt),
+                lbbMono (by omega) (hv xv hxv)⟩, ?_⟩
+              exact lbbMono (by omega) (hb xb hxb)
+            exact ⟨hinv₃.insert hesz hcond, hcond⟩
+        | proj sp j sub =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd (hcl sub (by simp [ENode.children])) hguard
+          case isTrue hguard =>
+            rcases h₁ : bvarBoundIGo st memo sub with ⟨bs, memo₁⟩
+            rw [h₁] at hgo
+            cases hgo
+            obtain ⟨hinv₁, hs⟩ := ih sub hguard hwf hinv h₁
+            obtain ⟨xs, hxs⟩ := denote_total hwf sub (Nat.lt_trans hguard hesz)
+            have hcond : ∀ x, st.denote e = some x →
+                x.looseBVarsBounded bs = true := by
+              intro x hx
+              rw [hde, denoteNode, hxs] at hx
+              cases hx
+              simpa [Expr.looseBVarsBounded] using hs xs hxs
+            exact ⟨hinv₁.insert hesz hcond, hcond⟩
+
+/-! ## `internExprFast` equals `internExpr` (task #72) -/
+
+/-- Re-interning an already-stored level is a pure lookup: the same
+index, the same store — the codomain-chain fast path's justification. -/
+theorem internLevel_of_denoteL {st : EStore} (hwf : st.WF) :
+    ∀ {l : Level} {i : LIdx}, st.denoteL i = some l →
+      st.internLevel l = (i, st) := by
+  intro l
+  induction l with
+  | zero =>
+    intro i h
+    obtain ⟨n, hn, -, hd⟩ := denoteL_some_inv h
+    obtain rfl := denoteLNode_zero_inv hd
+    show st.internL .zero = (i, st)
+    rw [internL_eq, (hwf.lcons_graph _ i).mpr hn]
+  | param p =>
+    intro i h
+    obtain ⟨n, hn, -, hd⟩ := denoteL_some_inv h
+    obtain rfl := denoteLNode_param_inv hd
+    show st.internL (.param p) = (i, st)
+    rw [internL_eq, (hwf.lcons_graph _ i).mpr hn]
+  | succ u ihu =>
+    intro i h
+    obtain ⟨n, hn, -, hd⟩ := denoteL_some_inv h
+    obtain ⟨ui, rfl, hdu⟩ := denoteLNode_succ_inv hd
+    show (st.internLevel u).2.internL (.succ (st.internLevel u).1) = (i, st)
+    rw [ihu hdu]
+    rw [internL_eq, (hwf.lcons_graph _ i).mpr hn]
+  | max u v ihu ihv =>
+    intro i h
+    obtain ⟨n, hn, -, hd⟩ := denoteL_some_inv h
+    obtain ⟨ui, vi, rfl, hdu, hdv⟩ := denoteLNode_max_inv hd
+    show ((st.internLevel u).2.internLevel v).2.internL
+      (.max (st.internLevel u).1 ((st.internLevel u).2.internLevel v).1)
+      = (i, st)
+    rw [ihu hdu, ihv hdv]
+    rw [internL_eq, (hwf.lcons_graph _ i).mpr hn]
+  | imax u v ihu ihv =>
+    intro i h
+    obtain ⟨n, hn, -, hd⟩ := denoteL_some_inv h
+    obtain ⟨ui, vi, rfl, hdu, hdv⟩ := denoteLNode_imax_inv hd
+    show ((st.internLevel u).2.internLevel v).2.internL
+      (.imax (st.internLevel u).1 ((st.internLevel u).2.internLevel v).1)
+      = (i, st)
+    rw [ihu hdu, ihv hdv]
+    rw [internL_eq, (hwf.lcons_graph _ i).mpr hn]
+
+/-- With a valid child-codomain fact, `internBMFast` is `internBM`. -/
+theorem internBMFast_eq {st : EStore} (hwf : st.WF) {m : BinderMeta}
+    {child : Option (Level × LIdx)}
+    (hchild : ∀ v i, child = some (v, i) → st.denoteL i = some v) :
+    st.internBMFast m child = st.internBM m := by
+  obtain ⟨bi, (_ | v)⟩ := m
+  · cases child with
+    | none => rfl
+    | some p => rfl
+  · match child with
+    | none => rfl
+    | some (vc, ic) =>
+      have hden : st.denoteL ic = some vc := hchild vc ic rfl
+      cases v with
+      | zero => rfl
+      | succ u => rfl
+      | max u v => rfl
+      | param p => rfl
+      | imax u vtail =>
+        show (if levelPtrBEq vtail vc then _ else _) = _
+        by_cases hb : levelPtrBEq vtail vc = true
+        · have hvv : vtail = vc := by
+            have hbeq : (vtail == vc) = true := hb
+            exact eq_of_beq hbeq
+          subst hvv
+          rw [if_pos hb]
+          show ((⟨bi, some ((st.internLevel u).2.internL
+              (.imax (st.internLevel u).1 ic)).1⟩ : IBinderMeta),
+            ((st.internLevel u).2.internL
+              (.imax (st.internLevel u).1 ic)).2)
+            = st.internBM ⟨bi, some (.imax u vtail)⟩
+          obtain ⟨hwf₁, hext₁, -⟩ := internLevel_spec hwf u
+          have hstep : (st.internLevel u).2.internLevel vtail
+              = (ic, (st.internLevel u).2) :=
+            internLevel_of_denoteL hwf₁ (denoteL_mono hext₁ hden)
+          show _ = ((⟨bi, some (st.internLevel (.imax u vtail)).1⟩ :
+              IBinderMeta), (st.internLevel (.imax u vtail)).2)
+          have hlvl : st.internLevel (.imax u vtail)
+              = (st.internLevel u).2.internL
+                (.imax (st.internLevel u).1 ic) := by
+            show ((st.internLevel u).2.internLevel vtail).2.internL
+                (.imax (st.internLevel u).1
+                  ((st.internLevel u).2.internLevel vtail).1)
+              = _
+            rw [hstep]
+          rw [hlvl]
+        · rw [if_neg hb]
+          rfl
+
+/-- The codomain slot of `internBM` on an annotated meta. -/
+theorem internBM_cod {st : EStore} (hwf : st.WF) {bi : BinderInfo}
+    {v : Level} :
+    (st.internBM ⟨bi, some v⟩).1
+        = ⟨bi, some (st.internLevel v).1⟩ ∧
+      (st.internBM ⟨bi, some v⟩).2 = (st.internLevel v).2 ∧
+      (st.internBM ⟨bi, some v⟩).2.denoteL (st.internLevel v).1
+        = some v := by
+  obtain ⟨-, -, hden⟩ := internLevel_spec hwf v
+  exact ⟨rfl, rfl, hden⟩
+
+/-- The fast-path traversal computes exactly `internExpr`, and a
+returned codomain fact is valid in the result store. -/
+theorem internExprFastGo_eq :
+    ∀ (x : Expr) {st : EStore}, st.WF →
+      (st.internExprFastGo x).1 = st.internExpr x ∧
+      (∀ v i, (st.internExprFastGo x).2 = some (v, i) →
+        (st.internExpr x).2.denoteL i = some v) := by
+  intro x
+  induction x with
+  | bvar i =>
+    intro st hwf
+    exact ⟨rfl, fun v i h => nomatch h⟩
+  | sort u =>
+    intro st hwf
+    exact ⟨rfl, fun v i h => nomatch h⟩
+  | const n us =>
+    intro st hwf
+    exact ⟨rfl, fun v i h => nomatch h⟩
+  | lit l =>
+    intro st hwf
+    exact ⟨rfl, fun v i h => nomatch h⟩
+  | fvar idx n ty ih =>
+    intro st hwf
+    have h1 : (st.internExprFastGo ty).1 = st.internExpr ty := (ih hwf).1
+    constructor
+    · show ((st.internExprFastGo ty).1.2.intern
+          (.fvar idx n (st.internExprFastGo ty).1.1)) = _
+      rw [h1]
+      rfl
+    · intro v i h
+      exact nomatch h
+  | app f a ihf iha =>
+    intro st hwf
+    have h1 : (st.internExprFastGo f).1 = st.internExpr f := (ihf hwf).1
+    have hwf₁ : (st.internExpr f).2.WF := (internExpr_spec hwf f).1
+    have h2 : ((st.internExpr f).2.internExprFastGo a).1
+        = (st.internExpr f).2.internExpr a := (iha hwf₁).1
+    constructor
+    · show (((st.internExprFastGo f).1.2.internExprFastGo a).1.2.intern
+          (.app (st.internExprFastGo f).1.1
+            ((st.internExprFastGo f).1.2.internExprFastGo a).1.1)) = _
+      rw [h1, h2]
+      rfl
+    · intro v i h
+      exact nomatch h
+  | proj s j e ihe =>
+    intro st hwf
+    have h1 : (st.internExprFastGo e).1 = st.internExpr e := (ihe hwf).1
+    constructor
+    · show ((st.internExprFastGo e).1.2.intern
+          (.proj s j (st.internExprFastGo e).1.1)) = _
+      rw [h1]
+      rfl
+    · intro v i h
+      exact nomatch h
+  | letE n ty val body iht ihv ihb =>
+    intro st hwf
+    have h1 : (st.internExprFastGo ty).1 = st.internExpr ty := (iht hwf).1
+    have hwf₁ : (st.internExpr ty).2.WF := (internExpr_spec hwf ty).1
+    have h2 : ((st.internExpr ty).2.internExprFastGo val).1
+        = (st.internExpr ty).2.internExpr val := (ihv hwf₁).1
+    have hwf₂ : ((st.internExpr ty).2.internExpr val).2.WF :=
+      (internExpr_spec hwf₁ val).1
+    have h3 : (((st.internExpr ty).2.internExpr val).2.internExprFastGo
+          body).1
+        = ((st.internExpr ty).2.internExpr val).2.internExpr body :=
+      (ihb hwf₂).1
+    constructor
+    · show ((((st.internExprFastGo ty).1.2.internExprFastGo
+          val).1.2.internExprFastGo body).1.2.intern
+          (.letE n (st.internExprFastGo ty).1.1
+            ((st.internExprFastGo ty).1.2.internExprFastGo val).1.1
+            (((st.internExprFastGo ty).1.2.internExprFastGo
+              val).1.2.internExprFastGo body).1.1)) = _
+      rw [h1, h2, h3]
+      rfl
+    · intro v i h
+      exact nomatch h
+  | lam n ty body m iht ihb =>
+    intro st hwf
+    have h1 : (st.internExprFastGo ty).1 = st.internExpr ty := (iht hwf).1
+    have hwf₁ : (st.internExpr ty).2.WF := (internExpr_spec hwf ty).1
+    obtain ⟨h2, hchild⟩ := ihb (st := (st.internExpr ty).2) hwf₁
+    have hwf₂ : ((st.internExpr ty).2.internExpr body).2.WF :=
+      (internExpr_spec hwf₁ body).1
+    have hbm : ((st.internExpr ty).2.internExpr body).2.internBMFast m
+          ((st.internExpr ty).2.internExprFastGo body).2
+        = ((st.internExpr ty).2.internExpr body).2.internBM m := by
+      refine internBMFast_eq hwf₂ ?_
+      intro v i h
+      exact hchild v i h
+    constructor
+    · show ((((st.internExprFastGo ty).1.2.internExprFastGo
+          body).1.2.internBMFast m
+          ((st.internExprFastGo ty).1.2.internExprFastGo body).2).2.intern
+          (.lam n (st.internExprFastGo ty).1.1
+            ((st.internExprFastGo ty).1.2.internExprFastGo body).1.1
+            (((st.internExprFastGo ty).1.2.internExprFastGo
+              body).1.2.internBMFast m
+              ((st.internExprFastGo ty).1.2.internExprFastGo body).2).1)) = _
+      rw [h1, h2, hbm]
+      rfl
+    · intro v i h
+      revert h
+      show (match m.cod,
+          ((((st.internExprFastGo ty).1.2.internExprFastGo
+            body).1.2.internBMFast m
+            ((st.internExprFastGo ty).1.2.internExprFastGo body).2).1).cod
+          with
+        | some v, some i => some (v, i)
+        | _, _ => none) = some (v, i) → _
+      rw [h1, h2, hbm]
+      obtain ⟨bi, (_ | v₀)⟩ := m
+      · intro h
+        exact nomatch h
+      · obtain ⟨hm', hst', hden'⟩ := internBM_cod (bi := bi) (v := v₀) hwf₂
+        rw [hm']
+        intro h
+        simp only [Option.some.injEq] at h
+        obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h
+        show ((((st.internExpr ty).2.internExpr body).2.internBM
+            ⟨bi, some v₀⟩).2.intern _).2.denoteL _ = some v₀
+        rw [hst']
+        exact denoteL_mono (intern_ext _ _) hden'
+  | forallE n ty body m iht ihb =>
+    intro st hwf
+    have h1 : (st.internExprFastGo ty).1 = st.internExpr ty := (iht hwf).1
+    have hwf₁ : (st.internExpr ty).2.WF := (internExpr_spec hwf ty).1
+    obtain ⟨h2, hchild⟩ := ihb (st := (st.internExpr ty).2) hwf₁
+    have hwf₂ : ((st.internExpr ty).2.internExpr body).2.WF :=
+      (internExpr_spec hwf₁ body).1
+    have hbm : ((st.internExpr ty).2.internExpr body).2.internBMFast m
+          ((st.internExpr ty).2.internExprFastGo body).2
+        = ((st.internExpr ty).2.internExpr body).2.internBM m := by
+      refine internBMFast_eq hwf₂ ?_
+      intro v i h
+      exact hchild v i h
+    constructor
+    · show ((((st.internExprFastGo ty).1.2.internExprFastGo
+          body).1.2.internBMFast m
+          ((st.internExprFastGo ty).1.2.internExprFastGo body).2).2.intern
+          (.forallE n (st.internExprFastGo ty).1.1
+            ((st.internExprFastGo ty).1.2.internExprFastGo body).1.1
+            (((st.internExprFastGo ty).1.2.internExprFastGo
+              body).1.2.internBMFast m
+              ((st.internExprFastGo ty).1.2.internExprFastGo body).2).1)) = _
+      rw [h1, h2, hbm]
+      rfl
+    · intro v i h
+      revert h
+      show (match m.cod,
+          ((((st.internExprFastGo ty).1.2.internExprFastGo
+            body).1.2.internBMFast m
+            ((st.internExprFastGo ty).1.2.internExprFastGo body).2).1).cod
+          with
+        | some v, some i => some (v, i)
+        | _, _ => none) = some (v, i) → _
+      rw [h1, h2, hbm]
+      obtain ⟨bi, (_ | v₀)⟩ := m
+      · intro h
+        exact nomatch h
+      · obtain ⟨hm', hst', hden'⟩ := internBM_cod (bi := bi) (v := v₀) hwf₂
+        rw [hm']
+        intro h
+        simp only [Option.some.injEq] at h
+        obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h
+        show ((((st.internExpr ty).2.internExpr body).2.internBM
+            ⟨bi, some v₀⟩).2.intern _).2.denoteL _ = some v₀
+        rw [hst']
+        exact denoteL_mono (intern_ext _ _) hden'
+
+/-- The entry-boundary interning with the codomain-chain fast path is
+`internExpr` (task #72). -/
+theorem internExprFast_eq {st : EStore} (hwf : st.WF) (e : Expr) :
+    st.internExprFast e = st.internExpr e :=
+  (internExprFastGo_eq e hwf).1
 end EStore
 
 end Setlec

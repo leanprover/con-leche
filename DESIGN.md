@@ -2505,9 +2505,104 @@ note above) — **−18 % instructions vs the pre-#62 baseline**
 
 **Follow-ups** (performance, in expected-value order): (1) the
 binder-walk rework (accumulated fvars + bulk domain instantiation) for
-`spine`/`telescope` and the real init-prelude binder costs; (2) level-
-op constant factors on shallow levels — avoid per-call memo/`Option`
-allocation in `leqCoreLI`'s node views and `byCasesLI`'s four
-fresh-memo substitutions (persistent keyed subst memo, or a small-level
-fast path); (3) per-node scope data for O(1) instantiate/abstract
-identity shortcuts.
+`spine`/`telescope` and the real init-prelude binder costs — done,
+task #72 below; (2) level-op constant factors on shallow levels —
+avoid per-call memo/`Option` allocation in `leqCoreLI`'s node views
+and `byCasesLI`'s four fresh-memo substitutions (persistent keyed
+subst memo, or a small-level fast path); (3) per-node scope data for
+O(1) instantiate/abstract identity shortcuts — done for instantiation
+(the `bvarB` bound cache, task #72 below).
+
+## Binder-opening discipline: telescope loops, chain-sharing intern, scope shortcut (2026-08-23, task #72)
+
+The residual `spine`/`telescope` ~n² (exponent 1.94 each) had three
+sources; all three are fixed, `tests/scale.sh` passes all four shapes
+(chain 1.04, spine 1.29, many 1.04, telescope 1.17):
+
+**1. Binder-telescope loops** (the official-kernel discipline;
+lean4lean's `inferLambda`/`inferForall`, `Lean4Lean/TypeChecker.lean`).
+The interned annotate/infer binder cases peeled one binder per knot
+level, with a whole-body `instantiate1IGo` on the way in and a
+whole-body `abstract1IGo` on the way out — O(n²) on a depth-n
+telescope.  `annotatePisI`/`annotateLamsI`/`inferLamsI`
+(`Setlec/Kernel/CoreI.lean`) now peel the whole raw chain in one loop:
+opened free variables accumulate, only each binder's *domain* is
+substituted on the way in (`instListM` against the accumulator;
+domains are small), the leaf is annotated/inferred once on the
+bulk-opened body, and the chain is rebuilt with one bulk
+`abstractRange` per domain and one over the leaf
+(`Expr.abstractRange` + `EStore.abstractRangeIGo`, the innermost-first
+`abstract1` fold in one pass — `abstractRange_succ`).  The chained
+re-inferences of freshly built binder nodes are value-determined by
+the peel phase's domain sorts (an annotated `∀`'s type is
+`imax`-algebra), so the out phase replays only the fallible checks —
+the per-level "expected a sort" domain checks and λ-annotation
+re-checks, in the chained order.  The lam cases of `inferBodyNC` share
+`inferLamsI`; `coreKnotNC`'s annotate is the shared certified body, so
+the `SETLEC_NO_PROOF_CERTS` knot gets the loops for free.
+
+The λ-annotation loop is guarded on the node's loose-bvar bound (O(1)
+from the `bvarB` cache): the chained tails re-open exactly the body
+they just closed, which is the identity only on bvar-closed nodes —
+disciplined inputs always are, and the unguarded per-binder body
+remains as the (unreachable in practice) fallback arm.
+
+**Verification seam** (`Setlec/Verify/BinderLoop.lean` +
+`BinderLoopI.lean`; the `Expr`-level spec bodies are untouched): pure
+mirrors of the loops (generic over the core record), `_atF`/`_mono`
+batteries, and *soundness of each loop against the chained spec* — a
+successful mirror run at the pure fueled knot is reproduced by the
+original one-binder-at-a-time body at some fuel.  The induction is
+direct (head-first, no snoc): the chained tails are folded as *wraps*
+(`inferLamsWrap` …), the loop's out phase is identified with them
+per-entry (the rebuild equality is the `abstractRange_succ` fold; the
+λ-annotate wrap's reopen is `abstract1_instantiate1` with
+`LeafCond`/`looseBVars` invariants carried through the peel via the
+`annotateCore` leaf/scope preservation toolkit).  The interned walks
+(`DiscI4`/`DiscI6` binder cases) relate the loops to the mirrors under
+denotation only (`RelD`), then compose with `SimAt.wr` (mirror run →
+chained run, via the soundness theorems) and `SimAt.wp` (result
+scoping recovered from the chained run); `SimAt.bindR` remembers the
+walked pre-checks' fueled runs to seed the wraps' domain facts.
+Claims, Model, and the bridges are unchanged.
+
+**2. Entry-boundary level interning** (`EStore.internExprFast`,
+`Setlec/Kernel/IExpr.lean`).  An annotated telescope's codomain
+annotations are `imax`-chains of depth O(n); each entry runner
+re-interns the annotated expression into a fresh arena, and
+`internLevel` walked each chain structurally — O(n²) *per entry call*
+even though `readbackI` shares the chains in memory (one level memo
+per readback).  `internExprFast` exploits exactly that sharing: at a
+binder whose annotation is `imax _ (child's cod)` — pointer-checked by
+`withPtrEq`, which is *definitionally* its structural continuation, so
+proofs see plain equality — the already-interned child index is reused
+instead of walking the tail.  `internExprFast_eq` proves it equal to
+`internExpr` as a function (`internLevel_of_denoteL`: re-interning a
+stored level is a pure lookup), so the entry-runner bridges rewrite it
+away.  Raw inputs carry no codomain annotations, so the fallback
+structural comparison never walks deep unequal trees.
+
+**3. The scope shortcut** (`IState.bvarB` + `EStore.bvarBoundIGo`).
+Each interned node's least loose-bvar bound is cached *persistently*
+(a node's bound depends only on its immutable sub-DAG, so the cache
+survives arena extension and every node is bounded at most once per
+run); `inst1M`/`instListM` return their argument index untraversed
+when the cursor is at or above the bound (`instantiate1_eq_self`/
+`instantiateList_eq_self`; on a canonical arena the traversal would
+rebuild the same index).  This is what makes `inferSpineI`'s deferred
+residual substitutions O(1) on non-dependent telescopes (the `spine`
+shape's remaining cost).  `ISOK` gains the `bvarB` clause
+(`BoundMemoInv`).
+
+**Measured** (init-prelude probe, instructions): 205.5 G / 15.6 s →
+**187.8 G / 14.0 s** certified (−8.6 %), 151.8 G / 10.5 s →
+**142.8 G / 9.7 s** with `SETLEC_NO_PROOF_CERTS=1` (−5.9 %); verdicts
+identical everywhere (arena 90/92, e2e 48/48, both modes).  Remaining
+known superlinear residues (small constants, below the harness gate at
+its sizes): the per-prefix `inferSpineI` re-walk when `annotate`'s app
+case infers every spine prefix against the root telescope (Σ O(i)
+view-steps and per-prefix argument-list allocation; a spine loop in
+`annotateBodyI`'s app case would remove it), the `List.toArray`
+conversion inside `instantiateListI` per non-identity call with a
+growing accumulator, and `Expr.allLevelParamsDefined` walking deep
+codomain-annotation trees once per declaration guard.

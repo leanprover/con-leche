@@ -640,32 +640,11 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
       rw [denoteNode, hty'd]; rfl
     refine SimAt.bind_left (internI_eff hs₁ hfvd)
       (fun s₂ fv hs₂ hext₂ hQfv => ?_)
-    refine SimAt.bind_left (inst1M_eff hs₂
-      (denote_mono (hext₁.trans hext₂) hbody) hQfv)
-      (fun s₃ ob hs₃ hext₃ hQob => ?_)
-    refine SimAt.bind (ih.annotate hs₃ hQob
-      (WScoped.instantiate1 hwty' 0 hwtb.2))
-      (fun s₄ body' body'x hs₄ hext₄ hP₄ => ?_)
-    obtain ⟨hbody'd, hwbody'⟩ := hP₄
-    refine SimAt.bind (ih.infer hs₄ hbody'd hwbody')
-      (fun s₅ tb tbx hs₅ hext₅ hP₅ => ?_)
-    obtain ⟨htbd, hwtb'⟩ := hP₅
-    refine SimAt.bind (ensureSortI_sim ih hs₅ htbd hwtb')
-      (fun s₆ v lv hs₆ hext₆ hPv => ?_)
-    refine SimAt.bind_left (abstract1M_eff hs₆
-      (denote_mono (hext₅.trans hext₆) hbody'd))
-      (fun s₇ bAbs hs₇ hext₇ hQabs => ?_)
-    refine SimAt.of_eff (internI_eff hs₇
-      (x := .forallE nm ty'x (body'x.abstract1 d) ⟨bm.bi, some lv⟩) ?_) _
-      (fun s r hQ => ?_)
-    · rw [denoteNode,
-        denote_mono (((((hext₂.trans hext₃).trans hext₄).trans
-          hext₅).trans hext₆).trans hext₇) hty'd, hQabs]
-      simp [denoteBM, denoteBM_bi hbmDen, denoteL_mono hext₇
-        (show s₆.store.denoteL v = some lv from hPv)]
-    · refine ⟨hQ, ?_⟩
-      simp only [WScoped]
-      exact ⟨hwty', WScoped.abstract1 0 hwbody'⟩
+    refine SimAt.withStore ?_
+    rw [show (m : IBinderMeta).bi = bm.bi from (denoteBM_bi hbmDen).symm]
+    exact annotatePisI_tail_sim ih hs₂
+      (denote_mono (hext₁.trans hext₂) hbody)
+      (denote_mono hext₂ hty'd) hQfv hwty' hwtb.2
   | lam nm t b m =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨tyx, hty, hd⟩ := hd
@@ -678,43 +657,65 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
       simpa only [WScoped] using hw
     unfold annotateBody
     try dsimp only
-    refine SimAt.bind (ih.annotate hs hty hwtb.1)
-      (fun s₁ ty' ty'x hs₁ hext₁ hP => ?_)
-    obtain ⟨hty'd, hwty'⟩ := hP
-    have hfvd : denoteNode s₁.store.denote s₁.store.denoteL (.fvar d nm ty')
-        = some (.fvar d nm ty'x) := by
-      rw [denoteNode, hty'd]; rfl
-    refine SimAt.bind_left (internI_eff hs₁ hfvd)
-      (fun s₂ fv hs₂ hext₂ hQfv => ?_)
-    refine SimAt.bind_left (inst1M_eff hs₂
-      (denote_mono (hext₁.trans hext₂) hbody) hQfv)
-      (fun s₃ ob hs₃ hext₃ hQob => ?_)
-    refine SimAt.bind (ih.annotate hs₃ hQob
-      (WScoped.instantiate1 hwty' 0 hwtb.2))
-      (fun s₄ body' body'x hs₄ hext₄ hP₄ => ?_)
-    obtain ⟨hbody'd, hwbody'⟩ := hP₄
-    refine SimAt.bind (ih.infer hs₄ hbody'd hwbody')
-      (fun s₅ bt btx hs₅ hext₅ hP₅ => ?_)
-    obtain ⟨hbtd, hwbt⟩ := hP₅
-    refine SimAt.bind (ih.infer hs₅ hbtd hwbt)
-      (fun s₆ tbt tbtx hs₆ hext₆ hP₆ => ?_)
-    obtain ⟨htbtd, hwtbt⟩ := hP₆
-    refine SimAt.bind (ensureSortI_sim ih hs₆ htbtd hwtbt)
-      (fun s₇ v lv hs₇ hext₇ hPv => ?_)
-    refine SimAt.bind_left (abstract1M_eff hs₇
-      (denote_mono ((hext₅.trans hext₆).trans hext₇) hbody'd))
-      (fun s₈ bAbs hs₈ hext₈ hQabs => ?_)
-    refine SimAt.of_eff (internI_eff hs₈
-      (x := .lam nm ty'x (body'x.abstract1 d) ⟨bm.bi, some lv⟩) ?_) _
-      (fun s r hQ => ?_)
-    · rw [denoteNode,
-        denote_mono ((((((hext₂.trans hext₃).trans hext₄).trans
-          hext₅).trans hext₆).trans hext₇).trans hext₈) hty'd, hQabs]
-      simp [denoteBM, denoteBM_bi hbmDen, denoteL_mono hext₈
-        (show s₇.store.denoteL v = some lv from hPv)]
-    · refine ⟨hQ, ?_⟩
-      simp only [WScoped]
-      exact ⟨hwty', WScoped.abstract1 0 hwbody'⟩
+    refine SimAt.bind_left (bvarBoundM_eff hs)
+      (fun sb bb hsb hextb hQb => ?_)
+    by_cases hb0 : bb = 0
+    · rw [if_pos hb0]
+      subst hb0
+      refine SimAt.bindR (ih.annotate hsb (denote_mono hextb hty) hwtb.1)
+        (fun s₁ ty' ty'x hs₁ hext₁ hP hRty => ?_)
+      obtain ⟨hty'd, hwty'⟩ := hP
+      have hfvd : denoteNode s₁.store.denote s₁.store.denoteL
+          (.fvar d nm ty') = some (.fvar d nm ty'x) := by
+        rw [denoteNode, hty'd]; rfl
+      refine SimAt.bind_left (internI_eff hs₁ hfvd)
+        (fun s₂ fv hs₂ hext₂ hQfv => ?_)
+      refine SimAt.withStore ?_
+      rw [show (m : IBinderMeta).bi = bm.bi from (denoteBM_bi hbmDen).symm]
+      refine annotateLamsI_tail_sim ih hs₂
+        (denote_mono ((hextb.trans hext₁).trans hext₂) hbody)
+        (denote_mono hext₂ hty'd) hQfv hwty' hwtb.2
+        (hQb _ (denote_mono hextb hden)) ?_
+      obtain ⟨F₁, h1⟩ := hRty
+      exact ⟨F₁, h1⟩
+    · rw [if_neg hb0]
+      refine SimAt.bind (ih.annotate hsb (denote_mono hextb hty) hwtb.1)
+        (fun s₁ ty' ty'x hs₁ hext₁ hP => ?_)
+      obtain ⟨hty'd, hwty'⟩ := hP
+      have hfvd : denoteNode s₁.store.denote s₁.store.denoteL (.fvar d nm ty')
+          = some (.fvar d nm ty'x) := by
+        rw [denoteNode, hty'd]; rfl
+      refine SimAt.bind_left (internI_eff hs₁ hfvd)
+        (fun s₂ fv hs₂ hext₂ hQfv => ?_)
+      refine SimAt.bind_left (inst1M_eff hs₂
+        (denote_mono ((hextb.trans hext₁).trans hext₂) hbody) hQfv)
+        (fun s₃ ob hs₃ hext₃ hQob => ?_)
+      refine SimAt.bind (ih.annotate hs₃ hQob
+        (WScoped.instantiate1 hwty' 0 hwtb.2))
+        (fun s₄ body' body'x hs₄ hext₄ hP₄ => ?_)
+      obtain ⟨hbody'd, hwbody'⟩ := hP₄
+      refine SimAt.bind (ih.infer hs₄ hbody'd hwbody')
+        (fun s₅ bt btx hs₅ hext₅ hP₅ => ?_)
+      obtain ⟨hbtd, hwbt⟩ := hP₅
+      refine SimAt.bind (ih.infer hs₅ hbtd hwbt)
+        (fun s₆ tbt tbtx hs₆ hext₆ hP₆ => ?_)
+      obtain ⟨htbtd, hwtbt⟩ := hP₆
+      refine SimAt.bind (ensureSortI_sim ih hs₆ htbtd hwtbt)
+        (fun s₇ v lv hs₇ hext₇ hPv => ?_)
+      refine SimAt.bind_left (abstract1M_eff hs₇
+        (denote_mono ((hext₅.trans hext₆).trans hext₇) hbody'd))
+        (fun s₈ bAbs hs₈ hext₈ hQabs => ?_)
+      refine SimAt.of_eff (internI_eff hs₈
+        (x := .lam nm ty'x (body'x.abstract1 d) ⟨bm.bi, some lv⟩) ?_) _
+        (fun s r hQ => ?_)
+      · rw [denoteNode,
+          denote_mono ((((((hext₂.trans hext₃).trans hext₄).trans
+            hext₅).trans hext₆).trans hext₇).trans hext₈) hty'd, hQabs]
+        simp [denoteBM, denoteBM_bi hbmDen, denoteL_mono hext₈
+          (show s₇.store.denoteL v = some lv from hPv)]
+      · refine ⟨hQ, ?_⟩
+        simp only [WScoped]
+        exact ⟨hwty', WScoped.abstract1 0 hwbody'⟩
   | proj sn ip pe =>
     rw [denoteNode, Option.map_eq_some_iff] at hd
     obtain ⟨pex, hpe, hd⟩ := hd
