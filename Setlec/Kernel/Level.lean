@@ -91,9 +91,12 @@ def rest (fuel : Nat) (l r : Level) (diff : Int) : Option Bool :=
   | .zero, .param _ => some (diff ≥ 0)
   | .succ s, _ => leqCore fuel s r (diff - 1)
   | _, .succ s => leqCore fuel l s (diff + 1)
-  | .max a b, _ => return (← leqCore fuel a r diff) && (← leqCore fuel b r diff)
-  | .param _, .max x y => return (← leqCore fuel l x diff) || (← leqCore fuel l y diff)
-  | .zero, .max x y => return (← leqCore fuel l x diff) || (← leqCore fuel l y diff)
+  | .max a b, _ => do
+    if ← leqCore fuel a r diff then leqCore fuel b r diff else pure false
+  | .param _, .max x y => do
+    if ← leqCore fuel l x diff then pure true else leqCore fuel l y diff
+  | .zero, .max x y => do
+    if ← leqCore fuel l x diff then pure true else leqCore fuel l y diff
   | _, _ =>
     match l, r with
     | .imax a b, .imax x y =>
@@ -116,9 +119,11 @@ def imaxRules (fuel : Nat) (l r : Level) (diff : Int) : Option Bool :=
 def byCases (fuel : Nat) (p : Name) (l r : Level) (diff : Int) : Option Bool := do
   let l0 := simplify (subst [p] [.zero] l)
   let r0 := simplify (subst [p] [.zero] r)
-  let ls := simplify (subst [p] [.succ (.param p)] l)
-  let rs := simplify (subst [p] [.succ (.param p)] r)
-  return (← leqCore fuel l0 r0 diff) && (← leqCore fuel ls rs diff)
+  if ← leqCore fuel l0 r0 diff then
+    let ls := simplify (subst [p] [.succ (.param p)] l)
+    let rs := simplify (subst [p] [.succ (.param p)] r)
+    leqCore fuel ls rs diff
+  else pure false
 
 end
 
@@ -130,15 +135,19 @@ def defaultFuel : Nat := 10000
 def leq (l r : Level) : Option Bool :=
   leqCore defaultFuel (simplify l) (simplify r) 0
 
-/-- Decide semantic equality of two levels; `none` is an internal error. -/
-def isEquiv (l r : Level) : Option Bool :=
-  return (← leq l r) && (← leq r l)
+/-- Decide semantic equality of two levels; `none` is an internal error.
+Simplified-form syntactic equality decides directly (the reference
+kernels' fast path); otherwise antisymmetric `leq`, short-circuited. -/
+def isEquiv (l r : Level) : Option Bool := do
+  if simplify l = simplify r then pure true
+  else if ← leq l r then leq r l else pure false
 
 /-- Decide pointwise semantic equality of two level lists (`false` on length
 mismatch). -/
 def isEquivList : List Level → List Level → Option Bool
   | [], [] => some true
-  | l :: ls, r :: rs => return (← isEquiv l r) && (← isEquivList ls rs)
+  | l :: ls, r :: rs => do
+    if ← isEquiv l r then isEquivList ls rs else pure false
   | _, _ => some false
 
 /-- Is this level syntactically `zero` after simplification?  (Sound but

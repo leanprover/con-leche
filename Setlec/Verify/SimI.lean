@@ -984,50 +984,86 @@ theorem isEquivLM_eff (hs : ISOK env s₀) {l r : LIdx} {la ra : Level}
     try dsimp only at hrun
     rw [hgo2] at hrun
     try dsimp only at hrun
-    rw [readbackL_spec hls, readbackL_spec hrs] at hrun
-    try dsimp only at hrun
-    have hisoE : Level.isEquiv la ra =
-        match Level.leqCore Level.defaultFuel la.simplify ra.simplify 0 with
-        | none => none
-        | some b1 =>
-          match Level.leqCore Level.defaultFuel ra.simplify la.simplify 0 with
-          | none => none
-          | some b2 => some (b1 && b2) := by
-      simp only [Level.isEquiv, Level.leq, Bind.bind, Option.bind]
-      cases Level.leqCore Level.defaultFuel la.simplify ra.simplify 0 with
-      | none => rfl
-      | some b1 =>
-        cases Level.leqCore Level.defaultFuel ra.simplify la.simplify 0 with
-        | none => rfl
-        | some b2 => rfl
-    cases hb1 : Level.leqCore Level.defaultFuel la.simplify ra.simplify 0 with
-    | none =>
-      rw [hb1] at hrun
+    cases hbeq : ls == rs with
+    | true =>
+      simp only [hbeq, if_true] at hrun
       injection hrun with h1
       obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
-      refine ⟨hs.withStoreLsimpEqv hwf₂ hext hinv₂ (hs.eqv.mono hext),
-        hext, ?_⟩
-      rw [hisoE, hb1]
-    | some b1 =>
-      rw [hb1] at hrun
-      cases hb2 : Level.leqCore Level.defaultFuel ra.simplify la.simplify 0 with
+      have hss : la.simplify = ra.simplify := by
+        have hlr : ls = rs := eq_of_beq hbeq
+        rw [hlr] at hls
+        exact Option.some.inj (hls.symm.trans hrs)
+      have hob : (some true : Option Bool) = Level.isEquiv la ra := by
+        rw [Level.isEquiv, if_pos hss]; rfl
+      refine ⟨hs.withStoreLsimpEqv hwf₂ hext hinv₂
+        ((hs.eqv.mono hext).insert (denoteL_mono hext hl)
+          (denoteL_mono hext hr) hob.symm), hext, hob⟩
+    | false =>
+      simp only [hbeq, Bool.false_eq_true, if_false] at hrun
+      rw [readbackL_spec hls, readbackL_spec hrs] at hrun
+      try dsimp only at hrun
+      have hss : ¬ la.simplify = ra.simplify := by
+        intro hE
+        have hrs' : st₂.denoteL rs = some la.simplify := by rw [hE]; exact hrs
+        have hlr : ls = rs := denoteL_inj hwf₂ hls hrs'
+        rw [hlr, beq_self_eq_true] at hbeq
+        exact Bool.true_eq_false ▸ hbeq
+      have hisoE : Level.isEquiv la ra =
+          match Level.leqCore Level.defaultFuel la.simplify ra.simplify 0 with
+          | none => none
+          | some false => some false
+          | some true =>
+            match Level.leqCore Level.defaultFuel ra.simplify la.simplify 0 with
+            | none => none
+            | some b2 => some b2 := by
+        rw [Level.isEquiv, if_neg hss]
+        simp only [Level.leq, Bind.bind, Option.bind]
+        cases Level.leqCore Level.defaultFuel la.simplify ra.simplify 0 with
+        | none => rfl
+        | some b1 =>
+          cases b1 with
+          | false => rfl
+          | true =>
+            cases Level.leqCore Level.defaultFuel ra.simplify la.simplify 0 with
+            | none => rfl
+            | some b2 => rfl
+      cases hb1 : Level.leqCore Level.defaultFuel la.simplify ra.simplify 0 with
       | none =>
-        rw [hb2] at hrun
+        rw [hb1] at hrun
         injection hrun with h1
         obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
         refine ⟨hs.withStoreLsimpEqv hwf₂ hext hinv₂ (hs.eqv.mono hext),
           hext, ?_⟩
-        rw [hisoE, hb1, hb2]
-      | some b2 =>
-        rw [hb2] at hrun
-        injection hrun with h1
-        obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
-        have hob : (some (b1 && b2) : Option Bool)
-            = Level.isEquiv la ra := by
-          rw [hisoE, hb1, hb2]
-        refine ⟨hs.withStoreLsimpEqv hwf₂ hext hinv₂
-          ((hs.eqv.mono hext).insert (denoteL_mono hext hl)
-            (denoteL_mono hext hr) hob.symm), hext, hob⟩
+        rw [hisoE, hb1]
+      | some b1 =>
+        rw [hb1] at hrun
+        cases b1 with
+        | false =>
+          injection hrun with h1
+          obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
+          have hob : (some false : Option Bool) = Level.isEquiv la ra := by
+            rw [hisoE, hb1]
+          refine ⟨hs.withStoreLsimpEqv hwf₂ hext hinv₂
+            ((hs.eqv.mono hext).insert (denoteL_mono hext hl)
+              (denoteL_mono hext hr) hob.symm), hext, hob⟩
+        | true =>
+          cases hb2 : Level.leqCore Level.defaultFuel ra.simplify la.simplify 0 with
+          | none =>
+            rw [hb2] at hrun
+            injection hrun with h1
+            obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
+            refine ⟨hs.withStoreLsimpEqv hwf₂ hext hinv₂ (hs.eqv.mono hext),
+              hext, ?_⟩
+            rw [hisoE, hb1, hb2]
+          | some b2 =>
+            rw [hb2] at hrun
+            injection hrun with h1
+            obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
+            have hob : (some b2 : Option Bool) = Level.isEquiv la ra := by
+              rw [hisoE, hb1, hb2]
+            refine ⟨hs.withStoreLsimpEqv hwf₂ hext hinv₂
+              ((hs.eqv.mono hext).insert (denoteL_mono hext hl)
+                (denoteL_mono hext hr) hob.symm), hext, hob⟩
 
 theorem isEquivListLM_eff :
     ∀ {ls rs : List LIdx} {s₀ : IState} {las ras : List Level},
@@ -1067,10 +1103,8 @@ theorem isEquivListLM_eff :
       rw [show isEquivListLM (l :: ls') (r :: rs') = (do
         match ← isEquivLM l r with
         | none => pure none
-        | some b =>
-          match ← isEquivListLM ls' rs' with
-          | none => pure none
-          | some bs => pure (some (b && bs)) :
+        | some false => pure (some false)
+        | some true => isEquivListLM ls' rs' :
         CheckIM (Option Bool)) from rfl]
       refine (isEquivLM_eff hs hlb hrb).bind ?_
       intro s₁ ob hs₁ hext₁ hob
@@ -1080,17 +1114,15 @@ theorem isEquivListLM_eff :
         refine IEff.pure hs₁ ?_
         simp [Level.isEquivList, hE]
       | some b =>
-        refine (ih hs₁ (denoteLList_mono hext₁ hlsb)
-          (denoteLList_mono hext₁ hrsb)).bind ?_
-        intro s₂ obs hs₂ hext₂ hobs
-        subst hobs
-        cases hE₂ : Level.isEquivList lsb rsb with
-        | none =>
-          refine IEff.pure hs₂ ?_
-          simp [Level.isEquivList, hE, hE₂]
-        | some bs =>
-          refine IEff.pure hs₂ ?_
-          simp [Level.isEquivList, hE, hE₂]
+        cases b with
+        | false =>
+          refine IEff.pure hs₁ ?_
+          simp [Level.isEquivList, hE]
+        | true =>
+          intro v' s' hrun2
+          obtain ⟨hs₂, hext₂, hobs⟩ := ih hs₁ (denoteLList_mono hext₁ hlsb)
+            (denoteLList_mono hext₁ hrsb) v' s' hrun2
+          exact ⟨hs₂, hext₂, by simp [Level.isEquivList, hE, hobs]⟩
 
 theorem readbackLevelM_eff (hs : ISOK env s₀) {u : LIdx} {la : Level}
     (hl : s₀.store.denoteL u = some la) :

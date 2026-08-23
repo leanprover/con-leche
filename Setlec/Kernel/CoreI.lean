@@ -480,13 +480,19 @@ equivalence never needs recomputing. -/
       let s := { s with store := EStore.empty, lsimpC := {}, eqvC := {} }
       let (ls, store, memo) := store.simplifyLIGo memo l
       let (rs, store, memo) := store.simplifyLIGo memo r
+      if ls == rs then
+        (some true, { s with store := store, lsimpC := memo,
+                             eqvC := ec.insert (l, r) true })
+      else
       match store.readbackL ls, store.readbackL rs with
       | some la, some ra =>
         match Level.leqCore Level.defaultFuel la ra 0 with
-        | some b1 =>
+        | some false =>
+          (some false, { s with store := store, lsimpC := memo,
+                                eqvC := ec.insert (l, r) false })
+        | some true =>
           match Level.leqCore Level.defaultFuel ra la 0 with
-          | some b2 =>
-            let b := b1 && b2
+          | some b =>
             (some b, { s with store := store, lsimpC := memo,
                               eqvC := ec.insert (l, r) b })
           | none =>
@@ -502,10 +508,8 @@ def isEquivListLM : List LIdx → List LIdx → CheckIM (Option Bool)
   | l :: ls, r :: rs => do
     match ← isEquivLM l r with
     | none => pure none
-    | some b =>
-      match ← isEquivListLM ls rs with
-      | none => pure none
-      | some bs => pure (some (b && bs))
+    | some false => pure (some false)
+    | some true => isEquivListLM ls rs
   | _, _ => pure (some false)
 
 

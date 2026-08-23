@@ -52,14 +52,18 @@ def Sem (l r : Level) (diff : Int) : Prop :=
   ∀ φ : Name → Nat, (eval φ l : Int) ≤ eval φ r + diff
 
 private theorem bind_and_some_true {x y : Option Bool}
-    (h : (do return (← x) && (← y) : Option Bool) = some true) :
+    (h : (do if ← x then y else pure false : Option Bool) = some true) :
     x = some true ∧ y = some true := by
-  cases x <;> cases y <;> simp_all [Bind.bind, Option.bind, Pure.pure]
+  cases x with
+  | none => simp_all [Bind.bind, Option.bind]
+  | some b => cases b <;> simp_all [Bind.bind, Option.bind, Pure.pure]
 
 private theorem bind_or_some_true {x y : Option Bool}
-    (h : (do return (← x) || (← y) : Option Bool) = some true) :
+    (h : (do if ← x then pure true else y : Option Bool) = some true) :
     x = some true ∨ y = some true := by
-  cases x <;> cases y <;> simp_all [Bind.bind, Option.bind, Pure.pure]
+  cases x with
+  | none => simp_all [Bind.bind, Option.bind]
+  | some b => cases b <;> simp_all [Bind.bind, Option.bind, Pure.pure]
 
 /-- Point update of an assignment. -/
 private def upd (φ : Name → Nat) (p : Name) (v : Nat) : Name → Nat :=
@@ -172,8 +176,12 @@ theorem leq_sound {l r : Level} (h : leq l r = some true) :
 theorem isEquiv_sound' {l r : Level} (h : isEquiv l r = some true) :
     ∀ φ, eval φ l = eval φ r := by
   intro φ
-  obtain ⟨h1, h2⟩ := bind_and_some_true (by simpa [isEquiv] using h)
-  exact Nat.le_antisymm (leq_sound h1 φ) (leq_sound h2 φ)
+  by_cases hss : simplify l = simplify r
+  · have := congrArg (eval φ) hss
+    rwa [eval_simplify, eval_simplify] at this
+  · rw [isEquiv, if_neg hss] at h
+    obtain ⟨h1, h2⟩ := bind_and_some_true h
+    exact Nat.le_antisymm (leq_sound h1 φ) (leq_sound h2 φ)
 
 /-- Pointwise evaluation equality of two level lists. -/
 def EvalEqList (φ : Name → Nat) : List Level → List Level → Prop
@@ -304,10 +312,8 @@ theorem substFn_ext {φ₁ φ₂ : Name → Nat} {ps : List Name}
         · exact h
 
 theorem isEquiv_sound {l r : Level} (h : isEquiv l r = some true) :
-    ∀ φ, eval φ l = eval φ r := by
-  intro φ
-  obtain ⟨h1, h2⟩ := bind_and_some_true (by simpa [isEquiv] using h)
-  exact Nat.le_antisymm (leq_sound h1 φ) (leq_sound h2 φ)
+    ∀ φ, eval φ l = eval φ r :=
+  isEquiv_sound' h
 
 /-- `isNonZero` is conservative: a positive answer means nonzero under
 every level assignment. -/

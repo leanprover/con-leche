@@ -2431,7 +2431,8 @@ per-declaration cache sharing, per-fire iota certification) are in the
 
 ## The verification-tax flag: SETLEC_NO_PROOF_CERTS (task #76)
 
-`SETLEC_NO_PROOF_CERTS=1` is an **unverified measurement mode**: it
+`SETLEC_NO_PROOF_CERTS=1` (command-line alias: `--yolo`) is an
+**unverified measurement mode**: it
 selects, once in `Main`, a second driver stack
 (`Setlec/Kernel/CoreNC.lean`, `Setlec/Kernel/CheckerNC.lean`) whose
 core knot skips the infer/defeq calls that exist only to feed the
@@ -3714,3 +3715,66 @@ bounty).
 7. **Enable**: the clause in `checkIndDecl` and its `S`/`NC` mirrors
    (three lines each, verified to work), and the four expectation
    flips (`direct_struct_raw` 2→0; `bad/tutorial/13{3,4,7}` 2→1).
+
+## Level `leqCore` was not short-circuiting: the 2x stupidity (2026-08-23)
+
+Profiling the init-prelude probe put ~40 % of the whole run inside the
+structural `Level` machinery (`rest`/`simplify`/`byCases`/`decEq` plus
+their allocator traffic) — yet counters showed only ~263k `isEquivLM`
+calls with ~9.4k cache misses.  The misses hid 166 **million**
+`leqCore` iterations, 99.6 % of them inside a single declaration
+(`Trans.mk._model`, whose PSigma/PProd model tower carries ~50-node
+6-parameter `imax` levels).  Root cause: the monadic ports
+
+    | .max a b, _ => return (← leqCore fuel a r diff) && (← leqCore fuel b r diff)
+
+evaluated **both** operands of every `&&`/`||` before combining —
+`Option` do-notation has no short-circuiting — so the exponential
+`byCases`/`imax`-distribution case tree was explored exhaustively even
+after a branch had already decided the verdict.  The references
+(nanoda `level.rs::leq_core`, Rust `&&`) prune; a Python replay of the
+exact miss set confirmed 938k iterations with pruning vs 166M without
+(177x).  Fix: explicit `if ← … then … else pure false` chains in
+`rest`/`byCases`/`isEquiv`/`isEquivList` (and `byCases` now substitutes
+the succ-case only when the zero case held), the same short-circuit in
+`isEquivLM`'s two `leqCore` runs, plus two cheap equality fast paths —
+`isEquivLM` answers `some true` when the two *simplified arena indices*
+are equal (622 of the 742 big miss pairs were syntactically identical
+after simplification), and the spec `Level.isEquiv` gains the matching
+`simplify l = simplify r` branch (the reference kernels' structural
+fast path; the official kernel's `is_equivalent` is `l1 == l2 ||
+normalize(l1) == normalize(l2)` and never runs a leq loop at all).
+Semantics: the new code can only turn fuel-exhaustion `none`s (internal
+errors, never verdicts) into decided verdicts; every previously decided
+verdict is unchanged.
+
+Verification delta: `Setlec/Verify/Level.lean` (helper lemmas restated
+on the if-then-else shapes; `isEquiv_sound` gains the simplify-equality
+branch via `eval_simplify`) and `Setlec/Verify/SimI.lean`
+(`isEquivLM_eff` walks the new branches — the index-equality branch is
+sound by `denoteL` functionality, the fall-through needs `denoteL_inj`
+to know the spec's fast path also failed; `isEquivListLM` short-circuits
+like its spec).  No other proof moved.
+
+**Measured** (init-prelude probe, `perf stat` instructions, best of 2):
+
+| configuration | before | after |
+|---|---|---|
+| setlec, certified (default) | 173.2 G / ~12.2 s | **82.4 G / ~6.1 s** (−52 %) |
+| setlec, `--yolo` | 140.1 G / ~9.1 s | **49.3 G / ~3.6 s** (−65 %) |
+| official C++ kernel | 3.9 G | 3.9 G |
+
+The engineering gap drops from ~36x to **~12x**.  Gates: arena 90/92,
+e2e 53/53, `lake test`, scale.sh all four shapes PASS, warning-free,
+axioms pinned (`ConsistencyP` statement family unchanged).
+
+Post-fix profile (NC mode): allocator/refcount traffic ~36 %,
+`List.reverseAux` ~10 % (spine/iota list rebuilds — `take`/`++`/
+`reverse` per reduction step), `instantiateListIGo` + its per-call
+fresh `MemoNL` hash maps ~13 %.  Per-test ratios against the official
+kernel on the arena `good/perf` corpus now range from **better than
+official** (`discarded-argument-match`: 7.8 G vs 51.4 G) to ~100x
+(`repeated-subproblem` 21 G vs 0.18 G, `shared-subterm` 36 G vs 0.4 G,
+`shift-cascade` 23 G vs 0.3 G — sharing-heavy shapes dominated by
+per-step list rebuilding and hash-map memo churn, where nanoda's
+index caches decide in ~0).  Those are the next levers.
