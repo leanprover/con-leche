@@ -111,6 +111,15 @@ traversals). -/
     max (max (fs.getD ty 0) (fs.getD val 0)) (fs.getD body 0)
   | .proj _ _ sub => fs.getD sub 0
 
+/-- The has-level-param recurrence of one level node over its
+children's entries (official kernel `level.cpp` `has_param` flag,
+task #87). -/
+@[inline] def LNode.hasParamOf (bs : Array Bool) : LNode → Bool
+  | .param _ => true
+  | .zero => false
+  | .succ u => bs.getD u false
+  | .max u v | .imax u v => bs.getD u false || bs.getD v false
+
 /-- The interning arena: the expression node table (index = position)
 with its cons-table, the level node table with its cons-table, and the
 eager derived-field arrays kept congruent with `nodes` (task #87).
@@ -128,11 +137,14 @@ structure EStore where
   bvarBs : Array Nat
   /-- Eager per-node fvar range (`fvarBs.size = nodes.size`). -/
   fvarBs : Array Nat
+  /-- Eager per-level-node has-param flag
+  (`lparamBs.size = lnodes.size`). -/
+  lparamBs : Array Bool
 
 namespace EStore
 
 /-- The empty arena. -/
-def empty : EStore := ⟨#[], {}, #[], {}, #[], #[]⟩
+def empty : EStore := ⟨#[], {}, #[], {}, #[], #[], #[]⟩
 
 instance : Inhabited EStore := ⟨empty⟩
 
@@ -146,12 +158,12 @@ def intern (st : EStore) (n : ENode) : EIdx × EStore :=
   | some i => (i, st)
   | none =>
     match st with
-    | ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs⟩ =>
+    | ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs⟩ =>
       let i := nodes.size
       let bb := n.bvarBoundOf bvarBs
       let fb := n.fvarRangeOf fvarBs
       (i, ⟨nodes.push n, cons.insert n i, lnodes, lcons,
-        bvarBs.push bb, fvarBs.push fb⟩)
+        bvarBs.push bb, fvarBs.push fb, lparamBs⟩)
 
 /-- The eager per-node loose-bvar bound (task #87): the least `k` with
 `looseBVarsBounded k` for the node's denotation; `0` (also the
@@ -165,15 +177,23 @@ out-of-range default) means fvar-free. -/
 @[inline] def fvarRangeD (st : EStore) (e : EIdx) : Nat :=
   st.fvarBs.getD e 0
 
-/-- Intern one level node (the level-table analog of `intern`). -/
+/-- The eager per-level-node has-param flag (task #87; `false` is
+also the out-of-range default). -/
+@[inline] def lhasParamD (st : EStore) (u : LIdx) : Bool :=
+  st.lparamBs.getD u false
+
+/-- Intern one level node (the level-table analog of `intern`; pushes
+the node's has-param entry computed from the children's). -/
 def internL (st : EStore) (n : LNode) : LIdx × EStore :=
   match st.lcons[n]? with
   | some i => (i, st)
   | none =>
     match st with
-    | ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs⟩ =>
+    | ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs⟩ =>
       let i := lnodes.size
-      (i, ⟨nodes, cons, lnodes.push n, lcons.insert n i, bvarBs, fvarBs⟩)
+      let pb := n.hasParamOf lparamBs
+      (i, ⟨nodes, cons, lnodes.push n, lcons.insert n i, bvarBs, fvarBs,
+        lparamBs.push pb⟩)
 
 /-- Intern a whole level bottom-up. -/
 def internLevel (st : EStore) : Level → LIdx × EStore
@@ -410,9 +430,13 @@ def substLGo? : List Name → List LIdx → Name → Option LIdx
   | k :: ks, v :: vs, n => if k = n then some v else substLGo? ks vs n
   | _, _, _ => none
 
-/-- Core of `substLI` (interned `Level.subst`, memoized per call). -/
+/-- Core of `substLI` (interned `Level.subst`, memoized per call).
+A param-free level (eager has-param entry `false`, task #87) is
+returned unchanged without traversal — the official kernel's
+`has_param` shortcut in `level.cpp:319`'s replace loop. -/
 def substLIGo (ks : List Name) (us : List LIdx) (st : EStore)
     (memo : LMemo) (u : LIdx) : LIdx × EStore × LMemo :=
+  if !st.lhasParamD u then (u, st, memo) else
   match memo[u]? with
   | some r => (r, st, memo)
   | none =>
@@ -1116,6 +1140,7 @@ def looseBVarsBoundedI (st : EStore) (k : Nat) (e : EIdx) : Bool :=
 def lparamsDefinedLIGo (st : EStore) (params : List Name)
     (memo : Std.HashMap LIdx Bool) (u : LIdx) :
     Bool × Std.HashMap LIdx Bool :=
+  if !st.lhasParamD u then (true, memo) else
   match memo[u]? with
   | some r => (r, memo)
   | none =>
@@ -1270,7 +1295,8 @@ def wfBLNodes (st : EStore) : Nat → Bool
         | .zero | .param _ => true
         | .succ u => u < k
         | .max u v | .imax u v => u < k && v < k) &&
-       st.lcons[m]? == some k
+       st.lcons[m]? == some k &&
+       st.lparamBs[k]? == some (m.hasParamOf st.lparamBs)
      | none => false)
 
 /-- Decidable canonicity of a store (`wfB st = true → st.WF`,
@@ -1280,7 +1306,8 @@ def wfB (st : EStore) : Bool :=
   wfBNodes st st.nodes.size && wfBLNodes st st.lnodes.size &&
   st.cons.toList.all (fun p => st.nodes[p.2]? == some p.1) &&
   st.lcons.toList.all (fun p => st.lnodes[p.2]? == some p.1) &&
-  st.bvarBs.size == st.nodes.size && st.fvarBs.size == st.nodes.size
+  st.bvarBs.size == st.nodes.size && st.fvarBs.size == st.nodes.size &&
+  st.lparamBs.size == st.lnodes.size
 
 
 /-- Core of `wscopedBI`; `d` is the scope cursor (mirrors
