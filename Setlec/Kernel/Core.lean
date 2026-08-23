@@ -1815,26 +1815,24 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       let bt ← r.infer (depth + 1) body'
       let v ← ensureSort r env (depth + 1) (← r.infer (depth + 1) bt)
       pure (.lam n ty' (body'.abstract1 depth) ⟨mb.bi, some v⟩)
-    | .letE n ty v b => do
+    | .letE _ ty v b => do
       -- The official kernel's `infer_let` check order (`!infer_only`):
       -- the annotation is a type (`ensure_sort_core(infer(type))`), the
       -- value's inferred type matches it (`is_def_eq(val_type, type)`),
-      -- then the body.  The body is annotated at an *opened* free
-      -- variable of the annotation type (as `lam` does); the stored
-      -- `type` field plays the domain role, and no codomain bookkeeping
-      -- is needed — `infer` on a `letE` recurses into the instantiated
-      -- body instead of trusting a stored sort.  (Deviation, noted in
-      -- DESIGN.md: the references type the body with the let value
-      -- *transparent* via valued let-fvars; setlec fvars carry no
-      -- value, so the body is checked at an opaque variable.)
+      -- then the body *with the value transparent* — nanoda's
+      -- `infer_let` instantiates the body with the value and recurses
+      -- (the official kernel gets the same transparency from valued
+      -- let-fvars in its local context).  Setlec fvars carry no value,
+      -- so the body is annotated as its zeta reduct; an opened opaque
+      -- variable was tried and rejects real streams (elaborated `let`
+      -- bodies rely on the value definitionally — see DESIGN.md).
       let ty' ← r.annotate depth ty
       let _ ← ensureSort r env depth (← r.infer depth ty')
       let v' ← r.annotate depth v
       let tv ← r.infer depth v'
       unless ← r.defeq depth tv ty' do
         throw (.invalid "let value type mismatch")
-      let b' ← r.annotate (depth + 1) (b.instantiate1 (.fvar depth n ty'))
-      pure (.letE n ty' v' (b'.abstract1 depth))
+      r.annotate depth (b.instantiate1 v)
     | .proj sn i pe => do
       let e' ← r.annotate depth pe
       -- Run the projection rule (the one place it is checked; this

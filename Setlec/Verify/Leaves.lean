@@ -540,30 +540,15 @@ theorem annotateCore_leaves_sub {env : Env} :
   | fuel + 1, .letE n ty v b, d, e', h, hw, hb => by
     simp only [WScoped] at hw
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    obtain ⟨ty', v', b', hty, hv, hbody, rfl, -⟩ := annotateCore_letE_inv h
-    have hwty' := annotateCore_WScoped fuel ty hty hw.1
-    have hwbody' := annotateCore_WScoped fuel _ hbody (hwty'.instantiate1 0 hw.2.2)
-    have hsubty : ∀ l ∈ ty'.fvarLeaves, l ∈ ty.fvarLeaves :=
-      annotateCore_leaves_sub fuel ty hty hw.1 hb.1.1
-    have hsubv : ∀ l ∈ v'.fvarLeaves, l ∈ v.fvarLeaves :=
-      annotateCore_leaves_sub fuel v hv hw.2.1 hb.1.2
-    have hsubbody : ∀ l ∈ b'.fvarLeaves,
-        l ∈ (b.instantiate1 (.fvar d n ty')).fvarLeaves :=
-      annotateCore_leaves_sub fuel _ hbody (hwty'.instantiate1 0 hw.2.2)
-        (looseBVarsBounded_instantiate1 b 0 hb.2)
+    obtain ⟨ty', v', -, -, hbody, -⟩ := annotateCore_letE_inv h
+    have hsub := annotateCore_leaves_sub fuel _ hbody
+      (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
+      (looseBVarsBounded_instantiate1_gen hb.1.2 hb.2)
     intro l hl
-    simp only [fvarLeaves, List.mem_append] at hl ⊢
-    rcases hl with (hl | hl) | hl
-    · exact Or.inl (Or.inl (hsubty l hl))
-    · exact Or.inl (Or.inr (hsubv l hl))
-    · obtain ⟨hl', hlt⟩ := fvarLeaves_abstract1_lt b' 0 hwbody' l hl
-      have hl2 := hsubbody l hl'
-      rcases fvarLeaves_instantiate1 b 0 hl2 with h2 | h2
-      · exact Or.inr h2
-      · simp only [fvarLeaves, List.mem_cons] at h2
-        rcases h2 with rfl | h2
-        · omega
-        · exact Or.inl (Or.inl (hsubty l h2))
+    simp only [fvarLeaves, List.mem_append]
+    rcases fvarLeaves_instantiate1 b 0 (hsub l hl) with h2 | h2
+    · exact Or.inr h2
+    · exact Or.inl (Or.inr h2)
   | fuel + 1, .lit l, d, e', h, _, _ => by
     rw [annotateCore_succ] at h
     match l, h with

@@ -13,33 +13,6 @@ substituting that variable equals opening with the term directly.
 
 namespace Setlec.Expr
 
-theorem looseBVarsBounded_mono {k k' : Nat} (h : k ≤ k') :
-    ∀ {e : Expr}, looseBVarsBounded k e = true → looseBVarsBounded k' e = true := by
-  intro e
-  induction e generalizing k k' with
-  | bvar i => simp_all [looseBVarsBounded]; omega
-  | app f a ihf iha =>
-    intro hb
-    simp only [looseBVarsBounded, Bool.and_eq_true] at hb ⊢
-    exact ⟨ihf h hb.1, iha h hb.2⟩
-  | lam n ty body m ihty ihbody =>
-    intro hb
-    simp only [looseBVarsBounded, Bool.and_eq_true] at hb ⊢
-    exact ⟨ihty h hb.1, ihbody (by omega) hb.2⟩
-  | forallE n ty body m ihty ihbody =>
-    intro hb
-    simp only [looseBVarsBounded, Bool.and_eq_true] at hb ⊢
-    exact ⟨ihty h hb.1, ihbody (by omega) hb.2⟩
-  | letE n ty val body ihty ihval ihbody =>
-    intro hb
-    simp only [looseBVarsBounded, Bool.and_eq_true] at hb ⊢
-    exact ⟨⟨ihty h hb.1.1, ihval h hb.1.2⟩, ihbody (by omega) hb.2⟩
-  | proj s i e ih =>
-    intro hb
-    simp only [looseBVarsBounded] at hb ⊢
-    exact ih h hb
-  | _ => simp [looseBVarsBounded]
-
 /-- Instantiation is a no-op on terms without matching loose bvars. -/
 theorem instantiate1_eq_self {v : Expr} :
     ∀ {e : Expr} {k : Nat}, looseBVarsBounded k e = true → e.instantiate1 v k = e := by
@@ -1285,24 +1258,6 @@ theorem instSeq_app :
       (.app (f.instantiate1 x t) (a.instantiate1 x t)) = _
     rw [ih]
     rfl
-
-/-- Instantiating with a bounded term keeps loose-bvar bounds. -/
-theorem looseBVarsBounded_instantiate1_gen {a : Expr}
-    (hba : a.looseBVarsBounded 0 = true) :
-    ∀ {e : Expr} {k : Nat}, looseBVarsBounded (k + 1) e = true →
-      looseBVarsBounded k (e.instantiate1 a k) = true := by
-  intro e
-  induction e with
-  | bvar i =>
-    intro k hb
-    simp only [looseBVarsBounded, decide_eq_true_eq] at hb
-    simp only [instantiate1]
-    split
-    · exact looseBVarsBounded_mono (Nat.zero_le k) hba
-    · split <;> simp [looseBVarsBounded] <;> omega
-  | _ =>
-    intro k hb
-    simp_all [looseBVarsBounded, instantiate1]
 
 /-- Instantiating with a scoped term keeps reachable-`fvar` bounds. -/
 theorem fvarsBelow_instantiate1_gen {d : Nat} {a : Expr} (ha : fvarsBelow d a) :

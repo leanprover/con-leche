@@ -2453,14 +2453,9 @@ private theorem annotate_step (henv : EnvWF env)
       (ih.defeq hpd (inferTypeCore_WScoped henv fuel htv hwv') hwty') ?_
     intro bb _
     refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-    have hopen : WScoped (d + 1) (body.instantiate1 (.fvar d n ty')) :=
-      WScoped.instantiate1 (n := n) hwty' 0 hw.2.2
-    have hbody := ih.annotate (p := p) (d := d + 1) (by omega) hopen
-    rw [shiftFrom_instantiate1 hpd] at hbody
-    refine bind_rel _ _ hbody ?_
-    intro body' hbody'
-    rw [← shiftFrom_abstract1 hpd]
-    rfl
+    have hbody := ih.annotate hpd
+      (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
+    rwa [shiftFrom_instantiate1_gen] at hbody
   | .lit (.natVal n) =>
     show annotateBody (pureFns env fuel) env (d + 1) (.lit (.natVal n)) =
       (annotateBody (pureFns env fuel) env d (.lit (.natVal n))).map

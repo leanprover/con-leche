@@ -1035,9 +1035,7 @@ theorem annotateBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
         (C : CoreFns CheckSM).infer d v' >>= fun tv =>
         (C : CoreFns CheckSM).defeq d tv ty' >>= fun bb =>
         if bb then
-          (C : CoreFns CheckSM).annotate (d + 1)
-              (b.instantiate1 (.fvar d n ty')) >>= fun b' =>
-          pure (Expr.letE n ty' v' (b'.abstract1 d))
+          (C : CoreFns CheckSM).annotate d (b.instantiate1 v)
         else throw (.invalid "let value type mismatch"))
       ((G : CoreFns CheckSM).annotate d ty >>= fun ty' =>
         (G : CoreFns CheckSM).infer d ty' >>= fun tty =>
@@ -1046,9 +1044,7 @@ theorem annotateBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
         (G : CoreFns CheckSM).infer d v' >>= fun tv =>
         (G : CoreFns CheckSM).defeq d tv ty' >>= fun bb =>
         if bb then
-          (G : CoreFns CheckSM).annotate (d + 1)
-              (b.instantiate1 (.fvar d n ty')) >>= fun b' =>
-          pure (Expr.letE n ty' v' (b'.abstract1 d))
+          (G : CoreFns CheckSM).annotate d (b.instantiate1 v)
         else throw (.invalid "let value type mismatch"))
     refine DiscV.bind (ih.site_annotate hwtvb.1) (fun ty' hty' => ?_)
     refine DiscV.bind (ih.site_infer henv hty') (fun tty htty => ?_)
@@ -1057,11 +1053,8 @@ theorem annotateBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     refine DiscV.bind (ih.site_infer henv hv') (fun tv htv => ?_)
     refine DiscV.bind (ih.site_defeq htv hty') (fun bb _ => ?_)
     split
-    · refine DiscV.bind (ih.site_annotate
-        (WScoped.instantiate1 hty' 0 hwtvb.2.2)) (fun b' hb' => ?_)
-      refine DiscV.pure ?_
-      simp only [WScoped]
-      exact ⟨hty', hv', WScoped.abstract1 0 hb'⟩
+    · exact ih.site_annotate
+        (WScoped.instantiate1_gen hwtvb.2.1 0 hwtvb.2.2)
     · exact DiscV.throw _
   | .app g' a =>
     have hwfa : WScoped d g' ∧ WScoped d a := by

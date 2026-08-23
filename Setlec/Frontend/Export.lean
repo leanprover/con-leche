@@ -98,13 +98,16 @@ structure State where
   `α := ∅`) — and any later *use* is positively declined. -/
   skippedAxioms : Std.HashMap Name Unit := {}
   /-- Saturated *unshared tree size* per expression-table entry,
-  maintained incrementally (`O(1)` per entry).  The whole pipeline
-  (zeta expansion here, the raw syntactic passes and arena interning
-  in the checker) materializes or walks the tree, so a declaration
-  whose tree size exceeds `declTreeSizeBudget` — reachable only
-  through heavy DAG sharing, e.g. the arena `app-lam` doubling tower
-  with 2^4000 unshared nodes — is *positively declined* at its record
-  (see DESIGN.md, task #65). -/
+  maintained incrementally (`O(1)` per entry).  The raw syntactic
+  passes and the arena interning in the checker still materialize or
+  walk the tree, so a declaration whose tree size exceeds
+  `declTreeSizeBudget` — reachable only through heavy DAG sharing,
+  e.g. the arena `app-lam` doubling tower with 2^4000 unshared
+  nodes — is *positively declined* at its record (see DESIGN.md,
+  task #65).  `letE` counts its three children linearly (zeta
+  saturation is *not* counted — annotate's on-demand expansion runs
+  sharing-preserved on the arena; this matches the pre-#79 pipeline,
+  whose budget also measured the unexpanded tree). -/
   sizes : Std.HashMap Nat Nat := {}
 
 /-- Internal sentinel converted to a decline at the record level. -/

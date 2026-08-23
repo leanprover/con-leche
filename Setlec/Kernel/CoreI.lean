@@ -1838,10 +1838,11 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
         let v ← ensureSortI r (depth + 1) tbt
         let bAbs ← abstract1M body' depth
         internI (.lam n ty' bAbs ⟨mb.bi, some v⟩)
-    | some (.letE n ty v b) => do
+    | some (.letE _ ty v b) => do
       -- official `infer_let` check order (see the spec body): the
       -- annotation is a type, the value's inferred type matches it,
-      -- then the body at an opened variable of the annotation type
+      -- then the body with the value transparent (zeta at annotate;
+      -- `inst1M` keeps the substitution sharing-preserving)
       let ty' ← r.annotate depth ty
       let tty ← r.infer depth ty'
       let _ ← ensureSortI r depth tty
@@ -1849,11 +1850,8 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
       let tv ← r.infer depth v'
       unless ← r.defeq depth tv ty' do
         throw (.invalid "let value type mismatch")
-      let fv ← internI (.fvar depth n ty')
-      let ob ← inst1M b fv
-      let b' ← r.annotate (depth + 1) ob
-      let bAbs ← abstract1M b' depth
-      internI (.letE n ty' v' bAbs)
+      let ob ← inst1M b v
+      r.annotate depth ob
     | some (.proj sn i pe) => do
       let e' ← r.annotate depth pe
       let tpe ← r.infer depth e'
