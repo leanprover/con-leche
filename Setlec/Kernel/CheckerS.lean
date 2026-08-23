@@ -303,7 +303,7 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 def checkConstantValF (ops : CheckerOps m) (fe : FEnv)
     (cv : ConstantVal) : m ConstantVal := do
   if (fe.find? cv.name).isSome then
-    throw (.invalid (duplicateMsg fe.env cv.name))
+    throw (.invalid s!"duplicate declaration {cv.name}")
   if reservedBasisNames.contains cv.name then
     throw (.invalid s!"reserved basis name {cv.name}")
   if cv.name.isProjFnShape then
@@ -788,9 +788,7 @@ def checkDirectIndF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts) :
     (.notImplemented "direct structure: type former telescope")
   unless tbody == Expr.sort p.resSort do
     throw (.notImplemented "direct structure: type former result sort")
-  pure ((fe.push
-    (.axiomInfo ⟨p.cvT.name.str "_model", cvTa.levelParams, cvTa.type⟩)).push
-    (.indInfo cvTa (directCaps p)), cvTa)
+  pure (fe.push (.indInfo cvTa (directCaps p)), cvTa)
 
 /-- `checkDirectCtor` through the index. -/
 def checkDirectCtorF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts)
@@ -804,15 +802,14 @@ def checkDirectCtorF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts)
     (.notImplemented "direct structure: type former telescope")
   let (_, crest) ← unwrapOr (Expr.instPisAt fvsP cvCa.type)
     (.notImplemented "direct structure: constructor telescope")
+
   let (xFvs, cresid) ← unwrapOr (openPisAtFvars p.nF crest p.nP)
     (.notImplemented "direct structure: constructor field telescope")
   unless cresid == Expr.mkAppN
       (.const p.cvT.name (p.cvT.levelParams.map .param)) fvsP do
     throw (.notImplemented "direct structure: opened constructor residual")
   checkDirectFieldUnivF ops fe p.resSort p.nP xFvs p.nF
-  pure ((fe.push
-    (.axiomInfo ⟨p.cvC.name.str "_model", cvCa.levelParams, cvCa.type⟩)).push
-    (.ctorInfo cvCa p.nP p.nF), cvCa)
+  pure (fe.push (.ctorInfo cvCa p.nP p.nF), cvCa)
 
 /-- `checkDirectRecTy` through the index. -/
 def checkDirectRecTyF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts)
@@ -914,11 +911,9 @@ def checkDirectProjF (ops : CheckerOps m) (T C : Name) (lps : List Name)
     throw (.invalid "projection name taken")
   checkProjShape (m := m) ptyA cvCa.type nP nF
   let rhsA ← checkProjRuleF ops fe ptyA cvCa lps nP nF i
-  pure ((fe.push (.axiomInfo ⟨projModelName T i, lps, ptyA⟩)).push
-    (.recInfo ⟨projFnName T i, lps, ptyA⟩ nP nP
-      [⟨C, nF, nP,
-        if Expr.recRulePlain ptyA nP nP nP then .plain else .inert,
-        rhsA⟩]))
+  pure (fe.push (.recInfo ⟨projFnName T i, lps, ptyA⟩ nP nP
+    [⟨C, nF, nP,
+      if Expr.recRulePlain ptyA nP nP nP then .plain else .inert, rhsA⟩]))
 
 end Mirrors
 

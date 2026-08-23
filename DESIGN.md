@@ -3019,45 +3019,6 @@ with `sigmaTowerV_split` supplying both the recursor's `mem_type`
 `tupleV (projs x) = x`) and the rule's fold equation
 (`projV_tupleV`).
 
-### The model companions: the direct path is its own preprocessor
-
-`ModeledOk` (the environment invariant's modeled-value bridges) demands
-that every non-reserved stored inductive-kind constant carries a
-`_model` companion with the *same value*, and the eta capability's law
-is spelled in `_model` names.  Rather than weaken that shared invariant
-— which turns out to be load-bearing: the bridges are owed at the
-*type former's* install, when neither the constructor nor the
-projections are stored yet, so no public-name restatement is
-establishable there without new caps-swap or one-shot-block transport
-machinery — the direct path **emits the companions itself**.
-
-Alongside the type former, the constructor and each projection
-function, `checkDirectStruct` stores an opaque constant of the same
-type carrying the same value, under `T._model`, `C._model` and
-`T._model.proj_j`.  `directNoModel` guarantees those names are free, so
-nothing is shadowed; every `ModeledOk` clause then holds verbatim for a
-directly installed block, and not one shared invariant, transport or
-consumer had to change.  The companions are `axiomInfo`s, which trigger
-none of the inductive-kind obligations, so installing one is uniform
-(`extend_direct_companion`).
-
-**The companion names are reserved from that point on.**  A later
-declaration under `T._model`, `C._model` or `T._model.proj_j` is a
-duplicate and is rejected; `duplicateMsg` says so by name, so the
-verdict is diagnosable.  This cannot turn an accepted stream into a
-rejected one: `lean-inductive-models` always emits a block's artifacts
-*before* the block (checked against its actual output — 0 of 151
-init-prelude blocks out of order), and a stream that emitted them
-afterwards never checked anyway, because the modeled path looks the
-companion up in the environment *at* the block and declines there
-("missing model for …").  So only the verdict and the record reporting
-it move — decline at the block ⇝ reject at the artifact — exactly as
-for the arena's `bad/13x` duplicate fixtures, which the direct path
-already turns from decline into the reference-correct reject.  Note
-also that a *partially* out-of-order family never reaches the direct
-path at all: `directNoModel` fails as soon as any member is present, so
-the block stays modeled and behaves exactly as before.
-
 ### One opening for the block, one frame per field
 
 Two shape decisions exist purely so the model can read the checks off

@@ -66,7 +66,7 @@ parameters.  Returns the constant with its type **annotated**
 (`annotate`); the guards run on the annotated type. -/
 def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal) : m ConstantVal := do
   if (env.find? cv.name).isSome then
-    throw (.invalid (duplicateMsg env cv.name))
+    throw (.invalid s!"duplicate declaration {cv.name}")
   if reservedBasisNames.contains cv.name then
     throw (.invalid s!"reserved basis name {cv.name}")
   if cv.name.isProjFnShape then
@@ -866,23 +866,7 @@ def checkDirectInd (ops : CheckerOps m) (env : Env) (p : DirectParts) :
     (.notImplemented "direct structure: type former telescope")
   unless tbody == Expr.sort p.resSort do
     throw (.notImplemented "direct structure: type former result sort")
-  -- the constructed model is installed *as a companion constant*, an
-  -- opaque `_model` of the same type and the same value, so that the
-  -- environment invariant's modeled-value bridges hold verbatim for a
-  -- directly installed block (`directNoModel` guarantees the name is
-  -- free).  The direct path is its own preprocessor.
-  --
-  -- This **reserves** the block's `_model` family from here on: a later
-  -- declaration under one of those names is a duplicate and is rejected
-  -- (with a message naming the reservation, `duplicateMsg`).  That is
-  -- sound and cannot lose an accepted stream — the preprocessor always
-  -- emits a block's artifacts *before* the block (verified against its
-  -- output: 0 of 151 init-prelude blocks out of order), and a stream
-  -- that did it the other way round never checked anyway, because the
-  -- modeled path declines at the block itself for the missing model.
-  pure (⟨.indInfo cvTa (directCaps p) ::
-    .axiomInfo ⟨p.cvT.name.str "_model", cvTa.levelParams, cvTa.type⟩ ::
-    env.consts⟩, cvTa)
+  pure (⟨.indInfo cvTa (directCaps p) :: env.consts⟩, cvTa)
 
 /-- Stage 2: the constructor — the ordinary constant check, the
 annotated result shape, and the per-field universe bound. -/
@@ -904,6 +888,7 @@ def checkDirectCtor (ops : CheckerOps m) (env : Env) (p : DirectParts)
     (.notImplemented "direct structure: type former telescope")
   let (_, crest) ← unwrapOr (Expr.instPisAt fvsP cvCa.type)
     (.notImplemented "direct structure: constructor telescope")
+
   let (xFvs, cresid) ← unwrapOr (openPisAtFvars p.nF crest p.nP)
     (.notImplemented "direct structure: constructor field telescope")
   -- the opened residual is the family at the opened parameter variables
@@ -911,9 +896,7 @@ def checkDirectCtor (ops : CheckerOps m) (env : Env) (p : DirectParts)
       (.const p.cvT.name (p.cvT.levelParams.map .param)) fvsP do
     throw (.notImplemented "direct structure: opened constructor residual")
   checkDirectFieldUniv ops env p.resSort p.nP xFvs p.nF
-  pure (⟨.ctorInfo cvCa p.nP p.nF ::
-    .axiomInfo ⟨p.cvC.name.str "_model", cvCa.levelParams, cvCa.type⟩ ::
-    env.consts⟩, cvCa)
+  pure (⟨.ctorInfo cvCa p.nP p.nF :: env.consts⟩, cvCa)
 
 /-- Stage 3: the recursor's type is the generated shape.  The skeleton
 (motive dependent over the family, one minor over the constructor's
@@ -1041,7 +1024,6 @@ def checkDirectProj (ops : CheckerOps m) (T C : Name) (lps : List Name)
   pure ⟨.recInfo ⟨projFnName T i, lps, ptyA⟩ nP nP
     [⟨C, nF, nP,
       if Expr.recRulePlain ptyA nP nP nP then .plain else .inert, rhsA⟩] ::
-    .axiomInfo ⟨projModelName T i, lps, ptyA⟩ ::
     env.consts⟩
 
 /-- Check and install a **direct simple structure** (task #82): the
