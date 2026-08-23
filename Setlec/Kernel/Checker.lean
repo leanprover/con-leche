@@ -887,27 +887,25 @@ def checkDirectCtor (ops : CheckerOps m) (env : Env) (p : DirectParts)
     (.notImplemented "direct structure: constructor telescope")
   unless cbody == directFam p.cvT.name p.cvT.levelParams p.nP p.nF do
     throw (.notImplemented "direct structure: constructor result")
-  -- One opening for the whole block: the *type former's* parameter
-  -- telescope is opened, and the constructor's is instantiated at those
-  -- very variables.  The reference kernels compare the two parameter
-  -- telescopes by `isDefEq` (lean4lean `Inductive/Add.lean:220-222`);
-  -- instantiating one into the other is the same check done once, and
-  -- it is what lets the model read the field types at the *same* frame
-  -- the type former's own walk produces.
-  let tq ← unwrapOr (openPisAtFvars p.nP cvTa.type 0)
-    (.notImplemented "direct structure: type former telescope")
-  let cq ← unwrapOr (Expr.instPisAt tq.1 cvCa.type)
+  -- One opening for the whole block: the **constructor's own**
+  -- parameter telescope, which is the frame the model's fits arrive at
+  -- (the field types' interpretations, the dependent-pair tower and the
+  -- constructor value are all read off it).
+  let cq ← unwrapOr (openPisAtFvars p.nP cvCa.type 0)
     (.notImplemented "direct structure: constructor telescope")
-  -- the constructor's parameter domains are the type former's,
+  let tq ← unwrapOr (Expr.instPisAt cq.1 cvTa.type)
+    (.notImplemented "direct structure: type former telescope")
+  -- the type former's parameter domains are the constructor's,
   -- definitionally (lean4lean `Inductive/Add.lean:220-222`, nanoda
   -- `check_ctor`): this is what carries a parameter value's membership
-  -- from the type former's telescope to the constructor's
-  checkDefEqList ops env (p.nP + p.nF) (tq.1.map Expr.fvarTypeD) cq.1
+  -- from the constructor's telescope to the type former's, so that the
+  -- family's own value folds at the very same parameters
+  checkDefEqList ops env (p.nP + p.nF) (cq.1.map Expr.fvarTypeD) tq.1
   let xq ← unwrapOr (openPisAtFvars p.nF cq.2 p.nP)
     (.notImplemented "direct structure: constructor field telescope")
   -- the opened residual is the family at the opened parameter variables
   unless xq.2 == Expr.mkAppN
-      (.const p.cvT.name (p.cvT.levelParams.map .param)) tq.1 do
+      (.const p.cvT.name (p.cvT.levelParams.map .param)) cq.1 do
     throw (.notImplemented "direct structure: opened constructor residual")
   checkDirectFieldUniv ops env p.resSort p.nP xq.1 p.nF
   pure (⟨.ctorInfo cvCa p.nP p.nF :: env.consts⟩, cvCa)

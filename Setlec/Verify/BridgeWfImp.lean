@@ -2127,39 +2127,40 @@ theorem checkDirectCtor_wfimp {env : Env} (henv : EnvWF env)
       = true
   case neg => rw [if_neg h1] at h; exact absurd h atF_throw_bind
   rw [if_pos h1] at h ⊢
-  -- the shared opening: the type former's parameter telescope
+  -- the block's shared opening: the constructor's parameter telescope
   obtain ⟨q2, hop, h⟩ := atF_bind_ok h
-  obtain ⟨fvsP, trest⟩ := q2
+  obtain ⟨fvsP, crest⟩ := q2
   dsimp only [] at h
   have hop' := unwrapOr_atF_ok hop
-  show ((unwrapOr (openPisAtFvars p.nP cvTa.type 0) _ : CheckM _) >>= _) = _
+  show ((unwrapOr (openPisAtFvars p.nP cvCa.type 0) _ : CheckM _) >>= _) = _
   rw [hop']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   try dsimp only []
-  obtain ⟨hfvsW0, -⟩ := openPisAtFvars_WScoped p.nP cvTa.type 0 hop'
-    (WScoped.of_not_hasFvar hTf)
+  obtain ⟨hfvsW0, hcrW0⟩ := openPisAtFvars_WScoped p.nP cvCa.type 0 hop'
+    (WScoped.of_not_hasFvar hCf)
   have hfvsW : ∀ x ∈ fvsP, WScoped p.nP x := by
     intro x hx
     have h0 := hfvsW0 x hx
     rwa [Nat.zero_add] at h0
-  -- the constructor's telescope instantiated at those very variables
+  have hcrW : WScoped p.nP crest := by rwa [Nat.zero_add] at hcrW0
+  -- the type former's telescope instantiated at those very variables
   obtain ⟨q3, hci, h⟩ := atF_bind_ok h
-  obtain ⟨cdomsP, crest⟩ := q3
+  obtain ⟨tdomsP, trest⟩ := q3
   dsimp only [] at h
   have hci' := unwrapOr_atF_ok hci
-  show ((unwrapOr (Expr.instPisAt fvsP cvCa.type) _ : CheckM _) >>= _) = _
+  show ((unwrapOr (Expr.instPisAt fvsP cvTa.type) _ : CheckM _) >>= _) = _
   rw [hci']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   try dsimp only []
-  obtain ⟨hcdW0, hcrW⟩ := instPisAt_WScoped (d := p.nP) fvsP cvCa.type hci'
-    (WScoped.of_not_hasFvar hCf) hfvsW
+  obtain ⟨htdW0, -⟩ := instPisAt_WScoped (d := p.nP) fvsP cvTa.type hci'
+    (WScoped.of_not_hasFvar hTf) hfvsW
   -- the parameter domains, definitionally against the type former's
   obtain ⟨u1, hd1, h⟩ := atF_bind_ok h
   have hd1' := checkDefEqList_wfimp henv
     (fun a ha => by
       obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
       exact (fvarTypeD_WScoped (hfvsW x hx)).mono (by omega))
-    (fun b hb => (hcdW0 b hb).mono (by omega)) hd1
+    (fun b hb => (htdW0 b hb).mono (by omega)) hd1
   show (checkDefEqList (fueledOps F) env (p.nP + p.nF) _ _ >>= _) = _
   rw [hd1']
   simp only [Bind.bind, Except.bind]

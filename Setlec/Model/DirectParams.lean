@@ -198,18 +198,13 @@ theorem directTyVal_params (hcp : ConstValParams cval env) {ps : List Name}
     (hs : s.allParamsDefined ps = true) :
     directTyVal V cval env tty cty nP nF s φ₁ =
       directTyVal V cval env tty cty nP nF s φ₂ := by
-  have hcrest : (directCRest tty cty nP).allLevelParamsDefined ps = true := by
+  have hcrest : (directCRest cty nP).allLevelParamsDefined ps = true := by
     unfold directCRest
-    cases hop : openPisAtFvars nP tty 0 with
+    cases hop : openPisAtFvars nP cty 0 with
     | none => rfl
     | some q =>
       dsimp only []
-      cases hci : Expr.instPisAt q.1 cty with
-      | none => rfl
-      | some q2 =>
-        dsimp only []
-        exact instPisAt_allLevelParamsDefined q.1 cty q2.1 q2.2 hci hcty
-          (openPisAtFvars_fvar_allLevelParamsDefined nP tty 0 q.1 q.2 hop htty)
+      exact openPisAtFvars_allLevelParamsDefined nP cty 0 q.1 q.2 hop hcty
   unfold directTyVal
   rw [Level.eval_ext hs hφ]
   refine teleLamV_params hcp hφ nP 0 (rho0 V) tty _ _ htty

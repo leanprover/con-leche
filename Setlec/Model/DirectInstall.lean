@@ -158,18 +158,17 @@ theorem TeleFit_interp_rest :
 
 /-! ### The type former's value -/
 
-/-- The constructor's field telescope, instantiated at the **type
-former's** opened parameter variables (junk outside the class).  The
-type former's opening is the block's one frame: `checkDirectCtor` runs
-the per-field universe walk over exactly this residual, so the field
-types' annotations are the ones the type former's own telescope walk
-supplies. -/
-def directCRest (tty cty : Expr) (nP : Nat) : Expr :=
-  match openPisAtFvars nP tty 0 with
-  | some (fvsP, _) =>
-    match Expr.instPisAt fvsP cty with
-    | some (_, crest) => crest
-    | none => .sort .zero
+/-- The constructor's field telescope: the residual of the
+constructor's **own** parameter opening (junk outside the class).
+
+That opening is the block's one frame.  It is where every value-spine
+fit of the constructor's type at the canonical frame lands
+(`TeleFit_open`), so the field types carry exactly the annotations the
+walks produce, and `checkDirectCtor` runs the per-field universe walk
+over this very residual. -/
+def directCRest (cty : Expr) (nP : Nat) : Expr :=
+  match openPisAtFvars nP cty 0 with
+  | some (_, crest) => crest
   | none => .sort .zero
 
 /-- The type former's body value at one parameter instantiation: the
@@ -221,7 +220,7 @@ noncomputable def directTyVal (V : Type u) [SetTheory V] (cval : ConstVal V)
     (ψ : Name → Nat) : V :=
   teleLamV V cval env ψ nP 0 (rho0 V) tty
     (fun d ρ _ => directTyBody V cval env ψ (s.eval ψ) nF d ρ
-      (directCRest tty cty nP))
+      (directCRest cty nP))
 
 /-- The type former's value inhabits the interpretation of its type.
 Unconditional: the guard supplies the smallness the type's result sort
@@ -251,11 +250,11 @@ theorem directTyVal_fold {tty cty : Expr} {nP nF : Nat} {s : Level}
     (hfield : ∀ (ps' : List V) (d : Nat) (ρ : Nat → V),
       TeleFit V cval env φ 0 (rho0 V) tty ps' d ρ (.sort s) →
       ps'.length = nP →
-      FieldTele V cval env φ (s.eval φ) nF d ρ (directCRest tty cty nP)) :
+      FieldTele V cval env φ (s.eval φ) nF d ρ (directCRest cty nP)) :
     SpineFold V (directTyVal V cval env tty cty nP nF s φ) ps =
-      sigmaTowerV V cval env φ (s.eval φ) nF d' ρ' (directCRest tty cty nP) := by
+      sigmaTowerV V cval env φ (s.eval φ) nF d' ρ' (directCRest cty nP) := by
   rw [directTyVal, teleLamV_fold (S := fun d ρ _ =>
-      directTyBody V cval env φ (s.eval φ) nF d ρ (directCRest tty cty nP))
+      directTyBody V cval env φ (s.eval φ) nF d ρ (directCRest cty nP))
     (by rw [hstrip]; rfl) hfit hlen htyA
     (fun xs d₂ ρ₂ rest hfit₂ hlen₂ =>
       ⟨univ (s.eval φ), by rw [TeleFit_rest_sort nP hfit₂ hlen₂ hstrip,
