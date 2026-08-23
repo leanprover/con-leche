@@ -268,6 +268,42 @@ def checkDirectProj (ops : CheckerOps m) (T C : Name) (lps : List Name)
   unless (env.find? (projFnName T i)).isNone do
     throw (.invalid "projection name taken")
   checkProjShape ptyA cvCa.type nP nF
+  -- The **annotated** projection type's own frame walk.  The model
+  -- reads the stored (annotated) type, and annotation is not
+  -- interpretation-preserving — the raw `directProjTy` output is not
+  -- even interpretable, since its binders carry no codomain sort — so
+  -- the two facts the model needs are re-checked here, exactly as
+  -- `checkDirectInd`/`checkDirectCtor`/`checkDirectRecTy` re-check
+  -- their skeletons on the annotated constants: the subject's domain is
+  -- the family at the opened parameters, and the residual is the
+  -- constructor's `i`-th field domain at those parameters and at the
+  -- earlier projections.  Both comparands are built here from *closed*
+  -- arguments (the opened variables), so `Expr.instPisAt` suffices and
+  -- `directProjTy` becomes a **validated generator**: a failure here is
+  -- a generator bug, and declining is the right verdict.
+  let (fvsP, prest) ← unwrapOr (openPisAtFvars nP ptyA 0)
+    (.notImplemented "direct structure: projection type telescope")
+  let famApp := Expr.mkAppN (.const T (lps.map .param)) fvsP
+  let (sbs, _) ← unwrapOr (prest.stripPis 1)
+    (.notImplemented "direct structure: projection subject telescope")
+  let sdom ← unwrapOr ((sbs[0]?).map (·.2.1))
+    (.notImplemented "direct structure: projection subject telescope")
+  unless ← ops.isDefEq env nP sdom famApp do
+    throw (.notImplemented "direct structure: projection subject domain")
+  let (tFvs, resid) ← unwrapOr (openPisAtFvars 1 prest nP)
+    (.notImplemented "direct structure: projection subject telescope")
+  let tfv ← unwrapOr tFvs[0]?
+    (.internal "direct structure: projection subject index")
+  let projArgs := (List.range i).map fun j =>
+    Expr.mkAppN (.const (projFnName T j) (lps.map .param)) (fvsP ++ [tfv])
+  let (_, cresid) ← unwrapOr (Expr.instPisAt (fvsP ++ projArgs) cvCa.type)
+    (.notImplemented "direct structure: projection field telescope")
+  let fdom ← unwrapOr (match cresid with
+      | .forallE _ d _ _ => some d
+      | _ => none)
+    (.notImplemented "direct structure: projection field telescope")
+  unless ← ops.isDefEq env (nP + 1) resid fdom do
+    throw (.notImplemented "direct structure: projection residual")
   let rhsA ← checkProjRule ops env ptyA cvCa lps nP nF i
   pure ⟨.recInfo ⟨projFnName T i, lps, ptyA⟩ nP nP
     [⟨C, nF, nP,
