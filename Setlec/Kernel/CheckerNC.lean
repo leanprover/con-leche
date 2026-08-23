@@ -114,6 +114,33 @@ def installProjFnStepNC (T ctorName : Name) (lps : List Name)
     checkProjFnNC fe T ctorName lps nP nF i
   else pure fe
 
+/-- `checkDirectStructS` at the cert-skipping ops (task #82).
+
+The cert-skipping twin of `checkDirectStructS`.  Like every definition
+in this module it duplicates its `Setlec/Kernel/CheckerS.lean`
+counterpart verbatim with `sharedOps` replaced by `sharedOpsNC`; the
+`...F` stages are the shared ones.  **Not yet reachable**: the direct
+clause is parked, so neither `checkIndDeclSF` nor `checkIndDeclNC`
+dispatches to it yet — this definition exists so that enabling the
+clause is a one-line change in both drivers at once. -/
+def checkDirectStructNC (fe : FEnv) (p : DirectParts) : CheckIM FEnv := do
+  let (fe₁, cvTa) ← checkDirectIndF (sharedOpsNC fe) fe p
+  let (fe₂, cvCa) ← checkDirectCtorF (sharedOpsNC fe₁) fe₁ p
+  let cvRa ← checkConstantValF (sharedOpsNC fe₂) fe₂ p.cvR
+  checkDirectRecTyF (sharedOpsNC fe₂) fe₂ p cvTa cvCa cvRa
+  let rhsA ← checkDirectRuleF (sharedOpsNC fe₂) fe₂ p cvCa cvRa
+  let fe₃ := fe₂.push (.recInfo cvRa (p.nP + 2) (p.nP + 2)
+    [⟨p.cvC.name, p.nF, p.nP,
+      if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
+        .plain else .inert,
+      rhsA⟩])
+  unless (List.range p.nF).all
+      (fun j => (fe₃.find? (projFnName p.cvT.name j)).isNone) do
+    throw (.invalid "projection name family taken")
+  (List.range p.nF).foldlM
+    (fun e j => checkDirectProjF (sharedOpsNC e) p.cvT.name p.cvC.name
+      p.cvT.levelParams p.nP p.nF cvTa cvCa e j) fe₃
+
 /-- `checkIndDeclSF` at the cert-skipping ops. -/
 def checkIndDeclNC (fe : FEnv) (block : List ConstantInfo) :
     CheckIM FEnv := do
