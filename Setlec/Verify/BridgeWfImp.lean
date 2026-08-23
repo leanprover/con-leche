@@ -1922,6 +1922,47 @@ openings of the recursor and constructor telescopes (at the pin frame
 right-hand side — the last two are checked closed by the checker's own
 `!hasFvar && looseBVarsBounded 0` guards before they are annotated. -/
 
+/-- The per-frame parameter-domain pins, `wfOpsM` run to pure run: each
+domain is scoped at its own frame. -/
+theorem checkDirectParamDoms_wfimp {env : Env} (henv : EnvWF env)
+    {F : Nat} {cfvs tfvs : List Expr}
+    (hc : ∀ (i : Nat) (x : Expr), cfvs[i]? = some x →
+      WScoped i (Expr.fvarTypeD x))
+    (ht : ∀ (i : Nat) (x : Expr), tfvs[i]? = some x →
+      WScoped i (Expr.fvarTypeD x)) :
+    ∀ {j : Nat} {v : Unit},
+      (checkDirectParamDoms wfOpsM env cfvs tfvs j).val F = .ok v →
+      checkDirectParamDoms (fueledOps F) env cfvs tfvs j = .ok v
+  | 0, _, h => h
+  | j + 1, v, h => by
+    unfold checkDirectParamDoms at h ⊢
+    obtain ⟨a, ha, h⟩ := atF_bind_ok h
+    have ha' := unwrapOr_atF_ok ha
+    show ((unwrapOr cfvs[j]? _ : CheckM _) >>= _) = _
+    rw [ha']
+    simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
+    obtain ⟨b, hb, h⟩ := atF_bind_ok h
+    have hb' := unwrapOr_atF_ok hb
+    show ((unwrapOr tfvs[j]? _ : CheckM _) >>= _) = _
+    rw [hb']
+    simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
+    rw [wfOpsM_isDefEq henv (hc j a ha').to_wscopedB
+      (ht j b hb').to_wscopedB] at h
+    obtain ⟨c, hc2, h⟩ := atF_bind_ok h
+    have hc2' : isDefEqCore env F j (Expr.fvarTypeD a)
+      (Expr.fvarTypeD b) = .ok c := hc2
+    show (isDefEqCore env F j (Expr.fvarTypeD a) (Expr.fvarTypeD b)
+      >>= _) = _
+    rw [hc2']
+    simp only [Bind.bind, Except.bind]
+    cases c with
+    | false =>
+      rw [if_neg (by simp)] at h
+      exact absurd h atF_throw_bind
+    | true =>
+      rw [if_pos rfl] at h ⊢
+      exact checkDirectParamDoms_wfimp henv hc ht h
+
 /-- The per-field universe bound, `wfOpsM` run to pure run. -/
 theorem checkDirectFieldUniv_wfimp {env : Env} (henv : EnvWF env)
     {s : Level} {nP F : Nat} {fvs : List Expr}
@@ -2143,25 +2184,36 @@ theorem checkDirectCtor_wfimp {env₀ env : Env} (henv : EnvWF env)
     have h0 := hfvsW0 x hx
     rwa [Nat.zero_add] at h0
   have hcrW : WScoped p.nP crest := by rwa [Nat.zero_add] at hcrW0
-  -- the type former's telescope instantiated at those very variables
+  -- the type former's telescope, opened at its own variables
   obtain ⟨q3, hci, h⟩ := atF_bind_ok h
-  obtain ⟨tdomsP, trest⟩ := q3
+  obtain ⟨tfvs, trest⟩ := q3
   dsimp only [] at h
   have hci' := unwrapOr_atF_ok hci
-  show ((unwrapOr (Expr.instPisAt fvsP cvTa.type) _ : CheckM _) >>= _) = _
+  show ((unwrapOr (openPisAtFvars p.nP cvTa.type 0) _ : CheckM _) >>= _) = _
   rw [hci']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   try dsimp only []
-  obtain ⟨htdW0, -⟩ := instPisAt_WScoped (d := p.nP) fvsP cvTa.type hci'
-    (WScoped.of_not_hasFvar hTf) hfvsW
-  -- the parameter domains, definitionally against the type former's
+  -- the parameter domains, definitionally, each at its own frame
   obtain ⟨u1, hd1, h⟩ := atF_bind_ok h
-  have hd1' := checkDefEqList_wfimp henv
-    (fun a ha => by
-      obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
-      exact (fvarTypeD_WScoped (hfvsW x hx)).mono (by omega))
-    (fun b hb => (htdW0 b hb).mono (by omega)) hd1
-  show (checkDefEqList (fueledOps F) env (p.nP + p.nF) _ _ >>= _) = _
+  obtain ⟨htfvsW0, -⟩ := openPisAtFvars_WScoped p.nP cvTa.type 0 hci'
+    (WScoped.of_not_hasFvar hTf)
+  have hd1' := checkDirectParamDoms_wfimp henv
+    (fun i x hx => by
+      obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index p.nP cvCa.type 0 hop' i x hx
+      have hw := hfvsW0 _ (List.mem_of_getElem? hx)
+      simp only [WScoped] at hw
+      show WScoped i ty
+      rw [show i = 0 + i from by omega]
+      exact hw.2)
+    (fun i x hx => by
+      obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index p.nP cvTa.type 0 hci' i x hx
+      have hw := htfvsW0 _ (List.mem_of_getElem? hx)
+      simp only [WScoped] at hw
+      show WScoped i ty
+      rw [show i = 0 + i from by omega]
+      exact hw.2)
+    hd1
+  show (checkDirectParamDoms (fueledOps F) env fvsP tfvs p.nP >>= _) = _
   rw [hd1']
   simp only [Bind.bind, Except.bind]
   -- the field telescope
