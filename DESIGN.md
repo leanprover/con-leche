@@ -3859,69 +3859,83 @@ What remains, in dependency order:
    `FrameOk.weaken_fit`, `FrameOk.fvar`, `FrameOk.openVars`,
    `FrameOk.ofInstWalk` (`DirectExtend`), `stripPis_one` (`DirectDecl`).
 
-   **What remains of item 3: the projections' `TeleBody` — and it is
-   blocked on a kernel gap (finding, 2026-08-23).**
+   **The projections' frame pins (finding + fix, 2026-08-23).**
 
    `checkDirectProj` **annotates** the generated projection type
    (`ptyA ← ops.annotate env 0 pty`) and stores `ptyA`, because
    `directProjTy` builds its binders with `cod = none`
-   (`replacePiBody` resets every kept binder to `⟨m.bi, none⟩` and the
+   (`replacePiBody` resets every kept binder to `⟨m.bi, none⟩`; the
    fresh subject binder is `⟨.default, none⟩`).  The *raw* `pty` is
    therefore **not interpretable at all** — `interpExpr` returns `none`
-   on a `∀` whose `cod` is missing — and the codebase has no
-   annotate-preserves-interpretation lemma (`annotate_sound` yields
-   `AnnotOk` for the result and nothing that relates it to its input;
-   the modeled path never needs one, because its projection type is a
-   stored *model* type renamed back verbatim, pinned by
-   `checkProjTy`'s roundtrip `==`).
+   on a `∀` whose `cod` is missing — and there is no
+   annotate-preserves-interpretation lemma, nor can there be a useful
+   one: `interpExpr` reads the `cod` level (`pi (v.eval φ) A B`), so two
+   differently-but-validly annotated copies need not have equal
+   interpretations.  (The modeled path never needs one: its projection
+   type is a stored *model* type renamed back verbatim, pinned by
+   `checkProjTy`'s roundtrip `==`.)
 
    So every semantic fact about the stored projection type must come
-   from what the kernel checks **about `ptyA`**, exactly as the rest of
-   the direct install re-checks its skeleton on the annotated constants
-   (`checkDirectInd`'s result sort, `checkDirectCtor`'s residual,
-   `checkDirectRecTy`'s `directShape` + domain pins).  For the
-   projections that re-check is *missing*: of `ptyA`, `checkDirectProj`
-   knows only that it is well-scoped, resolves, has `nP+1` binders and
-   is a type; `checkProjShape` adds only arities, and `checkProjRule`
-   pins only the **parameter** domains and the rule's λ-domains.
-   Nothing pins
+   from what the kernel checks **about `ptyA`** — the re-check
+   discipline the other three stages follow (`checkDirectInd`'s result
+   sort, `checkDirectCtor`'s residual, `checkDirectRecTy`'s
+   `directShape` + domain pins).  The projection stage had broken it:
+   of `ptyA` it knew only well-scopedness, resolution, `nP+1` binders
+   and that it is a type; `checkProjShape` adds arities and
+   `checkProjRule` pins only the **parameter** domains and the rule's
+   λ-domains.  `directProjVal_mem`'s `TeleBody` was therefore not
+   provable by anything.
 
-   * the subject binder's domain against the family at the opened
-     parameters (`T p⃗`), nor
-   * the residual against the constructor's `i`-th field domain
-     instantiated at those parameters and at the earlier projections
-     `T.proj.j p⃗ t`.
+   **Landed**: two definitional pins in `checkDirectProj` (and its
+   `F` mirror), route (X) at the projection stage's own frames —
 
-   Without those two the model cannot know `⟦ptyA⟧`'s residual, and
-   `directProjVal_mem`'s `TeleBody` is not provable — by anything, not
-   just by the present machinery.
+   * open `ptyA` at `nP` fvars; `isDefEq` the subject binder's domain
+     against `Expr.mkAppN (.const T lps) fvsP` at frame `nP`;
+   * open the subject; `isDefEq` the residual against the head domain of
+     `Expr.instPisAt (fvsP ++ projArgs) cvCa.type` at frame `nP+1`,
+     where `projArgs` are the **closed** applications
+     `T.proj.j p⃗ t` (`j < i`) built from the opened variables.
 
-   The fix is a kernel addition of exactly `checkDirectRecTy`'s shape:
-   open `ptyA` at `nP+1` fvars, `isDefEq` the subject's domain against
-   `mkAppN (.const T lps) fvsP` at frame `nP`, and `isDefEq` the
-   residual against the head domain of
-   `Expr.instPisAt (fvsP ++ projApps) cvCa.type` at frame `nP+1`, where
-   `projApps` are the *closed* applications
-   `T.proj.j p⃗ t` built from the opened variables.  Both comparands are
-   interpretable (`cvCa.type` is the annotated constructor type, the
-   arguments are `fvar`s and applications), which is what
-   `isDefEqCore_sound` needs.  Note the pin uses plain `Expr.instPisAt`
-   at closed arguments — with it in place the `instantiate1Lift` theory
-   is not needed for the proof at all, and `directProjTy` becomes a pure
-   *generator* whose output is validated rather than trusted.
-   This is a kernel change (plus its `S`/`NC` mirrors and their bridge
-   obligations), so it is reported rather than taken.
+   Both comparands are interpretable (`cvCa.type` is the annotated
+   constructor type; the arguments are `fvar`s and applications), which
+   is what `isDefEqCore_sound` needs, and both use plain
+   `Expr.instPisAt` at closed arguments — so `directProjTy` is now a
+   **validated generator** rather than a trusted one, and no
+   `instantiate1Lift` theory is needed for the proof.
 
-   *Landed anyway* (`Setlec/Verify/Subst.lean`): the substitution theory
-   for `Expr.instantiate1Lift`, which had none —
+   *Verdict safety.*  The pins compare a **self-generated** artifact
+   against the constructor telescope, so a failure means a generator
+   bug, never bad input: `.notImplemented` (decline, exit 2) is the
+   correct outcome, exactly as for the other direct-path shape
+   re-checks.  Validated by temporarily enabling the direct clause:
+   arena stays 90/92, `direct_struct_raw` still accepts (53 decls), and
+   the only e2e changes are the four expectation flips item 7 owns.
+
+   *Also landed, and now not on the critical path*
+   (`Setlec/Verify/Subst.lean`): the substitution theory for
+   `Expr.instantiate1Lift`, which had none —
    `instantiate1Lift_eq_self`, `instantiate1Lift_eq_instantiate1`,
    `instantiate1Lift_instantiate1` (the substitution lemma),
    `instSeq_instantiate1Lift`, `instSeqLift` with `instSeq_instSeqLift`
    (the collapse onto plain `instSeq` once the ambient variables are
    instantiated by a closed spine), `instSeqLift_forallE`,
    `stripPis_instantiate1Lift_full` and `instPisAtLift_head`.  It is
-   what a proof *against the current kernel* would have needed, and it
+   what a proof against the *unpinned* kernel would have needed, and it
    is the theory any future consumer of `instPisAtLift` will want.
+
+   **What remains of item 3**: the projections' `TeleBody` itself, now
+   unblocked and on the recursor's route — the residual pin identifies
+   `⟦resid⟧` with the `i`-th field domain's interpretation at the
+   parameters and at `⟦T.proj.j p⃗ t⟧`, and those values are `projV j x`
+   by the **earlier projections' fold equations**, so the discharge is a
+   `DirectProjInv` threaded through the projection phase's `foldlM`
+   (the direct analogue of `ProjPhaseInv`), with
+   `interp_instSeq_frames` doing the per-field work and
+   `directProj_body_mem` closing.  `directProj_body_mem`'s `hdom`
+   should be specialized to the *canonical* spine
+   `(range nF).map (projV · x)` — the general form is false, since a
+   fitting spine other than the projections of `x` need not agree with
+   what the residual substitutes.
 
 4. **The rules' fold obligation** (`RecMemberOk`) for the recursor rule
    and the `nF` projection rules, through `TowerOk.of_stages`
