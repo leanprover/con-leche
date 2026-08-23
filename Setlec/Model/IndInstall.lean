@@ -3467,6 +3467,201 @@ theorem modeled_bottom_plain
               (instSeq_fvars_not_app _ _ hfvsPXShapes
                 (getAppFn_not_app _))]
           rfl
+  -- ===== S4b: the argument values =====
+  have hlvalsLen : lvals.length = mI + 1 := by
+    rw [InterpSpine.length hspL, hlarity]
+  obtain ⟨lastE, hlargsDecomp, hlastE⟩ :=
+    take_concat_of_length (l := lhsS.getAppArgs) (n := mI) hlarity
+  obtain ⟨vlast, hlvalsDecomp, hvlast⟩ :=
+    take_concat_of_length (l := lvals) (n := mI) hlvalsLen
+  have hlastEmaj : lastE =
+      Expr.mkAppN (.const (f ctor) (cvj.levelParams.map .param))
+        (fvs.take cnP ++ fvs.drop rP) := by
+    have h0 : lhsS.getAppArgs.getLastD (.bvar 0) = lastE := by
+      conv => lhs; rw [hlargsDecomp]
+      rw [List.getLastD_concat]
+    rw [← h0, hmaj]
+  -- the prefix values are the frame values
+  have hcbodyArgsLen : cbody.getAppArgs.length = cnP + (mI - rP) := by
+    have h0 : cres.getAppArgs.length = cbody.getAppArgs.length := by
+      rw [hcresArgs, List.length_map]
+    rw [← h0, hclen]
+  have hpreValsEq : lvals.take rP = xs.take rP := by
+    apply List.ext_getElem?
+    intro i
+    rcases Nat.lt_or_ge i rP with hi | hi
+    · obtain ⟨ei, hei⟩ : ∃ e, lhsS.getAppArgs[i]? = some e :=
+        ⟨_, List.getElem?_eq_getElem (by omega)⟩
+      obtain ⟨vi, hvi⟩ : ∃ v, lvals[i]? = some v :=
+        ⟨_, List.getElem?_eq_getElem (by omega)⟩
+      have hint := InterpSpine.pointwise hspL i hei hvi
+      have heifv : fvs[i]? = some ei := by
+        have h0 := congrArg (·[i]?) hlpre
+        simp only [List.getElem?_take_of_lt hi] at h0
+        rw [← h0, hei]
+      obtain ⟨nmi, hshi⟩ := hfvsShape i ei heifv
+      rw [Nat.zero_add] at hshi
+      rw [hshi] at hint
+      simp only [interpExpr] at hint
+      have hvix : vi = xs.getD i SetTheory.empty :=
+        (Option.some.inj hint).symm
+      rw [List.getElem?_take_of_lt hi, List.getElem?_take_of_lt hi,
+        hvi, hvix, List.getD_eq_getElem?_getD,
+        List.getElem?_eq_getElem (l := xs) (i := i) (by omega)]
+      rfl
+    · rw [List.getElem?_eq_none (by rw [List.length_take]; omega),
+        List.getElem?_eq_none (by rw [List.length_take]; omega)]
+  -- `cres`'s per-argument facts
+  have hcresArgW : ∀ e ∈ cres.getAppArgs, WScoped (rP + cnF) e :=
+    fun e he => hWcres.getAppArgs e he
+  have hcresArgB : ∀ e ∈ cres.getAppArgs,
+      e.looseBVarsBounded 0 = true :=
+    fun e he => looseBVarsBounded_getAppArgs hbcres e he
+  have hcresArgL : ∀ e ∈ cres.getAppArgs, Expr.LeavesBounded e :=
+    fun e he l hl => hLcres l (fvarLeaves_getAppArgs he l hl)
+  have hcresArgF : ∀ e ∈ cres.getAppArgs,
+      FvarsOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) e :=
+    fun e he => FvarsOk.of_subset
+      (fun l hl => fvarLeaves_getAppArgs he l hl) hFcres
+  have hcresSpineInv : cres.getAppArgs ≠ [] →
+      AnnotOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty)
+        (Expr.mkAppN cres.getAppFn cres.getAppArgs) := by
+    intro _
+    rw [Expr.mkAppN_getApp]
+    exact hAcres
+  have hcresArgA : ∀ e ∈ cres.getAppArgs,
+      AnnotOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) e := by
+    intro e he
+    have hne : cres.getAppArgs ≠ [] := by
+      intro h0
+      rw [h0] at he
+      exact nomatch he
+    obtain ⟨-, hargsA, -⟩ := annotOk_spine_inv _ cres.getAppFn hne
+      (hcresSpineInv hne)
+    exact hargsA e he
+  have hcresArgI : ∀ e ∈ cres.getAppArgs,
+      ∃ w, interpExpr V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) e = some w := by
+    intro e he
+    have hne : cres.getAppArgs ≠ [] := by
+      intro h0
+      rw [h0] at he
+      exact nomatch he
+    obtain ⟨-, -, vf, cvals, -, hspCres, -, -⟩ :=
+      annotOk_spine_inv _ cres.getAppFn hne (hcresSpineInv hne)
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem he
+    obtain ⟨w, hw⟩ : ∃ w, cvals[j]? = some w := by
+      have hlen := InterpSpine.length hspCres
+      refine ⟨_, List.getElem?_eq_getElem ?_⟩
+      rw [hlen]
+      rcases Nat.lt_or_ge j cres.getAppArgs.length with h | h
+      · exact h
+      · rw [List.getElem?_eq_none h] at hj
+        exact nomatch hj
+    exact ⟨w, InterpSpine.pointwise hspCres j hj hw⟩
+  -- lhsS's per-argument facts
+  have hlargsW : ∀ e ∈ lhsS.getAppArgs, WScoped (rP + cnF) e :=
+    fun e he => hWlhs.getAppArgs e he
+  have hlargsB : ∀ e ∈ lhsS.getAppArgs, e.looseBVarsBounded 0 = true :=
+    fun e he => looseBVarsBounded_getAppArgs hblhs e he
+  have hlargsL : ∀ e ∈ lhsS.getAppArgs, Expr.LeavesBounded e :=
+    fun e he l hl => hLlhs l (fvarLeaves_getAppArgs he l hl)
+  have hlargsF : ∀ e ∈ lhsS.getAppArgs,
+      FvarsOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) e :=
+    fun e he => FvarsOk.of_subset
+      (fun l hl => fvarLeaves_getAppArgs he l hl) hFlhs
+  -- the index values: statement's equal the public residual's
+  have hpubSpine : FvarSpine (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty)
+      (fvsP.take cnP ++ xFvsP) (xs.take cnP ++ xs.drop rP) :=
+    FvarSpine.append hspC hspX
+  have hiaPub : InstArgs m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty)
+      (fvsP.take cnP ++ xFvsP) (xs.take cnP ++ xs.drop rP) :=
+    InstArgs.of_fvarSpine hpubSpine (fun a ha => by
+      rcases List.mem_append.mp ha with ha' | ha'
+      · exact ⟨hwsP a (List.mem_of_mem_take ha'),
+          (hfvsPWf a (List.mem_of_mem_take ha')).2.1⟩
+      · exact ⟨(hxWf a ha').1, (hxWf a ha').2.1⟩)
+  have hidxVal : ∀ (j : Nat) (e2 : Expr) (v : V),
+      (crest2.getAppArgs.drop cnP)[j]? = some e2 →
+      (lvals.drop rP)[j]? = some v → j < mI - rP →
+      interpExpr V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) e2 = some v := by
+    intro j e2 v he2 hv hjlt
+    -- the statement-side index argument and its value
+    obtain ⟨eS, heS⟩ : ∃ e, lhsS.getAppArgs[rP + j]? = some e :=
+      ⟨_, List.getElem?_eq_getElem (by omega)⟩
+    rw [List.getElem?_drop] at hv
+    have hintS := InterpSpine.pointwise hspL (rP + j) heS hv
+    -- the renamed residual's index argument
+    obtain ⟨carg, hcarg⟩ : ∃ c, cbody.getAppArgs[cnP + j]? = some c :=
+      ⟨_, List.getElem?_eq_getElem (by omega)⟩
+    have heR : cres.getAppArgs[cnP + j]? = some
+        (instSeq (fvs.take cnP ++ fvs.drop rP) (cnP + cnF - 1)
+          (carg.renameConsts f)) := by
+      rw [hcresArgs, List.getElem?_map, hcarg]
+      rfl
+    have he2' : e2 = instSeq (fvsP.take cnP ++ xFvsP)
+        (cnP + cnF - 1) carg := by
+      rw [List.getElem?_drop, hcrest2Args, List.getElem?_map,
+        hcarg] at he2
+      exact (Option.some.inj he2).symm
+    -- the kernel index pin identifies the two interpretations
+    have hdej := DefEqListOk.pointwise hdeIdx j
+      (a := eS) (b := instSeq (fvs.take cnP ++ fvs.drop rP)
+        (cnP + cnF - 1) (carg.renameConsts f))
+      (by
+        rw [List.getElem?_take_of_lt hjlt, List.getElem?_drop]
+        exact heS)
+      (by
+        rw [List.getElem?_drop]
+        exact heR)
+    have heSmem : eS ∈ lhsS.getAppArgs := List.mem_of_getElem? heS
+    have heRmem : instSeq (fvs.take cnP ++ fvs.drop rP)
+        (cnP + cnF - 1) (carg.renameConsts f) ∈ cres.getAppArgs :=
+      List.mem_of_getElem? heR
+    obtain ⟨wR, hwR⟩ := hcresArgI _ heRmem
+    have hveq := isDefEqCore_sound m₀ F hdej
+      (hlargsW eS heSmem) (hcresArgW _ heRmem)
+      (hlargsB eS heSmem) (hcresArgB _ heRmem)
+      (hlargsL eS heSmem) (hcresArgL _ heRmem)
+      (hlargsF eS heSmem) (hcresArgF _ heRmem)
+      (hlargsA eS heSmem) (hcresArgA _ heRmem)
+      hintS hwR
+    -- cross to the public residual's argument
+    have hcargNF : carg.hasFvar = false :=
+      hasFvar_getAppArgs hcbodyNF _ (List.mem_of_getElem? hcarg)
+    have hcargBnd : carg.looseBVarsBounded (cnP + cnF) = true :=
+      looseBVarsBounded_getAppArgs hcbodyBnd _
+        (List.mem_of_getElem? hcarg)
+    have hren : interpExpr V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty)
+        (instSeq (fvs.take cnP ++ fvs.drop rP) (cnP + cnF - 1)
+          (carg.renameConsts f)) =
+        interpExpr V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty)
+        (instSeq (fvs.take cnP ++ fvs.drop rP) (cnP + cnF - 1)
+          carg) :=
+      interp_instSeq_ren hro hfvsCShapes
+    have hframes : interpExpr V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty)
+        (instSeq (fvs.take cnP ++ fvs.drop rP)
+          ((fvs.take cnP ++ fvs.drop rP).length - 1) carg) =
+        interpExpr V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty)
+        (instSeq (fvsP.take cnP ++ xFvsP)
+          ((fvsP.take cnP ++ xFvsP).length - 1) carg) :=
+      interp_instSeq_frames hiaWctor hiaPub hcargNF
+        (by rw [hfvsCLen]; exact hcargBnd)
+    rw [hfvsCLen] at hframes
+    rw [hfvsPXLen] at hframes
+    rw [he2', ← hframes, ← hren, hwR]
+    exact congrArg some hveq.symm
   sorry
 
 end Setlec
