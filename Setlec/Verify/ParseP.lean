@@ -1037,7 +1037,7 @@ theorem denoteDeclP_total {st : EStore} (hwf : st.WF) {pd : DeclP}
 
 /-- Denotations of parsed declarations are `Ext`-stable (the parse
 store only grows). -/
-theorem denoteDeclP_mono {st st' : EStore} (hwf : st.WF)
+theorem denoteDeclP_mono {st st' : EStore} (_hwf : st.WF)
     (hext : Ext st st') {pd : DeclP} {d : Declaration}
     (h : denoteDeclP st pd = some d) : denoteDeclP st' pd = some d := by
   cases pd <;>

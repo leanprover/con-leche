@@ -35,3 +35,6 @@ import Setlec.Verify.BridgeS1
 import Setlec.Verify.BridgeS2
 import Setlec.Model.BridgeS
 import Setlec.Model.ConsistencyS
+import Setlec.Verify.ParseP
+import Setlec.Verify.BridgeP
+import Setlec.Model.ConsistencyP

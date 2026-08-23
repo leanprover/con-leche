@@ -203,6 +203,11 @@ def checkDeclsSharedNC (ds : List Declaration) : CheckM Env := do
 
 /-! ## Parsed-index drivers at the cert-skipping knot (task #78) -/
 
+/-- `opSIx` at the cert-skipping knot. -/
+def opSIxNC (fe : FEnv) (d : Nat) (i : EIdx) : CheckIM Level := do
+  let u ← ensureSortI (coreKnotNC fe checkFuel) d i
+  readbackLevelM u
+
 /-- `checkConstantValP` at the cert-skipping knot. -/
 def checkConstantValPNC (fe : FEnv) (cv : ConstantValP) :
     CheckIM (ConstantVal × EIdx) := do
@@ -224,14 +229,13 @@ def checkConstantValPNC (fe : FEnv) (cv : ConstantValP) :
   unless ← withStore (fun st => constsResolveFI st fe jty) do
     throw (.invalid s!"unknown constant in type of {cv.name}")
   let jsty ← (coreKnotNC fe checkFuel).infer 0 jty
-  let u ← ensureSortI (coreKnotNC fe checkFuel) 0 jsty
-  let _ ← readbackLevelM u
+  let _u ← opSIxNC fe 0 jsty
   let tyE ← readbackEM jty
   pure (⟨cv.name, cv.levelParams, tyE⟩, jty)
 
-/-- `checkValP` at the cert-skipping knot. -/
-def checkValPNC (fe : FEnv) (cvA : ConstantVal) (jty : EIdx) (value : EIdx)
-    (what : String) : CheckIM (Expr × EIdx) := do
+/-- `checkDefnValP` at the cert-skipping knot. -/
+def checkDefnValPNC (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
+    (value : EIdx) (hint : ReducibilityHint) : CheckIM FEnv := do
   unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
     throw (.invalid s!"loose bound variable in value of {cvA.name}")
   if ← withStore (fun st => st.hasFvarI value) then
@@ -244,14 +248,8 @@ def checkValPNC (fe : FEnv) (cvA : ConstantVal) (jty : EIdx) (value : EIdx)
     throw (.invalid s!"unknown constant in value of {cvA.name}")
   let jvt ← (coreKnotNC fe checkFuel).infer 0 jv
   unless ← (coreKnotNC fe checkFuel).defeq 0 jvt jty do
-    throw (.invalid s!"type mismatch in {what} {cvA.name}")
+    throw (.invalid s!"type mismatch in definition {cvA.name}")
   let vE ← readbackEM jv
-  pure (vE, jv)
-
-/-- `checkDefnValP` at the cert-skipping knot. -/
-def checkDefnValPNC (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
-    (value : EIdx) (hint : ReducibilityHint) : CheckIM FEnv := do
-  let (vE, jv) ← checkValPNC fe cvA jty value "definition"
   recordIConst cvA.name cvA.type jty (some (vE, jv))
   pure (fe.push (.defnInfo cvA vE hint))
 
@@ -259,18 +257,43 @@ def checkDefnValPNC (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
 def checkThmValPNC (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     (value : EIdx) : CheckIM FEnv := do
   let jsty ← (coreKnotNC fe checkFuel).infer 0 jty
-  let u ← ensureSortI (coreKnotNC fe checkFuel) 0 jsty
-  let ul ← readbackLevelM u
+  let ul ← opSIxNC fe 0 jsty
   unless (← liftFueled "level comparison" (Level.isEquiv ul .zero)) do
     throw (.invalid s!"type of theorem {cvA.name} is not a proposition")
-  let (vE, jv) ← checkValPNC fe cvA jty value "theorem"
+  unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
+    throw (.invalid s!"loose bound variable in value of {cvA.name}")
+  if ← withStore (fun st => st.hasFvarI value) then
+    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
+  let jv ← (coreKnotNC fe checkFuel).annotate 0 value
+  unless ← withStore
+      (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
+    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
+  unless ← withStore (fun st => constsResolveFI st fe jv) do
+    throw (.invalid s!"unknown constant in value of {cvA.name}")
+  let jvt ← (coreKnotNC fe checkFuel).infer 0 jv
+  unless ← (coreKnotNC fe checkFuel).defeq 0 jvt jty do
+    throw (.invalid s!"type mismatch in theorem {cvA.name}")
+  let vE ← readbackEM jv
   recordIConst cvA.name cvA.type jty (some (vE, jv))
   pure (fe.push (.thmInfo cvA vE))
 
 /-- `checkOpaqueValP` at the cert-skipping knot. -/
 def checkOpaqueValPNC (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     (value : EIdx) : CheckIM FEnv := do
-  let (vE, jv) ← checkValPNC fe cvA jty value "opaque"
+  unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
+    throw (.invalid s!"loose bound variable in value of {cvA.name}")
+  if ← withStore (fun st => st.hasFvarI value) then
+    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
+  let jv ← (coreKnotNC fe checkFuel).annotate 0 value
+  unless ← withStore
+      (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
+    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
+  unless ← withStore (fun st => constsResolveFI st fe jv) do
+    throw (.invalid s!"unknown constant in value of {cvA.name}")
+  let jvt ← (coreKnotNC fe checkFuel).infer 0 jv
+  unless ← (coreKnotNC fe checkFuel).defeq 0 jvt jty do
+    throw (.invalid s!"type mismatch in opaque {cvA.name}")
+  let vE ← readbackEM jv
   recordIConst cvA.name cvA.type jty (some (vE, jv))
   pure (fe.push (.thmInfo cvA vE))
 
