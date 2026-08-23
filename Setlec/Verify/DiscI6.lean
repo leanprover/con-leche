@@ -214,6 +214,7 @@ private theorem annotateProjRecI_rest (ih : SSimI env f)
           (fueledFns env).annotate d raw
         else throw (.notImplemented "projection elimination scoping")) := by
   have hcn : denoteNode s₀.store.denote s₀.store.denoteL
+      s₀.store.denoteN
       (ENode.const (entry.structName.str "rec") (uf ++ us))
       = some (.const (entry.structName.str "rec") (luf ++ lus)) := by
     rw [denoteNode, denoteLList_append huf hus]
@@ -221,6 +222,7 @@ private theorem annotateProjRecI_rest (ih : SSimI env f)
   refine SimAt.bind_left (internI_eff hs hcn)
     (fun s₁ recC hs₁ hext₁ hQrec => ?_)
   have hmot : denoteNode s₁.store.denote s₁.store.denoteL
+      s₁.store.denoteN
       (ENode.lam (.str .anonymous "t") te fi ⟨.default, none⟩)
       = some (.lam (.str .anonymous "t") tex fix ⟨.default, none⟩) := by
     rw [denoteNode, denote_mono hext₁ hte, denote_mono hext₁ hfi]
@@ -442,6 +444,7 @@ theorem annotateProjElimI_sim (ih : SSimI env f) (henv : EnvWF env)
           rw [htargs.length_eq]
           split
           · have hcn : denoteNode s₀.store.denote s₀.store.denoteL
+                s₀.store.denoteN
                 (ENode.const (projFnName T ip) us)
                 = some (.const (projFnName T ip) lus) := by
               rw [denoteNode, hlusDen]
@@ -708,6 +711,7 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
         (fun s₁ ty' ty'x hs₁ hext₁ hP hRty => ?_)
       obtain ⟨hty'd, hwty'⟩ := hP
       have hfvd : denoteNode s₁.store.denote s₁.store.denoteL
+          s₁.store.denoteN
           (.fvar d nm ty') = some (.fvar d nm ty'x) := by
         rw [denoteNode, hty'd]; rfl
       refine SimAt.bind_left (internI_eff hs₁ hfvd)
