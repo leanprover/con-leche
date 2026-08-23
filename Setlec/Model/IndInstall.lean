@@ -3662,6 +3662,208 @@ theorem modeled_bottom_plain
     rw [hfvsPXLen] at hframes
     rw [he2', ← hframes, ← hren, hwR]
     exact congrArg some hveq.symm
+  -- ===== S4c: the major value =====
+  have hsubstψC : Level.substFn ψ cvj.levelParams
+      (cvj.levelParams.map .param) = ψ :=
+    funext (fun p => Level.substFn_map_param)
+  have hcCi : interpExpr V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty)
+      (.const (f ctor) (cvj.levelParams.map .param)) =
+      some (m₀.val ctor ψ) := by
+    simp only [interpExpr, hfCm]
+    rw [if_pos (by rw [hCmlps]; simp)]
+    rw [show cimC.toConstantVal.levelParams = cvj.levelParams from
+      hCmlps]
+    rw [hsubstψC, hro.2.2 ctor]
+  have hcCpubI : interpExpr V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty)
+      (.const ctor (cvj.levelParams.map .param)) =
+      some (m₀.val ctor ψ) := by
+    simp only [interpExpr, hfC]
+    rw [if_pos (by rw [hClps]; simp)]
+    rw [show ciC.toConstantVal.levelParams = cvj.levelParams from
+      hClps]
+    rw [hsubstψC]
+  have hctorSpineI : InterpSpine m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty)
+      (fvs.take cnP ++ fvs.drop rP) (xs.take cnP ++ xs.drop rP) :=
+    InterpSpine_of_FvarSpine hspWctor
+  have hmajI : interpExpr V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) lastE = some vlast :=
+    InterpSpine.pointwise hspL mI hlastE hvlast
+  have hvlastEq : vlast = SpineFold V (m₀.val ctor ψ)
+      (xs.take cnP ++ xs.drop rP) := by
+    rw [hlastEmaj] at hmajI
+    rw [interp_mkAppN _ _ hcCi hctorSpineI] at hmajI
+    exact (Option.some.inj hmajI).symm
+  have hpubCtorSpineI : InterpSpine m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty)
+      (fvsP.take cnP ++ xFvsP) (xs.take cnP ++ xs.drop rP) :=
+    InterpSpine_of_FvarSpine hpubSpine
+  have hctorAppI : interpExpr V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty)
+      (Expr.mkAppN (.const ctor (cvj.levelParams.map .param))
+        (fvsP.take cnP ++ xFvsP)) = some vlast := by
+    rw [interp_mkAppN _ _ hcCpubI hpubCtorSpineI]
+    exact congrArg some hvlastEq.symm
+  -- ===== S4d: the canonical body's spine =====
+  have hseg1 : InterpSpine m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) fvsP (lvals.take rP) := by
+    rw [hpreValsEq]
+    exact InterpSpine_of_FvarSpine hspP
+  have hcrest2ArgsLen : crest2.getAppArgs.length = cnP + (mI - rP) := by
+    rw [hcrest2Args, List.length_map, hcbodyArgsLen]
+  have hseg2 : InterpSpine m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty)
+      (crest2.getAppArgs.drop cnP)
+      ((lvals.drop rP).take (mI - rP)) := by
+    refine InterpSpine.of_pointwise ?_ ?_
+    · rw [List.length_drop, hcrest2ArgsLen, List.length_take,
+        List.length_drop, hlvalsLen]
+      omega
+    · intro j e v he hv
+      have hjlt : j < mI - rP := by
+        rcases Nat.lt_or_ge j (mI - rP) with h | h
+        · exact h
+        · rw [List.getElem?_eq_none
+            (by rw [List.length_take]; omega)] at hv
+          exact nomatch hv
+      rw [List.getElem?_take_of_lt hjlt] at hv
+      exact hidxVal j e v he hv hjlt
+  have hseg3 : InterpSpine m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty)
+      [Expr.mkAppN (.const ctor (cvj.levelParams.map .param))
+        (fvsP.take cnP ++ xFvsP)] [vlast] := ⟨hctorAppI, trivial⟩
+  have hspB : InterpSpine m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty)
+      (fvsP ++ crest2.getAppArgs.drop cnP ++
+        [Expr.mkAppN (.const ctor (cvj.levelParams.map .param))
+          (fvsP.take cnP ++ xFvsP)])
+      (lvals.take rP ++ (lvals.drop rP).take (mI - rP) ++ [vlast]) :=
+    InterpSpine.append (InterpSpine.append hseg1 hseg2) hseg3
+  have hlvalsRebuild : lvals =
+      lvals.take rP ++ (lvals.drop rP).take (mI - rP) ++ [vlast] := by
+    conv =>
+      lhs
+      rw [hlvalsDecomp, show mI = rP + (mI - rP) from by omega,
+        List.take_add]
+  have hbLheadI : interpExpr V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty)
+      (.const R (lps.map .param)) = some (m₀.val R ψ) := by
+    simp only [interpExpr, hfR]
+    rw [if_pos (by rw [hRlps]; simp)]
+    rw [show ciR.toConstantVal.levelParams = lps from hRlps]
+    rw [hsubstψ]
+  -- ===== S4e: the canonical body's truthful annotations =====
+  have hAfvsP : ∀ a ∈ fvsP,
+      AnnotOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) a := by
+    intro a ha
+    obtain ⟨j, hja⟩ := List.getElem?_of_mem ha
+    obtain ⟨nm, hsh⟩ := hfvsPShape j a hja
+    rw [hsh]
+    simp [AnnotOk]
+  have hAxFvs : ∀ a ∈ xFvsP,
+      AnnotOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) a := by
+    intro a ha
+    obtain ⟨j, hja⟩ := List.getElem?_of_mem ha
+    obtain ⟨nm, hsh⟩ := hxShape j a hja
+    rw [hsh]
+    simp [AnnotOk]
+  have hcrest2SpineA : crest2.getAppArgs ≠ [] →
+      AnnotOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty)
+        (Expr.mkAppN crest2.getAppFn crest2.getAppArgs) := by
+    intro _
+    rw [Expr.mkAppN_getApp]
+    exact hAcrest2
+  have hcrest2ArgA : ∀ e ∈ crest2.getAppArgs,
+      AnnotOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) e := by
+    intro e he
+    have hne : crest2.getAppArgs ≠ [] := by
+      intro h0
+      rw [h0] at he
+      exact nomatch he
+    obtain ⟨-, hargsA, -⟩ := annotOk_spine_inv _ crest2.getAppFn hne
+      (hcrest2SpineA hne)
+    exact hargsA e he
+  -- the constructor value's typing chain, transferred from the
+  -- statement's major
+  have hAlastE : AnnotOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty)
+      (Expr.mkAppN (.const (f ctor) (cvj.levelParams.map .param))
+        (fvs.take cnP ++ fvs.drop rP)) := by
+    have h0 := hlargsA lastE (List.mem_of_getElem? hlastE)
+    rwa [hlastEmaj] at h0
+  have hchainCtor : ChainSlots V (m₀.val ctor ψ)
+      (xs.take cnP ++ xs.drop rP) := by
+    cases hlist : fvs.take cnP ++ fvs.drop rP with
+    | nil =>
+      have hvals0 : xs.take cnP ++ xs.drop rP = [] := by
+        have h0 := hfvsCLen
+        rw [hlist] at h0
+        simp only [List.length_nil] at h0
+        have hcnP : cnP = 0 := by omega
+        have hcnF : cnF = 0 := by omega
+        subst hcnP
+        rw [List.take_zero, List.nil_append,
+          List.drop_eq_nil_of_le (by omega)]
+      rw [hvals0]
+      trivial
+    | cons c0 cr =>
+      have hne : fvs.take cnP ++ fvs.drop rP ≠ [] := by
+        rw [hlist]
+        simp
+      obtain ⟨-, -, vf, cvals, hvf, hspCv, hchainCv, -⟩ :=
+        annotOk_spine_inv _
+          (.const (f ctor) (cvj.levelParams.map .param)) hne hAlastE
+      have hvfeq : vf = m₀.val ctor ψ := by
+        rw [hcCi] at hvf
+        exact (Option.some.inj hvf).symm
+      have hcveq : cvals = xs.take cnP ++ xs.drop rP := by
+        have h1 := InterpSpine.mapM_eq hspCv
+        have h2 := InterpSpine.mapM_eq hctorSpineI
+        rw [h1] at h2
+        exact Option.some.inj h2
+      rw [← hvfeq, ← hcveq]
+      exact hchainCv
+  obtain ⟨hActorApp, -⟩ := annotOk_spine (fvsP.take cnP ++ xFvsP)
+    (.const ctor (cvj.levelParams.map .param))
+    (by simp [AnnotOk]) hcCpubI
+    (fun a ha => by
+      rcases List.mem_append.mp ha with ha' | ha'
+      · exact hAfvsP a (List.mem_of_mem_take ha')
+      · exact hAxFvs a ha')
+    hpubCtorSpineI hchainCtor
+  -- assemble
+  have hchainBL : ChainSlots V (m₀.val R ψ)
+      (lvals.take rP ++ (lvals.drop rP).take (mI - rP) ++ [vlast]) := by
+    rw [← hlvalsRebuild, ← hvhead]
+    exact hchainL
+  obtain ⟨hAbL, hbLI⟩ := annotOk_spine
+    (fvsP ++ crest2.getAppArgs.drop cnP ++
+      [Expr.mkAppN (.const ctor (cvj.levelParams.map .param))
+        (fvsP.take cnP ++ xFvsP)])
+    (.const R (lps.map .param))
+    (by simp [AnnotOk]) hbLheadI
+    (fun a ha => by
+      rcases List.mem_append.mp ha with ha' | ha'
+      · rcases List.mem_append.mp ha' with ha'' | ha''
+        · exact hAfvsP a ha''
+        · exact hcrest2ArgA a (List.mem_of_mem_drop ha'')
+      · rcases List.mem_singleton.mp ha' with rfl
+        exact hActorApp)
+    hspB hchainBL
+  have hbLvl : interpExpr V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty)
+      (Expr.mkAppN (.const R (lps.map .param))
+        (fvsP ++ crest2.getAppArgs.drop cnP ++
+          [Expr.mkAppN (.const ctor (cvj.levelParams.map .param))
+            (fvsP.take cnP ++ xFvsP)])) = some vl := by
+    rw [hbLI, hvlfold, hvhead]
+    exact congrArg some (congrArg _ hlvalsRebuild.symm)
   sorry
 
 end Setlec

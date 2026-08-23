@@ -1297,52 +1297,22 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
           have hfR' : Env.find?
               (⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ : Env)
               eqReflName = some eqReflA := rfl
+          have hvalRc' : ∀ ψ' : Name → Nat,
+              val' (eqName.str "rec") ψ' = eqRecVal V ψ' :=
+            fun ψ' => hv1 ψ'
+          have hfRc' : Env.find?
+              (⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ : Env)
+              (eqName.str "rec") = some eqRecA := rfl
           rcases List.mem_cons.mp hr with rfl | hr
           · refine ⟨fun ψ => annotOk_eqRec_rhs (cval := val') (ψ := ψ)
-              rfl hvalE' rfl hvalR', fun _ => by omega, ?_⟩
-            intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
-              htv _hpeq _hplain _hfit
+              hfE' hvalE' hfR' hvalR', fun _ => by omega,
+              fun _ => by decide, fun lvls pins hf => nomatch hf, ?_⟩
+            intro cvj cnP cnF hfj _hfire
             have hje := Option.some.inj hfj
             simp only [eqReflA] at hje
             injection hje with hj1 hj2 hj3
             subst hj1 hj2 hj3
-            rcases args with _ | ⟨Av, _ | ⟨av, _ | ⟨Mv, _ | ⟨rv,
-              _ | ⟨bv, _ | ⟨x, rest⟩⟩⟩⟩⟩⟩ <;> simp at hlen
-            rcases margs with _ | ⟨p1, _ | ⟨p2, _ | ⟨p3,
-              _ | ⟨y, ys⟩⟩⟩⟩ <;> simp at hmlen
-            obtain ⟨hs1, hs2, hs3, hs4, hs5, hs6, -⟩ := hch
-            obtain ⟨vE1, A1, B1, hp1, hm1, hf1⟩ := hs1
-            obtain ⟨vE2, A2, B2, hp2, hm2, hf2⟩ := hs2
-            obtain ⟨vE3, A3, B3, hp3, hm3, hf3⟩ := hs3
-            obtain ⟨vE4, A4, B4, hp4, hm4, hf4⟩ := hs4
-            obtain ⟨vE5, A5, B5, hp5, hm5, hf5⟩ := hs5
-            obtain ⟨vE6, A6, B6, hp6, hm6, hf6⟩ := hs6
-            rw [hv1] at hp1 hp2 hp3 hp4 hp5 hp6
-            obtain ⟨R, hRi, hfold, ⟨vS1, AS1, BS1, hq1, hq2, hq3⟩,
-              ⟨vS2, AS2, BS2, hq4, hq5, hq6⟩,
-              ⟨vS3, AS3, BS3, hq7, hq8, hq9⟩,
-              ⟨vS4, AS4, BS4, hq10, hq11, hq12⟩⟩ :=
-              eqIota_claims (cval := val') (ψ := ψ)
-                hfE' hvalE' hfR' hvalR'
-                (vE1 := vE1) (A1 := A1) (B1 := B1) hp1 hm1
-                (vE2 := vE2) (A2 := A2) (B2 := B2) hp2 hm2
-                (vE3 := vE3) (A3 := A3) (B3 := B3) hp3 hm3
-                (vE4 := vE4) (A4 := A4) (B4 := B4) hp4 hm4
-                (vE5 := vE5) (A5 := A5) (B5 := B5) hp5 hm5
-                (vE6 := vE6) (A6 := A6) (B6 := B6) hp6 hm6
-            refine ⟨R, hRi, ?_, ?_⟩
-            · rw [show SpineFold V (val' eqRecA.name ψ)
-                  ([Av, av, Mv, rv, bv] ++ [tv]) =
-                  SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app
-                    (SetTheory.app (SetTheory.app
-                      (val' eqRecA.name ψ) Av) av) Mv) rv) bv) tv
-                  from rfl]
-              rw [hv1]
-              exact hfold
-            · exact ⟨⟨vS1, AS1, BS1, hq1, hq2, hq3⟩,
-                ⟨vS2, AS2, BS2, hq4, hq5, hq6⟩,
-                ⟨vS3, AS3, BS3, hq7, hq8, hq9⟩,
-                ⟨vS4, AS4, BS4, hq10, hq11, hq12⟩, trivial⟩
+            exact eqRec_ruleOk hfE' hvalE' hfR' hvalR' hfRc' hvalRc'
           · cases hr)
         (fun cvR mI rP rules heq => by
           simp only [eqRecA] at heq
