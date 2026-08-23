@@ -1527,17 +1527,65 @@ leaves as `(idx, name, type-index)` triples. -/
 def fvarLeavesI (st : EStore) (e : EIdx) : List (Nat × Name × EIdx) :=
   (fvarLeavesIGo st {} e).1
 
+/-- Core of the fabrication-side leaf-subset test (task #86): is
+every fvar leaf of `e` — hereditarily including annotation leaves,
+exactly `fvarLeavesI`'s notion — contained in `bl`?  One memoized
+Bool DAG walk; the previous `.all` over the materialized
+`fvarLeavesI e` list was tree-sized on shared fabrications (the
+residual exponential case noted at task #84). -/
+def leavesSubIGo (st : EStore) (bl : List (Nat × Name × EIdx))
+    (memo : Std.HashMap EIdx Bool) (e : EIdx) :
+    Bool × Std.HashMap EIdx Bool :=
+  match memo[e]? with
+  | some r => (r, memo)
+  | none =>
+    match st.nodes[e]? with
+    | none => (true, memo)
+    | some n =>
+      let (r, memo) : Bool × Std.HashMap EIdx Bool :=
+        match n with
+        | .bvar _ | .sort _ | .const _ _ | .lit _ => (true, memo)
+        | .fvar idx nm ty =>
+          if bl.contains (idx, nm, ty) then
+            if _h : ty < e then leavesSubIGo st bl memo ty
+            else (true, memo)
+          else (false, memo)
+        | .app f a =>
+          if _h : f < e ∧ a < e then
+            let (rf, memo) := leavesSubIGo st bl memo f
+            if rf then leavesSubIGo st bl memo a else (false, memo)
+          else (true, memo)
+        | .lam _ ty body _ | .forallE _ ty body _ =>
+          if _h : ty < e ∧ body < e then
+            let (rt, memo) := leavesSubIGo st bl memo ty
+            if rt then leavesSubIGo st bl memo body else (false, memo)
+          else (true, memo)
+        | .letE _ ty val body =>
+          if _h : ty < e ∧ val < e ∧ body < e then
+            let (rt, memo) := leavesSubIGo st bl memo ty
+            if rt then
+              let (rv, memo) := leavesSubIGo st bl memo val
+              if rv then leavesSubIGo st bl memo body else (false, memo)
+            else (false, memo)
+          else (true, memo)
+        | .proj _ _ sub =>
+          if _h : sub < e then leavesSubIGo st bl memo sub
+          else (true, memo)
+      (r, memo.insert e r)
+termination_by e
+decreasing_by all_goals first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h
+
 /-- The fabrication leaf guard (scoped call discipline): every fvar
 leaf of `fab` is an fvar leaf of `base`.  Equal to the `Expr`-level
 `fab.fvarLeaves.all (base.fvarLeaves.contains ·)` on well-formed
 stores (`leafGuardI_spec`); evaluation short-circuits — a term with no
-fvar at all passes trivially (`hasFvarI`, one memoized DAG walk
-instead of two leaf-list materializations), and the base's leaf list
-is computed once, not once per leaf of `fab` (task #84). -/
+fvar at all passes trivially (`hasFvarI`, one memoized DAG walk), and
+the fabrication side is the memoized Bool walk `leavesSubIGo` instead
+of a tree-sized leaf-list materialization (tasks #84/#86; the base's
+leaf list is still materialized, once). -/
 def leafGuardI (st : EStore) (fab base : EIdx) : Bool :=
   !st.hasFvarI fab ||
-    (let baseLeaves := st.fvarLeavesI base
-     (st.fvarLeavesI fab).all (fun l => baseLeaves.contains l))
+    (leavesSubIGo st (st.fvarLeavesI base) {} fab).1
 
 /-- Core of `constsResolveI` (mirrors `Expr.constsResolve env`; no
 cursor). -/
