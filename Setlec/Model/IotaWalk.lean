@@ -48,6 +48,17 @@ def DefEqListOk (F : Nat) (env : Env) (d : Nat) :
     isDefEqCore env F d a b = .ok true ∧ DefEqListOk F env d as bs
   | _, _ => False
 
+/-- Pairwise fueled inferred-type check of a spine against expected
+types (the semantic content of a successful `checkTypedList`). -/
+def TypedListOk (F : Nat) (env : Env) (d : Nat) :
+    List Expr → List Expr → Prop
+  | [], [] => True
+  | a :: as, b :: bs =>
+    (∃ ty, inferTypeCore env F d a = .ok ty ∧
+      isDefEqCore env F d ty b = .ok true) ∧
+    TypedListOk F env d as bs
+  | _, _ => False
+
 omit [SetTheory V] in
 theorem DefEqListOk.length {F : Nat} {env : Env} {d : Nat} :
     ∀ {as bs : List Expr}, DefEqListOk F env d as bs →
@@ -335,6 +346,54 @@ theorem pi_walk {env : Env} (m : EnvModel V env) (F : Nat)
       · exact hspineF a ha
 
 /-! ## Renaming and telescope bookkeeping -/
+
+
+omit [SetTheory V] in
+theorem fueledOpsW_inferType (F : Nat) (env : Env) (d : Nat) (e : Expr) :
+    (fueledOps F).inferType env d e = inferTypeCore env F d e := rfl
+
+omit [SetTheory V] in
+theorem checkTypedList_inv {F : Nat} {env : Env} {d : Nat} :
+    ∀ {as bs : List Expr} {u : Unit},
+      checkTypedList (fueledOps F) env d as bs = .ok u →
+      TypedListOk F env d as bs := by
+  intro as
+  induction as with
+  | nil =>
+    intro bs u h
+    match bs with
+    | [] => trivial
+    | _ :: _ =>
+      simp only [checkTypedList] at h
+      exact nomatch h
+  | cons a as ih =>
+    intro bs u h
+    match bs with
+    | [] =>
+      simp only [checkTypedList] at h
+      exact nomatch h
+    | b :: bs =>
+      simp only [checkTypedList, fueledOpsW_inferType, fueledOpsW_isDefEq,
+        Bind.bind, Except.bind] at h
+      revert h
+      cases hty : inferTypeCore env F d a with
+      | error e => intro h; exact nomatch h
+      | ok ty =>
+        intro h
+        dsimp only at h
+        cases hde : isDefEqCore env F d ty b with
+        | error e =>
+          rw [hde] at h
+          exact nomatch h
+        | ok v =>
+          rw [hde] at h
+          dsimp only at h
+          cases v with
+          | false =>
+            simp [throw, throwThe, MonadExceptOf.throw] at h
+          | true =>
+            rw [if_pos rfl] at h
+            exact ⟨⟨ty, hty, hde⟩, ih h⟩
 
 omit [SetTheory V] in
 theorem hasFvar_renameConsts {f : Name → Name} :

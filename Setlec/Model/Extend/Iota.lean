@@ -58,6 +58,8 @@ def PlainChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
       ((fvs.take rP).map Expr.fvarTypeD) rdoms ∧
     openPisAtFvars rP cvA.type 0 = some (fvsP, restP) ∧
     Expr.instPisAt (fvsP.take cnP) cvj.type = some (cdomsP, crestP) ∧
+    DefEqListOk F env₀ (rP + cnF)
+      ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP ∧
     openPisAtFvars cnF crestP rP = some (xFvsP, crest2) ∧
     Expr.instLamsAt (fvsP ++ xFvsP) (RecRule.rhs r) =
       some (ldoms, lrest) ∧
@@ -117,6 +119,9 @@ def NestedChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
       (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p))
       (cvj.type.instantiateLevelParams cvj.levelParams lvls) =
       some (cdomsP, crestP) ∧
+    TypedListOk F env₀ (rP + cnF)
+      (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p))
+      cdomsP ∧
     openPisAtFvars cnF crestP rP = some (xFvsP, crest2) ∧
     Expr.instLamsAt (fvsP ++ xFvsP) (RecRule.rhs r) =
       some (ldoms, lrest) ∧
@@ -254,6 +259,12 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   intro h
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
+  cases hdqP : checkDefEqList (fueledOps F) env₀ (rP + cnF)
+      ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP with
+  | error e => rw [hdqP] at h; exact nomatch h
+  | ok uP =>
+  rw [hdqP] at h
+  try dsimp only at h
   revert h
   match hopenX : openPisAtFvars cnF crestP rP with
   | none => intro h; exact nomatch h
@@ -289,7 +300,8 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
         hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
         eq_of_beq hlpre, eq_of_beq hmaj, hcstrip, hcinst, hclen,
         checkDefEqList_inv hdq1, checkDefEqList_inv hdq2, hrinst,
-        checkDefEqList_inv hdq3, hopenP, hcinstP, hopenX, hlinst,
+        checkDefEqList_inv hdq3, hopenP, hcinstP,
+        checkDefEqList_inv hdqP, hopenX, hlinst,
         checkDefEqList_inv hdq4, hde⟩
 
 /-- Invert a successful `nestedRuleShape` computation into the facts
@@ -510,6 +522,13 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
   intro h
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
+  cases hdtP : checkTypedList (fueledOps F) env₀ (rP + cnF)
+      (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p))
+      cdomsP with
+  | error e => rw [hdtP] at h; exact nomatch h
+  | ok uP =>
+  rw [hdtP] at h
+  try dsimp only at h
   revert h
   match hopenX : openPisAtFvars cnF crestP rP with
   | none => intro h; exact nomatch h
@@ -547,7 +566,8 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
         hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
         eq_of_beq hlpre, eq_of_beq hmaj, hcstrip, hcinst, hclen,
         checkDefEqList_inv hdq1, checkDefEqList_inv hdq2, hrinst,
-        checkDefEqList_inv hdq3, hopenP, hcinstP, hopenX, hlinst,
+        checkDefEqList_inv hdq3, hopenP, hcinstP,
+        checkTypedList_inv hdtP, hopenX, hlinst,
         checkDefEqList_inv hdq4, hde⟩
 
 /-- The kernel-checked data of one modeled recursor rule: the
