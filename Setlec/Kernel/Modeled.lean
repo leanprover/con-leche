@@ -438,62 +438,6 @@ def checkProjTy (env' : Env) (T ctorName : Name) (lps : List Name)
     throw (.notImplemented "projection type telescope")
   pure pty
 
-/-- Stage 2b: the projection type's parameter telescope is
-*syntactically* the constructor's, and the constructor's residual is
-the family applied to exactly the parameters — the syntactic pins the
-rule's total λ-equality derivation folds over (task #58; completeness-
-safe: both telescopes spell the family's parameter types, and a
-structure constructor targets the family at its parameters). -/
-def checkProjShape (pty ctorTy : Expr) (nP nF : Nat) : m Unit := do
-  let some (_abinders, _) := pty.stripPis nP
-    | throw (.notImplemented "projection type telescope")
-  let some (_, cbody) := ctorTy.stripPis (nP + nF)
-    | throw (.notImplemented "projection constructor telescope")
-  unless cbody.getAppArgs.length == nP do
-    throw (.notImplemented "projection constructor residual arity")
-  match cbody.getAppFn with
-  | .const _ _ => pure ()
-  | _ => throw (.notImplemented "projection constructor residual head")
-
-/-- Stage 3: the reduction rule — λ over the constructor telescope
-returning field `i`, annotated; its λ-domains stay the constructor's. -/
-def checkProjRule (ops : CheckerOps m) (env' : Env) (pty : Expr) (cvj : ConstantVal) (lps : List Name)
-    (nP nF i : Nat) : m Expr := do
-  let some rhs := Expr.pisToLams (nP + nF) cvj.type (.bvar (nF - 1 - i))
-    | throw (.notImplemented "projection rule telescope")
-  unless !rhs.hasFvar && rhs.looseBVarsBounded 0 do
-    throw (.notImplemented "projection rule scoping")
-  let rhsA ← ops.annotate env' 0 rhs
-  unless rhsA.allLevelParamsDefined lps && rhsA.constsResolve env' &&
-      rhsA.looseBVarsBounded 0 && !rhsA.hasFvar do
-    throw (.notImplemented "projection rule wellformedness")
-  let some (rbinders, rrbody) := rhsA.stripLams (nP + nF)
-    | throw (.notImplemented "projection rule telescope")
-  unless rrbody == Expr.bvar (nF - 1 - i) do
-    throw (.notImplemented "projection rule body")
-  let some (cbindersR, _) := cvj.type.stripPis (nP + nF)
-    | throw (.notImplemented "projection constructor telescope")
-  unless domsMatchAux (fun _ e => e) rbinders cbindersR 0 0 (nP + nF) do
-    throw (.notImplemented "projection rule domain mismatch")
-  -- the frame walks and the definitional parameter/domain pins
-  -- (task #58): the projection type's opened parameter annotations are
-  -- definitionally the constructor's instantiated parameter domains,
-  -- and the whole frame's annotations are definitionally the rule
-  -- λ-tower's instantiated domains
-  let some (fvsP, _) := openPisAtFvars nP pty 0
-    | throw (.notImplemented "projection type telescope")
-  let some (cdomsP, crestP) := Expr.instPisAt fvsP cvj.type
-    | throw (.notImplemented "projection constructor telescope")
-  checkDefEqList ops env' (nP + nF) (fvsP.map Expr.fvarTypeD) cdomsP
-  let some (xFvs, _) := openPisAtFvars nF crestP nP
-    | throw (.notImplemented "projection constructor telescope")
-  let some (ldoms, _) := Expr.instLamsAt (fvsP ++ xFvs) rhsA
-    | throw (.notImplemented "projection rule telescope")
-  checkDefEqList ops env' (nP + nF) ((fvsP ++ xFvs).map Expr.fvarTypeD)
-    ldoms
-  let _rhsTy ← ops.inferType env' 0 rhsA
-  pure rhsA
-
 /-- Stage 4: the model's `proj_i.iota` theorem pins the rule — the
 statement's telescope domains are the constructor's (renamed to the
 model side) and its body equates the projected constructor spine with
