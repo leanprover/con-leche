@@ -495,6 +495,24 @@ theorem mkAppN_instantiate1 {v : Expr} :
     rfl
 
 /-- Erasure-equality is transitive. -/
+theorem ErasedEq.symm : ∀ {e₁ e₂ : Expr}, ErasedEq e₁ e₂ → ErasedEq e₂ e₁
+  | .bvar _, .bvar _, h => Eq.symm h
+  | .fvar _ _ _, .fvar _ _ _, h => Eq.symm h
+  | .sort _, .sort _, h => Eq.symm h
+  | .const _ _, .const _ _, h => ⟨Eq.symm h.1, Eq.symm h.2⟩
+  | .app _ _, .app _ _, h => ⟨ErasedEq.symm h.1, ErasedEq.symm h.2⟩
+  | .lam _ _ _ _, .lam _ _ _ _, h =>
+    ⟨Eq.symm h.1, ErasedEq.symm h.2.1, ErasedEq.symm h.2.2⟩
+  | .forallE _ _ _ _, .forallE _ _ _ _, h =>
+    ⟨Eq.symm h.1, ErasedEq.symm h.2.1, ErasedEq.symm h.2.2⟩
+  | .letE _ _ _ _, .letE _ _ _ _, h =>
+    ⟨ErasedEq.symm h.1, ErasedEq.symm h.2.1, ErasedEq.symm h.2.2⟩
+  | .lit _, .lit _, h => Eq.symm h
+  | .proj _ _ _, .proj _ _ _, h =>
+    ⟨Eq.symm h.1, Eq.symm h.2.1, ErasedEq.symm h.2.2⟩
+
+/-- Split a `∀`-telescope decomposition at a prefix length: the
+residual of the prefix strips the remaining binders. -/
 theorem ErasedEq.trans :
     ∀ {e₁ e₂ e₃ : Expr}, ErasedEq e₁ e₂ → ErasedEq e₂ e₃ → ErasedEq e₁ e₃ := by
   intro e₁
@@ -734,6 +752,26 @@ theorem instSeq_erasedEq :
   | cons a as ih =>
     intro t X Y h
     exact ih (t - 1) (ErasedEq.instantiate1 h (ErasedEq.rfl a))
+
+/-- `instSeq` congruence under erasure across two argument spines
+(pairwise erased-equal, e.g. the same-index free variables of two
+frames). -/
+theorem instSeq_erasedEq_args :
+    ∀ (args₁ args₂ : List Expr) (t : Nat) {X Y : Expr},
+      ErasedEq X Y →
+      (∀ (k : Nat) (a₁ a₂ : Expr), args₁[k]? = some a₁ →
+        args₂[k]? = some a₂ → ErasedEq a₁ a₂) →
+      args₁.length = args₂.length →
+      ErasedEq (instSeq args₁ t X) (instSeq args₂ t Y)
+  | [], [], t, X, Y, hXY, _, _ => hXY
+  | [], _ :: _, _, _, _, _, _, hlen => by simp at hlen
+  | _ :: _, [], _, _, _, _, _, hlen => by simp at hlen
+  | a₁ :: as₁, a₂ :: as₂, t, X, Y, hXY, hpt, hlen => by
+    refine instSeq_erasedEq_args as₁ as₂ (t - 1)
+      (ErasedEq.instantiate1 hXY (hpt 0 a₁ a₂ rfl rfl)) ?_
+      (by simpa using hlen)
+    intro k b₁ b₂ hb₁ hb₂
+    exact hpt (k + 1) b₁ b₂ (by simpa using hb₁) (by simpa using hb₂)
 
 /-- Instantiations strictly above a lift's inserted range drop past
 it. -/
@@ -1072,6 +1110,74 @@ theorem stripLams_instantiate1_eq {v : Expr} :
         congr 1
         omega
 
+/-- Substituting a *free variable* cannot create λ-binders: a λ-tower
+of the instantiated term certifies one of the term itself. -/
+theorem stripLams_instantiate1_fvar_isSome_rev {i : Nat} {nm : Name}
+    {t : Expr} :
+    ∀ (k : Nat) (e : Expr) (j : Nat),
+      ((e.instantiate1 (.fvar i nm t) j).stripLams k).isSome = true →
+      (e.stripLams k).isSome = true := by
+  intro k
+  induction k with
+  | zero => intro e j _; rfl
+  | succ k ih =>
+    intro e j h
+    match e with
+    | .lam n d b m =>
+      simp only [instantiate1, stripLams, Option.isSome_map] at h ⊢
+      exact ih b (j + 1) h
+    | .bvar l =>
+      simp only [instantiate1] at h
+      split at h
+      · simp [stripLams] at h
+      · split at h <;> simp [stripLams] at h
+    | .fvar _ _ _ => simp [instantiate1, stripLams] at h
+    | .sort _ => simp [instantiate1, stripLams] at h
+    | .const _ _ => simp [instantiate1, stripLams] at h
+    | .app _ _ => simp [instantiate1, stripLams] at h
+    | .forallE _ _ _ _ => simp [instantiate1, stripLams] at h
+    | .letE _ _ _ _ => simp [instantiate1, stripLams] at h
+    | .lit _ => simp [instantiate1, stripLams] at h
+    | .proj _ _ _ => simp [instantiate1, stripLams] at h
+
+/-- Instantiation preserves a λ-tower's binder metadata. -/
+theorem stripLams_instantiate1_meta {v : Expr} :
+    ∀ (k : Nat) {e : Expr} {bs bs' : List (Name × Expr × BinderMeta)}
+      {body body' : Expr} (j : Nat),
+      e.stripLams k = some (bs, body) →
+      (e.instantiate1 v j).stripLams k = some (bs', body') →
+      bs'.map (·.2.2) = bs.map (·.2.2) := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs bs' body body' j h1 h2
+    simp only [stripLams, Option.some.injEq, Prod.mk.injEq] at h1 h2
+    obtain ⟨rfl, rfl⟩ := h1
+    obtain ⟨rfl, rfl⟩ := h2
+    rfl
+  | succ k ih =>
+    intro e bs bs' body body' j h1 h2
+    match e, h1 with
+    | .lam n d b m, h1 =>
+      simp only [instantiate1, stripLams] at h1 h2
+      cases hs1 : b.stripLams k with
+      | none => rw [hs1] at h1; exact nomatch h1
+      | some p1 =>
+      cases hs2 : (b.instantiate1 v (j + 1)).stripLams k with
+      | none => rw [hs2] at h2; exact nomatch h2
+      | some p2 =>
+      rw [hs1] at h1
+      rw [hs2] at h2
+      simp only [Option.map_some, Option.some.injEq] at h1 h2
+      obtain ⟨hb1, -⟩ : (n, d, m) :: p1.1 = bs ∧ p1.2 = body := by
+        cases h1; exact ⟨rfl, rfl⟩
+      obtain ⟨hb2, -⟩ :
+          (n, d.instantiate1 v j, m) :: p2.1 = bs' ∧ p2.2 = body' := by
+        cases h2; exact ⟨rfl, rfl⟩
+      subst hb1 hb2
+      simp only [List.map_cons]
+      rw [ih (j + 1) hs1 hs2]
+
 /-- Peel `instSeq` through a `∀`-binder (the shift index stays in step
 with the remaining arguments). -/
 theorem instSeq_forallE :
@@ -1305,5 +1411,13 @@ theorem substFvarAt_instantiate1_self {d : Nat} {n : Name} {ty a : Expr} :
   | _ =>
     intro k hb
     simp_all [instantiate1, substFvarAt, fvarsBelow]
+
+
+/-- A pointwise-idempotent renaming is idempotent on expressions. -/
+theorem renameConsts_idem_of {f : Name → Name}
+    (hf : ∀ n, f (f n) = f n) :
+    ∀ e : Expr, (e.renameConsts f).renameConsts f = e.renameConsts f := by
+  intro e
+  induction e <;> simp_all [renameConsts]
 
 end Setlec.Expr

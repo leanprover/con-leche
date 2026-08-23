@@ -92,58 +92,28 @@ theorem BasisBlocks.cons {env : Env} {c₀ : ConstantInfo}
       exact ⟨keep h1, keep h2⟩
 
 /-- The fold facts a single (freshly installed) recursor-kind member
-must supply, phrased over the extended environment and valuation. -/
+must supply, phrased over the extended environment and valuation:
+the total λ-equality clause of `RecRulesOk` for each of its rules. -/
 def RecMemberOk (env' : Env) (val' : ConstVal V)
     (ci : ConstantInfo) : Prop :=
   ∀ cvR mI rP rules, ci = .recInfo cvR mI rP rules →
     ∀ r ∈ rules,
       (∀ ψ : Name → Nat, AnnotOk V val' env' ψ 0 (rho0 V) (RecRule.rhs r)) ∧
       (RecRule.fire r ≠ .inert → rP ≤ mI) ∧
+      (RecRule.fire r = .plain → RecRule.ctorParams r ≤ rP) ∧
+      (∀ lvls pins, RecRule.fire r = .nested lvls pins →
+        pins.length = RecRule.ctorParams r) ∧
       ∀ cvj cnP cnF,
         env'.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF) →
-        ∀ (ψ ψj : Name → Nat) (args margs : List V) (tv : V),
-          args.length = mI →
-          margs.length = RecRule.ctorParams r + RecRule.nfields r →
-          ChainSlots V (val' ci.name ψ) (args ++ [tv]) →
-          ChainSlots V (val' (RecRule.ctor r) ψj) margs →
-          tv = SpineFold V (val' (RecRule.ctor r) ψj) margs →
-          (RecRule.fire r = .plain →
-            margs.take (RecRule.ctorParams r) =
-              (args ++ [tv]).take (RecRule.ctorParams r) ∧
-            (∀ p ∈ cvj.levelParams, ψj p = ψ p)) →
-          RecRule.fire r ≠ .inert →
-          (∃ (φ' : Name → Nat) (us usj : List Level) (d : Nat) (ρ : Nat → V)
-              (d₁ : Nat) (ρ₁ : Nat → V) (rest₁ : Expr)
-              (d₂ : Nat) (ρ₂ : Nat → V) (rest₂ : Expr),
-            ψ = Level.substFn φ' cvR.levelParams us ∧
-            ψj = Level.substFn φ' cvj.levelParams usj ∧
-            TeleFit V val' env' φ' d ρ
-              (cvR.type.instantiateLevelParams cvR.levelParams us)
-              (args ++ [tv]) d₁ ρ₁ rest₁ ∧
-            TeleFit V val' env' φ' d₁ ρ₁
-              (cvj.type.instantiateLevelParams cvj.levelParams usj)
-              margs d₂ ρ₂ rest₂ ∧
-            (rest₂.getAppArgs.drop (RecRule.ctorParams r)).mapM
-              (interpExpr V val' env' φ' d₂ ρ₂) =
-              some (args.drop rP) ∧
-            (∀ lvls pins, RecRule.fire r = .nested lvls pins →
-              mI = rP ∧
-              (∀ p ∈ cvj.levelParams,
-                ψj p = Level.substFn ψ cvj.levelParams lvls p) ∧
-              ∃ (dP : Nat) (ρP : Nat → V) (spineP : List Expr),
-                FvarSpine dP ρP spineP args ∧
-                (∀ a ∈ spineP, ∃ i nm, a = Expr.fvar i nm (.sort .zero)) ∧
-                (pins.map fun pin => Expr.instSeq spineP
-                  (spineP.length - 1)
-                  (pin.instantiateLevelParams cvR.levelParams us)).mapM
-                  (interpExpr V val' env' φ' dP ρP) =
-                  some (margs.take (RecRule.ctorParams r)))) →
-          ∃ R, interpClosed V val' env' ψ (RecRule.rhs r) = some R ∧
-            SpineFold V (val' ci.name ψ) (args ++ [tv]) =
-              SpineFold V R
-                (args.take rP ++ margs.drop (RecRule.ctorParams r)) ∧
-            ChainSlots V R
-              (args.take rP ++ margs.drop (RecRule.ctorParams r))
+        RecRule.fire r ≠ .inert →
+        ∃ fvms bL, ruleLhsParts ci.name cvR rP r cvj = some (fvms, bL) ∧
+          FrameWf 0 fvms bL ∧
+          fvms.length = rP + RecRule.nfields r ∧
+          (closeLamsAt fvms bL).constsResolve env' = true ∧
+          ∀ ψ : Name → Nat,
+            AnnotOk V val' env' ψ 0 (rho0 V) (closeLamsAt fvms bL) ∧
+            ∃ Rv, interpClosed V val' env' ψ (closeLamsAt fvms bL) = some Rv ∧
+              interpClosed V val' env' ψ (RecRule.rhs r) = some Rv
 
 /-- `RecCtorsStored` is preserved by a fresh extension, given the
 stored-constructor facts for the new member (vacuous unless it is a
@@ -170,11 +140,14 @@ theorem RecCtorsStored.cons {env : Env} {c₀ : ConstantInfo}
     exact hf
 
 /-- `RecRulesOk` is preserved by a fresh extension, given the fold
-facts for the new member (vacuous unless it is a recursor). -/
+facts for the new member (vacuous unless it is a recursor).  The
+canonical left-hand side is built from stored data alone
+(`ruleLhsParts` never reads the environment), so the transport is pure
+interpretation/annotation stability plus resolution monotonicity. -/
 theorem RecRulesOk.cons {env : Env} (m : EnvModel V env)
     {c₀ : ConstantInfo} {val' : ConstVal V}
     (hfind' : env.find? c₀.name = none)
-    (hagree : ∀ n, (env.find? n).isSome = true → ∀ ψ : Name → Nat,
+    (_hagree : ∀ n, (env.find? n).isSome = true → ∀ ψ : Name → Nat,
       val' n ψ = m.val n ψ)
     (htrans : ∀ (e : Expr), e.constsResolve env = true → ∀ ψ : Name → Nat,
       interpClosed V val' (⟨c₀ :: env.consts⟩ : Env) ψ e =
@@ -192,14 +165,12 @@ theorem RecRulesOk.cons {env : Env} (m : EnvModel V env)
     subst hn
     exact hnewrec cvR mI rP rules hceq r hr
   · next hn =>
-    obtain ⟨hA, hle, hfold⟩ := m.rec_rules n cvR mI rP rules hfp r hr
+    obtain ⟨hA, hle, hple, hpinsLen, hfold⟩ :=
+      m.rec_rules n cvR mI rP rules hfp r hr
     obtain ⟨-, -, -, -, -, hrules, -⟩ := m.wf _ (find?_mem hfp)
     obtain ⟨-, -, hrres, -, -⟩ := hrules cvR mI rP rules rfl r hr
-    have hvaln : ∀ ψ : Name → Nat, val' n ψ = m.val n ψ :=
-      fun ψ => hagree n (by rw [hfp]; rfl) ψ
-    refine ⟨fun ψ => hAtrans _ hrres ψ (hA ψ), hle, ?_⟩
-    intro cvj cnP cnF hfj ψ ψj args margs tv hl hml hch hmch htv hpeq
-      hplain hfit
+    refine ⟨fun ψ => hAtrans _ hrres ψ (hA ψ), hle, hple, hpinsLen, ?_⟩
+    intro cvj cnP cnF hfj hfire
     rw [Env.find?_cons] at hfj
     split at hfj
     · next hnc =>
@@ -210,94 +181,20 @@ theorem RecRulesOk.cons {env : Env} (m : EnvModel V env)
       rw [hfind'] at hfc2
       exact nomatch hfc2
     · next hnc =>
-      have hvalc : ∀ ψ' : Name → Nat,
-          val' (RecRule.ctor r) ψ' = m.val (RecRule.ctor r) ψ' :=
-        fun ψ' => hagree _ (by rw [hfj]; rfl) ψ'
-      rw [hvaln] at hch
-      rw [hvalc] at hmch htv
-      have hfit' : ∃ (φ' : Name → Nat) (us usj : List Level) (d : Nat)
-          (ρ : Nat → V) (d₁ : Nat) (ρ₁ : Nat → V) (rest₁ : Expr)
-          (d₂ : Nat) (ρ₂ : Nat → V) (rest₂ : Expr),
-          ψ = Level.substFn φ' cvR.levelParams us ∧
-          ψj = Level.substFn φ' cvj.levelParams usj ∧
-          TeleFit V m.val env φ' d ρ
-            (cvR.type.instantiateLevelParams cvR.levelParams us)
-            (args ++ [tv]) d₁ ρ₁ rest₁ ∧
-          TeleFit V m.val env φ' d₁ ρ₁
-            (cvj.type.instantiateLevelParams cvj.levelParams usj)
-            margs d₂ ρ₂ rest₂ ∧
-          ((rest₂.getAppArgs.drop (RecRule.ctorParams r)).mapM
-            (interpExpr V m.val env φ' d₂ ρ₂) =
-            some (args.drop rP) ∧
-          (∀ lvls pins, RecRule.fire r = .nested lvls pins →
-            mI = rP ∧
-            (∀ p ∈ cvj.levelParams,
-              ψj p = Level.substFn ψ cvj.levelParams lvls p) ∧
-            ∃ (dP : Nat) (ρP : Nat → V) (spineP : List Expr),
-              FvarSpine dP ρP spineP args ∧
-              (∀ a ∈ spineP, ∃ i nm, a = Expr.fvar i nm (.sort .zero)) ∧
-              (pins.map fun pin => Expr.instSeq spineP
-                (spineP.length - 1)
-                (pin.instantiateLevelParams cvR.levelParams us)).mapM
-                (interpExpr V m.val env φ' dP ρP) =
-                some (margs.take (RecRule.ctorParams r)))) := by
-        obtain ⟨φ', us, usj, d, ρ, d₁, ρ₁, rest₁, d₂, ρ₂, rest₂,
-          hψ, hψj, hf1, hf2, hidx, hnest⟩ := hfit
-        obtain ⟨-, -, hRres, -, -, -⟩ := m.wf _ (find?_mem hfp)
-        obtain ⟨-, -, hCres, -, -, -⟩ := m.wf _ (find?_mem hfj)
-        have hCres' : (cvj.type.instantiateLevelParams cvj.levelParams
-            usj).constsResolve env = true := by
-          rw [Expr.constsResolve_instantiateLevelParams]
-          exact hCres
-        have hrres2 : rest₂.constsResolve env = true :=
-          TeleFit.rest_resolve hf2 hCres'
-        have htrans : ∀ (dX : Nat) (ρX : Nat → V) (l : List Expr),
-            (∀ x ∈ l, x.constsResolve env = true) →
-            l.mapM (interpExpr V m.val env φ' dX ρX) =
-            l.mapM (interpExpr V val' (⟨c₀ :: env.consts⟩ : Env) φ' dX
-              ρX) := by
-          intro dX ρX l
-          induction l with
-          | nil => intro _; rfl
-          | cons x l ihl =>
-            intro hres
-            have hx' : interpExpr V m.val env φ' dX ρX x =
-                interpExpr V val' (⟨c₀ :: env.consts⟩ : Env) φ' dX ρX x := by
-              rw [← interp_cval_ext hagree x dX ρX,
-                ← interp_mono hfind' x dX ρX (hres x List.mem_cons_self)]
-            simp only [List.mapM_cons, hx',
-              ihl (fun y hy => hres y (List.mem_cons_of_mem _ hy))]
-        refine ⟨φ', us, usj, d, ρ, d₁, ρ₁, rest₁, d₂, ρ₂, rest₂, hψ, hψj,
-          TeleFit.env_shrink hfind' hagree hf1
-            (by rw [Expr.constsResolve_instantiateLevelParams]; exact hRres),
-          TeleFit.env_shrink hfind' hagree hf2 hCres', ?_, ?_⟩
-        · rw [← hidx]
-          exact htrans _ _ _ (fun x hx =>
-            Expr.constsResolve_getAppArgs hrres2 x (List.mem_of_mem_drop hx))
-        · intro lvls pins hfr
-          obtain ⟨hmIrP, hlvl, dP, ρP, spineP, hFv, hsh, hmapM⟩ :=
-            hnest lvls pins hfr
-          refine ⟨hmIrP, hlvl, dP, ρP, spineP, hFv, hsh, ?_⟩
-          rw [← hmapM]
-          refine htrans _ _ _ ?_
-          intro x hx
-          obtain ⟨pin, hpin, rfl⟩ := List.mem_map.mp hx
-          obtain ⟨-, -, -, -, hnestW⟩ := hrules cvR mI rP rules rfl r hr
-          obtain ⟨-, -, hpinsW, -⟩ := hnestW lvls pins hfr
-          rw [← Expr.instSpine_eq_instSeq]
-          refine instSpine_constsResolve _ ?_ ?_
-          · rw [Expr.constsResolve_instantiateLevelParams]
-            exact (hpinsW pin hpin).2.2.1
-          · intro a ha
-            obtain ⟨i, nm, rfl⟩ := hsh a ha
-            simp [Expr.constsResolve]
-      obtain ⟨R, hRi, hfoldEq, hRch⟩ := hfold cvj cnP cnF hfj ψ ψj
-        args margs tv hl hml hch hmch htv hpeq hplain hfit'
-      refine ⟨R, ?_, ?_, hRch⟩
-      · rw [htrans _ hrres ψ]
-        exact hRi
-      · rw [hvaln]
-        exact hfoldEq
+      obtain ⟨fvms, bL, hparts, hwf, hlen, hres, hψ⟩ :=
+        hfold cvj cnP cnF hfj hfire
+      have hle' : ∀ nn : Name, (env.find? nn).isSome = true →
+          ((⟨c₀ :: env.consts⟩ : Env).find? nn).isSome = true := by
+        intro nn hnn
+        rw [Env.find?_cons_of_isSome hfind' hnn]
+        exact hnn
+      refine ⟨fvms, bL, hparts, hwf, hlen,
+        Expr.constsResolve_le hle' hres, ?_⟩
+      intro ψ
+      obtain ⟨hAL, Rv, hLi, hRi⟩ := hψ ψ
+      exact ⟨hAtrans _ hres ψ hAL, Rv,
+        by rw [htrans _ hres ψ]; exact hLi,
+        by rw [htrans _ hrres ψ]; exact hRi⟩
 
 /-- Extending with a fresh constant preserves the modeled-value
 bridges, given the head's own obligations. -/

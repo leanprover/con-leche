@@ -87,6 +87,13 @@ theorem checkIndDecl_sound {env env₂ : Env} {block : List ConstantInfo}
         rcases List.mem_append.mp hci₀ with hci₀ | hci₀
         · exact Or.inl (checkIndFold_stored _ env env₁ hfold ci₀ hci₀)
         · exact Or.inr ⟨ci₀, hci₀, rfl⟩)
+      (fun n hn => by
+        have hmem : n ∈ block.map (·.name) := by simpa using hn
+        obtain ⟨ci₀, hci₀, rfl⟩ := List.mem_map.mp hmem
+        rw [hsplit] at hci₀
+        rcases List.mem_append.mp hci₀ with hci₀ | hci₀
+        · exact checkIndFold_modelfree _ env env₁ hfold ci₀ hci₀
+        · exact checkIndRecs_modelfree hrecs ci₀ hci₀)
       m₁ hI₁
     have hTin : (ConstantInfo.indInfo cvT capsT) ∈ block := by
       have h1 : ConstantInfo.indInfo cvT capsT ∈
@@ -161,6 +168,13 @@ theorem checkIndDecl_sound {env env₂ : Env} {block : List ConstantInfo}
         rcases List.mem_append.mp hci₀ with hci₀ | hci₀
         · exact Or.inl (checkIndFold_stored _ env env₁ hfold ci₀ hci₀)
         · exact Or.inr ⟨ci₀, hci₀, rfl⟩)
+      (fun n hn => by
+        have hmem : n ∈ block.map (·.name) := by simpa using hn
+        obtain ⟨ci₀, hci₀, rfl⟩ := List.mem_map.mp hmem
+        rw [hsplit] at hci₀
+        rcases List.mem_append.mp hci₀ with hci₀ | hci₀
+        · exact checkIndFold_modelfree _ env env₁ hfold ci₀ hci₀
+        · exact checkIndRecs_modelfree hrecs ci₀ hci₀)
       m₁ hI₁
     exact ⟨m₂'⟩
 

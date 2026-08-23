@@ -1,4 +1,5 @@
 import Setlec.Model.Basis.PSigma.AnnotOk
+import Setlec.Model.Basis.PSigma.RuleOk
 import Setlec.Model.Basis.Glue
 
 /-!

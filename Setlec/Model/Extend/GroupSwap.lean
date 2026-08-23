@@ -405,40 +405,30 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
     rcases hcorr' n with heq | ⟨cv2, mI2, rP2, rules2, h₀, h₃,
       hnm, -, -, -, -, hrecm⟩
     · rw [heq] at hfp
-      obtain ⟨hA, hle, hfold⟩ := m₀.rec_rules n cvR mI' rP' rules
-        hfp r hr
-      refine ⟨fun ψ => hAtrans _ ψ 0 (rho0 V) (hA ψ), hle, ?_⟩
-      intro cvj cnP cnF hfj ψ ψj args margs tv hl hml hch hmch htv hpeq
-        hplain hfit
+      obtain ⟨hA, hle, hple, hpinsLen, hfold⟩ :=
+        m₀.rec_rules n cvR mI' rP' rules hfp r hr
+      refine ⟨fun ψ => hAtrans _ ψ 0 (rho0 V) (hA ψ), hle, hple,
+        hpinsLen, ?_⟩
+      intro cvj cnP cnF hfj hfire
       have hfj₀ : env₀.find? (RecRule.ctor r) =
           some (.ctorInfo cvj cnP cnF) :=
         hfindDown _ _ hfj (fun _ _ _ _ h => nomatch h)
-      obtain ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
-        hψeq, hψjeq, hf1, hf2, hidx, hnest⟩ := hfit
-      have henvLev' : ∀ n', (env₃.find? n').map
-          (fun ci => ci.toConstantVal.levelParams) =
-          (env₀.find? n').map
-            (fun ci => ci.toConstantVal.levelParams) :=
-        fun n' => (henvLev n').symm
-      obtain ⟨R', hRi, hfoldEq, hRch⟩ := hfold cvj cnP cnF hfj₀ ψ ψj
-        args margs tv hl hml hch hmch htv hpeq hplain
-        ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
-          hψeq, hψjeq,
-          TeleFit.env_levelext henvLev' hnat.symm hstr.symm hf1,
-          TeleFit.env_levelext henvLev' hnat.symm hstr.symm hf2, by
-            rw [← mapM_interp_congr (fun e =>
-              interp_env_ext henvLev' hnat.symm hstr.symm e dd₂ ρρ₂)]
-            exact hidx, by
-            intro lvls pins hfr
-            obtain ⟨n1, n2, dP, ρP, spineP, hFv, hsh, hmapM⟩ :=
-              hnest lvls pins hfr
-            refine ⟨n1, n2, dP, ρP, spineP, hFv, hsh, ?_⟩
-            rw [← mapM_interp_congr (fun e =>
-              interp_env_ext henvLev' hnat.symm hstr.symm e dP ρP)]
-            exact hmapM⟩
-      refine ⟨R', ?_, hfoldEq, hRch⟩
-      rw [hitrans]
-      exact hRi
+      obtain ⟨fvms, bL, hparts, hwfF, hlenF, hres, hψ⟩ :=
+        hfold cvj cnP cnF hfj₀ hfire
+      have hsome : ∀ nn : Name, (env₀.find? nn).isSome =
+          (env₃.find? nn).isSome := by
+        intro nn
+        have h0 := henvLev nn
+        cases h1 : env₀.find? nn <;> cases h2 : env₃.find? nn <;>
+          rw [h1, h2] at h0 <;> simp_all
+      refine ⟨fvms, bL, hparts, hwfF, hlenF, ?_, ?_⟩
+      · rw [← Expr.constsResolve_congr hsome]
+        exact hres
+      · intro ψ
+        obtain ⟨hAL, Rv, hLi, hRi⟩ := hψ ψ
+        exact ⟨hAtrans _ ψ 0 (rho0 V) hAL, Rv,
+          by rw [hitrans]; exact hLi,
+          by rw [hitrans]; exact hRi⟩
     · rw [h₃] at hfp
       obtain heq2 := Option.some.inj hfp
       have hrecm' := hrecm cvR mI' rP' rules heq2 r hr

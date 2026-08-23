@@ -183,6 +183,40 @@ theorem Expr.constsResolve_congr {env₁ env₂ : Env}
   | lit l => cases l <;> simp_all [Expr.constsResolve]
   | _ => simp_all [Expr.constsResolve]
 
+/-- λ-tower domains of a resolving term resolve. -/
+theorem Expr.constsResolve_stripLams {env : Env} :
+    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+      {body : Expr},
+      e.stripLams k = some (bs, body) → e.constsResolve env = true →
+      (∀ b ∈ bs, (b.2.1).constsResolve env = true) ∧
+      body.constsResolve env = true := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs body h hres
+    simp only [Expr.stripLams, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨fun b hb => absurd hb (List.not_mem_nil), hres⟩
+  | succ k ih =>
+    intro e bs body h hres
+    match e, h with
+    | .lam n ty b m, h =>
+      simp only [Expr.stripLams] at h
+      cases hs : b.stripLams k with
+      | none => rw [hs] at h; exact nomatch h
+      | some pr =>
+        rw [hs] at h
+        obtain ⟨bs', body'⟩ := pr
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        simp only [Expr.constsResolve, Bool.and_eq_true] at hres
+        obtain ⟨hd, hrest⟩ := ih hs hres.2
+        refine ⟨?_, hrest⟩
+        intro b' hb'
+        rcases List.mem_cons.mp hb' with rfl | hb'
+        · exact hres.1
+        · exact hd b' hb'
+
 /-- Telescope domains of a resolving type resolve. -/
 theorem Expr.constsResolve_stripPis {env : Env} :
     ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
@@ -328,5 +362,57 @@ theorem EnvWF.cons {c : ConstantInfo} {env : Env}
     exact ⟨n1, n2, fun pin hpin =>
       let ⟨p1, p2, p3, p4⟩ := n3 pin hpin
       ⟨p1, p2, Expr.constsResolve_mono p3, p4⟩, n4⟩
+
+/-- Resolution is monotone under lookup-preserving extension. -/
+theorem Expr.constsResolve_le {envA envB : Env}
+    (hf : ∀ n, (envA.find? n).isSome = true →
+      (envB.find? n).isSome = true) :
+    ∀ {e : Expr}, e.constsResolve envA = true →
+      e.constsResolve envB = true := by
+  intro e
+  induction e with
+  | bvar i => intro h; simp [Expr.constsResolve]
+  | sort u => intro h; simp [Expr.constsResolve]
+  | const n us =>
+    intro h
+    simp only [Expr.constsResolve] at h ⊢
+    exact hf _ h
+  | lit l =>
+    cases l with
+    | natVal n =>
+      intro h
+      simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
+      exact ⟨⟨hf _ h.1.1, hf _ h.1.2⟩, hf _ h.2⟩
+    | strVal s =>
+      intro h
+      simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
+      exact ⟨⟨⟨⟨⟨⟨⟨⟨⟨hf _ h.1.1.1.1.1.1.1.1.1, hf _ h.1.1.1.1.1.1.1.1.2⟩,
+        hf _ h.1.1.1.1.1.1.1.2⟩, hf _ h.1.1.1.1.1.1.2⟩,
+        hf _ h.1.1.1.1.1.2⟩, hf _ h.1.1.1.1.2⟩, hf _ h.1.1.1.2⟩,
+        hf _ h.1.1.2⟩, hf _ h.1.2⟩, hf _ h.2⟩
+  | fvar idx nm ty ih =>
+    intro h
+    simp only [Expr.constsResolve] at h ⊢
+    exact ih h
+  | app f a ihf iha =>
+    intro h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
+    exact ⟨ihf h.1, iha h.2⟩
+  | lam nm ty body mb ihty ihbody =>
+    intro h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
+    exact ⟨ihty h.1, ihbody h.2⟩
+  | forallE nm ty body mb ihty ihbody =>
+    intro h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
+    exact ⟨ihty h.1, ihbody h.2⟩
+  | letE nm ty val body ihty ihval ihbody =>
+    intro h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
+    exact ⟨⟨ihty h.1.1, ihval h.1.2⟩, ihbody h.2⟩
+  | proj s i e ih =>
+    intro h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h ⊢
+    exact ⟨hf _ h.1, ih h.2⟩
 
 end Setlec

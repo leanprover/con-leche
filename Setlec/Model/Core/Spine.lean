@@ -124,6 +124,16 @@ theorem InterpSpine.append {cval : ConstVal V} {env : Env} {φ : Name → Nat}
   | _ :: _, _, _ :: _, _, h1, h2 =>
     ⟨h1.1, InterpSpine.append h1.2 h2⟩
 
+/-- An argument spine interprets pointwise to its values. -/
+theorem InstArgs.toInterpSpine {cval : ConstVal V} {env : Env}
+    {φ : Name → Nat} {D : Nat} {ρ : Nat → V} :
+    ∀ {as : List Expr} {vs : List V},
+      InstArgs cval env φ D ρ as vs → InterpSpine cval env φ D ρ as vs
+  | [], [], _ => trivial
+  | [], _ :: _, h => nomatch h
+  | _ :: _, [], h => nomatch h
+  | _ :: _, _ :: _, h => ⟨h.1.2.2, InstArgs.toInterpSpine h.2⟩
+
 /-- Inversion of an application spine's `AnnotOk`: the head and every
 argument are `AnnotOk`, the head interprets, and the argument values
 form a typed chain interpreting the whole spine. -/
@@ -218,6 +228,48 @@ theorem annotOk_spine {cval : ConstVal V} {env : Env} {φ : Name → Nat}
     exact annotOk_spine xs (Expr.app f x) (vf := SetTheory.app vf v)
       (vs := vs) hafx happ
       (fun z hz => hxs z (List.mem_cons_of_mem _ hz)) hsp' hchain'
+
+theorem InterpSpine.functional {d : Nat} {ρ : Nat → V} :
+    ∀ {xs : List Expr} {vs vs' : List V},
+      InterpSpine cval env φ d ρ xs vs →
+      InterpSpine cval env φ d ρ xs vs' → vs = vs' := by
+  intro xs
+  induction xs with
+  | nil =>
+    intro vs vs' h h'
+    match vs, h with
+    | [], _ =>
+      match vs', h' with
+      | [], _ => rfl
+  | cons x xs ih =>
+    intro vs vs' h h'
+    match vs, h with
+    | v :: vs, ⟨hv, hrest⟩ =>
+      match vs', h' with
+      | v' :: vs', ⟨hv', hrest'⟩ =>
+        rw [hv] at hv'
+        obtain rfl := Option.some.inj hv'
+        rw [ih hrest hrest']
+
+/-- The head of an interpreted application spine interprets. -/
+theorem interp_mkAppN_head_some {cval : ConstVal V} {env : Env}
+    {φ : Name → Nat} {D : Nat} {ρ : Nat → V} :
+    ∀ (xs : List Expr) (h : Expr) {w : V},
+      interpExpr V cval env φ D ρ (Expr.mkAppN h xs) = some w →
+      ∃ vh, interpExpr V cval env φ D ρ h = some vh
+  | [], _, w, hi => ⟨w, hi⟩
+  | x :: xs, h, w, hi => by
+    obtain ⟨v', hv'⟩ := interp_mkAppN_head_some xs (.app h x)
+      (show interpExpr V cval env φ D ρ (Expr.mkAppN (.app h x) xs) =
+        some w from hi)
+    revert hv'
+    simp only [interpExpr]
+    cases hf : interpExpr V cval env φ D ρ h with
+    | none =>
+      cases ha : interpExpr V cval env φ D ρ x with
+      | none => intro hv'; exact nomatch hv'
+      | some va => intro hv'; exact nomatch hv'
+    | some vh => intro _; exact ⟨vh, rfl⟩
 
 /-- A list of length `n + 1` splits off its last element at `n`. -/
 theorem take_concat_of_length {α : Type _} :

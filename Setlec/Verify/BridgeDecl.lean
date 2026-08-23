@@ -317,6 +317,18 @@ theorem checkProjIota_snd_dproj (env' : Env) (T ctorName : Name) (lps : List Nam
   unfold checkProjIota
   dsnd_tac
 
+theorem checkProjShape_fst_dproj (pty cty : Expr) (nP nF : Nat) :
+    (checkProjShape pty cty nP nF : PairM rel _).val.1 =
+      (checkProjShape pty cty nP nF : M₁ _) := by
+  unfold checkProjShape
+  dfst_tac
+
+theorem checkProjShape_snd_dproj (pty cty : Expr) (nP nF : Nat) :
+    (checkProjShape pty cty nP nF : PairM rel _).val.2 =
+      (checkProjShape pty cty nP nF : M₂ _) := by
+  unfold checkProjShape
+  dsnd_tac
+
 theorem pairOps_isDefEq_fst (env : Env) (d : Nat) (a b : Expr) :
     ((pairOps o₁ o₂ h).isDefEq env d a b).val.1 =
       o₁.isDefEq env d a b := rfl
@@ -332,6 +344,40 @@ theorem unwrapOr_fst_dproj {α : Type} (o : Option α) (e : CheckError) :
 theorem unwrapOr_snd_dproj {α : Type} (o : Option α) (e : CheckError) :
     (unwrapOr o e : PairM rel α).val.2 = (unwrapOr o e : M₂ α) := by
   cases o <;> rfl
+
+theorem pairOps_inferType_fst (env : Env) (d : Nat) (a : Expr) :
+    ((pairOps o₁ o₂ h).inferType env d a).val.1 =
+      o₁.inferType env d a := rfl
+
+theorem pairOps_inferType_snd (env : Env) (d : Nat) (a : Expr) :
+    ((pairOps o₁ o₂ h).inferType env d a).val.2 =
+      o₂.inferType env d a := rfl
+
+theorem checkTypedList_fst_dproj (env : Env) (depth : Nat) :
+    ∀ (as bs : List Expr),
+      (checkTypedList (pairOps o₁ o₂ h) env depth as bs).val.1 =
+      checkTypedList o₁ env depth as bs
+  | [], [] => rfl
+  | [], _ :: _ => rfl
+  | _ :: _, [] => rfl
+  | a :: as, b :: bs => by
+    unfold checkTypedList
+    simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
+      PairM.fst_ite, pairOps_isDefEq_fst, pairOps_inferType_fst,
+      checkTypedList_fst_dproj env depth as bs]
+
+theorem checkTypedList_snd_dproj (env : Env) (depth : Nat) :
+    ∀ (as bs : List Expr),
+      (checkTypedList (pairOps o₁ o₂ h) env depth as bs).val.2 =
+      checkTypedList o₂ env depth as bs
+  | [], [] => rfl
+  | [], _ :: _ => rfl
+  | _ :: _, [] => rfl
+  | a :: as, b :: bs => by
+    unfold checkTypedList
+    simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
+      PairM.snd_ite, pairOps_isDefEq_snd, pairOps_inferType_snd,
+      checkTypedList_snd_dproj env depth as bs]
 
 theorem checkDefEqList_fst_dproj (env : Env) (depth : Nat) :
     ∀ (as bs : List Expr),
@@ -370,7 +416,7 @@ theorem checkIotaThm_fst_dproj (env' envSelf : Env)
   unfold checkIotaThm
   simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
     PairM.fst_ite, pairOps_isDefEq_fst, unwrapOr_fst_dproj,
-    checkDefEqList_fst_dproj]
+    checkDefEqList_fst_dproj, checkTypedList_fst_dproj]
 
 theorem checkIotaThm_snd_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
@@ -383,7 +429,7 @@ theorem checkIotaThm_snd_dproj (env' envSelf : Env)
   unfold checkIotaThm
   simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
     PairM.snd_ite, pairOps_isDefEq_snd, unwrapOr_snd_dproj,
-    checkDefEqList_snd_dproj]
+    checkDefEqList_snd_dproj, checkTypedList_snd_dproj]
 
 theorem checkIotaThmN_fst_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
@@ -398,7 +444,7 @@ theorem checkIotaThmN_fst_dproj (env' envSelf : Env)
   · rfl
   · simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
       PairM.fst_ite, pairOps_isDefEq_fst, unwrapOr_fst_dproj,
-      checkDefEqList_fst_dproj]
+      checkDefEqList_fst_dproj, checkTypedList_fst_dproj]
 
 theorem checkIotaThmN_snd_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
@@ -413,7 +459,7 @@ theorem checkIotaThmN_snd_dproj (env' envSelf : Env)
   · rfl
   · simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
       PairM.snd_ite, pairOps_isDefEq_snd, unwrapOr_snd_dproj,
-      checkDefEqList_snd_dproj]
+      checkDefEqList_snd_dproj, checkTypedList_snd_dproj]
 
 set_option maxHeartbeats 12800000 in
 theorem checkIotaRule_fst_dproj (env' envSelf : Env)
@@ -502,8 +548,10 @@ macro "dfst_step2" : tactic =>
     | (rw [checkConstantVal_fst_dproj])
     | (rw [checkProjLookups_fst_dproj])
     | (rw [checkProjTy_fst_dproj])
+    | (rw [checkProjShape_fst_dproj])
     | (rw [checkProjIota_fst_dproj])
     | (rw [checkProjRule_fst_dproj])
+    | (rw [checkDefEqList_fst_dproj])
     | (rw [checkIndMember_fst_dproj])
     | (rw [checkIotaRule_fst_dproj])
     | (rw [checkIotaRules_fst_dproj])
@@ -525,8 +573,10 @@ macro "dsnd_step2" : tactic =>
     | (rw [checkConstantVal_snd_dproj])
     | (rw [checkProjLookups_snd_dproj])
     | (rw [checkProjTy_snd_dproj])
+    | (rw [checkProjShape_snd_dproj])
     | (rw [checkProjIota_snd_dproj])
     | (rw [checkProjRule_snd_dproj])
+    | (rw [checkDefEqList_snd_dproj])
     | (rw [checkIndMember_snd_dproj])
     | (rw [checkIotaRule_snd_dproj])
     | (rw [checkIotaRules_snd_dproj])
@@ -541,17 +591,17 @@ macro "dsnd_tac2" : tactic =>
     dsnd_step2 <;> dsnd_step2 <;> dsnd_step2 <;>
     dsnd_step2 <;> dsnd_step2 <;> dsnd_step2)
 
-theorem checkProjRule_fst_dproj (env' : Env) (cvj : ConstantVal) (lps : List Name) (nP nF i : Nat) :
-    (checkProjRule (pairOps o₁ o₂ h) env' cvj lps nP nF i).val.1 =
-      checkProjRule o₁ env' cvj lps nP nF i := by
+theorem checkProjRule_fst_dproj (env' : Env) (pty : Expr) (cvj : ConstantVal) (lps : List Name) (nP nF i : Nat) :
+    (checkProjRule (pairOps o₁ o₂ h) env' pty cvj lps nP nF i).val.1 =
+      checkProjRule o₁ env' pty cvj lps nP nF i := by
   unfold checkProjRule
-  dfst_tac2
+  dfst_tac2 <;> dfst_step2 <;> dfst_step2
 
-theorem checkProjRule_snd_dproj (env' : Env) (cvj : ConstantVal) (lps : List Name) (nP nF i : Nat) :
-    (checkProjRule (pairOps o₁ o₂ h) env' cvj lps nP nF i).val.2 =
-      checkProjRule o₂ env' cvj lps nP nF i := by
+theorem checkProjRule_snd_dproj (env' : Env) (pty : Expr) (cvj : ConstantVal) (lps : List Name) (nP nF i : Nat) :
+    (checkProjRule (pairOps o₁ o₂ h) env' pty cvj lps nP nF i).val.2 =
+      checkProjRule o₂ env' pty cvj lps nP nF i := by
   unfold checkProjRule
-  dsnd_tac2
+  dsnd_tac2 <;> dsnd_step2 <;> dsnd_step2
 
 theorem checkMemberVal_fst_dproj (blockNames : List Name)
     (env' : Env) (cv : ConstantVal) :
@@ -632,6 +682,7 @@ macro "dfst_step3" : tactic =>
     | (rw [checkConstantVal_fst_dproj])
     | (rw [checkProjLookups_fst_dproj])
     | (rw [checkProjTy_fst_dproj])
+    | (rw [checkProjShape_fst_dproj])
     | (rw [checkProjIota_fst_dproj])
     | (rw [checkProjRule_fst_dproj])
     | (rw [checkIndMember_fst_dproj])
@@ -656,6 +707,7 @@ macro "dsnd_step3" : tactic =>
     | (rw [checkConstantVal_snd_dproj])
     | (rw [checkProjLookups_snd_dproj])
     | (rw [checkProjTy_snd_dproj])
+    | (rw [checkProjShape_snd_dproj])
     | (rw [checkProjIota_snd_dproj])
     | (rw [checkProjRule_snd_dproj])
     | (rw [checkIndMember_snd_dproj])
@@ -677,13 +729,13 @@ theorem checkProjFn_fst_dproj (env' : Env) (T ctorName : Name) (lps : List Name)
     (checkProjFn (pairOps o₁ o₂ h) env' T ctorName lps nP nF i).val.1 =
       checkProjFn o₁ env' T ctorName lps nP nF i := by
   unfold checkProjFn
-  dfst_tac3
+  dfst_tac3 <;> dfst_step3 <;> dfst_step3 <;> dfst_step3
 
 theorem checkProjFn_snd_dproj (env' : Env) (T ctorName : Name) (lps : List Name) (nP nF i : Nat) :
     (checkProjFn (pairOps o₁ o₂ h) env' T ctorName lps nP nF i).val.2 =
       checkProjFn o₂ env' T ctorName lps nP nF i := by
   unfold checkProjFn
-  dsnd_tac3
+  dsnd_tac3 <;> dsnd_step3 <;> dsnd_step3 <;> dsnd_step3
 
 theorem installProjFnStep_fst_dproj (T ctorName : Name)
     (lps : List Name) (nP nF : Nat) (e : Env) (i : Nat) :
@@ -760,6 +812,7 @@ macro "dfst_step4" : tactic =>
     | (rw [checkConstantVal_fst_dproj])
     | (rw [checkProjLookups_fst_dproj])
     | (rw [checkProjTy_fst_dproj])
+    | (rw [checkProjShape_fst_dproj])
     | (rw [checkProjIota_fst_dproj])
     | (rw [checkProjRule_fst_dproj])
     | (rw [checkIndMember_fst_dproj])
@@ -789,6 +842,7 @@ macro "dsnd_step4" : tactic =>
     | (rw [checkConstantVal_snd_dproj])
     | (rw [checkProjLookups_snd_dproj])
     | (rw [checkProjTy_snd_dproj])
+    | (rw [checkProjShape_snd_dproj])
     | (rw [checkProjIota_snd_dproj])
     | (rw [checkProjRule_snd_dproj])
     | (rw [checkIndMember_snd_dproj])
@@ -831,6 +885,7 @@ macro "dfst_step5" : tactic =>
     | (rw [checkConstantVal_fst_dproj])
     | (rw [checkProjLookups_fst_dproj])
     | (rw [checkProjTy_fst_dproj])
+    | (rw [checkProjShape_fst_dproj])
     | (rw [checkProjIota_fst_dproj])
     | (rw [checkProjRule_fst_dproj])
     | (rw [checkIndMember_fst_dproj])
@@ -861,6 +916,7 @@ macro "dsnd_step5" : tactic =>
     | (rw [checkConstantVal_snd_dproj])
     | (rw [checkProjLookups_snd_dproj])
     | (rw [checkProjTy_snd_dproj])
+    | (rw [checkProjShape_snd_dproj])
     | (rw [checkProjIota_snd_dproj])
     | (rw [checkProjRule_snd_dproj])
     | (rw [checkIndMember_snd_dproj])
@@ -1232,6 +1288,12 @@ theorem checkProjTy_datF (env' : Env) (T ctorName : Name) (lps : List Name) (mty
   unfold checkProjTy
   datF_tac
 
+theorem checkProjShape_datF (pty cty : Expr) (nP nF : Nat) (F : Nat) :
+    (checkProjShape pty cty nP nF : FueledM _).val F =
+      checkProjShape (m := CheckM) pty cty nP nF := by
+  unfold checkProjShape
+  datF_tac
+
 theorem checkProjIota_datF (env' : Env) (T ctorName : Name) (lps : List Name) (cvj : ConstantVal) (nP nF i : Nat) (F : Nat) :
     (checkProjIota env' T ctorName lps cvj nP nF i : FueledM _).val F =
       (checkProjIota env' T ctorName lps cvj nP nF i : CheckM _) := by
@@ -1260,6 +1322,24 @@ theorem checkDefEqList_datF (env : Env) (depth F : Nat) :
     simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
       fueledOpsM_isDefEq_atF, checkDefEqList_datF env depth F as bs]
 
+theorem fueledOpsM_inferType_atF (env : Env) (d : Nat) (a : Expr)
+    (F : Nat) :
+    (fueledOpsM.inferType env d a).val F =
+      (fueledOps F).inferType env d a := rfl
+
+theorem checkTypedList_datF (env : Env) (depth F : Nat) :
+    ∀ (as bs : List Expr),
+      (checkTypedList fueledOpsM env depth as bs).val F =
+      checkTypedList (fueledOps F) env depth as bs
+  | [], [] => rfl
+  | [], _ :: _ => rfl
+  | _ :: _, [] => rfl
+  | a :: as, b :: bs => by
+    unfold checkTypedList
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+      FueledM.atF_ite, fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF,
+      checkTypedList_datF env depth F as bs]
+
 theorem checkIotaThm_datF (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
     (mI rP j : Nat) (r : RecRule) (cvj : ConstantVal)
@@ -1270,7 +1350,8 @@ theorem checkIotaThm_datF (env' envSelf : Env)
       j r cvj cnP cnF rhsA := by
   unfold checkIotaThm
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    fueledOpsM_isDefEq_atF, unwrapOr_atF, checkDefEqList_datF]
+    fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF, unwrapOr_atF,
+    checkDefEqList_datF, checkTypedList_datF]
 
 theorem checkIotaThmN_datF (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
@@ -1284,7 +1365,8 @@ theorem checkIotaThmN_datF (env' envSelf : Env)
   split
   · rfl
   · simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-      fueledOpsM_isDefEq_atF, unwrapOr_atF, checkDefEqList_datF]
+      fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF, unwrapOr_atF,
+      checkDefEqList_datF, checkTypedList_datF]
 
 set_option maxHeartbeats 12800000 in
 theorem checkIotaRule_datF (env' envSelf : Env)
@@ -1335,8 +1417,10 @@ macro "datF_step2" : tactic =>
     | (rw [checkConstantVal_datF])
     | (rw [checkProjLookups_datF])
     | (rw [checkProjTy_datF])
+    | (rw [checkProjShape_datF])
     | (rw [checkProjIota_datF])
     | (rw [checkProjRule_datF])
+    | (rw [checkDefEqList_datF])
     | (rw [checkIndMember_datF])
     | (rw [checkIotaRule_datF])
     | (rw [checkIotaRules_datF])
@@ -1351,11 +1435,11 @@ macro "datF_tac2" : tactic =>
     datF_step2 <;> datF_step2 <;> datF_step2 <;>
     datF_step2 <;> datF_step2 <;> datF_step2)
 
-theorem checkProjRule_datF (env' : Env) (cvj : ConstantVal) (lps : List Name) (nP nF i : Nat) (F : Nat) :
-    (checkProjRule fueledOpsM env' cvj lps nP nF i).val F =
-      checkProjRule (fueledOps F) env' cvj lps nP nF i := by
+theorem checkProjRule_datF (env' : Env) (pty : Expr) (cvj : ConstantVal) (lps : List Name) (nP nF i : Nat) (F : Nat) :
+    (checkProjRule fueledOpsM env' pty cvj lps nP nF i).val F =
+      checkProjRule (fueledOps F) env' pty cvj lps nP nF i := by
   unfold checkProjRule
-  datF_tac2
+  datF_tac2 <;> datF_step2 <;> datF_step2
 
 theorem checkMemberVal_datF (blockNames : List Name)
     (env' : Env) (cv : ConstantVal) (F : Nat) :
@@ -1399,8 +1483,10 @@ macro "datF_step3" : tactic =>
     | (rw [checkConstantVal_datF])
     | (rw [checkProjLookups_datF])
     | (rw [checkProjTy_datF])
+    | (rw [checkProjShape_datF])
     | (rw [checkProjIota_datF])
     | (rw [checkProjRule_datF])
+    | (rw [checkDefEqList_datF])
     | (rw [checkIndMember_datF])
     | (rw [checkIotaRule_datF])
     | (rw [checkIotaRules_datF])
@@ -1420,7 +1506,7 @@ theorem checkProjFn_datF (env' : Env) (T ctorName : Name) (lps : List Name) (nP 
     (checkProjFn fueledOpsM env' T ctorName lps nP nF i).val F =
       checkProjFn (fueledOps F) env' T ctorName lps nP nF i := by
   unfold checkProjFn
-  datF_tac3
+  datF_tac3 <;> datF_step3 <;> datF_step3 <;> datF_step3
 
 theorem installProjFnStep_datF (T ctorName : Name)
     (lps : List Name) (nP nF : Nat) (e : Env) (i : Nat) (F : Nat) :
@@ -1464,8 +1550,10 @@ macro "datF_step4" : tactic =>
     | (rw [checkConstantVal_datF])
     | (rw [checkProjLookups_datF])
     | (rw [checkProjTy_datF])
+    | (rw [checkProjShape_datF])
     | (rw [checkProjIota_datF])
     | (rw [checkProjRule_datF])
+    | (rw [checkDefEqList_datF])
     | (rw [checkIndMember_datF])
     | (rw [checkIotaRule_datF])
     | (rw [checkIotaRules_datF])
@@ -1500,8 +1588,10 @@ macro "datF_step5" : tactic =>
     | (rw [checkConstantVal_datF])
     | (rw [checkProjLookups_datF])
     | (rw [checkProjTy_datF])
+    | (rw [checkProjShape_datF])
     | (rw [checkProjIota_datF])
     | (rw [checkProjRule_datF])
+    | (rw [checkDefEqList_datF])
     | (rw [checkIndMember_datF])
     | (rw [checkIotaRule_datF])
     | (rw [checkIotaRules_datF])

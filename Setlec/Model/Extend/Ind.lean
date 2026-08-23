@@ -318,6 +318,32 @@ theorem checkIndMember_fold_names {blockNames : List Name}
       · exact nomatch hnone₁
       · exact hnone₁
 
+/-- Members installed by the fold never carry a model-shaped name
+(`checkMemberVal` rejects them). -/
+theorem checkIndFold_modelfree {blockNames : List Name}
+    {caps : IndCaps} :
+    ∀ (rest : List ConstantInfo) (env' env₂ : Env),
+    rest.foldlM (checkIndMember (fueledOps F) blockNames caps) env' = .ok env₂ →
+    ∀ ci ∈ rest, ci.name.isModelSuffix = false
+  | [], _, _, _, ci, hci => nomatch hci
+  | ci₀ :: rest, env', env₂, h, ci, hci => by
+    rw [List.foldlM_cons] at h
+    simp only [Bind.bind, Except.bind] at h
+    cases hstep : checkIndMember (fueledOps F) blockNames caps env' ci₀ with
+    | error e => rw [hstep] at h; exact nomatch h
+    | ok env₁ =>
+    rw [hstep] at h
+    rw [List.mem_cons] at hci
+    rcases hci with rfl | hci
+    · obtain ⟨cvA, cvm, mval, hmcvm, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
+        checkIndMember_inv hstep
+      obtain ⟨-, -, -, -, -, -, tyA, stype, u, -, -, -, -, -, hcvA⟩ :=
+        checkConstantVal_inv hccv
+      rw [hcvA] at hms
+      rcases hkind with ⟨⟨cv, caps', rfl⟩, -⟩ | ⟨cv, nP, nF, rfl, -⟩ <;>
+        exact hms
+    · exact checkIndFold_modelfree rest env₁ env₂ h ci hci
+
 /-- The fold of `checkIndDecl` preserves having a model together with
 the block-install invariant. -/
 theorem checkIndFold_sound {blockNames : List Name} {caps : IndCaps} :

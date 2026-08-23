@@ -5,8 +5,8 @@ import Setlec.Model.Extend.Transport
 # ProjFn — split out of `Setlec.Model.Extend`
 
 `extend_proj_fn`: extend a model by an installed projection
-function, a degenerate recursor whose single rule's fold obligation
-is discharged by the checked `proj_i.iota` theorem.
+function, a degenerate recursor whose single rule's total λ-equality
+obligation is discharged by the checked `proj_i.iota` theorem.
 -/
 
 set_option linter.unusedSimpArgs false
@@ -19,8 +19,8 @@ open SetTheory Expr
 
 /-- Extend a model by an installed projection function: a degenerate
 recursor (no motive, no minors) whose value is its `_model.proj_i`
-counterpart's and whose single rule's fold obligation is discharged by
-the checked `proj_i.iota` theorem (`proj_rule_fold`). -/
+counterpart's and whose single rule's total λ-equality obligation is
+discharged by the checked `proj_i.iota` theorem (`proj_rule_eq`). -/
 theorem extend_proj_fn {env : Env} (m : EnvModel V env)
     (cvA : ConstantVal) (nP nF i : Nat) (rule : RecRule)
     (f : Name → Name) (mnameP : Name)
@@ -51,8 +51,6 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
     (hann : annotateCore env F 0 raw = .ok (RecRule.rhs rule))
     (hrawf : raw.hasFvar = false)
     (hrawb : raw.looseBVarsBounded 0 = true)
-    (hrhsf : (RecRule.rhs rule).hasFvar = false)
-    (hrhsb : (RecRule.rhs rule).looseBVarsBounded 0 = true)
     (hrhsres : (RecRule.rhs rule).constsResolve env = true)
     {rbinders cbinders sbinders : List (Name × Expr × BinderMeta)}
     {rbody cbody sbody tySlot : Expr} {ℓA : Level}
@@ -62,12 +60,12 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
     (hrbody : rbody = .bvar (nF - 1 - i))
     (hC_strip : cvj.type.stripPis (nP + nF) = some (cbinders, cbody))
     (hS_strip : cvt.type.stripPis (nP + nF) = some (sbinders, sbody))
-    (hdoms : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta),
-      rbinders[k]? = some b → cbinders[k]? = some b' →
-      b.2.1 = b'.2.1)
     (hsdoms : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta),
       sbinders[k]? = some b → cbinders[k]? = some b' →
       b.2.1 = (b'.2.1).renameConsts f)
+    {dN : Name} {dus : List Level} {dargs : List Expr}
+    (hcbody : cbody = Expr.mkAppN (.const dN dus) dargs)
+    (hdargs : dargs.length = nP)
     (hsbody : sbody = Expr.mkAppN (.const eqName [ℓA])
       [tySlot,
        Expr.mkAppN (.const (f cvA.name) (cvA.levelParams.map .param))
@@ -80,7 +78,24 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
             ((List.range nF).map fun k => Expr.bvar (nF - 1 - k)))]),
        .bvar (nF - 1 - i)])
     (hthm : env.find? thmName = some (.thmInfo cvt tval))
-    (_hlpt : cvt.levelParams = cvA.levelParams) :
+    (_hlpt : cvt.levelParams = cvA.levelParams)
+    -- the kernel's frame walks and definitional pins (task #58)
+    {fvsP : List Expr} {restP : Expr} {cdomsP : List Expr}
+    {crestP : Expr} {xFvs : List Expr} {crest2X : Expr}
+    {ldoms : List Expr} {lrestL : Expr}
+    (hopenP : openPisAtFvars nP cvA.type 0 = some (fvsP, restP))
+    (hcinstP : Expr.instPisAt fvsP cvj.type = some (cdomsP, crestP))
+    (hdeParsP : DefEqListOk F env (nP + nF)
+      (fvsP.map Expr.fvarTypeD) cdomsP)
+    (hopenX : openPisAtFvars nF crestP nP = some (xFvs, crest2X))
+    (hlinstP : Expr.instLamsAt (fvsP ++ xFvs) (RecRule.rhs rule) =
+      some (ldoms, lrestL))
+    (hdeLamP : DefEqListOk F env (nP + nF)
+      ((fvsP ++ xFvs).map Expr.fvarTypeD) ldoms)
+    (hrhsw : (RecRule.rhs rule).hasFvar = false)
+    (hrhsb : (RecRule.rhs rule).looseBVarsBounded 0 = true)
+    {rhsTy : Expr}
+    (hity : inferTypeCore env F 0 (RecRule.rhs rule) = .ok rhsTy) :
     ∃ m' : EnvModel V ⟨.recInfo cvA nP nP [rule] :: env.consts⟩,
       (∀ ψ, m'.val cvA.name ψ = m.val mnameP ψ) ∧
       (∀ n ψ, n ≠ cvA.name → m'.val n ψ = m.val n ψ) := by
@@ -124,9 +139,6 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
     have h2 : n = cvA.name := h
     rw [h2, hfind'] at hn
     exact nomatch hn
-  have hvp₁ : ConstValParams m₀.val
-      (⟨.recInfo cvA nP nP [rule] :: env.consts⟩ : Env) :=
-    ConstValParams.recRules_swap [] [rule] m₀.val_params
   have htransM : ∀ (e : Expr), e.constsResolve env = true →
       ∀ ψ : Name → Nat,
       interpClosed V m₀.val
@@ -178,18 +190,14 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
           (annotate_sound m raw hann (WScoped.of_not_hasFvar hrawf)
             hrawb (Expr.LeavesBounded.of_not_hasFvar hrawf) (rho0 V)
             (FvarsOk.of_not_hasFvar hrawf))
-      refine ⟨hArhs₁, fun _ => Nat.le_refl _, ?_⟩
-      intro cvj' cnP' cnF' hfj ψ ψj args margs tv hl hml hch hmch htv
-        hpeqG hplain hfit
+      refine ⟨hArhs₁, fun _ => Nat.le_refl _, fun _ => Nat.le_of_eq hcp,
+        fun lvls pins hn => absurd hn (hfire lvls pins), ?_⟩
+      intro cvj' cnP' cnF' hfj hnotinert
       have hfr : RecRule.fire rule = .plain := by
         rcases h : RecRule.fire rule with _ | _ | ⟨lvls, pins⟩
-        · exact absurd h hplain
+        · exact absurd h hnotinert
         · rfl
         · exact absurd h (hfire lvls pins)
-      obtain ⟨hpeq, hlev⟩ := hpeqG hfr
-      clear hpeqG
-      rw [hcp, _hnf] at hml
-      rw [hcp] at hpeq hfit
       have hctor₁ : (⟨.recInfo cvA nP nP [rule] ::
           env.consts⟩ : Env).find? (RecRule.ctor rule) =
           some (.ctorInfo cvj nP nF) := by
@@ -201,9 +209,6 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
       obtain hje := Option.some.inj hfj
       injection hje with j1 j2 j3
       subst j1 j2 j3
-      obtain ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
-        hψeq, hψjeq, hfit1, hfit2, hidx, -⟩ := hfit
-      subst hψeq hψjeq
       have hro₁ : RenameOk m₀.val
           (⟨.recInfo cvA nP nP [rule] :: env.consts⟩ : Env) f := by
         refine ⟨?_, ?_, ?_⟩
@@ -255,79 +260,85 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
             · exact absurd hh₂ (hfnot n₂)
             · rw [hpres₀ _ ψ₂ hh₂, hpres₀ _ ψ₂ hh, hff₀ n₂ hh,
                 hro.2.2 n₂]
-      have hfRm₁ : (⟨.recInfo cvA nP nP [rule] ::
-          env.consts⟩ : Env).find? (f cvA.name) =
-          some (.defnInfo cvm mval hmcvm) := by
-        rw [hfself, Env.find?_cons,
-          if_neg (show ¬(ConstantInfo.recInfo cvA nP nP
-            [rule]).name = mnameP from
-            fun h => hfnot cvA.name (hfself.trans h.symm))]
-        exact hmodel
-      have heqne : eqName ≠ cvA.name := by
-        intro h
-        rw [← h] at hnres
-        exact absurd hnres (by decide)
-      have heqfind₁ : (⟨.recInfo cvA nP nP [rule] ::
-          env.consts⟩ : Env).find? eqName = some eqA := by
-        rw [Env.find?_cons,
-          if_neg (show ¬(ConstantInfo.recInfo cvA nP nP
-            [rule]).name = eqName from fun h => heqne h.symm)]
-        exact heqfind
       have heqval₁ : ∀ ψ'' : Name → Nat, m₀.val eqName ψ'' = eqVal V ψ'' :=
         fun ψ'' => by
           rw [hagreeM eqName (by rw [heqfind]; rfl) ψ'', heqval ψ'']
-      obtain ⟨hthw, -, hthres, -, -, -⟩ := m.wf _ (find?_mem hthm)
-      have hthmne : thmName ≠ cvA.name := by
-        intro h
-        have h2 := find?_none_ne hfind' _ (find?_mem hthm)
-        have h3 : (ConstantInfo.thmInfo cvt tval).name = thmName := by
-          have h4 := List.find?_some hthm
-          simpa using h4
-        exact h2 (by rw [h3, h])
-      have hthm_mem₁ : ∀ ψ'' : Name → Nat, ∃ P,
-          interpClosed V m₀.val
-            (⟨.recInfo cvA nP nP [rule] :: env.consts⟩ : Env) ψ''
-            cvt.type = some P ∧
-          m₀.val thmName ψ'' ∈ˢ P := by
+      have hfP₁ : (⟨.recInfo cvA nP nP [rule] ::
+          env.consts⟩ : Env).find? cvA.name =
+          some (.recInfo cvA nP nP [rule]) := by
+        rw [Env.find?_cons,
+          if_pos (show (ConstantInfo.recInfo cvA nP nP
+            [rule]).name = cvA.name from rfl)]
+      -- the base-model facts the new glue consumes
+      have hffRes : ∀ n, (env.find? n).isSome = true → f n = f₀ n := by
+        intro n hn
+        refine hff₀ n ?_
+        intro he
+        rw [he, hfind'] at hn
+        exact nomatch hn
+      obtain ⟨hSw, -, hSres, -, -, -⟩ := m.wf _ (find?_mem hthm)
+      have hthm_memL : ∀ ψ'' : Name → Nat, ∃ Pv,
+          interpClosed V m.val env ψ'' cvt.type = some Pv ∧
+          m.val thmName ψ'' ∈ˢ Pv := by
         intro ψ''
-        obtain ⟨P, hP, hmem⟩ := m.mem_type _ (find?_mem hthm) ψ''
+        obtain ⟨Pv, hPv, hmm⟩ := m.mem_type _ (find?_mem hthm) ψ''
         have h3 : (ConstantInfo.thmInfo cvt tval).name = thmName := by
           simpa using List.find?_some hthm
-        refine ⟨P, ?_, ?_⟩
-        · rw [htransM cvt.type hthres ψ'']
-          exact hP
-        · rw [← h3, hagreeM _ (by rw [h3, hthm]; rfl) ψ'']
-          exact hmem
-      have hthm_annot₁ : ∀ ψ'' : Name → Nat,
-          AnnotOk V m₀.val
-            (⟨.recInfo cvA nP nP [rule] :: env.consts⟩ : Env) ψ'' 0
-            (rho0 V) cvt.type := by
+        exact ⟨Pv, hPv, by rw [← h3]; exact hmm⟩
+      have hthm_annotL : ∀ ψ'' : Name → Nat,
+          AnnotOk V m.val env ψ'' 0 (rho0 V) cvt.type :=
+        fun ψ'' => (m.annot_ok _ (find?_mem hthm) ψ'').1
+      obtain ⟨hCtf, -, hCtres, hCtb, -, -⟩ := m.wf _ (find?_mem hctor)
+      have hACtyL : ∀ ψ'' : Name → Nat,
+          AnnotOk V m.val env ψ'' 0 (rho0 V) cvj.type :=
+        fun ψ'' => (m.annot_ok _ (find?_mem hctor) ψ'').1
+      have hICtyL : ∀ ψ'' : Name → Nat, ∃ T,
+          interpClosed V m.val env ψ'' cvj.type = some T := by
         intro ψ''
-        obtain ⟨hA1, -⟩ := m.annot_ok _ (find?_mem hthm) ψ''
-        exact hAtransM cvt.type hthres ψ'' hA1
-      obtain ⟨hCtf, hCtp, -, -, -, -⟩ := m.wf _ (find?_mem hctor)
-      have htyw₁ : cvA.type.hasFvar = false := hwf.1
-      have hClps₁ : ∀ ψ₁ ψ₂ : Name → Nat,
-          (∀ p ∈ cvj.levelParams, ψ₁ p = ψ₂ p) →
-          m₀.val (RecRule.ctor rule) ψ₁ = m₀.val (RecRule.ctor rule) ψ₂ :=
-        fun ψ₁ ψ₂ hψ => hvp₁ _ _ hctor₁ ψ₁ ψ₂ (by exact hψ)
-      have hl' : args.length = nP := by simpa using hl
-      have hml' : margs.length = nP + nF := by simpa using hml
-      have hout := proj_rule_fold (P := cvA.name) (i := i)
-        hro₁ hvp₁ hi hctor₁ hfRm₁
+        obtain ⟨t, ht, -⟩ := m.mem_type _ (find?_mem hctor) ψ''
+        exact ⟨t, ht⟩
+      have hItyL : ∀ ψ'' : Name → Nat, ∃ T,
+          interpClosed V m.val env ψ'' cvA.type = some T := by
+        intro ψ''
+        obtain ⟨t, ht, -⟩ := m.mem_type _ (find?_mem hmodel) ψ''
+        refine ⟨t, ?_⟩
+        have h0 : interpClosed V m.val env ψ''
+            (cvA.type.renameConsts f₀) = some t := by
+          rw [hren₀]
+          exact ht
+        unfold interpClosed at h0 ⊢
+        rw [← interp_renameConsts hro cvA.type 0 (rho0 V)]
+        exact h0
+      have hArhsL : ∀ ψ'' : Name → Nat,
+          AnnotOk V m.val env ψ'' 0 (rho0 V) (RecRule.rhs rule) :=
+        fun ψ'' => annotate_sound m raw hann
+          (WScoped.of_not_hasFvar hrawf) hrawb
+          (Expr.LeavesBounded.of_not_hasFvar hrawf) (rho0 V)
+          (FvarsOk.of_not_hasFvar hrawf)
+      have hIrhsL : ∀ ψ'' : Name → Nat, ∃ L,
+          interpClosed V m.val env ψ'' (RecRule.rhs rule) = some L := by
+        intro ψ''
+        obtain ⟨⟨v, tv', hiv, -, -⟩, -, -⟩ :=
+          inferTypeCore_sound (φ := ψ'') m F hity
+            (WScoped.of_not_hasFvar hrhsw) hrhsb
+            (Expr.LeavesBounded.of_not_hasFvar hrhsw)
+            (FvarsOk.of_not_hasFvar hrhsw) (hArhsL ψ'')
+        exact ⟨v, hiv⟩
+      have hfPmE : env.find? (f cvA.name) =
+          some (.defnInfo cvm mval hmcvm) := by
+        rw [hfself]
+        exact hmodel
+      exact proj_rule_eq (P := cvA.name) (i := i)
+        (c₀ := .recInfo cvA nP nP [rule]) m F hfind' hagreeM
+        hffRes hro hro₁ hi hfP₁ rfl hctor hfPmE
         (show (ConstantInfo.defnInfo cvm
-          mval hmcvm).toConstantVal.levelParams = cvA.levelParams from hlps)
-        hClps₁ heqfind₁ heqval₁ hthm_mem₁ hthm_annot₁ hthw hstripR
-        hrbody hC_strip hS_strip hsdoms hdoms hsbody hrhsf
-        hrhsb hArhs₁ hCtf
-        (show cvj.type.allLevelParamsDefined cvj.levelParams = true from
-          hCtp)
-        hl' hml' htv hpeq hlev hfit2
-      obtain ⟨Rv, hRi, hfoldEq, hslots⟩ := hout
-      rw [hcp]
-      exact ⟨Rv, hRi,
-        by simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using hfoldEq,
-        by simpa using hslots⟩
+          mval hmcvm).toConstantVal.levelParams = cvA.levelParams from
+          hlps)
+        heqfind heqval₁ hthm_memL hthm_annotL hSw hSres hfr hcp _hnf
+        hstripR hrbody hC_strip hS_strip hsdoms hsbody hcbody hdargs
+        hopenP hcinstP hdeParsP hopenX hlinstP hdeLamP
+        hwf.1 hwf.2.2.2.1 hCtf hCtb htyres0 hCtres hrhsres hrhsw hrhsb
+        hannT hItyL hACtyL hICtyL hArhsL hIrhsL
   obtain ⟨m', hveq⟩ := extend_rec_swap m₀ hfind' hnres hwf hctors hrecm
   exact ⟨m', fun ψ => (hveq _ ψ).trans (hval₀ ψ),
     fun n ψ hne => (hveq n ψ).trans (hpres₀ n ψ hne)⟩

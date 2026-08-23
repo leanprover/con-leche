@@ -424,8 +424,8 @@ private theorem installProjFnStepE_wfimp {T ctorName : Name}
   refine ⟨h, ?_⟩
   unfold installProjFnStep at h
   split at h
-  · obtain ⟨cvj, mcv, hlk, pty, hty, hi, rhsA, hrule, ⟨_, hio⟩, heq⟩ :=
-      checkProjFn_inv h
+  · obtain ⟨cvj, mcv, hlk, pty, hty, ⟨_, hshape⟩, hi, rhsA, hrule,
+      ⟨_, hio⟩, heq⟩ := checkProjFn_inv h
     subst heq
     obtain ⟨-, -, hres, hbv, hfv, hlp⟩ := checkProjTy_inv hty
     obtain ⟨raw, rb, cb, cbody, hraw, hrf, hrb, hann, halp, hrres, hrbv,

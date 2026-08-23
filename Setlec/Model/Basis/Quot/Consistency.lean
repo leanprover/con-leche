@@ -213,7 +213,7 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
             injection heq with e1 e2 e3 e4
             subst e1 e2 e3 e4
             rcases List.mem_cons.mp hr with rfl | hr
-            · exact ⟨rfl, rfl, hresLr, rfl, fun lvls pins hf => nomatch hf⟩
+            · exact ⟨rfl, rfl, hresLr, rfl, fun lvls pins hf => RecRuleFire.noConfusion hf⟩
             · cases hr),
           fun _ _ hx => absurd hx (by simp [quotLiftA])⟩
         hresL0
@@ -253,80 +253,34 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
             intro ψ'
             rw [hv2 quotMkName ψ' (by decide)]
             exact hvalM2 ψ'
+          have hvalQ' : ∀ ψ' : Name → Nat,
+              val' quotName ψ' = quotVal V ψ' := by
+            intro ψ'
+            rw [hv2 quotName ψ' (by decide)]
+            exact hvalQ2 ψ'
+          have hvalL' : ∀ ψ' : Name → Nat,
+              val' quotLiftName ψ' = quotLiftVal V ψ' :=
+            fun ψ' => hv1 ψ'
+          have hfQ' : Env.find?
+              (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩ : Env)
+              quotName = some quotA := rfl
+          have hfMk' : Env.find?
+              (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩ : Env)
+              quotMkName = some quotMkA := rfl
+          have hfL' : Env.find?
+              (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩ : Env)
+              quotLiftName = some quotLiftA := rfl
           rcases List.mem_cons.mp hr with rfl | hr
           · refine ⟨fun ψ => annotOk_quotLift_rhs (cval := val') (ψ := ψ)
-              hfE' hvalE', fun _ => Nat.le_refl _, ?_⟩
-            intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
-              htv hpeqG _hplain hfit
-            obtain ⟨hpeq, hlev⟩ := hpeqG rfl
-            clear hpeqG
+              hfE' hvalE', fun _ => Nat.le_refl _,
+              fun _ => by decide, fun lvls pins hf => RecRuleFire.noConfusion hf, ?_⟩
+            intro cvj cnP cnF hfj _hfire
             have hje := Option.some.inj hfj
             simp only [quotMkA] at hje
             injection hje with hj1 hj2 hj3
             subst hj1 hj2 hj3
-            rcases args with _ | ⟨Av, _ | ⟨Rv, _ | ⟨Bv, _ | ⟨fv,
-              _ | ⟨hv, _ | ⟨x, rest⟩⟩⟩⟩⟩⟩ <;> simp at hlen
-            rcases margs with _ | ⟨p1, _ | ⟨p2, _ | ⟨p3,
-              _ | ⟨y, ys⟩⟩⟩⟩ <;> simp at hmlen
-            obtain ⟨hs1, hs2, hs3, hs4, hs5, hs6, -⟩ := hch
-            obtain ⟨vE1, A1, B1, hp1, hm1, hf1⟩ := hs1
-            obtain ⟨vE2, A2, B2, hp2, hm2, hf2⟩ := hs2
-            obtain ⟨vE3, A3, B3, hp3, hm3, hf3⟩ := hs3
-            obtain ⟨vE4, A4, B4, hp4, hm4, hf4⟩ := hs4
-            obtain ⟨vE5, A5, B5, hp5, hm5, hf5⟩ := hs5
-            obtain ⟨vE6, A6, B6, hp6, hm6, hf6⟩ := hs6
-            rw [hv1] at hp1 hp2 hp3 hp4 hp5 hp6
-            -- parameter identifications and the constructor form
-            have hpA : p1 = Av := by
-              have := congrArg (fun l => l.getD 0 SetTheory.empty) hpeq
-              simpa using this
-            have hpR : p2 = Rv := by
-              have := congrArg (fun l => l.getD 1 SetTheory.empty) hpeq
-              simpa using this
-            have hlev' : ψj uN = ψ uN := hlev uN (by
-              simp [quotMkA, ConstantInfo.toConstantVal, uN])
-            have htv' : tv = SetTheory.app (SetTheory.app (SetTheory.app
-                (quotMkVal V ψj) p1) p2) p3 := by
-              rw [htv]
-              simp only [RecRule.ctor]
-              rw [hv2 _ ψj (by decide)]
-              have h' := hvalM2 ψj
-              simp only [quotMkName, quotName] at h'
-              rw [h']
-              rfl
-            -- the element is in the domain (from the constructor fit)
-            obtain ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
-              hψeq, hψjeq, hfit1, hfit2, -⟩ := hfit
-            have hav : p3 ∈ˢ p1 := by
-              cases hfit2 with
-              | cons hity1 hx1 h1' =>
-              cases h1' with
-              | cons hity2 hx2 h2' =>
-              cases h2' with
-              | cons hity3 hx3 h3' =>
-              simp only [Expr.instantiateLevelParams, Expr.instantiate1,
-                reduceIte, interpExpr] at hity3
-              obtain rfl := Option.some.inj hity3
-              have hval' : updV V (updV V ρρ₁ dd₁ p1) (dd₁ + 1) p2 dd₁
-                  = p1 := by
-                simp [updV]
-              rw [← hval']
-              exact hx3
-            obtain ⟨R, hRi, hfold, hchainR⟩ :=
-              quotLiftIota_claims (cval := val') (ψ := ψ) (ψj := ψj)
-                hfE' hvalE'
-                hp1 hm1 hp2 hm2 hp3 hm3 hp4 hm4 hp5 hm5 hp6 hm6
-                htv' hpA hpR hlev' hav
-            refine ⟨R, hRi, ?_, ?_⟩
-            · rw [show SpineFold V (val' quotLiftA.name ψ)
-                  ([Av, Rv, Bv, fv, hv] ++ [tv]) =
-                  SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app
-                    (SetTheory.app (SetTheory.app
-                      (val' quotLiftA.name ψ) Av) Rv) Bv) fv) hv) tv
-                  from rfl]
-              rw [hv1]
-              exact hfold
-            · exact hchainR
+            exact quotLift_ruleOk hfE' hvalE' hfQ' hvalQ' hfMk' hvalM'
+              hfL' hvalL'
           · cases hr)
         (fun cvR mI rP rules heq => by
           simp only [quotLiftA] at heq
@@ -372,7 +326,7 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
             injection heq with e1 e2 e3 e4
             subst e1 e2 e3 e4
             rcases List.mem_cons.mp hr with rfl | hr
-            · exact ⟨rfl, rfl, rfl, rfl, fun lvls pins hf => nomatch hf⟩
+            · exact ⟨rfl, rfl, rfl, rfl, fun lvls pins hf => RecRuleFire.noConfusion hf⟩
             · cases hr),
           fun _ _ hx => absurd hx (by simp [quotIndA])⟩
         rfl
@@ -417,57 +371,23 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
             intro ψ'
             rw [hv2 quotMkName ψ' (by decide)]
             exact hvalM3 ψ'
+          have hvalI' : ∀ ψ' : Name → Nat,
+              val' quotIndName ψ' = quotIndVal V ψ' :=
+            fun ψ' => hv1 ψ'
+          have hfI' : Env.find?
+              (⟨quotIndA :: quotLiftA :: quotMkA :: quotA ::
+                env.consts⟩ : Env)
+              quotIndName = some quotIndA := rfl
           rcases List.mem_cons.mp hr with rfl | hr
           · refine ⟨fun ψ => annotOk_quotInd_rhs (cval := val') (ψ := ψ)
-              hfQ' hvalQ' hfM' hvalM', fun _ => Nat.le_refl _, ?_⟩
-            intro cvj cnP cnF hfj ψ ψj args margs tv hlen hmlen hch hmch
-              htv hpeq _hplain hfit
+              hfQ' hvalQ' hfM' hvalM', fun _ => Nat.le_refl _,
+              fun _ => by decide, fun lvls pins hf => RecRuleFire.noConfusion hf, ?_⟩
+            intro cvj cnP cnF hfj _hfire
             have hje := Option.some.inj hfj
             simp only [quotMkA] at hje
             injection hje with hj1 hj2 hj3
             subst hj1 hj2 hj3
-            rcases args with _ | ⟨Av, _ | ⟨Rv, _ | ⟨Bv, _ | ⟨mkv,
-              _ | ⟨x, rest⟩⟩⟩⟩⟩ <;> simp at hlen
-            rcases margs with _ | ⟨p1, _ | ⟨p2, _ | ⟨p3,
-              _ | ⟨y, ys⟩⟩⟩⟩ <;> simp at hmlen
-            obtain ⟨hs1, hs2, hs3, hs4, hs5, -⟩ := hch
-            obtain ⟨vE1, A1, B1, hp1, hm1, hf1⟩ := hs1
-            obtain ⟨vE2, A2, B2, hp2, hm2, hf2⟩ := hs2
-            obtain ⟨vE3, A3, B3, hp3, hm3, hf3⟩ := hs3
-            obtain ⟨vE4, A4, B4, hp4, hm4, hf4⟩ := hs4
-            obtain ⟨vE5, A5, B5, hp5, hm5, hf5⟩ := hs5
-            rw [hv1] at hp1 hp2 hp3 hp4 hp5
-            obtain ⟨φ', us, usj, dd, ρρ, dd₁, ρρ₁, rest₁, dd₂, ρρ₂, rest₂,
-              hψeq, hψjeq, hfit1, hfit2, -⟩ := hfit
-            have hav : p3 ∈ˢ p1 := by
-              cases hfit2 with
-              | cons hity1 hx1 h1' =>
-              cases h1' with
-              | cons hity2 hx2 h2' =>
-              cases h2' with
-              | cons hity3 hx3 h3' =>
-              simp only [Expr.instantiateLevelParams, Expr.instantiate1,
-                reduceIte, interpExpr] at hity3
-              obtain rfl := Option.some.inj hity3
-              have hval' : updV V (updV V ρρ₁ dd₁ p1) (dd₁ + 1) p2 dd₁
-                  = p1 := by
-                simp [updV]
-              rw [← hval']
-              exact hx3
-            obtain ⟨R, hRi, hfold, hchainR⟩ :=
-              quotIndIota_claims (cval := val') (ψ := ψ)
-                hfQ' hvalQ' hfM' hvalM'
-                hp1 hm1 hp2 hm2 hp3 hm3 hp4 hm4 hp5 hm5
-                hav
-            refine ⟨R, hRi, ?_, ?_⟩
-            · rw [show SpineFold V (val' quotIndA.name ψ)
-                  ([Av, Rv, Bv, mkv] ++ [tv]) =
-                  SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app
-                    (SetTheory.app (val' quotIndA.name ψ) Av) Rv) Bv) mkv)
-                    tv from rfl]
-              rw [hv1]
-              exact hfold
-            · exact hchainR
+            exact quotInd_ruleOk hfQ' hvalQ' hfM' hvalM' hfI' hvalI'
           · cases hr)
         (fun cvR mI rP rules heq => by
           simp only [quotIndA] at heq

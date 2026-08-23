@@ -129,6 +129,18 @@ theorem lam_eta {v : Nat} {A f : V} {B : V → V} (hf : f ∈ˢ pi v A B) :
     rw [pi_pos (Nat.pos_iff_ne_zero.mp hv)] at hf
     exact eq_graph_app_of_mem_piSet hf
 
+/-- Function extensionality for members of the dependent product: two
+members of `pi v A _` that agree under application on every member of
+`A` are equal.  At `v = 0` both sides are the proof point; at `v ≠ 0`
+both are graphs over `A`, whose off-domain applications are canonical
+junk (`app_off_dom_of_mem_piSet`), so agreement on `A` is total
+agreement. -/
+theorem eq_of_mem_pi_app_eq {v : Nat} {A f g : V} {B B' : V → V}
+    (hf : f ∈ˢ pi v A B) (hg : g ∈ˢ pi v A B')
+    (h : ∀ x, x ∈ˢ A → app f x = app g x) : f = g := by
+  rw [← lam_eta hf, ← lam_eta hg]
+  exact lam_congr h
+
 /-- Formation, level 0: a `Prop`-valued product is a truth value. -/
 theorem pi_zero_mem_univZero {A : V} {B : V → V} :
     pi 0 A B ∈ˢ (univZero : V) := by

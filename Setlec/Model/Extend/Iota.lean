@@ -58,6 +58,8 @@ def PlainChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
       ((fvs.take rP).map Expr.fvarTypeD) rdoms ∧
     openPisAtFvars rP cvA.type 0 = some (fvsP, restP) ∧
     Expr.instPisAt (fvsP.take cnP) cvj.type = some (cdomsP, crestP) ∧
+    DefEqListOk F env₀ (rP + cnF)
+      ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP ∧
     openPisAtFvars cnF crestP rP = some (xFvsP, crest2) ∧
     Expr.instLamsAt (fvsP ++ xFvsP) (RecRule.rhs r) =
       some (ldoms, lrest) ∧
@@ -117,7 +119,11 @@ def NestedChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
       (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p))
       (cvj.type.instantiateLevelParams cvj.levelParams lvls) =
       some (cdomsP, crestP) ∧
+    TypedListOk F env₀ (rP + cnF)
+      (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p))
+      cdomsP ∧
     openPisAtFvars cnF crestP rP = some (xFvsP, crest2) ∧
+    crest2.getAppArgs.length = cnP ∧
     Expr.instLamsAt (fvsP ++ xFvsP) (RecRule.rhs r) =
       some (ldoms, lrest) ∧
     DefEqListOk F env₀ (rP + cnF)
@@ -254,6 +260,12 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
   intro h
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
+  cases hdqP : checkDefEqList (fueledOps F) env₀ (rP + cnF)
+      ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP with
+  | error e => rw [hdqP] at h; exact nomatch h
+  | ok uP =>
+  rw [hdqP] at h
+  try dsimp only at h
   revert h
   match hopenX : openPisAtFvars cnF crestP rP with
   | none => intro h; exact nomatch h
@@ -289,7 +301,8 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
         hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
         eq_of_beq hlpre, eq_of_beq hmaj, hcstrip, hcinst, hclen,
         checkDefEqList_inv hdq1, checkDefEqList_inv hdq2, hrinst,
-        checkDefEqList_inv hdq3, hopenP, hcinstP, hopenX, hlinst,
+        checkDefEqList_inv hdq3, hopenP, hcinstP,
+        checkDefEqList_inv hdqP, hopenX, hlinst,
         checkDefEqList_inv hdq4, hde⟩
 
 /-- Invert a successful `nestedRuleShape` computation into the facts
@@ -510,12 +523,23 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
   intro h
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
+  cases hdtP : checkTypedList (fueledOps F) env₀ (rP + cnF)
+      (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p))
+      cdomsP with
+  | error e => rw [hdtP] at h; exact nomatch h
+  | ok uP =>
+  rw [hdtP] at h
+  try dsimp only at h
   revert h
   match hopenX : openPisAtFvars cnF crestP rP with
   | none => intro h; exact nomatch h
   | some (xFvsP, crest2) => ?_
   intro h
   try simp only [Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  by_cases harX : (crest2.getAppArgs.length == cnP) = true
+  case neg => rw [if_neg harX] at h; exact nomatch h
+  rw [if_pos harX] at h
   try dsimp only at h
   revert h
   match hlinst : Expr.instLamsAt (fvsP ++ xFvsP) rhsA with
@@ -547,7 +571,8 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
         hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
         eq_of_beq hlpre, eq_of_beq hmaj, hcstrip, hcinst, hclen,
         checkDefEqList_inv hdq1, checkDefEqList_inv hdq2, hrinst,
-        checkDefEqList_inv hdq3, hopenP, hcinstP, hopenX, hlinst,
+        checkDefEqList_inv hdq3, hopenP, hcinstP,
+        checkTypedList_inv hdtP, hopenX, eq_of_beq harX, hlinst,
         checkDefEqList_inv hdq4, hde⟩
 
 /-- The kernel-checked data of one modeled recursor rule: the
@@ -575,6 +600,7 @@ def RuleChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
         cvA.type.stripPis mI = some (pre, .forallE nm dom body bm) ∧
         dom.getAppFn = .const D lvls ∧
         dom.getAppArgs = pins) ∧
+      pins.length = cnP ∧
       NestedChecked F env env₀ f cvA mI rP cnP cnF r cvj lvls pins) ∧
     raw.hasFvar = false ∧ raw.looseBVarsBounded 0 = true ∧
     annotateCore env₀ F 0 raw = .ok (RecRule.rhs r) ∧
@@ -709,9 +735,10 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
         obtain ⟨rfl, rfl⟩ := RecRuleFire.nested.inj
           (hf : RecRuleFire.nested lvls pins = .nested lvls' pins')
         obtain ⟨hmi, hlvls, hpins, pre, nm, dom, body, bm, D, hstrip,
-          hfn, hpinsEq, -⟩ := nestedRuleShape_inv hshape
+          hfn, hpinsEq, hpinsLen⟩ := nestedRuleShape_inv hshape
         exact ⟨hmi, hlvls, hpins,
-          ⟨pre, nm, dom, body, bm, D, hstrip, hfn, hpinsEq⟩, hkit⟩
+          ⟨pre, nm, dom, body, bm, D, hstrip, hfn, hpinsEq⟩, hpinsLen,
+          hkit⟩
 
 /-- Invert a successful `checkIotaRules` run: every returned rule
 carries the full `RuleChecked` hypothesis kit. -/

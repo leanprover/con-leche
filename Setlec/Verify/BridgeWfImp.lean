@@ -645,6 +645,44 @@ theorem checkDefEqList_wfimp {env : Env} (henv : EnvWF env)
         (fun x hx => ha x (List.mem_cons_of_mem _ hx))
         (fun y hy => hb y (List.mem_cons_of_mem _ hy)) h
 
+/-- The pairwise inferred-type check, `wfOpsM` run to pure run. -/
+theorem checkTypedList_wfimp {env : Env} (henv : EnvWF env)
+    {depth : Nat} {F : Nat} :
+    ∀ {as bs : List Expr},
+      (∀ a ∈ as, WScoped depth a) → (∀ b ∈ bs, WScoped depth b) →
+      ∀ {v : Unit},
+      (checkTypedList wfOpsM env depth as bs).val F = .ok v →
+      checkTypedList (fueledOps F) env depth as bs = .ok v
+  | [], [], _, _, _, h => h
+  | [], _ :: _, _, _, _, h => nomatch h
+  | _ :: _, [], _, _, _, h => nomatch h
+  | a :: as, b :: bs, ha, hb, v, h => by
+    unfold checkTypedList at h ⊢
+    rw [wfOpsM_inferType henv (ha a List.mem_cons_self).to_wscopedB] at h
+    obtain ⟨ty, hty, h⟩ := atF_bind_ok h
+    have hty' : inferTypeCore env F depth a = .ok ty := hty
+    have htyW : WScoped depth ty :=
+      inferTypeCore_WScoped henv F hty' (ha a List.mem_cons_self)
+    show (inferTypeCore env F depth a >>= _) = _
+    rw [hty']
+    simp only [Bind.bind, Except.bind]
+    rw [wfOpsM_isDefEq henv htyW.to_wscopedB
+      (hb b List.mem_cons_self).to_wscopedB] at h
+    obtain ⟨c, hc, h⟩ := atF_bind_ok h
+    have hc' : isDefEqCore env F depth ty b = .ok c := hc
+    show (isDefEqCore env F depth ty b >>= _) = _
+    rw [hc']
+    simp only [Bind.bind, Except.bind]
+    cases c with
+    | false =>
+      rw [if_neg (by simp)] at h
+      exact absurd h atF_throw_bind
+    | true =>
+      rw [if_pos rfl] at h ⊢
+      exact checkTypedList_wfimp henv
+        (fun x hx => ha x (List.mem_cons_of_mem _ hx))
+        (fun y hy => hb y (List.mem_cons_of_mem _ hy)) h
+
 set_option maxHeartbeats 6400000 in
 /-- The iota-theorem check, `wfOpsM` run to pure run.  The recursor
 type, the constructor type and the annotated rule right-hand side are
@@ -814,7 +852,17 @@ theorem checkIotaThm_wfimp {env' envSelf : Env} (henv' : EnvWF env')
   have hcinstPW := instPisAt_WScoped (d := rP) _ _ hcinstP'
     (WScoped.of_not_hasFvar hctor)
     (fun a ha => hfvsPW a (List.mem_of_mem_take ha))
-  obtain ⟨-, hcrestPW⟩ := hcinstPW
+  obtain ⟨hcdomsPW, hcrestPW⟩ := hcinstPW
+  obtain ⟨uP, hdP, h⟩ := atF_bind_ok h
+  have hdP' := checkDefEqList_wfimp henvSelf
+    (fun a ha => by
+      obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
+      exact (fvarTypeD_WScoped
+        (hfvsPW x (List.mem_of_mem_take hx))).mono (by omega))
+    (fun b hb => (hcdomsPW b hb).mono (by omega)) hdP
+  show (checkDefEqList (fueledOps F) envSelf _ _ _ >>= _) = _
+  rw [hdP']
+  simp only [Bind.bind, Except.bind]
   obtain ⟨q6, hopenX, h⟩ := atF_bind_ok h
   obtain ⟨xFvsP, crest2⟩ := q6
   have hopenX' := unwrapOr_atF_ok hopenX
@@ -1084,7 +1132,19 @@ theorem checkIotaThmN_wfimp {env' envSelf : Env} (henv' : EnvWF env')
       exact instSpine_WScoped (rP - 1)
         (WScoped.of_not_hasFvar (hpinsF x hx))
         (fun a' ha' => hfvsPW a' (List.mem_of_mem_take ha')))
-  obtain ⟨-, hcrestPW⟩ := hcinstPW
+  obtain ⟨hcdomsPW, hcrestPW⟩ := hcinstPW
+  obtain ⟨uP, hdP, h⟩ := atF_bind_ok h
+  have hdP' := checkTypedList_wfimp henvSelf
+    (fun a ha => by
+      obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
+      exact (instSpine_WScoped (rP - 1)
+        (WScoped.of_not_hasFvar (hpinsF x hx))
+        (fun a' ha' => hfvsPW a' (List.mem_of_mem_take ha'))).mono
+        (by omega))
+    (fun b hb => (hcdomsPW b hb).mono (by omega)) hdP
+  show (checkTypedList (fueledOps F) envSelf _ _ _ >>= _) = _
+  rw [hdP']
+  simp only [Bind.bind, Except.bind]
   obtain ⟨q6, hopenX, h⟩ := atF_bind_ok h
   obtain ⟨xFvsP, crest2⟩ := q6
   have hopenX' := unwrapOr_atF_ok hopenX
@@ -1101,6 +1161,10 @@ theorem checkIotaThmN_wfimp {env' envSelf : Env} (henv' : EnvWF env')
     rcases List.mem_append.mp hax with hax | hax
     · exact WScoped.mono (by omega) (hfvsPW a hax)
     · exact hxFvsPW a hax
+  by_cases harX : (crest2.getAppArgs.length == cnP) = true
+  case neg => rw [if_neg harX] at h; exact absurd h atF_throw_bind
+  rw [if_pos harX] at h ⊢
+  try dsimp only [] at h ⊢
   obtain ⟨q7, hlinst, h⟩ := atF_bind_ok h
   obtain ⟨ldoms, lrest⟩ := q7
   have hlinst' := unwrapOr_atF_ok hlinst
@@ -1287,9 +1351,14 @@ theorem checkMemberVal_wfimp {blockNames : List Name} {env' : Env}
   exact h
 
 theorem checkProjRule_wfimp {env' : Env} (henv' : EnvWF env')
-    {cvj : ConstantVal} {lps : List Name} {nP nF i F : Nat} {v : Expr}
-    (h : (checkProjRule wfOpsM env' cvj lps nP nF i).val F = .ok v) :
-    checkProjRule (fueledOps F) env' cvj lps nP nF i = .ok v := by
+    {pty : Expr} {cvj : ConstantVal} {lps : List Name}
+    {nP nF i F : Nat} {v : Expr}
+    (hptyf : pty.hasFvar = false)
+    (_hptyb : pty.looseBVarsBounded 0 = true)
+    (hCf : cvj.type.hasFvar = false)
+    (_hCb : cvj.type.looseBVarsBounded 0 = true)
+    (h : (checkProjRule wfOpsM env' pty cvj lps nP nF i).val F = .ok v) :
+    checkProjRule (fueledOps F) env' pty cvj lps nP nF i = .ok v := by
   unfold checkProjRule at h ⊢
   dsimp only [] at h ⊢
   revert h
@@ -1336,7 +1405,189 @@ theorem checkProjRule_wfimp {env' : Env} (henv' : EnvWF env')
       (nP + nF) = true
   case neg => rw [if_neg h4] at h; exact absurd h atF_throw_bind
   rw [if_pos h4] at h ⊢
+  -- the frame walks and pins
+  revert h
+  match hopenP : openPisAtFvars nP pty 0 with
+  | none => intro h; exact nomatch h
+  | some pr₃ => ?_
+  obtain ⟨fvsP, rest0⟩ := pr₃
+  intro h
+  try dsimp only [] at h ⊢
+  revert h
+  match hcinstP : Expr.instPisAt fvsP cvj.type with
+  | none => intro h; exact nomatch h
+  | some pr₄ => ?_
+  obtain ⟨cdomsP, crestP⟩ := pr₄
+  intro h
+  try dsimp only [] at h ⊢
+  obtain ⟨hfvsW0, -⟩ := openPisAtFvars_WScoped nP pty 0 hopenP
+    (WScoped.of_not_hasFvar hptyf)
+  have hfvsW : ∀ x ∈ fvsP, WScoped nP x := by
+    intro x hx
+    have h0 := hfvsW0 x hx
+    rwa [Nat.zero_add] at h0
+  have hannW : ∀ a ∈ fvsP.map Expr.fvarTypeD, WScoped (nP + nF) a := by
+    intro a ha
+    obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
+    have hw := hfvsW x hx
+    cases x with
+    | fvar idx nm ty =>
+      simp only [WScoped] at hw
+      exact hw.2.mono (by omega)
+    | bvar _ => exact hw.mono (by omega)
+    | sort _ => exact hw.mono (by omega)
+    | const _ _ => exact hw.mono (by omega)
+    | app _ _ => exact hw.mono (by omega)
+    | lam _ _ _ _ => exact hw.mono (by omega)
+    | forallE _ _ _ _ => exact hw.mono (by omega)
+    | letE _ _ _ _ => exact hw.mono (by omega)
+    | lit _ => exact hw.mono (by omega)
+    | proj _ _ _ => exact hw.mono (by omega)
+  obtain ⟨hcdW, hcrW⟩ := instPisAt_WScoped (d := nP) fvsP cvj.type
+    hcinstP (WScoped.of_not_hasFvar hCf) hfvsW
+  obtain ⟨u₁, hde1, h⟩ := atF_bind_ok h
+  have hde1' := checkDefEqList_wfimp henv' hannW
+    (fun b hb => (hcdW b hb).mono (by omega)) hde1
+  show (checkDefEqList (fueledOps F) env' (nP + nF)
+    (fvsP.map Expr.fvarTypeD) cdomsP >>= _) = _
+  rw [hde1']
+  simp only [Bind.bind, Except.bind]
+  revert h
+  match hopenX : openPisAtFvars nF crestP nP with
+  | none => intro h; exact nomatch h
+  | some pr₅ => ?_
+  obtain ⟨xFvs, crest2X⟩ := pr₅
+  intro h
+  try dsimp only [] at h ⊢
+  revert h
+  match hlinst : Expr.instLamsAt (fvsP ++ xFvs) rhsA with
+  | none => intro h; exact nomatch h
+  | some pr₆ => ?_
+  obtain ⟨ldoms, lrestL⟩ := pr₆
+  intro h
+  try dsimp only [] at h ⊢
+  have hrhsAf : rhsA.hasFvar = false := by
+    simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not,
+      Bool.not_true] at h2
+    exact h2.2
+  obtain ⟨hxW, -⟩ := openPisAtFvars_WScoped nF crestP nP hopenX hcrW
+  have hspineW : ∀ a ∈ fvsP ++ xFvs, WScoped (nP + nF) a := by
+    intro a ha
+    rcases List.mem_append.mp ha with ha | ha
+    · exact (hfvsW a ha).mono (by omega)
+    · exact hxW a ha
+  have hannW2 : ∀ a ∈ (fvsP ++ xFvs).map Expr.fvarTypeD,
+      WScoped (nP + nF) a := by
+    intro a ha
+    obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
+    have hw := hspineW x hx
+    cases x with
+    | fvar idx nm ty =>
+      simp only [WScoped] at hw
+      exact hw.2.mono (by omega)
+    | bvar _ => exact hw.mono (by omega)
+    | sort _ => exact hw.mono (by omega)
+    | const _ _ => exact hw.mono (by omega)
+    | app _ _ => exact hw.mono (by omega)
+    | lam _ _ _ _ => exact hw.mono (by omega)
+    | forallE _ _ _ _ => exact hw.mono (by omega)
+    | letE _ _ _ _ => exact hw.mono (by omega)
+    | lit _ => exact hw.mono (by omega)
+    | proj _ _ _ => exact hw.mono (by omega)
+  obtain ⟨hldW, -⟩ := instLamsAt_WScoped (fvsP ++ xFvs) rhsA hlinst
+    (WScoped.of_not_hasFvar hrhsAf) hspineW
+  obtain ⟨u₂, hde2, h⟩ := atF_bind_ok h
+  have hde2' := checkDefEqList_wfimp henv' hannW2
+    (fun b hb => hldW b hb) hde2
+  show (checkDefEqList (fueledOps F) env' (nP + nF)
+    ((fvsP ++ xFvs).map Expr.fvarTypeD) ldoms >>= _) = _
+  rw [hde2']
+  simp only [Bind.bind, Except.bind]
+  rw [wfOpsM_inferType henv' (wscopedB_of_not_hasFvar hrhsAf)] at h
+  obtain ⟨rhsTy, hity, h⟩ := atF_bind_ok h
+  have hity' : inferTypeCore env' F 0 rhsA = .ok rhsTy := hity
+  show (inferTypeCore env' F 0 rhsA >>= _) = _
+  rw [hity']
+  simp only [Bind.bind, Except.bind]
   exact h
+
+/-- The stored constructor behind a successful projection lookup. -/
+theorem checkProjLookups_ctor {env' : Env} {T ctorName : Name}
+    {lps : List Name} {nP nF i : Nat} {cvj mcv : ConstantVal}
+    (h : (checkProjLookups env' T ctorName lps nP nF i :
+      CheckM (ConstantVal × ConstantVal)) = .ok (cvj, mcv)) :
+    ∃ cnP cnF, env'.find? ctorName = some (.ctorInfo cvj cnP cnF) := by
+  unfold checkProjLookups at h
+  revert h
+  match hf : env'.find? ctorName with
+  | none => intro h; exact nomatch h
+  | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.defnInfo _ _ _) => intro h; exact nomatch h
+  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.indInfo _ _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
+  | some (.ctorInfo cvj' cnP cnF) => ?_
+  intro h
+  try dsimp only at h
+  split at h
+  next harm =>
+    refine ⟨cnP, cnF, ?_⟩
+    -- the remaining guards only gate success; the head is fixed
+    revert h
+    match env'.find? (projModelName T i) with
+    | none => intro h; exact nomatch h
+    | some (.axiomInfo _) => intro h; exact nomatch h
+    | some (.thmInfo _ _) => intro h; exact nomatch h
+    | some (.indInfo _ _) => intro h; exact nomatch h
+    | some (.projInfo _) => intro h; exact nomatch h
+    | some (.recInfo _ _ _ _) => intro h; exact nomatch h
+    | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+    | some (.defnInfo mcv' _ _) => ?_
+    intro h
+    try dsimp only at h
+    split at h
+    next =>
+      split at h
+      next =>
+        split at h
+        next =>
+          split at h
+          next =>
+            simp only [pure, Except.pure, Except.ok.injEq,
+              Prod.mk.injEq] at h
+            rw [h.1]
+          next => exact nomatch h
+        next => exact nomatch h
+      next => exact nomatch h
+    next => exact nomatch h
+  next => exact nomatch h
+
+/-- Well-formedness of a successfully checked projection type. -/
+theorem checkProjTy_wf {env' : Env} {T ctorName : Name}
+    {lps : List Name} {mty pty : Expr} {nP nF : Nat}
+    (h : (checkProjTy env' T ctorName lps mty nP nF : CheckM Expr) =
+      .ok pty) :
+    pty.hasFvar = false ∧ pty.looseBVarsBounded 0 = true := by
+  unfold checkProjTy at h
+  try dsimp only at h
+  split at h
+  next =>
+    split at h
+    next =>
+      split at h
+      next hwf =>
+        split at h
+        next =>
+          simp only [pure, Except.pure, Except.ok.injEq] at h
+          simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not,
+            Bool.not_true] at hwf
+          rw [← h]
+          exact ⟨hwf.1.2, hwf.1.1⟩
+        next => exact nomatch h
+      next => exact nomatch h
+    next => exact nomatch h
+  next => exact nomatch h
 
 theorem checkProjFn_wfimp {env' : Env} (henv' : EnvWF env')
     {T ctorName : Name} {lps : List Name} {nP nF i F : Nat} {v : Env}
@@ -1355,13 +1606,24 @@ theorem checkProjFn_wfimp {env' : Env} (henv' : EnvWF env')
     CheckM Expr) >>= _) = _
   rw [hty]
   simp only [Bind.bind, Except.bind]
+  obtain ⟨u0, hshape, h⟩ := atF_bind_ok h
+  rw [checkProjShape_datF] at hshape
+  show ((checkProjShape pty cvj.type nP nF : CheckM Unit) >>= _) = _
+  rw [hshape]
+  simp only [Bind.bind, Except.bind]
   dsimp only [] at h ⊢
   by_cases h1 : i < nF
   case neg => rw [if_neg h1] at h; exact absurd h atF_throw_bind
   rw [if_pos h1] at h ⊢
   obtain ⟨rhsA, hrule, h⟩ := atF_bind_ok h
-  have hrule' := checkProjRule_wfimp henv' hrule
-  show (checkProjRule (fueledOps F) env' cvj lps nP nF i >>= _) = _
+  obtain ⟨cnP0, cnF0, hctor⟩ := checkProjLookups_ctor hlk
+  obtain ⟨hptyf, hptyb⟩ := checkProjTy_wf hty
+  have hrule' := checkProjRule_wfimp henv' hptyf hptyb
+    (show cvj.type.hasFvar = false from (henv' _ (find?_mem hctor)).1)
+    (show cvj.type.looseBVarsBounded 0 = true from
+      (henv' _ (find?_mem hctor)).2.2.2.1)
+    hrule
+  show (checkProjRule (fueledOps F) env' pty cvj lps nP nF i >>= _) = _
   rw [hrule']
   simp only [Bind.bind, Except.bind]
   obtain ⟨u, hiota, h⟩ := atF_bind_ok h

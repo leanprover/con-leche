@@ -183,6 +183,54 @@ theorem graph_dom_of_mem_piSet {A A' : V} {B F : V → V}
   obtain ⟨rfl, rfl⟩ := kpair_inj hp
   exact hx'
 
+/-! ### Off-domain and junk behavior of `app`
+
+`app` is total: on a non-`pt` value with no pair at the argument —
+in particular off a graph's domain, or on the canonical junk value
+`empty` itself — it returns `empty`.  These lemmas record that a
+graph's off-domain behavior is *canonical*: two graphs over the same
+domain that agree on the domain agree everywhere, which is what makes
+a **total** equality between interpreted function towers equivalent to
+pointwise agreement on fitting inputs (`eq_of_mem_piSet_app_eq`, and
+`eq_of_mem_pi_app_eq` in `Derive/Pi.lean`). -/
+
+theorem app_eq_empty_of_not_mem {f a : V} (hf : f ≠ pt)
+    (h : ∀ y, ¬ kpair a y ∈ˢ f) : app f a = empty := by
+  unfold app
+  rw [if_neg hf]
+  refine eq_empty fun z hz => ?_
+  obtain ⟨y, hy, -⟩ := mem_sUnion.mp hz
+  exact h y (mem_sep.mp hy).2
+
+/-- `app` off a graph's domain is the canonical junk value. -/
+theorem app_graph_of_not_mem {F : V → V} {A a : V} (ha : ¬ a ∈ˢ A) :
+    app (graph F A) a = empty := by
+  refine app_eq_empty_of_not_mem graph_ne_pt fun y hy => ?_
+  obtain ⟨x, hx, hp⟩ := mem_graph.mp hy
+  obtain ⟨rfl, rfl⟩ := kpair_inj hp
+  exact ha hx
+
+/-- `app` on the canonical junk value returns junk: junk propagates
+through applications. -/
+theorem app_empty (a : V) : app (empty : V) a = empty :=
+  app_eq_empty_of_not_mem (Ne.symm pt_ne_empty)
+    (fun _y hy => not_mem_empty _ hy)
+
+/-- A member of `piSet` applied off the domain is junk. -/
+theorem app_off_dom_of_mem_piSet {A f a : V} {B : V → V}
+    (hf : f ∈ˢ piSet A B) (ha : ¬ a ∈ˢ A) : app f a = empty := by
+  rw [← eq_graph_app_of_mem_piSet hf, app_graph_of_not_mem ha]
+
+/-- Function extensionality for members of the raw dependent product:
+two total single-valued graphs over the same domain that agree under
+application on every domain member are equal (off the domain both
+apply to canonical junk, so nothing else distinguishes them). -/
+theorem eq_of_mem_piSet_app_eq {A f g : V} {B B' : V → V}
+    (hf : f ∈ˢ piSet A B) (hg : g ∈ˢ piSet A B')
+    (h : ∀ x, x ∈ˢ A → app f x = app g x) : f = g := by
+  rw [← eq_graph_app_of_mem_piSet hf, ← eq_graph_app_of_mem_piSet hg]
+  exact graph_congr h
+
 /- Compiler stub (see `Derive/Empty.lean`): never executed, no logical
 content. -/
 private unsafe def appImpl {V : Type u} [SetTheory V] (_f _a : V) : V := unsafeCast ()

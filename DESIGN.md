@@ -87,13 +87,13 @@ see through `T` into the model's encoding — tagged sigmas etc. — so the
 kernel-level projection/eta/K rules on `T` become untypeable.)
 
 Consequently the environment invariant carries per-stored-constant
-semantic facts abstractly — for every stored recursor rule a fold
-equation over value spines (`RecRulesOk`: interpreted recursor applied
-through its telescope, with the major a constructor-value spine, equals
-the interpreted rule rhs applied to the non-index prefix and fields,
-together with the `AppSlot` typing facts and rule-rhs `AnnotOk` the
-reduct's annotation chain needs); analogous records for projections and
-unit-like/eta/K as those land.  Basis blocks discharge these facts from
+semantic facts abstractly — for every stored fireable recursor rule a
+**total λ-equality** (`RecRulesOk`, task #58): the canonical
+frame/body decomposition `ruleLhsParts` computes, is well-formed and
+resolves, and for every level assignment the closed left-hand λ-tower
+(`closeLamsAt fvms bL`) is `AnnotOk` and interprets to the same value
+as the stored rule right-hand side; analogous records for projections
+and unit-like/eta/K as those land.  Basis blocks discharge these facts from
 the hand-written set values (`Setlec/Model/BasisIota.lean`); modeled
 blocks discharge them at install from the checked `_model` theorems.
 `whnf`/`isDefEq`/`inferType` soundness consumes only the abstract facts
@@ -2623,3 +2623,72 @@ only unfoldable constants are theorems) and rejects it with the
 theorems rewritten as axioms.  See lean4lean
 `Lean4Lean/Declaration.lean` (`deltaValue?` doc comment) for the same
 observation.
+
+## Recursor-rule fold contract as total λ-equalities (2026-08-23, task #58)
+
+`RecRulesOk` is restated per fireable rule as a **total λ-equality**:
+
+    ∃ fvms bL, ruleLhsParts n cv rP r cvj = some (fvms, bL) ∧
+      FrameWf 0 fvms bL ∧ fvms.length = rP + nfields ∧
+      (closeLamsAt fvms bL).constsResolve env ∧
+      ∀ ψ, AnnotOk (closeLamsAt fvms bL) ∧
+        ∃ Rv, interpClosed ψ (closeLamsAt fvms bL) = some Rv ∧
+              interpClosed ψ rhs = some Rv
+
+`ruleLhsParts` (Model/Interp.lean) is the canonical decomposition: the
+recursor type's `rP`-prefix opened at fvars, the constructor type
+instantiated at the parameter arguments (plain: the prefix variables;
+nested: the stored pins at the stored levels), its fields opened, the
+body the recursor applied to prefix ++ residual indices ++ the
+constructor spine, and the frame's binder metas taken from the rule
+rhs's own λ-tower.  Consumers (`iota_sound`) recover the redex by
+`closeLamsAt` and never see fitting frames.
+
+**Install-time derivation** (Model/IndInstall.lean, plain and nested):
+
+* `modeled_stage` — the per-binder stage fact (frame annotation's
+  interp = rule λ-domain's, plus `AnnotOk` and the frame-prefix
+  invariant step), fire-agnostic given an abstract constructor-residual
+  package (`ctor_pkg_plain` / `ctor_pkg_nested`, the latter walking the
+  kernel's typed pin list `TypedListOk`).
+* `modeled_bottom_plain` / `modeled_bottom_nested` — at the full frame,
+  eliminate the checked `_model.iota_j` theorem's inhabitant
+  (`TeleFitI.elim` + Eq collapse) into the value equation between the
+  canonical body and the applied rhs; nested rules are index-free
+  (`mI = rP`) with the major's parameters the level-instantiated pins.
+* `TowerOk.of_stages` (Model/RuleFold.lean) — folds the flat stage
+  facts and the bottom fact into the λ-tower equality at the canonical
+  list valuations, tracking the rule-tower residual up to `ErasedEq`.
+* `Extend/Recs.recMemberOk_of_kit` — derives each clause from the
+  checked kits at the provisional environment and transports to the
+  final one.  Nested renaming idempotence comes from blockNames
+  containing no model-shaped names (`checkIndFold_modelfree`,
+  `provisionRecs_modelfree`), threaded as a hypothesis.
+
+The old fitting-frame machinery (`IndInstallN.lean`, whose elaboration
+peaked at ~16 GB) is **deleted**; `IndInstall.lean` holds the whole
+pipeline.  Projections were rebuilt on the same machinery
+(`ProjInstall.lean`: `proj_bottom`/`proj_rule_eq` via `of_stages`).
+
+**Kernel pins added for the contract** (install-time, once per
+rule/projection; measured probe cost +0.02% instructions, no corpus
+verdict changes — arena 90/92, e2e 48/48, init-prelude 0/3653):
+
+* `checkIotaThm` (plain): the statement telescope's parameter domains
+  are checked defeq (`checkDefEqList`) against the recursor type's
+  instantiated domains, and the constructor's field domains against
+  the instantiated constructor type's.
+* `checkIotaThmN` (nested): the same walks against the
+  level-instantiated constructor type, the pins checked as a typed
+  list (`checkTypedList`), plus the arity pin
+  `crest2.getAppArgs.length = cnP` (index-free canonical body).
+* `checkProjShape`: the projection type strips to `nP + 1` binders
+  with a const-headed residual applied to the `nP` parameters.
+* `checkProjRule`: takes the projection type, opens both types at
+  shared fvars with `checkDefEqList` domain pins, and runs
+  `ops.inferType` on the rule rhs (interpretation-existence witness).
+
+The official kernel constructs these objects itself (recursor/
+projection rules are generated, so the shapes hold by construction);
+setlec checks them because the artifacts arrive from the preprocessor
+as input.  Failures are declines, not rejections.

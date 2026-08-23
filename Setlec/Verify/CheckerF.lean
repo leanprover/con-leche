@@ -202,10 +202,10 @@ theorem checkProjTyF_eq (env : Env) (T ctorName : Name)
       = checkProjTy env T ctorName lps mty nP nF := by
   simp only [checkProjTyF, checkProjTy, constsResolveF_eq] <;> rfl
 
-theorem checkProjRuleF_eq (ops : CheckerOps m) (env : Env)
+theorem checkProjRuleF_eq (ops : CheckerOps m) (env : Env) (pty : Expr)
     (cvj : ConstantVal) (lps : List Name) (nP nF i : Nat) :
-    checkProjRuleF ops (mkFEnv env) cvj lps nP nF i
-      = checkProjRule ops env cvj lps nP nF i := by
+    checkProjRuleF ops (mkFEnv env) pty cvj lps nP nF i
+      = checkProjRule ops env pty cvj lps nP nF i := by
   simp only [checkProjRuleF, checkProjRule, constsResolveF_eq] <;> rfl
 
 theorem checkProjIotaF_eq (env : Env) (T ctorName : Name)
