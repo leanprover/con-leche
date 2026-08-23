@@ -149,8 +149,7 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                       mkAppNM h (margs.take cnP) >>= fun fab =>
                       Setlec.withStore (fun st => st.wscopedBI d fab &&
                         st.looseBVarsBoundedI 0 fab &&
-                        (st.fvarLeavesI fab).all
-                          (fun l => (st.fvarLeavesI i).contains l)) >>=
+                        st.leafGuardI fab i) >>=
                         fun g =>
                       if g then
                         constTyAtM (mkFEnv env) rl.ctor ust >>=
@@ -196,8 +195,7 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                       mkAppNM h (margs ++ projs) >>= fun fab =>
                       Setlec.withStore (fun st => st.wscopedBI d fab &&
                         st.looseBVarsBoundedI 0 fab &&
-                        (st.fvarLeavesI fab).all
-                          (fun l => (st.fvarLeavesI i).contains l)) >>=
+                        st.leafGuardI fab i) >>=
                         fun g =>
                       if g then
                         constTyAtM (mkFEnv env) rl.ctor ust >>=

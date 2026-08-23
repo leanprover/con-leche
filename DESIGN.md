@@ -3886,3 +3886,86 @@ Gap ~12x (from the misreported ~36x); next attributed lever: spine
 list traffic + per-call instantiation memos (task #84, est. 2-4x on
 sharing-heavy shapes).  Notable: setlec now BEATS the official kernel
 on the discarded-argument perf tests (0.15-0.4x).
+
+## Per-node loose-bvar cutoff in instantiation; leafGuardI (2026-08-23, task #84)
+
+The four sharing-heavy outliers (`repeated-subproblem` 115x,
+`shared-subterm` 97x, `shift-cascade` 80x, `grind-ring-5` 30x vs the
+official kernel, `--yolo`) were re-profiled and decomposed into two
+mechanisms — neither of which was the originally-suspected
+`getAppArgs`/`mkAppN` list rebuilding (that traffic exists but is
+on-par with nanoda's per-step `unfold_apps` vectors):
+
+1. **Instantiation traversed closed sub-DAGs.**  nanoda's `inst_aux`
+   returns immediately when `num_loose_bvars(e) <= offset` (a per-node
+   field); our `instantiate1IGo`/`instantiateListIGo` walked and
+   re-interned every node.  Fix: the traversals take a *read-only
+   view* of the persistent loose-bvar-bound cache (`IState.bvarB`,
+   task #72 — the root shortcut already existed; now it applies at
+   every node) and return any node with `bound ≤ cursor` unchanged.
+   The wrappers (`inst1M`/`instListM`/`instSpineM`/`piResidualM`)
+   pre-fill the cache by running the root bound walk — and, crucially,
+   over the *replacement roots* too (`bvarBoundsLGo`), so the `bvar`
+   branch's recursion into a closed replacement prunes instantly.
+   The prepass skips already-covered roots through the allocation-free
+   `BMemo.covers`/`cutoff` slot reads (`Array.getD`; entering
+   `bvarBoundIGo` per root allocated a pair each and sent the scale
+   harness's telescope exponent to 1.40 — with the skip it is 1.17,
+   all shapes PASS).
+2. **The fabrication leaf guard was quadratic-to-exponential.**  The
+   scoped-discipline guard in `majorToCtorI`/`majorToCtorNC` (and the
+   projection-elimination fallbacks) recomputed `fvarLeavesI major`
+   *inside* the `.all` lambda — once per leaf of the fabrication — and
+   `fvarLeavesIGo`'s per-node `++` of memoized sub-lists materializes
+   the *tree*-sized leaf-occurrence list on a shared DAG.  On
+   `repeated-subproblem` this was 54 % of the run (`List.reverseAux`
+   21 % alone).  Fix: `EStore.leafGuardI` — `hasFvarI`
+   short-circuit (a term with no fvar passes trivially; one memoized
+   DAG walk instead of two leaf-list materializations) and the base's
+   leaf list hoisted out of the lambda.  Same Boolean
+   (`fvarLeaves_eq_nil_of_not_hasFvar`); the exponential case remains
+   reachable for fvar-carrying fabrications and is noted below.
+
+Verification delta: `instantiate1IGo_spec`/`instantiateListIGo_spec`
+gain the `BoundMemoInv` premise and a cutoff branch closed by
+`instantiate1_eq_self`/`instantiateList_eq_self`; the wrapper specs
+and SimI `_run`/`_eff` lemmas thread the new arguments;
+`bvarBoundsLGo_inv` covers the prepass; `leafGuardI_spec` factors
+through the raw list lemma; the DiscI3/DiscI6 mirrors restate the
+guard.  The bound-cache section moved ahead of the instantiation
+specs in `Verify/IExpr.lean`.  **No ISOK/SimAt statement changed.**
+
+**Measured** (`perf stat` instructions, `--yolo` / certified; official
+kernel in parentheses):
+
+| test | before (yolo) | after (yolo) | after (cert) | ratio yolo |
+|---|---|---|---|---|
+| repeated-subproblem (0.18 G) | 21.2 G | **4.44 G** | 4.98 G | 24x |
+| shared-subterm (0.37 G) | 36.3 G | **4.96 G** | 5.54 G | 13x |
+| shift-cascade (0.29 G) | 23.3 G | **5.87 G** | 5.88 G | 20x |
+| grind-ring-5 (13.7 G) | 416 G | **82.8 G** | 93.0 G | 6.1x |
+| init-prelude probe (3.9 G) | 49.3 G | **23.8 G** | 30.9 G | 6.1x |
+
+Init-prelude gap: certified ~7.9x, `--yolo` ~6.1x (from ~12x).
+Gates: arena 90/92, e2e 53/53, `lake test`, scale.sh all-PASS,
+warning-free.
+
+**Remaining levers** (both need a persistent per-node *fvar* datum —
+an `IState` cache clause mirroring `bvarB`, i.e. an ISOK extension
+that needs sign-off before landing):
+
+* `shift-cascade` (20x) is now ~47 % `abstractRangeIGo` under
+  `annotateLams/PisI`: abstraction has no analog of the bound cutoff,
+  so fvar-free sub-DAGs are rebuilt per telescope.  nanoda's
+  `abstr_aux` prunes on `!has_fvars(e)`.  Plan: dense per-node
+  fvar-range cache (`fvarB : BMemo`, range = max fvar idx + 1,
+  not descending into fvar type annotations, matching the abstraction
+  traversals), cutoff `range ≤ d`, new `Expr.fvarsBelow` predicate +
+  `abstractRange_eq_self`, ISOK/ISOKF clause and `flushS` survival
+  mirroring `bvarB` exactly.
+* The same cache would make `leafGuardI`'s `hasFvarI` walk O(1) and
+  close the guard's residual exponential case for good.
+
+`repeated-subproblem`'s residual 24x is flat substrate overhead (RC
+traffic, hash maps, per-run parse) over a tiny official baseline —
+the same class as the remaining overall gap, no longer shape-specific.

@@ -511,8 +511,11 @@ private theorem inst1M_run (e v : EIdx) (d : Nat) (s : IState) :
       (let s₁ : IState :=
         { s with bvarB := (EStore.bvarBoundIGo s.store s.bvarB e).2 }
        if (EStore.bvarBoundIGo s.store s.bvarB e).1 ≤ d then (e, s₁)
-       else ((s₁.store.instantiate1I e v d).1,
-         { s₁ with store := (s₁.store.instantiate1I e v d).2 })) := rfl
+       else
+         let bm := EStore.bvarBoundsLGo s₁.store s₁.bvarB [v]
+         let s₂ : IState := { s₁ with bvarB := bm }
+         ((s₂.store.instantiate1I e v d bm).1,
+           { s₂ with store := (s₂.store.instantiate1I e v d bm).2 })) := rfl
 
 private theorem instListM_run (e : EIdx) (vs : List EIdx) (d : Nat)
     (s : IState) :
@@ -520,8 +523,11 @@ private theorem instListM_run (e : EIdx) (vs : List EIdx) (d : Nat)
       (let s₁ : IState :=
         { s with bvarB := (EStore.bvarBoundIGo s.store s.bvarB e).2 }
        if (EStore.bvarBoundIGo s.store s.bvarB e).1 ≤ d then (e, s₁)
-       else ((s₁.store.instantiateListI e vs d).1,
-         { s₁ with store := (s₁.store.instantiateListI e vs d).2 })) := rfl
+       else
+         let bm := EStore.bvarBoundsLGo s₁.store s₁.bvarB vs
+         let s₂ : IState := { s₁ with bvarB := bm }
+         ((s₂.store.instantiateListI e vs d bm).1,
+           { s₂ with store := (s₂.store.instantiateListI e vs d bm).2 })) := rfl
 
 private theorem abstract1M_run (e : EIdx) (d : Nat) (s : IState) :
     abstract1M e d s = .ok ((s.store.abstract1I e d).1,
@@ -533,12 +539,18 @@ private theorem mkAppNM_run (f : EIdx) (args : List EIdx) (s : IState) :
 
 private theorem instSpineM_run (args : List EIdx) (t : Nat) (e : EIdx)
     (s : IState) :
-    instSpineM args t e s = .ok ((s.store.instSpineI args t e).1,
-      { s with store := (s.store.instSpineI args t e).2 }) := rfl
+    instSpineM args t e s = .ok
+      (let bm := EStore.bvarBoundsLGo s.store s.bvarB (e :: args)
+       let s₁ : IState := { s with bvarB := bm }
+       ((s₁.store.instSpineI args t e bm).1,
+         { s₁ with store := (s₁.store.instSpineI args t e bm).2 })) := rfl
 
 private theorem piResidualM_run (e : EIdx) (args : List EIdx) (s : IState) :
-    piResidualM e args s = .ok ((s.store.piResidualI e args).1,
-      { s with store := (s.store.piResidualI e args).2 }) := rfl
+    piResidualM e args s = .ok
+      (let bm := EStore.bvarBoundsLGo s.store s.bvarB (e :: args)
+       let s₁ : IState := { s with bvarB := bm }
+       ((s₁.store.piResidualI e args bm).1,
+         { s₁ with store := (s₁.store.piResidualI e args bm).2 })) := rfl
 
 private theorem pisToLamsM_run (k : Nat) (e body : EIdx) (s : IState) :
     pisToLamsM k e body s = .ok ((s.store.pisToLamsI k e body).1,
@@ -661,9 +673,14 @@ theorem inst1M_eff (hs : ISOK env s₀) {e v : EIdx} {d : Nat} {a w : Expr}
     rw [instantiate1_eq_self (EStore.lbbMono hble (hbound a he))]
     exact he
   · rw [if_neg hble] at h1
-    obtain ⟨hwf', hext, hden⟩ := instantiate1I_spec (d := d) hs.wf he hv
+    have hinvB' := EStore.bvarBoundsLGo_inv [v] hs.wf hinvB
+    have hs₂ : ISOK env { s₀ with
+        bvarB := EStore.bvarBoundsLGo s₀.store memo [v] } :=
+      hs.withBvarB hinvB'
+    obtain ⟨hwf', hext, hden⟩ :=
+      instantiate1I_spec (d := d) hs.wf he hv hinvB'
     obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1.symm
-    exact ⟨hs₁.withStore hwf' hext, hext, hden⟩
+    exact ⟨hs₂.withStore hwf' hext, hext, hden⟩
 
 theorem instListM_eff (hs : ISOK env s₀) {e : EIdx} {vs : List EIdx}
     {d : Nat} {a : Expr} {ws : List Expr}
@@ -686,9 +703,14 @@ theorem instListM_eff (hs : ISOK env s₀) {e : EIdx} {vs : List EIdx}
     rw [Expr.instantiateList_eq_self (EStore.lbbMono hble (hbound a he))]
     exact he
   · rw [if_neg hble] at h1
-    obtain ⟨hwf', hext, hden⟩ := instantiateListI_spec (d := d) hs.wf he hvs
+    have hinvB' := EStore.bvarBoundsLGo_inv vs hs.wf hinvB
+    have hs₂ : ISOK env { s₀ with
+        bvarB := EStore.bvarBoundsLGo s₀.store memo vs } :=
+      hs.withBvarB hinvB'
+    obtain ⟨hwf', hext, hden⟩ :=
+      instantiateListI_spec (d := d) hs.wf he hvs hinvB'
     obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1.symm
-    exact ⟨hs₁.withStore hwf' hext, hext, hden⟩
+    exact ⟨hs₂.withStore hwf' hext, hext, hden⟩
 
 theorem abstract1M_eff (hs : ISOK env s₀) {e : EIdx} {d : Nat} {a : Expr}
     (he : s₀.store.denote e = some a) :
@@ -751,10 +773,14 @@ theorem instSpineM_eff (hs : ISOK env s₀) {args : List EIdx} {t : Nat}
       (instSpineM args t e) := by
   intro v' s' hr
   rw [instSpineM_run] at hr
-  obtain ⟨hwf', hext, hden⟩ := instSpineI_spec hs.wf he hargs
+  have hinvB' := EStore.bvarBoundsLGo_inv (e :: args) hs.wf hs.bvarB
+  have hs₁ : ISOK env { s₀ with
+      bvarB := EStore.bvarBoundsLGo s₀.store s₀.bvarB (e :: args) } :=
+    hs.withBvarB hinvB'
+  obtain ⟨hwf', hext, hden⟩ := instSpineI_spec hs.wf he hargs hinvB'
   injection hr with h1
   obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
-  exact ⟨hs.withStore hwf' hext, hext, hden⟩
+  exact ⟨hs₁.withStore hwf' hext, hext, hden⟩
 
 theorem piResidualM_eff (hs : ISOK env s₀) {e : EIdx} {args : List EIdx}
     {x : Expr} {xs : List Expr}
@@ -763,10 +789,14 @@ theorem piResidualM_eff (hs : ISOK env s₀) {e : EIdx} {args : List EIdx}
       (piResidualM e args) := by
   intro v' s' hr
   rw [piResidualM_run] at hr
-  obtain ⟨hwf', hext, hden⟩ := piResidualI_spec hs.wf he hargs
+  have hinvB' := EStore.bvarBoundsLGo_inv (e :: args) hs.wf hs.bvarB
+  have hs₁ : ISOK env { s₀ with
+      bvarB := EStore.bvarBoundsLGo s₀.store s₀.bvarB (e :: args) } :=
+    hs.withBvarB hinvB'
+  obtain ⟨hwf', hext, hden⟩ := piResidualI_spec hs.wf hinvB' he hargs
   injection hr with h1
   obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
-  exact ⟨hs.withStore hwf' hext, hext, hden⟩
+  exact ⟨hs₁.withStore hwf' hext, hext, hden⟩
 
 theorem pisToLamsM_eff (hs : ISOK env s₀) {k : Nat} {e body : EIdx}
     {x xb : Expr}
