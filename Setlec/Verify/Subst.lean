@@ -1412,4 +1412,12 @@ theorem substFvarAt_instantiate1_self {d : Nat} {n : Name} {ty a : Expr} :
     intro k hb
     simp_all [instantiate1, substFvarAt, fvarsBelow]
 
+
+/-- A pointwise-idempotent renaming is idempotent on expressions. -/
+theorem renameConsts_idem_of {f : Name → Name}
+    (hf : ∀ n, f (f n) = f n) :
+    ∀ e : Expr, (e.renameConsts f).renameConsts f = e.renameConsts f := by
+  intro e
+  induction e <;> simp_all [renameConsts]
+
 end Setlec.Expr
