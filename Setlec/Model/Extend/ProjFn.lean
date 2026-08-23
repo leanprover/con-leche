@@ -304,7 +304,9 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
       have hfP₁ : (⟨.recInfo cvA nP nP [rule] ::
           env.consts⟩ : Env).find? cvA.name =
           some (.recInfo cvA nP nP [rule]) := by
-        rw [Env.find?_cons, if_pos rfl]
+        rw [Env.find?_cons,
+          if_pos (show (ConstantInfo.recInfo cvA nP nP
+            [rule]).name = cvA.name from rfl)]
       exact proj_rule_eq (P := cvA.name) (i := i) hro₁ hi hfP₁ rfl
         hctor₁ hfRm₁
         (show (ConstantInfo.defnInfo cvm
