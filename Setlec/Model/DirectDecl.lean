@@ -53,6 +53,34 @@ theorem checkDirectInd_inv {env : Env} {p : DirectParts} {F : Nat}
       simp only [throw, throwThe, MonadExceptOf.throw] at h
       exact nomatch h
 
+/-- The frame conditions of a constant type that `checkConstantVal` has
+just accepted: closed, so the syntactic three are free, and the checker's
+own annotation and inference runs supply the two semantic ones. -/
+theorem FrameOk.ofCheckedType {env : Env} (m : EnvModel V env) {F : Nat}
+    {φ : Name → Nat} {cv cv' : ConstantVal}
+    (h : checkConstantVal (fueledOps F) env cv = .ok cv') :
+    FrameOk V m.val env φ 0 (rho0 V) cv'.type := by
+  obtain ⟨-, -, -, -, -, hlb, hfv, tyA, stype, u, hann, -, -, hst, -,
+    hcvA⟩ := checkConstantVal_inv h
+  have htypeA : cv'.type = tyA := by rw [hcvA]
+  have htyf : tyA.hasFvar = false :=
+    not_hasFvar_of_fvarsBelow_zero
+      ((annotateCore_WScoped F _ hann (WScoped.of_not_hasFvar hfv)).fvarsBelow)
+  have htyb : tyA.looseBVarsBounded 0 = true :=
+    annotateCore_looseBVars F _ hann hlb
+  have hAty : AnnotOk V m.val env φ 0 (rho0 V) tyA :=
+    annotate_sound m _ hann (WScoped.of_not_hasFvar hfv) hlb
+      (Expr.LeavesBounded.of_not_hasFvar hfv) (rho0 V)
+      (FvarsOk.of_not_hasFvar hfv)
+  obtain ⟨⟨v, tv, hvi, -, -⟩, -, -⟩ :=
+    inferTypeCore_sound (φ := φ) m F hst (WScoped.of_not_hasFvar htyf) htyb
+      (Expr.LeavesBounded.of_not_hasFvar htyf)
+      (FvarsOk.of_not_hasFvar htyf) hAty
+  rw [htypeA]
+  exact ⟨WScoped.of_not_hasFvar htyf, htyb,
+    Expr.LeavesBounded.of_not_hasFvar htyf, FvarsOk.of_not_hasFvar htyf,
+    hAty, v, hvi⟩
+
 /-! ### Uninstantiating a value-spine fit's levels
 
 The capability laws quantify over a level substitution (`us` for the
@@ -204,5 +232,332 @@ theorem extend_direct_ind {env : Env} (m : EnvModel V env) {p : DirectParts}
     intro ψ₁ ψ₂ hψ
     exact directTyVal_params m.val_params (ps := cvTa.levelParams) hψ
       htlp hctyP hsP
+
+/-- Inversion for `checkDirectParamDoms`. -/
+theorem checkDirectParamDoms_inv {env : Env} {F : Nat}
+    {cfvs tfvs : List Expr} :
+    ∀ (k : Nat),
+      checkDirectParamDoms (fueledOps F) env cfvs tfvs k = .ok () →
+      ∀ j, j < k → ∀ a b, cfvs[j]? = some a → tfvs[j]? = some b →
+        isDefEqCore env F j (Expr.fvarTypeD a) (Expr.fvarTypeD b)
+          = .ok true := by
+  intro k
+  induction k with
+  | zero => intro _ j hj; exact absurd hj (by omega)
+  | succ k ih =>
+    intro h j hj a b ha hb
+    rw [checkDirectParamDoms] at h
+    simp only [fueledOps_isDefEq, Bind.bind, Except.bind, unwrapOr] at h
+    cases hca : cfvs[k]? with
+    | none => rw [hca] at h; exact nomatch h
+    | some a₀ =>
+      rw [hca] at h
+      simp only [pure, Except.pure] at h
+      cases hcb : tfvs[k]? with
+      | none => rw [hcb] at h; exact nomatch h
+      | some b₀ =>
+        rw [hcb] at h
+        simp only [pure, Except.pure] at h
+        cases hde : isDefEqCore env F k (Expr.fvarTypeD a₀)
+            (Expr.fvarTypeD b₀) with
+        | error _ => rw [hde] at h; exact nomatch h
+        | ok v =>
+          rw [hde] at h
+          cases v with
+          | false =>
+            simp only [Bool.false_eq_true, if_false, throw, throwThe,
+              MonadExceptOf.throw] at h
+            exact nomatch h
+          | true =>
+            simp only [if_true] at h
+            rcases Nat.lt_succ_iff_lt_or_eq.mp hj with hj' | rfl
+            · exact ih h j hj' a b ha hb
+            · obtain rfl : a₀ = a := Option.some.inj (hca.symm.trans ha)
+              obtain rfl : b₀ = b := Option.some.inj (hcb.symm.trans hb)
+              exact hde
+
+/-- Inversion for `checkDirectCtor` (stage 2). -/
+theorem checkDirectCtor_inv {env₀ env : Env} {p : DirectParts}
+    {cvTa : ConstantVal} {F : Nat} {v : Env × ConstantVal}
+    (h : checkDirectCtor (fueledOps F) env₀ env p cvTa = .ok v) :
+    ∃ cvCa cbs fvsP crest tfvs trest xFvs,
+      checkConstantVal (fueledOps F) env p.cvC = .ok cvCa ∧
+      Expr.stripPis (p.nP + p.nF) cvCa.type =
+        some (cbs, directFam p.cvT.name p.cvT.levelParams p.nP p.nF) ∧
+      openPisAtFvars p.nP cvCa.type 0 = some (fvsP, crest) ∧
+      openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest) ∧
+      checkDirectParamDoms (fueledOps F) env fvsP tfvs p.nP = .ok () ∧
+      openPisAtFvars p.nF crest p.nP = some (xFvs,
+        Expr.mkAppN (.const p.cvT.name (p.cvT.levelParams.map .param))
+          fvsP) ∧
+      (∀ x ∈ xFvs, (Expr.fvarTypeD x).constsResolve env₀ = true) ∧
+      checkDirectFieldUniv (fueledOps F) env p.resSort p.nP xFvs p.nF
+        = .ok () ∧
+      v = (⟨.ctorInfo cvCa p.nP p.nF :: env.consts⟩, cvCa) := by
+  rw [checkDirectCtor] at h
+  simp only [Bind.bind, Except.bind] at h
+  obtain ⟨cvCa, hcv, h⟩ := Except.bind_ok h
+  -- the annotated constructor telescope
+  obtain ⟨q1, hq1⟩ : ∃ q, Expr.stripPis (p.nP + p.nF) cvCa.type = some q := by
+    cases hh : Expr.stripPis (p.nP + p.nF) cvCa.type with
+    | none =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+    | some q => exact ⟨q, rfl⟩
+  rw [hq1] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind] at h
+  by_cases hb : (q1.2 == directFam p.cvT.name p.cvT.levelParams p.nP p.nF)
+      = true
+  case neg =>
+    rw [if_neg hb] at h
+    simp only [throw, throwThe, MonadExceptOf.throw, Except.bind] at h
+    exact nomatch h
+  rw [if_pos hb] at h
+  have hq1b : Expr.stripPis (p.nP + p.nF) cvCa.type =
+      some (q1.1, directFam p.cvT.name p.cvT.levelParams p.nP p.nF) := by
+    rw [hq1]
+    congr 1
+    exact (Prod.mk.injEq _ _ _ _).mpr ⟨rfl, eq_of_beq hb⟩ ▸ rfl
+  -- the two openings
+  obtain ⟨cq, hcq⟩ : ∃ q, openPisAtFvars p.nP cvCa.type 0 = some q := by
+    cases hh : openPisAtFvars p.nP cvCa.type 0 with
+    | none =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+    | some q => exact ⟨q, rfl⟩
+  rw [hcq] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind] at h
+  obtain ⟨tq, htq⟩ : ∃ q, openPisAtFvars p.nP cvTa.type 0 = some q := by
+    cases hh : openPisAtFvars p.nP cvTa.type 0 with
+    | none =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+    | some q => exact ⟨q, rfl⟩
+  rw [htq] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind] at h
+  -- the per-frame parameter-domain pins
+  obtain ⟨u0, hpins, h⟩ := Except.bind_ok h
+  obtain rfl : u0 = () := rfl
+  -- the field telescope
+  obtain ⟨xq, hxq⟩ : ∃ q, openPisAtFvars p.nF cq.2 p.nP = some q := by
+    cases hh : openPisAtFvars p.nF cq.2 p.nP with
+    | none =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+    | some q => exact ⟨q, rfl⟩
+  rw [hxq] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind] at h
+  by_cases hr : (xq.2 == Expr.mkAppN
+      (.const p.cvT.name (p.cvT.levelParams.map .param)) cq.1) = true
+  case neg =>
+    rw [if_neg hr] at h
+    simp only [throw, throwThe, MonadExceptOf.throw, Except.bind] at h
+    exact nomatch h
+  rw [if_pos hr] at h
+  have hxqb : openPisAtFvars p.nF cq.2 p.nP = some (xq.1, Expr.mkAppN
+      (.const p.cvT.name (p.cvT.levelParams.map .param)) cq.1) := by
+    rw [hxq]
+    congr 1
+    exact (Prod.mk.injEq _ _ _ _).mpr ⟨rfl, eq_of_beq hr⟩ ▸ rfl
+  by_cases hres : (xq.1.all fun x => (Expr.fvarTypeD x).constsResolve env₀)
+      = true
+  case neg =>
+    rw [if_neg hres] at h
+    simp only [throw, throwThe, MonadExceptOf.throw, Except.bind] at h
+    exact nomatch h
+  rw [if_pos hres] at h
+  obtain ⟨u1, hfu, h⟩ := Except.bind_ok h
+  obtain rfl : u1 = () := rfl
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  exact ⟨cvCa, q1.1, cq.1, cq.2, tq.1, tq.2, xq.1, hcv, hq1b, hcq, htq,
+    hpins, hxqb, fun x hx => List.all_eq_true.mp hres x hx, hfu, h.symm⟩
+
+/-! ### The constructor's semantic obligations -/
+
+/-- The field telescope is small at every fitting parameter spine: the
+fit lands exactly where the install's own opening does
+(`TeleFit_open`), carries the frame conditions there
+(`FrameOk.ofTeleFit`), and the checked per-field universe bound then
+gives `FieldTele` (`FieldTele_of_walk`). -/
+theorem directCtor_field {env : Env} (m : EnvModel V env) {F : Nat}
+    {φ : Name → Nat} {p : DirectParts} {cty crest resid : Expr}
+    {fvsP xFvs : List Expr}
+    (hcq : openPisAtFvars p.nP cty 0 = some (fvsP, crest))
+    (hxq : openPisAtFvars p.nF crest p.nP = some (xFvs, resid))
+    (hfu : checkDirectFieldUniv (fueledOps F) env p.resSort p.nP xFvs p.nF
+      = .ok ())
+    (hfr0 : FrameOk V m.val env φ 0 (rho0 V) cty)
+    {ps : List V} {d₁ : Nat} {ρ₁ : Nat → V} {mid : Expr}
+    (hfit : TeleFit V m.val env φ 0 (rho0 V) cty ps d₁ ρ₁ mid)
+    (hlen : ps.length = p.nP) :
+    FieldTele V m.val env φ (p.resSort.eval φ) p.nF d₁ ρ₁ mid := by
+  obtain ⟨hd₁, fvs, hopen⟩ := TeleFit_open p.nP hfit hlen
+  rw [Nat.zero_add] at hd₁
+  subst hd₁
+  obtain rfl : mid = crest := by
+    rw [hcq] at hopen
+    exact ((Prod.mk.injEq _ _ _ _ ▸ Option.some.inj hopen).2).symm
+  refine FieldTele_of_walk (F := F) m p.nF p.nP ρ₁ _ xFvs resid hxq
+    (FrameOk.ofTeleFit hfit hfr0) ?_
+  intro j hj
+  exact checkDirectFieldUniv_inv p.nF hfu j hj
+
+/-- **The residual identity.**  The constructor's opened residual is
+the family at the opened parameters, and its interpretation *is* the
+dependent-pair tower the constructor's value tuples into.
+
+The parameter fit crosses to the type former's telescope through the
+per-frame pins (`DomsInterpEq.of_pins`, `TeleFit.transfer`) — landing
+at the very same frame and valuation — so the family's value folds at
+exactly these parameters (`directTyVal_fold`), and the tower it folds
+to is the one read off the constructor's own opening. -/
+theorem directCtor_resid {env env₁ : Env} (m : EnvModel V env)
+    (m₁ : EnvModel V env₁) {F : Nat} {φ : Name → Nat} {p : DirectParts}
+    {cvTa cvCa : ConstantVal} {crest trest : Expr}
+    {fvsP tfvs xFvs : List Expr} {tbs : List (Name × Expr × BinderMeta)}
+    (hcq : openPisAtFvars p.nP cvCa.type 0 = some (fvsP, crest))
+    (htq : openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest))
+    (hpins : checkDirectParamDoms (fueledOps F) env₁ fvsP tfvs p.nP = .ok ())
+    (hxq : openPisAtFvars p.nF crest p.nP = some (xFvs,
+      Expr.mkAppN (.const p.cvT.name (p.cvT.levelParams.map .param)) fvsP))
+    (hfrC : FrameOk V m₁.val env₁ φ 0 (rho0 V) cvCa.type)
+    (hfrT : FrameOk V m₁.val env₁ φ 0 (rho0 V) cvTa.type)
+    (hTfind : env₁.find? p.cvT.name = some (.indInfo cvTa (directCaps p)))
+    (hTlps : cvTa.levelParams = p.cvT.levelParams)
+    (hTval : ∀ ψ : Name → Nat, m₁.val p.cvT.name ψ =
+      directTyVal V m.val env cvTa.type cvCa.type p.nP p.nF p.resSort ψ)
+    (hagree : InterpAgree V m.val env m₁.val env₁ φ)
+    (htres : cvTa.type.constsResolve env = true)
+    (hfres : ∀ x ∈ xFvs, (Expr.fvarTypeD x).constsResolve env = true)
+    (hstripT : Expr.stripPis p.nP cvTa.type = some (tbs, .sort p.resSort))
+    {ps fs : List V} {d₁ : Nat} {ρ₁ : Nat → V} {mid : Expr}
+    {d' : Nat} {ρ' : Nat → V} {rest : Expr}
+    (hfitP : TeleFit V m₁.val env₁ φ 0 (rho0 V) cvCa.type ps d₁ ρ₁ mid)
+    (hlenP : ps.length = p.nP)
+    (hfitF : TeleFit V m₁.val env₁ φ d₁ ρ₁ mid fs d' ρ' rest)
+    (hlenF : fs.length = p.nF)
+    (hfieldAt : FieldTele V m₁.val env₁ φ (p.resSort.eval φ) p.nF d₁ ρ₁ mid) :
+    interpExpr V m₁.val env₁ φ d' ρ' rest =
+      some (sigmaTowerV V m₁.val env₁ φ (p.resSort.eval φ) p.nF d₁ ρ₁ mid) := by
+  -- the two openings the fits land at
+  obtain ⟨hd₁, fvs, hopen⟩ := TeleFit_open p.nP hfitP hlenP
+  rw [Nat.zero_add] at hd₁
+  subst hd₁
+  obtain rfl : mid = crest := by
+    rw [hcq] at hopen
+    exact ((Prod.mk.injEq _ _ _ _ ▸ Option.some.inj hopen).2).symm
+  obtain ⟨hd', fvs', hopen'⟩ := TeleFit_open p.nF hfitF hlenF
+  subst hd'
+  obtain rfl : rest = Expr.mkAppN
+      (.const p.cvT.name (p.cvT.levelParams.map .param)) fvsP := by
+    rw [hxq] at hopen'
+    exact ((Prod.mk.injEq _ _ _ _ ▸ Option.some.inj hopen').2).symm
+  -- the opened parameter variables interpret to the fit's own values
+  obtain ⟨hinstP, hlenFv, hshape⟩ := openPisAtFvars_spec p.nP 0 hcq
+  have hspine : InterpSpine m₁.val env₁ φ (p.nP + p.nF) ρ' fvsP ps := by
+    refine InterpSpine.of_pointwise (by rw [hlenFv, hlenP]) ?_
+    intro k a v ha hv
+    have hkp : k < ps.length := by
+      obtain ⟨hlt, -⟩ := List.getElem?_eq_some_iff.mp hv
+      exact hlt
+    obtain ⟨nm, hnm⟩ := hshape k a ha
+    have hrho : ρ' k = v := by
+      rw [hfitF.rho_below k (by rw [← hlenP]; exact hkp)]
+      have h0 := hfitP.slots k hkp
+      rw [Nat.zero_add] at h0
+      rw [h0, List.getD_eq_getElem?_getD, hv]
+      rfl
+    rw [hnm]
+    simp only [interpExpr, Nat.zero_add]
+    rw [hrho]
+  -- the residual's interpretation is the family's value at those params
+  have hconst : interpExpr V m₁.val env₁ φ (p.nP + p.nF) ρ'
+      (.const p.cvT.name (p.cvT.levelParams.map .param)) =
+      some (m₁.val p.cvT.name φ) := by
+    rw [interp_const hTfind (by
+      show (p.cvT.levelParams.map Level.param).length =
+        cvTa.levelParams.length
+      rw [hTlps, List.length_map])]
+    have hsub : Level.substFn φ
+        (ConstantInfo.indInfo cvTa (directCaps p)).toConstantVal.levelParams
+        (p.cvT.levelParams.map Level.param) = φ := by
+      show Level.substFn φ cvTa.levelParams
+        (p.cvT.levelParams.map Level.param) = φ
+      rw [hTlps]
+      exact funext (fun q => Level.substFn_map_param)
+    rw [hsub]
+  rw [interp_mkAppN fvsP _ hconst hspine]
+  -- the family's value folds at these very parameters
+  refine congrArg some ?_
+  rw [hTval φ,
+    directTyVal_congr hagree htres (by rw [directCRest, hcq]; exact hxq)
+      (fun x hx => hfres x hx)]
+  have hcrestEq : directCRest cvCa.type p.nP = mid := by
+    rw [directCRest, hcq]
+  rw [← hcrestEq]
+  refine directTyVal_fold hstripT hfrT.an ?_ hlenP
+    (by rw [hcrestEq]; exact hfieldAt)
+  obtain ⟨restT, hfitT⟩ := TeleFit.transfer p.nP hfitP hlenP
+    (DomsInterpEq.of_pins m₁ F p.nP 0 (rho0 V) cvCa.type cvTa.type
+      fvsP tfvs _ trest hcq htq
+      (fun j a b ha hb => by
+        have hj : j < p.nP := by
+          obtain ⟨hlt, -⟩ := List.getElem?_eq_some_iff.mp ha
+          rw [hlenFv] at hlt
+          exact hlt
+        rw [Nat.zero_add]
+        exact checkDirectParamDoms_inv p.nP hpins j hj a b ha hb)
+      hfrC hfrT)
+  obtain rfl : restT = Expr.sort p.resSort :=
+    TeleFit_rest_sort p.nP hfitT hlenP hstripT
+  exact hfitT
+
+/-- **The constructor's value inhabits its type.**  `directCtorVal_mem`
+at the two obligations above: the field telescope is small at every
+fitting parameter spine, and the residual interprets to the tower the
+constructor tuples into. -/
+theorem directCtor_mem {env env₁ : Env} (m : EnvModel V env)
+    (m₁ : EnvModel V env₁) {F : Nat} {φ : Name → Nat} {p : DirectParts}
+    {cvTa cvCa : ConstantVal} {v : Env × ConstantVal}
+    (hcc : checkDirectCtor (fueledOps F) env env₁ p cvTa = .ok v)
+    (hfrT : FrameOk V m₁.val env₁ φ 0 (rho0 V) cvTa.type)
+    (hnz : p.resSort.isNonZero = true)
+    {tbs : List (Name × Expr × BinderMeta)}
+    (hstripT : Expr.stripPis p.nP cvTa.type = some (tbs, .sort p.resSort))
+    (hTfind : env₁.find? p.cvT.name = some (.indInfo cvTa (directCaps p)))
+    (hTlps : cvTa.levelParams = p.cvT.levelParams)
+    (hTval : ∀ ψ : Name → Nat, m₁.val p.cvT.name ψ =
+      directTyVal V m.val env cvTa.type cvCa.type p.nP p.nF p.resSort ψ)
+    (hagree : InterpAgree V m.val env m₁.val env₁ φ)
+    (htres : cvTa.type.constsResolve env = true)
+    (hccC : checkConstantVal (fueledOps F) env₁ p.cvC = .ok cvCa) :
+    ∃ Cv, interpClosed V m₁.val env₁ φ cvCa.type = some Cv ∧
+      directCtorVal V m₁.val env₁ cvCa.type p.nP p.nF φ ∈ˢ Cv := by
+  obtain ⟨cvCa', cbs, fvsP, crest, tfvs, trest, xFvs, hcv, hstripC, hcq, htq,
+    hpins, hxq, hfres, hfu, -⟩ := checkDirectCtor_inv hcc
+  have heqC : cvCa' = cvCa := by
+    rw [hccC] at hcv
+    exact (Except.ok.injEq _ _ ▸ hcv).symm
+  rw [heqC] at hstripC hcq
+  have hfrC : FrameOk V m₁.val env₁ φ 0 (rho0 V) cvCa.type :=
+    FrameOk.ofCheckedType m₁ hccC
+  obtain ⟨Cv, hCv⟩ := hfrC.it
+  refine ⟨Cv, hCv, ?_⟩
+  refine directCtorVal_mem (Level.isNonZero_sound hnz φ)
+    (by rw [hstripC]; rfl) hCv hfrC.an ?_ ?_
+  · intro ps d₁ ρ₁ mid hfit hlen
+    exact directCtor_field m₁ hcq hxq hfu hfrC hfit hlen
+  · intro ps fs d₁ ρ₁ mid d' ρ' rest hfitP hlenP hfitF hlenF
+    exact directCtor_resid m m₁ hcq htq hpins hxq hfrC hfrT hTfind hTlps
+      hTval hagree htres hfres hstripT hfitP hlenP hfitF hlenF
+      (directCtor_field m₁ hcq hxq hfu hfrC hfitP hlenP)
 
 end Setlec

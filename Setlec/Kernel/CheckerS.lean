@@ -793,6 +793,17 @@ def checkDirectFieldUnivF (ops : CheckerOps m) (fe : FEnv) (s : Level)
       throw (.invalid "direct structure: field universe too large")
     checkDirectFieldUnivF ops fe s nP fvs j
 
+/-- `checkDirectParamDoms` through the index. -/
+def checkDirectParamDomsF (ops : CheckerOps m) (fe : FEnv)
+    (cfvs tfvs : List Expr) : Nat → m Unit
+  | 0 => pure ()
+  | j + 1 => do
+    let a ← unwrapOr cfvs[j]? (.internal "direct structure: parameter index")
+    let b ← unwrapOr tfvs[j]? (.internal "direct structure: parameter index")
+    unless ← ops.isDefEq fe.env j a.fvarTypeD b.fvarTypeD do
+      throw (.notImplemented "direct structure: parameter domain mismatch")
+    checkDirectParamDomsF ops fe cfvs tfvs j
+
 /-- `checkDirectInd` through the index. -/
 def checkDirectIndF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts) :
     m (FEnv × ConstantVal) := do
@@ -813,9 +824,9 @@ def checkDirectCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (p : DirectParts)
     throw (.notImplemented "direct structure: constructor result")
   let cq ← unwrapOr (openPisAtFvars p.nP cvCa.type 0)
     (.notImplemented "direct structure: constructor telescope")
-  let tq ← unwrapOr (Expr.instPisAt cq.1 cvTa.type)
+  let tq ← unwrapOr (openPisAtFvars p.nP cvTa.type 0)
     (.notImplemented "direct structure: type former telescope")
-  checkDefEqList ops fe.env (p.nP + p.nF) (cq.1.map Expr.fvarTypeD) tq.1
+  checkDirectParamDomsF ops fe cq.1 tq.1 p.nP
   let xq ← unwrapOr (openPisAtFvars p.nF cq.2 p.nP)
     (.notImplemented "direct structure: constructor field telescope")
   unless xq.2 == Expr.mkAppN

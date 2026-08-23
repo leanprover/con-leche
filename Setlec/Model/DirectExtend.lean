@@ -208,65 +208,6 @@ def DomsInterpEq (V : Type u) [SetTheory V] (cval : ConstVal V) (env : Env)
         (bodyR.instantiate1 (.fvar d nR domR))
   | _ + 1, _, _, _, _ => False
 
-omit [SetTheory V] in
-/-- Two instantiations of one telescope along **index-matched** free
-variable spines agree up to `Expr.ErasedEq` — pointwise on the
-instantiated domains and on the residual.
-
-This is what relates the type former's *own* opening (which a
-`TeleFit` of it produces) to its instantiation along the
-**constructor's** opening (which is what `checkDirectCtor` pins
-definitionally): the two spines carry the same indices and differ only
-in binder names and annotations, which `ErasedEq` — and hence the
-interpretation — does not read. -/
-theorem instPisAt_erasedEq_spines :
-    ∀ (sp₁ : List Expr) {sp₂ : List Expr} {e₁ e₂ : Expr}
-      {ds₁ ds₂ : List Expr} {r₁ r₂ : Expr},
-      Expr.ErasedEq e₁ e₂ →
-      sp₁.length = sp₂.length →
-      (∀ (j : Nat) (a b : Expr), sp₁[j]? = some a → sp₂[j]? = some b →
-        Expr.ErasedEq a b) →
-      Expr.instPisAt sp₁ e₁ = some (ds₁, r₁) →
-      Expr.instPisAt sp₂ e₂ = some (ds₂, r₂) →
-      (∀ (j : Nat) (a b : Expr), ds₁[j]? = some a → ds₂[j]? = some b →
-        Expr.ErasedEq a b) ∧ Expr.ErasedEq r₁ r₂ := by
-  intro sp₁
-  induction sp₁ with
-  | nil =>
-    intro sp₂ e₁ e₂ ds₁ ds₂ r₁ r₂ hEE hlen _ h₁ h₂
-    obtain rfl : sp₂ = [] := List.eq_nil_of_length_eq_zero hlen.symm
-    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h₁ h₂
-    obtain ⟨rfl, rfl⟩ := h₁
-    obtain ⟨rfl, rfl⟩ := h₂
-    exact ⟨fun j a b ha _ => by simp at ha, hEE⟩
-  | cons a₁ sp₁ ih =>
-    intro sp₂ e₁ e₂ ds₁ ds₂ r₁ r₂ hEE hlen hsp h₁ h₂
-    match sp₂ with
-    | a₂ :: sp₂ =>
-      obtain ⟨n₁, dom₁, body₁, m₁, ds₁', rfl, rfl, h₁'⟩ := instPisAt_cons_inv h₁
-      match e₂, hEE with
-      | .forallE n₂ dom₂ body₂ m₂, hEE =>
-        obtain ⟨-, hdomEE, hbodyEE⟩ := hEE
-        obtain ⟨n₂', dom₂', body₂', m₂', ds₂', heq₂, rfl, h₂'⟩ :=
-          instPisAt_cons_inv h₂
-        obtain ⟨rfl, rfl, rfl, rfl⟩ :
-            n₂' = n₂ ∧ dom₂' = dom₂ ∧ body₂' = body₂ ∧ m₂' = m₂ := by
-          cases heq₂; exact ⟨rfl, rfl, rfl, rfl⟩
-        have ha : Expr.ErasedEq a₁ a₂ := hsp 0 a₁ a₂ rfl rfl
-        obtain ⟨hds, hr⟩ := ih (Expr.ErasedEq.instantiate1 hbodyEE ha)
-          (by simpa using hlen)
-          (fun j x y hx hy => hsp (j + 1) x y (by simpa using hx)
-            (by simpa using hy))
-          h₁' h₂'
-        refine ⟨fun j x y hx hy => ?_, hr⟩
-        cases j with
-        | zero =>
-          obtain rfl := Option.some.inj hx
-          obtain rfl := Option.some.inj hy
-          exact hdomEE
-        | succ j =>
-          exact hds j x y (by simpa using hx) (by simpa using hy)
-
 /-- **The transfer.**  A value-spine fit of one telescope is a fit of
 any telescope whose domains interpret alike stage by stage — at the
 very same frames and valuation, which is what lets both towers fold at
@@ -298,6 +239,121 @@ theorem TeleFit.transfer {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
       | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
       | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
         exact hdoms.elim
+
+/-- A value-spine fit leaves the valuation below its starting frame
+alone. -/
+theorem TeleFit.rho_below {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
+    ∀ {d : Nat} {ρ : Nat → V} {e : Expr} {vs : List V} {d' : Nat}
+      {ρ' : Nat → V} {rest : Expr},
+      TeleFit V cval env φ d ρ e vs d' ρ' rest →
+      ∀ i, i < d → ρ' i = ρ i := by
+  intro d ρ e vs d' ρ' rest hfit
+  induction hfit with
+  | nil => intro _ _; rfl
+  | @cons d ρ n ty body m x xs d' ρ' rest A hity hx hfit ih =>
+    intro i hi
+    rw [ih i (by omega)]
+    simp only [updV]
+    rw [if_neg (by omega)]
+
+/-- A value-spine fit puts its `i`-th value in slot `d + i`. -/
+theorem TeleFit.slots {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
+    ∀ {d : Nat} {ρ : Nat → V} {e : Expr} {vs : List V} {d' : Nat}
+      {ρ' : Nat → V} {rest : Expr},
+      TeleFit V cval env φ d ρ e vs d' ρ' rest →
+      ∀ i, i < vs.length → ρ' (d + i) = vs.getD i SetTheory.empty := by
+  intro d ρ e vs d' ρ' rest hfit
+  induction hfit with
+  | nil => intro i hi; exact absurd hi (by simp)
+  | @cons d ρ n ty body m x xs d' ρ' rest A hity hx hfit ih =>
+    intro i hi
+    cases i with
+    | zero =>
+      rw [Nat.add_zero, hfit.rho_below d (by omega)]
+      simp [updV]
+    | succ i =>
+      have h := ih i (by simpa using hi)
+      rw [show d + (i + 1) = d + 1 + i from by omega]
+      rw [h]
+      rfl
+
+/-- **`DomsInterpEq` from the kernel's per-frame pins.**
+
+`checkDirectParamDoms` compares parameter domain `j` at frame `j`, with
+each telescope opened at its **own** variables, so at every stage both
+sides carry their own frame conditions (`FrameOk.dom`) and
+`isDefEqCore_sound` applies at exactly the frame the walk is at — no
+lifting between frames, and no mixing of one telescope's annotations
+into the other. -/
+theorem DomsInterpEq.of_pins {env : Env} (m : EnvModel V env) (F : Nat)
+    {φ : Name → Nat} :
+    ∀ (k d : Nat) (ρ : Nat → V) (S R : Expr) (fvsS fvsR : List Expr)
+      (rS rR : Expr),
+      openPisAtFvars k S d = some (fvsS, rS) →
+      openPisAtFvars k R d = some (fvsR, rR) →
+      (∀ (j : Nat) (a b : Expr), fvsS[j]? = some a → fvsR[j]? = some b →
+        isDefEqCore env F (d + j) (Expr.fvarTypeD a) (Expr.fvarTypeD b)
+          = .ok true) →
+      FrameOk V m.val env φ d ρ S →
+      FrameOk V m.val env φ d ρ R →
+      DomsInterpEq V m.val env φ k d ρ S R := by
+  intro k
+  induction k with
+  | zero => intro _ _ _ _ _ _ _ _ _ _ _ _ _; trivial
+  | succ k ih =>
+    intro d ρ S R fvsS fvsR rS rR hopS hopR hpins hfrS hfrR
+    match S, R with
+    | .forallE nS domS bodyS mS, .forallE nR domR bodyR mR =>
+      simp only [openPisAtFvars] at hopS hopR
+      cases hrecS : openPisAtFvars k
+          (bodyS.instantiate1 (.fvar d nS domS)) (d + 1) with
+      | none => rw [hrecS] at hopS; exact nomatch hopS
+      | some qS =>
+      cases hrecR : openPisAtFvars k
+          (bodyR.instantiate1 (.fvar d nR domR)) (d + 1) with
+      | none => rw [hrecR] at hopR; exact nomatch hopR
+      | some qR =>
+        rw [hrecS] at hopS
+        rw [hrecR] at hopR
+        simp only [Option.some.injEq, Prod.mk.injEq] at hopS hopR
+        obtain ⟨rfl, rfl⟩ := hopS
+        obtain ⟨rfl, rfl⟩ := hopR
+        obtain ⟨hdWS, hdbS, hdlS, hdfS, hdaS, BS, hdiS⟩ := hfrS.dom
+        obtain ⟨hdWR, hdbR, hdlR, hdfR, hdaR, BR, hdiR⟩ := hfrR.dom
+        -- the pin at this binder, at exactly this frame
+        have hpin : isDefEqCore env F d domS domR = .ok true := by
+          have h0 := hpins 0 (.fvar d nS domS) (.fvar d nR domR) rfl rfl
+          rwa [Nat.add_zero] at h0
+        have hBeq : BS = BR :=
+          isDefEqCore_sound m F hpin hdWS hdWR hdbS hdbR hdlS hdlR
+            hdfS hdfR hdaS hdaR hdiS hdiR
+        have hdiR' : ∀ A, interpExpr V m.val env φ d ρ domS = some A →
+            interpExpr V m.val env φ d ρ domR = some A := by
+          intro A hA
+          have hAB : A = BS := (Option.some.inj (hdiS.symm.trans hA)).symm
+          rw [hAB, hBeq]
+          exact hdiR
+        refine ⟨hdiR', ?_⟩
+        · intro x A hA hx
+          have hAB : A = BS := (Option.some.inj (hdiS.symm.trans hA)).symm
+          subst hAB
+          refine ih (d + 1) (updV V ρ d x) _ _ qS.1 qR.1 qS.2 qR.2
+            hrecS hrecR ?_ (hfrS.body hdiS hx)
+            (hfrR.body (hdiR' _ hdiS) hx)
+          intro j a b ha hb
+          have h1 := hpins (j + 1) a b (by simpa using ha) (by simpa using hb)
+          rw [show d + 1 + j = d + (j + 1) from by omega]
+          exact h1
+    | .forallE _ _ _ _, .bvar _ | .forallE _ _ _ _, .fvar _ _ _
+    | .forallE _ _ _ _, .sort _ | .forallE _ _ _ _, .const _ _
+    | .forallE _ _ _ _, .app _ _ | .forallE _ _ _ _, .lam _ _ _ _
+    | .forallE _ _ _ _, .letE _ _ _ _ | .forallE _ _ _ _, .lit _
+    | .forallE _ _ _ _, .proj _ _ _ =>
+      simp only [openPisAtFvars] at hopR; exact nomatch hopR
+    | .bvar _, _ | .fvar _ _ _, _ | .sort _, _ | .const _ _, _
+    | .app _ _, _ | .lam _ _ _ _, _ | .letE _ _ _ _, _ | .lit _, _
+    | .proj _ _ _, _ =>
+      simp only [openPisAtFvars] at hopS; exact nomatch hopS
 
 /-! ### `FieldTele` from the per-field universe walk -/
 

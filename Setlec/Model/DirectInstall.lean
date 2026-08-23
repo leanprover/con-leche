@@ -275,10 +275,11 @@ theorem directTyVal_fold {tty cty : Expr} {nP nF : Nat} {s : Level}
     (htyA : AnnotOk V cval env φ 0 (rho0 V) tty)
     (hfit : TeleFit V cval env φ 0 (rho0 V) tty ps d' ρ' (.sort s))
     (hlen : ps.length = nP)
-    (hfield : ∀ (ps' : List V) (d : Nat) (ρ : Nat → V),
-      TeleFit V cval env φ 0 (rho0 V) tty ps' d ρ (.sort s) →
-      ps'.length = nP →
-      FieldTele V cval env φ (s.eval φ) nF d ρ (directCRest cty nP)) :
+    -- only at *this* spine: the λ-tower's own body obligation is
+    -- discharged unconditionally by the guard (`directTyBody_mem_univ`),
+    -- so the checked universe bound is needed exactly where the guard
+    -- is finally removed
+    (hfield : FieldTele V cval env φ (s.eval φ) nF d' ρ' (directCRest cty nP)) :
     SpineFold V (directTyVal V cval env tty cty nP nF s φ) ps =
       sigmaTowerV V cval env φ (s.eval φ) nF d' ρ' (directCRest cty nP) := by
   rw [directTyVal, teleLamV_fold (S := fun d ρ _ =>
@@ -287,7 +288,7 @@ theorem directTyVal_fold {tty cty : Expr} {nP nF : Nat} {s : Level}
     (fun xs d₂ ρ₂ rest hfit₂ hlen₂ =>
       ⟨univ (s.eval φ), by rw [TeleFit_rest_sort nP hfit₂ hlen₂ hstrip,
         interpExpr], directTyBody_mem_univ⟩)]
-  exact directTyBody_eq (hfield ps d' ρ' hfit hlen)
+  exact directTyBody_eq hfield
 
 /-- A field-free direct structure is unit-like: its model is the
 singleton, so any two members of the interpreted family coincide.  This
@@ -303,7 +304,7 @@ theorem directTyVal_unitlike {tty cty : Expr} {nP : Nat} {s : Level}
     (hy : y ∈ˢ SpineFold V (directTyVal V cval env tty cty nP 0 s φ) ps) :
     x = y := by
   have hfold := directTyVal_fold (cty := cty) (nF := 0) hstrip htyA hfit hlen
-    (fun _ _ _ _ _ => trivial)
+    trivial
   rw [hfold] at hx hy
   rw [mem_unitSet_iff.mp hx, mem_unitSet_iff.mp hy]
 

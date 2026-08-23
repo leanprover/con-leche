@@ -866,6 +866,27 @@ def checkDirectFieldUniv (ops : CheckerOps m) (env : Env) (s : Level)
       throw (.invalid "direct structure: field universe too large")
     checkDirectFieldUniv ops env s nP fvs j
 
+/-- The reference kernels' comparison of the constructor's parameter
+telescope with the type former's (lean4lean `Inductive/Add.lean:220-222`,
+nanoda `check_ctor`, `checker/src/inductive.rs:809`), run binder by
+binder **at its own frame**.
+
+Domain `j` is scoped at `j` — it mentions the first `j` parameters and
+nothing else — so frame `j` is exactly the context the references
+compare it in, with the first `j` binders in scope and no more.  Each
+telescope is opened at its **own** variables, so neither side's
+annotations are borrowed from the other.  Walks from the last parameter
+to the first, like `checkDirectFieldUniv`. -/
+def checkDirectParamDoms (ops : CheckerOps m) (env : Env)
+    (cfvs tfvs : List Expr) : Nat → m Unit
+  | 0 => pure ()
+  | j + 1 => do
+    let a ← unwrapOr cfvs[j]? (.internal "direct structure: parameter index")
+    let b ← unwrapOr tfvs[j]? (.internal "direct structure: parameter index")
+    unless ← ops.isDefEq env j a.fvarTypeD b.fvarTypeD do
+      throw (.notImplemented "direct structure: parameter domain mismatch")
+    checkDirectParamDoms ops env cfvs tfvs j
+
 /-- Stage 1: the type former.  The ordinary constant check plus a
 re-verification of the *annotated* shape — the model reads the
 parameter telescope and the result sort off the stored type. -/
@@ -897,20 +918,18 @@ def checkDirectCtor (ops : CheckerOps m) (env₀ env : Env) (p : DirectParts)
     (.notImplemented "direct structure: constructor telescope")
   unless cbody == directFam p.cvT.name p.cvT.levelParams p.nP p.nF do
     throw (.notImplemented "direct structure: constructor result")
-  -- One opening for the whole block: the **constructor's own**
-  -- parameter telescope, which is the frame the model's fits arrive at
-  -- (the field types' interpretations, the dependent-pair tower and the
-  -- constructor value are all read off it).
+  -- Each parameter telescope is opened at its **own** variables: the
+  -- constructor's is the frame the model's fits arrive at (the field
+  -- types' interpretations, the dependent-pair tower and the
+  -- constructor value are all read off it), and the type former's is
+  -- the frame its own value's λ-tower was built at, so a parameter
+  -- value's membership carries from one to the other and the family's
+  -- value folds at the very same parameters.
   let cq ← unwrapOr (openPisAtFvars p.nP cvCa.type 0)
     (.notImplemented "direct structure: constructor telescope")
-  let tq ← unwrapOr (Expr.instPisAt cq.1 cvTa.type)
+  let tq ← unwrapOr (openPisAtFvars p.nP cvTa.type 0)
     (.notImplemented "direct structure: type former telescope")
-  -- the type former's parameter domains are the constructor's,
-  -- definitionally (lean4lean `Inductive/Add.lean:220-222`, nanoda
-  -- `check_ctor`): this is what carries a parameter value's membership
-  -- from the constructor's telescope to the type former's, so that the
-  -- family's own value folds at the very same parameters
-  checkDefEqList ops env (p.nP + p.nF) (cq.1.map Expr.fvarTypeD) tq.1
+  checkDirectParamDoms ops env cq.1 tq.1 p.nP
   let xq ← unwrapOr (openPisAtFvars p.nF cq.2 p.nP)
     (.notImplemented "direct structure: constructor field telescope")
   -- the opened residual is the family at the opened parameter variables
