@@ -1320,7 +1320,7 @@ the *instantiated* result sort must be provably nonzero
 rescue refuses a structure that could be a proposition at the given
 levels — `Unit = PUnit.{1}` passes, a bare parameter `u` does not).
 Soundness is a third `majorToCtor_claims` case mirroring the K case
-(`proofIrrel_pt`); no new model obligations — `ModeledOk`'s eta
+(`proofIrrel_pt`); no new model obligations — `CapsOk`'s eta
 clause stays guarded on non-reserved names.
 
 Pin audit against official structure-rescue eligibility: `Empty` (no
@@ -1610,14 +1610,15 @@ fallback) then certifies `C p⃗ s⃗ ≡ b`: parameters/levels against `b`'s
 whnf'd type, the type application and each installed projection
 function's application to `b` against their telescopes (`iotaCerts`),
 and each field against the corresponding projection.  Soundness: the
-`EtaPins` carried through the member fold discharge, at the
-inductive's install, the stored `EtaLaw` (ModeledOk's fourth clause)
-via `eta_rule_fold` — every member of the interpreted structure type
-is the constructor model applied to the projection models;
+`EtaPins` carried through the block's install discharge the stored
+public-name `EtaLaw` (`CapsOk`, since task #83) at the
+family-completing member via `eta_rule_fold` + the group-local
+identification — every member of the interpreted structure type is
+the constructor's value applied to the projection functions';
 `structEta_sound` consumes the law with a `TeleFit` built from the
-certified telescopes (`certs_fit`), interprets the synthetic
-projection chains through `TeleFit.chainSlots`/`annotOk_spine`, and
-bridges public values to the models' with `ModeledOk`.  With this the
+certified telescopes (`certs_fit`) and interprets the synthetic
+projection chains through `TeleFit.chainSlots`/`annotOk_spine` — no
+value bridging: the law is already public-named.  With this the
 frontend keeps the `proj_i`/`iota`/`eta` artifacts (only
 `unitlike`/`ruleK` remain dropped): arena 63/92.  Remaining exit-1
 violations: 053/073 (unit-like), 097 (rule K), and 084 (the
@@ -3204,23 +3205,25 @@ optimisation but a requirement.
 The brief ordered the clauses *basis → direct → modeled*.  The landed
 order is *basis → modeled (when the artifact is there) → direct*:
 `directNoModel` requires that none of `T._model`, `C._model`,
-`T.rec._model` and the `T._model.proj_j` family is stored.  Reason
-(**finding**): the structure-eta capability's environment invariant
-(`ModeledOk`'s eta clause, `EtaLaw`) is spelled in `_model` names and
-is owed at the *type former's* install, when neither the constructor
-nor the projections are stored yet — so a public-name restatement is
-not establishable at that point without new caps-swap or one-shot-block
-transport machinery.  Firing the direct path ahead of an available
-artifact would therefore drop `eta` for every structure that has one,
-which loses arena `109_structEta` (and `082`/`083`/`084`/`096`, the
-dependent-projection tests, before projection functions were added).
+`T.rec._model` and the `T._model.proj_j` family is stored.  Reason: the direct
+install declares `eta := false` (the frame-relative-law obstacle, see
+"The two frame-relative capabilities"), so firing the direct path
+ahead of an available artifact would drop `eta` for every structure
+that has one, which loses arena `109_structEta` (and
+`082`/`083`/`084`/`096`, the dependent-projection tests, before
+projection functions were added).  (The original finding here — that
+`EtaLaw` was `_model`-named and only establishable at the former's
+install — is superseded by task #83: the law is now public-named and
+established at the family-completing member.  What keeps the
+precedence is the missing direct-eta discharge alone.)
 Gating on artifact *absence* keeps every preprocessed stream on exactly
 today's route, byte for byte, and makes the direct path precisely the
 **ind-models-free** route the endgame wants.  The endgame is unchanged:
 once `lean-inductive-models` skips generation for this class, the
 direct path takes over by absence, and lifting eta into it is a
-separate, well-identified piece of work (restate `EtaLaw` in public
-names + a caps swap, or install the block's model in one shot).
+separate, well-identified piece of work (the `EtaLaw` public-name
+restatement landed with task #83; what remains is discharging the
+frame-relative law from the direct construction).
 
 Side effect, kept: three arena `bad` fixtures (`133_dup_ctor_def`,
 `134_dup_rec_def`, `137_dup_ctor_rec`) are hand-written raw exports, so
@@ -3265,79 +3268,75 @@ with `sigmaTowerV_split` supplying both the recursor's `mem_type`
 `tupleV (projs x) = x`) and the rule's fold equation
 (`projV_tupleV`).
 
-### The environment invariant, split (2026-08-23)
+### Group-local identification (2026-08-23, task #83)
 
-`ModeledOk` conflated two things, and the direct path made the
-conflation visible: a directly installed structure has no `_model`
-companion, so it could not satisfy clauses whose *conclusion* was
-"my value is my companion's".  The fix is to split, not to synthesise
-companions (user ruling: we do not re-implement a preprocessor in the
-checker; the environment holds what the input declared plus the
-sanctioned `projFnName` projection-table family, nothing else).
+The `T↔T._model` identification is **group-local** — the actual
+`lean-inductive-models` contract (upstream commit 572e6de, "Clarify
+checker substitution scope"): a block's artifacts carry their source
+declarations' exported types under one simultaneous **current-record**
+rewrite; names belonging to any *other* inductive record remain source
+(public) names, whether or not that record has a model.  Cross-group
+references to `_model` *definitions* in model bodies are ordinary
+stored-definition references, handled generically by
+`defn_eq`/`mem_type` — no cross-group value linkage exists or is
+needed.  The kernel side always was group-local
+(`checkMemberVal`/`checkIndRecs` build the rename from
+`blockNames = block.map (·.name)`, the current block only); task #83
+made the verification match:
 
-* **The capability laws are provenance-abstract.**  `EtaLaw`/`UnitLaw`
-  say what the reduction rules consume and nothing about how the family
-  was built, so a basis pin, an artifact check and a direct
-  construction all discharge them the same way — the `IndOk` pattern,
-  and the move `RecRulesOk` made in task #58.  `UnitLaw` is already
-  free of `_model` names; `EtaLaw` still reaches the constructor and
-  the projections through *their* `_model` names, which is why the
-  direct install declares `eta := false` (making it public-named is the
-  one piece a direct-eta would need).  See "The two frame-relative
-  capabilities" below for why the direct install declares
-  `unitlike := false` as well.
-* **The artifact linkage is existence-premised.**  "`val n` is
-  `val (n._model)`" now takes *the companion being stored* as a
-  hypothesis rather than asserting it.  There are **three** such
-  clauses — the type former's, the constructor's and the projection
-  function's.  (The type former's was dropped outright in the first
-  cut of the split and restored 2026-08-23 after review: an
-  existence-premised clause costs a modeled install one `intro`, and
-  dropping it loses the linkage a *later* block's
-  rename-and-transport reads off an earlier type former.  It is the
-  last conjunct of `ModeledOk` only so that the other clauses'
-  positional accessors did not have to move.)  The projection
-  function's clause additionally takes the parent's `indInfo` lookup as
-  a premise; that one is load-bearing in `ModeledOk.cons`, which uses
-  it together with the parent-is-stored clause to rule out the parent
-  being the constant currently being installed — see the clause's own
-  comment in `Setlec/Model/Interp.lean`.  For an artifact-installed
-  constant that is exactly as strong as before — the modeled install
-  stores the companion, so its proofs go through with one extra
-  `intro` — and for a directly installed constant it is vacuous by
-  construction (`directNoModel`).  The clause's docstring records why
-  it exists at all (the preprocessor proves its certificates over
-  `_model` names, so a later modeled block's rename-and-transport needs
-  the linkage of *earlier* blocks), its lifetime (per constant, to the
-  end of the stream — **not** group-local: models are built out of
-  earlier models), why it is free to carry (it records the assignment
-  the modeled install makes, not an extra obligation), and its end of
-  life (deletable once the last modeled class is gone).
-* **A model-family guard.**  A companion declared *after* its constant
-  would activate the linkage for a constant whose value was already
-  fixed without it, so `checkConstantVal` rejects that
-  (`modelFamilyTaken`).  It never fires on a preprocessed stream — the
-  preprocessor emits a block's artifacts before the block, checked
-  against its output (0 of 151 init-prelude blocks out of order) — and
-  a stream that did it the other way round never checked anyway,
-  because the modeled path looks the companion up *at* the block and
-  declines there.  So the guard moves a verdict, never an acceptance.
-
-  **The key is exactly the linkage clauses' premises** (2026-08-23,
-  fixing a review finding).  The guard as first landed keyed on
-  `(env.find? p).isSome` for *any* stored `p`, which is a blanket
-  reservation of the `_model` suffix: it flipped an ordinary
-  `def Foo` + `def Foo._model` stream from accept to reject, against
-  both the reference kernels and the "`_model` names are not special"
-  ruling.  It now fires only where a clause could actually be
-  activated — `p._model` for a stored **non-reserved inductive-kind
-  type former or constructor**, and `projModelName T j` for a stored
-  **projection function** `projFnName T j`.  Pinned by
-  `tests/e2e/src/model_name_plain.lean` (accepted; rejected by the
-  blanket version, verified by reverting).  Three completeness lemmas
-  (`modelFamilyTaken_indInfo`/`_ctorInfo`/`_projFn`) are what the
-  extension proofs use to discharge the companion side by
-  contradiction.
+* **Post-install, the environment remembers nothing about install
+  provenance.**  The former `ModeledOk` invariant — persistent
+  `val n = val (n._model)` linkage clauses plus the capability laws —
+  is deleted.  `EnvModel` keeps only provenance-abstract clauses; the
+  capability laws live in `CapsOk` (`Setlec/Model/Interp.lean`):
+  - `EtaLaw` is restated over **public** names (`caps.etaCtor`,
+    `projFnName T j`), premised on the family being *stored* at the
+    record's exact kinds and arities (`EtaFamilyStored`);
+  - `UnitLaw` is unchanged (it only ever mentioned the former);
+  - basis families stay exempt (`reservedBasisNames`); their eta/unit
+    facts ride the pinned `IndOk` clauses as before.
+* **The identification lives only inside the one block's install
+  derivation.**  `BlockInstalled` (the member-fold invariant, now also
+  carrying each member's checked rename fact) and the projection
+  phase's `ProjPhaseInv` *are* the group-scoped identification; they
+  are threaded through the block's extension proof and discarded at
+  its end.  The public `EtaLaw` is discharged at the
+  **family-completing member's** install — the constructor for a
+  fieldless structure, the last projection function otherwise — by
+  `modeled_caps_eta`/`modeled_caps_unit`
+  (`Setlec/Model/ModeledCaps.lean`): `eta_rule_fold` at that member's
+  environment plus the group identification rewrites the `_model`-
+  valued law to the public names.  Mid-block — the former stored, its
+  family pending — the premise fails and nothing is owed, which is
+  what lets every intermediate environment carry a plain `EnvModel`.
+* **`EtaFamiliesClosed`**, an env-only side invariant (every stored
+  non-reserved eta-capable former has its capability constructor
+  stored at the record's arities), is threaded through the consistency
+  folds *next to* the model — it cannot be an `EnvModel` clause,
+  because it is false in the in-block window.  Constructor-installing
+  sites consume it to refute a fresh constructor completing an *older*
+  former's family (that slot is already taken); the kinded/arity-pinned
+  premises of `EtaFamilyStored` refute every other completion attempt
+  (definitions, theorems, axioms, projection-table entries cannot
+  complete a family at all, and projection-function names are only
+  ever installed by a block for its own former).  The top-level
+  consistency statements are unchanged in strength — the invariant
+  starts trivially at the empty environment and is re-established per
+  declaration.
+* **No model-family guard.**  `modelFamilyTaken` (the
+  `checkConstantVal` rejection of a companion declared after its
+  constant) is deleted along with the linkage it protected: with the
+  identification group-local, a late companion activates nothing.
+  "`_model` names are not special" holds completely — no reservation,
+  no shadow checks; `tests/e2e/src/model_name_plain.lean` (accepted)
+  is the regression that none sneaks back.
+* **The direct-structure installer is completely independent of
+  modeled-inductive code**: no shared linkage clauses, no guards; its
+  capability obligations are vacuous (`eta`/`unitlike` are `false`)
+  and its extension steps discharge the same provenance-abstract
+  clauses every other install does.  With `EtaLaw` public-named, the
+  former blocker for a direct-install eta capability is gone (the
+  frame-relative-law obstacle below still stands).
 
 ### The endgame: ind-models' skip rule must be dependency-aware
 
@@ -3593,7 +3592,7 @@ Landed since (2026-08-23, the assembly pass):
   former's model extension, complete and sorry-free —
   `checkDirectInd_inv`, `mem_type` from `directTyVal_mem`,
   `val_params` from `directTyVal_params`, `annot_ok` from
-  `annotate_sound`, every capability and `ModeledOk` clause vacuous;
+  `annotate_sound`, every capability clause vacuous;
 * `TeleFit.instLev_down`, the value-spine counterpart of
   `TeleFitI.instLev_down`.
 
@@ -3673,10 +3672,9 @@ What remains, in dependency order:
    `teleLamV_fold` composed with `directRec_iota` / `directProj_iota`.
 5. **The chain**: `extend_basis_one` for the remaining `2 + nF`
    constants and `extend_rec_swap` for the rule-carrying ones (the
-   `ModeledOk` obligations are vacuous for this class — `eta` and
-   `unitlike` are `false`, the linkage is existence-premised and no
-   companion exists — so only `mem_type`, `annot_ok`, `val_params` and
-   the folds remain per constant), then the direct case of
+   capability obligations are vacuous for this class — `eta` and
+   `unitlike` are `false` — so only `mem_type`, `annot_ok`,
+   `val_params` and the folds remain per constant), then the direct case of
    `checkIndDecl_sound` (`Setlec/Model/Extend/Decl.lean`).
 6. **`Setlec/Model/BridgeS.lean`**: `checkDirectStructS`'s
    shared-state-to-pure bridge, including the `flushS`/`ISOK`

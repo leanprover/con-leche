@@ -9,9 +9,11 @@ recognised simple structure as the type former, the constructor, the
 recursor with its rule and the `nF` projection functions — and
 **nothing else**.  It stores no `_model` companions: synthesising them
 would be re-implementing the preprocessor inside the checker (user
-ruling, DESIGN.md), and it is not needed, because every `ModeledOk`
-linkage clause is premised on the companion being *stored* and so is
-vacuous for a directly installed block (`directNoModel`).
+ruling, DESIGN.md), and it is not needed — the environment invariant
+carries no `_model` linkage at all (the identification is group-local
+to a modeled block's install derivation, task #83), and the direct
+capability record claims neither `eta` nor `unitlike`, so the
+`CapsOk` obligations are vacuous.
 
 What this module supplies is the step from the checker's per-field
 universe walk to the semantic fact the dependent-pair tower consumes:
