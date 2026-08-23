@@ -880,4 +880,401 @@ theorem annotateLamsI_sim (ih : SSimI env f) {d : Nat} :
       rw [annotateLams_succ_ne_lam _ (fun _ _ _ _ h => Expr.noConfusion h)]
       exact annotateLamsLeafI_sim ih hs ht hfvs hstk hw
 
+/-! ## Tail compositions: the loops against the chained bodies' own
+tails, with the result scoping recovered from the chained run -/
+
+private theorem inferLamTail_atF {env : Env} (d : Nat) (nm : Name)
+    (tyx bodyx : Expr) (mbbi : BinderInfo) (lv : Level) (F : Nat) :
+    ((do
+      let bt ← (fueledFns env).infer (d + 1)
+        (bodyx.instantiate1 (.fvar d nm tyx))
+      match ← (fueledFns env).whnf (d + 1)
+          (← (fueledFns env).infer (d + 1) bt) with
+      | .sort v' => do
+        unless ← liftFueled "level comparison" (Level.isEquiv lv v') do
+          throw (.invalid "λ-annotation does not match the body's sort")
+        pure (Expr.forallE nm tyx (bt.abstract1 d) ⟨mbbi, some lv⟩)
+      | _ => throw (.invalid "expected a sort")) : FueledM Expr).val F
+    = (inferTypeCore env F (d + 1) (bodyx.instantiate1 (.fvar d nm tyx))
+        >>= fun bt => inferTypeCore env F (d + 1) bt >>= fun tbt =>
+        whnf env F (d + 1) tbt >>= fun w =>
+        match w with
+        | .sort v' =>
+          liftFueled "level comparison" (Level.isEquiv lv v') >>= fun b =>
+          if b = true then
+            pure (Expr.forallE nm tyx (bt.abstract1 d) ⟨mbbi, some lv⟩)
+          else
+            throw (.invalid "λ-annotation does not match the body's sort")
+        | _ => throw (.invalid "expected a sort")) := by
+  rw [FueledM.atF_bind]
+  congr 1
+  funext bt
+  rw [FueledM.atF_bind]
+  congr 1
+  funext tbt
+  rw [FueledM.atF_bind]
+  congr 1
+  funext w
+  cases w <;> try rfl
+  rename_i v'
+  dsimp only
+  rw [FueledM.atF_bind, liftFueled_atF]
+  cases Level.isEquiv lv v' with
+  | none => rfl
+  | some b => cases b <;> rfl
+
+theorem inferLamsI_tail_sim (ih : SSimI env f) (henv : EnvWF env)
+    {d fuel : Nat} {b t fv : EIdx} {bodyx tyx : Expr} {nm : Name}
+    {mbbi : BinderInfo} {v u : LIdx} {lv lu : Level} {s₀ : IState}
+    (hs : ISOK env s₀)
+    (hbody : s₀.store.denote b = some bodyx)
+    (hty : s₀.store.denote t = some tyx)
+    (hlv : s₀.store.denoteL v = some lv)
+    (hlu : s₀.store.denoteL u = some lu)
+    (hfv : s₀.store.denote fv = some (.fvar d nm tyx))
+    (hwty : WScoped d tyx) (hwbody : WScoped d bodyx)
+    (htyR : ∃ F tty, inferTypeCore env F d tyx = .ok tty ∧
+      whnf env F d tty = .ok (.sort lu)) :
+    SimAt env s₀ (RelE d)
+      (inferLamsI (coreKnotI (mkFEnv env) f) d fuel b 1 [fv]
+        [(nm, t, ⟨mbbi, some v⟩, v, u)])
+      (do
+        let bt ← (fueledFns env).infer (d + 1)
+          (bodyx.instantiate1 (.fvar d nm tyx))
+        match ← (fueledFns env).whnf (d + 1)
+            (← (fueledFns env).infer (d + 1) bt) with
+        | .sort v' => do
+          unless ← liftFueled "level comparison" (Level.isEquiv lv v') do
+            throw (.invalid "λ-annotation does not match the body's sort")
+          pure (Expr.forallE nm tyx (bt.abstract1 d) ⟨mbbi, some lv⟩)
+        | _ => throw (.invalid "expected a sort")) := by
+  have hwopen : WScoped (d + 1)
+      (bodyx.instantiateList [Expr.fvar d nm tyx]) := by
+    rw [instList_single]
+    exact WScoped.instantiate1 hwty 0 hwbody
+  have hcore : SimAt env s₀ RelD
+      (inferLamsI (coreKnotI (mkFEnv env) f) d fuel b 1 [fv]
+        [(nm, t, ⟨mbbi, some v⟩, v, u)])
+      (inferLams (fueledFns env) d fuel bodyx 1 [Expr.fvar d nm tyx]
+        [(nm, tyx, ⟨mbbi, some lv⟩, lv, lu)]) := by
+    refine inferLamsI_sim ih fuel hs hbody (DenL.cons hfv DenL.nil)
+      ⟨⟨rfl, hty, ?_, hlv, hlu⟩, trivial⟩ hwopen
+    show denoteBM s₀.store.denoteL ⟨mbbi, some v⟩ = some ⟨mbbi, some lv⟩
+    simp only [denoteBM, hlv]
+    rfl
+  refine SimAt.wp (SimAt.wr hcore ?himp) ?hsc
+  case himp =>
+    intro res F hF
+    rw [inferLams_atF] at hF
+    have hstk : ILStkOK env d [(nm, tyx, ⟨mbbi, some lv⟩, lv, lu)]
+        (1 - 1) := by
+      refine ⟨⟨rfl, ?_, ?_⟩, trivial⟩
+      · exact (hwty : WScoped (d + 0) tyx)
+      · obtain ⟨F₀, tty, h1, h2⟩ := htyR
+        exact ⟨F₀, tty, (h1 : inferTypeCore env F₀ (d + 0) tyx = .ok tty),
+          (h2 : whnf env F₀ (d + 0) tty = .ok (.sort lu))⟩
+    obtain ⟨F', hchain⟩ := inferLams_sound henv fuel bodyx 1
+      [Expr.fvar d nm tyx] [(nm, tyx, ⟨mbbi, some lv⟩, lv, lu)] F res rfl
+      hstk hwopen hF
+    refine ⟨F', ?_⟩
+    rw [inferLamTail_atF]
+    obtain ⟨bt, hbt, hwrap⟩ := bind_okB hchain
+    have hbt' : inferTypeCore env F' (d + 1)
+        (bodyx.instantiate1 (.fvar d nm tyx)) = .ok bt := by
+      rw [← instList_single bodyx (Expr.fvar d nm tyx)]
+      exact hbt
+    rw [hbt', okB_bind]
+    unfold inferLamsWrap at hwrap
+    obtain ⟨tbt, htbt, hwrap⟩ := bind_okB hwrap
+    rw [infer_def] at htbt
+    have htbt' : inferTypeCore env F' (d + 1) bt = .ok tbt := htbt
+    rw [htbt', okB_bind]
+    obtain ⟨w, hw, hwrap⟩ := bind_okB hwrap
+    rw [whnf_def] at hw
+    have hw' : whnf env F' (d + 1) tbt = .ok w := hw
+    rw [hw', okB_bind]
+    obtain ⟨v', rfl⟩ : ∃ v', w = Expr.sort v' := by
+      cases w with
+      | sort v'' => exact ⟨v'', rfl⟩
+      | bvar i => exact nomatch hwrap
+      | fvar idx nm' tt => exact nomatch hwrap
+      | const nm' us => exact nomatch hwrap
+      | app f' a' => exact nomatch hwrap
+      | lam nm' tt bb mm => exact nomatch hwrap
+      | forallE nm' tt bb mm => exact nomatch hwrap
+      | letE nm' tt vv bb => exact nomatch hwrap
+      | lit l => exact nomatch hwrap
+      | proj sp i e' => exact nomatch hwrap
+    dsimp only at hwrap ⊢
+    obtain ⟨bb, hbb, hwrap⟩ := bind_okB hwrap
+    rw [hbb, okB_bind]
+    cases bb with
+    | false =>
+      simp only [Bool.false_eq_true, ↓reduceIte] at hwrap ⊢
+      exact nomatch hwrap
+    | true =>
+      simp only [↓reduceIte] at hwrap ⊢
+      try dsimp only at hwrap ⊢
+      exact hwrap
+  case hsc =>
+    intro s v' vv hden hrun
+    refine ⟨hden, ?_⟩
+    obtain ⟨F, hF⟩ := hrun
+    rw [inferLamTail_atF] at hF
+    obtain ⟨bt, hbt, hF⟩ := bind_okB hF
+    obtain ⟨tbt, htbt, hF⟩ := bind_okB hF
+    obtain ⟨w, hw, hF⟩ := bind_okB hF
+    obtain ⟨vs, rfl⟩ : ∃ vs, w = Expr.sort vs := by
+      cases w with
+      | sort v'' => exact ⟨v'', rfl⟩
+      | bvar i => exact nomatch hF
+      | fvar idx nm' tt => exact nomatch hF
+      | const nm' us => exact nomatch hF
+      | app f' a' => exact nomatch hF
+      | lam nm' tt bb mm => exact nomatch hF
+      | forallE nm' tt bb mm => exact nomatch hF
+      | letE nm' tt vv2 bb => exact nomatch hF
+      | lit l => exact nomatch hF
+      | proj sp i e' => exact nomatch hF
+    dsimp only at hF
+    obtain ⟨bb, hbb, hF⟩ := bind_okB hF
+    cases bb with
+    | false =>
+      simp only [Bool.false_eq_true, ↓reduceIte] at hF
+      exact nomatch hF
+    | true =>
+      simp only [↓reduceIte] at hF
+      injection hF with hres
+      subst hres
+      have hwbt : WScoped (d + 1) bt :=
+        inferTypeCore_WScoped henv F hbt
+          (WScoped.instantiate1 hwty 0 hwbody)
+      exact (by
+        simp only [WScoped]
+        exact ⟨hwty, WScoped.abstract1 0 hwbt⟩ :
+        WScoped d (Expr.forallE nm tyx (bt.abstract1 d) ⟨mbbi, some lv⟩))
+
+private theorem annPiTail_atF {env : Env} (d : Nat) (nm : Name)
+    (tyx' bodyx : Expr) (bi : BinderInfo) (F : Nat) :
+    ((do
+      let body' ← (fueledFns env).annotate (d + 1)
+        (bodyx.instantiate1 (.fvar d nm tyx'))
+      let v ← ensureSort (fueledFns env) env (d + 1)
+        (← (fueledFns env).infer (d + 1) body')
+      pure (Expr.forallE nm tyx' (body'.abstract1 d) ⟨bi, some v⟩))
+      : FueledM Expr).val F
+    = (annotateCore env F (d + 1) (bodyx.instantiate1 (.fvar d nm tyx'))
+        >>= fun body' => inferTypeCore env F (d + 1) body' >>= fun tb =>
+        ensureSortCore env F (d + 1) tb >>= fun v =>
+        pure (Expr.forallE nm tyx' (body'.abstract1 d) ⟨bi, some v⟩)) := by
+  rw [FueledM.atF_bind]
+  congr 1
+  funext body'
+  rw [FueledM.atF_bind]
+  congr 1
+  funext tb
+  rw [FueledM.atF_bind, ensureSort_atF]
+  rfl
+
+theorem annotatePisI_tail_sim (ih : SSimI env f) {d fuel : Nat}
+    {b ty' fv : EIdx} {bodyx tyx' : Expr} {nm : Name} {bi : BinderInfo}
+    {s₀ : IState}
+    (hs : ISOK env s₀)
+    (hbody : s₀.store.denote b = some bodyx)
+    (hty' : s₀.store.denote ty' = some tyx')
+    (hfv : s₀.store.denote fv = some (.fvar d nm tyx'))
+    (hwty' : WScoped d tyx') (hwbody : WScoped d bodyx) :
+    SimAt env s₀ (RelE d)
+      (annotatePisI (coreKnotI (mkFEnv env) f) d fuel b 1 [fv]
+        [(nm, ty', bi)])
+      (do
+        let body' ← (fueledFns env).annotate (d + 1)
+          (bodyx.instantiate1 (.fvar d nm tyx'))
+        let v ← ensureSort (fueledFns env) env (d + 1)
+          (← (fueledFns env).infer (d + 1) body')
+        pure (Expr.forallE nm tyx' (body'.abstract1 d) ⟨bi, some v⟩)) := by
+  have hwopen : WScoped (d + 1)
+      (bodyx.instantiateList [Expr.fvar d nm tyx']) := by
+    rw [instList_single]
+    exact WScoped.instantiate1 hwty' 0 hwbody
+  have hcore : SimAt env s₀ RelD
+      (annotatePisI (coreKnotI (mkFEnv env) f) d fuel b 1 [fv]
+        [(nm, ty', bi)])
+      (annotatePis (fueledFns env) env d fuel bodyx 1
+        [Expr.fvar d nm tyx'] [(nm, tyx', bi)]) := by
+    refine annotatePisI_sim ih fuel hs hbody (DenL.cons hfv DenL.nil)
+      ⟨⟨rfl, rfl, hty', (hwty' : WScoped (d + 0) tyx')⟩, trivial⟩ hwopen
+  refine SimAt.wp (SimAt.wr hcore ?himp) ?hsc
+  case himp =>
+    intro res F hF
+    rw [annotatePis_atF] at hF
+    obtain ⟨F', hchain⟩ := annotatePis_sound fuel bodyx 1
+      [Expr.fvar d nm tyx'] [(nm, tyx', bi)] F res rfl hF
+    refine ⟨F', ?_⟩
+    rw [annPiTail_atF]
+    obtain ⟨body', hbody', hwrap⟩ := bind_okB hchain
+    have hbody'' : annotateCore env F' (d + 1)
+        (bodyx.instantiate1 (.fvar d nm tyx')) = .ok body' := by
+      rw [← instList_single bodyx (Expr.fvar d nm tyx')]
+      exact hbody'
+    rw [hbody'', okB_bind]
+    unfold annotatePisWrap at hwrap
+    obtain ⟨tb, htb, hwrap⟩ := bind_okB hwrap
+    rw [infer_def] at htb
+    have htb' : inferTypeCore env F' (d + 1) body' = .ok tb := htb
+    rw [htb', okB_bind]
+    obtain ⟨lvv, hlvv, hwrap⟩ := bind_okB hwrap
+    rw [ensureSort_def] at hlvv
+    have hlvv' : ensureSortCore env F' (d + 1) tb = .ok lvv := hlvv
+    rw [hlvv', okB_bind]
+    unfold annotatePisWrap at hwrap
+    injection hwrap with hres
+    rw [← hres]
+    rfl
+  case hsc =>
+    intro s v' vv hden hrun
+    refine ⟨hden, ?_⟩
+    obtain ⟨F, hF⟩ := hrun
+    rw [annPiTail_atF] at hF
+    obtain ⟨body', hbody', hF⟩ := bind_okB hF
+    obtain ⟨tb, htb, hF⟩ := bind_okB hF
+    obtain ⟨lvv, hlvv, hF⟩ := bind_okB hF
+    injection hF with hres
+    subst hres
+    have hwb : WScoped (d + 1) body' :=
+      annotateCore_WScoped F _ hbody'
+        (WScoped.instantiate1 hwty' 0 hwbody)
+    exact (by
+      simp only [WScoped]
+      exact ⟨hwty', WScoped.abstract1 0 hwb⟩ :
+      WScoped d (Expr.forallE nm tyx' (body'.abstract1 d)
+        ⟨bi, some lvv⟩))
+
+private theorem annLamTail_atF {env : Env} (d : Nat) (nm : Name)
+    (tyx' bodyx : Expr) (bi : BinderInfo) (F : Nat) :
+    ((do
+      let body' ← (fueledFns env).annotate (d + 1)
+        (bodyx.instantiate1 (.fvar d nm tyx'))
+      let bt ← (fueledFns env).infer (d + 1) body'
+      let v ← ensureSort (fueledFns env) env (d + 1)
+        (← (fueledFns env).infer (d + 1) bt)
+      pure (Expr.lam nm tyx' (body'.abstract1 d) ⟨bi, some v⟩))
+      : FueledM Expr).val F
+    = (annotateCore env F (d + 1) (bodyx.instantiate1 (.fvar d nm tyx'))
+        >>= fun body' => inferTypeCore env F (d + 1) body' >>= fun bt =>
+        inferTypeCore env F (d + 1) bt >>= fun tbt =>
+        ensureSortCore env F (d + 1) tbt >>= fun v =>
+        pure (Expr.lam nm tyx' (body'.abstract1 d) ⟨bi, some v⟩)) := by
+  rw [FueledM.atF_bind]
+  congr 1
+  funext body'
+  rw [FueledM.atF_bind]
+  congr 1
+  funext bt
+  rw [FueledM.atF_bind]
+  congr 1
+  funext tbt
+  rw [FueledM.atF_bind, ensureSort_atF]
+  rfl
+
+theorem annotateLamsI_tail_sim (ih : SSimI env f) {d fuel : Nat}
+    {b ty' fv : EIdx} {bodyx tyx tyx' : Expr} {nm : Name}
+    {bi : BinderInfo} {bm : BinderMeta} {s₀ : IState}
+    (hs : ISOK env s₀)
+    (hbody : s₀.store.denote b = some bodyx)
+    (hty' : s₀.store.denote ty' = some tyx')
+    (hfv : s₀.store.denote fv = some (.fvar d nm tyx'))
+    (hwty' : WScoped d tyx') (hwbody : WScoped d bodyx)
+    (hbnd0 : (Expr.lam nm tyx bodyx bm).looseBVarsBounded 0 = true)
+    (htyRun : ∃ F, annotateCore env F d tyx = .ok tyx') :
+    SimAt env s₀ (RelE d)
+      (annotateLamsI (coreKnotI (mkFEnv env) f) d fuel b 1 [fv]
+        [(nm, ty', bi)])
+      (do
+        let body' ← (fueledFns env).annotate (d + 1)
+          (bodyx.instantiate1 (.fvar d nm tyx'))
+        let bt ← (fueledFns env).infer (d + 1) body'
+        let v ← ensureSort (fueledFns env) env (d + 1)
+          (← (fueledFns env).infer (d + 1) bt)
+        pure (Expr.lam nm tyx' (body'.abstract1 d) ⟨bi, some v⟩)) := by
+  have hbcomp : tyx.looseBVarsBounded 0 = true
+      ∧ bodyx.looseBVarsBounded 1 = true := by
+    simpa [Expr.looseBVarsBounded, Bool.and_eq_true] using hbnd0
+  have hwopen : WScoped (d + 1)
+      (bodyx.instantiateList [Expr.fvar d nm tyx']) := by
+    rw [instList_single]
+    exact WScoped.instantiate1 hwty' 0 hwbody
+  have hcore : SimAt env s₀ RelD
+      (annotateLamsI (coreKnotI (mkFEnv env) f) d fuel b 1 [fv]
+        [(nm, ty', bi)])
+      (annotateLams (fueledFns env) env d fuel bodyx 1
+        [Expr.fvar d nm tyx'] [(nm, tyx', bi)]) := by
+    refine annotateLamsI_sim ih fuel hs hbody (DenL.cons hfv DenL.nil)
+      ⟨⟨rfl, rfl, hty', (hwty' : WScoped (d + 0) tyx')⟩, trivial⟩ hwopen
+  refine SimAt.wp (SimAt.wr hcore ?himp) ?hsc
+  case himp =>
+    intro res F hF
+    rw [annotateLams_atF] at hF
+    have htyB' : tyx'.looseBVarsBounded 0 = true := by
+      obtain ⟨F₀, hr⟩ := htyRun
+      exact annotateCore_looseBVars F₀ _ hr hbcomp.1
+    have hstk : ALStkOK d [(nm, tyx', bi)] (1 - 1) := by
+      refine ⟨⟨htyB', (hwty' : WScoped (d + 0) tyx'), trivial⟩, trivial⟩
+    have hcons : AStkLeafCond d [(nm, tyx', bi)] (1 - 1)
+        (bodyx.instantiateList [Expr.fvar d nm tyx']) := by
+      refine ⟨?_, trivial⟩
+      rw [instList_single]
+      exact (Expr.LeafCond_opened hwty' hwbody 0 :
+        Expr.LeafCond (d + 0) nm tyx' _)
+    have hbopen : (bodyx.instantiateList
+        [Expr.fvar d nm tyx']).looseBVarsBounded 0 = true := by
+      rw [instList_single]
+      exact looseBVarsBounded_instantiate1 _ 0 hbcomp.2
+    obtain ⟨F', hchain⟩ := annotateLams_sound fuel bodyx 1
+      [Expr.fvar d nm tyx'] [(nm, tyx', bi)] F res rfl hstk hcons hbopen
+      hwopen hF
+    refine ⟨F', ?_⟩
+    rw [annLamTail_atF]
+    obtain ⟨body', hbody', hwrap⟩ := bind_okB hchain
+    have hbody'' : annotateCore env F' (d + 1)
+        (bodyx.instantiate1 (.fvar d nm tyx')) = .ok body' := by
+      rw [← instList_single bodyx (Expr.fvar d nm tyx')]
+      exact hbody'
+    rw [hbody'', okB_bind]
+    unfold annotateLamsWrap at hwrap
+    obtain ⟨bt, hbt, hwrap⟩ := bind_okB hwrap
+    rw [infer_def] at hbt
+    have hbt' : inferTypeCore env F' (d + 1) body' = .ok bt := hbt
+    rw [hbt', okB_bind]
+    obtain ⟨tbt, htbt, hwrap⟩ := bind_okB hwrap
+    rw [infer_def] at htbt
+    have htbt' : inferTypeCore env F' (d + 1) bt = .ok tbt := htbt
+    rw [htbt', okB_bind]
+    obtain ⟨lvv, hlvv, hwrap⟩ := bind_okB hwrap
+    rw [ensureSort_def] at hlvv
+    have hlvv' : ensureSortCore env F' (d + 1) tbt = .ok lvv := hlvv
+    rw [hlvv', okB_bind]
+    unfold annotateLamsWrap at hwrap
+    injection hwrap with hres
+    rw [← hres]
+    rfl
+  case hsc =>
+    intro s v' vv hden hrun
+    refine ⟨hden, ?_⟩
+    obtain ⟨F, hF⟩ := hrun
+    rw [annLamTail_atF] at hF
+    obtain ⟨body', hbody', hF⟩ := bind_okB hF
+    obtain ⟨bt, hbt, hF⟩ := bind_okB hF
+    obtain ⟨tbt, htbt, hF⟩ := bind_okB hF
+    obtain ⟨lvv, hlvv, hF⟩ := bind_okB hF
+    injection hF with hres
+    subst hres
+    have hwb : WScoped (d + 1) body' :=
+      annotateCore_WScoped F _ hbody'
+        (WScoped.instantiate1 hwty' 0 hwbody)
+    exact (by
+      simp only [WScoped]
+      exact ⟨hwty', WScoped.abstract1 0 hwb⟩ :
+      WScoped d (Expr.lam nm tyx' (body'.abstract1 d) ⟨bi, some lvv⟩))
+
 end Setlec

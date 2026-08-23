@@ -358,14 +358,14 @@ theorem whnf_sort (env : Env) (F d : Nat) (u : Level) :
 
 end Unfold
 
-private theorem bind_okB {α β : Type} {x : Except CheckError α}
+theorem bind_okB {α β : Type} {x : Except CheckError α}
     {f : α → Except CheckError β} {b : β}
     (h : (x >>= f) = .ok b) : ∃ a, x = .ok a ∧ f a = .ok b := by
   cases hx : x with
   | error e => rw [hx] at h; exact nomatch h
   | ok a => rw [hx] at h; exact ⟨a, rfl, h⟩
 
-private theorem okB_bind {α β : Type} (a : α)
+theorem okB_bind {α β : Type} (a : α)
     (f : α → Except CheckError β) :
     ((Except.ok a : Except CheckError α) >>= f) = f a := rfl
 
