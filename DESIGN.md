@@ -2930,6 +2930,28 @@ with `sigmaTowerV_split` supplying both the recursor's `mem_type`
 `tupleV (projs x) = x`) and the rule's fold equation
 (`projV_tupleV`).
 
+`Setlec/Model/DirectInstall.lean` assembles them and proves the
+value-level content:
+
+* `directTyVal_mem` — the type former inhabits its type, from the
+  per-field universe bound alone;
+* `directCtorVal_mem` — the constructor inhabits its type, splitting a
+  fitting parameter+field walk (`TeleFit_split`) and closing with
+  `tupleV_mem`;
+* `directRec_body_mem` / `directProj_body_mem` — the semantic heart:
+  a member of the tower *is* the tuple of its own projections, so the
+  minor premise applied to those projections lands in `motive x`, and
+  field `i` lands in the `i`-th (instantiated) field domain.  This is
+  what makes the eliminator's conclusion reachable with no `_model`
+  theorem involved;
+* `directRec_iota` / `directProj_iota` — the two iota equations the
+  stored rules' fold obligation reduces to once the λ-towers are folded
+  away (`teleLamV_fold`).
+
+Supporting telescope lemmas: `TeleFit_split`, `TeleFit_open` (a fitting
+walk lands exactly where `openPisAtFvars` does), `TeleFit_rest_sort`
+and `stripPis_instantiate1_body`.
+
 ### Status (2026-08-23)
 
 Landed and gate-green: the value-construction kit, the recognition
@@ -2943,15 +2965,36 @@ committed unfiltered, run by `tests/arena.sh` with
 field-free structure, `rfl`s through both projection iota rules and
 through the recursor rule) — verified by running it.
 
-**Not yet landed: the install soundness.**  `checkIndDecl` therefore
-does not yet dispatch to `checkDirectStruct`, and the fixture is pinned
-at *decline* in the expectations.  What remains: `checkDirectStruct_sound`
-(the `extend_fresh` chain for the `3 + nF` new constants, `mem_type`
-from `teleLamV_mem`, the rule folds through `TowerOk.of_stages`), a
-weakening of `ModeledOk`'s `_model`-bridge clauses by the premise
-"`n._model` is stored" (sound, and vacuously satisfied by the
-artifact-free class), and the executable-bridge plumbing for the new
-declaration-checker functions (`Verify/BridgeDecl.lean` projection
-batteries, `Verify/BridgeWfImp.lean` run-level implications,
-`Model/BridgeS.lean` for the shared-state twin) plus the
-`Setlec/Kernel/CheckerNC.lean` twin.
+**Not yet landed: the environment assembly of the install
+soundness.**  `checkIndDecl` therefore does not yet dispatch to
+`checkDirectStruct`, and the raw fixture is pinned at *decline* in the
+expectations; enabling the clause is a two-line change once the
+assembly lands.  What remains, in dependency order:
+
+1. `checkDirectStruct_sound`: the `extend_fresh` chain for the
+   `3 + nF` new constants.  The *values* and their membership content
+   are done (above); what is left is environment bookkeeping —
+   reading the syntactic facts off `checkConstantVal_inv` and the
+   install's `checkDefEqList` pins (via `isDefEqCore_sound`) to
+   discharge the `hfield`/`hresid`/`hbody` hypotheses, and transporting
+   interpretations from the pre-block pair `(m.val, env)` to each
+   intermediate one (`interpClosed_mono`, `interp_cval_ext`, already
+   supplied by `extend_fresh`'s own `htrans`).
+2. The rules' fold obligation (`RecMemberOk`) for the recursor rule and
+   the `nF` projection rules, through `TowerOk.of_stages`
+   (`Setlec/Model/RuleFold.lean:1706`): the per-stage facts are the
+   install's definitional domain pins, and the bottom fact is
+   `teleLamV_fold` composed with `directRec_iota` /
+   `directProj_iota`.
+3. A weakening of `ModeledOk`'s three `_model`-bridge clauses by the
+   premise "`n._model` is stored" — sound (a weakening), discharged by
+   the existing modeled proofs with one extra `intro`, and vacuously
+   satisfied by this class, which only fires when no artifact is
+   present (`directNoModel`).
+4. The executable-bridge plumbing for the new declaration-checker
+   functions: `Verify/BridgeDecl.lean` `_fst_dproj`/`_snd_dproj`
+   projection batteries, `Verify/BridgeWfImp.lean` run-level
+   implications with the per-site scoping facts for the fabricated
+   projection types and rule right-hand sides, and `Model/BridgeS.lean`
+   for the shared-state twin — plus the missing
+   `Setlec/Kernel/CheckerNC.lean` twin (`SETLEC_NO_PROOF_CERTS`).

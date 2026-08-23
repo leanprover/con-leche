@@ -20,6 +20,7 @@ import Setlec.Model.TypeChecker
 import Setlec.Model.IndInstall
 import Setlec.Model.ProjInstall
 import Setlec.Model.DirectTower
+import Setlec.Model.DirectInstall
 import Setlec.Model.Extend
 import Setlec.Model.Consistency
 import Setlec.Verify.Mono
