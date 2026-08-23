@@ -2090,6 +2090,11 @@ theorem checkDirectCtor_wfimp {env : Env} (henv : EnvWF env)
   have hopW := openPisAtFvars_WScoped (p.nP + p.nF) cvCa.type 0 hop'
     (WScoped.of_not_hasFvar hCf)
   rw [Nat.zero_add] at hopW
+  by_cases h2 : (rest == Expr.mkAppN
+      (.const p.cvT.name (p.cvT.levelParams.map .param))
+      (fvs.take p.nP)) = true
+  case neg => rw [if_neg h2] at h; exact absurd h atF_throw_bind
+  rw [if_pos h2] at h ⊢
   obtain ⟨u0, hfu, h⟩ := atF_bind_ok h
   have hfu' := checkDirectFieldUniv_wfimp henv hopW.1 hfu
   show (checkDirectFieldUniv (fueledOps F) env p.resSort (p.nP + p.nF)
