@@ -201,8 +201,7 @@ private theorem annotateProjRecI_rest (ih : SSimI env f)
        mkAppNM recC (params ++ [motive, minor, e']) >>= fun raw =>
        Setlec.withStore (fun st => st.wscopedBI d raw &&
          st.looseBVarsBoundedI 0 raw &&
-         (st.fvarLeavesI raw).all
-           (fun l => (st.fvarLeavesI e').contains l)) >>= fun g =>
+         st.leafGuardI raw e') >>= fun g =>
        if g then (coreKnotI (mkFEnv env) f).annotate d raw
        else throw (.notImplemented "projection elimination scoping"))
       (let raw := Expr.mkAppN
