@@ -2151,8 +2151,18 @@ theorem checkDirectCtor_wfimp {env : Env} (henv : EnvWF env)
   rw [hci']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   try dsimp only []
-  obtain ⟨-, hcrW⟩ := instPisAt_WScoped (d := p.nP) fvsP cvCa.type hci'
+  obtain ⟨hcdW0, hcrW⟩ := instPisAt_WScoped (d := p.nP) fvsP cvCa.type hci'
     (WScoped.of_not_hasFvar hCf) hfvsW
+  -- the parameter domains, definitionally against the type former's
+  obtain ⟨u1, hd1, h⟩ := atF_bind_ok h
+  have hd1' := checkDefEqList_wfimp henv
+    (fun a ha => by
+      obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
+      exact (fvarTypeD_WScoped (hfvsW x hx)).mono (by omega))
+    (fun b hb => (hcdW0 b hb).mono (by omega)) hd1
+  show (checkDefEqList (fueledOps F) env (p.nP + p.nF) _ _ >>= _) = _
+  rw [hd1']
+  simp only [Bind.bind, Except.bind]
   -- the field telescope
   obtain ⟨q4, hox, h⟩ := atF_bind_ok h
   obtain ⟨xFvs, cresid⟩ := q4

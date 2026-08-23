@@ -895,6 +895,7 @@ def checkDirectCtor (ops : CheckerOps m) (env : Env) (p : DirectParts)
   -- definitionally (lean4lean `Inductive/Add.lean:220-222`, nanoda
   -- `check_ctor`): this is what carries a parameter value's membership
   -- from the type former's telescope to the constructor's
+  checkDefEqList ops env (p.nP + p.nF) (tq.1.map Expr.fvarTypeD) cq.1
   let xq ← unwrapOr (openPisAtFvars p.nF cq.2 p.nP)
     (.notImplemented "direct structure: constructor field telescope")
   -- the opened residual is the family at the opened parameter variables

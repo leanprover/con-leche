@@ -868,7 +868,7 @@ theorem checkDirectCtor_fst_dproj (env : Env) (p : DirectParts)
   unfold checkDirectCtor
   simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
     PairM.fst_ite, unwrapOr_fst_dproj, checkConstantVal_fst_dproj,
-    checkDirectFieldUniv_fst_dproj]
+    checkDirectFieldUniv_fst_dproj, checkDefEqList_fst_dproj]
 
 theorem checkDirectCtor_snd_dproj (env : Env) (p : DirectParts)
     (cvTa : ConstantVal) :
@@ -877,7 +877,7 @@ theorem checkDirectCtor_snd_dproj (env : Env) (p : DirectParts)
   unfold checkDirectCtor
   simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
     PairM.snd_ite, unwrapOr_snd_dproj, checkConstantVal_snd_dproj,
-    checkDirectFieldUniv_snd_dproj]
+    checkDirectFieldUniv_snd_dproj, checkDefEqList_snd_dproj]
 
 theorem checkDirectRecTy_fst_dproj (env : Env) (p : DirectParts)
     (cvTa cvCa cvRa : ConstantVal) :
@@ -1752,7 +1752,7 @@ theorem checkDirectCtor_datF (env : Env) (p : DirectParts)
   unfold checkDirectCtor
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF,
-    checkDirectFieldUniv_datF]
+    checkDirectFieldUniv_datF, checkDefEqList_datF]
 
 theorem checkDirectRecTy_datF (env : Env) (p : DirectParts)
     (cvTa cvCa cvRa : ConstantVal) (F : Nat) :

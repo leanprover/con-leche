@@ -805,6 +805,7 @@ def checkDirectCtorF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts)
     (.notImplemented "direct structure: type former telescope")
   let cq ← unwrapOr (Expr.instPisAt tq.1 cvCa.type)
     (.notImplemented "direct structure: constructor telescope")
+  checkDefEqList ops fe.env (p.nP + p.nF) (tq.1.map Expr.fvarTypeD) cq.1
   let xq ← unwrapOr (openPisAtFvars p.nF cq.2 p.nP)
     (.notImplemented "direct structure: constructor field telescope")
   unless xq.2 == Expr.mkAppN
