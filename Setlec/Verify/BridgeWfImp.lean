@@ -2103,11 +2103,11 @@ theorem checkDirectInd_wfimp {env : Env} (henv : EnvWF env)
 /-- Stage 2 of the direct install, `wfOpsM` run to pure run.  The
 opened constructor telescope is scoped at its own frame because the
 annotated constructor type is closed. -/
-theorem checkDirectCtor_wfimp {env : Env} (henv : EnvWF env)
+theorem checkDirectCtor_wfimp {env₀ env : Env} (henv : EnvWF env)
     {p : DirectParts} {cvTa : ConstantVal} {F : Nat} {v : Env × ConstantVal}
     (hTf : cvTa.type.hasFvar = false)
-    (h : (checkDirectCtor wfOpsM env p cvTa).val F = .ok v) :
-    checkDirectCtor (fueledOps F) env p cvTa = .ok v := by
+    (h : (checkDirectCtor wfOpsM env₀ env p cvTa).val F = .ok v) :
+    checkDirectCtor (fueledOps F) env₀ env p cvTa = .ok v := by
   unfold checkDirectCtor at h ⊢
   obtain ⟨cvCa, hcv, h⟩ := atF_bind_ok h
   have hcv' := checkConstantVal_wfimp henv hcv
@@ -2185,6 +2185,9 @@ theorem checkDirectCtor_wfimp {env : Env} (henv : EnvWF env)
       (.const p.cvT.name (p.cvT.levelParams.map .param)) fvsP) = true
   case neg => rw [if_neg h2] at h; exact absurd h atF_throw_bind
   rw [if_pos h2] at h ⊢
+  by_cases h3 : (xFvs.all fun x => Expr.constsResolve env₀ x.fvarTypeD) = true
+  case neg => rw [if_neg h3] at h; exact absurd h atF_throw_bind
+  rw [if_pos h3] at h ⊢
   obtain ⟨u0, hfu, h⟩ := atF_bind_ok h
   have hfu' := checkDirectFieldUniv_wfimp henv hxPos hfu
   show (checkDirectFieldUniv (fueledOps F) env p.resSort p.nP xFvs p.nF
@@ -2628,7 +2631,7 @@ theorem checkDirectStruct_wfimp {env : Env} (henv : EnvWF env)
       EnvWF e₁ ∧ cvTa.type.hasFvar = false)
     (hwf₂ : ∀ (e₁ e₂ : Env) (cvTa cvCa : ConstantVal),
       (checkDirectInd wfOpsM env p).val F = .ok (e₁, cvTa) →
-      (checkDirectCtor wfOpsM e₁ p cvTa).val F = .ok (e₂, cvCa) →
+      (checkDirectCtor wfOpsM env e₁ p cvTa).val F = .ok (e₂, cvCa) →
       EnvWF e₂ ∧ cvCa.type.hasFvar = false ∧
         cvCa.type.looseBVarsBounded 0 = true)
     (hwf₃ : ∀ (e₂ : Env) (cvCa cvRa : ConstantVal) (rhsA : Expr),

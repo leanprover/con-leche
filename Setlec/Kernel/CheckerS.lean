@@ -794,7 +794,7 @@ def checkDirectIndF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts) :
   pure (fe.push (.indInfo cvTa (directCaps p)), cvTa)
 
 /-- `checkDirectCtor` through the index. -/
-def checkDirectCtorF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts)
+def checkDirectCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (p : DirectParts)
     (cvTa : ConstantVal) : m (FEnv × ConstantVal) := do
   let cvCa ← checkConstantValF ops fe p.cvC
   let (_, cbody) ← unwrapOr (cvCa.type.stripPis (p.nP + p.nF))
@@ -811,6 +811,8 @@ def checkDirectCtorF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts)
   unless xq.2 == Expr.mkAppN
       (.const p.cvT.name (p.cvT.levelParams.map .param)) cq.1 do
     throw (.notImplemented "direct structure: opened constructor residual")
+  unless xq.1.all fun x => x.fvarTypeD.constsResolveF fe₀ do
+    throw (.notImplemented "direct structure: field domain after the block")
   checkDirectFieldUnivF ops fe p.resSort p.nP xq.1 p.nF
   pure (fe.push (.ctorInfo cvCa p.nP p.nF), cvCa)
 
@@ -1033,7 +1035,7 @@ def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckIM FEnv := do
   flushS
   let (fe₁, cvTa) ← checkDirectIndF (sharedOps fe) fe p
   flushS
-  let (fe₂, cvCa) ← checkDirectCtorF (sharedOps fe₁) fe₁ p cvTa
+  let (fe₂, cvCa) ← checkDirectCtorF (sharedOps fe₁) fe fe₁ p cvTa
   flushS
   let cvRa ← checkConstantValF (sharedOps fe₂) fe₂ p.cvR
   checkDirectRecTyF (sharedOps fe₂) fe₂ p cvTa cvCa cvRa

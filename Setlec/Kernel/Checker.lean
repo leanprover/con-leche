@@ -879,8 +879,18 @@ def checkDirectInd (ops : CheckerOps m) (env : Env) (p : DirectParts) :
   pure (⟨.indInfo cvTa (directCaps p) :: env.consts⟩, cvTa)
 
 /-- Stage 2: the constructor — the ordinary constant check, the
-annotated result shape, and the per-field universe bound. -/
-def checkDirectCtor (ops : CheckerOps m) (env : Env) (p : DirectParts)
+annotated result shape, and the per-field universe bound.
+
+`env₀` is the **pre-block** environment and `env` the one carrying the
+type former.  The opened field domains are re-checked to resolve in
+`env₀`: `directNonRec` says that of the *raw* domains (it is the
+recognition filter), and the model needs it of the *annotated* ones,
+because the type former's value — fixed one install earlier, before its
+own constructor existed — is built from those domains' interpretations
+in `env₀`.  Same discipline as `directShape`: a skeleton fact checked
+on the raw block for recognition and re-checked on the annotated
+constants at install. -/
+def checkDirectCtor (ops : CheckerOps m) (env₀ env : Env) (p : DirectParts)
     (cvTa : ConstantVal) : m (Env × ConstantVal) := do
   let cvCa ← checkConstantVal ops env p.cvC
   let (_, cbody) ← unwrapOr (cvCa.type.stripPis (p.nP + p.nF))
@@ -907,6 +917,8 @@ def checkDirectCtor (ops : CheckerOps m) (env : Env) (p : DirectParts)
   unless xq.2 == Expr.mkAppN
       (.const p.cvT.name (p.cvT.levelParams.map .param)) cq.1 do
     throw (.notImplemented "direct structure: opened constructor residual")
+  unless xq.1.all fun x => x.fvarTypeD.constsResolve env₀ do
+    throw (.notImplemented "direct structure: field domain after the block")
   checkDirectFieldUniv ops env p.resSort p.nP xq.1 p.nF
   pure (⟨.ctorInfo cvCa p.nP p.nF :: env.consts⟩, cvCa)
 
@@ -1048,7 +1060,7 @@ so a failure is a verdict, not a fall-through. -/
 def checkDirectStruct (ops : CheckerOps m) (env : Env) (p : DirectParts) :
     m Env := do
   let (env₁, cvTa) ← checkDirectInd ops env p
-  let (env₂, cvCa) ← checkDirectCtor ops env₁ p cvTa
+  let (env₂, cvCa) ← checkDirectCtor ops env env₁ p cvTa
   let cvRa ← checkConstantVal ops env₂ p.cvR
   checkDirectRecTy ops env₂ p cvTa cvCa cvRa
   let rhsA ← checkDirectRule ops env₂ p cvCa cvRa
