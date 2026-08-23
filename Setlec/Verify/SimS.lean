@@ -39,15 +39,17 @@ theorem mkFEnv_push (env : Env) (ci : ConstantInfo) :
 
 /-! ## Flush -/
 
-/-- `flushS` runs to the cache-free state over the same arena. -/
+/-- `flushS` drops exactly the environment-dependent caches. -/
 theorem flushS_run (s : IState) :
-    flushS s = .ok ((), { store := s.store }) := rfl
+    flushS s = .ok ((), s.flushed) := rfl
 
-/-- After a flush the invariant holds for *any* environment: the arena
-is environment-independent and all cache clauses are vacuous. -/
-theorem flushS_isok {env env' : Env} {s : IState} (hs : ISOK env s) :
-    ISOK env' { store := s.store } :=
-  ISOK.fresh env' hs.wf
+/-- After a flush the invariant holds for *any* environment: the
+surviving components are the environment-free residue (`ISOKF`), the
+dropped caches' clauses are vacuous. -/
+theorem flushS_isok {env' : Env} {s : IState} (hs : ISOKF s) :
+    ISOK env' s.flushed := by
+  refine ⟨hs.wf, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, hs.lsimp, hs.lnz,
+    hs.eqv, hs.bvarB, hs.ienv⟩ <;> (intros; simp_all [IState.flushed])
 
 /-! ## Shared entry points simulate the fueled families -/
 

@@ -200,6 +200,14 @@ walking the tail again.  Function-equal to `internExpr`
 @[inline] def levelPtrBEq (a b : Level) : Bool :=
   withPtrEq a b (fun _ => a == b) (fun h => by subst h; simp)
 
+/-- Structural expression equality with a physical-equality shortcut
+(definitionally `a == b`).  Used to validate interned-environment
+entries against the stored constant they cache: the entry was created
+from the very object stored in the environment, so the pointer test
+succeeds without walking either expression. -/
+@[inline] def exprPtrBEq (a b : Expr) : Bool :=
+  withPtrEq a b (fun _ => a == b) (fun h => by subst h; simp)
+
 /-- `internBM` reusing the direct child binder's codomain index when
 this binder's annotation is `imax _ (child's cod)` — the shape
 `annotate` produces on a binder telescope. -/
@@ -1062,21 +1070,223 @@ decreasing_by all_goals (apply Prod.Lex.left; first | exact _h.1 | exact _h.2.1 
 def looseBVarsBoundedI (st : EStore) (k : Nat) (e : EIdx) : Bool :=
   (looseBVarsBoundedIGo st {} k e).1
 
+/-- Level-parameter definedness of an interned level, DAG-memoized
+(the memo is per call: the predicate depends on `params`).  Mirrors
+`Level.allParamsDefined params`. -/
+def lparamsDefinedLIGo (st : EStore) (params : List Name)
+    (memo : Std.HashMap LIdx Bool) (u : LIdx) :
+    Bool × Std.HashMap LIdx Bool :=
+  match memo[u]? with
+  | some r => (r, memo)
+  | none =>
+    match st.lnodes[u]? with
+    | none => (false, memo)
+    | some m =>
+      let (r, memo) : Bool × Std.HashMap LIdx Bool :=
+        match m with
+        | .zero => (true, memo)
+        | .param n => (params.contains n, memo)
+        | .succ v =>
+          if _h : v < u then lparamsDefinedLIGo st params memo v
+          else (false, memo)
+        | .max v w | .imax v w =>
+          if _h : v < u ∧ w < u then
+            let (rv, memo) := lparamsDefinedLIGo st params memo v
+            if rv then lparamsDefinedLIGo st params memo w
+            else (false, memo)
+          else (false, memo)
+      (r, memo.insert u r)
+termination_by u
+decreasing_by all_goals first | exact _h.1 | exact _h.2 | exact _h
+
+/-- `lparamsDefinedLIGo` over a list (a `const` node's levels). -/
+def lparamsDefinedListLI (st : EStore) (params : List Name)
+    (memo : Std.HashMap LIdx Bool) :
+    List LIdx → Bool × Std.HashMap LIdx Bool
+  | [] => (true, memo)
+  | u :: us =>
+    let (r, memo) := lparamsDefinedLIGo st params memo u
+    if r then lparamsDefinedListLI st params memo us else (false, memo)
+
+/-- Core of `allLevelParamsDefinedI`: one DAG-memoized walk (per-call
+memos, keyed by node index — the parameters are fixed for the call).
+Mirrors `Expr.allLevelParamsDefined params`. -/
+def allLevelParamsDefinedIGo (st : EStore) (params : List Name)
+    (lmemo : Std.HashMap LIdx Bool) (memo : Std.HashMap EIdx Bool)
+    (e : EIdx) :
+    Bool × Std.HashMap LIdx Bool × Std.HashMap EIdx Bool :=
+  match memo[e]? with
+  | some r => (r, lmemo, memo)
+  | none =>
+    match st.nodes[e]? with
+    | none => (false, lmemo, memo)
+    | some n =>
+      let (r, lmemo, memo) :
+          Bool × Std.HashMap LIdx Bool × Std.HashMap EIdx Bool :=
+        match n with
+        | .bvar _ | .lit _ => (true, lmemo, memo)
+        | .sort u =>
+          let (r, lmemo) := lparamsDefinedLIGo st params lmemo u
+          (r, lmemo, memo)
+        | .const _ us =>
+          let (r, lmemo) := lparamsDefinedListLI st params lmemo us
+          (r, lmemo, memo)
+        | .fvar _ _ ty =>
+          if _h : ty < e then allLevelParamsDefinedIGo st params lmemo memo ty
+          else (false, lmemo, memo)
+        | .app f a =>
+          if _h : f < e ∧ a < e then
+            let (rf, lmemo, memo) :=
+              allLevelParamsDefinedIGo st params lmemo memo f
+            if rf then allLevelParamsDefinedIGo st params lmemo memo a
+            else (false, lmemo, memo)
+          else (false, lmemo, memo)
+        | .lam _ ty body m | .forallE _ ty body m =>
+          if _h : ty < e ∧ body < e then
+            let (rt, lmemo, memo) :=
+              allLevelParamsDefinedIGo st params lmemo memo ty
+            if rt then
+              let (rb, lmemo, memo) :=
+                allLevelParamsDefinedIGo st params lmemo memo body
+              if rb then
+                match m.cod with
+                | some v =>
+                  let (rc, lmemo) := lparamsDefinedLIGo st params lmemo v
+                  (rc, lmemo, memo)
+                | none => (true, lmemo, memo)
+              else (false, lmemo, memo)
+            else (false, lmemo, memo)
+          else (false, lmemo, memo)
+        | .letE _ ty val body =>
+          if _h : ty < e ∧ val < e ∧ body < e then
+            let (rt, lmemo, memo) :=
+              allLevelParamsDefinedIGo st params lmemo memo ty
+            if rt then
+              let (rv, lmemo, memo) :=
+                allLevelParamsDefinedIGo st params lmemo memo val
+              if rv then allLevelParamsDefinedIGo st params lmemo memo body
+              else (false, lmemo, memo)
+            else (false, lmemo, memo)
+          else (false, lmemo, memo)
+        | .proj _ _ sub =>
+          if _h : sub < e then allLevelParamsDefinedIGo st params lmemo memo sub
+          else (false, lmemo, memo)
+      (r, lmemo, memo.insert e r)
+termination_by e
+decreasing_by all_goals first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h
+
+/-- Interned counterpart of `Expr.allLevelParamsDefined params`. -/
+def allLevelParamsDefinedI (st : EStore) (params : List Name) (e : EIdx) :
+    Bool :=
+  (allLevelParamsDefinedIGo st params {} {} e).1
+
+/-! ## Store validation (task #78)
+
+The frontend parses the export tables directly into an `EStore`; the
+checker validates the parsed store *once* at the start of a run
+(`wfB`, decidable counterpart of `EStore.WF` — the invariant every
+interned operation preserves but none re-establishes).  The per-node
+pass checks child/level ranges and that the cons-table maps each node
+back to its index; the cons-table passes check the reverse graph
+direction, so no counting argument is needed. -/
+
+/-- Range and cons-graph facts for the expression nodes below `k`. -/
+def wfBNodes (st : EStore) : Nat → Bool
+  | 0 => true
+  | k + 1 =>
+    wfBNodes st k &&
+    (match st.nodes[k]? with
+     | some n =>
+       (match n with
+        | .bvar _ | .const _ _ | .lit _ => true
+        | .fvar _ _ t => t < k
+        | .sort _ => true
+        | .app f a => f < k && a < k
+        | .lam _ t b _ | .forallE _ t b _ => t < k && b < k
+        | .letE _ t v b => t < k && v < k && b < k
+        | .proj _ _ e => e < k) &&
+       (match n with
+        | .sort u => u < st.lnodes.size
+        | .const _ us => us.all (· < st.lnodes.size)
+        | .lam _ _ _ m | .forallE _ _ _ m =>
+          match m.cod with
+          | some u => u < st.lnodes.size
+          | none => true
+        | _ => true) &&
+       st.cons[n]? == some k
+     | none => false)
+
+/-- Range and cons-graph facts for the level nodes below `k`. -/
+def wfBLNodes (st : EStore) : Nat → Bool
+  | 0 => true
+  | k + 1 =>
+    wfBLNodes st k &&
+    (match st.lnodes[k]? with
+     | some m =>
+       (match m with
+        | .zero | .param _ => true
+        | .succ u => u < k
+        | .max u v | .imax u v => u < k && v < k) &&
+       st.lcons[m]? == some k
+     | none => false)
+
+/-- Decidable canonicity of a store (`wfB st = true → st.WF`,
+`Setlec/Verify/IExpr.lean`).  Run once on the parse-produced store; the
+interned operations preserve `WF` from there on. -/
+def wfB (st : EStore) : Bool :=
+  wfBNodes st st.nodes.size && wfBLNodes st st.lnodes.size &&
+  st.cons.toList.all (fun p => st.nodes[p.2]? == some p.1) &&
+  st.lcons.toList.all (fun p => st.lnodes[p.2]? == some p.1)
+
+/-- Dense loose-bvar-bound cache (task #78): on binder-heavy DAG input
+the bound cache acquires an entry for essentially every arena node, so
+it is a plain array indexed by node id (slot = bound + 1, `0` =
+unfilled; geometric growth) instead of a hash map — ~6x smaller per
+entry and `O(1)` without hashing. -/
+structure BMemo where
+  arr : Array Nat
+
+namespace BMemo
+
+/-- The empty cache. -/
+def empty : BMemo := ⟨#[]⟩
+
+instance : EmptyCollection BMemo := ⟨empty⟩
+instance : Inhabited BMemo := ⟨empty⟩
+
+/-- Cached bound of a node, if filled. -/
+def get? (m : BMemo) (e : EIdx) : Option Nat :=
+  match m.arr[e]? with
+  | some (b + 1) => some b
+  | _ => none
+
+/-- Record a node's bound (growing geometrically so the amortized cost
+per insert is `O(1)`). -/
+def insert (m : BMemo) (e : EIdx) (b : Nat) : BMemo :=
+  let arr := if e < m.arr.size then m.arr
+    else m.arr ++ Array.replicate (e + 1) 0
+  ⟨arr.set! e (b + 1)⟩
+
+/-- Number of slots (diagnostics only). -/
+def size (m : BMemo) : Nat := m.arr.size
+
+end BMemo
+
 /-- Core of the loose-bvar *bound* (task #72): the least `k` with
 `looseBVarsBounded k` for a node, memoized cursor-free — a node's
 bound depends only on its immutable sub-DAG, so callers thread a
 *persistent* memo (`IState.bvarB`) and every node is visited at most
 once over a whole checker run.  Instantiation at or above the bound is
 the identity (`instListM`/`inst1M` short-circuit). -/
-def bvarBoundIGo (st : EStore) (memo : Std.HashMap EIdx Nat) (e : EIdx) :
-    Nat × Std.HashMap EIdx Nat :=
-  match memo[e]? with
+def bvarBoundIGo (st : EStore) (memo : BMemo) (e : EIdx) :
+    Nat × BMemo :=
+  match memo.get? e with
   | some b => (b, memo)
   | none =>
     match st.nodes[e]? with
     | none => (0, memo)
     | some n =>
-      let (b, memo) : Nat × Std.HashMap EIdx Nat :=
+      let (b, memo) : Nat × BMemo :=
         match n with
         | .bvar i => (i + 1, memo)
         | .fvar _ _ _ | .sort _ | .const _ _ | .lit _ => (0, memo)

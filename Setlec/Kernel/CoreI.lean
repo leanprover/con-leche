@@ -143,7 +143,81 @@ def rawNatLitI? (st : EStore) (e : EIdx) : Option Nat :=
   | some (.const c []) => if c = natZeroName then some 0 else none
   | _ => none
 
+/-- Interned counterpart of `Expr.constsResolveF` (`CheckerS`; same
+clauses as `EStore.constsResolveIGo` with the lookups through the
+index).  Memo per call: the result depends on the environment. -/
+def constsResolveFIGo (st : EStore) (fe : FEnv)
+    (memo : Std.HashMap EIdx Bool) (e : EIdx) : Bool × Std.HashMap EIdx Bool :=
+  match memo[e]? with
+  | some r => (r, memo)
+  | none =>
+    match st.nodes[e]? with
+    | none => (false, memo)
+    | some n =>
+      let (r, memo) : Bool × Std.HashMap EIdx Bool :=
+        match n with
+        | .bvar _ | .sort _ => (true, memo)
+        | .lit (.natVal _) =>
+          ((fe.find? natName).isSome && (fe.find? natZeroName).isSome &&
+            (fe.find? natSuccName).isSome, memo)
+        | .lit (.strVal _) =>
+          ((fe.find? natName).isSome && (fe.find? natZeroName).isSome &&
+            (fe.find? natSuccName).isSome && (fe.find? stringName).isSome &&
+            (fe.find? stringOfListName).isSome &&
+            (fe.find? listName).isSome && (fe.find? listNilName).isSome &&
+            (fe.find? listConsName).isSome && (fe.find? charName).isSome &&
+            (fe.find? charOfNatName).isSome, memo)
+        | .const n _ => ((fe.find? n).isSome, memo)
+        | .fvar _ _ ty =>
+          if _h : ty < e then constsResolveFIGo st fe memo ty
+          else (false, memo)
+        | .app f a =>
+          if _h : f < e ∧ a < e then
+            let (rf, memo) := constsResolveFIGo st fe memo f
+            if rf then constsResolveFIGo st fe memo a else (false, memo)
+          else (false, memo)
+        | .lam _ ty body _ | .forallE _ ty body _ =>
+          if _h : ty < e ∧ body < e then
+            let (rt, memo) := constsResolveFIGo st fe memo ty
+            if rt then constsResolveFIGo st fe memo body else (false, memo)
+          else (false, memo)
+        | .letE _ ty val body =>
+          if _h : ty < e ∧ val < e ∧ body < e then
+            let (rt, memo) := constsResolveFIGo st fe memo ty
+            if rt then
+              let (rv, memo) := constsResolveFIGo st fe memo val
+              if rv then constsResolveFIGo st fe memo body else (false, memo)
+            else (false, memo)
+          else (false, memo)
+        | .proj s _ sub =>
+          if _h : sub < e then
+            if (fe.find? s).isSome then constsResolveFIGo st fe memo sub
+            else (false, memo)
+          else (false, memo)
+      (r, memo.insert e r)
+termination_by e
+decreasing_by all_goals first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h
+
+/-- Interned `Expr.constsResolveF fe` (one memoized DAG walk). -/
+def constsResolveFI (st : EStore) (fe : FEnv) (e : EIdx) : Bool :=
+  (constsResolveFIGo st fe {} e).1
+
 /-! ## The interned checker state and monad -/
+
+/-- One interned-environment entry: the arena indices of a stored
+constant's annotated type and (for definitions/theorems/opaques) value,
+each *tagged with its own denotation* — the very `Expr` objects stored
+in the environment.  The tags make the cache self-certifying: a use
+first validates the tag against the current stored constant
+(`exprPtrBEq` — the entry was created from the stored object itself, so
+the pointer test succeeds without walking), so the invariant on the
+cache ties indices to tags only and never mentions the environment
+(it survives every flush and every environment transition). -/
+structure IConstE where
+  tyE : Expr
+  ty : EIdx
+  /-- value tag and index (definitions/theorems/opaques) -/
+  val : Option (Expr × EIdx) := none
 
 /-- Per-entry-call state: the arena, id-keyed memo caches for the five
 entry points, lazy caches for level-instantiated stored constants
@@ -154,6 +228,11 @@ for `isEquivLM` — all environment-independent, keyed by level indices
 alone: on a canonical arena a level index determines its denotation). -/
 structure IState where
   store : EStore := .empty
+  /-- The interned environment (task #78): per accepted constant, the
+  arena indices of its stored annotated type/value, self-certified by
+  denotation tags (`IConstE`).  Persists across declarations and every
+  flush — the invariant never mentions the environment. -/
+  ienv : Std.HashMap Name IConstE := {}
   constTyAt : Std.HashMap (Name × List LIdx) EIdx := {}
   constValAt : Std.HashMap (Name × List LIdx) EIdx := {}
   ruleRhsAt : Std.HashMap (Name × Name × List LIdx) EIdx := {}
@@ -165,7 +244,7 @@ structure IState where
   lsimpC : EStore.LMemo := {}
   lnzC : Std.HashMap LIdx Bool := {}
   eqvC : Std.HashMap (LIdx × LIdx) Bool := {}
-  bvarB : Std.HashMap EIdx Nat := {}
+  bvarB : EStore.BMemo := {}
 
 instance : Inhabited IState := ⟨{}⟩
 
@@ -431,6 +510,26 @@ def readbackLevelsM : List LIdx → CheckIM (List Level)
 
 /-! ### Lazy interned stored-constant instantiations -/
 
+/-- The interned index of a stored constant's type: the interned-
+environment entry when its denotation tag validates (a pointer test —
+the entry was created from the very object stored in the environment),
+else a fresh tree interning (basis pins and budget-bounded members). -/
+def storedTyIdxM (n : Name) (ty : Expr) : CheckIM EIdx := do
+  match (← get).ienv[n]? with
+  | some ent =>
+    if EStore.exprPtrBEq ent.tyE ty then pure ent.ty
+    else internExprM ty
+  | none => internExprM ty
+
+/-- The interned index of a stored definition/theorem value (see
+`storedTyIdxM`). -/
+def storedValIdxM (n : Name) (v : Expr) : CheckIM EIdx := do
+  match (← get).ienv[n]? with
+  | some ⟨_, _, some (vE, vi)⟩ =>
+    if EStore.exprPtrBEq vE v then pure vi
+    else internExprM v
+  | _ => internExprM v
+
 /-- The interned level-instantiated *type* of the stored constant `n`
 (cached by `(n, us)`; the constant must be stored — callers have already
 matched the lookup). -/
@@ -441,7 +540,7 @@ def constTyAtM (fe : FEnv) (n : Name) (us : List LIdx) : CheckIM EIdx := do
     match fe.find? n with
     | some ci =>
       let cv := ci.toConstantVal
-      let raw ← internExprM cv.type
+      let raw ← storedTyIdxM n cv.type
       let i ← instLevelParamsM cv.levelParams us raw
       modify fun s =>
         let mp := s.constTyAt
@@ -458,7 +557,7 @@ def constValAtM (fe : FEnv) (n : Name) (us : List LIdx) : CheckIM EIdx := do
   | none =>
     match fe.find? n with
     | some (.defnInfo cv v _) =>
-      let raw ← internExprM v
+      let raw ← storedValIdxM n v
       let i ← instLevelParamsM cv.levelParams us raw
       modify fun s =>
         let mp := s.constValAt
@@ -466,7 +565,7 @@ def constValAtM (fe : FEnv) (n : Name) (us : List LIdx) : CheckIM EIdx := do
         { s with constValAt := mp.insert (n, us) i }
       pure i
     | some (.thmInfo cv v) =>
-      let raw ← internExprM v
+      let raw ← storedValIdxM n v
       let i ← instLevelParamsM cv.levelParams us raw
       modify fun s =>
         let mp := s.constValAt

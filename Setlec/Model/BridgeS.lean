@@ -139,10 +139,10 @@ environment is well-formed, and the step is reproduced by the fueled
 generic step. -/
 theorem checkIndMemberS_run {blockNames : List Name} {caps : IndCaps}
     {env : Env} (henv : EnvWF env) {ci : ConstantInfo} {fe' : FEnv}
-    {s₀ s' : IState} (hwf : s₀.store.WF)
+    {s₀ s' : IState} (hwf : ISOKF s₀)
     (h : checkIndMemberS blockNames caps (mkFEnv env) ci s₀ =
       .ok (fe', s')) :
-    s'.store.WF ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
+    ISOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
     ∃ F, (checkIndMember fueledOpsM blockNames caps env ci).val F =
       .ok fe'.env := by
   unfold checkIndMemberS at h
@@ -150,11 +150,11 @@ theorem checkIndMemberS_run {blockNames : List Name} {caps : IndCaps}
   obtain ⟨u, s₁, hflush, h⟩ := bindI_ok h
   rw [flushS_run] at hflush
   injection hflush with hflush
-  obtain ⟨rfl, rfl⟩ : u = () ∧ ({ store := s₀.store } : IState) = s₁ :=
+  obtain ⟨rfl, rfl⟩ : u = () ∧ s₀.flushed = s₁ :=
     ⟨rfl, congrArg Prod.snd hflush⟩
   obtain ⟨cvA, s₂, hcm, h⟩ := bindI_ok h
   obtain ⟨hs₂, hext₂, cvA', ⟨rfl, hwty⟩, F₁, hFm⟩ :=
-    (checkMemberValS_sim henv (ISOK.fresh env hwf)) cvA s₂ hcm
+    (checkMemberValS_sim henv (flushS_isok hwf)) cvA s₂ hcm
   have hFmp : checkMemberVal (fueledOps F₁) blockNames env
       ci.toConstantVal = .ok cvA := by
     rw [← checkMemberVal_datF]; exact hFm
@@ -164,7 +164,7 @@ theorem checkIndMemberS_run {blockNames : List Name} {caps : IndCaps}
   | indInfo cv caps0 =>
     obtain ⟨hfe, rfl⟩ := pureI_ok h
     subst hfe
-    refine ⟨hs₂.wf, rfl, ?_, F₁, ?_⟩
+    refine ⟨hs₂.residue, rfl, ?_, F₁, ?_⟩
     · exact EnvWF.cons henv (constWF_intro' htf htp
         (Expr.constsResolve_mono htr) htb
         (fun _ _ _ heq => nomatch heq)
@@ -176,7 +176,7 @@ theorem checkIndMemberS_run {blockNames : List Name} {caps : IndCaps}
   | ctorInfo cv nP nF =>
     obtain ⟨hfe, rfl⟩ := pureI_ok h
     subst hfe
-    refine ⟨hs₂.wf, rfl, ?_, F₁, ?_⟩
+    refine ⟨hs₂.residue, rfl, ?_, F₁, ?_⟩
     · exact EnvWF.cons henv (constWF_intro' htf htp
         (Expr.constsResolve_mono htr) htb
         (fun _ _ _ heq => nomatch heq)
@@ -195,10 +195,10 @@ theorem checkIndMemberS_run {blockNames : List Name} {caps : IndCaps}
 theorem foldIndMemberS_run {blockNames : List Name} {caps : IndCaps} :
     ∀ (cis : List ConstantInfo) (env : Env) {s₀ : IState}
       {fe' : FEnv} {s' : IState},
-      EnvWF env → s₀.store.WF →
+      EnvWF env → ISOKF s₀ →
       (cis.foldlM (checkIndMemberS blockNames caps) (mkFEnv env)) s₀ =
         .ok (fe', s') →
-      s'.store.WF ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
+      ISOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
       ∃ F, (cis.foldlM (checkIndMember fueledOpsM blockNames caps)
         env).val F = .ok fe'.env
   | [], env, s₀, fe', s', henv, hwf, h => by
@@ -224,9 +224,9 @@ theorem provisionRecsS_run {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) (env : Env) {s₀ : IState}
       {p : FEnv × List (ConstantVal × Nat × Nat × List RecRule)}
       {s' : IState},
-      EnvWF env → s₀.store.WF →
+      EnvWF env → ISOKF s₀ →
       provisionRecsS blockNames (mkFEnv env) recs s₀ = .ok (p, s') →
-      s'.store.WF ∧ p.1 = mkFEnv p.1.env ∧ EnvWF p.1.env ∧
+      ISOKF s' ∧ p.1 = mkFEnv p.1.env ∧ EnvWF p.1.env ∧
       ∃ F, (provisionRecs fueledOpsM blockNames env recs).val F =
         .ok (p.1.env, p.2)
   | [], env, s₀, p, s', henv, hwf, h => by
@@ -247,11 +247,11 @@ theorem provisionRecsS_run {blockNames : List Name} :
     obtain ⟨u, s₁, hflush, h⟩ := bindI_ok h
     rw [flushS_run] at hflush
     injection hflush with hflush
-    obtain rfl : ({ store := s₀.store } : IState) = s₁ :=
+    obtain rfl : s₀.flushed = s₁ :=
       congrArg Prod.snd hflush
     obtain ⟨cvA, s₂, hcm, h⟩ := bindI_ok h
     obtain ⟨hs₂, hext₂, cvA', ⟨rfl, hwty⟩, F₁, hFm⟩ :=
-      (checkMemberValS_sim henv (ISOK.fresh env hwf)) cvA s₂ hcm
+      (checkMemberValS_sim henv (flushS_isok hwf)) cvA s₂ hcm
     have hFmp : checkMemberVal (fueledOps F₁) blockNames env
         (ConstantInfo.recInfo cv mI rP rules).toConstantVal = .ok cvA := by
       rw [← checkMemberVal_datF]; exact hFm
@@ -262,7 +262,7 @@ theorem provisionRecsS_run {blockNames : List Name} :
     rw [show (mkFEnv env).push (.recInfo cvA mI rP []) =
       mkFEnv ⟨.recInfo cvA mI rP [] :: env.consts⟩ from rfl] at hrec
     obtain ⟨hwf₃, hfeS, henvS, F₂, hF₂⟩ :=
-      provisionRecsS_run rest _ henv₁ hs₂.wf hrec
+      provisionRecsS_run rest _ henv₁ hs₂.residue hrec
     obtain ⟨feSelf, others⟩ := p'
     obtain ⟨hfe, rfl⟩ := pureI_ok h
     subst hfe
@@ -322,7 +322,7 @@ private theorem iotaFoldS_run {env₂ envSelf : Env}
             0 c.2.2.2
           pure (acc.push (.recInfo c.1 c.2.1 c.2.2.1 rules'))) acc) s₀ =
         .ok (fe₃, s') →
-      s'.store.WF ∧ (acc = mkFEnv acc.env → fe₃ = mkFEnv fe₃.env) ∧
+      ISOKF s' ∧ (acc = mkFEnv acc.env → fe₃ = mkFEnv fe₃.env) ∧
       ∃ F, (checked.foldlM (fun (acc : Env) (c : ConstantVal × Nat × Nat × List RecRule) => do
           let rules' ← checkIotaRules fueledOpsM env₂ envSelf f c.1.name
             c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
@@ -331,7 +331,7 @@ private theorem iotaFoldS_run {env₂ envSelf : Env}
   | [], acc, s₀, fe₃, s', _, hs, h => by
     obtain ⟨hfe, rfl⟩ := pureI_ok h
     subst hfe
-    exact ⟨hs.wf, fun hacc => hacc, 0, rfl⟩
+    exact ⟨hs.residue, fun hacc => hacc, 0, rfl⟩
   | c :: rest, acc, s₀, fe₃, s', htys, hs, h => by
     rw [List.foldlM_cons] at h
     obtain ⟨acc₁, s₁, hstep, h⟩ := bindI_ok h
@@ -397,10 +397,10 @@ private theorem iotaFold_datF {env₂ envSelf : Env} {f : Name → Name}
 theorem checkIndRecsS_run {blockNames : List Name} {env₂ : Env}
     {recs : List ConstantInfo} (henv₂ : EnvWF env₂)
     (hbn : ∀ ci ∈ recs, blockNames.contains ci.name = true)
-    {s₀ : IState} (hwf : s₀.store.WF) {fe₃ : FEnv} {s' : IState}
+    {s₀ : IState} (hwf : ISOKF s₀) {fe₃ : FEnv} {s' : IState}
     (h : checkIndRecsS blockNames (mkFEnv env₂) recs s₀ =
       .ok (fe₃, s')) :
-    s'.store.WF ∧ fe₃ = mkFEnv fe₃.env ∧ EnvWF fe₃.env ∧
+    ISOKF s' ∧ fe₃ = mkFEnv fe₃.env ∧ EnvWF fe₃.env ∧
     ∃ F, (checkIndRecs fueledOpsM blockNames env₂ recs).val F =
       .ok fe₃.env := by
   unfold checkIndRecsS at h
@@ -429,7 +429,7 @@ theorem checkIndRecsS_run {blockNames : List Name} {env₂ : Env}
   obtain ⟨u, s₂, hflush, h⟩ := bindI_ok h
   rw [flushS_run] at hflush
   injection hflush with hflush
-  obtain rfl : ({ store := s₁.store } : IState) = s₂ :=
+  obtain rfl : s₁.flushed = s₂ :=
     congrArg Prod.snd hflush
   -- the pure provisioning run and its facts
   have hprovP : provisionRecs (fueledOps F₁) blockNames env₂ recs =
@@ -446,7 +446,7 @@ theorem checkIndRecsS_run {blockNames : List Name} {env₂ : Env}
   rw [hfeS] at h
   simp only [checkIotaRulesF_eq] at h
   obtain ⟨hwf', hfe₃, F₂, hF₂⟩ := iotaFoldS_run henv₂ henvS checked
-    (mkFEnv env₂) htys (ISOK.fresh feSelf.env hwf₁) h
+    (mkFEnv env₂) htys (flushS_isok hwf₁) h
   have hfe₃' : fe₃ = mkFEnv fe₃.env := hfe₃ rfl
   -- both phases at the joined fuel, for the `RulesChain` machinery
   have hF₁M : (provisionRecs fueledOpsM blockNames env₂ recs).val
@@ -537,7 +537,7 @@ theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
     {s₀ : IState} (hs : ISOK env s₀) {fe' : FEnv} {s' : IState}
     (h : checkProjFnS (mkFEnv env) T ctorName lps nP nF i s₀ =
       .ok (fe', s')) :
-    s'.store.WF ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
+    ISOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
     ∃ F, (checkProjFn fueledOpsM env T ctorName lps nP nF i).val F =
       .ok fe'.env := by
   unfold checkProjFnS at h
@@ -635,7 +635,7 @@ theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
           .plain else .inert, rhsA⟩] :: env.consts⟩ : Env) := by
     rw [checkProjFn_datF]
     exact hFnp
-  refine ⟨hs₄.wf, rfl, ?_, F₁, hFn⟩
+  refine ⟨hs₄.residue, rfl, ?_, F₁, hFn⟩
   -- the installed projection recursor is well-formed
   obtain ⟨cvj', mcv', hlk', pty', hty', ⟨_, hshape'⟩, hi', rhsA',
     hrule', ⟨_, hio'⟩, heq⟩ := checkProjFn_inv hFnp
@@ -671,10 +671,10 @@ theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
 /-- One projection-function install step. -/
 theorem installProjFnStepS_run {env : Env} (henv : EnvWF env)
     {T ctorName : Name} {lps : List Name} {nP nF i : Nat}
-    {s₀ : IState} (hwf : s₀.store.WF) {fe' : FEnv} {s' : IState}
+    {s₀ : IState} (hwf : ISOKF s₀) {fe' : FEnv} {s' : IState}
     (h : installProjFnStepS T ctorName lps nP nF (mkFEnv env) i s₀ =
       .ok (fe', s')) :
-    s'.store.WF ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
+    ISOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
     ∃ F, (installProjFnStep fueledOpsM T ctorName lps nP nF env
       i).val F = .ok fe'.env := by
   unfold installProjFnStepS at h
@@ -684,10 +684,10 @@ theorem installProjFnStepS_run {env : Env} (henv : EnvWF env)
     obtain ⟨u, s₁, hflush, h⟩ := bindI_ok h
     rw [flushS_run] at hflush
     injection hflush with hflush
-    obtain rfl : ({ store := s₀.store } : IState) = s₁ :=
+    obtain rfl : s₀.flushed = s₁ :=
       congrArg Prod.snd hflush
     obtain ⟨hwf', hfe', henv', F, hF⟩ :=
-      checkProjFnS_run henv (ISOK.fresh env hwf) h
+      checkProjFnS_run henv (flushS_isok hwf) h
     refine ⟨hwf', hfe', henv', F, ?_⟩
     unfold installProjFnStep
     rw [FueledM.atF_ite, if_pos hart]
@@ -705,10 +705,10 @@ theorem foldProjFnS_run {T ctorName : Name} {lps : List Name}
     {nP nF : Nat} :
     ∀ (idxs : List Nat) (env : Env) {s₀ : IState} {fe' : FEnv}
       {s' : IState},
-      EnvWF env → s₀.store.WF →
+      EnvWF env → ISOKF s₀ →
       (idxs.foldlM (installProjFnStepS T ctorName lps nP nF)
         (mkFEnv env)) s₀ = .ok (fe', s') →
-      s'.store.WF ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
+      ISOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
       ∃ F, (idxs.foldlM (installProjFnStep fueledOpsM T ctorName lps
         nP nF) env).val F = .ok fe'.env
   | [], env, s₀, fe', s', henv, hwf, h => by
@@ -848,7 +848,7 @@ set_option maxHeartbeats 1600000 in
 /-- The inductive block at the shared driver is reproduced by the
 pure fueled `checkIndDecl`. -/
 theorem checkIndDeclSF_run {env : Env} (henv : EnvWF env)
-    {block : List ConstantInfo} {s₀ : IState} (hwf : s₀.store.WF)
+    {block : List ConstantInfo} {s₀ : IState} (hwf : ISOKF s₀)
     {feOut : FEnv} {s' : IState}
     (h : checkIndDeclSF (mkFEnv env) block s₀ = .ok (feOut, s')) :
     feOut = mkFEnv feOut.env ∧
@@ -1017,7 +1017,7 @@ theorem checkDeclSharedF_bridge {env : Env} {d : Declaration}
     rw [hrun] at h
     simp only [Functor.map, Except.map, Except.ok.injEq] at h
     subst h
-    have hwf0 : (({} : IState)).store.WF := empty_wf
+    have hwf0 : ISOKF ({} : IState) := ISOKF.fresh empty_wf
     cases d with
     | indDecl block =>
       exact checkIndDeclSF_run henv hwf0 hrun
@@ -1028,7 +1028,7 @@ theorem checkDeclSharedF_bridge {env : Env} {d : Declaration}
       obtain ⟨hfe, rfl⟩ := pureI_ok hrun
       subst hfe
       obtain ⟨hs', hext, v', hP, F, hF⟩ :=
-        (checkDeclS_nonind_sim henv (ISOK.fresh env hwf0)
+        (checkDeclS_nonind_sim henv (ISOK.fresh env hwf0.wf)
           (fun _ h => Declaration.noConfusion h)) envO s₁ hgen
       obtain rfl : envO = v' := hP
       refine ⟨rfl, F, ?_⟩
@@ -1041,7 +1041,7 @@ theorem checkDeclSharedF_bridge {env : Env} {d : Declaration}
       obtain ⟨hfe, rfl⟩ := pureI_ok hrun
       subst hfe
       obtain ⟨hs', hext, v', hP, F, hF⟩ :=
-        (checkDeclS_nonind_sim henv (ISOK.fresh env hwf0)
+        (checkDeclS_nonind_sim henv (ISOK.fresh env hwf0.wf)
           (fun _ h => Declaration.noConfusion h)) envO s₁ hgen
       obtain rfl : envO = v' := hP
       refine ⟨rfl, F, ?_⟩
@@ -1054,7 +1054,7 @@ theorem checkDeclSharedF_bridge {env : Env} {d : Declaration}
       obtain ⟨hfe, rfl⟩ := pureI_ok hrun
       subst hfe
       obtain ⟨hs', hext, v', hP, F, hF⟩ :=
-        (checkDeclS_nonind_sim henv (ISOK.fresh env hwf0)
+        (checkDeclS_nonind_sim henv (ISOK.fresh env hwf0.wf)
           (fun _ h => Declaration.noConfusion h)) envO s₁ hgen
       obtain rfl : envO = v' := hP
       refine ⟨rfl, F, ?_⟩
@@ -1067,7 +1067,7 @@ theorem checkDeclSharedF_bridge {env : Env} {d : Declaration}
       obtain ⟨hfe, rfl⟩ := pureI_ok hrun
       subst hfe
       obtain ⟨hs', hext, v', hP, F, hF⟩ :=
-        (checkDeclS_nonind_sim henv (ISOK.fresh env hwf0)
+        (checkDeclS_nonind_sim henv (ISOK.fresh env hwf0.wf)
           (fun _ h => Declaration.noConfusion h)) envO s₁ hgen
       obtain rfl : envO = v' := hP
       refine ⟨rfl, F, ?_⟩
@@ -1080,7 +1080,7 @@ theorem checkDeclSharedF_bridge {env : Env} {d : Declaration}
       obtain ⟨hfe, rfl⟩ := pureI_ok hrun
       subst hfe
       obtain ⟨hs', hext, v', hP, F, hF⟩ :=
-        (checkDeclS_nonind_sim henv (ISOK.fresh env hwf0)
+        (checkDeclS_nonind_sim henv (ISOK.fresh env hwf0.wf)
           (fun _ h => Declaration.noConfusion h)) envO s₁ hgen
       obtain rfl : envO = v' := hP
       refine ⟨rfl, F, ?_⟩
