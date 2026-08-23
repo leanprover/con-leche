@@ -33,23 +33,50 @@ def findPreprocessor : IO (Option String) := do
   -- fall back to PATH resolution by just trying the bare name at spawn time
   return some "lean-inductive-models"
 
+/-- Does the input contain records the preprocessor must reduce
+(`inductive`/`quot`)?  Streaming scan, line by line — the keys cannot
+span a line boundary (ndjson, no newlines inside a record). -/
+partial def needsPreprocess (file : String) : IO Bool := do
+  let h ← IO.FS.Handle.mk file .read
+  let rec loop : IO Bool := do
+    let line ← h.getLine
+    if line.isEmpty then
+      return false
+    if (line.splitOn "\"inductive\"").length > 1 ||
+        (line.splitOn "\"quot\"").length > 1 then
+      return true
+    loop
+  loop
+
 /-- Run the preprocessor over the input, reducing inductives to the
-modelled basis.  On any failure to run it, fall back to the raw input
+modelled basis.  Returns the path to parse plus whether it is a temp
+file the caller must remove: the tool writes its output *to a file*
+(`-o path`), so this process never buffers input or output wholesale
+(task #57; the tool's own working memory — ~650 MB on init-full — is
+its own, residual until lean-inductive-models itself streams).  The
+temp file lives in the system temp directory (honors `TMPDIR`; note
+`/tmp` is commonly tmpfs, so point `TMPDIR` at a disk for huge
+streams).  On any failure to run the tool, fall back to the raw input
 (the checker then declines at the first inductive). -/
-def preprocess (file : String) (contents : String) : IO String := do
-  unless ((contents.splitOn "\"inductive\"").length > 1 ||
-      (contents.splitOn "\"quot\"").length > 1) do
-    return contents
-  let some tool ← findPreprocessor | return contents
+def preprocess (file : String) : IO (String × Bool) := do
+  unless (← needsPreprocess file) do
+    return (file, false)
+  let some tool ← findPreprocessor | return (file, false)
+  -- only the fresh path is needed; the dropped handle is closed by its
+  -- finalizer, and the tool overwrites the (empty) file via `-o`
+  let (_, tmpPath) ← IO.FS.createTempFile
   try
-    let out ← IO.Process.output { cmd := tool, args := #["--quiet", "-o", "-", file] }
+    let out ← IO.Process.output
+      { cmd := tool, args := #["--quiet", "-o", tmpPath.toString, file] }
     if out.exitCode = 0 then
-      return out.stdout
+      return (tmpPath.toString, true)
     else
       IO.eprintln s!"setlec: preprocessor exited {out.exitCode}; using raw input"
-      return contents
+      try IO.FS.removeFile tmpPath catch _ => pure ()
+      return (file, false)
   catch _ =>
-    return contents
+    try IO.FS.removeFile tmpPath catch _ => pure ()
+    return (file, false)
 
 /-- Progress-mode driver loop, as explicit recursion with the
 accumulators passed as plain arguments: a `for`-loop's boxed state
@@ -91,59 +118,67 @@ def checkMain (file : String) (yolo : Bool) : IO UInt32 := do
     let noCerts := yolo || (← IO.getEnv "SETLEC_NO_PROOF_CERTS") == some "1"
     let stepF := if noCerts then checkDeclSPStepNC else checkDeclSPStep
     let foldF := if noCerts then checkDeclsSPNC else checkDeclsSP
-    let contents ← preprocess file (← IO.FS.readFile file)
-    match Frontend.parseExport contents (modeled := true) with
-    | .error (.unsupported what) =>
-      IO.eprintln s!"setlec: declined: {what}"
-      return 2
-    | .error (.parseError line msg) =>
-      IO.eprintln s!"setlec: {file}:{line}: {msg}"
-      return 3
-    | .ok (store, decls) =>
-      -- Progress instrumentation for long runs (init-prelude probes):
-      -- with SETLEC_PROGRESS set, check declaration by declaration and
-      -- print a `DECL:` line before each (fold and interned state
-      -- threaded exactly as in checkDeclsSP).
-      let n0 := store.nodes.size
-      if (← IO.getEnv "SETLEC_PROGRESS").isSome then
-        unless store.wfB do
-          IO.eprintln "setlec: parse store not canonical"
-          return 3
-        let stats := (← IO.getEnv "SETLEC_STATS").isSome
-        return ← progressLoop stats stepF n0 decls 0
-          (Setlec.mkFEnv Setlec.Env.empty) { store := store }
-      match foldF store decls.toList with
-      | .ok env =>
-        IO.println s!"setlec: accepted {env.consts.length} declarations"
-        return 0
-      | .error e =>
-        -- Diagnostic second pass: the verdict above is the verified
-        -- run; this only locates the failing declaration for the
-        -- message.  The input is re-parsed: the verified run must own
-        -- the parse store exclusively (a live second reference would
-        -- turn every arena push into a whole-table copy), so the
-        -- original store was moved into it.
-        let declName : Setlec.DeclP → String := fun d =>
-          match d with
-          | .defnDecl cv _ _ => s!"def {cv.name}"
-          | .thmDecl cv _ => s!"theorem {cv.name}"
-          | .opaqueDecl cv _ => s!"opaque {cv.name}"
-          | .axiomDecl cv => s!"axiom {cv.name}"
-          | .indDecl b => s!"inductive {(b.head?.map (·.name)).getD .anonymous}"
-          | .basisDecl k => s!"basis block {repr k}"
-        let ctx := match Frontend.parseExport contents (modeled := true) with
-          | .error _ => ""
-          | .ok (store2, decls2) => Id.run do
-            let n2 := store2.nodes.size
-            let mut fe := Setlec.mkFEnv Setlec.Env.empty
-            let mut s : Setlec.IState := { store := store2 }
-            for d in decls2 do
-              match stepF n2 fe d s with
-              | .ok (fe', s') => fe := fe'; s := s'
-              | .error _ => return s!" [at {declName d}]"
-            return ""
-        IO.eprintln s!"setlec: {e}{ctx}"
-        return e.exitCode
+    -- Streaming frontend (task #57): the preprocessor writes to a temp
+    -- file and the parse reads line by line — no wholesale text buffer
+    -- in this process; retained memory is the parse arena plus the
+    -- declaration records.
+    let (path, isTemp) ← preprocess file
+    try
+      match ← Frontend.parseExportStream path (modeled := true) with
+      | .error (.unsupported what) =>
+        IO.eprintln s!"setlec: declined: {what}"
+        return 2
+      | .error (.parseError line msg) =>
+        IO.eprintln s!"setlec: {file}:{line}: {msg}"
+        return 3
+      | .ok (store, decls) =>
+        -- Progress instrumentation for long runs (init-prelude probes):
+        -- with SETLEC_PROGRESS set, check declaration by declaration and
+        -- print a `DECL:` line before each (fold and interned state
+        -- threaded exactly as in checkDeclsSP).
+        let n0 := store.nodes.size
+        if (← IO.getEnv "SETLEC_PROGRESS").isSome then
+          unless store.wfB do
+            IO.eprintln "setlec: parse store not canonical"
+            return 3
+          let stats := (← IO.getEnv "SETLEC_STATS").isSome
+          return ← progressLoop stats stepF n0 decls 0
+            (Setlec.mkFEnv Setlec.Env.empty) { store := store }
+        match foldF store decls.toList with
+        | .ok env =>
+          IO.println s!"setlec: accepted {env.consts.length} declarations"
+          return 0
+        | .error e =>
+          -- Diagnostic second pass: the verdict above is the verified
+          -- run; this only locates the failing declaration for the
+          -- message.  The input is re-parsed (from the file, streaming):
+          -- the verified run must own the parse store exclusively (a
+          -- live second reference would turn every arena push into a
+          -- whole-table copy), so the original store was moved into it.
+          let declName : Setlec.DeclP → String := fun d =>
+            match d with
+            | .defnDecl cv _ _ => s!"def {cv.name}"
+            | .thmDecl cv _ => s!"theorem {cv.name}"
+            | .opaqueDecl cv _ => s!"opaque {cv.name}"
+            | .axiomDecl cv => s!"axiom {cv.name}"
+            | .indDecl b => s!"inductive {(b.head?.map (·.name)).getD .anonymous}"
+            | .basisDecl k => s!"basis block {repr k}"
+          let ctx := match ← Frontend.parseExportStream path (modeled := true) with
+            | .error _ => ""
+            | .ok (store2, decls2) => Id.run do
+              let n2 := store2.nodes.size
+              let mut fe := Setlec.mkFEnv Setlec.Env.empty
+              let mut s : Setlec.IState := { store := store2 }
+              for d in decls2 do
+                match stepF n2 fe d s with
+                | .ok (fe', s') => fe := fe'; s := s'
+                | .error _ => return s!" [at {declName d}]"
+              return ""
+          IO.eprintln s!"setlec: {e}{ctx}"
+          return e.exitCode
+    finally
+      if isTemp then
+        try IO.FS.removeFile path catch _ => pure ()
 
 def main (args : List String) : IO UInt32 := do
   -- `--yolo`: command-line alias for SETLEC_NO_PROOF_CERTS=1 (the

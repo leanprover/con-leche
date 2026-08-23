@@ -554,22 +554,61 @@ private def processLine (st : State) (j : Json)
       pure (.inr "declaration's unshared tree size exceeds the frontend budget (heavily DAG-shared input; this record kind still materializes trees)")
     else throw e
 
-/-- Parse a whole export file into the parse arena and the declarations
-it contains, in order. -/
+/-- Initial parse state: the implicit level-table index 0 (`zero`)
+pre-interned. -/
+private def initState : State :=
+  let (z0, store0) := EStore.empty.internL .zero
+  { store := store0, levels := .ofList [(0, z0)] }
+
+/-- Feed one line of the export (trailing newline already stripped) into
+the parse state; blank lines are skipped.  The state is threaded
+linearly (moved in, moved out) so the arena keeps its exclusive
+reference across lines. -/
+private def feedLine (st : State) (line : String) (lineNo : Nat)
+    (modeled : Bool) : Except FrontendError State :=
+  if line.trimAscii.isEmpty then .ok st
+  else
+    match Json.parse line >>= (fun j => processLine st j modeled) with
+    | .error msg => .error (.parseError lineNo msg)
+    | .ok (.inr what) => .error (.unsupported what)
+    | .ok (.inl st) => .ok st
+
+/-- Parse a whole in-memory export into the parse arena and the
+declarations it contains, in order.  (Wholesale entry point, kept for
+tests and small inputs; the driver streams via `parseExportStream`.) -/
 def parseExport (contents : String) (modeled : Bool := false) :
     Except FrontendError (EStore × Array DeclP) := do
-  -- pre-intern the implicit level-table index 0 (`zero`)
-  let (z0, store0) := EStore.empty.internL .zero
-  let mut st : State := { store := store0, levels := .ofList [(0, z0)] }
+  let mut st := initState
   let mut lineNo := 0
   for line in contents.splitToList (· == '\n') do
     lineNo := lineNo + 1
-    if line.trimAscii.isEmpty then
-      continue
-    match Json.parse line >>= (fun j => processLine st j modeled) with
-    | .error msg => throw (.parseError lineNo msg)
-    | .ok (.inr what) => throw (.unsupported what)
-    | .ok (.inl st') => st := st'
+    st ← feedLine st line lineNo modeled
   return (st.store, st.decls)
+
+/-- Streaming parse (task #57): read the export line by line from the
+file, feeding each record into the parse arena as it arrives — the raw
+text is transient (one line at a time), so retained memory is
+proportional to the arena and the declaration records, never to the
+text.  Explicit recursion with the state as a plain argument, not a
+`for`/`while` loop: a loop's boxed state tuple keeps the arena shared
+across the step, and the first insert then copies the whole node/hash
+tables (see `progressLoop` in `Main.lean`). -/
+partial def parseExportStream (path : System.FilePath)
+    (modeled : Bool := false) :
+    IO (Except FrontendError (EStore × Array DeclP)) := do
+  let h ← IO.FS.Handle.mk path .read
+  let rec loop (lineNo : Nat) (st : State) :
+      IO (Except FrontendError (EStore × Array DeclP)) := do
+    let raw ← h.getLine
+    if raw.isEmpty then
+      return .ok (st.store, st.decls)
+    -- strip exactly the trailing newline (mirroring the wholesale
+    -- entry point's `splitToList (· == '\n')`; a `\r` before it is
+    -- kept, as there).  `copy` detaches the line from the read buffer.
+    let line := if raw.back == '\n' then (raw.dropEnd 1).copy else raw
+    match feedLine st line (lineNo + 1) modeled with
+    | .error e => return .error e
+    | .ok st => loop (lineNo + 1) st
+  loop 0 initState
 
 end Setlec.Frontend
