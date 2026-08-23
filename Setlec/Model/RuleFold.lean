@@ -42,6 +42,22 @@ theorem InstArgs.of_fvarSpine {D : Nat} {ρ : Nat → V} :
         (fun b hb' => hwf b (List.mem_cons_of_mem _ hb'))⟩
 
 /-- `InstArgs` restricts to a suffix. -/
+theorem InstArgs.of_pointwise {D : Nat} {ρ : Nat → V} :
+    ∀ {as : List Expr} {vs : List V},
+      as.length = vs.length →
+      (∀ (k : Nat) (a : Expr) (v : V), as[k]? = some a →
+        vs[k]? = some v → WScoped D a ∧ a.looseBVarsBounded 0 = true ∧
+        interpExpr V cval env φ D ρ a = some v) →
+      InstArgs cval env φ D ρ as vs
+  | [], [], _, _ => trivial
+  | [], _ :: _, h, _ => by simp at h
+  | _ :: _, [], h, _ => by simp at h
+  | a :: as, v :: vs, hlen, hpt => by
+    refine ⟨hpt 0 a v rfl rfl, ?_⟩
+    exact InstArgs.of_pointwise (by simpa using hlen)
+      (fun k x w hx hw => hpt (k + 1) x w (by simpa using hx)
+        (by simpa using hw))
+
 theorem InstArgs.drop {D : Nat} {ρ : Nat → V} (k : Nat) :
     ∀ {args : List Expr} {vs : List V},
       InstArgs cval env φ D ρ args vs →
@@ -846,6 +862,24 @@ theorem LeavesBounded_instSeq :
     exact ih (t - 1)
       (LeavesBounded.instantiate1 hL (hargs a List.mem_cons_self))
       (fun b hb => hargs b (List.mem_cons_of_mem _ hb))
+
+omit [SetTheory V] in
+/-- Free-variable leaves through an instantiation sequence. -/
+theorem fvarLeaves_instSeq :
+    ∀ (args : List Expr) (t : Nat) {e : Expr}
+      {l : Nat × Name × Expr},
+      l ∈ (instSeq args t e).fvarLeaves →
+      l ∈ e.fvarLeaves ∨ ∃ a ∈ args, l ∈ a.fvarLeaves := by
+  intro args
+  induction args with
+  | nil => intro t e l hl; exact Or.inl hl
+  | cons a as ih =>
+    intro t e l hl
+    rcases ih (t - 1) hl with hl' | ⟨b, hb, hlb⟩
+    · rcases fvarLeaves_instantiate1 e t hl' with h | h
+      · exact Or.inl h
+      · exact Or.inr ⟨a, List.mem_cons_self, h⟩
+    · exact Or.inr ⟨b, List.mem_cons_of_mem _ hb, hlb⟩
 
 /-- The canonical tower's frame is well-formed, from stored data
 alone: the syntactic half of a `RecRulesOk` clause, shared by the

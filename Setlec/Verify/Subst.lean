@@ -495,6 +495,24 @@ theorem mkAppN_instantiate1 {v : Expr} :
     rfl
 
 /-- Erasure-equality is transitive. -/
+theorem ErasedEq.symm : ∀ {e₁ e₂ : Expr}, ErasedEq e₁ e₂ → ErasedEq e₂ e₁
+  | .bvar _, .bvar _, h => Eq.symm h
+  | .fvar _ _ _, .fvar _ _ _, h => Eq.symm h
+  | .sort _, .sort _, h => Eq.symm h
+  | .const _ _, .const _ _, h => ⟨Eq.symm h.1, Eq.symm h.2⟩
+  | .app _ _, .app _ _, h => ⟨ErasedEq.symm h.1, ErasedEq.symm h.2⟩
+  | .lam _ _ _ _, .lam _ _ _ _, h =>
+    ⟨Eq.symm h.1, ErasedEq.symm h.2.1, ErasedEq.symm h.2.2⟩
+  | .forallE _ _ _ _, .forallE _ _ _ _, h =>
+    ⟨Eq.symm h.1, ErasedEq.symm h.2.1, ErasedEq.symm h.2.2⟩
+  | .letE _ _ _ _, .letE _ _ _ _, h =>
+    ⟨ErasedEq.symm h.1, ErasedEq.symm h.2.1, ErasedEq.symm h.2.2⟩
+  | .lit _, .lit _, h => Eq.symm h
+  | .proj _ _ _, .proj _ _ _, h =>
+    ⟨Eq.symm h.1, Eq.symm h.2.1, ErasedEq.symm h.2.2⟩
+
+/-- Split a `∀`-telescope decomposition at a prefix length: the
+residual of the prefix strips the remaining binders. -/
 theorem ErasedEq.trans :
     ∀ {e₁ e₂ e₃ : Expr}, ErasedEq e₁ e₂ → ErasedEq e₂ e₃ → ErasedEq e₁ e₃ := by
   intro e₁
@@ -734,6 +752,26 @@ theorem instSeq_erasedEq :
   | cons a as ih =>
     intro t X Y h
     exact ih (t - 1) (ErasedEq.instantiate1 h (ErasedEq.rfl a))
+
+/-- `instSeq` congruence under erasure across two argument spines
+(pairwise erased-equal, e.g. the same-index free variables of two
+frames). -/
+theorem instSeq_erasedEq_args :
+    ∀ (args₁ args₂ : List Expr) (t : Nat) {X Y : Expr},
+      ErasedEq X Y →
+      (∀ (k : Nat) (a₁ a₂ : Expr), args₁[k]? = some a₁ →
+        args₂[k]? = some a₂ → ErasedEq a₁ a₂) →
+      args₁.length = args₂.length →
+      ErasedEq (instSeq args₁ t X) (instSeq args₂ t Y)
+  | [], [], t, X, Y, hXY, _, _ => hXY
+  | [], _ :: _, _, _, _, _, _, hlen => by simp at hlen
+  | _ :: _, [], _, _, _, _, _, hlen => by simp at hlen
+  | a₁ :: as₁, a₂ :: as₂, t, X, Y, hXY, hpt, hlen => by
+    refine instSeq_erasedEq_args as₁ as₂ (t - 1)
+      (ErasedEq.instantiate1 hXY (hpt 0 a₁ a₂ rfl rfl)) ?_
+      (by simpa using hlen)
+    intro k b₁ b₂ hb₁ hb₂
+    exact hpt (k + 1) b₁ b₂ (by simpa using hb₁) (by simpa using hb₂)
 
 /-- Instantiations strictly above a lift's inserted range drop past
 it. -/

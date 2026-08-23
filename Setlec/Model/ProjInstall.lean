@@ -25,24 +25,6 @@ open SetTheory
 
 namespace Expr
 
-theorem ErasedEq.symm : ∀ {e₁ e₂ : Expr}, ErasedEq e₁ e₂ → ErasedEq e₂ e₁
-  | .bvar _, .bvar _, h => Eq.symm h
-  | .fvar _ _ _, .fvar _ _ _, h => Eq.symm h
-  | .sort _, .sort _, h => Eq.symm h
-  | .const _ _, .const _ _, h => ⟨Eq.symm h.1, Eq.symm h.2⟩
-  | .app _ _, .app _ _, h => ⟨ErasedEq.symm h.1, ErasedEq.symm h.2⟩
-  | .lam _ _ _ _, .lam _ _ _ _, h =>
-    ⟨Eq.symm h.1, ErasedEq.symm h.2.1, ErasedEq.symm h.2.2⟩
-  | .forallE _ _ _ _, .forallE _ _ _ _, h =>
-    ⟨Eq.symm h.1, ErasedEq.symm h.2.1, ErasedEq.symm h.2.2⟩
-  | .letE _ _ _ _, .letE _ _ _ _, h =>
-    ⟨ErasedEq.symm h.1, ErasedEq.symm h.2.1, ErasedEq.symm h.2.2⟩
-  | .lit _, .lit _, h => Eq.symm h
-  | .proj _ _ _, .proj _ _ _, h =>
-    ⟨Eq.symm h.1, Eq.symm h.2.1, ErasedEq.symm h.2.2⟩
-
-/-- Split a `∀`-telescope decomposition at a prefix length: the
-residual of the prefix strips the remaining binders. -/
 theorem stripPis_add :
     ∀ (a b : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
       {body : Expr},
