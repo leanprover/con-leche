@@ -3753,13 +3753,30 @@ What remains, in dependency order:
    recursor's minor premise is where this bites: its field binders open
    at `nP+2 …` while the constructor's open at `nP …`, so the two
    openings are index-*shifted*, not index-matched, and `ErasedEq` does
-   not relate them.  This is the case `interp_instSeq_fvarFrames` was
-   built for ("two spines with pointwise equal values, at possibly
-   unrelated frames, yield equal interpretations"); using it needs one
-   bridge lemma first, characterizing `openPisAtFvars`'s residual and
-   domains as an `instSeq` of the stripped telescope — no such bridge
-   exists yet, which is why the relation-carrying induction that
-   sufficed for the other two does not reach here.
+   not relate them.  The relation-carrying induction that settled the
+   other two cannot reach it either: at a shifted frame the two sides
+   instantiate at different `fvar` indices, so there is no per-stage
+   syntactic relation to carry.
+
+   *The tool chain is mapped* (checked against the tree, not guessed):
+
+   * `stripPis_prefix` + **`stripPis_snoc`** (`Setlec/Verify/Subst.lean`)
+     — at spine length `n`, the telescope's residual is a `∀` whose
+     domain is the `n`-th stripped binder, and that binder is *closed*
+     (`stripPis_doms_hasFvar`) and bvar-bounded by `n`
+     (`stripPis_doms_bounded`);
+   * **`instPisAt_stripPis`** (`Setlec/Model/InstFrames.lean`) — exhibits
+     each opened domain as `instSeq` of that closed binder domain along
+     the spine prefix, and `instSeq_forallE` splits the residual;
+   * **`interp_instSeq_fvarFrames`** — settles the two interpretations
+     from `FvarSpine` on each side.
+
+   The one helper that does **not** exist yet is an `instPisAt` snoc
+   lemma (`instPisAt (sp ++ [a]) e` in terms of `instPisAt sp e` and one
+   further `instantiate1`), needed to extend the spines at the
+   induction step; `instSeq_append` is its `instSeq` counterpart and
+   `stripPis_snoc` the `stripPis` one, so it is a short induction in the
+   same style.
 
    With `of_shift` in hand the two `TeleBody` discharges follow the
    shape `directCtor_resid` already establishes: the minor's fit
