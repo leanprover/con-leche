@@ -3181,14 +3181,23 @@ What remains, in dependency order:
    `directProjVal_mem`/`directProj_body_mem`, with the residual
    identities read off `checkDirectCtor`'s opened-residual pin and
    `checkDirectRecTy`'s definitional pins (via `isDefEqCore_sound`).
+   The constructor's parameter-domain membership additionally needs the
+   reference kernels' `isDefEq` between the two parameter telescopes
+   (`Add.lean:220-222`) added to `checkDirectCtor`; a first attempt
+   stalled on the `checkDefEqList` pair-monad battery not firing in
+   that position (it fires in `checkDirectRecTy`, which has the same
+   call shape), so that battery needs a look before the check lands.
 3. **The rules' fold obligation** (`RecMemberOk`) for the recursor rule
    and the `nF` projection rules, through `TowerOk.of_stages`
    (`Setlec/Model/RuleFold.lean:1706`): the per-stage facts are the
    install's definitional domain pins, the bottom fact is
    `teleLamV_fold` composed with `directRec_iota` / `directProj_iota`.
-4. **The chain**: `extend_direct_companion` (landed) interleaved with
-   `extend_fresh` for the four real constants, then the direct case of
-   `checkIndDecl_sound` (`Setlec/Model/Extend/Decl.lean`).
+4. **The chain**: `extend_fresh` for the `3 + nF` constants (the
+   `ModeledOk` obligations are already vacuous for this class — `eta`
+   is `false`, the linkage is existence-premised and no companion
+   exists — so only `mem_type`, `annot_ok`, `val_params` and the folds
+   remain per constant), then the direct case of `checkIndDecl_sound`
+   (`Setlec/Model/Extend/Decl.lean`).
 5. **`Setlec/Model/BridgeS.lean`**: `checkDirectStructS`'s
    shared-state-to-pure bridge, including the `flushS`/`ISOK`
    re-establishment at each of the five phases, and the run-tied
