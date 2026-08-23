@@ -175,6 +175,40 @@ theorem Expr.constsResolve_congr {env₁ env₂ : Env}
   | lit l => cases l <;> simp_all [Expr.constsResolve]
   | _ => simp_all [Expr.constsResolve]
 
+/-- λ-tower domains of a resolving term resolve. -/
+theorem Expr.constsResolve_stripLams {env : Env} :
+    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+      {body : Expr},
+      e.stripLams k = some (bs, body) → e.constsResolve env = true →
+      (∀ b ∈ bs, (b.2.1).constsResolve env = true) ∧
+      body.constsResolve env = true := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs body h hres
+    simp only [Expr.stripLams, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨fun b hb => absurd hb (List.not_mem_nil), hres⟩
+  | succ k ih =>
+    intro e bs body h hres
+    match e, h with
+    | .lam n ty b m, h =>
+      simp only [Expr.stripLams] at h
+      cases hs : b.stripLams k with
+      | none => rw [hs] at h; exact nomatch h
+      | some pr =>
+        rw [hs] at h
+        obtain ⟨bs', body'⟩ := pr
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        simp only [Expr.constsResolve, Bool.and_eq_true] at hres
+        obtain ⟨hd, hrest⟩ := ih hs hres.2
+        refine ⟨?_, hrest⟩
+        intro b' hb'
+        rcases List.mem_cons.mp hb' with rfl | hb'
+        · exact hres.1
+        · exact hd b' hb'
+
 /-- Telescope domains of a resolving type resolve. -/
 theorem Expr.constsResolve_stripPis {env : Env} :
     ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
