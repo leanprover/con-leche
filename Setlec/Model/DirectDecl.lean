@@ -1331,4 +1331,57 @@ theorem directRec_body {env₂ : Env} (m₂ : EnvModel V env₂)
           exact directRec_body_mem (M := fun y => SetTheory.app M0 y)
             (Level.isNonZero_sound hnz φ) hfldMin hxTow hmi
 
+omit [SetTheory V] in
+/-- The recursor's telescope length is part of the checked shape. -/
+theorem directShape_stripPis {T C : Name} {lps : List Name} {elim : Name}
+    {nP nF : Nat} {tty cty rty : Expr}
+    (h : directShape T C lps elim nP nF tty cty rty = true) :
+    (Expr.stripPis (nP + 3) rty).isSome = true := by
+  unfold directShape at h
+  split at h
+  · simp_all
+  · exact nomatch h
+
+/-- **The recursor's `mem_type`**: `⟦T.rec⟧` inhabits the
+interpretation of its (annotated) type, from `directRec_body`. -/
+theorem directRec_mem {env₂ : Env} (m₂ : EnvModel V env₂)
+    {F : Nat} {φ : Name → Nat} {p : DirectParts}
+    {cvTa cvCa cvRa : ConstantVal} {fvsC : List Expr} {crestC : Expr}
+    {cbs : List (Name × Expr × BinderMeta)}
+    (hrt : checkDirectRecTy (fueledOps F) env₂ p cvTa cvCa cvRa = .ok ())
+    (hnz : p.resSort.isNonZero = true)
+    (hfrRa : FrameOk V m₂.val env₂ φ 0 (rho0 V) cvRa.type)
+    (hfrC : FrameOk V m₂.val env₂ φ 0 (rho0 V) cvCa.type)
+    (hcq : openPisAtFvars p.nP cvCa.type 0 = some (fvsC, crestC))
+    (hstripC : Expr.stripPis (p.nP + p.nF) cvCa.type = some (cbs,
+      directFam p.cvT.name p.cvT.levelParams p.nP p.nF))
+    (hdomsCT : DomsInterpEq V m₂.val env₂ φ p.nP 0 (rho0 V)
+      cvCa.type cvTa.type)
+    (hfieldAt : ∀ (ps : List V) (d₁ : Nat) (ρ₁ : Nat → V) (mid : Expr),
+      TeleFit V m₂.val env₂ φ 0 (rho0 V) cvCa.type ps d₁ ρ₁ mid →
+      ps.length = p.nP →
+      FieldTele V m₂.val env₂ φ (p.resSort.eval φ) p.nF d₁ ρ₁ mid)
+    (hTfold : ∀ (ps : List V) (d₁ : Nat) (ρ₁ : Nat → V) (r : Expr),
+      TeleFit V m₂.val env₂ φ 0 (rho0 V) cvTa.type ps d₁ ρ₁ r →
+      ps.length = p.nP →
+      SpineFold V (m₂.val p.cvT.name φ) ps =
+        sigmaTowerV V m₂.val env₂ φ (p.resSort.eval φ) p.nF d₁ ρ₁ crestC)
+    (hCfold : ∀ (vs : List V) (d₁ : Nat) (ρ₁ : Nat → V) (r : Expr),
+      TeleFit V m₂.val env₂ φ 0 (rho0 V) cvCa.type vs d₁ ρ₁ r →
+      vs.length = p.nP + p.nF →
+      SpineFold V (m₂.val p.cvC.name φ) vs = tupleV (vs.drop p.nP))
+    (hTfind : env₂.find? p.cvT.name = some (.indInfo cvTa (directCaps p)))
+    (hTlps : cvTa.levelParams = p.cvT.levelParams)
+    (hTname : cvTa.name = p.cvT.name)
+    (hCfind : env₂.find? p.cvC.name = some (.ctorInfo cvCa p.nP p.nF))
+    (hClps : cvCa.levelParams = p.cvT.levelParams) :
+    ∃ Rv, interpClosed V m₂.val env₂ φ cvRa.type = some Rv ∧
+      directRecVal V m₂.val env₂ cvRa.type p.nP p.nF φ ∈ˢ Rv := by
+  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, hsh, -, -, -, -, -, -, -, -, -,
+    -, -, -, -, -, -⟩ := checkDirectRecTy_inv hrt
+  obtain ⟨Rv, hRv⟩ := hfrRa.it
+  exact ⟨Rv, hRv, directRecVal_mem (directShape_stripPis hsh) hRv hfrRa.an
+    (directRec_body m₂ hrt hnz hfrRa hfrC hcq hstripC hdomsCT hfieldAt
+      hTfold hCfold hTfind hTlps hTname hCfind hClps)⟩
+
 end Setlec
