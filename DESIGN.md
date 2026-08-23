@@ -2606,3 +2606,20 @@ view-steps and per-prefix argument-list allocation; a spine loop in
 conversion inside `instantiateListI` per non-identity call with a
 growing accumulator, and `Expr.allLevelParamsDefined` walking deep
 codomain-annotation trees once per declaration guard.
+
+### Theorems are delta-unfoldable (verified 2026-08-23)
+
+The kernel delta-unfolds theorems, with the implicit `opaque` hint
+(unfold last) — matching the *current* official kernel: C++
+`constant_info::has_value()` (`declaration.h:466`, byte-identical on
+lean4 master as of 2026-08-20) includes theorems and is what
+`type_checker::is_delta` consults.  Trap for the reader: lean4#12973
+made the *elaborator-facing* `declaration::has_value` /
+`ConstantInfo.value?` exclude theorems ("now treated like opaque
+declarations"), but left the kernel predicate untouched — the two
+`has_value`s differ.  Empirical confirmation: the official arena
+binary accepts `good/undecidability/subject-reduction-redex` (whose
+only unfoldable constants are theorems) and rejects it with the
+theorems rewritten as axioms.  See lean4lean
+`Lean4Lean/Declaration.lean` (`deltaValue?` doc comment) for the same
+observation.
