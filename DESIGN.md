@@ -3019,6 +3019,72 @@ with `sigmaTowerV_split` supplying both the recursor's `mem_type`
 `tupleV (projs x) = x`) and the rule's fold equation
 (`projV_tupleV`).
 
+### The environment invariant, split (2026-08-23)
+
+`ModeledOk` conflated two things, and the direct path made the
+conflation visible: a directly installed structure has no `_model`
+companion, so it could not satisfy clauses whose *conclusion* was
+"my value is my companion's".  The fix is to split, not to synthesise
+companions (user ruling: we do not re-implement a preprocessor in the
+checker; the environment holds what the input declared plus the
+sanctioned `projFnName` projection-table family, nothing else).
+
+* **The capability laws are provenance-abstract.**  `EtaLaw`/`UnitLaw`
+  say what the reduction rules consume and nothing about how the family
+  was built, so a basis pin, an artifact check and a direct
+  construction all discharge them the same way — the `IndOk` pattern,
+  and the move `RecRulesOk` made in task #58.  `UnitLaw` is already
+  free of `_model` names, and the direct install discharges it from
+  `directTyVal_unitlike`.  `EtaLaw` still reaches the constructor and
+  the projections through *their* `_model` names, which is why the
+  direct install declares `eta := false`; making it public-named is the
+  one piece a direct-eta would need.
+* **The artifact linkage is existence-premised.**  "`val n` is
+  `val (n._model)`" now takes *the companion being stored* as a
+  hypothesis rather than asserting it.  For an artifact-installed
+  constant that is exactly as strong as before — the modeled install
+  stores the companion, so its proofs go through with one extra
+  `intro` — and for a directly installed constant it is vacuous by
+  construction (`directNoModel`).  The clause's docstring records why
+  it exists at all (the preprocessor proves its certificates over
+  `_model` names, so a later modeled block's rename-and-transport needs
+  the linkage of *earlier* blocks), its lifetime (per constant, to the
+  end of the stream — **not** group-local: models are built out of
+  earlier models), why it is free to carry (it records the assignment
+  the modeled install makes, not an extra obligation), and its end of
+  life (deletable once the last modeled class is gone).
+* **A model-family guard.**  A companion declared *after* its constant
+  would activate the linkage for a constant whose value was already
+  fixed without it, so `checkConstantVal` rejects that
+  (`modelFamilyTaken`).  It never fires on a preprocessed stream — the
+  preprocessor emits a block's artifacts before the block, checked
+  against its output (0 of 151 init-prelude blocks out of order) — and
+  a stream that did it the other way round never checked anyway,
+  because the modeled path looks the companion up *at* the block and
+  declines there.  So the guard moves a verdict, never an acceptance.
+
+### The endgame: ind-models' skip rule must be dependency-aware
+
+Once `lean-inductive-models` stops generating models for the direct
+class, the direct path takes over by absence — but the skip has to be
+computed over the *whole* export, not per declaration: a model may be
+built out of an **earlier** model, so a type whose model some later
+modeled construction references must keep its artifacts.  Leaf
+structures skip; structures nested through by later modeled types keep
+their models.  The constraint shrinks as the direct class grows.
+
+Measured on the init-prelude stream: of 149 inductive blocks, exactly
+**one** (`Trans`) has a model that references another block's model
+(`LT`'s).  So the dependency is rare — nearly every simple structure is
+a leaf and skippable — but real, and the tool has to compute it rather
+than assume it away.
+
+The checker is safe under **every** mixture of skipped and generated
+models: the only failure mode is the decline/reject pinned by the
+`direct_nested_dep_broken` fixture (a surviving artifact referencing a
+model that was not generated → "unknown constant `X._model`", exit 1).
+It never accepts such a stream.
+
 ### One opening for the block, one frame per field
 
 Two shape decisions exist purely so the model can read the checks off

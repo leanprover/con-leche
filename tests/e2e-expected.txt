@@ -163,3 +163,5 @@
 # (`checkDirectStruct`) but is not yet reachable from `checkIndDecl`.
 # Enabling the clause turns this into 0 — verified by construction.
 2 direct_struct_raw.ndjson raw
+0 direct_nested_dep.ndjson
+1 direct_nested_dep_broken.ndjson raw
