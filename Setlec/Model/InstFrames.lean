@@ -184,6 +184,22 @@ theorem FvarSpine.pointwise {D : Nat} {ρ : Nat → V} :
         (by simpa using hv)
 
 omit [SetTheory V] in
+/-- Build a free-variable spine pointwise. -/
+theorem FvarSpine.of_pointwise {D : Nat} {ρ : Nat → V} :
+    ∀ {as : List Expr} {vs : List V}, as.length = vs.length →
+      (∀ (k : Nat) (a : Expr) (v : V), as[k]? = some a → vs[k]? = some v →
+        ∃ i n ty, a = .fvar i n ty ∧ i < D ∧ ρ i = v) →
+      FvarSpine D ρ as vs
+  | [], [], _, _ => trivial
+  | [], _ :: _, h, _ => nomatch h
+  | _ :: _, [], h, _ => nomatch h
+  | a₀ :: as, v₀ :: vs, hlen, hpt => by
+    refine ⟨hpt 0 a₀ v₀ rfl rfl, ?_⟩
+    exact FvarSpine.of_pointwise (by simpa using hlen)
+      (fun k a v ha hv => hpt (k + 1) a v (by simpa using ha)
+        (by simpa using hv))
+
+omit [SetTheory V] in
 theorem FvarSpine.bounded {D : Nat} {ρ : Nat → V} :
     ∀ {as : List Expr} {vs : List V}, FvarSpine D ρ as vs →
       ∀ a ∈ as, a.looseBVarsBounded 0 = true := by

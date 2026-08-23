@@ -88,6 +88,42 @@ theorem stripPis_instantiate1_body :
     | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
       exact nomatch h
 
+omit [SetTheory V] in
+/-- Opening a telescope splits at any prefix: the first `a` variables
+are the prefix opening's, and the rest open the residual from the
+shifted base. -/
+theorem openPisAtFvars_add :
+    ∀ (a b : Nat) {e : Expr} (i₀ : Nat) {fvs : List Expr} {rest : Expr},
+      openPisAtFvars (a + b) e i₀ = some (fvs, rest) →
+      ∃ mid, openPisAtFvars a e i₀ = some (fvs.take a, mid) ∧
+        openPisAtFvars b mid (i₀ + a) = some (fvs.drop a, rest) := by
+  intro a
+  induction a with
+  | zero =>
+    intro b e i₀ fvs rest h
+    exact ⟨e, by simp [openPisAtFvars], by simpa using h⟩
+  | succ a ih =>
+    intro b e i₀ fvs rest h
+    rw [show a + 1 + b = (a + b) + 1 from by omega] at h
+    match e with
+    | .forallE n dom body m =>
+      simp only [openPisAtFvars] at h
+      cases hrec : openPisAtFvars (a + b)
+          (body.instantiate1 (.fvar i₀ n dom)) (i₀ + 1) with
+      | none => rw [hrec] at h; exact nomatch h
+      | some q =>
+        rw [hrec] at h
+        simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        obtain ⟨mid, h1, h2⟩ := ih b (i₀ + 1) hrec
+        refine ⟨mid, ?_, ?_⟩
+        · simp only [openPisAtFvars, List.take_succ_cons, h1]
+        · rw [show i₀ + (a + 1) = i₀ + 1 + a from by omega]
+          simpa using h2
+    | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
+    | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+      simp only [openPisAtFvars] at h; exact nomatch h
+
 /-- A telescope ending in a `Sort` opens to that very sort: the residual
 of any fitting walk of the right length is `.sort s`. -/
 theorem TeleFit_rest_sort :
@@ -158,6 +194,20 @@ theorem TeleFit_split :
     | @cons d ρ n dom body m x' xs' d₂ ρ₂ rest A hdom hx hfit =>
       obtain ⟨d₁, ρ₁, mid, h1, h2⟩ := ih hfit
       exact ⟨d₁, ρ₁, mid, TeleFit.cons hdom hx h1, h2⟩
+
+/-- Fitting walks compose. -/
+theorem TeleFit_append :
+    ∀ {d : Nat} {ρ : Nat → V} {ty : Expr} {xs : List V} {d₁ : Nat}
+      {ρ₁ : Nat → V} {mid : Expr} {ys : List V} {d' : Nat} {ρ' : Nat → V}
+      {rest : Expr},
+      TeleFit V cval env φ d ρ ty xs d₁ ρ₁ mid →
+      TeleFit V cval env φ d₁ ρ₁ mid ys d' ρ' rest →
+      TeleFit V cval env φ d ρ ty (xs ++ ys) d' ρ' rest := by
+  intro d ρ ty xs d₁ ρ₁ mid ys d' ρ' rest h₁
+  induction h₁ with
+  | nil => exact fun h => h
+  | @cons d ρ n dom body mb x xs d₂ ρ₂ mid A hdom hx h ih =>
+    exact fun h₂ => TeleFit.cons hdom hx (ih h₂)
 
 /-- A fitting walk keeps interpretability and annotation truthfulness:
 the residual of an interpretable, truthfully annotated telescope is
@@ -468,17 +518,14 @@ noncomputable def directCtorVal (V : Type u) [SetTheory V] (cval : ConstVal V)
   teleLamV V cval env ψ (nP + nF) 0 (rho0 V) cty
     (fun _ _ xs => tupleV (xs.drop nP))
 
-/-- The constructor's value inhabits the interpretation of its type.
-The two hypotheses are what the install establishes: the field
-telescope is a `FieldTele` at every parameter instantiation (the
-universe bound), and the constructor's residual — the type former
-applied to exactly the parameters — interprets to the very tower that
-`⟦T⟧` unfolds to at those parameters. -/
-theorem directCtorVal_mem {cty : Expr} {nP nF w : Nat} {Cv : V}
+/-- The constructor's λ-tower body obligation.  The two hypotheses are
+what the install establishes: the field telescope is a `FieldTele` at
+every parameter instantiation (the universe bound), and the
+constructor's residual — the type former applied to exactly the
+parameters — interprets to the very tower that `⟦T⟧` unfolds to at
+those parameters. -/
+theorem directCtorVal_body {cty : Expr} {nP nF w : Nat}
     (hw : w ≠ 0)
-    (hstrip : (Expr.stripPis (nP + nF) cty).isSome = true)
-    (hctyI : interpExpr V cval env φ 0 (rho0 V) cty = some Cv)
-    (hctyA : AnnotOk V cval env φ 0 (rho0 V) cty)
     (hfield : ∀ (ps : List V) (d₁ : Nat) (ρ₁ : Nat → V) (mid : Expr),
       TeleFit V cval env φ 0 (rho0 V) cty ps d₁ ρ₁ mid → ps.length = nP →
       FieldTele V cval env φ w nF d₁ ρ₁ mid)
@@ -488,8 +535,8 @@ theorem directCtorVal_mem {cty : Expr} {nP nF w : Nat} {Cv : V}
       TeleFit V cval env φ d₁ ρ₁ mid fs d' ρ' rest → fs.length = nF →
       interpExpr V cval env φ d' ρ' rest =
         some (sigmaTowerV V cval env φ w nF d₁ ρ₁ mid)) :
-    directCtorVal V cval env cty nP nF φ ∈ˢ Cv := by
-  refine teleLamV_mem (nP + nF) hstrip hctyI hctyA ?_
+    TeleBody V cval env φ (nP + nF) 0 (rho0 V) cty
+      (fun _ _ xs => tupleV (xs.drop nP)) := by
   intro xs d' ρ' rest hfit hlen
   have hxs : xs = xs.take nP ++ xs.drop nP := (List.take_append_drop nP xs).symm
   rw [hxs] at hfit
@@ -500,6 +547,39 @@ theorem directCtorVal_mem {cty : Expr} {nP nF w : Nat} {Cv : V}
     rw [List.length_drop, hlen]; omega
   refine ⟨_, hresid _ _ _ _ _ _ _ _ h1 hlp h2 hlf, ?_⟩
   exact tupleV_mem hw (hfield _ _ _ _ h1 hlp) h2 hlf
+
+/-- The constructor's value inhabits the interpretation of its type. -/
+theorem directCtorVal_mem {cty : Expr} {nP nF : Nat} {Cv : V}
+    (hstrip : (Expr.stripPis (nP + nF) cty).isSome = true)
+    (hctyI : interpExpr V cval env φ 0 (rho0 V) cty = some Cv)
+    (hctyA : AnnotOk V cval env φ 0 (rho0 V) cty)
+    (hbody : TeleBody V cval env φ (nP + nF) 0 (rho0 V) cty
+      (fun _ _ xs => tupleV (xs.drop nP))) :
+    directCtorVal V cval env cty nP nF φ ∈ˢ Cv :=
+  teleLamV_mem (nP + nF) hstrip hctyI hctyA hbody
+
+/-- Applying the constructor's value along a fitting spine computes the
+tuple of the field values — the equation the recursor's minor premise
+goes through (`motive (C p⃗ f⃗)` *is* `motive (tupleV f⃗)`). -/
+theorem directCtorVal_fold {cty : Expr} {nP nF : Nat} {xs : List V}
+    {d' : Nat} {ρ' : Nat → V} {rest : Expr}
+    (hstrip : (Expr.stripPis (nP + nF) cty).isSome = true)
+    (hctyA : AnnotOk V cval env φ 0 (rho0 V) cty)
+    (hfit : TeleFit V cval env φ 0 (rho0 V) cty xs d' ρ' rest)
+    (hlen : xs.length = nP + nF)
+    (hbody : TeleBody V cval env φ (nP + nF) 0 (rho0 V) cty
+      (fun _ _ xs => tupleV (xs.drop nP))) :
+    SpineFold V (directCtorVal V cval env cty nP nF φ) xs =
+      tupleV (xs.drop nP) :=
+  teleLamV_fold hstrip hfit hlen hctyA hbody
+
+/-- The constructor's value is the same object at every later install
+of its own block. -/
+theorem directCtorVal_congr (h : InterpAgree V cval₁ env₁ cval₂ env₂ φ)
+    {cty : Expr} {nP nF : Nat} (hcres : cty.constsResolve env₁ = true) :
+    directCtorVal V cval₁ env₁ cty nP nF φ =
+      directCtorVal V cval₂ env₂ cty nP nF φ :=
+  teleLamV_congr h (nP + nF) 0 (rho0 V) cty _ _ hcres (fun _ _ => rfl)
 
 /-! ### The projections' and the recursor's values -/
 
