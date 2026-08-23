@@ -829,7 +829,7 @@ def defEqListI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     List EIdx → List EIdx → CheckIM Bool
   | [], [] => pure true
   | a :: as, b :: bs => do
-    if ← r.defeq depth (Instr.count 11 a) b then
+    if ← r.defeq depth a b then
       defEqListI r fe depth as bs
     else pure false
   | _, _ => pure false
@@ -1210,9 +1210,9 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
   | some (.const c us) =>
     match fe.find? c with
     | some (.recInfo cv mI rP rules) => do
-      let args ← withStore (·.getAppArgsI (Instr.count 7 e))
+      let args ← withStore (·.getAppArgsI e)
       if args.length = mI + 1 then do
-        let bvar0 ← internI (Instr.count 8 (.bvar 0))
+        let bvar0 ← internI (.bvar 0)
         let major₀ ← r.whnf depth (args.getD mI bvar0)
         let major₁ ← litMajorToCtorI r fe depth major₀
         let major ← majorToCtorI r fe depth c rules major₁
@@ -1299,7 +1299,7 @@ def whnfAppI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     EIdx → List EIdx → CheckIM EIdx
   | v, [] => pure v
   | v, a :: rest => do
-    match ← viewI (Instr.count 14 v) with
+    match ← viewI v with
     | some (.lam _ ty body mb) =>
       match mb.cod with
       | some lv =>

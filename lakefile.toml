@@ -15,7 +15,6 @@ roots = ["Setlec.PinGen.Certs"]
 [[lean_lib]]
 name = "Setlec"
 extraDepTargets = ["SetlecPinCerts"]
-moreLeancArgs = ["-g", "-fno-omit-frame-pointer"]
 
 [[lean_lib]]
 name = "SetlecTests"
@@ -25,7 +24,6 @@ srcDir = "tests"
 name = "setlec"
 root = "Main"
 extraDepTargets = ["SetlecPinCerts"]
-moreLeancArgs = ["-g", "-fno-omit-frame-pointer"]
 
 [[lean_exe]]
 name = "annotate-basis"

@@ -1,5 +1,4 @@
 import Std.Data.HashMap
-import Setlec.Kernel.Instr
 import Setlec.Kernel.Env
 import Setlec.Kernel.Basis.Names
 import Setlec.Kernel.ExprOps
@@ -96,13 +95,13 @@ The store is destructured before updating so the node table and the
 cons-table are uniquely referenced during `push`/`insert` (avoiding
 whole-table copies). -/
 def intern (st : EStore) (n : ENode) : EIdx × EStore :=
-  match st.cons[Instr.count 12 n]? with
+  match st.cons[n]? with
   | some i => (i, st)
   | none =>
     match st with
     | ⟨nodes, cons, lnodes, lcons⟩ =>
       let i := nodes.size
-      (Instr.count 13 i, ⟨nodes.push n, cons.insert n i, lnodes, lcons⟩)
+      (i, ⟨nodes.push n, cons.insert n i, lnodes, lcons⟩)
 
 /-- Intern one level node (the level-table analog of `intern`). -/
 def internL (st : EStore) (n : LNode) : LIdx × EStore :=
@@ -659,7 +658,7 @@ def instantiate1IGo (v : EIdx) (st : EStore) (bm : BMemo) (memo : MemoN)
             let (r, st) := st.intern (.proj s i sub')
             (r, st, memo)
           else (e, st, memo)
-      (r, st, memo.insert (e, d) (Instr.count 9 r))
+      (r, st, memo.insert (e, d) r)
 termination_by (e, d)
 decreasing_by all_goals (apply Prod.Lex.left; first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h)
 
@@ -668,7 +667,7 @@ by `v` (which must denote a `bvar`-closed expression; it is not shifted),
 lowering loose `bvar`s above `d` by one. -/
 def instantiate1I (st : EStore) (e v : EIdx) (d : Nat := 0)
     (bm : BMemo := {}) : EIdx × EStore :=
-  let (r, st, _) := instantiate1IGo v st bm {} (Instr.count 10 e) d
+  let (r, st, _) := instantiate1IGo v st bm {} e d
   (r, st)
 
 /-- Memo table for the bulk-instantiation traversal, keyed by the node
@@ -696,7 +695,7 @@ def instantiateListIGo (vs : Array EIdx) (st : EStore) (bm : BMemo)
   else if bm.cutoff e d then (e, st, memo)
   else
     match memo[(e, k, d)]? with
-    | some r => (Instr.count 2 r, st, memo)
+    | some r => (r, st, memo)
     | none =>
       match st.nodes[e]? with
       | none => (e, st, memo)
@@ -754,7 +753,7 @@ def instantiateListIGo (vs : Array EIdx) (st : EStore) (bm : BMemo)
               let (r, st) := st.intern (.proj s i sub')
               (r, st, memo)
             else (e, st, memo)
-        (r, st, memo.insert (e, k, d) (Instr.count 1 r))
+        (r, st, memo.insert (e, k, d) r)
 termination_by (k, e)
 decreasing_by
   all_goals first
@@ -773,7 +772,7 @@ def instantiateListI (st : EStore) (e : EIdx) (vs : List EIdx)
   | [] => (e, st)
   | _ :: _ =>
     let a := vs.toArray
-    let (r, st, _) := instantiateListIGo a st bm {} (Instr.count 0 e) a.size d
+    let (r, st, _) := instantiateListIGo a st bm {} e a.size d
     (r, st)
 
 /-- Core of `abstract1I`; `d` is the abstracted fvar's de Bruijn level
@@ -1523,19 +1522,19 @@ def getAppArgsAccI (st : EStore) : EIdx → List EIdx → List EIdx
   | e, acc =>
     match st.nodes[e]? with
     | some (.app f a) =>
-      if _h : f < e then getAppArgsAccI st f (Instr.count 3 (a :: acc)) else acc
+      if _h : f < e then getAppArgsAccI st f (a :: acc) else acc
     | _ => acc
 termination_by e _ => e
 
 /-- Interned counterpart of `Expr.getAppArgs` (outermost last). -/
 def getAppArgsI (st : EStore) (e : EIdx) : List EIdx :=
-  getAppArgsAccI st (Instr.count 15 e) []
+  getAppArgsAccI st e []
 
 /-- Interned counterpart of `Expr.mkAppN`. -/
 def mkAppNI (st : EStore) (f : EIdx) : List EIdx → EIdx × EStore
   | [] => (f, st)
   | a :: as =>
-    let (fa, st) := st.intern (.app f (Instr.count 4 a))
+    let (fa, st) := st.intern (.app f a)
     mkAppNI st fa as
 
 /-- The `instantiate1I` chain of `Expr.instSpine` — the fallback for
@@ -1556,8 +1555,8 @@ checker produces) this is one bulk instantiation of the reversed spine
 def instSpineI (st : EStore) (args : List EIdx) (t : Nat) (e : EIdx)
     (bm : BMemo := {}) : EIdx × EStore :=
   if args.length = t + 1 then
-    st.instantiateListI (Instr.count 5 e) args.reverse 0 bm
-  else instSpineChainI st bm args t (Instr.count 6 e)
+    st.instantiateListI e args.reverse 0 bm
+  else instSpineChainI st bm args t e
 
 /-- Interned counterpart of `Expr.piResidual` (= `Expr.instPis`: the
 two `Expr` functions have identical equations).  Bulk form (task #50):

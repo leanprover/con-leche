@@ -115,7 +115,6 @@ def checkMain (file : String) (yolo : Bool) : IO UInt32 := do
       match foldF store decls.toList with
       | .ok env =>
         IO.println s!"setlec: accepted {env.consts.length} declarations"
-        IO.println (Setlec.Instr.fmtLine "TOTAL" (← Setlec.Instr.readReset))
         return 0
       | .error e =>
         -- Diagnostic second pass: the verdict above is the verified
