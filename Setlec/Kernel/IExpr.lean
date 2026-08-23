@@ -1339,6 +1339,14 @@ def bvarBoundIGo (st : EStore) (memo : BMemo) (e : EIdx) :
 termination_by e
 decreasing_by all_goals first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h
 
+/-- Fold of `bvarBoundIGo` over a list of roots: fills the persistent
+bound cache for each root's whole sub-DAG, so a following instantiation
+traversal prunes at every closed replacement (task #84; the bounds
+themselves are discarded). -/
+def bvarBoundsLGo (st : EStore) (memo : BMemo) : List EIdx → BMemo
+  | [] => memo
+  | e :: es => bvarBoundsLGo st (bvarBoundIGo st memo e).2 es
+
 /-- Core of `wscopedBI`; `d` is the scope cursor (mirrors
 `Expr.wscopedB d`; an `fvar idx _ ty` leaf checks `idx < d` and recurses
 into the annotation at cutoff `idx`). -/

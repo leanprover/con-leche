@@ -311,9 +311,13 @@ def inst1M (e v : EIdx) (d : Nat := 0) : CheckIM EIdx :=
     let s : IState := { s with bvarB := r.2 }
     if r.1 ≤ d then (e, s)
     else
+      let bm := s.bvarB
+      let s := { s with bvarB := {} }
+      let bm := EStore.bvarBoundsLGo s.store bm [v]
+      let s : IState := { s with bvarB := bm }
       let store := s.store
       let s := { s with store := EStore.empty }
-      let (r', store) := store.instantiate1I e v d r.2
+      let (r', store) := store.instantiate1I e v d bm
       (r', { s with store := store })
 
 /-- Memoized interned `Expr.instantiateList` (bulk instantiation,
@@ -327,9 +331,13 @@ def instListM (e : EIdx) (vs : List EIdx) (d : Nat := 0) :
     let s : IState := { s with bvarB := r.2 }
     if r.1 ≤ d then (e, s)
     else
+      let bm := s.bvarB
+      let s := { s with bvarB := {} }
+      let bm := EStore.bvarBoundsLGo s.store bm vs
+      let s : IState := { s with bvarB := bm }
       let store := s.store
       let s := { s with store := EStore.empty }
-      let (r', store) := store.instantiateListI e vs d r.2
+      let (r', store) := store.instantiateListI e vs d bm
       (r', { s with store := store })
 
 /-- Memoized interned `Expr.abstract1`. -/
@@ -365,11 +373,11 @@ def instSpineM (args : List EIdx) (t : Nat) (e : EIdx) :
   modifyGet fun s =>
     let bm := s.bvarB
     let s := { s with bvarB := {} }
-    let r := EStore.bvarBoundIGo s.store bm e
-    let s : IState := { s with bvarB := r.2 }
+    let bm := EStore.bvarBoundsLGo s.store bm (e :: args)
+    let s : IState := { s with bvarB := bm }
     let store := s.store
     let s := { s with store := EStore.empty }
-    let (r', store) := store.instSpineI args t e r.2
+    let (r', store) := store.instSpineI args t e bm
     (r', { s with store := store })
 
 /-- Interned `Expr.piResidual`/`Expr.instPis` (per-node bound
@@ -379,11 +387,11 @@ def piResidualM (e : EIdx) (args : List EIdx) :
   modifyGet fun s =>
     let bm := s.bvarB
     let s := { s with bvarB := {} }
-    let r := EStore.bvarBoundIGo s.store bm e
-    let s : IState := { s with bvarB := r.2 }
+    let bm := EStore.bvarBoundsLGo s.store bm (e :: args)
+    let s : IState := { s with bvarB := bm }
     let store := s.store
     let s := { s with store := EStore.empty }
-    let (r', store) := store.piResidualI e args r.2
+    let (r', store) := store.piResidualI e args bm
     (r', { s with store := store })
 
 /-- Interned `Expr.pisToLams`. -/
