@@ -529,6 +529,75 @@ measure of this residue's engineering-quality tax.  Worth revisiting
 only together with genuine syntactic metatheory or a
 certified-redex/argument cache.
 
+### Possibly-Prop-gated iota certificates (2026-08-23, task #71)
+
+`iotaRec`/`iotaRecI` certify their two telescopes (the recursor's, on
+`args.take mI ++ [major]`, and the constructor's, on the major's
+spine) with the **gated** `iotaCertsG`/`iotaCertsGI`: a slot whose
+codomain-sort annotation is provably nonzero (`codNonZero`) runs *no*
+per-fire infer+defeq — the soundness claims recover the argument's
+domain membership from the redex's own annotated application chain by
+domain determination, exactly as the task-#49 infer-app gate — while a
+possibly-Prop slot keeps the check (the load-bearing residue, task
+#73; never remove it).  `certs_fit` gains the gated sibling
+`certsG_fit` (Model/Core/Certs.lean), which produces the same
+`TeleFitI` from two extra semantic inputs available at both fire-path
+call sites: the head value's membership in the telescope's
+interpretation (`EnvModel.mem_type` for the stored recursor resp.
+constructor) and the chain's `AppSlot`s (`annotOk_spine_inv` on the
+redex resp. the — possibly rescued — major, whose `AnnotOk` comes from
+`majorToCtor_claims`).  Per gated slot: the walked head value lies in
+`pi (cod.eval φ) ⟦dom⟧ B` at a nonzero tag, hence is a graph over
+`⟦dom⟧` (`pi_pos`, `eq_graph_app_of_mem_piSet`); the `AppSlot` puts
+the argument's value in *some* pi domain containing that same
+function value, and graphs determine their domains
+(`graph_dom_of_mem_piSet`; a zero-tagged slot pi is vacuous — its
+members are the proof point, `graph_ne_pt`).  The invariant steps by
+`app_mem` through the annotated fibres.  Kept as runtime checks (their
+facts feed the #58 fold-clause interface and are not present in any
+annotation invariant): the plain-rule level linking, the
+constructor-parameter `defEqList`, the canonical-index `defEqList`,
+and the `stripPis` arity pins.
+
+**Synthetic spines keep ungated certificates.**  A checker-fabricated
+spine has no annotated application chain to recover memberships from,
+so the structure-eta, unit-like and projection telescope certificates
+stay on the ungated `iotaCerts`, and the stuck-major rescue's
+fabrications are now certified *inside* `majorToCtor` (relocated from
+the fire path, where the gating would have starved
+`majorToCtor_claims`): each fabrication branch pins
+`(cvj.type.stripPis k).isSome` plus the spine arity and runs
+`iotaCerts` on the constructor telescope against the fabricated spine
+(`etaFabArgs` names the eta spine, shared between the fabrication and
+its certificate — and keeps the walked proof goals inside the
+splitter's simp budget; the majorToCtor walk proofs in
+PairM/Fueled/Disc peel the outer casing by hand for the same reason).
+`majorToCtor_inv` carries the new facts and `majorToCtor_claims` lost
+its `hstripLen`/`hmcerts` hypotheses.
+
+**The official `to_cnstr_when_K` type check is now explicit.**  The K
+rescue's fabrication check (defeq of the major's whnf'd type against
+the fabrication's inferred type — for `Eq` the endpoint condition) was
+deliberately omitted while the ungated major-slot certificate implied
+it; with that slot gated at nonzero motives the reference check is
+load-bearing (arena `bad/098_ruleKbad` fires at `Eq.rec.{3,3}`) and
+`majorToCtor`'s K branch performs it before `proofIrrel` (which stays
+as the value-identification certificate), mirroring `majorToCtorNC`.
+
+**Measured** (init-prelude probe `_tmp/perfcmp/
+init-prelude.preprocessed.ndjson`, `perf stat` instructions, best of
+3, baseline re-measured at the merge base): default (certified)
+187.4 G → 176.4 G (**−5.8 %**), user time 13.7 s → 12.5 s; NC mode
+141.9–143.1 G on both sides (unchanged — it already skips all fire
+certificates).  Verdicts identical: arena 90/92 (bad/098 rejecting),
+e2e 48/48, probe exit 0 / 3653 accepted both modes, scale.sh all
+shapes PASS.  The delta is smaller than #49's toggle estimate
+(−23.5 G on the 284.8 G pre-#50 baseline) because the interning and
+bulk-instantiation work since then already removed most of the
+telescope-walk cost the toggle measured; the remaining certified-vs-NC
+gap (~34 G) is now dominated by the beta/infer possibly-Prop residues
+and the letE/projection certificates.
+
 ### The certified structural-Nat fast path (2026-08-21)
 
 `reduceNat` — sitting exactly where the official kernel's literal
@@ -1072,8 +1141,11 @@ checks are omitted — we verify the kernel and may rely on invariants
 where other kernels re-check):
 * `proofIrrel`'s common-type check (annotation-first discipline already
   forces both sides' types through the same checked chain).
-* The K rescue's explicit fabricated-type check (implied by the
-  load-bearing iota certificates that run on the fabrication).
+* The K rescue's explicit fabricated-type check (then implied by the
+  load-bearing iota certificates that ran on the fabrication;
+  **reinstated by task #71** — with the fire-path certificates
+  possibly-Prop-gated the implication broke and the official check is
+  load-bearing again, see "Possibly-Prop-gated iota certificates").
 
 **Adopted as part of the open-recursion core restructure**: the
 `whnfCore`/`whnf` split with the official loop (`whnfCore → reduceNat →
@@ -1088,7 +1160,8 @@ proof-irrelevance hoist in defeq was reverted for fuel-depth reasons
 `tryUnfoldProjApp`, cheapProj (lazy delta itself landed, see below);
 string literals; the performance substrate (cached hashes /
 hash-consing, array spines, indexed environment, per-declaration cache
-threading, possibly-Prop-gated iota certificates); per-loop fuel
+threading; the possibly-Prop-gated iota certificates landed with task
+#71, see "Possibly-Prop-gated iota certificates" below); per-loop fuel
 budgets; instrumenting the possibly-Prop beta wedge (3.5) as an
 internal-error signal; removing the codomain-annotation comparison in
 binder defeq (documented deviation, benign for well-typed input).
@@ -1186,7 +1259,13 @@ application is *replaced* by a fabricated one.
 
 * **K**: for a K-flagged inductive proposition (single-rule recursor,
   zero-field constructor), the constructor applied to the first
-  parameters of the major's reduced type.  Certified by `proofIrrel`
+  parameters of the major's reduced type.  Checked (since task #71) by
+  the relocated ungated constructor-telescope certificate on the
+  fabricated spine, the official `to_cnstr_when_K` type comparison
+  (defeq of the major's type against the fabrication's inferred type —
+  the `Eq` endpoint condition; load-bearing with the fire path's
+  major-slot certificate gated, arena `bad/098_ruleKbad`), and
+  certified by `proofIrrel`
   — in the model both the stuck major and the fabrication are the
   proof point, so no `_model.ruleK` theorem is consulted; the
   `ruleK` capability is computed from shape at install exactly as the
@@ -1205,12 +1284,14 @@ application is *replaced* by a fabricated one.
 Fabricated majors carry a syntactic scope guard (`wscopedB` &&
 `looseBVarsBounded` && leaf-subset, as in `annotateProjElim`), keeping
 their well-scopedness verification local.  Soundness
-(`majorToCtor_claims` in `Setlec/Model/TypeChecker.lean`) assembles
+(`majorToCtor_claims`, `Setlec/Model/Core/MajorToCtor.lean`) assembles
 the fabrication's `AnnotOk`/interpretation from the constructor
-telescope's iota certificates (`certs_fit` + `TeleFit.chainSlots` +
-`annotOk_spine`), the reduced type's argument spine, and (for eta) the
-projection certificates; the value identification is proof irrelevance
-(K) or the stored eta law via `structEtaWith_sound` (eta).
+telescope's iota certificates — since task #71 carried by
+`majorToCtor` itself, ungated, on the fabricated spine (`certs_fit` +
+`TeleFit.chainSlots` + `annotOk_spine`) — the reduced type's argument
+spine, and (for eta) the projection certificates; the value
+identification is proof irrelevance (K) or the stored eta law via
+`structEtaWith_sound` (eta).
 
 (Historical: until task #79 the frontend zeta-expanded every parsed
 expression — the checker worked let-free — which duplicates shared
@@ -2400,15 +2481,18 @@ proof-only):
    `121_rtreeRecReduction`, `080_RBTree`, `nested_rec`,
    `let_rec_rhs`) — it is part of matching reference behavior, not a
    proof artifact.  It stays in the NC path.
-2. *K-rescue index comparison.*  The certified `majorToCtor` K path
-   certifies the fabrication by `proofIrrel`, which never compares
-   the major's type against the fabricated constructor's — the index
-   comparison the official `toCtorWhenK` performs (`isDefEq appType
-   (inferType newCtorApp)`) is subsumed by the major-slot telescope
-   certificate of the certified `iotaCerts`.  Skipping the
-   certificates without restoring the reference check *accepts* arena
-   `bad/098_ruleKbad`; `majorToCtorNC` therefore carries the official
-   check verbatim.
+2. *K-rescue index comparison.*  At the time of this finding the
+   certified `majorToCtor` K path certified the fabrication by
+   `proofIrrel` only, the index comparison the official `toCtorWhenK`
+   performs (`isDefEq appType (inferType newCtorApp)`) being subsumed
+   by the major-slot telescope certificate of the then-ungated
+   fire-path `iotaCerts`.  Skipping the certificates without restoring
+   the reference check *accepts* arena `bad/098_ruleKbad`;
+   `majorToCtorNC` therefore carries the official check verbatim —
+   and since task #71 (major-slot certificate gated at nonzero
+   motives) the certified `majorToCtorI` runs the same check, NC
+   differing only in dropping the `proofIrrelI` certificate and the
+   relocated telescope certification.
 
 **Measured** (init-prelude probe, `perf stat` instructions, 8 GB
 limit; verdicts identical in both modes — arena 90/92, e2e 48/48,

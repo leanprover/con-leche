@@ -111,6 +111,42 @@ theorem iotaCerts_atF (d : Nat) (F : Nat) :
   | .const _ _, _ :: _ | .app _ _, _ :: _ | .lam _ _ _ _, _ :: _
   | .letE _ _ _ _, _ :: _ | .lit _, _ :: _ | .proj _ _ _, _ :: _ => rfl
 
+theorem iotaCertsG_atF (d : Nat) (F : Nat) :
+    ∀ (ty : Expr) (args : List Expr),
+      (iotaCertsG (fueledFns env) env d ty args).val F =
+        iotaCertsG (pureFns env F) env d ty args
+  | _, [] => rfl
+  | .forallE n ty body mb, arg :: rest => by
+    show ((if codNonZero mb then
+        iotaCertsG (fueledFns env) env d (body.instantiate1 arg) rest
+      else do
+        let ta ← (fueledFns env).infer d arg
+        if ← (fueledFns env).defeq d ta ty then
+          iotaCertsG (fueledFns env) env d (body.instantiate1 arg) rest
+        else pure false : FueledM Bool)).val F = (if codNonZero mb then
+        iotaCertsG (pureFns env F) env d (body.instantiate1 arg) rest
+      else do
+        let ta ← (pureFns env F).infer d arg
+        if ← (pureFns env F).defeq d ta ty then
+          iotaCertsG (pureFns env F) env d (body.instantiate1 arg) rest
+        else pure false)
+    split
+    · exact iotaCertsG_atF d F (body.instantiate1 arg) rest
+    · rw [FueledM.atF_bind]
+      congr 1
+      funext ta
+      rw [FueledM.atF_bind]
+      congr 1
+      funext b
+      cases b with
+      | true =>
+        simp only [↓reduceIte]
+        exact iotaCertsG_atF d F (body.instantiate1 arg) rest
+      | false => rfl
+  | .bvar _, _ :: _ | .fvar _ _ _, _ :: _ | .sort _, _ :: _
+  | .const _ _, _ :: _ | .app _ _, _ :: _ | .lam _ _ _ _, _ :: _
+  | .letE _ _ _ _, _ :: _ | .lit _, _ :: _ | .proj _ _ _, _ :: _ => rfl
+
 theorem defEqList_atF (d : Nat) (F : Nat) :
     ∀ (as bs : List Expr),
       (defEqList (fueledFns env) env d as bs).val F =
@@ -207,6 +243,7 @@ macro "atF_step" : tactic =>
     | rfl
     | (rw [liftFueled_atF])
     | (rw [iotaCerts_atF])
+    | (rw [iotaCertsG_atF])
     | (rw [defEqList_atF])
     | (rw [structEtaProjCerts_atF])
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
@@ -273,6 +310,7 @@ macro "atF_step2" : tactic =>
     | rfl
     | (rw [liftFueled_atF])
     | (rw [iotaCerts_atF])
+    | (rw [iotaCertsG_atF])
     | (rw [defEqList_atF])
     | (rw [structEtaProjCerts_atF])
     | (rw [reduceNat_atF])
@@ -299,11 +337,44 @@ theorem structEtaCert_atF (d : Nat) (a b : Expr) (F : Nat) :
   unfold structEtaCert
   atF_tac2
 
+-- Outer casing peeled by hand (as in `Setlec/Verify/PairM.lean`): the
+-- body outgrew the split-driven macro.
+set_option maxHeartbeats 800000 in
 theorem majorToCtor_atF (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) (F : Nat) :
     (majorToCtor (fueledFns env) env d c rules e).val F =
       majorToCtor (pureFns env F) env d c rules e := by
   unfold majorToCtor
-  atF_tac2
+  by_cases hca : isCtorApp env e = true
+  · rw [if_pos hca, if_pos hca]; rfl
+  rw [if_neg hca, if_neg hca]
+  match rules with
+  | [] => rfl
+  | _ :: _ :: _ => rfl
+  | [rl] =>
+    dsimp only
+    cases hfr : env.find? rl.ctor <;> try rfl
+    case some ci =>
+    cases ci <;> try rfl
+    case ctorInfo cvj cnP cnF =>
+    dsimp only
+    cases (cvj.type.piResult).getAppFn <;> try rfl
+    case const T us₀ =>
+    dsimp only
+    cases env.find? T <;> try rfl
+    case some ciT =>
+    cases ciT <;> try rfl
+    case indInfo cvT caps =>
+    dsimp only
+    by_cases hK : caps.ruleK = true ∧ cnF = 0
+    · rw [if_pos hK, if_pos hK]
+      atF_tac2
+    rw [if_neg hK, if_neg hK]
+    by_cases hE : caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
+        Name.isProjFnShape c = false ∧ piResultIsProp cvT.type = false
+    · rw [if_pos hE, if_pos hE]
+      atF_tac2
+    rw [if_neg hE, if_neg hE]
+    rfl
 
 theorem litMajorToCtor_atF (d : Nat) (e : Expr) (F : Nat) :
     (litMajorToCtor (fueledFns env) env d e).val F =
@@ -374,6 +445,7 @@ macro "atF_step3" : tactic =>
     | rfl
     | (rw [liftFueled_atF])
     | (rw [iotaCerts_atF])
+    | (rw [iotaCertsG_atF])
     | (rw [defEqList_atF])
     | (rw [structEtaProjCerts_atF])
     | (rw [reduceNat_atF])
@@ -415,6 +487,7 @@ macro "atF_step4" : tactic =>
     | rfl
     | (rw [liftFueled_atF])
     | (rw [iotaCerts_atF])
+    | (rw [iotaCertsG_atF])
     | (rw [defEqList_atF])
     | (rw [structEtaProjCerts_atF])
     | (rw [reduceNat_atF])

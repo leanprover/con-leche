@@ -20,8 +20,10 @@ before this file existed; Main selects this knot only when the
 Skipped here (each site cites why it is proof-only):
 
 * `iotaRecNC` (vs `iotaRecI`): the per-fire recursor-telescope and
-  constructor-telescope certifications (`iotaCertsI` on `tyRec`/
-  `tyCtor`), the *ordinary* plain-rule parameter re-comparison, and
+  constructor-telescope certifications (since task #71 the certified
+  pipeline runs them possibly-Prop-*gated*, `iotaCertsGI`; NC skips
+  even the residue), the *ordinary* plain-rule parameter
+  re-comparison, and
   the canonical-index `defEqListI` — lean4lean's `inductiveReduceRec`
   (`Lean4Lean/Inductive/Reduce.lean`) checks only: rule lookup by
   constructor name, `rule.nfields ≤ majorArgs.size`, and
@@ -40,11 +42,12 @@ Skipped here (each site cites why it is proof-only):
 * `majorToCtorNC` (vs `majorToCtorI`): the K-rescue fabrication is
   checked exactly as the official kernel's `toCtorWhenK` does — defeq
   of the major's type against the fabricated constructor's inferred
-  type.  A second task-#76 finding: the certified pipeline's
-  `proofIrrelI` never compares the two types (the index comparison is
-  subsumed by the major-slot telescope certificate), so skipping the
-  certificates *without* restoring the reference check accepts arena
-  `bad/098_ruleKbad`.  The eta fabrication runs `structEtaCertWithNC`.
+  type.  Since task #71 the certified `majorToCtorI` runs the same
+  reference check too (with the major-slot certificate gated at
+  nonzero motives it is load-bearing there as well — the original
+  task-#76 finding on arena `bad/098_ruleKbad`); NC differs only in
+  dropping the `proofIrrelI` soundness certificate that follows it.
+  The eta fabrication runs `structEtaCertWithNC`.
 * `whnfAppNC`/`betaPeelNC` (vs `whnfAppI`/`betaPeelI`): the
   possibly-Prop per-binder argument re-check before beta — the
   references beta-reduce unconditionally (lean4lean `whnfCore`).
@@ -172,12 +175,12 @@ def stuckIrrelNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
 /-- Twin of `majorToCtorI` for the cert-skipping mode.  The K-rescue
 fabrication check is the official kernel's `toCtorWhenK` test — defeq
 of the (whnf'd) major's type against the fabricated constructor
-application's inferred type, which compares the indices — instead of
-`proofIrrelI` (which never compares the two types: in the certified
-pipeline the major-slot telescope certificate of `iotaCertsI`
-subsumes the index comparison, so skipping the certificates without
-restoring the reference check accepts arena `bad/098_ruleKbad`).  The
-eta fabrication runs `structEtaCertWithNC` (the reference's
+application's inferred type, which compares the indices.  Since task
+#71 the certified `majorToCtorI` runs the same reference check
+(load-bearing with the major-slot telescope certificate gated at
+nonzero motives; arena `bad/098_ruleKbad`); NC differs only in
+dropping the `proofIrrelI` soundness certificate that follows it.
+The eta fabrication runs `structEtaCertWithNC` (the reference's
 `toCtorWhenStruct` checks only type shape; the NC cert keeps the
 parameter/field defeqs and drops the telescope certifications). -/
 def majorToCtorNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)

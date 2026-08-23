@@ -718,6 +718,28 @@ def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
     else pure none
   | _ => pure none
 
+/-- The possibly-Prop gate (task #49): is the binder's codomain-sort
+annotation present and provably nonzero (at *every* level assignment,
+`Level.isNonZero`)?  Where it holds, an application argument's domain
+membership is recoverable from the app node's own `AnnotOk` slot by
+domain determination — the pi at a nonzero sort contains only graphs,
+and graphs determine their domains — so the inference re-check is
+skipped, as in the reference kernels' infer-only mode.  At a
+possibly-Prop Π no semantic invariant can recover the membership
+(impredicativity: the interpretation of a proposition collapses to a
+point, so the domain of a proof-λ is not determined by its value —
+the same analysis as the beta certificate, DESIGN.md), so the defeq
+re-check stays exactly there.  Task #73 established that the residue
+is *not removable* even with per-assignment (disjunctive) claims: it
+also guards the type-side invariants of inference outputs — see the
+DESIGN.md finding "the possibly-Prop infer residue is not removable"
+(a concrete AnnotOk-satisfying countermodel falsifies the whnf claims
+without it). -/
+def codNonZero (mt : BinderMeta) : Bool :=
+  match mt.cod with
+  | some v => v.isNonZero
+  | none => false
+
 /-- Certify a spine against a recursor telescope: each argument's
 inferred type is defeq to the corresponding (instantiated) domain.
 This is what hands the soundness proof the memberships the iota
@@ -730,6 +752,34 @@ def iotaCerts (r : CoreFns m) (env : Env) (depth : Nat) :
     if ← r.defeq depth ta ty then
       iotaCerts r env depth (body.instantiate1 arg) rest
     else pure false
+  | _, _ :: _ => pure false
+
+/-- Possibly-Prop-gated variant of `iotaCerts` (tasks #49/#71), used by
+`iotaRec`, whose spine comes from the redex's own annotated application
+chain: a slot whose codomain-sort annotation is provably nonzero
+(`codNonZero`) skips the per-fire infer+defeq — the soundness claims
+recover the argument's domain membership from the chain's `AnnotOk`
+slot by domain determination (the pi at a nonzero sort contains only
+graphs, and graphs determine their domains).  At a possibly-Prop slot
+no semantic invariant can recover the membership (impredicativity —
+the same analysis as the beta certificate; per the task-#73 finding
+the residue is load-bearing, do not remove it), so the certificate
+still runs there.  The reference kernels run no certification here;
+the gate is the provable middle ground.  Sites with *synthetic* spines
+(structure eta, unit-likeness, the projection telescopes — the spine
+is checker-fabricated, so there is no annotated chain to recover from)
+keep the ungated `iotaCerts`. -/
+def iotaCertsG (r : CoreFns m) (env : Env) (depth : Nat) :
+    Expr → List Expr → m Bool
+  | _, [] => pure true
+  | .forallE _ ty body mt, arg :: rest =>
+    if codNonZero mt then
+      iotaCertsG r env depth (body.instantiate1 arg) rest
+    else do
+      let ta ← r.infer depth arg
+      if ← r.defeq depth ta ty then
+        iotaCertsG r env depth (body.instantiate1 arg) rest
+      else pure false
   | _, _ :: _ => pure false
 
 /-- Peel a `∀`-telescope along an argument list (the residual type of
@@ -961,6 +1011,16 @@ def stuckIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
   else if ← structUnitCert r env depth a b then pure true
   else proofIrrel r env depth a b
 
+/-- The eta-rescue fabrication's argument spine: the reduced type's
+arguments followed by the installed projection functions applied to
+the stuck major.  Shared between the fabrication and its
+synthetic-spine certificate in `majorToCtor`; a named helper keeps the
+walked proof goals small. -/
+def etaFabArgs (T : Name) (ust : List Level) (targs : List Expr)
+    (major : Expr) (nF : Nat) : List Expr :=
+  targs ++ (List.range nF).map fun j =>
+    Expr.mkAppN (.const (projFnName T j) ust) (targs ++ [major])
+
 /-- Stuck-major rescue (`to_cnstr_when_K` and `to_cnstr_when_structure`
 in the official kernel): a recursor's major premise that does not whnf
 to a constructor application may still be *replaced* by one.  For a
@@ -990,21 +1050,47 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
             match tmaj.getAppFn with
             | .const T' ust =>
               if T' = T ∧ cvj.levelParams.length = ust.length then
-                let fab := Expr.mkAppN (.const rl.ctor ust)
-                  (tmaj.getAppArgs.take cnP)
-                -- scope guard (cf. `annotateProjElim`): scoping of the
-                -- fabricated major is checked syntactically, keeping
-                -- its verification local
-                if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
-                    fab.fvarLeaves.all
-                      (fun l => major.fvarLeaves.contains l) then
-                  -- no explicit type check on the fabrication: the
-                  -- endpoint condition (`Eq`: defeq endpoints) is
-                  -- enforced by the iota certificates on the major
-                  -- slot, which the soundness proof makes
-                  -- load-bearing — a machine-checked invariant (see
-                  -- DESIGN.md, design-review triage)
-                  if ← proofIrrel r env depth fab major then pure fab
+                if cnP ≤ tmaj.getAppArgs.length ∧
+                    (cvj.type.stripPis cnP).isSome = true then
+                  let fab := Expr.mkAppN (.const rl.ctor ust)
+                    (tmaj.getAppArgs.take cnP)
+                  -- scope guard (cf. `annotateProjElim`): scoping of
+                  -- the fabricated major is checked syntactically,
+                  -- keeping its verification local
+                  if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
+                      fab.fvarLeaves.all
+                        (fun l => major.fvarLeaves.contains l) then
+                    -- Synthetic-spine certification (task #71): a
+                    -- fabricated constructor spine has no annotated
+                    -- application chain for the gated fire-path
+                    -- certificates to recover memberships from, so
+                    -- the *ungated* telescope certificate runs here,
+                    -- relocated from the fire path.
+                    if ← iotaCerts r env depth
+                        (cvj.type.instantiateLevelParams
+                          cvj.levelParams ust)
+                        (tmaj.getAppArgs.take cnP) then
+                      -- The official `to_cnstr_when_K` type check on
+                      -- the fabrication: the constructor
+                      -- application's type must be defeq to the
+                      -- major's (for `Eq` this is the endpoint
+                      -- condition — `Eq.refl a : Eq a a` against the
+                      -- major's `Eq a b` forces `a ≡ b`).  Before
+                      -- task #71 this was implied by the per-fire
+                      -- iota certificates on the major slot; with
+                      -- those possibly-Prop-gated the major-slot
+                      -- certificate no longer runs at nonzero
+                      -- motives, so the reference check is
+                      -- load-bearing there (arena bad/098_ruleKbad
+                      -- fires at `Eq.rec.{3,3}`).  `proofIrrel`
+                      -- stays as the soundness certificate (in the
+                      -- model both sides are the proof point).
+                      if ← r.defeq depth tmaj (← r.infer depth fab) then
+                        if ← proofIrrel r env depth fab major then
+                          pure fab
+                        else pure major
+                      else pure major
+                    else pure major
                   else pure major
                 else pure major
               else pure major
@@ -1021,28 +1107,43 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
             | .const T' ust =>
               if T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
                   ust.length = cvT.levelParams.length then
-                let fab := Expr.mkAppN (.const caps.etaCtor ust)
-                  (tmaj.getAppArgs ++
-                    (List.range caps.etaFields).map fun j =>
-                      Expr.mkAppN (.const (projFnName T j) ust)
-                        (tmaj.getAppArgs ++ [major]))
-                -- scope guard, as in the K branch
-                if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
-                    fab.fvarLeaves.all
-                      (fun l => major.fvarLeaves.contains l) then
-                  if ← structEtaCertWith r env depth fab major tmaj then
-                    pure fab
-                  -- 0-field rescue for the pinned basis `PUnit` (the
-                  -- generic certificate excludes reserved names): the
-                  -- fabrication is the bare constructor, certified by
-                  -- proof irrelevance's unit-likeness branch; the
-                  -- official rescue additionally requires the
-                  -- instantiated result sort to be provably nonzero
-                  else if caps.etaFields = 0 ∧
-                      cvj.levelParams.length = ust.length ∧
-                      piResultNeverZero cvT.levelParams ust cvT.type
-                        = true then
-                    if ← proofIrrel r env depth fab major then pure fab
+                if cvj.levelParams.length = ust.length ∧
+                    (cvj.type.stripPis
+                      (caps.etaParams + caps.etaFields)).isSome
+                      = true then
+                  let fab := Expr.mkAppN (.const caps.etaCtor ust)
+                    (etaFabArgs T ust tmaj.getAppArgs major
+                      caps.etaFields)
+                  -- scope guard, as in the K branch
+                  if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
+                      fab.fvarLeaves.all
+                        (fun l => major.fvarLeaves.contains l) then
+                    -- synthetic-spine certification, as in the K
+                    -- branch (task #71)
+                    if ← iotaCerts r env depth
+                        (cvj.type.instantiateLevelParams
+                          cvj.levelParams ust)
+                        (etaFabArgs T ust tmaj.getAppArgs major
+                          caps.etaFields) then
+                      if ← structEtaCertWith r env depth fab major
+                          tmaj then
+                        pure fab
+                      -- 0-field rescue for the pinned basis `PUnit`
+                      -- (the generic certificate excludes reserved
+                      -- names): the fabrication is the bare
+                      -- constructor, certified by proof
+                      -- irrelevance's unit-likeness branch; the
+                      -- official rescue additionally requires the
+                      -- instantiated result sort to be provably
+                      -- nonzero
+                      else if caps.etaFields = 0 ∧
+                          cvj.levelParams.length = ust.length ∧
+                          piResultNeverZero cvT.levelParams ust
+                            cvT.type = true then
+                        if ← proofIrrel r env depth fab major then
+                          pure fab
+                        else pure major
+                      else pure major
                     else pure major
                   else pure major
                 else pure major
@@ -1110,7 +1211,9 @@ major premise whnfs to a fully applied constructor with a matching
 rule (a literal major converts to constructor form — see
 `litMajorToCtor` —, a
 stuck major may be rescued — see `majorToCtor`), and the spine is
-certified against the recursor's own (pinned, annotated) type.  The
+certified against the recursor's own (pinned, annotated) type with the
+possibly-Prop-gated `iotaCertsG` (tasks #49/#71): provably-nonzero
+slots go check-free, possibly-Prop slots keep the infer+defeq.  The
 result is the rule's rhs applied to the non-index prefix and the
 constructor's fields; over-application is handled by the outer app
 recursion. -/
@@ -1164,10 +1267,10 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                  if ← defEqList r env depth (margs.take rl.ctorParams)
                     (recFireComparands rl cv.levelParams us
                       cvj.levelParams args mI).2 then
-                  if ← iotaCerts r env depth
+                  if ← iotaCertsG r env depth
                      (cv.type.instantiateLevelParams cv.levelParams us)
                      (args.take mI ++ [major]) then
-                   if ← iotaCerts r env depth
+                   if ← iotaCertsG r env depth
                       (cvj.type.instantiateLevelParams cvj.levelParams usj)
                       margs then
                     -- the recursor's index arguments must match the
@@ -1329,28 +1432,6 @@ def ensureSort (r : CoreFns m) (_env : Env) (depth : Nat) (e : Expr) :
 
 /-- Destructure a term one level (see `ExprView`). -/
 @[inline] def viewM (e : Expr) : m (ExprView Expr) := pure e.view
-
-/-- The possibly-Prop gate (task #49): is the binder's codomain-sort
-annotation present and provably nonzero (at *every* level assignment,
-`Level.isNonZero`)?  Where it holds, an application argument's domain
-membership is recoverable from the app node's own `AnnotOk` slot by
-domain determination — the pi at a nonzero sort contains only graphs,
-and graphs determine their domains — so the inference re-check below
-is skipped, as in the reference kernels' infer-only mode.  At a
-possibly-Prop Π no semantic invariant can recover the membership
-(impredicativity: the interpretation of a proposition collapses to a
-point, so the domain of a proof-λ is not determined by its value —
-the same analysis as the beta certificate, DESIGN.md), so the defeq
-re-check stays exactly there.  Task #73 established that the residue
-is *not removable* even with per-assignment (disjunctive) claims: it
-also guards the type-side invariants of inference outputs — see the
-DESIGN.md finding "the possibly-Prop infer residue is not removable"
-(a concrete AnnotOk-satisfying countermodel falsifies the whnf claims
-without it). -/
-def codNonZero (mt : BinderMeta) : Bool :=
-  match mt.cod with
-  | some v => v.isNonZero
-  | none => false
 
 /-- The inference body — **infer-only**: the application rule's
 argument check ran once, in the annotation pass, and is trusted here
