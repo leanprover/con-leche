@@ -3721,7 +3721,8 @@ Everything above was re-validated with the clause temporarily enabled
 at each step: arena 90/92, `direct_struct_raw` accepted, the three
 duplicate-declaration fixtures rejecting.
 
-What remains, in dependency order:
+What remains, in dependency order (items 1 and 2 are landed, and so is
+item 3 — see below; the head of item 4 is landed too):
 
 1. ~~A cross-environment congruence for the constructed values.~~
    **Landed** (`InterpAgree`, `sigmaTowerV_congr`, `FieldTele_congr`,
@@ -3942,25 +3943,98 @@ What remains, in dependency order:
    what a proof against the *unpinned* kernel would have needed, and it
    is the theory any future consumer of `instPisAtLift` will want.
 
-   **What remains of item 3**: the projections' `TeleBody` itself, now
-   unblocked and on the recursor's route — the residual pin identifies
-   `⟦resid⟧` with the `i`-th field domain's interpretation at the
-   parameters and at `⟦T.proj.j p⃗ t⟧`, and those values are `projV j x`
-   by the **earlier projections' fold equations**, so the discharge is a
-   `DirectProjInv` threaded through the projection phase's `foldlM`
-   (the direct analogue of `ProjPhaseInv`), with
-   `interp_instSeq_frames` doing the per-field work and
-   `directProj_body_mem` closing.  `directProj_body_mem`'s `hdom`
-   should be specialized to the *canonical* spine
-   `(range nF).map (projV · x)` — the general form is false, since a
-   fitting spine other than the projections of `x` need not agree with
-   what the residual substitutes.
+   **Item 3 is landed** (2026-08-23).  The projections' half is
+   `directProj_facts` (`Setlec/Model/DirectDecl.lean`), split into
+
+   * `checkDirectProj_inv` — the stage's data, in particular the two
+     frame pins;
+   * `directProj_param_stage` — the *parameter half*, at any fitting
+     parameter spine: the fit crosses to the constructor's telescope
+     (`DomsAgree.of_pins_inst_at` over `checkProjRule`'s parameter-domain
+     `checkDefEqList`) and on to the type former's, the field telescope
+     is small there, the type former's value is the tower over it, and
+     the **subject-domain pin** identifies the subject binder's domain
+     with that value;
+   * `directProj_facts` — the λ-tower body obligation, plus the converse
+     fit (the stored type is fit by every canonical spine `p⃗ t`), from
+     which `directProj_mem` (`mem_type`) and `directProj_fold` (the
+     stage's fold equation, via `teleLamV_fold`) both follow.
+
+   The **residual pin** is discharged as DESIGN predicted: it identifies
+   the stored residual with the `i`-th field domain walked at the
+   parameters and at the *applications* `T.proj.j p⃗ t`, whose values are
+   `projV j t` by `DirectProjInv` (the direct `ProjPhaseInv`, carrying
+   per installed `j < i` the stored constant, its level parameters, a
+   fit of its type at `p⃗ t`, and the fold equation).
+   `interp_instSeq_frames` then identifies the pin's right-hand side
+   with the `i`-th domain along the *canonical* field spine of `t`,
+   where structure eta (`directProj_body_mem`, restated on that spine —
+   the every-fitting-spine form is false) puts `projV i t`.
+
+   Three findings worth keeping:
+
+   * `checkProjRule`'s parameter-domain pins are checked at **one**
+     frame (`nP + nF`), not per binder, so `DomsAgree` had to learn to
+     consume a pin from above the walk's frame: `FrameOk.pad_exists` /
+     `isDefEqCore_sound_at` (one padded valuation carries every frame-ok
+     term up), and `DomsAgree.of_pins_inst_gen` generalizing
+     `of_pins_inst` over the pins' frames, with the per-frame and
+     fixed-frame instances as its two corollaries.
+   * The pin's right-hand side is **not** an opened walk, so its frame
+     conditions cannot come from `FrameOk.ofInstWalk`.  They come from
+     `TeleFitI.rest_wf` fed by `TeleFitI.ofInstWalk` — the non-variable
+     spine counterpart of `pi_walk`, whose per-stage memberships the
+     *existing* `fit_mem_frames` supplies from the opened-side fit.
+     `TeleFit.doms_at_end` and `TeleFit_nil_eq` are the two small
+     supports.
+   * `cases` on a `TeleFit` whose telescope is a stuck `instantiate1`
+     cannot refute the `cons` constructor; `TeleFit_nil_eq` exists for
+     exactly that.
 
 4. **The rules' fold obligation** (`RecMemberOk`) for the recursor rule
    and the `nF` projection rules, through `TowerOk.of_stages`
    (`Setlec/Model/RuleFold.lean`): the per-stage facts are the
    install's definitional domain pins, the bottom fact is
    `teleLamV_fold` composed with `directRec_iota` / `directProj_iota`.
+
+   **Landed (first step): `proj_rule_eq` is now provenance-free.**  Its
+   proof turned out to be modeled-specific in exactly *one line* — the
+   per-`ψ` bottom fact — so it is split into
+   `proj_rule_eq_of_bottom` (`Setlec/Model/ProjInstall.lean`), which
+   takes the bottom as a hypothesis and does everything else
+   (`ruleLhsParts` computation, `FrameWf`, resolution, `modeled_stage`'s
+   flat stage facts over the kernel's definitional pins,
+   `TowerOk.of_stages`/`TowerOk.out`, and the transport across the fresh
+   recursor extension), and the thin modeled wrapper `proj_rule_eq`,
+   which passes `proj_bottom`.  Note `modeled_stage` itself is already
+   provenance-free — it is stated over the stored type, the stored
+   right-hand side and the kernel's pins.
+
+   **What remains of item 4**, in order:
+
+   * `directProj_bottom`: the direct projection rule's bottom, i.e.
+     `proj_rule_eq_of_bottom`'s `Hbot` at the constructed values.  Over a
+     full frame `xs` (length `nP + nF`) with `FramePref`, the canonical
+     body `T.proj.i p⃗ (C p⃗ f⃗)` interprets to `xs.getD (nP+i)`:
+     `directCtorVal_fold` folds the constructor's spine to `tupleV f⃗`,
+     `directProj_fold` folds the projection at `p⃗ (tupleV f⃗)` to
+     `projV i (tupleV f⃗)`, and `directProj_iota` reads that back off the
+     tuple.  Two bridges are needed and do **not** exist yet:
+     `FramePref → TeleFit` (a ~30-line induction; note the two
+     valuation conventions — `TeleFit`'s `updV` chain from `rho0` and
+     `fun i => (xs.take j).getD i ∅` — are *equal* functions, so it is
+     `funext` plus the walk), and the identification of `crestP` (the
+     constructor telescope instantiated at the *projection type's*
+     opened parameters) with `crestC` (instantiated at its own): both
+     spines are index-matched, so `instPisAt_erasedEq_spines` /
+     `DomsAgree.of_erasedEq` apply.
+   * the recursor rule's own fold obligation, whose shape differs
+     (`rP = nP + 2 ≠ ctorParams = nP`, and the body applies the recursor
+     to the motive and minor as well), so `proj_rule_eq_of_bottom` does
+     not fit it as it stands; the corresponding modeled derivation is
+     `modeled_rule_eq` in `Setlec/Model/IndInstall.lean`, which should be
+     inspected for the same "generic except the bottom" split before
+     anything is written by hand.
 5. **The chain**: `extend_basis_one` for the recursor and the `nF`
    projections (provisionally rule-less, then `extend_rec_swap` to
    attach the rules), and the direct case of `checkDecl_sound` —
