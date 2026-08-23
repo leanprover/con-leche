@@ -303,7 +303,7 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 def checkConstantValF (ops : CheckerOps m) (fe : FEnv)
     (cv : ConstantVal) : m ConstantVal := do
   if (fe.find? cv.name).isSome then
-    throw (.invalid s!"duplicate declaration {cv.name}")
+    throw (.invalid (duplicateMsg fe.env cv.name))
   if reservedBasisNames.contains cv.name then
     throw (.invalid s!"reserved basis name {cv.name}")
   if cv.name.isProjFnShape then

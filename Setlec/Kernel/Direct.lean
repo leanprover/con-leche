@@ -87,6 +87,40 @@ to the field variables. -/
 def directRuleBody (nF : Nat) : Expr :=
   Expr.mkAppN (.bvar nF) ((List.range nF).map fun j => Expr.bvar (nF - 1 - j))
 
+/-- Is `n` one of the **model companions** the direct install reserves
+(`T._model`, `C._model`, `T._model.proj_j`), *and* already stored as
+the opaque constant that install emits?  Nothing else in the checker
+stores an `axiomInfo` under a `_model`-family name, so this identifies
+the auto-reserved companions exactly, and it exists only to make the
+resulting duplicate-name rejection diagnosable.
+
+Consequence, deliberate and documented (DESIGN.md): from the moment a
+simple structure installs directly, its `_model` family is taken.  A
+stream that declares the block first and its artifacts afterwards is
+rejected here — but such a stream never checked anyway: the modeled
+path declines at the block itself ("missing model for …"), because it
+looks the companion up in the environment *at* the block.  So no
+accepted stream can become rejected; only the verdict and the record
+that reports it move (decline at the block ⇝ reject at the artifact),
+exactly as for the arena's `bad/13x` duplicate fixtures. -/
+def isDirectCompanionName (env : Env) (n : Name) : Bool :=
+  match env.find? n with
+  | some (.axiomInfo _) =>
+    n.isModelSuffix ||
+      (match n with
+       | .str p _ => p.isModelSuffix
+       | _ => false)
+  | _ => false
+
+/-- The duplicate-declaration message, naming an auto-reserved model
+companion when that is what the clash is with. -/
+def duplicateMsg (env : Env) (n : Name) : String :=
+  if isDirectCompanionName env n then
+    s!"duplicate declaration {n}: the name is a model companion \
+      reserved by the direct simple-structure install"
+  else
+    s!"duplicate declaration {n}"
+
 /-- The pieces of a recognised simple-structure block. -/
 structure DirectParts where
   /-- the type former -/

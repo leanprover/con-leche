@@ -66,7 +66,7 @@ parameters.  Returns the constant with its type **annotated**
 (`annotate`); the guards run on the annotated type. -/
 def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal) : m ConstantVal := do
   if (env.find? cv.name).isSome then
-    throw (.invalid s!"duplicate declaration {cv.name}")
+    throw (.invalid (duplicateMsg env cv.name))
   if reservedBasisNames.contains cv.name then
     throw (.invalid s!"reserved basis name {cv.name}")
   if cv.name.isProjFnShape then
@@ -871,6 +871,15 @@ def checkDirectInd (ops : CheckerOps m) (env : Env) (p : DirectParts) :
   -- environment invariant's modeled-value bridges hold verbatim for a
   -- directly installed block (`directNoModel` guarantees the name is
   -- free).  The direct path is its own preprocessor.
+  --
+  -- This **reserves** the block's `_model` family from here on: a later
+  -- declaration under one of those names is a duplicate and is rejected
+  -- (with a message naming the reservation, `duplicateMsg`).  That is
+  -- sound and cannot lose an accepted stream — the preprocessor always
+  -- emits a block's artifacts *before* the block (verified against its
+  -- output: 0 of 151 init-prelude blocks out of order), and a stream
+  -- that did it the other way round never checked anyway, because the
+  -- modeled path declines at the block itself for the missing model.
   pure (⟨.indInfo cvTa (directCaps p) ::
     .axiomInfo ⟨p.cvT.name.str "_model", cvTa.levelParams, cvTa.type⟩ ::
     env.consts⟩, cvTa)
