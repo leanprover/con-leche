@@ -311,10 +311,14 @@ def inst1M (e v : EIdx) (d : Nat := 0) : CheckIM EIdx :=
     let s : IState := { s with bvarB := r.2 }
     if r.1 ≤ d then (e, s)
     else
+      let bm := s.bvarB
+      let s := { s with bvarB := {} }
+      let bm := EStore.bvarBoundsLGo s.store bm [v]
+      let s : IState := { s with bvarB := bm }
       let store := s.store
       let s := { s with store := EStore.empty }
-      let (r, store) := store.instantiate1I e v d
-      (r, { s with store := store })
+      let (r', store) := store.instantiate1I e v d bm
+      (r', { s with store := store })
 
 /-- Memoized interned `Expr.instantiateList` (bulk instantiation,
 task #50); identity shortcut as in `inst1M` (task #72). -/
@@ -327,10 +331,14 @@ def instListM (e : EIdx) (vs : List EIdx) (d : Nat := 0) :
     let s : IState := { s with bvarB := r.2 }
     if r.1 ≤ d then (e, s)
     else
+      let bm := s.bvarB
+      let s := { s with bvarB := {} }
+      let bm := EStore.bvarBoundsLGo s.store bm vs
+      let s : IState := { s with bvarB := bm }
       let store := s.store
       let s := { s with store := EStore.empty }
-      let (r, store) := store.instantiateListI e vs d
-      (r, { s with store := store })
+      let (r', store) := store.instantiateListI e vs d bm
+      (r', { s with store := store })
 
 /-- Memoized interned `Expr.abstract1`. -/
 def abstract1M (e : EIdx) (d : Nat) : CheckIM EIdx :=
@@ -357,23 +365,34 @@ def mkAppNM (f : EIdx) (args : List EIdx) : CheckIM EIdx :=
     let (r, store) := store.mkAppNI f args
     (r, { s with store := store })
 
-/-- Interned `Expr.instSpine`. -/
+/-- Interned `Expr.instSpine` (per-node bound shortcut: the root's
+bound walk fills the persistent cache for the whole sub-DAG, task
+#84). -/
 def instSpineM (args : List EIdx) (t : Nat) (e : EIdx) :
     CheckIM EIdx :=
   modifyGet fun s =>
+    let bm := s.bvarB
+    let s := { s with bvarB := {} }
+    let bm := EStore.bvarBoundsLGo s.store bm (e :: args)
+    let s : IState := { s with bvarB := bm }
     let store := s.store
     let s := { s with store := EStore.empty }
-    let (r, store) := store.instSpineI args t e
-    (r, { s with store := store })
+    let (r', store) := store.instSpineI args t e bm
+    (r', { s with store := store })
 
-/-- Interned `Expr.piResidual`/`Expr.instPis`. -/
+/-- Interned `Expr.piResidual`/`Expr.instPis` (per-node bound
+shortcut as in `instSpineM`, task #84). -/
 def piResidualM (e : EIdx) (args : List EIdx) :
     CheckIM (Option EIdx) :=
   modifyGet fun s =>
+    let bm := s.bvarB
+    let s := { s with bvarB := {} }
+    let bm := EStore.bvarBoundsLGo s.store bm (e :: args)
+    let s : IState := { s with bvarB := bm }
     let store := s.store
     let s := { s with store := EStore.empty }
-    let (r, store) := store.piResidualI e args
-    (r, { s with store := store })
+    let (r', store) := store.piResidualI e args bm
+    (r', { s with store := store })
 
 /-- Interned `Expr.pisToLams`. -/
 def pisToLamsM (k : Nat) (e body : EIdx) : CheckIM (Option EIdx) :=
@@ -1082,8 +1101,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                   let fab ← mkAppNM h (margs.take cnP)
                   if ← withStore (fun st => st.wscopedBI depth fab &&
                       st.looseBVarsBoundedI 0 fab &&
-                      (st.fvarLeavesI fab).all
-                        (fun l => (st.fvarLeavesI major).contains l)) then do
+                      st.leafGuardI fab major) then do
                     -- synthetic-spine certification (task #71): a
                     -- fabricated constructor spine keeps the ungated
                     -- telescope certificate, relocated here from the
@@ -1129,8 +1147,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                   let fab ← mkAppNM h (margs ++ projs)
                   if ← withStore (fun st => st.wscopedBI depth fab &&
                       st.looseBVarsBoundedI 0 fab &&
-                      (st.fvarLeavesI fab).all
-                        (fun l => (st.fvarLeavesI major).contains l)) then do
+                      st.leafGuardI fab major) then do
                     -- synthetic-spine certification, as in the K
                     -- branch (task #71)
                     let tyCtor ← constTyAtM fe rl.ctor ust
@@ -1833,8 +1850,7 @@ def annotateProjRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
           let raw ← mkAppNM recC (params ++ [motive, minor, e'])
           if ← withStore (fun st => st.wscopedBI depth raw &&
               st.looseBVarsBoundedI 0 raw &&
-              (st.fvarLeavesI raw).all
-                (fun l => (st.fvarLeavesI e').contains l)) then
+              st.leafGuardI raw e') then
             r.annotate depth raw
           else throw (.notImplemented "projection elimination scoping")
         | none => throw (.invalid "projection index out of range")
@@ -1857,8 +1873,7 @@ def annotateProjElimI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (sn : Name)
           let raw ← mkAppNM h (targs ++ [e'])
           if ← withStore (fun st => st.wscopedBI depth raw &&
               st.looseBVarsBoundedI 0 raw &&
-              (st.fvarLeavesI raw).all
-                (fun l => (st.fvarLeavesI e').contains l)) then
+              st.leafGuardI raw e') then
             r.annotate depth raw
           else throw (.notImplemented "projection elimination scoping")
         else throw (.notImplemented "projection parameter mismatch")
