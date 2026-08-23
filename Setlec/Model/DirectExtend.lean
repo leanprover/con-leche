@@ -543,6 +543,76 @@ theorem DomsAgree.of_erasedEq {cval : ConstVal V} {env : Env}
     | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
       exact nomatch hstrip
 
+/-- **`DomsAgree` across a frame shift.**  One *closed* telescope,
+walked along two free-variable spines that carry the **same values** at
+otherwise unrelated frames, agrees stage by stage.
+
+`ErasedEq` cannot reach this case: the two openings instantiate at
+different `fvar` indices, so no per-stage syntactic relation survives.
+What does survive is that each opened domain is an `instSeq` of the
+telescope's *own* binder domain — closed (`stripPis_doms_hasFvar`) and
+bounded by its position (`stripPis_doms_bounded`) — along the consumed
+prefix (`instPisAt_head`), and for such a domain
+`interp_instSeq_fvarFrames` settles the two interpretations from the
+spines' values alone.
+
+The recursor's minor premise is where this bites: its field binders
+open at `nP+2 …` while the constructor's open at `nP …`. -/
+theorem DomsAgree.of_shift {cval : ConstVal V} {env : Env}
+    {φ : Name → Nat} {ty : Expr} (hcl : ty.hasFvar = false)
+    (hty0 : ty.looseBVarsBounded 0 = true) :
+    ∀ (k : Nat) {bs : List (Name × Expr × BinderMeta)} {body : Expr}
+      {sp₁ sp₂ : List Expr} {vs : List V} {D₁ D₂ : Nat} {ρ₁ ρ₂ : Nat → V}
+      {ds₁ ds₂ : List Expr} {r₁ r₂ : Expr},
+      ty.stripPis (sp₁.length + k) = some (bs, body) →
+      Expr.instPisAt sp₁ ty = some (ds₁, r₁) →
+      Expr.instPisAt sp₂ ty = some (ds₂, r₂) →
+      FvarSpine D₁ ρ₁ sp₁ vs → FvarSpine D₂ ρ₂ sp₂ vs →
+      DomsAgree V cval env φ k D₁ ρ₁ r₁ D₂ ρ₂ r₂ := by
+  intro k
+  induction k with
+  | zero =>
+    intro _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _; trivial
+  | succ k ih =>
+    intro bs body sp₁ sp₂ vs D₁ D₂ ρ₁ ρ₂ ds₁ ds₂ r₁ r₂ hstrip h₁ h₂
+      hsp₁ hsp₂
+    have hlen : sp₂.length = sp₁.length := by
+      rw [FvarSpine.length hsp₂, ← FvarSpine.length hsp₁]
+    have hbslen : bs.length = sp₁.length + (k + 1) :=
+      Expr.stripPis_length _ hstrip
+    obtain ⟨b, hb⟩ : ∃ b, bs[sp₁.length]? = some b :=
+      ⟨_, List.getElem?_eq_getElem (by omega)⟩
+    obtain ⟨bodyR₁, hr₁, hext₁⟩ := Expr.instPisAt_head sp₁ h₁ hstrip hb
+    obtain ⟨bodyR₂, hr₂, hext₂⟩ := Expr.instPisAt_head sp₂ h₂
+      (by rw [hlen]; exact hstrip) (by rw [hlen]; exact hb)
+    -- the head domain is the telescope's own binder domain, instantiated
+    -- along the consumed prefix on each side
+    have hdomcl : b.2.1.hasFvar = false :=
+      stripPis_doms_hasFvar _ hstrip hcl b (List.mem_of_getElem? hb)
+    have hdombd : b.2.1.looseBVarsBounded sp₁.length = true := by
+      simpa using stripPis_doms_bounded _ 0 hstrip hty0 sp₁.length b hb
+    have hdomEq := interp_instSeq_fvarFrames (V := V) (cval := cval)
+      (env := env) (φ := φ) (e := b.2.1) hdomcl hdombd hsp₁ hsp₂
+    rw [hlen] at hr₂ hext₂ hdomEq
+    subst hr₁; subst hr₂
+    refine ⟨fun A hA => by rw [← hdomEq]; exact hA, ?_⟩
+    intro x A hA hx
+    have hlift₁ : FvarSpine (D₁ + 1) (updV V ρ₁ D₁ x) sp₁ vs :=
+      hsp₁.lift (by omega) (fun i hi => by
+        simp only [updV]; rw [if_neg (by omega)])
+    have hlift₂ : FvarSpine (D₂ + 1) (updV V ρ₂ D₂ x) sp₂ vs :=
+      hsp₂.lift (by omega) (fun i hi => by
+        simp only [updV]; rw [if_neg (by omega)])
+    have hstrip' : ∀ a : Expr,
+        ty.stripPis ((sp₁ ++ [a]).length + k) = some (bs, body) := by
+      intro a
+      simp only [List.length_append, List.length_cons, List.length_nil]
+      rw [show sp₁.length + (0 + 1) + k = sp₁.length + (k + 1) from by omega]
+      exact hstrip
+    exact ih (hstrip' _) (hext₁ _) (hext₂ _)
+      (hlift₁.snoc (v := x) ⟨D₁, b.1, _, rfl, by omega, by simp [updV]⟩)
+      (hlift₂.snoc (v := x) ⟨D₂, b.1, _, rfl, by omega, by simp [updV]⟩)
+
 /-- The per-field universe bound relocates across frames too. -/
 theorem FieldTele_reframe {cval : ConstVal V} {env : Env}
     {φ : Name → Nat} {w : Nat} :
