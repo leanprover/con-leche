@@ -142,7 +142,8 @@ theorem checkIndMemberS_run {blockNames : List Name} {caps : IndCaps}
     {s₀ s' : IState} (hwf : ISOKF s₀)
     (h : checkIndMemberS blockNames caps (mkFEnv env) ci s₀ =
       .ok (fe', s')) :
-    ISOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
+    ISOKF s' ∧ Ext s₀.store s'.store ∧ fe' = mkFEnv fe'.env ∧
+    EnvWF fe'.env ∧
     ∃ F, (checkIndMember fueledOpsM blockNames caps env ci).val F =
       .ok fe'.env := by
   unfold checkIndMemberS at h
@@ -164,7 +165,7 @@ theorem checkIndMemberS_run {blockNames : List Name} {caps : IndCaps}
   | indInfo cv caps0 =>
     obtain ⟨hfe, rfl⟩ := pureI_ok h
     subst hfe
-    refine ⟨hs₂.residue, rfl, ?_, F₁, ?_⟩
+    refine ⟨hs₂.residue, hext₂, rfl, ?_, F₁, ?_⟩
     · exact EnvWF.cons henv (constWF_intro' htf htp
         (Expr.constsResolve_mono htr) htb
         (fun _ _ _ heq => nomatch heq)
@@ -176,7 +177,7 @@ theorem checkIndMemberS_run {blockNames : List Name} {caps : IndCaps}
   | ctorInfo cv nP nF =>
     obtain ⟨hfe, rfl⟩ := pureI_ok h
     subst hfe
-    refine ⟨hs₂.residue, rfl, ?_, F₁, ?_⟩
+    refine ⟨hs₂.residue, hext₂, rfl, ?_, F₁, ?_⟩
     · exact EnvWF.cons henv (constWF_intro' htf htp
         (Expr.constsResolve_mono htr) htb
         (fun _ _ _ heq => nomatch heq)
@@ -198,22 +199,23 @@ theorem foldIndMemberS_run {blockNames : List Name} {caps : IndCaps} :
       EnvWF env → ISOKF s₀ →
       (cis.foldlM (checkIndMemberS blockNames caps) (mkFEnv env)) s₀ =
         .ok (fe', s') →
-      ISOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
+      ISOKF s' ∧ Ext s₀.store s'.store ∧ fe' = mkFEnv fe'.env ∧
+      EnvWF fe'.env ∧
       ∃ F, (cis.foldlM (checkIndMember fueledOpsM blockNames caps)
         env).val F = .ok fe'.env
   | [], env, s₀, fe', s', henv, hwf, h => by
     obtain ⟨hfe, rfl⟩ := pureI_ok h
     subst hfe
-    exact ⟨hwf, rfl, henv, 0, rfl⟩
+    exact ⟨hwf, Ext.refl _, rfl, henv, 0, rfl⟩
   | ci :: cis, env, s₀, fe', s', henv, hwf, h => by
     rw [List.foldlM_cons] at h
     obtain ⟨fe₁, s₁, hstep, h⟩ := bindI_ok h
-    obtain ⟨hwf₁, hfe₁, henv₁, F₁, hF₁⟩ :=
+    obtain ⟨hwf₁, hext₁, hfe₁, henv₁, F₁, hF₁⟩ :=
       checkIndMemberS_run henv hwf hstep
     rw [hfe₁] at h
-    obtain ⟨hwf', hfe', henv', F₂, hF₂⟩ :=
+    obtain ⟨hwf', hext', hfe', henv', F₂, hF₂⟩ :=
       foldIndMemberS_run cis fe₁.env henv₁ hwf₁ h
-    refine ⟨hwf', hfe', henv', max F₁ F₂, ?_⟩
+    refine ⟨hwf', hext₁.trans hext', hfe', henv', max F₁ F₂, ?_⟩
     rw [List.foldlM_cons]
     exact atF_bind_intro hF₁ hF₂
 
@@ -226,13 +228,14 @@ theorem provisionRecsS_run {blockNames : List Name} :
       {s' : IState},
       EnvWF env → ISOKF s₀ →
       provisionRecsS blockNames (mkFEnv env) recs s₀ = .ok (p, s') →
-      ISOKF s' ∧ p.1 = mkFEnv p.1.env ∧ EnvWF p.1.env ∧
+      ISOKF s' ∧ Ext s₀.store s'.store ∧ p.1 = mkFEnv p.1.env ∧
+      EnvWF p.1.env ∧
       ∃ F, (provisionRecs fueledOpsM blockNames env recs).val F =
         .ok (p.1.env, p.2)
   | [], env, s₀, p, s', henv, hwf, h => by
     obtain ⟨hfe, rfl⟩ := pureI_ok h
     subst hfe
-    exact ⟨hwf, rfl, henv, 0, rfl⟩
+    exact ⟨hwf, Ext.refl _, rfl, henv, 0, rfl⟩
   | ci :: rest, env, s₀, p, s', henv, hwf, h => by
     unfold provisionRecsS at h
     simp only [checkMemberValF_eq] at h
@@ -261,12 +264,12 @@ theorem provisionRecsS_run {blockNames : List Name} :
     obtain ⟨p', s₃, hrec, h⟩ := bindI_ok h
     rw [show (mkFEnv env).push (.recInfo cvA mI rP []) =
       mkFEnv ⟨.recInfo cvA mI rP [] :: env.consts⟩ from rfl] at hrec
-    obtain ⟨hwf₃, hfeS, henvS, F₂, hF₂⟩ :=
+    obtain ⟨hwf₃, hext₃, hfeS, henvS, F₂, hF₂⟩ :=
       provisionRecsS_run rest _ henv₁ hs₂.residue hrec
     obtain ⟨feSelf, others⟩ := p'
     obtain ⟨hfe, rfl⟩ := pureI_ok h
     subst hfe
-    refine ⟨hwf₃, hfeS, henvS, max F₁ F₂, ?_⟩
+    refine ⟨hwf₃, Ext.trans hext₂ hext₃, hfeS, henvS, max F₁ F₂, ?_⟩
     show (provisionRecs fueledOpsM blockNames env
       (ConstantInfo.recInfo cv mI rP rules :: rest)).val (max F₁ F₂) = _
     unfold provisionRecs
@@ -322,7 +325,8 @@ private theorem iotaFoldS_run {env₂ envSelf : Env}
             0 c.2.2.2
           pure (acc.push (.recInfo c.1 c.2.1 c.2.2.1 rules'))) acc) s₀ =
         .ok (fe₃, s') →
-      ISOKF s' ∧ (acc = mkFEnv acc.env → fe₃ = mkFEnv fe₃.env) ∧
+      ISOKF s' ∧ Ext s₀.store s'.store ∧
+      (acc = mkFEnv acc.env → fe₃ = mkFEnv fe₃.env) ∧
       ∃ F, (checked.foldlM (fun (acc : Env) (c : ConstantVal × Nat × Nat × List RecRule) => do
           let rules' ← checkIotaRules fueledOpsM env₂ envSelf f c.1.name
             c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
@@ -331,7 +335,7 @@ private theorem iotaFoldS_run {env₂ envSelf : Env}
   | [], acc, s₀, fe₃, s', _, hs, h => by
     obtain ⟨hfe, rfl⟩ := pureI_ok h
     subst hfe
-    exact ⟨hs.residue, fun hacc => hacc, 0, rfl⟩
+    exact ⟨hs.residue, Ext.refl _, fun hacc => hacc, 0, rfl⟩
   | c :: rest, acc, s₀, fe₃, s', htys, hs, h => by
     rw [List.foldlM_cons] at h
     obtain ⟨acc₁, s₁, hstep, h⟩ := bindI_ok h
@@ -342,10 +346,11 @@ private theorem iotaFoldS_run {env₂ envSelf : Env}
     obtain rfl : rules' = rules'' := hPr
     obtain ⟨hacc₁, rfl⟩ := pureI_ok hstep
     subst hacc₁
-    obtain ⟨hwf', hfe', F₂, hF₂⟩ := iotaFoldS_run henv₂ henvS rest
+    obtain ⟨hwf', hext', hfe', F₂, hF₂⟩ := iotaFoldS_run henv₂ henvS rest
       (acc.push (.recInfo c.1 c.2.1 c.2.2.1 rules'))
       (fun c' hc' => htys c' (List.mem_cons_of_mem _ hc')) hs₂ h
-    refine ⟨hwf', fun hacc => hfe' (by rw [hacc]; rfl), max F₁ F₂, ?_⟩
+    refine ⟨hwf', Ext.trans hext₂ hext',
+      fun hacc => hfe' (by rw [hacc]; rfl), max F₁ F₂, ?_⟩
     rw [List.foldlM_cons]
     have hF₂' : (rest.foldlM (fun (acc : Env) (c : ConstantVal × Nat × Nat × List RecRule) => do
         let rules' ← checkIotaRules fueledOpsM env₂ envSelf f c.1.name
@@ -400,7 +405,8 @@ theorem checkIndRecsS_run {blockNames : List Name} {env₂ : Env}
     {s₀ : IState} (hwf : ISOKF s₀) {fe₃ : FEnv} {s' : IState}
     (h : checkIndRecsS blockNames (mkFEnv env₂) recs s₀ =
       .ok (fe₃, s')) :
-    ISOKF s' ∧ fe₃ = mkFEnv fe₃.env ∧ EnvWF fe₃.env ∧
+    ISOKF s' ∧ Ext s₀.store s'.store ∧ fe₃ = mkFEnv fe₃.env ∧
+    EnvWF fe₃.env ∧
     ∃ F, (checkIndRecs fueledOpsM blockNames env₂ recs).val F =
       .ok fe₃.env := by
   unfold checkIndRecsS at h
@@ -408,7 +414,7 @@ theorem checkIndRecsS_run {blockNames : List Name} {env₂ : Env}
   · rw [if_pos hemp] at h
     obtain ⟨hfe, rfl⟩ := pureI_ok h
     subst hfe
-    refine ⟨hwf, rfl, henv₂, 0, ?_⟩
+    refine ⟨hwf, Ext.refl _, rfl, henv₂, 0, ?_⟩
     show (checkIndRecs fueledOpsM blockNames env₂ recs).val 0 = _
     unfold checkIndRecs
     rw [FueledM.atF_ite, if_pos hemp]
@@ -424,7 +430,7 @@ theorem checkIndRecsS_run {blockNames : List Name} {env₂ : Env}
     rw [mkFEnv_find?]; exact heqf)] at h
   obtain ⟨p, s₁, hprovR, h⟩ := bindI_ok h
   obtain ⟨feSelf, checked⟩ := p
-  obtain ⟨hwf₁, hfeS, henvS, F₁, hF₁⟩ :=
+  obtain ⟨hwf₁, hext₁, hfeS, henvS, F₁, hF₁⟩ :=
     provisionRecsS_run recs env₂ henv₂ hwf hprovR
   obtain ⟨u, s₂, hflush, h⟩ := bindI_ok h
   rw [flushS_run] at hflush
@@ -445,7 +451,7 @@ theorem checkIndRecsS_run {blockNames : List Name} {env₂ : Env}
   -- the iota fold in the shared state at `envSelf`
   rw [hfeS] at h
   simp only [checkIotaRulesF_eq] at h
-  obtain ⟨hwf', hfe₃, F₂, hF₂⟩ := iotaFoldS_run henv₂ henvS checked
+  obtain ⟨hwf', hext', hfe₃, F₂, hF₂⟩ := iotaFoldS_run henv₂ henvS checked
     (mkFEnv env₂) htys (flushS_isok hwf₁) h
   have hfe₃' : fe₃ = mkFEnv fe₃.env := hfe₃ rfl
   -- both phases at the joined fuel, for the `RulesChain` machinery
@@ -465,7 +471,7 @@ theorem checkIndRecsS_run {blockNames : List Name} {env₂ : Env}
     rw [← provisionRecs_datF]; exact hF₁M
   have hProv := provisionRecs_facts (F := max F₁ F₂) recs env₂
     (feSelf.env, checked) hprovPM hbn
-  refine ⟨hwf', hfe₃', ?_, ?_⟩
+  refine ⟨hwf', Ext.trans hext₁ hext', hfe₃', ?_, ?_⟩
   · -- the final environment is well-formed (as in `checkIndRecs_wfimp`)
     have hpure := iotaFold_datF checked env₂ hF₂M
     obtain ⟨zipped, hmap, hchain⟩ := rulesFold_inv checked env₂ fe₃.env
@@ -537,7 +543,8 @@ theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
     {s₀ : IState} (hs : ISOK env s₀) {fe' : FEnv} {s' : IState}
     (h : checkProjFnS (mkFEnv env) T ctorName lps nP nF i s₀ =
       .ok (fe', s')) :
-    ISOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
+    ISOKF s' ∧ Ext s₀.store s'.store ∧ fe' = mkFEnv fe'.env ∧
+    EnvWF fe'.env ∧
     ∃ F, (checkProjFn fueledOpsM env T ctorName lps nP nF i).val F =
       .ok fe'.env := by
   unfold checkProjFnS at h
@@ -635,7 +642,9 @@ theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
           .plain else .inert, rhsA⟩] :: env.consts⟩ : Env) := by
     rw [checkProjFn_datF]
     exact hFnp
-  refine ⟨hs₄.residue, rfl, ?_, F₁, hFn⟩
+  refine ⟨hs₄.residue,
+    hext₁.trans (hext₂.trans (hext₂'.trans (hext₃.trans hext₄))),
+    rfl, ?_, F₁, hFn⟩
   -- the installed projection recursor is well-formed
   obtain ⟨cvj', mcv', hlk', pty', hty', ⟨_, hshape'⟩, hi', rhsA',
     hrule', ⟨_, hio'⟩, heq⟩ := checkProjFn_inv hFnp
@@ -674,7 +683,8 @@ theorem installProjFnStepS_run {env : Env} (henv : EnvWF env)
     {s₀ : IState} (hwf : ISOKF s₀) {fe' : FEnv} {s' : IState}
     (h : installProjFnStepS T ctorName lps nP nF (mkFEnv env) i s₀ =
       .ok (fe', s')) :
-    ISOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
+    ISOKF s' ∧ Ext s₀.store s'.store ∧ fe' = mkFEnv fe'.env ∧
+    EnvWF fe'.env ∧
     ∃ F, (installProjFnStep fueledOpsM T ctorName lps nP nF env
       i).val F = .ok fe'.env := by
   unfold installProjFnStepS at h
@@ -686,16 +696,16 @@ theorem installProjFnStepS_run {env : Env} (henv : EnvWF env)
     injection hflush with hflush
     obtain rfl : s₀.flushed = s₁ :=
       congrArg Prod.snd hflush
-    obtain ⟨hwf', hfe', henv', F, hF⟩ :=
+    obtain ⟨hwf', hext', hfe', henv', F, hF⟩ :=
       checkProjFnS_run henv (flushS_isok hwf) h
-    refine ⟨hwf', hfe', henv', F, ?_⟩
+    refine ⟨hwf', hext', hfe', henv', F, ?_⟩
     unfold installProjFnStep
     rw [FueledM.atF_ite, if_pos hart]
     exact hF
   · rw [if_neg hart] at h
     obtain ⟨hfe, rfl⟩ := pureI_ok h
     subst hfe
-    refine ⟨hwf, rfl, henv, 0, ?_⟩
+    refine ⟨hwf, Ext.refl _, rfl, henv, 0, ?_⟩
     unfold installProjFnStep
     rw [FueledM.atF_ite, if_neg hart]
     rfl
@@ -708,22 +718,23 @@ theorem foldProjFnS_run {T ctorName : Name} {lps : List Name}
       EnvWF env → ISOKF s₀ →
       (idxs.foldlM (installProjFnStepS T ctorName lps nP nF)
         (mkFEnv env)) s₀ = .ok (fe', s') →
-      ISOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
+      ISOKF s' ∧ Ext s₀.store s'.store ∧ fe' = mkFEnv fe'.env ∧
+      EnvWF fe'.env ∧
       ∃ F, (idxs.foldlM (installProjFnStep fueledOpsM T ctorName lps
         nP nF) env).val F = .ok fe'.env
   | [], env, s₀, fe', s', henv, hwf, h => by
     obtain ⟨hfe, rfl⟩ := pureI_ok h
     subst hfe
-    exact ⟨hwf, rfl, henv, 0, rfl⟩
+    exact ⟨hwf, Ext.refl _, rfl, henv, 0, rfl⟩
   | i :: idxs, env, s₀, fe', s', henv, hwf, h => by
     rw [List.foldlM_cons] at h
     obtain ⟨fe₁, s₁, hstep, h⟩ := bindI_ok h
-    obtain ⟨hwf₁, hfe₁, henv₁, F₁, hF₁⟩ :=
+    obtain ⟨hwf₁, hext₁, hfe₁, henv₁, F₁, hF₁⟩ :=
       installProjFnStepS_run henv hwf hstep
     rw [hfe₁] at h
-    obtain ⟨hwf', hfe', henv', F₂, hF₂⟩ :=
+    obtain ⟨hwf', hext', hfe', henv', F₂, hF₂⟩ :=
       foldProjFnS_run idxs fe₁.env henv₁ hwf₁ h
-    refine ⟨hwf', hfe', henv', max F₁ F₂, ?_⟩
+    refine ⟨hwf', hext₁.trans hext', hfe', henv', max F₁ F₂, ?_⟩
     rw [List.foldlM_cons]
     exact atF_bind_intro hF₁ hF₂
 
@@ -813,25 +824,25 @@ theorem foldProjTemplatesS_run {T ctorName : Name} {lps : List Name}
       {s' : IState},
       (idxs.foldlM (installProjTemplateStepS T ctorName lps nP nF)
         (mkFEnv env)) s₀ = .ok (fe', s') →
-      fe' = mkFEnv fe'.env ∧
+      s₀ = s' ∧ fe' = mkFEnv fe'.env ∧
       ∃ F, (idxs.foldlM (fun (e : Env) (i : Nat) =>
         (installProjTemplateStep T ctorName lps nP nF e i :
           FueledM Env)) env).val F = .ok fe'.env
   | [], env, s₀, fe', s', h => by
     obtain ⟨hfe, rfl⟩ := pureI_ok h
     subst hfe
-    exact ⟨rfl, 0, rfl⟩
+    exact ⟨rfl, rfl, 0, rfl⟩
   | i :: idxs, env, s₀, fe', s', h => by
     rw [List.foldlM_cons] at h
     obtain ⟨fe₁, s₁, hstep, h⟩ := bindI_ok h
     obtain ⟨hs01, hfe₁, hpure⟩ := installProjTemplateStepS_run hstep
     rw [hfe₁] at h
-    obtain ⟨hfe', F₂, hF₂⟩ := foldProjTemplatesS_run idxs fe₁.env h
+    obtain ⟨hs1', hfe', F₂, hF₂⟩ := foldProjTemplatesS_run idxs fe₁.env h
     have hstepF : (installProjTemplateStep T ctorName lps nP nF env i :
         FueledM Env).val F₂ = .ok fe₁.env := by
       rw [installProjTemplateStep_datF]
       exact hpure
-    refine ⟨hfe', F₂, ?_⟩
+    refine ⟨hs01.trans hs1', hfe', F₂, ?_⟩
     rw [List.foldlM_cons]
     have := atF_bind_intro
       (x := (installProjTemplateStep T ctorName lps nP nF env i :
@@ -851,7 +862,7 @@ theorem checkIndDeclSF_run {env : Env} (henv : EnvWF env)
     {block : List ConstantInfo} {s₀ : IState} (hwf : ISOKF s₀)
     {feOut : FEnv} {s' : IState}
     (h : checkIndDeclSF (mkFEnv env) block s₀ = .ok (feOut, s')) :
-    feOut = mkFEnv feOut.env ∧
+    ISOKF s' ∧ Ext s₀.store s'.store ∧ feOut = mkFEnv feOut.env ∧
     ∃ F, checkIndDecl (fueledOps F) env block = .ok feOut.env := by
   unfold checkIndDeclSF at h
   have hbnAll : ∀ ci ∈ block.filter (fun ci => match ci with
@@ -872,11 +883,11 @@ theorem checkIndDeclSF_run {env : Env} (henv : EnvWF env)
     have hcapsv' : indBlockCaps env cvT cvC nP nF = caps := by
       rw [← indBlockCapsF_eq]; exact hcapsv
     obtain ⟨fe₂, s₂, hfold, h⟩ := bindI_ok h
-    obtain ⟨hwf₂, hfe₂, henv₂, F₁, hF₁⟩ :=
+    obtain ⟨hwf₂, hext₂, hfe₂, henv₂, F₁, hF₁⟩ :=
       foldIndMemberS_run _ env henv hwf hfold
     obtain ⟨fe₃, s₃, hrecs, h⟩ := bindI_ok h
     rw [hfe₂] at hrecs
-    obtain ⟨hwf₃, hfe₃, henv₃, F₂, hF₂⟩ :=
+    obtain ⟨hwf₃, hext₃, hfe₃, henv₃, F₂, hF₂⟩ :=
       checkIndRecsS_run henv₂ hbnAll hwf₂ hrecs
     rw [hfe₃] at h
     simp only [mkFEnv_find?] at h
@@ -887,11 +898,13 @@ theorem checkIndDeclSF_run {env : Env} (henv : EnvWF env)
       exact absurd h throwI_bind_ok
     rw [if_pos hguard] at h
     obtain ⟨fe₄, s₄, hart, h⟩ := bindI_ok h
-    obtain ⟨hwf₄, hfe₄, henv₄, F₃, hF₃⟩ :=
+    obtain ⟨hwf₄, hext₄, hfe₄, henv₄, F₃, hF₃⟩ :=
       foldProjFnS_run _ fe₃.env henv₃ hwf₃ hart
     rw [hfe₄] at h
-    obtain ⟨hfeOut, F₄, hF₄⟩ := foldProjTemplatesS_run _ fe₄.env h
-    refine ⟨hfeOut, max F₁ (max F₂ (max F₃ F₄)), ?_⟩
+    obtain ⟨hs4', hfeOut, F₄, hF₄⟩ := foldProjTemplatesS_run _ fe₄.env h
+    refine ⟨hs4' ▸ hwf₄,
+      hs4' ▸ (hext₂.trans (hext₃.trans hext₄)), hfeOut,
+      max F₁ (max F₂ (max F₃ F₄)), ?_⟩
     have hF₁p := FueledM.up (Nat.le_max_left F₁ (max F₂ (max F₃ F₄))) hF₁
     rw [foldlM_atF] at hF₁p
     simp only [checkIndMember_datF] at hF₁p
@@ -965,12 +978,12 @@ theorem checkIndDeclSF_run {env : Env} (henv : EnvWF env)
   case _ =>
     rename_i x1 x2 hne
     obtain ⟨fe₂, s₂, hfold, h⟩ := bindI_ok h
-    obtain ⟨hwf₂, hfe₂, henv₂, F₁, hF₁⟩ :=
+    obtain ⟨hwf₂, hext₂, hfe₂, henv₂, F₁, hF₁⟩ :=
       foldIndMemberS_run _ env henv hwf hfold
     rw [hfe₂] at h
-    obtain ⟨hwf₃, hfe₃, henv₃, F₂, hF₂⟩ :=
+    obtain ⟨hwf₃, hext₃, hfe₃, henv₃, F₂, hF₂⟩ :=
       checkIndRecsS_run henv₂ hbnAll hwf₂ h
-    refine ⟨hfe₃, max F₁ F₂, ?_⟩
+    refine ⟨hwf₃, hext₂.trans hext₃, hfe₃, max F₁ F₂, ?_⟩
     have hF₁p := FueledM.up (Nat.le_max_left F₁ F₂) hF₁
     rw [foldlM_atF] at hF₁p
     simp only [checkIndMember_datF] at hF₁p
@@ -1020,7 +1033,8 @@ theorem checkDeclSharedF_bridge {env : Env} {d : Declaration}
     have hwf0 : ISOKF ({} : IState) := ISOKF.fresh empty_wf
     cases d with
     | indDecl block =>
-      exact checkIndDeclSF_run henv hwf0 hrun
+      obtain ⟨-, -, hfe, F, hF⟩ := checkIndDeclSF_run henv hwf0 hrun
+      exact ⟨hfe, F, hF⟩
     | defnDecl cv value hint =>
       rw [checkDeclSF_nonind env _ (fun _ h => Declaration.noConfusion h)]
         at hrun
