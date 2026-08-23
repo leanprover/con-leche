@@ -78,14 +78,17 @@ partial def progressLoop (stats : Bool)
     IO.println s!"setlec: accepted {fe.env.consts.length} declarations"
     pure 0
 
-/-- The real driver (run in the supervised child process). -/
-def checkMain (file : String) : IO UInt32 := do
-    -- Measurement mode (task #76): SETLEC_NO_PROOF_CERTS=1 selects the
-    -- cert-skipping knot (Setlec/Kernel/CheckerNC.lean) — the
-    -- proof-feeding infer/defeq calls the reference kernels do not
-    -- perform are skipped.  UNVERIFIED: the consistency statements
-    -- cover only the default drivers below.
-    let noCerts := (← IO.getEnv "SETLEC_NO_PROOF_CERTS") == some "1"
+/-- The real driver (run in the supervised child process).  `yolo`
+selects the unverified cert-skipping stack (same as
+`SETLEC_NO_PROOF_CERTS=1`). -/
+def checkMain (file : String) (yolo : Bool) : IO UInt32 := do
+    -- Measurement mode (task #76): SETLEC_NO_PROOF_CERTS=1 (or the
+    -- `--yolo` flag) selects the cert-skipping knot
+    -- (Setlec/Kernel/CheckerNC.lean) — the proof-feeding infer/defeq
+    -- calls the reference kernels do not perform are skipped.
+    -- UNVERIFIED: the consistency statements cover only the default
+    -- drivers below.
+    let noCerts := yolo || (← IO.getEnv "SETLEC_NO_PROOF_CERTS") == some "1"
     let stepF := if noCerts then checkDeclSPStepNC else checkDeclSPStep
     let foldF := if noCerts then checkDeclsSPNC else checkDeclsSP
     let contents ← preprocess file (← IO.FS.readFile file)
@@ -143,6 +146,10 @@ def checkMain (file : String) : IO UInt32 := do
         return e.exitCode
 
 def main (args : List String) : IO UInt32 := do
+  -- `--yolo`: command-line alias for SETLEC_NO_PROOF_CERTS=1 (the
+  -- unverified measurement mode, task #76).
+  let yolo := args.contains "--yolo"
+  let args := args.filter (· != "--yolo")
   match args with
   | [file] =>
     -- OOM supervision: the Lean runtime's out-of-memory handler
@@ -155,11 +162,11 @@ def main (args : List String) : IO UInt32 := do
     -- input proof".  Progress output streams through (stdout is
     -- inherited); stderr is buffered for inspection and re-printed.
     if (← IO.getEnv "SETLEC_SUPERVISED").isSome then
-      checkMain file
+      checkMain file yolo
     else
       let child ← IO.Process.spawn {
         cmd := (← IO.appPath).toString
-        args := #[file]
+        args := if yolo then #[file, "--yolo"] else #[file]
         env := #[("SETLEC_SUPERVISED", some "1")]
         stdout := .inherit
         stderr := .piped }
@@ -171,5 +178,5 @@ def main (args : List String) : IO UInt32 := do
         return 3
       return code
   | _ =>
-    IO.eprintln "usage: setlec FILE.ndjson"
+    IO.eprintln "usage: setlec [--yolo] FILE.ndjson"
     return 3
