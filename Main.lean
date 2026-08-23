@@ -42,8 +42,7 @@ partial def needsPreprocess (file : String) : IO Bool := do
     let line ← h.getLine
     if line.isEmpty then
       return false
-    if (line.splitOn "\"inductive\"").length > 1 ||
-        (line.splitOn "\"quot\"").length > 1 then
+    if line.contains "\"inductive\"" || line.contains "\"quot\"" then
       return true
     loop
   loop
