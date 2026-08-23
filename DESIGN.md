@@ -3545,6 +3545,22 @@ a field-free structure, `rfl`s through both projection iota rules and
 through the recursor rule) — verified by running it, and re-verified
 after each subsequent change.
 
+**Superseded, and owned elsewhere (2026-08-23, user ruling).**  The
+`T`↔`T._model` identification is needed **only within the current
+recursive group** — a group's model construction does not reach back
+into previous groups' models — so `ModeledOk` is not a global
+environment invariant at all, and the group-local restructure (task
+#83) **deletes** it together with the `modelFamilyTaken` guard.  Two
+review findings against them (a dropped type-former linkage clause; a
+guard that blanket-reserved the `_model` suffix, flipping a plain
+`def Foo` + `def Foo._model` stream from accept to reject) were fixed
+on the phase-2 branch and are **left to that restructure to subsume** —
+undoing them separately would only collide with it.  Nothing in the
+direct path depends on either: every `ModeledOk` clause is vacuous for
+a directly installed block, so the direct install's obligations are
+exactly `EnvModel`'s real clauses (`mem_type`, `val_params`,
+`annot_ok`, `rec_rules`) and are unaffected.
+
 **Not yet landed: the rest of the environment assembly of the install
 soundness** (the type former's extension *is* landed; see the list
 below).  `checkIndDecl` therefore does not yet dispatch to
@@ -3616,51 +3632,72 @@ What remains, in dependency order:
    too — it carries the frame conditions along a value-spine fit, which
    is how `FieldTele_of_walk`'s `FrameOk` input is obtained.
 
-2. **The linchpin: a defeq-transfer walk at *growing* frames.**  This
-   is the "one genuinely new piece of telescope machinery" the first
-   remaining-work list named, correctly, and it is the only thing
-   between here and items 3–5.
-
-   The constructor's `mem_type` needs `⟦T p⃗⟧ = tower`
-   (`directCtorVal_mem`'s `hresid`), which folds the type former's
-   value through `directTyVal_fold`.  That fold consumes a value-spine
-   fit of the **type former's** telescope, at frame 0, with the very
+2. **The linchpin: transferring a value-spine fit between the two
+   parameter telescopes.**  The constructor's `mem_type` needs
+   `⟦T p⃗⟧ = tower` (`directCtorVal_mem`'s `hresid`), which folds the
+   type former's value through `directTyVal_fold`.  That fold consumes
+   a fit of the **type former's** telescope, at frame 0, with the very
    parameter values the **constructor's** fit supplies — so the
-   constructor's fit has to be transferred across the checked
-   parameter-domain `isDefEq` (`Add.lean:220-222`), which is exactly
-   what the pins are for.
+   constructor's fit has to cross the checked parameter-domain
+   `isDefEq` (`Add.lean:220-222`), which is what the pins are for.
 
-   `Setlec/Model/IotaWalk.lean`'s `pi_walk` is this transfer at a
-   **fixed** frame, over an expression spine (`TeleFitI`).  It does not
-   apply: a `TeleFit` opens each binder at a *new* frame, and the two
-   telescopes open at their *own* binder names and domains, so the two
-   walks' subjects diverge syntactically after the first binder (they
-   stay `Expr.ErasedEq`, which is enough semantically —
-   `interp_erasedEq` — but not syntactically, and `TeleFit`'s
-   constructor dictates the opening).  Three shapes were tried on
-   paper and all founder on the same point; the honest summary is that
-   the walk has to be written, carrying on both sides a `FrameOk` and
-   the `ErasedEq` between "opened at its own variables" and "opened
-   along the other's spine", with `interp_lift` moving the kernel's
-   pins from the frame they were checked at (`nP + nF`) down to the
-   frame each binder is reached at.  Two small prerequisites are
-   `AnnotOk`/`FvarsOk` versions of `interp_lift` (iterating
-   `AnnotOk.weaken_top`/`FvarsOk.weaken_top` with `x := ρ p`, so the
-   valuation comes back to `ρ`).
+   `pi_walk` is that transfer at a **fixed** frame along an expression
+   spine (`TeleFitI`), and `TeleFitI.toTeleFit` reproduces whatever
+   frame it is handed, so nothing existing lands at frame 0.
 
-   *Not attempted here, deliberately.*  The obvious shortcut — checking
-   each parameter domain's `isDefEq` at **its own** frame `j`, the way
-   `checkDirectFieldUniv` already infers each field's sort at frame
-   `nP + j`, which would delete the entire lifting layer and is
-   arguably the more faithful reference shape — is a kernel-shape
-   decision, and this pass was fenced against making new ones.  It
-   should be the first thing weighed before the walk is written.
+   *Landed*, splitting the problem so that only one piece is left:
 
-   With the fit in hand, the rest of the constructor's `mem_type` is
+   * `DomsInterpEq` + `TeleFit.transfer` — the whole *semantic* content
+     ("at every stage the two head domains interpret alike, and this
+     continues on the bodies opened at the respective variables") and
+     its consumer, a five-line induction producing the frame-0 fit at
+     the same frames and valuation as the source;
+   * `instPisAt_erasedEq_spines` — two instantiations of one telescope
+     along **index-matched** free-variable spines agree up to
+     `Expr.ErasedEq`, pointwise on domains and on the residual.  With
+     `openPisAtFvars_spec` this relates the type former's *own* opening
+     (what a `TeleFit` of it produces) to its instantiation along the
+     *constructor's* opening (what the kernel pins), and `ErasedEq`
+     settles the interpretations with **no** side conditions.
+
+   *What is left* is establishing `DomsInterpEq` from the pins, and the
+   only real obstacle is the **side conditions of `isDefEqCore_sound`**
+   on the type-former side: at the pinned expressions — the type
+   former's domains instantiated along the *constructor's* variables —
+   `LeavesBounded` and `FvarsOk` constrain the free variables'
+   annotations, and `ErasedEq` does **not** preserve those (it reads
+   only the index).  So they cannot be transported from the type
+   former's own opening; they have to come from a walk over the mixed
+   spine.  Two routes, and choosing between them is a design call:
+
+   * **(X) One kernel shape change.**  Have `checkDirectCtor` open the
+     two parameter telescopes each at its **own** variables and pin
+     domain `j` at frame `j` — the same per-binder-frame discipline
+     `checkDirectFieldUniv` already uses for the field sorts, and
+     arguably the more faithful reference shape (the references compare
+     domain `j` with the first `j` binders in scope).  Then both sides
+     carry their own `FrameOk` from `openPisAtFvars_wf` and
+     `FrameOk.ofTeleFit`, the spines are index-matched by construction,
+     and `DomsInterpEq` follows by a short induction.  Cost: a third
+     shape change to `checkDirectCtor` plus its battery and `wfimp`
+     lines.
+   * **(Y) No kernel change.**  Obtain the mixed-spine side conditions
+     from `pi_walk_src` at the fixed frame `nP + nF`, then move its
+     per-stage interpretation facts down to each binder's own frame
+     with `interp_lift` and across the two openings with
+     `interp_erasedEq`.  Larger and more coupled — the per-stage
+     equalities have to hold at the arbitrary valuations
+     `DomsInterpEq` quantifies over, not only at the fit's own values.
+
+   (X) is the better engineering; it was not taken because this pass
+   was fenced against new kernel-shape decisions.
+
+   With the fit in hand the rest of the constructor's `mem_type` is
    mechanical: `directCtorVal_mem` with `FieldTele_of_walk` (frame from
    `FrameOk.ofTeleFit`, walk facts from `checkDirectFieldUniv_inv`) and
    `directTyVal_congr` to move the type former's value onto the
    constructor's install pair.
+
 3. **`mem_type` for the recursor and the projections**, from
    `directRecVal_mem`/`directRec_body_mem` and
    `directProjVal_mem`/`directProj_body_mem`, with the residual

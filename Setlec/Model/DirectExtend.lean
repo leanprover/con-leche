@@ -174,6 +174,131 @@ theorem FrameOk.ofTeleFit {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
     intro hfr
     exact ih (hfr.body hity hx)
 
+/-! ### Transferring a value-spine fit between two telescopes
+
+The constructor's `mem_type` has to fold the **type former's** value at
+the parameter values the **constructor's** own fit supplies, so a fit
+of one telescope has to become a fit of the other across the checked
+parameter-domain `isDefEq` (`Inductive/Add.lean:220-222`).
+
+`Setlec/Model/IotaWalk.lean`'s `pi_walk` is that transfer at a *fixed*
+frame along an expression spine (`TeleFitI`).  It does not apply here:
+a `TeleFit` opens each binder at a **new** frame, and the two
+telescopes open at their **own** binder names and domains, so the two
+walks' subjects diverge syntactically after the first binder.
+
+The split below keeps that difficulty in one place.  `DomsInterpEq` is
+the whole semantic content — "at every stage the two head domains
+interpret alike, and this continues on the bodies opened at the
+respective variables" — and `TeleFit.transfer` consumes it in a
+five-line induction.  Establishing `DomsInterpEq` from the kernel's
+pins is the separate (and only hard) step. -/
+
+/-- The two telescopes' domains interpret alike, stage by stage, each
+side opened at its **own** binder variables. -/
+def DomsInterpEq (V : Type u) [SetTheory V] (cval : ConstVal V) (env : Env)
+    (φ : Name → Nat) : Nat → Nat → (Nat → V) → Expr → Expr → Prop
+  | 0, _, _, _, _ => True
+  | k + 1, d, ρ, .forallE nS domS bodyS _, .forallE nR domR bodyR _ =>
+    (∀ A, interpExpr V cval env φ d ρ domS = some A →
+      interpExpr V cval env φ d ρ domR = some A) ∧
+    ∀ (x A : V), interpExpr V cval env φ d ρ domS = some A → x ∈ˢ A →
+      DomsInterpEq V cval env φ k (d + 1) (updV V ρ d x)
+        (bodyS.instantiate1 (.fvar d nS domS))
+        (bodyR.instantiate1 (.fvar d nR domR))
+  | _ + 1, _, _, _, _ => False
+
+omit [SetTheory V] in
+/-- Two instantiations of one telescope along **index-matched** free
+variable spines agree up to `Expr.ErasedEq` — pointwise on the
+instantiated domains and on the residual.
+
+This is what relates the type former's *own* opening (which a
+`TeleFit` of it produces) to its instantiation along the
+**constructor's** opening (which is what `checkDirectCtor` pins
+definitionally): the two spines carry the same indices and differ only
+in binder names and annotations, which `ErasedEq` — and hence the
+interpretation — does not read. -/
+theorem instPisAt_erasedEq_spines :
+    ∀ (sp₁ : List Expr) {sp₂ : List Expr} {e₁ e₂ : Expr}
+      {ds₁ ds₂ : List Expr} {r₁ r₂ : Expr},
+      Expr.ErasedEq e₁ e₂ →
+      sp₁.length = sp₂.length →
+      (∀ (j : Nat) (a b : Expr), sp₁[j]? = some a → sp₂[j]? = some b →
+        Expr.ErasedEq a b) →
+      Expr.instPisAt sp₁ e₁ = some (ds₁, r₁) →
+      Expr.instPisAt sp₂ e₂ = some (ds₂, r₂) →
+      (∀ (j : Nat) (a b : Expr), ds₁[j]? = some a → ds₂[j]? = some b →
+        Expr.ErasedEq a b) ∧ Expr.ErasedEq r₁ r₂ := by
+  intro sp₁
+  induction sp₁ with
+  | nil =>
+    intro sp₂ e₁ e₂ ds₁ ds₂ r₁ r₂ hEE hlen _ h₁ h₂
+    obtain rfl : sp₂ = [] := List.eq_nil_of_length_eq_zero hlen.symm
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h₁ h₂
+    obtain ⟨rfl, rfl⟩ := h₁
+    obtain ⟨rfl, rfl⟩ := h₂
+    exact ⟨fun j a b ha _ => by simp at ha, hEE⟩
+  | cons a₁ sp₁ ih =>
+    intro sp₂ e₁ e₂ ds₁ ds₂ r₁ r₂ hEE hlen hsp h₁ h₂
+    match sp₂ with
+    | a₂ :: sp₂ =>
+      obtain ⟨n₁, dom₁, body₁, m₁, ds₁', rfl, rfl, h₁'⟩ := instPisAt_cons_inv h₁
+      match e₂, hEE with
+      | .forallE n₂ dom₂ body₂ m₂, hEE =>
+        obtain ⟨-, hdomEE, hbodyEE⟩ := hEE
+        obtain ⟨n₂', dom₂', body₂', m₂', ds₂', heq₂, rfl, h₂'⟩ :=
+          instPisAt_cons_inv h₂
+        obtain ⟨rfl, rfl, rfl, rfl⟩ :
+            n₂' = n₂ ∧ dom₂' = dom₂ ∧ body₂' = body₂ ∧ m₂' = m₂ := by
+          cases heq₂; exact ⟨rfl, rfl, rfl, rfl⟩
+        have ha : Expr.ErasedEq a₁ a₂ := hsp 0 a₁ a₂ rfl rfl
+        obtain ⟨hds, hr⟩ := ih (Expr.ErasedEq.instantiate1 hbodyEE ha)
+          (by simpa using hlen)
+          (fun j x y hx hy => hsp (j + 1) x y (by simpa using hx)
+            (by simpa using hy))
+          h₁' h₂'
+        refine ⟨fun j x y hx hy => ?_, hr⟩
+        cases j with
+        | zero =>
+          obtain rfl := Option.some.inj hx
+          obtain rfl := Option.some.inj hy
+          exact hdomEE
+        | succ j =>
+          exact hds j x y (by simpa using hx) (by simpa using hy)
+
+/-- **The transfer.**  A value-spine fit of one telescope is a fit of
+any telescope whose domains interpret alike stage by stage — at the
+very same frames and valuation, which is what lets both towers fold at
+one frame. -/
+theorem TeleFit.transfer {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
+    ∀ (k : Nat) {d : Nat} {ρ : Nat → V} {tyS tyR : Expr} {vs : List V}
+      {d' : Nat} {ρ' : Nat → V} {restS : Expr},
+      TeleFit V cval env φ d ρ tyS vs d' ρ' restS → vs.length = k →
+      DomsInterpEq V cval env φ k d ρ tyS tyR →
+      ∃ restR, TeleFit V cval env φ d ρ tyR vs d' ρ' restR := by
+  intro k
+  induction k with
+  | zero =>
+    intro d ρ tyS tyR vs d' ρ' restS hfit hlen _
+    obtain rfl : vs = [] := List.eq_nil_of_length_eq_zero hlen
+    cases hfit
+    exact ⟨tyR, TeleFit.nil⟩
+  | succ k ih =>
+    intro d ρ tyS tyR vs d' ρ' restS hfit hlen hdoms
+    cases hfit with
+    | nil => exact absurd hlen (by simp)
+    | @cons d ρ nS domS bodyS mS x xs d₂ ρ₂ rest A hdom hx hfit =>
+      match tyR with
+      | .forallE nR domR bodyR mR =>
+        obtain ⟨hdomEq, hstep⟩ := hdoms
+        obtain ⟨restR, hfitR⟩ := ih hfit (by simpa using hlen)
+          (hstep x A hdom hx)
+        exact ⟨restR, TeleFit.cons (hdomEq A hdom) hx hfitR⟩
+      | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
+      | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+        exact hdoms.elim
+
 /-! ### `FieldTele` from the per-field universe walk -/
 
 /-- The field telescope is small at the structure's own sort: each
