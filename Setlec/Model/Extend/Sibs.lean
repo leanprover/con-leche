@@ -6,7 +6,7 @@ import Setlec.Model.Extend.Inversions
 
 Per-clause preservation (`.cons`) lemmas for extending an
 environment by one fresh constant: `BasisBlocks`, `RecCtorsStored`,
-`RecRulesOk` and `ModeledOk`, with the head obligations (`SibFinds`,
+`RecRulesOk` and `CapsOk`, with the head obligations (`SibFinds`,
 `RecMemberOk`) they consume.
 -/
 
@@ -196,176 +196,151 @@ theorem RecRulesOk.cons {env : Env} (m : EnvModel V env)
         by rw [htrans _ hres ψ]; exact hLi,
         by rw [htrans _ hrres ψ]; exact hRi⟩
 
-/-- Extending with a fresh constant preserves the modeled-value
-bridges, given the head's own obligations. -/
-theorem ModeledOk.cons {env : Env} {val val' : ConstVal V}
+/-- The eta head obligation of `CapsOk.cons` is vacuous for a head
+that is neither an inductive former, nor a constructor, nor a
+recursor-kind constant (definitions, theorems, axioms, projection
+table entries): the family premises pin those kinds. -/
+theorem capsEtaHead_of_kinds {env : Env} {c₀ : ConstantInfo}
+    {val' : ConstVal V}
+    (hind : ∀ cv caps, c₀ ≠ .indInfo cv caps)
+    (hctor : ∀ cv cnP cnF, c₀ ≠ .ctorInfo cv cnP cnF)
+    (hrec : ∀ cv mI rP rules, c₀ ≠ .recInfo cv mI rP rules) :
+    ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
+      (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
+      caps.eta = true → reservedBasisNames.contains T = false →
+      EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps →
+      (T = c₀.name ∨ caps.etaCtor = c₀.name ∨
+        ∃ j, j < caps.etaFields ∧ projFnName T j = c₀.name) →
+      EtaLaw V ⟨c₀ :: env.consts⟩ val' T cvT caps := by
+  intro T cvT caps hfT hcape hres hfam hpart
+  exfalso
+  rcases hpart with rfl | hC | ⟨j, hj, hP⟩
+  · rw [Env.find?_cons, if_pos rfl] at hfT
+    exact hind cvT caps (Option.some.inj hfT)
+  · obtain ⟨-, ⟨cvC, hfC⟩, -⟩ := hfam
+    rw [hC, Env.find?_cons, if_pos rfl] at hfC
+    exact hctor cvC caps.etaParams caps.etaFields (Option.some.inj hfC)
+  · obtain ⟨-, -, hfP⟩ := hfam
+    obtain ⟨cv2, mI2, rP2, rules2, hf2⟩ := hfP j hj
+    rw [hP, Env.find?_cons, if_pos rfl] at hf2
+    exact hrec cv2 mI2 rP2 rules2 (Option.some.inj hf2)
+
+/-- The eta head obligation of `CapsOk.cons` is vacuous for a
+recursor-kind head whose name is not projection-function-shaped
+(a modeled block's recursor member: `checkConstantVal` refuses the
+shape). -/
+theorem capsEtaHead_of_rec_shape {env : Env} {c₀ : ConstantInfo}
+    {val' : ConstVal V}
+    (hind : ∀ cv caps, c₀ ≠ .indInfo cv caps)
+    (hctor : ∀ cv cnP cnF, c₀ ≠ .ctorInfo cv cnP cnF)
+    (hshape : c₀.name.isProjFnShape = false) :
+    ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
+      (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
+      caps.eta = true → reservedBasisNames.contains T = false →
+      EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps →
+      (T = c₀.name ∨ caps.etaCtor = c₀.name ∨
+        ∃ j, j < caps.etaFields ∧ projFnName T j = c₀.name) →
+      EtaLaw V ⟨c₀ :: env.consts⟩ val' T cvT caps := by
+  intro T cvT caps hfT hcape hres hfam hpart
+  exfalso
+  rcases hpart with rfl | hC | ⟨j, hj, hP⟩
+  · rw [Env.find?_cons, if_pos rfl] at hfT
+    exact hind cvT caps (Option.some.inj hfT)
+  · obtain ⟨-, ⟨cvC, hfC⟩, -⟩ := hfam
+    rw [hC, Env.find?_cons, if_pos rfl] at hfC
+    exact hctor cvC caps.etaParams caps.etaFields (Option.some.inj hfC)
+  · rw [← hP] at hshape
+    simp [Name.isProjFnShape, projFnName] at hshape
+
+/-- Extending with a fresh constant preserves the capability laws.
+The single eta head obligation (`hheadEta`) is owed exactly when the
+head *participates* in a (now complete) eta family — it is the former
+itself, its capability constructor, or one of its projection
+functions; the complement is pure transport.  The unit obligation is
+owed only for a freshly installed unit-like former (the law mentions
+no other name). -/
+theorem CapsOk.cons {env : Env} {val val' : ConstVal V}
     {c₀ : ConstantInfo}
-    (h : ModeledOk V env val)
+    (h : CapsOk V env val)
     (hwfe : EnvWF env)
     (hfresh : env.find? c₀.name = none)
     (hpres : ∀ (n : Name) (ψ : Name → Nat), n ≠ c₀.name →
       val' n ψ = val n ψ)
-    (hheadInd : ∀ cv caps, c₀ = .indInfo cv caps →
-      reservedBasisNames.contains c₀.name = false →
-      ((⟨c₀ :: env.consts⟩ : Env).find? (c₀.name.str "_model")).isSome
-        = true →
-      ∀ ψ : Name → Nat, val' c₀.name ψ = val' (c₀.name.str "_model") ψ)
-    (hheadCompanionInd : ∀ (n : Name) cv caps,
-      c₀.name = n.str "_model" →
-      env.find? n = some (.indInfo cv caps) →
-      reservedBasisNames.contains n = false →
-      ∀ ψ : Name → Nat, val' n ψ = val' (n.str "_model") ψ)
-    (hheadCtor : ∀ cv cnP cnF, c₀ = .ctorInfo cv cnP cnF →
-      reservedBasisNames.contains c₀.name = false →
-      ((⟨c₀ :: env.consts⟩ : Env).find? (c₀.name.str "_model")).isSome
-        = true →
-      ∀ ψ : Name → Nat, val' c₀.name ψ = val' (c₀.name.str "_model") ψ)
-    (hheadProj : ∀ (T : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat)
-      (rules : List RecRule), c₀.name = projFnName T j →
-      c₀ = .recInfo cv mI rP rules →
-      ((⟨c₀ :: env.consts⟩ : Env).find? (projModelName T j)).isSome
-        = true →
-      ∀ ψ : Name → Nat,
-        val' (projFnName T j) ψ = val' (projModelName T j) ψ)
-    -- the *companion* side of the linkage: installing an `X._model`
-    -- for an already-stored `X` would activate the clause for a
-    -- constant whose value was fixed without it.  The checker rejects
-    -- that (`checkConstantVal`'s model-family guard), so every call
-    -- site discharges this by contradiction.
-    (hheadCompanionCtor : ∀ (n : Name) cv cnP cnF,
-      c₀.name = n.str "_model" →
-      env.find? n = some (.ctorInfo cv cnP cnF) →
-      reservedBasisNames.contains n = false →
-      ∀ ψ : Name → Nat, val' n ψ = val' (n.str "_model") ψ)
-    (hheadCompanionProj : ∀ (T : Name) (j : Nat) cv mI rP rules,
-      c₀.name = projModelName T j →
-      (env.find? T).isSome = true →
-      env.find? (projFnName T j) = some (.recInfo cv mI rP rules) →
-      ∀ ψ : Name → Nat,
-        val' (projFnName T j) ψ = val' (projModelName T j) ψ)
-    (hheadEta : ∀ cv caps, c₀ = .indInfo cv caps → caps.eta = true →
-      reservedBasisNames.contains c₀.name = false →
-      ((⟨c₀ :: env.consts⟩ : Env).find?
-        (caps.etaCtor.str "_model")).isSome = true ∧
-      (∀ j, j < caps.etaFields →
-        ((⟨c₀ :: env.consts⟩ : Env).find?
-          (projModelName c₀.name j)).isSome = true) ∧
-      EtaLaw V ⟨c₀ :: env.consts⟩ val' c₀.name cv caps)
+    (hheadEta : ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
+      (⟨c₀ :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
+      caps.eta = true → reservedBasisNames.contains T = false →
+      EtaFamilyStored ⟨c₀ :: env.consts⟩ T caps →
+      (T = c₀.name ∨ caps.etaCtor = c₀.name ∨
+        ∃ j, j < caps.etaFields ∧ projFnName T j = c₀.name) →
+      EtaLaw V ⟨c₀ :: env.consts⟩ val' T cvT caps)
     (hheadUnit : ∀ cv caps, c₀ = .indInfo cv caps →
       caps.unitlike = true →
       reservedBasisNames.contains c₀.name = false →
-      UnitLaw V ⟨c₀ :: env.consts⟩ val' c₀.name cv caps)
-    (hheadParent : ∀ (T : Name) (j : Nat) cv mI rP rules,
-      c₀.name = projFnName T j → c₀ = .recInfo cv mI rP rules →
-      ((⟨c₀ :: env.consts⟩ : Env).find? T).isSome = true) :
-    ModeledOk V ⟨c₀ :: env.consts⟩ val' := by
+      UnitLaw V ⟨c₀ :: env.consts⟩ val' c₀.name cv caps) :
+    CapsOk V ⟨c₀ :: env.consts⟩ val' := by
   have hfind : ∀ n, n ≠ c₀.name →
       (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n := by
     intro n hn
     rw [Env.find?_cons, if_neg (fun hh => hn hh.symm)]
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
-  · intro n cv cnP cnF hf hres hmsN
-    by_cases hn : n = c₀.name
-    · subst hn
-      rw [Env.find?_cons, if_pos rfl] at hf
-      exact hheadCtor cv cnP cnF (Option.some.inj hf) hres hmsN
-    · rw [hfind n hn] at hf
-      by_cases hmne : n.str "_model" = c₀.name
-      · exact hheadCompanionCtor n cv cnP cnF hmne.symm hf hres
-      · rw [hfind _ hmne] at hmsN
-        intro ψ
-        rw [hpres _ ψ hn, hpres _ ψ hmne]
-        exact h.1 n cv cnP cnF hf hres hmsN ψ
-  · intro T cvT capsT j cv2 mI2 rP2 rules2 hfT hf hmsP
-    by_cases hn : projFnName T j = c₀.name
-    · have hc₀ : c₀ = .recInfo cv2 mI2 rP2 rules2 := by
-        rw [Env.find?_cons, if_pos hn.symm] at hf
-        exact Option.some.inj hf
-      exact hheadProj T j cv2 mI2 rP2 rules2 hn.symm hc₀ hmsP
-    · rw [hfind _ hn] at hf
-      by_cases hnT : T = c₀.name
-      · -- the parent would be the constant being installed, but a
-        -- stored projection function's parent is stored already
-        exfalso
-        have := h.2.2.2.2.1 T j cv2 mI2 rP2 rules2 hf
-        rw [hnT, hfresh] at this
-        exact nomatch this
-      · rw [hfind _ hnT] at hfT
-        by_cases hmne : projModelName T j = c₀.name
-        · exact hheadCompanionProj T j cv2 mI2 rP2 rules2 hmne.symm
-            (by rw [hfT]; rfl) hf
-        · rw [hfind _ hmne] at hmsP
-          intro ψ
-          rw [hpres _ ψ hn, hpres _ ψ hmne]
-          exact h.2.1 T cvT capsT j cv2 mI2 rP2 rules2 hfT hf hmsP ψ
-  · intro T cvT caps hf hcape hres
-    by_cases hn : T = c₀.name
-    · subst hn
-      rw [Env.find?_cons, if_pos rfl] at hf
-      exact hheadEta cvT caps (Option.some.inj hf) hcape hres
-    · rw [hfind _ hn] at hf
-      obtain ⟨hmsC, hmsP, hlaw⟩ := h.2.2.1 T cvT caps hf hcape hres
-      have hCne : caps.etaCtor.str "_model" ≠ c₀.name := by
-        intro he
-        rw [he, hfresh] at hmsC
-        exact nomatch hmsC
-      have hPne : ∀ j, j < caps.etaFields →
-          projModelName T j ≠ c₀.name := by
-        intro j hj he
-        have := hmsP j hj
-        rw [he, hfresh] at this
-        exact nomatch this
-      have hagree : ∀ n, (env.find? n).isSome = true →
-          ∀ ψ' : Name → Nat, val' n ψ' = val n ψ' := by
-        intro n hnf ψ'
-        refine hpres n ψ' ?_
-        intro he
-        rw [he, hfresh] at hnf
-        exact nomatch hnf
+  have hagree : ∀ n, (env.find? n).isSome = true →
+      ∀ ψ' : Name → Nat, val' n ψ' = val n ψ' := by
+    intro n hnf ψ'
+    refine hpres n ψ' ?_
+    intro he
+    rw [he, hfresh] at hnf
+    exact nomatch hnf
+  refine ⟨?_, ?_⟩
+  · intro T cvT caps hf hcape hres hfam
+    by_cases hpart : T = c₀.name ∨ caps.etaCtor = c₀.name ∨
+        ∃ j, j < caps.etaFields ∧ projFnName T j = c₀.name
+    · exact hheadEta T cvT caps hf hcape hres hfam hpart
+    · -- the head is not part of the family: pure transport
+      have hnT : T ≠ c₀.name := fun hh => hpart (Or.inl hh)
+      have hnC : caps.etaCtor ≠ c₀.name :=
+        fun hh => hpart (Or.inr (Or.inl hh))
+      have hnP : ∀ j, j < caps.etaFields → projFnName T j ≠ c₀.name :=
+        fun j hj hh => hpart (Or.inr (Or.inr ⟨j, hj, hh⟩))
+      rw [hfind _ hnT] at hf
+      obtain ⟨hCres, ⟨cvC, hfC⟩, hfP⟩ := hfam
+      rw [hfind _ hnC] at hfC
+      have hfam₀ : EtaFamilyStored env T caps := by
+        refine ⟨hCres, ⟨cvC, hfC⟩, ?_⟩
+        intro j hj
+        obtain ⟨cv2, mI2, rP2, rules2, hf2⟩ := hfP j hj
+        rw [hfind _ (hnP j hj)] at hf2
+        exact ⟨cv2, mI2, rP2, rules2, hf2⟩
+      have hlaw := h.1 T cvT caps hf hcape hres hfam₀
       have hTres : cvT.type.constsResolve env = true := by
         obtain ⟨-, -, h3, -⟩ := hwfe _ (find?_mem hf)
         exact h3
-      refine ⟨?_, ?_, ?_⟩
-      · rw [hfind _ hCne]
-        exact hmsC
-      · intro j hj
-        rw [hfind _ (hPne j hj)]
-        exact hmsP j hj
-      · intro φ'' us ps x d₁ ρ₁ d₂ ρ₂ rest hlen hx hfit
-        have hfit' := TeleFit.env_shrink hfresh hagree hfit
-          (by rw [Expr.constsResolve_instantiateLevelParams]
-              exact hTres)
-        have hx' : x ∈ˢ SpineFold V
-            (val T (Level.substFn φ'' cvT.levelParams us)) ps := by
-          rw [← hpres T _ hn]
-          exact hx
-        have h1 := hlaw φ'' us ps x d₁ ρ₁ d₂ ρ₂ rest hlen hx' hfit'
-        rw [← hpres _ _ hCne] at h1
-        have h2 : ((List.range caps.etaFields).map fun j =>
-            SpineFold V (val (projModelName T j)
-              (Level.substFn φ'' cvT.levelParams us)) (ps ++ [x])) =
-            ((List.range caps.etaFields).map fun j =>
-            SpineFold V (val' (projModelName T j)
-              (Level.substFn φ'' cvT.levelParams us)) (ps ++ [x])) := by
-          refine List.map_congr_left ?_
-          intro j hj
-          rw [hpres _ _ (hPne j (List.mem_range.mp hj))]
-        rw [h2] at h1
-        exact h1
+      intro φ'' us ps x d₁ ρ₁ d₂ ρ₂ rest hlen hx hfit
+      have hfit' := TeleFit.env_shrink hfresh hagree hfit
+        (by rw [Expr.constsResolve_instantiateLevelParams]
+            exact hTres)
+      have hx' : x ∈ˢ SpineFold V
+          (val T (Level.substFn φ'' cvT.levelParams us)) ps := by
+        rw [← hpres T _ hnT]
+        exact hx
+      have h1 := hlaw φ'' us ps x d₁ ρ₁ d₂ ρ₂ rest hlen hx' hfit'
+      rw [← hpres _ _ hnC] at h1
+      have h2 : ((List.range caps.etaFields).map fun j =>
+          SpineFold V (val (projFnName T j)
+            (Level.substFn φ'' cvT.levelParams us)) (ps ++ [x])) =
+          ((List.range caps.etaFields).map fun j =>
+          SpineFold V (val' (projFnName T j)
+            (Level.substFn φ'' cvT.levelParams us)) (ps ++ [x])) := by
+        refine List.map_congr_left ?_
+        intro j hj
+        rw [hpres _ _ (hnP j (List.mem_range.mp hj))]
+      rw [h2] at h1
+      exact h1
   · intro T cvT caps hf hcapu hres
     by_cases hn : T = c₀.name
     · subst hn
       rw [Env.find?_cons, if_pos rfl] at hf
       exact hheadUnit cvT caps (Option.some.inj hf) hcapu hres
     · rw [hfind _ hn] at hf
-      have hlaw := h.2.2.2.1 T cvT caps hf hcapu hres
-      have hagree : ∀ n, (env.find? n).isSome = true →
-          ∀ ψ' : Name → Nat, val' n ψ' = val n ψ' := by
-        intro n hnf ψ'
-        refine hpres n ψ' ?_
-        intro he
-        rw [he, hfresh] at hnf
-        exact nomatch hnf
+      have hlaw := h.2 T cvT caps hf hcapu hres
       have hTres : cvT.type.constsResolve env = true := by
         obtain ⟨-, -, h3, -⟩ := hwfe _ (find?_mem hf)
         exact h3
@@ -382,30 +357,5 @@ theorem ModeledOk.cons {env : Env} {val val' : ConstVal V}
         rw [← hpres T _ hn]
         exact hy
       exact hlaw φ'' us ps x y d₁ ρ₁ d₂ ρ₂ rest hlen hx' hy' hfit'
-  · intro T j cv2 mI2 rP2 rules2 hf
-    by_cases hn : projFnName T j = c₀.name
-    · have hc₀ : c₀ = .recInfo cv2 mI2 rP2 rules2 := by
-        rw [Env.find?_cons, if_pos hn.symm] at hf
-        exact Option.some.inj hf
-      exact hheadParent T j cv2 mI2 rP2 rules2 hn.symm hc₀
-    · rw [hfind _ hn] at hf
-      have hp := h.2.2.2.2.1 T j cv2 mI2 rP2 rules2 hf
-      by_cases hnT : T = c₀.name
-      · rw [hnT, Env.find?_cons, if_pos rfl]; rfl
-      · rw [hfind _ hnT]; exact hp
-  · -- the type former's half of the linkage, clause for clause like
-    -- the constructor's
-    intro n cv caps hf hres hmsN
-    by_cases hn : n = c₀.name
-    · subst hn
-      rw [Env.find?_cons, if_pos rfl] at hf
-      exact hheadInd cv caps (Option.some.inj hf) hres hmsN
-    · rw [hfind n hn] at hf
-      by_cases hmne : n.str "_model" = c₀.name
-      · exact hheadCompanionInd n cv caps hmne.symm hf hres
-      · rw [hfind _ hmne] at hmsN
-        intro ψ
-        rw [hpres _ ψ hn, hpres _ ψ hmne]
-        exact h.2.2.2.2.2 n cv caps hf hres hmsN ψ
 
 end Setlec

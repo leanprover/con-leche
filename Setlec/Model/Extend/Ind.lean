@@ -1,4 +1,5 @@
 import Setlec.Model.Extend.Modeled
+import Setlec.Model.ModeledCaps
 
 /-!
 # Ind — split out of `Setlec.Model.Extend`
@@ -16,14 +17,34 @@ variable {V : Type u} [SetTheory V]
 open SetTheory Expr
 
 /-- One `checkIndMember` step preserves having a model together with
-the fold invariant. -/
+the fold invariant.  The eta head obligation is *forwarded* to the
+caller (`hheadEta`, phrased over the result environment `env₁` and an
+abstract extended valuation): only the caller knows whether the member
+completes a family — the generic multi-constructor fold refutes it
+(its capability record is empty), the single-constructor assembly
+either refutes it from the run's freshness facts or discharges it
+through `modeled_caps_eta`.  The unit law of a freshly installed
+unit-like former is discharged here, through `modeled_caps_unit`. -/
 theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
     {env' env₁ : Env} {ci : ConstantInfo}
     (h : checkIndMember (fueledOps F) blockNames caps env' ci = .ok env₁)
     (hpins : ∀ cv caps₂, ci = .indInfo cv caps₂ →
       EtaPins env' cv.name cv.levelParams caps)
     (hbn : blockNames.contains ci.name = true)
-    (m : EnvModel V env') (hI : BlockInstalled blockNames env' m.val) :
+    (m : EnvModel V env') (hI : BlockInstalled blockNames env' m.val)
+    (hheadEta : ∀ (T : Name) (cvT : ConstantVal) (capsT : IndCaps),
+      env₁.find? T = some (.indInfo cvT capsT) → capsT.eta = true →
+      reservedBasisNames.contains T = false →
+      EtaFamilyStored env₁ T capsT →
+      (T = ci.name ∨ capsT.etaCtor = ci.name ∨
+        ∃ j, j < capsT.etaFields ∧ projFnName T j = ci.name) →
+      ∀ val₁ : ConstVal V,
+        (∀ (n : Name) (ψ : Name → Nat), n ≠ ci.name →
+          val₁ n ψ = m.val n ψ) →
+        (∀ ψ : Name → Nat,
+          val₁ ci.name ψ = m.val (ci.name.str "_model") ψ) →
+        BlockInstalled blockNames env₁ val₁ →
+        EtaLaw V env₁ val₁ T cvT capsT) :
     ∃ m₁ : EnvModel V env₁, BlockInstalled blockNames env₁ m₁.val := by
   obtain ⟨cvA, cvm, mval, hmcvm, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
     checkIndMember_inv h
@@ -59,7 +80,8 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
   -- the block renaming and its semantic pruning
   obtain ⟨fb, hfb⟩ : ∃ fb : Name → Name, fb = fun n =>
       if blockNames.contains n then n.str "_model" else n := ⟨_, rfl⟩
-  rw [← hfb] at hrenf
+  have hrenfb := hrenf
+  rw [← hfb] at hrenfb
   obtain ⟨fS, hfS⟩ : ∃ fS : Name → Name, fS = fun n =>
       if (env'.find? n).isSome then fb n else n := ⟨_, rfl⟩
   have hfSfound : ∀ n, (env'.find? n).isSome = true → fS n = fb n := by
@@ -76,7 +98,7 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
       dsimp only
       by_cases hc : blockNames.contains n = true
       · rw [if_pos hc]
-        obtain ⟨cvm₂, mval₂, hm₂, hfm₂, hlps₂, -⟩ := hI n hc ci₂ hf₂
+        obtain ⟨cvm₂, mval₂, hm₂, hfm₂, hlps₂, -, -⟩ := hI n hc ci₂ hf₂
         exact ⟨.defnInfo cvm₂ mval₂ hm₂, hfm₂, hlps₂⟩
       · rw [if_neg hc]
         exact ⟨ci₂, hf₂, rfl⟩
@@ -92,7 +114,7 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
         dsimp only
         by_cases hc : blockNames.contains n = true
         · rw [if_pos hc]
-          obtain ⟨cvm₂, mval₂, hm₂, -, -, hv₂⟩ := hI n hc ci₂ hf₂
+          obtain ⟨cvm₂, mval₂, hm₂, -, -, -, hv₂⟩ := hI n hc ci₂ hf₂
           exact (hv₂ ψ).symm
         · rw [if_neg hc]
   have hrenS : Expr.eqUpToNames (cvA.type.renameConsts fS) cvm.type =
@@ -100,7 +122,7 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
     rw [htypeA, ← Expr.renameConsts_congr_resolve
       (fun n hn => (hfSfound n hn).symm) tyA hres]
     rw [← htypeA]
-    exact hrenf
+    exact hrenfb
   have hannT : ∀ ψ : Name → Nat,
       AnnotOk V m.val env' ψ 0 (rho0 V) cvA.type := by
     intro ψ
@@ -119,158 +141,67 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
     obtain ⟨m₁, hval₁, hpres₁⟩ := extend_modeled_one m
       (.indInfo cvA caps) fS (cvA.name.str "_model") hfind' hnres hwf htres
       (Or.inl ⟨_, _, rfl⟩) hfm hlps hrenS hannT hroS
-      (fun _ => ⟨show (env'.find? (cvA.name.str "_model")).isSome = true
-        by rw [hfm]; rfl, fun ψ => rfl⟩)
-      (fun T j _ _ _ _ hh _ => hprojRef T j hh)
-      (fun T j _ _ _ _ hh heq => by exact nomatch heq)
-      (show modelFamilyTaken env' cvA.name = false by
-        rw [hnameA]; exact hmft0)
-      (fun cv₂ caps₂ heq hcape _hres' => by
-        injection heq with hcv hcaps
-        subst hcv
-        subst hcaps
-        have hpinsA : EtaPins env' cvA.name cvA.levelParams caps := by
-          rw [hnameA, hlpsA]
-          exact hpins cv caps' rfl
-        obtain ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody,
-          tbodyM, tySlot, ℓA, hthmE, htlpsE, hTmE, hTmlpsE,
-          ⟨cvmC, mvalC, hmC, hCmE, hCmlpsE⟩, hPjE, heqfE, hS_stripE,
-          hTm_stripE, hsdomsE, hxdomE, hsbodyE⟩ :=
-          hpinsA.1 hcape
-        obtain ⟨rfl, rfl, rfl⟩ : cvm = cvmT ∧ mval = mvalT ∧ hmcvm = hmT := by
-          rw [hfm] at hTmE
-          have h1 := Option.some.inj hTmE
-          exact ⟨by injection h1, by injection h1, by injection h1⟩
-        refine ⟨by rw [hCmE]; rfl, ?_, ?_⟩
-        · intro j hj
-          obtain ⟨cvmj, mvalj, hmj, hfj, -⟩ := hPjE j hj
-          show (env'.find? (projModelName cvA.name j)).isSome = true
-          rw [hfj]
-          rfl
-        · intro φ'' us ps x d₁ ρ₁ d₂ ρ₂ rest hlen hx hfit
-          obtain ⟨bsR, bodyR, hstripR, hlenR, hdomsR, -⟩ :=
-            Expr.ErasedEq.stripPis_inv caps.etaParams
-              (Expr.ErasedEq.of_eqUpToNames hrenS) hTm_stripE
-          obtain ⟨tbinders, tbody, hT_strip, hbsmap, -⟩ :=
-            Expr.stripPis_renameConsts_inv (f := fS) caps.etaParams
-              hstripR
-          have hsdomsF : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta),
-              k < caps.etaParams →
-              sbinders[k]? = some b → tbinders[k]? = some b' →
-              RenEq fS b'.2.1 b.2.1 := by
-            intro k b b' hk hb hb'
-            have hbR : bsR[k]? =
-                some (b'.1, (b'.2.1).renameConsts fS, b'.2.2) := by
-              rw [hbsmap, List.getElem?_map, hb']
-              rfl
-            have hklt : k < tbindersM.length := by
-              have h1 : bsR[k]?.isSome = true := by rw [hbR]; rfl
-              simp at h1
-              omega
-            have hbm : tbindersM[k]? = some tbindersM[k] :=
-              List.getElem?_eq_getElem hklt
-            have hrel := (hdomsR k _ _ hbR hbm).1
-            have hpin : b.2.1 = tbindersM[k].2.1 :=
-              hsdomsE k b _ hk hb hbm
-            show Expr.ErasedEq ((b'.2.1).renameConsts fS) b.2.1
-            rw [hpin]
-            exact hrel
-          have hcvp : ConstValParams m.val env' :=
-            fun n ci₂ hf ψ₁ ψ₂ hψ => m.val_params n ci₂ hf ψ₁ ψ₂ hψ
-          have heqval : ∀ ψ'' : Name → Nat,
-              m.val eqName ψ'' = eqVal V ψ'' := by
-            intro ψ''
-            obtain ⟨-, hpv⟩ :=
-              m.ind_ok.2.2.2.1 eqName eqA heqfE (by rfl) (by decide)
-            rw [hpv ψ'']
-            simp [pinnedVal]
-          have hthm_mem : ∀ ψ'' : Name → Nat, ∃ Pv,
-              interpClosed V m.val env' ψ'' tcv.type = some Pv ∧
-              m.val tcv.name ψ'' ∈ˢ Pv := by
-            intro ψ''
-            obtain ⟨P, hP, hmem⟩ := m.mem_type _ (find?_mem hthmE) ψ''
-            exact ⟨P, hP, hmem⟩
-          have hSw : tcv.type.hasFvar = false := by
-            obtain ⟨h1, -⟩ := m.wf _ (find?_mem hthmE)
-            exact h1
-          have hthm_annot : ∀ ψ'' : Name → Nat,
-              AnnotOk V m.val env' ψ'' 0 (rho0 V) tcv.type :=
-            fun ψ'' => (m.annot_ok _ (find?_mem hthmE) ψ'').1
-          exact eta_rule_fold hroS hcvp hTmE hTmlpsE
-            (cimC := .defnInfo cvmC mvalC hmC) hCmE hCmlpsE
-            (fun j hj => by
-              obtain ⟨cvmj, mvalj, hmj, hfj, hjlps⟩ := hPjE j hj
-              exact ⟨.defnInfo cvmj mvalj hmj, hfj, hjlps⟩)
-            heqfE heqval hthm_mem hthm_annot hSw hS_stripE hT_strip
-            hsdomsF hxdomE hsbodyE htyf hlen hx hfit)
-      (fun cv₂ caps₂ heq hcapu _hres' => by
-        injection heq with hcv hcaps
-        subst hcv
-        subst hcaps
-        have hpinsA : EtaPins env' cvA.name cvA.levelParams caps := by
-          rw [hnameA, hlpsA]
-          exact hpins cv caps' rfl
-        obtain ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody,
-          tbodyM, tySlot, ℓA, hthmE, htlpsE, hTmE, hTmlpsE, heqfE,
-          hS_stripE, hTm_stripE, hsdomsE, hxdomE, hydomE, hsbodyE⟩ :=
-          hpinsA.2 hcapu
-        obtain ⟨rfl, rfl, rfl⟩ : cvm = cvmT ∧ mval = mvalT ∧ hmcvm = hmT := by
-          rw [hfm] at hTmE
-          have h1 := Option.some.inj hTmE
-          exact ⟨by injection h1, by injection h1, by injection h1⟩
-        intro φ'' us ps x y d₁ ρ₁ d₂ ρ₂ rest hlen hx hy hfit
-        obtain ⟨bsR, bodyR, hstripR, hlenR, hdomsR, -⟩ :=
-          Expr.ErasedEq.stripPis_inv caps.unitParams
-            (Expr.ErasedEq.of_eqUpToNames hrenS) hTm_stripE
-        obtain ⟨tbinders, tbody, hT_strip, hbsmap, -⟩ :=
-          Expr.stripPis_renameConsts_inv (f := fS) caps.unitParams
-            hstripR
-        have hsdomsF : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta),
-            k < caps.unitParams →
-            sbinders[k]? = some b → tbinders[k]? = some b' →
-            RenEq fS b'.2.1 b.2.1 := by
-          intro k b b' hk hb hb'
-          have hbR : bsR[k]? =
-              some (b'.1, (b'.2.1).renameConsts fS, b'.2.2) := by
-            rw [hbsmap, List.getElem?_map, hb']
-            rfl
-          have hklt : k < tbindersM.length := by
-            have h1 : bsR[k]?.isSome = true := by rw [hbR]; rfl
-            simp at h1
-            omega
-          have hbm : tbindersM[k]? = some tbindersM[k] :=
-            List.getElem?_eq_getElem hklt
-          have hrel := (hdomsR k _ _ hbR hbm).1
-          have hpin : b.2.1 = tbindersM[k].2.1 :=
-            hsdomsE k b _ hk hb hbm
-          show Expr.ErasedEq ((b'.2.1).renameConsts fS) b.2.1
-          rw [hpin]
-          exact hrel
-        have hcvp : ConstValParams m.val env' :=
-          fun n ci₂ hf ψ₁ ψ₂ hψ => m.val_params n ci₂ hf ψ₁ ψ₂ hψ
-        have heqval : ∀ ψ'' : Name → Nat,
-            m.val eqName ψ'' = eqVal V ψ'' := by
-          intro ψ''
-          obtain ⟨-, hpv⟩ :=
-            m.ind_ok.2.2.2.1 eqName eqA heqfE (by rfl) (by decide)
-          rw [hpv ψ'']
-          simp [pinnedVal]
-        have hthm_mem : ∀ ψ'' : Name → Nat, ∃ Pv,
-            interpClosed V m.val env' ψ'' tcv.type = some Pv ∧
-            m.val tcv.name ψ'' ∈ˢ Pv := by
-          intro ψ''
-          obtain ⟨P, hP, hmem⟩ := m.mem_type _ (find?_mem hthmE) ψ''
-          exact ⟨P, hP, hmem⟩
-        have hSw : tcv.type.hasFvar = false := by
-          obtain ⟨h1, -⟩ := m.wf _ (find?_mem hthmE)
-          exact h1
-        have hthm_annot : ∀ ψ'' : Name → Nat,
-            AnnotOk V m.val env' ψ'' 0 (rho0 V) tcv.type :=
-          fun ψ'' => (m.annot_ok _ (find?_mem hthmE) ψ'').1
-        exact unit_rule_fold hroS hcvp hTmE hTmlpsE heqfE heqval
-          hthm_mem hthm_annot hSw hS_stripE hT_strip hsdomsF hxdomE
-          hydomE hsbodyE htyf hlen hx hy hfit)
-    exact ⟨m₁, BlockInstalled.step hI hms hfm hlps hval₁ hpres₁⟩
+      (fun val₁ hv₁ he₁ => by
+        have hI₁ : BlockInstalled blockNames
+            ⟨.indInfo cvA caps :: env'.consts⟩ val₁ :=
+          BlockInstalled.step (ci₁ := .indInfo cvA caps) hI hms hfm hlps
+            hrenf hv₁ he₁
+        refine ⟨?_, ?_⟩
+        · intro T cvT capsT hfT hcape hresT hfam hpart
+          have hv₁' : ∀ ψ : Name → Nat,
+              val₁ (ConstantInfo.indInfo cv caps').name ψ =
+                m.val ((ConstantInfo.indInfo cv caps').name.str
+                  "_model") ψ := by
+            intro ψ
+            rw [← hnameA]
+            exact hv₁ ψ
+          have he₁' : ∀ (n : Name) (ψ : Name → Nat),
+              n ≠ (ConstantInfo.indInfo cv caps').name →
+              val₁ n ψ = m.val n ψ := by
+            intro n ψ hne
+            exact he₁ n ψ (fun hh => hne (by rw [← hnameA]; exact hh))
+          refine hheadEta T cvT capsT hfT hcape hresT hfam ?_ val₁ he₁'
+            hv₁' hI₁
+          rw [← hnameA]
+          exact hpart
+        · intro cv₂ caps₂ heq hcapu hres₂
+          injection heq with hcv hcaps
+          subst hcv
+          subst hcaps
+          have hpinsA : EtaPins env' cvA.name cvA.levelParams caps := by
+            rw [hnameA, hlpsA]
+            exact hpins cv caps' rfl
+          have hpins₁ : EtaPins ⟨.indInfo cvA caps :: env'.consts⟩
+              cvA.name cvA.levelParams caps :=
+            EtaPins.step hpinsA hfind'
+          have hren₁ : ∀ cvmT mvalT hm,
+              (⟨.indInfo cvA caps :: env'.consts⟩ : Env).find?
+                (cvA.name.str "_model") =
+                some (.defnInfo cvmT mvalT hm) →
+              Expr.eqUpToNames (cvA.type.renameConsts (fun n =>
+                if blockNames.contains n then n.str "_model" else n))
+                cvmT.type = true := by
+            intro cvmT mvalT hm hf₁
+            rw [Env.find?_cons, if_neg (show ¬(ConstantInfo.indInfo cvA
+              caps).name = cvA.name.str "_model" from
+              fun hh => Name.str_ne cvA.name "_model" hh.symm)] at hf₁
+            rw [hfm] at hf₁
+            obtain h1 := Option.some.inj hf₁
+            injection h1 with e1 e2 e3
+            subst e1
+            exact hrenf
+          have hvT₁ : ∀ ψ : Name → Nat,
+              val₁ (ConstantInfo.indInfo cvA caps).name ψ =
+                val₁ ((ConstantInfo.indInfo cvA caps).name.str
+                  "_model") ψ := by
+            intro ψ
+            rw [hv₁ ψ]
+            exact (he₁ _ ψ (Name.str_ne cvA.name "_model")).symm
+          exact modeled_caps_unit (ci := .indInfo cvA caps) m hfind'
+            he₁ hI₁ (ConstValParams.extend_head m he₁ hI₁ hbnA) hnres
+            (fun cv2 v2 hcon => nomatch hcon)
+            hcapu hpins₁ hren₁ htyf (Expr.constsResolve_mono htres) hvT₁)
+    exact ⟨m₁, BlockInstalled.step hI hms hfm hlps hrenf hval₁ hpres₁⟩
   · -- constructor
     have hwf : ConstWF ⟨.ctorInfo cvA nP nF :: env'.consts⟩
         (.ctorInfo cvA nP nF) := by
@@ -282,15 +213,30 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
       (.ctorInfo cvA nP nF) fS (cvA.name.str "_model")
       hfind' hnres hwf htres
       (Or.inr (Or.inl ⟨_, _, _, rfl⟩)) hfm hlps hrenS hannT hroS
-      (fun _ => ⟨show (env'.find? (cvA.name.str "_model")).isSome = true
-        by rw [hfm]; rfl, fun ψ => rfl⟩)
-      (fun T j _ _ _ _ hh _ => hprojRef T j hh)
-      (fun T j _ _ _ _ hh heq => by exact nomatch heq)
-      (show modelFamilyTaken env' cvA.name = false by
-        rw [hnameA]; exact hmft0)
-      (fun cv₂ caps₂ hcon => nomatch hcon)
-      (fun cv₂ caps₂ hcon => nomatch hcon)
-    exact ⟨m₁, BlockInstalled.step hI hms hfm hlps hval₁ hpres₁⟩
+      (fun val₁ hv₁ he₁ => by
+        have hI₁ : BlockInstalled blockNames
+            ⟨.ctorInfo cvA nP nF :: env'.consts⟩ val₁ :=
+          BlockInstalled.step (ci₁ := .ctorInfo cvA nP nF) hI hms hfm
+            hlps hrenf hv₁ he₁
+        refine ⟨?_, fun cv₂ caps₂ hcon => nomatch hcon⟩
+        intro T cvT capsT hfT hcape hresT hfam hpart
+        have hv₁' : ∀ ψ : Name → Nat,
+            val₁ (ConstantInfo.ctorInfo cv nP nF).name ψ =
+              m.val ((ConstantInfo.ctorInfo cv nP nF).name.str
+                "_model") ψ := by
+          intro ψ
+          rw [← hnameA]
+          exact hv₁ ψ
+        have he₁' : ∀ (n : Name) (ψ : Name → Nat),
+            n ≠ (ConstantInfo.ctorInfo cv nP nF).name →
+            val₁ n ψ = m.val n ψ := by
+          intro n ψ hne
+          exact he₁ n ψ (fun hh => hne (by rw [← hnameA]; exact hh))
+        refine hheadEta T cvT capsT hfT hcape hresT hfam ?_ val₁ he₁'
+          hv₁' hI₁
+        rw [← hnameA]
+        exact hpart)
+    exact ⟨m₁, BlockInstalled.step hI hms hfm hlps hrenf hval₁ hpres₁⟩
 
 /-- A successful fold's members were all fresh at their own step, hence
 already fresh at any earlier point. -/
@@ -350,9 +296,176 @@ theorem checkIndFold_modelfree {blockNames : List Name}
         exact hms
     · exact checkIndFold_modelfree rest env₁ env₂ h ci hci
 
+
+/-- Members installed by the fold never carry a
+projection-function-shaped name. -/
+theorem checkIndFold_projshape {blockNames : List Name}
+    {caps : IndCaps} :
+    ∀ (rest : List ConstantInfo) (env' env₂ : Env),
+    rest.foldlM (checkIndMember (fueledOps F) blockNames caps) env' = .ok env₂ →
+    ∀ ci ∈ rest, ci.name.isProjFnShape = false
+  | [], _, _, _, ci, hci => nomatch hci
+  | ci₀ :: rest, env', env₂, h, ci, hci => by
+    rw [List.foldlM_cons] at h
+    simp only [Bind.bind, Except.bind] at h
+    cases hstep : checkIndMember (fueledOps F) blockNames caps env' ci₀ with
+    | error e => rw [hstep] at h; exact nomatch h
+    | ok env₁ =>
+    rw [hstep] at h
+    rw [List.mem_cons] at hci
+    rcases hci with rfl | hci
+    · obtain ⟨cvA, cvm, mval, hmcvm, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
+        checkIndMember_inv hstep
+      obtain ⟨-, -, -, hpshape0, -, -, -, tyA, stype, u, -, -, -, -, -,
+        hcvA⟩ := checkConstantVal_inv hccv
+      exact hpshape0
+    · exact checkIndFold_projshape rest env₁ env₂ h ci hci
+
+/-- The member fold adds only block-named inductive-former or
+constructor constants. -/
+theorem checkIndFold_find_new {blockNames : List Name}
+    {caps : IndCaps} :
+    ∀ (rest : List ConstantInfo) (env' env₂ : Env),
+    (∀ ci ∈ rest, blockNames.contains ci.name = true) →
+    rest.foldlM (checkIndMember (fueledOps F) blockNames caps) env' = .ok env₂ →
+    ∀ (n : Name) (ci : ConstantInfo), env₂.find? n = some ci →
+    env'.find? n = some ci ∨
+      (blockNames.contains n = true ∧
+        ((∃ cv, ci = .indInfo cv caps) ∨
+          ∃ cv nP nF, ci = .ctorInfo cv nP nF))
+  | [], _, _, _, h, n, ci, hf => by
+    simp only [List.foldlM_nil, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact Or.inl hf
+  | ci₀ :: rest, env', env₂, hns, h, n, ci, hf => by
+    rw [List.foldlM_cons] at h
+    simp only [Bind.bind, Except.bind] at h
+    cases hstep : checkIndMember (fueledOps F) blockNames caps env' ci₀ with
+    | error e => rw [hstep] at h; exact nomatch h
+    | ok env₁ => ?_
+    rw [hstep] at h
+    obtain ⟨cvA, cvm, mval, hmcvm, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
+      checkIndMember_inv hstep
+    obtain ⟨hfind0, -, -, -, -, -, -, tyA, stype, u, -, -, -, -, -,
+      hcvA⟩ := checkConstantVal_inv hccv
+    have hnameA : cvA.name = ci₀.name := by rw [hcvA]; rfl
+    have hbn₀ : blockNames.contains cvA.name = true := by
+      rw [hnameA]
+      exact hns ci₀ List.mem_cons_self
+    rcases checkIndFold_find_new rest env₁ env₂
+      (fun ci' hci' => hns ci' (List.mem_cons_of_mem _ hci')) h n ci hf
+      with hf' | hnew
+    · rcases hkind with ⟨⟨cv, caps', rfl⟩, rfl⟩ | ⟨cv, nP, nF, rfl, rfl⟩
+      · rw [Env.find?_cons] at hf'
+        split at hf'
+        · next hh =>
+          obtain rfl := Option.some.inj hf'
+          refine Or.inr ⟨?_, Or.inl ⟨cvA, rfl⟩⟩
+          rw [← hh]
+          exact hbn₀
+        · exact Or.inl hf'
+      · rw [Env.find?_cons] at hf'
+        split at hf'
+        · next hh =>
+          obtain rfl := Option.some.inj hf'
+          refine Or.inr ⟨?_, Or.inr ⟨cvA, nP, nF, rfl⟩⟩
+          rw [← hh]
+          exact hbn₀
+        · exact Or.inl hf'
+    · exact Or.inr hnew
+
+
+/-- Every successfully folded member is an inductive former or a
+constructor. -/
+theorem checkIndFold_kinds {blockNames : List Name} {caps : IndCaps} :
+    ∀ (rest : List ConstantInfo) (env' env₂ : Env),
+    rest.foldlM (checkIndMember (fueledOps F) blockNames caps) env' = .ok env₂ →
+    ∀ ci ∈ rest, (∃ cv caps', ci = .indInfo cv caps') ∨
+      ∃ cv nP nF, ci = .ctorInfo cv nP nF
+  | [], _, _, _, ci, hci => nomatch hci
+  | ci₀ :: rest, env', env₂, h, ci, hci => by
+    rw [List.foldlM_cons] at h
+    simp only [Bind.bind, Except.bind] at h
+    cases hstep : checkIndMember (fueledOps F) blockNames caps env' ci₀ with
+    | error e => rw [hstep] at h; exact nomatch h
+    | ok env₁ =>
+    rw [hstep] at h
+    rw [List.mem_cons] at hci
+    rcases hci with rfl | hci
+    · obtain ⟨cvA, cvm, mval, hmcvm, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
+        checkIndMember_inv hstep
+      rcases hkind with ⟨⟨cv, caps', rfl⟩, -⟩ | ⟨cv, nP, nF, rfl, -⟩
+      · exact Or.inl ⟨cv, caps', rfl⟩
+      · exact Or.inr ⟨cv, nP, nF, rfl⟩
+    · exact checkIndFold_kinds rest env₁ env₂ h ci hci
+
+
+/-- The member fold preserves stored lookups exactly (every install is
+fresh). -/
+theorem checkIndFold_find_preserved {blockNames : List Name}
+    {caps : IndCaps} :
+    ∀ (rest : List ConstantInfo) (env' env₂ : Env),
+    rest.foldlM (checkIndMember (fueledOps F) blockNames caps) env' = .ok env₂ →
+    ∀ (n : Name) (ci : ConstantInfo), env'.find? n = some ci →
+    env₂.find? n = some ci
+  | [], _, _, h, n, ci, hf => by
+    simp only [List.foldlM_nil, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact hf
+  | ci₀ :: rest, env', env₂, h, n, ci, hf => by
+    rw [List.foldlM_cons] at h
+    simp only [Bind.bind, Except.bind] at h
+    cases hstep : checkIndMember (fueledOps F) blockNames caps env' ci₀ with
+    | error e => rw [hstep] at h; exact nomatch h
+    | ok env₁ => ?_
+    rw [hstep] at h
+    obtain ⟨cvA, cvm, mval, hmcvm, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
+      checkIndMember_inv hstep
+    obtain ⟨hfind0, -, -, -, -, -, -, tyA, stype, u, -, -, -, -, -,
+      hcvA⟩ := checkConstantVal_inv hccv
+    have hfindA : env'.find? cvA.name = none := by
+      rw [show cvA.name = ci₀.name from by rw [hcvA]; rfl]
+      exact hfind0
+    have henv₁ : ∃ ci₁ : ConstantInfo, ci₁.name = cvA.name ∧
+        env₁ = ⟨ci₁ :: env'.consts⟩ := by
+      rcases hkind with ⟨-, rfl⟩ | ⟨cv, nP, nF, -, rfl⟩
+      · exact ⟨_, rfl, rfl⟩
+      · exact ⟨_, rfl, rfl⟩
+    obtain ⟨ci₁, hname₁, rfl⟩ := henv₁
+    refine checkIndFold_find_preserved rest _ env₂ h n ci ?_
+    rw [Env.find?_cons_of_isSome (by rw [hname₁]; exact hfindA)
+      (by rw [hf]; rfl)]
+    exact hf
+
+/-- The eta families of stored formers *outside* the block are closed:
+their capability constructor is stored at the record's arities.  The
+block-fold form of the threaded `EtaFamiliesClosed` (which cannot hold
+for a former whose constructor is still pending). -/
+def EtaFamiliesClosedO (blockNames : List Name) (env : Env) : Prop :=
+  ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
+    env.find? T = some (.indInfo cvT caps) → caps.eta = true →
+    reservedBasisNames.contains T = false →
+    blockNames.contains T = false →
+    ∃ cvC, env.find? caps.etaCtor =
+      some (.ctorInfo cvC caps.etaParams caps.etaFields)
+
+/-- Stored block formers carry exactly the fold's capability record. -/
+def BlockCapsPinned (blockNames : List Name) (caps : IndCaps)
+    (env : Env) : Prop :=
+  ∀ (n : Name) (cvS : ConstantVal) (capsS : IndCaps),
+    blockNames.contains n = true →
+    env.find? n = some (.indInfo cvS capsS) → capsS = caps
+
 /-- The fold of `checkIndDecl` preserves having a model together with
-the block-install invariant. -/
-theorem checkIndFold_sound {blockNames : List Name} {caps : IndCaps} :
+the block-install invariant.  Restricted to a capability record with
+`eta = false` (the generic multi-constructor branch; the
+single-constructor branch is assembled member by member in
+`checkIndDecl_sound`): every eta head obligation is refuted — a block
+former never claims the capability, an outside former's family is
+closed (`EtaFamiliesClosedO`), so a fresh member never completes
+one. -/
+theorem checkIndFold_sound {blockNames : List Name} {caps : IndCaps}
+    (hoff : caps.eta = false) :
     ∀ (rest : List ConstantInfo) (env' env₂ : Env),
     (∀ ci ∈ rest, blockNames.contains ci.name = true) →
     (∀ cv caps₂,
@@ -360,42 +473,131 @@ theorem checkIndFold_sound {blockNames : List Name} {caps : IndCaps} :
       EtaPins env' cv.name cv.levelParams caps) →
     rest.foldlM (checkIndMember (fueledOps F) blockNames caps) env' = .ok env₂ →
     ∀ m : EnvModel V env', BlockInstalled blockNames env' m.val →
-    ∃ m₂ : EnvModel V env₂, BlockInstalled blockNames env₂ m₂.val
-  | [], env', env₂, hns, _hp, h, m, hI => by
+    EtaFamiliesClosedO blockNames env' →
+    BlockCapsPinned blockNames caps env' →
+    ∃ m₂ : EnvModel V env₂, BlockInstalled blockNames env₂ m₂.val ∧
+      EtaFamiliesClosedO blockNames env₂ ∧
+      BlockCapsPinned blockNames caps env₂
+  | [], env', env₂, hns, _hp, h, m, hI, hE1O, hBcaps => by
     simp only [List.foldlM_nil, pure, Except.pure, Except.ok.injEq] at h
-    exact h ▸ ⟨m, hI⟩
-  | ci :: rest, env', env₂, hns, hp, h, m, hI => by
+    exact h ▸ ⟨m, hI, hE1O, hBcaps⟩
+  | ci :: rest, env', env₂, hns, hp, h, m, hI, hE1O, hBcaps => by
     rw [List.foldlM_cons] at h
     simp only [Bind.bind, Except.bind] at h
     cases hstep : checkIndMember (fueledOps F) blockNames caps env' ci with
     | error e => rw [hstep] at h; exact nomatch h
     | ok env₁ => ?_
     rw [hstep] at h
-    obtain ⟨m₁, hI₁⟩ := checkIndMember_sound hstep
-      (fun cv caps₂ heq => hp cv caps₂
-        (by rw [← heq]; exact List.mem_cons_self))
-      (hns ci (by simp)) m hI
     obtain ⟨cvA', cvm', mval', hm', hccv', -, -, -, -, hkind'⟩ :=
       checkIndMember_inv hstep
-    obtain ⟨hfind0', -, -, -, -, -, -, tyA', stype', u', -, -, -, -, -,
-      hcvA'⟩ := checkConstantVal_inv hccv'
+    obtain ⟨hfind0', -, -, hpshape0', -, -, -, tyA', stype', u', -, -, -,
+      -, -, hcvA'⟩ := checkConstantVal_inv hccv'
     have hnameA' : cvA'.name = ci.name := by
       rw [hcvA']
       rfl
+    have hfreshc : env'.find? ci.name = none := hfind0'
+    have hpshapec : ci.name.isProjFnShape = false := hpshape0'
     have henv₁ : ∃ ci₁ : ConstantInfo, ci₁.name = cvA'.name ∧
-        env₁ = ⟨ci₁ :: env'.consts⟩ := by
+        env₁ = ⟨ci₁ :: env'.consts⟩ ∧
+        ((∃ capsS, ci₁ = .indInfo cvA' capsS ∧ capsS = caps) ∨
+          ∃ nP nF, ci₁ = .ctorInfo cvA' nP nF) := by
       rcases hkind' with ⟨-, rfl⟩ | ⟨cv, nP, nF, -, rfl⟩
-      · exact ⟨_, rfl, rfl⟩
-      · exact ⟨_, rfl, rfl⟩
-    obtain ⟨ci₁, hname₁, rfl⟩ := henv₁
+      · exact ⟨_, rfl, rfl, Or.inl ⟨caps, rfl, rfl⟩⟩
+      · exact ⟨_, rfl, rfl, Or.inr ⟨nP, nF, rfl⟩⟩
+    obtain ⟨ci₁, hname₁, rfl, hshape₁⟩ := henv₁
     have hfresh₁ : env'.find? ci₁.name = none := by
       rw [hname₁, hnameA']
       exact hfind0'
-    exact checkIndFold_sound rest _ env₂
+    have hcin : ci₁.name = ci.name := by rw [hname₁, hnameA']
+    have hheadEta : ∀ (T : Name) (cvT : ConstantVal) (capsT : IndCaps),
+        (⟨ci₁ :: env'.consts⟩ : Env).find? T =
+          some (.indInfo cvT capsT) → capsT.eta = true →
+        reservedBasisNames.contains T = false →
+        EtaFamilyStored ⟨ci₁ :: env'.consts⟩ T capsT →
+        (T = ci.name ∨ capsT.etaCtor = ci.name ∨
+          ∃ j, j < capsT.etaFields ∧ projFnName T j = ci.name) →
+        ∀ val₁ : ConstVal V,
+          (∀ (n : Name) (ψ : Name → Nat), n ≠ ci.name →
+            val₁ n ψ = m.val n ψ) →
+          (∀ ψ : Name → Nat,
+            val₁ ci.name ψ = m.val (ci.name.str "_model") ψ) →
+          BlockInstalled blockNames ⟨ci₁ :: env'.consts⟩ val₁ →
+          EtaLaw V ⟨ci₁ :: env'.consts⟩ val₁ T cvT capsT := by
+      intro T cvT capsT hfT hcape hresT hfam hpart val₁ _ _ _
+      exfalso
+      rcases hpart with rfl | hC | ⟨j, hj, hP⟩
+      · -- the head would be the (eta-capable) former: the fold's
+        -- record claims no capability
+        rw [Env.find?_cons, if_pos hcin] at hfT
+        rcases hshape₁ with ⟨capsS', heq₁, rfl⟩ | ⟨nP, nF, heq₁⟩
+        · rw [heq₁] at hfT
+          obtain hh := Option.some.inj hfT
+          injection hh with h1 h2
+          rw [← h2, hoff] at hcape
+          exact nomatch hcape
+        · rw [heq₁] at hfT
+          exact nomatch (Option.some.inj hfT)
+      · -- the head would be the family's constructor
+        obtain ⟨-, ⟨cvC, hfC⟩, -⟩ := hfam
+        rw [hC, Env.find?_cons, if_pos hcin] at hfC
+        rcases hshape₁ with ⟨capsS', heq₁, rfl⟩ | ⟨nP, nF, heq₁⟩
+        · rw [heq₁] at hfC
+          exact nomatch (Option.some.inj hfC)
+        · -- the family's owner is stored below the head
+          have hTne : T ≠ ci.name := by
+            intro he
+            rw [he, Env.find?_cons, if_pos hcin, heq₁] at hfT
+            exact nomatch (Option.some.inj hfT)
+          rw [Env.find?_cons,
+            if_neg (fun hh => hTne (hh.symm.trans hcin))] at hfT
+          by_cases hTb : blockNames.contains T = true
+          · have hcaps := hBcaps T cvT capsT hTb hfT
+            rw [hcaps, hoff] at hcape
+            exact nomatch hcape
+          · have hTbf : blockNames.contains T = false := by
+              revert hTb
+              cases blockNames.contains T <;> simp
+            obtain ⟨cvC', hfC'⟩ := hE1O T cvT capsT hfT hcape hresT hTbf
+            have hsC : (env'.find? capsT.etaCtor).isSome = true := by
+              rw [hfC']
+              rfl
+            rw [hC, hfreshc] at hsC
+            exact nomatch hsC
+      · rw [← hP] at hpshapec
+        simp [projFnName, Name.isProjFnShape] at hpshapec
+    obtain ⟨m₁, hI₁⟩ := checkIndMember_sound hstep
+      (fun cv caps₂ heq => hp cv caps₂
+        (by rw [← heq]; exact List.mem_cons_self))
+      (hns ci (by simp)) m hI hheadEta
+    have hE1O₁ : EtaFamiliesClosedO blockNames ⟨ci₁ :: env'.consts⟩ := by
+      intro T cvT capsT hfT hcape hres hTb
+      have hTne : T ≠ ci₁.name := by
+        intro he
+        rw [he, hcin, hns ci (by simp)] at hTb
+        exact nomatch hTb
+      rw [Env.find?_cons, if_neg (fun hh => hTne hh.symm)] at hfT
+      obtain ⟨cvC, hfC⟩ := hE1O T cvT capsT hfT hcape hres hTb
+      refine ⟨cvC, ?_⟩
+      rw [Env.find?_cons_of_isSome hfresh₁ (by rw [hfC]; rfl)]
+      exact hfC
+    have hBcaps₁ : BlockCapsPinned blockNames caps
+        ⟨ci₁ :: env'.consts⟩ := by
+      intro n cvS capsS hnb hf
+      rw [Env.find?_cons] at hf
+      split at hf
+      · rcases hshape₁ with ⟨capsS', heq₁, rfl⟩ | ⟨nP, nF, heq₁⟩
+        · rw [heq₁] at hf
+          obtain h2 := Option.some.inj hf
+          injection h2 with e1 e2
+          exact e2.symm
+        · rw [heq₁] at hf
+          exact nomatch (Option.some.inj hf)
+      · exact hBcaps n cvS capsS hnb hf
+    exact checkIndFold_sound hoff rest _ env₂
       (fun ci' hci' => hns ci' (by simp [hci']))
       (fun cv caps₂ hmem => EtaPins.step
         (hp cv caps₂ (List.mem_cons_of_mem _ hmem)) hfresh₁)
-      h m₁ hI₁
+      h m₁ hI₁ hE1O₁ hBcaps₁
 
 
 /-- The member fold only extends the environment: stored lookups stay

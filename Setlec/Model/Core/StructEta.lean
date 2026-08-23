@@ -24,9 +24,9 @@ variable (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
 /-- A successful structural eta certification (in its `With` form,
 against a separately derived weak-head-normal type of the stuck side)
 identifies the constructor application's interpretation with the stuck
-side's: the stored eta law reconstructs the member through the
-projection models, and the value bridges identify the public
-constants' values with the models'. -/
+side's: the stored eta law — stated over the public constructor and
+projection functions, its family premise discharged from the
+certificate's own lookups — reconstructs the member directly. -/
 theorem structEtaWith_sound {m : EnvModel V env} {fuel : Nat}
     (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
     (ihi : InferClaims m φ fuel)
@@ -168,16 +168,11 @@ theorem structEtaWith_sound {m : EnvModel V env} {fuel : Nat}
   obtain ⟨dT, ρT, restT', hfitT⟩ := TeleFitI.toTeleFit hfitIT hTw (by
     rw [htal]
     exact stripPis_instantiateLevelParams_isSome _ _ _ hTstrip)
-  -- the stored eta law
-  obtain ⟨hmsC, hmsP, hlaw⟩ := m.modeled_ok.2.2.1 T cvT caps hfT hce hres
   have hmemb' : vb ∈ˢ SpineFold V
       (m.val T (Level.substFn φ cvT.levelParams us')) psv := by
     rw [← hψ']
     rw [hvtb] at hmemb
     exact hmemb
-  have hvbEq := hlaw φ us' psv vb d ρ dT ρT restT'
-    (by rw [hpslen, htal, hcp]) hmemb' hfitT
-  rw [hcf] at hvbEq
   -- the constructor application's spine
   have ha_eq : Expr.mkAppN (.const c us) a.getAppArgs = a := by
     rw [← hfn]
@@ -402,25 +397,21 @@ theorem structEtaWith_sound {m : EnvModel V env} {fuel : Nat}
           · exact hokwtb l (fvarLeaves_getAppArgs hx l hlx)
           · obtain rfl : x = b := by simpa using hx
             exact hokb l hlx
-  -- assembly through the value bridges
-  have hveqC := m.modeled_ok.1 c cvc cnP cnF hfc hresC (by rw [hcc] at hmsC; exact hmsC)
-  have hvalPM : ∀ i, i < cnF →
-      m.val (projFnName T i) ψ' = m.val (projModelName T i) ψ' := by
-    intro i hi
-    obtain ⟨cvp, mIp, rPp, rulesp, hfpj, -, -, -⟩ :=
-      hpcFacts i hi
-    exact m.modeled_ok.2.1 T cvT caps i _ _ _ _ hfT hfpj
-      (hmsP i (by rw [hcf]; exact hi)) ψ'
-  have hfldsM : ((List.range cnF).map fun i =>
-      SpineFold V (m.val (projFnName T i) ψ') (psv ++ [vb])) =
-      ((List.range cnF).map fun i =>
-      SpineFold V (m.val (projModelName T i) ψ') (psv ++ [vb])) := by
-    refine List.map_congr_left ?_
-    intro i hi
-    rw [hvalPM i (List.mem_range.mp hi)]
-  rw [hcc] at hvbEq
-  rw [hva', ← List.take_append_drop cnP avs, hpref, hflds, hfldsM,
-    hveqC ψ']
+  -- the stored (public) eta law, its family premise discharged from
+  -- the certificate's own lookups
+  have hfam : EtaFamilyStored env T caps := by
+    refine ⟨by rw [hcc]; exact hresC, ⟨cvc, ?_⟩, ?_⟩
+    · rw [hcc, hcp, hcf]
+      exact hfc
+    · intro j hj
+      rw [hcf] at hj
+      obtain ⟨cvp, mIp, rPp, rulesp, hfpj, -, -, -⟩ := hpcFacts j hj
+      exact ⟨cvp, mIp, rPp, rulesp, hfpj⟩
+  have hlaw := m.caps_ok.1 T cvT caps hfT hce hres hfam
+  have hvbEq := hlaw φ us' psv vb d ρ dT ρT restT'
+    (by rw [hpslen, htal, hcp]) hmemb' hfitT
+  rw [hcf, hcc] at hvbEq
+  rw [hva', ← List.take_append_drop cnP avs, hpref, hflds]
   rw [hψ']
   exact hvbEq.symm
 
@@ -610,7 +601,7 @@ theorem structUnit_sound {m : EnvModel V env} {fuel : Nat}
     rw [htal]
     exact stripPis_instantiateLevelParams_isSome _ _ _ hTstrip)
   -- the stored unit law
-  have hlaw := m.modeled_ok.2.2.2.1 T cvT caps hfT hcu hres
+  have hlaw := m.caps_ok.2 T cvT caps hfT hcu hres
   have hmema' : va ∈ˢ SpineFold V
       (m.val T (Level.substFn φ cvT.levelParams us')) psv := by
     rw [← hψ']

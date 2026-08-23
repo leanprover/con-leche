@@ -441,52 +441,38 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
     rcases hcorr' n with heq | ⟨cv, mI, rP, rules, h₀, h₃, -⟩
     · exact Or.inl heq
     · exact Or.inr ⟨cv, mI, rP, [], rules, h₀, h₃⟩
-  · -- modeled_ok
-    obtain ⟨mo2, mo3, mo4, mo5, mo6, mo7⟩ := m₀.modeled_ok
-    refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
-    · intro n cv cnP' cnF' hf hres hms
-      rw [← hisoSome] at hms
-      exact mo2 n cv cnP' cnF'
-        (hfindDown _ _ hf (fun _ _ _ _ h => nomatch h)) hres hms
-    · intro T cvT capsT j cv3 mI3 rP3 rules3 hfT hf hms
-      rw [← hisoSome] at hms
-      rcases hcorr' (projFnName T j) with heq | ⟨cv2, mI2, rP2, rules2, h₀, h₃, hnm, -, hshape, -⟩
-      · rw [heq] at hf
-        exact mo3 T cvT capsT j cv3 mI3 rP3 rules3
-          (hfindDown _ _ hfT (fun _ _ _ _ h => nomatch h)) hf hms
-      · rw [hnm] at hshape
-        exact absurd hshape (by simp [projFnName, Name.isProjFnShape])
-    · intro T cvT caps hf hcape hres
-      obtain ⟨hmsC, hmsP, hlaw⟩ := mo4 T cvT caps
+  · -- caps_ok
+    obtain ⟨mo1, mo2⟩ := m₀.caps_ok
+    refine ⟨?_, ?_⟩
+    · intro T cvT caps hf hcape hres hfam
+      obtain ⟨hCres, ⟨cvC, hfC⟩, hfP⟩ := hfam
+      have hfC₀ : env₀.find? caps.etaCtor =
+          some (.ctorInfo cvC caps.etaParams caps.etaFields) :=
+        hfindDown _ _ hfC (fun _ _ _ _ h => nomatch h)
+      have hfP₀ : ∀ j, j < caps.etaFields → ∃ cv2 mI2 rP2 rules2,
+          env₀.find? (projFnName T j) =
+            some (.recInfo cv2 mI2 rP2 rules2) := by
+        intro j hj
+        obtain ⟨cv2, mI2, rP2, rules2, hf2⟩ := hfP j hj
+        rcases hcorr' (projFnName T j) with heq |
+          ⟨cv3, mI3, rP3, rules3, h₀, h₃, -⟩
+        · rw [heq] at hf2
+          exact ⟨cv2, mI2, rP2, rules2, hf2⟩
+        · exact ⟨cv3, mI3, rP3, [], h₀⟩
+      have hlaw := mo1 T cvT caps
         (hfindDown _ _ hf (fun _ _ _ _ h => nomatch h)) hcape hres
-      refine ⟨?_, ?_, ?_⟩
-      · rw [← hisoSome]
-        exact hmsC
-      · intro j hj
-        rw [← hisoSome]
-        exact hmsP j hj
-      · intro φ'' us ps x dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hfit
-        exact hlaw φ'' us ps x dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx
-          (TeleFit.env_levelext (fun n' => (henvLev n').symm) hnat.symm
-            hstr.symm hfit)
+        ⟨hCres, ⟨cvC, hfC₀⟩, hfP₀⟩
+      intro φ'' us ps x dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hfit
+      exact hlaw φ'' us ps x dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx
+        (TeleFit.env_levelext (fun n' => (henvLev n').symm) hnat.symm
+          hstr.symm hfit)
     · intro T cvT caps hf hcapu hres
-      have hlaw := mo5 T cvT caps
+      have hlaw := mo2 T cvT caps
         (hfindDown _ _ hf (fun _ _ _ _ h => nomatch h)) hcapu hres
       intro φ'' us ps x y dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hy hfit
       exact hlaw φ'' us ps x y dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hy
         (TeleFit.env_levelext (fun n' => (henvLev n').symm) hnat.symm
           hstr.symm hfit)
-    · intro T j cv3 mI3 rP3 rules3 hf
-      rcases hcorr' (projFnName T j) with heq | ⟨cv2, mI2, rP2, rules2, h₀, h₃, hnm, -, hshape, -⟩
-      · rw [heq] at hf
-        rw [← hisoSome]
-        exact mo6 T j cv3 mI3 rP3 rules3 hf
-      · rw [hnm] at hshape
-        exact absurd hshape (by simp [projFnName, Name.isProjFnShape])
-    · intro n cv caps hf hres hms
-      rw [← hisoSome] at hms
-      exact mo7 n cv caps
-        (hfindDown _ _ hf (fun _ _ _ _ h => nomatch h)) hres hms
   · -- nat_ops
     intro c hc cv v hint hf
     have hf₀ : env₀.find? c = some (.defnInfo cv v hint) :=

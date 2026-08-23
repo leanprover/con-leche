@@ -1,4 +1,5 @@
 import Setlec.Model.Extend.ProjFn
+import Setlec.Model.ModeledCaps
 
 /-!
 # Proj — split out of `Setlec.Model.Extend`
@@ -543,22 +544,16 @@ theorem extend_proj_template {env : Env} (m : EnvModel V env)
     (fun _ _ _ _ hx => nomatch hx)
     (fun _ _ _ _ _ _ _ hx => nomatch hx)
     (fun _ _ _ _ hx => nomatch hx)
-    (fun _ hor _ => by
-      obtain ⟨_, _, _, hx⟩ := hor; exact nomatch hx)
-    (fun _ hor _ => by
-      obtain ⟨_, _, hx⟩ := hor; exact nomatch hx)
-    (fun _ _ _ _ _ _ _ hx => nomatch hx)
-    (show modelFamilyTaken env (ConstantInfo.projInfo entry).name = false by
-      rw [hname]
-      simp [modelFamilyTaken, modelSuffixTaken, modelProjTaken, projFnName,
-        List.any_eq_false])
-    (fun _ _ _ _ _ _ _ hx => nomatch hx)
     (fun e2 heq hnat2 => by
       obtain rfl := ConstantInfo.projInfo.inj heq
       rw [hnat] at hnat2
       exact nomatch hnat2)
-    (fun _ _ hx _ _ => nomatch hx)
-    (fun _ _ hx _ _ => nomatch hx)
+    (fun val' _ _ =>
+      ⟨capsEtaHead_of_kinds
+        (fun _ _ hx => nomatch hx)
+        (fun _ _ _ hx => nomatch hx)
+        (fun _ _ _ _ hx => nomatch hx),
+      fun _ _ hx _ _ => nomatch hx⟩)
     (fun _ _ _ _ _ _ heq _ => nomatch heq)
     (fun _ _ _ _ _ _ heq _ => nomatch heq)
   · -- the junk value inhabits `Prop`
@@ -594,11 +589,24 @@ set_option maxHeartbeats 1600000 in
 /-- One projection-function install preserves having a model together
 with the phase invariant. -/
 theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
-    {lps : List Name} {nP nF i : Nat}
+    {lps : List Name} {nP nF i : Nat} {blockNames : List Name}
     (h : checkProjFn (fueledOps F) env' T ctorName lps nP nF i = .ok env₁)
     (m : EnvModel V env')
-    (hinv : ProjPhaseInv T ctorName nF env' m.val) :
-    ∃ m₁ : EnvModel V env₁, ProjPhaseInv T ctorName nF env₁ m₁.val := by
+    (hinv : ProjPhaseInv T ctorName nF env' m.val)
+    (hIB : BlockInstalled blockNames env' m.val)
+    (hTblock : blockNames.contains T = true)
+    (hbshape : ∀ n, blockNames.contains n = true →
+      n.isProjFnShape = false)
+    (hpinsT : ∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
+      EtaPins env' T cvT.levelParams capsT)
+    (hCblock : ∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
+      capsT.eta = true → blockNames.contains capsT.etaCtor = true)
+    (hFields : ∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
+      capsT.eta = true → capsT.etaFields = nF) :
+    ∃ m₁ : EnvModel V env₁, ProjPhaseInv T ctorName nF env₁ m₁.val ∧
+      BlockInstalled blockNames env₁ m₁.val ∧
+      ∃ ciH : ConstantInfo, env₁ = ⟨ciH :: env'.consts⟩ ∧
+        env'.find? ciH.name = none ∧ ciH.name = projFnName T i := by
   obtain ⟨cvj, mcv, hlk, pty, hty, ⟨u0, hshape⟩, hi, rhsA, hrule,
     ⟨u, hio⟩, henv₁⟩ := checkProjFn_inv h
   obtain ⟨mval, hmmcv, hctor, hfm, hmlps, hpnone, hTf, heqf⟩ :=
@@ -853,6 +861,142 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
     subst hij
     subst hT
     exact ⟨by rw [hfm]; rfl, fun ψ => rfl⟩
+  have hnotb : blockNames.contains (projFnName T i) = false := by
+    cases hc : blockNames.contains (projFnName T i) with
+    | false => rfl
+    | true =>
+      have hsh := hbshape _ hc
+      rw [show (projFnName T i).isProjFnShape = true from rfl] at hsh
+      exact nomatch hsh
+  have hheadEtaP : ∀ (T' : Name) (cvT : ConstantVal) (capsT : IndCaps),
+      (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP [] ::
+        env'.consts⟩ : Env).find? T' = some (.indInfo cvT capsT) →
+      capsT.eta = true → reservedBasisNames.contains T' = false →
+      EtaFamilyStored (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP [] ::
+        env'.consts⟩ : Env) T' capsT →
+      (∃ j, j < capsT.etaFields ∧ projFnName T' j = projFnName T i) →
+      ∀ val₁ : ConstVal V,
+        (∀ (n : Name) (ψ : Name → Nat), n ≠ projFnName T i →
+          val₁ n ψ = m.val n ψ) →
+        (∀ ψ : Name → Nat,
+          val₁ (projFnName T i) ψ = m.val (projModelName T i) ψ) →
+        EtaLaw V (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP [] ::
+          env'.consts⟩ : Env) val₁ T' cvT capsT := by
+    intro T' cvT capsT hfT' hcape hresT hfam hpart val₁ he₁ hv₁
+    obtain ⟨j, hj, hP⟩ := hpart
+    have hh' : Name.num (T'.str "proj") j =
+        Name.num (T.str "proj") i := hP
+    injection hh' with hp hij
+    injection hp with hT hs
+    have hieq : i = j := hij.symm
+    subst hieq
+    have hTeq : T = T' := hT.symm
+    subst hTeq
+    have hfT'' : env'.find? T = some (.indInfo cvT capsT) := by
+      rw [Env.find?_cons, if_neg (show ¬(ConstantInfo.recInfo
+        ⟨projFnName T i, lps, pty⟩ nP nP []).name = T from
+        fun hh => hTne hh.symm)] at hfT'
+      exact hfT'
+    have hpins₁ : EtaPins (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP []
+        :: env'.consts⟩ : Env) T cvT.levelParams capsT :=
+      EtaPins.step (hpinsT cvT capsT hfT'') hpnone
+    have hI₁ : BlockInstalled blockNames
+        (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP [] ::
+          env'.consts⟩ : Env) val₁ :=
+      BlockInstalled.fresh_cons hIB hnotb hpnone he₁
+    have hcvp : ConstValParams val₁
+        (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP [] ::
+          env'.consts⟩ : Env) := by
+      intro n ci₂ hf ψ₁ ψ₂ hψ
+      by_cases hn : n = projFnName T i
+      · subst hn
+        rw [Env.find?_cons,
+          if_pos (show (ConstantInfo.recInfo
+            ⟨projFnName T i, lps, pty⟩ nP nP []).name =
+            projFnName T i from rfl)] at hf
+        obtain rfl := Option.some.inj hf
+        rw [hv₁ ψ₁, hv₁ ψ₂]
+        refine m.val_params _ _ hfm ψ₁ ψ₂ ?_
+        intro p hp
+        refine hψ p ?_
+        rw [show (ConstantInfo.defnInfo mcv mval hmmcv).toConstantVal
+          = mcv from rfl] at hp
+        show p ∈ lps
+        rw [← hmlps]
+        exact hp
+      · rw [Env.find?_cons, if_neg (fun hh => hn hh.symm)] at hf
+        rw [he₁ n ψ₁ hn, he₁ n ψ₂ hn]
+        exact m.val_params n ci₂ hf ψ₁ ψ₂ hψ
+    obtain ⟨cvmT', mvalT', hmT', hfmT', hlpsT', hrenT', hvT'⟩ :=
+      hIB T hTblock _ hfT''
+    refine modeled_caps_eta
+      (ci := .recInfo ⟨projFnName T i, lps, pty⟩ nP nP []) m hpnone
+      he₁ hI₁ hcvp (reservedBasisNames_not_num _ _)
+      (fun cv2 v2 hcon => nomatch hcon) hcape hpins₁ ?_ ?_ ?_ ?_ ?_ ?_
+    · intro cvmT mvalT hm2 hfm₁
+      rw [Env.find?_cons, if_neg (show ¬(ConstantInfo.recInfo
+        ⟨projFnName T i, lps, pty⟩ nP nP []).name = T.str "_model" from
+        fun hh => Name.num_ne_str _ _ _ _ hh)] at hfm₁
+      rw [hfmT'] at hfm₁
+      obtain h1 := Option.some.inj hfm₁
+      injection h1 with e1 e2 e3
+      subst e1
+      exact hrenT'
+    · obtain ⟨h1, -⟩ := m.wf _ (find?_mem hfT'')
+      exact h1
+    · obtain ⟨-, -, h3, -⟩ := m.wf _ (find?_mem hfT'')
+      exact Expr.constsResolve_mono h3
+    · intro ψ
+      rw [he₁ T ψ hTne,
+        he₁ (T.str "_model") ψ
+          (fun hh => Name.num_ne_str _ _ _ _ hh.symm)]
+      exact hvT' ψ
+    · obtain ⟨-, ⟨cvC, hfC⟩, -⟩ := hfam
+      have hCb : blockNames.contains capsT.etaCtor = true :=
+        hCblock cvT capsT hfT'' hcape
+      have hCshape := hbshape _ hCb
+      have hCne : capsT.etaCtor ≠ projFnName T i := by
+        intro hh
+        rw [hh] at hCshape
+        exact nomatch hCshape
+      have hfC' : env'.find? capsT.etaCtor =
+          some (.ctorInfo cvC capsT.etaParams capsT.etaFields) := by
+        rw [Env.find?_cons, if_neg (fun hh => hCne hh.symm)] at hfC
+        exact hfC
+      obtain ⟨cvmC', mvalC', hmC', hfmC', -, -, hvC'⟩ :=
+        hIB capsT.etaCtor hCb _ hfC'
+      intro ψ
+      rw [he₁ capsT.etaCtor ψ hCne,
+        he₁ (capsT.etaCtor.str "_model") ψ
+          (fun hh => Name.num_ne_str _ _ _ _ hh.symm)]
+      exact hvC' ψ
+    · intro j' hj' ψ
+      by_cases hji : j' = i
+      · subst hji
+        rw [hv₁ ψ,
+          he₁ (projModelName T j') ψ
+            (fun hh => Name.num_ne_str _ _ _ _ hh.symm)]
+      · obtain ⟨-, -, hfP⟩ := hfam
+        obtain ⟨cv2, mI2, rP2, rules2, hf2⟩ := hfP j' hj'
+        have hne2 : projFnName T j' ≠ projFnName T i := by
+          intro hh
+          have hh2 : Name.num (T.str "proj") j' =
+              Name.num (T.str "proj") i := hh
+          injection hh2 with hp2 hij2
+          exact hji hij2
+        have hf2' : env'.find? (projFnName T j') =
+            some (.recInfo cv2 mI2 rP2 rules2) := by
+          rw [Env.find?_cons, if_neg (fun hh => hne2 hh.symm)] at hf2
+          exact hf2
+        have hjnF : j' < nF := by
+          rw [← hFields cvT capsT hfT'' hcape]
+          exact hj'
+        obtain ⟨cvm₂, mval₂, hm₂, hfm₂, hlps₂, hv₂⟩ :=
+          hinv.2.2 j' hjnF _ hf2'
+        rw [he₁ _ ψ hne2,
+          he₁ (projModelName T j') ψ
+            (fun hh => Name.num_ne_str _ _ _ _ hh.symm)]
+        exact hv₂ ψ
   obtain ⟨m₁, hval₁, hpres₁⟩ := extend_proj_fn m
     ⟨projFnName T i, lps, pty⟩ nP nF i
     ⟨ctorName, nF, nP, (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain else .inert), rhsA⟩ f
@@ -866,6 +1010,7 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
     hann hrawf hrawb hrres hstripR rfl hC_strip hS_strip
     hsdoms hcbody hclenP hsbody' hthm htlps
     hopenP0 hcinstP0 hdeParsP0 hopenX0 hlinstP0 hdeLamP0 hrf hrb hity0
+    hheadEtaP
   have hval₁' : ∀ ψ : Name → Nat,
       m₁.val (projFnName T i) ψ = m.val (projModelName T i) ψ := hval₁
   have hpres₁' : ∀ (n : Name) (ψ : Name → Nat), n ≠ projFnName T i →
@@ -880,7 +1025,7 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
         nP nP [⟨ctorName, nF, nP, (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain else .inert),
           rhsA⟩]).name = n from
         fun hh => hn hh.symm)]
-  refine ⟨m₁, ?_, ?_, ?_⟩
+  refine ⟨m₁, ⟨?_, ?_, ?_⟩, ?_, ?_⟩
   · -- the parent type's clause
     intro ci₂ hf₂
     rw [hfindNe T hTne] at hf₂
@@ -940,20 +1085,27 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
           hpres₁' (projModelName T j) ψ
             (fun hh => Name.num_ne_str _ _ _ _ hh.symm),
           hv₂ ψ]
+  · -- the block invariant, preserved across the fresh non-member head
+    exact BlockInstalled.fresh_cons hIB hnotb hpnone hpres₁'
+  · -- the head's shape
+    exact ⟨_, rfl, hpnone, rfl⟩
 
-/-- The projection-phase fold preserves having a model together with
-the phase invariant. -/
-theorem checkProjFold_sound {T ctorName : Name} {lps : List Name}
+
+/-- The projection-artifact phase adds only recursor-kind constants
+(and only extends the environment). -/
+theorem checkProjFold_find_new {T ctorName : Name} {lps : List Name}
     {nP nF : Nat} :
     ∀ (idxs : List Nat) (env' env₁ : Env),
     idxs.foldlM (installProjFnStep (fueledOps F) T ctorName lps nP nF)
       env' = .ok env₁ →
-    ∀ m : EnvModel V env', ProjPhaseInv T ctorName nF env' m.val →
-    ∃ m₁ : EnvModel V env₁, ProjPhaseInv T ctorName nF env₁ m₁.val
-  | [], env', env₁, h, m, hinv => by
+    ∀ (n : Name) (ci : ConstantInfo), env₁.find? n = some ci →
+    env'.find? n = some ci ∨
+      ∃ cv mI rP rules, ci = .recInfo cv mI rP rules
+  | [], env', env₁, h, n, ci, hf => by
     simp only [List.foldlM_nil, pure, Except.pure, Except.ok.injEq] at h
-    exact h ▸ ⟨m, hinv⟩
-  | i₀ :: rest, env', env₁, h, m, hinv => by
+    subst h
+    exact Or.inl hf
+  | i₀ :: rest, env', env₁, h, n, ci, hf => by
     rw [List.foldlM_cons] at h
     simp only [Bind.bind, Except.bind] at h
     unfold installProjFnStep at h
@@ -963,11 +1115,292 @@ theorem checkProjFold_sound {T ctorName : Name} {lps : List Name}
       | error e => rw [hstep] at h; exact nomatch h
       | ok env₂ => ?_
       rw [hstep] at h
-      obtain ⟨m₂, hinv₂⟩ := checkProjFn_sound hstep m hinv
-      exact checkProjFold_sound rest env₂ env₁ h m₂ hinv₂
+      obtain ⟨cvj, mcv, hlk, pty, hty, hshape, hi, rhsA, hrule, hio,
+        henv₂⟩ := checkProjFn_inv hstep
+      have hcons : ∀ (n' : Name) (ci' : ConstantInfo),
+          env₂.find? n' = some ci' →
+          env'.find? n' = some ci' ∨
+            ∃ cv mI rP rules, ci' = .recInfo cv mI rP rules := by
+        intro n' ci' hf2
+        rw [henv₂, Env.find?_cons] at hf2
+        by_cases hh : (ConstantInfo.recInfo ⟨projFnName T i₀, lps, pty⟩
+            nP nP [⟨ctorName, nF, nP,
+              (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain
+               else .inert), rhsA⟩]).name = n'
+        · rw [if_pos hh] at hf2
+          exact Or.inr ⟨_, _, _, _, (Option.some.inj hf2).symm⟩
+        · rw [if_neg hh] at hf2
+          exact Or.inl hf2
+      rcases checkProjFold_find_new rest env₂ env₁ h n ci hf
+        with hf' | hk
+      · exact hcons n ci hf'
+      · exact Or.inr hk
     · rw [if_neg hm] at h
       simp only [pure, Except.pure, Except.bind] at h
-      exact checkProjFold_sound rest env' env₁ h m hinv
+      exact checkProjFold_find_new rest env' env₁ h n ci hf
+
+/-- The projection-artifact phase only extends the environment. -/
+theorem checkProjFold_mono {T ctorName : Name} {lps : List Name}
+    {nP nF : Nat} :
+    ∀ (idxs : List Nat) (env' env₁ : Env),
+    idxs.foldlM (installProjFnStep (fueledOps F) T ctorName lps nP nF)
+      env' = .ok env₁ →
+    ∀ n, (env'.find? n).isSome = true → (env₁.find? n).isSome = true
+  | [], env', env₁, h, n, hn => by
+    simp only [List.foldlM_nil, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact hn
+  | i₀ :: rest, env', env₁, h, n, hn => by
+    rw [List.foldlM_cons] at h
+    simp only [Bind.bind, Except.bind] at h
+    unfold installProjFnStep at h
+    by_cases hm : (env'.find? (projModelName T i₀)).isSome = true
+    · rw [if_pos hm] at h
+      cases hstep : checkProjFn (fueledOps F) env' T ctorName lps nP nF i₀ with
+      | error e => rw [hstep] at h; exact nomatch h
+      | ok env₂ => ?_
+      rw [hstep] at h
+      obtain ⟨cvj, mcv, hlk, pty, hty, hshape, hi, rhsA, hrule, hio,
+        henv₂⟩ := checkProjFn_inv hstep
+      refine checkProjFold_mono rest env₂ env₁ h n ?_
+      rw [henv₂, Env.find?_cons]
+      by_cases hh : (ConstantInfo.recInfo ⟨projFnName T i₀, lps, pty⟩
+          nP nP [⟨ctorName, nF, nP,
+            (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain
+             else .inert), rhsA⟩]).name = n
+      · rw [if_pos hh]
+        rfl
+      · rw [if_neg hh]
+        exact hn
+    · rw [if_neg hm] at h
+      simp only [pure, Except.pure, Except.bind] at h
+      exact checkProjFold_mono rest env' env₁ h n hn
+
+/-- The elimination-template phase adds only projection-table entries
+(and only extends the environment). -/
+theorem installProjTemplates_find_new {T ctorName : Name}
+    {lps : List Name} {nP nF : Nat} :
+    ∀ (idxs : List Nat) (env' env₁ : Env),
+    idxs.foldlM
+      (installProjTemplateStep (m := CheckM) T ctorName lps nP nF)
+      env' = .ok env₁ →
+    (∀ (n : Name) (ci : ConstantInfo), env₁.find? n = some ci →
+      env'.find? n = some ci ∨ ∃ entry, ci = .projInfo entry) ∧
+    (∀ n, (env'.find? n).isSome = true → (env₁.find? n).isSome = true)
+  | [], env', env₁, h => by
+    simp only [List.foldlM_nil, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact ⟨fun n ci hf => Or.inl hf, fun n hn => hn⟩
+  | i₀ :: rest, env', env₁, h => by
+    rw [List.foldlM_cons] at h
+    simp only [Bind.bind, Except.bind] at h
+    cases hstep : installProjTemplateStep (m := CheckM) T ctorName lps
+        nP nF env' i₀ with
+    | error e => rw [hstep] at h; exact nomatch h
+    | ok env₂ =>
+      rw [hstep] at h
+      have hshape₂ : env₂ = env' ∨
+          ∃ entry, env₂ = ⟨.projInfo entry :: env'.consts⟩ := by
+        revert hstep
+        unfold installProjTemplateStep installProjTemplate
+        split
+        case isFalse =>
+          intro hstep
+          simp only [pure, Except.pure, Except.ok.injEq] at hstep
+          exact Or.inl hstep.symm
+        case isTrue hfree =>
+          split
+          case h_2 =>
+            intro hstep
+            simp only [pure, Except.pure, Except.ok.injEq] at hstep
+            exact Or.inl hstep.symm
+          case h_1 cvR mI2 rP2 rule heqR =>
+            split
+            case isFalse =>
+              intro hstep
+              simp only [pure, Except.pure, Except.ok.injEq] at hstep
+              exact Or.inl hstep.symm
+            case isTrue hcond =>
+              intro hstep
+              simp only [pure, Except.pure, Except.ok.injEq] at hstep
+              exact Or.inr ⟨_, hstep.symm⟩
+      obtain ⟨hnew, hmono⟩ := installProjTemplates_find_new rest env₂
+        env₁ h
+      rcases hshape₂ with rfl | ⟨entry, rfl⟩
+      · exact ⟨hnew, hmono⟩
+      · refine ⟨?_, ?_⟩
+        · intro n ci hf
+          rcases hnew n ci hf with hf' | hk
+          · rw [Env.find?_cons] at hf'
+            split at hf'
+            · obtain rfl := Option.some.inj hf'
+              exact Or.inr ⟨entry, rfl⟩
+            · exact Or.inl hf'
+          · exact Or.inr hk
+        · intro n hn
+          refine hmono n ?_
+          rw [Env.find?_cons]
+          split
+          · rfl
+          · exact hn
+
+
+/-- The projection-artifact phase preserves stored lookups exactly
+(every install is fresh). -/
+theorem checkProjFold_find_preserved {T ctorName : Name}
+    {lps : List Name} {nP nF : Nat} :
+    ∀ (idxs : List Nat) (env' env₁ : Env),
+    idxs.foldlM (installProjFnStep (fueledOps F) T ctorName lps nP nF)
+      env' = .ok env₁ →
+    ∀ (n : Name) (ci : ConstantInfo), env'.find? n = some ci →
+    env₁.find? n = some ci
+  | [], env', env₁, h, n, ci, hf => by
+    simp only [List.foldlM_nil, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact hf
+  | i₀ :: rest, env', env₁, h, n, ci, hf => by
+    rw [List.foldlM_cons] at h
+    simp only [Bind.bind, Except.bind] at h
+    unfold installProjFnStep at h
+    by_cases hm : (env'.find? (projModelName T i₀)).isSome = true
+    · rw [if_pos hm] at h
+      cases hstep : checkProjFn (fueledOps F) env' T ctorName lps nP nF i₀ with
+      | error e => rw [hstep] at h; exact nomatch h
+      | ok env₂ => ?_
+      rw [hstep] at h
+      obtain ⟨cvj, mcv, hlk, pty, hty, hshape, hi, rhsA, hrule, hio,
+        henv₂⟩ := checkProjFn_inv hstep
+      obtain ⟨mval2, hmmcv2, hctor2, hfm2, hmlps2, hpnone2, hTf2,
+        heqf2⟩ := checkProjLookups_inv hlk
+      refine checkProjFold_find_preserved rest env₂ env₁ h n ci ?_
+      rw [henv₂]
+      rw [Env.find?_cons_of_isSome
+        (show env'.find? (ConstantInfo.recInfo
+          ⟨projFnName T i₀, lps, pty⟩ nP nP [⟨ctorName, nF, nP,
+            (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain
+             else .inert), rhsA⟩]).name = none from hpnone2)
+        (by rw [hf]; rfl)]
+      exact hf
+    · rw [if_neg hm] at h
+      simp only [pure, Except.pure, Except.bind] at h
+      exact checkProjFold_find_preserved rest env' env₁ h n ci hf
+
+/-- The elimination-template phase preserves stored lookups exactly
+(every installed entry is fresh). -/
+theorem installProjTemplates_find_preserved {T ctorName : Name}
+    {lps : List Name} {nP nF : Nat} :
+    ∀ (idxs : List Nat) (env' env₁ : Env),
+    idxs.foldlM
+      (installProjTemplateStep (m := CheckM) T ctorName lps nP nF)
+      env' = .ok env₁ →
+    ∀ (n : Name) (ci : ConstantInfo), env'.find? n = some ci →
+    env₁.find? n = some ci
+  | [], env', env₁, h, n, ci, hf => by
+    simp only [List.foldlM_nil, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact hf
+  | i₀ :: rest, env', env₁, h, n, ci, hf => by
+    rw [List.foldlM_cons] at h
+    simp only [Bind.bind, Except.bind] at h
+    cases hstep : installProjTemplateStep (m := CheckM) T ctorName lps
+        nP nF env' i₀ with
+    | error e => rw [hstep] at h; exact nomatch h
+    | ok env₂ =>
+      rw [hstep] at h
+      have hshape₂ : env₂ = env' ∨
+          ∃ entry, env₂ = ⟨.projInfo entry :: env'.consts⟩ ∧
+            env'.find? (ConstantInfo.projInfo entry).name = none := by
+        revert hstep
+        unfold installProjTemplateStep installProjTemplate
+        split
+        case isFalse =>
+          intro hstep
+          simp only [pure, Except.pure, Except.ok.injEq] at hstep
+          exact Or.inl hstep.symm
+        case isTrue hfree =>
+          split
+          case h_2 =>
+            intro hstep
+            simp only [pure, Except.pure, Except.ok.injEq] at hstep
+            exact Or.inl hstep.symm
+          case h_1 cvR mI2 rP2 rule heqR =>
+            split
+            case isFalse =>
+              intro hstep
+              simp only [pure, Except.pure, Except.ok.injEq] at hstep
+              exact Or.inl hstep.symm
+            case isTrue hcond =>
+              intro hstep
+              simp only [pure, Except.pure, Except.ok.injEq] at hstep
+              refine Or.inr ⟨_, hstep.symm, ?_⟩
+              exact Option.isNone_iff_eq_none.mp hcond.1
+      refine installProjTemplates_find_preserved rest env₂ env₁ h n ci ?_
+      rcases hshape₂ with rfl | ⟨entry, rfl, hfree⟩
+      · exact hf
+      · rw [Env.find?_cons_of_isSome hfree (by rw [hf]; rfl)]
+        exact hf
+
+/-- The projection-phase fold preserves having a model together with
+the phase invariant, the block invariant and the former's pins. -/
+theorem checkProjFold_sound {T ctorName : Name} {lps : List Name}
+    {nP nF : Nat} {blockNames : List Name}
+    (hTblock : blockNames.contains T = true)
+    (hbshape : ∀ n, blockNames.contains n = true →
+      n.isProjFnShape = false) :
+    ∀ (idxs : List Nat) (env' env₁ : Env),
+    idxs.foldlM (installProjFnStep (fueledOps F) T ctorName lps nP nF)
+      env' = .ok env₁ →
+    ∀ m : EnvModel V env', ProjPhaseInv T ctorName nF env' m.val →
+    BlockInstalled blockNames env' m.val →
+    (∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
+      EtaPins env' T cvT.levelParams capsT) →
+    (∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
+      capsT.eta = true → blockNames.contains capsT.etaCtor = true) →
+    (∀ cvT capsT, env'.find? T = some (.indInfo cvT capsT) →
+      capsT.eta = true → capsT.etaFields = nF) →
+    ∃ m₁ : EnvModel V env₁, ProjPhaseInv T ctorName nF env₁ m₁.val
+  | [], env', env₁, h, m, hinv, _, _, _, _ => by
+    simp only [List.foldlM_nil, pure, Except.pure, Except.ok.injEq] at h
+    exact h ▸ ⟨m, hinv⟩
+  | i₀ :: rest, env', env₁, h, m, hinv, hIB, hpinsT, hCblock, hFields => by
+    rw [List.foldlM_cons] at h
+    simp only [Bind.bind, Except.bind] at h
+    unfold installProjFnStep at h
+    by_cases hm : (env'.find? (projModelName T i₀)).isSome = true
+    · rw [if_pos hm] at h
+      cases hstep : checkProjFn (fueledOps F) env' T ctorName lps nP nF i₀ with
+      | error e => rw [hstep] at h; exact nomatch h
+      | ok env₂ => ?_
+      rw [hstep] at h
+      obtain ⟨m₂, hinv₂, hIB₂, ciH, rfl, hfreshH, hnameH⟩ :=
+        checkProjFn_sound hstep m hinv hIB hTblock hbshape hpinsT
+          hCblock hFields
+      have hTneH : T ≠ ciH.name := by
+        intro he
+        have hsh := hbshape T hTblock
+        rw [he, hnameH] at hsh
+        rw [show (projFnName T i₀).isProjFnShape = true from rfl] at hsh
+        exact nomatch hsh
+      have hTdown : ∀ cvT capsT,
+          (⟨ciH :: env'.consts⟩ : Env).find? T =
+            some (.indInfo cvT capsT) →
+          env'.find? T = some (.indInfo cvT capsT) := by
+        intro cvT capsT hf
+        rw [Env.find?_cons, if_neg (fun hh => hTneH hh.symm)] at hf
+        exact hf
+      refine checkProjFold_sound hTblock hbshape rest _ env₁ h m₂ hinv₂
+        hIB₂ ?_ ?_ ?_
+      · intro cvT capsT hf
+        exact EtaPins.step (hpinsT cvT capsT (hTdown cvT capsT hf))
+          hfreshH
+      · intro cvT capsT hf
+        exact hCblock cvT capsT (hTdown cvT capsT hf)
+      · intro cvT capsT hf
+        exact hFields cvT capsT (hTdown cvT capsT hf)
+    · rw [if_neg hm] at h
+      simp only [pure, Except.pure, Except.bind] at h
+      exact checkProjFold_sound hTblock hbshape rest env' env₁ h m hinv
+        hIB hpinsT hCblock hFields
 
 /-- The elimination-template fold preserves having a model: each
 installed entry is fresh (runtime-checked) and semantically inert. -/

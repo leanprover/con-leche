@@ -54,84 +54,49 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
       ci = .recInfo cvR mI rP rules →
       ∀ r ∈ rules, ∃ cvj cnP cnF,
         env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF))
-    (hmodv : reservedBasisNames.contains ci.name = false →
-      (∃ cv cnP cnF, ci = .ctorInfo cv cnP cnF) →
-      (env.find? (ci.name.str "_model")).isSome = true →
-      ∀ ψ : Name → Nat, v₀ ψ = m.val (ci.name.str "_model") ψ)
-    (hproj : ∀ (T : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat)
-      (rules : List RecRule), ci.name = projFnName T j →
-      ci = .recInfo cv mI rP rules →
-      (env.find? (projModelName T j)).isSome = true →
-      ∀ ψ : Name → Nat, v₀ ψ = m.val (projModelName T j) ψ)
     (hprojOk : ∀ entry, ci = .projInfo entry → entry.native = true →
       (entry = pairFstEntry ∨ entry = pairSndEntry) ∧
       env.find? psigmaName = some psigmaA ∧
       env.find? psigmaMkName = some psigmaMkA)
-    (hetaL : ∀ cv caps, ci = .indInfo cv caps → caps.eta = true →
-      reservedBasisNames.contains ci.name = false →
-      (env.find? (caps.etaCtor.str "_model")).isSome = true ∧
-      (∀ j, j < caps.etaFields →
-        (env.find? (projModelName ci.name j)).isSome = true) ∧
-      ∀ (φ'' : Name → Nat) (us : List Level) (ps : List V) (x : V)
-        (d₁ : Nat) (ρ₁ : Nat → V) (d₂ : Nat) (ρ₂ : Nat → V)
-        (rest : Expr),
-        ps.length = caps.etaParams →
-        x ∈ˢ SpineFold V (v₀ (Level.substFn φ'' cv.levelParams us)) ps →
-        TeleFit V m.val env φ'' d₁ ρ₁
-          (cv.type.instantiateLevelParams cv.levelParams us) ps d₂ ρ₂
-          rest →
-        x = SpineFold V (m.val (caps.etaCtor.str "_model")
-            (Level.substFn φ'' cv.levelParams us))
-          (ps ++ (List.range caps.etaFields).map fun j =>
-            SpineFold V (m.val (projModelName ci.name j)
-              (Level.substFn φ'' cv.levelParams us)) (ps ++ [x])))
-    (hunitL : ∀ cv caps, ci = .indInfo cv caps → caps.unitlike = true →
-      reservedBasisNames.contains ci.name = false →
-      ∀ (φ'' : Name → Nat) (us : List Level) (ps : List V) (x y : V)
-        (d₁ : Nat) (ρ₁ : Nat → V) (d₂ : Nat) (ρ₂ : Nat → V)
-        (rest : Expr),
-        ps.length = caps.unitParams →
-        x ∈ˢ SpineFold V (v₀ (Level.substFn φ'' cv.levelParams us)) ps →
-        y ∈ˢ SpineFold V (v₀ (Level.substFn φ'' cv.levelParams us)) ps →
-        TeleFit V m.val env φ'' d₁ ρ₁
-          (cv.type.instantiateLevelParams cv.levelParams us) ps d₂ ρ₂
-          rest →
-        x = y)
-    -- both hold for every pinned basis declaration by computation on
-    -- its name: a pinned name is never `_model`-shaped and never
-    -- projection-function-shaped
-    (hmft : modelFamilyTaken env ci.name = false := by
-      first
-        | rfl
-        | simp [modelFamilyTaken, modelSuffixTaken, modelProjTaken])
-    (hparent : ∀ (T : Name) (j : Nat) cv mI rP rules,
-      ci.name = projFnName T j → ci = .recInfo cv mI rP rules →
-      (env.find? T).isSome = true := by
-      first
-        | (intro T j cv mI rP rules hh _
-           exact absurd hh.symm (Name.num_ne_str _ _ _ _))
-        | (intro T j cv mI rP rules _ heq
-           exact nomatch heq))
     (hnotthm : ∀ cv2 value2, ci ≠ .thmInfo cv2 value2 := by
       intro cv2 value2 h
       exact ConstantInfo.noConfusion h)
-    -- the type former's half of the artifact linkage: vacuous for a
-    -- constant that is not an inductive type former, and for a pinned
-    -- basis type former, whose name is reserved
-    (hmodvInd : reservedBasisNames.contains ci.name = false →
-      (∃ cv caps, ci = .indInfo cv caps) →
-      (env.find? (ci.name.str "_model")).isSome = true →
-      ∀ ψ : Name → Nat, v₀ ψ = m.val (ci.name.str "_model") ψ := by
-      intro hres hk hms
-      first
-        | exact absurd hres (by decide)
-        | (obtain ⟨cv2, caps2, hcon⟩ := hk; exact nomatch hcon)) :
+    -- the capability-law head obligations: for a pinned basis
+    -- declaration everything is refuted by computation on its name —
+    -- a reserved former is exempt from the clauses, a reserved name is
+    -- never a (non-reserved) capability constructor, and a pinned name
+    -- is never projection-function-shaped
+    (hcaps : ∀ val' : ConstVal V,
+      (∀ ψ : Name → Nat, val' ci.name ψ = v₀ ψ) →
+      (∀ (n : Name) (ψ : Name → Nat), n ≠ ci.name →
+        val' n ψ = m.val n ψ) →
+      (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
+        (⟨ci :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
+        caps.eta = true → reservedBasisNames.contains T = false →
+        EtaFamilyStored ⟨ci :: env.consts⟩ T caps →
+        (T = ci.name ∨ caps.etaCtor = ci.name ∨
+          ∃ j, j < caps.etaFields ∧ projFnName T j = ci.name) →
+        EtaLaw V ⟨ci :: env.consts⟩ val' T cvT caps) ∧
+      (∀ cv caps, ci = .indInfo cv caps → caps.unitlike = true →
+        reservedBasisNames.contains ci.name = false →
+        UnitLaw V ⟨ci :: env.consts⟩ val' ci.name cv caps) := by
+      intro val' hv he
+      refine ⟨?_, ?_⟩
+      · intro T cvT caps hfT hcape hres hfam hpart
+        rcases hpart with rfl | hC | ⟨j, hj, hP⟩
+        · exact absurd hres (by decide)
+        · obtain ⟨hCres, -, -⟩ := hfam
+          rw [hC] at hCres
+          exact absurd hCres (by decide)
+        · exact absurd hP (Name.num_ne_str _ _ _ _)
+      · intro cv caps heq hcapu hres
+        exact absurd hres (by decide)) :
     ∃ m' : EnvModel V ⟨ci :: env.consts⟩,
       (∀ ψ, m'.val ci.name ψ = v₀ ψ) ∧
       (∀ n ψ, n ≠ ci.name → m'.val n ψ = m.val n ψ) := by
   refine extend_fresh m ci v₀ hfind' hwf htyres0 ?_ ?_ hkey hparams hAty
-    hnewty hnewmk hnewunit hnewempty hpin hsib hrecm hctors hmodv hmodvInd
-    hproj hmft hparent hprojOk hetaL hunitL ?_ ?_
+    hnewty hnewmk hnewunit hnewempty hpin hsib hrecm hctors
+    hprojOk hcaps ?_ ?_
   · intro cv2 value2 h2 heq
     exact absurd heq (hnotdefn cv2 value2 h2)
   · intro cv2 value2 heq

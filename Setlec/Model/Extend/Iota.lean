@@ -1216,4 +1216,46 @@ theorem EtaPins.step {env' : Env} {c₁ : ConstantInfo} {T : Name}
       tySlot, ℓA, hkeep _ _ hthm, h2, hkeep _ _ hTm, h4,
       hkeep _ _ heqf, h6, h7, h8, h9, h10, h11⟩
 
+
+/-- The pins transport along any lookup preservation covering the
+non-recursor kinds (the pins only look up theorems, definitions and
+the pinned equality former). -/
+theorem EtaPins.transport {env₁ env₂ : Env} {T : Name}
+    {lps : List Name} {caps : IndCaps}
+    (h : EtaPins env₁ T lps caps)
+    (hkeep : ∀ (n : Name) (ci : ConstantInfo), env₁.find? n = some ci →
+      (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+      env₂.find? n = some ci) :
+    EtaPins env₂ T lps caps := by
+  have hk : ∀ (n : Name) (cv : ConstantVal) (tv : Expr),
+      env₁.find? n = some (.thmInfo cv tv) →
+      env₂.find? n = some (.thmInfo cv tv) :=
+    fun n cv tv hf => hkeep n _ hf (fun _ _ _ _ hc => nomatch hc)
+  have hkd : ∀ (n : Name) (cv : ConstantVal) (v : Expr)
+      (hh : ReducibilityHint), env₁.find? n = some (.defnInfo cv v hh) →
+      env₂.find? n = some (.defnInfo cv v hh) :=
+    fun n cv v hh hf => hkeep n _ hf (fun _ _ _ _ hc => nomatch hc)
+  have hke : env₁.find? eqName = some eqA →
+      env₂.find? eqName = some eqA :=
+    fun hf => hkeep _ _ hf (fun _ _ _ _ hc => nomatch hc)
+  refine ⟨?_, ?_⟩
+  · intro hcape
+    obtain ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody, tbodyM,
+      tySlot, ℓA, hthm, h2, hTm, h4, ⟨cvmC, mvalC, hmC, hCm, hClps⟩, hPj,
+      heqf, h8, h9, h10, h11, h12⟩ := h.1 hcape
+    refine ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody, tbodyM,
+      tySlot, ℓA, hk _ _ _ hthm, h2, hkd _ _ _ _ hTm, h4,
+      ⟨cvmC, mvalC, hmC, hkd _ _ _ _ hCm, hClps⟩, ?_, hke heqf,
+      h8, h9, h10, h11, h12⟩
+    intro j hj
+    obtain ⟨cvmj, mvalj, hmj, hfj, hjlps⟩ := hPj j hj
+    exact ⟨cvmj, mvalj, hmj, hkd _ _ _ _ hfj, hjlps⟩
+  · intro hcapu
+    obtain ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody, tbodyM,
+      tySlot, ℓA, hthm, h2, hTm, h4, heqf, h6, h7, h8, h9, h10, h11⟩ :=
+      h.2 hcapu
+    exact ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody, tbodyM,
+      tySlot, ℓA, hk _ _ _ hthm, h2, hkd _ _ _ _ hTm, h4,
+      hke heqf, h6, h7, h8, h9, h10, h11⟩
+
 end Setlec

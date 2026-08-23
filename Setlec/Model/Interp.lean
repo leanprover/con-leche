@@ -481,9 +481,14 @@ theorem ProjOk.env_swap {env₁ env₂ : Env}
 
 /-- The semantic eta law of an eta-capable stored structure: every
 member of the interpreted type (fitting the type former's parameter
-telescope) is the constructor model's value applied to the projection
-models'.  Derived at install from the checked `T._model.eta` theorem
-(`eta_rule_fold`); the pair-eta rule's soundness consumes it. -/
+telescope) is the constructor's value applied to the projection
+functions'.  Stated over the **public** names (`caps.etaCtor`,
+`projFnName`): the environment remembers nothing about how the family
+was installed, so the law is provenance-abstract.  The modeled path
+discharges it from the checked `T._model.eta` theorem (`eta_rule_fold`)
+at the family-completing member's install, where the group-local
+public↔`_model` identification is in scope; the structural-eta rule's
+soundness consumes it. -/
 def EtaLaw (env : Env) (val : ConstVal V) (T : Name) (cvT : ConstantVal)
     (caps : IndCaps) : Prop :=
   ∀ (φ' : Name → Nat) (us : List Level) (ps : List V) (x : V)
@@ -494,10 +499,10 @@ def EtaLaw (env : Env) (val : ConstVal V) (T : Name) (cvT : ConstantVal)
       (cvT.type.instantiateLevelParams cvT.levelParams us) ps d₂ ρ₂
       rest →
     x = SpineFold V
-      (val (caps.etaCtor.str "_model")
+      (val caps.etaCtor
         (Level.substFn φ' cvT.levelParams us))
       (ps ++ (List.range caps.etaFields).map fun j =>
-        SpineFold V (val (projModelName T j)
+        SpineFold V (val (projFnName T j)
           (Level.substFn φ' cvT.levelParams us)) (ps ++ [x]))
 
 /-- The semantic unit-like law of a unit-like stored family: any two
@@ -516,93 +521,68 @@ def UnitLaw (env : Env) (val : ConstVal V) (T : Name)
       rest →
     x = y
 
-/-- **The artifact linkage.**  Every constant the *modeled* install
-path creates is valued by its `_model` companion; this clause records
-that assignment.
+/-- The eta family of an eta-capable stored structure is complete: the
+capability record's constructor is stored as a constructor at exactly
+the record's arities, and every documented projection function is
+stored as a (degenerate) recursor.  This is the *premise* under which
+`CapsOk` owes the eta law: mid-block — the former is installed first,
+its constructor and projection functions after it — the premise fails
+and the law is not yet owed; the family-completing member's install
+discharges it.  The premises are deliberately **kind- and
+arity-pinned**: an installation of a non-constructor under the
+constructor's name (or a non-recursor under a projection name) never
+completes the family, which is what keeps the `CapsOk.cons` head
+obligations dischargeable at every install site. -/
+def EtaFamilyStored (env : Env) (T : Name) (caps : IndCaps) : Prop :=
+  -- name-only conjunct (static in `caps`): a reserved-named capability
+  -- constructor never completes a family, which keeps the basis
+  -- installs' head obligations vacuous by computation
+  reservedBasisNames.contains caps.etaCtor = false ∧
+  (∃ cvC, env.find? caps.etaCtor =
+    some (.ctorInfo cvC caps.etaParams caps.etaFields)) ∧
+  ∀ j, j < caps.etaFields → ∃ cv mI rP rules,
+    env.find? (projFnName T j) = some (.recInfo cv mI rP rules)
 
-*Why it exists.*  The preprocessor proves its certificate theorems over
-`_model` names — it cannot say anything about the opaque public
-constants — so when a later modeled block's rules mention an
-**earlier** artifact-installed constant, the rename-and-transport step
-that checks them needs `val T = val (T._model)` for that earlier `T`.
-
-*Lifetime.*  Per constant, from its artifact install to the end of the
-stream — **not** group-local: models are built out of earlier models,
-so block 500 may consume block 3's linkage.
-
-*Why it is free to carry.*  It records the valuation assignment the
-modeled install *makes* (`val T := val (T._model)`), not an extra
-obligation on anybody.
-
-*End of life.*  Vacuous for basis blocks (reserved names) and for
-directly installed blocks (no companion exists, so the premise fails);
-its footprint shrinks as directly recognised classes displace
-`lean-inductive-models`, and the clause is deletable once the last
-modeled class is gone.
-
-The companion's *existence* is a **premise**, not a conclusion: an
-artifact-installed constant has one, so this is exactly as strong as an
-unconditional bridge there, while a directly installed constant — which
-has no companion by construction (`directNoModel`) — owes nothing. -/
-def ModeledOk (env : Env) (val : ConstVal V) : Prop :=
-  (∀ n cv cnP cnF, env.find? n = some (.ctorInfo cv cnP cnF) →
-    reservedBasisNames.contains n = false →
-    (env.find? (n.str "_model")).isSome = true →
-    ∀ ψ : Name → Nat, val n ψ = val (n.str "_model") ψ) ∧
-  -- The projection-function clause additionally takes **the parent
-  -- being stored as an inductive type former** as a premise.  It is
-  -- not decoration: `ModeledOk.cons` splits on whether the parent `T`
-  -- is the constant being installed, and rules that case out from the
-  -- last clause below (a stored projection function's parent is stored
-  -- already, so it cannot be the fresh one).  Without the premise that
-  -- case has no contradiction to reach, and the clause would have to
-  -- be re-established for a parent that does not exist yet.  Every
-  -- consumer has the parent's lookup in hand anyway: the projection
-  -- table is only ever read at a structure (`Setlec/Model/Core/
-  -- StructEta.lean`).  See DESIGN.md, "The environment invariant,
-  -- split".
-  (∀ (T : Name) (cvT : ConstantVal) (capsT : IndCaps) (j : Nat)
-      (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
-    env.find? T = some (.indInfo cvT capsT) →
-    env.find? (projFnName T j) = some (.recInfo cv mI rP rules) →
-    (env.find? (projModelName T j)).isSome = true →
-    ∀ ψ : Name → Nat,
-      val (projFnName T j) ψ = val (projModelName T j) ψ) ∧
-  -- The capability laws below are **provenance-abstract** by design:
-  -- they say what the reduction rules consume and nothing about how the
-  -- family was built, so a basis pin, an artifact check and a direct
-  -- construction all discharge them the same way (the `IndOk` pattern,
-  -- and the move `RecRulesOk` made in task #58).  `UnitLaw` is already
-  -- free of `_model` names; `EtaLaw` still reaches the constructor and
-  -- the projections through theirs, which is why the direct install
-  -- declares `eta := false` — see DESIGN.md.
+/-- The capability laws of the stored inductive families.  They are
+**provenance-abstract** by design: they say what the reduction rules
+consume and nothing about how the family was built — the environment
+remembers nothing about install provenance, and in particular the
+`_model` artifact family a modeled install consulted plays no role
+here (the public↔`_model` identification is group-local to the one
+block's install derivation and is discarded at its end; see DESIGN.md,
+"Group-local identification").  Basis families are exempt
+(`reservedBasisNames`): their eta/unit facts ride the pinned `IndOk`
+clauses. -/
+def CapsOk (env : Env) (val : ConstVal V) : Prop :=
   (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
     env.find? T = some (.indInfo cvT caps) → caps.eta = true →
     reservedBasisNames.contains T = false →
-    (env.find? (caps.etaCtor.str "_model")).isSome = true ∧
-    (∀ j, j < caps.etaFields →
-      (env.find? (projModelName T j)).isSome = true) ∧
+    EtaFamilyStored env T caps →
     EtaLaw V env val T cvT caps) ∧
   (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
     env.find? T = some (.indInfo cvT caps) → caps.unitlike = true →
     reservedBasisNames.contains T = false →
-    UnitLaw V env val T cvT caps) ∧
-  -- a stored projection function's parent is stored (blocks install the
-  -- type former first); monotone, so extensions preserve it for free
-  (∀ (T : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat)
-      (rules : List RecRule),
-    env.find? (projFnName T j) = some (.recInfo cv mI rP rules) →
-    (env.find? T).isSome = true) ∧
-  -- the **type former's** half of the artifact linkage, in the same
-  -- existence-premised style as the constructor's (the first clause):
-  -- a modeled block installs its type former with its companion's
-  -- value too, and a later block's rename-and-transport reads it.
-  -- Kept last only so that the earlier clauses' positional accessors
-  -- stay put.
-  (∀ n cv caps, env.find? n = some (.indInfo cv caps) →
-    reservedBasisNames.contains n = false →
-    (env.find? (n.str "_model")).isSome = true →
-    ∀ ψ : Name → Nat, val n ψ = val (n.str "_model") ψ)
+    UnitLaw V env val T cvT caps)
+
+/-- Every stored non-reserved eta-capable type former's constructor is
+stored, at exactly the capability record's arities.  **Not** an
+`EnvModel` clause: inside a block's install derivation the former is
+stored before its constructor, so the intermediate models live in the
+window where this fails for the freshly installed former.  It holds at
+every declaration boundary and is threaded through the consistency
+fold *next to* the model; constructor-installing sites consume it to
+refute a fresh constructor completing an *older* former's eta family
+(the older family's constructor slot is already taken). -/
+def EtaFamiliesClosed (env : Env) : Prop :=
+  ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
+    env.find? T = some (.indInfo cvT caps) → caps.eta = true →
+    reservedBasisNames.contains T = false →
+    ∃ cvC, env.find? caps.etaCtor =
+      some (.ctorInfo cvC caps.etaParams caps.etaFields)
+
+theorem EtaFamiliesClosed.empty : EtaFamiliesClosed Env.empty := by
+  intro T cvT caps h
+  simp [Env.find?, Env.empty] at h
 
 /-- A stored structural-Nat operation's semantic certificate
 (established at install by `certifyNatEqs` and the pinned-shape
@@ -707,19 +687,11 @@ theorem DivModOk.empty (val : ConstVal V) : DivModOk V Env.empty val := by
   intro c hc cv v hint h
   simp [Env.find?, Env.empty] at h
 
-theorem ModeledOk.empty (val : ConstVal V) : ModeledOk V Env.empty val := by
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
-  · intro n cv cnP cnF h
-    simp [Env.find?, Env.empty] at h
-  · intro T cvT capsT j cv mI rP rules h
-    simp [Env.find?, Env.empty] at h
+theorem CapsOk.empty (val : ConstVal V) : CapsOk V Env.empty val := by
+  refine ⟨?_, ?_⟩
   · intro T cvT caps h
     simp [Env.find?, Env.empty] at h
   · intro T cvT caps h
-    simp [Env.find?, Env.empty] at h
-  · intro T j cv mI rP rules h
-    simp [Env.find?, Env.empty] at h
-  · intro n cv caps h
     simp [Env.find?, Env.empty] at h
 
 /-- A model of an environment: a set-theoretic value for every constant
@@ -768,8 +740,9 @@ structure EnvModel (env : Env) where
   /-- Every stored native projection-table entry is a pinned pair
   entry with its block stored (see `ProjOk`). -/
   proj_ok : ProjOk env
-  /-- Non-reserved inductive-kind constants carry their model values. -/
-  modeled_ok : ModeledOk V env val
+  /-- The stored inductive families' capability laws (eta/unit-like),
+  provenance-abstract and stated over public names. -/
+  caps_ok : CapsOk V env val
   /-- Every stored structural-Nat operation satisfies its recurrence
   equations semantically (established at install by `certifyNatEqs`). -/
   nat_ops : NatOpsOk V env val
@@ -793,7 +766,7 @@ def EnvModel.empty : EnvModel V Env.empty where
   ind_ok := IndOk.empty V _ (fun _ x hx => SetTheory.not_mem_empty x hx)
   rec_rules := RecRulesOk.empty V _
   proj_ok := ProjOk.empty
-  modeled_ok := ModeledOk.empty V _
+  caps_ok := CapsOk.empty V _
   nat_ops := NatOpsOk.empty V _
   div_mod := DivModOk.empty V _
 
