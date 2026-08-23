@@ -1093,8 +1093,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                   let fab ← mkAppNM h (margs.take cnP)
                   if ← withStore (fun st => st.wscopedBI depth fab &&
                       st.looseBVarsBoundedI 0 fab &&
-                      (st.fvarLeavesI fab).all
-                        (fun l => (st.fvarLeavesI major).contains l)) then do
+                      st.leafGuardI fab major) then do
                     -- synthetic-spine certification (task #71): a
                     -- fabricated constructor spine keeps the ungated
                     -- telescope certificate, relocated here from the
@@ -1140,8 +1139,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                   let fab ← mkAppNM h (margs ++ projs)
                   if ← withStore (fun st => st.wscopedBI depth fab &&
                       st.looseBVarsBoundedI 0 fab &&
-                      (st.fvarLeavesI fab).all
-                        (fun l => (st.fvarLeavesI major).contains l)) then do
+                      st.leafGuardI fab major) then do
                     -- synthetic-spine certification, as in the K
                     -- branch (task #71)
                     let tyCtor ← constTyAtM fe rl.ctor ust
@@ -1844,8 +1842,7 @@ def annotateProjRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
           let raw ← mkAppNM recC (params ++ [motive, minor, e'])
           if ← withStore (fun st => st.wscopedBI depth raw &&
               st.looseBVarsBoundedI 0 raw &&
-              (st.fvarLeavesI raw).all
-                (fun l => (st.fvarLeavesI e').contains l)) then
+              st.leafGuardI raw e') then
             r.annotate depth raw
           else throw (.notImplemented "projection elimination scoping")
         | none => throw (.invalid "projection index out of range")
@@ -1868,8 +1865,7 @@ def annotateProjElimI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (sn : Name)
           let raw ← mkAppNM h (targs ++ [e'])
           if ← withStore (fun st => st.wscopedBI depth raw &&
               st.looseBVarsBoundedI 0 raw &&
-              (st.fvarLeavesI raw).all
-                (fun l => (st.fvarLeavesI e').contains l)) then
+              st.leafGuardI raw e') then
             r.annotate depth raw
           else throw (.notImplemented "projection elimination scoping")
         else throw (.notImplemented "projection parameter mismatch")

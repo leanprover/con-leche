@@ -1440,6 +1440,18 @@ leaves as `(idx, name, type-index)` triples. -/
 def fvarLeavesI (st : EStore) (e : EIdx) : List (Nat × Name × EIdx) :=
   (fvarLeavesIGo st {} e).1
 
+/-- The fabrication leaf guard (scoped call discipline): every fvar
+leaf of `fab` is an fvar leaf of `base`.  Equal to the `Expr`-level
+`fab.fvarLeaves.all (base.fvarLeaves.contains ·)` on well-formed
+stores (`leafGuardI_spec`); evaluation short-circuits — a term with no
+fvar at all passes trivially (`hasFvarI`, one memoized DAG walk
+instead of two leaf-list materializations), and the base's leaf list
+is computed once, not once per leaf of `fab` (task #84). -/
+def leafGuardI (st : EStore) (fab base : EIdx) : Bool :=
+  !st.hasFvarI fab ||
+    (let baseLeaves := st.fvarLeavesI base
+     (st.fvarLeavesI fab).all (fun l => baseLeaves.contains l))
+
 /-- Core of `constsResolveI` (mirrors `Expr.constsResolve env`; no
 cursor). -/
 def constsResolveIGo (st : EStore) (env : Env)

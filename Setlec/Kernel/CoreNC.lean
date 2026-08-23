@@ -206,8 +206,7 @@ def majorToCtorNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                 let fab ← mkAppNM h (margs.take cnP)
                 if ← withStore (fun st => st.wscopedBI depth fab &&
                     st.looseBVarsBoundedI 0 fab &&
-                    (st.fvarLeavesI fab).all
-                      (fun l => (st.fvarLeavesI major).contains l)) then do
+                    st.leafGuardI fab major) then do
                   -- official `toCtorWhenK`: the fabricated constructor's
                   -- type must be defeq to the major's (indices match)
                   let tfab ← r.infer depth fab
@@ -233,8 +232,7 @@ def majorToCtorNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                 let fab ← mkAppNM h (margs ++ projs)
                 if ← withStore (fun st => st.wscopedBI depth fab &&
                     st.looseBVarsBoundedI 0 fab &&
-                    (st.fvarLeavesI fab).all
-                      (fun l => (st.fvarLeavesI major).contains l)) then do
+                    st.leafGuardI fab major) then do
                   if ← structEtaCertWithNC r fe depth fab major tmaj then
                     pure fab
                   else if caps.etaFields = 0 ∧
