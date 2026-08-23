@@ -3085,6 +3085,32 @@ models: the only failure mode is the decline/reject pinned by the
 model that was not generated → "unknown constant `X._model`", exit 1).
 It never accepts such a stream.
 
+**Hard precondition: `EtaLaw` must go public-named first.**  The direct
+install currently declares `eta := false`, which is safe only because
+the path is absence-gated: today every structure that *has* an artifact
+keeps the modeled route, and with it its eta capability.  The moment a
+skip rule deploys, a directly installed structure would be the only
+one without eta — and that **diverges from the reference kernels**: the
+official kernel offers `to_cnstr_when_structure` to every non-`Prop`
+single-constructor structure, so a stuck-major rescue that fires there
+would stop firing here.  So before any skip rule can ship:
+
+* restate `EtaLaw` over the **public** constructor and projection-
+  function names (`val caps.etaCtor`, `val (projFnName T j)`) instead
+  of their `_model` companions;
+* discharge it for the direct class from the constructions already
+  proved — `directCtorVal`/`directProjVal` and `sigmaTowerV_split`
+  (structure eta at the value level) give it essentially directly, and
+  `directCtorVal_mem`/`directProj_body_mem` supply the memberships;
+* the modeled path then derives the public form from its `_model` law
+  plus the artifact linkage.  Note the ordering constraint this
+  imposes: the public law mentions constants installed *after* the type
+  former, so it must be premised on the block's constructor and
+  projections being stored, and the modeled discharge moves from the
+  type former's install to the block's last install (the linkage
+  clause is exactly the record that makes that possible).  This is the
+  reason the restatement was not folded into this landing.
+
 ### One opening for the block, one frame per field
 
 Two shape decisions exist purely so the model can read the checks off
@@ -3183,10 +3209,23 @@ What remains, in dependency order:
    `checkDirectRecTy`'s definitional pins (via `isDefEqCore_sound`).
    The constructor's parameter-domain membership additionally needs the
    reference kernels' `isDefEq` between the two parameter telescopes
-   (`Add.lean:220-222`) added to `checkDirectCtor`; a first attempt
-   stalled on the `checkDefEqList` pair-monad battery not firing in
-   that position (it fires in `checkDirectRecTy`, which has the same
-   call shape), so that battery needs a look before the check lands.
+   (`Add.lean:220-222`) added to `checkDirectCtor`.  **Diagnosed
+   blocker** (the check is written and works; only its battery does
+   not): at that position the pair-monad projection battery does not
+   fire.  It is *not* a lemma defect — `checkDefEqList_fst_dproj`
+   rewrites fine in an isolated `example`, and hoisting the call into
+   its own non-recursive wrapper constant, binding its result
+   explicitly, and running the `dfst_step`-style cascade all fail the
+   same way.  A `pp.explicit` diff of the two sides pins the cause as
+   the **distinct-instance trap**: the goal's
+   `Monad (PairM …)` / `MonadExceptOf CheckError (PairM …)` arguments
+   at that node are not the instance terms the battery lemma
+   elaborates to, so simp's post-discrimination match fails even though
+   the terms are defeq.  Next step is to state the battery against the
+   goal's own instances (or make the `PairM` instances reducible), not
+   to reshape the kernel function further — the same call shape in
+   `checkDirectRecTy` rewrites, so the two elaborations must be
+   compared.
 3. **The rules' fold obligation** (`RecMemberOk`) for the recursor rule
    and the `nF` projection rules, through `TowerOk.of_stages`
    (`Setlec/Model/RuleFold.lean:1706`): the per-stage facts are the

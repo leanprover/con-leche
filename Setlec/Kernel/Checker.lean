@@ -887,18 +887,21 @@ def checkDirectCtor (ops : CheckerOps m) (env : Env) (p : DirectParts)
   -- instantiating one into the other is the same check done once, and
   -- it is what lets the model read the field types at the *same* frame
   -- the type former's own walk produces.
-  let (fvsP, _) ← unwrapOr (openPisAtFvars p.nP cvTa.type 0)
+  let tq ← unwrapOr (openPisAtFvars p.nP cvTa.type 0)
     (.notImplemented "direct structure: type former telescope")
-  let (_, crest) ← unwrapOr (Expr.instPisAt fvsP cvCa.type)
+  let cq ← unwrapOr (Expr.instPisAt tq.1 cvCa.type)
     (.notImplemented "direct structure: constructor telescope")
-
-  let (xFvs, cresid) ← unwrapOr (openPisAtFvars p.nF crest p.nP)
+  -- the constructor's parameter domains are the type former's,
+  -- definitionally (lean4lean `Inductive/Add.lean:220-222`, nanoda
+  -- `check_ctor`): this is what carries a parameter value's membership
+  -- from the type former's telescope to the constructor's
+  let xq ← unwrapOr (openPisAtFvars p.nF cq.2 p.nP)
     (.notImplemented "direct structure: constructor field telescope")
   -- the opened residual is the family at the opened parameter variables
-  unless cresid == Expr.mkAppN
-      (.const p.cvT.name (p.cvT.levelParams.map .param)) fvsP do
+  unless xq.2 == Expr.mkAppN
+      (.const p.cvT.name (p.cvT.levelParams.map .param)) tq.1 do
     throw (.notImplemented "direct structure: opened constructor residual")
-  checkDirectFieldUniv ops env p.resSort p.nP xFvs p.nF
+  checkDirectFieldUniv ops env p.resSort p.nP xq.1 p.nF
   pure (⟨.ctorInfo cvCa p.nP p.nF :: env.consts⟩, cvCa)
 
 /-- Stage 3: the recursor's type is the generated shape.  The skeleton

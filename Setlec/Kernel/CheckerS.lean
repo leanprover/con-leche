@@ -801,17 +801,16 @@ def checkDirectCtorF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts)
     (.notImplemented "direct structure: constructor telescope")
   unless cbody == directFam p.cvT.name p.cvT.levelParams p.nP p.nF do
     throw (.notImplemented "direct structure: constructor result")
-  let (fvsP, _) ← unwrapOr (openPisAtFvars p.nP cvTa.type 0)
+  let tq ← unwrapOr (openPisAtFvars p.nP cvTa.type 0)
     (.notImplemented "direct structure: type former telescope")
-  let (_, crest) ← unwrapOr (Expr.instPisAt fvsP cvCa.type)
+  let cq ← unwrapOr (Expr.instPisAt tq.1 cvCa.type)
     (.notImplemented "direct structure: constructor telescope")
-
-  let (xFvs, cresid) ← unwrapOr (openPisAtFvars p.nF crest p.nP)
+  let xq ← unwrapOr (openPisAtFvars p.nF cq.2 p.nP)
     (.notImplemented "direct structure: constructor field telescope")
-  unless cresid == Expr.mkAppN
-      (.const p.cvT.name (p.cvT.levelParams.map .param)) fvsP do
+  unless xq.2 == Expr.mkAppN
+      (.const p.cvT.name (p.cvT.levelParams.map .param)) tq.1 do
     throw (.notImplemented "direct structure: opened constructor residual")
-  checkDirectFieldUnivF ops fe p.resSort p.nP xFvs p.nF
+  checkDirectFieldUnivF ops fe p.resSort p.nP xq.1 p.nF
   pure (fe.push (.ctorInfo cvCa p.nP p.nF), cvCa)
 
 /-- `checkDirectRecTy` through the index. -/
