@@ -3736,10 +3736,36 @@ What remains, in dependency order:
    the proof side (`DomsAgree` via transfer/relocation) and the kernel
    stays as close to the reference comparison set as possible.
 
-   What is left of this item is the two `TeleBody` discharges
-   themselves: the minor's fit transferred onto the constructor's field
-   telescope, the major's membership unfolded through
-   `directTyVal_fold` (as `directCtor_resid` already does), and
+   Two of the three bridges `DomsAgree` needs are landed:
+
+   * `DomsAgree.of_pins` — from the install's per-frame `isDefEq` pins,
+     at a **common** frame;
+   * `DomsAgree.of_erasedEq` (with `instPisAt_erasedEq_spines`) — one
+     telescope along two **index-matched** spines.  The recursor stage
+     needs this because its `crest` instantiates the constructor's
+     telescope at the *recursor's* parameter variables while the type
+     former's value is a tower over the constructor's *own* opening:
+     same indices, different binder names and annotations, which
+     `ErasedEq` — and hence the interpretation — does not read.
+
+   **The third is what remains: `DomsAgree.of_shift`** — one telescope
+   opened at two *different base frames* with matching values.  The
+   recursor's minor premise is where this bites: its field binders open
+   at `nP+2 …` while the constructor's open at `nP …`, so the two
+   openings are index-*shifted*, not index-matched, and `ErasedEq` does
+   not relate them.  This is the case `interp_instSeq_fvarFrames` was
+   built for ("two spines with pointwise equal values, at possibly
+   unrelated frames, yield equal interpretations"); using it needs one
+   bridge lemma first, characterizing `openPisAtFvars`'s residual and
+   domains as an `instSeq` of the stripped telescope — no such bridge
+   exists yet, which is why the relation-carrying induction that
+   sufficed for the other two does not reach here.
+
+   With `of_shift` in hand the two `TeleBody` discharges follow the
+   shape `directCtor_resid` already establishes: the minor's fit
+   transferred onto the constructor's field telescope
+   (`TeleFit.transfer`), the major's membership unfolded through
+   `directTyVal_fold` and relocated by `sigmaTowerV_reframe`, and
    `directRec_body_mem` closing it — with the constructor's own value
    folding to `tupleV` for the minor's conclusion `motive (C p⃗ f⃗)`.
 

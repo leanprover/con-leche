@@ -449,6 +449,100 @@ theorem sigmaTowerV_reframe {cval : ConstVal V} {env : Env}
     | .app _ _, _ | .lam _ _ _ _, _ | .letE _ _ _ _, _ | .lit _, _
     | .proj _ _ _, _ => exact hag.elim
 
+omit [SetTheory V] in
+/-- Two instantiations of one telescope along **index-matched** free
+variable spines agree up to `Expr.ErasedEq` — pointwise on the
+instantiated domains and on the residual.
+
+The recursor stage needs this because its `crest` instantiates the
+constructor's telescope at the *recursor's* parameter variables, while
+the type former's value is a tower over the constructor's *own*
+opening: same indices, different binder names and annotations, which
+`ErasedEq` — and hence the interpretation — does not read. -/
+theorem instPisAt_erasedEq_spines :
+    ∀ (sp₁ : List Expr) {sp₂ : List Expr} {e₁ e₂ : Expr}
+      {ds₁ ds₂ : List Expr} {r₁ r₂ : Expr},
+      Expr.ErasedEq e₁ e₂ →
+      sp₁.length = sp₂.length →
+      (∀ (j : Nat) (a b : Expr), sp₁[j]? = some a → sp₂[j]? = some b →
+        Expr.ErasedEq a b) →
+      Expr.instPisAt sp₁ e₁ = some (ds₁, r₁) →
+      Expr.instPisAt sp₂ e₂ = some (ds₂, r₂) →
+      (∀ (j : Nat) (a b : Expr), ds₁[j]? = some a → ds₂[j]? = some b →
+        Expr.ErasedEq a b) ∧ Expr.ErasedEq r₁ r₂ := by
+  intro sp₁
+  induction sp₁ with
+  | nil =>
+    intro sp₂ e₁ e₂ ds₁ ds₂ r₁ r₂ hEE hlen _ h₁ h₂
+    obtain rfl : sp₂ = [] := List.eq_nil_of_length_eq_zero hlen.symm
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h₁ h₂
+    obtain ⟨rfl, rfl⟩ := h₁
+    obtain ⟨rfl, rfl⟩ := h₂
+    exact ⟨fun j a b ha _ => by simp at ha, hEE⟩
+  | cons a₁ sp₁ ih =>
+    intro sp₂ e₁ e₂ ds₁ ds₂ r₁ r₂ hEE hlen hsp h₁ h₂
+    match sp₂ with
+    | a₂ :: sp₂ =>
+      obtain ⟨n₁, dom₁, body₁, m₁, ds₁', rfl, rfl, h₁'⟩ := instPisAt_cons_inv h₁
+      match e₂, hEE with
+      | .forallE n₂ dom₂ body₂ m₂, hEE =>
+        obtain ⟨-, hdomEE, hbodyEE⟩ := hEE
+        obtain ⟨n₂', dom₂', body₂', m₂', ds₂', heq₂, rfl, h₂'⟩ :=
+          instPisAt_cons_inv h₂
+        obtain ⟨rfl, rfl, rfl, rfl⟩ :
+            n₂' = n₂ ∧ dom₂' = dom₂ ∧ body₂' = body₂ ∧ m₂' = m₂ := by
+          cases heq₂; exact ⟨rfl, rfl, rfl, rfl⟩
+        have ha : Expr.ErasedEq a₁ a₂ := hsp 0 a₁ a₂ rfl rfl
+        obtain ⟨hds, hr⟩ := ih (Expr.ErasedEq.instantiate1 hbodyEE ha)
+          (by simpa using hlen)
+          (fun j x y hx hy => hsp (j + 1) x y (by simpa using hx)
+            (by simpa using hy))
+          h₁' h₂'
+        refine ⟨fun j x y hx hy => ?_, hr⟩
+        cases j with
+        | zero =>
+          obtain rfl := Option.some.inj hx
+          obtain rfl := Option.some.inj hy
+          exact hdomEE
+        | succ j =>
+          exact hds j x y (by simpa using hx) (by simpa using hy)
+
+/-- `ErasedEq` telescopes have equal towers: the tower reads the
+domains' interpretations, which `ErasedEq` preserves
+(`interp_erasedEq`), and nothing else. -/
+theorem DomsAgree.of_erasedEq {cval : ConstVal V} {env : Env}
+    {φ : Name → Nat} :
+    ∀ (k d : Nat) (ρ : Nat → V) {t₁ t₂ : Expr},
+      Expr.ErasedEq t₁ t₂ →
+      (Expr.stripPis k t₁).isSome = true →
+      DomsAgree V cval env φ k d ρ t₁ d ρ t₂ := by
+  intro k
+  induction k with
+  | zero => intro _ _ _ _ _ _; trivial
+  | succ k ih =>
+    intro d ρ t₁ t₂ hEE hstrip
+    match t₁ with
+    | .forallE n₁ dom₁ body₁ m₁ =>
+      rw [Expr.stripPis] at hstrip
+      have hb : (Expr.stripPis k body₁).isSome = true := by
+        cases hs : Expr.stripPis k body₁ with
+        | none => rw [hs] at hstrip; exact nomatch hstrip
+        | some _ => rfl
+      match t₂, hEE with
+      | .forallE n₂ dom₂ body₂ m₂, hEE =>
+        obtain ⟨-, hdomEE, hbodyEE⟩ := hEE
+        refine ⟨fun A hA => by rw [← interp_erasedEq hdomEE d ρ]; exact hA,
+          fun x A hA hx => ?_⟩
+        exact ih (d + 1) (updV V ρ d x)
+          (Expr.ErasedEq.instantiate1 hbodyEE (by exact rfl))
+          (stripPis_instantiate1_isSome k body₁ _ 0 hb)
+      | .bvar _, hEE | .fvar _ _ _, hEE | .sort _, hEE | .const _ _, hEE
+      | .app _ _, hEE | .lam _ _ _ _, hEE | .letE _ _ _ _, hEE
+      | .lit _, hEE | .proj _ _ _, hEE => exact hEE.elim
+    | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
+    | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+      exact nomatch hstrip
+
 /-- The per-field universe bound relocates across frames too. -/
 theorem FieldTele_reframe {cval : ConstVal V} {env : Env}
     {φ : Name → Nat} {w : Nat} :
