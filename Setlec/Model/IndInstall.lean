@@ -2318,4 +2318,115 @@ theorem stage_pkg_fld {env₀ : Env} (m₀ : EnvModel V env₀)
       simp only [WScoped] at hW ⊢
       exact ⟨by omega, hW.2⟩
 
+/-- The flat stage facts (`Hty` of `TowerOk.of_stages`) of a modeled
+recursor rule: at every stage, the frame annotation and (anything
+erased-equal to) the rule tower's instantiated binder domain interpret
+to the same set, the annotation is truthful, and members extend the
+frame-membership invariant. -/
+theorem modeled_stage {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat)
+    {ψ : Name → Nat} {tyA : Expr} {rP cnF : Nat}
+    {fvsP : List Expr} {restP : Expr} {crestP : Expr}
+    {xFvsP : List Expr} {crest2 : Expr}
+    {rhsA lrest : Expr} {ldoms : List Expr}
+    (hopenP : openPisAtFvars rP tyA 0 = some (fvsP, restP))
+    (htyw : tyA.hasFvar = false)
+    (htyb : tyA.looseBVarsBounded 0 = true)
+    (hAty : AnnotOk V m₀.val env₀ ψ 0 (rho0 V) tyA)
+    (hIty : ∃ T, interpClosed V m₀.val env₀ ψ tyA = some T)
+    (hopenX : openPisAtFvars cnF crestP rP = some (xFvsP, crest2))
+    (hctorPkg : ∀ (xs : List V), xs.length ≤ rP + cnF →
+      rP ≤ xs.length →
+      FramePref m₀.val env₀ ψ (fvsP ++ xFvsP) xs →
+      WScoped rP crestP ∧ crestP.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded crestP ∧
+      FvarsOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) crestP ∧
+      AnnotOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) crestP ∧
+      ∃ P, interpExpr V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) crestP = some P)
+    (hlinst : Expr.instLamsAt (fvsP ++ xFvsP) rhsA =
+      some (ldoms, lrest))
+    (hdeLam : DefEqListOk F env₀ (rP + cnF)
+      ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldoms)
+    (hrhsw : rhsA.hasFvar = false)
+    (hrhsb : rhsA.looseBVarsBounded 0 = true)
+    (hArhs : AnnotOk V m₀.val env₀ ψ 0 (rho0 V) rhsA)
+    (hIrhs : ∃ L, interpClosed V m₀.val env₀ ψ rhsA = some L) :
+    ∀ (k : Nat) (xs : List V) (fv ld : Expr), xs.length = k →
+      (fvsP ++ xFvsP)[k]? = some fv → ldoms[k]? = some ld →
+      FramePref m₀.val env₀ ψ (fvsP ++ xFvsP) xs →
+      ∃ A, interpExpr V m₀.val env₀ ψ k
+          (fun i => xs.getD i SetTheory.empty) (Expr.fvarTypeD fv) =
+            some A ∧
+        (∀ e, Expr.ErasedEq e ld → interpExpr V m₀.val env₀ ψ k
+          (fun i => xs.getD i SetTheory.empty) e = some A) ∧
+        AnnotOk V m₀.val env₀ ψ k
+          (fun i => xs.getD i SetTheory.empty) (Expr.fvarTypeD fv) ∧
+        ∀ x, x ∈ˢ A →
+          FramePref m₀.val env₀ ψ (fvsP ++ xFvsP) (xs ++ [x]) := by
+  intro k xs fv ld hxs hfv hld hpref
+  have hfvsPLen : fvsP.length = rP :=
+    (openPisAtFvars_spec rP 0 hopenP).2.1
+  have hxLen : xFvsP.length = cnF :=
+    (openPisAtFvars_spec cnF rP hopenX).2.1
+  have hspineLen : (fvsP ++ xFvsP).length = rP + cnF := by
+    rw [List.length_append, hfvsPLen, hxLen]
+  have hkD : k < rP + cnF := by
+    have h1 : k < ldoms.length := by
+      rcases Nat.lt_or_ge k ldoms.length with h | h
+      · exact h
+      · rw [List.getElem?_eq_none h] at hld
+        exact nomatch hld
+    rw [instLamsAt_length _ hlinst, hspineLen] at h1
+    exact h1
+  -- the annotation package + spine kit, by region
+  have hpkg : (InterpPkg m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) (Expr.fvarTypeD fv) ∧
+      WScoped k (Expr.fvarTypeD fv)) ∧
+      SpineKit m₀.val env₀ ψ (rP + cnF) k
+        (fun i => xs.getD i SetTheory.empty) (fvsP ++ xFvsP) xs := by
+    rcases Nat.lt_or_ge k rP with hk | hk
+    · exact stage_pkg_pre m₀ hopenP htyw htyb hAty hIty hk hxs hfv
+        hpref
+    · exact stage_pkg_fld m₀ hopenP htyw htyb hAty hopenX
+        (hctorPkg xs (by omega) (by omega) hpref) hk hkD hxs hfv hpref
+  obtain ⟨⟨hpkgA, hWkA⟩, hsp, hws, hΘ, hLs, hwsK⟩ := hpkg
+  -- the λ-side package
+  obtain ⟨hpkgB, hWkB⟩ := stage_pkg_lam m₀ F hlinst hdeLam
+    (by omega) hld hsp hws hΘ hLs hwsK hrhsw hrhsb hArhs hIrhs
+  -- the stage defeq
+  have hde : isDefEqCore env₀ F (rP + cnF) (Expr.fvarTypeD fv) ld =
+      .ok true := by
+    refine DefEqListOk.pointwise hdeLam k ?_ hld
+    rw [List.getElem?_map, hfv]
+    rfl
+  obtain ⟨A, h1, h2, h3⟩ := stage_out m₀ F hxs (by omega) hde hpkgA
+    hpkgB hWkA hWkB
+  refine ⟨A, h1, h2, h3, ?_⟩
+  -- extending the membership invariant
+  intro x hx j v fv' hjv hjfv
+  rcases Nat.lt_trichotomy j k with hj | hj | hj
+  · rw [List.getElem?_append_left (by omega)] at hjv
+    obtain ⟨B, hB, hvB⟩ := hpref j v fv' hjv hjfv
+    refine ⟨B, ?_, hvB⟩
+    rwa [List.take_append_of_le_length (by omega)]
+  · subst hj
+    rw [List.getElem?_append_right (by omega), hxs, Nat.sub_self] at hjv
+    obtain rfl : x = v := Option.some.inj hjv
+    have hfv' : fv' = fv := by
+      rw [hfv] at hjfv
+      exact (Option.some.inj hjfv.symm)
+    subst hfv'
+    refine ⟨A, ?_, hx⟩
+    rw [List.take_append_of_le_length (by omega),
+      List.take_of_length_le (by omega)]
+    exact h1
+  · have hlen : (xs ++ [x]).length ≤ j := by
+      simp only [List.length_append, List.length_cons,
+        List.length_nil, hxs]
+      omega
+    rw [List.getElem?_eq_none hlen] at hjv
+    exact nomatch hjv
+
 end Setlec

@@ -1231,13 +1231,13 @@ theorem proj_rule_eq
     rw [hcp]
     simp [hdargs]
   have htakeSp : (fvsP ++ xFvs).take nP = fvsP := by
-    rw [List.take_append_of_le_length (by rw [hfvsLen])]
+    rw [List.take_append_of_le_length (by omega)]
     rw [← hfvsLen, List.take_length]
   have hbLeq2 : bL = Expr.mkAppN (.const P (cvA.levelParams.map .param))
       ((fvsP ++ xFvs).take nP ++
        [Expr.mkAppN (.const (RecRule.ctor rule)
           (cvj.levelParams.map Level.param)) (fvsP ++ xFvs)]) := by
-    rw [hbLEq, hidxNil, htakeSp, List.nil_append]
+    rw [hbLEq, hidxNil, htakeSp, List.append_nil]
   -- the frame's shapes and annotations
   have hspineShape : ∀ (j : Nat) (a : Expr), (fvsP ++ xFvs)[j]? = some a →
       ∃ nm ty, a = Expr.fvar j nm ty := by
@@ -1246,10 +1246,10 @@ theorem proj_rule_eq
     · rw [List.getElem?_append_left (by rw [hfvsLen]; exact hjn)] at hj
       obtain ⟨nm, ha⟩ := hfvsShape j a hj
       rw [Nat.zero_add] at ha
-      exact ⟨nm, _, ha⟩
+      exact ⟨nm, a.fvarTypeD, ha⟩
     · rw [List.getElem?_append_right (by rw [hfvsLen]; exact hjn)] at hj
       obtain ⟨nm, ha⟩ := hxShape (j - fvsP.length) a hj
-      refine ⟨nm, _, ?_⟩
+      refine ⟨nm, a.fvarTypeD, ?_⟩
       rw [show j = nP + (j - fvsP.length) from by rw [hfvsLen]; omega]
       exact ha
   have hcombPos := (instPisAt_stripPis (fvsP ++ xFvs) hcombined
@@ -1263,14 +1263,12 @@ theorem proj_rule_eq
       Expr.fvarTypeD a = instSeq ((fvsP ++ xFvs).take k) (k - 1) b.2.1 := by
     intro k a b hk hb
     have hcw := hcombPos k b hb
-    rw [hspineLen] at hcw
     rcases Nat.lt_or_ge k nP with hkn | hkn
     · rw [List.getElem?_append_left (by rw [hfvsLen]; exact hkn)] at hk
       obtain ⟨ab, hab⟩ : ∃ ab, abinders[k]? = some ab := by
         have hal : abinders.length = nP := Expr.stripPis_length _ hA_strip
         exact ⟨abinders[k]'(by omega), List.getElem?_eq_getElem _⟩
       have hA1 := hAPos k ab hab
-      rw [hfvsLen] at hA1
       rw [List.getElem?_map, hk] at hA1
       simp only [Option.map_some, Option.some.injEq] at hA1
       rw [List.take_append_of_le_length (by rw [hfvsLen]; omega),
