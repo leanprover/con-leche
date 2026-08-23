@@ -708,7 +708,7 @@ theorem directCtor_resid {env env₁ : Env} (m : EnvModel V env)
   rw [← hcrestEq]
   refine directTyVal_fold hstripT hfrT.an ?_ hlenP
     (by rw [hcrestEq]; exact hfieldAt)
-  obtain ⟨restT, hfitT⟩ := TeleFit.transfer p.nP hfitP hlenP
+  obtain ⟨dT, ρT, restT, hfitT⟩ := TeleFit.transfer p.nP hfitP hlenP
     (DomsInterpEq.of_pins m₁ F p.nP 0 (rho0 V) cvCa.type cvTa.type
       fvsP tfvs _ trest hcq htq
       (fun j a b ha hb => by
@@ -723,6 +723,10 @@ theorem directCtor_resid {env env₁ : Env} (m : EnvModel V env)
       hfrC hfrT)
   obtain rfl : restT = Expr.sort p.resSort :=
     TeleFit_rest_sort p.nP hfitT hlenP hstripT
+  obtain ⟨hdT, -, -⟩ := TeleFit_open p.nP hfitT hlenP
+  rw [Nat.zero_add] at hdT
+  subst hdT
+  rw [TeleFit.rho_det hfitT hfitP] at hfitT
   exact hfitT
 
 /-- **The constructor's value inhabits its type.**  `directCtorVal_mem`

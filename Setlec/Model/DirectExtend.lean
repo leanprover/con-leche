@@ -198,46 +198,56 @@ pins is the separate (and only hard) step. -/
 
 /-- The two telescopes' domains interpret alike, stage by stage, each
 side opened at its **own** binder variables. -/
-def DomsInterpEq (V : Type u) [SetTheory V] (cval : ConstVal V) (env : Env)
-    (φ : Name → Nat) : Nat → Nat → (Nat → V) → Expr → Expr → Prop
-  | 0, _, _, _, _ => True
-  | k + 1, d, ρ, .forallE nS domS bodyS _, .forallE nR domR bodyR _ =>
-    (∀ A, interpExpr V cval env φ d ρ domS = some A →
-      interpExpr V cval env φ d ρ domR = some A) ∧
-    ∀ (x A : V), interpExpr V cval env φ d ρ domS = some A → x ∈ˢ A →
-      DomsInterpEq V cval env φ k (d + 1) (updV V ρ d x)
-        (bodyS.instantiate1 (.fvar d nS domS))
-        (bodyR.instantiate1 (.fvar d nR domR))
-  | _ + 1, _, _, _, _ => False
+def DomsAgree (V : Type u) [SetTheory V] (cval : ConstVal V) (env : Env)
+    (φ : Name → Nat) :
+    Nat → Nat → (Nat → V) → Expr → Nat → (Nat → V) → Expr → Prop
+  | 0, _, _, _, _, _, _ => True
+  | k + 1, d₁, ρ₁, .forallE n₁ dom₁ body₁ _, d₂, ρ₂,
+      .forallE n₂ dom₂ body₂ _ =>
+    (∀ A, interpExpr V cval env φ d₁ ρ₁ dom₁ = some A →
+      interpExpr V cval env φ d₂ ρ₂ dom₂ = some A) ∧
+    ∀ (x A : V), interpExpr V cval env φ d₁ ρ₁ dom₁ = some A → x ∈ˢ A →
+      DomsAgree V cval env φ k (d₁ + 1) (updV V ρ₁ d₁ x)
+        (body₁.instantiate1 (.fvar d₁ n₁ dom₁))
+        (d₂ + 1) (updV V ρ₂ d₂ x)
+        (body₂.instantiate1 (.fvar d₂ n₂ dom₂))
+  | _ + 1, _, _, _, _, _, _ => False
+
+/-- The one-frame case, which is what the install's per-frame pins
+produce directly. -/
+abbrev DomsInterpEq (V : Type u) [SetTheory V] (cval : ConstVal V)
+    (env : Env) (φ : Name → Nat) (k d : Nat) (ρ : Nat → V) (S R : Expr) :
+    Prop :=
+  DomsAgree V cval env φ k d ρ S d ρ R
 
 /-- **The transfer.**  A value-spine fit of one telescope is a fit of
 any telescope whose domains interpret alike stage by stage — at the
 very same frames and valuation, which is what lets both towers fold at
 one frame. -/
 theorem TeleFit.transfer {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
-    ∀ (k : Nat) {d : Nat} {ρ : Nat → V} {tyS tyR : Expr} {vs : List V}
-      {d' : Nat} {ρ' : Nat → V} {restS : Expr},
-      TeleFit V cval env φ d ρ tyS vs d' ρ' restS → vs.length = k →
-      DomsInterpEq V cval env φ k d ρ tyS tyR →
-      ∃ restR, TeleFit V cval env φ d ρ tyR vs d' ρ' restR := by
+    ∀ (k : Nat) {d₁ d₂ : Nat} {ρ₁ ρ₂ : Nat → V} {tyS tyR : Expr}
+      {vs : List V} {d' : Nat} {ρ' : Nat → V} {restS : Expr},
+      TeleFit V cval env φ d₁ ρ₁ tyS vs d' ρ' restS → vs.length = k →
+      DomsAgree V cval env φ k d₁ ρ₁ tyS d₂ ρ₂ tyR →
+      ∃ d'' ρ'' restR, TeleFit V cval env φ d₂ ρ₂ tyR vs d'' ρ'' restR := by
   intro k
   induction k with
   | zero =>
-    intro d ρ tyS tyR vs d' ρ' restS hfit hlen _
+    intro d₁ d₂ ρ₁ ρ₂ tyS tyR vs d' ρ' restS hfit hlen _
     obtain rfl : vs = [] := List.eq_nil_of_length_eq_zero hlen
     cases hfit
-    exact ⟨tyR, TeleFit.nil⟩
+    exact ⟨d₂, ρ₂, tyR, TeleFit.nil⟩
   | succ k ih =>
-    intro d ρ tyS tyR vs d' ρ' restS hfit hlen hdoms
+    intro d₁ d₂ ρ₁ ρ₂ tyS tyR vs d' ρ' restS hfit hlen hdoms
     cases hfit with
     | nil => exact absurd hlen (by simp)
-    | @cons d ρ nS domS bodyS mS x xs d₂ ρ₂ rest A hdom hx hfit =>
+    | @cons d ρ nS domS bodyS mS x xs dd ρρ rest A hdom hx hfit =>
       match tyR with
       | .forallE nR domR bodyR mR =>
         obtain ⟨hdomEq, hstep⟩ := hdoms
-        obtain ⟨restR, hfitR⟩ := ih hfit (by simpa using hlen)
+        obtain ⟨d'', ρ'', restR, hfitR⟩ := ih hfit (by simpa using hlen)
           (hstep x A hdom hx)
-        exact ⟨restR, TeleFit.cons (hdomEq A hdom) hx hfitR⟩
+        exact ⟨d'', ρ'', restR, TeleFit.cons (hdomEq A hdom) hx hfitR⟩
       | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
       | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
         exact hdoms.elim
@@ -254,6 +264,22 @@ theorem TeleFit.rho_below {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
   | nil => intro _ _; rfl
   | @cons d ρ n ty body m x xs d' ρ' rest A hity hx hfit ih =>
     intro i hi
+    rw [ih i (by omega)]
+    simp only [updV]
+    rw [if_neg (by omega)]
+
+/-- A value-spine fit leaves the valuation above its own span alone. -/
+theorem TeleFit.rho_above {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
+    ∀ {d : Nat} {ρ : Nat → V} {e : Expr} {vs : List V} {d' : Nat}
+      {ρ' : Nat → V} {rest : Expr},
+      TeleFit V cval env φ d ρ e vs d' ρ' rest →
+      ∀ i, d + vs.length ≤ i → ρ' i = ρ i := by
+  intro d ρ e vs d' ρ' rest hfit
+  induction hfit with
+  | nil => intro _ _; rfl
+  | @cons d ρ n ty body m x xs d' ρ' rest A hity hx hfit ih =>
+    intro i hi
+    simp only [List.length_cons] at hi
     rw [ih i (by omega)]
     simp only [updV]
     rw [if_neg (by omega)]
@@ -278,6 +304,26 @@ theorem TeleFit.slots {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
       rw [show d + (i + 1) = d + 1 + i from by omega]
       rw [h]
       rfl
+
+/-- Two fits of (possibly different) telescopes from the **same**
+starting frame with the **same** values end at the same frame and
+valuation: the valuation is determined by the values. -/
+theorem TeleFit.rho_det {cval : ConstVal V} {env : Env} {φ : Name → Nat}
+    {d : Nat} {ρ : Nat → V} {e₁ e₂ : Expr} {vs : List V}
+    {d₁ d₂ : Nat} {ρ₁ ρ₂ : Nat → V} {r₁ r₂ : Expr}
+    (h₁ : TeleFit V cval env φ d ρ e₁ vs d₁ ρ₁ r₁)
+    (h₂ : TeleFit V cval env φ d ρ e₂ vs d₂ ρ₂ r₂) : ρ₁ = ρ₂ := by
+  refine funext (fun i => ?_)
+  by_cases hlo : i < d
+  · rw [h₁.rho_below i hlo, h₂.rho_below i hlo]
+  by_cases hhi : d + vs.length ≤ i
+  · rw [h₁.rho_above i hhi, h₂.rho_above i hhi]
+  · have hik : i - d < vs.length := by omega
+    have he : d + (i - d) = i := by omega
+    have e₁' := h₁.slots (i - d) hik
+    have e₂' := h₂.slots (i - d) hik
+    rw [he] at e₁' e₂'
+    rw [e₁', e₂']
 
 /-- **`DomsInterpEq` from the kernel's per-frame pins.**
 
@@ -356,6 +402,79 @@ theorem DomsInterpEq.of_pins {env : Env} (m : EnvModel V env) (F : Nat)
     | .app _ _, _ | .lam _ _ _ _, _ | .letE _ _ _ _, _ | .lit _, _
     | .proj _ _ _, _ =>
       simp only [openPisAtFvars] at hopS; exact nomatch hopS
+
+/-! ### Relocating a telescope's tower across frames
+
+`DomsAgree` relates two openings of one telescope at **unrelated
+frames**, so it also relocates everything the openings determine: the
+dependent-pair tower, the per-field universe bound, and (above) any
+value-spine fit.  This is the `TeleFit.reframe0` family DESIGN records
+as the endgame precondition for the direct class's `eta`/`unitlike` —
+stated here for the towers generally rather than for one call site, so
+those discharges can consume it unchanged.
+
+Frames genuinely differ in the recursor's telescope: the type former's
+value is a tower over the *constructor's* opening (field binders at
+`nP …`), while the recursor puts the motive and minor in between (field
+binders at `nP+2 …`). -/
+
+/-- The dependent-pair tower depends on its telescope only through the
+domains' interpretations, so it relocates across frames. -/
+theorem sigmaTowerV_reframe {cval : ConstVal V} {env : Env}
+    {φ : Name → Nat} {w : Nat} :
+    ∀ (k : Nat) {d₁ d₂ : Nat} {ρ₁ ρ₂ : Nat → V} {t₁ t₂ : Expr},
+      DomsAgree V cval env φ k d₁ ρ₁ t₁ d₂ ρ₂ t₂ →
+      FieldTele V cval env φ w k d₁ ρ₁ t₁ →
+      sigmaTowerV V cval env φ w k d₁ ρ₁ t₁ =
+        sigmaTowerV V cval env φ w k d₂ ρ₂ t₂ := by
+  intro k
+  induction k with
+  | zero => intro _ _ _ _ _ _ _ _; rfl
+  | succ k ih =>
+    intro d₁ d₂ ρ₁ ρ₂ t₁ t₂ hag hfld
+    match t₁, t₂ with
+    | .forallE n₁ dom₁ body₁ m₁, .forallE n₂ dom₂ body₂ m₂ =>
+      obtain ⟨hdomEq, hstep⟩ := hag
+      obtain ⟨A, hA, hAu, hrest⟩ := hfld
+      rw [sigmaTowerV_forallE, sigmaTowerV_forallE, hA, hdomEq A hA]
+      -- `sigma_congr`: only the fibres *inside* the domain matter
+      refine sigma_congr (fun x hx => ?_)
+      exact ih (hstep x A hA hx) (hrest x hx)
+    | .forallE _ _ _ _, .bvar _ | .forallE _ _ _ _, .fvar _ _ _
+    | .forallE _ _ _ _, .sort _ | .forallE _ _ _ _, .const _ _
+    | .forallE _ _ _ _, .app _ _ | .forallE _ _ _ _, .lam _ _ _ _
+    | .forallE _ _ _ _, .letE _ _ _ _ | .forallE _ _ _ _, .lit _
+    | .forallE _ _ _ _, .proj _ _ _ => exact hag.elim
+    | .bvar _, _ | .fvar _ _ _, _ | .sort _, _ | .const _ _, _
+    | .app _ _, _ | .lam _ _ _ _, _ | .letE _ _ _ _, _ | .lit _, _
+    | .proj _ _ _, _ => exact hag.elim
+
+/-- The per-field universe bound relocates across frames too. -/
+theorem FieldTele_reframe {cval : ConstVal V} {env : Env}
+    {φ : Name → Nat} {w : Nat} :
+    ∀ (k : Nat) {d₁ d₂ : Nat} {ρ₁ ρ₂ : Nat → V} {t₁ t₂ : Expr},
+      DomsAgree V cval env φ k d₁ ρ₁ t₁ d₂ ρ₂ t₂ →
+      FieldTele V cval env φ w k d₁ ρ₁ t₁ →
+      FieldTele V cval env φ w k d₂ ρ₂ t₂ := by
+  intro k
+  induction k with
+  | zero => intro _ _ _ _ _ _ _ _; trivial
+  | succ k ih =>
+    intro d₁ d₂ ρ₁ ρ₂ t₁ t₂ hag hfld
+    match t₁, t₂ with
+    | .forallE n₁ dom₁ body₁ m₁, .forallE n₂ dom₂ body₂ m₂ =>
+      obtain ⟨hdomEq, hstep⟩ := hag
+      obtain ⟨A, hA, hAu, hrest⟩ := hfld
+      exact ⟨A, hdomEq A hA, hAu, fun x hx =>
+        ih (hstep x A hA hx) (hrest x hx)⟩
+    | .forallE _ _ _ _, .bvar _ | .forallE _ _ _ _, .fvar _ _ _
+    | .forallE _ _ _ _, .sort _ | .forallE _ _ _ _, .const _ _
+    | .forallE _ _ _ _, .app _ _ | .forallE _ _ _ _, .lam _ _ _ _
+    | .forallE _ _ _ _, .letE _ _ _ _ | .forallE _ _ _ _, .lit _
+    | .forallE _ _ _ _, .proj _ _ _ => exact hag.elim
+    | .bvar _, _ | .fvar _ _ _, _ | .sort _, _ | .const _ _, _
+    | .app _ _, _ | .lam _ _ _ _, _ | .letE _ _ _ _, _ | .lit _, _
+    | .proj _ _ _, _ => exact hag.elim
 
 /-! ### `FieldTele` from the per-field universe walk -/
 
