@@ -131,6 +131,31 @@ theorem TeleFit_split :
       obtain ⟨d₁, ρ₁, mid, h1, h2⟩ := ih hfit
       exact ⟨d₁, ρ₁, mid, TeleFit.cons hdom hx h1, h2⟩
 
+/-- A fitting walk keeps interpretability and annotation truthfulness:
+the residual of an interpretable, truthfully annotated telescope is
+itself interpretable and truthfully annotated.  (Unlike `TeleFit.elim`
+this needs no inhabitant of the telescope — the fibre facts come from
+`AnnotOk`'s `forallE` clause alone, which is what makes it usable at a
+*type* that is being installed.) -/
+theorem TeleFit_interp_rest :
+    ∀ {d : Nat} {ρ : Nat → V} {ty : Expr} {xs : List V} {d' : Nat}
+      {ρ' : Nat → V} {rest : Expr},
+      TeleFit V cval env φ d ρ ty xs d' ρ' rest →
+      AnnotOk V cval env φ d ρ ty →
+      (∃ P, interpExpr V cval env φ d ρ ty = some P) →
+      (∃ Q, interpExpr V cval env φ d' ρ' rest = some Q) ∧
+        AnnotOk V cval env φ d' ρ' rest := by
+  intro d ρ ty xs d' ρ' rest hfit
+  induction hfit with
+  | nil => intro hA hi; exact ⟨hi, hA⟩
+  | @cons d ρ n dom body m x xs d₂ ρ₂ rest A hdom hx hfit ih =>
+    intro hA _
+    simp only [AnnotOk] at hA
+    obtain ⟨-, ⟨cod, hcod⟩, hcond⟩ := hA
+    obtain ⟨hAb, hwfact⟩ := hcond x A hdom hx
+    obtain ⟨w, hwi, -⟩ := hwfact cod hcod
+    exact ih hAb ⟨w, hwi⟩
+
 /-! ### The type former's value -/
 
 /-- The constructor's field telescope, opened at the parameter
