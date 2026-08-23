@@ -36,13 +36,27 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
               match tmaj.getAppFn with
               | .const T' ust =>
                 if T' = T ∧ cvj.levelParams.length = ust.length then
-                  let fab := Expr.mkAppN (.const rl.ctor ust)
-                    (tmaj.getAppArgs.take cnP)
-                  if fab.wscopedB d && fab.looseBVarsBounded 0 &&
-                      fab.fvarLeaves.all
-                        (fun l => major.fvarLeaves.contains l) then
-                    proofIrrel (fueledFns env) env d fab major >>= fun r =>
-                    if r then pure fab
+                  if cnP ≤ tmaj.getAppArgs.length ∧
+                      (cvj.type.stripPis cnP).isSome = true then
+                    let fab := Expr.mkAppN (.const rl.ctor ust)
+                      (tmaj.getAppArgs.take cnP)
+                    if fab.wscopedB d && fab.looseBVarsBounded 0 &&
+                        fab.fvarLeaves.all
+                          (fun l => major.fvarLeaves.contains l) then
+                      iotaCerts (fueledFns env) env d
+                          (cvj.type.instantiateLevelParams
+                            cvj.levelParams ust)
+                          (tmaj.getAppArgs.take cnP) >>= fun rc =>
+                      if rc then
+                        (fueledFns env).infer d fab >>= fun tfab =>
+                        (fueledFns env).defeq d tmaj tfab >>= fun rd =>
+                        if rd then
+                          proofIrrel (fueledFns env) env d fab major >>=
+                            fun r =>
+                          if r then pure fab
+                          else pure major
+                        else pure major
+                      else pure major
                     else pure major
                   else pure major
                 else pure major
@@ -56,24 +70,39 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
               | .const T' ust =>
                 if T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
                     ust.length = cvT.levelParams.length then
-                  let fab := Expr.mkAppN (.const caps.etaCtor ust)
-                    (tmaj.getAppArgs ++
-                      (List.range caps.etaFields).map fun j =>
-                        Expr.mkAppN (.const (projFnName T j) ust)
-                          (tmaj.getAppArgs ++ [major]))
-                  if fab.wscopedB d && fab.looseBVarsBounded 0 &&
-                      fab.fvarLeaves.all
-                        (fun l => major.fvarLeaves.contains l) then
-                    structEtaCertWith (fueledFns env) env d fab major
-                        tmaj >>= fun r =>
-                    if r then pure fab
-                    else if caps.etaFields = 0 ∧
-                        cvj.levelParams.length = ust.length ∧
-                        piResultNeverZero cvT.levelParams ust cvT.type
-                          = true then
-                      proofIrrel (fueledFns env) env d fab major >>=
-                        fun r' =>
-                      if r' then pure fab
+                  if cvj.levelParams.length = ust.length ∧
+                      (cvj.type.stripPis
+                        (caps.etaParams + caps.etaFields)).isSome
+                        = true then
+                    let fab := Expr.mkAppN (.const caps.etaCtor ust)
+                      (tmaj.getAppArgs ++
+                        (List.range caps.etaFields).map fun j =>
+                          Expr.mkAppN (.const (projFnName T j) ust)
+                            (tmaj.getAppArgs ++ [major]))
+                    if fab.wscopedB d && fab.looseBVarsBounded 0 &&
+                        fab.fvarLeaves.all
+                          (fun l => major.fvarLeaves.contains l) then
+                      iotaCerts (fueledFns env) env d
+                          (cvj.type.instantiateLevelParams
+                            cvj.levelParams ust)
+                          (tmaj.getAppArgs ++
+                            (List.range caps.etaFields).map fun j =>
+                              Expr.mkAppN (.const (projFnName T j) ust)
+                                (tmaj.getAppArgs ++ [major])) >>=
+                        fun rc =>
+                      if rc then
+                        structEtaCertWith (fueledFns env) env d fab major
+                            tmaj >>= fun r =>
+                        if r then pure fab
+                        else if caps.etaFields = 0 ∧
+                            cvj.levelParams.length = ust.length ∧
+                            piResultNeverZero cvT.levelParams ust cvT.type
+                              = true then
+                          proofIrrel (fueledFns env) env d fab major >>=
+                            fun r' =>
+                          if r' then pure fab
+                          else pure major
+                        else pure major
                       else pure major
                     else pure major
                   else pure major
@@ -114,17 +143,32 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                 | some (.const T' ust) =>
                   if T' = T ∧ cvj.levelParams.length = ust.length then
                     Setlec.withStore (·.getAppArgsI tmaj) >>= fun margs =>
-                    internI (.const rl.ctor ust) >>= fun h =>
-                    mkAppNM h (margs.take cnP) >>= fun fab =>
-                    Setlec.withStore (fun st => st.wscopedBI d fab &&
-                      st.looseBVarsBoundedI 0 fab &&
-                      (st.fvarLeavesI fab).all
-                        (fun l => (st.fvarLeavesI i).contains l)) >>=
-                      fun g =>
-                    if g then
-                      proofIrrelI (coreKnotI (mkFEnv env) f) (mkFEnv env)
-                          d fab i >>= fun r =>
-                      if r then pure fab
+                    if cnP ≤ margs.length ∧
+                        (cvj.type.stripPis cnP).isSome = true then
+                      internI (.const rl.ctor ust) >>= fun h =>
+                      mkAppNM h (margs.take cnP) >>= fun fab =>
+                      Setlec.withStore (fun st => st.wscopedBI d fab &&
+                        st.looseBVarsBoundedI 0 fab &&
+                        (st.fvarLeavesI fab).all
+                          (fun l => (st.fvarLeavesI i).contains l)) >>=
+                        fun g =>
+                      if g then
+                        constTyAtM (mkFEnv env) rl.ctor ust >>=
+                          fun tyCtor =>
+                        iotaCertsI (coreKnotI (mkFEnv env) f) (mkFEnv env)
+                            d tyCtor (margs.take cnP) >>= fun rc =>
+                        if rc then
+                          (coreKnotI (mkFEnv env) f).infer d fab >>=
+                            fun tfab =>
+                          (coreKnotI (mkFEnv env) f).defeq d tmaj
+                              tfab >>= fun rd =>
+                          if rd then
+                            proofIrrelI (coreKnotI (mkFEnv env) f)
+                                (mkFEnv env) d fab i >>= fun r =>
+                            if r then pure fab
+                            else pure i
+                          else pure i
+                        else pure i
                       else pure i
                     else pure i
                   else pure i
@@ -142,26 +186,37 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                   readbackLevelsM ust >>= fun ustL =>
                   if T' = T ∧ margs.length = caps.etaParams ∧
                       ust.length = cvT.levelParams.length then
-                    projAppsI T ust margs i
-                        (List.range caps.etaFields) >>= fun projs =>
-                    internI (.const caps.etaCtor ust) >>= fun h =>
-                    mkAppNM h (margs ++ projs) >>= fun fab =>
-                    Setlec.withStore (fun st => st.wscopedBI d fab &&
-                      st.looseBVarsBoundedI 0 fab &&
-                      (st.fvarLeavesI fab).all
-                        (fun l => (st.fvarLeavesI i).contains l)) >>=
-                      fun g =>
-                    if g then
-                      structEtaCertWithI (coreKnotI (mkFEnv env) f)
-                          (mkFEnv env) d fab i tmaj >>= fun r =>
-                      if r then pure fab
-                      else if caps.etaFields = 0 ∧
-                          cvj.levelParams.length = ust.length ∧
-                          piResultNeverZero cvT.levelParams ustL cvT.type
-                            = true then
-                        proofIrrelI (coreKnotI (mkFEnv env) f)
-                            (mkFEnv env) d fab i >>= fun r' =>
-                        if r' then pure fab
+                    if cvj.levelParams.length = ust.length ∧
+                        (cvj.type.stripPis
+                          (caps.etaParams + caps.etaFields)).isSome
+                          = true then
+                      projAppsI T ust margs i
+                          (List.range caps.etaFields) >>= fun projs =>
+                      internI (.const caps.etaCtor ust) >>= fun h =>
+                      mkAppNM h (margs ++ projs) >>= fun fab =>
+                      Setlec.withStore (fun st => st.wscopedBI d fab &&
+                        st.looseBVarsBoundedI 0 fab &&
+                        (st.fvarLeavesI fab).all
+                          (fun l => (st.fvarLeavesI i).contains l)) >>=
+                        fun g =>
+                      if g then
+                        constTyAtM (mkFEnv env) rl.ctor ust >>=
+                          fun tyCtor =>
+                        iotaCertsI (coreKnotI (mkFEnv env) f) (mkFEnv env)
+                            d tyCtor (margs ++ projs) >>= fun rc =>
+                        if rc then
+                          structEtaCertWithI (coreKnotI (mkFEnv env) f)
+                              (mkFEnv env) d fab i tmaj >>= fun r =>
+                          if r then pure fab
+                          else if caps.etaFields = 0 ∧
+                              cvj.levelParams.length = ust.length ∧
+                              piResultNeverZero cvT.levelParams ustL
+                                cvT.type = true then
+                            proofIrrelI (coreKnotI (mkFEnv env) f)
+                                (mkFEnv env) d fab i >>= fun r' =>
+                            if r' then pure fab
+                            else pure i
+                          else pure i
                         else pure i
                       else pure i
                     else pure i
@@ -228,6 +283,11 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                     split
                     · refine SimAt.withStore ?_
                       have hmargs := getAppArgsI_spec hs₂.wf htmajd
+                      rw [hmargs.length_eq]
+                      split
+                      rotate_left
+                      · exact SimAt.pure hs₂
+                          ⟨denote_mono hext₀₂ hden, hmaj⟩
                       have hcn : denoteNode s₂.store.denote
                           s₂.store.denoteL (.const rl.ctor ust)
                           = some (.const rl.ctor lust) := by
@@ -249,23 +309,78 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                         have hwfab := WScoped.of_wscopedB
                           (by simp only [Bool.and_eq_true] at hguard
                               exact hguard.1.1)
-                        refine SimAt.bind (proofIrrelI_sim ih hs₄ hQfab
-                          (denote_mono
-                            ((hext₀₂.trans hext₃).trans hext₄) hden)
-                          hwfab hmaj)
-                          (fun s₅ r r' hs₅ hext₅ hPr => ?_)
-                        obtain rfl : r = r' := hPr
-                        cases r with
-                        | true =>
-                          simp only [↓reduceIte]
-                          exact SimAt.pure hs₅
-                            ⟨denote_mono hext₅ hQfab, hwfab⟩
+                        have hext₀₄ := (hext₀₂.trans hext₃).trans hext₄
+                        -- the relocated synthetic-spine certificate
+                        refine SimAt.bind_left (constTyAtM_eff hs₄
+                          (denoteLList_mono (hext₃.trans hext₄)
+                            hlustDen) hfj)
+                          (fun s₄c tyCtor hs₄c hext₄c hQty => ?_)
+                        simp only [ConstantInfo.toConstantVal] at hQty
+                        have hwty : WScoped d
+                            (cvj.type.instantiateLevelParams
+                              cvj.levelParams lust) := by
+                          obtain ⟨htf, -⟩ := henv _ (find?_mem hfj)
+                          exact wscoped_instLevels_of_not_hasFvar
+                            htf _ _
+                        refine SimAt.bind (iotaCertsI_sim ih hs₄c hQty
+                          hwty
+                          ((((hmargs.mono hext₃).mono hext₄).mono
+                            hext₄c).take cnP)
+                          (fun x hx => hwtmaj.getAppArgs x
+                            (List.mem_of_mem_take hx)))
+                          (fun s₄d rc rc' hs₄d hext₄d hPrc => ?_)
+                        obtain rfl : rc = rc' := hPrc
+                        cases rc with
                         | false =>
                           simp only [Bool.false_eq_true, ↓reduceIte]
-                          exact SimAt.pure hs₅
-                            ⟨denote_mono
-                              (((hext₀₂.trans hext₃).trans hext₄).trans
-                                hext₅) hden, hmaj⟩
+                          exact SimAt.pure hs₄d
+                            ⟨denote_mono ((hext₀₄.trans hext₄c).trans
+                              hext₄d) hden, hmaj⟩
+                        | true =>
+                          simp only [↓reduceIte]
+                          -- the official `to_cnstr_when_K` type check
+                          refine SimAt.bind (ih.infer hs₄d
+                            (denote_mono (hext₄c.trans hext₄d) hQfab)
+                            hwfab)
+                            (fun s₄e tfab tfabx hs₄e hext₄e hPtf => ?_)
+                          obtain ⟨htfd, hwtf⟩ := hPtf
+                          refine SimAt.bind (ih.defeq hs₄e
+                            (denote_mono ((((hext₃.trans hext₄).trans
+                              hext₄c).trans hext₄d).trans hext₄e)
+                              htmajd)
+                            htfd hwtmaj hwtf)
+                            (fun s₄f rd rd' hs₄f hext₄f hPrd => ?_)
+                          obtain rfl : rd = rd' := hPrd
+                          cases rd with
+                          | false =>
+                            simp only [Bool.false_eq_true, ↓reduceIte]
+                            exact SimAt.pure hs₄f
+                              ⟨denote_mono ((((hext₀₄.trans
+                                hext₄c).trans hext₄d).trans
+                                hext₄e).trans hext₄f) hden, hmaj⟩
+                          | true =>
+                            simp only [↓reduceIte]
+                            have hextC :=
+                              ((hext₄c.trans hext₄d).trans
+                                hext₄e).trans hext₄f
+                            refine SimAt.bind (proofIrrelI_sim ih hs₄f
+                              (denote_mono hextC hQfab)
+                              (denote_mono (hext₀₄.trans hextC) hden)
+                              hwfab hmaj)
+                              (fun s₅ r r' hs₅ hext₅ hPr => ?_)
+                            obtain rfl : r = r' := hPr
+                            cases r with
+                            | true =>
+                              simp only [↓reduceIte]
+                              exact SimAt.pure hs₅
+                                ⟨denote_mono hext₅
+                                  (denote_mono hextC hQfab), hwfab⟩
+                            | false =>
+                              simp only [Bool.false_eq_true,
+                                ↓reduceIte]
+                              exact SimAt.pure hs₅
+                                ⟨denote_mono ((hext₀₄.trans
+                                  hextC).trans hext₅) hden, hmaj⟩
                       · exact SimAt.pure hs₄
                           ⟨denote_mono
                             ((hext₀₂.trans hext₃).trans hext₄) hden,
@@ -330,7 +445,12 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                         (fun s₂r ustL hs₂r hext₂r hustL => ?_)
                       rw [hustL, hmargs.length_eq, ← hlen]
                       split
-                      · refine SimAt.bind_left (projAppsI_eff T ust
+                      · split
+                        rotate_left
+                        · exact SimAt.pure hs₂r
+                            ⟨denote_mono (hext₀₂.trans hext₂r) hden,
+                              hmaj⟩
+                        refine SimAt.bind_left (projAppsI_eff T ust
                           lust (List.range caps.etaFields) hs₂r
                           (denoteLList_mono hext₂r hlustDen)
                           (hmargs.mono hext₂r)
@@ -361,45 +481,93 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                           have hwfab := WScoped.of_wscopedB
                             (by simp only [Bool.and_eq_true] at hguard
                                 exact hguard.1.1)
-                          refine SimAt.bind (structEtaCertWithI_sim ih
-                            henv hs₅ hQfab
-                            (denote_mono hext₀₅ hden)
-                            (denote_mono
-                              ((((hext₂r.trans hext₃).trans hext₄).trans
-                                hext₅)) htmajd)
-                            hwfab hmaj hwtmaj)
-                            (fun s₆ r r' hs₆ hext₆ hPr => ?_)
-                          obtain rfl : r = r' := hPr
-                          cases r with
-                          | true =>
-                            simp only [↓reduceIte]
-                            exact SimAt.pure hs₆
-                              ⟨denote_mono hext₆ hQfab, hwfab⟩
+                          -- the relocated synthetic-spine certificate
+                          refine SimAt.bind_left (constTyAtM_eff hs₅
+                            (denoteLList_mono (((hext₂r.trans
+                              hext₃).trans hext₄).trans hext₅)
+                              hlustDen) hfj)
+                            (fun s₅c tyCtor hs₅c hext₅c hQty => ?_)
+                          simp only [ConstantInfo.toConstantVal] at hQty
+                          have hwty : WScoped d
+                              (cvj.type.instantiateLevelParams
+                                cvj.levelParams lust) := by
+                            obtain ⟨htf, -⟩ := henv _ (find?_mem hfj)
+                            exact wscoped_instLevels_of_not_hasFvar
+                              htf _ _
+                          refine SimAt.bind (iotaCertsI_sim ih hs₅c hQty
+                            hwty
+                            ((((((hmargs.mono hext₂r).mono hext₃).mono
+                              hext₄).mono hext₅).mono hext₅c).append
+                              (hQp.mono ((hext₄.trans hext₅).trans
+                                hext₅c)))
+                            (fun x hx => ?_))
+                            (fun s₅d rc rc' hs₅d hext₅d hPrc => ?_)
+                          · rcases List.mem_append.mp hx with hx | hx
+                            · exact hwtmaj.getAppArgs x hx
+                            · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx
+                              refine Expr.WScoped.mkAppN
+                                (by simp [WScoped]) ?_
+                              intro y hy
+                              rcases List.mem_append.mp hy with hy | hy
+                              · exact hwtmaj.getAppArgs y hy
+                              · rw [List.mem_singleton.mp hy]
+                                exact hmaj
+                          obtain rfl : rc = rc' := hPrc
+                          cases rc with
                           | false =>
                             simp only [Bool.false_eq_true, ↓reduceIte]
-                            split
-                            · refine SimAt.bind (proofIrrelI_sim ih hs₆
-                                (denote_mono hext₆ hQfab)
-                                (denote_mono (hext₀₅.trans hext₆) hden)
-                                hwfab hmaj)
-                                (fun s₇ r₂ r₂' hs₇ hext₇ hPr₂ => ?_)
-                              obtain rfl : r₂ = r₂' := hPr₂
-                              cases r₂ with
-                              | true =>
-                                simp only [↓reduceIte]
-                                exact SimAt.pure hs₇
-                                  ⟨denote_mono hext₇
-                                    (denote_mono hext₆ hQfab), hwfab⟩
-                              | false =>
-                                simp only [Bool.false_eq_true,
-                                  ↓reduceIte]
-                                exact SimAt.pure hs₇
-                                  ⟨denote_mono
-                                    ((hext₀₅.trans hext₆).trans hext₇)
-                                    hden, hmaj⟩
-                            · exact SimAt.pure hs₆
-                                ⟨denote_mono (hext₀₅.trans hext₆) hden,
-                                  hmaj⟩
+                            exact SimAt.pure hs₅d
+                              ⟨denote_mono ((hext₀₅.trans hext₅c).trans
+                                hext₅d) hden, hmaj⟩
+                          | true =>
+                            simp only [↓reduceIte]
+                            have hextC := hext₅c.trans hext₅d
+                            refine SimAt.bind (structEtaCertWithI_sim ih
+                              henv hs₅d
+                              (denote_mono hextC hQfab)
+                              (denote_mono (hext₀₅.trans hextC) hden)
+                              (denote_mono ((((hext₂r.trans
+                                hext₃).trans hext₄).trans hext₅).trans
+                                hextC) htmajd)
+                              hwfab hmaj hwtmaj)
+                              (fun s₆ r r' hs₆ hext₆ hPr => ?_)
+                            obtain rfl : r = r' := hPr
+                            cases r with
+                            | true =>
+                              simp only [↓reduceIte]
+                              exact SimAt.pure hs₆
+                                ⟨denote_mono hext₆
+                                  (denote_mono hextC hQfab), hwfab⟩
+                            | false =>
+                              simp only [Bool.false_eq_true, ↓reduceIte]
+                              split
+                              · refine SimAt.bind (proofIrrelI_sim ih
+                                  hs₆
+                                  (denote_mono hext₆
+                                    (denote_mono hextC hQfab))
+                                  (denote_mono ((hext₀₅.trans
+                                    hextC).trans hext₆) hden)
+                                  hwfab hmaj)
+                                  (fun s₇ r₂ r₂' hs₇ hext₇ hPr₂ => ?_)
+                                obtain rfl : r₂ = r₂' := hPr₂
+                                cases r₂ with
+                                | true =>
+                                  simp only [↓reduceIte]
+                                  exact SimAt.pure hs₇
+                                    ⟨denote_mono hext₇
+                                      (denote_mono hext₆
+                                        (denote_mono hextC hQfab)),
+                                      hwfab⟩
+                                | false =>
+                                  simp only [Bool.false_eq_true,
+                                    ↓reduceIte]
+                                  exact SimAt.pure hs₇
+                                    ⟨denote_mono (((hext₀₅.trans
+                                      hextC).trans hext₆).trans hext₇)
+                                      hden, hmaj⟩
+                              · exact SimAt.pure hs₆
+                                  ⟨denote_mono ((hext₀₅.trans
+                                    hextC).trans hext₆) hden, hmaj⟩
                         · exact SimAt.pure hs₅
                             ⟨denote_mono hext₀₅ hden, hmaj⟩
                       · exact SimAt.pure hs₂r
@@ -525,11 +693,11 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
     (hmargs : DenL s₀.store margs majorx.getAppArgs) :
     SimAt env s₀ (RelO d)
       (constTyAtM (mkFEnv env) c us >>= fun tyRec =>
-        iotaCertsI (coreKnotI (mkFEnv env) f) (mkFEnv env) d tyRec
+        iotaCertsGI (coreKnotI (mkFEnv env) f) (mkFEnv env) d tyRec
             (args.take mI ++ [major]) >>= fun r₂ =>
         if r₂ then
           constTyAtM (mkFEnv env) cj usj >>= fun tyCtor =>
-          iotaCertsI (coreKnotI (mkFEnv env) f) (mkFEnv env) d tyCtor
+          iotaCertsGI (coreKnotI (mkFEnv env) f) (mkFEnv env) d tyCtor
               margs >>= fun r₃ =>
           if r₃ then
             Setlec.withStore (fun st =>
@@ -556,11 +724,11 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
             | _, _ => pure none
           else pure none
         else pure none)
-      (iotaCerts (fueledFns env) env d
+      (iotaCertsG (fueledFns env) env d
           (cv.type.instantiateLevelParams cv.levelParams lus)
           (ex.getAppArgs.take mI ++ [majorx]) >>= fun r₂ =>
         if r₂ then
-          iotaCerts (fueledFns env) env d
+          iotaCertsG (fueledFns env) env d
               (cvj.type.instantiateLevelParams cvj.levelParams lusj)
               majorx.getAppArgs >>= fun r₃ =>
           if r₃ then
@@ -595,7 +763,7 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
   refine SimAt.bind_left (constTyAtM_eff hs hus hfc)
     (fun s₁ tyRec hs₁ hext₁ hQrec => ?_)
   simp only [ConstantInfo.toConstantVal] at hQrec
-  refine SimAt.bind (iotaCertsI_sim ih hs₁ hQrec hwrecty
+  refine SimAt.bind (iotaCertsGI_sim ih hs₁ hQrec hwrecty
     (((hargs.mono hext₁).take mI).append
       (DenL.cons (denote_mono hext₁ hmd) DenL.nil)) ?_)
     (fun s₂ r₂ r₂' hs₂ hext₂ hPr₂ => ?_)
@@ -616,7 +784,7 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
       (fun s₃ tyCtor hs₃ hext₃ hQctor => ?_)
     simp only [ConstantInfo.toConstantVal] at hQctor
     have hext₀₃ := (hext₁.trans hext₂).trans hext₃
-    refine SimAt.bind (iotaCertsI_sim ih hs₃ hQctor hwctorty
+    refine SimAt.bind (iotaCertsGI_sim ih hs₃ hQctor hwctorty
       (hmargs.mono hext₀₃) hmaj.getAppArgs)
       (fun s₄ r₃ r₃' hs₄ hext₄ hPr₃ => ?_)
     obtain rfl : r₃ = r₃' := hPr₃
@@ -782,13 +950,13 @@ private theorem iotaRec_unfold (env : Env) (d : Nat) (e : Expr) :
                             cvj.levelParams e.getAppArgs mI).2 >>=
                         fun r₁ =>
                       if r₁ then
-                        iotaCerts (fueledFns env) env d
+                        iotaCertsG (fueledFns env) env d
                             (cv.type.instantiateLevelParams
                               cv.levelParams us)
                             (e.getAppArgs.take mI ++ [major]) >>=
                           fun r₂ =>
                         if r₂ then
-                          iotaCerts (fueledFns env) env d
+                          iotaCertsG (fueledFns env) env d
                               (cvj.type.instantiateLevelParams
                                 cvj.levelParams usj)
                               major.getAppArgs >>= fun r₃ =>

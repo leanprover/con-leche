@@ -170,6 +170,78 @@ theorem iotaCerts_snd (d : Nat) :
   | .const _ _, _ :: _ | .app _ _, _ :: _ | .lam _ _ _ _, _ :: _
   | .letE _ _ _ _, _ :: _ | .lit _, _ :: _ | .proj _ _ _, _ :: _ => rfl
 
+theorem iotaCertsG_fst (d : Nat) :
+    ∀ (ty : Expr) (args : List Expr),
+      (iotaCertsG (pairFns r₁ r₂ h) env d ty args).val.1 =
+        iotaCertsG r₁ env d ty args
+  | _, [] => rfl
+  | .forallE n ty body mb, arg :: rest => by
+    show ((if codNonZero mb then
+        iotaCertsG (pairFns r₁ r₂ h) env d (body.instantiate1 arg) rest
+      else do
+        let ta ← (pairFns r₁ r₂ h).infer d arg
+        if ← (pairFns r₁ r₂ h).defeq d ta ty then
+          iotaCertsG (pairFns r₁ r₂ h) env d (body.instantiate1 arg) rest
+        else pure false : PairM rel Bool)).val.1 = (if codNonZero mb then
+        iotaCertsG r₁ env d (body.instantiate1 arg) rest
+      else do
+        let ta ← r₁.infer d arg
+        if ← r₁.defeq d ta ty then
+          iotaCertsG r₁ env d (body.instantiate1 arg) rest
+        else pure false)
+    split
+    · exact iotaCertsG_fst d (body.instantiate1 arg) rest
+    · rw [PairM.fst_bind]
+      congr 1
+      funext ta
+      rw [PairM.fst_bind]
+      congr 1
+      funext b
+      cases b with
+      | true =>
+        simp only [↓reduceIte]
+        exact iotaCertsG_fst d (body.instantiate1 arg) rest
+      | false => rfl
+  | .bvar _, _ :: _ | .fvar _ _ _, _ :: _ | .sort _, _ :: _
+  | .const _ _, _ :: _ | .app _ _, _ :: _ | .lam _ _ _ _, _ :: _
+  | .letE _ _ _ _, _ :: _ | .lit _, _ :: _ | .proj _ _ _, _ :: _ => rfl
+
+theorem iotaCertsG_snd (d : Nat) :
+    ∀ (ty : Expr) (args : List Expr),
+      (iotaCertsG (pairFns r₁ r₂ h) env d ty args).val.2 =
+        iotaCertsG r₂ env d ty args
+  | _, [] => rfl
+  | .forallE n ty body mb, arg :: rest => by
+    show ((if codNonZero mb then
+        iotaCertsG (pairFns r₁ r₂ h) env d (body.instantiate1 arg) rest
+      else do
+        let ta ← (pairFns r₁ r₂ h).infer d arg
+        if ← (pairFns r₁ r₂ h).defeq d ta ty then
+          iotaCertsG (pairFns r₁ r₂ h) env d (body.instantiate1 arg) rest
+        else pure false : PairM rel Bool)).val.2 = (if codNonZero mb then
+        iotaCertsG r₂ env d (body.instantiate1 arg) rest
+      else do
+        let ta ← r₂.infer d arg
+        if ← r₂.defeq d ta ty then
+          iotaCertsG r₂ env d (body.instantiate1 arg) rest
+        else pure false)
+    split
+    · exact iotaCertsG_snd d (body.instantiate1 arg) rest
+    · rw [PairM.snd_bind]
+      congr 1
+      funext ta
+      rw [PairM.snd_bind]
+      congr 1
+      funext b
+      cases b with
+      | true =>
+        simp only [↓reduceIte]
+        exact iotaCertsG_snd d (body.instantiate1 arg) rest
+      | false => rfl
+  | .bvar _, _ :: _ | .fvar _ _ _, _ :: _ | .sort _, _ :: _
+  | .const _ _, _ :: _ | .app _ _, _ :: _ | .lam _ _ _ _, _ :: _
+  | .letE _ _ _ _, _ :: _ | .lit _, _ :: _ | .proj _ _ _, _ :: _ => rfl
+
 theorem defEqList_fst (d : Nat) :
     ∀ (as bs : List Expr),
       (defEqList (pairFns r₁ r₂ h) env d as bs).val.1 =
@@ -363,6 +435,7 @@ macro "fst_step" : tactic =>
     | rfl
     | (rw [liftFueled_fst_proj])
     | (rw [iotaCerts_fst])
+    | (rw [iotaCertsG_fst])
     | (rw [defEqList_fst])
     | (rw [structEtaProjCerts_fst])
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
@@ -380,6 +453,7 @@ macro "snd_step" : tactic =>
     | rfl
     | (rw [liftFueled_snd_proj])
     | (rw [iotaCerts_snd])
+    | (rw [iotaCertsG_snd])
     | (rw [defEqList_snd])
     | (rw [structEtaProjCerts_snd])
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
@@ -495,6 +569,7 @@ macro "fst_step2" : tactic =>
     | rfl
     | (rw [liftFueled_fst_proj])
     | (rw [iotaCerts_fst])
+    | (rw [iotaCertsG_fst])
     | (rw [defEqList_fst])
     | (rw [structEtaProjCerts_fst])
     | (rw [reduceNat_fst_proj])
@@ -520,6 +595,7 @@ macro "snd_step2" : tactic =>
     | rfl
     | (rw [liftFueled_snd_proj])
     | (rw [iotaCerts_snd])
+    | (rw [iotaCertsG_snd])
     | (rw [defEqList_snd])
     | (rw [structEtaProjCerts_snd])
     | (rw [reduceNat_snd_proj])
@@ -552,17 +628,83 @@ theorem structEtaCert_snd_proj (d : Nat) (a b : Expr) :
   unfold structEtaCert
   snd_tac2
 
+-- The `majorToCtor` body outgrew the split-driven macros (the
+-- splitter's internal simp hits its step ceiling on the full match
+-- tower), so the outer casing is peeled by hand and the macro closes
+-- each rescue branch separately.
+set_option maxHeartbeats 800000 in
 theorem majorToCtor_fst_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) :
     (majorToCtor (pairFns r₁ r₂ h) env d c rules e).val.1 =
       majorToCtor r₁ env d c rules e := by
   unfold majorToCtor
-  fst_tac2
+  by_cases hca : isCtorApp env e = true
+  · rw [if_pos hca, if_pos hca]; rfl
+  rw [if_neg hca, if_neg hca]
+  match rules with
+  | [] => rfl
+  | _ :: _ :: _ => rfl
+  | [rl] =>
+    dsimp only
+    cases hfr : env.find? rl.ctor <;> try rfl
+    case some ci =>
+    cases ci <;> try rfl
+    case ctorInfo cvj cnP cnF =>
+    dsimp only
+    cases (cvj.type.piResult).getAppFn <;> try rfl
+    case const T us₀ =>
+    dsimp only
+    cases env.find? T <;> try rfl
+    case some ciT =>
+    cases ciT <;> try rfl
+    case indInfo cvT caps =>
+    dsimp only
+    by_cases hK : caps.ruleK = true ∧ cnF = 0
+    · rw [if_pos hK, if_pos hK]
+      fst_tac2
+    rw [if_neg hK, if_neg hK]
+    by_cases hE : caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
+        Name.isProjFnShape c = false ∧ piResultIsProp cvT.type = false
+    · rw [if_pos hE, if_pos hE]
+      fst_tac2
+    rw [if_neg hE, if_neg hE]
+    rfl
 
+set_option maxHeartbeats 800000 in
 theorem majorToCtor_snd_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) :
     (majorToCtor (pairFns r₁ r₂ h) env d c rules e).val.2 =
       majorToCtor r₂ env d c rules e := by
   unfold majorToCtor
-  snd_tac2
+  by_cases hca : isCtorApp env e = true
+  · rw [if_pos hca, if_pos hca]; rfl
+  rw [if_neg hca, if_neg hca]
+  match rules with
+  | [] => rfl
+  | _ :: _ :: _ => rfl
+  | [rl] =>
+    dsimp only
+    cases hfr : env.find? rl.ctor <;> try rfl
+    case some ci =>
+    cases ci <;> try rfl
+    case ctorInfo cvj cnP cnF =>
+    dsimp only
+    cases (cvj.type.piResult).getAppFn <;> try rfl
+    case const T us₀ =>
+    dsimp only
+    cases env.find? T <;> try rfl
+    case some ciT =>
+    cases ciT <;> try rfl
+    case indInfo cvT caps =>
+    dsimp only
+    by_cases hK : caps.ruleK = true ∧ cnF = 0
+    · rw [if_pos hK, if_pos hK]
+      snd_tac2
+    rw [if_neg hK, if_neg hK]
+    by_cases hE : caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
+        Name.isProjFnShape c = false ∧ piResultIsProp cvT.type = false
+    · rw [if_pos hE, if_pos hE]
+      snd_tac2
+    rw [if_neg hE, if_neg hE]
+    rfl
 
 theorem litMajorToCtor_fst_proj (d : Nat) (e : Expr) :
     (litMajorToCtor (pairFns r₁ r₂ h) env d e).val.1 =
@@ -697,6 +839,7 @@ macro "fst_step3" : tactic =>
     | rfl
     | (rw [liftFueled_fst_proj])
     | (rw [iotaCerts_fst])
+    | (rw [iotaCertsG_fst])
     | (rw [defEqList_fst])
     | (rw [structEtaProjCerts_fst])
     | (rw [reduceNat_fst_proj])
@@ -727,6 +870,7 @@ macro "snd_step3" : tactic =>
     | rfl
     | (rw [liftFueled_snd_proj])
     | (rw [iotaCerts_snd])
+    | (rw [iotaCertsG_snd])
     | (rw [defEqList_snd])
     | (rw [structEtaProjCerts_snd])
     | (rw [reduceNat_snd_proj])
@@ -781,6 +925,7 @@ macro "fst_step4" : tactic =>
     | rfl
     | (rw [liftFueled_fst_proj])
     | (rw [iotaCerts_fst])
+    | (rw [iotaCertsG_fst])
     | (rw [defEqList_fst])
     | (rw [structEtaProjCerts_fst])
     | (rw [reduceNat_fst_proj])
@@ -813,6 +958,7 @@ macro "snd_step4" : tactic =>
     | rfl
     | (rw [liftFueled_snd_proj])
     | (rw [iotaCerts_snd])
+    | (rw [iotaCertsG_snd])
     | (rw [defEqList_snd])
     | (rw [structEtaProjCerts_snd])
     | (rw [reduceNat_snd_proj])

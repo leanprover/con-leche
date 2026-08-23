@@ -93,8 +93,7 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
     litMajorToCtor_claims ihw hlit hmaj0W hmaj0B hmaj0L hmaj0O hmA0
   obtain ⟨hmieqS, hmA, hmajW, hmajB, hmajL, hmajO⟩ :=
     majorToCtor_claims ihw ihd ihi hsub hmfn hfj
-      (by rw [hml]; exact har2)
-      hmcerts hcvtW hcvtB hcvtL hcvtO hcvtA
+      hcvtW hcvtB hcvtL hcvtO hcvtA
   obtain ⟨-, -, -, -, -, hrules, -⟩ := m.wf _ (find?_mem hfc)
   obtain ⟨hrf, hrlp, hrres, hrlb, hnestWF⟩ := hrules cv mI rP rules rfl r
     (List.mem_of_find?_eq_some hrule)
@@ -254,15 +253,22 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
       (Level.substFn φ cv.levelParams us)
     exact AnnotOk.closed_invariant hRhf d ρ
       (AnnotOk.instLevels m.val_params _ 0 (rho0 V) hA0)
-  obtain ⟨T, hRT⟩ : ∃ T, interpExpr V m.val env φ d ρ
-      (cv.type.instantiateLevelParams cv.levelParams us) = some T := by
-    obtain ⟨T0, hT0, -⟩ := m.mem_type _ (find?_mem hfc)
+  obtain ⟨T, hRT, hRmem⟩ : ∃ T, interpExpr V m.val env φ d ρ
+      (cv.type.instantiateLevelParams cv.levelParams us) = some T ∧
+      m.val c (Level.substFn φ cv.levelParams us) ∈ˢ T := by
+    obtain ⟨T0, hT0, hTm⟩ := m.mem_type _ (find?_mem hfc)
       (Level.substFn φ cv.levelParams us)
-    refine ⟨T0, ?_⟩
-    rw [interp_closed_invariant hRhf d ρ]
-    unfold interpClosed
-    rw [interp_instLevels m.val_params]
-    exact hT0
+    have hcname : cv.name = c := by
+      have := find?_name hfc
+      simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using this
+    refine ⟨T0, ?_, ?_⟩
+    · rw [interp_closed_invariant hRhf d ρ]
+      unfold interpClosed
+      rw [interp_instLevels m.val_params]
+      exact hT0
+    · rw [← hcname]
+      exact hTm
+  have hvf0T : vf0 ∈ˢ T := hv0 ▸ hRmem
   have hcertargs : ∀ x ∈ ((Expr.app fe ae).getAppArgs.take
       mI ++ [major]),
       WScoped d x ∧ x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x ∧
@@ -278,9 +284,9 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
       ((Expr.app fe ae).getAppArgs.take mI ++ [major])
       (vsi ++ [tvv]) :=
     InterpSpine.append hspi ⟨himaj, trivial⟩
-  obtain ⟨restR, hfitIR⟩ := certs_fit ihd ihi
-    _ _ _ T hcerts hRw hRb (Expr.LeavesBounded.of_not_hasFvar hRhf)
-    (FvarsOk.of_not_hasFvar hRhf) hRA hRT hcertargs hspR
+  obtain ⟨restR, hfitIR⟩ := certsG_fit ihd ihi
+    _ _ _ T vf0 hcerts hRw hRb (Expr.LeavesBounded.of_not_hasFvar hRhf)
+    (FvarsOk.of_not_hasFvar hRhf) hRA hRT hvf0T hchain hcertargs hspR
   obtain ⟨dR, ρR, restR', hfitR⟩ := TeleFitI.toTeleFit hfitIR hRw (by
     rw [show ((Expr.app fe ae).getAppArgs.take mI ++
         [major]).length = mI + 1 from by
@@ -302,15 +308,22 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
       (Level.substFn φ cvj.levelParams usj)
     exact AnnotOk.closed_invariant hChf d ρ
       (AnnotOk.instLevels m.val_params _ 0 (rho0 V) hA0)
-  obtain ⟨TC, hCT⟩ : ∃ TC, interpExpr V m.val env φ d ρ
-      (cvj.type.instantiateLevelParams cvj.levelParams usj) = some TC := by
-    obtain ⟨T0, hT0, -⟩ := m.mem_type _ (find?_mem hfj)
+  obtain ⟨TC, hCT, hCmem⟩ : ∃ TC, interpExpr V m.val env φ d ρ
+      (cvj.type.instantiateLevelParams cvj.levelParams usj) = some TC ∧
+      m.val (RecRule.ctor r) (Level.substFn φ cvj.levelParams usj)
+        ∈ˢ TC := by
+    obtain ⟨T0, hT0, hTm⟩ := m.mem_type _ (find?_mem hfj)
       (Level.substFn φ cvj.levelParams usj)
-    refine ⟨T0, ?_⟩
-    rw [interp_closed_invariant hChf d ρ]
-    unfold interpClosed
-    rw [interp_instLevels m.val_params]
-    exact hT0
+    have hcjname : cvj.name = RecRule.ctor r := by
+      have := find?_name hfj
+      simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using this
+    refine ⟨T0, ?_, ?_⟩
+    · rw [interp_closed_invariant hChf d ρ]
+      unfold interpClosed
+      rw [interp_instLevels m.val_params]
+      exact hT0
+    · rw [← hcjname]
+      exact hTm
   have hcertmargs : ∀ x ∈ major.getAppArgs,
       WScoped d x ∧ x.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded x ∧
       FvarsOk V m.val env φ d ρ x ∧ AnnotOk V m.val env φ d ρ x := by
@@ -320,9 +333,12 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
       fun l hl => hmajL l (fvarLeaves_getAppArgs hxm l hl),
       FvarsOk.of_subset (fun l hl => fvarLeaves_getAppArgs hxm l hl) hmajO,
       hmxsA _ hxm⟩
-  obtain ⟨restC, hfitIC⟩ := certs_fit ihd ihi
-    _ _ _ TC hmcerts hCw hCb (Expr.LeavesBounded.of_not_hasFvar hChf)
-    (FvarsOk.of_not_hasFvar hChf) hCA hCT hcertmargs hmsp
+  obtain ⟨restC, hfitIC⟩ := certsG_fit ihd ihi
+    _ _ _ TC (m.val (RecRule.ctor r) (Level.substFn φ
+      (ConstantInfo.ctorInfo cvj cnP
+        cnF).toConstantVal.levelParams usj))
+    hmcerts hCw hCb (Expr.LeavesBounded.of_not_hasFvar hChf)
+    (FvarsOk.of_not_hasFvar hChf) hCA hCT hCmem hmchain hcertmargs hmsp
   -- the recursor fit's final-frame fvar spine (for the nested premise)
   obtain ⟨hdR, hagrR, argsRF, hfitRF, hfvRF⟩ :=
     TeleFit.toTeleFitI hfitR hRw
