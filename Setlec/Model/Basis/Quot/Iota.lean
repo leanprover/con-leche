@@ -1892,7 +1892,7 @@ private theorem qlT2_univ {A R : V} (hA : A ∈ˢ univ (ψ uN))
             (SetTheory.app (SetTheory.app (quotVal V ψ) A) R)
             fun _ => B) ∈ˢ univ (qlR (ψ uN) (ψ vN)) :=
   pi_mem_univ (u := ψ vN + 1) (v := qlB (ψ uN) (ψ vN))
-    (univ_mem_univ (ψ vN)) (fun B hB => qlT3_univ hA hR hB)
+    (univ_mem_univ (ψ vN)) (fun _B hB => qlT3_univ hA hR hB)
 
 private theorem qlT1_univ {A : V} (hA : A ∈ˢ univ (ψ uN)) :
     (pi (qlR (ψ uN) (ψ vN)) (relSpace V (ψ uN) A)
@@ -1985,7 +1985,7 @@ private theorem qiT1_univ {A : V} (hA : A ∈ˢ univ (ψ uN)) :
               R) a))
           fun _ => pi 0 (SetTheory.app (SetTheory.app (quotVal V ψ) A) R)
             fun q => SetTheory.app B q) ∈ˢ (univ 0 : V) :=
-  qi_pi0_univ0 (relSpace_mem' hA) (fun R hR => qiT2_univ hA hR)
+  qi_pi0_univ0 (relSpace_mem' hA) (fun _R hR => qiT2_univ hA hR)
 
 /-! ## Stage facts for the two canonical frames -/
 
@@ -2899,7 +2899,7 @@ theorem quotInd_ruleOk {cval : ConstVal V}
       show some (SetTheory.app mk a) = some pt
       rw [hmkpt, app_pt]
     · simp only [AnnotOk, qiFrRec, qFrMkC, qFrA, qFrR, qFrTyR, qiFrB,
-        qiFrTyB, qiFrMk, qiFrTyMk]
+        qiFrTyB, qiFrMk, qiFrTyMk, qiFra]
       exact ⟨⟨⟨⟨⟨trivial, trivial,
           quotIndVal V ψ', A, 0, univ (ψ' uN), _,
           hirec, hifvA, hmem, hA, fun A' hA' => qiT1_univ hA'⟩,
