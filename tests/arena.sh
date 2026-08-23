@@ -63,7 +63,7 @@ E2E_EXPECTED=tests/e2e-expected.txt
 if [ -f "$E2E_EXPECTED" ]; then
   e2e_ok=0
   e2e_total=0
-  while read -r want rel; do
+  while read -r want rel mode; do
     case "$want" in ''|'#'*) continue;; esac
     e2e_total=$((e2e_total+1))
     src="tests/e2e/$rel"
@@ -73,7 +73,14 @@ if [ -f "$E2E_EXPECTED" ]; then
       gunzip -c "$src.gz" > "$tmpf" || { echo "E2E FAIL $rel: gunzip failed"; fail=1; continue; }
       src="$tmpf"
     fi
-    timeout 60 "$BIN" "$src" >/dev/null 2>&1
+    # a `raw` fixture is a plain lean4export result: run it with the
+    # preprocessor made unavailable, so the stream really carries no
+    # `_model` declarations and the direct install path is exercised
+    if [ "${mode:-}" = raw ]; then
+      SETLEC_INDUCTIVE_MODELS=/nonexistent timeout 60 "$BIN" "$src" >/dev/null 2>&1
+    else
+      timeout 60 "$BIN" "$src" >/dev/null 2>&1
+    fi
     got=$?
     if [ "$got" != "$want" ]; then
       echo "E2E FAIL $rel: expected exit $want, got $got"; fail=1

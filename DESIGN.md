@@ -2759,3 +2759,199 @@ The official kernel constructs these objects itself (recursor/
 projection rules are generated, so the shapes hold by construction);
 setlec checks them because the artifacts arrive from the preprocessor
 as input.  Failures are declines, not rejections.
+
+## Direct install of simple structures (2026-08-23, task #82)
+
+The first inductive class that needs **no `lean-inductive-models`
+artifact**: a *simple structure* — non-recursive, single-constructor,
+index-free, parameters and dependent fields allowed, with a **provably
+nonzero result sort**.  For such a block the checker installs the type
+former, the constructor, the recursor with its single rule and the
+projection functions from the *reference checks alone*, and the
+set-theoretic model is **constructed** rather than borrowed.
+
+### The class, and why the sort must be nonzero
+
+The model of `T p⃗` is the iterated dependent pair over the interpreted
+field telescope, closed off by the singleton — literally the tower the
+preprocessor builds syntactically out of `PSigma'`/`PUnit`, built
+directly out of `SetTheory.sigmaSet` (`Setlec/Model/DirectTower.lean`).
+`sigmaSet w` *collapses to a truth value at `w = 0`*, which destroys
+`proj_i (mk f⃗) = f_i` for a `Prop` structure carrying data fields.
+Rather than case-split the whole construction on the collapse, the
+recognised class requires `Level.isNonZero` of the result sort
+(**finding / narrowing**): `Prop` structures (`And`, `Iff`, `True`,
+`Exists`, `Nonempty`, …) and `Sort u`-parametric ones (`PProd'`,
+`PSigma'`) simply stay on the modeled path, which handles them today.
+Measured on the init-prelude stream: of 149 inductive blocks, 117 have
+the single-type/single-ctor/single-rec shape and **103 are recognised**
+— every class-like structure (`Add`, `Monad`, `Prod`, `Subtype`,
+`Fin`, `Array`, `String`, `UInt*`, …).
+
+### Recognition (`Setlec/Kernel/Direct.lean`) — the reference checks
+
+`directParts?` is a **conservative filter**: a block it rejects falls
+through to the modeled path unchanged, so a negative answer never costs
+a verdict.  The checks mirror what the reference kernels do when
+*adding* an inductive declaration (citations: lean4lean
+`Lean4Lean/Inductive/Add.lean`, a line-by-line port of the official
+`src/kernel/inductive/inductive.cpp`; nanoda
+`nanoda_lib/src/inductive.rs`), restricted to this class:
+
+* type former: a `∀`-telescope of exactly `numParams` binders ending in
+  a `Sort` (`checkInductiveTypes`, `Add.lean:60-116`) — index-free
+  means it ends there; the result level is `isNeverZero`
+  (`Add.lean:101`), which here is *required*, not just observed.
+* constructor: a `∀`-telescope ending in the type former applied to
+  **exactly** the parameters at the declaration's own level parameters
+  (`isValidIndAppIdx`, `Add.lean:157-165`, nanoda `is_valid_ind_app`);
+  its parameter domains are the type former's (`Add.lean:220-222`,
+  by `isDefEq` there and here — see below).
+* non-recursive: every constructor binder domain already resolves in
+  the *pre-block* environment.  This subsumes `checkPositivity` /
+  `hasIndOcc` (`Add.lean:184-199`) for a single-inductive block and is
+  exactly what the model needs: the type former's value is built from
+  the field types' interpretations in the environment *before* the
+  block, so a self-reference would be circular.
+* per-field universe bound: each field's sort `≤` the result sort
+  (`Add.lean:225-228`, nanoda `check_ctor`); the `Prop` escape hatch
+  there is unreachable in this class.
+* recursor: **exactly** the generated shape (`Add.lean:477-483`) —
+  a fresh elimination level parameter in front (`getRecLevelParams`,
+  `Add.lean:416-417`; every nonzero-sorted structure is a large
+  eliminator, `isLargeEliminator`, `Add.lean:257-259`), params, one
+  dependent motive `∀ (t : T p⃗), Sort ℓ` (`Add.lean:326`), one minor
+  premise over the constructor's field telescope ending in
+  `motive (C p⃗ f⃗)` (`Add.lean:384-388`), no indices, the major, and
+  the body `motive t`; and `majorIdx = rulePrefix = numParams + 2`.
+* the single rule's right-hand side is `λ p⃗ motive minor f⃗, minor f⃗`
+  (`mkRecRules`, `Add.lean:441-447`).
+
+Skeleton checks are syntactic (`directShape`, run on the raw block for
+recognition **and** re-run on the annotated constants at install).  The
+binder-*domain* correspondences are deliberately **not** syntactic: the
+references compare the constructor's parameter domains by `isDefEq` and
+build the recursor's telescope from `whnf`-peeled domains, so a
+syntactic pin would wrongly reject (measured: 29 of 103 recognised
+blocks fail a syntactic parameter-domain pin, 22 fail a syntactic
+minor-premise pin).  `checkDirectStruct` pins them **definitionally**
+over one shared opening of the recursor's telescope — which is also
+exactly the interpretation equalities the model's telescope walks
+consume.
+
+### Projections compose with the existing table
+
+The direct path installs projection *functions* into the **same slot
+family and same consumer** as the modeled path's `checkProjFn`: a
+degenerate recursor (no motive, no minors, no indices, one rule
+`λ p⃗ f⃗, f_i`) stored under `projFnName T i`, which is the name
+`annotateProjElim` dispatches on — so `.proj` nodes on a direct
+structure rewrite into `T.proj.i` applications exactly as on a modeled
+one, and the generic iota machinery reduces them.  Only the projection
+*type* comes from a different source: generated from the constructor
+telescope (`directProjTy`: `∀ p⃗ (t : T p⃗), F_i[f_j := T.proj.j p⃗ t]`,
+built with the capture-avoiding `Expr.instPisAtLift`, since the
+substituted arguments are open) instead of read off a
+`_model.proj_i` artifact.  No new projection mechanism is introduced,
+and the `native = false` template entries stay what they are (the Prop
+fallback).
+
+**Finding**: the recursor-elimination *template* fallback
+(`annotateProjRec`) cannot serve this class.  Its motive is constant in
+the eliminated variable, so the minor `λ f⃗, f_i` only typechecks when
+`F_i` does not mention earlier fields — fine for `Prop` structures
+(proof irrelevance) but wrong for a *dependent* projection such as
+`Sigma.snd`.  Installing real projection functions is therefore not an
+optimisation but a requirement.
+
+### Precedence: artifact-free, not artifact-first
+
+The brief ordered the clauses *basis → direct → modeled*.  The landed
+order is *basis → modeled (when the artifact is there) → direct*:
+`directNoModel` requires that none of `T._model`, `C._model`,
+`T.rec._model` and the `T._model.proj_j` family is stored.  Reason
+(**finding**): the structure-eta capability's environment invariant
+(`ModeledOk`'s eta clause, `EtaLaw`) is spelled in `_model` names and
+is owed at the *type former's* install, when neither the constructor
+nor the projections are stored yet — so a public-name restatement is
+not establishable at that point without new caps-swap or one-shot-block
+transport machinery.  Firing the direct path ahead of an available
+artifact would therefore drop `eta` for every structure that has one,
+which loses arena `109_structEta` (and `082`/`083`/`084`/`096`, the
+dependent-projection tests, before projection functions were added).
+Gating on artifact *absence* keeps every preprocessed stream on exactly
+today's route, byte for byte, and makes the direct path precisely the
+**ind-models-free** route the endgame wants.  The endgame is unchanged:
+once `lean-inductive-models` skips generation for this class, the
+direct path takes over by absence, and lifting eta into it is a
+separate, well-identified piece of work (restate `EtaLaw` in public
+names + a caps swap, or install the block's model in one shot).
+
+Side effect, kept: three arena `bad` fixtures (`133_dup_ctor_def`,
+`134_dup_rec_def`, `137_dup_ctor_rec`) are hand-written raw exports, so
+the direct path sees them and **rejects** (exit 1, "duplicate
+declaration") where the modeled path *declined* (exit 2, "missing
+model").  Reject is the reference-correct verdict for a duplicate name.
+
+### The constructed model
+
+`Setlec/Model/DirectVal.lean` supplies the missing *introduction*
+direction of the telescope machinery (everything existing —
+`TeleFit.elim`, `closeLamsAt_fold` — is elimination-only):
+
+* `teleLamV k d ρ ty S` — the `k`-binder λ-tower over the telescope
+  `ty`, with each `lam`'s universe tag read off that binder's own
+  codomain-sort annotation, and body `S` computed from the argument
+  values;
+* `teleLamV_mem` — it inhabits `⟦ty⟧` when the body inhabits the
+  interpreted residual at every fitting spine;
+* `teleLamV_fold` — applying it along a fitting spine computes the
+  body.
+
+`Setlec/Model/DirectTower.lean` supplies the structure's own value:
+`sigmaTowerV` (iterated `sigmaSet` over the field telescope, closed by
+`unitSet`), `tupleV` (iterated Kuratowski pair), `projV`, with
+formation (`sigmaTowerV_mem_univ`, from the per-field universe bound
+via cumulativity), introduction (`tupleV_mem`), the iota equation
+(`projV_tupleV`) and **eta** (`sigmaTowerV_split`: every member is the
+tuple of its own projections, and those projections fit the field
+telescope).  The intended values are then
+
+    ⟦T⟧      = teleLamV nP over the type former's telescope,
+               body = sigmaTowerV over the constructor's field telescope
+    ⟦C⟧      = teleLamV (nP+nF) over the constructor's telescope,
+               body = tupleV of the field values
+    ⟦T.rec⟧  = teleLamV (nP+2+1) over the recursor's telescope,
+               body = the minor applied to the major's projections
+    ⟦T.proj.i⟧ = teleLamV (nP+1), body = projV i of the subject
+
+with `sigmaTowerV_split` supplying both the recursor's `mem_type`
+(`motive x` is reachable from `motive (C p⃗ (projs x))` because
+`tupleV (projs x) = x`) and the rule's fold equation
+(`projV_tupleV`).
+
+### Status (2026-08-23)
+
+Landed and gate-green: the value-construction kit, the recognition
+layer, the checks and the install (`checkDirectStruct` and its
+shared-state twin `checkDirectStructS`), and a **raw** e2e fixture
+(`tests/e2e/src/direct_struct_raw.lean` → `direct_struct_raw.ndjson`,
+committed unfiltered, run by `tests/arena.sh` with
+`SETLEC_INDUCTIVE_MODELS=/nonexistent` via the new `raw` marker in
+`tests/e2e-expected.txt`).  With the clause enabled the fixture is
+**accepted** (20 declarations: two parameters, two dependent fields, a
+field-free structure, `rfl`s through both projection iota rules and
+through the recursor rule) — verified by running it.
+
+**Not yet landed: the install soundness.**  `checkIndDecl` therefore
+does not yet dispatch to `checkDirectStruct`, and the fixture is pinned
+at *decline* in the expectations.  What remains: `checkDirectStruct_sound`
+(the `extend_fresh` chain for the `3 + nF` new constants, `mem_type`
+from `teleLamV_mem`, the rule folds through `TowerOk.of_stages`), a
+weakening of `ModeledOk`'s `_model`-bridge clauses by the premise
+"`n._model` is stored" (sound, and vacuously satisfied by the
+artifact-free class), and the executable-bridge plumbing for the new
+declaration-checker functions (`Verify/BridgeDecl.lean` projection
+batteries, `Verify/BridgeWfImp.lean` run-level implications,
+`Model/BridgeS.lean` for the shared-state twin) plus the
+`Setlec/Kernel/CheckerNC.lean` twin.

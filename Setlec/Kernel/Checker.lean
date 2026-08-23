@@ -4,6 +4,7 @@ import Setlec.Kernel.TypeChecker
 import Setlec.Kernel.TypeCheckerC
 import Setlec.Kernel.CoreI
 import Setlec.Kernel.NatOpPins
+import Setlec.Kernel.Direct
 
 /-!
 # The checker
@@ -806,6 +807,232 @@ def installProjTemplateStep (T ctorName : Name) (lps : List Name)
   if (e.find? (projFnName T i)).isNone then
     installProjTemplate e T ctorName lps nP nF i
   else pure e
+
+/-! ## The direct simple-structure path (task #82)
+
+A block recognised by `directParts?` (`Setlec/Kernel/Direct.lean`)
+installs *directly*: no `_model` artifact is consumed, and the
+set-theoretic model is constructed from the constructor telescope
+(`Setlec/Model/DirectTower.lean`).  What is left for this layer are the
+reference checks that need inference and definitional equality — the
+per-field universe bound and the definitional pins of the recursor's
+binder domains against the constructor's.
+-/
+
+/-- The capabilities a direct simple structure earns.  `ruleK` is
+`false` by construction (`isKTarget` needs a `Prop` result, lean4lean
+`Inductive/Add.lean:289-296`, and the class requires a provably nonzero
+sort).  `eta` is **not** claimed: the eta certificate reduces the two
+sides through installed projection *functions*, and the direct path
+installs recursor-elimination templates instead (see DESIGN.md).
+`unitlike` holds exactly when there are no fields — the model is then
+the singleton. -/
+def directCaps (p : DirectParts) : IndCaps where
+  eta := false
+  etaCtor := p.cvC.name
+  etaParams := p.nP
+  etaFields := p.nF
+  unitlike := p.nF == 0
+  unitParams := p.nP
+  ruleK := false
+
+/-- The official per-field universe bound, over the opened constructor
+telescope: every field's sort must be `≤` the structure's result sort
+(lean4lean `Inductive/Add.lean:225-228`, nanoda
+`inductive.rs:828-834`; the `Prop` escape hatch there does not apply —
+the class requires a nonzero result sort).  Walks the fields from the
+last to the first. -/
+def checkDirectFieldUniv (ops : CheckerOps m) (env : Env) (s : Level)
+    (depth nP : Nat) (fvs : List Expr) : Nat → m Unit
+  | 0 => pure ()
+  | j + 1 => do
+    let fv ← unwrapOr fvs[nP + j]? (.internal "direct structure: field index")
+    let ty ← ops.inferType env depth fv.fvarTypeD
+    let u ← ops.ensureSort env depth ty
+    unless ← liftFueled "level comparison" (Level.leq u s) do
+      throw (.invalid "direct structure: field universe too large")
+    checkDirectFieldUniv ops env s depth nP fvs j
+
+/-- Stage 1: the type former.  The ordinary constant check plus a
+re-verification of the *annotated* shape — the model reads the
+parameter telescope and the result sort off the stored type. -/
+def checkDirectInd (ops : CheckerOps m) (env : Env) (p : DirectParts) :
+    m (Env × ConstantVal) := do
+  let cvTa ← checkConstantVal ops env p.cvT
+  let (_, tbody) ← unwrapOr (cvTa.type.stripPis p.nP)
+    (.notImplemented "direct structure: type former telescope")
+  unless tbody == Expr.sort p.resSort do
+    throw (.notImplemented "direct structure: type former result sort")
+  pure (⟨.indInfo cvTa (directCaps p) :: env.consts⟩, cvTa)
+
+/-- Stage 2: the constructor — the ordinary constant check, the
+annotated result shape, and the per-field universe bound. -/
+def checkDirectCtor (ops : CheckerOps m) (env : Env) (p : DirectParts) :
+    m (Env × ConstantVal) := do
+  let cvCa ← checkConstantVal ops env p.cvC
+  let (_, cbody) ← unwrapOr (cvCa.type.stripPis (p.nP + p.nF))
+    (.notImplemented "direct structure: constructor telescope")
+  unless cbody == directFam p.cvT.name p.cvT.levelParams p.nP p.nF do
+    throw (.notImplemented "direct structure: constructor result")
+  let (fvs, _) ← unwrapOr (openPisAtFvars (p.nP + p.nF) cvCa.type 0)
+    (.notImplemented "direct structure: constructor telescope")
+  checkDirectFieldUniv ops env p.resSort (p.nP + p.nF) p.nP fvs p.nF
+  pure (⟨.ctorInfo cvCa p.nP p.nF :: env.consts⟩, cvCa)
+
+/-- Stage 3: the recursor's type is the generated shape.  The skeleton
+(motive dependent over the family, one minor over the constructor's
+field telescope ending in `motive (C p⃗ f⃗)`, no indices, major, body
+`motive t`) is pinned syntactically by `directShape`; the binder
+*domains* are pinned definitionally against the type former's and the
+constructor's over one shared opening — exactly the equalities the
+model's telescope walks consume. -/
+def checkDirectRecTy (ops : CheckerOps m) (env : Env) (p : DirectParts)
+    (cvTa cvCa cvRa : ConstantVal) : m Unit := do
+  let T := p.cvT.name
+  let lps := p.cvT.levelParams
+  unless directShape T p.cvC.name lps p.elim p.nP p.nF
+      cvTa.type cvCa.type cvRa.type do
+    throw (.notImplemented "direct structure: annotated recursor shape")
+  let depth := p.nP + 2 + p.nF
+  let (fvsP, rest) ← unwrapOr (openPisAtFvars (p.nP + 2) cvRa.type 0)
+    (.notImplemented "direct structure: recursor telescope")
+  let ps := fvsP.take p.nP
+  let famApp := Expr.mkAppN (.const T (lps.map .param)) ps
+  -- the parameters: definitionally the constructor's parameter domains
+  let (cdomsP, crest) ← unwrapOr (Expr.instPisAt ps cvCa.type)
+    (.notImplemented "direct structure: constructor telescope")
+  checkDefEqList ops env depth (ps.map Expr.fvarTypeD) cdomsP
+  -- the motive: `∀ (t : T p⃗), Sort elim`
+  let mfv ← unwrapOr fvsP[p.nP]?
+    (.internal "direct structure: motive index")
+  let (mbs, mbody) ← unwrapOr (mfv.fvarTypeD.stripPis 1)
+    (.notImplemented "direct structure: motive telescope")
+  let mdom ← unwrapOr ((mbs[0]?).map (·.2.1))
+    (.notImplemented "direct structure: motive telescope")
+  unless ← ops.isDefEq env depth mdom famApp do
+    throw (.notImplemented "direct structure: motive domain")
+  unless mbody == Expr.sort (.param p.elim) do
+    throw (.notImplemented "direct structure: motive codomain")
+  -- the minor premise: the constructor's field telescope, ending in
+  -- the motive applied to the canonical constructor spine
+  let minfv ← unwrapOr fvsP[p.nP + 1]?
+    (.internal "direct structure: minor index")
+  let (xFvs, minBody) ← unwrapOr
+    (openPisAtFvars p.nF minfv.fvarTypeD (p.nP + 2))
+    (.notImplemented "direct structure: minor telescope")
+  let (cdomsF, crest2) ← unwrapOr (Expr.instPisAt xFvs crest)
+    (.notImplemented "direct structure: constructor field telescope")
+  checkDefEqList ops env depth (xFvs.map Expr.fvarTypeD) cdomsF
+  unless crest2 == famApp do
+    throw (.notImplemented "direct structure: constructor residual")
+  unless minBody == Expr.app mfv
+      (Expr.mkAppN (.const p.cvC.name (lps.map .param)) (ps ++ xFvs)) do
+    throw (.notImplemented "direct structure: minor conclusion")
+  -- the major premise and the conclusion `motive t`
+  let (jbs, jbody) ← unwrapOr (rest.stripPis 1)
+    (.notImplemented "direct structure: major telescope")
+  let jdom ← unwrapOr ((jbs[0]?).map (·.2.1))
+    (.notImplemented "direct structure: major telescope")
+  unless ← ops.isDefEq env depth jdom famApp do
+    throw (.notImplemented "direct structure: major domain")
+  unless jbody == Expr.app mfv (.bvar 0) do
+    throw (.notImplemented "direct structure: recursor conclusion")
+
+/-- Stage 4: the single rule's right-hand side — `λ p⃗ motive minor f⃗,
+minor f⃗` (lean4lean `Inductive/Add.lean:441-447`), annotated and
+checked exactly like a projection rule: the body is the canonical
+application and the λ-domains are definitionally the recursor's own and
+the constructor's field domains. -/
+def checkDirectRule (ops : CheckerOps m) (env : Env) (p : DirectParts)
+    (cvCa cvRa : ConstantVal) : m Expr := do
+  unless !p.rhs.hasFvar && p.rhs.looseBVarsBounded 0 do
+    throw (.notImplemented "direct structure: rule scoping")
+  let rhsA ← ops.annotate env 0 p.rhs
+  unless rhsA.allLevelParamsDefined cvRa.levelParams && rhsA.constsResolve env &&
+      rhsA.looseBVarsBounded 0 && !rhsA.hasFvar do
+    throw (.notImplemented "direct structure: rule wellformedness")
+  let (_, rbody) ← unwrapOr (rhsA.stripLams (p.nP + 2 + p.nF))
+    (.notImplemented "direct structure: rule telescope")
+  unless rbody == directRuleBody p.nF do
+    throw (.notImplemented "direct structure: rule body")
+  let depth := p.nP + 2 + p.nF
+  let (fvsP, _) ← unwrapOr (openPisAtFvars (p.nP + 2) cvRa.type 0)
+    (.notImplemented "direct structure: recursor telescope")
+  let (_, crest) ← unwrapOr (Expr.instPisAt (fvsP.take p.nP) cvCa.type)
+    (.notImplemented "direct structure: constructor telescope")
+  let minfv ← unwrapOr fvsP[p.nP + 1]?
+    (.internal "direct structure: minor index")
+  let (xFvs, _) ← unwrapOr
+    (openPisAtFvars p.nF minfv.fvarTypeD (p.nP + 2))
+    (.notImplemented "direct structure: minor telescope")
+  let _ ← unwrapOr (Expr.instPisAt xFvs crest)
+    (.notImplemented "direct structure: constructor field telescope")
+  let (ldoms, _) ← unwrapOr (Expr.instLamsAt (fvsP ++ xFvs) rhsA)
+    (.notImplemented "direct structure: rule telescope")
+  checkDefEqList ops env depth ((fvsP ++ xFvs).map Expr.fvarTypeD) ldoms
+  let _rhsTy ← ops.inferType env 0 rhsA
+  pure rhsA
+
+/-- Install the projection function for field `i` of a direct simple
+structure.  Same slot and same consumer as the modeled path's
+`checkProjFn`: a degenerate recursor (no motive, no minors, no indices)
+stored under `projFnName T i`, which is the projection-table name
+family `annotateProjElim` dispatches on — so `.proj` nodes on a direct
+structure rewrite into `T.proj.i` applications exactly as they do on a
+modeled one, and the generic iota machinery reduces them.  Only the
+*type* comes from a different source: generated from the constructor
+telescope (`directProjTy`) instead of read off a `_model.proj_i`
+artifact.  Fields are installed in order, since field `i`'s type
+mentions the earlier projections. -/
+def checkDirectProj (ops : CheckerOps m) (T C : Name) (lps : List Name)
+    (nP nF : Nat) (cvTa cvCa : ConstantVal) (env : Env) (i : Nat) : m Env := do
+  let pty ← unwrapOr (directProjTy T lps nP nF i cvTa.type cvCa.type)
+    (.notImplemented "direct structure: projection type")
+  unless !pty.hasFvar && pty.looseBVarsBounded 0 do
+    throw (.notImplemented "direct structure: projection type scoping")
+  let ptyA ← ops.annotate env 0 pty
+  unless ptyA.allLevelParamsDefined lps && ptyA.constsResolve env &&
+      ptyA.looseBVarsBounded 0 && !ptyA.hasFvar do
+    throw (.notImplemented "direct structure: projection type wellformedness")
+  unless (ptyA.stripPis (nP + 1)).isSome do
+    throw (.notImplemented "direct structure: projection type telescope")
+  let sty ← ops.inferType env 0 ptyA
+  let _u ← ops.ensureSort env 0 sty
+  unless (env.find? (projFnName T i)).isNone do
+    throw (.invalid "projection name taken")
+  checkProjShape ptyA cvCa.type nP nF
+  let rhsA ← checkProjRule ops env ptyA cvCa lps nP nF i
+  pure ⟨.recInfo ⟨projFnName T i, lps, ptyA⟩ nP nP
+    [⟨C, nF, nP,
+      if Expr.recRulePlain ptyA nP nP nP then .plain else .inert, rhsA⟩] ::
+    env.consts⟩
+
+/-- Check and install a **direct simple structure** (task #82): the
+type former, the constructor, the recursor with its single rule, and
+the projection *templates* the `.proj` annotation falls back on.  No
+`_model` artifact is read; the model is constructed at install
+(`Setlec/Model/Direct*.lean`).  Recognition happened in
+`directParts?`; everything here is a genuine check of the declaration,
+so a failure is a verdict, not a fall-through. -/
+def checkDirectStruct (ops : CheckerOps m) (env : Env) (p : DirectParts) :
+    m Env := do
+  let (env₁, cvTa) ← checkDirectInd ops env p
+  let (env₂, cvCa) ← checkDirectCtor ops env₁ p
+  let cvRa ← checkConstantVal ops env₂ p.cvR
+  checkDirectRecTy ops env₂ p cvTa cvCa cvRa
+  let rhsA ← checkDirectRule ops env₂ p cvCa cvRa
+  let env₃ : Env :=
+    ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
+      [⟨p.cvC.name, p.nF, p.nP,
+        if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
+          .plain else .inert,
+        rhsA⟩] :: env₂.consts⟩
+  unless (List.range p.nF).all
+      (fun j => (env₃.find? (projFnName p.cvT.name j)).isNone) do
+    throw (.invalid "projection name family taken")
+  (List.range p.nF).foldlM
+    (checkDirectProj ops p.cvT.name p.cvC.name p.cvT.levelParams
+      p.nP p.nF cvTa cvCa) env₃
 
 /-- Install one pinned basis declaration (duplicate-checked). -/
 def installBasisDecl (env : Env) (ci : ConstantInfo) : m Env := do
