@@ -653,6 +653,88 @@ theorem interp_weaken_fit {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
     intro e hw
     rw [ih (hw.mono (by omega)), interp_weaken_top hw]
 
+/-- A value-spine fit's binder domains, read at the fit's **end**
+frame, carry the corresponding values.  The domains are the opened
+variables' annotations — which is exactly how the `instPisAt` walk of
+the same telescope spells them (`openPisAtFvars_spec`). -/
+theorem TeleFit.doms_at_end {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
+    ∀ {d : Nat} {ρ : Nat → V} {ty : Expr} {vs : List V} {d' : Nat}
+      {ρ' : Nat → V} {rest : Expr},
+      TeleFit V cval env φ d ρ ty vs d' ρ' rest →
+      Expr.WScoped d ty →
+      ∀ {fvs : List Expr}, openPisAtFvars vs.length ty d = some (fvs, rest) →
+      ∀ (k : Nat) (a : Expr) (v : V), fvs[k]? = some a → vs[k]? = some v →
+        ∃ A, interpExpr V cval env φ d' ρ' (Expr.fvarTypeD a) = some A ∧
+          v ∈ˢ A := by
+  intro d ρ ty vs d' ρ' rest hfit
+  induction hfit with
+  | nil => intro _ fvs _ k a v _ hv; simp at hv
+  | @cons d ρ n dom body mb x xs d' ρ' rest A hdom hx hfit ih =>
+    intro hwe fvs hop k a v ha hv
+    have hwe' : Expr.WScoped d dom ∧ Expr.WScoped d body := by
+      simpa [Expr.WScoped] using hwe
+    simp only [List.length_cons, openPisAtFvars] at hop
+    cases hrec : openPisAtFvars xs.length
+        (body.instantiate1 (.fvar d n dom)) (d + 1) with
+    | none => rw [hrec] at hop; exact nomatch hop
+    | some q =>
+      rw [hrec] at hop
+      simp only [Option.some.injEq, Prod.mk.injEq] at hop
+      obtain ⟨rfl, rfl⟩ := hop
+      cases k with
+      | zero =>
+        obtain rfl : Expr.fvar d n dom = a := Option.some.inj ha
+        obtain rfl : x = v := Option.some.inj hv
+        refine ⟨A, ?_, hx⟩
+        show interpExpr V cval env φ d' ρ' dom = some A
+        rw [interp_weaken_fit hfit (hwe'.1.mono (by omega)),
+          interp_weaken_top hwe'.1]
+        exact hdom
+      | succ k =>
+        refine ih ?_ hrec k a v (by simpa using ha) (by simpa using hv)
+        refine Expr.WScoped.instantiate1_gen ?_ 0 (hwe'.2.mono (by omega))
+        simp only [Expr.WScoped]
+        exact ⟨by omega, hwe'.1⟩
+
+/-- An `instPisAt` walk along a spine of **arbitrary** expressions with
+known interpreted values is an expression-spine fit, provided the
+walk's domains carry those values.  The free-variable case is
+`pi_walk`; the direct path's projection stage walks the constructor
+telescope at the earlier projections' *applications*, which are not
+variables. -/
+theorem TeleFitI.ofInstWalk {cval : ConstVal V} {env : Env} {φ : Name → Nat}
+    {D : Nat} {ρ : Nat → V} :
+    ∀ (sp : List Expr) {ty : Expr} {ds : List Expr} {rest : Expr}
+      {vs : List V},
+      Expr.instPisAt sp ty = some (ds, rest) →
+      InstArgs cval env φ D ρ sp vs →
+      (∀ a ∈ sp, AnnotOk V cval env φ D ρ a) →
+      Expr.fvarsBelow D ty →
+      (∀ (k : Nat) (a : Expr) (v : V), ds[k]? = some a → vs[k]? = some v →
+        ∃ A, interpExpr V cval env φ D ρ a = some A ∧ v ∈ˢ A) →
+      TeleFitI V cval env φ D ρ ty sp vs rest := by
+  intro sp
+  induction sp with
+  | nil =>
+    intro ty ds rest vs hinst hia _ _ _
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at hinst
+    obtain ⟨rfl, rfl⟩ := hinst
+    match vs, hia with
+    | [], _ => exact TeleFitI.nil
+  | cons a sp ih =>
+    intro ty ds rest vs hinst hia hAn hfb hmem
+    obtain ⟨n, dom, body, mb, ds', rfl, rfl, hinst'⟩ := instPisAt_cons_inv hinst
+    match vs, hia with
+    | v :: vs', ⟨⟨hwa, hba, hiav⟩, hia'⟩ =>
+      obtain ⟨A, hA, hvA⟩ := hmem 0 dom v rfl rfl
+      have hfb' : Expr.fvarsBelow D dom ∧ Expr.fvarsBelow D body := hfb
+      refine TeleFitI.cons hA hiav hvA hfb'.2 hwa hba
+        (hAn a List.mem_cons_self) ?_
+      exact ih hinst' hia' (fun b hb => hAn b (List.mem_cons_of_mem _ hb))
+        (fvarsBelow_instantiate1_gen hwa.fvarsBelow 0 hfb'.2)
+        (fun k b w hb hw => hmem (k + 1) b w (by simpa using hb)
+          (by simpa using hw))
+
 /-- The frame conditions survive a fit that starts above the term. -/
 theorem FrameOk.weaken_fit {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
     ∀ {d : Nat} {ρ : Nat → V} {ty : Expr} {vs : List V} {d' : Nat}

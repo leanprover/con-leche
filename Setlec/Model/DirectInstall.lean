@@ -178,6 +178,16 @@ theorem TeleFit_open :
       refine ⟨by omega, Expr.fvar d n dom :: fvs, ?_⟩
       rw [openPisAtFvars, hopen]
 
+/-- An empty value spine leaves the frame and the telescope alone.
+(Stated as a lemma because `cases` on the fit cannot refute the `cons`
+constructor when the telescope is a stuck `instantiate1`.) -/
+theorem TeleFit_nil_eq {d : Nat} {ρ : Nat → V} {e : Expr} {d' : Nat}
+    {ρ' : Nat → V} {rest : Expr}
+    (h : TeleFit V cval env φ d ρ e [] d' ρ' rest) :
+    d' = d ∧ ρ' = ρ ∧ rest = e := by
+  cases h
+  exact ⟨rfl, rfl, rfl⟩
+
 /-- A fitting walk splits at any point. -/
 theorem TeleFit_split :
     ∀ {d : Nat} {ρ : Nat → V} {ty : Expr} {xs ys : List V}
@@ -666,18 +676,25 @@ theorem directRec_body_mem {w nF d₁ : Nat} {ρ₁ : Nat → V} {mid : Expr}
 /-- **A projection's typing, semantically.**  Field `i` of a member of
 the tower inhabits the `i`-th domain of the field telescope,
 instantiated at the earlier projections — which is what the generated
-projection type (`directProjTy`) spells. -/
+projection type (`directProjTy`) spells.
+
+The fitting spine is the **canonical** one, `(range nF).map (projV · x)`
+(`sigmaTowerV_split`, structure eta): the general "at every fitting
+spine" form is *false* here, since the generated type substitutes the
+subject's own projections and an unrelated fitting spine need not agree
+with them. -/
 theorem directProj_body_mem {w nF d₁ : Nat} {ρ₁ : Nat → V} {mid : Expr}
     {x : V} {i : Nat} {Q : V}
     (hw : w ≠ 0) (hi : i < nF)
     (hfld : FieldTele V cval env φ w nF d₁ ρ₁ mid)
     (hx : x ∈ˢ sigmaTowerV V cval env φ w nF d₁ ρ₁ mid)
-    (hdom : ∀ (fs : List V) (d' : Nat) (ρ' : Nat → V) (rest : Expr),
-      TeleFit V cval env φ d₁ ρ₁ mid fs d' ρ' rest → fs.length = nF →
-      fs.getD i SetTheory.empty ∈ˢ Q) :
+    (hdom : ∀ (d' : Nat) (ρ' : Nat → V) (rest : Expr),
+      TeleFit V cval env φ d₁ ρ₁ mid
+        ((List.range nF).map fun j => projV j x) d' ρ' rest →
+      ((List.range nF).map fun j => projV j x).getD i SetTheory.empty ∈ˢ Q) :
     projV i x ∈ˢ Q := by
   obtain ⟨d', ρ', rest, hfit, -⟩ := sigmaTowerV_split hw hfld hx
-  have h := hdom _ d' ρ' rest hfit (by simp)
+  have h := hdom d' ρ' rest hfit
   rw [List.getD_eq_getElem?_getD, List.getElem?_map,
     List.getElem?_range hi] at h
   exact h
