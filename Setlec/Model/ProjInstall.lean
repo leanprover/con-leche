@@ -446,643 +446,6 @@ theorem InterpSpine.functional {d : Nat} {ρ : Nat → V} :
         obtain rfl := Option.some.inj hv'
         rw [ih hrest hrest']
 
-/-! ## The lockstep tower descent -/
-
-set_option maxHeartbeats 3200000 in
-/-- Build the projection rule's `TowerOk` spec by descending the
-canonical frame, the rule λ-tower and the checked iota statement's
-telescope together (their raw binder domains are syntactically shared,
-modulo the model renaming on the statement's side), carrying the
-partially eliminated theorem inhabitant.  At the bottom the theorem's
-`Eq` collapses the interpreted projection redex onto the projected
-field's value. -/
-theorem proj_tower_rec
-    {env₁ : Env} {val' : ConstVal V} {f : Name → Name} {ψ : Name → Nat}
-    (hro : RenameOk val' env₁ f)
-    {P ctor : Name} {cvA cvj cvt : ConstantVal} {nP nF i : Nat}
-    (hi : i < nF)
-    {ciP : ConstantInfo}
-    (hfP : env₁.find? P = some ciP)
-    (hlpsP : ciP.toConstantVal.levelParams = cvA.levelParams)
-    (hfj : env₁.find? ctor = some (.ctorInfo cvj nP nF))
-    {cimP : ConstantInfo}
-    (hfPm : env₁.find? (f P) = some cimP)
-    (hPmlps : cimP.toConstantVal.levelParams = cvA.levelParams)
-    (heqfind : env₁.find? eqName = some eqA)
-    (heqval : ∀ ψ'' : Name → Nat, val' eqName ψ'' = eqVal V ψ'')
-    {spineC : List Expr}
-    (hN : spineC.length = nP + nF)
-    (hspineShape : ∀ j a, spineC[j]? = some a →
-      ∃ nm ty, a = Expr.fvar j nm ty)
-    {cbinders : List (Name × Expr × BinderMeta)} {cbody : Expr}
-    (hC_strip : cvj.type.stripPis (nP + nF) = some (cbinders, cbody))
-    (hCcl : cvj.type.hasFvar = false)
-    (hCb : cvj.type.looseBVarsBounded 0 = true)
-    (hframeTy : ∀ (k : Nat) (a : Expr) (b : Name × Expr × BinderMeta),
-      spineC[k]? = some a → cbinders[k]? = some b →
-      Expr.fvarTypeD a = instSeq (spineC.take k) (k - 1) b.2.1)
-    {sbinders : List (Name × Expr × BinderMeta)} {sbody : Expr}
-    (hS_strip : cvt.type.stripPis (nP + nF) = some (sbinders, sbody))
-    {rhsA : Expr} {rbs : List (Name × Expr × BinderMeta)} {rbody : Expr}
-    (hstripR : rhsA.stripLams (nP + nF) = some (rbs, rbody))
-    (hrbody : rbody = .bvar (nF - 1 - i))
-    (hdoms : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta),
-      rbs[k]? = some b → cbinders[k]? = some b' → b.2.1 = b'.2.1)
-    (hsdoms : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta),
-      sbinders[k]? = some b → cbinders[k]? = some b' →
-      b.2.1 = (b'.2.1).renameConsts f)
-    {tySlot : Expr} {ℓA : Level}
-    (hsbody : sbody = Expr.mkAppN (.const eqName [ℓA])
-      [tySlot,
-       Expr.mkAppN (.const (f P) (cvA.levelParams.map .param))
-        (((List.range nP).map fun k =>
-            Expr.bvar (nP + nF - 1 - k)) ++
-         [Expr.mkAppN (.const (f ctor) (cvj.levelParams.map .param))
-           (((List.range nP).map fun k =>
-               Expr.bvar (nP + nF - 1 - k)) ++
-            ((List.range nF).map fun k => Expr.bvar (nF - 1 - k)))]),
-       .bvar (nF - 1 - i)])
-    {bL : Expr}
-    (hbLeq : bL = Expr.mkAppN (.const P (cvA.levelParams.map .param))
-      (spineC.take nP ++
-       [Expr.mkAppN (.const ctor (cvj.levelParams.map .param)) spineC])) :
-    ∀ (fvmsK : List (Expr × BinderMeta)) (k : Nat) (ρ : Nat → V)
-      (ownSpine : List Expr) (eRk stmtMid : Expr) (thAcc : V),
-      k + fvmsK.length = nP + nF →
-      fvmsK = (spineC.drop k).zip ((rbs.map (·.2.2)).drop k) →
-      ownSpine.length = k →
-      (∀ j a, ownSpine[j]? = some a → ∃ nm ty, a = Expr.fvar j nm ty) →
-      (∃ rds, Expr.instLamsAt ownSpine rhsA = some (rds, eRk)) →
-      (∃ sds, Expr.instPisAt (spineC.take k) cvt.type =
-        some (sds, stmtMid)) →
-      (∃ Qk, interpExpr V val' env₁ ψ k ρ stmtMid = some Qk ∧
-        thAcc ∈ˢ Qk) →
-      AnnotOk V val' env₁ ψ k ρ stmtMid →
-      TowerOk val' env₁ ψ k ρ fvmsK bL eRk := by
-  intro fvmsK
-  induction fvmsK with
-  | nil =>
-    intro k ρ ownSpine eRk stmtMid thAcc hk hfvmsK hOwnLen hOwnShape hR hS
-      hSQ hSA
-    obtain rfl : k = nP + nF := by simpa using hk
-    have htake : spineC.take (nP + nF) = spineC := by
-      rw [← hN]
-      exact List.take_length
-    obtain ⟨sds, hSi⟩ := hS
-    rw [htake] at hSi
-    obtain ⟨rds, hRi⟩ := hR
-    have hSmid : stmtMid = instSeq spineC (spineC.length - 1) sbody :=
-      (instPisAt_stripPis spineC hSi (by rw [hN]; exact hS_strip)).1
-    rw [hN] at hSmid
-    have hRmid : eRk = instSeq ownSpine (ownSpine.length - 1) rbody :=
-      (instLamsAt_stripLams ownSpine hRi
-        (by rw [hOwnLen]; exact hstripR)).1
-    rw [hOwnLen] at hRmid
-    -- the projected field resolves to its frame value
-    have hOwnB : ∀ a ∈ ownSpine, a.looseBVarsBounded 0 = true := by
-      intro a ha
-      obtain ⟨j, hj⟩ := List.getElem?_of_mem ha
-      obtain ⟨nm, ty, rfl⟩ := hOwnShape j a hj
-      rfl
-    have hbv := Expr.instSeq_bvar ownSpine (nP + nF - 1) (nF - 1 - i)
-      hOwnB (by omega) (by rw [hOwnLen]; omega)
-    rw [show nP + nF - 1 - (nF - 1 - i) = nP + i from by omega] at hbv
-    obtain ⟨nmr, tyr, hfld⟩ := hOwnShape (nP + i) _ hbv
-    have heRi : interpExpr V val' env₁ ψ (nP + nF) ρ eRk =
-        some (ρ (nP + i)) := by
-      rw [hRmid, hrbody, hfld]
-      simp only [interpExpr]
-    -- resolve the statement residual's components
-    have hbounded : ∀ a ∈ spineC, a.looseBVarsBounded 0 = true := by
-      intro a ha
-      obtain ⟨j, hj⟩ := List.getElem?_of_mem ha
-      obtain ⟨nm, ty, rfl⟩ := hspineShape j a hj
-      rfl
-    have hresolve : ∀ (j : Nat), j < nP + nF →
-        spineC[j]? = some (Expr.instSeq spineC (nP + nF - 1)
-          (.bvar (nP + nF - 1 - j))) := by
-      intro j hj
-      have h1 := Expr.instSeq_bvar spineC (nP + nF - 1)
-        (nP + nF - 1 - j) hbounded (by omega) (by rw [hN]; omega)
-      rwa [show nP + nF - 1 - (nP + nF - 1 - j) = j from by omega] at h1
-    have hres_p : (((List.range nP).map fun j =>
-          Expr.bvar (nP + nF - 1 - j))).map
-          (Expr.instSeq spineC (nP + nF - 1) ·) = spineC.take nP := by
-      refine List.ext_getElem? ?_
-      intro j
-      rcases Nat.lt_or_ge j nP with hj | hj
-      · rw [List.getElem?_take_of_lt hj, List.getElem?_map,
-          List.getElem?_map, List.getElem?_range hj,
-          hresolve j (by omega)]
-        rfl
-      · rw [List.getElem?_map, List.getElem?_map,
-          List.getElem?_eq_none (by simp; omega),
-          List.getElem?_take_eq_none hj]
-        rfl
-    have hres_x : (((List.range nF).map fun j =>
-          Expr.bvar (nF - 1 - j))).map
-          (Expr.instSeq spineC (nP + nF - 1) ·) = spineC.drop nP := by
-      refine List.ext_getElem? ?_
-      intro j
-      rcases Nat.lt_or_ge j nF with hj | hj
-      · rw [List.getElem?_drop, List.getElem?_map, List.getElem?_map,
-          List.getElem?_range hj,
-          show spineC[nP + j]? = some (Expr.instSeq spineC (nP + nF - 1)
-            (.bvar (nP + nF - 1 - (nP + j)))) from
-            hresolve (nP + j) (by omega)]
-        simp only [Option.map_some, Option.some.injEq]
-        congr 2
-        omega
-      · rw [List.getElem?_map, List.getElem?_map,
-          List.getElem?_eq_none (by simp; omega),
-          List.getElem?_eq_none (by
-            rw [List.length_drop, hN]
-            omega)]
-        rfl
-    have hctorRes : Expr.instSeq spineC (nP + nF - 1)
-        (Expr.mkAppN (.const (f ctor) (cvj.levelParams.map .param))
-          (((List.range nP).map fun j =>
-              Expr.bvar (nP + nF - 1 - j)) ++
-           ((List.range nF).map fun j => Expr.bvar (nF - 1 - j)))) =
-        Expr.mkAppN (.const (f ctor) (cvj.levelParams.map .param))
-          (spineC.take nP ++ spineC.drop nP) := by
-      rw [Expr.instSeq_mkAppN, Expr.instSeq_eq_self _ _ (by rfl)]
-      congr 1
-      rw [List.map_append]
-      congr 1
-      all_goals first
-        | exact hres_p
-        | exact hres_x
-    have hlhsRes : Expr.instSeq spineC (nP + nF - 1)
-        (Expr.mkAppN (.const (f P) (cvA.levelParams.map .param))
-          (((List.range nP).map fun j =>
-              Expr.bvar (nP + nF - 1 - j)) ++
-           [Expr.mkAppN (.const (f ctor) (cvj.levelParams.map .param))
-             (((List.range nP).map fun j =>
-                 Expr.bvar (nP + nF - 1 - j)) ++
-              ((List.range nF).map fun j => Expr.bvar (nF - 1 - j)))])) =
-        Expr.mkAppN (.const (f P) (cvA.levelParams.map .param))
-          (spineC.take nP ++
-           [Expr.mkAppN (.const (f ctor) (cvj.levelParams.map .param))
-             (spineC.take nP ++ spineC.drop nP)]) := by
-      rw [Expr.instSeq_mkAppN, Expr.instSeq_eq_self _ _ (by rfl)]
-      congr 1
-      rw [List.map_append]
-      congr 1
-      all_goals first
-        | exact hres_p
-        | (simp only [List.map_cons, List.map_nil]; rw [hctorRes])
-    have hresidual : Expr.instSeq spineC (nP + nF - 1) sbody =
-        Expr.mkAppN (.const eqName [ℓA])
-          [Expr.instSeq spineC (nP + nF - 1) tySlot,
-           Expr.mkAppN (.const (f P) (cvA.levelParams.map .param))
-            (spineC.take nP ++
-             [Expr.mkAppN (.const (f ctor) (cvj.levelParams.map .param))
-               (spineC.take nP ++ spineC.drop nP)]),
-           Expr.instSeq spineC (nP + nF - 1) (.bvar (nF - 1 - i))] := by
-      rw [hsbody, Expr.instSeq_mkAppN, Expr.instSeq_eq_self _ _ (by rfl)]
-      simp only [List.map_cons, List.map_nil]
-      rw [hlhsRes]
-    obtain ⟨QN, hQi, hthMem⟩ := hSQ
-    rw [hSmid, hresidual] at hQi hSA
-    -- the spine's values
-    obtain ⟨vals, hvalsSp, hvalsLen, hvalsPos⟩ :=
-      interpSpine_fvars_exists (cval := val') (env := env₁) (φ := ψ)
-        (d := nP + nF) (ρ := ρ) spineC 0
-        (fun j a hj => by
-          obtain ⟨nm, ty, ha⟩ := hspineShape j a hj
-          exact ⟨nm, ty, by rw [Nat.zero_add]; exact ha⟩)
-    -- component values
-    obtain ⟨cimC, hfCm, hlpCm⟩ := hro.1 ctor _ hfj
-    have hcCi : interpExpr V val' env₁ ψ (nP + nF) ρ
-        (.const (f ctor) (cvj.levelParams.map .param)) =
-        some (val' ctor ψ) := by
-      simp only [interpExpr, hfCm]
-      rw [if_pos (by rw [hlpCm]; simp [ConstantInfo.toConstantVal])]
-      rw [show cimC.toConstantVal.levelParams = cvj.levelParams from by
-        rw [hlpCm]; rfl]
-      rw [show Level.substFn ψ cvj.levelParams
-          (cvj.levelParams.map .param) = ψ from
-        funext fun p => Level.substFn_map_param]
-      rw [hro.2.2 ctor]
-    have hctorVal : interpExpr V val' env₁ ψ (nP + nF) ρ
-        (Expr.mkAppN (.const (f ctor) (cvj.levelParams.map .param))
-          (spineC.take nP ++ spineC.drop nP)) =
-        some (SpineFold V (val' ctor ψ) vals) := by
-      rw [interp_mkAppN _ _ hcCi
-        (InterpSpine.append (InterpSpine.take nP hvalsSp)
-          (InterpSpine.drop nP hvalsSp))]
-      rw [List.take_append_drop]
-    have hcPi : interpExpr V val' env₁ ψ (nP + nF) ρ
-        (.const (f P) (cvA.levelParams.map .param)) =
-        some (val' P ψ) := by
-      simp only [interpExpr, hfPm]
-      rw [if_pos (by rw [hPmlps]; simp)]
-      rw [show cimP.toConstantVal.levelParams = cvA.levelParams from
-        hPmlps]
-      rw [show Level.substFn ψ cvA.levelParams
-          (cvA.levelParams.map .param) = ψ from
-        funext fun p => Level.substFn_map_param]
-      rw [hro.2.2 P]
-    have hlhsVal : interpExpr V val' env₁ ψ (nP + nF) ρ
-        (Expr.mkAppN (.const (f P) (cvA.levelParams.map .param))
-          (spineC.take nP ++
-           [Expr.mkAppN (.const (f ctor) (cvj.levelParams.map .param))
-             (spineC.take nP ++ spineC.drop nP)])) =
-        some (SpineFold V (val' P ψ)
-          (vals.take nP ++ [SpineFold V (val' ctor ψ) vals])) := by
-      rw [interp_mkAppN _ _ hcPi
-        (InterpSpine.append (InterpSpine.take nP hvalsSp)
-          (show InterpSpine val' env₁ ψ (nP + nF) ρ
-            [_] [SpineFold V (val' ctor ψ) vals] from ⟨hctorVal, trivial⟩))]
-    -- destructure the equation's chain
-    obtain ⟨-, hcomps, veq, vsE, hveqi, hspE, hchainE, hfoldQ⟩ :=
-      annotOk_spine_inv _ (.const eqName [ℓA]) (by simp) hSA
-    obtain ⟨vα, vl, vr, rfl⟩ : ∃ vα vl vr, vsE = [vα, vl, vr] := by
-      match vsE, hspE with
-      | [vα, vl, vr], _ => exact ⟨vα, vl, vr, rfl⟩
-      | [], h => exact nomatch h
-      | [_], h => exact nomatch h.2
-      | [_, _], h => exact nomatch h.2.2
-      | _ :: _ :: _ :: _ :: _, h => exact nomatch h.2.2.2
-    obtain ⟨hiα, hil, hir, -⟩ := hspE
-    have hvl : vl = SpineFold V (val' P ψ)
-        (vals.take nP ++ [SpineFold V (val' ctor ψ) vals]) := by
-      rw [hlhsVal] at hil
-      exact (Option.some.inj hil).symm
-    have hvr : vr = ρ (nP + i) := by
-      have h1 := Expr.instSeq_bvar spineC (nP + nF - 1) (nF - 1 - i)
-        hbounded (by omega) (by rw [hN]; omega)
-      rw [show nP + nF - 1 - (nF - 1 - i) = nP + i from by omega] at h1
-      obtain ⟨nm2, ty2, hsh2⟩ := hspineShape (nP + i) _ h1
-      rw [hsh2] at hir
-      simp only [interpExpr] at hir
-      exact (Option.some.inj hir).symm
-    have hveq : veq = eqVal V (Level.substFn ψ [uN] [ℓA]) := by
-      simp only [interpExpr, heqfind] at hveqi
-      rw [if_pos (by simp [eqA, ConstantInfo.toConstantVal])] at hveqi
-      rw [← Option.some.inj hveqi, heqval]
-      congr 2
-    obtain ⟨⟨vE₁, A₁, B₁, hpi₁, hmem₁, -⟩, hchainE'⟩ := hchainE
-    obtain ⟨⟨vE₂, A₂, B₂, hpi₂, hmem₂, -⟩, hchainE''⟩ := hchainE'
-    obtain ⟨⟨vE₃, A₃, B₃, hpi₃, hmem₃, -⟩, -⟩ := hchainE''
-    rw [hveq] at hpi₁ hpi₂ hpi₃
-    have hαu : vα ∈ˢ univ (Level.substFn ψ [uN] [ℓA] uN) := by
-      have h1 := hpi₁
-      simp only [eqVal] at h1
-      refine lam_dom_of_ne h1 ?_ vα hmem₁
-      simp [Nat.max_eq_zero_iff]
-    have hvlmem : vl ∈ˢ vα := by
-      have h2 := hpi₂
-      rw [eqVal_app hαu] at h2
-      refine lam_dom_of_ne h2 ?_ vl hmem₂
-      simp [Nat.max_eq_zero_iff]
-    have hvrmem : vr ∈ˢ vα := by
-      have h3 := hpi₃
-      rw [eqVal_app₂ hαu hvlmem] at h3
-      refine lam_dom_of_ne h3 ?_ vr hmem₃
-      simp
-    have hQeqv : QN = eqv vl vr := by
-      rw [hfoldQ] at hQi
-      rw [← Option.some.inj hQi, hveq]
-      show SpineFold V _ [vα, vl, vr] = _
-      rw [show SpineFold V (eqVal V (Level.substFn ψ [uN] [ℓA]))
-          [vα, vl, vr] =
-        SetTheory.app (SetTheory.app (SetTheory.app
-          (eqVal V (Level.substFn ψ [uN] [ℓA])) vα) vl) vr from rfl]
-      exact eqVal_app₃ hαu hvlmem hvrmem
-    have hveq_final : vl = vr := by
-      rw [hQeqv] at hthMem
-      exact mem_eqv hthMem
-    -- interpret and certify the canonical body
-    have hPi2 : interpExpr V val' env₁ ψ (nP + nF) ρ
-        (.const P (cvA.levelParams.map .param)) =
-        some (val' P ψ) := by
-      simp only [interpExpr, hfP]
-      rw [if_pos (by rw [hlpsP]; simp)]
-      rw [show ciP.toConstantVal.levelParams = cvA.levelParams from hlpsP]
-      rw [show Level.substFn ψ cvA.levelParams
-          (cvA.levelParams.map .param) = ψ from
-        funext fun p => Level.substFn_map_param]
-    have hCi2 : interpExpr V val' env₁ ψ (nP + nF) ρ
-        (.const ctor (cvj.levelParams.map .param)) =
-        some (val' ctor ψ) := by
-      simp only [interpExpr, hfj]
-      rw [if_pos (by simp [ConstantInfo.toConstantVal])]
-      rw [show (ConstantInfo.ctorInfo cvj nP nF).toConstantVal.levelParams
-          = cvj.levelParams from rfl]
-      rw [show Level.substFn ψ cvj.levelParams
-          (cvj.levelParams.map .param) = ψ from
-        funext fun p => Level.substFn_map_param]
-    -- chain slots, transferred from the statement's inversions
-    have hlhsA := hcomps _ (show
-        Expr.mkAppN (.const (f P) (cvA.levelParams.map .param))
-          (spineC.take nP ++
-           [Expr.mkAppN (.const (f ctor) (cvj.levelParams.map .param))
-             (spineC.take nP ++ spineC.drop nP)]) ∈
-        [Expr.instSeq spineC (nP + nF - 1) tySlot, _, _] by simp)
-    have hLne : spineC.take nP ++
-        [Expr.mkAppN (.const (f ctor) (cvj.levelParams.map .param))
-          (spineC.take nP ++ spineC.drop nP)] ≠ [] := by
-      simp
-    obtain ⟨-, hcompsL, vfP, vsL, hifP, hispL, hchainL, -⟩ :=
-      annotOk_spine_inv _ (.const (f P) (cvA.levelParams.map .param))
-        hLne hlhsA
-    have hvfP : vfP = val' P ψ := by
-      rw [hcPi] at hifP
-      exact (Option.some.inj hifP).symm
-    have hvsL : vsL = vals.take nP ++ [SpineFold V (val' ctor ψ) vals] :=
-      InterpSpine.functional hispL
-        (InterpSpine.append (InterpSpine.take nP hvalsSp)
-          ⟨hctorVal, trivial⟩)
-    have hctorA := hcompsL _ (show
-        Expr.mkAppN (.const (f ctor) (cvj.levelParams.map .param))
-          (spineC.take nP ++ spineC.drop nP) ∈
-        spineC.take nP ++
-          [Expr.mkAppN (.const (f ctor) (cvj.levelParams.map .param))
-            (spineC.take nP ++ spineC.drop nP)] by simp)
-    have hCne : spineC.take nP ++ spineC.drop nP ≠ [] := by
-      rw [List.take_append_drop]
-      intro hcon
-      rw [hcon] at hN
-      simp at hN
-      omega
-    obtain ⟨-, -, vfC, vsC, hifC, hispC, hchainC, -⟩ :=
-      annotOk_spine_inv _
-        (.const (f ctor) (cvj.levelParams.map .param)) hCne hctorA
-    have hvfC : vfC = val' ctor ψ := by
-      rw [hcCi] at hifC
-      exact (Option.some.inj hifC).symm
-    have hvsC : vsC = vals := by
-      refine InterpSpine.functional hispC ?_
-      have := InterpSpine.append (InterpSpine.take nP hvalsSp)
-        (InterpSpine.drop nP hvalsSp)
-      rwa [List.take_append_drop nP vals] at this
-    -- assemble the body's truthfulness and value
-    have hfvA : ∀ x ∈ spineC, AnnotOk V val' env₁ ψ (nP + nF) ρ x := by
-      intro x hx
-      obtain ⟨j, hj⟩ := List.getElem?_of_mem hx
-      obtain ⟨nm, ty, rfl⟩ := hspineShape j x hj
-      simp only [AnnotOk]
-    have hchainC' : ChainSlots V (val' ctor ψ) vals := by
-      rw [← hvfC, ← hvsC]
-      exact hchainC
-    obtain ⟨hActor, hictor⟩ := annotOk_spine spineC
-      (.const ctor (cvj.levelParams.map .param))
-      (by simp only [AnnotOk]) hCi2 hfvA hvalsSp hchainC'
-    have hchainL' : ChainSlots V (val' P ψ)
-        (vals.take nP ++ [SpineFold V (val' ctor ψ) vals]) := by
-      rw [← hvfP, ← hvsL]
-      exact hchainL
-    obtain ⟨hAbL, hibL⟩ := annotOk_spine
-      (spineC.take nP ++
-        [Expr.mkAppN (.const ctor (cvj.levelParams.map .param)) spineC])
-      (.const P (cvA.levelParams.map .param))
-      (by simp only [AnnotOk]) hPi2
-      (by
-        intro x hx
-        rcases List.mem_append.mp hx with hx | hx
-        · exact hfvA x (List.mem_of_mem_take hx)
-        · obtain rfl : x = Expr.mkAppN
-              (.const ctor (cvj.levelParams.map .param)) spineC := by
-            simpa using hx
-          exact hActor)
-      (InterpSpine.append (InterpSpine.take nP hvalsSp)
-        (show InterpSpine val' env₁ ψ (nP + nF) ρ [_]
-          [SpineFold V (val' ctor ψ) vals] from ⟨hictor, trivial⟩))
-      hchainL'
-    rw [hbLeq]
-    refine TowerOk.nil (w := ρ (nP + i)) ?_ heRi hAbL
-    rw [hibL]
-    congr 1
-    rw [← hvl, hveq_final, hvr]
-  | cons pk rest ih =>
-    intro k ρ ownSpine eRk stmtMid thAcc hk hfvmsK hOwnLen hOwnShape hR hS
-      hSQ hSA
-    have hkN : k < nP + nF := by
-      simp only [List.length_cons] at hk
-      omega
-    -- peel the frame entry
-    cases hsd : spineC.drop k with
-    | nil =>
-      rw [hsd] at hfvmsK
-      simp at hfvmsK
-    | cons a arest =>
-    cases hmd : (rbs.map (·.2.2)).drop k with
-    | nil =>
-      rw [hsd, hmd] at hfvmsK
-      simp at hfvmsK
-    | cons mk mrest =>
-      rw [hsd, hmd] at hfvmsK
-      simp only [List.zip_cons_cons, List.cons.injEq] at hfvmsK
-      obtain ⟨rfl, rfl⟩ := hfvmsK
-      have hak : spineC[k]? = some a := by
-        have h0 : (spineC.drop k)[0]? = some a := by rw [hsd]; rfl
-        rwa [List.getElem?_drop, Nat.add_zero] at h0
-      have harest : spineC.drop (k + 1) = arest := by
-        have h0 : (spineC.drop k).tail = arest := by rw [hsd]; rfl
-        rwa [List.tail_drop] at h0
-      have hmk : (rbs.map (·.2.2))[k]? = some mk := by
-        have h0 : ((rbs.map (·.2.2)).drop k)[0]? = some mk := by
-          rw [hmd]; rfl
-        rwa [List.getElem?_drop, Nat.add_zero] at h0
-      have hmrest : (rbs.map (·.2.2)).drop (k + 1) = mrest := by
-        have h0 : ((rbs.map (·.2.2)).drop k).tail = mrest := by
-          rw [hmd]; rfl
-        rwa [List.tail_drop] at h0
-      -- the binder rows at position `k`
-      have hcbLen : cbinders.length = nP + nF :=
-        Expr.stripPis_length _ hC_strip
-      have hsbLen : sbinders.length = nP + nF :=
-        Expr.stripPis_length _ hS_strip
-      have hrbLen : rbs.length = nP + nF :=
-        Expr.stripLams_length _ hstripR
-      obtain ⟨cb, hcb⟩ : ∃ cb, cbinders[k]? = some cb :=
-        ⟨cbinders[k]'(by omega), List.getElem?_eq_getElem _⟩
-      obtain ⟨sb, hsb⟩ : ∃ sb, sbinders[k]? = some sb :=
-        ⟨sbinders[k]'(by omega), List.getElem?_eq_getElem _⟩
-      obtain ⟨rb, hrb⟩ : ∃ rb, rbs[k]? = some rb :=
-        ⟨rbs[k]'(by omega), List.getElem?_eq_getElem _⟩
-      obtain rfl : mk = rb.2.2 := by
-        simp only [List.getElem?_map, hrb, Option.map_some,
-          Option.some.injEq] at hmk
-        exact hmk.symm
-      -- the frame variable's shape and annotation
-      obtain ⟨nmC, tyC0, haC⟩ := hspineShape k a hak
-      have htyC : tyC0 = instSeq (spineC.take k) (k - 1) cb.2.1 := by
-        have h1 := hframeTy k a cb hak hcb
-        rw [haC] at h1
-        simpa [Expr.fvarTypeD] using h1
-      subst haC
-      subst htyC
-      -- statement telescope: peel one binder
-      have htklen : (spineC.take k).length = k := by
-        rw [List.length_take, hN]
-        omega
-      obtain ⟨sds, hSi⟩ := hS
-      obtain ⟨sbodyMid, hSmidEq, hSext⟩ :=
-        Expr.instPisAt_head (mrem := nP + nF - k - 1) (spineC.take k) hSi
-          (by rw [htklen,
-                show k + (nP + nF - k - 1 + 1) = nP + nF from by omega]
-              exact hS_strip)
-          (by rw [htklen]; exact hsb)
-      rw [htklen] at hSmidEq hSext
-      subst hSmidEq
-      -- the statement's interpretation peels to the shared domain
-      obtain ⟨QK, hQk, hthm⟩ := hSQ
-      simp only [AnnotOk] at hSA
-      obtain ⟨hAsdom, ⟨scod, hscod⟩, hScond⟩ := hSA
-      rw [interpExpr, hscod] at hQk
-      cases hAs : interpExpr V val' env₁ ψ k ρ
-          (instSeq (spineC.take k) (k - 1) sb.2.1) with
-      | none =>
-        rw [hAs] at hQk
-        exact nomatch hQk
-      | some As =>
-      rw [hAs] at hQk
-      dsimp only at hQk
-      obtain rfl := Option.some.inj hQk
-      -- the shared-domain interp equalities
-      have hfvTake : ∀ x ∈ spineC.take k, ∃ i' nm' ty',
-          x = Expr.fvar i' nm' ty' := by
-        intro x hx
-        obtain ⟨j, hj⟩ := List.getElem?_of_mem (List.mem_of_mem_take hx)
-        obtain ⟨nm', ty', hx'⟩ := hspineShape j x hj
-        exact ⟨j, nm', ty', hx'⟩
-      have hsdomEq : sb.2.1 = (cb.2.1).renameConsts f :=
-        hsdoms k sb cb hsb hcb
-      have hAs' : interpExpr V val' env₁ ψ k ρ
-          (instSeq (spineC.take k) (k - 1) cb.2.1) = some As := by
-        rw [← interp_instSeq_ren hro hfvTake (X := cb.2.1) (t := k - 1),
-          ← hsdomEq]
-        exact hAs
-      -- the rule tower: peel one binder
-      obtain ⟨rds, hRi⟩ := hR
-      obtain ⟨rbodyR, hRmidEq, hRext⟩ :=
-        Expr.instLamsAt_head (mrem := nP + nF - k - 1) ownSpine hRi
-          (by rw [hOwnLen,
-                show k + (nP + nF - k - 1 + 1) = nP + nF from by omega]
-              exact hstripR)
-          (by rw [hOwnLen]; exact hrb)
-      rw [hOwnLen] at hRmidEq hRext
-      subst hRmidEq
-      -- both instantiated domains interpret alike
-      have hOwnFvs : ∀ j x, ownSpine[j]? = some x →
-          ∃ nm' ty', x = Expr.fvar (0 + j) nm' ty' := by
-        intro j x hj
-        obtain ⟨nm', ty', hx⟩ := hOwnShape j x hj
-        exact ⟨nm', ty', by rw [Nat.zero_add]; exact hx⟩
-      have hTakeFvs : ∀ j x, (spineC.take k)[j]? = some x →
-          ∃ nm' ty', x = Expr.fvar (0 + j) nm' ty' := by
-        intro j x hj
-        rcases Nat.lt_or_ge j k with hjk | hjk
-        · rw [List.getElem?_take_of_lt hjk] at hj
-          obtain ⟨nm', ty', hx⟩ := hspineShape j x hj
-          exact ⟨nm', ty', by rw [Nat.zero_add]; exact hx⟩
-        · rw [List.getElem?_take_eq_none hjk] at hj
-          exact nomatch hj
-      obtain ⟨vsO, hfsO, hlenO, hposO⟩ :=
-        fvarSpine_exists (D := k) (ρ := ρ) ownSpine 0 hOwnFvs
-          (by omega)
-      obtain ⟨vsT, hfsT, hlenT, hposT⟩ :=
-        fvarSpine_exists (D := k) (ρ := ρ) (spineC.take k) 0 hTakeFvs
-          (by rw [htklen]; omega)
-      obtain rfl : vsO = vsT := by
-        refine List.ext_getElem? ?_
-        intro j
-        rcases Nat.lt_or_ge j k with hjk | hjk
-        · rw [hposO j (by omega), hposT j (by rw [htklen]; omega)]
-        · rw [List.getElem?_eq_none (by rw [hlenO, hOwnLen]; omega),
-            List.getElem?_eq_none (by rw [hlenT, htklen]; omega)]
-      have hcbcl : cb.2.1.hasFvar = false :=
-        stripPis_doms_hasFvar _ hC_strip hCcl cb (List.mem_of_getElem? hcb)
-      have hcbb : cb.2.1.looseBVarsBounded k = true := by
-        have h1 := stripPis_doms_bounded _ 0 hC_strip hCb k cb hcb
-        simpa using h1
-      have htyR2 : interpExpr V val' env₁ ψ k ρ
-          (instSeq ownSpine (k - 1) rb.2.1) = some As := by
-        rw [hdoms k rb cb hrb hcb]
-        have h1 := interp_instSeq_fvarFrames (e := cb.2.1)
-          (cval := val') (env := env₁) (φ := ψ)
-          hcbcl (by rw [hOwnLen]; exact hcbb) hfsO hfsT
-        rw [hOwnLen, htklen] at h1
-        rw [h1]
-        exact hAs'
-      -- the frame annotation's truthfulness
-      have hAty : AnnotOk V val' env₁ ψ k ρ
-          (instSeq (spineC.take k) (k - 1) cb.2.1) := by
-        have hee : Expr.ErasedEq
-            (instSeq (spineC.take k) (k - 1) sb.2.1)
-            ((instSeq (spineC.take k) (k - 1) cb.2.1).renameConsts f) := by
-          rw [hsdomEq]
-          refine Expr.ErasedEq.symm (instSeq_renameConsts _ _ ?_)
-          intro x hx
-          obtain ⟨i', nm', ty', hx'⟩ := hfvTake x hx
-          rw [hx']
-          simp [Expr.renameConsts, Expr.ErasedEq]
-        exact AnnotOk_renameConsts hro _ k ρ
-          (AnnotOk.erasedEq _ hee k ρ hAsdom)
-      refine TowerOk.cons hAs' htyR2 hAty ?_
-      intro x hx
-      -- the statement inhabitant descends through the binder
-      obtain ⟨hSbodyA, hSwfact⟩ := hScond x As hAs hx
-      have hfib : ∀ y, y ∈ˢ As →
-          ((interpExpr V val' env₁ ψ (k + 1) (updV V ρ k y)
-            (sbodyMid.instantiate1 (.fvar k sb.1
-              (instSeq (spineC.take k) (k - 1) sb.2.1)))).getD
-            SetTheory.empty) ∈ˢ univ (scod.eval ψ) := by
-        intro y hy
-        obtain ⟨-, hwf⟩ := hScond y As hAs hy
-        obtain ⟨w, hwi, hwu⟩ := hwf scod hscod
-        rw [hwi]
-        exact hwu
-      have happ := app_mem hthm hx hfib
-      obtain ⟨w, hwi, hwu⟩ := hSwfact scod hscod
-      rw [hwi] at happ
-      simp only [Option.getD_some] at happ
-      have hEE : Expr.ErasedEq
-          (sbodyMid.instantiate1 (.fvar k sb.1
-            (instSeq (spineC.take k) (k - 1) sb.2.1)))
-          (sbodyMid.instantiate1 (.fvar k nmC
-            (instSeq (spineC.take k) (k - 1) cb.2.1))) :=
-        Expr.ErasedEq.instantiate1 (Expr.ErasedEq.rfl _)
-          (by simp [Expr.ErasedEq])
-      have hwi' : interpExpr V val' env₁ ψ (k + 1) (updV V ρ k x)
-          (sbodyMid.instantiate1 (.fvar k nmC
-            (instSeq (spineC.take k) (k - 1) cb.2.1))) = some w := by
-        rw [← interp_erasedEq hEE (k + 1) (updV V ρ k x)]
-        exact hwi
-      have hSA' : AnnotOk V val' env₁ ψ (k + 1) (updV V ρ k x)
-          (sbodyMid.instantiate1 (.fvar k nmC
-            (instSeq (spineC.take k) (k - 1) cb.2.1))) :=
-        AnnotOk.erasedEq _ hEE (k + 1) (updV V ρ k x) hSbodyA
-      have htake1 : spineC.take (k + 1) = spineC.take k ++
-          [Expr.fvar k nmC (instSeq (spineC.take k) (k - 1) cb.2.1)] := by
-        rw [List.take_add_one, hak]
-        rfl
-      refine ih (k + 1) (updV V ρ k x)
-        (ownSpine ++ [Expr.fvar k rb.1 (instSeq ownSpine (k - 1) rb.2.1)])
-        _ _ (SetTheory.app thAcc x) ?_ ?_ ?_ ?_ ?_ ?_ ?_ hSA'
-      · simp only [List.length_cons] at hk
-        omega
-      · rw [harest, hmrest]
-      · simp [hOwnLen]
-      · intro j x' hj
-        rcases Nat.lt_trichotomy j k with hjk | hjk | hjk
-        · rw [List.getElem?_append_left (by rw [hOwnLen]; exact hjk)]
-            at hj
-          exact hOwnShape j x' hj
-        · have hj' : j = ownSpine.length := by omega
-          rw [hj', List.getElem?_concat_length] at hj
-          obtain rfl := Option.some.inj hj
-          exact ⟨rb.1, _, by rw [hjk]⟩
-        · rw [List.getElem?_eq_none (by simp [hOwnLen]; omega)] at hj
-          exact nomatch hj
-      · exact ⟨_, hRext _⟩
-      · rw [htake1]
-        exact ⟨_, hSext _⟩
-      · exact ⟨w, hwi', happ⟩
-
 set_option maxHeartbeats 3200000 in
 /-- The projection rule's bottom fact (`Hbot` of `TowerOk.of_stages`):
 over any full frame-fitting value list, the canonical body (the
@@ -1094,11 +457,14 @@ own frame value — and its annotations are truthful.  The checked
 environment (where the kernel ran the definitional parameter pins),
 and the residual facts transport across the fresh extension. -/
 theorem proj_bottom
-    {env : Env} (m₀ : EnvModel V env) (F : Nat) {ψ : Name → Nat}
+    {env : Env} (m : EnvModel V env) (F : Nat) {ψ : Name → Nat}
     {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none)
+    {val' : ConstVal V}
+    (hagree : ∀ n, (env.find? n).isSome = true → ∀ ψ'' : Name → Nat,
+      val' n ψ'' = m.val n ψ'')
     {f : Name → Name}
-    (hro₀ : RenameOk m₀.val env f)
-    (hro₁ : RenameOk m₀.val (⟨c₀ :: env.consts⟩ : Env) f)
+    (hro₀ : RenameOk m.val env f)
+    (hro₁ : RenameOk val' (⟨c₀ :: env.consts⟩ : Env) f)
     {P ctor : Name} {cvA cvj cvt : ConstantVal} {nP nF i : Nat}
     (hi : i < nF)
     (hfP₁ : (⟨c₀ :: env.consts⟩ : Env).find? P = some c₀)
@@ -1108,14 +474,14 @@ theorem proj_bottom
     (hfPm : env.find? (f P) = some cimP)
     (hPmlps : cimP.toConstantVal.levelParams = cvA.levelParams)
     (heqfind : env.find? eqName = some eqA)
-    (heqval : ∀ ψ'' : Name → Nat, m₀.val eqName ψ'' = eqVal V ψ'')
+    (heqval₁ : ∀ ψ'' : Name → Nat, val' eqName ψ'' = eqVal V ψ'')
     -- the iota theorem's semantic facts, over the base environment
     {thmName : Name}
     (hthm_mem : ∀ ψ'' : Name → Nat, ∃ Pv,
-      interpClosed V m₀.val env ψ'' cvt.type = some Pv ∧
-      m₀.val thmName ψ'' ∈ˢ Pv)
+      interpClosed V m.val env ψ'' cvt.type = some Pv ∧
+      m.val thmName ψ'' ∈ˢ Pv)
     (hthm_annot : ∀ ψ'' : Name → Nat,
-      AnnotOk V m₀.val env ψ'' 0 (rho0 V) cvt.type)
+      AnnotOk V m.val env ψ'' 0 (rho0 V) cvt.type)
     (hSw : cvt.type.hasFvar = false)
     (hSres : cvt.type.constsResolve env = true)
     -- the statement's shape
@@ -1156,24 +522,24 @@ theorem proj_bottom
     (htyw : cvA.type.hasFvar = false)
     (htyb : cvA.type.looseBVarsBounded 0 = true)
     (hTres : cvA.type.constsResolve env = true)
-    (hAty : AnnotOk V m₀.val env ψ 0 (rho0 V) cvA.type)
+    (hAty : AnnotOk V m.val env ψ 0 (rho0 V) cvA.type)
     (hCw : cvj.type.hasFvar = false)
     (hCb : cvj.type.looseBVarsBounded 0 = true)
     (hCres : cvj.type.constsResolve env = true)
-    (hACty : AnnotOk V m₀.val env ψ 0 (rho0 V) cvj.type)
-    (hICty : ∃ T, interpClosed V m₀.val env ψ cvj.type = some T) :
+    (hACty : AnnotOk V m.val env ψ 0 (rho0 V) cvj.type)
+    (hICty : ∃ T, interpClosed V m.val env ψ cvj.type = some T) :
     ∀ (xs : List V), xs.length = nP + nF →
-      FramePref m₀.val env ψ (fvsP ++ xFvs) xs →
-      (∃ w, interpExpr V m₀.val (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF)
+      FramePref m.val env ψ (fvsP ++ xFvs) xs →
+      (∃ w, interpExpr V val' (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF)
           (fun l => xs.getD l SetTheory.empty)
           (Expr.mkAppN (.const P (cvA.levelParams.map .param))
             ((fvsP ++ xFvs).take nP ++
               [Expr.mkAppN (.const ctor (cvj.levelParams.map .param))
                 (fvsP ++ xFvs)])) = some w ∧
         ∀ e, Expr.ErasedEq e lrestL →
-          interpExpr V m₀.val (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF)
+          interpExpr V val' (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF)
             (fun l => xs.getD l SetTheory.empty) e = some w) ∧
-      AnnotOk V m₀.val (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF)
+      AnnotOk V val' (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF)
         (fun l => xs.getD l SetTheory.empty)
         (Expr.mkAppN (.const P (cvA.levelParams.map .param))
           ((fvsP ++ xFvs).take nP ++
@@ -1210,7 +576,7 @@ theorem proj_bottom
   have hmemP : ∀ (l : Nat) (a : Expr) (v : V),
       (fvsP.map Expr.fvarTypeD)[l]? = some a →
       (xs.take nP)[l]? = some v →
-      ∃ B, interpExpr V m₀.val env ψ (nP + nF)
+      ∃ B, interpExpr V m.val env ψ (nP + nF)
         (fun l' => xs.getD l' SetTheory.empty) a = some B ∧ v ∈ˢ B := by
     intro l a v ha hv
     have hlr : l < nP := by
@@ -1239,7 +605,7 @@ theorem proj_bottom
       simp only [WScoped] at hW
       rw [hshapei]
       exact hW.2
-    have hcan := interp_getD_canon (cval := m₀.val) (env := env)
+    have hcan := interp_getD_canon (cval := m.val) (env := env)
       (φ := ψ) (e := Expr.fvarTypeD fvi) (xs := xs) (D := nP + nF)
       hWi (by omega) (by omega)
     rw [hcan]
@@ -1253,22 +619,22 @@ theorem proj_bottom
     (hfvsPWf a ha).2.2
   -- the constructor walk at the parameters, through the pins
   have hWc : WScoped (nP + nF) cvj.type := WScoped.of_not_hasFvar hCw
-  have hAc : AnnotOk V m₀.val env ψ (nP + nF)
+  have hAc : AnnotOk V m.val env ψ (nP + nF)
       (fun l => xs.getD l SetTheory.empty) cvj.type :=
     AnnotOk.closed_invariant hCw _ _ hACty
-  have hIc : ∃ T, interpExpr V m₀.val env ψ (nP + nF)
+  have hIc : ∃ T, interpExpr V m.val env ψ (nP + nF)
       (fun l => xs.getD l SetTheory.empty) cvj.type = some T := by
     obtain ⟨T, hT⟩ := hICty
     refine ⟨T, ?_⟩
     rw [interp_closed_invariant hCw _ _]
     exact hT
-  obtain ⟨hfitC, hpackC⟩ := pi_walk_src m₀ F hcinstP hdeParsP hspP hwsP
+  obtain ⟨hfitC, hpackC⟩ := pi_walk_src m F hcinstP hdeParsP hspP hwsP
     hLsP hΘP hWc hCb (Expr.LeavesBounded.of_not_hasFvar hCw)
     (FvarsOk.of_not_hasFvar hCw) hAc hIc
   obtain ⟨-, hPcrEx⟩ := peel_walk hcinstP hspP hwsP hWc hAc hIc hpackC
   obtain ⟨Pcr, hPcr⟩ := hPcrEx
   obtain ⟨hWcrD, hbcr, hAcr, hlcr⟩ := TeleFitI.rest_wf hfitC hWc hCb hAc
-  have hFcr : FvarsOk V m₀.val env ψ (nP + nF)
+  have hFcr : FvarsOk V m.val env ψ (nP + nF)
       (fun l => xs.getD l SetTheory.empty) crestP := by
     intro l hl
     rcases hlcr l hl with hl' | ⟨a, ha, hla⟩
@@ -1306,7 +672,7 @@ theorem proj_bottom
   have hmemX : ∀ (l : Nat) (a : Expr) (v : V),
       (xFvs.map Expr.fvarTypeD)[l]? = some a →
       (xs.drop nP)[l]? = some v →
-      ∃ B, interpExpr V m₀.val env ψ (nP + nF)
+      ∃ B, interpExpr V m.val env ψ (nP + nF)
         (fun l' => xs.getD l' SetTheory.empty) a = some B ∧ v ∈ˢ B := by
     intro l a v ha hv
     have hlt : l < nF := by
@@ -1335,7 +701,7 @@ theorem proj_bottom
       simp only [WScoped] at hW
       rw [hshapei]
       exact hW.2
-    have hcan := interp_getD_canon (cval := m₀.val) (env := env)
+    have hcan := interp_getD_canon (cval := m.val) (env := env)
       (φ := ψ) (e := Expr.fvarTypeD fvi) (xs := xs) (D := nP + nF)
       hWi (by omega) (by omega)
     rw [hcan]
@@ -1343,7 +709,7 @@ theorem proj_bottom
   have hWcrD' : WScoped (nP + nF) crestP := hWcrRp.mono (by omega)
   obtain ⟨hfitXP, hΘX⟩ := self_walk hxInst hspX hwsX hWcrD' hbcr hLcr
     hFcr hAcr hmemX
-  have hfitCfullP : TeleFitI V m₀.val env ψ (nP + nF)
+  have hfitCfullP : TeleFitI V m.val env ψ (nP + nF)
       (fun l => xs.getD l SetTheory.empty) cvj.type
       (fvsP ++ xFvs) (xs.take nP ++ xs.drop nP) crest2X :=
     TeleFitI.append hfitC hfitXP
@@ -1360,7 +726,7 @@ theorem proj_bottom
   have hcombined : Expr.instPisAt (fvsP ++ xFvs) cvj.type =
       some (cdomsP ++ xFvs.map Expr.fvarTypeD, crest2X) :=
     instPisAt_append_of fvsP hcinstP hxInst
-  have hiaPX : InstArgs m₀.val env ψ (nP + nF)
+  have hiaPX : InstArgs m.val env ψ (nP + nF)
       (fun l => xs.getD l SetTheory.empty) (fvsP ++ xFvs)
       (xs.take nP ++ xs.drop nP) :=
     InstArgs.of_fvarSpine (by
@@ -1389,7 +755,7 @@ theorem proj_bottom
       exact ⟨nP + j, nm, _, hsh⟩
   have hmemS : ∀ (l : Nat) (a : Expr) (v : V), sds[l]? = some a →
       xs[l]? = some v →
-      ∃ B, interpExpr V m₀.val env ψ (nP + nF)
+      ∃ B, interpExpr V m.val env ψ (nP + nF)
         (fun l' => xs.getD l' SetTheory.empty) a = some B ∧ v ∈ˢ B := by
     intro l a v ha hv
     have hlN : l < nP + nF := by
@@ -1430,7 +796,7 @@ theorem proj_bottom
       exact hPv)
     hmemS
   obtain ⟨Pv, hPvc, hPvMem⟩ := hthm_mem ψ
-  have hPvI : interpExpr V m₀.val env ψ (nP + nF)
+  have hPvI : interpExpr V m.val env ψ (nP + nF)
       (fun l => xs.getD l SetTheory.empty) cvt.type = some Pv := by
     rw [interp_closed_invariant hSw _ _]
     exact hPvc
@@ -1450,16 +816,19 @@ theorem proj_bottom
     · exact hxFvsRes a ha
   have hResRes : stmtRes.constsResolve env = true :=
     instPisAt_resolve (fvsP ++ xFvs) hSinst hSres hspineRes
-  have hSQ1 : ∃ QN, interpExpr V m₀.val (⟨c₀ :: env.consts⟩ : Env) ψ
+  have hSQ1 : ∃ QN, interpExpr V val' (⟨c₀ :: env.consts⟩ : Env) ψ
       (nP + nF) (fun l => xs.getD l SetTheory.empty) stmtRes =
         some QN ∧
-      SpineFold V (m₀.val thmName ψ) xs ∈ˢ QN := by
+      SpineFold V (m.val thmName ψ) xs ∈ˢ QN := by
     refine ⟨Q0, ?_, hQMem0⟩
-    rw [interp_mono (cval := m₀.val) hfresh stmtRes _ _ hResRes]
+    rw [interp_mono (cval := val') hfresh stmtRes _ _ hResRes,
+      interp_cval_ext hagree stmtRes _ _]
     exact hQ0
-  have hSA1 : AnnotOk V m₀.val (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF)
+  have hSA1 : AnnotOk V val' (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF)
       (fun l => xs.getD l SetTheory.empty) stmtRes :=
-    AnnotOk.mono hfresh stmtRes _ _ hResRes hSAres
+    AnnotOk.mono hfresh stmtRes _ _ hResRes
+      (AnnotOk.cval_ext (fun n hn ψ' => (hagree n hn ψ').symm)
+        stmtRes _ _ hSAres)
   -- the extended environment's lookups
   have hfj₁ : (⟨c₀ :: env.consts⟩ : Env).find? ctor =
       some (.ctorInfo cvj nP nF) := by
@@ -1506,7 +875,7 @@ theorem proj_bottom
     (nF - 1 - i) hOwnB (by omega) (by rw [hspineLenA]; omega)
   rw [show nP + nF - 1 - (nF - 1 - i) = nP + i from by omega] at hbv
   obtain ⟨nmr, tyr, hfld⟩ := hspineShapeA (nP + i) _ hbv
-  have heRi : interpExpr V m₀.val (⟨c₀ :: env.consts⟩ : Env) ψ
+  have heRi : interpExpr V val' (⟨c₀ :: env.consts⟩ : Env) ψ
       (nP + nF) (fun l => xs.getD l SetTheory.empty) lrestL =
       some (xs.getD (nP + i) SetTheory.empty) := by
     rw [hRmid, hrbody, hfld]
@@ -1605,16 +974,16 @@ theorem proj_bottom
   rw [hSmid, hresidual] at hQi hSA1
   -- the spine's values
   obtain ⟨vals, hvalsSp, hvalsLen, hvalsPos⟩ :=
-    interpSpine_fvars_exists (cval := m₀.val) (env := (⟨c₀ :: env.consts⟩ : Env)) (φ := ψ)
+    interpSpine_fvars_exists (cval := val') (env := (⟨c₀ :: env.consts⟩ : Env)) (φ := ψ)
       (d := nP + nF) (ρ := fun l => xs.getD l SetTheory.empty) (fvsP ++ xFvs) 0
       (fun j a hj => by
         obtain ⟨nm, ty, ha⟩ := hspineShapeA j a hj
         exact ⟨nm, ty, by rw [Nat.zero_add]; exact ha⟩)
   -- component values
   obtain ⟨cimC, hfCm, hlpCm⟩ := hro₁.1 ctor _ hfj₁
-  have hcCi : interpExpr V m₀.val (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF) (fun l => xs.getD l SetTheory.empty)
+  have hcCi : interpExpr V val' (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF) (fun l => xs.getD l SetTheory.empty)
       (.const (f ctor) (cvj.levelParams.map .param)) =
-      some (m₀.val ctor ψ) := by
+      some (val' ctor ψ) := by
     simp only [interpExpr, hfCm]
     rw [if_pos (by rw [hlpCm]; simp [ConstantInfo.toConstantVal])]
     rw [show cimC.toConstantVal.levelParams = cvj.levelParams from by
@@ -1623,17 +992,17 @@ theorem proj_bottom
         (cvj.levelParams.map .param) = ψ from
       funext fun p => Level.substFn_map_param]
     rw [hro₁.2.2 ctor]
-  have hctorVal : interpExpr V m₀.val (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF) (fun l => xs.getD l SetTheory.empty)
+  have hctorVal : interpExpr V val' (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF) (fun l => xs.getD l SetTheory.empty)
       (Expr.mkAppN (.const (f ctor) (cvj.levelParams.map .param))
         ((fvsP ++ xFvs).take nP ++ (fvsP ++ xFvs).drop nP)) =
-      some (SpineFold V (m₀.val ctor ψ) vals) := by
+      some (SpineFold V (val' ctor ψ) vals) := by
     rw [interp_mkAppN _ _ hcCi
       (InterpSpine.append (InterpSpine.take nP hvalsSp)
         (InterpSpine.drop nP hvalsSp))]
     rw [List.take_append_drop]
-  have hcPi : interpExpr V m₀.val (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF) (fun l => xs.getD l SetTheory.empty)
+  have hcPi : interpExpr V val' (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF) (fun l => xs.getD l SetTheory.empty)
       (.const (f P) (cvA.levelParams.map .param)) =
-      some (m₀.val P ψ) := by
+      some (val' P ψ) := by
     simp only [interpExpr, hfPm₁]
     rw [if_pos (by rw [hPmlps]; simp)]
     rw [show cimP.toConstantVal.levelParams = cvA.levelParams from
@@ -1642,17 +1011,17 @@ theorem proj_bottom
         (cvA.levelParams.map .param) = ψ from
       funext fun p => Level.substFn_map_param]
     rw [hro₁.2.2 P]
-  have hlhsVal : interpExpr V m₀.val (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF) (fun l => xs.getD l SetTheory.empty)
+  have hlhsVal : interpExpr V val' (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF) (fun l => xs.getD l SetTheory.empty)
       (Expr.mkAppN (.const (f P) (cvA.levelParams.map .param))
         ((fvsP ++ xFvs).take nP ++
          [Expr.mkAppN (.const (f ctor) (cvj.levelParams.map .param))
            ((fvsP ++ xFvs).take nP ++ (fvsP ++ xFvs).drop nP)])) =
-      some (SpineFold V (m₀.val P ψ)
-        (vals.take nP ++ [SpineFold V (m₀.val ctor ψ) vals])) := by
+      some (SpineFold V (val' P ψ)
+        (vals.take nP ++ [SpineFold V (val' ctor ψ) vals])) := by
     rw [interp_mkAppN _ _ hcPi
       (InterpSpine.append (InterpSpine.take nP hvalsSp)
-        (show InterpSpine m₀.val (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF) (fun l => xs.getD l SetTheory.empty)
-          [_] [SpineFold V (m₀.val ctor ψ) vals] from ⟨hctorVal, trivial⟩))]
+        (show InterpSpine val' (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF) (fun l => xs.getD l SetTheory.empty)
+          [_] [SpineFold V (val' ctor ψ) vals] from ⟨hctorVal, trivial⟩))]
   -- destructure the equation's chain
   obtain ⟨-, hcomps, veq, vsE, hveqi, hspE, hchainE, hfoldQ⟩ :=
     annotOk_spine_inv _ (.const eqName [ℓA]) (by simp) hSA1
@@ -1664,8 +1033,8 @@ theorem proj_bottom
     | [_, _], h => exact nomatch h.2.2
     | _ :: _ :: _ :: _ :: _, h => exact nomatch h.2.2.2
   obtain ⟨hiα, hil, hir, -⟩ := hspE
-  have hvl : vl = SpineFold V (m₀.val P ψ)
-      (vals.take nP ++ [SpineFold V (m₀.val ctor ψ) vals]) := by
+  have hvl : vl = SpineFold V (val' P ψ)
+      (vals.take nP ++ [SpineFold V (val' ctor ψ) vals]) := by
     rw [hlhsVal] at hil
     exact (Option.some.inj hil).symm
   have hvr : vr = xs.getD (nP + i) SetTheory.empty := by
@@ -1679,7 +1048,7 @@ theorem proj_bottom
   have hveq : veq = eqVal V (Level.substFn ψ [uN] [ℓA]) := by
     simp only [interpExpr, heqfind₁] at hveqi
     rw [if_pos (by simp [eqA, ConstantInfo.toConstantVal])] at hveqi
-    rw [← Option.some.inj hveqi, heqval]
+    rw [← Option.some.inj hveqi, heqval₁]
     congr 2
   obtain ⟨⟨vE₁, A₁, B₁, hpi₁, hmem₁, -⟩, hchainE'⟩ := hchainE
   obtain ⟨⟨vE₂, A₂, B₂, hpi₂, hmem₂, -⟩, hchainE''⟩ := hchainE'
@@ -1713,18 +1082,18 @@ theorem proj_bottom
     rw [hQeqv] at hthMem
     exact mem_eqv hthMem
   -- interpret and certify the canonical body
-  have hPi2 : interpExpr V m₀.val (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF) (fun l => xs.getD l SetTheory.empty)
+  have hPi2 : interpExpr V val' (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF) (fun l => xs.getD l SetTheory.empty)
       (.const P (cvA.levelParams.map .param)) =
-      some (m₀.val P ψ) := by
+      some (val' P ψ) := by
     simp only [interpExpr, hfP₁]
     rw [if_pos (by rw [hlpsP]; simp)]
     rw [show c₀.toConstantVal.levelParams = cvA.levelParams from hlpsP]
     rw [show Level.substFn ψ cvA.levelParams
         (cvA.levelParams.map .param) = ψ from
       funext fun p => Level.substFn_map_param]
-  have hCi2 : interpExpr V m₀.val (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF) (fun l => xs.getD l SetTheory.empty)
+  have hCi2 : interpExpr V val' (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF) (fun l => xs.getD l SetTheory.empty)
       (.const ctor (cvj.levelParams.map .param)) =
-      some (m₀.val ctor ψ) := by
+      some (val' ctor ψ) := by
     simp only [interpExpr, hfj₁]
     rw [if_pos (by simp [ConstantInfo.toConstantVal])]
     rw [show (ConstantInfo.ctorInfo cvj nP nF).toConstantVal.levelParams
@@ -1746,10 +1115,10 @@ theorem proj_bottom
   obtain ⟨-, hcompsL, vfP, vsL, hifP, hispL, hchainL, -⟩ :=
     annotOk_spine_inv _ (.const (f P) (cvA.levelParams.map .param))
       hLne hlhsA
-  have hvfP : vfP = m₀.val P ψ := by
+  have hvfP : vfP = val' P ψ := by
     rw [hcPi] at hifP
     exact (Option.some.inj hifP).symm
-  have hvsL : vsL = vals.take nP ++ [SpineFold V (m₀.val ctor ψ) vals] :=
+  have hvsL : vsL = vals.take nP ++ [SpineFold V (val' ctor ψ) vals] :=
     InterpSpine.functional hispL
       (InterpSpine.append (InterpSpine.take nP hvalsSp)
         ⟨hctorVal, trivial⟩)
@@ -1768,7 +1137,7 @@ theorem proj_bottom
   obtain ⟨-, -, vfC, vsC, hifC, hispC, hchainC, -⟩ :=
     annotOk_spine_inv _
       (.const (f ctor) (cvj.levelParams.map .param)) hCne hctorA
-  have hvfC : vfC = m₀.val ctor ψ := by
+  have hvfC : vfC = val' ctor ψ := by
     rw [hcCi] at hifC
     exact (Option.some.inj hifC).symm
   have hvsC : vsC = vals := by
@@ -1777,19 +1146,19 @@ theorem proj_bottom
       (InterpSpine.drop nP hvalsSp)
     rwa [List.take_append_drop nP vals] at this
   -- assemble the body's truthfulness and value
-  have hfvA : ∀ x ∈ (fvsP ++ xFvs), AnnotOk V m₀.val (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF) (fun l => xs.getD l SetTheory.empty) x := by
+  have hfvA : ∀ x ∈ (fvsP ++ xFvs), AnnotOk V val' (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF) (fun l => xs.getD l SetTheory.empty) x := by
     intro x hx
     obtain ⟨j, hj⟩ := List.getElem?_of_mem hx
     obtain ⟨nm, ty, rfl⟩ := hspineShapeA j x hj
     simp only [AnnotOk]
-  have hchainC' : ChainSlots V (m₀.val ctor ψ) vals := by
+  have hchainC' : ChainSlots V (val' ctor ψ) vals := by
     rw [← hvfC, ← hvsC]
     exact hchainC
   obtain ⟨hActor, hictor⟩ := annotOk_spine (fvsP ++ xFvs)
     (.const ctor (cvj.levelParams.map .param))
     (by simp only [AnnotOk]) hCi2 hfvA hvalsSp hchainC'
-  have hchainL' : ChainSlots V (m₀.val P ψ)
-      (vals.take nP ++ [SpineFold V (m₀.val ctor ψ) vals]) := by
+  have hchainL' : ChainSlots V (val' P ψ)
+      (vals.take nP ++ [SpineFold V (val' ctor ψ) vals]) := by
     rw [← hvfP, ← hvsL]
     exact hchainL
   obtain ⟨hAbL, hibL⟩ := annotOk_spine
@@ -1806,11 +1175,11 @@ theorem proj_bottom
           simpa using hx
         exact hActor)
     (InterpSpine.append (InterpSpine.take nP hvalsSp)
-      (show InterpSpine m₀.val (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF) (fun l => xs.getD l SetTheory.empty) [_]
-        [SpineFold V (m₀.val ctor ψ) vals] from ⟨hictor, trivial⟩))
+      (show InterpSpine val' (⟨c₀ :: env.consts⟩ : Env) ψ (nP + nF) (fun l => xs.getD l SetTheory.empty) [_]
+        [SpineFold V (val' ctor ψ) vals] from ⟨hictor, trivial⟩))
     hchainL'
-  refine ⟨⟨SpineFold V (m₀.val P ψ)
-      (vals.take nP ++ [SpineFold V (m₀.val ctor ψ) vals]), ?_, ?_⟩,
+  refine ⟨⟨SpineFold V (val' P ψ)
+      (vals.take nP ++ [SpineFold V (val' ctor ψ) vals]), ?_, ?_⟩,
     hAbL⟩
   · rw [hibL]
   · intro e hee
@@ -1831,11 +1200,14 @@ the checked `proj_i.iota` theorem's bottom (`proj_bottom`), through
 `TowerOk.of_stages`/`TowerOk.out`, with the stage facts transported
 across the fresh recursor extension. -/
 theorem proj_rule_eq
-    {env : Env} (m₀ : EnvModel V env) (F : Nat)
+    {env : Env} (m : EnvModel V env) (F : Nat)
     {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none)
+    {val' : ConstVal V}
+    (hagree : ∀ n, (env.find? n).isSome = true → ∀ ψ'' : Name → Nat,
+      val' n ψ'' = m.val n ψ'')
     {f : Name → Name}
-    (hro₀ : RenameOk m₀.val env f)
-    (hro₁ : RenameOk m₀.val (⟨c₀ :: env.consts⟩ : Env) f)
+    (hro₀ : RenameOk m.val env f)
+    (hro₁ : RenameOk val' (⟨c₀ :: env.consts⟩ : Env) f)
     {P : Name} {nP nF i : Nat} (hi : i < nF)
     {rule : RecRule} {cvA cvj cvt : ConstantVal}
     (hfP₁ : (⟨c₀ :: env.consts⟩ : Env).find? P = some c₀)
@@ -1845,13 +1217,13 @@ theorem proj_rule_eq
     (hfPm : env.find? (f P) = some cimP)
     (hPmlps : cimP.toConstantVal.levelParams = cvA.levelParams)
     (heqfind : env.find? eqName = some eqA)
-    (heqval : ∀ ψ'' : Name → Nat, m₀.val eqName ψ'' = eqVal V ψ'')
+    (heqval₁ : ∀ ψ'' : Name → Nat, val' eqName ψ'' = eqVal V ψ'')
     {thmName : Name}
     (hthm_mem : ∀ ψ'' : Name → Nat, ∃ Pv,
-      interpClosed V m₀.val env ψ'' cvt.type = some Pv ∧
-      m₀.val thmName ψ'' ∈ˢ Pv)
+      interpClosed V m.val env ψ'' cvt.type = some Pv ∧
+      m.val thmName ψ'' ∈ˢ Pv)
     (hthm_annot : ∀ ψ'' : Name → Nat,
-      AnnotOk V m₀.val env ψ'' 0 (rho0 V) cvt.type)
+      AnnotOk V m.val env ψ'' 0 (rho0 V) cvt.type)
     (hSw : cvt.type.hasFvar = false)
     (hSres : cvt.type.constsResolve env = true)
     (hfirep : RecRule.fire rule = .plain)
@@ -1906,28 +1278,28 @@ theorem proj_rule_eq
     (hrhsw : (RecRule.rhs rule).hasFvar = false)
     (hrhsb : (RecRule.rhs rule).looseBVarsBounded 0 = true)
     (hAty : ∀ ψ'' : Name → Nat,
-      AnnotOk V m₀.val env ψ'' 0 (rho0 V) cvA.type)
+      AnnotOk V m.val env ψ'' 0 (rho0 V) cvA.type)
     (hIty : ∀ ψ'' : Name → Nat, ∃ T,
-      interpClosed V m₀.val env ψ'' cvA.type = some T)
+      interpClosed V m.val env ψ'' cvA.type = some T)
     (hACty : ∀ ψ'' : Name → Nat,
-      AnnotOk V m₀.val env ψ'' 0 (rho0 V) cvj.type)
+      AnnotOk V m.val env ψ'' 0 (rho0 V) cvj.type)
     (hICty : ∀ ψ'' : Name → Nat, ∃ T,
-      interpClosed V m₀.val env ψ'' cvj.type = some T)
+      interpClosed V m.val env ψ'' cvj.type = some T)
     (hArhs : ∀ ψ'' : Name → Nat,
-      AnnotOk V m₀.val env ψ'' 0 (rho0 V) (RecRule.rhs rule))
+      AnnotOk V m.val env ψ'' 0 (rho0 V) (RecRule.rhs rule))
     (hIrhs : ∀ ψ'' : Name → Nat, ∃ L,
-      interpClosed V m₀.val env ψ'' (RecRule.rhs rule) = some L) :
+      interpClosed V m.val env ψ'' (RecRule.rhs rule) = some L) :
     ∃ fvms bL, ruleLhsParts P cvA nP rule cvj = some (fvms, bL) ∧
       FrameWf 0 fvms bL ∧
       fvms.length = nP + RecRule.nfields rule ∧
       (closeLamsAt fvms bL).constsResolve
         (⟨c₀ :: env.consts⟩ : Env) = true ∧
       ∀ ψ'' : Name → Nat,
-        AnnotOk V m₀.val (⟨c₀ :: env.consts⟩ : Env) ψ'' 0 (rho0 V)
+        AnnotOk V val' (⟨c₀ :: env.consts⟩ : Env) ψ'' 0 (rho0 V)
           (closeLamsAt fvms bL) ∧
-        ∃ Rv, interpClosed V m₀.val (⟨c₀ :: env.consts⟩ : Env) ψ''
+        ∃ Rv, interpClosed V val' (⟨c₀ :: env.consts⟩ : Env) ψ''
             (closeLamsAt fvms bL) = some Rv ∧
-          interpClosed V m₀.val (⟨c₀ :: env.consts⟩ : Env) ψ''
+          interpClosed V val' (⟨c₀ :: env.consts⟩ : Env) ψ''
             (RecRule.rhs rule) = some Rv := by
   -- spine data and shapes
   obtain ⟨hfvsPInst, hfvsPLen, hfvsPShape⟩ :=
@@ -1972,7 +1344,7 @@ theorem proj_rule_eq
   -- the semantic clause, per level assignment
   intro ψ
   -- Hty: the flat stage facts at the base environment, transported
-  have hctorPkg := ctor_pkg_plain (xFvsP := xFvs) m₀ F hopenP hTcl hTb
+  have hctorPkg := ctor_pkg_plain (xFvsP := xFvs) m F hopenP hTcl hTb
     (hAty ψ)
     (by rw [show fvsP.take nP = fvsP from by
           rw [← hfvsPLen]; exact List.take_length]
@@ -1981,7 +1353,7 @@ theorem proj_rule_eq
           rw [← hfvsPLen]; exact List.take_length]
         exact hdeParsP)
     (Nat.le_refl nP) hCcl hCb (hACty ψ) (hICty ψ)
-  have hstage := modeled_stage (rP := nP) (cnF := nF) m₀ F hopenP hTcl
+  have hstage := modeled_stage (rP := nP) (cnF := nF) m F hopenP hTcl
     hTb (hAty ψ) (hIty ψ) hopenX hctorPkg hlinstP hdeLamP hrhsw hrhsb
     (hArhs ψ) (hIrhs ψ)
   -- resolution of the frame annotations and tower domains
@@ -2053,12 +1425,12 @@ theorem proj_rule_eq
     rw [List.length_zip, hspineLen, List.length_map, hrbsLen]
     simp
   -- the tower spec from the transported stage facts and the bottom
-  have hbot := proj_bottom m₀ F hfresh hro₀ hro₁ hi hfP₁ hlpsP hfj
-    hfPm hPmlps heqfind heqval hthm_mem hthm_annot hSw hSres hC_strip
+  have hbot := proj_bottom m F hfresh hagree hro₀ hro₁ hi hfP₁ hlpsP hfj
+    hfPm hPmlps heqfind heqval₁ hthm_mem hthm_annot hSw hSres hC_strip
     hS_strip hsdoms hsbody hstripR hrbody hopenP hcinstP hdeParsP
     hopenX hlinstP hTcl hTb hTres (hAty ψ) hCcl hCb hCres (hACty ψ)
     (hICty ψ) (ψ := ψ)
-  have htower := TowerOk.of_stages (cval := m₀.val)
+  have htower := TowerOk.of_stages (cval := val')
     (env := (⟨c₀ :: env.consts⟩ : Env)) (φ := ψ)
     (bL := Expr.mkAppN (.const P (cvA.levelParams.map .param))
       (fvsP ++ crest2X.getAppArgs.drop (RecRule.ctorParams rule) ++
@@ -2068,7 +1440,7 @@ theorem proj_rule_eq
     (lrest := lrestL)
     (fvms := (fvsP ++ xFvs).zip (rbs.map (·.2.2)))
     (ldoms := ldoms)
-    (Ok := FramePref m₀.val env ψ (fvsP ++ xFvs))
+    (Ok := FramePref m.val env ψ (fvsP ++ xFvs))
     (Hty := by
       intro k xs fv m ld hxs hfv hld hOk
       have hfv' : (fvsP ++ xFvs)[k]? = some fv := by
@@ -2141,14 +1513,18 @@ theorem proj_rule_eq
           rw [show nP + (k - nP) = k from by omega] at hW ⊢
           exact hW.2
       refine ⟨A, ?_, ?_, ?_, h4⟩
-      · rw [interp_mono (cval := m₀.val) hfresh _ _ _ hannR]
+      · rw [interp_mono (cval := val') hfresh _ _ _ hannR,
+          interp_cval_ext hagree _ _ _]
         exact h1
       · intro e hee
         rw [interp_erasedEq hee _ _,
-          interp_mono (cval := m₀.val) hfresh _ _ _
-            (hldomsRes k ld hld)]
+          interp_mono (cval := val') hfresh _ _ _
+            (hldomsRes k ld hld),
+          interp_cval_ext hagree _ _ _]
         exact h2 ld (Expr.ErasedEq.rfl _)
-      · exact AnnotOk.mono hfresh _ _ _ hannR h3)
+      · exact AnnotOk.mono hfresh _ _ _ hannR
+          (AnnotOk.cval_ext (fun n hn ψ' => (hagree n hn ψ').symm)
+            _ _ _ h3))
     (Hbot := by
       intro xs hxs hOk
       rw [hfvmsLen] at hxs
@@ -2228,5 +1604,7 @@ theorem proj_rule_eq
     rfl
   rw [hrho] at htower
   obtain ⟨⟨Rv, hL, hR⟩, hAL⟩ := TowerOk.out htower hwf
-    (AnnotOk.mono hfresh _ 0 (rho0 V) hRres (hArhs ψ))
+    (AnnotOk.mono hfresh _ 0 (rho0 V) hRres
+      (AnnotOk.cval_ext (fun n hn ψ' => (hagree n hn ψ').symm)
+        _ 0 (rho0 V) (hArhs ψ)))
   exact ⟨hAL, Rv, hL, hR⟩
