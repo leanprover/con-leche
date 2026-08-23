@@ -138,13 +138,13 @@ private def emptyModelAuxName : Name :=
 -- The frontend keeps both declarations (`def Eq._model : Type := Prop`,
 -- `def Empty._model.proj_0 : Type := Prop`) …
 #guard match Frontend.parseExport basisModelExport with
-  | .ok (_, ds) => ds.map (·.name) == #[eqModelName, emptyModelAuxName]
+  | .ok ⟨_, ds, _⟩ => ds.map (·.name) == #[eqModelName, emptyModelAuxName]
   | .error _ => false
 
 -- … and the checker accepts them as ordinary definitions (the parsed
 -- indices read back to the spec declarations the spec checker takes).
 #guard match Frontend.parseExport basisModelExport with
-  | .ok (st, ds) =>
+  | .ok ⟨st, ds, _⟩ =>
     match ds.toList.mapM st.readbackDecl with
     | some decls => (checkDecls pureOps decls).toBool
     | none => false
@@ -152,7 +152,62 @@ private def emptyModelAuxName : Name :=
 
 -- … and the parsed-index checker itself accepts them.
 #guard match Frontend.parseExport basisModelExport with
-  | .ok (st, ds) => (checkDeclsSP st ds.toList).toBool
+  | .ok ⟨st, ds, _⟩ => (checkDeclsSP st ds.toList).toBool
+  | .error _ => false
+
+/-! ## Frontend: taint skip-and-continue
+
+Uses of a tolerated axiom are never accepted, but no longer stop the
+stream (user directive 2026-08-24): the tainted declaration is skipped
+— absent from the parsed declarations, so it can never be checked or
+installed — its name is tainted so transitive users skip too, and the
+rest of the stream is parsed and checked as usual.  The driver turns a
+nonempty `taintSkipped` into the final decline. -/
+
+private def sorryAxName : Name := Name.anonymous |>.str "sorryAx"
+private def usesAxName : Name := Name.anonymous |>.str "usesAx"
+private def usesUseName : Name := Name.anonymous |>.str "usesUse"
+private def afterName : Name := Name.anonymous |>.str "after"
+
+/-- `axiom sorryAx : ∀ (p : Prop), p` (tolerated record, dropped
+unchecked), `theorem usesAx : ∀ (p : Prop), p := sorryAx` (a use:
+skipped), `theorem usesUse : ∀ (p : Prop), p := usesAx` (a transitive
+use: skipped), `def after : Type := Prop` (checkable, kept). -/
+private def taintSkipExport : String := String.intercalate "\n" [
+  "{\"in\":1,\"str\":{\"pre\":0,\"str\":\"sorryAx\"}}",
+  "{\"in\":2,\"str\":{\"pre\":0,\"str\":\"p\"}}",
+  "{\"in\":3,\"str\":{\"pre\":0,\"str\":\"usesAx\"}}",
+  "{\"in\":4,\"str\":{\"pre\":0,\"str\":\"usesUse\"}}",
+  "{\"in\":5,\"str\":{\"pre\":0,\"str\":\"after\"}}",
+  "{\"il\":1,\"succ\":0}",
+  "{\"ie\":1,\"sort\":0}",
+  "{\"ie\":2,\"bvar\":0}",
+  "{\"ie\":3,\"forallE\":{\"binderInfo\":\"default\",\"body\":2,\"name\":2,\"type\":1}}",
+  "{\"axiom\":{\"isUnsafe\":false,\"levelParams\":[],\"name\":1,\"type\":3}}",
+  "{\"ie\":4,\"const\":{\"name\":1,\"us\":[]}}",
+  "{\"thm\":{\"levelParams\":[],\"name\":3,\"type\":3,\"value\":4}}",
+  "{\"ie\":5,\"const\":{\"name\":3,\"us\":[]}}",
+  "{\"thm\":{\"levelParams\":[],\"name\":4,\"type\":3,\"value\":5}}",
+  "{\"ie\":6,\"sort\":1}",
+  "{\"def\":{\"name\":5,\"levelParams\":[],\"type\":6,\"value\":1,\"safety\":\"safe\"}}"]
+
+-- The tolerated axiom record and both uses are gone from the parsed
+-- declarations; the later checkable declaration survives …
+#guard match Frontend.parseExport taintSkipExport with
+  | .ok ⟨_, ds, sk⟩ =>
+    ds.map (·.name) == #[afterName] &&
+    sk == #[(usesAxName, sorryAxName), (usesUseName, sorryAxName)]
+  | .error _ => false
+
+-- … and the parsed-index checker accepts what remains (nothing
+-- tainted can reach install: it is absent from the declarations).
+#guard match Frontend.parseExport taintSkipExport with
+  | .ok ⟨st, ds, _⟩ => (checkDeclsSP st ds.toList).toBool
+  | .error _ => false
+
+-- A stream without tolerated-axiom uses records no skips.
+#guard match Frontend.parseExport basisModelExport with
+  | .ok ⟨_, _, sk⟩ => sk.isEmpty
   | .error _ => false
 
 /-! ## Level algebra -/
