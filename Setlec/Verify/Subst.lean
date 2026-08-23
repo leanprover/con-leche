@@ -1072,6 +1072,36 @@ theorem stripLams_instantiate1_eq {v : Expr} :
         congr 1
         omega
 
+/-- Substituting a *free variable* cannot create λ-binders: a λ-tower
+of the instantiated term certifies one of the term itself. -/
+theorem stripLams_instantiate1_fvar_isSome_rev {i : Nat} {nm : Name}
+    {t : Expr} :
+    ∀ (k : Nat) (e : Expr) (j : Nat),
+      ((e.instantiate1 (.fvar i nm t) j).stripLams k).isSome = true →
+      (e.stripLams k).isSome = true := by
+  intro k
+  induction k with
+  | zero => intro e j _; rfl
+  | succ k ih =>
+    intro e j h
+    match e with
+    | .lam n d b m =>
+      simp only [instantiate1, stripLams, Option.isSome_map] at h ⊢
+      exact ih b (j + 1) h
+    | .bvar l =>
+      simp only [instantiate1] at h
+      split at h
+      · simp [stripLams] at h
+      · split at h <;> simp [stripLams] at h
+    | .fvar _ _ _ => simp [instantiate1, stripLams] at h
+    | .sort _ => simp [instantiate1, stripLams] at h
+    | .const _ _ => simp [instantiate1, stripLams] at h
+    | .app _ _ => simp [instantiate1, stripLams] at h
+    | .forallE _ _ _ _ => simp [instantiate1, stripLams] at h
+    | .letE _ _ _ _ => simp [instantiate1, stripLams] at h
+    | .lit _ => simp [instantiate1, stripLams] at h
+    | .proj _ _ _ => simp [instantiate1, stripLams] at h
+
 /-- Instantiation preserves a λ-tower's binder metadata. -/
 theorem stripLams_instantiate1_meta {v : Expr} :
     ∀ (k : Nat) {e : Expr} {bs bs' : List (Name × Expr × BinderMeta)}

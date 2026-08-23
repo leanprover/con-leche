@@ -4002,4 +4002,266 @@ theorem modeled_bottom_plain
   refine congrArg some ?_
   rw [← hBfold, ← hvrFold, ← hvlvr]
 
+set_option maxHeartbeats 1600000 in
+/-- The full `RecRulesOk` clause tail of a **plain** modeled rule:
+the canonical frame/body decomposition exists, is well-formed and
+resolves, and at every level assignment the closed tower interprets
+equal to the stored right-hand side.  Glues the syntactic halves
+(`ruleLhsParts_frameWf` / `ruleLhsParts_resolve`) to the semantic
+stage/bottom facts through `TowerOk.of_stages` and `TowerOk.out`. -/
+theorem modeled_rule_eq_plain
+    {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat)
+    {f : Name → Name}
+    (hro : RenameOk m₀.val env₀ f)
+    -- the rule and the stored recursor data
+    {r : RecRule} {cv : ConstantVal} {R : Name} {lps : List Name}
+    {tyA : Expr} {mI rP : Nat}
+    {ctor : Name} {cvj : ConstantVal} {cnP cnF : Nat} {rhsA : Expr}
+    (hfire : RecRule.fire r = .plain)
+    (hrctor : RecRule.ctor r = ctor)
+    (hrcp : RecRule.ctorParams r = cnP)
+    (hrnf : RecRule.nfields r = cnF)
+    (hrrhs : RecRule.rhs r = rhsA)
+    (hcvty : cv.type = tyA)
+    (hcvlps : cv.levelParams = lps)
+    -- environment entries
+    {ciR cim : ConstantInfo}
+    (hfR : env₀.find? R = some ciR)
+    (hRlps : ciR.toConstantVal.levelParams = lps)
+    (hfRm : env₀.find? (f R) = some cim)
+    (hRmlps : cim.toConstantVal.levelParams = lps)
+    {cimC : ConstantInfo}
+    (hfCm : env₀.find? (f ctor) = some cimC)
+    (hCmlps : cimC.toConstantVal.levelParams = cvj.levelParams)
+    {ciC : ConstantInfo}
+    (hfC : env₀.find? ctor = some ciC)
+    (hClps : ciC.toConstantVal.levelParams = cvj.levelParams)
+    (heqfind : env₀.find? eqName = some eqA)
+    (heqval : ∀ ψ : Name → Nat, m₀.val eqName ψ = eqVal V ψ)
+    -- the iota theorem's semantic facts
+    {cvt : ConstantVal} {thmName : Name}
+    (hthm_mem : ∀ ψ : Name → Nat, ∃ P,
+      interpClosed V m₀.val env₀ ψ cvt.type = some P ∧
+      m₀.val thmName ψ ∈ˢ P)
+    (hthm_annot : ∀ ψ : Name → Nat,
+      AnnotOk V m₀.val env₀ ψ 0 (rho0 V) cvt.type)
+    (hSw : cvt.type.hasFvar = false)
+    (hSb : cvt.type.looseBVarsBounded 0 = true)
+    -- kernel kit (theorem side)
+    {fvs : List Expr} {tbody : Expr} {ℓA : Level} {αS lhsS rhsS : Expr}
+    {cdoms : List Expr} {cres : Expr} {rdoms : List Expr} {rrest : Expr}
+    (htyStrip : (tyA.stripPis mI).isSome = true)
+    (hrPmI : rP ≤ mI)
+    (hplainLe : cnP ≤ rP)
+    (hopen : openPisAtFvars (rP + cnF) cvt.type 0 = some (fvs, tbody))
+    (hheadEq : tbody.getAppFn = .const eqName [ℓA])
+    (hargs3 : tbody.getAppArgs = [αS, lhsS, rhsS])
+    (hlhead : lhsS.getAppFn = Expr.const (f R) (lps.map .param))
+    (hlarity : lhsS.getAppArgs.length = mI + 1)
+    (hlpre : lhsS.getAppArgs.take rP = fvs.take rP)
+    (hmaj : lhsS.getAppArgs.getLastD (.bvar 0) =
+      Expr.mkAppN (.const (f ctor) (cvj.levelParams.map .param))
+        (fvs.take cnP ++ fvs.drop rP))
+    (hCstripSome : (cvj.type.stripPis (cnP + cnF)).isSome = true)
+    (hcinst : Expr.instPisAt (fvs.take cnP ++ fvs.drop rP)
+      (cvj.type.renameConsts f) = some (cdoms, cres))
+    (hclen : cres.getAppArgs.length = cnP + (mI - rP))
+    (hdeIdx : DefEqListOk F env₀ (rP + cnF)
+      ((lhsS.getAppArgs.drop rP).take (mI - rP))
+      (cres.getAppArgs.drop cnP))
+    (hrinst : Expr.instPisAt (fvs.take rP)
+      (tyA.renameConsts f) = some (rdoms, rrest))
+    (hdePre : DefEqListOk F env₀ (rP + cnF)
+      ((fvs.take rP).map Expr.fvarTypeD) rdoms)
+    (hdeFld : DefEqListOk F env₀ (rP + cnF)
+      ((fvs.drop rP).map Expr.fvarTypeD) (cdoms.drop cnP))
+    -- kernel kit (public side)
+    {fvsP : List Expr} {restP : Expr}
+    {cdomsP : List Expr} {crestP : Expr} {xFvsP : List Expr}
+    {crest2 : Expr} {ldoms : List Expr} {lrest : Expr}
+    (hopenP : openPisAtFvars rP tyA 0 = some (fvsP, restP))
+    (hcinstP : Expr.instPisAt (fvsP.take cnP) cvj.type =
+      some (cdomsP, crestP))
+    (hdePars : DefEqListOk F env₀ (rP + cnF)
+      ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP)
+    (hopenX : openPisAtFvars cnF crestP rP = some (xFvsP, crest2))
+    (hlinst : Expr.instLamsAt (fvsP ++ xFvsP) rhsA = some (ldoms, lrest))
+    (hdeLam : DefEqListOk F env₀ (rP + cnF)
+      ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldoms)
+    (hdeRhs : isDefEqCore env₀ F (rP + cnF) rhsS
+      (Expr.mkAppN (rhsA.renameConsts f) fvs) = .ok true)
+    -- wf and resolution of the stored data
+    (hrhsw : rhsA.hasFvar = false)
+    (hrhsb : rhsA.looseBVarsBounded 0 = true)
+    (hArhs : ∀ ψ : Name → Nat,
+      AnnotOk V m₀.val env₀ ψ 0 (rho0 V) rhsA)
+    (hIrhs : ∀ ψ : Name → Nat, ∃ L,
+      interpClosed V m₀.val env₀ ψ rhsA = some L)
+    (htyw : tyA.hasFvar = false)
+    (htyb : tyA.looseBVarsBounded 0 = true)
+    (hAty : ∀ ψ : Name → Nat, AnnotOk V m₀.val env₀ ψ 0 (rho0 V) tyA)
+    (hIty : ∀ ψ : Name → Nat, ∃ T,
+      interpClosed V m₀.val env₀ ψ tyA = some T)
+    (hCw : cvj.type.hasFvar = false)
+    (hCb : cvj.type.looseBVarsBounded 0 = true)
+    (hACty : ∀ ψ : Name → Nat,
+      AnnotOk V m₀.val env₀ ψ 0 (rho0 V) cvj.type)
+    (hICty : ∀ ψ : Name → Nat, ∃ T,
+      interpClosed V m₀.val env₀ ψ cvj.type = some T)
+    (hTres : cv.type.constsResolve env₀ = true)
+    (hCres : cvj.type.constsResolve env₀ = true) :
+    ∃ fvms bL, ruleLhsParts R cv rP r cvj = some (fvms, bL) ∧
+      FrameWf 0 fvms bL ∧
+      fvms.length = rP + RecRule.nfields r ∧
+      (closeLamsAt fvms bL).constsResolve env₀ = true ∧
+      ∀ ψ : Name → Nat,
+        AnnotOk V m₀.val env₀ ψ 0 (rho0 V) (closeLamsAt fvms bL) ∧
+        ∃ Rv, interpClosed V m₀.val env₀ ψ (closeLamsAt fvms bL) =
+            some Rv ∧
+          interpClosed V m₀.val env₀ ψ (RecRule.rhs r) = some Rv := by
+  -- spine data
+  obtain ⟨hfvsPInst, hfvsPLen, hfvsPShape⟩ :=
+    openPisAtFvars_spec rP 0 hopenP
+  obtain ⟨hxInst, hxLen, hxShape⟩ := openPisAtFvars_spec cnF rP hopenX
+  have hspineLen : (fvsP ++ xFvsP).length = rP + cnF := by
+    rw [List.length_append, hfvsPLen, hxLen]
+  have hshSpine : ∀ a ∈ fvsP ++ xFvsP, ∃ i n t, a = .fvar i n t := by
+    intro a ha
+    rcases List.mem_append.mp ha with ha | ha
+    · obtain ⟨j, hja⟩ := List.getElem?_of_mem ha
+      obtain ⟨nm, hsh⟩ := hfvsPShape j a hja
+      exact ⟨0 + j, nm, _, hsh⟩
+    · obtain ⟨j, hja⟩ := List.getElem?_of_mem ha
+      obtain ⟨nm, hsh⟩ := hxShape j a hja
+      exact ⟨rP + j, nm, _, hsh⟩
+  -- the rule right-hand side's λ-tower shape
+  have hstripSome := instLamsAt_stripLams_isSome _ hshSpine hlinst
+  rw [hspineLen] at hstripSome
+  obtain ⟨⟨rbs, rbody⟩, hstripR⟩ :=
+    Option.isSome_iff_exists.mp hstripSome
+  -- the canonical decomposition computes
+  have hparts : ruleLhsParts R cv rP r cvj =
+      some ((fvsP ++ xFvsP).zip (rbs.map (·.2.2)),
+        Expr.mkAppN (.const R (cv.levelParams.map .param))
+          (fvsP ++ crest2.getAppArgs.drop (RecRule.ctorParams r) ++
+            [Expr.mkAppN (.const (RecRule.ctor r)
+                (cvj.levelParams.map Level.param))
+              (fvsP.take (RecRule.ctorParams r) ++ xFvsP)])) := by
+    simp only [ruleLhsParts, hcvty, hopenP, hfire, ruleLhsAux, hrcp,
+      hcinstP, hrnf, hopenX, hrrhs,
+      show rhsA.stripLams (rP + cnF) = some (rbs, rbody) from hstripR]
+  refine ⟨_, _, hparts, ?_⟩
+  have hpinsVac : ∀ lvls pins, RecRule.fire r = .nested lvls pins →
+      ∀ p ∈ pins, p.hasFvar = false ∧ p.looseBVarsBounded rP = true := by
+    intro lvls pins hcon
+    rw [hfire] at hcon
+    exact nomatch hcon
+  obtain ⟨hwf, hlen⟩ := ruleLhsParts_frameWf hparts
+    (by rw [hcvty]; exact htyw) (by rw [hcvty]; exact htyb) hCw hCb
+    hpinsVac
+  refine ⟨hwf, hlen, ?_, ?_⟩
+  · exact ruleLhsParts_resolve hparts (by rw [hfR]; rfl)
+      (by rw [hrctor, hfC]; rfl) hTres hCres
+      (fun lvls pins hcon => by
+        rw [hfire] at hcon
+        exact nomatch hcon)
+  -- the semantic clause, per level assignment
+  intro ψ
+  have hctorPkg := ctor_pkg_plain (xFvsP := xFvsP) m₀ F hopenP htyw
+    htyb (hAty ψ) hcinstP hdePars hplainLe hCw hCb (hACty ψ) (hICty ψ)
+  have hstage := modeled_stage m₀ F hopenP htyw htyb (hAty ψ) (hIty ψ)
+    hopenX hctorPkg hlinst hdeLam hrhsw hrhsb (hArhs ψ) (hIrhs ψ)
+  have hbot := modeled_bottom_plain m₀ F hro hfR hRlps hfRm hRmlps
+    hfCm hCmlps hfC hClps heqfind heqval hthm_mem hthm_annot hSw hSb
+    htyStrip hrPmI hplainLe hopen hheadEq hargs3 hlhead hlarity hlpre
+    hmaj hCstripSome hcinst hclen hdeIdx hrinst hdePre hdeFld hopenP
+    hcinstP hdePars hopenX hlinst hdeLam hdeRhs hrhsw hrhsb (hArhs ψ)
+    (hIrhs ψ) htyw htyb (hAty ψ) (hIty ψ) hCw hCb (hACty ψ) (hICty ψ)
+    (ψ := ψ)
+  -- frame bookkeeping for the tower recursion
+  have hrbsLen : rbs.length = rP + cnF := Expr.stripLams_length _ hstripR
+  have hzipFst : ((fvsP ++ xFvsP).zip (rbs.map (·.2.2))).map Prod.fst =
+      fvsP ++ xFvsP :=
+    List.map_fst_zip (by
+      rw [hspineLen, List.length_map, hrbsLen]
+      omega)
+  have hzipSnd : ((fvsP ++ xFvsP).zip (rbs.map (·.2.2))).map (·.2) =
+      rbs.map (·.2.2) :=
+    List.map_snd_zip (by
+      rw [hspineLen, List.length_map, hrbsLen]
+      omega)
+  have hfvmsLen : ((fvsP ++ xFvsP).zip (rbs.map (·.2.2))).length =
+      rP + cnF := by
+    rw [List.length_zip, hspineLen, List.length_map, hrbsLen]
+    simp
+  -- the tower spec from the flat stage facts
+  have htower := TowerOk.of_stages (cval := m₀.val) (env := env₀)
+    (φ := ψ)
+    (bL := Expr.mkAppN (.const R (cv.levelParams.map .param))
+      (fvsP ++ crest2.getAppArgs.drop (RecRule.ctorParams r) ++
+        [Expr.mkAppN (.const (RecRule.ctor r)
+            (cvj.levelParams.map Level.param))
+          (fvsP.take (RecRule.ctorParams r) ++ xFvsP)]))
+    (lrest := lrest)
+    (fvms := (fvsP ++ xFvsP).zip (rbs.map (·.2.2)))
+    (ldoms := ldoms)
+    (Ok := FramePref m₀.val env₀ ψ (fvsP ++ xFvsP))
+    (Hty := by
+      intro k xs fv m ld hxs hfv hld hOk
+      have hfv' : (fvsP ++ xFvsP)[k]? = some fv := by
+        have h0 := congrArg (·[k]?) hzipFst
+        simp only [List.getElem?_map] at h0
+        rw [← h0, hfv]
+        rfl
+      obtain ⟨A, h1, h2, h3, h4⟩ := hstage k xs fv ld hxs hfv' hld hOk
+      exact ⟨A, h1, h2, h3, h4⟩)
+    (Hbot := by
+      intro xs hxs hOk
+      rw [hfvmsLen] at hxs
+      have h := hbot xs hxs hOk
+      rw [hfvmsLen, hcvlps, hrcp, hrctor]
+      exact h)
+    ((fvsP ++ xFvsP).zip (rbs.map (·.2.2))) 0 [] ldoms
+    (RecRule.rhs r) (RecRule.rhs r)
+    (by rw [Nat.zero_add])
+    rfl rfl rfl
+    (by
+      intro j p hp
+      have h0 := congrArg (·[j]?) hzipFst
+      simp only [List.getElem?_map] at h0
+      have hp1 : (fvsP ++ xFvsP)[j]? = some p.1 := by
+        rw [← h0, hp]
+        rfl
+      rcases Nat.lt_or_ge j rP with hj | hj
+      · rw [List.getElem?_append_left (by omega)] at hp1
+        obtain ⟨nm, hsh⟩ := hfvsPShape j p.1 hp1
+        rw [Nat.zero_add] at hsh
+        refine ⟨nm, Expr.fvarTypeD p.1, ?_⟩
+        rw [Nat.zero_add]
+        exact hsh
+      · rw [List.getElem?_append_right (by omega), hfvsPLen] at hp1
+        obtain ⟨nm, hsh⟩ := hxShape (j - rP) p.1 hp1
+        refine ⟨nm, Expr.fvarTypeD p.1, ?_⟩
+        rw [Nat.zero_add, hsh]
+        congr 1
+        omega)
+    (Expr.ErasedEq.rfl _)
+    (by
+      rw [hzipFst, hrrhs]
+      exact hlinst)
+    (by
+      refine ⟨rbs, rbody, ?_, hzipSnd⟩
+      rw [hfvmsLen, hrrhs]
+      exact hstripR)
+    (fun j v fv hjv _ => nomatch hjv)
+  -- canonicalize the empty frame and consume the tower
+  have hrho : (fun i => ([] : List V).getD i SetTheory.empty) =
+      rho0 V := by
+    funext i
+    rfl
+  rw [hrho] at htower
+  obtain ⟨⟨Rv, hL, hR⟩, hAL⟩ := TowerOk.out htower hwf
+    (by rw [hrrhs]; exact hArhs ψ)
+  exact ⟨hAL, Rv, hL, hR⟩
+
 end Setlec

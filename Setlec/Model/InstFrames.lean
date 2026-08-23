@@ -696,6 +696,29 @@ theorem instLamsAt_length :
         simpa using instLamsAt_length as (by rw [h0])
 
 omit [SetTheory V] in
+/-- A successful λ-instantiation walk at a *free-variable* spine
+certifies the λ-tower shape. -/
+theorem instLamsAt_stripLams_isSome :
+    ∀ (args : List Expr) {e : Expr} {ds : List Expr} {rest : Expr},
+      (∀ a ∈ args, ∃ i n t, a = Expr.fvar i n t) →
+      Expr.instLamsAt args e = some (ds, rest) →
+      (e.stripLams args.length).isSome = true
+  | [], e, ds, rest, _, _ => by simp [Expr.stripLams]
+  | a :: as, e, ds, rest, hsh, h => by
+    match e, h with
+    | .lam n dom body m, h =>
+      simp only [Expr.instLamsAt] at h
+      cases h0 : Expr.instLamsAt as (body.instantiate1 a) with
+      | none => rw [h0] at h; exact nomatch h
+      | some p =>
+        have h1 := instLamsAt_stripLams_isSome as
+          (fun x hx => hsh x (List.mem_cons_of_mem _ hx)) (by rw [h0])
+        obtain ⟨i, nm, t, rfl⟩ := hsh a List.mem_cons_self
+        simp only [List.length_cons, Expr.stripLams, Option.isSome_map]
+        exact Expr.stripLams_instantiate1_fvar_isSome_rev as.length
+          body 0 h1
+
+omit [SetTheory V] in
 /-- Split a λ-instantiation walk along a list append. -/
 theorem instLamsAt_append :
     ∀ (as bs : List Expr) {e : Expr} {ds : List Expr} {rest : Expr},
