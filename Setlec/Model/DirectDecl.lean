@@ -760,8 +760,8 @@ theorem directCtor_mem {env env₁ : Env} (m : EnvModel V env)
     FrameOk.ofCheckedType m₁ hccC
   obtain ⟨Cv, hCv⟩ := hfrC.it
   refine ⟨Cv, hCv, ?_⟩
-  refine directCtorVal_mem (Level.isNonZero_sound hnz φ)
-    (by rw [hstripC]; rfl) hCv hfrC.an ?_ ?_
+  refine directCtorVal_mem (by rw [hstripC]; rfl) hCv hfrC.an
+    (directCtorVal_body (Level.isNonZero_sound hnz φ) ?_ ?_)
   · intro ps d₁ ρ₁ mid hfit hlen
     exact directCtor_field m₁ hcq hxq hfu hfrC hfit hlen
   · intro ps fs d₁ ρ₁ mid d' ρ' rest hfitP hlenP hfitF hlenF

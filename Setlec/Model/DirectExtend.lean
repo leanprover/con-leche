@@ -585,6 +585,89 @@ theorem FrameOk.body_at {cval : ConstVal V} {env : Env} {φ : Name → Nat}
   · exact FvarsOk.instantiate1 hfr'.ws hfr'.fv hfr'.an hdom' hx body 0 hws.2
       (FvarsOk.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]) hfv)
 
+/-- The frame conditions survive one more opened binder above them. -/
+theorem FrameOk.weaken_top {cval : ConstVal V} {env : Env} {φ : Name → Nat}
+    {d : Nat} {ρ : Nat → V} {x : V} {e : Expr}
+    (h : FrameOk V cval env φ d ρ e) :
+    FrameOk V cval env φ (d + 1) (updV V ρ d x) e := by
+  obtain ⟨P, hP⟩ := h.it
+  exact ⟨h.ws.mono (by omega), h.bb, h.lb, FvarsOk.weaken_top h.ws h.fv,
+    AnnotOk.weaken_top h.ws h.an,
+    P, by rw [interp_weaken_top h.ws]; exact hP⟩
+
+/-- The frame conditions along an `Expr.instPisAt` walk at another
+telescope's opening variables: each step is `FrameOk.body_at` at the
+walked domain's interpretation, which the install's per-frame pins
+identify with the substituted variable's, and the fit along the
+*opened* telescope supplies the membership.
+
+This is the residual counterpart of `DomsAgree.of_pins_inst` — the two
+share their step, but a `DomsAgree` quantifies over all fitting values
+while the residual's frame is at one spine. -/
+theorem FrameOk.ofInstWalk {env : Env} (m : EnvModel V env) (F : Nat)
+    {φ : Name → Nat} :
+    ∀ (sp : List Expr) {R : Expr} {ds : List Expr} {rR : Expr} {d : Nat}
+      {ρ : Nat → V} {S : Expr} {vs : List V} {d' : Nat} {ρ' : Nat → V}
+      {rS : Expr},
+      Expr.instPisAt sp R = some (ds, rR) →
+      openPisAtFvars sp.length S d = some (sp, rS) →
+      TeleFit V m.val env φ d ρ S vs d' ρ' rS →
+      vs.length = sp.length →
+      FrameOk V m.val env φ d ρ S →
+      FrameOk V m.val env φ d ρ R →
+      (∀ (j : Nat) (a b : Expr), sp[j]? = some a → ds[j]? = some b →
+        isDefEqCore env F (d + j) (Expr.fvarTypeD a) b = .ok true) →
+      FrameOk V m.val env φ d' ρ' rR := by
+  intro sp
+  induction sp with
+  | nil =>
+    intro R ds rR d ρ S vs d' ρ' rS hinst _ hfit hlen _ hfrR _
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at hinst
+    obtain ⟨rfl, rfl⟩ := hinst
+    obtain rfl : vs = [] := List.eq_nil_of_length_eq_zero hlen
+    cases hfit
+    exact hfrR
+  | cons a sp ih =>
+    intro R ds rR d ρ S vs d' ρ' rS hinst hop hfit hlen hfrS hfrR hpins
+    match S with
+    | .forallE nS domS bodyS mS =>
+      cases hfit with
+      | nil => exact absurd hlen (by simp)
+      | @cons _ _ _ _ _ _ x vs' _ _ _ A hdomS hx hfit' =>
+        simp only [List.length_cons, openPisAtFvars] at hop
+        cases hrecS : openPisAtFvars sp.length
+            (bodyS.instantiate1 (.fvar d nS domS)) (d + 1) with
+        | none => rw [hrecS] at hop; exact nomatch hop
+        | some qS =>
+          rw [hrecS] at hop
+          simp only [Option.some.injEq, Prod.mk.injEq] at hop
+          obtain ⟨ha, hrS⟩ := hop
+          obtain ⟨rfl, rfl⟩ : Expr.fvar d nS domS = a ∧ qS.1 = sp := by
+            cases ha; exact ⟨rfl, rfl⟩
+          subst hrS
+          obtain ⟨nR, domR, bodyR, mR, ds', rfl, rfl, hinst'⟩ :=
+            instPisAt_cons_inv hinst
+          obtain ⟨-, -, -, -, -, BR, hdiR⟩ := hfrR.dom
+          have hpin : isDefEqCore env F d domS domR = .ok true := by
+            have h0 := hpins 0 (.fvar d nS domS) domR rfl rfl
+            rwa [Nat.add_zero] at h0
+          obtain ⟨hdWS, hdbS, hdlS, hdfS, hdaS, -⟩ := hfrS.dom
+          obtain ⟨hdWR, hdbR, hdlR, hdfR, hdaR, -⟩ := hfrR.dom
+          have hBeq : A = BR :=
+            isDefEqCore_sound m F hpin hdWS hdWR hdbS hdbR hdlS hdlR
+              hdfS hdfR hdaS hdaR hdomS hdiR
+          refine ih hinst' hrecS hfit' (by simpa using hlen)
+            (hfrS.body hdomS hx)
+            (FrameOk.body_at hfrR hfrS.dom (by rw [hBeq]; exact hdiR) hdomS hx)
+            (fun j b c hb hc => by
+              have h1 := hpins (j + 1) b c (by simpa using hb)
+                (by simpa using hc)
+              rw [show d + 1 + j = d + (j + 1) from by omega]
+              exact h1)
+    | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
+    | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+      simp only [List.length_cons, openPisAtFvars] at hop; exact nomatch hop
+
 /-- **`DomsAgree` across a frame shift.**  One *closed* telescope,
 walked along two free-variable spines that carry the **same values** at
 otherwise unrelated frames, agrees stage by stage.
