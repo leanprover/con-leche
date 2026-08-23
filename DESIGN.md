@@ -109,22 +109,36 @@ Axioms: only the standard axioms are supported; anything else is
 ceiling (owner ruling, 2026-08-21): acceptance routes for custom
 axioms (opaque-with-witness, unfoldable-definition storage,
 canonical-value models) were explored and rejected: none is wanted.
-Refinement (user ruling, 2026-08-22): non-pinned axioms are
-*invisible*; their uses are unsupported.  A non-pinned `axiom` record
-no longer stops the run — the record is still well-formedness-checked
-(the official kernel checks the declaration, so a garbage record such
-as arena `bad/011_nonTypeAxiom` keeps rejecting) but nothing is
-installed, and the frontend taints the axiom's name
-(`State.skippedAxioms`, generalizing the previous `sorryAx`-only
-mechanism): any later declaration whose type or value references a
-skipped axiom is positively declined at its own record.  The two
-tutorial tests scaffolded by custom axioms (`032_letTypeDep`,
-`033_letRed`) thus now decline at their first *use* of the axiom
-rather than at the `axiom` record — still exit 2, so the vendored
-tutorial snapshot stays at 90/92 accepted, the full non-axiom set.
-This lets streams like `Init.Core` run past `Lean.trustCompiler`
-instead of dying there (the next blocker is then the first
-declaration that *uses* it, e.g. `Lean.reduceNat`).  `Quot.sound` is part
+Refinement (user rulings, 2026-08-22/24): exactly the *tolerated
+whitelist* (`toleratedAxiomNames`: `sorryAx` plus the `Init`
+compiler-trust axioms `Lean.trustCompiler`, `Lean.ofReduceNat`,
+`Lean.ofReduceBool`) may be *declared*.  A tolerated `axiom` record is
+dropped by the frontend without parsing its type at all
+(`Lean.ofReduceNat`'s own type references the tainted
+`Lean.reduceNat`, so even well-formedness-checking it would be a use);
+nothing is installed and the name is tainted
+(`Frontend.State.taintedNames`).  Any other `axiom` record is
+forwarded and positively declined by the checker at its own record,
+after well-formedness-checking — a garbage record such as arena
+`bad/011_nonTypeAxiom` keeps *rejecting*; the two tutorial tests
+scaffolded by custom axioms (`032_letTypeDep`, `033_letRed`) decline
+at their custom `axiom` record, exit 2, so the vendored tutorial
+snapshot stays at 90/92 accepted, the full non-axiom set.  *Uses* of
+a tainted constant are never accepted, but no longer stop the stream
+either (skip-and-continue, user directive 2026-08-24): a declaration
+whose type/value (transitively) references a tainted name is *skipped*
+at parse time — absent from the parsed declarations, so it can never
+be checked or installed — its declared names are tainted in turn (so
+transitive users skip too), and the rest of the stream is checked as
+usual.  `Frontend.ParseResult.taintSkipped` records the skips (name +
+whitelisted axiom root); the driver declines the input as a whole
+(exit 2) whenever it is nonempty, even if every remaining declaration
+checks, and prints a per-root summary (`Frontend.taintSummary`).  A
+stream with no tainted uses behaves exactly as before.  This lets the
+full `Init` export run past `opaque Lean.reduceNat` (whose value uses
+`Lean.trustCompiler`; formerly the whole stream declined there, 39.3 %
+in) with the compiler-trust-scaffolded declarations skipped and
+everything else still checked.  `Quot.sound` is part
 of the pinned quotient basis block; `propext` and `Classical.choice`
 are accepted as `axiomDecl`s by `stdAxiomOk`: a pure predicate that
 requires the pinned `Eq` basis plus standardly-shaped stored `Iff`
@@ -1039,11 +1053,11 @@ induction over the literal), consumed by `reduceNat_sound`.
 * **Findings.**  No operation resisted: all seven land with the
   ble-guarded defeq-checkable statement forms.  The full Init stream
   itself still does not check end-to-end for unrelated reasons
-  (frontend memory on the 336 MB export; the `Lean.trustCompiler`
-  axiom declines by design — since 2026-08-22 at its first *use*, not
-  its record; the `Unit.sizeOf` mismatch is fixed, see the basis
-  `PUnit` rescue note) — the previous positive declines at
-  `Nat.land`/`Nat.shiftRight`/… literal uses are gone.
+  (frontend memory on the 336 MB export; `Lean.trustCompiler` uses are
+  declined by design — since the 2026-08-24 skip-and-continue as a
+  whole-stream decline after skipping them; the `Unit.sizeOf` mismatch
+  is fixed, see the basis `PUnit` rescue note) — the previous positive
+  declines at `Nat.land`/`Nat.shiftRight`/… literal uses are gone.
 
 ### Theorem values delta-unfold (2026-08-22, task #66)
 
@@ -3077,7 +3091,12 @@ instructions, same machine, before → after):
   documented above.  (The task's "~30 GB to parse init-full" predates
   #78/#84; at the current base the wholesale cost was the 3.07 GB —
   contents + preprocessor stdout + the eager per-line split all held
-  at once — which streaming removes.)
+  at once — which streaming removes.)  Since the taint
+  skip-and-continue (2026-08-24, below) the parse no longer dies
+  there: the whole 6.2 M-line stream parses (exactly two taint skips,
+  `Lean.reduceNat`/`Lean.reduceBool`, both via `Lean.trustCompiler`)
+  and *checking* becomes the frontier — see the skip-and-continue
+  section for the new numbers.
 
 ## Recursor-rule fold contract as total λ-equalities (2026-08-23, task #58)
 
@@ -4350,3 +4369,66 @@ interning), not a rider on this one.  Also noted: the export's
 let-nondep flag cannot be threaded onto `ENode.letE` alone — an ENode
 field absent from `Expr.letE` breaks canonicity (`denote_inj`); it
 needs `Expr`-side threading first.
+
+## Taint skip-and-continue for tolerated-axiom uses (2026-08-24)
+
+User directive: keep the soundness semantics — uses of the tolerated
+axiom whitelist (`sorryAx`, `Lean.trustCompiler`, `Lean.ofReduceNat`,
+`Lean.ofReduceBool`) are never accepted — but maximize coverage.
+Previously the frontend translated the taint sentinel into a
+whole-stream decline at the first tainted record, so init-full died
+39.3 % in (at `opaque Lean.reduceNat`, whose value uses
+`Lean.trustCompiler`) with *nothing* checked.  Now:
+
+* **Tolerated axiom records** are dropped in `processLine` *before*
+  the type is parsed into checkable form at all (`Lean.ofReduceNat`'s
+  own type references the tainted `Lean.reduceNat`; the old
+  well-formedness check of the never-installed record bought nothing);
+  the name goes into `State.taintedNames` (root = the axiom itself).
+  Any *other* axiom record keeps the previous pipeline exactly:
+  forwarded, well-formedness-checked (garbage records keep rejecting,
+  arena `bad/011`), pinned standard axioms installed, the rest
+  positively declined at their own record (arena 032/033 stay exit 2).
+* **Tainted declarations are skipped, not fatal**: a read-only
+  pre-scan (`declRecordScan` — declared names plus exactly the
+  decl-level expression indices `getDeclEIdx'`/`getDeclExpr'` would
+  consult, including inductive member types and rec-rule rhss) runs
+  before `processLineCore`; on a taint hit the record is dropped, its
+  names tainted (transitive users then skip too), and the skip is
+  recorded in `State.taintSkipped` with its whitelisted root.  The
+  pre-scan (rather than catching the thrown sentinel) matters for
+  ownership: a catch handler closing over the state would hold a
+  second live reference across the record's arena inserts, turning
+  each into a whole-table copy.  The sentinel remains as a backstop
+  mapped to the old decline.
+* **Verdict**: `ParseResult.taintSkipped` flows to the driver; after
+  the (full) check pass, a nonempty skip set turns exit 0 into 2 with
+  a per-root summary on stderr (`Frontend.taintSummary`); rejects and
+  errors during the pass keep their own exit codes (a later invalid
+  declaration still rejects — pinned by the
+  `taint_skip_continue`/`taint_skip_bad_later` e2e twins).  Streams
+  with no tainted uses behave byte-identically to before.  Nothing
+  tainted can be installed: skipped declarations are absent from
+  `ParseResult.decls`, the only path into the checker, so the
+  consistency statements (which quantify over the installed
+  environment) are untouched — the frontend change is entirely outside
+  the verified boundary.
+
+**init-full measurement** (init-full-pre2, streaming, progress mode,
+32 GB `ulimit -v` — 8 GB now OOMs: the full-stream arena is ~3× the
+old 39.3 % one; child VSZ peaks ~14 GB): the whole 6 223 893-line /
+58 609-record stream parses; exactly **two** declarations are skipped
+by taint — `Lean.reduceNat` and `Lean.reduceBool`, both via
+`Lean.trustCompiler` (`sorryAx`/`ofReduceNat`/`ofReduceBool` are
+declared but unused in Init).  Checking then runs 20 156 declarations
+accepted before the **new frontier**, a genuine finding in
+previously-unchecked territory (the old run checked *nothing* on this
+stream): `theorem
+_private.Init.Data.Range.Polymorphic.SInt.0.Int32.instUpwardEnumerable_eq`
+(stream line 2 113 351, 34.0 %) fails with `internal error: fuel
+exhausted: whnfCore`, exit 3 — 91 s wall, 700 G instructions, 4.25 GB
+peak RSS to that point.  The `--yolo` (cert-skipping) stack fails
+identically at the same declaration, so the exhaustion is in the
+shared reduction machinery (`checkFuel = 100000` knot layers), not the
+proof-cert feeding.  Not fixed on this branch; the whnfCore fuel
+ceiling on that declaration is its own task.
