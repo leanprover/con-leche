@@ -100,7 +100,10 @@ structure State where
   /-- The parse arena: every expression/level-table entry interned on
   arrival.  Seeded with the implicit level-table index 0 (`zero`). -/
   store : EStore := .empty
-  names : Std.HashMap Nat Name := .ofList [(0, .anonymous)]
+  /-- Stream name-table index → arena name index (task #88: name-table
+  entries are interned directly; index 0 is the implicit
+  `anonymous`, seeded by `initState`). -/
+  names : Std.HashMap Nat NIdx := {}
   levels : Std.HashMap Nat LIdx := {}
   exprs : Std.HashMap Nat EIdx := {}
   decls : Array DeclP := #[]
@@ -165,10 +168,17 @@ private def budgetedName (n : Name) : Bool :=
 
 private abbrev M := Except String
 
-private def State.name (st : State) (i : Nat) : M Name :=
+private def State.nameIdx (st : State) (i : Nat) : M NIdx :=
   match st.names[i]? with
   | some n => pure n
   | none => throw s!"undefined name index {i}"
+
+/-- The name-table entry as a `Name` tree (readback from the arena;
+declaration headers and level parameters). -/
+private def State.name (st : State) (i : Nat) : M Name := do
+  match st.store.readbackN (← st.nameIdx i) with
+  | some n => pure n
+  | none => throw "internal: parse-arena name readback failed"
 
 private def State.level (st : State) (i : Nat) : M LIdx :=
   match st.levels[i]? with
@@ -185,6 +195,9 @@ private def getIdx (j : Json) (key : String) : M Nat := do
 
 private def getName' (st : State) (j : Json) (key : String) : M Name := do
   st.name (← getIdx j key)
+
+private def getNameIdx' (st : State) (j : Json) (key : String) : M NIdx := do
+  st.nameIdx (← getIdx j key)
 
 private def getExprIdx' (st : State) (j : Json) (key : String) : M EIdx := do
   st.expr (← getIdx j key)
@@ -222,15 +235,26 @@ private def parseBinderInfo (j : Json) : M BinderInfo := do
   | "instImplicit" => pure .instImplicit
   | s => throw s!"unknown binderInfo {s}"
 
-/-- Parse a name table entry `{"in": i, "str"|"num": {...}}`. -/
+/-- Intern one name node into the parse arena (linear threading, as
+`internL'` below). -/
+private def State.internN' (st : State) (n : NNode) : NIdx × State :=
+  let store := st.store
+  let st := { st with store := EStore.empty }
+  let (u, store) := store.internN n
+  (u, { st with store := store })
+
+/-- Parse a name table entry `{"in": i, "str"|"num": {...}}`, interning
+the node directly from the stream's prefix index (task #88). -/
 private def parseNameEntry (st : State) (j : Json) (i : Nat) : M State := do
-  let n ← if let .ok v := j.getObjVal? "str" then
-      pure <| Name.str (← getName' st v "pre") (← (← v.getObjVal? "str").getStr?)
-    else if let .ok v := j.getObjVal? "num" then
-      pure <| Name.num (← getName' st v "pre") (← (← v.getObjVal? "i").getNat?)
+  let (ni, st) ← if let .ok v := j.getObjVal? "str" then do
+      let p ← st.nameIdx (← getIdx v "pre")
+      pure <| st.internN' (.str p (← (← v.getObjVal? "str").getStr?))
+    else if let .ok v := j.getObjVal? "num" then do
+      let p ← st.nameIdx (← getIdx v "pre")
+      pure <| st.internN' (.num p (← (← v.getObjVal? "i").getNat?))
     else
       throw "malformed name entry"
-  pure { st with names := st.names.insert i n }
+  pure { st with names := st.names.insert i ni }
 
 /-- Intern one level node into the parse arena (linear threading: the
 store is detached from the state before the update). -/
@@ -294,32 +318,34 @@ private def parseExprEntry (st : State) (j : Json) (i : Nat) : M State := do
       let (e, st) := st.intern' (.sort (← st.level (← v.getNat?)))
       pure (e, false, st)
     else if let .ok v := j.getObjVal? "const" then
-      let n ← getName' st v "name"
+      let nI ← getNameIdx' st v "name"
       let us ← (← (← v.getObjVal? "us").getArr?).mapM
         (fun u => do st.level (← u.getNat?))
-      let (e, st) := st.intern' (.const n us.toList)
-      pure (e, st.skippedAxioms.contains n, st)
+      let taintC ← if st.skippedAxioms.isEmpty then pure false
+        else do pure (st.skippedAxioms.contains (← getName' st v "name"))
+      let (e, st) := st.intern' (.const nI us.toList)
+      pure (e, taintC, st)
     else if let .ok v := j.getObjVal? "app" then
       let (e, st) := st.intern'
         (.app (← getExprIdx' st v "fn") (← getExprIdx' st v "arg"))
       pure (e, false, st)
     else if let .ok v := j.getObjVal? "lam" then
-      let (e, st) := st.intern' (.lam (← getName' st v "name")
+      let (e, st) := st.intern' (.lam (← getNameIdx' st v "name")
         (← getExprIdx' st v "type") (← getExprIdx' st v "body")
         ⟨← parseBinderInfo v, none⟩)
       pure (e, false, st)
     else if let .ok v := j.getObjVal? "forallE" then
-      let (e, st) := st.intern' (.forallE (← getName' st v "name")
+      let (e, st) := st.intern' (.forallE (← getNameIdx' st v "name")
         (← getExprIdx' st v "type") (← getExprIdx' st v "body")
         ⟨← parseBinderInfo v, none⟩)
       pure (e, false, st)
     else if let .ok v := j.getObjVal? "letE" then
-      let (e, st) := st.intern' (.letE (← getName' st v "name")
+      let (e, st) := st.intern' (.letE (← getNameIdx' st v "name")
         (← getExprIdx' st v "type") (← getExprIdx' st v "value")
         (← getExprIdx' st v "body"))
       pure (e, false, st)
     else if let .ok v := j.getObjVal? "proj" then
-      let (e, st) := st.intern' (.proj (← getName' st v "typeName")
+      let (e, st) := st.intern' (.proj (← getNameIdx' st v "typeName")
         (← (← v.getObjVal? "idx").getNat?) (← getExprIdx' st v "struct"))
       pure (e, false, st)
     else if let .ok v := j.getObjVal? "natVal" then
@@ -534,7 +560,8 @@ private def processLineCore (st : State) (j : Json)
           let store := st.store
           st := { st with store := EStore.empty }
           let (us, store) := store.internLevels (cv.levelParams.map .param)
-          let (vi, store) := store.intern (.const (cv.name.str "_model") us)
+          let (mI, store) := store.internName (cv.name.str "_model")
+          let (vi, store) := store.intern (.const mI us)
           let (ti, store) := store.internExprFast cv.type
           let ds := st.decls.push
             (.defnDecl ⟨cv.name, cv.levelParams, ti⟩ vi .abbrev)
@@ -555,10 +582,12 @@ private def processLine (st : State) (j : Json)
     else throw e
 
 /-- Initial parse state: the implicit level-table index 0 (`zero`)
-pre-interned. -/
+and name-table index 0 (`anonymous`) pre-interned. -/
 private def initState : State :=
   let (z0, store0) := EStore.empty.internL .zero
-  { store := store0, levels := .ofList [(0, z0)] }
+  let (a0, store1) := store0.internN .anonymous
+  { store := store1, levels := .ofList [(0, z0)],
+    names := .ofList [(0, a0)] }
 
 /-- Feed one line of the export (trailing newline already stripped) into
 the parse state; blank lines are skipped.  The state is threaded

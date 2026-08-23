@@ -73,16 +73,23 @@ subexpressions replaced by arena indices and levels by level indices
 Leaf data (names, binder infos, literals) is carried unchanged. -/
 inductive ENode where
   | bvar (i : Nat)
-  | fvar (idx : Nat) (name : Name) (type : EIdx)
+  | fvar (idx : Nat) (name : NIdx) (type : EIdx)
   | sort (u : LIdx)
-  | const (n : Name) (us : List LIdx)
+  | const (n : NIdx) (us : List LIdx)
   | app (f a : EIdx)
-  | lam (n : Name) (type body : EIdx) (m : IBinderMeta)
-  | forallE (n : Name) (type body : EIdx) (m : IBinderMeta)
-  | letE (n : Name) (type value body : EIdx)
+  | lam (n : NIdx) (type body : EIdx) (m : IBinderMeta)
+  | forallE (n : NIdx) (type body : EIdx) (m : IBinderMeta)
+  | letE (n : NIdx) (type value body : EIdx)
   | lit (l : Literal)
-  | proj (structName : Name) (idx : Nat) (e : EIdx)
+  | proj (structName : NIdx) (idx : Nat) (e : EIdx)
   deriving DecidableEq, Repr, Inhabited, Hashable
+
+/-- The name references of an expression node (task #88: constant
+name, binder/fvar display name, projection type name). -/
+@[inline] def ENode.names : ENode → List NIdx
+  | .bvar _ | .sort _ | .app _ _ | .lit _ => []
+  | .fvar _ n _ | .const n _ | .lam n _ _ _ | .forallE n _ _ _
+  | .letE n _ _ _ | .proj n _ _ => [n]
 
 /-! ### Eager derived per-node fields (task #87)
 
@@ -270,6 +277,21 @@ def internName (st : EStore) : Name → NIdx × EStore
     let (p', st) := st.internName p
     st.internN (.num p' n)
 
+/-- Alloc-free comparison of an interned name against a `Name` tree
+(structural walk; on a canonical arena equals `readbackN i == some nm`,
+`Setlec/Verify/IExpr.lean`).  Used for the fixed-name dispatch tests of
+the interned checker core. -/
+def beqNameI (st : EStore) (i : NIdx) : Name → Bool
+  | .anonymous => st.nnodes[i]? == some .anonymous
+  | .str p s =>
+    match st.nnodes[i]? with
+    | some (.str pi s') => s' == s && st.beqNameI pi p
+    | _ => false
+  | .num p n =>
+    match st.nnodes[i]? with
+    | some (.num pi n') => n' == n && st.beqNameI pi p
+    | _ => false
+
 /-- Read an interned name back as a `Name` tree (structural; agrees
 with the verification's name denotation on well-formed stores). -/
 def readbackN (st : EStore) (i : NIdx) : Option Name :=
@@ -327,13 +349,15 @@ def internExpr (st : EStore) : Expr → EIdx × EStore
   | .bvar i => st.intern (.bvar i)
   | .fvar idx n ty =>
     let (t, st) := st.internExpr ty
-    st.intern (.fvar idx n t)
+    let (n', st) := st.internName n
+    st.intern (.fvar idx n' t)
   | .sort u =>
     let (u', st) := st.internLevel u
     st.intern (.sort u')
   | .const n us =>
     let (us', st) := st.internLevels us
-    st.intern (.const n us')
+    let (n', st) := st.internName n
+    st.intern (.const n' us')
   | .app f a =>
     let (f', st) := st.internExpr f
     let (a', st) := st.internExpr a
@@ -342,21 +366,25 @@ def internExpr (st : EStore) : Expr → EIdx × EStore
     let (t, st) := st.internExpr ty
     let (b, st) := st.internExpr body
     let (m', st) := st.internBM m
-    st.intern (.lam n t b m')
+    let (n', st) := st.internName n
+    st.intern (.lam n' t b m')
   | .forallE n ty body m =>
     let (t, st) := st.internExpr ty
     let (b, st) := st.internExpr body
     let (m', st) := st.internBM m
-    st.intern (.forallE n t b m')
+    let (n', st) := st.internName n
+    st.intern (.forallE n' t b m')
   | .letE n ty val body =>
     let (t, st) := st.internExpr ty
     let (v, st) := st.internExpr val
     let (b, st) := st.internExpr body
-    st.intern (.letE n t v b)
+    let (n', st) := st.internName n
+    st.intern (.letE n' t v b)
   | .lit l => st.intern (.lit l)
   | .proj s i e =>
     let (e', st) := st.internExpr e
-    st.intern (.proj s i e')
+    let (s', st) := st.internName s
+    st.intern (.proj s' i e')
 
 /-! ### Boundary interning with the codomain-chain fast path (task #72)
 
@@ -414,13 +442,15 @@ def internExprFastGo (st : EStore) :
   | .bvar i => (st.intern (.bvar i), none)
   | .fvar idx n ty =>
     let ((t, st), _) := st.internExprFastGo ty
-    (st.intern (.fvar idx n t), none)
+    let (n', st) := st.internName n
+    (st.intern (.fvar idx n' t), none)
   | .sort u =>
     let (u', st) := st.internLevel u
     (st.intern (.sort u'), none)
   | .const n us =>
     let (us', st) := st.internLevels us
-    (st.intern (.const n us'), none)
+    let (n', st) := st.internName n
+    (st.intern (.const n' us'), none)
   | .app f a =>
     let ((f', st), _) := st.internExprFastGo f
     let ((a', st), _) := st.internExprFastGo a
@@ -429,27 +459,31 @@ def internExprFastGo (st : EStore) :
     let ((t, st), _) := st.internExprFastGo ty
     let ((b, st), child) := st.internExprFastGo body
     let (m', st) := st.internBMFast m child
+    let (n', st) := st.internName n
     let cod := match m.cod, m'.cod with
       | some v, some i => some (v, i)
       | _, _ => none
-    (st.intern (.lam n t b m'), cod)
+    (st.intern (.lam n' t b m'), cod)
   | .forallE n ty body m =>
     let ((t, st), _) := st.internExprFastGo ty
     let ((b, st), child) := st.internExprFastGo body
     let (m', st) := st.internBMFast m child
+    let (n', st) := st.internName n
     let cod := match m.cod, m'.cod with
       | some v, some i => some (v, i)
       | _, _ => none
-    (st.intern (.forallE n t b m'), cod)
+    (st.intern (.forallE n' t b m'), cod)
   | .letE n ty val body =>
     let ((t, st), _) := st.internExprFastGo ty
     let ((v, st), _) := st.internExprFastGo val
     let ((b, st), _) := st.internExprFastGo body
-    (st.intern (.letE n t v b), none)
+    let (n', st) := st.internName n
+    (st.intern (.letE n' t v b), none)
   | .lit l => (st.intern (.lit l), none)
   | .proj s i e =>
     let ((e', st), _) := st.internExprFastGo e
-    (st.intern (.proj s i e'), none)
+    let (s', st) := st.internName s
+    (st.intern (.proj s' i e'), none)
 
 /-- `internExpr` with the codomain-chain fast path (task #72; equal to
 `internExpr` by `internExprFast_eq`).  Used by the entry runners, whose
@@ -1376,6 +1410,7 @@ def wfBNodes (st : EStore) : Nat → Bool
           | some u => u < st.lnodes.size
           | none => true
         | _ => true) &&
+       (n.names.all (· < st.nnodes.size)) &&
        st.cons[n]? == some k &&
        st.bvarBs[k]? == some (n.bvarBoundOf st.bvarBs) &&
        st.fvarBs[k]? == some (n.fvarRangeOf st.fvarBs) &&
@@ -1479,15 +1514,15 @@ sub-lists, so the traversal is linear in the number of distinct nodes
 (the *resulting list* can still repeat leaves, exactly as the `Expr`
 version does). -/
 def fvarLeavesIGo (st : EStore)
-    (memo : Std.HashMap EIdx (List (Nat × Name × EIdx))) (e : EIdx) :
-    List (Nat × Name × EIdx) × Std.HashMap EIdx (List (Nat × Name × EIdx)) :=
+    (memo : Std.HashMap EIdx (List (Nat × NIdx × EIdx))) (e : EIdx) :
+    List (Nat × NIdx × EIdx) × Std.HashMap EIdx (List (Nat × NIdx × EIdx)) :=
   match memo[e]? with
   | some r => (r, memo)
   | none =>
     match st.nodes[e]? with
     | none => ([], memo)
     | some n =>
-      let (r, memo) : List (Nat × Name × EIdx) × Std.HashMap EIdx (List (Nat × Name × EIdx)) :=
+      let (r, memo) : List (Nat × NIdx × EIdx) × Std.HashMap EIdx (List (Nat × NIdx × EIdx)) :=
         match n with
         | .bvar _ | .sort _ | .const _ _ | .lit _ => ([], memo)
         | .fvar idx nm ty =>
@@ -1523,7 +1558,7 @@ decreasing_by all_goals first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact
 
 /-- Interned counterpart of `Expr.fvarLeaves`: the reachable `fvar`
 leaves as `(idx, name, type-index)` triples. -/
-def fvarLeavesI (st : EStore) (e : EIdx) : List (Nat × Name × EIdx) :=
+def fvarLeavesI (st : EStore) (e : EIdx) : List (Nat × NIdx × EIdx) :=
   (fvarLeavesIGo st {} e).1
 
 /-- Core of the fabrication-side leaf-subset test (task #86): is
@@ -1532,7 +1567,7 @@ exactly `fvarLeavesI`'s notion — contained in `bl`?  One memoized
 Bool DAG walk; the previous `.all` over the materialized
 `fvarLeavesI e` list was tree-sized on shared fabrications (the
 residual exponential case noted at task #84). -/
-def leavesSubIGo (st : EStore) (bl : List (Nat × Name × EIdx))
+def leavesSubIGo (st : EStore) (bl : List (Nat × NIdx × EIdx))
     (memo : Std.HashMap EIdx Bool) (e : EIdx) :
     Bool × Std.HashMap EIdx Bool :=
   match memo[e]? with
@@ -1609,7 +1644,10 @@ def constsResolveIGo (st : EStore) (env : Env)
             (env.find? listName).isSome && (env.find? listNilName).isSome &&
             (env.find? listConsName).isSome && (env.find? charName).isSome &&
             (env.find? charOfNatName).isSome, memo)
-        | .const n _ => ((env.find? n).isSome, memo)
+        | .const n _ =>
+          (match st.readbackN n with
+           | some nm => (env.find? nm).isSome
+           | none => false, memo)
         | .fvar _ _ ty =>
           if _h : ty < e then constsResolveIGo st env memo ty
           else (false, memo)
@@ -1633,7 +1671,9 @@ def constsResolveIGo (st : EStore) (env : Env)
           else (false, memo)
         | .proj s _ sub =>
           if _h : sub < e then
-            if (env.find? s).isSome then constsResolveIGo st env memo sub
+            if (match st.readbackN s with
+                | some sn => (env.find? sn).isSome
+                | none => false) then constsResolveIGo st env memo sub
             else (false, memo)
           else (false, memo)
       (r, memo.insert e r)
@@ -1801,7 +1841,10 @@ def readbackGo (st : EStore) (memo : Std.HashMap EIdx Expr)
         | .fvar idx nm ty =>
           if _h : ty < e then
             match readbackGo st memo lmemo ty with
-            | (some t, memo, lmemo) => (some (.fvar idx nm t), memo, lmemo)
+            | (some t, memo, lmemo) =>
+              match st.readbackN nm with
+              | some n => (some (.fvar idx n t), memo, lmemo)
+              | none => (none, memo, lmemo)
             | (none, memo, lmemo) => (none, memo, lmemo)
           else (none, memo, lmemo)
         | .sort u =>
@@ -1810,7 +1853,10 @@ def readbackGo (st : EStore) (memo : Std.HashMap EIdx Expr)
           | (none, lmemo) => (none, memo, lmemo)
         | .const n us =>
           match readbackLList st lmemo us with
-          | (some ls, lmemo) => (some (.const n ls), memo, lmemo)
+          | (some ls, lmemo) =>
+            match st.readbackN n with
+            | some nm => (some (.const nm ls), memo, lmemo)
+            | none => (none, memo, lmemo)
           | (none, lmemo) => (none, memo, lmemo)
         | .app f a =>
           if _h : f < e ∧ a < e then
@@ -1828,7 +1874,10 @@ def readbackGo (st : EStore) (memo : Std.HashMap EIdx Expr)
               match readbackGo st memo lmemo body with
               | (some xb, memo, lmemo) =>
                 match readbackBM st lmemo mb with
-                | (some m, lmemo) => (some (.lam n xt xb m), memo, lmemo)
+                | (some m, lmemo) =>
+                  match st.readbackN n with
+                  | some nm => (some (.lam nm xt xb m), memo, lmemo)
+                  | none => (none, memo, lmemo)
                 | (none, lmemo) => (none, memo, lmemo)
               | (none, memo, lmemo) => (none, memo, lmemo)
             | (none, memo, lmemo) => (none, memo, lmemo)
@@ -1840,7 +1889,10 @@ def readbackGo (st : EStore) (memo : Std.HashMap EIdx Expr)
               match readbackGo st memo lmemo body with
               | (some xb, memo, lmemo) =>
                 match readbackBM st lmemo mb with
-                | (some m, lmemo) => (some (.forallE n xt xb m), memo, lmemo)
+                | (some m, lmemo) =>
+                  match st.readbackN n with
+                  | some nm => (some (.forallE nm xt xb m), memo, lmemo)
+                  | none => (none, memo, lmemo)
                 | (none, lmemo) => (none, memo, lmemo)
               | (none, memo, lmemo) => (none, memo, lmemo)
             | (none, memo, lmemo) => (none, memo, lmemo)
@@ -1852,7 +1904,10 @@ def readbackGo (st : EStore) (memo : Std.HashMap EIdx Expr)
               match readbackGo st memo lmemo val with
               | (some xv, memo, lmemo) =>
                 match readbackGo st memo lmemo body with
-                | (some xb, memo, lmemo) => (some (.letE n xt xv xb), memo, lmemo)
+                | (some xb, memo, lmemo) =>
+                  match st.readbackN n with
+                  | some nm => (some (.letE nm xt xv xb), memo, lmemo)
+                  | none => (none, memo, lmemo)
                 | (none, memo, lmemo) => (none, memo, lmemo)
               | (none, memo, lmemo) => (none, memo, lmemo)
             | (none, memo, lmemo) => (none, memo, lmemo)
@@ -1861,7 +1916,10 @@ def readbackGo (st : EStore) (memo : Std.HashMap EIdx Expr)
         | .proj s i sub =>
           if _h : sub < e then
             match readbackGo st memo lmemo sub with
-            | (some xs, memo, lmemo) => (some (.proj s i xs), memo, lmemo)
+            | (some xs, memo, lmemo) =>
+              match st.readbackN s with
+              | some sn => (some (.proj sn i xs), memo, lmemo)
+              | none => (none, memo, lmemo)
             | (none, memo, lmemo) => (none, memo, lmemo)
           else (none, memo, lmemo)
       match r with
