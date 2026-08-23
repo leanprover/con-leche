@@ -247,9 +247,6 @@ def checkConstantValPNC (fe : FEnv) (cv : ConstantValP) :
     throw (.invalid s!"duplicate declaration {cv.name}")
   if reservedBasisNames.contains cv.name then
     throw (.invalid s!"reserved basis name {cv.name}")
-  if modelFamilyTaken fe.env cv.name then
-    throw (.invalid s!"model companion {cv.name} declared after its \
-      constant (the `_model` family of an installed constant is closed)")
   if cv.name.isProjFnShape then
     throw (.invalid s!"reserved projection name {cv.name}")
   unless Name.nodup cv.levelParams do

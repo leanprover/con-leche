@@ -139,12 +139,12 @@ theorem extend_direct_ind {env : Env} (m : EnvModel V env) {p : DirectParts}
     -- from `directNoModel`, part of recognition: the block is the
     -- artifact-free route, so the type former has no companion and the
     -- artifact linkage is vacuous for it
-    (hnomodel : (env.find? (p.cvT.name.str "_model")).isNone = true) :
+    (_hnomodel : (env.find? (p.cvT.name.str "_model")).isNone = true) :
     ∃ m₁ : EnvModel V ⟨.indInfo cvTa (directCaps p) :: env.consts⟩,
       (∀ ψ, m₁.val cvTa.name ψ =
         directTyVal V m.val env cvTa.type cty p.nP p.nF p.resSort ψ) ∧
       (∀ n ψ, n ≠ cvTa.name → m₁.val n ψ = m.val n ψ) := by
-  obtain ⟨hfind0, hnres0, hmft0, hpshape0, hnd, hlb, hfv, tyA, stype, u,
+  obtain ⟨hfind0, hnres0, hpshape0, hnd, hlb, hfv, tyA, stype, u,
     hann, hlp, hres, hst, hsort, hcvA⟩ := checkConstantVal_inv hccv
   have hnameA : cvTa.name = p.cvT.name := by rw [hcvA]
   have hlpsA : cvTa.levelParams = p.cvT.levelParams := by rw [hcvA]
@@ -205,25 +205,28 @@ theorem extend_direct_ind {env : Env} (m : EnvModel V env) {p : DirectParts}
     (fun cv mI rP rules heq => nomatch heq)
     (fun val' _ _ cvR mI rP rules heq => nomatch heq)
     (fun cvR mI rP rules heq => nomatch heq)
-    (fun _ hk _ => by obtain ⟨cv, cnP, cnF, heq⟩ := hk; exact nomatch heq)
-    (fun T j cv mI rP rules hh heq _ => nomatch heq)
     (fun entry heq _ => nomatch heq)
-    (fun cv caps heq hcape _ => by
-      injection heq with h1 h2
-      rw [← h2] at hcape
-      exact nomatch hcape)
-    (fun cv caps heq hcapu _ => by
-      injection heq with h1 h2
-      rw [← h2] at hcapu
-      exact nomatch hcapu)
-    (show modelFamilyTaken env cvTa.name = false by rw [hnameA]; exact hmft0)
-    (fun T j cv mI rP rules hh heq => nomatch heq)
     (hnotthm := fun cv2 value2 h => ConstantInfo.noConfusion h)
-    (hmodvInd := fun _ _ hms => by
-      exfalso
-      rw [show (ConstantInfo.indInfo cvTa (directCaps p)).name = p.cvT.name
-        from hnameA, Option.isNone_iff_eq_none.mp hnomodel] at hms
-      exact nomatch hms)
+    (hcaps := fun val' _ _ => by
+      refine ⟨?_, ?_⟩
+      · intro T cvT capsT hfT hcape hresT hfam hpart
+        exfalso
+        rcases hpart with rfl | hC | ⟨j, hj, hP⟩
+        · rw [Env.find?_cons, if_pos rfl] at hfT
+          obtain heq2 := Option.some.inj hfT
+          injection heq2 with h1 h2
+          rw [← h2] at hcape
+          simp [directCaps] at hcape
+        · obtain ⟨-, ⟨cvC2, hfC⟩, -⟩ := hfam
+          rw [hC, Env.find?_cons, if_pos rfl] at hfC
+          exact nomatch (Option.some.inj hfC)
+        · have hP' : projFnName T j = cvTa.name := hP
+          rw [← hP'] at hshapeA
+          simp [projFnName, Name.isProjFnShape] at hshapeA
+      · intro cv caps heq hcapu _
+        injection heq with h1 h2
+        rw [← h2] at hcapu
+        simp [directCaps] at hcapu)
   · -- `mem_type`
     intro ψ
     obtain ⟨Tv, hTv⟩ := hityI ψ

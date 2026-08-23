@@ -2,19 +2,16 @@
 
 /- Regression: **`_model` names are not special**.
 
-   The direct simple-structure install carries a *model-family guard*
-   (`modelFamilyTaken`, `Setlec/Kernel/Direct.lean`) that refuses a
-   `_model` companion appearing *after* the constant it would be linked
-   to.  That guard is keyed on exactly the environment invariant's
-   linkage clauses — a stored non-reserved inductive-kind type former or
-   constructor, or a stored projection function — and on nothing wider.
+   There is no `_model` reservation of any kind: the public↔`_model`
+   identification is group-local to a modeled block's install
+   derivation (task #83), the environment carries no linkage, and the
+   former model-family guard (`modelFamilyTaken`) is deleted.
 
-   This fixture is the negative control: a plain `def Foo` followed by a
-   plain `def Foo._model`, neither of them inductive-kind and no
-   projection function in sight.  It is a perfectly ordinary stream, the
-   reference kernels accept it, setlec accepted it before the direct
-   path existed, and it must keep being **accepted** (exit 0).  A
-   blanket reservation of the `_model` suffix would reject it.
+   This fixture is the negative control: a plain `def Foo` followed by
+   a plain `def Foo._model`.  It is a perfectly ordinary stream, the
+   reference kernels accept it, and it must keep being **accepted**
+   (exit 0).  Any reservation or shadow check on the `_model` suffix
+   sneaking back in would reject it.
 
    Committed as a *raw* lean4export result and run with
    `SETLEC_INDUCTIVE_MODELS=/nonexistent` (the `raw` marker in

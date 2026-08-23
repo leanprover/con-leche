@@ -32,11 +32,6 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
     (htyres0 : cvA.type.constsResolve env = true)
     (hmodel : env.find? mnameP = some (.defnInfo cvm mval hmcvm))
     (hlps : cvm.levelParams = cvA.levelParams)
-    (hnameP : ∃ Tn, cvA.name = projFnName Tn i ∧
-      (env.find? Tn).isSome = true)
-    (hprojm : ∀ (T : Name) (j : Nat), cvA.name = projFnName T j →
-      (env.find? (projModelName T j)).isSome = true ∧
-      ∀ ψ : Name → Nat, m.val mnameP ψ = m.val (projModelName T j) ψ)
     (hren : cvA.type.renameConsts f = cvm.type)
     (f₀ : Name → Name) (hro : RenameOk m.val env f₀)
     (hff₀ : ∀ n, n ≠ cvA.name → f n = f₀ n)
@@ -97,7 +92,24 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
     (hrhsw : (RecRule.rhs rule).hasFvar = false)
     (hrhsb : (RecRule.rhs rule).looseBVarsBounded 0 = true)
     {rhsTy : Expr}
-    (hity : inferTypeCore env F 0 (RecRule.rhs rule) = .ok rhsTy) :
+    (hity : inferTypeCore env F 0 (RecRule.rhs rule) = .ok rhsTy)
+    -- the eta head obligation, forwarded: only the caller (the
+    -- projection phase, with its `ProjPhaseInv` identification in
+    -- scope) knows whether this projection function completes its
+    -- former's eta family
+    (hheadEta : ∀ (T : Name) (cvT : ConstantVal) (capsT : IndCaps),
+      (⟨.recInfo cvA nP nP [] :: env.consts⟩ : Env).find? T =
+        some (.indInfo cvT capsT) →
+      capsT.eta = true → reservedBasisNames.contains T = false →
+      EtaFamilyStored (⟨.recInfo cvA nP nP [] :: env.consts⟩ : Env)
+        T capsT →
+      (∃ j, j < capsT.etaFields ∧ projFnName T j = cvA.name) →
+      ∀ val₁ : ConstVal V,
+        (∀ (n : Name) (ψ : Name → Nat), n ≠ cvA.name →
+          val₁ n ψ = m.val n ψ) →
+        (∀ ψ : Name → Nat, val₁ cvA.name ψ = m.val mnameP ψ) →
+        EtaLaw V (⟨.recInfo cvA nP nP [] :: env.consts⟩ : Env) val₁
+          T cvT capsT) :
     ∃ m' : EnvModel V ⟨.recInfo cvA nP nP [rule] :: env.consts⟩,
       (∀ ψ, m'.val cvA.name ψ = m.val mnameP ψ) ∧
       (∀ n ψ, n ≠ cvA.name → m'.val n ψ = m.val n ψ) := by
@@ -127,22 +139,17 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
     (by show Expr.eqUpToNames (cvA.type.renameConsts f₀) cvm.type = true
         rw [hren₀]
         exact Expr.eqUpToNames_rfl _) hannT hro
-    (fun hk => by
-      rcases hk with ⟨_, _, hcon⟩ | ⟨_, _, _, hcon⟩ <;> exact nomatch hcon)
-    (fun T j _ _ _ _ hh _ => hprojm T j hh)
-    (fun T j _ _ _ _ hh _ => by
-      obtain ⟨Tn, hnm, hTs⟩ := hnameP
-      have hh' : cvA.name = projFnName T j := hh
-      rw [hnm] at hh'
-      obtain ⟨rfl, rfl⟩ : Tn = T ∧ i = j := by
-        simpa [projFnName, Name.num.injEq, Name.str.injEq] using hh'
-      exact hTs)
-    (show modelFamilyTaken env cvA.name = false by
-      obtain ⟨Tn, hnm, -⟩ := hnameP
-      rw [hnm]
-      simp [modelFamilyTaken, modelSuffixTaken, modelProjTaken, projFnName])
-    (fun cv caps hcon => nomatch hcon)
-    (fun cv caps hcon => nomatch hcon)
+    (fun val₁ hv₁ he₁ => by
+      refine ⟨?_, fun cv2 caps2 hcon => nomatch hcon⟩
+      intro T cvT capsT hfT hcape hresT hfam hpart
+      rcases hpart with rfl | hC | hPart
+      · rw [Env.find?_cons, if_pos rfl] at hfT
+        exact nomatch (Option.some.inj hfT)
+      · obtain ⟨-, ⟨cvC, hfC⟩, -⟩ := hfam
+        rw [hC, Env.find?_cons, if_pos rfl] at hfC
+        exact nomatch (Option.some.inj hfC)
+      · exact hheadEta T cvT capsT hfT hcape hresT hfam hPart val₁
+          he₁ hv₁)
   -- transports from the base model into the final environment
   have hagreeM : ∀ n, (env.find? n).isSome = true → ∀ ψ : Name → Nat,
       m₀.val n ψ = m.val n ψ := by

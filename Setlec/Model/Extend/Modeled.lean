@@ -45,52 +45,26 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
     (hannT : ∀ ψ : Name → Nat,
       AnnotOk V m.val env ψ 0 (rho0 V) ci.toConstantVal.type)
     (hro : RenameOk m.val env f)
-    (hmodm : ((∃ cv caps, ci = .indInfo cv caps) ∨
-        (∃ cv cnP cnF, ci = .ctorInfo cv cnP cnF)) →
-      (env.find? (ci.name.str "_model")).isSome = true ∧
-      ∀ ψ : Name → Nat, m.val mname ψ = m.val (ci.name.str "_model") ψ)
-    (hprojm : ∀ (T : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat)
-      (rules : List RecRule), ci.name = projFnName T j →
-      ci = .recInfo cv mI rP rules →
-      (env.find? (projModelName T j)).isSome = true ∧
-      ∀ ψ : Name → Nat, m.val mname ψ = m.val (projModelName T j) ψ)
-    (hparentm : ∀ (T : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat)
-      (rules : List RecRule), ci.name = projFnName T j →
-      ci = .recInfo cv mI rP rules → (env.find? T).isSome = true)
-    (hmftm : modelFamilyTaken env ci.name = false)
-    (hetaLm : ∀ cv caps, ci = .indInfo cv caps → caps.eta = true →
-      reservedBasisNames.contains ci.name = false →
-      (env.find? (caps.etaCtor.str "_model")).isSome = true ∧
-      (∀ j, j < caps.etaFields →
-        (env.find? (projModelName ci.name j)).isSome = true) ∧
-      ∀ (φ'' : Name → Nat) (us : List Level) (ps : List V) (x : V)
-        (d₁ : Nat) (ρ₁ : Nat → V) (d₂ : Nat) (ρ₂ : Nat → V)
-        (rest : Expr),
-        ps.length = caps.etaParams →
-        x ∈ˢ SpineFold V
-          (m.val mname (Level.substFn φ'' cv.levelParams us)) ps →
-        TeleFit V m.val env φ'' d₁ ρ₁
-          (cv.type.instantiateLevelParams cv.levelParams us) ps d₂ ρ₂
-          rest →
-        x = SpineFold V (m.val (caps.etaCtor.str "_model")
-            (Level.substFn φ'' cv.levelParams us))
-          (ps ++ (List.range caps.etaFields).map fun j =>
-            SpineFold V (m.val (projModelName ci.name j)
-              (Level.substFn φ'' cv.levelParams us)) (ps ++ [x])))
-    (hunitLm : ∀ cv caps, ci = .indInfo cv caps → caps.unitlike = true →
-      reservedBasisNames.contains ci.name = false →
-      ∀ (φ'' : Name → Nat) (us : List Level) (ps : List V) (x y : V)
-        (d₁ : Nat) (ρ₁ : Nat → V) (d₂ : Nat) (ρ₂ : Nat → V)
-        (rest : Expr),
-        ps.length = caps.unitParams →
-        x ∈ˢ SpineFold V
-          (m.val mname (Level.substFn φ'' cv.levelParams us)) ps →
-        y ∈ˢ SpineFold V
-          (m.val mname (Level.substFn φ'' cv.levelParams us)) ps →
-        TeleFit V m.val env φ'' d₁ ρ₁
-          (cv.type.instantiateLevelParams cv.levelParams us) ps d₂ ρ₂
-          rest →
-        x = y) :
+    -- the capability-law head obligations (`CapsOk.cons`'s shape,
+    -- see `extend_basis_one`): the eta law is owed when the member
+    -- completes a family — the block derivation discharges it from
+    -- the artifact facts, with the group-local identification in
+    -- scope — and the unit law for a freshly installed unit-like
+    -- former
+    (hcapsm : ∀ val' : ConstVal V,
+      (∀ ψ : Name → Nat, val' ci.name ψ = m.val mname ψ) →
+      (∀ (n : Name) (ψ : Name → Nat), n ≠ ci.name →
+        val' n ψ = m.val n ψ) →
+      (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
+        (⟨ci :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
+        caps.eta = true → reservedBasisNames.contains T = false →
+        EtaFamilyStored ⟨ci :: env.consts⟩ T caps →
+        (T = ci.name ∨ caps.etaCtor = ci.name ∨
+          ∃ j, j < caps.etaFields ∧ projFnName T j = ci.name) →
+        EtaLaw V ⟨ci :: env.consts⟩ val' T cvT caps) ∧
+      (∀ cv caps, ci = .indInfo cv caps → caps.unitlike = true →
+        reservedBasisNames.contains ci.name = false →
+        UnitLaw V ⟨ci :: env.consts⟩ val' ci.name cv caps)) :
     ∃ m' : EnvModel V ⟨ci :: env.consts⟩,
       (∀ ψ, m'.val ci.name ψ = m.val mname ψ) ∧
       (∀ n ψ, n ≠ ci.name → m'.val n ψ = m.val n ψ) := by
@@ -159,26 +133,29 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
         subst h4
         intro r hr
         cases hr)
-    (fun _ hk _ => (hmodm (Or.inr hk)).2)
-    (fun T j cv mI rP rules hh hceq _ =>
-      (hprojm T j cv mI rP rules hh hceq).2)
     (fun entry heq _ => by
       rcases hkind with ⟨cv', caps', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
         ⟨cv', mI', rP', rfl⟩ <;> exact nomatch heq)
-    hetaLm hunitLm hmftm hparentm
     (fun cv2 value2 => by
       rcases hkind with ⟨cv', caps', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
         ⟨cv', mI', rP', rfl⟩ <;> simp)
-    (fun _ hk _ => (hmodm (Or.inl hk)).2)
+    hcapsm
 
 /-- The fold invariant of `checkIndDecl`: every installed block member
 has its `_model` companion stored (as a definition with the same level
-parameters) and is interpreted by it. -/
+parameters), its checked type is the companion's under the block
+renaming (up to display names), and it is interpreted by the
+companion.  This *is* the group-local public↔`_model` identification:
+it lives only inside the one block's install derivation and is
+discarded at its end. -/
 def BlockInstalled (blockNames : List Name) (env' : Env)
     (val : ConstVal V) : Prop :=
   ∀ n, blockNames.contains n = true → ∀ ci, env'.find? n = some ci →
     ∃ cvm mval hmcvm, env'.find? (n.str "_model") = some (.defnInfo cvm mval hmcvm) ∧
       cvm.levelParams = ci.toConstantVal.levelParams ∧
+      Expr.eqUpToNames (ci.toConstantVal.type.renameConsts (fun n' =>
+        if blockNames.contains n' then n'.str "_model" else n'))
+        cvm.type = true ∧
       ∀ ψ : Name → Nat, val n ψ = val (n.str "_model") ψ
 
 omit [SetTheory V] in
@@ -191,6 +168,9 @@ theorem BlockInstalled.step {blockNames : List Name} {env' : Env}
     (hms : ci₁.name.isModelSuffix = false)
     (hfm : env'.find? (ci₁.name.str "_model") = some (.defnInfo cvm mval hmcvm))
     (hlps : cvm.levelParams = ci₁.toConstantVal.levelParams)
+    (hren : Expr.eqUpToNames (ci₁.toConstantVal.type.renameConsts
+      (fun n' => if blockNames.contains n' then n'.str "_model" else n'))
+      cvm.type = true)
     (hval₁ : ∀ ψ, val₁ ci₁.name ψ = val (ci₁.name.str "_model") ψ)
     (hpres₁ : ∀ n ψ, n ≠ ci₁.name → val₁ n ψ = val n ψ) :
     BlockInstalled blockNames ⟨ci₁ :: env'.consts⟩ val₁ := by
@@ -200,15 +180,15 @@ theorem BlockInstalled.step {blockNames : List Name} {env' : Env}
   · next hh =>
     obtain rfl := Option.some.inj hf₂
     obtain rfl : ci₁.name = n := hh
-    refine ⟨cvm, mval, hmcvm, ?_, hlps, ?_⟩
+    refine ⟨cvm, mval, hmcvm, ?_, hlps, hren, ?_⟩
     · rw [Env.find?_cons,
         if_neg (fun h => Name.str_ne ci₁.name "_model" h.symm)]
       exact hfm
     · intro ψ
       rw [hval₁ ψ, hpres₁ _ ψ (Name.str_ne ci₁.name "_model")]
   · next hh =>
-    obtain ⟨cvm₂, mval₂, hm₂, hfm₂, hlps₂, hv₂⟩ := hI n hbn ci₂ hf₂
-    refine ⟨cvm₂, mval₂, hm₂, ?_, hlps₂, ?_⟩
+    obtain ⟨cvm₂, mval₂, hm₂, hfm₂, hlps₂, hren₂, hv₂⟩ := hI n hbn ci₂ hf₂
+    refine ⟨cvm₂, mval₂, hm₂, ?_, hlps₂, hren₂, ?_⟩
     · rw [Env.find?_cons, if_neg (show ¬ci₁.name = n.str "_model" from
         fun h => Name.str_model_ne hms h.symm)]
       exact hfm₂
@@ -216,6 +196,38 @@ theorem BlockInstalled.step {blockNames : List Name} {env' : Env}
       rw [hpres₁ _ ψ (fun h => hh h.symm),
         hpres₁ _ ψ (fun h => Name.str_model_ne hms h),
         hv₂ ψ]
+
+omit [SetTheory V] in
+/-- Prepending a fresh non-member constant preserves the fold
+invariant (the projection-family phase's installs). -/
+theorem BlockInstalled.fresh_cons {blockNames : List Name} {env' : Env}
+    {val val₁ : ConstVal V} {c₀ : ConstantInfo}
+    (hI : BlockInstalled blockNames env' val)
+    (hnotb : blockNames.contains c₀.name = false)
+    (hfresh : env'.find? c₀.name = none)
+    (hpres : ∀ n ψ, n ≠ c₀.name → val₁ n ψ = val n ψ) :
+    BlockInstalled blockNames ⟨c₀ :: env'.consts⟩ val₁ := by
+  intro n hbn ci₂ hf₂
+  rw [Env.find?_cons] at hf₂
+  split at hf₂
+  · next hh =>
+    exfalso
+    rw [← hh] at hbn
+    rw [hbn] at hnotb
+    exact nomatch hnotb
+  · next hh =>
+    obtain ⟨cvm₂, mval₂, hm₂, hfm₂, hlps₂, hren₂, hv₂⟩ := hI n hbn ci₂ hf₂
+    have hnne : n ≠ c₀.name := fun h => hh h.symm
+    have hmne : n.str "_model" ≠ c₀.name := by
+      intro h
+      rw [← h] at hfresh
+      rw [hfresh] at hfm₂
+      exact nomatch hfm₂
+    refine ⟨cvm₂, mval₂, hm₂, ?_, hlps₂, hren₂, ?_⟩
+    · rw [Env.find?_cons, if_neg (fun h => hmne h.symm)]
+      exact hfm₂
+    · intro ψ
+      rw [hpres _ ψ hnne, hpres _ ψ hmne, hv₂ ψ]
 
 /-- Invert a successful `checkMemberVal` run. -/
 theorem checkMemberVal_inv {blockNames : List Name} {env' : Env}
