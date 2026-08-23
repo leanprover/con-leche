@@ -212,24 +212,30 @@ every node is bounded at most once per run. -/
 when the target has no loose bvar at or above the cursor (task #72's
 scope shortcut; on a canonical arena the traversal would rebuild the
 same index node by node). -/
-@[inline] def inst1M (e v : EIdx) (d : Nat := 0) : CheckIM EIdx := do
-  if (← bvarBoundM e) ≤ d then pure e else
+@[inline] def inst1M (e v : EIdx) (d : Nat := 0) : CheckIM EIdx :=
   modifyGet fun s =>
-    let store := s.store
-    let s := { s with store := EStore.empty }
-    let (r, store) := store.instantiate1I e v d
-    (r, { s with store := store })
+    let r := EStore.bvarBoundIGo s.store s.bvarB e
+    let s : IState := { s with bvarB := r.2 }
+    if r.1 ≤ d then (e, s)
+    else
+      let store := s.store
+      let s := { s with store := EStore.empty }
+      let (r, store) := store.instantiate1I e v d
+      (r, { s with store := store })
 
 /-- Memoized interned `Expr.instantiateList` (bulk instantiation,
 task #50); identity shortcut as in `inst1M` (task #72). -/
 @[inline] def instListM (e : EIdx) (vs : List EIdx) (d : Nat := 0) :
-    CheckIM EIdx := do
-  if (← bvarBoundM e) ≤ d then pure e else
+    CheckIM EIdx :=
   modifyGet fun s =>
-    let store := s.store
-    let s := { s with store := EStore.empty }
-    let (r, store) := store.instantiateListI e vs d
-    (r, { s with store := store })
+    let r := EStore.bvarBoundIGo s.store s.bvarB e
+    let s : IState := { s with bvarB := r.2 }
+    if r.1 ≤ d then (e, s)
+    else
+      let store := s.store
+      let s := { s with store := EStore.empty }
+      let (r, store) := store.instantiateListI e vs d
+      (r, { s with store := store })
 
 /-- Memoized interned `Expr.abstract1`. -/
 @[inline] def abstract1M (e : EIdx) (d : Nat) : CheckIM EIdx :=
