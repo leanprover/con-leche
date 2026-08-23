@@ -450,7 +450,13 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
         simp [whnfCoreBody, throw, throwThe, MonadExceptOf.throw] at h
       | letE nn tt vv bb =>
         rw [whnfCore_succ] at h
-        simp [whnfCoreBody, throw, throwThe, MonadExceptOf.throw] at h
+        simp only [whnfCoreBody, whnfCore_def] at h
+        intro l hl
+        have hl' := ihCore h l hl
+        simp only [fvarLeaves, List.mem_append]
+        rcases fvarLeaves_instantiate1 bb 0 hl' with h2 | h2
+        · exact Or.inr h2
+        · exact Or.inl (Or.inr h2)
       | app f a =>
         intro l hl
         obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
@@ -584,7 +590,9 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
         simp [whnfCoreBody, throw, throwThe, MonadExceptOf.throw] at h
       | letE nn tt vv bb =>
         rw [whnfCore_succ] at h
-        simp [whnfCoreBody, throw, throwThe, MonadExceptOf.throw] at h
+        simp only [whnfCoreBody, whnfCore_def] at h
+        simp only [looseBVarsBounded, Bool.and_eq_true] at hb
+        exact ihCore h (looseBVarsBounded_instantiate1_gen hb.1.2 hb.2)
       | app f a =>
         simp only [looseBVarsBounded, Bool.and_eq_true] at hb
         obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
@@ -800,7 +808,11 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
       simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
     | letE n' t' v' b' =>
       rw [inferTypeCore_succ] at h
-      simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
+      simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure,
+        Except.pure, infer_def] at h
+      simp only [WScoped] at hw
+      exact inferTypeCore_WScoped henv fuel h
+        (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
 
 theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat) {d : Nat} {e t : Expr},
@@ -938,7 +950,16 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
       simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
     | letE n' t' v' b' =>
       rw [inferTypeCore_succ] at h
-      simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
+      simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure,
+        Except.pure, infer_def] at h
+      simp only [WScoped] at hw
+      intro l hl
+      have hl' := inferTypeCore_fvarLeaves henv fuel h
+        (WScoped.instantiate1_gen hw.2.1 0 hw.2.2) l hl
+      simp only [fvarLeaves, List.mem_append]
+      rcases fvarLeaves_instantiate1 b' 0 hl' with h2 | h2
+      · exact Or.inr h2
+      · exact Or.inl (Or.inr h2)
 
 theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat) {d : Nat} {e t : Expr},
@@ -1073,6 +1094,17 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
       simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
     | letE n' t' v' b' =>
       rw [inferTypeCore_succ] at h
-      simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
+      simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure,
+        Except.pure, infer_def] at h
+      simp only [WScoped] at hw
+      simp only [looseBVarsBounded, Bool.and_eq_true] at hb
+      refine inferTypeCore_looseBVars henv fuel h
+        (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
+        (looseBVarsBounded_instantiate1_gen hb.1.2 hb.2) ?_
+      intro l hl
+      rcases fvarLeaves_instantiate1 b' 0 hl with h2 | h2
+      · exact hLb l (by simp only [fvarLeaves, List.mem_append]; exact Or.inr h2)
+      · exact hLb l (by
+          simp only [fvarLeaves, List.mem_append]; exact Or.inl (Or.inr h2))
 
 end Setlec

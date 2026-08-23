@@ -105,7 +105,7 @@ def liftLooseBVars (amount : Nat) : (cutoff : Nat) → Expr → Expr
 /-- Replace `bvar d` by `v`, *lifting* `v`'s loose `bvar`s past the
 binders crossed on the way — the general capture-avoiding substitution
 for an open `v` (unlike `instantiate1`, which requires `v` to be
-`bvar`-closed).  Used by `zetaExpand`, where let-values are open. -/
+`bvar`-closed).  Let-values are open terms. -/
 def instantiate1Lift (e : Expr) (v : Expr) (d : Nat := 0) : Expr :=
   match e with
   | .bvar i =>
@@ -290,26 +290,6 @@ def getAppArgs : Expr → List Expr
 def mkAppN (f : Expr) : List Expr → Expr
   | [] => f
   | a :: as => mkAppN (.app f a) as
-
-/-- Fully zeta-expand: replace every `let x := v in b` by `b[v/x]`
-(value and body expanded first, so the result is let-free and the
-recursion structural).  Applied by the frontend when building
-declarations; `let` is definitionally its expansion, so checking the
-expansion is checking the original (the per-occurrence re-checking
-costs performance, not soundness — revisit with performance work). -/
-def zetaExpand : Expr → Expr
-  | .bvar i => .bvar i
-  | .fvar idx n ty => .fvar idx n (zetaExpand ty)
-  | .sort u => .sort u
-  | .const n us => .const n us
-  | .app f a => .app (zetaExpand f) (zetaExpand a)
-  | .lam n ty body m => .lam n (zetaExpand ty) (zetaExpand body) m
-  | .forallE n ty body m => .forallE n (zetaExpand ty) (zetaExpand body) m
-  | .letE _ _ val body =>
-    -- let-values are open terms: substitute with lifting
-    (zetaExpand body).instantiate1Lift (zetaExpand val)
-  | .lit l => .lit l
-  | .proj s i e => .proj s i (zetaExpand e)
 
 /-- Rename constants throughout (including inside `fvar` type
 annotations and `proj` type names); levels and binders untouched.  Used

@@ -75,7 +75,9 @@ private theorem whnfCoreBody_unfold (env : Env) (d : Nat) (e : Expr) :
           else pure (.proj sn i e')
         | _ => pure (.proj sn i e')
       | none => pure (.proj sn i e')
-    | .bvar _ | .letE _ _ _ _ =>
+    | .letE _ _ v b =>
+      (fueledFns env).whnfCore d (b.instantiate1 v)
+    | .bvar _ =>
       throw (.notImplemented "whnf beyond the supported fragment")) := by
   cases e <;> rfl
 
@@ -661,7 +663,18 @@ theorem whnfCoreBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     exact SimAt.pure hs ⟨hden, hw⟩
   | lit l => cases hd; exact SimAt.pure hs ⟨hden, hw⟩
   | bvar k => cases hd; exact SimAt.throw
-  | letE nm t v b => invert_node hd; exact SimAt.throw
+  | letE nm t v b =>
+    rw [denoteNode, Option.bind_eq_some_iff] at hd
+    obtain ⟨et, het, hd⟩ := hd
+    rw [Option.bind_eq_some_iff] at hd
+    obtain ⟨ev, hev, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨eb, heb, hd⟩ := hd
+    subst hd
+    simp only [WScoped] at hw
+    refine SimAt.bind_left (inst1M_eff hs heb hev)
+      (fun s₁ e' hs₁ hext₁ hQ => ?_)
+    exact ih.whnfCore hs₁ hQ (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
   | app g' a =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨xg, hg, hd⟩ := hd
@@ -1639,12 +1652,21 @@ theorem inferBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     try dsimp only
     exact SimAt.throw
   | letE nm t v b =>
-    invert_node hd
+    rw [denoteNode, Option.bind_eq_some_iff] at hd
+    obtain ⟨et, het, hd⟩ := hd
+    rw [Option.bind_eq_some_iff] at hd
+    obtain ⟨ev, hev, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨eb, heb, hd⟩ := hd
+    subst hd
     unfold inferBody
     dsimp only [viewM, Expr.view]
     refine SimAt.bind_pure_right ?_
     try dsimp only
-    exact SimAt.throw
+    simp only [WScoped] at hw
+    refine SimAt.bind_left (inst1M_eff hs heb hev)
+      (fun s₁ e' hs₁ hext₁ hQ => ?_)
+    exact ih.infer hs₁ hQ (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
   | fvar idx nm t =>
     rw [denoteNode, Option.map_eq_some_iff] at hd
     obtain ⟨tyx, hty, hd⟩ := hd

@@ -144,6 +144,11 @@ lemma that leaves `fvar` leaves to `shiftFrom_fvar`). -/
 private theorem shiftFrom_app (p : Nat) (f a : Expr) :
     shiftFrom p (.app f a) = .app (shiftFrom p f) (shiftFrom p a) := rfl
 
+/-- `shiftFrom` distributes over `letE` (definitional). -/
+private theorem shiftFrom_letE (p : Nat) (n : Name) (ty v b : Expr) :
+    shiftFrom p (.letE n ty v b) =
+      .letE n (shiftFrom p ty) (shiftFrom p v) (shiftFrom p b) := rfl
+
 /-- `getD` with the (shift-invariant) `bvar 0` default commutes with
 mapping the shift. -/
 private theorem getD_map_shiftFrom (p : Nat) :
@@ -1756,7 +1761,16 @@ private theorem whnfCore_step (henv : EnvWF env)
   | .lam n ty body mb => rfl
   | .const n us => rfl
   | .lit l => rfl
-  | .letE n ty v body => rfl
+  | .letE n ty v body =>
+    simp only [WScoped] at hw
+    rw [shiftFrom_letE]
+    show whnfCoreBody (pureFns env fuel) env (d + 1)
+        (.letE n (shiftFrom p ty) (shiftFrom p v) (shiftFrom p body)) =
+      (whnfCoreBody (pureFns env fuel) env d (.letE n ty v body)).map
+        (shiftFrom p)
+    simp only [whnfCoreBody]
+    have h := ih.whnfCore hpd (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
+    rwa [shiftFrom_instantiate1_gen] at h
   | .app f a =>
     simp only [WScoped] at hw
     rw [shiftFrom_app]
@@ -1888,7 +1902,16 @@ private theorem infer_step (henv : EnvWF env)
   rw [inferTypeCore_succ, inferTypeCore_succ]
   match e with
   | .bvar i => rfl
-  | .letE n ty v body => rfl
+  | .letE n ty v body =>
+    simp only [WScoped] at hw
+    rw [shiftFrom_letE]
+    show inferBody (pureFns env fuel) env (d + 1)
+        (.letE n (shiftFrom p ty) (shiftFrom p v) (shiftFrom p body)) =
+      (inferBody (pureFns env fuel) env d (.letE n ty v body)).map
+        (shiftFrom p)
+    simp only [inferBody, viewM, Expr.view, pure_bind]
+    have h := ih.infer hpd (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
+    rwa [shiftFrom_instantiate1_gen] at h
   | .sort u => rfl
   | .lit (.natVal n) =>
     show inferBody (pureFns env fuel) env (d + 1) (.lit (.natVal n)) =
@@ -2405,7 +2428,39 @@ private theorem annotate_step (henv : EnvWF env)
         (shiftFrom p)
     simp only [annotateBody]
     exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
-  | .letE n ty v body => rfl
+  | .letE n ty v body =>
+    simp only [WScoped] at hw
+    rw [shiftFrom_letE]
+    show annotateBody (pureFns env fuel) env (d + 1)
+        (.letE n (shiftFrom p ty) (shiftFrom p v) (shiftFrom p body)) =
+      (annotateBody (pureFns env fuel) env d (.letE n ty v body)).map
+        (shiftFrom p)
+    simp only [annotateBody]
+    refine bind_rel _ _ (ih.annotate hpd hw.1) ?_
+    intro ty' hty'
+    have hwty' : WScoped d ty' := annotateCore_WScoped fuel ty hty' hw.1
+    refine bind_rel _ _ (ih.infer hpd hwty') ?_
+    intro tty htty
+    refine bind_rel_eq _ (ensureSort_shift henv ih hpd
+      (inferTypeCore_WScoped henv fuel htty hwty')) ?_
+    intro u _
+    refine bind_rel _ _ (ih.annotate hpd hw.2.1) ?_
+    intro v' hv'
+    have hwv' : WScoped d v' := annotateCore_WScoped fuel v hv' hw.2.1
+    refine bind_rel _ _ (ih.infer hpd hwv') ?_
+    intro tv htv
+    refine bind_rel_eq _
+      (ih.defeq hpd (inferTypeCore_WScoped henv fuel htv hwv') hwty') ?_
+    intro bb _
+    refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
+    have hopen : WScoped (d + 1) (body.instantiate1 (.fvar d n ty')) :=
+      WScoped.instantiate1 (n := n) hwty' 0 hw.2.2
+    have hbody := ih.annotate (p := p) (d := d + 1) (by omega) hopen
+    rw [shiftFrom_instantiate1 hpd] at hbody
+    refine bind_rel _ _ hbody ?_
+    intro body' hbody'
+    rw [← shiftFrom_abstract1 hpd]
+    rfl
   | .lit (.natVal n) =>
     show annotateBody (pureFns env fuel) env (d + 1) (.lit (.natVal n)) =
       (annotateBody (pureFns env fuel) env d (.lit (.natVal n))).map

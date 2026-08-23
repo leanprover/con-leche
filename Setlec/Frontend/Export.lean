@@ -290,8 +290,9 @@ private def parseConstantVal (st : State) (v : Json) : M ConstantVal := do
   pure {
     name := ← getName' st v "name"
     levelParams := (← (← getIdxs v "levelParams").mapM st.name).toList
-    -- `let` is definitionally its expansion; the checker works let-free.
-    type := (← getDeclExpr' st v "type").zetaExpand
+    -- `letE` flows through unexpanded: the kernel zeta-reduces lazily
+    -- (task #79); eager expansion duplicated shared let-values.
+    type := ← getDeclExpr' st v "type"
   }
 
 /-- Process one line of the export file.  `Sum.inl`: fine (possibly updated
@@ -342,19 +343,19 @@ private def processLineCore (st : State) (j : Json)
     match (← (← v.getObjVal? "safety").getStr?) with
     | "safe" => return .inl { st with
         decls := st.decls.push (.defnDecl cv
-          (← getDeclExpr' st v "value").zetaExpand (← parseHints v)) }
+          (← getDeclExpr' st v "value") (← parseHints v)) }
     | s => return .inr s!"definition with safety '{s}'"
   else if let .ok v := j.getObjVal? "thm" then
     let cv ← parseConstantVal st v
     return .inl { st with
-      decls := st.decls.push (.thmDecl cv (← getDeclExpr' st v "value").zetaExpand) }
+      decls := st.decls.push (.thmDecl cv (← getDeclExpr' st v "value")) }
   else if let .ok v := j.getObjVal? "opaque" then
     let cv ← parseConstantVal st v
     if (← (← v.getObjVal? "isUnsafe").getBool?) then
       return .inr "unsafe opaque declaration"
     return .inl { st with
       decls := st.decls.push
-        (.opaqueDecl cv (← getDeclExpr' st v "value").zetaExpand) }
+        (.opaqueDecl cv (← getDeclExpr' st v "value")) }
   else if let .ok v := j.getObjVal? "quot" then
     -- the kernel quotient bundle: each record must match its pinned
     -- basis member; the type former's record installs the whole block
@@ -390,12 +391,11 @@ private def processLineCore (st : State) (j : Json)
     let recs ← (← (← v.getObjVal? "recs").getArr?).mapM fun r => do
       let rules ← (← (← r.getObjVal? "rules").getArr?).mapM fun ru => do
         -- `ctorParams`/`fire` are install-computed; parse placeholders.
-        -- The rhs is zeta-expanded like every other parsed expression
-        -- (the checker works let-free; install annotates the rhs and
-        -- would otherwise decline on `letE`).
+        -- Like every other parsed expression, the rhs keeps its `letE`
+        -- nodes; install annotates it through the kernel's letE rule.
         pure (RecRule.mk (← getName' st ru "ctor")
           (← (← ru.getObjVal? "nfields").getNat?) 0 .inert
-          (← getDeclExpr' st ru "rhs").zetaExpand)
+          (← getDeclExpr' st ru "rhs"))
       -- only the two sums the checker reads are kept: the major's
       -- position and the rule-application prefix
       let nP ← (← r.getObjVal? "numParams").getNat?
