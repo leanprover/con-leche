@@ -345,6 +345,153 @@ theorem pi_walk {env : Env} (m : EnvModel V env) (F : Nat)
       · exact hFfv
       · exact hspineF a ha
 
+/-- One-sided defeq-transfer walk with the memberships on the frame
+side: a telescope opened at a free-variable spine whose *annotations*
+are per-binder definitionally equal to the walk's domains.  The spine
+entries' own typing packages (`FvarsOk`) supply the annotation-side
+memberships; definitional-equality soundness transfers them into the
+walk's domains, producing the telescope fit *and* the pointwise
+domain-membership pack. -/
+theorem pi_walk_src {env : Env} (m : EnvModel V env) (F : Nat)
+    {φ : Name → Nat} {D : Nat} {ρ : Nat → V} :
+    ∀ {spine : List Expr} {vs : List V} {tyR : Expr}
+      {dsR : List Expr} {restR : Expr},
+      Expr.instPisAt spine tyR = some (dsR, restR) →
+      DefEqListOk F env D (spine.map Expr.fvarTypeD) dsR →
+      FvarSpine D ρ spine vs →
+      (∀ a ∈ spine, WScoped D a) →
+      (∀ a ∈ spine, Expr.LeavesBounded a) →
+      (∀ a ∈ spine, FvarsOk V m.val env φ D ρ a) →
+      WScoped D tyR → tyR.looseBVarsBounded 0 = true →
+      Expr.LeavesBounded tyR → FvarsOk V m.val env φ D ρ tyR →
+      AnnotOk V m.val env φ D ρ tyR →
+      (∃ PR, interpExpr V m.val env φ D ρ tyR = some PR) →
+      TeleFitI V m.val env φ D ρ tyR spine vs restR ∧
+      (∀ (k : Nat) (a : Expr) (v : V), dsR[k]? = some a →
+        vs[k]? = some v →
+        ∃ B, interpExpr V m.val env φ D ρ a = some B ∧ v ∈ˢ B) := by
+  intro spine
+  induction spine with
+  | nil =>
+    intro vs tyR dsR restR hopR hde hsp hws hLs hFs hWR hbR hLR hFR
+      hAR hIR
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at hopR
+    obtain ⟨rfl, rfl⟩ := hopR
+    match vs, hsp with
+    | [], _ =>
+      exact ⟨TeleFitI.nil, fun k a v ha _ => nomatch ha⟩
+  | cons fv spine' ih =>
+    intro vs tyR dsR restR hopR hde hsp hws hLs hFs hWR hbR hLR hFR
+      hAR hIR
+    match vs, hsp with
+    | v :: vs', hsp =>
+    obtain ⟨⟨i, nfv, tfv, rfl, hiD, hval⟩, hsp'⟩ := hsp
+    obtain ⟨nR, domR, bodyR, mR, dsR', rfl, hdsRc, hR0⟩ :=
+      instPisAt_cons_inv hopR
+    subst hdsRc
+    -- the defeq fact at this binder
+    have hde0 : isDefEqCore env F D tfv domR = .ok true := by
+      rw [List.map_cons] at hde
+      exact hde.1
+    have hde' : DefEqListOk F env D (spine'.map Expr.fvarTypeD) dsR' := by
+      rw [List.map_cons] at hde
+      exact hde.2
+    -- the spine head's annotation facts
+    have hwfv : WScoped D (Expr.fvar i nfv tfv) :=
+      hws _ List.mem_cons_self
+    have hWt : WScoped D tfv := by
+      have h := hwfv
+      simp only [WScoped] at h
+      exact h.2.mono (by omega)
+    have hLfv : Expr.LeavesBounded (.fvar i nfv tfv) :=
+      hLs _ List.mem_cons_self
+    have hbt : tfv.looseBVarsBounded 0 = true :=
+      hLfv (i, nfv, tfv) (by
+        simp only [fvarLeaves]; exact List.mem_cons_self)
+    have hLt : Expr.LeavesBounded tfv := fun l hl =>
+      hLfv l (by
+        simp only [fvarLeaves, List.mem_cons]; exact Or.inr hl)
+    have hFfv : FvarsOk V m.val env φ D ρ (.fvar i nfv tfv) :=
+      hFs _ List.mem_cons_self
+    obtain ⟨-, hAt, T, hTi, hvT0⟩ := hFfv (i, nfv, tfv) (by
+      simp only [fvarLeaves]; exact List.mem_cons_self)
+    have hvT : v ∈ˢ T := by rw [← hval]; exact hvT0
+    have hFt : FvarsOk V m.val env φ D ρ tfv := fun l hl =>
+      hFfv l (by
+        simp only [fvarLeaves, List.mem_cons]; exact Or.inr hl)
+    -- the walk-side domain's facts
+    have hWdomR : WScoped D domR ∧ WScoped D bodyR := by
+      simpa [WScoped] using hWR
+    have hbdomR : domR.looseBVarsBounded 0 = true ∧
+        bodyR.looseBVarsBounded 1 = true := by
+      revert hbR; simp [Expr.looseBVarsBounded]
+    have hLdomR := LeavesBounded.of_forallE_ty hLR
+    have hFdomR : FvarsOk V m.val env φ D ρ domR :=
+      FvarsOk.of_subset (fun l hl => by
+        simp only [fvarLeaves, List.mem_append]; exact Or.inl hl) hFR
+    have hAR' := hAR
+    simp only [AnnotOk] at hAR'
+    obtain ⟨hAdomR, ⟨codR, hcodR⟩, hcondR⟩ := hAR'
+    obtain ⟨PR, hPR⟩ := hIR
+    have hIdomR : ∃ B, interpExpr V m.val env φ D ρ domR = some B := by
+      revert hPR
+      simp only [interpExpr, hcodR]
+      cases hB0 : interpExpr V m.val env φ D ρ domR with
+      | none => intro hPR; exact nomatch hPR
+      | some B => intro _; exact ⟨B, rfl⟩
+    obtain ⟨B, hBi⟩ := hIdomR
+    -- transfer the membership across the defeq
+    have hTB : T = B :=
+      isDefEqCore_sound m F hde0 hWt hWdomR.1 hbt hbdomR.1
+        hLt hLdomR hFt hFdomR hAt hAdomR hTi hBi
+    have hvB : v ∈ˢ B := by rw [← hTB]; exact hvT
+    -- the opening variable's interpretation
+    have hifv : interpExpr V m.val env φ D ρ (.fvar i nfv tfv) = some v := by
+      simp only [interpExpr]
+      rw [hval]
+    -- step the body
+    obtain ⟨hAopR, hfibR⟩ := hcondR v B hBi hvB
+    have hAbodyR : AnnotOk V m.val env φ D ρ
+        (bodyR.instantiate1 (.fvar i nfv tfv)) :=
+      AnnotOk_beta hWdomR.2.fvarsBelow hwfv (by rfl) hifv
+        (by simp [AnnotOk]) 0 hAopR
+    obtain ⟨wR, hwR, -⟩ := hfibR codR hcodR
+    have hIbodyR : ∃ P, interpExpr V m.val env φ D ρ
+        (bodyR.instantiate1 (.fvar i nfv tfv)) = some P := by
+      refine ⟨wR, ?_⟩
+      rw [interp_beta (n := nR) (ty := domR) hWdomR.2.fvarsBelow hwfv
+        (by rfl) hifv 0]
+      exact hwR
+    -- recursive call
+    have hrec := ih (vs := vs') (dsR := dsR') (restR := restR)
+      hR0 hde' hsp'
+      (fun a ha => hws a (List.mem_cons_of_mem _ ha))
+      (fun a ha => hLs a (List.mem_cons_of_mem _ ha))
+      (fun a ha => hFs a (List.mem_cons_of_mem _ ha))
+      (WScoped.instantiate1_gen hwfv 0 hWdomR.2)
+      (looseBVarsBounded_instantiate1_gen (by rfl) hbdomR.2)
+      (LeavesBounded.instantiate1 (LeavesBounded.of_forallE_body hLR)
+        hLfv)
+      (fun l hl => by
+        rcases fvarLeaves_instantiate1 bodyR 0 hl with hl' | hl'
+        · exact hFR l (by
+            simp only [fvarLeaves, List.mem_append]
+            exact Or.inr hl')
+        · exact hFfv l hl')
+      hAbodyR hIbodyR
+    obtain ⟨hfitR, hpack⟩ := hrec
+    refine ⟨?_, ?_⟩
+    · exact TeleFitI.cons hBi hifv hvB hWdomR.2.fvarsBelow hwfv
+        (by rfl) (by simp [AnnotOk]) hfitR
+    · intro k a v' ha hv'
+      cases k with
+      | zero =>
+        simp only [List.getElem?_cons_zero, Option.some.injEq] at ha hv'
+        subst ha; subst hv'
+        exact ⟨B, hBi, hvB⟩
+      | succ k =>
+        exact hpack k a v' (by simpa using ha) (by simpa using hv')
+
 /-! ## Renaming and telescope bookkeeping -/
 
 

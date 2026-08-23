@@ -1529,4 +1529,34 @@ theorem interp_instSeq_swap₁ (hcp : ConstValParams cval env)
       exact hφψ p hp)
   rwa [Expr.instantiateLevelParams_nil] at h
 
+
+omit cval env φ in
+/-- The canonical extension of the all-empty base valuation is the
+`getD`-spelling over the values. -/
+theorem snocFrame_eq_getD (xs : List V) :
+    (snocFrame (V := V) 0 (rho0 V) xs).2 =
+      fun j => xs.getD j SetTheory.empty := by
+  funext j
+  rcases Nat.lt_or_ge j xs.length with hj | hj
+  · obtain ⟨x, hx⟩ : ∃ x, xs[j]? = some x :=
+      ⟨_, List.getElem?_eq_getElem hj⟩
+    have h1 := snocFrame_snd_get (V := V) xs 0 (rho0 V) j x hx
+    rw [Nat.zero_add] at h1
+    rw [h1, List.getD_eq_getElem?_getD, hx]
+    rfl
+  · have h2 : ∀ (d : Nat) (ρ : Nat → V) (ys : List V) (i : Nat),
+        d + ys.length ≤ i → (snocFrame (V := V) d ρ ys).2 i = ρ i := by
+      intro d ρ ys
+      induction ys generalizing d ρ with
+      | nil => intro i _; rfl
+      | cons y ys ih =>
+        intro i hi
+        show (snocFrame (V := V) (d + 1) (updV V ρ d y) ys).2 i = ρ i
+        rw [ih (d + 1) _ i (by simp at hi; omega)]
+        simp only [updV]
+        rw [if_neg (by simp at hi; omega)]
+    rw [h2 0 (rho0 V) xs j (by omega),
+      List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]
+    rfl
+
 end Setlec

@@ -1072,6 +1072,44 @@ theorem stripLams_instantiate1_eq {v : Expr} :
         congr 1
         omega
 
+/-- Instantiation preserves a λ-tower's binder metadata. -/
+theorem stripLams_instantiate1_meta {v : Expr} :
+    ∀ (k : Nat) {e : Expr} {bs bs' : List (Name × Expr × BinderMeta)}
+      {body body' : Expr} (j : Nat),
+      e.stripLams k = some (bs, body) →
+      (e.instantiate1 v j).stripLams k = some (bs', body') →
+      bs'.map (·.2.2) = bs.map (·.2.2) := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs bs' body body' j h1 h2
+    simp only [stripLams, Option.some.injEq, Prod.mk.injEq] at h1 h2
+    obtain ⟨rfl, rfl⟩ := h1
+    obtain ⟨rfl, rfl⟩ := h2
+    rfl
+  | succ k ih =>
+    intro e bs bs' body body' j h1 h2
+    match e, h1 with
+    | .lam n d b m, h1 =>
+      simp only [instantiate1, stripLams] at h1 h2
+      cases hs1 : b.stripLams k with
+      | none => rw [hs1] at h1; exact nomatch h1
+      | some p1 =>
+      cases hs2 : (b.instantiate1 v (j + 1)).stripLams k with
+      | none => rw [hs2] at h2; exact nomatch h2
+      | some p2 =>
+      rw [hs1] at h1
+      rw [hs2] at h2
+      simp only [Option.map_some, Option.some.injEq] at h1 h2
+      obtain ⟨hb1, -⟩ : (n, d, m) :: p1.1 = bs ∧ p1.2 = body := by
+        cases h1; exact ⟨rfl, rfl⟩
+      obtain ⟨hb2, -⟩ :
+          (n, d.instantiate1 v j, m) :: p2.1 = bs' ∧ p2.2 = body' := by
+        cases h2; exact ⟨rfl, rfl⟩
+      subst hb1 hb2
+      simp only [List.map_cons]
+      rw [ih (j + 1) hs1 hs2]
+
 /-- Peel `instSeq` through a `∀`-binder (the shift index stays in step
 with the remaining arguments). -/
 theorem instSeq_forallE :

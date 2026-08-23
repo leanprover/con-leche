@@ -1401,4 +1401,257 @@ theorem ruleLhsParts_resolve {env : Env} {n : Name} {cv : ConstantVal}
       · exact hcargsRes y hy
       · exact hxFvsRes y hy
 
+
+/-- Annotation truthfulness only reads what `ErasedEq` preserves
+(binder names and `fvar` annotations are display-only for the
+interpretation). -/
+theorem AnnotOk.erasedEq :
+    ∀ (e₂ : Expr) {e₁ : Expr}, Expr.ErasedEq e₁ e₂ →
+      ∀ (d : Nat) (ρ : Nat → V), AnnotOk V cval env φ d ρ e₁ →
+      AnnotOk V cval env φ d ρ e₂
+  | .forallE n' ty' body' m', e₁, he, d, ρ, ha => by
+    match e₁, he with
+    | .forallE n ty body m, he =>
+      obtain ⟨rfl, hty, hbody⟩ := he
+      simp only [AnnotOk] at ha ⊢
+      obtain ⟨haty, hcod, hcond⟩ := ha
+      refine ⟨AnnotOk.erasedEq ty' hty d ρ haty, hcod, ?_⟩
+      intro x A hA hx
+      rw [← interp_erasedEq hty d ρ] at hA
+      obtain ⟨hbodyA, hwfact⟩ := hcond x A hA hx
+      have hEE : Expr.ErasedEq (body.instantiate1 (.fvar d n ty))
+          (body'.instantiate1 (.fvar d n' ty')) :=
+        Expr.ErasedEq.instantiate1 hbody (by exact rfl)
+      refine ⟨AnnotOk.erasedEq _ hEE (d + 1) (updV V ρ d x) hbodyA, ?_⟩
+      intro v hv
+      obtain ⟨w, hwi, hmem⟩ := hwfact v hv
+      refine ⟨w, ?_, hmem⟩
+      rw [← interp_erasedEq hEE (d + 1) (updV V ρ d x)]
+      exact hwi
+  | .lam n' ty' body' m', e₁, he, d, ρ, ha => by
+    match e₁, he with
+    | .lam n ty body m, he =>
+      obtain ⟨rfl, hty, hbody⟩ := he
+      simp only [AnnotOk] at ha ⊢
+      obtain ⟨haty, hcod, hcond⟩ := ha
+      refine ⟨AnnotOk.erasedEq ty' hty d ρ haty, hcod, ?_⟩
+      intro x A hA hx
+      rw [← interp_erasedEq hty d ρ] at hA
+      obtain ⟨hbodyA, hwfact⟩ := hcond x A hA hx
+      have hEE : Expr.ErasedEq (body.instantiate1 (.fvar d n ty))
+          (body'.instantiate1 (.fvar d n' ty')) :=
+        Expr.ErasedEq.instantiate1 hbody (by exact rfl)
+      refine ⟨AnnotOk.erasedEq _ hEE (d + 1) (updV V ρ d x) hbodyA, ?_⟩
+      intro v hv
+      obtain ⟨w, B, hwi, hwB, hBu⟩ := hwfact v hv
+      refine ⟨w, B, ?_, hwB, hBu⟩
+      rw [← interp_erasedEq hEE (d + 1) (updV V ρ d x)]
+      exact hwi
+  | .app f' a', e₁, he, d, ρ, ha => by
+    match e₁, he with
+    | .app f a, he =>
+      obtain ⟨hf, ha'⟩ := he
+      simp only [AnnotOk] at ha ⊢
+      obtain ⟨hAf, hAa, vf, va, vE, A, B, hif, hia, hpi, hmem, hfib⟩ := ha
+      refine ⟨AnnotOk.erasedEq f' hf d ρ hAf,
+        AnnotOk.erasedEq a' ha' d ρ hAa,
+        vf, va, vE, A, B, ?_, ?_, hpi, hmem, hfib⟩
+      · rw [← interp_erasedEq hf d ρ]
+        exact hif
+      · rw [← interp_erasedEq ha' d ρ]
+        exact hia
+  | .proj s' i' e', e₁, he, d, ρ, ha => by
+    match e₁, he with
+    | .proj s i e, he =>
+      obtain ⟨rfl, rfl, hee⟩ := he
+      simp only [AnnotOk] at ha ⊢
+      obtain ⟨hAe, hi2, ve, u, v, A, Bf, hie, hmem, hAu, hfib⟩ := ha
+      refine ⟨AnnotOk.erasedEq e' hee d ρ hAe, hi2,
+        ve, u, v, A, Bf, ?_, hmem, hAu, hfib⟩
+      rw [← interp_erasedEq hee d ρ]
+      exact hie
+  | .bvar i, e₁, he, d, ρ, ha => by
+    match e₁, he with
+    | .bvar j, _ => simp only [AnnotOk]
+  | .fvar i n ty, e₁, he, d, ρ, ha => by
+    match e₁, he with
+    | .fvar j n' ty', _ => simp only [AnnotOk]
+  | .sort u, e₁, he, d, ρ, ha => by
+    match e₁, he with
+    | .sort u', _ => simp only [AnnotOk]
+  | .const n us, e₁, he, d, ρ, ha => by
+    match e₁, he with
+    | .const n' us', _ => simp only [AnnotOk]
+  | .lit l, e₁, he, d, ρ, ha => by
+    match e₁, he with
+    | .lit l', _ => simp only [AnnotOk]
+  | .letE n' ty' v' b', e₁, he, d, ρ, ha => by
+    match e₁, he with
+    | .letE n ty v b, _ => simp only [AnnotOk]
+termination_by e₂ => e₂.sizeB
+decreasing_by
+  all_goals first
+  | (simp [Expr.sizeB]; omega)
+  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
+
+/-- Extending the canonical list valuation by one value at its length
+is the top-slot update. -/
+theorem getD_snoc_eq_updV {xs : List V} {x : V} {k : Nat}
+    (h : xs.length = k) :
+    (fun j => (xs ++ [x]).getD j SetTheory.empty) =
+      updV V (fun j => xs.getD j SetTheory.empty) k x := by
+  funext j
+  simp only [updV, List.getD_eq_getElem?_getD]
+  rcases Nat.lt_trichotomy j k with hj | hj | hj
+  · rw [if_neg (by omega), List.getElem?_append_left (by omega)]
+  · subst hj
+    rw [if_pos rfl, List.getElem?_append_right (by omega), h]
+    simp
+  · rw [if_neg (by omega), List.getElem?_eq_none (by simp; omega),
+      List.getElem?_eq_none (by omega)]
+
+/-- Build the pointwise tower spec from **flat stage facts at the
+canonical list valuations**: the producer supplies, per stage `k` over
+any fitting value prefix `xs` (tracked by an abstract invariant `Ok`),
+the interp-equality of the frame annotation with (anything
+erased-equal to) the rule tower's instantiated binder domain, and at
+the bottom the interp-equality of the frame body with (anything
+erased-equal to) the tower's instantiated body.  The recursion tracks
+the right-hand residual only up to `ErasedEq` — the actual `TowerOk`
+walk opens the rule's own binders, the stage facts are proved against
+the kernel-checked instantiation at the frame variables. -/
+theorem TowerOk.of_stages {bL lrest : Expr}
+    {fvms : List (Expr × BinderMeta)} {ldoms : List Expr}
+    {Ok : List V → Prop}
+    (Hty : ∀ (k : Nat) (xs : List V) (fv : Expr) (m : BinderMeta)
+      (ld : Expr), xs.length = k → fvms[k]? = some (fv, m) →
+      ldoms[k]? = some ld → Ok xs →
+      ∃ A, interpExpr V cval env φ k
+          (fun j => xs.getD j SetTheory.empty) (Expr.fvarTypeD fv) =
+            some A ∧
+        (∀ e, Expr.ErasedEq e ld →
+          interpExpr V cval env φ k
+            (fun j => xs.getD j SetTheory.empty) e = some A) ∧
+        AnnotOk V cval env φ k (fun j => xs.getD j SetTheory.empty)
+          (Expr.fvarTypeD fv) ∧
+        ∀ x, x ∈ˢ A → Ok (xs ++ [x]))
+    (Hbot : ∀ (xs : List V), xs.length = fvms.length → Ok xs →
+      (∃ w, interpExpr V cval env φ fvms.length
+          (fun j => xs.getD j SetTheory.empty) bL = some w ∧
+        ∀ e, Expr.ErasedEq e lrest →
+          interpExpr V cval env φ fvms.length
+            (fun j => xs.getD j SetTheory.empty) e = some w) ∧
+      AnnotOk V cval env φ fvms.length
+        (fun j => xs.getD j SetTheory.empty) bL) :
+    ∀ (fvmsSuf : List (Expr × BinderMeta)) (k : Nat) (xs : List V)
+      (ldomsSuf : List Expr) (eRk eLk : Expr),
+      k + fvmsSuf.length = fvms.length →
+      xs.length = k →
+      fvms.drop k = fvmsSuf →
+      ldoms.drop k = ldomsSuf →
+      (∀ j p, fvmsSuf[j]? = some p →
+        ∃ nm ty, p.1 = Expr.fvar (k + j) nm ty) →
+      Expr.ErasedEq eRk eLk →
+      Expr.instLamsAt (fvmsSuf.map (·.1)) eLk = some (ldomsSuf, lrest) →
+      (∃ rbsK bodyK, eLk.stripLams fvmsSuf.length = some (rbsK, bodyK) ∧
+        fvmsSuf.map (·.2) = rbsK.map (·.2.2)) →
+      Ok xs →
+      TowerOk cval env φ k (fun j => xs.getD j SetTheory.empty)
+        fvmsSuf bL eRk := by
+  intro fvmsSuf
+  induction fvmsSuf with
+  | nil =>
+    intro k xs ldomsSuf eRk eLk hlen hxs hdropF hdropL hshape hEE hinst
+      hstrip hOk
+    simp only [List.map_nil, Expr.instLamsAt, Option.some.injEq,
+      Prod.mk.injEq] at hinst
+    obtain ⟨-, rfl⟩ := hinst
+    simp only [List.length_nil, Nat.add_zero] at hlen
+    subst hlen
+    obtain ⟨⟨w, hbLI, hRI⟩, hAbL⟩ := Hbot xs hxs hOk
+    exact TowerOk.nil hbLI (hRI eRk hEE) hAbL
+  | cons fvm0 fvms' ih =>
+    intro k xs ldomsSuf eRk eLk hlen hxs hdropF hdropL hshape hEE hinst
+      hstrip hOk
+    obtain ⟨fv0, m0⟩ := fvm0
+    -- the head frame variable's shape
+    obtain ⟨nm, ty, hfv0⟩ := hshape 0 (fv0, m0) rfl
+    simp only [Nat.add_zero] at hfv0
+    subst hfv0
+    -- destructure the λ-tower residual
+    simp only [List.map_cons] at hinst
+    obtain ⟨n, dom, body, m, ds', rfl, rfl, hinst'⟩ :=
+      instLamsAt_cons_inv hinst
+    -- the stripped binders: head meta and the tail decomposition
+    obtain ⟨rbsK, bodyK, hsK, hmetas⟩ := hstrip
+    simp only [List.length_cons, Expr.stripLams] at hsK
+    revert hsK
+    cases hs0 : body.stripLams fvms'.length with
+    | none => intro hsK; exact nomatch hsK
+    | some p0 =>
+      intro hsK
+      simp only [Option.map_some, Option.some.injEq] at hsK
+      obtain ⟨hrbsK, -⟩ : (n, dom, m) :: p0.1 = rbsK ∧ p0.2 = bodyK := by
+        cases hsK; exact ⟨rfl, rfl⟩
+      subst hrbsK
+      simp only [List.map_cons, List.cons.injEq] at hmetas
+      obtain ⟨hmm, hmetas'⟩ := hmetas
+      -- invert the erased equality at the λ
+      match eRk, hEE with
+      | .lam nmR domR bodyR mR, hEE =>
+      obtain ⟨hmR, hdomEE, hbodyEE⟩ := hEE
+      subst hmm
+      subst hmR
+      -- the stage facts at this frame position
+      have hfv : fvms[k]? = some (.fvar k nm ty, mR) := by
+        have h0 : (fvms.drop k)[0]? = some (.fvar k nm ty, mR) := by
+          rw [hdropF]; rfl
+        rwa [List.getElem?_drop, Nat.add_zero] at h0
+      have hld : ldoms[k]? = some dom := by
+        have h0 : (ldoms.drop k)[0]? = some dom := by rw [hdropL]; rfl
+        rwa [List.getElem?_drop, Nat.add_zero] at h0
+      obtain ⟨A, hframeI, hldI, hAty, hOkStep⟩ :=
+        Hty k xs (.fvar k nm ty) mR dom hxs hfv hld hOk
+      refine TowerOk.cons hframeI (hldI domR hdomEE) hAty ?_
+      intro x hx
+      -- next-stage bookkeeping
+      have hdropF' : fvms.drop (k + 1) = fvms' := by
+        have h0 : (fvms.drop k).drop 1 = fvms.drop (k + 1) := by
+          rw [List.drop_drop]
+        rw [← h0, hdropF, List.drop_one, List.tail_cons]
+      have hdropL' : ldoms.drop (k + 1) = ds' := by
+        have h0 : (ldoms.drop k).drop 1 = ldoms.drop (k + 1) := by
+          rw [List.drop_drop]
+        rw [← h0, hdropL, List.drop_one, List.tail_cons]
+      have hshape' : ∀ j p, fvms'[j]? = some p →
+          ∃ nm' ty', p.1 = Expr.fvar (k + 1 + j) nm' ty' := by
+        intro j p hp
+        obtain ⟨nm', ty', hp'⟩ := hshape (j + 1) p (by simpa using hp)
+        exact ⟨nm', ty', by rw [hp']; congr 1; omega⟩
+      have hEE' : Expr.ErasedEq
+          (bodyR.instantiate1 (.fvar k nmR domR))
+          (body.instantiate1 (.fvar k nm ty)) :=
+        Expr.ErasedEq.instantiate1 hbodyEE (by exact rfl)
+      have hstrip' : ∃ rbs₁ body₁,
+          (body.instantiate1 (.fvar k nm ty)).stripLams fvms'.length =
+            some (rbs₁, body₁) ∧
+          fvms'.map (·.2) = rbs₁.map (·.2.2) := by
+        have hsome := Expr.stripLams_instantiate1_isSome
+          (v := .fvar k nm ty) fvms'.length 0 (by rw [hs0]; rfl)
+        cases hs1 : (body.instantiate1 (.fvar k nm ty)).stripLams
+            fvms'.length with
+        | none => rw [hs1] at hsome; exact nomatch hsome
+        | some p1 =>
+          refine ⟨p1.1, p1.2, rfl, ?_⟩
+          rw [Expr.stripLams_instantiate1_meta fvms'.length 0 hs0 hs1]
+          exact hmetas'
+      have hrec := ih (k + 1) (xs ++ [x]) ds'
+        (bodyR.instantiate1 (.fvar k nmR domR))
+        (body.instantiate1 (.fvar k nm ty))
+        (by simp only [List.length_cons] at hlen; omega)
+        (by simp [hxs])
+        hdropF' hdropL' hshape' hEE' hinst' hstrip' (hOkStep x hx)
+      rwa [getD_snoc_eq_updV hxs] at hrec
+
 end Setlec
