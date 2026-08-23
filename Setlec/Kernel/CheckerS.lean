@@ -606,6 +606,7 @@ def checkProjRuleF (ops : CheckerOps m) (fe : FEnv) (pty : Expr) (cvj : Constant
     | throw (.notImplemented "projection rule telescope")
   checkDefEqList ops fe.env (nP + nF) ((fvsP ++ xFvs).map Expr.fvarTypeD)
     ldoms
+  let _rhsTy ← ops.inferType fe.env 0 rhsA
   pure rhsA
 
 /-- `checkProjIota` through the index. -/

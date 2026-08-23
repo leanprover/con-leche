@@ -462,8 +462,9 @@ theorem proj_bottom
     {val' : ConstVal V}
     (hagree : ∀ n, (env.find? n).isSome = true → ∀ ψ'' : Name → Nat,
       val' n ψ'' = m.val n ψ'')
-    {f : Name → Name}
-    (hro₀ : RenameOk m.val env f)
+    {f f₀ : Name → Name}
+    (hff₀ : ∀ n, (env.find? n).isSome = true → f n = f₀ n)
+    (hro₀ : RenameOk m.val env f₀)
     (hro₁ : RenameOk val' (⟨c₀ :: env.consts⟩ : Env) f)
     {P ctor : Name} {cvA cvj cvt : ConstantVal} {nP nF i : Nat}
     (hi : i < nF)
@@ -783,7 +784,12 @@ theorem proj_bottom
     have hshapes : ∀ x ∈ (fvsP ++ xFvs).take l, ∃ i' n' t',
         x = Expr.fvar i' n' t' := fun x hx =>
       hfvPXShapes x (List.mem_of_mem_take hx)
-    rw [hsdoms l sb cb hsb hcb, interp_instSeq_ren hro₀ hshapes]
+    have hcbres : (cb.2.1).constsResolve env = true :=
+      (Expr.constsResolve_stripPis (nP + nF) hC_strip hCres).1
+        cb (List.mem_of_getElem? hcb)
+    rw [hsdoms l sb cb hsb hcb,
+      Expr.renameConsts_congr_resolve hff₀ _ hcbres,
+      interp_instSeq_ren hro₀ hshapes]
     exact hBi
   -- eliminate the theorem's inhabitant at the master frame
   obtain ⟨hfitS, hQEx⟩ := peel_walk hSinst hspPX hwsPX
@@ -1205,8 +1211,9 @@ theorem proj_rule_eq
     {val' : ConstVal V}
     (hagree : ∀ n, (env.find? n).isSome = true → ∀ ψ'' : Name → Nat,
       val' n ψ'' = m.val n ψ'')
-    {f : Name → Name}
-    (hro₀ : RenameOk m.val env f)
+    {f f₀ : Name → Name}
+    (hff₀ : ∀ n, (env.find? n).isSome = true → f n = f₀ n)
+    (hro₀ : RenameOk m.val env f₀)
     (hro₁ : RenameOk val' (⟨c₀ :: env.consts⟩ : Env) f)
     {P : Name} {nP nF i : Nat} (hi : i < nF)
     {rule : RecRule} {cvA cvj cvt : ConstantVal}
@@ -1425,7 +1432,8 @@ theorem proj_rule_eq
     rw [List.length_zip, hspineLen, List.length_map, hrbsLen]
     simp
   -- the tower spec from the transported stage facts and the bottom
-  have hbot := proj_bottom m F hfresh hagree hro₀ hro₁ hi hfP₁ hlpsP hfj
+  have hbot := proj_bottom m F hfresh hagree hff₀ hro₀ hro₁ hi hfP₁
+    hlpsP hfj
     hfPm hPmlps heqfind heqval₁ hthm_mem hthm_annot hSw hSres hC_strip
     hS_strip hsdoms hsbody hstripR hrbody hopenP hcinstP hdeParsP
     hopenX hlinstP hTcl hTb hTres (hAty ψ) hCcl hCb hCres (hACty ψ)

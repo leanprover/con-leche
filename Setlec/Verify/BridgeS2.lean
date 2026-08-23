@@ -586,11 +586,14 @@ theorem checkMemberValS_sim (henv : EnvWF env) {blockNames : List Name}
   exact SimAt.pure hs₁ ⟨rfl, hwty⟩
 
 /-- The projection-rule stage at the shared operations. -/
-theorem checkProjRuleS_sim (henv : EnvWF env) {cvj : ConstantVal}
-    {lps : List Name} {nP nF i : Nat} (hs : ISOK env s₀) :
+theorem checkProjRuleS_sim (henv : EnvWF env) {pty : Expr}
+    {cvj : ConstantVal} {lps : List Name} {nP nF i : Nat}
+    (hptyf : pty.hasFvar = false)
+    (hCf : cvj.type.hasFvar = false)
+    (hs : ISOK env s₀) :
     SimAt env s₀ RelV
-      (checkProjRule (sharedOps (mkFEnv env)) env cvj lps nP nF i)
-      (checkProjRule fueledOpsM env cvj lps nP nF i) := by
+      (checkProjRule (sharedOps (mkFEnv env)) env pty cvj lps nP nF i)
+      (checkProjRule fueledOpsM env pty cvj lps nP nF i) := by
   unfold checkProjRule
   dsimp only [sharedOps]
   match hrhs : Expr.pisToLams (nP + nF) cvj.type (.bvar (nF - 1 - i)) with
@@ -627,7 +630,58 @@ theorem checkProjRuleS_sim (henv : EnvWF env) {cvj : ConstantVal}
       (nP + nF) = true
   case neg => simp only [if_neg h4]; exact SimAt.throw_bind
   simp only [if_pos h4]
-  exact SimAt.pure hs₁ rfl
+  match hopenP : openPisAtFvars nP pty 0 with
+  | none => exact SimAt.throw
+  | some (fvsP, rest0) =>
+  dsimp only
+  match hcinstP : Expr.instPisAt fvsP cvj.type with
+  | none => exact SimAt.throw
+  | some (cdomsP, crestP) =>
+  dsimp only
+  obtain ⟨hfvsW0, -⟩ := openPisAtFvars_WScoped nP pty 0 hopenP
+    (WScoped.of_not_hasFvar hptyf)
+  have hfvsW : ∀ x ∈ fvsP, WScoped nP x := by
+    intro x hx
+    have h0 := hfvsW0 x hx
+    rwa [Nat.zero_add] at h0
+  obtain ⟨hcdW, hcrW⟩ := instPisAt_WScoped (d := nP) fvsP cvj.type
+    hcinstP (WScoped.of_not_hasFvar hCf) hfvsW
+  refine SimAt.bind (checkDefEqListS_sim henv
+      (fun a ha => by
+        obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
+        exact fvarTypeD_WScoped ((hfvsW x hx).mono (by omega)))
+      (fun b hb => (hcdW b hb).mono (by omega)) hs₁)
+    (fun s₂ u1 u1' hs₂ hext₂ hU1 => ?_)
+  match hopenX : openPisAtFvars nF crestP nP with
+  | none => exact SimAt.throw
+  | some (xFvs, crest2X) =>
+  dsimp only
+  match hlinst : Expr.instLamsAt (fvsP ++ xFvs) rhsA with
+  | none => exact SimAt.throw
+  | some (ldoms, lrestL) =>
+  dsimp only
+  have hrhsAf : rhsA.hasFvar = false := by
+    simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not,
+      Bool.not_true] at h2
+    exact h2.2
+  obtain ⟨hxW, -⟩ := openPisAtFvars_WScoped nF crestP nP hopenX hcrW
+  have hspineW : ∀ a ∈ fvsP ++ xFvs, WScoped (nP + nF) a := by
+    intro a ha
+    rcases List.mem_append.mp ha with ha | ha
+    · exact (hfvsW a ha).mono (by omega)
+    · exact hxW a ha
+  obtain ⟨hldW, -⟩ := instLamsAt_WScoped (fvsP ++ xFvs) rhsA hlinst
+    (WScoped.of_not_hasFvar hrhsAf) hspineW
+  refine SimAt.bind (checkDefEqListS_sim henv
+      (fun a ha => by
+        obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
+        exact fvarTypeD_WScoped (hspineW x hx))
+      (fun b hb => hldW b hb) hs₂)
+    (fun s₃ u2 u2' hs₃ hext₃ hU2 => ?_)
+  refine SimAt.bind (opE_infer_sim henv hs₃
+      (WScoped.of_not_hasFvar hrhsAf))
+    (fun s₄ t t' hs₄ hext₄ hP₄ => ?_)
+  exact SimAt.pure hs₄ rfl
 
 /-- `checkProjLookups` (operation-free) as a `SimAt`. -/
 theorem checkProjLookupsS_sim {env' : Env} {T ctorName : Name}
@@ -717,10 +771,6 @@ theorem checkProjShapeS_sim {pty cty : Expr} {nP nF : Nat}
   | none => exact SimAt.throw
   | some (cbindersR, cbody) => ?_
   dsimp only
-  by_cases h3 : domsMatchAux (fun _ e => e) abinders cbindersR 0 0 nP
-      = true
-  case neg => simp only [if_neg h3]; exact SimAt.throw_bind
-  simp only [if_pos h3]
   by_cases h4 : (cbody.getAppArgs.length == nP) = true
   case neg => simp only [if_neg h4]; exact SimAt.throw_bind
   simp only [if_pos h4]

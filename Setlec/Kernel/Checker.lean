@@ -617,6 +617,7 @@ def checkProjRule (ops : CheckerOps m) (env' : Env) (pty : Expr) (cvj : Constant
     | throw (.notImplemented "projection rule telescope")
   checkDefEqList ops env' (nP + nF) ((fvsP ++ xFvs).map Expr.fvarTypeD)
     ldoms
+  let _rhsTy ← ops.inferType env' 0 rhsA
   pure rhsA
 
 /-- Stage 4: the model's `proj_i.iota` theorem pins the rule — the
