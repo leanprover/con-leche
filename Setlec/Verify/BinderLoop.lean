@@ -260,6 +260,20 @@ theorem inferLamsOut_cons (n : Name) (tyo : Expr) (mb : BinderMeta)
         inferLamsOut d (e' :: rest) (j - 1) (.imax u v)
           (Expr.forallE n (tyo.abstractRange d j) cur mb)) := rfl
 
+theorem inferLamsOut_cons' (n : Name) (tyo : Expr) (mb : BinderMeta)
+    (v u : Level) (rest : List InferLamEntryX)
+    (j : Nat) (vcur : Level) (cur : Expr) :
+    inferLamsOut (m := m) d ((n, tyo, mb, v, u) :: rest) j vcur cur
+      = (do
+        unless ← liftFueled "level comparison" (Level.isEquiv v vcur) do
+          throw (.invalid "λ-annotation does not match the body's sort")
+        let node := Expr.forallE n (tyo.abstractRange d j) cur mb
+        match rest with
+        | [] => pure node
+        | e' :: rest' =>
+          inferLamsOut d (e' :: rest') (j - 1) (.imax u v) node) := by
+  cases rest <;> rfl
+
 theorem inferLamsOut_single (n : Name) (tyo : Expr) (mb : BinderMeta)
     (v u : Level) (j : Nat) (vcur : Level) (cur : Expr) :
     inferLamsOut (m := m) d [(n, tyo, mb, v, u)] j vcur cur
@@ -836,6 +850,22 @@ theorem annotatePisOut_cons (n : Name) (ty' : Expr) (bi : BinderInfo)
             (Expr.forallE n (ty'.abstractRange d j) cur ⟨bi, some vcur⟩)
         | _ => throw (.invalid "expected a sort")) := rfl
 
+theorem annotatePisOut_cons' (n : Name) (ty' : Expr) (bi : BinderInfo)
+    (rest : List AnnotBinderEntryX) (j : Nat) (vcur : Level)
+    (cur : Expr) :
+    annotatePisOut r d ((n, ty', bi) :: rest) j vcur cur
+      = (let node := Expr.forallE n (ty'.abstractRange d j) cur
+          ⟨bi, some vcur⟩
+        match rest with
+        | [] => pure node
+        | e' :: rest' => do
+          let tty ← r.infer (d + j) ty'
+          match ← r.whnf (d + j) tty with
+          | .sort u =>
+            annotatePisOut r d (e' :: rest') (j - 1) (.imax u vcur) node
+          | _ => throw (.invalid "expected a sort")) := by
+  cases rest <;> rfl
+
 theorem annotatePisOut_single (n : Name) (ty' : Expr) (bi : BinderInfo)
     (j : Nat) (vcur : Level) (cur : Expr) :
     annotatePisOut r d [(n, ty', bi)] j vcur cur
@@ -1188,6 +1218,25 @@ theorem annotateLamsOut_cons (n : Name) (ty' : Expr) (bi : BinderInfo)
           annotateLamsOut r d (e' :: rest) (j - 1) (.imax u vcur)
             (Expr.lam n (ty'.abstractRange d j) cur ⟨bi, some vcur⟩)
         | _ => throw (.invalid "expected a sort")) := rfl
+
+theorem annotateLamsOut_cons' (n : Name) (ty' : Expr) (bi : BinderInfo)
+    (rest : List AnnotBinderEntryX) (j : Nat) (vcur : Level)
+    (cur : Expr) :
+    annotateLamsOut r d ((n, ty', bi) :: rest) j vcur cur
+      = (let node := Expr.lam n (ty'.abstractRange d j) cur
+          ⟨bi, some vcur⟩
+        match rest with
+        | [] => pure node
+        | e' :: rest' => do
+          let tty ← r.infer (d + j) ty'
+          match ← r.whnf (d + j) tty with
+          | .sort u => do
+            unless ← liftFueled "level comparison"
+                (Level.isEquiv vcur vcur) do
+              throw (.invalid "λ-annotation does not match the body's sort")
+            annotateLamsOut r d (e' :: rest') (j - 1) (.imax u vcur) node
+          | _ => throw (.invalid "expected a sort")) := by
+  cases rest <;> rfl
 
 theorem annotateLamsOut_single (n : Name) (ty' : Expr) (bi : BinderInfo)
     (j : Nat) (vcur : Level) (cur : Expr) :

@@ -1810,10 +1810,24 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
       let fuel ← withStore (·.nodes.size)
       annotatePisI r depth fuel body 1 [fv] [(n, ty', mb.bi)]
     | some (.lam n ty body mb) => do
-      let ty' ← r.annotate depth ty
-      let fv ← internI (.fvar depth n ty')
-      let fuel ← withStore (·.nodes.size)
-      annotateLamsI r depth fuel body 1 [fv] [(n, ty', mb.bi)]
+      -- The λ-loop is chain-identical only on bvar-closed nodes (the
+      -- chained tails re-open exactly what they closed); disciplined
+      -- inputs always are, and the cached bound decides in O(1).
+      if (← bvarBoundM e) = 0 then do
+        let ty' ← r.annotate depth ty
+        let fv ← internI (.fvar depth n ty')
+        let fuel ← withStore (·.nodes.size)
+        annotateLamsI r depth fuel body 1 [fv] [(n, ty', mb.bi)]
+      else do
+        let ty' ← r.annotate depth ty
+        let fv ← internI (.fvar depth n ty')
+        let ob ← inst1M body fv
+        let body' ← r.annotate (depth + 1) ob
+        let bt ← r.infer (depth + 1) body'
+        let tbt ← r.infer (depth + 1) bt
+        let v ← ensureSortI r (depth + 1) tbt
+        let bAbs ← abstract1M body' depth
+        internI (.lam n ty' bAbs ⟨mb.bi, some v⟩)
     | some (.letE ..) => throw (.notImplemented "annotate: let-expressions")
     | some (.proj sn i pe) => do
       let e' ← r.annotate depth pe

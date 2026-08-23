@@ -327,6 +327,46 @@ protected theorem withStore {β α γ : Type} {P : IState → β → α → Prop
     StateT.map, get, getThe, MonadStateOf.get, StateT.get, Except.map,
     Except.bind, pure, StateT.pure, Except.pure] using hr
 
+/-- Bind that *remembers* the first component's fueled run: the
+continuation may consume the existence of a successful pure run
+(task #72: the binder-loop compositions seed the chained tails' domain
+facts from the walked pre-checks). -/
+protected theorem bindR {β β' α α' : Type}
+    {P : IState → β → α → Prop} {Q : IState → β' → α' → Prop}
+    {c : CheckIM β} {k : β → CheckIM β'}
+    {p : FueledM α} {q : α → FueledM α'}
+    (hx : SimAt env s₀ P c p)
+    (hf : ∀ s₁ b a, ISOK env s₁ → Ext s₀.store s₁.store → P s₁ b a →
+      (∃ F, p.val F = .ok a) → SimAt env s₁ Q (k b) (q a)) :
+    SimAt env s₀ Q (c >>= k) (p >>= q) := by
+  intro v' s' hr
+  simp only [Bind.bind, StateT.bind] at hr
+  cases hc : c s₀ with
+  | error e => rw [hc] at hr; exact nomatch hr
+  | ok pr =>
+    obtain ⟨b, s₁⟩ := pr
+    rw [hc] at hr
+    dsimp only [Except.bind] at hr
+    obtain ⟨hs₁, hext₁, a, hP, F₁, hp₁⟩ := hx b s₁ hc
+    obtain ⟨hs', hext₂, a', hQ, F₂, hp₂⟩ :=
+      hf s₁ b a hs₁ hext₁ hP ⟨F₁, hp₁⟩ v' s' hr
+    refine ⟨hs', hext₁.trans hext₂, a', hQ, max F₁ F₂, ?_⟩
+    rw [FueledM.atF_bind]
+    simp only [Bind.bind]
+    rw [p.property (Nat.le_max_left F₁ F₂) hp₁]
+    dsimp only [Except.bind]
+    exact (q a).property (Nat.le_max_right F₁ F₂) hp₂
+
+/-- Strengthen the value relation using the fueled run's success. -/
+protected theorem wp {β α : Type} {P Q : IState → β → α → Prop}
+    {c : CheckIM β} {p : FueledM α}
+    (h : SimAt env s₀ P c p)
+    (himp : ∀ s v' v, P s v' v → (∃ F, p.val F = .ok v) → Q s v' v) :
+    SimAt env s₀ Q c p := by
+  intro v' s' hr
+  obtain ⟨hs', hext, v, hP, F, hp⟩ := h v' s' hr
+  exact ⟨hs', hext, v, himp s' v' v hP ⟨F, hp⟩, F, hp⟩
+
 /-- Weaken the fueled side: any computation whose successful values
 subsume `p`'s (at some fuel) can replace it. -/
 protected theorem wr {β α : Type} {P : IState → β → α → Prop}
@@ -559,6 +599,22 @@ theorem abstractRangeM_eff (hs : ISOK env s₀) {e : EIdx} {d k : Nat}
   injection hr with h1
   obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
   exact ⟨hs.withStore hwf' hext, hext, hden⟩
+
+private theorem bvarBoundM_run (e : EIdx) (s : IState) :
+    bvarBoundM e s = .ok ((EStore.bvarBoundIGo s.store s.bvarB e).1,
+      { s with bvarB := (EStore.bvarBoundIGo s.store s.bvarB e).2 }) := rfl
+
+theorem bvarBoundM_eff (hs : ISOK env s₀) {e : EIdx} :
+    IEff env s₀ (fun s b => ∀ x, s.store.denote e = some x →
+      x.looseBVarsBounded b = true) (bvarBoundM e) := by
+  intro v' s' hr
+  rw [bvarBoundM_run] at hr
+  rcases hgo : EStore.bvarBoundIGo s₀.store s₀.bvarB e with ⟨b, memo⟩
+  rw [hgo] at hr
+  obtain ⟨hinvB, hbound⟩ := EStore.bvarBoundIGo_spec e hs.wf hs.bvarB hgo
+  injection hr with h1
+  obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1.symm
+  exact ⟨hs.withBvarB hinvB, Ext.refl _, hbound⟩
 
 theorem mkAppNM_eff (hs : ISOK env s₀) {f : EIdx} {args : List EIdx}
     {x : Expr} {xs : List Expr}
