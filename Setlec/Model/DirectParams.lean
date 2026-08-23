@@ -212,8 +212,10 @@ theorem directTyVal_params (hcp : ConstValParams cval env) {ps : List Name}
           (openPisAtFvars_fvar_allLevelParamsDefined nP tty 0 q.1 q.2 hop htty)
   unfold directTyVal
   rw [Level.eval_ext hs hφ]
-  exact teleLamV_params hcp hφ nP 0 (rho0 V) tty _ _ htty
-    (fun d ρ _ => sigmaTowerV_params hcp hφ _ nF d ρ _ hcrest)
+  refine teleLamV_params hcp hφ nP 0 (rho0 V) tty _ _ htty
+    (fun d ρ _ => ?_)
+  unfold directTyBody
+  rw [sigmaTowerV_params hcp hφ _ nF d ρ _ hcrest]
 
 /-- The constructor's value only reads the declared level parameters. -/
 theorem directCtorVal_params (hcp : ConstValParams cval env) {ps : List Name}

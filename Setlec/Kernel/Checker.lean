@@ -825,17 +825,24 @@ binder domains against the constructor's.
 /-- The capabilities a direct simple structure earns.  `ruleK` is
 `false` by construction (`isKTarget` needs a `Prop` result, lean4lean
 `Inductive/Add.lean:289-296`, and the class requires a provably nonzero
-sort).  `eta` is **not** claimed: the eta certificate reduces the two
-sides through installed projection *functions*, and the direct path
-installs recursor-elimination templates instead (see DESIGN.md).
-`unitlike` holds exactly when there are no fields — the model is then
-the singleton. -/
+sort).
+
+Neither `eta` nor `unitlike` is claimed.  Both are *frame-relative*
+laws — they quantify over a parameter-telescope fit at an **arbitrary**
+frame, while the constructed values are λ-towers over the frame-0
+opening of the stored type, so discharging them needs a relocation of a
+closed telescope's fit onto the canonical frame-0 opening that the
+value construction does not supply (see DESIGN.md, "The two
+frame-relative capabilities").  Claiming fewer capabilities only ever
+removes reductions, so this is safe; it costs nothing today because the
+direct path is artifact-*absence* gated and every structure carrying an
+artifact keeps the modeled route and its capabilities. -/
 def directCaps (p : DirectParts) : IndCaps where
   eta := false
   etaCtor := p.cvC.name
   etaParams := p.nP
   etaFields := p.nF
-  unitlike := p.nF == 0
+  unitlike := false
   unitParams := p.nP
   ruleK := false
 

@@ -1,6 +1,7 @@
 import Setlec.Model.Extend.Ind
 import Setlec.Model.Extend.Recs
 import Setlec.Model.Extend.Proj
+import Setlec.Model.DirectDecl
 
 /-!
 # Decl — split out of `Setlec.Model.Extend`
