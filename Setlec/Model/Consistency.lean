@@ -403,7 +403,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     | ok cv' =>
     rw [hccv] at h
     try dsimp only at h
-    obtain ⟨hfind', hres', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
+    obtain ⟨hfind', hres', hmft', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
       checkConstantVal_inv hccv
     by_cases hok : stdAxiomOk env { cv with type := type } = true
     case neg =>
@@ -473,10 +473,13 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun _ _ _ _ hx => nomatch hx)
         (fun _ _ _ _ _ _ _ hx => nomatch hx)
         (fun _ _ _ _ hx => nomatch hx)
-        (fun _ hor => by
-          rcases hor with ⟨_, _, hx⟩ | ⟨_, _, _, hx⟩ <;> exact nomatch hx)
+        (fun _ hor _ => by
+          obtain ⟨_, _, _, hx⟩ := hor; exact nomatch hx)
         (fun T j _ _ _ _ hh _ => absurd (hnp.symm.trans hh).symm
           (Name.num_ne_str _ _ _ _))
+        (hmft := hmft')
+        (hparent := fun T j _ _ _ _ hh _ =>
+          absurd (hnp.symm.trans hh).symm (Name.num_ne_str _ _ _ _))
         (fun _ hx _ => nomatch hx)
         (fun _ _ hx _ _ => nomatch hx)
         (fun _ _ hx _ _ => nomatch hx)
@@ -522,10 +525,13 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun _ _ _ _ hx => nomatch hx)
         (fun _ _ _ _ _ _ _ hx => nomatch hx)
         (fun _ _ _ _ hx => nomatch hx)
-        (fun _ hor => by
-          rcases hor with ⟨_, _, hx⟩ | ⟨_, _, _, hx⟩ <;> exact nomatch hx)
+        (fun _ hor _ => by
+          obtain ⟨_, _, _, hx⟩ := hor; exact nomatch hx)
         (fun T j _ _ _ _ hh _ => absurd (hnc.symm.trans hh).symm
           (Name.num_ne_str _ _ _ _))
+        (hmft := hmft')
+        (hparent := fun T j _ _ _ _ hh _ =>
+          absurd (hnc.symm.trans hh).symm (Name.num_ne_str _ _ _ _))
         (fun _ hx _ => nomatch hx)
         (fun _ _ hx _ _ => nomatch hx)
         (fun _ _ hx _ _ => nomatch hx)
@@ -1098,8 +1104,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun _ _ _ _ hx => nomatch hx)
         (fun _val' _h1 _h2 cvR mI rP rules hx => nomatch hx)
         (fun _ _ _ _ hx => nomatch hx)
-        (fun _ hor => by
-          rcases hor with ⟨_, _, hx⟩ | ⟨_, _, _, hx⟩ <;> exact nomatch hx)
+        (fun _ hor _ => by
+          obtain ⟨_, _, _, hx⟩ := hor; exact nomatch hx)
         (fun T j _ _ _ _ hh hx => nomatch hx)
         (fun entry heq _ => by
           obtain rfl := (ConstantInfo.projInfo.inj heq).symm
@@ -1135,8 +1141,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         (fun _ _ _ _ hx => nomatch hx)
         (fun _val' _h1 _h2 cvR mI rP rules hx => nomatch hx)
         (fun _ _ _ _ hx => nomatch hx)
-        (fun _ hor => by
-          rcases hor with ⟨_, _, hx⟩ | ⟨_, _, _, hx⟩ <;> exact nomatch hx)
+        (fun _ hor _ => by
+          obtain ⟨_, _, _, hx⟩ := hor; exact nomatch hx)
         (fun T j _ _ _ _ hh hx => nomatch hx)
         (fun entry heq _ => by
           obtain rfl := (ConstantInfo.projInfo.inj heq).symm
@@ -1647,7 +1653,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     | ok cv' =>
     rw [hccv] at h
     try dsimp only at h
-    obtain ⟨hfind', hres', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
+    obtain ⟨hfind', hres', hmft', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
       checkConstantVal_inv hccv
     simp only [Pure.pure, Except.pure] at h
     by_cases hlbv : value.looseBVarsBounded 0 = true
@@ -1797,6 +1803,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       rfl
       hres'
       hpshape'
+      hmft'
       ?_
       ?_
     -- the structural-Nat head obligation
@@ -2039,7 +2046,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     | ok cv' =>
     rw [hccv] at h
     try dsimp only at h
-    obtain ⟨hfind', hres', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
+    obtain ⟨hfind', hres', hmft', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
       checkConstantVal_inv hccv
     simp only [Pure.pure, Except.pure] at h
     -- the theorem-specific proposition check re-runs inference on the type
@@ -2118,6 +2125,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       rfl
       hres'
       hpshape'
+      hmft'
       (fun _ hex => by obtain ⟨cv₀, v₀, heq⟩ := hex; exact nomatch heq)
       (fun _ hex => by obtain ⟨cv₀, v₀, h₀, heq⟩ := hex; exact nomatch heq)
 
@@ -2130,7 +2138,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     | ok cv' =>
     rw [hccv] at h
     try dsimp only at h
-    obtain ⟨hfind', hres', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
+    obtain ⟨hfind', hres', hmft', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
       checkConstantVal_inv hccv
     simp only [Pure.pure, Except.pure] at h
     by_cases hlbv : value.looseBVarsBounded 0 = true
@@ -2189,6 +2197,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       rfl
       hres'
       hpshape'
+      hmft'
       (fun _ hex => by obtain ⟨cv₀, v₀, heq⟩ := hex; exact nomatch heq)
       (fun _ hex => by obtain ⟨cv₀, v₀, h₀, heq⟩ := hex; exact nomatch heq)
 
@@ -2244,7 +2253,7 @@ theorem checkDecl_stores {env env₁ : Env} {cv : ConstantVal}
     | ok cv' =>
     rw [hccv] at h
     try dsimp only at h
-    obtain ⟨hfind', hres', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
+    obtain ⟨hfind', hres', hmft', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
       checkConstantVal_inv hccv
     simp only [Pure.pure, Except.pure] at h
     by_cases hlbv : value.looseBVarsBounded 0 = true
@@ -2359,7 +2368,7 @@ theorem checkDecl_stores {env env₁ : Env} {cv : ConstantVal}
     | ok cv' =>
     rw [hccv] at h
     try dsimp only at h
-    obtain ⟨hfind', hres', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
+    obtain ⟨hfind', hres', hmft', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
       checkConstantVal_inv hccv
     simp only [Pure.pure, Except.pure] at h
     cases hst2 : inferTypeCore env F 0 type with

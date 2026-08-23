@@ -440,6 +440,164 @@ in isolation (init-prelude probe): 284.8 G → 272.2 G instructions
 property is correspondingly strengthened on gated slots and unchanged
 on the possibly-Prop residue.
 
+### Finding: the possibly-Prop infer residue is not removable (2026-08-23, task #73)
+
+Task #73 proposed dropping the residual checks at possibly-Prop-*codomain*
+slots too, restating the internal claims disjunctively per level
+assignment: either the strong membership fact, or φ collapses the
+subject's type-sort to `Prop` (the subject interprets to the proof
+point).  The collapse branch itself *is* nearly free — the
+interpretation is already annotation-directed to `pt`: `lam 0 A F =
+pt` (`lam_zero`), `app pt a = pt` (`app_pt`), members of `pi 0`/truth
+values/`univ 0`-members are `pt` (`mem_pi_zero`, `mem_univ_zero`), and
+`sfst pt = pt` — so app/proj/letE cases *propagate* a collapsed claim,
+and the app case could even dispatch semantically per φ (nonzero
+codomain-sort evaluation → domain determination exactly as the `#49`
+gate branch; zero evaluation with the argument's value in the domain,
+by classical case split → the strong fact via the `pi_zero`
+all-fibres-inhabited characterization).  The residue would survive
+only as the case "argument value off the Π's domain".
+
+**Why it cannot go**: the check is not only a membership check — it is
+the guard that keeps inference *outputs* (the instantiated codomains
+`body[a]`) inside the invariant-carrying fragment.  The strong branch
+of the infer claims delivers `AnnotOk t` and the interpretability of
+`t`; at an off-domain argument the output type is junk (its binder
+annotations need not be truthful, its interpretation is unrelated to
+any fibre), and there is no collapse-branch statement about `t` that
+is both provable at the emission site and usable by consumers.  Every
+consumer that runs checker chains *on inferred types* needs those
+type-side invariants as hypotheses of the mutual claims: the retained
+possibly-Prop **beta certificate** (its soundness identifies
+`⟦inferType a⟧` with the λ-domain via the defeq claims — impossible
+without the argument's strong branch), the **iota certificates**'
+telescope fit (`certs_fit`), the **λ-rule**'s body-type/annotation
+re-check chain, and `proofIrrel`'s sort-certification chain
+(`sortCert_pt`).
+
+**Countermodel** (falsifies `WhnfCoreClaims` as stated, before any
+restatement of the infer claims): in any modeled environment
+containing `True`, `False` and `g : False → False := fun h => h`,
+take the fabricated redex
+
+    (λ x : False. ∀ z : x, True)  (g True.intro)
+
+with codomain-sort annotations `0` throughout.  All claim hypotheses
+hold: it is closed, and `AnnotOk` is satisfiable — the λ-clause is
+vacuous over `⟦False⟧ = ∅`, and the app slots are the existential
+`vf ∈ pi 0 A B ∧ va ∈ A` clauses, satisfied with `vf = pt` (both
+`⟦g⟧` and `⟦λ…⟧` are Prop-λs, hence `pt`) at suitably chosen
+truth-value sets: at `Prop`, `pi`-membership does not determine the
+domain (impredicativity), so the slot cannot see that `True.intro` is
+fed to a `False`-expecting function.  Without the residue,
+`inferType (g True.intro)` succeeds with `False`, the beta
+certificate's `defeq (inferType a) ty` compares `False` with `False`
+and **passes**, and the redex reduces — but `⟦redex⟧ = app pt pt =
+pt` while `⟦∀ z : (g True.intro), True⟧ = pi 0 pt (λ_. ⟦True⟧) =
+truthVal True = unitSet ≠ pt`: the interp-equality conclusion is
+**false**.  With the residue, the same run positively rejects inside
+`inferType` (`defeq True False` fails), the certificate propagates
+the throw, and the claim is vacuous — exactly the pre-#73 status.
+The reduct re-enters *type*-land (a Π formed over a junk proof), which
+is why the pt-collapse intuition ("the collapsing φ trivializes the
+subject's claim") fails: Prop-collapse of the redex does not collapse
+the *reduct*, whose interpretation is a truth value, not the point.
+
+No claim-shape fix exists within the design: weakening the whnf/defeq
+claims to tolerate the drift cascades into the final membership
+transport of `checkDecl`, whose refutation of the drift branch would
+need the unformalized "reachable from annotate-checked input"
+invariant — i.e. subject-reduction metatheory (plus
+sort-substitution-stability of inference for the λ-rule consumer),
+exactly what the annotation design exists to avoid; and `AnnotOk`'s
+app slot cannot be strengthened to pin a Prop-function's domain, since
+at `Prop` values do not determine domains (the same impredicativity
+analysis as the beta certificate).  The official kernel checks nothing
+here because its internal terms are well-typed by subject reduction;
+setlec's residue is the annotation-design's price for skipping that
+metatheory, and is hereby established as *necessary*, not an
+oversight.
+
+**Measured bounty** (kernel-only A/B probe, committed and reverted on
+the task branch; `perf stat` instructions, best of 2; verdicts
+identical everywhere — arena 90/92, e2e 48/48, equal accepted-count on
+both probes, both modes): `repro-extract-proof11-pre` default
+184.7 G → 173.9 G (**−5.9 %**), `init-sizeof` default 193.4 G →
+164.2 G (**−15.1 %**); the NC mode is unchanged (135.9 G / 147.1 G —
+it already skips the site), so the numbers are also the current
+measure of this residue's engineering-quality tax.  Worth revisiting
+only together with genuine syntactic metatheory or a
+certified-redex/argument cache.
+
+### Possibly-Prop-gated iota certificates (2026-08-23, task #71)
+
+`iotaRec`/`iotaRecI` certify their two telescopes (the recursor's, on
+`args.take mI ++ [major]`, and the constructor's, on the major's
+spine) with the **gated** `iotaCertsG`/`iotaCertsGI`: a slot whose
+codomain-sort annotation is provably nonzero (`codNonZero`) runs *no*
+per-fire infer+defeq — the soundness claims recover the argument's
+domain membership from the redex's own annotated application chain by
+domain determination, exactly as the task-#49 infer-app gate — while a
+possibly-Prop slot keeps the check (the load-bearing residue, task
+#73; never remove it).  `certs_fit` gains the gated sibling
+`certsG_fit` (Model/Core/Certs.lean), which produces the same
+`TeleFitI` from two extra semantic inputs available at both fire-path
+call sites: the head value's membership in the telescope's
+interpretation (`EnvModel.mem_type` for the stored recursor resp.
+constructor) and the chain's `AppSlot`s (`annotOk_spine_inv` on the
+redex resp. the — possibly rescued — major, whose `AnnotOk` comes from
+`majorToCtor_claims`).  Per gated slot: the walked head value lies in
+`pi (cod.eval φ) ⟦dom⟧ B` at a nonzero tag, hence is a graph over
+`⟦dom⟧` (`pi_pos`, `eq_graph_app_of_mem_piSet`); the `AppSlot` puts
+the argument's value in *some* pi domain containing that same
+function value, and graphs determine their domains
+(`graph_dom_of_mem_piSet`; a zero-tagged slot pi is vacuous — its
+members are the proof point, `graph_ne_pt`).  The invariant steps by
+`app_mem` through the annotated fibres.  Kept as runtime checks (their
+facts feed the #58 fold-clause interface and are not present in any
+annotation invariant): the plain-rule level linking, the
+constructor-parameter `defEqList`, the canonical-index `defEqList`,
+and the `stripPis` arity pins.
+
+**Synthetic spines keep ungated certificates.**  A checker-fabricated
+spine has no annotated application chain to recover memberships from,
+so the structure-eta, unit-like and projection telescope certificates
+stay on the ungated `iotaCerts`, and the stuck-major rescue's
+fabrications are now certified *inside* `majorToCtor` (relocated from
+the fire path, where the gating would have starved
+`majorToCtor_claims`): each fabrication branch pins
+`(cvj.type.stripPis k).isSome` plus the spine arity and runs
+`iotaCerts` on the constructor telescope against the fabricated spine
+(`etaFabArgs` names the eta spine, shared between the fabrication and
+its certificate — and keeps the walked proof goals inside the
+splitter's simp budget; the majorToCtor walk proofs in
+PairM/Fueled/Disc peel the outer casing by hand for the same reason).
+`majorToCtor_inv` carries the new facts and `majorToCtor_claims` lost
+its `hstripLen`/`hmcerts` hypotheses.
+
+**The official `to_cnstr_when_K` type check is now explicit.**  The K
+rescue's fabrication check (defeq of the major's whnf'd type against
+the fabrication's inferred type — for `Eq` the endpoint condition) was
+deliberately omitted while the ungated major-slot certificate implied
+it; with that slot gated at nonzero motives the reference check is
+load-bearing (arena `bad/098_ruleKbad` fires at `Eq.rec.{3,3}`) and
+`majorToCtor`'s K branch performs it before `proofIrrel` (which stays
+as the value-identification certificate), mirroring `majorToCtorNC`.
+
+**Measured** (init-prelude probe `_tmp/perfcmp/
+init-prelude.preprocessed.ndjson`, `perf stat` instructions, best of
+3, baseline re-measured at the merge base): default (certified)
+187.4 G → 176.4 G (**−5.8 %**), user time 13.7 s → 12.5 s; NC mode
+141.9–143.1 G on both sides (unchanged — it already skips all fire
+certificates).  Verdicts identical: arena 90/92 (bad/098 rejecting),
+e2e 48/48, probe exit 0 / 3653 accepted both modes, scale.sh all
+shapes PASS.  The delta is smaller than #49's toggle estimate
+(−23.5 G on the 284.8 G pre-#50 baseline) because the interning and
+bulk-instantiation work since then already removed most of the
+telescope-walk cost the toggle measured; the remaining certified-vs-NC
+gap (~34 G) is now dominated by the beta/infer possibly-Prop residues
+and the letE/projection certificates.
+
 ### The certified structural-Nat fast path (2026-08-21)
 
 `reduceNat` — sitting exactly where the official kernel's literal
@@ -983,8 +1141,11 @@ checks are omitted — we verify the kernel and may rely on invariants
 where other kernels re-check):
 * `proofIrrel`'s common-type check (annotation-first discipline already
   forces both sides' types through the same checked chain).
-* The K rescue's explicit fabricated-type check (implied by the
-  load-bearing iota certificates that run on the fabrication).
+* The K rescue's explicit fabricated-type check (then implied by the
+  load-bearing iota certificates that ran on the fabrication;
+  **reinstated by task #71** — with the fire-path certificates
+  possibly-Prop-gated the implication broke and the official check is
+  load-bearing again, see "Possibly-Prop-gated iota certificates").
 
 **Adopted as part of the open-recursion core restructure**: the
 `whnfCore`/`whnf` split with the official loop (`whnfCore → reduceNat →
@@ -999,7 +1160,8 @@ proof-irrelevance hoist in defeq was reverted for fuel-depth reasons
 `tryUnfoldProjApp`, cheapProj (lazy delta itself landed, see below);
 string literals; the performance substrate (cached hashes /
 hash-consing, array spines, indexed environment, per-declaration cache
-threading, possibly-Prop-gated iota certificates); per-loop fuel
+threading; the possibly-Prop-gated iota certificates landed with task
+#71, see "Possibly-Prop-gated iota certificates" below); per-loop fuel
 budgets; instrumenting the possibly-Prop beta wedge (3.5) as an
 internal-error signal; removing the codomain-annotation comparison in
 binder defeq (documented deviation, benign for well-typed input).
@@ -1098,7 +1260,13 @@ application is *replaced* by a fabricated one.
 
 * **K**: for a K-flagged inductive proposition (single-rule recursor,
   zero-field constructor), the constructor applied to the first
-  parameters of the major's reduced type.  Certified by `proofIrrel`
+  parameters of the major's reduced type.  Checked (since task #71) by
+  the relocated ungated constructor-telescope certificate on the
+  fabricated spine, the official `to_cnstr_when_K` type comparison
+  (defeq of the major's type against the fabrication's inferred type —
+  the `Eq` endpoint condition; load-bearing with the fire path's
+  major-slot certificate gated, arena `bad/098_ruleKbad`), and
+  certified by `proofIrrel`
   — in the model both the stuck major and the fabrication are the
   proof point, so no `_model.ruleK` theorem is consulted; the
   `ruleK` capability is computed from shape at install exactly as the
@@ -1117,12 +1285,14 @@ application is *replaced* by a fabricated one.
 Fabricated majors carry a syntactic scope guard (`wscopedB` &&
 `looseBVarsBounded` && leaf-subset, as in `annotateProjElim`), keeping
 their well-scopedness verification local.  Soundness
-(`majorToCtor_claims` in `Setlec/Model/TypeChecker.lean`) assembles
+(`majorToCtor_claims`, `Setlec/Model/Core/MajorToCtor.lean`) assembles
 the fabrication's `AnnotOk`/interpretation from the constructor
-telescope's iota certificates (`certs_fit` + `TeleFit.chainSlots` +
-`annotOk_spine`), the reduced type's argument spine, and (for eta) the
-projection certificates; the value identification is proof irrelevance
-(K) or the stored eta law via `structEtaWith_sound` (eta).
+telescope's iota certificates — since task #71 carried by
+`majorToCtor` itself, ungated, on the fabricated spine (`certs_fit` +
+`TeleFit.chainSlots` + `annotOk_spine`) — the reduced type's argument
+spine, and (for eta) the projection certificates; the value
+identification is proof irrelevance (K) or the stored eta law via
+`structEtaWith_sound` (eta).
 
 (Historical: until task #79 the frontend zeta-expanded every parsed
 expression — the checker worked let-free — which duplicates shared
@@ -2312,15 +2482,18 @@ proof-only):
    `121_rtreeRecReduction`, `080_RBTree`, `nested_rec`,
    `let_rec_rhs`) — it is part of matching reference behavior, not a
    proof artifact.  It stays in the NC path.
-2. *K-rescue index comparison.*  The certified `majorToCtor` K path
-   certifies the fabrication by `proofIrrel`, which never compares
-   the major's type against the fabricated constructor's — the index
-   comparison the official `toCtorWhenK` performs (`isDefEq appType
-   (inferType newCtorApp)`) is subsumed by the major-slot telescope
-   certificate of the certified `iotaCerts`.  Skipping the
-   certificates without restoring the reference check *accepts* arena
-   `bad/098_ruleKbad`; `majorToCtorNC` therefore carries the official
-   check verbatim.
+2. *K-rescue index comparison.*  At the time of this finding the
+   certified `majorToCtor` K path certified the fabrication by
+   `proofIrrel` only, the index comparison the official `toCtorWhenK`
+   performs (`isDefEq appType (inferType newCtorApp)`) being subsumed
+   by the major-slot telescope certificate of the then-ungated
+   fire-path `iotaCerts`.  Skipping the certificates without restoring
+   the reference check *accepts* arena `bad/098_ruleKbad`;
+   `majorToCtorNC` therefore carries the official check verbatim —
+   and since task #71 (major-slot certificate gated at nonzero
+   motives) the certified `majorToCtorI` runs the same check, NC
+   differing only in dropping the `proofIrrelI` certificate and the
+   relocated telescope certification.
 
 **Measured** (init-prelude probe, `perf stat` instructions, 8 GB
 limit; verdicts identical in both modes — arena 90/92, e2e 48/48,
@@ -2921,3 +3094,396 @@ The official kernel constructs these objects itself (recursor/
 projection rules are generated, so the shapes hold by construction);
 setlec checks them because the artifacts arrive from the preprocessor
 as input.  Failures are declines, not rejections.
+
+## Direct install of simple structures (2026-08-23, task #82)
+
+The first inductive class that needs **no `lean-inductive-models`
+artifact**: a *simple structure* — non-recursive, single-constructor,
+index-free, parameters and dependent fields allowed, with a **provably
+nonzero result sort**.  For such a block the checker installs the type
+former, the constructor, the recursor with its single rule and the
+projection functions from the *reference checks alone*, and the
+set-theoretic model is **constructed** rather than borrowed.
+
+### The class, and why the sort must be nonzero
+
+The model of `T p⃗` is the iterated dependent pair over the interpreted
+field telescope, closed off by the singleton — literally the tower the
+preprocessor builds syntactically out of `PSigma'`/`PUnit`, built
+directly out of `SetTheory.sigmaSet` (`Setlec/Model/DirectTower.lean`).
+`sigmaSet w` *collapses to a truth value at `w = 0`*, which destroys
+`proj_i (mk f⃗) = f_i` for a `Prop` structure carrying data fields.
+Rather than case-split the whole construction on the collapse, the
+recognised class requires `Level.isNonZero` of the result sort
+(**finding / narrowing**): `Prop` structures (`And`, `Iff`, `True`,
+`Exists`, `Nonempty`, …) and `Sort u`-parametric ones (`PProd'`,
+`PSigma'`) simply stay on the modeled path, which handles them today.
+Measured on the init-prelude stream: of 149 inductive blocks, 117 have
+the single-type/single-ctor/single-rec shape and **103 are recognised**
+— every class-like structure (`Add`, `Monad`, `Prod`, `Subtype`,
+`Fin`, `Array`, `String`, `UInt*`, …).
+
+### Recognition (`Setlec/Kernel/Direct.lean`) — the reference checks
+
+`directParts?` is a **conservative filter**: a block it rejects falls
+through to the modeled path unchanged, so a negative answer never costs
+a verdict.  The checks mirror what the reference kernels do when
+*adding* an inductive declaration (citations: lean4lean
+`Lean4Lean/Inductive/Add.lean`, a line-by-line port of the official
+`src/kernel/inductive/inductive.cpp`; nanoda
+`nanoda_lib/src/inductive.rs`), restricted to this class:
+
+* type former: a `∀`-telescope of exactly `numParams` binders ending in
+  a `Sort` (`checkInductiveTypes`, `Add.lean:60-116`) — index-free
+  means it ends there; the result level is `isNeverZero`
+  (`Add.lean:101`), which here is *required*, not just observed.
+* constructor: a `∀`-telescope ending in the type former applied to
+  **exactly** the parameters at the declaration's own level parameters
+  (`isValidIndAppIdx`, `Add.lean:157-165`, nanoda `is_valid_ind_app`);
+  its parameter domains are the type former's (`Add.lean:220-222`,
+  by `isDefEq` there and here — see below).
+* non-recursive: every constructor binder domain already resolves in
+  the *pre-block* environment.  This subsumes `checkPositivity` /
+  `hasIndOcc` (`Add.lean:184-199`) for a single-inductive block and is
+  exactly what the model needs: the type former's value is built from
+  the field types' interpretations in the environment *before* the
+  block, so a self-reference would be circular.
+* per-field universe bound: each field's sort `≤` the result sort
+  (`Add.lean:225-228`, nanoda `check_ctor`); the `Prop` escape hatch
+  there is unreachable in this class.
+* recursor: **exactly** the generated shape (`Add.lean:477-483`) —
+  a fresh elimination level parameter in front (`getRecLevelParams`,
+  `Add.lean:416-417`; every nonzero-sorted structure is a large
+  eliminator, `isLargeEliminator`, `Add.lean:257-259`), params, one
+  dependent motive `∀ (t : T p⃗), Sort ℓ` (`Add.lean:326`), one minor
+  premise over the constructor's field telescope ending in
+  `motive (C p⃗ f⃗)` (`Add.lean:384-388`), no indices, the major, and
+  the body `motive t`; and `majorIdx = rulePrefix = numParams + 2`.
+* the single rule's right-hand side is `λ p⃗ motive minor f⃗, minor f⃗`
+  (`mkRecRules`, `Add.lean:441-447`).
+
+Skeleton checks are syntactic (`directShape`, run on the raw block for
+recognition **and** re-run on the annotated constants at install).  The
+binder-*domain* correspondences are deliberately **not** syntactic: the
+references compare the constructor's parameter domains by `isDefEq` and
+build the recursor's telescope from `whnf`-peeled domains, so a
+syntactic pin would wrongly reject (measured: 29 of 103 recognised
+blocks fail a syntactic parameter-domain pin, 22 fail a syntactic
+minor-premise pin).  `checkDirectStruct` pins them **definitionally**
+over one shared opening of the recursor's telescope — which is also
+exactly the interpretation equalities the model's telescope walks
+consume.
+
+### Projections compose with the existing table
+
+The direct path installs projection *functions* into the **same slot
+family and same consumer** as the modeled path's `checkProjFn`: a
+degenerate recursor (no motive, no minors, no indices, one rule
+`λ p⃗ f⃗, f_i`) stored under `projFnName T i`, which is the name
+`annotateProjElim` dispatches on — so `.proj` nodes on a direct
+structure rewrite into `T.proj.i` applications exactly as on a modeled
+one, and the generic iota machinery reduces them.  Only the projection
+*type* comes from a different source: generated from the constructor
+telescope (`directProjTy`: `∀ p⃗ (t : T p⃗), F_i[f_j := T.proj.j p⃗ t]`,
+built with the capture-avoiding `Expr.instPisAtLift`, since the
+substituted arguments are open) instead of read off a
+`_model.proj_i` artifact.  No new projection mechanism is introduced,
+and the `native = false` template entries stay what they are (the Prop
+fallback).
+
+**Finding**: the recursor-elimination *template* fallback
+(`annotateProjRec`) cannot serve this class.  Its motive is constant in
+the eliminated variable, so the minor `λ f⃗, f_i` only typechecks when
+`F_i` does not mention earlier fields — fine for `Prop` structures
+(proof irrelevance) but wrong for a *dependent* projection such as
+`Sigma.snd`.  Installing real projection functions is therefore not an
+optimisation but a requirement.
+
+### Precedence: artifact-free, not artifact-first
+
+The brief ordered the clauses *basis → direct → modeled*.  The landed
+order is *basis → modeled (when the artifact is there) → direct*:
+`directNoModel` requires that none of `T._model`, `C._model`,
+`T.rec._model` and the `T._model.proj_j` family is stored.  Reason
+(**finding**): the structure-eta capability's environment invariant
+(`ModeledOk`'s eta clause, `EtaLaw`) is spelled in `_model` names and
+is owed at the *type former's* install, when neither the constructor
+nor the projections are stored yet — so a public-name restatement is
+not establishable at that point without new caps-swap or one-shot-block
+transport machinery.  Firing the direct path ahead of an available
+artifact would therefore drop `eta` for every structure that has one,
+which loses arena `109_structEta` (and `082`/`083`/`084`/`096`, the
+dependent-projection tests, before projection functions were added).
+Gating on artifact *absence* keeps every preprocessed stream on exactly
+today's route, byte for byte, and makes the direct path precisely the
+**ind-models-free** route the endgame wants.  The endgame is unchanged:
+once `lean-inductive-models` skips generation for this class, the
+direct path takes over by absence, and lifting eta into it is a
+separate, well-identified piece of work (restate `EtaLaw` in public
+names + a caps swap, or install the block's model in one shot).
+
+Side effect, kept: three arena `bad` fixtures (`133_dup_ctor_def`,
+`134_dup_rec_def`, `137_dup_ctor_rec`) are hand-written raw exports, so
+the direct path sees them and **rejects** (exit 1, "duplicate
+declaration") where the modeled path *declined* (exit 2, "missing
+model").  Reject is the reference-correct verdict for a duplicate name.
+
+### The constructed model
+
+`Setlec/Model/DirectVal.lean` supplies the missing *introduction*
+direction of the telescope machinery (everything existing —
+`TeleFit.elim`, `closeLamsAt_fold` — is elimination-only):
+
+* `teleLamV k d ρ ty S` — the `k`-binder λ-tower over the telescope
+  `ty`, with each `lam`'s universe tag read off that binder's own
+  codomain-sort annotation, and body `S` computed from the argument
+  values;
+* `teleLamV_mem` — it inhabits `⟦ty⟧` when the body inhabits the
+  interpreted residual at every fitting spine;
+* `teleLamV_fold` — applying it along a fitting spine computes the
+  body.
+
+`Setlec/Model/DirectTower.lean` supplies the structure's own value:
+`sigmaTowerV` (iterated `sigmaSet` over the field telescope, closed by
+`unitSet`), `tupleV` (iterated Kuratowski pair), `projV`, with
+formation (`sigmaTowerV_mem_univ`, from the per-field universe bound
+via cumulativity), introduction (`tupleV_mem`), the iota equation
+(`projV_tupleV`) and **eta** (`sigmaTowerV_split`: every member is the
+tuple of its own projections, and those projections fit the field
+telescope).  The intended values are then
+
+    ⟦T⟧      = teleLamV nP over the type former's telescope,
+               body = sigmaTowerV over the constructor's field telescope
+    ⟦C⟧      = teleLamV (nP+nF) over the constructor's telescope,
+               body = tupleV of the field values
+    ⟦T.rec⟧  = teleLamV (nP+2+1) over the recursor's telescope,
+               body = the minor applied to the major's projections
+    ⟦T.proj.i⟧ = teleLamV (nP+1), body = projV i of the subject
+
+with `sigmaTowerV_split` supplying both the recursor's `mem_type`
+(`motive x` is reachable from `motive (C p⃗ (projs x))` because
+`tupleV (projs x) = x`) and the rule's fold equation
+(`projV_tupleV`).
+
+### The environment invariant, split (2026-08-23)
+
+`ModeledOk` conflated two things, and the direct path made the
+conflation visible: a directly installed structure has no `_model`
+companion, so it could not satisfy clauses whose *conclusion* was
+"my value is my companion's".  The fix is to split, not to synthesise
+companions (user ruling: we do not re-implement a preprocessor in the
+checker; the environment holds what the input declared plus the
+sanctioned `projFnName` projection-table family, nothing else).
+
+* **The capability laws are provenance-abstract.**  `EtaLaw`/`UnitLaw`
+  say what the reduction rules consume and nothing about how the family
+  was built, so a basis pin, an artifact check and a direct
+  construction all discharge them the same way — the `IndOk` pattern,
+  and the move `RecRulesOk` made in task #58.  `UnitLaw` is already
+  free of `_model` names, and the direct install discharges it from
+  `directTyVal_unitlike`.  `EtaLaw` still reaches the constructor and
+  the projections through *their* `_model` names, which is why the
+  direct install declares `eta := false`; making it public-named is the
+  one piece a direct-eta would need.
+* **The artifact linkage is existence-premised.**  "`val n` is
+  `val (n._model)`" now takes *the companion being stored* as a
+  hypothesis rather than asserting it.  For an artifact-installed
+  constant that is exactly as strong as before — the modeled install
+  stores the companion, so its proofs go through with one extra
+  `intro` — and for a directly installed constant it is vacuous by
+  construction (`directNoModel`).  The clause's docstring records why
+  it exists at all (the preprocessor proves its certificates over
+  `_model` names, so a later modeled block's rename-and-transport needs
+  the linkage of *earlier* blocks), its lifetime (per constant, to the
+  end of the stream — **not** group-local: models are built out of
+  earlier models), why it is free to carry (it records the assignment
+  the modeled install makes, not an extra obligation), and its end of
+  life (deletable once the last modeled class is gone).
+* **A model-family guard.**  A companion declared *after* its constant
+  would activate the linkage for a constant whose value was already
+  fixed without it, so `checkConstantVal` rejects that
+  (`modelFamilyTaken`).  It never fires on a preprocessed stream — the
+  preprocessor emits a block's artifacts before the block, checked
+  against its output (0 of 151 init-prelude blocks out of order) — and
+  a stream that did it the other way round never checked anyway,
+  because the modeled path looks the companion up *at* the block and
+  declines there.  So the guard moves a verdict, never an acceptance.
+
+### The endgame: ind-models' skip rule must be dependency-aware
+
+Once `lean-inductive-models` stops generating models for the direct
+class, the direct path takes over by absence — but the skip has to be
+computed over the *whole* export, not per declaration: a model may be
+built out of an **earlier** model, so a type whose model some later
+modeled construction references must keep its artifacts.  Leaf
+structures skip; structures nested through by later modeled types keep
+their models.  The constraint shrinks as the direct class grows.
+
+Measured on the init-prelude stream: of 149 inductive blocks, exactly
+**one** (`Trans`) has a model that references another block's model
+(`LT`'s).  So the dependency is rare — nearly every simple structure is
+a leaf and skippable — but real, and the tool has to compute it rather
+than assume it away.
+
+The checker is safe under **every** mixture of skipped and generated
+models: the only failure mode is the decline/reject pinned by the
+`direct_nested_dep_broken` fixture (a surviving artifact referencing a
+model that was not generated → "unknown constant `X._model`", exit 1).
+It never accepts such a stream.
+
+**Hard precondition: `EtaLaw` must go public-named first.**  The direct
+install currently declares `eta := false`, which is safe only because
+the path is absence-gated: today every structure that *has* an artifact
+keeps the modeled route, and with it its eta capability.  The moment a
+skip rule deploys, a directly installed structure would be the only
+one without eta — and that **diverges from the reference kernels**: the
+official kernel offers `to_cnstr_when_structure` to every non-`Prop`
+single-constructor structure, so a stuck-major rescue that fires there
+would stop firing here.  So before any skip rule can ship:
+
+* restate `EtaLaw` over the **public** constructor and projection-
+  function names (`val caps.etaCtor`, `val (projFnName T j)`) instead
+  of their `_model` companions;
+* discharge it for the direct class from the constructions already
+  proved — `directCtorVal`/`directProjVal` and `sigmaTowerV_split`
+  (structure eta at the value level) give it essentially directly, and
+  `directCtorVal_mem`/`directProj_body_mem` supply the memberships;
+* the modeled path then derives the public form from its `_model` law
+  plus the artifact linkage.  Note the ordering constraint this
+  imposes: the public law mentions constants installed *after* the type
+  former, so it must be premised on the block's constructor and
+  projections being stored, and the modeled discharge moves from the
+  type former's install to the block's last install (the linkage
+  clause is exactly the record that makes that possible).  This is the
+  reason the restatement was not folded into this landing.
+
+### One opening for the block, one frame per field
+
+Two shape decisions exist purely so the model can read the checks off
+the same frames it computes in:
+
+* `checkDirectCtor` opens the **type former's** parameter telescope and
+  instantiates the constructor's into those very variables (rather than
+  opening the constructor's own).  The reference kernels compare the two
+  parameter telescopes by `isDefEq` (`Add.lean:220-222`); instantiating
+  one into the other is that check done once, and it means the field
+  types carry the annotations the type former's own telescope walk
+  produces — otherwise `FvarsOk` for the field-universe walk would need
+  a separate definitional bridge between two openings.
+* `checkDirectFieldUniv` infers each field's sort at **its own** frame
+  (`nP + j`) rather than at the block's widest frame.  Depth invariance
+  makes this the same verdict and removes a frame-padding step: the
+  sorts come out at exactly the valuation the dependent-pair tower's
+  recursion uses.
+
+`checkDirectStructS` additionally `flushS`es at each of its five
+environment transitions, like every other driver in
+`Setlec/Kernel/CheckerS.lean` — the memo caches are only valid for the
+environment that created them.  (Found by the verification pass; the
+clause was parked, so no verdict was ever affected.)
+
+
+`Setlec/Model/DirectInstall.lean` assembles them and proves the
+value-level content:
+
+* `directTyVal_mem` — the type former inhabits its type, from the
+  per-field universe bound alone;
+* `directCtorVal_mem` — the constructor inhabits its type, splitting a
+  fitting parameter+field walk (`TeleFit_split`) and closing with
+  `tupleV_mem`;
+* `directRec_body_mem` / `directProj_body_mem` — the semantic heart:
+  a member of the tower *is* the tuple of its own projections, so the
+  minor premise applied to those projections lands in `motive x`, and
+  field `i` lands in the `i`-th (instantiated) field domain.  This is
+  what makes the eliminator's conclusion reachable with no `_model`
+  theorem involved;
+* `directRec_iota` / `directProj_iota` — the two iota equations the
+  stored rules' fold obligation reduces to once the λ-towers are folded
+  away (`teleLamV_fold`).
+
+Supporting telescope lemmas: `TeleFit_split`, `TeleFit_open` (a fitting
+walk lands exactly where `openPisAtFvars` does), `TeleFit_rest_sort`
+and `stripPis_instantiate1_body`.
+
+### Status (2026-08-23)
+
+Landed and gate-green: the value-construction kit, the recognition
+layer, the checks and the install (`checkDirectStruct` and its
+shared-state twin `checkDirectStructS`), and a **raw** e2e fixture
+(`tests/e2e/src/direct_struct_raw.lean` → `direct_struct_raw.ndjson`,
+committed unfiltered, run by `tests/arena.sh` with
+`SETLEC_INDUCTIVE_MODELS=/nonexistent` via the new `raw` marker in
+`tests/e2e-expected.txt`).  With the clause enabled the fixture is
+**accepted** (a structure with two parameters and two dependent fields,
+a field-free structure, `rfl`s through both projection iota rules and
+through the recursor rule) — verified by running it, and re-verified
+after each subsequent change.
+
+**Not yet landed: the environment assembly of the install
+soundness.**  `checkIndDecl` therefore does not yet dispatch to
+`checkDirectStruct`, and the raw fixture is pinned at *decline* in the
+expectations; enabling the clause is a two-line change (one per checker
+copy) once the assembly lands — verified by temporarily enabling it at
+every step of this work, which accepts the fixture and leaves the arena
+at 90/92.
+
+Landed on the verification side, so that enabling the clause is
+possible at all: the pair-monad projection batteries and the
+fuel-indexed `_datF` battery for every new declaration-checker function
+(`Setlec/Verify/BridgeDecl.lean`), and the run-level `wfOpsM`-to-pure
+implications (`Setlec/Verify/BridgeWfImp.lean`, with the reusable
+`checkConstantVal_typeWF`, `stripPis_WScoped` and
+`openPisAtFvars_index`).  `checkDirectStruct_wfimp`'s intermediate
+`EnvWF` hypotheses are *run-tied*, to be discharged in
+`Setlec/Model/BridgeWF.lean` from the declaration inversions, exactly
+as `installProjFnStep`'s are.  `Setlec/Kernel/CheckerNC.lean` carries
+the cert-skipping twin.
+
+What remains, in dependency order:
+
+1. **`FieldTele` from the universe walk.**  `checkDirectFieldUniv_inv`
+   (landed) gives, per field, the inferred sort and the `Level.leq`
+   result; turning that into `FieldTele` needs the growing-frame
+   invariant (`FvarsOk`/`AnnotOk` at each opened field) — the analogue
+   at `TeleFit` frames of what `Setlec/Model/IotaWalk.lean`'s
+   `pi_walk`/`peel_walk` do at a fixed frame.  This is the one
+   genuinely new piece of telescope machinery.
+2. **`mem_type` for the four constants**, from `directTyVal_mem`,
+   `directCtorVal_mem`, `directRecVal_mem`/`directRec_body_mem` and
+   `directProjVal_mem`/`directProj_body_mem`, with the residual
+   identities read off `checkDirectCtor`'s opened-residual pin and
+   `checkDirectRecTy`'s definitional pins (via `isDefEqCore_sound`).
+   The constructor's parameter-domain membership additionally needs the
+   reference kernels' `isDefEq` between the two parameter telescopes
+   (`Add.lean:220-222`) added to `checkDirectCtor`.  **Diagnosed
+   blocker** (the check is written and works; only its battery does
+   not): at that position the pair-monad projection battery does not
+   fire.  It is *not* a lemma defect — `checkDefEqList_fst_dproj`
+   rewrites fine in an isolated `example`, and hoisting the call into
+   its own non-recursive wrapper constant, binding its result
+   explicitly, and running the `dfst_step`-style cascade all fail the
+   same way.  A `pp.explicit` diff of the two sides pins the cause as
+   the **distinct-instance trap**: the goal's
+   `Monad (PairM …)` / `MonadExceptOf CheckError (PairM …)` arguments
+   at that node are not the instance terms the battery lemma
+   elaborates to, so simp's post-discrimination match fails even though
+   the terms are defeq.  Next step is to state the battery against the
+   goal's own instances (or make the `PairM` instances reducible), not
+   to reshape the kernel function further — the same call shape in
+   `checkDirectRecTy` rewrites, so the two elaborations must be
+   compared.
+3. **The rules' fold obligation** (`RecMemberOk`) for the recursor rule
+   and the `nF` projection rules, through `TowerOk.of_stages`
+   (`Setlec/Model/RuleFold.lean:1706`): the per-stage facts are the
+   install's definitional domain pins, the bottom fact is
+   `teleLamV_fold` composed with `directRec_iota` / `directProj_iota`.
+4. **The chain**: `extend_fresh` for the `3 + nF` constants (the
+   `ModeledOk` obligations are already vacuous for this class — `eta`
+   is `false`, the linkage is existence-premised and no companion
+   exists — so only `mem_type`, `annot_ok`, `val_params` and the folds
+   remain per constant), then the direct case of `checkIndDecl_sound`
+   (`Setlec/Model/Extend/Decl.lean`).
+5. **`Setlec/Model/BridgeS.lean`**: `checkDirectStructS`'s
+   shared-state-to-pure bridge, including the `flushS`/`ISOK`
+   re-establishment at each of the five phases, and the run-tied
+   `EnvWF` discharges `checkDirectStruct_wfimp` is waiting on.

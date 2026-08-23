@@ -169,7 +169,7 @@ theorem structEtaWith_sound {m : EnvModel V env} {fuel : Nat}
     rw [htal]
     exact stripPis_instantiateLevelParams_isSome _ _ _ hTstrip)
   -- the stored eta law
-  obtain ⟨hmsC, hmsP, hlaw⟩ := m.modeled_ok.2.2.2.1 T cvT caps hfT hce hres
+  obtain ⟨hmsC, hmsP, hlaw⟩ := m.modeled_ok.2.2.1 T cvT caps hfT hce hres
   have hmemb' : vb ∈ˢ SpineFold V
       (m.val T (Level.substFn φ cvT.levelParams us')) psv := by
     rw [← hψ']
@@ -403,14 +403,14 @@ theorem structEtaWith_sound {m : EnvModel V env} {fuel : Nat}
           · obtain rfl : x = b := by simpa using hx
             exact hokb l hlx
   -- assembly through the value bridges
-  obtain ⟨-, hveqC⟩ := m.modeled_ok.2.1 c cvc cnP cnF hfc hresC
+  have hveqC := m.modeled_ok.1 c cvc cnP cnF hfc hresC (by rw [hcc] at hmsC; exact hmsC)
   have hvalPM : ∀ i, i < cnF →
       m.val (projFnName T i) ψ' = m.val (projModelName T i) ψ' := by
     intro i hi
     obtain ⟨cvp, mIp, rPp, rulesp, hfpj, -, -, -⟩ :=
       hpcFacts i hi
-    obtain ⟨-, hveqP⟩ := m.modeled_ok.2.2.1 T i _ _ _ _ hfpj
-    exact hveqP ψ'
+    exact m.modeled_ok.2.1 T cvT caps i _ _ _ _ hfT hfpj
+      (hmsP i (by rw [hcf]; exact hi)) ψ'
   have hfldsM : ((List.range cnF).map fun i =>
       SpineFold V (m.val (projFnName T i) ψ') (psv ++ [vb])) =
       ((List.range cnF).map fun i =>
@@ -610,7 +610,7 @@ theorem structUnit_sound {m : EnvModel V env} {fuel : Nat}
     rw [htal]
     exact stripPis_instantiateLevelParams_isSome _ _ _ hTstrip)
   -- the stored unit law
-  have hlaw := m.modeled_ok.2.2.2.2 T cvT caps hfT hcu hres
+  have hlaw := m.modeled_ok.2.2.2.1 T cvT caps hfT hcu hres
   have hmema' : va ∈ˢ SpineFold V
       (m.val T (Level.substFn φ cvT.levelParams us')) psv := by
     rw [← hψ']

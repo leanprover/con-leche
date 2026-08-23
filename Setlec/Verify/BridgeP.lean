@@ -143,7 +143,8 @@ theorem checkConstantValP_sim (henv : EnvWF env) {cvp : ConstantValP}
       (checkConstantVal fueledOpsM env
         ⟨cvp.name, cvp.levelParams, tyE⟩) := by
   unfold checkConstantValP checkConstantVal
-  simp only [mkFEnv_find?]
+  have hme : (mkFEnv env).env = env := rfl
+  simp only [mkFEnv_find?, hme]
   by_cases h1 : (env.find? cvp.name).isSome = true
   · simp only [if_pos h1]
     exact SimAt.throw_bind
@@ -152,6 +153,10 @@ theorem checkConstantValP_sim (henv : EnvWF env) {cvp : ConstantValP}
   · simp only [if_pos h2]
     exact SimAt.throw_bind
   simp only [if_neg h2]
+  by_cases h2b : modelFamilyTaken env cvp.name = true
+  · simp only [if_pos h2b]
+    exact SimAt.throw_bind
+  simp only [if_neg h2b]
   by_cases h3 : cvp.name.isProjFnShape = true
   · simp only [if_pos h3]
     exact SimAt.throw_bind

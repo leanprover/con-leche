@@ -543,8 +543,12 @@ theorem extend_proj_template {env : Env} (m : EnvModel V env)
     (fun _ _ _ _ hx => nomatch hx)
     (fun _ _ _ _ _ _ _ hx => nomatch hx)
     (fun _ _ _ _ hx => nomatch hx)
-    (fun _ hor => by
-      rcases hor with ⟨_, _, hx⟩ | ⟨_, _, _, hx⟩ <;> exact nomatch hx)
+    (fun _ hor _ => by
+      obtain ⟨_, _, _, hx⟩ := hor; exact nomatch hx)
+    (fun _ _ _ _ _ _ _ hx => nomatch hx)
+    (show modelFamilyTaken env (ConstantInfo.projInfo entry).name = false by
+      rw [hname]
+      simp [modelFamilyTaken, modelSuffixTaken, modelProjTaken, projFnName])
     (fun _ _ _ _ _ _ _ hx => nomatch hx)
     (fun e2 heq hnat2 => by
       obtain rfl := ConstantInfo.projInfo.inj heq
@@ -850,7 +854,8 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
     ⟨projFnName T i, lps, pty⟩ nP nF i
     ⟨ctorName, nF, nP, (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain else .inert), rhsA⟩ f
     (projModelName T i) hpnone
-    (reservedBasisNames_not_num _ _) hwf hptyres hfm hmlps hprojmArg hren
+    (reservedBasisNames_not_num _ _) hwf hptyres hfm hmlps
+    ⟨T, rfl, hTf⟩ hprojmArg hren
     f₀ hro hff₀ hfself hfnot heqf heqval hi
     (fun lvls pins => by
       cases h : Expr.recRulePlain pty nP nP nP <;> simp [h])

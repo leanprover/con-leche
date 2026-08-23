@@ -54,6 +54,10 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
       ci = .recInfo cv mI rP rules →
       (env.find? (projModelName T j)).isSome = true ∧
       ∀ ψ : Name → Nat, m.val mname ψ = m.val (projModelName T j) ψ)
+    (hparentm : ∀ (T : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat)
+      (rules : List RecRule), ci.name = projFnName T j →
+      ci = .recInfo cv mI rP rules → (env.find? T).isSome = true)
+    (hmftm : modelFamilyTaken env ci.name = false)
     (hetaLm : ∀ cv caps, ci = .indInfo cv caps → caps.eta = true →
       reservedBasisNames.contains ci.name = false →
       (env.find? (caps.etaCtor.str "_model")).isSome = true ∧
@@ -155,11 +159,13 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
         subst h4
         intro r hr
         cases hr)
-    (fun _ => hmodm) hprojm
+    (fun _ hk _ => (hmodm (Or.inr hk)).2)
+    (fun T j cv mI rP rules hh hceq _ =>
+      (hprojm T j cv mI rP rules hh hceq).2)
     (fun entry heq _ => by
       rcases hkind with ⟨cv', caps', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
         ⟨cv', mI', rP', rfl⟩ <;> exact nomatch heq)
-    hetaLm hunitLm
+    hetaLm hunitLm hmftm hparentm
     (fun cv2 value2 => by
       rcases hkind with ⟨cv', caps', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
         ⟨cv', mI', rP', rfl⟩ <;> simp)

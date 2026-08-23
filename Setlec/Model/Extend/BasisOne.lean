@@ -55,14 +55,13 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
       ∀ r ∈ rules, ∃ cvj cnP cnF,
         env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF))
     (hmodv : reservedBasisNames.contains ci.name = false →
-      ((∃ cv caps, ci = .indInfo cv caps) ∨
-       (∃ cv cnP cnF, ci = .ctorInfo cv cnP cnF)) →
-      (env.find? (ci.name.str "_model")).isSome = true ∧
+      (∃ cv cnP cnF, ci = .ctorInfo cv cnP cnF) →
+      (env.find? (ci.name.str "_model")).isSome = true →
       ∀ ψ : Name → Nat, v₀ ψ = m.val (ci.name.str "_model") ψ)
     (hproj : ∀ (T : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat)
       (rules : List RecRule), ci.name = projFnName T j →
       ci = .recInfo cv mI rP rules →
-      (env.find? (projModelName T j)).isSome = true ∧
+      (env.find? (projModelName T j)).isSome = true →
       ∀ ψ : Name → Nat, v₀ ψ = m.val (projModelName T j) ψ)
     (hprojOk : ∀ entry, ci = .projInfo entry → entry.native = true →
       (entry = pairFstEntry ∨ entry = pairSndEntry) ∧
@@ -98,6 +97,21 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
           (cv.type.instantiateLevelParams cv.levelParams us) ps d₂ ρ₂
           rest →
         x = y)
+    -- both hold for every pinned basis declaration by computation on
+    -- its name: a pinned name is never `_model`-shaped and never
+    -- projection-function-shaped
+    (hmft : modelFamilyTaken env ci.name = false := by
+      first
+        | rfl
+        | simp [modelFamilyTaken, modelSuffixTaken, modelProjTaken])
+    (hparent : ∀ (T : Name) (j : Nat) cv mI rP rules,
+      ci.name = projFnName T j → ci = .recInfo cv mI rP rules →
+      (env.find? T).isSome = true := by
+      first
+        | (intro T j cv mI rP rules hh _
+           exact absurd hh.symm (Name.num_ne_str _ _ _ _))
+        | (intro T j cv mI rP rules _ heq
+           exact nomatch heq))
     (hnotthm : ∀ cv2 value2, ci ≠ .thmInfo cv2 value2 := by
       intro cv2 value2 h
       exact ConstantInfo.noConfusion h) :
@@ -106,7 +120,7 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
       (∀ n ψ, n ≠ ci.name → m'.val n ψ = m.val n ψ) := by
   refine extend_fresh m ci v₀ hfind' hwf htyres0 ?_ ?_ hkey hparams hAty
     hnewty hnewmk hnewunit hnewempty hpin hsib hrecm hctors hmodv hproj
-    hprojOk hetaL hunitL ?_ ?_
+    hmft hparent hprojOk hetaL hunitL ?_ ?_
   · intro cv2 value2 h2 heq
     exact absurd heq (hnotdefn cv2 value2 h2)
   · intro cv2 value2 heq

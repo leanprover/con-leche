@@ -772,6 +772,43 @@ def iotaCertsI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (ty : EIdx) (args : List EIdx) : CheckIM Bool :=
   iotaCertsIAux r fe depth ty [] args
 
+/-- Twin of `iotaCertsG` (tasks #49/#71), bulk form: a slot whose
+codomain-sort annotation is provably nonzero (`codNonZeroIM`) skips
+the per-fire infer+defeq (and the domain substitution); a possibly-Prop
+slot keeps them — the load-bearing residue (task #73). -/
+def iotaCertsGIAux (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
+    EIdx → List EIdx → List EIdx → CheckIM Bool
+  | _, _, [] => pure true
+  | ty, acc, arg :: rest => do
+    match ← viewI ty with
+    | some (.forallE _ dom body mt) => do
+      if ← codNonZeroIM mt then
+        iotaCertsGIAux r fe depth body (arg :: acc) rest
+      else do
+        let dom' ← instListM dom acc
+        let ta ← r.infer depth arg
+        if ← r.defeq depth ta dom' then
+          iotaCertsGIAux r fe depth body (arg :: acc) rest
+        else pure false
+    | some (.bvar _) =>
+      match acc with
+      | [] => pure false
+      | _ :: _ => do
+        let ty' ← instListM ty acc
+        iotaCertsGIAux r fe depth ty' [] (arg :: rest)
+    | _ => pure false
+termination_by _ acc args => (args.length, acc.length)
+decreasing_by
+  · apply Prod.Lex.left; simp
+  · apply Prod.Lex.left; simp
+  · apply Prod.Lex.right' <;> simp
+
+/-- Twin of `iotaCertsG`; the gated bulk loop at the empty
+accumulator. -/
+def iotaCertsGI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (ty : EIdx) (args : List EIdx) : CheckIM Bool :=
+  iotaCertsGIAux r fe depth ty [] args
+
 /-- Twin of `defEqList`. -/
 def defEqListI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     List EIdx → List EIdx → CheckIM Bool
@@ -1035,13 +1072,34 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             | some (.const T' ust) =>
               if T' = T ∧ cvj.levelParams.length = ust.length then do
                 let margs ← withStore (·.getAppArgsI tmaj)
-                let h ← internI (.const rl.ctor ust)
-                let fab ← mkAppNM h (margs.take cnP)
-                if ← withStore (fun st => st.wscopedBI depth fab &&
-                    st.looseBVarsBoundedI 0 fab &&
-                    (st.fvarLeavesI fab).all
-                      (fun l => (st.fvarLeavesI major).contains l)) then do
-                  if ← proofIrrelI r fe depth fab major then pure fab
+                if cnP ≤ margs.length ∧
+                    (cvj.type.stripPis cnP).isSome = true then do
+                  let h ← internI (.const rl.ctor ust)
+                  let fab ← mkAppNM h (margs.take cnP)
+                  if ← withStore (fun st => st.wscopedBI depth fab &&
+                      st.looseBVarsBoundedI 0 fab &&
+                      (st.fvarLeavesI fab).all
+                        (fun l => (st.fvarLeavesI major).contains l)) then do
+                    -- synthetic-spine certification (task #71): a
+                    -- fabricated constructor spine keeps the ungated
+                    -- telescope certificate, relocated here from the
+                    -- fire path
+                    let tyCtor ← constTyAtM fe rl.ctor ust
+                    if ← iotaCertsI r fe depth tyCtor
+                        (margs.take cnP) then do
+                      -- official `to_cnstr_when_K` fabrication type
+                      -- check (load-bearing with the major-slot
+                      -- certificate gated at nonzero motives, tasks
+                      -- #49/#71; arena bad/098_ruleKbad);
+                      -- `proofIrrelI` stays as the soundness
+                      -- certificate
+                      let tfab ← r.infer depth fab
+                      if ← r.defeq depth tmaj tfab then
+                        if ← proofIrrelI r fe depth fab major then
+                          pure fab
+                        else pure major
+                      else pure major
+                    else pure major
                   else pure major
                 else pure major
               else pure major
@@ -1057,21 +1115,34 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
               let ustL ← readbackLevelsM ust
               if T' = T ∧ margs.length = caps.etaParams ∧
                   ust.length = cvT.levelParams.length then do
-                let projs ← projAppsI T ust margs major
-                  (List.range caps.etaFields)
-                let h ← internI (.const caps.etaCtor ust)
-                let fab ← mkAppNM h (margs ++ projs)
-                if ← withStore (fun st => st.wscopedBI depth fab &&
-                    st.looseBVarsBoundedI 0 fab &&
-                    (st.fvarLeavesI fab).all
-                      (fun l => (st.fvarLeavesI major).contains l)) then do
-                  if ← structEtaCertWithI r fe depth fab major tmaj then
-                    pure fab
-                  else if caps.etaFields = 0 ∧
-                      cvj.levelParams.length = ust.length ∧
-                      piResultNeverZero cvT.levelParams ustL cvT.type
-                        = true then
-                    if ← proofIrrelI r fe depth fab major then pure fab
+                if cvj.levelParams.length = ust.length ∧
+                    (cvj.type.stripPis
+                      (caps.etaParams + caps.etaFields)).isSome
+                      = true then do
+                  let projs ← projAppsI T ust margs major
+                    (List.range caps.etaFields)
+                  let h ← internI (.const caps.etaCtor ust)
+                  let fab ← mkAppNM h (margs ++ projs)
+                  if ← withStore (fun st => st.wscopedBI depth fab &&
+                      st.looseBVarsBoundedI 0 fab &&
+                      (st.fvarLeavesI fab).all
+                        (fun l => (st.fvarLeavesI major).contains l)) then do
+                    -- synthetic-spine certification, as in the K
+                    -- branch (task #71)
+                    let tyCtor ← constTyAtM fe rl.ctor ust
+                    if ← iotaCertsI r fe depth tyCtor
+                        (margs ++ projs) then do
+                      if ← structEtaCertWithI r fe depth fab major
+                          tmaj then
+                        pure fab
+                      else if caps.etaFields = 0 ∧
+                          cvj.levelParams.length = ust.length ∧
+                          piResultNeverZero cvT.levelParams ustL
+                            cvT.type = true then
+                        if ← proofIrrelI r fe depth fab major then
+                          pure fab
+                        else pure major
+                      else pure major
                     else pure major
                   else pure major
                 else pure major
@@ -1163,10 +1234,10 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
                  if ← defEqListI r fe depth (margs.take rl.ctorParams)
                     cmpArgs then do
                   let tyRec ← constTyAtM fe c us
-                  if ← iotaCertsI r fe depth tyRec
+                  if ← iotaCertsGI r fe depth tyRec
                      (args.take mI ++ [major]) then do
                    let tyCtor ← constTyAtM fe cj usj
-                   if ← iotaCertsI r fe depth tyCtor margs then do
+                   if ← iotaCertsGI r fe depth tyCtor margs then do
                     match ← withStore (fun st =>
                           st.stripPisBodyI (rl.ctorParams + rl.nfields)
                             tyCtor),

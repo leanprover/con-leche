@@ -39,10 +39,6 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuel : Nat}
     (hsub : majorToCtorP env fuel d recName rules major₀ = .ok major)
     (hmfn : major.getAppFn = .const cj usj)
     (hfj : env.find? cj = some (.ctorInfo cvj cnP cnF))
-    (hstripLen : (cvj.type.stripPis major.getAppArgs.length).isSome = true)
-    (hmcerts : iotaCertsP env fuel d
-      (cvj.type.instantiateLevelParams cvj.levelParams usj)
-      major.getAppArgs = .ok true)
     (hw : WScoped d major₀) (hb : major₀.looseBVarsBounded 0 = true)
     (hLb : Expr.LeavesBounded major₀)
     (hok : FvarsOk V m.val env φ d ρ major₀)
@@ -149,9 +145,10 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuel : Nat}
   have hconstA : AnnotOk V m.val env φ d ρ (.const cj usj) := by
     simp [AnnotOk]
   -- branch on the fabrication kind
-  rcases hcase with ⟨hKrule, hcnF0, hlvlK, hfabeq, hpi⟩ |
-    ⟨hEeta, hEctor, hEproj, -, hplenE, hlvlE, hfabeq,
-      hse | ⟨hZ0, hlvlZ, hpi⟩⟩
+  rcases hcase with
+    ⟨hKrule, hcnF0, hlvlK, hlenK, hstripK, hfabeq, hcertK, -, hpi⟩ |
+    ⟨hEeta, hEctor, hEproj, -, hplenE, hlvlE, hlvlE2, hstripE, hfabeq,
+      hcertE, hse | ⟨hZ0, hlvlZ, hpi⟩⟩
   · -- ── K: the fabricated `refl`-like application ──
     have heqc : cj = r.ctor ∧ usj = ust := by
       have hgfn := congrArg Expr.getAppFn hfabeq
@@ -164,12 +161,22 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuel : Nat}
       injection hfj with h1
       injection h1 with h1 h2 h3
       exact ⟨h1, h2, h3⟩
-    rw [heqp] at hfabeq
-    rw [heqv] at hlvlK
+    rw [heqp] at hfabeq hlenK hstripK hcertK
+    rw [heqv] at hlvlK hstripK hcertK
     have hmargs : major.getAppArgs = tmaj.getAppArgs.take cnP := by
       have hgargs := congrArg Expr.getAppArgs hfabeq
       rw [Expr.getAppArgs_mkAppN] at hgargs
       simpa [Expr.getAppArgs] using hgargs
+    -- the relocated synthetic-spine certificate and arity pin
+    have hmcerts : iotaCertsP env fuel d
+        (cvj.type.instantiateLevelParams cvj.levelParams usj)
+        major.getAppArgs = .ok true := by
+      rw [hmargs, heqc.2]
+      exact hcertK
+    have hstripLen : (cvj.type.stripPis
+        major.getAppArgs.length).isSome = true := by
+      rw [hmargs, List.length_take, Nat.min_eq_left hlenK]
+      exact hstripK
     have hlenj : usj.length = cvj.levelParams.length := by
       rw [heqc.2]
       exact hlvlK.symm
@@ -210,8 +217,17 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuel : Nat}
       have hgfn := congrArg Expr.getAppFn hfabeq
       rw [Expr.getAppFn_mkAppN, hmfn] at hgfn
       exact ⟨(Expr.const.inj hgfn).1, (Expr.const.inj hgfn).2⟩
+    simp only [etaFabArgs] at hfabeq hcertE
     rw [← heqc.1, ← heqc.2] at hfabeq
-    rw [← heqc.2] at hth
+    rw [← heqc.2] at hth hcertE
+    -- identify the rule-constructor entry with the continuation's
+    rw [hEctor, ← heqc.1] at hfj'
+    obtain ⟨heqvE, heqpE, heqfE⟩ : cvj' = cvj ∧ cnP' = cnP ∧ cnF' = cnF := by
+      rw [hfj'] at hfj
+      injection hfj with h1
+      injection h1 with h1 h2 h3
+      exact ⟨h1, h2, h3⟩
+    rw [heqvE] at hstripE hcertE
     obtain ⟨c2, us2, cvc2, cnP2, cnF2, T2, us'2, cvT2, caps2,
       hfn2, hfc2, hal2, hwfn2, hfT2, hce2, hcc2, hcp2, hcf2, hres2,
       hresC2, htal2, hulen2, hclps2, hTstrip2, hlev2, hic2, hpc2,
@@ -358,6 +374,22 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuel : Nat}
       rw [Expr.getAppArgs_mkAppN] at hgargs
       rw [hcf2] at hgargs
       simpa [Expr.getAppArgs] using hgargs
+    -- the relocated synthetic-spine certificate and arity pin
+    have hmcerts : iotaCertsP env fuel d
+        (cvj.type.instantiateLevelParams cvj.levelParams usj)
+        major.getAppArgs = .ok true := by
+      rw [hmargs, ← hcf2]
+      exact hcertE
+    have hstripLen : (cvj.type.stripPis
+        major.getAppArgs.length).isSome = true := by
+      rw [hmargs]
+      rw [show (tmaj.getAppArgs ++ (List.range cnF).map (fun i =>
+          Expr.mkAppN (.const (projFnName T i) usj)
+            (tmaj.getAppArgs ++ [major₀]))).length =
+          caps.etaParams + caps.etaFields from by
+        rw [List.length_append, List.length_map, List.length_range,
+          hplenE, hcf2]]
+      exact hstripE
     have hprojSpine : InterpSpine m.val env φ d ρ
         ((List.range cnF).map fun i =>
           Expr.mkAppN (.const (projFnName T i) usj)
@@ -450,6 +482,7 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuel : Nat}
       have hgfn := congrArg Expr.getAppFn hfabeq
       rw [Expr.getAppFn_mkAppN, hmfn] at hgfn
       exact ⟨(Expr.const.inj hgfn).1, (Expr.const.inj hgfn).2⟩
+    simp only [etaFabArgs] at hfabeq hcertE
     rw [← heqc.1, ← heqc.2] at hfabeq
     -- identify the rule-constructor entry with the continuation's
     rw [hEctor, ← heqc.1] at hfj'
@@ -458,7 +491,8 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuel : Nat}
       injection hfj with h1
       injection h1 with h1 h2 h3
       exact ⟨h1, h2, h3⟩
-    rw [heqv] at hlvlZ
+    rw [heqv] at hlvlZ hstripE hcertE
+    rw [← heqc.2] at hcertE
     have hmargs : major.getAppArgs = tmaj.getAppArgs := by
       have hgargs := congrArg Expr.getAppArgs hfabeq
       rw [Expr.getAppArgs_mkAppN] at hgargs
@@ -482,6 +516,20 @@ theorem majorToCtor_claims {m : EnvModel V env} {fuel : Nat}
     have hspM : InterpSpine m.val env φ d ρ major.getAppArgs psv := by
       rw [hmargs]
       exact hspT
+    -- the relocated synthetic-spine certificate and arity pin
+    have hmcerts : iotaCertsP env fuel d
+        (cvj.type.instantiateLevelParams cvj.levelParams usj)
+        major.getAppArgs = .ok true := by
+      rw [hmargs]
+      have h0 := hcertE
+      rw [hZ0] at h0
+      simpa using h0
+    have hstripLen : (cvj.type.stripPis
+        major.getAppArgs.length).isSome = true := by
+      rw [hmargs, hplenE]
+      have h0 := hstripE
+      rw [hZ0] at h0
+      simpa using h0
     obtain ⟨restC, hfitIC⟩ := certs_fit ihd ihi _ _ _ TC
       hmcerts hCw hCb (Expr.LeavesBounded.of_not_hasFvar hChf)
       (FvarsOk.of_not_hasFvar hChf) hCA hCT hmargswf hspM

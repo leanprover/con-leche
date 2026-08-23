@@ -293,6 +293,170 @@ theorem certs_fit {m : EnvModel V env} {fuel : Nat}
       (fun x hx => hargs x (List.mem_cons_of_mem _ hx)) hsp'
     exact ⟨rest, TeleFitI.cons hidom hia hvA hfb haw hab haA hfit⟩
 
+/-- The possibly-Prop-gated iota certificates (tasks #49/#71) build
+the same expression-spine telescope fit as `certs_fit`, given the
+redex's own annotated application chain.  At a possibly-Prop slot the
+retained infer+defeq supplies the membership exactly as in
+`certs_fit`; at a provably-nonzero slot it is recovered by *domain
+determination*: the walked head value is a member of the telescope's
+`pi` at a nonzero sort — hence a graph over the interpreted domain
+(`pi_pos`, `eq_graph_app_of_mem_piSet`) — the chain's `AppSlot` puts
+the argument's value in *some* pi domain containing that same value,
+and graphs determine their domains (`graph_dom_of_mem_piSet`; a
+zero-tagged slot pi is impossible, its members being the proof point,
+`graph_ne_pt`).  The head-membership invariant steps by `app_mem`
+through the annotated fibres.  Sites with synthetic (fabricated)
+spines have no chain and keep `certs_fit`. -/
+theorem certsG_fit {m : EnvModel V env} {fuel : Nat}
+    (ihd : DefEqClaims m φ fuel) (ihi : InferClaims m φ fuel) :
+    ∀ {d : Nat} {ρ : Nat → V}
+      (ty : Expr) (args : List Expr) (vs : List V) (T : V) (vf : V),
+      iotaCertsGP env fuel d ty args = .ok true →
+      WScoped d ty → ty.looseBVarsBounded 0 = true →
+      Expr.LeavesBounded ty → FvarsOk V m.val env φ d ρ ty →
+      AnnotOk V m.val env φ d ρ ty →
+      interpExpr V m.val env φ d ρ ty = some T →
+      vf ∈ˢ T →
+      ChainSlots V vf vs →
+      (∀ x ∈ args, WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded x ∧ FvarsOk V m.val env φ d ρ x ∧
+        AnnotOk V m.val env φ d ρ x) →
+      InterpSpine m.val env φ d ρ args vs →
+      ∃ rest, TeleFitI V m.val env φ d ρ ty args vs rest := by
+  intro d ρ ty args
+  induction args generalizing ty with
+  | nil =>
+    intro vs T vf hc hwty hbty hLty hFty hAty hity hvfT hchain hargs hsp
+    match vs, hsp with
+    | [], _ => exact ⟨ty, TeleFitI.nil⟩
+  | cons a as ih =>
+    intro vs T vf hc hwty hbty hLty hFty hAty hity hvfT hchain hargs hsp
+    match vs, hsp with
+    | v :: vs, ⟨hia, hsp'⟩ =>
+    match ty, hc with
+    | .bvar _, hc => exact nomatch hc
+    | .fvar _ _ _, hc => exact nomatch hc
+    | .sort _, hc => exact nomatch hc
+    | .const _ _, hc => exact nomatch hc
+    | .app _ _, hc => exact nomatch hc
+    | .lam _ _ _ _, hc => exact nomatch hc
+    | .letE _ _ _ _, hc => exact nomatch hc
+    | .lit _, hc => exact nomatch hc
+    | .proj _ _ _, hc => exact nomatch hc
+    | .forallE n dom body mt, hc =>
+    obtain ⟨hgate, hrest⟩ := iotaCertsG_step_inv hc
+    obtain ⟨haw, hab, haL, haF, haA⟩ := hargs a List.mem_cons_self
+    -- the domain interprets (the ∀-tower interp forces it)
+    simp only [AnnotOk] at hAty
+    obtain ⟨hAdom, ⟨cod, hcod⟩, hcond⟩ := hAty
+    rw [interpExpr, hcod] at hity
+    obtain ⟨A, hidom, hpieq⟩ : ∃ A,
+        interpExpr V m.val env φ d ρ dom = some A ∧
+        T = pi (cod.eval φ) A fun x =>
+          (interpExpr V m.val env φ (d + 1) (updV V ρ d x)
+            (body.instantiate1 (.fvar d n dom))).getD SetTheory.empty := by
+      revert hity
+      cases hd : interpExpr V m.val env φ d ρ dom with
+      | none => intro hity; exact nomatch hity
+      | some A =>
+        intro hity
+        dsimp only at hity
+        exact ⟨A, rfl, (Option.some.inj hity).symm⟩
+    obtain ⟨hslot, hchain'⟩ := hchain
+    have hwty' : WScoped d dom ∧ WScoped d body := by
+      simpa [WScoped] using hwty
+    have hpiT : vf ∈ˢ pi (cod.eval φ) A fun x =>
+        (interpExpr V m.val env φ (d + 1) (updV V ρ d x)
+          (body.instantiate1 (.fvar d n dom))).getD SetTheory.empty := by
+      rw [← hpieq]; exact hvfT
+    -- the argument's value is in the interpreted domain
+    have hvA : v ∈ˢ A := by
+      rcases hgate with hnz | ⟨ta, hta, hde⟩
+      · -- gated slot: domain determination
+        obtain ⟨v0, hcod0, hnz0⟩ := codNonZero_eq_true hnz
+        have hveq0 : v0 = cod := by
+          rw [hcod0] at hcod; exact Option.some.inj hcod
+        rw [hveq0] at hnz0
+        have hcne : cod.eval φ ≠ 0 := Level.isNonZero_sound hnz0 φ
+        have hpiT' := hpiT
+        rw [pi_pos hcne] at hpiT'
+        have hgr := eq_graph_app_of_mem_piSet hpiT'
+        obtain ⟨vE, Ac, Bc, hpiA, hmemA, -⟩ := hslot
+        by_cases hvE : vE = 0
+        · subst hvE
+          exact absurd (mem_pi_zero hpiA)
+            (by rw [← hgr]; exact graph_ne_pt)
+        · rw [← hgr, pi_pos hvE] at hpiA
+          exact graph_dom_of_mem_piSet hpiA v hmemA
+      · -- possibly-Prop residue: cert soundness, as in `certs_fit`
+        obtain ⟨⟨va, tva, hiva, hita, hmemta⟩, hAta⟩ :=
+          ihi hta haw hab haL haF haA
+        obtain rfl : va = v := by
+          rw [hiva] at hia; exact Option.some.inj hia
+        have htaw : WScoped d ta := inferTypeCore_WScoped m.wf fuel hta haw
+        have htab : ta.looseBVarsBounded 0 = true :=
+          inferTypeCore_looseBVars m.wf fuel hta haw hab haL
+        have htaL : Expr.LeavesBounded ta := fun l hl =>
+          haL l (inferTypeCore_fvarLeaves m.wf fuel hta haw l hl)
+        have htaF : FvarsOk V m.val env φ d ρ ta :=
+          FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hta haw) haF
+        have hdomw : WScoped d dom := hwty'.1
+        have hdomb : dom.looseBVarsBounded 0 = true := by
+          simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hbty
+          exact hbty.1
+        have hdomL : Expr.LeavesBounded dom := fun l hl =>
+          hLty l (by simp [Expr.fvarLeaves, hl])
+        have hdomF : FvarsOk V m.val env φ d ρ dom :=
+          FvarsOk.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]) hFty
+        have hveq : tva = A := ihd hde htaw hdomw htab hdomb
+          htaL hdomL htaF hdomF hAta hAdom hita hidom
+        exact hveq ▸ hmemta
+    -- the instantiated body interprets and stays truthful
+    obtain ⟨hbodyA, hwfact⟩ := hcond v A hidom hvA
+    obtain ⟨w, hwi, hwmem⟩ := hwfact cod hcod
+    have hfb : Expr.fvarsBelow d body := hwty'.2.fvarsBelow
+    have hibody : interpExpr V m.val env φ d ρ (body.instantiate1 a) =
+        some w := by
+      rw [interp_beta (n := n) (ty := dom) hfb haw hab hia 0]
+      exact hwi
+    have hAbody : AnnotOk V m.val env φ d ρ (body.instantiate1 a) :=
+      AnnotOk_beta hfb haw hab hia haA 0 hbodyA
+    have hwbody : WScoped d (body.instantiate1 a) :=
+      WScoped.instantiate1_gen haw 0 hwty'.2
+    have hbbody : (body.instantiate1 a).looseBVarsBounded 0 = true := by
+      refine looseBVarsBounded_instantiate1_gen hab ?_
+      simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hbty
+      exact hbty.2
+    have hLbody : Expr.LeavesBounded (body.instantiate1 a) := by
+      intro l hl
+      rcases fvarLeaves_instantiate1 body 0 hl with hl' | hl'
+      · exact hLty l (by simp [Expr.fvarLeaves, hl'])
+      · exact haL l hl'
+    have hFbody : FvarsOk V m.val env φ d ρ (body.instantiate1 a) := by
+      intro l hl
+      rcases fvarLeaves_instantiate1 body 0 hl with hl' | hl'
+      · exact hFty l (by simp [Expr.fvarLeaves, hl'])
+      · exact haF l hl'
+    -- the walked head value stays a member (fibre elimination)
+    have hfib : ∀ x, x ∈ˢ A →
+        ((interpExpr V m.val env φ (d + 1) (updV V ρ d x)
+          (body.instantiate1 (.fvar d n dom))).getD SetTheory.empty) ∈ˢ
+          univ (cod.eval φ) := by
+      intro x hx
+      obtain ⟨-, hwf_x⟩ := hcond x A hidom hx
+      obtain ⟨w_x, hwi_x, hm_x⟩ := hwf_x cod hcod
+      rw [hwi_x]
+      simpa using hm_x
+    have hvf' : SetTheory.app vf v ∈ˢ w := by
+      have happ := app_mem hpiT hvA hfib
+      rw [hwi] at happ
+      simpa using happ
+    obtain ⟨rest, hfit⟩ := ih (body.instantiate1 a) vs w
+      (SetTheory.app vf v) hrest hwbody hbbody hLbody hFbody hAbody
+      hibody hvf' hchain'
+      (fun x hx => hargs x (List.mem_cons_of_mem _ hx)) hsp'
+    exact ⟨rest, TeleFitI.cons hidom hia hvA hfb haw hab haA hfit⟩
+
 end Claims
 
 end Setlec

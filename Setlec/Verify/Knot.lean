@@ -91,6 +91,9 @@ abbrev iotaRecP (env : Env) (fuel : Nat) : Nat → Expr →
 abbrev iotaCertsP (env : Env) (fuel : Nat) : Nat → Expr → List Expr →
     CheckM Bool := iotaCerts (pureFns env fuel) env
 
+abbrev iotaCertsGP (env : Env) (fuel : Nat) : Nat → Expr → List Expr →
+    CheckM Bool := iotaCertsG (pureFns env fuel) env
+
 abbrev defEqListP (env : Env) (fuel : Nat) : Nat → List Expr →
     List Expr → CheckM Bool := defEqList (pureFns env fuel) env
 
@@ -160,6 +163,8 @@ theorem iotaRec_fold (env : Env) (fuel : Nat) :
     iotaRec (pureFns env fuel) env = iotaRecP env fuel := rfl
 theorem iotaCerts_fold (env : Env) (fuel : Nat) :
     iotaCerts (pureFns env fuel) env = iotaCertsP env fuel := rfl
+theorem iotaCertsG_fold (env : Env) (fuel : Nat) :
+    iotaCertsG (pureFns env fuel) env = iotaCertsGP env fuel := rfl
 theorem defEqList_fold (env : Env) (fuel : Nat) :
     defEqList (pureFns env fuel) env = defEqListP env fuel := rfl
 theorem proofIrrel_fold (env : Env) (fuel : Nat) :

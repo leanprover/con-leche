@@ -439,7 +439,7 @@ theorem extend_rec_swap {rules' : List RecRule}
     · exact Or.inl (Env.find?_recRules_swap rules' []
         (fun he => h he.symm))
   · -- modeled_ok: lookups only differ in the head's rule list
-    obtain ⟨mo1, mo2, mo3, mo4, mo5⟩ := m₀.modeled_ok
+    obtain ⟨mo2, mo3, mo4, mo5, mo6⟩ := m₀.modeled_ok
     have hisoF : ∀ n,
         (⟨.recInfo cvA mI rP rules' :: env.consts⟩ : Env).find? n =
         if cvA.name = n then some (.recInfo cvA mI rP rules')
@@ -451,48 +451,45 @@ theorem extend_rec_swap {rules' : List RecRule}
       · rw [if_neg (show ¬(ConstantInfo.recInfo cvA mI rP rules').name = n from h), if_neg h,
           Env.find?_cons,
           if_neg (show ¬(ConstantInfo.recInfo cvA mI rP []).name = n from h)]
+    have hisoS : ∀ n : Name,
+        ((⟨ConstantInfo.recInfo cvA mI rP rules' :: env.consts⟩ :
+          Env).find? n).isSome = true →
+        ((⟨ConstantInfo.recInfo cvA mI rP [] :: env.consts⟩ :
+          Env).find? n).isSome = true := by
+      intro n hn
+      rw [hisoF] at hn
+      split at hn
+      · next he =>
+        rw [Env.find?_cons, if_pos
+          (show (ConstantInfo.recInfo cvA mI rP []).name = n from he)]
+        rfl
+      · exact hn
     refine ⟨?_, ?_, ?_, ?_, ?_⟩
-    · intro n cv caps hf hres
+    · intro n cv cnP' cnF' hf hres hms
       rw [hisoF] at hf
       split at hf
       · exact nomatch (Option.some.inj hf)
-      · obtain ⟨hms, hveq⟩ := mo1 n cv caps hf hres
-        refine ⟨?_, hveq⟩
-        rw [hisoF]
-        split
-        · rfl
-        · exact hms
-    · intro n cv cnP' cnF' hf hres
+      · exact mo2 n cv cnP' cnF' hf hres (hisoS _ hms)
+    · intro T cvT capsT j cv3 mI3 rP3 rules3 hfT hf hms
+      rw [hisoF] at hfT
       rw [hisoF] at hf
-      split at hf
-      · exact nomatch (Option.some.inj hf)
-      · obtain ⟨hms, hveq⟩ := mo2 n cv cnP' cnF' hf hres
-        refine ⟨?_, hveq⟩
-        rw [hisoF]
+      have hfT' : (⟨ConstantInfo.recInfo cvA mI rP [] :: env.consts⟩ :
+          Env).find? T = some (.indInfo cvT capsT) := by
+        revert hfT
         split
-        · rfl
-        · exact hms
-    · intro T j cv3 mI3 rP3 rules3 hf
-      rw [hisoF] at hf
+        · intro hx; exact nomatch (Option.some.inj hx)
+        · intro hx; exact hx
       split at hf
       · next hh =>
         obtain hceq := Option.some.inj hf
         injection hceq with e1 e2 e3 e4
         subst e1 e2 e3
-        obtain ⟨hms, hveq⟩ := mo3 T j cvA mI rP []
+        exact mo3 T cvT capsT j cvA mI rP [] hfT'
           (by rw [Env.find?_cons,
-            if_pos (show (ConstantInfo.recInfo cvA mI rP []).name = projFnName T j from hh)])
-        refine ⟨?_, hveq⟩
-        rw [hisoF]
-        split
-        · rfl
-        · exact hms
-      · obtain ⟨hms, hveq⟩ := mo3 T j cv3 mI3 rP3 rules3 hf
-        refine ⟨?_, hveq⟩
-        rw [hisoF]
-        split
-        · rfl
-        · exact hms
+            if_pos (show (ConstantInfo.recInfo cvA mI rP []).name =
+              projFnName T j from hh)])
+          (hisoS _ hms)
+      · exact mo3 T cvT capsT j cv3 mI3 rP3 rules3 hfT' hf (hisoS _ hms)
     · intro T cvT caps hf hcape hres
       rw [hisoF] at hf
       split at hf
@@ -519,6 +516,22 @@ theorem extend_rec_swap {rules' : List RecRule}
         intro φ'' us ps x y dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hy hfit
         exact hlaw φ'' us ps x y dd₁ ρρ₁ dd₂ ρρ₂ rrest hlen hx hy
           (TeleFit.env_levelext henv10 natLitSupported_cons_recRules strLitSupported_cons_recRules hfit)
+    · intro T j cv3 mI3 rP3 rules3 hf
+      rw [hisoF] at hf
+      rw [hisoF]
+      split
+      · rfl
+      · next hne =>
+        split at hf
+        · next hh =>
+          obtain hceq := Option.some.inj hf
+          injection hceq with e1 e2 e3 e4
+          subst e1 e2 e3
+          exact mo6 T j cvA mI rP []
+            (by rw [Env.find?_cons,
+              if_pos (show (ConstantInfo.recInfo cvA mI rP []).name =
+                projFnName T j from hh)])
+        · exact mo6 T j cv3 mI3 rP3 rules3 hf
   · -- nat_ops: lookups only differ in the head's rule list
     exact NatOpsOk.cons_recRules m₀.nat_ops
   · -- div_mod: value-level equations, only the lookups move
@@ -576,15 +589,22 @@ theorem extend_fresh {env : Env} (m : EnvModel V env)
       ∀ r ∈ rules, ∃ cvj cnP cnF,
         env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF))
     (hmodv : reservedBasisNames.contains ci.name = false →
-      ((∃ cv caps, ci = .indInfo cv caps) ∨
-       (∃ cv cnP cnF, ci = .ctorInfo cv cnP cnF)) →
-      (env.find? (ci.name.str "_model")).isSome = true ∧
+      (∃ cv cnP cnF, ci = .ctorInfo cv cnP cnF) →
+      (env.find? (ci.name.str "_model")).isSome = true →
       ∀ ψ : Name → Nat, v₀ ψ = m.val (ci.name.str "_model") ψ)
     (hproj : ∀ (T : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat)
       (rules : List RecRule), ci.name = projFnName T j →
       ci = .recInfo cv mI rP rules →
-      (env.find? (projModelName T j)).isSome = true ∧
+      (env.find? (projModelName T j)).isSome = true →
       ∀ ψ : Name → Nat, v₀ ψ = m.val (projModelName T j) ψ)
+    -- installing an `X._model` for an already-stored `X` would activate
+    -- the linkage for a constant whose value was fixed without it; the
+    -- checker's model-family guard rejects that, so these are always
+    -- discharged by contradiction
+    (hmft : modelFamilyTaken env ci.name = false)
+    (hparent : ∀ (T : Name) (j : Nat) cv mI rP rules,
+      ci.name = projFnName T j → ci = .recInfo cv mI rP rules →
+      (env.find? T).isSome = true)
     (hprojOk : ∀ entry, ci = .projInfo entry → entry.native = true →
       (entry = pairFstEntry ∨ entry = pairSndEntry) ∧
       env.find? psigmaName = some psigmaA ∧
@@ -874,56 +894,54 @@ theorem extend_fresh {env : Env} (m : EnvModel V env)
   · -- proj_ok
     exact ProjOk.cons m.proj_ok hfind' hprojOk
   · -- modeled_ok
-    refine ModeledOk.cons m.modeled_ok m.wf hfind' ?_ ?_ ?_ ?_ ?_ ?_
+    refine ModeledOk.cons m.modeled_ok m.wf hfind' ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
     · intro n ψ hn
       simp [hval', hn]
-    · intro cv caps heq hres
-      obtain ⟨hms, hveq⟩ := hmodv hres (Or.inl ⟨cv, caps, heq⟩)
+    · -- the constructor's linkage, owed only when its companion exists
+      intro cv cnP cnF heq hres hms
       have hmne : ¬ci.name = ci.name.str "_model" :=
         fun hh => Name.str_ne ci.name "_model" hh.symm
-      refine ⟨?_, ?_⟩
-      · rw [Env.find?_cons, if_neg hmne]
+      have hmsOld : (env.find? (ci.name.str "_model")).isSome = true := by
+        rw [Env.find?_cons, if_neg hmne] at hms
         exact hms
-      · intro ψ
-        have h1 : val' ci.name ψ = v₀ ψ := by simp [hval']
-        have hmne2 : ¬ci.name.str "_model" = ci.name :=
-          fun hh => hmne hh.symm
-        have h2 : val' (ci.name.str "_model") ψ =
-            m.val (ci.name.str "_model") ψ := by
-          simp [hval', hmne2]
-        rw [h1, h2, hveq ψ]
-    · intro cv cnP cnF heq hres
-      obtain ⟨hms, hveq⟩ := hmodv hres (Or.inr ⟨cv, cnP, cnF, heq⟩)
-      have hmne : ¬ci.name = ci.name.str "_model" :=
-        fun hh => Name.str_ne ci.name "_model" hh.symm
-      refine ⟨?_, ?_⟩
-      · rw [Env.find?_cons, if_neg hmne]
-        exact hms
-      · intro ψ
-        have h1 : val' ci.name ψ = v₀ ψ := by simp [hval']
-        have hmne2 : ¬ci.name.str "_model" = ci.name :=
-          fun hh => hmne hh.symm
-        have h2 : val' (ci.name.str "_model") ψ =
-            m.val (ci.name.str "_model") ψ := by
-          simp [hval', hmne2]
-        rw [h1, h2, hveq ψ]
-    · intro T j cv3 mI3 rP3 rules3 hh hceq
-      obtain ⟨hms, hveq⟩ := hproj T j cv3 mI3 rP3 rules3 hh hceq
+      intro ψ
+      have h1 : val' ci.name ψ = v₀ ψ := by simp [hval']
+      have hmne2 : ¬ci.name.str "_model" = ci.name := fun hh => hmne hh.symm
+      have h2 : val' (ci.name.str "_model") ψ =
+          m.val (ci.name.str "_model") ψ := by simp [hval', hmne2]
+      rw [h1, h2]
+      exact hmodv hres ⟨cv, cnP, cnF, heq⟩ hmsOld ψ
+    · -- a projection function's linkage, likewise
+      intro T j cv3 mI3 rP3 rules3 hh hceq hms
       have hpmne : projModelName T j ≠ ci.name := by
+        rw [hh]
         intro he
-        rw [he, hfind'] at hms
-        exact nomatch hms
-      refine ⟨?_, ?_⟩
-      · rw [Env.find?_cons, if_neg (fun hh2 => hpmne hh2.symm)]
+        simp [projModelName, projFnName] at he
+      have hmsOld : (env.find? (projModelName T j)).isSome = true := by
+        rw [Env.find?_cons, if_neg (fun hh2 => hpmne hh2.symm)] at hms
         exact hms
-      · intro ψ
-        have h1 : val' (projFnName T j) ψ = v₀ ψ := by
-          rw [← hh]
-          simp [hval']
-        have h2 : val' (projModelName T j) ψ =
-            m.val (projModelName T j) ψ := by
-          simp [hval', hpmne]
-        rw [h1, h2, hveq ψ]
+      intro ψ
+      have h1 : val' (projFnName T j) ψ = v₀ ψ := by
+        rw [← hh]; simp [hval']
+      have h2 : val' (projModelName T j) ψ =
+          m.val (projModelName T j) ψ := by simp [hval', hpmne]
+      rw [h1, h2]
+      exact hproj T j cv3 mI3 rP3 rules3 hh hceq hmsOld ψ
+    · -- the model-family guard: `ci.name` cannot be the companion of a
+      -- constant that is already stored
+      intro n cv cnP cnF hnm hfn _ ψ
+      exfalso
+      rw [hnm] at hmft
+      simp only [modelFamilyTaken, modelSuffixTaken, hfn,
+        Bool.or_eq_false_iff] at hmft
+      exact nomatch hmft.1
+    · intro T j cv mI rP rules hnm hfp hfn ψ
+      exfalso
+      rw [hnm, projModelName] at hmft
+      simp only [modelFamilyTaken, modelProjTaken,
+        Bool.or_eq_false_iff] at hmft
+      rw [hfp] at hmft
+      exact nomatch hmft.2
     · -- the eta law of a freshly installed eta-capable structure
       intro cv caps heq hcape hres
       obtain ⟨hms1, hms2, hlaw⟩ := hetaL cv caps heq hcape hres
@@ -997,6 +1015,11 @@ theorem extend_fresh {env : Env} (m : EnvModel V env)
       rw [hveq] at hx hy
       exact hunitL cv caps heq hcapu hres φ'' us ps x y d₁ ρ₁ d₂ ρ₂
         rest hlen hx hy hfit'
+    · intro T j cv2 mI2 rP2 rules2 hnm hceq
+      have hp := hparent T j cv2 mI2 rP2 rules2 hnm hceq
+      by_cases hnT : T = ci.name
+      · rw [hnT, Env.find?_cons, if_pos rfl]; rfl
+      · rw [Env.find?_cons, if_neg (fun hh => hnT hh.symm)]; exact hp
   · -- nat_ops: preservation plus the forwarded head obligations
     refine NatOpsOk.cons m.nat_ops hfind' ?_ ?_
     · intro n hne ψ'
