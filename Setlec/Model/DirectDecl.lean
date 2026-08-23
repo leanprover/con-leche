@@ -563,4 +563,112 @@ theorem directCtor_mem {env env₁ : Env} (m : EnvModel V env)
       hTval hagree htres hfres hstripT hfitP hlenP hfitF hlenF
       (directCtor_field m₁ hcq hxq hfu hfrC hfitP hlenP)
 
+/-- Extend a model by a direct simple structure's **constructor**: an
+opaque constructor-kind constant valued by the iterated Kuratowski
+tuple of its field values (`directCtorVal`).
+
+Every capability clause is vacuous: the block's own former claims
+neither `eta` nor `unitlike`, and the constructor cannot complete an
+*earlier* family because a stored eta-capable former's constructor is
+already stored (`EtaFamiliesClosed`) while this name is fresh. -/
+theorem extend_direct_ctor {env env₁ : Env} (m : EnvModel V env)
+    (m₁ : EnvModel V env₁) {p : DirectParts} {cvTa cvCa : ConstantVal}
+    {F : Nat} {v : Env × ConstantVal}
+    (hE1 : EtaFamiliesClosed env₁)
+    (hcc : checkDirectCtor (fueledOps F) env env₁ p cvTa = .ok v)
+    (hccC : checkConstantVal (fueledOps F) env₁ p.cvC = .ok cvCa)
+    (hfrT : ∀ ψ : Name → Nat,
+      FrameOk V m₁.val env₁ ψ 0 (rho0 V) cvTa.type)
+    (hnz : p.resSort.isNonZero = true)
+    {tbs : List (Name × Expr × BinderMeta)}
+    (hstripT : Expr.stripPis p.nP cvTa.type = some (tbs, .sort p.resSort))
+    (hTfind : env₁.find? p.cvT.name = some (.indInfo cvTa (directCaps p)))
+    (hTlps : cvTa.levelParams = p.cvT.levelParams)
+    (hTval : ∀ ψ : Name → Nat, m₁.val p.cvT.name ψ =
+      directTyVal V m.val env cvTa.type cvCa.type p.nP p.nF p.resSort ψ)
+    (hagree : ∀ ψ : Name → Nat, InterpAgree V m.val env m₁.val env₁ ψ)
+    (htres : cvTa.type.constsResolve env = true) :
+    ∃ m₂ : EnvModel V ⟨.ctorInfo cvCa p.nP p.nF :: env₁.consts⟩,
+      (∀ ψ, m₂.val cvCa.name ψ =
+        directCtorVal V m₁.val env₁ cvCa.type p.nP p.nF ψ) ∧
+      (∀ n ψ, n ≠ cvCa.name → m₂.val n ψ = m₁.val n ψ) := by
+  obtain ⟨hfind0, hnres0, hpshape0, hnd, hlb, hfv, tyA, stype, u,
+    hann, hlp, hres, hst, hsort, hcvA⟩ := checkConstantVal_inv hccC
+  have hnameA : cvCa.name = p.cvC.name := by rw [hcvA]
+  have hlpsA : cvCa.levelParams = p.cvC.levelParams := by rw [hcvA]
+  have htypeA : cvCa.type = tyA := by rw [hcvA]
+  have hfind' : env₁.find? cvCa.name = none := by rw [hnameA]; exact hfind0
+  have hnres : reservedBasisNames.contains cvCa.name = false := by
+    rw [hnameA]; exact hnres0
+  have hshapeA : cvCa.name.isProjFnShape = false := by
+    rw [hnameA]; exact hpshape0
+  have htyf : cvCa.type.hasFvar = false := by
+    rw [htypeA]
+    exact not_hasFvar_of_fvarsBelow_zero
+      ((annotateCore_WScoped F _ hann (WScoped.of_not_hasFvar hfv)).fvarsBelow)
+  have htyb : cvCa.type.looseBVarsBounded 0 = true := by
+    rw [htypeA]; exact annotateCore_looseBVars F _ hann hlb
+  have htlp : cvCa.type.allLevelParamsDefined cvCa.levelParams = true := by
+    rw [htypeA, hlpsA]; exact hlp
+  have htresC : cvCa.type.constsResolve env₁ = true := by
+    rw [htypeA]; exact hres
+  have hAty : ∀ ψ : Name → Nat,
+      AnnotOk V m₁.val env₁ ψ 0 (rho0 V) cvCa.type := by
+    intro ψ
+    rw [htypeA]
+    exact annotate_sound m₁ _ hann (WScoped.of_not_hasFvar hfv) hlb
+      (Expr.LeavesBounded.of_not_hasFvar hfv) (rho0 V)
+      (FvarsOk.of_not_hasFvar hfv)
+  have hnresC : reservedBasisNames.contains
+      (ConstantInfo.ctorInfo cvCa p.nP p.nF).name = false := hnres
+  have hwf : ConstWF ⟨.ctorInfo cvCa p.nP p.nF :: env₁.consts⟩
+      (.ctorInfo cvCa p.nP p.nF) := by
+    refine ⟨htyf, htlp, Expr.constsResolve_mono htresC, htyb, ?_, ?_, ?_⟩
+    · intro cv2 v2 h2 heq; exact nomatch heq
+    · intro cv2 mI' rP' rules heq; exact nomatch heq
+    · intro cv2 v2 heq; exact nomatch heq
+  refine extend_basis_one m₁ (.ctorInfo cvCa p.nP p.nF)
+    (fun ψ => directCtorVal V m₁.val env₁ cvCa.type p.nP p.nF ψ)
+    hfind' hwf htresC (fun cv2 value2 h2 heq => nomatch heq) ?_ ?_ hAty
+    (fun cv caps heq _ => nomatch heq)
+    (fun cv nP nF heq hn => absurd (hn ▸ hnresC) (by decide))
+    (fun cv caps heq _ => nomatch heq)
+    (fun hn => absurd (hn ▸ hnresC) (by decide))
+    (fun _ hres2 => absurd (hres2 ▸ hnresC) (by simp))
+    (fun cv mI rP rules heq => nomatch heq)
+    (fun val' _ _ cvR mI rP rules heq => nomatch heq)
+    (fun cvR mI rP rules heq => nomatch heq)
+    (fun entry heq _ => nomatch heq)
+    (hnotthm := fun cv2 value2 h => ConstantInfo.noConfusion h)
+    (hcaps := fun val' _ _ => by
+      refine ⟨?_, ?_⟩
+      · intro T cvT capsT hfT hcape hresT hfam hpart
+        exfalso
+        rcases hpart with hT | hC | ⟨j, hj, hP⟩
+        · rw [hT, Env.find?_cons, if_pos rfl] at hfT
+          exact nomatch (Option.some.inj hfT)
+        · -- an earlier eta-capable former's constructor is stored
+          -- already, and this name is fresh
+          rw [Env.find?_cons] at hfT
+          split at hfT
+          · exact nomatch (Option.some.inj hfT)
+          · obtain ⟨cvC0, hfC0⟩ := hE1 T cvT capsT hfT hcape hresT
+            rw [hC] at hfC0
+            have hfC1 : env₁.find? cvCa.name =
+                some (.ctorInfo cvC0 capsT.etaParams capsT.etaFields) := hfC0
+            rw [hfind'] at hfC1
+            exact nomatch hfC1
+        · have hP' : projFnName T j = cvCa.name := hP
+          rw [← hP'] at hshapeA
+          simp [projFnName, Name.isProjFnShape] at hshapeA
+      · intro cv caps heq hcapu _
+        exact nomatch heq)
+  · -- `mem_type`
+    intro ψ
+    exact directCtor_mem m m₁ hcc (hfrT ψ) hnz hstripT hTfind hTlps hTval
+      (hagree ψ) htres hccC
+  · -- `val_params`
+    intro ψ₁ ψ₂ hψ
+    exact directCtorVal_params m₁.val_params (ps := cvCa.levelParams) hψ htlp
+
 end Setlec

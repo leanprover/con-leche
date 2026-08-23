@@ -3229,8 +3229,17 @@ frame-relative law from the direct construction).
 Side effect, kept: three arena `bad` fixtures (`133_dup_ctor_def`,
 `134_dup_rec_def`, `137_dup_ctor_rec`) are hand-written raw exports, so
 the direct path sees them and **rejects** (exit 1, "duplicate
-declaration") where the modeled path *declined* (exit 2, "missing
-model").  Reject is the reference-correct verdict for a duplicate name.
+declaration `X.mk`" / "`X.rec`") where the modeled path *declined*
+(exit 2, "missing model for `X`").  Reject is the reference-correct
+verdict for a duplicate name.
+
+Re-derived after the group-local restructure (2026-08-23): the flip is
+unchanged and has nothing to do with the deleted `modelFamilyTaken`
+guard — it is `checkConstantVal`'s ordinary duplicate check inside
+`checkDirectStruct`, reached because `directParts?` recognises these
+raw blocks.  Measured on the new master with the clause enabled: all
+three still reject with the duplicate-declaration message, so the
+expectation flips remain `2 → 1`.
 
 ### The constructed model
 
@@ -3549,21 +3558,30 @@ a field-free structure, `rfl`s through both projection iota rules and
 through the recursor rule) — verified by running it, and re-verified
 after each subsequent change.
 
-**Superseded, and owned elsewhere (2026-08-23, user ruling).**  The
-`T`↔`T._model` identification is needed **only within the current
-recursive group** — a group's model construction does not reach back
-into previous groups' models — so `ModeledOk` is not a global
-environment invariant at all, and the group-local restructure (task
-#83) **deletes** it together with the `modelFamilyTaken` guard.  Two
-review findings against them (a dropped type-former linkage clause; a
-guard that blanket-reserved the `_model` suffix, flipping a plain
-`def Foo` + `def Foo._model` stream from accept to reject) were fixed
-on the phase-2 branch and are **left to that restructure to subsume** —
-undoing them separately would only collide with it.  Nothing in the
-direct path depends on either: every `ModeledOk` clause is vacuous for
-a directly installed block, so the direct install's obligations are
-exactly `EnvModel`'s real clauses (`mem_type`, `val_params`,
-`annot_ok`, `rec_rules`) and are unaffected.
+**The group-local restructure landed (task #83).**  `ModeledOk` and the
+`modelFamilyTaken` guard are gone: the `T`↔`T._model` identification is
+group-local to one block's install derivation and is discarded at its
+end, so it was never a global environment invariant.  What replaces it
+for the direct path is *nothing* — every clause the direct install used
+to discharge vacuously has ceased to exist.  The two clauses that
+remain, `CapsOk`'s `EtaLaw`/`UnitLaw`, are now stated over **public**
+names and premised on `EtaFamilyStored`, and the direct install owes
+neither: it claims `eta := false` and `unitlike := false`, and its
+constructor cannot complete an *earlier* family because
+`EtaFamiliesClosed` says a stored eta-capable former's constructor is
+already stored while the direct block's names are fresh.
+
+Two consequences worth recording:
+
+* the direct install's obligations are now exactly `EnvModel`'s real
+  clauses — `mem_type`, `val_params`, `annot_ok`, `rec_rules` — plus
+  `EtaFamiliesClosed`, which the block preserves through
+  `EtaFamiliesClosed.cons_nonind` (its former claims no eta, and its
+  other members are not formers at all);
+* the module split `CheckerBase ← Modeled ← Checker` puts `checkIndDecl`
+  in `Modeled` and `checkDirectStruct` in `Checker`, so the direct
+  clause dispatches in **`checkDecl`** rather than inside
+  `checkIndDecl`; the shared-state copy mirrors it in `checkDeclSF`.
 
 **Not yet landed: the rest of the environment assembly of the install
 soundness** (the type former's extension *is* landed; see the list
@@ -3671,45 +3689,34 @@ What remains, in dependency order:
 
 3. **`mem_type` for the recursor and the projections**, from
    `directRecVal_mem`/`directRec_body_mem` and
-   `directProjVal_mem`/`directProj_body_mem`, with the residual
-   identities read off `checkDirectRecTy`'s definitional pins (via
-   `isDefEqCore_sound`).
+   `directProjVal_mem`/`directProj_body_mem`.  **Note the shape
+   prerequisite**: `checkDirectRecTy` still pins the motive domain, the
+   minor's field domains and the major domain at the block's *widest*
+   frame (`nP + 2 + nF`), while the recursor's `TeleBody` quantifies
+   over fits at *growing* frames — the same mismatch the constructor
+   stage had.  The fix is the same decision already taken there
+   (see "Three shape decisions"): pin each of those domains at its own
+   frame — the motive's at `nP`, the minor's `j`-th at `nP + 2 + j`,
+   the major's at `nP + 2` — and reuse `checkDirectParamDoms` for the
+   parameter prefix.  Doing so makes the recursor's obligations line up
+   with `DomsInterpEq`/`TeleFit.transfer` exactly as the constructor's
+   do; not doing so would reintroduce the lifting layer route (X) was
+   approved to remove.
 4. **The rules' fold obligation** (`RecMemberOk`) for the recursor rule
    and the `nF` projection rules, through `TowerOk.of_stages`
    (`Setlec/Model/RuleFold.lean`): the per-stage facts are the
    install's definitional domain pins, the bottom fact is
    `teleLamV_fold` composed with `directRec_iota` / `directProj_iota`.
-5. **The chain**: `extend_basis_one` for the remaining `2 + nF`
-   constants and `extend_rec_swap` for the rule-carrying ones (the
-   capability obligations are vacuous for this class — `eta` and
-   `unitlike` are `false` — so only `mem_type`, `annot_ok`,
-   `val_params` and the folds remain per constant), then the direct case of
-   `checkIndDecl_sound` (`Setlec/Model/Extend/Decl.lean`).
+5. **The chain**: `extend_basis_one` for the recursor and the `nF`
+   projections (provisionally rule-less, then `extend_rec_swap` to
+   attach the rules), and the direct case of `checkDecl_sound` —
+   which must also return `EtaFamiliesClosed` for the extended
+   environment, available from `EtaFamiliesClosed.cons_nonind` at each
+   of the `3 + nF` installs.
 6. **`Setlec/Model/BridgeS.lean`**: `checkDirectStructS`'s
    shared-state-to-pure bridge, including the `flushS`/`ISOK`
    re-establishment at each of the five phases, and the run-tied
    `EnvWF` discharges `checkDirectStruct_wfimp` is waiting on.
-
-## Perf-program closing entry (2026-08-23)
-
-Final recorded triple on the identical preprocessed init-prelude
-stream (3653 constants), all gates green (arena 90/92 by design,
-e2e 52/52, lake test, warning-free, pinned axioms only):
-
-| configuration | instructions | wall |
-|---|---|---|
-| setlec, certified (default) | **173.2 G** | ~12.2 s |
-| setlec, `SETLEC_NO_PROOF_CERTS=1` | **140.1 G** | ~9.1 s |
-| official C++ kernel | 3.9 G | 0.31 s |
-
-From 590 G / 41 s at the program's start: **3.4x instructions**, with
-the residual verification tax at ~33 G (19 %) and the engineering gap
-~36x.  Scale harness: all four shapes ≤ 1.3 in both modes.  app-lam
-and the DAG towers accept (parse-time interning, task #78); stored
-constants never tree-walk.  Remaining levers, recorded: the two-tier
-arena (#64, leisure), streaming parse (#57), interned-only module
-tree (#80), and the locked metatheory options (#74/#75, 6-15 %
-bounty).
 7. **Enable**: the clause in `checkIndDecl` and its `S`/`NC` mirrors
    (three lines each, verified to work), and the four expectation
    flips (`direct_struct_raw` 2→0; `bad/tutorial/13{3,4,7}` 2→1).
