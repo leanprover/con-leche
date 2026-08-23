@@ -800,8 +800,11 @@ def checkDirectCtorF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts) :
     (.notImplemented "direct structure: constructor telescope")
   unless cbody == directFam p.cvT.name p.cvT.levelParams p.nP p.nF do
     throw (.notImplemented "direct structure: constructor result")
-  let (fvs, _) ← unwrapOr (openPisAtFvars (p.nP + p.nF) cvCa.type 0)
+  let (fvs, crest) ← unwrapOr (openPisAtFvars (p.nP + p.nF) cvCa.type 0)
     (.notImplemented "direct structure: constructor telescope")
+  unless crest == Expr.mkAppN
+      (.const p.cvT.name (p.cvT.levelParams.map .param)) (fvs.take p.nP) do
+    throw (.notImplemented "direct structure: opened constructor residual")
   checkDirectFieldUnivF ops fe p.resSort (p.nP + p.nF) p.nP fvs p.nF
   pure ((fe.push
     (.axiomInfo ⟨p.cvC.name.str "_model", cvCa.levelParams, cvCa.type⟩)).push

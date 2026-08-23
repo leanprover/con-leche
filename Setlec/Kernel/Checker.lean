@@ -881,8 +881,15 @@ def checkDirectCtor (ops : CheckerOps m) (env : Env) (p : DirectParts) :
     (.notImplemented "direct structure: constructor telescope")
   unless cbody == directFam p.cvT.name p.cvT.levelParams p.nP p.nF do
     throw (.notImplemented "direct structure: constructor result")
-  let (fvs, _) ← unwrapOr (openPisAtFvars (p.nP + p.nF) cvCa.type 0)
+  let (fvs, crest) ← unwrapOr (openPisAtFvars (p.nP + p.nF) cvCa.type 0)
     (.notImplemented "direct structure: constructor telescope")
+  -- the *opened* residual is the family at the opened parameter
+  -- variables.  Implied by the result check above, but computed here on
+  -- data the field-universe walk already produced, and it is what hands
+  -- the model the identity `⟦T p⃗⟧ = ⟦the field tower⟧` directly.
+  unless crest == Expr.mkAppN
+      (.const p.cvT.name (p.cvT.levelParams.map .param)) (fvs.take p.nP) do
+    throw (.notImplemented "direct structure: opened constructor residual")
   checkDirectFieldUniv ops env p.resSort (p.nP + p.nF) p.nP fvs p.nF
   pure (⟨.ctorInfo cvCa p.nP p.nF ::
     .axiomInfo ⟨p.cvC.name.str "_model", cvCa.levelParams, cvCa.type⟩ ::
