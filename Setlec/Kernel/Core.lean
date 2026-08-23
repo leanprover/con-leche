@@ -1341,7 +1341,12 @@ possibly-Prop Π no semantic invariant can recover the membership
 (impredicativity: the interpretation of a proposition collapses to a
 point, so the domain of a proof-λ is not determined by its value —
 the same analysis as the beta certificate, DESIGN.md), so the defeq
-re-check stays exactly there. -/
+re-check stays exactly there.  Task #73 established that the residue
+is *not removable* even with per-assignment (disjunctive) claims: it
+also guards the type-side invariants of inference outputs — see the
+DESIGN.md finding "the possibly-Prop infer residue is not removable"
+(a concrete AnnotOk-satisfying countermodel falsifies the whnf claims
+without it). -/
 def codNonZero (mt : BinderMeta) : Bool :=
   match mt.cod with
   | some v => v.isNonZero
