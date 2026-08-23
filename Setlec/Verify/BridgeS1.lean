@@ -40,10 +40,6 @@ theorem checkConstantValS_sim (henv : EnvWF env) {cv : ConstantVal}
   · simp only [if_pos h2]
     exact SimAt.throw_bind
   simp only [if_neg h2]
-  by_cases h2b : modelFamilyTaken env cv.name = true
-  · simp only [if_pos h2b]
-    exact SimAt.throw_bind
-  simp only [if_neg h2b]
   by_cases h3 : cv.name.isProjFnShape = true
   · simp only [if_pos h3]
     exact SimAt.throw_bind

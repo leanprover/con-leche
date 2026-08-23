@@ -116,7 +116,7 @@ theorem extend_direct_ind {env : Env} (m : EnvModel V env) {p : DirectParts}
       (∀ ψ, m₁.val cvTa.name ψ =
         directTyVal V m.val env cvTa.type cty p.nP p.nF p.resSort ψ) ∧
       (∀ n ψ, n ≠ cvTa.name → m₁.val n ψ = m.val n ψ) := by
-  obtain ⟨hfind0, hnres0, hmft0, hpshape0, hnd, hlb, hfv, tyA, stype, u,
+  obtain ⟨hfind0, hnres0, hpshape0, hnd, hlb, hfv, tyA, stype, u,
     hann, hlp, hres, hst, hsort, hcvA⟩ := checkConstantVal_inv hccv
   have hnameA : cvTa.name = p.cvT.name := by rw [hcvA]
   have hlpsA : cvTa.levelParams = p.cvT.levelParams := by rw [hcvA]

@@ -416,7 +416,7 @@ theorem checkIndDecl_sound {env env₂ : Env} {block : List ConstantInfo}
         exact h9.symm
       obtain ⟨cvAI, cvmI, mvalI, hmcvmI, hccvI, hmsI, hfmI, hlpsI,
         hrenfI, hkindI⟩ := checkIndMember_inv hs1
-      obtain ⟨hfindI, hnresI, -, hshapeI, -, hlbI, hfvI, tyAI, sI, uI,
+      obtain ⟨hfindI, hnresI, hshapeI, -, hlbI, hfvI, tyAI, sI, uI,
         hannI, hlpI, hresI, -, -, hcvAI⟩ := checkConstantVal_inv hccvI
       have hnameI : cvAI.name = cvT.name := by rw [hcvAI]; rfl
       have hlpsAI : cvAI.levelParams = cvT.levelParams := by
@@ -438,7 +438,7 @@ theorem checkIndDecl_sound {env env₂ : Env} {block : List ConstantInfo}
       subst henvm
       obtain ⟨cvAC, cvmC2, mvalC2, hmcvmC2, hccvC, hmsC2, hfmC2,
         hlpsC2, hrenfC2, hkindC⟩ := checkIndMember_inv hs2
-      obtain ⟨hfindC, hnresC, -, hshapeC, -, hlbC, hfvC, tyAC, sC, uC,
+      obtain ⟨hfindC, hnresC, hshapeC, -, hlbC, hfvC, tyAC, sC, uC,
         hannC, hlpC, hresC, -, -, hcvAC⟩ := checkConstantVal_inv hccvC
       have hnameC : cvAC.name = cvC.name := by rw [hcvAC]; rfl
       have henv₁ : env₁ = ⟨.ctorInfo cvAC nP nF ::
@@ -708,7 +708,7 @@ theorem checkIndDecl_sound {env env₂ : Env} {block : List ConstantInfo}
         exact h9.symm
       obtain ⟨cvAC, cvmC2, mvalC2, hmcvmC2, hccvC, hmsC2, hfmC2,
         hlpsC2, hrenfC2, hkindC⟩ := checkIndMember_inv hs1
-      obtain ⟨hfindC, hnresC, -, hshapeC, -, hlbC, hfvC, tyAC, sC, uC,
+      obtain ⟨hfindC, hnresC, hshapeC, -, hlbC, hfvC, tyAC, sC, uC,
         hannC, hlpC, hresC, -, -, hcvAC⟩ := checkConstantVal_inv hccvC
       have hnameC : cvAC.name = cvC.name := by rw [hcvAC]; rfl
       have henvm : envm = ⟨.ctorInfo cvAC nP nF :: env.consts⟩ := by
@@ -725,7 +725,7 @@ theorem checkIndDecl_sound {env env₂ : Env} {block : List ConstantInfo}
       subst henvm
       obtain ⟨cvAI, cvmI, mvalI, hmcvmI, hccvI, hmsI, hfmI, hlpsI,
         hrenfI, hkindI⟩ := checkIndMember_inv hs2
-      obtain ⟨hfindI, hnresI, -, hshapeI, -, hlbI, hfvI, tyAI, sI, uI,
+      obtain ⟨hfindI, hnresI, hshapeI, -, hlbI, hfvI, tyAI, sI, uI,
         hannI, hlpI, hresI, -, -, hcvAI⟩ := checkConstantVal_inv hccvI
       have hnameI : cvAI.name = cvT.name := by rw [hcvAI]; rfl
       have hlpsAI : cvAI.levelParams = cvT.levelParams := by

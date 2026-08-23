@@ -110,7 +110,7 @@ private theorem cvA_type_facts' {env : Env} {cv cvA : ConstantVal}
     cvA.type.allLevelParamsDefined cvA.levelParams = true ∧
     cvA.type.constsResolve env = true ∧
     cvA.type.looseBVarsBounded 0 = true := by
-  obtain ⟨hfind, hres, -, hshape, hnd, hlbt, hitf, type, stype, u, hann, htp,
+  obtain ⟨hfind, hres, hshape, hnd, hlbt, hitf, type, stype, u, hann, htp,
     htr, hst, hsort, rfl⟩ := checkConstantVal_inv h
   refine ⟨?_, htp, htr, annotateCore_looseBVars F cv.type hann hlbt⟩
   exact not_hasFvar_of_fvarsBelow_zero

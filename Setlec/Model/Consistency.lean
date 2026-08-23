@@ -407,7 +407,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     | ok cv' =>
     rw [hccv] at h
     try dsimp only at h
-    obtain ⟨hfind', hres', hmft', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
+    obtain ⟨hfind', hres', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
       checkConstantVal_inv hccv
     by_cases hok : stdAxiomOk env { cv with type := type } = true
     case neg =>
@@ -1621,7 +1621,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     | ok cv' =>
     rw [hccv] at h
     try dsimp only at h
-    obtain ⟨hfind', hres', hmft', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
+    obtain ⟨hfind', hres', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
       checkConstantVal_inv hccv
     simp only [Pure.pure, Except.pure] at h
     by_cases hlbv : value.looseBVarsBounded 0 = true
@@ -2015,7 +2015,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     | ok cv' =>
     rw [hccv] at h
     try dsimp only at h
-    obtain ⟨hfind', hres', hmft', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
+    obtain ⟨hfind', hres', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
       checkConstantVal_inv hccv
     simp only [Pure.pure, Except.pure] at h
     -- the theorem-specific proposition check re-runs inference on the type
@@ -2108,7 +2108,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     | ok cv' =>
     rw [hccv] at h
     try dsimp only at h
-    obtain ⟨hfind', hres', hmft', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
+    obtain ⟨hfind', hres', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
       checkConstantVal_inv hccv
     simp only [Pure.pure, Except.pure] at h
     by_cases hlbv : value.looseBVarsBounded 0 = true
@@ -2226,7 +2226,7 @@ theorem checkDecl_stores {env env₁ : Env} {cv : ConstantVal}
     | ok cv' =>
     rw [hccv] at h
     try dsimp only at h
-    obtain ⟨hfind', hres', hmft', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
+    obtain ⟨hfind', hres', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
       checkConstantVal_inv hccv
     simp only [Pure.pure, Except.pure] at h
     by_cases hlbv : value.looseBVarsBounded 0 = true
@@ -2341,7 +2341,7 @@ theorem checkDecl_stores {env env₁ : Env} {cv : ConstantVal}
     | ok cv' =>
     rw [hccv] at h
     try dsimp only at h
-    obtain ⟨hfind', hres', hmft', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
+    obtain ⟨hfind', hres', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
       checkConstantVal_inv hccv
     simp only [Pure.pure, Except.pure] at h
     cases hst2 : inferTypeCore env F 0 type with

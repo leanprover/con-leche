@@ -48,7 +48,7 @@ theorem checkIndMember_sound {blockNames : List Name} {caps : IndCaps}
     ∃ m₁ : EnvModel V env₁, BlockInstalled blockNames env₁ m₁.val := by
   obtain ⟨cvA, cvm, mval, hmcvm, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
     checkIndMember_inv h
-  obtain ⟨hfind0, hnres0, hmft0, hpshape0, hnd, hlb, hfv, tyA, stype, u, hann,
+  obtain ⟨hfind0, hnres0, hpshape0, hnd, hlb, hfv, tyA, stype, u, hann,
     hlp, hres, hst, hsort, hcvA⟩ := checkConstantVal_inv hccv
   have hnameA : cvA.name = ci.name := by rw [hcvA]; rfl
   have hlpsA : cvA.levelParams = ci.toConstantVal.levelParams := by
@@ -289,7 +289,7 @@ theorem checkIndFold_modelfree {blockNames : List Name}
     rcases hci with rfl | hci
     · obtain ⟨cvA, cvm, mval, hmcvm, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
         checkIndMember_inv hstep
-      obtain ⟨-, -, -, -, -, -, -, tyA, stype, u, -, -, -, -, -, hcvA⟩ :=
+      obtain ⟨-, -, -, -, -, -, tyA, stype, u, -, -, -, -, -, hcvA⟩ :=
         checkConstantVal_inv hccv
       rw [hcvA] at hms
       rcases hkind with ⟨⟨cv, caps', rfl⟩, -⟩ | ⟨cv, nP, nF, rfl, -⟩ <;>
@@ -316,7 +316,7 @@ theorem checkIndFold_projshape {blockNames : List Name}
     rcases hci with rfl | hci
     · obtain ⟨cvA, cvm, mval, hmcvm, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
         checkIndMember_inv hstep
-      obtain ⟨-, -, -, hpshape0, -, -, -, tyA, stype, u, -, -, -, -, -,
+      obtain ⟨-, -, hpshape0, -, -, -, tyA, stype, u, -, -, -, -, -,
         hcvA⟩ := checkConstantVal_inv hccv
       exact hpshape0
     · exact checkIndFold_projshape rest env₁ env₂ h ci hci
@@ -346,7 +346,7 @@ theorem checkIndFold_find_new {blockNames : List Name}
     rw [hstep] at h
     obtain ⟨cvA, cvm, mval, hmcvm, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
       checkIndMember_inv hstep
-    obtain ⟨hfind0, -, -, -, -, -, -, tyA, stype, u, -, -, -, -, -,
+    obtain ⟨hfind0, -, -, -, -, -, tyA, stype, u, -, -, -, -, -,
       hcvA⟩ := checkConstantVal_inv hccv
     have hnameA : cvA.name = ci₀.name := by rw [hcvA]; rfl
     have hbn₀ : blockNames.contains cvA.name = true := by
@@ -421,7 +421,7 @@ theorem checkIndFold_find_preserved {blockNames : List Name}
     rw [hstep] at h
     obtain ⟨cvA, cvm, mval, hmcvm, hccv, hms, hfm, hlps, hrenf, hkind⟩ :=
       checkIndMember_inv hstep
-    obtain ⟨hfind0, -, -, -, -, -, -, tyA, stype, u, -, -, -, -, -,
+    obtain ⟨hfind0, -, -, -, -, -, tyA, stype, u, -, -, -, -, -,
       hcvA⟩ := checkConstantVal_inv hccv
     have hfindA : env'.find? cvA.name = none := by
       rw [show cvA.name = ci₀.name from by rw [hcvA]; rfl]
@@ -490,7 +490,7 @@ theorem checkIndFold_sound {blockNames : List Name} {caps : IndCaps}
     rw [hstep] at h
     obtain ⟨cvA', cvm', mval', hm', hccv', -, -, -, -, hkind'⟩ :=
       checkIndMember_inv hstep
-    obtain ⟨hfind0', -, -, hpshape0', -, -, -, tyA', stype', u', -, -, -,
+    obtain ⟨hfind0', -, hpshape0', -, -, -, tyA', stype', u', -, -, -,
       -, -, hcvA'⟩ := checkConstantVal_inv hccv'
     have hnameA' : cvA'.name = ci.name := by
       rw [hcvA']
@@ -650,7 +650,7 @@ theorem checkIndFold_stored {blockNames : List Name} {caps : IndCaps} :
     rw [hstep] at h
     obtain ⟨cvA, cvm, mval, hmcvm, hccv, -, -, -, -, hkind⟩ :=
       checkIndMember_inv hstep
-    obtain ⟨-, -, -, -, -, -, -, tyA, stype, u, -, -, -, -, -, hcvA⟩ :=
+    obtain ⟨-, -, -, -, -, -, tyA, stype, u, -, -, -, -, -, hcvA⟩ :=
       checkConstantVal_inv hccv
     have hnameA : cvA.name = ci₀.name := by rw [hcvA]; rfl
     have henv₁ : ∃ ci₁ : ConstantInfo, ci₁.name = cvA.name ∧
