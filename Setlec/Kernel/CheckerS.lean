@@ -788,7 +788,9 @@ def checkDirectIndF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts) :
     (.notImplemented "direct structure: type former telescope")
   unless tbody == Expr.sort p.resSort do
     throw (.notImplemented "direct structure: type former result sort")
-  pure (fe.push (.indInfo cvTa (directCaps p)), cvTa)
+  pure ((fe.push
+    (.axiomInfo ⟨p.cvT.name.str "_model", cvTa.levelParams, cvTa.type⟩)).push
+    (.indInfo cvTa (directCaps p)), cvTa)
 
 /-- `checkDirectCtor` through the index. -/
 def checkDirectCtorF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts) :
@@ -801,7 +803,9 @@ def checkDirectCtorF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts) :
   let (fvs, _) ← unwrapOr (openPisAtFvars (p.nP + p.nF) cvCa.type 0)
     (.notImplemented "direct structure: constructor telescope")
   checkDirectFieldUnivF ops fe p.resSort (p.nP + p.nF) p.nP fvs p.nF
-  pure (fe.push (.ctorInfo cvCa p.nP p.nF), cvCa)
+  pure ((fe.push
+    (.axiomInfo ⟨p.cvC.name.str "_model", cvCa.levelParams, cvCa.type⟩)).push
+    (.ctorInfo cvCa p.nP p.nF), cvCa)
 
 /-- `checkDirectRecTy` through the index. -/
 def checkDirectRecTyF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts)
@@ -903,9 +907,11 @@ def checkDirectProjF (ops : CheckerOps m) (T C : Name) (lps : List Name)
     throw (.invalid "projection name taken")
   checkProjShape (m := m) ptyA cvCa.type nP nF
   let rhsA ← checkProjRuleF ops fe ptyA cvCa lps nP nF i
-  pure (fe.push (.recInfo ⟨projFnName T i, lps, ptyA⟩ nP nP
-    [⟨C, nF, nP,
-      if Expr.recRulePlain ptyA nP nP nP then .plain else .inert, rhsA⟩]))
+  pure ((fe.push (.axiomInfo ⟨projModelName T i, lps, ptyA⟩)).push
+    (.recInfo ⟨projFnName T i, lps, ptyA⟩ nP nP
+      [⟨C, nF, nP,
+        if Expr.recRulePlain ptyA nP nP nP then .plain else .inert,
+        rhsA⟩]))
 
 end Mirrors
 
