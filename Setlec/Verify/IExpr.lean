@@ -566,6 +566,12 @@ structure WF (st : EStore) : Prop where
   its children's entries. -/
   lparamBs_spec : ∀ (u : LIdx) (m : LNode), st.lnodes[u]? = some m →
     st.lparamBs[u]? = some (m.hasParamOf st.lparamBs)
+  /-- The eager has-level-param array is congruent with `nodes`. -/
+  eparamBs_size : st.eparamBs.size = st.nodes.size
+  /-- Each node's has-level-param entry satisfies the recurrence over
+  the children's and level entries. -/
+  eparamBs_spec : ∀ (i : EIdx) (n : ENode), st.nodes[i]? = some n →
+    st.eparamBs[i]? = some (n.hasLParamOf st.eparamBs st.lparamBs)
 
 theorem empty_wf : WF EStore.empty := by
   constructor
@@ -587,6 +593,9 @@ theorem empty_wf : WF EStore.empty := by
     simp [EStore.empty] at h
   · simp [EStore.empty]
   · intro u m h
+    simp [EStore.empty] at h
+  · simp [EStore.empty]
+  · intro i n h
     simp [EStore.empty] at h
 
 /-! ## `intern` -/
@@ -618,6 +627,37 @@ theorem _root_.Setlec.LNode.hasParamOf_congr {bs bs' : Array Bool}
   cases n <;>
     simp_all [LNode.hasParamOf, LNode.children]
 
+/-- The has-level-param recurrence reads only the children's and the
+node's level entries. -/
+theorem _root_.Setlec.ENode.hasLParamOf_congr {ebs ebs' lbs lbs' : Array Bool}
+    {n : ENode}
+    (hc : ∀ c ∈ n.children, ebs.getD c false = ebs'.getD c false)
+    (hl : ∀ u ∈ n.levels, lbs.getD u false = lbs'.getD u false) :
+    n.hasLParamOf ebs lbs = n.hasLParamOf ebs' lbs' := by
+  cases n with
+  | const nm us =>
+    simp only [ENode.hasLParamOf]
+    have main : ∀ (l : List LIdx),
+        (∀ u ∈ l, lbs.getD u false = lbs'.getD u false) →
+        l.any (lbs.getD · false) = l.any (lbs'.getD · false) := by
+      intro l hml
+      induction l with
+      | nil => rfl
+      | cons u t iht =>
+        simp only [List.any_cons]
+        rw [hml u (by simp), iht fun v hv => hml v (by simp [hv])]
+    exact main us fun u hu => hl u (by simpa [ENode.levels] using hu)
+  | lam nm ty body m =>
+    obtain ⟨bi, cod⟩ := m
+    cases cod <;>
+      simp_all [ENode.hasLParamOf, ENode.children, ENode.levels]
+  | forallE nm ty body m =>
+    obtain ⟨bi, cod⟩ := m
+    cases cod <;>
+      simp_all [ENode.hasLParamOf, ENode.children, ENode.levels]
+  | _ =>
+    simp_all [ENode.hasLParamOf, ENode.children, ENode.levels]
+
 /-- `intern` with the store destructuring (an RC optimization)
 eliminated. -/
 theorem intern_eq (st : EStore) (n : ENode) :
@@ -627,8 +667,9 @@ theorem intern_eq (st : EStore) (n : ENode) :
         (st.nodes.size, ⟨st.nodes.push n, st.cons.insert n st.nodes.size,
           st.lnodes, st.lcons,
           st.bvarBs.push (n.bvarBoundOf st.bvarBs),
-          st.fvarBs.push (n.fvarRangeOf st.fvarBs), st.lparamBs⟩) := by
-  obtain ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs⟩ := st
+          st.fvarBs.push (n.fvarRangeOf st.fvarBs), st.lparamBs,
+          st.eparamBs.push (n.hasLParamOf st.eparamBs st.lparamBs)⟩) := by
+  obtain ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs⟩ := st
   rfl
 
 theorem intern_ext (st : EStore) (n : ENode) : Ext st (st.intern n).2 := by
@@ -750,6 +791,25 @@ theorem intern_wf {st : EStore} {n : ENode} (hwf : st.WF)
           Nat.lt_trans (hwf.children_lt i m h c hcin) hi)).symm
     · exact hwf.lparamBs_size
     · exact hwf.lparamBs_spec
+    · simpa using hwf.eparamBs_size
+    · intro i m h
+      rw [Array.getElem?_push] at h
+      split at h
+      · cases h
+        subst_eqs
+        rw [Array.getElem?_push, hwf.eparamBs_size, if_pos rfl]
+        refine congrArg some
+          (ENode.hasLParamOf_congr (fun c hcin => ?_) (fun u _ => rfl))
+        exact (getD_push_of_lt (hwf.eparamBs_size ▸ hc c hcin)).symm
+      · have hi : i < st.nodes.size := by
+          rcases Array.getElem?_eq_some_iff.mp h with ⟨hlt, -⟩
+          exact hlt
+        rw [Array.getElem?_push, if_neg (hwf.eparamBs_size ▸ Nat.ne_of_lt hi),
+          hwf.eparamBs_spec i m h]
+        refine congrArg some
+          (ENode.hasLParamOf_congr (fun c hcin => ?_) (fun u _ => rfl))
+        exact (getD_push_of_lt (hwf.eparamBs_size ▸
+          Nat.lt_trans (hwf.children_lt i m h c hcin) hi)).symm
 
 /-- Interning a node whose children are already stored: the result
 denotes the node's denotation over the *old* store. -/
@@ -767,8 +827,9 @@ theorem intern_denote {st : EStore} {n : ENode} (hwf : st.WF)
         (⟨st.nodes.push n, st.cons.insert n st.nodes.size,
           st.lnodes, st.lcons,
           st.bvarBs.push (n.bvarBoundOf st.bvarBs),
-          st.fvarBs.push (n.fvarRangeOf st.fvarBs),
-          st.lparamBs⟩ : EStore).denote j
+          st.fvarBs.push (n.fvarRangeOf st.fvarBs), st.lparamBs,
+          st.eparamBs.push (n.hasLParamOf st.eparamBs st.lparamBs)⟩
+          : EStore).denote j
           = st.denote j := by
       refine denote_agree (fun j hj => ?_) rfl
       simp [Array.getElem?_push, Nat.ne_of_lt hj]
@@ -778,8 +839,9 @@ theorem intern_denote {st : EStore} {n : ENode} (hwf : st.WF)
         (st' := (⟨st.nodes.push n, st.cons.insert n st.nodes.size,
           st.lnodes, st.lcons,
           st.bvarBs.push (n.bvarBoundOf st.bvarBs),
-          st.fvarBs.push (n.fvarRangeOf st.fvarBs),
-          st.lparamBs⟩ : EStore)) (st := st)
+          st.fvarBs.push (n.fvarRangeOf st.fvarBs), st.lparamBs,
+          st.eparamBs.push (n.hasLParamOf st.eparamBs st.lparamBs)⟩
+          : EStore)) (st := st)
         rfl u)
 
 /-! ## `internL` / `internLevel`: the level round-trip -/
@@ -791,8 +853,8 @@ theorem internL_eq (st : EStore) (n : LNode) :
       | none =>
         (st.lnodes.size, ⟨st.nodes, st.cons, st.lnodes.push n,
           st.lcons.insert n st.lnodes.size, st.bvarBs, st.fvarBs,
-          st.lparamBs.push (n.hasParamOf st.lparamBs)⟩) := by
-  obtain ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs⟩ := st
+          st.lparamBs.push (n.hasParamOf st.lparamBs), st.eparamBs⟩) := by
+  obtain ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs⟩ := st
   rfl
 
 theorem internL_ext (st : EStore) (n : LNode) : Ext st (st.internL n).2 := by
@@ -890,6 +952,13 @@ theorem internL_wf {st : EStore} {n : LNode} (hwf : st.WF)
         refine congrArg some (LNode.hasParamOf_congr fun c hcin => ?_)
         exact (getD_push_of_lt (hwf.lparamBs_size ▸
           Nat.lt_trans (hwf.lchildren_lt u m h c hcin) hu)).symm
+    · exact hwf.eparamBs_size
+    · intro i m h
+      rw [hwf.eparamBs_spec i m h]
+      refine congrArg some
+        (ENode.hasLParamOf_congr (fun c _ => rfl) (fun u hu => ?_))
+      exact (getD_push_of_lt (hwf.lparamBs_size ▸
+        hwf.levels_lt i m h u hu)).symm
 
 /-- Interning a level node whose children are already stored: the
 result denotes the node's denotation over the *old* store. -/
@@ -906,7 +975,7 @@ theorem internL_denoteL {st : EStore} {n : LNode} (hwf : st.WF)
     have hagree : ∀ j, j < st.lnodes.size →
         (⟨st.nodes, st.cons, st.lnodes.push n,
           st.lcons.insert n st.lnodes.size, st.bvarBs, st.fvarBs,
-          st.lparamBs.push (n.hasParamOf st.lparamBs)⟩
+          st.lparamBs.push (n.hasParamOf st.lparamBs), st.eparamBs⟩
           : EStore).denoteL j
           = st.denoteL j := by
       apply denoteL_agree
@@ -2118,6 +2187,269 @@ theorem WF.lhasParamD_false {st : EStore} (hwf : st.WF) {u : LIdx}
     (hp : (!st.lhasParamD u) = true) : x.hasParam = false := by
   rw [Bool.not_eq_eq_eq_not, Bool.not_true] at hp
   rw [← hwf.lhasParamD_exact u hx]
+  exact hp
+
+/-- Whether an expression mentions any level parameter (the spec
+function of the eager `eparamBs` entries; `fvar` type annotations and
+binder-cod annotations included, matching
+`Expr.instantiateLevelParams`). -/
+def _root_.Setlec.Expr.hasLevelParam : Expr → Bool
+  | .bvar _ | .lit _ => false
+  | .sort u => u.hasParam
+  | .const _ us => us.any Level.hasParam
+  | .fvar _ _ ty => ty.hasLevelParam
+  | .app f a => f.hasLevelParam || a.hasLevelParam
+  | .lam _ ty body m | .forallE _ ty body m =>
+    ty.hasLevelParam || body.hasLevelParam ||
+      (match m.cod with
+       | some v => v.hasParam
+       | none => false)
+  | .letE _ ty val body =>
+    ty.hasLevelParam || val.hasLevelParam || body.hasLevelParam
+  | .proj _ _ e => e.hasLevelParam
+
+/-- Level-parameter instantiation is the identity on level-param-free
+expressions. -/
+theorem _root_.Setlec.Expr.instantiateLevelParams_eq_self
+    {ks : List Name} {us : List Level} {x : Expr}
+    (h : x.hasLevelParam = false) :
+    x.instantiateLevelParams ks us = x := by
+  induction x with
+  | bvar i => rfl
+  | lit l => rfl
+  | sort u =>
+    simp only [Expr.hasLevelParam] at h
+    simp [Expr.instantiateLevelParams, Level.subst_eq_self h]
+  | const nm vs =>
+    simp only [Expr.hasLevelParam, List.any_eq_false] at h
+    have hmap : vs.map (Level.subst ks us) = vs := by
+      induction vs with
+      | nil => rfl
+      | cons v t iht =>
+        simp only [List.map_cons]
+        rw [Level.subst_eq_self (by simpa using h v (by simp)),
+          iht fun w hw => h w (by simp [hw])]
+    simp [Expr.instantiateLevelParams, hmap]
+  | fvar idx nm ty ih =>
+    simp only [Expr.hasLevelParam] at h
+    simp [Expr.instantiateLevelParams, ih h]
+  | app f a ihf iha =>
+    simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
+    simp [Expr.instantiateLevelParams, ihf h.1, iha h.2]
+  | lam nm ty body m iht ihb =>
+    obtain ⟨bi, cod⟩ := m
+    simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
+    obtain ⟨⟨ht, hb⟩, hcod⟩ := h
+    cases cod with
+    | none =>
+      simp [Expr.instantiateLevelParams, iht ht, ihb hb]
+    | some v =>
+      have hcv : v.hasParam = false := hcod
+      simp [Expr.instantiateLevelParams, iht ht, ihb hb,
+        Level.subst_eq_self hcv]
+  | forallE nm ty body m iht ihb =>
+    obtain ⟨bi, cod⟩ := m
+    simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
+    obtain ⟨⟨ht, hb⟩, hcod⟩ := h
+    cases cod with
+    | none =>
+      simp [Expr.instantiateLevelParams, iht ht, ihb hb]
+    | some v =>
+      have hcv : v.hasParam = false := hcod
+      simp [Expr.instantiateLevelParams, iht ht, ihb hb,
+        Level.subst_eq_self hcv]
+  | letE nm ty val body iht ihv ihb =>
+    simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
+    simp [Expr.instantiateLevelParams, iht h.1.1, ihv h.1.2, ihb h.2]
+  | proj sp j e ihe =>
+    simp only [Expr.hasLevelParam] at h
+    simp [Expr.instantiateLevelParams, ihe h]
+
+/-- Level-parameter definedness is trivial on level-param-free
+expressions. -/
+theorem _root_.Setlec.Expr.allLevelParamsDefined_of_not_hasLevelParam
+    {params : List Name} {x : Expr} (h : x.hasLevelParam = false) :
+    x.allLevelParamsDefined params = true := by
+  induction x with
+  | lam nm ty body m iht ihb =>
+    obtain ⟨bi, cod⟩ := m
+    simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
+    obtain ⟨⟨ht, hb⟩, hcod⟩ := h
+    cases cod with
+    | none =>
+      simp [Expr.allLevelParamsDefined, iht ht, ihb hb]
+    | some v =>
+      have hcv : v.hasParam = false := hcod
+      simp [Expr.allLevelParamsDefined, iht ht, ihb hb,
+        Level.allParamsDefined_of_not_hasParam hcv]
+  | forallE nm ty body m iht ihb =>
+    obtain ⟨bi, cod⟩ := m
+    simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
+    obtain ⟨⟨ht, hb⟩, hcod⟩ := h
+    cases cod with
+    | none =>
+      simp [Expr.allLevelParamsDefined, iht ht, ihb hb]
+    | some v =>
+      have hcv : v.hasParam = false := hcod
+      simp [Expr.allLevelParamsDefined, iht ht, ihb hb,
+        Level.allParamsDefined_of_not_hasParam hcv]
+  | const nm vs =>
+    simp only [Expr.hasLevelParam, List.any_eq_false] at h
+    simp only [Expr.allLevelParamsDefined, List.all_eq_true]
+    exact fun v hv =>
+      Level.allParamsDefined_of_not_hasParam (by simpa using h v hv)
+  | sort u =>
+    simp only [Expr.hasLevelParam] at h
+    exact Level.allParamsDefined_of_not_hasParam h
+  | _ =>
+    simp_all [Expr.hasLevelParam, Expr.allLevelParamsDefined]
+
+/-- List form of `lhasParamD` exactness (a `const` node's levels). -/
+theorem WF.lhasParamD_list {st : EStore} (hwf : st.WF) :
+    ∀ {us : List LIdx} {lus : List Level},
+      denoteLList st.denoteL us = some lus →
+      us.any (st.lparamBs.getD · false) = lus.any Level.hasParam := by
+  intro us
+  induction us with
+  | nil =>
+    intro lus h
+    cases h
+    rfl
+  | cons u us ih =>
+    intro lus h
+    rw [denoteLList, Option.bind_eq_some_iff] at h
+    obtain ⟨l, hl, h⟩ := h
+    rw [Option.map_eq_some_iff] at h
+    obtain ⟨ls, hls, rfl⟩ := h
+    show (st.lhasParamD u || us.any (st.lparamBs.getD · false)) = _
+    rw [hwf.lhasParamD_exact u hl, ih hls]
+    rfl
+
+/-- The eager has-level-param entry is exactly `hasLevelParam` of the
+node's denotation. -/
+theorem WF.ehasParamD_exact {st : EStore} (hwf : st.WF) :
+    ∀ (i : EIdx) {x : Expr}, st.denote i = some x →
+      st.ehasParamD i = x.hasLevelParam := by
+  intro i
+  induction i using Nat.strongRecOn with
+  | _ i ih =>
+    intro x hx
+    obtain ⟨n, hn, hcl, hdn⟩ := denote_some_inv hx
+    have hread : st.ehasParamD i = n.hasLParamOf st.eparamBs st.lparamBs := by
+      show st.eparamBs.getD i false = n.hasLParamOf st.eparamBs st.lparamBs
+      rw [Array.getD_eq_getD_getElem?, hwf.eparamBs_spec i n hn]
+      rfl
+    rw [hread]
+    cases n with
+    | bvar j =>
+      rw [denoteNode] at hdn
+      cases hdn
+      rfl
+    | lit l =>
+      rw [denoteNode] at hdn
+      cases hdn
+      rfl
+    | sort u =>
+      rw [denoteNode, Option.map_eq_some_iff] at hdn
+      obtain ⟨lu, hlu, rfl⟩ := hdn
+      show st.lhasParamD u = _
+      rw [hwf.lhasParamD_exact u hlu]
+      rfl
+    | const nm us =>
+      rw [denoteNode, Option.map_eq_some_iff] at hdn
+      obtain ⟨lus, hlus, rfl⟩ := hdn
+      exact hwf.lhasParamD_list hlus
+    | fvar idx nm t =>
+      rw [denoteNode, Option.map_eq_some_iff] at hdn
+      obtain ⟨xt, hxt, rfl⟩ := hdn
+      have hlt := hcl t (by simp [ENode.children])
+      show st.ehasParamD t = _
+      rw [ih t hlt hxt]
+      rfl
+    | app f a =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xf, hxf, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨xa, hxa, rfl⟩ := hdn
+      have hf := hcl f (by simp [ENode.children])
+      have ha := hcl a (by simp [ENode.children])
+      show (st.ehasParamD f || st.ehasParamD a) = _
+      rw [ih f hf hxf, ih a ha hxa]
+      rfl
+    | lam nm ty body m =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xt, hxt, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨xb, hxb, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨bm, hbm, rfl⟩ := hdn
+      have ht := hcl ty (by simp [ENode.children])
+      have hb := hcl body (by simp [ENode.children])
+      obtain ⟨bi, cod⟩ := m
+      cases cod with
+      | none =>
+        rw [denoteBM] at hbm
+        cases hbm
+        show (st.ehasParamD ty || st.ehasParamD body || false) = _
+        rw [ih ty ht hxt, ih body hb hxb]
+        rfl
+      | some u =>
+        rw [denoteBM, Option.map_eq_some_iff] at hbm
+        obtain ⟨lv, hlv, rfl⟩ := hbm
+        show (st.ehasParamD ty || st.ehasParamD body || st.lhasParamD u) = _
+        rw [ih ty ht hxt, ih body hb hxb, hwf.lhasParamD_exact u hlv]
+        rfl
+    | forallE nm ty body m =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xt, hxt, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨xb, hxb, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨bm, hbm, rfl⟩ := hdn
+      have ht := hcl ty (by simp [ENode.children])
+      have hb := hcl body (by simp [ENode.children])
+      obtain ⟨bi, cod⟩ := m
+      cases cod with
+      | none =>
+        rw [denoteBM] at hbm
+        cases hbm
+        show (st.ehasParamD ty || st.ehasParamD body || false) = _
+        rw [ih ty ht hxt, ih body hb hxb]
+        rfl
+      | some u =>
+        rw [denoteBM, Option.map_eq_some_iff] at hbm
+        obtain ⟨lv, hlv, rfl⟩ := hbm
+        show (st.ehasParamD ty || st.ehasParamD body || st.lhasParamD u) = _
+        rw [ih ty ht hxt, ih body hb hxb, hwf.lhasParamD_exact u hlv]
+        rfl
+    | letE nm ty val body =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xt, hxt, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨xv, hxv, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨xb, hxb, rfl⟩ := hdn
+      have ht := hcl ty (by simp [ENode.children])
+      have hv := hcl val (by simp [ENode.children])
+      have hb := hcl body (by simp [ENode.children])
+      show (st.ehasParamD ty || st.ehasParamD val || st.ehasParamD body) = _
+      rw [ih ty ht hxt, ih val hv hxv, ih body hb hxb]
+      rfl
+    | proj sp j sub =>
+      rw [denoteNode, Option.map_eq_some_iff] at hdn
+      obtain ⟨xs, hxs, rfl⟩ := hdn
+      have hs := hcl sub (by simp [ENode.children])
+      show st.ehasParamD sub = _
+      rw [ih sub hs hxs]
+      rfl
+
+/-- Prune consequence: a `false` has-level-param entry certifies the
+denotation level-param-free. -/
+theorem WF.ehasParamD_false {st : EStore} (hwf : st.WF) {e : EIdx}
+    {x : Expr} (hx : st.denote e = some x)
+    (hp : (!st.ehasParamD e) = true) : x.hasLevelParam = false := by
+  rw [Bool.not_eq_eq_eq_not, Bool.not_true] at hp
+  rw [← hwf.ehasParamD_exact e hx]
   exact hp
 
 /-! ## `instantiate1I` commutes with `denote` -/
@@ -3716,6 +4048,14 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
   | _ e ih =>
     intro st memo lmemo r st' memo' lmemo' hwf hus hinv hlinv hgo
     unfold instantiateLevelParamsIGo at hgo
+    split at hgo
+    · -- level-param-free: identity (task #87)
+      rename_i hnp
+      cases hgo
+      refine ⟨hwf, Ext.refl st, hinv, hlinv, ?_⟩
+      intro x hx
+      rw [Expr.instantiateLevelParams_eq_self (hwf.ehasParamD_false hx hnp)]
+      exact hx
     split at hgo
     · rename_i hhit
       cases hgo

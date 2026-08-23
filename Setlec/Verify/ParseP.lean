@@ -268,6 +268,14 @@ theorem allLevelParamsDefinedIGo_spec {st : EStore} (hwf : st.WF)
     intro lmemo memo b lmemo' memo' hinv hgo
     unfold allLevelParamsDefinedIGo at hgo
     split at hgo
+    · -- level-param-free: trivially defined (task #87)
+      rename_i hnp
+      cases hgo
+      refine ⟨hinv, ?_⟩
+      intro x hx
+      exact Expr.allLevelParamsDefined_of_not_hasLevelParam
+        (hwf.ehasParamD_false hx hnp)
+    split at hgo
     · rename_i hhit
       cases hgo
       refine ⟨hinv, ?_⟩
@@ -799,7 +807,8 @@ private theorem wfBNodes_facts {st : EStore} :
         (∀ u ∈ n.levels, u < st.lnodes.size) ∧
         st.cons[n]? = some i ∧
         st.bvarBs[i]? = some (n.bvarBoundOf st.bvarBs) ∧
-        st.fvarBs[i]? = some (n.fvarRangeOf st.fvarBs)
+        st.fvarBs[i]? = some (n.fvarRangeOf st.fvarBs) ∧
+        st.eparamBs[i]? = some (n.hasLParamOf st.eparamBs st.lparamBs)
   | 0, _, i, hi => absurd hi (Nat.not_lt_zero i)
   | k + 1, h, i, hi => by
     unfold EStore.wfBNodes at h
@@ -813,8 +822,8 @@ private theorem wfBNodes_facts {st : EStore} :
       | some n =>
         rw [hn] at hk
         simp only [Bool.and_eq_true, beq_iff_eq] at hk
-        obtain ⟨⟨⟨⟨hch, hlv⟩, hcons⟩, hbv⟩, hfv⟩ := hk
-        refine ⟨n, rfl, ?_, ?_, hcons, hbv, hfv⟩
+        obtain ⟨⟨⟨⟨⟨hch, hlv⟩, hcons⟩, hbv⟩, hfv⟩, hep⟩ := hk
+        refine ⟨n, rfl, ?_, ?_, hcons, hbv, hfv, hep⟩
         · intro c hc
           cases n with
           | bvar i0 => simp [ENode.children] at hc
@@ -948,12 +957,12 @@ the interned operations' faithfulness needs. -/
 theorem wfB_wf {st : EStore} (h : st.wfB = true) : st.WF := by
   unfold EStore.wfB at h
   simp only [Bool.and_eq_true, beq_iff_eq] at h
-  obtain ⟨⟨⟨⟨⟨⟨hns, hls⟩, hcons⟩, hlcons⟩, hbsz⟩, hfsz⟩, hpsz⟩ := h
+  obtain ⟨⟨⟨⟨⟨⟨⟨hns, hls⟩, hcons⟩, hlcons⟩, hbsz⟩, hfsz⟩, hpsz⟩, hesz⟩ := h
   have hnf := wfBNodes_facts st.nodes.size hns
   have hlf := wfBLNodes_facts st.lnodes.size hls
-  refine ⟨?_, ?_, ?_, ?_, ?_, hbsz, hfsz, ?_, ?_, hpsz, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_, hbsz, hfsz, ?_, ?_, hpsz, ?_, hesz, ?_⟩
   · intro i n hn c hc
-    obtain ⟨n', hn', hch, -, -, -, -⟩ :=
+    obtain ⟨n', hn', hch, -, -, -, -, -⟩ :=
       hnf i (Array.getElem?_eq_some_iff.mp hn).1
     rw [hn] at hn'
     cases hn'
@@ -966,13 +975,13 @@ theorem wfB_wf {st : EStore} (h : st.wfB = true) : st.WF := by
         (Std.HashMap.mem_toList_iff_getElem?_eq_some.mpr hci)
       simpa using this
     · intro hn
-      obtain ⟨n', hn', -, -, hc, -, -⟩ :=
+      obtain ⟨n', hn', -, -, hc, -, -, -⟩ :=
         hnf i (Array.getElem?_eq_some_iff.mp hn).1
       rw [hn] at hn'
       cases hn'
       exact hc
   · intro i n hn u hu
-    obtain ⟨n', hn', -, hlv, -, -, -⟩ :=
+    obtain ⟨n', hn', -, hlv, -, -, -, -⟩ :=
       hnf i (Array.getElem?_eq_some_iff.mp hn).1
     rw [hn] at hn'
     cases hn'
@@ -995,13 +1004,13 @@ theorem wfB_wf {st : EStore} (h : st.wfB = true) : st.WF := by
       cases hm'
       exact hc
   · intro i n hn
-    obtain ⟨n', hn', -, -, -, hbv, -⟩ :=
+    obtain ⟨n', hn', -, -, -, hbv, -, -⟩ :=
       hnf i (Array.getElem?_eq_some_iff.mp hn).1
     rw [hn] at hn'
     cases hn'
     exact hbv
   · intro i n hn
-    obtain ⟨n', hn', -, -, -, -, hfv⟩ :=
+    obtain ⟨n', hn', -, -, -, -, hfv, -⟩ :=
       hnf i (Array.getElem?_eq_some_iff.mp hn).1
     rw [hn] at hn'
     cases hn'
@@ -1011,6 +1020,12 @@ theorem wfB_wf {st : EStore} (h : st.wfB = true) : st.WF := by
     rw [hm] at hm'
     cases hm'
     exact hpb
+  · intro i n hn
+    obtain ⟨n', hn', -, -, -, -, -, hep⟩ :=
+      hnf i (Array.getElem?_eq_some_iff.mp hn).1
+    rw [hn] at hn'
+    cases hn'
+    exact hep
 
 /-! ## Denotation of parsed declarations -/
 
