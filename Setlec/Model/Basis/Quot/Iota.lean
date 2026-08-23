@@ -2217,4 +2217,730 @@ theorem qlFr_annotOk_tyH {cval : ConstVal V} {A R B f : V}
           (fun _ _ => heqbody a' b' ha' hb'))
       simpa [Level.eval] using this
 
+theorem qiFr_interp_tyB {cval : ConstVal V} {A R : V}
+    (hfindQ : env.find? quotName = some quotA)
+    (hvalQ : ∀ ψ' : Name → Nat, cval quotName ψ' = quotVal V ψ') :
+    interpExpr V cval env ψ 2 (updV V (updV V (rho0 V) 0 A) 1 R)
+      qiFrTyB =
+      some (pi 1 (SetTheory.app (SetTheory.app (quotVal V ψ) A) R)
+        fun _ => univ 0) := by
+  have hfindQ' : env.find? (Name.anonymous.str "Quot") = some quotA :=
+    hfindQ
+  have hvalQ' : ∀ ψ' : Name → Nat,
+      cval (Name.anonymous.str "Quot") ψ' = quotVal V ψ' := hvalQ
+  simp [qiFrTyB, qFrA, qFrR, qFrTyR, interpExpr, Expr.instantiate1, updV,
+    hfindQ', hvalQ', quotA, ConstantInfo.toConstantVal, Level.eval,
+    -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
+  try rfl
+
+theorem qiFr_annotOk_tyB {cval : ConstVal V} {A R : V}
+    (hfindQ : env.find? quotName = some quotA)
+    (hvalQ : ∀ ψ' : Name → Nat, cval quotName ψ' = quotVal V ψ')
+    (hA : A ∈ˢ univ (ψ uN)) (hR : R ∈ˢ relSpace V (ψ uN) A) :
+    AnnotOk V cval env ψ 2 (updV V (updV V (rho0 V) 0 A) 1 R) qiFrTyB := by
+  have hfindQ' : env.find? (Name.anonymous.str "Quot") = some quotA :=
+    hfindQ
+  have hvalQ' : ∀ ψ' : Name → Nat,
+      cval (Name.anonymous.str "Quot") ψ' = quotVal V ψ' := hvalQ
+  simp only [qiFrTyB, qFrA, qFrR, qFrTyR, AnnotOk]
+  refine ⟨⟨⟨trivial, trivial,
+      quotVal V ψ, A, ψ uN + 1, univ (ψ uN),
+      (fun X => pi (ψ uN + 1) (relSpace V (ψ uN) X) fun _ =>
+        univ (ψ uN)),
+      ?_, ?_, quotVal_mem', hA, fun X hX => quotVal_fib_univ' hX⟩,
+    trivial,
+    SetTheory.app (quotVal V ψ) A, R, ψ uN + 1, relSpace V (ψ uN) A,
+      (fun _ => univ (ψ uN)),
+      ?_, ?_, quotVal_app_mem' hA, hR,
+      fun _ _ => univ_mem_univ (ψ uN)⟩, ⟨_, rfl⟩, ?_⟩
+  · simp [interpExpr, Expr.instantiate1, updV, hfindQ', hvalQ', quotA,
+      ConstantInfo.toConstantVal]
+    try rfl
+  · simp [interpExpr, Expr.instantiate1, updV]
+  · rw [interpExpr]
+    simp [interpExpr, Expr.instantiate1, updV, hfindQ', hvalQ', quotA,
+      ConstantInfo.toConstantVal]
+    try rfl
+  · simp [interpExpr, Expr.instantiate1, updV]
+  · intro q Sq hSq hq
+    refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
+    intro v hv
+    obtain rfl := Option.some.inj hv
+    refine ⟨univ 0, ?_, ?_⟩
+    · simp [interpExpr, Expr.instantiate1, updV, Level.eval]
+    · exact univ_mem_univ 0
+
+theorem qiFr_interp_tyMk {cval : ConstVal V} {A R B : V}
+    (hfindMk : env.find? quotMkName = some quotMkA)
+    (hvalMk : ∀ ψ' : Name → Nat, cval quotMkName ψ' = quotMkVal V ψ') :
+    interpExpr V cval env ψ 3
+      (updV V (updV V (updV V (rho0 V) 0 A) 1 R) 2 B) qiFrTyMk =
+      some (pi 0 A fun a => SetTheory.app B
+        (SetTheory.app (SetTheory.app (SetTheory.app (quotMkVal V ψ) A) R)
+          a)) := by
+  have hfindMk' : env.find? ((Name.anonymous.str "Quot").str "mk") =
+      some quotMkA := hfindMk
+  have hvalMk' : ∀ ψ' : Name → Nat,
+      cval ((Name.anonymous.str "Quot").str "mk") ψ' = quotMkVal V ψ' :=
+    hvalMk
+  simp [qiFrTyMk, qiFrB, qiFrTyB, qFrMkC, qFrA, qFrR, qFrTyR, interpExpr,
+    Expr.instantiate1, updV, hfindMk', hvalMk', quotMkA,
+    ConstantInfo.toConstantVal, Level.eval,
+    -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
+  try rfl
+
+theorem qiFr_annotOk_tyMk {cval : ConstVal V} {A R B : V}
+    (hfindMk : env.find? quotMkName = some quotMkA)
+    (hvalMk : ∀ ψ' : Name → Nat, cval quotMkName ψ' = quotMkVal V ψ')
+    (hA : A ∈ˢ univ (ψ uN)) (hR : R ∈ˢ relSpace V (ψ uN) A)
+    (hB : B ∈ˢ pi 1 (SetTheory.app (SetTheory.app (quotVal V ψ) A) R)
+      fun _ => univ 0) :
+    AnnotOk V cval env ψ 3
+      (updV V (updV V (updV V (rho0 V) 0 A) 1 R) 2 B) qiFrTyMk := by
+  have hfindMk' : env.find? ((Name.anonymous.str "Quot").str "mk") =
+      some quotMkA := hfindMk
+  have hvalMk' : ∀ ψ' : Name → Nat,
+      cval ((Name.anonymous.str "Quot").str "mk") ψ' = quotMkVal V ψ' :=
+    hvalMk
+  have hchain : ∀ a, a ∈ˢ A →
+      SetTheory.app (SetTheory.app (SetTheory.app (quotMkVal V ψ) A) R)
+        a ∈ˢ SetTheory.app (SetTheory.app (quotVal V ψ) A) R := by
+    intro a ha
+    rw [quotVal_app₂' hA hR, quotMkVal_app₃' hA hR ha]
+    exact quotClass_mem ha
+  simp only [qiFrTyMk, qiFrB, qiFrTyB, qFrMkC, qFrA, qFrR, qFrTyR, AnnotOk]
+  refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+  intro a Sa hSa ha
+  have hSa' : Sa = A := by
+    simp [interpExpr, updV] at hSa
+    exact hSa.symm
+  rw [hSa'] at ha
+  refine ⟨?_, ?_⟩
+  · -- the body `β (Quot.mk α r a)`
+    try simp only [Expr.instantiate1, reduceIte, AnnotOk]
+    refine ⟨(by simp [Expr.instantiate1, AnnotOk]),
+      ⟨⟨⟨(by simp [Expr.instantiate1, AnnotOk]),
+        (by simp [Expr.instantiate1, AnnotOk]),
+        quotMkVal V ψ, A, ψ uN, univ (ψ uN),
+        (fun X => pi (ψ uN) (relSpace V (ψ uN) X) fun R' =>
+          pi (ψ uN) X fun _ => quotSet (ψ uN) X R'),
+        ?_, ?_, quotMkVal_mem', hA, fun X hX => quotMkD1_univ' hX⟩,
+      (by simp [Expr.instantiate1, AnnotOk]),
+      SetTheory.app (quotMkVal V ψ) A, R, ψ uN, relSpace V (ψ uN) A,
+        (fun R' => pi (ψ uN) A fun _ => quotSet (ψ uN) A R'),
+        ?_, ?_, quotMkVal_app_mem' hA, hR,
+        fun R' _ => quotMkD2_univ' hA⟩,
+      (by simp [Expr.instantiate1, AnnotOk]),
+      SetTheory.app (SetTheory.app (quotMkVal V ψ) A) R, a, ψ uN, A,
+        (fun _ => quotSet (ψ uN) A R),
+        ?_, ?_, quotMkVal_app₂_mem' hA hR, ha,
+        fun _ _ => quotSet_mem_univ hA⟩,
+      B,
+      SetTheory.app (SetTheory.app (SetTheory.app (quotMkVal V ψ) A) R)
+        a,
+      1, SetTheory.app (SetTheory.app (quotVal V ψ) A) R,
+      (fun _ => univ 0),
+      ?_, ?_, hB, hchain a ha, fun _ _ => univ_mem_univ 0⟩
+    · simp [interpExpr, Expr.instantiate1, updV, hfindMk', hvalMk',
+        quotMkA, ConstantInfo.toConstantVal]
+      try rfl
+    · simp [interpExpr, Expr.instantiate1, updV]
+    · rw [interpExpr]
+      simp [interpExpr, Expr.instantiate1, updV, hfindMk', hvalMk',
+        quotMkA, ConstantInfo.toConstantVal]
+      try rfl
+    · simp [interpExpr, Expr.instantiate1, updV]
+    · rw [interpExpr]
+      rw [interpExpr]
+      simp [interpExpr, Expr.instantiate1, updV, hfindMk', hvalMk',
+        quotMkA, ConstantInfo.toConstantVal]
+      try rfl
+    · simp [interpExpr, Expr.instantiate1, updV]
+    · simp [interpExpr, Expr.instantiate1, updV]
+    · rw [interpExpr]
+      rw [interpExpr]
+      rw [interpExpr]
+      simp [interpExpr, Expr.instantiate1, updV, hfindMk', hvalMk',
+        quotMkA, ConstantInfo.toConstantVal]
+      try rfl
+  · intro v hv
+    obtain rfl := Option.some.inj hv
+    refine ⟨SetTheory.app B (SetTheory.app (SetTheory.app
+      (SetTheory.app (quotMkVal V ψ) A) R) a), ?_, ?_⟩
+    · simp [interpExpr, Expr.instantiate1, updV, hfindMk', hvalMk',
+        quotMkA, ConstantInfo.toConstantVal]
+      try rfl
+    · exact app_mem hB (hchain a ha) (fun _ _ => univ_mem_univ 0)
+
+/-! ## The `RecRulesOk` clauses of the two eliminators -/
+
+/-- The `RecRulesOk` clause of `Quot.lift`'s synthetic rule. -/
+theorem quotLift_ruleOk {cval : ConstVal V}
+    (hfindE : env.find? eqName = some eqA)
+    (hvalE : ∀ ψ' : Name → Nat, cval eqName ψ' = eqVal V ψ')
+    (hfindQ : env.find? quotName = some quotA)
+    (hvalQ : ∀ ψ' : Name → Nat, cval quotName ψ' = quotVal V ψ')
+    (hfindMk : env.find? quotMkName = some quotMkA)
+    (hvalMk : ∀ ψ' : Name → Nat, cval quotMkName ψ' = quotMkVal V ψ')
+    (hfindL : env.find? quotLiftName = some quotLiftA)
+    (hvalL : ∀ ψ' : Name → Nat,
+      cval quotLiftName ψ' = quotLiftVal V ψ') :
+    ∃ fvms bL,
+      ruleLhsParts quotLiftName quotLiftA.toConstantVal 5
+        ((ConstantInfo.recRules quotLiftA).getD 0 default)
+        quotMkA.toConstantVal = some (fvms, bL) ∧
+      FrameWf 0 fvms bL ∧
+      fvms.length = 5 +
+        RecRule.nfields ((ConstantInfo.recRules quotLiftA).getD 0 default) ∧
+      (closeLamsAt fvms bL).constsResolve env = true ∧
+      ∀ ψ' : Name → Nat,
+        AnnotOk V cval env ψ' 0 (rho0 V) (closeLamsAt fvms bL) ∧
+        ∃ Rv, interpClosed V cval env ψ' (closeLamsAt fvms bL) = some Rv ∧
+          interpClosed V cval env ψ' quotLiftRhsA = some Rv := by
+  have hfindE' : env.find? (Name.anonymous.str "Eq") = some eqA := hfindE
+  have hvalE' : ∀ ψ' : Name → Nat,
+      cval (Name.anonymous.str "Eq") ψ' = eqVal V ψ' := hvalE
+  have hfindQ' : env.find? (Name.anonymous.str "Quot") = some quotA :=
+    hfindQ
+  have hvalQ' : ∀ ψ' : Name → Nat,
+      cval (Name.anonymous.str "Quot") ψ' = quotVal V ψ' := hvalQ
+  have hfindMk' : env.find? ((Name.anonymous.str "Quot").str "mk") =
+      some quotMkA := hfindMk
+  have hvalMk' : ∀ ψ' : Name → Nat,
+      cval ((Name.anonymous.str "Quot").str "mk") ψ' = quotMkVal V ψ' :=
+    hvalMk
+  have hfindL' : env.find? ((Name.anonymous.str "Quot").str "lift") =
+      some quotLiftA := hfindL
+  have hvalL' : ∀ ψ' : Name → Nat,
+      cval ((Name.anonymous.str "Quot").str "lift") ψ' =
+        quotLiftVal V ψ' := hvalL
+  have hparts : ruleLhsParts quotLiftName quotLiftA.toConstantVal 5
+      ((ConstantInfo.recRules quotLiftA).getD 0 default)
+      quotMkA.toConstantVal = some
+      ([(qFrA, ⟨.default, some (.imax
+          (.imax (.param (Name.anonymous.str "u"))
+            (.imax (.param (Name.anonymous.str "u")) (.succ .zero)))
+          (.imax (.succ (.param (Name.anonymous.str "v")))
+            (.imax (.imax (.param (Name.anonymous.str "u"))
+              (.param (Name.anonymous.str "v")))
+              (.imax (.imax (.param (Name.anonymous.str "u"))
+                (.imax (.param (Name.anonymous.str "u"))
+                  (.imax .zero .zero)))
+                (.imax (.param (Name.anonymous.str "u"))
+                  (.param (Name.anonymous.str "v")))))))⟩),
+        (qFrR, ⟨.default, some (.imax
+          (.succ (.param (Name.anonymous.str "v")))
+          (.imax (.imax (.param (Name.anonymous.str "u"))
+            (.param (Name.anonymous.str "v")))
+            (.imax (.imax (.param (Name.anonymous.str "u"))
+              (.imax (.param (Name.anonymous.str "u"))
+                (.imax .zero .zero)))
+              (.imax (.param (Name.anonymous.str "u"))
+                (.param (Name.anonymous.str "v"))))))⟩),
+        (qlFrB, ⟨.default, some (.imax
+          (.imax (.param (Name.anonymous.str "u"))
+            (.param (Name.anonymous.str "v")))
+          (.imax (.imax (.param (Name.anonymous.str "u"))
+            (.imax (.param (Name.anonymous.str "u"))
+              (.imax .zero .zero)))
+            (.imax (.param (Name.anonymous.str "u"))
+              (.param (Name.anonymous.str "v")))))⟩),
+        (qlFrF, ⟨.default, some (.imax
+          (.imax (.param (Name.anonymous.str "u"))
+            (.imax (.param (Name.anonymous.str "u")) (.imax .zero .zero)))
+          (.imax (.param (Name.anonymous.str "u"))
+            (.param (Name.anonymous.str "v"))))⟩),
+        (qlFrH, ⟨.default, some (.imax (.param (Name.anonymous.str "u"))
+          (.param (Name.anonymous.str "v")))⟩),
+        (qlFrq, ⟨.default, some (.param (Name.anonymous.str "v"))⟩)],
+       .app (.app (.app (.app (.app (.app qlFrRec qFrA) qFrR) qlFrB)
+           qlFrF) qlFrH)
+         (.app (.app (.app qFrMkC qFrA) qFrR) qlFrq)) := by rfl
+  obtain ⟨hwf, hlen⟩ := ruleLhsParts_frameWf hparts rfl rfl rfl rfl
+    (fun _ _ h => nomatch h)
+  refine ⟨_, _, hparts, hwf, hlen, ?_, ?_⟩
+  · exact ruleLhsParts_resolve hparts
+      (by rw [hfindL]; rfl)
+      (show (env.find? ((Name.anonymous.str "Quot").str "mk")).isSome =
+          true by rw [hfindMk']; rfl)
+      (by simp [ConstantInfo.toConstantVal, quotLiftA, Expr.constsResolve,
+        hfindE', hfindQ'])
+      (by simp [ConstantInfo.toConstantVal, quotMkA, Expr.constsResolve,
+        hfindQ'])
+      (fun _ _ h => nomatch h)
+  · intro ψ'
+    have hAR : AnnotOk V cval env ψ' 0 (rho0 V) quotLiftRhsA :=
+      annotOk_quotLift_rhs (cval := cval) (ψ := ψ') hfindE hvalE
+    have hstep : ∀ {fvms : List (Expr × BinderMeta)} {bL : Expr},
+        FrameWf 0 fvms bL →
+        TowerOk (V := V) cval env ψ' 0 (rho0 V) fvms bL quotLiftRhsA →
+        AnnotOk V cval env ψ' 0 (rho0 V) (closeLamsAt fvms bL) ∧
+        ∃ Rv, interpClosed V cval env ψ' (closeLamsAt fvms bL) = some Rv ∧
+          interpClosed V cval env ψ' quotLiftRhsA = some Rv := by
+      intro fvms bL hwf' ht
+      obtain ⟨⟨Rv, hL, hR⟩, hA⟩ := TowerOk.out ht hwf' hAR
+      exact ⟨hA, Rv, hL, hR⟩
+    refine hstep hwf ?_
+    have hityA : interpExpr V cval env ψ' 0 (rho0 V)
+        (Expr.sort (Level.param (Name.anonymous.str "u"))) =
+        some (univ (ψ' uN)) := by
+      simp [interpExpr, Level.eval, uN]
+    refine TowerOk.cons (A := univ (ψ' uN)) hityA hityA
+      (by simp [AnnotOk]) ?_
+    intro A hA
+    refine TowerOk.cons (A := relSpace V (ψ' uN) A)
+      (qFr_interp_tyR (cval := cval)) (qFr_interp_tyR (cval := cval))
+      (qFr_annotOk_tyR hA) ?_
+    intro R hR
+    have hityB : interpExpr V cval env ψ' 2
+        (updV V (updV V (rho0 V) 0 A) 1 R)
+        (Expr.sort (Level.param (Name.anonymous.str "v"))) =
+        some (univ (ψ' vN)) := by
+      simp [interpExpr, Level.eval, vN]
+    refine TowerOk.cons (A := univ (ψ' vN)) hityB hityB
+      (by simp [AnnotOk]) ?_
+    intro B hB
+    refine TowerOk.cons (A := pi (ψ' vN) A fun _ => B)
+      (qlFr_interp_tyF (cval := cval)) (qlFr_interp_tyF (cval := cval))
+      (qlFr_annotOk_tyF hB) ?_
+    intro f hf
+    refine TowerOk.cons (A := qlInvI V ψ' A R B f)
+      (qlFr_interp_tyH hfindE hvalE) (qlFr_interp_tyH hfindE hvalE)
+      (qlFr_annotOk_tyH hfindE hvalE hA hR hB hf) ?_
+    intro h hh
+    have hityq : interpExpr V cval env ψ' 5
+        (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R) 2 B)
+          3 f) 4 h) qFrA = some A := by
+      simp [qFrA, interpExpr, updV]
+    refine TowerOk.cons (A := A) hityq hityq
+      (by simp [qFrA, AnnotOk]) ?_
+    intro a ha
+    have hh' : h ∈ˢ quotInvSpace V A R f := qlInvEq hB hf ▸ hh
+    have hsub2 : Level.substFn ψ'
+        [Name.anonymous.str "u", Name.anonymous.str "v"]
+        [Level.param (Name.anonymous.str "u"),
+         Level.param (Name.anonymous.str "v")] = ψ' :=
+      funext fun _ => Level.substFn_map_param
+    have hsub1 : Level.substFn ψ' [Name.anonymous.str "u"]
+        [Level.param (Name.anonymous.str "u")] = ψ' :=
+      funext fun _ => Level.substFn_map_param
+    have hirec : interpExpr V cval env ψ' 6
+        (updV V (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R)
+          2 B) 3 f) 4 h) 5 a) qlFrRec = some (quotLiftVal V ψ') := by
+      simp only [qlFrRec, interpExpr, hfindL', quotLiftA,
+        ConstantInfo.toConstantVal, List.length_cons, List.length_nil,
+        reduceIte, hsub2, hvalL']
+    have himkC : interpExpr V cval env ψ' 6
+        (updV V (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R)
+          2 B) 3 f) 4 h) 5 a) qFrMkC = some (quotMkVal V ψ') := by
+      simp only [qFrMkC, interpExpr, hfindMk', quotMkA,
+        ConstantInfo.toConstantVal, List.length_cons, List.length_nil,
+        reduceIte, hsub1, hvalMk']
+    have hifvA : interpExpr V cval env ψ' 6
+        (updV V (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R)
+          2 B) 3 f) 4 h) 5 a) qFrA = some A := by
+      simp [qFrA, interpExpr, updV]
+    have hifvR : interpExpr V cval env ψ' 6
+        (updV V (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R)
+          2 B) 3 f) 4 h) 5 a) qFrR = some R := by
+      simp [qFrR, interpExpr, updV]
+    have hifvB : interpExpr V cval env ψ' 6
+        (updV V (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R)
+          2 B) 3 f) 4 h) 5 a) qlFrB = some B := by
+      simp [qlFrB, interpExpr, updV]
+    have hifvF : interpExpr V cval env ψ' 6
+        (updV V (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R)
+          2 B) 3 f) 4 h) 5 a) qlFrF = some f := by
+      simp [qlFrF, interpExpr, updV]
+    have hifvH : interpExpr V cval env ψ' 6
+        (updV V (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R)
+          2 B) 3 f) 4 h) 5 a) qlFrH = some h := by
+      simp [qlFrH, interpExpr, updV]
+    have hifvq : interpExpr V cval env ψ' 6
+        (updV V (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R)
+          2 B) 3 f) 4 h) 5 a) qlFrq = some a := by
+      simp [qlFrq, interpExpr, updV]
+    have hip1 : interpExpr V cval env ψ' 6
+        (updV V (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R)
+          2 B) 3 f) 4 h) 5 a) (.app qlFrRec qFrA) =
+        some (SetTheory.app (quotLiftVal V ψ') A) := by
+      rw [interpExpr, hirec, hifvA]
+    have hip2 : interpExpr V cval env ψ' 6
+        (updV V (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R)
+          2 B) 3 f) 4 h) 5 a) (.app (.app qlFrRec qFrA) qFrR) =
+        some (SetTheory.app (SetTheory.app (quotLiftVal V ψ') A) R) := by
+      rw [interpExpr, hip1, hifvR]
+    have hip3 : interpExpr V cval env ψ' 6
+        (updV V (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R)
+          2 B) 3 f) 4 h) 5 a)
+        (.app (.app (.app qlFrRec qFrA) qFrR) qlFrB) =
+        some (SetTheory.app (SetTheory.app (SetTheory.app
+          (quotLiftVal V ψ') A) R) B) := by
+      rw [interpExpr, hip2, hifvB]
+    have hip4 : interpExpr V cval env ψ' 6
+        (updV V (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R)
+          2 B) 3 f) 4 h) 5 a)
+        (.app (.app (.app (.app qlFrRec qFrA) qFrR) qlFrB) qlFrF) =
+        some (SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app
+          (quotLiftVal V ψ') A) R) B) f) := by
+      rw [interpExpr, hip3, hifvF]
+    have hip5 : interpExpr V cval env ψ' 6
+        (updV V (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R)
+          2 B) 3 f) 4 h) 5 a)
+        (.app (.app (.app (.app (.app qlFrRec qFrA) qFrR) qlFrB) qlFrF)
+          qlFrH) =
+        some (SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app
+          (SetTheory.app (quotLiftVal V ψ') A) R) B) f) h) := by
+      rw [interpExpr, hip4, hifvH]
+    have hiq1 : interpExpr V cval env ψ' 6
+        (updV V (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R)
+          2 B) 3 f) 4 h) 5 a) (.app qFrMkC qFrA) =
+        some (SetTheory.app (quotMkVal V ψ') A) := by
+      rw [interpExpr, himkC, hifvA]
+    have hiq2 : interpExpr V cval env ψ' 6
+        (updV V (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R)
+          2 B) 3 f) 4 h) 5 a) (.app (.app qFrMkC qFrA) qFrR) =
+        some (SetTheory.app (SetTheory.app (quotMkVal V ψ') A) R) := by
+      rw [interpExpr, hiq1, hifvR]
+    have hiq3 : interpExpr V cval env ψ' 6
+        (updV V (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R)
+          2 B) 3 f) 4 h) 5 a)
+        (.app (.app (.app qFrMkC qFrA) qFrR) qlFrq) =
+        some (SetTheory.app (SetTheory.app (SetTheory.app
+          (quotMkVal V ψ') A) R) a) := by
+      rw [interpExpr, hiq2, hifvq]
+    obtain ⟨T, hT, hmem⟩ := quotLift_key (cval := cval) (env := env)
+      (ψ := ψ') hfindE hvalE hfindQ hvalQ
+    rw [interp_quotLift_type hfindE hvalE hfindQ hvalQ] at hT
+    obtain rfl := Option.some.inj hT
+    have hm1 := app_mem hmem hA (fun A' hA' => qlT1_univ hA')
+    have hm2 := app_mem hm1 hR (fun R' hR' => qlT2_univ hA hR')
+    have hm3 := app_mem hm2 hB (fun B' hB' => qlT3_univ hA hR hB')
+    have hm4 := app_mem hm3 hf (fun f' hf' => qlT4_univ hA hR hB hf')
+    have hm5 := app_mem hm4 hh (fun _ _ => qlT5_univ hA hR hB)
+    have hqv : SetTheory.app (SetTheory.app (SetTheory.app
+        (quotMkVal V ψ') A) R) a ∈ˢ
+        SetTheory.app (SetTheory.app (quotVal V ψ') A) R := by
+      rw [quotVal_app₂' hA hR, quotMkVal_app₃' hA hR ha]
+      exact quotClass_mem ha
+    refine TowerOk.nil (w := SetTheory.app f a) ?_ ?_ ?_
+    · rw [interpExpr, hip5, hiq3]
+      show some (SetTheory.app (SetTheory.app (SetTheory.app
+        (SetTheory.app (SetTheory.app (SetTheory.app (quotLiftVal V ψ') A)
+          R) B) f) h)
+        (SetTheory.app (SetTheory.app (SetTheory.app (quotMkVal V ψ') A)
+          R) a)) = some (SetTheory.app f a)
+      rw [quotLiftVal_fold hA hR hB hf hh' ha]
+    · show interpExpr V cval env ψ' 6
+        (updV V (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R)
+          2 B) 3 f) 4 h) 5 a)
+        (.app qlFrF qlFrq) = some (SetTheory.app f a)
+      rw [interpExpr, hifvF, hifvq]
+    · simp only [AnnotOk, qlFrRec, qFrMkC, qFrA, qFrR, qFrTyR, qlFrB,
+        qlFrF, qlFrTyF, qlFrH, qlFrTyH, qlFrq]
+      exact ⟨⟨⟨⟨⟨⟨trivial, trivial,
+          quotLiftVal V ψ', A, qlA (ψ' uN) (ψ' vN), univ (ψ' uN), _,
+          hirec, hifvA, hmem, hA, fun A' hA' => qlT1_univ hA'⟩,
+        (by simp [Expr.instantiate1, AnnotOk]),
+        SetTheory.app (quotLiftVal V ψ') A, R, qlR (ψ' uN) (ψ' vN),
+          relSpace V (ψ' uN) A, _,
+          hip1, hifvR, hm1, hR, fun R' hR' => qlT2_univ hA hR'⟩,
+        trivial,
+        SetTheory.app (SetTheory.app (quotLiftVal V ψ') A) R, B,
+          qlB (ψ' uN) (ψ' vN), univ (ψ' vN), _,
+          hip2, hifvB, hm2, hB, fun B' hB' => qlT3_univ hA hR hB'⟩,
+        (by simp [Expr.instantiate1, AnnotOk]),
+        SetTheory.app (SetTheory.app (SetTheory.app (quotLiftVal V ψ') A)
+          R) B, f, qlV (ψ' uN) (ψ' vN), pi (ψ' vN) A (fun _ => B), _,
+          hip3, hifvF, hm3, hf, fun f' hf' => qlT4_univ hA hR hB hf'⟩,
+        (by simp [Expr.instantiate1, AnnotOk]),
+        SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app
+          (quotLiftVal V ψ') A) R) B) f, h, qlQ (ψ' uN) (ψ' vN),
+          qlInvI V ψ' A R B f, _,
+          hip4, hifvH, hm4, hh, fun _ _ => qlT5_univ hA hR hB⟩,
+        ⟨⟨⟨trivial, trivial,
+          quotMkVal V ψ', A, ψ' uN, univ (ψ' uN),
+          (fun X => pi (ψ' uN) (relSpace V (ψ' uN) X) fun R' =>
+            pi (ψ' uN) X fun _ => quotSet (ψ' uN) X R'),
+          himkC, hifvA, quotMkVal_mem', hA,
+          fun X hX => quotMkD1_univ' hX⟩,
+        (by simp [Expr.instantiate1, AnnotOk]),
+        SetTheory.app (quotMkVal V ψ') A, R, ψ' uN,
+          relSpace V (ψ' uN) A,
+          (fun R' => pi (ψ' uN) A fun _ => quotSet (ψ' uN) A R'),
+          hiq1, hifvR, quotMkVal_app_mem' hA, hR,
+          fun R' _ => quotMkD2_univ' hA⟩,
+        trivial,
+        SetTheory.app (SetTheory.app (quotMkVal V ψ') A) R, a, ψ' uN, A,
+          (fun _ => quotSet (ψ' uN) A R),
+          hiq2, hifvq, quotMkVal_app₂_mem' hA hR, ha,
+          fun _ _ => quotSet_mem_univ hA⟩,
+        SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app
+          (SetTheory.app (quotLiftVal V ψ') A) R) B) f) h,
+        SetTheory.app (SetTheory.app (SetTheory.app (quotMkVal V ψ') A)
+          R) a,
+        ψ' vN, SetTheory.app (SetTheory.app (quotVal V ψ') A) R,
+        (fun _ => B),
+        hip5, hiq3, hm5, hqv, fun _ _ => hB⟩
+
+/-- The `RecRulesOk` clause of `Quot.ind`'s synthetic rule. -/
+theorem quotInd_ruleOk {cval : ConstVal V}
+    (hfindQ : env.find? quotName = some quotA)
+    (hvalQ : ∀ ψ' : Name → Nat, cval quotName ψ' = quotVal V ψ')
+    (hfindMk : env.find? quotMkName = some quotMkA)
+    (hvalMk : ∀ ψ' : Name → Nat, cval quotMkName ψ' = quotMkVal V ψ')
+    (hfindI : env.find? quotIndName = some quotIndA)
+    (hvalI : ∀ ψ' : Name → Nat,
+      cval quotIndName ψ' = quotIndVal V ψ') :
+    ∃ fvms bL,
+      ruleLhsParts quotIndName quotIndA.toConstantVal 4
+        ((ConstantInfo.recRules quotIndA).getD 0 default)
+        quotMkA.toConstantVal = some (fvms, bL) ∧
+      FrameWf 0 fvms bL ∧
+      fvms.length = 4 +
+        RecRule.nfields ((ConstantInfo.recRules quotIndA).getD 0 default) ∧
+      (closeLamsAt fvms bL).constsResolve env = true ∧
+      ∀ ψ' : Name → Nat,
+        AnnotOk V cval env ψ' 0 (rho0 V) (closeLamsAt fvms bL) ∧
+        ∃ Rv, interpClosed V cval env ψ' (closeLamsAt fvms bL) = some Rv ∧
+          interpClosed V cval env ψ' quotIndRhsA = some Rv := by
+  have hfindQ' : env.find? (Name.anonymous.str "Quot") = some quotA :=
+    hfindQ
+  have hvalQ' : ∀ ψ' : Name → Nat,
+      cval (Name.anonymous.str "Quot") ψ' = quotVal V ψ' := hvalQ
+  have hfindMk' : env.find? ((Name.anonymous.str "Quot").str "mk") =
+      some quotMkA := hfindMk
+  have hvalMk' : ∀ ψ' : Name → Nat,
+      cval ((Name.anonymous.str "Quot").str "mk") ψ' = quotMkVal V ψ' :=
+    hvalMk
+  have hfindI' : env.find? ((Name.anonymous.str "Quot").str "ind") =
+      some quotIndA := hfindI
+  have hvalI' : ∀ ψ' : Name → Nat,
+      cval ((Name.anonymous.str "Quot").str "ind") ψ' = quotIndVal V ψ' :=
+    hvalI
+  have hparts : ruleLhsParts quotIndName quotIndA.toConstantVal 4
+      ((ConstantInfo.recRules quotIndA).getD 0 default)
+      quotMkA.toConstantVal = some
+      ([(qFrA, ⟨.default, some (.imax
+          (.imax (.param (Name.anonymous.str "u"))
+            (.imax (.param (Name.anonymous.str "u")) (.succ .zero)))
+          (.imax (.imax (.param (Name.anonymous.str "u")) (.succ .zero))
+            (.imax (.imax (.param (Name.anonymous.str "u")) .zero)
+              (.imax (.param (Name.anonymous.str "u")) .zero))))⟩),
+        (qFrR, ⟨.default, some (.imax
+          (.imax (.param (Name.anonymous.str "u")) (.succ .zero))
+          (.imax (.imax (.param (Name.anonymous.str "u")) .zero)
+            (.imax (.param (Name.anonymous.str "u")) .zero)))⟩),
+        (qiFrB, ⟨.default, some (.imax
+          (.imax (.param (Name.anonymous.str "u")) .zero)
+          (.imax (.param (Name.anonymous.str "u")) .zero))⟩),
+        (qiFrMk, ⟨.default,
+          some (.imax (.param (Name.anonymous.str "u")) .zero)⟩),
+        (qiFra, ⟨.default, some .zero⟩)],
+       .app (.app (.app (.app (.app qiFrRec qFrA) qFrR) qiFrB) qiFrMk)
+         (.app (.app (.app qFrMkC qFrA) qFrR) qiFra)) := by rfl
+  obtain ⟨hwf, hlen⟩ := ruleLhsParts_frameWf hparts rfl rfl rfl rfl
+    (fun _ _ h => nomatch h)
+  refine ⟨_, _, hparts, hwf, hlen, ?_, ?_⟩
+  · exact ruleLhsParts_resolve hparts
+      (by rw [hfindI]; rfl)
+      (show (env.find? ((Name.anonymous.str "Quot").str "mk")).isSome =
+          true by rw [hfindMk']; rfl)
+      (by simp [ConstantInfo.toConstantVal, quotIndA, Expr.constsResolve,
+        hfindQ', hfindMk'])
+      (by simp [ConstantInfo.toConstantVal, quotMkA, Expr.constsResolve,
+        hfindQ'])
+      (fun _ _ h => nomatch h)
+  · intro ψ'
+    have hAR : AnnotOk V cval env ψ' 0 (rho0 V) quotIndRhsA :=
+      annotOk_quotInd_rhs (cval := cval) (ψ := ψ') hfindQ hvalQ hfindMk
+        hvalMk
+    have hstep : ∀ {fvms : List (Expr × BinderMeta)} {bL : Expr},
+        FrameWf 0 fvms bL →
+        TowerOk (V := V) cval env ψ' 0 (rho0 V) fvms bL quotIndRhsA →
+        AnnotOk V cval env ψ' 0 (rho0 V) (closeLamsAt fvms bL) ∧
+        ∃ Rv, interpClosed V cval env ψ' (closeLamsAt fvms bL) = some Rv ∧
+          interpClosed V cval env ψ' quotIndRhsA = some Rv := by
+      intro fvms bL hwf' ht
+      obtain ⟨⟨Rv, hL, hR⟩, hA⟩ := TowerOk.out ht hwf' hAR
+      exact ⟨hA, Rv, hL, hR⟩
+    refine hstep hwf ?_
+    have hityA : interpExpr V cval env ψ' 0 (rho0 V)
+        (Expr.sort (Level.param (Name.anonymous.str "u"))) =
+        some (univ (ψ' uN)) := by
+      simp [interpExpr, Level.eval, uN]
+    refine TowerOk.cons (A := univ (ψ' uN)) hityA hityA
+      (by simp [AnnotOk]) ?_
+    intro A hA
+    refine TowerOk.cons (A := relSpace V (ψ' uN) A)
+      (qFr_interp_tyR (cval := cval)) (qFr_interp_tyR (cval := cval))
+      (qFr_annotOk_tyR hA) ?_
+    intro R hR
+    refine TowerOk.cons (A := pi 1
+        (SetTheory.app (SetTheory.app (quotVal V ψ') A) R) fun _ => univ 0)
+      (qiFr_interp_tyB hfindQ hvalQ) (qiFr_interp_tyB hfindQ hvalQ)
+      (qiFr_annotOk_tyB hfindQ hvalQ hA hR) ?_
+    intro B hB
+    refine TowerOk.cons (A := pi 0 A fun a => SetTheory.app B
+        (SetTheory.app (SetTheory.app (SetTheory.app (quotMkVal V ψ') A)
+          R) a))
+      (qiFr_interp_tyMk hfindMk hvalMk) (qiFr_interp_tyMk hfindMk hvalMk)
+      (qiFr_annotOk_tyMk hfindMk hvalMk hA hR hB) ?_
+    intro mk hmk
+    have hitya : interpExpr V cval env ψ' 4
+        (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R) 2 B) 3 mk)
+        qFrA = some A := by
+      simp [qFrA, interpExpr, updV]
+    refine TowerOk.cons (A := A) hitya hitya
+      (by simp [qFrA, AnnotOk]) ?_
+    intro a ha
+    have hmkpt : mk = pt :=
+      mem_univ_zero (qi_minor_univ0 hA hR hB) hmk
+    have hsub1 : Level.substFn ψ' [Name.anonymous.str "u"]
+        [Level.param (Name.anonymous.str "u")] = ψ' :=
+      funext fun _ => Level.substFn_map_param
+    have hirec : interpExpr V cval env ψ' 5
+        (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R) 2 B)
+          3 mk) 4 a) qiFrRec = some (quotIndVal V ψ') := by
+      simp only [qiFrRec, interpExpr, hfindI', quotIndA,
+        ConstantInfo.toConstantVal, List.length_cons, List.length_nil,
+        reduceIte, hsub1, hvalI']
+    have himkC : interpExpr V cval env ψ' 5
+        (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R) 2 B)
+          3 mk) 4 a) qFrMkC = some (quotMkVal V ψ') := by
+      simp only [qFrMkC, interpExpr, hfindMk', quotMkA,
+        ConstantInfo.toConstantVal, List.length_cons, List.length_nil,
+        reduceIte, hsub1, hvalMk']
+    have hifvA : interpExpr V cval env ψ' 5
+        (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R) 2 B)
+          3 mk) 4 a) qFrA = some A := by
+      simp [qFrA, interpExpr, updV]
+    have hifvR : interpExpr V cval env ψ' 5
+        (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R) 2 B)
+          3 mk) 4 a) qFrR = some R := by
+      simp [qFrR, interpExpr, updV]
+    have hifvB : interpExpr V cval env ψ' 5
+        (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R) 2 B)
+          3 mk) 4 a) qiFrB = some B := by
+      simp [qiFrB, interpExpr, updV]
+    have hifvMk : interpExpr V cval env ψ' 5
+        (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R) 2 B)
+          3 mk) 4 a) qiFrMk = some mk := by
+      simp [qiFrMk, interpExpr, updV]
+    have hifva : interpExpr V cval env ψ' 5
+        (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R) 2 B)
+          3 mk) 4 a) qiFra = some a := by
+      simp [qiFra, interpExpr, updV]
+    have hip1 : interpExpr V cval env ψ' 5
+        (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R) 2 B)
+          3 mk) 4 a) (.app qiFrRec qFrA) =
+        some (SetTheory.app (quotIndVal V ψ') A) := by
+      rw [interpExpr, hirec, hifvA]
+    have hip2 : interpExpr V cval env ψ' 5
+        (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R) 2 B)
+          3 mk) 4 a) (.app (.app qiFrRec qFrA) qFrR) =
+        some (SetTheory.app (SetTheory.app (quotIndVal V ψ') A) R) := by
+      rw [interpExpr, hip1, hifvR]
+    have hip3 : interpExpr V cval env ψ' 5
+        (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R) 2 B)
+          3 mk) 4 a) (.app (.app (.app qiFrRec qFrA) qFrR) qiFrB) =
+        some (SetTheory.app (SetTheory.app (SetTheory.app
+          (quotIndVal V ψ') A) R) B) := by
+      rw [interpExpr, hip2, hifvB]
+    have hip4 : interpExpr V cval env ψ' 5
+        (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R) 2 B)
+          3 mk) 4 a)
+        (.app (.app (.app (.app qiFrRec qFrA) qFrR) qiFrB) qiFrMk) =
+        some (SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app
+          (quotIndVal V ψ') A) R) B) mk) := by
+      rw [interpExpr, hip3, hifvMk]
+    have hiq1 : interpExpr V cval env ψ' 5
+        (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R) 2 B)
+          3 mk) 4 a) (.app qFrMkC qFrA) =
+        some (SetTheory.app (quotMkVal V ψ') A) := by
+      rw [interpExpr, himkC, hifvA]
+    have hiq2 : interpExpr V cval env ψ' 5
+        (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R) 2 B)
+          3 mk) 4 a) (.app (.app qFrMkC qFrA) qFrR) =
+        some (SetTheory.app (SetTheory.app (quotMkVal V ψ') A) R) := by
+      rw [interpExpr, hiq1, hifvR]
+    have hiq3 : interpExpr V cval env ψ' 5
+        (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R) 2 B)
+          3 mk) 4 a) (.app (.app (.app qFrMkC qFrA) qFrR) qiFra) =
+        some (SetTheory.app (SetTheory.app (SetTheory.app
+          (quotMkVal V ψ') A) R) a) := by
+      rw [interpExpr, hiq2, hifva]
+    obtain ⟨T, hT, hmem⟩ := quotInd_key (cval := cval) (env := env)
+      (ψ := ψ') hfindQ hvalQ hfindMk hvalMk
+    rw [interp_quotInd_type hfindQ hvalQ hfindMk hvalMk] at hT
+    obtain rfl := Option.some.inj hT
+    have hm1 := app_mem hmem hA (fun A' hA' => qiT1_univ hA')
+    have hm2 := app_mem hm1 hR (fun R' hR' => qiT2_univ hA hR')
+    have hm3 := app_mem hm2 hB (fun B' hB' => qiT3_univ hA hR hB')
+    have hm4 := app_mem hm3 hmk (fun _ _ => qiT4_univ hA hR hB)
+    have hqv : SetTheory.app (SetTheory.app (SetTheory.app
+        (quotMkVal V ψ') A) R) a ∈ˢ
+        SetTheory.app (SetTheory.app (quotVal V ψ') A) R := by
+      rw [quotVal_app₂' hA hR, quotMkVal_app₃' hA hR ha]
+      exact quotClass_mem ha
+    refine TowerOk.nil (w := pt) ?_ ?_ ?_
+    · rw [interpExpr, hip4, hiq3]
+      show some (SetTheory.app (SetTheory.app (SetTheory.app
+        (SetTheory.app (SetTheory.app (quotIndVal V ψ') A) R) B) mk)
+        (SetTheory.app (SetTheory.app (SetTheory.app (quotMkVal V ψ') A)
+          R) a)) = some pt
+      rw [show (quotIndVal V ψ' : V) = pt from by
+        simp only [quotIndVal]; exact lam_zero]
+      simp only [app_pt]
+    · show interpExpr V cval env ψ' 5
+        (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 R) 2 B)
+          3 mk) 4 a) (.app qiFrMk qiFra) = some pt
+      rw [interpExpr, hifvMk, hifva]
+      show some (SetTheory.app mk a) = some pt
+      rw [hmkpt, app_pt]
+    · simp only [AnnotOk, qiFrRec, qFrMkC, qFrA, qFrR, qFrTyR, qiFrB,
+        qiFrTyB, qiFrMk, qiFrTyMk]
+      exact ⟨⟨⟨⟨⟨trivial, trivial,
+          quotIndVal V ψ', A, 0, univ (ψ' uN), _,
+          hirec, hifvA, hmem, hA, fun A' hA' => qiT1_univ hA'⟩,
+        (by simp [Expr.instantiate1, AnnotOk]),
+        SetTheory.app (quotIndVal V ψ') A, R, 0, relSpace V (ψ' uN) A, _,
+          hip1, hifvR, hm1, hR, fun R' hR' => qiT2_univ hA hR'⟩,
+        (by simp [Expr.instantiate1, AnnotOk]),
+        SetTheory.app (SetTheory.app (quotIndVal V ψ') A) R, B, 0,
+          pi 1 (SetTheory.app (SetTheory.app (quotVal V ψ') A) R)
+            (fun _ => univ 0), _,
+          hip2, hifvB, hm2, hB, fun B' hB' => qiT3_univ hA hR hB'⟩,
+        (by simp [Expr.instantiate1, AnnotOk]),
+        SetTheory.app (SetTheory.app (SetTheory.app (quotIndVal V ψ') A)
+          R) B, mk, 0,
+          pi 0 A (fun a' => SetTheory.app B (SetTheory.app (SetTheory.app
+            (SetTheory.app (quotMkVal V ψ') A) R) a')), _,
+          hip3, hifvMk, hm3, hmk, fun _ _ => qiT4_univ hA hR hB⟩,
+        ⟨⟨⟨trivial, trivial,
+          quotMkVal V ψ', A, ψ' uN, univ (ψ' uN),
+          (fun X => pi (ψ' uN) (relSpace V (ψ' uN) X) fun R' =>
+            pi (ψ' uN) X fun _ => quotSet (ψ' uN) X R'),
+          himkC, hifvA, quotMkVal_mem', hA,
+          fun X hX => quotMkD1_univ' hX⟩,
+        (by simp [Expr.instantiate1, AnnotOk]),
+        SetTheory.app (quotMkVal V ψ') A, R, ψ' uN,
+          relSpace V (ψ' uN) A,
+          (fun R' => pi (ψ' uN) A fun _ => quotSet (ψ' uN) A R'),
+          hiq1, hifvR, quotMkVal_app_mem' hA, hR,
+          fun R' _ => quotMkD2_univ' hA⟩,
+        trivial,
+        SetTheory.app (SetTheory.app (quotMkVal V ψ') A) R, a, ψ' uN, A,
+          (fun _ => quotSet (ψ' uN) A R),
+          hiq2, hifva, quotMkVal_app₂_mem' hA hR, ha,
+          fun _ _ => quotSet_mem_univ hA⟩,
+        SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app
+          (quotIndVal V ψ') A) R) B) mk,
+        SetTheory.app (SetTheory.app (SetTheory.app (quotMkVal V ψ') A)
+          R) a,
+        0, SetTheory.app (SetTheory.app (quotVal V ψ') A) R,
+        (fun q => SetTheory.app B q),
+        hip4, hiq3, hm4, hqv,
+        fun q hq => app_mem hB hq (fun _ _ => univ_mem_univ 0)⟩
+
 end Setlec

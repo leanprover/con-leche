@@ -3262,6 +3262,211 @@ theorem modeled_bottom_plain
   have hvlvr : vl = vr := by
     rw [hQeqv] at hQmem
     exact mem_eqv hQmem
+  -- ===== S4: decompose the statement's left side =====
+  have hlhsEq : lhsS = Expr.mkAppN (.const (f R) (lps.map .param))
+      lhsS.getAppArgs := by
+    have h0 := Expr.mkAppN_getApp lhsS
+    rw [hlhead] at h0
+    exact h0.symm
+  have hAlhs : AnnotOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) lhsS :=
+    hcompsA lhsS (by simp)
+  rw [hlhsEq] at hAlhs
+  obtain ⟨-, hlargsA, vhead, lvals, hheadI, hspL, hchainL, hfoldL⟩ :=
+    annotOk_spine_inv _ (.const (f R) (lps.map .param))
+      (by
+        intro h0
+        rw [h0] at hlarity
+        exact nomatch hlarity) hAlhs
+  have hvlfold : vl = SpineFold V vhead lvals := by
+    rw [← hlhsEq] at hfoldL
+    rw [hfoldL] at hil
+    exact Option.some.inj hil |>.symm
+  -- the head is the recursor's value
+  have hsubstψ : Level.substFn ψ lps (lps.map .param) = ψ :=
+    funext (fun p => Level.substFn_map_param)
+  have hcRi : interpExpr V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty)
+      (.const (f R) (lps.map .param)) = some (m₀.val R ψ) := by
+    simp only [interpExpr, hfRm]
+    rw [if_pos (by rw [hRmlps]; simp)]
+    rw [show cim.toConstantVal.levelParams = lps from hRmlps]
+    rw [hsubstψ, hro.2.2 R]
+  have hvhead : vhead = m₀.val R ψ := by
+    rw [hcRi] at hheadI
+    exact Option.some.inj hheadI |>.symm
+  -- the equation body's component facts
+  obtain ⟨hWtbody0, hbtbody0, htbodyL0⟩ := htbodyWf
+  have hlhsMem : lhsS ∈ tbody.getAppArgs := by
+    rw [hargs3]; simp
+  have hWlhs : WScoped (rP + cnF) lhsS := by
+    have h0 := hWtbody0.getAppArgs lhsS hlhsMem
+    rwa [Nat.zero_add] at h0
+  have hblhs : lhsS.looseBVarsBounded 0 = true :=
+    looseBVarsBounded_getAppArgs hbtbody0 _ hlhsMem
+  obtain ⟨-, -, -, hleavesTbody⟩ := TeleFitI.rest_wf hfitS2 hWmidS hbmidS
+    hAmidS
+  have hFtbody : FvarsOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) tbody := by
+    intro l hl
+    rcases hleavesTbody l hl with hl' | ⟨a, ha, hla⟩
+    · exact hFmidS l hl'
+    · exact hΘx a ha l hla
+  have hFlhs : FvarsOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) lhsS :=
+    FvarsOk.of_subset (fun l hl => fvarLeaves_getAppArgs hlhsMem l hl)
+      hFtbody
+  have hLlhs : Expr.LeavesBounded lhsS :=
+    fun l hl => htbodyL0 l (fvarLeaves_getAppArgs hlhsMem l hl)
+  have hrhsMem : rhsS ∈ tbody.getAppArgs := by
+    rw [hargs3]; simp
+  have hWrhsS : WScoped (rP + cnF) rhsS := by
+    have h0 := hWtbody0.getAppArgs rhsS hrhsMem
+    rwa [Nat.zero_add] at h0
+  have hbrhsS : rhsS.looseBVarsBounded 0 = true :=
+    looseBVarsBounded_getAppArgs hbtbody0 _ hrhsMem
+  have hFrhsS : FvarsOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) rhsS :=
+    FvarsOk.of_subset (fun l hl => fvarLeaves_getAppArgs hrhsMem l hl)
+      hFtbody
+  have hLrhsS : Expr.LeavesBounded rhsS :=
+    fun l hl => htbodyL0 l (fvarLeaves_getAppArgs hrhsMem l hl)
+  have hArhsS : AnnotOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) rhsS :=
+    hcompsA rhsS (by simp)
+  -- the full renamed constructor fit and `cres`'s facts
+  have hfitCfull : TeleFitI V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty)
+      (cvj.type.renameConsts f)
+      (fvs.take cnP ++ fvs.drop rP) (xs.take cnP ++ xs.drop rP)
+      cres := by
+    exact TeleFitI.append hfitC1 hfitR2
+  obtain ⟨hWcres, hbcres, hAcres, hleavesCres⟩ :=
+    TeleFitI.rest_wf hfitCfull (WScoped.of_not_hasFvar hCRw) hCRb hACtyR
+  have hFcres : FvarsOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) cres := by
+    intro l hl
+    rcases hleavesCres l hl with hl' | ⟨a, ha, hla⟩
+    · rw [fvarLeaves_eq_nil_of_not_hasFvar hCRw] at hl'
+      cases hl'
+    · rcases List.mem_append.mp ha with ha | ha
+      · refine hΘpre a ?_ l hla
+        have heq : fvs.take cnP = (fvs.take rP).take cnP := by
+          rw [List.take_take, Nat.min_eq_left hplainLe]
+        rw [heq] at ha
+        exact List.mem_of_mem_take ha
+      · exact hΘx a ha l hla
+  have hLcres : Expr.LeavesBounded cres := by
+    intro l hl
+    rcases hleavesCres l hl with hl' | ⟨a, ha, hla⟩
+    · rw [fvarLeaves_eq_nil_of_not_hasFvar hCRw] at hl'
+      cases hl'
+    · rcases List.mem_append.mp ha with ha | ha
+      · exact (hfvsWf a (List.mem_of_mem_take ha)).2.2 l hla
+      · exact (hfvsWf a (List.mem_of_mem_drop ha)).2.2 l hla
+  -- the constructor body and both residuals' argument spines
+  have hcbodyNF : cbody.hasFvar = false :=
+    stripPis_body_hasFvar _ hCstripPair hCw
+  have hcbodyBnd : cbody.looseBVarsBounded (cnP + cnF) = true := by
+    have h0 := stripPis_body_bounded _ hCstripPair hCb
+    simpa using h0
+  have hcspine : cbody = Expr.mkAppN cbody.getAppFn cbody.getAppArgs :=
+    (Expr.mkAppN_getApp cbody).symm
+  have hfvsCShapes : ∀ a ∈ fvs.take cnP ++ fvs.drop rP,
+      ∃ i n t, a = .fvar i n t := by
+    intro a ha
+    rcases List.mem_append.mp ha with ha | ha
+    · exact hfvsShapes a (List.mem_of_mem_take ha)
+    · exact hfvsShapes a (List.mem_of_mem_drop ha)
+  obtain ⟨hcresEq0, -⟩ := instPisAt_stripPis
+    (fvs.take cnP ++ fvs.drop rP) hcinst
+    (by rw [hfvsCLen]; exact hstripRenC)
+  have hcresEq' : cres = instSeq (fvs.take cnP ++ fvs.drop rP)
+      (cnP + cnF - 1) (cbody.renameConsts f) := by
+    rw [hcresEq0, hfvsCLen]
+  have hheadRenNotApp : ∀ f' a',
+      cbody.getAppFn.renameConsts f ≠ .app f' a' := by
+    intro f' a' hcon
+    cases hfn : cbody.getAppFn with
+    | app g b => exact getAppFn_not_app cbody g b hfn
+    | bvar _ => rw [hfn] at hcon; exact nomatch hcon
+    | fvar _ _ _ => rw [hfn] at hcon; exact nomatch hcon
+    | sort _ => rw [hfn] at hcon; exact nomatch hcon
+    | const _ _ => rw [hfn] at hcon; exact nomatch hcon
+    | lam _ _ _ _ => rw [hfn] at hcon; exact nomatch hcon
+    | forallE _ _ _ _ => rw [hfn] at hcon; exact nomatch hcon
+    | letE _ _ _ _ => rw [hfn] at hcon; exact nomatch hcon
+    | lit _ => rw [hfn] at hcon; exact nomatch hcon
+    | proj _ _ _ => rw [hfn] at hcon; exact nomatch hcon
+  have hcresArgs : cres.getAppArgs = cbody.getAppArgs.map
+      (fun e => instSeq (fvs.take cnP ++ fvs.drop rP)
+        (cnP + cnF - 1) (e.renameConsts f)) := by
+    rw [hcresEq']
+    calc (instSeq (fvs.take cnP ++ fvs.drop rP)
+          (cnP + cnF - 1) (cbody.renameConsts f)).getAppArgs
+        = (instSeq (fvs.take cnP ++ fvs.drop rP)
+            (cnP + cnF - 1)
+            (Expr.mkAppN (cbody.getAppFn.renameConsts f)
+              (cbody.getAppArgs.map (·.renameConsts f)))).getAppArgs := by
+          rw [← renameConsts_mkAppN, Expr.mkAppN_getApp]
+      _ = (Expr.mkAppN (instSeq (fvs.take cnP ++ fvs.drop rP)
+            (cnP + cnF - 1) (cbody.getAppFn.renameConsts f))
+            ((cbody.getAppArgs.map (·.renameConsts f)).map
+              (instSeq (fvs.take cnP ++ fvs.drop rP)
+                (cnP + cnF - 1) ·))).getAppArgs := by
+          rw [instSeq_mkAppN]
+      _ = _ := by
+          rw [Expr.getAppArgs_mkAppN,
+            getAppArgs_of_not_app
+              (instSeq_fvars_not_app _ _ hfvsCShapes hheadRenNotApp),
+            List.map_map]
+          simp [Function.comp]
+  -- the public composed constructor walk and `crest2`'s spine
+  have hpubC : Expr.instPisAt (fvsP.take cnP ++ xFvsP) cvj.type =
+      some (cdomsP ++ xFvsP.map Expr.fvarTypeD, crest2) :=
+    instPisAt_append_of (fvsP.take cnP) hcinstP hxInst
+  have hfvsPXLen : (fvsP.take cnP ++ xFvsP).length = cnP + cnF := by
+    rw [List.length_append, List.length_take, hfvsPLen, hxLen]
+    omega
+  have hfvsPXShapes : ∀ a ∈ fvsP.take cnP ++ xFvsP,
+      ∃ i n t, a = .fvar i n t := by
+    intro a ha
+    rcases List.mem_append.mp ha with ha | ha
+    · obtain ⟨j, hja⟩ := List.getElem?_of_mem
+        (List.mem_of_mem_take ha)
+      obtain ⟨nm, hsh⟩ := hfvsPShape j a hja
+      exact ⟨0 + j, nm, _, hsh⟩
+    · obtain ⟨j, hja⟩ := List.getElem?_of_mem ha
+      obtain ⟨nm, hsh⟩ := hxShape j a hja
+      exact ⟨rP + j, nm, _, hsh⟩
+  obtain ⟨hcrest2Eq0, -⟩ := instPisAt_stripPis
+    (fvsP.take cnP ++ xFvsP) hpubC
+    (by rw [hfvsPXLen]; exact hCstripPair)
+  have hcrest2Eq : crest2 = instSeq (fvsP.take cnP ++ xFvsP)
+      (cnP + cnF - 1) cbody := by
+    rw [hcrest2Eq0, hfvsPXLen]
+  have hcrest2Args : crest2.getAppArgs = cbody.getAppArgs.map
+      (fun e => instSeq (fvsP.take cnP ++ xFvsP)
+        (cnP + cnF - 1) e) := by
+    rw [hcrest2Eq]
+    calc (instSeq (fvsP.take cnP ++ xFvsP)
+          (cnP + cnF - 1) cbody).getAppArgs
+        = (instSeq (fvsP.take cnP ++ xFvsP)
+            (cnP + cnF - 1)
+            (Expr.mkAppN cbody.getAppFn cbody.getAppArgs)).getAppArgs := by
+          rw [Expr.mkAppN_getApp]
+      _ = (Expr.mkAppN (instSeq (fvsP.take cnP ++ xFvsP)
+            (cnP + cnF - 1) cbody.getAppFn)
+            (cbody.getAppArgs.map
+              (instSeq (fvsP.take cnP ++ xFvsP)
+                (cnP + cnF - 1) ·))).getAppArgs := by
+          rw [instSeq_mkAppN]
+      _ = _ := by
+          rw [Expr.getAppArgs_mkAppN,
+            getAppArgs_of_not_app
+              (instSeq_fvars_not_app _ _ hfvsPXShapes
+                (getAppFn_not_app _))]
+          rfl
   sorry
 
 end Setlec
