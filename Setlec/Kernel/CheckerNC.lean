@@ -124,8 +124,11 @@ clause is parked, so neither `checkIndDeclSF` nor `checkIndDeclNC`
 dispatches to it yet — this definition exists so that enabling the
 clause is a one-line change in both drivers at once. -/
 def checkDirectStructNC (fe : FEnv) (p : DirectParts) : CheckIM FEnv := do
+  flushS
   let (fe₁, cvTa) ← checkDirectIndF (sharedOpsNC fe) fe p
+  flushS
   let (fe₂, cvCa) ← checkDirectCtorF (sharedOpsNC fe₁) fe₁ p
+  flushS
   let cvRa ← checkConstantValF (sharedOpsNC fe₂) fe₂ p.cvR
   checkDirectRecTyF (sharedOpsNC fe₂) fe₂ p cvTa cvCa cvRa
   let rhsA ← checkDirectRuleF (sharedOpsNC fe₂) fe₂ p cvCa cvRa
@@ -138,8 +141,10 @@ def checkDirectStructNC (fe : FEnv) (p : DirectParts) : CheckIM FEnv := do
       (fun j => (fe₃.find? (projFnName p.cvT.name j)).isNone) do
     throw (.invalid "projection name family taken")
   (List.range p.nF).foldlM
-    (fun e j => checkDirectProjF (sharedOpsNC e) p.cvT.name p.cvC.name
-      p.cvT.levelParams p.nP p.nF cvTa cvCa e j) fe₃
+    (fun e j => do
+      flushS
+      checkDirectProjF (sharedOpsNC e) p.cvT.name p.cvC.name
+        p.cvT.levelParams p.nP p.nF cvTa cvCa e j) fe₃
 
 /-- `checkIndDeclSF` at the cert-skipping ops. -/
 def checkIndDeclNC (fe : FEnv) (block : List ConstantInfo) :

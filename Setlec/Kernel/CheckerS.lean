@@ -1024,8 +1024,15 @@ def installProjTemplateStepS (T ctorName : Name) (lps : List Name)
 
 /-- `checkDirectStruct` through the index. -/
 def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckIM FEnv := do
+  -- one `flushS` per environment transition, as everywhere else in this
+  -- file: the memo caches are only valid for the environment that
+  -- created them, and this driver walks five of them (the block's
+  -- provisional environments plus one per projection).
+  flushS
   let (fe₁, cvTa) ← checkDirectIndF (sharedOps fe) fe p
+  flushS
   let (fe₂, cvCa) ← checkDirectCtorF (sharedOps fe₁) fe₁ p
+  flushS
   let cvRa ← checkConstantValF (sharedOps fe₂) fe₂ p.cvR
   checkDirectRecTyF (sharedOps fe₂) fe₂ p cvTa cvCa cvRa
   let rhsA ← checkDirectRuleF (sharedOps fe₂) fe₂ p cvCa cvRa
@@ -1038,8 +1045,10 @@ def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckIM FEnv := do
       (fun j => (fe₃.find? (projFnName p.cvT.name j)).isNone) do
     throw (.invalid "projection name family taken")
   (List.range p.nF).foldlM
-    (fun e j => checkDirectProjF (sharedOps e) p.cvT.name p.cvC.name
-      p.cvT.levelParams p.nP p.nF cvTa cvCa e j) fe₃
+    (fun e j => do
+      flushS
+      checkDirectProjF (sharedOps e) p.cvT.name p.cvC.name
+        p.cvT.levelParams p.nP p.nF cvTa cvCa e j) fe₃
 
 /-- The modeled inductive block (mirrors `checkIndDecl`), returning
 the extended index. -/
