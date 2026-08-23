@@ -3028,6 +3028,57 @@ trust the striking frame; and freed-but-unreused shells (shallow
 scans lie — only a watchpoint at the moment of the inc is
 conclusive.
 
+## Streaming frontend (2026-08-23, task #57)
+
+The frontend no longer materializes the export text: `checkMain`
+streams.  `Frontend.parseExportStream` reads the ndjson **line by
+line** from a handle (explicit tail recursion with the parse `State`
+as a plain argument — never a `for`/`while` loop, whose boxed state
+tuple keeps the arena shared across the step and turns every insert
+into a whole-table copy, the same pathology as the #78 progress
+loop), feeds each record through the shared `feedLine` step (also the
+body of the wholesale `parseExport`, kept for tests), and drops the
+line; each line is newline-stripped exactly as `splitToList (· ==
+'\n')` did (a `\r` before the newline is kept), so verdicts, error
+messages and line numbers are unchanged, including malformed input
+mid-stream (exit 3 at the same line; e2e `malformed_midstream`).
+Parse-time interning (#78) is untouched: retained memory is the parse
+arena, the tables and the `DeclP` records — proportional to the
+arena, never to the text.  JSON strings are built fresh by
+`Json.parse` (`acc.push`-style), so nothing retained pins a line
+buffer; the read line is `copy`-detached before parsing as extra
+insurance (core's `Handle.lines` pattern).
+
+The **preprocessor spawn** no longer pipes: `preprocess` stream-scans
+the input for `inductive`/`quot` records (ndjson keys cannot span
+lines), and when the tool is needed it writes to a **temp file**
+(`-o path`, `IO.FS.createTempFile`; honors `TMPDIR` — commonly tmpfs,
+point it at a disk for huge streams) which `parseExportStream` then
+reads and `checkMain` removes (`try`/`finally`).  This process never
+holds input or output wholesale; the residual is the tool's *own*
+working memory (~650 MB on init-full), unavoidable until
+lean-inductive-models itself streams.  The diagnostic
+failing-declaration second pass re-parses from the same file.
+
+**Measured** (GNU time max RSS over the process tree, perf
+instructions, same machine, before → after):
+
+* init-prelude probe: 191.8 MB → 185.8 MB, 30.51 G → 29.53 G instr
+  (−3.2 %), 3.0 s wall, verdict identical (exit 0, 3653 accepted).
+* repro-extract-proof11-pre (20 MB): 242 MB → 233 MB, exit 0 / 2486
+  accepted both sides.
+* init-full-pre2 (335 MB, the largest stream): 3.07 GB → 650 MB peak
+  (now the *preprocessor child's* own RSS; the checker itself peaks at
+  548 MB, measured with an identity preprocessor), 26.8 s → 21.3 s,
+  verdict identical — **exit 2 by design**, not a resource wall: the
+  stream declines at `opaque Lean.reduceNat` (line ~2 446 395 of
+  6 223 893, 39.3 % in), the first *use* of the skipped
+  `Lean.trustCompiler` axiom, exactly the axiom-ceiling behavior
+  documented above.  (The task's "~30 GB to parse init-full" predates
+  #78/#84; at the current base the wholesale cost was the 3.07 GB —
+  contents + preprocessor stdout + the eager per-line split all held
+  at once — which streaming removes.)
+
 ## Recursor-rule fold contract as total λ-equalities (2026-08-23, task #58)
 
 `RecRulesOk` is restated per fireable rule as a **total λ-equality**:

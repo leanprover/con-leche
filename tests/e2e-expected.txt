@@ -181,3 +181,7 @@
 2 direct_struct_raw.ndjson raw
 0 direct_nested_dep.ndjson
 1 direct_nested_dep_broken.ndjson raw
+# malformed_midstream.ndjson: a truncated JSON record after valid
+# lines — malformed input is a hard error (exit 3) with the line
+# number, identically under the streaming frontend (task #57).
+3 malformed_midstream.ndjson
