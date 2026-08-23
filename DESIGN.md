@@ -2800,29 +2800,58 @@ single-tier arena retains them — task #64's truncation is the lever).
 new fixtures), scale.sh all-PASS (chain 1.04, spine 1.28, many 1.04,
 telescope 1.13).
 
-**Known regression (finding, follow-up needed).**  The init-prelude
-probe *certified* mode regressed: 176.5 G → 271.5 G instructions,
-12.5 s → 54 s (the `SETLEC_NO_PROOF_CERTS=1` mode is *unaffected*:
-151.1 G / 14.5 s, in line with the pre-change 142.8 G / 9.7 s).
-Forensics (gdb watch/breakpoints on `lean_copy_expand_array`): the
-cost is whole-arena **copy-on-write strikes** — `Array.push`/bucket
-`uset` finding `nodes`/`cons` at RC 2 — a rare, pre-existing
-compiled-code sharing pattern (the reference counts show transient
-arena sharing at every knot-entry prologue that occasionally survives
-into a mutation, ~2500 strikes per run).  With per-declaration arenas
-these copies were small and invisible; with the persistent run-wide
-arena each strike copies the whole table.  The strikes concentrate
-under the certified per-fire iota certificates (`iotaCertsI` and the
-infer/defeq calls they trigger): stubbing exactly those two calls
-recovers 195.5 G / 22.9 s.  Mitigations already landed: the mutating
-`CheckIM` wrappers are no longer `@[inline]` (the inliner CSE'd the
-`s.store` projection across a read and the detach, defeating the
-ownership transfer), and `bvarBoundM`/`inst1M`/`instListM` detach the
-bound cache before walking.  The remaining sharer was not identified
-within this task; follow-up options, in order: find and fix the
-residual RC retention around the knot-entry/cert path (the NC-mode
-numbers show the architecture itself is sound), or land task #64's
-two-tier arena, which also caps the strike cost.
+**The whole-arena copy-on-write strikes: root cause and fix.**  The
+persistent arena initially regressed the certified init-prelude probe
+(176.5 G → 272.8 G instructions; 391.7 G with `SETLEC_PROGRESS=1`);
+`SETLEC_NO_PROOF_CERTS=1` looked unaffected only because its arena is
+small.  gdb forensics (breakpoints on the runtime's
+`lean_copy_expand_array_nonlinear` non-linearity gadget, `finish` +
+hardware watchpoints on the fresh tables' refcount words, holder scans
+over the heap) counted ~6100 whole-table copies per run — `nodes`
+pushes and `cons` bucket usets finding their table at RC 2, ~2 per
+declaration — and named two holders, both *compiler-liveness*
+artifacts, no source-level sharing at all:
+
+1. **Sinkable pure store reads.**  `withStore f` inlined to the pure
+   application `f s.store`; whenever the result was not consumed
+   before the next knot call, the Lean compiler *sank* the application
+   past that call (profitable when the call can throw) — e.g.
+   `inferBodyI`'s app case computed `getAppArgsI` only *after*
+   `r.infer depth h` returned, keeping the projected `EStore` alive at
+   RC 2 across the entire nested inference.  Every arena mutation
+   inside such a window copies the shared tables.  Fix: `withStore` is
+   `@[noinline]` — an opaque state-threading call cannot be reordered,
+   so the projection lives and dies inside the callee.  (`viewI`'s
+   result is always immediately matched — branch selection forces it
+   before any later state op — so it stays inline.)
+2. **The progress loop's boxed accumulator.**  `Main.lean`'s
+   `SETLEC_PROGRESS` path was a `for`/`mut` loop; the compiled
+   `forIn` keeps the previous iteration's `(fe, s)` state tuple live
+   into the next step call, so the interned state *entered every
+   declaration* at RC 2 and the first mutation struck (+110 G in both
+   modes).  Fix: `progressLoop` — explicit tail recursion with the
+   accumulators as plain arguments (and the per-iteration
+   `IO.getEnv "SETLEC_STATS"` hoisted).
+
+**After the fix** (same probe, same day): certified 181.7 G / 12.9 s
+progress-off and 181.8 G / 13.0 s progress-on (parity with the
+pre-#78 176.5 G / 12.5 s base, measured while a concurrent build
+loaded the machine); NC 139.4 G / 9.0 s (*better* than its 142.8 G
+base); big-table non-linear copies 6126 → 1 per run (the survivor is
+the parse-result pair pinning the store during declaration 1 — the
+compiler retains `.ok (store, decls)` into the fold; one small early
+copy, not worth restructuring `checkMain` over).  The residual
+certified +5.2 G (+2.9 %) over the pre-#78 base is the `withStore`
+call boundary (a real call + closure per read that used to inline
+away) plus the one-time parse of the whole export table into the
+arena — the price of the fix and of the architecture, not a leftover
+strike.  Two forensic
+lessons recorded: RC-2 discovered at a mutation was *taken* far away
+— walk holders with heap scans plus refcount-word watchpoints, don't
+trust the striking frame; and freed-but-unreused shells (shallow
+`lean_free_object` of destructured records) make post-hoc pointer
+scans lie — only a watchpoint at the moment of the inc is
+conclusive.
 
 ## Recursor-rule fold contract as total λ-equalities (2026-08-23, task #58)
 

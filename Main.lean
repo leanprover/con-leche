@@ -51,6 +51,33 @@ def preprocess (file : String) (contents : String) : IO String := do
   catch _ =>
     return contents
 
+/-- Progress-mode driver loop, as explicit recursion with the
+accumulators passed as plain arguments: a `for`-loop's boxed state
+tuple survives into the next step call in compiled code, so the
+interned state enters every declaration shared (RC 2) and the first
+arena mutation copies the whole node/hash tables (one whole-arena
+copy-on-write strike per declaration, ~40 % of a probe run). -/
+partial def progressLoop (stats : Bool)
+    (stepF : Nat → Setlec.FEnv → Setlec.DeclP → Setlec.IState →
+      Except Setlec.CheckError (Setlec.FEnv × Setlec.IState))
+    (n0 : Nat) (decls : Array Setlec.DeclP) (i : Nat)
+    (fe : Setlec.FEnv) (s : Setlec.IState) : IO UInt32 := do
+  if h : i < decls.size then
+    let d := decls[i]
+    IO.println s!"DECL: {d.name}"
+    (← IO.getStdout).flush
+    match stepF n0 fe d s with
+    | .error e =>
+      IO.eprintln s!"setlec: {e}"
+      pure e.exitCode
+    | .ok (fe, s) => do
+      if stats then
+        IO.eprintln s!"STATS: nodes={s.store.nodes.size} lnodes={s.store.lnodes.size} bvarB={s.bvarB.size} annotC={s.annotC.size} inferC={s.inferC.size} whnfC={s.whnfC.size} whnfCoreC={s.whnfCoreC.size} defeqC={s.defeqC.size}"
+      progressLoop stats stepF n0 decls (i + 1) fe s
+  else do
+    IO.println s!"setlec: accepted {fe.env.consts.length} declarations"
+    pure 0
+
 /-- The real driver (run in the supervised child process). -/
 def checkMain (file : String) : IO UInt32 := do
     -- Measurement mode (task #76): SETLEC_NO_PROOF_CERTS=1 selects the
@@ -79,20 +106,9 @@ def checkMain (file : String) : IO UInt32 := do
         unless store.wfB do
           IO.eprintln "setlec: parse store not canonical"
           return 3
-        let mut fe := Setlec.mkFEnv Setlec.Env.empty
-        let mut s : Setlec.IState := { store := store }
-        for d in decls do
-          IO.println s!"DECL: {d.name}"
-          (← IO.getStdout).flush
-          match stepF n0 fe d s with
-          | .ok (fe', s') => fe := fe'; s := s'
-          | .error e =>
-            IO.eprintln s!"setlec: {e}"
-            return e.exitCode
-          if (← IO.getEnv "SETLEC_STATS").isSome then
-            IO.eprintln s!"STATS: nodes={s.store.nodes.size} lnodes={s.store.lnodes.size} bvarB={s.bvarB.size} annotC={s.annotC.size} inferC={s.inferC.size} whnfC={s.whnfC.size} whnfCoreC={s.whnfCoreC.size} defeqC={s.defeqC.size}"
-        IO.println s!"setlec: accepted {fe.env.consts.length} declarations"
-        return 0
+        let stats := (← IO.getEnv "SETLEC_STATS").isSome
+        return ← progressLoop stats stepF n0 decls 0
+          (Setlec.mkFEnv Setlec.Env.empty) { store := store }
       match foldF store decls.toList with
       | .ok env =>
         IO.println s!"setlec: accepted {env.consts.length} declarations"

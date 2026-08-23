@@ -257,8 +257,18 @@ abbrev CheckIM := StateT IState CheckM
 @[inline] def viewI (e : EIdx) : CheckIM (Option ENode) :=
   (fun s => s.store.nodes[e]?) <$> get
 
-/-- Run a read-only store query. -/
-@[inline] def withStore {α : Type} (f : EStore → α) : CheckIM α :=
+/-- Run a read-only store query.
+
+`@[noinline]` is load-bearing: inlined, this is the pure application
+`f s.store`, and the compiler *sinks* such applications past later
+calls when the result is not used until after them (e.g. computing
+`getAppArgsI` only after an `r.infer` that could throw).  The sunk
+form keeps the projected `EStore` alive — at RC 2 — across the whole
+nested call, so every arena mutation inside copies the shared tables
+(whole-arena copy-on-write strikes, ~35 % of the init-prelude probe
+before this attribute).  As an opaque call that threads the state,
+it cannot be reordered, and the projection lives and dies inside. -/
+@[noinline] def withStore {α : Type} (f : EStore → α) : CheckIM α :=
   (fun s => f s.store) <$> get
 
 /-- Intern one node. -/
