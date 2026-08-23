@@ -1244,15 +1244,27 @@ def inferSpineI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
   | ty, acc, [] => instListM ty acc
   | ty, acc, a :: rest => do
     match ← viewI ty with
-    | some (.forallE _ _dom body _mt) =>
-      -- check-free argument slot (task #73 measurement probe)
-      inferSpineI r fe depth body (a :: acc) rest
+    | some (.forallE _ dom body mt) => do
+      -- possibly-Prop-gated argument re-check (task #49; see the
+      -- spec body `inferBody` and `codNonZero`)
+      if ← codNonZeroIM mt then inferSpineI r fe depth body (a :: acc) rest
+      else do
+        let dom' ← instListM dom acc
+        let ta ← r.infer depth a
+        unless ← r.defeq depth ta dom' do
+          throw (.invalid "application type mismatch")
+        inferSpineI r fe depth body (a :: acc) rest
     | _ => do
       let ty' ← instListM ty acc
       let w ← r.whnf depth ty'
       match ← viewI w with
-      | some (.forallE _ _dom body _mt) =>
-        inferSpineI r fe depth body [a] rest
+      | some (.forallE _ dom body mt) => do
+        if ← codNonZeroIM mt then inferSpineI r fe depth body [a] rest
+        else do
+          let ta ← r.infer depth a
+          unless ← r.defeq depth ta dom do
+            throw (.invalid "application type mismatch")
+          inferSpineI r fe depth body [a] rest
       | _ => throw (.invalid "function expected")
 
 /-- Twin of `whnfBody`. -/

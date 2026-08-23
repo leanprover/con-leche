@@ -1416,10 +1416,17 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       let tf ← r.infer depth f
       match ← r.whnf depth tf with
       | .forallE _ ty body mt => do
-        -- Check-free argument slot (task #73 measurement probe): the
-        -- possibly-Prop residue removed.
-        let _ := ty
-        pure (body.instantiate1 a)
+        -- Possibly-Prop-gated argument re-check (task #49): at a Π
+        -- whose codomain-sort annotation is provably nonzero the
+        -- argument's fact comes from the app node's own `AnnotOk`
+        -- slot (see `codNonZero`); the re-check runs only on the
+        -- possibly-Prop residue.
+        if codNonZero mt then pure (body.instantiate1 a)
+        else do
+          let ta ← r.infer depth a
+          unless ← r.defeq depth ta ty do
+            throw (.invalid "application type mismatch")
+          pure (body.instantiate1 a)
       | _ => throw (.invalid "function expected")
     | .proj _sn i pe => do
       -- A `.proj` node is typed by its projection-table entry: the
