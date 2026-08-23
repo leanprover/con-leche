@@ -1,5 +1,6 @@
 import Setlec.Model.Basis.Eq.Iota
 import Setlec.Model.Basis.Glue
+import Setlec.Model.Basis.Eq.RuleOk
 
 /-!
 # Claims glue for the `Eq.rec` rule
