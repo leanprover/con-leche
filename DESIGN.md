@@ -4001,3 +4001,72 @@ that needs sign-off before landing):
 `repeated-subproblem`'s residual 24x is flat substrate overhead (RC
 traffic, hash maps, per-run parse) over a tiny official baseline —
 the same class as the remaining overall gap, no longer shape-specific.
+
+## Per-node fvar-range cache; abstractRange cutoff; leafGuardI Bool walk (2026-08-23, task #86)
+
+Both remaining levers from the task-#84 entry, landed as the planned
+`bvarB` mirror:
+
+1. **The fvar-range cache.**  `fvarRangeIGo`/`fvarRangesLGo` fill the
+   persistent `IState.fvarB` (a second dense `BMemo`; range = max fvar
+   index + 1, `0` = fvar-free, fvar type annotations not descended —
+   matching the abstraction traversals).  `abstractRangeIGo` takes a
+   read-only view and returns any node with cached `range ≤ d`
+   unchanged (nanoda's `!has_fvars(e)` pruning in `abstr_aux`);
+   `abstractRangeM` runs the root range walk as its prepass and
+   short-circuits the whole call at `range ≤ d`, exactly `inst1M`'s
+   shape.  Verification: the existing Prop `Expr.fvarsBelow`
+   (`Verify/Shift.lean`) is the cache's soundness predicate — no new
+   Bool mirror; `abstractRange_eq_self` (`Verify/AbstractRange.lean`,
+   which now imports `Shift`) closes the cutoff branch; `FvarMemoInv`
+   mirrors `BoundMemoInv`; ISOK/ISOKF gain the `fvarB` clause
+   (survives `flushS` and every environment transition like `bvarB`);
+   `abstractRangeM_eff` mirrors `inst1M_eff`.  No exported
+   `SimAt`/`IEff` statement changed, so `BinderLoopI` and the DiscI
+   walks compiled untouched.
+2. **`leafGuardI`'s residual exponential case** (fvar-carrying
+   fabrications): the guard's `.all` over the materialized
+   `fvarLeavesI fab` list was tree-sized on shared DAGs.
+   `leavesSubIGo` performs the fabrication-side containment check as
+   one memoized Bool DAG walk (per-call memo, short-circuiting in
+   `fvarLeaves` order); `leafGuardI` keeps signature and Boolean, so
+   call sites and the DiscI3/DiscI6 guard restatements are untouched.
+   `leavesSubIGo_spec` proves the walk against the `Expr`-level
+   all-boolean through the `leaves_contains` membership transfer.
+   Still materialized: the *base*-side `fvarLeavesI base` list (once
+   per guard, tree-sized on adversarial shared bases) — noted as
+   remaining.  The brief's `hasFvarI`-O(1) sub-item was *not* done:
+   after the walk fix the guard is ~0.1 % of the worst profile, and
+   under the eager design below it falls out for free.
+
+**Measured** (`perf stat` instructions, `--yolo` / certified; official
+kernel in parentheses; before = task #84 landing):
+
+| test | before (yolo) | after (yolo) | after (cert) | ratio yolo |
+|---|---|---|---|---|
+| shift-cascade (0.29 G) | 5.87 G | **1.58 G** | 1.58 G | 5.5x |
+| shared-subterm (0.37 G) | 4.96 G | **4.69 G** | 5.18 G | 13x |
+| repeated-subproblem (0.18 G) | 4.44 G | **4.17 G** | 4.63 G | 23x |
+| grind-ring-5 (13.7 G) | 82.8 G | **78.3 G** | 87.8 G | 5.7x |
+| init-prelude probe (3.9 G) | 23.8 G | **23.2 G** | 29.4 G | 5.9x |
+
+shift-cascade's ~47 % `abstractRangeIGo` share is gone; its residual
+profile is parse + RC substrate (JSON parse alone ~8 %), the same
+class as `repeated-subproblem`'s.  Gates: arena 90/92, e2e 53/53,
+`lake test`, scale.sh all-PASS (spine 1.29 unchanged from master,
+telescope 1.17 — no prepass regression), warning-free, axioms pinned.
+
+**Follow-up design (settled with the user, task #87 family): eager
+parallel derived-field arrays.**  The preferred long-term shape for
+per-node derived data is *not* the lazy `BMemo` + prepass used here
+but an eager array in `EStore` kept congruent with `nodes`: the arena
+is append-only and children are interned before parents, so
+`EStore.intern` (on cons-table miss, just before pushing the node) can
+compute the node's datum in O(1) from the children's entries.  Reads
+become `Array.getD`, the whole covers/prepass discipline disappears,
+and the invariant is one total ISOK clause (length + pointwise spec).
+Task #87 adds expr-level `hasLevelParam` and level-level `hasParam`
+that way; `fvarB` (this task) and `bvarB` (#72/#84) should migrate to
+the same pattern, which also makes `hasFvarI` O(1) for every caller.
+This task shipped the lazy mirror because it was already built and
+green when the eager design was settled.

@@ -245,6 +245,11 @@ structure IState where
   lnzC : Std.HashMap LIdx Bool := {}
   eqvC : Std.HashMap (LIdx × LIdx) Bool := {}
   bvarB : EStore.BMemo := {}
+  /-- The persistent per-node fvar-range cache (task #86, the mirror
+  of `bvarB`): the least `d` with `fvarsBelow d` for a node.  Like the
+  bound, the range depends only on the node's immutable sub-DAG, so
+  the cache survives arena extension and every flush. -/
+  fvarB : EStore.BMemo := {}
 
 instance : Inhabited IState := ⟨{}⟩
 
@@ -349,13 +354,23 @@ def abstract1M (e : EIdx) (d : Nat) : CheckIM EIdx :=
     (r, { s with store := store })
 
 /-- Memoized interned `Expr.abstractRange` (bulk abstraction,
-task #72). -/
+task #72); the identity — same index — when the target has no fvar at
+or above the range base (task #86's fvar-range shortcut, mirroring
+`inst1M`; the root's range walk fills the persistent cache for the
+whole sub-DAG, so the traversal prunes at every fvar-free node). -/
 def abstractRangeM (e : EIdx) (d k : Nat) : CheckIM EIdx :=
   modifyGet fun s =>
-    let store := s.store
-    let s := { s with store := EStore.empty }
-    let (r, store) := store.abstractRangeI e d k
-    (r, { s with store := store })
+    let fm := s.fvarB
+    let s := { s with fvarB := {} }
+    let r := EStore.fvarRangeIGo s.store fm e
+    let s : IState := { s with fvarB := r.2 }
+    if r.1 ≤ d then (e, s)
+    else
+      let fm := s.fvarB
+      let store := s.store
+      let s := { s with store := EStore.empty }
+      let (r', store) := store.abstractRangeI e d k 0 fm
+      (r', { s with store := store })
 
 /-- Interned `Expr.mkAppN`. -/
 def mkAppNM (f : EIdx) (args : List EIdx) : CheckIM EIdx :=
