@@ -803,6 +803,172 @@ theorem installBasisDecl_snd_dproj (env : Env) (ci : ConstantInfo) :
   unfold installBasisDecl
   dsnd_tac
 
+/-! ### The direct simple-structure path (task #82) -/
+
+theorem pairOps_annotate_fst (env : Env) (d : Nat) (a : Expr) :
+    ((pairOps o₁ o₂ h).annotate env d a).val.1 =
+      o₁.annotate env d a := rfl
+
+theorem pairOps_annotate_snd (env : Env) (d : Nat) (a : Expr) :
+    ((pairOps o₁ o₂ h).annotate env d a).val.2 =
+      o₂.annotate env d a := rfl
+
+theorem pairOps_ensureSort_fst (env : Env) (d : Nat) (a : Expr) :
+    ((pairOps o₁ o₂ h).ensureSort env d a).val.1 =
+      o₁.ensureSort env d a := rfl
+
+theorem pairOps_ensureSort_snd (env : Env) (d : Nat) (a : Expr) :
+    ((pairOps o₁ o₂ h).ensureSort env d a).val.2 =
+      o₂.ensureSort env d a := rfl
+
+theorem checkDirectFieldUniv_fst_dproj (env : Env) (s : Level)
+    (depth nP : Nat) (fvs : List Expr) :
+    ∀ j : Nat,
+      (checkDirectFieldUniv (pairOps o₁ o₂ h) env s depth nP fvs j).val.1 =
+        checkDirectFieldUniv o₁ env s depth nP fvs j
+  | 0 => rfl
+  | j + 1 => by
+    unfold checkDirectFieldUniv
+    simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
+      PairM.fst_ite, pairOps_inferType_fst, pairOps_ensureSort_fst,
+      liftFueled_fst_proj, unwrapOr_fst_dproj,
+      checkDirectFieldUniv_fst_dproj env s depth nP fvs j]
+
+theorem checkDirectFieldUniv_snd_dproj (env : Env) (s : Level)
+    (depth nP : Nat) (fvs : List Expr) :
+    ∀ j : Nat,
+      (checkDirectFieldUniv (pairOps o₁ o₂ h) env s depth nP fvs j).val.2 =
+        checkDirectFieldUniv o₂ env s depth nP fvs j
+  | 0 => rfl
+  | j + 1 => by
+    unfold checkDirectFieldUniv
+    simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
+      PairM.snd_ite, pairOps_inferType_snd, pairOps_ensureSort_snd,
+      liftFueled_snd_proj, unwrapOr_snd_dproj,
+      checkDirectFieldUniv_snd_dproj env s depth nP fvs j]
+
+theorem checkDirectInd_fst_dproj (env : Env) (p : DirectParts) :
+    (checkDirectInd (pairOps o₁ o₂ h) env p).val.1 =
+      checkDirectInd o₁ env p := by
+  unfold checkDirectInd
+  simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
+    PairM.fst_ite, unwrapOr_fst_dproj, checkConstantVal_fst_dproj]
+
+theorem checkDirectInd_snd_dproj (env : Env) (p : DirectParts) :
+    (checkDirectInd (pairOps o₁ o₂ h) env p).val.2 =
+      checkDirectInd o₂ env p := by
+  unfold checkDirectInd
+  simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
+    PairM.snd_ite, unwrapOr_snd_dproj, checkConstantVal_snd_dproj]
+
+theorem checkDirectCtor_fst_dproj (env : Env) (p : DirectParts) :
+    (checkDirectCtor (pairOps o₁ o₂ h) env p).val.1 =
+      checkDirectCtor o₁ env p := by
+  unfold checkDirectCtor
+  simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
+    PairM.fst_ite, unwrapOr_fst_dproj, checkConstantVal_fst_dproj,
+    checkDirectFieldUniv_fst_dproj]
+
+theorem checkDirectCtor_snd_dproj (env : Env) (p : DirectParts) :
+    (checkDirectCtor (pairOps o₁ o₂ h) env p).val.2 =
+      checkDirectCtor o₂ env p := by
+  unfold checkDirectCtor
+  simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
+    PairM.snd_ite, unwrapOr_snd_dproj, checkConstantVal_snd_dproj,
+    checkDirectFieldUniv_snd_dproj]
+
+theorem checkDirectRecTy_fst_dproj (env : Env) (p : DirectParts)
+    (cvTa cvCa cvRa : ConstantVal) :
+    (checkDirectRecTy (pairOps o₁ o₂ h) env p cvTa cvCa cvRa).val.1 =
+      checkDirectRecTy o₁ env p cvTa cvCa cvRa := by
+  unfold checkDirectRecTy
+  simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
+    PairM.fst_ite, pairOps_isDefEq_fst, unwrapOr_fst_dproj,
+    checkDefEqList_fst_dproj]
+
+theorem checkDirectRecTy_snd_dproj (env : Env) (p : DirectParts)
+    (cvTa cvCa cvRa : ConstantVal) :
+    (checkDirectRecTy (pairOps o₁ o₂ h) env p cvTa cvCa cvRa).val.2 =
+      checkDirectRecTy o₂ env p cvTa cvCa cvRa := by
+  unfold checkDirectRecTy
+  simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
+    PairM.snd_ite, pairOps_isDefEq_snd, unwrapOr_snd_dproj,
+    checkDefEqList_snd_dproj]
+
+theorem checkDirectRule_fst_dproj (env : Env) (p : DirectParts)
+    (cvCa cvRa : ConstantVal) :
+    (checkDirectRule (pairOps o₁ o₂ h) env p cvCa cvRa).val.1 =
+      checkDirectRule o₁ env p cvCa cvRa := by
+  unfold checkDirectRule
+  simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
+    PairM.fst_ite, pairOps_annotate_fst, pairOps_inferType_fst,
+    unwrapOr_fst_dproj, checkDefEqList_fst_dproj]
+
+theorem checkDirectRule_snd_dproj (env : Env) (p : DirectParts)
+    (cvCa cvRa : ConstantVal) :
+    (checkDirectRule (pairOps o₁ o₂ h) env p cvCa cvRa).val.2 =
+      checkDirectRule o₂ env p cvCa cvRa := by
+  unfold checkDirectRule
+  simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
+    PairM.snd_ite, pairOps_annotate_snd, pairOps_inferType_snd,
+    unwrapOr_snd_dproj, checkDefEqList_snd_dproj]
+
+theorem checkDirectProj_fst_dproj (T C : Name) (lps : List Name)
+    (nP nF : Nat) (cvTa cvCa : ConstantVal) (env : Env) (i : Nat) :
+    (checkDirectProj (pairOps o₁ o₂ h) T C lps nP nF cvTa cvCa env i).val.1 =
+      checkDirectProj o₁ T C lps nP nF cvTa cvCa env i := by
+  unfold checkDirectProj
+  simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
+    PairM.fst_ite, pairOps_annotate_fst, pairOps_inferType_fst,
+    pairOps_ensureSort_fst, unwrapOr_fst_dproj,
+    checkProjShape_fst_dproj, checkProjRule_fst_dproj]
+
+theorem checkDirectProj_snd_dproj (T C : Name) (lps : List Name)
+    (nP nF : Nat) (cvTa cvCa : ConstantVal) (env : Env) (i : Nat) :
+    (checkDirectProj (pairOps o₁ o₂ h) T C lps nP nF cvTa cvCa env i).val.2 =
+      checkDirectProj o₂ T C lps nP nF cvTa cvCa env i := by
+  unfold checkDirectProj
+  simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
+    PairM.snd_ite, pairOps_annotate_snd, pairOps_inferType_snd,
+    pairOps_ensureSort_snd, unwrapOr_snd_dproj,
+    checkProjShape_snd_dproj, checkProjRule_snd_dproj]
+
+theorem checkDirectProj_fst_fun (T C : Name) (lps : List Name)
+    (nP nF : Nat) (cvTa cvCa : ConstantVal) :
+    (fun (e : Env) (i : Nat) =>
+      (checkDirectProj (pairOps o₁ o₂ h) T C lps nP nF cvTa cvCa e i).val.1) =
+    (checkDirectProj o₁ T C lps nP nF cvTa cvCa : Env → Nat → M₁ Env) :=
+  funext fun e => funext fun i =>
+    checkDirectProj_fst_dproj T C lps nP nF cvTa cvCa e i
+
+theorem checkDirectProj_snd_fun (T C : Name) (lps : List Name)
+    (nP nF : Nat) (cvTa cvCa : ConstantVal) :
+    (fun (e : Env) (i : Nat) =>
+      (checkDirectProj (pairOps o₁ o₂ h) T C lps nP nF cvTa cvCa e i).val.2) =
+    (checkDirectProj o₂ T C lps nP nF cvTa cvCa : Env → Nat → M₂ Env) :=
+  funext fun e => funext fun i =>
+    checkDirectProj_snd_dproj T C lps nP nF cvTa cvCa e i
+
+theorem checkDirectStruct_fst_dproj (env : Env) (p : DirectParts) :
+    (checkDirectStruct (pairOps o₁ o₂ h) env p).val.1 =
+      checkDirectStruct o₁ env p := by
+  unfold checkDirectStruct
+  simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
+    PairM.fst_ite, foldlM_fst, checkConstantVal_fst_dproj,
+    checkDirectInd_fst_dproj, checkDirectCtor_fst_dproj,
+    checkDirectRecTy_fst_dproj, checkDirectRule_fst_dproj,
+    checkDirectProj_fst_fun]
+
+theorem checkDirectStruct_snd_dproj (env : Env) (p : DirectParts) :
+    (checkDirectStruct (pairOps o₁ o₂ h) env p).val.2 =
+      checkDirectStruct o₂ env p := by
+  unfold checkDirectStruct
+  simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
+    PairM.snd_ite, foldlM_snd, checkConstantVal_snd_dproj,
+    checkDirectInd_snd_dproj, checkDirectCtor_snd_dproj,
+    checkDirectRecTy_snd_dproj, checkDirectRule_snd_dproj,
+    checkDirectProj_snd_fun]
+
 macro "dfst_step4" : tactic =>
   `(tactic| repeat (first
     | (rw [liftFueled_fst_proj])
@@ -820,6 +986,7 @@ macro "dfst_step4" : tactic =>
     | (rw [checkIotaRules_fst_dproj])
     | (rw [checkIndRecs_fst_dproj])
     | (rw [checkProjFn_fst_dproj])
+    | (rw [checkDirectStruct_fst_dproj])
     | (rw [checkIndDecl_fst_dproj])
     | (rw [installProjTemplateStep_fst_fun])
     | split
@@ -850,6 +1017,7 @@ macro "dsnd_step4" : tactic =>
     | (rw [checkIotaRules_snd_dproj])
     | (rw [checkIndRecs_snd_dproj])
     | (rw [checkProjFn_snd_dproj])
+    | (rw [checkDirectStruct_snd_dproj])
     | (rw [checkIndDecl_snd_dproj])
     | (rw [installProjTemplateStep_snd_fun])
     | split
@@ -893,6 +1061,7 @@ macro "dfst_step5" : tactic =>
     | (rw [checkIotaRules_fst_dproj])
     | (rw [checkIndRecs_fst_dproj])
     | (rw [checkProjFn_fst_dproj])
+    | (rw [checkDirectStruct_fst_dproj])
     | (rw [checkIndDecl_fst_dproj])
     | (rw [checkDecl_fst_dproj])
     | split
@@ -924,6 +1093,7 @@ macro "dsnd_step5" : tactic =>
     | (rw [checkIotaRules_snd_dproj])
     | (rw [checkIndRecs_snd_dproj])
     | (rw [checkProjFn_snd_dproj])
+    | (rw [checkDirectStruct_snd_dproj])
     | (rw [checkIndDecl_snd_dproj])
     | (rw [checkDecl_snd_dproj])
     | split
