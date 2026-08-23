@@ -193,6 +193,46 @@ theorem directTyVal_mem {tty cty : Expr} {nP nF : Nat} {s : Level} {Tv : V}
   refine ⟨univ (s.eval φ), by rw [interpExpr], ?_⟩
   exact sigmaTowerV_mem_univ (hfield ps d ρ hfit hlen)
 
+/-- Applying the type former's value to a fitting parameter spine
+computes the dependent-pair tower — the equation every later step goes
+through (`⟦T p⃗⟧` *is* the tower). -/
+theorem directTyVal_fold {tty cty : Expr} {nP nF : Nat} {s : Level}
+    {ps : List V} {d' : Nat} {ρ' : Nat → V}
+    {bs : List (Name × Expr × BinderMeta)}
+    (hstrip : Expr.stripPis nP tty = some (bs, .sort s))
+    (htyA : AnnotOk V cval env φ 0 (rho0 V) tty)
+    (hfit : TeleFit V cval env φ 0 (rho0 V) tty ps d' ρ' (.sort s))
+    (hlen : ps.length = nP)
+    (hfield : ∀ (ps' : List V) (d : Nat) (ρ : Nat → V),
+      TeleFit V cval env φ 0 (rho0 V) tty ps' d ρ (.sort s) →
+      ps'.length = nP →
+      FieldTele V cval env φ (s.eval φ) nF d ρ (directCRest cty nP)) :
+    SpineFold V (directTyVal V cval env tty cty nP nF s φ) ps =
+      sigmaTowerV V cval env φ (s.eval φ) nF d' ρ' (directCRest cty nP) := by
+  refine teleLamV_fold (by rw [hstrip]; rfl) hfit hlen htyA ?_
+  intro xs d₂ ρ₂ rest hfit₂ hlen₂
+  obtain rfl : rest = Expr.sort s := TeleFit_rest_sort nP hfit₂ hlen₂ hstrip
+  exact ⟨univ (s.eval φ), by rw [interpExpr],
+    sigmaTowerV_mem_univ (hfield xs d₂ ρ₂ hfit₂ hlen₂)⟩
+
+/-- A field-free direct structure is unit-like: its model is the
+singleton, so any two members of the interpreted family coincide.  This
+is what the `unitlike := nF == 0` capability rests on. -/
+theorem directTyVal_unitlike {tty cty : Expr} {nP : Nat} {s : Level}
+    {ps : List V} {d' : Nat} {ρ' : Nat → V} {x y : V}
+    {bs : List (Name × Expr × BinderMeta)}
+    (hstrip : Expr.stripPis nP tty = some (bs, .sort s))
+    (htyA : AnnotOk V cval env φ 0 (rho0 V) tty)
+    (hfit : TeleFit V cval env φ 0 (rho0 V) tty ps d' ρ' (.sort s))
+    (hlen : ps.length = nP)
+    (hx : x ∈ˢ SpineFold V (directTyVal V cval env tty cty nP 0 s φ) ps)
+    (hy : y ∈ˢ SpineFold V (directTyVal V cval env tty cty nP 0 s φ) ps) :
+    x = y := by
+  have hfold := directTyVal_fold (cty := cty) (nF := 0) hstrip htyA hfit hlen
+    (fun _ _ _ _ _ => trivial)
+  rw [hfold] at hx hy
+  rw [mem_unitSet_iff.mp hx, mem_unitSet_iff.mp hy]
+
 /-! ### The constructor's value -/
 
 /-- `⟦T.mk⟧`: the λ-tower over the constructor's telescope whose body is
