@@ -382,6 +382,206 @@ theorem checkDirectCtor_inv {env₀ env : Env} {p : DirectParts}
   exact ⟨cvCa, q1.1, cq.1, cq.2, tq.1, tq.2, xq.1, hcv, hq1b, hcq, htq,
     hpins, hxqb, fun x hx => List.all_eq_true.mp hres x hx, hfu, h.symm⟩
 
+/-- Inversion for `checkDirectRecTy` (stage 3): every intermediate the
+model reads, with each pin at the frame it was checked at. -/
+theorem checkDirectRecTy_inv {env : Env} {p : DirectParts}
+    {cvTa cvCa cvRa : ConstantVal} {F : Nat} {v : Unit}
+    (h : checkDirectRecTy (fueledOps F) env p cvTa cvCa cvRa = .ok v) :
+    ∃ fvsP rest cdomsP crest mfv mbs mdom minfv xFvs cdomsF jbs,
+      directShape p.cvT.name p.cvC.name p.cvT.levelParams p.elim p.nP p.nF
+        cvTa.type cvCa.type cvRa.type = true ∧
+      openPisAtFvars (p.nP + 2) cvRa.type 0 = some (fvsP, rest) ∧
+      Expr.instPisAt (fvsP.take p.nP) cvCa.type = some (cdomsP, crest) ∧
+      checkDirectDomsAt (fueledOps F) env 0 (fvsP.take p.nP) cdomsP p.nP
+        = .ok () ∧
+      fvsP[p.nP]? = some mfv ∧
+      Expr.stripPis 1 (Expr.fvarTypeD mfv) =
+        some (mbs, Expr.sort (.param p.elim)) ∧
+      (mbs[0]?).map (·.2.1) = some mdom ∧
+      isDefEqCore env F p.nP mdom
+        (Expr.mkAppN (.const p.cvT.name (p.cvT.levelParams.map .param))
+          (fvsP.take p.nP)) = .ok true ∧
+      fvsP[p.nP + 1]? = some minfv ∧
+      openPisAtFvars p.nF (Expr.fvarTypeD minfv) (p.nP + 2) = some (xFvs,
+        Expr.app mfv (Expr.mkAppN
+          (.const p.cvC.name (p.cvT.levelParams.map .param))
+          (fvsP.take p.nP ++ xFvs))) ∧
+      Expr.instPisAt xFvs crest = some (cdomsF,
+        Expr.mkAppN (.const p.cvT.name (p.cvT.levelParams.map .param))
+          (fvsP.take p.nP)) ∧
+      checkDirectDomsAt (fueledOps F) env (p.nP + 2) xFvs cdomsF p.nF
+        = .ok () ∧
+      Expr.stripPis 1 rest = some (jbs, Expr.app mfv (.bvar 0)) ∧
+      ∃ jdom, (jbs[0]?).map (·.2.1) = some jdom ∧
+        isDefEqCore env F (p.nP + 2) jdom
+          (Expr.mkAppN (.const p.cvT.name (p.cvT.levelParams.map .param))
+            (fvsP.take p.nP)) = .ok true := by
+  rw [checkDirectRecTy] at h
+  simp only [Bind.bind, Except.bind] at h
+  by_cases hsh : directShape p.cvT.name p.cvC.name p.cvT.levelParams p.elim
+      p.nP p.nF cvTa.type cvCa.type cvRa.type = true
+  case neg =>
+    rw [if_neg hsh] at h
+    simp only [throw, throwThe, MonadExceptOf.throw, Except.bind] at h
+    exact nomatch h
+  rw [if_pos hsh] at h
+  obtain ⟨q1, hq1⟩ : ∃ q, openPisAtFvars (p.nP + 2) cvRa.type 0 = some q := by
+    cases hh : openPisAtFvars (p.nP + 2) cvRa.type 0 with
+    | none =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+    | some q => exact ⟨q, rfl⟩
+  rw [hq1] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind] at h
+  obtain ⟨q2, hq2⟩ : ∃ q, Expr.instPisAt (q1.1.take p.nP) cvCa.type
+      = some q := by
+    cases hh : Expr.instPisAt (q1.1.take p.nP) cvCa.type with
+    | none =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+    | some q => exact ⟨q, rfl⟩
+  rw [hq2] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind] at h
+  obtain ⟨u0, hpins1, h⟩ := Except.bind_ok h
+  obtain rfl : u0 = () := rfl
+  obtain ⟨mfv, hmfv⟩ : ∃ x, q1.1[p.nP]? = some x := by
+    cases hh : q1.1[p.nP]? with
+    | none =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+    | some x => exact ⟨x, rfl⟩
+  rw [hmfv] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind] at h
+  obtain ⟨q3, hq3⟩ : ∃ q, Expr.stripPis 1 (Expr.fvarTypeD mfv) = some q := by
+    cases hh : Expr.stripPis 1 (Expr.fvarTypeD mfv) with
+    | none =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+    | some q => exact ⟨q, rfl⟩
+  rw [hq3] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind] at h
+  obtain ⟨mdom, hmdom⟩ : ∃ x, (q3.1[0]?).map (·.2.1) = some x := by
+    cases hh : (q3.1[0]?).map (·.2.1) with
+    | none =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+    | some x => exact ⟨x, rfl⟩
+  rw [hmdom] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind, fueledOps_isDefEq] at h
+  obtain ⟨b1, hb1, h⟩ := Except.bind_ok h
+  cases b1 with
+  | false =>
+    simp only [Bool.false_eq_true, if_false, throw, throwThe,
+      MonadExceptOf.throw, Except.bind] at h
+    exact nomatch h
+  | true =>
+  simp only [if_true] at h
+  by_cases hmb : (q3.2 == Expr.sort (.param p.elim)) = true
+  case neg =>
+    rw [if_neg hmb] at h
+    simp only [throw, throwThe, MonadExceptOf.throw, Except.bind] at h
+    exact nomatch h
+  rw [if_pos hmb] at h
+  obtain ⟨minfv, hminfv⟩ : ∃ x, q1.1[p.nP + 1]? = some x := by
+    cases hh : q1.1[p.nP + 1]? with
+    | none =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+    | some x => exact ⟨x, rfl⟩
+  rw [hminfv] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind] at h
+  obtain ⟨q4, hq4⟩ : ∃ q, openPisAtFvars p.nF (Expr.fvarTypeD minfv)
+      (p.nP + 2) = some q := by
+    cases hh : openPisAtFvars p.nF (Expr.fvarTypeD minfv) (p.nP + 2) with
+    | none =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+    | some q => exact ⟨q, rfl⟩
+  rw [hq4] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind] at h
+  obtain ⟨q5, hq5⟩ : ∃ q, Expr.instPisAt q4.1 q2.2 = some q := by
+    cases hh : Expr.instPisAt q4.1 q2.2 with
+    | none =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+    | some q => exact ⟨q, rfl⟩
+  rw [hq5] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind] at h
+  obtain ⟨u1, hpins2, h⟩ := Except.bind_ok h
+  obtain rfl : u1 = () := rfl
+  by_cases hcr : (q5.2 == Expr.mkAppN
+      (.const p.cvT.name (p.cvT.levelParams.map .param))
+      (q1.1.take p.nP)) = true
+  case neg =>
+    rw [if_neg hcr] at h
+    simp only [throw, throwThe, MonadExceptOf.throw, Except.bind] at h
+    exact nomatch h
+  rw [if_pos hcr] at h
+  by_cases hmc : (q4.2 == Expr.app mfv (Expr.mkAppN
+      (.const p.cvC.name (p.cvT.levelParams.map .param))
+      (q1.1.take p.nP ++ q4.1))) = true
+  case neg =>
+    rw [if_neg hmc] at h
+    simp only [throw, throwThe, MonadExceptOf.throw, Except.bind] at h
+    exact nomatch h
+  rw [if_pos hmc] at h
+  obtain ⟨q6, hq6⟩ : ∃ q, Expr.stripPis 1 q1.2 = some q := by
+    cases hh : Expr.stripPis 1 q1.2 with
+    | none =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+    | some q => exact ⟨q, rfl⟩
+  rw [hq6] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind] at h
+  obtain ⟨jdom, hjdom⟩ : ∃ x, (q6.1[0]?).map (·.2.1) = some x := by
+    cases hh : (q6.1[0]?).map (·.2.1) with
+    | none =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+    | some x => exact ⟨x, rfl⟩
+  rw [hjdom] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind, fueledOps_isDefEq] at h
+  obtain ⟨b2, hb2, h⟩ := Except.bind_ok h
+  cases b2 with
+  | false =>
+    simp only [Bool.false_eq_true, if_false, throw, throwThe,
+      MonadExceptOf.throw, Except.bind] at h
+    exact nomatch h
+  | true =>
+  simp only [if_true] at h
+  by_cases hjb : (q6.2 == Expr.app mfv (.bvar 0)) = true
+  case neg =>
+    rw [if_neg hjb] at h
+    simp only [throw, throwThe, MonadExceptOf.throw] at h
+    exact nomatch h
+  refine ⟨q1.1, q1.2, q2.1, q2.2, mfv, q3.1, mdom, minfv, q4.1, q5.1, q6.1,
+    hsh, hq1, hq2, hpins1, hmfv, ?_, hmdom, hb1, hminfv, ?_, ?_, hpins2,
+    ?_, jdom, hjdom, hb2⟩
+  · rw [hq3]; congr 1; exact (Prod.mk.injEq _ _ _ _).mpr ⟨rfl, eq_of_beq hmb⟩
+  · rw [hq4]; congr 1; exact (Prod.mk.injEq _ _ _ _).mpr ⟨rfl, eq_of_beq hmc⟩
+  · rw [hq5]; congr 1; exact (Prod.mk.injEq _ _ _ _).mpr ⟨rfl, eq_of_beq hcr⟩
+  · rw [hq6]; congr 1; exact (Prod.mk.injEq _ _ _ _).mpr ⟨rfl, eq_of_beq hjb⟩
+
 /-! ### The constructor's semantic obligations -/
 
 /-- The field telescope is small at every fitting parameter spine: the
