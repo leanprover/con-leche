@@ -3487,3 +3487,24 @@ What remains, in dependency order:
    shared-state-to-pure bridge, including the `flushS`/`ISOK`
    re-establishment at each of the five phases, and the run-tied
    `EnvWF` discharges `checkDirectStruct_wfimp` is waiting on.
+
+## Perf-program closing entry (2026-08-23)
+
+Final recorded triple on the identical preprocessed init-prelude
+stream (3653 constants), all gates green (arena 90/92 by design,
+e2e 52/52, lake test, warning-free, pinned axioms only):
+
+| configuration | instructions | wall |
+|---|---|---|
+| setlec, certified (default) | **173.2 G** | ~12.2 s |
+| setlec, `SETLEC_NO_PROOF_CERTS=1` | **140.1 G** | ~9.1 s |
+| official C++ kernel | 3.9 G | 0.31 s |
+
+From 590 G / 41 s at the program's start: **3.4x instructions**, with
+the residual verification tax at ~33 G (19 %) and the engineering gap
+~36x.  Scale harness: all four shapes ≤ 1.3 in both modes.  app-lam
+and the DAG towers accept (parse-time interning, task #78); stored
+constants never tree-walk.  Remaining levers, recorded: the two-tier
+arena (#64, leisure), streaming parse (#57), interned-only module
+tree (#80), and the locked metatheory options (#74/#75, 6-15 %
+bounty).
