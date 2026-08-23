@@ -3201,6 +3201,13 @@ the eliminated variable, so the minor `λ f⃗, f_i` only typechecks when
 `Sigma.snd`.  Installing real projection functions is therefore not an
 optimisation but a requirement.
 
+**Where the clause lives.**  The module split `CheckerBase ← Modeled ←
+Checker` (task #83) puts `checkIndDecl` in `Modeled` and
+`checkDirectStruct` in `Checker`, so `checkDirectStruct` is not in
+scope inside `checkIndDecl`.  The direct clause therefore dispatches in
+**`checkDecl`** (and its shared-state twin `checkDeclSF`), not inside
+`checkIndDecl` — do not look for it there.
+
 ### Precedence: artifact-free, not artifact-first
 
 The brief ordered the clauses *basis → direct → modeled*.  The landed
@@ -3495,12 +3502,17 @@ which is exactly "frame `j`".
   exactly the annotations the model's walks produce, and it is the
   telescope `directCRest` — hence the tower, the constructor value and
   the projections — is read off.
-* `checkDirectParamDoms` runs the reference kernels' parameter-telescope
-  comparison (`Add.lean:220-222`, nanoda `check_ctor`) **binder by
-  binder at frame `j`**, with the type former opened at *its* own
-  variables too.  Domain `j` is scoped at `j`, so frame `j` is precisely
-  the context the references compare it in — with the first `j` binders
-  in scope and no more.  Because neither side borrows the other's
+* `checkDirectDomsAt` runs the reference kernels' binder-domain
+  comparisons **binder by binder at frame `off + j`**, with each
+  telescope opened at *its* own variables.  It is used four times: the
+  constructor stage's parameter comparison (`Add.lean:220-222`, nanoda
+  `check_ctor`, at `off = 0`), and — the fourth instance of this one
+  decision — the recursor stage's parameter comparison (`off = 0`), its
+  minor-premise field domains (`off = nP + 2`), with the motive's and
+  the major's domains pinned by single `isDefEq`s at frames `nP` and
+  `nP + 2`.  Domain `j` is scoped at `off + j`, so that frame is precisely the
+  context the references compare it in — with the binders before it in
+  scope and no more.  Because neither side borrows the other's
   annotations, both carry their own frame conditions at every stage
   (`FrameOk.dom`) and `isDefEqCore_sound` applies at exactly the frame
   the model's walk is at: no lifting between frames, and no mixed-spine

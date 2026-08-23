@@ -847,27 +847,29 @@ theorem checkDirectFieldUniv_snd_dproj (env : Env) (s : Level)
       liftFueled_snd_proj, unwrapOr_snd_dproj,
       checkDirectFieldUniv_snd_dproj env s nP fvs j]
 
-theorem checkDirectParamDoms_fst_dproj (env : Env) (cfvs tfvs : List Expr) :
+theorem checkDirectDomsAt_fst_dproj (env : Env) (off : Nat)
+    (fvs doms : List Expr) :
     ∀ j : Nat,
-      (checkDirectParamDoms (pairOps o₁ o₂ h) env cfvs tfvs j).val.1 =
-        checkDirectParamDoms o₁ env cfvs tfvs j
+      (checkDirectDomsAt (pairOps o₁ o₂ h) env off fvs doms j).val.1 =
+        checkDirectDomsAt o₁ env off fvs doms j
   | 0 => rfl
   | j + 1 => by
-    unfold checkDirectParamDoms
+    unfold checkDirectDomsAt
     simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
       PairM.fst_ite, pairOps_isDefEq_fst, unwrapOr_fst_dproj,
-      checkDirectParamDoms_fst_dproj env cfvs tfvs j]
+      checkDirectDomsAt_fst_dproj env off fvs doms j]
 
-theorem checkDirectParamDoms_snd_dproj (env : Env) (cfvs tfvs : List Expr) :
+theorem checkDirectDomsAt_snd_dproj (env : Env) (off : Nat)
+    (fvs doms : List Expr) :
     ∀ j : Nat,
-      (checkDirectParamDoms (pairOps o₁ o₂ h) env cfvs tfvs j).val.2 =
-        checkDirectParamDoms o₂ env cfvs tfvs j
+      (checkDirectDomsAt (pairOps o₁ o₂ h) env off fvs doms j).val.2 =
+        checkDirectDomsAt o₂ env off fvs doms j
   | 0 => rfl
   | j + 1 => by
-    unfold checkDirectParamDoms
+    unfold checkDirectDomsAt
     simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
       PairM.snd_ite, pairOps_isDefEq_snd, unwrapOr_snd_dproj,
-      checkDirectParamDoms_snd_dproj env cfvs tfvs j]
+      checkDirectDomsAt_snd_dproj env off fvs doms j]
 
 theorem checkDirectInd_fst_dproj (env : Env) (p : DirectParts) :
     (checkDirectInd (pairOps o₁ o₂ h) env p).val.1 =
@@ -890,7 +892,7 @@ theorem checkDirectCtor_fst_dproj (env₀ env : Env) (p : DirectParts)
   unfold checkDirectCtor
   simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
     PairM.fst_ite, unwrapOr_fst_dproj, checkConstantVal_fst_dproj,
-    checkDirectFieldUniv_fst_dproj, checkDirectParamDoms_fst_dproj]
+    checkDirectFieldUniv_fst_dproj, checkDirectDomsAt_fst_dproj]
 
 theorem checkDirectCtor_snd_dproj (env₀ env : Env) (p : DirectParts)
     (cvTa : ConstantVal) :
@@ -899,7 +901,7 @@ theorem checkDirectCtor_snd_dproj (env₀ env : Env) (p : DirectParts)
   unfold checkDirectCtor
   simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
     PairM.snd_ite, unwrapOr_snd_dproj, checkConstantVal_snd_dproj,
-    checkDirectFieldUniv_snd_dproj, checkDirectParamDoms_snd_dproj]
+    checkDirectFieldUniv_snd_dproj, checkDirectDomsAt_snd_dproj]
 
 theorem checkDirectRecTy_fst_dproj (env : Env) (p : DirectParts)
     (cvTa cvCa cvRa : ConstantVal) :
@@ -908,7 +910,7 @@ theorem checkDirectRecTy_fst_dproj (env : Env) (p : DirectParts)
   unfold checkDirectRecTy
   simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
     PairM.fst_ite, pairOps_isDefEq_fst, unwrapOr_fst_dproj,
-    checkDefEqList_fst_dproj]
+    checkDirectDomsAt_fst_dproj]
 
 theorem checkDirectRecTy_snd_dproj (env : Env) (p : DirectParts)
     (cvTa cvCa cvRa : ConstantVal) :
@@ -917,7 +919,7 @@ theorem checkDirectRecTy_snd_dproj (env : Env) (p : DirectParts)
   unfold checkDirectRecTy
   simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
     PairM.snd_ite, pairOps_isDefEq_snd, unwrapOr_snd_dproj,
-    checkDefEqList_snd_dproj]
+    checkDirectDomsAt_snd_dproj]
 
 theorem checkDirectRule_fst_dproj (env : Env) (p : DirectParts)
     (cvCa cvRa : ConstantVal) :
@@ -1760,17 +1762,17 @@ theorem checkDirectFieldUniv_datF (env : Env) (s : Level)
       liftFueled_atF, unwrapOr_atF,
       checkDirectFieldUniv_datF env s nP fvs F j]
 
-theorem checkDirectParamDoms_datF (env : Env) (cfvs tfvs : List Expr)
-    (F : Nat) :
+theorem checkDirectDomsAt_datF (env : Env) (off : Nat)
+    (fvs doms : List Expr) (F : Nat) :
     ∀ j : Nat,
-      (checkDirectParamDoms fueledOpsM env cfvs tfvs j).val F =
-        checkDirectParamDoms (fueledOps F) env cfvs tfvs j
+      (checkDirectDomsAt fueledOpsM env off fvs doms j).val F =
+        checkDirectDomsAt (fueledOps F) env off fvs doms j
   | 0 => rfl
   | j + 1 => by
-    unfold checkDirectParamDoms
+    unfold checkDirectDomsAt
     simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
       FueledM.atF_ite, fueledOpsM_isDefEq_atF, unwrapOr_atF,
-      checkDirectParamDoms_datF env cfvs tfvs F j]
+      checkDirectDomsAt_datF env off fvs doms F j]
 
 theorem checkDirectInd_datF (env : Env) (p : DirectParts) (F : Nat) :
     (checkDirectInd fueledOpsM env p).val F =
@@ -1786,7 +1788,7 @@ theorem checkDirectCtor_datF (env₀ env : Env) (p : DirectParts)
   unfold checkDirectCtor
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF,
-    checkDirectFieldUniv_datF, checkDirectParamDoms_datF]
+    checkDirectFieldUniv_datF, checkDirectDomsAt_datF]
 
 theorem checkDirectRecTy_datF (env : Env) (p : DirectParts)
     (cvTa cvCa cvRa : ConstantVal) (F : Nat) :
@@ -1795,7 +1797,7 @@ theorem checkDirectRecTy_datF (env : Env) (p : DirectParts)
   unfold checkDirectRecTy
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, fueledOpsM_isDefEq_atF, unwrapOr_atF,
-    checkDefEqList_datF]
+    checkDirectDomsAt_datF]
 
 theorem checkDirectRule_datF (env : Env) (p : DirectParts)
     (cvCa cvRa : ConstantVal) (F : Nat) :

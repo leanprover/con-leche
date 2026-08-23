@@ -71,26 +71,26 @@ def checkDirectFieldUniv (ops : CheckerOps m) (env : Env) (s : Level)
       throw (.invalid "direct structure: field universe too large")
     checkDirectFieldUniv ops env s nP fvs j
 
-/-- The reference kernels' comparison of the constructor's parameter
-telescope with the type former's (lean4lean `Inductive/Add.lean:220-222`,
-nanoda `check_ctor`, `checker/src/inductive.rs:809`), run binder by
-binder **at its own frame**.
+/-- The reference kernels' binder-domain comparisons, run binder by
+binder **at its own frame**: the `j`-th opened variable's annotation
+against the `j`-th expected domain, at frame `off + j`.
 
-Domain `j` is scoped at `j` — it mentions the first `j` parameters and
-nothing else — so frame `j` is exactly the context the references
-compare it in, with the first `j` binders in scope and no more.  Each
-telescope is opened at its **own** variables, so neither side's
-annotations are borrowed from the other.  Walks from the last parameter
-to the first, like `checkDirectFieldUniv`. -/
-def checkDirectParamDoms (ops : CheckerOps m) (env : Env)
-    (cfvs tfvs : List Expr) : Nat → m Unit
+Domain `j` is scoped at `off + j` — it mentions the binders before it
+and nothing else — so that frame is exactly the context the references
+compare it in, with those binders in scope and no more.  Because each
+telescope is opened at its **own** variables, neither side's
+annotations are borrowed from the other, which is what lets the model's
+walks carry their own frame conditions at every stage.  Walks from the
+last binder to the first, like `checkDirectFieldUniv`. -/
+def checkDirectDomsAt (ops : CheckerOps m) (env : Env) (off : Nat)
+    (fvs doms : List Expr) : Nat → m Unit
   | 0 => pure ()
   | j + 1 => do
-    let a ← unwrapOr cfvs[j]? (.internal "direct structure: parameter index")
-    let b ← unwrapOr tfvs[j]? (.internal "direct structure: parameter index")
-    unless ← ops.isDefEq env j a.fvarTypeD b.fvarTypeD do
-      throw (.notImplemented "direct structure: parameter domain mismatch")
-    checkDirectParamDoms ops env cfvs tfvs j
+    let a ← unwrapOr fvs[j]? (.internal "direct structure: domain index")
+    let b ← unwrapOr doms[j]? (.internal "direct structure: domain index")
+    unless ← ops.isDefEq env (off + j) a.fvarTypeD b do
+      throw (.notImplemented "direct structure: binder domain mismatch")
+    checkDirectDomsAt ops env off fvs doms j
 
 /-- Stage 1: the type former.  The ordinary constant check plus a
 re-verification of the *annotated* shape — the model reads the
@@ -134,7 +134,7 @@ def checkDirectCtor (ops : CheckerOps m) (env₀ env : Env) (p : DirectParts)
     (.notImplemented "direct structure: constructor telescope")
   let tq ← unwrapOr (openPisAtFvars p.nP cvTa.type 0)
     (.notImplemented "direct structure: type former telescope")
-  checkDirectParamDoms ops env cq.1 tq.1 p.nP
+  checkDirectDomsAt ops env 0 cq.1 (tq.1.map Expr.fvarTypeD) p.nP
   let xq ← unwrapOr (openPisAtFvars p.nF cq.2 p.nP)
     (.notImplemented "direct structure: constructor field telescope")
   -- the opened residual is the family at the opened parameter variables
@@ -160,15 +160,15 @@ def checkDirectRecTy (ops : CheckerOps m) (env : Env) (p : DirectParts)
   unless directShape T p.cvC.name lps p.elim p.nP p.nF
       cvTa.type cvCa.type cvRa.type do
     throw (.notImplemented "direct structure: annotated recursor shape")
-  let depth := p.nP + 2 + p.nF
   let (fvsP, rest) ← unwrapOr (openPisAtFvars (p.nP + 2) cvRa.type 0)
     (.notImplemented "direct structure: recursor telescope")
   let ps := fvsP.take p.nP
   let famApp := Expr.mkAppN (.const T (lps.map .param)) ps
-  -- the parameters: definitionally the constructor's parameter domains
+  -- the parameters: definitionally the constructor's parameter domains,
+  -- domain `j` at frame `j`
   let (cdomsP, crest) ← unwrapOr (Expr.instPisAt ps cvCa.type)
     (.notImplemented "direct structure: constructor telescope")
-  checkDefEqList ops env depth (ps.map Expr.fvarTypeD) cdomsP
+  checkDirectDomsAt ops env 0 ps cdomsP p.nP
   -- the motive: `∀ (t : T p⃗), Sort elim`
   let mfv ← unwrapOr fvsP[p.nP]?
     (.internal "direct structure: motive index")
@@ -176,7 +176,7 @@ def checkDirectRecTy (ops : CheckerOps m) (env : Env) (p : DirectParts)
     (.notImplemented "direct structure: motive telescope")
   let mdom ← unwrapOr ((mbs[0]?).map (·.2.1))
     (.notImplemented "direct structure: motive telescope")
-  unless ← ops.isDefEq env depth mdom famApp do
+  unless ← ops.isDefEq env p.nP mdom famApp do
     throw (.notImplemented "direct structure: motive domain")
   unless mbody == Expr.sort (.param p.elim) do
     throw (.notImplemented "direct structure: motive codomain")
@@ -189,7 +189,7 @@ def checkDirectRecTy (ops : CheckerOps m) (env : Env) (p : DirectParts)
     (.notImplemented "direct structure: minor telescope")
   let (cdomsF, crest2) ← unwrapOr (Expr.instPisAt xFvs crest)
     (.notImplemented "direct structure: constructor field telescope")
-  checkDefEqList ops env depth (xFvs.map Expr.fvarTypeD) cdomsF
+  checkDirectDomsAt ops env (p.nP + 2) xFvs cdomsF p.nF
   unless crest2 == famApp do
     throw (.notImplemented "direct structure: constructor residual")
   unless minBody == Expr.app mfv
@@ -200,7 +200,7 @@ def checkDirectRecTy (ops : CheckerOps m) (env : Env) (p : DirectParts)
     (.notImplemented "direct structure: major telescope")
   let jdom ← unwrapOr ((jbs[0]?).map (·.2.1))
     (.notImplemented "direct structure: major telescope")
-  unless ← ops.isDefEq env depth jdom famApp do
+  unless ← ops.isDefEq env (p.nP + 2) jdom famApp do
     throw (.notImplemented "direct structure: major domain")
   unless jbody == Expr.app mfv (.bvar 0) do
     throw (.notImplemented "direct structure: recursor conclusion")
