@@ -437,6 +437,9 @@ theorem checkIotaThmNS_sim {env' : Env} (henv' : EnvWF env')
     rcases List.mem_append.mp hax with hax | hax
     · exact WScoped.mono (by omega) (hfvsPW a hax)
     · exact hxFvsPW a hax
+  by_cases harX : (crest2.getAppArgs.length == cnP) = true
+  case neg => simp only [if_neg harX]; exact SimAt.throw_bind
+  simp only [if_pos harX]
   refine SimAt.bind (SimAt.unwrapOr' hs10) (fun s11 q7 q7' hs11 hext11 hQ7 => ?_)
   obtain ⟨rfl, hlinst⟩ := hQ7
   obtain ⟨ldoms, lrest⟩ := q7

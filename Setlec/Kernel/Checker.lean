@@ -362,8 +362,13 @@ def checkIotaThmN (ops : CheckerOps m) (env' envSelf : Env)
     -- the stored parameter instantiations inhabit the constructor's
     -- parameter domains (the λ-tower's parameter values fit them)
     checkTypedList ops envSelf depth pinsP cdomsP
-    let (xFvsP, _) ← unwrapOr (openPisAtFvars cnF crestP rP)
+    let (xFvsP, crest2P) ← unwrapOr (openPisAtFvars cnF crestP rP)
       (.notImplemented s!"iota constructor telescope for {cvName}")
+    -- the auxiliary constructor's residual applies the family to
+    -- exactly its parameters: the canonical body carries no index
+    -- tuple
+    unless crest2P.getAppArgs.length == cnP do
+      throw (.notImplemented s!"iota constructor arity for {cvName}")
     let (ldoms, _) ← unwrapOr (Expr.instLamsAt (fvsP ++ xFvsP) rhsA)
       (.notImplemented s!"rule shape mismatch for {cvName}")
     checkDefEqList ops envSelf depth ((fvsP ++ xFvsP).map Expr.fvarTypeD)

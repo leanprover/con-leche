@@ -1161,6 +1161,10 @@ theorem checkIotaThmN_wfimp {env' envSelf : Env} (henv' : EnvWF env')
     rcases List.mem_append.mp hax with hax | hax
     · exact WScoped.mono (by omega) (hfvsPW a hax)
     · exact hxFvsPW a hax
+  by_cases harX : (crest2.getAppArgs.length == cnP) = true
+  case neg => rw [if_neg harX] at h; exact absurd h atF_throw_bind
+  rw [if_pos harX] at h ⊢
+  try dsimp only [] at h ⊢
   obtain ⟨q7, hlinst, h⟩ := atF_bind_ok h
   obtain ⟨ldoms, lrest⟩ := q7
   have hlinst' := unwrapOr_atF_ok hlinst

@@ -491,8 +491,10 @@ def checkIotaThmNF (ops : CheckerOps m) (fe' feSelf : FEnv)
         (cvj.type.instantiateLevelParams cvj.levelParams lvls))
       (.notImplemented s!"iota constructor telescope for {cvName}")
     checkTypedList ops feSelf.env depth pinsP cdomsP
-    let (xFvsP, _) ← unwrapOr (openPisAtFvars cnF crestP rP)
+    let (xFvsP, crest2P) ← unwrapOr (openPisAtFvars cnF crestP rP)
       (.notImplemented s!"iota constructor telescope for {cvName}")
+    unless crest2P.getAppArgs.length == cnP do
+      throw (.notImplemented s!"iota constructor arity for {cvName}")
     let (ldoms, _) ← unwrapOr (Expr.instLamsAt (fvsP ++ xFvsP) rhsA)
       (.notImplemented s!"rule shape mismatch for {cvName}")
     checkDefEqList ops feSelf.env depth ((fvsP ++ xFvsP).map Expr.fvarTypeD)

@@ -123,6 +123,7 @@ def NestedChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
       (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p))
       cdomsP ∧
     openPisAtFvars cnF crestP rP = some (xFvsP, crest2) ∧
+    crest2.getAppArgs.length = cnP ∧
     Expr.instLamsAt (fvsP ++ xFvsP) (RecRule.rhs r) =
       some (ldoms, lrest) ∧
     DefEqListOk F env₀ (rP + cnF)
@@ -536,6 +537,10 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
   intro h
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
+  by_cases harX : (crest2.getAppArgs.length == cnP) = true
+  case neg => rw [if_neg harX] at h; exact nomatch h
+  rw [if_pos harX] at h
+  try dsimp only at h
   revert h
   match hlinst : Expr.instLamsAt (fvsP ++ xFvsP) rhsA with
   | none => intro h; exact nomatch h
@@ -567,7 +572,7 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
         eq_of_beq hlpre, eq_of_beq hmaj, hcstrip, hcinst, hclen,
         checkDefEqList_inv hdq1, checkDefEqList_inv hdq2, hrinst,
         checkDefEqList_inv hdq3, hopenP, hcinstP,
-        checkTypedList_inv hdtP, hopenX, hlinst,
+        checkTypedList_inv hdtP, hopenX, eq_of_beq harX, hlinst,
         checkDefEqList_inv hdq4, hde⟩
 
 /-- The kernel-checked data of one modeled recursor rule: the
