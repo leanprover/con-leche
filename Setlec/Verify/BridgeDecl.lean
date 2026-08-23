@@ -317,6 +317,18 @@ theorem checkProjIota_snd_dproj (env' : Env) (T ctorName : Name) (lps : List Nam
   unfold checkProjIota
   dsnd_tac
 
+theorem checkProjShape_fst_dproj (pty cty : Expr) (nP nF : Nat) :
+    (checkProjShape pty cty nP nF : PairM rel _).val.1 =
+      (checkProjShape pty cty nP nF : M₁ _) := by
+  unfold checkProjShape
+  dfst_tac
+
+theorem checkProjShape_snd_dproj (pty cty : Expr) (nP nF : Nat) :
+    (checkProjShape pty cty nP nF : PairM rel _).val.2 =
+      (checkProjShape pty cty nP nF : M₂ _) := by
+  unfold checkProjShape
+  dsnd_tac
+
 theorem pairOps_isDefEq_fst (env : Env) (d : Nat) (a b : Expr) :
     ((pairOps o₁ o₂ h).isDefEq env d a b).val.1 =
       o₁.isDefEq env d a b := rfl
@@ -536,6 +548,7 @@ macro "dfst_step2" : tactic =>
     | (rw [checkConstantVal_fst_dproj])
     | (rw [checkProjLookups_fst_dproj])
     | (rw [checkProjTy_fst_dproj])
+    | (rw [checkProjShape_fst_dproj])
     | (rw [checkProjIota_fst_dproj])
     | (rw [checkProjRule_fst_dproj])
     | (rw [checkIndMember_fst_dproj])
@@ -559,6 +572,7 @@ macro "dsnd_step2" : tactic =>
     | (rw [checkConstantVal_snd_dproj])
     | (rw [checkProjLookups_snd_dproj])
     | (rw [checkProjTy_snd_dproj])
+    | (rw [checkProjShape_snd_dproj])
     | (rw [checkProjIota_snd_dproj])
     | (rw [checkProjRule_snd_dproj])
     | (rw [checkIndMember_snd_dproj])
@@ -666,6 +680,7 @@ macro "dfst_step3" : tactic =>
     | (rw [checkConstantVal_fst_dproj])
     | (rw [checkProjLookups_fst_dproj])
     | (rw [checkProjTy_fst_dproj])
+    | (rw [checkProjShape_fst_dproj])
     | (rw [checkProjIota_fst_dproj])
     | (rw [checkProjRule_fst_dproj])
     | (rw [checkIndMember_fst_dproj])
@@ -690,6 +705,7 @@ macro "dsnd_step3" : tactic =>
     | (rw [checkConstantVal_snd_dproj])
     | (rw [checkProjLookups_snd_dproj])
     | (rw [checkProjTy_snd_dproj])
+    | (rw [checkProjShape_snd_dproj])
     | (rw [checkProjIota_snd_dproj])
     | (rw [checkProjRule_snd_dproj])
     | (rw [checkIndMember_snd_dproj])
@@ -711,13 +727,13 @@ theorem checkProjFn_fst_dproj (env' : Env) (T ctorName : Name) (lps : List Name)
     (checkProjFn (pairOps o₁ o₂ h) env' T ctorName lps nP nF i).val.1 =
       checkProjFn o₁ env' T ctorName lps nP nF i := by
   unfold checkProjFn
-  dfst_tac3
+  dfst_tac3 <;> dfst_step3 <;> dfst_step3 <;> dfst_step3
 
 theorem checkProjFn_snd_dproj (env' : Env) (T ctorName : Name) (lps : List Name) (nP nF i : Nat) :
     (checkProjFn (pairOps o₁ o₂ h) env' T ctorName lps nP nF i).val.2 =
       checkProjFn o₂ env' T ctorName lps nP nF i := by
   unfold checkProjFn
-  dsnd_tac3
+  dsnd_tac3 <;> dsnd_step3 <;> dsnd_step3 <;> dsnd_step3
 
 theorem installProjFnStep_fst_dproj (T ctorName : Name)
     (lps : List Name) (nP nF : Nat) (e : Env) (i : Nat) :
@@ -794,6 +810,7 @@ macro "dfst_step4" : tactic =>
     | (rw [checkConstantVal_fst_dproj])
     | (rw [checkProjLookups_fst_dproj])
     | (rw [checkProjTy_fst_dproj])
+    | (rw [checkProjShape_fst_dproj])
     | (rw [checkProjIota_fst_dproj])
     | (rw [checkProjRule_fst_dproj])
     | (rw [checkIndMember_fst_dproj])
@@ -823,6 +840,7 @@ macro "dsnd_step4" : tactic =>
     | (rw [checkConstantVal_snd_dproj])
     | (rw [checkProjLookups_snd_dproj])
     | (rw [checkProjTy_snd_dproj])
+    | (rw [checkProjShape_snd_dproj])
     | (rw [checkProjIota_snd_dproj])
     | (rw [checkProjRule_snd_dproj])
     | (rw [checkIndMember_snd_dproj])
@@ -865,6 +883,7 @@ macro "dfst_step5" : tactic =>
     | (rw [checkConstantVal_fst_dproj])
     | (rw [checkProjLookups_fst_dproj])
     | (rw [checkProjTy_fst_dproj])
+    | (rw [checkProjShape_fst_dproj])
     | (rw [checkProjIota_fst_dproj])
     | (rw [checkProjRule_fst_dproj])
     | (rw [checkIndMember_fst_dproj])
@@ -895,6 +914,7 @@ macro "dsnd_step5" : tactic =>
     | (rw [checkConstantVal_snd_dproj])
     | (rw [checkProjLookups_snd_dproj])
     | (rw [checkProjTy_snd_dproj])
+    | (rw [checkProjShape_snd_dproj])
     | (rw [checkProjIota_snd_dproj])
     | (rw [checkProjRule_snd_dproj])
     | (rw [checkIndMember_snd_dproj])
@@ -1266,6 +1286,12 @@ theorem checkProjTy_datF (env' : Env) (T ctorName : Name) (lps : List Name) (mty
   unfold checkProjTy
   datF_tac
 
+theorem checkProjShape_datF (pty cty : Expr) (nP nF : Nat) (F : Nat) :
+    (checkProjShape pty cty nP nF : FueledM _).val F =
+      checkProjShape (m := CheckM) pty cty nP nF := by
+  unfold checkProjShape
+  datF_tac
+
 theorem checkProjIota_datF (env' : Env) (T ctorName : Name) (lps : List Name) (cvj : ConstantVal) (nP nF i : Nat) (F : Nat) :
     (checkProjIota env' T ctorName lps cvj nP nF i : FueledM _).val F =
       (checkProjIota env' T ctorName lps cvj nP nF i : CheckM _) := by
@@ -1389,6 +1415,7 @@ macro "datF_step2" : tactic =>
     | (rw [checkConstantVal_datF])
     | (rw [checkProjLookups_datF])
     | (rw [checkProjTy_datF])
+    | (rw [checkProjShape_datF])
     | (rw [checkProjIota_datF])
     | (rw [checkProjRule_datF])
     | (rw [checkIndMember_datF])
@@ -1453,6 +1480,7 @@ macro "datF_step3" : tactic =>
     | (rw [checkConstantVal_datF])
     | (rw [checkProjLookups_datF])
     | (rw [checkProjTy_datF])
+    | (rw [checkProjShape_datF])
     | (rw [checkProjIota_datF])
     | (rw [checkProjRule_datF])
     | (rw [checkIndMember_datF])
@@ -1474,7 +1502,7 @@ theorem checkProjFn_datF (env' : Env) (T ctorName : Name) (lps : List Name) (nP 
     (checkProjFn fueledOpsM env' T ctorName lps nP nF i).val F =
       checkProjFn (fueledOps F) env' T ctorName lps nP nF i := by
   unfold checkProjFn
-  datF_tac3
+  datF_tac3 <;> datF_step3 <;> datF_step3 <;> datF_step3
 
 theorem installProjFnStep_datF (T ctorName : Name)
     (lps : List Name) (nP nF : Nat) (e : Env) (i : Nat) (F : Nat) :
@@ -1518,6 +1546,7 @@ macro "datF_step4" : tactic =>
     | (rw [checkConstantVal_datF])
     | (rw [checkProjLookups_datF])
     | (rw [checkProjTy_datF])
+    | (rw [checkProjShape_datF])
     | (rw [checkProjIota_datF])
     | (rw [checkProjRule_datF])
     | (rw [checkIndMember_datF])
@@ -1554,6 +1583,7 @@ macro "datF_step5" : tactic =>
     | (rw [checkConstantVal_datF])
     | (rw [checkProjLookups_datF])
     | (rw [checkProjTy_datF])
+    | (rw [checkProjShape_datF])
     | (rw [checkProjIota_datF])
     | (rw [checkProjRule_datF])
     | (rw [checkIndMember_datF])

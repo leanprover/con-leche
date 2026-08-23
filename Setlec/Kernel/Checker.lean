@@ -564,6 +564,25 @@ def checkProjTy (env' : Env) (T ctorName : Name) (lps : List Name)
     throw (.notImplemented "projection type telescope")
   pure pty
 
+/-- Stage 2b: the projection type's parameter telescope is
+*syntactically* the constructor's, and the constructor's residual is
+the family applied to exactly the parameters — the syntactic pins the
+rule's total λ-equality derivation folds over (task #58; completeness-
+safe: both telescopes spell the family's parameter types, and a
+structure constructor targets the family at its parameters). -/
+def checkProjShape (pty ctorTy : Expr) (nP nF : Nat) : m Unit := do
+  let some (abinders, _) := pty.stripPis nP
+    | throw (.notImplemented "projection type telescope")
+  let some (cbindersR, cbody) := ctorTy.stripPis (nP + nF)
+    | throw (.notImplemented "projection constructor telescope")
+  unless domsMatchAux (fun _ e => e) abinders cbindersR 0 0 nP do
+    throw (.notImplemented "projection parameter domain mismatch")
+  unless cbody.getAppArgs.length == nP do
+    throw (.notImplemented "projection constructor residual arity")
+  match cbody.getAppFn with
+  | .const _ _ => pure ()
+  | _ => throw (.notImplemented "projection constructor residual head")
+
 /-- Stage 3: the reduction rule — λ over the constructor telescope
 returning field `i`, annotated; its λ-domains stay the constructor's. -/
 def checkProjRule (ops : CheckerOps m) (env' : Env) (cvj : ConstantVal) (lps : List Name)
@@ -632,6 +651,7 @@ def checkProjFn (ops : CheckerOps m) (env' : Env) (T ctorName : Name) (lps : Lis
     (nP nF i : Nat) : m Env := do
   let (cvj, mcv) ← checkProjLookups env' T ctorName lps nP nF i
   let pty ← checkProjTy env' T ctorName lps mcv.type nP nF
+  checkProjShape pty cvj.type nP nF
   unless i < nF do
     throw (.invalid "projection index out of range")
   let rhsA ← checkProjRule ops env' cvj lps nP nF i

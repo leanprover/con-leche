@@ -542,6 +542,9 @@ theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
   obtain ⟨hs₂, hext₂, pty', hPty, F₀', hFty⟩ :=
     (checkProjTyS_sim hs₁) pty s₂ hty
   obtain rfl : pty = pty' := hPty
+  obtain ⟨u0, s₂', hshape, h⟩ := bindI_ok h
+  obtain ⟨hs₂', hext₂', u0', hPu0, F₀'', hFshape⟩ :=
+    (checkProjShapeS_sim hs₂) u0 s₂' hshape
   by_cases hi : i < nF
   case neg =>
     rw [if_neg hi] at h
@@ -549,7 +552,7 @@ theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
   rw [if_pos hi] at h
   obtain ⟨rhsA, s₃, hrule, h⟩ := bindI_ok h
   obtain ⟨hs₃, hext₃, rhsA', hPr, F₁, hFr⟩ :=
-    (checkProjRuleS_sim henv hs₂) rhsA s₃ hrule
+    (checkProjRuleS_sim henv hs₂') rhsA s₃ hrule
   obtain rfl : rhsA = rhsA' := hPr
   obtain ⟨u, s₄, hio, h⟩ := bindI_ok h
   obtain ⟨hs₄, hext₄, u', hPu, F₂, hFio⟩ :=
@@ -565,6 +568,10 @@ theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
       CheckM _) = .ok pty := by
     rw [← checkProjTy_datF (F := F₀')]
     exact hFty
+  have hSHc : (checkProjShape pty cvj.type nP nF : CheckM Unit)
+      = .ok u0 := by
+    rw [← checkProjShape_datF (F := F₀'')]
+    exact hFshape
   have hIOc : (checkProjIota env T ctorName lps cvj nP nF i :
       CheckM _) = .ok u := by
     rw [← checkProjIota_datF (F := F₂)]
@@ -586,6 +593,9 @@ theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
       CheckM _) >>= _) = _
     rw [hTYc]
     simp only [Bind.bind, Except.bind]
+    show ((checkProjShape pty cvj.type nP nF : CheckM Unit) >>= _) = _
+    rw [hSHc]
+    simp only [Bind.bind, Except.bind]
     try dsimp only
     rw [if_pos hi]
     show (checkProjRule (fueledOps F₁) env cvj lps nP nF i >>= _) = _
@@ -604,8 +614,8 @@ theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
     exact hFnp
   refine ⟨hs₄.wf, rfl, ?_, F₁, hFn⟩
   -- the installed projection recursor is well-formed
-  obtain ⟨cvj', mcv', hlk', pty', hty', hi', rhsA', hrule', ⟨_, hio'⟩,
-    heq⟩ := checkProjFn_inv hFnp
+  obtain ⟨cvj', mcv', hlk', pty', hty', ⟨_, hshape'⟩, hi', rhsA',
+    hrule', ⟨_, hio'⟩, heq⟩ := checkProjFn_inv hFnp
   have heq' := heq
   simp only [Env.mk.injEq, List.cons.injEq] at heq'
   obtain ⟨hrecEq, -⟩ := heq'

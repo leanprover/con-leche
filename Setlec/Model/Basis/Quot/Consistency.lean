@@ -211,7 +211,7 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
             injection heq with e1 e2 e3 e4
             subst e1 e2 e3 e4
             rcases List.mem_cons.mp hr with rfl | hr
-            · exact ⟨rfl, rfl, hresLr, rfl, fun lvls pins hf => nomatch hf⟩
+            · exact ⟨rfl, rfl, hresLr, rfl, fun lvls pins hf => RecRuleFire.noConfusion hf⟩
             · cases hr⟩
         hresL0
         (fun _ _ _ hx => nomatch hx)
@@ -270,7 +270,7 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
           rcases List.mem_cons.mp hr with rfl | hr
           · refine ⟨fun ψ => annotOk_quotLift_rhs (cval := val') (ψ := ψ)
               hfE' hvalE', fun _ => Nat.le_refl _,
-              fun _ => by decide, fun lvls pins hf => nomatch hf, ?_⟩
+              fun _ => by decide, fun lvls pins hf => RecRuleFire.noConfusion hf, ?_⟩
             intro cvj cnP cnF hfj _hfire
             have hje := Option.some.inj hfj
             simp only [quotMkA] at hje
@@ -323,7 +323,7 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
             injection heq with e1 e2 e3 e4
             subst e1 e2 e3 e4
             rcases List.mem_cons.mp hr with rfl | hr
-            · exact ⟨rfl, rfl, rfl, rfl, fun lvls pins hf => nomatch hf⟩
+            · exact ⟨rfl, rfl, rfl, rfl, fun lvls pins hf => RecRuleFire.noConfusion hf⟩
             · cases hr⟩
         rfl
         (fun _ _ _ hx => nomatch hx)
@@ -377,7 +377,7 @@ theorem installQuotBasis_sound {F : Nat} {env env' : Env}
           rcases List.mem_cons.mp hr with rfl | hr
           · refine ⟨fun ψ => annotOk_quotInd_rhs (cval := val') (ψ := ψ)
               hfQ' hvalQ' hfM' hvalM', fun _ => Nat.le_refl _,
-              fun _ => by decide, fun lvls pins hf => nomatch hf, ?_⟩
+              fun _ => by decide, fun lvls pins hf => RecRuleFire.noConfusion hf, ?_⟩
             intro cvj cnP cnF hfj _hfire
             have hje := Option.some.inj hfj
             simp only [quotMkA] at hje

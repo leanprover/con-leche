@@ -1415,6 +1415,11 @@ theorem checkProjFn_wfimp {env' : Env} (henv' : EnvWF env')
     CheckM Expr) >>= _) = _
   rw [hty]
   simp only [Bind.bind, Except.bind]
+  obtain ⟨u0, hshape, h⟩ := atF_bind_ok h
+  rw [checkProjShape_datF] at hshape
+  show ((checkProjShape pty cvj.type nP nF : CheckM Unit) >>= _) = _
+  rw [hshape]
+  simp only [Bind.bind, Except.bind]
   dsimp only [] at h ⊢
   by_cases h1 : i < nF
   case neg => rw [if_neg h1] at h; exact absurd h atF_throw_bind

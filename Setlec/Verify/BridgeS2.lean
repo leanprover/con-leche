@@ -702,6 +702,40 @@ theorem checkProjTyS_sim {env' : Env} {T ctorName : Name}
   simp only [if_pos h4]
   exact SimAt.pure hs rfl
 
+/-- `checkProjShape` (operation-free) as a `SimAt`. -/
+theorem checkProjShapeS_sim {pty cty : Expr} {nP nF : Nat}
+    (hs : ISOK env s₀) :
+    SimAt env s₀ RelV
+      (checkProjShape pty cty nP nF : CheckIM _)
+      (checkProjShape pty cty nP nF : FueledM _) := by
+  unfold checkProjShape
+  match h1 : pty.stripPis nP with
+  | none => exact SimAt.throw
+  | some (abinders, arest) => ?_
+  dsimp only
+  match h2 : cty.stripPis (nP + nF) with
+  | none => exact SimAt.throw
+  | some (cbindersR, cbody) => ?_
+  dsimp only
+  by_cases h3 : domsMatchAux (fun _ e => e) abinders cbindersR 0 0 nP
+      = true
+  case neg => simp only [if_neg h3]; exact SimAt.throw_bind
+  simp only [if_pos h3]
+  by_cases h4 : (cbody.getAppArgs.length == nP) = true
+  case neg => simp only [if_neg h4]; exact SimAt.throw_bind
+  simp only [if_pos h4]
+  match h5 : cbody.getAppFn with
+  | .const _ _ => exact SimAt.pure hs rfl
+  | .bvar _ => exact SimAt.throw
+  | .fvar _ _ _ => exact SimAt.throw
+  | .sort _ => exact SimAt.throw
+  | .app _ _ => exact SimAt.throw
+  | .lam _ _ _ _ => exact SimAt.throw
+  | .forallE _ _ _ _ => exact SimAt.throw
+  | .letE _ _ _ _ => exact SimAt.throw
+  | .lit _ => exact SimAt.throw
+  | .proj _ _ _ => exact SimAt.throw
+
 /-- `checkProjIota` (operation-free) as a `SimAt`. -/
 theorem checkProjIotaS_sim {env' : Env} {T ctorName : Name}
     {lps : List Name} {cvj : ConstantVal} {nP nF i : Nat}

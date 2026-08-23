@@ -794,6 +794,7 @@ def checkProjFnS (fe : FEnv) (T ctorName : Name) (lps : List Name)
   let (cvj, mcv) ← checkProjLookupsF (m := CheckIM) fe T ctorName lps
     nP nF i
   let pty ← checkProjTyF (m := CheckIM) fe T ctorName lps mcv.type nP nF
+  checkProjShape (m := CheckIM) pty cvj.type nP nF
   unless i < nF do
     throw (.invalid "projection index out of range")
   let rhsA ← checkProjRuleF (sharedOps fe) fe cvj lps nP nF i

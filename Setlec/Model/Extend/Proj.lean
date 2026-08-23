@@ -332,6 +332,52 @@ theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
   exact ⟨tcv, tval, sbinders, cbindersR, cbody, tySlot, ℓA,
     rfl, htlps, rfl, hsdomsB, hS_strip⟩
 
+/-- Invert a successful `checkProjShape` run. -/
+theorem checkProjShape_inv {pty cty : Expr} {nP nF : Nat} {u : Unit}
+    (h : (checkProjShape pty cty nP nF : CheckM Unit) = .ok u) :
+    ∃ abinders arest cbindersR cbody,
+      pty.stripPis nP = some (abinders, arest) ∧
+      cty.stripPis (nP + nF) = some (cbindersR, cbody) ∧
+      domsMatchAux (fun _ e => e) abinders cbindersR 0 0 nP = true ∧
+      (∃ dN dus, cbody.getAppFn = Expr.const dN dus) ∧
+      cbody.getAppArgs.length = nP := by
+  simp only [checkProjShape, Bind.bind, Except.bind] at h
+  revert h
+  match hA : pty.stripPis nP with
+  | none => intro h; exact nomatch h
+  | some (abinders, arest) => ?_
+  intro h
+  try dsimp only at h
+  revert h
+  match hC : cty.stripPis (nP + nF) with
+  | none => intro h; exact nomatch h
+  | some (cbindersR, cbody) => ?_
+  intro h
+  try dsimp only at h
+  split at h
+  next hd =>
+    try dsimp only at h
+    split at h
+    next hlen =>
+      try dsimp only at h
+      revert h
+      match hfn : cbody.getAppFn with
+      | .const dN dus =>
+        intro h
+        exact ⟨abinders, arest, cbindersR, cbody, rfl, rfl, hd,
+          ⟨dN, dus, hfn⟩, eq_of_beq hlen⟩
+      | .bvar _ => intro h; exact nomatch h
+      | .fvar _ _ _ => intro h; exact nomatch h
+      | .sort _ => intro h; exact nomatch h
+      | .app _ _ => intro h; exact nomatch h
+      | .lam _ _ _ _ => intro h; exact nomatch h
+      | .forallE _ _ _ _ => intro h; exact nomatch h
+      | .letE _ _ _ _ => intro h; exact nomatch h
+      | .lit _ => intro h; exact nomatch h
+      | .proj _ _ _ => intro h; exact nomatch h
+    next => exact nomatch h
+  next => exact nomatch h
+
 /-- Invert a successful `checkProjFn` into its stages. -/
 theorem checkProjFn_inv {env' env₁ : Env} {T ctorName : Name}
     {lps : List Name} {nP nF i : Nat}
@@ -341,6 +387,8 @@ theorem checkProjFn_inv {env' env₁ : Env} {T ctorName : Name}
         .ok (cvj, mcv) ∧
       ∃ pty, (checkProjTy env' T ctorName lps mcv.type nP nF : CheckM _) =
         .ok pty ∧
+      (∃ u : Unit, (checkProjShape pty cvj.type nP nF : CheckM _)
+        = .ok u) ∧
       i < nF ∧
       ∃ rhsA, checkProjRule (fueledOps F) env' cvj lps nP nF i = .ok rhsA ∧
       (∃ u : Unit, (checkProjIota env' T ctorName lps cvj nP nF i : CheckM _)
@@ -360,6 +408,11 @@ theorem checkProjFn_inv {env' env₁ : Env} {T ctorName : Name}
   | ok pty => ?_
   rw [hty] at h
   try dsimp only at h
+  cases hshape : (checkProjShape pty cvj.type nP nF : CheckM Unit) with
+  | error e => rw [hshape] at h; exact nomatch h
+  | ok u0 => ?_
+  rw [hshape] at h
+  try dsimp only at h
   by_cases hi : i < nF
   case neg => rw [if_neg hi] at h; exact nomatch h
   rw [if_pos hi] at h
@@ -374,7 +427,8 @@ theorem checkProjFn_inv {env' env₁ : Env} {T ctorName : Name}
   | ok u => ?_
   rw [hio] at h
   simp only [pure, Except.pure, Except.ok.injEq] at h
-  exact ⟨cvj, mcv, rfl, pty, hty, hi, rhsA, hrule, ⟨u, hio⟩, h.symm⟩
+  exact ⟨cvj, mcv, rfl, pty, hty, ⟨u0, hshape⟩, hi, rhsA, hrule,
+    ⟨u, hio⟩, h.symm⟩
 
 /-- Extend a model by a Prop-fallback elimination-template entry: a
 `native = false` projection-table constant with the closed junk type
@@ -480,8 +534,8 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
     (m : EnvModel V env')
     (hinv : ProjPhaseInv T ctorName nF env' m.val) :
     ∃ m₁ : EnvModel V env₁, ProjPhaseInv T ctorName nF env₁ m₁.val := by
-  obtain ⟨cvj, mcv, hlk, pty, hty, hi, rhsA, hrule, ⟨u, hio⟩, henv₁⟩ :=
-    checkProjFn_inv h
+  obtain ⟨cvj, mcv, hlk, pty, hty, ⟨u0, hshape⟩, hi, rhsA, hrule,
+    ⟨u, hio⟩, henv₁⟩ := checkProjFn_inv h
   obtain ⟨mval, hmmcv, hctor, hfm, hmlps, hpnone, hTf, heqf⟩ :=
     checkProjLookups_inv hlk
   obtain ⟨hptyB, hround, hptyres, hptyb, hptyf, hptylp⟩ :=
@@ -494,6 +548,28 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
   obtain ⟨rfl, rfl⟩ : cbindersR = cbindersR₂ ∧ cbody = cbody₂ := by
     have hpair := Option.some.inj (hC_strip.symm.trans hC_strip₂)
     exact ⟨congrArg Prod.fst hpair, congrArg Prod.snd hpair⟩
+  obtain ⟨abinders, arest, cbindersR₃, cbody₃, hA_strip, hC_strip₃,
+    hpredomsB, hcheadC, hclenP⟩ := checkProjShape_inv hshape
+  obtain ⟨rfl, rfl⟩ : cbindersR = cbindersR₃ ∧ cbody = cbody₃ := by
+    have hpair := Option.some.inj (hC_strip.symm.trans hC_strip₃)
+    exact ⟨congrArg Prod.fst hpair, congrArg Prod.snd hpair⟩
+  have habLen : abinders.length = nP := Expr.stripPis_length _ hA_strip
+  have hpredoms : ∀ (k : Nat) (b b' : Name × Expr × BinderMeta),
+      abinders[k]? = some b → cbindersR[k]? = some b' →
+      b.2.1 = b'.2.1 := by
+    intro k b b' hb hb'
+    have hk : k < nP := by
+      rcases Nat.lt_or_ge k nP with hlt | hge
+      · exact hlt
+      · rw [List.getElem?_eq_none (by omega)] at hb
+        exact nomatch hb
+    exact domsMatchAux_inv hpredomsB hk
+      (by rw [Nat.zero_add]; exact hb) (by rw [Nat.zero_add]; exact hb')
+  obtain ⟨dN, dus, hchead⟩ := hcheadC
+  have hcbody : cbody = Expr.mkAppN (.const dN dus) cbody.getAppArgs := by
+    have h0 := Expr.mkAppN_getApp cbody
+    rw [hchead] at h0
+    exact h0.symm
   subst henv₁
   -- basic disequalities from freshness
   have hTne : T ≠ projFnName T i := by
@@ -729,8 +805,8 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
     (fun lvls pins => by
       cases h : Expr.recRulePlain pty nP nP nP <;> simp [h])
     hctor rfl rfl
-    hann hrawf hrawb hrf hrb hrres hstripR rfl hC_strip hS_strip
-    hdoms hsdoms hsbody' hthm htlps
+    hann hrawf hrawb hrres hstripR rfl hC_strip hS_strip
+    hdoms hsdoms hA_strip hpredoms hcbody hclenP hsbody' hthm htlps
   have hval₁' : ∀ ψ : Name → Nat,
       m₁.val (projFnName T i) ψ = m.val (projModelName T i) ψ := hval₁
   have hpres₁' : ∀ (n : Name) (ψ : Name → Nat), n ≠ projFnName T i →
