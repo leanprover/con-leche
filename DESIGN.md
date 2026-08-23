@@ -3701,19 +3701,90 @@ What remains, in dependency order:
 
 3. **`mem_type` for the recursor and the projections**, from
    `directRecVal_mem`/`directRec_body_mem` and
-   `directProjVal_mem`/`directProj_body_mem`.  The shape prerequisite
-   is **landed**: `checkDirectRecTy` now pins the parameters, the
-   motive's domain, the minor's field domains and the major's domain
-   each at its own frame (see "Three shape decisions"), so the
-   recursor's obligations line up with `DomsInterpEq`/`TeleFit.transfer`
-   exactly as the constructor's do.  What is left is the inversion of
-   the reshaped stage and the two `TeleBody` discharges: the minor's
-   fit transfers onto the constructor's field telescope, the major's
-   membership unfolds `⟦T p⃗⟧` to the tower through `directTyVal_fold`
-   (as `directCtor_resid` already does), and `directRec_body_mem`
-   closes it — with the constructor's own value folding to `tupleV`
-   through `teleLamV_fold` for the minor's conclusion
-   `motive (C p⃗ f⃗)`.
+   `directProjVal_mem`/`directProj_body_mem`.  The shape prerequisite is
+   landed and `checkDirectRecTy_inv` exposes every intermediate with each
+   pin at the frame it was checked at.
+
+   **The frame-relocation family is landed**
+   (`Setlec/Model/DirectExtend.lean`).  The type former's value is a
+   tower over the *constructor's* opening (field binders at `nP …`),
+   while the recursor puts the motive and minor in between (field
+   binders at `nP+2 …`), so the recursor's obligations need the tower
+   and its fits moved across frames.  `DomsInterpEq` was therefore
+   generalized to **`DomsAgree`** — two openings at *unrelated* frames
+   whose domains interpret alike, with `DomsInterpEq` kept as the
+   one-frame abbreviation the per-frame pins produce — and everything
+   the openings determine now relocates on it:
+
+   * `TeleFit.transfer` — a value-spine fit moves to the other frame;
+   * `sigmaTowerV_reframe` — the dependent-pair towers coincide (via
+     `sigma_congr`, so only the fibres *inside* each domain matter);
+   * `FieldTele_reframe` — the per-field universe bound moves too;
+   * `TeleFit.rho_above` and `TeleFit.rho_det` — a fit's end valuation
+     is *determined* by its starting frame and its values, which is what
+     lets two independently-built fits be identified.
+
+   This is deliberately the `TeleFit.reframe0` family DESIGN records as
+   the endgame precondition for the direct class's `eta`/`unitlike`:
+   stated for the towers generally rather than for one call site, so
+   those discharges can consume it unchanged when they land.
+
+   *Rider resolved (coordinator):* the recursor's parameter pins keep
+   targeting the **constructor's** parameter domains — no fifth
+   pin-site change.  With the relocation in hand both routes work, so
+   the one with zero additional kernel churn wins: the bridge belongs on
+   the proof side (`DomsAgree` via transfer/relocation) and the kernel
+   stays as close to the reference comparison set as possible.
+
+   Two of the three bridges `DomsAgree` needs are landed:
+
+   * `DomsAgree.of_pins` — from the install's per-frame `isDefEq` pins,
+     at a **common** frame;
+   * `DomsAgree.of_erasedEq` (with `instPisAt_erasedEq_spines`) — one
+     telescope along two **index-matched** spines.  The recursor stage
+     needs this because its `crest` instantiates the constructor's
+     telescope at the *recursor's* parameter variables while the type
+     former's value is a tower over the constructor's *own* opening:
+     same indices, different binder names and annotations, which
+     `ErasedEq` — and hence the interpretation — does not read.
+
+   **The third is what remains: `DomsAgree.of_shift`** — one telescope
+   opened at two *different base frames* with matching values.  The
+   recursor's minor premise is where this bites: its field binders open
+   at `nP+2 …` while the constructor's open at `nP …`, so the two
+   openings are index-*shifted*, not index-matched, and `ErasedEq` does
+   not relate them.  The relation-carrying induction that settled the
+   other two cannot reach it either: at a shifted frame the two sides
+   instantiate at different `fvar` indices, so there is no per-stage
+   syntactic relation to carry.
+
+   *The tool chain is mapped* (checked against the tree, not guessed):
+
+   * `stripPis_prefix` + **`stripPis_snoc`** (`Setlec/Verify/Subst.lean`)
+     — at spine length `n`, the telescope's residual is a `∀` whose
+     domain is the `n`-th stripped binder, and that binder is *closed*
+     (`stripPis_doms_hasFvar`) and bvar-bounded by `n`
+     (`stripPis_doms_bounded`);
+   * **`instPisAt_stripPis`** (`Setlec/Model/InstFrames.lean`) — exhibits
+     each opened domain as `instSeq` of that closed binder domain along
+     the spine prefix, and `instSeq_forallE` splits the residual;
+   * **`interp_instSeq_fvarFrames`** — settles the two interpretations
+     from `FvarSpine` on each side.
+
+   The one helper that does **not** exist yet is an `instPisAt` snoc
+   lemma (`instPisAt (sp ++ [a]) e` in terms of `instPisAt sp e` and one
+   further `instantiate1`), needed to extend the spines at the
+   induction step; `instSeq_append` is its `instSeq` counterpart and
+   `stripPis_snoc` the `stripPis` one, so it is a short induction in the
+   same style.
+
+   With `of_shift` in hand the two `TeleBody` discharges follow the
+   shape `directCtor_resid` already establishes: the minor's fit
+   transferred onto the constructor's field telescope
+   (`TeleFit.transfer`), the major's membership unfolded through
+   `directTyVal_fold` and relocated by `sigmaTowerV_reframe`, and
+   `directRec_body_mem` closing it — with the constructor's own value
+   folding to `tupleV` for the minor's conclusion `motive (C p⃗ f⃗)`.
 
 4. **The rules' fold obligation** (`RecMemberOk`) for the recursor rule
    and the `nF` projection rules, through `TowerOk.of_stages`
