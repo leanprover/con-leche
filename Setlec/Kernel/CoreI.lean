@@ -262,7 +262,7 @@ abbrev CheckIM := StateT IState CheckM
   (fun s => f s.store) <$> get
 
 /-- Intern one node. -/
-@[inline] def internI (n : ENode) : CheckIM EIdx :=
+def internI (n : ENode) : CheckIM EIdx :=
   modifyGet fun s =>
     let store := s.store
     let s := { s with store := EStore.empty }
@@ -271,7 +271,7 @@ abbrev CheckIM := StateT IState CheckM
 
 /-- Intern a whole `Expr` (used for small fabricated terms and for
 stored-constant instantiations entering the arena). -/
-@[inline] def internExprM (x : Expr) : CheckIM EIdx :=
+def internExprM (x : Expr) : CheckIM EIdx :=
   modifyGet fun s =>
     let store := s.store
     let s := { s with store := EStore.empty }
@@ -282,18 +282,22 @@ stored-constant instantiations entering the arena). -/
 with `looseBVarsBounded k` for a node.  The bound depends only on the
 node's immutable sub-DAG, so the cache survives arena extension and
 every node is bounded at most once per run. -/
-@[inline] def bvarBoundM (e : EIdx) : CheckIM Nat :=
+def bvarBoundM (e : EIdx) : CheckIM Nat :=
   modifyGet fun s =>
-    let (b, memo) := EStore.bvarBoundIGo s.store s.bvarB e
+    let bm := s.bvarB
+    let s := { s with bvarB := {} }
+    let (b, memo) := EStore.bvarBoundIGo s.store bm e
     (b, { s with bvarB := memo })
 
 /-- Memoized interned `Expr.instantiate1`; the identity — same index —
 when the target has no loose bvar at or above the cursor (task #72's
 scope shortcut; on a canonical arena the traversal would rebuild the
 same index node by node). -/
-@[inline] def inst1M (e v : EIdx) (d : Nat := 0) : CheckIM EIdx :=
+def inst1M (e v : EIdx) (d : Nat := 0) : CheckIM EIdx :=
   modifyGet fun s =>
-    let r := EStore.bvarBoundIGo s.store s.bvarB e
+    let bm := s.bvarB
+    let s := { s with bvarB := {} }
+    let r := EStore.bvarBoundIGo s.store bm e
     let s : IState := { s with bvarB := r.2 }
     if r.1 ≤ d then (e, s)
     else
@@ -304,10 +308,12 @@ same index node by node). -/
 
 /-- Memoized interned `Expr.instantiateList` (bulk instantiation,
 task #50); identity shortcut as in `inst1M` (task #72). -/
-@[inline] def instListM (e : EIdx) (vs : List EIdx) (d : Nat := 0) :
+def instListM (e : EIdx) (vs : List EIdx) (d : Nat := 0) :
     CheckIM EIdx :=
   modifyGet fun s =>
-    let r := EStore.bvarBoundIGo s.store s.bvarB e
+    let bm := s.bvarB
+    let s := { s with bvarB := {} }
+    let r := EStore.bvarBoundIGo s.store bm e
     let s : IState := { s with bvarB := r.2 }
     if r.1 ≤ d then (e, s)
     else
@@ -317,7 +323,7 @@ task #50); identity shortcut as in `inst1M` (task #72). -/
       (r, { s with store := store })
 
 /-- Memoized interned `Expr.abstract1`. -/
-@[inline] def abstract1M (e : EIdx) (d : Nat) : CheckIM EIdx :=
+def abstract1M (e : EIdx) (d : Nat) : CheckIM EIdx :=
   modifyGet fun s =>
     let store := s.store
     let s := { s with store := EStore.empty }
@@ -326,7 +332,7 @@ task #50); identity shortcut as in `inst1M` (task #72). -/
 
 /-- Memoized interned `Expr.abstractRange` (bulk abstraction,
 task #72). -/
-@[inline] def abstractRangeM (e : EIdx) (d k : Nat) : CheckIM EIdx :=
+def abstractRangeM (e : EIdx) (d k : Nat) : CheckIM EIdx :=
   modifyGet fun s =>
     let store := s.store
     let s := { s with store := EStore.empty }
@@ -334,7 +340,7 @@ task #72). -/
     (r, { s with store := store })
 
 /-- Interned `Expr.mkAppN`. -/
-@[inline] def mkAppNM (f : EIdx) (args : List EIdx) : CheckIM EIdx :=
+def mkAppNM (f : EIdx) (args : List EIdx) : CheckIM EIdx :=
   modifyGet fun s =>
     let store := s.store
     let s := { s with store := EStore.empty }
@@ -342,7 +348,7 @@ task #72). -/
     (r, { s with store := store })
 
 /-- Interned `Expr.instSpine`. -/
-@[inline] def instSpineM (args : List EIdx) (t : Nat) (e : EIdx) :
+def instSpineM (args : List EIdx) (t : Nat) (e : EIdx) :
     CheckIM EIdx :=
   modifyGet fun s =>
     let store := s.store
@@ -351,7 +357,7 @@ task #72). -/
     (r, { s with store := store })
 
 /-- Interned `Expr.piResidual`/`Expr.instPis`. -/
-@[inline] def piResidualM (e : EIdx) (args : List EIdx) :
+def piResidualM (e : EIdx) (args : List EIdx) :
     CheckIM (Option EIdx) :=
   modifyGet fun s =>
     let store := s.store
@@ -360,7 +366,7 @@ task #72). -/
     (r, { s with store := store })
 
 /-- Interned `Expr.pisToLams`. -/
-@[inline] def pisToLamsM (k : Nat) (e body : EIdx) : CheckIM (Option EIdx) :=
+def pisToLamsM (k : Nat) (e body : EIdx) : CheckIM (Option EIdx) :=
   modifyGet fun s =>
     let store := s.store
     let s := { s with store := EStore.empty }
@@ -374,7 +380,7 @@ task #72). -/
   (fun s => s.store.lnodes[u]?) <$> get
 
 /-- Intern one level node. -/
-@[inline] def internLM (n : LNode) : CheckIM LIdx :=
+def internLM (n : LNode) : CheckIM LIdx :=
   modifyGet fun s =>
     let store := s.store
     let s := { s with store := EStore.empty }
@@ -382,7 +388,7 @@ task #72). -/
     (i, { s with store := store })
 
 /-- Interned `Level.subst` on a level index (fresh per-call memo). -/
-@[inline] def substLM (ks : List Name) (us : List LIdx) (u : LIdx) :
+def substLM (ks : List Name) (us : List LIdx) (u : LIdx) :
     CheckIM LIdx :=
   modifyGet fun s =>
     let store := s.store
@@ -391,7 +397,7 @@ task #72). -/
     (r, { s with store := store })
 
 /-- Interned `Level.subst` applied to a stored level *tree*. -/
-@[inline] def substLevelTreeM (ks : List Name) (us : List LIdx) (l : Level) :
+def substLevelTreeM (ks : List Name) (us : List LIdx) (l : Level) :
     CheckIM LIdx :=
   modifyGet fun s =>
     let store := s.store
@@ -401,7 +407,7 @@ task #72). -/
 
 /-- Interned `Level.subst` over a list of stored level trees
 (the spec side is a pure `List.map`). -/
-@[inline] def substLevelTreesM (ks : List Name) (us : List LIdx)
+def substLevelTreesM (ks : List Name) (us : List LIdx)
     (ls : List Level) : CheckIM (List LIdx) :=
   modifyGet fun s =>
     let store := s.store
@@ -411,7 +417,7 @@ task #72). -/
 
 /-- Interned `Level.simplify` (persistently memoized: the memo is keyed
 by level index alone, so it survives across calls). -/
-@[inline] def simplifyLM (u : LIdx) : CheckIM LIdx :=
+def simplifyLM (u : LIdx) : CheckIM LIdx :=
   modifyGet fun s =>
     let store := s.store
     let memo := s.lsimpC
@@ -420,7 +426,7 @@ by level index alone, so it survives across calls). -/
     (r, { s with store := store, lsimpC := memo })
 
 /-- Interned `Level.isNonZero` (persistently memoized). -/
-@[inline] def isNonZeroLM (u : LIdx) : CheckIM Bool :=
+def isNonZeroLM (u : LIdx) : CheckIM Bool :=
   modifyGet fun s =>
     let memo := s.lnzC
     let s := { s with lnzC := {} }
@@ -437,7 +443,7 @@ through the persistently memoized `isNonZeroLM`. -/
 
 /-- Interned `Expr.instantiateLevelParams` (interned replacement
 levels; fresh per-call memos). -/
-@[inline] def instLevelParamsM (ks : List Name) (us : List LIdx)
+def instLevelParamsM (ks : List Name) (us : List LIdx)
     (e : EIdx) : CheckIM EIdx :=
   modifyGet fun s =>
     let store := s.store
@@ -515,7 +521,8 @@ environment entry when its denotation tag validates (a pointer test —
 the entry was created from the very object stored in the environment),
 else a fresh tree interning (basis pins and budget-bounded members). -/
 def storedTyIdxM (n : Name) (ty : Expr) : CheckIM EIdx := do
-  match (← get).ienv[n]? with
+  let ent? : Option IConstE ← modifyGet fun s => (s.ienv[n]?, s)
+  match ent? with
   | some ent =>
     if EStore.exprPtrBEq ent.tyE ty then pure ent.ty
     else internExprM ty
@@ -524,7 +531,8 @@ def storedTyIdxM (n : Name) (ty : Expr) : CheckIM EIdx := do
 /-- The interned index of a stored definition/theorem value (see
 `storedTyIdxM`). -/
 def storedValIdxM (n : Name) (v : Expr) : CheckIM EIdx := do
-  match (← get).ienv[n]? with
+  let ent? : Option IConstE ← modifyGet fun s => (s.ienv[n]?, s)
+  match ent? with
   | some ⟨_, _, some (vE, vi)⟩ =>
     if EStore.exprPtrBEq vE v then pure vi
     else internExprM v
@@ -534,7 +542,8 @@ def storedValIdxM (n : Name) (v : Expr) : CheckIM EIdx := do
 (cached by `(n, us)`; the constant must be stored — callers have already
 matched the lookup). -/
 def constTyAtM (fe : FEnv) (n : Name) (us : List LIdx) : CheckIM EIdx := do
-  match (← get).constTyAt[(n, us)]? with
+  let hit? ← modifyGet fun s => (s.constTyAt[(n, us)]?, s)
+  match hit? with
   | some i => pure i
   | none =>
     match fe.find? n with
@@ -552,7 +561,8 @@ def constTyAtM (fe : FEnv) (n : Name) (us : List LIdx) : CheckIM EIdx := do
 /-- The interned level-instantiated *value* of the stored definition `n`
 (cached by `(n, us)`). -/
 def constValAtM (fe : FEnv) (n : Name) (us : List LIdx) : CheckIM EIdx := do
-  match (← get).constValAt[(n, us)]? with
+  let hit? ← modifyGet fun s => (s.constValAt[(n, us)]?, s)
+  match hit? with
   | some i => pure i
   | none =>
     match fe.find? n with
@@ -577,7 +587,8 @@ def constValAtM (fe : FEnv) (n : Name) (us : List LIdx) : CheckIM EIdx := do
 /-- The interned level-instantiated right-hand side of the rule for
 constructor `j` of the stored recursor `c` (cached by `(c, j, us)`). -/
 def ruleRhsAtM (fe : FEnv) (c j : Name) (us : List LIdx) : CheckIM EIdx := do
-  match (← get).ruleRhsAt[(c, j, us)]? with
+  let hit? ← modifyGet fun s => (s.ruleRhsAt[(c, j, us)]?, s)
+  match hit? with
   | some i => pure i
   | none =>
     match fe.find? c with
@@ -1981,7 +1992,7 @@ def memoEI (get' : IState → Std.HashMap EIdx EIdx)
     | none =>
       let r ← f d e
       modify fun st =>
-        let mp := get' st
+          let mp := get' st
         let st := set' st ∅
         set' st (mp.insert e r)
       pure r

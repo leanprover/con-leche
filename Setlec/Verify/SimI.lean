@@ -573,13 +573,14 @@ theorem storedTyIdxM_eff (hs : ISOK env s₀) {n : Name} (x : Expr) :
       (storedTyIdxM n x) := by
   intro v' s' hr
   rw [show storedTyIdxM n x = (do
-      match (← get).ienv[n]? with
+      let ent? : Option IConstE ← modifyGet fun s => (s.ienv[n]?, s)
+      match ent? with
       | some ent =>
         if EStore.exprPtrBEq ent.tyE x then pure ent.ty
         else internExprM x
       | none => internExprM x : CheckIM EIdx) from rfl] at hr
-  simp only [Bind.bind, StateT.bind, get, getThe, MonadStateOf.get,
-    StateT.get, Except.bind, pure, Except.pure] at hr
+  simp only [Bind.bind, StateT.bind, modifyGet, MonadStateOf.modifyGet,
+    StateT.modifyGet, Except.bind, pure, Except.pure] at hr
   cases hl : s₀.ienv[n]? with
   | some ent =>
     rw [hl] at hr
@@ -605,13 +606,14 @@ theorem storedValIdxM_eff (hs : ISOK env s₀) {n : Name} (x : Expr) :
       (storedValIdxM n x) := by
   intro v' s' hr
   rw [show storedValIdxM n x = (do
-      match (← get).ienv[n]? with
+      let ent? : Option IConstE ← modifyGet fun s => (s.ienv[n]?, s)
+      match ent? with
       | some ⟨_, _, some (vE, vi)⟩ =>
         if EStore.exprPtrBEq vE x then pure vi
         else internExprM x
       | _ => internExprM x : CheckIM EIdx) from rfl] at hr
-  simp only [Bind.bind, StateT.bind, get, getThe, MonadStateOf.get,
-    StateT.get, Except.bind, pure, Except.pure] at hr
+  simp only [Bind.bind, StateT.bind, modifyGet, MonadStateOf.modifyGet,
+    StateT.modifyGet, Except.bind, pure, Except.pure] at hr
   cases hl : s₀.ienv[n]? with
   | some ent =>
     rw [hl] at hr

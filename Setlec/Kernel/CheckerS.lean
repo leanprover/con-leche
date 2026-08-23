@@ -251,8 +251,10 @@ arena, the interned environment (`ienv`, self-certified by denotation
 tags), the loose-bvar-bound cache and the level-operation caches —
 none of their invariants mention the environment. -/
 def IState.flushed (s : IState) : IState :=
-  { store := s.store, ienv := s.ienv, lsimpC := s.lsimpC,
-    lnzC := s.lnzC, eqvC := s.eqvC, bvarB := s.bvarB }
+  { s with
+      constTyAt := {}, constValAt := {}, ruleRhsAt := {},
+      whnfCoreC := {}, whnfC := {}, inferC := {}, defeqC := {},
+      annotC := {} }
 
 def flushS : CheckIM Unit :=
   modify (·.flushed)

@@ -1067,9 +1067,10 @@ mirroring the current reference kernels site by site:
   tree-materializing passes (raw-input closedness/consts checks, entry
   interning of `Expr` trees, post-annotate `allLevelParamsDefined`/
   `constsResolve` walks): a let-free DAG shared through export-table
-  indices (arena `good/perf/app-lam`) still materializes as a tree in
-  those passes and keeps declining; lifting that needs the deferred
-  parse-time interning with a persistent per-run store.
+  indices (arena `good/perf/app-lam`) still materialized as a tree in
+  those passes and kept declining; task #78's parse-time interning
+  (see its section) lifted this — `app-lam` now accepts and the budget
+  is re-scoped to the remaining tree-materializing record kinds.
 
 Model: `⟦letE n t v b⟧ρ = ⟦b[fvar_d]⟧(ρ, d ↦ ⟦v⟧ρ)` — valuation
 extension, the same binder opening as `lam`/`forallE` (the fvar
@@ -2690,6 +2691,138 @@ only unfoldable constants are theorems) and rejects it with the
 theorems rewritten as axioms.  See lean4lean
 `Lean4Lean/Declaration.lean` (`deltaValue?` doc comment) for the same
 observation.
+
+## Parse-time interning: the parser's sharing made structural (2026-08-23, task #78)
+
+The export format shares subterms via table indices; the previous
+frontend rebuilt plain `Expr` trees whose sharing was heap-pointer-only
+— invisible to every structural traversal — so DAG-shaped input (arena
+`good/perf/app-lam`: 24k table entries, ~10^1160 unshared tree) was
+exponential in the raw syntactic passes and at the checker's per-entry
+interning boundary.  The pipeline is now DAG-preserving end to end:
+
+* **Parse into the arena** (`Setlec/Frontend/Export.lean`): expression-
+  and level-table entries are interned directly into an `EStore` — one
+  `intern` per record, children resolved to already-interned indices,
+  `O(1)` per entry.  Declarations are `DeclP` records
+  (`Setlec/Kernel/DeclI.lean`) carrying `EIdx`/`ConstantValP` fields;
+  `parseExport : String → Except _ (EStore × Array DeclP)`.  `Expr`
+  trees are read back (memoized, pointer-shared) only where a genuinely
+  bounded consumer needs them: basis/quotient pin matching and
+  inductive blocks (`.indDecl` still carries `ConstantInfo`s — the
+  install pipeline compares member types/rule right-hand sides against
+  `_model` artifacts with tree traversals).  Taint tracking (skipped
+  axioms) is per-entry `O(1)` as before.
+* **Budget re-scoped, not deleted.**  The unshared-tree-size budget
+  (task #65) no longer applies to ordinary definition/theorem/opaque
+  records — their whole pipeline is index-level, so `app-lam` (def
+  value at 2^4000) and the former `dag_tower_declined` fixture (now
+  `dag_tower`, expectation flipped to accept) check fine.  It stays,
+  with reason, on the record kinds whose *stored* artifacts are later
+  consumed by tree traversals: inductive and quotient blocks (readback
+  + canon matching, `_model` comparison, iota statements), axiom
+  records (standard-axiom pin matching walks the stored type), records
+  whose name contains a `_model` component (iota/eta/unitlike
+  statements are `openPisAtFvars`-opened at a later inductive install),
+  and the certified `Nat` operations (`natOpNames`/`natDivModNames`:
+  the install-time certification substitutes the stored value into the
+  recurrence equations and re-interns the result).
+* **Index-level drivers** (`Setlec/Kernel/CheckerS.lean`,
+  `checkConstantValP`/`checkDefnValP`/`checkThmValP`/`checkOpaqueValP`,
+  `checkDeclSP`, `checkDeclsSP`; NC twins in `CheckerNC.lean`): raw
+  checks (`looseBVarsBoundedI`/`hasFvarI`) and post-annotate checks
+  (`allLevelParamsDefinedI` — new walker with level-side companion —
+  and the indexed `constsResolveFI`) run DAG-memoized on the arena;
+  the knot entries are called on indices (no per-entry tree intern, no
+  intermediate readbacks); the constant is read back once, at the
+  environment push.  The spec `Env` still stores `Expr`s — the Model
+  layer is untouched.
+* **One `IState` per run** (nanoda's parse tier): `checkDeclsSP`
+  validates the parse store once (`wfB`, the decidable counterpart of
+  `EStore.WF`), seeds the fold's single state with it, and `flushS`
+  drops only the environment-dependent caches at declaration
+  boundaries and environment transitions — the arena, the interned
+  environment, the loose-bvar-bound cache and the level-operation
+  caches persist (all environment-free).  Per-declaration reduction
+  temps accumulate in the arena for the whole run (no truncation —
+  that is task #64's two-tier arena, deliberately not built here).
+* **The interned environment** (`IState.ienv`): per accepted
+  definition/theorem/opaque/axiom, the arena indices of the stored
+  annotated type/value, each *tagged with its own denotation* — the
+  very objects pushed into the `Env`.  `constTyAtM`/`constValAtM`
+  consult it before falling back to tree interning; a use validates
+  the tag against the current stored constant with a pointer test
+  (`EStore.exprPtrBEq`, definitionally `==`), so the cache is
+  *self-certifying*: its invariant (the `ienv` clause of `ISOK`) ties
+  indices to tags only, never mentions the environment, and survives
+  every flush and environment transition with no freshness lemmas.
+  Consequence: delta-unfolding a stored DAG-shaped constant
+  instantiates on the arena instead of re-interning a read-back tree
+  (e2e `dag_tower_unfold`: a theorem forcing both sides' 2^28-node
+  stored values open — accepted in 0.2 s).  The loose-bvar-bound cache
+  became a dense array (`EStore.BMemo`, slot = bound+1) — on
+  binder-heavy DAGs it holds an entry per node, and the hash map's
+  ~48 B/entry was ~3 GB on app-lam.
+* **Verification** (the parsed-index consistency chain):
+  `wfB_wf : wfB = true → EStore.WF` and the walker specs live in
+  `Setlec/Verify/ParseP.lean`, together with `denoteDeclP` — the
+  parsed-declaration denotation that identifies a `DeclP` with the
+  spec `Declaration`, total on in-range indices (the per-declaration
+  `inRangeB` gate) and `Ext`-stable.  `Setlec/Verify/BridgeP.lean`
+  walks the index-level drivers as `SimAt`s against the generic
+  `checkDecl` at the fueled families **on the denoted declaration**
+  (the knot simulations `ssimI` apply directly given the argument's
+  denotation; `recordIConst` is sound by `ISOK.insertIEnv`).  `ISOK`
+  gained the `ienv` clause; its environment-free residue `ISOKF`
+  (arena canonicity + level caches + bound cache + `ienv`) threads the
+  persistent state across declarations — `flushS_isok : ISOKF s →
+  ISOK env' s.flushed` for any environment — and the shared-driver run
+  lemmas (`Setlec/Model/BridgeS.lean`) now conclude `ISOKF` and arena
+  extension.  `Setlec/Model/ConsistencyP.lean` restates the top-level
+  statements for what the binary now runs, with **no hypotheses beyond
+  acceptance** (the `wfB` and `inRangeB` gates are inside the checked
+  function): `checkDeclsSP_sound`, `no_proof_of_Empty_SP`, and the
+  stream-level `no_proof_of_Empty_input_SP` — a `def`/`thm` record
+  whose parsed type index *denotes* `.const Empty []` in the parse
+  store is never part of an accepted stream.  The `checkDeclsShared`
+  statement family (`ConsistencyS`) is retained unchanged; axioms of
+  the `_SP` family: `propext, Classical.choice, Quot.sound`.
+
+**Measured.**  `good/perf/app-lam` **accepts**: 119 s / 7.6 GB peak RSS
+(previous pipeline: declined by the budget; lean4lean: 3.95 s /
+1.44 GB).  The dominant cost is inherent to per-binder-instantiation
+kernels on this shape (the innermost body reads all 4000 binders, so
+each binder open/abstract rebuilds the remaining ~24k-node DAG:
+~64M arena nodes over the declaration; the references pay the same
+traversals but their temporaries are garbage-collected, while the
+single-tier arena retains them — task #64's truncation is the lever).
+`beta-ladder` stays accepted (27 s).  Arena 90/92, e2e 49/49 (the two
+new fixtures), scale.sh all-PASS (chain 1.04, spine 1.28, many 1.04,
+telescope 1.13).
+
+**Known regression (finding, follow-up needed).**  The init-prelude
+probe *certified* mode regressed: 176.5 G → 271.5 G instructions,
+12.5 s → 54 s (the `SETLEC_NO_PROOF_CERTS=1` mode is *unaffected*:
+151.1 G / 14.5 s, in line with the pre-change 142.8 G / 9.7 s).
+Forensics (gdb watch/breakpoints on `lean_copy_expand_array`): the
+cost is whole-arena **copy-on-write strikes** — `Array.push`/bucket
+`uset` finding `nodes`/`cons` at RC 2 — a rare, pre-existing
+compiled-code sharing pattern (the reference counts show transient
+arena sharing at every knot-entry prologue that occasionally survives
+into a mutation, ~2500 strikes per run).  With per-declaration arenas
+these copies were small and invisible; with the persistent run-wide
+arena each strike copies the whole table.  The strikes concentrate
+under the certified per-fire iota certificates (`iotaCertsI` and the
+infer/defeq calls they trigger): stubbing exactly those two calls
+recovers 195.5 G / 22.9 s.  Mitigations already landed: the mutating
+`CheckIM` wrappers are no longer `@[inline]` (the inliner CSE'd the
+`s.store` projection across a read and the detach, defeating the
+ownership transfer), and `bvarBoundM`/`inst1M`/`instListM` detach the
+bound cache before walking.  The remaining sharer was not identified
+within this task; follow-up options, in order: find and fix the
+residual RC retention around the knot-entry/cert path (the NC-mode
+numbers show the architecture itself is sound), or land task #64's
+two-tier arena, which also caps the strike cost.
 
 ## Recursor-rule fold contract as total λ-equalities (2026-08-23, task #58)
 

@@ -100,7 +100,10 @@ def checkMain (file : String) : IO UInt32 := do
       | .error e =>
         -- Diagnostic second pass: the verdict above is the verified
         -- run; this only locates the failing declaration for the
-        -- message.
+        -- message.  The input is re-parsed: the verified run must own
+        -- the parse store exclusively (a live second reference would
+        -- turn every arena push into a whole-table copy), so the
+        -- original store was moved into it.
         let declName : Setlec.DeclP → String := fun d =>
           match d with
           | .defnDecl cv _ _ => s!"def {cv.name}"
@@ -109,14 +112,17 @@ def checkMain (file : String) : IO UInt32 := do
           | .axiomDecl cv => s!"axiom {cv.name}"
           | .indDecl b => s!"inductive {(b.head?.map (·.name)).getD .anonymous}"
           | .basisDecl k => s!"basis block {repr k}"
-        let ctx := Id.run do
-          let mut fe := Setlec.mkFEnv Setlec.Env.empty
-          let mut s : Setlec.IState := { store := store }
-          for d in decls do
-            match stepF n0 fe d s with
-            | .ok (fe', s') => fe := fe'; s := s'
-            | .error _ => return s!" [at {declName d}]"
-          return ""
+        let ctx := match Frontend.parseExport contents (modeled := true) with
+          | .error _ => ""
+          | .ok (store2, decls2) => Id.run do
+            let n2 := store2.nodes.size
+            let mut fe := Setlec.mkFEnv Setlec.Env.empty
+            let mut s : Setlec.IState := { store := store2 }
+            for d in decls2 do
+              match stepF n2 fe d s with
+              | .ok (fe', s') => fe := fe'; s := s'
+              | .error _ => return s!" [at {declName d}]"
+            return ""
         IO.eprintln s!"setlec: {e}{ctx}"
         return e.exitCode
 
