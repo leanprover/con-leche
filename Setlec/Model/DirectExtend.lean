@@ -543,75 +543,296 @@ theorem DomsAgree.of_erasedEq {cval : ConstVal V} {env : Env}
     | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
       exact nomatch hstrip
 
+/-- `FrameOk.body` at a **foreign** opening variable: the binder is
+opened at `.fvar d n' dom'` rather than at its own `.fvar d n dom`.
+Everything the frame conditions read about the substituted variable
+comes from `dom'`'s own frame; the two openings are `ErasedEq`, which
+is all the interpretation (`interp_erasedEq`) and the annotation
+truthfulness (`AnnotOk.erasedEq`) look at.
+
+This is what an `Expr.instPisAt` walk needs: it instantiates one
+telescope's bodies at *another* telescope's opening variables. -/
+theorem FrameOk.body_at {cval : ConstVal V} {env : Env} {φ : Name → Nat}
+    {d : Nat} {ρ : Nat → V} {n n' : Name} {dom dom' body : Expr}
+    {mb : BinderMeta} {A x : V}
+    (h : FrameOk V cval env φ d ρ (.forallE n dom body mb))
+    (hfr' : FrameOk V cval env φ d ρ dom')
+    (hdom : interpExpr V cval env φ d ρ dom = some A)
+    (hdom' : interpExpr V cval env φ d ρ dom' = some A) (hx : x ∈ˢ A) :
+    FrameOk V cval env φ (d + 1) (updV V ρ d x)
+      (body.instantiate1 (.fvar d n' dom')) := by
+  obtain ⟨hws, hbb, hlb, hfv, han, -⟩ := h
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hbb
+  simp only [AnnotOk] at han
+  obtain ⟨-, ⟨cod, hcod⟩, hcond⟩ := han
+  obtain ⟨hAb, hwfact⟩ := hcond x A hdom hx
+  obtain ⟨w, hwi, -⟩ := hwfact cod hcod
+  have hEE : Expr.ErasedEq (body.instantiate1 (.fvar d n dom))
+      (body.instantiate1 (.fvar d n' dom')) :=
+    Expr.ErasedEq.instantiate1 (Expr.ErasedEq.rfl body) (by exact rfl)
+  refine ⟨hfr'.ws.instantiate1 0 hws.2,
+    looseBVarsBounded_instantiate1 body 0 hbb.2, ?_, ?_,
+    AnnotOk.erasedEq _ hEE (d + 1) (updV V ρ d x) hAb,
+    w, by rw [← interp_erasedEq hEE (d + 1) (updV V ρ d x)]; exact hwi⟩
+  · intro l hl
+    rcases fvarLeaves_instantiate1 body 0 hl with hl' | hl'
+    · exact hlb l (by simp [Expr.fvarLeaves, hl'])
+    · simp only [Expr.fvarLeaves, List.mem_cons] at hl'
+      rcases hl' with rfl | hl'
+      · exact hfr'.bb
+      · exact hfr'.lb l hl'
+  · exact FvarsOk.instantiate1 hfr'.ws hfr'.fv hfr'.an hdom' hx body 0 hws.2
+      (FvarsOk.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]) hfv)
+
 /-- **`DomsAgree` across a frame shift.**  One *closed* telescope,
 walked along two free-variable spines that carry the **same values** at
 otherwise unrelated frames, agrees stage by stage.
 
 `ErasedEq` cannot reach this case: the two openings instantiate at
 different `fvar` indices, so no per-stage syntactic relation survives.
-What does survive is that each opened domain is an `instSeq` of the
-telescope's *own* binder domain — closed (`stripPis_doms_hasFvar`) and
-bounded by its position (`stripPis_doms_bounded`) — along the consumed
-prefix (`instPisAt_head`), and for such a domain
-`interp_instSeq_fvarFrames` settles the two interpretations from the
-spines' values alone.
+What does survive is that every domain the walk meets is an `instSeq`
+of a *closed*, position-bounded subterm of the telescope along the
+consumed prefix, and for such a term `interp_instSeq_fvarFrames`
+settles the two interpretations from the spines' values alone.
+
+Stated on `instSeq` rather than on a telescope walk, because the two
+shifted openings the recursor needs arise both ways: the constructor's
+field telescope is the residual of an `instPisAt` walk
+(`DomsAgree.of_shift` below), while the minor premise's is a *binder
+domain* of the recursor's telescope, hence an `instSeq` of a closed
+subterm and not a walk residual at all. -/
+theorem DomsAgree.of_shiftSeq {cval : ConstVal V} {env : Env}
+    {φ : Name → Nat} :
+    ∀ (k : Nat) {ty : Expr} {bs : List (Name × Expr × BinderMeta)}
+      {body : Expr} {sp₁ sp₂ : List Expr} {vs : List V} {D₁ D₂ : Nat}
+      {ρ₁ ρ₂ : Nat → V},
+      ty.hasFvar = false →
+      ty.looseBVarsBounded sp₁.length = true →
+      ty.stripPis k = some (bs, body) →
+      FvarSpine D₁ ρ₁ sp₁ vs → FvarSpine D₂ ρ₂ sp₂ vs →
+      DomsAgree V cval env φ k D₁ ρ₁ (instSeq sp₁ (sp₁.length - 1) ty)
+        D₂ ρ₂ (instSeq sp₂ (sp₂.length - 1) ty) := by
+  intro k
+  induction k with
+  | zero => intro _ _ _ _ _ _ _ _ _ _ _ _ _ _ _; trivial
+  | succ k ih =>
+    intro ty bs body sp₁ sp₂ vs D₁ D₂ ρ₁ ρ₂ hcl hbd hstrip hsp₁ hsp₂
+    match ty with
+    | .forallE n dom bodyE mb =>
+      rw [Expr.stripPis] at hstrip
+      cases hs : bodyE.stripPis k with
+      | none => rw [hs] at hstrip; exact nomatch hstrip
+      | some q =>
+        have hcl' : dom.hasFvar = false ∧ bodyE.hasFvar = false := by
+          simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hcl
+          exact hcl
+        have hbd' : dom.looseBVarsBounded sp₁.length = true ∧
+            bodyE.looseBVarsBounded (sp₁.length + 1) = true := by
+          simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hbd
+          exact hbd
+        have hdomEq := interp_instSeq_fvarFrames (V := V) (cval := cval)
+          (env := env) (φ := φ) (e := dom) hcl'.1 hbd'.1 hsp₁ hsp₂
+        -- the instantiation index of an opened body, spelled as the snoc
+        -- spine's own
+        have hidx : ∀ (sp : List Expr),
+            instSeq sp (sp.length - 1 + 1) bodyE = instSeq sp sp.length bodyE := by
+          intro sp
+          cases sp with
+          | nil => rfl
+          | cons a as => simp
+        have hsnoc : ∀ (sp : List Expr) (a : Expr),
+            (instSeq sp sp.length bodyE).instantiate1 a =
+              instSeq (sp ++ [a]) ((sp ++ [a]).length - 1) bodyE := by
+          intro sp a
+          rw [show (sp ++ [a]).length - 1 = sp.length from by simp,
+            instSeq_append sp [a] sp.length bodyE, Nat.sub_self]
+          rfl
+        rw [instSeq_forallE sp₁ (sp₁.length - 1) n dom bodyE mb (by omega),
+          instSeq_forallE sp₂ (sp₂.length - 1) n dom bodyE mb (by omega),
+          hidx sp₁, hidx sp₂]
+        refine ⟨fun A hA => by rw [← hdomEq]; exact hA, ?_⟩
+        intro x A hA hx
+        have hlift₁ : FvarSpine (D₁ + 1) (updV V ρ₁ D₁ x) sp₁ vs :=
+          hsp₁.lift (by omega) (fun i hi => by
+            simp only [updV]; rw [if_neg (by omega)])
+        have hlift₂ : FvarSpine (D₂ + 1) (updV V ρ₂ D₂ x) sp₂ vs :=
+          hsp₂.lift (by omega) (fun i hi => by
+            simp only [updV]; rw [if_neg (by omega)])
+        rw [hsnoc sp₁, hsnoc sp₂]
+        refine ih (vs := vs ++ [x]) hcl'.2 (by simpa using hbd'.2)
+          (by rw [hs]) ?_ ?_
+        · exact hlift₁.snoc (v := x) ⟨D₁, n, _, rfl, by omega, by simp [updV]⟩
+        · exact hlift₂.snoc (v := x) ⟨D₂, n, _, rfl, by omega, by simp [updV]⟩
+    | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
+    | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+      exact nomatch hstrip
+
+/-- The walk-residual form of `DomsAgree.of_shiftSeq`: one closed
+telescope, its parameter prefix consumed along two free-variable spines
+with the same values, agrees on the remaining `k` binders at both
+frames.
 
 The recursor's minor premise is where this bites: its field binders
 open at `nP+2 …` while the constructor's open at `nP …`. -/
 theorem DomsAgree.of_shift {cval : ConstVal V} {env : Env}
     {φ : Name → Nat} {ty : Expr} (hcl : ty.hasFvar = false)
-    (hty0 : ty.looseBVarsBounded 0 = true) :
-    ∀ (k : Nat) {bs : List (Name × Expr × BinderMeta)} {body : Expr}
-      {sp₁ sp₂ : List Expr} {vs : List V} {D₁ D₂ : Nat} {ρ₁ ρ₂ : Nat → V}
-      {ds₁ ds₂ : List Expr} {r₁ r₂ : Expr},
-      ty.stripPis (sp₁.length + k) = some (bs, body) →
-      Expr.instPisAt sp₁ ty = some (ds₁, r₁) →
-      Expr.instPisAt sp₂ ty = some (ds₂, r₂) →
-      FvarSpine D₁ ρ₁ sp₁ vs → FvarSpine D₂ ρ₂ sp₂ vs →
-      DomsAgree V cval env φ k D₁ ρ₁ r₁ D₂ ρ₂ r₂ := by
+    (hty0 : ty.looseBVarsBounded 0 = true) (k : Nat)
+    {bs : List (Name × Expr × BinderMeta)} {body : Expr}
+    {sp₁ sp₂ : List Expr} {vs : List V} {D₁ D₂ : Nat} {ρ₁ ρ₂ : Nat → V}
+    {ds₁ ds₂ : List Expr} {r₁ r₂ : Expr}
+    (hstrip : ty.stripPis (sp₁.length + k) = some (bs, body))
+    (h₁ : Expr.instPisAt sp₁ ty = some (ds₁, r₁))
+    (h₂ : Expr.instPisAt sp₂ ty = some (ds₂, r₂))
+    (hsp₁ : FvarSpine D₁ ρ₁ sp₁ vs) (hsp₂ : FvarSpine D₂ ρ₂ sp₂ vs) :
+    DomsAgree V cval env φ k D₁ ρ₁ r₁ D₂ ρ₂ r₂ := by
+  have hlen : sp₂.length = sp₁.length := by
+    rw [FvarSpine.length hsp₂, ← FvarSpine.length hsp₁]
+  obtain ⟨mid, hstripM, hstripK⟩ := Expr.stripPis_add sp₁.length k hstrip
+  obtain ⟨rfl, -⟩ := instPisAt_stripPis sp₁ h₁ hstripM
+  obtain ⟨rfl, -⟩ := instPisAt_stripPis sp₂ h₂ (by rw [hlen]; exact hstripM)
+  exact DomsAgree.of_shiftSeq k (stripPis_body_hasFvar _ hstripM hcl)
+    (by simpa using stripPis_body_bounded _ hstripM hty0) hstripK hsp₁ hsp₂
+
+/-- `DomsAgree` composes: the middle telescope's domain interpretations
+are what both halves quantify over. -/
+theorem DomsAgree.trans {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
+    ∀ (k : Nat) {d₁ d₂ d₃ : Nat} {ρ₁ ρ₂ ρ₃ : Nat → V} {t₁ t₂ t₃ : Expr},
+      DomsAgree V cval env φ k d₁ ρ₁ t₁ d₂ ρ₂ t₂ →
+      DomsAgree V cval env φ k d₂ ρ₂ t₂ d₃ ρ₃ t₃ →
+      DomsAgree V cval env φ k d₁ ρ₁ t₁ d₃ ρ₃ t₃ := by
   intro k
   induction k with
-  | zero =>
-    intro _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _; trivial
+  | zero => intro _ _ _ _ _ _ _ _ _ _ _; trivial
   | succ k ih =>
-    intro bs body sp₁ sp₂ vs D₁ D₂ ρ₁ ρ₂ ds₁ ds₂ r₁ r₂ hstrip h₁ h₂
-      hsp₁ hsp₂
-    have hlen : sp₂.length = sp₁.length := by
-      rw [FvarSpine.length hsp₂, ← FvarSpine.length hsp₁]
-    have hbslen : bs.length = sp₁.length + (k + 1) :=
-      Expr.stripPis_length _ hstrip
-    obtain ⟨b, hb⟩ : ∃ b, bs[sp₁.length]? = some b :=
-      ⟨_, List.getElem?_eq_getElem (by omega)⟩
-    obtain ⟨bodyR₁, hr₁, hext₁⟩ := Expr.instPisAt_head sp₁ h₁ hstrip hb
-    obtain ⟨bodyR₂, hr₂, hext₂⟩ := Expr.instPisAt_head sp₂ h₂
-      (by rw [hlen]; exact hstrip) (by rw [hlen]; exact hb)
-    -- the head domain is the telescope's own binder domain, instantiated
-    -- along the consumed prefix on each side
-    have hdomcl : b.2.1.hasFvar = false :=
-      stripPis_doms_hasFvar _ hstrip hcl b (List.mem_of_getElem? hb)
-    have hdombd : b.2.1.looseBVarsBounded sp₁.length = true := by
-      simpa using stripPis_doms_bounded _ 0 hstrip hty0 sp₁.length b hb
-    have hdomEq := interp_instSeq_fvarFrames (V := V) (cval := cval)
-      (env := env) (φ := φ) (e := b.2.1) hdomcl hdombd hsp₁ hsp₂
-    rw [hlen] at hr₂ hext₂ hdomEq
-    subst hr₁; subst hr₂
-    refine ⟨fun A hA => by rw [← hdomEq]; exact hA, ?_⟩
-    intro x A hA hx
-    have hlift₁ : FvarSpine (D₁ + 1) (updV V ρ₁ D₁ x) sp₁ vs :=
-      hsp₁.lift (by omega) (fun i hi => by
-        simp only [updV]; rw [if_neg (by omega)])
-    have hlift₂ : FvarSpine (D₂ + 1) (updV V ρ₂ D₂ x) sp₂ vs :=
-      hsp₂.lift (by omega) (fun i hi => by
-        simp only [updV]; rw [if_neg (by omega)])
-    have hstrip' : ∀ a : Expr,
-        ty.stripPis ((sp₁ ++ [a]).length + k) = some (bs, body) := by
-      intro a
-      simp only [List.length_append, List.length_cons, List.length_nil]
-      rw [show sp₁.length + (0 + 1) + k = sp₁.length + (k + 1) from by omega]
-      exact hstrip
-    exact ih (hstrip' _) (hext₁ _) (hext₂ _)
-      (hlift₁.snoc (v := x) ⟨D₁, b.1, _, rfl, by omega, by simp [updV]⟩)
-      (hlift₂.snoc (v := x) ⟨D₂, b.1, _, rfl, by omega, by simp [updV]⟩)
+    intro d₁ d₂ d₃ ρ₁ ρ₂ ρ₃ t₁ t₂ t₃ h₁₂ h₂₃
+    match t₁, t₂, t₃ with
+    | .forallE _ _ _ _, .forallE _ _ _ _, .forallE _ _ _ _ =>
+      exact ⟨fun A hA => h₂₃.1 A (h₁₂.1 A hA),
+        fun x A hA hx => ih (h₁₂.2 x A hA hx) (h₂₃.2 x A (h₁₂.1 A hA) hx)⟩
+    | .forallE _ _ _ _, .forallE _ _ _ _, .bvar _
+    | .forallE _ _ _ _, .forallE _ _ _ _, .fvar _ _ _
+    | .forallE _ _ _ _, .forallE _ _ _ _, .sort _
+    | .forallE _ _ _ _, .forallE _ _ _ _, .const _ _
+    | .forallE _ _ _ _, .forallE _ _ _ _, .app _ _
+    | .forallE _ _ _ _, .forallE _ _ _ _, .lam _ _ _ _
+    | .forallE _ _ _ _, .forallE _ _ _ _, .letE _ _ _ _
+    | .forallE _ _ _ _, .forallE _ _ _ _, .lit _
+    | .forallE _ _ _ _, .forallE _ _ _ _, .proj _ _ _ => exact h₂₃.elim
+    | .forallE _ _ _ _, .bvar _, _ | .forallE _ _ _ _, .fvar _ _ _, _
+    | .forallE _ _ _ _, .sort _, _ | .forallE _ _ _ _, .const _ _, _
+    | .forallE _ _ _ _, .app _ _, _ | .forallE _ _ _ _, .lam _ _ _ _, _
+    | .forallE _ _ _ _, .letE _ _ _ _, _ | .forallE _ _ _ _, .lit _, _
+    | .forallE _ _ _ _, .proj _ _ _, _ => exact h₁₂.elim
+    | .bvar _, _, _ | .fvar _ _ _, _, _ | .sort _, _, _ | .const _ _, _, _
+    | .app _ _, _, _ | .lam _ _ _ _, _, _ | .letE _ _ _ _, _, _
+    | .lit _, _, _ | .proj _ _ _, _, _ => exact h₁₂.elim
+
+/-- The right-hand telescope may be replaced by an `ErasedEq` one: the
+interpretation does not read binder names or `fvar` annotations
+(`interp_erasedEq`), and the walk's shape comes from the left. -/
+theorem DomsAgree.erasedEq_right {cval : ConstVal V} {env : Env}
+    {φ : Name → Nat} :
+    ∀ (k : Nat) {d₁ d₂ : Nat} {ρ₁ ρ₂ : Nat → V} {t₁ t₂ t₃ : Expr},
+      DomsAgree V cval env φ k d₁ ρ₁ t₁ d₂ ρ₂ t₂ →
+      Expr.ErasedEq t₂ t₃ →
+      DomsAgree V cval env φ k d₁ ρ₁ t₁ d₂ ρ₂ t₃ := by
+  intro k
+  induction k with
+  | zero => intro _ _ _ _ _ _ _ _ _; trivial
+  | succ k ih =>
+    intro d₁ d₂ ρ₁ ρ₂ t₁ t₂ t₃ hag hEE
+    match t₁, t₂ with
+    | .forallE n₁ dom₁ body₁ m₁, .forallE n₂ dom₂ body₂ m₂ =>
+      obtain ⟨hdomEq, hstep⟩ := hag
+      match t₃, hEE with
+      | .forallE n₃ dom₃ body₃ m₃, hEE =>
+        obtain ⟨-, hdomEE, hbodyEE⟩ := hEE
+        refine ⟨fun A hA => by
+          rw [← interp_erasedEq hdomEE d₂ ρ₂]; exact hdomEq A hA, ?_⟩
+        intro x A hA hx
+        exact ih (hstep x A hA hx)
+          (Expr.ErasedEq.instantiate1 hbodyEE (by exact rfl))
+      | .bvar _, hEE | .fvar _ _ _, hEE | .sort _, hEE | .const _ _, hEE
+      | .app _ _, hEE | .lam _ _ _ _, hEE | .letE _ _ _ _, hEE
+      | .lit _, hEE | .proj _ _ _, hEE => exact hEE.elim
+    | .forallE _ _ _ _, .bvar _ | .forallE _ _ _ _, .fvar _ _ _
+    | .forallE _ _ _ _, .sort _ | .forallE _ _ _ _, .const _ _
+    | .forallE _ _ _ _, .app _ _ | .forallE _ _ _ _, .lam _ _ _ _
+    | .forallE _ _ _ _, .letE _ _ _ _ | .forallE _ _ _ _, .lit _
+    | .forallE _ _ _ _, .proj _ _ _ => exact hag.elim
+    | .bvar _, _ | .fvar _ _ _, _ | .sort _, _ | .const _ _, _
+    | .app _ _, _ | .lam _ _ _ _, _ | .letE _ _ _ _, _ | .lit _, _
+    | .proj _ _ _, _ => exact hag.elim
+
+/-- **`DomsAgree` from pins against an instantiation walk.**  The
+recursor's two pin sites (`checkDirectRecTy`) compare the *opened*
+binder domains of one telescope against the domains an `Expr.instPisAt`
+walk of the other produces **at those very variables** — not against a
+second opening.  The walk's bodies are therefore instantiated at the
+left telescope's variables, which `DomsAgree` (each side opened at its
+own) meets only up to `ErasedEq`; `FrameOk.body_at` carries the frame
+conditions onto the foreign opening and `erasedEq_right` closes the
+gap at every stage. -/
+theorem DomsAgree.of_pins_inst {env : Env} (m : EnvModel V env) (F : Nat)
+    {φ : Name → Nat} :
+    ∀ (k d : Nat) (ρ : Nat → V) (S R : Expr) (fvsS : List Expr) (rS : Expr)
+      (dsR : List Expr) (rR : Expr),
+      openPisAtFvars k S d = some (fvsS, rS) →
+      Expr.instPisAt fvsS R = some (dsR, rR) →
+      (∀ (j : Nat) (a b : Expr), fvsS[j]? = some a → dsR[j]? = some b →
+        isDefEqCore env F (d + j) (Expr.fvarTypeD a) b = .ok true) →
+      FrameOk V m.val env φ d ρ S →
+      FrameOk V m.val env φ d ρ R →
+      DomsAgree V m.val env φ k d ρ S d ρ R := by
+  intro k
+  induction k with
+  | zero => intro _ _ _ _ _ _ _ _ _ _ _ _ _; trivial
+  | succ k ih =>
+    intro d ρ S R fvsS rS dsR rR hopS hinstR hpins hfrS hfrR
+    match S with
+    | .forallE nS domS bodyS mS =>
+      simp only [openPisAtFvars] at hopS
+      cases hrecS : openPisAtFvars k
+          (bodyS.instantiate1 (.fvar d nS domS)) (d + 1) with
+      | none => rw [hrecS] at hopS; exact nomatch hopS
+      | some qS =>
+        rw [hrecS] at hopS
+        simp only [Option.some.injEq, Prod.mk.injEq] at hopS
+        obtain ⟨rfl, rfl⟩ := hopS
+        obtain ⟨nR, domR, bodyR, mR, dsR', rfl, rfl, hinstR'⟩ :=
+          instPisAt_cons_inv hinstR
+        obtain ⟨hdWS, hdbS, hdlS, hdfS, hdaS, BS, hdiS⟩ := hfrS.dom
+        obtain ⟨hdWR, hdbR, hdlR, hdfR, hdaR, BR, hdiR⟩ := hfrR.dom
+        have hpin : isDefEqCore env F d domS domR = .ok true := by
+          have h0 := hpins 0 (.fvar d nS domS) domR rfl rfl
+          rwa [Nat.add_zero] at h0
+        have hBeq : BS = BR :=
+          isDefEqCore_sound m F hpin hdWS hdWR hdbS hdbR hdlS hdlR
+            hdfS hdfR hdaS hdaR hdiS hdiR
+        have hdiR' : ∀ A, interpExpr V m.val env φ d ρ domS = some A →
+            interpExpr V m.val env φ d ρ domR = some A := by
+          intro A hA
+          have hAB : A = BS := (Option.some.inj (hdiS.symm.trans hA)).symm
+          rw [hAB, hBeq]
+          exact hdiR
+        refine ⟨hdiR', ?_⟩
+        intro x A hA hx
+        have hAB : A = BS := (Option.some.inj (hdiS.symm.trans hA)).symm
+        subst hAB
+        refine DomsAgree.erasedEq_right k
+          (ih (d + 1) (updV V ρ d x) _ _ qS.1 qS.2 dsR' rR hrecS hinstR'
+            (fun j a b ha hb => by
+              have h1 := hpins (j + 1) a b (by simpa using ha)
+                (by simpa using hb)
+              rw [show d + 1 + j = d + (j + 1) from by omega]
+              exact h1)
+            (hfrS.body hdiS hx)
+            (FrameOk.body_at hfrR hfrS.dom (hdiR' _ hdiS) hdiS hx))
+          (Expr.ErasedEq.instantiate1 (Expr.ErasedEq.rfl bodyR) (by exact rfl))
+    | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
+    | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+      simp only [openPisAtFvars] at hopS; exact nomatch hopS
 
 /-- The per-field universe bound relocates across frames too. -/
 theorem FieldTele_reframe {cval : ConstVal V} {env : Env}
