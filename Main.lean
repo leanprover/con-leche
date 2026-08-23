@@ -99,7 +99,7 @@ partial def progressLoop (stats : Bool)
       pure e.exitCode
     | .ok (fe, s) => do
       if stats then
-        IO.eprintln s!"STATS: nodes={s.store.nodes.size} lnodes={s.store.lnodes.size} bvarB={s.bvarB.size} annotC={s.annotC.size} inferC={s.inferC.size} whnfC={s.whnfC.size} whnfCoreC={s.whnfCoreC.size} defeqC={s.defeqC.size}"
+        IO.eprintln s!"STATS: nodes={s.store.nodes.size} lnodes={s.store.lnodes.size} annotC={s.annotC.size} inferC={s.inferC.size} whnfC={s.whnfC.size} whnfCoreC={s.whnfCoreC.size} defeqC={s.defeqC.size}"
       progressLoop stats stepF n0 decls (i + 1) fe s
   else do
     IO.println s!"setlec: accepted {fe.env.consts.length} declarations"

@@ -464,14 +464,12 @@ well-formed store, `instantiateListIGo` preserves the invariant,
 extends the store, keeps the memo consistent, and its result denotes
 `Expr.instantiateList` of the input's denotation at the live prefix of
 the replacement denotations. -/
-theorem instantiateListIGo_spec {vs : Array EIdx} {ws : List Expr}
-    {bm0 : BMemo} :
+theorem instantiateListIGo_spec {vs : Array EIdx} {ws : List Expr} :
     ∀ (k : Nat) (e : EIdx) {st : EStore} {memo : MemoNL} {d : Nat}
       {r : EIdx} {st' : EStore} {memo' : MemoNL},
       st.WF → DenL st vs.toList ws → k ≤ vs.size →
-      EStore.BoundMemoInv st bm0 →
       MemoNLInv st ws memo →
-      instantiateListIGo vs st bm0 memo e k d = (r, st', memo') →
+      instantiateListIGo vs st memo e k d = (r, st', memo') →
       st'.WF ∧ Ext st st' ∧ MemoNLInv st' ws memo' ∧
         ∀ x, st.denote e = some x →
           st'.denote r = some (x.instantiateList (ws.take k) d) := by
@@ -481,7 +479,7 @@ theorem instantiateListIGo_spec {vs : Array EIdx} {ws : List Expr}
   intro e
   induction e using Nat.strongRecOn with
   | _ e ihe =>
-    intro st memo d r st' memo' hwf hvs hk hbm0 hinv hgo
+    intro st memo d r st' memo' hwf hvs hk hinv hgo
     have hlen : ws.length = vs.size := by
       simpa using hvs.length_eq.symm
     unfold instantiateListIGo at hgo
@@ -500,9 +498,7 @@ theorem instantiateListIGo_spec {vs : Array EIdx} {ws : List Expr}
         cases hgo
         refine ⟨hwf, Ext.refl st, hinv, ?_⟩
         intro x hx
-        obtain ⟨b, hget, hble⟩ := EStore.BMemo.cutoff_eq_true hcut
-        rw [Expr.instantiateList_eq_self
-          (EStore.lbbMono hble ((hbm0 e b hget).2 x hx))]
+        rw [Expr.instantiateList_eq_self (hwf.bvarBoundD_le hx hcut)]
         exact hx
       rename_i hncut
       have htklen : (ws.take k).length = k := by
@@ -546,13 +542,13 @@ theorem instantiateListIGo_spec {vs : Array EIdx} {ws : List Expr}
                 rename_i hidk
                 split at hgo
                 · rename_i hidv
-                  rcases hrec : instantiateListIGo vs st bm0 memo vs[i - d]
+                  rcases hrec : instantiateListIGo vs st memo vs[i - d]
                       (i - d) d with ⟨r₁, st₁, memo₁⟩
                   rw [hrec] at hgo
                   cases hgo
                   obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ :=
                     ihk (i - d) hidk vs[i - d] hwf hvs
-                      (Nat.le_of_lt hidv) hbm0 hinv hrec
+                      (Nat.le_of_lt hidv) hinv hrec
                   have hwlt : i - d < ws.length := by omega
                   have hvd : st.denote vs[i - d] = some ws[i - d] := by
                     have := hvs.get (i - d) (by simpa using hidv)
@@ -664,10 +660,10 @@ theorem instantiateListIGo_spec {vs : Array EIdx} {ws : List Expr}
               exact absurd ⟨hcl f (by simp [ENode.children]),
                 hcl a (by simp [ENode.children])⟩ hguard
             case isTrue hguard =>
-              rcases h₁ : instantiateListIGo vs st bm0 memo f k d
+              rcases h₁ : instantiateListIGo vs st memo f k d
                 with ⟨f', st₁, memo₁⟩
               rw [h₁] at hgo
-              rcases h₂ : instantiateListIGo vs st₁ bm0 memo₁ a k d
+              rcases h₂ : instantiateListIGo vs st₁ memo₁ a k d
                 with ⟨a', st₂, memo₂⟩
               rw [h₂] at hgo
               rcases h₃ : st₂.intern (.app f' a') with ⟨ri, st₃⟩
@@ -680,9 +676,9 @@ theorem instantiateListIGo_spec {vs : Array EIdx} {ws : List Expr}
               have hx : st.denote e = some (.app xf xa) := by
                 rw [hde, denoteNode, hf, ha]; rfl
               obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ :=
-                ihe f hguard.1 hwf hvs hk hbm0 hinv h₁
+                ihe f hguard.1 hwf hvs hk hinv h₁
               obtain ⟨hwf₂, hext₂, hinv₂, hden₂⟩ :=
-                ihe a hguard.2 hwf₁ (hvs.mono hext₁) hk (hbm0.mono hext₁ hwf) hinv₁ h₂
+                ihe a hguard.2 hwf₁ (hvs.mono hext₁) hk hinv₁ h₂
               have hf₂ : st₂.denote f'
                   = some (xf.instantiateList (ws.take k) d) :=
                 denote_mono hext₂ (hden₁ xf hf)
@@ -720,10 +716,10 @@ theorem instantiateListIGo_spec {vs : Array EIdx} {ws : List Expr}
               exact absurd ⟨hcl ty (by simp [ENode.children]),
                 hcl body (by simp [ENode.children])⟩ hguard
             case isTrue hguard =>
-              rcases h₁ : instantiateListIGo vs st bm0 memo ty k d
+              rcases h₁ : instantiateListIGo vs st memo ty k d
                 with ⟨ty', st₁, memo₁⟩
               rw [h₁] at hgo
-              rcases h₂ : instantiateListIGo vs st₁ bm0 memo₁ body k (d + 1)
+              rcases h₂ : instantiateListIGo vs st₁ memo₁ body k (d + 1)
                 with ⟨body', st₂, memo₂⟩
               rw [h₂] at hgo
               rcases h₃ : st₂.intern (.lam nm ty' body' m) with ⟨ri, st₃⟩
@@ -739,9 +735,9 @@ theorem instantiateListIGo_spec {vs : Array EIdx} {ws : List Expr}
               have hx : st.denote e = some (.lam nm xt xb bm) := by
                 rw [hde, denoteNode, ht, hb, hbm]; rfl
               obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ :=
-                ihe ty hguard.1 hwf hvs hk hbm0 hinv h₁
+                ihe ty hguard.1 hwf hvs hk hinv h₁
               obtain ⟨hwf₂, hext₂, hinv₂, hden₂⟩ :=
-                ihe body hguard.2 hwf₁ (hvs.mono hext₁) hk (hbm0.mono hext₁ hwf) hinv₁ h₂
+                ihe body hguard.2 hwf₁ (hvs.mono hext₁) hk hinv₁ h₂
               have ht₂ : st₂.denote ty'
                   = some (xt.instantiateList (ws.take k) d) :=
                 denote_mono hext₂ (hden₁ xt ht)
@@ -786,10 +782,10 @@ theorem instantiateListIGo_spec {vs : Array EIdx} {ws : List Expr}
               exact absurd ⟨hcl ty (by simp [ENode.children]),
                 hcl body (by simp [ENode.children])⟩ hguard
             case isTrue hguard =>
-              rcases h₁ : instantiateListIGo vs st bm0 memo ty k d
+              rcases h₁ : instantiateListIGo vs st memo ty k d
                 with ⟨ty', st₁, memo₁⟩
               rw [h₁] at hgo
-              rcases h₂ : instantiateListIGo vs st₁ bm0 memo₁ body k (d + 1)
+              rcases h₂ : instantiateListIGo vs st₁ memo₁ body k (d + 1)
                 with ⟨body', st₂, memo₂⟩
               rw [h₂] at hgo
               rcases h₃ : st₂.intern (.forallE nm ty' body' m) with ⟨ri, st₃⟩
@@ -805,9 +801,9 @@ theorem instantiateListIGo_spec {vs : Array EIdx} {ws : List Expr}
               have hx : st.denote e = some (.forallE nm xt xb bm) := by
                 rw [hde, denoteNode, ht, hb, hbm]; rfl
               obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ :=
-                ihe ty hguard.1 hwf hvs hk hbm0 hinv h₁
+                ihe ty hguard.1 hwf hvs hk hinv h₁
               obtain ⟨hwf₂, hext₂, hinv₂, hden₂⟩ :=
-                ihe body hguard.2 hwf₁ (hvs.mono hext₁) hk (hbm0.mono hext₁ hwf) hinv₁ h₂
+                ihe body hguard.2 hwf₁ (hvs.mono hext₁) hk hinv₁ h₂
               have ht₂ : st₂.denote ty'
                   = some (xt.instantiateList (ws.take k) d) :=
                 denote_mono hext₂ (hden₁ xt ht)
@@ -854,13 +850,13 @@ theorem instantiateListIGo_spec {vs : Array EIdx} {ws : List Expr}
                 hcl val (by simp [ENode.children]),
                 hcl body (by simp [ENode.children])⟩ hguard
             case isTrue hguard =>
-              rcases h₁ : instantiateListIGo vs st bm0 memo ty k d
+              rcases h₁ : instantiateListIGo vs st memo ty k d
                 with ⟨ty', st₁, memo₁⟩
               rw [h₁] at hgo
-              rcases h₂ : instantiateListIGo vs st₁ bm0 memo₁ val k d
+              rcases h₂ : instantiateListIGo vs st₁ memo₁ val k d
                 with ⟨val', st₂, memo₂⟩
               rw [h₂] at hgo
-              rcases h₃ : instantiateListIGo vs st₂ bm0 memo₂ body k (d + 1)
+              rcases h₃ : instantiateListIGo vs st₂ memo₂ body k (d + 1)
                 with ⟨body', st₃, memo₃⟩
               rw [h₃] at hgo
               rcases h₄ : st₃.intern (.letE nm ty' val' body') with ⟨ri, st₄⟩
@@ -875,12 +871,12 @@ theorem instantiateListIGo_spec {vs : Array EIdx} {ws : List Expr}
               have hx : st.denote e = some (.letE nm xt xv xb) := by
                 rw [hde, denoteNode, ht, hv', hb]; rfl
               obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ :=
-                ihe ty hguard.1 hwf hvs hk hbm0 hinv h₁
+                ihe ty hguard.1 hwf hvs hk hinv h₁
               obtain ⟨hwf₂, hext₂, hinv₂, hden₂⟩ :=
-                ihe val hguard.2.1 hwf₁ (hvs.mono hext₁) hk (hbm0.mono hext₁ hwf) hinv₁ h₂
+                ihe val hguard.2.1 hwf₁ (hvs.mono hext₁) hk hinv₁ h₂
               obtain ⟨hwf₃, hext₃, hinv₃, hden₃⟩ :=
                 ihe body hguard.2.2 hwf₂ (hvs.mono (hext₁.trans hext₂))
-                  hk (hbm0.mono (hext₁.trans hext₂) hwf) hinv₂ h₃
+                  hk hinv₂ h₃
               have ht₃ : st₃.denote ty'
                   = some (xt.instantiateList (ws.take k) d) :=
                 denote_mono (hext₂.trans hext₃) (hden₁ xt ht)
@@ -924,7 +920,7 @@ theorem instantiateListIGo_spec {vs : Array EIdx} {ws : List Expr}
             case isFalse hguard =>
               exact absurd (hcl sub (by simp [ENode.children])) hguard
             case isTrue hguard =>
-              rcases h₁ : instantiateListIGo vs st bm0 memo sub k d
+              rcases h₁ : instantiateListIGo vs st memo sub k d
                 with ⟨sub', st₁, memo₁⟩
               rw [h₁] at hgo
               rcases h₂ : st₁.intern (.proj s i sub') with ⟨ri, st₂⟩
@@ -935,7 +931,7 @@ theorem instantiateListIGo_spec {vs : Array EIdx} {ws : List Expr}
               have hx : st.denote e = some (.proj s i xs) := by
                 rw [hde, denoteNode, hxs]; rfl
               obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ :=
-                ihe sub hguard hwf hvs hk hbm0 hinv h₁
+                ihe sub hguard hwf hvs hk hinv h₁
               have hs₁ : st₁.denote sub'
                   = some (xs.instantiateList (ws.take k) d) :=
                 hden₁ xs hxs
@@ -968,14 +964,13 @@ theorem instantiateListIGo_spec {vs : Array EIdx} {ws : List Expr}
 `Expr.instantiateList` of the denotations, on an extended well-formed
 store. -/
 theorem instantiateListI_spec {st : EStore} {e : EIdx} {vs : List EIdx}
-    {d : Nat} {x : Expr} {ws : List Expr} {bm0 : EStore.BMemo}
+    {d : Nat} {x : Expr} {ws : List Expr}
     (hwf : st.WF) (he : st.denote e = some x) (hvs : DenL st vs ws)
-    (hbm0 : EStore.BoundMemoInv st bm0 := by
-      exact EStore.BoundMemoInv.empty) :
-    (st.instantiateListI e vs d bm0).2.WF ∧
-      Ext st (st.instantiateListI e vs d bm0).2 ∧
-      (st.instantiateListI e vs d bm0).2.denote
-          (st.instantiateListI e vs d bm0).1
+ :
+    (st.instantiateListI e vs d).2.WF ∧
+      Ext st (st.instantiateListI e vs d).2 ∧
+      (st.instantiateListI e vs d).2.denote
+          (st.instantiateListI e vs d).1
         = some (x.instantiateList ws d) := by
   match vs, ws, hvs with
   | [], [], _ =>
@@ -985,11 +980,11 @@ theorem instantiateListI_spec {st : EStore} {e : EIdx} {vs : List EIdx}
     have htl : (v :: vs').toArray.toList = v :: vs' := by simp
     have hvs' : DenL st (v :: vs').toArray.toList (w :: ws') := by
       rw [htl]; exact hvs
-    rcases hgo : instantiateListIGo (v :: vs').toArray st bm0 {} e
+    rcases hgo : instantiateListIGo (v :: vs').toArray st {} e
         (v :: vs').toArray.size d with ⟨r, st', memo'⟩
     obtain ⟨hwf', hext', -, hcond⟩ :=
       instantiateListIGo_spec (vs := (v :: vs').toArray)
-        (ws := w :: ws') _ e hwf hvs' (Nat.le_refl _) hbm0
+        (ws := w :: ws') _ e hwf hvs' (Nat.le_refl _)
         MemoNLInv.empty hgo
     have hlen : (w :: ws').length = (v :: vs').toArray.size := by
       simpa using hvs.length_eq.symm
@@ -1022,51 +1017,47 @@ theorem mkAppNI_spec :
         mkAppNI_spec (args := as) (xs := xs) hwf₁ hfa (hs.mono hext₁)
       exact ⟨hwf₂, hext₁.trans hext₂, hres⟩
 
-theorem instSpineChainI_spec {bm0 : EStore.BMemo} :
+theorem instSpineChainI_spec :
     ∀ {args : List EIdx} {xs : List Expr} {st : EStore}, st.WF →
-      EStore.BoundMemoInv st bm0 →
       ∀ {t : Nat} {e : EIdx} {x : Expr},
       st.denote e = some x → DenL st args xs →
-      (st.instSpineChainI bm0 args t e).2.WF ∧
-        Ext st (st.instSpineChainI bm0 args t e).2 ∧
-        (st.instSpineChainI bm0 args t e).2.denote
-            (st.instSpineChainI bm0 args t e).1
+      (st.instSpineChainI args t e).2.WF ∧
+        Ext st (st.instSpineChainI args t e).2 ∧
+        (st.instSpineChainI args t e).2.denote
+            (st.instSpineChainI args t e).1
           = some (Expr.instSpine xs t x)
-  | [], xs, st, hwf, _hbm0, t, e, x, he, hargs => by
+  | [], xs, st, hwf, t, e, x, he, hargs => by
     match xs, hargs with
     | [], _ => exact ⟨hwf, Ext.refl st, he⟩
-  | a :: as, xs, st, hwf, hbm0, t, e, x, he, hargs => by
+  | a :: as, xs, st, hwf, t, e, x, he, hargs => by
     match xs, hargs with
     | xa :: xs, ⟨ha, hs⟩ =>
-      obtain ⟨hwf₁, hext₁, he'⟩ := instantiate1I_spec (d := t) hwf he ha hbm0
-      rw [show st.instSpineChainI bm0 (a :: as) t e =
-        (st.instantiate1I e a t bm0).2.instSpineChainI bm0 as (t - 1)
-          (st.instantiate1I e a t bm0).1 from rfl]
+      obtain ⟨hwf₁, hext₁, he'⟩ := instantiate1I_spec (d := t) hwf he ha
+      rw [show st.instSpineChainI (a :: as) t e =
+        (st.instantiate1I e a t).2.instSpineChainI as (t - 1)
+          (st.instantiate1I e a t).1 from rfl]
       obtain ⟨hwf₂, hext₂, hres⟩ :=
         instSpineChainI_spec (args := as) (xs := xs) hwf₁
-          (hbm0.mono hext₁ hwf) he' (hs.mono hext₁)
+          he' (hs.mono hext₁)
       exact ⟨hwf₂, hext₁.trans hext₂, hres⟩
 
 theorem instSpineI_spec {args : List EIdx} {xs : List Expr} {st : EStore}
-    {bm0 : EStore.BMemo}
     (hwf : st.WF) {t : Nat} {e : EIdx} {x : Expr}
-    (he : st.denote e = some x) (hargs : DenL st args xs)
-    (hbm0 : EStore.BoundMemoInv st bm0 := by
-      exact EStore.BoundMemoInv.empty) :
-    (st.instSpineI args t e bm0).2.WF ∧
-      Ext st (st.instSpineI args t e bm0).2 ∧
-      (st.instSpineI args t e bm0).2.denote (st.instSpineI args t e bm0).1
+    (he : st.denote e = some x) (hargs : DenL st args xs) :
+    (st.instSpineI args t e).2.WF ∧
+      Ext st (st.instSpineI args t e).2 ∧
+      (st.instSpineI args t e).2.denote (st.instSpineI args t e).1
         = some (Expr.instSpine xs t x) := by
   unfold instSpineI
   by_cases hlen : args.length = t + 1
   · rw [if_pos hlen]
     have hxlen : xs.length = t + 1 := hargs.length_eq ▸ hlen
     obtain ⟨hwf', hext', hden⟩ :=
-      instantiateListI_spec (d := 0) hwf he hargs.reverse hbm0
+      instantiateListI_spec (d := 0) hwf he hargs.reverse
     exact ⟨hwf', hext',
       Expr.instSpine_eq_instantiateList xs t x hxlen ▸ hden⟩
   · rw [if_neg hlen]
-    exact instSpineChainI_spec hwf hbm0 he hargs
+    exact instSpineChainI_spec hwf he hargs
 
 /-- Relation of an optional index to an optional expression under a
 store. -/
@@ -1082,25 +1073,25 @@ theorem OptDen.mono {st st' : EStore} (hext : Ext st st') :
   | some _, some _, h => denote_mono hext h
   | none, some _, h | some _, none, h => nomatch h
 
-theorem piResidualAccI_spec {bm0 : EStore.BMemo} :
+theorem piResidualAccI_spec :
     ∀ {as : List EIdx} {xs : List Expr} {acc : List EIdx} {ws : List Expr}
-      {st : EStore}, st.WF → EStore.BoundMemoInv st bm0 →
+      {st : EStore}, st.WF →
       ∀ {e : EIdx} {x : Expr},
       st.denote e = some x → DenL st acc ws → DenL st as xs →
-      (st.piResidualAccI bm0 acc e as).2.WF ∧
-        Ext st (st.piResidualAccI bm0 acc e as).2 ∧
-        OptDen (st.piResidualAccI bm0 acc e as).2
-          (st.piResidualAccI bm0 acc e as).1
+      (st.piResidualAccI acc e as).2.WF ∧
+        Ext st (st.piResidualAccI acc e as).2 ∧
+        OptDen (st.piResidualAccI acc e as).2
+          (st.piResidualAccI acc e as).1
           (piResidual (x.instantiateList ws) xs)
-  | [], xs, acc, ws, st, hwf, hbm0, e, x, he, hacc, hargs => by
+  | [], xs, acc, ws, st, hwf, e, x, he, hacc, hargs => by
     match xs, hargs with
     | [], _ =>
       obtain ⟨hwf', hext', hden⟩ :=
-        instantiateListI_spec (d := 0) hwf he hacc hbm0
+        instantiateListI_spec (d := 0) hwf he hacc
       rw [piResidualAccI.eq_def]
       dsimp only
       exact ⟨hwf', hext', hden⟩
-  | a :: as, xs, acc, ws, st, hwf, hbm0, e, x, he, hacc, hargs => by
+  | a :: as, xs, acc, ws, st, hwf, e, x, he, hacc, hargs => by
     match xs, hargs with
     | xa :: xs, ⟨ha, hs⟩ =>
       obtain ⟨n, hn, hc, hd⟩ := denote_some_inv he
@@ -1123,7 +1114,7 @@ theorem piResidualAccI_spec {bm0 : EStore.BMemo} :
           piResidual ((eb.instantiateList ws 1).instantiate1 xa) xs
           from rfl,
           ← Expr.instantiateList_cons]
-        exact piResidualAccI_spec (as := as) (xs := xs) hwf hbm0 hb
+        exact piResidualAccI_spec (as := as) (xs := xs) hwf hb
           ⟨ha, hacc⟩ hs
       | bvar i =>
         cases hd
@@ -1137,9 +1128,9 @@ theorem piResidualAccI_spec {bm0 : EStore.BMemo} :
           exact ⟨hwf, Ext.refl st, trivial⟩
         | a' :: acc', w :: ws', hacc =>
           obtain ⟨hwf₁, hext₁, hden₁⟩ :=
-            instantiateListI_spec (d := 0) hwf he hacc hbm0
+            instantiateListI_spec (d := 0) hwf he hacc
           have := piResidualAccI_spec (as := a :: as) (xs := xa :: xs)
-            (acc := []) (ws := []) hwf₁ (hbm0.mono hext₁ hwf) hden₁ DenL.nil
+            (acc := []) (ws := []) hwf₁ hden₁ DenL.nil
             (DenL.mono hext₁ ⟨ha, hs⟩)
           rw [Expr.instantiateList_nil] at this
           obtain ⟨hwf₂, hext₂, hres⟩ := this
@@ -1222,17 +1213,16 @@ decreasing_by
   · apply Prod.Lex.right' <;> simp
   · apply Prod.Lex.left; simp
 
-theorem piResidualI_spec {bm0 : EStore.BMemo} :
+theorem piResidualI_spec :
     ∀ {args : List EIdx} {xs : List Expr} {st : EStore}, st.WF →
-      EStore.BoundMemoInv st bm0 →
       ∀ {e : EIdx} {x : Expr},
       st.denote e = some x → DenL st args xs →
-      (st.piResidualI e args bm0).2.WF ∧
-        Ext st (st.piResidualI e args bm0).2 ∧
-        OptDen (st.piResidualI e args bm0).2 (st.piResidualI e args bm0).1
+      (st.piResidualI e args).2.WF ∧
+        Ext st (st.piResidualI e args).2 ∧
+        OptDen (st.piResidualI e args).2 (st.piResidualI e args).1
           (piResidual x xs) := by
-  intro args xs st hwf hbm0 e x he hargs
-  have := piResidualAccI_spec (acc := []) (ws := []) hwf hbm0 he
+  intro args xs st hwf e x he hargs
+  have := piResidualAccI_spec (acc := []) (ws := []) hwf he
     DenL.nil hargs
   rw [Expr.instantiateList_nil] at this
   exact this

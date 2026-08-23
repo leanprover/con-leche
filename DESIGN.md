@@ -4175,3 +4175,90 @@ that way; `fvarB` (this task) and `bvarB` (#72/#84) should migrate to
 the same pattern, which also makes `hasFvarI` O(1) for every caller.
 This task shipped the lazy mirror because it was already built and
 green when the eager design was settled.
+
+## Eager derived per-node fields: bvar bound, fvar range, has-(level-)param (2026-08-23, task #87)
+
+The settled eager-array design (previous entry) is now the *only*
+per-node derived-data mechanism.  A derived field is an eager parallel
+array in `EStore`, congruent with its node table (`field.size =
+nodes.size`), computed inside `intern`/`internL` on a cons-table miss
+in O(1) from the children's already-present entries (the arena is
+append-only, children interned before parents); reads are
+`Array.getD`; the invariant is part of `EStore.WF` — two total
+clauses per field (size congruence + pointwise child recurrence),
+maintained by `intern_wf`/`internL_wf` and validated once by `wfB` on
+the parse store.  Derived fields never live inside `ENode` (they are
+functions of the cons key and must not pollute it or its hash).
+Coverage is total by construction: parse-time interning (task #78)
+goes through `EStore.intern`/`internL` exclusively.
+
+1. **`bvarBs`/`fvarBs` migration** (`Nat` arrays; loose-bvar bound and
+   fvar range).  The lazy `BMemo` caches (`IState.bvarB` #72/#84,
+   `IState.fvarB` #86), their prepasses (`bvarBoundsLGo`,
+   `fvarRangesLGo`, per-wrapper root walks) and the whole
+   covers/`BoundMemoInv`/`FvarMemoInv` discipline are **deleted**.
+   The cutoffs fire identically off the store arrays; `hasFvarI` and
+   `bvarBoundM` are O(1) reads (closing #86's deferred sub-item, and
+   the fabrication leaf guard's `hasFvarI` walk with them).
+2. **`lparamBs`** (`Bool`, level side; official kernel `level.cpp`
+   `has_param`): `substLIGo` returns param-free levels unchanged
+   (covers `substLI`/`substLIList`/`substLIBM` and every binder-cod
+   annotation); `lparamsDefinedLIGo` short-circuits.
+3. **`eparamBs`** (`Bool`, expression side; official kernel
+   `instantiate.cpp:232` `has_univ_param`): at `.sort`/`.const`/
+   binder-cod the recurrence reads `lparamBs`, else the disjunction of
+   the children's entries (fvar annotations included, matching the
+   traversal).  `instantiateLevelParamsIGo` returns level-param-free
+   nodes unchanged — every `constTyAt`/`constValAt`/`ruleRhsAt` miss
+   on a level-monomorphic constant is a whole-call identity;
+   `allLevelParamsDefinedIGo` short-circuits.
+
+Verification pattern (per field): a *spec function* on the tree side
+(`Expr.bvarBound`, `Expr.fvarRange`, `Level.hasParam`,
+`Expr.hasLevelParam`) with an exactness bridge to the Boolean it
+serves (`looseBVarsBounded_iff`, `fvarsBelow_iff`,
+`hasFvar_eq_false_iff`, `subst_eq_self`,
+`instantiateLevelParams_eq_self`, `allLevelParamsDefined_of_not_*`);
+one strong-induction lemma `WF.<field>D_exact` (`denote i = some x →
+read i = specFn x`) via the pointwise WF clause; traversal cutoff
+branches close by exactness + the `*_eq_self` lemma.  Exactness (not
+just soundness) is what makes `hasFvarI`'s Boolean equal to
+`Expr.hasFvar` — the memoized `hasFvarIGo`/`bvarBoundIGo`/
+`fvarRangeIGo` walk specs are all gone.  ISOK/ISOKF lost their cache
+clauses; no exported `SimAt`/`IEff` statement changed (`BinderLoopI`,
+DiscI walks untouched).  Item-1 proof-mass delta: **-675 lines in
+`Setlec/Verify/*`** (-860 total) — the migration is a net
+simplification, as predicted.
+
+**Measured** (`perf stat` instructions, `--yolo` / certified;
+before = post-#86 baseline):
+
+| test | before | after (yolo) | after (cert) |
+|---|---|---|---|
+| shift-cascade | 1.58 / 1.58 G | **1.57 G** | 1.57 G |
+| shared-subterm | 4.69 / 5.18 G | **4.59 G** | 5.07 G |
+| repeated-subproblem | 4.17 / 4.63 G | **4.08 G** | 4.52 G |
+| grind-ring-5 | 78.3 / 87.8 G | **75.4 G** | 84.4 G |
+| init-prelude probe | 23.2 / 29.4 G | **22.3 G** | 28.2 G |
+
+~1-4 % across the board — the cutoffs already fired under the lazy
+caches; the win is the deleted prepass/covers traffic plus the
+level-instantiation pruning, and the structural simplification.
+Gates: arena 90/92, e2e 53/53, `lake test`, scale all-PASS (spine
+1.30 vs 1.29 on a master-built baseline binary — the pre-existing
+exponent, delta within noise; telescope 1.13), warning-free, axioms
+pinned.
+
+**Parked: name interning (task #87 item 4).**  `NNode`/`NIdx` arena +
+cons table beside `nodes`/`lnodes` (`.anonymous | .str NIdx String |
+.num NIdx Nat`), ENode name fields becoming `NIdx`, parse-time intern
+directly from the export's `#NS`/`#NI` name-table indices, FEnv index
+and `blockNames` NIdx-keyed.  Scoped during this pass: it changes
+`denoteNode`'s signature (a name-denotation layer), which touches
+essentially every proof in `Verify/IExpr.lean`/`IExprOps.lean` and
+all six DiscI walk files (~15 K proof lines) plus ~200 kernel
+match sites — a full task of its own (the scale of the task-#62 level
+interning), not a rider on this one.  Also noted: the export's
+let-nondep flag cannot be threaded onto `ENode.letE` alone — an ENode
+field absent from `Expr.letE` breaks canonicity (`denote_inj`); it
+needs `Expr`-side threading first.

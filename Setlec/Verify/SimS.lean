@@ -49,7 +49,7 @@ dropped caches' clauses are vacuous. -/
 theorem flushS_isok {env' : Env} {s : IState} (hs : ISOKF s) :
     ISOK env' s.flushed := by
   refine ⟨hs.wf, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, hs.lsimp, hs.lnz,
-    hs.eqv, hs.bvarB, hs.fvarB, hs.ienv⟩ <;>
+    hs.eqv, hs.ienv⟩ <;>
     (intros; simp_all [IState.flushed])
 
 /-! ## Shared entry points simulate the fueled families -/

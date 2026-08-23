@@ -40,7 +40,7 @@ theorem ISOK.insertIEnv {s : IState} (hs : ISOK env s) {n : Name}
     ISOK env { s with ienv := s.ienv.insert n ent } := by
   refine ⟨hs.wf, hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC,
     hs.whnfC, hs.inferC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz,
-    hs.eqv, hs.bvarB, hs.fvarB, ?_⟩
+    hs.eqv, ?_⟩
   intro nm ent' hl
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
