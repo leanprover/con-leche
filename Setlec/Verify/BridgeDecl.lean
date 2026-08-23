@@ -1711,6 +1711,92 @@ theorem installBasisDecl_datF (env : Env) (ci : ConstantInfo) (F : Nat) :
   unfold installBasisDecl
   datF_tac
 
+/-! ### The direct simple-structure path, at fuel `F` -/
+
+theorem fueledOpsM_annotate_atF (env : Env) (d : Nat) (a : Expr)
+    (F : Nat) :
+    (fueledOpsM.annotate env d a).val F =
+      (fueledOps F).annotate env d a := rfl
+
+theorem fueledOpsM_ensureSort_atF (env : Env) (d : Nat) (a : Expr)
+    (F : Nat) :
+    (fueledOpsM.ensureSort env d a).val F =
+      (fueledOps F).ensureSort env d a := rfl
+
+theorem checkDirectFieldUniv_datF (env : Env) (s : Level)
+    (depth nP : Nat) (fvs : List Expr) (F : Nat) :
+    ∀ j : Nat,
+      (checkDirectFieldUniv fueledOpsM env s depth nP fvs j).val F =
+        checkDirectFieldUniv (fueledOps F) env s depth nP fvs j
+  | 0 => rfl
+  | j + 1 => by
+    unfold checkDirectFieldUniv
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+      FueledM.atF_ite, fueledOpsM_inferType_atF, fueledOpsM_ensureSort_atF,
+      liftFueled_atF, unwrapOr_atF,
+      checkDirectFieldUniv_datF env s depth nP fvs F j]
+
+theorem checkDirectInd_datF (env : Env) (p : DirectParts) (F : Nat) :
+    (checkDirectInd fueledOpsM env p).val F =
+      checkDirectInd (fueledOps F) env p := by
+  unfold checkDirectInd
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF]
+
+theorem checkDirectCtor_datF (env : Env) (p : DirectParts) (F : Nat) :
+    (checkDirectCtor fueledOpsM env p).val F =
+      checkDirectCtor (fueledOps F) env p := by
+  unfold checkDirectCtor
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF,
+    checkDirectFieldUniv_datF]
+
+theorem checkDirectRecTy_datF (env : Env) (p : DirectParts)
+    (cvTa cvCa cvRa : ConstantVal) (F : Nat) :
+    (checkDirectRecTy fueledOpsM env p cvTa cvCa cvRa).val F =
+      checkDirectRecTy (fueledOps F) env p cvTa cvCa cvRa := by
+  unfold checkDirectRecTy
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, fueledOpsM_isDefEq_atF, unwrapOr_atF,
+    checkDefEqList_datF]
+
+theorem checkDirectRule_datF (env : Env) (p : DirectParts)
+    (cvCa cvRa : ConstantVal) (F : Nat) :
+    (checkDirectRule fueledOpsM env p cvCa cvRa).val F =
+      checkDirectRule (fueledOps F) env p cvCa cvRa := by
+  unfold checkDirectRule
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, fueledOpsM_annotate_atF, fueledOpsM_inferType_atF,
+    unwrapOr_atF, checkDefEqList_datF]
+
+theorem checkDirectProj_datF (T C : Name) (lps : List Name)
+    (nP nF : Nat) (cvTa cvCa : ConstantVal) (env : Env) (i F : Nat) :
+    (checkDirectProj fueledOpsM T C lps nP nF cvTa cvCa env i).val F =
+      checkDirectProj (fueledOps F) T C lps nP nF cvTa cvCa env i := by
+  unfold checkDirectProj
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, fueledOpsM_annotate_atF, fueledOpsM_inferType_atF,
+    fueledOpsM_ensureSort_atF, unwrapOr_atF, checkProjShape_datF,
+    checkProjRule_datF]
+
+theorem checkDirectProj_datF_fun (T C : Name) (lps : List Name)
+    (nP nF : Nat) (cvTa cvCa : ConstantVal) (F : Nat) :
+    (fun (e : Env) (i : Nat) =>
+      (checkDirectProj fueledOpsM T C lps nP nF cvTa cvCa e i).val F) =
+    (checkDirectProj (fueledOps F) T C lps nP nF cvTa cvCa :
+      Env → Nat → CheckM Env) :=
+  funext fun e => funext fun i =>
+    checkDirectProj_datF T C lps nP nF cvTa cvCa e i F
+
+theorem checkDirectStruct_datF (env : Env) (p : DirectParts) (F : Nat) :
+    (checkDirectStruct fueledOpsM env p).val F =
+      checkDirectStruct (fueledOps F) env p := by
+  unfold checkDirectStruct
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, foldlM_atF, checkConstantVal_datF,
+    checkDirectInd_datF, checkDirectCtor_datF, checkDirectRecTy_datF,
+    checkDirectRule_datF, checkDirectProj_datF_fun]
+
 macro "datF_step4" : tactic =>
   `(tactic| repeat (first
     | (rw [liftFueled_atF])
@@ -1729,6 +1815,7 @@ macro "datF_step4" : tactic =>
     | (rw [checkIotaRules_datF])
     | (rw [checkIndRecs_datF])
     | (rw [checkProjFn_datF])
+    | (rw [checkDirectStruct_datF])
     | (rw [checkIndDecl_datF])
     | (rw [installProjTemplateStep_datF_fun])
     | split
@@ -1767,6 +1854,7 @@ macro "datF_step5" : tactic =>
     | (rw [checkIotaRules_datF])
     | (rw [checkIndRecs_datF])
     | (rw [checkProjFn_datF])
+    | (rw [checkDirectStruct_datF])
     | (rw [checkIndDecl_datF])
     | (rw [checkDecl_datF])
     | split
