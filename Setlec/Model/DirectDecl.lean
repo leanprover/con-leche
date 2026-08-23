@@ -60,7 +60,7 @@ theorem FrameOk.ofCheckedType {env : Env} (m : EnvModel V env) {F : Nat}
     {φ : Name → Nat} {cv cv' : ConstantVal}
     (h : checkConstantVal (fueledOps F) env cv = .ok cv') :
     FrameOk V m.val env φ 0 (rho0 V) cv'.type := by
-  obtain ⟨-, -, -, -, -, hlb, hfv, tyA, stype, u, hann, -, -, hst, -,
+  obtain ⟨-, -, -, -, hlb, hfv, tyA, stype, u, hann, -, -, hst, -,
     hcvA⟩ := checkConstantVal_inv h
   have htypeA : cv'.type = tyA := by rw [hcvA]
   have htyf : tyA.hasFvar = false :=
