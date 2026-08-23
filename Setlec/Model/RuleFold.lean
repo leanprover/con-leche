@@ -1511,6 +1511,150 @@ theorem getD_snoc_eq_updV {xs : List V} {x : V} {k : Nat}
   · rw [if_neg (by omega), List.getElem?_eq_none (by simp; omega),
       List.getElem?_eq_none (by omega)]
 
+/-- Beyond the list, the canonical valuation is constantly junk. -/
+theorem updV_getD_self {xs : List V} {D : Nat} (hD : xs.length ≤ D) :
+    updV V (fun i => xs.getD i SetTheory.empty) D SetTheory.empty =
+      (fun i => xs.getD i SetTheory.empty) := by
+  funext i
+  simp only [updV]
+  split
+  · next h =>
+    subst h
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]
+    rfl
+  · rfl
+
+/-- Padding depth above the canonical list valuation is invisible to
+the interpretation of a term scoped at the list. -/
+theorem interp_getD_pad {e : Expr} {xs : List V} {D : Nat}
+    (hW : WScoped xs.length e) (hD : xs.length ≤ D) :
+    interpExpr V cval env φ D (fun i => xs.getD i SetTheory.empty) e =
+      interpExpr V cval env φ xs.length
+        (fun i => xs.getD i SetTheory.empty) e := by
+  have haux : ∀ n, interpExpr V cval env φ (xs.length + n)
+      (fun i => xs.getD i SetTheory.empty) e =
+      interpExpr V cval env φ xs.length
+        (fun i => xs.getD i SetTheory.empty) e := by
+    intro n
+    induction n with
+    | zero => rfl
+    | succ n ih =>
+      have hstep := interp_weaken_top (cval := cval) (env := env)
+        (φ := φ) (e := e) (d := xs.length + n)
+        (ρ := fun i => xs.getD i SetTheory.empty)
+        (x := SetTheory.empty) (hW.mono (by omega))
+      rw [updV_getD_self (V := V) (xs := xs) (D := xs.length + n)
+        (by omega)] at hstep
+      exact hstep.trans ih
+  have hD' : D = xs.length + (D - xs.length) := by omega
+  rw [hD', haux]
+
+/-- The interpretation of a term scoped at a prefix only reads the
+prefix of the canonical list valuation. -/
+theorem interp_getD_take {e : Expr} {j : Nat} (hW : WScoped j e)
+    {xs : List V} (hj : j ≤ xs.length) :
+    interpExpr V cval env φ xs.length
+        (fun i => xs.getD i SetTheory.empty) e =
+      interpExpr V cval env φ j
+        (fun i => (xs.take j).getD i SetTheory.empty) e := by
+  have haux : ∀ n, j + n ≤ xs.length →
+      interpExpr V cval env φ (j + n)
+          (fun i => (xs.take (j + n)).getD i SetTheory.empty) e =
+        interpExpr V cval env φ j
+          (fun i => (xs.take j).getD i SetTheory.empty) e := by
+    intro n
+    induction n with
+    | zero => intro _; rfl
+    | succ n ih =>
+      intro hn
+      obtain ⟨v, hv⟩ : ∃ v, xs[j + n]? = some v :=
+        ⟨xs[j + n]'(by omega), List.getElem?_eq_getElem (by omega)⟩
+      rw [show j + (n + 1) = (j + n) + 1 from rfl, List.take_add_one, hv]
+      show interpExpr V cval env φ ((j + n) + 1)
+        (fun i => (xs.take (j + n) ++ [v]).getD i SetTheory.empty) e = _
+      rw [getD_snoc_eq_updV (k := j + n)
+          (by rw [List.length_take]; omega),
+        interp_weaken_top (hW.mono (by omega))]
+      exact ih (by omega)
+  have h0 := haux (xs.length - j) (by omega)
+  rw [show j + (xs.length - j) = xs.length from by omega,
+    List.take_of_length_le (Nat.le_refl _)] at h0
+  exact h0
+
+/-- Canonicalize a scoped term's interpretation at any padded
+canonical list valuation onto its own prefix frame. -/
+theorem interp_getD_canon {e : Expr} {xs : List V} {j D : Nat}
+    (hW : WScoped j e) (hjx : j ≤ xs.length) (hxD : xs.length ≤ D) :
+    interpExpr V cval env φ D (fun i => xs.getD i SetTheory.empty) e =
+      interpExpr V cval env φ j
+        (fun i => (xs.take j).getD i SetTheory.empty) e := by
+  rw [interp_getD_pad (hW.mono hjx) hxD, interp_getD_take hW hjx]
+
+/-- `AnnotOk` version of `interp_getD_pad` (downward). -/
+theorem annotOk_getD_pad {e : Expr} {xs : List V} {D : Nat}
+    (hW : WScoped xs.length e) (hD : xs.length ≤ D)
+    (ha : AnnotOk V cval env φ D (fun i => xs.getD i SetTheory.empty) e) :
+    AnnotOk V cval env φ xs.length
+      (fun i => xs.getD i SetTheory.empty) e := by
+  have haux : ∀ n,
+      AnnotOk V cval env φ (xs.length + n)
+        (fun i => xs.getD i SetTheory.empty) e →
+      AnnotOk V cval env φ xs.length
+        (fun i => xs.getD i SetTheory.empty) e := by
+    intro n
+    induction n with
+    | zero => exact fun h => h
+    | succ n ih =>
+      intro h
+      refine ih ?_
+      refine AnnotOk.strengthen_top (x := SetTheory.empty)
+        (hW.mono (by omega)) ?_
+      rwa [updV_getD_self (V := V) (xs := xs) (D := xs.length + n)
+        (by omega)]
+  have hD' : D = xs.length + (D - xs.length) := by omega
+  rw [hD'] at ha
+  exact haux _ ha
+
+/-- `AnnotOk` version of `interp_getD_take` (downward). -/
+theorem annotOk_getD_take {e : Expr} {j : Nat} (hW : WScoped j e)
+    {xs : List V} (hj : j ≤ xs.length)
+    (ha : AnnotOk V cval env φ xs.length
+      (fun i => xs.getD i SetTheory.empty) e) :
+    AnnotOk V cval env φ j
+      (fun i => (xs.take j).getD i SetTheory.empty) e := by
+  have haux : ∀ n, j + n ≤ xs.length →
+      AnnotOk V cval env φ (j + n)
+        (fun i => (xs.take (j + n)).getD i SetTheory.empty) e →
+      AnnotOk V cval env φ j
+        (fun i => (xs.take j).getD i SetTheory.empty) e := by
+    intro n
+    induction n with
+    | zero => exact fun _ h => h
+    | succ n ih =>
+      intro hn h
+      obtain ⟨v, hv⟩ : ∃ v, xs[j + n]? = some v :=
+        ⟨xs[j + n]'(by omega), List.getElem?_eq_getElem (by omega)⟩
+      rw [show j + (n + 1) = (j + n) + 1 from rfl, List.take_add_one,
+        hv] at h
+      replace h : AnnotOk V cval env φ ((j + n) + 1)
+          (fun i => (xs.take (j + n) ++ [v]).getD i SetTheory.empty) e :=
+        h
+      rw [getD_snoc_eq_updV (k := j + n)
+        (by rw [List.length_take]; omega)] at h
+      exact ih (by omega) (AnnotOk.strengthen_top (hW.mono (by omega)) h)
+  have h0 := haux (xs.length - j) (by omega)
+  rw [show j + (xs.length - j) = xs.length from by omega,
+    List.take_of_length_le (Nat.le_refl _)] at h0
+  exact h0 ha
+
+/-- `AnnotOk` version of `interp_getD_canon` (downward). -/
+theorem annotOk_getD_canon {e : Expr} {xs : List V} {j D : Nat}
+    (hW : WScoped j e) (hjx : j ≤ xs.length) (hxD : xs.length ≤ D)
+    (ha : AnnotOk V cval env φ D (fun i => xs.getD i SetTheory.empty) e) :
+    AnnotOk V cval env φ j
+      (fun i => (xs.take j).getD i SetTheory.empty) e :=
+  annotOk_getD_take hW hjx (annotOk_getD_pad (hW.mono hjx) hxD ha)
+
 /-- Build the pointwise tower spec from **flat stage facts at the
 canonical list valuations**: the producer supplies, per stage `k` over
 any fitting value prefix `xs` (tracked by an abstract invariant `Ok`),

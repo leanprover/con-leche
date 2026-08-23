@@ -626,6 +626,8 @@ theorem punitRec_ruleOk {cval : ConstVal V}
     refine TowerOk.nil (w := m) ?_ ?_ ?_
     · -- the canonical lhs interprets to the folded value
       rw [interpExpr, hipartial2, hiunit]
+      show some (SetTheory.app (SetTheory.app (SetTheory.app
+        (punitRecVal V ψ') M) m) pt) = some m
       rw [punitRecVal_fold (ψ := ψ') hM hm pt_mem_unitSet]
     · -- the opened rhs body is the minor-premise variable
       simp [Expr.instantiate1, interpExpr, updV]

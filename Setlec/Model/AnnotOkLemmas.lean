@@ -153,6 +153,92 @@ decreasing_by
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
   | (simp [Expr.sizeB])
 
+/-- Converse of `AnnotOk.shift`: annotation truthfulness descends from
+the shifted term at the extended frame back to the term itself.  Each
+clause's interpretation facts transport along the `interp_shift`
+equality; the opened bodies relabel by `shiftFrom_instantiate1`. -/
+theorem AnnotOk.unshift : ∀ (e : Expr) {d p : Nat} {ρ : Nat → V} {x0 : V},
+    p ≤ d → WScoped d e →
+    AnnotOk V cval env φ (d + 1) (insV ρ p x0) (shiftFrom p e) →
+    AnnotOk V cval env φ d ρ e
+  | .forallE n ty body m, d, p, ρ, x0, hpd, hw, ha => by
+    have hw' : WScoped d ty ∧ WScoped d body := by simpa [WScoped] using hw
+    simp only [shiftFrom, AnnotOk] at ha
+    obtain ⟨haty, hcod, hcond⟩ := ha
+    simp only [AnnotOk]
+    refine ⟨AnnotOk.unshift ty hpd hw'.1 haty, hcod, ?_⟩
+    intro x A hA hx
+    rw [← interp_shift ty hpd hw'.1 (x := x0)] at hA
+    obtain ⟨hbody, hwfact⟩ := hcond x A hA hx
+    rw [← shiftFrom_instantiate1 hpd, ← insV_updV hpd] at hbody hwfact
+    refine ⟨AnnotOk.unshift _ (Nat.le_succ_of_le hpd)
+      (hw'.1.instantiate1 0 hw'.2) hbody, ?_⟩
+    intro v hv
+    obtain ⟨w, hwi, hmem⟩ := hwfact v hv
+    refine ⟨w, ?_, hmem⟩
+    rw [← interp_shift _ (Nat.le_succ_of_le hpd)
+      (hw'.1.instantiate1 0 hw'.2) (x := x0)]
+    exact hwi
+  | .lam n ty body m, d, p, ρ, x0, hpd, hw, ha => by
+    have hw' : WScoped d ty ∧ WScoped d body := by simpa [WScoped] using hw
+    simp only [shiftFrom, AnnotOk] at ha
+    obtain ⟨haty, hcod, hcond⟩ := ha
+    simp only [AnnotOk]
+    refine ⟨AnnotOk.unshift ty hpd hw'.1 haty, hcod, ?_⟩
+    intro x A hA hx
+    rw [← interp_shift ty hpd hw'.1 (x := x0)] at hA
+    obtain ⟨hbody, hwfact⟩ := hcond x A hA hx
+    rw [← shiftFrom_instantiate1 hpd, ← insV_updV hpd] at hbody hwfact
+    refine ⟨AnnotOk.unshift _ (Nat.le_succ_of_le hpd)
+      (hw'.1.instantiate1 0 hw'.2) hbody, ?_⟩
+    intro v hv
+    obtain ⟨w, B, hwi, hwB, hBu⟩ := hwfact v hv
+    refine ⟨w, B, ?_, hwB, hBu⟩
+    rw [← interp_shift _ (Nat.le_succ_of_le hpd)
+      (hw'.1.instantiate1 0 hw'.2) (x := x0)]
+    exact hwi
+  | .app f a, d, p, ρ, x0, hpd, hw, ha => by
+    simp only [WScoped] at hw
+    simp only [shiftFrom, AnnotOk] at ha
+    simp only [AnnotOk]
+    obtain ⟨haf, haa, vf, va, vE, A, B, hfi, hai, hpi, hva, hfib⟩ := ha
+    refine ⟨AnnotOk.unshift f hpd hw.1 haf, AnnotOk.unshift a hpd hw.2 haa,
+      vf, va, vE, A, B, ?_, ?_, hpi, hva, hfib⟩
+    · rw [← interp_shift f hpd hw.1 (x := x0)]; exact hfi
+    · rw [← interp_shift a hpd hw.2 (x := x0)]; exact hai
+  | .bvar _, _, _, _, _, _, _, _ => by simp [AnnotOk]
+  | .sort _, _, _, _, _, _, _, _ => by simp [AnnotOk]
+  | .const _ _, _, _, _, _, _, _, _ => by simp [AnnotOk]
+  | .fvar idx n ty, _, _, _, _, _, _, _ => by simp [AnnotOk]
+  | .letE _ _ _ _, _, _, _, _, _, _, _ => by simp [AnnotOk]
+  | .lit _, _, _, _, _, _, _, _ => by simp [AnnotOk]
+  | .proj s' i e, d, p, ρ, x0, hpd, hw, ha => by
+    have hw' : WScoped d e := by simpa [WScoped] using hw
+    simp only [shiftFrom, AnnotOk] at ha
+    obtain ⟨hae, hi2, ve, u', v', A, Bf, hvei, hsig, hAu, hBf⟩ := ha
+    simp only [AnnotOk]
+    refine ⟨AnnotOk.unshift e hpd hw' hae, hi2, ve, u', v', A, Bf, ?_,
+      hsig, hAu, hBf⟩
+    rw [← interp_shift e hpd hw' (x := x0)]; exact hvei
+termination_by e => e.sizeB
+decreasing_by
+  all_goals first
+  | (simp [Expr.sizeB]; omega)
+  | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
+  | (simp [Expr.sizeB])
+
+/-- Converse of `AnnotOk.weaken_top`: annotation truthfulness descends
+from the extended frame for terms scoped below it. -/
+theorem AnnotOk.strengthen_top {e : Expr} {d : Nat} {ρ : Nat → V} {x : V}
+    (hw : WScoped d e)
+    (ha : AnnotOk V cval env φ (d + 1) (updV V ρ d x) e) :
+    AnnotOk V cval env φ d ρ e := by
+  refine AnnotOk.unshift (x0 := x) e (Nat.le_refl d) hw ?_
+  rw [shiftFrom_eq_self hw.fvarsBelow]
+  exact AnnotOk.ext e
+    (fun i hi => by simp only [insV, updV]; grind)
+    (fvarsBelow_mono (Nat.le_succ d) hw.fvarsBelow) ha
+
 /-- Weakening at the top for annotation truthfulness. -/
 theorem AnnotOk.weaken_top {e : Expr} {d : Nat} {ρ : Nat → V} {x : V}
     (hw : WScoped d e) (ha : AnnotOk V cval env φ d ρ e) :
