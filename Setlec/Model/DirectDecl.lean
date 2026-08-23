@@ -352,4 +352,144 @@ theorem checkDirectCtor_inv {env₀ env : Env} {p : DirectParts}
   exact ⟨cvCa, q1.1, cq.1, cq.2, tq.1, tq.2, xq.1, hcv, hq1b, hcq, htq,
     hpins, hxqb, fun x hx => List.all_eq_true.mp hres x hx, hfu, h.symm⟩
 
+/-! ### The constructor's semantic obligations -/
+
+/-- The field telescope is small at every fitting parameter spine: the
+fit lands exactly where the install's own opening does
+(`TeleFit_open`), carries the frame conditions there
+(`FrameOk.ofTeleFit`), and the checked per-field universe bound then
+gives `FieldTele` (`FieldTele_of_walk`). -/
+theorem directCtor_field {env : Env} (m : EnvModel V env) {F : Nat}
+    {φ : Name → Nat} {p : DirectParts} {cty crest resid : Expr}
+    {fvsP xFvs : List Expr}
+    (hcq : openPisAtFvars p.nP cty 0 = some (fvsP, crest))
+    (hxq : openPisAtFvars p.nF crest p.nP = some (xFvs, resid))
+    (hfu : checkDirectFieldUniv (fueledOps F) env p.resSort p.nP xFvs p.nF
+      = .ok ())
+    (hfr0 : FrameOk V m.val env φ 0 (rho0 V) cty)
+    {ps : List V} {d₁ : Nat} {ρ₁ : Nat → V} {mid : Expr}
+    (hfit : TeleFit V m.val env φ 0 (rho0 V) cty ps d₁ ρ₁ mid)
+    (hlen : ps.length = p.nP) :
+    FieldTele V m.val env φ (p.resSort.eval φ) p.nF d₁ ρ₁ mid := by
+  obtain ⟨hd₁, fvs, hopen⟩ := TeleFit_open p.nP hfit hlen
+  rw [Nat.zero_add] at hd₁
+  subst hd₁
+  obtain rfl : mid = crest := by
+    rw [hcq] at hopen
+    exact ((Prod.mk.injEq _ _ _ _ ▸ Option.some.inj hopen).2).symm
+  refine FieldTele_of_walk (F := F) m p.nF p.nP ρ₁ _ xFvs resid hxq
+    (FrameOk.ofTeleFit hfit hfr0) ?_
+  intro j hj
+  exact checkDirectFieldUniv_inv p.nF hfu j hj
+
+/-- **The residual identity.**  The constructor's opened residual is
+the family at the opened parameters, and its interpretation *is* the
+dependent-pair tower the constructor's value tuples into.
+
+The parameter fit crosses to the type former's telescope through the
+per-frame pins (`DomsInterpEq.of_pins`, `TeleFit.transfer`) — landing
+at the very same frame and valuation — so the family's value folds at
+exactly these parameters (`directTyVal_fold`), and the tower it folds
+to is the one read off the constructor's own opening. -/
+theorem directCtor_resid {env env₁ : Env} (m : EnvModel V env)
+    (m₁ : EnvModel V env₁) {F : Nat} {φ : Name → Nat} {p : DirectParts}
+    {cvTa cvCa : ConstantVal} {crest trest : Expr}
+    {fvsP tfvs xFvs : List Expr} {tbs : List (Name × Expr × BinderMeta)}
+    (hcq : openPisAtFvars p.nP cvCa.type 0 = some (fvsP, crest))
+    (htq : openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest))
+    (hpins : checkDirectParamDoms (fueledOps F) env₁ fvsP tfvs p.nP = .ok ())
+    (hxq : openPisAtFvars p.nF crest p.nP = some (xFvs,
+      Expr.mkAppN (.const p.cvT.name (p.cvT.levelParams.map .param)) fvsP))
+    (hfrC : FrameOk V m₁.val env₁ φ 0 (rho0 V) cvCa.type)
+    (hfrT : FrameOk V m₁.val env₁ φ 0 (rho0 V) cvTa.type)
+    (hTfind : env₁.find? p.cvT.name = some (.indInfo cvTa (directCaps p)))
+    (hTlps : cvTa.levelParams = p.cvT.levelParams)
+    (hTval : ∀ ψ : Name → Nat, m₁.val p.cvT.name ψ =
+      directTyVal V m.val env cvTa.type cvCa.type p.nP p.nF p.resSort ψ)
+    (hagree : InterpAgree V m.val env m₁.val env₁ φ)
+    (htres : cvTa.type.constsResolve env = true)
+    (hfres : ∀ x ∈ xFvs, (Expr.fvarTypeD x).constsResolve env = true)
+    (hstripT : Expr.stripPis p.nP cvTa.type = some (tbs, .sort p.resSort))
+    {ps fs : List V} {d₁ : Nat} {ρ₁ : Nat → V} {mid : Expr}
+    {d' : Nat} {ρ' : Nat → V} {rest : Expr}
+    (hfitP : TeleFit V m₁.val env₁ φ 0 (rho0 V) cvCa.type ps d₁ ρ₁ mid)
+    (hlenP : ps.length = p.nP)
+    (hfitF : TeleFit V m₁.val env₁ φ d₁ ρ₁ mid fs d' ρ' rest)
+    (hlenF : fs.length = p.nF)
+    (hfieldAt : FieldTele V m₁.val env₁ φ (p.resSort.eval φ) p.nF d₁ ρ₁ mid) :
+    interpExpr V m₁.val env₁ φ d' ρ' rest =
+      some (sigmaTowerV V m₁.val env₁ φ (p.resSort.eval φ) p.nF d₁ ρ₁ mid) := by
+  -- the two openings the fits land at
+  obtain ⟨hd₁, fvs, hopen⟩ := TeleFit_open p.nP hfitP hlenP
+  rw [Nat.zero_add] at hd₁
+  subst hd₁
+  obtain rfl : mid = crest := by
+    rw [hcq] at hopen
+    exact ((Prod.mk.injEq _ _ _ _ ▸ Option.some.inj hopen).2).symm
+  obtain ⟨hd', fvs', hopen'⟩ := TeleFit_open p.nF hfitF hlenF
+  subst hd'
+  obtain rfl : rest = Expr.mkAppN
+      (.const p.cvT.name (p.cvT.levelParams.map .param)) fvsP := by
+    rw [hxq] at hopen'
+    exact ((Prod.mk.injEq _ _ _ _ ▸ Option.some.inj hopen').2).symm
+  -- the opened parameter variables interpret to the fit's own values
+  obtain ⟨hinstP, hlenFv, hshape⟩ := openPisAtFvars_spec p.nP 0 hcq
+  have hspine : InterpSpine m₁.val env₁ φ (p.nP + p.nF) ρ' fvsP ps := by
+    refine InterpSpine.of_pointwise (by rw [hlenFv, hlenP]) ?_
+    intro k a v ha hv
+    have hkp : k < ps.length := by
+      obtain ⟨hlt, -⟩ := List.getElem?_eq_some_iff.mp hv
+      exact hlt
+    obtain ⟨nm, hnm⟩ := hshape k a ha
+    have hrho : ρ' k = v := by
+      rw [hfitF.rho_below k (by rw [← hlenP]; exact hkp)]
+      have h0 := hfitP.slots k hkp
+      rw [Nat.zero_add] at h0
+      rw [h0, List.getD_eq_getElem?_getD, hv]
+      rfl
+    rw [hnm]
+    simp only [interpExpr, Nat.zero_add]
+    rw [hrho]
+  -- the residual's interpretation is the family's value at those params
+  have hconst : interpExpr V m₁.val env₁ φ (p.nP + p.nF) ρ'
+      (.const p.cvT.name (p.cvT.levelParams.map .param)) =
+      some (m₁.val p.cvT.name φ) := by
+    rw [interp_const hTfind (by
+      show (p.cvT.levelParams.map Level.param).length =
+        cvTa.levelParams.length
+      rw [hTlps, List.length_map])]
+    have hsub : Level.substFn φ
+        (ConstantInfo.indInfo cvTa (directCaps p)).toConstantVal.levelParams
+        (p.cvT.levelParams.map Level.param) = φ := by
+      show Level.substFn φ cvTa.levelParams
+        (p.cvT.levelParams.map Level.param) = φ
+      rw [hTlps]
+      exact funext (fun q => Level.substFn_map_param)
+    rw [hsub]
+  rw [interp_mkAppN fvsP _ hconst hspine]
+  -- the family's value folds at these very parameters
+  refine congrArg some ?_
+  rw [hTval φ,
+    directTyVal_congr hagree htres (by rw [directCRest, hcq]; exact hxq)
+      (fun x hx => hfres x hx)]
+  have hcrestEq : directCRest cvCa.type p.nP = mid := by
+    rw [directCRest, hcq]
+  rw [← hcrestEq]
+  refine directTyVal_fold hstripT hfrT.an ?_ hlenP
+    (by rw [hcrestEq]; exact hfieldAt)
+  obtain ⟨restT, hfitT⟩ := TeleFit.transfer p.nP hfitP hlenP
+    (DomsInterpEq.of_pins m₁ F p.nP 0 (rho0 V) cvCa.type cvTa.type
+      fvsP tfvs _ trest hcq htq
+      (fun j a b ha hb => by
+        have hj : j < p.nP := by
+          obtain ⟨hlt, -⟩ := List.getElem?_eq_some_iff.mp ha
+          rw [hlenFv] at hlt
+          exact hlt
+        rw [Nat.zero_add]
+        exact checkDirectParamDoms_inv p.nP hpins j hj a b ha hb)
+      hfrC hfrT)
+  obtain rfl : restT = Expr.sort p.resSort :=
+    TeleFit_rest_sort p.nP hfitT hlenP hstripT
+  exact hfitT
+
 end Setlec
