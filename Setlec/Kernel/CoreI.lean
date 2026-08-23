@@ -203,10 +203,11 @@ def constsResolveFIGo (st : EStore) (fe : FEnv)
           else (false, memo)
         | .proj s _ sub =>
           if _h : sub < e then
-            if (match st.readbackN s with
-                | some sn => (fe.find? sn).isSome
-                | none => false) then constsResolveFIGo st fe memo sub
-            else (false, memo)
+            match st.readbackN s with
+            | some sn =>
+              if (fe.find? sn).isSome then constsResolveFIGo st fe memo sub
+              else (false, memo)
+            | none => (false, memo)
           else (false, memo)
       (r, memo.insert e r)
 termination_by e

@@ -1671,10 +1671,11 @@ def constsResolveIGo (st : EStore) (env : Env)
           else (false, memo)
         | .proj s _ sub =>
           if _h : sub < e then
-            if (match st.readbackN s with
-                | some sn => (env.find? sn).isSome
-                | none => false) then constsResolveIGo st env memo sub
-            else (false, memo)
+            match st.readbackN s with
+            | some sn =>
+              if (env.find? sn).isSome then constsResolveIGo st env memo sub
+              else (false, memo)
+            | none => (false, memo)
           else (false, memo)
       (r, memo.insert e r)
 termination_by e
