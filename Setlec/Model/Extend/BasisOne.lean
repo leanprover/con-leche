@@ -114,13 +114,24 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
            exact nomatch heq))
     (hnotthm : ∀ cv2 value2, ci ≠ .thmInfo cv2 value2 := by
       intro cv2 value2 h
-      exact ConstantInfo.noConfusion h) :
+      exact ConstantInfo.noConfusion h)
+    -- the type former's half of the artifact linkage: vacuous for a
+    -- constant that is not an inductive type former, and for a pinned
+    -- basis type former, whose name is reserved
+    (hmodvInd : reservedBasisNames.contains ci.name = false →
+      (∃ cv caps, ci = .indInfo cv caps) →
+      (env.find? (ci.name.str "_model")).isSome = true →
+      ∀ ψ : Name → Nat, v₀ ψ = m.val (ci.name.str "_model") ψ := by
+      intro hres hk hms
+      first
+        | exact absurd hres (by decide)
+        | (obtain ⟨cv2, caps2, hcon⟩ := hk; exact nomatch hcon)) :
     ∃ m' : EnvModel V ⟨ci :: env.consts⟩,
       (∀ ψ, m'.val ci.name ψ = v₀ ψ) ∧
       (∀ n ψ, n ≠ ci.name → m'.val n ψ = m.val n ψ) := by
   refine extend_fresh m ci v₀ hfind' hwf htyres0 ?_ ?_ hkey hparams hAty
-    hnewty hnewmk hnewunit hnewempty hpin hsib hrecm hctors hmodv hproj
-    hmft hparent hprojOk hetaL hunitL ?_ ?_
+    hnewty hnewmk hnewunit hnewempty hpin hsib hrecm hctors hmodv hmodvInd
+    hproj hmft hparent hprojOk hetaL hunitL ?_ ?_
   · intro cv2 value2 h2 heq
     exact absurd heq (hnotdefn cv2 value2 h2)
   · intro cv2 value2 heq

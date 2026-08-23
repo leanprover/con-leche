@@ -2969,7 +2969,7 @@ a verdict.  The checks mirror what the reference kernels do when
 *adding* an inductive declaration (citations: lean4lean
 `Lean4Lean/Inductive/Add.lean`, a line-by-line port of the official
 `src/kernel/inductive/inductive.cpp`; nanoda
-`nanoda_lib/src/inductive.rs`), restricted to this class:
+`checker/src/inductive.rs`), restricted to this class:
 
 * type former: a `∀`-telescope of exactly `numParams` binders ending in
   a `Sort` (`checkInductiveTypes`, `Add.lean:60-116`) — index-free
@@ -2987,8 +2987,8 @@ a verdict.  The checks mirror what the reference kernels do when
   the field types' interpretations in the environment *before* the
   block, so a self-reference would be circular.
 * per-field universe bound: each field's sort `≤` the result sort
-  (`Add.lean:225-228`, nanoda `check_ctor`); the `Prop` escape hatch
-  there is unreachable in this class.
+  (`Add.lean:225-228`, nanoda `check_ctor`, `inductive.rs:809`); the
+  `Prop` escape hatch there is unreachable in this class.
 * recursor: **exactly** the generated shape (`Add.lean:477-483`) —
   a fresh elimination level parameter in front (`getRecLevelParams`,
   `Add.lean:416-417`; every nonzero-sorted structure is a large
@@ -3126,7 +3126,20 @@ sanctioned `projFnName` projection-table family, nothing else).
   `unitlike := false` as well.
 * **The artifact linkage is existence-premised.**  "`val n` is
   `val (n._model)`" now takes *the companion being stored* as a
-  hypothesis rather than asserting it.  For an artifact-installed
+  hypothesis rather than asserting it.  There are **three** such
+  clauses — the type former's, the constructor's and the projection
+  function's.  (The type former's was dropped outright in the first
+  cut of the split and restored 2026-08-23 after review: an
+  existence-premised clause costs a modeled install one `intro`, and
+  dropping it loses the linkage a *later* block's
+  rename-and-transport reads off an earlier type former.  It is the
+  last conjunct of `ModeledOk` only so that the other clauses'
+  positional accessors did not have to move.)  The projection
+  function's clause additionally takes the parent's `indInfo` lookup as
+  a premise; that one is load-bearing in `ModeledOk.cons`, which uses
+  it together with the parent-is-stored clause to rule out the parent
+  being the constant currently being installed — see the clause's own
+  comment in `Setlec/Model/Interp.lean`.  For an artifact-installed
   constant that is exactly as strong as before — the modeled install
   stores the companion, so its proofs go through with one extra
   `intro` — and for a directly installed constant it is vacuous by
@@ -3147,6 +3160,22 @@ sanctioned `projFnName` projection-table family, nothing else).
   a stream that did it the other way round never checked anyway,
   because the modeled path looks the companion up *at* the block and
   declines there.  So the guard moves a verdict, never an acceptance.
+
+  **The key is exactly the linkage clauses' premises** (2026-08-23,
+  fixing a review finding).  The guard as first landed keyed on
+  `(env.find? p).isSome` for *any* stored `p`, which is a blanket
+  reservation of the `_model` suffix: it flipped an ordinary
+  `def Foo` + `def Foo._model` stream from accept to reject, against
+  both the reference kernels and the "`_model` names are not special"
+  ruling.  It now fires only where a clause could actually be
+  activated — `p._model` for a stored **non-reserved inductive-kind
+  type former or constructor**, and `projModelName T j` for a stored
+  **projection function** `projFnName T j`.  Pinned by
+  `tests/e2e/src/model_name_plain.lean` (accepted; rejected by the
+  blanket version, verified by reverting).  Three completeness lemmas
+  (`modelFamilyTaken_indInfo`/`_ctorInfo`/`_projFn`) are what the
+  extension proofs use to discharge the companion side by
+  contradiction.
 
 ### The endgame: ind-models' skip rule must be dependency-aware
 
@@ -3388,10 +3417,16 @@ Landed since (2026-08-23, the assembly pass):
 * the install order finding and the guarded tower (see "The install
   order, and why the type former's tower is guarded"), which is what
   makes an inductive one-constant-at-a-time assembly possible at all;
-* `FieldTele_of_walk` now applies verbatim: `checkDirectFieldUniv` runs
-  in the environment carrying the type former, which is exactly the
-  environment whose model is in hand when the *constructor* is
-  installed;
+* `FieldTele_of_walk` (`Setlec/Model/DirectExtend.lean`) is **landed**
+  and applies verbatim: `checkDirectFieldUniv` runs in the environment
+  carrying the type former, which is exactly the environment whose
+  model is in hand when the *constructor* is installed.  What is still
+  open on that front is not the lemma but its **input**: it takes a
+  `FrameOk` of the opened field telescope, and supplying one from an
+  actual run (`WScoped`/`looseBVarsBounded`/`LeavesBounded`/`FvarsOk`/
+  `AnnotOk`/interpretability of the residual, at the frame the
+  constructor's fit lands at) is part of item 2 below.  `FrameOk.dom`
+  and `FrameOk.body` already carry it across each opened binder;
 * **`extend_direct_ind`** (`Setlec/Model/DirectDecl.lean`): the type
   former's model extension, complete and sorry-free —
   `checkDirectInd_inv`, `mem_type` from `directTyVal_mem`,
@@ -3417,9 +3452,12 @@ What remains, in dependency order:
    with `interp_mono` + `interp_cval_ext` at each domain.  Needed
    before item 2 and reused at every later install.
 2. **`mem_type` for the constructor**, from `directCtorVal_mem`: the
-   field telescope from `FieldTele_of_walk`, and the residual identity
-   `⟦T p⃗⟧ = tower` from `directTyVal_fold` — whose parameter fit comes
-   from the constructor's own fit through `pi_walk` at the checked
+   field telescope from `FieldTele_of_walk` — whose `FrameOk` input has
+   to be assembled at the fit's frame, from `TeleFit_interp_rest` for
+   the two semantic conditions and the run's own scoping facts for the
+   three syntactic ones — and the residual identity `⟦T p⃗⟧ = tower`
+   from `directTyVal_fold`, whose parameter fit comes from the
+   constructor's own fit through `pi_walk` at the checked
    parameter-domain `isDefEq`.
 3. **`mem_type` for the recursor and the projections**, from
    `directRecVal_mem`/`directRec_body_mem` and

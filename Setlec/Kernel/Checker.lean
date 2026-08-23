@@ -848,8 +848,8 @@ def directCaps (p : DirectParts) : IndCaps where
 
 /-- The official per-field universe bound, over the opened constructor
 telescope: every field's sort must be `≤` the structure's result sort
-(lean4lean `Inductive/Add.lean:225-228`, nanoda
-`inductive.rs:828-834`; the `Prop` escape hatch there does not apply —
+(lean4lean `Inductive/Add.lean:225-228`, nanoda `check_ctor`,
+`checker/src/inductive.rs:809`; the `Prop` escape hatch there does not apply —
 the class requires a nonzero result sort).  Walks the fields from the
 last to the first. -/
 def checkDirectFieldUniv (ops : CheckerOps m) (env : Env) (s : Level)
@@ -1052,11 +1052,14 @@ def checkDirectProj (ops : CheckerOps m) (T C : Name) (lps : List Name)
 
 /-- Check and install a **direct simple structure** (task #82): the
 type former, the constructor, the recursor with its single rule, and
-the projection *templates* the `.proj` annotation falls back on.  No
-`_model` artifact is read; the model is constructed at install
-(`Setlec/Model/Direct*.lean`).  Recognition happened in
-`directParts?`; everything here is a genuine check of the declaration,
-so a failure is a verdict, not a fall-through. -/
+the `nF` projection **functions** (`checkDirectProj` — real degenerate
+recursors in the `projFnName` slot family, *not* the Prop-fallback
+elimination templates, which cannot express a dependent field's
+projection; see DESIGN.md, "Projections compose with the existing
+table").  No `_model` artifact is read and none is written; the model
+is constructed at install (`Setlec/Model/Direct*.lean`).  Recognition
+happened in `directParts?`; everything here is a genuine check of the
+declaration, so a failure is a verdict, not a fall-through. -/
 def checkDirectStruct (ops : CheckerOps m) (env : Env) (p : DirectParts) :
     m Env := do
   let (env₁, cvTa) ← checkDirectInd ops env p

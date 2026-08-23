@@ -253,6 +253,10 @@ theorem extend_model {env : Env} (m : EnvModel V env)
       obtain ⟨cv, cnP, cnF, heq⟩ := hk
       rw [heq] at hc₀nb
       simp [ConstantInfo.isBasis] at hc₀nb)
+    (fun _ hk => by
+      obtain ⟨cv, caps, heq⟩ := hk
+      rw [heq] at hc₀nb
+      simp [ConstantInfo.isBasis] at hc₀nb)
     (fun T j _ _ _ _ hh _ => by
       exfalso
       rw [hc₀name.symm.trans hh] at hc₀pshape

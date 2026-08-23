@@ -164,6 +164,12 @@
 # Enabling the clause turns this into 0, and the three arena
 # bad/tutorial/13{3,4,7} duplicate fixtures from 2 into 1 (reject,
 # reference-correct) — re-verified after every change on this branch.
+# the model-family guard is keyed on the environment invariant's
+# linkage clauses and nothing wider: a plain `def Foo` followed by a
+# plain `def Foo._model` is an ordinary stream and stays accepted
+# (`_model` names are not special).  Rejected (exit 1) by a blanket
+# suffix reservation - which is exactly what this pins.
+0 model_name_plain.ndjson raw
 2 direct_struct_raw.ndjson raw
 0 direct_nested_dep.ndjson
 1 direct_nested_dep_broken.ndjson raw

@@ -442,8 +442,8 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
     · exact Or.inl heq
     · exact Or.inr ⟨cv, mI, rP, [], rules, h₀, h₃⟩
   · -- modeled_ok
-    obtain ⟨mo2, mo3, mo4, mo5, mo6⟩ := m₀.modeled_ok
-    refine ⟨?_, ?_, ?_, ?_, ?_⟩
+    obtain ⟨mo2, mo3, mo4, mo5, mo6, mo7⟩ := m₀.modeled_ok
+    refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
     · intro n cv cnP' cnF' hf hres hms
       rw [← hisoSome] at hms
       exact mo2 n cv cnP' cnF'
@@ -483,6 +483,10 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
         exact mo6 T j cv3 mI3 rP3 rules3 hf
       · rw [hnm] at hshape
         exact absurd hshape (by simp [projFnName, Name.isProjFnShape])
+    · intro n cv caps hf hres hms
+      rw [← hisoSome] at hms
+      exact mo7 n cv caps
+        (hfindDown _ _ hf (fun _ _ _ _ h => nomatch h)) hres hms
   · -- nat_ops
     intro c hc cv v hint hf
     have hf₀ : env₀.find? c = some (.defnInfo cv v hint) :=

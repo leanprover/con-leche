@@ -545,10 +545,13 @@ theorem extend_proj_template {env : Env} (m : EnvModel V env)
     (fun _ _ _ _ hx => nomatch hx)
     (fun _ hor _ => by
       obtain ⟨_, _, _, hx⟩ := hor; exact nomatch hx)
+    (fun _ hor _ => by
+      obtain ⟨_, _, hx⟩ := hor; exact nomatch hx)
     (fun _ _ _ _ _ _ _ hx => nomatch hx)
     (show modelFamilyTaken env (ConstantInfo.projInfo entry).name = false by
       rw [hname]
-      simp [modelFamilyTaken, modelSuffixTaken, modelProjTaken, projFnName])
+      simp [modelFamilyTaken, modelSuffixTaken, modelProjTaken, projFnName,
+        List.any_eq_false])
     (fun _ _ _ _ _ _ _ hx => nomatch hx)
     (fun e2 heq hnat2 => by
       obtain rfl := ConstantInfo.projInfo.inj heq

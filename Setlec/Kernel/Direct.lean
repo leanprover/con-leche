@@ -22,7 +22,7 @@ official `src/kernel/inductive/inductive.cpp`; nanoda
 
 * the type former's type is a `∀`-telescope of exactly `numParams`
   binders ending in a `Sort` — `checkInductiveTypes` (`Add.lean:60-116`,
-  nanoda `check_inductive_spec_0th:375-411`); *index-free* means the
+  nanoda `check_inductive_spec_0th`, `inductive.rs:375`); *index-free* means the
   telescope ends there.
 * the result level is `isNeverZero` (`Add.lean:101`); we **require** it
   (see `DESIGN.md`, "Direct install of simple structures": the class is
@@ -34,7 +34,7 @@ official `src/kernel/inductive/inductive.cpp`; nanoda
   binder domains are the type former's, ending in the type former
   applied to **exactly** those parameters at the declaration's own
   level parameters — `checkConstructors` (`Add.lean:218-223`) and
-  `isValidIndAppIdx` (`Add.lean:157-165`, nanoda `is_valid_ind_app:711`).
+  `isValidIndAppIdx` (`Add.lean:157-165`, nanoda `is_valid_ind_app`, `inductive.rs:711`).
 * no recursive occurrence: every binder domain of the constructor
   resolves already in the *pre-block* environment, which subsumes
   `checkPositivity`/`hasIndOcc` (`Add.lean:184-199`) for this class and
@@ -53,17 +53,27 @@ official `src/kernel/inductive/inductive.cpp`; nanoda
   `λ p⃗ motive minor f⃗, minor f⃗` (`mkRecRules`, `Add.lean:441-447`).
 
 The per-field universe bound (`Add.lean:225-228`,
-nanoda `check_ctor:828-834`) and the definitional pins of the
+nanoda `check_ctor`, `inductive.rs:809`) and the definitional pins of the
 recursor's binder domains against the constructor's need inference and
 `isDefEq`, so they live in the monadic `checkDirectStruct`
 (`Setlec/Kernel/Checker.lean`).
 
+The direct path **does** install real projection *functions* — a
+degenerate recursor per field, stored under `projFnName T i`, the same
+slot family and same consumer as the modeled path's `checkProjFn`, so
+`.proj` nodes annotate through `annotateProjElim` exactly as on a
+modeled structure.  The recursor-elimination *template* fallback
+cannot serve this class at all: its motive is constant in the
+eliminated variable, so a dependent field's projection does not
+typecheck through it (DESIGN.md, "Projections compose with the existing
+table").
+
 The `k` flag is `false` for this class by construction (`isKTarget`
-requires a `Prop` result, `Add.lean:289-296`), and structure eta is
-*not* claimed: eta needs installed projection **functions**, which the
-direct path does not build (it installs the recursor-elimination
-*templates* instead, so `.proj` nodes annotate through
-`annotateProjRec`).
+requires a `Prop` result, `Add.lean:289-296`).  Structure eta and the
+unit-like law are *not* claimed either, for a reason that has nothing
+to do with the projections: both are frame-relative laws that the
+constructed values cannot discharge without a fit-relocation lemma that
+does not exist yet (DESIGN.md, "The two frame-relative capabilities").
 -/
 
 namespace Setlec
@@ -87,37 +97,113 @@ to the field variables. -/
 def directRuleBody (nF : Nat) : Expr :=
   Expr.mkAppN (.bvar nF) ((List.range nF).map fun j => Expr.bvar (nF - 1 - j))
 
-/-- **The `_model` family of an installed constant is closed.**
+/-- **The `_model` companion of an already-linked constant may not
+appear afterwards.**
 
 The environment invariant records, for every artifact-installed
-constant, that its value *is* its `_model` companion's
-(`ModeledOk`).  That linkage is premised on the companion being
-stored, which is how a directly installed block — which has none — owes
-nothing.  What must not happen is a companion appearing *afterwards*:
-it would activate the linkage for a constant whose value was already
-fixed without it.
+constant, that its value *is* its `_model` companion's (`ModeledOk`'s
+linkage clauses).  Each of those clauses is premised on the companion
+being *stored*, which is how a directly installed block — which has
+none — owes nothing.  What must not happen is a companion appearing
+**afterwards**: it would activate the linkage for a constant whose
+value was already fixed without it.
+
+**`_model` names are not special** (user directive, DESIGN.md): this is
+not a name reservation.  The key is exactly the three linkage clauses'
+own premises and nothing wider — `p._model` is refused only when `p` is
+a stored **non-reserved inductive-kind type former or constructor**,
+and `projModelName T j` only when the **projection function**
+`projFnName T j` is stored.  A stream that declares a plain
+`def Foo` and then a plain `def Foo._model` is untouched, exactly as
+before the direct path existed and exactly as the reference kernels
+treat it.
 
 `lean-inductive-models` always emits a block's artifacts *before* the
 block (checked against its output: 0 of 151 init-prelude blocks out of
-order), so this guard never fires on a preprocessed stream; and a
-stream that emitted them the other way round never checked anyway,
-because the modeled path looks the companion up *at* the block and
-declines there for a missing model.  So this rejects only streams that
-were already not accepted — it moves the verdict, never an
-acceptance. -/
+order), so this never fires on a preprocessed stream; and a stream that
+emitted them the other way round never checked anyway, because the
+modeled path looks the companion up *at* the block and declines there
+for a missing model.  So this rejects only streams that were already
+not accepted — it moves the verdict, never an acceptance. -/
 def modelSuffixTaken (env : Env) : Name → Bool
-  | .str p "_model" => (env.find? p).isSome
+  | .str p "_model" =>
+    match env.find? p with
+    | some (.indInfo _ _) | some (.ctorInfo _ _ _) =>
+      reservedBasisNames.contains p == false
+    | _ => false
   | _ => false
 
-/-- The `X._model.<_>` half of `modelFamilyTaken` (the projection,
-`iota` and `eta` artifacts of a stored `X`). -/
+/-- The `projModelName T j` half of `modelFamilyTaken`: refused exactly
+when the projection function `projFnName T j` — the constant the
+linkage clause values by this companion — is already stored.
+
+The index is recovered by *searching for the stored projection
+function whose companion name is this one*, rather than by parsing the
+`"proj_" ++ toString j` suffix back to a number: the search is only
+ever reached for a `_ ._model. _`-shaped name, and it keeps the test
+exactly equivalent to "`projFnName T j` is stored" with no dependence
+on decimal-string round-tripping. -/
 def modelProjTaken (env : Env) : Name → Bool
-  | .str (.str p "_model") _ => (env.find? p).isSome
+  | n@(.str (.str _ "_model") _) =>
+    env.consts.any fun ci =>
+      match ci with
+      | .recInfo cv _ _ _ =>
+        match cv.name with
+        | .num (.str T "proj") j => projModelName T j == n
+        | _ => false
+      | _ => false
   | _ => false
 
 @[inherit_doc modelSuffixTaken]
 def modelFamilyTaken (env : Env) (n : Name) : Bool :=
   modelSuffixTaken env n || modelProjTaken env n
+
+/-! The three completeness facts the environment invariant's linkage
+clauses consume: whenever a clause's premise could be activated by a
+fresh companion, the guard has already refused it.  (These are the only
+direction that matters — a `true` here is a rejection, and rejections
+are only ever *fewer* than they were.) -/
+
+/-- A stored non-reserved type former's companion is refused. -/
+theorem modelFamilyTaken_indInfo {env : Env} {n : Name} {cv : ConstantVal}
+    {caps : IndCaps} (hf : env.find? n = some (.indInfo cv caps))
+    (hres : reservedBasisNames.contains n = false) :
+    modelFamilyTaken env (n.str "_model") = true := by
+  simp only [modelFamilyTaken, modelSuffixTaken, hf, hres, Bool.or_eq_true]
+  exact Or.inl (by simp)
+
+/-- A stored non-reserved constructor's companion is refused. -/
+theorem modelFamilyTaken_ctorInfo {env : Env} {n : Name} {cv : ConstantVal}
+    {cnP cnF : Nat} (hf : env.find? n = some (.ctorInfo cv cnP cnF))
+    (hres : reservedBasisNames.contains n = false) :
+    modelFamilyTaken env (n.str "_model") = true := by
+  simp only [modelFamilyTaken, modelSuffixTaken, hf, hres, Bool.or_eq_true]
+  exact Or.inl (by simp)
+
+/-- A stored projection function's companion is refused. -/
+theorem modelFamilyTaken_projFn {env : Env} {T : Name} {j : Nat}
+    {cv : ConstantVal} {mI rP : Nat} {rules : List RecRule}
+    (hf : env.find? (projFnName T j) = some (.recInfo cv mI rP rules)) :
+    modelFamilyTaken env (projModelName T j) = true := by
+  have hmem : ConstantInfo.recInfo cv mI rP rules ∈ env.consts :=
+    List.mem_of_find?_eq_some hf
+  have hname : cv.name = projFnName T j := by
+    have h := List.find?_some hf
+    simpa [ConstantInfo.name, ConstantInfo.toConstantVal] using h
+  simp only [modelFamilyTaken, Bool.or_eq_true]
+  refine Or.inr ?_
+  show (env.consts.any fun ci => match ci with
+    | .recInfo cv _ _ _ =>
+      match cv.name with
+      | .num (.str T' "proj") j' => projModelName T' j' == projModelName T j
+      | _ => false
+    | _ => false) = true
+  refine List.any_eq_true.mpr ⟨_, hmem, ?_⟩
+  show (match cv.name with
+    | .num (.str T' "proj") j' => projModelName T' j' == projModelName T j
+    | _ => false) = true
+  rw [hname]
+  simp [projFnName]
 
 /-- The pieces of a recognised simple-structure block. -/
 structure DirectParts where

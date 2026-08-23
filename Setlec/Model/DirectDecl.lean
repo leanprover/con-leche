@@ -107,7 +107,11 @@ theorem extend_direct_ind {env : Env} (m : EnvModel V env) {p : DirectParts}
     {bs : List (Name × Expr × BinderMeta)}
     (hccv : checkConstantVal (fueledOps F) env p.cvT = .ok cvTa)
     (hstrip : Expr.stripPis p.nP cvTa.type = some (bs, .sort p.resSort))
-    (hctyP : cty.allLevelParamsDefined cvTa.levelParams = true) :
+    (hctyP : cty.allLevelParamsDefined cvTa.levelParams = true)
+    -- from `directNoModel`, part of recognition: the block is the
+    -- artifact-free route, so the type former has no companion and the
+    -- artifact linkage is vacuous for it
+    (hnomodel : (env.find? (p.cvT.name.str "_model")).isNone = true) :
     ∃ m₁ : EnvModel V ⟨.indInfo cvTa (directCaps p) :: env.consts⟩,
       (∀ ψ, m₁.val cvTa.name ψ =
         directTyVal V m.val env cvTa.type cty p.nP p.nF p.resSort ψ) ∧
@@ -186,6 +190,12 @@ theorem extend_direct_ind {env : Env} (m : EnvModel V env) {p : DirectParts}
       exact nomatch hcapu)
     (show modelFamilyTaken env cvTa.name = false by rw [hnameA]; exact hmft0)
     (fun T j cv mI rP rules hh heq => nomatch heq)
+    (hnotthm := fun cv2 value2 h => ConstantInfo.noConfusion h)
+    (hmodvInd := fun _ _ hms => by
+      exfalso
+      rw [show (ConstantInfo.indInfo cvTa (directCaps p)).name = p.cvT.name
+        from hnameA, Option.isNone_iff_eq_none.mp hnomodel] at hms
+      exact nomatch hms)
   · -- `mem_type`
     intro ψ
     obtain ⟨Tv, hTv⟩ := hityI ψ

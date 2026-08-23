@@ -205,6 +205,16 @@ theorem ModeledOk.cons {env : Env} {val val' : ConstVal V}
     (hfresh : env.find? c₀.name = none)
     (hpres : ∀ (n : Name) (ψ : Name → Nat), n ≠ c₀.name →
       val' n ψ = val n ψ)
+    (hheadInd : ∀ cv caps, c₀ = .indInfo cv caps →
+      reservedBasisNames.contains c₀.name = false →
+      ((⟨c₀ :: env.consts⟩ : Env).find? (c₀.name.str "_model")).isSome
+        = true →
+      ∀ ψ : Name → Nat, val' c₀.name ψ = val' (c₀.name.str "_model") ψ)
+    (hheadCompanionInd : ∀ (n : Name) cv caps,
+      c₀.name = n.str "_model" →
+      env.find? n = some (.indInfo cv caps) →
+      reservedBasisNames.contains n = false →
+      ∀ ψ : Name → Nat, val' n ψ = val' (n.str "_model") ψ)
     (hheadCtor : ∀ cv cnP cnF, c₀ = .ctorInfo cv cnP cnF →
       reservedBasisNames.contains c₀.name = false →
       ((⟨c₀ :: env.consts⟩ : Env).find? (c₀.name.str "_model")).isSome
@@ -253,7 +263,7 @@ theorem ModeledOk.cons {env : Env} {val val' : ConstVal V}
       (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n := by
     intro n hn
     rw [Env.find?_cons, if_neg (fun hh => hn hh.symm)]
-  refine ⟨?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
   · intro n cv cnP cnF hf hres hmsN
     by_cases hn : n = c₀.name
     · subst hn
@@ -277,7 +287,7 @@ theorem ModeledOk.cons {env : Env} {val val' : ConstVal V}
       · -- the parent would be the constant being installed, but a
         -- stored projection function's parent is stored already
         exfalso
-        have := h.2.2.2.2 T j cv2 mI2 rP2 rules2 hf
+        have := h.2.2.2.2.1 T j cv2 mI2 rP2 rules2 hf
         rw [hnT, hfresh] at this
         exact nomatch this
       · rw [hfind _ hnT] at hfT
@@ -379,9 +389,23 @@ theorem ModeledOk.cons {env : Env} {val val' : ConstVal V}
         exact Option.some.inj hf
       exact hheadParent T j cv2 mI2 rP2 rules2 hn.symm hc₀
     · rw [hfind _ hn] at hf
-      have hp := h.2.2.2.2 T j cv2 mI2 rP2 rules2 hf
+      have hp := h.2.2.2.2.1 T j cv2 mI2 rP2 rules2 hf
       by_cases hnT : T = c₀.name
       · rw [hnT, Env.find?_cons, if_pos rfl]; rfl
       · rw [hfind _ hnT]; exact hp
+  · -- the type former's half of the linkage, clause for clause like
+    -- the constructor's
+    intro n cv caps hf hres hmsN
+    by_cases hn : n = c₀.name
+    · subst hn
+      rw [Env.find?_cons, if_pos rfl] at hf
+      exact hheadInd cv caps (Option.some.inj hf) hres hmsN
+    · rw [hfind n hn] at hf
+      by_cases hmne : n.str "_model" = c₀.name
+      · exact hheadCompanionInd n cv caps hmne.symm hf hres
+      · rw [hfind _ hmne] at hmsN
+        intro ψ
+        rw [hpres _ ψ hn, hpres _ ψ hmne]
+        exact h.2.2.2.2.2 n cv caps hf hres hmsN ψ
 
 end Setlec
