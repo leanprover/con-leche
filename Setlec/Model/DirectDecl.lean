@@ -1331,6 +1331,203 @@ theorem directRec_body {env₂ : Env} (m₂ : EnvModel V env₂)
           exact directRec_body_mem (M := fun y => SetTheory.app M0 y)
             (Level.isNonZero_sound hnz φ) hfldMin hxTow hmi
 
+/-! ### The projections' semantic obligations -/
+
+/-- Inversion for `checkDirectProj` (stage 5, one field): the generated
+type, its annotation and inference runs, and the stage's **two frame
+pins** — the subject binder's domain against the family at the opened
+parameters (frame `nP`), and the residual against the constructor's
+`i`-th field domain instantiated at those parameters and at the earlier
+projections (frame `nP + 1`). -/
+theorem checkDirectProj_inv {env envOut : Env} {T C : Name} {lps : List Name}
+    {nP nF i : Nat} {cvTa cvCa : ConstantVal} {F : Nat}
+    (h : checkDirectProj (fueledOps F) T C lps nP nF cvTa cvCa env i
+      = .ok envOut) :
+    ∃ pty ptyA sty u fvsP prest sbs sbody sdom tFvs resid tfv cds fn fdom
+      fbody fm rhsA,
+      directProjTy T lps nP nF i cvTa.type cvCa.type = some pty ∧
+      pty.hasFvar = false ∧ pty.looseBVarsBounded 0 = true ∧
+      annotateCore env F 0 pty = .ok ptyA ∧
+      ptyA.allLevelParamsDefined lps = true ∧
+      ptyA.constsResolve env = true ∧
+      ptyA.looseBVarsBounded 0 = true ∧
+      ptyA.hasFvar = false ∧
+      (ptyA.stripPis (nP + 1)).isSome = true ∧
+      inferTypeCore env F 0 ptyA = .ok sty ∧
+      ensureSortCore env F 0 sty = .ok u ∧
+      env.find? (projFnName T i) = none ∧
+      (∃ w : Unit, (checkProjShape ptyA cvCa.type nP nF : CheckM Unit)
+        = .ok w) ∧
+      openPisAtFvars nP ptyA 0 = some (fvsP, prest) ∧
+      prest.stripPis 1 = some (sbs, sbody) ∧
+      (sbs[0]?).map (·.2.1) = some sdom ∧
+      isDefEqCore env F nP sdom
+        (Expr.mkAppN (.const T (lps.map .param)) fvsP) = .ok true ∧
+      openPisAtFvars 1 prest nP = some (tFvs, resid) ∧
+      tFvs[0]? = some tfv ∧
+      Expr.instPisAt (fvsP ++ (List.range i).map (fun j =>
+          Expr.mkAppN (.const (projFnName T j) (lps.map .param))
+            (fvsP ++ [tfv]))) cvCa.type
+        = some (cds, .forallE fn fdom fbody fm) ∧
+      isDefEqCore env F (nP + 1) resid fdom = .ok true ∧
+      checkProjRule (fueledOps F) env ptyA cvCa lps nP nF i = .ok rhsA ∧
+      envOut = ⟨.recInfo ⟨projFnName T i, lps, ptyA⟩ nP nP
+        [⟨C, nF, nP,
+          if Expr.recRulePlain ptyA nP nP nP then .plain else .inert, rhsA⟩]
+        :: env.consts⟩ := by
+  rw [checkDirectProj] at h
+  simp only [fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
+    fueledOps_ensureSort, Bind.bind, Except.bind] at h
+  -- the generated type
+  obtain ⟨pty, hpty⟩ : ∃ q, directProjTy T lps nP nF i cvTa.type cvCa.type
+      = some q := by
+    cases hh : directProjTy T lps nP nF i cvTa.type cvCa.type with
+    | none =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+    | some q => exact ⟨q, rfl⟩
+  rw [hpty] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind] at h
+  by_cases hsc : (!pty.hasFvar && pty.looseBVarsBounded 0) = true
+  case neg =>
+    rw [if_neg hsc] at h
+    simp only [throw, throwThe, MonadExceptOf.throw, Except.bind] at h
+    exact nomatch h
+  rw [if_pos hsc] at h
+  obtain ⟨hptyf, hptyb⟩ : pty.hasFvar = false ∧ pty.looseBVarsBounded 0 = true := by
+    simp only [Bool.and_eq_true, Bool.not_eq_true'] at hsc; exact hsc
+  -- the annotation
+  obtain ⟨ptyA, hann, h⟩ := Except.bind_ok h
+  by_cases hwf : (ptyA.allLevelParamsDefined lps && ptyA.constsResolve env &&
+      ptyA.looseBVarsBounded 0 && !ptyA.hasFvar) = true
+  case neg =>
+    rw [if_neg hwf] at h
+    simp only [throw, throwThe, MonadExceptOf.throw, Except.bind] at h
+    exact nomatch h
+  rw [if_pos hwf] at h
+  obtain ⟨⟨⟨hlp, hres⟩, hbb⟩, hfv⟩ :
+      ((ptyA.allLevelParamsDefined lps = true ∧ ptyA.constsResolve env = true) ∧
+        ptyA.looseBVarsBounded 0 = true) ∧ ptyA.hasFvar = false := by
+    simp only [Bool.and_eq_true, Bool.not_eq_true'] at hwf; exact hwf
+  by_cases hst : (ptyA.stripPis (nP + 1)).isSome = true
+  case neg =>
+    rw [if_neg hst] at h
+    simp only [throw, throwThe, MonadExceptOf.throw, Except.bind] at h
+    exact nomatch h
+  rw [if_pos hst] at h
+  obtain ⟨sty, hsty, h⟩ := Except.bind_ok h
+  obtain ⟨u, hu, h⟩ := Except.bind_ok h
+  by_cases hnone : (env.find? (projFnName T i)).isNone = true
+  case neg =>
+    rw [if_neg hnone] at h
+    simp only [throw, throwThe, MonadExceptOf.throw, Except.bind] at h
+    exact nomatch h
+  rw [if_pos hnone] at h
+  obtain ⟨w, hshape, h⟩ := Except.bind_ok h
+  -- the parameter opening
+  obtain ⟨q1, hq1⟩ : ∃ q, openPisAtFvars nP ptyA 0 = some q := by
+    cases hh : openPisAtFvars nP ptyA 0 with
+    | none =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+    | some q => exact ⟨q, rfl⟩
+  rw [hq1] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind] at h
+  obtain ⟨q2, hq2⟩ : ∃ q, q1.2.stripPis 1 = some q := by
+    cases hh : q1.2.stripPis 1 with
+    | none =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+    | some q => exact ⟨q, rfl⟩
+  rw [hq2] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind] at h
+  obtain ⟨sdom, hsdom⟩ : ∃ x, (q2.1[0]?).map (·.2.1) = some x := by
+    cases hh : (q2.1[0]?).map (·.2.1) with
+    | none =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+    | some x => exact ⟨x, rfl⟩
+  rw [hsdom] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind] at h
+  obtain ⟨b1, hb1, h⟩ := Except.bind_ok h
+  cases b1 with
+  | false =>
+    simp only [Bool.false_eq_true, if_false, throw, throwThe,
+      MonadExceptOf.throw, Except.bind] at h
+    exact nomatch h
+  | true =>
+  simp only [if_true] at h
+  -- the subject opening
+  obtain ⟨q3, hq3⟩ : ∃ q, openPisAtFvars 1 q1.2 nP = some q := by
+    cases hh : openPisAtFvars 1 q1.2 nP with
+    | none =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+    | some q => exact ⟨q, rfl⟩
+  rw [hq3] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind] at h
+  obtain ⟨tfv, htfv⟩ : ∃ x, q3.1[0]? = some x := by
+    cases hh : q3.1[0]? with
+    | none =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+    | some x => exact ⟨x, rfl⟩
+  rw [htfv] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind] at h
+  -- the constructor field telescope, walked at the earlier projections
+  obtain ⟨q4, hq4⟩ : ∃ q, Expr.instPisAt (q1.1 ++ (List.range i).map
+      (fun j => Expr.mkAppN (.const (projFnName T j) (lps.map .param))
+        (q1.1 ++ [tfv]))) cvCa.type = some q := by
+    cases hh : Expr.instPisAt (q1.1 ++ (List.range i).map
+        (fun j => Expr.mkAppN (.const (projFnName T j) (lps.map .param))
+          (q1.1 ++ [tfv]))) cvCa.type with
+    | none =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+    | some q => exact ⟨q, rfl⟩
+  rw [hq4] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind] at h
+  obtain ⟨fn, fdom, fbody, fm, hcres⟩ :
+      ∃ n d b m, q4.2 = Expr.forallE n d b m := by
+    cases hh : q4.2 with
+    | forallE n d b m => exact ⟨n, d, b, m, rfl⟩
+    | bvar _ | fvar _ _ _ | sort _ | const _ _ | app _ _ | lam _ _ _ _
+    | letE _ _ _ _ | lit _ | proj _ _ _ =>
+      rw [hh] at h
+      simp only [unwrapOr, throw, throwThe, MonadExceptOf.throw,
+        Except.bind] at h
+      exact nomatch h
+  rw [hcres] at h
+  simp only [unwrapOr, pure, Except.pure, Except.bind] at h
+  obtain ⟨b2, hb2, h⟩ := Except.bind_ok h
+  cases b2 with
+  | false =>
+    simp only [Bool.false_eq_true, if_false, throw, throwThe,
+      MonadExceptOf.throw, Except.bind] at h
+    exact nomatch h
+  | true =>
+  simp only [if_true] at h
+  obtain ⟨rhsA, hrule, h⟩ := Except.bind_ok h
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  exact ⟨pty, ptyA, sty, u, q1.1, q1.2, q2.1, q2.2, sdom, q3.1, q3.2, tfv,
+    q4.1, fn, fdom, fbody, fm, rhsA, hpty, hptyf, hptyb, hann, hlp, hres,
+    hbb, hfv, hst, hsty, hu, Option.isNone_iff_eq_none.mp hnone, ⟨w, hshape⟩,
+    hq1, hq2, hsdom, hb1, hq3, htfv, by rw [hq4, ← hcres], hb2, hrule, h.symm⟩
+
 omit [SetTheory V] in
 /-- The recursor's telescope length is part of the checked shape. -/
 theorem directShape_stripPis {T C : Name} {lps : List Name} {elim : Name}

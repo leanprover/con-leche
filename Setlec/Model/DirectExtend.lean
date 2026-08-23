@@ -595,6 +595,49 @@ theorem FrameOk.weaken_top {cval : ConstVal V} {env : Env} {φ : Name → Nat}
     AnnotOk.weaken_top h.ws h.an,
     P, by rw [interp_weaken_top h.ws]; exact hP⟩
 
+/-- The frame conditions and the interpretation survive **any** number
+of opened binders above them: a single padded valuation serves every
+term that is frame-ok at the lower frame.  This is what lets a pin
+checked at one *fixed* high frame — `checkProjRule`'s parameter-domain
+`checkDefEqList` runs at `nP + nF`, not per binder — be consumed at the
+telescope frames the walk is actually at. -/
+theorem FrameOk.pad_exists {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
+    ∀ (n d : Nat) (ρ : Nat → V),
+      ∃ ρ' : Nat → V,
+        (∀ {e : Expr}, FrameOk V cval env φ d ρ e →
+          FrameOk V cval env φ (d + n) ρ' e) ∧
+        (∀ {e : Expr}, Expr.WScoped d e →
+          interpExpr V cval env φ (d + n) ρ' e =
+            interpExpr V cval env φ d ρ e) := by
+  intro n
+  induction n with
+  | zero => intro d ρ; exact ⟨ρ, fun h => h, fun _ => rfl⟩
+  | succ n ih =>
+    intro d ρ
+    obtain ⟨ρ', hfr, hint⟩ := ih d ρ
+    refine ⟨updV V ρ' (d + n) SetTheory.empty, fun h => ?_, fun hw => ?_⟩
+    · rw [show d + (n + 1) = d + n + 1 from by omega]
+      exact FrameOk.weaken_top (hfr h)
+    · rw [show d + (n + 1) = d + n + 1 from by omega,
+        interp_weaken_top (hw.mono (by omega)), hint hw]
+
+/-- `isDefEqCore_sound` at a **higher** frame than the terms live at:
+the pin's frame only has to dominate the frame the interpretations are
+taken at. -/
+theorem isDefEqCore_sound_at {env : Env} (m : EnvModel V env) (F : Nat)
+    {φ : Name → Nat} {d D : Nat} {ρ : Nat → V} {a b : Expr} {A B : V}
+    (hle : d ≤ D) (h : isDefEqCore env F D a b = .ok true)
+    (hfa : FrameOk V m.val env φ d ρ a) (hfb : FrameOk V m.val env φ d ρ b)
+    (hia : interpExpr V m.val env φ d ρ a = some A)
+    (hib : interpExpr V m.val env φ d ρ b = some B) : A = B := by
+  obtain ⟨ρ', hfr, hint⟩ := FrameOk.pad_exists (V := V) (cval := m.val)
+    (env := env) (φ := φ) (D - d) d ρ
+  rw [show d + (D - d) = D from by omega] at hfr hint
+  exact isDefEqCore_sound m F h (hfr hfa).ws (hfr hfb).ws (hfr hfa).bb
+    (hfr hfb).bb (hfr hfa).lb (hfr hfb).lb (hfr hfa).fv (hfr hfb).fv
+    (hfr hfa).an (hfr hfb).an (by rw [hint hfa.ws]; exact hia)
+    (by rw [hint hfb.ws]; exact hib)
+
 /-- A term scoped below a fit's starting frame interprets the same at
 the fit's end. -/
 theorem interp_weaken_fit {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
@@ -950,22 +993,23 @@ left telescope's variables, which `DomsAgree` (each side opened at its
 own) meets only up to `ErasedEq`; `FrameOk.body_at` carries the frame
 conditions onto the foreign opening and `erasedEq_right` closes the
 gap at every stage. -/
-theorem DomsAgree.of_pins_inst {env : Env} (m : EnvModel V env) (F : Nat)
+theorem DomsAgree.of_pins_inst_gen {env : Env} (m : EnvModel V env) (F : Nat)
     {φ : Name → Nat} :
     ∀ (k d : Nat) (ρ : Nat → V) (S R : Expr) (fvsS : List Expr) (rS : Expr)
-      (dsR : List Expr) (rR : Expr),
+      (dsR : List Expr) (rR : Expr) (Df : Nat → Nat),
+      (∀ j, j < k → d + j ≤ Df j) →
       openPisAtFvars k S d = some (fvsS, rS) →
       Expr.instPisAt fvsS R = some (dsR, rR) →
       (∀ (j : Nat) (a b : Expr), fvsS[j]? = some a → dsR[j]? = some b →
-        isDefEqCore env F (d + j) (Expr.fvarTypeD a) b = .ok true) →
+        isDefEqCore env F (Df j) (Expr.fvarTypeD a) b = .ok true) →
       FrameOk V m.val env φ d ρ S →
       FrameOk V m.val env φ d ρ R →
       DomsAgree V m.val env φ k d ρ S d ρ R := by
   intro k
   induction k with
-  | zero => intro _ _ _ _ _ _ _ _ _ _ _ _ _; trivial
+  | zero => intro _ _ _ _ _ _ _ _ _ _ _ _ _ _ _; trivial
   | succ k ih =>
-    intro d ρ S R fvsS rS dsR rR hopS hinstR hpins hfrS hfrR
+    intro d ρ S R fvsS rS dsR rR Df hDf hopS hinstR hpins hfrS hfrR
     match S with
     | .forallE nS domS bodyS mS =>
       simp only [openPisAtFvars] at hopS
@@ -980,12 +1024,11 @@ theorem DomsAgree.of_pins_inst {env : Env} (m : EnvModel V env) (F : Nat)
           instPisAt_cons_inv hinstR
         obtain ⟨hdWS, hdbS, hdlS, hdfS, hdaS, BS, hdiS⟩ := hfrS.dom
         obtain ⟨hdWR, hdbR, hdlR, hdfR, hdaR, BR, hdiR⟩ := hfrR.dom
-        have hpin : isDefEqCore env F d domS domR = .ok true := by
-          have h0 := hpins 0 (.fvar d nS domS) domR rfl rfl
-          rwa [Nat.add_zero] at h0
+        have hpin : isDefEqCore env F (Df 0) domS domR = .ok true :=
+          hpins 0 (.fvar d nS domS) domR rfl rfl
         have hBeq : BS = BR :=
-          isDefEqCore_sound m F hpin hdWS hdWR hdbS hdbR hdlS hdlR
-            hdfS hdfR hdaS hdaR hdiS hdiR
+          isDefEqCore_sound_at m F (by have := hDf 0 (by omega); omega) hpin
+            hfrS.dom hfrR.dom hdiS hdiR
         have hdiR' : ∀ A, interpExpr V m.val env φ d ρ domS = some A →
             interpExpr V m.val env φ d ρ domR = some A := by
           intro A hA
@@ -997,18 +1040,48 @@ theorem DomsAgree.of_pins_inst {env : Env} (m : EnvModel V env) (F : Nat)
         have hAB : A = BS := (Option.some.inj (hdiS.symm.trans hA)).symm
         subst hAB
         refine DomsAgree.erasedEq_right k
-          (ih (d + 1) (updV V ρ d x) _ _ qS.1 qS.2 dsR' rR hrecS hinstR'
-            (fun j a b ha hb => by
-              have h1 := hpins (j + 1) a b (by simpa using ha)
-                (by simpa using hb)
-              rw [show d + 1 + j = d + (j + 1) from by omega]
-              exact h1)
+          (ih (d + 1) (updV V ρ d x) _ _ qS.1 qS.2 dsR' rR (fun j => Df (j + 1))
+            (fun j hj => by have := hDf (j + 1) (by omega); omega)
+            hrecS hinstR'
+            (fun j a b ha hb =>
+              hpins (j + 1) a b (by simpa using ha) (by simpa using hb))
             (hfrS.body hdiS hx)
             (FrameOk.body_at hfrR hfrS.dom (hdiR' _ hdiS) hdiS hx))
           (Expr.ErasedEq.instantiate1 (Expr.ErasedEq.rfl bodyR) (by exact rfl))
     | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
     | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
       simp only [openPisAtFvars] at hopS; exact nomatch hopS
+
+/-- The per-frame instance: the pins were checked at exactly the frame
+each binder sits at. -/
+theorem DomsAgree.of_pins_inst {env : Env} (m : EnvModel V env) (F : Nat)
+    {φ : Name → Nat} (k d : Nat) (ρ : Nat → V) (S R : Expr)
+    (fvsS : List Expr) (rS : Expr) (dsR : List Expr) (rR : Expr)
+    (hopS : openPisAtFvars k S d = some (fvsS, rS))
+    (hinstR : Expr.instPisAt fvsS R = some (dsR, rR))
+    (hpins : ∀ (j : Nat) (a b : Expr), fvsS[j]? = some a → dsR[j]? = some b →
+      isDefEqCore env F (d + j) (Expr.fvarTypeD a) b = .ok true)
+    (hfrS : FrameOk V m.val env φ d ρ S)
+    (hfrR : FrameOk V m.val env φ d ρ R) :
+    DomsAgree V m.val env φ k d ρ S d ρ R :=
+  DomsAgree.of_pins_inst_gen m F k d ρ S R fvsS rS dsR rR (fun j => d + j)
+    (fun _ _ => Nat.le_refl _) hopS hinstR hpins hfrS hfrR
+
+/-- The fixed-frame instance: every pin was checked at one frame `D`
+above the whole telescope (`checkProjRule`'s parameter-domain list). -/
+theorem DomsAgree.of_pins_inst_at {env : Env} (m : EnvModel V env) (F : Nat)
+    {φ : Name → Nat} (k d D : Nat) (ρ : Nat → V) (S R : Expr)
+    (fvsS : List Expr) (rS : Expr) (dsR : List Expr) (rR : Expr)
+    (hD : d + k ≤ D)
+    (hopS : openPisAtFvars k S d = some (fvsS, rS))
+    (hinstR : Expr.instPisAt fvsS R = some (dsR, rR))
+    (hpins : ∀ (j : Nat) (a b : Expr), fvsS[j]? = some a → dsR[j]? = some b →
+      isDefEqCore env F D (Expr.fvarTypeD a) b = .ok true)
+    (hfrS : FrameOk V m.val env φ d ρ S)
+    (hfrR : FrameOk V m.val env φ d ρ R) :
+    DomsAgree V m.val env φ k d ρ S d ρ R :=
+  DomsAgree.of_pins_inst_gen m F k d ρ S R fvsS rS dsR rR (fun _ => D)
+    (fun _ hj => by omega) hopS hinstR hpins hfrS hfrR
 
 /-- `DomsAgree` is symmetric once the left telescope is known to
 interpret at every stage (`FrameOk`): the relation is an equality of
