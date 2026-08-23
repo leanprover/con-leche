@@ -932,6 +932,29 @@ def checkDirectProjF (ops : CheckerOps m) (T C : Name) (lps : List Name)
   unless (fe.find? (projFnName T i)).isNone do
     throw (.invalid "projection name taken")
   checkProjShape (m := m) ptyA cvCa.type nP nF
+  let (fvsP, prest) ← unwrapOr (openPisAtFvars nP ptyA 0)
+    (.notImplemented "direct structure: projection type telescope")
+  let famApp := Expr.mkAppN (.const T (lps.map .param)) fvsP
+  let (sbs, _) ← unwrapOr (prest.stripPis 1)
+    (.notImplemented "direct structure: projection subject telescope")
+  let sdom ← unwrapOr ((sbs[0]?).map (·.2.1))
+    (.notImplemented "direct structure: projection subject telescope")
+  unless ← ops.isDefEq fe.env nP sdom famApp do
+    throw (.notImplemented "direct structure: projection subject domain")
+  let (tFvs, resid) ← unwrapOr (openPisAtFvars 1 prest nP)
+    (.notImplemented "direct structure: projection subject telescope")
+  let tfv ← unwrapOr tFvs[0]?
+    (.internal "direct structure: projection subject index")
+  let projArgs := (List.range i).map fun j =>
+    Expr.mkAppN (.const (projFnName T j) (lps.map .param)) (fvsP ++ [tfv])
+  let (_, cresid) ← unwrapOr (Expr.instPisAt (fvsP ++ projArgs) cvCa.type)
+    (.notImplemented "direct structure: projection field telescope")
+  let fdom ← unwrapOr (match cresid with
+      | .forallE _ d _ _ => some d
+      | _ => none)
+    (.notImplemented "direct structure: projection field telescope")
+  unless ← ops.isDefEq fe.env (nP + 1) resid fdom do
+    throw (.notImplemented "direct structure: projection residual")
   let rhsA ← checkProjRuleF ops fe ptyA cvCa lps nP nF i
   pure (fe.push (.recInfo ⟨projFnName T i, lps, ptyA⟩ nP nP
     [⟨C, nF, nP,

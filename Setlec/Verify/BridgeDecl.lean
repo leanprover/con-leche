@@ -946,7 +946,7 @@ theorem checkDirectProj_fst_dproj (T C : Name) (lps : List Name)
   unfold checkDirectProj
   simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
     PairM.fst_ite, pairOps_annotate_fst, pairOps_inferType_fst,
-    pairOps_ensureSort_fst, unwrapOr_fst_dproj,
+    pairOps_ensureSort_fst, pairOps_isDefEq_fst, unwrapOr_fst_dproj,
     checkProjShape_fst_dproj, checkProjRule_fst_dproj]
 
 theorem checkDirectProj_snd_dproj (T C : Name) (lps : List Name)
@@ -956,7 +956,7 @@ theorem checkDirectProj_snd_dproj (T C : Name) (lps : List Name)
   unfold checkDirectProj
   simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
     PairM.snd_ite, pairOps_annotate_snd, pairOps_inferType_snd,
-    pairOps_ensureSort_snd, unwrapOr_snd_dproj,
+    pairOps_ensureSort_snd, pairOps_isDefEq_snd, unwrapOr_snd_dproj,
     checkProjShape_snd_dproj, checkProjRule_snd_dproj]
 
 theorem checkDirectProj_fst_fun (T C : Name) (lps : List Name)
@@ -1815,8 +1815,8 @@ theorem checkDirectProj_datF (T C : Name) (lps : List Name)
   unfold checkDirectProj
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, fueledOpsM_annotate_atF, fueledOpsM_inferType_atF,
-    fueledOpsM_ensureSort_atF, unwrapOr_atF, checkProjShape_datF,
-    checkProjRule_datF]
+    fueledOpsM_ensureSort_atF, fueledOpsM_isDefEq_atF, unwrapOr_atF,
+    checkProjShape_datF, checkProjRule_datF]
 
 theorem checkDirectProj_datF_fun (T C : Name) (lps : List Name)
     (nP nF : Nat) (cvTa cvCa : ConstantVal) (F : Nat) :
