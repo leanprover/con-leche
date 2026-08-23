@@ -156,6 +156,24 @@ theorem FrameOk.body {cval : ConstVal V} {env : Env} {φ : Name → Nat}
       handom hdom hx body 0 hws.2
       (FvarsOk.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]) hfv)
 
+/-- A value-spine fit carries the frame conditions to its residual:
+each step is `FrameOk.body` at the domain interpretation and membership
+the fit already supplies.  This is how the field telescope's frame is
+obtained at the constructor's install — from the very walk whose
+`FieldTele` is being established. -/
+theorem FrameOk.ofTeleFit {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
+    ∀ {d : Nat} {ρ : Nat → V} {e : Expr} {vs : List V} {d' : Nat}
+      {ρ' : Nat → V} {rest : Expr},
+      TeleFit V cval env φ d ρ e vs d' ρ' rest →
+      FrameOk V cval env φ d ρ e →
+      FrameOk V cval env φ d' ρ' rest := by
+  intro d ρ e vs d' ρ' rest hfit
+  induction hfit with
+  | nil => exact fun hfr => hfr
+  | @cons d ρ n ty body m x xs d' ρ' rest A hity hx hfit ih =>
+    intro hfr
+    exact ih (hfr.body hity hx)
+
 /-! ### `FieldTele` from the per-field universe walk -/
 
 /-- The field telescope is small at the structure's own sort: each

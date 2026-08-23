@@ -307,6 +307,157 @@ theorem directTyVal_unitlike {tty cty : Expr} {nP : Nat} {s : Level}
   rw [hfold] at hx hy
   rw [mem_unitSet_iff.mp hx, mem_unitSet_iff.mp hy]
 
+/-! ### Moving the constructed values across the block's own extensions
+
+The type former's value is fixed over the **pre-block** pair
+(`m.val`, `env`) — it is installed first — while the constructor's, the
+recursor's and the projections' obligations are stated over the pair of
+*their own* install, which is the pre-block environment plus the block
+members stored so far.  The values in between have to be recognised as
+the same object.
+
+They are, and for a reason that is local: the λ-tower and the
+dependent-pair tower read the telescope **only through its binder
+domains' interpretations** (plus the binders' own codomain-sort tags,
+which are syntax).  The block's field domains resolve before the block
+(`directNonRec` for the raw ones, re-checked on the annotated ones in
+`checkDirectCtor`), so their interpretations do not move.
+
+The frame is not generalized: `teleLamV k d` evaluates its body at
+exactly `d + k`, so the tower is only ever read at the frame the
+install's own `openPisAtFvars` runs at. -/
+
+/-- Two (valuation, environment) pairs that interpret every expression
+resolving in the **first** environment alike.  Established between the
+pre-block pair and any later one by `interp_mono` (the environment only
+grows by fresh constants) and `interp_cval_ext` (the valuations agree
+on stored names). -/
+def InterpAgree (V : Type u) [SetTheory V] (cval₁ : ConstVal V) (env₁ : Env)
+    (cval₂ : ConstVal V) (env₂ : Env) (φ : Name → Nat) : Prop :=
+  ∀ (e : Expr), e.constsResolve env₁ = true → ∀ (d : Nat) (ρ : Nat → V),
+    interpExpr V cval₁ env₁ φ d ρ e = interpExpr V cval₂ env₂ φ d ρ e
+
+variable {cval₁ cval₂ : ConstVal V} {env₁ env₂ : Env}
+
+/-- The dependent-pair tower only reads the field domains. -/
+theorem sigmaTowerV_congr (h : InterpAgree V cval₁ env₁ cval₂ env₂ φ)
+    {w : Nat} :
+    ∀ (k d : Nat) (ρ : Nat → V) (ty : Expr) (fvs : List Expr) (rest : Expr),
+      openPisAtFvars k ty d = some (fvs, rest) →
+      (∀ x ∈ fvs, (Expr.fvarTypeD x).constsResolve env₁ = true) →
+      sigmaTowerV V cval₁ env₁ φ w k d ρ ty =
+        sigmaTowerV V cval₂ env₂ φ w k d ρ ty := by
+  intro k
+  induction k with
+  | zero => intro _ _ _ _ _ _ _; rfl
+  | succ k ih =>
+    intro d ρ ty fvs rest hop hfvs
+    match ty with
+    | .forallE n dom body mb =>
+      simp only [openPisAtFvars] at hop
+      cases hrec : openPisAtFvars k (body.instantiate1 (.fvar d n dom)) (d + 1) with
+      | none => rw [hrec] at hop; exact nomatch hop
+      | some q =>
+        rw [hrec] at hop
+        simp only [Option.some.injEq, Prod.mk.injEq] at hop
+        obtain ⟨rfl, rfl⟩ := hop
+        have hdom : dom.constsResolve env₁ = true :=
+          hfvs _ List.mem_cons_self
+        rw [sigmaTowerV_forallE, sigmaTowerV_forallE, h dom hdom d ρ]
+        refine congrArg _ (funext fun x => ?_)
+        exact ih (d + 1) (updV V ρ d x) _ q.1 q.2 hrec
+          (fun y hy => hfvs y (List.mem_cons_of_mem _ hy))
+    | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
+    | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+      exact nomatch hop
+
+/-- The per-field universe bound only reads the field domains. -/
+theorem FieldTele_congr (h : InterpAgree V cval₁ env₁ cval₂ env₂ φ)
+    {w : Nat} :
+    ∀ (k d : Nat) (ρ : Nat → V) (ty : Expr) (fvs : List Expr) (rest : Expr),
+      openPisAtFvars k ty d = some (fvs, rest) →
+      (∀ x ∈ fvs, (Expr.fvarTypeD x).constsResolve env₁ = true) →
+      FieldTele V cval₁ env₁ φ w k d ρ ty →
+      FieldTele V cval₂ env₂ φ w k d ρ ty := by
+  intro k
+  induction k with
+  | zero => intro _ _ _ _ _ _ _ _; trivial
+  | succ k ih =>
+    intro d ρ ty fvs rest hop hfvs hfld
+    match ty with
+    | .forallE n dom body mb =>
+      simp only [openPisAtFvars] at hop
+      cases hrec : openPisAtFvars k (body.instantiate1 (.fvar d n dom)) (d + 1) with
+      | none => rw [hrec] at hop; exact nomatch hop
+      | some q =>
+        rw [hrec] at hop
+        simp only [Option.some.injEq, Prod.mk.injEq] at hop
+        obtain ⟨rfl, rfl⟩ := hop
+        obtain ⟨A, hA, hAu, hrest⟩ := hfld
+        have hdom : dom.constsResolve env₁ = true :=
+          hfvs _ List.mem_cons_self
+        refine ⟨A, by rw [← h dom hdom d ρ]; exact hA, hAu, ?_⟩
+        intro x hx
+        exact ih (d + 1) (updV V ρ d x) _ q.1 q.2 hrec
+          (fun y hy => hfvs y (List.mem_cons_of_mem _ hy)) (hrest x hx)
+    | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
+    | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ => exact hfld.elim
+
+/-- The guarded body follows the tower. -/
+theorem directTyBody_congr (h : InterpAgree V cval₁ env₁ cval₂ env₂ φ)
+    {w nF d : Nat} {ρ : Nat → V} {crest : Expr} {fvs : List Expr}
+    {rest : Expr} (hop : openPisAtFvars nF crest d = some (fvs, rest))
+    (hfvs : ∀ x ∈ fvs, (Expr.fvarTypeD x).constsResolve env₁ = true) :
+    directTyBody V cval₁ env₁ φ w nF d ρ crest =
+      directTyBody V cval₂ env₂ φ w nF d ρ crest := by
+  unfold directTyBody
+  rw [sigmaTowerV_congr h nF d ρ crest fvs rest hop hfvs]
+
+/-- The λ-tower only reads the telescope's binder domains, and only
+evaluates its body at the frame `d + k` it ends at. -/
+theorem teleLamV_congr (h : InterpAgree V cval₁ env₁ cval₂ env₂ φ) :
+    ∀ (k d : Nat) (ρ : Nat → V) (ty : Expr)
+      (S₁ S₂ : Nat → (Nat → V) → List V → V),
+      ty.constsResolve env₁ = true →
+      (∀ ρ' xs, S₁ (d + k) ρ' xs = S₂ (d + k) ρ' xs) →
+      teleLamV V cval₁ env₁ φ k d ρ ty S₁ =
+        teleLamV V cval₂ env₂ φ k d ρ ty S₂ := by
+  intro k
+  induction k with
+  | zero =>
+    intro d ρ ty S₁ S₂ _ hS
+    simpa using hS ρ []
+  | succ k ih =>
+    intro d ρ ty S₁ S₂ hres hS
+    match ty with
+    | .forallE n dom body mb =>
+      simp only [Expr.constsResolve, Bool.and_eq_true] at hres
+      rw [teleLamV_forallE, teleLamV_forallE, h dom hres.1 d ρ]
+      refine congrArg _ (funext fun x => ?_)
+      refine ih (d + 1) (updV V ρ d x) _ _ _
+        (Expr.constsResolve_instantiate1 (by simpa [Expr.constsResolve] using hres.1)
+          0 hres.2)
+        (fun ρ' xs => ?_)
+      have := hS ρ' (x :: xs)
+      rw [show d + 1 + k = d + (k + 1) from by omega]
+      exact this
+    | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
+    | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ => rfl
+
+/-- The type former's value is the same object at every later install
+of its own block. -/
+theorem directTyVal_congr (h : InterpAgree V cval₁ env₁ cval₂ env₂ φ)
+    {tty cty : Expr} {nP nF : Nat} {s : Level} {fvs : List Expr}
+    {rest : Expr}
+    (htres : tty.constsResolve env₁ = true)
+    (hop : openPisAtFvars nF (directCRest cty nP) nP = some (fvs, rest))
+    (hfvs : ∀ x ∈ fvs, (Expr.fvarTypeD x).constsResolve env₁ = true) :
+    directTyVal V cval₁ env₁ tty cty nP nF s φ =
+      directTyVal V cval₂ env₂ tty cty nP nF s φ := by
+  unfold directTyVal
+  refine teleLamV_congr h nP 0 (rho0 V) tty _ _ htres (fun ρ' xs => ?_)
+  simpa using directTyBody_congr h hop hfvs
+
 /-! ### The constructor's value -/
 
 /-- `⟦T.mk⟧`: the λ-tower over the constructor's telescope whose body is
