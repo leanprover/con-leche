@@ -3778,3 +3778,22 @@ official** (`discarded-argument-match`: 7.8 G vs 51.4 G) to ~100x
 `shift-cascade` 23 G vs 0.3 G — sharing-heavy shapes dominated by
 per-step list rebuilding and hash-map memo churn, where nanoda's
 index caches decide in ~0).  Those are the next levers.
+
+### Closing-entry revision (2026-08-23, post leqCore fix)
+
+The "engineering gap" in the closing entry above was dominated by one
+bug: `Level.leqCore`'s monadic `&&`/`||` never short-circuited (the
+imax `byCases` tree, kept tractable by the references only through
+pruning, was explored exhaustively — 177x redundancy).  Revised
+triple on the identical stream, all gates green:
+
+| configuration | instructions |
+|---|---|
+| setlec, certified | **~82-87 G** |
+| setlec, `--yolo` | **~49 G** |
+| official C++ kernel | 3.9 G |
+
+Gap ~12x (from the misreported ~36x); next attributed lever: spine
+list traffic + per-call instantiation memos (task #84, est. 2-4x on
+sharing-heavy shapes).  Notable: setlec now BEATS the official kernel
+on the discarded-argument perf tests (0.15-0.4x).
