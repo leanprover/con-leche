@@ -1298,7 +1298,13 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           else pure (.proj sn i e')
         | _ => pure (.proj sn i e')
       | none => pure (.proj sn i e')
-    | .bvar _ | .letE .. =>
+    | .letE _ _ v b =>
+      -- zeta: instantiate the body with the value on demand and
+      -- continue (official kernel `whnf_core`, `case expr_kind::Let`;
+      -- nanoda `whnf_no_unfolding_aux` `Let`; lean4lean `whnfCore'`
+      -- `.letE`).  No local let environment is kept.
+      r.whnfCore depth (b.instantiate1 v)
+    | .bvar _ =>
       throw (.notImplemented "whnf beyond the supported fragment")
 
 /-- The reduction loop (the official kernel's `whnf`): head-normalize,
@@ -1443,7 +1449,15 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")
-    | .bvar _ | .letE .. =>
+    | .letE _ _ v b =>
+      -- infer the body instantiated with the value (nanoda `infer_let`;
+      -- the official kernel's `infer_let` at `infer_only` likewise
+      -- derives the result from the body with the let variable in
+      -- scope, zeta-transparent).  The value's type was checked against
+      -- the annotation once, by `annotate` — inference trusts it, as it
+      -- trusts the λ-annotation.
+      r.infer depth (b.instantiate1 v)
+    | .bvar _ =>
       throw (.notImplemented "inferType beyond the supported fragment")
 
 /-- Levels-and-spine congruence for two applications of the same
@@ -1801,7 +1815,24 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       let bt ← r.infer (depth + 1) body'
       let v ← ensureSort r env (depth + 1) (← r.infer (depth + 1) bt)
       pure (.lam n ty' (body'.abstract1 depth) ⟨mb.bi, some v⟩)
-    | .letE _ _ _ _ => throw (.notImplemented "annotate: let-expressions")
+    | .letE _ ty v b => do
+      -- The official kernel's `infer_let` check order (`!infer_only`):
+      -- the annotation is a type (`ensure_sort_core(infer(type))`), the
+      -- value's inferred type matches it (`is_def_eq(val_type, type)`),
+      -- then the body *with the value transparent* — nanoda's
+      -- `infer_let` instantiates the body with the value and recurses
+      -- (the official kernel gets the same transparency from valued
+      -- let-fvars in its local context).  Setlec fvars carry no value,
+      -- so the body is annotated as its zeta reduct; an opened opaque
+      -- variable was tried and rejects real streams (elaborated `let`
+      -- bodies rely on the value definitionally — see DESIGN.md).
+      let ty' ← r.annotate depth ty
+      let _ ← ensureSort r env depth (← r.infer depth ty')
+      let v' ← r.annotate depth v
+      let tv ← r.infer depth v'
+      unless ← r.defeq depth tv ty' do
+        throw (.invalid "let value type mismatch")
+      r.annotate depth (b.instantiate1 v)
     | .proj sn i pe => do
       let e' ← r.annotate depth pe
       -- Run the projection rule (the one place it is checked; this

@@ -1513,7 +1513,19 @@ theorem AnnotOk.erasedEq :
     | .lit l', _ => simp only [AnnotOk]
   | .letE n' ty' v' b', e₁, he, d, ρ, ha => by
     match e₁, he with
-    | .letE n ty v b, _ => simp only [AnnotOk]
+    | .letE n ty v b, he =>
+      obtain ⟨hty, hv, hb⟩ : Expr.ErasedEq ty ty' ∧ Expr.ErasedEq v v' ∧
+        Expr.ErasedEq b b' := he
+      simp only [AnnotOk] at ha ⊢
+      obtain ⟨haty, hav, xv, hxv, hopen⟩ := ha
+      have hEE : Expr.ErasedEq (b.instantiate1 (.fvar d n ty))
+          (b'.instantiate1 (.fvar d n' ty')) :=
+        Expr.ErasedEq.instantiate1 hb (by exact rfl)
+      refine ⟨AnnotOk.erasedEq ty' hty d ρ haty,
+        AnnotOk.erasedEq v' hv d ρ hav, xv, ?_, ?_⟩
+      · rw [← interp_erasedEq hv d ρ]
+        exact hxv
+      · exact AnnotOk.erasedEq _ hEE (d + 1) (updV V ρ d xv) hopen
 termination_by e₂ => e₂.sizeB
 decreasing_by
   all_goals first

@@ -516,8 +516,51 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     obtain ⟨lus, _, rfl⟩ := hd
     exact SimAt.pure hs ⟨hden, hw⟩
   | letE nm t v b =>
-    invert_node hd
-    exact SimAt.throw
+    rw [denoteNode, Option.bind_eq_some_iff] at hd
+    obtain ⟨tyx, hty, hd⟩ := hd
+    rw [Option.bind_eq_some_iff] at hd
+    obtain ⟨vx, hv, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨bodyx, hbody, hd⟩ := hd
+    subst hd
+    have hwtvb : WScoped d tyx ∧ WScoped d vx ∧ WScoped d bodyx := by
+      simpa only [WScoped] using hw
+    unfold annotateBody
+    try dsimp only
+    refine SimAt.bind (ih.annotate hs hty hwtvb.1)
+      (fun s₁ ty' ty'x hs₁ hext₁ hP₁ => ?_)
+    obtain ⟨hty'd, hwty'⟩ := hP₁
+    refine SimAt.bind (ih.infer hs₁ hty'd hwty')
+      (fun s₂ tty ttyx hs₂ hext₂ hP₂ => ?_)
+    obtain ⟨httyd, hwtty⟩ := hP₂
+    refine SimAt.bind (ensureSortI_sim ih hs₂ httyd hwtty)
+      (fun s₃ u lu hs₃ hext₃ hPu => ?_)
+    refine SimAt.bind (ih.annotate hs₃
+      (denote_mono ((hext₁.trans hext₂).trans hext₃) hv) hwtvb.2.1)
+      (fun s₄ v' v'x hs₄ hext₄ hP₄ => ?_)
+    obtain ⟨hv'd, hwv'⟩ := hP₄
+    refine SimAt.bind (ih.infer hs₄ hv'd hwv')
+      (fun s₅ tv tvx hs₅ hext₅ hP₅ => ?_)
+    obtain ⟨htvd, hwtv⟩ := hP₅
+    refine SimAt.bind (ih.defeq hs₅ htvd
+      (denote_mono (((hext₂.trans hext₃).trans hext₄).trans hext₅) hty'd)
+      hwtv hwty')
+      (fun s₆ bb bb' hs₆ hext₆ hPb => ?_)
+    obtain rfl : bb = bb' := hPb
+    cases bb with
+    | false =>
+      simp only [Bool.false_eq_true, ↓reduceIte]
+      exact SimAt.throw_bind
+    | true =>
+      simp only [↓reduceIte]
+      refine SimAt.bind_left (inst1M_eff hs₆
+        (denote_mono (((((hext₁.trans hext₂).trans hext₃).trans
+          hext₄).trans hext₅).trans hext₆) hbody)
+        (denote_mono (((((hext₁.trans hext₂).trans hext₃).trans
+          hext₄).trans hext₅).trans hext₆) hv))
+        (fun s₇ ob hs₇ hext₇ hQob => ?_)
+      exact ih.annotate hs₇ hQob
+        (WScoped.instantiate1_gen hwtvb.2.1 0 hwtvb.2.2)
   | fvar idx nm t =>
     rw [denoteNode, Option.map_eq_some_iff] at hd
     obtain ⟨tyx, hty, hd⟩ := hd

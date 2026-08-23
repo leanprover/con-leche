@@ -1223,7 +1223,12 @@ def whnfCoreBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
           else internI (.proj sn i e')
         | _ => internI (.proj sn i e')
       | none => internI (.proj sn i e')
-    | some (.bvar _) | some (.letE ..) =>
+    | some (.letE _ _ v b) => do
+      -- zeta on demand (official `whnf_core` Let case); `inst1M` is the
+      -- sharing-preserving arena substitution
+      let e' ← inst1M b v
+      r.whnfCore depth e'
+    | some (.bvar _) =>
       throw (.notImplemented "whnf beyond the supported fragment")
     | none => throw (.internal "interned node missing")
 
@@ -1436,7 +1441,12 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")
-    | some (.bvar _) | some (.letE ..) =>
+    | some (.letE _ _ v b) => do
+      -- infer the instantiated body (nanoda `infer_let`); the checks
+      -- ran at annotate time
+      let e' ← inst1M b v
+      r.infer depth e'
+    | some (.bvar _) =>
       throw (.notImplemented "inferType beyond the supported fragment")
     | none => throw (.internal "interned node missing")
 
@@ -1828,7 +1838,20 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
         let v ← ensureSortI r (depth + 1) tbt
         let bAbs ← abstract1M body' depth
         internI (.lam n ty' bAbs ⟨mb.bi, some v⟩)
-    | some (.letE ..) => throw (.notImplemented "annotate: let-expressions")
+    | some (.letE _ ty v b) => do
+      -- official `infer_let` check order (see the spec body): the
+      -- annotation is a type, the value's inferred type matches it,
+      -- then the body with the value transparent (zeta at annotate;
+      -- `inst1M` keeps the substitution sharing-preserving)
+      let ty' ← r.annotate depth ty
+      let tty ← r.infer depth ty'
+      let _ ← ensureSortI r depth tty
+      let v' ← r.annotate depth v
+      let tv ← r.infer depth v'
+      unless ← r.defeq depth tv ty' do
+        throw (.invalid "let value type mismatch")
+      let ob ← inst1M b v
+      r.annotate depth ob
     | some (.proj sn i pe) => do
       let e' ← r.annotate depth pe
       let tpe ← r.infer depth e'

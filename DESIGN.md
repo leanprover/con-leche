@@ -938,10 +938,12 @@ Findings from the arena `good/perf` OOM pair:
   design until #64's two-tier arena; at n = 2000 that fits.
 * `app-lam` is a different beast: its `dag_app_binder` value is a
   `wrap2 f f` doubling tower — DAG size 24 001, **unshared tree size
-  ≈ 10¹¹⁶⁰**.  Every tree-materializing pass (the frontend's
-  `zetaExpand`, the raw syntactic checks, arena interning of `Expr`
-  trees) is exponential on it; the OOM happened already inside
-  `parseExport`.  This is exactly the `no-unmemoized-traversals`
+  ≈ 10¹¹⁶⁰** — shared through *export-table indices*, not `let`s (the
+  file contains no `letE` entry at all), so kernel letE support
+  (task #79) does not reach it.  Every remaining tree-materializing
+  pass (the raw syntactic checks, arena interning of `Expr` trees) is
+  exponential on it; before the size budget the OOM happened already
+  inside `parseExport` (the then-eager frontend zeta expansion).  This is exactly the `no-unmemoized-traversals`
   architectural gap (the raw-`Expr` pipeline walks trees), not a
   reduction-sharing bug.  Until the pipeline is DAG-preserving
   end-to-end, the frontend now tracks each expression-table entry's
@@ -995,9 +997,7 @@ proof-irrelevance hoist in defeq was reverted for fuel-depth reasons
 
 **Deferred, tracked as tasks**: the lazy-delta extras — failure cache,
 `tryUnfoldProjApp`, cheapProj (lazy delta itself landed, see below);
-native `.letE`
-(the frontend zeta expansion can duplicate exponentially on shared
-exports); string literals; the performance substrate (cached hashes /
+string literals; the performance substrate (cached hashes /
 hash-consing, array spines, indexed environment, per-declaration cache
 threading, possibly-Prop-gated iota certificates); per-loop fuel
 budgets; instrumenting the possibly-Prop beta wedge (3.5) as an
@@ -1013,6 +1013,80 @@ rework; removing the possibly-Prop *beta* certificate −2.2 G — never
 landable (unprovable, the impredicativity analysis above).  The
 gated infer-app re-check (−4.4 % standalone) landed; see "Inference
 re-checks" below.
+
+## Kernel letE support: reference-style lazy zeta (2026-08-23, task #79)
+
+The kernel handles `letE` natively, with **no local let environment**,
+mirroring the current reference kernels site by site:
+
+* **whnfCore zeta** — a `letE` head reduces by instantiating the body
+  with the value on demand and continuing:
+  official kernel `type_checker.cpp` `whnf_core`,
+  `case expr_kind::Let: r = whnf_core(instantiate(let_body(e),
+  let_value(e)), …)`; nanoda `tc.rs` `whnf_no_unfolding_aux`
+  `Let { val, body, .. } => inst(body, &[val])` (spine args re-applied);
+  lean4lean `TypeChecker.lean` `whnfCore'`
+  `| .letE _ _ val body _ => save <|← whnfCore (body.instantiate1 val)`.
+* **infer** — the type of a `letE` is the type of the instantiated
+  body: nanoda `infer_let` (`inst(body, &[val])` then `infer`); the
+  official `infer_let` at `infer_only` likewise derives the result with
+  the let value transparent (valued let-fvars in its local context).
+  As with the λ-annotation, the checks ran once, at annotate time, so
+  `infer` performs none.
+* **annotate** — the checking pass runs the official `infer_let`
+  check sequence (`!infer_only` branch, `type_checker.cpp:200`):
+  `ensure_sort(infer(type))`, `infer(val)`,
+  `is_def_eq(val_type, type)`; then the *body is annotated with the
+  value transparent, as its zeta reduct* — exactly nanoda's
+  `infer_let` (`inst(body, &[val])` then recurse; the official kernel
+  gets the same transparency from valued let-fvars in its local
+  context, which setlec fvars cannot express).  Annotation therefore
+  zeta-expands per-binder, on demand: the annotated output is
+  let-free, and expansion runs on the interned arena where `inst1M`
+  is sharing-preserving and `annotate` is memoized per node — the
+  *checking* of a shared let tower is polynomial even though the
+  eager frontend expansion it replaces was exponential.  **Finding
+  (letE-preserving annotation rejected)**: annotating the body at an
+  *opened opaque* variable of the annotation type — which would let
+  the stored term keep its `letE` node — was implemented first and
+  rejects real streams (`Nat.succ_le_succ` and 19 more e2e fixtures:
+  elaborated `let` bodies rely on the value definitionally, and an
+  fvar without a value loses `fvar ≡ value`).  Recovering it needs
+  either a try-opaque-else-expand fallback (a `tryCatch` in a core
+  body, restricted to `.invalid` errors to keep fuel monotonicity)
+  or re-abstracting value occurrences from the expanded annotated
+  body; both are future work if stored-`letE` compactness is ever
+  needed.
+* **Frontend** — parsed expressions keep their `letE` nodes (the five
+  eager `zetaExpand` sites — declaration types, def/thm/opaque values,
+  the recursor-rule rhs — are gone, and `Expr.zetaExpand` is deleted;
+  the old plain-`Expr` expansion walked trees, exponential-time on
+  shared let-values); the interned `inst1M` makes the kernel's zeta
+  substitution sharing-preserving on the arena.  The unshared-tree-size budget
+  (task #65) stays as the backstop for the *remaining*
+  tree-materializing passes (raw-input closedness/consts checks, entry
+  interning of `Expr` trees, post-annotate `allLevelParamsDefined`/
+  `constsResolve` walks): a let-free DAG shared through export-table
+  indices (arena `good/perf/app-lam`) still materializes as a tree in
+  those passes and keeps declining; lifting that needs the deferred
+  parse-time interning with a persistent per-run store.
+
+Model: `⟦letE n t v b⟧ρ = ⟦b[fvar_d]⟧(ρ, d ↦ ⟦v⟧ρ)` — valuation
+extension, the same binder opening as `lam`/`forallE` (the fvar
+annotation is never read), chosen over interp-by-substitution because
+`interpExpr` recurses structurally (`sizeB`; instantiating the value
+would break termination).  The substitution lemmas already built for
+beta (`interp_beta`, `AnnotOk_beta`) identify it with the zeta
+reduct's interpretation, so the whnfCore-zeta and infer claims are
+exactly beta-shaped; the `AnnotOk` `letE` clause carries truthfulness
+of the annotation and value, the value's interpretation, and
+truthfulness of the opened body at it.  Since annotate emits let-free
+terms, the whnf/infer `letE` cases and the model clauses are exercised
+only on raw-shaped input; they are kept verified as the reference
+kernels' strategy and as the substrate for a future letE-preserving
+annotation.  The annotate soundness case itself is just the recursion
+on the instantiated body (the type/value checks steer the verdict
+only, for reference parity).
 
 ## Stuck-major rescue: rule K and structure eta in iota (2026-08-20)
 
@@ -1049,19 +1123,11 @@ telescope's iota certificates (`certs_fit` + `TeleFit.chainSlots` +
 projection certificates; the value identification is proof irrelevance
 (K) or the stored eta law via `structEtaWith_sound` (eta).
 
-Zeta expansion required a fix along the way: let-values are *open*
-terms, so substituting them under binders needs the lifting
-substitution `instantiate1Lift` (`instantiate1`'s contract requires a
-closed replacement; the old code silently corrupted nested lets —
-surfaced by the preprocessor's let-heavy `iota_0` proofs).
-
-The frontend zeta-expands every parsed type and value (the checker
-works let-free); the recursor-rule `rhs` slot was the one parsed
-expression missed (fixed 2026-08-22, task #60): a preprocessor-emitted
-`let` in a modeled recursor's rule (`Std.Packages.PreorderOfLEArgs`)
-hit install's `letE` decline.  The rule rhs now goes through the same
-`.zetaExpand` — pure input normalization ahead of annotation; the
-model layer only ever consumes the stored (annotated) rules.
+(Historical: until task #79 the frontend zeta-expanded every parsed
+expression — the checker worked let-free — which duplicates shared
+let-values exponentially; the kernel now has native `letE` support,
+see "Kernel letE support" below, and the frontend passes lets
+through unexpanded.)
 
 ### Basis `PUnit` 0-field rescue (2026-08-22, task #59)
 
@@ -1156,8 +1222,9 @@ surjectivity resp. soundness).
 ## Current state
 
 Supported fragment: **`def`/`thm` declarations over sorts, dependent
-function types, lambdas/apps with certified beta, lets (zeta-expanded in
-the frontend), constants with delta unfolding, all five basis blocks
+function types, lambdas/apps with certified beta, lets (native `letE`
+with reference-style lazy zeta, task #79), constants with delta
+unfolding, all five basis blocks
 (`PUnit`, `Eq`, `Nat`, `PSigma'`, `Empty`) with verified set models,
 `PSigma'.mk` projections, proof irrelevance, lambda/unit eta,
 verified iota reduction, `Nat` literals (succ-packing `reduceNat`,

@@ -415,7 +415,10 @@ def whnfCoreBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
           else internI (.proj sn i e')
         | _ => internI (.proj sn i e')
       | none => internI (.proj sn i e')
-    | some (.bvar _) | some (.letE ..) =>
+    | some (.letE _ _ v b) => do
+      let e' ← inst1M b v
+      r.whnfCore depth e'
+    | some (.bvar _) =>
       throw (.notImplemented "whnf beyond the supported fragment")
     | none => throw (.internal "interned node missing")
 
@@ -491,7 +494,10 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")
-    | some (.bvar _) | some (.letE ..) =>
+    | some (.letE _ _ v b) => do
+      let e' ← inst1M b v
+      r.infer depth e'
+    | some (.bvar _) =>
       throw (.notImplemented "inferType beyond the supported fragment")
     | none => throw (.internal "interned node missing")
 

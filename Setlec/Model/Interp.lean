@@ -140,6 +140,17 @@ def interpExpr (cval : ConstVal V) (env : Env) (φ : Name → Nat) :
     match interpExpr cval env φ d ρ f, interpExpr cval env φ d ρ a with
     | some vf, some va => some (SetTheory.app vf va)
     | _, _ => none
+  | d, ρ, .letE n ty val body =>
+    -- a `let` is its body at the value: open the binder at index `d`
+    -- (exactly as the binder clauses do) and extend the valuation with
+    -- the value's interpretation; the `fvar` annotation is not read, so
+    -- the substitution lemma (`interp_beta`) identifies this with the
+    -- interpretation of the zeta reduct `body[val]`
+    match interpExpr cval env φ d ρ val with
+    | none => none
+    | some xv =>
+      interpExpr cval env φ (d + 1) (updV V ρ d xv)
+        (body.instantiate1 (.fvar d n ty))
   | d, ρ, .proj _ i e =>
     match interpExpr cval env φ d ρ e with
     | some ve =>
@@ -194,6 +205,15 @@ def AnnotOk (cval : ConstVal V) (env : Env) (φ : Name → Nat) :
     ∃ vf va vE A B, interpExpr V cval env φ d ρ f = some vf ∧
       interpExpr V cval env φ d ρ a = some va ∧
       vf ∈ˢ pi vE A B ∧ va ∈ˢ A ∧ ∀ x, x ∈ˢ A → B x ∈ˢ univ vE
+  | d, ρ, .letE n ty val body =>
+    -- the value interprets, and the body opened at the value's
+    -- interpretation is truthful — exactly what `AnnotOk_beta` needs to
+    -- transport truthfulness onto the zeta reduct `body[val]`
+    AnnotOk cval env φ d ρ ty ∧
+    AnnotOk cval env φ d ρ val ∧
+    ∃ xv, interpExpr V cval env φ d ρ val = some xv ∧
+      AnnotOk cval env φ (d + 1) (updV V ρ d xv)
+        (body.instantiate1 (.fvar d n ty))
   | d, ρ, .proj _ i e =>
     AnnotOk cval env φ d ρ e ∧ i < 2 ∧
     ∃ ve u v A Bf, interpExpr V cval env φ d ρ e = some ve ∧

@@ -157,7 +157,22 @@ theorem interp_substFvarAt {p : Nat} {a : Expr} {va : V}
     simp only [substFvarAt, interpExpr]
     rw [interp_substFvarAt hwa hba f D hpD ρ' hva ha,
       interp_substFvarAt hwa hba b D hpD ρ' hva ha]
-  | .letE n ty val body, D, hpD, ρ', hva, ha => by simp [substFvarAt, interpExpr]
+  | .letE n ty val body, D, hpD, ρ', hva, ha => by
+    simp only [substFvarAt, interpExpr]
+    rw [interp_substFvarAt hwa hba val D hpD ρ' hva ha]
+    cases hval : interpExpr V cval env φ (D + 1) ρ' val with
+    | none => rfl
+    | some xv =>
+      simp only []
+      rw [← substFvarAt_instantiate1 hpD hba body 0, delV_updV hpD]
+      rw [interp_substFvarAt hwa hba (body.instantiate1 (.fvar (D + 1) n ty))
+        (D + 1) (by omega) (updV V ρ' (D + 1) xv)
+        (show updV V ρ' (D + 1) xv p = va by
+          simp only [updV]; rw [if_neg (by omega)]; exact hva)
+        (show interpExpr V cval env φ p (updV V ρ' (D + 1) xv) a = some va by
+          rw [interp_ext a (fun i hi => by
+            simp only [updV]; rw [if_neg (by omega)]) hwa.fvarsBelow]
+          exact ha)]
   | .lit l, D, hpD, ρ', hva, ha => by cases l <;> simp [substFvarAt, interpExpr]
   | .proj s i e, D, hpD, ρ', hva, ha => by
     simp only [substFvarAt, interpExpr]
@@ -205,7 +220,26 @@ theorem AnnotOk.substFvarAt {p : Nat} {a : Expr} {va : V}
   | .const n us, D, hpD, ρ', hva, ha, hAa, hA => by simp [Expr.substFvarAt, AnnotOk]
   | .lit l, D, hpD, ρ', hva, ha, hAa, hA => by simp [Expr.substFvarAt, AnnotOk]
   | .letE n ty val body, D, hpD, ρ', hva, ha, hAa, hA => by
-    simp [Expr.substFvarAt, AnnotOk]
+    simp only [AnnotOk] at hA
+    obtain ⟨haty, hav, xv, hxv, hopen⟩ := hA
+    simp only [Expr.substFvarAt, AnnotOk]
+    refine ⟨AnnotOk.substFvarAt hwa hba ty D hpD ρ' hva ha hAa haty,
+      AnnotOk.substFvarAt hwa hba val D hpD ρ' hva ha hAa hav, xv, ?_, ?_⟩
+    · rw [interp_substFvarAt hwa hba val D hpD ρ' hva ha]
+      exact hxv
+    · have hva' : updV V ρ' (D + 1) xv p = va := by
+        simp only [updV]; rw [if_neg (by omega)]; exact hva
+      have ha' : interpExpr V cval env φ p (updV V ρ' (D + 1) xv) a = some va := by
+        rw [interp_ext a (fun i hi => by
+          simp only [updV]; rw [if_neg (by omega)]) hwa.fvarsBelow]
+        exact ha
+      have hAa' : AnnotOk V cval env φ p (updV V ρ' (D + 1) xv) a := by
+        refine AnnotOk.ext a (fun i hi => by
+          simp only [updV]; rw [if_neg (by omega)]) hwa.fvarsBelow hAa
+      rw [← substFvarAt_instantiate1 hpD hba body 0, delV_updV hpD]
+      exact AnnotOk.substFvarAt hwa hba
+        (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1)
+        (by omega) (updV V ρ' (D + 1) xv) hva' ha' hAa' hopen
   | .proj s i e, D, hpD, ρ', hva, ha, hAa, hA => by
     simp only [AnnotOk] at hA
     obtain ⟨hae, hi2, ve, u', v', A, Bf, hvei, hsig, hAu, hBf⟩ := hA

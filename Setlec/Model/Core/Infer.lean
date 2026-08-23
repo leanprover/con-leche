@@ -526,8 +526,41 @@ theorem infer_claims (m : EnvModel V env)
     rw [inferTypeCore_succ] at h
     simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
   | letE n' t' v' b' =>
+    -- infer of the instantiated body; the letE node's interpretation is
+    -- the reduct's by `interp_beta`, and the reduct's truthfulness is
+    -- `AnnotOk_beta` on the letE clause
     rw [inferTypeCore_succ] at h
-    simp [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
+    simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure,
+      Except.pure, infer_def] at h
+    simp only [WScoped] at hw
+    simp only [looseBVarsBounded, Bool.and_eq_true] at hb
+    simp only [AnnotOk] at ha
+    obtain ⟨haty, hav, xv, hxv, haopen⟩ := ha
+    have hfb : fvarsBelow d b' := hw.2.2.fvarsBelow
+    have hwred : WScoped d (b'.instantiate1 v') :=
+      WScoped.instantiate1_gen hw.2.1 0 hw.2.2
+    have hbred : (b'.instantiate1 v').looseBVarsBounded 0 = true :=
+      looseBVarsBounded_instantiate1_gen hb.1.2 hb.2
+    have hLbred : Expr.LeavesBounded (b'.instantiate1 v') := fun l hl => by
+      rcases fvarLeaves_instantiate1 b' 0 hl with h2 | h2
+      · exact hLb l (by
+          simp only [fvarLeaves, List.mem_append]; exact Or.inr h2)
+      · exact hLb l (by
+          simp only [fvarLeaves, List.mem_append]; exact Or.inl (Or.inr h2))
+    have hokred : FvarsOk V m.val env φ d ρ (b'.instantiate1 v') :=
+      fun l hl => by
+        rcases fvarLeaves_instantiate1 b' 0 hl with h2 | h2
+        · exact hok l (by
+            simp only [fvarLeaves, List.mem_append]; exact Or.inr h2)
+        · exact hok l (by
+            simp only [fvarLeaves, List.mem_append]; exact Or.inl (Or.inr h2))
+    have hared : AnnotOk V m.val env φ d ρ (b'.instantiate1 v') :=
+      AnnotOk_beta hfb hw.2.1 hb.1.2 hxv hav 0 haopen
+    obtain ⟨⟨w, tw, hwi, htwi, hmem⟩, hAt⟩ :=
+      ihi h hwred hbred hLbred hokred hared
+    refine ⟨⟨w, tw, ?_, htwi, hmem⟩, hAt⟩
+    rw [← hwi, interp_beta (n := n') (ty := t') hfb hw.2.1 hb.1.2 hxv 0]
+    simp only [interpExpr, hxv]
 
 end Claims
 

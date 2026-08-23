@@ -783,7 +783,19 @@ theorem AnnotOk.renameConsts {f : Name → Name}
   | .fvar _ _ _, _, _, _ => by simp [Expr.renameConsts, AnnotOk]
   | .sort _, _, _, _ => by simp [Expr.renameConsts, AnnotOk]
   | .const _ _, _, _, _ => by simp [Expr.renameConsts, AnnotOk]
-  | .letE _ _ _ _, _, _, _ => by simp [Expr.renameConsts, AnnotOk]
+  | .letE n ty val body, d, ρ, ha => by
+    simp only [AnnotOk] at ha
+    obtain ⟨haty, hav, xv, hxv, hopen⟩ := ha
+    simp only [Expr.renameConsts, AnnotOk]
+    have hopeneq : ((body.renameConsts f).instantiate1
+        (.fvar d n (ty.renameConsts f))) =
+        (body.instantiate1 (.fvar d n ty)).renameConsts f := by
+      rw [Expr.renameConsts_instantiate1]
+    refine ⟨AnnotOk.renameConsts hro ty d ρ haty,
+      AnnotOk.renameConsts hro val d ρ hav, xv, ?_, ?_⟩
+    · rw [interp_renameConsts hro val d ρ]; exact hxv
+    · rw [hopeneq]
+      exact AnnotOk.renameConsts hro _ (d + 1) (updV V ρ d xv) hopen
   | .lit _, _, _, _ => by simp [Expr.renameConsts, AnnotOk]
 termination_by e => e.sizeB
 decreasing_by

@@ -537,9 +537,18 @@ theorem annotateCore_leaves_sub {env : Env} :
         rcases h2 with rfl | h2
         · omega
         · exact Or.inl (hsubty l h2)
-  | fuel + 1, .letE _ _ _ _, d, e', h, _, _ => by
-    rw [annotateCore_succ] at h
-    simp [annotateBody, throw, throwThe, MonadExceptOf.throw] at h
+  | fuel + 1, .letE n ty v b, d, e', h, hw, hb => by
+    simp only [WScoped] at hw
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+    obtain ⟨ty', v', -, -, hbody, -⟩ := annotateCore_letE_inv h
+    have hsub := annotateCore_leaves_sub fuel _ hbody
+      (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
+      (looseBVarsBounded_instantiate1_gen hb.1.2 hb.2)
+    intro l hl
+    simp only [fvarLeaves, List.mem_append]
+    rcases fvarLeaves_instantiate1 b 0 (hsub l hl) with h2 | h2
+    · exact Or.inr h2
+    · exact Or.inl (Or.inr h2)
   | fuel + 1, .lit l, d, e', h, _, _ => by
     rw [annotateCore_succ] at h
     match l, h with

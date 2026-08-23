@@ -55,8 +55,41 @@ theorem whnfCore_claims (m : EnvModel V env)
     rw [whnfCore_succ] at h
     simp [whnfCoreBody, throw, throwThe, MonadExceptOf.throw] at h
   | letE nn tt vv bb =>
+    -- zeta: the reduct is the body instantiated with the value; its
+    -- interpretation and truthfulness come from the letE `AnnotOk`
+    -- clause through the substitution lemmas (`interp_beta`,
+    -- `AnnotOk_beta`), exactly as in the beta case
     rw [whnfCore_succ] at h
-    simp [whnfCoreBody, throw, throwThe, MonadExceptOf.throw] at h
+    simp only [whnfCoreBody, whnfCore_def] at h
+    simp only [WScoped] at hw
+    simp only [looseBVarsBounded, Bool.and_eq_true] at hb
+    simp only [AnnotOk] at ha
+    obtain ⟨haty, hav, xv, hxv, haopen⟩ := ha
+    have hfb : fvarsBelow d bb := hw.2.2.fvarsBelow
+    have hwred : WScoped d (bb.instantiate1 vv) :=
+      WScoped.instantiate1_gen hw.2.1 0 hw.2.2
+    have hbred : (bb.instantiate1 vv).looseBVarsBounded 0 = true :=
+      looseBVarsBounded_instantiate1_gen hb.1.2 hb.2
+    have hLbred : Expr.LeavesBounded (bb.instantiate1 vv) := fun l hl => by
+      rcases fvarLeaves_instantiate1 bb 0 hl with h2 | h2
+      · exact hLb l (by
+          simp only [fvarLeaves, List.mem_append]; exact Or.inr h2)
+      · exact hLb l (by
+          simp only [fvarLeaves, List.mem_append]; exact Or.inl (Or.inr h2))
+    have hokred : FvarsOk V m.val env φ d ρ (bb.instantiate1 vv) :=
+      fun l hl => by
+        rcases fvarLeaves_instantiate1 bb 0 hl with h2 | h2
+        · exact hok l (by
+            simp only [fvarLeaves, List.mem_append]; exact Or.inr h2)
+        · exact hok l (by
+            simp only [fvarLeaves, List.mem_append]; exact Or.inl (Or.inr h2))
+    have hared : AnnotOk V m.val env φ d ρ (bb.instantiate1 vv) :=
+      AnnotOk_beta hfb hw.2.1 hb.1.2 hxv hav 0 haopen
+    obtain ⟨hie, hae⟩ := ihwc h hwred hbred hLbred hokred hared
+    refine ⟨?_, hae⟩
+    rw [hie]
+    rw [interp_beta (n := nn) (ty := tt) hfb hw.2.1 hb.1.2 hxv 0]
+    simp only [interpExpr, hxv]
   | const n ws =>
     rw [whnfCore_succ] at h
     simp only [whnfCoreBody, pure, Except.pure, Except.ok.injEq] at h

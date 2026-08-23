@@ -71,7 +71,19 @@ theorem AnnotOk.ext : ∀ (e : Expr) {d : Nat} {ρ ρ' : Nat → V},
   | .sort _, _, _, _, _, _, _ => by simp [AnnotOk]
   | .const _ _, _, _, _, _, _, _ => by simp [AnnotOk]
   | .fvar _ _ _, _, _, _, _, _, _ => by simp [AnnotOk]
-  | .letE _ _ _ _, _, _, _, _, _, _ => by simp [AnnotOk]
+  | .letE n ty val body, d, ρ, ρ', h, hb, ha => by
+    simp only [fvarsBelow] at hb
+    simp only [AnnotOk] at ha ⊢
+    obtain ⟨haty, hav, xv, hxv, hopen⟩ := ha
+    have hupd : ∀ i, i < d + 1 → updV V ρ d xv i = updV V ρ' d xv i := by
+      intro i hi
+      simp only [updV]
+      split
+      · rfl
+      · exact h i (by omega)
+    refine ⟨AnnotOk.ext ty h hb.1 haty, AnnotOk.ext val h hb.2.1 hav, xv, ?_, ?_⟩
+    · rw [← interp_ext val h hb.2.1]; exact hxv
+    · exact AnnotOk.ext _ hupd (fvarsBelow_instantiate1 0 hb.2.2) hopen
   | .lit _, _, _, _, _, _, _ => by simp [AnnotOk]
   | .proj s' i e, d, ρ, ρ', h, hb, ha => by
     simp only [fvarsBelow] at hb
@@ -137,7 +149,18 @@ theorem AnnotOk.shift : ∀ (e : Expr) {d p : Nat} {ρ : Nat → V} {x0 : V},
   | .fvar idx n ty, _, _, _, _, _, _, _ => by
     simp only [shiftFrom]
     split <;> simp [AnnotOk]
-  | .letE _ _ _ _, _, _, _, _, _, _, _ => by simp [AnnotOk, shiftFrom]
+  | .letE n ty val body, d, p, ρ, x0, hpd, hw, ha => by
+    have hw' : WScoped d ty ∧ WScoped d val ∧ WScoped d body := by
+      simpa [WScoped] using hw
+    simp only [AnnotOk] at ha
+    obtain ⟨haty, hav, xv, hxv, hopen⟩ := ha
+    simp only [shiftFrom, AnnotOk]
+    refine ⟨AnnotOk.shift ty hpd hw'.1 haty,
+      AnnotOk.shift val hpd hw'.2.1 hav, xv, ?_, ?_⟩
+    · rw [interp_shift val hpd hw'.2.1]; exact hxv
+    · rw [← shiftFrom_instantiate1 hpd, ← insV_updV hpd]
+      exact AnnotOk.shift _ (Nat.le_succ_of_le hpd)
+        (hw'.1.instantiate1 0 hw'.2.2) hopen
   | .lit _, _, _, _, _, _, _, _ => by simp [AnnotOk, shiftFrom]
   | .proj s' i e, d, p, ρ, x0, hpd, hw, ha => by
     have hw' : WScoped d e := by simpa [WScoped] using hw
@@ -210,7 +233,18 @@ theorem AnnotOk.unshift : ∀ (e : Expr) {d p : Nat} {ρ : Nat → V} {x0 : V},
   | .sort _, _, _, _, _, _, _, _ => by simp [AnnotOk]
   | .const _ _, _, _, _, _, _, _, _ => by simp [AnnotOk]
   | .fvar idx n ty, _, _, _, _, _, _, _ => by simp [AnnotOk]
-  | .letE _ _ _ _, _, _, _, _, _, _, _ => by simp [AnnotOk]
+  | .letE n ty val body, d, p, ρ, x0, hpd, hw, ha => by
+    have hw' : WScoped d ty ∧ WScoped d val ∧ WScoped d body := by
+      simpa [WScoped] using hw
+    simp only [shiftFrom, AnnotOk] at ha
+    obtain ⟨haty, hav, xv, hxv, hopen⟩ := ha
+    simp only [AnnotOk]
+    rw [interp_shift val hpd hw'.2.1] at hxv
+    rw [← shiftFrom_instantiate1 hpd, ← insV_updV hpd] at hopen
+    exact ⟨AnnotOk.unshift ty hpd hw'.1 haty,
+      AnnotOk.unshift val hpd hw'.2.1 hav, xv, hxv,
+      AnnotOk.unshift _ (Nat.le_succ_of_le hpd)
+        (hw'.1.instantiate1 0 hw'.2.2) hopen⟩
   | .lit _, _, _, _, _, _, _, _ => by simp [AnnotOk]
   | .proj s' i e, d, p, ρ, x0, hpd, hw, ha => by
     have hw' : WScoped d e := by simpa [WScoped] using hw
@@ -320,7 +354,15 @@ theorem AnnotOk.instLevels (hcp : ConstValParams cval env)
   | .sort _, _, _, _ => by simp [AnnotOk, instantiateLevelParams]
   | .const _ _, _, _, _ => by simp [AnnotOk, instantiateLevelParams]
   | .fvar _ _ _, _, _, _ => by simp [AnnotOk, instantiateLevelParams]
-  | .letE _ _ _ _, _, _, _ => by simp [AnnotOk, instantiateLevelParams]
+  | .letE n ty val body, d, ρ, ha => by
+    simp only [AnnotOk] at ha
+    obtain ⟨haty, hav, xv, hxv, hopen⟩ := ha
+    simp only [instantiateLevelParams, AnnotOk]
+    refine ⟨AnnotOk.instLevels hcp ty d ρ haty,
+      AnnotOk.instLevels hcp val d ρ hav, xv, ?_, ?_⟩
+    · rw [interp_instLevels hcp val d ρ]; exact hxv
+    · rw [← instantiateLevelParams_instantiate1]
+      exact AnnotOk.instLevels hcp _ (d + 1) (updV V ρ d xv) hopen
   | .lit _, _, _, _ => by simp [AnnotOk, instantiateLevelParams]
   | .proj s' i e, d, ρ, ha => by
     simp only [AnnotOk] at ha
@@ -386,7 +428,15 @@ theorem AnnotOk_renameConsts {f : Name → Name}
   | .sort _, _, _, _ => by simp [AnnotOk, Expr.renameConsts]
   | .const _ _, _, _, _ => by simp [AnnotOk, Expr.renameConsts]
   | .fvar _ _ _, _, _, _ => by simp [AnnotOk, Expr.renameConsts]
-  | .letE _ _ _ _, _, _, _ => by simp [AnnotOk, Expr.renameConsts]
+  | .letE n ty val body, d, ρ, ha => by
+    simp only [Expr.renameConsts, AnnotOk] at ha
+    obtain ⟨haty, hav, xv, hxv, hopen⟩ := ha
+    simp only [AnnotOk]
+    rw [interp_renameConsts hro val d ρ] at hxv
+    rw [← renameConsts_instantiate1] at hopen
+    exact ⟨AnnotOk_renameConsts hro ty d ρ haty,
+      AnnotOk_renameConsts hro val d ρ hav, xv, hxv,
+      AnnotOk_renameConsts hro _ (d + 1) (updV V ρ d xv) hopen⟩
   | .lit _, _, _, _ => by simp [AnnotOk, Expr.renameConsts]
   | .proj s' i e, d, ρ, ha => by
     simp only [Expr.renameConsts, AnnotOk] at ha
@@ -452,7 +502,15 @@ theorem AnnotOk.mono {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none)
   | .sort _, _, _, _, _ => by simp [AnnotOk]
   | .const _ _, _, _, _, _ => by simp [AnnotOk]
   | .fvar _ _ _, _, _, _, _ => by simp [AnnotOk]
-  | .letE _ _ _ _, _, _, _, _ => by simp [AnnotOk]
+  | .letE n ty val body, d, ρ, hres, ha => by
+    simp only [constsResolve, Bool.and_eq_true] at hres
+    simp only [AnnotOk] at ha ⊢
+    obtain ⟨haty, hav, xv, hxv, hopen⟩ := ha
+    refine ⟨AnnotOk.mono hfresh ty d ρ hres.1.1 haty,
+      AnnotOk.mono hfresh val d ρ hres.1.2 hav, xv, ?_, ?_⟩
+    · rw [interp_mono hfresh val d ρ hres.1.2]; exact hxv
+    · exact AnnotOk.mono hfresh _ (d + 1) (updV V ρ d xv)
+        (constsResolve_instantiate1 hres.1.1 0 hres.2) hopen
   | .lit _, _, _, _, _ => by simp [AnnotOk]
   | .proj s' i e, d, ρ, hres, ha => by
     simp only [constsResolve, Bool.and_eq_true] at hres
@@ -509,7 +567,13 @@ theorem AnnotOk.cval_ext {cval₁ cval₂ : ConstVal V}
   | .sort _, _, _, _ => by simp [AnnotOk]
   | .const _ _, _, _, _ => by simp [AnnotOk]
   | .fvar _ _ _, _, _, _ => by simp [AnnotOk]
-  | .letE _ _ _ _, _, _, _ => by simp [AnnotOk]
+  | .letE n ty val body, d, ρ, ha => by
+    simp only [AnnotOk] at ha ⊢
+    obtain ⟨haty, hav, xv, hxv, hopen⟩ := ha
+    refine ⟨AnnotOk.cval_ext hagree ty d ρ haty,
+      AnnotOk.cval_ext hagree val d ρ hav, xv, ?_, ?_⟩
+    · rw [← interp_cval_ext hagree val d ρ]; exact hxv
+    · exact AnnotOk.cval_ext hagree _ (d + 1) (updV V ρ d xv) hopen
   | .lit _, _, _, _ => by simp [AnnotOk]
   | .proj s' i e, d, ρ, ha => by
     simp only [AnnotOk] at ha ⊢
@@ -570,7 +634,13 @@ theorem AnnotOk.env_ext {env₁ env₂ : Env}
   | .sort _, _, _, _ => by simp [AnnotOk]
   | .const _ _, _, _, _ => by simp [AnnotOk]
   | .fvar _ _ _, _, _, _ => by simp [AnnotOk]
-  | .letE _ _ _ _, _, _, _ => by simp [AnnotOk]
+  | .letE n ty val body, d, ρ, ha => by
+    simp only [AnnotOk] at ha ⊢
+    obtain ⟨haty, hav, xv, hxv, hopen⟩ := ha
+    refine ⟨AnnotOk.env_ext henv hnat hstr ty d ρ haty,
+      AnnotOk.env_ext henv hnat hstr val d ρ hav, xv, ?_, ?_⟩
+    · rw [← interp_env_ext henv hnat hstr val d ρ]; exact hxv
+    · exact AnnotOk.env_ext henv hnat hstr _ (d + 1) (updV V ρ d xv) hopen
   | .lit _, _, _, _ => by simp [AnnotOk]
   | .proj s' i e, d, ρ, ha => by
     simp only [AnnotOk] at ha ⊢

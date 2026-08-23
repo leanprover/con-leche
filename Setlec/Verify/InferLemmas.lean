@@ -2491,7 +2491,9 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
         simp [whnfCoreBody, throw, throwThe, MonadExceptOf.throw] at h
       | letE nn tt vv bb =>
         rw [whnfCore_succ] at h
-        simp [whnfCoreBody, throw, throwThe, MonadExceptOf.throw] at h
+        simp only [whnfCoreBody, whnfCore_def] at h
+        simp only [WScoped] at hw
+        exact ihCore h (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
       | app f a =>
         simp only [WScoped] at hw
         obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h

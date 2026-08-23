@@ -430,6 +430,55 @@ theorem annotateCore_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
   | lit l' => exact nomatch h
   | proj s' i' e'' => exact nomatch h
 
+/-- Inversion for `annotate` on let-expressions: the annotation is
+checked to be a type, the value against the annotation, and the body is
+annotated with the value transparent (as its zeta reduct). -/
+theorem annotateCore_letE_inv {env : Env} {fuel d : Nat} {n : Name}
+    {ty v b e' : Expr}
+    (h : annotateCore env (fuel + 1) d (.letE n ty v b) = .ok e') :
+    ∃ ty' v', annotateCore env fuel d ty = .ok ty' ∧
+      annotateCore env fuel d v = .ok v' ∧
+      annotateCore env fuel d (b.instantiate1 v) = .ok e' ∧
+      ∃ tty u tv,
+        inferTypeCore env fuel d ty' = .ok tty ∧
+        ensureSortCore env fuel d tty = .ok u ∧
+        inferTypeCore env fuel d v' = .ok tv ∧
+        isDefEqCore env fuel d tv ty' = .ok true := by
+  rw [annotateCore_succ] at h
+  simp only [annotateBody, Bind.bind, Except.bind] at h
+  simp only [annotate_def, infer_def, defeq_def, ensureSort_def] at h
+  cases hty : annotateCore env fuel d ty with
+  | error e => rw [hty] at h; exact nomatch h
+  | ok ty' =>
+  rw [hty] at h; dsimp only at h
+  cases hit : inferTypeCore env fuel d ty' with
+  | error e => rw [hit] at h; exact nomatch h
+  | ok tty =>
+  rw [hit] at h; dsimp only at h
+  cases hes : ensureSortCore env fuel d tty with
+  | error e => rw [hes] at h; exact nomatch h
+  | ok u =>
+  rw [hes] at h; dsimp only at h
+  cases hv : annotateCore env fuel d v with
+  | error e => rw [hv] at h; exact nomatch h
+  | ok v' =>
+  rw [hv] at h; dsimp only at h
+  cases hiv : inferTypeCore env fuel d v' with
+  | error e => rw [hiv] at h; exact nomatch h
+  | ok tv =>
+  rw [hiv] at h; dsimp only at h
+  cases hde : isDefEqCore env fuel d tv ty' with
+  | error e => rw [hde] at h; exact nomatch h
+  | ok bl =>
+  rw [hde] at h; dsimp only at h
+  cases bl with
+  | false =>
+    simp only [Bool.false_eq_true, if_false] at h
+    exact nomatch h
+  | true =>
+  simp only [if_true] at h
+  exact ⟨ty', v', rfl, rfl, h, tty, u, tv, hit, hes, hiv, hde⟩
+
 theorem annotateCore_WScoped {env : Env} :
     ∀ (fuel : Nat) (e : Expr) {d : Nat} {e' : Expr},
       annotateCore env fuel d e = .ok e' → WScoped d e → WScoped d e'
@@ -557,9 +606,11 @@ theorem annotateCore_WScoped {env : Env} :
       (hwty'.instantiate1 0 hw.2)
     simp only [WScoped]
     exact ⟨hwty', WScoped.abstract1 0 hwbody'⟩
-  | fuel + 1, .letE _ _ _ _, d, e', h, _ => by
-    rw [annotateCore_succ] at h
-    simp [annotateBody, throw, throwThe, MonadExceptOf.throw] at h
+  | fuel + 1, .letE n ty v b, d, e', h, hw => by
+    simp only [WScoped] at hw
+    obtain ⟨ty', v', -, -, hb, -⟩ := annotateCore_letE_inv h
+    exact annotateCore_WScoped fuel _ hb
+      (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
 
 theorem annotateCore_looseBVars {env : Env} :
     ∀ (fuel : Nat) (e : Expr) {d : Nat} {e' : Expr},
@@ -687,9 +738,11 @@ theorem annotateCore_looseBVars {env : Env} :
     refine ⟨annotateCore_looseBVars fuel ty hty hb.1, ?_⟩
     exact looseBVarsBounded_abstract1 _ 0
       (annotateCore_looseBVars fuel _ hbody (looseBVarsBounded_instantiate1 body 0 hb.2))
-  | fuel + 1, .letE _ _ _ _, d, e', h, _ => by
-    rw [annotateCore_succ] at h
-    simp [annotateBody, throw, throwThe, MonadExceptOf.throw] at h
+  | fuel + 1, .letE n ty v bd, d, e', h, hb => by
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+    obtain ⟨ty', v', -, -, hbody, -⟩ := annotateCore_letE_inv h
+    exact annotateCore_looseBVars fuel _ hbody
+      (looseBVarsBounded_instantiate1_gen hb.1.2 hb.2)
 
 
 /-! ## Leaf equivalence

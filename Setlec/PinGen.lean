@@ -153,9 +153,11 @@ the generated pins stay small. -/
 def sanitizeBinderName (n : Lean.Name) : Setlec.Name :=
   toSetlecName n.eraseMacroScopes
 
-/-- Conversion; `letE` is zeta-expanded (the checker frontend does the
-same), `mdata` stripped, binder metadata carries `cod := none` (the raw
-form: the checker's annotation pass computes the codomain sorts). -/
+/-- Conversion; `letE` is zeta-expanded (pins are compared by
+definitional equality, and let-free pins keep the pin machinery
+independent of the kernel's letE rules), `mdata` stripped, binder
+metadata carries `cod := none` (the raw form: the checker's annotation
+pass computes the codomain sorts). -/
 partial def toSetlec : Lean.Expr → Except String Setlec.Expr
   | .bvar i => .ok (.bvar i)
   | .sort u => (Setlec.Expr.sort ·) <$> toSetlecLevel u

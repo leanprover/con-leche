@@ -823,7 +823,15 @@ theorem whnfCoreBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
   | .sort u | .fvar _ _ _ | .forallE _ _ _ _ | .lam _ _ _ _
   | .const _ _ | .lit _ =>
     exact DiscV.pure hw
-  | .bvar _ | .letE _ _ _ _ => exact DiscV.throw _
+  | .bvar _ => exact DiscV.throw _
+  | .letE _ ty v b =>
+    have hwtvb : WScoped d ty ∧ WScoped d v ∧ WScoped d b := by
+      simpa only [WScoped] using hw
+    show DiscV env _
+      ((C : CoreFns CheckSM).whnfCore d (b.instantiate1 v))
+      ((G : CoreFns CheckSM).whnfCore d (b.instantiate1 v))
+    exact ih.site_whnfCore henv
+      (WScoped.instantiate1_gen hwtvb.2.1 0 hwtvb.2.2)
   | .app g' a =>
     have hwfa : WScoped d g' ∧ WScoped d a := by
       simpa only [WScoped] using hw
@@ -1016,7 +1024,38 @@ theorem annotateBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     split
     · exact DiscV.pure (by simp [WScoped])
     · exact DiscV.throw _
-  | .letE _ _ _ _ => exact DiscV.throw _
+  | .letE n ty v b =>
+    have hwtvb : WScoped d ty ∧ WScoped d v ∧ WScoped d b := by
+      simpa only [WScoped] using hw
+    show DiscV env _
+      ((C : CoreFns CheckSM).annotate d ty >>= fun ty' =>
+        (C : CoreFns CheckSM).infer d ty' >>= fun tty =>
+        ensureSort C env d tty >>= fun _ =>
+        (C : CoreFns CheckSM).annotate d v >>= fun v' =>
+        (C : CoreFns CheckSM).infer d v' >>= fun tv =>
+        (C : CoreFns CheckSM).defeq d tv ty' >>= fun bb =>
+        if bb then
+          (C : CoreFns CheckSM).annotate d (b.instantiate1 v)
+        else throw (.invalid "let value type mismatch"))
+      ((G : CoreFns CheckSM).annotate d ty >>= fun ty' =>
+        (G : CoreFns CheckSM).infer d ty' >>= fun tty =>
+        ensureSort G env d tty >>= fun _ =>
+        (G : CoreFns CheckSM).annotate d v >>= fun v' =>
+        (G : CoreFns CheckSM).infer d v' >>= fun tv =>
+        (G : CoreFns CheckSM).defeq d tv ty' >>= fun bb =>
+        if bb then
+          (G : CoreFns CheckSM).annotate d (b.instantiate1 v)
+        else throw (.invalid "let value type mismatch"))
+    refine DiscV.bind (ih.site_annotate hwtvb.1) (fun ty' hty' => ?_)
+    refine DiscV.bind (ih.site_infer henv hty') (fun tty htty => ?_)
+    refine DiscV.bind (ensureSort_disc ih henv htty) (fun u _ => ?_)
+    refine DiscV.bind (ih.site_annotate hwtvb.2.1) (fun v' hv' => ?_)
+    refine DiscV.bind (ih.site_infer henv hv') (fun tv htv => ?_)
+    refine DiscV.bind (ih.site_defeq htv hty') (fun bb _ => ?_)
+    split
+    · exact ih.site_annotate
+        (WScoped.instantiate1_gen hwtvb.2.1 0 hwtvb.2.2)
+    · exact DiscV.throw _
   | .app g' a =>
     have hwfa : WScoped d g' ∧ WScoped d a := by
       simpa only [WScoped] using hw
@@ -1158,7 +1197,15 @@ theorem inferBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     DiscV env (WScoped d) (inferBody C env d e)
       (inferBody G env d e) := by
   match e with
-  | .bvar _ | .letE _ _ _ _ => exact DiscV.throw _
+  | .bvar _ => exact DiscV.throw _
+  | .letE _ ty v b =>
+    have hwtvb : WScoped d ty ∧ WScoped d v ∧ WScoped d b := by
+      simpa only [WScoped] using hw
+    show DiscV env _
+      ((C : CoreFns CheckSM).infer d (b.instantiate1 v))
+      ((G : CoreFns CheckSM).infer d (b.instantiate1 v))
+    exact ih.site_infer henv
+      (WScoped.instantiate1_gen hwtvb.2.1 0 hwtvb.2.2)
   | .lit (.strVal s) =>
     show DiscV env _
       (if strLitSupported env then pure (Expr.const stringName [])

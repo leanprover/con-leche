@@ -442,9 +442,30 @@ theorem annotateCore_sound (m : EnvModel V env) :
       exact hmem
     · intro x hx
       exact app_mem hBmem hx fun _ _ => univ_mem_univ _
-  | fuel + 1, .letE _ _ _ _, d, e', h, _, _, _, ρ, _ => by
-    rw [annotateCore_succ] at h
-    simp [annotateBody, throw, throwThe, MonadExceptOf.throw] at h
+  | fuel + 1, .letE n ty v b, d, e', h, hw, hb, hLb, ρ, hok => by
+    -- the body is annotated as its zeta reduct (value-transparent, as
+    -- in nanoda's `infer_let`); truthfulness of the result is the
+    -- recursion on the instantiated body — the type/value checks steer
+    -- the verdict only
+    simp only [WScoped] at hw
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+    obtain ⟨ty', v', -, -, hbody, -⟩ := annotateCore_letE_inv h
+    have hLbin : Expr.LeavesBounded (b.instantiate1 v) := fun l hl => by
+      rcases fvarLeaves_instantiate1 b 0 hl with h2 | h2
+      · exact hLb l (by
+          simp only [fvarLeaves, List.mem_append]; exact Or.inr h2)
+      · exact hLb l (by
+          simp only [fvarLeaves, List.mem_append]; exact Or.inl (Or.inr h2))
+    have hokin : FvarsOk V m.val env φ d ρ (b.instantiate1 v) :=
+      fun l hl => by
+        rcases fvarLeaves_instantiate1 b 0 hl with h2 | h2
+        · exact hok l (by
+            simp only [fvarLeaves, List.mem_append]; exact Or.inr h2)
+        · exact hok l (by
+            simp only [fvarLeaves, List.mem_append]; exact Or.inl (Or.inr h2))
+    exact annotateCore_sound m fuel _ hbody
+      (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
+      (looseBVarsBounded_instantiate1_gen hb.1.2 hb.2) hLbin ρ hokin
   | fuel + 1, .lit l0, d, e', h, _, _, _, ρ, _ => by
     rw [annotateCore_succ] at h
     match l0, h with
