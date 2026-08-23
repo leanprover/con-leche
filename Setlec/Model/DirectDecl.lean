@@ -932,8 +932,7 @@ theorem directRec_body {env₂ : Env} (m₂ : EnvModel V env₂)
     (hTlps : cvTa.levelParams = p.cvT.levelParams)
     (hTname : cvTa.name = p.cvT.name)
     (hCfind : env₂.find? p.cvC.name = some (.ctorInfo cvCa p.nP p.nF))
-    (hClps : cvCa.levelParams = p.cvT.levelParams)
-    (hCname : cvCa.name = p.cvC.name) :
+    (hClps : cvCa.levelParams = p.cvT.levelParams) :
     TeleBody V m₂.val env₂ φ (p.nP + 3) 0 (rho0 V) cvRa.type
       (fun _ _ xs => SpineFold V (xs.getD (p.nP + 1) SetTheory.empty)
         ((List.range p.nF).map fun j =>
