@@ -795,4 +795,968 @@ theorem inferLams_sound (henv : EnvWF env) {d : Nat} :
 
 end InferSound
 
+/-! ## Annotation ∀-loop: unfolds, `atF`, soundness -/
+
+section AnnPisUnfold
+
+variable {r : CoreFns m} {env : Env} {d : Nat}
+
+theorem annotatePis_zero (t : Expr) (k : Nat) (fvs : List Expr)
+    (stk : List AnnotBinderEntryX) :
+    annotatePis r env d 0 t k fvs stk
+      = annotatePisLeaf r env d t k fvs stk := rfl
+
+theorem annotatePis_succ_pi (fuel : Nat) (n : Name) (ty body : Expr)
+    (mb : BinderMeta) (k : Nat) (fvs : List Expr)
+    (stk : List AnnotBinderEntryX) :
+    annotatePis r env d (fuel + 1) (.forallE n ty body mb) k fvs stk
+      = (do
+        let ty' ← r.annotate (d + k) (ty.instantiateList fvs)
+        annotatePis r env d fuel body (k + 1)
+          (Expr.fvar (d + k) n ty' :: fvs) ((n, ty', mb.bi) :: stk)) := rfl
+
+theorem annotatePis_succ_ne_pi (fuel : Nat) {t : Expr}
+    (ht : ∀ n ty body mb, t ≠ .forallE n ty body mb) (k : Nat)
+    (fvs : List Expr) (stk : List AnnotBinderEntryX) :
+    annotatePis r env d (fuel + 1) t k fvs stk
+      = annotatePisLeaf r env d t k fvs stk := by
+  cases t with
+  | forallE n ty body mb => exact absurd rfl (ht n ty body mb)
+  | _ => rw [annotatePis] <;> exact fun _ _ _ _ h => nomatch h
+
+theorem annotatePisOut_cons (n : Name) (ty' : Expr) (bi : BinderInfo)
+    (e' : AnnotBinderEntryX) (rest : List AnnotBinderEntryX)
+    (j : Nat) (vcur : Level) (cur : Expr) :
+    annotatePisOut r d ((n, ty', bi) :: e' :: rest) j vcur cur
+      = (do
+        let tty ← r.infer (d + j) ty'
+        match ← r.whnf (d + j) tty with
+        | .sort u =>
+          annotatePisOut r d (e' :: rest) (j - 1) (.imax u vcur)
+            (Expr.forallE n (ty'.abstractRange d j) cur ⟨bi, some vcur⟩)
+        | _ => throw (.invalid "expected a sort")) := rfl
+
+theorem annotatePisOut_single (n : Name) (ty' : Expr) (bi : BinderInfo)
+    (j : Nat) (vcur : Level) (cur : Expr) :
+    annotatePisOut r d [(n, ty', bi)] j vcur cur
+      = pure (Expr.forallE n (ty'.abstractRange d j) cur ⟨bi, some vcur⟩) :=
+  rfl
+
+end AnnPisUnfold
+
+section AnnPisAtF
+
+variable {env : Env}
+
+theorem annotatePisOut_atF (d : Nat) :
+    ∀ (stk : List AnnotBinderEntryX) (j : Nat) (vcur : Level) (cur : Expr)
+      (F : Nat),
+      (annotatePisOut (fueledFns env) d stk j vcur cur).val F
+        = annotatePisOut (pureFns env F) d stk j vcur cur
+  | [], _, _, _, _ => rfl
+  | (n, ty', bi) :: rest, j, vcur, cur, F => by
+    cases rest with
+    | nil => rfl
+    | cons e' rest' =>
+      rw [annotatePisOut_cons, annotatePisOut_cons]
+      rw [FueledM.atF_bind]
+      congr 1
+      funext tty
+      rw [FueledM.atF_bind]
+      congr 1
+      funext w
+      cases w <;> first
+        | rfl
+        | exact annotatePisOut_atF d (e' :: rest') (j - 1) _ _ F
+
+theorem annotatePisLeaf_atF (d : Nat) (t : Expr) (k : Nat)
+    (fvs : List Expr) (stk : List AnnotBinderEntryX) (F : Nat) :
+    (annotatePisLeaf (fueledFns env) env d t k fvs stk).val F
+      = annotatePisLeaf (pureFns env F) env d t k fvs stk := by
+  unfold annotatePisLeaf
+  rw [FueledM.atF_bind]
+  congr 1
+  funext leaf'
+  rw [FueledM.atF_bind]
+  congr 1
+  funext tb
+  rw [FueledM.atF_bind, ensureSort_atF]
+  congr 1
+  funext v
+  exact annotatePisOut_atF d stk (k - 1) _ _ F
+
+theorem annotatePis_atF (d : Nat) :
+    ∀ (fuel : Nat) (t : Expr) (k : Nat) (fvs : List Expr)
+      (stk : List AnnotBinderEntryX) (F : Nat),
+      (annotatePis (fueledFns env) env d fuel t k fvs stk).val F
+        = annotatePis (pureFns env F) env d fuel t k fvs stk
+  | 0, t, k, fvs, stk, F => annotatePisLeaf_atF d t k fvs stk F
+  | fuel + 1, t, k, fvs, stk, F => by
+    by_cases hpi : ∃ n ty body mb, t = Expr.forallE n ty body mb
+    · obtain ⟨n, ty, body, mb, rfl⟩ := hpi
+      rw [annotatePis_succ_pi, annotatePis_succ_pi]
+      rw [FueledM.atF_bind]
+      congr 1
+      funext ty'
+      exact annotatePis_atF d fuel body (k + 1) _ _ F
+    · have ht : ∀ n ty body mb, t ≠ Expr.forallE n ty body mb :=
+        fun n ty b mb hh => hpi ⟨n, ty, b, mb, hh⟩
+      rw [annotatePis_succ_ne_pi _ ht, annotatePis_succ_ne_pi _ ht]
+      exact annotatePisLeaf_atF d t k fvs stk F
+
+theorem annotatePisWrap_mono {d : Nat} :
+    ∀ {stk : List AnnotBinderEntryX} {j : Nat} {body' : Expr} {F F' : Nat},
+      F ≤ F' → ∀ {res : Expr},
+      annotatePisWrap (pureFns env F) env d stk j body' = .ok res →
+      annotatePisWrap (pureFns env F') env d stk j body' = .ok res := by
+  intro stk
+  induction stk with
+  | nil => intro j body' F F' hle res h; exact h
+  | cons e rest ih =>
+    obtain ⟨n, ty', bi⟩ := e
+    intro j body' F F' hle res h
+    unfold annotatePisWrap at h ⊢
+    obtain ⟨tb, htb, h⟩ := bind_okB h
+    rw [infer_def] at htb
+    rw [infer_def, inferTypeCore_mono hle htb, okB_bind]
+    obtain ⟨v, hv, h⟩ := bind_okB h
+    rw [ensureSort_def, ensureSortCore_eq] at hv
+    rw [ensureSort_def, ensureSortCore_eq]
+    obtain ⟨w, hw, hv⟩ := bind_okB hv
+    rw [whnf_mono hle hw, okB_bind]
+    obtain ⟨u, rfl⟩ : ∃ u, w = Expr.sort u := by
+      cases w with
+      | sort u' => exact ⟨u', rfl⟩
+      | bvar i => exact nomatch hv
+      | fvar idx nm tt => exact nomatch hv
+      | const nm us => exact nomatch hv
+      | app f a => exact nomatch hv
+      | lam nm tt b mm => exact nomatch hv
+      | forallE nm tt b mm => exact nomatch hv
+      | letE nm tt vv b => exact nomatch hv
+      | lit l => exact nomatch hv
+      | proj sp i e => exact nomatch hv
+    dsimp only at hv ⊢
+    injection hv with hv
+    subst hv
+    exact ih hle h
+
+/-- A successful ∀-out-phase run is reproduced by the chained
+annotation tails at some fuel, given the current body facts. -/
+theorem annotatePisOut_wrap {d : Nat} :
+    ∀ (stk : List AnnotBinderEntryX) (j : Nat) (vcur : Level)
+      (body' : Expr) (res : Expr) (F : Nat),
+      stk.length = j + 1 →
+      (∃ F₀ tb, inferTypeCore env F₀ (d + j + 1) body' = .ok tb ∧
+        ensureSortCore env F₀ (d + j + 1) tb = .ok vcur) →
+      annotatePisOut (pureFns env F) d stk j vcur
+          (body'.abstractRange d (j + 1)) = .ok res →
+      ∃ F', annotatePisWrap (pureFns env F') env d stk j body' = .ok res := by
+  intro stk
+  induction stk with
+  | nil => intro j vcur body' res F hlen; exact nomatch hlen
+  | cons e rest ih =>
+    obtain ⟨n, ty', bi⟩ := e
+    intro j vcur body' res F hlen hfacts hrun
+    obtain ⟨F₀, tb, htb, hes⟩ := hfacts
+    cases rest with
+    | nil =>
+      obtain rfl : j = 0 := by simpa using hlen
+      rw [annotatePisOut_single] at hrun
+      injection hrun with hres
+      refine ⟨F₀, ?_⟩
+      unfold annotatePisWrap
+      rw [infer_def, htb, okB_bind]
+      rw [ensureSort_def, hes, okB_bind]
+      unfold annotatePisWrap
+      have h1 : ty'.abstractRange d 0 = ty' := abstractRange_zero ..
+      have h2 : body'.abstractRange d (0 + 1) 0
+          = body'.abstract1 (d + 0) 0 := by
+        rw [abstractRange_succ, abstractRange_zero]
+      rw [h1, h2] at hres
+      show Except.ok (Expr.forallE n ty' (body'.abstract1 (d + 0) 0)
+        ⟨bi, some vcur⟩) = Except.ok res
+      rw [hres]
+    | cons e' rest' =>
+      have hj1 : 1 ≤ j := by
+        simp only [List.length_cons] at hlen
+        omega
+      rw [annotatePisOut_cons] at hrun
+      obtain ⟨tty, htty, hrun⟩ := bind_okB hrun
+      rw [infer_def] at htty
+      obtain ⟨w, hww, hrun⟩ := bind_okB hrun
+      rw [whnf_def] at hww
+      obtain ⟨u, rfl⟩ : ∃ u, w = Expr.sort u := by
+        cases w with
+        | sort u' => exact ⟨u', rfl⟩
+        | bvar i => exact nomatch hrun
+        | fvar idx nm tt => exact nomatch hrun
+        | const nm us => exact nomatch hrun
+        | app f a => exact nomatch hrun
+        | lam nm tt b mm => exact nomatch hrun
+        | forallE nm tt b mm => exact nomatch hrun
+        | letE nm tt vv b => exact nomatch hrun
+        | lit l => exact nomatch hrun
+        | proj sp i e => exact nomatch hrun
+      dsimp only at hrun
+      have hjeq : d + (j - 1) + 1 = d + j := by omega
+      have hnode : Expr.forallE n (ty'.abstractRange d j)
+          (body'.abstractRange d (j + 1)) ⟨bi, some vcur⟩
+          = (Expr.forallE n ty' (body'.abstract1 (d + j))
+              ⟨bi, some vcur⟩).abstractRange d ((j - 1) + 1) := by
+        have hj : (j - 1) + 1 = j := by omega
+        rw [hj]
+        show _ = Expr.forallE n (ty'.abstractRange d j 0)
+          ((body'.abstract1 (d + j) 0).abstractRange d j 1) ⟨bi, some vcur⟩
+        rw [abstractRange_succ]
+      have hfacts' : ∃ F₁ tb', inferTypeCore env F₁ (d + (j - 1) + 1)
+            (Expr.forallE n ty' (body'.abstract1 (d + j)) ⟨bi, some vcur⟩)
+              = .ok tb' ∧
+          ensureSortCore env F₁ (d + (j - 1) + 1) tb'
+            = .ok (.imax u vcur) := by
+        refine ⟨(F + 2) + 1, .sort (.imax u vcur), ?_, ?_⟩
+        · rw [hjeq, inferTypeCore_forallE_eq]
+          rw [inferTypeCore_mono (by omega : F ≤ F + 2) htty, okB_bind]
+          rw [whnf_mono (by omega : F ≤ F + 2) hww, okB_bind]
+          rfl
+        · rw [hjeq, ensureSortCore_eq]
+          rw [whnf_sort env (F + 1) (d + j) (.imax u vcur), okB_bind]
+          rfl
+      rw [hnode] at hrun
+      obtain ⟨F', hwrap'⟩ := ih (j - 1) (.imax u vcur)
+        (Expr.forallE n ty' (body'.abstract1 (d + j)) ⟨bi, some vcur⟩) res F
+        (by simp only [List.length_cons] at hlen ⊢; omega)
+        (by
+          obtain ⟨F₁, tb', h1, h2⟩ := hfacts'
+          exact ⟨F₁, tb', h1, h2⟩)
+        hrun
+      refine ⟨max F' F₀, ?_⟩
+      unfold annotatePisWrap
+      rw [infer_def,
+        inferTypeCore_mono (Nat.le_max_right F' F₀) htb, okB_bind]
+      rw [ensureSort_def,
+        ensureSortCore_mono (Nat.le_max_right F' F₀) hes, okB_bind]
+      exact annotatePisWrap_mono (Nat.le_max_left F' F₀) hwrap'
+
+/-- Leaf-phase soundness of the ∀-annotation loop. -/
+theorem annotatePisLeaf_sound {d : Nat} {t : Expr} {k : Nat}
+    {fvs : List Expr} {stk : List AnnotBinderEntryX} {F : Nat} {res : Expr}
+    (hlen : stk.length = k)
+    (hrun : annotatePisLeaf (pureFns env F) env d t k fvs stk = .ok res) :
+    ∃ F', (annotateCore env F' (d + k) (t.instantiateList fvs) >>=
+      fun body' => annotatePisWrap (pureFns env F') env d stk (k - 1) body')
+        = .ok res := by
+  unfold annotatePisLeaf at hrun
+  obtain ⟨leaf', hleaf, hrun⟩ := bind_okB hrun
+  rw [annotate_def] at hleaf
+  obtain ⟨tb, htb, hrun⟩ := bind_okB hrun
+  rw [infer_def] at htb
+  obtain ⟨v, hv, hrun⟩ := bind_okB hrun
+  rw [ensureSort_def] at hv
+  cases stk with
+  | nil =>
+    obtain rfl : k = 0 := by simpa using hlen.symm
+    unfold annotatePisOut at hrun
+    rw [abstractRange_zero] at hrun
+    injection hrun with hres
+    refine ⟨F, ?_⟩
+    rw [hleaf, okB_bind]
+    unfold annotatePisWrap
+    rw [hres]
+    rfl
+  | cons e rest =>
+    have hk1 : 1 ≤ k := by
+      rw [← hlen]
+      simp
+    have hkeq : (k - 1) + 1 = k := by omega
+    have hfacts : ∃ F₀ tb', inferTypeCore env F₀ (d + (k - 1) + 1) leaf'
+          = .ok tb' ∧
+        ensureSortCore env F₀ (d + (k - 1) + 1) tb' = .ok v := by
+      refine ⟨F, tb, ?_, ?_⟩ <;>
+        rw [show d + (k - 1) + 1 = d + k from by omega]
+      · exact htb
+      · exact hv
+    have hrun' : annotatePisOut (pureFns env F) d (e :: rest) (k - 1) v
+        (leaf'.abstractRange d ((k - 1) + 1)) = .ok res := by
+      rw [hkeq]
+      exact hrun
+    obtain ⟨F', hwrap⟩ := annotatePisOut_wrap (e :: rest) (k - 1) v leaf'
+      res F (by simp only [List.length_cons] at hlen ⊢; omega) hfacts hrun'
+    refine ⟨max F F', ?_⟩
+    rw [annotateCore_mono (Nat.le_max_left F F') hleaf, okB_bind]
+    exact annotatePisWrap_mono (Nat.le_max_right F F') hwrap
+
+/-- A successful ∀-peel run is reproduced by the chained annotation of
+the bulk-opened residual followed by the tails, at some fuel. -/
+theorem annotatePis_sound {d : Nat} :
+    ∀ (fuel : Nat) (t : Expr) (k : Nat) (fvs : List Expr)
+      (stk : List AnnotBinderEntryX) (F : Nat) (res : Expr),
+      stk.length = k →
+      annotatePis (pureFns env F) env d fuel t k fvs stk = .ok res →
+      ∃ F', (annotateCore env F' (d + k) (t.instantiateList fvs) >>=
+        fun body' => annotatePisWrap (pureFns env F') env d stk (k - 1)
+          body') = .ok res := by
+  intro fuel
+  induction fuel with
+  | zero =>
+    intro t k fvs stk F res hlen hrun
+    rw [annotatePis_zero] at hrun
+    exact annotatePisLeaf_sound hlen hrun
+  | succ fuel ihf =>
+    intro t k fvs stk F res hlen hrun
+    by_cases hpi : ∃ n ty body mb, t = Expr.forallE n ty body mb
+    · obtain ⟨n, ty, body, mb, rfl⟩ := hpi
+      rw [annotatePis_succ_pi] at hrun
+      obtain ⟨ty', hty', hrun⟩ := bind_okB hrun
+      rw [annotate_def] at hty'
+      obtain ⟨F', hchain⟩ := ihf body (k + 1) _ _ F res
+        (by simpa using hlen) hrun
+      obtain ⟨body', hbody, hwrap⟩ := bind_okB hchain
+      refine ⟨(max F F') + 1, ?_⟩
+      have hpiL : (Expr.forallE n ty body mb).instantiateList fvs
+          = Expr.forallE n (ty.instantiateList fvs)
+            (body.instantiateList fvs 1) mb := by
+        simp [Expr.instantiateList]
+      rw [hpiL, annotateCore_forallE_eq]
+      rw [annotateCore_mono (Nat.le_max_left F F') hty', okB_bind]
+      rw [show (body.instantiateList fvs 1).instantiate1
+          (.fvar (d + k) n ty')
+          = body.instantiateList (Expr.fvar (d + k) n ty' :: fvs) from
+        (Expr.instantiateList_cons ..).symm]
+      rw [show d + k + 1 = d + (k + 1) from by omega]
+      rw [annotateCore_mono (Nat.le_max_right F F') hbody, okB_bind]
+      have hwrap' := annotatePisWrap_mono (F' := max F F')
+        (Nat.le_max_right F F') hwrap
+      rw [show (k + 1 : Nat) - 1 = k from rfl] at hwrap'
+      unfold annotatePisWrap at hwrap'
+      obtain ⟨tb, htb, hwrap'⟩ := bind_okB hwrap'
+      rw [infer_def] at htb
+      rw [show d + k + 1 = d + (k + 1) from by omega] at htb
+      rw [htb, okB_bind]
+      obtain ⟨v, hv, hwrap'⟩ := bind_okB hwrap'
+      rw [ensureSort_def] at hv
+      rw [show d + k + 1 = d + (k + 1) from by omega] at hv
+      rw [hv, okB_bind]
+      try dsimp only
+      exact annotatePisWrap_mono (Nat.le_succ (max F F')) hwrap'
+    · have ht : ∀ n ty body mb, t ≠ Expr.forallE n ty body mb :=
+        fun n ty b mb hh => hpi ⟨n, ty, b, mb, hh⟩
+      rw [annotatePis_succ_ne_pi _ ht] at hrun
+      exact annotatePisLeaf_sound hlen hrun
+
+end AnnPisAtF
+
+/-! ## Annotation λ-loop: unfolds, `atF`, soundness -/
+
+section AnnLamsUnfold
+
+variable {r : CoreFns m} {env : Env} {d : Nat}
+
+theorem annotateLams_zero (t : Expr) (k : Nat) (fvs : List Expr)
+    (stk : List AnnotBinderEntryX) :
+    annotateLams r env d 0 t k fvs stk
+      = annotateLamsLeaf r env d t k fvs stk := rfl
+
+theorem annotateLams_succ_lam (fuel : Nat) (n : Name) (ty body : Expr)
+    (mb : BinderMeta) (k : Nat) (fvs : List Expr)
+    (stk : List AnnotBinderEntryX) :
+    annotateLams r env d (fuel + 1) (.lam n ty body mb) k fvs stk
+      = (do
+        let ty' ← r.annotate (d + k) (ty.instantiateList fvs)
+        annotateLams r env d fuel body (k + 1)
+          (Expr.fvar (d + k) n ty' :: fvs) ((n, ty', mb.bi) :: stk)) := rfl
+
+theorem annotateLams_succ_ne_lam (fuel : Nat) {t : Expr}
+    (ht : ∀ n ty body mb, t ≠ .lam n ty body mb) (k : Nat)
+    (fvs : List Expr) (stk : List AnnotBinderEntryX) :
+    annotateLams r env d (fuel + 1) t k fvs stk
+      = annotateLamsLeaf r env d t k fvs stk := by
+  cases t with
+  | lam n ty body mb => exact absurd rfl (ht n ty body mb)
+  | _ => rw [annotateLams] <;> exact fun _ _ _ _ h => nomatch h
+
+theorem annotateLamsOut_cons (n : Name) (ty' : Expr) (bi : BinderInfo)
+    (e' : AnnotBinderEntryX) (rest : List AnnotBinderEntryX)
+    (j : Nat) (vcur : Level) (cur : Expr) :
+    annotateLamsOut r d ((n, ty', bi) :: e' :: rest) j vcur cur
+      = (do
+        let tty ← r.infer (d + j) ty'
+        match ← r.whnf (d + j) tty with
+        | .sort u => do
+          unless ← liftFueled "level comparison" (Level.isEquiv vcur vcur) do
+            throw (.invalid "λ-annotation does not match the body's sort")
+          annotateLamsOut r d (e' :: rest) (j - 1) (.imax u vcur)
+            (Expr.lam n (ty'.abstractRange d j) cur ⟨bi, some vcur⟩)
+        | _ => throw (.invalid "expected a sort")) := rfl
+
+theorem annotateLamsOut_single (n : Name) (ty' : Expr) (bi : BinderInfo)
+    (j : Nat) (vcur : Level) (cur : Expr) :
+    annotateLamsOut r d [(n, ty', bi)] j vcur cur
+      = pure (Expr.lam n (ty'.abstractRange d j) cur ⟨bi, some vcur⟩) :=
+  rfl
+
+end AnnLamsUnfold
+
+section AnnLamsAtF
+
+variable {env : Env}
+
+theorem annotateLamsOut_atF (d : Nat) :
+    ∀ (stk : List AnnotBinderEntryX) (j : Nat) (vcur : Level) (cur : Expr)
+      (F : Nat),
+      (annotateLamsOut (fueledFns env) d stk j vcur cur).val F
+        = annotateLamsOut (pureFns env F) d stk j vcur cur
+  | [], _, _, _, _ => rfl
+  | (n, ty', bi) :: rest, j, vcur, cur, F => by
+    cases rest with
+    | nil => rfl
+    | cons e' rest' =>
+      rw [annotateLamsOut_cons, annotateLamsOut_cons]
+      rw [FueledM.atF_bind]
+      congr 1
+      funext tty
+      rw [FueledM.atF_bind]
+      congr 1
+      funext w
+      cases w <;> try rfl
+      rw [FueledM.atF_bind, liftFueled_atF]
+      congr 1
+      funext b
+      cases b with
+      | true =>
+        simp only [↓reduceIte]
+        exact annotateLamsOut_atF d (e' :: rest') (j - 1) _ _ F
+      | false => rfl
+
+theorem annotateLamsLeaf_atF (d : Nat) (t : Expr) (k : Nat)
+    (fvs : List Expr) (stk : List AnnotBinderEntryX) (F : Nat) :
+    (annotateLamsLeaf (fueledFns env) env d t k fvs stk).val F
+      = annotateLamsLeaf (pureFns env F) env d t k fvs stk := by
+  unfold annotateLamsLeaf
+  rw [FueledM.atF_bind]
+  congr 1
+  funext leaf'
+  rw [FueledM.atF_bind]
+  congr 1
+  funext bt
+  rw [FueledM.atF_bind]
+  congr 1
+  funext tbt
+  rw [FueledM.atF_bind, ensureSort_atF]
+  congr 1
+  funext v
+  exact annotateLamsOut_atF d stk (k - 1) _ _ F
+
+theorem annotateLams_atF (d : Nat) :
+    ∀ (fuel : Nat) (t : Expr) (k : Nat) (fvs : List Expr)
+      (stk : List AnnotBinderEntryX) (F : Nat),
+      (annotateLams (fueledFns env) env d fuel t k fvs stk).val F
+        = annotateLams (pureFns env F) env d fuel t k fvs stk
+  | 0, t, k, fvs, stk, F => annotateLamsLeaf_atF d t k fvs stk F
+  | fuel + 1, t, k, fvs, stk, F => by
+    by_cases hlam : ∃ n ty body mb, t = Expr.lam n ty body mb
+    · obtain ⟨n, ty, body, mb, rfl⟩ := hlam
+      rw [annotateLams_succ_lam, annotateLams_succ_lam]
+      rw [FueledM.atF_bind]
+      congr 1
+      funext ty'
+      exact annotateLams_atF d fuel body (k + 1) _ _ F
+    · have ht : ∀ n ty body mb, t ≠ Expr.lam n ty body mb :=
+        fun n ty b mb hh => hlam ⟨n, ty, b, mb, hh⟩
+      rw [annotateLams_succ_ne_lam _ ht, annotateLams_succ_ne_lam _ ht]
+      exact annotateLamsLeaf_atF d t k fvs stk F
+
+theorem annotateLamsWrap_mono {d : Nat} :
+    ∀ {stk : List AnnotBinderEntryX} {j : Nat} {body' : Expr} {F F' : Nat},
+      F ≤ F' → ∀ {res : Expr},
+      annotateLamsWrap (pureFns env F) env d stk j body' = .ok res →
+      annotateLamsWrap (pureFns env F') env d stk j body' = .ok res := by
+  intro stk
+  induction stk with
+  | nil => intro j body' F F' hle res h; exact h
+  | cons e rest ih =>
+    obtain ⟨n, ty', bi⟩ := e
+    intro j body' F F' hle res h
+    unfold annotateLamsWrap at h ⊢
+    obtain ⟨bt, hbt, h⟩ := bind_okB h
+    rw [infer_def] at hbt
+    rw [infer_def, inferTypeCore_mono hle hbt, okB_bind]
+    obtain ⟨tbt, htbt, h⟩ := bind_okB h
+    rw [infer_def] at htbt
+    rw [infer_def, inferTypeCore_mono hle htbt, okB_bind]
+    obtain ⟨v, hv, h⟩ := bind_okB h
+    rw [ensureSort_def, ensureSortCore_eq] at hv
+    rw [ensureSort_def, ensureSortCore_eq]
+    obtain ⟨w, hw, hv⟩ := bind_okB hv
+    rw [whnf_mono hle hw, okB_bind]
+    obtain ⟨u, rfl⟩ : ∃ u, w = Expr.sort u := by
+      cases w with
+      | sort u' => exact ⟨u', rfl⟩
+      | bvar i => exact nomatch hv
+      | fvar idx nm tt => exact nomatch hv
+      | const nm us => exact nomatch hv
+      | app f a => exact nomatch hv
+      | lam nm tt b mm => exact nomatch hv
+      | forallE nm tt b mm => exact nomatch hv
+      | letE nm tt vv b => exact nomatch hv
+      | lit l => exact nomatch hv
+      | proj sp i e => exact nomatch hv
+    dsimp only at hv ⊢
+    injection hv with hv
+    subst hv
+    exact ih hle h
+
+end AnnLamsAtF
+
+/-! ## Invariants and soundness (annotation λ-loop) -/
+
+section AnnLamsSound
+
+variable {env : Env}
+
+/-- Leaf conditions of an expression against every remaining stack
+entry (each binder's opening fvar is mentioned consistently). -/
+def AStkLeafCond (d : Nat) : List AnnotBinderEntryX → Nat → Expr → Prop
+  | [], _, _ => True
+  | (n, ty', _) :: rest, j, e =>
+    Expr.LeafCond (d + j) n ty' e ∧ AStkLeafCond d rest (j - 1) e
+
+/-- Per-entry facts of the λ-annotation stack: each opened annotated
+domain is bvar-closed, well-scoped at its level, and consistent with
+the deeper entries' opening fvars. -/
+def ALStkOK (d : Nat) : List AnnotBinderEntryX → Nat → Prop
+  | [], _ => True
+  | (_n, ty', _bi) :: rest, j =>
+    (ty'.looseBVarsBounded 0 = true ∧ WScoped (d + j) ty' ∧
+      AStkLeafCond d rest (j - 1) ty') ∧ ALStkOK d rest (j - 1)
+
+/-- Leaf conditions transport along a leaf-subset. -/
+theorem AStkLeafCond.sub {d : Nat} :
+    ∀ {stk : List AnnotBinderEntryX} {j : Nat} {e e' : Expr},
+      (∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves) →
+      AStkLeafCond d stk j e → AStkLeafCond d stk j e' := by
+  intro stk
+  induction stk with
+  | nil => intro j e e' hsub h; exact trivial
+  | cons entry rest ih =>
+    obtain ⟨n, ty', bi⟩ := entry
+    intro j e e' hsub h
+    exact ⟨fun l hl hld => h.1 l (hsub l hl) hld, ih hsub h.2⟩
+
+/-- Leaf conditions of a binder node from its components. -/
+theorem AStkLeafCond.lam {d : Nat} :
+    ∀ {stk : List AnnotBinderEntryX} {j : Nat} {n : Name}
+      {ty' bAbs : Expr} {mb : BinderMeta},
+      AStkLeafCond d stk j ty' → AStkLeafCond d stk j bAbs →
+      AStkLeafCond d stk j (Expr.lam n ty' bAbs mb) := by
+  intro stk
+  induction stk with
+  | nil => intro j n ty' bAbs mb _ _; exact trivial
+  | cons entry rest ih =>
+    obtain ⟨n₂, ty₂, bi₂⟩ := entry
+    intro j n ty' bAbs mb hty hb
+    refine ⟨?_, ih hty.2 hb.2⟩
+    intro l hl hld
+    simp only [Expr.fvarLeaves, List.mem_append] at hl
+    rcases hl with hl | hl
+    · exact hty.1 l hl hld
+    · exact hb.1 l hl hld
+
+/-- Leaf conditions survive opening with a *fresh, higher* fvar whose
+annotation is itself consistent. -/
+theorem AStkLeafCond.inst {d D k : Nat} {nD : Name} {tyD body : Expr} :
+    ∀ {stk : List AnnotBinderEntryX} {j : Nat}, j < D →
+      AStkLeafCond d stk j body → AStkLeafCond d stk j tyD →
+      AStkLeafCond d stk j
+        (body.instantiate1 (.fvar (d + D) nD tyD) k) := by
+  intro stk
+  induction stk with
+  | nil => intro j _ _ _; exact trivial
+  | cons entry rest ih =>
+    obtain ⟨n₂, ty₂, bi₂⟩ := entry
+    intro j hjD hbody htyD
+    refine ⟨?_, ih (by omega) hbody.2 htyD.2⟩
+    intro l hl hld
+    rcases fvarLeaves_instantiate1 body k hl with hl' | hl'
+    · exact hbody.1 l hl' hld
+    · simp only [Expr.fvarLeaves, List.mem_cons] at hl'
+      rcases hl' with rfl | hl'
+      · exact absurd hld (by simp; omega)
+      · exact htyD.1 l hl' hld
+
+/-- A successful λ-out-phase run is reproduced by the chained
+annotation tails at some fuel, given the body facts and the roundtrip
+invariants. -/
+theorem annotateLamsOut_wrap {d : Nat} :
+    ∀ (stk : List AnnotBinderEntryX) (j : Nat) (vcur : Level)
+      (body' : Expr) (res : Expr) (F : Nat),
+      stk.length = j + 1 →
+      ALStkOK d stk j →
+      AStkLeafCond d stk j body' →
+      body'.looseBVarsBounded 0 = true →
+      WScoped (d + j + 1) body' →
+      (∃ F₀ bt tbt, inferTypeCore env F₀ (d + j + 1) body' = .ok bt ∧
+        inferTypeCore env F₀ (d + j + 1) bt = .ok tbt ∧
+        whnf env F₀ (d + j + 1) tbt = .ok (.sort vcur)) →
+      annotateLamsOut (pureFns env F) d stk j vcur
+          (body'.abstractRange d (j + 1)) = .ok res →
+      ∃ F', annotateLamsWrap (pureFns env F') env d stk j body' = .ok res := by
+  intro stk
+  induction stk with
+  | nil => intro j vcur body' res F hlen; exact nomatch hlen
+  | cons e rest ih =>
+    obtain ⟨n, ty', bi⟩ := e
+    intro j vcur body' res F hlen hstk hcons hbnd hwsc hfacts hrun
+    obtain ⟨F₀, bt, tbt, hbt, htbt, hwhnf⟩ := hfacts
+    obtain ⟨⟨htyB, htyW, htyC⟩, hstkRest⟩ := hstk
+    obtain ⟨hconsHead, hconsRest⟩ := hcons
+    cases rest with
+    | nil =>
+      obtain rfl : j = 0 := by simpa using hlen
+      rw [annotateLamsOut_single] at hrun
+      injection hrun with hres
+      refine ⟨F₀, ?_⟩
+      unfold annotateLamsWrap
+      rw [infer_def, hbt, okB_bind]
+      rw [infer_def, htbt, okB_bind]
+      rw [ensureSort_def, ensureSortCore_eq, hwhnf, okB_bind]
+      dsimp only
+      unfold annotateLamsWrap
+      have h1 : ty'.abstractRange d 0 = ty' := abstractRange_zero ..
+      have h2 : body'.abstractRange d (0 + 1) 0
+          = body'.abstract1 (d + 0) 0 := by
+        rw [abstractRange_succ, abstractRange_zero]
+      rw [h1, h2] at hres
+      show Except.ok (Expr.lam n ty' (body'.abstract1 (d + 0) 0)
+        ⟨bi, some vcur⟩) = Except.ok res
+      rw [hres]
+    | cons e' rest' =>
+      have hj1 : 1 ≤ j := by
+        simp only [List.length_cons] at hlen
+        omega
+      rw [annotateLamsOut_cons] at hrun
+      obtain ⟨tty, htty, hrun⟩ := bind_okB hrun
+      rw [infer_def] at htty
+      obtain ⟨w, hww, hrun⟩ := bind_okB hrun
+      rw [whnf_def] at hww
+      obtain ⟨u, rfl⟩ : ∃ u, w = Expr.sort u := by
+        cases w with
+        | sort u' => exact ⟨u', rfl⟩
+        | bvar i => exact nomatch hrun
+        | fvar idx nm tt => exact nomatch hrun
+        | const nm us => exact nomatch hrun
+        | app f a => exact nomatch hrun
+        | lam nm tt b mm => exact nomatch hrun
+        | forallE nm tt b mm => exact nomatch hrun
+        | letE nm tt vv b => exact nomatch hrun
+        | lit l => exact nomatch hrun
+        | proj sp i e => exact nomatch hrun
+      dsimp only at hrun
+      obtain ⟨b, hb, hrun⟩ := bind_okB hrun
+      cases b with
+      | false =>
+        simp only [Bool.false_eq_true, ↓reduceIte] at hrun
+        exact nomatch hrun
+      | true =>
+        simp only [↓reduceIte] at hrun
+        try dsimp only at hrun
+        have hjeq : d + (j - 1) + 1 = d + j := by omega
+        -- the freshly built λ-node and the ∀-node its inference builds
+        have hnode : Expr.lam n (ty'.abstractRange d j)
+            (body'.abstractRange d (j + 1)) ⟨bi, some vcur⟩
+            = (Expr.lam n ty' (body'.abstract1 (d + j))
+                ⟨bi, some vcur⟩).abstractRange d ((j - 1) + 1) := by
+          have hj : (j - 1) + 1 = j := by omega
+          rw [hj]
+          show _ = Expr.lam n (ty'.abstractRange d j 0)
+            ((body'.abstract1 (d + j) 0).abstractRange d j 1)
+            ⟨bi, some vcur⟩
+          rw [abstractRange_succ]
+        have hround : ((body'.abstract1 (d + j)).instantiate1
+              (.fvar (d + j) n ty') 0) = body' :=
+          abstract1_instantiate1 body' 0
+            (Expr.fvarConsistent_of_leafCond body' hconsHead) hbnd
+        have hwabs : WScoped (d + j) (body'.abstract1 (d + j)) :=
+          WScoped.abstract1 0 hwsc
+        have hfacts' : ∃ F₁ bt' tbt',
+            inferTypeCore env F₁ (d + (j - 1) + 1)
+              (Expr.lam n ty' (body'.abstract1 (d + j)) ⟨bi, some vcur⟩)
+                = .ok bt' ∧
+            inferTypeCore env F₁ (d + (j - 1) + 1) bt' = .ok tbt' ∧
+            whnf env F₁ (d + (j - 1) + 1) tbt'
+              = .ok (.sort (.imax u vcur)) := by
+          refine ⟨(max F₀ (max F 2)) + 1,
+            .forallE n ty' (bt.abstract1 (d + j)) ⟨bi, some vcur⟩,
+            .sort (.imax u vcur), ?_, ?_, ?_⟩
+          · rw [hjeq, inferTypeCore_lam_eq]
+            rw [inferTypeCore_mono
+              (Nat.le_trans (Nat.le_max_left F 2) (Nat.le_max_right F₀ _))
+              htty, okB_bind]
+            rw [whnf_mono
+              (Nat.le_trans (Nat.le_max_left F 2) (Nat.le_max_right F₀ _))
+              hww, okB_bind]
+            dsimp only
+            rw [hround,
+              inferTypeCore_mono (Nat.le_max_left F₀ _) hbt, okB_bind]
+            rw [inferTypeCore_mono (Nat.le_max_left F₀ _) htbt, okB_bind]
+            rw [whnf_mono (Nat.le_max_left F₀ _) hwhnf, okB_bind]
+            dsimp only
+            rw [hb, okB_bind]
+            simp only [↓reduceIte]
+            try dsimp only
+            rfl
+          · rw [hjeq]
+            rw [inferTypeCore_forallE_eq]
+            rw [inferTypeCore_mono
+              (Nat.le_trans (Nat.le_max_left F 2) (Nat.le_max_right F₀ _))
+              htty, okB_bind]
+            rw [whnf_mono
+              (Nat.le_trans (Nat.le_max_left F 2) (Nat.le_max_right F₀ _))
+              hww, okB_bind]
+            rfl
+          · rw [hjeq]
+            rw [show max F₀ (max F 2) + 1
+              = (max F₀ (max F 2) - 1) + 2 from by omega]
+            exact whnf_sort env _ (d + j) (.imax u vcur)
+        have habsLeaves : ∀ l ∈ (body'.abstract1 (d + j)).fvarLeaves,
+            l ∈ body'.fvarLeaves ∧ l.1 ≠ d + j := by
+          intro l hl
+          exact Expr.fvarLeaves_abstract1_ne body' 0 hwsc l hl
+        have hconsNode : AStkLeafCond d (e' :: rest') (j - 1)
+            (Expr.lam n ty' (body'.abstract1 (d + j)) ⟨bi, some vcur⟩) :=
+          AStkLeafCond.lam htyC
+            (AStkLeafCond.sub (fun l hl => (habsLeaves l hl).1) hconsRest)
+        have hbndNode : (Expr.lam n ty' (body'.abstract1 (d + j))
+            ⟨bi, some vcur⟩).looseBVarsBounded 0 = true := by
+          simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
+          exact ⟨htyB, looseBVarsBounded_abstract1 body' 0 hbnd⟩
+        have hwscNode : WScoped (d + (j - 1) + 1)
+            (Expr.lam n ty' (body'.abstract1 (d + j)) ⟨bi, some vcur⟩) := by
+          rw [hjeq]
+          exact (by simp only [WScoped]; exact ⟨htyW, hwabs⟩ :
+            WScoped (d + j) (Expr.lam n ty' (body'.abstract1 (d + j))
+              ⟨bi, some vcur⟩))
+        rw [hnode] at hrun
+        obtain ⟨F', hwrap'⟩ := ih (j - 1) (.imax u vcur)
+          (Expr.lam n ty' (body'.abstract1 (d + j)) ⟨bi, some vcur⟩) res F
+          (by simp only [List.length_cons] at hlen ⊢; omega)
+          hstkRest hconsNode hbndNode hwscNode hfacts' hrun
+        refine ⟨max F' F₀, ?_⟩
+        unfold annotateLamsWrap
+        rw [infer_def,
+          inferTypeCore_mono (Nat.le_max_right F' F₀) hbt, okB_bind]
+        rw [infer_def,
+          inferTypeCore_mono (Nat.le_max_right F' F₀) htbt, okB_bind]
+        rw [ensureSort_def, ensureSortCore_eq,
+          whnf_mono (Nat.le_max_right F' F₀) hwhnf, okB_bind]
+        dsimp only
+        exact annotateLamsWrap_mono (Nat.le_max_left F' F₀) hwrap'
+
+/-- Leaf-phase soundness of the λ-annotation loop. -/
+theorem annotateLamsLeaf_sound {d : Nat} {t : Expr} {k : Nat}
+    {fvs : List Expr} {stk : List AnnotBinderEntryX} {F : Nat} {res : Expr}
+    (hlen : stk.length = k)
+    (hstk : ALStkOK d stk (k - 1))
+    (hcons : AStkLeafCond d stk (k - 1) (t.instantiateList fvs))
+    (hbnd : (t.instantiateList fvs).looseBVarsBounded 0 = true)
+    (hwsc : WScoped (d + k) (t.instantiateList fvs))
+    (hrun : annotateLamsLeaf (pureFns env F) env d t k fvs stk = .ok res) :
+    ∃ F', (annotateCore env F' (d + k) (t.instantiateList fvs) >>=
+      fun body' => annotateLamsWrap (pureFns env F') env d stk (k - 1)
+        body') = .ok res := by
+  unfold annotateLamsLeaf at hrun
+  obtain ⟨leaf', hleaf, hrun⟩ := bind_okB hrun
+  rw [annotate_def] at hleaf
+  obtain ⟨bt, hbt, hrun⟩ := bind_okB hrun
+  rw [infer_def] at hbt
+  obtain ⟨tbt, htbt, hrun⟩ := bind_okB hrun
+  rw [infer_def] at htbt
+  obtain ⟨v, hv, hrun⟩ := bind_okB hrun
+  rw [ensureSort_def, ensureSortCore_eq] at hv
+  obtain ⟨w, hww, hv⟩ := bind_okB hv
+  obtain ⟨v', rfl⟩ : ∃ v', w = Expr.sort v' := by
+    cases w with
+    | sort v'' => exact ⟨v'', rfl⟩
+    | bvar i => exact nomatch hv
+    | fvar idx nm tt => exact nomatch hv
+    | const nm us => exact nomatch hv
+    | app f a => exact nomatch hv
+    | lam nm tt b mm => exact nomatch hv
+    | forallE nm tt b mm => exact nomatch hv
+    | letE nm tt vv b => exact nomatch hv
+    | lit l => exact nomatch hv
+    | proj sp i e => exact nomatch hv
+  dsimp only at hv
+  injection hv with hv
+  subst hv
+  cases stk with
+  | nil =>
+    obtain rfl : k = 0 := by simpa using hlen.symm
+    unfold annotateLamsOut at hrun
+    rw [abstractRange_zero] at hrun
+    injection hrun with hres
+    refine ⟨F, ?_⟩
+    rw [hleaf, okB_bind]
+    unfold annotateLamsWrap
+    rw [hres]
+    rfl
+  | cons e rest =>
+    have hk1 : 1 ≤ k := by
+      rw [← hlen]
+      simp
+    have hkeq : (k - 1) + 1 = k := by omega
+    have hkeq' : d + (k - 1) + 1 = d + k := by omega
+    have hsubL : ∀ l ∈ leaf'.fvarLeaves,
+        l ∈ (t.instantiateList fvs).fvarLeaves :=
+      annotateCore_leaves_sub F _ hleaf hwsc hbnd
+    have hfacts : ∃ F₀ bt' tbt', inferTypeCore env F₀ (d + (k - 1) + 1)
+          leaf' = .ok bt' ∧
+        inferTypeCore env F₀ (d + (k - 1) + 1) bt' = .ok tbt' ∧
+        whnf env F₀ (d + (k - 1) + 1) tbt' = .ok (.sort v') := by
+      refine ⟨F, bt, tbt, ?_, ?_, ?_⟩ <;> rw [hkeq']
+      · exact hbt
+      · exact htbt
+      · exact hww
+    have hrun' : annotateLamsOut (pureFns env F) d (e :: rest) (k - 1) v'
+        (leaf'.abstractRange d ((k - 1) + 1)) = .ok res := by
+      rw [hkeq]
+      exact hrun
+    obtain ⟨F', hwrap⟩ := annotateLamsOut_wrap (e :: rest) (k - 1) v'
+      leaf' res F (by simp only [List.length_cons] at hlen ⊢; omega)
+      hstk (AStkLeafCond.sub hsubL hcons)
+      (annotateCore_looseBVars F _ hleaf hbnd)
+      (by rw [hkeq']; exact annotateCore_WScoped F _ hleaf hwsc)
+      hfacts hrun'
+    refine ⟨max F F', ?_⟩
+    rw [annotateCore_mono (Nat.le_max_left F F') hleaf, okB_bind]
+    exact annotateLamsWrap_mono (Nat.le_max_right F F') hwrap
+
+/-- A successful λ-peel run is reproduced by the chained annotation of
+the bulk-opened residual followed by the tails, at some fuel. -/
+theorem annotateLams_sound {d : Nat} :
+    ∀ (fuel : Nat) (t : Expr) (k : Nat) (fvs : List Expr)
+      (stk : List AnnotBinderEntryX) (F : Nat) (res : Expr),
+      stk.length = k →
+      ALStkOK d stk (k - 1) →
+      AStkLeafCond d stk (k - 1) (t.instantiateList fvs) →
+      (t.instantiateList fvs).looseBVarsBounded 0 = true →
+      WScoped (d + k) (t.instantiateList fvs) →
+      annotateLams (pureFns env F) env d fuel t k fvs stk = .ok res →
+      ∃ F', (annotateCore env F' (d + k) (t.instantiateList fvs) >>=
+        fun body' => annotateLamsWrap (pureFns env F') env d stk (k - 1)
+          body') = .ok res := by
+  intro fuel
+  induction fuel with
+  | zero =>
+    intro t k fvs stk F res hlen hstk hcons hbnd hwsc hrun
+    rw [annotateLams_zero] at hrun
+    exact annotateLamsLeaf_sound hlen hstk hcons hbnd hwsc hrun
+  | succ fuel ihf =>
+    intro t k fvs stk F res hlen hstk hcons hbnd hwsc hrun
+    by_cases hlam : ∃ n ty body mb, t = Expr.lam n ty body mb
+    · obtain ⟨n, ty, body, mb, rfl⟩ := hlam
+      rw [annotateLams_succ_lam] at hrun
+      obtain ⟨ty', hty', hrun⟩ := bind_okB hrun
+      rw [annotate_def] at hty'
+      have hlamL : (Expr.lam n ty body mb).instantiateList fvs
+          = Expr.lam n (ty.instantiateList fvs)
+            (body.instantiateList fvs 1) mb := by
+        simp [Expr.instantiateList]
+      have hwcomp : WScoped (d + k) (ty.instantiateList fvs)
+          ∧ WScoped (d + k) (body.instantiateList fvs 1) := by
+        rw [hlamL] at hwsc
+        simpa only [WScoped] using hwsc
+      have hbcomp : (ty.instantiateList fvs).looseBVarsBounded 0 = true
+          ∧ (body.instantiateList fvs 1).looseBVarsBounded 1 = true := by
+        rw [hlamL] at hbnd
+        simpa [Expr.looseBVarsBounded, Bool.and_eq_true] using hbnd
+      have hconsTy : AStkLeafCond d stk (k - 1) (ty.instantiateList fvs) := by
+        refine AStkLeafCond.sub ?_ (hlamL ▸ hcons)
+        intro l hl
+        simp only [Expr.fvarLeaves, List.mem_append]
+        exact Or.inl hl
+      have hconsBody : AStkLeafCond d stk (k - 1)
+          (body.instantiateList fvs 1) := by
+        refine AStkLeafCond.sub ?_ (hlamL ▸ hcons)
+        intro l hl
+        simp only [Expr.fvarLeaves, List.mem_append]
+        exact Or.inr hl
+      -- the annotated domain's facts
+      have htyB' : ty'.looseBVarsBounded 0 = true :=
+        annotateCore_looseBVars F _ hty' hbcomp.1
+      have htyW' : WScoped (d + k) ty' :=
+        annotateCore_WScoped F _ hty' hwcomp.1
+      have htyC' : AStkLeafCond d stk (k - 1) ty' :=
+        AStkLeafCond.sub (annotateCore_leaves_sub F _ hty' hwcomp.1
+          hbcomp.1) hconsTy
+      -- the opened body's facts
+      have hopenEq : (body.instantiateList fvs 1).instantiate1
+          (.fvar (d + k) n ty') = body.instantiateList
+            (Expr.fvar (d + k) n ty' :: fvs) :=
+        (Expr.instantiateList_cons ..).symm
+      have hwopen : WScoped (d + (k + 1))
+          (body.instantiateList (Expr.fvar (d + k) n ty' :: fvs)) := by
+        rw [← hopenEq]
+        have := WScoped.instantiate1 (n := n) htyW' 0 hwcomp.2
+        simpa [Nat.add_assoc] using this
+      have hbopen : (body.instantiateList
+          (Expr.fvar (d + k) n ty' :: fvs)).looseBVarsBounded 0 = true := by
+        rw [← hopenEq]
+        exact looseBVarsBounded_instantiate1 _ 0 hbcomp.2
+      have hconsOpen : AStkLeafCond d ((n, ty', mb.bi) :: stk)
+          ((k + 1) - 1) (body.instantiateList
+            (Expr.fvar (d + k) n ty' :: fvs)) := by
+        show Expr.LeafCond (d + k) n ty' _ ∧ AStkLeafCond d stk (k - 1) _
+        constructor
+        · rw [← hopenEq]
+          exact Expr.LeafCond_opened htyW' hwcomp.2 0
+        · rw [← hopenEq]
+          cases stk with
+          | nil => exact trivial
+          | cons e rest =>
+            have hklt : k - 1 < k := by
+              have : 1 ≤ k := by rw [← hlen]; simp
+              omega
+            exact AStkLeafCond.inst hklt hconsBody htyC'
+      have hstk' : ALStkOK d ((n, ty', mb.bi) :: stk) ((k + 1) - 1) := by
+        show (ty'.looseBVarsBounded 0 = true ∧ WScoped (d + k) ty' ∧
+          AStkLeafCond d stk (k - 1) ty') ∧ ALStkOK d stk (k - 1)
+        exact ⟨⟨htyB', htyW', htyC'⟩, hstk⟩
+      obtain ⟨F', hchain⟩ := ihf body (k + 1) _ _ F res
+        (by simpa using hlen) hstk' hconsOpen hbopen hwopen hrun
+      obtain ⟨body', hbody, hwrap⟩ := bind_okB hchain
+      refine ⟨(max F F') + 1, ?_⟩
+      rw [hlamL, annotateCore_lam_eq]
+      rw [annotateCore_mono (Nat.le_max_left F F') hty', okB_bind]
+      rw [show (body.instantiateList fvs 1).instantiate1
+          (.fvar (d + k) n ty')
+          = body.instantiateList (Expr.fvar (d + k) n ty' :: fvs) from
+        (Expr.instantiateList_cons ..).symm]
+      rw [show d + k + 1 = d + (k + 1) from by omega]
+      rw [annotateCore_mono (Nat.le_max_right F F') hbody, okB_bind]
+      have hwrap' := annotateLamsWrap_mono (F' := max F F')
+        (Nat.le_max_right F F') hwrap
+      rw [show (k + 1 : Nat) - 1 = k from rfl] at hwrap'
+      unfold annotateLamsWrap at hwrap'
+      obtain ⟨bt, hbt, hwrap'⟩ := bind_okB hwrap'
+      rw [infer_def] at hbt
+      rw [show d + k + 1 = d + (k + 1) from by omega] at hbt
+      rw [hbt, okB_bind]
+      obtain ⟨tbt, htbt, hwrap'⟩ := bind_okB hwrap'
+      rw [infer_def] at htbt
+      rw [show d + k + 1 = d + (k + 1) from by omega] at htbt
+      rw [htbt, okB_bind]
+      obtain ⟨v, hv, hwrap'⟩ := bind_okB hwrap'
+      rw [ensureSort_def] at hv
+      rw [show d + k + 1 = d + (k + 1) from by omega] at hv
+      rw [hv, okB_bind]
+      try dsimp only
+      exact annotateLamsWrap_mono (Nat.le_succ (max F F')) hwrap'
+    · have ht : ∀ n ty body mb, t ≠ Expr.lam n ty body mb :=
+        fun n ty b mb hh => hlam ⟨n, ty, b, mb, hh⟩
+      rw [annotateLams_succ_ne_lam _ ht] at hrun
+      exact annotateLamsLeaf_sound hlen hstk hcons hbnd hwsc hrun
+
+end AnnLamsSound
+
 end Setlec
