@@ -1,4 +1,5 @@
 import Setlec.Kernel.ExprOps
+import Setlec.Verify.Shift
 
 /-!
 # Bulk abstraction equals the `abstract1` fold (task #72)
@@ -50,5 +51,15 @@ theorem abstractRange_succ :
     intro d k c <;>
     simp_all [Expr.abstractRange, Expr.abstract1]
 
+/-- Abstracting a range at or above a term's fvar range is the
+identity (the fvar-range cutoff of the interned traversal, task #86;
+`Expr.fvarsBelow` is the annotation-free fvar bound of
+`Setlec/Verify/Shift.lean`). -/
+theorem abstractRange_eq_self : ∀ {e : Expr} {d k c : Nat},
+    e.fvarsBelow d → e.abstractRange d k c = e := by
+  intro e
+  induction e <;> intro d k c hb <;>
+    simp_all only [Expr.fvarsBelow, Expr.abstractRange]
+  rw [if_neg (by omega)]
 
 end Setlec

@@ -2327,18 +2327,6 @@ def leavesL (A : List (Nat × Name × Expr)) : List (Nat × Name × Option Expr)
 theorem leavesExp_eq_leavesL (x : Expr) : leavesExp x = leavesL x.fvarLeaves :=
   rfl
 
-/-- Every element of an interned leaf list denotes (read off the
-`leavesDen`/`leavesL` correspondence). -/
-private theorem leaves_denote {st : EStore} {A : List (Nat × Name × EIdx)}
-    {A' : List (Nat × Name × Expr)} (h : leavesDen st A = leavesL A') :
-    ∀ l ∈ A, ∃ x, st.denote l.2.2 = some x := by
-  intro l hl
-  have : (l.1, l.2.1, st.denote l.2.2) ∈ leavesL A' := by
-    rw [← h]
-    exact List.mem_map_of_mem hl
-  obtain ⟨l', -, hl'⟩ := List.mem_map.mp this
-  exact ⟨l'.2.2, congrArg (·.2.2) hl'.symm⟩
-
 /-- Membership transfer along the denotation of leaf lists (denotation
 is injective on well-formed stores, so `contains` transfers in both
 directions). -/
@@ -2373,47 +2361,389 @@ private theorem leaves_contains {st : EStore} (hwf : st.WF)
     obtain rfl : c = t := denote_inj hwf hc hx
     exact hl'
 
-/-- The raw `fvarLeavesI`-subset boolean agrees with the `Expr`-level
-one. -/
-private theorem leafGuardI_lists_spec {st : EStore} (hwf : st.WF)
-    {fab base : EIdx}
-    {xf xb : Expr} (hf : st.denote fab = some xf)
-    (hb : st.denote base = some xb) :
-    ((st.fvarLeavesI fab).all fun l => (st.fvarLeavesI base).contains l)
-      = (xf.fvarLeaves.all fun l => xb.fvarLeaves.contains l) := by
-  have hA := (fvarLeavesI_spec hwf hf).trans (leavesExp_eq_leavesL xf)
-  have hB := (fvarLeavesI_spec hwf hb).trans (leavesExp_eq_leavesL xb)
-  rw [Bool.eq_iff_iff, List.all_eq_true, List.all_eq_true]
-  constructor
-  · intro h l' hl'
-    rcases l' with ⟨i, nm, x⟩
-    have hmm : ((i, nm, some x) : Nat × Name × Option Expr)
-        ∈ leavesDen st (st.fvarLeavesI fab) := by
-      rw [hA]
-      exact List.mem_map_of_mem hl'
-    obtain ⟨⟨a, b, c⟩, hl, heq⟩ := List.mem_map.mp hmm
-    simp only [Prod.mk.injEq] at heq
-    obtain ⟨rfl, rfl, hc⟩ := heq
-    have := h _ hl
-    rw [leaves_contains hwf hB (l := (a, b, c)) hc] at this
-    exact this
-  · intro h l hl
-    obtain ⟨x, hx⟩ := leaves_denote hA l hl
-    rw [leaves_contains hwf hB hx]
-    have hmm : ((l.1, l.2.1, st.denote l.2.2) : Nat × Name × Option Expr)
-        ∈ leavesL xf.fvarLeaves := by
-      rw [← hA]
-      exact List.mem_map_of_mem hl
-    obtain ⟨⟨a, b, c⟩, hl', heq⟩ := List.mem_map.mp hmm
-    simp only [Prod.mk.injEq] at heq
-    obtain ⟨h1, h2, hc⟩ := heq
-    rw [hx] at hc
-    obtain rfl : c = x := Option.some.inj hc
-    have heql : ((l.1, l.2.1, c) : Nat × Name × Expr) = (a, b, c) := by
-      simp [h1, h2]
-    rw [heql]
-    exact h _ hl'
-
+/-- The fabrication-side memoized subset walk agrees with the
+`Expr`-level `.all`-over-`fvarLeaves` boolean (task #86), given a
+base leaf list that denotes `B'`. -/
+private theorem leavesSubIGo_spec {st : EStore} (hwf : st.WF)
+    {B : List (Nat × Name × EIdx)} {B' : List (Nat × Name × Expr)}
+    (hB : leavesDen st B = leavesL B') :
+    ∀ (e : EIdx) {memo : Std.HashMap EIdx Bool} {r : Bool}
+      {memo' : Std.HashMap EIdx Bool},
+      QMemo0Inv st (fun x => x.fvarLeaves.all fun l => B'.contains l) memo →
+      leavesSubIGo st B memo e = (r, memo') →
+      QMemo0Inv st (fun x => x.fvarLeaves.all fun l => B'.contains l) memo' ∧
+        ∀ x, st.denote e = some x →
+          r = (x.fvarLeaves.all fun l => B'.contains l) := by
+  intro e
+  induction e using Nat.strongRecOn with
+  | _ e ih =>
+    intro memo r memo' hinv hgo
+    unfold EStore.leavesSubIGo at hgo
+    split at hgo
+    · rename_i hhit
+      injection hgo with hgr hgm
+      subst hgr
+      subst hgm
+      exact ⟨hinv, hinv _ _ hhit⟩
+    · split at hgo
+      · rename_i hnone
+        injection hgo with hgr hgm
+        subst hgr
+        subst hgm
+        refine ⟨hinv, ?_⟩
+        intro x hx
+        obtain ⟨n, hn, -, -⟩ := denote_some_inv hx
+        rw [hn] at hnone
+        cases hnone
+      · rename_i n hn
+        have hesz : e < st.nodes.size := (Array.getElem?_eq_some_iff.mp hn).1
+        have hcl := hwf.children_lt e n hn
+        have hde := denote_node hn hcl
+        cases n with
+        | bvar i =>
+          dsimp only at hgo
+          injection hgo with hgr hgm
+          subst hgr
+          subst hgm
+          have hx : st.denote e = some (.bvar i) := by rw [hde]; rfl
+          have hcond : ∀ x, st.denote e = some x →
+              true = (x.fvarLeaves.all fun l => B'.contains l) := by
+            intro x hxx
+            rw [hx] at hxx; cases hxx
+            simp [Expr.fvarLeaves]
+          exact ⟨hinv.insert hcond, hcond⟩
+        | sort u =>
+          dsimp only at hgo
+          injection hgo with hgr hgm
+          subst hgr
+          subst hgm
+          obtain ⟨lu, hlu⟩ := denoteL_total hwf u
+            (hwf.levels_lt e _ hn u (by simp [ENode.levels]))
+          have hx : st.denote e = some (.sort lu) := by
+            rw [hde, denoteNode, hlu]; rfl
+          have hcond : ∀ x, st.denote e = some x →
+              true = (x.fvarLeaves.all fun l => B'.contains l) := by
+            intro x hxx
+            rw [hx] at hxx; cases hxx
+            simp [Expr.fvarLeaves]
+          exact ⟨hinv.insert hcond, hcond⟩
+        | const nm us =>
+          dsimp only at hgo
+          injection hgo with hgr hgm
+          subst hgr
+          subst hgm
+          obtain ⟨lus, hlus⟩ := denoteLList_total hwf us
+            (fun v hv => hwf.levels_lt e _ hn v (by simp [ENode.levels, hv]))
+          have hx : st.denote e = some (.const nm lus) := by
+            rw [hde, denoteNode, hlus]; rfl
+          have hcond : ∀ x, st.denote e = some x →
+              true = (x.fvarLeaves.all fun l => B'.contains l) := by
+            intro x hxx
+            rw [hx] at hxx; cases hxx
+            simp [Expr.fvarLeaves]
+          exact ⟨hinv.insert hcond, hcond⟩
+        | lit l =>
+          dsimp only at hgo
+          injection hgo with hgr hgm
+          subst hgr
+          subst hgm
+          have hx : st.denote e = some (.lit l) := by rw [hde]; rfl
+          have hcond : ∀ x, st.denote e = some x →
+              true = (x.fvarLeaves.all fun l => B'.contains l) := by
+            intro x hxx
+            rw [hx] at hxx; cases hxx
+            simp [Expr.fvarLeaves]
+          exact ⟨hinv.insert hcond, hcond⟩
+        | fvar idx nm t =>
+          dsimp only at hgo
+          obtain ⟨xt, hxt⟩ := denote_total hwf t
+            (Nat.lt_trans (hcl t (by simp [ENode.children])) hesz)
+          have hx : st.denote e = some (.fvar idx nm xt) := by
+            rw [hde, denoteNode, hxt]; rfl
+          have hcont : B.contains (idx, nm, t)
+              = B'.contains (idx, nm, xt) :=
+            leaves_contains hwf hB (l := (idx, nm, t)) hxt
+          split at hgo
+          · rename_i hin
+            split at hgo
+            · rename_i hlt
+              rcases h₁ : EStore.leavesSubIGo st B memo t with ⟨rt, memo₁⟩
+              rw [h₁] at hgo
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              obtain ⟨hinv₁, hden₁⟩ := ih t hlt hinv h₁
+              have hcond : ∀ x, st.denote e = some x →
+                  rt = (x.fvarLeaves.all fun l => B'.contains l) := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                rw [hin] at hcont
+                rw [hden₁ xt hxt]
+                simp only [Expr.fvarLeaves, List.all_cons, ← hcont,
+                  Bool.true_and]
+              exact ⟨hinv₁.insert hcond, hcond⟩
+            · rename_i hlt
+              exact absurd (hcl t (by simp [ENode.children])) hlt
+          · rename_i hin
+            injection hgo with hgr hgm
+            subst hgr
+            subst hgm
+            have hcond : ∀ x, st.denote e = some x →
+                false = (x.fvarLeaves.all fun l => B'.contains l) := by
+              intro x hxx
+              rw [hx] at hxx; cases hxx
+              rw [Bool.not_eq_true] at hin
+              rw [hin] at hcont
+              simp only [Expr.fvarLeaves, List.all_cons, ← hcont,
+                Bool.false_and]
+            exact ⟨hinv.insert hcond, hcond⟩
+        | app f a =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd ⟨hcl f (by simp [ENode.children]),
+              hcl a (by simp [ENode.children])⟩ hguard
+          case isTrue hguard =>
+            obtain ⟨xf, hf⟩ := denote_total hwf f (Nat.lt_trans hguard.1 hesz)
+            obtain ⟨xa, ha⟩ := denote_total hwf a (Nat.lt_trans hguard.2 hesz)
+            have hx : st.denote e = some (.app xf xa) := by
+              rw [hde, denoteNode, hf, ha]; rfl
+            rcases h₁ : EStore.leavesSubIGo st B memo f with ⟨rf, memo₁⟩
+            rw [h₁] at hgo
+            try dsimp only at hgo
+            obtain ⟨hinv₁, hden₁⟩ := ih f hguard.1 hinv h₁
+            split at hgo
+            · rename_i hrf
+              rcases h₂ : EStore.leavesSubIGo st B memo₁ a with ⟨ra, memo₂⟩
+              rw [h₂] at hgo
+              try dsimp only at hgo
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              obtain ⟨hinv₂, hden₂⟩ := ih a hguard.2 hinv₁ h₂
+              have hcond : ∀ x, st.denote e = some x →
+                  ra = (x.fvarLeaves.all fun l => B'.contains l) := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xf hf
+                rw [hrf] at h1
+                rw [hden₂ xa ha]
+                simp only [Expr.fvarLeaves, List.all_append, ← h1,
+                  Bool.true_and]
+              exact ⟨hinv₂.insert hcond, hcond⟩
+            · rename_i hrf
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              have hcond : ∀ x, st.denote e = some x →
+                  false = (x.fvarLeaves.all fun l => B'.contains l) := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xf hf
+                rw [Bool.not_eq_true] at hrf
+                rw [hrf] at h1
+                simp only [Expr.fvarLeaves, List.all_append, ← h1,
+                  Bool.false_and]
+              exact ⟨hinv₁.insert hcond, hcond⟩
+        | lam nm ty body m =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd ⟨hcl ty (by simp [ENode.children]),
+              hcl body (by simp [ENode.children])⟩ hguard
+          case isTrue hguard =>
+            obtain ⟨xt, ht⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
+            obtain ⟨xb, hb⟩ := denote_total hwf body (Nat.lt_trans hguard.2 hesz)
+            obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
+              (fun u hu => hwf.levels_lt e _ hn u
+                (by simpa [ENode.levels] using hu))
+            have hx : st.denote e = some (.lam nm xt xb bm) := by
+              rw [hde, denoteNode, ht, hb, hbm]; rfl
+            rcases h₁ : EStore.leavesSubIGo st B memo ty with ⟨rt, memo₁⟩
+            rw [h₁] at hgo
+            try dsimp only at hgo
+            obtain ⟨hinv₁, hden₁⟩ := ih ty hguard.1 hinv h₁
+            split at hgo
+            · rename_i hrt
+              rcases h₂ : EStore.leavesSubIGo st B memo₁ body with ⟨rb, memo₂⟩
+              rw [h₂] at hgo
+              try dsimp only at hgo
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              obtain ⟨hinv₂, hden₂⟩ := ih body hguard.2 hinv₁ h₂
+              have hcond : ∀ x, st.denote e = some x →
+                  rb = (x.fvarLeaves.all fun l => B'.contains l) := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xt ht
+                rw [hrt] at h1
+                rw [hden₂ xb hb]
+                simp only [Expr.fvarLeaves, List.all_append, ← h1,
+                  Bool.true_and]
+              exact ⟨hinv₂.insert hcond, hcond⟩
+            · rename_i hrt
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              have hcond : ∀ x, st.denote e = some x →
+                  false = (x.fvarLeaves.all fun l => B'.contains l) := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xt ht
+                rw [Bool.not_eq_true] at hrt
+                rw [hrt] at h1
+                simp only [Expr.fvarLeaves, List.all_append, ← h1,
+                  Bool.false_and]
+              exact ⟨hinv₁.insert hcond, hcond⟩
+        | forallE nm ty body m =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd ⟨hcl ty (by simp [ENode.children]),
+              hcl body (by simp [ENode.children])⟩ hguard
+          case isTrue hguard =>
+            obtain ⟨xt, ht⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
+            obtain ⟨xb, hb⟩ := denote_total hwf body (Nat.lt_trans hguard.2 hesz)
+            obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
+              (fun u hu => hwf.levels_lt e _ hn u
+                (by simpa [ENode.levels] using hu))
+            have hx : st.denote e = some (.forallE nm xt xb bm) := by
+              rw [hde, denoteNode, ht, hb, hbm]; rfl
+            rcases h₁ : EStore.leavesSubIGo st B memo ty with ⟨rt, memo₁⟩
+            rw [h₁] at hgo
+            try dsimp only at hgo
+            obtain ⟨hinv₁, hden₁⟩ := ih ty hguard.1 hinv h₁
+            split at hgo
+            · rename_i hrt
+              rcases h₂ : EStore.leavesSubIGo st B memo₁ body with ⟨rb, memo₂⟩
+              rw [h₂] at hgo
+              try dsimp only at hgo
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              obtain ⟨hinv₂, hden₂⟩ := ih body hguard.2 hinv₁ h₂
+              have hcond : ∀ x, st.denote e = some x →
+                  rb = (x.fvarLeaves.all fun l => B'.contains l) := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xt ht
+                rw [hrt] at h1
+                rw [hden₂ xb hb]
+                simp only [Expr.fvarLeaves, List.all_append, ← h1,
+                  Bool.true_and]
+              exact ⟨hinv₂.insert hcond, hcond⟩
+            · rename_i hrt
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              have hcond : ∀ x, st.denote e = some x →
+                  false = (x.fvarLeaves.all fun l => B'.contains l) := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xt ht
+                rw [Bool.not_eq_true] at hrt
+                rw [hrt] at h1
+                simp only [Expr.fvarLeaves, List.all_append, ← h1,
+                  Bool.false_and]
+              exact ⟨hinv₁.insert hcond, hcond⟩
+        | letE nm ty val body =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd ⟨hcl ty (by simp [ENode.children]),
+              hcl val (by simp [ENode.children]),
+              hcl body (by simp [ENode.children])⟩ hguard
+          case isTrue hguard =>
+            obtain ⟨xt, ht⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
+            obtain ⟨xv, hvv⟩ := denote_total hwf val
+              (Nat.lt_trans hguard.2.1 hesz)
+            obtain ⟨xb, hb⟩ := denote_total hwf body
+              (Nat.lt_trans hguard.2.2 hesz)
+            have hx : st.denote e = some (.letE nm xt xv xb) := by
+              rw [hde, denoteNode, ht, hvv, hb]; rfl
+            rcases h₁ : EStore.leavesSubIGo st B memo ty with ⟨rt, memo₁⟩
+            rw [h₁] at hgo
+            try dsimp only at hgo
+            obtain ⟨hinv₁, hden₁⟩ := ih ty hguard.1 hinv h₁
+            split at hgo
+            · rename_i hrt
+              rcases h₂ : EStore.leavesSubIGo st B memo₁ val with ⟨rv, memo₂⟩
+              rw [h₂] at hgo
+              try dsimp only at hgo
+              obtain ⟨hinv₂, hden₂⟩ := ih val hguard.2.1 hinv₁ h₂
+              split at hgo
+              · rename_i hrv
+                rcases h₃ : EStore.leavesSubIGo st B memo₂ body
+                  with ⟨rb, memo₃⟩
+                rw [h₃] at hgo
+                try dsimp only at hgo
+                injection hgo with hgr hgm
+                subst hgr
+                subst hgm
+                obtain ⟨hinv₃, hden₃⟩ := ih body hguard.2.2 hinv₂ h₃
+                have hcond : ∀ x, st.denote e = some x →
+                    rb = (x.fvarLeaves.all fun l => B'.contains l) := by
+                  intro x hxx
+                  rw [hx] at hxx; cases hxx
+                  have h1 := hden₁ xt ht
+                  have h2 := hden₂ xv hvv
+                  rw [hrt] at h1
+                  rw [hrv] at h2
+                  rw [hden₃ xb hb]
+                  simp only [Expr.fvarLeaves, List.all_append, ← h1,
+                    ← h2, Bool.true_and]
+                exact ⟨hinv₃.insert hcond, hcond⟩
+              · rename_i hrv
+                injection hgo with hgr hgm
+                subst hgr
+                subst hgm
+                have hcond : ∀ x, st.denote e = some x →
+                    false = (x.fvarLeaves.all fun l => B'.contains l) := by
+                  intro x hxx
+                  rw [hx] at hxx; cases hxx
+                  have h2 := hden₂ xv hvv
+                  rw [Bool.not_eq_true] at hrv
+                  rw [hrv] at h2
+                  simp only [Expr.fvarLeaves, List.all_append, ← h2,
+                    Bool.and_false, Bool.false_and]
+                exact ⟨hinv₂.insert hcond, hcond⟩
+            · rename_i hrt
+              injection hgo with hgr hgm
+              subst hgr
+              subst hgm
+              have hcond : ∀ x, st.denote e = some x →
+                  false = (x.fvarLeaves.all fun l => B'.contains l) := by
+                intro x hxx
+                rw [hx] at hxx; cases hxx
+                have h1 := hden₁ xt ht
+                rw [Bool.not_eq_true] at hrt
+                rw [hrt] at h1
+                simp only [Expr.fvarLeaves, List.all_append, ← h1,
+                  Bool.false_and]
+              exact ⟨hinv₁.insert hcond, hcond⟩
+        | proj s j sub =>
+          dsimp only at hgo
+          split at hgo
+          case isFalse hguard =>
+            exact absurd (hcl sub (by simp [ENode.children])) hguard
+          case isTrue hguard =>
+            obtain ⟨xs, hs⟩ := denote_total hwf sub (Nat.lt_trans hguard hesz)
+            have hx : st.denote e = some (.proj s j xs) := by
+              rw [hde, denoteNode, hs]; rfl
+            rcases h₁ : EStore.leavesSubIGo st B memo sub with ⟨rs, memo₁⟩
+            rw [h₁] at hgo
+            try dsimp only at hgo
+            injection hgo with hgr hgm
+            subst hgr
+            subst hgm
+            obtain ⟨hinv₁, hden₁⟩ := ih sub hguard hinv h₁
+            have hcond : ∀ x, st.denote e = some x →
+                rs = (x.fvarLeaves.all fun l => B'.contains l) := by
+              intro x hxx
+              rw [hx] at hxx; cases hxx
+              simpa [Expr.fvarLeaves] using hden₁ xs hs
+            exact ⟨hinv₁.insert hcond, hcond⟩
 
 /-- `hasFvar = false` forces an empty leaf list (local copy of
 `Expr.fvarLeaves_eq_nil_of_not_hasFvar`; `Verify/Leaves.lean` sits
@@ -2424,8 +2754,8 @@ private theorem fvarLeaves_nil_of_not_hasFvar :
   induction e <;> simp_all [Expr.hasFvar, Expr.fvarLeaves]
 
 /-- The interned fabrication guard (`leafGuardI`: `hasFvarI`
-short-circuit over the hoisted leaf-subset test, task #84) agrees with
-the `Expr`-level leaf-subset boolean. -/
+short-circuit over the memoized fabrication-side subset walk, tasks
+#84/#86) agrees with the `Expr`-level leaf-subset boolean. -/
 theorem leafGuardI_spec {st : EStore} (hwf : st.WF) {fab base : EIdx}
     {xf xb : Expr} (hf : st.denote fab = some xf)
     (hb : st.denote base = some xb) :
@@ -2437,6 +2767,10 @@ theorem leafGuardI_spec {st : EStore} (hwf : st.WF) {fab base : EIdx}
   | false =>
     simp [fvarLeaves_nil_of_not_hasFvar hhf]
   | true =>
-    simpa only [Bool.not_true, Bool.false_or]
-      using leafGuardI_lists_spec hwf hf hb
+    have hB := (fvarLeavesI_spec hwf hb).trans (leavesExp_eq_leavesL xb)
+    rcases hgo : EStore.leavesSubIGo st (st.fvarLeavesI base) {} fab
+      with ⟨r, memo'⟩
+    obtain ⟨-, hcond⟩ := leavesSubIGo_spec hwf hB fab QMemo0Inv.empty hgo
+    simp only [hgo, Bool.not_true, Bool.false_or]
+    exact hcond xf hf
 end Setlec

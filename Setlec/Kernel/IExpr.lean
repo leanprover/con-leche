@@ -547,11 +547,12 @@ the operation returns the child unchanged — garbage in, garbage out; the
 verification only speaks about well-formed stores).
 -/
 
-/-- Dense loose-bvar-bound cache (task #78): on binder-heavy DAG input
-the bound cache acquires an entry for essentially every arena node, so
-it is a plain array indexed by node id (slot = bound + 1, `0` =
-unfilled; geometric growth) instead of a hash map — ~6x smaller per
-entry and `O(1)` without hashing. -/
+/-- Dense per-node `Nat` cache (task #78; used for the loose-bvar
+bound and, task #86, the fvar range): on binder-heavy DAG input such a
+cache acquires an entry for essentially every arena node, so it is a
+plain array indexed by node id (slot = value + 1, `0` = unfilled;
+geometric growth) instead of a hash map — ~6x smaller per entry and
+`O(1)` without hashing. -/
 structure BMemo where
   arr : Array Nat
 
@@ -850,9 +851,15 @@ def abstract1I (st : EStore) (e : EIdx) (d : Nat) (k : Nat := 0) : EIdx × EStor
 
 /-- Core of `abstractRangeI` (task #72); `d`/`k` fix the abstracted
 fvar-level range `[d, d + k)`, `c` is the binder cursor (mirrors
-`Expr.abstractRange e d k c`). -/
-def abstractRangeIGo (d k : Nat) (st : EStore) (memo : MemoN) (e : EIdx)
-    (c : Nat) : EIdx × EStore × MemoN :=
+`Expr.abstractRange e d k c`).  `fm` is a read-only view of the
+persistent fvar-range cache: a node whose cached range is at or below
+`d` has no fvar the abstraction could touch, so it is returned
+unchanged without traversal (nanoda's per-node `!has_fvars` shortcut
+in `abstr_aux`, task #86; on a canonical arena the traversal would
+rebuild the same index node by node). -/
+def abstractRangeIGo (d k : Nat) (st : EStore) (fm : BMemo)
+    (memo : MemoN) (e : EIdx) (c : Nat) : EIdx × EStore × MemoN :=
+  if fm.cutoff e d then (e, st, memo) else
   match memo[(e, c)]? with
   | some r => (r, st, memo)
   | none =>
@@ -871,37 +878,37 @@ def abstractRangeIGo (d k : Nat) (st : EStore) (memo : MemoN) (e : EIdx)
         | .const _ _ => (e, st, memo)
         | .app f a =>
           if _h : f < e ∧ a < e then
-            let (f', st, memo) := abstractRangeIGo d k st memo f c
-            let (a', st, memo) := abstractRangeIGo d k st memo a c
+            let (f', st, memo) := abstractRangeIGo d k st fm memo f c
+            let (a', st, memo) := abstractRangeIGo d k st fm memo a c
             let (r, st) := st.intern (.app f' a')
             (r, st, memo)
           else (e, st, memo)
         | .lam n ty body m =>
           if _h : ty < e ∧ body < e then
-            let (ty', st, memo) := abstractRangeIGo d k st memo ty c
-            let (body', st, memo) := abstractRangeIGo d k st memo body (c + 1)
+            let (ty', st, memo) := abstractRangeIGo d k st fm memo ty c
+            let (body', st, memo) := abstractRangeIGo d k st fm memo body (c + 1)
             let (r, st) := st.intern (.lam n ty' body' m)
             (r, st, memo)
           else (e, st, memo)
         | .forallE n ty body m =>
           if _h : ty < e ∧ body < e then
-            let (ty', st, memo) := abstractRangeIGo d k st memo ty c
-            let (body', st, memo) := abstractRangeIGo d k st memo body (c + 1)
+            let (ty', st, memo) := abstractRangeIGo d k st fm memo ty c
+            let (body', st, memo) := abstractRangeIGo d k st fm memo body (c + 1)
             let (r, st) := st.intern (.forallE n ty' body' m)
             (r, st, memo)
           else (e, st, memo)
         | .letE n ty val body =>
           if _h : ty < e ∧ val < e ∧ body < e then
-            let (ty', st, memo) := abstractRangeIGo d k st memo ty c
-            let (val', st, memo) := abstractRangeIGo d k st memo val c
-            let (body', st, memo) := abstractRangeIGo d k st memo body (c + 1)
+            let (ty', st, memo) := abstractRangeIGo d k st fm memo ty c
+            let (val', st, memo) := abstractRangeIGo d k st fm memo val c
+            let (body', st, memo) := abstractRangeIGo d k st fm memo body (c + 1)
             let (r, st) := st.intern (.letE n ty' val' body')
             (r, st, memo)
           else (e, st, memo)
         | .lit _ => (e, st, memo)
         | .proj s i sub =>
           if _h : sub < e then
-            let (sub', st, memo) := abstractRangeIGo d k st memo sub c
+            let (sub', st, memo) := abstractRangeIGo d k st fm memo sub c
             let (r, st) := st.intern (.proj s i sub')
             (r, st, memo)
           else (e, st, memo)
@@ -914,13 +921,14 @@ abstraction, task #72): close the `k` fvar levels `[d, d + k)` —
 innermost bound tightest — in one memoized DAG traversal.  Equal,
 under the denotation, to the innermost-first `abstract1I` chain
 (`Expr.abstractRange_succ`).  `k = 0` is the identity and skips the
-traversal. -/
-def abstractRangeI (st : EStore) (e : EIdx) (d k : Nat) (c : Nat := 0) :
-    EIdx × EStore :=
+traversal.  `fm` is the read-only fvar-range view; nodes ranged at or
+below `d` are returned unchanged (see `abstractRangeIGo`). -/
+def abstractRangeI (st : EStore) (e : EIdx) (d k : Nat) (c : Nat := 0)
+    (fm : BMemo := {}) : EIdx × EStore :=
   match k with
   | 0 => (e, st)
   | _ + 1 =>
-    let (r, st, _) := abstractRangeIGo d k st {} e c
+    let (r, st, _) := abstractRangeIGo d k st fm {} e c
     (r, st)
 
 /-- Memo table for cursor-free index→index traversals. -/
@@ -1359,6 +1367,65 @@ def bvarBoundsLGo (st : EStore) (memo : BMemo) : List EIdx → BMemo
     if memo.covers e then bvarBoundsLGo st memo es
     else bvarBoundsLGo st (bvarBoundIGo st memo e).2 es
 
+/-- Core of the fvar *range* (task #86): the least `d` with
+`fvarsBelow d` for a node — max fvar index + 1, `0` = fvar-free — not
+descending into `fvar` type annotations, matching the abstraction
+traversals.  Memoized cursor-free like `bvarBoundIGo`: a node's range
+depends only on its immutable sub-DAG, so callers thread a
+*persistent* memo (`IState.fvarB`, the mirror of `IState.bvarB`) and
+every node is visited at most once over a whole checker run.
+Abstraction of a range at or above a node's fvar range is the identity
+(`abstractRangeM`'s short-circuit; nanoda's per-node `has_fvars`
+pruning in `abstr_aux`). -/
+def fvarRangeIGo (st : EStore) (memo : BMemo) (e : EIdx) :
+    Nat × BMemo :=
+  match memo.get? e with
+  | some b => (b, memo)
+  | none =>
+    match st.nodes[e]? with
+    | none => (0, memo)
+    | some n =>
+      let (b, memo) : Nat × BMemo :=
+        match n with
+        | .fvar idx _ _ => (idx + 1, memo)
+        | .bvar _ | .sort _ | .const _ _ | .lit _ => (0, memo)
+        | .app f a =>
+          if _h : f < e ∧ a < e then
+            let (bf, memo) := fvarRangeIGo st memo f
+            let (ba, memo) := fvarRangeIGo st memo a
+            (max bf ba, memo)
+          else (0, memo)
+        | .lam _ ty body _ | .forallE _ ty body _ =>
+          if _h : ty < e ∧ body < e then
+            let (bt, memo) := fvarRangeIGo st memo ty
+            let (bb, memo) := fvarRangeIGo st memo body
+            (max bt bb, memo)
+          else (0, memo)
+        | .letE _ ty val body =>
+          if _h : ty < e ∧ val < e ∧ body < e then
+            let (bt, memo) := fvarRangeIGo st memo ty
+            let (bv, memo) := fvarRangeIGo st memo val
+            let (bb, memo) := fvarRangeIGo st memo body
+            (max (max bt bv) bb, memo)
+          else (0, memo)
+        | .proj _ _ sub =>
+          if _h : sub < e then fvarRangeIGo st memo sub
+          else (0, memo)
+      (b, memo.insert e b)
+termination_by e
+decreasing_by all_goals first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h
+
+/-- Fold of `fvarRangeIGo` over a list of roots (the mirror of
+`bvarBoundsLGo`, task #86): fills the persistent range cache for each
+root's whole sub-DAG; an already-ranged root is skipped without
+entering the walk (allocation-free `covers` slot read — the #84
+prepass regression trap). -/
+def fvarRangesLGo (st : EStore) (memo : BMemo) : List EIdx → BMemo
+  | [] => memo
+  | e :: es =>
+    if memo.covers e then fvarRangesLGo st memo es
+    else fvarRangesLGo st (fvarRangeIGo st memo e).2 es
+
 /-- Core of `wscopedBI`; `d` is the scope cursor (mirrors
 `Expr.wscopedB d`; an `fvar idx _ ty` leaf checks `idx < d` and recurses
 into the annotation at cutoff `idx`). -/
@@ -1460,17 +1527,65 @@ leaves as `(idx, name, type-index)` triples. -/
 def fvarLeavesI (st : EStore) (e : EIdx) : List (Nat × Name × EIdx) :=
   (fvarLeavesIGo st {} e).1
 
+/-- Core of the fabrication-side leaf-subset test (task #86): is
+every fvar leaf of `e` — hereditarily including annotation leaves,
+exactly `fvarLeavesI`'s notion — contained in `bl`?  One memoized
+Bool DAG walk; the previous `.all` over the materialized
+`fvarLeavesI e` list was tree-sized on shared fabrications (the
+residual exponential case noted at task #84). -/
+def leavesSubIGo (st : EStore) (bl : List (Nat × Name × EIdx))
+    (memo : Std.HashMap EIdx Bool) (e : EIdx) :
+    Bool × Std.HashMap EIdx Bool :=
+  match memo[e]? with
+  | some r => (r, memo)
+  | none =>
+    match st.nodes[e]? with
+    | none => (true, memo)
+    | some n =>
+      let (r, memo) : Bool × Std.HashMap EIdx Bool :=
+        match n with
+        | .bvar _ | .sort _ | .const _ _ | .lit _ => (true, memo)
+        | .fvar idx nm ty =>
+          if bl.contains (idx, nm, ty) then
+            if _h : ty < e then leavesSubIGo st bl memo ty
+            else (true, memo)
+          else (false, memo)
+        | .app f a =>
+          if _h : f < e ∧ a < e then
+            let (rf, memo) := leavesSubIGo st bl memo f
+            if rf then leavesSubIGo st bl memo a else (false, memo)
+          else (true, memo)
+        | .lam _ ty body _ | .forallE _ ty body _ =>
+          if _h : ty < e ∧ body < e then
+            let (rt, memo) := leavesSubIGo st bl memo ty
+            if rt then leavesSubIGo st bl memo body else (false, memo)
+          else (true, memo)
+        | .letE _ ty val body =>
+          if _h : ty < e ∧ val < e ∧ body < e then
+            let (rt, memo) := leavesSubIGo st bl memo ty
+            if rt then
+              let (rv, memo) := leavesSubIGo st bl memo val
+              if rv then leavesSubIGo st bl memo body else (false, memo)
+            else (false, memo)
+          else (true, memo)
+        | .proj _ _ sub =>
+          if _h : sub < e then leavesSubIGo st bl memo sub
+          else (true, memo)
+      (r, memo.insert e r)
+termination_by e
+decreasing_by all_goals first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h
+
 /-- The fabrication leaf guard (scoped call discipline): every fvar
 leaf of `fab` is an fvar leaf of `base`.  Equal to the `Expr`-level
 `fab.fvarLeaves.all (base.fvarLeaves.contains ·)` on well-formed
 stores (`leafGuardI_spec`); evaluation short-circuits — a term with no
-fvar at all passes trivially (`hasFvarI`, one memoized DAG walk
-instead of two leaf-list materializations), and the base's leaf list
-is computed once, not once per leaf of `fab` (task #84). -/
+fvar at all passes trivially (`hasFvarI`, one memoized DAG walk), and
+the fabrication side is the memoized Bool walk `leavesSubIGo` instead
+of a tree-sized leaf-list materialization (tasks #84/#86; the base's
+leaf list is still materialized, once). -/
 def leafGuardI (st : EStore) (fab base : EIdx) : Bool :=
   !st.hasFvarI fab ||
-    (let baseLeaves := st.fvarLeavesI base
-     (st.fvarLeavesI fab).all (fun l => baseLeaves.contains l))
+    (leavesSubIGo st (st.fvarLeavesI base) {} fab).1
 
 /-- Core of `constsResolveI` (mirrors `Expr.constsResolve env`; no
 cursor). -/
