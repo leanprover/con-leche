@@ -825,24 +825,31 @@ binder domains against the constructor's.
 /-- The capabilities a direct simple structure earns.  `ruleK` is
 `false` by construction (`isKTarget` needs a `Prop` result, lean4lean
 `Inductive/Add.lean:289-296`, and the class requires a provably nonzero
-sort).  `eta` is **not** claimed: the eta certificate reduces the two
-sides through installed projection *functions*, and the direct path
-installs recursor-elimination templates instead (see DESIGN.md).
-`unitlike` holds exactly when there are no fields — the model is then
-the singleton. -/
+sort).
+
+Neither `eta` nor `unitlike` is claimed.  Both are *frame-relative*
+laws — they quantify over a parameter-telescope fit at an **arbitrary**
+frame, while the constructed values are λ-towers over the frame-0
+opening of the stored type, so discharging them needs a relocation of a
+closed telescope's fit onto the canonical frame-0 opening that the
+value construction does not supply (see DESIGN.md, "The two
+frame-relative capabilities").  Claiming fewer capabilities only ever
+removes reductions, so this is safe; it costs nothing today because the
+direct path is artifact-*absence* gated and every structure carrying an
+artifact keeps the modeled route and its capabilities. -/
 def directCaps (p : DirectParts) : IndCaps where
   eta := false
   etaCtor := p.cvC.name
   etaParams := p.nP
   etaFields := p.nF
-  unitlike := p.nF == 0
+  unitlike := false
   unitParams := p.nP
   ruleK := false
 
 /-- The official per-field universe bound, over the opened constructor
 telescope: every field's sort must be `≤` the structure's result sort
-(lean4lean `Inductive/Add.lean:225-228`, nanoda
-`inductive.rs:828-834`; the `Prop` escape hatch there does not apply —
+(lean4lean `Inductive/Add.lean:225-228`, nanoda `check_ctor`,
+`checker/src/inductive.rs:809`; the `Prop` escape hatch there does not apply —
 the class requires a nonzero result sort).  Walks the fields from the
 last to the first. -/
 def checkDirectFieldUniv (ops : CheckerOps m) (env : Env) (s : Level)
@@ -872,35 +879,46 @@ def checkDirectInd (ops : CheckerOps m) (env : Env) (p : DirectParts) :
   pure (⟨.indInfo cvTa (directCaps p) :: env.consts⟩, cvTa)
 
 /-- Stage 2: the constructor — the ordinary constant check, the
-annotated result shape, and the per-field universe bound. -/
-def checkDirectCtor (ops : CheckerOps m) (env : Env) (p : DirectParts)
+annotated result shape, and the per-field universe bound.
+
+`env₀` is the **pre-block** environment and `env` the one carrying the
+type former.  The opened field domains are re-checked to resolve in
+`env₀`: `directNonRec` says that of the *raw* domains (it is the
+recognition filter), and the model needs it of the *annotated* ones,
+because the type former's value — fixed one install earlier, before its
+own constructor existed — is built from those domains' interpretations
+in `env₀`.  Same discipline as `directShape`: a skeleton fact checked
+on the raw block for recognition and re-checked on the annotated
+constants at install. -/
+def checkDirectCtor (ops : CheckerOps m) (env₀ env : Env) (p : DirectParts)
     (cvTa : ConstantVal) : m (Env × ConstantVal) := do
   let cvCa ← checkConstantVal ops env p.cvC
   let (_, cbody) ← unwrapOr (cvCa.type.stripPis (p.nP + p.nF))
     (.notImplemented "direct structure: constructor telescope")
   unless cbody == directFam p.cvT.name p.cvT.levelParams p.nP p.nF do
     throw (.notImplemented "direct structure: constructor result")
-  -- One opening for the whole block: the *type former's* parameter
-  -- telescope is opened, and the constructor's is instantiated at those
-  -- very variables.  The reference kernels compare the two parameter
-  -- telescopes by `isDefEq` (lean4lean `Inductive/Add.lean:220-222`);
-  -- instantiating one into the other is the same check done once, and
-  -- it is what lets the model read the field types at the *same* frame
-  -- the type former's own walk produces.
-  let tq ← unwrapOr (openPisAtFvars p.nP cvTa.type 0)
-    (.notImplemented "direct structure: type former telescope")
-  let cq ← unwrapOr (Expr.instPisAt tq.1 cvCa.type)
+  -- One opening for the whole block: the **constructor's own**
+  -- parameter telescope, which is the frame the model's fits arrive at
+  -- (the field types' interpretations, the dependent-pair tower and the
+  -- constructor value are all read off it).
+  let cq ← unwrapOr (openPisAtFvars p.nP cvCa.type 0)
     (.notImplemented "direct structure: constructor telescope")
-  -- the constructor's parameter domains are the type former's,
+  let tq ← unwrapOr (Expr.instPisAt cq.1 cvTa.type)
+    (.notImplemented "direct structure: type former telescope")
+  -- the type former's parameter domains are the constructor's,
   -- definitionally (lean4lean `Inductive/Add.lean:220-222`, nanoda
   -- `check_ctor`): this is what carries a parameter value's membership
-  -- from the type former's telescope to the constructor's
+  -- from the constructor's telescope to the type former's, so that the
+  -- family's own value folds at the very same parameters
+  checkDefEqList ops env (p.nP + p.nF) (cq.1.map Expr.fvarTypeD) tq.1
   let xq ← unwrapOr (openPisAtFvars p.nF cq.2 p.nP)
     (.notImplemented "direct structure: constructor field telescope")
   -- the opened residual is the family at the opened parameter variables
   unless xq.2 == Expr.mkAppN
-      (.const p.cvT.name (p.cvT.levelParams.map .param)) tq.1 do
+      (.const p.cvT.name (p.cvT.levelParams.map .param)) cq.1 do
     throw (.notImplemented "direct structure: opened constructor residual")
+  unless xq.1.all fun x => x.fvarTypeD.constsResolve env₀ do
+    throw (.notImplemented "direct structure: field domain after the block")
   checkDirectFieldUniv ops env p.resSort p.nP xq.1 p.nF
   pure (⟨.ctorInfo cvCa p.nP p.nF :: env.consts⟩, cvCa)
 
@@ -1034,15 +1052,18 @@ def checkDirectProj (ops : CheckerOps m) (T C : Name) (lps : List Name)
 
 /-- Check and install a **direct simple structure** (task #82): the
 type former, the constructor, the recursor with its single rule, and
-the projection *templates* the `.proj` annotation falls back on.  No
-`_model` artifact is read; the model is constructed at install
-(`Setlec/Model/Direct*.lean`).  Recognition happened in
-`directParts?`; everything here is a genuine check of the declaration,
-so a failure is a verdict, not a fall-through. -/
+the `nF` projection **functions** (`checkDirectProj` — real degenerate
+recursors in the `projFnName` slot family, *not* the Prop-fallback
+elimination templates, which cannot express a dependent field's
+projection; see DESIGN.md, "Projections compose with the existing
+table").  No `_model` artifact is read and none is written; the model
+is constructed at install (`Setlec/Model/Direct*.lean`).  Recognition
+happened in `directParts?`; everything here is a genuine check of the
+declaration, so a failure is a verdict, not a fall-through. -/
 def checkDirectStruct (ops : CheckerOps m) (env : Env) (p : DirectParts) :
     m Env := do
   let (env₁, cvTa) ← checkDirectInd ops env p
-  let (env₂, cvCa) ← checkDirectCtor ops env₁ p cvTa
+  let (env₂, cvCa) ← checkDirectCtor ops env env₁ p cvTa
   let cvRa ← checkConstantVal ops env₂ p.cvR
   checkDirectRecTy ops env₂ p cvTa cvCa cvRa
   let rhsA ← checkDirectRule ops env₂ p cvCa cvRa

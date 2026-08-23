@@ -439,7 +439,7 @@ theorem extend_rec_swap {rules' : List RecRule}
     · exact Or.inl (Env.find?_recRules_swap rules' []
         (fun he => h he.symm))
   · -- modeled_ok: lookups only differ in the head's rule list
-    obtain ⟨mo2, mo3, mo4, mo5, mo6⟩ := m₀.modeled_ok
+    obtain ⟨mo2, mo3, mo4, mo5, mo6, mo7⟩ := m₀.modeled_ok
     have hisoF : ∀ n,
         (⟨.recInfo cvA mI rP rules' :: env.consts⟩ : Env).find? n =
         if cvA.name = n then some (.recInfo cvA mI rP rules')
@@ -464,7 +464,7 @@ theorem extend_rec_swap {rules' : List RecRule}
           (show (ConstantInfo.recInfo cvA mI rP []).name = n from he)]
         rfl
       · exact hn
-    refine ⟨?_, ?_, ?_, ?_, ?_⟩
+    refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
     · intro n cv cnP' cnF' hf hres hms
       rw [hisoF] at hf
       split at hf
@@ -532,6 +532,11 @@ theorem extend_rec_swap {rules' : List RecRule}
               if_pos (show (ConstantInfo.recInfo cvA mI rP []).name =
                 projFnName T j from hh)])
         · exact mo6 T j cv3 mI3 rP3 rules3 hf
+    · intro n cv caps hf hres hms
+      rw [hisoF] at hf
+      split at hf
+      · exact nomatch (Option.some.inj hf)
+      · exact mo7 n cv caps hf hres (hisoS _ hms)
   · -- nat_ops: lookups only differ in the head's rule list
     exact NatOpsOk.cons_recRules m₀.nat_ops
   · -- div_mod: value-level equations, only the lookups move
@@ -590,6 +595,11 @@ theorem extend_fresh {env : Env} (m : EnvModel V env)
         env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF))
     (hmodv : reservedBasisNames.contains ci.name = false →
       (∃ cv cnP cnF, ci = .ctorInfo cv cnP cnF) →
+      (env.find? (ci.name.str "_model")).isSome = true →
+      ∀ ψ : Name → Nat, v₀ ψ = m.val (ci.name.str "_model") ψ)
+    -- the type former's half of the same linkage
+    (hmodvInd : reservedBasisNames.contains ci.name = false →
+      (∃ cv caps, ci = .indInfo cv caps) →
       (env.find? (ci.name.str "_model")).isSome = true →
       ∀ ψ : Name → Nat, v₀ ψ = m.val (ci.name.str "_model") ψ)
     (hproj : ∀ (T : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat)
@@ -894,9 +904,28 @@ theorem extend_fresh {env : Env} (m : EnvModel V env)
   · -- proj_ok
     exact ProjOk.cons m.proj_ok hfind' hprojOk
   · -- modeled_ok
-    refine ModeledOk.cons m.modeled_ok m.wf hfind' ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+    refine ModeledOk.cons m.modeled_ok m.wf hfind' ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
     · intro n ψ hn
       simp [hval', hn]
+    · -- the type former's linkage, owed only when its companion exists
+      intro cv caps heq hres hms
+      have hmne : ¬ci.name = ci.name.str "_model" :=
+        fun hh => Name.str_ne ci.name "_model" hh.symm
+      have hmsOld : (env.find? (ci.name.str "_model")).isSome = true := by
+        rw [Env.find?_cons, if_neg hmne] at hms
+        exact hms
+      intro ψ
+      have h1 : val' ci.name ψ = v₀ ψ := by simp [hval']
+      have hmne2 : ¬ci.name.str "_model" = ci.name := fun hh => hmne hh.symm
+      have h2 : val' (ci.name.str "_model") ψ =
+          m.val (ci.name.str "_model") ψ := by simp [hval', hmne2]
+      rw [h1, h2]
+      exact hmodvInd hres ⟨cv, caps, heq⟩ hmsOld ψ
+    · -- the companion side, refused by the model-family guard
+      intro n cv caps hnm hfn hresn ψ
+      exfalso
+      rw [hnm, modelFamilyTaken_indInfo hfn hresn] at hmft
+      exact nomatch hmft
     · -- the constructor's linkage, owed only when its companion exists
       intro cv cnP cnF heq hres hms
       have hmne : ¬ci.name = ci.name.str "_model" :=
@@ -929,19 +958,14 @@ theorem extend_fresh {env : Env} (m : EnvModel V env)
       exact hproj T j cv3 mI3 rP3 rules3 hh hceq hmsOld ψ
     · -- the model-family guard: `ci.name` cannot be the companion of a
       -- constant that is already stored
-      intro n cv cnP cnF hnm hfn _ ψ
+      intro n cv cnP cnF hnm hfn hresn ψ
       exfalso
-      rw [hnm] at hmft
-      simp only [modelFamilyTaken, modelSuffixTaken, hfn,
-        Bool.or_eq_false_iff] at hmft
-      exact nomatch hmft.1
+      rw [hnm, modelFamilyTaken_ctorInfo hfn hresn] at hmft
+      exact nomatch hmft
     · intro T j cv mI rP rules hnm hfp hfn ψ
       exfalso
-      rw [hnm, projModelName] at hmft
-      simp only [modelFamilyTaken, modelProjTaken,
-        Bool.or_eq_false_iff] at hmft
-      rw [hfp] at hmft
-      exact nomatch hmft.2
+      rw [hnm, modelFamilyTaken_projFn hfn] at hmft
+      exact nomatch hmft
     · -- the eta law of a freshly installed eta-capable structure
       intro cv caps heq hcape hres
       obtain ⟨hms1, hms2, hlaw⟩ := hetaL cv caps heq hcape hres

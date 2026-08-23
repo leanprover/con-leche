@@ -549,6 +549,18 @@ def ModeledOk (env : Env) (val : ConstVal V) : Prop :=
     reservedBasisNames.contains n = false →
     (env.find? (n.str "_model")).isSome = true →
     ∀ ψ : Name → Nat, val n ψ = val (n.str "_model") ψ) ∧
+  -- The projection-function clause additionally takes **the parent
+  -- being stored as an inductive type former** as a premise.  It is
+  -- not decoration: `ModeledOk.cons` splits on whether the parent `T`
+  -- is the constant being installed, and rules that case out from the
+  -- last clause below (a stored projection function's parent is stored
+  -- already, so it cannot be the fresh one).  Without the premise that
+  -- case has no contradiction to reach, and the clause would have to
+  -- be re-established for a parent that does not exist yet.  Every
+  -- consumer has the parent's lookup in hand anyway: the projection
+  -- table is only ever read at a structure (`Setlec/Model/Core/
+  -- StructEta.lean`).  See DESIGN.md, "The environment invariant,
+  -- split".
   (∀ (T : Name) (cvT : ConstantVal) (capsT : IndCaps) (j : Nat)
       (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
     env.find? T = some (.indInfo cvT capsT) →
@@ -580,7 +592,17 @@ def ModeledOk (env : Env) (val : ConstVal V) : Prop :=
   (∀ (T : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat)
       (rules : List RecRule),
     env.find? (projFnName T j) = some (.recInfo cv mI rP rules) →
-    (env.find? T).isSome = true)
+    (env.find? T).isSome = true) ∧
+  -- the **type former's** half of the artifact linkage, in the same
+  -- existence-premised style as the constructor's (the first clause):
+  -- a modeled block installs its type former with its companion's
+  -- value too, and a later block's rename-and-transport reads it.
+  -- Kept last only so that the earlier clauses' positional accessors
+  -- stay put.
+  (∀ n cv caps, env.find? n = some (.indInfo cv caps) →
+    reservedBasisNames.contains n = false →
+    (env.find? (n.str "_model")).isSome = true →
+    ∀ ψ : Name → Nat, val n ψ = val (n.str "_model") ψ)
 
 /-- A stored structural-Nat operation's semantic certificate
 (established at install by `certifyNatEqs` and the pinned-shape
@@ -686,7 +708,7 @@ theorem DivModOk.empty (val : ConstVal V) : DivModOk V Env.empty val := by
   simp [Env.find?, Env.empty] at h
 
 theorem ModeledOk.empty (val : ConstVal V) : ModeledOk V Env.empty val := by
-  refine ⟨?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
   · intro n cv cnP cnF h
     simp [Env.find?, Env.empty] at h
   · intro T cvT capsT j cv mI rP rules h
@@ -696,6 +718,8 @@ theorem ModeledOk.empty (val : ConstVal V) : ModeledOk V Env.empty val := by
   · intro T cvT caps h
     simp [Env.find?, Env.empty] at h
   · intro T j cv mI rP rules h
+    simp [Env.find?, Env.empty] at h
+  · intro n cv caps h
     simp [Env.find?, Env.empty] at h
 
 /-- A model of an environment: a set-theoretic value for every constant

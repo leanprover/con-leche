@@ -2103,11 +2103,11 @@ theorem checkDirectInd_wfimp {env : Env} (henv : EnvWF env)
 /-- Stage 2 of the direct install, `wfOpsM` run to pure run.  The
 opened constructor telescope is scoped at its own frame because the
 annotated constructor type is closed. -/
-theorem checkDirectCtor_wfimp {env : Env} (henv : EnvWF env)
+theorem checkDirectCtor_wfimp {env₀ env : Env} (henv : EnvWF env)
     {p : DirectParts} {cvTa : ConstantVal} {F : Nat} {v : Env × ConstantVal}
     (hTf : cvTa.type.hasFvar = false)
-    (h : (checkDirectCtor wfOpsM env p cvTa).val F = .ok v) :
-    checkDirectCtor (fueledOps F) env p cvTa = .ok v := by
+    (h : (checkDirectCtor wfOpsM env₀ env p cvTa).val F = .ok v) :
+    checkDirectCtor (fueledOps F) env₀ env p cvTa = .ok v := by
   unfold checkDirectCtor at h ⊢
   obtain ⟨cvCa, hcv, h⟩ := atF_bind_ok h
   have hcv' := checkConstantVal_wfimp henv hcv
@@ -2127,32 +2127,43 @@ theorem checkDirectCtor_wfimp {env : Env} (henv : EnvWF env)
       = true
   case neg => rw [if_neg h1] at h; exact absurd h atF_throw_bind
   rw [if_pos h1] at h ⊢
-  -- the shared opening: the type former's parameter telescope
+  -- the block's shared opening: the constructor's parameter telescope
   obtain ⟨q2, hop, h⟩ := atF_bind_ok h
-  obtain ⟨fvsP, trest⟩ := q2
+  obtain ⟨fvsP, crest⟩ := q2
   dsimp only [] at h
   have hop' := unwrapOr_atF_ok hop
-  show ((unwrapOr (openPisAtFvars p.nP cvTa.type 0) _ : CheckM _) >>= _) = _
+  show ((unwrapOr (openPisAtFvars p.nP cvCa.type 0) _ : CheckM _) >>= _) = _
   rw [hop']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   try dsimp only []
-  obtain ⟨hfvsW0, -⟩ := openPisAtFvars_WScoped p.nP cvTa.type 0 hop'
-    (WScoped.of_not_hasFvar hTf)
+  obtain ⟨hfvsW0, hcrW0⟩ := openPisAtFvars_WScoped p.nP cvCa.type 0 hop'
+    (WScoped.of_not_hasFvar hCf)
   have hfvsW : ∀ x ∈ fvsP, WScoped p.nP x := by
     intro x hx
     have h0 := hfvsW0 x hx
     rwa [Nat.zero_add] at h0
-  -- the constructor's telescope instantiated at those very variables
+  have hcrW : WScoped p.nP crest := by rwa [Nat.zero_add] at hcrW0
+  -- the type former's telescope instantiated at those very variables
   obtain ⟨q3, hci, h⟩ := atF_bind_ok h
-  obtain ⟨cdomsP, crest⟩ := q3
+  obtain ⟨tdomsP, trest⟩ := q3
   dsimp only [] at h
   have hci' := unwrapOr_atF_ok hci
-  show ((unwrapOr (Expr.instPisAt fvsP cvCa.type) _ : CheckM _) >>= _) = _
+  show ((unwrapOr (Expr.instPisAt fvsP cvTa.type) _ : CheckM _) >>= _) = _
   rw [hci']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   try dsimp only []
-  obtain ⟨-, hcrW⟩ := instPisAt_WScoped (d := p.nP) fvsP cvCa.type hci'
-    (WScoped.of_not_hasFvar hCf) hfvsW
+  obtain ⟨htdW0, -⟩ := instPisAt_WScoped (d := p.nP) fvsP cvTa.type hci'
+    (WScoped.of_not_hasFvar hTf) hfvsW
+  -- the parameter domains, definitionally against the type former's
+  obtain ⟨u1, hd1, h⟩ := atF_bind_ok h
+  have hd1' := checkDefEqList_wfimp henv
+    (fun a ha => by
+      obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
+      exact (fvarTypeD_WScoped (hfvsW x hx)).mono (by omega))
+    (fun b hb => (htdW0 b hb).mono (by omega)) hd1
+  show (checkDefEqList (fueledOps F) env (p.nP + p.nF) _ _ >>= _) = _
+  rw [hd1']
+  simp only [Bind.bind, Except.bind]
   -- the field telescope
   obtain ⟨q4, hox, h⟩ := atF_bind_ok h
   obtain ⟨xFvs, cresid⟩ := q4
@@ -2174,6 +2185,9 @@ theorem checkDirectCtor_wfimp {env : Env} (henv : EnvWF env)
       (.const p.cvT.name (p.cvT.levelParams.map .param)) fvsP) = true
   case neg => rw [if_neg h2] at h; exact absurd h atF_throw_bind
   rw [if_pos h2] at h ⊢
+  by_cases h3 : (xFvs.all fun x => Expr.constsResolve env₀ x.fvarTypeD) = true
+  case neg => rw [if_neg h3] at h; exact absurd h atF_throw_bind
+  rw [if_pos h3] at h ⊢
   obtain ⟨u0, hfu, h⟩ := atF_bind_ok h
   have hfu' := checkDirectFieldUniv_wfimp henv hxPos hfu
   show (checkDirectFieldUniv (fueledOps F) env p.resSort p.nP xFvs p.nF
@@ -2617,7 +2631,7 @@ theorem checkDirectStruct_wfimp {env : Env} (henv : EnvWF env)
       EnvWF e₁ ∧ cvTa.type.hasFvar = false)
     (hwf₂ : ∀ (e₁ e₂ : Env) (cvTa cvCa : ConstantVal),
       (checkDirectInd wfOpsM env p).val F = .ok (e₁, cvTa) →
-      (checkDirectCtor wfOpsM e₁ p cvTa).val F = .ok (e₂, cvCa) →
+      (checkDirectCtor wfOpsM env e₁ p cvTa).val F = .ok (e₂, cvCa) →
       EnvWF e₂ ∧ cvCa.type.hasFvar = false ∧
         cvCa.type.looseBVarsBounded 0 = true)
     (hwf₃ : ∀ (e₂ : Env) (cvCa cvRa : ConstantVal) (rhsA : Expr),

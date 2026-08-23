@@ -2,19 +2,34 @@ import Setlec.Model.DirectParams
 import Setlec.Model.Extend.Model
 
 /-!
-# Installing a direct simple structure into the model
+# The direct install's per-field universe walk, semantically
 
-`checkDirectStruct` (`Setlec/Kernel/Checker.lean`) installs, in order,
-the type former's model companion, the type former, the constructor's
-companion, the constructor, the recursor with its rule, and then per
-field a projection companion and the projection function.  This module
-supplies the model-side counterpart of each step.
+`checkDirectStruct` (`Setlec/Kernel/Checker.lean`) installs a
+recognised simple structure as the type former, the constructor, the
+recursor with its rule and the `nF` projection functions — and
+**nothing else**.  It stores no `_model` companions: synthesising them
+would be re-implementing the preprocessor inside the checker (user
+ruling, DESIGN.md), and it is not needed, because every `ModeledOk`
+linkage clause is premised on the companion being *stored* and so is
+vacuous for a directly installed block (`directNoModel`).
 
-The **companions** are opaque constants of the same type carrying the
-same value; installing them is uniform, so it is factored out here
-(`extend_direct_companion`).  They are what makes the environment
-invariant's modeled-value bridges (`ModeledOk`) hold verbatim for a
-directly installed block: the direct path is its own preprocessor.
+What this module supplies is the step from the checker's per-field
+universe walk to the semantic fact the dependent-pair tower consumes:
+
+* `checkDirectFieldUniv_inv` — inversion of the walk: per field, the
+  inferred sort, the `ensureSort` result and the `Level.leq` check;
+* `FrameOk` — the five syntactic and two semantic conditions a
+  per-binder soundness step needs at a frame, with the two steps
+  (`FrameOk.dom`, `FrameOk.body`) that carry them across an opened `∀`;
+* `FieldTele_of_walk` — the two combined: each opened field domain
+  interprets, and its checked sort bound puts it in the structure's own
+  universe by cumulativity.  This is the semantic content of the
+  reference kernels' per-field universe bound
+  (`Inductive/Add.lean:225-228`), and it is what discharges the guard
+  on the type former's value at every later member of the block (see
+  `Setlec/Model/DirectInstall.lean`).
+
+The environment assembly itself is in `Setlec/Model/DirectDecl.lean`.
 -/
 
 namespace Setlec
@@ -140,6 +155,24 @@ theorem FrameOk.body {cval : ConstVal V} {env : Env} {φ : Name → Nat}
       (FvarsOk.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]) hfv)
       handom hdom hx body 0 hws.2
       (FvarsOk.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]) hfv)
+
+/-- A value-spine fit carries the frame conditions to its residual:
+each step is `FrameOk.body` at the domain interpretation and membership
+the fit already supplies.  This is how the field telescope's frame is
+obtained at the constructor's install — from the very walk whose
+`FieldTele` is being established. -/
+theorem FrameOk.ofTeleFit {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
+    ∀ {d : Nat} {ρ : Nat → V} {e : Expr} {vs : List V} {d' : Nat}
+      {ρ' : Nat → V} {rest : Expr},
+      TeleFit V cval env φ d ρ e vs d' ρ' rest →
+      FrameOk V cval env φ d ρ e →
+      FrameOk V cval env φ d' ρ' rest := by
+  intro d ρ e vs d' ρ' rest hfit
+  induction hfit with
+  | nil => exact fun hfr => hfr
+  | @cons d ρ n ty body m x xs d' ρ' rest A hity hx hfit ih =>
+    intro hfr
+    exact ih (hfr.body hity hx)
 
 /-! ### `FieldTele` from the per-field universe walk -/
 

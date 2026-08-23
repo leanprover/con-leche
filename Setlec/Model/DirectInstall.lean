@@ -18,6 +18,34 @@ This module builds them and proves the facts the environment invariant
 consumes.  Everything is stated over the *pre-block* environment and
 valuation: the class is non-recursive (`directNonRec`), so every field
 type already resolves there.
+
+## The guard on the type former's body, and why it is not a hole
+
+`⟦T⟧`'s body is `directTyBody`, the dependent-pair tower **guarded by
+its own smallness** — the tower when it lands in `univ w`, the
+singleton otherwise.  The guard exists because of the block's install
+*order*, not because the tower might really be large:
+
+* the type former is stored **first** (the constructor's type ends in
+  `T p⃗`, so it neither resolves nor annotates before that), so the
+  per-field universe bound has not been checked when `⟦T⟧` is fixed;
+* the bound's semantic content (`FieldTele`) is read off
+  `inferTypeCore`/`ensureSortCore` runs in the environment that already
+  carries `T`, and turning those into interpretation facts needs an
+  `EnvModel` of that environment — which is exactly what the type
+  former's install is constructing.  Demanding the tower's smallness at
+  the type former is therefore circular.
+
+The junk branch is **unreachable on any block the checker accepts**:
+`checkDirectCtor` checks the per-field universe bound
+(`Inductive/Add.lean:225-228`), `FieldTele_of_walk` turns it into
+`FieldTele`, and `sigmaTowerV_mem_univ` then says the tower *is* small,
+so `directTyBody_eq` rewrites the guard away.  Every later member of
+the block — the constructor, the recursor, the projections — has that
+bound in scope and goes through `directTyBody_eq`; none of them can be
+installed without it.  The guard is thus a construction-time
+case split inside a value, never a runtime gate and never a weakening
+of what the model asserts about an accepted block.
 -/
 
 namespace Setlec
@@ -158,47 +186,84 @@ theorem TeleFit_interp_rest :
 
 /-! ### The type former's value -/
 
-/-- The constructor's field telescope, instantiated at the **type
-former's** opened parameter variables (junk outside the class).  The
-type former's opening is the block's one frame: `checkDirectCtor` runs
-the per-field universe walk over exactly this residual, so the field
-types' annotations are the ones the type former's own telescope walk
-supplies. -/
-def directCRest (tty cty : Expr) (nP : Nat) : Expr :=
-  match openPisAtFvars nP tty 0 with
-  | some (fvsP, _) =>
-    match Expr.instPisAt fvsP cty with
-    | some (_, crest) => crest
-    | none => .sort .zero
+/-- The constructor's field telescope: the residual of the
+constructor's **own** parameter opening (junk outside the class).
+
+That opening is the block's one frame.  It is where every value-spine
+fit of the constructor's type at the canonical frame lands
+(`TeleFit_open`), so the field types carry exactly the annotations the
+walks produce, and `checkDirectCtor` runs the per-field universe walk
+over this very residual. -/
+def directCRest (cty : Expr) (nP : Nat) : Expr :=
+  match openPisAtFvars nP cty 0 with
+  | some (_, crest) => crest
   | none => .sort .zero
 
+/-- The type former's body value at one parameter instantiation: the
+dependent-pair tower over the field telescope, **guarded by its own
+smallness**.
+
+*Why the guard* (a shape finding of the install order, DESIGN.md).  The
+type former is stored *first* — the constructor's type mentions it, so
+it does not resolve before the block — and only then is the
+constructor's type annotated and the per-field universe bound checked.
+The bound's semantic content (`FieldTele`) is therefore not available
+at the type former's own install: it is read off checks that run in the
+*extended* environment, whose model is what the type former's install
+is constructing.  The guard breaks that circularity: `⟦T⟧`'s membership
+in its type is unconditional, and every later member of the block —
+which does have the bound in scope — discharges the guard and sees the
+plain tower (`directTyBody_eq`).  The junk branch is unreachable on any
+block the checker accepts. -/
+noncomputable def directTyBody (V : Type u) [SetTheory V] (cval : ConstVal V)
+    (env : Env) (ψ : Name → Nat) (w nF d : Nat) (ρ : Nat → V) (crest : Expr) :
+    V :=
+  open Classical in
+  if sigmaTowerV V cval env ψ w nF d ρ crest ∈ˢ (univ w : V) then
+    sigmaTowerV V cval env ψ w nF d ρ crest
+  else unitSet
+
+/-- The guarded body is always small — the point of the guard. -/
+theorem directTyBody_mem_univ {ψ : Name → Nat} {w nF d : Nat} {ρ : Nat → V}
+    {crest : Expr} :
+    directTyBody V cval env ψ w nF d ρ crest ∈ˢ (univ w : V) := by
+  unfold directTyBody
+  split
+  · assumption
+  · exact unitSet_mem_univ w
+
+/-- Under the checked per-field universe bound the guard is discharged:
+the type former's body *is* the dependent-pair tower. -/
+theorem directTyBody_eq {ψ : Name → Nat} {w nF d : Nat} {ρ : Nat → V}
+    {crest : Expr} (hfld : FieldTele V cval env ψ w nF d ρ crest) :
+    directTyBody V cval env ψ w nF d ρ crest =
+      sigmaTowerV V cval env ψ w nF d ρ crest := by
+  unfold directTyBody
+  rw [if_pos (sigmaTowerV_mem_univ hfld)]
+
 /-- `⟦T⟧`: the λ-tower over the parameter telescope whose body is the
-dependent-pair tower over the field telescope. -/
+(guarded) dependent-pair tower over the field telescope. -/
 noncomputable def directTyVal (V : Type u) [SetTheory V] (cval : ConstVal V)
     (env : Env) (tty cty : Expr) (nP nF : Nat) (s : Level)
     (ψ : Name → Nat) : V :=
   teleLamV V cval env ψ nP 0 (rho0 V) tty
-    (fun d ρ _ => sigmaTowerV V cval env ψ (s.eval ψ) nF d ρ
-      (directCRest tty cty nP))
+    (fun d ρ _ => directTyBody V cval env ψ (s.eval ψ) nF d ρ
+      (directCRest cty nP))
 
-/-- The type former's value inhabits the interpretation of its type,
-given that the field telescope is small at every parameter
-instantiation (the per-field universe bound, checked at install). -/
+/-- The type former's value inhabits the interpretation of its type.
+Unconditional: the guard supplies the smallness the type's result sort
+demands, so this holds at the type former's own install, before the
+per-field universe bound has been checked. -/
 theorem directTyVal_mem {tty cty : Expr} {nP nF : Nat} {s : Level} {Tv : V}
     {bs : List (Name × Expr × BinderMeta)}
     (hstrip : Expr.stripPis nP tty = some (bs, .sort s))
     (htyI : interpExpr V cval env φ 0 (rho0 V) tty = some Tv)
-    (htyA : AnnotOk V cval env φ 0 (rho0 V) tty)
-    (hfield : ∀ (ps : List V) (d : Nat) (ρ : Nat → V),
-      TeleFit V cval env φ 0 (rho0 V) tty ps d ρ (.sort s) →
-      ps.length = nP →
-      FieldTele V cval env φ (s.eval φ) nF d ρ (directCRest tty cty nP)) :
+    (htyA : AnnotOk V cval env φ 0 (rho0 V) tty) :
     directTyVal V cval env tty cty nP nF s φ ∈ˢ Tv := by
   refine teleLamV_mem nP (by rw [hstrip]; rfl) htyI htyA ?_
   intro ps d ρ rest hfit hlen
   obtain rfl : rest = Expr.sort s := TeleFit_rest_sort nP hfit hlen hstrip
-  refine ⟨univ (s.eval φ), by rw [interpExpr], ?_⟩
-  exact sigmaTowerV_mem_univ (hfield ps d ρ hfit hlen)
+  exact ⟨univ (s.eval φ), by rw [interpExpr], directTyBody_mem_univ⟩
 
 /-- Applying the type former's value to a fitting parameter spine
 computes the dependent-pair tower — the equation every later step goes
@@ -213,14 +278,16 @@ theorem directTyVal_fold {tty cty : Expr} {nP nF : Nat} {s : Level}
     (hfield : ∀ (ps' : List V) (d : Nat) (ρ : Nat → V),
       TeleFit V cval env φ 0 (rho0 V) tty ps' d ρ (.sort s) →
       ps'.length = nP →
-      FieldTele V cval env φ (s.eval φ) nF d ρ (directCRest tty cty nP)) :
+      FieldTele V cval env φ (s.eval φ) nF d ρ (directCRest cty nP)) :
     SpineFold V (directTyVal V cval env tty cty nP nF s φ) ps =
-      sigmaTowerV V cval env φ (s.eval φ) nF d' ρ' (directCRest tty cty nP) := by
-  refine teleLamV_fold (by rw [hstrip]; rfl) hfit hlen htyA ?_
-  intro xs d₂ ρ₂ rest hfit₂ hlen₂
-  obtain rfl : rest = Expr.sort s := TeleFit_rest_sort nP hfit₂ hlen₂ hstrip
-  exact ⟨univ (s.eval φ), by rw [interpExpr],
-    sigmaTowerV_mem_univ (hfield xs d₂ ρ₂ hfit₂ hlen₂)⟩
+      sigmaTowerV V cval env φ (s.eval φ) nF d' ρ' (directCRest cty nP) := by
+  rw [directTyVal, teleLamV_fold (S := fun d ρ _ =>
+      directTyBody V cval env φ (s.eval φ) nF d ρ (directCRest cty nP))
+    (by rw [hstrip]; rfl) hfit hlen htyA
+    (fun xs d₂ ρ₂ rest hfit₂ hlen₂ =>
+      ⟨univ (s.eval φ), by rw [TeleFit_rest_sort nP hfit₂ hlen₂ hstrip,
+        interpExpr], directTyBody_mem_univ⟩)]
+  exact directTyBody_eq (hfield ps d' ρ' hfit hlen)
 
 /-- A field-free direct structure is unit-like: its model is the
 singleton, so any two members of the interpreted family coincide.  This
@@ -239,6 +306,157 @@ theorem directTyVal_unitlike {tty cty : Expr} {nP : Nat} {s : Level}
     (fun _ _ _ _ _ => trivial)
   rw [hfold] at hx hy
   rw [mem_unitSet_iff.mp hx, mem_unitSet_iff.mp hy]
+
+/-! ### Moving the constructed values across the block's own extensions
+
+The type former's value is fixed over the **pre-block** pair
+(`m.val`, `env`) — it is installed first — while the constructor's, the
+recursor's and the projections' obligations are stated over the pair of
+*their own* install, which is the pre-block environment plus the block
+members stored so far.  The values in between have to be recognised as
+the same object.
+
+They are, and for a reason that is local: the λ-tower and the
+dependent-pair tower read the telescope **only through its binder
+domains' interpretations** (plus the binders' own codomain-sort tags,
+which are syntax).  The block's field domains resolve before the block
+(`directNonRec` for the raw ones, re-checked on the annotated ones in
+`checkDirectCtor`), so their interpretations do not move.
+
+The frame is not generalized: `teleLamV k d` evaluates its body at
+exactly `d + k`, so the tower is only ever read at the frame the
+install's own `openPisAtFvars` runs at. -/
+
+/-- Two (valuation, environment) pairs that interpret every expression
+resolving in the **first** environment alike.  Established between the
+pre-block pair and any later one by `interp_mono` (the environment only
+grows by fresh constants) and `interp_cval_ext` (the valuations agree
+on stored names). -/
+def InterpAgree (V : Type u) [SetTheory V] (cval₁ : ConstVal V) (env₁ : Env)
+    (cval₂ : ConstVal V) (env₂ : Env) (φ : Name → Nat) : Prop :=
+  ∀ (e : Expr), e.constsResolve env₁ = true → ∀ (d : Nat) (ρ : Nat → V),
+    interpExpr V cval₁ env₁ φ d ρ e = interpExpr V cval₂ env₂ φ d ρ e
+
+variable {cval₁ cval₂ : ConstVal V} {env₁ env₂ : Env}
+
+/-- The dependent-pair tower only reads the field domains. -/
+theorem sigmaTowerV_congr (h : InterpAgree V cval₁ env₁ cval₂ env₂ φ)
+    {w : Nat} :
+    ∀ (k d : Nat) (ρ : Nat → V) (ty : Expr) (fvs : List Expr) (rest : Expr),
+      openPisAtFvars k ty d = some (fvs, rest) →
+      (∀ x ∈ fvs, (Expr.fvarTypeD x).constsResolve env₁ = true) →
+      sigmaTowerV V cval₁ env₁ φ w k d ρ ty =
+        sigmaTowerV V cval₂ env₂ φ w k d ρ ty := by
+  intro k
+  induction k with
+  | zero => intro _ _ _ _ _ _ _; rfl
+  | succ k ih =>
+    intro d ρ ty fvs rest hop hfvs
+    match ty with
+    | .forallE n dom body mb =>
+      simp only [openPisAtFvars] at hop
+      cases hrec : openPisAtFvars k (body.instantiate1 (.fvar d n dom)) (d + 1) with
+      | none => rw [hrec] at hop; exact nomatch hop
+      | some q =>
+        rw [hrec] at hop
+        simp only [Option.some.injEq, Prod.mk.injEq] at hop
+        obtain ⟨rfl, rfl⟩ := hop
+        have hdom : dom.constsResolve env₁ = true :=
+          hfvs _ List.mem_cons_self
+        rw [sigmaTowerV_forallE, sigmaTowerV_forallE, h dom hdom d ρ]
+        refine congrArg _ (funext fun x => ?_)
+        exact ih (d + 1) (updV V ρ d x) _ q.1 q.2 hrec
+          (fun y hy => hfvs y (List.mem_cons_of_mem _ hy))
+    | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
+    | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+      exact nomatch hop
+
+/-- The per-field universe bound only reads the field domains. -/
+theorem FieldTele_congr (h : InterpAgree V cval₁ env₁ cval₂ env₂ φ)
+    {w : Nat} :
+    ∀ (k d : Nat) (ρ : Nat → V) (ty : Expr) (fvs : List Expr) (rest : Expr),
+      openPisAtFvars k ty d = some (fvs, rest) →
+      (∀ x ∈ fvs, (Expr.fvarTypeD x).constsResolve env₁ = true) →
+      FieldTele V cval₁ env₁ φ w k d ρ ty →
+      FieldTele V cval₂ env₂ φ w k d ρ ty := by
+  intro k
+  induction k with
+  | zero => intro _ _ _ _ _ _ _ _; trivial
+  | succ k ih =>
+    intro d ρ ty fvs rest hop hfvs hfld
+    match ty with
+    | .forallE n dom body mb =>
+      simp only [openPisAtFvars] at hop
+      cases hrec : openPisAtFvars k (body.instantiate1 (.fvar d n dom)) (d + 1) with
+      | none => rw [hrec] at hop; exact nomatch hop
+      | some q =>
+        rw [hrec] at hop
+        simp only [Option.some.injEq, Prod.mk.injEq] at hop
+        obtain ⟨rfl, rfl⟩ := hop
+        obtain ⟨A, hA, hAu, hrest⟩ := hfld
+        have hdom : dom.constsResolve env₁ = true :=
+          hfvs _ List.mem_cons_self
+        refine ⟨A, by rw [← h dom hdom d ρ]; exact hA, hAu, ?_⟩
+        intro x hx
+        exact ih (d + 1) (updV V ρ d x) _ q.1 q.2 hrec
+          (fun y hy => hfvs y (List.mem_cons_of_mem _ hy)) (hrest x hx)
+    | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
+    | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ => exact hfld.elim
+
+/-- The guarded body follows the tower. -/
+theorem directTyBody_congr (h : InterpAgree V cval₁ env₁ cval₂ env₂ φ)
+    {w nF d : Nat} {ρ : Nat → V} {crest : Expr} {fvs : List Expr}
+    {rest : Expr} (hop : openPisAtFvars nF crest d = some (fvs, rest))
+    (hfvs : ∀ x ∈ fvs, (Expr.fvarTypeD x).constsResolve env₁ = true) :
+    directTyBody V cval₁ env₁ φ w nF d ρ crest =
+      directTyBody V cval₂ env₂ φ w nF d ρ crest := by
+  unfold directTyBody
+  rw [sigmaTowerV_congr h nF d ρ crest fvs rest hop hfvs]
+
+/-- The λ-tower only reads the telescope's binder domains, and only
+evaluates its body at the frame `d + k` it ends at. -/
+theorem teleLamV_congr (h : InterpAgree V cval₁ env₁ cval₂ env₂ φ) :
+    ∀ (k d : Nat) (ρ : Nat → V) (ty : Expr)
+      (S₁ S₂ : Nat → (Nat → V) → List V → V),
+      ty.constsResolve env₁ = true →
+      (∀ ρ' xs, S₁ (d + k) ρ' xs = S₂ (d + k) ρ' xs) →
+      teleLamV V cval₁ env₁ φ k d ρ ty S₁ =
+        teleLamV V cval₂ env₂ φ k d ρ ty S₂ := by
+  intro k
+  induction k with
+  | zero =>
+    intro d ρ ty S₁ S₂ _ hS
+    simpa using hS ρ []
+  | succ k ih =>
+    intro d ρ ty S₁ S₂ hres hS
+    match ty with
+    | .forallE n dom body mb =>
+      simp only [Expr.constsResolve, Bool.and_eq_true] at hres
+      rw [teleLamV_forallE, teleLamV_forallE, h dom hres.1 d ρ]
+      refine congrArg _ (funext fun x => ?_)
+      refine ih (d + 1) (updV V ρ d x) _ _ _
+        (Expr.constsResolve_instantiate1 (by simpa [Expr.constsResolve] using hres.1)
+          0 hres.2)
+        (fun ρ' xs => ?_)
+      have := hS ρ' (x :: xs)
+      rw [show d + 1 + k = d + (k + 1) from by omega]
+      exact this
+    | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
+    | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ => rfl
+
+/-- The type former's value is the same object at every later install
+of its own block. -/
+theorem directTyVal_congr (h : InterpAgree V cval₁ env₁ cval₂ env₂ φ)
+    {tty cty : Expr} {nP nF : Nat} {s : Level} {fvs : List Expr}
+    {rest : Expr}
+    (htres : tty.constsResolve env₁ = true)
+    (hop : openPisAtFvars nF (directCRest cty nP) nP = some (fvs, rest))
+    (hfvs : ∀ x ∈ fvs, (Expr.fvarTypeD x).constsResolve env₁ = true) :
+    directTyVal V cval₁ env₁ tty cty nP nF s φ =
+      directTyVal V cval₂ env₂ tty cty nP nF s φ := by
+  unfold directTyVal
+  refine teleLamV_congr h nP 0 (rho0 V) tty _ _ htres (fun ρ' xs => ?_)
+  simpa using directTyBody_congr h hop hfvs
 
 /-! ### The constructor's value -/
 

@@ -804,22 +804,25 @@ def checkDirectIndF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts) :
   pure (fe.push (.indInfo cvTa (directCaps p)), cvTa)
 
 /-- `checkDirectCtor` through the index. -/
-def checkDirectCtorF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts)
+def checkDirectCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (p : DirectParts)
     (cvTa : ConstantVal) : m (FEnv × ConstantVal) := do
   let cvCa ← checkConstantValF ops fe p.cvC
   let (_, cbody) ← unwrapOr (cvCa.type.stripPis (p.nP + p.nF))
     (.notImplemented "direct structure: constructor telescope")
   unless cbody == directFam p.cvT.name p.cvT.levelParams p.nP p.nF do
     throw (.notImplemented "direct structure: constructor result")
-  let tq ← unwrapOr (openPisAtFvars p.nP cvTa.type 0)
-    (.notImplemented "direct structure: type former telescope")
-  let cq ← unwrapOr (Expr.instPisAt tq.1 cvCa.type)
+  let cq ← unwrapOr (openPisAtFvars p.nP cvCa.type 0)
     (.notImplemented "direct structure: constructor telescope")
+  let tq ← unwrapOr (Expr.instPisAt cq.1 cvTa.type)
+    (.notImplemented "direct structure: type former telescope")
+  checkDefEqList ops fe.env (p.nP + p.nF) (cq.1.map Expr.fvarTypeD) tq.1
   let xq ← unwrapOr (openPisAtFvars p.nF cq.2 p.nP)
     (.notImplemented "direct structure: constructor field telescope")
   unless xq.2 == Expr.mkAppN
-      (.const p.cvT.name (p.cvT.levelParams.map .param)) tq.1 do
+      (.const p.cvT.name (p.cvT.levelParams.map .param)) cq.1 do
     throw (.notImplemented "direct structure: opened constructor residual")
+  unless xq.1.all fun x => x.fvarTypeD.constsResolveF fe₀ do
+    throw (.notImplemented "direct structure: field domain after the block")
   checkDirectFieldUnivF ops fe p.resSort p.nP xq.1 p.nF
   pure (fe.push (.ctorInfo cvCa p.nP p.nF), cvCa)
 
@@ -1042,7 +1045,7 @@ def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckIM FEnv := do
   flushS
   let (fe₁, cvTa) ← checkDirectIndF (sharedOps fe) fe p
   flushS
-  let (fe₂, cvCa) ← checkDirectCtorF (sharedOps fe₁) fe₁ p cvTa
+  let (fe₂, cvCa) ← checkDirectCtorF (sharedOps fe₁) fe fe₁ p cvTa
   flushS
   let cvRa ← checkConstantValF (sharedOps fe₂) fe₂ p.cvR
   checkDirectRecTyF (sharedOps fe₂) fe₂ p cvTa cvCa cvRa
