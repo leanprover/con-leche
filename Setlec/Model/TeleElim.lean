@@ -1223,6 +1223,40 @@ def telescopeInstLam : Expr → List Expr → Option Expr
   | _, _ :: _ => none
 
 /-- A λ-spine fit's residual is the peeled tower. -/
+theorem TeleFitLam.rest_wf {d : Nat} {ρ : Nat → V} :
+    ∀ {e : Expr} {args : List Expr} {vs : List V} {rest : Expr},
+      TeleFitLam cval env φ d ρ e args vs rest →
+      WScoped d e → e.looseBVarsBounded 0 = true →
+      AnnotOk V cval env φ d ρ e →
+      WScoped d rest ∧ rest.looseBVarsBounded 0 = true ∧
+        AnnotOk V cval env φ d ρ rest ∧
+        ∀ l ∈ rest.fvarLeaves,
+          l ∈ e.fvarLeaves ∨ ∃ a ∈ args, l ∈ a.fvarLeaves := by
+  intro e args vs rest ht
+  induction ht with
+  | nil => intro hw hb hA; exact ⟨hw, hb, hA, fun l hl => Or.inl hl⟩
+  | @cons n ty₀ body m arg args x xs A rest hity hiarg hx hfb hwa hba hAa
+      ht ih =>
+    intro hw hb hA
+    have hw' : WScoped d ty₀ ∧ WScoped d body := by simpa [WScoped] using hw
+    have hb' : ty₀.looseBVarsBounded 0 = true ∧
+        body.looseBVarsBounded 1 = true := by
+      simpa [Expr.looseBVarsBounded] using hb
+    simp only [AnnotOk] at hA
+    obtain ⟨hAty, ⟨v, hcod⟩, hcond⟩ := hA
+    obtain ⟨hAopen, -⟩ := hcond x A hity hx
+    obtain ⟨hwR, hbR, hAR, hlR⟩ := ih (WScoped.instantiate1_gen hwa 0 hw'.2)
+      (looseBVarsBounded_instantiate1_gen hba (k := 0) hb'.2)
+      (AnnotOk_beta hfb hwa hba hiarg hAa 0 hAopen)
+    refine ⟨hwR, hbR, hAR, fun l hl => ?_⟩
+    rcases hlR l hl with hl' | ⟨a, ha, hla⟩
+    · rcases fvarLeaves_instantiate1 body 0 hl' with hb'' | hb''
+      · exact Or.inl (by
+          simp only [Expr.fvarLeaves, List.mem_append]
+          exact Or.inr hb'')
+      · exact Or.inr ⟨arg, List.mem_cons_self, hb''⟩
+    · exact Or.inr ⟨a, List.mem_cons_of_mem _ ha, hla⟩
+
 theorem TeleFitLam.rest_eq :
     ∀ {e : Expr} {args : List Expr} {vs : List V} {rest : Expr},
       TeleFitLam cval env φ d ρ e args vs rest →

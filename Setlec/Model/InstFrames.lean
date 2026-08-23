@@ -696,6 +696,32 @@ theorem instLamsAt_length :
         simpa using instLamsAt_length as (by rw [h0])
 
 omit [SetTheory V] in
+/-- Split a λ-instantiation walk along a list append. -/
+theorem instLamsAt_append :
+    ∀ (as bs : List Expr) {e : Expr} {ds : List Expr} {rest : Expr},
+      Expr.instLamsAt (as ++ bs) e = some (ds, rest) →
+      ∃ ds₁ mid ds₂, Expr.instLamsAt as e = some (ds₁, mid) ∧
+        Expr.instLamsAt bs mid = some (ds₂, rest) ∧ ds = ds₁ ++ ds₂
+  | [], bs, e, ds, rest, h => ⟨[], e, ds, rfl, h, rfl⟩
+  | a :: as, bs, e, ds, rest, h => by
+    match e, h with
+    | .lam n dom body m, h =>
+      simp only [List.cons_append, Expr.instLamsAt] at h
+      cases h0 : Expr.instLamsAt (as ++ bs) (body.instantiate1 a) with
+      | none => rw [h0] at h; exact nomatch h
+      | some p =>
+        rw [h0] at h
+        simp only [Option.map_some, Option.some.injEq] at h
+        obtain ⟨hds, hrest⟩ : dom :: p.1 = ds ∧ p.2 = rest := by
+          cases h; exact ⟨rfl, rfl⟩
+        subst hds hrest
+        obtain ⟨ds₁, mid, ds₂, h1, h2, h3⟩ :=
+          instLamsAt_append as bs (by rw [h0])
+        refine ⟨dom :: ds₁, mid, ds₂, ?_, h2, by rw [h3]; rfl⟩
+        simp only [Expr.instLamsAt, h1]
+        rfl
+
+omit [SetTheory V] in
 /-- Split an instantiation walk along a list append. -/
 theorem instPisAt_append :
     ∀ (as bs : List Expr) {e : Expr} {ds : List Expr} {rest : Expr},

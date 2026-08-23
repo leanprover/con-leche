@@ -345,3 +345,103 @@ theorem openPisAtFvars_isSome_of_stripPis :
           (i₀ + 1) with
       | none => rw [h0] at hrec; exact nomatch hrec
       | some p => rfl
+
+/-! ## Semantic helpers -/
+
+variable {V : Type u} [SetTheory V] {cval : ConstVal V} {env : Env}
+  {φ : Name → Nat}
+
+open Expr
+
+omit [SetTheory V] in
+/-- A consecutively indexed free-variable spine carries its valuation
+values, positionally. -/
+theorem fvarSpine_exists {D : Nat} {ρ : Nat → V} :
+    ∀ (spine : List Expr) (off : Nat),
+      (∀ j a, spine[j]? = some a → ∃ nm ty, a = Expr.fvar (off + j) nm ty) →
+      off + spine.length ≤ D →
+      ∃ vs, FvarSpine D ρ spine vs ∧ vs.length = spine.length ∧
+        ∀ j, j < spine.length → vs[j]? = some (ρ (off + j)) := by
+  intro spine
+  induction spine with
+  | nil =>
+    intro off _ _
+    exact ⟨[], trivial, rfl, fun j hj => by simp at hj⟩
+  | cons a as ih =>
+    intro off hsh hD
+    obtain ⟨nm, ty, ha⟩ := hsh 0 a (by simp)
+    rw [Nat.add_zero] at ha
+    obtain ⟨vs, hfs, hlen, hpos⟩ := ih (off + 1)
+      (fun j x hj => by
+        obtain ⟨nm', ty', hx⟩ := hsh (j + 1) x (by simpa using hj)
+        exact ⟨nm', ty', by
+          rw [show off + 1 + j = off + (j + 1) from by omega]
+          exact hx⟩)
+      (by simp only [List.length_cons] at hD; omega)
+    refine ⟨ρ off :: vs, ⟨⟨off, nm, ty, ha, ?_, rfl⟩, hfs⟩, ?_, ?_⟩
+    · simp only [List.length_cons] at hD
+      omega
+    · simp [hlen]
+    · intro j hj
+      cases j with
+      | zero => simp
+      | succ j =>
+        simp only [List.length_cons] at hj
+        have := hpos j (by omega)
+        simpa [show off + (j + 1) = off + 1 + j from by omega] using this
+
+/-- A consecutively indexed free-variable spine interprets pointwise to
+its valuation values. -/
+theorem interpSpine_fvars_exists {d : Nat} {ρ : Nat → V} :
+    ∀ (spine : List Expr) (off : Nat),
+      (∀ j a, spine[j]? = some a → ∃ nm ty, a = Expr.fvar (off + j) nm ty) →
+      ∃ vs, InterpSpine cval env φ d ρ spine vs ∧ vs.length = spine.length ∧
+        ∀ j, j < spine.length → vs[j]? = some (ρ (off + j)) := by
+  intro spine
+  induction spine with
+  | nil =>
+    intro off _
+    exact ⟨[], trivial, rfl, fun j hj => by simp at hj⟩
+  | cons a as ih =>
+    intro off hsh
+    obtain ⟨nm, ty, ha⟩ := hsh 0 a (by simp)
+    rw [Nat.add_zero] at ha
+    obtain ⟨vs, hsp, hlen, hpos⟩ := ih (off + 1)
+      (fun j x hj => by
+        obtain ⟨nm', ty', hx⟩ := hsh (j + 1) x (by simpa using hj)
+        exact ⟨nm', ty', by
+          rw [show off + 1 + j = off + (j + 1) from by omega]
+          exact hx⟩)
+    refine ⟨ρ off :: vs, ⟨?_, hsp⟩, by simp [hlen], ?_⟩
+    · rw [ha]
+      simp only [interpExpr]
+    · intro j hj
+      cases j with
+      | zero => simp
+      | succ j =>
+        simp only [List.length_cons] at hj
+        have := hpos j (by omega)
+        simpa [show off + (j + 1) = off + 1 + j from by omega] using this
+
+/-- Pointwise spine interpretation is functional in the values. -/
+theorem InterpSpine.functional {d : Nat} {ρ : Nat → V} :
+    ∀ {xs : List Expr} {vs vs' : List V},
+      InterpSpine cval env φ d ρ xs vs →
+      InterpSpine cval env φ d ρ xs vs' → vs = vs' := by
+  intro xs
+  induction xs with
+  | nil =>
+    intro vs vs' h h'
+    match vs, h with
+    | [], _ =>
+      match vs', h' with
+      | [], _ => rfl
+  | cons x xs ih =>
+    intro vs vs' h h'
+    match vs, h with
+    | v :: vs, ⟨hv, hrest⟩ =>
+      match vs', h' with
+      | v' :: vs', ⟨hv', hrest'⟩ =>
+        rw [hv] at hv'
+        obtain rfl := Option.some.inj hv'
+        rw [ih hrest hrest']

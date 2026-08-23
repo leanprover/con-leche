@@ -1655,6 +1655,52 @@ theorem annotOk_getD_canon {e : Expr} {xs : List V} {j D : Nat}
       (fun i => (xs.take j).getD i SetTheory.empty) e :=
   annotOk_getD_take hW hjx (annotOk_getD_pad (hW.mono hjx) hxD ha)
 
+/-- `AnnotOk` transports **up** from the prefix frame onto any padded
+canonical list valuation (converse of `annotOk_getD_canon`). -/
+theorem annotOk_getD_canon_up {e : Expr} {xs : List V} {j D : Nat}
+    (hW : WScoped j e) (hjx : j ≤ xs.length) (hxD : xs.length ≤ D)
+    (ha : AnnotOk V cval env φ j
+      (fun i => (xs.take j).getD i SetTheory.empty) e) :
+    AnnotOk V cval env φ D (fun i => xs.getD i SetTheory.empty) e := by
+  -- first up to the full list frame
+  have hfull : AnnotOk V cval env φ xs.length
+      (fun i => xs.getD i SetTheory.empty) e := by
+    have haux : ∀ n, j + n ≤ xs.length →
+        AnnotOk V cval env φ (j + n)
+          (fun i => (xs.take (j + n)).getD i SetTheory.empty) e := by
+      intro n
+      induction n with
+      | zero => exact fun _ => ha
+      | succ n ih =>
+        intro hn
+        obtain ⟨v, hv⟩ : ∃ v, xs[j + n]? = some v :=
+          ⟨xs[j + n]'(by omega), List.getElem?_eq_getElem (by omega)⟩
+        rw [show j + (n + 1) = (j + n) + 1 from rfl, List.take_add_one,
+          hv]
+        show AnnotOk V cval env φ ((j + n) + 1)
+          (fun i => (xs.take (j + n) ++ [v]).getD i SetTheory.empty) e
+        rw [getD_snoc_eq_updV (k := j + n)
+          (by rw [List.length_take]; omega)]
+        exact AnnotOk.weaken_top (hW.mono (by omega)) (ih (by omega))
+    have h0 := haux (xs.length - j) (by omega)
+    rw [show j + (xs.length - j) = xs.length from by omega,
+      List.take_of_length_le (Nat.le_refl _)] at h0
+    exact h0
+  -- then pad the depth
+  have haux : ∀ n, AnnotOk V cval env φ (xs.length + n)
+      (fun i => xs.getD i SetTheory.empty) e := by
+    intro n
+    induction n with
+    | zero => exact hfull
+    | succ n ih =>
+      have h := AnnotOk.weaken_top (x := SetTheory.empty)
+        (hW.mono (by omega)) ih
+      rwa [updV_getD_self (V := V) (xs := xs) (D := xs.length + n)
+        (by omega)] at h
+  have hD' : D = xs.length + (D - xs.length) := by omega
+  rw [hD']
+  exact haux _
+
 /-- Build the pointwise tower spec from **flat stage facts at the
 canonical list valuations**: the producer supplies, per stage `k` over
 any fitting value prefix `xs` (tracked by an abstract invariant `Ok`),
