@@ -585,9 +585,15 @@ above the cursor).  `false` when the node is not in the cache — the
 traversal then proceeds structurally (nanoda's per-node
 `num_loose_bvars` shortcut, task #84). -/
 @[inline] def cutoff (m : BMemo) (e : EIdx) (d : Nat) : Bool :=
-  match m.get? e with
-  | some b => b ≤ d
-  | none => false
+  -- slot encoding: 0 = unfilled, b + 1 = bound b.  Read through `getD`
+  -- (no `Option` allocation; this runs once per traversal node).
+  let s := m.arr.getD e 0
+  0 < s && s ≤ d + 1
+
+/-- Whether the node's bound is cached (slot nonzero; allocation-free
+like `cutoff`). -/
+@[inline] def covers (m : BMemo) (e : EIdx) : Bool :=
+  m.arr.getD e 0 != 0
 
 end BMemo
 
@@ -1345,7 +1351,13 @@ traversal prunes at every closed replacement (task #84; the bounds
 themselves are discarded). -/
 def bvarBoundsLGo (st : EStore) (memo : BMemo) : List EIdx → BMemo
   | [] => memo
-  | e :: es => bvarBoundsLGo st (bvarBoundIGo st memo e).2 es
+  | e :: es =>
+    -- an already-bounded root is skipped without entering the walk
+    -- (the walk's hit branch would return the memo unchanged, at the
+    -- cost of a pair allocation per root — measurable on telescope
+    -- shapes where the replacement lists are all fvar leaves)
+    if memo.covers e then bvarBoundsLGo st memo es
+    else bvarBoundsLGo st (bvarBoundIGo st memo e).2 es
 
 /-- Core of `wscopedBI`; `d` is the scope cursor (mirrors
 `Expr.wscopedB d`; an `fvar idx _ ty` leaf checks `idx < d` and recurses

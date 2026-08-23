@@ -1945,10 +1945,23 @@ theorem bvarBoundIGo_spec :
 theorem BMemo.cutoff_eq_true {m : BMemo} {e : EIdx} {d : Nat}
     (h : m.cutoff e d = true) : ∃ b, m.get? e = some b ∧ b ≤ d := by
   unfold BMemo.cutoff at h
-  split at h
-  · rename_i b hb
-    exact ⟨b, hb, by simpa using h⟩
-  · cases h
+  simp only [Bool.and_eq_true, decide_eq_true_eq] at h
+  obtain ⟨hpos, hle⟩ := h
+  have hlt : e < m.arr.size := by
+    rcases Nat.lt_or_ge e m.arr.size with hl | hge
+    · exact hl
+    · rw [Array.getD_eq_getD_getElem?, Array.getElem?_eq_none hge] at hpos
+      simp at hpos
+  have hget : m.arr.getD e 0 = m.arr[e] := by
+    rw [Array.getD_eq_getD_getElem?, Array.getElem?_eq_getElem hlt]
+    rfl
+  rw [hget] at hpos hle
+  refine ⟨m.arr[e] - 1, ?_, by omega⟩
+  unfold BMemo.get?
+  rw [Array.getElem?_eq_getElem hlt]
+  rcases hslot : m.arr[e] with _ | b
+  · omega
+  · simp
 
 /-- The root-list bound fold preserves the memo invariant (task
 #84). -/
@@ -1962,8 +1975,12 @@ theorem bvarBoundsLGo_inv :
   | cons e es ih =>
     intro st memo hwf hinv
     rw [EStore.bvarBoundsLGo]
-    rcases hgo : EStore.bvarBoundIGo st memo e with ⟨b, memo₁⟩
-    exact ih hwf (bvarBoundIGo_spec e hwf hinv hgo).1
+    by_cases hcov : memo.covers e
+    · rw [if_pos hcov]
+      exact ih hwf hinv
+    · rw [if_neg hcov]
+      rcases hgo : EStore.bvarBoundIGo st memo e with ⟨b, memo₁⟩
+      exact ih hwf (bvarBoundIGo_spec e hwf hinv hgo).1
 
 /-! ## `instantiate1I` commutes with `denote` -/
 
