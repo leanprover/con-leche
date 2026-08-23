@@ -32,6 +32,8 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
     (htyres0 : cvA.type.constsResolve env = true)
     (hmodel : env.find? mnameP = some (.defnInfo cvm mval hmcvm))
     (hlps : cvm.levelParams = cvA.levelParams)
+    (hnameP : ∃ Tn, cvA.name = projFnName Tn i ∧
+      (env.find? Tn).isSome = true)
     (hprojm : ∀ (T : Name) (j : Nat), cvA.name = projFnName T j →
       (env.find? (projModelName T j)).isSome = true ∧
       ∀ ψ : Name → Nat, m.val mnameP ψ = m.val (projModelName T j) ψ)
@@ -128,6 +130,17 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
     (fun hk => by
       rcases hk with ⟨_, _, hcon⟩ | ⟨_, _, _, hcon⟩ <;> exact nomatch hcon)
     (fun T j _ _ _ _ hh _ => hprojm T j hh)
+    (fun T j _ _ _ _ hh _ => by
+      obtain ⟨Tn, hnm, hTs⟩ := hnameP
+      have hh' : cvA.name = projFnName T j := hh
+      rw [hnm] at hh'
+      obtain ⟨rfl, rfl⟩ : Tn = T ∧ i = j := by
+        simpa [projFnName, Name.num.injEq, Name.str.injEq] using hh'
+      exact hTs)
+    (show modelFamilyTaken env cvA.name = false by
+      obtain ⟨Tn, hnm, -⟩ := hnameP
+      rw [hnm]
+      simp [modelFamilyTaken, modelSuffixTaken, modelProjTaken, projFnName])
     (fun cv caps hcon => nomatch hcon)
     (fun cv caps hcon => nomatch hcon)
   -- transports from the base model into the final environment

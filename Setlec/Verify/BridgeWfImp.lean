@@ -152,6 +152,10 @@ theorem checkConstantVal_wfimp {env : Env} (henv : EnvWF env)
   · rw [if_pos h2] at h
     exact absurd h atF_throw_bind
   rw [if_neg h2] at h ⊢
+  by_cases h2b : modelFamilyTaken env cv.name = true
+  · rw [if_pos h2b] at h
+    exact absurd h atF_throw_bind
+  rw [if_neg h2b] at h ⊢
   by_cases h3 : cv.name.isProjFnShape = true
   · rw [if_pos h3] at h
     exact absurd h atF_throw_bind
@@ -1986,6 +1990,9 @@ theorem checkConstantVal_typeWF {env : Env} {cv cvA : ConstantVal}
   by_cases h2 : reservedBasisNames.contains cv.name = true
   · rw [if_pos h2] at h; throwM_elim h
   rw [if_neg h2] at h
+  by_cases h2b : modelFamilyTaken env cv.name = true
+  · rw [if_pos h2b] at h; throwM_elim h
+  rw [if_neg h2b] at h
   by_cases h3 : cv.name.isProjFnShape = true
   · rw [if_pos h3] at h; throwM_elim h
   rw [if_neg h3] at h

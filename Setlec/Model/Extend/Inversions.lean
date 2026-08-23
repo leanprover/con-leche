@@ -46,6 +46,7 @@ theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
     (h : checkConstantVal (fueledOps F) env cv = .ok cv') :
     env.find? cv.name = none ∧
     reservedBasisNames.contains cv.name = false ∧
+    modelFamilyTaken env cv.name = false ∧
     cv.name.isProjFnShape = false ∧
     Name.nodup cv.levelParams = true ∧
     cv.type.looseBVarsBounded 0 = true ∧
@@ -67,6 +68,13 @@ theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
     rw [if_pos hres] at h
     exact nomatch h
   simp only [hres] at h
+  by_cases hmft : modelFamilyTaken env cv.name = true
+  case pos =>
+    rw [if_pos hmft] at h
+    exact nomatch h
+  rw [if_neg hmft] at h
+  have hmftF : modelFamilyTaken env cv.name = false := by
+    revert hmft; cases modelFamilyTaken env cv.name <;> simp
   by_cases hpshape : cv.name.isProjFnShape = true
   case pos =>
     rw [if_pos hpshape] at h
@@ -107,7 +115,8 @@ theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
   have hfind0 : env.find? cv.name = none := by
     revert hfind
     cases env.find? cv.name <;> simp
-  exact ⟨hfind0, by simpa using hres, hpshapeF, hnd, hlb, by simpa using hif,
+  exact ⟨hfind0, by simpa using hres, hmftF, hpshapeF, hnd, hlb,
+    by simpa using hif,
     type, stype, u, rfl, htp, htr, hst, hsort, h.symm⟩
 
 omit [SetTheory V] in

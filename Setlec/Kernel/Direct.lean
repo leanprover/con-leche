@@ -87,6 +87,38 @@ to the field variables. -/
 def directRuleBody (nF : Nat) : Expr :=
   Expr.mkAppN (.bvar nF) ((List.range nF).map fun j => Expr.bvar (nF - 1 - j))
 
+/-- **The `_model` family of an installed constant is closed.**
+
+The environment invariant records, for every artifact-installed
+constant, that its value *is* its `_model` companion's
+(`ModeledOk`).  That linkage is premised on the companion being
+stored, which is how a directly installed block — which has none — owes
+nothing.  What must not happen is a companion appearing *afterwards*:
+it would activate the linkage for a constant whose value was already
+fixed without it.
+
+`lean-inductive-models` always emits a block's artifacts *before* the
+block (checked against its output: 0 of 151 init-prelude blocks out of
+order), so this guard never fires on a preprocessed stream; and a
+stream that emitted them the other way round never checked anyway,
+because the modeled path looks the companion up *at* the block and
+declines there for a missing model.  So this rejects only streams that
+were already not accepted — it moves the verdict, never an
+acceptance. -/
+def modelSuffixTaken (env : Env) : Name → Bool
+  | .str p "_model" => (env.find? p).isSome
+  | _ => false
+
+/-- The `X._model.<_>` half of `modelFamilyTaken` (the projection,
+`iota` and `eta` artifacts of a stored `X`). -/
+def modelProjTaken (env : Env) : Name → Bool
+  | .str (.str p "_model") _ => (env.find? p).isSome
+  | _ => false
+
+@[inherit_doc modelSuffixTaken]
+def modelFamilyTaken (env : Env) (n : Name) : Bool :=
+  modelSuffixTaken env n || modelProjTaken env n
+
 /-- The pieces of a recognised simple-structure block. -/
 structure DirectParts where
   /-- the type former -/
