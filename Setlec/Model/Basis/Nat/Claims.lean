@@ -1,4 +1,5 @@
 import Setlec.Model.Basis.Nat.AnnotOk
+import Setlec.Model.Basis.Nat.RuleOk
 import Setlec.Model.Basis.Glue
 
 /-!
