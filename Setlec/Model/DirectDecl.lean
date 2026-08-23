@@ -53,6 +53,34 @@ theorem checkDirectInd_inv {env : Env} {p : DirectParts} {F : Nat}
       simp only [throw, throwThe, MonadExceptOf.throw] at h
       exact nomatch h
 
+/-- The frame conditions of a constant type that `checkConstantVal` has
+just accepted: closed, so the syntactic three are free, and the checker's
+own annotation and inference runs supply the two semantic ones. -/
+theorem FrameOk.ofCheckedType {env : Env} (m : EnvModel V env) {F : Nat}
+    {φ : Name → Nat} {cv cv' : ConstantVal}
+    (h : checkConstantVal (fueledOps F) env cv = .ok cv') :
+    FrameOk V m.val env φ 0 (rho0 V) cv'.type := by
+  obtain ⟨-, -, -, -, -, hlb, hfv, tyA, stype, u, hann, -, -, hst, -,
+    hcvA⟩ := checkConstantVal_inv h
+  have htypeA : cv'.type = tyA := by rw [hcvA]
+  have htyf : tyA.hasFvar = false :=
+    not_hasFvar_of_fvarsBelow_zero
+      ((annotateCore_WScoped F _ hann (WScoped.of_not_hasFvar hfv)).fvarsBelow)
+  have htyb : tyA.looseBVarsBounded 0 = true :=
+    annotateCore_looseBVars F _ hann hlb
+  have hAty : AnnotOk V m.val env φ 0 (rho0 V) tyA :=
+    annotate_sound m _ hann (WScoped.of_not_hasFvar hfv) hlb
+      (Expr.LeavesBounded.of_not_hasFvar hfv) (rho0 V)
+      (FvarsOk.of_not_hasFvar hfv)
+  obtain ⟨⟨v, tv, hvi, -, -⟩, -, -⟩ :=
+    inferTypeCore_sound (φ := φ) m F hst (WScoped.of_not_hasFvar htyf) htyb
+      (Expr.LeavesBounded.of_not_hasFvar htyf)
+      (FvarsOk.of_not_hasFvar htyf) hAty
+  rw [htypeA]
+  exact ⟨WScoped.of_not_hasFvar htyf, htyb,
+    Expr.LeavesBounded.of_not_hasFvar htyf, FvarsOk.of_not_hasFvar htyf,
+    hAty, v, hvi⟩
+
 /-! ### Uninstantiating a value-spine fit's levels
 
 The capability laws quantify over a level substitution (`us` for the
@@ -491,5 +519,45 @@ theorem directCtor_resid {env env₁ : Env} (m : EnvModel V env)
   obtain rfl : restT = Expr.sort p.resSort :=
     TeleFit_rest_sort p.nP hfitT hlenP hstripT
   exact hfitT
+
+/-- **The constructor's value inhabits its type.**  `directCtorVal_mem`
+at the two obligations above: the field telescope is small at every
+fitting parameter spine, and the residual interprets to the tower the
+constructor tuples into. -/
+theorem directCtor_mem {env env₁ : Env} (m : EnvModel V env)
+    (m₁ : EnvModel V env₁) {F : Nat} {φ : Name → Nat} {p : DirectParts}
+    {cvTa cvCa : ConstantVal} {v : Env × ConstantVal}
+    (hcc : checkDirectCtor (fueledOps F) env env₁ p cvTa = .ok v)
+    (hfrT : FrameOk V m₁.val env₁ φ 0 (rho0 V) cvTa.type)
+    (hnz : p.resSort.isNonZero = true)
+    {tbs : List (Name × Expr × BinderMeta)}
+    (hstripT : Expr.stripPis p.nP cvTa.type = some (tbs, .sort p.resSort))
+    (hTfind : env₁.find? p.cvT.name = some (.indInfo cvTa (directCaps p)))
+    (hTlps : cvTa.levelParams = p.cvT.levelParams)
+    (hTval : ∀ ψ : Name → Nat, m₁.val p.cvT.name ψ =
+      directTyVal V m.val env cvTa.type cvCa.type p.nP p.nF p.resSort ψ)
+    (hagree : InterpAgree V m.val env m₁.val env₁ φ)
+    (htres : cvTa.type.constsResolve env = true)
+    (hccC : checkConstantVal (fueledOps F) env₁ p.cvC = .ok cvCa) :
+    ∃ Cv, interpClosed V m₁.val env₁ φ cvCa.type = some Cv ∧
+      directCtorVal V m₁.val env₁ cvCa.type p.nP p.nF φ ∈ˢ Cv := by
+  obtain ⟨cvCa', cbs, fvsP, crest, tfvs, trest, xFvs, hcv, hstripC, hcq, htq,
+    hpins, hxq, hfres, hfu, -⟩ := checkDirectCtor_inv hcc
+  have heqC : cvCa' = cvCa := by
+    rw [hccC] at hcv
+    exact (Except.ok.injEq _ _ ▸ hcv).symm
+  rw [heqC] at hstripC hcq
+  have hfrC : FrameOk V m₁.val env₁ φ 0 (rho0 V) cvCa.type :=
+    FrameOk.ofCheckedType m₁ hccC
+  obtain ⟨Cv, hCv⟩ := hfrC.it
+  refine ⟨Cv, hCv, ?_⟩
+  refine directCtorVal_mem (Level.isNonZero_sound hnz φ)
+    (by rw [hstripC]; rfl) hCv hfrC.an ?_ ?_
+  · intro ps d₁ ρ₁ mid hfit hlen
+    exact directCtor_field m₁ hcq hxq hfu hfrC hfit hlen
+  · intro ps fs d₁ ρ₁ mid d' ρ' rest hfitP hlenP hfitF hlenF
+    exact directCtor_resid m m₁ hcq htq hpins hxq hfrC hfrT hTfind hTlps
+      hTval hagree htres hfres hstripT hfitP hlenP hfitF hlenF
+      (directCtor_field m₁ hcq hxq hfu hfrC hfitP hlenP)
 
 end Setlec

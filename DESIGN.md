@@ -3662,11 +3662,12 @@ What remains, in dependency order:
      `FrameOk` and `isDefEqCore_sound` applies at exactly the frame the
      walk is at.
 
-   The rest of the constructor's `mem_type` is now mechanical:
-   `directCtorVal_mem` with `FieldTele_of_walk` (frame from
-   `FrameOk.ofTeleFit`, walk facts from `checkDirectFieldUniv_inv`) and
-   `directTyVal_congr` to move the type former's value onto the
-   constructor's install pair.
+   `directCtor_field` and `directCtor_resid` then discharge the two
+   obligations of `directCtorVal_mem` — the field telescope is small at
+   every fitting parameter spine, and the opened residual interprets to
+   the tower the constructor tuples into — and `directCtor_mem` is the
+   constructor's `mem_type`.  What is left of this item is the
+   `extend_basis_one` wiring, mirroring `extend_direct_ind`.
 
 3. **`mem_type` for the recursor and the projections**, from
    `directRecVal_mem`/`directRec_body_mem` and
