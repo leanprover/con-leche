@@ -34,6 +34,20 @@ abbrev EIdx := Nat
 (task #62). -/
 abbrev LIdx := Nat
 
+/-- Index of an interned name node in an `EStore` arena's name table
+(task #88). -/
+abbrev NIdx := Nat
+
+/-- One interned name node: the constructors of `Setlec.Name` with the
+prefix replaced by an arena index (task #88: `O(1)` node
+hashing/equality — every intern probe hashes a `Nat` and a leaf
+component instead of a whole cons-list name). -/
+inductive NNode where
+  | anonymous
+  | str (pre : NIdx) (s : String)
+  | num (pre : NIdx) (n : Nat)
+  deriving DecidableEq, Repr, Inhabited, Hashable
+
 /-- One interned level node: the constructors of `Setlec.Level` with
 sublevels replaced by arena indices. -/
 inductive LNode where
@@ -164,11 +178,15 @@ structure EStore where
   /-- Eager per-node has-level-param flag
   (`eparamBs.size = nodes.size`). -/
   eparamBs : Array Bool
+  /-- The name node table (task #88). -/
+  nnodes : Array NNode
+  /-- The name cons-table (graph of `nnodes`). -/
+  ncons : Std.HashMap NNode NIdx
 
 namespace EStore
 
 /-- The empty arena. -/
-def empty : EStore := ⟨#[], {}, #[], {}, #[], #[], #[], #[]⟩
+def empty : EStore := ⟨#[], {}, #[], {}, #[], #[], #[], #[], #[], {}⟩
 
 instance : Inhabited EStore := ⟨empty⟩
 
@@ -182,13 +200,15 @@ def intern (st : EStore) (n : ENode) : EIdx × EStore :=
   | some i => (i, st)
   | none =>
     match st with
-    | ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs⟩ =>
+    | ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs,
+        nnodes, ncons⟩ =>
       let i := nodes.size
       let bb := n.bvarBoundOf bvarBs
       let fb := n.fvarRangeOf fvarBs
       let pb := n.hasLParamOf eparamBs lparamBs
       (i, ⟨nodes.push n, cons.insert n i, lnodes, lcons,
-        bvarBs.push bb, fvarBs.push fb, lparamBs, eparamBs.push pb⟩)
+        bvarBs.push bb, fvarBs.push fb, lparamBs, eparamBs.push pb,
+        nnodes, ncons⟩)
 
 /-- The eager per-node loose-bvar bound (task #87): the least `k` with
 `looseBVarsBounded k` for the node's denotation; `0` (also the
@@ -219,11 +239,56 @@ def internL (st : EStore) (n : LNode) : LIdx × EStore :=
   | some i => (i, st)
   | none =>
     match st with
-    | ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs⟩ =>
+    | ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs,
+        nnodes, ncons⟩ =>
       let i := lnodes.size
       let pb := n.hasParamOf lparamBs
       (i, ⟨nodes, cons, lnodes.push n, lcons.insert n i, bvarBs, fvarBs,
-        lparamBs.push pb, eparamBs⟩)
+        lparamBs.push pb, eparamBs, nnodes, ncons⟩)
+
+/-- Intern one name node (the name-table analog of `intern`,
+task #88). -/
+def internN (st : EStore) (n : NNode) : NIdx × EStore :=
+  match st.ncons[n]? with
+  | some i => (i, st)
+  | none =>
+    match st with
+    | ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs,
+        nnodes, ncons⟩ =>
+      let i := nnodes.size
+      (i, ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs,
+        nnodes.push n, ncons.insert n i⟩)
+
+/-- Intern a whole name bottom-up (names are short cons-lists, so no
+memoization is needed — the walk is linear in the name's depth). -/
+def internName (st : EStore) : Name → NIdx × EStore
+  | .anonymous => st.internN .anonymous
+  | .str p s =>
+    let (p', st) := st.internName p
+    st.internN (.str p' s)
+  | .num p n =>
+    let (p', st) := st.internName p
+    st.internN (.num p' n)
+
+/-- Read an interned name back as a `Name` tree (structural; agrees
+with the verification's name denotation on well-formed stores). -/
+def readbackN (st : EStore) (i : NIdx) : Option Name :=
+  match st.nnodes[i]? with
+  | none => none
+  | some .anonymous => some .anonymous
+  | some (.str p s) =>
+    if _h : p < i then
+      match st.readbackN p with
+      | some pn => some (.str pn s)
+      | none => none
+    else none
+  | some (.num p n) =>
+    if _h : p < i then
+      match st.readbackN p with
+      | some pn => some (.num pn n)
+      | none => none
+    else none
+termination_by i
 
 /-- Intern a whole level bottom-up. -/
 def internLevel (st : EStore) : Level → LIdx × EStore
@@ -1332,6 +1397,20 @@ def wfBLNodes (st : EStore) : Nat → Bool
        st.lparamBs[k]? == some (m.hasParamOf st.lparamBs)
      | none => false)
 
+/-- Range and cons-graph facts for the name nodes below `k`
+(task #88). -/
+def wfBNNodes (st : EStore) : Nat → Bool
+  | 0 => true
+  | k + 1 =>
+    wfBNNodes st k &&
+    (match st.nnodes[k]? with
+     | some m =>
+       (match m with
+        | .anonymous => true
+        | .str p _ | .num p _ => p < k) &&
+       st.ncons[m]? == some k
+     | none => false)
+
 /-- Decidable canonicity of a store (`wfB st = true → st.WF`,
 `Setlec/Verify/IExpr.lean`).  Run once on the parse-produced store; the
 interned operations preserve `WF` from there on. -/
@@ -1341,7 +1420,9 @@ def wfB (st : EStore) : Bool :=
   st.lcons.toList.all (fun p => st.lnodes[p.2]? == some p.1) &&
   st.bvarBs.size == st.nodes.size && st.fvarBs.size == st.nodes.size &&
   st.lparamBs.size == st.lnodes.size &&
-  st.eparamBs.size == st.nodes.size
+  st.eparamBs.size == st.nodes.size &&
+  wfBNNodes st st.nnodes.size &&
+  st.ncons.toList.all (fun p => st.nnodes[p.2]? == some p.1)
 
 
 /-- Core of `wscopedBI`; `d` is the scope cursor (mirrors
