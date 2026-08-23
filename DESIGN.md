@@ -2596,7 +2596,7 @@ shape's remaining cost).  `ISOK` gains the `bvarB` clause
 
 **Measured** (init-prelude probe, instructions): 205.5 G / 15.6 s →
 **187.8 G / 14.0 s** certified (−8.6 %), 151.8 G / 10.5 s →
-**143.0 G / 9.7 s** with `SETLEC_NO_PROOF_CERTS=1` (−5.8 %); verdicts
+**142.8 G / 9.7 s** with `SETLEC_NO_PROOF_CERTS=1` (−5.9 %); verdicts
 identical everywhere (arena 90/92, e2e 48/48, both modes).  Remaining
 known superlinear residues (small constants, below the harness gate at
 its sizes): the per-prefix `inferSpineI` re-walk when `annotate`'s app
