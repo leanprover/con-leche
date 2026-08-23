@@ -1,5 +1,6 @@
 import Setlec.Model.BasisInstall
 import Setlec.Model.Basis.Glue
+import Setlec.Model.RuleFold
 
 /-!
 # `Quot.lift`/`Quot.ind` iota-rule semantics
@@ -1718,5 +1719,272 @@ theorem annotOk_quotInd_rhs {cval : ConstVal V}
     · rw [lam_zero]
       exact pt_mem_unitSet
     · exact unitSet_mem_univ 0
+
+/-! ## `RecRulesOk` clauses: the canonical frame components -/
+
+/-- The `α` frame variable (shared by the two eliminators). -/
+def qFrA : Expr :=
+  .fvar 0 (Name.anonymous.str "α") (.sort (.param (Name.anonymous.str "u")))
+
+/-- The relation annotation. -/
+def qFrTyR : Expr :=
+  .forallE Name.anonymous qFrA
+    (.forallE Name.anonymous qFrA (.sort .zero)
+      ⟨.default, some (.succ .zero)⟩)
+    ⟨.default, some (.imax (.param (Name.anonymous.str "u")) (.succ .zero))⟩
+
+/-- The relation frame variable. -/
+def qFrR : Expr := .fvar 1 (Name.anonymous.str "r") qFrTyR
+
+/-- The `Quot.mk` head. -/
+def qFrMkC : Expr :=
+  .const ((Name.anonymous.str "Quot").str "mk")
+    [.param (Name.anonymous.str "u")]
+
+/-- The `β` frame variable of `Quot.lift`. -/
+def qlFrB : Expr :=
+  .fvar 2 (Name.anonymous.str "β") (.sort (.param (Name.anonymous.str "v")))
+
+/-- The function annotation of `Quot.lift`. -/
+def qlFrTyF : Expr :=
+  .forallE (Name.anonymous.str "a") qFrA qlFrB
+    ⟨.default, some (.param (Name.anonymous.str "v"))⟩
+
+/-- The function frame variable of `Quot.lift`. -/
+def qlFrF : Expr := .fvar 3 (Name.anonymous.str "f") qlFrTyF
+
+/-- The invariance annotation of `Quot.lift`. -/
+def qlFrTyH : Expr :=
+  .forallE (Name.anonymous.str "a") qFrA
+    (.forallE (Name.anonymous.str "b") qFrA
+      (.forallE (Name.anonymous.str "a")
+        (.app (.app qFrR (.bvar 1)) (.bvar 0))
+        (.app (.app (.app (.const (Name.anonymous.str "Eq")
+            [.param (Name.anonymous.str "v")]) qlFrB)
+          (.app qlFrF (.bvar 2))) (.app qlFrF (.bvar 1)))
+        ⟨.default, some .zero⟩)
+      ⟨.default, some (.imax .zero .zero)⟩)
+    ⟨.default, some (.imax (.param (Name.anonymous.str "u"))
+      (.imax .zero .zero))⟩
+
+/-- The invariance frame variable of `Quot.lift`. -/
+def qlFrH : Expr := .fvar 4 (Name.anonymous.str "a") qlFrTyH
+
+/-- The field frame variable of `Quot.lift`. -/
+def qlFrq : Expr := .fvar 5 (Name.anonymous.str "a") qFrA
+
+/-- The `Quot.lift` head. -/
+def qlFrRec : Expr :=
+  .const ((Name.anonymous.str "Quot").str "lift")
+    [.param (Name.anonymous.str "u"), .param (Name.anonymous.str "v")]
+
+/-- The motive frame variable of `Quot.ind`. -/
+def qiFrTyB : Expr :=
+  .forallE (Name.anonymous.str "a")
+    (.app (.app (.const (Name.anonymous.str "Quot")
+      [.param (Name.anonymous.str "u")]) qFrA) qFrR)
+    (.sort .zero) ⟨.default, some (.succ .zero)⟩
+
+def qiFrB : Expr := .fvar 2 (Name.anonymous.str "β") qiFrTyB
+
+/-- The minor-premise annotation of `Quot.ind`. -/
+def qiFrTyMk : Expr :=
+  .forallE (Name.anonymous.str "a") qFrA
+    (.app qiFrB (.app (.app (.app qFrMkC qFrA) qFrR) (.bvar 0)))
+    ⟨.default, some .zero⟩
+
+def qiFrMk : Expr := .fvar 3 (Name.anonymous.str "mk") qiFrTyMk
+
+/-- The field frame variable of `Quot.ind`. -/
+def qiFra : Expr := .fvar 4 (Name.anonymous.str "a") qFrA
+
+/-- The `Quot.ind` head. -/
+def qiFrRec : Expr :=
+  .const ((Name.anonymous.str "Quot").str "ind")
+    [.param (Name.anonymous.str "u")]
+
+/-! ## Value-level folds at the constructor point -/
+
+/-- `Quot.lift`'s value applied through its telescope at a class point
+computes to the function's value. -/
+theorem quotLiftVal_fold {Av Rv Bv fv hv av : V}
+    (hA : Av ∈ˢ univ (ψ uN)) (hR : Rv ∈ˢ relSpace V (ψ uN) Av)
+    (hB : Bv ∈ˢ univ (ψ vN)) (hf : fv ∈ˢ pi (ψ vN) Av fun _ => Bv)
+    (hh : hv ∈ˢ quotInvSpace V Av Rv fv) (hav : av ∈ˢ Av) :
+    SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app
+      (SetTheory.app (SetTheory.app (quotLiftVal V ψ) Av) Rv) Bv) fv) hv)
+      (SetTheory.app (SetTheory.app (SetTheory.app (quotMkVal V ψ) Av) Rv)
+        av) = SetTheory.app fv av := by
+  by_cases h0 : ψ vN = 0
+  · have hVpt : (quotLiftVal V ψ : V) = pt := by
+      simp only [quotLiftVal, h0, reduceIte]
+      exact lam_zero
+    rw [hVpt]
+    simp only [app_pt]
+    have hB0 : Bv ∈ˢ univ 0 := h0 ▸ hB
+    exact (mem_univ_zero hB0 (app_mem hf hav (fun _ _ => hB))).symm
+  · have hCL : ∀ A R', A ∈ˢ univ (ψ uN) → R' ∈ˢ relSpace V (ψ uN) A →
+        quotSet (ψ uN) A R' ∈ˢ univ (ψ uN) :=
+      fun A R' hA' _ => quotSet_mem_univ hA'
+    have hGL : QlG V (ψ uN) (ψ vN) (fun A R' => quotSet (ψ uN) A R')
+        (fun A R' f q =>
+          SetTheory.app (quotLift (ψ uN) (ψ vN) A R' f) q) := by
+      intro A R' B f h q hA' hR' hB' hf' hh' hq'
+      exact app_mem (quotLift_mem hA' hf' (inv_of_invSpace' hA' hR' hh'))
+        hq' (fun _ _ => hB')
+    have hinv := inv_of_invSpace' hA hR hh
+    rw [quotLiftVal_eq_qlVal h0, qlVal_app1 h0 hGL hCL hA,
+      qlL1_app h0 hGL hCL hA hR, qlL2_app h0 hGL hCL hA hR hB,
+      qlL3_app h0 hGL hCL hA hR hB hf,
+      qlL4_app h0 hGL hCL hA hR hB hf hh,
+      quotMkVal_app₃' hA hR hav,
+      qlL5_app (quotClass_mem hav)
+        (fun q hq => app_mem (quotLift_mem hA hf hinv) hq
+          (fun _ _ => hB)) hB]
+    exact quotLift_beta hA hav hinv
+
+/-! ## Tower fibre facts for `Quot.lift`'s interpreted type -/
+
+private theorem qlT5_univ {A R B : V} (hA : A ∈ˢ univ (ψ uN))
+    (hR : R ∈ˢ relSpace V (ψ uN) A) (hB : B ∈ˢ univ (ψ vN)) :
+    (pi (ψ vN) (SetTheory.app (SetTheory.app (quotVal V ψ) A) R)
+      fun _ => B) ∈ˢ univ (qlQ (ψ uN) (ψ vN)) := by
+  rw [quotVal_app₂' hA hR]
+  exact pi_mem_univ (u := ψ uN) (v := ψ vN) (quotSet_mem_univ hA)
+    (fun _ _ => hB)
+
+private theorem qlT4_univ {A R B f : V} (hA : A ∈ˢ univ (ψ uN))
+    (hR : R ∈ˢ relSpace V (ψ uN) A) (hB : B ∈ˢ univ (ψ vN))
+    (hf : f ∈ˢ pi (ψ vN) A fun _ => B) :
+    (pi (qlQ (ψ uN) (ψ vN)) (qlInvI V ψ A R B f)
+      fun _ => pi (ψ vN) (SetTheory.app (SetTheory.app (quotVal V ψ) A) R)
+        fun _ => B) ∈ˢ univ (qlV (ψ uN) (ψ vN)) := by
+  have h := pi_mem_univ (u := 0) (v := qlQ (ψ uN) (ψ vN))
+    (qlInvI_univ hA hR hB hf) (fun _ _ => qlT5_univ hA hR hB)
+  have hcast : (if qlQ (ψ uN) (ψ vN) = 0 then 0
+      else Nat.max 0 (qlQ (ψ uN) (ψ vN))) = qlV (ψ uN) (ψ vN) := by
+    unfold qlV
+    by_cases hq : qlQ (ψ uN) (ψ vN) = 0
+    · simp [hq]
+    · rw [if_neg hq, if_neg hq]
+      exact Nat.zero_max _
+  rw [hcast] at h
+  exact h
+
+private theorem qlT3_univ {A R B : V} (hA : A ∈ˢ univ (ψ uN))
+    (hR : R ∈ˢ relSpace V (ψ uN) A) (hB : B ∈ˢ univ (ψ vN)) :
+    (pi (qlV (ψ uN) (ψ vN)) (pi (ψ vN) A fun _ => B)
+      fun f => pi (qlQ (ψ uN) (ψ vN)) (qlInvI V ψ A R B f)
+        fun _ => pi (ψ vN)
+          (SetTheory.app (SetTheory.app (quotVal V ψ) A) R)
+          fun _ => B) ∈ˢ univ (qlB (ψ uN) (ψ vN)) := by
+  have hdom : (pi (ψ vN) A fun _ => B) ∈ˢ univ (qlQ (ψ uN) (ψ vN)) :=
+    pi_mem_univ (u := ψ uN) (v := ψ vN) hA (fun _ _ => hB)
+  exact pi_mem_univ (u := qlQ (ψ uN) (ψ vN)) (v := qlV (ψ uN) (ψ vN))
+    hdom (fun f hf => qlT4_univ hA hR hB hf)
+
+private theorem qlT2_univ {A R : V} (hA : A ∈ˢ univ (ψ uN))
+    (hR : R ∈ˢ relSpace V (ψ uN) A) :
+    (pi (qlB (ψ uN) (ψ vN)) (univ (ψ vN))
+      fun B => pi (qlV (ψ uN) (ψ vN)) (pi (ψ vN) A fun _ => B)
+        fun f => pi (qlQ (ψ uN) (ψ vN)) (qlInvI V ψ A R B f)
+          fun _ => pi (ψ vN)
+            (SetTheory.app (SetTheory.app (quotVal V ψ) A) R)
+            fun _ => B) ∈ˢ univ (qlR (ψ uN) (ψ vN)) :=
+  pi_mem_univ (u := ψ vN + 1) (v := qlB (ψ uN) (ψ vN))
+    (univ_mem_univ (ψ vN)) (fun B hB => qlT3_univ hA hR hB)
+
+private theorem qlT1_univ {A : V} (hA : A ∈ˢ univ (ψ uN)) :
+    (pi (qlR (ψ uN) (ψ vN)) (relSpace V (ψ uN) A)
+      fun R => pi (qlB (ψ uN) (ψ vN)) (univ (ψ vN))
+        fun B => pi (qlV (ψ uN) (ψ vN)) (pi (ψ vN) A fun _ => B)
+          fun f => pi (qlQ (ψ uN) (ψ vN)) (qlInvI V ψ A R B f)
+            fun _ => pi (ψ vN)
+              (SetTheory.app (SetTheory.app (quotVal V ψ) A) R)
+              fun _ => B) ∈ˢ univ (qlA (ψ uN) (ψ vN)) := by
+  have h := pi_mem_univ (u := Nat.max (ψ uN) 1) (v := qlR (ψ uN) (ψ vN))
+    (relSpace_mem' hA) (fun R hR => qlT2_univ hA hR)
+  have hcast : (if qlR (ψ uN) (ψ vN) = 0 then 0
+      else Nat.max (Nat.max (ψ uN) 1) (qlR (ψ uN) (ψ vN))) =
+      qlA (ψ uN) (ψ vN) := by
+    unfold qlA
+    rw [if_neg (max_ne_zero_r' (by decide) : Nat.max (ψ uN) 1 ≠ 0),
+      max_absorb_l']
+  rw [hcast] at h
+  exact h
+
+/-! ## Tower fibre facts for `Quot.ind`'s interpreted type (all
+propositional) -/
+
+private theorem qi_pi0_univ0 {u' : Nat} {A : V} {B : V → V}
+    (hA : A ∈ˢ univ u') (hB : ∀ x, x ∈ˢ A → B x ∈ˢ univ 0) :
+    pi 0 A B ∈ˢ (univ 0 : V) := by
+  have := pi_mem_univ (u := u') (v := 0) hA hB
+  simpa using this
+
+private theorem qi_minor_univ0 {A R B : V} (hA : A ∈ˢ univ (ψ uN))
+    (hR : R ∈ˢ relSpace V (ψ uN) A)
+    (hB : B ∈ˢ pi 1 (SetTheory.app (SetTheory.app (quotVal V ψ) A) R)
+      fun _ => univ 0) :
+    (pi 0 A fun a => SetTheory.app B
+      (SetTheory.app (SetTheory.app (SetTheory.app (quotMkVal V ψ) A) R)
+        a)) ∈ˢ (univ 0 : V) := by
+  refine qi_pi0_univ0 hA fun a ha => ?_
+  refine app_mem hB ?_ (fun _ _ => univ_mem_univ 0)
+  rw [quotVal_app₂' hA hR, quotMkVal_app₃' hA hR ha]
+  exact quotClass_mem ha
+
+private theorem qiT4_univ {A R B : V} (hA : A ∈ˢ univ (ψ uN))
+    (hR : R ∈ˢ relSpace V (ψ uN) A)
+    (hB : B ∈ˢ pi 1 (SetTheory.app (SetTheory.app (quotVal V ψ) A) R)
+      fun _ => univ 0) :
+    (pi 0 (SetTheory.app (SetTheory.app (quotVal V ψ) A) R)
+      fun q => SetTheory.app B q) ∈ˢ (univ 0 : V) := by
+  refine qi_pi0_univ0 (u' := ψ uN)
+    (A := SetTheory.app (SetTheory.app (quotVal V ψ) A) R) ?_
+    (fun q hq => app_mem hB hq (fun _ _ => univ_mem_univ 0))
+  rw [quotVal_app₂' hA hR]
+  exact quotSet_mem_univ hA
+
+private theorem qiT3_univ {A R B : V} (hA : A ∈ˢ univ (ψ uN))
+    (hR : R ∈ˢ relSpace V (ψ uN) A)
+    (hB : B ∈ˢ pi 1 (SetTheory.app (SetTheory.app (quotVal V ψ) A) R)
+      fun _ => univ 0) :
+    (pi 0 (pi 0 A fun a => SetTheory.app B
+        (SetTheory.app (SetTheory.app (SetTheory.app (quotMkVal V ψ) A) R)
+          a))
+      fun _ => pi 0 (SetTheory.app (SetTheory.app (quotVal V ψ) A) R)
+        fun q => SetTheory.app B q) ∈ˢ (univ 0 : V) :=
+  qi_pi0_univ0 (qi_minor_univ0 hA hR hB) (fun _ _ => qiT4_univ hA hR hB)
+
+private theorem qiT2_univ {A R : V} (hA : A ∈ˢ univ (ψ uN))
+    (hR : R ∈ˢ relSpace V (ψ uN) A) :
+    (pi 0 (pi 1 (SetTheory.app (SetTheory.app (quotVal V ψ) A) R)
+        fun _ => univ 0)
+      fun B => pi 0 (pi 0 A fun a => SetTheory.app B
+          (SetTheory.app (SetTheory.app (SetTheory.app (quotMkVal V ψ) A)
+            R) a))
+        fun _ => pi 0 (SetTheory.app (SetTheory.app (quotVal V ψ) A) R)
+          fun q => SetTheory.app B q) ∈ˢ (univ 0 : V) := by
+  have hdom : (pi 1 (SetTheory.app (SetTheory.app (quotVal V ψ) A) R)
+      fun _ => univ 0) ∈ˢ univ (Nat.max (ψ uN) 1) := by
+    have := pi_mem_univ (u := ψ uN) (v := 1)
+      (A := SetTheory.app (SetTheory.app (quotVal V ψ) A) R)
+      (B := fun _ => univ 0)
+      (by rw [quotVal_app₂' hA hR]; exact quotSet_mem_univ hA)
+      (fun _ _ => univ_mem_univ 0)
+    simpa using this
+  exact qi_pi0_univ0 hdom (fun B hB => qiT3_univ hA hR hB)
+
+private theorem qiT1_univ {A : V} (hA : A ∈ˢ univ (ψ uN)) :
+    (pi 0 (relSpace V (ψ uN) A)
+      fun R => pi 0 (pi 1 (SetTheory.app (SetTheory.app (quotVal V ψ) A) R)
+          fun _ => univ 0)
+        fun B => pi 0 (pi 0 A fun a => SetTheory.app B
+            (SetTheory.app (SetTheory.app (SetTheory.app (quotMkVal V ψ) A)
+              R) a))
+          fun _ => pi 0 (SetTheory.app (SetTheory.app (quotVal V ψ) A) R)
+            fun q => SetTheory.app B q) ∈ˢ (univ 0 : V) :=
+  qi_pi0_univ0 (relSpace_mem' hA) (fun R hR => qiT2_univ hA hR)
 
 end Setlec
