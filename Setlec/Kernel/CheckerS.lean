@@ -790,16 +790,16 @@ def checkDirectFieldUnivF (ops : CheckerOps m) (fe : FEnv) (s : Level)
       throw (.invalid "direct structure: field universe too large")
     checkDirectFieldUnivF ops fe s nP fvs j
 
-/-- `checkDirectParamDoms` through the index. -/
-def checkDirectParamDomsF (ops : CheckerOps m) (fe : FEnv)
-    (cfvs tfvs : List Expr) : Nat → m Unit
+/-- `checkDirectDomsAt` through the index. -/
+def checkDirectDomsAtF (ops : CheckerOps m) (fe : FEnv) (off : Nat)
+    (fvs doms : List Expr) : Nat → m Unit
   | 0 => pure ()
   | j + 1 => do
-    let a ← unwrapOr cfvs[j]? (.internal "direct structure: parameter index")
-    let b ← unwrapOr tfvs[j]? (.internal "direct structure: parameter index")
-    unless ← ops.isDefEq fe.env j a.fvarTypeD b.fvarTypeD do
-      throw (.notImplemented "direct structure: parameter domain mismatch")
-    checkDirectParamDomsF ops fe cfvs tfvs j
+    let a ← unwrapOr fvs[j]? (.internal "direct structure: domain index")
+    let b ← unwrapOr doms[j]? (.internal "direct structure: domain index")
+    unless ← ops.isDefEq fe.env (off + j) a.fvarTypeD b do
+      throw (.notImplemented "direct structure: binder domain mismatch")
+    checkDirectDomsAtF ops fe off fvs doms j
 
 /-- `checkDirectInd` through the index. -/
 def checkDirectIndF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts) :
@@ -823,7 +823,7 @@ def checkDirectCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (p : DirectParts)
     (.notImplemented "direct structure: constructor telescope")
   let tq ← unwrapOr (openPisAtFvars p.nP cvTa.type 0)
     (.notImplemented "direct structure: type former telescope")
-  checkDirectParamDomsF ops fe cq.1 tq.1 p.nP
+  checkDirectDomsAtF ops fe 0 cq.1 (tq.1.map Expr.fvarTypeD) p.nP
   let xq ← unwrapOr (openPisAtFvars p.nF cq.2 p.nP)
     (.notImplemented "direct structure: constructor field telescope")
   unless xq.2 == Expr.mkAppN
@@ -842,21 +842,20 @@ def checkDirectRecTyF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts)
   unless directShape T p.cvC.name lps p.elim p.nP p.nF
       cvTa.type cvCa.type cvRa.type do
     throw (.notImplemented "direct structure: annotated recursor shape")
-  let depth := p.nP + 2 + p.nF
   let (fvsP, rest) ← unwrapOr (openPisAtFvars (p.nP + 2) cvRa.type 0)
     (.notImplemented "direct structure: recursor telescope")
   let ps := fvsP.take p.nP
   let famApp := Expr.mkAppN (.const T (lps.map .param)) ps
   let (cdomsP, crest) ← unwrapOr (Expr.instPisAt ps cvCa.type)
     (.notImplemented "direct structure: constructor telescope")
-  checkDefEqList ops fe.env depth (ps.map Expr.fvarTypeD) cdomsP
+  checkDirectDomsAtF ops fe 0 ps cdomsP p.nP
   let mfv ← unwrapOr fvsP[p.nP]?
     (.internal "direct structure: motive index")
   let (mbs, mbody) ← unwrapOr (mfv.fvarTypeD.stripPis 1)
     (.notImplemented "direct structure: motive telescope")
   let mdom ← unwrapOr ((mbs[0]?).map (·.2.1))
     (.notImplemented "direct structure: motive telescope")
-  unless ← ops.isDefEq fe.env depth mdom famApp do
+  unless ← ops.isDefEq fe.env p.nP mdom famApp do
     throw (.notImplemented "direct structure: motive domain")
   unless mbody == Expr.sort (.param p.elim) do
     throw (.notImplemented "direct structure: motive codomain")
@@ -867,7 +866,7 @@ def checkDirectRecTyF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts)
     (.notImplemented "direct structure: minor telescope")
   let (cdomsF, crest2) ← unwrapOr (Expr.instPisAt xFvs crest)
     (.notImplemented "direct structure: constructor field telescope")
-  checkDefEqList ops fe.env depth (xFvs.map Expr.fvarTypeD) cdomsF
+  checkDirectDomsAtF ops fe (p.nP + 2) xFvs cdomsF p.nF
   unless crest2 == famApp do
     throw (.notImplemented "direct structure: constructor residual")
   unless minBody == Expr.app mfv
@@ -877,7 +876,7 @@ def checkDirectRecTyF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts)
     (.notImplemented "direct structure: major telescope")
   let jdom ← unwrapOr ((jbs[0]?).map (·.2.1))
     (.notImplemented "direct structure: major telescope")
-  unless ← ops.isDefEq fe.env depth jdom famApp do
+  unless ← ops.isDefEq fe.env (p.nP + 2) jdom famApp do
     throw (.notImplemented "direct structure: major domain")
   unless jbody == Expr.app mfv (.bvar 0) do
     throw (.notImplemented "direct structure: recursor conclusion")

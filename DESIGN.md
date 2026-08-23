@@ -3201,6 +3201,13 @@ the eliminated variable, so the minor `λ f⃗, f_i` only typechecks when
 `Sigma.snd`.  Installing real projection functions is therefore not an
 optimisation but a requirement.
 
+**Where the clause lives.**  The module split `CheckerBase ← Modeled ←
+Checker` (task #83) puts `checkIndDecl` in `Modeled` and
+`checkDirectStruct` in `Checker`, so `checkDirectStruct` is not in
+scope inside `checkIndDecl`.  The direct clause therefore dispatches in
+**`checkDecl`** (and its shared-state twin `checkDeclSF`), not inside
+`checkIndDecl` — do not look for it there.
+
 ### Precedence: artifact-free, not artifact-first
 
 The brief ordered the clauses *basis → direct → modeled*.  The landed
@@ -3495,12 +3502,17 @@ which is exactly "frame `j`".
   exactly the annotations the model's walks produce, and it is the
   telescope `directCRest` — hence the tower, the constructor value and
   the projections — is read off.
-* `checkDirectParamDoms` runs the reference kernels' parameter-telescope
-  comparison (`Add.lean:220-222`, nanoda `check_ctor`) **binder by
-  binder at frame `j`**, with the type former opened at *its* own
-  variables too.  Domain `j` is scoped at `j`, so frame `j` is precisely
-  the context the references compare it in — with the first `j` binders
-  in scope and no more.  Because neither side borrows the other's
+* `checkDirectDomsAt` runs the reference kernels' binder-domain
+  comparisons **binder by binder at frame `off + j`**, with each
+  telescope opened at *its* own variables.  It is used four times: the
+  constructor stage's parameter comparison (`Add.lean:220-222`, nanoda
+  `check_ctor`, at `off = 0`), and — the fourth instance of this one
+  decision — the recursor stage's parameter comparison (`off = 0`), its
+  minor-premise field domains (`off = nP + 2`), with the motive's and
+  the major's domains pinned by single `isDefEq`s at frames `nP` and
+  `nP + 2`.  Domain `j` is scoped at `off + j`, so that frame is precisely the
+  context the references compare it in — with the binders before it in
+  scope and no more.  Because neither side borrows the other's
   annotations, both carry their own frame conditions at every stage
   (`FrameOk.dom`) and `isDefEqCore_sound` applies at exactly the frame
   the model's walk is at: no lifting between frames, and no mixed-spine
@@ -3689,19 +3701,20 @@ What remains, in dependency order:
 
 3. **`mem_type` for the recursor and the projections**, from
    `directRecVal_mem`/`directRec_body_mem` and
-   `directProjVal_mem`/`directProj_body_mem`.  **Note the shape
-   prerequisite**: `checkDirectRecTy` still pins the motive domain, the
-   minor's field domains and the major domain at the block's *widest*
-   frame (`nP + 2 + nF`), while the recursor's `TeleBody` quantifies
-   over fits at *growing* frames — the same mismatch the constructor
-   stage had.  The fix is the same decision already taken there
-   (see "Three shape decisions"): pin each of those domains at its own
-   frame — the motive's at `nP`, the minor's `j`-th at `nP + 2 + j`,
-   the major's at `nP + 2` — and reuse `checkDirectParamDoms` for the
-   parameter prefix.  Doing so makes the recursor's obligations line up
-   with `DomsInterpEq`/`TeleFit.transfer` exactly as the constructor's
-   do; not doing so would reintroduce the lifting layer route (X) was
-   approved to remove.
+   `directProjVal_mem`/`directProj_body_mem`.  The shape prerequisite
+   is **landed**: `checkDirectRecTy` now pins the parameters, the
+   motive's domain, the minor's field domains and the major's domain
+   each at its own frame (see "Three shape decisions"), so the
+   recursor's obligations line up with `DomsInterpEq`/`TeleFit.transfer`
+   exactly as the constructor's do.  What is left is the inversion of
+   the reshaped stage and the two `TeleBody` discharges: the minor's
+   fit transfers onto the constructor's field telescope, the major's
+   membership unfolds `⟦T p⃗⟧` to the tower through `directTyVal_fold`
+   (as `directCtor_resid` already does), and `directRec_body_mem`
+   closes it — with the constructor's own value folding to `tupleV`
+   through `teleLamV_fold` for the minor's conclusion
+   `motive (C p⃗ f⃗)`.
+
 4. **The rules' fold obligation** (`RecMemberOk`) for the recursor rule
    and the `nF` projection rules, through `TowerOk.of_stages`
    (`Setlec/Model/RuleFold.lean`): the per-stage facts are the

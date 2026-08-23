@@ -530,6 +530,52 @@ theorem openPisAtFvars_WScoped :
     | lit l => exact nomatch h
     | proj s k e => exact nomatch h
 
+/-- Per-index scoping of an instantiated telescope: the `i`-th domain
+mentions only the binders before it, so it is scoped at `d + i` when the
+spine entries climb one frame at a time.  This is what lets the
+recursor's minor-premise pins run at each field's **own** frame. -/
+theorem instPisAt_index_WScoped :
+    ∀ (spine : List Expr) {d : Nat} {ty : Expr} {doms : List Expr}
+      {res : Expr},
+      Expr.instPisAt spine ty = some (doms, res) → WScoped d ty →
+      (∀ (i : Nat) (a : Expr), spine[i]? = some a → WScoped (d + i + 1) a) →
+      ∀ (i : Nat) (x : Expr), doms[i]? = some x → WScoped (d + i) x
+  | [], d, ty, doms, res, h, hty, _ => by
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    intro i x hx
+    exact nomatch hx
+  | a :: as, d, ty, doms, res, h, hty, hsp => by
+    cases ty with
+    | forallE nm dom body mb =>
+      simp only [Expr.instPisAt, Option.map_eq_some_iff] at h
+      obtain ⟨q, hq, hqe⟩ := h
+      simp only [Prod.mk.injEq] at hqe
+      obtain ⟨rfl, rfl⟩ := hqe
+      have hty' : WScoped d dom ∧ WScoped d body := by
+        simpa [WScoped] using hty
+      have haw : WScoped (d + 1) a := by
+        have h0 := hsp 0 a rfl
+        rwa [Nat.add_zero] at h0
+      intro i x hx
+      cases i with
+      | zero =>
+        simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
+        rw [← hx, Nat.add_zero]
+        exact hty'.1
+      | succ i =>
+        simp only [List.getElem?_cons_succ] at hx
+        have hrec := instPisAt_index_WScoped as (d := d + 1) hq
+          (WScoped.instantiate1_gen haw 0 (hty'.2.mono (Nat.le_succ d)))
+          (fun k b hb => by
+            have h0 := hsp (k + 1) b (by simpa using hb)
+            rw [show d + (k + 1) + 1 = d + 1 + k + 1 from by omega] at h0
+            exact h0) i x hx
+        rw [show d + (i + 1) = d + 1 + i from by omega]
+        exact hrec
+    | bvar _ | fvar _ _ _ | sort _ | const _ _ | app _ _ | lam _ _ _ _
+    | letE _ _ _ _ | lit _ | proj _ _ _ => exact nomatch h
+
 /-- Instantiating a `∀`-telescope at scoped arguments produces scoped
 domains and a scoped residual. -/
 theorem instPisAt_WScoped {d : Nat} :
@@ -1920,35 +1966,32 @@ right-hand side — the last two are checked closed by the checker's own
 
 /-- The per-frame parameter-domain pins, `wfOpsM` run to pure run: each
 domain is scoped at its own frame. -/
-theorem checkDirectParamDoms_wfimp {env : Env} (henv : EnvWF env)
-    {F : Nat} {cfvs tfvs : List Expr}
-    (hc : ∀ (i : Nat) (x : Expr), cfvs[i]? = some x →
-      WScoped i (Expr.fvarTypeD x))
-    (ht : ∀ (i : Nat) (x : Expr), tfvs[i]? = some x →
-      WScoped i (Expr.fvarTypeD x)) :
+theorem checkDirectDomsAt_wfimp {env : Env} (henv : EnvWF env)
+    {F off : Nat} {fvs doms : List Expr}
+    (hc : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+      WScoped (off + i) (Expr.fvarTypeD x))
+    (ht : ∀ (i : Nat) (x : Expr), doms[i]? = some x → WScoped (off + i) x) :
     ∀ {j : Nat} {v : Unit},
-      (checkDirectParamDoms wfOpsM env cfvs tfvs j).val F = .ok v →
-      checkDirectParamDoms (fueledOps F) env cfvs tfvs j = .ok v
+      (checkDirectDomsAt wfOpsM env off fvs doms j).val F = .ok v →
+      checkDirectDomsAt (fueledOps F) env off fvs doms j = .ok v
   | 0, _, h => h
   | j + 1, v, h => by
-    unfold checkDirectParamDoms at h ⊢
+    unfold checkDirectDomsAt at h ⊢
     obtain ⟨a, ha, h⟩ := atF_bind_ok h
     have ha' := unwrapOr_atF_ok ha
-    show ((unwrapOr cfvs[j]? _ : CheckM _) >>= _) = _
+    show ((unwrapOr fvs[j]? _ : CheckM _) >>= _) = _
     rw [ha']
     simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
     obtain ⟨b, hb, h⟩ := atF_bind_ok h
     have hb' := unwrapOr_atF_ok hb
-    show ((unwrapOr tfvs[j]? _ : CheckM _) >>= _) = _
+    show ((unwrapOr doms[j]? _ : CheckM _) >>= _) = _
     rw [hb']
     simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
     rw [wfOpsM_isDefEq henv (hc j a ha').to_wscopedB
       (ht j b hb').to_wscopedB] at h
     obtain ⟨c, hc2, h⟩ := atF_bind_ok h
-    have hc2' : isDefEqCore env F j (Expr.fvarTypeD a)
-      (Expr.fvarTypeD b) = .ok c := hc2
-    show (isDefEqCore env F j (Expr.fvarTypeD a) (Expr.fvarTypeD b)
-      >>= _) = _
+    have hc2' : isDefEqCore env F (off + j) (Expr.fvarTypeD a) b = .ok c := hc2
+    show (isDefEqCore env F (off + j) (Expr.fvarTypeD a) b >>= _) = _
     rw [hc2']
     simp only [Bind.bind, Except.bind]
     cases c with
@@ -1957,7 +2000,7 @@ theorem checkDirectParamDoms_wfimp {env : Env} (henv : EnvWF env)
       exact absurd h atF_throw_bind
     | true =>
       rw [if_pos rfl] at h ⊢
-      exact checkDirectParamDoms_wfimp henv hc ht h
+      exact checkDirectDomsAt_wfimp henv hc ht h
 
 /-- The per-field universe bound, `wfOpsM` run to pure run. -/
 theorem checkDirectFieldUniv_wfimp {env : Env} (henv : EnvWF env)
@@ -2190,23 +2233,22 @@ theorem checkDirectCtor_wfimp {env₀ env : Env} (henv : EnvWF env)
   obtain ⟨u1, hd1, h⟩ := atF_bind_ok h
   obtain ⟨htfvsW0, -⟩ := openPisAtFvars_WScoped p.nP cvTa.type 0 hci'
     (WScoped.of_not_hasFvar hTf)
-  have hd1' := checkDirectParamDoms_wfimp henv
+  have hd1' := checkDirectDomsAt_wfimp (off := 0) henv
     (fun i x hx => by
       obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index p.nP cvCa.type 0 hop' i x hx
       have hw := hfvsW0 _ (List.mem_of_getElem? hx)
       simp only [WScoped] at hw
-      show WScoped i ty
-      rw [show i = 0 + i from by omega]
       exact hw.2)
     (fun i x hx => by
-      obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index p.nP cvTa.type 0 hci' i x hx
-      have hw := htfvsW0 _ (List.mem_of_getElem? hx)
+      rw [List.getElem?_map] at hx
+      obtain ⟨y, hy, rfl⟩ := Option.map_eq_some_iff.mp hx
+      obtain ⟨nm, ty, rfl⟩ := openPisAtFvars_index p.nP cvTa.type 0 hci' i y hy
+      have hw := htfvsW0 _ (List.mem_of_getElem? hy)
       simp only [WScoped] at hw
-      show WScoped i ty
-      rw [show i = 0 + i from by omega]
       exact hw.2)
     hd1
-  show (checkDirectParamDoms (fueledOps F) env fvsP tfvs p.nP >>= _) = _
+  show (checkDirectDomsAt (fueledOps F) env 0 fvsP
+    (tfvs.map Expr.fvarTypeD) p.nP >>= _) = _
   rw [hd1']
   simp only [Bind.bind, Except.bind]
   -- the field telescope
@@ -2279,6 +2321,22 @@ theorem checkDirectRecTy_wfimp {env : Env} (henv : EnvWF env)
       (Expr.mkAppN (.const p.cvT.name (p.cvT.levelParams.map .param))
         (fvsP.take p.nP)) :=
     Expr.WScoped.mkAppN (by simp [WScoped]) hpsW
+  -- the family application mentions only the parameters, so it is
+  -- scoped at `nP` — the frame the motive's domain is pinned at
+  have hfamWn : WScoped p.nP
+      (Expr.mkAppN (.const p.cvT.name (p.cvT.levelParams.map .param))
+        (fvsP.take p.nP)) := by
+    refine Expr.WScoped.mkAppN (by simp [WScoped]) (fun x hx => ?_)
+    obtain ⟨i, hi⟩ := List.mem_iff_getElem?.mp hx
+    rw [List.getElem?_take] at hi
+    split at hi
+    · next hlt =>
+      obtain ⟨nm, ty, rfl⟩ :=
+        openPisAtFvars_index (p.nP + 2) cvRa.type 0 hop' i x hi
+      have hw := hfvsW0 _ (List.mem_of_getElem? hi)
+      simp only [WScoped] at hw ⊢
+      exact ⟨by omega, hw.2⟩
+    · exact nomatch hi
   -- the parameters against the constructor's parameter domains
   obtain ⟨q2, hci, h⟩ := atF_bind_ok h
   obtain ⟨cdomsP, crest⟩ := q2
@@ -2291,13 +2349,50 @@ theorem checkDirectRecTy_wfimp {env : Env} (henv : EnvWF env)
   try dsimp only []
   obtain ⟨hcdW, hcrW⟩ := instPisAt_WScoped (d := p.nP + 2 + p.nF) _ _ hci'
     (WScoped.of_not_hasFvar hCf) hpsW
+  have hpsWn : ∀ x ∈ fvsP.take p.nP, WScoped p.nP x := by
+    intro x hx
+    obtain ⟨i, hi⟩ := List.mem_iff_getElem?.mp hx
+    rw [List.getElem?_take] at hi
+    split at hi
+    · next hlt =>
+      obtain ⟨nm, ty, rfl⟩ :=
+        openPisAtFvars_index (p.nP + 2) cvRa.type 0 hop' i x hi
+      have hw := hfvsW0 _ (List.mem_of_getElem? hi)
+      simp only [WScoped] at hw ⊢
+      exact ⟨by omega, hw.2⟩
+    · exact nomatch hi
+  obtain ⟨-, hcrWn⟩ := instPisAt_WScoped (d := p.nP) _ _ hci'
+    (WScoped.of_not_hasFvar hCf) hpsWn
   obtain ⟨u1, hd1, h⟩ := atF_bind_ok h
-  have hd1' := checkDefEqList_wfimp henv
-    (fun a ha => by
-      obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
-      exact fvarTypeD_WScoped (hpsW x hx))
-    hcdW hd1
-  show (checkDefEqList (fueledOps F) env (p.nP + 2 + p.nF) _ _ >>= _) = _
+  have hpsIdx : ∀ (i : Nat) (x : Expr), (fvsP.take p.nP)[i]? = some x →
+      WScoped (0 + i) (Expr.fvarTypeD x) := by
+    intro i x hx
+    rw [List.getElem?_take] at hx
+    split at hx
+    · obtain ⟨nm, ty, rfl⟩ :=
+        openPisAtFvars_index (p.nP + 2) cvRa.type 0 hop' i x hx
+      have hw := hfvsW0 _ (List.mem_of_getElem? hx)
+      simp only [WScoped] at hw
+      exact hw.2
+    · exact nomatch hx
+  have hcdIdx : ∀ (i : Nat) (x : Expr), cdomsP[i]? = some x →
+      WScoped (0 + i) x := by
+    intro i x hx
+    refine instPisAt_index_WScoped (fvsP.take p.nP) (d := 0) hci'
+      (WScoped.of_not_hasFvar hCf) ?_ i x hx
+    intro k a hk
+    rw [List.getElem?_take] at hk
+    split at hk
+    · obtain ⟨nm, ty, rfl⟩ :=
+        openPisAtFvars_index (p.nP + 2) cvRa.type 0 hop' k a hk
+      have hw := hfvsW0 _ (List.mem_of_getElem? hk)
+      simp only [WScoped] at hw
+      simp only [WScoped]
+      exact ⟨by omega, hw.2⟩
+    · exact nomatch hk
+  have hd1' := checkDirectDomsAt_wfimp (off := 0) henv hpsIdx hcdIdx hd1
+  show (checkDirectDomsAt (fueledOps F) env 0 (fvsP.take p.nP) cdomsP p.nP
+    >>= _) = _
   rw [hd1']
   simp only [Bind.bind, Except.bind]
   -- the motive
@@ -2323,12 +2418,22 @@ theorem checkDirectRecTy_wfimp {env : Env} (henv : EnvWF env)
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   have hmdW : WScoped (p.nP + 2 + p.nF) mdom :=
     stripPis_head_WScoped hms' hmftW hmd'
-  rw [wfOpsM_isDefEq henv hmdW.to_wscopedB hfamW.to_wscopedB] at h
+  have hmftWn : WScoped p.nP mfv.fvarTypeD := by
+    obtain ⟨nm, ty, hmfv⟩ :=
+      openPisAtFvars_index (p.nP + 2) cvRa.type 0 hop' p.nP mfv hmf'
+    have hw := hfvsW0 _ (List.mem_of_getElem? hmf')
+    rw [hmfv] at hw ⊢
+    simp only [WScoped] at hw
+    show WScoped p.nP ty
+    simpa using hw.2
+  have hmdWn : WScoped p.nP mdom :=
+    stripPis_head_WScoped hms' hmftWn hmd'
+  rw [wfOpsM_isDefEq henv hmdWn.to_wscopedB hfamWn.to_wscopedB] at h
   obtain ⟨b1, hb1, h⟩ := atF_bind_ok h
-  have hb1' : isDefEqCore env F (p.nP + 2 + p.nF) mdom
+  have hb1' : isDefEqCore env F p.nP mdom
     (Expr.mkAppN (.const p.cvT.name (p.cvT.levelParams.map .param))
       (fvsP.take p.nP)) = .ok b1 := hb1
-  show (isDefEqCore env F (p.nP + 2 + p.nF) mdom _ >>= _) = _
+  show (isDefEqCore env F p.nP mdom _ >>= _) = _
   rw [hb1']
   simp only [Bind.bind, Except.bind]
   have hb1t : b1 = true := by
@@ -2370,12 +2475,28 @@ theorem checkDirectRecTy_wfimp {env : Env} (henv : EnvWF env)
   obtain ⟨hcdFW, -⟩ := instPisAt_WScoped (d := p.nP + 2 + p.nF) _ _ hcf'
     hcrW hxW
   obtain ⟨u2, hd2, h⟩ := atF_bind_ok h
-  have hd2' := checkDefEqList_wfimp henv
-    (fun a ha => by
-      obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
-      exact fvarTypeD_WScoped (hxW x hx))
-    hcdFW hd2
-  show (checkDefEqList (fueledOps F) env (p.nP + 2 + p.nF) _ _ >>= _) = _
+  have hxIdx : ∀ (i : Nat) (x : Expr), xFvs[i]? = some x →
+      WScoped (p.nP + 2 + i) (Expr.fvarTypeD x) := by
+    intro i x hx
+    obtain ⟨nm, ty, rfl⟩ :=
+      openPisAtFvars_index p.nF minfv.fvarTypeD (p.nP + 2) hox' i x hx
+    have hw := hxW _ (List.mem_of_getElem? hx)
+    simp only [WScoped] at hw
+    exact hw.2
+  have hcdFIdx : ∀ (i : Nat) (x : Expr), cdomsF[i]? = some x →
+      WScoped (p.nP + 2 + i) x := by
+    intro i x hx
+    refine instPisAt_index_WScoped xFvs (d := p.nP + 2) hcf'
+      (hcrWn.mono (by omega)) ?_ i x hx
+    intro k a hk
+    obtain ⟨nm, ty, rfl⟩ :=
+      openPisAtFvars_index p.nF minfv.fvarTypeD (p.nP + 2) hox' k a hk
+    have hw := hxW _ (List.mem_of_getElem? hk)
+    simp only [WScoped] at hw ⊢
+    exact ⟨by omega, hw.2⟩
+  have hd2' := checkDirectDomsAt_wfimp (off := p.nP + 2) henv hxIdx hcdFIdx hd2
+  show (checkDirectDomsAt (fueledOps F) env (p.nP + 2) xFvs cdomsF p.nF
+    >>= _) = _
   rw [hd2']
   simp only [Bind.bind, Except.bind]
   by_cases h3 : (crest2 ==
@@ -2402,14 +2523,15 @@ theorem checkDirectRecTy_wfimp {env : Env} (henv : EnvWF env)
   show ((unwrapOr ((jbs[0]?).map (·.2.1)) _ : CheckM _) >>= _) = _
   rw [hjd']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
-  have hjdW : WScoped (p.nP + 2 + p.nF) jdom :=
-    stripPis_head_WScoped hjs' (hrestW0.mono (by omega)) hjd'
-  rw [wfOpsM_isDefEq henv hjdW.to_wscopedB hfamW.to_wscopedB] at h
+  have hjdW : WScoped (p.nP + 2) jdom :=
+    stripPis_head_WScoped hjs' hrestW0 hjd'
+  rw [wfOpsM_isDefEq henv hjdW.to_wscopedB
+    (hfamWn.mono (by omega)).to_wscopedB] at h
   obtain ⟨b2, hb2, h⟩ := atF_bind_ok h
-  have hb2' : isDefEqCore env F (p.nP + 2 + p.nF) jdom
+  have hb2' : isDefEqCore env F (p.nP + 2) jdom
     (Expr.mkAppN (.const p.cvT.name (p.cvT.levelParams.map .param))
       (fvsP.take p.nP)) = .ok b2 := hb2
-  show (isDefEqCore env F (p.nP + 2 + p.nF) jdom _ >>= _) = _
+  show (isDefEqCore env F (p.nP + 2) jdom _ >>= _) = _
   rw [hb2']
   simp only [Bind.bind, Except.bind]
   have hb2t : b2 = true := by

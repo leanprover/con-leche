@@ -236,33 +236,31 @@ theorem extend_direct_ind {env : Env} (m : EnvModel V env) {p : DirectParts}
     exact directTyVal_params m.val_params (ps := cvTa.levelParams) hψ
       htlp hctyP hsP
 
-/-- Inversion for `checkDirectParamDoms`. -/
-theorem checkDirectParamDoms_inv {env : Env} {F : Nat}
-    {cfvs tfvs : List Expr} :
+/-- Inversion for `checkDirectDomsAt`. -/
+theorem checkDirectDomsAt_inv {env : Env} {F off : Nat}
+    {fvs doms : List Expr} :
     ∀ (k : Nat),
-      checkDirectParamDoms (fueledOps F) env cfvs tfvs k = .ok () →
-      ∀ j, j < k → ∀ a b, cfvs[j]? = some a → tfvs[j]? = some b →
-        isDefEqCore env F j (Expr.fvarTypeD a) (Expr.fvarTypeD b)
-          = .ok true := by
+      checkDirectDomsAt (fueledOps F) env off fvs doms k = .ok () →
+      ∀ j, j < k → ∀ a b, fvs[j]? = some a → doms[j]? = some b →
+        isDefEqCore env F (off + j) (Expr.fvarTypeD a) b = .ok true := by
   intro k
   induction k with
   | zero => intro _ j hj; exact absurd hj (by omega)
   | succ k ih =>
     intro h j hj a b ha hb
-    rw [checkDirectParamDoms] at h
+    rw [checkDirectDomsAt] at h
     simp only [fueledOps_isDefEq, Bind.bind, Except.bind, unwrapOr] at h
-    cases hca : cfvs[k]? with
+    cases hca : fvs[k]? with
     | none => rw [hca] at h; exact nomatch h
     | some a₀ =>
       rw [hca] at h
       simp only [pure, Except.pure] at h
-      cases hcb : tfvs[k]? with
+      cases hcb : doms[k]? with
       | none => rw [hcb] at h; exact nomatch h
       | some b₀ =>
         rw [hcb] at h
         simp only [pure, Except.pure] at h
-        cases hde : isDefEqCore env F k (Expr.fvarTypeD a₀)
-            (Expr.fvarTypeD b₀) with
+        cases hde : isDefEqCore env F (off + k) (Expr.fvarTypeD a₀) b₀ with
         | error _ => rw [hde] at h; exact nomatch h
         | ok v =>
           rw [hde] at h
@@ -289,7 +287,8 @@ theorem checkDirectCtor_inv {env₀ env : Env} {p : DirectParts}
         some (cbs, directFam p.cvT.name p.cvT.levelParams p.nP p.nF) ∧
       openPisAtFvars p.nP cvCa.type 0 = some (fvsP, crest) ∧
       openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest) ∧
-      checkDirectParamDoms (fueledOps F) env fvsP tfvs p.nP = .ok () ∧
+      checkDirectDomsAt (fueledOps F) env 0 fvsP
+        (tfvs.map Expr.fvarTypeD) p.nP = .ok () ∧
       openPisAtFvars p.nF crest p.nP = some (xFvs,
         Expr.mkAppN (.const p.cvT.name (p.cvT.levelParams.map .param))
           fvsP) ∧
@@ -428,7 +427,8 @@ theorem directCtor_resid {env env₁ : Env} (m : EnvModel V env)
     {fvsP tfvs xFvs : List Expr} {tbs : List (Name × Expr × BinderMeta)}
     (hcq : openPisAtFvars p.nP cvCa.type 0 = some (fvsP, crest))
     (htq : openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest))
-    (hpins : checkDirectParamDoms (fueledOps F) env₁ fvsP tfvs p.nP = .ok ())
+    (hpins : checkDirectDomsAt (fueledOps F) env₁ 0 fvsP
+      (tfvs.map Expr.fvarTypeD) p.nP = .ok ())
     (hxq : openPisAtFvars p.nF crest p.nP = some (xFvs,
       Expr.mkAppN (.const p.cvT.name (p.cvT.levelParams.map .param)) fvsP))
     (hfrC : FrameOk V m₁.val env₁ φ 0 (rho0 V) cvCa.type)
@@ -516,8 +516,10 @@ theorem directCtor_resid {env env₁ : Env} (m : EnvModel V env)
           obtain ⟨hlt, -⟩ := List.getElem?_eq_some_iff.mp ha
           rw [hlenFv] at hlt
           exact hlt
-        rw [Nat.zero_add]
-        exact checkDirectParamDoms_inv p.nP hpins j hj a b ha hb)
+        refine checkDirectDomsAt_inv p.nP hpins j hj a (Expr.fvarTypeD b)
+          ha ?_
+        rw [List.getElem?_map, hb]
+        rfl)
       hfrC hfrT)
   obtain rfl : restT = Expr.sort p.resSort :=
     TeleFit_rest_sort p.nP hfitT hlenP hstripT
