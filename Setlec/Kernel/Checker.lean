@@ -874,23 +874,31 @@ def checkDirectInd (ops : CheckerOps m) (env : Env) (p : DirectParts) :
 
 /-- Stage 2: the constructor — the ordinary constant check, the
 annotated result shape, and the per-field universe bound. -/
-def checkDirectCtor (ops : CheckerOps m) (env : Env) (p : DirectParts) :
-    m (Env × ConstantVal) := do
+def checkDirectCtor (ops : CheckerOps m) (env : Env) (p : DirectParts)
+    (cvTa : ConstantVal) : m (Env × ConstantVal) := do
   let cvCa ← checkConstantVal ops env p.cvC
   let (_, cbody) ← unwrapOr (cvCa.type.stripPis (p.nP + p.nF))
     (.notImplemented "direct structure: constructor telescope")
   unless cbody == directFam p.cvT.name p.cvT.levelParams p.nP p.nF do
     throw (.notImplemented "direct structure: constructor result")
-  let (fvs, crest) ← unwrapOr (openPisAtFvars (p.nP + p.nF) cvCa.type 0)
+  -- One opening for the whole block: the *type former's* parameter
+  -- telescope is opened, and the constructor's is instantiated at those
+  -- very variables.  The reference kernels compare the two parameter
+  -- telescopes by `isDefEq` (lean4lean `Inductive/Add.lean:220-222`);
+  -- instantiating one into the other is the same check done once, and
+  -- it is what lets the model read the field types at the *same* frame
+  -- the type former's own walk produces.
+  let (fvsP, _) ← unwrapOr (openPisAtFvars p.nP cvTa.type 0)
+    (.notImplemented "direct structure: type former telescope")
+  let (_, crest) ← unwrapOr (Expr.instPisAt fvsP cvCa.type)
     (.notImplemented "direct structure: constructor telescope")
-  -- the *opened* residual is the family at the opened parameter
-  -- variables.  Implied by the result check above, but computed here on
-  -- data the field-universe walk already produced, and it is what hands
-  -- the model the identity `⟦T p⃗⟧ = ⟦the field tower⟧` directly.
-  unless crest == Expr.mkAppN
-      (.const p.cvT.name (p.cvT.levelParams.map .param)) (fvs.take p.nP) do
+  let (xFvs, cresid) ← unwrapOr (openPisAtFvars p.nF crest p.nP)
+    (.notImplemented "direct structure: constructor field telescope")
+  -- the opened residual is the family at the opened parameter variables
+  unless cresid == Expr.mkAppN
+      (.const p.cvT.name (p.cvT.levelParams.map .param)) fvsP do
     throw (.notImplemented "direct structure: opened constructor residual")
-  checkDirectFieldUniv ops env p.resSort (p.nP + p.nF) p.nP fvs p.nF
+  checkDirectFieldUniv ops env p.resSort (p.nP + p.nF) 0 xFvs p.nF
   pure (⟨.ctorInfo cvCa p.nP p.nF ::
     .axiomInfo ⟨p.cvC.name.str "_model", cvCa.levelParams, cvCa.type⟩ ::
     env.consts⟩, cvCa)
@@ -1034,7 +1042,7 @@ so a failure is a verdict, not a fall-through. -/
 def checkDirectStruct (ops : CheckerOps m) (env : Env) (p : DirectParts) :
     m Env := do
   let (env₁, cvTa) ← checkDirectInd ops env p
-  let (env₂, cvCa) ← checkDirectCtor ops env₁ p
+  let (env₂, cvCa) ← checkDirectCtor ops env₁ p cvTa
   let cvRa ← checkConstantVal ops env₂ p.cvR
   checkDirectRecTy ops env₂ p cvTa cvCa cvRa
   let rhsA ← checkDirectRule ops env₂ p cvCa cvRa

@@ -2056,9 +2056,10 @@ theorem checkDirectInd_wfimp {env : Env} (henv : EnvWF env)
 opened constructor telescope is scoped at its own frame because the
 annotated constructor type is closed. -/
 theorem checkDirectCtor_wfimp {env : Env} (henv : EnvWF env)
-    {p : DirectParts} {F : Nat} {v : Env × ConstantVal}
-    (h : (checkDirectCtor wfOpsM env p).val F = .ok v) :
-    checkDirectCtor (fueledOps F) env p = .ok v := by
+    {p : DirectParts} {cvTa : ConstantVal} {F : Nat} {v : Env × ConstantVal}
+    (hTf : cvTa.type.hasFvar = false)
+    (h : (checkDirectCtor wfOpsM env p cvTa).val F = .ok v) :
+    checkDirectCtor (fueledOps F) env p cvTa = .ok v := by
   unfold checkDirectCtor at h ⊢
   obtain ⟨cvCa, hcv, h⟩ := atF_bind_ok h
   have hcv' := checkConstantVal_wfimp henv hcv
@@ -2078,32 +2079,54 @@ theorem checkDirectCtor_wfimp {env : Env} (henv : EnvWF env)
       = true
   case neg => rw [if_neg h1] at h; exact absurd h atF_throw_bind
   rw [if_pos h1] at h ⊢
+  -- the shared opening: the type former's parameter telescope
   obtain ⟨q2, hop, h⟩ := atF_bind_ok h
-  obtain ⟨fvs, rest⟩ := q2
+  obtain ⟨fvsP, trest⟩ := q2
   dsimp only [] at h
   have hop' := unwrapOr_atF_ok hop
-  show ((unwrapOr (openPisAtFvars (p.nP + p.nF) cvCa.type 0) _ :
-    CheckM _) >>= _) = _
+  show ((unwrapOr (openPisAtFvars p.nP cvTa.type 0) _ : CheckM _) >>= _) = _
   rw [hop']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   try dsimp only []
-  have hopW := openPisAtFvars_WScoped (p.nP + p.nF) cvCa.type 0 hop'
-    (WScoped.of_not_hasFvar hCf)
-  rw [Nat.zero_add] at hopW
-  by_cases h2 : (rest == Expr.mkAppN
-      (.const p.cvT.name (p.cvT.levelParams.map .param))
-      (fvs.take p.nP)) = true
+  obtain ⟨hfvsW0, -⟩ := openPisAtFvars_WScoped p.nP cvTa.type 0 hop'
+    (WScoped.of_not_hasFvar hTf)
+  have hfvsW : ∀ x ∈ fvsP, WScoped p.nP x := by
+    intro x hx
+    have h0 := hfvsW0 x hx
+    rwa [Nat.zero_add] at h0
+  -- the constructor's telescope instantiated at those very variables
+  obtain ⟨q3, hci, h⟩ := atF_bind_ok h
+  obtain ⟨cdomsP, crest⟩ := q3
+  dsimp only [] at h
+  have hci' := unwrapOr_atF_ok hci
+  show ((unwrapOr (Expr.instPisAt fvsP cvCa.type) _ : CheckM _) >>= _) = _
+  rw [hci']
+  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
+  try dsimp only []
+  obtain ⟨-, hcrW⟩ := instPisAt_WScoped (d := p.nP) fvsP cvCa.type hci'
+    (WScoped.of_not_hasFvar hCf) hfvsW
+  -- the field telescope
+  obtain ⟨q4, hox, h⟩ := atF_bind_ok h
+  obtain ⟨xFvs, cresid⟩ := q4
+  dsimp only [] at h
+  have hox' := unwrapOr_atF_ok hox
+  show ((unwrapOr (openPisAtFvars p.nF crest p.nP) _ : CheckM _) >>= _) = _
+  rw [hox']
+  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
+  try dsimp only []
+  obtain ⟨hxW, -⟩ := openPisAtFvars_WScoped p.nF crest p.nP hox' hcrW
+  by_cases h2 : (cresid == Expr.mkAppN
+      (.const p.cvT.name (p.cvT.levelParams.map .param)) fvsP) = true
   case neg => rw [if_neg h2] at h; exact absurd h atF_throw_bind
   rw [if_pos h2] at h ⊢
   obtain ⟨u0, hfu, h⟩ := atF_bind_ok h
-  have hfu' := checkDirectFieldUniv_wfimp henv hopW.1 hfu
+  have hfu' := checkDirectFieldUniv_wfimp henv hxW hfu
   show (checkDirectFieldUniv (fueledOps F) env p.resSort (p.nP + p.nF)
-    p.nP fvs p.nF >>= _) = _
+    0 xFvs p.nF >>= _) = _
   rw [hfu']
   simp only [Bind.bind, Except.bind]
   exact h
 
-set_option maxHeartbeats 6400000 in
 /-- Stage 3 of the direct install, `wfOpsM` run to pure run.  The
 annotated recursor and constructor types are closed, so the one shared
 opening of the recursor telescope — and everything read off it: the
@@ -2535,10 +2558,11 @@ does. -/
 theorem checkDirectStruct_wfimp {env : Env} (henv : EnvWF env)
     {p : DirectParts} {F : Nat} {v : Env}
     (hwf₁ : ∀ (e₁ : Env) (cvTa : ConstantVal),
-      (checkDirectInd wfOpsM env p).val F = .ok (e₁, cvTa) → EnvWF e₁)
+      (checkDirectInd wfOpsM env p).val F = .ok (e₁, cvTa) →
+      EnvWF e₁ ∧ cvTa.type.hasFvar = false)
     (hwf₂ : ∀ (e₁ e₂ : Env) (cvTa cvCa : ConstantVal),
       (checkDirectInd wfOpsM env p).val F = .ok (e₁, cvTa) →
-      (checkDirectCtor wfOpsM e₁ p).val F = .ok (e₂, cvCa) →
+      (checkDirectCtor wfOpsM e₁ p cvTa).val F = .ok (e₂, cvCa) →
       EnvWF e₂ ∧ cvCa.type.hasFvar = false ∧
         cvCa.type.looseBVarsBounded 0 = true)
     (hwf₃ : ∀ (e₂ : Env) (cvCa cvRa : ConstantVal) (rhsA : Expr),
@@ -2561,11 +2585,11 @@ theorem checkDirectStruct_wfimp {env : Env} (henv : EnvWF env)
   have hind' := checkDirectInd_wfimp henv hind
   rw [hind']
   simp only [Bind.bind, Except.bind]
-  have henv₁ := hwf₁ env₁ cvTa hind
+  obtain ⟨henv₁, hTf⟩ := hwf₁ env₁ cvTa hind
   obtain ⟨q2, hct, h⟩ := atF_bind_ok h
   obtain ⟨env₂, cvCa⟩ := q2
   dsimp only [] at h
-  have hct' := checkDirectCtor_wfimp henv₁ hct
+  have hct' := checkDirectCtor_wfimp henv₁ hTf hct
   rw [hct']
   simp only [Bind.bind, Except.bind]
   obtain ⟨henv₂, hCf, hCb⟩ := hwf₂ env₁ env₂ cvTa cvCa hind hct

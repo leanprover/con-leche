@@ -127,7 +127,7 @@ def checkDirectStructNC (fe : FEnv) (p : DirectParts) : CheckIM FEnv := do
   flushS
   let (fe₁, cvTa) ← checkDirectIndF (sharedOpsNC fe) fe p
   flushS
-  let (fe₂, cvCa) ← checkDirectCtorF (sharedOpsNC fe₁) fe₁ p
+  let (fe₂, cvCa) ← checkDirectCtorF (sharedOpsNC fe₁) fe₁ p cvTa
   flushS
   let cvRa ← checkConstantValF (sharedOpsNC fe₂) fe₂ p.cvR
   checkDirectRecTyF (sharedOpsNC fe₂) fe₂ p cvTa cvCa cvRa
