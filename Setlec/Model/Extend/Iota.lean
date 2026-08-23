@@ -595,6 +595,7 @@ def RuleChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
         cvA.type.stripPis mI = some (pre, .forallE nm dom body bm) ∧
         dom.getAppFn = .const D lvls ∧
         dom.getAppArgs = pins) ∧
+      pins.length = cnP ∧
       NestedChecked F env env₀ f cvA mI rP cnP cnF r cvj lvls pins) ∧
     raw.hasFvar = false ∧ raw.looseBVarsBounded 0 = true ∧
     annotateCore env₀ F 0 raw = .ok (RecRule.rhs r) ∧
@@ -729,9 +730,10 @@ theorem checkIotaRule_inv {env' env₀ : Env} {f : Name → Name}
         obtain ⟨rfl, rfl⟩ := RecRuleFire.nested.inj
           (hf : RecRuleFire.nested lvls pins = .nested lvls' pins')
         obtain ⟨hmi, hlvls, hpins, pre, nm, dom, body, bm, D, hstrip,
-          hfn, hpinsEq, -⟩ := nestedRuleShape_inv hshape
+          hfn, hpinsEq, hpinsLen⟩ := nestedRuleShape_inv hshape
         exact ⟨hmi, hlvls, hpins,
-          ⟨pre, nm, dom, body, bm, D, hstrip, hfn, hpinsEq⟩, hkit⟩
+          ⟨pre, nm, dom, body, bm, D, hstrip, hfn, hpinsEq⟩, hpinsLen,
+          hkit⟩
 
 /-- Invert a successful `checkIotaRules` run: every returned rule
 carries the full `RuleChecked` hypothesis kit. -/

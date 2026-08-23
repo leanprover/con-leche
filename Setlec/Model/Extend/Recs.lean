@@ -557,8 +557,9 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
     rw [hcp]
     exact recRulePlain_le (hplIff.mp hfr)
   · intro lvls pins hfr
-    -- nested: the stored instantiation count (pending the nested glue)
-    sorry
+    obtain ⟨-, -, -, -, hpinsLen, -⟩ := hnestK lvls pins hfr
+    rw [hcp]
+    exact hpinsLen
   intro cvj' cnP' cnF' hfj hne
   -- identify the constructor at the provisional environment
   have hfjS : envS.find? (RecRule.ctor r) =

@@ -514,6 +514,116 @@ theorem pi_walk_src {env : Env} (m : EnvModel V env) (F : Nat)
       | succ k =>
         exact hpack k a v' (by simpa using ha) (by simpa using hv')
 
+/-- The typed-spine walk: a telescope instantiated at an argument
+spine whose *inferred types* are per-binder definitionally equal to
+the walk's domains (`TypedListOk` — the kernel's nested parameter
+pins).  Inference soundness supplies each argument's value and its
+membership in the inferred type's interpretation; definitional
+soundness moves it into the walk's domain, producing the fit and the
+pointwise domain-membership pack. -/
+theorem typed_walk {env : Env} (m : EnvModel V env) (F : Nat)
+    {φ : Name → Nat} {D : Nat} {ρ : Nat → V} :
+    ∀ {args : List Expr} {tyR : Expr} {dsR : List Expr} {restR : Expr},
+      Expr.instPisAt args tyR = some (dsR, restR) →
+      TypedListOk F env D args dsR →
+      (∀ a ∈ args, WScoped D a ∧ a.looseBVarsBounded 0 = true ∧
+        Expr.LeavesBounded a ∧ FvarsOk V m.val env φ D ρ a ∧
+        AnnotOk V m.val env φ D ρ a) →
+      WScoped D tyR → tyR.looseBVarsBounded 0 = true →
+      Expr.LeavesBounded tyR → FvarsOk V m.val env φ D ρ tyR →
+      AnnotOk V m.val env φ D ρ tyR →
+      (∃ P, interpExpr V m.val env φ D ρ tyR = some P) →
+      ∃ vs, TeleFitI V m.val env φ D ρ tyR args vs restR ∧
+        (∀ (k : Nat) (a : Expr) (v : V), dsR[k]? = some a →
+          vs[k]? = some v →
+          ∃ B, interpExpr V m.val env φ D ρ a = some B ∧ v ∈ˢ B) := by
+  intro args
+  induction args with
+  | nil =>
+    intro tyR dsR restR hopR htl hargs hWR hbR hLR hFR hAR hIR
+    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at hopR
+    obtain ⟨rfl, rfl⟩ := hopR
+    exact ⟨[], TeleFitI.nil, fun k a v ha _ => nomatch ha⟩
+  | cons a args' ih =>
+    intro tyR dsR restR hopR htl hargs hWR hbR hLR hFR hAR hIR
+    obtain ⟨nR, domR, bodyR, mR, dsR', rfl, hdsRc, hR0⟩ :=
+      instPisAt_cons_inv hopR
+    subst hdsRc
+    obtain ⟨⟨ta, hinf, hde⟩, htl'⟩ := htl
+    obtain ⟨hWa, hba, hLa, hFa, hAa⟩ := hargs a List.mem_cons_self
+    -- the argument's value and its inferred type's interpretation
+    obtain ⟨⟨v, tva, hiv, hitv, hvmem⟩, hWta, hAta⟩ :=
+      inferTypeCore_sound m F hinf hWa hba hLa hFa hAa
+    have hbta : ta.looseBVarsBounded 0 = true :=
+      inferTypeCore_looseBVars m.wf F hinf hWa hba hLa
+    have hLta : Expr.LeavesBounded ta := fun l hl =>
+      hLa l (inferTypeCore_fvarLeaves m.wf F hinf hWa l hl)
+    have hFta : FvarsOk V m.val env φ D ρ ta := fun l hl =>
+      hFa l (inferTypeCore_fvarLeaves m.wf F hinf hWa l hl)
+    -- the walk-side domain's facts
+    have hWdomR : WScoped D domR ∧ WScoped D bodyR := by
+      simpa [WScoped] using hWR
+    have hbdomR : domR.looseBVarsBounded 0 = true ∧
+        bodyR.looseBVarsBounded 1 = true := by
+      revert hbR; simp [Expr.looseBVarsBounded]
+    have hLdomR := LeavesBounded.of_forallE_ty hLR
+    have hFdomR : FvarsOk V m.val env φ D ρ domR :=
+      FvarsOk.of_subset (fun l hl => by
+        simp only [fvarLeaves, List.mem_append]; exact Or.inl hl) hFR
+    have hAR' := hAR
+    simp only [AnnotOk] at hAR'
+    obtain ⟨hAdomR, ⟨codR, hcodR⟩, hcondR⟩ := hAR'
+    obtain ⟨PR, hPR⟩ := hIR
+    have hIdomR : ∃ B, interpExpr V m.val env φ D ρ domR = some B := by
+      revert hPR
+      simp only [interpExpr, hcodR]
+      cases hB0 : interpExpr V m.val env φ D ρ domR with
+      | none => intro hPR; exact nomatch hPR
+      | some B => intro _; exact ⟨B, rfl⟩
+    obtain ⟨B, hBi⟩ := hIdomR
+    -- transfer the membership across the defeq
+    have htaB : tva = B :=
+      isDefEqCore_sound m F hde hWta hWdomR.1 hbta hbdomR.1
+        hLta hLdomR hFta hFdomR hAta hAdomR hitv hBi
+    have hvB : v ∈ˢ B := by rw [← htaB]; exact hvmem
+    -- step the body
+    obtain ⟨hAopR, hfibR⟩ := hcondR v B hBi hvB
+    have hAbodyR : AnnotOk V m.val env φ D ρ
+        (bodyR.instantiate1 a) :=
+      AnnotOk_beta hWdomR.2.fvarsBelow hWa hba hiv hAa 0 hAopR
+    obtain ⟨wR, hwR, -⟩ := hfibR codR hcodR
+    have hIbodyR : ∃ P, interpExpr V m.val env φ D ρ
+        (bodyR.instantiate1 a) = some P := by
+      refine ⟨wR, ?_⟩
+      rw [interp_beta (n := nR) (ty := domR) hWdomR.2.fvarsBelow hWa
+        hba hiv 0]
+      exact hwR
+    -- recursive call
+    obtain ⟨vs', hfit', hpack'⟩ := ih hR0 htl'
+      (fun x hx => hargs x (List.mem_cons_of_mem _ hx))
+      (WScoped.instantiate1_gen hWa 0 hWdomR.2)
+      (looseBVarsBounded_instantiate1_gen hba hbdomR.2)
+      (LeavesBounded.instantiate1 (LeavesBounded.of_forallE_body hLR)
+        hLa)
+      (fun l hl => by
+        rcases fvarLeaves_instantiate1 bodyR 0 hl with hl' | hl'
+        · exact hFR l (by
+            simp only [fvarLeaves, List.mem_append]
+            exact Or.inr hl')
+        · exact hFa l hl')
+      hAbodyR hIbodyR
+    refine ⟨v :: vs', ?_, ?_⟩
+    · exact TeleFitI.cons hBi hiv hvB hWdomR.2.fvarsBelow hWa hba hAa
+        hfit'
+    · intro k x v' hx hv'
+      cases k with
+      | zero =>
+        simp only [List.getElem?_cons_zero, Option.some.injEq] at hx hv'
+        subst hx; subst hv'
+        exact ⟨B, hBi, hvB⟩
+      | succ k =>
+        exact hpack' k x v' (by simpa using hx) (by simpa using hv')
+
 /-! ## Renaming and telescope bookkeeping -/
 
 
