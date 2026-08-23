@@ -1161,68 +1161,60 @@ theorem proj_rule_eq
         ∃ Rv, interpClosed V val' env₁ ψ'' (closeLamsAt fvms bL) =
             some Rv ∧
           interpClosed V val' env₁ ψ'' (RecRule.rhs rule) = some Rv := by
-  -- open the recursor prefix
+  -- feasibility of the canonical decomposition
   have hAopen0 : (openPisAtFvars nP cvA.type 0).isSome = true :=
     openPisAtFvars_isSome_of_stripPis nP 0 (by rw [hA_strip]; rfl)
-  obtain ⟨⟨fvsP, rest0⟩, hAopen⟩ := Option.isSome_iff_exists.mp hAopen0
-  obtain ⟨hfvsInstA, hfvsLen, hfvsShape⟩ := openPisAtFvars_spec nP 0 hAopen
+  obtain ⟨⟨fvsP0, rest00⟩, hAopen⟩ := Option.isSome_iff_exists.mp hAopen0
+  obtain ⟨-, hfvsLen0, -⟩ := openPisAtFvars_spec nP 0 hAopen
+  have htakeP0 : fvsP0.take (RecRule.ctorParams rule) = fvsP0 := by
+    rw [hcp, ← hfvsLen0]
+    exact List.take_length
+  obtain ⟨cmid, hCpre, hCmidStrip⟩ := Expr.stripPis_add nP nF hC_strip
+  have hcinst00 : (Expr.instPisAt fvsP0 cvj.type).isSome = true :=
+    instPisAt_isSome_of_stripPis fvsP0 (by rw [hfvsLen0, hCpre]; rfl)
+  obtain ⟨⟨cdomsP0, crestP0⟩, hcinst0⟩ :=
+    Option.isSome_iff_exists.mp hcinst00
+  have hcrest0 : crestP0 = instSeq fvsP0 (fvsP0.length - 1) cmid :=
+    (instPisAt_stripPis fvsP0 hcinst0 (by rw [hfvsLen0]; exact hCpre)).1
+  have hXopen00 : (openPisAtFvars nF crestP0 nP).isSome = true := by
+    refine openPisAtFvars_isSome_of_stripPis nF nP ?_
+    rw [hcrest0]
+    exact Expr.stripPis_instSeq_isSome fvsP0 _ nF (by rw [hCmidStrip]; rfl)
+  obtain ⟨⟨xFvs0, crest20⟩, hXopen0⟩ :=
+    Option.isSome_iff_exists.mp hXopen00
+  have hpartsSome : (ruleLhsParts P cvA nP rule cvj).isSome = true := by
+    simp only [ruleLhsParts, hAopen, hfirep, ruleLhsAux, htakeP0, hcinst0,
+      hnf, hXopen0, hstripR]
+    rfl
+  obtain ⟨⟨fvms, bL⟩, hparts⟩ := Option.isSome_iff_exists.mp hpartsSome
+  -- the decomposition's components
+  obtain ⟨fvsP, rest0v, usC', cargs', cdomsP, crestP, xFvs, crest2,
+    rbs', rb', heqO, hcinst', hXopen', hstripR', hfireCase', hfvmsEq,
+    hbLEq⟩ := ruleLhsParts_inv hparts
+  obtain ⟨hfvsInstA, hfvsLen, hfvsShape⟩ := openPisAtFvars_spec nP 0 heqO
+  obtain ⟨husC, hcargs⟩ : usC' = cvj.levelParams.map Level.param ∧
+      cargs' = fvsP.take (RecRule.ctorParams rule) := by
+    rcases hfireCase' with ⟨-, h1, h2⟩ | ⟨lvls, pins, hcon, -, -⟩
+    · exact ⟨h1, h2⟩
+    · rw [hfirep] at hcon
+      exact nomatch hcon
   have htakeP : fvsP.take (RecRule.ctorParams rule) = fvsP := by
     rw [hcp, ← hfvsLen]
     exact List.take_length
-  -- the constructor telescope walk at the prefix variables
-  obtain ⟨cmid, hCpre, hCmidStrip⟩ := Expr.stripPis_add nP nF hC_strip
-  have hcinst0 : (Expr.instPisAt fvsP cvj.type).isSome = true :=
-    Expr.instPisAt_isSome_of_stripPis fvsP
-      (by rw [hfvsLen, hCpre]; rfl)
-  obtain ⟨⟨cdomsP, crestP⟩, hcinst⟩ := Option.isSome_iff_exists.mp hcinst0
-  have hcrest : crestP = instSeq fvsP (fvsP.length - 1) cmid :=
-    (instPisAt_stripPis fvsP hcinst (by rw [hfvsLen]; exact hCpre)).1
-  have hXopen0 : (openPisAtFvars nF crestP nP).isSome = true := by
-    refine openPisAtFvars_isSome_of_stripPis nF nP ?_
-    rw [hcrest]
-    exact Expr.stripPis_instSeq_isSome fvsP _ nF (by rw [hCmidStrip]; rfl)
-  obtain ⟨⟨xFvs, crest2⟩, hXopen⟩ := Option.isSome_iff_exists.mp hXopen0
-  obtain ⟨hxInstC, hxLen, hxShape⟩ := openPisAtFvars_spec nF nP hXopen
-  -- assemble the canonical decomposition
-  have hpartsSome : (ruleLhsParts P cvA nP rule cvj).isSome = true := by
-    simp only [ruleLhsParts, hAopen, hfirep, ruleLhsAux, htakeP, hcinst,
-      hnf, hXopen, hstripR]
-    rfl
-  obtain ⟨⟨fvms, bL⟩, hparts⟩ := Option.isSome_iff_exists.mp hpartsSome
-  obtain ⟨fvsP', rest0', usC', cargs', cdoms', crestP', xFvs', crest2',
-    rbs', rb', heqO', hcinst', hXopen', hstripR', hfireCase', hfvmsEq,
-    hbLEq⟩ := ruleLhsParts_inv hparts
-  rw [hAopen] at heqO'
-  have hpr := Option.some.inj heqO'
-  obtain rfl : fvsP' = fvsP := (congrArg Prod.fst hpr).symm
-  obtain rfl : rest0' = rest0 := (congrArg Prod.snd hpr).symm
-  rcases hfireCase' with ⟨-, husC, hcargs⟩ |
-    ⟨lvls, pins, hcon, -, -⟩
-  swap
-  · rw [hfirep] at hcon
-    exact nomatch hcon
-  rw [htakeP] at hcargs
-  subst husC
-  subst hcargs
   rw [hfirep] at hcinst'
   dsimp only at hcinst'
-  rw [hcinst] at hcinst'
-  have hpr2 := Option.some.inj hcinst'
-  obtain rfl : cdoms' = cdomsP := (congrArg Prod.fst hpr2).symm
-  obtain rfl : crestP' = crestP := (congrArg Prod.snd hpr2).symm
+  rw [hcargs, htakeP] at hcinst'
   rw [hnf] at hXopen' hstripR'
-  rw [hXopen] at hXopen'
-  have hpr3 := Option.some.inj hXopen'
-  obtain rfl : xFvs' = xFvs := (congrArg Prod.fst hpr3).symm
-  obtain rfl : crest2' = crest2 := (congrArg Prod.snd hpr3).symm
+  obtain ⟨hxInstC, hxLen, hxShape⟩ := openPisAtFvars_spec nF nP hXopen'
   rw [hstripR] at hstripR'
   have hpr4 := Option.some.inj hstripR'
-  obtain rfl : rbs' = rbs := (congrArg Prod.fst hpr4).symm
-  obtain rfl : rb' = rbody := (congrArg Prod.snd hpr4).symm
+  have hrbsE : rbs' = rbs := (congrArg Prod.fst hpr4).symm
+  rw [hrbsE] at hfvmsEq
+  rw [husC, hcargs, htakeP] at hbLEq
   -- the combined constructor walk: the index tuple is empty
   have hcombined : Expr.instPisAt (fvsP ++ xFvs) cvj.type =
       some (cdomsP ++ xFvs.map Expr.fvarTypeD, crest2) :=
-    Expr.instPisAt_append_of fvsP hcinst hxInstC
+    instPisAt_append_of fvsP hcinst' hxInstC
   have hspineLen : (fvsP ++ xFvs).length = nP + nF := by
     simp [hfvsLen, hxLen]
   have hcrest2 : crest2 = instSeq (fvsP ++ xFvs) (nP + nF - 1) cbody := by
@@ -1245,7 +1237,7 @@ theorem proj_rule_eq
       ((fvsP ++ xFvs).take nP ++
        [Expr.mkAppN (.const (RecRule.ctor rule)
           (cvj.levelParams.map Level.param)) (fvsP ++ xFvs)]) := by
-    rw [hbLEq, hidxNil, htakeSp, List.append_nil]
+    rw [hbLEq, hidxNil, htakeSp, List.nil_append]
   -- the frame's shapes and annotations
   have hspineShape : ∀ (j : Nat) (a : Expr), (fvsP ++ xFvs)[j]? = some a →
       ∃ nm ty, a = Expr.fvar j nm ty := by
@@ -1265,7 +1257,7 @@ theorem proj_rule_eq
   have hAPos := (instPisAt_stripPis fvsP hfvsInstA
     (by rw [hfvsLen]; exact hA_strip)).2
   have hcdomsLen : cdomsP.length = nP := by
-    rw [instPisAt_length fvsP hcinst, hfvsLen]
+    rw [instPisAt_length fvsP hcinst', hfvsLen]
   have hframeTy : ∀ (k : Nat) (a : Expr) (b : Name × Expr × BinderMeta),
       (fvsP ++ xFvs)[k]? = some a → cbinders[k]? = some b →
       Expr.fvarTypeD a = instSeq ((fvsP ++ xFvs).take k) (k - 1) b.2.1 := by

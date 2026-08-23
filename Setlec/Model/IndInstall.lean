@@ -1743,7 +1743,7 @@ def SpineKit (cval : ConstVal V) (env : Env) (φ : Name → Nat)
 /-- Stage package for the recursor-prefix region (`k < rP`): walk the
 member type's telescope along the chosen values; the residual's head
 binder is the stage annotation, packaged at the padded master frame. -/
-theorem stage_pkg_pre {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat)
+theorem stage_pkg_pre {env₀ : Env} (m₀ : EnvModel V env₀)
     {ψ : Name → Nat} {tyA : Expr} {rP cnF : Nat}
     {fvsP : List Expr} {restP : Expr} {xFvsP : List Expr}
     (hopenP : openPisAtFvars rP tyA 0 = some (fvsP, restP))
@@ -1976,5 +1976,346 @@ theorem stage_pkg_pre {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat)
   · rw [hTkeq]; exact hΘTk
   · rw [hTkeq]; exact hLsTk
   · rw [hTkeq]; exact hwsKTk
+
+/-- Stage package for the constructor-field region (`rP ≤ k`): walk
+the member type over the full recursor prefix, obtain the (plain- or
+nested-specific) constructor-residual package, and walk it along the
+chosen field values; the residual's head binder is the stage
+annotation. -/
+theorem stage_pkg_fld {env₀ : Env} (m₀ : EnvModel V env₀)
+    {ψ : Name → Nat} {tyA : Expr} {rP cnF : Nat}
+    {fvsP : List Expr} {restP : Expr} {crestP : Expr}
+    {xFvsP : List Expr} {crest2 : Expr}
+    (hopenP : openPisAtFvars rP tyA 0 = some (fvsP, restP))
+    (htyw : tyA.hasFvar = false)
+    (htyb : tyA.looseBVarsBounded 0 = true)
+    (hAty : AnnotOk V m₀.val env₀ ψ 0 (rho0 V) tyA)
+    (hopenX : openPisAtFvars cnF crestP rP = some (xFvsP, crest2))
+    {k : Nat} {xs : List V} {fv : Expr}
+    (hctorPkg :
+      WScoped rP crestP ∧ crestP.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded crestP ∧
+      FvarsOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) crestP ∧
+      AnnotOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) crestP ∧
+      ∃ P, interpExpr V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) crestP = some P)
+    (hkl : rP ≤ k) (hk : k < rP + cnF) (hxs : xs.length = k)
+    (hfv : (fvsP ++ xFvsP)[k]? = some fv)
+    (hpref : FramePref m₀.val env₀ ψ (fvsP ++ xFvsP) xs) :
+    (InterpPkg m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) (Expr.fvarTypeD fv) ∧
+      WScoped k (Expr.fvarTypeD fv)) ∧
+    SpineKit m₀.val env₀ ψ (rP + cnF) k
+      (fun i => xs.getD i SetTheory.empty) (fvsP ++ xFvsP) xs := by
+  obtain ⟨hWcr, hbcr, hLcr, hFcr, hAcr, Pcr, hPcr⟩ := hctorPkg
+  obtain ⟨hfvsPInst, hfvsPLen, hfvsPShape⟩ :=
+    openPisAtFvars_spec rP 0 hopenP
+  obtain ⟨hfvsPWf, hrestPWf⟩ := openPisAtFvars_wf rP 0 hopenP
+    (WScoped.of_not_hasFvar htyw) htyb
+    (Expr.LeavesBounded.of_not_hasFvar htyw)
+  obtain ⟨hxInst, hxLen, hxShape⟩ := openPisAtFvars_spec cnF rP hopenX
+  obtain ⟨hxWf, hcrest2Wf⟩ := openPisAtFvars_wf cnF rP hopenX hWcr hbcr
+    hLcr
+  obtain ⟨t, hktr⟩ : ∃ t, k = rP + t := ⟨k - rP, by omega⟩
+  have ht : t < cnF := by omega
+  -- the k-th spine entry is the t-th field variable
+  have hfvX : xFvsP[t]? = some fv := by
+    rw [List.getElem?_append_right (by omega), hfvsPLen,
+      show k - rP = t from by omega] at hfv
+    exact hfv
+  obtain ⟨nmv, hfvShape⟩ := hxShape t fv hfvX
+  -- the full recursor-prefix spine
+  have hspP : FvarSpine (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) fvsP (xs.take rP) := by
+    refine FvarSpine_of_open hopenP
+      (by rw [List.length_take]; omega) (by omega) ?_
+    intro j v hjv
+    have hjr : j < rP := by
+      rcases Nat.lt_or_ge j rP with h | h
+      · exact h
+      · rw [List.getElem?_eq_none
+          (by rw [List.length_take]; omega)] at hjv
+        exact nomatch hjv
+    rw [List.getElem?_take_of_lt hjr] at hjv
+    show xs.getD (0 + j) SetTheory.empty = v
+    rw [Nat.zero_add, List.getD_eq_getElem?_getD, hjv]
+    rfl
+  have hwsP : ∀ a ∈ fvsP, WScoped (rP + cnF) a := fun a ha =>
+    ((hfvsPWf a ha).1).mono (by omega)
+  -- the membership pack over the full recursor prefix
+  have hmemP : ∀ (i : Nat) (a : Expr) (v : V),
+      (fvsP.map Expr.fvarTypeD)[i]? = some a →
+      (xs.take rP)[i]? = some v →
+      ∃ B, interpExpr V m₀.val env₀ ψ (rP + cnF)
+        (fun l => xs.getD l SetTheory.empty) a = some B ∧ v ∈ˢ B := by
+    intro i a v ha hv
+    have hir : i < rP := by
+      rcases Nat.lt_or_ge i rP with h | h
+      · exact h
+      · rw [List.getElem?_eq_none
+          (by rw [List.length_take]; omega)] at hv
+        exact nomatch hv
+    rw [List.getElem?_take_of_lt hir] at hv
+    have hifv : i < fvsP.length := by omega
+    obtain ⟨fvi, hfvi⟩ : ∃ fvi, fvsP[i]? = some fvi :=
+      ⟨fvsP[i]'hifv, List.getElem?_eq_getElem hifv⟩
+    have ha' : a = Expr.fvarTypeD fvi := by
+      rw [List.getElem?_map, hfvi] at ha
+      exact (Option.some.inj ha).symm
+    subst ha'
+    have hsp : (fvsP ++ xFvsP)[i]? = some fvi := by
+      rw [List.getElem?_append_left (by omega)]
+      exact hfvi
+    obtain ⟨B, hB, hvB⟩ := hpref i v fvi hv hsp
+    obtain ⟨nmi, hshapei⟩ := hfvsPShape i fvi hfvi
+    rw [Nat.zero_add] at hshapei
+    have hWi : WScoped i (Expr.fvarTypeD fvi) := by
+      have hW := (hfvsPWf fvi (List.mem_of_getElem? hfvi)).1
+      rw [hshapei] at hW
+      simp only [WScoped] at hW
+      rw [hshapei]
+      exact hW.2
+    have hcan := interp_getD_canon (cval := m₀.val) (env := env₀)
+      (φ := ψ) (e := Expr.fvarTypeD fvi) (xs := xs) (D := rP + cnF)
+      hWi (by omega) (by omega)
+    rw [hcan]
+    exact ⟨B, hB, hvB⟩
+  -- tyA's closed facts at the frame
+  have hWty : WScoped (rP + cnF) tyA := WScoped.of_not_hasFvar htyw
+  have hLty : Expr.LeavesBounded tyA :=
+    Expr.LeavesBounded.of_not_hasFvar htyw
+  have hFty : FvarsOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) tyA :=
+    FvarsOk.of_not_hasFvar htyw
+  have hAty' : AnnotOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) tyA :=
+    AnnotOk.closed_invariant htyw _ _ hAty
+  obtain ⟨-, hΘP⟩ := self_walk hfvsPInst hspP hwsP hWty htyb hLty hFty
+    hAty' hmemP
+  -- the field-prefix spine
+  have hspXFull : FvarSpine (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) xFvsP
+      (xs.drop rP ++ List.replicate (cnF - t) SetTheory.empty) := by
+    refine FvarSpine_of_open hopenX
+      (by rw [List.length_append, List.length_drop,
+        List.length_replicate]; omega) (by omega) ?_
+    intro j v hjv
+    show xs.getD (rP + j) SetTheory.empty = v
+    rw [List.getD_eq_getElem?_getD]
+    rcases Nat.lt_or_ge j t with hj | hj
+    · rw [List.getElem?_append_left
+        (by rw [List.length_drop]; omega), List.getElem?_drop] at hjv
+      rw [hjv]
+      rfl
+    · rw [List.getElem?_append_right
+        (by rw [List.length_drop]; omega), List.length_drop,
+        List.getElem?_replicate] at hjv
+      split at hjv
+      · rw [List.getElem?_eq_none (by omega)]
+        exact Option.some.inj hjv
+      · exact nomatch hjv
+  have hspXt : FvarSpine (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) (xFvsP.take t)
+      (xs.drop rP) := by
+    have h := FvarSpine.take t hspXFull
+    rw [List.take_append_of_le_length
+      (by rw [List.length_drop]; omega)] at h
+    rwa [List.take_of_length_le (l := xs.drop rP)
+      (by rw [List.length_drop]; omega)] at h
+  have hwsXt : ∀ a ∈ xFvsP.take t, WScoped (rP + cnF) a := fun a ha =>
+    (hxWf a (List.mem_of_mem_take ha)).1
+  have hLsXt : ∀ a ∈ xFvsP.take t, Expr.LeavesBounded a := fun a ha =>
+    (hxWf a (List.mem_of_mem_take ha)).2.2
+  -- the membership pack over the field prefix
+  have hmemX : ∀ (i : Nat) (a : Expr) (v : V),
+      ((xFvsP.take t).map Expr.fvarTypeD)[i]? = some a →
+      (xs.drop rP)[i]? = some v →
+      ∃ B, interpExpr V m₀.val env₀ ψ (rP + cnF)
+        (fun l => xs.getD l SetTheory.empty) a = some B ∧ v ∈ˢ B := by
+    intro i a v ha hv
+    have hit : i < t := by
+      rcases Nat.lt_or_ge i t with h | h
+      · exact h
+      · rw [List.getElem?_eq_none
+          (by rw [List.length_drop]; omega)] at hv
+        exact nomatch hv
+    rw [List.getElem?_drop] at hv
+    have hix : i < xFvsP.length := by omega
+    obtain ⟨fvi, hfvi⟩ : ∃ fvi, xFvsP[i]? = some fvi :=
+      ⟨xFvsP[i]'hix, List.getElem?_eq_getElem hix⟩
+    have ha' : a = Expr.fvarTypeD fvi := by
+      rw [List.getElem?_map, List.getElem?_take_of_lt hit, hfvi] at ha
+      exact (Option.some.inj ha).symm
+    subst ha'
+    have hsp : (fvsP ++ xFvsP)[rP + i]? = some fvi := by
+      rw [List.getElem?_append_right (by omega), hfvsPLen,
+        show rP + i - rP = i from by omega]
+      exact hfvi
+    obtain ⟨B, hB, hvB⟩ := hpref (rP + i) v fvi hv hsp
+    obtain ⟨nmi, hshapei⟩ := hxShape i fvi hfvi
+    have hWi : WScoped (rP + i) (Expr.fvarTypeD fvi) := by
+      have hW := (hxWf fvi (List.mem_of_getElem? hfvi)).1
+      rw [hshapei] at hW
+      simp only [WScoped] at hW
+      rw [hshapei]
+      exact hW.2
+    have hcan := interp_getD_canon (cval := m₀.val) (env := env₀)
+      (φ := ψ) (e := Expr.fvarTypeD fvi) (xs := xs) (D := rP + cnF)
+      hWi (by omega) (by omega)
+    rw [hcan]
+    exact ⟨B, hB, hvB⟩
+  -- split the constructor-residual walk at the field prefix
+  have hxInst' : Expr.instPisAt (xFvsP.take t ++ xFvsP.drop t) crestP =
+      some (xFvsP.map Expr.fvarTypeD, crest2) := by
+    rw [List.take_append_drop]
+    exact hxInst
+  obtain ⟨ds₁, midX, ds₂, hopX1, hopX2, hdsSplit⟩ :=
+    instPisAt_append (xFvsP.take t) (xFvsP.drop t) hxInst'
+  have hds₁len : ds₁.length = t := by
+    rw [instPisAt_length _ hopX1, List.length_take]
+    omega
+  have hds₁ : ds₁ = (xFvsP.take t).map Expr.fvarTypeD := by
+    have h := congrArg (List.take t) hdsSplit
+    rw [List.take_append_of_le_length (by omega)] at h
+    rw [List.take_of_length_le (l := ds₁) (by omega)] at h
+    rw [List.map_take]
+    exact h.symm
+  subst hds₁
+  have hWcrD : WScoped (rP + cnF) crestP := hWcr.mono (by omega)
+  obtain ⟨hfitX, hΘX⟩ := self_walk hopX1 hspXt hwsXt hWcrD hbcr hLcr
+    hFcr hAcr hmemX
+  obtain ⟨-, hPmidX⟩ := peel_walk hopX1 hspXt hwsXt hWcrD hAcr
+    ⟨Pcr, hPcr⟩ hmemX
+  obtain ⟨PmidX, hPmidX⟩ := hPmidX
+  obtain ⟨hWmidX, hbmidX, hAmidX, hlmidX⟩ :=
+    TeleFitI.rest_wf hfitX hWcrD hbcr hAcr
+  have hFmidX : FvarsOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) midX := by
+    intro l hl
+    rcases hlmidX l hl with hl' | ⟨a, ha, hla⟩
+    · exact hFcr l hl'
+    · exact hΘX a ha l hla
+  have hLmidX : Expr.LeavesBounded midX := by
+    intro l hl
+    rcases hlmidX l hl with hl' | ⟨a, ha, hla⟩
+    · exact hLcr l hl'
+    · exact hLsXt a ha l hla
+  -- invert the head binder
+  have hdropC : xFvsP.drop t = fv :: xFvsP.drop (t + 1) := by
+    have h := List.drop_eq_getElem_cons (l := xFvsP) (i := t)
+      (by omega)
+    rw [h]
+    congr 1
+    have := List.getElem?_eq_getElem (l := xFvsP) (i := t) (by omega)
+    rw [hfvX] at this
+    exact (Option.some.inj this).symm
+  rw [hdropC] at hopX2
+  obtain ⟨nH, domH, bodyH, mH, ds₂', rfl, hds₂c, -⟩ :=
+    instPisAt_cons_inv hopX2
+  have hdomH : domH = Expr.fvarTypeD fv := by
+    have h0 : (xFvsP.map Expr.fvarTypeD)[t]? = some domH := by
+      rw [hdsSplit, List.getElem?_append_right
+        (by rw [List.length_map, List.length_take]; omega)]
+      rw [List.length_map, List.length_take,
+        show t - min t xFvsP.length = 0 from by omega, hds₂c]
+      rfl
+    rw [List.getElem?_map, hfvX] at h0
+    exact (Option.some.inj h0).symm
+  replace hdomH : Expr.fvarTypeD fv = domH := hdomH.symm
+  subst hdomH
+  -- extract the stage annotation's package
+  have hAmidX' := hAmidX
+  simp only [AnnotOk] at hAmidX'
+  obtain ⟨hAdom, ⟨cod, hcod⟩, -⟩ := hAmidX'
+  have hWdom : WScoped (rP + cnF) (Expr.fvarTypeD fv) ∧
+      WScoped (rP + cnF) bodyH := by
+    simpa [WScoped] using hWmidX
+  have hbdom : (Expr.fvarTypeD fv).looseBVarsBounded 0 = true ∧
+      bodyH.looseBVarsBounded 1 = true := by
+    revert hbmidX; simp [Expr.looseBVarsBounded]
+  have hLdom : Expr.LeavesBounded (Expr.fvarTypeD fv) :=
+    LeavesBounded.of_forallE_ty hLmidX
+  have hFdom : FvarsOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) (Expr.fvarTypeD fv) :=
+    FvarsOk.of_subset (fun l hl => by
+      simp only [fvarLeaves, List.mem_append]; exact Or.inl hl) hFmidX
+  have hIdom : ∃ B, interpExpr V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) (Expr.fvarTypeD fv) =
+        some B := by
+    revert hPmidX
+    simp only [interpExpr, hcod]
+    cases hB0 : interpExpr V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) (Expr.fvarTypeD fv) with
+    | none => intro h; exact nomatch h
+    | some B => intro _; exact ⟨B, rfl⟩
+  have hWdomK : WScoped k (Expr.fvarTypeD fv) := by
+    have hW := (hxWf fv (List.mem_of_getElem? hfvX)).1
+    rw [hfvShape] at hW
+    simp only [WScoped] at hW
+    rw [hfvShape, hktr]
+    exact hW.2
+  -- assemble the spine kit at the full stage prefix
+  have hTkeq : (fvsP ++ xFvsP).take k = fvsP ++ xFvsP.take t := by
+    rw [show k = fvsP.length + t from by omega,
+      List.take_length_add_append]
+  have hspTk : FvarSpine (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) ((fvsP ++ xFvsP).take k)
+      xs := by
+    rw [hTkeq]
+    have h := FvarSpine.append hspP hspXt
+    rwa [List.take_append_drop] at h
+  refine ⟨⟨⟨hWdom.1, hbdom.1, hLdom, hFdom, hAdom, hIdom⟩, hWdomK⟩,
+    hspTk, ?_, ?_, ?_, ?_⟩
+  · intro a ha
+    rw [hTkeq] at ha
+    rcases List.mem_append.mp ha with ha | ha
+    · exact hwsP a ha
+    · exact hwsXt a ha
+  · intro a ha
+    rw [hTkeq] at ha
+    rcases List.mem_append.mp ha with ha | ha
+    · exact hΘP a ha
+    · exact hΘX a ha
+  · intro a ha
+    rw [hTkeq] at ha
+    rcases List.mem_append.mp ha with ha | ha
+    · exact (hfvsPWf a ha).2.2
+    · exact hLsXt a ha
+  · intro a ha
+    rw [hTkeq] at ha
+    rcases List.mem_append.mp ha with ha | ha
+    · -- a recursor-prefix variable, index below rP ≤ k
+      obtain ⟨j, hja⟩ := List.getElem?_of_mem ha
+      have hjlen : j < fvsP.length := by
+        rcases Nat.lt_or_ge j fvsP.length with h | h
+        · exact h
+        · rw [List.getElem?_eq_none h] at hja
+          exact nomatch hja
+      obtain ⟨nm, hshape⟩ := hfvsPShape j a hja
+      rw [Nat.zero_add] at hshape
+      have hW := (hfvsPWf a ha).1
+      rw [hshape] at hW ⊢
+      simp only [WScoped] at hW ⊢
+      exact ⟨by omega, hW.2⟩
+    · -- a field variable below the stage
+      obtain ⟨j, hja⟩ := List.getElem?_of_mem ha
+      have hjlen : j < (xFvsP.take t).length := by
+        rcases Nat.lt_or_ge j (xFvsP.take t).length with h | h
+        · exact h
+        · rw [List.getElem?_eq_none h] at hja
+          exact nomatch hja
+      have hjt : j < t := by
+        rw [List.length_take] at hjlen
+        omega
+      have hja' : xFvsP[j]? = some a := by
+        rw [List.getElem?_take_of_lt hjt] at hja
+        exact hja
+      obtain ⟨nm, hshape⟩ := hxShape j a hja'
+      have hW := (hxWf a (List.mem_of_mem_take ha)).1
+      rw [hshape] at hW ⊢
+      simp only [WScoped] at hW ⊢
+      exact ⟨by omega, hW.2⟩
 
 end Setlec
