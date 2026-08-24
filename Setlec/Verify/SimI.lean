@@ -348,7 +348,7 @@ protected theorem throw_bind {β β' α : Type}
 /-- Peel a read (`viewI`): same state, value = the node lookup. -/
 protected theorem view {β α : Type} {P : IState → β → α → Prop}
     {e : EIdx} {k : Option ENode → CheckIM β} {p : FueledM α}
-    (h : SimAt env s₀ P (k s₀.store.nodes[e]?) p) :
+    (h : SimAt env s₀ P (k s₀.store.nodes[epos e]?) p) :
     SimAt env s₀ P (viewI e >>= k) p := by
   intro v' s' hr
   apply h v' s'
@@ -474,7 +474,7 @@ protected theorem bind {β β' : Type} {Q : IState → β → Prop}
 
 protected theorem view {β : Type} {Q : IState → β → Prop}
     {e : EIdx} {k : Option ENode → CheckIM β}
-    (h : IEff env s₀ Q (k s₀.store.nodes[e]?)) :
+    (h : IEff env s₀ Q (k s₀.store.nodes[epos e]?)) :
     IEff env s₀ Q (viewI e >>= k) := by
   intro v' s' hr
   apply h v' s'

@@ -265,7 +265,9 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                       | some b₂ => exact absurd hQb (by simp [OptDen])
                       | none =>
                         obtain ⟨na, hna, hca, hda⟩ := denote_some_inv haS
+                        have hna := node1?_nodes hna
                         obtain ⟨nb, hnb, hcb, hdb⟩ := denote_some_inv hbS
+                        have hnb := node1?_nodes hnb
                         try dsimp only
                         refine SimAt.view ?_
                         rw [hna]
@@ -380,6 +382,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                 try dsimp only
                                 refine SimAt.view ?_
                                 obtain ⟨nf, hnf, hcf, hdf⟩ := denote_some_inv hf₂
+                                have hnf := node1?_nodes hnf
                                 rw [hnf]
                                 cases nf with
                                 | const cfᵢ usf =>
@@ -512,6 +515,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                               try dsimp only
                               refine SimAt.view ?_
                               obtain ⟨nf, hnf, hcf, hdf⟩ := denote_some_inv hf₂
+                              have hnf := node1?_nodes hnf
                               rw [hnf]
                               cases nf with
                               | const cfᵢ usf =>
@@ -1201,6 +1205,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                 try dsimp only
                                 refine SimAt.view ?_
                                 obtain ⟨nf, hnf, hcf, hdf⟩ := denote_some_inv hf₁
+                                have hnf := node1?_nodes hnf
                                 rw [hnf]
                                 cases nf with
                                 | const cfᵢ usf =>
@@ -1281,6 +1286,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                               try dsimp only
                               refine SimAt.view ?_
                               obtain ⟨nf, hnf, hcf, hdf⟩ := denote_some_inv hf₁
+                              have hnf := node1?_nodes hnf
                               rw [hnf]
                               cases nf with
                               | const cfᵢ usf =>

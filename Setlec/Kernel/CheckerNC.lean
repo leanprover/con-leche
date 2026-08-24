@@ -449,7 +449,8 @@ def checkDeclSPStepNC (n0 : Nat) (fe : FEnv) (pd : DeclP) : CheckIM FEnv := do
 
 /-- `checkDeclsSP` at the cert-skipping knot. -/
 def checkDeclsSPNC (st : WFStore) (pds : List DeclP) : CheckM Env := do
-  let fe ← (pds.foldlM (checkDeclSPStepNC st.raw.nodes.size)
+  -- SCOUT (task #64 low-bit): `EIdx` bound is the encoded one.
+  let fe ← (pds.foldlM (checkDeclSPStepNC (st.raw.nodes.size + st.raw.nodes.size))
     (mkFEnv Env.empty)).run' { store := st.raw }
   pure fe.env
 

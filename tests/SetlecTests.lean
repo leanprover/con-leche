@@ -391,7 +391,8 @@ Structure-level tests of `enableTierTwo` / tier-dispatched `intern` /
 `truncateTierTwo`: fresh flag-on interns go to tier two at tagged
 indices, the frozen tier-one cons-table still canonicalizes, and
 truncation drops tier two wholesale while every tier-one observation
-is untouched. -/
+is untouched.  Low-bit encoding (task #64): a node at position `p` of
+tier `t` has public index `2 * p + t`. -/
 
 private def tier0 : EStore := (EStore.empty.intern (.lit (.natVal 1))).2
 
@@ -407,15 +408,15 @@ private def tierE : EStore := tier0.enableTierTwo
 private def tierI : EIdx × EStore := tierE.intern (.lit (.natVal 2))
 private def tierE2 : EStore := tierI.2
 
--- A fresh flag-on intern lands in tier two at the tagged index; tier
--- one is frozen.
-#guard tierI.1 == tierTag && tierE2.tnodes.size == 1
+-- A fresh flag-on intern lands in tier two at the first odd index;
+-- tier one is frozen.
+#guard tierI.1 == 1 && tierE2.tnodes.size == 1
   && tierE2.nodes.size == 1
 
--- `getNode` dispatches tier-blind: identity on tier one, offset read
--- on tier two.
+-- `getNode` dispatches tier-blind on the low bit: even reads tier
+-- one, odd reads tier two.
 #guard tierE2.getNode 0 == some (.lit (.natVal 1))
-  && tierE2.getNode tierTag == some (.lit (.natVal 2))
+  && tierE2.getNode 1 == some (.lit (.natVal 2))
 
 -- Flag-on interning of tier-one content hits the frozen tier-one
 -- cons-table (canonical index, no duplicate in tier two)…
@@ -423,10 +424,11 @@ private def tierE2 : EStore := tierI.2
   && (tierE2.intern (.lit (.natVal 1))).2.tnodes.size == 1
 
 -- …and re-interning tier-two content hits the tier-two cons-table.
-#guard (tierE2.intern (.lit (.natVal 2))).1 == tierTag
+#guard (tierE2.intern (.lit (.natVal 2))).1 == 1
 
--- The derived reads dispatch: a tier-two `.bvar` node's eager bound.
-#guard ((tierE2.intern (.bvar 3)).2.bvarBoundD (tierTag + 1)) == 4
+-- The derived reads dispatch: a tier-two `.bvar` node's eager bound
+-- (second tier-two node, encoded index `2 * 1 + 1 = 3`).
+#guard ((tierE2.intern (.bvar 3)).2.bvarBoundD 3) == 4
 
 private def tierT : EStore := tierE2.truncateTierTwo
 
@@ -443,8 +445,8 @@ private def tierT : EStore := tierE2.truncateTierTwo
   && tierT.readbackI 0 == tier0.readbackI 0
 
 -- After truncation the store is flag-off again: fresh interns append
--- tier one.
-#guard (tierT.intern (.lit (.natVal 5))).1 == 1
+-- tier one (second tier-one position, encoded index `2`).
+#guard (tierT.intern (.lit (.natVal 5))).1 == 2
 
 -- The bundles: enable moves `WFStore` into `TWFStore` (the two-tier
 -- invariant), tier-blind interning stays inside it, truncation
@@ -455,7 +457,7 @@ private def tierT : EStore := tierE2.truncateTierTwo
          (by simp [ENode.children]) (by simp [ENode.levels])
          (by simp [ENode.names])
        let b' := t2.truncateTierTwo
-       i == tierTag && b'.raw.nodes == b.raw.nodes
+       i == 1 && b'.raw.nodes == b.raw.nodes
          && b'.raw.tnodes.size == 0
          && b'.raw.denote 0 == b.raw.denote 0
 

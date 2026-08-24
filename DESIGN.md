@@ -6489,6 +6489,92 @@ dispatching derived reads, and extending the denote-faithfulness layer
 (`Verify/IExpr`, ISOK) to tier-two indices, is the wiring's job, with
 `truncateTierTwo`'s identity family as the interface.
 
+## Low-bit tier encoding: the migration (2026-08-24, task #64, user ruling)
+
+The high-bit entry above recorded the tag-scheme trade-off and adopted
+high-bit on the structural ground that it kept the identity embedding.
+The user overruled on elegance — measured-similar performance decides
+for the *total* injection ("using the high bit in a Nat is very
+random") — so the tier machinery was migrated wholesale: the public
+`EIdx` is now `2 * position + tier` (tier one even, tier two odd).
+
+**What the total injection buys.**  Both tiers unbounded; NO size
+invariant, NO `flag_bound` clause, NO `enableTierTwo` guard and no
+graceful-degradation story — the mode switch is one field write, and
+the tier of an index is read off its parity unconditionally.  Every
+tag-arithmetic lemma of the high-bit battery
+(`tierTwo_idx_ge`/`tierTwo_idx_offset`/`TWF.tierOne_lt_tag`) collapsed
+into a ~15-line `epos`/`etier` toolkit (`epos_eq : epos e = e / 2`,
+`etier_eq : etier e = e % 2`, `epos_double`/`etier_double(1)`,
+`even/odd_encode`, `lt_of_epos_lt('), even/odd_inj` — every use an
+`omega` step; note the toolkit binders are spelled `Nat`, since `omega`
+does not look through the `EIdx` abbreviation in relation types).
+`getNode`/`bvarBoundD`/`fvarRangeD`/`ehasParamD` dispatch on
+`etier e = 0`; `internP` returns `nodes.size + nodes.size`, `internT`
+`tnodes.size + tnodes.size + 1`.  Encode is `p + p + t` — NOT `2 * p`
+(`lean_nat_mul`'s inline path carries a hardware-division overflow
+check) and NOT `<<<` (out-of-line, the #89 packed-keys landmine);
+decode `>>> 1` / `&&& 1` are `static inline` scalar fast paths (the
+scout's compiled-code evidence).
+
+**The identity-embedding re-base** — the cascade the high-bit scheme
+had avoided, paid once, mechanically:
+
+* Spec seam: `node1? st i = if etier i = 0 then st.nodes[epos i]? else
+  none` is the tier-one read the whole flag-off verification stack is
+  built on; `denote` reads it (odd indices denote `none`, keeping
+  denotation injective and truncation invisible to `denote` at every
+  index), and `Valid1 st i = (etier i = 0 ∧ epos i < size)` replaces
+  `i < size` as the currency of every in-range fact
+  (`denote_valid1`/`intern_valid1`, `intern_wf`'s children hypothesis,
+  `WFStore.intern?`'s runtime guard, `DeclP.inRange1`).  Statement
+  arities are preserved (`denote_node`/`denote_some_inv`/`cons_graph`
+  quantify over `node1?`), which kept the Verify ripple mechanical.
+* `TWF` clauses restate for parity: tier-one children are even with
+  positions strictly below (`children_lt : … → etier c = 0 ∧ epos c <
+  p` — the frozen-tier-one discipline as an invariant), tier-two
+  children are `Valid1 ∨ (odd ∧ epos < j)`, cons graphs pair parities
+  with decoded reads.  `WF = TWF + tier_off` unchanged.
+* Executables: the 52 traversal reads decode (`st.nodes[epos e]?`,
+  scout patch), the derived recurrences decode children, the two
+  range guards move to the encoded bound (`checkDeclSPStep` gets
+  `size + size`; `inRangeB`/`intern?` additionally check parity —
+  never false on parser output, which only mints even indices).
+* Verify (~11 files): traversal-proof preludes derive `c < e` and
+  `Valid1 c` from the position clause (`lt_of_epos_lt'`: an even
+  index is below any index of greater position, either tier); the
+  per-node `hde`/`hx` denotation facts became *conditional* on the
+  input denoting — the low-bit subtlety: an odd index can alias a
+  stored position, so the traversals' store/memo-preservation
+  conclusions hold unconditionally while the denotation conclusion
+  supplies evenness itself.  `denote_some_inv` consumers thread
+  `node1?_nodes`; `Model/*` needed only the driver-bound spelling in
+  `ConsistencyP`.
+
+**Behavior and measurement.**  Verdict-identical: arena 90/92, e2e
+64/64, `tests/scale.sh` all shapes PASS, `lake test` green, init-full
+prelude (`--pre`) exit 0 with stdout/stderr byte-identical to the
+high-bit master.  Instructions (`perf stat -e
+instructions:u`, init-full `--pre`, 61048 decls accepted, median of 3,
+vs the merged high-bit master): 1569.25×10⁹ vs 1550.42×10⁹ —
+**+1.21 %** (runs deterministic to ~10⁻⁵).  Above the scout's +0.5 %
+decode-only figure because the full design also pays the parity
+dispatch in the three eager derived reads (`bvarBoundD` and twins:
+`&&& 1` + compare + `>>> 1` on every read, where the high-bit scheme's
+dispatch *was* the bounds check the read already did) — the measured
+price of the total injection, reported for the ruling's
+"measured-similar" premise.  The derived-read parity dispatch is the
+residual cost site (optimizable later, e.g. by fusing the parity test
+with the position bound); the migration landed as a single commit, so
+a veto is a single-commit revert.  Soundness
+axioms exactly `[propext, Classical.choice, Quot.sound]`; no sorries.
+
+**For the wiring**: unchanged from the entry above, except the
+truncation identity family is stated on parities
+(`truncateTierTwo_getNode`/`_bvarBoundD`/… take `etier i = 0`;
+`truncateTierTwo_denote`/`_node1?` remain index-unconditional), and
+`intern?`-validated parser indices carry `Valid1` by construction.
+
 ## Projection-unification audit: what can and cannot go native (2026-08-24, task #107)
 
 Task #107 asked for every structure's `.proj` to become first-class
