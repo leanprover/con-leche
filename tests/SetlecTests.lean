@@ -17,14 +17,22 @@ def dummyAxiom : Declaration :=
 -- (user ruling: only the tolerated whitelist may be declared).
 #guard checkDecl pureOps Env.empty dummyAxiom matches .error (.notImplemented _)
 
--- A tolerated axiom (whitelist: sorryAx and the Init compiler-trust
--- axioms) is well-formedness-checked but not installed — the
--- environment is unchanged (the frontend declines any later use).
+-- A tolerated axiom (whitelist: exactly sorryAx, task #95) is
+-- well-formedness-checked but not installed — the environment is
+-- unchanged (the frontend declines any later use).
 #guard match checkDecl pureOps Env.empty
     (.axiomDecl { name := .str .anonymous "sorryAx", levelParams := [],
                   type := .sort .zero }) with
   | .ok e => e.consts.isEmpty
   | .error _ => false
+
+-- The compiler-trust family is no longer tolerated: it *installs*
+-- (task #95), so without its pinned prerequisites (the True family)
+-- a trustCompiler record is a positive decline at its own record.
+#guard checkDecl pureOps Env.empty
+    (.axiomDecl { name := (Name.anonymous.str "Lean").str "trustCompiler",
+                  levelParams := [], type := .sort .zero })
+  matches .error (.notImplemented _)
 
 -- A garbage axiom record (its type is not a type) still rejects.
 #guard checkDecl pureOps Env.empty
