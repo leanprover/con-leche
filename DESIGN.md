@@ -109,15 +109,20 @@ Axioms: only the standard axioms are supported; anything else is
 ceiling (owner ruling, 2026-08-21): acceptance routes for custom
 axioms (opaque-with-witness, unfoldable-definition storage,
 canonical-value models) were explored and rejected: none is wanted.
-Refinement (user rulings, 2026-08-22/24): exactly the *tolerated
-whitelist* (`toleratedAxiomNames`: `sorryAx` plus the `Init`
-compiler-trust axioms `Lean.trustCompiler`, `Lean.ofReduceNat`,
-`Lean.ofReduceBool`) may be *declared*.  A tolerated `axiom` record is
-dropped by the frontend without parsing its type at all
-(`Lean.ofReduceNat`'s own type references the tainted
-`Lean.reduceNat`, so even well-formedness-checking it would be a use);
-nothing is installed and the name is tainted
-(`Frontend.State.taintedNames`).  Any other `axiom` record is
+Refinement (user rulings, 2026-08-22/24, revised for task #95): the
+*tolerated whitelist* (`toleratedAxiomNames`) is exactly `sorryAx` — a
+tolerated `axiom` record is dropped by the frontend without parsing
+its type at all; nothing is installed and the name is tainted
+(`Frontend.State.taintedNames`).  The `Init` **compiler-trust family
+is installed** instead (task #95, user design 2026-08-24):
+`Lean.trustCompiler : True` is trivially realizable and installs like
+a checked `opaque` realized by `True.intro` over the pinned `True`
+family; `Lean.reduceNat`/`Lean.reduceBool` then check as ordinary
+opaques, pin-gated against the toolchain's own defining expressions
+plus an identity certificate; and `Lean.ofReduceNat`/
+`Lean.ofReduceBool` install as pinned axioms whose types are trivially
+inhabited once the reduce opaques are the identity (see "The
+compiler-trust axiom family" below).  Any other `axiom` record is
 forwarded and positively declined by the checker at its own record,
 after well-formedness-checking — a garbage record such as arena
 `bad/011_nonTypeAxiom` keeps *rejecting*; the two tutorial tests
@@ -134,11 +139,10 @@ usual.  `Frontend.ParseResult.taintSkipped` records the skips (name +
 whitelisted axiom root); the driver declines the input as a whole
 (exit 2) whenever it is nonempty, even if every remaining declaration
 checks, and prints a per-root summary (`Frontend.taintSummary`).  A
-stream with no tainted uses behaves exactly as before.  This lets the
-full `Init` export run past `opaque Lean.reduceNat` (whose value uses
-`Lean.trustCompiler`; formerly the whole stream declined there, 39.3 %
-in) with the compiler-trust-scaffolded declarations skipped and
-everything else still checked.  `Quot.sound` is part
+stream with no tainted uses behaves exactly as before.  With the
+compiler-trust family installed, the full `Init` export has **zero**
+skips and exits 0 (`sorryAx` is declared but unused in `Init`).
+`Quot.sound` is part
 of the pinned quotient basis block; `propext` and `Classical.choice`
 are accepted as `axiomDecl`s by `stdAxiomOk`: a pure predicate that
 requires the pinned `Eq` basis plus standardly-shaped stored `Iff`
@@ -1528,7 +1532,9 @@ whnfs of open arguments during defeq).
 (`Lean.reduceNat`/`Lean.reduceBool` via `Lean.trustCompiler`), final
 verdict decline (2) by taint-skip design.  No new frontier: the 66 %
 of the stream beyond the old 34 % detonation point checks clean on
-first contact.
+first contact.  (Task #95 then installed the compiler-trust family:
+zero skips remain and the run exits **0** with 61 048 accepted — see
+"The compiler-trust axiom family installs".)
 
 Modeled-install soundness architecture (2026-08-19, in progress): the
 fold facts for a modeled recursor come from eliminating its checked
@@ -4631,6 +4637,94 @@ identically at the same declaration, so the exhaustion is in the
 shared reduction machinery (`checkFuel = 100000` knot layers), not the
 proof-cert feeding.  Not fixed on this branch; the whnfCore fuel
 ceiling on that declaration is its own task.
+
+(Superseded in part by task #95 below: the whitelist shrank to
+`sorryAx` — the compiler-trust family now *installs* — so the taint
+machinery no longer fires on `Init` at all; it remains the mechanism
+for `sorryAx` uses and is still covered by the `sorry_*`,
+`tolerated_axiom_*` and `taint_skip_*` e2e fixtures, now spelled with
+`sorryAx`.)
+
+## The compiler-trust axiom family installs (2026-08-24, task #95)
+
+`Lean.trustCompiler : True` is trivially realizable, and with it the
+whole `Init` compiler-trust scaffolding — formerly the only taint
+skips on the full-Init stream — installs with full soundness (user
+design 2026-08-24).  No new meta-axiom: the consistency theorems still
+depend on exactly `[propext, Classical.choice, Quot.sound]`.
+
+* **`Lean.trustCompiler`** (axiom record): a pure branch of the
+  `axiomDecl` arm.  Over the pinned `True` family (`trueCvA`,
+  `trueIntroCvA` — shapes matched with `matchesPin`, capabilities
+  ignored) and the pinned type (`trustCompilerA`), it is installed as
+  an `axiomInfo` *realized by* `True.intro`: the pin guarantees
+  everything the ordinary opaque check would have checked for that
+  witness, and the model values the constant by the stored
+  `True.intro`'s interpretation (`trustCompiler_key`,
+  `Setlec/Model/TrustAxioms.lean`).  A non-pinned shape under the name
+  declines.
+* **Opaques are stored as `axiomInfo`** (parity finding, this task):
+  `checkOpaqueVal` used to store `thmInfo` ("checked value, never
+  delta-unfolded") — but task #66 made *theorem* values delta-unfold
+  (official parity), which silently turned every stored opaque
+  unfoldable: a reduction-strategy superset over the reference kernels
+  (official `is_delta` never unfolds an opaque), latent until now and
+  acute with `Lean.reduceBool` installed — it would have *computed*
+  `reduceBool b`, accepting exactly the native-evaluation shapes that
+  must stay stuck.  A checked `opaque` now stores `axiomInfo`: the
+  value is a realizability witness, consumed by the model extension
+  (the constant is valued by the witness's interpretation,
+  `extend_model` at kind `axiomInfo`) and then discarded.  Nothing
+  delta-unfolds it — official semantics exactly.
+* **`Lean.reduceNat` / `Lean.reduceBool`** (opaque records): the
+  ordinary opaque check plus the install gate `checkReducePin`
+  (`reduceOpNames`): the stored constant must carry the pinned type
+  (`reduceNatCvA`/`reduceBoolCvA`, over the pinned `Nat` basis
+  resp. a standardly-shaped stored `Bool` — `reduceElemOk`), the
+  witness value must be definitionally equal to the *build-time pin*
+  of the toolchain's own defining expression
+  (`Setlec/Kernel/TrustPins.lean`, `#gen_trust_pins` — the task-#53
+  machinery reads the opaque's value from the toolchain prelude and
+  zeta-expands the `have := trustCompiler` wrapper to the plain
+  identity; drift declines, never silently), and the **identity
+  certificate** must check: `value x ≡ x` over an opened `fvar` at the
+  element type (depth 1).  The certificate is the semantic content;
+  the pin defeq is only the gate that makes certificate failure a
+  genuine internal error (the task-#47 role separation).
+* **Model side**: `EnvModel` gains `reduce_ops : ReduceOpsOk` — a
+  stored `axiomInfo` under a reduce-op name with the pinned type is
+  interpreted as the identity on its element type, and the element
+  inductive is stored.  Established at the opaque's install from the
+  identity certificate (`reduceCert_sound`: `isDefEqCore_sound` at the
+  certificate valuation, with the app-side typing from the pinned-type
+  interpretation `interp_reduceOpTy` and the element facts
+  `reduceElem_facts`); transported like `DivModOk`
+  (`ReduceOpsOk.cons`, `.recRules_swap`, plus clauses in
+  `extend_fresh`/`extend_rules_eq`/GroupSwap; `extend_basis_one` gets
+  an auto-discharged trailing hypothesis, `extend_model` a
+  caller-facing one).
+* **`Lean.ofReduceNat` / `Lean.ofReduceBool`** (axiom records): pure
+  pinned branches (the task-#34 standard-axioms machinery).
+  `ofReduceAxOk` requires the pinned `Eq` basis, the element
+  inductive, the reduce opaque stored with the pinned type, and the
+  axiom's annotated type matched against the `AnnotateBasis`-generated
+  pins (`ofReduceNatA`/`ofReduceBoolA`).  In the model the types
+  interpret to `Prop`-level `pi`-towers whose hypothesis set *is* the
+  conclusion set once `reduce_ops` rewrites `reduceNat a` to `a` — the
+  proof point inhabits them (`ofReduce_key`); no `Eq` semantics is
+  consumed (the equality applications stay abstract).
+* **Honest limit**: an actual *use* of `ofReduceBool` needs
+  `reduceBool b = true` by defeq, which is stuck on the opaque — such
+  a proof only ever comes from untrusted native evaluation, and the
+  declaration rejects at its own site (e2e `trust_native_use`,
+  `badNative : reduceBool true = true := rfl` exits 1).  The accept
+  twin `trust_family` (dependency-closure slice of the full-Init
+  export, `scripts/mk_trust_fixture.py`) installs the five
+  declarations plus a theorem using `ofReduceNat`'s type vacuously.
+
+Milestone: init-full (streaming, 32 GB ulimit) now exits **0** in both
+modes with **61 048 declarations accepted** — the former 61 043 plus
+the five compiler-trust installs, zero skips.
 
 ## Name interning: NNode arena, NIdx in ENode (2026-08-24, task #88)
 

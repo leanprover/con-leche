@@ -210,11 +210,24 @@ def checkDeclNC (fe : FEnv) (d : Declaration) : CheckIM FEnv :=
     checkThmValF (sharedOpsNC fe) fe cv value
   | .opaqueDecl cv value => do
     let cv ← checkConstantValF (sharedOpsNC fe) fe cv
-    checkOpaqueValF (sharedOpsNC fe) fe cv value
+    let fe2 ← checkOpaqueValF (sharedOpsNC fe) fe cv value
+    if reduceOpNames.contains cv.name then
+      checkReducePinF (sharedOpsNC fe) fe fe2 cv.name value
+    pure fe2
   | .axiomDecl cv => do
     let cvA ← checkConstantValF (sharedOpsNC fe) fe cv
     if stdAxiomOkF fe cvA then
       pure (fe.push (.axiomInfo cvA))
+    else if cvA.name = trustCompilerName then
+      if trustCompilerOkF fe cvA then
+        pure (fe.push (.axiomInfo cvA))
+      else throw (.notImplemented
+        s!"unsupported Lean.trustCompiler shape ({cv.name})")
+    else if cvA.name = ofReduceNatName ∨ cvA.name = ofReduceBoolName then
+      if ofReduceAxOkF fe cvA then
+        pure (fe.push (.axiomInfo cvA))
+      else throw (.notImplemented
+        s!"unsupported compiler-trust axiom environment ({cv.name})")
     else if cvA.name = propextName ∨ cvA.name = choiceName then
       throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
     else if toleratedAxiomNames.contains cvA.name then
@@ -333,9 +346,8 @@ def checkOpaqueValPNC (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
   let jvt ← (coreKnotNC fe checkFuel).infer 0 jv
   unless ← (coreKnotNC fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in opaque {cvA.name}")
-  let vE ← readbackEM jv
-  recordIConst cvA.name cvA.type jty (some (vE, jv))
-  pure (fe.push (.thmInfo cvA vE))
+  recordIConst cvA.name cvA.type jty none
+  pure (fe.push (.axiomInfo cvA))
 
 /-- `checkDeclSP` at the cert-skipping knot. -/
 def checkDeclSPNC (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
@@ -372,12 +384,28 @@ def checkDeclSPNC (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
     checkThmValPNC fe cvA jty value
   | .opaqueDecl cv value => do
     let (cvA, jty) ← checkConstantValPNC fe cv
-    checkOpaqueValPNC fe cvA jty value
+    let fe2 ← checkOpaqueValPNC fe cvA jty value
+    if reduceOpNames.contains cvA.name then do
+      let vE ← readbackEM value
+      checkReducePinF (sharedOpsNC fe) fe fe2 cvA.name vE
+    pure fe2
   | .axiomDecl cv => do
     let (cvA, jty) ← checkConstantValPNC fe cv
     if stdAxiomOkF fe cvA then do
       recordIConst cvA.name cvA.type jty none
       pure (fe.push (.axiomInfo cvA))
+    else if cvA.name = trustCompilerName then
+      if trustCompilerOkF fe cvA then do
+        recordIConst cvA.name cvA.type jty none
+        pure (fe.push (.axiomInfo cvA))
+      else throw (.notImplemented
+        s!"unsupported Lean.trustCompiler shape ({cv.name})")
+    else if cvA.name = ofReduceNatName ∨ cvA.name = ofReduceBoolName then
+      if ofReduceAxOkF fe cvA then do
+        recordIConst cvA.name cvA.type jty none
+        pure (fe.push (.axiomInfo cvA))
+      else throw (.notImplemented
+        s!"unsupported compiler-trust axiom environment ({cv.name})")
     else if cvA.name = propextName ∨ cvA.name = choiceName then
       throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
     else if toleratedAxiomNames.contains cvA.name then

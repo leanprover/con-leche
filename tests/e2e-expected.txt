@@ -43,6 +43,24 @@
 # must *reject* (1), not decline.
 2 taint_skip_continue.ndjson
 1 taint_skip_bad_later.ndjson
+# The compiler-trust axiom family installs (task #95;
+# scripts/mk_trust_fixture.py, dependency-closure slice of the full
+# Init export): `Lean.trustCompiler` as an opaque realized by
+# `True.intro`, `Lean.reduceNat`/`Lean.reduceBool` as pin-gated
+# identity opaques, `Lean.ofReduceNat`/`Lean.ofReduceBool` as pinned
+# axioms — plus a theorem *using* ofReduceNat's type vacuously.
+# trust_native_use appends the kernel-visible shape of a genuinely
+# native-evaluated use, `badNative : reduceBool true = true := rfl`:
+# the opaque is stuck (it never delta-unfolds), so the declaration
+# must reject — that hypothesis only comes from untrusted native
+# evaluation (the honest limit of the trustCompiler install).
+0 trust_family.ndjson
+1 trust_native_use.ndjson
+# trust_reduce_perturbed: reduceNat's witness value replaced by a
+# type-correct non-identity (`fun n => Nat.zero`) — the build-time pin
+# gate must positively decline the drifted spelling (never install:
+# the ofReduce* axioms' models rely on the identity certificate).
+2 trust_reduce_perturbed.ndjson
 # Basis PUnit 0-field stuck-major rescue (task #59): `Unit.sizeOf`
 # needs `PUnit.rec _ 1 u ≡ 1` at a neutral `u` — the official kernel's
 # structure rescue covers 0-field structures; dependency-closure slice

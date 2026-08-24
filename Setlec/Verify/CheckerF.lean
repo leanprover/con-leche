@@ -78,6 +78,27 @@ theorem stdAxiomOkF_eq (env : Env) (cvA : ConstantVal) :
     stdAxiomOkF (mkFEnv env) cvA = stdAxiomOk env cvA := by
   simp only [stdAxiomOkF, stdAxiomOk, mkFEnv_find?] <;> rfl
 
+theorem trustCompilerOkF_eq (env : Env) (cvA : ConstantVal) :
+    trustCompilerOkF (mkFEnv env) cvA = trustCompilerOk env cvA := by
+  simp only [trustCompilerOkF, trustCompilerOk, mkFEnv_find?] <;> rfl
+
+theorem reduceStoredOkF_eq (env : Env) (c : Name) :
+    reduceStoredOkF (mkFEnv env) c = reduceStoredOk env c := by
+  simp only [reduceStoredOkF, reduceStoredOk, mkFEnv_find?] <;> rfl
+
+theorem reduceElemOkF_eq (env : Env) (c : Name) :
+    reduceElemOkF (mkFEnv env) c = reduceElemOk env c := by
+  simp only [reduceElemOkF, reduceElemOk, mkFEnv_find?] <;> rfl
+
+theorem ofReduceAxOkF_eq (env : Env) (cvA : ConstantVal) :
+    ofReduceAxOkF (mkFEnv env) cvA = ofReduceAxOk env cvA := by
+  simp only [ofReduceAxOkF, ofReduceAxOk, mkFEnv_find?,
+    reduceElemOkF_eq, reduceStoredOkF_eq] <;> rfl
+
+theorem reducePinGuardF_eq (env : Env) (c : Name) :
+    reducePinGuardF (mkFEnv env) c = reducePinGuard env c := by
+  simp only [reducePinGuardF, reducePinGuard, constsResolveF_eq] <;> rfl
+
 theorem natOpStoredOkF_eq_fun (env : Env) :
     natOpStoredOkF (mkFEnv env) = natOpStoredOk env :=
   funext (natOpStoredOkF_eq env)
@@ -286,6 +307,13 @@ theorem checkDivModPinF_eq (ops : CheckerOps m) (env env2 : Env)
     divModEnvGuardF_eq, divModPinGuardF_eq, divModCertsGuardF_eq,
     checkDivModCertsF_eq] <;> rfl
 
+theorem checkReducePinF_eq (ops : CheckerOps m) (env env2 : Env)
+    (c : Name) (value : Expr) :
+    checkReducePinF ops (mkFEnv env) (mkFEnv env2) c value
+      = checkReducePin ops env env2 c value := by
+  simp only [checkReducePinF, checkReducePin, mkFEnv_env,
+    reduceStoredOkF_eq, reduceElemOkF_eq, reducePinGuardF_eq] <;> rfl
+
 end Monadic
 
 /-! ## Environment-extending mirrors: push form
@@ -471,16 +499,36 @@ theorem checkDeclSF_nonind (env : Env) (d : Declaration)
     show (do
         let cv ← checkConstantValF (sharedOps (mkFEnv env))
           (mkFEnv env) cv
-        checkOpaqueValF (sharedOps (mkFEnv env)) (mkFEnv env) cv value :
-        CheckIM FEnv) = _
+        let fe2 ← checkOpaqueValF (sharedOps (mkFEnv env)) (mkFEnv env)
+          cv value
+        if reduceOpNames.contains cv.name then
+          checkReducePinF (sharedOps (mkFEnv env)) (mkFEnv env) fe2
+            cv.name value
+        pure fe2 : CheckIM FEnv) = _
     unfold checkDecl
-    simp only [checkConstantValF_eq, checkOpaqueValF_push, bind_assoc]
+    simp only [checkConstantValF_eq, bind_assoc]
+    refine bindI_congr fun cvA => ?_
+    rw [checkOpaqueValF_push]
+    simp only [bind_assoc, pure_bind]
+    refine bindI_congr fun env2 => ?_
+    simp only [checkReducePinF_eq, bind_assoc, pure_bind,
+      ite_bindI] <;> rfl
   | axiomDecl cv =>
     show (do
         let cvA ← checkConstantValF (sharedOps (mkFEnv env))
           (mkFEnv env) cv
         if stdAxiomOkF (mkFEnv env) cvA then
           pure ((mkFEnv env).push (.axiomInfo cvA))
+        else if cvA.name = trustCompilerName then
+          if trustCompilerOkF (mkFEnv env) cvA then
+            pure ((mkFEnv env).push (.axiomInfo cvA))
+          else throw (.notImplemented
+            s!"unsupported Lean.trustCompiler shape ({cv.name})")
+        else if cvA.name = ofReduceNatName ∨ cvA.name = ofReduceBoolName then
+          if ofReduceAxOkF (mkFEnv env) cvA then
+            pure ((mkFEnv env).push (.axiomInfo cvA))
+          else throw (.notImplemented
+            s!"unsupported compiler-trust axiom environment ({cv.name})")
         else if cvA.name = propextName ∨ cvA.name = choiceName then
           throw (.notImplemented
             s!"standard axiom shape mismatch ({cv.name})")
@@ -490,7 +538,8 @@ theorem checkDeclSF_nonind (env : Env) (d : Declaration)
           throw (.notImplemented s!"non-standard axiom ({cv.name})") :
         CheckIM FEnv) = _
     unfold checkDecl
-    simp only [checkConstantValF_eq, stdAxiomOkF_eq, push_mkFEnv,
+    simp only [checkConstantValF_eq, stdAxiomOkF_eq, trustCompilerOkF_eq,
+      ofReduceAxOkF_eq, push_mkFEnv,
       bind_assoc, pure_bind, ite_bindI, throwI_bind_eq] <;> rfl
   | basisDecl kind =>
     show (do

@@ -1287,6 +1287,28 @@ theorem checkDivModPin_snd_dproj (env env2 : Env) (c : Name) :
     | rfl
     | (simp only [PairM.snd_pure, PairM.snd_throw]))
 
+theorem checkReducePin_fst_dproj (env env2 : Env) (c : Name)
+    (value : Expr) :
+    (checkReducePin (pairOps o₁ o₂ h) env env2 c value).val.1 =
+      checkReducePin o₁ env env2 c value := by
+  unfold checkReducePin
+  repeat (first
+    | split
+    | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
+    | (simp only [PairM.fst_pure, PairM.fst_throw]))
+
+theorem checkReducePin_snd_dproj (env env2 : Env) (c : Name)
+    (value : Expr) :
+    (checkReducePin (pairOps o₁ o₂ h) env env2 c value).val.2 =
+      checkReducePin o₂ env env2 c value := by
+  unfold checkReducePin
+  repeat (first
+    | split
+    | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
+    | (simp only [PairM.snd_pure, PairM.snd_throw]))
+
 theorem checkDecl_fst_dproj (env : Env) (d : Declaration) :
     (checkDecl (pairOps o₁ o₂ h) env d).val.1 =
       checkDecl o₁ env d := by
@@ -1316,22 +1338,21 @@ theorem checkDecl_fst_dproj (env : Env) (d : Declaration) :
     funext cv'
     rw [checkThmVal_fst_dproj]
   | opaqueDecl cv value =>
-    show ((checkConstantVal (pairOps o₁ o₂ h) env cv >>= fun cv =>
-      checkOpaqueVal (pairOps o₁ o₂ h) env cv value : PairM rel _)).val.1
-      = _
+    dsimp only
     rw [PairM.fst_bind, checkConstantVal_fst_dproj]
     congr 1
     funext cv'
-    rw [checkOpaqueVal_fst_dproj]
+    rw [PairM.fst_bind, checkOpaqueVal_fst_dproj]
+    congr 1
+    funext env2
+    repeat (first
+      | (rw [checkReducePin_fst_dproj])
+      | split
+      | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
+      | rfl
+      | (simp only [PairM.fst_pure, PairM.fst_throw]))
   | axiomDecl cv =>
-    show ((checkConstantVal (pairOps o₁ o₂ h) env cv >>= fun cvA =>
-      if stdAxiomOk env cvA then
-        pure (⟨.axiomInfo cvA :: env.consts⟩ : Env)
-      else if cvA.name = propextName ∨ cvA.name = choiceName then
-        throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
-      else if toleratedAxiomNames.contains cvA.name then pure env
-      else throw (.notImplemented s!"non-standard axiom ({cv.name})")
-      : PairM rel _)).val.1 = _
+    dsimp only
     rw [PairM.fst_bind, checkConstantVal_fst_dproj]
     congr 1
     funext cvA
@@ -1386,22 +1407,21 @@ theorem checkDecl_snd_dproj (env : Env) (d : Declaration) :
     funext cv'
     rw [checkThmVal_snd_dproj]
   | opaqueDecl cv value =>
-    show ((checkConstantVal (pairOps o₁ o₂ h) env cv >>= fun cv =>
-      checkOpaqueVal (pairOps o₁ o₂ h) env cv value : PairM rel _)).val.2
-      = _
+    dsimp only
     rw [PairM.snd_bind, checkConstantVal_snd_dproj]
     congr 1
     funext cv'
-    rw [checkOpaqueVal_snd_dproj]
+    rw [PairM.snd_bind, checkOpaqueVal_snd_dproj]
+    congr 1
+    funext env2
+    repeat (first
+      | (rw [checkReducePin_snd_dproj])
+      | split
+      | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
+      | rfl
+      | (simp only [PairM.snd_pure, PairM.snd_throw]))
   | axiomDecl cv =>
-    show ((checkConstantVal (pairOps o₁ o₂ h) env cv >>= fun cvA =>
-      if stdAxiomOk env cvA then
-        pure (⟨.axiomInfo cvA :: env.consts⟩ : Env)
-      else if cvA.name = propextName ∨ cvA.name = choiceName then
-        throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
-      else if toleratedAxiomNames.contains cvA.name then pure env
-      else throw (.notImplemented s!"non-standard axiom ({cv.name})")
-      : PairM rel _)).val.2 = _
+    dsimp only
     rw [PairM.snd_bind, checkConstantVal_snd_dproj]
     congr 1
     funext cvA
@@ -1991,6 +2011,17 @@ theorem checkDivModPin_datF (env env2 : Env) (c : Name) (F : Nat) :
     | rfl
     | (simp only [FueledM.atF_pure, FueledM.atF_throw]))
 
+theorem checkReducePin_datF (env env2 : Env) (c : Name) (value : Expr)
+    (F : Nat) :
+    (checkReducePin fueledOpsM env env2 c value).val F =
+      checkReducePin (fueledOps F) env env2 c value := by
+  unfold checkReducePin
+  repeat (first
+    | split
+    | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | rfl
+    | (simp only [FueledM.atF_pure, FueledM.atF_throw]))
+
 theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
     (checkDecl fueledOpsM env d).val F =
       checkDecl (fueledOps F) env d := by
@@ -2019,21 +2050,21 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
     funext cv'
     rw [checkThmVal_datF]
   | opaqueDecl cv value =>
-    show ((checkConstantVal fueledOpsM env cv >>= fun cv =>
-      checkOpaqueVal fueledOpsM env cv value : FueledM _)).val F = _
+    dsimp only
     rw [FueledM.atF_bind, checkConstantVal_datF]
     congr 1
     funext cv'
-    rw [checkOpaqueVal_datF]
+    rw [FueledM.atF_bind, checkOpaqueVal_datF]
+    congr 1
+    funext env2
+    repeat (first
+      | (rw [checkReducePin_datF])
+      | split
+      | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+      | rfl
+      | (simp only [FueledM.atF_pure, FueledM.atF_throw]))
   | axiomDecl cv =>
-    show ((checkConstantVal fueledOpsM env cv >>= fun cvA =>
-      if stdAxiomOk env cvA then
-        pure (⟨.axiomInfo cvA :: env.consts⟩ : Env)
-      else if cvA.name = propextName ∨ cvA.name = choiceName then
-        throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
-      else if toleratedAxiomNames.contains cvA.name then pure env
-      else throw (.notImplemented s!"non-standard axiom ({cv.name})")
-      : FueledM _)).val F = _
+    dsimp only
     rw [FueledM.atF_bind, checkConstantVal_datF]
     congr 1
     funext cvA

@@ -1,6 +1,6 @@
 {"meta":{"exporter":{"name":"lean4export","version":"3.1.0"},"format":{"version":"3.1.0"},"lean":{"githash":"f72c35b3f637c8c6571d353742168ab66cc22c00","version":"4.29.1"}}}
 {"in":99,"str":{"pre":0,"str":"Lean"}}
-{"in":1,"str":{"pre":99,"str":"trustCompiler"}}
+{"in":1,"str":{"pre":0,"str":"sorryAx"}}
 {"in":2,"str":{"pre":0,"str":"p"}}
 {"in":3,"str":{"pre":0,"str":"h"}}
 {"in":4,"str":{"pre":0,"str":"indep"}}
