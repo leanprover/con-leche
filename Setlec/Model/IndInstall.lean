@@ -3070,9 +3070,13 @@ set_option maxHeartbeats 3200000 in
 /-- The bottom fact (`Hbot` of `TowerOk.of_stages`) of a **nested**
 modeled rule: as `modeled_bottom_plain`, with the constructor applied
 at the stored level instantiations to the stored parameter
-instantiations (no index tuple — nested-auxiliary recursors are
-index-free), the parameter values flowing through the kernel's typed
-pins. -/
+instantiations, the parameter values flowing through the kernel's
+typed pins and their annotation truthfulness through the
+annotate-idempotence certificate; index premises between the prefix
+and the major flow through exactly as on the plain path (the
+canonical body carries the constructor residual's index tuple, whose
+values are identified with the statement's index arguments through
+the kernel's index pins). -/
 theorem modeled_bottom_nested
     {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat) {ψ : Name → Nat}
     {f : Name → Name}

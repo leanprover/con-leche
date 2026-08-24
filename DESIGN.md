@@ -2059,18 +2059,35 @@ a three-state `RecRuleFire` (`.plain` / `.nested lvls pins` /
 * `.plain` — `checkIotaThm` pins the theorem as before.
 * `.nested lvls pins` — for non-canonical rules whose *shape*
   certifies (`nestedRuleShape`: the `iota_j` theorem exists, the
-  recursor has no index premises — `majorIdx = rulePrefix`, the only
-  sub-shape the soundness covers; an indexed nested-aux rule stays
-  inert — the major domain is a constant-headed application of
-  exactly `cnP` arguments, and the instantiations pass the syntactic
-  well-formedness guards recorded in `EnvWF`), `checkIotaThmN`
-  re-runs the `checkIotaThm` pin with the constructor at the stored
-  `lvls` applied to the stored `pins` opened at the statement's
-  prefix variables (`Expr.instSpine`) in place of the leading
-  telescope variables, and the constructor-telescope walks at the
-  `lvls`-instantiated type.  A certifiable shape whose theorem then
-  fails the pin declines positively at install.
-* `.inert` — everything else (no theorem, indexed shape).  `iotaRec`
+  prefix fits under the major — `rulePrefix ≤ majorIdx`; index
+  premises between the prefix and the major are supported since task
+  #105 — the major domain is a constant-headed application of exactly
+  `cnP + (majorIdx − rulePrefix)` arguments that splits into the
+  parameter instantiations followed by *the index variables in
+  order*; the instantiations are stored **lowered into the
+  rule-prefix context** (`Expr.lowerBVars`, with the
+  `Expr.liftLooseBVars` roundtrip certifying that no index variable
+  occurs in them) and pass the syntactic well-formedness guards
+  recorded in `EnvWF`), `checkIotaThmN` re-runs the `checkIotaThm`
+  pin with the constructor at the stored `lvls` applied to the stored
+  `pins` opened at the statement's prefix variables
+  (`Expr.instSpine`) in place of the leading telescope variables, and
+  the constructor-telescope walks at the `lvls`-instantiated type —
+  the statement's index arguments flow through exactly as on the
+  plain path (pinned `defEq` against the constructor residual's
+  canonical tuple).  Two extra certificates back the soundness of the
+  indexed shape: the raw constructor residual's head must be a
+  *constant* (the family former — both residual walks then decompose
+  argument-wise; a variable head could be captured by a pin), and the
+  publicly instantiated pins must be *fixed points of the annotation
+  pass* (`checkAnnotList`) — their annotation truthfulness at the
+  canonical frame is no longer derivable from the recursor-type walk
+  once index binders separate the prefix from the major domain, so it
+  is validated once at insertion (`annotateCore_sound` consumes it).
+  A certifiable shape whose theorem then fails the pin declines
+  positively at install.
+* `.inert` — everything else (no theorem, no certifiable shape).
+  `iotaRec`
   treats a *matched* inert rule (recursor fully applied, major whnfs
   to a constructor application of the rule's ctor at the right arity)
   as a positive detection of the unsupported feature and declines
@@ -2085,7 +2102,9 @@ are checked against the by-name linking (`.plain`) resp. the stored
 `lvls` under the recursor's instantiation (`.nested`), and its
 leading arguments `defEqList`-checked against the recursor's leading
 arguments (`.plain`) resp. the stored `pins` instantiated at the
-fire-time argument spine (`.nested`; `Expr.instSpine`, the kernel
+fire-time *leading*-argument spine — the stored pins live in the
+rule-prefix context, so `.nested` instantiates them at
+`args.take rulePrefix` (`.nested`; `Expr.instSpine`, the kernel
 spelling of the verification's `instSeq`).  The reduct is the same
 rhs application in both modes.  Soundness: `RecRulesOk`'s fold clause
 guards the canonical value-premises on `.plain` and carries a nested
@@ -2123,15 +2142,23 @@ another.  A whole-stream census (6,887 inductive blocks, 11,347
 recursor rules: 11,160 plain, 182 nested-exact) found exactly 5
 name-only major mismatches in 2 blocks (`Lean.PrefixTreeNode.rec_3`,
 `Lean.Json.rec_4/rec_5` — both nest dependently through tree maps),
-zero mismatches beyond names, and zero indexed nested-aux rules (the
-recorded `.inert` limitation stays unexercised by Mathlib).  The
-indexed limitation itself is now pinned by
-`indexed_nested_aux.ndjson` (`TV` nesting through an indexed `Vec`;
-`TV.rec_1` has `majorIdx = rulePrefix + 1`, its fired inert rules
-positively decline at `TV.brecOn.go`, expected verdict 2) — by user
-ruling (2026-08-24) that limitation gets a certification + soundness
-extension as a follow-up regardless of no stream needing it, and the
-fixture flips to 0 when it lands.
+zero mismatches beyond names, and zero indexed nested-aux rules.
+The former indexed `.inert` limitation was retired by task #105 (see
+the firing-modes entry above): `indexed_nested_aux.ndjson` (`TV`
+nesting through an indexed `Vec`; `TV.rec_1` has
+`majorIdx = rulePrefix + 1`) is accepted end to end.  Soundness
+un-specializes `modeled_bottom_nested`/`ctor_pkg_nested` back to the
+plain path's index handling: the canonical body's index tuple is the
+constructor residual's (`ruleLhsAux` already carried it), the
+statement's index-argument values are identified with the public
+residual's through the kernel's index `defEq` pins
+(`interp_instSeq_frames` across the two constructor walks, which
+share the pin values), the pins' annotation truthfulness comes from
+the `checkAnnotList` certificate instead of the major-domain
+residual, and `nested_fire_premise` reads the fire-time comparand
+values off the *prefix* of the instantiated major-domain spine
+(`instSeq_liftLooseBVars_prefix`: a full-spine instantiation over a
+lifted prefix-context pin only consumes the prefix).
 Soundness rides the existing erasure bridge: the `NestedChecked` kit
 records the major fact as `Expr.ErasedEq` (via
 `ErasedEq.of_eqUpToNames`), and `modeled_bottom_nested` consumes it
