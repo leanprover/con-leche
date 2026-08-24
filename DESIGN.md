@@ -5168,3 +5168,79 @@ comparisons must use upstream nanoda, built from ammkrn/nanoda_lib.
 nanoda additionally *requires* structurally deduplicated table
 entries (it crashes on duplicates), which is why the generator
 hash-conses everything.
+
+### Raw storage stage 3: decoration, and the erasure as a parameter (2026-08-24, task #100)
+
+Three moves, all staged so the flip from the identity erasure to
+`Env.eraseCod` is local.
+
+**The erasure is a parameter.** `RawEnvModelE V er env` carries the
+annotated shadow `aenv`, `erase_eq : er aenv = env`, and the unchanged
+`EnvModel V aenv`.  `RawEnvModelId := RawEnvModelE V id` is the
+transitional instantiation — annotations are still stored, so the
+witness *is* the stored environment, and `ofEnvModel`/`toEnvModel` are
+inverse — while `RawEnvModel := RawEnvModelE V Env.eraseCod` is the end
+state.  `Setlec/Model/ConsistencyRaw.lean` restates `checkDecl_sound`,
+`checkDecls_sound` and `no_constant_of_Empty` over that interface at
+`id`: no content, all interface, so that consumers phrased against it
+survive the flip untouched.
+
+**Decoration.** A raw-storage kernel must put annotations back before
+`infer`/`whnf`/`defeq` — which read them — can run.  `decorate`
+(`Setlec/Model/Decorate.lean`) is the proof-side spec of that rebuild:
+structural everywhere, filling each binder's `cod` from a `DecorMemo`
+(the proof-side view of the interned `inferC`/`codOfC` pair — a
+`∀`-binder's sort is `codOf` of its opened body, a `λ`-binder's is
+`codOf` of that body's *inferred type*, hence two components).  It
+performs **no** inference, reduction or definitional equality.
+
+Its theorem is therefore syntactic, not semantic: `decorate_eq` says
+that decorating the erasure of an annotated tree returns that tree
+*exactly*, provided the memo agrees with its annotations at every
+binder (`CodAgree`).  Truthfulness then costs nothing —
+`decorate_sound` rewrites through the identification and hands the goal
+to `annotate_sound`.  That is the point of the split: the decoration
+pass carries no semantic burden of its own, because the annotations it
+restores are the ones the annotation pass already justified.  All the
+content sits in `CodAgree`, which the flip discharges from the memos'
+`ISOK` clauses.
+
+Two findings shaped the definition:
+
+* **Two erasures.** `Expr.eraseCod` is hereditary — it descends into
+  `fvar` type annotations, which is what makes twins survive binder
+  opening during reduction simulation.  A decoration pass opens binders
+  itself, at variables whose types it has *already* decorated, so its
+  `fvar` clause must be the identity; the matching erasure is the
+  shallow `Expr.eraseCodS`.  The two agree on `fvar`-free trees
+  (`eraseCodS_eq`) — i.e. on everything a declaration stores, by the
+  install-time certificate — so the top-level statement is unaffected,
+  and the non-recursive `fvar` clause is also what makes `decorate`
+  terminate on `sizeB` (the measure `AnnotOk` uses, for the same
+  reason).
+* **Decoration targets are let-free.**  `annotate`'s `letE` clause
+  zeta-reduces (value transparency; an opened opaque let-variable was
+  tried and rejects real streams).  So its output — and hence every
+  decoration target — contains no `letE`, and `CodAgree`'s `letE`
+  clause is `False`.  Correspondingly, what a raw-storage kernel keeps
+  is the *erasure of the annotation pass's output*, not of the input
+  record: `annotate` is not skeleton-preserving (it zeta-reduces lets
+  and normalizes projection heads), so `(annotate e).eraseCod = e` is
+  false in general and cannot be the storage contract.
+
+**Install paths.**  `extend_model_raw` is now generic in the installed
+`ConstantInfo`, so it covers every non-inductive path at once — axioms,
+definitions, theorems, opaques, and the pinned `Nat`-operation /
+`Nat.div`-`Nat.mod` / `reduce` families, whose extra obligations ride
+through unchanged; `extend_model_raw_defn`/`_axiom`/`_thm` are its
+instances.  The hypothesis split is the design's claim in miniature:
+raw-side certificates (freshness, `hasFvar`, `constsResolve`,
+`looseBVarsBounded`) transfer across erasure, witness-side obligations
+(`AnnotOk`, interpretations, `allLevelParamsDefined`) stay on the
+shadow.  For the remaining paths — inductive blocks, projections,
+direct structures, basis pins — the mechanical content is
+`RawEnvModelE.extend`/`extend_one`: *any* extension of the witness is
+an extension of the raw environment it erases to, given that the
+installed records erase to what is stored.  Each sibling is that
+combinator applied to the `extend_*` lemma the path already uses; no
+signature needs restating.
