@@ -97,20 +97,22 @@ skips the type-former and per-projection telescope certifications. -/
 def structEtaCertWithNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (a b wtb : EIdx) : CheckIM Bool := do
   match ← withStore (fun st => st.nodes[st.getAppFnI a]?) with
-  | some (.const c us) =>
-    match fe.find? c with
+  | some (.const c us) => do
+    let cn ← readbackNM c
+    match fe.find? cn with
     | some (.ctorInfo cvc cnP cnF) => do
       let aargs ← withStore (·.getAppArgsI a)
       if aargs.length = cnP + cnF then
         match ← withStore (fun st => st.nodes[st.getAppFnI wtb]?) with
-        | some (.const T us') =>
-          match fe.find? T with
+        | some (.const T us') => do
+          let Tn ← readbackNM T
+          match fe.find? Tn with
           | some (.indInfo cvT caps) => do
             let targs ← withStore (·.getAppArgsI wtb)
-            if caps.eta = true ∧ caps.etaCtor = c ∧
+            if caps.eta = true ∧ caps.etaCtor = cn ∧
                 caps.etaParams = cnP ∧ caps.etaFields = cnF ∧
-                reservedBasisNames.contains T = false ∧
-                reservedBasisNames.contains c = false ∧
+                reservedBasisNames.contains Tn = false ∧
+                reservedBasisNames.contains cn = false ∧
                 targs.length = cnP ∧
                 us'.length = cvT.levelParams.length ∧
                 cvc.levelParams = cvT.levelParams ∧
@@ -145,12 +147,13 @@ def structUnitCertNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
   let ta ← r.infer depth a
   let wta ← r.whnf depth ta
   match ← withStore (fun st => st.nodes[st.getAppFnI wta]?) with
-  | some (.const T us') =>
-    match fe.find? T with
+  | some (.const T us') => do
+    let Tn ← readbackNM T
+    match fe.find? Tn with
     | some (.indInfo cvT caps) => do
       let targs ← withStore (·.getAppArgsI wta)
       if caps.unitlike = true ∧
-          reservedBasisNames.contains T = false ∧
+          reservedBasisNames.contains Tn = false ∧
           targs.length = caps.unitParams ∧
           us'.length = cvT.levelParams.length ∧
           (cvT.type.stripPis caps.unitParams).isSome = true then do
@@ -200,9 +203,10 @@ def majorToCtorNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             let tmaj ← r.whnf depth tmaj₀
             match ← withStore (fun st => st.nodes[st.getAppFnI tmaj]?) with
             | some (.const T' ust) =>
-              if T' = T ∧ cvj.levelParams.length = ust.length then do
+              if (← beqNameM T' T) ∧ cvj.levelParams.length = ust.length then do
                 let margs ← withStore (·.getAppArgsI tmaj)
-                let h ← internI (.const rl.ctor ust)
+                let ctorI ← internNameM rl.ctor
+                let h ← internI (.const ctorI ust)
                 let fab ← mkAppNM h (margs.take cnP)
                 if ← withStore (fun st => st.wscopedBI depth fab &&
                     st.looseBVarsBoundedI 0 fab &&
@@ -224,11 +228,13 @@ def majorToCtorNC (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             | some (.const T' ust) => do
               let margs ← withStore (·.getAppArgsI tmaj)
               let ustL ← readbackLevelsM ust
-              if T' = T ∧ margs.length = caps.etaParams ∧
+              if (← beqNameM T' T) ∧ margs.length = caps.etaParams ∧
                   ust.length = cvT.levelParams.length then do
-                let projs ← projAppsI T ust margs major
+                let TI ← internNameM T
+                let projs ← projAppsI TI ust margs major
                   (List.range caps.etaFields)
-                let h ← internI (.const caps.etaCtor ust)
+                let ctorI ← internNameM caps.etaCtor
+                let h ← internI (.const ctorI ust)
                 let fab ← mkAppNM h (margs ++ projs)
                 if ← withStore (fun st => st.wscopedBI depth fab &&
                     st.looseBVarsBoundedI 0 fab &&
@@ -265,20 +271,22 @@ re-comparison and the canonical-index comparison. -/
 def iotaRecNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
     CheckIM (Option EIdx) := do
   match ← withStore (fun st => st.nodes[st.getAppFnI e]?) with
-  | some (.const c us) =>
-    match fe.find? c with
+  | some (.const c us) => do
+    let cn ← readbackNM c
+    match fe.find? cn with
     | some (.recInfo cv mI rP rules) => do
       let args ← withStore (·.getAppArgsI e)
       if args.length = mI + 1 then do
         let bvar0 ← internI (.bvar 0)
         let major₀ ← r.whnf depth (args.getD mI bvar0)
         let major₁ ← litMajorToCtorI r fe depth major₀
-        let major ← majorToCtorNC r fe depth c rules major₁
+        let major ← majorToCtorNC r fe depth cn rules major₁
         match ← withStore (fun st => st.nodes[st.getAppFnI major]?) with
-        | some (.const cj usj) =>
-          match fe.find? cj with
+        | some (.const cj usj) => do
+          let cjn ← readbackNM cj
+          match fe.find? cjn with
           | some (.ctorInfo cvj _ _) =>
-            match rules.find? (fun r' => r'.ctor == cj) with
+            match rules.find? (fun r' => r'.ctor == cjn) with
             | some rl => do
               let margs ← withStore (·.getAppArgsI major)
               if margs.length = rl.ctorParams + rl.nfields then
@@ -303,12 +311,12 @@ def iotaRecNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
                        (args.take mI) (mI - 1) pins
                      defEqListI r fe depth (margs.take rl.ctorParams) cmpArgs
                    | _ =>
-                     if Name.isProjFnShape c then
+                     if Name.isProjFnShape cn then
                        defEqListI r fe depth (margs.take rl.ctorParams)
                          (args.take rl.ctorParams)
                      else pure true
                  if cmpOk then do
-                  let rhs ← ruleRhsAtM fe c cj us
+                  let rhs ← ruleRhsAtM fe c cj cn cjn us
                   let red ← mkAppNM rhs
                     (args.take rP ++ margs.drop rl.ctorParams)
                   pure (some red)
@@ -394,12 +402,13 @@ def whnfCoreBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
     | some (.proj sn i pe) => do
       let e' ← r.whnf depth pe
       let e' ← projLitToCtorI r fe depth e'
-      match fe.findProj? sn i with
+      let snn ← readbackNM sn
+      match fe.findProj? snn i with
       | some entry =>
         match ← withStore (fun st => st.nodes[st.getAppFnI e']?) with
         | some (.const c us) => do
           let args ← withStore (·.getAppArgsI e')
-          if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
+          if entry.native ∧ (← beqNameM c entry.ctor) ∧ i < entry.numFields ∧
               args.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length then do
             let mx ← substLevelTreeM entry.levelParams us
@@ -435,18 +444,23 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
       if idx < depth then pure ty
       else throw (.invalid "free variable out of scope")
     | some (.const n us) => do
-      match fe.find? n with
-      | none => throw (.invalid s!"unknown constant {n}")
+      let nm ← readbackNM n
+      match fe.find? nm with
+      | none => throw (.invalid s!"unknown constant {nm}")
       | some ci =>
         let cv := ci.toConstantVal
         unless us.length = cv.levelParams.length do
-          throw (.invalid s!"incorrect number of universe levels for {n}")
-        constTyAtM fe n us
+          throw (.invalid s!"incorrect number of universe levels for {nm}")
+        constTyAtM fe n nm us
     | some (.lit (.natVal _)) => do
-      if natLitSupportedF fe then internI (.const natName [])
+      if natLitSupportedF fe then do
+        let ni ← internNameM natName
+        internI (.const ni [])
       else throw (.invalid "Nat literal without the Nat basis declarations")
     | some (.lit (.strVal _)) => do
-      if strLitSupportedF fe then internI (.const stringName [])
+      if strLitSupportedF fe then do
+        let si ← internNameM stringName
+        internI (.const si [])
       else throw (.notImplemented
         "string literals before the String support declarations")
     | some (.forallE _ ty _ mb) => do
@@ -482,13 +496,15 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
       let tpe ← r.infer depth pe
       let te ← r.whnf depth tpe
       match ← withStore (fun st => st.nodes[st.getAppFnI te]?) with
-      | some (.const T us) =>
-        match fe.findProj? T i with
+      | some (.const T us) => do
+        let Tn ← readbackNM T
+        match fe.findProj? Tn i with
         | some entry => do
           let targs ← withStore (·.getAppArgsI te)
           if entry.native ∧ targs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
-            let pty ← constTyAtM fe (projFnName T i) us
+            let pf ← projFnIdxM T i
+            let pty ← constTyAtM fe pf (projFnName Tn i) us
             match ← piResidualM pty (targs ++ [pe]) with
             | some resTy => pure resTy
             | none => throw (.internal "malformed projection entry")
@@ -536,15 +552,15 @@ def defeqBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM B
       liftFueled "level comparison" (← isEquivLM u v)
     | some (.lit l₁), some (.lit l₂) => pure (l₁ == l₂)
     | some (.lit (.natVal n)), some (.const c us) =>
-      if c = natZeroName ∧ us = [] then pure (n == 0)
+      if (← beqNameM c natZeroName) ∧ us = [] then pure (n == 0)
       else stuckIrrelNC r fe depth a' b'
     | some (.const c us), some (.lit (.natVal n)) =>
-      if c = natZeroName ∧ us = [] then pure (n == 0)
+      if (← beqNameM c natZeroName) ∧ us = [] then pure (n == 0)
       else stuckIrrelNC r fe depth a' b'
     | some (.lit (.natVal nn)), some (.app f x) => do
       match nn, ← viewI f with
       | k + 1, some (.const c []) =>
-        if c = natSuccName then do
+        if ← beqNameM c natSuccName then do
           let kl ← internI (.lit (.natVal k))
           r.defeq depth kl x
         else stuckIrrelNC r fe depth a' b'
@@ -552,7 +568,7 @@ def defeqBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM B
     | some (.app f x), some (.lit (.natVal nn)) => do
       match nn, ← viewI f with
       | k + 1, some (.const c []) =>
-        if c = natSuccName then do
+        if ← beqNameM c natSuccName then do
           let kl ← internI (.lit (.natVal k))
           r.defeq depth x kl
         else stuckIrrelNC r fe depth a' b'
@@ -560,7 +576,7 @@ def defeqBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM B
     | some (.lit (.strVal s)), some (.app fO _x) => do
       match ← viewI fO with
       | some (.const cO usO) =>
-        if cO = stringOfListName ∧ usO = [] ∧ strLitSupportedF fe then do
+        if (← beqNameM cO stringOfListName) ∧ usO = [] ∧ strLitSupportedF fe then do
           let sc ← internExprM (strLitToConstructor s)
           r.defeq depth sc b'
         else stuckIrrelNC r fe depth a' b'
@@ -568,7 +584,7 @@ def defeqBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM B
     | some (.app fO _x), some (.lit (.strVal s)) => do
       match ← viewI fO with
       | some (.const cO usO) =>
-        if cO = stringOfListName ∧ usO = [] ∧ strLitSupportedF fe then do
+        if (← beqNameM cO stringOfListName) ∧ usO = [] ∧ strLitSupportedF fe then do
           let sc ← internExprM (strLitToConstructor s)
           r.defeq depth a' sc
         else stuckIrrelNC r fe depth a' b'
