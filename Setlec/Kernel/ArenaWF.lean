@@ -646,22 +646,32 @@ theorem denote_etier {st : EStore} {i : EIdx} {a : Expr}
     (h : st.denote i = some a) : etier i = 0 :=
   (denote_valid1 h).1
 
-/-- Store extension: every stored node (expression and level) is still
-stored, at the same index.  `intern`/`internL`/`internExpr` only push
-new nodes, so they extend. -/
+/-- Store extension: every stored node (expression — both tiers —
+level and name) is still stored, at the same index, and the tier flag
+is unchanged.  `intern`/`internL`/`internExpr` only push new nodes, so
+they extend.  The tier-two clause and the flag (task #64) make the
+tier-aware denotation `denoteT` monotone and thread flag-off-ness
+through every operation walk; the bracket seams (`enableTierTwo`,
+`truncateTierTwo`) are *not* extensions — the driver-level proofs
+handle them bespoke, and across a whole bracketed declaration both
+clauses hold again (tier two empty and the flag off at both ends). -/
 structure Ext (st st' : EStore) : Prop where
   expr : ∀ (i : EIdx) (n : ENode), st.nodes[i]? = some n → st'.nodes[i]? = some n
   lvl : ∀ (u : LIdx) (m : LNode), st.lnodes[u]? = some m → st'.lnodes[u]? = some m
   name : ∀ (i : NIdx) (m : NNode), st.nnodes[i]? = some m → st'.nnodes[i]? = some m
+  texpr : ∀ (j : Nat) (n : ENode), st.tnodes[j]? = some n → st'.tnodes[j]? = some n
+  flag : st'.tierTwo = st.tierTwo
 
 theorem Ext.refl (st : EStore) : Ext st st :=
-  ⟨fun _ _ h => h, fun _ _ h => h, fun _ _ h => h⟩
+  ⟨fun _ _ h => h, fun _ _ h => h, fun _ _ h => h, fun _ _ h => h, rfl⟩
 
 theorem Ext.trans {st₁ st₂ st₃ : EStore} (h₁ : Ext st₁ st₂)
     (h₂ : Ext st₂ st₃) : Ext st₁ st₃ :=
   ⟨fun i n h => h₂.expr i n (h₁.expr i n h),
    fun u m h => h₂.lvl u m (h₁.lvl u m h),
-   fun i m h => h₂.name i m (h₁.name i m h)⟩
+   fun i m h => h₂.name i m (h₁.name i m h),
+   fun j n h => h₂.texpr j n (h₁.texpr j n h),
+   h₂.flag.trans h₁.flag⟩
 
 /-- Extension preserves the tier-one read at every public index. -/
 theorem Ext.node1 {st st' : EStore} (hext : Ext st st') {i : EIdx}
@@ -1253,7 +1263,8 @@ theorem intern_on {st : EStore} (hflag : st.tierTwo = true) (n : ENode) :
   simp [intern, hflag]
 
 theorem internP_ext (st : EStore) (n : ENode) : Ext st (st.internP n).2 := by
-  refine ⟨fun i m h => ?_, fun u m h => ?_, fun i m h => ?_⟩
+  refine ⟨fun i m h => ?_, fun u m h => ?_, fun i m h => ?_,
+    fun j m h => ?_, ?_⟩
   · rw [internP_eq]
     split
     · exact h
@@ -1268,6 +1279,14 @@ theorem internP_ext (st : EStore) (n : ENode) : Ext st (st.internP n).2 := by
     split
     · exact h
     · exact h
+  · rw [internP_eq]
+    split
+    · exact h
+    · exact h
+  · rw [internP_eq]
+    split
+    · rfl
+    · rfl
 
 /-- `internT` leaves every tier-one table unchanged. -/
 theorem internT_nodes (st : EStore) (n : ENode) :
@@ -1293,15 +1312,28 @@ theorem internT_nnodes (st : EStore) (n : ENode) :
   · rfl
   · split <;> rfl
 
-/-- `internT` touches no tier-one table. -/
+/-- `internT` touches no tier-one table (and only pushes tier two). -/
 theorem internT_ext (st : EStore) (n : ENode) : Ext st (st.internT n).2 := by
-  refine ⟨fun i m h => ?_, fun u m h => ?_, fun i m h => ?_⟩
+  refine ⟨fun i m h => ?_, fun u m h => ?_, fun i m h => ?_,
+    fun j m h => ?_, ?_⟩
   · rw [internT_nodes]
     exact h
   · rw [internT_lnodes]
     exact h
   · rw [internT_nnodes]
     exact h
+  · rw [internT_eq]
+    split
+    · exact h
+    · split
+      · exact h
+      · have : j < st.tnodes.size := (Array.getElem?_eq_some_iff.mp h).1
+        rw [Array.getElem?_push, if_neg (Nat.ne_of_lt this)]
+        exact h
+  · rw [internT_eq]
+    split
+    · rfl
+    · split <;> rfl
 
 theorem intern_ext (st : EStore) (n : ENode) : Ext st (st.intern n).2 := by
   unfold intern
@@ -1547,7 +1579,8 @@ theorem internL_eq (st : EStore) (n : LNode) :
   rfl
 
 theorem internL_ext (st : EStore) (n : LNode) : Ext st (st.internL n).2 := by
-  refine ⟨fun i m h => ?_, fun u m h => ?_, fun i m h => ?_⟩
+  refine ⟨fun i m h => ?_, fun u m h => ?_, fun i m h => ?_,
+    fun j m h => ?_, ?_⟩
   · rw [internL_eq]
     split
     · exact h
@@ -1562,6 +1595,12 @@ theorem internL_ext (st : EStore) (n : LNode) : Ext st (st.internL n).2 := by
     split
     · exact h
     · exact h
+  · rw [internL_eq]
+    split
+    · exact h
+    · exact h
+  · rw [internL_eq]
+    split <;> rfl
 
 /-- Interning a level node stores it at the returned index. -/
 theorem internL_node {st : EStore} {n : LNode} (hwf : st.WF) :
@@ -1826,7 +1865,8 @@ theorem internN_eq (st : EStore) (n : NNode) :
   rfl
 
 theorem internN_ext (st : EStore) (n : NNode) : Ext st (st.internN n).2 := by
-  refine ⟨fun i m h => ?_, fun u m h => ?_, fun i m h => ?_⟩
+  refine ⟨fun i m h => ?_, fun u m h => ?_, fun i m h => ?_,
+    fun j m h => ?_, ?_⟩
   · rw [internN_eq]
     split
     · exact h
@@ -1841,6 +1881,12 @@ theorem internN_ext (st : EStore) (n : NNode) : Ext st (st.internN n).2 := by
     · have : i < st.nnodes.size := (Array.getElem?_eq_some_iff.mp h).1
       rw [Array.getElem?_push, if_neg (Nat.ne_of_lt this)]
       exact h
+  · rw [internN_eq]
+    split
+    · exact h
+    · exact h
+  · rw [internN_eq]
+    split <;> rfl
 
 /-- Interning a name node stores it at the returned index. -/
 theorem internN_node {st : EStore} {n : NNode} (hwf : st.WF) :
@@ -4413,10 +4459,6 @@ theorem enableTierTwo_eq (st : EStore) :
 @[simp] theorem enableTierTwo_tierTwo (st : EStore) :
     st.enableTierTwo.tierTwo = true := rfl
 
-/-- Enabling changes no tier-one observation: extension is trivial. -/
-theorem enableTierTwo_ext (st : EStore) : Ext st st.enableTierTwo :=
-  ⟨fun _ _ h => h, fun _ _ h => h, fun _ _ h => h⟩
-
 /-- Enabling is invisible to the denotation. -/
 theorem enableTierTwo_denote (st : EStore) :
     ∀ i, st.enableTierTwo.denote i = st.denote i := fun i =>
@@ -4581,11 +4623,20 @@ theorem truncateTierTwo_wf {st : EStore} (h : st.TWF) :
   · intro j m hj
     simp at hj
 
-/-- Truncation extends (tier-one tables untouched). -/
-theorem truncateTierTwo_ext (st : EStore) : Ext st st.truncateTierTwo :=
-  ⟨fun i m h => by rw [truncateTierTwo_nodes]; exact h,
-   fun u m h => by rw [truncateTierTwo_lnodes]; exact h,
-   fun i m h => by rw [truncateTierTwo_nnodes]; exact h⟩
+/-- On a flag-off store truncation is an extension (tier two is
+already empty and the flag already off, so nothing is dropped). -/
+theorem truncateTierTwo_ext {st : EStore} (hwf : st.WF) :
+    Ext st st.truncateTierTwo := by
+  refine ⟨fun i m h => ?_, fun u m h => ?_, fun i m h => ?_,
+    fun j m h => ?_, ?_⟩
+  · rw [truncateTierTwo_nodes]; exact h
+  · rw [truncateTierTwo_lnodes]; exact h
+  · rw [truncateTierTwo_nnodes]; exact h
+  · rw [hwf.tnodes_none] at h
+    exact nomatch h
+  · show st.truncateTierTwo.tierTwo = st.tierTwo
+    rw [hwf.tier_off]
+    rfl
 
 /-- Truncation is invisible to the denotation — at *every* index:
 `denote` reads only the tier-one tables. -/
@@ -4645,6 +4696,432 @@ theorem truncateTierTwo_lhasParamD (st : EStore) (u : LIdx) :
     st.truncateTierTwo.lhasParamD u = st.lhasParamD u := by
   unfold lhasParamD
   rw [truncateTierTwo_lparamBs]
+
+/-! ## The tier-aware denotation (task #64, bracket battery item 1)
+
+`denoteT` reads `getNode` (both tiers) and recurses along the
+traversal order `emlt` — the order every arena node respects towards
+its children in both regimes.  It is the currency of the flag-on
+operation battery: on a flag-off (`WF`) store it coincides with
+`denote` at every index, and on any two-tier (`TWF`) store it
+coincides with `denote` at every even index, so the flag-off stack
+consumes the same statements through those bridges. -/
+
+/-- An index's tier bit is zero or one. -/
+theorem etier_cases (i : EIdx) : etier i = 0 ∨ etier i = 1 := by
+  rw [etier_eq]
+  omega
+
+/-- `getNode` characterized by tier. -/
+theorem getNode_eq_some {st : EStore} {i : EIdx} {n : ENode} :
+    st.getNode i = some n ↔
+      (etier i = 0 ∧ st.nodes[epos i]? = some n) ∨
+      (etier i = 1 ∧ st.tnodes[epos i]? = some n) := by
+  unfold getNode
+  rcases etier_cases i with h | h <;> simp [h]
+
+/-- A stored `getNode` read is a valid two-tier index. -/
+theorem getNode_valid2 {st : EStore} {i : EIdx} {n : ENode}
+    (h : st.getNode i = some n) : st.Valid2 i := by
+  rcases getNode_eq_some.mp h with ⟨ht, hn⟩ | ⟨ht, hn⟩
+  · exact .inl ⟨ht, (Array.getElem?_eq_some_iff.mp hn).1⟩
+  · exact .inr ⟨ht, (Array.getElem?_eq_some_iff.mp hn).1⟩
+
+/-- A valid two-tier index has a stored node. -/
+theorem Valid2.getNode_isSome {st : EStore} {i : EIdx}
+    (h : st.Valid2 i) : ∃ n, st.getNode i = some n := by
+  rcases h with ⟨ht, hp⟩ | ⟨ht, hp⟩
+  · exact ⟨st.nodes[epos i], by rw [getNode_tierOne ht]; simp [hp]⟩
+  · refine ⟨st.tnodes[epos i], ?_⟩
+    unfold getNode
+    rw [if_neg (by omega)]
+    simp [hp]
+
+/-- Extension preserves `getNode` reads (both tiers). -/
+theorem Ext.getNode {st st' : EStore} (hext : Ext st st') {i : EIdx}
+    {n : ENode} (h : st.getNode i = some n) : st'.getNode i = some n := by
+  rcases getNode_eq_some.mp h with ⟨ht, hn⟩ | ⟨ht, hn⟩
+  · exact getNode_eq_some.mpr (.inl ⟨ht, hext.expr _ _ hn⟩)
+  · exact getNode_eq_some.mpr (.inr ⟨ht, hext.texpr _ _ hn⟩)
+
+/-- Extension preserves two-tier validity. -/
+theorem Ext.valid2 {st st' : EStore} (hext : Ext st st') {i : EIdx}
+    (h : st.Valid2 i) : st'.Valid2 i := by
+  obtain ⟨n, hn⟩ := h.getNode_isSome
+  exact getNode_valid2 (hext.getNode hn)
+
+/-- A stored node's children are `emlt`-below its index (both tiers):
+the traversal-order face of the two-tier child discipline. -/
+theorem TWF.getNode_children_emlt {st : EStore} (h : st.TWF) {i : EIdx}
+    {n : ENode} (hn : st.getNode i = some n) :
+    ∀ c ∈ n.children, emlt c i := by
+  intro c hcin
+  rcases getNode_eq_some.mp hn with ⟨ht, hn'⟩ | ⟨ht, hn'⟩
+  · obtain ⟨hct, hcp⟩ := h.children_lt (epos i) n hn' c hcin
+    exact .inr ⟨by omega, hcp⟩
+  · rcases h.t_children_lt (epos i) n hn' c hcin with ⟨hct, -⟩ | ⟨hct, hcp⟩
+    · exact .inl (by omega)
+    · exact .inr ⟨by omega, hcp⟩
+
+/-- A stored node's children are valid two-tier indices. -/
+theorem TWF.getNode_children_valid2 {st : EStore} (h : st.TWF)
+    {i : EIdx} {n : ENode} (hn : st.getNode i = some n) :
+    ∀ c ∈ n.children, st.Valid2 c := by
+  intro c hcin
+  rcases getNode_eq_some.mp hn with ⟨ht, hn'⟩ | ⟨ht, hn'⟩
+  · have hp : epos i < st.nodes.size := (Array.getElem?_eq_some_iff.mp hn').1
+    obtain ⟨hct, hcp⟩ := h.children_lt (epos i) n hn' c hcin
+    exact .inl ⟨hct, Nat.lt_trans hcp hp⟩
+  · have hp : epos i < st.tnodes.size := (Array.getElem?_eq_some_iff.mp hn').1
+    rcases h.t_children_lt (epos i) n hn' c hcin with hv | ⟨hct, hcp⟩
+    · exact .inl hv
+    · exact .inr ⟨hct, Nat.lt_trans hcp hp⟩
+
+/-- A stored node's level references are in (single-tier) range. -/
+theorem TWF.getNode_levels_lt {st : EStore} (h : st.TWF) {i : EIdx}
+    {n : ENode} (hn : st.getNode i = some n) :
+    ∀ u ∈ n.levels, u < st.lnodes.size := by
+  rcases getNode_eq_some.mp hn with ⟨-, hn'⟩ | ⟨-, hn'⟩
+  · exact h.levels_lt (epos i) n hn'
+  · exact h.t_levels_lt (epos i) n hn'
+
+/-- A stored node's name references are in (single-tier) range. -/
+theorem TWF.getNode_names_lt {st : EStore} (h : st.TWF) {i : EIdx}
+    {n : ENode} (hn : st.getNode i = some n) :
+    ∀ p ∈ n.names, p < st.nnodes.size := by
+  rcases getNode_eq_some.mp hn with ⟨-, hn'⟩ | ⟨-, hn'⟩
+  · exact h.names_lt (epos i) n hn'
+  · exact h.t_names_lt (epos i) n hn'
+
+/-- Tier-aware structural denotation of an index: read the node
+through the dispatching `getNode` and denote the children recursively,
+guarded by the traversal order `emlt` (which makes the recursion
+well-founded without any store invariant). -/
+def denoteT (st : EStore) (i : EIdx) : Option Expr :=
+  match st.getNode i with
+  | none => none
+  | some n =>
+    denoteNode (fun j => if _h : emlt j i then st.denoteT j else none)
+      st.denoteL st.denoteN n
+termination_by (etier i, epos i)
+decreasing_by exact emlt_lex _h
+
+/-- One-step unfolding of `denoteT` when the children are known to sit
+`emlt`-below the index: the guards disappear. -/
+theorem denoteT_node {st : EStore} {i : EIdx} {n : ENode}
+    (hn : st.getNode i = some n) (hc : ∀ c ∈ n.children, emlt c i) :
+    st.denoteT i = denoteNode st.denoteT st.denoteL st.denoteN n := by
+  rw [denoteT.eq_def, hn]
+  exact denoteNode_congr fun c h => dif_pos (hc c h)
+
+/-- A guarded child lookup that succeeded: the guard held and the
+lookup succeeded. -/
+private theorem dite_denoteT_some {st : EStore} {c i : EIdx} {x : Expr}
+    (h : (if _h : emlt c i then st.denoteT c else none) = some x) :
+    emlt c i ∧ st.denoteT c = some x := by
+  by_cases hc : emlt c i <;> simp_all
+
+/-- A successful tier-aware denotation exposes its node, with children
+`emlt`-below the index and denoting the subterms. -/
+theorem denoteT_some_inv {st : EStore} {i : EIdx} {a : Expr}
+    (h : st.denoteT i = some a) :
+    ∃ n, st.getNode i = some n ∧ (∀ c ∈ n.children, emlt c i) ∧
+      denoteNode st.denoteT st.denoteL st.denoteN n = some a := by
+  rw [denoteT.eq_def] at h
+  split at h
+  · exact absurd h (by simp)
+  · rename_i n hn
+    refine ⟨n, hn, ?_⟩
+    cases n with
+    | bvar k => exact ⟨by simp [ENode.children], h⟩
+    | sort u => exact ⟨by simp [ENode.children], h⟩
+    | const nm us => exact ⟨by simp [ENode.children], h⟩
+    | lit l => exact ⟨by simp [ENode.children], h⟩
+    | fvar idx nm t =>
+      rw [denoteNode, Option.bind_eq_some_iff] at h
+      obtain ⟨t', ht, h⟩ := h
+      rw [Option.map_eq_some_iff] at h
+      obtain ⟨name, hname, rfl⟩ := h
+      obtain ⟨hlt, ht⟩ := dite_denoteT_some ht
+      refine ⟨by simp [ENode.children, hlt], ?_⟩
+      rw [denoteNode, ht, hname]; rfl
+    | app f a' =>
+      rw [denoteNode, Option.bind_eq_some_iff] at h
+      obtain ⟨ef, hf, h⟩ := h
+      rw [Option.map_eq_some_iff] at h
+      obtain ⟨ea, ha, rfl⟩ := h
+      obtain ⟨hltf, hf⟩ := dite_denoteT_some hf
+      obtain ⟨hlta, ha⟩ := dite_denoteT_some ha
+      refine ⟨by simp [ENode.children, hltf, hlta], ?_⟩
+      rw [denoteNode, hf, ha]; rfl
+    | lam nm t b m =>
+      rw [denoteNode, Option.bind_eq_some_iff] at h
+      obtain ⟨et, ht, h⟩ := h
+      rw [Option.bind_eq_some_iff] at h
+      obtain ⟨eb, hb, h⟩ := h
+      rw [Option.bind_eq_some_iff] at h
+      obtain ⟨bm, hbm, h⟩ := h
+      rw [Option.map_eq_some_iff] at h
+      obtain ⟨name, hname, rfl⟩ := h
+      obtain ⟨hltt, ht⟩ := dite_denoteT_some ht
+      obtain ⟨hltb, hb⟩ := dite_denoteT_some hb
+      refine ⟨by simp [ENode.children, hltt, hltb], ?_⟩
+      rw [denoteNode, ht, hb, hbm, hname]; rfl
+    | forallE nm t b m =>
+      rw [denoteNode, Option.bind_eq_some_iff] at h
+      obtain ⟨et, ht, h⟩ := h
+      rw [Option.bind_eq_some_iff] at h
+      obtain ⟨eb, hb, h⟩ := h
+      rw [Option.bind_eq_some_iff] at h
+      obtain ⟨bm, hbm, h⟩ := h
+      rw [Option.map_eq_some_iff] at h
+      obtain ⟨name, hname, rfl⟩ := h
+      obtain ⟨hltt, ht⟩ := dite_denoteT_some ht
+      obtain ⟨hltb, hb⟩ := dite_denoteT_some hb
+      refine ⟨by simp [ENode.children, hltt, hltb], ?_⟩
+      rw [denoteNode, ht, hb, hbm, hname]; rfl
+    | letE nm t v b =>
+      rw [denoteNode, Option.bind_eq_some_iff] at h
+      obtain ⟨et, ht, h⟩ := h
+      rw [Option.bind_eq_some_iff] at h
+      obtain ⟨ev, hv, h⟩ := h
+      rw [Option.bind_eq_some_iff] at h
+      obtain ⟨eb, hb, h⟩ := h
+      rw [Option.map_eq_some_iff] at h
+      obtain ⟨name, hname, rfl⟩ := h
+      obtain ⟨hltt, ht⟩ := dite_denoteT_some ht
+      obtain ⟨hltv, hv⟩ := dite_denoteT_some hv
+      obtain ⟨hltb, hb⟩ := dite_denoteT_some hb
+      refine ⟨by simp [ENode.children, hltt, hltv, hltb], ?_⟩
+      rw [denoteNode, ht, hv, hb, hname]; rfl
+    | proj s j e' =>
+      rw [denoteNode, Option.bind_eq_some_iff] at h
+      obtain ⟨x, hx, h⟩ := h
+      rw [Option.map_eq_some_iff] at h
+      obtain ⟨name, hname, rfl⟩ := h
+      obtain ⟨hlt, hx⟩ := dite_denoteT_some hx
+      refine ⟨by simp [ENode.children, hlt], ?_⟩
+      rw [denoteNode, hx, hname]; rfl
+
+/-- A successful tier-aware denotation implies two-tier validity. -/
+theorem denoteT_valid2 {st : EStore} {i : EIdx} {a : Expr}
+    (h : st.denoteT i = some a) : st.Valid2 i := by
+  obtain ⟨n, hn, -, -⟩ := denoteT_some_inv h
+  exact getNode_valid2 hn
+
+/-- Tier-aware denotation is stable under store extension. -/
+theorem denoteT_mono {st st' : EStore} (hext : Ext st st') :
+    ∀ {i : EIdx} {a : Expr}, st.denoteT i = some a → st'.denoteT i = some a := by
+  intro i
+  induction i using emlt_induction with
+  | ind i ih =>
+    intro a h
+    obtain ⟨n, hn, hc, hd⟩ := denoteT_some_inv h
+    rw [denoteT_node (hext.getNode hn) hc]
+    exact denoteNode_mono hext (fun c hcin x hx => ih c (hc c hcin) hx) hd
+
+/-- Stores that agree on `getNode` at the valid indices (and share the
+level/name tables) denote all valid indices identically — the
+transport along an intern's push (the pushed node sits above every
+previously valid position, in either tier). -/
+theorem denoteT_agree {st st' : EStore} (h : st.TWF)
+    (hn : ∀ j, st.Valid2 j → st'.getNode j = st.getNode j)
+    (hl : st'.lnodes = st.lnodes) (hnm : st'.nnodes = st.nnodes) :
+    ∀ j, st.Valid2 j → st'.denoteT j = st.denoteT j := by
+  intro j
+  induction j using emlt_induction with
+  | ind j ih =>
+    intro hv
+    obtain ⟨n, hnj⟩ := hv.getNode_isSome
+    rw [denoteT.eq_def, denoteT.eq_def, hn j hv, hnj]
+    refine denoteNode_congr' (fun c hc => ?_)
+      (fun u _hu => denoteL_eq_of_lnodes_eq hl u)
+      (fun q _hq => denoteN_eq_of_nnodes_eq hnm q)
+    by_cases hcj : emlt c j
+    · simp only [dif_pos hcj]
+      exact ih c hcj (h.getNode_children_valid2 hnj c hc)
+    · simp [dif_neg hcj]
+
+/-- On a two-tier store the tier-aware denotation agrees with the
+tier-one denotation at every even index (tier-one nodes reference only
+tier-one children). -/
+theorem TWF.denoteT_even {st : EStore} (h : st.TWF) :
+    ∀ {i : EIdx}, etier i = 0 → st.denoteT i = st.denote i := by
+  intro i
+  induction i using emlt_induction with
+  | ind i ih =>
+    intro hti
+    rw [denoteT.eq_def, denote.eq_def, getNode_eq_node1? hti]
+    cases hn : st.node1? i with
+    | none => rfl
+    | some n =>
+      refine denoteNode_congr fun c hcin => ?_
+      obtain ⟨hct, hcp⟩ := h.children_lt (epos i) n (node1?_nodes hn) c hcin
+      have hce : emlt c i := .inr ⟨by omega, hcp⟩
+      have hclt : c < i := lt_of_epos_lt hct hti hcp
+      rw [dif_pos hce, dif_pos hclt]
+      exact ih c hce hct
+
+/-- On a flag-off well-formed store the tier-aware denotation *is* the
+denotation, at every index (tier two is empty, so odd indices read
+`none` on both sides). -/
+theorem WF.denoteT_eq {st : EStore} (hwf : st.WF) (i : EIdx) :
+    st.denoteT i = st.denote i := by
+  rcases etier_cases i with ht | ht
+  · exact hwf.toTWF.denoteT_even ht
+  · have hg : st.getNode i = none := by
+      unfold getNode
+      rw [if_neg (by omega)]
+      exact hwf.tnodes_none _
+    have hn1 : st.node1? i = none := by
+      unfold node1?
+      rw [if_neg (by omega)]
+    rw [denoteT.eq_def, hg, denote.eq_def, hn1]
+
+/-- A denoting tier-one index denotes tier-aware (the bridge every
+boundary denotation fact crosses into the flag-on battery). -/
+theorem denoteT_of_denote {st : EStore} (h : st.TWF) {i : EIdx}
+    {a : Expr} (hd : st.denote i = some a) : st.denoteT i = some a := by
+  rw [h.denoteT_even (denote_etier hd)]
+  exact hd
+
+/-- A tier-aware denotation at an even index is a tier-one
+denotation. -/
+theorem denote_of_denoteT_even {st : EStore} (h : st.TWF) {i : EIdx}
+    {a : Expr} (ht : etier i = 0) (hd : st.denoteT i = some a) :
+    st.denote i = some a := by
+  rw [← h.denoteT_even ht]
+  exact hd
+
+/-- Enabling tier two is invisible to the tier-aware denotation (the
+flag is not a table). -/
+theorem enableTierTwo_denoteT (st : EStore) :
+    ∀ i, st.enableTierTwo.denoteT i = st.denoteT i := by
+  intro i
+  induction i using emlt_induction with
+  | ind i ih =>
+    rw [denoteT.eq_def, denoteT.eq_def,
+      show st.enableTierTwo.getNode i = st.getNode i from rfl]
+    cases st.getNode i with
+    | none => rfl
+    | some n =>
+      refine denoteNode_congr' (fun c hcin => ?_)
+        (fun u _ => denoteL_eq_of_lnodes_eq
+          (st := st) (st' := st.enableTierTwo) rfl u)
+        (fun q _ => denoteN_eq_of_nnodes_eq
+          (st := st) (st' := st.enableTierTwo) rfl q)
+      by_cases hcj : emlt c i
+      · simp only [dif_pos hcj]
+        exact ih c hcj
+      · simp [dif_neg hcj]
+
+/-- Truncation is the identity on the tier-aware denotation at every
+even index (the tier-one sub-DAG survives verbatim). -/
+theorem truncateTierTwo_denoteT {st : EStore} (h : st.TWF) {i : EIdx}
+    (ht : etier i = 0) :
+    st.truncateTierTwo.denoteT i = st.denoteT i := by
+  rw [(truncateTierTwo_wf h).denoteT_eq, truncateTierTwo_denote,
+    h.denoteT_even ht]
+
+/-- `intern` leaves the level table unchanged (either branch). -/
+theorem intern_lnodes (st : EStore) (n : ENode) :
+    (st.intern n).2.lnodes = st.lnodes := by
+  unfold intern
+  split
+  · exact internT_lnodes st n
+  · rw [internP_eq]
+    split <;> rfl
+
+/-- `intern` leaves the name table unchanged (either branch). -/
+theorem intern_nnodes (st : EStore) (n : ENode) :
+    (st.intern n).2.nnodes = st.nnodes := by
+  unfold intern
+  split
+  · exact internT_nnodes st n
+  · rw [internP_eq]
+    split <;> rfl
+
+/-- An intern's push is invisible to `getNode` at every previously
+valid index (the fresh node sits above the valid range, in either
+tier). -/
+theorem intern_getNode_stable (st : EStore) (n : ENode) :
+    ∀ j, st.Valid2 j → (st.intern n).2.getNode j = st.getNode j := by
+  intro j hv
+  unfold intern
+  split
+  · rw [internT_eq]
+    split
+    · rfl
+    · split
+      · rfl
+      · rcases etier_cases j with ht | ht
+        · rw [getNode_tierOne ht, getNode_tierOne ht]
+        · unfold getNode
+          rw [if_neg (by omega), if_neg (by omega)]
+          dsimp only
+          rcases hv with ⟨ht', -⟩ | ⟨-, hp⟩
+          · exact absurd ht' (by omega)
+          · rw [Array.getElem?_push, if_neg (Nat.ne_of_lt hp)]
+  · rw [internP_eq]
+    split
+    · rfl
+    · rcases etier_cases j with ht | ht
+      · rw [getNode_tierOne ht, getNode_tierOne ht]
+        dsimp only
+        rcases hv with ⟨-, hp⟩ | ⟨ht', -⟩
+        · rw [Array.getElem?_push, if_neg (Nat.ne_of_lt hp)]
+        · exact absurd ht' (by omega)
+      · unfold getNode
+        rw [if_neg (by omega), if_neg (by omega)]
+
+/-- The tier-aware faithfulness of the dispatching intern: the
+returned index denotes the node's denotation over the *pre-intern*
+children denotations (which the push does not disturb). -/
+theorem intern_denoteT {st : EStore} {n : ENode} (h : st.TWF)
+    (hc : ∀ c ∈ n.children, st.Valid2 c) :
+    (st.intern n).2.denoteT (st.intern n).1
+      = denoteNode st.denoteT st.denoteL st.denoteN n := by
+  have hn := intern_getNode (n := n) h
+  have hstable := intern_getNode_stable st n
+  have hcm : ∀ c ∈ n.children, emlt c (st.intern n).1 := by
+    intro c hcin
+    -- the returned index either stores the node canonically (its
+    -- children sit `emlt`-below by the invariant) or is the fresh
+    -- top-of-tier index (above every valid position of its tier)
+    unfold intern
+    by_cases hflag : st.tierTwo
+    · rw [if_pos hflag, internT_eq]
+      split
+      case h_1 i hcons =>
+        exact h.getNode_children_emlt
+          (getNode_of_stored ((h.cons_graph n i).mp hcons)) c hcin
+      case h_2 hmiss =>
+        split
+        case h_1 i htcons =>
+          obtain ⟨hti, hold⟩ := (h.t_cons_graph n i).mp htcons
+          refine h.getNode_children_emlt ?_ c hcin
+          rw [← odd_encode hti]
+          exact getNode_tierTwo hold
+        case h_2 =>
+          rcases hc c hcin with ⟨hct, -⟩ | ⟨hct, hcp⟩
+          · exact .inl (by simp [hct])
+          · exact .inr ⟨by simp [hct], by simpa using hcp⟩
+    · rw [if_neg hflag, internP_eq]
+      split
+      case h_1 i hcons =>
+        exact h.getNode_children_emlt
+          (getNode_of_stored ((h.cons_graph n i).mp hcons)) c hcin
+      case h_2 hmiss =>
+        rcases hc c hcin with ⟨hct, hcp⟩ | ⟨hct, hcp⟩
+        · exact .inr ⟨by simp [hct], by simpa using hcp⟩
+        · rw [h.toff_tnil (Bool.not_eq_true _ ▸ hflag)] at hcp
+          exact absurd hcp (Nat.not_lt_zero _)
+  rw [denoteT_node hn hcm]
+  refine denoteNode_congr' (fun c hcin => ?_)
+    (fun u _ => denoteL_eq_of_lnodes_eq (intern_lnodes st n) u)
+    (fun q _ => denoteN_eq_of_nnodes_eq (intern_nnodes st n) q)
+  exact denoteT_agree h hstable (intern_lnodes st n) (intern_nnodes st n)
+    c (hc c hcin)
 
 end EStore
 
