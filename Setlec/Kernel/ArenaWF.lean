@@ -3989,262 +3989,6 @@ theorem internLevel_of_denoteL {st : EStore} (hwf : st.TWF) :
     rw [ihu hdu, ihv hdv]
     rw [internL_eq, (hwf.lcons_graph _ i).mpr hn]
 
-/-- With a valid child-codomain fact, `internBMFast` is `internBM`. -/
-theorem internBMFast_eq {st : EStore} (hwf : st.WF) {m : BinderMeta}
-    {child : Option (Level × LIdx)}
-    (hchild : ∀ v i, child = some (v, i) → st.denoteL i = some v) :
-    st.internBMFast m child = st.internBM m := by
-  obtain ⟨bi, (_ | v)⟩ := m
-  · cases child with
-    | none => rfl
-    | some p => rfl
-  · match child with
-    | none => rfl
-    | some (vc, ic) =>
-      have hden : st.denoteL ic = some vc := hchild vc ic rfl
-      cases v with
-      | zero => rfl
-      | succ u => rfl
-      | max u v => rfl
-      | param p => rfl
-      | imax u vtail =>
-        show (if levelPtrBEq vtail vc then _ else _) = _
-        by_cases hb : levelPtrBEq vtail vc = true
-        · have hvv : vtail = vc := by
-            have hbeq : (vtail == vc) = true := hb
-            exact eq_of_beq hbeq
-          subst hvv
-          rw [if_pos hb]
-          show ((⟨bi, some ((st.internLevel u).2.internL
-              (.imax (st.internLevel u).1 ic)).1⟩ : IBinderMeta),
-            ((st.internLevel u).2.internL
-              (.imax (st.internLevel u).1 ic)).2)
-            = st.internBM ⟨bi, some (.imax u vtail)⟩
-          obtain ⟨hwf₁, hext₁, -⟩ := internLevel_spec hwf u
-          have hstep : (st.internLevel u).2.internLevel vtail
-              = (ic, (st.internLevel u).2) :=
-            internLevel_of_denoteL hwf₁.toTWF (denoteL_mono hext₁ hden)
-          show _ = ((⟨bi, some (st.internLevel (.imax u vtail)).1⟩ :
-              IBinderMeta), (st.internLevel (.imax u vtail)).2)
-          have hlvl : st.internLevel (.imax u vtail)
-              = (st.internLevel u).2.internL
-                (.imax (st.internLevel u).1 ic) := by
-            show ((st.internLevel u).2.internLevel vtail).2.internL
-                (.imax (st.internLevel u).1
-                  ((st.internLevel u).2.internLevel vtail).1)
-              = _
-            rw [hstep]
-          rw [hlvl]
-        · rw [if_neg hb]
-          rfl
-
-/-- The codomain slot of `internBM` on an annotated meta. -/
-theorem internBM_cod {st : EStore} (hwf : st.WF) {bi : BinderInfo}
-    {v : Level} :
-    (st.internBM ⟨bi, some v⟩).1
-        = ⟨bi, some (st.internLevel v).1⟩ ∧
-      (st.internBM ⟨bi, some v⟩).2 = (st.internLevel v).2 ∧
-      (st.internBM ⟨bi, some v⟩).2.denoteL (st.internLevel v).1
-        = some v := by
-  obtain ⟨-, -, hden⟩ := internLevel_spec hwf v
-  exact ⟨rfl, rfl, hden⟩
-
-/-- The fast-path traversal computes exactly `internExpr`, and a
-returned codomain fact is valid in the result store. -/
-theorem internExprFastGo_eq :
-    ∀ (x : Expr) {st : EStore}, st.WF →
-      (st.internExprFastGo x).1 = st.internExpr x ∧
-      (∀ v i, (st.internExprFastGo x).2 = some (v, i) →
-        (st.internExpr x).2.denoteL i = some v) := by
-  intro x
-  induction x with
-  | bvar i =>
-    intro st hwf
-    exact ⟨rfl, fun v i h => nomatch h⟩
-  | sort u =>
-    intro st hwf
-    exact ⟨rfl, fun v i h => nomatch h⟩
-  | const n us =>
-    intro st hwf
-    exact ⟨rfl, fun v i h => nomatch h⟩
-  | lit l =>
-    intro st hwf
-    exact ⟨rfl, fun v i h => nomatch h⟩
-  | fvar idx n ty ih =>
-    intro st hwf
-    have h1 : (st.internExprFastGo ty).1 = st.internExpr ty := (ih hwf).1
-    constructor
-    · show (((st.internExprFastGo ty).1.2.internName n).2.intern
-          (.fvar idx ((st.internExprFastGo ty).1.2.internName n).1
-            (st.internExprFastGo ty).1.1)) = _
-      rw [h1]
-      rfl
-    · intro v i h
-      exact nomatch h
-  | app f a ihf iha =>
-    intro st hwf
-    have h1 : (st.internExprFastGo f).1 = st.internExpr f := (ihf hwf).1
-    have hwf₁ : (st.internExpr f).2.WF := (internExpr_spec hwf f).1
-    have h2 : ((st.internExpr f).2.internExprFastGo a).1
-        = (st.internExpr f).2.internExpr a := (iha hwf₁).1
-    constructor
-    · show (((st.internExprFastGo f).1.2.internExprFastGo a).1.2.intern
-          (.app (st.internExprFastGo f).1.1
-            ((st.internExprFastGo f).1.2.internExprFastGo a).1.1)) = _
-      rw [h1, h2]
-      rfl
-    · intro v i h
-      exact nomatch h
-  | proj s j e ihe =>
-    intro st hwf
-    have h1 : (st.internExprFastGo e).1 = st.internExpr e := (ihe hwf).1
-    constructor
-    · show (((st.internExprFastGo e).1.2.internName s).2.intern
-          (.proj ((st.internExprFastGo e).1.2.internName s).1 j
-            (st.internExprFastGo e).1.1)) = _
-      rw [h1]
-      rfl
-    · intro v i h
-      exact nomatch h
-  | letE n ty val body iht ihv ihb =>
-    intro st hwf
-    have h1 : (st.internExprFastGo ty).1 = st.internExpr ty := (iht hwf).1
-    have hwf₁ : (st.internExpr ty).2.WF := (internExpr_spec hwf ty).1
-    have h2 : ((st.internExpr ty).2.internExprFastGo val).1
-        = (st.internExpr ty).2.internExpr val := (ihv hwf₁).1
-    have hwf₂ : ((st.internExpr ty).2.internExpr val).2.WF :=
-      (internExpr_spec hwf₁ val).1
-    have h3 : (((st.internExpr ty).2.internExpr val).2.internExprFastGo
-          body).1
-        = ((st.internExpr ty).2.internExpr val).2.internExpr body :=
-      (ihb hwf₂).1
-    constructor
-    · show (((((st.internExprFastGo ty).1.2.internExprFastGo
-          val).1.2.internExprFastGo body).1.2.internName n).2.intern
-          (.letE
-            ((((st.internExprFastGo ty).1.2.internExprFastGo
-              val).1.2.internExprFastGo body).1.2.internName n).1
-            (st.internExprFastGo ty).1.1
-            ((st.internExprFastGo ty).1.2.internExprFastGo val).1.1
-            (((st.internExprFastGo ty).1.2.internExprFastGo
-              val).1.2.internExprFastGo body).1.1)) = _
-      rw [h1, h2, h3]
-      rfl
-    · intro v i h
-      exact nomatch h
-  | lam n ty body m iht ihb =>
-    intro st hwf
-    have h1 : (st.internExprFastGo ty).1 = st.internExpr ty := (iht hwf).1
-    have hwf₁ : (st.internExpr ty).2.WF := (internExpr_spec hwf ty).1
-    obtain ⟨h2, hchild⟩ := ihb (st := (st.internExpr ty).2) hwf₁
-    have hwf₂ : ((st.internExpr ty).2.internExpr body).2.WF :=
-      (internExpr_spec hwf₁ body).1
-    have hbm : ((st.internExpr ty).2.internExpr body).2.internBMFast m
-          ((st.internExpr ty).2.internExprFastGo body).2
-        = ((st.internExpr ty).2.internExpr body).2.internBM m := by
-      refine internBMFast_eq hwf₂ ?_
-      intro v i h
-      exact hchild v i h
-    constructor
-    · show (((((st.internExprFastGo ty).1.2.internExprFastGo
-          body).1.2.internBMFast m
-          ((st.internExprFastGo ty).1.2.internExprFastGo
-            body).2).2.internName n).2.intern
-          (.lam
-            (((((st.internExprFastGo ty).1.2.internExprFastGo
-              body).1.2.internBMFast m
-              ((st.internExprFastGo ty).1.2.internExprFastGo
-                body).2).2.internName n).1)
-            (st.internExprFastGo ty).1.1
-            ((st.internExprFastGo ty).1.2.internExprFastGo body).1.1
-            (((st.internExprFastGo ty).1.2.internExprFastGo
-              body).1.2.internBMFast m
-              ((st.internExprFastGo ty).1.2.internExprFastGo body).2).1)) = _
-      rw [h1, h2, hbm]
-      rfl
-    · intro v i h
-      revert h
-      show (match m.cod,
-          ((((st.internExprFastGo ty).1.2.internExprFastGo
-            body).1.2.internBMFast m
-            ((st.internExprFastGo ty).1.2.internExprFastGo body).2).1).cod
-          with
-        | some v, some i => some (v, i)
-        | _, _ => none) = some (v, i) → _
-      rw [h1, h2, hbm]
-      obtain ⟨bi, (_ | v₀)⟩ := m
-      · intro h
-        exact nomatch h
-      · obtain ⟨hm', hst', hden'⟩ := internBM_cod (bi := bi) (v := v₀) hwf₂
-        rw [hm']
-        intro h
-        simp only [Option.some.injEq] at h
-        obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h
-        show (((((st.internExpr ty).2.internExpr body).2.internBM
-            ⟨bi, some v₀⟩).2.internName n).2.intern _).2.denoteL _ = some v₀
-        rw [hst']
-        exact denoteL_mono (intern_ext _ _)
-          (denoteL_mono (internName_ext _ _) hden')
-  | forallE n ty body m iht ihb =>
-    intro st hwf
-    have h1 : (st.internExprFastGo ty).1 = st.internExpr ty := (iht hwf).1
-    have hwf₁ : (st.internExpr ty).2.WF := (internExpr_spec hwf ty).1
-    obtain ⟨h2, hchild⟩ := ihb (st := (st.internExpr ty).2) hwf₁
-    have hwf₂ : ((st.internExpr ty).2.internExpr body).2.WF :=
-      (internExpr_spec hwf₁ body).1
-    have hbm : ((st.internExpr ty).2.internExpr body).2.internBMFast m
-          ((st.internExpr ty).2.internExprFastGo body).2
-        = ((st.internExpr ty).2.internExpr body).2.internBM m := by
-      refine internBMFast_eq hwf₂ ?_
-      intro v i h
-      exact hchild v i h
-    constructor
-    · show (((((st.internExprFastGo ty).1.2.internExprFastGo
-          body).1.2.internBMFast m
-          ((st.internExprFastGo ty).1.2.internExprFastGo
-            body).2).2.internName n).2.intern
-          (.forallE
-            (((((st.internExprFastGo ty).1.2.internExprFastGo
-              body).1.2.internBMFast m
-              ((st.internExprFastGo ty).1.2.internExprFastGo
-                body).2).2.internName n).1)
-            (st.internExprFastGo ty).1.1
-            ((st.internExprFastGo ty).1.2.internExprFastGo body).1.1
-            (((st.internExprFastGo ty).1.2.internExprFastGo
-              body).1.2.internBMFast m
-              ((st.internExprFastGo ty).1.2.internExprFastGo body).2).1)) = _
-      rw [h1, h2, hbm]
-      rfl
-    · intro v i h
-      revert h
-      show (match m.cod,
-          ((((st.internExprFastGo ty).1.2.internExprFastGo
-            body).1.2.internBMFast m
-            ((st.internExprFastGo ty).1.2.internExprFastGo body).2).1).cod
-          with
-        | some v, some i => some (v, i)
-        | _, _ => none) = some (v, i) → _
-      rw [h1, h2, hbm]
-      obtain ⟨bi, (_ | v₀)⟩ := m
-      · intro h
-        exact nomatch h
-      · obtain ⟨hm', hst', hden'⟩ := internBM_cod (bi := bi) (v := v₀) hwf₂
-        rw [hm']
-        intro h
-        simp only [Option.some.injEq] at h
-        obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h
-        show (((((st.internExpr ty).2.internExpr body).2.internBM
-            ⟨bi, some v₀⟩).2.internName n).2.intern _).2.denoteL _ = some v₀
-        rw [hst']
-        exact denoteL_mono (intern_ext _ _)
-          (denoteL_mono (internName_ext _ _) hden')
-
-/-- The entry-boundary interning with the codomain-chain fast path is
-`internExpr` (task #72). -/
-theorem internExprFast_eq {st : EStore} (hwf : st.WF) (e : Expr) :
-    st.internExprFast e = st.internExpr e :=
-  (internExprFastGo_eq e hwf).1
-
 /-! ## Tier two: dispatch theorems and preservation (task #64)
 
 The low-bit encoding makes the tier split unconditional: an even
@@ -5924,6 +5668,499 @@ theorem TWF.ehasParamD_false2 {st : EStore} (h : st.TWF) {e : EIdx}
   rw [Bool.not_eq_eq_eq_not, Bool.not_true] at hp
   rw [← h.ehasParamD_exact2 e hx]
   exact hp
+
+/-! ## Whole-tree intern round-trip under `TWF`
+(task #64 item 1f)
+
+The `internExpr` round-trip of `internExpr_spec`, restated over the
+two-tier invariant with `Valid2`/`denoteT`, and the fast-path
+equations re-established from it.  The flag-off fast-path lemmas
+become one-line delegators through `WF.toTWF`. -/
+
+/-- One interning step of the two-tier round-trip: interning a node
+whose children are valid two-tier indices denoting the subterms
+tier-aware gives the invariant, the extension, and the node's
+tier-aware denotation. -/
+private theorem intern_stepT {st : EStore} {n : ENode} (hwf : st.TWF)
+    (hc : ∀ c ∈ n.children, st.Valid2 c)
+    (hlv : ∀ u ∈ n.levels, u < st.lnodes.size)
+    (hnm : ∀ p ∈ n.names, p < st.nnodes.size) {a : Expr}
+    (hd : denoteNode st.denoteT st.denoteL st.denoteN n = some a) :
+    (st.intern n).2.TWF ∧ Ext st (st.intern n).2 ∧
+      (st.intern n).2.denoteT (st.intern n).1 = some a :=
+  ⟨intern_twf hwf hc hlv hnm, intern_ext st n,
+    by rw [intern_denoteT hwf hc]; exact hd⟩
+
+/-- `internExpr` preserves the two-tier invariant, extends the store,
+and its result denotes the interned expression tier-aware. -/
+theorem internExpr_specT {st : EStore} (hwf : st.TWF) (e : Expr) :
+    (st.internExpr e).2.TWF ∧ Ext st (st.internExpr e).2 ∧
+      (st.internExpr e).2.denoteT (st.internExpr e).1 = some e := by
+  induction e generalizing st with
+  | bvar i =>
+    exact intern_stepT hwf (by simp [ENode.children])
+      (by simp [ENode.levels]) (by simp [ENode.names]) rfl
+  | sort u =>
+    obtain ⟨hwf₁, hext₁, hden₁⟩ := internLevel_specT hwf u
+    rcases hI : st.internLevel u with ⟨ui, st₁⟩
+    simp only [hI] at hwf₁ hext₁ hden₁
+    have hstep := intern_stepT (n := .sort ui) hwf₁
+      (by simp [ENode.children])
+      (by simpa [ENode.levels] using denoteL_lt_size hden₁)
+      (by simp [ENode.names])
+      (a := .sort u) (by rw [denoteNode, hden₁]; rfl)
+    simp only [internExpr, hI]
+    exact ⟨hstep.1, hext₁.trans hstep.2.1, hstep.2.2⟩
+  | const n us =>
+    obtain ⟨hwf₁, hext₁, hden₁⟩ := internLevels_specT hwf us
+    rcases hI : st.internLevels us with ⟨uis, st₁⟩
+    simp only [hI] at hwf₁ hext₁ hden₁
+    obtain ⟨hwf₂, hext₂, hden₂⟩ := internName_specT hwf₁ n
+    rcases hN : st₁.internName n with ⟨ni, st₂⟩
+    simp only [hN] at hwf₂ hext₂ hden₂
+    have hden₁' := denoteLList_mono hext₂ hden₁
+    have hstep := intern_stepT (n := .const ni uis) hwf₂
+      (by simp [ENode.children])
+      (by simpa [ENode.levels] using denoteLList_lt_size hden₁')
+      (by simpa [ENode.names] using denoteN_lt_size hden₂)
+      (a := .const n us) (by rw [denoteNode, hden₁', hden₂]; rfl)
+    simp only [internExpr, hI, hN]
+    exact ⟨hstep.1, hext₁.trans (hext₂.trans hstep.2.1), hstep.2.2⟩
+  | lit l =>
+    exact intern_stepT hwf (by simp [ENode.children])
+      (by simp [ENode.levels]) (by simp [ENode.names]) rfl
+  | fvar idx nm ty ih =>
+    obtain ⟨hwf₁, hext₁, hden₁⟩ := ih hwf
+    rcases hI : st.internExpr ty with ⟨t, st₁⟩
+    simp only [hI] at hwf₁ hext₁ hden₁
+    obtain ⟨hwf₂, hext₂, hden₂⟩ := internName_specT hwf₁ nm
+    rcases hN : st₁.internName nm with ⟨ni, st₂⟩
+    simp only [hN] at hwf₂ hext₂ hden₂
+    have hden₁' := denoteT_mono hext₂ hden₁
+    have hstep := intern_stepT (n := .fvar idx ni t) hwf₂
+      (by simpa [ENode.children] using denoteT_valid2 hden₁')
+      (by simp [ENode.levels])
+      (by simpa [ENode.names] using denoteN_lt_size hden₂)
+      (a := .fvar idx nm ty) (by rw [denoteNode, hden₁', hden₂]; rfl)
+    simp only [internExpr, hI, hN]
+    exact ⟨hstep.1, hext₁.trans (hext₂.trans hstep.2.1), hstep.2.2⟩
+  | app f a ihf iha =>
+    obtain ⟨hwf₁, hext₁, hden₁⟩ := ihf hwf
+    rcases hI₁ : st.internExpr f with ⟨fi, st₁⟩
+    simp only [hI₁] at hwf₁ hext₁ hden₁
+    obtain ⟨hwf₂, hext₂, hden₂⟩ := iha hwf₁
+    rcases hI₂ : st₁.internExpr a with ⟨ai, st₂⟩
+    simp only [hI₂] at hwf₂ hext₂ hden₂
+    have hden₁' := denoteT_mono hext₂ hden₁
+    have hstep := intern_stepT (n := .app fi ai) hwf₂
+      (by
+        simp only [ENode.children, List.mem_cons, List.not_mem_nil, or_false]
+        rintro c (rfl | rfl)
+        · exact denoteT_valid2 hden₁'
+        · exact denoteT_valid2 hden₂)
+      (by simp [ENode.levels])
+      (by simp [ENode.names])
+      (a := .app f a) (by rw [denoteNode, hden₁', hden₂]; rfl)
+    simp only [internExpr, hI₁, hI₂]
+    exact ⟨hstep.1, hext₁.trans (hext₂.trans hstep.2.1), hstep.2.2⟩
+  | lam n ty body m ihty ihbody =>
+    obtain ⟨hwf₁, hext₁, hden₁⟩ := ihty hwf
+    rcases hI₁ : st.internExpr ty with ⟨ti, st₁⟩
+    simp only [hI₁] at hwf₁ hext₁ hden₁
+    obtain ⟨hwf₂, hext₂, hden₂⟩ := ihbody hwf₁
+    rcases hI₂ : st₁.internExpr body with ⟨bi, st₂⟩
+    simp only [hI₂] at hwf₂ hext₂ hden₂
+    obtain ⟨hwf₃, hext₃, hden₃⟩ := internBM_specT hwf₂ m
+    rcases hI₃ : st₂.internBM m with ⟨mi, st₃⟩
+    simp only [hI₃] at hwf₃ hext₃ hden₃
+    obtain ⟨hwf₄, hext₄, hden₄⟩ := internName_specT hwf₃ n
+    rcases hI₄ : st₃.internName n with ⟨ni, st₄⟩
+    simp only [hI₄] at hwf₄ hext₄ hden₄
+    have hden₁' := denoteT_mono hext₄
+      (denoteT_mono hext₃ (denoteT_mono hext₂ hden₁))
+    have hden₂' := denoteT_mono hext₄ (denoteT_mono hext₃ hden₂)
+    have hden₃' := denoteBM_mono hext₄ hden₃
+    have hstep := intern_stepT (n := .lam ni ti bi mi) hwf₄
+      (by
+        simp only [ENode.children, List.mem_cons, List.not_mem_nil, or_false]
+        rintro c (rfl | rfl)
+        · exact denoteT_valid2 hden₁'
+        · exact denoteT_valid2 hden₂')
+      (by simpa [ENode.levels] using denoteBM_lt_size hden₃')
+      (by simpa [ENode.names] using denoteN_lt_size hden₄)
+      (a := .lam n ty body m)
+      (by rw [denoteNode, hden₁', hden₂', hden₃', hden₄]; rfl)
+    simp only [internExpr, hI₁, hI₂, hI₃, hI₄]
+    exact ⟨hstep.1,
+      hext₁.trans (hext₂.trans (hext₃.trans (hext₄.trans hstep.2.1))),
+      hstep.2.2⟩
+  | forallE n ty body m ihty ihbody =>
+    obtain ⟨hwf₁, hext₁, hden₁⟩ := ihty hwf
+    rcases hI₁ : st.internExpr ty with ⟨ti, st₁⟩
+    simp only [hI₁] at hwf₁ hext₁ hden₁
+    obtain ⟨hwf₂, hext₂, hden₂⟩ := ihbody hwf₁
+    rcases hI₂ : st₁.internExpr body with ⟨bi, st₂⟩
+    simp only [hI₂] at hwf₂ hext₂ hden₂
+    obtain ⟨hwf₃, hext₃, hden₃⟩ := internBM_specT hwf₂ m
+    rcases hI₃ : st₂.internBM m with ⟨mi, st₃⟩
+    simp only [hI₃] at hwf₃ hext₃ hden₃
+    obtain ⟨hwf₄, hext₄, hden₄⟩ := internName_specT hwf₃ n
+    rcases hI₄ : st₃.internName n with ⟨ni, st₄⟩
+    simp only [hI₄] at hwf₄ hext₄ hden₄
+    have hden₁' := denoteT_mono hext₄
+      (denoteT_mono hext₃ (denoteT_mono hext₂ hden₁))
+    have hden₂' := denoteT_mono hext₄ (denoteT_mono hext₃ hden₂)
+    have hden₃' := denoteBM_mono hext₄ hden₃
+    have hstep := intern_stepT (n := .forallE ni ti bi mi) hwf₄
+      (by
+        simp only [ENode.children, List.mem_cons, List.not_mem_nil, or_false]
+        rintro c (rfl | rfl)
+        · exact denoteT_valid2 hden₁'
+        · exact denoteT_valid2 hden₂')
+      (by simpa [ENode.levels] using denoteBM_lt_size hden₃')
+      (by simpa [ENode.names] using denoteN_lt_size hden₄)
+      (a := .forallE n ty body m)
+      (by rw [denoteNode, hden₁', hden₂', hden₃', hden₄]; rfl)
+    simp only [internExpr, hI₁, hI₂, hI₃, hI₄]
+    exact ⟨hstep.1,
+      hext₁.trans (hext₂.trans (hext₃.trans (hext₄.trans hstep.2.1))),
+      hstep.2.2⟩
+  | letE n ty val body ihty ihval ihbody =>
+    obtain ⟨hwf₁, hext₁, hden₁⟩ := ihty hwf
+    rcases hI₁ : st.internExpr ty with ⟨ti, st₁⟩
+    simp only [hI₁] at hwf₁ hext₁ hden₁
+    obtain ⟨hwf₂, hext₂, hden₂⟩ := ihval hwf₁
+    rcases hI₂ : st₁.internExpr val with ⟨vi, st₂⟩
+    simp only [hI₂] at hwf₂ hext₂ hden₂
+    obtain ⟨hwf₃, hext₃, hden₃⟩ := ihbody hwf₂
+    rcases hI₃ : st₂.internExpr body with ⟨bi, st₃⟩
+    simp only [hI₃] at hwf₃ hext₃ hden₃
+    obtain ⟨hwf₄, hext₄, hden₄⟩ := internName_specT hwf₃ n
+    rcases hI₄ : st₃.internName n with ⟨ni, st₄⟩
+    simp only [hI₄] at hwf₄ hext₄ hden₄
+    have hden₁' := denoteT_mono hext₄
+      (denoteT_mono hext₃ (denoteT_mono hext₂ hden₁))
+    have hden₂' := denoteT_mono hext₄ (denoteT_mono hext₃ hden₂)
+    have hden₃' := denoteT_mono hext₄ hden₃
+    have hstep := intern_stepT (n := .letE ni ti vi bi) hwf₄
+      (by
+        simp only [ENode.children, List.mem_cons, List.not_mem_nil, or_false]
+        rintro c (rfl | rfl | rfl)
+        · exact denoteT_valid2 hden₁'
+        · exact denoteT_valid2 hden₂'
+        · exact denoteT_valid2 hden₃')
+      (by simp [ENode.levels])
+      (by simpa [ENode.names] using denoteN_lt_size hden₄)
+      (a := .letE n ty val body)
+      (by rw [denoteNode, hden₁', hden₂', hden₃', hden₄]; rfl)
+    simp only [internExpr, hI₁, hI₂, hI₃, hI₄]
+    exact ⟨hstep.1,
+      hext₁.trans (hext₂.trans (hext₃.trans (hext₄.trans hstep.2.1))),
+      hstep.2.2⟩
+  | proj sN i e ih =>
+    obtain ⟨hwf₁, hext₁, hden₁⟩ := ih hwf
+    rcases hI : st.internExpr e with ⟨ei, st₁⟩
+    simp only [hI] at hwf₁ hext₁ hden₁
+    obtain ⟨hwf₂, hext₂, hden₂⟩ := internName_specT hwf₁ sN
+    rcases hN : st₁.internName sN with ⟨si, st₂⟩
+    simp only [hN] at hwf₂ hext₂ hden₂
+    have hden₁' := denoteT_mono hext₂ hden₁
+    have hstep := intern_stepT (n := .proj si i ei) hwf₂
+      (by simpa [ENode.children] using denoteT_valid2 hden₁')
+      (by simp [ENode.levels])
+      (by simpa [ENode.names] using denoteN_lt_size hden₂)
+      (a := .proj sN i e) (by rw [denoteNode, hden₁', hden₂]; rfl)
+    simp only [internExpr, hI, hN]
+    exact ⟨hstep.1, hext₁.trans (hext₂.trans hstep.2.1), hstep.2.2⟩
+
+/-- With a valid child-codomain fact, `internBMFast` is `internBM`
+(two-tier form). -/
+theorem internBMFast_eqT {st : EStore} (hwf : st.TWF) {m : BinderMeta}
+    {child : Option (Level × LIdx)}
+    (hchild : ∀ v i, child = some (v, i) → st.denoteL i = some v) :
+    st.internBMFast m child = st.internBM m := by
+  obtain ⟨bi, (_ | v)⟩ := m
+  · cases child with
+    | none => rfl
+    | some p => rfl
+  · match child with
+    | none => rfl
+    | some (vc, ic) =>
+      have hden : st.denoteL ic = some vc := hchild vc ic rfl
+      cases v with
+      | zero => rfl
+      | succ u => rfl
+      | max u v => rfl
+      | param p => rfl
+      | imax u vtail =>
+        show (if levelPtrBEq vtail vc then _ else _) = _
+        by_cases hb : levelPtrBEq vtail vc = true
+        · have hvv : vtail = vc := by
+            have hbeq : (vtail == vc) = true := hb
+            exact eq_of_beq hbeq
+          subst hvv
+          rw [if_pos hb]
+          show ((⟨bi, some ((st.internLevel u).2.internL
+              (.imax (st.internLevel u).1 ic)).1⟩ : IBinderMeta),
+            ((st.internLevel u).2.internL
+              (.imax (st.internLevel u).1 ic)).2)
+            = st.internBM ⟨bi, some (.imax u vtail)⟩
+          obtain ⟨hwf₁, hext₁, -⟩ := internLevel_specT hwf u
+          have hstep : (st.internLevel u).2.internLevel vtail
+              = (ic, (st.internLevel u).2) :=
+            internLevel_of_denoteL hwf₁ (denoteL_mono hext₁ hden)
+          show _ = ((⟨bi, some (st.internLevel (.imax u vtail)).1⟩ :
+              IBinderMeta), (st.internLevel (.imax u vtail)).2)
+          have hlvl : st.internLevel (.imax u vtail)
+              = (st.internLevel u).2.internL
+                (.imax (st.internLevel u).1 ic) := by
+            show ((st.internLevel u).2.internLevel vtail).2.internL
+                (.imax (st.internLevel u).1
+                  ((st.internLevel u).2.internLevel vtail).1)
+              = _
+            rw [hstep]
+          rw [hlvl]
+        · rw [if_neg hb]
+          rfl
+
+/-- The codomain slot of `internBM` on an annotated meta (two-tier
+form). -/
+theorem internBM_codT {st : EStore} (hwf : st.TWF) {bi : BinderInfo}
+    {v : Level} :
+    (st.internBM ⟨bi, some v⟩).1
+        = ⟨bi, some (st.internLevel v).1⟩ ∧
+      (st.internBM ⟨bi, some v⟩).2 = (st.internLevel v).2 ∧
+      (st.internBM ⟨bi, some v⟩).2.denoteL (st.internLevel v).1
+        = some v := by
+  obtain ⟨-, -, hden⟩ := internLevel_specT hwf v
+  exact ⟨rfl, rfl, hden⟩
+
+/-- The fast-path traversal computes exactly `internExpr`, and a
+returned codomain fact is valid in the result store (two-tier form). -/
+theorem internExprFastGo_eqT :
+    ∀ (x : Expr) {st : EStore}, st.TWF →
+      (st.internExprFastGo x).1 = st.internExpr x ∧
+      (∀ v i, (st.internExprFastGo x).2 = some (v, i) →
+        (st.internExpr x).2.denoteL i = some v) := by
+  intro x
+  induction x with
+  | bvar i =>
+    intro st hwf
+    exact ⟨rfl, fun v i h => nomatch h⟩
+  | sort u =>
+    intro st hwf
+    exact ⟨rfl, fun v i h => nomatch h⟩
+  | const n us =>
+    intro st hwf
+    exact ⟨rfl, fun v i h => nomatch h⟩
+  | lit l =>
+    intro st hwf
+    exact ⟨rfl, fun v i h => nomatch h⟩
+  | fvar idx n ty ih =>
+    intro st hwf
+    have h1 : (st.internExprFastGo ty).1 = st.internExpr ty := (ih hwf).1
+    constructor
+    · show (((st.internExprFastGo ty).1.2.internName n).2.intern
+          (.fvar idx ((st.internExprFastGo ty).1.2.internName n).1
+            (st.internExprFastGo ty).1.1)) = _
+      rw [h1]
+      rfl
+    · intro v i h
+      exact nomatch h
+  | app f a ihf iha =>
+    intro st hwf
+    have h1 : (st.internExprFastGo f).1 = st.internExpr f := (ihf hwf).1
+    have hwf₁ : (st.internExpr f).2.TWF := (internExpr_specT hwf f).1
+    have h2 : ((st.internExpr f).2.internExprFastGo a).1
+        = (st.internExpr f).2.internExpr a := (iha hwf₁).1
+    constructor
+    · show (((st.internExprFastGo f).1.2.internExprFastGo a).1.2.intern
+          (.app (st.internExprFastGo f).1.1
+            ((st.internExprFastGo f).1.2.internExprFastGo a).1.1)) = _
+      rw [h1, h2]
+      rfl
+    · intro v i h
+      exact nomatch h
+  | proj s j e ihe =>
+    intro st hwf
+    have h1 : (st.internExprFastGo e).1 = st.internExpr e := (ihe hwf).1
+    constructor
+    · show (((st.internExprFastGo e).1.2.internName s).2.intern
+          (.proj ((st.internExprFastGo e).1.2.internName s).1 j
+            (st.internExprFastGo e).1.1)) = _
+      rw [h1]
+      rfl
+    · intro v i h
+      exact nomatch h
+  | letE n ty val body iht ihv ihb =>
+    intro st hwf
+    have h1 : (st.internExprFastGo ty).1 = st.internExpr ty := (iht hwf).1
+    have hwf₁ : (st.internExpr ty).2.TWF := (internExpr_specT hwf ty).1
+    have h2 : ((st.internExpr ty).2.internExprFastGo val).1
+        = (st.internExpr ty).2.internExpr val := (ihv hwf₁).1
+    have hwf₂ : ((st.internExpr ty).2.internExpr val).2.TWF :=
+      (internExpr_specT hwf₁ val).1
+    have h3 : (((st.internExpr ty).2.internExpr val).2.internExprFastGo
+          body).1
+        = ((st.internExpr ty).2.internExpr val).2.internExpr body :=
+      (ihb hwf₂).1
+    constructor
+    · show (((((st.internExprFastGo ty).1.2.internExprFastGo
+          val).1.2.internExprFastGo body).1.2.internName n).2.intern
+          (.letE
+            ((((st.internExprFastGo ty).1.2.internExprFastGo
+              val).1.2.internExprFastGo body).1.2.internName n).1
+            (st.internExprFastGo ty).1.1
+            ((st.internExprFastGo ty).1.2.internExprFastGo val).1.1
+            (((st.internExprFastGo ty).1.2.internExprFastGo
+              val).1.2.internExprFastGo body).1.1)) = _
+      rw [h1, h2, h3]
+      rfl
+    · intro v i h
+      exact nomatch h
+  | lam n ty body m iht ihb =>
+    intro st hwf
+    have h1 : (st.internExprFastGo ty).1 = st.internExpr ty := (iht hwf).1
+    have hwf₁ : (st.internExpr ty).2.TWF := (internExpr_specT hwf ty).1
+    obtain ⟨h2, hchild⟩ := ihb (st := (st.internExpr ty).2) hwf₁
+    have hwf₂ : ((st.internExpr ty).2.internExpr body).2.TWF :=
+      (internExpr_specT hwf₁ body).1
+    have hbm : ((st.internExpr ty).2.internExpr body).2.internBMFast m
+          ((st.internExpr ty).2.internExprFastGo body).2
+        = ((st.internExpr ty).2.internExpr body).2.internBM m := by
+      refine internBMFast_eqT hwf₂ ?_
+      intro v i h
+      exact hchild v i h
+    constructor
+    · show (((((st.internExprFastGo ty).1.2.internExprFastGo
+          body).1.2.internBMFast m
+          ((st.internExprFastGo ty).1.2.internExprFastGo
+            body).2).2.internName n).2.intern
+          (.lam
+            (((((st.internExprFastGo ty).1.2.internExprFastGo
+              body).1.2.internBMFast m
+              ((st.internExprFastGo ty).1.2.internExprFastGo
+                body).2).2.internName n).1)
+            (st.internExprFastGo ty).1.1
+            ((st.internExprFastGo ty).1.2.internExprFastGo body).1.1
+            (((st.internExprFastGo ty).1.2.internExprFastGo
+              body).1.2.internBMFast m
+              ((st.internExprFastGo ty).1.2.internExprFastGo body).2).1)) = _
+      rw [h1, h2, hbm]
+      rfl
+    · intro v i h
+      revert h
+      show (match m.cod,
+          ((((st.internExprFastGo ty).1.2.internExprFastGo
+            body).1.2.internBMFast m
+            ((st.internExprFastGo ty).1.2.internExprFastGo body).2).1).cod
+          with
+        | some v, some i => some (v, i)
+        | _, _ => none) = some (v, i) → _
+      rw [h1, h2, hbm]
+      obtain ⟨bi, (_ | v₀)⟩ := m
+      · intro h
+        exact nomatch h
+      · obtain ⟨hm', hst', hden'⟩ := internBM_codT (bi := bi) (v := v₀) hwf₂
+        rw [hm']
+        intro h
+        simp only [Option.some.injEq] at h
+        obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h
+        show (((((st.internExpr ty).2.internExpr body).2.internBM
+            ⟨bi, some v₀⟩).2.internName n).2.intern _).2.denoteL _ = some v₀
+        rw [hst']
+        exact denoteL_mono (intern_ext _ _)
+          (denoteL_mono (internName_ext _ _) hden')
+  | forallE n ty body m iht ihb =>
+    intro st hwf
+    have h1 : (st.internExprFastGo ty).1 = st.internExpr ty := (iht hwf).1
+    have hwf₁ : (st.internExpr ty).2.TWF := (internExpr_specT hwf ty).1
+    obtain ⟨h2, hchild⟩ := ihb (st := (st.internExpr ty).2) hwf₁
+    have hwf₂ : ((st.internExpr ty).2.internExpr body).2.TWF :=
+      (internExpr_specT hwf₁ body).1
+    have hbm : ((st.internExpr ty).2.internExpr body).2.internBMFast m
+          ((st.internExpr ty).2.internExprFastGo body).2
+        = ((st.internExpr ty).2.internExpr body).2.internBM m := by
+      refine internBMFast_eqT hwf₂ ?_
+      intro v i h
+      exact hchild v i h
+    constructor
+    · show (((((st.internExprFastGo ty).1.2.internExprFastGo
+          body).1.2.internBMFast m
+          ((st.internExprFastGo ty).1.2.internExprFastGo
+            body).2).2.internName n).2.intern
+          (.forallE
+            (((((st.internExprFastGo ty).1.2.internExprFastGo
+              body).1.2.internBMFast m
+              ((st.internExprFastGo ty).1.2.internExprFastGo
+                body).2).2.internName n).1)
+            (st.internExprFastGo ty).1.1
+            ((st.internExprFastGo ty).1.2.internExprFastGo body).1.1
+            (((st.internExprFastGo ty).1.2.internExprFastGo
+              body).1.2.internBMFast m
+              ((st.internExprFastGo ty).1.2.internExprFastGo body).2).1)) = _
+      rw [h1, h2, hbm]
+      rfl
+    · intro v i h
+      revert h
+      show (match m.cod,
+          ((((st.internExprFastGo ty).1.2.internExprFastGo
+            body).1.2.internBMFast m
+            ((st.internExprFastGo ty).1.2.internExprFastGo body).2).1).cod
+          with
+        | some v, some i => some (v, i)
+        | _, _ => none) = some (v, i) → _
+      rw [h1, h2, hbm]
+      obtain ⟨bi, (_ | v₀)⟩ := m
+      · intro h
+        exact nomatch h
+      · obtain ⟨hm', hst', hden'⟩ := internBM_codT (bi := bi) (v := v₀) hwf₂
+        rw [hm']
+        intro h
+        simp only [Option.some.injEq] at h
+        obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h
+        show (((((st.internExpr ty).2.internExpr body).2.internBM
+            ⟨bi, some v₀⟩).2.internName n).2.intern _).2.denoteL _ = some v₀
+        rw [hst']
+        exact denoteL_mono (intern_ext _ _)
+          (denoteL_mono (internName_ext _ _) hden')
+
+/-- The entry-boundary interning with the codomain-chain fast path is
+`internExpr`, two-tier form. -/
+theorem internExprFast_eqT {st : EStore} (hwf : st.TWF) (e : Expr) :
+    st.internExprFast e = st.internExpr e :=
+  (internExprFastGo_eqT e hwf).1
+
+@[inherit_doc internBMFast_eqT]
+theorem internBMFast_eq {st : EStore} (hwf : st.WF) {m : BinderMeta}
+    {child : Option (Level × LIdx)}
+    (hchild : ∀ v i, child = some (v, i) → st.denoteL i = some v) :
+    st.internBMFast m child = st.internBM m :=
+  internBMFast_eqT hwf.toTWF hchild
+
+@[inherit_doc internBM_codT]
+theorem internBM_cod {st : EStore} (hwf : st.WF) {bi : BinderInfo}
+    {v : Level} :
+    (st.internBM ⟨bi, some v⟩).1
+        = ⟨bi, some (st.internLevel v).1⟩ ∧
+      (st.internBM ⟨bi, some v⟩).2 = (st.internLevel v).2 ∧
+      (st.internBM ⟨bi, some v⟩).2.denoteL (st.internLevel v).1
+        = some v :=
+  internBM_codT hwf.toTWF
+
+@[inherit_doc internExprFastGo_eqT]
+theorem internExprFastGo_eq :
+    ∀ (x : Expr) {st : EStore}, st.WF →
+      (st.internExprFastGo x).1 = st.internExpr x ∧
+      (∀ v i, (st.internExprFastGo x).2 = some (v, i) →
+        (st.internExpr x).2.denoteL i = some v) :=
+  fun x {_st} hwf => internExprFastGo_eqT x hwf.toTWF
+
+/-- The entry-boundary interning with the codomain-chain fast path is
+`internExpr` (task #72). -/
+theorem internExprFast_eq {st : EStore} (hwf : st.WF) (e : Expr) :
+    st.internExprFast e = st.internExpr e :=
+  internExprFast_eqT hwf.toTWF e
 
 end EStore
 
