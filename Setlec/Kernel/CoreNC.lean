@@ -652,16 +652,16 @@ def coreKnotNC (fe : FEnv) : Nat → CoreFnsI
       defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
       annotate := fun _ _ => throw (.internal "fuel exhausted: annotate") }
   | fuel + 1 =>
-    { whnfCore := memoEI (·.whnfCoreC)
+    { whnfCore := memoEI "NC.whnfCoreC" (·.whnfCoreC)
         (fun st mp => { st with whnfCoreC := mp })
         (fun d e => whnfCoreBodyNC (coreKnotNC fe fuel) fe d e)
-      whnf := memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
+      whnf := memoEI "NC.whnfC" (·.whnfC) (fun st mp => { st with whnfC := mp })
         (fun d e => whnfBodyI (coreKnotNC fe fuel) fe d e)
-      infer := memoEI (·.inferC) (fun st mp => { st with inferC := mp })
+      infer := memoEI "NC.inferC" (·.inferC) (fun st mp => { st with inferC := mp })
         (fun d e => inferBodyNC (coreKnotNC fe fuel) fe d e)
       defeq := memoBI
         (fun d a b => defeqBodyNC (coreKnotNC fe fuel) fe d a b)
-      annotate := memoEI (·.annotC) (fun st mp => { st with annotC := mp })
+      annotate := memoEI "NC.annotC" (·.annotC) (fun st mp => { st with annotC := mp })
         (fun d e => annotateBodyI (coreKnotNC fe fuel) fe d e) }
 
 end Setlec

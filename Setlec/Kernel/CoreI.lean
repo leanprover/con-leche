@@ -472,6 +472,7 @@ def simplifyLM (u : LIdx) : CheckIM LIdx :=
     let store := s.store
     let memo := s.lsimpC
     let s := { s with store := EStore.empty, lsimpC := {} }
+    let memo := auditShared "IState.lsimpC@simplifyLM" memo.isEmpty memo
     let (r, store, memo) := store.simplifyLIGo memo u
     (r, { s with store := store, lsimpC := memo })
 
@@ -480,6 +481,7 @@ def isNonZeroLM (u : LIdx) : CheckIM Bool :=
   modifyGet fun s =>
     let memo := s.lnzC
     let s := { s with lnzC := {} }
+    let memo := auditShared "IState.lnzC@isNonZeroLM" memo.isEmpty memo
     let (r, memo) := s.store.isNonZeroLIGo memo u
     (r, { s with lnzC := memo })
 
@@ -518,6 +520,8 @@ equivalence never needs recomputing. -/
       let memo := s.lsimpC
       let ec := s.eqvC
       let s := { s with store := EStore.empty, lsimpC := {}, eqvC := {} }
+      let memo := auditShared "IState.lsimpC@isEquivLM" memo.isEmpty memo
+      let ec := auditShared "IState.eqvC@isEquivLM" ec.isEmpty ec
       let (ls, store, memo) := store.simplifyLIGo memo l
       let (rs, store, memo) := store.simplifyLIGo memo r
       if ls == rs then
@@ -609,7 +613,9 @@ def constTyAtM (fe : FEnv) (nI : NIdx) (n : Name) (us : List LIdx) :
       modify fun s =>
         let mp := s.constTyAt
         let s := { s with constTyAt := ∅ }
-        { s with constTyAt := mp.insert (nI, us) i }
+        { s with constTyAt :=
+            ((auditShared "IState.constTyAt" mp.isEmpty mp).insert
+              (nI, us) i) }
       pure i
     | none => throw (.internal "constTyAtM: unknown constant")
 
@@ -628,7 +634,9 @@ def constValAtM (fe : FEnv) (nI : NIdx) (n : Name) (us : List LIdx) :
       modify fun s =>
         let mp := s.constValAt
         let s := { s with constValAt := ∅ }
-        { s with constValAt := mp.insert (nI, us) i }
+        { s with constValAt :=
+            ((auditShared "IState.constValAt" mp.isEmpty mp).insert
+              (nI, us) i) }
       pure i
     | some (.thmInfo cv v) =>
       let raw ← storedValIdxM n v
@@ -636,7 +644,9 @@ def constValAtM (fe : FEnv) (nI : NIdx) (n : Name) (us : List LIdx) :
       modify fun s =>
         let mp := s.constValAt
         let s := { s with constValAt := ∅ }
-        { s with constValAt := mp.insert (nI, us) i }
+        { s with constValAt :=
+            ((auditShared "IState.constValAt" mp.isEmpty mp).insert
+              (nI, us) i) }
       pure i
     | _ => throw (.internal "constValAtM: not a stored definition")
 
@@ -657,7 +667,9 @@ def ruleRhsAtM (fe : FEnv) (cI jI : NIdx) (c j : Name)
         modify fun s =>
           let mp := s.ruleRhsAt
           let s := { s with ruleRhsAt := ∅ }
-          { s with ruleRhsAt := mp.insert (cI, jI, us) i }
+          { s with ruleRhsAt :=
+              ((auditShared "IState.ruleRhsAt" mp.isEmpty mp).insert
+                (cI, jI, us) i) }
         pure i
       | none => throw (.internal "ruleRhsAtM: no rule for constructor")
     | _ => throw (.internal "ruleRhsAtM: not a stored recursor")
@@ -2137,7 +2149,7 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
 /-! ## The interned memoized knot -/
 
 /-- Memoize a unary interned entry point under its index (`O(1)` key). -/
-def memoEI (get' : IState → Std.HashMap EIdx EIdx)
+def memoEI (tag : String) (get' : IState → Std.HashMap EIdx EIdx)
     (set' : IState → Std.HashMap EIdx EIdx → IState)
     (f : Nat → EIdx → CheckIM EIdx) : Nat → EIdx → CheckIM EIdx :=
   fun d e => do
@@ -2148,7 +2160,7 @@ def memoEI (get' : IState → Std.HashMap EIdx EIdx)
       modify fun st =>
           let mp := get' st
         let st := set' st ∅
-        set' st (mp.insert e r)
+        set' st ((auditShared tag mp.isEmpty mp).insert e r)
       pure r
 
 /-- Memoize the interned definitional-equality entry point under the
@@ -2163,7 +2175,9 @@ def memoBI (f : Nat → EIdx → EIdx → CheckIM Bool) :
       modify fun st =>
         let mp := st.defeqC
         let st := { st with defeqC := ∅ }
-        { st with defeqC := mp.insert (a, b) r }
+        { st with defeqC :=
+            ((auditShared "IState.defeqC@memoBI" mp.isEmpty mp).insert
+              (a, b) r) }
       pure r
 
 /-- Tie the interned bodies at the memoizing state monad (fuel only
@@ -2176,16 +2190,19 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
       defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
       annotate := fun _ _ => throw (.internal "fuel exhausted: annotate") }
   | fuel + 1 =>
-    { whnfCore := memoEI (·.whnfCoreC)
+    { whnfCore := memoEI "IState.whnfCoreC@memoEI" (·.whnfCoreC)
         (fun st mp => { st with whnfCoreC := mp })
         (fun d e => whnfCoreBodyI (coreKnotI fe fuel) fe d e)
-      whnf := memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
+      whnf := memoEI "IState.whnfC@memoEI" (·.whnfC)
+        (fun st mp => { st with whnfC := mp })
         (fun d e => whnfBodyI (coreKnotI fe fuel) fe d e)
-      infer := memoEI (·.inferC) (fun st mp => { st with inferC := mp })
+      infer := memoEI "IState.inferC@memoEI" (·.inferC)
+        (fun st mp => { st with inferC := mp })
         (fun d e => inferBodyI (coreKnotI fe fuel) fe d e)
       defeq := memoBI
         (fun d a b => defeqBodyI (coreKnotI fe fuel) fe d a b)
-      annotate := memoEI (·.annotC) (fun st mp => { st with annotC := mp })
+      annotate := memoEI "IState.annotC@memoEI" (·.annotC)
+        (fun st mp => { st with annotC := mp })
         (fun d e => annotateBodyI (coreKnotI fe fuel) fe d e) }
 
 /-! ## Entry runners

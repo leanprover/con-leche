@@ -27,6 +27,30 @@ commutation of every operation with the denotation) lives in
 
 namespace Setlec
 
+/-! ### THROWAWAY diagnostic helpers (branch diag/linearity; never merge) -/
+
+/-- Q1 probe: report a shared (RC>1) container at a mutation site.
+Gated on non-emptiness so the persistent static empties (`#[]`, `{}`)
+do not report their benign first-push copy. -/
+@[inline] def auditShared (tag : String) (empty : Bool) (a : α) : α :=
+  if empty then a else dbgTraceIfShared tag a
+
+/-- Q2: length of one hash-map bucket chain. -/
+def auditALen : Std.DHashMap.Internal.AssocList α β → Nat
+  | .nil => 0
+  | .cons _ _ t => auditALen t + 1
+
+/-- Q2: bucket-depth statistics of a hash map: entry count, bucket
+count, max chain, sum of squared chain lengths, depth histogram. -/
+def auditHmStats [BEq α] [Hashable α] (m : Std.HashMap α β) : String :=
+  let bs := m.inner.inner.buckets
+  let lens := bs.map auditALen
+  let maxL := lens.foldl max 0
+  let sumsq := lens.foldl (fun a l => a + l * l) 0
+  let hist := (List.range (maxL + 1)).map (fun k =>
+    lens.foldl (fun c l => if l = k then c + 1 else c) 0)
+  s!"size={m.size} buckets={bs.size} max={maxL} sumsq={sumsq} hist={hist}"
+
 /-- Index of an interned expression node in an `EStore` arena. -/
 abbrev EIdx := Nat
 
@@ -226,6 +250,12 @@ def intern (st : EStore) (n : ENode) : EIdx × EStore :=
       let bb := n.bvarBoundOf bvarBs
       let fb := n.fvarRangeOf fvarBs
       let pb := n.hasLParamOf eparamBs lparamBs
+      let nodes := auditShared "EStore.nodes@intern" nodes.isEmpty nodes
+      let cons := auditShared "EStore.cons@intern" cons.isEmpty cons
+      let bvarBs := auditShared "EStore.bvarBs@intern" bvarBs.isEmpty bvarBs
+      let fvarBs := auditShared "EStore.fvarBs@intern" fvarBs.isEmpty fvarBs
+      let eparamBs :=
+        auditShared "EStore.eparamBs@intern" eparamBs.isEmpty eparamBs
       (i, ⟨nodes.push n, cons.insert n i, lnodes, lcons,
         bvarBs.push bb, fvarBs.push fb, lparamBs, eparamBs.push pb,
         nnodes, ncons, rbNames⟩)
@@ -263,6 +293,10 @@ def internL (st : EStore) (n : LNode) : LIdx × EStore :=
         nnodes, ncons, rbNames⟩ =>
       let i := lnodes.size
       let pb := n.hasParamOf lparamBs
+      let lnodes := auditShared "EStore.lnodes@internL" lnodes.isEmpty lnodes
+      let lcons := auditShared "EStore.lcons@internL" lcons.isEmpty lcons
+      let lparamBs :=
+        auditShared "EStore.lparamBs@internL" lparamBs.isEmpty lparamBs
       (i, ⟨nodes, cons, lnodes.push n, lcons.insert n i, bvarBs, fvarBs,
         lparamBs.push pb, eparamBs, nnodes, ncons, rbNames⟩)
 
@@ -277,6 +311,10 @@ def internN (st : EStore) (n : NNode) : NIdx × EStore :=
         nnodes, ncons, rbNames⟩ =>
       let i := nnodes.size
       let rb := n.nameOf rbNames
+      let nnodes := auditShared "EStore.nnodes@internN" nnodes.isEmpty nnodes
+      let ncons := auditShared "EStore.ncons@internN" ncons.isEmpty ncons
+      let rbNames :=
+        auditShared "EStore.rbNames@internN" rbNames.isEmpty rbNames
       (i, ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs,
         nnodes.push n, ncons.insert n i, rbNames.push rb⟩)
 
@@ -548,7 +586,10 @@ decreasing_by all_goals first | exact _h.1 | exact _h.2 | exact _h
 sublevels are shared in memory).  Agrees with the verification's
 structural level denotation on well-formed stores. -/
 def readbackL (st : EStore) (u : LIdx) : Option Level :=
-  (readbackLGo st {} u).1
+  let (r, memo) := readbackLGo st {} u
+  if memo.size ≥ 64 then
+    dbgTrace s!"HSAMP readbackL {auditHmStats memo}" (fun _ => r)
+  else r
 
 /-- Memo table for level index→index traversals. -/
 abbrev LMemo := Std.HashMap LIdx LIdx
@@ -829,7 +870,8 @@ def instantiate1IGo (v : EIdx) (st : EStore) (memo : MemoN)
             let (r, st) := st.intern (.proj s i sub')
             (r, st, memo)
           else (e, st, memo)
-      (r, st, memo.insert (e, d) r)
+      (r, st,
+        (auditShared "MemoN@inst1IGo" memo.isEmpty memo).insert (e, d) r)
 termination_by (e, d)
 decreasing_by all_goals (apply Prod.Lex.left; first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h)
 
@@ -838,8 +880,10 @@ by `v` (which must denote a `bvar`-closed expression; it is not shifted),
 lowering loose `bvar`s above `d` by one. -/
 def instantiate1I (st : EStore) (e v : EIdx) (d : Nat := 0) :
     EIdx × EStore :=
-  let (r, st, _) := instantiate1IGo v st {} e d
-  (r, st)
+  let (r, st, memo) := instantiate1IGo v st {} e d
+  if memo.size ≥ 1024 then
+    dbgTrace s!"HSAMP MemoN@inst1I {auditHmStats memo}" (fun _ => (r, st))
+  else (r, st)
 
 /-- Memo table for the bulk-instantiation traversal, keyed by the node
 index, the live prefix length of the replacement array, and the binder
@@ -924,7 +968,9 @@ def instantiateListIGo (vs : Array EIdx) (st : EStore)
               let (r, st) := st.intern (.proj s i sub')
               (r, st, memo)
             else (e, st, memo)
-        (r, st, memo.insert (e, k, d) r)
+        (r, st,
+          (auditShared "MemoNL@instListIGo" memo.isEmpty memo).insert
+            (e, k, d) r)
 termination_by (k, e)
 decreasing_by
   all_goals first
@@ -943,8 +989,11 @@ def instantiateListI (st : EStore) (e : EIdx) (vs : List EIdx)
   | [] => (e, st)
   | _ :: _ =>
     let a := vs.toArray
-    let (r, st, _) := instantiateListIGo a st {} e a.size d
-    (r, st)
+    let (r, st, memo) := instantiateListIGo a st {} e a.size d
+    if memo.size ≥ 1024 then
+      dbgTrace s!"HSAMP MemoNL@instListI {auditHmStats memo}"
+        (fun _ => (r, st))
+    else (r, st)
 
 /-- Core of `abstract1I`; `d` is the abstracted fvar's de Bruijn level
 (fixed), `k` the binder cursor (mirrors `Expr.abstract1 e d k`). -/
@@ -1075,7 +1124,9 @@ def abstractRangeIGo (d k : Nat) (st : EStore)
             let (r, st) := st.intern (.proj s i sub')
             (r, st, memo)
           else (e, st, memo)
-      (r, st, memo.insert (e, c) r)
+      (r, st,
+        (auditShared "MemoN@abstractRangeIGo" memo.isEmpty memo).insert
+          (e, c) r)
 termination_by (e, c)
 decreasing_by all_goals (apply Prod.Lex.left; first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h)
 
@@ -1937,7 +1988,10 @@ rebuilt subtrees are shared in memory).  Agrees with the verification's
 structural denotation on well-formed stores
 (`Setlec/Verify/IExprOps.lean`). -/
 def readbackI (st : EStore) (e : EIdx) : Option Expr :=
-  (readbackGo st {} {} e).1
+  let (r, memo, _) := readbackGo st {} {} e
+  if memo.size ≥ 1024 then
+    dbgTrace s!"HSAMP readbackI {auditHmStats memo}" (fun _ => r)
+  else r
 
 end EStore
 

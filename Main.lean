@@ -99,6 +99,22 @@ partial def progressLoop (stats : Bool)
     | .ok (fe, s) => do
       if stats then
         IO.eprintln s!"STATS: nodes={s.store.nodes.size} lnodes={s.store.lnodes.size} annotC={s.annotC.size} inferC={s.inferC.size} whnfC={s.whnfC.size} whnfCoreC={s.whnfCoreC.size} defeqC={s.defeqC.size}"
+        IO.eprintln s!"HSTAT {i} store.cons {Setlec.auditHmStats s.store.cons}"
+        IO.eprintln s!"HSTAT {i} store.lcons {Setlec.auditHmStats s.store.lcons}"
+        IO.eprintln s!"HSTAT {i} store.ncons {Setlec.auditHmStats s.store.ncons}"
+        IO.eprintln s!"HSTAT {i} ienv {Setlec.auditHmStats s.ienv}"
+        IO.eprintln s!"HSTAT {i} fenv.idx {Setlec.auditHmStats fe.idx}"
+        IO.eprintln s!"HSTAT {i} whnfCoreC {Setlec.auditHmStats s.whnfCoreC}"
+        IO.eprintln s!"HSTAT {i} whnfC {Setlec.auditHmStats s.whnfC}"
+        IO.eprintln s!"HSTAT {i} inferC {Setlec.auditHmStats s.inferC}"
+        IO.eprintln s!"HSTAT {i} defeqC {Setlec.auditHmStats s.defeqC}"
+        IO.eprintln s!"HSTAT {i} annotC {Setlec.auditHmStats s.annotC}"
+        IO.eprintln s!"HSTAT {i} lsimpC {Setlec.auditHmStats s.lsimpC}"
+        IO.eprintln s!"HSTAT {i} lnzC {Setlec.auditHmStats s.lnzC}"
+        IO.eprintln s!"HSTAT {i} eqvC {Setlec.auditHmStats s.eqvC}"
+        IO.eprintln s!"HSTAT {i} constTyAt {Setlec.auditHmStats s.constTyAt}"
+        IO.eprintln s!"HSTAT {i} constValAt {Setlec.auditHmStats s.constValAt}"
+        IO.eprintln s!"HSTAT {i} ruleRhsAt {Setlec.auditHmStats s.ruleRhsAt}"
       progressLoop stats stepF n0 decls (i + 1) fe s
   else do
     IO.println s!"setlec: accepted {fe.env.consts.length} declarations"

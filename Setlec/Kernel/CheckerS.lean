@@ -41,7 +41,8 @@ namespace Setlec
 /-- The index of the cons-extended environment (`mkFEnv_push`:
 `FEnv.push (mkFEnv env) ci = mkFEnv ⟨ci :: env.consts⟩`, definitionally). -/
 def FEnv.push (fe : FEnv) (ci : ConstantInfo) : FEnv :=
-  ⟨⟨ci :: fe.env.consts⟩, fe.idx.insert ci.name ci⟩
+  ⟨⟨ci :: fe.env.consts⟩,
+    (auditShared "FEnv.idx@push" fe.idx.isEmpty fe.idx).insert ci.name ci⟩
 
 /-- Indexed `Env.findCV?`. -/
 def FEnv.findCV? (fe : FEnv) (n : Name) : Option ConstantVal :=
@@ -713,7 +714,7 @@ def checkOpaqueValF (ops : CheckerOps m) (fe : FEnv) (cv : ConstantVal)
 def installBasisDeclF (fe : FEnv) (ci : ConstantInfo) : m FEnv := do
   unless (fe.find? ci.name).isNone do
     throw (.invalid s!"duplicate declaration {ci.name}")
-  pure (fe.push ci)
+  pure ((dbgTraceIfShared "FE@basis" fe).push ci)
 
 /-- `checkDivModCerts` through the index. -/
 def checkDivModCertsF (ops : CheckerOps m) (fe : FEnv) (c : Name)
@@ -809,7 +810,7 @@ def checkDirectIndF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts) :
     (.notImplemented "direct structure: type former telescope")
   unless tbody == Expr.sort p.resSort do
     throw (.notImplemented "direct structure: type former result sort")
-  pure (fe.push (.indInfo cvTa (directCaps p)), cvTa)
+  pure ((dbgTraceIfShared "FE@direct.T" fe).push (.indInfo cvTa (directCaps p)), cvTa)
 
 /-- `checkDirectCtor` through the index. -/
 def checkDirectCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (p : DirectParts)
@@ -832,7 +833,7 @@ def checkDirectCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (p : DirectParts)
   unless xq.1.all fun x => x.fvarTypeD.constsResolveF fe₀ do
     throw (.notImplemented "direct structure: field domain after the block")
   checkDirectFieldUnivF ops fe p.resSort p.nP xq.1 p.nF
-  pure (fe.push (.ctorInfo cvCa p.nP p.nF), cvCa)
+  pure ((dbgTraceIfShared "FE@direct.C" fe).push (.ctorInfo cvCa p.nP p.nF), cvCa)
 
 /-- `checkDirectRecTy` through the index. -/
 def checkDirectRecTyF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts)
@@ -951,7 +952,7 @@ def checkDirectProjF (ops : CheckerOps m) (T C : Name) (lps : List Name)
   unless ← ops.isDefEq fe.env (nP + 1) resid fdom do
     throw (.notImplemented "direct structure: projection residual")
   let rhsA ← checkProjRuleF ops fe ptyA cvCa lps nP nF i
-  pure (fe.push (.recInfo ⟨projFnName T i, lps, ptyA⟩ nP nP
+  pure ((dbgTraceIfShared "FE@direct.projFn" fe).push (.recInfo ⟨projFnName T i, lps, ptyA⟩ nP nP
     [⟨C, nF, nP,
       if Expr.recRulePlain ptyA nP nP nP then .plain else .inert, rhsA⟩]))
 
@@ -972,8 +973,8 @@ def checkIndMemberS (blockNames : List Name) (caps : IndCaps)
   flushS
   let cvA ← checkMemberValF (sharedOps fe) blockNames fe ci.toConstantVal
   match ci with
-  | .indInfo _ _ => pure (fe.push (.indInfo cvA caps))
-  | .ctorInfo _ nP nF => pure (fe.push (.ctorInfo cvA nP nF))
+  | .indInfo _ _ => pure ((dbgTraceIfShared "FE@member.T" fe).push (.indInfo cvA caps))
+  | .ctorInfo _ nP nF => pure ((dbgTraceIfShared "FE@member.C" fe).push (.ctorInfo cvA nP nF))
   | _ => throw (.invalid s!"non-inductive member {cvA.name} in block")
 
 /-- Phase 0 of the recursor group (mirrors `provisionRecs`). -/
@@ -988,7 +989,7 @@ def provisionRecsS (blockNames : List Name) :
       let cvA ← checkMemberValF (sharedOps feAcc) blockNames feAcc
         ci.toConstantVal
       let (feSelf, others) ← provisionRecsS blockNames
-        (feAcc.push (.recInfo cvA mI rP [])) rest
+        ((dbgTraceIfShared "FE@provision" feAcc).push (.recInfo cvA mI rP [])) rest
       pure (feSelf, (cvA, mI, rP, rules) :: others)
     | _ => throw (.notImplemented "recursor before other block members")
 
@@ -1011,7 +1012,7 @@ def checkIndRecsS (blockNames : List Name) (fe₂ : FEnv)
     checked.foldlM (fun (acc : FEnv) c => do
         let rules' ← checkIotaRulesF (sharedOps feSelf) fe₂ feSelf
           f c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
-        pure (acc.push (.recInfo c.1 c.2.1 c.2.2.1 rules')))
+        pure ((dbgTraceIfShared "FE@iotaFold" acc).push (.recInfo c.1 c.2.1 c.2.2.1 rules')))
       fe₂
 
 /-- The public projection function for field `i` (mirrors
@@ -1026,7 +1027,7 @@ def checkProjFnS (fe : FEnv) (T ctorName : Name) (lps : List Name)
     throw (.invalid "projection index out of range")
   let rhsA ← checkProjRuleF (sharedOps fe) fe pty cvj lps nP nF i
   checkProjIotaF (m := CheckIM) fe T ctorName lps cvj nP nF i
-  pure (fe.push (.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
+  pure ((dbgTraceIfShared "FE@projFn" fe).push (.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
     [⟨ctorName, nF, nP,
       if Expr.recRulePlain pty nP nP nP then .plain else .inert, rhsA⟩]))
 
@@ -1047,7 +1048,7 @@ def installProjTemplateS (fe : FEnv) (T ctorName : Name) (lps : List Name)
   | some (.recInfo cvR mI rP [rule]) =>
     if (fe.find? (projFnName T i)).isNone ∧
         mI = rP ∧ rP = nP + 2 ∧ rule.ctor = ctorName ∧ i < nF then
-      pure (fe.push (.projInfo ⟨T, i, lps, nP, ctorName, nF, .sort .zero,
+      pure ((dbgTraceIfShared "FE@projTemplate" fe).push (.projInfo ⟨T, i, lps, nP, ctorName, nF, .sort .zero,
         .zero, .zero, false,
         cvR.levelParams.length = lps.length + 1⟩))
     else pure fe
@@ -1075,7 +1076,7 @@ def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckIM FEnv := do
   let cvRa ← checkConstantValF (sharedOps fe₂) fe₂ p.cvR
   checkDirectRecTyF (sharedOps fe₂) fe₂ p cvTa cvCa cvRa
   let rhsA ← checkDirectRuleF (sharedOps fe₂) fe₂ p cvCa cvRa
-  let fe₃ := fe₂.push (.recInfo cvRa (p.nP + 2) (p.nP + 2)
+  let fe₃ := (dbgTraceIfShared "FE@direct.rec" fe₂).push (.recInfo cvRa (p.nP + 2) (p.nP + 2)
     [⟨p.cvC.name, p.nF, p.nP,
       if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
         .plain else .inert,
@@ -1154,7 +1155,7 @@ def checkDeclSF (fe : FEnv) (d : Declaration) : CheckIM FEnv :=
   | .axiomDecl cv => do
     let cvA ← checkConstantValF (sharedOps fe) fe cv
     if stdAxiomOkF fe cvA then
-      pure (fe.push (.axiomInfo cvA))
+      pure ((dbgTraceIfShared "FE@axiom1158" fe).push (.axiomInfo cvA))
     else if cvA.name = propextName ∨ cvA.name = choiceName then
       throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
     else if toleratedAxiomNames.contains cvA.name then
@@ -1227,7 +1228,9 @@ def recordIConst (n : Name) (tyE : Expr) (ty : EIdx)
   modify fun s =>
     let m := s.ienv
     let s := { s with ienv := {} }
-    { s with ienv := m.insert n ⟨tyE, ty, val⟩ }
+    { s with ienv :=
+        ((auditShared "IState.ienv@recordIConst" m.isEmpty m).insert
+          n ⟨tyE, ty, val⟩) }
 
 /-- `checkConstantVal` on a parsed index: the checks of
 `checkConstantValF` with the syntactic passes memoized on the arena and
@@ -1277,11 +1280,13 @@ def checkDefnValP (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     throw (.invalid s!"type mismatch in definition {cvA.name}")
   let vE ← readbackEM jv
   recordIConst cvA.name cvA.type jty (some (vE, jv))
+  let fe := dbgTraceIfShared "FE@checkDefnValP prepush" fe
   pure (fe.push (.defnInfo cvA vE hint))
 
 /-- `checkThmValF` on parsed indices. -/
 def checkThmValP (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     (value : EIdx) : CheckIM FEnv := do
+  let fe := dbgTraceIfShared "FE@checkThmValP entry" fe
   let jsty ← (coreKnotI fe checkFuel).infer 0 jty
   let ul ← opSIx fe 0 jsty
   unless (← liftFueled "level comparison" (Level.isEquiv ul .zero)) do
@@ -1301,6 +1306,7 @@ def checkThmValP (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     throw (.invalid s!"type mismatch in theorem {cvA.name}")
   let vE ← readbackEM jv
   recordIConst cvA.name cvA.type jty (some (vE, jv))
+  let fe := dbgTraceIfShared "FE@checkThmValP prepush" fe
   pure (fe.push (.thmInfo cvA vE))
 
 /-- `checkOpaqueValF` on parsed indices (stored as a theorem, exactly
@@ -1322,7 +1328,7 @@ def checkOpaqueValP (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     throw (.invalid s!"type mismatch in opaque {cvA.name}")
   let vE ← readbackEM jv
   recordIConst cvA.name cvA.type jty (some (vE, jv))
-  pure (fe.push (.thmInfo cvA vE))
+  pure ((dbgTraceIfShared "FE@opaqueP" fe).push (.thmInfo cvA vE))
 
 /-- One parsed declaration (mirrors `checkDeclSF` branch by branch;
 inductive/basis blocks reuse the `Expr`-level drivers). -/
@@ -1360,7 +1366,7 @@ def checkDeclSP (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
     let (cvA, jty) ← checkConstantValP fe cv
     if stdAxiomOkF fe cvA then do
       recordIConst cvA.name cvA.type jty none
-      pure (fe.push (.axiomInfo cvA))
+      pure ((dbgTraceIfShared "FE@axiomP" fe).push (.axiomInfo cvA))
     else if cvA.name = propextName ∨ cvA.name = choiceName then
       throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
     else if toleratedAxiomNames.contains cvA.name then
