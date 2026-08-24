@@ -353,6 +353,14 @@ theorem pairOps_inferType_snd (env : Env) (d : Nat) (a : Expr) :
     ((pairOps o₁ o₂ h).inferType env d a).val.2 =
       o₂.inferType env d a := rfl
 
+theorem pairOps_annotate_fst' (env : Env) (d : Nat) (a : Expr) :
+    ((pairOps o₁ o₂ h).annotate env d a).val.1 =
+      o₁.annotate env d a := rfl
+
+theorem pairOps_annotate_snd' (env : Env) (d : Nat) (a : Expr) :
+    ((pairOps o₁ o₂ h).annotate env d a).val.2 =
+      o₂.annotate env d a := rfl
+
 theorem checkTypedList_fst_dproj (env : Env) (depth : Nat) :
     ∀ (as bs : List Expr),
       (checkTypedList (pairOps o₁ o₂ h) env depth as bs).val.1 =
@@ -378,6 +386,28 @@ theorem checkTypedList_snd_dproj (env : Env) (depth : Nat) :
     simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
       PairM.snd_ite, pairOps_isDefEq_snd, pairOps_inferType_snd,
       checkTypedList_snd_dproj env depth as bs]
+
+theorem checkAnnotList_fst_dproj (env : Env) (depth : Nat) :
+    ∀ (as : List Expr),
+      (checkAnnotList (pairOps o₁ o₂ h) env depth as).val.1 =
+      checkAnnotList o₁ env depth as
+  | [] => rfl
+  | a :: as => by
+    unfold checkAnnotList
+    simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
+      PairM.fst_ite, pairOps_annotate_fst',
+      checkAnnotList_fst_dproj env depth as]
+
+theorem checkAnnotList_snd_dproj (env : Env) (depth : Nat) :
+    ∀ (as : List Expr),
+      (checkAnnotList (pairOps o₁ o₂ h) env depth as).val.2 =
+      checkAnnotList o₂ env depth as
+  | [] => rfl
+  | a :: as => by
+    unfold checkAnnotList
+    simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
+      PairM.snd_ite, pairOps_annotate_snd',
+      checkAnnotList_snd_dproj env depth as]
 
 theorem checkDefEqList_fst_dproj (env : Env) (depth : Nat) :
     ∀ (as bs : List Expr),
@@ -444,7 +474,8 @@ theorem checkIotaThmN_fst_dproj (env' envSelf : Env)
   · rfl
   · simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
       PairM.fst_ite, pairOps_isDefEq_fst, unwrapOr_fst_dproj,
-      checkDefEqList_fst_dproj, checkTypedList_fst_dproj]
+      checkDefEqList_fst_dproj, checkTypedList_fst_dproj,
+      checkAnnotList_fst_dproj]
 
 theorem checkIotaThmN_snd_dproj (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
@@ -459,7 +490,8 @@ theorem checkIotaThmN_snd_dproj (env' envSelf : Env)
   · rfl
   · simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
       PairM.snd_ite, pairOps_isDefEq_snd, unwrapOr_snd_dproj,
-      checkDefEqList_snd_dproj, checkTypedList_snd_dproj]
+      checkDefEqList_snd_dproj, checkTypedList_snd_dproj,
+      checkAnnotList_snd_dproj]
 
 set_option maxHeartbeats 12800000 in
 theorem checkIotaRule_fst_dproj (env' envSelf : Env)
@@ -1562,6 +1594,22 @@ theorem checkTypedList_datF (env : Env) (depth F : Nat) :
       FueledM.atF_ite, fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF,
       checkTypedList_datF env depth F as bs]
 
+theorem fueledOpsM_annotate_atF' (env : Env) (d : Nat) (a : Expr)
+    (F : Nat) :
+    (fueledOpsM.annotate env d a).val F =
+      (fueledOps F).annotate env d a := rfl
+
+theorem checkAnnotList_datF (env : Env) (depth F : Nat) :
+    ∀ (as : List Expr),
+      (checkAnnotList fueledOpsM env depth as).val F =
+      checkAnnotList (fueledOps F) env depth as
+  | [] => rfl
+  | a :: as => by
+    unfold checkAnnotList
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+      FueledM.atF_ite, fueledOpsM_annotate_atF',
+      checkAnnotList_datF env depth F as]
+
 theorem checkIotaThm_datF (env' envSelf : Env)
     (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
     (mI rP j : Nat) (r : RecRule) (cvj : ConstantVal)
@@ -1588,7 +1636,7 @@ theorem checkIotaThmN_datF (env' envSelf : Env)
   · rfl
   · simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
       fueledOpsM_isDefEq_atF, fueledOpsM_inferType_atF, unwrapOr_atF,
-      checkDefEqList_datF, checkTypedList_datF]
+      checkDefEqList_datF, checkTypedList_datF, checkAnnotList_datF]
 
 set_option maxHeartbeats 12800000 in
 theorem checkIotaRule_datF (env' envSelf : Env)
