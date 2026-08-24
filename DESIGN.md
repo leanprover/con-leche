@@ -6292,3 +6292,58 @@ re-interning during check (`ruleRhsAtM`, `pinArgsI`, const-cache
 instantiations) lands tier-two and is rebuilt per declaration unless
 its nodes already exist tier-one from install — the v1 experiment
 bounded this class at +7–8 % instructions, accepted.
+
+### Linearity of the reordered push: verified empirically (2026-08-24, task #64 stage 1)
+
+Per this project's history (`withStore`, `progressLoop`, `diagLoop` —
+every RC-2 holder so far was a compiler-liveness surprise found by
+measurement), the use-then-consume argument for the deferred push was
+verified with the `diag/linearity` probe pattern
+(`dbgTraceIfShared`/`auditShared` at `FEnv.push`'s map-insert site,
+`EStore.intern`'s table pushes, and per-site prepush tags on the three
+value checkers), on the split branch AND on an identically-probed
+pre-split master baseline; probes reverted after (throwaway branches
+deleted; one ArenaWF `intern_eq` rfl needed a split-by-cases under the
+probe wrapper — a probe artifact, not landed).
+
+Init-prelude probe stream (3653 decls accepted), both driver modes,
+**split ≡ baseline exactly**:
+
+* `FEnv.idx@push` shared: 307 = 307 (default), 307 = 307 (NC) — all at
+  the untagged install paths (inductive members/recursors/projections,
+  basis, axioms) plus the two known deliberate retentions below;
+  **zero** growth from the reorder.
+* prepush tags: thm **0** (the dominant Mathlib kind — the check-phase
+  knot and closures die before the push), defn 9 (= the Nat-op/divmod
+  rare branch, the #99 deliberate retention), opaque 10 (= every
+  opaque: the `checkDeclSP` reduce-pin branch retains `fe` across the
+  call — **pre-existing**, fires identically in the baseline).
+* multi-decl error stream (`taint_skip_bad_later`): mutation-site
+  probe 0 = 0 in both modes; a benign `FE@checkThmValP` *struct*-shared
+  ×2 (taint-path bookkeeping) identical in the baseline, with the idx
+  map itself exclusive.
+
+Generated-C confirmation (`CheckerS.c`, unprobed merged build,
+`checkDefnValP`): the three `(coreKnotI fe checkFuel)` uses are CSE'd
+into **one** knot record, destructured and `lean_dec_ref`'d
+immediately (before any check runs); the last `fe`-capturing closure
+(the consts-resolve `withStore` lambda) is consumed by its `withStore`
+call on the next line; the final `FEnv_push(fe, …)` receives `fe`
+with **no surviving `lean_inc_ref`** — the insert mutates in place.
+
+### Settled shape for the parked counter/rider stage (user correction, 2026-08-24)
+
+When the riders resume, the counter mechanism is **not** a filtered
+view or any second `FEnv` value: entries carry their installation
+counter, and visibility is a bound consulted *inside* `find?` —
+cleanest as a `visibleBelow` field on `FEnv` itself.  No call-site
+signature changes anywhere; setting the bound is an O(1) field update
+on the single linearly-threaded `fe`; `find?` returns `none` for
+entries at/above the bound.  Push-first, then check against the same
+value with the bound set — trivially linear, no retention geometry,
+no copies.  The remaining cost is only the sim-layer statement
+threading (the pure comparand becomes the counter-prefix of the
+environment; the `ConsistencyP` fold invariant already tracks the
+per-step correspondence) — to be assessed as the cheap version of the
+task-#100 chunk-C seam when the riders resume.  The landed stage 1
+(positional pre-push value, interleaved default driver) stands.
