@@ -80,10 +80,11 @@ if [ -f "$E2E_EXPECTED" ]; then
       SETLEC_INDUCTIVE_MODELS=/nonexistent timeout 60 "$BIN" "$src" >/dev/null 2>&1
     elif [ "${mode:-}" = pre ]; then
       # `pre` fixtures assert the --pre flag: the input is taken as
-      # already preprocessed — no detection scan, no spawn (the
-      # preprocessor is made unavailable so an accidental spawn cannot
-      # silently succeed either)
-      SETLEC_INDUCTIVE_MODELS=/nonexistent timeout 60 "$BIN" --pre "$src" >/dev/null 2>&1
+      # already preprocessed — no detection scan, no spawn.  The
+      # preprocessor is left *available*, so a fixture whose verdict
+      # depends on not preprocessing (std_axioms declines at the raw
+      # `Iff` block) catches a broken/ignored flag.
+      timeout 60 "$BIN" --pre "$src" >/dev/null 2>&1
     else
       timeout 60 "$BIN" "$src" >/dev/null 2>&1
     fi
