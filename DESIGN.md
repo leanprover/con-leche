@@ -4705,6 +4705,50 @@ intern install-time names and the Bridge to carry it), and gating the
 checks.  Not pursued here: both trade the pinned `mkFEnv` interface
 for low single-digit percents.
 
+## FEnv linearity: the def path retained `fe` across the value check (2026-08-24)
+
+**Finding** (linearity audit, `dbgTraceIfShared` probes at every
+persistent-container mutation site).  Every `defnDecl` cost one full
+copy of the `FEnv.idx` bucket array: the driver branches kept `fe`
+live across `checkDefnValP`/`F` for the *conditional* Nat-op
+certification (`certifyNatEqs (sharedOps fe) fe.env`,
+`checkDivModPinF … fe fe2` — intentionally pre-insertion, see the
+Nat-ops design), so the compiler pinned `fe` at RC 2 and the final
+`fe.push` copied the whole hash map — a hidden O(n²) in the number of
+definitions.  On the init-prelude probe: 2532 shared pushes, 2244 of
+them one-per-def from `checkDefnValP` (the theorem path was already a
+true tail call, zero copies — the target shape).
+
+**Fix.**  The rare branch is a pure name test
+(`natOpNames`/`natDivModNames`, 16 pinned names), so it is decided
+*before* the value check: the common path tail-calls
+`checkDefnValP`/`F` with `fe` consumed; the rare path keeps today's
+exact behavior (still certifying against the pre-push `fe`).  Mirrored
+in `checkDeclSF`, `checkDeclNC`, `checkDeclSPNC`.  `checkDeclSF_nonind`
+and `checkDeclSP_sim` adapt by an early `by_cases` on the combined
+condition — no statement changes, no verdict changes anywhere.
+
+**Measured** (instructions, `perf stat -e instructions:u`).
+init-prelude probe 27.98 G → 27.82 G (−0.6 %); copies 2532 → 297
+(the residual is the per-inductive `provisionRecsS`/iota-fold and
+basis sites, 144+144, bounded by block count — a known separate,
+smaller lever).  `many` shape, extended series (startup-adjusted,
+successive doubling exponents):
+
+| n | base exp | fixed exp |
+|---|---|---|
+| 2000→4000 | 1.16 | 1.00 |
+| 4000→8000 | 1.27 | 1.00 |
+| 8000→16000 | 1.43 | 1.01 |
+
+At n=16000 the fix halves total instructions (8.91 G → 4.54 G).
+`tests/scale.sh` all four shapes PASS (chain 1.00, spine 1.26,
+many 1.01, telescope 1.11).
+
+**Gates** (all green): `lake build` warning-free, `lake test`, arena
+90/92 + e2e 57/57, axioms of the four soundness/consistency theorems
+exactly `[propext, Classical.choice, Quot.sound]`, no `sorry`s.
+
 ## Two measured asymptotic fixes: telescope and spine walks (2026-08-24, tasks #97/#96)
 
 Scale-comparison profiling at n = 1600 (setlec vs official vs nanoda,

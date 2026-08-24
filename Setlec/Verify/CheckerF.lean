@@ -400,32 +400,46 @@ theorem checkDeclSF_nonind (env : Env) (d : Declaration)
     show (do
         let cv ← checkConstantValF (sharedOps (mkFEnv env))
           (mkFEnv env) cv
-        let fe2 ← checkDefnValF (sharedOps (mkFEnv env)) (mkFEnv env)
-          cv value hint
-        if natOpNames.contains cv.name then
-          unless natOpGuardF fe2 cv.name &&
-              (natOpDeps cv.name).all (natOpStoredOkF fe2) do
-            throw (.notImplemented
-              s!"nonstandard structural Nat operation environment ({cv.name})")
-          match fe2.find? cv.name with
-          | some (.defnInfo _ value' _) =>
-            let ok ← certifyNatEqs (sharedOps (mkFEnv env))
-              (mkFEnv env).env
-              ((natOpEquations 0 cv.name).map fun eq =>
-                (Expr.substConst0 cv.name value' eq.1,
-                 Expr.substConst0 cv.name value' eq.2))
-            unless ok do
+        if natOpNames.contains cv.name ||
+            natDivModNames.contains cv.name then
+          let fe2 ← checkDefnValF (sharedOps (mkFEnv env)) (mkFEnv env)
+            cv value hint
+          if natOpNames.contains cv.name then
+            unless natOpGuardF fe2 cv.name &&
+                (natOpDeps cv.name).all (natOpStoredOkF fe2) do
               throw (.notImplemented
-                s!"nonstandard structural Nat operation ({cv.name})")
-          | _ => throw (.internal
-              s!"structural Nat operation not stored ({cv.name})")
-        if natDivModNames.contains cv.name then
-          checkDivModPinF (sharedOps (mkFEnv env)) (mkFEnv env) fe2
-            cv.name
-        pure fe2 : CheckIM FEnv) = _
+                s!"nonstandard structural Nat operation environment ({cv.name})")
+            match fe2.find? cv.name with
+            | some (.defnInfo _ value' _) =>
+              let ok ← certifyNatEqs (sharedOps (mkFEnv env))
+                (mkFEnv env).env
+                ((natOpEquations 0 cv.name).map fun eq =>
+                  (Expr.substConst0 cv.name value' eq.1,
+                   Expr.substConst0 cv.name value' eq.2))
+              unless ok do
+                throw (.notImplemented
+                  s!"nonstandard structural Nat operation ({cv.name})")
+            | _ => throw (.internal
+                s!"structural Nat operation not stored ({cv.name})")
+          if natDivModNames.contains cv.name then
+            checkDivModPinF (sharedOps (mkFEnv env)) (mkFEnv env) fe2
+              cv.name
+          pure fe2
+        else
+          checkDefnValF (sharedOps (mkFEnv env)) (mkFEnv env)
+            cv value hint : CheckIM FEnv) = _
     unfold checkDecl
     simp only [checkConstantValF_eq, mkFEnv_env, bind_assoc]
     refine bindI_congr fun cvA => ?_
+    by_cases hb : (natOpNames.contains cvA.name ||
+        natDivModNames.contains cvA.name) = true
+    case neg =>
+      obtain ⟨h1, h4⟩ : ¬(natOpNames.contains cvA.name = true) ∧
+          ¬(natDivModNames.contains cvA.name = true) := by
+        simpa [not_or] using hb
+      rw [if_neg hb, checkDefnValF_push]
+      simp only [if_neg h1, if_neg h4, pure_bind]
+    simp only [if_pos hb]
     rw [checkDefnValF_push]
     simp only [bind_assoc, pure_bind]
     refine bindI_congr fun env2 => ?_
