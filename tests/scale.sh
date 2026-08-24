@@ -177,8 +177,10 @@ rss_max3() { # rss_max3 MODE FILE -> max of 3 runs, empty on failure
 # in DESIGN.md): the flat shapes measured 1.00-1.02 and gate at 1.15.
 # Four shapes measured SUPERLINEAR on master (known findings, gated at
 # measured+slack so they cannot silently get worse): lparams 1.49/8x
-# 1.78/32x, fields-raw 2.31/8x 2.74/32x, ctors-mod 2.58/8x 2.76/16x,
-# fields-mod 2.08/8x 2.43/16x.
+# 1.78/32x, ctors-mod 2.58/8x 2.76/16x, fields-mod 2.08/8x 2.43/16x.
+# fields-raw recalibrated after the direct-install instantiation fix
+# (DESIGN.md "fields-raw: the near-cubic direct install"): measured
+# 1.92/8x 2.22/32x, gated at 2.20/2.50.
 SPECS="
 chain:chain:def:100:32:1.15:1.15:1.60
 spine:spine:def:50:32:1.15:1.15:-
@@ -190,7 +192,7 @@ fanout:fanout:def:100:32:1.15:1.15:-
 lets:lets:def:100:32:1.15:1.15:-
 lparams:lparams:def:100:32:1.65:1.95:-
 thm:thm:def:200:32:1.15:1.15:1.60
-fields-raw:fields:raw:25:32:2.60:2.90:-
+fields-raw:fields:raw:25:32:2.20:2.50:-
 ctors-mod:ctors:mod:4:16:2.90:3.00:-
 fields-mod:fields:mod:8:16:2.40:2.70:-
 "

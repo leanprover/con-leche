@@ -114,6 +114,18 @@ def installProjFnStepNC (T ctorName : Name) (lps : List Name)
     checkProjFnNC fe T ctorName lps nP nF i
   else pure fe
 
+/-- `checkDirectProjsS` at the cert-skipping ops. -/
+def checkDirectProjsNC (T C : Name) (lps : List Name) (nP nF : Nat)
+    (cvTa cvCa : ConstantVal) :
+    (todo i : Nat) → Option Expr → FEnv → CheckIM FEnv
+  | 0, _, _, fe => pure fe
+  | todo + 1, i, rt?, fe => do
+    flushS
+    let fe' ← checkDirectProjF (sharedOpsNC fe) T C lps nP nF cvTa cvCa
+      rt? fe i
+    checkDirectProjsNC T C lps nP nF cvTa cvCa todo (i + 1)
+      (rt?.bind (Expr.instPisAtLift [directProjArg T lps nP i])) fe'
+
 /-- `checkDirectStructS` at the cert-skipping ops (task #82).
 
 The cert-skipping twin of `checkDirectStructS`.  Like every definition
@@ -140,11 +152,9 @@ def checkDirectStructNC (fe : FEnv) (p : DirectParts) : CheckIM FEnv := do
   unless (List.range p.nF).all
       (fun j => (fe₃.find? (projFnName p.cvT.name j)).isNone) do
     throw (.invalid "projection name family taken")
-  (List.range p.nF).foldlM
-    (fun e j => do
-      flushS
-      checkDirectProjF (sharedOpsNC e) p.cvT.name p.cvC.name
-        p.cvT.levelParams p.nP p.nF cvTa cvCa e j) fe₃
+  checkDirectProjsNC p.cvT.name p.cvC.name p.cvT.levelParams p.nP p.nF
+    cvTa cvCa p.nF 0
+    (Expr.instPisAtLift (directProjPs p.nP) cvCa.type) fe₃
 
 /-- `checkIndDeclSF` at the cert-skipping ops. -/
 def checkIndDeclNC (fe : FEnv) (block : List ConstantInfo) :

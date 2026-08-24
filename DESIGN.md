@@ -5536,3 +5536,91 @@ decisions to align are exactly the ones that read a binder annotation
 (`inferType`'s λ/∀ clauses, `isDefEq`'s binder comparison), and each
 reads `codOf` on the raw side against the stored `cod` on the ghost
 side.
+
+## fields-raw: the near-cubic direct install (2026-08-24, fix/fields-raw-cubic)
+
+The harness's `fields-raw` finding (2.31 std / 2.74 deep against an
+official-kernel 1.07 on identical streams) decomposed, by `perf` at
+n=400/800 plus stage-by-stage neutralization experiments, into **three
+cubic terms and a spec-inherent quadratic floor**.
+
+### The cubic terms — fixed, comparands unchanged
+
+* **Sequential telescope instantiation.**  `instPisAt`/`instLamsAt`/
+  `openPisAtFvars` fold `instantiate1` over the argument list — one
+  whole-telescope traversal per argument, quadratic per call, and the
+  per-projection outer loop made it cubic (34% of the profile in
+  `Expr.instantiate1`).  One-pass variants (`Expr.instPisAtF`,
+  `Expr.instLamsAtF`, `openPisAtFvarsF`) peel the raw binders
+  structurally while the pending substitutions accumulate, and apply
+  them in a single `instantiateList` traversal per domain/residual.
+  When the raw telescope is shorter than the argument list (a binder
+  only *created* by substitution) the walk falls back to the
+  sequential spec, so the equalities are **unconditional**
+  (`Setlec/Verify/FastOps.lean`, on task #50's `instantiateList_cons`).
+  The executable F-mirrors use the fast variants; the generic
+  `Checker.lean` spec and every Model/Bridge proof keep seeing the
+  sequential fold, reconnected by rewrites in `Verify/CheckerF.lean`.
+* **`directProjTy` redoing earlier substitutions.**  Projection `i`'s
+  generated type peeled the constructor telescope at `ps ++ projArgs i`
+  from scratch — `Σᵢ i·n` `instantiate1Lift` traversals.  The peeled
+  residual is now **threaded across the projection loop**
+  (`directProjResid`, driver `checkDirectProjsS`): step `i → i+1` is a
+  single `instantiate1Lift` with the next projection substitute.  The
+  threaded value is pinned to the spec by `directProjResid_eq` /
+  `directProjTy_eq_resid` (via the new `instPisAtLift_append`), so the
+  comparands the model consumes are byte-identical; `BridgeS`'s
+  projection-fold lemma became `checkDirectProjsS_run`, carrying the
+  invariant `rt? = directProjResid … i` through the induction.
+* **Positional `List` indexing** in `checkDirectDomsAtF`/
+  `checkDirectFieldUnivF`/`domsMatchAux` (O(j) per access, 10% of the
+  profile in `List.get?Internal`) — `Array` mirrors (`…FA`,
+  `domsMatchAuxA`), converted once per call site.
+
+**Measured** (fields-raw, adjusted instructions): total at n=800
+119.2 G → 32.8 G; harness exponents 2.31 → **1.92** std, 2.74 →
+**2.22** deep; gates recalibrated to 2.20/2.50 (measured + slack).
+All other shapes unchanged (fields-mod 2.42 deep, ctors-mod 2.76,
+lparams 1.78, the nine flat shapes 1.00–1.02); arena 90/92, e2e 62/62,
+the four #82 verdict flips unchanged; init-core probe accepts.
+
+### The remaining floor — a finding, not a bug in the walks
+
+The official kernel is flat here because it installs **no projection
+functions at all** (`.proj` is a kernel primitive); the direct path,
+like the modeled path, installs one degenerate recursor per field
+whose rule λ-binds the *whole* field telescope — Θ(n²) stored rule
+material, and `checkDirectProj`/`checkProjRule` runs Θ(n) reference
+checks (annotate, four wellformedness walks, a definitional
+domain-pin list — Θ(n) `isDefEq` calls — and an inference) per
+projection *by specification*.  Neutralization measurements at n=800
+attribute what remains:
+
+* `ops.annotate` of the rule RHS: 8.2 G, exactly n², ~12.7 K
+  instructions per (projection, field) unit — the per-call
+  intern → annotate → readback machinery constant;
+* `allLevelParamsDefined(rhsA)` + re-intern for `ops.inferType`:
+  18.2 G, n² **plus a genuine n³ component** — `annotate` tags every
+  λ with an *unnormalized* imax-chain codomain sort (the references
+  normalize with `mkLevelIMax'`-style smart constructors), so each
+  rhsA carries O(n) level nodes per binder that every tree-level walk
+  and re-intern re-traverses;
+* the domain-pin `checkDefEqList`: 2.7 G, n² at ~4.2 K/unit (per-ops-
+  call knot construction + interning + state threading);
+* residual machinery: ~3.5 G n² + ~0.9 M fixed per projection
+  (flush, stage overhead).
+
+With *everything* above experimentally removed the deep top still
+reads exponent ~1.75 — the floor is architectural.  Hitting the
+official-like ≤1.3 at n=800 needs the marginal cost per (projection,
+field) under ~400 instructions, which no comparand-preserving
+instantiation fix can deliver; the candidate follow-ups are design
+decisions in their own right: (a) an interned index-passing
+projection phase in the style of the task-#78 parsed drivers (no
+readback/re-intern, `allLevelParamsDefinedI` on the arena — the
+`allLevelParamsDefinedI_spec` stock exists, but the mirror equalities
+become state-conditional and the `BridgeS3` walks must carry them),
+(b) normalizing the sorts `annotate` stores in binder tags (aligns
+with the references; touches every stored type and the tag-reading
+interpretation lemmas), or (c) changing what the direct install
+stores per projection (route X: the comparands themselves).
