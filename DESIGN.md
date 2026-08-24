@@ -2124,7 +2124,14 @@ recursor rules: 11,160 plain, 182 nested-exact) found exactly 5
 name-only major mismatches in 2 blocks (`Lean.PrefixTreeNode.rec_3`,
 `Lean.Json.rec_4/rec_5` — both nest dependently through tree maps),
 zero mismatches beyond names, and zero indexed nested-aux rules (the
-recorded `.inert` limitation stays unexercised by Mathlib).
+recorded `.inert` limitation stays unexercised by Mathlib).  The
+indexed limitation itself is now pinned by
+`indexed_nested_aux.ndjson` (`TV` nesting through an indexed `Vec`;
+`TV.rec_1` has `majorIdx = rulePrefix + 1`, its fired inert rules
+positively decline at `TV.brecOn.go`, expected verdict 2) — by user
+ruling (2026-08-24) that limitation gets a certification + soundness
+extension as a follow-up regardless of no stream needing it, and the
+fixture flips to 0 when it lands.
 Soundness rides the existing erasure bridge: the `NestedChecked` kit
 records the major fact as `Expr.ErasedEq` (via
 `ErasedEq.of_eqUpToNames`), and `modeled_bottom_nested` consumes it
