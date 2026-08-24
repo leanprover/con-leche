@@ -5329,3 +5329,83 @@ frontier):
   decline in ~11 min (previously: stack overflow at end of parse;
   22 min with the 16 GiB-stack workaround plus ~7.5 min
   re-preprocessing)
+
+### Raw storage stage 4a: `norm`, and the twin relation (2026-08-24, task #100)
+
+Storage flips to the **parsed trees, untouched** — install stays pure
+parse + intern (orchestrator ruling, option (iii) on the stage-3
+finding).  The annotation pass is not skeleton-preserving, so the twin
+relation generalizes from "erase the annotations" to
+
+  `erase(ê) = norm(e)`
+
+with `norm` (`Setlec/Model/Norm.lean`) a **pure proof-side**
+normalization performing exactly the annotation pass's two
+skeleton-changing clauses and nothing else:
+
+* **zeta** — `annotateBody`'s `letE` clause annotates the body as its
+  zeta reduct (value transparency; the `letE`-preserving variant is
+  recorded as rejected in the task-#79 section).  `norm`'s `letE`
+  clause is that expansion, so `norm`'s output is let-free and the
+  model machinery keeps working in its let-free regime while the
+  kernel keeps its lazy zeta.
+* **projection rewrite** — the `proj` clause either keeps the node
+  (with the structure name normalized to the scrutinee type's head) or
+  rewrites it away (`annotateProjElim`).  This one is *not* a function
+  of the expression — it reads the projection table and the whnf of an
+  inferred type — so it enters `norm` as an **oracle**, exactly as
+  binder annotations enter `decorate`.  Its agreement with the
+  annotation pass is a hypothesis, discharged at the flip.
+
+Fuel is the measure, as for `annotateCore` and for the same reason
+(zeta expansion is not size-decreasing); every statement is at an
+arbitrary fixed fuel, so no fuel bookkeeping leaks into the flip.
+
+**The congruence layer, and what it buys.**  `norm_id` /
+`norm_keep_id`: on a let-free tree whose projection nodes the oracle
+keeps, `norm` is the identity — at *every* fuel.  That is the precise
+form of "init-prelude-style streams are unaffected by the flip", and
+with `Expr.TwinAt_keep` it collapses the twin relation to plain shallow
+erasure on such streams.  `eraseCodS_norm`: `norm` commutes with the
+shallow erasure (both leave `fvar` annotations alone, which is what
+makes them commute on the nose), so the composite the raw model is
+instantiated at is unambiguous.  `Expr.eraseCodS_instantiate1` extends
+stage 3's shallow-erasure kit to arbitrary substitutions, which the
+zeta clause needs.
+
+**The value-transparency bridge is not new work.**  `interp_zeta_step`
+and `AnnotOk_zeta_step` — one zeta step preserves the interpretation
+and transports annotation truthfulness — are `interp_beta` and
+`AnnotOk_beta`, the substitution lemmas task #79 already built for the
+`whnfCore` zeta case, packaged at the `letE` clause.  They are the
+seam where the kernel's lazy zeta and `norm`'s eager expansion meet.
+
+**The raw model's parameter is now a relation.**  `RawEnvModelE V Twin
+env` takes `Twin : Env → Env → Prop`, because the end state needs a map
+on *each* side.  Three instantiations, one per stage:
+`fun a e => a = e` (transitional), `fun a e => a.eraseCod = e`
+(stage 3), and `Env.TwinAt O f` = `fun a e => a.eraseCodS = Env.norm O f e`
+(the end state, `RawEnvModelN`).  `norm` and `eraseCodS` are lifted
+through `ConstantVal`/`RecRule`/`RecRuleFire`/`ProjEntry`/`ConstantInfo`
+to environments alongside `Env.eraseCod`.
+
+**Handoff — what stage 4 still needs.**
+
+* (b) *storage flip*: the kernel stores parse output; the guards and
+  defeq move to the memoized `codOf` / raw forms.  Nothing in the model
+  layer blocks this; `natLitSupportedRaw`/`strLitSupportedRaw` (stage 1)
+  are the raw guard forms, and `codOfI` (stage 2) is the memo.
+* (c) *ghost-run bisimulation*: raw run ≡ ghost run on the **canonical**
+  twin, decisions aligned via memoized `codOf` against stored cods.
+  The spike's warning stands: claims over arbitrary truthful twins are
+  FALSE — canonical twins only.  `decorate_eq` (stage 3) is what makes
+  "canonical" a definition rather than a choice: the twin is the unique
+  tree the memo reconstructs.
+* (d) *instantiation*: `RawEnvModelN` exists; what remains is
+  re-proving `extend_model_raw` &co. at `Env.TwinAt` instead of plain
+  erasure.  The certificate transfers need `norm` congruences for
+  `hasFvar`/`looseBVarsBounded`/`constsResolve` (the erasure ones are
+  stage 1); `norm` preserves none of them unconditionally — zeta
+  expansion duplicates the value — so these are per-predicate lemmas
+  with the substitution facts, not one-liners.  That is the first thing
+  to write.

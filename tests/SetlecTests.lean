@@ -292,4 +292,27 @@ private def arrowPP : Expr :=
   | .ok (u, _), .ok (.forallE _ _ _ ⟨_, some v⟩) => u == v
   | _, _ => false
 
+/-! ## The skeleton normalization (task #100 stage 4)
+
+`norm` performs exactly the annotation pass's two skeleton-changing
+clauses — zeta expansion and the projection rewrite — and nothing
+else. -/
+
+-- Zeta: `let x := Prop; x` normalizes to `Prop`.
+#guard Expr.norm keepOracle 8 0
+    (.letE (.str .anonymous "x") (.sort (.succ .zero)) (.sort .zero) (.bvar 0))
+  == .sort .zero
+
+-- Nothing else changes: on a let-free tree with a keep oracle `norm`
+-- is the identity, so streams without `let` records are unaffected.
+#guard Expr.letFree arrowPP == true
+#guard Expr.norm keepOracle 8 0 arrowPP == arrowPP
+
+-- …and a `let` under a binder is expanded in place.
+#guard Expr.norm keepOracle 8 0
+    (.forallE (.str .anonymous "y") (.sort .zero)
+      (.letE (.str .anonymous "x") (.sort .zero) (.bvar 0) (.bvar 0))
+      ⟨.default, none⟩)
+  == .forallE (.str .anonymous "y") (.sort .zero) (.bvar 0) ⟨.default, none⟩
+
 end SetlecTests
