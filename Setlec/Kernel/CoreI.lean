@@ -366,6 +366,21 @@ def instListM (e : EIdx) (vs : List EIdx) (d : Nat := 0) :
       let (r', store) := store.instantiateListI e vs d
       (r', { s with store := store })
 
+/-- Memoized interned bulk instantiation on a reversed accumulator
+array — innermost binder **last**, the binder loops' push order
+(lean4lean's `instantiateRev` discipline, task #97); identity shortcut
+as in `instListM`.  Equal to `instListM e vs.toList.reverse d`
+(`instListRevM_eq`, `Setlec/Verify/SimI.lean`). -/
+def instListRevM (e : EIdx) (vs : Array EIdx) (d : Nat := 0) :
+    CheckIM EIdx :=
+  modifyGet fun s =>
+    if s.store.bvarBoundD e ≤ d then (e, s)
+    else
+      let store := s.store
+      let s := { s with store := EStore.empty }
+      let (r', store) := store.instantiateRevI e vs d
+      (r', { s with store := store })
+
 /-- Memoized interned `Expr.abstract1`. -/
 def abstract1M (e : EIdx) (d : Nat) : CheckIM EIdx :=
   modifyGet fun s =>
@@ -1493,31 +1508,32 @@ substitutes and normalizes, exactly like the chained `inferBody`
 recursion (`Setlec/Verify/BetaSpine.lean` proves the
 identification). -/
 def inferSpineI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
-    EIdx → List EIdx → List EIdx → CheckIM EIdx
-  | ty, acc, [] => instListM ty acc
+    EIdx → Array EIdx → List EIdx → CheckIM EIdx
+  | ty, acc, [] => instListRevM ty acc
   | ty, acc, a :: rest => do
     match ← viewI ty with
     | some (.forallE _ dom body mt) => do
       -- possibly-Prop-gated argument re-check (task #49; see the
       -- spec body `inferBody` and `codNonZero`)
-      if ← codNonZeroIM mt then inferSpineI r fe depth body (a :: acc) rest
+      if ← codNonZeroIM mt then
+        inferSpineI r fe depth body (acc.push a) rest
       else do
-        let dom' ← instListM dom acc
+        let dom' ← instListRevM dom acc
         let ta ← r.infer depth a
         unless ← r.defeq depth ta dom' do
           throw (.invalid "application type mismatch")
-        inferSpineI r fe depth body (a :: acc) rest
+        inferSpineI r fe depth body (acc.push a) rest
     | _ => do
-      let ty' ← instListM ty acc
+      let ty' ← instListRevM ty acc
       let w ← r.whnf depth ty'
       match ← viewI w with
       | some (.forallE _ dom body mt) => do
-        if ← codNonZeroIM mt then inferSpineI r fe depth body [a] rest
+        if ← codNonZeroIM mt then inferSpineI r fe depth body #[a] rest
         else do
           let ta ← r.infer depth a
           unless ← r.defeq depth ta dom do
             throw (.invalid "application type mismatch")
-          inferSpineI r fe depth body [a] rest
+          inferSpineI r fe depth body #[a] rest
       | _ => throw (.invalid "function expected")
 
 /-- Twin of `whnfBody`. -/
@@ -1584,8 +1600,8 @@ def inferLamsOutI (d : Nat) :
 /-- Leaf phase of `inferLamsI`: bulk-open the residual body, infer it
 and its type's sort, then rebuild outward. -/
 def inferLamsLeafI (r : CoreFnsI) (d : Nat) (t : EIdx) (k : Nat)
-    (fvs : List EIdx) (stk : List InferLamEntry) : CheckIM EIdx := do
-  let ob ← instListM t fvs
+    (fvs : Array EIdx) (stk : List InferLamEntry) : CheckIM EIdx := do
+  let ob ← instListRevM t fvs
   let bt ← r.infer (d + k) ob
   let tbt ← r.infer (d + k) bt
   let wtbt ← r.whnf (d + k) tbt
@@ -1601,19 +1617,19 @@ domain to be a type on the way in.  `k` counts the opened binders
 (`≥ 1`: the caller peels the first binder inline), `fvs` their free
 variables innermost-first. -/
 def inferLamsI (r : CoreFnsI) (d : Nat) :
-    Nat → EIdx → Nat → List EIdx → List InferLamEntry → CheckIM EIdx
+    Nat → EIdx → Nat → Array EIdx → List InferLamEntry → CheckIM EIdx
   | fuel + 1, t, k, fvs, stk => do
     match ← viewI t with
     | some (.lam n ty body mb) =>
       match mb.cod with
       | some v => do
-        let tyo ← instListM ty fvs
+        let tyo ← instListRevM ty fvs
         let tty ← r.infer (d + k) tyo
         let wtty ← r.whnf (d + k) tty
         match ← viewI wtty with
         | some (.sort u) => do
           let fv ← internI (.fvar (d + k) n tyo)
-          inferLamsI r d fuel body (k + 1) (fv :: fvs)
+          inferLamsI r d fuel body (k + 1) (fvs.push fv)
             ((n, tyo, mb, v, u) :: stk)
         | _ => throw (.invalid "expected a sort")
       | none => throw (.internal "unannotated λ-binder reached inferType")
@@ -1672,7 +1688,7 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
           -- open in bulk, rebuild with `abstractRange`.
           let fv ← internI (.fvar depth n ty)
           let fuel ← withStore (·.nodes.size)
-          inferLamsI r depth fuel body 1 [fv] [(n, ty, mb, v, u)]
+          inferLamsI r depth fuel body 1 #[fv] [(n, ty, mb, v, u)]
         | _ => throw (.invalid "expected a sort")
       | none => throw (.internal "unannotated λ-binder reached inferType")
     | some (.app _ _) => do
@@ -1681,7 +1697,7 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
       let h ← withStore (fun st => st.getAppFnI e)
       let args ← withStore (·.getAppArgsI e)
       let tf ← r.infer depth h
-      inferSpineI r fe depth tf [] args
+      inferSpineI r fe depth tf #[] args
     | some (.proj _sn i pe) => do
       let tpe ← r.infer depth pe
       let te ← r.whnf depth tpe
@@ -1979,8 +1995,8 @@ def annotatePisOutI (r : CoreFnsI) (d : Nat) :
 /-- Leaf phase of `annotatePisI`: bulk-open and annotate the residual
 body, check it is a type, then rebuild outward. -/
 def annotatePisLeafI (r : CoreFnsI) (d : Nat) (t : EIdx) (k : Nat)
-    (fvs : List EIdx) (stk : List AnnotBinderEntry) : CheckIM EIdx := do
-  let to ← instListM t fvs
+    (fvs : Array EIdx) (stk : List AnnotBinderEntry) : CheckIM EIdx := do
+  let to ← instListRevM t fvs
   let leaf' ← r.annotate (d + k) to
   let tb ← r.infer (d + k) leaf'
   let v ← ensureSortI r (d + k) tb
@@ -1992,14 +2008,15 @@ case): peel the raw ∀-chain, annotating each opened domain on the way
 in.  `k ≥ 1` counts the opened binders (first binder peeled inline by
 the caller), `fvs` their free variables innermost-first. -/
 def annotatePisI (r : CoreFnsI) (d : Nat) :
-    Nat → EIdx → Nat → List EIdx → List AnnotBinderEntry → CheckIM EIdx
+    Nat → EIdx → Nat → Array EIdx → List AnnotBinderEntry → CheckIM EIdx
   | fuel + 1, t, k, fvs, stk => do
     match ← viewI t with
     | some (.forallE n ty body mb) => do
-      let tyo ← instListM ty fvs
+      let tyo ← instListRevM ty fvs
       let ty' ← r.annotate (d + k) tyo
       let fv ← internI (.fvar (d + k) n ty')
-      annotatePisI r d fuel body (k + 1) (fv :: fvs) ((n, ty', mb.bi) :: stk)
+      annotatePisI r d fuel body (k + 1) (fvs.push fv)
+        ((n, ty', mb.bi) :: stk)
     | _ => annotatePisLeafI r d t k fvs stk
   | 0, t, k, fvs, stk => annotatePisLeafI r d t k fvs stk
 
@@ -2029,8 +2046,8 @@ def annotateLamsOutI (r : CoreFnsI) (d : Nat) :
 /-- Leaf phase of `annotateLamsI`: bulk-open and annotate the residual
 body, infer it and its type's sort, then rebuild outward. -/
 def annotateLamsLeafI (r : CoreFnsI) (d : Nat) (t : EIdx) (k : Nat)
-    (fvs : List EIdx) (stk : List AnnotBinderEntry) : CheckIM EIdx := do
-  let to ← instListM t fvs
+    (fvs : Array EIdx) (stk : List AnnotBinderEntry) : CheckIM EIdx := do
+  let to ← instListRevM t fvs
   let leaf' ← r.annotate (d + k) to
   let bt ← r.infer (d + k) leaf'
   let tbt ← r.infer (d + k) bt
@@ -2041,16 +2058,66 @@ def annotateLamsLeafI (r : CoreFnsI) (d : Nat) (t : EIdx) (k : Nat)
 /-- λ-telescope annotation loop (task #72; `annotateBodyI`'s lam
 case). -/
 def annotateLamsI (r : CoreFnsI) (d : Nat) :
-    Nat → EIdx → Nat → List EIdx → List AnnotBinderEntry → CheckIM EIdx
+    Nat → EIdx → Nat → Array EIdx → List AnnotBinderEntry → CheckIM EIdx
   | fuel + 1, t, k, fvs, stk => do
     match ← viewI t with
     | some (.lam n ty body mb) => do
-      let tyo ← instListM ty fvs
+      let tyo ← instListRevM ty fvs
       let ty' ← r.annotate (d + k) tyo
       let fv ← internI (.fvar (d + k) n ty')
-      annotateLamsI r d fuel body (k + 1) (fv :: fvs) ((n, ty', mb.bi) :: stk)
+      annotateLamsI r d fuel body (k + 1) (fvs.push fv)
+        ((n, ty', mb.bi) :: stk)
     | _ => annotateLamsLeafI r d t k fvs stk
   | 0, t, k, fvs, stk => annotateLamsLeafI r d t k fvs stk
+
+/-- Application-annotation spine loop (task #96): `annotateBodyI`'s
+app case walks the whole spine once — the head's Π-telescope with
+deferred substitution against the arguments, replaying exactly the
+chained body's per-application checks (annotate the argument, infer
+it, check it against the substituted domain, rebuild) in the chained
+order.  The chained recursion instead ran `r.infer` on **every spine
+prefix**, each of which re-decomposed the spine and re-walked the root
+telescope — Θ(n²) view-steps and per-prefix argument lists (references
+walk once; official `infer` of an application carries an argument
+accumulator).  `ty` is the raw telescope after the binders consumed so
+far, `acc` their (annotated) arguments innermost-**last** (push
+order), `cur` the annotated spine so far, `a'` the current argument,
+already annotated (the chained order annotates the argument before
+inferring the function part).  The chained `whnf` between prefix
+inference and `∀`-view is the identity on a syntactic `∀`, so peeling
+skips it; a non-syntactic step substitutes and normalizes, exactly
+like the chained body (`Setlec/Verify/AnnotSpine.lean` proves the
+identification). -/
+def annotateSpineI (r : CoreFnsI) (depth : Nat) :
+    EIdx → Array EIdx → EIdx → EIdx → List EIdx → CheckIM EIdx
+  | ty, acc, cur, a', rest => do
+    match ← viewI ty with
+    | some (.forallE _ dom body _) => do
+      let dom' ← instListRevM dom acc
+      let ta ← r.infer depth a'
+      unless ← r.defeq depth ta dom' do
+        throw (.invalid "application argument type mismatch")
+      let cur' ← internI (.app cur a')
+      match rest with
+      | [] => pure cur'
+      | b :: rest' => do
+        let b' ← r.annotate depth b
+        annotateSpineI r depth body (acc.push a') cur' b' rest'
+    | _ => do
+      let ty' ← instListRevM ty acc
+      let w ← r.whnf depth ty'
+      match ← viewI w with
+      | some (.forallE _ dom body _) => do
+        let ta ← r.infer depth a'
+        unless ← r.defeq depth ta dom do
+          throw (.invalid "application argument type mismatch")
+        let cur' ← internI (.app cur a')
+        match rest with
+        | [] => pure cur'
+        | b :: rest' => do
+          let b' ← r.annotate depth b
+          annotateSpineI r depth body #[a'] cur' b' rest'
+      | _ => throw (.invalid "function expected")
 
 /-- Twin of `annotateBody`. -/
 def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
@@ -2069,25 +2136,27 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
       if strLitSupportedF fe then pure e
       else throw (.notImplemented
         "string literals before the String support declarations")
-    | some (.app f a) => do
-      let f' ← r.annotate depth f
-      let a' ← r.annotate depth a
-      let tf ← r.infer depth f'
-      let wtf ← r.whnf depth tf
-      match ← viewI wtf with
-      | some (.forallE _ ty _ _) => do
-        let ta ← r.infer depth a'
-        unless ← r.defeq depth ta ty do
-          throw (.invalid "application argument type mismatch")
-        internI (.app f' a')
-      | _ => throw (.invalid "function expected")
+    | some (.app _ _) => do
+      -- Spine loop (task #96): annotate the head once, then walk its
+      -- Π-telescope against the whole spine; the chained body inferred
+      -- every prefix (quadratic).  The chained order is preserved:
+      -- head, first argument, head's type, then per-argument steps.
+      let h ← withStore (fun st => st.getAppFnI e)
+      let args ← withStore (·.getAppArgsI e)
+      let h' ← r.annotate depth h
+      match args with
+      | [] => pure h'
+      | a :: rest => do
+        let a' ← r.annotate depth a
+        let th ← r.infer depth h'
+        annotateSpineI r depth th #[] h' a' rest
     | some (.forallE n ty body mb) => do
       -- Binder-telescope loop (task #72): peel the whole ∀-chain,
       -- open in bulk, rebuild with `abstractRange`.
       let ty' ← r.annotate depth ty
       let fv ← internI (.fvar depth n ty')
       let fuel ← withStore (·.nodes.size)
-      annotatePisI r depth fuel body 1 [fv] [(n, ty', mb.bi)]
+      annotatePisI r depth fuel body 1 #[fv] [(n, ty', mb.bi)]
     | some (.lam n ty body mb) => do
       -- The λ-loop is chain-identical only on bvar-closed nodes (the
       -- chained tails re-open exactly what they closed); disciplined
@@ -2096,7 +2165,7 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
         let ty' ← r.annotate depth ty
         let fv ← internI (.fvar depth n ty')
         let fuel ← withStore (·.nodes.size)
-        annotateLamsI r depth fuel body 1 [fv] [(n, ty', mb.bi)]
+        annotateLamsI r depth fuel body 1 #[fv] [(n, ty', mb.bi)]
       else do
         let ty' ← r.annotate depth ty
         let fv ← internI (.fvar depth n ty')

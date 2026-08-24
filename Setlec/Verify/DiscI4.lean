@@ -952,8 +952,9 @@ set_option maxHeartbeats 4000000 in
 /-- The application-inference spine loop simulates its pure mirror. -/
 theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
     ∀ {args : List EIdx} {xs : List Expr} {ty : EIdx} {tx : Expr}
-      {acc : List EIdx} {ws : List Expr} {s₀ : IState}, ISOK env s₀ →
-      s₀.store.denote ty = some tx → DenL s₀.store acc ws →
+      {acc : Array EIdx} {ws : List Expr} {s₀ : IState}, ISOK env s₀ →
+      s₀.store.denote ty = some tx →
+      DenL s₀.store acc.toList.reverse ws →
       WScoped d (tx.instantiateList ws) →
       DenL s₀.store args xs → (∀ x ∈ xs, WScoped d x) →
       SimAt env s₀ (RelE d)
@@ -965,7 +966,7 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
       rw [inferSpineI.eq_def]
       dsimp only
       rw [inferSpine_nil]
-      exact SimAt.of_eff (instListM_eff (d := 0) hs ht hacc) _
+      exact SimAt.of_eff (instListRevM_eff (d := 0) hs ht hacc) _
         (fun s r hQ => ⟨hQ, hwty⟩)
   | a :: rest, xs, ty, tx, acc, ws, s₀, hs, ht, hacc, hwty, hargs,
       hwargs => by
@@ -1006,10 +1007,10 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         by_cases hnz : codNonZero bm = true
         · rw [if_pos hnz, if_pos hnz]
           exact inferSpineI_sim ih henv hsG (denote_mono hextG hbody)
-            ⟨denote_mono hextG hax, hacc.mono hextG⟩ hwsub
+            (by rw [toListRev_push]; exact ⟨denote_mono hextG hax, hacc.mono hextG⟩) hwsub
             (hrest.mono hextG) hwrest
         · rw [if_neg hnz, if_neg hnz]
-          refine SimAt.bind_left (instListM_eff (d := 0) hsG
+          refine SimAt.bind_left (instListRevM_eff (d := 0) hsG
             (denote_mono hextG hdom) (hacc.mono hextG))
             (fun s₁ dom' hs₁ hext₁ hQdom => ?_)
           refine SimAt.bind (ih.infer hs₁
@@ -1029,7 +1030,7 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
             have hextAll := hextG.trans
               ((hext₁.trans hext₂).trans hext₃)
             exact inferSpineI_sim ih henv hs₃ (denote_mono hextAll hbody)
-              ⟨denote_mono hextAll hax, hacc.mono hextAll⟩ hwsub
+              (by rw [toListRev_push]; exact ⟨denote_mono hextAll hax, hacc.mono hextAll⟩) hwsub
               (hrest.mono hextAll) hwrest
       | bvar k =>
         cases hd
@@ -1038,7 +1039,7 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
           fun _ _ _ _ h => nomatch h
         rw [inferSpine_ne_pi _ _ hnl]
         unfold inferSpineWhnf
-        refine SimAt.bind_left (instListM_eff (d := 0) hs ht hacc)
+        refine SimAt.bind_left (instListRevM_eff (d := 0) hs ht hacc)
           (fun s₁ ty' hs₁ hext₁ hQty => ?_)
         refine SimAt.bind (ih.whnf hs₁ hQty hwty)
           (fun s₂ w wx hs₂ hext₂ hP => ?_)
@@ -1069,8 +1070,9 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
           by_cases hnz : codNonZero bm = true
           · rw [if_pos hnz, if_pos hnz]
             exact inferSpineI_sim ih henv hsG (denote_mono hextG hbody)
-              ⟨denote_mono ((hext₁.trans hext₂).trans hextG) hax,
-                DenL.nil⟩ hwsub
+              (by
+                rw [toListRev_singleton]
+                exact ⟨denote_mono ((hext₁.trans hext₂).trans hextG) hax, DenL.nil⟩) hwsub
               (hrest.mono ((hext₁.trans hext₂).trans hextG)) hwrest
           · rw [if_neg hnz, if_neg hnz]
             refine SimAt.bind (ih.infer hsG
@@ -1090,8 +1092,9 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
               have hextAll := hextG.trans (hext₃.trans hext₄)
               exact inferSpineI_sim ih henv hs₄
                 (denote_mono hextAll hbody)
-                ⟨denote_mono ((hext₁.trans hext₂).trans hextAll) hax,
-                  DenL.nil⟩ hwsub
+                (by
+                rw [toListRev_singleton]
+                exact ⟨denote_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
                 (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
         | bvar k => invert_node hd'; exact SimAt.throw
         | sort u => invert_node hd'; exact SimAt.throw
@@ -1115,7 +1118,7 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
           fun _ _ _ _ h => nomatch h
         rw [inferSpine_ne_pi _ _ hnl]
         unfold inferSpineWhnf
-        refine SimAt.bind_left (instListM_eff (d := 0) hs ht hacc)
+        refine SimAt.bind_left (instListRevM_eff (d := 0) hs ht hacc)
           (fun s₁ ty' hs₁ hext₁ hQty => ?_)
         refine SimAt.bind (ih.whnf hs₁ hQty hwty)
           (fun s₂ w wx hs₂ hext₂ hP => ?_)
@@ -1146,8 +1149,9 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
           by_cases hnz : codNonZero bm = true
           · rw [if_pos hnz, if_pos hnz]
             exact inferSpineI_sim ih henv hsG (denote_mono hextG hbody)
-              ⟨denote_mono ((hext₁.trans hext₂).trans hextG) hax,
-                DenL.nil⟩ hwsub
+              (by
+                rw [toListRev_singleton]
+                exact ⟨denote_mono ((hext₁.trans hext₂).trans hextG) hax, DenL.nil⟩) hwsub
               (hrest.mono ((hext₁.trans hext₂).trans hextG)) hwrest
           · rw [if_neg hnz, if_neg hnz]
             refine SimAt.bind (ih.infer hsG
@@ -1167,8 +1171,9 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
               have hextAll := hextG.trans (hext₃.trans hext₄)
               exact inferSpineI_sim ih henv hs₄
                 (denote_mono hextAll hbody)
-                ⟨denote_mono ((hext₁.trans hext₂).trans hextAll) hax,
-                  DenL.nil⟩ hwsub
+                (by
+                rw [toListRev_singleton]
+                exact ⟨denote_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
                 (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
         | bvar k => invert_node hd'; exact SimAt.throw
         | sort u => invert_node hd'; exact SimAt.throw
@@ -1194,7 +1199,7 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
           fun _ _ _ _ h => nomatch h
         rw [inferSpine_ne_pi _ _ hnl]
         unfold inferSpineWhnf
-        refine SimAt.bind_left (instListM_eff (d := 0) hs ht hacc)
+        refine SimAt.bind_left (instListRevM_eff (d := 0) hs ht hacc)
           (fun s₁ ty' hs₁ hext₁ hQty => ?_)
         refine SimAt.bind (ih.whnf hs₁ hQty hwty)
           (fun s₂ w wx hs₂ hext₂ hP => ?_)
@@ -1225,8 +1230,9 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
           by_cases hnz : codNonZero bm = true
           · rw [if_pos hnz, if_pos hnz]
             exact inferSpineI_sim ih henv hsG (denote_mono hextG hbody)
-              ⟨denote_mono ((hext₁.trans hext₂).trans hextG) hax,
-                DenL.nil⟩ hwsub
+              (by
+                rw [toListRev_singleton]
+                exact ⟨denote_mono ((hext₁.trans hext₂).trans hextG) hax, DenL.nil⟩) hwsub
               (hrest.mono ((hext₁.trans hext₂).trans hextG)) hwrest
           · rw [if_neg hnz, if_neg hnz]
             refine SimAt.bind (ih.infer hsG
@@ -1246,8 +1252,9 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
               have hextAll := hextG.trans (hext₃.trans hext₄)
               exact inferSpineI_sim ih henv hs₄
                 (denote_mono hextAll hbody)
-                ⟨denote_mono ((hext₁.trans hext₂).trans hextAll) hax,
-                  DenL.nil⟩ hwsub
+                (by
+                rw [toListRev_singleton]
+                exact ⟨denote_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
                 (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
         | bvar k => invert_node hd'; exact SimAt.throw
         | sort u => invert_node hd'; exact SimAt.throw
@@ -1265,7 +1272,7 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
           fun _ _ _ _ h => nomatch h
         rw [inferSpine_ne_pi _ _ hnl]
         unfold inferSpineWhnf
-        refine SimAt.bind_left (instListM_eff (d := 0) hs ht hacc)
+        refine SimAt.bind_left (instListRevM_eff (d := 0) hs ht hacc)
           (fun s₁ ty' hs₁ hext₁ hQty => ?_)
         refine SimAt.bind (ih.whnf hs₁ hQty hwty)
           (fun s₂ w wx hs₂ hext₂ hP => ?_)
@@ -1296,8 +1303,9 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
           by_cases hnz : codNonZero bm = true
           · rw [if_pos hnz, if_pos hnz]
             exact inferSpineI_sim ih henv hsG (denote_mono hextG hbody)
-              ⟨denote_mono ((hext₁.trans hext₂).trans hextG) hax,
-                DenL.nil⟩ hwsub
+              (by
+                rw [toListRev_singleton]
+                exact ⟨denote_mono ((hext₁.trans hext₂).trans hextG) hax, DenL.nil⟩) hwsub
               (hrest.mono ((hext₁.trans hext₂).trans hextG)) hwrest
           · rw [if_neg hnz, if_neg hnz]
             refine SimAt.bind (ih.infer hsG
@@ -1317,8 +1325,9 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
               have hextAll := hextG.trans (hext₃.trans hext₄)
               exact inferSpineI_sim ih henv hs₄
                 (denote_mono hextAll hbody)
-                ⟨denote_mono ((hext₁.trans hext₂).trans hextAll) hax,
-                  DenL.nil⟩ hwsub
+                (by
+                rw [toListRev_singleton]
+                exact ⟨denote_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
                 (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
         | bvar k => invert_node hd'; exact SimAt.throw
         | sort u => invert_node hd'; exact SimAt.throw
@@ -1345,7 +1354,7 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
           fun _ _ _ _ h => nomatch h
         rw [inferSpine_ne_pi _ _ hnl]
         unfold inferSpineWhnf
-        refine SimAt.bind_left (instListM_eff (d := 0) hs ht hacc)
+        refine SimAt.bind_left (instListRevM_eff (d := 0) hs ht hacc)
           (fun s₁ ty' hs₁ hext₁ hQty => ?_)
         refine SimAt.bind (ih.whnf hs₁ hQty hwty)
           (fun s₂ w wx hs₂ hext₂ hP => ?_)
@@ -1376,8 +1385,9 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
           by_cases hnz : codNonZero bm = true
           · rw [if_pos hnz, if_pos hnz]
             exact inferSpineI_sim ih henv hsG (denote_mono hextG hbody)
-              ⟨denote_mono ((hext₁.trans hext₂).trans hextG) hax,
-                DenL.nil⟩ hwsub
+              (by
+                rw [toListRev_singleton]
+                exact ⟨denote_mono ((hext₁.trans hext₂).trans hextG) hax, DenL.nil⟩) hwsub
               (hrest.mono ((hext₁.trans hext₂).trans hextG)) hwrest
           · rw [if_neg hnz, if_neg hnz]
             refine SimAt.bind (ih.infer hsG
@@ -1397,8 +1407,9 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
               have hextAll := hextG.trans (hext₃.trans hext₄)
               exact inferSpineI_sim ih henv hs₄
                 (denote_mono hextAll hbody)
-                ⟨denote_mono ((hext₁.trans hext₂).trans hextAll) hax,
-                  DenL.nil⟩ hwsub
+                (by
+                rw [toListRev_singleton]
+                exact ⟨denote_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
                 (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
         | bvar k => invert_node hd'; exact SimAt.throw
         | sort u => invert_node hd'; exact SimAt.throw
@@ -1420,7 +1431,7 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
           fun _ _ _ _ h => nomatch h
         rw [inferSpine_ne_pi _ _ hnl]
         unfold inferSpineWhnf
-        refine SimAt.bind_left (instListM_eff (d := 0) hs ht hacc)
+        refine SimAt.bind_left (instListRevM_eff (d := 0) hs ht hacc)
           (fun s₁ ty' hs₁ hext₁ hQty => ?_)
         refine SimAt.bind (ih.whnf hs₁ hQty hwty)
           (fun s₂ w wx hs₂ hext₂ hP => ?_)
@@ -1451,8 +1462,9 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
           by_cases hnz : codNonZero bm = true
           · rw [if_pos hnz, if_pos hnz]
             exact inferSpineI_sim ih henv hsG (denote_mono hextG hbody)
-              ⟨denote_mono ((hext₁.trans hext₂).trans hextG) hax,
-                DenL.nil⟩ hwsub
+              (by
+                rw [toListRev_singleton]
+                exact ⟨denote_mono ((hext₁.trans hext₂).trans hextG) hax, DenL.nil⟩) hwsub
               (hrest.mono ((hext₁.trans hext₂).trans hextG)) hwrest
           · rw [if_neg hnz, if_neg hnz]
             refine SimAt.bind (ih.infer hsG
@@ -1472,8 +1484,9 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
               have hextAll := hextG.trans (hext₃.trans hext₄)
               exact inferSpineI_sim ih henv hs₄
                 (denote_mono hextAll hbody)
-                ⟨denote_mono ((hext₁.trans hext₂).trans hextAll) hax,
-                  DenL.nil⟩ hwsub
+                (by
+                rw [toListRev_singleton]
+                exact ⟨denote_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
                 (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
         | bvar k => invert_node hd'; exact SimAt.throw
         | sort u => invert_node hd'; exact SimAt.throw
@@ -1504,7 +1517,7 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
           fun _ _ _ _ h => nomatch h
         rw [inferSpine_ne_pi _ _ hnl]
         unfold inferSpineWhnf
-        refine SimAt.bind_left (instListM_eff (d := 0) hs ht hacc)
+        refine SimAt.bind_left (instListRevM_eff (d := 0) hs ht hacc)
           (fun s₁ ty' hs₁ hext₁ hQty => ?_)
         refine SimAt.bind (ih.whnf hs₁ hQty hwty)
           (fun s₂ w wx hs₂ hext₂ hP => ?_)
@@ -1535,8 +1548,9 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
           by_cases hnz : codNonZero bm = true
           · rw [if_pos hnz, if_pos hnz]
             exact inferSpineI_sim ih henv hsG (denote_mono hextG hbody)
-              ⟨denote_mono ((hext₁.trans hext₂).trans hextG) hax,
-                DenL.nil⟩ hwsub
+              (by
+                rw [toListRev_singleton]
+                exact ⟨denote_mono ((hext₁.trans hext₂).trans hextG) hax, DenL.nil⟩) hwsub
               (hrest.mono ((hext₁.trans hext₂).trans hextG)) hwrest
           · rw [if_neg hnz, if_neg hnz]
             refine SimAt.bind (ih.infer hsG
@@ -1556,8 +1570,9 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
               have hextAll := hextG.trans (hext₃.trans hext₄)
               exact inferSpineI_sim ih henv hs₄
                 (denote_mono hextAll hbody)
-                ⟨denote_mono ((hext₁.trans hext₂).trans hextAll) hax,
-                  DenL.nil⟩ hwsub
+                (by
+                rw [toListRev_singleton]
+                exact ⟨denote_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
                 (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
         | bvar k => invert_node hd'; exact SimAt.throw
         | sort u => invert_node hd'; exact SimAt.throw
@@ -1583,7 +1598,7 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
           fun _ _ _ _ h => nomatch h
         rw [inferSpine_ne_pi _ _ hnl]
         unfold inferSpineWhnf
-        refine SimAt.bind_left (instListM_eff (d := 0) hs ht hacc)
+        refine SimAt.bind_left (instListRevM_eff (d := 0) hs ht hacc)
           (fun s₁ ty' hs₁ hext₁ hQty => ?_)
         refine SimAt.bind (ih.whnf hs₁ hQty hwty)
           (fun s₂ w wx hs₂ hext₂ hP => ?_)
@@ -1614,8 +1629,9 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
           by_cases hnz : codNonZero bm = true
           · rw [if_pos hnz, if_pos hnz]
             exact inferSpineI_sim ih henv hsG (denote_mono hextG hbody)
-              ⟨denote_mono ((hext₁.trans hext₂).trans hextG) hax,
-                DenL.nil⟩ hwsub
+              (by
+                rw [toListRev_singleton]
+                exact ⟨denote_mono ((hext₁.trans hext₂).trans hextG) hax, DenL.nil⟩) hwsub
               (hrest.mono ((hext₁.trans hext₂).trans hextG)) hwrest
           · rw [if_neg hnz, if_neg hnz]
             refine SimAt.bind (ih.infer hsG
@@ -1635,8 +1651,9 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
               have hextAll := hextG.trans (hext₃.trans hext₄)
               exact inferSpineI_sim ih henv hs₄
                 (denote_mono hextAll hbody)
-                ⟨denote_mono ((hext₁.trans hext₂).trans hextAll) hax,
-                  DenL.nil⟩ hwsub
+                (by
+                rw [toListRev_singleton]
+                exact ⟨denote_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
                 (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
         | bvar k => invert_node hd'; exact SimAt.throw
         | sort u => invert_node hd'; exact SimAt.throw
@@ -1658,7 +1675,7 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
           fun _ _ _ _ h => nomatch h
         rw [inferSpine_ne_pi _ _ hnl]
         unfold inferSpineWhnf
-        refine SimAt.bind_left (instListM_eff (d := 0) hs ht hacc)
+        refine SimAt.bind_left (instListRevM_eff (d := 0) hs ht hacc)
           (fun s₁ ty' hs₁ hext₁ hQty => ?_)
         refine SimAt.bind (ih.whnf hs₁ hQty hwty)
           (fun s₂ w wx hs₂ hext₂ hP => ?_)
@@ -1689,8 +1706,9 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
           by_cases hnz : codNonZero bm = true
           · rw [if_pos hnz, if_pos hnz]
             exact inferSpineI_sim ih henv hsG (denote_mono hextG hbody)
-              ⟨denote_mono ((hext₁.trans hext₂).trans hextG) hax,
-                DenL.nil⟩ hwsub
+              (by
+                rw [toListRev_singleton]
+                exact ⟨denote_mono ((hext₁.trans hext₂).trans hextG) hax, DenL.nil⟩) hwsub
               (hrest.mono ((hext₁.trans hext₂).trans hextG)) hwrest
           · rw [if_neg hnz, if_neg hnz]
             refine SimAt.bind (ih.infer hsG
@@ -1710,8 +1728,9 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
               have hextAll := hextG.trans (hext₃.trans hext₄)
               exact inferSpineI_sim ih henv hs₄
                 (denote_mono hextAll hbody)
-                ⟨denote_mono ((hext₁.trans hext₂).trans hextAll) hax,
-                  DenL.nil⟩ hwsub
+                (by
+                rw [toListRev_singleton]
+                exact ⟨denote_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
                 (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
         | bvar k => invert_node hd'; exact SimAt.throw
         | sort u => invert_node hd'; exact SimAt.throw
@@ -1992,7 +2011,8 @@ theorem inferBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     have hargsSpec := getAppArgsI_spec hs.wf hden
     refine SimAt.bind (ih.infer hs hhead hw.getAppFn)
       (fun s₁ tf tfx hs₁ hext₁ hP => ?_)
-    refine inferSpineI_sim ih henv hs₁ hP.1 DenL.nil ?_
+    refine inferSpineI_sim ih henv hs₁ hP.1
+      (by rw [toListRev_empty]; exact DenL.nil) ?_
       (hargsSpec.mono hext₁) hw.getAppArgs
     rw [Expr.instantiateList_nil]
     exact hP.2
