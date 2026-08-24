@@ -94,10 +94,10 @@ def NestedChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
     lhsS.getAppFn = Expr.const (f cvA.name) (cvA.levelParams.map .param) ∧
     lhsS.getAppArgs.length = mI + 1 ∧
     lhsS.getAppArgs.take rP = fvs.take rP ∧
-    lhsS.getAppArgs.getLastD (.bvar 0) =
-      Expr.mkAppN (.const (f (RecRule.ctor r)) lvls)
+    Expr.ErasedEq (lhsS.getAppArgs.getLastD (.bvar 0))
+      (Expr.mkAppN (.const (f (RecRule.ctor r)) lvls)
         (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
-          (p.renameConsts f)) ++ fvs.drop rP) ∧
+          (p.renameConsts f)) ++ fvs.drop rP)) ∧
     (cvj.type.stripPis (cnP + cnF)).isSome = true ∧
     Expr.instPisAt
       (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
@@ -453,8 +453,8 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
   case neg => rw [if_neg hlpre] at h; exact nomatch h
   rw [if_pos hlpre] at h
   try dsimp only at h
-  by_cases hmaj : (lhsS.getAppArgs.getLastD (.bvar 0) ==
-      Expr.mkAppN (.const (f (RecRule.ctor r)) lvls)
+  by_cases hmaj : Expr.eqUpToNames (lhsS.getAppArgs.getLastD (.bvar 0))
+      (Expr.mkAppN (.const (f (RecRule.ctor r)) lvls)
         (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
           (p.renameConsts f)) ++ fvs.drop rP)) = true
   case neg => rw [if_neg hmaj] at h; exact nomatch h
@@ -569,7 +569,8 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
         tbody, ℓA, αS, lhsS, rhsS, cdoms, cres, rdoms, rrest, fvsP,
         restP, cdomsP, crestP, xFvsP, crest2, ldoms, lrest,
         hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
-        eq_of_beq hlpre, eq_of_beq hmaj, hcstrip, hcinst, hclen,
+        eq_of_beq hlpre, Expr.ErasedEq.of_eqUpToNames hmaj, hcstrip,
+        hcinst, hclen,
         checkDefEqList_inv hdq1, checkDefEqList_inv hdq2, hrinst,
         checkDefEqList_inv hdq3, hopenP, hcinstP,
         checkTypedList_inv hdtP, hopenX, eq_of_beq harX, hlinst,

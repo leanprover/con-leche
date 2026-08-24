@@ -1106,9 +1106,9 @@ theorem checkIotaThmN_wfimp {env' envSelf : Env} (henv' : EnvWF env')
       fvs.take rP) = true
   case neg => rw [if_neg h6] at h; exact absurd h atF_throw_bind
   rw [if_pos h6] at h ⊢
-  by_cases h7 : ((tbody.getAppArgs.getD 1
-      (.bvar 0)).getAppArgs.getLastD (.bvar 0) ==
-      Expr.mkAppN (.const (f r.ctor) lvls)
+  by_cases h7 : Expr.eqUpToNames ((tbody.getAppArgs.getD 1
+      (.bvar 0)).getAppArgs.getLastD (.bvar 0))
+      (Expr.mkAppN (.const (f r.ctor) lvls)
         (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
           (p.renameConsts f)) ++ fvs.drop rP)) = true
   case neg => rw [if_neg h7] at h; exact absurd h atF_throw_bind

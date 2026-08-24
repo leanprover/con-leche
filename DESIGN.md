@@ -2105,6 +2105,48 @@ discharges the fold obligation from the checked theorem
 With this the *last* init-prelude blocker is gone: the full stream
 (3653 declarations) is accepted end to end in ~41s.
 
+**Nested major pinned up to binder names (2026-08-24, Mathlib
+frontier).**  `checkIotaThmN`'s canonical-major pin compares with
+`Expr.eqUpToNames`, not `==`: unlike the plain major, whose arguments
+are all opened variables, the stored pins can contain *binders*
+(dependent nested occurrences — `Std.DTreeMap.Internal.Impl α
+(fun _ => Lean.PrefixTreeNode α β cmp)`), and by the recorded owner
+ruling ("member types match up to display-only binder names",
+2026-08-21) a syntactic contract cannot hold at the binder-name level
+— export arenas intern by name-insensitive expression equality, so
+the theorem's pin spelling can drift from the recursor type's in
+binder names only.  The full preprocessed Mathlib stream (301k decls)
+declined at declaration 29,661 (`Lean.PrefixTreeNode.rec_3`, "iota
+statement major mismatch") on exactly this: the public recursor
+type's pin lambda binder is one hygienic name, the model theorem's
+another.  A whole-stream census (6,887 inductive blocks, 11,347
+recursor rules: 11,160 plain, 182 nested-exact) found exactly 5
+name-only major mismatches in 2 blocks (`Lean.PrefixTreeNode.rec_3`,
+`Lean.Json.rec_4/rec_5` — both nest dependently through tree maps),
+zero mismatches beyond names, and zero indexed nested-aux rules (the
+recorded `.inert` limitation stays unexercised by Mathlib).  The
+indexed limitation itself is now pinned by
+`indexed_nested_aux.ndjson` (`TV` nesting through an indexed `Vec`;
+`TV.rec_1` has `majorIdx = rulePrefix + 1`, its fired inert rules
+positively decline at `TV.brecOn.go`, expected verdict 2) — by user
+ruling (2026-08-24) that limitation gets a certification + soundness
+extension as a follow-up regardless of no stream needing it, and the
+fixture flips to 0 when it lands.
+Soundness rides the existing erasure bridge: the `NestedChecked` kit
+records the major fact as `Expr.ErasedEq` (via
+`ErasedEq.of_eqUpToNames`), and `modeled_bottom_nested` consumes it
+through `interp_erasedEq`/`AnnotOk.erasedEq` instead of rewriting.
+Regression fixture: `nested_pin_names.ndjson` (a dependent-pin nested
+block whose iota-theorem majors carry perturbed pin binder names,
+accepted; the firing is forced by a `rfl` on a concrete major).
+With the pin relaxed (and the driver fixes merged) the full Mathlib
+stream moves from declaration 29,661 (9.8 %) to **50,769 (16.9 %)**:
+the new frontier is `Nat.log2`, "unsupported Nat.div/mod spelling
+(pin ground constants absent)" — the Nat-ops certified-fast-path pin
+allowlists (`scripts/natop_prefix.json`) were extracted from Init
+streams and do not cover the Mathlib stream's ordering/spelling; a
+separate subsystem, follow-up task.
+
 **Slim recursor metadata (2026-08-22, task #46).**  Stored recursor
 metadata is exactly what the firing path reads.
 `ConstantInfo.recInfo` keeps two sums instead of the four counts:

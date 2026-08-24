@@ -333,9 +333,9 @@ theorem checkIotaThmNS_sim {env' : Env} (henv' : EnvWF env')
       (.bvar 0)).getAppArgs.take rP == fvs.take rP) = true
   case neg => simp only [if_neg h6]; exact SimAt.throw_bind
   simp only [if_pos h6]
-  by_cases h7 : ((tbody.getAppArgs.getD 1
-      (.bvar 0)).getAppArgs.getLastD (.bvar 0) ==
-      Expr.mkAppN (.const (f r.ctor) lvls)
+  by_cases h7 : Expr.eqUpToNames ((tbody.getAppArgs.getD 1
+      (.bvar 0)).getAppArgs.getLastD (.bvar 0))
+      (Expr.mkAppN (.const (f r.ctor) lvls)
         (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
           (p.renameConsts f)) ++ fvs.drop rP)) = true
   case neg => simp only [if_neg h7]; exact SimAt.throw_bind
