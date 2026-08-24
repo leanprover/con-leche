@@ -11,6 +11,7 @@ import Setlec.Verify.EnvWF
 import Setlec.Verify.InferLemmas
 import Setlec.SetTheory.Basic
 import Setlec.SetTheory.Core
+import Setlec.SetTheory.Derive.Collapse
 import Setlec.SetTheory.Aczel
 import Setlec.Kernel.IExpr
 import Setlec.Kernel.ArenaWF
