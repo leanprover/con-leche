@@ -24,6 +24,77 @@ open SetTheory Expr
 
 /-! ### Inversions of the direct install stages -/
 
+/-- Inversion of the direct-structure recognition's pure core: a
+recognised block has a nonzero result sort (the class narrowing, see
+DESIGN.md "Direct install of simple structures") and its constructor
+carries the type former's level parameters.
+
+The proof follows the *compiled* shape of `directPartsCore?`, not its
+source shape: the match compiler hoists the two inner `match`es — the
+rule's λ-telescope (a conjunct of the guard) and the type former's
+Π-telescope (the `if`'s then-branch) — out of the guard's `if`, so the
+split order is block shape, level parameters, `stripLams`, the guard,
+`stripPis`. -/
+theorem directPartsCore?_inv {block : List ConstantInfo} {p : DirectParts}
+    (h : directPartsCore? block = some p) :
+    p.resSort.isNonZero = true ∧ p.cvC.levelParams = p.cvT.levelParams := by
+  unfold directPartsCore? at h
+  split at h
+  case _ cvT c0 cvC nP nF cvR mI rP rule =>
+    split at h
+    case _ e relps =>
+      dsimp only at h
+      split at h
+      case h_1 lbs mbody hg =>
+        split at h
+        case isTrue hguard =>
+          split at h
+          case h_1 tbs s hst =>
+            obtain rfl := Option.some.inj h
+            simp only [Bool.and_eq_true, beq_iff_eq] at hguard
+            have hlps := hguard.1.1.1.1.1.1.1.1.1.2
+            have hshape := hguard.1.2
+            refine ⟨?_, hlps⟩
+            unfold directShape at hshape
+            split at hshape
+            case h_1 f1 s1 f2 cb rbs rb hq1 hq2 hq3 =>
+              have hss : s1 = s := by
+                have hqq := hq1.symm.trans hst
+                simp only [Option.some.injEq, Prod.mk.injEq,
+                  Expr.sort.injEq] at hqq
+                exact hqq.2
+              subst hss
+              simp only [Bool.and_eq_true] at hshape
+              exact hshape.1.1.1.1.1
+            all_goals exact nomatch hshape
+          all_goals simp at h
+        all_goals simp at h
+      all_goals simp at h
+    all_goals simp at h
+  all_goals simp at h
+
+/-- Inversion of the direct-structure recognition: the three facts the
+install's model extension (`extend_direct_struct`) takes as
+hypotheses — the nonzero result sort, the shared level parameters and
+the absence of the type former's `_model` artifact. -/
+theorem directParts?_inv {env : Env} {block : List ConstantInfo}
+    {p : DirectParts} (h : directParts? env block = some p) :
+    p.resSort.isNonZero = true ∧
+      p.cvC.levelParams = p.cvT.levelParams ∧
+      (env.find? (p.cvT.name.str "_model")).isNone = true := by
+  unfold directParts? at h
+  split at h
+  case h_1 q hq =>
+    split at h
+    case isTrue hg =>
+      obtain rfl := Option.some.inj h
+      obtain ⟨hnz, hlps⟩ := directPartsCore?_inv hq
+      refine ⟨hnz, hlps, ?_⟩
+      simp only [Bool.and_eq_true, directNoModel] at hg
+      exact hg.2.1.1.1
+    case isFalse => exact nomatch h
+  case h_2 => exact nomatch h
+
 /-- Inversion for `checkDirectInd` (stage 1). -/
 theorem checkDirectInd_inv {env : Env} {p : DirectParts} {F : Nat}
     {v : Env × ConstantVal}

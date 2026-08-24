@@ -732,7 +732,17 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
       unless env.find? eqName = some eqA do
         throw (.notImplemented "quotient basis requires the pinned Eq basis")
     kind.declsA.foldlM installBasisDecl env
-  | .indDecl block => checkIndDecl ops env block
+  | .indDecl block =>
+    -- Task #82: an *artifact-free* recognised simple structure is
+    -- installed directly, from the reference checks alone
+    -- (`Setlec/Kernel/Direct.lean`).  `directParts?` is a conservative
+    -- filter that also requires the block's `_model` companions to be
+    -- absent, so every preprocessed stream keeps today's route byte for
+    -- byte; the module split (`CheckerBase ← Modeled ← Checker`) is why
+    -- the dispatch lives here and not inside `checkIndDecl`.
+    match directParts? env block with
+    | some p => checkDirectStruct ops env p
+    | none => checkIndDecl ops env block
 
 /-- Check a list of declarations in order, starting from the empty
 environment. -/

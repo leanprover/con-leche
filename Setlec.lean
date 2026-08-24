@@ -30,6 +30,7 @@ import Setlec.Verify.Mono
 import Setlec.Verify.Deep
 import Setlec.Verify.Bridge
 import Setlec.Verify.BridgeDecl
+import Setlec.Model.DirectWF
 import Setlec.Model.BridgeWF
 import Setlec.Model.ConsistencyC
 import Setlec.Kernel.CheckerS
@@ -38,6 +39,7 @@ import Setlec.Kernel.CheckerNC
 import Setlec.Verify.SimS
 import Setlec.Verify.BridgeS1
 import Setlec.Verify.BridgeS2
+import Setlec.Verify.BridgeS3
 import Setlec.Model.BridgeS
 import Setlec.Model.ConsistencyS
 import Setlec.Verify.ParseP
