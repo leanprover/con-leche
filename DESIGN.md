@@ -5830,6 +5830,9 @@ measurably slower:
 * arena 90/92, e2e 64/64 (`tests/arena.sh` compares exit codes against
   the expectations file, so a clean run *is* the exit-code diff);
 * init-prelude probe exit 0 (3653/3653);
+* init-full exit 0, **61 048 declarations accepted**, output byte-identical
+  to master's (301 s → 353 s wall, +17 % — the full stream is far more
+  parse/IO-bound than the probe);
 * init-prelude instructions 21.47 G → 31.27 G (**+45.7 %**).
 
 The cost decomposes (init-prelude, `perf stat -e instructions:u`,
