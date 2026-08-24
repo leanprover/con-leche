@@ -1125,26 +1125,31 @@ def checkDeclSF (fe : FEnv) (d : Declaration) : CheckIM FEnv :=
   match d with
   | .defnDecl cv value hint => do
     let cv ← checkConstantValF (sharedOps fe) fe cv
-    let fe2 ← checkDefnValF (sharedOps fe) fe cv value hint
-    if natOpNames.contains cv.name then
-      unless natOpGuardF fe2 cv.name &&
-          (natOpDeps cv.name).all (natOpStoredOkF fe2) do
-        throw (.notImplemented
-          s!"nonstandard structural Nat operation environment ({cv.name})")
-      match fe2.find? cv.name with
-      | some (.defnInfo _ value' _) =>
-        let ok ← certifyNatEqs (sharedOps fe) fe.env
-          ((natOpEquations 0 cv.name).map fun eq =>
-            (Expr.substConst0 cv.name value' eq.1,
-             Expr.substConst0 cv.name value' eq.2))
-        unless ok do
+    -- Rare Nat-op branch decided before the value check, so the common
+    -- path does not retain `fe` across it (see `checkDeclSP`).
+    if natOpNames.contains cv.name || natDivModNames.contains cv.name then
+      let fe2 ← checkDefnValF (sharedOps fe) fe cv value hint
+      if natOpNames.contains cv.name then
+        unless natOpGuardF fe2 cv.name &&
+            (natOpDeps cv.name).all (natOpStoredOkF fe2) do
           throw (.notImplemented
-            s!"nonstandard structural Nat operation ({cv.name})")
-      | _ => throw (.internal
-          s!"structural Nat operation not stored ({cv.name})")
-    if natDivModNames.contains cv.name then
-      checkDivModPinF (sharedOps fe) fe fe2 cv.name
-    pure fe2
+            s!"nonstandard structural Nat operation environment ({cv.name})")
+        match fe2.find? cv.name with
+        | some (.defnInfo _ value' _) =>
+          let ok ← certifyNatEqs (sharedOps fe) fe.env
+            ((natOpEquations 0 cv.name).map fun eq =>
+              (Expr.substConst0 cv.name value' eq.1,
+               Expr.substConst0 cv.name value' eq.2))
+          unless ok do
+            throw (.notImplemented
+              s!"nonstandard structural Nat operation ({cv.name})")
+        | _ => throw (.internal
+            s!"structural Nat operation not stored ({cv.name})")
+      if natDivModNames.contains cv.name then
+        checkDivModPinF (sharedOps fe) fe fe2 cv.name
+      pure fe2
+    else
+      checkDefnValF (sharedOps fe) fe cv value hint
   | .thmDecl cv value => do
     let cv ← checkConstantValF (sharedOps fe) fe cv
     checkThmValF (sharedOps fe) fe cv value
@@ -1330,26 +1335,36 @@ def checkDeclSP (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
   match pd with
   | .defnDecl cv value hint => do
     let (cvA, jty) ← checkConstantValP fe cv
-    let fe2 ← checkDefnValP fe cvA jty value hint
-    if natOpNames.contains cvA.name then
-      unless natOpGuardF fe2 cvA.name &&
-          (natOpDeps cvA.name).all (natOpStoredOkF fe2) do
-        throw (.notImplemented
-          s!"nonstandard structural Nat operation environment ({cvA.name})")
-      match fe2.find? cvA.name with
-      | some (.defnInfo _ value' _) =>
-        let ok ← certifyNatEqs (sharedOps fe) fe.env
-          ((natOpEquations 0 cvA.name).map fun eq =>
-            (Expr.substConst0 cvA.name value' eq.1,
-             Expr.substConst0 cvA.name value' eq.2))
-        unless ok do
+    -- The Nat-op certification branch is decided *before* checking the
+    -- value: the pinned certifications intentionally run against the
+    -- pre-push `fe`, so the rare branch must retain `fe` across
+    -- `checkDefnValP` — but on the common path that retention would
+    -- force the final `fe.push` to copy the whole index bucket array
+    -- (a hidden quadratic cost, one copy per definition).  The common
+    -- path is therefore a tail call with `fe` consumed.
+    if natOpNames.contains cvA.name || natDivModNames.contains cvA.name then
+      let fe2 ← checkDefnValP fe cvA jty value hint
+      if natOpNames.contains cvA.name then
+        unless natOpGuardF fe2 cvA.name &&
+            (natOpDeps cvA.name).all (natOpStoredOkF fe2) do
           throw (.notImplemented
-            s!"nonstandard structural Nat operation ({cvA.name})")
-      | _ => throw (.internal
-          s!"structural Nat operation not stored ({cvA.name})")
-    if natDivModNames.contains cvA.name then
-      checkDivModPinF (sharedOps fe) fe fe2 cvA.name
-    pure fe2
+            s!"nonstandard structural Nat operation environment ({cvA.name})")
+        match fe2.find? cvA.name with
+        | some (.defnInfo _ value' _) =>
+          let ok ← certifyNatEqs (sharedOps fe) fe.env
+            ((natOpEquations 0 cvA.name).map fun eq =>
+              (Expr.substConst0 cvA.name value' eq.1,
+               Expr.substConst0 cvA.name value' eq.2))
+          unless ok do
+            throw (.notImplemented
+              s!"nonstandard structural Nat operation ({cvA.name})")
+        | _ => throw (.internal
+            s!"structural Nat operation not stored ({cvA.name})")
+      if natDivModNames.contains cvA.name then
+        checkDivModPinF (sharedOps fe) fe fe2 cvA.name
+      pure fe2
+    else
+      checkDefnValP fe cvA jty value hint
   | .thmDecl cv value => do
     let (cvA, jty) ← checkConstantValP fe cv
     checkThmValP fe cvA jty value

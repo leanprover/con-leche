@@ -550,6 +550,21 @@ theorem checkDeclSP_sim (henv : EnvWF env) (hs : ISOK env s₀)
     obtain ⟨cvR, jty⟩ := pr
     obtain ⟨rfl, hwty, hjty⟩ := hP
     dsimp only at hjty ⊢
+    by_cases hb : (natOpNames.contains cvR.name ||
+        natDivModNames.contains cvR.name) = true
+    case neg =>
+      obtain ⟨h1, h4⟩ : ¬(natOpNames.contains cvR.name = true) ∧
+          ¬(natDivModNames.contains cvR.name = true) := by
+        simpa [not_or] using hb
+      simp only [if_neg hb, if_neg h1, if_neg h4]
+      rw [← bind_pure (checkDefnValP (mkFEnv env) _ jty value hint)]
+      refine SimAt.bind (checkDefnValP_sim henv hwty hjty
+          (denote_mono hext₁ hve) hs₁)
+        (fun s₂ fe2 env2 hs₂ hext₂ hP₂ => ?_)
+      obtain ⟨henvEq, hmk, -⟩ := hP₂
+      subst henvEq
+      exact SimAt.pure hs₂ ⟨rfl, hmk⟩
+    simp only [if_pos hb]
     refine SimAt.bind (checkDefnValP_sim henv hwty hjty
         (denote_mono hext₁ hve) hs₁)
       (fun s₂ fe2 env2 hs₂ hext₂ hP₂ => ?_)
