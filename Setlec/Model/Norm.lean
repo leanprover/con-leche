@@ -209,6 +209,376 @@ theorem Expr.eraseCodS_norm (O : NormOracle)
         simp only [Expr.norm, Expr.eraseCodS, hkey, hOr, Option.map_some]
         exact ih d r
 
+/-! ## Congruences through zeta duplication
+
+The three install-time certificates the `extend_*_raw` lemmas consume.
+Unlike stage 1's erasure congruences, none of these is an
+*invariance*: `norm` duplicates the let value, so each rests on the
+corresponding substitution fact for the lifting substitution — and each
+needs the lifting lemma underneath it, since `instantiate1Lift` shifts
+what it inserts.  Each also carries an oracle hypothesis: the
+projection rewrite emits a term built from the environment, and only
+the annotation pass knows it is well-formed.
+
+`norm` never opens a binder, so it introduces no free variables and
+`hasFvar` is genuinely preserved — the certificate a stored
+declaration carries. -/
+
+section Congruences
+
+/-- Lifting preserves bounded-ness, raising the bound by the amount. -/
+theorem Expr.looseBVarsBounded_liftLooseBVars (amount : Nat) :
+    ∀ (e : Expr) (c k : Nat), e.looseBVarsBounded k = true →
+      (e.liftLooseBVars amount c).looseBVarsBounded (k + amount) = true := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro c k h
+    simp only [Expr.looseBVarsBounded, decide_eq_true_eq] at h
+    simp only [Expr.liftLooseBVars]
+    split <;> simp only [Expr.looseBVarsBounded, decide_eq_true_eq] <;> omega
+  | fvar idx nm t iht => intro c k h; rfl
+  | sort u => intro c k h; rfl
+  | const nm us => intro c k h; rfl
+  | lit l => intro c k h; rfl
+  | app f a ihf iha =>
+    intro c k h
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    simp only [Expr.liftLooseBVars, Expr.looseBVarsBounded, Bool.and_eq_true]
+    exact ⟨ihf c k h.1, iha c k h.2⟩
+  | lam n ty b m ihty ihb =>
+    intro c k h
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    simp only [Expr.liftLooseBVars, Expr.looseBVarsBounded, Bool.and_eq_true]
+    refine ⟨ihty c k h.1, ?_⟩
+    have := ihb (c + 1) (k + 1) h.2
+    simpa [Nat.add_right_comm] using this
+  | forallE n ty b m ihty ihb =>
+    intro c k h
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    simp only [Expr.liftLooseBVars, Expr.looseBVarsBounded, Bool.and_eq_true]
+    refine ⟨ihty c k h.1, ?_⟩
+    have := ihb (c + 1) (k + 1) h.2
+    simpa [Nat.add_right_comm] using this
+  | letE n ty v b ihty ihv ihb =>
+    intro c k h
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    simp only [Expr.liftLooseBVars, Expr.looseBVarsBounded, Bool.and_eq_true]
+    refine ⟨⟨ihty c k h.1.1, ihv c k h.1.2⟩, ?_⟩
+    have := ihb (c + 1) (k + 1) h.2
+    simpa [Nat.add_right_comm] using this
+  | proj s i e ihe =>
+    intro c k h
+    simp only [Expr.looseBVarsBounded] at h
+    simp only [Expr.liftLooseBVars, Expr.looseBVarsBounded]
+    exact ihe c k h
+
+/-- Lifting does not change which constants occur. -/
+theorem Expr.constsResolve_liftLooseBVars {env : Env} (amount : Nat) :
+    ∀ (e : Expr) (c : Nat),
+      (e.liftLooseBVars amount c).constsResolve env = e.constsResolve env := by
+  intro e
+  induction e with
+  | bvar i => intro c; simp only [Expr.liftLooseBVars]; split <;> rfl
+  | fvar idx nm t iht => intro c; rfl
+  | sort u => intro c; rfl
+  | const nm us => intro c; rfl
+  | lit l => intro c; cases l <;> rfl
+  | app f a ihf iha =>
+    intro c; simp [Expr.liftLooseBVars, Expr.constsResolve, ihf c, iha c]
+  | lam n ty b m ihty ihb =>
+    intro c; simp [Expr.liftLooseBVars, Expr.constsResolve, ihty c, ihb (c + 1)]
+  | forallE n ty b m ihty ihb =>
+    intro c; simp [Expr.liftLooseBVars, Expr.constsResolve, ihty c, ihb (c + 1)]
+  | letE n ty v b ihty ihv ihb =>
+    intro c
+    simp [Expr.liftLooseBVars, Expr.constsResolve, ihty c, ihv c, ihb (c + 1)]
+  | proj s i e ihe =>
+    intro c; simp [Expr.liftLooseBVars, Expr.constsResolve, ihe c]
+
+/-- Lifting does not introduce free variables. -/
+theorem Expr.hasFvar_lift (amount : Nat) :
+    ∀ (e : Expr) (c : Nat),
+      (e.liftLooseBVars amount c).hasFvar = e.hasFvar := by
+  intro e
+  induction e with
+  | bvar i => intro c; simp only [Expr.liftLooseBVars]; split <;> rfl
+  | fvar idx nm t iht => intro c; rfl
+  | sort u => intro c; rfl
+  | const nm us => intro c; rfl
+  | lit l => intro c; rfl
+  | app f a ihf iha =>
+    intro c; simp [Expr.liftLooseBVars, Expr.hasFvar, ihf c, iha c]
+  | lam n ty b m ihty ihb =>
+    intro c; simp [Expr.liftLooseBVars, Expr.hasFvar, ihty c, ihb (c + 1)]
+  | forallE n ty b m ihty ihb =>
+    intro c; simp [Expr.liftLooseBVars, Expr.hasFvar, ihty c, ihb (c + 1)]
+  | letE n ty v b ihty ihv ihb =>
+    intro c
+    simp [Expr.liftLooseBVars, Expr.hasFvar, ihty c, ihv c, ihb (c + 1)]
+  | proj s i e ihe => intro c; simp [Expr.liftLooseBVars, Expr.hasFvar, ihe c]
+
+/-- The lifting substitution preserves `hasFvar = false`. -/
+theorem Expr.hasFvar_instantiate1Lift {v : Expr} (hv : v.hasFvar = false) :
+    ∀ (e : Expr) (k : Nat), e.hasFvar = false →
+      (e.instantiate1Lift v k).hasFvar = false := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k h
+    simp only [Expr.instantiate1Lift]
+    split
+    · rw [Expr.hasFvar_lift]; exact hv
+    · split <;> rfl
+  | fvar idx nm t iht => intro k h; exact h
+  | sort u => intro k h; rfl
+  | const nm us => intro k h; rfl
+  | lit l => intro k h; rfl
+  | app f a ihf iha =>
+    intro k h
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h
+    simp only [Expr.instantiate1Lift, Expr.hasFvar, Bool.or_eq_false_iff]
+    exact ⟨ihf k h.1, iha k h.2⟩
+  | lam n ty b m ihty ihb =>
+    intro k h
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h
+    simp only [Expr.instantiate1Lift, Expr.hasFvar, Bool.or_eq_false_iff]
+    exact ⟨ihty k h.1, ihb (k + 1) h.2⟩
+  | forallE n ty b m ihty ihb =>
+    intro k h
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h
+    simp only [Expr.instantiate1Lift, Expr.hasFvar, Bool.or_eq_false_iff]
+    exact ⟨ihty k h.1, ihb (k + 1) h.2⟩
+  | letE n ty vv b ihty ihv ihb =>
+    intro k h
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h
+    simp only [Expr.instantiate1Lift, Expr.hasFvar, Bool.or_eq_false_iff]
+    exact ⟨⟨ihty k h.1.1, ihv k h.1.2⟩, ihb (k + 1) h.2⟩
+  | proj s i e ihe =>
+    intro k h
+    simp only [Expr.hasFvar] at h
+    simp only [Expr.instantiate1Lift, Expr.hasFvar]
+    exact ihe k h
+
+/-- The lifting substitution's bound: substituting a `k`-bounded value
+for the binder at cursor `j` turns a `(k+1+j)`-bounded body into a
+`(k+j)`-bounded one. -/
+theorem Expr.looseBVarsBounded_instantiate1Lift {v : Expr} {k : Nat}
+    (hv : v.looseBVarsBounded k = true) :
+    ∀ (e : Expr) (j : Nat), e.looseBVarsBounded (k + 1 + j) = true →
+      (e.instantiate1Lift v j).looseBVarsBounded (k + j) = true := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro j h
+    simp only [Expr.looseBVarsBounded, decide_eq_true_eq] at h
+    simp only [Expr.instantiate1Lift]
+    split
+    · have := Expr.looseBVarsBounded_liftLooseBVars j v 0 k hv
+      simpa [Nat.zero_add] using this
+    · split <;> simp only [Expr.looseBVarsBounded, decide_eq_true_eq] <;> omega
+  | fvar idx nm t iht => intro j h; rfl
+  | sort u => intro j h; rfl
+  | const nm us => intro j h; rfl
+  | lit l => intro j h; rfl
+  | app f a ihf iha =>
+    intro j h
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    simp only [Expr.instantiate1Lift, Expr.looseBVarsBounded, Bool.and_eq_true]
+    exact ⟨ihf j h.1, iha j h.2⟩
+  | lam n ty b m ihty ihb =>
+    intro j h
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    simp only [Expr.instantiate1Lift, Expr.looseBVarsBounded, Bool.and_eq_true]
+    refine ⟨ihty j h.1, ?_⟩
+    have := ihb (j + 1) (by simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using h.2)
+    simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using this
+  | forallE n ty b m ihty ihb =>
+    intro j h
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    simp only [Expr.instantiate1Lift, Expr.looseBVarsBounded, Bool.and_eq_true]
+    refine ⟨ihty j h.1, ?_⟩
+    have := ihb (j + 1) (by simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using h.2)
+    simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using this
+  | letE n ty vv b ihty ihv ihb =>
+    intro j h
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    simp only [Expr.instantiate1Lift, Expr.looseBVarsBounded, Bool.and_eq_true]
+    refine ⟨⟨ihty j h.1.1, ihv j h.1.2⟩, ?_⟩
+    have := ihb (j + 1) (by simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using h.2)
+    simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using this
+  | proj s i e ihe =>
+    intro j h
+    simp only [Expr.looseBVarsBounded] at h
+    simp only [Expr.instantiate1Lift, Expr.looseBVarsBounded]
+    exact ihe j h
+
+/-- The lifting substitution preserves constant resolution. -/
+theorem Expr.constsResolve_instantiate1Lift {env : Env} {v : Expr}
+    (hv : v.constsResolve env = true) :
+    ∀ (e : Expr) (k : Nat), e.constsResolve env = true →
+      (e.instantiate1Lift v k).constsResolve env = true := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k h
+    simp only [Expr.instantiate1Lift]
+    split
+    · rw [Expr.constsResolve_liftLooseBVars]; exact hv
+    · split <;> rfl
+  | fvar idx nm t iht => intro k h; exact h
+  | sort u => intro k h; rfl
+  | const nm us => intro k h; exact h
+  | lit l => intro k h; exact h
+  | app f a ihf iha =>
+    intro k h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h
+    simp only [Expr.instantiate1Lift, Expr.constsResolve, Bool.and_eq_true]
+    exact ⟨ihf k h.1, iha k h.2⟩
+  | lam n ty b m ihty ihb =>
+    intro k h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h
+    simp only [Expr.instantiate1Lift, Expr.constsResolve, Bool.and_eq_true]
+    exact ⟨ihty k h.1, ihb (k + 1) h.2⟩
+  | forallE n ty b m ihty ihb =>
+    intro k h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h
+    simp only [Expr.instantiate1Lift, Expr.constsResolve, Bool.and_eq_true]
+    exact ⟨ihty k h.1, ihb (k + 1) h.2⟩
+  | letE n ty vv b ihty ihv ihb =>
+    intro k h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h
+    simp only [Expr.instantiate1Lift, Expr.constsResolve, Bool.and_eq_true]
+    exact ⟨⟨ihty k h.1.1, ihv k h.1.2⟩, ihb (k + 1) h.2⟩
+  | proj s i e ihe =>
+    intro k h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h
+    simp only [Expr.instantiate1Lift, Expr.constsResolve, Bool.and_eq_true]
+    exact ⟨h.1, ihe k h.2⟩
+
+/-- `norm` preserves `fvar`-freeness (it opens no binder). -/
+theorem Expr.norm_hasFvar (O : NormOracle)
+    (hO : ∀ d n r, O d n = some r → n.hasFvar = false → r.hasFvar = false) :
+    ∀ (f d : Nat) (e : Expr), e.hasFvar = false →
+      (Expr.norm O f d e).hasFvar = false := by
+  intro f
+  induction f with
+  | zero => intro _ e h; exact h
+  | succ f ih =>
+    intro d e h
+    cases e with
+    | bvar i => exact h
+    | fvar idx n t => exact h
+    | sort u => exact h
+    | const n us => exact h
+    | lit l => exact h
+    | app g a =>
+      simp only [Expr.norm, Expr.hasFvar, Bool.or_eq_false_iff] at h ⊢
+      exact ⟨ih d g h.1, ih d a h.2⟩
+    | lam n ty b m =>
+      simp only [Expr.norm, Expr.hasFvar, Bool.or_eq_false_iff] at h ⊢
+      exact ⟨ih d ty h.1, ih (d + 1) b h.2⟩
+    | forallE n ty b m =>
+      simp only [Expr.norm, Expr.hasFvar, Bool.or_eq_false_iff] at h ⊢
+      exact ⟨ih d ty h.1, ih (d + 1) b h.2⟩
+    | letE n ty v b =>
+      simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h
+      exact ih d _ (Expr.hasFvar_instantiate1Lift h.1.2 b 0 h.2)
+    | proj s i e =>
+      simp only [Expr.hasFvar] at h
+      have he := ih d e h
+      simp only [Expr.norm]
+      cases hOr : O d (.proj s i (Expr.norm O f d e)) with
+      | none => simpa [hOr, Expr.hasFvar] using he
+      | some r =>
+        simp only [hOr]
+        exact ih d r (hO d _ r hOr (by simpa [Expr.hasFvar] using he))
+
+/-- `norm` preserves the loose-`bvar` bound. -/
+theorem Expr.norm_looseBVarsBounded (O : NormOracle)
+    (hO : ∀ d n r k, O d n = some r → n.looseBVarsBounded k = true →
+      r.looseBVarsBounded k = true) :
+    ∀ (f d : Nat) (e : Expr) (k : Nat), e.looseBVarsBounded k = true →
+      (Expr.norm O f d e).looseBVarsBounded k = true := by
+  intro f
+  induction f with
+  | zero => intro _ e k h; exact h
+  | succ f ih =>
+    intro d e k h
+    cases e with
+    | bvar i => exact h
+    | fvar idx n t => exact h
+    | sort u => exact h
+    | const n us => exact h
+    | lit l => exact h
+    | app g a =>
+      simp only [Expr.norm, Expr.looseBVarsBounded, Bool.and_eq_true] at h ⊢
+      exact ⟨ih d g k h.1, ih d a k h.2⟩
+    | lam n ty b m =>
+      simp only [Expr.norm, Expr.looseBVarsBounded, Bool.and_eq_true] at h ⊢
+      exact ⟨ih d ty k h.1, ih (d + 1) b (k + 1) h.2⟩
+    | forallE n ty b m =>
+      simp only [Expr.norm, Expr.looseBVarsBounded, Bool.and_eq_true] at h ⊢
+      exact ⟨ih d ty k h.1, ih (d + 1) b (k + 1) h.2⟩
+    | letE n ty v b =>
+      simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h
+      refine ih d _ k ?_
+      have := Expr.looseBVarsBounded_instantiate1Lift h.1.2 b 0
+        (by simpa using h.2)
+      simpa using this
+    | proj s i e =>
+      simp only [Expr.looseBVarsBounded] at h
+      have he := ih d e k h
+      simp only [Expr.norm]
+      cases hOr : O d (.proj s i (Expr.norm O f d e)) with
+      | none => simpa [hOr, Expr.looseBVarsBounded] using he
+      | some r =>
+        simp only [hOr]
+        exact ih d r k (hO d _ r k hOr (by simpa [Expr.looseBVarsBounded] using he))
+
+/-- `norm` preserves constant resolution. -/
+theorem Expr.norm_constsResolve {env : Env} (O : NormOracle)
+    (hO : ∀ d n r, O d n = some r → n.constsResolve env = true →
+      r.constsResolve env = true) :
+    ∀ (f d : Nat) (e : Expr), e.constsResolve env = true →
+      (Expr.norm O f d e).constsResolve env = true := by
+  intro f
+  induction f with
+  | zero => intro _ e h; exact h
+  | succ f ih =>
+    intro d e h
+    cases e with
+    | bvar i => exact h
+    | fvar idx n t => exact h
+    | sort u => exact h
+    | const n us => exact h
+    | lit l => exact h
+    | app g a =>
+      simp only [Expr.norm, Expr.constsResolve, Bool.and_eq_true] at h ⊢
+      exact ⟨ih d g h.1, ih d a h.2⟩
+    | lam n ty b m =>
+      simp only [Expr.norm, Expr.constsResolve, Bool.and_eq_true] at h ⊢
+      exact ⟨ih d ty h.1, ih (d + 1) b h.2⟩
+    | forallE n ty b m =>
+      simp only [Expr.norm, Expr.constsResolve, Bool.and_eq_true] at h ⊢
+      exact ⟨ih d ty h.1, ih (d + 1) b h.2⟩
+    | letE n ty v b =>
+      simp only [Expr.constsResolve, Bool.and_eq_true] at h
+      exact ih d _ (Expr.constsResolve_instantiate1Lift h.1.2 b 0 h.2)
+    | proj s i e =>
+      simp only [Expr.constsResolve, Bool.and_eq_true] at h
+      have he := ih d e h.2
+      simp only [Expr.norm]
+      cases hOr : O d (.proj s i (Expr.norm O f d e)) with
+      | none => simpa [hOr, Expr.constsResolve, h.1] using he
+      | some r =>
+        simp only [hOr]
+        exact ih d r (hO d _ r hOr (by
+          simp only [Expr.constsResolve, Bool.and_eq_true]
+          exact ⟨h.1, he⟩))
+
+end Congruences
+
 /-! ## The value-transparency bridge
 
 One zeta step preserves the interpretation and transports annotation

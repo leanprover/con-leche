@@ -5443,3 +5443,39 @@ mirrors a kernel pass **must state which binder discipline it is in**.
 The kernel is always in the opened regime; a structural proof-side
 mirror is not, and every substitution it performs has to be the lifting
 one.
+
+#### Stage 4d groundwork: the `norm` congruences (2026-08-24)
+
+The three install-time certificates the `extend_*_raw` lemmas consume
+now transfer through `norm`, which is what gates re-proving those
+lemmas at `Env.TwinAt` instead of plain erasure:
+
+* `Expr.norm_hasFvar` — `norm` opens no binder, so it introduces no
+  free variables and `fvar`-freeness is genuinely preserved;
+* `Expr.norm_looseBVarsBounded` — the bound survives zeta;
+* `Expr.norm_constsResolve` — constant resolution survives zeta.
+
+Unlike stage 1's *erasure* congruences these are not invariances:
+`norm` duplicates the let value, so each rests on the substitution fact
+for the **lifting** substitution, and each of those in turn needs a
+lifting lemma underneath (`instantiate1Lift` shifts what it inserts).
+The five supporting facts —
+`looseBVarsBounded_liftLooseBVars`, `constsResolve_liftLooseBVars`,
+`hasFvar_lift`, and then `hasFvar_instantiate1Lift`,
+`looseBVarsBounded_instantiate1Lift`, `constsResolve_instantiate1Lift`
+— are proved here rather than in `Setlec/Verify/*` because they are
+about the *proof-side* pass; if the kernel ever needs them they should
+move.
+
+Each congruence carries an **oracle hypothesis**: the projection
+rewrite emits a term built from the environment, so only the annotation
+pass knows it is well-formed.  That hypothesis is the same shape as
+`CodAgree`'s — discharged at the flip from what the annotation pass
+established, not proved here.
+
+The interesting shape of `looseBVarsBounded_instantiate1Lift` is that
+the bound moves: substituting a `k`-bounded value for the binder at
+cursor `j` turns a `(k+1+j)`-bounded body into a `(k+j)`-bounded one.
+That is the statement zeta needs at *every* binder depth, and it is why
+the plain `looseBVarsBounded_instantiate1_gen` (stated at cursor `k`
+with a `bvar`-closed replacement) does not serve a structural pass.
