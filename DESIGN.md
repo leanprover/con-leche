@@ -974,6 +974,34 @@ hard build error.  Contract points:
   the supported streams and intersected per op.  The install-time
   `constsResolve` guards remain the actual gate; the allowlist only
   makes generation fail early and loudly.
+* **Prefix allowlists vs. stream order (2026-08-24).**  The original
+  allowlists were extracted from Init streams only; a cert proof may
+  then reference any constant Init happens to declare before the op,
+  which other stream orders need not provide.  Concretely: Mathlib's
+  full export declares `Nat.log2_terminates` *after* `Nat.log2`
+  (log2's exported value does not depend on it — the WF termination
+  theorem is a sibling, not a dependency), so the log2 certificates'
+  reference to it (via the inlined `Nat.log2_def`) failed
+  `constsResolve` and the full Mathlib run declined at `Nat.log2`
+  (decl 50,769, 16.9 %); a dependency-closure slice additionally
+  lacked `funext`/`Eq.subst`/`Eq.propIntro`/`of_decide_eq_true`
+  before `Nat.land` and `funext` before `Nat.gcd`.  Fix: regenerate
+  `scripts/natop_prefix.json` intersecting the Init streams with
+  `mathlib-full(-pre)` and the scoping slice — the generator then
+  *inlines* the dropped names (all plain theorems; inlining `funext`
+  pulls in `Quot.mk/lift/sound`, which every stream declares at the
+  start).  Diagnosis and re-verification: dump the generated blobs'
+  constants and diff them against a stream's declared-before-op
+  prefix; after the regeneration the only unresolved name per op is
+  the op itself, which the install gate substitutes away before the
+  `constsResolve` check.  The residual risk is inherent to the
+  design: the allowlists promise validity only for the *supported*
+  streams; a new stream order surfaces as this same positive decline,
+  and the remedy is to add that stream to the extraction inputs.
+  Rebuild caveat: the json is embedded into `Setlec/PinGen.lean` via
+  `include_str` and Lake tracks neither that edge nor the certs
+  module; `touch` does nothing (content-hash traces) — delete the
+  `PinGen*`/`NatOpPins*` build artifacts to force regeneration.
 * **StdAxioms pins** are small and stay vendored
   (`Setlec/Kernel/StdAxioms.lean`); basis blocks (`PSigma'` …) are
   preprocessor-owned and out of scope for the generator.
@@ -2144,8 +2172,9 @@ stream moves from declaration 29,661 (9.8 %) to **50,769 (16.9 %)**:
 the new frontier is `Nat.log2`, "unsupported Nat.div/mod spelling
 (pin ground constants absent)" — the Nat-ops certified-fast-path pin
 allowlists (`scripts/natop_prefix.json`) were extracted from Init
-streams and do not cover the Mathlib stream's ordering/spelling; a
-separate subsystem, follow-up task.
+streams and do not cover the Mathlib stream's ordering/spelling;
+fixed by regenerating the allowlists over the Mathlib streams too
+(see "Prefix allowlists vs. stream order" in the pin-ops section).
 
 **Slim recursor metadata (2026-08-22, task #46).**  Stored recursor
 metadata is exactly what the firing path reads.
