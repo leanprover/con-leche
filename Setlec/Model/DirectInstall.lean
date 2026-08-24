@@ -486,6 +486,23 @@ theorem TeleFit_congr (h : InterpAgree V cval₁ env₁ cval₂ env₂ φ) :
       (ih (Expr.constsResolve_instantiate1
         (by simpa [Expr.constsResolve] using hres.1) 0 hres.2))
 
+/-- The forward direction of `TeleFit_congr`. -/
+theorem TeleFit_congr' (h : InterpAgree V cval₁ env₁ cval₂ env₂ φ) :
+    ∀ {d : Nat} {ρ : Nat → V} {ty : Expr} {vs : List V} {d' : Nat}
+      {ρ' : Nat → V} {rest : Expr},
+      TeleFit V cval₁ env₁ φ d ρ ty vs d' ρ' rest →
+      ty.constsResolve env₁ = true →
+      TeleFit V cval₂ env₂ φ d ρ ty vs d' ρ' rest := by
+  intro d ρ ty vs d' ρ' rest hfit
+  induction hfit with
+  | nil => intro _; exact TeleFit.nil
+  | @cons d ρ n ty0 body mb x xs d' ρ' rest A hity hx hfit ih =>
+    intro hres
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hres
+    exact TeleFit.cons (by rw [← h ty0 hres.1 d ρ]; exact hity) hx
+      (ih (Expr.constsResolve_instantiate1
+        (by simpa [Expr.constsResolve] using hres.1) 0 hres.2))
+
 /-- The guarded body follows the tower. -/
 theorem directTyBody_congr (h : InterpAgree V cval₁ env₁ cval₂ env₂ φ)
     {w nF d : Nat} {ρ : Nat → V} {crest : Expr} {fvs : List Expr}

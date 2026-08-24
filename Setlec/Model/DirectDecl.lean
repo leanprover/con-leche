@@ -3924,4 +3924,282 @@ theorem extend_direct_proj {envP : Env} (mP : EnvModel V envP)
     · rfl
     · rfl
 
+/-- Inversion of the whole direct install: the five stages and the
+projection fold, with the rule-carrying recursor environment spelled
+out. -/
+theorem checkDirectStruct_inv {env envOut : Env} {p : DirectParts} {F : Nat}
+    (h : checkDirectStruct (fueledOps F) env p = .ok envOut) :
+    ∃ env₁ cvTa env₂ cvCa cvRa rhsA,
+      checkDirectInd (fueledOps F) env p = .ok (env₁, cvTa) ∧
+      checkDirectCtor (fueledOps F) env env₁ p cvTa = .ok (env₂, cvCa) ∧
+      checkConstantVal (fueledOps F) env₂ p.cvR = .ok cvRa ∧
+      checkDirectRecTy (fueledOps F) env₂ p cvTa cvCa cvRa = .ok () ∧
+      checkDirectRule (fueledOps F) env₂ p cvCa cvRa = .ok rhsA ∧
+      (List.range p.nF).foldlM
+        (checkDirectProj (fueledOps F) p.cvT.name p.cvC.name
+          p.cvT.levelParams p.nP p.nF cvTa cvCa)
+        (⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
+          [⟨p.cvC.name, p.nF, p.nP,
+            if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
+              .plain else .inert, rhsA⟩] :: env₂.consts⟩ : Env)
+        = .ok envOut := by
+  rw [checkDirectStruct] at h
+  simp only [Bind.bind, Except.bind] at h
+  obtain ⟨q1, hq1, h⟩ := Except.bind_ok h
+  obtain ⟨env₁, cvTa⟩ := q1
+  try dsimp only at h
+  obtain ⟨q2, hq2, h⟩ := Except.bind_ok h
+  obtain ⟨env₂, cvCa⟩ := q2
+  try dsimp only at h
+  obtain ⟨cvRa, hq3, h⟩ := Except.bind_ok h
+  try dsimp only at h
+  obtain ⟨q4, hq4, h⟩ := Except.bind_ok h
+  obtain ⟨⟩ := q4
+  try dsimp only at h
+  obtain ⟨rhsA, hq5, h⟩ := Except.bind_ok h
+  try dsimp only at h
+  refine ⟨env₁, cvTa, env₂, cvCa, cvRa, rhsA, hq1, hq2, hq3, hq4, hq5, ?_⟩
+  by_cases hall : (List.range p.nF).all (fun j =>
+      ((⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
+        [⟨p.cvC.name, p.nF, p.nP,
+          if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
+            .plain else .inert, rhsA⟩] :: env₂.consts⟩ : Env).find?
+        (projFnName p.cvT.name j)).isNone) = true
+  · rw [if_pos hall] at h
+    exact h
+  · rw [if_neg hall] at h
+    simp only [throw, throwThe, MonadExceptOf.throw, Except.bind] at h
+    exact nomatch h
+
+/-! ### The projection phase's invariant and its step -/
+
+/-- Everything the projection phase carries from one field's install to
+the next: the block's two earlier members are stored, their semantic
+stage facts hold *at this environment and model*, and the projections
+installed so far fold (`DirectProjInv`). -/
+structure DirectStageOk (V : Type u) [SetTheory V] {envJ : Env}
+    (mJ : EnvModel V envJ) (p : DirectParts) (cvTa cvCa : ConstantVal)
+    (crestC : Expr) (i : Nat) : Prop where
+  /-- the stored eta families stay closed -/
+  eta : EtaFamiliesClosed envJ
+  /-- the constructor's type is frame-ok and resolves -/
+  frC : ∀ φ : Name → Nat, FrameOk V mJ.val envJ φ 0 (rho0 V) cvCa.type
+  /-- the constructor's and the former's parameter domains agree -/
+  domsCT : ∀ φ : Name → Nat, DomsInterpEq V mJ.val envJ φ p.nP 0 (rho0 V)
+    cvCa.type cvTa.type
+  /-- the field telescope is small at the block's sort -/
+  fieldAt : ∀ (φ : Name → Nat) (ps : List V) (d₁ : Nat) (ρ₁ : Nat → V)
+      (mid : Expr),
+    TeleFit V mJ.val envJ φ 0 (rho0 V) cvCa.type ps d₁ ρ₁ mid →
+    ps.length = p.nP →
+    FieldTele V mJ.val envJ φ (p.resSort.eval φ) p.nF d₁ ρ₁ mid
+  /-- the type former's value is the tower over the field telescope -/
+  tfold : ∀ (φ : Name → Nat) (ps : List V) (d₁ : Nat) (ρ₁ : Nat → V)
+      (r : Expr),
+    TeleFit V mJ.val envJ φ 0 (rho0 V) cvTa.type ps d₁ ρ₁ r →
+    ps.length = p.nP →
+    SpineFold V (mJ.val p.cvT.name φ) ps =
+      sigmaTowerV V mJ.val envJ φ (p.resSort.eval φ) p.nF d₁ ρ₁ crestC
+  /-- the constructor's value tuples its fields -/
+  cfold : ∀ (φ : Name → Nat) (vs : List V) (d₁ : Nat) (ρ₁ : Nat → V)
+      (r : Expr),
+    TeleFit V mJ.val envJ φ 0 (rho0 V) cvCa.type vs d₁ ρ₁ r →
+    vs.length = p.nP + p.nF →
+    SpineFold V (mJ.val p.cvC.name φ) vs = tupleV (vs.drop p.nP)
+  /-- the former is stored -/
+  tfind : envJ.find? p.cvT.name = some (.indInfo cvTa (directCaps p))
+  /-- the constructor is stored -/
+  cfind : envJ.find? p.cvC.name = some (.ctorInfo cvCa p.nP p.nF)
+  /-- the constructor's type resolves here -/
+  cres : cvCa.type.constsResolve envJ = true
+  /-- the former's type resolves here -/
+  tres : cvTa.type.constsResolve envJ = true
+  /-- the fields installed so far fold -/
+  inv : ∀ φ : Name → Nat, DirectProjInv V mJ.val envJ φ p.cvT.name
+    p.cvT.levelParams cvTa.type p.nP i
+
+set_option maxHeartbeats 1600000 in
+/-- **One field's install preserves the phase invariant.**  The
+extension is `extend_direct_proj`; everything else is transport along
+`InterpAgree` (the new constant is fresh, and every stage fact is
+stated over expressions that resolve one environment down). -/
+theorem direct_proj_step {envJ envJ' : Env} (mJ : EnvModel V envJ)
+    {F : Nat} {p : DirectParts} {i : Nat} {cvTa cvCa : ConstantVal}
+    {fvsC xFvs tfvs : List Expr} {crestC cresid trest : Expr}
+    {cbs : List (Name × Expr × BinderMeta)}
+    (hst : DirectStageOk V mJ p cvTa cvCa crestC i)
+    (hi : i < p.nF)
+    (hnz : p.resSort.isNonZero = true)
+    (hcq : openPisAtFvars p.nP cvCa.type 0 = some (fvsC, crestC))
+    (hxq : openPisAtFvars p.nF crestC p.nP = some (xFvs, cresid))
+    (htq : openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest))
+    (hstripC : Expr.stripPis (p.nP + p.nF) cvCa.type = some (cbs,
+      directFam p.cvT.name p.cvT.levelParams p.nP p.nF))
+    (hTlps : cvTa.levelParams = p.cvT.levelParams)
+    (hTname : cvTa.name = p.cvT.name)
+    (hpj : checkDirectProj (fueledOps F) p.cvT.name p.cvC.name
+      p.cvT.levelParams p.nP p.nF cvTa cvCa envJ i = .ok envJ') :
+    ∃ mJ' : EnvModel V envJ',
+      DirectStageOk V mJ' p cvTa cvCa crestC (i + 1) := by
+  obtain ⟨pty, ptyA, sty, u, fvsP, prest, sbs, sbody, sdom, tFvs, resid,
+    tfv, cds, fn, fdom, fbody, fm, rhsA, hpty, hptyf, hptyb, hann, hlpA,
+    hresA, hbbA, hfvA, hstA, hsty, hu, hnone, hshape, hopP, hsstrip, hsdom,
+    hpin1, hopT, htfv, hcinst, hpin2, hrule, henv⟩ := checkDirectProj_inv hpj
+  subst henv
+  -- the extension
+  obtain ⟨mJ', hval, hpres⟩ :=
+    extend_direct_proj mJ rfl rfl hst.eta hpj hi hnz hst.frC hcq hstripC
+      hst.domsCT hst.fieldAt hst.tfold hst.cfold hst.inv hst.tfind hTlps
+      hTname hst.cfind
+  refine ⟨mJ', ?_⟩
+  -- the transport kit
+  have hagree' : ∀ n, (envJ.find? n).isSome = true → ∀ ψ : Name → Nat,
+      mJ'.val n ψ = mJ.val n ψ := by
+    intro n hn ψ
+    refine hpres n ψ ?_
+    intro hcon
+    rw [hcon, hnone] at hn
+    exact nomatch hn
+  have hIA : ∀ φ : Name → Nat, InterpAgree V mJ.val envJ mJ'.val
+      (⟨.recInfo ⟨projFnName p.cvT.name i, p.cvT.levelParams, ptyA⟩
+        p.nP p.nP [⟨p.cvC.name, p.nF, p.nP,
+          if Expr.recRulePlain ptyA p.nP p.nP p.nP then .plain else .inert,
+          rhsA⟩] :: envJ.consts⟩ : Env) φ := by
+    intro φ e hres d ρ
+    rw [interp_mono (cval := mJ'.val) hnone e d ρ hres,
+      interp_cval_ext hagree' e d ρ]
+  -- names distinct from the new one
+  have hTne : p.cvT.name ≠ projFnName p.cvT.name i := by
+    intro hcon
+    rw [← hcon, hst.tfind] at hnone
+    exact nomatch hnone
+  have hCne : p.cvC.name ≠ projFnName p.cvT.name i := by
+    intro hcon
+    rw [← hcon, hst.cfind] at hnone
+    exact nomatch hnone
+  have hTval : ∀ φ : Name → Nat, mJ'.val p.cvT.name φ = mJ.val p.cvT.name φ :=
+    fun φ => hpres _ φ hTne
+  have hCval : ∀ φ : Name → Nat, mJ'.val p.cvC.name φ = mJ.val p.cvC.name φ :=
+    fun φ => hpres _ φ hCne
+  -- resolutions of the constructor's opening
+  have hcrestres : crestC.constsResolve envJ = true :=
+    (openPisAtFvars_resolve p.nP 0 hcq hst.cres).2
+  have hxres : ∀ x ∈ xFvs, (Expr.fvarTypeD x).constsResolve envJ = true := by
+    have h := (openPisAtFvars_resolve p.nF p.nP hxq hcrestres).1
+    intro x hx
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem hx
+    obtain ⟨nm, hsh⟩ := (openPisAtFvars_spec p.nF p.nP hxq).2.2 j x hj
+    have h1 := h x hx
+    rw [hsh] at h1 ⊢
+    simpa [Expr.constsResolve, Expr.fvarTypeD] using h1
+  have hCcl : cvCa.type.hasFvar = false :=
+    not_hasFvar_of_fvarsBelow_zero (hst.frC (fun _ => 0)).ws.fvarsBelow
+  have htres : ∀ x ∈ tfvs, (Expr.fvarTypeD x).constsResolve envJ = true := by
+    have h := (openPisAtFvars_resolve p.nP 0 htq hst.tres).1
+    intro x hx
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem hx
+    obtain ⟨nm, hsh⟩ := (openPisAtFvars_spec p.nP 0 htq).2.2 j x hj
+    have h1 := h x hx
+    rw [hsh] at h1 ⊢
+    simpa [Expr.constsResolve, Expr.fvarTypeD] using h1
+  have hcres' : ∀ x ∈ fvsC, (Expr.fvarTypeD x).constsResolve envJ = true := by
+    have h := (openPisAtFvars_resolve p.nP 0 hcq hst.cres).1
+    intro x hx
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem hx
+    obtain ⟨nm, hsh⟩ := (openPisAtFvars_spec p.nP 0 hcq).2.2 j x hj
+    have h1 := h x hx
+    rw [hsh] at h1 ⊢
+    simpa [Expr.constsResolve, Expr.fvarTypeD] using h1
+  refine
+    { eta := EtaFamiliesClosed.cons_nonind hst.eta hnone
+        (fun cv caps heq _ => nomatch heq)
+      frC := ?_, domsCT := ?_, fieldAt := ?_, tfold := ?_, cfold := ?_
+      tfind := ?_, cfind := ?_
+      cres := Expr.constsResolve_mono hst.cres
+      tres := Expr.constsResolve_mono hst.tres
+      inv := ?_ }
+  · -- the constructor's frame conditions
+    intro φ
+    obtain ⟨Cv, hCv⟩ := (hst.frC φ).it
+    exact ⟨(hst.frC φ).ws, (hst.frC φ).bb, (hst.frC φ).lb,
+      FvarsOk.of_not_hasFvar hCcl,
+      AnnotOk.extend_fresh hnone hagree' hst.cres φ (hst.frC φ).an,
+      Cv, by rw [← hIA φ cvCa.type hst.cres 0 (rho0 V)]; exact hCv⟩
+  · -- the parameter-domain agreement
+    intro φ
+    exact DomsAgree.congr (hIA φ) p.nP hcq htq hcres' htres (hst.domsCT φ)
+  · -- the field telescope
+    intro φ ps d₁ ρ₁ mid hfit hlen
+    have hfitJ := TeleFit_congr (hIA φ) hfit hst.cres
+    have hfld := hst.fieldAt φ ps d₁ ρ₁ mid hfitJ hlen
+    obtain ⟨hd₁, fvs, hopen⟩ := TeleFit_open p.nP hfitJ hlen
+    rw [Nat.zero_add] at hd₁
+    subst hd₁
+    obtain rfl : mid = crestC := by
+      rw [hcq] at hopen
+      exact (congrArg Prod.snd (Option.some.inj hopen)).symm
+    exact FieldTele_congr (hIA φ) p.nF p.nP ρ₁ _ xFvs cresid hxq hxres
+      hfld
+  · -- the type former's fold
+    intro φ ps d₁ ρ₁ r hfit hlen
+    have hfitJ := TeleFit_congr (hIA φ) hfit hst.tres
+    have h := hst.tfold φ ps d₁ ρ₁ r hfitJ hlen
+    obtain ⟨hd₁, -, -⟩ := TeleFit_open p.nP hfitJ hlen
+    rw [Nat.zero_add] at hd₁
+    subst hd₁
+    rw [hTval φ, h]
+    exact sigmaTowerV_congr (hIA φ) p.nF p.nP ρ₁ crestC xFvs cresid hxq hxres
+  · -- the constructor's fold
+    intro φ vs d₁ ρ₁ r hfit hlen
+    rw [hCval φ]
+    exact hst.cfold φ vs d₁ ρ₁ r (TeleFit_congr (hIA φ) hfit hst.cres) hlen
+  · -- the former is still stored
+    rw [Env.find?_cons_of_isSome hnone (by rw [hst.tfind]; rfl)]
+    exact hst.tfind
+  · -- the constructor is still stored
+    rw [Env.find?_cons_of_isSome hnone (by rw [hst.cfind]; rfl)]
+    exact hst.cfind
+  · -- the projections installed so far still fold, and so does this one
+    intro φ j hj
+    rcases Nat.lt_or_ge j i with hji | hji
+    · obtain ⟨cij, hfind, hlps, hcl⟩ := hst.inv φ j hji
+      have hjne : projFnName p.cvT.name j ≠ projFnName p.cvT.name i := by
+        intro hcon
+        exact absurd (projFnName_inj hcon).2 (by omega)
+      refine ⟨cij, ?_, hlps, ?_⟩
+      · rw [Env.find?_cons_of_isSome hnone (by rw [hfind]; rfl)]
+        exact hfind
+      · intro ps d₁ ρ₁ r hfit hlen x hx
+        have hfitJ := TeleFit_congr (hIA φ) hfit hst.tres
+        have hxJ : x ∈ˢ SpineFold V (mJ.val p.cvT.name φ) ps := by
+          rw [← hTval φ]; exact hx
+        obtain ⟨⟨d', ρ', rest, hf⟩, hfold⟩ := hcl ps d₁ ρ₁ r hfitJ hlen x hxJ
+        refine ⟨⟨d', ρ', rest, TeleFit_congr' (hIA φ) hf
+          (mJ.wf _ (find?_mem hfind)).2.2.1⟩, ?_⟩
+        rw [hpres _ φ hjne]
+        exact hfold
+    · obtain rfl : j = i := by omega
+      obtain ⟨ptyA₁, rhsA₁, henv₁, hcl⟩ :=
+        directProj_fold mJ hpj hi hnz (hst.frC φ) hcq hstripC (hst.domsCT φ)
+          (hst.fieldAt φ) (hst.tfold φ) (hst.inv φ) hst.tfind hTlps hTname
+      obtain ⟨hpeq, -⟩ : ptyA = ptyA₁ ∧ rhsA = rhsA₁ :=
+        directProj_store_inj henv₁
+      rw [← hpeq] at hcl
+      refine ⟨.recInfo ⟨projFnName p.cvT.name j, p.cvT.levelParams, ptyA⟩
+        p.nP p.nP [⟨p.cvC.name, p.nF, p.nP,
+          if Expr.recRulePlain ptyA p.nP p.nP p.nP then .plain else .inert,
+          rhsA⟩], ?_, rfl, ?_⟩
+      · rw [Env.find?_cons, if_pos (show (ConstantInfo.recInfo
+          ⟨projFnName p.cvT.name j, p.cvT.levelParams, ptyA⟩ p.nP p.nP
+          [⟨p.cvC.name, p.nF, p.nP,
+            if Expr.recRulePlain ptyA p.nP p.nP p.nP then .plain else .inert,
+            rhsA⟩]).name = projFnName p.cvT.name j from rfl)]
+      · intro ps d₁ ρ₁ r hfit hlen x hx
+        have hfitJ := TeleFit_congr (hIA φ) hfit hst.tres
+        have hxJ : x ∈ˢ SpineFold V (mJ.val p.cvT.name φ) ps := by
+          rw [← hTval φ]; exact hx
+        obtain ⟨⟨d', ρ', rest, hf⟩, hfold⟩ := hcl ps d₁ ρ₁ r hfitJ hlen x hxJ
+        exact ⟨⟨d', ρ', rest, TeleFit_congr' (hIA φ) hf hresA⟩,
+          by rw [hval φ]; exact hfold⟩
+
 end Setlec
