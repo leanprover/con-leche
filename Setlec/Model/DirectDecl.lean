@@ -879,6 +879,120 @@ theorem extend_direct_ctor {env env₁ : Env} (m : EnvModel V env)
 
 /-! ### The recursor's semantic obligations -/
 
+/-- Inversion of the recursor rule's stage (`checkDirectRule`): the
+annotated right-hand side, its shape pin, and the **rule tower's own
+frame** — the recursor telescope opened at `nP + 2`, the constructor's
+field telescope opened on top of it at that very frame, and the
+definitional pin of the stored λ-domains against the frame's
+annotations. -/
+theorem checkDirectRule_inv {env : Env} {p : DirectParts}
+    {cvCa cvRa : ConstantVal} {F : Nat} {rhsA : Expr}
+    (h : checkDirectRule (fueledOps F) env p cvCa cvRa = .ok rhsA) :
+    ∃ rbs fvsP restR cdomsP crest xFvs crest2 ldoms lrest,
+      p.rhs.hasFvar = false ∧ p.rhs.looseBVarsBounded 0 = true ∧
+      annotateCore env F 0 p.rhs = .ok rhsA ∧
+      rhsA.allLevelParamsDefined cvRa.levelParams = true ∧
+      rhsA.constsResolve env = true ∧
+      rhsA.looseBVarsBounded 0 = true ∧
+      rhsA.hasFvar = false ∧
+      rhsA.stripLams (p.nP + 2 + p.nF) = some (rbs, directRuleBody p.nF) ∧
+      openPisAtFvars (p.nP + 2) cvRa.type 0 = some (fvsP, restR) ∧
+      Expr.instPisAt (fvsP.take p.nP) cvCa.type = some (cdomsP, crest) ∧
+      openPisAtFvars p.nF crest (p.nP + 2) = some (xFvs, crest2) ∧
+      Expr.instLamsAt (fvsP ++ xFvs) rhsA = some (ldoms, lrest) ∧
+      DefEqListOk F env (p.nP + 2 + p.nF)
+        ((fvsP ++ xFvs).map Expr.fvarTypeD) ldoms ∧
+      ∃ rhsTy, inferTypeCore env F 0 rhsA = .ok rhsTy := by
+  simp only [checkDirectRule, fueledOps_annotate, fueledOps_inferType,
+    fueledOps_isDefEq, fueledOps_ensureSort, fueledOps_whnf, Bind.bind,
+    Except.bind] at h
+  revert h
+  by_cases hrawwf : (!p.rhs.hasFvar && p.rhs.looseBVarsBounded 0) = true
+  case neg => intro h; rw [if_neg hrawwf] at h; exact nomatch h
+  intro h
+  rw [if_pos hrawwf] at h
+  simp only [Bool.and_eq_true] at hrawwf
+  obtain ⟨hrawf', hrawb⟩ := hrawwf
+  have hrawf : p.rhs.hasFvar = false := by
+    revert hrawf'
+    cases p.rhs.hasFvar <;> simp
+  try dsimp only at h
+  cases hann : annotateCore env F 0 p.rhs with
+  | error e => rw [hann] at h; exact nomatch h
+  | ok rhsA' => ?_
+  rw [hann] at h
+  try dsimp only at h
+  by_cases hrwf : (rhsA'.allLevelParamsDefined cvRa.levelParams &&
+      rhsA'.constsResolve env && rhsA'.looseBVarsBounded 0 &&
+      !rhsA'.hasFvar) = true
+  case neg => rw [if_neg hrwf] at h; exact nomatch h
+  rw [if_pos hrwf] at h
+  simp only [Bool.and_eq_true] at hrwf
+  obtain ⟨⟨⟨hrlp, hrres⟩, hrb⟩, hrf'⟩ := hrwf
+  have hrf : rhsA'.hasFvar = false := by
+    revert hrf'
+    cases rhsA'.hasFvar <;> simp
+  try dsimp only at h
+  revert h
+  match hstripR : rhsA'.stripLams (p.nP + 2 + p.nF) with
+  | none => intro h; exact nomatch h
+  | some (rbs, rbody) => ?_
+  intro h
+  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  by_cases hrrb : (rbody == directRuleBody p.nF) = true
+  case neg => rw [if_neg hrrb] at h; exact nomatch h
+  rw [if_pos hrrb] at h
+  obtain rfl := eq_of_beq hrrb
+  try dsimp only at h
+  revert h
+  match hopR : openPisAtFvars (p.nP + 2) cvRa.type 0 with
+  | none => intro h; exact nomatch h
+  | some (fvsP, restR) => ?_
+  intro h
+  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  revert h
+  match hinstC : Expr.instPisAt (fvsP.take p.nP) cvCa.type with
+  | none => intro h; exact nomatch h
+  | some (cdomsP, crest) => ?_
+  intro h
+  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  revert h
+  match hopX : openPisAtFvars p.nF crest (p.nP + 2) with
+  | none => intro h; exact nomatch h
+  | some (xFvs, crest2) => ?_
+  intro h
+  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  revert h
+  match hlinst : Expr.instLamsAt (fvsP ++ xFvs) rhsA' with
+  | none => intro h; exact nomatch h
+  | some (ldoms, lrest) => ?_
+  intro h
+  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  revert h
+  cases hde : checkDefEqList (fueledOps F) env (p.nP + 2 + p.nF)
+      ((fvsP ++ xFvs).map Expr.fvarTypeD) ldoms with
+  | error e => intro h; exact nomatch h
+  | ok u1 => ?_
+  intro h
+  try dsimp only at h
+  revert h
+  cases hity : inferTypeCore env F 0 rhsA' with
+  | error e => intro h; exact nomatch h
+  | ok rhsTy => ?_
+  intro h
+  simp only [Bind.bind, Except.bind, pure, Except.pure,
+    Except.ok.injEq] at h
+  subst h
+  exact ⟨rbs, fvsP, restR, cdomsP, crest, xFvs, crest2, ldoms, lrest,
+    hrawf, hrawb, rfl, hrlp, hrres, hrb, hrf, hstripR, rfl, hinstC,
+    hopX, hlinst, checkDefEqList_inv hde, rhsTy, hity⟩
+
+
 omit [SetTheory V] in
 /-- Inversion of a one-binder telescope strip. -/
 theorem stripPis_one {e : Expr} {bs : List (Name × Expr × BinderMeta)}
