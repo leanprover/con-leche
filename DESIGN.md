@@ -6160,14 +6160,17 @@ deliberately parked (below).
   constant's two-node arena (top-level constants are persistent;
   pre-existing, `O(1)`) — and zero per-entry copies.  The checked
   `intern?` wrapper does not introduce a second live reference.
-* **Performance**: small probes at parity (init-prelude `--pre`
-  2.28–2.35 s vs 2.35–2.39 s master; init-core/init-wf/init-sizeof
-  outputs byte-identical).  On init-full (`--pre`, 325 MB, 61 048
-  declarations accepted, exit 0, output byte-identical): **3 m 35 s vs
-  5 m 58 s on master (−40 % wall clock, measured under comparable
-  background load)** — the deleted sweep was `O(nodes)` with a
-  hash-map lookup per node plus whole-map `toList` materializations,
-  which dominated startup on ~10⁸-node arenas.
+* **Performance**: neutral-or-better, measured in retired instructions
+  (load-insensitive; wall-clock comparisons on this box are dominated
+  by concurrent runs).  init-full (`--pre`, 325 MB, 61 048 accepted,
+  exit 0, output byte-identical to master): 1.5413×10¹² vs
+  1.5545×10¹² instructions — **−0.84 %** (−13.1 G): the deleted
+  `O(nodes)` sweep (a hash-map lookup per node plus whole-map `toList`
+  materializations, paid as startup latency between parse and first
+  check) minus the added `O(children)` per-record checks.  Peak RSS at
+  parity (5.90 vs 5.91 GB — the checker's own peak dominates the
+  sweep's transient `toList`s on this stream).  Small probes at wall
+  parity (init-prelude ~2.3 s both).
 
 **Parked: the `IState.store` flip (`CoreI.lean`).**  Flipping the
 checker-internal state's arena to `WFStore` needs kernel-layer
