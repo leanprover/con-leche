@@ -4202,4 +4202,51 @@ theorem direct_proj_step {envJ envJ' : Env} (mJ : EnvModel V envJ)
         exact ⟨⟨d', ρ', rest, TeleFit_congr' (hIA φ) hf hresA⟩,
           by rw [hval φ]; exact hfold⟩
 
+/-- The projection phase, folded: `direct_proj_step` along
+`List.range p.nF`. -/
+theorem direct_proj_fold {env₃ : Env} (m₃ : EnvModel V env₃)
+    {F : Nat} {p : DirectParts} {cvTa cvCa : ConstantVal}
+    {fvsC xFvs tfvs : List Expr} {crestC cresid trest : Expr}
+    {cbs : List (Name × Expr × BinderMeta)}
+    (hnz : p.resSort.isNonZero = true)
+    (hcq : openPisAtFvars p.nP cvCa.type 0 = some (fvsC, crestC))
+    (hxq : openPisAtFvars p.nF crestC p.nP = some (xFvs, cresid))
+    (htq : openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest))
+    (hstripC : Expr.stripPis (p.nP + p.nF) cvCa.type = some (cbs,
+      directFam p.cvT.name p.cvT.levelParams p.nP p.nF))
+    (hTlps : cvTa.levelParams = p.cvT.levelParams)
+    (hTname : cvTa.name = p.cvT.name)
+    (hst0 : DirectStageOk V m₃ p cvTa cvCa crestC 0) :
+    ∀ (k : Nat), k ≤ p.nF → ∀ {envOut : Env},
+      (List.range k).foldlM (checkDirectProj (fueledOps F) p.cvT.name
+        p.cvC.name p.cvT.levelParams p.nP p.nF cvTa cvCa) env₃
+        = .ok envOut →
+      ∃ mOut : EnvModel V envOut,
+        DirectStageOk V mOut p cvTa cvCa crestC k := by
+  intro k
+  induction k with
+  | zero =>
+    intro _ envOut hf
+    simp only [List.range_zero, List.foldlM_nil, pure, Except.pure,
+      Except.ok.injEq] at hf
+    subst hf
+    exact ⟨m₃, hst0⟩
+  | succ k ih =>
+    intro hk envOut hf
+    rw [List.range_succ, List.foldlM_append] at hf
+    simp only [Bind.bind, Except.bind] at hf
+    obtain ⟨envMid, hmid, hf⟩ := Except.bind_ok hf
+    obtain ⟨mMid, hstMid⟩ := ih (by omega) hmid
+    simp only [List.foldlM_cons, List.foldlM_nil, Bind.bind, Except.bind,
+      pure, Except.pure] at hf
+    cases hstep : checkDirectProj (fueledOps F) p.cvT.name p.cvC.name
+        p.cvT.levelParams p.nP p.nF cvTa cvCa envMid k with
+    | error e => rw [hstep] at hf; exact nomatch hf
+    | ok envN =>
+      rw [hstep] at hf
+      simp only [Except.ok.injEq] at hf
+      subst hf
+      exact direct_proj_step mMid hstMid (by omega) hnz hcq hxq htq hstripC
+        hTlps hTname hstep
+
 end Setlec
