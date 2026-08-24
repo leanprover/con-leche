@@ -77,6 +77,36 @@ def preprocess (file : String) : IO (String × Bool) := do
     try IO.FS.removeFile tmpPath catch _ => pure ()
     return (file, false)
 
+/-- Measurement-only (task #64, `SETLEC_STATS`): count the arena
+nodes reachable from the interned environment's recorded type/value
+indices — the parse-plus-stored floor of the tier decomposition.
+Iterative DFS over `ENode.children`; runs once, at the end of a
+progress-mode run. -/
+partial def ienvReachStats (s : Setlec.IState) (n0 : Nat) : String :=
+  Id.run do
+    let st := s.store
+    let n := st.nodes.size
+    let mut seen : Array Bool := Array.replicate n false
+    let mut stack : Array Setlec.EIdx := #[]
+    for (_, ent) in s.ienv do
+      stack := stack.push ent.ty
+      if let some (_, vi) := ent.val then
+        stack := stack.push vi
+    let mut reach := 0
+    let mut above := 0
+    while stack.size > 0 do
+      let i := stack.back!
+      stack := stack.pop
+      if i < n && !(seen.getD i true) then
+        seen := seen.set! i true
+        reach := reach + 1
+        if n0 ≤ i then
+          above := above + 1
+        if let some nd := st.nodes[i]? then
+          for c in nd.children do
+            stack := stack.push c
+    return s!"REACH: n0={n0} nodes={n} ienvReach={reach} storedAboveParse={above}"
+
 /-- Progress-mode driver loop, as explicit recursion with the
 accumulators passed as plain arguments: a `for`-loop's boxed state
 tuple survives into the next step call in compiled code, so the
@@ -101,6 +131,8 @@ partial def progressLoop (stats : Bool)
         IO.eprintln s!"STATS: nodes={s.store.nodes.size} lnodes={s.store.lnodes.size} annotC={s.annotC.size} inferC={s.inferC.size} whnfC={s.whnfC.size} whnfCoreC={s.whnfCoreC.size} defeqC={s.defeqC.size}"
       progressLoop stats stepF n0 decls (i + 1) fe s
   else do
+    if stats then
+      IO.eprintln (ienvReachStats s n0)
     IO.println s!"setlec: accepted {fe.env.consts.length} declarations"
     pure 0
 
@@ -145,22 +177,29 @@ def checkMain (file : String) (yolo : Bool) (pre : Bool) : IO UInt32 := do
     -- UNVERIFIED: the consistency statements cover only the default
     -- drivers below.
     let noCerts := yolo || (← IO.getEnv "SETLEC_NO_PROOF_CERTS") == some "1"
-    -- Measurement mode (task #64): SETLEC_TIER_BRACKET=1 selects the
-    -- snapshot-bracketed drivers — the def/thm/opaque check phases run
-    -- on a discarded tier-two fork of the interned state, so their
-    -- reduction temporaries are released per declaration.  UNVERIFIED:
-    -- the consistency statements cover only the default drivers.
-    let bracket := (← IO.getEnv "SETLEC_TIER_BRACKET") == some "1"
-    let stepF := match noCerts, bracket with
-      | true, true => checkDeclSPStepNCB
-      | true, false => checkDeclSPStepNC
-      | false, true => checkDeclSPStepB
-      | false, false => checkDeclSPStep
-    let foldF := match noCerts, bracket with
-      | true, true => checkDeclsSPNCB
-      | true, false => checkDeclsSPNC
-      | false, true => checkDeclsSPB
-      | false, false => checkDeclsSP
+    -- Measurement mode (task #64): SETLEC_TIER_BRACKET selects the
+    -- bracketed drivers — the def/thm/opaque check phases run with
+    -- tier two enabled, so their reduction temporaries are released
+    -- per declaration.  `1` = fork-discard (snapshot state, RC death
+    -- is the truncation), `2` = in-place (linear state,
+    -- enable/truncate + memo flush at the seam).  UNVERIFIED: the
+    -- consistency statements cover only the default drivers.
+    let bracketMode ← IO.getEnv "SETLEC_TIER_BRACKET"
+    let br : Option (Setlec.CheckIM Unit → Setlec.CheckIM Unit) :=
+      match bracketMode with
+      | some "1" => some bracketCheckS
+      | some "2" => some bracketCheckS2
+      | _ => none
+    let stepF := match noCerts, br with
+      | true, some br => checkDeclSPStepNCB br
+      | true, none => checkDeclSPStepNC
+      | false, some br => checkDeclSPStepB br
+      | false, none => checkDeclSPStep
+    let foldF := match noCerts, br with
+      | true, some br => checkDeclsSPNCB br
+      | true, none => checkDeclsSPNC
+      | false, some br => checkDeclsSPB br
+      | false, none => checkDeclsSP
     -- Streaming frontend (task #57): the preprocessor writes to a temp
     -- file and the parse reads line by line — no wholesale text buffer
     -- in this process; retained memory is the parse arena plus the

@@ -1619,8 +1619,33 @@ copy of the current state, discard that state, return the verdict. -/
   set s0
   pure r
 
+/-- In-place check bracket (`SETLEC_TIER_BRACKET=2`): enable tier two
+on the linearly-threaded state, run the check, then truncate tier two
+and flush the index-carrying memo caches (which may hold tier-two
+keys/values; the level caches are `LIdx`-keyed, single-tier, and
+survive — including entries the check phase added).  No state
+retention, so no per-declaration copy-on-write of the shared tables;
+tier-two array capacity is reused across declarations
+(`truncateTierTwo` shrinks in place). -/
+@[inline] def bracketCheckS2 {α : Type} (check : CheckIM α) : CheckIM α := do
+  modify fun s =>
+    let st := s.store
+    let s := { s with store := EStore.empty }
+    { s with store := st.enableTierTwo }
+  let r ← check
+  modify fun s =>
+    -- detach-before-update (linear discipline): the store is swapped
+    -- out before the record is rebuilt, so both the flush and the
+    -- truncation mutate uniquely-referenced structures in place.
+    let st := s.store
+    let s := { s with store := EStore.empty }
+    let s := s.flushed
+    { s with store := st.truncateTierTwo }
+  pure r
+
 /-- `checkDefnValP` with the check phase bracketed. -/
-def checkDefnValPB (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
+def checkDefnValPB (br : CheckIM Unit → CheckIM Unit) (fe : FEnv)
+    (cvA : ConstantVal) (jty : EIdx)
     (value : EIdx) (hint : ReducibilityHint) : CheckIM FEnv := do
   unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
     throw (.invalid s!"loose bound variable in value of {cvA.name}")
@@ -1634,14 +1659,15 @@ def checkDefnValPB (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     throw (.invalid s!"unknown constant in value of {cvA.name}")
   let vE ← readbackEM jv
   recordIConst cvA.name cvA.type jty (some (vE, jv))
-  bracketCheckS do
+  br do
     let jvt ← (coreKnotI fe checkFuel).infer 0 jv
     unless ← (coreKnotI fe checkFuel).defeq 0 jvt jty do
       throw (.invalid s!"type mismatch in definition {cvA.name}")
   pure (fe.push (.defnInfo cvA vE hint))
 
 /-- `checkThmValP` with the check phase bracketed. -/
-def checkThmValPB (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
+def checkThmValPB (br : CheckIM Unit → CheckIM Unit) (fe : FEnv)
+    (cvA : ConstantVal) (jty : EIdx)
     (value : EIdx) : CheckIM FEnv := do
   let jsty ← (coreKnotI fe checkFuel).infer 0 jty
   let ul ← opSIx fe 0 jsty
@@ -1659,14 +1685,15 @@ def checkThmValPB (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     throw (.invalid s!"unknown constant in value of {cvA.name}")
   let vE ← readbackEM jv
   recordIConst cvA.name cvA.type jty (some (vE, jv))
-  bracketCheckS do
+  br do
     let jvt ← (coreKnotI fe checkFuel).infer 0 jv
     unless ← (coreKnotI fe checkFuel).defeq 0 jvt jty do
       throw (.invalid s!"type mismatch in theorem {cvA.name}")
   pure (fe.push (.thmInfo cvA vE))
 
 /-- `checkOpaqueValP` with the check phase bracketed. -/
-def checkOpaqueValPB (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
+def checkOpaqueValPB (br : CheckIM Unit → CheckIM Unit) (fe : FEnv)
+    (cvA : ConstantVal) (jty : EIdx)
     (value : EIdx) : CheckIM FEnv := do
   unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
     throw (.invalid s!"loose bound variable in value of {cvA.name}")
@@ -1679,7 +1706,7 @@ def checkOpaqueValPB (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
   unless ← withStore (fun st => constsResolveFI st fe jv) do
     throw (.invalid s!"unknown constant in value of {cvA.name}")
   recordIConst cvA.name cvA.type jty none
-  bracketCheckS do
+  br do
     let jvt ← (coreKnotI fe checkFuel).infer 0 jv
     unless ← (coreKnotI fe checkFuel).defeq 0 jvt jty do
       throw (.invalid s!"type mismatch in opaque {cvA.name}")
@@ -1690,7 +1717,8 @@ def checkOpaqueValPB (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
 default path — their per-declaration temporaries are bounded (a fixed
 handful of pinned names per stream; block installs carry their own
 budget), so tier-one retention there does not affect the slope. -/
-def checkDeclSPB (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
+def checkDeclSPB (br : CheckIM Unit → CheckIM Unit) (fe : FEnv)
+    (pd : DeclP) : CheckIM FEnv :=
   match pd with
   | .defnDecl cv value hint => do
     let (cvA, jty) ← checkConstantValP fe cv
@@ -1700,10 +1728,10 @@ def checkDeclSPB (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
       -- passes, same canonical indices; a fixed handful of names).
       checkDeclSP fe pd
     else
-      checkDefnValPB fe cvA jty value hint
+      checkDefnValPB br fe cvA jty value hint
   | .thmDecl cv value => do
     let (cvA, jty) ← checkConstantValP fe cv
-    checkThmValPB fe cvA jty value
+    checkThmValPB br fe cvA jty value
   | .opaqueDecl cv value => do
     let (cvA, jty) ← checkConstantValP fe cv
     if reduceOpNames.contains cvA.name then
@@ -1712,19 +1740,21 @@ def checkDeclSPB (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
       checkReducePinF (sharedOps fe) fe fe2 cvA.name vE
       pure fe2
     else
-      checkOpaqueValPB fe cvA jty value
+      checkOpaqueValPB br fe cvA jty value
   | _ => checkDeclSP fe pd
 
 /-- `checkDeclSPStep` with the bracketed declaration checker. -/
-def checkDeclSPStepB (n0 : Nat) (fe : FEnv) (pd : DeclP) : CheckIM FEnv := do
+def checkDeclSPStepB (br : CheckIM Unit → CheckIM Unit) (n0 : Nat)
+    (fe : FEnv) (pd : DeclP) : CheckIM FEnv := do
   unless pd.inRangeB n0 do
     throw (.internal "parsed declaration index out of range")
   flushS
-  checkDeclSPB fe pd
+  checkDeclSPB br fe pd
 
 /-- `checkDeclsSP` with the bracketed step. -/
-def checkDeclsSPB (st : WFStore) (pds : List DeclP) : CheckM Env := do
-  let fe ← (pds.foldlM (checkDeclSPStepB st.raw.nodes.size)
+def checkDeclsSPB (br : CheckIM Unit → CheckIM Unit) (st : WFStore)
+    (pds : List DeclP) : CheckM Env := do
+  let fe ← (pds.foldlM (checkDeclSPStepB br st.raw.nodes.size)
     (mkFEnv Env.empty)).run' { store := st.raw }
   pure fe.env
 
