@@ -162,6 +162,15 @@ included, matching the level-instantiation traversal). -/
     ebs.getD ty false || ebs.getD val false || ebs.getD body false
   | .proj _ _ sub => ebs.getD sub false
 
+/-- The eager readback recurrence of one name node over its
+children's entries (task #88): the parent's `Name` is built from the
+prefix's already-cached `Name`, so every distinct name is materialized
+once and shared. -/
+@[inline] def NNode.nameOf (rs : Array Name) : NNode → Name
+  | .anonymous => .anonymous
+  | .str p s => .str (rs.getD p .anonymous) s
+  | .num p k => .num (rs.getD p .anonymous) k
+
 /-- The interning arena: the expression node table (index = position)
 with its cons-table, the level node table with its cons-table, and the
 eager derived-field arrays kept congruent with `nodes` (task #87).
@@ -189,11 +198,15 @@ structure EStore where
   nnodes : Array NNode
   /-- The name cons-table (graph of `nnodes`). -/
   ncons : Std.HashMap NNode NIdx
+  /-- Eager per-name-node readback (`rbNames.size = nnodes.size`):
+  the node's `Name`, shared structurally with its prefix's entry, so
+  `readbackN` is an `O(1)` read of a shared value (task #88). -/
+  rbNames : Array Name
 
 namespace EStore
 
 /-- The empty arena. -/
-def empty : EStore := ⟨#[], {}, #[], {}, #[], #[], #[], #[], #[], {}⟩
+def empty : EStore := ⟨#[], {}, #[], {}, #[], #[], #[], #[], #[], {}, #[]⟩
 
 instance : Inhabited EStore := ⟨empty⟩
 
@@ -208,14 +221,14 @@ def intern (st : EStore) (n : ENode) : EIdx × EStore :=
   | none =>
     match st with
     | ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs,
-        nnodes, ncons⟩ =>
+        nnodes, ncons, rbNames⟩ =>
       let i := nodes.size
       let bb := n.bvarBoundOf bvarBs
       let fb := n.fvarRangeOf fvarBs
       let pb := n.hasLParamOf eparamBs lparamBs
       (i, ⟨nodes.push n, cons.insert n i, lnodes, lcons,
         bvarBs.push bb, fvarBs.push fb, lparamBs, eparamBs.push pb,
-        nnodes, ncons⟩)
+        nnodes, ncons, rbNames⟩)
 
 /-- The eager per-node loose-bvar bound (task #87): the least `k` with
 `looseBVarsBounded k` for the node's denotation; `0` (also the
@@ -247,11 +260,11 @@ def internL (st : EStore) (n : LNode) : LIdx × EStore :=
   | none =>
     match st with
     | ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs,
-        nnodes, ncons⟩ =>
+        nnodes, ncons, rbNames⟩ =>
       let i := lnodes.size
       let pb := n.hasParamOf lparamBs
       (i, ⟨nodes, cons, lnodes.push n, lcons.insert n i, bvarBs, fvarBs,
-        lparamBs.push pb, eparamBs, nnodes, ncons⟩)
+        lparamBs.push pb, eparamBs, nnodes, ncons, rbNames⟩)
 
 /-- Intern one name node (the name-table analog of `intern`,
 task #88). -/
@@ -261,10 +274,11 @@ def internN (st : EStore) (n : NNode) : NIdx × EStore :=
   | none =>
     match st with
     | ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs,
-        nnodes, ncons⟩ =>
+        nnodes, ncons, rbNames⟩ =>
       let i := nnodes.size
+      let rb := n.nameOf rbNames
       (i, ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs,
-        nnodes.push n, ncons.insert n i⟩)
+        nnodes.push n, ncons.insert n i, rbNames.push rb⟩)
 
 /-- Intern a whole name bottom-up (names are short cons-lists, so no
 memoization is needed — the walk is linear in the name's depth). -/
@@ -292,25 +306,12 @@ def beqNameI (st : EStore) (i : NIdx) : Name → Bool
     | some (.num pi n') => n' == n && st.beqNameI pi p
     | _ => false
 
-/-- Read an interned name back as a `Name` tree (structural; agrees
-with the verification's name denotation on well-formed stores). -/
-def readbackN (st : EStore) (i : NIdx) : Option Name :=
-  match st.nnodes[i]? with
-  | none => none
-  | some .anonymous => some .anonymous
-  | some (.str p s) =>
-    if _h : p < i then
-      match st.readbackN p with
-      | some pn => some (.str pn s)
-      | none => none
-    else none
-  | some (.num p n) =>
-    if _h : p < i then
-      match st.readbackN p with
-      | some pn => some (.num pn n)
-      | none => none
-    else none
-termination_by i
+/-- Read an interned name back — an `O(1)` read of the eager
+per-node readback array (task #88; the returned `Name` is the shared
+value built at intern time).  Agrees with the verification's name
+denotation on well-formed stores (`WF.readbackN_eq_denoteN`). -/
+@[inline] def readbackN (st : EStore) (i : NIdx) : Option Name :=
+  st.rbNames[i]?
 
 /-- Intern a whole level bottom-up. -/
 def internLevel (st : EStore) : Level → LIdx × EStore
@@ -1443,7 +1444,8 @@ def wfBNNodes (st : EStore) : Nat → Bool
        (match m with
         | .anonymous => true
         | .str p _ | .num p _ => p < k) &&
-       st.ncons[m]? == some k
+       st.ncons[m]? == some k &&
+       st.rbNames[k]? == some (m.nameOf st.rbNames)
      | none => false)
 
 /-- Decidable canonicity of a store (`wfB st = true → st.WF`,
@@ -1457,7 +1459,8 @@ def wfB (st : EStore) : Bool :=
   st.lparamBs.size == st.lnodes.size &&
   st.eparamBs.size == st.nodes.size &&
   wfBNNodes st st.nnodes.size &&
-  st.ncons.toList.all (fun p => st.nnodes[p.2]? == some p.1)
+  st.ncons.toList.all (fun p => st.nnodes[p.2]? == some p.1) &&
+  st.rbNames.size == st.nnodes.size
 
 
 /-- Core of `wscopedBI`; `d` is the scope cursor (mirrors

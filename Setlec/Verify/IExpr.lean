@@ -760,6 +760,13 @@ structure WF (st : EStore) : Prop where
   table. -/
   ncons_graph : ∀ (m : NNode) (i : NIdx),
     st.ncons[m]? = some i ↔ st.nnodes[i]? = some m
+  /-- The eager readback array is congruent with `nnodes`
+  (task #88). -/
+  rbNames_size : st.rbNames.size = st.nnodes.size
+  /-- Each name node's readback entry satisfies the recurrence over
+  its prefix's entry. -/
+  rbNames_spec : ∀ (i : NIdx) (m : NNode), st.nnodes[i]? = some m →
+    st.rbNames[i]? = some (m.nameOf st.rbNames)
 
 theorem empty_wf : WF EStore.empty := by
   constructor
@@ -791,6 +798,9 @@ theorem empty_wf : WF EStore.empty := by
     simp [EStore.empty] at h
   · intro m i
     simp [EStore.empty]
+  · simp [EStore.empty]
+  · intro i m h
+    simp [EStore.empty] at h
 
 /-! ## `intern` -/
 
@@ -852,6 +862,13 @@ theorem _root_.Setlec.ENode.hasLParamOf_congr {ebs ebs' lbs lbs' : Array Bool}
   | _ =>
     simp_all [ENode.hasLParamOf, ENode.children, ENode.levels]
 
+/-- The readback recurrence reads only the prefix's entry. -/
+theorem _root_.Setlec.NNode.nameOf_congr {rs rs' : Array Name}
+    {n : NNode}
+    (h : ∀ c ∈ n.children, rs.getD c .anonymous = rs'.getD c .anonymous) :
+    n.nameOf rs = n.nameOf rs' := by
+  cases n <;> simp_all [NNode.nameOf, NNode.children]
+
 /-- `intern` with the store destructuring (an RC optimization)
 eliminated. -/
 theorem intern_eq (st : EStore) (n : ENode) :
@@ -863,9 +880,9 @@ theorem intern_eq (st : EStore) (n : ENode) :
           st.bvarBs.push (n.bvarBoundOf st.bvarBs),
           st.fvarBs.push (n.fvarRangeOf st.fvarBs), st.lparamBs,
           st.eparamBs.push (n.hasLParamOf st.eparamBs st.lparamBs),
-          st.nnodes, st.ncons⟩) := by
+          st.nnodes, st.ncons, st.rbNames⟩) := by
   obtain ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs,
-    nnodes, ncons⟩ := st
+    nnodes, ncons, rbNames⟩ := st
   rfl
 
 theorem intern_ext (st : EStore) (n : ENode) : Ext st (st.intern n).2 := by
@@ -1020,6 +1037,8 @@ theorem intern_wf {st : EStore} {n : ENode} (hwf : st.WF)
       · exact hwf.names_lt i m h p hpin
     · exact hwf.nchildren_lt
     · exact hwf.ncons_graph
+    · exact hwf.rbNames_size
+    · exact hwf.rbNames_spec
 
 /-- Interning a node whose children are already stored: the result
 denotes the node's denotation over the *old* store. -/
@@ -1039,7 +1058,7 @@ theorem intern_denote {st : EStore} {n : ENode} (hwf : st.WF)
           st.bvarBs.push (n.bvarBoundOf st.bvarBs),
           st.fvarBs.push (n.fvarRangeOf st.fvarBs), st.lparamBs,
           st.eparamBs.push (n.hasLParamOf st.eparamBs st.lparamBs),
-          st.nnodes, st.ncons⟩
+          st.nnodes, st.ncons, st.rbNames⟩
           : EStore).denote j
           = st.denote j := by
       refine denote_agree (fun j hj => ?_) rfl rfl
@@ -1052,7 +1071,7 @@ theorem intern_denote {st : EStore} {n : ENode} (hwf : st.WF)
           st.bvarBs.push (n.bvarBoundOf st.bvarBs),
           st.fvarBs.push (n.fvarRangeOf st.fvarBs), st.lparamBs,
           st.eparamBs.push (n.hasLParamOf st.eparamBs st.lparamBs),
-          st.nnodes, st.ncons⟩
+          st.nnodes, st.ncons, st.rbNames⟩
           : EStore)) (st := st)
         rfl u)
       (fun q _ => denoteN_eq_of_nnodes_eq
@@ -1061,7 +1080,7 @@ theorem intern_denote {st : EStore} {n : ENode} (hwf : st.WF)
           st.bvarBs.push (n.bvarBoundOf st.bvarBs),
           st.fvarBs.push (n.fvarRangeOf st.fvarBs), st.lparamBs,
           st.eparamBs.push (n.hasLParamOf st.eparamBs st.lparamBs),
-          st.nnodes, st.ncons⟩
+          st.nnodes, st.ncons, st.rbNames⟩
           : EStore)) (st := st)
         rfl q)
 
@@ -1075,9 +1094,9 @@ theorem internL_eq (st : EStore) (n : LNode) :
         (st.lnodes.size, ⟨st.nodes, st.cons, st.lnodes.push n,
           st.lcons.insert n st.lnodes.size, st.bvarBs, st.fvarBs,
           st.lparamBs.push (n.hasParamOf st.lparamBs), st.eparamBs,
-          st.nnodes, st.ncons⟩) := by
+          st.nnodes, st.ncons, st.rbNames⟩) := by
   obtain ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs,
-    nnodes, ncons⟩ := st
+    nnodes, ncons, rbNames⟩ := st
   rfl
 
 theorem internL_ext (st : EStore) (n : LNode) : Ext st (st.internL n).2 := by
@@ -1189,6 +1208,8 @@ theorem internL_wf {st : EStore} {n : LNode} (hwf : st.WF)
     · exact hwf.names_lt
     · exact hwf.nchildren_lt
     · exact hwf.ncons_graph
+    · exact hwf.rbNames_size
+    · exact hwf.rbNames_spec
 
 /-- Interning a level node whose children are already stored: the
 result denotes the node's denotation over the *old* store. -/
@@ -1206,7 +1227,7 @@ theorem internL_denoteL {st : EStore} {n : LNode} (hwf : st.WF)
         (⟨st.nodes, st.cons, st.lnodes.push n,
           st.lcons.insert n st.lnodes.size, st.bvarBs, st.fvarBs,
           st.lparamBs.push (n.hasParamOf st.lparamBs), st.eparamBs,
-          st.nnodes, st.ncons⟩
+          st.nnodes, st.ncons, st.rbNames⟩
           : EStore).denoteL j
           = st.denoteL j := by
       apply denoteL_agree
@@ -1315,9 +1336,10 @@ theorem internN_eq (st : EStore) (n : NNode) :
       | none =>
         (st.nnodes.size, ⟨st.nodes, st.cons, st.lnodes, st.lcons,
           st.bvarBs, st.fvarBs, st.lparamBs, st.eparamBs,
-          st.nnodes.push n, st.ncons.insert n st.nnodes.size⟩) := by
+          st.nnodes.push n, st.ncons.insert n st.nnodes.size,
+          st.rbNames.push (n.nameOf st.rbNames)⟩) := by
   obtain ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs,
-    nnodes, ncons⟩ := st
+    nnodes, ncons, rbNames⟩ := st
   rfl
 
 theorem internN_ext (st : EStore) (n : NNode) : Ext st (st.internN n).2 := by
@@ -1409,6 +1431,23 @@ theorem internN_wf {st : EStore} {n : NNode} (hwf : st.WF)
             simp at hcontra
           rw [if_neg (by simpa using hne)]
           exact (hwf.ncons_graph m i).mpr h
+    · simpa using hwf.rbNames_size
+    · intro i m h
+      rw [Array.getElem?_push] at h
+      split at h
+      · cases h
+        subst_eqs
+        rw [Array.getElem?_push, hwf.rbNames_size, if_pos rfl]
+        refine congrArg some (NNode.nameOf_congr fun c hcin => ?_)
+        exact (getD_push_of_lt (hwf.rbNames_size ▸ hc c hcin)).symm
+      · have hi : i < st.nnodes.size := by
+          rcases Array.getElem?_eq_some_iff.mp h with ⟨hlt, -⟩
+          exact hlt
+        rw [Array.getElem?_push, if_neg (hwf.rbNames_size ▸ Nat.ne_of_lt hi),
+          hwf.rbNames_spec i m h]
+        refine congrArg some (NNode.nameOf_congr fun c hcin => ?_)
+        exact (getD_push_of_lt (hwf.rbNames_size ▸
+          Nat.lt_trans (hwf.nchildren_lt i m h c hcin) hi)).symm
 
 /-- Interning a name node whose prefix is already stored: the result
 denotes the node's denotation over the *old* store. -/
@@ -1425,7 +1464,8 @@ theorem internN_denoteN {st : EStore} {n : NNode} (hwf : st.WF)
     have hagree : ∀ j, j < st.nnodes.size →
         (⟨st.nodes, st.cons, st.lnodes, st.lcons,
           st.bvarBs, st.fvarBs, st.lparamBs, st.eparamBs,
-          st.nnodes.push n, st.ncons.insert n st.nnodes.size⟩
+          st.nnodes.push n, st.ncons.insert n st.nnodes.size,
+          st.rbNames.push (n.nameOf st.rbNames)⟩
           : EStore).denoteN j
           = st.denoteN j := by
       apply denoteN_agree
@@ -1909,31 +1949,6 @@ theorem denoteN_eq_iff {st : EStore} (hwf : st.WF) {i j : NIdx}
   · rintro rfl
     exact denoteN_inj hwf ha hb
 
-/-- The executable readback agrees with the structural name
-denotation (unconditionally: the two recursions coincide). -/
-theorem readbackN_eq_denoteN (st : EStore) : ∀ i, st.readbackN i = st.denoteN i := by
-  intro i
-  induction i using Nat.strongRecOn with
-  | _ i ih =>
-    rw [readbackN.eq_def, denoteN.eq_def]
-    cases hn : st.nnodes[i]? with
-    | none => rfl
-    | some n =>
-      cases n with
-      | anonymous => rfl
-      | str p s =>
-        simp only [denoteNNode]
-        by_cases hp : p < i
-        · simp only [dif_pos hp, ih p hp]
-          cases st.denoteN p <;> rfl
-        · simp [dif_neg hp]
-      | num p k =>
-        simp only [denoteNNode]
-        by_cases hp : p < i
-        · simp only [dif_pos hp, ih p hp]
-          cases st.denoteN p <;> rfl
-        · simp [dif_neg hp]
-
 /-- `beqNameI` decides equality of the denoted name against a fixed
 `Name` (task #88). -/
 theorem beqNameI_eq {st : EStore} :
@@ -2202,7 +2217,7 @@ theorem denote_eq_iff {st : EStore} (hwf : st.WF) {i j : EIdx} {a b : Expr}
 
 /-! ## Totality and extension helpers for the operation proofs -/
 
-/-- On a well-formed store, every in-range level index denotes. -/
+/-- On a well-formed store, every in-range name index denotes. -/
 theorem denoteN_total {st : EStore} (hwf : st.WF) :
     ∀ (i : NIdx), i < st.nnodes.size → ∃ x, st.denoteN i = some x := by
   intro i
@@ -2223,6 +2238,44 @@ theorem denoteN_total {st : EStore} (hwf : st.WF) :
       obtain ⟨x, hx⟩ := ih p (hc p (by simp [hnn, NNode.children]))
         (Nat.lt_trans (hc p (by simp [hnn, NNode.children])) hi)
       exact ⟨_, by rw [denoteNNode, hx]; rfl⟩
+
+/-- The executable readback (the eager array read) agrees with the
+structural name denotation on a well-formed store (task #88). -/
+theorem WF.readbackN_eq_denoteN {st : EStore} (hwf : st.WF) :
+    ∀ i, st.readbackN i = st.denoteN i := by
+  intro i
+  induction i using Nat.strongRecOn with
+  | _ i ih =>
+    show st.rbNames[i]? = st.denoteN i
+    cases hn : st.nnodes[i]? with
+    | none =>
+      have hsz : st.nnodes.size ≤ i := by
+        rcases Nat.lt_or_ge i st.nnodes.size with hlt | hge
+        · rw [Array.getElem?_eq_getElem hlt] at hn
+          cases hn
+        · exact hge
+      rw [denoteN.eq_def, hn]
+      exact Array.getElem?_eq_none (hwf.rbNames_size ▸ hsz)
+    | some n =>
+      have hc := hwf.nchildren_lt i n hn
+      have hisz : i < st.nnodes.size := (Array.getElem?_eq_some_iff.mp hn).1
+      rw [hwf.rbNames_spec i n hn, denoteN_node hn hc]
+      cases n with
+      | anonymous => rfl
+      | str p sfx =>
+        have hp := hc p (by simp [NNode.children])
+        obtain ⟨pn, hpn⟩ := denoteN_total hwf p (Nat.lt_trans hp hisz)
+        have hrb : st.rbNames[p]? = some pn := (ih p hp).trans hpn
+        rw [denoteNNode, hpn]
+        show some (NNode.nameOf st.rbNames (.str p sfx)) = _
+        simp [NNode.nameOf, Array.getD_eq_getD_getElem?, hrb]
+      | num p k =>
+        have hp := hc p (by simp [NNode.children])
+        obtain ⟨pn, hpn⟩ := denoteN_total hwf p (Nat.lt_trans hp hisz)
+        have hrb : st.rbNames[p]? = some pn := (ih p hp).trans hpn
+        rw [denoteNNode, hpn]
+        show some (NNode.nameOf st.rbNames (.num p k)) = _
+        simp [NNode.nameOf, Array.getD_eq_getD_getElem?, hrb]
 
 /-- On a well-formed store, every in-range level index denotes. -/
 theorem denoteL_total {st : EStore} (hwf : st.WF) :
@@ -6276,7 +6329,7 @@ theorem constsResolveIGo_spec {st : EStore} {env : Env} (hwf : st.WF) :
                | none => false) = x.constsResolve env := by
             intro x hxx
             rw [hx] at hxx; cases hxx
-            rw [readbackN_eq_denoteN, hnm]
+            rw [hwf.readbackN_eq_denoteN, hnm]
             simp [Expr.constsResolve]
           exact ⟨hinv.insert hcond, hcond⟩
         | fvar idx nm t =>
@@ -6532,7 +6585,7 @@ theorem constsResolveIGo_spec {st : EStore} {env : Env} (hwf : st.WF) :
               (hnms s (by simp [ENode.names]))
             have hx : st.denote e = some (.proj nmv j xs) := by
               rw [hde, denoteNode, hs, hnm]; rfl
-            rw [readbackN_eq_denoteN, hnm] at hgo
+            rw [hwf.readbackN_eq_denoteN, hnm] at hgo
             dsimp only at hgo
             split at hgo
             · -- struct name resolves: recurse

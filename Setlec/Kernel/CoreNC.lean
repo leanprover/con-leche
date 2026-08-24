@@ -316,7 +316,7 @@ def iotaRecNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
                          (args.take rl.ctorParams)
                      else pure true
                  if cmpOk then do
-                  let rhs ← ruleRhsAtM fe cn cjn us
+                  let rhs ← ruleRhsAtM fe c cj cn cjn us
                   let red ← mkAppNM rhs
                     (args.take rP ++ margs.drop rl.ctorParams)
                   pure (some red)
@@ -451,7 +451,7 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
         let cv := ci.toConstantVal
         unless us.length = cv.levelParams.length do
           throw (.invalid s!"incorrect number of universe levels for {nm}")
-        constTyAtM fe nm us
+        constTyAtM fe n nm us
     | some (.lit (.natVal _)) => do
       if natLitSupportedF fe then do
         let ni ← internNameM natName
@@ -503,7 +503,8 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
           let targs ← withStore (·.getAppArgsI te)
           if entry.native ∧ targs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
-            let pty ← constTyAtM fe (projFnName Tn i) us
+            let pf ← projFnIdxM T i
+            let pty ← constTyAtM fe pf (projFnName Tn i) us
             match ← piResidualM pty (targs ++ [pe]) with
             | some resTy => pure resTy
             | none => throw (.internal "malformed projection entry")

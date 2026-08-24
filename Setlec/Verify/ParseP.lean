@@ -979,7 +979,8 @@ private theorem wfBLNodes_facts {st : EStore} :
 private theorem wfBNNodes_facts {st : EStore} :
     ∀ (k : Nat), EStore.wfBNNodes st k = true →
       ∀ i, i < k → ∃ m, st.nnodes[i]? = some m ∧
-        (∀ c ∈ m.children, c < i) ∧ st.ncons[m]? = some i
+        (∀ c ∈ m.children, c < i) ∧ st.ncons[m]? = some i ∧
+        st.rbNames[i]? = some (m.nameOf st.rbNames)
   | 0, _, i, hi => absurd hi (Nat.not_lt_zero i)
   | k + 1, h, i, hi => by
     unfold EStore.wfBNNodes at h
@@ -993,8 +994,8 @@ private theorem wfBNNodes_facts {st : EStore} :
       | some m =>
         rw [hn] at hk
         simp only [Bool.and_eq_true, beq_iff_eq] at hk
-        obtain ⟨hch, hcons⟩ := hk
-        refine ⟨m, rfl, ?_, hcons⟩
+        obtain ⟨⟨hch, hcons⟩, hrb⟩ := hk
+        refine ⟨m, rfl, ?_, hcons, hrb⟩
         intro c hc
         cases m with
         | anonymous => simp [NNode.children] at hc
@@ -1012,12 +1013,13 @@ the interned operations' faithfulness needs. -/
 theorem wfB_wf {st : EStore} (h : st.wfB = true) : st.WF := by
   unfold EStore.wfB at h
   simp only [Bool.and_eq_true, beq_iff_eq] at h
-  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨hns, hls⟩, hcons⟩, hlcons⟩, hbsz⟩, hfsz⟩, hpsz⟩, hesz⟩,
-    hnns⟩, hncons⟩ := h
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨hns, hls⟩, hcons⟩, hlcons⟩, hbsz⟩, hfsz⟩, hpsz⟩,
+    hesz⟩, hnns⟩, hncons⟩, hrbsz⟩ := h
   have hnf := wfBNodes_facts st.nodes.size hns
   have hlf := wfBLNodes_facts st.lnodes.size hls
   have hnnf := wfBNNodes_facts st.nnodes.size hnns
-  refine ⟨?_, ?_, ?_, ?_, ?_, hbsz, hfsz, ?_, ?_, hpsz, ?_, hesz, ?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_, hbsz, hfsz, ?_, ?_, hpsz, ?_, hesz, ?_, ?_,
+    ?_, ?_, hrbsz, ?_⟩
   · intro i n hn c hc
     obtain ⟨n', hn', hch, -, -, -, -, -, -⟩ :=
       hnf i (Array.getElem?_eq_some_iff.mp hn).1
@@ -1090,7 +1092,8 @@ theorem wfB_wf {st : EStore} (h : st.wfB = true) : st.WF := by
     cases hn'
     exact hnm p hp
   · intro i m hm c hc
-    obtain ⟨m', hm', hch, -⟩ := hnnf i (Array.getElem?_eq_some_iff.mp hm).1
+    obtain ⟨m', hm', hch, -, -⟩ :=
+      hnnf i (Array.getElem?_eq_some_iff.mp hm).1
     rw [hm] at hm'
     cases hm'
     exact hch c hc
@@ -1102,10 +1105,17 @@ theorem wfB_wf {st : EStore} (h : st.wfB = true) : st.WF := by
         (Std.HashMap.mem_toList_iff_getElem?_eq_some.mpr hci)
       simpa using this
     · intro hm
-      obtain ⟨m', hm', -, hc⟩ := hnnf i (Array.getElem?_eq_some_iff.mp hm).1
+      obtain ⟨m', hm', -, hc, -⟩ :=
+        hnnf i (Array.getElem?_eq_some_iff.mp hm).1
       rw [hm] at hm'
       cases hm'
       exact hc
+  · intro i m hm
+    obtain ⟨m', hm', -, -, hrb⟩ :=
+      hnnf i (Array.getElem?_eq_some_iff.mp hm).1
+    rw [hm] at hm'
+    cases hm'
+    exact hrb
 
 /-! ## Denotation of parsed declarations -/
 

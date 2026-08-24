@@ -248,9 +248,9 @@ structure IState where
   denotation tags (`IConstE`).  Persists across declarations and every
   flush — the invariant never mentions the environment. -/
   ienv : Std.HashMap Name IConstE := {}
-  constTyAt : Std.HashMap (Name × List LIdx) EIdx := {}
-  constValAt : Std.HashMap (Name × List LIdx) EIdx := {}
-  ruleRhsAt : Std.HashMap (Name × Name × List LIdx) EIdx := {}
+  constTyAt : Std.HashMap (NIdx × List LIdx) EIdx := {}
+  constValAt : Std.HashMap (NIdx × List LIdx) EIdx := {}
+  ruleRhsAt : Std.HashMap (NIdx × NIdx × List LIdx) EIdx := {}
   whnfCoreC : Std.HashMap EIdx EIdx := {}
   whnfC : Std.HashMap EIdx EIdx := {}
   inferC : Std.HashMap EIdx EIdx := {}
@@ -595,8 +595,9 @@ def storedValIdxM (n : Name) (v : Expr) : CheckIM EIdx := do
 /-- The interned level-instantiated *type* of the stored constant `n`
 (cached by `(n, us)`; the constant must be stored — callers have already
 matched the lookup). -/
-def constTyAtM (fe : FEnv) (n : Name) (us : List LIdx) : CheckIM EIdx := do
-  let hit? ← modifyGet fun s => (s.constTyAt[(n, us)]?, s)
+def constTyAtM (fe : FEnv) (nI : NIdx) (n : Name) (us : List LIdx) :
+    CheckIM EIdx := do
+  let hit? ← modifyGet fun s => (s.constTyAt[(nI, us)]?, s)
   match hit? with
   | some i => pure i
   | none =>
@@ -608,14 +609,15 @@ def constTyAtM (fe : FEnv) (n : Name) (us : List LIdx) : CheckIM EIdx := do
       modify fun s =>
         let mp := s.constTyAt
         let s := { s with constTyAt := ∅ }
-        { s with constTyAt := mp.insert (n, us) i }
+        { s with constTyAt := mp.insert (nI, us) i }
       pure i
     | none => throw (.internal "constTyAtM: unknown constant")
 
 /-- The interned level-instantiated *value* of the stored definition `n`
 (cached by `(n, us)`). -/
-def constValAtM (fe : FEnv) (n : Name) (us : List LIdx) : CheckIM EIdx := do
-  let hit? ← modifyGet fun s => (s.constValAt[(n, us)]?, s)
+def constValAtM (fe : FEnv) (nI : NIdx) (n : Name) (us : List LIdx) :
+    CheckIM EIdx := do
+  let hit? ← modifyGet fun s => (s.constValAt[(nI, us)]?, s)
   match hit? with
   | some i => pure i
   | none =>
@@ -626,7 +628,7 @@ def constValAtM (fe : FEnv) (n : Name) (us : List LIdx) : CheckIM EIdx := do
       modify fun s =>
         let mp := s.constValAt
         let s := { s with constValAt := ∅ }
-        { s with constValAt := mp.insert (n, us) i }
+        { s with constValAt := mp.insert (nI, us) i }
       pure i
     | some (.thmInfo cv v) =>
       let raw ← storedValIdxM n v
@@ -634,14 +636,15 @@ def constValAtM (fe : FEnv) (n : Name) (us : List LIdx) : CheckIM EIdx := do
       modify fun s =>
         let mp := s.constValAt
         let s := { s with constValAt := ∅ }
-        { s with constValAt := mp.insert (n, us) i }
+        { s with constValAt := mp.insert (nI, us) i }
       pure i
     | _ => throw (.internal "constValAtM: not a stored definition")
 
 /-- The interned level-instantiated right-hand side of the rule for
 constructor `j` of the stored recursor `c` (cached by `(c, j, us)`). -/
-def ruleRhsAtM (fe : FEnv) (c j : Name) (us : List LIdx) : CheckIM EIdx := do
-  let hit? ← modifyGet fun s => (s.ruleRhsAt[(c, j, us)]?, s)
+def ruleRhsAtM (fe : FEnv) (cI jI : NIdx) (c j : Name)
+    (us : List LIdx) : CheckIM EIdx := do
+  let hit? ← modifyGet fun s => (s.ruleRhsAt[(cI, jI, us)]?, s)
   match hit? with
   | some i => pure i
   | none =>
@@ -654,7 +657,7 @@ def ruleRhsAtM (fe : FEnv) (c j : Name) (us : List LIdx) : CheckIM EIdx := do
         modify fun s =>
           let mp := s.ruleRhsAt
           let s := { s with ruleRhsAt := ∅ }
-          { s with ruleRhsAt := mp.insert (c, j, us) i }
+          { s with ruleRhsAt := mp.insert (cI, jI, us) i }
         pure i
       | none => throw (.internal "ruleRhsAtM: no rule for constructor")
     | _ => throw (.internal "ruleRhsAtM: not a stored recursor")
@@ -679,14 +682,14 @@ def unfoldDefinitionI (fe : FEnv) (e : EIdx) : CheckIM (Option EIdx) := do
     match fe.find? nm with
     | some (.defnInfo cv _ _) =>
       if us.length = cv.levelParams.length then do
-        let v ← constValAtM fe nm us
+        let v ← constValAtM fe n nm us
         let args ← withStore (·.getAppArgsI e)
         let r ← mkAppNM v args
         pure (some r)
       else pure none
     | some (.thmInfo cv _) =>
       if us.length = cv.levelParams.length then do
-        let v ← constValAtM fe nm us
+        let v ← constValAtM fe n nm us
         let args ← withStore (·.getAppArgsI e)
         let r ← mkAppNM v args
         pure (some r)
@@ -981,7 +984,8 @@ def projAppsI (T : NIdx) (us' : List LIdx) (targs : List EIdx)
 
 /-- Twin of `structEtaProjCerts`. -/
 def structEtaProjCertsI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
-    (T : Name) (us' : List LIdx) (targs : List EIdx) (b : EIdx)
+    (TI : NIdx) (T : Name) (us' : List LIdx) (targs : List EIdx)
+    (b : EIdx)
     (lpsT : List Name) : List Nat → CheckIM Bool
   | [] => pure true
   | i :: rest => do
@@ -989,9 +993,10 @@ def structEtaProjCertsI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     | some (.recInfo cvp _ _ _) =>
       if cvp.levelParams = lpsT ∧
           (cvp.type.stripPis (targs.length + 1)).isSome = true then do
-        let pty ← constTyAtM fe (projFnName T i) us'
+        let pf ← projFnIdxM TI i
+        let pty ← constTyAtM fe pf (projFnName T i) us'
         if ← iotaCertsI r fe depth pty (targs ++ [b]) then
-          structEtaProjCertsI r fe depth T us' targs b lpsT rest
+          structEtaProjCertsI r fe depth TI T us' targs b lpsT rest
         else pure false
       else pure false
     | _ => pure false
@@ -1022,9 +1027,9 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                 (cvT.type.stripPis cnP).isSome = true then do
               if ← liftFueled "level comparison"
                   (← isEquivListLM us us') then do
-                let tyT ← constTyAtM fe Tn us'
+                let tyT ← constTyAtM fe T Tn us'
                 if ← iotaCertsI r fe depth tyT targs then do
-                  if ← structEtaProjCertsI r fe depth Tn us'
+                  if ← structEtaProjCertsI r fe depth T Tn us'
                       targs b cvT.levelParams (List.range cnF) then do
                     if ← defEqListI r fe depth (aargs.take cnP) targs then do
                       let projs ← projAppsI T us' targs b (List.range cnF)
@@ -1066,7 +1071,7 @@ def structUnitCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
         let tb ← r.infer depth b
         let wtb ← r.whnf depth tb
         if ← r.defeq depth wta wtb then do
-          let tyT ← constTyAtM fe Tn us'
+          let tyT ← constTyAtM fe T Tn us'
           iotaCertsI r fe depth tyT targs
         else pure false
       else pure false
@@ -1137,7 +1142,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                     -- fabricated constructor spine keeps the ungated
                     -- telescope certificate, relocated here from the
                     -- fire path
-                    let tyCtor ← constTyAtM fe rl.ctor ust
+                    let tyCtor ← constTyAtM fe ctorI rl.ctor ust
                     if ← iotaCertsI r fe depth tyCtor
                         (margs.take cnP) then do
                       -- official `to_cnstr_when_K` fabrication type
@@ -1183,7 +1188,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                       st.leafGuardI fab major) then do
                     -- synthetic-spine certification, as in the K
                     -- branch (task #71)
-                    let tyCtor ← constTyAtM fe rl.ctor ust
+                    let tyCtor ← constTyAtM fe ctorI rl.ctor ust
                     if ← iotaCertsI r fe depth tyCtor
                         (margs ++ projs) then do
                       if ← structEtaCertWithI r fe depth fab major
@@ -1289,10 +1294,10 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
                     (← isEquivListLM usj cmpLvls) then do
                  if ← defEqListI r fe depth (margs.take rl.ctorParams)
                     cmpArgs then do
-                  let tyRec ← constTyAtM fe cn us
+                  let tyRec ← constTyAtM fe c cn us
                   if ← iotaCertsGI r fe depth tyRec
                      (args.take mI ++ [major]) then do
-                   let tyCtor ← constTyAtM fe cjn usj
+                   let tyCtor ← constTyAtM fe cj cjn usj
                    if ← iotaCertsGI r fe depth tyCtor margs then do
                     match ← withStore (fun st =>
                           st.stripPisBodyI (rl.ctorParams + rl.nfields)
@@ -1306,7 +1311,7 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
                         if ← defEqListI r fe depth
                             (resArgs.drop rl.ctorParams)
                             ((args.take mI).drop rP) then do
-                          let rhs ← ruleRhsAtM fe cn cjn us
+                          let rhs ← ruleRhsAtM fe c cj cn cjn us
                           let red ← mkAppNM rhs
                             (args.take rP ++ margs.drop rl.ctorParams)
                           pure (some red)
@@ -1633,7 +1638,7 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
         let cv := ci.toConstantVal
         unless us.length = cv.levelParams.length do
           throw (.invalid s!"incorrect number of universe levels for {nm}")
-        constTyAtM fe nm us
+        constTyAtM fe n nm us
     | some (.lit (.natVal _)) => do
       if natLitSupportedF fe then do
         let ni ← internNameM natName
@@ -1688,7 +1693,8 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
           let targs ← withStore (·.getAppArgsI te)
           if entry.native ∧ targs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
-            let pty ← constTyAtM fe (projFnName Tn i) us
+            let pf ← projFnIdxM T i
+            let pty ← constTyAtM fe pf (projFnName Tn i) us
             match ← piResidualM pty (targs ++ [pe]) with
             | some resTy => pure resTy
             | none => throw (.internal "malformed projection entry")
@@ -1867,7 +1873,8 @@ def annotateProjRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
   | some (.ctorInfo _cvC _ cnF) => do
     let params ← withStore (·.getAppArgsI te)
     if params.length = entry.numParams then do
-      let ctorTy ← constTyAtM fe entry.ctor us
+      let ctorI ← internNameM entry.ctor
+      let ctorTy ← constTyAtM fe ctorI entry.ctor us
       match ← piResidualM ctorTy params with
       | some tel => do
         let structProp ← isPropTypeI r fe depth te

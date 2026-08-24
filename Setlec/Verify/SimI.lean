@@ -41,21 +41,25 @@ stored-constant caches are keyed by level-*index* lists; each entry
 carries the denotation of its key (task #62). -/
 structure ISOK (env : Env) (s : IState) : Prop where
   wf : s.store.WF
-  constTy : ∀ n us i, s.constTyAt[(n, us)]? = some i → ∃ lus ci,
+  constTy : ∀ nI us i, s.constTyAt[(nI, us)]? = some i → ∃ nm lus ci,
+    s.store.denoteN nI = some nm ∧
     denoteLList s.store.denoteL us = some lus ∧
-    env.find? n = some ci ∧ s.store.denote i = some
+    env.find? nm = some ci ∧ s.store.denote i = some
       (ci.toConstantVal.type.instantiateLevelParams
         ci.toConstantVal.levelParams lus)
-  constVal : ∀ n us i, s.constValAt[(n, us)]? = some i → ∃ lus cv v h,
+  constVal : ∀ nI us i, s.constValAt[(nI, us)]? = some i →
+    ∃ nm lus cv v h,
+    s.store.denoteN nI = some nm ∧
     denoteLList s.store.denoteL us = some lus ∧
-    (env.find? n = some (.defnInfo cv v h) ∨
-      env.find? n = some (.thmInfo cv v)) ∧ s.store.denote i = some
+    (env.find? nm = some (.defnInfo cv v h) ∨
+      env.find? nm = some (.thmInfo cv v)) ∧ s.store.denote i = some
       (v.instantiateLevelParams cv.levelParams lus)
-  ruleRhs : ∀ c j us i, s.ruleRhsAt[(c, j, us)]? = some i →
-    ∃ lus cv mI rP rules rl,
+  ruleRhs : ∀ cI jI us i, s.ruleRhsAt[(cI, jI, us)]? = some i →
+    ∃ cn jn lus cv mI rP rules rl,
+    s.store.denoteN cI = some cn ∧ s.store.denoteN jI = some jn ∧
     denoteLList s.store.denoteL us = some lus ∧
-    env.find? c = some (.recInfo cv mI rP rules) ∧
-    rules.find? (fun r' => r'.ctor == j) = some rl ∧
+    env.find? cn = some (.recInfo cv mI rP rules) ∧
+    rules.find? (fun r' => r'.ctor == jn) = some rl ∧
     s.store.denote i = some (rl.rhs.instantiateLevelParams cv.levelParams lus)
   whnfCoreC : ∀ i j, s.whnfCoreC[i]? = some j → ∃ a b,
     s.store.denote i = some a ∧ s.store.denote j = some b ∧
@@ -128,16 +132,19 @@ theorem ISOK.withStore {env : Env} {s : IState} (h : ISOK env s)
     ISOK env { s with store := st' } := by
   refine ⟨hwf', ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · intro n us i hl
-    obtain ⟨lus, ci, h0, h1, h2⟩ := h.constTy n us i hl
-    exact ⟨lus, ci, denoteLList_mono hext h0, h1, denote_mono hext h2⟩
+    obtain ⟨nm, lus, ci, hnm, h0, h1, h2⟩ := h.constTy n us i hl
+    exact ⟨nm, lus, ci, denoteN_mono hext hnm,
+      denoteLList_mono hext h0, h1, denote_mono hext h2⟩
   · intro n us i hl
-    obtain ⟨lus, cv, v, hh, h0, h1, h2⟩ := h.constVal n us i hl
-    exact ⟨lus, cv, v, hh, denoteLList_mono hext h0, h1,
+    obtain ⟨nm, lus, cv, v, hh, hnm, h0, h1, h2⟩ := h.constVal n us i hl
+    exact ⟨nm, lus, cv, v, hh, denoteN_mono hext hnm,
+      denoteLList_mono hext h0, h1,
       denote_mono hext h2⟩
   · intro c j us i hl
-    obtain ⟨lus, cv, mI, rP, rules, rl, h0, h1, h2, h3⟩ :=
-      h.ruleRhs c j us i hl
-    exact ⟨lus, cv, mI, rP, rules, rl, denoteLList_mono hext h0, h1, h2,
+    obtain ⟨cn, jn, lus, cv, mI, rP, rules, rl, hcn, hjn, h0, h1, h2,
+      h3⟩ := h.ruleRhs c j us i hl
+    exact ⟨cn, jn, lus, cv, mI, rP, rules, rl, denoteN_mono hext hcn,
+      denoteN_mono hext hjn, denoteLList_mono hext h0, h1, h2,
       denote_mono hext h3⟩
   · intro i j hl
     obtain ⟨a, b, h1, h2, h3⟩ := h.whnfCoreC i j hl
@@ -590,7 +597,7 @@ theorem readbackNM_eff (hs : ISOK env s₀) {i : NIdx} {nm : Name}
     | none => throw (.internal "interned name readback failed") :
     CheckIM Name) from rfl]
   refine IEff.withStore ?_
-  rw [readbackN_eq_denoteN, h]
+  rw [hs.wf.readbackN_eq_denoteN, h]
   exact IEff.pure hs rfl
 
 theorem beqNameM_eff (hs : ISOK env s₀) {i : NIdx} {a : Name}
@@ -1225,97 +1232,107 @@ private theorem modify_run (f : IState → IState) (s : IState) :
 
 /-- Inserting a backed entry into `constTyAt` preserves the invariant. -/
 theorem ISOK.insertConstTy {s : IState} (hs : ISOK env s)
-    {n : Name} {us : List LIdx} {lus : List Level} {i : EIdx}
+    {nI : NIdx} {nm : Name} {us : List LIdx} {lus : List Level}
+    {i : EIdx}
     {ci : ConstantInfo}
+    (hnI : s.store.denoteN nI = some nm)
     (hus : denoteLList s.store.denoteL us = some lus)
-    (hfind : env.find? n = some ci)
+    (hfind : env.find? nm = some ci)
     (hden : s.store.denote i = some
       (ci.toConstantVal.type.instantiateLevelParams
         ci.toConstantVal.levelParams lus)) :
-    ISOK env { s with constTyAt := s.constTyAt.insert (n, us) i } := by
+    ISOK env { s with constTyAt := s.constTyAt.insert (nI, us) i } := by
   refine ⟨hs.wf, ?_, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfC,
     hs.inferC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv,
     hs.ienv⟩
   intro n' us' i' hl
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
-  by_cases hk : ((n, us) : Name × List LIdx) == (n', us')
+  by_cases hk : ((nI, us) : NIdx × List LIdx) == (n', us')
   · rw [if_pos hk] at hl
-    obtain ⟨rfl, rfl⟩ : n = n' ∧ us = us' := by
+    obtain ⟨rfl, rfl⟩ : nI = n' ∧ us = us' := by
       have := eq_of_beq hk
       exact ⟨congrArg Prod.fst this, congrArg Prod.snd this⟩
     cases hl
-    exact ⟨lus, ci, hus, hfind, hden⟩
+    exact ⟨nm, lus, ci, hnI, hus, hfind, hden⟩
   · rw [if_neg hk] at hl
     exact hs.constTy n' us' i' hl
 
 /-- Inserting a backed entry into `constValAt` preserves the invariant. -/
 theorem ISOK.insertConstVal {s : IState} (hs : ISOK env s)
-    {n : Name} {us : List LIdx} {lus : List Level} {i : EIdx}
+    {nI : NIdx} {nm : Name} {us : List LIdx} {lus : List Level}
+    {i : EIdx}
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
+    (hnI : s.store.denoteN nI = some nm)
     (hus : denoteLList s.store.denoteL us = some lus)
-    (hfind : env.find? n = some (.defnInfo cv v hint) ∨
-      env.find? n = some (.thmInfo cv v))
+    (hfind : env.find? nm = some (.defnInfo cv v hint) ∨
+      env.find? nm = some (.thmInfo cv v))
     (hden : s.store.denote i = some
       (v.instantiateLevelParams cv.levelParams lus)) :
-    ISOK env { s with constValAt := s.constValAt.insert (n, us) i } := by
+    ISOK env { s with constValAt := s.constValAt.insert (nI, us) i } := by
   refine ⟨hs.wf, hs.constTy, ?_, hs.ruleRhs, hs.whnfCoreC, hs.whnfC,
     hs.inferC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv,
     hs.ienv⟩
   intro n' us' i' hl
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
-  by_cases hk : ((n, us) : Name × List LIdx) == (n', us')
+  by_cases hk : ((nI, us) : NIdx × List LIdx) == (n', us')
   · rw [if_pos hk] at hl
-    obtain ⟨rfl, rfl⟩ : n = n' ∧ us = us' := by
+    obtain ⟨rfl, rfl⟩ : nI = n' ∧ us = us' := by
       have := eq_of_beq hk
       exact ⟨congrArg Prod.fst this, congrArg Prod.snd this⟩
     cases hl
-    exact ⟨lus, cv, v, hint, hus, hfind, hden⟩
+    exact ⟨nm, lus, cv, v, hint, hnI, hus, hfind, hden⟩
   · rw [if_neg hk] at hl
     exact hs.constVal n' us' i' hl
 
 /-- Inserting a backed entry into `ruleRhsAt` preserves the invariant. -/
 theorem ISOK.insertRuleRhs {s : IState} (hs : ISOK env s)
-    {c j : Name} {us : List LIdx} {lus : List Level} {i : EIdx}
+    {cI jI : NIdx} {cn jn : Name} {us : List LIdx} {lus : List Level}
+    {i : EIdx}
     {cv : ConstantVal}
     {mI rP : Nat} {rules : List RecRule} {rl : RecRule}
+    (hcI : s.store.denoteN cI = some cn)
+    (hjI : s.store.denoteN jI = some jn)
     (hus : denoteLList s.store.denoteL us = some lus)
-    (hfind : env.find? c = some (.recInfo cv mI rP rules))
-    (hrl : rules.find? (fun r' => r'.ctor == j) = some rl)
+    (hfind : env.find? cn = some (.recInfo cv mI rP rules))
+    (hrl : rules.find? (fun r' => r'.ctor == jn) = some rl)
     (hden : s.store.denote i = some
       (rl.rhs.instantiateLevelParams cv.levelParams lus)) :
-    ISOK env { s with ruleRhsAt := s.ruleRhsAt.insert (c, j, us) i } := by
+    ISOK env { s with ruleRhsAt := s.ruleRhsAt.insert (cI, jI, us) i } := by
   refine ⟨hs.wf, hs.constTy, hs.constVal, ?_, hs.whnfCoreC, hs.whnfC,
     hs.inferC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv,
     hs.ienv⟩
   intro c' j' us' i' hl
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
-  by_cases hk : ((c, j, us) : Name × Name × List LIdx) == (c', j', us')
+  by_cases hk : ((cI, jI, us) : NIdx × NIdx × List LIdx) == (c', j', us')
   · rw [if_pos hk] at hl
-    obtain ⟨rfl, rfl, rfl⟩ : c = c' ∧ j = j' ∧ us = us' := by
+    obtain ⟨rfl, rfl, rfl⟩ : cI = c' ∧ jI = j' ∧ us = us' := by
       have := eq_of_beq hk
       exact ⟨congrArg Prod.fst this, congrArg (·.2.1) this,
         congrArg (·.2.2) this⟩
     cases hl
-    exact ⟨lus, cv, mI, rP, rules, rl, hus, hfind, hrl, hden⟩
+    exact ⟨cn, jn, lus, cv, mI, rP, rules, rl, hcI, hjI, hus, hfind,
+      hrl, hden⟩
   · rw [if_neg hk] at hl
     exact hs.ruleRhs c' j' us' i' hl
 
 /-- `constTyAtM` under the index of `env`: the result denotes the
 level-instantiated stored type at the key's denotation. -/
-theorem constTyAtM_eff (hs : ISOK env s₀) {n : Name} {us : List LIdx}
+theorem constTyAtM_eff (hs : ISOK env s₀) {nI : NIdx} {n : Name}
+    {us : List LIdx}
     {lus : List Level} {ci : ConstantInfo}
+    (hnI : s₀.store.denoteN nI = some n)
     (hus : denoteLList s₀.store.denoteL us = some lus)
     (hfind : env.find? n = some ci) :
     IEff env s₀ (fun s i => s.store.denote i = some
         (ci.toConstantVal.type.instantiateLevelParams
           ci.toConstantVal.levelParams lus))
-      (constTyAtM (mkFEnv env) n us) := by
+      (constTyAtM (mkFEnv env) nI n us) := by
   intro v' s' hr
-  rw [show constTyAtM (mkFEnv env) n us = (do
-      match (← get).constTyAt[(n, us)]? with
+  rw [show constTyAtM (mkFEnv env) nI n us = (do
+      match (← get).constTyAt[(nI, us)]? with
       | some i => pure i
       | none =>
         match (mkFEnv env).find? n with
@@ -1326,18 +1343,21 @@ theorem constTyAtM_eff (hs : ISOK env s₀) {n : Name} {us : List LIdx}
           modify fun s =>
             let mp := s.constTyAt
             let s := { s with constTyAt := ∅ }
-            { s with constTyAt := mp.insert (n, us) i }
+            { s with constTyAt := mp.insert (nI, us) i }
           pure i
         | none => throw (.internal "constTyAtM: unknown constant") :
         CheckIM EIdx) from rfl] at hr
   simp only [Bind.bind, StateT.bind, get, getThe, MonadStateOf.get,
     StateT.get, Except.bind, pure, Except.pure] at hr
-  cases hl : s₀.constTyAt[(n, us)]? with
+  cases hl : s₀.constTyAt[(nI, us)]? with
   | some i =>
     rw [hl] at hr
     simp only [pure, StateT.pure, Except.pure, Except.ok.injEq] at hr
     obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
-    obtain ⟨lus', ci', hus', hfind', hden⟩ := hs.constTy n us _ hl
+    obtain ⟨nm', lus', ci', hnm', hus', hfind', hden⟩ :=
+      hs.constTy nI us _ hl
+    rw [hnI] at hnm'
+    cases hnm'
     rw [hfind] at hfind'
     cases hfind'
     rw [hus] at hus'
@@ -1369,23 +1389,26 @@ theorem constTyAtM_eff (hs : ISOK env s₀) {n : Name} {us : List LIdx}
           StateT.pure, Except.pure, Except.ok.injEq] at hr
         obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
         exact ⟨hs₂.insertConstTy
+          (denoteN_mono hext₂ (denoteN_mono hext₁ hnI))
           (denoteLList_mono hext₂ (denoteLList_mono hext₁ hus))
           hfind hden, hext₁.trans hext₂, hden⟩
 
 /-- `constValAtM` under the index of `env` (the head is a stored
 definition or theorem). -/
-theorem constValAtM_eff (hs : ISOK env s₀) {n : Name} {us : List LIdx}
+theorem constValAtM_eff (hs : ISOK env s₀) {nI : NIdx} {n : Name}
+    {us : List LIdx}
     {lus : List Level}
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
+    (hnI : s₀.store.denoteN nI = some n)
     (hus : denoteLList s₀.store.denoteL us = some lus)
     (hfind : env.find? n = some (.defnInfo cv v hint) ∨
       env.find? n = some (.thmInfo cv v)) :
     IEff env s₀ (fun s i => s.store.denote i = some
         (v.instantiateLevelParams cv.levelParams lus))
-      (constValAtM (mkFEnv env) n us) := by
+      (constValAtM (mkFEnv env) nI n us) := by
   intro v' s' hr
-  rw [show constValAtM (mkFEnv env) n us = (do
-      match (← get).constValAt[(n, us)]? with
+  rw [show constValAtM (mkFEnv env) nI n us = (do
+      match (← get).constValAt[(nI, us)]? with
       | some i => pure i
       | none =>
         match (mkFEnv env).find? n with
@@ -1395,7 +1418,7 @@ theorem constValAtM_eff (hs : ISOK env s₀) {n : Name} {us : List LIdx}
           modify fun s =>
             let mp := s.constValAt
             let s := { s with constValAt := ∅ }
-            { s with constValAt := mp.insert (n, us) i }
+            { s with constValAt := mp.insert (nI, us) i }
           pure i
         | some (.thmInfo cv v) =>
           let raw ← storedValIdxM n v
@@ -1403,19 +1426,21 @@ theorem constValAtM_eff (hs : ISOK env s₀) {n : Name} {us : List LIdx}
           modify fun s =>
             let mp := s.constValAt
             let s := { s with constValAt := ∅ }
-            { s with constValAt := mp.insert (n, us) i }
+            { s with constValAt := mp.insert (nI, us) i }
           pure i
         | _ => throw (.internal "constValAtM: not a stored definition") :
         CheckIM EIdx) from rfl] at hr
   simp only [Bind.bind, StateT.bind, get, getThe, MonadStateOf.get,
     StateT.get, Except.bind, pure, Except.pure] at hr
-  cases hl : s₀.constValAt[(n, us)]? with
+  cases hl : s₀.constValAt[(nI, us)]? with
   | some i =>
     rw [hl] at hr
     simp only [pure, StateT.pure, Except.pure, Except.ok.injEq] at hr
     obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
-    obtain ⟨lus', cv', v'', hint', hus', hfind', hden⟩ :=
-      hs.constVal n us _ hl
+    obtain ⟨nm', lus', cv', v'', hint', hnm', hus', hfind', hden⟩ :=
+      hs.constVal nI us _ hl
+    rw [hnI] at hnm'
+    cases hnm'
     rcases hfind with hfind | hfind <;>
       rcases hfind' with hfind' | hfind' <;>
       rw [hfind] at hfind' <;> cases hfind' <;>
@@ -1448,25 +1473,30 @@ theorem constValAtM_eff (hs : ISOK env s₀) {n : Name} {us : List LIdx}
           obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
           first
           | exact ⟨hs₂.insertConstVal
+              (denoteN_mono hext₂ (denoteN_mono hext₁ hnI))
               (denoteLList_mono hext₂ (denoteLList_mono hext₁ hus))
               (Or.inl hfind) hden, hext₁.trans hext₂, hden⟩
           | exact ⟨hs₂.insertConstVal (hint := .opaque)
+              (denoteN_mono hext₂ (denoteN_mono hext₁ hnI))
               (denoteLList_mono hext₂ (denoteLList_mono hext₁ hus))
               (Or.inr hfind) hden, hext₁.trans hext₂, hden⟩
 
 /-- `ruleRhsAtM` under the index of `env`. -/
-theorem ruleRhsAtM_eff (hs : ISOK env s₀) {c j : Name} {us : List LIdx}
+theorem ruleRhsAtM_eff (hs : ISOK env s₀) {cI jI : NIdx} {c j : Name}
+    {us : List LIdx}
     {lus : List Level}
     {cv : ConstantVal} {mI rP : Nat} {rules : List RecRule} {rl : RecRule}
+    (hcI : s₀.store.denoteN cI = some c)
+    (hjI : s₀.store.denoteN jI = some j)
     (hus : denoteLList s₀.store.denoteL us = some lus)
     (hfind : env.find? c = some (.recInfo cv mI rP rules))
     (hrl : rules.find? (fun r' => r'.ctor == j) = some rl) :
     IEff env s₀ (fun s i => s.store.denote i = some
         (rl.rhs.instantiateLevelParams cv.levelParams lus))
-      (ruleRhsAtM (mkFEnv env) c j us) := by
+      (ruleRhsAtM (mkFEnv env) cI jI c j us) := by
   intro v' s' hr
-  rw [show ruleRhsAtM (mkFEnv env) c j us = (do
-      match (← get).ruleRhsAt[(c, j, us)]? with
+  rw [show ruleRhsAtM (mkFEnv env) cI jI c j us = (do
+      match (← get).ruleRhsAt[(cI, jI, us)]? with
       | some i => pure i
       | none =>
         match (mkFEnv env).find? c with
@@ -1478,20 +1508,25 @@ theorem ruleRhsAtM_eff (hs : ISOK env s₀) {c j : Name} {us : List LIdx}
             modify fun s =>
               let mp := s.ruleRhsAt
               let s := { s with ruleRhsAt := ∅ }
-              { s with ruleRhsAt := mp.insert (c, j, us) i }
+              { s with ruleRhsAt := mp.insert (cI, jI, us) i }
             pure i
           | none => throw (.internal "ruleRhsAtM: no rule for constructor")
         | _ => throw (.internal "ruleRhsAtM: not a stored recursor") :
         CheckIM EIdx) from rfl] at hr
   simp only [Bind.bind, StateT.bind, get, getThe, MonadStateOf.get,
     StateT.get, Except.bind, pure, Except.pure] at hr
-  cases hl : s₀.ruleRhsAt[(c, j, us)]? with
+  cases hl : s₀.ruleRhsAt[(cI, jI, us)]? with
   | some i =>
     rw [hl] at hr
     simp only [pure, StateT.pure, Except.pure, Except.ok.injEq] at hr
     obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
-    obtain ⟨lus', cv', mI', rP', rules', rl', hus', hfind', hrl', hden⟩ :=
-      hs.ruleRhs c j us _ hl
+    obtain ⟨cn', jn', lus', cv', mI', rP', rules', rl', hcn', hjn',
+      hus', hfind', hrl', hden⟩ :=
+      hs.ruleRhs cI jI us _ hl
+    rw [hcI] at hcn'
+    cases hcn'
+    rw [hjI] at hjn'
+    cases hjn'
     rw [hfind] at hfind'
     cases hfind'
     rw [hrl] at hrl'
@@ -1526,6 +1561,8 @@ theorem ruleRhsAtM_eff (hs : ISOK env s₀) {c j : Name} {us : List LIdx}
           StateT.pure, Except.pure, Except.ok.injEq] at hr
         obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
         exact ⟨hs₂.insertRuleRhs
+          (denoteN_mono hext₂ (denoteN_mono hext₁ hcI))
+          (denoteN_mono hext₂ (denoteN_mono hext₁ hjI))
           (denoteLList_mono hext₂ (denoteLList_mono hext₁ hus))
           hfind hrl hden, hext₁.trans hext₂, hden⟩
 

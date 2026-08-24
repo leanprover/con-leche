@@ -652,14 +652,14 @@ theorem unfoldDefinitionI_eff {s₀ : IState} (hs : ISOK env s₀)
         match (mkFEnv env).find? nm with
         | some (.defnInfo cv _ _) =>
           if us.length = cv.levelParams.length then do
-            let v ← constValAtM (mkFEnv env) nm us
+            let v ← constValAtM (mkFEnv env) n nm us
             let args ← Setlec.withStore (·.getAppArgsI i)
             let r ← mkAppNM v args
             pure (some r)
           else pure none
         | some (.thmInfo cv _) =>
           if us.length = cv.levelParams.length then do
-            let v ← constValAtM (mkFEnv env) nm us
+            let v ← constValAtM (mkFEnv env) n nm us
             let args ← Setlec.withStore (·.getAppArgsI i)
             let r ← mkAppNM v args
             pure (some r)
@@ -697,6 +697,7 @@ theorem unfoldDefinitionI_eff {s₀ : IState} (hs : ISOK env s₀)
     intro s₀' nmv hs hext' hnmv
     subst nmv
     replace hlusDen := denoteLList_mono hext' hlusDen
+    replace hnmDen := denoteN_mono hext' hnmDen
     replace hden := denote_mono hext' hden
     rw [mkFEnv_find?]
     cases hfc : env.find? nm with
@@ -708,7 +709,8 @@ theorem unfoldDefinitionI_eff {s₀ : IState} (hs : ISOK env s₀)
         have hleneq : us.length = lus.length := denoteLList_length hlusDen
         by_cases hlen : us.length = cv.levelParams.length
         · rw [if_pos hlen, if_pos (by omega)]
-          refine IEff.bind (constValAtM_eff hs hlusDen (Or.inl hfc)) ?_
+          refine IEff.bind (constValAtM_eff hs hnmDen hlusDen
+            (Or.inl hfc)) ?_
           intro s₁ v hs₁ hext₁ hQv
           refine IEff.withStore ?_
           have hargs := getAppArgsI_spec hs₁.wf (denote_mono hext₁ hden)
@@ -723,8 +725,8 @@ theorem unfoldDefinitionI_eff {s₀ : IState} (hs : ISOK env s₀)
         have hleneq : us.length = lus.length := denoteLList_length hlusDen
         by_cases hlen : us.length = cv.levelParams.length
         · rw [if_pos hlen, if_pos (by omega)]
-          refine IEff.bind (constValAtM_eff (hint := .opaque) hs hlusDen
-            (Or.inr hfc)) ?_
+          refine IEff.bind (constValAtM_eff (hint := .opaque) hs hnmDen
+            hlusDen (Or.inr hfc)) ?_
           intro s₁ v hs₁ hext₁ hQv
           refine IEff.withStore ?_
           have hargs := getAppArgsI_spec hs₁.wf (denote_mono hext₁ hden)

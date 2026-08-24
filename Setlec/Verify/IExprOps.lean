@@ -1694,7 +1694,7 @@ theorem readbackBM_spec {st : EStore} {m : IBinderMeta} {bm : BinderMeta}
     cases hgo
     exact ⟨rfl, hinv₁⟩
 
-theorem readbackGo_spec {st : EStore} (_hwf : st.WF) :
+theorem readbackGo_spec {st : EStore} (hwf : st.WF) :
     ∀ (e : EIdx) {x : Expr} {memo : Std.HashMap EIdx Expr}
       {lmemo : Std.HashMap LIdx Level}
       {r : Option Expr} {memo' : Std.HashMap EIdx Expr}
@@ -1749,7 +1749,7 @@ theorem readbackGo_spec {st : EStore} (_hwf : st.WF) :
         rw [hg₁] at hgo
         obtain ⟨rfl, hlinv₁⟩ := readbackLList_spec us hlus hlinv hg₁
         dsimp only at hgo
-        rw [readbackN_eq_denoteN, _hnmv] at hgo
+        rw [hwf.readbackN_eq_denoteN, _hnmv] at hgo
         dsimp only at hgo
         injection hgo with h1 h2
         injection h2 with h2 h3
@@ -1774,7 +1774,7 @@ theorem readbackGo_spec {st : EStore} (_hwf : st.WF) :
         obtain ⟨rfl, hinv₁, hlinv₁⟩ := ih t hlt ht hinv hlinv hgt
         rw [hgt] at hgo
         dsimp only at hgo
-        rw [readbackN_eq_denoteN, _hnmv] at hgo
+        rw [hwf.readbackN_eq_denoteN, _hnmv] at hgo
         dsimp only at hgo
         injection hgo with h1 h2
         injection h2 with h2 h3
@@ -1826,7 +1826,7 @@ theorem readbackGo_spec {st : EStore} (_hwf : st.WF) :
         dsimp only at hgo
         rw [hgm] at hgo
         dsimp only at hgo
-        rw [readbackN_eq_denoteN, _hnmv] at hgo
+        rw [hwf.readbackN_eq_denoteN, _hnmv] at hgo
         dsimp only at hgo
         injection hgo with h1 h2
         injection h2 with h2 h3
@@ -1857,7 +1857,7 @@ theorem readbackGo_spec {st : EStore} (_hwf : st.WF) :
         dsimp only at hgo
         rw [hgm] at hgo
         dsimp only at hgo
-        rw [readbackN_eq_denoteN, _hnmv] at hgo
+        rw [hwf.readbackN_eq_denoteN, _hnmv] at hgo
         dsimp only at hgo
         injection hgo with h1 h2
         injection h2 with h2 h3
@@ -1889,7 +1889,7 @@ theorem readbackGo_spec {st : EStore} (_hwf : st.WF) :
         dsimp only at hgo
         rw [hgb] at hgo
         dsimp only at hgo
-        rw [readbackN_eq_denoteN, _hnmv] at hgo
+        rw [hwf.readbackN_eq_denoteN, _hnmv] at hgo
         dsimp only at hgo
         injection hgo with h1 h2
         injection h2 with h2 h3
@@ -1907,7 +1907,7 @@ theorem readbackGo_spec {st : EStore} (_hwf : st.WF) :
         obtain ⟨rfl, hinv₁, hlinv₁⟩ := ih e' hlt he hinv hlinv hge
         rw [hge] at hgo
         dsimp only at hgo
-        rw [readbackN_eq_denoteN, _hnmv] at hgo
+        rw [hwf.readbackN_eq_denoteN, _hnmv] at hgo
         dsimp only at hgo
         injection hgo with h1 h2
         injection h2 with h2 h3
@@ -1967,7 +1967,7 @@ theorem natOpGuardF_eq (env : Env) (c : Name) :
 /-! ## Node classifiers agree with the `Expr` versions -/
 
 theorem isUnitLikeTyI_spec {st : EStore} {env : Env} {e : EIdx} {x : Expr}
-    (_hwf : st.WF) (hx : st.denote e = some x) :
+    (hwf : st.WF) (hx : st.denote e = some x) :
     isUnitLikeTyI (mkFEnv env) st e = isUnitLikeTy env x := by
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hx
   rw [isUnitLikeTyI, hn]
@@ -1978,7 +1978,7 @@ theorem isUnitLikeTyI_spec {st : EStore} {env : Env} {e : EIdx} {x : Expr}
     rw [Option.map_eq_some_iff] at hd
     obtain ⟨_nmv, _hnmv, rfl⟩ := hd
     dsimp only
-    rw [readbackN_eq_denoteN, _hnmv]
+    rw [hwf.readbackN_eq_denoteN, _hnmv]
     dsimp only
     rw [show isUnitLikeTy env (.const _nmv lus) =
       ((match env.find? _nmv with
@@ -2067,7 +2067,7 @@ theorem isCtorAppI_spec {st : EStore} {env : Env} {e : EIdx} {x : Expr}
     obtain ⟨_nmv, _hnmv, hd⟩ := hd
     rw [← hd]
     dsimp only
-    rw [readbackN_eq_denoteN, _hnmv]
+    rw [hwf.readbackN_eq_denoteN, _hnmv]
     dsimp only
     rw [mkFEnv_find?]
     rfl
@@ -2145,7 +2145,7 @@ theorem headHintI_spec {st : EStore} {env : Env} {e : EIdx} {x : Expr}
     obtain ⟨_nmv, _hnmv, hd⟩ := hd
     rw [← hd]
     dsimp only
-    rw [readbackN_eq_denoteN, _hnmv]
+    rw [hwf.readbackN_eq_denoteN, _hnmv]
     dsimp only
     rw [mkFEnv_find?]
     rfl

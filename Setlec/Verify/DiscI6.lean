@@ -313,8 +313,12 @@ theorem annotateProjRecI_sim (ih : SSimI env f) (henv : EnvWF env)
       have hparams := getAppArgsI_spec hs.wf hte
       rw [hparams.length_eq]
       split
-      · refine SimAt.bind_left (constTyAtM_eff hs hus hfC)
-          (fun s₁ ctorTy hs₁ hext₁ hQty => ?_)
+      · refine SimAt.bind_left (internNameM_eff hs entry.ctor)
+          (fun s₀c ctorI hs hext₀c hQctorI => ?_)
+        refine SimAt.bind_left (constTyAtM_eff hs hQctorI
+          (denoteLList_mono hext₀c hus) hfC)
+          (fun s₁ ctorTy hs₁ hext₁' hQty => ?_)
+        have hext₁ := hext₀c.trans hext₁'
         simp only [ConstantInfo.toConstantVal] at hQty
         refine SimAt.bind_left (piResidualM_eff hs₁ hQty
           (hparams.mono hext₁)) (fun s₂ otel hs₂ hext₂ hQtel => ?_)

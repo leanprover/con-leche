@@ -1830,6 +1830,7 @@ theorem inferBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     refine SimAt.bind_left (readbackNM_eff hs hnmDen)
       (fun s₀' nw hs hext' hnw => ?_)
     subst nw
+    replace hnmDen := denoteN_mono hext' hnmDen
     replace hlusDen := denoteLList_mono hext' hlusDen
     rw [mkFEnv_find?]
     cases hfn : env.find? nm with
@@ -1840,7 +1841,7 @@ theorem inferBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
         (denoteLList_length hlusDen).symm]
       by_cases hlen : us.length = ci.toConstantVal.levelParams.length
       · rw [if_pos hlen, if_pos hlen]
-        refine SimAt.of_eff (constTyAtM_eff hs hlusDen hfn) _
+        refine SimAt.of_eff (constTyAtM_eff hs hnmDen hlusDen hfn) _
           (fun s r hQ => ?_)
         refine ⟨hQ, ?_⟩
         obtain ⟨htf, -⟩ := henv _ (find?_mem hfn)
@@ -2027,6 +2028,7 @@ theorem inferBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
       refine SimAt.bind_left (readbackNM_eff hs₂ hTDen)
         (fun s₂' Tw hs₂ hextT hTw => ?_)
       subst Tw
+      replace hTDen := denoteN_mono hextT hTDen
       replace hted := denote_mono hextT hted
       replace hlusDen := denoteLList_mono hextT hlusDen
       replace hpe := denote_mono ((hext₁.trans hext₂).trans hextT) hpe
@@ -2041,8 +2043,13 @@ theorem inferBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
           show lus.length = us.length from
             (denoteLList_length hlusDen).symm]
         split
-        · refine SimAt.bind_left (constTyAtM_eff hs₂ hlusDen
-            (Env.findProj?_some hfp)) (fun s₃ pty hs₃ hext₃ hQty => ?_)
+        · refine SimAt.bind_left (projFnIdxM_eff hs₂ hTDen ip)
+            (fun s₂p pf hs₂ hextp hQpf => ?_)
+          refine SimAt.bind_left (constTyAtM_eff hs₂ hQpf
+            (denoteLList_mono hextp hlusDen)
+            (Env.findProj?_some hfp))
+            (fun s₃ pty hs₃ hext₃' hQty => ?_)
+          have hext₃ := hextp.trans hext₃'
           simp only [ConstantInfo.toConstantVal] at hQty
           refine SimAt.bind_left (piResidualM_eff hs₃ hQty
             ((htargs.mono hext₃).append (DenL.cons

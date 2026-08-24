@@ -154,7 +154,7 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                         st.leafGuardI fab i) >>=
                         fun g =>
                       if g then
-                        constTyAtM (mkFEnv env) rl.ctor ust >>=
+                        constTyAtM (mkFEnv env) ctorI rl.ctor ust >>=
                           fun tyCtor =>
                         iotaCertsI (coreKnotI (mkFEnv env) f) (mkFEnv env)
                             d tyCtor (margs.take cnP) >>= fun rc =>
@@ -203,7 +203,7 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                         st.leafGuardI fab i) >>=
                         fun g =>
                       if g then
-                        constTyAtM (mkFEnv env) rl.ctor ust >>=
+                        constTyAtM (mkFEnv env) ctorI rl.ctor ust >>=
                           fun tyCtor =>
                         iotaCertsI (coreKnotI (mkFEnv env) f) (mkFEnv env)
                             d tyCtor (margs ++ projs) >>= fun rc =>
@@ -331,6 +331,7 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                         have hext₀₄ := (hext₀₂.trans hext₃).trans hext₄
                         -- the relocated synthetic-spine certificate
                         refine SimAt.bind_left (constTyAtM_eff hs₄
+                          (denoteN_mono (hext₃.trans hext₄) hQctorI)
                           (denoteLList_mono (hext₃.trans hext₄)
                             hlustDen) hfj)
                           (fun s₄c tyCtor hs₄c hext₄c hQty => ?_)
@@ -520,6 +521,8 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                                 exact hguard.1.1)
                           -- the relocated synthetic-spine certificate
                           refine SimAt.bind_left (constTyAtM_eff hs₅
+                            (denoteN_mono (hext₄.trans hext₅)
+                              (hEta.2.1.symm ▸ hQctorI))
                             (denoteLList_mono (((hext₂r.trans
                               hext₃).trans hext₄).trans hext₅)
                               hlustDen) hfj)
@@ -719,11 +722,14 @@ theorem pinArgsI_eff (lps : List Name) (us : List LIdx)
 comparands): recursor/constructor telescope certificates, the
 canonical-index check, and the reduct. -/
 private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
-    {d : Nat} {i major : EIdx} {ex majorx : Expr} {c cj : Name}
+    {d : Nat} {i major : EIdx} {ex majorx : Expr} {cI jI : NIdx}
+    {c cj : Name}
     {us usj : List LIdx} {lus lusj : List Level}
     {cv cvj : ConstantVal} {mI rP cnP cnF : Nat}
     {rules : List RecRule} {rl : RecRule}
     {args margs : List EIdx} {s₀ : IState} (hs : ISOK env s₀)
+    (hcI : s₀.store.denoteN cI = some c)
+    (hjI : s₀.store.denoteN jI = some cj)
     (hus : denoteLList s₀.store.denoteL us = some lus)
     (husj : denoteLList s₀.store.denoteL usj = some lusj)
     (_hden : s₀.store.denote i = some ex) (hw : WScoped d ex)
@@ -734,11 +740,11 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
     (hargs : DenL s₀.store args ex.getAppArgs)
     (hmargs : DenL s₀.store margs majorx.getAppArgs) :
     SimAt env s₀ (RelO d)
-      (constTyAtM (mkFEnv env) c us >>= fun tyRec =>
+      (constTyAtM (mkFEnv env) cI c us >>= fun tyRec =>
         iotaCertsGI (coreKnotI (mkFEnv env) f) (mkFEnv env) d tyRec
             (args.take mI ++ [major]) >>= fun r₂ =>
         if r₂ then
-          constTyAtM (mkFEnv env) cj usj >>= fun tyCtor =>
+          constTyAtM (mkFEnv env) jI cj usj >>= fun tyCtor =>
           iotaCertsGI (coreKnotI (mkFEnv env) f) (mkFEnv env) d tyCtor
               margs >>= fun r₃ =>
           if r₃ then
@@ -757,7 +763,7 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
                     (resArgs.drop rl.ctorParams)
                     ((args.take mI).drop rP) >>= fun r₄ =>
                 if r₄ then
-                  ruleRhsAtM (mkFEnv env) c cj us >>= fun rhs =>
+                  ruleRhsAtM (mkFEnv env) cI jI c cj us >>= fun rhs =>
                   mkAppNM rhs (args.take rP ++
                       margs.drop rl.ctorParams) >>= fun red =>
                   pure (some red)
@@ -802,7 +808,7 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
       (cvj.type.instantiateLevelParams cvj.levelParams lusj) := by
     obtain ⟨htf, -⟩ := henv _ (find?_mem hfj)
     exact wscoped_instLevels_of_not_hasFvar htf _ _
-  refine SimAt.bind_left (constTyAtM_eff hs hus hfc)
+  refine SimAt.bind_left (constTyAtM_eff hs hcI hus hfc)
     (fun s₁ tyRec hs₁ hext₁ hQrec => ?_)
   simp only [ConstantInfo.toConstantVal] at hQrec
   refine SimAt.bind (iotaCertsGI_sim ih hs₁ hQrec hwrecty
@@ -822,6 +828,7 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
   | true =>
     simp only [↓reduceIte]
     refine SimAt.bind_left (constTyAtM_eff hs₂
+      (denoteN_mono (hext₁.trans hext₂) hjI)
       (denoteLList_mono (hext₁.trans hext₂) husj) hfj)
       (fun s₃ tyCtor hs₃ hext₃ hQctor => ?_)
     simp only [ConstantInfo.toConstantVal] at hQctor
@@ -919,6 +926,12 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
                 | true =>
                   simp only [↓reduceIte]
                   refine SimAt.bind_left (ruleRhsAtM_eff hs₆
+                    (denoteN_mono
+                      ((((hext₁.trans hext₂).trans hext₃).trans
+                        hext₄).trans (hext₅.trans hext₆)) hcI)
+                    (denoteN_mono
+                      ((((hext₁.trans hext₂).trans hext₃).trans
+                        hext₄).trans (hext₅.trans hext₆)) hjI)
                     (denoteLList_mono
                       ((((hext₁.trans hext₂).trans hext₃).trans
                         hext₄).trans (hext₅.trans hext₆)) hus)
@@ -1065,6 +1078,7 @@ theorem iotaRecI_sim (ih : SSimI env f) (henv : EnvWF env)
     refine SimAt.bind_left (readbackNM_eff hs hnmDen)
       (fun s₀c cw hs hextc hcw => ?_)
     subst cw
+    replace hnmDen := denoteN_mono hextc hnmDen
     replace hden := denote_mono hextc hden
     replace hlusDen := denoteLList_mono hextc hlusDen
     rw [mkFEnv_find?]
@@ -1114,6 +1128,7 @@ theorem iotaRecI_sim (ih : SSimI env f) (henv : EnvWF env)
             refine SimAt.bind_left (readbackNM_eff hs₄ hcjDen)
               (fun s₄c cjw hs₄ hextcj hcjw => ?_)
             subst cjw
+            replace hcjDen := denoteN_mono hextcj hcjDen
             replace hmd := denote_mono hextcj hmd
             replace hlusjDen := denoteLList_mono hextcj hlusjDen
             replace hext₀₄ := hext₀₄.trans hextcj
@@ -1206,6 +1221,10 @@ theorem iotaRecI_sim (ih : SSimI env f) (henv : EnvWF env)
                             | true =>
                               simp only [↓reduceIte]
                               exact iotaRec_certs_tail ih henv hs₇
+                                (denoteN_mono
+                                  (hext₀₆.trans hext₇) hnmDen)
+                                (denoteN_mono
+                                  (hext₄₆.trans hext₇) hcjDen)
                                 (denoteLList_mono
                                   (hext₀₆.trans hext₇) hlusDen)
                                 (denoteLList_mono
@@ -1266,6 +1285,10 @@ theorem iotaRecI_sim (ih : SSimI env f) (henv : EnvWF env)
                             | true =>
                               simp only [↓reduceIte]
                               exact iotaRec_certs_tail ih henv hs₇
+                                (denoteN_mono
+                                  (hext₀₆.trans hext₇) hnmDen)
+                                (denoteN_mono
+                                  (hext₄₆.trans hext₇) hcjDen)
                                 (denoteLList_mono
                                   (hext₀₆.trans hext₇) hlusDen)
                                 (denoteLList_mono
