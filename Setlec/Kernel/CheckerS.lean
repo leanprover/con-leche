@@ -543,6 +543,7 @@ def checkIotaThmNF (ops : CheckerOps m) (fe' feSelf : FEnv)
       (.notImplemented s!"iota recursor telescope for {cvName}")
     let pinsP := pins.map fun p =>
       Expr.instSpine (fvsP.take rP) (rP - 1) p
+    checkAnnotList ops feSelf.env depth pinsP
     let (cdomsP, crestP) ← unwrapOr (Expr.instPisAt pinsP
         (cvj.type.instantiateLevelParams cvj.levelParams lvls))
       (.notImplemented s!"iota constructor telescope for {cvName}")

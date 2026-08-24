@@ -1453,7 +1453,7 @@ private theorem iotaRec_shift (henv : EnvWF env)
         refine bind_rel_eq _
           (by rw [recFireComparands_fst_congr rl cv.levelParams us
             cvj.levelParams (e.getAppArgs.map (shiftFrom p))
-            e.getAppArgs mI]) ?_
+            e.getAppArgs rP]) ?_
         intro okl _
         refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
         -- the stored nested instantiations are fvar-free (`EnvWF`)
@@ -1468,13 +1468,13 @@ private theorem iotaRec_shift (henv : EnvWF env)
         have h1 := defEqList_shift henv ih hpd
           (as := major.getAppArgs.take rl.ctorParams)
           (bs := (recFireComparands rl cv.levelParams us
-            cvj.levelParams e.getAppArgs mI).2)
+            cvj.levelParams e.getAppArgs rP).2)
           (fun x hx => hwmaj.getAppArgs x (List.mem_of_mem_take hx))
           (recFireComparands_snd_WScoped rl cv.levelParams us
-            cvj.levelParams e.getAppArgs mI
+            cvj.levelParams e.getAppArgs rP
             (fun x hx => hwe.getAppArgs x hx) hpins)
         rw [← recFireComparands_snd_shift rl cv.levelParams us
-          cvj.levelParams e.getAppArgs mI hpins,
+          cvj.levelParams e.getAppArgs rP hpins,
           List.map_take] at h1
         refine bind_rel_eq _ h1 ?_
         intro b₁ _

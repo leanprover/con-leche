@@ -998,13 +998,13 @@ private theorem iotaRec_unfold (env : Env) (d : Nat) (e : Expr) :
                         (rl.ctorParams + rl.nfields)).isSome then
                     liftFueled "level comparison" (Level.isEquivList usj
                         (recFireComparands rl cv.levelParams us
-                          cvj.levelParams e.getAppArgs mI).1) >>=
+                          cvj.levelParams e.getAppArgs rP).1) >>=
                       fun okl =>
                     if okl then
                       defEqList (fueledFns env) env d
                           (major.getAppArgs.take rl.ctorParams)
                           (recFireComparands rl cv.levelParams us
-                            cvj.levelParams e.getAppArgs mI).2 >>=
+                            cvj.levelParams e.getAppArgs rP).2 >>=
                         fun r₁ =>
                       if r₁ then
                         iotaCertsG (fueledFns env) env d
@@ -1177,7 +1177,7 @@ theorem iotaRecI_sim (ih : SSimI env f) (henv : EnvWF env)
                           exact ((g5 lvls pins hf').2.2.1 pin hpin).1
                         have hcmpW := recFireComparands_snd_WScoped rl
                           cv.levelParams lus cvj.levelParams
-                          ex.getAppArgs mI hargsW hpinsW
+                          ex.getAppArgs rP hargsW hpinsW
                         cases hfire : rl.fire with
                         | inert => simp [hfire] at *
                         | plain =>
@@ -1248,8 +1248,8 @@ theorem iotaRecI_sim (ih : SSimI env f) (henv : EnvWF env)
                             cv.levelParams us
                             lus pins hs₄l
                             (denoteLList_mono (hext₀₄.trans hext₄l)
-                              hlusDen) (mI - 1)
-                            ((hargs.mono (hext₀₄.trans hext₄l)).take mI))
+                              hlusDen) (rP - 1)
+                            ((hargs.mono (hext₀₄.trans hext₄l)).take rP))
                             (fun s₅ cmpArgs hs₅ hext₅ hQc => ?_)
                           refine SimAt.bind_left (isEquivListLM_eff hs₅
                             (denoteLList_mono (hext₄l.trans hext₅)

@@ -866,7 +866,7 @@ theorem iotaRec_disc (ih : ScopedSim env f) (henv : EnvWF env)
   refine DiscV.bind (defEqList_disc ih
     (fun x hx => hmaj.getAppArgs x (List.mem_of_mem_take hx))
     (recFireComparands_snd_WScoped rl cv.levelParams us
-      cvj.levelParams e.getAppArgs mI
+      cvj.levelParams e.getAppArgs rP
       (fun x hx => hw.getAppArgs x hx)
       (fun lvls pins hf' pin hpin => by
         obtain ⟨-, -, -, -, -, hrules, -⟩ := henv _ (find?_mem hfc)

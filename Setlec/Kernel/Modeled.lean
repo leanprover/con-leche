@@ -247,6 +247,11 @@ def checkIotaThmN (ops : CheckerOps m) (env' envSelf : Env)
       (.notImplemented s!"iota recursor telescope for {cvName}")
     let pinsP := pins.map fun p =>
       Expr.instSpine (fvsP.take rP) (rP - 1) p
+    -- the instantiated pins are fixed points of the annotation pass
+    -- (their annotation truthfulness is read off this certificate at
+    -- the canonical frame; with index premises it is not derivable
+    -- from the recursor-type walk)
+    checkAnnotList ops envSelf depth pinsP
     let (cdomsP, crestP) ← unwrapOr (Expr.instPisAt pinsP
         (cvj.type.instantiateLevelParams cvj.levelParams lvls))
       (.notImplemented s!"iota constructor telescope for {cvName}")
