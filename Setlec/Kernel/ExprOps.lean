@@ -365,6 +365,52 @@ def instLamsAt : List Expr → Expr → Option (List Expr × Expr)
       (dom :: ds, rest)
   | _ :: _, _ => none
 
+/-! ### Bulk telescope instantiation (task: fields-raw near-cubic)
+
+`instPisAt`/`instLamsAt` fold `instantiate1` over the argument list, so
+each argument re-traverses the whole remaining telescope — quadratic in
+the telescope, and the per-projection outer loop of the direct
+simple-structure install made that cubic.  The `*F` variants below
+compute the *same value* (`instPisAtF_eq`/`instLamsAtF_eq`,
+`Setlec/Verify/FastOps.lean`) in **one** pass: the raw binders are
+peeled structurally while the pending substitutions accumulate, and
+each domain (and the residual) receives them in a single
+`instantiateList` traversal.  When the raw telescope is shorter than
+the argument list (a binder only *created* by substitution) the `Go`
+walk reports `none` and the wrapper falls back to the sequential
+spec — so the equality is unconditional. -/
+
+/-- Core of `instPisAtF`: `acc` holds the pending substitutions,
+innermost binder first.  Computes
+`instPisAt args (e.instantiateList acc)` whenever `e` raw-strips
+`args.length` `∀`-binders (`instPisAtFGo_sound`), `none` otherwise. -/
+def instPisAtFGo (acc : List Expr) : List Expr → Expr → Option (List Expr × Expr)
+  | [], e => some ([], e.instantiateList acc)
+  | a :: as, .forallE _ dom body _ =>
+    (instPisAtFGo (a :: acc) as body).map fun (ds, rest) =>
+      (dom.instantiateList acc :: ds, rest)
+  | _ :: _, _ => none
+
+/-- One-pass `instPisAt` (equal to it: `instPisAtF_eq`). -/
+def instPisAtF (args : List Expr) (e : Expr) : Option (List Expr × Expr) :=
+  match instPisAtFGo [] args e with
+  | some r => some r
+  | none => instPisAt args e
+
+/-- Core of `instLamsAtF` (the `λ` counterpart of `instPisAtFGo`). -/
+def instLamsAtFGo (acc : List Expr) : List Expr → Expr → Option (List Expr × Expr)
+  | [], e => some ([], e.instantiateList acc)
+  | a :: as, .lam _ dom body _ =>
+    (instLamsAtFGo (a :: acc) as body).map fun (ds, rest) =>
+      (dom.instantiateList acc :: ds, rest)
+  | _ :: _, _ => none
+
+/-- One-pass `instLamsAt` (equal to it: `instLamsAtF_eq`). -/
+def instLamsAtF (args : List Expr) (e : Expr) : Option (List Expr × Expr) :=
+  match instLamsAtFGo [] args e with
+  | some r => some r
+  | none => instLamsAt args e
+
 /-- The type annotation of a free-variable leaf (the expression itself
 otherwise; used to read the domains off an opened telescope's
 variables). -/

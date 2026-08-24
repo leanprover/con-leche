@@ -108,6 +108,42 @@ def openPisAtFvars : Nat → Expr → Nat → Option (List Expr × Expr)
     | none => none
   | _ + 1, _, _ => none
 
+/-- `domsMatchAux` over arrays (equal to it at `List.toArray`:
+`domsMatchAuxA_eq`) — positional list indexing is linear per access,
+which made the binder-domain comparison quadratic on wide
+telescopes. -/
+def domsMatchAuxA (g : Nat → Expr → Expr)
+    (bs₁ bs₂ : Array (Name × Expr × BinderMeta)) (o₁ o₂ n : Nat) : Bool :=
+  (List.range n).all fun i =>
+    match bs₁[o₁ + i]?, bs₂[o₂ + i]? with
+    | some b₁, some b₂ => b₁.2.1 == g i b₂.2.1
+    | _, _ => false
+
+/-- Core of `openPisAtFvarsF`: `acc` holds the already-created fvars,
+innermost binder first.  Computes
+`openPisAtFvars n (e.instantiateList acc) i` whenever `e` raw-strips
+`n` `∀`-binders (`openPisAtFvarsFGo_sound`), `none` otherwise —
+one `instantiateList` pass per domain instead of one whole-telescope
+`instantiate1` pass per binder. -/
+def openPisAtFvarsFGo (acc : List Expr) :
+    Nat → Expr → Nat → Option (List Expr × Expr)
+  | 0, e, _ => some ([], e.instantiateList acc)
+  | n + 1, .forallE nm dom body _, i =>
+    let fv : Expr := .fvar i nm (dom.instantiateList acc)
+    match openPisAtFvarsFGo (fv :: acc) n body (i + 1) with
+    | some (fvs, e) => some (fv :: fvs, e)
+    | none => none
+  | _ + 1, _, _ => none
+
+/-- One-pass `openPisAtFvars` (equal to it: `openPisAtFvarsF_eq`; the
+fallback covers telescopes whose binders only appear after
+substitution). -/
+def openPisAtFvarsF (n : Nat) (e : Expr) (i : Nat) :
+    Option (List Expr × Expr) :=
+  match openPisAtFvarsFGo [] n e i with
+  | some r => some r
+  | none => openPisAtFvars n e i
+
 /-- Check each expression's inferred type against the corresponding
 expected type (definitionally); throws on a length mismatch.  Used to
 pin a nested rule's stored parameter instantiations to the

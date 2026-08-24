@@ -151,7 +151,13 @@ and levels are fixed instantiations (`nestedRuleShape`): the theorem's
 canonical major applies the constructor at the stored level
 instantiations to the stored parameter instantiations (opened at the
 statement's prefix variables) and the field variables, and the
-constructor's telescope walks are taken at those instantiations.  When
+constructor's telescope walks are taken at those instantiations.  The
+major is pinned up to display-only binder names (`Expr.eqUpToNames`,
+the `checkMemberVal` granularity): unlike the plain major, whose
+arguments are all opened variables, the stored pins can contain
+binders (dependent nested occurrences, `Impl α (fun _ => T ...)`), and
+export arenas intern name-insensitively, so the theorem's pin spelling
+can differ from the recursor type's in binder names only.  When
 the rule has no certifiable shape the rule is stored inert (`.inert`;
 a matched major positively declines at fire time); a shape whose
 theorem then fails the pin is a positive decline here. -/
@@ -194,8 +200,13 @@ def checkIotaThmN (ops : CheckerOps m) (env' envSelf : Env)
     unless largs.take rP == fvs.take rP do
       throw (.notImplemented s!"iota statement prefix mismatch for {cvName}")
     let major := largs.getLastD (.bvar 0)
-    unless major == Expr.mkAppN (.const (f r.ctor) lvls)
-        (pinsF ++ xFvs) do
+    -- structural up to display-only binder names: the stored pins may
+    -- contain binders (dependent nested occurrences), and the artifact
+    -- contract only fixes statements up to `Expr.eqv` — export arenas
+    -- intern name-insensitively, so the theorem's pin spelling can
+    -- differ from the recursor type's in binder names only
+    unless Expr.eqUpToNames major (Expr.mkAppN (.const (f r.ctor) lvls)
+        (pinsF ++ xFvs)) do
       throw (.notImplemented s!"iota statement major mismatch for {cvName}")
     -- the constructor's telescope at the stored level instantiations
     -- (renamed), instantiated at the major's arguments: field domains

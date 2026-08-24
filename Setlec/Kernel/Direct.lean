@@ -179,6 +179,46 @@ def directPartsCore? (block : List ConstantInfo) : Option DirectParts :=
     | [] => none
   | _ => none
 
+/-- The parameter spine of the generated projection types, spelled at
+the frame of the final `∀ p⃗ (t : T p⃗), _` telescope: `p_k = bvar
+(nP - k)` (the `instPisAtLift` walk lowers each entry once per
+substitution step, landing them at `bvar (nP - 1 - k)` under the
+subject binder). -/
+def directProjPs (nP : Nat) : List Expr :=
+  (List.range nP).map fun k => Expr.bvar (nP - k)
+
+/-- The `j`-th earlier-projection substitute in a generated projection
+type: `T.proj.j p⃗ t`, at the same final frame. -/
+def directProjArg (T : Name) (lps : List Name) (nP j : Nat) : Expr :=
+  Expr.mkAppN (.const (projFnName T j) (lps.map .param))
+    (directProjPs nP ++ [Expr.bvar 0])
+
+/-- The constructor telescope peeled at the parameters and the first
+`i` earlier-projection substitutes —
+`Expr.instPisAtLift (directProjPs nP ++ (List.range i).map
+(directProjArg T lps nP)) cty` (`directProjResid_eq`), but computed
+*incrementally*: step `i → i + 1` is a single `instantiate1Lift`, so a
+projection loop that threads this residual does one telescope pass per
+projection instead of redoing all earlier substitutions. -/
+def directProjResid (T : Name) (lps : List Name) (nP : Nat)
+    (cty : Expr) : Nat → Option Expr
+  | 0 => Expr.instPisAtLift (directProjPs nP) cty
+  | i + 1 => (directProjResid T lps nP cty i).bind
+      (Expr.instPisAtLift [directProjArg T lps nP i])
+
+/-- The projection type for field `i` read off the peeled residual
+(`directProjTy_eq_resid`: at `directProjResid T lps nP cty i` this is
+exactly `directProjTy`). -/
+def directProjTyR (T : Name) (lps : List Name) (nP nF i : Nat)
+    (tty : Expr) : Option Expr → Option Expr
+  | some (.forallE _ fdom _ _) =>
+    if i < nF then
+      Expr.replacePiBody nP tty
+        (.forallE (.str .anonymous "t") (directFam T lps nP 0) fdom
+          ⟨.default, none⟩)
+    else none
+  | _ => none
+
 /-- The projection function's generated type for field `i`:
 
     ∀ p⃗ (t : T p⃗), F_i[p⃗ ; f_j := T.proj.j p⃗ t  (j < i)]
@@ -187,17 +227,8 @@ read off the constructor telescope — the direct-recognition counterpart
 of the modeled path's `T._model.proj_i` artifact type. -/
 def directProjTy (T : Name) (lps : List Name) (nP nF i : Nat)
     (tty cty : Expr) : Option Expr :=
-  let ps := (List.range nP).map fun k => Expr.bvar (nP - k)
-  let args := ps ++ (List.range i).map fun j =>
-    Expr.mkAppN (.const (projFnName T j) (lps.map .param)) (ps ++ [Expr.bvar 0])
-  match Expr.instPisAtLift args cty with
-  | some (.forallE _ fdom _ _) =>
-    if i < nF then
-      Expr.replacePiBody nP tty
-        (.forallE (.str .anonymous "t") (directFam T lps nP 0) fdom
-          ⟨.default, none⟩)
-    else none
-  | _ => none
+  let args := directProjPs nP ++ (List.range i).map (directProjArg T lps nP)
+  directProjTyR T lps nP nF i tty (Expr.instPisAtLift args cty)
 
 /-- **Non-recursive**: every binder domain of the constructor already
 resolves in the *pre-block* environment.  This subsumes the reference

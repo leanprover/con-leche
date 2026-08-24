@@ -1,5 +1,6 @@
 import Setlec.Kernel.CheckerS
 import Setlec.Verify.IExprOps
+import Setlec.Verify.FastOps
 
 /-!
 # The indexed checker mirrors agree with the generic checker (task #63)
@@ -242,7 +243,9 @@ theorem checkProjRuleF_eq (ops : CheckerOps m) (env : Env) (pty : Expr)
     (cvj : ConstantVal) (lps : List Name) (nP nF i : Nat) :
     checkProjRuleF ops (mkFEnv env) pty cvj lps nP nF i
       = checkProjRule ops env pty cvj lps nP nF i := by
-  simp only [checkProjRuleF, checkProjRule, constsResolveF_eq] <;> rfl
+  simp only [checkProjRuleF, checkProjRule, constsResolveF_eq,
+    domsMatchAuxA_eq, openPisAtFvarsF_eq, instPisAtF_eq,
+    instLamsAtF_eq] <;> rfl
 
 theorem checkProjIotaF_eq (env : Env) (T ctorName : Name)
     (lps : List Name) (cvj : ConstantVal) (nP nF i : Nat) :
@@ -277,14 +280,16 @@ theorem checkDirectRecTyF_eq (ops : CheckerOps m) (env : Env)
     checkDirectRecTyF ops (mkFEnv env) p cvTa cvCa cvRa
       = checkDirectRecTy ops env p cvTa cvCa cvRa := by
   simp only [checkDirectRecTyF, checkDirectRecTy, mkFEnv_env,
-    checkDirectDomsAtF_eq] <;> rfl
+    checkDirectDomsAtFA_eq, checkDirectDomsAtF_eq, openPisAtFvarsF_eq,
+    instPisAtF_eq] <;> rfl
 
 theorem checkDirectRuleF_eq (ops : CheckerOps m) (env : Env)
     (p : DirectParts) (cvCa cvRa : ConstantVal) :
     checkDirectRuleF ops (mkFEnv env) p cvCa cvRa
       = checkDirectRule ops env p cvCa cvRa := by
   simp only [checkDirectRuleF, checkDirectRule, mkFEnv_env,
-    constsResolveF_eq] <;> rfl
+    constsResolveF_eq, openPisAtFvarsF_eq, instPisAtF_eq,
+    instLamsAtF_eq] <;> rfl
 
 omit [MonadExceptOf CheckError m] in
 theorem checkDivModCertsF_eq (ops : CheckerOps m) (env : Env) (c : Name)
@@ -400,19 +405,23 @@ theorem checkDirectCtorF_push (ops : CheckerOps CheckIM) (env₀ env : Env)
       = checkDirectCtor ops env₀ env p cvTa
           >>= fun q => pure (mkFEnv q.1, q.2) := by
   unfold checkDirectCtorF checkDirectCtor
-  simp only [checkConstantValF_eq, checkDirectDomsAtF_eq,
-    checkDirectFieldUnivF_eq, constsResolveF_eq, push_mkFEnv,
-    bind_assoc, pure_bind, ite_bindI, throwI_bind_eq] <;> rfl
+  simp only [checkConstantValF_eq, checkDirectDomsAtFA_eq,
+    checkDirectDomsAtF_eq, checkDirectFieldUnivFA_eq,
+    checkDirectFieldUnivF_eq, constsResolveF_eq, openPisAtFvarsF_eq,
+    push_mkFEnv, bind_assoc, pure_bind, ite_bindI, throwI_bind_eq] <;> rfl
 
 theorem checkDirectProjF_push (ops : CheckerOps CheckIM) (T C : Name)
-    (lps : List Name) (nP nF : Nat) (cvTa cvCa : ConstantVal) (env : Env)
-    (i : Nat) :
-    checkDirectProjF ops T C lps nP nF cvTa cvCa (mkFEnv env) i
+    (lps : List Name) (nP nF : Nat) (cvTa cvCa : ConstantVal)
+    {rt? : Option Expr} (env : Env) (i : Nat)
+    (hr : rt? = directProjResid T lps nP cvCa.type i) :
+    checkDirectProjF ops T C lps nP nF cvTa cvCa rt? (mkFEnv env) i
       = checkDirectProj ops T C lps nP nF cvTa cvCa env i
           >>= fun e => pure (mkFEnv e) := by
+  subst hr
   unfold checkDirectProjF checkDirectProj
-  simp only [checkProjRuleF_eq, constsResolveF_eq, mkFEnv_find?,
-    mkFEnv_env, push_mkFEnv, bind_assoc, pure_bind, ite_bindI,
+  simp only [← directProjTy_eq_resid, checkProjRuleF_eq,
+    constsResolveF_eq, mkFEnv_find?, mkFEnv_env, push_mkFEnv,
+    openPisAtFvarsF_eq, instPisAtF_eq, bind_assoc, pure_bind, ite_bindI,
     throwI_bind_eq] <;> rfl
 
 /-- The non-inductive branches of `checkDeclSF` are the generic

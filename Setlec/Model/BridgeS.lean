@@ -855,47 +855,51 @@ theorem foldProjTemplatesS_run {T ctorName : Name} {lps : List Name}
 
 /-! ## The direct simple-structure install (task #82) -/
 
-/-- The projection-install fold of the direct path (one flush per
-field, the accumulator's environment carried along). -/
-theorem foldDirectProjS_run {T C : Name} {lps : List Name} {nP nF : Nat}
+/-- The projection-install phase of the direct path (one flush per
+field, the accumulator's environment carried along).  The threaded
+residual is pinned to `directProjResid` at the current index — the
+invariant `checkDirectProjF_push` consumes; the step to `i + 1` is
+its defining equation. -/
+theorem checkDirectProjsS_run {T C : Name} {lps : List Name} {nP nF : Nat}
     {cvTa cvCa : ConstantVal} (hCf : cvCa.type.hasFvar = false) :
-    ∀ (idxs : List Nat) (env : Env) {s₀ : IState} {fe' : FEnv}
-      {s' : IState},
+    ∀ (todo i : Nat) (rt? : Option Expr) (env : Env) {s₀ : IState}
+      {fe' : FEnv} {s' : IState},
       EnvWF env → ISOKF s₀ →
-      (idxs.foldlM (fun (e : FEnv) (j : Nat) => do
-        flushS
-        checkDirectProjF (sharedOps e) T C lps nP nF cvTa cvCa e j)
-        (mkFEnv env)) s₀ = .ok (fe', s') →
+      rt? = directProjResid T lps nP cvCa.type i →
+      checkDirectProjsS T C lps nP nF cvTa cvCa todo i rt? (mkFEnv env) s₀
+        = .ok (fe', s') →
       ISOKF s' ∧ Ext s₀.store s'.store ∧ fe' = mkFEnv fe'.env ∧
       EnvWF fe'.env ∧
-      ∃ F, (idxs.foldlM
+      ∃ F, ((List.range' i todo).foldlM
         (checkDirectProj fueledOpsM T C lps nP nF cvTa cvCa) env).val F
         = .ok fe'.env
-  | [], env, s₀, fe', s', henv, hwf, h => by
+  | 0, i, rt?, env, s₀, fe', s', henv, hwf, _, h => by
     obtain ⟨hfe, rfl⟩ := pureI_ok h
     subst hfe
     exact ⟨hwf, Ext.refl _, rfl, henv, 0, rfl⟩
-  | i :: idxs, env, s₀, fe', s', henv, hwf, h => by
-    rw [List.foldlM_cons] at h
-    obtain ⟨fe₁, s₁, hstep, h⟩ := bindI_ok h
-    obtain ⟨u, sf, hflush, hstep⟩ := bindI_ok hstep
+  | todo + 1, i, rt?, env, s₀, fe', s', henv, hwf, hrt, h => by
+    rw [checkDirectProjsS] at h
+    obtain ⟨u, sf, hflush, h⟩ := bindI_ok h
     rw [flushS_run] at hflush
     injection hflush with hflush
     obtain rfl : s₀.flushed = sf := congrArg Prod.snd hflush
-    rw [checkDirectProjF_push] at hstep
-    obtain ⟨e₁, s₂, hpj, hstep⟩ := bindI_ok hstep
+    rw [checkDirectProjF_push (hr := hrt), bind_assoc] at h
+    obtain ⟨e₁, s₂, hpj, h⟩ := bindI_ok h
     obtain ⟨hs₂, hext₂, e₁', hP, F₁, hF₁⟩ :=
       (checkDirectProjS_sim henv hCf (flushS_isok hwf)) e₁ s₂ hpj
     obtain rfl : e₁ = e₁' := hP
-    obtain ⟨hfe₁, rfl⟩ := pureI_ok hstep
-    subst hfe₁
+    rw [pure_bind] at h
     have hF₁p : checkDirectProj (fueledOps F₁) T C lps nP nF cvTa cvCa
         env i = .ok e₁ := by rw [← checkDirectProj_datF]; exact hF₁
+    have hrt' : rt?.bind (Expr.instPisAtLift [directProjArg T lps nP i])
+        = directProjResid T lps nP cvCa.type (i + 1) := by
+      rw [hrt]; rfl
     obtain ⟨hwf', hext', hfe', henv', F₂, hF₂⟩ :=
-      foldDirectProjS_run hCf idxs e₁ (direct_proj_wf henv hF₁p) hs₂.residue h
+      checkDirectProjsS_run hCf todo (i + 1) _ e₁
+        (direct_proj_wf henv hF₁p) hs₂.residue hrt' h
     refine ⟨hwf', (Ext.refl _).trans (hext₂.trans hext'), hfe', henv',
       max F₁ F₂, ?_⟩
-    rw [List.foldlM_cons]
+    rw [List.range'_succ, List.foldlM_cons]
     exact atF_bind_intro hF₁ hF₂
 
 set_option maxHeartbeats 1600000 in
@@ -980,10 +984,10 @@ theorem checkDirectStructS_run {env : Env} (henv : EnvWF env)
     exact absurd h throwI_bind_ok
   rw [if_pos hguard] at h
   obtain ⟨hwfO, hextO, hfeO, henvO, F₆, hF₆⟩ :=
-    foldDirectProjS_run (T := p.cvT.name) (C := p.cvC.name)
+    checkDirectProjsS_run (T := p.cvT.name) (C := p.cvC.name)
       (lps := p.cvT.levelParams) (nP := p.nP) (nF := p.nF)
-      (cvTa := cvTa) (cvCa := cvCa) hCf (List.range p.nF) _ henv₃
-      hs₅.residue h
+      (cvTa := cvTa) (cvCa := cvCa) hCf p.nF 0 _ _ henv₃
+      hs₅.residue rfl h
   obtain ⟨G, hle₁, hle₂, hle₃, hle₄, hle₅, hle₆⟩ :
       ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G ∧ F₄ ≤ G ∧ F₅ ≤ G ∧ F₆ ≤ G :=
     ⟨max F₁ (max F₂ (max F₃ (max F₄ (max F₅ F₆)))),
@@ -1010,6 +1014,7 @@ theorem checkDirectStructS_run {env : Env} (henv : EnvWF env)
             .plain else .inert, rhsA⟩] :: env₂.consts⟩ = .ok feOut.env := by
     have := FueledM.up hle₆ hF₆
     rw [foldlM_atF] at this
+    rw [List.range_eq_range']
     simpa only [checkDirectProj_datF] using this
   simp only [checkDirectStruct, Bind.bind, Except.bind, pure, Except.pure]
   rw [g₁]
