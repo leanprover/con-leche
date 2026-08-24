@@ -124,11 +124,12 @@ theorem qrep_spec {u : Nat} {A R q : V} (hq : q ∈ˢ quotSet u A R) :
   rw [dif_pos (quotClass_surj hq)]
   exact Classical.choose_spec (quotClass_surj hq)
 
-open Classical in
-/-- The lift of `f` to the quotient (see module docs on the `pt` tag). -/
+/-- The lift of `f` to the quotient: the abstraction (over the
+quotient) of `f` at representatives.  The collapse op `lamC` subsumes
+the old explicit `pt` tag — a `pt`-valued `f` gives all-`pt` lift
+values, which collapse to `pt` by themselves. -/
 noncomputable def quotLift (u : Nat) (_v : Nat) (A R f : V) : V :=
-  if f = pt then pt
-  else graph (fun q => app f (qrep u A R q)) (quotSet u A R)
+  lamC (quotSet u A R) (fun q => app f (qrep u A R q))
 
 /-- The invariance premise extends from the base relation to its
 equivalence closure. -/
@@ -163,35 +164,17 @@ theorem quotLift_beta {u v : Nat} {A R f a : V} (hA : A ∈ˢ (univ u : V))
       app f a' = app f b') :
     app (quotLift u v A R f) (quotClass u A R a) = app f a := by
   unfold quotLift
-  split
-  · next h => rw [h, app_pt, app_pt]
-  · rw [app_graph (quotClass_mem ha)]
-    obtain ⟨hrep, hcls⟩ := qrep_spec (quotClass_mem (u := u) (R := R) ha)
-    exact app_eq_of_quotClass_eq hA hrep ha hinv hcls.symm
+  rw [app_lamC (quotClass_mem ha)]
+  obtain ⟨hrep, hcls⟩ := qrep_spec (quotClass_mem (u := u) (R := R) ha)
+  exact app_eq_of_quotClass_eq hA hrep ha hinv hcls.symm
 
 theorem quotLift_mem {u v : Nat} {A R f B : V} (_hA : A ∈ˢ (univ u : V))
     (hf : f ∈ˢ pi v A (fun _ => B))
     (_hinv : ∀ a b, a ∈ˢ A → b ∈ˢ A → (∃ w, w ∈ˢ app (app R a) b) →
       app f a = app f b) :
     quotLift u v A R f ∈ˢ pi v (quotSet u A R) (fun _ => B) := by
-  rcases Nat.eq_zero_or_pos v with rfl | hv
-  · -- `f` is the proof point; the lifted product is the truth value
-    -- `[∀ q ∈ quotSet, B inhabited]`, true via representatives.
-    have hfp : f = pt := mem_pi_zero hf
-    rw [pi_zero] at hf ⊢
-    have hlift : quotLift u 0 A R f = pt := by
-      unfold quotLift; exact if_pos hfp
-    rw [hlift]
-    refine pt_mem_truthVal fun q hq => ?_
-    exact of_mem_truthVal hf _ (qrep_spec hq).1
-  · have hv' : v ≠ 0 := Nat.pos_iff_ne_zero.mp hv
-    rw [pi_pos hv'] at hf ⊢
-    have hfp : f ≠ pt := ne_pt_of_mem_piSet hf
-    have hlift : quotLift u v A R f =
-        graph (fun q => app f (qrep u A R q)) (quotSet u A R) := by
-      unfold quotLift; exact if_neg hfp
-    rw [hlift]
-    exact graph_mem_piSet fun q hq => app_mem_of_mem_piSet hf (qrep_spec hq).1
+  unfold quotLift
+  exact lamC_mem fun q hq => app_mem_piC hf (qrep_spec hq).1
 
 /- Compiler stubs (see `Derive/Empty.lean`): never executed, no logical
 content. -/

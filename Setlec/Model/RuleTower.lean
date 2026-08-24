@@ -131,19 +131,18 @@ theorem FrameWf.roundtrip {d : Nat} {nm : Name} {ty : Expr}
 over the head variable's annotation whose fibres re-enter the inner
 tower at the extended frame. -/
 theorem interp_closeLamsAt_cons {d : Nat} {ρ : Nat → V} {nm : Name}
-    {ty : Expr} {m : BinderMeta} {cod : Level}
+    {ty : Expr} {m : BinderMeta}
     {fvms : List (Expr × BinderMeta)} {bL : Expr}
-    (h : FrameWf d ((.fvar d nm ty, m) :: fvms) bL)
-    (hcod : m.cod = some cod) :
+    (h : FrameWf d ((.fvar d nm ty, m) :: fvms) bL) :
     interpExpr V cval env φ d ρ (closeLamsAt ((.fvar d nm ty, m) :: fvms) bL) =
       match interpExpr V cval env φ d ρ ty with
       | none => none
-      | some A => some (SetTheory.lam (cod.eval φ) A fun x =>
+      | some A => some (lamC A fun x =>
           (interpExpr V cval env φ (d + 1) (updV V ρ d x)
             (closeLamsAt fvms bL)).getD SetTheory.empty) := by
   show interpExpr V cval env φ d ρ
     (.lam nm ty ((closeLamsAt fvms bL).abstract1 d) m) = _
-  rw [interpExpr, hcod, h.roundtrip]
+  rw [interpExpr, h.roundtrip]
   rfl
 
 /-! ## The producer side: pointwise spec ⇒ total equality + `AnnotOk` -/
@@ -202,7 +201,7 @@ theorem TowerOk.out :
     have hwf' : FrameWf d ((Expr.fvar d nm ty, m) :: fvms) bL :=
       ⟨⟨nm, ty, rfl, hwty, hbty, hcb, htys⟩, hwfT⟩
     simp only [AnnotOk] at hAR
-    obtain ⟨hAtyR, ⟨cod, hcod⟩, hcondR⟩ := hAR
+    obtain ⟨hAtyR, vE, hcondR⟩ := hAR
     -- pointwise facts of the two fibres
     have hfib : ∀ x, x ∈ˢ A →
         (∃ v, interpExpr V cval env φ (d + 1) (updV V ρ d x)
@@ -215,12 +214,12 @@ theorem TowerOk.out :
       exact ih x hx hwfT (hcondR x A htyR hx).1
     constructor
     · -- the equality
-      refine ⟨SetTheory.lam (cod.eval φ) A fun x =>
+      refine ⟨lamC A fun x =>
         (interpExpr V cval env φ (d + 1) (updV V ρ d x)
           (closeLamsAt fvms bL)).getD SetTheory.empty, ?_, ?_⟩
-      · rw [interp_closeLamsAt_cons hwf' hcod, hty]
-      · rw [interpExpr, hcod, htyR]
-        refine congrArg some (lam_congr fun x hx => ?_)
+      · rw [interp_closeLamsAt_cons hwf', hty]
+      · rw [interpExpr, htyR]
+        refine congrArg some (lamC_congr fun x hx => ?_)
         obtain ⟨⟨v, hL, hR⟩, -⟩ := hfib x hx
         rw [hL, hR]
     · -- the closed tower's truthful annotations
@@ -228,7 +227,7 @@ theorem TowerOk.out :
         (.lam nm ty ((closeLamsAt fvms bL).abstract1 d) m)
       have hrt := hwf'.roundtrip
       simp only [AnnotOk]
-      refine ⟨hAty, ⟨cod, hcod⟩, ?_⟩
+      refine ⟨hAty, vE, ?_⟩
       intro x A₀ hA₀ hx
       have hA0 : A₀ = A := by
         rw [hty] at hA₀
@@ -241,13 +240,8 @@ theorem TowerOk.out :
             (.fvar d nm ty) 0)
         rw [hrt]
         exact hAL
-      · intro v' hv'
-        have hv0 : v' = cod := by
-          rw [hcod] at hv'
-          exact (Option.some.inj hv').symm
-        rw [hv0]
-        obtain ⟨w', B, hw', hwB, hBu⟩ :=
-          (hcondR x A htyR hx).2 cod hcod
+      · obtain ⟨w', B, hw', hwB, hBu⟩ :=
+          (hcondR x A htyR hx).2
         have hwv : w' = v := by
           rw [hR] at hw'
           exact (Option.some.inj hw').symm
@@ -307,26 +301,20 @@ theorem closeLamsAt_fold :
     subst hty'
     have hwf' : FrameWf d ((Expr.fvar d nm ty, m) :: fvms) bL :=
       ⟨⟨nm, ty, rfl, hwty, hbty, hcb, htys⟩, hwfT⟩
-    obtain ⟨cod, hcod⟩ : ∃ cod, m.cod = some cod := by
-      have hA' : AnnotOk V cval env φ d ρ
-          (.lam nm ty ((closeLamsAt fvms bL).abstract1 d) m) := hA
-      simp only [AnnotOk] at hA'
-      exact hA'.2.1
-    rw [interp_closeLamsAt_cons hwf' hcod, hty] at hi
+    rw [interp_closeLamsAt_cons hwf', hty] at hi
     obtain rfl := Option.some.inj hi
     have hrt := hwf'.roundtrip
     have hA' : AnnotOk V cval env φ d ρ
         (.lam nm ty ((closeLamsAt fvms bL).abstract1 d) m) := hA
     simp only [AnnotOk] at hA'
-    obtain ⟨hAty, -, hcond⟩ := hA'
+    obtain ⟨hAty, vE, hcond⟩ := hA'
     have hcond' : ∀ y (A₀ : V),
         interpExpr V cval env φ d ρ ty = some A₀ → y ∈ˢ A₀ →
         AnnotOk V cval env φ (d + 1) (updV V ρ d y)
           (closeLamsAt fvms bL) ∧
-        ∀ v, m.cod = some v →
-          ∃ w B, interpExpr V cval env φ (d + 1) (updV V ρ d y)
-              (closeLamsAt fvms bL) = some w ∧
-            w ∈ˢ B ∧ B ∈ˢ univ (v.eval φ) := by
+        ∃ w B, interpExpr V cval env φ (d + 1) (updV V ρ d y)
+            (closeLamsAt fvms bL) = some w ∧
+          w ∈ˢ B ∧ B ∈ˢ univ vE := by
       intro y A₀ hA₀ hy
       have h0 := hcond y A₀ hA₀ hy
       rw [hrt] at h0
@@ -335,27 +323,27 @@ theorem closeLamsAt_fold :
     have hfibres : ∀ y, y ∈ˢ A → ∃ B,
         ((interpExpr V cval env φ (d + 1) (updV V ρ d y)
           (closeLamsAt fvms bL)).getD SetTheory.empty) ∈ˢ B ∧
-        B ∈ˢ univ (cod.eval φ) := by
+        B ∈ˢ univ vE := by
       intro y hy
       obtain ⟨-, hpack⟩ := hcond' y A hty hy
-      obtain ⟨w, B, hw, hwB, hBu⟩ := hpack cod hcod
+      obtain ⟨w, B, hw, hwB, hBu⟩ := hpack
       rw [hw]
       exact ⟨B, hwB, hBu⟩
     obtain ⟨Bf, hBf1, hBf2⟩ := choose_fibres hfibres
     have happ : SetTheory.app
-        (SetTheory.lam (cod.eval φ) A fun y =>
+        (lamC A fun y =>
           (interpExpr V cval env φ (d + 1) (updV V ρ d y)
             (closeLamsAt fvms bL)).getD SetTheory.empty) x =
         (interpExpr V cval env φ (d + 1) (updV V ρ d x)
           (closeLamsAt fvms bL)).getD SetTheory.empty :=
-      app_lam hx hBf1 hBf2
+      app_lamC hx
     obtain ⟨hAsub, hpack⟩ := hcond' x A hty hx
-    obtain ⟨w0, B0, hw0, -, -⟩ := hpack cod hcod
+    obtain ⟨w0, B0, hw0, -, -⟩ := hpack
     obtain ⟨w, hwi, hfold, hchain⟩ := ih hwfT hAsub hw0
     refine ⟨w, hwi, ?_, ?_⟩
     · rw [SpineFold_cons, happ, hw0]
       simpa using hfold
-    · refine ⟨⟨cod.eval φ, A, Bf, lam_mem hBf1, hx, hBf2⟩, ?_⟩
+    · refine ⟨⟨vE, A, Bf, lam_mem hBf1, hx, hBf2⟩, ?_⟩
       rw [happ, hw0]
       simpa using hchain
 

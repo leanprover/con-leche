@@ -140,8 +140,6 @@ theorem annotOk_psigmaRec_rhs {cval : ConstVal V}
       refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
       intro x Sx hSx hxmem
       refine ⟨trivial, ?_⟩
-      intro v hv
-      obtain rfl := Option.some.inj hv
       refine ⟨univ (ψ vN), ?_, ?_⟩
       · simp [interpExpr, Expr.instantiate1, updV, Level.eval, vN]
       · exact univ_mem_univ (ψ vN)
@@ -190,8 +188,6 @@ theorem annotOk_psigmaRec_rhs {cval : ConstVal V}
           · simp [interpExpr, Expr.instantiate1, updV]
           · intro t St hSt htmem
             refine ⟨trivial, ?_⟩
-            intro v hv
-            obtain rfl := Option.some.inj hv
             refine ⟨univ 0, ?_, ?_⟩
             · simp [interpExpr, Expr.instantiate1, updV, Level.eval]
             · exact univ_mem_univ 0
@@ -305,8 +301,6 @@ theorem annotOk_psigmaRec_rhs {cval : ConstVal V}
                       hvalM', psigmaMkA, ConstantInfo.toConstantVal]
                     try rfl
                 · -- fibre-universe of `snd` (annotation `0`)
-                  intro v hv
-                  obtain rfl := Option.some.inj hv
                   refine ⟨SetTheory.app M (SetTheory.app (SetTheory.app
                     (SetTheory.app (SetTheory.app (psigmaMkVal V ψ) A) B)
                       a) b), ?_, ?_⟩
@@ -315,8 +309,6 @@ theorem annotOk_psigmaRec_rhs {cval : ConstVal V}
                     try rfl
                   · exact happM _ (hmk4 a hamem b hbmem)
               · -- fibre-universe of `fst` (annotation `imax v 0`)
-                intro v hv
-                obtain rfl := Option.some.inj hv
                 refine ⟨pi 0 (SetTheory.app B a) (fun b =>
                   SetTheory.app M (SetTheory.app (SetTheory.app
                     (SetTheory.app (SetTheory.app (psigmaMkVal V ψ) A) B)
@@ -430,8 +422,6 @@ theorem annotOk_psigmaRec_rhs {cval : ConstVal V}
                     · simp [interpExpr, Expr.instantiate1, updV]
                     · simp [interpExpr, Expr.instantiate1, updV]
                   · -- snd-cod slot (annotation `0`)
-                    intro v hv
-                    obtain rfl := Option.some.inj hv
                     refine ⟨SetTheory.app (SetTheory.app m a) b,
                       SetTheory.app M (SetTheory.app (SetTheory.app
                         (SetTheory.app (SetTheory.app (psigmaMkVal V ψ)
@@ -440,8 +430,6 @@ theorem annotOk_psigmaRec_rhs {cval : ConstVal V}
                       happM _ (hmk4 a hamem b hbmem)⟩
                     simp [interpExpr, Expr.instantiate1, updV]
                 · -- fst-cod slot (annotation `imax v 0`)
-                  intro v hv
-                  obtain rfl := Option.some.inj hv
                   refine ⟨SetTheory.lam 0 (SetTheory.app B a) fun b =>
                     SetTheory.app (SetTheory.app m a) b,
                     pi 0 (SetTheory.app B a) fun b =>
@@ -468,8 +456,6 @@ theorem annotOk_psigmaRec_rhs {cval : ConstVal V}
                     rw [if_pos rfl] at this
                     exact this
               · -- mk-cod slot (annotation `imax u (imax v 0)`)
-                intro v hv
-                obtain rfl := Option.some.inj hv
                 refine ⟨SetTheory.lam 0 A fun a =>
                   SetTheory.lam 0 (SetTheory.app B a) fun b =>
                     SetTheory.app (SetTheory.app m a) b,
@@ -494,8 +480,6 @@ theorem annotOk_psigmaRec_rhs {cval : ConstVal V}
                       fun b hb => hmab a ha b hb
                 · exact ht3P B hBmem' M hMmem'
           · -- motive-cod slot
-            intro v hv
-            obtain rfl := Option.some.inj hv
             refine ⟨SetTheory.lam 0 (pi 0 A fun a =>
               pi 0 (SetTheory.app B a) fun b =>
                 SetTheory.app M (SetTheory.app (SetTheory.app
@@ -556,8 +540,6 @@ theorem annotOk_psigmaRec_rhs {cval : ConstVal V}
                 (fun b' hb' => happM _ (hmk4 a ha b' hb'))
             · exact ht2P B hBmem' M hMmem'
       · -- β-cod slot
-        intro v hv
-        obtain rfl := Option.some.inj hv
         refine ⟨SetTheory.lam 0
           (pi 1 (SetTheory.app (SetTheory.app (psigmaVal V ψ) A) B)
             fun _ => univ 0)
@@ -636,8 +618,6 @@ theorem annotOk_psigmaRec_rhs {cval : ConstVal V}
             (fun b' hb' => happM _ (hmk4P B hBmem' a ha b' hb'))
         · exact htBP B hBmem'
   · -- α-cod slot
-    intro v hv
-    obtain rfl := Option.some.inj hv
     refine ⟨SetTheory.lam 0 (pi (ψ vN + 1) A fun _ => univ (ψ vN))
       fun B => SetTheory.lam 0
         (pi 1 (SetTheory.app (SetTheory.app (psigmaVal V ψ) A) B)

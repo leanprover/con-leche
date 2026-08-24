@@ -183,8 +183,6 @@ theorem annotOk_eqRec_rhs {cval : ConstVal V}
             · simp [interpExpr, Expr.instantiate1, updV]
           · intro h Sh hSh hhmem
             refine ⟨trivial, ?_⟩
-            intro v hv
-            obtain rfl := Option.some.inj hv
             refine ⟨univ (ψ u1N), ?_, ?_⟩
             · simp [interpExpr, Expr.instantiate1, updV, Level.eval, u1N]
             · exact univ_mem_univ (ψ u1N)
@@ -270,8 +268,6 @@ theorem annotOk_eqRec_rhs {cval : ConstVal V}
               exact pt_mem_eqv_self a
           · intro r Sr hSr hrmem
             refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
-            intro v hv
-            obtain rfl := Option.some.inj hv
             refine ⟨r, SetTheory.app (SetTheory.app M a)
               (SetTheory.app (SetTheory.app (eqReflVal V ψ) A) a),
               ?_, ?_, ?_⟩
@@ -309,8 +305,6 @@ theorem annotOk_eqRec_rhs {cval : ConstVal V}
               (happM a hamem M hMmem')
               (fun _ _ => happM a hamem M hMmem')
     · -- fibre-universe of the `a` λ
-      intro v hv
-      obtain rfl := Option.some.inj hv
       refine ⟨SetTheory.lam (erB (ψ u1N))
         (pi (ψ u1N + 1) A fun b => pi (ψ u1N + 1)
           (SetTheory.app (SetTheory.app (SetTheory.app (eqVal V ψ) A) a) b)
@@ -402,8 +396,6 @@ theorem annotOk_eqRec_rhs {cval : ConstVal V}
           rw [if_neg hu1, max_eqrec_b] at hmem
           exact hmem
   · -- fibre-universe of the `α` λ
-    intro v hv
-    obtain rfl := Option.some.inj hv
     have hafib : ∀ a', a' ∈ˢ A →
         (pi (erB (ψ u1N))
           (pi (ψ u1N + 1) A fun b => pi (ψ u1N + 1)

@@ -224,7 +224,6 @@ theorem listVal_mem_pi (m : EnvModel V env)
   rw [htyL] at ht
   rw [find?_name' hfL] at hmem
   rw [interpClosed, interpExpr] at ht
-  rw [hcodL] at ht
   simp only [interpExpr, Option.getD_some, Option.some.injEq,
     show ((Expr.sort (.succ (.param pL))).instantiate1
       (.fvar 0 nm (.sort (.succ (.param pL))))) =
@@ -254,12 +253,10 @@ theorem charOfNatVal_mem_pi (m : EnvModel V env)
   rw [htyF] at ht
   rw [find?_name' hfF] at hmem
   rw [interpClosed, interpExpr] at ht
-  rw [hcodF] at ht
   rw [interpExpr_const_nat hnat] at ht
   simp only [show ((Expr.const charName []).instantiate1
       (.fvar 0 nm (.const natName []))) = .const charName [] from rfl,
-    interpExpr_const_char hs, Option.getD_some, Option.some.injEq,
-    Level.eval] at ht
+    interpExpr_const_char hs, Option.getD_some, Option.some.injEq] at ht
   subst ht
   exact hmem
 
@@ -310,7 +307,7 @@ theorem listNilVal_mem_pi (m : EnvModel V env)
         SetTheory.app (m.val listName
           (Level.substFn (Level.substFn φ [pN] [Level.zero]) [pL]
             [.param pN])) x)) := by
-    rw [interpClosed, interpExpr, hcodN]
+    rw [interpClosed, interpExpr]
     simp only [Level.substFn, Level.eval, interpExpr, ↓reduceIte,
       Nat.zero_add, instantiate1, hfL, List.length_cons, List.length_nil,
       hpL, updV, Option.getD_some]
@@ -391,10 +388,9 @@ theorem listConsVal_mem_pi (m : EnvModel V env)
           (fun _ => SetTheory.app (m.val listName
             (Level.substFn (Level.substFn φ [pC] [Level.zero]) [pL]
               [.param pC])) x)))) := by
-    rw [interpClosed, interpExpr, hcod1]
+    rw [interpClosed, interpExpr]
     simp only [Level.substFn, Level.eval, interpExpr, ↓reduceIte,
-      Nat.zero_add, Nat.succ_ne_self, Std.le_refl, Nat.max_eq_right,
-      instantiate1, Nat.reduceAdd, hcod2, updV, hcod3, hfL, List.length_cons,
+      instantiate1, Nat.reduceAdd, updV, hfL, List.length_cons,
       List.length_nil, hpL, Nat.zero_ne_one, reduceCtorEq, Option.getD_some]
   rw [hIC] at ht
   obtain rfl := Option.some.inj ht
@@ -482,10 +478,9 @@ theorem stringOfListVal_mem_pi (m : EnvModel V env)
         (.const stringName []) mb) =
       some (pi 1 (listCharVal m.val env φ)
         (fun _ => m.val stringName φ)) := by
-    rw [interpClosed, interpExpr, hcodO]
+    rw [interpClosed, interpExpr]
     rw [interpExpr_listChar hs]
-    simp only [instantiate1, interpExpr_const_string hs, Option.getD_some,
-      Level.eval]
+    simp only [instantiate1, interpExpr_const_string hs, Option.getD_some]
   rw [hIO] at ht
   obtain rfl := Option.some.inj ht
   exact hmem

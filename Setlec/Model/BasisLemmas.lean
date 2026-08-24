@@ -42,14 +42,33 @@ private theorem max_absorb_big' (u v : Nat) :
     (Nat.max_le.mpr ⟨Nat.le_max_left _ _,
       Nat.le_trans (Nat.le_max_left _ _) (Nat.le_max_right _ _)⟩)
 
-/-- A tagged (`t ≠ 0`) abstraction's `pi`-membership pins its domain. -/
+/-- A non-collapsed abstraction's `pi`-membership pins its domain
+(task #100: the non-`pt` premise replaces the old nonzero-tag premise —
+under the collapse, tags no longer bound values away from `pt`;
+non-collapse is certified per value, e.g. by `sigmaSet_ne_pt` /
+`lamC_ne_pt_of_witness` witnesses). -/
 theorem lam_pi_dom {t vE : Nat} {D A : V} {F B : V → V} {a : V}
-    (hmem : SetTheory.lam t D F ∈ˢ pi vE A B) (ht : t ≠ 0) (ha : a ∈ˢ A) :
-    a ∈ˢ D := by
-  by_cases hvE : vE = 0
-  · subst hvE
-    exact absurd (mem_pi_zero hmem) (lam_ne_pt ht)
-  · exact lam_dom hmem hvE ht a ha
+    (hmem : SetTheory.lam t D F ∈ˢ pi vE A B)
+    (hne : SetTheory.lam t D F ≠ pt) (ha : a ∈ˢ A) :
+    a ∈ˢ D :=
+  lamC_dom_of_ne hne hmem a ha
+
+/-- The pair-former value never collapses: its innermost values are
+pair sets. -/
+theorem psigmaVal_ne_pt {ψ : Name → Nat} : psigmaVal V ψ ≠ pt := by
+  refine lamC_ne_pt_of_witness (empty_mem_univ (ψ uN)) ?_
+  refine lamC_ne_pt_of_witness (x := pt) ?_ sigmaSet_ne_pt
+  have h : (pt : V) ∈ˢ piC empty (fun _ => univ (ψ vN)) := by
+    rw [piC_empty]
+    exact pt_mem_unitSet
+  exact h
+
+/-- Nor does its partial application body, at any domain value. -/
+theorem psigmaVal_inner_ne_pt {ψ : Name → Nat} {vA : V} {t : Nat} :
+    SetTheory.lam t (pi (ψ vN + 1) vA fun _ => univ (ψ vN))
+      (fun B => sigmaSet (Nat.max (ψ uN) (ψ vN)) vA fun x => app B x) ≠ pt :=
+  lamC_ne_pt_of_witness
+    (lamC_mem fun _x _hx => empty_mem_univ (ψ vN)) sigmaSet_ne_pt
 
 theorem pinnedVal_psigma (ψ : Name → Nat) :
     pinnedVal V psigmaName ψ = psigmaVal V ψ := rfl

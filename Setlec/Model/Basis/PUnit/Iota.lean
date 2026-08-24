@@ -65,8 +65,6 @@ theorem annotOk_punitRec_rhs {cval : ConstVal V}
     refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
     intro t A hA ht
     refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
-    intro v hv
-    obtain rfl := Option.some.inj hv
     refine ⟨univ (ψ u1N), ?_, ?_⟩
     · simp [Expr.instantiate1, interpExpr, Level.eval, u1N]
     · exact univ_mem_univ (ψ u1N)
@@ -105,8 +103,6 @@ theorem annotOk_punitRec_rhs {cval : ConstVal V}
         exact hAm.symm
       rw [hAm'] at hm
       refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
-      intro v hv
-      obtain rfl := Option.some.inj hv
       refine ⟨m, SetTheory.app M pt, ?_, hm, ?_⟩
       · simp [interpExpr, Expr.instantiate1, updV]
       · exact app_mem hM pt_mem_unitSet (fun _ _ => univ_mem_univ (ψ u1N))
@@ -453,8 +449,6 @@ theorem punitRec_ruleOk {cval : ConstVal V}
       refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
       intro t A hA ht
       refine ⟨by simp [Expr.instantiate1, AnnotOk], ?_⟩
-      intro v hv
-      obtain rfl := Option.some.inj hv
       refine ⟨univ (ψ' u1N), ?_, ?_⟩
       · simp [Expr.instantiate1, interpExpr, Level.eval, u1N]
       · simpa [Level.eval, u1N] using univ_mem_univ (ψ' u1N)

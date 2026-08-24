@@ -1,24 +1,42 @@
 import Setlec.SetTheory.Derive.Graphs
 
 /-!
-# The dependent product and abstraction, with the level-0 truncation
+# The dependent product and abstraction, level-free (task #100)
 
-the §6.2 conventions of Mario Carneiro, *The Type Theory of Lean*,
-master's thesis, Carnegie Mellon University, 2019, as fixed by the
-`SetTheory` interface:
+The domain-relative point collapse of DESIGN.md, "Annotation erasure":
 
-* `pi 0 A B` is the truth value `[∀ x ∈ A, B x inhabited]` — `Prop` is
-  impredicative and proof irrelevance immediate;
-* `pi (v+1) A B` is the set of dependent function graphs (`piSet`);
-* `lam 0 A F = pt`, `lam (v+1) A F = graph F A`.
+* `pcol A g` collapses a member of `piSet A B` to the proof point iff
+  its application values on `A` are all `pt` (vacuously over `A = ∅`);
+* `piC A B := image (pcol A) (piSet A B)` — the level-free product;
+* `lamC A F` — the graph of `F` over `A`, collapsed to `pt` iff all
+  its values on the domain are `pt`;
+* `app` unchanged (`app pt x = pt` is already the tag).
 
-The universe-membership laws are stated against `univZero` (level 0)
-and against an arbitrary Grothendieck universe (level ≠ 0); the tower
-arithmetic (`Nat.max`, cumulativity) happens in `Derive/Univ.lean` and
-`Basic.lean`.  Laws whose target mentions `univ v` only in the
-`v = 0` case take that case's premise as `v = 0 → … ∈ˢ univZero`
-(`app_mem'`/`app_lam'`; the interface-shaped `app_mem`/`app_lam` with
-the unconditional `univ v` premise live in `Basic.lean`).
+`pcol A` is injective on `piSet A B` (a graph is determined by its
+values on its domain, and the all-`pt` graph is the unique collapsing
+one), so `piC` is a *relabeling* of `piSet`.  Heredity is built into
+`piC`-membership (members are `pcol`-fixed, `pcol_fix_of_mem_piC`).
+
+The old leveled operators of Mario Carneiro's §6.2 conventions
+(`pi v`/`lam v` with the `v = 0` truth-value truncation) survive as
+**vestigial-level abbreviations** over `piC`/`lamC` — definitional
+level-erasure, so the explicit-level call sites elaborate unchanged
+and goals display `piC`/`lamC`.  The abbrevs die with the kernel-side
+erasure (stage 6).  The old law surface splits:
+
+* laws that survive keep their names as corollaries of the level-free
+  laws (`pi_congr`, `lam_congr`, `lam_mem`, `app_mem'`, `app_lam'`,
+  `lam_eta`, `eq_of_mem_pi_app_eq`, `IsTGUniverse.pi_mem`) — vestigial
+  premises are kept so call sites need not change;
+* the level-dispatch laws are **false** under the collapse and are
+  deleted (`pi_zero`, `pi_pos`, `lam_zero`, `lam_pos`, `mem_pi_zero`,
+  `lam_ne_pt`, `lam_dom`, `pi_zero_mem_univZero`); their replacements
+  are the collapse laws below (`piC_prop_eq`, `mem_piC_cases`,
+  `lamC_of_forall`/`lamC_of_not`, `eq_pt_of_mem_piC_prop`,
+  `lamC_dom_of_ne`, `piC_prop_mem_univZero`);
+* the zero-ness bookkeeping (`pi/lam_level_indifferent`,
+  `pi/lam_congr_zero_agree`) is moot — levels are definitionally
+  erased (`pi_level_indifferent` survives as `rfl` for reference).
 -/
 
 namespace Setlec.SetTheory
@@ -27,178 +45,330 @@ universe u
 
 variable {V : Type u} [SetTheory V]
 
+/-! ## The domain-relative point collapse -/
+
 open Classical in
-/-- The dependent product at codomain sort `v` (see module docs). -/
-noncomputable def pi (v : Nat) (A : V) (B : V → V) : V :=
-  if v = 0 then truthVal (∀ x, x ∈ˢ A → ∃ y, y ∈ˢ B x) else piSet A B
+/-- Collapse a function value to the proof point iff its applications
+on the domain `A` are all `pt` (vacuously so over the empty domain). -/
+noncomputable def pcol (A g : V) : V :=
+  if ∀ x, x ∈ˢ A → app g x = pt then pt else g
 
-/-- Abstraction at codomain sort `v` (see module docs). -/
-noncomputable def lam (v : Nat) (A : V) (F : V → V) : V :=
-  if v = 0 then pt else graph F A
+open Classical in
+/-- Level-free abstraction: the graph, collapsed to `pt` iff all its
+values on the domain are `pt`. -/
+noncomputable def lamC (A : V) (F : V → V) : V :=
+  if ∀ x, x ∈ˢ A → F x = pt then pt else graph F A
 
-theorem pi_zero {A : V} {B : V → V} :
-    pi 0 A B = truthVal (∀ x, x ∈ˢ A → ∃ y, y ∈ˢ B x) := by
-  unfold pi; exact if_pos rfl
+/-- Level-free dependent product: the collapse image of the raw
+dependent-function set. -/
+noncomputable def piC (A : V) (B : V → V) : V := image (pcol A) (piSet A B)
 
-theorem pi_pos {v : Nat} (hv : v ≠ 0) {A : V} {B : V → V} :
-    pi v A B = piSet A B := by
-  unfold pi; exact if_neg hv
+/-- The dependent product, with a vestigial level (definitional
+level-erasure; see module docs).  Dies in the kernel-side erasure. -/
+noncomputable abbrev pi (_v : Nat) (A : V) (B : V → V) : V := piC A B
 
-theorem lam_zero {A : V} {F : V → V} : lam 0 A F = (pt : V) := by
-  unfold lam; exact if_pos rfl
+/-- Abstraction, with a vestigial level (see `pi`). -/
+noncomputable abbrev lam (_v : Nat) (A : V) (F : V → V) : V := lamC A F
 
-theorem lam_pos {v : Nat} (hv : v ≠ 0) {A : V} {F : V → V} :
-    lam v A F = graph F A := by
-  unfold lam; exact if_neg hv
+theorem pcol_of_forall {A g : V} (h : ∀ x, x ∈ˢ A → app g x = pt) :
+    pcol A g = pt := by
+  unfold pcol; exact if_pos h
 
+theorem pcol_of_not {A g : V} (h : ¬ ∀ x, x ∈ˢ A → app g x = pt) :
+    pcol A g = g := by
+  unfold pcol; exact if_neg h
+
+theorem lamC_of_forall {A : V} {F : V → V} (h : ∀ x, x ∈ˢ A → F x = pt) :
+    lamC A F = pt := by
+  unfold lamC; exact if_pos h
+
+theorem lamC_of_not {A : V} {F : V → V} (h : ¬ ∀ x, x ∈ˢ A → F x = pt) :
+    lamC A F = graph F A := by
+  unfold lamC; exact if_neg h
+
+/-- An abstraction is the point exactly when all its values on the
+domain are (`graph_ne_pt` closes the other branch). -/
+theorem lamC_eq_pt_iff {A : V} {F : V → V} :
+    lamC A F = pt ↔ ∀ x, x ∈ˢ A → F x = pt := by
+  constructor
+  · intro h
+    by_cases hc : ∀ x, x ∈ˢ A → F x = pt
+    · exact hc
+    · rw [lamC_of_not hc] at h
+      exact absurd h graph_ne_pt
+  · exact lamC_of_forall
+
+/-- Non-collapse from a single non-`pt` value on the domain. -/
+theorem lamC_ne_pt_of_witness {A : V} {F : V → V} {x : V}
+    (hx : x ∈ˢ A) (hne : F x ≠ pt) : lamC A F ≠ pt :=
+  fun h => hne (lamC_eq_pt_iff.mp h x hx)
+
+/-- Abstraction is the collapse of the graph. -/
+theorem pcol_graph {A : V} {F : V → V} : pcol A (graph F A) = lamC A F := by
+  by_cases h : ∀ x, x ∈ˢ A → F x = pt
+  · rw [pcol_of_forall (fun x hx => (app_graph hx).trans (h x hx)),
+      lamC_of_forall h]
+  · rw [pcol_of_not (fun hc => h fun x hx => (app_graph hx).symm.trans (hc x hx)),
+      lamC_of_not h]
+
+/-- The fixed-point lemma: the collapse is idempotent. -/
+theorem pcol_idem {A g : V} : pcol A (pcol A g) = pcol A g := by
+  by_cases h : ∀ x, x ∈ˢ A → app g x = pt
+  · rw [pcol_of_forall h, pcol_of_forall (fun x _hx => app_pt x)]
+  · rw [pcol_of_not h, pcol_of_not h]
+
+/-- Membership characterization of the level-free product. -/
+theorem mem_piC {A f : V} {B : V → V} :
+    f ∈ˢ piC A B ↔ ∃ g, g ∈ˢ piSet A B ∧ f = pcol A g := mem_image
+
+/-- Where the global-canonicity invariant lives: members of `piC` are
+collapse-fixed — heredity is a closure property of `piC`-membership,
+not a global condition on `V`. -/
+theorem pcol_fix_of_mem_piC {A f : V} {B : V → V} (hf : f ∈ˢ piC A B) :
+    pcol A f = f := by
+  obtain ⟨g, hg, rfl⟩ := mem_piC.mp hf
+  exact pcol_idem
+
+/-! ## Congruence -/
+
+theorem lamC_congr {A : V} {F F' : V → V} (h : ∀ x, x ∈ˢ A → F x = F' x) :
+    lamC A F = lamC A F' := by
+  by_cases hp : ∀ x, x ∈ˢ A → F x = pt
+  · rw [lamC_of_forall hp,
+      lamC_of_forall (fun x hx => (h x hx).symm.trans (hp x hx))]
+  · rw [lamC_of_not hp,
+      lamC_of_not (fun hc => hp fun x hx => (h x hx).trans (hc x hx)),
+      graph_congr h]
+
+theorem piC_congr {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x = B' x) :
+    piC A B = piC A B' := by
+  unfold piC
+  rw [piSet_congr h]
+
+/-- Compat (vestigial level): `piC_congr`. -/
 theorem pi_congr {v : Nat} {A : V} {B B' : V → V}
-    (h : ∀ x, x ∈ˢ A → B x = B' x) : pi v A B = pi v A B' := by
-  rcases Nat.eq_zero_or_pos v with rfl | hv
-  · rw [pi_zero, pi_zero]
-    exact truthVal_congr
-      ⟨fun hi x hx => h x hx ▸ hi x hx, fun hi x hx => (h x hx).symm ▸ hi x hx⟩
-  · rw [pi_pos (Nat.pos_iff_ne_zero.mp hv), pi_pos (Nat.pos_iff_ne_zero.mp hv)]
-    exact piSet_congr h
+    (h : ∀ x, x ∈ˢ A → B x = B' x) : pi v A B = pi v A B' :=
+  piC_congr h
 
+/-- Compat (vestigial level): `lamC_congr`. -/
 theorem lam_congr {v : Nat} {A : V} {F F' : V → V}
-    (h : ∀ x, x ∈ˢ A → F x = F' x) : lam v A F = lam v A F' := by
-  rcases Nat.eq_zero_or_pos v with rfl | hv
-  · rw [lam_zero, lam_zero]
-  · rw [lam_pos (Nat.pos_iff_ne_zero.mp hv), lam_pos (Nat.pos_iff_ne_zero.mp hv)]
-    exact graph_congr h
+    (h : ∀ x, x ∈ˢ A → F x = F' x) : lam v A F = lam v A F' :=
+  lamC_congr h
 
-/-- The dependent product reads its level argument **only through the
-`v = 0` test**: at nonzero levels the interpretation is level-blind
-(task #100 checkpoint; the kernel's relaxed binder-defeq codomain
-comparison rests on this). -/
-theorem pi_level_indifferent {u v : Nat} (hu : u ≠ 0) (hv : v ≠ 0)
-    {A : V} {B : V → V} : pi u A B = pi v A B := by
-  rw [pi_pos hu, pi_pos hv]
+/-- The level is definitionally erased (kept for reference; the old
+leveled operators read their level through the `v = 0` test, and the
+kernel's binder-defeq comparison tracked its zero-ness — both gone). -/
+theorem pi_level_indifferent {u v : Nat} {A : V} {B : V → V} :
+    pi u A B = pi v A B := rfl
 
-/-- As `pi_level_indifferent`, for abstraction. -/
-theorem lam_level_indifferent {u v : Nat} (hu : u ≠ 0) (hv : v ≠ 0)
-    {A : V} {F : V → V} : lam u A F = lam v A F := by
-  rw [lam_pos hu, lam_pos hv]
+/-! ## Introduction, elimination, beta, eta -/
 
-/-- `pi` congruence across levels that agree on zero-ness: since the
-level enters only through the `v = 0` test (`pi_level_indifferent`),
-agreeing zero-tests and pointwise-equal fibres give equal products. -/
-theorem pi_congr_zero_agree {u v : Nat} (hz : u = 0 ↔ v = 0) {A : V}
-    {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x = B' x) :
-    pi u A B = pi v A B' := by
-  by_cases hu : u = 0
-  · rw [hz.mp hu, hu]
-    exact pi_congr h
-  · have hv : v ≠ 0 := fun h0 => hu (hz.mpr h0)
-    rw [pi_pos hu, pi_pos hv]
-    exact piSet_congr h
+/-- Introduction: fibre-wise members abstract into the product —
+uniformly, with no level and no `Prop` side condition. -/
+theorem lamC_mem {A : V} {F B : V → V} (hF : ∀ x, x ∈ˢ A → F x ∈ˢ B x) :
+    lamC A F ∈ˢ piC A B :=
+  mem_piC.mpr ⟨graph F A, graph_mem_piSet hF, pcol_graph.symm⟩
 
-/-- As `pi_congr_zero_agree`, for abstraction. -/
-theorem lam_congr_zero_agree {u v : Nat} (hz : u = 0 ↔ v = 0) {A : V}
-    {F F' : V → V} (h : ∀ x, x ∈ˢ A → F x = F' x) :
-    lam u A F = lam v A F' := by
-  by_cases hu : u = 0
-  · rw [hz.mp hu, hu, lam_zero, lam_zero]
-  · have hv : v ≠ 0 := fun h0 => hu (hz.mpr h0)
-    rw [lam_pos hu, lam_pos hv]
-    exact graph_congr h
-
-/-- Introduction: fibre-wise members abstract into the product.  (For
-`v = 0` the premise itself witnesses every fibre inhabited.) -/
+/-- Compat (vestigial level): `lamC_mem`. -/
 theorem lam_mem {v : Nat} {A : V} {F B : V → V}
-    (hF : ∀ x, x ∈ˢ A → F x ∈ˢ B x) : lam v A F ∈ˢ pi v A B := by
-  rcases Nat.eq_zero_or_pos v with rfl | hv
-  · rw [lam_zero, pi_zero]
-    exact pt_mem_truthVal fun x hx => ⟨F x, hF x hx⟩
-  · rw [lam_pos (Nat.pos_iff_ne_zero.mp hv), pi_pos (Nat.pos_iff_ne_zero.mp hv)]
-    exact graph_mem_piSet hF
+    (hF : ∀ x, x ∈ˢ A → F x ∈ˢ B x) : lam v A F ∈ˢ pi v A B :=
+  lamC_mem hF
 
-/-- Inhabitants of Prop-valued products are the proof point. -/
-theorem mem_pi_zero {A f : V} {B : V → V} (hf : f ∈ˢ pi 0 A B) : f = pt := by
-  rw [pi_zero] at hf
-  exact eq_pt_of_mem_truthVal hf
+/-- Beta — with **no** fibre-membership and **no** fibre-universe
+premise (strictly stronger than the old `app_lam'`): in the collapsed
+case the collapse condition itself supplies `F a = pt`. -/
+theorem app_lamC {A a : V} {F : V → V} (ha : a ∈ˢ A) :
+    app (lamC A F) a = F a := by
+  by_cases h : ∀ x, x ∈ˢ A → F x = pt
+  · rw [lamC_of_forall h, app_pt, h a ha]
+  · rw [lamC_of_not h, app_graph ha]
 
-/-- Elimination: application stays in the fibre.  The fibre premise is
-needed only at `v = 0`, where fibres must be truth values. -/
+/-- Case split on a product member: the collapsed point (with every
+fibre over the domain containing `pt`), or an uncollapsed raw graph. -/
+theorem mem_piC_cases {A f : V} {B : V → V} (hf : f ∈ˢ piC A B) :
+    (f = pt ∧ ∀ x, x ∈ˢ A → (pt : V) ∈ˢ B x) ∨
+    (f ∈ˢ piSet A B ∧ ¬ ∀ x, x ∈ˢ A → app f x = pt) := by
+  obtain ⟨g, hg, rfl⟩ := mem_piC.mp hf
+  by_cases h : ∀ x, x ∈ˢ A → app g x = pt
+  · exact Or.inl ⟨pcol_of_forall h,
+      fun x hx => h x hx ▸ app_mem_of_mem_piSet hg hx⟩
+  · rw [pcol_of_not h]
+    exact Or.inr ⟨hg, h⟩
+
+/-- Elimination — with **no** fibre-universe premise (the old
+`app_mem'` needed the fibres to be truth values at `v = 0`; here the
+collapse condition plus `app_mem_of_mem_piSet` supply
+`pt ∈ˢ B a` directly). -/
+theorem app_mem_piC {A f a : V} {B : V → V} (hf : f ∈ˢ piC A B)
+    (ha : a ∈ˢ A) : app f a ∈ˢ B a := by
+  rcases mem_piC_cases hf with ⟨rfl, hall⟩ | ⟨hmem, -⟩
+  · rw [app_pt]; exact hall a ha
+  · exact app_mem_of_mem_piSet hmem ha
+
+/-- Compat (vestigial level and premise): `app_mem_piC`. -/
 theorem app_mem' {v : Nat} {A f a : V} {B : V → V}
     (hf : f ∈ˢ pi v A B) (ha : a ∈ˢ A)
-    (hB0 : v = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V)) : app f a ∈ˢ B a := by
-  rcases Nat.eq_zero_or_pos v with rfl | hv
-  · have hfp : f = pt := mem_pi_zero hf
-    rw [pi_zero] at hf
-    obtain ⟨y, hy⟩ := of_mem_truthVal hf a ha
-    rw [hfp, app_pt]
-    rwa [eq_pt_of_mem_univZero (hB0 rfl a ha) hy] at hy
-  · rw [pi_pos (Nat.pos_iff_ne_zero.mp hv)] at hf
-    exact app_mem_of_mem_piSet hf ha
+    (_hB0 : v = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V)) :
+    app f a ∈ˢ B a :=
+  app_mem_piC hf ha
 
-/-- Beta, conditional on membership. -/
+/-- Compat (vestigial level and premises): `app_lamC`. -/
 theorem app_lam' {v : Nat} {A a : V} {F B : V → V}
-    (ha : a ∈ˢ A) (hF : ∀ x, x ∈ˢ A → F x ∈ˢ B x)
-    (hB0 : v = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V)) :
-    app (lam v A F) a = F a := by
-  rcases Nat.eq_zero_or_pos v with rfl | hv
-  · rw [lam_zero, app_pt]
-    exact (eq_pt_of_mem_univZero (hB0 rfl a ha) (hF a ha)).symm
-  · rw [lam_pos (Nat.pos_iff_ne_zero.mp hv)]
-    exact app_graph ha
+    (ha : a ∈ˢ A) (_hF : ∀ x, x ∈ˢ A → F x ∈ˢ B x)
+    (_hB0 : v = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V)) :
+    app (lam v A F) a = F a :=
+  app_lamC ha
 
-/-- Type-valued abstractions are graphs, never the proof point. -/
-theorem lam_ne_pt {v : Nat} {A : V} {F : V → V} (hv : v ≠ 0) :
-    lam v A F ≠ pt := by
-  rw [lam_pos hv]
-  exact graph_ne_pt
+/-- The point inhabits the product iff it inhabits every fibre over
+the domain (vacuously over the empty domain). -/
+theorem pt_mem_piC_iff {A : V} {B : V → V} :
+    (pt : V) ∈ˢ piC A B ↔ ∀ x, x ∈ˢ A → (pt : V) ∈ˢ B x := by
+  constructor
+  · intro h
+    rcases mem_piC_cases h with ⟨-, hall⟩ | ⟨hmem, -⟩
+    · exact hall
+    · exact absurd rfl (ne_pt_of_mem_piSet hmem)
+  · intro h
+    exact mem_piC.mpr ⟨graph (fun _ => pt) A, graph_mem_piSet h,
+      (pcol_of_forall (fun x hx => app_graph hx)).symm⟩
 
-/-- Graphs determine their domains. -/
-theorem lam_dom {v' v : Nat} {A A' : V} {F : V → V} {B : V → V}
-    (hf : lam v' A F ∈ˢ pi v A' B) (hv : v ≠ 0) (hv' : v' ≠ 0) :
-    ∀ x, x ∈ˢ A' → x ∈ˢ A := by
-  rw [lam_pos hv', pi_pos hv] at hf
-  exact graph_dom_of_mem_piSet hf
+/-- Eta: a member of the product is the abstraction of its
+applications.  In the collapsed case `app pt · = pt` re-fires the
+collapse test; in the graph case the test provably fails. -/
+theorem lamC_eta {A f : V} {B : V → V} (hf : f ∈ˢ piC A B) :
+    lamC A (fun x => app f x) = f := by
+  rcases mem_piC_cases hf with ⟨rfl, -⟩ | ⟨hmem, hne⟩
+  · exact lamC_of_forall fun x _hx => app_pt x
+  · rw [lamC_of_not hne]
+    exact eq_graph_app_of_mem_piSet hmem
 
-/-- Eta: a member of a product is the abstraction of its applications. -/
+/-- Compat (vestigial level): `lamC_eta`. -/
 theorem lam_eta {v : Nat} {A f : V} {B : V → V} (hf : f ∈ˢ pi v A B) :
-    lam v A (fun x => app f x) = f := by
-  rcases Nat.eq_zero_or_pos v with rfl | hv
-  · rw [lam_zero, mem_pi_zero hf]
-  · rw [lam_pos (Nat.pos_iff_ne_zero.mp hv)]
-    rw [pi_pos (Nat.pos_iff_ne_zero.mp hv)] at hf
-    exact eq_graph_app_of_mem_piSet hf
+    lam v A (fun x => app f x) = f :=
+  lamC_eta hf
 
-/-- Function extensionality for members of the dependent product: two
-members of `pi v A _` that agree under application on every member of
-`A` are equal.  At `v = 0` both sides are the proof point; at `v ≠ 0`
-both are graphs over `A`, whose off-domain applications are canonical
-junk (`app_off_dom_of_mem_piSet`), so agreement on `A` is total
-agreement. -/
+/-- Function extensionality for product members: on-domain agreement is
+total agreement (off-domain the collapsed point and graphs differ —
+`pt` vs `∅` junk — but eta re-canonicalizes both sides). -/
+theorem eq_of_mem_piC_app_eq {A f g : V} {B B' : V → V}
+    (hf : f ∈ˢ piC A B) (hg : g ∈ˢ piC A B')
+    (h : ∀ x, x ∈ˢ A → app f x = app g x) : f = g := by
+  rw [← lamC_eta hf, ← lamC_eta hg]
+  exact lamC_congr h
+
+/-- Compat (vestigial level): `eq_of_mem_piC_app_eq`. -/
 theorem eq_of_mem_pi_app_eq {v : Nat} {A f g : V} {B B' : V → V}
     (hf : f ∈ˢ pi v A B) (hg : g ∈ˢ pi v A B')
-    (h : ∀ x, x ∈ˢ A → app f x = app g x) : f = g := by
-  rw [← lam_eta hf, ← lam_eta hg]
-  exact lam_congr h
+    (h : ∀ x, x ∈ˢ A → app f x = app g x) : f = g :=
+  eq_of_mem_piC_app_eq hf hg h
 
-/-- Formation, level 0: a `Prop`-valued product is a truth value. -/
-theorem pi_zero_mem_univZero {A : V} {B : V → V} :
-    pi 0 A B ∈ˢ (univZero : V) := by
-  rw [pi_zero]
+/-! ## The `Prop` cases as theorems -/
+
+/-- **The old `pi_zero` definition is now a theorem**: over truth-value
+fibres the collapse image *computes* the truth value of fibre-wise
+inhabitedness. -/
+theorem piC_prop_eq {A : V} {B : V → V}
+    (hB : ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V)) :
+    piC A B = truthVal (∀ x, x ∈ˢ A → ∃ y, y ∈ˢ B x) := by
+  by_cases hin : ∀ x, x ∈ˢ A → ∃ y, y ∈ˢ B x
+  · rw [truthVal_eq_unitSet hin]
+    apply ext fun z => ?_
+    rw [mem_unitSet_iff]
+    constructor
+    · intro hz
+      obtain ⟨g, hg, rfl⟩ := mem_piC.mp hz
+      exact pcol_of_forall fun x hx =>
+        eq_pt_of_mem_univZero (hB x hx) (app_mem_of_mem_piSet hg hx)
+    · rintro rfl
+      refine pt_mem_piC_iff.mpr fun x hx => ?_
+      obtain ⟨y, hy⟩ := hin x hx
+      exact eq_pt_of_mem_univZero (hB x hx) hy ▸ hy
+  · rw [truthVal_eq_empty hin]
+    refine eq_empty fun z hz => ?_
+    obtain ⟨g, hg, -⟩ := mem_piC.mp hz
+    exact hin fun x hx => ⟨app g x, app_mem_of_mem_piSet hg hx⟩
+
+/-- Prop-formation (old `pi_zero_mem_univZero`), now conditional on the
+fibres rather than on a level. -/
+theorem piC_prop_mem_univZero {A : V} {B : V → V}
+    (hB : ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V)) :
+    piC A B ∈ˢ (univZero : V) := by
+  rw [piC_prop_eq hB]
   exact truthVal_mem_univZero _
 
-/-- Formation, level ≠ 0: Grothendieck universe closure. -/
+/-- Proof irrelevance at products (old `mem_pi_zero`): members of a
+`Prop`-fibred product are the point. -/
+theorem eq_pt_of_mem_piC_prop {A f : V} {B : V → V}
+    (hB : ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V)) (hf : f ∈ˢ piC A B) :
+    f = pt :=
+  eq_pt_of_mem_univZero (piC_prop_mem_univZero hB) hf
+
+/-- The empty-domain product is truth — for *every* fibre family,
+`Prop`- or `Type`-valued alike. -/
+theorem piC_empty (B : V → V) : piC (empty : V) B = unitSet := by
+  rw [piC_prop_eq (fun x hx => absurd hx (not_mem_empty x)),
+    truthVal_eq_unitSet (fun x hx => absurd hx (not_mem_empty x))]
+
+/-- Every empty-domain abstraction is the point — at every codomain
+sort, since there is no sort to consult. -/
+theorem lamC_empty (F : V → V) : lamC (empty : V) F = pt :=
+  lamC_of_forall fun x hx => absurd hx (not_mem_empty x)
+
+/-- Off-domain "beta" on a collapsed abstraction yields the point,
+regardless of the body. -/
+theorem app_lamC_empty (F : V → V) (a : V) :
+    app (lamC (empty : V) F) a = pt := by
+  rw [lamC_empty, app_pt]
+
+/-! ## Universe closure -/
+
+/-- Grothendieck-universe closure: the collapse image sits inside
+`piSet ∪ {pt}`, both members of the universe. -/
+theorem _root_.Setlec.IsTGUniverse.piC_mem {U A : V} {B : V → V}
+    (hU : IsTGUniverse (Mem (V := V)) U) (hA : A ∈ˢ U)
+    (hB : ∀ x, x ∈ˢ A → B x ∈ˢ U) : piC A B ∈ˢ U := by
+  refine hU.mem_of_subset_mem
+    (hU.binUnion_mem hA (hU.piSet_mem hA hB) (hU.unitSet_mem hA))
+    fun z hz => ?_
+  obtain ⟨g, hg, rfl⟩ := mem_piC.mp hz
+  by_cases h : ∀ x, x ∈ˢ A → app g x = pt
+  · rw [pcol_of_forall h]
+    exact mem_binUnion.mpr (Or.inr pt_mem_unitSet)
+  · rw [pcol_of_not h]
+    exact mem_binUnion.mpr (Or.inl hg)
+
+/-- Compat (vestigial level and premise): `IsTGUniverse.piC_mem`. -/
 theorem _root_.Setlec.IsTGUniverse.pi_mem {U A : V} {B : V → V} {v : Nat}
-    (hU : IsTGUniverse (Mem (V := V)) U) (hv : v ≠ 0) (hA : A ∈ˢ U)
-    (hB : ∀ x, x ∈ˢ A → B x ∈ˢ U) : pi v A B ∈ˢ U := by
-  rw [pi_pos hv]
-  exact hU.piSet_mem hA hB
+    (hU : IsTGUniverse (Mem (V := V)) U) (_hv : v ≠ 0) (hA : A ∈ˢ U)
+    (hB : ∀ x, x ∈ˢ A → B x ∈ˢ U) : pi v A B ∈ˢ U :=
+  hU.piC_mem hA hB
+
+/-! ## Domain recovery (the weakened `lam_dom`) -/
+
+/-- Graphs still determine their domains — but only *uncollapsed* ones:
+the premise `v' ≠ 0 ∧ v ≠ 0` of the old `lam_dom` becomes `≠ pt`.
+Consumers that derived non-`pt`-ness from a nonzero level
+(`lam_ne_pt`) must dispatch through `mem_piC_cases` instead. -/
+theorem lamC_dom_of_ne {A A' : V} {F : V → V} {B : V → V}
+    (hne : lamC A F ≠ pt) (hf : lamC A F ∈ˢ piC A' B) :
+    ∀ x, x ∈ˢ A' → x ∈ˢ A := by
+  have hnot : ¬ ∀ x, x ∈ˢ A → F x = pt := fun h => hne (lamC_of_forall h)
+  rw [lamC_of_not hnot] at hf
+  rcases mem_piC_cases hf with ⟨heq, -⟩ | ⟨hmem, -⟩
+  · exact absurd heq graph_ne_pt
+  · exact graph_dom_of_mem_piSet hmem
 
 /- Compiler stubs (see `Derive/Empty.lean`): never executed, no logical
 content. -/
-private unsafe def piImpl {V : Type u} [SetTheory V] (_v : Nat) (_A : V) (_B : V → V) : V := unsafeCast ()
-private unsafe def lamImpl {V : Type u} [SetTheory V] (_v : Nat) (_A : V) (_F : V → V) : V := unsafeCast ()
+private unsafe def pcolImpl {V : Type u} [SetTheory V] (_A _g : V) : V := unsafeCast ()
+private unsafe def piCImpl {V : Type u} [SetTheory V] (_A : V) (_B : V → V) : V := unsafeCast ()
+private unsafe def lamCImpl {V : Type u} [SetTheory V] (_A : V) (_F : V → V) : V := unsafeCast ()
 
-attribute [implemented_by piImpl] pi
-attribute [implemented_by lamImpl] lam
+attribute [implemented_by pcolImpl] pcol
+attribute [implemented_by piCImpl] piC
+attribute [implemented_by lamCImpl] lamC
 
 /- Opaque interface operators (see `Derive/Empty.lean`). -/
-attribute [irreducible] pi lam
+attribute [irreducible] pcol piC lamC
 
 end Setlec.SetTheory

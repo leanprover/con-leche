@@ -37,8 +37,7 @@ theorem AnnotOk.ext : ∀ (e : Expr) {d : Nat} {ρ ρ' : Nat → V},
       · rfl
       · exact h i (by omega)
     refine ⟨AnnotOk.ext _ hupd (fvarsBelow_instantiate1 0 hb.2) hbody, ?_⟩
-    intro v hv
-    obtain ⟨w, hwi, hmem⟩ := hw v hv
+    obtain ⟨w, hwi, hmem⟩ := hw
     exact ⟨w, by rw [← interp_ext _ hupd (fvarsBelow_instantiate1 0 hb.2)]; exact hwi, hmem⟩
   | .lam n ty body m, d, ρ, ρ', h, hb, ha => by
     simp only [fvarsBelow] at hb
@@ -55,8 +54,7 @@ theorem AnnotOk.ext : ∀ (e : Expr) {d : Nat} {ρ ρ' : Nat → V},
       · rfl
       · exact h i (by omega)
     refine ⟨AnnotOk.ext _ hupd (fvarsBelow_instantiate1 0 hb.2) hbody, ?_⟩
-    intro v hv
-    obtain ⟨w, B, hwi, hwB, hBu⟩ := hw v hv
+    obtain ⟨w, B, hwi, hwB, hBu⟩ := hw
     exact ⟨w, B,
       by rw [← interp_ext _ hupd (fvarsBelow_instantiate1 0 hb.2)]; exact hwi, hwB, hBu⟩
   | .app f a, d, ρ, ρ', h, hb, ha => by
@@ -113,8 +111,7 @@ theorem AnnotOk.shift : ∀ (e : Expr) {d p : Nat} {ρ : Nat → V} {x0 : V},
     obtain ⟨hbody, hwfact⟩ := hcond x A hA hx
     rw [← shiftFrom_instantiate1 hpd, ← insV_updV hpd]
     refine ⟨AnnotOk.shift _ (Nat.le_succ_of_le hpd) (hw'.1.instantiate1 0 hw'.2) hbody, ?_⟩
-    intro v hv
-    obtain ⟨w, hwi, hmem⟩ := hwfact v hv
+    obtain ⟨w, hwi, hmem⟩ := hwfact
     refine ⟨w, ?_, hmem⟩
     rw [interp_shift _ (Nat.le_succ_of_le hpd) (hw'.1.instantiate1 0 hw'.2)]
     exact hwi
@@ -129,8 +126,7 @@ theorem AnnotOk.shift : ∀ (e : Expr) {d p : Nat} {ρ : Nat → V} {x0 : V},
     obtain ⟨hbody, hwfact⟩ := hcond x A hA hx
     rw [← shiftFrom_instantiate1 hpd, ← insV_updV hpd]
     refine ⟨AnnotOk.shift _ (Nat.le_succ_of_le hpd) (hw'.1.instantiate1 0 hw'.2) hbody, ?_⟩
-    intro v hv
-    obtain ⟨w, B, hwi, hwB, hBu⟩ := hwfact v hv
+    obtain ⟨w, B, hwi, hwB, hBu⟩ := hwfact
     refine ⟨w, B, ?_, hwB, hBu⟩
     rw [interp_shift _ (Nat.le_succ_of_le hpd) (hw'.1.instantiate1 0 hw'.2)]
     exact hwi
@@ -196,8 +192,7 @@ theorem AnnotOk.unshift : ∀ (e : Expr) {d p : Nat} {ρ : Nat → V} {x0 : V},
     rw [← shiftFrom_instantiate1 hpd, ← insV_updV hpd] at hbody hwfact
     refine ⟨AnnotOk.unshift _ (Nat.le_succ_of_le hpd)
       (hw'.1.instantiate1 0 hw'.2) hbody, ?_⟩
-    intro v hv
-    obtain ⟨w, hwi, hmem⟩ := hwfact v hv
+    obtain ⟨w, hwi, hmem⟩ := hwfact
     refine ⟨w, ?_, hmem⟩
     rw [← interp_shift _ (Nat.le_succ_of_le hpd)
       (hw'.1.instantiate1 0 hw'.2) (x := x0)]
@@ -214,8 +209,7 @@ theorem AnnotOk.unshift : ∀ (e : Expr) {d p : Nat} {ρ : Nat → V} {x0 : V},
     rw [← shiftFrom_instantiate1 hpd, ← insV_updV hpd] at hbody hwfact
     refine ⟨AnnotOk.unshift _ (Nat.le_succ_of_le hpd)
       (hw'.1.instantiate1 0 hw'.2) hbody, ?_⟩
-    intro v hv
-    obtain ⟨w, B, hwi, hwB, hBu⟩ := hwfact v hv
+    obtain ⟨w, B, hwi, hwB, hBu⟩ := hwfact
     refine ⟨w, B, ?_, hwB, hBu⟩
     rw [← interp_shift _ (Nat.le_succ_of_le hpd)
       (hw'.1.instantiate1 0 hw'.2) (x := x0)]
@@ -308,40 +302,32 @@ theorem AnnotOk.instLevels (hcp : ConstValParams cval env)
       AnnotOk V cval env φ d ρ (e.instantiateLevelParams ks vs)
   | .forallE n ty body m, d, ρ, ha => by
     simp only [AnnotOk] at ha
-    obtain ⟨haty, ⟨v, hv⟩, hcond⟩ := ha
+    obtain ⟨haty, vE, hcond⟩ := ha
     simp only [instantiateLevelParams, AnnotOk]
-    refine ⟨AnnotOk.instLevels hcp ty d ρ haty, ⟨Level.subst ks vs v, by simp [hv]⟩, ?_⟩
+    refine ⟨AnnotOk.instLevels hcp ty d ρ haty, vE, ?_⟩
     intro x A hA hx
     rw [interp_instLevels hcp ty d ρ] at hA
     obtain ⟨hbody, hwfact⟩ := hcond x A hA hx
     rw [← instantiateLevelParams_instantiate1]
     refine ⟨AnnotOk.instLevels hcp _ (d + 1) (updV V ρ d x) hbody, ?_⟩
-    intro v' hv'
-    simp only [hv, Option.map_some, Option.some.injEq] at hv'
-    obtain ⟨w, hwi, hmem⟩ := hwfact v hv
-    refine ⟨w, ?_, ?_⟩
-    · rw [interp_instLevels hcp _ (d + 1) (updV V ρ d x)]
-      exact hwi
-    · rw [← hv', Level.eval_subst]
-      exact hmem
+    obtain ⟨w, hwi, hmem⟩ := hwfact
+    refine ⟨w, ?_, hmem⟩
+    rw [interp_instLevels hcp _ (d + 1) (updV V ρ d x)]
+    exact hwi
   | .lam n ty body m, d, ρ, ha => by
     simp only [AnnotOk] at ha
-    obtain ⟨haty, ⟨v, hv⟩, hcond⟩ := ha
+    obtain ⟨haty, vE, hcond⟩ := ha
     simp only [instantiateLevelParams, AnnotOk]
-    refine ⟨AnnotOk.instLevels hcp ty d ρ haty, ⟨Level.subst ks vs v, by simp [hv]⟩, ?_⟩
+    refine ⟨AnnotOk.instLevels hcp ty d ρ haty, vE, ?_⟩
     intro x A hA hx
     rw [interp_instLevels hcp ty d ρ] at hA
     obtain ⟨hbody, hwfact⟩ := hcond x A hA hx
     rw [← instantiateLevelParams_instantiate1]
     refine ⟨AnnotOk.instLevels hcp _ (d + 1) (updV V ρ d x) hbody, ?_⟩
-    intro v' hv'
-    simp only [hv, Option.map_some, Option.some.injEq] at hv'
-    obtain ⟨w, B, hwi, hwB, hBu⟩ := hwfact v hv
-    refine ⟨w, B, ?_, hwB, ?_⟩
-    · rw [interp_instLevels hcp _ (d + 1) (updV V ρ d x)]
-      exact hwi
-    · rw [← hv', Level.eval_subst]
-      exact hBu
+    obtain ⟨w, B, hwi, hwB, hBu⟩ := hwfact
+    refine ⟨w, B, ?_, hwB, hBu⟩
+    rw [interp_instLevels hcp _ (d + 1) (updV V ρ d x)]
+    exact hwi
   | .app f a, d, ρ, ha => by
     simp only [AnnotOk] at ha
     simp only [instantiateLevelParams, AnnotOk]
@@ -395,8 +381,7 @@ theorem AnnotOk_renameConsts {f : Name → Name}
     obtain ⟨hbody, hwfact⟩ := hcond x A hA hx
     rw [← renameConsts_instantiate1] at hbody hwfact
     refine ⟨AnnotOk_renameConsts hro _ (d + 1) (updV V ρ d x) hbody, ?_⟩
-    intro v' hv'
-    obtain ⟨w, hwi, hmem⟩ := hwfact v' hv'
+    obtain ⟨w, hwi, hmem⟩ := hwfact
     refine ⟨w, ?_, hmem⟩
     rw [← interp_renameConsts hro _ (d + 1) (updV V ρ d x)]
     exact hwi
@@ -410,8 +395,7 @@ theorem AnnotOk_renameConsts {f : Name → Name}
     obtain ⟨hbody, hwfact⟩ := hcond x A hA hx
     rw [← renameConsts_instantiate1] at hbody hwfact
     refine ⟨AnnotOk_renameConsts hro _ (d + 1) (updV V ρ d x) hbody, ?_⟩
-    intro v' hv'
-    obtain ⟨w, B, hwi, hwB, hBu⟩ := hwfact v' hv'
+    obtain ⟨w, B, hwi, hwB, hBu⟩ := hwfact
     refine ⟨w, B, ?_, hwB, hBu⟩
     rw [← interp_renameConsts hro _ (d + 1) (updV V ρ d x)]
     exact hwi
@@ -468,8 +452,7 @@ theorem AnnotOk.mono {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none)
     obtain ⟨hbody, hwfact⟩ := hcond x A hA hx
     refine ⟨AnnotOk.mono hfresh _ (d + 1) (updV V ρ d x)
       (constsResolve_instantiate1 hres.1 0 hres.2) hbody, ?_⟩
-    intro v hv
-    obtain ⟨w, hwi, hmem⟩ := hwfact v hv
+    obtain ⟨w, hwi, hmem⟩ := hwfact
     refine ⟨w, ?_, hmem⟩
     rw [interp_mono hfresh _ (d + 1) (updV V ρ d x)
       (constsResolve_instantiate1 hres.1 0 hres.2)]
@@ -484,8 +467,7 @@ theorem AnnotOk.mono {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none)
     obtain ⟨hbody, hwfact⟩ := hcond x A hA hx
     refine ⟨AnnotOk.mono hfresh _ (d + 1) (updV V ρ d x)
       (constsResolve_instantiate1 hres.1 0 hres.2) hbody, ?_⟩
-    intro v hv
-    obtain ⟨w, B, hwi, hwB, hBu⟩ := hwfact v hv
+    obtain ⟨w, B, hwi, hwB, hBu⟩ := hwfact
     refine ⟨w, B, ?_, hwB, hBu⟩
     rw [interp_mono hfresh _ (d + 1) (updV V ρ d x)
       (constsResolve_instantiate1 hres.1 0 hres.2)]
@@ -538,8 +520,7 @@ theorem AnnotOk.cval_ext {cval₁ cval₂ : ConstVal V}
     rw [← interp_cval_ext hagree ty d ρ] at hA
     obtain ⟨hbody, hwfact⟩ := hcond x A hA hx
     refine ⟨AnnotOk.cval_ext hagree _ (d + 1) (updV V ρ d x) hbody, ?_⟩
-    intro v hv
-    obtain ⟨w, hwi, hmem⟩ := hwfact v hv
+    obtain ⟨w, hwi, hmem⟩ := hwfact
     refine ⟨w, ?_, hmem⟩
     rw [← interp_cval_ext hagree _ (d + 1) (updV V ρ d x)]
     exact hwi
@@ -551,8 +532,7 @@ theorem AnnotOk.cval_ext {cval₁ cval₂ : ConstVal V}
     rw [← interp_cval_ext hagree ty d ρ] at hA
     obtain ⟨hbody, hwfact⟩ := hcond x A hA hx
     refine ⟨AnnotOk.cval_ext hagree _ (d + 1) (updV V ρ d x) hbody, ?_⟩
-    intro v hv
-    obtain ⟨w, B, hwi, hwB, hBu⟩ := hwfact v hv
+    obtain ⟨w, B, hwi, hwB, hBu⟩ := hwfact
     refine ⟨w, B, ?_, hwB, hBu⟩
     rw [← interp_cval_ext hagree _ (d + 1) (updV V ρ d x)]
     exact hwi
@@ -605,8 +585,7 @@ theorem AnnotOk.env_ext {env₁ env₂ : Env}
     rw [← interp_env_ext henv hnat hstr ty d ρ] at hA
     obtain ⟨hbody, hwfact⟩ := hcond x A hA hx
     refine ⟨AnnotOk.env_ext henv hnat hstr _ (d + 1) (updV V ρ d x) hbody, ?_⟩
-    intro v hv
-    obtain ⟨w, hwi, hmem⟩ := hwfact v hv
+    obtain ⟨w, hwi, hmem⟩ := hwfact
     refine ⟨w, ?_, hmem⟩
     rw [← interp_env_ext henv hnat hstr _ (d + 1) (updV V ρ d x)]
     exact hwi
@@ -618,8 +597,7 @@ theorem AnnotOk.env_ext {env₁ env₂ : Env}
     rw [← interp_env_ext henv hnat hstr ty d ρ] at hA
     obtain ⟨hbody, hwfact⟩ := hcond x A hA hx
     refine ⟨AnnotOk.env_ext henv hnat hstr _ (d + 1) (updV V ρ d x) hbody, ?_⟩
-    intro v hv
-    obtain ⟨w, B, hwi, hwB, hBu⟩ := hwfact v hv
+    obtain ⟨w, B, hwi, hwB, hBu⟩ := hwfact
     refine ⟨w, B, ?_, hwB, hBu⟩
     rw [← interp_env_ext henv hnat hstr _ (d + 1) (updV V ρ d x)]
     exact hwi

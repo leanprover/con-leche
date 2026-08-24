@@ -69,14 +69,12 @@ theorem annotOk_emptyRec_type {cval : ConstVal V}
   have hvalE' : ∀ ψ' : Name → Nat,
       cval (Name.anonymous.str "Empty") ψ' = SetTheory.empty := hvalE
   simp only [emptyRecA, ConstantInfo.toConstantVal, AnnotOk]
-  refine ⟨?_, ⟨_, rfl⟩, ?_⟩
+  refine ⟨?_, Nat.max 1 (ψ uN), ?_⟩
   · -- the motive space `(t : Empty) → Sort u`
     try simp only [AnnotOk]
-    refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+    refine ⟨trivial, ψ uN + 1, ?_⟩
     intro t A hA ht
     refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
-    intro v hv
-    obtain rfl := Option.some.inj hv
     refine ⟨univ (ψ uN), ?_, ?_⟩
     · simp [Expr.instantiate1, interpExpr, Level.eval, uN]
     · exact univ_mem_univ (ψ uN)
@@ -91,7 +89,7 @@ theorem annotOk_emptyRec_type {cval : ConstVal V}
     refine ⟨?_, ?_⟩
     · -- opened `∀ (t : Empty), motive t`
       try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-      refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+      refine ⟨trivial, 0, ?_⟩
       intro t At hAt ht
       have hAt' : At = SetTheory.empty := by
         simp [interpExpr, hfindE', hvalE', emptyA,
@@ -100,15 +98,13 @@ theorem annotOk_emptyRec_type {cval : ConstVal V}
         exact hAt.symm
       rw [hAt'] at ht
       exact absurd ht (not_mem_empty t)
-    · intro v hv
-      obtain rfl := Option.some.inj hv
-      refine ⟨pi (ψ uN) SetTheory.empty (fun t => SetTheory.app M t),
+    · refine ⟨pi (ψ uN) SetTheory.empty (fun t => SetTheory.app M t),
         ?_, ?_⟩
       · simp [interpExpr, Expr.instantiate1, updV, hfindE', hvalE', emptyA,
           ConstantInfo.toConstantVal, Level.eval, uN,
           -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
         try rfl
-      · exact pi_mem_univ (u := 1) (v := ψ uN)
+      · exact piC_mem_univ_max (u := 1) (v := ψ uN)
           (B := fun t => SetTheory.app M t)
           (empty_mem_univ 1)
           (fun t ht => absurd ht (not_mem_empty t))

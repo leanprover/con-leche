@@ -372,45 +372,41 @@ theorem interp_instSeq_fvarFrames_aux :
     rw [show spine₁.length - 1 + 1 = spine₁.length from by omega,
       show spine₂.length - 1 + 1 = spine₂.length from by omega]
     simp only [interpExpr]
-    cases m.cod with
+    rw [ihty hne hclt.1 hbt.1 h₁ h₂]
+    cases hty2 : interpExpr V cval env φ D₂ ρ₂
+        (instSeq spine₂ (spine₂.length - 1) ty) with
     | none => rfl
-    | some vℓ =>
-      simp only []
-      rw [ihty hne hclt.1 hbt.1 h₁ h₂]
-      cases hty2 : interpExpr V cval env φ D₂ ρ₂
-          (instSeq spine₂ (spine₂.length - 1) ty) with
-      | none => rfl
-      | some A =>
-        simp only [Option.some.injEq]
-        congr 1
-        funext x
-        have hfib := ihbody (spine₁ := spine₁ ++
-            [.fvar D₁ n (instSeq spine₁ (spine₁.length - 1) ty)])
-          (spine₂ := spine₂ ++
-            [.fvar D₂ n (instSeq spine₂ (spine₂.length - 1) ty)])
-          (vs := vs ++ [x])
-          (D₁ := D₁ + 1) (D₂ := D₂ + 1)
-          (ρ₁ := updV V ρ₁ D₁ x) (ρ₂ := updV V ρ₂ D₂ x)
-          (by simp) hclt.2 (by simpa using hbt.2)
-          (FvarSpine.snoc
-            (FvarSpine.lift h₁ (Nat.le_succ D₁)
-              (fun i hi => by simp only [updV]; rw [if_neg (by omega)]))
-            ⟨D₁, n, _, rfl, by omega, by simp [updV]⟩)
-          (FvarSpine.snoc
-            (FvarSpine.lift h₂ (Nat.le_succ D₂)
-              (fun i hi => by simp only [updV]; rw [if_neg (by omega)]))
-            ⟨D₂, n, _, rfl, by omega, by simp [updV]⟩)
-        rw [instSeq_append, instSeq_append] at hfib
-        simp only [List.length_append, List.length_cons,
-          List.length_nil] at hfib
-        rw [show spine₁.length + 1 - 1 - spine₁.length = 0 from by omega,
-          show spine₂.length + 1 - 1 - spine₂.length = 0 from by omega]
-          at hfib
-        rw [show spine₁.length + 1 - 1 = spine₁.length from by omega,
-          show spine₂.length + 1 - 1 = spine₂.length from by omega]
-          at hfib
-        simp only [instSeq] at hfib
-        exact congrArg (fun o => Option.getD o SetTheory.empty) hfib
+    | some A =>
+      simp only [Option.some.injEq]
+      congr 1
+      funext x
+      have hfib := ihbody (spine₁ := spine₁ ++
+          [.fvar D₁ n (instSeq spine₁ (spine₁.length - 1) ty)])
+        (spine₂ := spine₂ ++
+          [.fvar D₂ n (instSeq spine₂ (spine₂.length - 1) ty)])
+        (vs := vs ++ [x])
+        (D₁ := D₁ + 1) (D₂ := D₂ + 1)
+        (ρ₁ := updV V ρ₁ D₁ x) (ρ₂ := updV V ρ₂ D₂ x)
+        (by simp) hclt.2 (by simpa using hbt.2)
+        (FvarSpine.snoc
+          (FvarSpine.lift h₁ (Nat.le_succ D₁)
+            (fun i hi => by simp only [updV]; rw [if_neg (by omega)]))
+          ⟨D₁, n, _, rfl, by omega, by simp [updV]⟩)
+        (FvarSpine.snoc
+          (FvarSpine.lift h₂ (Nat.le_succ D₂)
+            (fun i hi => by simp only [updV]; rw [if_neg (by omega)]))
+          ⟨D₂, n, _, rfl, by omega, by simp [updV]⟩)
+      rw [instSeq_append, instSeq_append] at hfib
+      simp only [List.length_append, List.length_cons,
+        List.length_nil] at hfib
+      rw [show spine₁.length + 1 - 1 - spine₁.length = 0 from by omega,
+        show spine₂.length + 1 - 1 - spine₂.length = 0 from by omega]
+        at hfib
+      rw [show spine₁.length + 1 - 1 = spine₁.length from by omega,
+        show spine₂.length + 1 - 1 = spine₂.length from by omega]
+        at hfib
+      simp only [instSeq] at hfib
+      exact congrArg (fun o => Option.getD o SetTheory.empty) hfib
   | lam n ty body m ihty ihbody =>
     intro spine₁ spine₂ vs D₁ D₂ ρ₁ ρ₂ hne hcl hb h₁ h₂
     have hlen1 : 1 ≤ spine₁.length := by
@@ -429,45 +425,41 @@ theorem interp_instSeq_fvarFrames_aux :
     rw [show spine₁.length - 1 + 1 = spine₁.length from by omega,
       show spine₂.length - 1 + 1 = spine₂.length from by omega]
     simp only [interpExpr]
-    cases m.cod with
+    rw [ihty hne hclt.1 hbt.1 h₁ h₂]
+    cases hty2 : interpExpr V cval env φ D₂ ρ₂
+        (instSeq spine₂ (spine₂.length - 1) ty) with
     | none => rfl
-    | some vℓ =>
-      simp only []
-      rw [ihty hne hclt.1 hbt.1 h₁ h₂]
-      cases hty2 : interpExpr V cval env φ D₂ ρ₂
-          (instSeq spine₂ (spine₂.length - 1) ty) with
-      | none => rfl
-      | some A =>
-        simp only [Option.some.injEq]
-        congr 1
-        funext x
-        have hfib := ihbody (spine₁ := spine₁ ++
-            [.fvar D₁ n (instSeq spine₁ (spine₁.length - 1) ty)])
-          (spine₂ := spine₂ ++
-            [.fvar D₂ n (instSeq spine₂ (spine₂.length - 1) ty)])
-          (vs := vs ++ [x])
-          (D₁ := D₁ + 1) (D₂ := D₂ + 1)
-          (ρ₁ := updV V ρ₁ D₁ x) (ρ₂ := updV V ρ₂ D₂ x)
-          (by simp) hclt.2 (by simpa using hbt.2)
-          (FvarSpine.snoc
-            (FvarSpine.lift h₁ (Nat.le_succ D₁)
-              (fun i hi => by simp only [updV]; rw [if_neg (by omega)]))
-            ⟨D₁, n, _, rfl, by omega, by simp [updV]⟩)
-          (FvarSpine.snoc
-            (FvarSpine.lift h₂ (Nat.le_succ D₂)
-              (fun i hi => by simp only [updV]; rw [if_neg (by omega)]))
-            ⟨D₂, n, _, rfl, by omega, by simp [updV]⟩)
-        rw [instSeq_append, instSeq_append] at hfib
-        simp only [List.length_append, List.length_cons,
-          List.length_nil] at hfib
-        rw [show spine₁.length + 1 - 1 - spine₁.length = 0 from by omega,
-          show spine₂.length + 1 - 1 - spine₂.length = 0 from by omega]
-          at hfib
-        rw [show spine₁.length + 1 - 1 = spine₁.length from by omega,
-          show spine₂.length + 1 - 1 = spine₂.length from by omega]
-          at hfib
-        simp only [instSeq] at hfib
-        exact congrArg (fun o => Option.getD o SetTheory.empty) hfib
+    | some A =>
+      simp only [Option.some.injEq]
+      congr 1
+      funext x
+      have hfib := ihbody (spine₁ := spine₁ ++
+          [.fvar D₁ n (instSeq spine₁ (spine₁.length - 1) ty)])
+        (spine₂ := spine₂ ++
+          [.fvar D₂ n (instSeq spine₂ (spine₂.length - 1) ty)])
+        (vs := vs ++ [x])
+        (D₁ := D₁ + 1) (D₂ := D₂ + 1)
+        (ρ₁ := updV V ρ₁ D₁ x) (ρ₂ := updV V ρ₂ D₂ x)
+        (by simp) hclt.2 (by simpa using hbt.2)
+        (FvarSpine.snoc
+          (FvarSpine.lift h₁ (Nat.le_succ D₁)
+            (fun i hi => by simp only [updV]; rw [if_neg (by omega)]))
+          ⟨D₁, n, _, rfl, by omega, by simp [updV]⟩)
+        (FvarSpine.snoc
+          (FvarSpine.lift h₂ (Nat.le_succ D₂)
+            (fun i hi => by simp only [updV]; rw [if_neg (by omega)]))
+          ⟨D₂, n, _, rfl, by omega, by simp [updV]⟩)
+      rw [instSeq_append, instSeq_append] at hfib
+      simp only [List.length_append, List.length_cons,
+        List.length_nil] at hfib
+      rw [show spine₁.length + 1 - 1 - spine₁.length = 0 from by omega,
+        show spine₂.length + 1 - 1 - spine₂.length = 0 from by omega]
+        at hfib
+      rw [show spine₁.length + 1 - 1 = spine₁.length from by omega,
+        show spine₂.length + 1 - 1 = spine₂.length from by omega]
+        at hfib
+      simp only [instSeq] at hfib
+      exact congrArg (fun o => Option.getD o SetTheory.empty) hfib
 
 /-- The interpretation of a closed expression instantiated along a
 free-variable spine is determined by the spine's values: two spines

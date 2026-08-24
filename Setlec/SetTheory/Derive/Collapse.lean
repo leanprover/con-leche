@@ -1,115 +1,37 @@
 import Setlec.SetTheory.Basic
 
 /-!
-# Level-free `pi`/`lam` via the domain-relative point collapse (task #100)
+# Design evidence for the domain-relative point collapse (task #100)
 
-The level-free binder operators `piC`/`lamC` (with the collapse `pcol`)
-that are to replace the leveled `pi`/`lam` of `Derive/Pi.lean` in the
-annotation-erasure migration, together with their full law battery and
-the design evidence that fixed this construction.  **Nothing here is
-consumed by the checker or the current model yet**: the module lands
-ahead of the model flip (see DESIGN.md, "Annotation erasure: the
-domain-relative collapse (task #100)", for the migration order and for
-why the flip is blocked on de-gating the kernel's annotation-guarded
-reduction paths first).
+The operator layer this file validated — `pcol`/`lamC`/`piC` with the
+level-free law battery — **is landed in `Derive/Pi.lean`** (with the
+tower-formation laws in `Derive/Univ.lean`); the model consumes it
+through the vestigial-level abbrevs `pi`/`lam`.  This module keeps the
+*evidence* that fixed the construction (see DESIGN.md, "Annotation
+erasure: the domain-relative collapse"):
 
-## Verdict summary (canon-model spike, 2026-08-24)
+* the refutation of the literal proposal — a global hereditary
+  canonicalization `canon : V → V` — by two formal horns exhausting the
+  choice of `canon ∅` (`hereditary_canon_pt_not_fixed`,
+  `hereditary_canon_pi_empty_not_prop`; the root cause is that `∅` is
+  both the empty function graph and falsity, with `pt = {∅}` pinned),
+  and the forcing lemma `pi_empty_forced` showing Horn B is not an
+  artifact of chosen definitions;
 
-* The **literal proposal** — a global `canon : V → V` by ∈-induction
-  ("a set of pairs all of whose second components canonicalize to `pt`
-  collapses to `pt`; everything else canonicalizes memberwise") — is
-  **refuted**, by two formal horns exhausting the choice of `canon ∅`:
+* the prior refutation witnesses (`Setlec/Model/RawEnvNoAnnot.lean`)
+  re-run **positively**: the λ-terms `fun (_ : PUnit) => (1 : Nat)` and
+  `fun (_ : PUnit) => True.intro` now receive the *same* interpretation
+  `pt` (`lamC_witnesses_identified`), with `mem_type` for both
+  (`pt_mem_piC_punit_nat`, `pt_mem_piC_punit_true`);
 
-  - Horn A (`hereditary_canon_pt_not_fixed`): if the collapse clause
-    applies vacuously to `∅` (the empty function graph — forced if
-    `pi ∅ B` is to come out `{pt}`), then `canon ∅ = pt`, and since
-    `pt = {∅}` contains no Kuratowski pair, memberwise recursion gives
-    `canon pt = {canon ∅} = {pt} ≠ pt`: **the proof point itself is not
-    canonical**, idempotence fails at `∅`, and no interpretation value
-    of a proof can satisfy the global-canonicity invariant.
+* the formal core of the de-gating finding (the kernel's
+  annotation-guarded reduction gates are unsound to model under the
+  collapse): `⟦∀ p : Prop, p⟧ = ∅` (`piC_univZero_id_empty`) and the
+  beta-failure witness (`guarded_beta_countermodel_core`);
 
-  - Horn B (`hereditary_canon_pi_empty_not_prop`): if the collapse
-    clause is guarded to nonempty graphs, then `canon ∅ = ∅` and
-    `image canon (piSet ∅ B) = {∅} = pt ∉ univZero` — but the value of
-    an empty-domain `Prop`-product (e.g. `⟦False → False⟧`) is
-    **forced** to be `{pt}` by `mem_type` at its sort together with the
-    intro law (`pi_empty_forced`, stated generically over any level-free
-    `pi'`/`lam'` pair).  The prop-formation law therefore fails.
-
-  The root cause is extensional: `∅` is simultaneously the empty
-  function graph (which must collapse) and falsity (which must not),
-  and `pt = {∅}` is pinned by `Derive/Pt.lean`.  A secondary defect
-  (not formalized): a hereditary memberwise recursion
-  through Kuratowski pairs `{{a},{a,b}}` collapses *components* of
-  pairs that accidentally read as all-`pt` graphs, corrupting
-  `sfst`/`ssnd` on values containing `∅ = ⟦Nat.zero⟧`.
-
-* The proposal's **goal** — level-free `pi`/`lam`/`app` with the
-  `Prop` cases as theorems, evaluated per valuation so that no
-  syntactic Prop-bit is needed — is **validated** by an amended,
-  *domain-relative* collapse that needs no recursion at all:
-
-  - `pcol A g` — collapse a member `g` of `piSet A B` to `pt` iff its
-    application values on `A` are all `pt` (for `A = ∅`: vacuously);
-  - `piC A B := image (pcol A) (piSet A B)` — level-free product;
-  - `lamC A F := if (∀ x ∈ A, F x = pt) then pt else graph F A` —
-    level-free abstraction (`lamC A F = pcol A (graph F A)`,
-    `pcol_graph`);
-  - `app` unchanged (`app pt x = pt` is already the tag).
-
-  `pcol A` is injective on `piSet A B` (a graph is determined by its
-  values on its domain, and the all-`pt` graph is the unique collapsing
-  one), so `piC` is a *relabeling* of `piSet` — no information the laws
-  consume is lost.  Heredity is built into `piC`-membership (members
-  are `pcol`-fixed, `pcol_fix_of_mem_piC`); no global invariant exists
-  or is needed.
-
-## The re-derived law surface (old `Derive/Pi.lean` law ↦ new law)
-
-| old (level `v`)            | new (level-free)             | change |
-|----------------------------|------------------------------|--------|
-| `pi_zero` (def)            | `piC_prop_eq`                | becomes a **theorem** |
-| `pi_pos` (def)             | `mem_piC` / `mem_piC_cases`  | characterization |
-| `lam_zero`/`lam_pos` (def) | `lamC_of_forall`/`lamC_of_not` | collapse test replaces level test |
-| `pi_congr`/`lam_congr`     | `piC_congr`/`lamC_congr`     | verbatim (on-domain) |
-| `pi/lam_level_indifferent`, `pi/lam_congr_zero_agree` | — | **moot** (no level) |
-| `lam_mem`                  | `lamC_mem`                   | verbatim |
-| `mem_pi_zero`              | `eq_pt_of_mem_piC_prop`      | premise moves to fibres |
-| `app_mem'` (`hB0` at 0)    | `app_mem_piC`                | **fibre-universe premise deleted** |
-| `app_lam'` (`hF`+`hB0`)    | `app_lamC`                   | **both premises deleted** |
-| `lam_eta`                  | `lamC_eta`                   | verbatim |
-| `eq_of_mem_pi_app_eq`      | `eq_of_mem_piC_app_eq`       | verbatim |
-| `pi_zero_mem_univZero`     | `piC_prop_mem_univZero`      | theorem, from fibre facts |
-| `IsTGUniverse.pi_mem`      | `IsTGUniverse.piC_mem`       | verbatim (`∪ {pt}` detour) |
-| `pi_mem_univ`              | `piC_mem_univ` (+`piC_mem_univ_max`) | same statement; collapsed values may land in `univ 0`, cumulativity covers it |
-| `lam_ne_pt`                | **false** (that is the point)| consumers must re-audit |
-| `lam_dom`                  | `lamC_dom_of_ne`             | premise `v' ≠ 0` becomes `≠ pt` |
-
-The two prior refutation witnesses (`Setlec/Model/RawEnvNoAnnot.lean`)
-re-run **positively**: the λ-terms `fun (_ : PUnit) => (1 : Nat)` and
-`fun (_ : PUnit) => True.intro` now receive the *same* interpretation
-`pt` (`lamC_witnesses_identified`), and `mem_type` holds for both
-against their `∀`-types (`pt_mem_piC_punit_nat`,
-`pt_mem_piC_punit_true`) — evading `lam_interp_not_value_determined`
-exactly because the type-side target moved from `piSet` to its
-collapse image.
-
-## Basis ports (evidence)
-
-* PSigma/projection (`proj_fst_value_collapses`): over a prop-first
-  pair set the stored first-projection *value* itself collapses to
-  `pt`, and the projection law survives because the new beta is
-  premise-free; `sfst`/`ssnd` are componentwise-unconditional, so
-  pair laws with collapsed components hold verbatim
-  (`sfst_spair_collapsed`).
-* Iota with a collapsed minor premise (`natrec_iota_collapsed`): under
-  a `Prop`-valued motive the minor-premise *space* is `⊆ {pt}`, the
-  stored minor's value is forcibly `pt`, and both the firing equation
-  and the recursion-theorem membership go through with `s = pt`.
-* The full `Nat.rec.{0}`-shaped λ-tower collapses to `pt`
-  (`natrec_tower_collapses`) while its `mem_type` against the
-  `Π`-tower holds (`natrec_tower_mem`) — the graph-based `lamC_mem`
-  absorbs motives with empty fibres via `piC ∅ B = {pt}` silently.
+* the basis ports that checked out during the spike: PSigma projection
+  with a collapsed stored value, iota with a collapsed minor premise,
+  and the full `Nat.rec.{0}`-shaped λ-tower.
 -/
 
 namespace Setlec.SetTheory
@@ -118,273 +40,7 @@ universe u
 
 variable {V : Type u} [SetTheory V]
 
-/-! ## The domain-relative point collapse -/
-
-open Classical in
-/-- Collapse a function value to the proof point iff its applications
-on the domain `A` are all `pt` (vacuously so over the empty domain). -/
-noncomputable def pcol (A g : V) : V :=
-  if ∀ x, x ∈ˢ A → app g x = pt then pt else g
-
-open Classical in
-/-- Level-free abstraction: the graph, collapsed to `pt` iff all its
-values on the domain are `pt`. -/
-noncomputable def lamC (A : V) (F : V → V) : V :=
-  if ∀ x, x ∈ˢ A → F x = pt then pt else graph F A
-
-/-- Level-free dependent product: the collapse image of the raw
-dependent-function set. -/
-noncomputable def piC (A : V) (B : V → V) : V := image (pcol A) (piSet A B)
-
-theorem pcol_of_forall {A g : V} (h : ∀ x, x ∈ˢ A → app g x = pt) :
-    pcol A g = pt := by
-  unfold pcol; exact if_pos h
-
-theorem pcol_of_not {A g : V} (h : ¬ ∀ x, x ∈ˢ A → app g x = pt) :
-    pcol A g = g := by
-  unfold pcol; exact if_neg h
-
-theorem lamC_of_forall {A : V} {F : V → V} (h : ∀ x, x ∈ˢ A → F x = pt) :
-    lamC A F = pt := by
-  unfold lamC; exact if_pos h
-
-theorem lamC_of_not {A : V} {F : V → V} (h : ¬ ∀ x, x ∈ˢ A → F x = pt) :
-    lamC A F = graph F A := by
-  unfold lamC; exact if_neg h
-
-/-- Abstraction is the collapse of the graph. -/
-theorem pcol_graph {A : V} {F : V → V} : pcol A (graph F A) = lamC A F := by
-  by_cases h : ∀ x, x ∈ˢ A → F x = pt
-  · rw [pcol_of_forall (fun x hx => (app_graph hx).trans (h x hx)),
-      lamC_of_forall h]
-  · rw [pcol_of_not (fun hc => h fun x hx => (app_graph hx).symm.trans (hc x hx)),
-      lamC_of_not h]
-
-/-- The fixed-point lemma: the collapse is idempotent. -/
-theorem pcol_idem {A g : V} : pcol A (pcol A g) = pcol A g := by
-  by_cases h : ∀ x, x ∈ˢ A → app g x = pt
-  · rw [pcol_of_forall h, pcol_of_forall (fun x _hx => app_pt x)]
-  · rw [pcol_of_not h, pcol_of_not h]
-
-/-- Membership characterization of the level-free product. -/
-theorem mem_piC {A f : V} {B : V → V} :
-    f ∈ˢ piC A B ↔ ∃ g, g ∈ˢ piSet A B ∧ f = pcol A g := mem_image
-
-/-- Where the global-canonicity invariant lives: members of `piC` are
-collapse-fixed — heredity is a closure property of `piC`-membership,
-not a global condition on `V`. -/
-theorem pcol_fix_of_mem_piC {A f : V} {B : V → V} (hf : f ∈ˢ piC A B) :
-    pcol A f = f := by
-  obtain ⟨g, hg, rfl⟩ := mem_piC.mp hf
-  exact pcol_idem
-
-/-! ## Congruence -/
-
-theorem lamC_congr {A : V} {F F' : V → V} (h : ∀ x, x ∈ˢ A → F x = F' x) :
-    lamC A F = lamC A F' := by
-  by_cases hp : ∀ x, x ∈ˢ A → F x = pt
-  · rw [lamC_of_forall hp,
-      lamC_of_forall (fun x hx => (h x hx).symm.trans (hp x hx))]
-  · rw [lamC_of_not hp,
-      lamC_of_not (fun hc => hp fun x hx => (h x hx).trans (hc x hx)),
-      graph_congr h]
-
-theorem piC_congr {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x = B' x) :
-    piC A B = piC A B' := by
-  unfold piC
-  rw [piSet_congr h]
-
-/-! ## Introduction, elimination, beta, eta -/
-
-/-- Introduction: fibre-wise members abstract into the product —
-uniformly, with no level and no `Prop` side condition. -/
-theorem lamC_mem {A : V} {F B : V → V} (hF : ∀ x, x ∈ˢ A → F x ∈ˢ B x) :
-    lamC A F ∈ˢ piC A B :=
-  mem_piC.mpr ⟨graph F A, graph_mem_piSet hF, pcol_graph.symm⟩
-
-/-- Beta — with **no** fibre-membership and **no** fibre-universe
-premise (strictly stronger than the old `app_lam'`): in the collapsed
-case the collapse condition itself supplies `F a = pt`. -/
-theorem app_lamC {A a : V} {F : V → V} (ha : a ∈ˢ A) :
-    app (lamC A F) a = F a := by
-  by_cases h : ∀ x, x ∈ˢ A → F x = pt
-  · rw [lamC_of_forall h, app_pt, h a ha]
-  · rw [lamC_of_not h, app_graph ha]
-
-/-- Case split on a product member: the collapsed point (with every
-fibre over the domain containing `pt`), or an uncollapsed raw graph. -/
-theorem mem_piC_cases {A f : V} {B : V → V} (hf : f ∈ˢ piC A B) :
-    (f = pt ∧ ∀ x, x ∈ˢ A → (pt : V) ∈ˢ B x) ∨
-    (f ∈ˢ piSet A B ∧ ¬ ∀ x, x ∈ˢ A → app f x = pt) := by
-  obtain ⟨g, hg, rfl⟩ := mem_piC.mp hf
-  by_cases h : ∀ x, x ∈ˢ A → app g x = pt
-  · exact Or.inl ⟨pcol_of_forall h,
-      fun x hx => h x hx ▸ app_mem_of_mem_piSet hg hx⟩
-  · rw [pcol_of_not h]
-    exact Or.inr ⟨hg, h⟩
-
-/-- Elimination — with **no** fibre-universe premise (the old
-`app_mem'` needed the fibres to be truth values at `v = 0`; here the
-collapse condition plus `app_mem_of_mem_piSet` supply
-`pt ∈ˢ B a` directly). -/
-theorem app_mem_piC {A f a : V} {B : V → V} (hf : f ∈ˢ piC A B)
-    (ha : a ∈ˢ A) : app f a ∈ˢ B a := by
-  rcases mem_piC_cases hf with ⟨rfl, hall⟩ | ⟨hmem, -⟩
-  · rw [app_pt]; exact hall a ha
-  · exact app_mem_of_mem_piSet hmem ha
-
-/-- The point inhabits the product iff it inhabits every fibre over
-the domain (vacuously over the empty domain). -/
-theorem pt_mem_piC_iff {A : V} {B : V → V} :
-    (pt : V) ∈ˢ piC A B ↔ ∀ x, x ∈ˢ A → (pt : V) ∈ˢ B x := by
-  constructor
-  · intro h
-    rcases mem_piC_cases h with ⟨-, hall⟩ | ⟨hmem, -⟩
-    · exact hall
-    · exact absurd rfl (ne_pt_of_mem_piSet hmem)
-  · intro h
-    exact mem_piC.mpr ⟨graph (fun _ => pt) A, graph_mem_piSet h,
-      (pcol_of_forall (fun x hx => app_graph hx)).symm⟩
-
-/-- Eta: a member of the product is the abstraction of its
-applications.  In the collapsed case `app pt · = pt` re-fires the
-collapse test; in the graph case the test provably fails. -/
-theorem lamC_eta {A f : V} {B : V → V} (hf : f ∈ˢ piC A B) :
-    lamC A (fun x => app f x) = f := by
-  rcases mem_piC_cases hf with ⟨rfl, -⟩ | ⟨hmem, hne⟩
-  · exact lamC_of_forall fun x _hx => app_pt x
-  · rw [lamC_of_not hne]
-    exact eq_graph_app_of_mem_piSet hmem
-
-/-- Function extensionality for product members: on-domain agreement is
-total agreement (off-domain the collapsed point and graphs differ —
-`pt` vs `∅` junk — but eta re-canonicalizes both sides). -/
-theorem eq_of_mem_piC_app_eq {A f g : V} {B B' : V → V}
-    (hf : f ∈ˢ piC A B) (hg : g ∈ˢ piC A B')
-    (h : ∀ x, x ∈ˢ A → app f x = app g x) : f = g := by
-  rw [← lamC_eta hf, ← lamC_eta hg]
-  exact lamC_congr h
-
-/-! ## The `Prop` cases as theorems -/
-
-/-- **The old `pi_zero` definition is now a theorem**: over truth-value
-fibres the collapse image *computes* the truth value of fibre-wise
-inhabitedness. -/
-theorem piC_prop_eq {A : V} {B : V → V}
-    (hB : ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V)) :
-    piC A B = truthVal (∀ x, x ∈ˢ A → ∃ y, y ∈ˢ B x) := by
-  by_cases hin : ∀ x, x ∈ˢ A → ∃ y, y ∈ˢ B x
-  · rw [truthVal_eq_unitSet hin]
-    apply ext fun z => ?_
-    rw [mem_unitSet_iff]
-    constructor
-    · intro hz
-      obtain ⟨g, hg, rfl⟩ := mem_piC.mp hz
-      exact pcol_of_forall fun x hx =>
-        eq_pt_of_mem_univZero (hB x hx) (app_mem_of_mem_piSet hg hx)
-    · rintro rfl
-      refine pt_mem_piC_iff.mpr fun x hx => ?_
-      obtain ⟨y, hy⟩ := hin x hx
-      exact eq_pt_of_mem_univZero (hB x hx) hy ▸ hy
-  · rw [truthVal_eq_empty hin]
-    refine eq_empty fun z hz => ?_
-    obtain ⟨g, hg, -⟩ := mem_piC.mp hz
-    exact hin fun x hx => ⟨app g x, app_mem_of_mem_piSet hg hx⟩
-
-/-- Prop-formation (old `pi_zero_mem_univZero`), now conditional on the
-fibres rather than on a level. -/
-theorem piC_prop_mem_univZero {A : V} {B : V → V}
-    (hB : ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V)) :
-    piC A B ∈ˢ (univZero : V) := by
-  rw [piC_prop_eq hB]
-  exact truthVal_mem_univZero _
-
-/-- Proof irrelevance at products (old `mem_pi_zero`): members of a
-`Prop`-fibred product are the point. -/
-theorem eq_pt_of_mem_piC_prop {A f : V} {B : V → V}
-    (hB : ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V)) (hf : f ∈ˢ piC A B) :
-    f = pt :=
-  eq_pt_of_mem_univZero (piC_prop_mem_univZero hB) hf
-
-/-- The empty-domain product is truth — for *every* fibre family, `Prop`-
-or `Type`-valued alike (this is what the hereditary canon cannot
-produce; see Horn B below). -/
-theorem piC_empty (B : V → V) : piC (empty : V) B = unitSet := by
-  rw [piC_prop_eq (fun x hx => absurd hx (not_mem_empty x)),
-    truthVal_eq_unitSet (fun x hx => absurd hx (not_mem_empty x))]
-
-/-! ## Universe closure -/
-
-/-- Grothendieck-universe closure: the collapse image sits inside
-`piSet ∪ {pt}`, both members of the universe. -/
-theorem _root_.Setlec.IsTGUniverse.piC_mem {U A : V} {B : V → V}
-    (hU : IsTGUniverse (Mem (V := V)) U) (hA : A ∈ˢ U)
-    (hB : ∀ x, x ∈ˢ A → B x ∈ˢ U) : piC A B ∈ˢ U := by
-  refine hU.mem_of_subset_mem
-    (hU.binUnion_mem hA (hU.piSet_mem hA hB) (hU.unitSet_mem hA))
-    fun z hz => ?_
-  obtain ⟨g, hg, rfl⟩ := mem_piC.mp hz
-  by_cases h : ∀ x, x ∈ˢ A → app g x = pt
-  · rw [pcol_of_forall h]
-    exact mem_binUnion.mpr (Or.inr pt_mem_unitSet)
-  · rw [pcol_of_not h]
-    exact mem_binUnion.mpr (Or.inl hg)
-
-/-- Formation along the tower — the same `imax`-shaped statement as the
-old `pi_mem_univ`, but with the `v = 0` branch a consequence of the
-fibre facts rather than of the operator's level argument. -/
-theorem piC_mem_univ {u v : Nat} {A : V} {B : V → V}
-    (hA : A ∈ˢ (univ u : V)) (hB : ∀ x, x ∈ˢ A → B x ∈ˢ (univ v : V)) :
-    piC A B ∈ˢ (univ (if v = 0 then 0 else Nat.max u v) : V) := by
-  rcases Nat.eq_zero_or_pos v with rfl | hv
-  · rw [if_pos rfl, univ_zero]
-    exact piC_prop_mem_univZero fun x hx => univ_zero (V := V) ▸ hB x hx
-  · have hv' : v ≠ 0 := Nat.pos_iff_ne_zero.mp hv
-    rw [if_neg hv']
-    have hw : (Nat.max u v : Nat) ≠ 0 :=
-      fun h => hv' (Nat.le_zero.mp (h ▸ Nat.le_max_right u v))
-    exact (univ_isTGUniverse hw).piC_mem
-      (univ_mono (Nat.le_max_left u v) A hA)
-      (fun x hx => univ_mono (Nat.le_max_right u v) _ (hB x hx))
-
-/-- Collapsed values may land *smaller* (a `Type`-level product can be
-a truth value), and nothing needs exact placement: cumulativity
-recovers the unconditional `max`-level bound. -/
-theorem piC_mem_univ_max {u v : Nat} {A : V} {B : V → V}
-    (hA : A ∈ˢ (univ u : V)) (hB : ∀ x, x ∈ˢ A → B x ∈ˢ (univ v : V)) :
-    piC A B ∈ˢ (univ (Nat.max u v) : V) := by
-  have h := piC_mem_univ hA hB
-  split at h
-  · exact univ_mono (Nat.zero_le _) _ h
-  · exact h
-
-/-! ## Domain recovery (the weakened `lam_dom`) -/
-
-/-- Graphs still determine their domains — but only *uncollapsed* ones:
-the premise `v' ≠ 0 ∧ v ≠ 0` of the old `lam_dom` becomes `≠ pt`.
-Consumers that derived non-`pt`-ness from a nonzero level
-(`lam_ne_pt`) must re-derive it — and for the kernel's
-annotation-guarded beta they provably cannot (the level no longer
-bounds the value away from `pt`: an empty-domain abstraction collapses
-at every level); see DESIGN.md, "Annotation erasure", for the
-countermodel and the de-gating consequence. -/
-theorem lamC_dom_of_ne {A A' : V} {F : V → V} {B : V → V}
-    (hne : lamC A F ≠ pt) (hf : lamC A F ∈ˢ piC A' B) :
-    ∀ x, x ∈ˢ A' → x ∈ˢ A := by
-  have hnot : ¬ ∀ x, x ∈ˢ A → F x = pt := fun h => hne (lamC_of_forall h)
-  rw [lamC_of_not hnot] at hf
-  rcases mem_piC_cases hf with ⟨heq, -⟩ | ⟨hmem, -⟩
-  · exact absurd heq graph_ne_pt
-  · exact graph_dom_of_mem_piSet hmem
-
-/-! ## The prior refutation witnesses, re-run positively
-
-`Setlec/Model/RawEnvNoAnnot.lean` proved that under the *old* operators
-`fun (_ : PUnit) => (1 : Nat)` and `fun (_ : PUnit) => True.intro`
-present identical semantic data yet require distinct interpretations.
-Under the collapse they receive the **same** value `pt`, and `mem_type`
-holds for both against their `∀`-types: the structural refutation is
-evaded because the type-side target moved. -/
+/-! ## The prior refutation witnesses, re-run positively -/
 
 /-- The von Neumann `1` is the proof point (local copy of the
 `Model`-layer lemma; the `SetTheory` layer must not import it). -/
@@ -422,28 +78,12 @@ theorem pt_mem_piC_punit_true :
 
 /-! ## The de-gating finding, formal core
 
-The kernel's annotation-guarded reduction paths are unsound to model
-under the collapse (DESIGN.md, "Annotation erasure": the flip must
+The kernel's annotation-guarded reduction paths were unsound to model
+under the collapse (DESIGN.md, "Annotation erasure": the flip had to
 follow kernel de-gating).  The checkable heart: an empty-domain
 abstraction collapses to the proof point at **every** codomain sort —
 there is no `lam_ne_pt` analogue — so off-domain "beta" produces `pt`
-regardless of the body, e.g. against the body `fun _ => univZero`.
-The claim-level countermodel wrapping this into an AnnotOk-satisfiable
-guarded-beta redex (`(fun (x : ∀ p : Prop, p) => Prop) Prop`, in the
-empty environment) is in the DESIGN section, together with
-`piC_univZero_id_empty` below giving its `⟦∀ p : Prop, p⟧ = ∅`
-domain. -/
-
-/-- Every empty-domain abstraction is the point — at every codomain
-sort, since there is no sort to consult. -/
-theorem lamC_empty (F : V → V) : lamC (empty : V) F = pt :=
-  lamC_of_forall fun x hx => absurd hx (not_mem_empty x)
-
-/-- Off-domain "beta" on a collapsed abstraction yields the point,
 regardless of the body. -/
-theorem app_lamC_empty (F : V → V) (a : V) :
-    app (lamC (empty : V) F) a = pt := by
-  rw [lamC_empty, app_pt]
 
 theorem univZero_ne_pt : (univZero : V) ≠ pt := fun h =>
   not_mem_empty (pt : V)
@@ -461,11 +101,10 @@ theorem piC_univZero_id_empty : piC (univZero : V) (fun x => x) = empty := by
     obtain ⟨x, -, y', hy', hp⟩ := mem_sigmaPairs.mp this
     obtain ⟨rfl, rfl⟩ := kpair_inj hp
     exact not_mem_empty _ hy'
-  unfold piC
-  rw [hraw]
-  exact eq_empty fun z hz => by
-    obtain ⟨w, hw, -⟩ := mem_image.mp hz
-    exact not_mem_empty w hw
+  refine eq_empty fun z hz => ?_
+  obtain ⟨g, hg, -⟩ := mem_piC.mp hz
+  rw [hraw] at hg
+  exact not_mem_empty g hg
 
 /-- The beta-failure witness of the guarded-beta countermodel:
 applying the collapsed `⟦fun (x : ∀ p : Prop, p) => Prop⟧` to

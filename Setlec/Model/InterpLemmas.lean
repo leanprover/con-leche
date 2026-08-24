@@ -100,47 +100,39 @@ theorem interp_ext : ∀ (e : Expr) {d : Nat} {ρ ρ' : Nat → V},
   | .forallE n ty body m, d, ρ, ρ', h, hb => by
     simp only [fvarsBelow] at hb
     simp only [interpExpr]
-    cases m.cod with
+    rw [interp_ext ty h hb.1]
+    cases hty : interpExpr V cval env φ d ρ' ty with
     | none => rfl
-    | some v =>
-      simp only []
-      rw [interp_ext ty h hb.1]
-      cases hty : interpExpr V cval env φ d ρ' ty with
-      | none => rfl
-      | some A =>
-        simp only [Option.some.injEq]
-        congr 1
-        funext x
-        rw [interp_ext (body.instantiate1 (.fvar d n ty))
-          (ρ := updV V ρ d x) (ρ' := updV V ρ' d x)
-          (fun i hi => by
-            simp only [updV]
-            split
-            · rfl
-            · exact h i (by omega))
-          (fvarsBelow_instantiate1 0 hb.2)]
+    | some A =>
+      simp only [Option.some.injEq]
+      congr 1
+      funext x
+      rw [interp_ext (body.instantiate1 (.fvar d n ty))
+        (ρ := updV V ρ d x) (ρ' := updV V ρ' d x)
+        (fun i hi => by
+          simp only [updV]
+          split
+          · rfl
+          · exact h i (by omega))
+        (fvarsBelow_instantiate1 0 hb.2)]
   | .lam n ty body m, d, ρ, ρ', h, hb => by
     simp only [fvarsBelow] at hb
     simp only [interpExpr]
-    cases m.cod with
+    rw [interp_ext ty h hb.1]
+    cases hty : interpExpr V cval env φ d ρ' ty with
     | none => rfl
-    | some v =>
-      simp only []
-      rw [interp_ext ty h hb.1]
-      cases hty : interpExpr V cval env φ d ρ' ty with
-      | none => rfl
-      | some A =>
-        simp only [Option.some.injEq]
-        congr 1
-        funext x
-        rw [interp_ext (body.instantiate1 (.fvar d n ty))
-          (ρ := updV V ρ d x) (ρ' := updV V ρ' d x)
-          (fun i hi => by
-            simp only [updV]
-            split
-            · rfl
-            · exact h i (by omega))
-          (fvarsBelow_instantiate1 0 hb.2)]
+    | some A =>
+      simp only [Option.some.injEq]
+      congr 1
+      funext x
+      rw [interp_ext (body.instantiate1 (.fvar d n ty))
+        (ρ := updV V ρ d x) (ρ' := updV V ρ' d x)
+        (fun i hi => by
+          simp only [updV]
+          split
+          · rfl
+          · exact h i (by omega))
+        (fvarsBelow_instantiate1 0 hb.2)]
   | .app f a, d, ρ, ρ', h, hb => by
     simp only [fvarsBelow] at hb
     simp only [interpExpr]
@@ -195,39 +187,31 @@ theorem interp_shift : ∀ (e : Expr) {d p : Nat} {ρ : Nat → V} {x : V},
   | .forallE n ty body m, d, p, ρ, x, hpd, hw => by
     have hw' : WScoped d ty ∧ WScoped d body := by simpa [WScoped] using hw
     simp only [shiftFrom, interpExpr]
-    cases m.cod with
+    rw [← shiftFrom_instantiate1 hpd]
+    rw [interp_shift ty hpd hw'.1]
+    cases hty : interpExpr V cval env φ d ρ ty with
     | none => rfl
-    | some v =>
-      simp only []
-      rw [← shiftFrom_instantiate1 hpd]
-      rw [interp_shift ty hpd hw'.1]
-      cases hty : interpExpr V cval env φ d ρ ty with
-      | none => rfl
-      | some A =>
-        simp only [Option.some.injEq]
-        congr 1
-        funext x'
-        rw [← insV_updV hpd,
-          interp_shift (body.instantiate1 (.fvar d n ty))
-            (Nat.le_succ_of_le hpd) (hw'.1.instantiate1 0 hw'.2)]
+    | some A =>
+      simp only [Option.some.injEq]
+      congr 1
+      funext x'
+      rw [← insV_updV hpd,
+        interp_shift (body.instantiate1 (.fvar d n ty))
+          (Nat.le_succ_of_le hpd) (hw'.1.instantiate1 0 hw'.2)]
   | .lam n ty body m, d, p, ρ, x, hpd, hw => by
     have hw' : WScoped d ty ∧ WScoped d body := by simpa [WScoped] using hw
     simp only [shiftFrom, interpExpr]
-    cases m.cod with
+    rw [← shiftFrom_instantiate1 hpd]
+    rw [interp_shift ty hpd hw'.1]
+    cases hty : interpExpr V cval env φ d ρ ty with
     | none => rfl
-    | some v =>
-      simp only []
-      rw [← shiftFrom_instantiate1 hpd]
-      rw [interp_shift ty hpd hw'.1]
-      cases hty : interpExpr V cval env φ d ρ ty with
-      | none => rfl
-      | some A =>
-        simp only [Option.some.injEq]
-        congr 1
-        funext x'
-        rw [← insV_updV hpd,
-          interp_shift (body.instantiate1 (.fvar d n ty))
-            (Nat.le_succ_of_le hpd) (hw'.1.instantiate1 0 hw'.2)]
+    | some A =>
+      simp only [Option.some.injEq]
+      congr 1
+      funext x'
+      rw [← insV_updV hpd,
+        interp_shift (body.instantiate1 (.fvar d n ty))
+          (Nat.le_succ_of_le hpd) (hw'.1.instantiate1 0 hw'.2)]
   | .app f a, d, p, ρ, x, hpd, hw => by
     have hw' : WScoped d f ∧ WScoped d a := by simpa [WScoped] using hw
     simp only [shiftFrom, interpExpr]
@@ -312,38 +296,28 @@ theorem interp_instLevels (hcp : ConstValParams cval env)
       · rw [if_neg (by simpa [hlen] using hal), if_neg hal]
   | .forallE n ty body m, d, ρ => by
     simp only [interpExpr, instantiateLevelParams]
-    cases m.cod with
+    rw [← instantiateLevelParams_instantiate1]
+    rw [interp_instLevels hcp ty d ρ]
+    cases hty : interpExpr V cval env (Level.substFn φ ks vs) d ρ ty with
     | none => rfl
-    | some v =>
-      simp only [Option.map_some]
-      rw [← instantiateLevelParams_instantiate1]
-      rw [interp_instLevels hcp ty d ρ]
-      cases hty : interpExpr V cval env (Level.substFn φ ks vs) d ρ ty with
-      | none => rfl
-      | some A =>
-        simp only [Option.some.injEq]
-        rw [Level.eval_subst]
-        congr 1
-        funext x
-        rw [interp_instLevels hcp (body.instantiate1 (.fvar d n ty)) (d + 1)
-          (updV V ρ d x)]
+    | some A =>
+      simp only [Option.some.injEq]
+      congr 1
+      funext x
+      rw [interp_instLevels hcp (body.instantiate1 (.fvar d n ty)) (d + 1)
+        (updV V ρ d x)]
   | .lam n ty body m, d, ρ => by
     simp only [interpExpr, instantiateLevelParams]
-    cases m.cod with
+    rw [← instantiateLevelParams_instantiate1]
+    rw [interp_instLevels hcp ty d ρ]
+    cases hty : interpExpr V cval env (Level.substFn φ ks vs) d ρ ty with
     | none => rfl
-    | some v =>
-      simp only [Option.map_some]
-      rw [← instantiateLevelParams_instantiate1]
-      rw [interp_instLevels hcp ty d ρ]
-      cases hty : interpExpr V cval env (Level.substFn φ ks vs) d ρ ty with
-      | none => rfl
-      | some A =>
-        simp only [Option.some.injEq]
-        rw [Level.eval_subst]
-        congr 1
-        funext x
-        rw [interp_instLevels hcp (body.instantiate1 (.fvar d n ty)) (d + 1)
-          (updV V ρ d x)]
+    | some A =>
+      simp only [Option.some.injEq]
+      congr 1
+      funext x
+      rw [interp_instLevels hcp (body.instantiate1 (.fvar d n ty)) (d + 1)
+        (updV V ρ d x)]
   | .app f a, d, ρ => by
     simp only [interpExpr, instantiateLevelParams]
     rw [interp_instLevels hcp f d ρ, interp_instLevels hcp a d ρ]
@@ -422,34 +396,28 @@ theorem interp_renameConsts {f : Name → Name}
       · rw [if_neg hal, if_neg hal]
   | .forallE n ty body m, d, ρ => by
     simp only [interpExpr, Expr.renameConsts]
-    cases m.cod with
+    rw [← renameConsts_instantiate1]
+    rw [interp_renameConsts hro ty d ρ]
+    cases hty : interpExpr V cval env φ d ρ ty with
     | none => rfl
-    | some v =>
-      rw [← renameConsts_instantiate1]
-      rw [interp_renameConsts hro ty d ρ]
-      cases hty : interpExpr V cval env φ d ρ ty with
-      | none => rfl
-      | some A =>
-        simp only [Option.some.injEq]
-        congr 1
-        funext x
-        rw [interp_renameConsts hro (body.instantiate1 (.fvar d n ty))
-          (d + 1) (updV V ρ d x)]
+    | some A =>
+      simp only [Option.some.injEq]
+      congr 1
+      funext x
+      rw [interp_renameConsts hro (body.instantiate1 (.fvar d n ty))
+        (d + 1) (updV V ρ d x)]
   | .lam n ty body m, d, ρ => by
     simp only [interpExpr, Expr.renameConsts]
-    cases m.cod with
+    rw [← renameConsts_instantiate1]
+    rw [interp_renameConsts hro ty d ρ]
+    cases hty : interpExpr V cval env φ d ρ ty with
     | none => rfl
-    | some v =>
-      rw [← renameConsts_instantiate1]
-      rw [interp_renameConsts hro ty d ρ]
-      cases hty : interpExpr V cval env φ d ρ ty with
-      | none => rfl
-      | some A =>
-        simp only [Option.some.injEq]
-        congr 1
-        funext x
-        rw [interp_renameConsts hro (body.instantiate1 (.fvar d n ty))
-          (d + 1) (updV V ρ d x)]
+    | some A =>
+      simp only [Option.some.injEq]
+      congr 1
+      funext x
+      rw [interp_renameConsts hro (body.instantiate1 (.fvar d n ty))
+        (d + 1) (updV V ρ d x)]
   | .app g a, d, ρ => by
     simp only [interpExpr, Expr.renameConsts]
     rw [interp_renameConsts hro g d ρ, interp_renameConsts hro a d ρ]
@@ -502,40 +470,30 @@ theorem interp_params_ext (hcp : ConstValParams cval env)
       · rw [if_neg hal, if_neg hal]
   | .forallE n ty body m, d, ρ, hp => by
     simp only [allLevelParamsDefined, Bool.and_eq_true] at hp
-    obtain ⟨⟨hpty, hpbody⟩, hpcod⟩ := hp
+    obtain ⟨⟨hpty, hpbody⟩, -⟩ := hp
     simp only [interpExpr]
-    cases hc : m.cod with
+    rw [interp_params_ext hcp hφ ty d ρ hpty]
+    cases hty : interpExpr V cval env φ₂ d ρ ty with
     | none => rfl
-    | some v =>
-      simp only []
-      rw [interp_params_ext hcp hφ ty d ρ hpty]
-      cases hty : interpExpr V cval env φ₂ d ρ ty with
-      | none => rfl
-      | some A =>
-        simp only [Option.some.injEq]
-        rw [Level.eval_ext (by simpa [hc] using hpcod) hφ]
-        congr 1
-        funext x
-        rw [interp_params_ext hcp hφ (body.instantiate1 (.fvar d n ty)) (d + 1)
-          (updV V ρ d x) (allLevelParamsDefined_instantiate1 hpty 0 hpbody)]
+    | some A =>
+      simp only [Option.some.injEq]
+      congr 1
+      funext x
+      rw [interp_params_ext hcp hφ (body.instantiate1 (.fvar d n ty)) (d + 1)
+        (updV V ρ d x) (allLevelParamsDefined_instantiate1 hpty 0 hpbody)]
   | .lam n ty body m, d, ρ, hp => by
     simp only [allLevelParamsDefined, Bool.and_eq_true] at hp
-    obtain ⟨⟨hpty, hpbody⟩, hpcod⟩ := hp
+    obtain ⟨⟨hpty, hpbody⟩, -⟩ := hp
     simp only [interpExpr]
-    cases hc : m.cod with
+    rw [interp_params_ext hcp hφ ty d ρ hpty]
+    cases hty : interpExpr V cval env φ₂ d ρ ty with
     | none => rfl
-    | some v =>
-      simp only []
-      rw [interp_params_ext hcp hφ ty d ρ hpty]
-      cases hty : interpExpr V cval env φ₂ d ρ ty with
-      | none => rfl
-      | some A =>
-        simp only [Option.some.injEq]
-        rw [Level.eval_ext (by simpa [hc] using hpcod) hφ]
-        congr 1
-        funext x
-        rw [interp_params_ext hcp hφ (body.instantiate1 (.fvar d n ty)) (d + 1)
-          (updV V ρ d x) (allLevelParamsDefined_instantiate1 hpty 0 hpbody)]
+    | some A =>
+      simp only [Option.some.injEq]
+      congr 1
+      funext x
+      rw [interp_params_ext hcp hφ (body.instantiate1 (.fvar d n ty)) (d + 1)
+        (updV V ρ d x) (allLevelParamsDefined_instantiate1 hpty 0 hpbody)]
   | .app f a, d, ρ, hp => by
     simp only [allLevelParamsDefined, Bool.and_eq_true] at hp
     simp only [interpExpr]
@@ -593,35 +551,27 @@ theorem interp_mono {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none) 
   | .forallE n ty body m, d, ρ, hres => by
     simp only [constsResolve, Bool.and_eq_true] at hres
     simp only [interpExpr]
-    cases m.cod with
+    rw [interp_mono hfresh ty d ρ hres.1]
+    cases hty : interpExpr V cval env φ d ρ ty with
     | none => rfl
-    | some v =>
-      simp only []
-      rw [interp_mono hfresh ty d ρ hres.1]
-      cases hty : interpExpr V cval env φ d ρ ty with
-      | none => rfl
-      | some A =>
-        simp only [Option.some.injEq]
-        congr 1
-        funext x
-        rw [interp_mono hfresh (body.instantiate1 (.fvar d n ty)) (d + 1)
-          (updV V ρ d x) (constsResolve_instantiate1 hres.1 0 hres.2)]
+    | some A =>
+      simp only [Option.some.injEq]
+      congr 1
+      funext x
+      rw [interp_mono hfresh (body.instantiate1 (.fvar d n ty)) (d + 1)
+        (updV V ρ d x) (constsResolve_instantiate1 hres.1 0 hres.2)]
   | .lam n ty body m, d, ρ, hres => by
     simp only [constsResolve, Bool.and_eq_true] at hres
     simp only [interpExpr]
-    cases m.cod with
+    rw [interp_mono hfresh ty d ρ hres.1]
+    cases hty : interpExpr V cval env φ d ρ ty with
     | none => rfl
-    | some v =>
-      simp only []
-      rw [interp_mono hfresh ty d ρ hres.1]
-      cases hty : interpExpr V cval env φ d ρ ty with
-      | none => rfl
-      | some A =>
-        simp only [Option.some.injEq]
-        congr 1
-        funext x
-        rw [interp_mono hfresh (body.instantiate1 (.fvar d n ty)) (d + 1)
-          (updV V ρ d x) (constsResolve_instantiate1 hres.1 0 hres.2)]
+    | some A =>
+      simp only [Option.some.injEq]
+      congr 1
+      funext x
+      rw [interp_mono hfresh (body.instantiate1 (.fvar d n ty)) (d + 1)
+        (updV V ρ d x) (constsResolve_instantiate1 hres.1 0 hres.2)]
   | .app f a, d, ρ, hres => by
     simp only [constsResolve, Bool.and_eq_true] at hres
     simp only [interpExpr]
@@ -703,32 +653,24 @@ theorem interp_cval_ext {cval₁ cval₂ : ConstVal V}
       · rfl
   | .forallE n ty body m, d, ρ => by
     simp only [interpExpr]
-    cases m.cod with
+    rw [interp_cval_ext hagree ty d ρ]
+    cases hty : interpExpr V cval₂ env φ d ρ ty with
     | none => rfl
-    | some v =>
-      simp only []
-      rw [interp_cval_ext hagree ty d ρ]
-      cases hty : interpExpr V cval₂ env φ d ρ ty with
-      | none => rfl
-      | some A =>
-        simp only [Option.some.injEq]
-        congr 1
-        funext x
-        rw [interp_cval_ext hagree (body.instantiate1 (.fvar d n ty)) (d + 1) (updV V ρ d x)]
+    | some A =>
+      simp only [Option.some.injEq]
+      congr 1
+      funext x
+      rw [interp_cval_ext hagree (body.instantiate1 (.fvar d n ty)) (d + 1) (updV V ρ d x)]
   | .lam n ty body m, d, ρ => by
     simp only [interpExpr]
-    cases m.cod with
+    rw [interp_cval_ext hagree ty d ρ]
+    cases hty : interpExpr V cval₂ env φ d ρ ty with
     | none => rfl
-    | some v =>
-      simp only []
-      rw [interp_cval_ext hagree ty d ρ]
-      cases hty : interpExpr V cval₂ env φ d ρ ty with
-      | none => rfl
-      | some A =>
-        simp only [Option.some.injEq]
-        congr 1
-        funext x
-        rw [interp_cval_ext hagree (body.instantiate1 (.fvar d n ty)) (d + 1) (updV V ρ d x)]
+    | some A =>
+      simp only [Option.some.injEq]
+      congr 1
+      funext x
+      rw [interp_cval_ext hagree (body.instantiate1 (.fvar d n ty)) (d + 1) (updV V ρ d x)]
   | .app f a, d, ρ => by
     simp only [interpExpr]
     rw [interp_cval_ext hagree f d ρ, interp_cval_ext hagree a d ρ]
@@ -819,32 +761,24 @@ theorem interp_env_ext {env₁ env₂ : Env}
         rw [h]
   | .forallE n ty body m, d, ρ => by
     simp only [interpExpr]
-    cases m.cod with
+    rw [interp_env_ext henv hnat hstr ty d ρ]
+    cases hty : interpExpr V cval env₂ φ d ρ ty with
     | none => rfl
-    | some v =>
-      simp only []
-      rw [interp_env_ext henv hnat hstr ty d ρ]
-      cases hty : interpExpr V cval env₂ φ d ρ ty with
-      | none => rfl
-      | some A =>
-        simp only [Option.some.injEq]
-        congr 1
-        funext x
-        rw [interp_env_ext henv hnat hstr (body.instantiate1 (.fvar d n ty)) (d + 1) (updV V ρ d x)]
+    | some A =>
+      simp only [Option.some.injEq]
+      congr 1
+      funext x
+      rw [interp_env_ext henv hnat hstr (body.instantiate1 (.fvar d n ty)) (d + 1) (updV V ρ d x)]
   | .lam n ty body m, d, ρ => by
     simp only [interpExpr]
-    cases m.cod with
+    rw [interp_env_ext henv hnat hstr ty d ρ]
+    cases hty : interpExpr V cval env₂ φ d ρ ty with
     | none => rfl
-    | some v =>
-      simp only []
-      rw [interp_env_ext henv hnat hstr ty d ρ]
-      cases hty : interpExpr V cval env₂ φ d ρ ty with
-      | none => rfl
-      | some A =>
-        simp only [Option.some.injEq]
-        congr 1
-        funext x
-        rw [interp_env_ext henv hnat hstr (body.instantiate1 (.fvar d n ty)) (d + 1) (updV V ρ d x)]
+    | some A =>
+      simp only [Option.some.injEq]
+      congr 1
+      funext x
+      rw [interp_env_ext henv hnat hstr (body.instantiate1 (.fvar d n ty)) (d + 1) (updV V ρ d x)]
   | .app f a, d, ρ => by
     simp only [interpExpr]
     rw [interp_env_ext henv hnat hstr f d ρ, interp_env_ext henv hnat hstr a d ρ]
@@ -906,42 +840,34 @@ theorem interp_erasedEq : ∀ {e₁ e₂ : Expr}, Expr.ErasedEq e₁ e₂ →
       obtain ⟨rfl, h1, h2⟩ :
           m = m' ∧ Expr.ErasedEq ty ty' ∧ Expr.ErasedEq body body' := he
       simp only [interpExpr]
-      cases m.cod with
+      rw [interp_erasedEq h1 d ρ]
+      cases hty : interpExpr V cval env φ d ρ ty' with
       | none => rfl
-      | some v =>
-        simp only []
-        rw [interp_erasedEq h1 d ρ]
-        cases hty : interpExpr V cval env φ d ρ ty' with
-        | none => rfl
-        | some A =>
-          simp only [Option.some.injEq]
-          congr 1
-          funext x
-          rw [interp_erasedEq
-            (Expr.ErasedEq.instantiate1 h2 (show Expr.ErasedEq
-              (.fvar d n ty) (.fvar d n' ty') from rfl))
-            (d + 1) (updV V ρ d x)]
+      | some A =>
+        simp only [Option.some.injEq]
+        congr 1
+        funext x
+        rw [interp_erasedEq
+          (Expr.ErasedEq.instantiate1 h2 (show Expr.ErasedEq
+            (.fvar d n ty) (.fvar d n' ty') from rfl))
+          (d + 1) (updV V ρ d x)]
   | .lam n ty body m, e₂, he, d, ρ => by
     match e₂, he with
     | .lam n' ty' body' m', he =>
       obtain ⟨rfl, h1, h2⟩ :
           m = m' ∧ Expr.ErasedEq ty ty' ∧ Expr.ErasedEq body body' := he
       simp only [interpExpr]
-      cases m.cod with
+      rw [interp_erasedEq h1 d ρ]
+      cases hty : interpExpr V cval env φ d ρ ty' with
       | none => rfl
-      | some v =>
-        simp only []
-        rw [interp_erasedEq h1 d ρ]
-        cases hty : interpExpr V cval env φ d ρ ty' with
-        | none => rfl
-        | some A =>
-          simp only [Option.some.injEq]
-          congr 1
-          funext x
-          rw [interp_erasedEq
-            (Expr.ErasedEq.instantiate1 h2 (show Expr.ErasedEq
-              (.fvar d n ty) (.fvar d n' ty') from rfl))
-            (d + 1) (updV V ρ d x)]
+      | some A =>
+        simp only [Option.some.injEq]
+        congr 1
+        funext x
+        rw [interp_erasedEq
+          (Expr.ErasedEq.instantiate1 h2 (show Expr.ErasedEq
+            (.fvar d n ty) (.fvar d n' ty') from rfl))
+          (d + 1) (updV V ρ d x)]
   | .letE n ty vl body, e₂, he, d, ρ => by
     match e₂, he with
     | .letE n' ty' vl' body', he =>

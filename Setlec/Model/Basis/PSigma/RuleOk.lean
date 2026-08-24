@@ -185,8 +185,6 @@ theorem psigFr_annotOk_tyB {cval : ConstVal V} {A : V} :
   refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
   intro x Sx hSx hx
   refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
-  intro v hv
-  obtain rfl := Option.some.inj hv
   refine ⟨univ (ψ vN), ?_, ?_⟩
   · simp [interpExpr, Expr.instantiate1, updV, Level.eval, vN]
   · exact univ_mem_univ (ψ vN)
@@ -252,8 +250,6 @@ theorem psigFr_annotOk_tyM {cval : ConstVal V} {A B : V}
   · simp [interpExpr, Expr.instantiate1, updV]
   · intro t St hSt ht
     refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
-    intro v hv
-    obtain rfl := Option.some.inj hv
     refine ⟨univ 0, ?_, ?_⟩
     · simp [interpExpr, Expr.instantiate1, updV, Level.eval]
     · exact univ_mem_univ 0
@@ -417,8 +413,6 @@ theorem psigFr_annotOk_tyMk {cval : ConstVal V} {A B M : V}
           psigmaMkA, ConstantInfo.toConstantVal]
         try rfl
     · -- fibre-universe of `snd` (annotation `0`)
-      intro v hv
-      obtain rfl := Option.some.inj hv
       refine ⟨SetTheory.app M (SetTheory.app (SetTheory.app (SetTheory.app
         (SetTheory.app (psigmaMkVal V ψ) A) B) a) b), ?_, ?_⟩
       · simp [interpExpr, Expr.instantiate1, updV, hfindM', hvalM',
@@ -426,8 +420,6 @@ theorem psigFr_annotOk_tyMk {cval : ConstVal V} {A B M : V}
         try rfl
       · exact happM _ (hmk4 a ha b hb)
   · -- fibre-universe of `fst` (annotation `imax v 0`)
-    intro v hv
-    obtain rfl := Option.some.inj hv
     refine ⟨pi 0 (SetTheory.app B a) (fun b =>
       SetTheory.app M (SetTheory.app (SetTheory.app (SetTheory.app
         (SetTheory.app (psigmaMkVal V ψ) A) B) a) b)), ?_, ?_⟩

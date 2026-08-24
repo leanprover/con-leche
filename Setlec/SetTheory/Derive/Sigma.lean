@@ -106,6 +106,23 @@ theorem ssnd_pt : ssnd (pt : V) = pt := by
   rintro ⟨a, b, h⟩
   exact pt_ne_kpair a b h
 
+/-- A pair set is never the proof point: at level `0` it is a truth
+value, at positive levels its members are Kuratowski pairs while `pt`'s
+one member is `∅`.  (The collapse-era replacement for tag-based
+non-`pt`-ness of stored pair-set values, task #100.) -/
+theorem sigmaSet_ne_pt {w : Nat} {A : V} {B : V → V} :
+    sigmaSet w A B ≠ (pt : V) := by
+  rcases Nat.eq_zero_or_pos w with rfl | hw
+  · rw [sigmaSet_zero]
+    exact truthVal_ne_pt _
+  · rw [sigmaSet_pos (Nat.pos_iff_ne_zero.mp hw)]
+    intro h
+    have hmem : (empty : V) ∈ˢ sigmaPairs A B := by
+      rw [h]
+      exact mem_pt.mpr rfl
+    obtain ⟨a, -, b, -, hp⟩ := mem_sigmaPairs.mp hmem
+    exact kpair_ne_empty hp.symm
+
 /-- Formation along the tower, at the joint level `max u v`. -/
 theorem sigma_mem_univ {u v : Nat} {A : V} {B : V → V}
     (hA : A ∈ˢ (univ u : V)) (hB : ∀ x, x ∈ˢ A → B x ∈ˢ (univ v : V)) :

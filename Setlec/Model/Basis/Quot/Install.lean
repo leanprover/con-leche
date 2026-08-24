@@ -254,8 +254,6 @@ theorem annotOk_quot_type {cval : ConstVal V} :
         refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
         intro y Sy hSy hymem
         refine ⟨by simp [Expr.instantiate1, AnnotOk], ?_⟩
-        intro v hv
-        obtain rfl := Option.some.inj hv
         refine ⟨univ 0, ?_, ?_⟩
         · simp [Expr.instantiate1, interpExpr, Level.eval]
         · simpa [Level.eval] using univ_mem_univ 0
@@ -267,8 +265,6 @@ theorem annotOk_quot_type {cval : ConstVal V} :
             hAmem (fun _ _ => univ_mem_univ 0)
     · intro R SR hSR hRmem
       refine ⟨by simp [Expr.instantiate1, AnnotOk], ?_⟩
-      intro v hv
-      obtain rfl := Option.some.inj hv
       refine ⟨univ (ψ uN), ?_, ?_⟩
       · simp [Expr.instantiate1, interpExpr, Level.eval, uN]
       · simpa [Level.eval, uN] using univ_mem_univ (ψ uN)
@@ -388,8 +384,6 @@ theorem annotOk_quotMk_type {cval : ConstVal V}
         refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
         intro y Sy hSy hymem
         refine ⟨by simp [Expr.instantiate1, AnnotOk], ?_⟩
-        intro v hv
-        obtain rfl := Option.some.inj hv
         refine ⟨univ 0, ?_, ?_⟩
         · simp [Expr.instantiate1, interpExpr, Level.eval]
         · simpa [Level.eval] using univ_mem_univ 0
@@ -434,16 +428,12 @@ theorem annotOk_quotMk_type {cval : ConstVal V}
             try rfl
           · simp [interpExpr, Expr.instantiate1, updV]
         · -- fibre-universe of the `a` binder (annotation `u`)
-          intro v hv
-          obtain rfl := Option.some.inj hv
           refine ⟨SetTheory.app (SetTheory.app (quotVal V ψ) A) R, ?_, ?_⟩
           · simp [interpExpr, Expr.instantiate1, updV, hfindQ', hvalQ',
               quotA, ConstantInfo.toConstantVal]
             try rfl
           · simpa [Level.eval, uN] using quotVal_app₂_mem hAmem hRmem'
       · -- fibre-universe of the `r` binder (annotation `imax u u`)
-        intro v hv
-        obtain rfl := Option.some.inj hv
         refine ⟨pi (ψ uN) A (fun _ =>
           SetTheory.app (SetTheory.app (quotVal V ψ) A) R), ?_, ?_⟩
         · simp [interpExpr, Expr.instantiate1, updV, hfindQ', hvalQ',
@@ -458,8 +448,6 @@ theorem annotOk_quotMk_type {cval : ConstVal V}
           simp only [quotVal_app₂ hAmem hRmem']
           exact mkA_fibre_mem hAmem
   · -- fibre-universe of the `α` binder
-    intro v hv
-    obtain rfl := Option.some.inj hv
     refine ⟨pi (qmR (ψ uN)) (relSpace V (ψ uN) A) (fun R =>
       pi (ψ uN) A fun _ =>
         SetTheory.app (SetTheory.app (quotVal V ψ) A) R), ?_, ?_⟩
@@ -802,8 +790,6 @@ theorem annotOk_quotLift_type {cval : ConstVal V}
         refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
         intro y Sy hSy hymem
         refine ⟨by simp [Expr.instantiate1, AnnotOk], ?_⟩
-        intro v hv
-        obtain rfl := Option.some.inj hv
         refine ⟨univ 0, ?_, ?_⟩
         · simp [Expr.instantiate1, interpExpr, Level.eval]
         · simpa [Level.eval] using univ_mem_univ 0
@@ -838,8 +824,6 @@ theorem annotOk_quotLift_type {cval : ConstVal V}
             refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
             intro a Sa hSa hamem
             refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
-            intro v hv
-            obtain rfl := Option.some.inj hv
             refine ⟨B, ?_, ?_⟩
             · simp [interpExpr, Expr.instantiate1, updV]
             · simpa [Level.eval, vN] using hBmem
@@ -930,8 +914,6 @@ theorem annotOk_quotLift_type {cval : ConstVal V}
                           ConstantInfo.toConstantVal]
                         all_goals try rfl
                       · -- fibre-universe of the proof binder (annotation 0)
-                        intro v hv
-                        obtain rfl := Option.some.inj hv
                         refine ⟨SetTheory.app (SetTheory.app
                             (SetTheory.app (eqVal V (qlψ ψ)) B)
                             (SetTheory.app f a)) (SetTheory.app f b),
@@ -944,8 +926,6 @@ theorem annotOk_quotLift_type {cval : ConstVal V}
                           exact eqv_mem_univ _ _
                   · -- fibre-universe of the `b` binder (annotation
                     -- `imax 0 0`)
-                    intro v hv
-                    obtain rfl := Option.some.inj hv
                     refine ⟨pi 0 (SetTheory.app (SetTheory.app R a) b)
                       (fun _ => SetTheory.app (SetTheory.app
                         (SetTheory.app (eqVal V (qlψ ψ)) B)
@@ -956,8 +936,6 @@ theorem annotOk_quotLift_type {cval : ConstVal V}
                     · exact hDom3 R hRmem' B hBmem f hfmem' a b hamem hbmem
                 · -- fibre-universe of the `a` binder (annotation
                   -- `imax u (imax 0 0)`)
-                  intro v hv
-                  obtain rfl := Option.some.inj hv
                   refine ⟨pi 0 A (fun b' =>
                     pi 0 (SetTheory.app (SetTheory.app R a) b') fun _ =>
                       SetTheory.app (SetTheory.app
@@ -996,15 +974,11 @@ theorem annotOk_quotLift_type {cval : ConstVal V}
                     · simp [interpExpr, Expr.instantiate1, updV]
                   · intro q _Sq _hSq _hqmem
                     refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
-                    intro v hv
-                    obtain rfl := Option.some.inj hv
                     refine ⟨B, ?_, ?_⟩
                     · simp [interpExpr, Expr.instantiate1, updV]
                     · simpa [Level.eval, vN] using hBmem
                 · -- fibre-universe of the `h` binder (annotation
                   -- `imax u v`)
-                  intro v hv
-                  obtain rfl := Option.some.inj hv
                   refine ⟨pi (ψ vN)
                     (SetTheory.app (SetTheory.app (quotVal V ψ) A) R)
                     (fun _ => B), ?_, ?_⟩
@@ -1013,8 +987,6 @@ theorem annotOk_quotLift_type {cval : ConstVal V}
                     try rfl
                   · exact hQB R hRmem' B hBmem
             · -- fibre-universe of the `f` binder
-              intro v hv
-              obtain rfl := Option.some.inj hv
               refine ⟨pi (qlQ (ψ uN) (ψ vN))
                 (pi 0 A fun a' => pi 0 A fun b' =>
                   pi 0 (SetTheory.app (SetTheory.app R a') b') fun _ =>
@@ -1031,8 +1003,6 @@ theorem annotOk_quotLift_type {cval : ConstVal V}
                 try rfl
               · exact hT4 R hRmem' B hBmem f hfmem'
         · -- fibre-universe of the `β` binder
-          intro v hv
-          obtain rfl := Option.some.inj hv
           refine ⟨pi (qlV (ψ uN) (ψ vN)) (pi (ψ vN) A fun _ => B)
             (fun f' =>
               pi (qlQ (ψ uN) (ψ vN))
@@ -1052,8 +1022,6 @@ theorem annotOk_quotLift_type {cval : ConstVal V}
             try rfl
           · exact hT3 R hRmem' B hBmem
       · -- fibre-universe of the `r` binder
-        intro v hv
-        obtain rfl := Option.some.inj hv
         refine ⟨pi (qlB (ψ uN) (ψ vN)) (univ (ψ vN)) (fun B' =>
           pi (qlV (ψ uN) (ψ vN)) (pi (ψ vN) A fun _ => B') fun f' =>
             pi (qlQ (ψ uN) (ψ vN))
@@ -1072,8 +1040,6 @@ theorem annotOk_quotLift_type {cval : ConstVal V}
           try rfl
         · exact hT2 R hRmem'
   · -- fibre-universe of the `α` binder
-    intro v hv
-    obtain rfl := Option.some.inj hv
     refine ⟨pi (qlR (ψ uN) (ψ vN)) (relSpace V (ψ uN) A) (fun R' =>
       pi (qlB (ψ uN) (ψ vN)) (univ (ψ vN)) fun B' =>
         pi (qlV (ψ uN) (ψ vN)) (pi (ψ vN) A fun _ => B') fun f' =>
@@ -1261,8 +1227,6 @@ theorem annotOk_quotInd_type {cval : ConstVal V}
         refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
         intro y Sy hSy hymem
         refine ⟨by simp [Expr.instantiate1, AnnotOk], ?_⟩
-        intro v hv
-        obtain rfl := Option.some.inj hv
         refine ⟨univ 0, ?_, ?_⟩
         · simp [Expr.instantiate1, interpExpr, Level.eval]
         · simpa [Level.eval] using univ_mem_univ 0
@@ -1303,8 +1267,6 @@ theorem annotOk_quotInd_type {cval : ConstVal V}
             all_goals try rfl
           · intro x Sx hSx hxmem
             refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
-            intro v hv
-            obtain rfl := Option.some.inj hv
             refine ⟨univ 0, ?_, ?_⟩
             · simp [Expr.instantiate1, interpExpr, Level.eval]
             · simpa [Level.eval] using univ_mem_univ 0
@@ -1365,8 +1327,6 @@ theorem annotOk_quotInd_type {cval : ConstVal V}
                 rw [quotVal_app₂ hAmem hRmem']
                 exact quotMkVal_app₃_mem hAmem hRmem' hamem
               · -- fibre-universe of the `a` binder (annotation 0)
-                intro v hv
-                obtain rfl := Option.some.inj hv
                 refine ⟨SetTheory.app B (SetTheory.app (SetTheory.app
                     (SetTheory.app (quotMkVal V ψ) A) R) a), ?_, ?_⟩
                 · simp [interpExpr, Expr.instantiate1, updV, hfindMk',
@@ -1413,15 +1373,11 @@ theorem annotOk_quotInd_type {cval : ConstVal V}
                     · simp [interpExpr, Expr.instantiate1, updV]
                     · simp [interpExpr, Expr.instantiate1, updV]
                   · -- fibre-universe of the `q` binder (annotation 0)
-                    intro v hv
-                    obtain rfl := Option.some.inj hv
                     refine ⟨SetTheory.app B q, ?_, ?_⟩
                     · simp [interpExpr, Expr.instantiate1, updV]
                     · exact app_mem hBmem hqmem
                         (fun _ _ => univ_mem_univ 0)
               · -- fibre-universe of the `mk` binder
-                intro v hv
-                obtain rfl := Option.some.inj hv
                 refine ⟨pi 0 (SetTheory.app (SetTheory.app (quotVal V ψ) A)
                     R) (fun q => SetTheory.app B q), ?_, ?_⟩
                 · simp [interpExpr, Expr.instantiate1, updV, hfindQ',
@@ -1429,8 +1385,6 @@ theorem annotOk_quotInd_type {cval : ConstVal V}
                   try rfl
                 · exact hQS R hRmem' B hBmem'
           · -- fibre-universe of the `β` binder
-            intro v hv
-            obtain rfl := Option.some.inj hv
             refine ⟨pi 0 (pi 0 A fun a => SetTheory.app B
                 (SetTheory.app (SetTheory.app
                   (SetTheory.app (quotMkVal V ψ) A) R) a)) (fun _ =>
@@ -1442,8 +1396,6 @@ theorem annotOk_quotInd_type {cval : ConstVal V}
               try rfl
             · exact hT3 R hRmem' B hBmem'
       · -- fibre-universe of the `r` binder
-        intro v hv
-        obtain rfl := Option.some.inj hv
         refine ⟨pi 0 (pi 1 (SetTheory.app (SetTheory.app (quotVal V ψ) A)
             R) fun _ => univ 0) (fun B' =>
           pi 0 (pi 0 A fun a => SetTheory.app B'
@@ -1457,8 +1409,6 @@ theorem annotOk_quotInd_type {cval : ConstVal V}
           try rfl
         · exact hT2 R hRmem'
   · -- fibre-universe of the `α` binder
-    intro v hv
-    obtain rfl := Option.some.inj hv
     refine ⟨pi 0 (relSpace V (ψ uN) A) (fun R' =>
       pi 0 (pi 1 (SetTheory.app (SetTheory.app (quotVal V ψ) A) R')
         fun _ => univ 0) fun B' =>
@@ -1648,8 +1598,6 @@ theorem annotOk_quotSound_type {cval : ConstVal V}
         refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
         intro y Sy hSy hymem
         refine ⟨by simp [Expr.instantiate1, AnnotOk], ?_⟩
-        intro v hv
-        obtain rfl := Option.some.inj hv
         refine ⟨univ 0, ?_, ?_⟩
         · simp [Expr.instantiate1, interpExpr, Level.eval]
         · simpa [Level.eval] using univ_mem_univ 0
@@ -1801,8 +1749,6 @@ theorem annotOk_quotSound_type {cval : ConstVal V}
                   eqA, quotA, quotMkA, ConstantInfo.toConstantVal]
                 all_goals try rfl
               · -- fibre-universe of the proof binder (annotation 0)
-                intro v hv
-                obtain rfl := Option.some.inj hv
                 refine ⟨SetTheory.app (SetTheory.app
                     (SetTheory.app (eqVal V ψ)
                       (SetTheory.app (SetTheory.app (quotVal V ψ) A) R))
@@ -1817,8 +1763,6 @@ theorem annotOk_quotSound_type {cval : ConstVal V}
                 · rw [hEq3 R hRmem' a b hamem hbmem]
                   exact eqv_mem_univ _ _
           · -- fibre-universe of the `b` binder
-            intro v hv
-            obtain rfl := Option.some.inj hv
             refine ⟨pi 0 (SetTheory.app (SetTheory.app R a) b) (fun _ =>
               SetTheory.app (SetTheory.app (SetTheory.app (eqVal V ψ)
                 (SetTheory.app (SetTheory.app (quotVal V ψ) A) R))
@@ -1832,8 +1776,6 @@ theorem annotOk_quotSound_type {cval : ConstVal V}
               try rfl
             · exact hW R hRmem' a b hamem hbmem
         · -- fibre-universe of the `a` binder
-          intro v hv
-          obtain rfl := Option.some.inj hv
           refine ⟨pi 0 A (fun b' =>
             pi 0 (SetTheory.app (SetTheory.app R a) b') fun _ =>
               SetTheory.app (SetTheory.app (SetTheory.app (eqVal V ψ)
@@ -1848,8 +1790,6 @@ theorem annotOk_quotSound_type {cval : ConstVal V}
             try rfl
           · exact hB4 R hRmem' a hamem
       · -- fibre-universe of the `r` binder
-        intro v hv
-        obtain rfl := Option.some.inj hv
         refine ⟨pi 0 A (fun a' => pi 0 A fun b' =>
           pi 0 (SetTheory.app (SetTheory.app R a') b') fun _ =>
             SetTheory.app (SetTheory.app (SetTheory.app (eqVal V ψ)
@@ -1864,8 +1804,6 @@ theorem annotOk_quotSound_type {cval : ConstVal V}
           try rfl
         · exact hA3 R hRmem'
   · -- fibre-universe of the `α` binder
-    intro v hv
-    obtain rfl := Option.some.inj hv
     refine ⟨pi 0 (relSpace V (ψ uN) A) (fun R' =>
       pi 0 A fun a' => pi 0 A fun b' =>
         pi 0 (SetTheory.app (SetTheory.app R' a') b') fun _ =>

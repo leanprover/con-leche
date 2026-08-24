@@ -104,6 +104,15 @@ theorem truthVal_eq_unitSet {p : Prop} (hp : p) : (truthVal p : V) = unitSet := 
 theorem truthVal_eq_empty {p : Prop} (hp : ¬ p) : (truthVal p : V) = empty := by
   unfold truthVal; exact if_neg hp
 
+/-- Truth values are `∅` or `{pt}` — never the point `{∅}` itself. -/
+theorem truthVal_ne_pt (p : Prop) : (truthVal p : V) ≠ pt := by
+  intro h
+  by_cases hp : p
+  · rw [truthVal_eq_unitSet hp] at h
+    exact pt_ne_empty (mem_pt.mp (h ▸ pt_mem_unitSet))
+  · rw [truthVal_eq_empty hp] at h
+    exact pt_ne_empty h.symm
+
 theorem truthVal_congr {p q : Prop} (h : p ↔ q) :
     (truthVal p : V) = truthVal q := by
   rcases Classical.em p with hp | hp

@@ -33,13 +33,14 @@ field records that the valuation only reads its own parameters, so the
 tail is irrelevant.
 
 A `∀`-type is interpreted by opening the binder at index `d` — exactly as
-the checker does — and forming the dependent product `SetTheory.pi` over
-the domain; the Prop/Type classifier `pi` needs is the evaluation of the
-binder's stored codomain-sort annotation (`BinderMeta.cod`) — unannotated
-binders are uninterpreted.  `AnnotOk` states that annotations are
-*truthful* (each fibre lands in the annotated universe, hereditarily);
-it is established once by the annotation pass (`annotate_sound`) and is
-a hypothesis of the soundness theorems.
+the checker does — and forming the level-free dependent product
+`SetTheory.piC` over the domain (task #100: the domain-relative collapse
+needs no Prop/Type classifier, so the binder's stored codomain-sort
+annotation `BinderMeta.cod` is *not read*).  `AnnotOk` supplies the
+hereditary interpretability and fibre-universe facts the soundness
+proofs consume (with a per-assignment existential universe level per
+binder); it is established once by the annotation pass
+(`annotate_sound`) and is a hypothesis of the soundness theorems.
 
 `FvarsOk` states the typing assumptions about the (implicit) local
 context.  `EnvModel` packages a model of a whole environment.
@@ -119,23 +120,17 @@ def interpExpr (cval : ConstVal V) (env : Env) (φ : Name → Nat) :
       else none
     | none => none
   | d, ρ, .forallE n ty body m =>
-    match m.cod with
+    match interpExpr cval env φ d ρ ty with
     | none => none
-    | some v =>
-      match interpExpr cval env φ d ρ ty with
-      | none => none
-      | some A => some (pi (v.eval φ) A fun x =>
-          (interpExpr cval env φ (d + 1) (updV V ρ d x)
-            (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty)
+    | some A => some (piC A fun x =>
+        (interpExpr cval env φ (d + 1) (updV V ρ d x)
+          (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty)
   | d, ρ, .lam n ty body m =>
-    match m.cod with
+    match interpExpr cval env φ d ρ ty with
     | none => none
-    | some v =>
-      match interpExpr cval env φ d ρ ty with
-      | none => none
-      | some A => some (SetTheory.lam (v.eval φ) A fun x =>
-          (interpExpr cval env φ (d + 1) (updV V ρ d x)
-            (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty)
+    | some A => some (lamC A fun x =>
+        (interpExpr cval env φ (d + 1) (updV V ρ d x)
+          (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty)
   | d, ρ, .app f a =>
     match interpExpr cval env φ d ρ f, interpExpr cval env φ d ρ a with
     | some vf, some va => some (SetTheory.app vf va)
@@ -176,30 +171,29 @@ decreasing_by
   | (rw [Expr.sizeB_instantiate1 _ rfl]; simp [Expr.sizeB]; omega)
   | (simp [Expr.sizeB])
 
-/-- Truthfulness of the codomain-sort annotations: every `∀`-subterm is
-annotated, and over every member of the domain's interpretation the
-(defined) fibre lands in the annotated universe, hereditarily; `lam`
-bodies are covered so that the invariant survives beta reduction. -/
+/-- Hereditary interpretability and fibre-universe facts for the binder
+clauses (task #100: level-free — the stored codomain-sort annotations
+are *not read*): over every member of the domain's interpretation the
+(defined) fibre lands in *some* universe level, **uniform in the domain
+member per level assignment** (the existential sits outside the domain
+quantifier, which is what `piC_mem_univ` consumes); `lam` bodies are
+covered so that the invariant survives beta reduction. -/
 def AnnotOk (cval : ConstVal V) (env : Env) (φ : Name → Nat) :
     (d : Nat) → (ρ : Nat → V) → Expr → Prop
   | d, ρ, .forallE n ty body m =>
     AnnotOk cval env φ d ρ ty ∧
-    (∃ v, m.cod = some v) ∧
-    ∀ x A, interpExpr V cval env φ d ρ ty = some A → x ∈ˢ A →
+    ∃ vE, ∀ x A, interpExpr V cval env φ d ρ ty = some A → x ∈ˢ A →
       AnnotOk cval env φ (d + 1) (updV V ρ d x) (body.instantiate1 (.fvar d n ty)) ∧
-      ∀ v, m.cod = some v →
-        ∃ w, interpExpr V cval env φ (d + 1) (updV V ρ d x)
-            (body.instantiate1 (.fvar d n ty)) = some w ∧
-          w ∈ˢ univ (v.eval φ)
+      ∃ w, interpExpr V cval env φ (d + 1) (updV V ρ d x)
+          (body.instantiate1 (.fvar d n ty)) = some w ∧
+        w ∈ˢ univ vE
   | d, ρ, .lam n ty body m =>
     AnnotOk cval env φ d ρ ty ∧
-    (∃ v, m.cod = some v) ∧
-    ∀ x A, interpExpr V cval env φ d ρ ty = some A → x ∈ˢ A →
+    ∃ vE, ∀ x A, interpExpr V cval env φ d ρ ty = some A → x ∈ˢ A →
       AnnotOk cval env φ (d + 1) (updV V ρ d x) (body.instantiate1 (.fvar d n ty)) ∧
-      ∀ v, m.cod = some v →
-        ∃ w B, interpExpr V cval env φ (d + 1) (updV V ρ d x)
-            (body.instantiate1 (.fvar d n ty)) = some w ∧
-          w ∈ˢ B ∧ B ∈ˢ univ (v.eval φ)
+      ∃ w B, interpExpr V cval env φ (d + 1) (updV V ρ d x)
+          (body.instantiate1 (.fvar d n ty)) = some w ∧
+        w ∈ˢ B ∧ B ∈ˢ univ vE
   | d, ρ, .app f a =>
     AnnotOk cval env φ d ρ f ∧ AnnotOk cval env φ d ρ a ∧
     ∃ vf va vE A B, interpExpr V cval env φ d ρ f = some vf ∧

@@ -131,20 +131,20 @@ theorem teleLamV_mem :
         | none => rw [hs] at hstrip; exact nomatch hstrip
         | some p => rfl
       simp only [AnnotOk] at hA
-      obtain ⟨-, ⟨cod, hcod⟩, hcond⟩ := hA
-      rw [interpExpr, hcod] at hi
+      obtain ⟨-, _vE, hcond⟩ := hA
+      rw [interpExpr] at hi
       cases hdom : interpExpr V cval env φ d ρ dom with
       | none => rw [hdom] at hi; exact nomatch hi
       | some A =>
         rw [hdom] at hi
         dsimp only at hi
         obtain rfl := Option.some.inj hi
-        rw [teleLamV_forallE, hdom, hcod]
+        rw [teleLamV_forallE, hdom]
         dsimp only [Option.getD]
         refine lam_mem (V := V) ?_
         intro x hx
         obtain ⟨hAb, hwfact⟩ := hcond x A hdom hx
-        obtain ⟨w, hwi, -⟩ := hwfact cod hcod
+        obtain ⟨w, hwi, -⟩ := hwfact
         rw [hwi]
         dsimp only [Option.getD]
         refine ih (stripPis_instantiate1_isSome k body _ 0 hb) hwi hAb ?_
@@ -186,7 +186,7 @@ theorem teleLamV_fold :
       have hb' : (Expr.stripPis k (body.instantiate1 (.fvar d n dom))).isSome
           = true := stripPis_instantiate1_isSome k body _ 0 hb
       simp only [AnnotOk] at hA
-      obtain ⟨-, ⟨cod, hcod⟩, hcond⟩ := hA
+      obtain ⟨-, _vE, hcond⟩ := hA
       have hbodyS : ∀ y, y ∈ˢ A →
           TeleBody V cval env φ k (d + 1) (updV V ρ d y)
             (body.instantiate1 (.fvar d n dom))
@@ -194,7 +194,7 @@ theorem teleLamV_fold :
         intro y hy zs d₃ ρ₃ rest₃ hfit₃ hlen₃
         exact hS (y :: zs) d₃ ρ₃ rest₃ (TeleFit.cons hdom hy hfit₃)
           (by simp [hlen₃])
-      rw [teleLamV_forallE, hdom, hcod]
+      rw [teleLamV_forallE, hdom]
       dsimp only [Option.getD]
       rw [SpineFold_cons]
       have hfib : ∀ y, y ∈ˢ A →
@@ -205,22 +205,11 @@ theorem teleLamV_fold :
               (body.instantiate1 (.fvar d n dom))).getD SetTheory.empty) := by
         intro y hy
         obtain ⟨hAb, hwfact⟩ := hcond y A hdom hy
-        obtain ⟨w, hwi, -⟩ := hwfact cod hcod
+        obtain ⟨w, hwi, -⟩ := hwfact
         rw [hwi]
         dsimp only [Option.getD]
         exact teleLamV_mem k hb' hwi hAb (hbodyS y hy)
-      have hB0 : cod.eval φ = 0 → ∀ y, y ∈ˢ A →
-          ((interpExpr V cval env φ (d + 1) (updV V ρ d y)
-            (body.instantiate1 (.fvar d n dom))).getD SetTheory.empty) ∈ˢ
-            (univZero : V) := by
-        intro h0 y hy
-        obtain ⟨-, hwfact⟩ := hcond y A hdom hy
-        obtain ⟨w, hwi, hwu⟩ := hwfact cod hcod
-        rw [hwi]
-        dsimp only [Option.getD]
-        rw [h0, univ_zero] at hwu
-        exact hwu
-      rw [app_lam' (v := cod.eval φ) hx hfib hB0]
+      rw [app_lamC hx]
       obtain ⟨hAb, -⟩ := hcond x A hdom hx
       exact ih hb' hfit (by simpa using hlen) hAb (hbodyS x hx)
 

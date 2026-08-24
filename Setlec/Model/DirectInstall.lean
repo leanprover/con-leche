@@ -239,9 +239,9 @@ theorem TeleFit_interp_rest :
   | @cons d ρ n dom body m x xs d₂ ρ₂ rest A hdom hx hfit ih =>
     intro hA _
     simp only [AnnotOk] at hA
-    obtain ⟨-, ⟨cod, hcod⟩, hcond⟩ := hA
+    obtain ⟨-, _vE, hcond⟩ := hA
     obtain ⟨hAb, hwfact⟩ := hcond x A hdom hx
-    obtain ⟨w, hwi, -⟩ := hwfact cod hcod
+    obtain ⟨w, hwi, -⟩ := hwfact
     exact ih hAb ⟨w, hwi⟩
 
 /-! ### The type former's value -/

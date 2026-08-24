@@ -488,8 +488,6 @@ theorem eqFr_annotOk_tyM {cval : ConstVal V} {A a : V}
     · simp [interpExpr, Expr.instantiate1, updV]
     · intro t St hSt ht
       refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
-      intro v hv
-      obtain rfl := Option.some.inj hv
       refine ⟨univ (ψ u1N), ?_, ?_⟩
       · simp [interpExpr, Expr.instantiate1, updV, Level.eval, u1N]
       · exact univ_mem_univ (ψ u1N)

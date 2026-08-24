@@ -39,8 +39,6 @@ theorem annotOk_natRecZero_rhs {cval : ConstVal V}
     refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
     intro t A hA ht
     refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
-    intro v hv
-    obtain rfl := Option.some.inj hv
     refine ⟨univ (ψ uN), ?_, ?_⟩
     · simp [Expr.instantiate1, interpExpr, Level.eval, uN]
     · exact univ_mem_univ (ψ uN)
@@ -237,13 +235,9 @@ theorem annotOk_natRecZero_rhs {cval : ConstVal V}
               · exact hsfib n hn
         · intro s As hAs hs
           refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
-          intro v hv
-          obtain rfl := Option.some.inj hv
           refine ⟨z, SetTheory.app M natzero, ?_, hz, hMz⟩
           simp [interpExpr, Expr.instantiate1, updV]
       · -- z-cod slot: the s-λ's value and pi type
-        intro v hv
-        obtain rfl := Option.some.inj hv
         refine ⟨SetTheory.lam (ψ uN)
           (pi (enUU (ψ uN)) omega fun n =>
             pi (ψ uN) (SetTheory.app M n) fun _ =>
@@ -270,8 +264,6 @@ theorem annotOk_natRecZero_rhs {cval : ConstVal V}
             try rfl]
           exact hBin
     · -- motive-cod slot: the z-λ pack's value and pi type
-      intro v hv
-      obtain rfl := Option.some.inj hv
       refine ⟨SetTheory.lam (nrZ (ψ uN)) (SetTheory.app M natzero) fun z =>
           SetTheory.lam (ψ uN)
             (pi (enUU (ψ uN)) omega fun n =>
@@ -442,8 +434,6 @@ theorem annotOk_natRecSucc_rhs {cval : ConstVal V}
     refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
     intro t A hA ht
     refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
-    intro v hv
-    obtain rfl := Option.some.inj hv
     refine ⟨univ (ψ uN), ?_, ?_⟩
     · simp [Expr.instantiate1, interpExpr, Level.eval, uN]
     · exact univ_mem_univ (ψ uN)
@@ -706,8 +696,6 @@ theorem annotOk_natRecSucc_rhs {cval : ConstVal V}
                   -Nat.max_eq_zero_iff]
                 try rfl
             · -- n-cod slot
-              intro v hv
-              obtain rfl := Option.some.inj hv
               refine ⟨SetTheory.app (SetTheory.app s n)
                 (SetTheory.app (SetTheory.app (SetTheory.app
                   (SetTheory.app (natRecVal V ψ) M) z) s) n),
@@ -721,8 +709,6 @@ theorem annotOk_natRecSucc_rhs {cval : ConstVal V}
               · exact app_mem hsn h4 (fun _ _ => hrawP M hM n hn)
               · exact hrawP M hM n hn
           · -- s-cod slot
-            intro v hv
-            obtain rfl := Option.some.inj hv
             refine ⟨SetTheory.lam (ψ uN) omega fun n =>
               SetTheory.app (SetTheory.app s n)
                 (SetTheory.app (SetTheory.app (SetTheory.app
@@ -762,8 +748,6 @@ theorem annotOk_natRecSucc_rhs {cval : ConstVal V}
                   (SetTheory.app (natSuccVal V ψ) n))
                 omega_mem_univ (fun n hn => hrawP M hM n hn)
       · -- z-cod slot
-        intro v hv
-        obtain rfl := Option.some.inj hv
         refine ⟨SetTheory.lam (en1U (ψ uN))
           (pi (enUU (ψ uN)) omega fun n =>
             pi (ψ uN) (SetTheory.app M n) fun _ =>
@@ -820,8 +804,6 @@ theorem annotOk_natRecSucc_rhs {cval : ConstVal V}
                 (SetTheory.app (natSuccVal V ψ) n))
               omega_mem_univ (fun n hn => hrawP M hM n hn))
     · -- motive-cod slot
-      intro v hv
-      obtain rfl := Option.some.inj hv
       refine ⟨SetTheory.lam (enZ (ψ uN)) (SetTheory.app M natzero) fun z =>
         SetTheory.lam (en1U (ψ uN))
           (pi (enUU (ψ uN)) omega fun n =>

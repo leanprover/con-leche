@@ -111,48 +111,40 @@ theorem interp_substFvarAt {p : Nat} {a : Expr} {va : V}
         rw [if_pos h3]
   | .forallE n ty body m, D, hpD, ρ', hva, ha => by
     simp only [substFvarAt, interpExpr]
-    cases m.cod with
+    rw [interp_substFvarAt hwa hba ty D hpD ρ' hva ha]
+    cases hty : interpExpr V cval env φ (D + 1) ρ' ty with
     | none => rfl
-    | some v =>
-      simp only []
-      rw [interp_substFvarAt hwa hba ty D hpD ρ' hva ha]
-      cases hty : interpExpr V cval env φ (D + 1) ρ' ty with
-      | none => rfl
-      | some A =>
-        simp only [Option.some.injEq]
-        congr 1
-        funext x
-        rw [← substFvarAt_instantiate1 hpD hba body 0, delV_updV hpD]
-        rw [interp_substFvarAt hwa hba (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1)
-          (by omega) (updV V ρ' (D + 1) x)
-          (show updV V ρ' (D + 1) x p = va by
-            simp only [updV]; rw [if_neg (by omega)]; exact hva)
-          (show interpExpr V cval env φ p (updV V ρ' (D + 1) x) a = some va by
-            rw [interp_ext a (fun i hi => by
-              simp only [updV]; rw [if_neg (by omega)]) hwa.fvarsBelow]
-            exact ha)]
+    | some A =>
+      simp only [Option.some.injEq]
+      congr 1
+      funext x
+      rw [← substFvarAt_instantiate1 hpD hba body 0, delV_updV hpD]
+      rw [interp_substFvarAt hwa hba (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1)
+        (by omega) (updV V ρ' (D + 1) x)
+        (show updV V ρ' (D + 1) x p = va by
+          simp only [updV]; rw [if_neg (by omega)]; exact hva)
+        (show interpExpr V cval env φ p (updV V ρ' (D + 1) x) a = some va by
+          rw [interp_ext a (fun i hi => by
+            simp only [updV]; rw [if_neg (by omega)]) hwa.fvarsBelow]
+          exact ha)]
   | .lam n ty body m, D, hpD, ρ', hva, ha => by
     simp only [substFvarAt, interpExpr]
-    cases m.cod with
+    rw [interp_substFvarAt hwa hba ty D hpD ρ' hva ha]
+    cases hty : interpExpr V cval env φ (D + 1) ρ' ty with
     | none => rfl
-    | some v =>
-      simp only []
-      rw [interp_substFvarAt hwa hba ty D hpD ρ' hva ha]
-      cases hty : interpExpr V cval env φ (D + 1) ρ' ty with
-      | none => rfl
-      | some A =>
-        simp only [Option.some.injEq]
-        congr 1
-        funext x
-        rw [← substFvarAt_instantiate1 hpD hba body 0, delV_updV hpD]
-        rw [interp_substFvarAt hwa hba (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1)
-          (by omega) (updV V ρ' (D + 1) x)
-          (show updV V ρ' (D + 1) x p = va by
-            simp only [updV]; rw [if_neg (by omega)]; exact hva)
-          (show interpExpr V cval env φ p (updV V ρ' (D + 1) x) a = some va by
-            rw [interp_ext a (fun i hi => by
-              simp only [updV]; rw [if_neg (by omega)]) hwa.fvarsBelow]
-            exact ha)]
+    | some A =>
+      simp only [Option.some.injEq]
+      congr 1
+      funext x
+      rw [← substFvarAt_instantiate1 hpD hba body 0, delV_updV hpD]
+      rw [interp_substFvarAt hwa hba (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1)
+        (by omega) (updV V ρ' (D + 1) x)
+        (show updV V ρ' (D + 1) x p = va by
+          simp only [updV]; rw [if_neg (by omega)]; exact hva)
+        (show interpExpr V cval env φ p (updV V ρ' (D + 1) x) a = some va by
+          rw [interp_ext a (fun i hi => by
+            simp only [updV]; rw [if_neg (by omega)]) hwa.fvarsBelow]
+          exact ha)]
   | .app f b, D, hpD, ρ', hva, ha => by
     simp only [substFvarAt, interpExpr]
     rw [interp_substFvarAt hwa hba f D hpD ρ' hva ha,
@@ -277,8 +269,7 @@ theorem AnnotOk.substFvarAt {p : Nat} {a : Expr} {va : V}
     rw [← substFvarAt_instantiate1 hpD hba body 0, delV_updV hpD]
     refine ⟨AnnotOk.substFvarAt hwa hba (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1)
       (by omega) (updV V ρ' (D + 1) x) hva' ha' hAa' hbody, ?_⟩
-    intro v hv
-    obtain ⟨w, hwi, hmem⟩ := hwfact v hv
+    obtain ⟨w, hwi, hmem⟩ := hwfact
     refine ⟨w, ?_, hmem⟩
     rw [interp_substFvarAt hwa hba (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1)
       (by omega) (updV V ρ' (D + 1) x) hva' ha']
@@ -303,8 +294,7 @@ theorem AnnotOk.substFvarAt {p : Nat} {a : Expr} {va : V}
     rw [← substFvarAt_instantiate1 hpD hba body 0, delV_updV hpD]
     refine ⟨AnnotOk.substFvarAt hwa hba (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1)
       (by omega) (updV V ρ' (D + 1) x) hva' ha' hAa' hbody, ?_⟩
-    intro v hv
-    obtain ⟨w, B, hwi, hwB, hBu⟩ := hwfact v hv
+    obtain ⟨w, B, hwi, hwB, hBu⟩ := hwfact
     refine ⟨w, B, ?_, hwB, hBu⟩
     rw [interp_substFvarAt hwa hba (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1)
       (by omega) (updV V ρ' (D + 1) x) hva' ha']

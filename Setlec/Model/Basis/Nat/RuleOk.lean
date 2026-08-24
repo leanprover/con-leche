@@ -159,8 +159,6 @@ theorem natFr_annotOk_tyM {cval : ConstVal V} :
   refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
   intro t A hA ht
   refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
-  intro v hv
-  obtain rfl := Option.some.inj hv
   refine ⟨univ (ψ uN), ?_, ?_⟩
   · simp [Expr.instantiate1, interpExpr, Level.eval, uN]
   · exact univ_mem_univ (ψ uN)

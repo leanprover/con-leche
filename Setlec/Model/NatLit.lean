@@ -150,12 +150,10 @@ theorem natSuccVal_mem_pi (m : EnvModel V env)
     h6] at ht1
   rw [find?_name' hsc] at hmem1
   rw [interpClosed, interpExpr] at ht1
-  rw [h7] at ht1
   rw [interpExpr_const_nat hs] at ht1
   simp only [show ((Expr.const natName []).instantiate1
       (.fvar 0 nm (.const natName []))) = .const natName [] from rfl,
-    interpExpr_const_nat hs, Option.getD_some, Option.some.injEq,
-    Level.eval] at ht1
+    interpExpr_const_nat hs, Option.getD_some, Option.some.injEq] at ht1
   subst ht1
   exact hmem1
 
