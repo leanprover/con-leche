@@ -68,8 +68,9 @@ theorem checkDeclSPStep_run {env : Env} (henv : EnvWF env) {pd : DeclP}
       ∃ F, checkDecl (fueledOps F) env d = .ok fe'.env := by
     intro hind
     obtain ⟨hs', hext, v, ⟨henvEq, hmk⟩, F, hF⟩ :=
-      (checkDeclSP_sim henv hisok hden' hind) fe' s' h
-    refine ⟨hs'.residue, hext, hmk, F, ?_⟩
+      (checkDeclSP_sim henv hisok hres.wf.tier_off hden' hind) fe' s' h
+    refine ⟨hs'.residue (tierOffE hext hres.wf.tier_off), hext, hmk,
+      F, ?_⟩
     rw [← checkDecl_datF, henvEq]
     exact hF
   cases pd with
@@ -81,7 +82,7 @@ theorem checkDeclSPStep_run {env : Env} (henv : EnvWF env) {pd : DeclP}
         | none => checkIndDeclSF (mkFEnv env) block) s₀.flushed =
         .ok (fe', s') := h
     obtain ⟨hres', hext, hfe, F, hF⟩ :=
-      checkIndOrDirectSF_run henv hisok.residue hrun
+      checkIndOrDirectSF_run henv (hisok.residue hres.wf.tier_off) hrun
     exact ⟨hres', hext, hfe, F, hF⟩
   | defnDecl cv value hint => exact main (fun _ h => DeclP.noConfusion h)
   | thmDecl cv value => exact main (fun _ h => DeclP.noConfusion h)

@@ -28,6 +28,12 @@ open Expr EStore
 
 /-! ## Run-level toolkit -/
 
+/-- Flag-off-ness transports along store extension (task #64): every
+operation walk's `Ext` preserves the tier flag, so the boundary
+witness reaches every interior state. -/
+theorem tierOffE {st st' : EStore} (hext : Ext st st')
+    (h : st.tierTwo = false) : st'.tierTwo = false := hext.flag.trans h
+
 /-- Dissect a successful `CheckIM` bind. -/
 theorem bindI_ok {α β : Type} {x : CheckIM α} {k : α → CheckIM β}
     {s₀ : IState} {v : β} {s' : IState}
@@ -168,7 +174,8 @@ theorem checkIndMemberS_run {blockNames : List Name} {caps : IndCaps}
   | indInfo cv caps0 =>
     obtain ⟨hfe, rfl⟩ := pureI_ok h
     subst hfe
-    refine ⟨hs₂.residue, hext₂, rfl, ?_, F₁, ?_⟩
+    refine ⟨hs₂.residue (tierOffE hext₂ hwf.wf.tier_off), hext₂, rfl,
+      ?_, F₁, ?_⟩
     · exact EnvWF.cons henv (constWF_intro' htf htp
         (Expr.constsResolve_mono htr) htb
         (fun _ _ _ heq => nomatch heq)
@@ -180,7 +187,8 @@ theorem checkIndMemberS_run {blockNames : List Name} {caps : IndCaps}
   | ctorInfo cv nP nF =>
     obtain ⟨hfe, rfl⟩ := pureI_ok h
     subst hfe
-    refine ⟨hs₂.residue, hext₂, rfl, ?_, F₁, ?_⟩
+    refine ⟨hs₂.residue (tierOffE hext₂ hwf.wf.tier_off), hext₂, rfl,
+      ?_, F₁, ?_⟩
     · exact EnvWF.cons henv (constWF_intro' htf htp
         (Expr.constsResolve_mono htr) htb
         (fun _ _ _ heq => nomatch heq)
@@ -268,7 +276,8 @@ theorem provisionRecsS_run {blockNames : List Name} :
     rw [show (mkFEnv env).push (.recInfo cvA mI rP []) =
       mkFEnv ⟨.recInfo cvA mI rP [] :: env.consts⟩ from rfl] at hrec
     obtain ⟨hwf₃, hext₃, hfeS, henvS, F₂, hF₂⟩ :=
-      provisionRecsS_run rest _ henv₁ hs₂.residue hrec
+      provisionRecsS_run rest _ henv₁
+        (hs₂.residue (tierOffE hext₂ hwf.wf.tier_off)) hrec
     obtain ⟨feSelf, others⟩ := p'
     obtain ⟨hfe, rfl⟩ := pureI_ok h
     subst hfe
@@ -321,7 +330,7 @@ private theorem iotaFoldS_run {env₂ envSelf : Env}
     ∀ (checked : List (ConstantVal × Nat × Nat × List RecRule))
       (acc : FEnv) {s₀ : IState} {fe₃ : FEnv} {s' : IState},
       (∀ c ∈ checked, c.1.type.hasFvar = false) →
-      ISOK envSelf s₀ →
+      ISOK envSelf s₀ → s₀.store.tierTwo = false →
       (checked.foldlM (fun (acc : FEnv) (c : ConstantVal × Nat × Nat × List RecRule) => do
           let rules' ← checkIotaRules (sharedOps (mkFEnv envSelf)) env₂
             envSelf f c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1
@@ -335,11 +344,11 @@ private theorem iotaFoldS_run {env₂ envSelf : Env}
             c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
           pure (⟨.recInfo c.1 c.2.1 c.2.2.1 rules' :: acc.consts⟩ : Env))
           acc.env).val F = .ok fe₃.env
-  | [], acc, s₀, fe₃, s', _, hs, h => by
+  | [], acc, s₀, fe₃, s', _, hs, hoff, h => by
     obtain ⟨hfe, rfl⟩ := pureI_ok h
     subst hfe
-    exact ⟨hs.residue, Ext.refl _, fun hacc => hacc, 0, rfl⟩
-  | c :: rest, acc, s₀, fe₃, s', htys, hs, h => by
+    exact ⟨hs.residue hoff, Ext.refl _, fun hacc => hacc, 0, rfl⟩
+  | c :: rest, acc, s₀, fe₃, s', htys, hs, hoff, h => by
     rw [List.foldlM_cons] at h
     obtain ⟨acc₁, s₁, hstep, h⟩ := bindI_ok h
     obtain ⟨rules', s₂, hir, hstep⟩ := bindI_ok hstep
@@ -351,7 +360,8 @@ private theorem iotaFoldS_run {env₂ envSelf : Env}
     subst hacc₁
     obtain ⟨hwf', hext', hfe', F₂, hF₂⟩ := iotaFoldS_run henv₂ henvS rest
       (acc.push (.recInfo c.1 c.2.1 c.2.2.1 rules'))
-      (fun c' hc' => htys c' (List.mem_cons_of_mem _ hc')) hs₂ h
+      (fun c' hc' => htys c' (List.mem_cons_of_mem _ hc')) hs₂
+      (tierOffE hext₂ hoff) h
     refine ⟨hwf', Ext.trans hext₂ hext',
       fun hacc => hfe' (by rw [hacc]; rfl), max F₁ F₂, ?_⟩
     rw [List.foldlM_cons]
@@ -455,7 +465,7 @@ theorem checkIndRecsS_run {blockNames : List Name} {env₂ : Env}
   rw [hfeS] at h
   simp only [checkIotaRulesF_eq] at h
   obtain ⟨hwf', hext', hfe₃, F₂, hF₂⟩ := iotaFoldS_run henv₂ henvS checked
-    (mkFEnv env₂) htys (flushS_isok hwf₁) h
+    (mkFEnv env₂) htys (flushS_isok hwf₁) hwf₁.wf.tier_off h
   have hfe₃' : fe₃ = mkFEnv fe₃.env := hfe₃ rfl
   -- both phases at the joined fuel, for the `RulesChain` machinery
   have hF₁M : (provisionRecs fueledOpsM blockNames env₂ recs).val
@@ -539,7 +549,8 @@ theorem checkIndRecsS_run {blockNames : List Name} {env₂ : Env}
 /-- The projection-function install (mirrors `checkProjFn`). -/
 theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
     {T ctorName : Name} {lps : List Name} {nP nF i : Nat}
-    {s₀ : IState} (hs : ISOK env s₀) {fe' : FEnv} {s' : IState}
+    {s₀ : IState} (hs : ISOK env s₀) (hoff : s₀.store.tierTwo = false)
+    {fe' : FEnv} {s' : IState}
     (h : checkProjFnS (mkFEnv env) T ctorName lps nP nF i s₀ =
       .ok (fe', s')) :
     ISOKF s' ∧ Ext s₀.store s'.store ∧ fe' = mkFEnv fe'.env ∧
@@ -641,7 +652,8 @@ theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
           .plain else .inert, rhsA⟩] :: env.consts⟩ : Env) := by
     rw [checkProjFn_datF]
     exact hFnp
-  refine ⟨hs₄.residue,
+  refine ⟨hs₄.residue (tierOffE
+      (hext₁.trans (hext₂.trans (hext₂'.trans (hext₃.trans hext₄)))) hoff),
     hext₁.trans (hext₂.trans (hext₂'.trans (hext₃.trans hext₄))),
     rfl, ?_, F₁, hFn⟩
   -- the installed projection recursor is well-formed
@@ -696,7 +708,7 @@ theorem installProjFnStepS_run {env : Env} (henv : EnvWF env)
     obtain rfl : s₀.flushed = s₁ :=
       congrArg Prod.snd hflush
     obtain ⟨hwf', hext', hfe', henv', F, hF⟩ :=
-      checkProjFnS_run henv (flushS_isok hwf) h
+      checkProjFnS_run henv (flushS_isok hwf) hwf.wf.tier_off h
     refine ⟨hwf', hext', hfe', henv', F, ?_⟩
     unfold installProjFnStep
     rw [FueledM.atF_ite, if_pos hart]
@@ -895,7 +907,8 @@ theorem checkDirectProjsS_run {T C : Name} {lps : List Name} {nP nF : Nat}
       rw [hrt]; rfl
     obtain ⟨hwf', hext', hfe', henv', F₂, hF₂⟩ :=
       checkDirectProjsS_run hCf todo (i + 1) _ e₁
-        (direct_proj_wf henv hF₁p) hs₂.residue hrt' h
+        (direct_proj_wf henv hF₁p)
+        (hs₂.residue (tierOffE hext₂ hwf.wf.tier_off)) hrt' h
     refine ⟨hwf', (Ext.refl _).trans (hext₂.trans hext'), hfe', henv',
       max F₁ F₂, ?_⟩
     rw [List.range'_succ, List.foldlM_cons]
@@ -935,7 +948,8 @@ theorem checkDirectStructS_run {env : Env} (henv : EnvWF env)
   simp only [bind_assoc, pure_bind] at h
   obtain ⟨q2, s₂, hct, h⟩ := bindI_ok h
   obtain ⟨hs₂, hext₂, q2', hP2, F₂, hF₂⟩ :=
-    (checkDirectCtorS_sim henv₁ hTf (flushS_isok hs₁.residue)) q2 s₂ hct
+    (checkDirectCtorS_sim henv₁ hTf (flushS_isok
+      (hs₁.residue (tierOffE hext₁ hwf.wf.tier_off)))) q2 s₂ hct
   obtain ⟨rfl, -⟩ := hP2
   obtain ⟨env₂, cvCa⟩ := q2
   have hF₂p : checkDirectCtor (fueledOps F₂) env env₁ p cvTa
@@ -949,7 +963,8 @@ theorem checkDirectStructS_run {env : Env} (henv : EnvWF env)
   rw [checkConstantValF_eq] at h
   obtain ⟨cvRa, s₃, hcv, h⟩ := bindI_ok h
   obtain ⟨hs₃, hext₃, cvRa', hP3, F₃, hF₃⟩ :=
-    (checkConstantValS_sim henv₂ (flushS_isok hs₂.residue)) cvRa s₃ hcv
+    (checkConstantValS_sim henv₂ (flushS_isok
+      (hs₂.residue (tierOffE (hext₁.trans hext₂) hwf.wf.tier_off)))) cvRa s₃ hcv
   obtain ⟨rfl, -⟩ := hP3
   have hF₃p : checkConstantVal (fueledOps F₃) env₂ p.cvR = .ok cvRa := by
     rw [← checkConstantVal_datF]; exact hF₃
@@ -986,7 +1001,8 @@ theorem checkDirectStructS_run {env : Env} (henv : EnvWF env)
     checkDirectProjsS_run (T := p.cvT.name) (C := p.cvC.name)
       (lps := p.cvT.levelParams) (nP := p.nP) (nF := p.nF)
       (cvTa := cvTa) (cvCa := cvCa) hCf p.nF 0 _ _ henv₃
-      hs₅.residue rfl h
+      (hs₅.residue (tierOffE (hext₁.trans (hext₂.trans (hext₃.trans
+        (hext₄.trans hext₅)))) hwf.wf.tier_off)) rfl h
   obtain ⟨G, hle₁, hle₂, hle₃, hle₄, hle₅, hle₆⟩ :
       ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G ∧ F₄ ≤ G ∧ F₅ ≤ G ∧ F₆ ≤ G :=
     ⟨max F₁ (max F₂ (max F₃ (max F₄ (max F₅ F₆)))),
