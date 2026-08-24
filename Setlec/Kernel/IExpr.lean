@@ -45,8 +45,11 @@ are untouched.  The value is the high bit of the scalar-`Nat` range.
 It must stay behind this single definition: large `Nat` literals
 compile to a per-use GMP string parse in the generated C (measured
 landmine, task #64 experiments); a top-level constant is parsed once
-at initialization. -/
-def tierTag : Nat := 2 ^ 62
+at initialization.  `@[noinline]` is load-bearing: without it the
+compiler inlines the small body into every use site, re-materializing
+the literal — measured at ~9 % of a tier-two-active reduction run
+(`__gmpz_set_str` per node, task #64 wiring). -/
+@[noinline] def tierTag : Nat := 2 ^ 62
 
 /-- One interned name node: the constructors of `Setlec.Name` with the
 prefix replaced by an arena index (task #88: `O(1)` node

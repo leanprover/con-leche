@@ -565,4 +565,253 @@ def checkDeclsSPNCB (br : CheckIM Unit → CheckIM Unit) (st : WFStore)
     (mkFEnv Env.empty)).run' { store := st.raw }
   pure fe.env
 
+/-! ### The annotate-snapshot variant at the cert-skipping knot
+(`SETLEC_TIER_BRACKET=3`; see `CheckerS.lean`). -/
+
+/-- `checkDefnValPNC` with the annotate-snapshot bracket. -/
+def checkDefnValPNCB3 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
+    (value : EIdx) (hint : ReducibilityHint) : CheckIM FEnv := do
+  unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
+    throw (.invalid s!"loose bound variable in value of {cvA.name}")
+  if ← withStore (fun st => st.hasFvarI value) then
+    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
+  let s0 ← get
+  let lbase := s0.store.lnodes.size
+  let nbase := s0.store.nnodes.size
+  modify fun s => { s with store := s.store.enableTierTwo }
+  let jv ← (coreKnotNC fe checkFuel).annotate 0 value
+  unless ← withStore
+      (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
+    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
+  unless ← withStore (fun st => constsResolveFI st fe jv) do
+    throw (.invalid s!"unknown constant in value of {cvA.name}")
+  let vE ← readbackEM jv
+  let jvt ← (coreKnotNC fe checkFuel).infer 0 jv
+  let ok ← (coreKnotNC fe checkFuel).defeq 0 jvt jty
+  let h ← withStore (fun st => st.harvest)
+  set s0
+  unless ok do
+    throw (.invalid s!"type mismatch in definition {cvA.name}")
+  let jv' ← promoteM h lbase nbase jv
+  recordIConst cvA.name cvA.type jty (some (vE, jv'))
+  pure (fe.push (.defnInfo cvA vE hint))
+
+/-- `checkThmValPNC` with the annotate-snapshot bracket. -/
+def checkThmValPNCB3 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
+    (value : EIdx) : CheckIM FEnv := do
+  let jsty ← (coreKnotNC fe checkFuel).infer 0 jty
+  let ul ← opSIxNC fe 0 jsty
+  unless (← liftFueled "level comparison" (Level.isEquiv ul .zero)) do
+    throw (.invalid s!"type of theorem {cvA.name} is not a proposition")
+  unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
+    throw (.invalid s!"loose bound variable in value of {cvA.name}")
+  if ← withStore (fun st => st.hasFvarI value) then
+    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
+  let s0 ← get
+  let lbase := s0.store.lnodes.size
+  let nbase := s0.store.nnodes.size
+  modify fun s => { s with store := s.store.enableTierTwo }
+  let jv ← (coreKnotNC fe checkFuel).annotate 0 value
+  unless ← withStore
+      (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
+    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
+  unless ← withStore (fun st => constsResolveFI st fe jv) do
+    throw (.invalid s!"unknown constant in value of {cvA.name}")
+  let vE ← readbackEM jv
+  let jvt ← (coreKnotNC fe checkFuel).infer 0 jv
+  let ok ← (coreKnotNC fe checkFuel).defeq 0 jvt jty
+  let h ← withStore (fun st => st.harvest)
+  set s0
+  unless ok do
+    throw (.invalid s!"type mismatch in theorem {cvA.name}")
+  let jv' ← promoteM h lbase nbase jv
+  recordIConst cvA.name cvA.type jty (some (vE, jv'))
+  pure (fe.push (.thmInfo cvA vE))
+
+/-- `checkOpaqueValPNC` with the annotate-snapshot bracket. -/
+def checkOpaqueValPNCB3 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
+    (value : EIdx) : CheckIM FEnv := do
+  unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
+    throw (.invalid s!"loose bound variable in value of {cvA.name}")
+  if ← withStore (fun st => st.hasFvarI value) then
+    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
+  let s0 ← get
+  modify fun s => { s with store := s.store.enableTierTwo }
+  let jv ← (coreKnotNC fe checkFuel).annotate 0 value
+  unless ← withStore
+      (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
+    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
+  unless ← withStore (fun st => constsResolveFI st fe jv) do
+    throw (.invalid s!"unknown constant in value of {cvA.name}")
+  let jvt ← (coreKnotNC fe checkFuel).infer 0 jv
+  let ok ← (coreKnotNC fe checkFuel).defeq 0 jvt jty
+  set s0
+  unless ok do
+    throw (.invalid s!"type mismatch in opaque {cvA.name}")
+  recordIConst cvA.name cvA.type jty none
+  pure (fe.push (.axiomInfo cvA))
+
+/-- `checkDeclSPNC` with the annotate-snapshot bracket. -/
+def checkDeclSPNCB3 (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
+  match pd with
+  | .defnDecl cv value hint => do
+    let (cvA, jty) ← checkConstantValPNC fe cv
+    if natOpNames.contains cvA.name || natDivModNames.contains cvA.name then
+      checkDeclSPNC fe pd
+    else
+      checkDefnValPNCB3 fe cvA jty value hint
+  | .thmDecl cv value => do
+    let (cvA, jty) ← checkConstantValPNC fe cv
+    checkThmValPNCB3 fe cvA jty value
+  | .opaqueDecl cv value => do
+    let (cvA, jty) ← checkConstantValPNC fe cv
+    if reduceOpNames.contains cvA.name then
+      let fe2 ← checkOpaqueValPNC fe cvA jty value
+      let vE ← readbackEM value
+      checkReducePinF (sharedOpsNC fe) fe fe2 cvA.name vE
+      pure fe2
+    else
+      checkOpaqueValPNCB3 fe cvA jty value
+  | _ => checkDeclSPNC fe pd
+
+/-- `checkDeclSPStepNC` with the annotate-snapshot checker. -/
+def checkDeclSPStepNCB3 (n0 : Nat) (fe : FEnv) (pd : DeclP) :
+    CheckIM FEnv := do
+  unless pd.inRangeB n0 do
+    throw (.internal "parsed declaration index out of range")
+  flushS
+  checkDeclSPNCB3 fe pd
+
+/-- `checkDeclsSPNC` with the annotate-snapshot step. -/
+def checkDeclsSPNCB3 (st : WFStore) (pds : List DeclP) : CheckM Env := do
+  let fe ← (pds.foldlM (checkDeclSPStepNCB3 st.raw.nodes.size)
+    (mkFEnv Env.empty)).run' { store := st.raw }
+  pure fe.env
+
+/-! ### The in-place annotate-snapshot variant at the cert-skipping
+knot (`SETLEC_TIER_BRACKET=4`; see `CheckerS.lean`). -/
+
+/-- `checkDefnValPNC` with the in-place annotate-snapshot bracket. -/
+def checkDefnValPNCB4 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
+    (value : EIdx) (hint : ReducibilityHint) : CheckIM FEnv := do
+  unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
+    throw (.invalid s!"loose bound variable in value of {cvA.name}")
+  if ← withStore (fun st => st.hasFvarI value) then
+    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
+  modify fun s =>
+    let st := s.store
+    let s := { s with store := EStore.empty }
+    { s with store := st.enableTierTwo }
+  let jv ← (coreKnotNC fe checkFuel).annotate 0 value
+  unless ← withStore
+      (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
+    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
+  unless ← withStore (fun st => constsResolveFI st fe jv) do
+    throw (.invalid s!"unknown constant in value of {cvA.name}")
+  let vE ← readbackEM jv
+  let jvt ← (coreKnotNC fe checkFuel).infer 0 jv
+  let ok ← (coreKnotNC fe checkFuel).defeq 0 jvt jty
+  let jv' ← closeSnapshotM jv
+  unless ok do
+    throw (.invalid s!"type mismatch in definition {cvA.name}")
+  recordIConst cvA.name cvA.type jty (some (vE, jv'))
+  pure (fe.push (.defnInfo cvA vE hint))
+
+/-- `checkThmValPNC` with the in-place annotate-snapshot bracket. -/
+def checkThmValPNCB4 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
+    (value : EIdx) : CheckIM FEnv := do
+  let jsty ← (coreKnotNC fe checkFuel).infer 0 jty
+  let ul ← opSIxNC fe 0 jsty
+  unless (← liftFueled "level comparison" (Level.isEquiv ul .zero)) do
+    throw (.invalid s!"type of theorem {cvA.name} is not a proposition")
+  unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
+    throw (.invalid s!"loose bound variable in value of {cvA.name}")
+  if ← withStore (fun st => st.hasFvarI value) then
+    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
+  modify fun s =>
+    let st := s.store
+    let s := { s with store := EStore.empty }
+    { s with store := st.enableTierTwo }
+  let jv ← (coreKnotNC fe checkFuel).annotate 0 value
+  unless ← withStore
+      (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
+    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
+  unless ← withStore (fun st => constsResolveFI st fe jv) do
+    throw (.invalid s!"unknown constant in value of {cvA.name}")
+  let vE ← readbackEM jv
+  let jvt ← (coreKnotNC fe checkFuel).infer 0 jv
+  let ok ← (coreKnotNC fe checkFuel).defeq 0 jvt jty
+  let jv' ← closeSnapshotM jv
+  unless ok do
+    throw (.invalid s!"type mismatch in theorem {cvA.name}")
+  recordIConst cvA.name cvA.type jty (some (vE, jv'))
+  pure (fe.push (.thmInfo cvA vE))
+
+/-- `checkOpaqueValPNC` with the in-place annotate-snapshot bracket
+(nothing stored, nothing promoted). -/
+def checkOpaqueValPNCB4 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
+    (value : EIdx) : CheckIM FEnv := do
+  unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
+    throw (.invalid s!"loose bound variable in value of {cvA.name}")
+  if ← withStore (fun st => st.hasFvarI value) then
+    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
+  modify fun s =>
+    let st := s.store
+    let s := { s with store := EStore.empty }
+    { s with store := st.enableTierTwo }
+  let jv ← (coreKnotNC fe checkFuel).annotate 0 value
+  unless ← withStore
+      (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
+    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
+  unless ← withStore (fun st => constsResolveFI st fe jv) do
+    throw (.invalid s!"unknown constant in value of {cvA.name}")
+  let jvt ← (coreKnotNC fe checkFuel).infer 0 jv
+  let ok ← (coreKnotNC fe checkFuel).defeq 0 jvt jty
+  modify fun s =>
+    let st := s.store
+    let s := { s with store := EStore.empty }
+    let s := s.flushed
+    { s with store := st.truncateTierTwo }
+  unless ok do
+    throw (.invalid s!"type mismatch in opaque {cvA.name}")
+  recordIConst cvA.name cvA.type jty none
+  pure (fe.push (.axiomInfo cvA))
+
+/-- `checkDeclSPNC` with the in-place annotate-snapshot bracket. -/
+def checkDeclSPNCB4 (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
+  match pd with
+  | .defnDecl cv value hint => do
+    let (cvA, jty) ← checkConstantValPNC fe cv
+    if natOpNames.contains cvA.name || natDivModNames.contains cvA.name then
+      checkDeclSPNC fe pd
+    else
+      checkDefnValPNCB4 fe cvA jty value hint
+  | .thmDecl cv value => do
+    let (cvA, jty) ← checkConstantValPNC fe cv
+    checkThmValPNCB4 fe cvA jty value
+  | .opaqueDecl cv value => do
+    let (cvA, jty) ← checkConstantValPNC fe cv
+    if reduceOpNames.contains cvA.name then
+      let fe2 ← checkOpaqueValPNC fe cvA jty value
+      let vE ← readbackEM value
+      checkReducePinF (sharedOpsNC fe) fe fe2 cvA.name vE
+      pure fe2
+    else
+      checkOpaqueValPNCB4 fe cvA jty value
+  | _ => checkDeclSPNC fe pd
+
+/-- `checkDeclSPStepNC` with the in-place annotate-snapshot checker. -/
+def checkDeclSPStepNCB4 (n0 : Nat) (fe : FEnv) (pd : DeclP) :
+    CheckIM FEnv := do
+  unless pd.inRangeB n0 do
+    throw (.internal "parsed declaration index out of range")
+  flushS
+  checkDeclSPNCB4 fe pd
+
+/-- `checkDeclsSPNC` with the in-place annotate-snapshot step. -/
+def checkDeclsSPNCB4 (st : WFStore) (pds : List DeclP) : CheckM Env := do
+  let fe ← (pds.foldlM (checkDeclSPStepNCB4 st.raw.nodes.size)
+    (mkFEnv Env.empty)).run' { store := st.raw }
+  pure fe.env
+
 end Setlec

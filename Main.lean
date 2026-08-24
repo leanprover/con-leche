@@ -190,16 +190,24 @@ def checkMain (file : String) (yolo : Bool) (pre : Bool) : IO UInt32 := do
       | some "1" => some bracketCheckS
       | some "2" => some bracketCheckS2
       | _ => none
-    let stepF := match noCerts, br with
-      | true, some br => checkDeclSPStepNCB br
-      | true, none => checkDeclSPStepNC
-      | false, some br => checkDeclSPStepB br
-      | false, none => checkDeclSPStep
-    let foldF := match noCerts, br with
-      | true, some br => checkDeclsSPNCB br
-      | true, none => checkDeclsSPNC
-      | false, some br => checkDeclsSPB br
-      | false, none => checkDeclsSP
+    let stepF := match noCerts, bracketMode, br with
+      | true, some "3", _ => checkDeclSPStepNCB3
+      | true, some "4", _ => checkDeclSPStepNCB4
+      | true, _, some br => checkDeclSPStepNCB br
+      | true, _, none => checkDeclSPStepNC
+      | false, some "3", _ => checkDeclSPStepB3
+      | false, some "4", _ => checkDeclSPStepB4
+      | false, _, some br => checkDeclSPStepB br
+      | false, _, none => checkDeclSPStep
+    let foldF := match noCerts, bracketMode, br with
+      | true, some "3", _ => checkDeclsSPNCB3
+      | true, some "4", _ => checkDeclsSPNCB4
+      | true, _, some br => checkDeclsSPNCB br
+      | true, _, none => checkDeclsSPNC
+      | false, some "3", _ => checkDeclsSPB3
+      | false, some "4", _ => checkDeclsSPB4
+      | false, _, some br => checkDeclsSPB br
+      | false, _, none => checkDeclsSP
     -- Streaming frontend (task #57): the preprocessor writes to a temp
     -- file and the parse reads line by line — no wholesale text buffer
     -- in this process; retained memory is the parse arena plus the
