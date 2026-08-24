@@ -571,6 +571,60 @@ theorem ensureSortI_sim (ih : SSimI env f) {d : Nat} {i : EIdx} {e : Expr}
 
   | proj s'ᵢ j e' => invert_node hd; exact SimAt.throw
 
+/-- The **codomain-sort memo** (task #100) simulates the fueled
+`codOfF`: a cache hit consumes the backed entry at the call's depth, a
+miss runs `infer` then `ensureSort` and re-inserts the result in the
+depth-universal form, exactly as the entry-point memos do. -/
+theorem codOfI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat}
+    {i : EIdx} {e : Expr} {s₀ : IState} (hs : ISOK env s₀)
+    (hden : s₀.store.denote i = some e) (hw : WScoped d e) :
+    SimAt env s₀ RelL (codOfI (coreKnotI (mkFEnv env) f) d i)
+      (codOfF env d e) := by
+  have hbody : SimAt env s₀ RelL
+      (codOfBodyI (coreKnotI (mkFEnv env) f) d i) (codOfF env d e) :=
+    SimAt.bind (ih.infer hs hden hw)
+      (fun _ _ _ hs₁ _ hP => ensureSortI_sim ih hs₁ hP.1 hP.2)
+  intro v' s' hr
+  rw [show codOfI (coreKnotI (mkFEnv env) f) d i =
+    memoLI (·.codOfC) (fun st mp => { st with codOfC := mp })
+      (fun d e => codOfBodyI (coreKnotI (mkFEnv env) f) d e) d i from rfl] at hr
+  simp only [memoLI, Bind.bind, StateT.bind, get, getThe,
+    MonadStateOf.get, StateT.get, pure, StateT.pure, Except.pure,
+    Except.bind] at hr
+  cases hl : s₀.codOfC[i]? with
+  | some u =>
+    rw [hl] at hr
+    simp only [pure, StateT.pure, Except.pure, Except.ok.injEq] at hr
+    obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
+    obtain ⟨a, l, hia, hul, F, hall⟩ := hs.codOfC i _ hl
+    rw [hden] at hia
+    cases hia
+    exact ⟨hs, Ext.refl _, l, hul, F, by
+      rw [codOfF_atF]; exact hall d hw.to_wscopedB⟩
+  | none =>
+    rw [hl] at hr
+    try dsimp only at hr
+    try simp only [StateT.bind] at hr
+    cases hb : codOfBodyI (coreKnotI (mkFEnv env) f) d i s₀ with
+    | error err =>
+      rw [hb] at hr
+      simp only [Bind.bind, Except.bind] at hr
+      exact nomatch hr
+    | ok pr =>
+      obtain ⟨r, s₁⟩ := pr
+      rw [hb] at hr
+      simp only [Bind.bind, Except.bind, modify, modifyGet,
+        MonadStateOf.modifyGet, StateT.modifyGet, StateT.pure, pure,
+        Except.pure, Except.ok.injEq] at hr
+      obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
+      obtain ⟨hs₁, hext₁, l, hrv, F, hF⟩ := hbody r s₁ hb
+      rw [codOfF_atF] at hF
+      have hins := hs₁.insertCodOfC (denote_mono hext₁ hden) hrv
+        ⟨F, fun d' hd' => by
+          rw [codOfCore_depth_inv henv F hd' hw.to_wscopedB]
+          exact hF⟩
+      exact ⟨hins, hext₁, l, hrv, F, by rw [codOfF_atF]; exact hF⟩
+
 /-- `litToCtorIfNatI` computes (an index denoting) the spec's
 `litToCtorIfNat`. -/
 theorem litToCtorIfNatI_eff {s₀ : IState} (hs : ISOK env s₀)
