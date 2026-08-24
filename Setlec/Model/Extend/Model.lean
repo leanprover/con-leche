@@ -62,7 +62,19 @@ theorem extend_model {env : Env} (m : EnvModel V env)
         (∀ ψ : Name → Nat,
           interpClosed V m.val env ψ value = some (val' name ψ)) →
         (∀ n, n ≠ name → ∀ ψ' : Name → Nat, val' n ψ' = m.val n ψ') →
-        DivModEqs V val' name) :
+        DivModEqs V val' name)
+    (hreduce : reduceOpNames.contains name = true →
+      (∃ cv₀, c₀ = ConstantInfo.axiomInfo cv₀ ∧
+        ConstantVal.matchesPin cv₀ (reduceOpCvA name) = true) →
+      ((⟨c₀ :: env.consts⟩ : Env).find? (reduceElemName name)).isSome
+        = true ∧
+      ∀ val' : ConstVal V,
+        (∀ ψ : Name → Nat,
+          interpClosed V m.val env ψ value = some (val' name ψ)) →
+        (∀ n, n ≠ name → ∀ ψ' : Name → Nat, val' n ψ' = m.val n ψ') →
+        ∀ (ψ : Name → Nat) (x : V),
+          x ∈ˢ val' (reduceElemName name) ψ →
+          SetTheory.app (val' name ψ) x = x) :
     Nonempty (EnvModel V ⟨c₀ :: env.consts⟩) := by
   have hc₀fresh : env.find? c₀.name = none := by
     rw [hc₀name]
@@ -194,6 +206,32 @@ theorem extend_model {env : Env} (m : EnvModel V env)
       exact hv₀ ψ
     · intro n hne ψ'
       exact hagreeN n (by rw [hc₀name]; exact hne) ψ'
+  -- the head clause of `ReduceOpsOk`: value-level, so the certification
+  -- facts transfer to any valuation agreeing off the head
+  have hreducehead : ∀ val' : ConstVal V,
+      (∀ ψ : Name → Nat, val' c₀.name ψ = v₀f ψ) →
+      (∀ n, n ≠ c₀.name → ∀ ψ' : Name → Nat, val' n ψ' = m.val n ψ') →
+      ∀ cv₀, c₀ = .axiomInfo cv₀ → c₀.name ∈ reduceOpNames →
+      ConstantVal.matchesPin cv₀ (reduceOpCvA c₀.name) = true →
+      ((⟨c₀ :: env.consts⟩ : Env).find? (reduceElemName c₀.name)).isSome
+        = true ∧
+      ∀ (ψ : Name → Nat) (x : V),
+        x ∈ˢ val' (reduceElemName c₀.name) ψ →
+        SetTheory.app (val' c₀.name ψ) x = x := by
+    intro val' hvhead hagreeN cv₀ heq hcn hpin
+    rw [hc₀name] at hcn
+    have hcontains : reduceOpNames.contains name = true :=
+      List.contains_iff_mem.mpr hcn
+    obtain ⟨hsome, hidGen⟩ := hreduce hcontains
+      ⟨cv₀, heq, by rw [← hc₀name]; exact hpin⟩
+    refine ⟨by rw [hc₀name]; exact hsome, ?_⟩
+    rw [hc₀name]
+    refine hidGen val' ?_ ?_
+    · intro ψ
+      rw [← hc₀name, hvhead ψ]
+      exact hv₀ ψ
+    · intro n hne ψ'
+      exact hagreeN n (by rw [hc₀name]; exact hne) ψ'
   obtain ⟨m', -, -⟩ := extend_fresh m c₀ v₀f hc₀fresh hwf htyres0
     (fun cv2 value2 h2 heq => by
       obtain ⟨-, rfl⟩ := hc₀val cv2 value2 h2 heq
@@ -267,5 +305,6 @@ theorem extend_model {env : Env} (m : EnvModel V env)
         simp [ConstantInfo.isBasis] at hc₀nb)
     hnatophead
     hdivmodhead
+    hreducehead
   exact ⟨m'⟩
 end Setlec

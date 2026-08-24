@@ -1,4 +1,5 @@
 import Setlec.Kernel.Modeled
+import Setlec.Kernel.TrustAxioms
 
 /-!
 # The checker
@@ -394,8 +395,13 @@ def checkThmVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
 
 /-- Check an `opaque` declaration's value against its checked
 constant: exactly the theorem check without the is-a-proposition
-requirement.  The result is stored as a `thmInfo` — "checked value,
-never delta-unfolded" is precisely opaque semantics. -/
+requirement.  The result is stored as an `axiomInfo` — the checked
+value is a *realizability witness*, consumed by the model extension
+and then discarded: the official kernel's `is_delta` never unfolds an
+opaque (unlike theorems, task #66), so storing the value in an
+unfoldable kind would be a reduction-strategy superset (it would
+e.g. compute `Lean.reduceBool b` where the reference kernels are
+stuck; the task-#95 honest limit relies on that stuckness). -/
 def checkOpaqueVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
     (value : Expr) : m Env := do
   unless value.looseBVarsBounded 0 do
@@ -410,7 +416,7 @@ def checkOpaqueVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
   let vtype ← ops.inferType env 0 value
   unless ← ops.isDefEq env 0 vtype cv.type do
     throw (.invalid s!"type mismatch in opaque {cv.name}")
-  pure ⟨.thmInfo cv value :: env.consts⟩
+  pure ⟨.axiomInfo cv :: env.consts⟩
 /-- Certify a list of recurrence equations by definitional equality
 (at depth 2: the equations' variables are `fvar 0`/`fvar 1`). -/
 def certifyNatEqs (ops : CheckerOps m) (env : Env) :
@@ -650,6 +656,43 @@ def checkDivModPin (ops : CheckerOps m) (env env2 : Env) (c : Name) :
   else throw (.notImplemented
     s!"unsupported Nat.div/mod environment ({c})")
 
+/-- The `Lean.reduceNat`/`Lean.reduceBool` install gate, run after the
+ordinary opaque check (`env2` is the already-extended environment,
+`env` the pre-insertion one the comparisons run in; `value` the
+declaration's raw witness value, annotated again here — the stored
+constant is an `axiomInfo`, which carries no value):
+
+* the stored constant must carry the pinned type;
+* the witness value must be definitionally equal to the build-time pin
+  of the toolchain's own defining expression
+  (`Setlec/Kernel/TrustPins.lean`) — toolchain drift surfaces as a
+  decline (exit 2), never silently;
+* the *identity certificate*: `value x ≡ x` over an opened `fvar` at
+  the element type.  This is what the model consumes
+  (`EnvModel.reduce_ops`): with the operation interpreted as the
+  identity, the `ofReduce*` axioms' types are trivially inhabited.  A
+  certificate failure after the pin matched is an internal
+  inconsistency (the pin *is* the identity function). -/
+def checkReducePin (ops : CheckerOps m) (env env2 : Env) (c : Name)
+    (value : Expr) : m Unit := do
+  if reduceStoredOk env2 c && reduceElemOk env c then
+    if reducePinGuard env c then do
+      let valA ← ops.annotate env 0 value
+      let pinA ← ops.annotate env 0 (reduceDeclPin c)
+      let okPin ← ops.isDefEq env 0 valA pinA
+      if okPin then do
+        let x := reduceCertVar c
+        let ok ← ops.isDefEq env 1 (.app valA x) x
+        if ok then pure ()
+        else throw (.internal
+          s!"pinned compiler-trust opaque is not the identity ({c})")
+      else throw (.notImplemented
+        s!"unsupported compiler-trust opaque spelling ({c})")
+    else throw (.notImplemented
+      s!"unsupported compiler-trust opaque spelling ({c}: pin ground constants absent)")
+  else throw (.notImplemented
+    s!"unsupported compiler-trust opaque declaration ({c})")
+
 /-- Check a single declaration, extending the environment on success. -/
 def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
   match d with
@@ -697,27 +740,56 @@ def checkDecl (ops : CheckerOps m) (env : Env) (d : Declaration) : m Env := do
   | .thmDecl cv value =>
     let cv ← checkConstantVal ops env cv
     checkThmVal ops env cv value
-  | .opaqueDecl cv value =>
+  | .opaqueDecl cv value => do
     let cv ← checkConstantVal ops env cv
-    checkOpaqueVal ops env cv value
+    let env2 ← checkOpaqueVal ops env cv value
+    -- Compiler-trust opaques (`Lean.reduceNat`/`Lean.reduceBool`,
+    -- task #95): the stored value must be definitionally equal to the
+    -- build-time pin of the toolchain's own defining expression — the
+    -- gate that lets the `ofReduce*` axioms' identity certificates
+    -- never fail on an accepted environment.
+    if reduceOpNames.contains cv.name then
+      checkReducePin ops env env2 cv.name value
+    pure env2
   | .axiomDecl cv => do
-    -- Only the two standard axioms the preprocessor's generated routes
-    -- use are *installed*, with their types and the shapes of the
-    -- inductives they quantify over pinned (up to the exporter's
-    -- unstable hygienic binder names); both are true in the set model
+    -- Pinned axioms are *installed*: the two standard axioms
     -- (`propext` via the stored `Iff` recursor and extensionality of
     -- propositions, `Classical.choice` via the stored `Nonempty`
-    -- recursor and global choice).  The tolerated whitelist
-    -- (`toleratedAxiomNames` — `sorryAx` and the `Init` compiler-trust
-    -- axioms, user ruling: exactly these) is well-formedness-checked
-    -- but not stored; the run continues and the frontend positively
-    -- declines any later declaration that references the skipped
-    -- axiom.  Any other axiom is a positive decline at its own record;
-    -- a *pinned name* with a non-pinned shape likewise (the pin would
-    -- otherwise shadow).
+    -- recursor and global choice) and the `Init` compiler-trust
+    -- family (task #95: `Lean.trustCompiler` as an opaque with value
+    -- `True.intro`; `Lean.ofReduceNat`/`Lean.ofReduceBool` over the
+    -- pinned identity opaques, trivially true).  All types and the
+    -- shapes of the inductives they quantify over are pinned (up to
+    -- the exporter's unstable hygienic binder names).  The tolerated
+    -- whitelist (`toleratedAxiomNames` — exactly `sorryAx`, user
+    -- ruling) is well-formedness-checked but not stored; the run
+    -- continues and the frontend positively declines any later
+    -- declaration that references the skipped axiom.  Any other axiom
+    -- is a positive decline at its own record; a *pinned name* with a
+    -- non-pinned shape likewise (the pin would otherwise shadow).
     let cvA ← checkConstantVal ops env cv
     if stdAxiomOk env cvA then
       pure ⟨.axiomInfo cvA :: env.consts⟩
+    else if cvA.name = trustCompilerName then
+      -- `Lean.trustCompiler : True` is trivially realizable (task
+      -- #95): installed exactly like a checked `opaque` with witness
+      -- value `True.intro` over the pinned `True` family — the pin
+      -- guarantees everything the ordinary opaque check would have
+      -- checked for that value, and the model interprets the constant
+      -- by `True.intro`'s interpretation.
+      if trustCompilerOk env cvA then
+        pure ⟨.axiomInfo cvA :: env.consts⟩
+      else throw (.notImplemented
+        s!"unsupported Lean.trustCompiler shape ({cv.name})")
+    else if cvA.name = ofReduceNatName ∨ cvA.name = ofReduceBoolName then
+      -- The pinned `ofReduce*` axioms (task #95): over the pinned
+      -- `Eq` basis, the element inductive and the identity-certified
+      -- reduce opaque, `∀ a b, reduce a = b → a = b` interprets to an
+      -- inhabited proposition (the hypothesis *is* the conclusion).
+      if ofReduceAxOk env cvA then
+        pure ⟨.axiomInfo cvA :: env.consts⟩
+      else throw (.notImplemented
+        s!"unsupported compiler-trust axiom environment ({cv.name})")
     else if cvA.name = propextName ∨ cvA.name = choiceName then
       throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
     else if toleratedAxiomNames.contains cvA.name then

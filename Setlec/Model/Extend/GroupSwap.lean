@@ -225,7 +225,7 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
     · rw [h₀] at hf
       obtain rfl := Option.some.inj hf
       exact absurd rfl (hnr cv mI rP [])
-  refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
+  refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
     fun n ψ => rfl⟩
   · -- wf
     intro c₃ hc₃
@@ -540,6 +540,14 @@ theorem extend_rules_eq {env₀ env₃ : Env} (m₀ : EnvModel V env₀)
           simp only [Option.map_some, Option.some.injEq] at h2
           exact ⟨ci₂, rfl, by rw [← h2, hlpb]⟩
       exact ⟨conv _ _ hT hlpT, conv _ _ hF hlpF⟩
+  · -- reduce_ops (value-level facts; lookups transported)
+    intro c hc cv hf hpin
+    have hf₀ : env₀.find? c = some (.axiomInfo cv) :=
+      hfindDown _ _ hf (fun _ _ _ _ h => nomatch h)
+    obtain ⟨hsome, hid⟩ := m₀.reduce_ops c hc cv hf₀ hpin
+    refine ⟨?_, hid⟩
+    rw [← hisoSome]
+    exact hsome
 
 
 end Setlec
