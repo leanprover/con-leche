@@ -715,7 +715,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             try dsimp only
                             by_cases hcc : c₁ = c₂x
                             try dsimp only
-                            · rw [if_pos ((denoteN_eq_iff hs₆.wf hnmDen
+                            · rw [if_pos ((denoteN_eq_iff hs₆.wf.toTWF hnmDen
                                   hc₂Den).mpr hcc), if_pos hcc]
                               try dsimp only
                               refine SimAt.bind_left
@@ -739,7 +739,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                   hwa' hwb'
                             try dsimp only
                             · rw [if_neg (fun h => hcc
-                                  ((denoteN_eq_iff hs₆.wf hnmDen
+                                  ((denoteN_eq_iff hs₆.wf.toTWF hnmDen
                                     hc₂Den).mp h)), if_neg hcc]
                               try dsimp only
                               exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'

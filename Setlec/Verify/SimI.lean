@@ -1091,7 +1091,7 @@ theorem isEquivLM_eff (hs : ISOK env s₀) {l r : LIdx} {la ra : Level}
       have hss : ¬ la.simplify = ra.simplify := by
         intro hE
         have hrs' : st₂.denoteL rs = some la.simplify := by rw [hE]; exact hrs
-        have hlr : ls = rs := denoteL_inj hwf₂ hls hrs'
+        have hlr : ls = rs := denoteL_inj hwf₂.toTWF hls hrs'
         rw [hlr, beq_self_eq_true] at hbeq
         exact Bool.true_eq_false ▸ hbeq
       have hisoE : Level.isEquiv la ra =

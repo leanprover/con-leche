@@ -495,7 +495,7 @@ theorem annotateProjElimI_sim (ih : SSimI env f) (henv : EnvWF env)
     replace hsn := denoteN_mono hextT hsn
     by_cases hT : T = snx
     · rw [if_pos (show Tᵢ = sn from
-          (denoteN_eq_iff hs.wf hTDen hsn).mpr hT), if_pos hT]
+          (denoteN_eq_iff hs.wf.toTWF hTDen hsn).mpr hT), if_pos hT]
       rw [mkFEnv_find?]
       cases hfp : env.find? (projFnName T ip) with
       | none =>
@@ -555,7 +555,7 @@ theorem annotateProjElimI_sim (ih : SSimI env f) (henv : EnvWF env)
         | indInfo cv caps => exact SimAt.throw
         | ctorInfo cv nP nF => exact SimAt.throw
     · rw [if_neg (show ¬ Tᵢ = sn from fun h =>
-          hT ((denoteN_eq_iff hs.wf hTDen hsn).mp h)), if_neg hT]
+          hT ((denoteN_eq_iff hs.wf.toTWF hTDen hsn).mp h)), if_neg hT]
       exact SimAt.throw
   | bvar k => invert_head hd; exact SimAt.throw
   | sort u => invert_head hd; exact SimAt.throw

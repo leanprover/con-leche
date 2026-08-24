@@ -1603,7 +1603,7 @@ theorem internL_ext (st : EStore) (n : LNode) : Ext st (st.internL n).2 := by
     split <;> rfl
 
 /-- Interning a level node stores it at the returned index. -/
-theorem internL_node {st : EStore} {n : LNode} (hwf : st.WF) :
+theorem internL_node {st : EStore} {n : LNode} (hwf : st.TWF) :
     (st.internL n).2.lnodes[(st.internL n).1]? = some n := by
   rw [internL_eq]
   split
@@ -1611,7 +1611,7 @@ theorem internL_node {st : EStore} {n : LNode} (hwf : st.WF) :
     exact (hwf.lcons_graph n i).mp h
   · rw [Array.getElem?_push, if_pos rfl]
 
-theorem internL_lt_size {st : EStore} {n : LNode} (hwf : st.WF) :
+theorem internL_lt_size {st : EStore} {n : LNode} (hwf : st.TWF) :
     (st.internL n).1 < (st.internL n).2.lnodes.size :=
   (Array.getElem?_eq_some_iff.mp (internL_node hwf)).1
 
@@ -1732,7 +1732,7 @@ theorem internL_wf {st : EStore} {n : LNode} (hwf : st.WF)
 
 /-- Interning a level node whose children are already stored: the
 result denotes the node's denotation over the *old* store. -/
-theorem internL_denoteL {st : EStore} {n : LNode} (hwf : st.WF)
+theorem internL_denoteL {st : EStore} {n : LNode} (hwf : st.TWF)
     (hc : ∀ c ∈ n.children, c < st.lnodes.size) :
     (st.internL n).2.denoteL (st.internL n).1
       = denoteLNode st.denoteL n := by
@@ -1762,7 +1762,18 @@ theorem internL_step {st : EStore} {n : LNode} (hwf : st.WF)
     (hd : denoteLNode st.denoteL n = some a) :
     (st.internL n).2.WF ∧ Ext st (st.internL n).2 ∧
       (st.internL n).2.denoteL (st.internL n).1 = some a :=
-  ⟨internL_wf hwf hc, internL_ext st n, by rw [internL_denoteL hwf hc]; exact hd⟩
+  ⟨internL_wf hwf hc, internL_ext st n,
+    by rw [internL_denoteL hwf.toTWF hc]; exact hd⟩
+
+/-- One level-interning step, two-tier form (task #64: levels are
+single-tier, so the flag state is irrelevant). -/
+theorem internL_stepT {st : EStore} {n : LNode} (hwf : st.TWF)
+    (hc : ∀ c ∈ n.children, c < st.lnodes.size) {a : Level}
+    (hd : denoteLNode st.denoteL n = some a) :
+    (st.internL n).2.TWF ∧ Ext st (st.internL n).2 ∧
+      (st.internL n).2.denoteL (st.internL n).1 = some a :=
+  ⟨internL_twf hwf hc, internL_ext st n,
+    by rw [internL_denoteL hwf hc]; exact hd⟩
 
 /-- `internLevel` preserves the invariant, extends the store, and its
 result denotes the interned level. -/
@@ -1816,6 +1827,57 @@ theorem internLevel_spec {st : EStore} (hwf : st.WF) (l : Level) :
     simp only [internLevel, hI₁, hI₂]
     exact ⟨hstep.1, hext₁.trans (hext₂.trans hstep.2.1), hstep.2.2⟩
 
+/-- `internLevel` round-trip, two-tier form (task #64). -/
+theorem internLevel_specT {st : EStore} (hwf : st.TWF) (l : Level) :
+    (st.internLevel l).2.TWF ∧ Ext st (st.internLevel l).2 ∧
+      (st.internLevel l).2.denoteL (st.internLevel l).1 = some l := by
+  induction l generalizing st with
+  | zero => exact internL_stepT hwf (by simp [LNode.children]) rfl
+  | param p => exact internL_stepT hwf (by simp [LNode.children]) rfl
+  | succ u ih =>
+    obtain ⟨hwf₁, hext₁, hden₁⟩ := ih hwf
+    rcases hI : st.internLevel u with ⟨ui, st₁⟩
+    simp only [hI] at hwf₁ hext₁ hden₁
+    have hstep := internL_stepT (n := .succ ui) hwf₁
+      (by simpa [LNode.children] using denoteL_lt_size hden₁)
+      (a := .succ u) (by rw [denoteLNode, hden₁]; rfl)
+    simp only [internLevel, hI]
+    exact ⟨hstep.1, hext₁.trans hstep.2.1, hstep.2.2⟩
+  | max u v ihu ihv =>
+    obtain ⟨hwf₁, hext₁, hden₁⟩ := ihu hwf
+    rcases hI₁ : st.internLevel u with ⟨ui, st₁⟩
+    simp only [hI₁] at hwf₁ hext₁ hden₁
+    obtain ⟨hwf₂, hext₂, hden₂⟩ := ihv hwf₁
+    rcases hI₂ : st₁.internLevel v with ⟨vi, st₂⟩
+    simp only [hI₂] at hwf₂ hext₂ hden₂
+    have hden₁' := denoteL_mono hext₂ hden₁
+    have hstep := internL_stepT (n := .max ui vi) hwf₂
+      (by
+        simp only [LNode.children, List.mem_cons, List.not_mem_nil, or_false]
+        rintro c (rfl | rfl)
+        · exact denoteL_lt_size hden₁'
+        · exact denoteL_lt_size hden₂)
+      (a := .max u v) (by rw [denoteLNode, hden₁', hden₂]; rfl)
+    simp only [internLevel, hI₁, hI₂]
+    exact ⟨hstep.1, hext₁.trans (hext₂.trans hstep.2.1), hstep.2.2⟩
+  | imax u v ihu ihv =>
+    obtain ⟨hwf₁, hext₁, hden₁⟩ := ihu hwf
+    rcases hI₁ : st.internLevel u with ⟨ui, st₁⟩
+    simp only [hI₁] at hwf₁ hext₁ hden₁
+    obtain ⟨hwf₂, hext₂, hden₂⟩ := ihv hwf₁
+    rcases hI₂ : st₁.internLevel v with ⟨vi, st₂⟩
+    simp only [hI₂] at hwf₂ hext₂ hden₂
+    have hden₁' := denoteL_mono hext₂ hden₁
+    have hstep := internL_stepT (n := .imax ui vi) hwf₂
+      (by
+        simp only [LNode.children, List.mem_cons, List.not_mem_nil, or_false]
+        rintro c (rfl | rfl)
+        · exact denoteL_lt_size hden₁'
+        · exact denoteL_lt_size hden₂)
+      (a := .imax u v) (by rw [denoteLNode, hden₁', hden₂]; rfl)
+    simp only [internLevel, hI₁, hI₂]
+    exact ⟨hstep.1, hext₁.trans (hext₂.trans hstep.2.1), hstep.2.2⟩
+
 /-- `internLevels` round-trip over a level list. -/
 theorem internLevels_spec {st : EStore} (hwf : st.WF) (ls : List Level) :
     (st.internLevels ls).2.WF ∧ Ext st (st.internLevels ls).2 ∧
@@ -1835,6 +1897,25 @@ theorem internLevels_spec {st : EStore} (hwf : st.WF) (ls : List Level) :
     simp only [denoteLList, denoteL_mono hext₂ hden₁, hden₂,
       Option.bind_some, Option.map_some]
 
+/-- `internLevels` round-trip, two-tier form (task #64). -/
+theorem internLevels_specT {st : EStore} (hwf : st.TWF) (ls : List Level) :
+    (st.internLevels ls).2.TWF ∧ Ext st (st.internLevels ls).2 ∧
+      denoteLList (st.internLevels ls).2.denoteL (st.internLevels ls).1
+        = some ls := by
+  induction ls generalizing st with
+  | nil => exact ⟨hwf, Ext.refl st, rfl⟩
+  | cons l ls ih =>
+    obtain ⟨hwf₁, hext₁, hden₁⟩ := internLevel_specT hwf l
+    rcases hI₁ : st.internLevel l with ⟨ui, st₁⟩
+    simp only [hI₁] at hwf₁ hext₁ hden₁
+    obtain ⟨hwf₂, hext₂, hden₂⟩ := ih hwf₁
+    rcases hI₂ : st₁.internLevels ls with ⟨uis, st₂⟩
+    simp only [hI₂] at hwf₂ hext₂ hden₂
+    simp only [internLevels, hI₁, hI₂]
+    refine ⟨hwf₂, hext₁.trans hext₂, ?_⟩
+    simp only [denoteLList, denoteL_mono hext₂ hden₁, hden₂,
+      Option.bind_some, Option.map_some]
+
 /-- `internBM` round-trip. -/
 theorem internBM_spec {st : EStore} (hwf : st.WF) (m : BinderMeta) :
     (st.internBM m).2.WF ∧ Ext st (st.internBM m).2 ∧
@@ -1842,6 +1923,18 @@ theorem internBM_spec {st : EStore} (hwf : st.WF) (m : BinderMeta) :
   obtain ⟨bi, (_ | u)⟩ := m
   · exact ⟨hwf, Ext.refl st, rfl⟩
   · obtain ⟨hwf₁, hext₁, hden₁⟩ := internLevel_spec hwf u
+    rcases hI : st.internLevel u with ⟨ui, st₁⟩
+    simp only [hI] at hwf₁ hext₁ hden₁
+    simp only [internBM, hI]
+    exact ⟨hwf₁, hext₁, by simp [denoteBM, hden₁]⟩
+
+/-- `internBM` round-trip, two-tier form (task #64). -/
+theorem internBM_specT {st : EStore} (hwf : st.TWF) (m : BinderMeta) :
+    (st.internBM m).2.TWF ∧ Ext st (st.internBM m).2 ∧
+      denoteBM (st.internBM m).2.denoteL (st.internBM m).1 = some m := by
+  obtain ⟨bi, (_ | u)⟩ := m
+  · exact ⟨hwf, Ext.refl st, rfl⟩
+  · obtain ⟨hwf₁, hext₁, hden₁⟩ := internLevel_specT hwf u
     rcases hI : st.internLevel u with ⟨ui, st₁⟩
     simp only [hI] at hwf₁ hext₁ hden₁
     simp only [internBM, hI]
@@ -1889,7 +1982,7 @@ theorem internN_ext (st : EStore) (n : NNode) : Ext st (st.internN n).2 := by
     split <;> rfl
 
 /-- Interning a name node stores it at the returned index. -/
-theorem internN_node {st : EStore} {n : NNode} (hwf : st.WF) :
+theorem internN_node {st : EStore} {n : NNode} (hwf : st.TWF) :
     (st.internN n).2.nnodes[(st.internN n).1]? = some n := by
   rw [internN_eq]
   split
@@ -1897,7 +1990,7 @@ theorem internN_node {st : EStore} {n : NNode} (hwf : st.WF) :
     exact (hwf.ncons_graph n i).mp h
   · rw [Array.getElem?_push, if_pos rfl]
 
-theorem internN_lt_size {st : EStore} {n : NNode} (hwf : st.WF) :
+theorem internN_lt_size {st : EStore} {n : NNode} (hwf : st.TWF) :
     (st.internN n).1 < (st.internN n).2.nnodes.size :=
   (Array.getElem?_eq_some_iff.mp (internN_node hwf)).1
 
@@ -2006,7 +2099,7 @@ theorem internN_wf {st : EStore} {n : NNode} (hwf : st.WF)
 
 /-- Interning a name node whose prefix is already stored: the result
 denotes the node's denotation over the *old* store. -/
-theorem internN_denoteN {st : EStore} {n : NNode} (hwf : st.WF)
+theorem internN_denoteN {st : EStore} {n : NNode} (hwf : st.TWF)
     (hc : ∀ c ∈ n.children, c < st.nnodes.size) :
     (st.internN n).2.denoteN (st.internN n).1
       = denoteNNode st.denoteN n := by
@@ -2036,7 +2129,18 @@ theorem internN_step {st : EStore} {n : NNode} (hwf : st.WF)
     (hd : denoteNNode st.denoteN n = some a) :
     (st.internN n).2.WF ∧ Ext st (st.internN n).2 ∧
       (st.internN n).2.denoteN (st.internN n).1 = some a :=
-  ⟨internN_wf hwf hc, internN_ext st n, by rw [internN_denoteN hwf hc]; exact hd⟩
+  ⟨internN_wf hwf hc, internN_ext st n,
+    by rw [internN_denoteN hwf.toTWF hc]; exact hd⟩
+
+/-- One name-interning step, two-tier form (task #64: names are
+single-tier, so the flag state is irrelevant). -/
+theorem internN_stepT {st : EStore} {n : NNode} (hwf : st.TWF)
+    (hc : ∀ c ∈ n.children, c < st.nnodes.size) {a : Name}
+    (hd : denoteNNode st.denoteN n = some a) :
+    (st.internN n).2.TWF ∧ Ext st (st.internN n).2 ∧
+      (st.internN n).2.denoteN (st.internN n).1 = some a :=
+  ⟨internN_twf hwf hc, internN_ext st n,
+    by rw [internN_denoteN hwf hc]; exact hd⟩
 
 /-- `internName` extends the store (no well-formedness needed). -/
 theorem internName_ext (st : EStore) (nm : Name) :
@@ -2075,6 +2179,31 @@ theorem internName_spec {st : EStore} (hwf : st.WF) (nm : Name) :
     rcases hI : st.internName p with ⟨pi, st₁⟩
     simp only [hI] at hwf₁ hext₁ hden₁
     have hstep := internN_step (n := .num pi k) hwf₁
+      (by simpa [NNode.children] using denoteN_lt_size hden₁)
+      (a := .num p k) (by rw [denoteNNode, hden₁]; rfl)
+    simp only [internName, hI]
+    exact ⟨hstep.1, hext₁.trans hstep.2.1, hstep.2.2⟩
+
+/-- `internName` round-trip, two-tier form (task #64). -/
+theorem internName_specT {st : EStore} (hwf : st.TWF) (nm : Name) :
+    (st.internName nm).2.TWF ∧ Ext st (st.internName nm).2 ∧
+      (st.internName nm).2.denoteN (st.internName nm).1 = some nm := by
+  induction nm generalizing st with
+  | anonymous => exact internN_stepT hwf (by simp [NNode.children]) rfl
+  | str p s ih =>
+    obtain ⟨hwf₁, hext₁, hden₁⟩ := ih hwf
+    rcases hI : st.internName p with ⟨pi, st₁⟩
+    simp only [hI] at hwf₁ hext₁ hden₁
+    have hstep := internN_stepT (n := .str pi s) hwf₁
+      (by simpa [NNode.children] using denoteN_lt_size hden₁)
+      (a := .str p s) (by rw [denoteNNode, hden₁]; rfl)
+    simp only [internName, hI]
+    exact ⟨hstep.1, hext₁.trans hstep.2.1, hstep.2.2⟩
+  | num p k ih =>
+    obtain ⟨hwf₁, hext₁, hden₁⟩ := ih hwf
+    rcases hI : st.internName p with ⟨pi, st₁⟩
+    simp only [hI] at hwf₁ hext₁ hden₁
+    have hstep := internN_stepT (n := .num pi k) hwf₁
       (by simpa [NNode.children] using denoteN_lt_size hden₁)
       (a := .num p k) (by rw [denoteNNode, hden₁]; rfl)
     simp only [internName, hI]
@@ -2331,13 +2460,13 @@ theorem denoteLNode_imax_inv {den : LIdx → Option Level} {n : LNode}
   cases n <;> simp_all [denoteLNode, Option.map_eq_some_iff, Option.bind_eq_some_iff] <;> grind
 
 /-- The level cons-table makes stored level nodes unique. -/
-theorem lindex_unique {st : EStore} (hwf : st.WF) {n : LNode} {i j : LIdx}
+theorem lindex_unique {st : EStore} (hwf : st.TWF) {n : LNode} {i j : LIdx}
     (hi : st.lnodes[i]? = some n) (hj : st.lnodes[j]? = some n) : i = j :=
   Option.some.inj
     (((hwf.lcons_graph n i).mpr hi).symm.trans ((hwf.lcons_graph n j).mpr hj))
 
 /-- Level denotation is injective on a well-formed store. -/
-theorem denoteL_inj {st : EStore} (hwf : st.WF) :
+theorem denoteL_inj {st : EStore} (hwf : st.TWF) :
     ∀ {a : Level} {i j : LIdx}, st.denoteL i = some a → st.denoteL j = some a →
       i = j := by
   intro a
@@ -2384,7 +2513,7 @@ theorem denoteL_inj {st : EStore} (hwf : st.WF) :
     exact lindex_unique hwf hn hm
 
 /-- Level-list denotation is injective on a well-formed store. -/
-theorem denoteLList_inj {st : EStore} (hwf : st.WF) :
+theorem denoteLList_inj {st : EStore} (hwf : st.TWF) :
     ∀ {us vs : List LIdx} {ls : List Level},
       denoteLList st.denoteL us = some ls →
       denoteLList st.denoteL vs = some ls → us = vs := by
@@ -2417,7 +2546,7 @@ theorem denoteLList_inj {st : EStore} (hwf : st.WF) :
       rfl
 
 /-- Binder-meta denotation is injective on a well-formed store. -/
-theorem denoteBM_inj {st : EStore} (hwf : st.WF) {m m' : IBinderMeta}
+theorem denoteBM_inj {st : EStore} (hwf : st.TWF) {m m' : IBinderMeta}
     {bm : BinderMeta} (h : denoteBM st.denoteL m = some bm)
     (h' : denoteBM st.denoteL m' = some bm) : m = m' := by
   obtain ⟨bi, (_ | u)⟩ := m <;> obtain ⟨bi', (_ | u')⟩ := m'
@@ -2457,14 +2586,14 @@ theorem denoteNNode_num_inv {den : NIdx → Option Name} {n : NNode}
   cases n <;> simp_all [denoteNNode, Option.map_eq_some_iff] <;> grind
 
 /-- The name cons-table makes stored name nodes unique. -/
-theorem nindex_unique {st : EStore} (hwf : st.WF) {n : NNode} {i j : NIdx}
+theorem nindex_unique {st : EStore} (hwf : st.TWF) {n : NNode} {i j : NIdx}
     (hi : st.nnodes[i]? = some n) (hj : st.nnodes[j]? = some n) : i = j :=
   Option.some.inj
     (((hwf.ncons_graph n i).mpr hi).symm.trans ((hwf.ncons_graph n j).mpr hj))
 
 /-- Name denotation is injective on a well-formed store: index equality
 is name equality. -/
-theorem denoteN_inj {st : EStore} (hwf : st.WF) :
+theorem denoteN_inj {st : EStore} (hwf : st.TWF) :
     ∀ {a : Name} {i j : NIdx}, st.denoteN i = some a → st.denoteN j = some a →
       i = j := by
   intro a
@@ -2495,7 +2624,7 @@ theorem denoteN_inj {st : EStore} (hwf : st.WF) :
 
 /-- Interned name equality is name equality (`O(1)` equality on
 denoting indices). -/
-theorem denoteN_eq_iff {st : EStore} (hwf : st.WF) {i j : NIdx}
+theorem denoteN_eq_iff {st : EStore} (hwf : st.TWF) {i j : NIdx}
     {a b : Name} (ha : st.denoteN i = some a) (hb : st.denoteN j = some b) :
     i = j ↔ a = b := by
   constructor
@@ -2676,7 +2805,7 @@ theorem denote_inj {st : EStore} (hwf : st.WF) :
     obtain ⟨m, hm, -, hdm⟩ := denote_some_inv hj
     obtain ⟨ui, rfl, hui⟩ := denoteNode_sort_inv hdn
     obtain ⟨uj, rfl, huj⟩ := denoteNode_sort_inv hdm
-    obtain rfl := denoteL_inj hwf hui huj
+    obtain rfl := denoteL_inj hwf.toTWF hui huj
     exact index_unique hwf hn hm
   | const nm us =>
     intro i j hi hj
@@ -2684,8 +2813,8 @@ theorem denote_inj {st : EStore} (hwf : st.WF) :
     obtain ⟨m, hm, -, hdm⟩ := denote_some_inv hj
     obtain ⟨ni, uis, rfl, hni, huis⟩ := denoteNode_const_inv hdn
     obtain ⟨nj, ujs, rfl, hnj, hujs⟩ := denoteNode_const_inv hdm
-    obtain rfl := denoteN_inj hwf hni hnj
-    obtain rfl := denoteLList_inj hwf huis hujs
+    obtain rfl := denoteN_inj hwf.toTWF hni hnj
+    obtain rfl := denoteLList_inj hwf.toTWF huis hujs
     exact index_unique hwf hn hm
   | lit l =>
     intro i j hi hj
@@ -2700,7 +2829,7 @@ theorem denote_inj {st : EStore} (hwf : st.WF) :
     obtain ⟨m, hm, -, hdm⟩ := denote_some_inv hj
     obtain ⟨ni, t, rfl, hni, ht⟩ := denoteNode_fvar_inv hdn
     obtain ⟨nj, t', rfl, hnj, ht'⟩ := denoteNode_fvar_inv hdm
-    obtain rfl := denoteN_inj hwf hni hnj
+    obtain rfl := denoteN_inj hwf.toTWF hni hnj
     obtain rfl := ih ht ht'
     exact index_unique hwf hn hm
   | app x y ihx ihy =>
@@ -2719,10 +2848,10 @@ theorem denote_inj {st : EStore} (hwf : st.WF) :
     obtain ⟨ni, t, b, mi, rfl, hni, ht, hb, hmi⟩ := denoteNode_lam_inv hdn
     obtain ⟨nj, t', b', mi', rfl, hnj, ht', hb', hmi'⟩ :=
       denoteNode_lam_inv hdm
-    obtain rfl := denoteN_inj hwf hni hnj
+    obtain rfl := denoteN_inj hwf.toTWF hni hnj
     obtain rfl := ihty ht ht'
     obtain rfl := ihbody hb hb'
-    obtain rfl := denoteBM_inj hwf hmi hmi'
+    obtain rfl := denoteBM_inj hwf.toTWF hmi hmi'
     exact index_unique hwf hn hm
   | forallE nm ty body m ihty ihbody =>
     intro i j hi hj
@@ -2732,10 +2861,10 @@ theorem denote_inj {st : EStore} (hwf : st.WF) :
       denoteNode_forallE_inv hdn
     obtain ⟨nj, t', b', mi', rfl, hnj, ht', hb', hmi'⟩ :=
       denoteNode_forallE_inv hdm
-    obtain rfl := denoteN_inj hwf hni hnj
+    obtain rfl := denoteN_inj hwf.toTWF hni hnj
     obtain rfl := ihty ht ht'
     obtain rfl := ihbody hb hb'
-    obtain rfl := denoteBM_inj hwf hmi hmi'
+    obtain rfl := denoteBM_inj hwf.toTWF hmi hmi'
     exact index_unique hwf hn hm
   | letE nm ty val body ihty ihval ihbody =>
     intro i j hi hj
@@ -2744,7 +2873,7 @@ theorem denote_inj {st : EStore} (hwf : st.WF) :
     obtain ⟨ni, t, v, b, rfl, hni, ht, hv, hb⟩ := denoteNode_letE_inv hdn
     obtain ⟨nj, t', v', b', rfl, hnj, ht', hv', hb'⟩ :=
       denoteNode_letE_inv hdm
-    obtain rfl := denoteN_inj hwf hni hnj
+    obtain rfl := denoteN_inj hwf.toTWF hni hnj
     obtain rfl := ihty ht ht'
     obtain rfl := ihval hv hv'
     obtain rfl := ihbody hb hb'
@@ -2755,7 +2884,7 @@ theorem denote_inj {st : EStore} (hwf : st.WF) :
     obtain ⟨m, hm, -, hdm⟩ := denote_some_inv hj
     obtain ⟨si, e, rfl, hsi, he⟩ := denoteNode_proj_inv hdn
     obtain ⟨sj, e', rfl, hsj, he'⟩ := denoteNode_proj_inv hdm
-    obtain rfl := denoteN_inj hwf hsi hsj
+    obtain rfl := denoteN_inj hwf.toTWF hsi hsj
     obtain rfl := ih he he'
     exact index_unique hwf hn hm
 
@@ -2774,7 +2903,7 @@ theorem denote_eq_iff {st : EStore} (hwf : st.WF) {i j : EIdx} {a b : Expr}
 /-! ## Totality and extension helpers for the operation proofs -/
 
 /-- On a well-formed store, every in-range name index denotes. -/
-theorem denoteN_total {st : EStore} (hwf : st.WF) :
+theorem denoteN_total {st : EStore} (hwf : st.TWF) :
     ∀ (i : NIdx), i < st.nnodes.size → ∃ x, st.denoteN i = some x := by
   intro i
   induction i using Nat.strongRecOn with
@@ -2796,8 +2925,9 @@ theorem denoteN_total {st : EStore} (hwf : st.WF) :
       exact ⟨_, by rw [denoteNNode, hx]; rfl⟩
 
 /-- The executable readback (the eager array read) agrees with the
-structural name denotation on a well-formed store (task #88). -/
-theorem WF.readbackN_eq_denoteN {st : EStore} (hwf : st.WF) :
+structural name denotation on a two-tier store (task #88; names are
+single-tier, so `TWF` suffices). -/
+theorem TWF.readbackN_eq_denoteN {st : EStore} (hwf : st.TWF) :
     ∀ i, st.readbackN i = st.denoteN i := by
   intro i
   induction i using Nat.strongRecOn with
@@ -2833,8 +2963,13 @@ theorem WF.readbackN_eq_denoteN {st : EStore} (hwf : st.WF) :
         show some (NNode.nameOf st.rbNames (.num p k)) = _
         simp [NNode.nameOf, Array.getD_eq_getD_getElem?, hrb]
 
+@[inherit_doc TWF.readbackN_eq_denoteN]
+theorem WF.readbackN_eq_denoteN {st : EStore} (hwf : st.WF) :
+    ∀ i, st.readbackN i = st.denoteN i :=
+  hwf.toTWF.readbackN_eq_denoteN
+
 /-- On a well-formed store, every in-range level index denotes. -/
-theorem denoteL_total {st : EStore} (hwf : st.WF) :
+theorem denoteL_total {st : EStore} (hwf : st.TWF) :
     ∀ (u : LIdx), u < st.lnodes.size → ∃ x, st.denoteL u = some x := by
   intro u
   induction u using Nat.strongRecOn with
@@ -2863,7 +2998,7 @@ theorem denoteL_total {st : EStore} (hwf : st.WF) :
       exact ⟨_, by rw [denoteLNode, hx, hy]; rfl⟩
 
 /-- On a well-formed store, every in-range level index list denotes. -/
-theorem denoteLList_total {st : EStore} (hwf : st.WF) :
+theorem denoteLList_total {st : EStore} (hwf : st.TWF) :
     ∀ (us : List LIdx), (∀ u ∈ us, u < st.lnodes.size) →
       ∃ ls, denoteLList st.denoteL us = some ls := by
   intro us
@@ -2876,7 +3011,7 @@ theorem denoteLList_total {st : EStore} (hwf : st.WF) :
     exact ⟨l :: ls, by simp [denoteLList, hl, hls]⟩
 
 /-- On a well-formed store, in-range binder metadata denotes. -/
-theorem denoteBM_total {st : EStore} (hwf : st.WF) (m : IBinderMeta)
+theorem denoteBM_total {st : EStore} (hwf : st.TWF) (m : IBinderMeta)
     (h : ∀ u ∈ m.cod.toList, u < st.lnodes.size) :
     ∃ bm, denoteBM st.denoteL m = some bm := by
   obtain ⟨bi, (_ | u)⟩ := m
@@ -2905,19 +3040,19 @@ theorem denote_total {st : EStore} (hwf : st.WF) :
     cases hnn : st.nodes[epos i]'hi.2 with
     | bvar k => exact ⟨_, rfl⟩
     | sort u =>
-      obtain ⟨l, hl⟩ := denoteL_total hwf u
+      obtain ⟨l, hl⟩ := denoteL_total hwf.toTWF u
         (hlv u (by simp [hnn, ENode.levels]))
       exact ⟨_, by rw [denoteNode, hl]; rfl⟩
     | const nm us =>
-      obtain ⟨ls, hls⟩ := denoteLList_total hwf us
+      obtain ⟨ls, hls⟩ := denoteLList_total hwf.toTWF us
         (fun u hu => hlv u (by simp [hnn, ENode.levels, hu]))
-      obtain ⟨name, hname⟩ := denoteN_total hwf nm
+      obtain ⟨name, hname⟩ := denoteN_total hwf.toTWF nm
         (hnms nm (by simp [hnn, ENode.names]))
       exact ⟨_, by rw [denoteNode, hls, hname]; rfl⟩
     | lit l => exact ⟨_, rfl⟩
     | fvar idx nm t =>
       obtain ⟨x, hx⟩ := hcs t (by simp [hnn, ENode.children])
-      obtain ⟨name, hname⟩ := denoteN_total hwf nm
+      obtain ⟨name, hname⟩ := denoteN_total hwf.toTWF nm
         (hnms nm (by simp [hnn, ENode.names]))
       exact ⟨_, by rw [denoteNode, hx, hname]; rfl⟩
     | app f a =>
@@ -2927,29 +3062,29 @@ theorem denote_total {st : EStore} (hwf : st.WF) :
     | lam nm t b m =>
       obtain ⟨xt, ht⟩ := hcs t (by simp [hnn, ENode.children])
       obtain ⟨xb, hb⟩ := hcs b (by simp [hnn, ENode.children])
-      obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
+      obtain ⟨bm, hbm⟩ := denoteBM_total hwf.toTWF m
         (fun u hu => hlv u (by simp [hnn, ENode.levels, hu]))
-      obtain ⟨name, hname⟩ := denoteN_total hwf nm
+      obtain ⟨name, hname⟩ := denoteN_total hwf.toTWF nm
         (hnms nm (by simp [hnn, ENode.names]))
       exact ⟨_, by rw [denoteNode, ht, hb, hbm, hname]; rfl⟩
     | forallE nm t b m =>
       obtain ⟨xt, ht⟩ := hcs t (by simp [hnn, ENode.children])
       obtain ⟨xb, hb⟩ := hcs b (by simp [hnn, ENode.children])
-      obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
+      obtain ⟨bm, hbm⟩ := denoteBM_total hwf.toTWF m
         (fun u hu => hlv u (by simp [hnn, ENode.levels, hu]))
-      obtain ⟨name, hname⟩ := denoteN_total hwf nm
+      obtain ⟨name, hname⟩ := denoteN_total hwf.toTWF nm
         (hnms nm (by simp [hnn, ENode.names]))
       exact ⟨_, by rw [denoteNode, ht, hb, hbm, hname]; rfl⟩
     | letE nm t vv b =>
       obtain ⟨xt, ht⟩ := hcs t (by simp [hnn, ENode.children])
       obtain ⟨xv, hv⟩ := hcs vv (by simp [hnn, ENode.children])
       obtain ⟨xb, hb⟩ := hcs b (by simp [hnn, ENode.children])
-      obtain ⟨name, hname⟩ := denoteN_total hwf nm
+      obtain ⟨name, hname⟩ := denoteN_total hwf.toTWF nm
         (hnms nm (by simp [hnn, ENode.names]))
       exact ⟨_, by rw [denoteNode, ht, hv, hb, hname]; rfl⟩
     | proj s j e' =>
       obtain ⟨x, hx⟩ := hcs e' (by simp [hnn, ENode.children])
-      obtain ⟨name, hname⟩ := denoteN_total hwf s
+      obtain ⟨name, hname⟩ := denoteN_total hwf.toTWF s
         (hnms s (by simp [hnn, ENode.names]))
       exact ⟨_, by rw [denoteNode, hx, hname]; rfl⟩
 
@@ -3430,8 +3565,8 @@ theorem _root_.Setlec.Level.allParamsDefined_of_not_hasParam
   induction l <;> simp_all [Level.hasParam, Level.allParamsDefined]
 
 /-- The eager has-param entry is exactly `hasParam` of the level
-node's denotation. -/
-theorem WF.lhasParamD_exact {st : EStore} (hwf : st.WF) :
+node's denotation (levels are single-tier, so `TWF` suffices). -/
+theorem TWF.lhasParamD_exact {st : EStore} (hwf : st.TWF) :
     ∀ (u : LIdx) {x : Level}, st.denoteL u = some x →
       st.lhasParamD u = x.hasParam := by
   intro u
@@ -3481,14 +3616,26 @@ theorem WF.lhasParamD_exact {st : EStore} (hwf : st.WF) :
       rw [ih l hl hxl, ih r hr hxr]
       rfl
 
+@[inherit_doc TWF.lhasParamD_exact]
+theorem WF.lhasParamD_exact {st : EStore} (hwf : st.WF) :
+    ∀ (u : LIdx) {x : Level}, st.denoteL u = some x →
+      st.lhasParamD u = x.hasParam :=
+  hwf.toTWF.lhasParamD_exact
+
 /-- Prune consequence: a `false` has-param entry certifies the
 denotation param-free. -/
-theorem WF.lhasParamD_false {st : EStore} (hwf : st.WF) {u : LIdx}
+theorem TWF.lhasParamD_false {st : EStore} (hwf : st.TWF) {u : LIdx}
     {x : Level} (hx : st.denoteL u = some x)
     (hp : (!st.lhasParamD u) = true) : x.hasParam = false := by
   rw [Bool.not_eq_eq_eq_not, Bool.not_true] at hp
   rw [← hwf.lhasParamD_exact u hx]
   exact hp
+
+@[inherit_doc TWF.lhasParamD_false]
+theorem WF.lhasParamD_false {st : EStore} (hwf : st.WF) {u : LIdx}
+    {x : Level} (hx : st.denoteL u = some x)
+    (hp : (!st.lhasParamD u) = true) : x.hasParam = false :=
+  hwf.toTWF.lhasParamD_false hx hp
 
 /-- Whether an expression mentions any level parameter (the spec
 function of the eager `eparamBs` entries; `fvar` type annotations and
@@ -3606,7 +3753,7 @@ theorem _root_.Setlec.Expr.allLevelParamsDefined_of_not_hasLevelParam
     simp_all [Expr.hasLevelParam, Expr.allLevelParamsDefined]
 
 /-- List form of `lhasParamD` exactness (a `const` node's levels). -/
-theorem WF.lhasParamD_list {st : EStore} (hwf : st.WF) :
+theorem TWF.lhasParamD_list {st : EStore} (hwf : st.TWF) :
     ∀ {us : List LIdx} {lus : List Level},
       denoteLList st.denoteL us = some lus →
       us.any (st.lparamBs.getD · false) = lus.any Level.hasParam := by
@@ -3625,6 +3772,13 @@ theorem WF.lhasParamD_list {st : EStore} (hwf : st.WF) :
     show (st.lhasParamD u || us.any (st.lparamBs.getD · false)) = _
     rw [hwf.lhasParamD_exact u hl, ih hls]
     rfl
+
+@[inherit_doc TWF.lhasParamD_list]
+theorem WF.lhasParamD_list {st : EStore} (hwf : st.WF) :
+    ∀ {us : List LIdx} {lus : List Level},
+      denoteLList st.denoteL us = some lus →
+      us.any (st.lparamBs.getD · false) = lus.any Level.hasParam :=
+  hwf.toTWF.lhasParamD_list
 
 /-- The eager has-level-param entry is exactly `hasLevelParam` of the
 node's denotation. -/
@@ -3792,7 +3946,7 @@ theorem WF.ehasParamD_false {st : EStore} (hwf : st.WF) {e : EIdx}
 
 /-- Re-interning an already-stored level is a pure lookup: the same
 index, the same store — the codomain-chain fast path's justification. -/
-theorem internLevel_of_denoteL {st : EStore} (hwf : st.WF) :
+theorem internLevel_of_denoteL {st : EStore} (hwf : st.TWF) :
     ∀ {l : Level} {i : LIdx}, st.denoteL i = some l →
       st.internLevel l = (i, st) := by
   intro l
@@ -3869,7 +4023,7 @@ theorem internBMFast_eq {st : EStore} (hwf : st.WF) {m : BinderMeta}
           obtain ⟨hwf₁, hext₁, -⟩ := internLevel_spec hwf u
           have hstep : (st.internLevel u).2.internLevel vtail
               = (ic, (st.internLevel u).2) :=
-            internLevel_of_denoteL hwf₁ (denoteL_mono hext₁ hden)
+            internLevel_of_denoteL hwf₁.toTWF (denoteL_mono hext₁ hden)
           show _ = ((⟨bi, some (st.internLevel (.imax u vtail)).1⟩ :
               IBinderMeta), (st.internLevel (.imax u vtail)).2)
           have hlvl : st.internLevel (.imax u vtail)
@@ -5122,6 +5276,654 @@ theorem intern_denoteT {st : EStore} {n : ENode} (h : st.TWF)
     (fun q _ => denoteN_eq_of_nnodes_eq (intern_nnodes st n) q)
   exact denoteT_agree h hstable (intern_lnodes st n) (intern_nnodes st n)
     c (hc c hcin)
+
+/-! ### Totality, canonicity and exactness over `denoteT`
+(task #64, bracket battery item 1b) -/
+
+/-- Below the old size, an extension does not change the tier-two node
+table. -/
+theorem Ext.tnodes_eq_of_lt {st st' : EStore} (hext : Ext st st') {j : Nat}
+    (hj : j < st.tnodes.size) : st'.tnodes[j]? = st.tnodes[j]? := by
+  have hn : st.tnodes[j]? = some st.tnodes[j] := by
+    simp [hj]
+  rw [hn]
+  exact hext.texpr _ _ hn
+
+/-- At a valid two-tier index, an extension does not change the
+`getNode` read (not even `none` ones — the pushed nodes sit above the
+valid range of their tier). -/
+theorem Ext.getNode_eq_of_valid2 {st st' : EStore} (hext : Ext st st')
+    {i : EIdx} (hv : st.Valid2 i) : st'.getNode i = st.getNode i := by
+  rcases hv with ⟨ht, hp⟩ | ⟨ht, hp⟩
+  · rw [getNode_tierOne ht, getNode_tierOne ht]
+    exact hext.nodes_eq_of_lt hp
+  · unfold EStore.getNode
+    rw [if_neg (by omega), if_neg (by omega)]
+    exact hext.tnodes_eq_of_lt hp
+
+/-- At a valid two-tier index, an extension does not change the
+tier-aware denotation (not even `none` ones). -/
+theorem Ext.denoteT_eq_of_valid2 {st st' : EStore} (hext : Ext st st')
+    (h : st.TWF) : ∀ {i : EIdx}, st.Valid2 i →
+      st'.denoteT i = st.denoteT i := by
+  intro i
+  induction i using emlt_induction with
+  | ind i ih =>
+    intro hv
+    obtain ⟨n, hn⟩ := hv.getNode_isSome
+    rw [denoteT.eq_def, denoteT.eq_def, hext.getNode_eq_of_valid2 hv, hn]
+    refine denoteNode_congr' (fun c hc => ?_) (fun u hu => ?_)
+      (fun q hq => ?_)
+    · by_cases hci : emlt c i
+      · simp only [dif_pos hci]
+        exact ih c hci (h.getNode_children_valid2 hn c hc)
+      · simp [dif_neg hci]
+    · exact hext.denoteL_eq_of_lt (h.getNode_levels_lt hn u hu)
+    · exact hext.denoteN_eq_of_lt (h.getNode_names_lt hn q hq)
+
+/-- On a two-tier store, every valid two-tier index denotes
+tier-aware. -/
+theorem TWF.denoteT_total {st : EStore} (h : st.TWF) :
+    ∀ (i : EIdx), st.Valid2 i → ∃ x, st.denoteT i = some x := by
+  intro i
+  induction i using emlt_induction with
+  | ind i ih =>
+    intro hv
+    obtain ⟨n, hn⟩ := hv.getNode_isSome
+    have hcm := h.getNode_children_emlt hn
+    have hcv := h.getNode_children_valid2 hn
+    have hlv := h.getNode_levels_lt hn
+    have hnms := h.getNode_names_lt hn
+    rw [denoteT_node hn hcm]
+    have hcs : ∀ c ∈ n.children, ∃ x, st.denoteT c = some x :=
+      fun c hcin => ih c (hcm c hcin) (hcv c hcin)
+    cases n with
+    | bvar k => exact ⟨_, rfl⟩
+    | sort u =>
+      obtain ⟨l, hl⟩ := denoteL_total h u
+        (hlv u (by simp [ENode.levels]))
+      exact ⟨_, by rw [denoteNode, hl]; rfl⟩
+    | const nm us =>
+      obtain ⟨ls, hls⟩ := denoteLList_total h us
+        (fun u hu => hlv u (by simp [ENode.levels, hu]))
+      obtain ⟨name, hname⟩ := denoteN_total h nm
+        (hnms nm (by simp [ENode.names]))
+      exact ⟨_, by rw [denoteNode, hls, hname]; rfl⟩
+    | lit l => exact ⟨_, rfl⟩
+    | fvar idx nm t =>
+      obtain ⟨x, hx⟩ := hcs t (by simp [ENode.children])
+      obtain ⟨name, hname⟩ := denoteN_total h nm
+        (hnms nm (by simp [ENode.names]))
+      exact ⟨_, by rw [denoteNode, hx, hname]; rfl⟩
+    | app f a =>
+      obtain ⟨xf, hf⟩ := hcs f (by simp [ENode.children])
+      obtain ⟨xa, ha⟩ := hcs a (by simp [ENode.children])
+      exact ⟨_, by rw [denoteNode, hf, ha]; rfl⟩
+    | lam nm t b m =>
+      obtain ⟨xt, ht⟩ := hcs t (by simp [ENode.children])
+      obtain ⟨xb, hb⟩ := hcs b (by simp [ENode.children])
+      obtain ⟨bm, hbm⟩ := denoteBM_total h m
+        (fun u hu => hlv u (by simp [ENode.levels, hu]))
+      obtain ⟨name, hname⟩ := denoteN_total h nm
+        (hnms nm (by simp [ENode.names]))
+      exact ⟨_, by rw [denoteNode, ht, hb, hbm, hname]; rfl⟩
+    | forallE nm t b m =>
+      obtain ⟨xt, ht⟩ := hcs t (by simp [ENode.children])
+      obtain ⟨xb, hb⟩ := hcs b (by simp [ENode.children])
+      obtain ⟨bm, hbm⟩ := denoteBM_total h m
+        (fun u hu => hlv u (by simp [ENode.levels, hu]))
+      obtain ⟨name, hname⟩ := denoteN_total h nm
+        (hnms nm (by simp [ENode.names]))
+      exact ⟨_, by rw [denoteNode, ht, hb, hbm, hname]; rfl⟩
+    | letE nm t vv b =>
+      obtain ⟨xt, ht⟩ := hcs t (by simp [ENode.children])
+      obtain ⟨xv, hv'⟩ := hcs vv (by simp [ENode.children])
+      obtain ⟨xb, hb⟩ := hcs b (by simp [ENode.children])
+      obtain ⟨name, hname⟩ := denoteN_total h nm
+        (hnms nm (by simp [ENode.names]))
+      exact ⟨_, by rw [denoteNode, ht, hv', hb, hname]; rfl⟩
+    | proj s j e' =>
+      obtain ⟨x, hx⟩ := hcs e' (by simp [ENode.children])
+      obtain ⟨name, hname⟩ := denoteN_total h s
+        (hnms s (by simp [ENode.names]))
+      exact ⟨_, by rw [denoteNode, hx, hname]; rfl⟩
+
+/-- The two cons-tables make stored nodes unique across both tiers:
+two indices holding the same node coincide (`internT` probes tier one
+first, so a node is never stored in both tiers). -/
+theorem indexT_unique {st : EStore} (h : st.TWF) {n : ENode} {i j : EIdx}
+    (hi : st.getNode i = some n) (hj : st.getNode j = some n) : i = j := by
+  rcases getNode_eq_some.mp hi with ⟨hti, hni⟩ | ⟨hti, hni⟩ <;>
+    rcases getNode_eq_some.mp hj with ⟨htj, hnj⟩ | ⟨htj, hnj⟩
+  · have h1 : st.node1? i = some n := by rw [node1?_of_etier hti]; exact hni
+    have h2 : st.node1? j = some n := by rw [node1?_of_etier htj]; exact hnj
+    exact Option.some.inj
+      (((h.cons_graph n i).mpr h1).symm.trans ((h.cons_graph n j).mpr h2))
+  · have h1 : st.node1? i = some n := by rw [node1?_of_etier hti]; exact hni
+    have hfresh := h.t_cons_fresh n j ((h.t_cons_graph n j).mpr ⟨htj, hnj⟩)
+    rw [(h.cons_graph n i).mpr h1] at hfresh
+    cases hfresh
+  · have h2 : st.node1? j = some n := by rw [node1?_of_etier htj]; exact hnj
+    have hfresh := h.t_cons_fresh n i ((h.t_cons_graph n i).mpr ⟨hti, hni⟩)
+    rw [(h.cons_graph n j).mpr h2] at hfresh
+    cases hfresh
+  · exact Option.some.inj
+      (((h.t_cons_graph n i).mpr ⟨hti, hni⟩).symm.trans
+        ((h.t_cons_graph n j).mpr ⟨htj, hnj⟩))
+
+/-- Tier-aware denotation is injective on a two-tier store: two
+indices denoting the same expression are equal (canonicity across
+both tiers). -/
+theorem denoteT_inj {st : EStore} (h : st.TWF) :
+    ∀ {a : Expr} {i j : EIdx}, st.denoteT i = some a →
+      st.denoteT j = some a → i = j := by
+  intro a
+  induction a with
+  | bvar k =>
+    intro i j hi hj
+    obtain ⟨n, hn, -, hdn⟩ := denoteT_some_inv hi
+    obtain ⟨m, hm, -, hdm⟩ := denoteT_some_inv hj
+    obtain rfl := denoteNode_bvar_inv hdn
+    obtain rfl := denoteNode_bvar_inv hdm
+    exact indexT_unique h hn hm
+  | sort u =>
+    intro i j hi hj
+    obtain ⟨n, hn, -, hdn⟩ := denoteT_some_inv hi
+    obtain ⟨m, hm, -, hdm⟩ := denoteT_some_inv hj
+    obtain ⟨ui, rfl, hui⟩ := denoteNode_sort_inv hdn
+    obtain ⟨uj, rfl, huj⟩ := denoteNode_sort_inv hdm
+    obtain rfl := denoteL_inj h hui huj
+    exact indexT_unique h hn hm
+  | const nm us =>
+    intro i j hi hj
+    obtain ⟨n, hn, -, hdn⟩ := denoteT_some_inv hi
+    obtain ⟨m, hm, -, hdm⟩ := denoteT_some_inv hj
+    obtain ⟨ni, uis, rfl, hni, huis⟩ := denoteNode_const_inv hdn
+    obtain ⟨nj, ujs, rfl, hnj, hujs⟩ := denoteNode_const_inv hdm
+    obtain rfl := denoteN_inj h hni hnj
+    obtain rfl := denoteLList_inj h huis hujs
+    exact indexT_unique h hn hm
+  | lit l =>
+    intro i j hi hj
+    obtain ⟨n, hn, -, hdn⟩ := denoteT_some_inv hi
+    obtain ⟨m, hm, -, hdm⟩ := denoteT_some_inv hj
+    obtain rfl := denoteNode_lit_inv hdn
+    obtain rfl := denoteNode_lit_inv hdm
+    exact indexT_unique h hn hm
+  | fvar idx nm ty ih =>
+    intro i j hi hj
+    obtain ⟨n, hn, -, hdn⟩ := denoteT_some_inv hi
+    obtain ⟨m, hm, -, hdm⟩ := denoteT_some_inv hj
+    obtain ⟨ni, t, rfl, hni, ht⟩ := denoteNode_fvar_inv hdn
+    obtain ⟨nj, t', rfl, hnj, ht'⟩ := denoteNode_fvar_inv hdm
+    obtain rfl := denoteN_inj h hni hnj
+    obtain rfl := ih ht ht'
+    exact indexT_unique h hn hm
+  | app x y ihx ihy =>
+    intro i j hi hj
+    obtain ⟨n, hn, -, hdn⟩ := denoteT_some_inv hi
+    obtain ⟨m, hm, -, hdm⟩ := denoteT_some_inv hj
+    obtain ⟨f, a, rfl, hf, ha⟩ := denoteNode_app_inv hdn
+    obtain ⟨g, b, rfl, hg, hb⟩ := denoteNode_app_inv hdm
+    obtain rfl := ihx hf hg
+    obtain rfl := ihy ha hb
+    exact indexT_unique h hn hm
+  | lam nm ty body m ihty ihbody =>
+    intro i j hi hj
+    obtain ⟨n, hn, -, hdn⟩ := denoteT_some_inv hi
+    obtain ⟨m', hm, -, hdm⟩ := denoteT_some_inv hj
+    obtain ⟨ni, t, b, mi, rfl, hni, ht, hb, hmi⟩ := denoteNode_lam_inv hdn
+    obtain ⟨nj, t', b', mi', rfl, hnj, ht', hb', hmi'⟩ :=
+      denoteNode_lam_inv hdm
+    obtain rfl := denoteN_inj h hni hnj
+    obtain rfl := ihty ht ht'
+    obtain rfl := ihbody hb hb'
+    obtain rfl := denoteBM_inj h hmi hmi'
+    exact indexT_unique h hn hm
+  | forallE nm ty body m ihty ihbody =>
+    intro i j hi hj
+    obtain ⟨n, hn, -, hdn⟩ := denoteT_some_inv hi
+    obtain ⟨m', hm, -, hdm⟩ := denoteT_some_inv hj
+    obtain ⟨ni, t, b, mi, rfl, hni, ht, hb, hmi⟩ :=
+      denoteNode_forallE_inv hdn
+    obtain ⟨nj, t', b', mi', rfl, hnj, ht', hb', hmi'⟩ :=
+      denoteNode_forallE_inv hdm
+    obtain rfl := denoteN_inj h hni hnj
+    obtain rfl := ihty ht ht'
+    obtain rfl := ihbody hb hb'
+    obtain rfl := denoteBM_inj h hmi hmi'
+    exact indexT_unique h hn hm
+  | letE nm ty val body ihty ihval ihbody =>
+    intro i j hi hj
+    obtain ⟨n, hn, -, hdn⟩ := denoteT_some_inv hi
+    obtain ⟨m, hm, -, hdm⟩ := denoteT_some_inv hj
+    obtain ⟨ni, t, v, b, rfl, hni, ht, hv, hb⟩ := denoteNode_letE_inv hdn
+    obtain ⟨nj, t', v', b', rfl, hnj, ht', hv', hb'⟩ :=
+      denoteNode_letE_inv hdm
+    obtain rfl := denoteN_inj h hni hnj
+    obtain rfl := ihty ht ht'
+    obtain rfl := ihval hv hv'
+    obtain rfl := ihbody hb hb'
+    exact indexT_unique h hn hm
+  | proj s k x ih =>
+    intro i j hi hj
+    obtain ⟨n, hn, -, hdn⟩ := denoteT_some_inv hi
+    obtain ⟨m, hm, -, hdm⟩ := denoteT_some_inv hj
+    obtain ⟨si, e, rfl, hsi, he⟩ := denoteNode_proj_inv hdn
+    obtain ⟨sj, e', rfl, hsj, he'⟩ := denoteNode_proj_inv hdm
+    obtain rfl := denoteN_inj h hsi hsj
+    obtain rfl := ih he he'
+    exact indexT_unique h hn hm
+
+/-- O(1) equality across both tiers: on a two-tier store, comparing
+indices is comparing the tier-aware denotations. -/
+theorem denoteT_eq_iff {st : EStore} (h : st.TWF) {i j : EIdx}
+    {a b : Expr} (ha : st.denoteT i = some a) (hb : st.denoteT j = some b) :
+    i = j ↔ a = b := by
+  constructor
+  · rintro rfl
+    rw [ha] at hb
+    exact Option.some.inj hb
+  · rintro rfl
+    exact denoteT_inj h ha hb
+
+/-- On even children the tier-blind bound recurrence is the
+array-local one (every dispatch resolves to tier one). -/
+theorem nodeBvarBound_eq_of_even {st : EStore} {n : ENode}
+    (hc : ∀ c ∈ n.children, etier c = 0) :
+    st.nodeBvarBound n = n.bvarBoundOf st.bvarBs := by
+  cases n <;>
+    simp_all [nodeBvarBound, ENode.bvarBoundOf, ENode.children,
+      bvarBoundD]
+
+@[inherit_doc nodeBvarBound_eq_of_even]
+theorem nodeFvarRange_eq_of_even {st : EStore} {n : ENode}
+    (hc : ∀ c ∈ n.children, etier c = 0) :
+    st.nodeFvarRange n = n.fvarRangeOf st.fvarBs := by
+  cases n <;>
+    simp_all [nodeFvarRange, ENode.fvarRangeOf, ENode.children,
+      fvarRangeD]
+
+@[inherit_doc nodeBvarBound_eq_of_even]
+theorem nodeHasLParam_eq_of_even {st : EStore} {n : ENode}
+    (hc : ∀ c ∈ n.children, etier c = 0) :
+    st.nodeHasLParam n = n.hasLParamOf st.eparamBs st.lparamBs := by
+  have hl : st.lhasParamD = fun u => st.lparamBs[u]?.getD false := by
+    funext u
+    simp [lhasParamD, Array.getD_eq_getD_getElem?]
+  cases n <;>
+    simp_all [nodeHasLParam, ENode.hasLParamOf, ENode.children,
+      ehasParamD]
+
+/-- The dispatching bound read of any stored node (either tier) is its
+tier-blind recurrence entry. -/
+theorem TWF.bvarBoundD_getNode {st : EStore} (h : st.TWF) {i : EIdx}
+    {n : ENode} (hn : st.getNode i = some n) :
+    st.bvarBoundD i = st.nodeBvarBound n := by
+  rcases getNode_eq_some.mp hn with ⟨ht, hn'⟩ | ⟨ht, hn'⟩
+  · rw [bvarBoundD_tierOne ht, Array.getD_eq_getD_getElem?,
+      h.bvarBs_spec (epos i) n hn']
+    exact (nodeBvarBound_eq_of_even
+      fun c hc => (h.children_lt (epos i) n hn' c hc).1).symm
+  · rw [← odd_encode ht]
+    exact h.bvarBoundD_tierTwo hn'
+
+@[inherit_doc TWF.bvarBoundD_getNode]
+theorem TWF.fvarRangeD_getNode {st : EStore} (h : st.TWF) {i : EIdx}
+    {n : ENode} (hn : st.getNode i = some n) :
+    st.fvarRangeD i = st.nodeFvarRange n := by
+  rcases getNode_eq_some.mp hn with ⟨ht, hn'⟩ | ⟨ht, hn'⟩
+  · rw [fvarRangeD_tierOne ht, Array.getD_eq_getD_getElem?,
+      h.fvarBs_spec (epos i) n hn']
+    exact (nodeFvarRange_eq_of_even
+      fun c hc => (h.children_lt (epos i) n hn' c hc).1).symm
+  · rw [← odd_encode ht]
+    exact h.fvarRangeD_tierTwo hn'
+
+@[inherit_doc TWF.bvarBoundD_getNode]
+theorem TWF.ehasParamD_getNode {st : EStore} (h : st.TWF) {i : EIdx}
+    {n : ENode} (hn : st.getNode i = some n) :
+    st.ehasParamD i = st.nodeHasLParam n := by
+  rcases getNode_eq_some.mp hn with ⟨ht, hn'⟩ | ⟨ht, hn'⟩
+  · rw [ehasParamD_tierOne ht, Array.getD_eq_getD_getElem?,
+      h.eparamBs_spec (epos i) n hn']
+    exact (nodeHasLParam_eq_of_even
+      fun c hc => (h.children_lt (epos i) n hn' c hc).1).symm
+  · rw [← odd_encode ht]
+    exact h.ehasParamD_tierTwo hn'
+
+/-- The dispatching bound read is exactly the spec bound of the
+tier-aware denotation (both tiers). -/
+theorem TWF.bvarBoundD_exact2 {st : EStore} (h : st.TWF) :
+    ∀ (i : EIdx) {x : Expr}, st.denoteT i = some x →
+      st.bvarBoundD i = x.bvarBound := by
+  intro i
+  induction i using emlt_induction with
+  | ind i ih =>
+    intro x hx
+    obtain ⟨n, hn, hcl, hdn⟩ := denoteT_some_inv hx
+    rw [h.bvarBoundD_getNode hn]
+    cases n with
+    | bvar j =>
+      rw [denoteNode] at hdn
+      cases hdn
+      rfl
+    | fvar idx nm t =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xt, -, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
+      rfl
+    | sort u =>
+      rw [denoteNode, Option.map_eq_some_iff] at hdn
+      obtain ⟨lu, -, rfl⟩ := hdn
+      rfl
+    | const nm us =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨lus, -, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
+      rfl
+    | lit l =>
+      rw [denoteNode] at hdn
+      cases hdn
+      rfl
+    | app f a =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xf, hxf, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨xa, hxa, rfl⟩ := hdn
+      show max (st.bvarBoundD f) (st.bvarBoundD a) = _
+      rw [ih f (hcl f (by simp [ENode.children])) hxf,
+        ih a (hcl a (by simp [ENode.children])) hxa]
+      rfl
+    | lam nm ty body m =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xt, hxt, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨xb, hxb, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨bm, -, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
+      show max (st.bvarBoundD ty) (st.bvarBoundD body - 1) = _
+      rw [ih ty (hcl ty (by simp [ENode.children])) hxt,
+        ih body (hcl body (by simp [ENode.children])) hxb]
+      rfl
+    | forallE nm ty body m =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xt, hxt, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨xb, hxb, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨bm, -, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
+      show max (st.bvarBoundD ty) (st.bvarBoundD body - 1) = _
+      rw [ih ty (hcl ty (by simp [ENode.children])) hxt,
+        ih body (hcl body (by simp [ENode.children])) hxb]
+      rfl
+    | letE nm ty val body =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xt, hxt, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨xv, hxv, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨xb, hxb, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
+      show max (max (st.bvarBoundD ty) (st.bvarBoundD val))
+          (st.bvarBoundD body - 1) = _
+      rw [ih ty (hcl ty (by simp [ENode.children])) hxt,
+        ih val (hcl val (by simp [ENode.children])) hxv,
+        ih body (hcl body (by simp [ENode.children])) hxb]
+      rfl
+    | proj sp j sub =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xs, hxs, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
+      show st.bvarBoundD sub = _
+      rw [ih sub (hcl sub (by simp [ENode.children])) hxs]
+      rfl
+
+/-- The dispatching range read is exactly the spec range of the
+tier-aware denotation (both tiers). -/
+theorem TWF.fvarRangeD_exact2 {st : EStore} (h : st.TWF) :
+    ∀ (i : EIdx) {x : Expr}, st.denoteT i = some x →
+      st.fvarRangeD i = x.fvarRange := by
+  intro i
+  induction i using emlt_induction with
+  | ind i ih =>
+    intro x hx
+    obtain ⟨n, hn, hcl, hdn⟩ := denoteT_some_inv hx
+    rw [h.fvarRangeD_getNode hn]
+    cases n with
+    | bvar j =>
+      rw [denoteNode] at hdn
+      cases hdn
+      rfl
+    | fvar idx nm t =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xt, -, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
+      rfl
+    | sort u =>
+      rw [denoteNode, Option.map_eq_some_iff] at hdn
+      obtain ⟨lu, -, rfl⟩ := hdn
+      rfl
+    | const nm us =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨lus, -, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
+      rfl
+    | lit l =>
+      rw [denoteNode] at hdn
+      cases hdn
+      rfl
+    | app f a =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xf, hxf, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨xa, hxa, rfl⟩ := hdn
+      show max (st.fvarRangeD f) (st.fvarRangeD a) = _
+      rw [ih f (hcl f (by simp [ENode.children])) hxf,
+        ih a (hcl a (by simp [ENode.children])) hxa]
+      rfl
+    | lam nm ty body m =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xt, hxt, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨xb, hxb, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨bm, -, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
+      show max (st.fvarRangeD ty) (st.fvarRangeD body) = _
+      rw [ih ty (hcl ty (by simp [ENode.children])) hxt,
+        ih body (hcl body (by simp [ENode.children])) hxb]
+      rfl
+    | forallE nm ty body m =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xt, hxt, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨xb, hxb, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨bm, -, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
+      show max (st.fvarRangeD ty) (st.fvarRangeD body) = _
+      rw [ih ty (hcl ty (by simp [ENode.children])) hxt,
+        ih body (hcl body (by simp [ENode.children])) hxb]
+      rfl
+    | letE nm ty val body =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xt, hxt, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨xv, hxv, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨xb, hxb, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
+      show max (max (st.fvarRangeD ty) (st.fvarRangeD val))
+          (st.fvarRangeD body) = _
+      rw [ih ty (hcl ty (by simp [ENode.children])) hxt,
+        ih val (hcl val (by simp [ENode.children])) hxv,
+        ih body (hcl body (by simp [ENode.children])) hxb]
+      rfl
+    | proj sp j sub =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xs, hxs, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
+      show st.fvarRangeD sub = _
+      rw [ih sub (hcl sub (by simp [ENode.children])) hxs]
+      rfl
+
+/-- The dispatching has-level-param read is exactly `hasLevelParam` of
+the tier-aware denotation (both tiers). -/
+theorem TWF.ehasParamD_exact2 {st : EStore} (h : st.TWF) :
+    ∀ (i : EIdx) {x : Expr}, st.denoteT i = some x →
+      st.ehasParamD i = x.hasLevelParam := by
+  intro i
+  induction i using emlt_induction with
+  | ind i ih =>
+    intro x hx
+    obtain ⟨n, hn, hcl, hdn⟩ := denoteT_some_inv hx
+    rw [h.ehasParamD_getNode hn]
+    cases n with
+    | bvar j =>
+      rw [denoteNode] at hdn
+      cases hdn
+      rfl
+    | lit l =>
+      rw [denoteNode] at hdn
+      cases hdn
+      rfl
+    | sort u =>
+      rw [denoteNode, Option.map_eq_some_iff] at hdn
+      obtain ⟨lu, hlu, rfl⟩ := hdn
+      show st.lhasParamD u = _
+      rw [h.lhasParamD_exact u hlu]
+      rfl
+    | const nm us =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨lus, hlus, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
+      exact h.lhasParamD_list hlus
+    | fvar idx nm t =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xt, hxt, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
+      show st.ehasParamD t = _
+      rw [ih t (hcl t (by simp [ENode.children])) hxt]
+      rfl
+    | app f a =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xf, hxf, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨xa, hxa, rfl⟩ := hdn
+      show (st.ehasParamD f || st.ehasParamD a) = _
+      rw [ih f (hcl f (by simp [ENode.children])) hxf,
+        ih a (hcl a (by simp [ENode.children])) hxa]
+      rfl
+    | lam nm ty body m =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xt, hxt, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨xb, hxb, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨bm, hbm, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
+      obtain ⟨bi, cod⟩ := m
+      cases cod with
+      | none =>
+        rw [denoteBM] at hbm
+        cases hbm
+        show (st.ehasParamD ty || st.ehasParamD body || false) = _
+        rw [ih ty (hcl ty (by simp [ENode.children])) hxt,
+          ih body (hcl body (by simp [ENode.children])) hxb]
+        rfl
+      | some u =>
+        rw [denoteBM, Option.map_eq_some_iff] at hbm
+        obtain ⟨lv, hlv, rfl⟩ := hbm
+        show (st.ehasParamD ty || st.ehasParamD body
+            || st.lhasParamD u) = _
+        rw [ih ty (hcl ty (by simp [ENode.children])) hxt,
+          ih body (hcl body (by simp [ENode.children])) hxb,
+          h.lhasParamD_exact u hlv]
+        rfl
+    | forallE nm ty body m =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xt, hxt, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨xb, hxb, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨bm, hbm, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
+      obtain ⟨bi, cod⟩ := m
+      cases cod with
+      | none =>
+        rw [denoteBM] at hbm
+        cases hbm
+        show (st.ehasParamD ty || st.ehasParamD body || false) = _
+        rw [ih ty (hcl ty (by simp [ENode.children])) hxt,
+          ih body (hcl body (by simp [ENode.children])) hxb]
+        rfl
+      | some u =>
+        rw [denoteBM, Option.map_eq_some_iff] at hbm
+        obtain ⟨lv, hlv, rfl⟩ := hbm
+        show (st.ehasParamD ty || st.ehasParamD body
+            || st.lhasParamD u) = _
+        rw [ih ty (hcl ty (by simp [ENode.children])) hxt,
+          ih body (hcl body (by simp [ENode.children])) hxb,
+          h.lhasParamD_exact u hlv]
+        rfl
+    | letE nm ty val body =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xt, hxt, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨xv, hxv, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨xb, hxb, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
+      show (st.ehasParamD ty || st.ehasParamD val
+          || st.ehasParamD body) = _
+      rw [ih ty (hcl ty (by simp [ENode.children])) hxt,
+        ih val (hcl val (by simp [ENode.children])) hxv,
+        ih body (hcl body (by simp [ENode.children])) hxb]
+      rfl
+    | proj sp j sub =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xs, hxs, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
+      show st.ehasParamD sub = _
+      rw [ih sub (hcl sub (by simp [ENode.children])) hxs]
+      rfl
+
+/-- Cutoff consequence over `denoteT`: a bound entry at or below the
+cursor certifies `looseBVarsBounded` of the tier-aware denotation. -/
+theorem TWF.bvarBoundD_le2 {st : EStore} (h : st.TWF) {e : EIdx}
+    {x : Expr} {d : Nat} (hx : st.denoteT e = some x)
+    (hle : st.bvarBoundD e ≤ d) : x.looseBVarsBounded d = true :=
+  looseBVarsBounded_iff.mpr (h.bvarBoundD_exact2 e hx ▸ hle)
+
+/-- Prune consequence over `denoteT`: a `false` has-level-param entry
+certifies the tier-aware denotation level-param-free. -/
+theorem TWF.ehasParamD_false2 {st : EStore} (h : st.TWF) {e : EIdx}
+    {x : Expr} (hx : st.denoteT e = some x)
+    (hp : (!st.ehasParamD e) = true) : x.hasLevelParam = false := by
+  rw [Bool.not_eq_eq_eq_not, Bool.not_true] at hp
+  rw [← h.ehasParamD_exact2 e hx]
+  exact hp
 
 end EStore
 

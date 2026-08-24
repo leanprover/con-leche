@@ -312,7 +312,7 @@ theorem simplifyImax_spec {st : EStore} {memo : LMemo}
       rcases h₃ : st.combiningLI ls rs with ⟨c, st₁⟩
       rw [h₃] at hgo
       cases hgo
-      obtain ⟨zx, hzx⟩ := denoteL_total hwf z
+      obtain ⟨zx, hzx⟩ := denoteL_total hwf.toTWF z
         (Nat.lt_trans
           (hwf.lchildren_lt _ _ hrsn z (by simp [LNode.children]))
           (Array.getElem?_eq_some_iff.mp hrsn).1)
@@ -451,7 +451,7 @@ theorem simplifyLIGo_spec :
             rcases h₂ : st₁.internL (.succ l') with ⟨ri, st₂⟩
             rw [h₂] at hgo
             cases hgo
-            obtain ⟨xl, hl⟩ := denoteL_total hwf l (Nat.lt_trans hguard husz)
+            obtain ⟨xl, hl⟩ := denoteL_total hwf.toTWF l (Nat.lt_trans hguard husz)
             have hx : st.denoteL u = some (.succ xl) := by
               rw [hde, denoteLNode, hl]; rfl
             obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ := ih l hguard hwf hinv h₁
@@ -484,8 +484,8 @@ theorem simplifyLIGo_spec :
             rcases h₃ : st₂.combiningLI l' r₂ with ⟨ri, st₃⟩
             rw [h₃] at hgo
             cases hgo
-            obtain ⟨xl, hl⟩ := denoteL_total hwf l (Nat.lt_trans hguard.1 husz)
-            obtain ⟨xr, hr⟩ := denoteL_total hwf r' (Nat.lt_trans hguard.2 husz)
+            obtain ⟨xl, hl⟩ := denoteL_total hwf.toTWF l (Nat.lt_trans hguard.1 husz)
+            obtain ⟨xr, hr⟩ := denoteL_total hwf.toTWF r' (Nat.lt_trans hguard.2 husz)
             have hx : st.denoteL u = some (.max xl xr) := by
               rw [hde, denoteLNode, hl, hr]; rfl
             obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ := ih l hguard.1 hwf hinv h₁
@@ -516,8 +516,8 @@ theorem simplifyLIGo_spec :
             rw [h₁] at hgo
             rcases h₂ : simplifyLIGo st₁ memo₁ r' with ⟨rs, st₂, memo₂⟩
             rw [h₂] at hgo
-            obtain ⟨xl, hl⟩ := denoteL_total hwf l (Nat.lt_trans hguard.1 husz)
-            obtain ⟨xr, hr⟩ := denoteL_total hwf r' (Nat.lt_trans hguard.2 husz)
+            obtain ⟨xl, hl⟩ := denoteL_total hwf.toTWF l (Nat.lt_trans hguard.1 husz)
+            obtain ⟨xr, hr⟩ := denoteL_total hwf.toTWF r' (Nat.lt_trans hguard.2 husz)
             have hx : st.denoteL u = some (.imax xl xr) := by
               rw [hde, denoteLNode, hl, hr]; rfl
             obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ := ih l hguard.1 hwf hinv h₁
@@ -882,9 +882,9 @@ theorem isNonZeroLIGo_spec {st : EStore} (hwf : st.WF) :
             exact absurd ⟨hcl a (by simp [LNode.children]),
               hcl b' (by simp [LNode.children])⟩ hguard
           case isTrue hguard =>
-            obtain ⟨xa, hxa⟩ := denoteL_total hwf a
+            obtain ⟨xa, hxa⟩ := denoteL_total hwf.toTWF a
               (Nat.lt_trans hguard.1 husz)
-            obtain ⟨xb, hxb⟩ := denoteL_total hwf b'
+            obtain ⟨xb, hxb⟩ := denoteL_total hwf.toTWF b'
               (Nat.lt_trans hguard.2 husz)
             have hx : st.denoteL u = some (.max xa xb) := by
               rw [hde, denoteLNode, hxa, hxb]; rfl
@@ -925,9 +925,9 @@ theorem isNonZeroLIGo_spec {st : EStore} (hwf : st.WF) :
           case isFalse hguard =>
             exact absurd (hcl b' (by simp [LNode.children])) hguard
           case isTrue hguard =>
-            obtain ⟨xa, hxa⟩ := denoteL_total hwf a
+            obtain ⟨xa, hxa⟩ := denoteL_total hwf.toTWF a
               (Nat.lt_trans (hcl a (by simp [LNode.children])) husz)
-            obtain ⟨xb, hxb⟩ := denoteL_total hwf b'
+            obtain ⟨xb, hxb⟩ := denoteL_total hwf.toTWF b'
               (Nat.lt_trans hguard husz)
             have hx : st.denoteL u = some (.imax xa xb) := by
               rw [hde, denoteLNode, hxa, hxb]; rfl

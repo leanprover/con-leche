@@ -1104,7 +1104,7 @@ theorem defeqSpineI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
       have haargs := getAppArgsI_spec hs.wf hdena
       have hbargs := getAppArgsI_spec hs.wf hdenb
       have hnmiff : (nmᵢ = nm') ↔ (nmv = nm'v) :=
-        denoteN_eq_iff hs.wf hnmDen hnmDen'
+        denoteN_eq_iff hs.wf.toTWF hnmDen hnmDen'
       by_cases hcnd : nmv = nm'v ∧
           a.getAppArgs.length = b.getAppArgs.length
       · rw [if_pos hcnd, if_pos ⟨hnmiff.mpr hcnd.1, by
