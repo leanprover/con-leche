@@ -1223,10 +1223,6 @@ theorem rule_eq_of_bottom_ext
       AnnotOk V m.val env ψ'' 0 (rho0 V) cvA.type)
     (hIty : ∀ ψ'' : Name → Nat, ∃ T,
       interpClosed V m.val env ψ'' cvA.type = some T)
-    (hACty : ∀ ψ'' : Name → Nat,
-      AnnotOk V m.val env ψ'' 0 (rho0 V) cvj.type)
-    (hICty : ∀ ψ'' : Name → Nat, ∃ T,
-      interpClosed V m.val env ψ'' cvj.type = some T)
     (hArhs : ∀ ψ'' : Name → Nat,
       AnnotOk V m.val env ψ'' 0 (rho0 V) (RecRule.rhs rule))
     (hIrhs : ∀ ψ'' : Name → Nat, ∃ L,
@@ -1648,7 +1644,7 @@ theorem proj_rule_eq_of_bottom
       (by rw [htakeP]; exact hdeParsP)
       (Nat.le_refl nP) hCcl hCb (hACty ψ) (hICty ψ))
     hopenX hlinstP hdeLamP hTcl hTb hCcl hCb hTres hCres hRres hrhsw
-    hrhsb hAty hIty hACty hICty hArhs hIrhs ?_
+    hrhsb hAty hIty hArhs hIrhs ?_
   intro ψ xs hxs hpref
   have h := Hbot ψ xs hxs hpref
   rw [htakeSp] at h

@@ -1313,6 +1313,62 @@ theorem TeleFit.erasedEq {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
     | .app _ _, hEE | .lam _ _ _ _, hEE | .letE _ _ _ _, hEE
     | .lit _, hEE | .proj _ _ _, hEE => exact hEE.elim
 
+/-- The frame conditions move **up** the canonical list valuations: a
+term frame-ok at `j` with the prefix's valuation is frame-ok at any
+frame above `xs.length` with the whole list's.  The upward companion of
+`interp_getD_canon`/`annotOk_getD_canon`, proved once for all six
+components by iterating `FrameOk.weaken_top`. -/
+theorem FrameOk.getD_up {cval : ConstVal V} {env : Env} {φ : Name → Nat}
+    {e : Expr} {xs : List V} {j D : Nat}
+    (hjx : j ≤ xs.length) (hxD : xs.length ≤ D)
+    (h : FrameOk V cval env φ j
+      (fun i => (xs.take j).getD i SetTheory.empty) e) :
+    FrameOk V cval env φ D (fun i => xs.getD i SetTheory.empty) e := by
+  have step1 : ∀ n, j + n ≤ xs.length →
+      FrameOk V cval env φ (j + n)
+        (fun i => (xs.take (j + n)).getD i SetTheory.empty) e := by
+    intro n
+    induction n with
+    | zero => intro _; exact h
+    | succ n ih =>
+      intro hn
+      have hprev := ih (by omega)
+      obtain ⟨v, hv⟩ : ∃ v, xs[j + n]? = some v :=
+        ⟨xs[j + n]'(by omega), List.getElem?_eq_getElem (by omega)⟩
+      have hupd : (fun i => (xs.take (j + n + 1)).getD i SetTheory.empty) =
+          updV V (fun i => (xs.take (j + n)).getD i SetTheory.empty)
+            (j + n) v := by
+        rw [List.take_add_one, hv]
+        exact getD_snoc_eq_updV (by rw [List.length_take]; omega)
+      rw [show j + (n + 1) = j + n + 1 from by omega, hupd]
+      exact FrameOk.weaken_top hprev
+  have h1 := step1 (xs.length - j) (by omega)
+  rw [show j + (xs.length - j) = xs.length from by omega,
+    List.take_of_length_le (Nat.le_refl _)] at h1
+  have step2 : ∀ n, FrameOk V cval env φ (xs.length + n)
+      (fun i => xs.getD i SetTheory.empty) e := by
+    intro n
+    induction n with
+    | zero => exact h1
+    | succ n ih =>
+      have hupd : (fun i => xs.getD i SetTheory.empty) =
+          updV V (fun i => xs.getD i SetTheory.empty) (xs.length + n)
+            (SetTheory.empty : V) := by
+        funext i
+        simp only [updV]
+        split
+        · next hi =>
+          rw [hi, List.getD_eq_getElem?_getD,
+            List.getElem?_eq_none (by omega)]
+          rfl
+        · rfl
+      have h3 := FrameOk.weaken_top (x := (SetTheory.empty : V)) ih
+      rw [show xs.length + (n + 1) = xs.length + n + 1 from by omega]
+      rwa [← hupd] at h3
+  have h2 := step2 (D - xs.length)
+  rw [show xs.length + (D - xs.length) = D from by omega] at h2
+  exact h2
+
 /-! ### From `FramePref` to a value-spine fit
 
 The rule-tower machinery (`TowerOk.of_stages`) carries its stage
