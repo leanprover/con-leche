@@ -11,11 +11,13 @@ import Setlec.Verify.EnvWF
 import Setlec.Verify.InferLemmas
 import Setlec.SetTheory.Basic
 import Setlec.SetTheory.Core
+import Setlec.SetTheory.Derive.Collapse
 import Setlec.SetTheory.Aczel
 import Setlec.Kernel.IExpr
 import Setlec.Kernel.ArenaWF
 import Setlec.Kernel.WFStore
 import Setlec.Verify.IExpr
+import Setlec.Verify.Promote
 import Setlec.Model.Interp
 import Setlec.Model.InterpLemmas
 import Setlec.Model.TypeChecker

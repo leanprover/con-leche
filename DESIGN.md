@@ -6883,3 +6883,170 @@ accepting arena/init stream* (artifact-absence gate), so the slice
 buys internal uniformity and the #82 expansion's foundation, not
 stream coverage.  If #82's gate ever widens, this slice is its
 prerequisite; on its own it does not change a single verdict.
+
+## Annotation erasure: the domain-relative collapse (2026-08-24, task #100)
+
+The response to the "annotation-free consumption" fork above: a
+**fourth architecture** — make the *model* level-free, so that neither
+stored annotations nor a `codOf` oracle appear in any semantic
+statement.  The canon-model spike validated it; its operator layer is
+now landed as `Setlec/SetTheory/Derive/Collapse.lean` (evidence
+included, nothing consumed yet), and the model flip itself is **blocked
+on a kernel de-gating stage first** — a new finding, recorded below
+with its countermodel.
+
+### The operators (landed)
+
+The spike's literal proposal — a global hereditary canonicalization
+`canon : V → V` — is *refuted* (two formal horns, `Collapse.lean`:
+`hereditary_canon_pt_not_fixed`, `hereditary_canon_pi_empty_not_prop`;
+the root cause is that `∅` is both the empty function graph and
+falsity, with `pt = {∅}` pinned).  The goal survives via a
+*domain-relative* collapse needing no recursion:
+
+* `pcol A g` — collapse a member of `piSet A B` to `pt` iff its
+  applications on `A` are all `pt` (vacuously over `A = ∅`);
+* `piC A B := image (pcol A) (piSet A B)`, `lamC A F := if (∀ x ∈ A,
+  F x = pt) then pt else graph F A`; `app` unchanged.
+
+`pcol A` is injective on `piSet A B`, so `piC` is a relabeling; the
+full law battery is re-derived level-free (the old→new table is in the
+module docstring).  Highlights: `pi_zero` becomes a **theorem**
+(`piC_prop_eq`, conditional on truth-value fibres); beta and
+elimination lose *all* side premises (`app_lamC`, `app_mem_piC`);
+`piC_mem_univ` keeps the `imax` shape; `lam_ne_pt` is **false** (that
+is the point); `lam_dom` weakens to `lamC_dom_of_ne` (premise `≠ pt`
+instead of a nonzero level).  The `RawEnvNoAnnot` refutation is evaded,
+not contradicted: its two witness λ-terms now receive the *same*
+interpretation `pt`, and `mem_type` holds for both because the
+type-side target moved from `piSet` to its collapse image
+(`lamC_witnesses_identified`, `pt_mem_piC_punit_nat/_true`).  Basis
+ports (PSigma projection with collapsed stored values, iota with a
+collapsed minor premise, the full `Nat.rec.{0}` tower) all check out in
+the same file.
+
+### Finding: the annotation-guarded reduction gates are unsound-to-model under the collapse (2026-08-24, task #100)
+
+The kernel's possibly-Prop gates decide *by stored annotation* that a
+value cannot be the proof point.  Under the collapse that inference is
+false at every level — an **empty-domain abstraction collapses to `pt`
+no matter its codomain sort** — and the gates' soundness claims are
+falsified outright, in the empty environment:
+
+**Countermodel** (guarded beta, `WhnfCoreClaims`): take
+
+    (fun (x : ∀ p : Prop, p) => Prop)  Prop
+
+with the λ's `cod` annotated `1` (truthfully: the body is `Prop :
+Sort 1`).  Under the collapse `⟦∀ p : Prop, p⟧ = piC univZero id = ∅`
+(the `p := False` fibre is empty), so `⟦λ⟧ = lamC ∅ _ = pt` by the
+vacuous collapse.  The flip-target `AnnotOk` app slot is *satisfiable*:
+choose `A := {univZero}`, `B := fun _ => unitSet`; then `vf = pt ∈ˢ
+piC A B` (`pt_mem_piC_iff`), `va = ⟦Prop⟧ = univZero ∈ˢ A`, fibres in
+`univ 0`.  The `isNonZero` gate fires, beta produces `Prop`, and
+interpretation is *not* preserved: `⟦redex⟧ = app pt univZero = pt ≠
+univZero = ⟦Prop⟧`.  Under the *leveled* operators the same slot is
+unsatisfiable — `⟦λ⟧ = graph _ ∅ = ∅`, and `∅ ∈ˢ pi vE A B` forces
+`A = ∅` at `vE ≠ 0` and is impossible at `vE = 0` — which is precisely
+the `lam_ne_pt`/domain-determination machinery the collapse removes *by
+design* (it is how the witnesses get identified).  The set-level core
+is checked in `Collapse.lean` (`lamC_empty`, `app_lamC_empty`,
+`piC_univZero_id_empty`, `guarded_beta_countermodel_core`).
+
+No `AnnotOk` strengthening repairs this.  The task-#73 impossibility
+analysis extends from `Prop` to **every level**: under the collapse,
+values do not determine domains whenever the domain can be empty
+(`lamC D F = pt` for *every* `D` with all-`pt` values — in particular
+every empty `D`), so an app-slot domain pin is unsound exactly as
+before; and syntactic conjuncts ("if `f` whnf-reduces to a λ then
+`va ∈ ⟦its domain⟧`") are not stable under substitution or delta (the
+subject-reduction bridge the annotation design exists to avoid).  The
+same construction kills each annotation-gated path:
+
+* **guarded beta** (`whnfCoreBody`'s `v.isNonZero` branch) — the
+  countermodel above;
+* **the #49 gated app-spine/iota re-check skip** — its soundness
+  recovers `⟦a⟧ ∈ ⟦domain⟧` by `eq_graph_app_of_mem_piSet` /
+  `graph_ne_pt`, both false at collapsed values (same shape, body of a
+  non-`pt`-containing type, e.g. a `PSigma` over an empty first
+  component);
+* **the guarded projection** (`mx.isNonZero`) — a constructor
+  application's value collapses at instances with an empty field
+  fibre, and the proj slot's existential levels cannot see it.
+
+By contrast the **defeq binder-cod comparison** (zero-ness form, just
+landed) and the **λ-annotation re-check** are not falsified — they
+become *unnecessary* (level-free `lamC_congr`/`piC_congr` need no
+zero-ness agreement), and deleting them only moves defeq toward
+reference behavior (reference trees carry no cods at all).
+
+### The amended migration order
+
+The spike's order ("re-target Interp/AnnotOk → DefEq/Infer/Certs →
+Whnf guarded beta → …") cannot be green-sequenced: the flip falsifies
+the gated claims the moment `interpExpr` produces collapse values.
+Amended order, each stage green:
+
+1. **[landed]** `Derive/Collapse.lean` — operators, laws, refutation,
+   evidence (this stage).
+2. **Kernel de-gating** (prerequisite, *kernel + Verify + Model*):
+   switch guarded beta, guarded proj and the #49 app-spine/iota gates
+   to their **always-certify** forms, and delete the defeq cod
+   comparison and the λ-cod re-check.  All of this was already built
+   and measured verdict-identical in the annotation-free-consumption
+   scouting (`_tmp/annotfree-consumption.patch`): beta certify
+   +26.2 %, spine/iota certify ≈ +13 %, the rest ≈ free.  Those
+   numbers *kept the annotate pass running*; the erasure end-state
+   deletes the pass (a full inference sweep per declaration), so the
+   net must be re-measured here.  Model side: the gated branches and
+   their domain-determination proofs (`Core/Whnf.lean` beta,
+   `Core/Infer.lean`/`Core/Certs.lean` #49 recovery, proj) *delete*;
+   the certified branches already carry the needed `⟦a⟧ ∈ ⟦domain⟧`
+   facts.  Verdict risk: accept-side identical on well-typed streams;
+   the certify paths are stricter on adversarial ones (gates: arena +
+   e2e + scale + init probes).  Touches `Kernel/Core.lean`/`CoreI` —
+   coordinate with concurrent kernel work (#64).
+3. **The model flip**: `pi`/`lam` become the collapse ops;
+   `interpExpr`'s binder clauses go level-free (no `m.cod` reads);
+   `AnnotOk` drops the cod conjuncts.  Shim design, recorded for the
+   executor:
+   * *Vestigial level*: `noncomputable abbrev pi (v : Nat) A B := piC
+     A B` (same for `lam`) — definitional level-erasure, so the ~2000
+     explicit-level call sites elaborate unchanged and interp-equation
+     rewrites never see a level mismatch (goals display `piC`/`lamC`).
+     The abbrevs die in stage 6.
+   * *Compat surface* (old names, old signatures, one-line proofs from
+     the collapse laws): `pi_congr`, `lam_congr`, `lam_mem`,
+     `app_mem'`/`app_mem`, `app_lam'`/`app_lam`, `lam_eta`,
+     `eq_of_mem_pi_app_eq`, `pi_mem_univ`, `IsTGUniverse.pi_mem`,
+     `pi_level_indifferent` (now `rfl`), `pi/lam_congr_zero_agree`.
+   * *False surface* (delete; ~65 call sites migrate): `pi_zero` (1),
+     `pi_pos` (8), `lam_zero` (40), `lam_pos` (2), `mem_pi_zero` (6),
+     `lam_ne_pt` (3), `lam_dom` (4), `pi_zero_mem_univZero` (1).
+     Replacements per the `Collapse.lean` table; `lam_zero` sites need
+     the in-context all-`pt` fibre facts (`lamC_of_forall`);
+     `StdAxioms.pt_mem_pi_zero`'s premise moves from ∃-inhabitant to
+     `pt`-membership (`pt_mem_piC_iff`), its ~10 axiom-install
+     consumers adjust witnesses; `BasisLemmas.lam_pi_dom` /
+     `Basis/Glue.lam_dom_of_ne` become `mem_piC_cases` dispatches
+     (their `pt` branches are fed by the de-gated certified facts).
+   * *`AnnotOk` flip shape*: binder clauses lose `∃ v, m.cod = some
+     v`; the fibre-universe facts become **per-φ existential levels
+     outside the domain quantifier** — `∃ vE, ∀ x A, interp ty = some
+     A → x ∈ˢ A → ∃ w, interp body' = some w ∧ w ∈ˢ univ vE` —
+     feeding `piC_mem_univ` at `mem_type`/sort obligations (the
+     existential must be uniform in `x`; `annotate_sound` instantiates
+     `vE := (stored cod).eval φ` while annotations exist, inferred
+     sorts after stage 5).
+4. **Iota walk / basis domain recovery**: `Glue`/`BasisLemmas`/
+   `IotaWalk` via `mem_piC_cases` (collapsed branch: `app_pt`
+   propagation, `pt` inhabits every fibre over the domain).
+5. **Basis values**: the per-type `Install/Claims/Iota/RuleOk/AnnotOk`
+   modules re-derive on the collapse laws (mostly premise deletions;
+   `lam_zero`-style value computations become `lamC_of_forall`).
+6. **Kernel-side erasure**: delete the annotate pass, `BinderMeta.cod`
+   storage, the cod memos and the vestigial level parameters; the
+   raw-storage chunks (A/B/C above) collapse to their raw forms — with
+   the model level-free, no shadow environment and no `codOf` oracle
+   is needed (architecture 4 supersedes the fork's 1–3).
+
