@@ -15,6 +15,11 @@ iteration protocol. Keep it up to date when decisions change.
   theory/verification modules (`Setlec/SetTheory/*`, `Setlec/Model/*`,
   `Setlec/Verify/*`). Proofs about kernel functions go in `Setlec/Verify/*`;
   the set-theoretic model and consistency in `Setlec/Model/*`.
+  Exception (2026-08-24): a *self-contained* verification of a data
+  structure (e.g. the arena's WF — invariants + preservation proofs
+  importing no other Model/Verify modules) may live with, and be
+  imported by, the implementation — the Std.HashMap pattern: the
+  structure carries its invariant; downstream never re-proves it.
 * Large artifacts (reference checkouts, worktrees) go in `_tmp/` (gitignored;
   /tmp and /home are tmpfs). Reference clones already there: nanodatg,
   lean-inductive-models, lean4lean-model.
