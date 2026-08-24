@@ -133,6 +133,23 @@ theorem interp_natRecSucc_rhs {cval : ConstVal V}
     -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
   try rfl
 
+/-- At a `Prop` motive level the whole recursor value collapses to the
+proof point (cf. `natrec_tower_collapses`). -/
+theorem natRecVal_collapse (h0 : ψ uN = 0) : natRecVal V ψ = (pt : V) := by
+  simp only [natRecVal]
+  refine lamC_of_forall fun M hM' => ?_
+  have hMfib' : ∀ n, n ∈ˢ (omega : V) → SetTheory.app M n ∈ˢ univ (ψ uN) :=
+    fun n hn' => app_mem_piC hM' hn'
+  refine lamC_of_forall fun z hz' => ?_
+  refine lamC_of_forall fun s hs' => ?_
+  refine lamC_of_forall fun t ht' => ?_
+  have hstep' : ∀ k, k ∈ˢ (omega : V) → ∀ ih, ih ∈ˢ SetTheory.app M k →
+      SetTheory.app (SetTheory.app s k) ih ∈ˢ
+        SetTheory.app M (natsucc k) := by
+    intro k hk ih hih
+    exact app_mem_piC (app_mem_piC hs' hk) hih
+  exact mem_univ_zero (h0 ▸ hMfib' t ht') (natrec_mem hz' hstep' ht')
+
 /-- The `Nat.rec` value applied through its telescope is set-theoretic
 recursion. -/
 theorem natRecVal_fold {Mv zv sv nv : V}
@@ -165,8 +182,8 @@ theorem natRecVal_fold {Mv zv sv nv : V}
   · -- Prop collapse: both sides are the proof point
     have hL : SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app
         (natRecVal V ψ) Mv) zv) sv) nv = pt := by
-      simp only [natRecVal, h0, reduceIte]
-      rw [lam_zero, app_pt, app_pt, app_pt, app_pt]
+      rw [natRecVal_collapse h0]
+      simp only [app_pt]
     rw [hL]
     exact (mem_univ_zero (h0 ▸ hMfib nv hn)
       (natrec_mem hz hstep hn)).symm
@@ -338,8 +355,21 @@ theorem natZero_iota {cval : ConstVal V}
                 pi (ψ uN) (SetTheory.app M n) fun _ =>
                   SetTheory.app M (SetTheory.app (natSuccVal V ψ) n))
               fun _s => z) Mv) zv) sv = pt := by
-      rw [show nrM (ψ uN) = 0 from by rw [nrM_eq, if_pos h0]]
-      rw [lam_zero, app_pt, app_pt, app_pt]
+      have hRv : (SetTheory.lam (nrM (ψ uN))
+          (pi (ψ uN + 1) omega fun _ => univ (ψ uN)) fun M =>
+          SetTheory.lam (nrZ (ψ uN)) (SetTheory.app M natzero) fun z =>
+            SetTheory.lam (ψ uN)
+              (pi (enUU (ψ uN)) omega fun n =>
+                pi (ψ uN) (SetTheory.app M n) fun _ =>
+                  SetTheory.app M (SetTheory.app (natSuccVal V ψ) n))
+              fun _s => z) = (pt : V) := by
+        refine lamC_of_forall fun M hM' => ?_
+        have h1 : SetTheory.app M natzero ∈ˢ univ (ψ uN) :=
+          app_mem_piC hM' natzero_mem
+        refine lamC_of_forall fun z hz' => ?_
+        exact lamC_of_forall fun _s _ => mem_univ_zero (h0 ▸ h1) hz'
+      rw [hRv]
+      simp only [app_pt]
     rw [hR]
     exact mem_univ_zero (h0 ▸ hMfib natzero natzero_mem) hz
   · -- data levels: the rhs value projects out the minor premise
@@ -523,8 +553,47 @@ theorem natSucc_iota {cval : ConstVal V}
                   (SetTheory.app (SetTheory.app (SetTheory.app
                     (SetTheory.app (natRecVal V ψ) M) z) s) n)) Mv) zv)
         sv) nv = pt := by
-      rw [show enM (ψ uN) = 0 from by rw [enM_eq, if_pos h0]]
-      rw [lam_zero, app_pt, app_pt, app_pt, app_pt]
+      have hRv : (SetTheory.lam (enM (ψ uN))
+          (pi (ψ uN + 1) omega fun _ => univ (ψ uN)) fun M =>
+          SetTheory.lam (enZ (ψ uN)) (SetTheory.app M natzero) fun z =>
+            SetTheory.lam (en1U (ψ uN))
+              (pi (enUU (ψ uN)) omega fun n =>
+                pi (ψ uN) (SetTheory.app M n) fun _ =>
+                  SetTheory.app M (SetTheory.app (natSuccVal V ψ) n))
+              fun s =>
+              SetTheory.lam (ψ uN) omega fun n =>
+                SetTheory.app (SetTheory.app s n)
+                  (SetTheory.app (SetTheory.app (SetTheory.app
+                    (SetTheory.app (natRecVal V ψ) M) z) s) n)) = (pt : V) := by
+        refine lamC_of_forall fun M hM' => ?_
+        have hMfib' : ∀ n, n ∈ˢ (omega : V) →
+            SetTheory.app M n ∈ˢ univ (ψ uN) :=
+          fun n hn' => app_mem_piC hM' hn'
+        refine lamC_of_forall fun z hz' => ?_
+        refine lamC_of_forall fun s hs' => ?_
+        refine lamC_of_forall fun n hn' => ?_
+        have hcall : SetTheory.app (SetTheory.app (SetTheory.app
+            (SetTheory.app (natRecVal V ψ) M) z) s) n = pt := by
+          rw [natRecVal_collapse h0]
+          simp only [app_pt]
+        rw [hcall]
+        have hstep' : ∀ k, k ∈ˢ (omega : V) → ∀ ih,
+            ih ∈ˢ SetTheory.app M k →
+            SetTheory.app (SetTheory.app s k) ih ∈ˢ
+              SetTheory.app M (natsucc k) := by
+          intro k hk ih hih
+          have h1 := app_mem_piC (app_mem_piC hs' hk) hih
+          rwa [natSuccVal_app hk] at h1
+        have hrec : natrec z s n ∈ˢ SetTheory.app M n :=
+          natrec_mem hz' hstep' hn'
+        have hptM : (pt : V) ∈ˢ SetTheory.app M n :=
+          (mem_univ_zero (h0 ▸ hMfib' n hn') hrec) ▸ hrec
+        have hv := app_mem_piC (app_mem_piC hs' hn') hptM
+        rw [natSuccVal_app hn'] at hv
+        exact mem_univ_zero
+          (h0 ▸ hMfib' (natsucc n) (natsucc_mem hn')) hv
+      rw [hRv]
+      simp only [app_pt]
     rw [hR]
     exact mem_univ_zero (h0 ▸ hMfib (natsucc nv) (natsucc_mem hn))
       (hstep nv hn (natrec zv sv nv) (natrec_mem hz hstep hn))

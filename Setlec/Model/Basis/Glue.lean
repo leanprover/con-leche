@@ -25,21 +25,19 @@ reassembled.  The membership hypotheses are the ∃-witnesses of the
 recovered with `lam_dom` away from the Prop collapse, and under the
 collapse everything is the proof point. -/
 
-/-- Away from `pi 0`, an abstraction's membership transfers elements of
-the pi's domain into its own. -/
+/-- A non-collapsed abstraction's membership transfers elements of the
+pi's domain into its own (task #100: the nonzero-tag premise becomes a
+non-`pt` premise — under the collapse, tags no longer bound values away
+from `pt`; consumers certify non-collapse per value, usually by
+`lamC_ne_pt_of_witness`). -/
 theorem lam_dom_of_ne {w vE : Nat} {D A : V} {F : V → V} {B : V → V}
-    (h : SetTheory.lam w D F ∈ˢ pi vE A B) (hw : w ≠ 0) :
-    ∀ x, x ∈ˢ A → x ∈ˢ D := by
-  by_cases hvE : vE = 0
-  · subst hvE
-    exact absurd (mem_pi_zero h) (lam_ne_pt hw)
-  · exact lam_dom h hvE hw
+    (h : SetTheory.lam w D F ∈ˢ pi vE A B)
+    (hne : SetTheory.lam w D F ≠ pt) :
+    ∀ x, x ∈ˢ A → x ∈ˢ D :=
+  lamC_dom_of_ne hne h
 
 /-- The proof point inhabits every trivial Prop-pi. -/
-theorem pt_mem_pi_unit {A : V} : (pt : V) ∈ˢ pi 0 A fun _ => unitSet := by
-  have := lam_mem (V := V) (v := 0) (A := A) (F := fun _ => pt)
-    (B := fun _ => unitSet) (fun _ _ => pt_mem_unitSet)
-  rw [lam_zero] at this
-  exact this
+theorem pt_mem_pi_unit {A : V} : (pt : V) ∈ˢ pi 0 A fun _ => unitSet :=
+  pt_mem_piC_iff.mpr fun _ _ => pt_mem_unitSet
 
 end Setlec

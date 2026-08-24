@@ -59,10 +59,11 @@ theorem annotOk_punitRec_rhs {cval : ConstVal V}
       cval ((Name.anonymous.str "PUnit").str "unit") ψ' = pt := hvalU
   simp only [punitRecRhsA, punitRecA, ConstantInfo.recRules, List.getD,
     List.getElem?_cons_zero, Option.getD_some, AnnotOk]
-  refine ⟨?_, ⟨_, rfl⟩, ?_⟩
+  refine ⟨?_,
+    (if ψ u1N = 0 then 0 else Nat.max (ψ u1N) (ψ u1N)), ?_⟩
   · -- the motive space
     try simp only [AnnotOk]
-    refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+    refine ⟨trivial, ψ u1N + 1, ?_⟩
     intro t A hA ht
     refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
     refine ⟨univ (ψ u1N), ?_, ?_⟩
@@ -90,7 +91,7 @@ theorem annotOk_punitRec_rhs {cval : ConstVal V}
         (by simp [Expr.instantiate1, AnnotOk]),
         M, pt, ψ u1N + 1, unitSet, (fun _ => univ (ψ u1N)),
         ?_, ?_, hM, pt_mem_unitSet,
-        fun _ _ => univ_mem_univ (ψ u1N)⟩, ⟨_, rfl⟩, ?_⟩
+        fun _ _ => univ_mem_univ (ψ u1N)⟩, ψ u1N, ?_⟩
       · simp [interpExpr, Expr.instantiate1, updV]
       · simp [interpExpr, Expr.instantiate1, updV, hfindU', hvalU',
           punitUnitA, ConstantInfo.toConstantVal]
@@ -106,9 +107,7 @@ theorem annotOk_punitRec_rhs {cval : ConstVal V}
       refine ⟨m, SetTheory.app M pt, ?_, hm, ?_⟩
       · simp [interpExpr, Expr.instantiate1, updV]
       · exact app_mem hM pt_mem_unitSet (fun _ _ => univ_mem_univ (ψ u1N))
-    · intro v hv
-      obtain rfl := Option.some.inj hv
-      refine ⟨SetTheory.lam (ψ u1N) (SetTheory.app M pt) (fun m => m),
+    · refine ⟨SetTheory.lam (ψ u1N) (SetTheory.app M pt) (fun m => m),
         pi (ψ u1N) (SetTheory.app M pt) (fun _ => SetTheory.app M pt),
         ?_, ?_, ?_⟩
       · simp [interpExpr, Expr.instantiate1, updV, hfindU', hvalU',
@@ -139,17 +138,23 @@ theorem punitRec_iota {cval : ConstVal V}
     app_mem hM pt_mem_unitSet (fun _ _ => univ_mem_univ (ψ u1N))
   by_cases h0 : ψ u1N = 0
   · -- Prop collapse: both sides are the proof point
-    have hL : SetTheory.app (SetTheory.app (SetTheory.app (punitRecVal V ψ)
-        Mv) mv) tv = pt := by
-      simp only [punitRecVal, h0, reduceIte]
-      rw [lam_zero, app_pt, app_pt, app_pt]
-    have hR : SetTheory.app (SetTheory.app
-        (SetTheory.lam (if ψ u1N = 0 then 0 else Nat.max (ψ u1N) (ψ u1N))
-          (pi (ψ u1N + 1) unitSet fun _ => univ (ψ u1N)) fun M =>
-          SetTheory.lam (ψ u1N) (SetTheory.app M pt) fun m => m) Mv) mv =
-        pt := by
-      rw [if_pos h0, lam_zero, app_pt, app_pt]
-    rw [hL, hR]
+    have hval : punitRecVal V ψ = pt := by
+      simp only [punitRecVal]
+      refine lamC_of_forall fun M hM' => ?_
+      have hMpt' : SetTheory.app M pt ∈ˢ univ (ψ u1N) :=
+        app_mem hM' pt_mem_unitSet (fun _ _ => univ_mem_univ (ψ u1N))
+      refine lamC_of_forall fun m hm' => ?_
+      exact lamC_of_forall fun _ _ => mem_univ_zero (h0 ▸ hMpt') hm'
+    have hRval : (SetTheory.lam
+        (if ψ u1N = 0 then 0 else Nat.max (ψ u1N) (ψ u1N))
+        (pi (ψ u1N + 1) unitSet fun _ => univ (ψ u1N)) fun M =>
+          SetTheory.lam (ψ u1N) (SetTheory.app M pt) fun m => m) = (pt : V) := by
+      refine lamC_of_forall fun M hM' => ?_
+      have hMpt' : SetTheory.app M pt ∈ˢ univ (ψ u1N) :=
+        app_mem hM' pt_mem_unitSet (fun _ _ => univ_mem_univ (ψ u1N))
+      exact lamC_of_forall fun m hm' => mem_univ_zero (h0 ▸ hMpt') hm'
+    rw [hval, hRval]
+    simp only [app_pt]
   · -- data: both sides compute to the minor premise
     have habs1 : Nat.max (ψ u1N) (Nat.max (ψ uN) (ψ u1N)) =
         Nat.max (ψ uN) (ψ u1N) :=
@@ -256,11 +261,14 @@ theorem punitRecVal_fold {Mv mv tv : V}
   by_cases h0 : ψ u1N = 0
   · -- Prop collapse: the recursor collapses to the proof point, and so
     -- does the minor premise (its space is a truth value)
-    have hL : SetTheory.app (SetTheory.app (SetTheory.app (punitRecVal V ψ)
-        Mv) mv) tv = pt := by
-      simp only [punitRecVal, h0, reduceIte]
-      rw [lam_zero, app_pt, app_pt, app_pt]
-    rw [hL]
+    have hval : punitRecVal V ψ = pt := by
+      simp only [punitRecVal]
+      refine lamC_of_forall fun M hM' => ?_
+      have hMpt' : SetTheory.app M pt ∈ˢ univ (ψ u1N) :=
+        app_mem hM' pt_mem_unitSet (fun _ _ => univ_mem_univ (ψ u1N))
+      refine lamC_of_forall fun m hm' => ?_
+      exact lamC_of_forall fun _ _ => mem_univ_zero (h0 ▸ hMpt') hm'
+    rw [hval, app_pt, app_pt, app_pt]
     exact (mem_univ_zero (h0 ▸ hMpt) hm).symm
   · -- data: the value computes to the minor premise
     have habs1 : Nat.max (ψ u1N) (Nat.max (ψ uN) (ψ u1N)) =
@@ -446,12 +454,12 @@ theorem punitRec_ruleOk {cval : ConstVal V}
           ⟨BinderInfo.default,
             some (Level.succ (Level.param (Name.anonymous.str "u_1")))⟩) := by
       simp only [AnnotOk]
-      refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+      refine ⟨trivial, ψ' u1N + 1, ?_⟩
       intro t A hA ht
       refine ⟨by simp [Expr.instantiate1, AnnotOk], ?_⟩
       refine ⟨univ (ψ' u1N), ?_, ?_⟩
       · simp [Expr.instantiate1, interpExpr, Level.eval, u1N]
-      · simpa [Level.eval, u1N] using univ_mem_univ (ψ' u1N)
+      · exact univ_mem_univ (ψ' u1N)
     have hAR : AnnotOk V cval env ψ' 0 (rho0 V) punitRecRhsA :=
       annotOk_punitRec_rhs (cval := cval) (ψ := ψ') hfindP hvalP hfindU hvalU
     have hstep : ∀ {fvms : List (Expr × BinderMeta)} {bL : Expr},
