@@ -16,6 +16,7 @@ import Setlec.Kernel.IExpr
 import Setlec.Kernel.ArenaWF
 import Setlec.Kernel.WFStore
 import Setlec.Verify.IExpr
+import Setlec.Verify.Promote
 import Setlec.Model.Interp
 import Setlec.Model.InterpLemmas
 import Setlec.Model.TypeChecker
