@@ -279,11 +279,24 @@ theorem defeq_claims (m : EnvModel V env)
     simp only [] at h
     rw [hv₁, hv₂] at h
     dsimp only at h
-    have hlev : Level.isEquiv v₁ v₂ = some true := by
-      revert h
-      cases hEq : Level.isEquiv v₁ v₂ with
-      | none => simp [liftFueled]
-      | some x => cases x <;> simp [liftFueled, pure, Except.pure]
+    -- The relaxed codomain comparison certifies exactly zero-ness
+    -- agreement of the two annotations under the (fixed) valuation:
+    -- either both are provably nonzero under *every* valuation
+    -- (`Level.isNonZero_sound`), or full level equivalence ran and
+    -- gives eval-equality (`Level.isEquiv_sound`).  Zero-ness is all
+    -- the interpretation reads (`pi_level_indifferent`).
+    have hzeq : (v₁.eval φ = 0 ↔ v₂.eval φ = 0) := by
+      by_cases hnz : (v₁.isNonZero && v₂.isNonZero) = true
+      · rw [Bool.and_eq_true] at hnz
+        exact iff_of_false (Level.isNonZero_sound hnz.1 φ)
+          (Level.isNonZero_sound hnz.2 φ)
+      · rw [if_neg hnz] at h
+        have hlev : Level.isEquiv v₁ v₂ = some true := by
+          revert h
+          cases hEq : Level.isEquiv v₁ v₂ with
+          | none => simp [liftFueled]
+          | some x => cases x <;> simp [liftFueled, pure, Except.pure]
+        rw [Level.isEquiv_sound hlev φ]
     simp only [interpExpr, hv₁, hv₂] at hva hvb
     cases hA1 : interpExpr V m.val env φ d ρ ty₁ with
     | none => rw [hA1] at hva; exact nomatch hva
@@ -299,9 +312,7 @@ theorem defeq_claims (m : EnvModel V env)
       ihd hd1 hwa'.1 hwb'.1 hba'.1 hbb'.1 hLbty₁ hLbty₂ hokty₁ hokty₂
         haty₁ haty₂ hA1 hA2
     subst hAeq
-    have hveq : v₁.eval φ = v₂.eval φ := Level.isEquiv_sound hlev φ
-    rw [← hveq]
-    refine pi_congr fun x hx => ?_
+    refine pi_congr_zero_agree hzeq fun x hx => ?_
     obtain ⟨habody₁, hwfact₁⟩ := hcond₁ x A₁ hA1 hx
     obtain ⟨habody₂, hwfact₂⟩ := hcond₂ x A₁ hA2 hx
     obtain ⟨w₁, hw₁, -⟩ := hwfact₁ v₁ hv₁
@@ -363,11 +374,19 @@ theorem defeq_claims (m : EnvModel V env)
     simp only [] at h
     rw [hv₁, hv₂] at h
     dsimp only at h
-    have hlev : Level.isEquiv v₁ v₂ = some true := by
-      revert h
-      cases hEq : Level.isEquiv v₁ v₂ with
-      | none => simp [liftFueled]
-      | some x => cases x <;> simp [liftFueled, pure, Except.pure]
+    -- zero-ness agreement, as in the ∀ clause
+    have hzeq : (v₁.eval φ = 0 ↔ v₂.eval φ = 0) := by
+      by_cases hnz : (v₁.isNonZero && v₂.isNonZero) = true
+      · rw [Bool.and_eq_true] at hnz
+        exact iff_of_false (Level.isNonZero_sound hnz.1 φ)
+          (Level.isNonZero_sound hnz.2 φ)
+      · rw [if_neg hnz] at h
+        have hlev : Level.isEquiv v₁ v₂ = some true := by
+          revert h
+          cases hEq : Level.isEquiv v₁ v₂ with
+          | none => simp [liftFueled]
+          | some x => cases x <;> simp [liftFueled, pure, Except.pure]
+        rw [Level.isEquiv_sound hlev φ]
     simp only [interpExpr, hv₁, hv₂] at hva hvb
     cases hA1 : interpExpr V m.val env φ d ρ ty₁ with
     | none => rw [hA1] at hva; exact nomatch hva
@@ -383,9 +402,7 @@ theorem defeq_claims (m : EnvModel V env)
       ihd hd1 hwa'.1 hwb'.1 hba'.1 hbb'.1 hLbty₁ hLbty₂ hokty₁ hokty₂
         haty₁ haty₂ hA1 hA2
     subst hAeq
-    have hveq : v₁.eval φ = v₂.eval φ := Level.isEquiv_sound hlev φ
-    rw [← hveq]
-    refine lam_congr fun x hx => ?_
+    refine lam_congr_zero_agree hzeq fun x hx => ?_
     obtain ⟨habody₁, hwfact₁⟩ := hcond₁ x A₁ hA1 hx
     obtain ⟨habody₂, hwfact₂⟩ := hcond₂ x A₁ hA2 hx
     obtain ⟨w₁, B₁, hw₁, -, -⟩ := hwfact₁ v₁ hv₁

@@ -1825,9 +1825,13 @@ def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM Bo
       let fv₂ ← internI (.fvar depth n₂ ty₂)
       let b₂ ← inst1M body₂ fv₂
       unless ← r.defeq (depth + 1) b₁ b₂ do return false
+      -- zero-ness agreement only; see `defeqBody`
       match m₁.cod, m₂.cod with
       | some v₁, some v₂ => do
-        liftFueled "level comparison" (← isEquivLM v₁ v₂)
+        let nz₁ ← isNonZeroLM v₁
+        let nz₂ ← isNonZeroLM v₂
+        if nz₁ && nz₂ then pure true
+        else liftFueled "level comparison" (← isEquivLM v₁ v₂)
       | _, _ => throw (.internal "unannotated ∀-binder reached isDefEq")
     | some (.lam n₁ ty₁ body₁ m₁), some (.lam n₂ ty₂ body₂ m₂) => do
       unless ← r.defeq depth ty₁ ty₂ do return false
@@ -1836,9 +1840,13 @@ def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM Bo
       let fv₂ ← internI (.fvar depth n₂ ty₂)
       let b₂ ← inst1M body₂ fv₂
       unless ← r.defeq (depth + 1) b₁ b₂ do return false
+      -- zero-ness agreement only; see `defeqBody`
       match m₁.cod, m₂.cod with
       | some v₁, some v₂ => do
-        liftFueled "level comparison" (← isEquivLM v₁ v₂)
+        let nz₁ ← isNonZeroLM v₁
+        let nz₂ ← isNonZeroLM v₂
+        if nz₁ && nz₂ then pure true
+        else liftFueled "level comparison" (← isEquivLM v₁ v₂)
       | _, _ => throw (.internal "unannotated λ-binder reached isDefEq")
     | some (.app f₁ a₁), some (.app f₂ a₂) => do
       if ← r.defeq depth f₁ f₂ then do

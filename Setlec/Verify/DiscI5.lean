@@ -929,12 +929,31 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                     obtain ⟨lv₂, hlv₂, rfl⟩ := hbmDen₂
                                     dsimp only
                                     refine SimAt.bind_left
-                                      (isEquivLM_eff hs₁₂
-                                        (denoteL_mono hextC hlv₁)
-                                        (denoteL_mono hextC hlv₂))
-                                      (fun sE o hsE hextE ho => ?_)
-                                    subst ho
-                                    exact SimAt.liftFueled _ _ hsE
+                                      (isNonZeroLM_eff hs₁₂
+                                        (denoteL_mono hextC hlv₁))
+                                      (fun sN₁ nz₁ hsN₁ hextN₁ hnz₁ => ?_)
+                                    subst hnz₁
+                                    refine SimAt.bind_left
+                                      (isNonZeroLM_eff hsN₁
+                                        (denoteL_mono
+                                          (hextC.trans hextN₁) hlv₂))
+                                      (fun sN₂ nz₂ hsN₂ hextN₂ hnz₂ => ?_)
+                                    subst hnz₂
+                                    by_cases hnzc :
+                                        (lv₁.isNonZero && lv₂.isNonZero)
+                                          = true
+                                    · rw [if_pos hnzc, if_pos hnzc]
+                                      exact SimAt.pure hsN₂ rfl
+                                    · rw [if_neg hnzc, if_neg hnzc]
+                                      refine SimAt.bind_left
+                                        (isEquivLM_eff hsN₂
+                                          (denoteL_mono ((hextC.trans
+                                            hextN₁).trans hextN₂) hlv₁)
+                                          (denoteL_mono ((hextC.trans
+                                            hextN₁).trans hextN₂) hlv₂))
+                                        (fun sE o hsE hextE ho => ?_)
+                                      subst ho
+                                      exact SimAt.liftFueled _ _ hsE
                           | bvar k₂ =>
                             cases hdb
                             try dsimp only
@@ -1102,12 +1121,31 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                     obtain ⟨lv₂, hlv₂, rfl⟩ := hbmDen₂
                                     dsimp only
                                     refine SimAt.bind_left
-                                      (isEquivLM_eff hs₁₂
-                                        (denoteL_mono hextC hlv₁)
-                                        (denoteL_mono hextC hlv₂))
-                                      (fun sE o hsE hextE ho => ?_)
-                                    subst ho
-                                    exact SimAt.liftFueled _ _ hsE
+                                      (isNonZeroLM_eff hs₁₂
+                                        (denoteL_mono hextC hlv₁))
+                                      (fun sN₁ nz₁ hsN₁ hextN₁ hnz₁ => ?_)
+                                    subst hnz₁
+                                    refine SimAt.bind_left
+                                      (isNonZeroLM_eff hsN₁
+                                        (denoteL_mono
+                                          (hextC.trans hextN₁) hlv₂))
+                                      (fun sN₂ nz₂ hsN₂ hextN₂ hnz₂ => ?_)
+                                    subst hnz₂
+                                    by_cases hnzc :
+                                        (lv₁.isNonZero && lv₂.isNonZero)
+                                          = true
+                                    · rw [if_pos hnzc, if_pos hnzc]
+                                      exact SimAt.pure hsN₂ rfl
+                                    · rw [if_neg hnzc, if_neg hnzc]
+                                      refine SimAt.bind_left
+                                        (isEquivLM_eff hsN₂
+                                          (denoteL_mono ((hextC.trans
+                                            hextN₁).trans hextN₂) hlv₁)
+                                          (denoteL_mono ((hextC.trans
+                                            hextN₁).trans hextN₂) hlv₂))
+                                        (fun sE o hsE hextE ho => ?_)
+                                      subst ho
+                                      exact SimAt.liftFueled _ _ hsE
                           | bvar k₂ =>
                             cases hdb
                             try dsimp only

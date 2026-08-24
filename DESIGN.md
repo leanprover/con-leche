@@ -1218,7 +1218,9 @@ threading; the possibly-Prop-gated iota certificates landed with task
 #71, see "Possibly-Prop-gated iota certificates" below); per-loop fuel
 budgets; instrumenting the possibly-Prop beta wedge (3.5) as an
 internal-error signal; removing the codomain-annotation comparison in
-binder defeq (documented deviation, benign for well-typed input).
+binder defeq (documented deviation, benign for well-typed input —
+**relaxed to zero-ness agreement 2026-08-24**, see "the binder model"
+above; full removal still needs sort-coherence metatheory).
 Task #49 measured (implementation-only toggles, init-prelude probe,
 284.8 G baseline; proofs not landed, numbers inform the follow-ups):
 possibly-Prop-gated *iota* certificates + comparand/index checks kept
@@ -1788,10 +1790,23 @@ interprets `Π` with the thesis's Prop/Type split: `SetTheory.pi` takes the
 *evaluated codomain sort* explicitly (not recoverable from the sets:
 `⟦True⟧ = ⟦PUnit⟧`), and `interpExpr` obtains it by re-running the
 checker's own `inferType` on the opened body.  Deviation from real kernels
-(documented in `Kernel/TypeChecker.lean`): `isDefEq` on two ∀-types also
-checks the codomain sorts are semantically equal levels — implied for
-well-typed input, but proving that needs sort-coherence metatheory we
-don't have yet; costs completeness/performance only.
+(documented at `defeqBody`'s ∀/λ clauses; **shrunk 2026-08-24**): the
+official kernel compares no binder annotations in `isDefEq`; ours compares
+**one bit** — *zero-ness agreement* of the two codomain-sort annotations,
+the only thing the interpretation reads (`SetTheory.pi`/`lam` consume
+their level solely through the `v = 0` test — `pi_level_indifferent`,
+`Setlec/SetTheory/Derive/Pi.lean`).  The kernel check is the weakest
+syntactic condition the soundness proof supports: both annotations
+provably nonzero (`Level.isNonZero`, sound under every valuation) passes
+outright; otherwise it falls back to full level equivalence, whose
+per-valuation eval-equality gives the zero-agreement — accepting "both
+*not provably* nonzero" instead would be unsound (`param u` vs `zero`
+disagree under `u ↦ 1`).  `defeq_claims` consumes the agreement via
+`pi_congr_zero_agree`/`lam_congr_zero_agree`.  The residual one-bit
+comparison is verdict-neutral on truthfully annotated input (there the
+codomain sorts of defeq binders are eval-equal, so old and new forms both
+pass — probes byte-identical); dropping it entirely needs sort-coherence
+metatheory we don't have yet; costs completeness/performance only.
 
 The binder metatheory lives in `Verify/Shift.lean` (`WScoped`,
 `shiftFrom`, commutation with `instantiate1`), `Verify/InferShift.lean`
