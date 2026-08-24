@@ -3666,8 +3666,9 @@ Two consequences worth recording:
   `checkIndDecl`; the shared-state copy mirrors it in `checkDeclSF`.
 
 **Not yet landed: the rest of the environment assembly of the install
-soundness** (the type former's extension *is* landed; see the list
-below).  `checkIndDecl` therefore does not yet dispatch to
+soundness** (the type former's extension *is* landed, and so are all
+four semantic obligations — `mem_type`, `val_params`, `annot_ok` and
+now both rule equalities; see the list below).  `checkIndDecl` therefore does not yet dispatch to
 `checkDirectStruct`, and the raw fixture is pinned at *decline* in the
 expectations; enabling the clause is a three-line change per checker
 copy once the assembly lands — verified by temporarily enabling it at
@@ -4010,44 +4011,121 @@ item 3 — see below; the head of item 4 is landed too):
    provenance-free — it is stated over the stored type, the stored
    right-hand side and the kernel's pins.
 
-   **What remains of item 4**, in order:
+   **Item 4 is landed** (2026-08-24).  Both rule obligations are
+   discharged: `directProj_rule_eq` and `directRec_rule_eq`
+   (`Setlec/Model/DirectDecl.lean`).
 
-   * `directProj_bottom`: the direct projection rule's bottom, i.e.
-     `proj_rule_eq_of_bottom`'s `Hbot` at the constructed values.  Over a
-     full frame `xs` (length `nP + nF`) with `FramePref`, the canonical
-     body `T.proj.i p⃗ (C p⃗ f⃗)` interprets to `xs.getD (nP+i)`:
-     `directCtorVal_fold` folds the constructor's spine to `tupleV f⃗`,
-     `directProj_fold` folds the projection at `p⃗ (tupleV f⃗)` to
-     `projV i (tupleV f⃗)`, and `directProj_iota` reads that back off the
-     tuple.  Two bridges are needed and do **not** exist yet:
-     `FramePref → TeleFit` (a ~30-line induction; note the two
-     valuation conventions — `TeleFit`'s `updV` chain from `rho0` and
-     `fun i => (xs.take j).getD i ∅` — are *equal* functions, so it is
-     `funext` plus the walk), and the identification of `crestP` (the
-     constructor telescope instantiated at the *projection type's*
-     opened parameters) with `crestC` (instantiated at its own): both
-     spines are index-matched, so `instPisAt_erasedEq_spines` /
-     `DomsAgree.of_erasedEq` apply.
-   * the recursor rule's own fold obligation, whose shape differs
-     (`rP = nP + 2 ≠ ctorParams = nP`, and the body applies the recursor
-     to the motive and minor as well), so `proj_rule_eq_of_bottom` does
-     not fit it as it stands; the corresponding modeled derivation is
-     `modeled_rule_eq` in `Setlec/Model/IndInstall.lean`, which should be
-     inspected for the same "generic except the bottom" split before
-     anything is written by hand.
-5. **The chain**: `extend_basis_one` for the recursor and the `nF`
-   projections (provisionally rule-less, then `extend_rec_swap` to
-   attach the rules), and the direct case of `checkDecl_sound` —
-   which must also return `EtaFamiliesClosed` for the extended
-   environment, available from `EtaFamiliesClosed.cons_nonind` at each
-   of the `3 + nF` installs.
+   The two bridges the projection needed are
+   `TeleFit.of_framePref` — a `FramePref` over an opening spine *is* a
+   value-spine fit of the opened telescope (the two valuation
+   conventions are equal functions, `getD_snoc_eq_updV` plus the walk)
+   — and `TeleFit.erasedEq`, a fit moving along an `Expr.ErasedEq`
+   telescope, which identifies `crestP` (the constructor telescope at
+   the projection type's opened parameters) with `crestC` (at its own)
+   through `instPisAt_erasedEq_spines`.  `TeleFit.erasedEq` is
+   preferred over `DomsAgree.of_erasedEq` here because it has no
+   `stripPis` side condition.
+
+   The generic half was split twice more.  `modeled_rule_eq_plain` now
+   goes through **`rule_eq_of_bottom`** (`Setlec/Model/IndInstall.lean`),
+   the single-environment "generic except the bottom" form DESIGN asked
+   for; it turned out **not** to be what the direct recursor can use,
+   because the direct rule's pins are checked in the *pre-recursor*
+   environment while the canonical tower's body mentions the recursor
+   itself.  What the direct recursor uses is
+   **`rule_eq_of_bottom_ext`** — `proj_rule_eq_of_bottom` generalized
+   from `rP = ctorParams` to `ctorParams ≤ rP`, with the projection case
+   kept as a thin instance.  Its second generalization: it takes the
+   *constructor-residual package* directly instead of the parameter-domain
+   `DefEqListOk`, because the direct install pins those domains **per
+   frame** (`checkDirectDomsAt` at frame `j`) rather than as one
+   `checkDefEqList` at the master frame; the direct side builds the
+   package with `FrameOk.ofInstWalk` (per-frame pins) plus the new
+   **`FrameOk.getD_up`**, the upward companion of
+   `interp_getD_canon`/`annotOk_getD_canon` (all six components at once,
+   by iterating `FrameOk.weaken_top`).
+
+   **Finding + fix (kernel, direct path only, 2026-08-24): the rule
+   stage was pinning at the wrong frame.**  `checkDirectRule` opened the
+   *minor premise's* copy of the field binders and pinned the stored
+   rule's λ-domains against those, while `ruleLhsParts` — the frame the
+   rule's total λ-equality is stated over — opens the **constructor's**
+   field telescope at the rule prefix.  The two openings are index-matched
+   and definitionally equal (`checkDirectRecTy` pins them), but the model
+   cannot cross a definitional step it was not handed, so the stage facts
+   were unprovable as the check stood.  `checkDirectRule` now opens
+   `crest` itself (`openPisAtFvars p.nF crest (p.nP + 2)`), which is
+   exactly the "route (X), at the stage's own frames" discipline
+   `checkDirectProj` already follows, and the pin is `checkDefEqList`
+   against that frame's annotations.  Verdict-neutral, verified with the
+   clause temporarily enabled: arena 90/92, `direct_struct_raw` accepted,
+   and the only e2e movement is item 7's four flips.  The alternative —
+   a semantic bridge chaining the two per-frame pins through
+   `ErasedEq` — would have meant a bespoke `modeled_stage` variant for
+   the direct path alone, i.e. exactly the divergence from the shared
+   machinery the re-check discipline exists to avoid.
+5. **The chain**: **the model side is landed** (2026-08-24) —
+   `extend_direct_struct` (`Setlec/Model/DirectDecl.lean`) installs the
+   `3 + nF` constants one at a time and returns exactly
+   `checkDecl_sound`'s shape, `Nonempty (EnvModel V envOut) ∧
+   EtaFamiliesClosed envOut`.
+
+   `extend_rec_swap` turned out to be unnecessary: `extend_basis_one`'s
+   `hrecm` obligation is stated at precisely the `val'` the rule
+   equalities are stated at (the extended valuation, agreeing with the
+   base off the new name), so the recursor and each projection go in
+   **with their rule in one step** (`extend_direct_rec`,
+   `extend_direct_proj`).  The one place the members differ is the eta
+   head obligation: a projection's name *is* projection-function-shaped,
+   so it is refuted by `projFnName_inj` against the block's own former,
+   whose `directCaps` claims no eta — the other three refute it by
+   `Name.isProjFnShape`.
+
+   The projection phase runs on **`DirectStageOk`**, a structure
+   bundling what one field's install hands to the next: the two earlier
+   members' `find?`s and resolutions, the four semantic stage facts
+   (`frC`, `domsCT`, `fieldAt`, `tfold`, `cfold`) *at that environment
+   and model*, and `DirectProjInv` up to `i`.  `direct_proj_step` is
+   `extend_direct_proj` plus transport, `direct_proj_fold` is its
+   induction over `List.range p.nF`, and `DirectStageOk.cons_zero` moves
+   the stage-0 instance across any fresh non-former extension (that is
+   how the recursor's install is crossed).
+
+   The transport kit that makes this mechanical: `TeleFit_congr` and
+   `TeleFit_congr'` (a value-spine fit crosses an `InterpAgree` in both
+   directions, since every stage fact is stated over expressions that
+   resolve one environment down), `FrameOk.extend_fresh` (all six
+   components of a closed resolving type at once), and the existing
+   `FieldTele_congr` / `sigmaTowerV_congr` / `DomsAgree.congr` /
+   `directTyVal_congr`.
+
+   *What is left of item 5* is only the `checkDecl_sound` clause, which
+   cannot be written before item 7 enables the dispatch (the proof
+   inverts `checkDecl`).  It needs one small missing inversion,
+   **`directParts?_inv`**: from `directParts? env block = some p`, the
+   three recognition facts `extend_direct_struct` takes as hypotheses —
+   `p.resSort.isNonZero`, `p.cvC.levelParams = p.cvT.levelParams` and
+   `(env.find? (p.cvT.name.str "_model")).isNone`.  An attempt was
+   reverted: `directPartsCore?`'s guard is a 13-fold `&&` and its
+   `match` arms do not line up with a naive `split at h` bullet
+   sequence, so write it with the goal states in view (the shape facts
+   come from `directShape`'s first conjunct and the guard's fourth).
 6. **`Setlec/Model/BridgeS.lean`**: `checkDirectStructS`'s
    shared-state-to-pure bridge, including the `flushS`/`ISOK`
    re-establishment at each of the five phases, and the run-tied
-   `EnvWF` discharges `checkDirectStruct_wfimp` is waiting on.
-7. **Enable**: the clause in `checkIndDecl` and its `S`/`NC` mirrors
-   (three lines each, verified to work), and the four expectation
-   flips (`direct_struct_raw` 2→0; `bad/tutorial/13{3,4,7}` 2→1).
+   `EnvWF` discharges `checkDirectStruct_wfimp` is waiting on.  This is
+   now the **only** blocker before the enable: turning the clause on in
+   `checkDecl` alone would break the `checkDeclSF`-to-`checkDecl`
+   bridge, so items 6 and 7 land together.
+7. **Enable**: the clause in `checkDecl` and its `S`/`NC` mirrors
+   (four lines each — `match directParts? env block with | some p =>
+   checkDirectStruct ops env p | none => checkIndDecl ops env block`,
+   and `directPartsF?`/`checkDirectStructS`/`checkDirectStructNC` in the
+   two index copies), and the four expectation flips
+   (`direct_struct_raw` 2→0; `bad/tutorial/13{3,4,7}` 2→1).  Re-verified
+   2026-08-24 by temporarily enabling all three: arena 90/92,
+   `direct_struct_raw` accepted, e2e 55/56 with exactly those four
+   changes.
 
 ## Level `leqCore` was not short-circuiting: the 2x stupidity (2026-08-23)
 
