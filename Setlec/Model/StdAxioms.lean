@@ -101,25 +101,18 @@ theorem ConstantVal.matchesPin_inv {cv pin : ConstantVal}
 variable {env : Env} {ψ : Name → Nat}
 
 /-- Propositional `pi`-introduction: `pt` inhabits `pi 0 A B` as soon as
-every fibre over `A` is inhabited (the `v = 0` case of `lam_mem`, with
-the abstraction collapsed by `lam_zero`; the witness function comes from
-meta-level choice). -/
+`pt` inhabits every fibre over `A` (`pt_mem_piC_iff`; the old
+∃-inhabitant premise is not enough under the collapse — the point is
+only a member when the fibres contain it, which the `Prop`-fibred
+callers supply via proof irrelevance). -/
 theorem pt_mem_pi_zero {A : V} {B : V → V}
-    (h : ∀ x, x ∈ˢ A → ∃ y, y ∈ˢ B x) : SetTheory.pt ∈ˢ pi 0 A B := by
-  have hex : ∀ x : V, ∃ y, x ∈ˢ A → y ∈ˢ B x := fun x => by
-    by_cases hx : x ∈ˢ A
-    · obtain ⟨y, hy⟩ := h x hx
-      exact ⟨y, fun _ => hy⟩
-    · exact ⟨SetTheory.pt, fun hc => absurd hc hx⟩
-  have hm := lam_mem (V := V) (v := 0) (A := A) (B := B)
-    (F := fun x => (hex x).choose)
-    (fun x hx => (hex x).choose_spec hx)
-  rwa [lam_zero] at hm
+    (h : ∀ x, x ∈ˢ A → SetTheory.pt ∈ˢ B x) : SetTheory.pt ∈ˢ pi 0 A B :=
+  pt_mem_piC_iff.mpr h
 
 /-- Propositional `pi`-formation lands in `univ 0`. -/
 theorem pi0_mem_univ0 {u : Nat} {A : V} {B : V → V} (hA : A ∈ˢ univ u)
     (hB : ∀ x, x ∈ˢ A → B x ∈ˢ univ 0) : pi 0 A B ∈ˢ univ 0 := by
-  simpa using pi_mem_univ hA hB
+  simpa using pi_mem_univ (u := u) (v := 0) hA hB
 
 /-! ## `propext`
 
@@ -138,8 +131,6 @@ theorem interp_iff_type {cval : ConstVal V} :
       some (pi 1 (univ 0) fun _ => pi 1 (univ 0) fun _ => univ 0) := by
   simp only [interpClosed, iffA, ConstantInfo.toConstantVal, interpExpr,
     Expr.instantiate1, updV, Level.eval, Option.getD]
-  simp [interpExpr, Expr.instantiate1, updV]
-  try rfl
 
 /-- The stored `Iff` value is a member of the interpreted pinned type. -/
 theorem iffVal_mem (m : EnvModel V env)
@@ -430,7 +421,7 @@ theorem iff_forces_eq (m : EnvModel V env)
             (SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app
               (m.val iffIntroName ψ') A) B) mp') mpr') := by
     refine pt_mem_pi_zero fun mp' hmp' =>
-      ⟨SetTheory.pt, pt_mem_pi_zero fun mpr' hmpr' => ?_⟩
+      pt_mem_pi_zero fun mpr' hmpr' => ?_
     have hAB : A = B := by
       refine prop_ext hA hB ?_ ?_
       · intro hptA
@@ -440,7 +431,7 @@ theorem iff_forces_eq (m : EnvModel V env)
         have h1 := app_mem hmpr' hptB (fun _ _ => hA)
         rwa [mem_univ_zero hA h1] at h1
     rw [hMbeta _ (hIII A B mp' mpr' hA hB hmp' hmpr')]
-    exact ⟨SetTheory.pt, hAB ▸ pt_mem_eqv_self A⟩
+    exact hAB ▸ pt_mem_eqv_self A
   have r4 := app_mem r3 hminor (fun _ _ => htail A B _ hA hB hM)
   have r5 := app_mem r4 hw
     (fun t ht => app_mem hM ht (fun _ _ => univ_mem_univ 0))
@@ -500,13 +491,13 @@ theorem propext_key {env : Env} (m : EnvModel V env)
   have hlpI : cvI.levelParams = [] := (ConstantVal.matchesPin_inv hIp).2
   refine ⟨_, interp_propext_type hE hvalE hIf hlpI, ?_⟩
   show SetTheory.pt ∈ˢ _
-  refine pt_mem_pi_zero fun A hA => ⟨SetTheory.pt, ?_⟩
-  refine pt_mem_pi_zero fun B hB => ⟨SetTheory.pt, ?_⟩
+  refine pt_mem_pi_zero fun A hA => ?_
+  refine pt_mem_pi_zero fun B hB => ?_
   refine pt_mem_pi_zero fun w hw => ?_
   have hAB : A = B := iff_forces_eq m hIf hIp hIif hIip hIrf hIrp ψ hA hB hw
   rw [eqVal_app₃ (ψ := pxψ ψ)
     (by rw [pxψ_uN]; exact univ_mem_univ 0) hA hB]
-  exact ⟨SetTheory.pt, hAB ▸ pt_mem_eqv_self A⟩
+  exact hAB ▸ pt_mem_eqv_self A
 
 /-! ## `Classical.choice`
 

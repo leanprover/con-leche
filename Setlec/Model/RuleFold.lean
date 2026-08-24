@@ -1449,8 +1449,7 @@ theorem AnnotOk.erasedEq :
           (body'.instantiate1 (.fvar d n' ty')) :=
         Expr.ErasedEq.instantiate1 hbody (by exact rfl)
       refine ⟨AnnotOk.erasedEq _ hEE (d + 1) (updV V ρ d x) hbodyA, ?_⟩
-      intro v hv
-      obtain ⟨w, hwi, hmem⟩ := hwfact v hv
+      obtain ⟨w, hwi, hmem⟩ := hwfact
       refine ⟨w, ?_, hmem⟩
       rw [← interp_erasedEq hEE (d + 1) (updV V ρ d x)]
       exact hwi
@@ -1468,8 +1467,7 @@ theorem AnnotOk.erasedEq :
           (body'.instantiate1 (.fvar d n' ty')) :=
         Expr.ErasedEq.instantiate1 hbody (by exact rfl)
       refine ⟨AnnotOk.erasedEq _ hEE (d + 1) (updV V ρ d x) hbodyA, ?_⟩
-      intro v hv
-      obtain ⟨w, B, hwi, hwB, hBu⟩ := hwfact v hv
+      obtain ⟨w, B, hwi, hwB, hBu⟩ := hwfact
       refine ⟨w, B, ?_, hwB, hBu⟩
       rw [← interp_erasedEq hEE (d + 1) (updV V ρ d x)]
       exact hwi

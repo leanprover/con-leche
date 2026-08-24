@@ -455,10 +455,12 @@ theorem ofReduce_key (m : EnvModel V env) {cvA : ConstantVal}
       exact this
     rw [hn]
     refine ⟨_, interp_ofReduceNat_type helN hE hR hlpR, ?_⟩
-    refine pt_mem_pi_zero fun a ha => ⟨SetTheory.pt, ?_⟩
-    refine pt_mem_pi_zero fun b hb => ⟨SetTheory.pt, ?_⟩
-    refine pt_mem_pi_zero fun w hw => ⟨w, ?_⟩
-    rwa [hidN a ha] at hw
+    refine pt_mem_pi_zero fun a ha => ?_
+    refine pt_mem_pi_zero fun b hb => ?_
+    refine pt_mem_pi_zero fun w hw => ?_
+    rw [hidN a ha] at hw
+    have hab := mem_eqv hw
+    exact hab ▸ pt_mem_eqv_self _
   · -- ofReduceBool
     rw [hn, (by decide : ofReduceOp ofReduceBoolName = reduceBoolName)]
       at hR hid hel
@@ -482,9 +484,11 @@ theorem ofReduce_key (m : EnvModel V env) {cvA : ConstantVal}
       exact this
     rw [hn]
     refine ⟨_, interp_ofReduceBool_type hBf hlpB hE hR hlpR, ?_⟩
-    refine pt_mem_pi_zero fun a ha => ⟨SetTheory.pt, ?_⟩
-    refine pt_mem_pi_zero fun b hb => ⟨SetTheory.pt, ?_⟩
-    refine pt_mem_pi_zero fun w hw => ⟨w, ?_⟩
-    rwa [hidB a ha] at hw
+    refine pt_mem_pi_zero fun a ha => ?_
+    refine pt_mem_pi_zero fun b hb => ?_
+    refine pt_mem_pi_zero fun w hw => ?_
+    rw [hidB a ha] at hw
+    have hab := mem_eqv hw
+    exact hab ▸ pt_mem_eqv_self _
 
 end Setlec

@@ -228,7 +228,7 @@ theorem quot_key {cval : ConstVal V} :
 theorem annotOk_quot_type {cval : ConstVal V} :
     AnnotOk V cval env ψ 0 (rho0 V) quotA.toConstantVal.type := by
   simp only [quotA, ConstantInfo.toConstantVal, AnnotOk]
-  refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+  refine ⟨trivial, ψ uN + 1, ?_⟩
   intro A SA hSA hAmem
   have hSA' : SA = univ (ψ uN) := by
     simp only [interpExpr, Level.eval, Option.some.injEq] at hSA
@@ -238,10 +238,10 @@ theorem annotOk_quot_type {cval : ConstVal V} :
   refine ⟨?_, ?_⟩
   · -- the opened body `(α → α → Prop) → Sort u`
     try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-    refine ⟨?_, ⟨_, rfl⟩, ?_⟩
+    refine ⟨?_, ψ uN + 1, ?_⟩
     · -- the relation space `α → α → Prop`
       try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-      refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+      refine ⟨trivial, Nat.max (ψ uN) 1, ?_⟩
       intro x Sx hSx hxmem
       have hSx' : Sx = A := by
         simp only [interpExpr, updV, Expr.instantiate1, reduceIte,
@@ -251,15 +251,13 @@ theorem annotOk_quot_type {cval : ConstVal V} :
       refine ⟨?_, ?_⟩
       · -- `α → Prop`
         try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-        refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+        refine ⟨trivial, 1, ?_⟩
         intro y Sy hSy hymem
         refine ⟨by simp [Expr.instantiate1, AnnotOk], ?_⟩
         refine ⟨univ 0, ?_, ?_⟩
         · simp [Expr.instantiate1, interpExpr, Level.eval]
-        · simpa [Level.eval] using univ_mem_univ 0
-      · intro v hv
-        obtain rfl := Option.some.inj hv
-        refine ⟨pi 1 A (fun _ => univ 0), ?_, ?_⟩
+        · exact univ_mem_univ 0
+      · refine ⟨pi 1 A (fun _ => univ 0), ?_, ?_⟩
         · simp [interpExpr, Expr.instantiate1, updV, Level.eval]
         · exact pi_mem_univ (u := ψ uN) (v := 1) (B := fun _ => univ 0)
             hAmem (fun _ _ => univ_mem_univ 0)
@@ -267,24 +265,13 @@ theorem annotOk_quot_type {cval : ConstVal V} :
       refine ⟨by simp [Expr.instantiate1, AnnotOk], ?_⟩
       refine ⟨univ (ψ uN), ?_, ?_⟩
       · simp [Expr.instantiate1, interpExpr, Level.eval, uN]
-      · simpa [Level.eval, uN] using univ_mem_univ (ψ uN)
-  · intro v hv
-    obtain rfl := Option.some.inj hv
-    refine ⟨pi (ψ uN + 1) (relSpace V (ψ uN) A) (fun _ => univ (ψ uN)),
+      · exact univ_mem_univ (ψ uN)
+  · refine ⟨pi (ψ uN + 1) (relSpace V (ψ uN) A) (fun _ => univ (ψ uN)),
       ?_, ?_⟩
     · simp [interpExpr, Expr.instantiate1, updV, Level.eval, uN, relSpace,
         -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
       try rfl
-    · have hmem := quot_fibre_mem (V := V) hAmem
-      have hEv : Level.eval ψ
-          (((Level.param (Name.anonymous.str "u")).imax
-            ((Level.param (Name.anonymous.str "u")).imax
-              Level.zero.succ)).imax
-            (Level.param (Name.anonymous.str "u")).succ) = ψ uN + 1 := by
-        show qtA (ψ uN) = ψ uN + 1
-        exact qtA_eq (ψ uN)
-      rw [hEv]
-      exact hmem
+    · exact quot_fibre_mem (V := V) hAmem
 
 /-! ## `Quot.mk` -/
 
@@ -359,7 +346,7 @@ theorem annotOk_quotMk_type {cval : ConstVal V}
   have hvalQ' : ∀ ψ' : Name → Nat,
       cval (Name.anonymous.str "Quot") ψ' = quotVal V ψ' := hvalQ
   simp only [quotMkA, ConstantInfo.toConstantVal, AnnotOk]
-  refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+  refine ⟨trivial, ψ uN, ?_⟩
   intro A SA hSA hAmem
   have hSA' : SA = univ (ψ uN) := by
     simp only [interpExpr, Level.eval, Option.some.injEq] at hSA
@@ -369,10 +356,10 @@ theorem annotOk_quotMk_type {cval : ConstVal V}
   refine ⟨?_, ?_⟩
   · -- the opened body `(r : α → α → Prop) → (a : α) → Quot α r`
     try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-    refine ⟨?_, ⟨_, rfl⟩, ?_⟩
+    refine ⟨?_, ψ uN, ?_⟩
     · -- the relation space `α → α → Prop`
       try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-      refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+      refine ⟨trivial, Nat.max (ψ uN) 1, ?_⟩
       intro x Sx hSx hxmem
       have hSx' : Sx = A := by
         simp only [interpExpr, updV, Expr.instantiate1, reduceIte,
@@ -381,15 +368,13 @@ theorem annotOk_quotMk_type {cval : ConstVal V}
       rw [hSx'] at hxmem
       refine ⟨?_, ?_⟩
       · try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-        refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+        refine ⟨trivial, 1, ?_⟩
         intro y Sy hSy hymem
         refine ⟨by simp [Expr.instantiate1, AnnotOk], ?_⟩
         refine ⟨univ 0, ?_, ?_⟩
         · simp [Expr.instantiate1, interpExpr, Level.eval]
-        · simpa [Level.eval] using univ_mem_univ 0
-      · intro v hv
-        obtain rfl := Option.some.inj hv
-        refine ⟨pi 1 A (fun _ => univ 0), ?_, ?_⟩
+        · exact univ_mem_univ 0
+      · refine ⟨pi 1 A (fun _ => univ 0), ?_, ?_⟩
         · simp [interpExpr, Expr.instantiate1, updV, Level.eval]
         · exact pi_mem_univ (u := ψ uN) (v := 1) (B := fun _ => univ 0)
             hAmem (fun _ _ => univ_mem_univ 0)
@@ -401,7 +386,7 @@ theorem annotOk_quotMk_type {cval : ConstVal V}
       refine ⟨?_, ?_⟩
       · -- the opened `(a : α) → Quot α r`
         try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-        refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+        refine ⟨trivial, ψ uN, ?_⟩
         intro a Sa hSa hamem
         simp [interpExpr, Expr.instantiate1, updV] at hSa
         subst hSa
@@ -432,7 +417,7 @@ theorem annotOk_quotMk_type {cval : ConstVal V}
           · simp [interpExpr, Expr.instantiate1, updV, hfindQ', hvalQ',
               quotA, ConstantInfo.toConstantVal]
             try rfl
-          · simpa [Level.eval, uN] using quotVal_app₂_mem hAmem hRmem'
+          · exact quotVal_app₂_mem hAmem hRmem'
       · -- fibre-universe of the `r` binder (annotation `imax u u`)
         refine ⟨pi (ψ uN) A (fun _ =>
           SetTheory.app (SetTheory.app (quotVal V ψ) A) R), ?_, ?_⟩
@@ -440,12 +425,7 @@ theorem annotOk_quotMk_type {cval : ConstVal V}
             quotA, ConstantInfo.toConstantVal, Level.eval, uN,
             -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
           try rfl
-        · rw [show Level.eval ψ
-              ((Level.param (Name.anonymous.str "u")).imax
-                (Level.param (Name.anonymous.str "u"))) = qmR (ψ uN) from by
-            by_cases hu : ψ (Name.anonymous.str "u") = 0 <;>
-              simp [Level.eval, qmR, uN, hu, Nat.max_self], qmR_eq]
-          simp only [quotVal_app₂ hAmem hRmem']
+        · simp only [quotVal_app₂ hAmem hRmem']
           exact mkA_fibre_mem hAmem
   · -- fibre-universe of the `α` binder
     refine ⟨pi (qmR (ψ uN)) (relSpace V (ψ uN) A) (fun R =>
@@ -455,22 +435,13 @@ theorem annotOk_quotMk_type {cval : ConstVal V}
         quotA, ConstantInfo.toConstantVal, Level.eval, uN, relSpace, qmR,
         -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
       try rfl
-    · rw [show Level.eval ψ
-          (((Level.param (Name.anonymous.str "u")).imax
-            ((Level.param (Name.anonymous.str "u")).imax
-              Level.zero.succ)).imax
-            ((Level.param (Name.anonymous.str "u")).imax
-              (Level.param (Name.anonymous.str "u")))) = qmA (ψ uN) from by
-        by_cases hu : ψ (Name.anonymous.str "u") = 0 <;>
-          simp [Level.eval, qmA, qmR, uN, hu, Nat.max_self], qmA_eq]
-      have hfib : ∀ R', R' ∈ˢ relSpace V (ψ uN) A →
+    · have hfib : ∀ R', R' ∈ˢ relSpace V (ψ uN) A →
           (pi (ψ uN) A fun _ =>
             SetTheory.app (SetTheory.app (quotVal V ψ) A) R') ∈ˢ
             univ (ψ uN) := by
         intro R' hR'
         simp only [quotVal_app₂ hAmem hR']
         exact mkA_fibre_mem hAmem
-      rw [qmR_eq]
       have hmem := pi_mem_univ (u := Nat.max (ψ uN) 1) (v := ψ uN)
         (relSpace_mem_univ hAmem) hfib
       by_cases hu : ψ uN = 0
@@ -559,7 +530,7 @@ theorem quotInv_invariant {A R f h : V} (hA : A ∈ˢ univ (ψ uN))
   have h1 : SetTheory.app h a ∈ˢ pi 0 A (fun b' =>
       pi 0 (SetTheory.app (SetTheory.app R a) b') fun _ =>
         eqv (SetTheory.app f a) (SetTheory.app f b')) := by
-    refine app_mem hh ha ?_
+    refine app_mem (v := 0) hh ha ?_
     intro x hx
     exact pi_mem_univ (u := ψ uN) (v := 0) hA (fun b' hb' =>
       pi_mem_univ (u := 0) (v := 0)
@@ -661,7 +632,7 @@ theorem annotOk_quotLift_type {cval : ConstVal V}
   have hvalQ' : ∀ ψ' : Name → Nat,
       cval (Name.anonymous.str "Quot") ψ' = quotVal V ψ' := hvalQ
   simp only [quotLiftA, ConstantInfo.toConstantVal, AnnotOk]
-  refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+  refine ⟨trivial, qlA (ψ uN) (ψ vN), ?_⟩
   intro A SA hSA hAmem
   have hSA' : SA = univ (ψ uN) := by
     simp only [interpExpr, Level.eval, Option.some.injEq] at hSA
@@ -775,10 +746,10 @@ theorem annotOk_quotLift_type {cval : ConstVal V}
   refine ⟨?_, ?_⟩
   · -- the opened `∀ {r}, …`
     try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-    refine ⟨?_, ⟨_, rfl⟩, ?_⟩
+    refine ⟨?_, qlR (ψ uN) (ψ vN), ?_⟩
     · -- the relation space `α → α → Prop`
       try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-      refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+      refine ⟨trivial, Nat.max (ψ uN) 1, ?_⟩
       intro x Sx hSx hxmem
       have hSx' : Sx = A := by
         simp only [interpExpr, updV, Expr.instantiate1, reduceIte,
@@ -787,15 +758,13 @@ theorem annotOk_quotLift_type {cval : ConstVal V}
       rw [hSx'] at hxmem
       refine ⟨?_, ?_⟩
       · try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-        refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+        refine ⟨trivial, 1, ?_⟩
         intro y Sy hSy hymem
         refine ⟨by simp [Expr.instantiate1, AnnotOk], ?_⟩
         refine ⟨univ 0, ?_, ?_⟩
         · simp [Expr.instantiate1, interpExpr, Level.eval]
-        · simpa [Level.eval] using univ_mem_univ 0
-      · intro v hv
-        obtain rfl := Option.some.inj hv
-        refine ⟨pi 1 A (fun _ => univ 0), ?_, ?_⟩
+        · exact univ_mem_univ 0
+      · refine ⟨pi 1 A (fun _ => univ 0), ?_, ?_⟩
         · simp [interpExpr, Expr.instantiate1, updV, Level.eval]
         · exact pi_mem_univ (u := ψ uN) (v := 1) (B := fun _ => univ 0)
             hAmem (fun _ _ => univ_mem_univ 0)
@@ -807,7 +776,7 @@ theorem annotOk_quotLift_type {cval : ConstVal V}
       refine ⟨?_, ?_⟩
       · -- the opened `∀ {β}, …`
         try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-        refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+        refine ⟨trivial, qlB (ψ uN) (ψ vN), ?_⟩
         intro B SB hSB hBmem
         have hSB' : SB = univ (ψ vN) := by
           simp only [interpExpr, Expr.instantiate1, reduceIte, Level.eval,
@@ -818,15 +787,15 @@ theorem annotOk_quotLift_type {cval : ConstVal V}
         refine ⟨?_, ?_⟩
         · -- the opened `∀ (f : α → β), …`
           try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-          refine ⟨?_, ⟨_, rfl⟩, ?_⟩
+          refine ⟨?_, qlV (ψ uN) (ψ vN), ?_⟩
           · -- the function space `α → β`
             try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-            refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+            refine ⟨trivial, ψ vN, ?_⟩
             intro a Sa hSa hamem
             refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
             refine ⟨B, ?_, ?_⟩
             · simp [interpExpr, Expr.instantiate1, updV]
-            · simpa [Level.eval, vN] using hBmem
+            · exact hBmem
           · intro f Sf hSf hfmem
             simp [interpExpr, Expr.instantiate1, updV, Level.eval] at hSf
             subst hSf
@@ -836,24 +805,24 @@ theorem annotOk_quotLift_type {cval : ConstVal V}
             refine ⟨?_, ?_⟩
             · -- the opened `∀ (h : invariance), Quot α r → β`
               try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-              refine ⟨?_, ⟨_, rfl⟩, ?_⟩
+              refine ⟨?_, qlQ (ψ uN) (ψ vN), ?_⟩
               · -- the invariance space `∀ a b, r a b → Eq β (f a) (f b)`
                 try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-                refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+                refine ⟨trivial, 0, ?_⟩
                 intro a Sa hSa hamem
                 simp [interpExpr, Expr.instantiate1, updV] at hSa
                 subst hSa
                 refine ⟨?_, ?_⟩
                 · -- opened `∀ b, r a b → Eq β (f a) (f b)`
                   try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-                  refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+                  refine ⟨trivial, 0, ?_⟩
                   intro b Sb hSb hbmem
                   simp [interpExpr, Expr.instantiate1, updV] at hSb
                   subst hSb
                   refine ⟨?_, ?_⟩
                   · -- opened `r a b → Eq β (f a) (f b)`
                     try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-                    refine ⟨?_, ⟨_, rfl⟩, ?_⟩
+                    refine ⟨?_, 0, ?_⟩
                     · -- AnnotOk of `r a b` (two app clauses)
                       try simp only [Expr.instantiate1, reduceIte, AnnotOk]
                       refine ⟨⟨(by simp [Expr.instantiate1, AnnotOk]),
@@ -949,7 +918,7 @@ theorem annotOk_quotLift_type {cval : ConstVal V}
                 refine ⟨?_, ?_⟩
                 · -- the opened `Quot α r → β`
                   try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-                  refine ⟨?_, ⟨_, rfl⟩, ?_⟩
+                  refine ⟨?_, ψ vN, ?_⟩
                   · -- AnnotOk of `Quot α r` (two app clauses)
                     try simp only [Expr.instantiate1, reduceIte, AnnotOk]
                     refine ⟨⟨(by simp [Expr.instantiate1, AnnotOk]),
@@ -976,7 +945,7 @@ theorem annotOk_quotLift_type {cval : ConstVal V}
                     refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
                     refine ⟨B, ?_, ?_⟩
                     · simp [interpExpr, Expr.instantiate1, updV]
-                    · simpa [Level.eval, vN] using hBmem
+                    · exact hBmem
                 · -- fibre-universe of the `h` binder (annotation
                   -- `imax u v`)
                   refine ⟨pi (ψ vN)
@@ -1144,7 +1113,7 @@ theorem annotOk_quotInd_type {cval : ConstVal V}
       cval ((Name.anonymous.str "Quot").str "mk") ψ' = quotMkVal V ψ' :=
     hvalMk
   simp only [quotIndA, ConstantInfo.toConstantVal, AnnotOk]
-  refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+  refine ⟨trivial, 0, ?_⟩
   intro A SA hSA hAmem
   have hSA' : SA = univ (ψ uN) := by
     simp only [interpExpr, Level.eval, Option.some.injEq] at hSA
@@ -1212,10 +1181,10 @@ theorem annotOk_quotInd_type {cval : ConstVal V}
   refine ⟨?_, ?_⟩
   · -- the opened `∀ {r}, …`
     try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-    refine ⟨?_, ⟨_, rfl⟩, ?_⟩
+    refine ⟨?_, 0, ?_⟩
     · -- the relation space `α → α → Prop`
       try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-      refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+      refine ⟨trivial, Nat.max (ψ uN) 1, ?_⟩
       intro x Sx hSx hxmem
       have hSx' : Sx = A := by
         simp only [interpExpr, updV, Expr.instantiate1, reduceIte,
@@ -1224,15 +1193,13 @@ theorem annotOk_quotInd_type {cval : ConstVal V}
       rw [hSx'] at hxmem
       refine ⟨?_, ?_⟩
       · try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-        refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+        refine ⟨trivial, 1, ?_⟩
         intro y Sy hSy hymem
         refine ⟨by simp [Expr.instantiate1, AnnotOk], ?_⟩
         refine ⟨univ 0, ?_, ?_⟩
         · simp [Expr.instantiate1, interpExpr, Level.eval]
-        · simpa [Level.eval] using univ_mem_univ 0
-      · intro v hv
-        obtain rfl := Option.some.inj hv
-        refine ⟨pi 1 A (fun _ => univ 0), ?_, ?_⟩
+        · exact univ_mem_univ 0
+      · refine ⟨pi 1 A (fun _ => univ 0), ?_, ?_⟩
         · simp [interpExpr, Expr.instantiate1, updV, Level.eval]
         · exact pi_mem_univ (u := ψ uN) (v := 1) (B := fun _ => univ 0)
             hAmem (fun _ _ => univ_mem_univ 0)
@@ -1244,10 +1211,10 @@ theorem annotOk_quotInd_type {cval : ConstVal V}
       refine ⟨?_, ?_⟩
       · -- the opened `∀ {β}, …`
         try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-        refine ⟨?_, ⟨_, rfl⟩, ?_⟩
+        refine ⟨?_, 0, ?_⟩
         · -- the motive space `Quot α r → Prop`
           try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-          refine ⟨?_, ⟨_, rfl⟩, ?_⟩
+          refine ⟨?_, 1, ?_⟩
           · -- AnnotOk of `Quot α r`
             try simp only [Expr.instantiate1, reduceIte, AnnotOk]
             refine ⟨⟨(by simp [Expr.instantiate1, AnnotOk]),
@@ -1269,7 +1236,7 @@ theorem annotOk_quotInd_type {cval : ConstVal V}
             refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
             refine ⟨univ 0, ?_, ?_⟩
             · simp [Expr.instantiate1, interpExpr, Level.eval]
-            · simpa [Level.eval] using univ_mem_univ 0
+            · exact univ_mem_univ 0
         · intro B SB hSB hBmem
           simp [interpExpr, Expr.instantiate1, updV, Level.eval, hfindQ',
             hvalQ', quotA, ConstantInfo.toConstantVal,
@@ -1285,10 +1252,10 @@ theorem annotOk_quotInd_type {cval : ConstVal V}
           refine ⟨?_, ?_⟩
           · -- the opened `∀ (mk), …`
             try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-            refine ⟨?_, ⟨_, rfl⟩, ?_⟩
+            refine ⟨?_, 0, ?_⟩
             · -- the minor-premise space `(a : α) → β (Quot.mk α r a)`
               try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-              refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+              refine ⟨trivial, 0, ?_⟩
               intro a Sa hSa hamem
               simp [interpExpr, Expr.instantiate1, updV] at hSa
               subst hSa
@@ -1339,7 +1306,7 @@ theorem annotOk_quotInd_type {cval : ConstVal V}
               refine ⟨?_, ?_⟩
               · -- the opened `∀ (q : Quot α r), β q`
                 try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-                refine ⟨?_, ⟨_, rfl⟩, ?_⟩
+                refine ⟨?_, 0, ?_⟩
                 · -- AnnotOk of `Quot α r`
                   try simp only [Expr.instantiate1, reduceIte, AnnotOk]
                   refine ⟨⟨(by simp [Expr.instantiate1, AnnotOk]),
@@ -1510,7 +1477,7 @@ theorem annotOk_quotSound_type {cval : ConstVal V}
       cval ((Name.anonymous.str "Quot").str "mk") ψ' = quotMkVal V ψ' :=
     hvalMk
   simp only [quotSoundA, ConstantInfo.toConstantVal, AnnotOk]
-  refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+  refine ⟨trivial, 0, ?_⟩
   intro A SA hSA hAmem
   have hSA' : SA = univ (ψ uN) := by
     simp only [interpExpr, Level.eval, Option.some.injEq] at hSA
@@ -1583,10 +1550,10 @@ theorem annotOk_quotSound_type {cval : ConstVal V}
   refine ⟨?_, ?_⟩
   · -- the opened `∀ {r}, …`
     try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-    refine ⟨?_, ⟨_, rfl⟩, ?_⟩
+    refine ⟨?_, 0, ?_⟩
     · -- the relation space `α → α → Prop`
       try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-      refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+      refine ⟨trivial, Nat.max (ψ uN) 1, ?_⟩
       intro x Sx hSx hxmem
       have hSx' : Sx = A := by
         simp only [interpExpr, updV, Expr.instantiate1, reduceIte,
@@ -1595,15 +1562,13 @@ theorem annotOk_quotSound_type {cval : ConstVal V}
       rw [hSx'] at hxmem
       refine ⟨?_, ?_⟩
       · try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-        refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+        refine ⟨trivial, 1, ?_⟩
         intro y Sy hSy hymem
         refine ⟨by simp [Expr.instantiate1, AnnotOk], ?_⟩
         refine ⟨univ 0, ?_, ?_⟩
         · simp [Expr.instantiate1, interpExpr, Level.eval]
-        · simpa [Level.eval] using univ_mem_univ 0
-      · intro v hv
-        obtain rfl := Option.some.inj hv
-        refine ⟨pi 1 A (fun _ => univ 0), ?_, ?_⟩
+        · exact univ_mem_univ 0
+      · refine ⟨pi 1 A (fun _ => univ 0), ?_, ?_⟩
         · simp [interpExpr, Expr.instantiate1, updV, Level.eval]
         · exact pi_mem_univ (u := ψ uN) (v := 1) (B := fun _ => univ 0)
             hAmem (fun _ _ => univ_mem_univ 0)
@@ -1615,14 +1580,14 @@ theorem annotOk_quotSound_type {cval : ConstVal V}
       refine ⟨?_, ?_⟩
       · -- the opened `∀ {a : α}, …`
         try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-        refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+        refine ⟨trivial, 0, ?_⟩
         intro a Sa hSa hamem
         simp [interpExpr, Expr.instantiate1, updV] at hSa
         subst hSa
         refine ⟨?_, ?_⟩
         · -- the opened `∀ {b : α}, …`
           try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-          refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+          refine ⟨trivial, 0, ?_⟩
           intro b Sb hSb hbmem
           simp [interpExpr, Expr.instantiate1, updV] at hSb
           subst hSb
@@ -1641,7 +1606,7 @@ theorem annotOk_quotSound_type {cval : ConstVal V}
           refine ⟨?_, ?_⟩
           · -- the opened `r a b → Eq (Quot α r) (mk a) (mk b)`
             try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-            refine ⟨?_, ⟨_, rfl⟩, ?_⟩
+            refine ⟨?_, 0, ?_⟩
             · -- AnnotOk of `r a b` (two app clauses)
               try simp only [Expr.instantiate1, reduceIte, AnnotOk]
               refine ⟨⟨(by simp [Expr.instantiate1, AnnotOk]),
