@@ -45,3 +45,9 @@ import Setlec.Model.ConsistencyS
 import Setlec.Verify.ParseP
 import Setlec.Verify.BridgeP
 import Setlec.Model.ConsistencyP
+import Setlec.Model.Erasure
+import Setlec.Model.RawEnv
+import Setlec.Model.RawEnvNoAnnot
+import Setlec.Model.Decorate
+import Setlec.Model.Norm
+import Setlec.Model.ConsistencyRaw

@@ -4958,3 +4958,489 @@ instructions): init-prelude probe 27.99 G → **26.44 G** certified
 `lake test`, arena 90/92 + e2e 57/57, scale.sh all PASS, soundness/
 consistency axioms exactly `[propext, Classical.choice, Quot.sound]`,
 verdicts identical.
+
+## Raw (annotation-free) storage: the erasure witness (2026-08-24, task #100)
+
+The environment currently stores expression trees carrying binder
+*codomain-sort annotations* (`BinderMeta.cod`), produced by the
+`annotate` pass and consumed by the model: the structural `∀`/`λ`
+interpretation needs the binder's Prop-or-not bit, and the annotation
+is where it comes from.  The refactor removes them from storage — the
+kernel stores and computes with **raw** trees — while the model keeps
+its level source on the proof side.
+
+### Why an annotation witness is forced
+
+The alternative (drop annotation data from the model as well, deriving
+the binder classifier semantically or structurally) is refuted, with
+checked witnesses in `Setlec/Model/RawEnvNoAnnot.lean`:
+
+* the interpretation reads its level argument only through the `v = 0`
+  test (`pi_pos`/`lam_pos`), so what a binder needs is exactly one bit;
+* that bit is **not** a function of the semantic data.  `⟦Nat.succ
+  Nat.zero⟧ = pt` (the von Neumann `1` *is* the proof point) and
+  `⟦PUnit⟧ = truthVal True`, so `fun (_ : PUnit) => (1 : Nat)` and
+  `fun (_ : PUnit) => True.intro` present identical domain values and
+  identical body-value functions while requiring different
+  interpretations (`lam_interp_not_value_determined`);
+* nor is it computable structurally: `Nat.imax` preserves the proof
+  bit through application but destroys the codomain's sort, and large
+  elimination makes the classifier whnf-dependent — computing it *is*
+  the inference the annotation pass performs.
+
+So the level source moves to a per-declaration **annotation witness**.
+
+### The erasure view
+
+A witness for a raw tree `e` is an annotated twin `ê` with
+`ê.eraseCod = e`; a witness for a raw environment is an annotated
+*shadow environment* that erases to it.  `interpExpr`, `AnnotOk`,
+`EnvModel` and the whole `Extend*` tower then survive **verbatim** as
+statements about the shadow; only the env-facing seam changes:
+
+* `RawEnvModel V env = {aenv, erase_eq : aenv.eraseCod = env, model :
+  EnvModel V aenv}` (`Setlec/Model/RawEnv.lean`);
+* raw-side syntactic certificates (freshness, `hasFvar`,
+  `constsResolve`, `looseBVarsBounded`) transfer across erasure —
+  those predicates read no annotation;
+* semantic obligations (`AnnotOk`, interpretations, and
+  `allLevelParamsDefined`, which reads annotation levels and is
+  therefore deliberately *not* raw-derivable) stay phrased on the
+  witness;
+* twin tracking through reduction rests on erasure being
+  constructor-wise: it commutes with `instantiate1`,
+  `instantiateList`, `instantiateLevelParams`, `abstract1` and
+  `abstractRange`, so the existing substitution lemmas apply to the
+  twin unchanged.
+
+`Setlec/Model/Erasure.lean` is that seam library, plus the inversion
+lemmas (`eraseCod_eq_app`, …) and the one family of syntactic
+environment checks erasure does *not* preserve: the literal-support
+guards.  `natLitSupported`/`strLitSupported` pin the *annotated*
+stored types of the `Nat`/`String` basis declarations; their **raw
+forms** (`natLitSupportedRaw`/`strLitSupportedRaw`) drop exactly the
+`mb.cod` conjuncts, and the congruences
+`natLitSupportedRaw_erase`/`strLitSupportedRaw_erase` say the
+annotated guard on the witness implies the raw guard on what the
+kernel stores — so a raw kernel's literal paths are open wherever the
+model's are.  `extend_model_raw` is the split in miniature for a plain
+definition install.
+
+### The `codOf` memo
+
+What the annotation stores, a raw kernel must recompute: the codomain
+sort of a binder is `ensureSort ∘ infer` on the binder's body (the
+`∀`-clause) resp. on the body's inferred type (the `λ`-clause).
+`codOfCore` (`Setlec/Kernel/TypeChecker.lean`) is that composite at
+the pure knot; `codOfI` (`Setlec/Kernel/CoreI.lean`) its interned,
+memoized twin — memo `IState.codOfC : EIdx → LIdx`, depth-free like
+the entry-point memos (by `codOfCore_depth_inv`), flushed with them at
+environment transitions.  Both are knot-parametric, so the
+cert-skipping knot uses them unchanged.
+
+Verification mirrors the entry-point memos exactly: an `ISOK.codOfC`
+clause (every entry backed by a pure `codOfCore` run at some fuel, at
+every depth at which the key is well-scoped), `ISOK.insertCodOfC`, and
+`codOfI_sim` — a hit consumes the backed entry, a miss runs
+`infer`+`ensureSort` (`SimAt.bind` of `ih.infer` and
+`ensureSortI_sim`) and re-inserts depth-universally.  The fueled
+comparand is `codOfF`, with `codOfF_atF` and `codOfCore_mono` derived
+from the family.
+
+The memo is **not consumed for verdicts**: annotations remain the live
+mechanism and nothing on a verdict path calls `codOfI`, so verdicts
+are byte-identical by construction.  Feeding it from `annotate` was
+considered and rejected as throwaway: `annotate` is what the
+decoration pass replaces, so entries produced there would be produced
+by `decorate` anyway.  Cost of carrying the extra `IState` field on
+the init-prelude probe: 25.187 G → 25.203 G instructions, **+0.064 %**
+(three runs each, spread < 2 M).
+## Asymptotic scalability harness v2 (2026-08-24, task #98)
+
+`tests/scale.sh` grew from 4 to 13 gated shapes, per-shape gates, a
+deep mode, RSS gating, and a reference-comparison companion.  This
+section is the harness's reference documentation; the 2026-08-22
+section above records the original design and first findings.
+
+**Generators are deduplicated.**  `tests/scale/gen.py` hash-conses
+every name/level/expr table entry it emits.  Real lean4export never
+emits two structurally identical entries, and consumers rely on it —
+upstream nanoda crashes on duplicate entries.  Deduplication is part
+of the format contract, folded into the emitter (there is no
+postprocessing step to forget).  Every generated shape is validated
+against the official kernel checker (all 12 stream shapes accepted by
+official-v4.33.0 and upstream nanoda).
+
+**Shapes** (`gen.py SHAPE N`; one subsystem each):
+
+* `chain` — n-deep `d_i : Type := d_{i-1}` delta chain forced at the
+  type level;
+* `spine` — one application spine of n arguments;
+* `many` — n independent tiny defs (env insertion / per-decl setup);
+* `telescope` — one Π/λ telescope of depth n (binder opening);
+* `dag` — one definition whose value is a *perfectly shared* binary
+  DAG of depth n (`e_{i+1} = g e_i e_i`).  The expr table is O(n);
+  any unmemoized structural traversal is O(2^n) — this shape turns a
+  violation of the no-unmemoized-traversals invariant into an
+  immediate catastrophic exponent/timeout, so its gate is tight;
+* `delta` — n defs `d_i : Prop := (fun x : Prop => x) d_{i-1}` plus a
+  proof of `d_n`, forcing n delta+beta whnf steps (value-level
+  unfolding, complementing `chain`'s type-level chain);
+* `ctors` — one inductive enum with n constructors, an n-rule
+  recursor, and a use firing one iota step.  Note the export format
+  itself is Θ(n²) bytes here (each rule RHS λ-binds all n minors), so
+  2.0 is the *input-size floor* for this shape's exponent;
+* `fields` — one structure with n `Prop` fields plus a use projecting
+  every field.  Run twice: `fields-raw` (preprocessor disabled — the
+  direct simple-structure install) and `fields-mod` (through the
+  lean-inductive-models preprocessor — the modeled path);
+* `fanout` — one def referencing all n predecessors (n const lookups
+  inside a single declaration; guards per-lookup env-index copy bugs
+  of the FEnv-linearity family, previous section);
+* `lets` — one n-deep `letE` chain (lazy zeta);
+* `lparams` — one def with n universe parameters, instantiated at a
+  use (level instantiation + n-ary max normalization);
+* `thm` — one theorem with a size-n proof value (`thm`-record path).
+
+**Methodology.**  Retired instructions (`perf stat -e
+instructions:u`), median of 3 runs; per-shape startup baseline = the
+same shape at n=1 (covers basis install, IO, and the preprocessor's
+fixed cost for the `-mod` shapes), subtracted before fitting; growth
+exponent = log2 of the adjusted ratio per doubling; the gate applies
+to the exponent at the **largest** step, where superlinearity reads
+strongest (pre-fix `spine` read 1.26 at n=400 but 1.58 at n=1600).
+Peak RSS is fitted the same way for the shapes whose retained state
+grows with n (`chain`/`many`/`dag`/`thm`): max of 3 runs of the
+process tree's `ru_maxrss` (a Python `getrusage(RUSAGE_CHILDREN)`
+wrapper — portable, no GNU time dependency).  RSS is far noisier than
+instructions: on master the adjusted retention at the largest
+standard n is < 3 MB, inside allocator noise, so per-doubling RSS
+exponents there are meaningless.  The RSS gate therefore has a signal
+floor (16 MB adjusted at the top point — `dag`/`thm` legitimately
+retain ~8 MB at the deep sizes): below it the shape passes as
+"retention flat"; above it — where a real retention blowup lands at
+once — the largest-step RSS exponent must meet a generous gate
+(1.60).  Measured master retention: chain 0.7 MB @3200, many 2.3 MB
+@3200, dag 7.7 MB @6400, thm 8.4 MB @6400 — all linear-or-flat.
+
+**Modes.**  Standard (`tests/scale.sh`, also `--ci`): 4 points per
+shape (n..8n), ~1 min measured (budget 2-3 min on a loaded machine) —
+the merge-gate profile.  Deep (`--deep` / `SCALE_DEEP=1`): up to 6
+points (n..32n, per-shape caps keep the superlinear shapes bounded),
+~3-4 min measured (budget ~10 min) — for performance work and nightly
+runs; borderline standard-mode readings become unambiguous here, so
+the superlinear shapes carry separate deep-mode gates calibrated at
+the deep sizes.  No wall-time fallback exists: without working perf
+counters the harness prints a prominent SKIP notice and exits 0 (a
+flaky gate is worse than an absent one).  Without the
+lean-inductive-models preprocessor only the `-mod` shapes are
+skipped, with a notice.  Deliberately **not** part of `lake test`
+(`tests/SetlecTests.lean` is `#guard`-based build-time; scale needs a
+built binary, perf, and a process per stream): CI should invoke
+`tests/scale.sh --ci` as its own job step after `lake build`.
+
+**Gate rationale.**  Per-shape gates = measured master exponent +
+slack, not a blanket threshold.  Measured on master 4f63b6c and
+re-confirmed identical (±0.01) on 6e29d67 after merging tasks
+#95/#88 (2026-08-24, instructions adjusted per methodology; "std" =
+largest standard step, "deep" = largest deep step):
+
+| shape | std exponents per doubling | std | deep | gate std/deep | RSS |
+|---|---|---|---|---|---|
+| chain | 1.02 1.01 1.01 | 1.01 | 1.01 @3200 | 1.15 | flat |
+| spine | 1.02 1.01 1.01 | 1.01 | 1.01 @1600 | 1.15 | — |
+| many | 1.01 1.01 1.01 | 1.01 | 1.01 @3200 | 1.15 | flat |
+| telescope | 1.03 1.01 1.01 | 1.01 | 1.01 @1600 | 1.15 | — |
+| dag | 1.01 1.02 1.01 | 1.01 | 1.01 @6400 | 1.15 | flat |
+| delta | 1.02 1.01 1.01 | 1.01 | 1.01 @3200 | 1.15 | — |
+| fanout | 1.02 1.01 1.01 | 1.01 | 1.01 @3200 | 1.15 | — |
+| lets | 1.02 1.01 1.00 | 1.00 | 1.01 @3200 | 1.15 | — |
+| lparams | 1.16 1.32 1.49 | **1.49** | **1.78** @3200 | 1.65/1.95 | — |
+| thm | 1.01 1.00 1.01 | 1.01 | 1.00 @6400 | 1.15 | flat |
+| fields-raw | 1.76 2.02 2.31 | **2.31** | **2.74** @800 | 2.60/2.90 | — |
+| ctors-mod | 2.09 2.31 2.58 | **2.58** | **2.76** @64 | 2.90/3.00 | — |
+| fields-mod | 1.06 1.59 2.08 | **2.08** | **2.43** @128 | 2.40/2.70 | — |
+
+The nine flat shapes gate at 1.15 (tight — regressions past ~n^1.15
+fail immediately).  The four bold shapes are **superlinear on current
+master** — findings recorded by this harness, gated at measured+slack
+so they cannot silently get worse, to be fixed as their own tasks:
+
+* `lparams` (1.49 → 1.78 deep, rising toward 2): profile is dominated
+  by `Name` decidable equality under `Level.allParamsDefined`'s
+  `List.elem` and `Name.nodup` — per-declaration well-formedness does
+  O(n) linear list membership per parameter, O(n²) total.  The
+  references share this shape: on the same series the official
+  checker reads **1.41** and upstream nanoda **1.31** — a quadratic
+  everyone has, but setlec's curve is the steepest.
+* `fields-raw` (2.31 → 2.74 deep): the direct simple-structure
+  install spends ~40 % in tree-level
+  `Expr.instantiate1`/`instantiate1Lift` — per-field/projection
+  telescope instantiation on unshared trees.  The official checker is
+  **flat (1.07)** on the identical streams (nanoda reads 1.80), so
+  linear is achievable and this is setlec-specific.
+* `ctors-mod` (2.58 → 2.76 deep, against an input-size floor of 2.0,
+  i.e. ~ (input bytes)^1.4): attribution by running the pipeline
+  stages separately at n=64 puts ~3.4 G instructions in the
+  preprocessor but ~72 G in the checker on the preprocessed stream
+  (spread across `EStore.intern`, `instantiateListIGo`, `iotaRecI` —
+  the modeled install's per-rule work over n rules).
+* `fields-mod` (2.08 → 2.43 deep): both stages superlinear at n=64
+  (preprocessor ~1.5 G, checker ~2.5 G).
+
+**Reference comparison** stays a LOCAL script,
+`tests/scale/compare.sh` (references are not on CI): the same
+adjusted-median methodology applied identically to setlec, the
+official kernel checker, and **upstream** nanoda (override binary
+paths via `SET`/`OFF`/`NAN`).  2026-08-24 run: all three checkers
+flat on chain/spine/many/telescope/dag/delta/fanout/lets/thm; all
+three superlinear on lparams (setlec 1.49, official 1.41, nanoda
+1.31); on fields official is flat (1.07) while nanoda (1.80) and the
+setlec pipeline (2.62 through the preprocessor) are not.  Pitfall,
+spelled in the script header: the `_tmp/nanodatg` clone is the
+*certifying fork*, quadratic by design on several shapes — growth
+comparisons must use upstream nanoda, built from ammkrn/nanoda_lib.
+nanoda additionally *requires* structurally deduplicated table
+entries (it crashes on duplicates), which is why the generator
+hash-conses everything.
+
+### Raw storage stage 3: decoration, and the erasure as a parameter (2026-08-24, task #100)
+
+Three moves, all staged so the flip from the identity erasure to
+`Env.eraseCod` is local.
+
+**The erasure is a parameter.** `RawEnvModelE V er env` carries the
+annotated shadow `aenv`, `erase_eq : er aenv = env`, and the unchanged
+`EnvModel V aenv`.  `RawEnvModelId := RawEnvModelE V id` is the
+transitional instantiation — annotations are still stored, so the
+witness *is* the stored environment, and `ofEnvModel`/`toEnvModel` are
+inverse — while `RawEnvModel := RawEnvModelE V Env.eraseCod` is the end
+state.  `Setlec/Model/ConsistencyRaw.lean` restates `checkDecl_sound`,
+`checkDecls_sound` and `no_constant_of_Empty` over that interface at
+`id`: no content, all interface, so that consumers phrased against it
+survive the flip untouched.
+
+**Decoration.** A raw-storage kernel must put annotations back before
+`infer`/`whnf`/`defeq` — which read them — can run.  `decorate`
+(`Setlec/Model/Decorate.lean`) is the proof-side spec of that rebuild:
+structural everywhere, filling each binder's `cod` from a `DecorMemo`
+(the proof-side view of the interned `inferC`/`codOfC` pair — a
+`∀`-binder's sort is `codOf` of its opened body, a `λ`-binder's is
+`codOf` of that body's *inferred type*, hence two components).  It
+performs **no** inference, reduction or definitional equality.
+
+Its theorem is therefore syntactic, not semantic: `decorate_eq` says
+that decorating the erasure of an annotated tree returns that tree
+*exactly*, provided the memo agrees with its annotations at every
+binder (`CodAgree`).  Truthfulness then costs nothing —
+`decorate_sound` rewrites through the identification and hands the goal
+to `annotate_sound`.  That is the point of the split: the decoration
+pass carries no semantic burden of its own, because the annotations it
+restores are the ones the annotation pass already justified.  All the
+content sits in `CodAgree`, which the flip discharges from the memos'
+`ISOK` clauses.
+
+Two findings shaped the definition:
+
+* **Two erasures.** `Expr.eraseCod` is hereditary — it descends into
+  `fvar` type annotations, which is what makes twins survive binder
+  opening during reduction simulation.  A decoration pass opens binders
+  itself, at variables whose types it has *already* decorated, so its
+  `fvar` clause must be the identity; the matching erasure is the
+  shallow `Expr.eraseCodS`.  The two agree on `fvar`-free trees
+  (`eraseCodS_eq`) — i.e. on everything a declaration stores, by the
+  install-time certificate — so the top-level statement is unaffected,
+  and the non-recursive `fvar` clause is also what makes `decorate`
+  terminate on `sizeB` (the measure `AnnotOk` uses, for the same
+  reason).
+* **Decoration targets are let-free.**  `annotate`'s `letE` clause
+  zeta-reduces (value transparency; an opened opaque let-variable was
+  tried and rejects real streams).  So its output — and hence every
+  decoration target — contains no `letE`, and `CodAgree`'s `letE`
+  clause is `False`.  Correspondingly, what a raw-storage kernel keeps
+  is the *erasure of the annotation pass's output*, not of the input
+  record: `annotate` is not skeleton-preserving (it zeta-reduces lets
+  and normalizes projection heads), so `(annotate e).eraseCod = e` is
+  false in general and cannot be the storage contract.
+
+**Install paths.**  `extend_model_raw` is now generic in the installed
+`ConstantInfo`, so it covers every non-inductive path at once — axioms,
+definitions, theorems, opaques, and the pinned `Nat`-operation /
+`Nat.div`-`Nat.mod` / `reduce` families, whose extra obligations ride
+through unchanged; `extend_model_raw_defn`/`_axiom`/`_thm` are its
+instances.  The hypothesis split is the design's claim in miniature:
+raw-side certificates (freshness, `hasFvar`, `constsResolve`,
+`looseBVarsBounded`) transfer across erasure, witness-side obligations
+(`AnnotOk`, interpretations, `allLevelParamsDefined`) stay on the
+shadow.  For the remaining paths — inductive blocks, projections,
+direct structures, basis pins — the mechanical content is
+`RawEnvModelE.extend`/`extend_one`: *any* extension of the witness is
+an extension of the raw environment it erases to, given that the
+installed records erase to what is stored.  Each sibling is that
+combinator applied to the `extend_*` lemma the path already uses; no
+signature needs restating.
+## Mathlib-scoping driver fixes: wfB stack, diagnostic-pass linearity, --pre (2026-08-24)
+
+Scoping the full Mathlib stream (727 k declaration records, ~5.8 GB
+preprocessed) surfaced three driver-level defects; none touches a
+verified statement.
+
+**1. Store validation overflowed the stack at end of parse.**  The
+full stream crashed "Stack overflow detected" (exit 134) right after
+parsing at any default-sized stack; `LEAN_STACK_SIZE_KB=16777216`
+(16 GiB) was needed to get past it.  Site (gdb on a synthetic
+~150 k-node `spine` stream at `LEAN_STACK_SIZE_KB=8192`): 66 520
+recursive frames of `EStore.wfBNodes` under `wfB` — the downward
+shape `wfBNodes st (k+1) = wfBNodes st k && per-node k` recurses
+*before* the conjunction, one C frame (~126 bytes) per **arena
+node**; at Mathlib's arena size that is on the order of 10 GB of
+stack.  Fix: the per-node check is factored out (`wfBNode1`, likewise
+`wfBLNode1`/`wfBNNode1`) and folded by a tail-recursive upward walk
+(`wfBNodesGo st i (m+1) = wfBNode1 st i && wfBNodesGo st (i+1) m` —
+with `&&` the recursive call is in tail position, so the compiled
+loop is constant-stack; verified by rerunning the repro at reduced
+stack, and the full Mathlib parse passes `wfB` into checking at the
+default stack).  `Setlec/Verify/ParseP.lean` gains one generic
+extraction lemma (`wfBGo_one`); the `wfB*_facts` statements and
+`wfB_wf` are unchanged.  Remaining deep recursions are proportional
+to *expression depth* or *definitional-chain length* (inherent
+checker walks; the scale shapes trip them only at artificially tiny
+stacks), never to arena size.
+
+**2. The RC-2 holder behind "non-progress is >20× slower" was the
+diagnostic second pass, not the verified fold.**  A linearity audit
+(throwaway `dbgTraceIfShared` probes at `EStore.intern`/`internL` and
+`FEnv.push`, diag/linearity pattern) on an 800 k-line Mathlib prefix
+(1663 declarations, then a decline): progress mode 0 arena copies;
+plain mode 1259 `nodes@intern` + 1259 `cons@intern` + 623
+`lnodes@internL` copies — but on a stream that *accepts*, plain mode
+also shows 0.  `checkDeclsSP`'s `List.foldlM` is compiled as a
+specialized tail-recursive loop threading the state uniquely
+(confirmed in the generated C), so the verified fold was never the
+holder.  The copies all came from `checkMain`'s *diagnostic second
+pass* (error branch only — and every current big Mathlib stream ends
+in a decline): its `for d in decls2` loop's boxed state tuple kept
+the re-parsed arena shared (RC 2) into every step, so each
+declaration's first arena mutation copied the whole node/hash tables
+— the `lean_copy_expand_array`/`lean_del_core` tower in the scoping
+perf samples, and a copy cost that grows with the arena, which is why
+small streams never showed it.  Fix: `diagLoop`, explicit recursion
+with the accumulators as plain arguments (exactly the
+`progressLoop`/`parseExportStream` pattern; that trio now covers
+every driver loop).  Copies drop to 0.  `checkDeclsSP` itself is
+untouched — `checkDeclsSP_sound` and both `no_proof_of_Empty`
+statements *and proofs* unchanged.
+
+**3. `--pre`: skip preprocessing on already-preprocessed input.**
+Preprocessed streams still contain `inductive` records (modeled
+blocks are stored opaque), so `needsPreprocess` re-detects them and
+re-spawns lean-inductive-models — ~12 wasted minutes on full Mathlib.
+`--pre` is an explicit user assertion that the input is already
+lean-inductive-models output: `checkMain` skips the detection scan
+and the spawn entirely.  Deliberately *not* content sniffing (no
+`_model`-name detection — barred by the names-not-special ruling);
+the upstream already-preprocessed marker remains task #91.  `--help`
+added; the e2e runner gains a `pre` mode (`std_axioms` under `--pre`
+must *decline* at the raw `Iff` block — the verdict flip from its
+plain line proves the spawn really was skipped; `direct_struct_raw`
+under `--pre` direct-installs to the same verdict as its `raw` line).
+
+**Measured** (prefix-log2 slice of Mathlib, 50 783 declaration
+records, 283 MB preprocessed, `--pre`, same machine; both verdicts
+exit 2 at the known `Lean.PrefixTreeNode.rec_3` iota-statement
+frontier):
+
+* pre-fix binary (master 6e29d67), plain mode: killed unfinished at
+  the 40 min cap (scoping evidence: >1 h) — the second pass's
+  per-declaration whole-arena copy strike
+* post-fix, plain mode: **3 m 29 s** wall (205 s user, 4.1 GB RSS),
+  including the diagnostic second pass, which now also *locates* the
+  failing record ("[at inductive Lean.PrefixTreeNode]")
+* post-fix, progress mode: 1 m 56 s (114 s user) — plain ≈ 1.9×
+  progress, exactly the two passes an error stream costs
+* full Mathlib (5.8 GB, 727 k records) at the **default stack**,
+  `--pre`, progress: parses, passes `wfB`, and checks 29 660
+  declarations to the known `Lean.PrefixTreeNode.rec_3` frontier
+  decline in ~11 min (previously: stack overflow at end of parse;
+  22 min with the 16 GiB-stack workaround plus ~7.5 min
+  re-preprocessing)
+
+### Raw storage stage 4a: `norm`, and the twin relation (2026-08-24, task #100)
+
+Storage flips to the **parsed trees, untouched** — install stays pure
+parse + intern (orchestrator ruling, option (iii) on the stage-3
+finding).  The annotation pass is not skeleton-preserving, so the twin
+relation generalizes from "erase the annotations" to
+
+  `erase(ê) = norm(e)`
+
+with `norm` (`Setlec/Model/Norm.lean`) a **pure proof-side**
+normalization performing exactly the annotation pass's two
+skeleton-changing clauses and nothing else:
+
+* **zeta** — `annotateBody`'s `letE` clause annotates the body as its
+  zeta reduct (value transparency; the `letE`-preserving variant is
+  recorded as rejected in the task-#79 section).  `norm`'s `letE`
+  clause is that expansion, so `norm`'s output is let-free and the
+  model machinery keeps working in its let-free regime while the
+  kernel keeps its lazy zeta.
+* **projection rewrite** — the `proj` clause either keeps the node
+  (with the structure name normalized to the scrutinee type's head) or
+  rewrites it away (`annotateProjElim`).  This one is *not* a function
+  of the expression — it reads the projection table and the whnf of an
+  inferred type — so it enters `norm` as an **oracle**, exactly as
+  binder annotations enter `decorate`.  Its agreement with the
+  annotation pass is a hypothesis, discharged at the flip.
+
+Fuel is the measure, as for `annotateCore` and for the same reason
+(zeta expansion is not size-decreasing); every statement is at an
+arbitrary fixed fuel, so no fuel bookkeeping leaks into the flip.
+
+**The congruence layer, and what it buys.**  `norm_id` /
+`norm_keep_id`: on a let-free tree whose projection nodes the oracle
+keeps, `norm` is the identity — at *every* fuel.  That is the precise
+form of "init-prelude-style streams are unaffected by the flip", and
+with `Expr.TwinAt_keep` it collapses the twin relation to plain shallow
+erasure on such streams.  `eraseCodS_norm`: `norm` commutes with the
+shallow erasure (both leave `fvar` annotations alone, which is what
+makes them commute on the nose), so the composite the raw model is
+instantiated at is unambiguous.  `Expr.eraseCodS_instantiate1` extends
+stage 3's shallow-erasure kit to arbitrary substitutions, which the
+zeta clause needs.
+
+**The value-transparency bridge is not new work.**  `interp_zeta_step`
+and `AnnotOk_zeta_step` — one zeta step preserves the interpretation
+and transports annotation truthfulness — are `interp_beta` and
+`AnnotOk_beta`, the substitution lemmas task #79 already built for the
+`whnfCore` zeta case, packaged at the `letE` clause.  They are the
+seam where the kernel's lazy zeta and `norm`'s eager expansion meet.
+
+**The raw model's parameter is now a relation.**  `RawEnvModelE V Twin
+env` takes `Twin : Env → Env → Prop`, because the end state needs a map
+on *each* side.  Three instantiations, one per stage:
+`fun a e => a = e` (transitional), `fun a e => a.eraseCod = e`
+(stage 3), and `Env.TwinAt O f` = `fun a e => a.eraseCodS = Env.norm O f e`
+(the end state, `RawEnvModelN`).  `norm` and `eraseCodS` are lifted
+through `ConstantVal`/`RecRule`/`RecRuleFire`/`ProjEntry`/`ConstantInfo`
+to environments alongside `Env.eraseCod`.
+
+**Handoff — what stage 4 still needs.**
+
+* (b) *storage flip*: the kernel stores parse output; the guards and
+  defeq move to the memoized `codOf` / raw forms.  Nothing in the model
+  layer blocks this; `natLitSupportedRaw`/`strLitSupportedRaw` (stage 1)
+  are the raw guard forms, and `codOfI` (stage 2) is the memo.
+* (c) *ghost-run bisimulation*: raw run ≡ ghost run on the **canonical**
+  twin, decisions aligned via memoized `codOf` against stored cods.
+  The spike's warning stands: claims over arbitrary truthful twins are
+  FALSE — canonical twins only.  `decorate_eq` (stage 3) is what makes
+  "canonical" a definition rather than a choice: the twin is the unique
+  tree the memo reconstructs.
+* (d) *instantiation*: `RawEnvModelN` exists; what remains is
+  re-proving `extend_model_raw` &co. at `Env.TwinAt` instead of plain
+  erasure.  The certificate transfers need `norm` congruences for
+  `hasFvar`/`looseBVarsBounded`/`constsResolve` (the erasure ones are
+  stage 1); `norm` preserves none of them unconditionally — zeta
+  expansion duplicates the value — so these are per-predicate lemmas
+  with the substitution facts, not one-liners.  That is the first thing
+  to write.

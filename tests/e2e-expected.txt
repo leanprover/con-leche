@@ -251,3 +251,13 @@
 # the full Init export (kept as _tmp/init-exports/
 # repro-int32-upward-enum-pre.ndjson, see DESIGN).
 0 reducenat_guard.ndjson
+
+# --pre flag (explicit "already preprocessed" assertion): the
+# detection scan and the preprocessor spawn are skipped entirely,
+# even with the preprocessor available.  std_axioms is a raw export
+# whose `Iff` block then has no `_model` family — the decline (vs 0
+# on its plain line) proves the spawn really was skipped.
+# direct_struct_raw takes the direct-install path to the same verdict
+# as its `raw` line.
+2 std_axioms.ndjson pre
+0 direct_struct_raw.ndjson pre

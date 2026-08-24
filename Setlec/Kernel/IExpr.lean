@@ -1482,66 +1482,94 @@ pass checks child/level ranges and that the cons-table maps each node
 back to its index; the cons-table passes check the reverse graph
 direction, so no counting argument is needed. -/
 
+/-- Range, cons-graph and derived-field facts for expression node `k`
+(one node of the `wfBNodes` pass). -/
+def wfBNode1 (st : EStore) (k : Nat) : Bool :=
+  match st.nodes[k]? with
+  | some n =>
+    (match n with
+     | .bvar _ | .const _ _ | .lit _ => true
+     | .fvar _ _ t => t < k
+     | .sort _ => true
+     | .app f a => f < k && a < k
+     | .lam _ t b _ | .forallE _ t b _ => t < k && b < k
+     | .letE _ t v b => t < k && v < k && b < k
+     | .proj _ _ e => e < k) &&
+    (match n with
+     | .sort u => u < st.lnodes.size
+     | .const _ us => us.all (· < st.lnodes.size)
+     | .lam _ _ _ m | .forallE _ _ _ m =>
+       match m.cod with
+       | some u => u < st.lnodes.size
+       | none => true
+     | _ => true) &&
+    (n.names.all (· < st.nnodes.size)) &&
+    st.cons[n]? == some k &&
+    st.bvarBs[k]? == some (n.bvarBoundOf st.bvarBs) &&
+    st.fvarBs[k]? == some (n.fvarRangeOf st.fvarBs) &&
+    st.eparamBs[k]? == some (n.hasLParamOf st.eparamBs st.lparamBs)
+  | none => false
+
+/-- `wfBNode1` for the `m` nodes `i, i+1, …, i+m-1`, as a
+tail-recursive upward walk (`b && rec` puts the recursive call in tail
+position, so the compiled loop uses constant stack).  The previous
+downward shape (`wfBNodes st k && per-node k`) recursed *before* the
+conjunction — one stack frame per arena node, which overflowed the
+stack right after parsing on ~10⁸-node arenas (full Mathlib). -/
+def wfBNodesGo (st : EStore) (i : Nat) : Nat → Bool
+  | 0 => true
+  | m + 1 => wfBNode1 st i && wfBNodesGo st (i + 1) m
+
 /-- Range, cons-graph and derived-field facts for the expression nodes
 below `k`. -/
-def wfBNodes (st : EStore) : Nat → Bool
+def wfBNodes (st : EStore) (k : Nat) : Bool :=
+  wfBNodesGo st 0 k
+
+/-- Range and cons-graph facts for level node `k` (one node of the
+`wfBLNodes` pass). -/
+def wfBLNode1 (st : EStore) (k : Nat) : Bool :=
+  match st.lnodes[k]? with
+  | some m =>
+    (match m with
+     | .zero | .param _ => true
+     | .succ u => u < k
+     | .max u v | .imax u v => u < k && v < k) &&
+    st.lcons[m]? == some k &&
+    st.lparamBs[k]? == some (m.hasParamOf st.lparamBs)
+  | none => false
+
+/-- `wfBLNode1` for the `m` nodes `i, i+1, …, i+m-1` (tail-recursive
+upward walk, see `wfBNodesGo`). -/
+def wfBLNodesGo (st : EStore) (i : Nat) : Nat → Bool
   | 0 => true
-  | k + 1 =>
-    wfBNodes st k &&
-    (match st.nodes[k]? with
-     | some n =>
-       (match n with
-        | .bvar _ | .const _ _ | .lit _ => true
-        | .fvar _ _ t => t < k
-        | .sort _ => true
-        | .app f a => f < k && a < k
-        | .lam _ t b _ | .forallE _ t b _ => t < k && b < k
-        | .letE _ t v b => t < k && v < k && b < k
-        | .proj _ _ e => e < k) &&
-       (match n with
-        | .sort u => u < st.lnodes.size
-        | .const _ us => us.all (· < st.lnodes.size)
-        | .lam _ _ _ m | .forallE _ _ _ m =>
-          match m.cod with
-          | some u => u < st.lnodes.size
-          | none => true
-        | _ => true) &&
-       (n.names.all (· < st.nnodes.size)) &&
-       st.cons[n]? == some k &&
-       st.bvarBs[k]? == some (n.bvarBoundOf st.bvarBs) &&
-       st.fvarBs[k]? == some (n.fvarRangeOf st.fvarBs) &&
-       st.eparamBs[k]? == some (n.hasLParamOf st.eparamBs st.lparamBs)
-     | none => false)
+  | m + 1 => wfBLNode1 st i && wfBLNodesGo st (i + 1) m
 
 /-- Range and cons-graph facts for the level nodes below `k`. -/
-def wfBLNodes (st : EStore) : Nat → Bool
+def wfBLNodes (st : EStore) (k : Nat) : Bool :=
+  wfBLNodesGo st 0 k
+
+/-- Range and cons-graph facts for name node `k` (one node of the
+`wfBNNodes` pass, task #88). -/
+def wfBNNode1 (st : EStore) (k : Nat) : Bool :=
+  match st.nnodes[k]? with
+  | some m =>
+    (match m with
+     | .anonymous => true
+     | .str p _ | .num p _ => p < k) &&
+    st.ncons[m]? == some k &&
+    st.rbNames[k]? == some (m.nameOf st.rbNames)
+  | none => false
+
+/-- `wfBNNode1` for the `m` nodes `i, i+1, …, i+m-1` (tail-recursive
+upward walk, see `wfBNodesGo`). -/
+def wfBNNodesGo (st : EStore) (i : Nat) : Nat → Bool
   | 0 => true
-  | k + 1 =>
-    wfBLNodes st k &&
-    (match st.lnodes[k]? with
-     | some m =>
-       (match m with
-        | .zero | .param _ => true
-        | .succ u => u < k
-        | .max u v | .imax u v => u < k && v < k) &&
-       st.lcons[m]? == some k &&
-       st.lparamBs[k]? == some (m.hasParamOf st.lparamBs)
-     | none => false)
+  | m + 1 => wfBNNode1 st i && wfBNNodesGo st (i + 1) m
 
 /-- Range and cons-graph facts for the name nodes below `k`
 (task #88). -/
-def wfBNNodes (st : EStore) : Nat → Bool
-  | 0 => true
-  | k + 1 =>
-    wfBNNodes st k &&
-    (match st.nnodes[k]? with
-     | some m =>
-       (match m with
-        | .anonymous => true
-        | .str p _ | .num p _ => p < k) &&
-       st.ncons[m]? == some k &&
-       st.rbNames[k]? == some (m.nameOf st.rbNames)
-     | none => false)
+def wfBNNodes (st : EStore) (k : Nat) : Bool :=
+  wfBNNodesGo st 0 k
 
 /-- Decidable canonicity of a store (`wfB st = true → st.WF`,
 `Setlec/Verify/IExpr.lean`).  Run once on the parse-produced store; the

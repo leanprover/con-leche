@@ -815,6 +815,20 @@ theorem constsResolveFI_spec {st : EStore} {env : Env} {e : EIdx}
 
 /-! ## Store validation: `wfB` establishes canonicity -/
 
+/-- Extract one position's check from a tail-recursive `…Go` walk
+(`go i (m + 1) = (f i && go (i + 1) m)`; the walks below have this
+shape by their successor equations). -/
+private theorem wfBGo_one {f : Nat → Bool} {go : Nat → Nat → Bool}
+    (hgo : ∀ i m, go i (m + 1) = (f i && go (i + 1) m)) :
+    ∀ (m i : Nat), go i m = true → ∀ j, i ≤ j → j < i + m → f j = true
+  | 0, _, _, _, _, hjm => absurd hjm (by omega)
+  | m + 1, i, h, j, hij, hjm => by
+    rw [hgo i m, Bool.and_eq_true] at h
+    obtain ⟨h1, hrest⟩ := h
+    rcases Nat.eq_or_lt_of_le hij with rfl | hlt
+    · exact h1
+    · exact wfBGo_one hgo m (i + 1) hrest j hlt (by omega)
+
 /-- Per-node facts of the range pass. -/
 private theorem wfBNodes_facts {st : EStore} :
     ∀ (k : Nat), EStore.wfBNodes st k = true →
@@ -826,15 +840,13 @@ private theorem wfBNodes_facts {st : EStore} :
         st.bvarBs[i]? = some (n.bvarBoundOf st.bvarBs) ∧
         st.fvarBs[i]? = some (n.fvarRangeOf st.fvarBs) ∧
         st.eparamBs[i]? = some (n.hasLParamOf st.eparamBs st.lparamBs)
-  | 0, _, i, hi => absurd hi (Nat.not_lt_zero i)
-  | k + 1, h, i, hi => by
+  | k, h, i, hi => by
     unfold EStore.wfBNodes at h
-    simp only [Bool.and_eq_true] at h
-    obtain ⟨hrest, hk⟩ := h
-    by_cases hik : i < k
-    · exact wfBNodes_facts k hrest i hik
-    · obtain rfl : i = k := by omega
-      cases hn : st.nodes[i]? with
+    have hk : EStore.wfBNode1 st i = true :=
+      wfBGo_one (go := EStore.wfBNodesGo st) (fun _ _ => rfl)
+        k 0 h i (Nat.zero_le i) (by omega)
+    unfold EStore.wfBNode1 at hk
+    · cases hn : st.nodes[i]? with
       | none => rw [hn] at hk; cases hk
       | some n =>
         rw [hn] at hk
@@ -937,15 +949,13 @@ private theorem wfBLNodes_facts {st : EStore} :
       ∀ u, u < k → ∃ m, st.lnodes[u]? = some m ∧
         (∀ c ∈ m.children, c < u) ∧ st.lcons[m]? = some u ∧
         st.lparamBs[u]? = some (m.hasParamOf st.lparamBs)
-  | 0, _, u, hu => absurd hu (Nat.not_lt_zero u)
-  | k + 1, h, u, hu => by
+  | k, h, u, hu => by
     unfold EStore.wfBLNodes at h
-    simp only [Bool.and_eq_true] at h
-    obtain ⟨hrest, hk⟩ := h
-    by_cases huk : u < k
-    · exact wfBLNodes_facts k hrest u huk
-    · obtain rfl : u = k := by omega
-      cases hn : st.lnodes[u]? with
+    have hk : EStore.wfBLNode1 st u = true :=
+      wfBGo_one (go := EStore.wfBLNodesGo st) (fun _ _ => rfl)
+        k 0 h u (Nat.zero_le u) (by omega)
+    unfold EStore.wfBLNode1 at hk
+    · cases hn : st.lnodes[u]? with
       | none => rw [hn] at hk; cases hk
       | some m =>
         rw [hn] at hk
@@ -981,15 +991,13 @@ private theorem wfBNNodes_facts {st : EStore} :
       ∀ i, i < k → ∃ m, st.nnodes[i]? = some m ∧
         (∀ c ∈ m.children, c < i) ∧ st.ncons[m]? = some i ∧
         st.rbNames[i]? = some (m.nameOf st.rbNames)
-  | 0, _, i, hi => absurd hi (Nat.not_lt_zero i)
-  | k + 1, h, i, hi => by
+  | k, h, i, hi => by
     unfold EStore.wfBNNodes at h
-    simp only [Bool.and_eq_true] at h
-    obtain ⟨hrest, hk⟩ := h
-    by_cases hik : i < k
-    · exact wfBNNodes_facts k hrest i hik
-    · obtain rfl : i = k := by omega
-      cases hn : st.nnodes[i]? with
+    have hk : EStore.wfBNNode1 st i = true :=
+      wfBGo_one (go := EStore.wfBNNodesGo st) (fun _ _ => rfl)
+        k 0 h i (Nat.zero_le i) (by omega)
+    unfold EStore.wfBNNode1 at hk
+    · cases hn : st.nnodes[i]? with
       | none => rw [hn] at hk; cases hk
       | some m =>
         rw [hn] at hk

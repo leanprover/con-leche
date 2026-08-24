@@ -257,4 +257,62 @@ The constructor form pins the reference kernels' exact spelling
 -- the guard is `false` without the support declarations
 #guard strLitSupported Env.empty == false
 
+/-! ## The codomain-sort memo (task #100)
+
+`codOfI` computes the sort of a node's inferred type — exactly the
+level the annotation pass stores in a binder's `mb.cod`.  It is not
+consumed for verdicts yet, so these are its only callers. -/
+
+private def runCodOfTwice (env : Env) (d : Nat) (e : Expr) :
+    CheckM (Level × Level) := do
+  let fe := mkFEnv env
+  let (i, store) := EStore.empty.internExprFast e
+  let (r, s) ← (do
+      let a ← codOfI (coreKnotI fe checkFuel) d i
+      let b ← codOfI (coreKnotI fe checkFuel) d i
+      pure (a, b)).run { store := store }
+  match s.store.readbackL r.1, s.store.readbackL r.2 with
+  | some l1, some l2 => pure (l1, l2)
+  | _, _ => throw (.internal "interned level readback failed")
+
+private def arrowPP : Expr :=
+  .forallE (.str .anonymous "x") (.sort .zero) (.sort .zero)
+    ⟨.default, none⟩
+
+-- The memo computes `.succ .zero` for `Prop` (whose type is `Type`),
+-- and the second (cache-hit) call agrees with the first.
+#guard match runCodOfTwice Env.empty 0 (.sort .zero) with
+  | .ok (u, v) => u == .succ .zero && v == .succ .zero
+  | .error _ => false
+
+-- It computes exactly the level the annotation pass stores in the
+-- binder of `Prop → Prop` (the ∀-clause's codomain sort).
+#guard match runCodOfTwice Env.empty 0 (.sort .zero),
+    annotateCore Env.empty checkFuel 0 arrowPP with
+  | .ok (u, _), .ok (.forallE _ _ _ ⟨_, some v⟩) => u == v
+  | _, _ => false
+
+/-! ## The skeleton normalization (task #100 stage 4)
+
+`norm` performs exactly the annotation pass's two skeleton-changing
+clauses — zeta expansion and the projection rewrite — and nothing
+else. -/
+
+-- Zeta: `let x := Prop; x` normalizes to `Prop`.
+#guard Expr.norm keepOracle 8 0
+    (.letE (.str .anonymous "x") (.sort (.succ .zero)) (.sort .zero) (.bvar 0))
+  == .sort .zero
+
+-- Nothing else changes: on a let-free tree with a keep oracle `norm`
+-- is the identity, so streams without `let` records are unaffected.
+#guard Expr.letFree arrowPP == true
+#guard Expr.norm keepOracle 8 0 arrowPP == arrowPP
+
+-- …and a `let` under a binder is expanded in place.
+#guard Expr.norm keepOracle 8 0
+    (.forallE (.str .anonymous "y") (.sort .zero)
+      (.letE (.str .anonymous "x") (.sort .zero) (.bvar 0) (.bvar 0))
+      ⟨.default, none⟩)
+  == .forallE (.str .anonymous "y") (.sort .zero) (.bvar 0) ⟨.default, none⟩
+
 end SetlecTests
