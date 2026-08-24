@@ -175,6 +175,131 @@ theorem denoteL_lt_size {st : EStore} {u : LIdx} {a : Level}
 
 end EStore
 
+/-! ## The name layer (task #88)
+
+Interned names mirror the level arena one layer down again: `denoteN`
+is the structural denotation of a name index, `NNode.children` the
+prefix indices; names have no binders and no levels, so the layer is a
+plain structural walk. -/
+
+/-- The child (prefix) indices of a name node. -/
+def NNode.children : NNode → List NIdx
+  | .anonymous => []
+  | .str p _ | .num p _ => [p]
+
+namespace EStore
+
+/-- Denotation of a single name node given denotations for the prefix
+indices. -/
+def denoteNNode (den : NIdx → Option Name) : NNode → Option Name
+  | .anonymous => some .anonymous
+  | .str p s => (den p).map (Name.str · s)
+  | .num p n => (den p).map (Name.num · n)
+
+/-- Structural denotation of a name index (well-founded on the index,
+like `denoteL`). -/
+def denoteN (st : EStore) (i : NIdx) : Option Name :=
+  match st.nnodes[i]? with
+  | none => none
+  | some n =>
+    denoteNNode (fun p => if _h : p < i then st.denoteN p else none) n
+termination_by i
+
+/-- `denoteNNode` only looks at the children. -/
+theorem denoteNNode_congr {d₁ d₂ : NIdx → Option Name} {n : NNode}
+    (h : ∀ c ∈ n.children, d₁ c = d₂ c) :
+    denoteNNode d₁ n = denoteNNode d₂ n := by
+  cases n <;> simp_all [denoteNNode, NNode.children]
+
+/-- One-step unfolding of `denoteN` when the children sit below the
+index. -/
+theorem denoteN_node {st : EStore} {i : NIdx} {n : NNode}
+    (hn : st.nnodes[i]? = some n) (hc : ∀ c ∈ n.children, c < i) :
+    st.denoteN i = denoteNNode st.denoteN n := by
+  rw [denoteN.eq_def, hn]
+  exact denoteNNode_congr fun c h => dif_pos (hc c h)
+
+theorem dite_denoteN_some {st : EStore} {c i : NIdx} {x : Name}
+    (h : (if _h : c < i then st.denoteN c else none) = some x) :
+    c < i ∧ st.denoteN c = some x := by
+  by_cases hc : c < i <;> simp_all
+
+/-- A successful name denotation exposes its node. -/
+theorem denoteN_some_inv {st : EStore} {i : NIdx} {a : Name}
+    (h : st.denoteN i = some a) :
+    ∃ n, st.nnodes[i]? = some n ∧ (∀ c ∈ n.children, c < i) ∧
+      denoteNNode st.denoteN n = some a := by
+  rw [denoteN.eq_def] at h
+  split at h
+  · exact absurd h (by simp)
+  · rename_i n hn
+    refine ⟨n, hn, ?_⟩
+    cases n with
+    | anonymous => exact ⟨by simp [NNode.children], h⟩
+    | str p s =>
+      rw [denoteNNode, Option.map_eq_some_iff] at h
+      obtain ⟨x, hx, rfl⟩ := h
+      obtain ⟨hlt, hx⟩ := dite_denoteN_some hx
+      refine ⟨by simp [NNode.children, hlt], ?_⟩
+      rw [denoteNNode, hx]; rfl
+    | num p k =>
+      rw [denoteNNode, Option.map_eq_some_iff] at h
+      obtain ⟨x, hx, rfl⟩ := h
+      obtain ⟨hlt, hx⟩ := dite_denoteN_some hx
+      refine ⟨by simp [NNode.children, hlt], ?_⟩
+      rw [denoteNNode, hx]; rfl
+
+/-- A denoted name node's children denote. -/
+theorem denoteNNode_children_some {den : NIdx → Option Name} {n : NNode}
+    {a : Name} (h : denoteNNode den n = some a) :
+    ∀ c ∈ n.children, ∃ b, den c = some b := by
+  cases n <;>
+    simp_all [denoteNNode, NNode.children, Option.map_eq_some_iff] <;>
+    grind
+
+/-- Successful name denotation implies the index is in range. -/
+theorem denoteN_lt_size {st : EStore} {i : NIdx} {a : Name}
+    (h : st.denoteN i = some a) : i < st.nnodes.size := by
+  obtain ⟨n, hn, -, -⟩ := denoteN_some_inv h
+  exact (Array.getElem?_eq_some_iff.mp hn).1
+
+/-- Stores agreeing on the name nodes denote all name indices
+identically. -/
+theorem denoteN_eq_of_nnodes_eq {st st' : EStore}
+    (h : st'.nnodes = st.nnodes) : ∀ i, st'.denoteN i = st.denoteN i := by
+  intro i
+  induction i using Nat.strongRecOn with
+  | _ i ih =>
+    rw [denoteN.eq_def, denoteN.eq_def, h]
+    cases st.nnodes[i]? with
+    | none => rfl
+    | some n =>
+      exact denoteNNode_congr fun c _hc => by
+        by_cases hci : c < i
+        · simp only [dif_pos hci, ih c hci]
+        · simp [dif_neg hci]
+
+/-- Stores agreeing on the name nodes below `k` denote all name
+indices below `k` identically. -/
+theorem denoteN_agree {st st' : EStore} {k : Nat}
+    (hpre : ∀ j, j < k → st'.nnodes[j]? = st.nnodes[j]?) :
+    ∀ i, i < k → st'.denoteN i = st.denoteN i := by
+  intro i
+  induction i using Nat.strongRecOn with
+  | _ i ih =>
+    intro hik
+    rw [denoteN.eq_def, denoteN.eq_def, hpre i hik]
+    cases st.nnodes[i]? with
+    | none => rfl
+    | some n =>
+      exact denoteNNode_congr fun c _hc => by
+        by_cases hci : c < i
+        · simp only [dif_pos hci]
+          exact ih c hci (Nat.lt_trans hci hik)
+        · simp [dif_neg hci]
+
+end EStore
+
 /-- The child indices of a node (annotation, function/argument, binder
 domain/body, …). -/
 def ENode.children : ENode → List EIdx
@@ -190,23 +315,29 @@ namespace EStore
 /-- Denotation of a single node given denotations for the child
 indices and for the level references: rebuild the `Expr` constructor
 over the children's values. -/
-def denoteNode (den : EIdx → Option Expr) (denL : LIdx → Option Level) :
-    ENode → Option Expr
+def denoteNode (den : EIdx → Option Expr) (denL : LIdx → Option Level)
+    (denN : NIdx → Option Name) : ENode → Option Expr
   | .bvar i => some (.bvar i)
-  | .fvar idx nm t => (den t).map (Expr.fvar idx nm)
+  | .fvar idx nm t =>
+    (den t).bind fun et => (denN nm).map fun name => .fvar idx name et
   | .sort u => (denL u).map Expr.sort
-  | .const n us => (denoteLList denL us).map (Expr.const n)
+  | .const n us =>
+    (denoteLList denL us).bind fun ls => (denN n).map fun name =>
+      .const name ls
   | .app f a => (den f).bind fun ef => (den a).map fun ea => .app ef ea
   | .lam n t b m => (den t).bind fun et => (den b).bind fun eb =>
-      (denoteBM denL m).map fun bm => .lam n et eb bm
+      (denoteBM denL m).bind fun bm => (denN n).map fun name =>
+        .lam name et eb bm
   | .forallE n t b m =>
     (den t).bind fun et => (den b).bind fun eb =>
-      (denoteBM denL m).map fun bm => .forallE n et eb bm
+      (denoteBM denL m).bind fun bm => (denN n).map fun name =>
+        .forallE name et eb bm
   | .letE n t v b =>
-    (den t).bind fun et => (den v).bind fun ev => (den b).map fun eb =>
-      .letE n et ev eb
+    (den t).bind fun et => (den v).bind fun ev => (den b).bind fun eb =>
+      (denN n).map fun name => .letE name et ev eb
   | .lit l => some (.lit l)
-  | .proj s j e => (den e).map (Expr.proj s j)
+  | .proj s j e =>
+    (den e).bind fun x => (denN s).map fun name => .proj name j x
 
 /-- Structural denotation of an index: read the node and denote its
 children recursively (levels through `denoteL`).  Out-of-range indices
@@ -217,53 +348,61 @@ def denote (st : EStore) (i : EIdx) : Option Expr :=
   | none => none
   | some n =>
     denoteNode (fun j => if _h : j < i then st.denote j else none)
-      st.denoteL n
+      st.denoteL st.denoteN n
 termination_by i
 
 /-- `denoteNode` only looks at the children and the level references. -/
 theorem denoteNode_congr' {d₁ d₂ : EIdx → Option Expr}
-    {l₁ l₂ : LIdx → Option Level} {n : ENode}
+    {l₁ l₂ : LIdx → Option Level} {n₁ n₂ : NIdx → Option Name} {n : ENode}
     (h : ∀ c ∈ n.children, d₁ c = d₂ c)
-    (hl : ∀ u ∈ n.levels, l₁ u = l₂ u) :
-    denoteNode d₁ l₁ n = denoteNode d₂ l₂ n := by
+    (hl : ∀ u ∈ n.levels, l₁ u = l₂ u)
+    (hn : ∀ p ∈ n.names, n₁ p = n₂ p) :
+    denoteNode d₁ l₁ n₁ n = denoteNode d₂ l₂ n₂ n := by
   cases n with
   | sort u => simp_all [denoteNode, ENode.levels]
   | const nm us =>
     simp only [denoteNode, denoteLList_congr (l₂ := l₂)
-      (by simpa [ENode.levels] using hl)]
+      (by simpa [ENode.levels] using hl),
+      hn nm (by simp [ENode.names])]
   | lam nm t b m =>
     simp only [denoteNode, h t (by simp [ENode.children]),
       h b (by simp [ENode.children]),
-      denoteBM_congr (l₂ := l₂) (by simpa [ENode.levels] using hl)]
+      denoteBM_congr (l₂ := l₂) (by simpa [ENode.levels] using hl),
+      hn nm (by simp [ENode.names])]
   | forallE nm t b m =>
     simp only [denoteNode, h t (by simp [ENode.children]),
       h b (by simp [ENode.children]),
-      denoteBM_congr (l₂ := l₂) (by simpa [ENode.levels] using hl)]
+      denoteBM_congr (l₂ := l₂) (by simpa [ENode.levels] using hl),
+      hn nm (by simp [ENode.names])]
   | bvar i => rfl
   | lit l => rfl
-  | fvar idx nm t => simp only [denoteNode, h t (by simp [ENode.children])]
+  | fvar idx nm t =>
+    simp only [denoteNode, h t (by simp [ENode.children]),
+      hn nm (by simp [ENode.names])]
   | app f a =>
     simp only [denoteNode, h f (by simp [ENode.children]),
       h a (by simp [ENode.children])]
   | letE nm t v b =>
     simp only [denoteNode, h t (by simp [ENode.children]),
-      h v (by simp [ENode.children]), h b (by simp [ENode.children])]
+      h v (by simp [ENode.children]), h b (by simp [ENode.children]),
+      hn nm (by simp [ENode.names])]
   | proj sN j e =>
-    simp only [denoteNode, h e (by simp [ENode.children])]
+    simp only [denoteNode, h e (by simp [ENode.children]),
+      hn sN (by simp [ENode.names])]
 
-/-- `denoteNode` at a fixed level denotation only looks at the
+/-- `denoteNode` at fixed level and name denotations only looks at the
 children (the shape every same-store rewrite uses). -/
 theorem denoteNode_congr {d₁ d₂ : EIdx → Option Expr}
-    {denL : LIdx → Option Level} {n : ENode}
+    {denL : LIdx → Option Level} {denN : NIdx → Option Name} {n : ENode}
     (h : ∀ c ∈ n.children, d₁ c = d₂ c) :
-    denoteNode d₁ denL n = denoteNode d₂ denL n :=
-  denoteNode_congr' h (fun _ _ => rfl)
+    denoteNode d₁ denL denN n = denoteNode d₂ denL denN n :=
+  denoteNode_congr' h (fun _ _ => rfl) (fun _ _ => rfl)
 
 /-- One-step unfolding of `denote` when the children are known to sit
 below the index: the guards disappear. -/
 theorem denote_node {st : EStore} {i : EIdx} {n : ENode}
     (hn : st.nodes[i]? = some n) (hc : ∀ c ∈ n.children, c < i) :
-    st.denote i = denoteNode st.denote st.denoteL n := by
+    st.denote i = denoteNode st.denote st.denoteL st.denoteN n := by
   rw [denote.eq_def, hn]
   exact denoteNode_congr fun c h => dif_pos (hc c h)
 
@@ -279,7 +418,7 @@ below the index and denoting the subterms. -/
 theorem denote_some_inv {st : EStore} {i : EIdx} {a : Expr}
     (h : st.denote i = some a) :
     ∃ n, st.nodes[i]? = some n ∧ (∀ c ∈ n.children, c < i) ∧
-      denoteNode st.denote st.denoteL n = some a := by
+      denoteNode st.denote st.denoteL st.denoteN n = some a := by
   rw [denote.eq_def] at h
   split at h
   · exact absurd h (by simp)
@@ -291,11 +430,13 @@ theorem denote_some_inv {st : EStore} {i : EIdx} {a : Expr}
     | const nm us => exact ⟨by simp [ENode.children], h⟩
     | lit l => exact ⟨by simp [ENode.children], h⟩
     | fvar idx nm t =>
-      rw [denoteNode, Option.map_eq_some_iff] at h
-      obtain ⟨t', ht, rfl⟩ := h
+      rw [denoteNode, Option.bind_eq_some_iff] at h
+      obtain ⟨t', ht, h⟩ := h
+      rw [Option.map_eq_some_iff] at h
+      obtain ⟨name, hname, rfl⟩ := h
       obtain ⟨hlt, ht⟩ := dite_denote_some ht
       refine ⟨by simp [ENode.children, hlt], ?_⟩
-      rw [denoteNode, ht]; rfl
+      rw [denoteNode, ht, hname]; rfl
     | app f a' =>
       rw [denoteNode, Option.bind_eq_some_iff] at h
       obtain ⟨ef, hf, h⟩ := h
@@ -310,46 +451,54 @@ theorem denote_some_inv {st : EStore} {i : EIdx} {a : Expr}
       obtain ⟨et, ht, h⟩ := h
       rw [Option.bind_eq_some_iff] at h
       obtain ⟨eb, hb, h⟩ := h
+      rw [Option.bind_eq_some_iff] at h
+      obtain ⟨bm, hbm, h⟩ := h
       rw [Option.map_eq_some_iff] at h
-      obtain ⟨bm, hbm, rfl⟩ := h
+      obtain ⟨name, hname, rfl⟩ := h
       obtain ⟨hltt, ht⟩ := dite_denote_some ht
       obtain ⟨hltb, hb⟩ := dite_denote_some hb
       refine ⟨by simp [ENode.children, hltt, hltb], ?_⟩
-      rw [denoteNode, ht, hb, hbm]; rfl
+      rw [denoteNode, ht, hb, hbm, hname]; rfl
     | forallE nm t b m =>
       rw [denoteNode, Option.bind_eq_some_iff] at h
       obtain ⟨et, ht, h⟩ := h
       rw [Option.bind_eq_some_iff] at h
       obtain ⟨eb, hb, h⟩ := h
+      rw [Option.bind_eq_some_iff] at h
+      obtain ⟨bm, hbm, h⟩ := h
       rw [Option.map_eq_some_iff] at h
-      obtain ⟨bm, hbm, rfl⟩ := h
+      obtain ⟨name, hname, rfl⟩ := h
       obtain ⟨hltt, ht⟩ := dite_denote_some ht
       obtain ⟨hltb, hb⟩ := dite_denote_some hb
       refine ⟨by simp [ENode.children, hltt, hltb], ?_⟩
-      rw [denoteNode, ht, hb, hbm]; rfl
+      rw [denoteNode, ht, hb, hbm, hname]; rfl
     | letE nm t v b =>
       rw [denoteNode, Option.bind_eq_some_iff] at h
       obtain ⟨et, ht, h⟩ := h
       rw [Option.bind_eq_some_iff] at h
       obtain ⟨ev, hv, h⟩ := h
+      rw [Option.bind_eq_some_iff] at h
+      obtain ⟨eb, hb, h⟩ := h
       rw [Option.map_eq_some_iff] at h
-      obtain ⟨eb, hb, rfl⟩ := h
+      obtain ⟨name, hname, rfl⟩ := h
       obtain ⟨hltt, ht⟩ := dite_denote_some ht
       obtain ⟨hltv, hv⟩ := dite_denote_some hv
       obtain ⟨hltb, hb⟩ := dite_denote_some hb
       refine ⟨by simp [ENode.children, hltt, hltv, hltb], ?_⟩
-      rw [denoteNode, ht, hv, hb]; rfl
+      rw [denoteNode, ht, hv, hb, hname]; rfl
     | proj s j e' =>
-      rw [denoteNode, Option.map_eq_some_iff] at h
-      obtain ⟨x, hx, rfl⟩ := h
+      rw [denoteNode, Option.bind_eq_some_iff] at h
+      obtain ⟨x, hx, h⟩ := h
+      rw [Option.map_eq_some_iff] at h
+      obtain ⟨name, hname, rfl⟩ := h
       obtain ⟨hlt, hx⟩ := dite_denote_some hx
       refine ⟨by simp [ENode.children, hlt], ?_⟩
-      rw [denoteNode, hx]; rfl
+      rw [denoteNode, hx, hname]; rfl
 
 /-- A denoted node's children denote. -/
 theorem denoteNode_children_some {den : EIdx → Option Expr}
-    {denL : LIdx → Option Level} {n : ENode}
-    {a : Expr} (h : denoteNode den denL n = some a) :
+    {denL : LIdx → Option Level} {denN : NIdx → Option Name} {n : ENode}
+    {a : Expr} (h : denoteNode den denL denN n = some a) :
     ∀ c ∈ n.children, ∃ b, den c = some b := by
   cases n <;>
     simp_all [denoteNode, ENode.children, Option.map_eq_some_iff,
@@ -357,6 +506,7 @@ theorem denoteNode_children_some {den : EIdx → Option Expr}
     obtain ⟨x, hx, h⟩ := h <;>
     (try obtain ⟨y, hy, h⟩ := h) <;>
     (try obtain ⟨z, hz, h⟩ := h) <;>
+    (try obtain ⟨w, hw, h⟩ := h) <;>
     simp_all
 
 /-- Successful denotation implies the index is in range. -/
@@ -371,13 +521,30 @@ new nodes, so they extend. -/
 structure Ext (st st' : EStore) : Prop where
   expr : ∀ (i : EIdx) (n : ENode), st.nodes[i]? = some n → st'.nodes[i]? = some n
   lvl : ∀ (u : LIdx) (m : LNode), st.lnodes[u]? = some m → st'.lnodes[u]? = some m
+  name : ∀ (i : NIdx) (m : NNode), st.nnodes[i]? = some m → st'.nnodes[i]? = some m
 
-theorem Ext.refl (st : EStore) : Ext st st := ⟨fun _ _ h => h, fun _ _ h => h⟩
+theorem Ext.refl (st : EStore) : Ext st st :=
+  ⟨fun _ _ h => h, fun _ _ h => h, fun _ _ h => h⟩
 
 theorem Ext.trans {st₁ st₂ st₃ : EStore} (h₁ : Ext st₁ st₂)
     (h₂ : Ext st₂ st₃) : Ext st₁ st₃ :=
   ⟨fun i n h => h₂.expr i n (h₁.expr i n h),
-   fun u m h => h₂.lvl u m (h₁.lvl u m h)⟩
+   fun u m h => h₂.lvl u m (h₁.lvl u m h),
+   fun i m h => h₂.name i m (h₁.name i m h)⟩
+
+/-- Name denotation is stable under store extension. -/
+theorem denoteN_mono {st st' : EStore} (hext : Ext st st') :
+    ∀ {i : NIdx} {a : Name}, st.denoteN i = some a → st'.denoteN i = some a := by
+  intro i
+  induction i using Nat.strongRecOn with
+  | _ i ih =>
+    intro a h
+    obtain ⟨n, hn, hc, hd⟩ := denoteN_some_inv h
+    rw [denoteN_node (hext.name i n hn) hc, ← hd]
+    apply denoteNNode_congr
+    intro c hcin
+    obtain ⟨b, hb⟩ := denoteNNode_children_some hd c hcin
+    rw [hb, ih c (hc c hcin) hb]
 
 /-- Level denotation is stable under store extension. -/
 theorem denoteL_mono {st st' : EStore} (hext : Ext st st') :
@@ -423,8 +590,8 @@ denotations transport. -/
 theorem denoteNode_mono {st st' : EStore} (hext : Ext st st')
     {den den' : EIdx → Option Expr} {n : ENode} {a : Expr}
     (hden : ∀ c ∈ n.children, ∀ x, den c = some x → den' c = some x)
-    (h : denoteNode den st.denoteL n = some a) :
-    denoteNode den' st'.denoteL n = some a := by
+    (h : denoteNode den st.denoteL st.denoteN n = some a) :
+    denoteNode den' st'.denoteL st'.denoteN n = some a := by
   cases n with
   | bvar i => exact h
   | lit l => exact h
@@ -433,13 +600,17 @@ theorem denoteNode_mono {st st' : EStore} (hext : Ext st st')
     obtain ⟨l, hl, rfl⟩ := h
     exact ⟨l, denoteL_mono hext hl, rfl⟩
   | const nm us =>
-    simp only [denoteNode, Option.map_eq_some_iff] at h ⊢
-    obtain ⟨ls, hls, rfl⟩ := h
-    exact ⟨ls, denoteLList_mono hext hls, rfl⟩
+    simp only [denoteNode, Option.bind_eq_some_iff,
+      Option.map_eq_some_iff] at h ⊢
+    obtain ⟨ls, hls, name, hname, rfl⟩ := h
+    exact ⟨ls, denoteLList_mono hext hls,
+      name, denoteN_mono hext hname, rfl⟩
   | fvar idx nm t =>
-    simp only [denoteNode, Option.map_eq_some_iff] at h ⊢
-    obtain ⟨x, hx, rfl⟩ := h
-    exact ⟨x, hden t (by simp [ENode.children]) x hx, rfl⟩
+    simp only [denoteNode, Option.bind_eq_some_iff,
+      Option.map_eq_some_iff] at h ⊢
+    obtain ⟨x, hx, name, hname, rfl⟩ := h
+    exact ⟨x, hden t (by simp [ENode.children]) x hx,
+      name, denoteN_mono hext hname, rfl⟩
   | app f a' =>
     simp only [denoteNode, Option.bind_eq_some_iff, Option.map_eq_some_iff] at h ⊢
     obtain ⟨xf, hf, xa, ha, rfl⟩ := h
@@ -447,26 +618,31 @@ theorem denoteNode_mono {st st' : EStore} (hext : Ext st st')
       xa, hden a' (by simp [ENode.children]) _ ha, rfl⟩
   | lam nm t b m =>
     simp only [denoteNode, Option.bind_eq_some_iff, Option.map_eq_some_iff] at h ⊢
-    obtain ⟨xt, ht, xb, hb, bm, hbm, rfl⟩ := h
+    obtain ⟨xt, ht, xb, hb, bm, hbm, name, hname, rfl⟩ := h
     exact ⟨xt, hden t (by simp [ENode.children]) _ ht,
       xb, hden b (by simp [ENode.children]) _ hb,
-      bm, denoteBM_mono hext hbm, rfl⟩
+      bm, denoteBM_mono hext hbm,
+      name, denoteN_mono hext hname, rfl⟩
   | forallE nm t b m =>
     simp only [denoteNode, Option.bind_eq_some_iff, Option.map_eq_some_iff] at h ⊢
-    obtain ⟨xt, ht, xb, hb, bm, hbm, rfl⟩ := h
+    obtain ⟨xt, ht, xb, hb, bm, hbm, name, hname, rfl⟩ := h
     exact ⟨xt, hden t (by simp [ENode.children]) _ ht,
       xb, hden b (by simp [ENode.children]) _ hb,
-      bm, denoteBM_mono hext hbm, rfl⟩
+      bm, denoteBM_mono hext hbm,
+      name, denoteN_mono hext hname, rfl⟩
   | letE nm t v b =>
     simp only [denoteNode, Option.bind_eq_some_iff, Option.map_eq_some_iff] at h ⊢
-    obtain ⟨xt, ht, xv, hv, xb, hb, rfl⟩ := h
+    obtain ⟨xt, ht, xv, hv, xb, hb, name, hname, rfl⟩ := h
     exact ⟨xt, hden t (by simp [ENode.children]) _ ht,
       xv, hden v (by simp [ENode.children]) _ hv,
-      xb, hden b (by simp [ENode.children]) _ hb, rfl⟩
+      xb, hden b (by simp [ENode.children]) _ hb,
+      name, denoteN_mono hext hname, rfl⟩
   | proj sN j e' =>
-    simp only [denoteNode, Option.map_eq_some_iff] at h ⊢
-    obtain ⟨x, hx, rfl⟩ := h
-    exact ⟨x, hden e' (by simp [ENode.children]) x hx, rfl⟩
+    simp only [denoteNode, Option.bind_eq_some_iff,
+      Option.map_eq_some_iff] at h ⊢
+    obtain ⟨x, hx, name, hname, rfl⟩ := h
+    exact ⟨x, hden e' (by simp [ENode.children]) x hx,
+      name, denoteN_mono hext hname, rfl⟩
 
 /-- Denotation is stable under store extension (monotonicity). -/
 theorem denote_mono {st st' : EStore} (hext : Ext st st') :
@@ -498,7 +674,7 @@ theorem denoteL_eq_of_lnodes_eq {st st' : EStore}
 
 theorem denote_agree {st st' : EStore} {k : Nat}
     (hpre : ∀ j, j < k → st'.nodes[j]? = st.nodes[j]?)
-    (hl : st'.lnodes = st.lnodes) :
+    (hl : st'.lnodes = st.lnodes) (hnm : st'.nnodes = st.nnodes) :
     ∀ i, i < k → st'.denote i = st.denote i := by
   intro i
   induction i using Nat.strongRecOn with
@@ -510,6 +686,7 @@ theorem denote_agree {st st' : EStore} {k : Nat}
     | some n =>
       refine denoteNode_congr' (fun c _hc => ?_)
         (fun u _hu => denoteL_eq_of_lnodes_eq hl u)
+        (fun q _hq => denoteN_eq_of_nnodes_eq hnm q)
       by_cases hci : c < i
       · simp only [dif_pos hci]
         exact ih c hci (Nat.lt_trans hci hik)
@@ -572,6 +749,24 @@ structure WF (st : EStore) : Prop where
   the children's and level entries. -/
   eparamBs_spec : ∀ (i : EIdx) (n : ENode), st.nodes[i]? = some n →
     st.eparamBs[i]? = some (n.hasLParamOf st.eparamBs st.lparamBs)
+  /-- Expression nodes' name references are in range (task #88). -/
+  names_lt : ∀ (i : EIdx) (n : ENode), st.nodes[i]? = some n →
+    ∀ p ∈ n.names, p < st.nnodes.size
+  /-- Name-node prefixes are strictly below their own index
+  (task #88). -/
+  nchildren_lt : ∀ (i : NIdx) (m : NNode), st.nnodes[i]? = some m →
+    ∀ c ∈ m.children, c < i
+  /-- The name cons-table is exactly the graph of the name node
+  table. -/
+  ncons_graph : ∀ (m : NNode) (i : NIdx),
+    st.ncons[m]? = some i ↔ st.nnodes[i]? = some m
+  /-- The eager readback array is congruent with `nnodes`
+  (task #88). -/
+  rbNames_size : st.rbNames.size = st.nnodes.size
+  /-- Each name node's readback entry satisfies the recurrence over
+  its prefix's entry. -/
+  rbNames_spec : ∀ (i : NIdx) (m : NNode), st.nnodes[i]? = some m →
+    st.rbNames[i]? = some (m.nameOf st.rbNames)
 
 theorem empty_wf : WF EStore.empty := by
   constructor
@@ -596,6 +791,15 @@ theorem empty_wf : WF EStore.empty := by
     simp [EStore.empty] at h
   · simp [EStore.empty]
   · intro i n h
+    simp [EStore.empty] at h
+  · intro i n h
+    simp [EStore.empty] at h
+  · intro i n h
+    simp [EStore.empty] at h
+  · intro m i
+    simp [EStore.empty]
+  · simp [EStore.empty]
+  · intro i m h
     simp [EStore.empty] at h
 
 /-! ## `intern` -/
@@ -658,6 +862,13 @@ theorem _root_.Setlec.ENode.hasLParamOf_congr {ebs ebs' lbs lbs' : Array Bool}
   | _ =>
     simp_all [ENode.hasLParamOf, ENode.children, ENode.levels]
 
+/-- The readback recurrence reads only the prefix's entry. -/
+theorem _root_.Setlec.NNode.nameOf_congr {rs rs' : Array Name}
+    {n : NNode}
+    (h : ∀ c ∈ n.children, rs.getD c .anonymous = rs'.getD c .anonymous) :
+    n.nameOf rs = n.nameOf rs' := by
+  cases n <;> simp_all [NNode.nameOf, NNode.children]
+
 /-- `intern` with the store destructuring (an RC optimization)
 eliminated. -/
 theorem intern_eq (st : EStore) (n : ENode) :
@@ -668,18 +879,24 @@ theorem intern_eq (st : EStore) (n : ENode) :
           st.lnodes, st.lcons,
           st.bvarBs.push (n.bvarBoundOf st.bvarBs),
           st.fvarBs.push (n.fvarRangeOf st.fvarBs), st.lparamBs,
-          st.eparamBs.push (n.hasLParamOf st.eparamBs st.lparamBs)⟩) := by
-  obtain ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs⟩ := st
+          st.eparamBs.push (n.hasLParamOf st.eparamBs st.lparamBs),
+          st.nnodes, st.ncons, st.rbNames⟩) := by
+  obtain ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs,
+    nnodes, ncons, rbNames⟩ := st
   rfl
 
 theorem intern_ext (st : EStore) (n : ENode) : Ext st (st.intern n).2 := by
-  refine ⟨fun i m h => ?_, fun u m h => ?_⟩
+  refine ⟨fun i m h => ?_, fun u m h => ?_, fun i m h => ?_⟩
   · rw [intern_eq]
     split
     · exact h
     · have : i < st.nodes.size := (Array.getElem?_eq_some_iff.mp h).1
       rw [Array.getElem?_push, if_neg (Nat.ne_of_lt this)]
       exact h
+  · rw [intern_eq]
+    split
+    · exact h
+    · exact h
   · rw [intern_eq]
     split
     · exact h
@@ -703,7 +920,8 @@ theorem intern_lt_size {st : EStore} {n : ENode} (hwf : st.WF) :
 already-stored indices and its level references are in range. -/
 theorem intern_wf {st : EStore} {n : ENode} (hwf : st.WF)
     (hc : ∀ c ∈ n.children, c < st.nodes.size)
-    (hlv : ∀ u ∈ n.levels, u < st.lnodes.size) : (st.intern n).2.WF := by
+    (hlv : ∀ u ∈ n.levels, u < st.lnodes.size)
+    (hnm : ∀ p ∈ n.names, p < st.nnodes.size) : (st.intern n).2.WF := by
   rw [intern_eq]
   split
   · exact hwf
@@ -810,13 +1028,24 @@ theorem intern_wf {st : EStore} {n : ENode} (hwf : st.WF)
           (ENode.hasLParamOf_congr (fun c hcin => ?_) (fun u _ => rfl))
         exact (getD_push_of_lt (hwf.eparamBs_size ▸
           Nat.lt_trans (hwf.children_lt i m h c hcin) hi)).symm
+    · intro i m h p hpin
+      rw [Array.getElem?_push] at h
+      split at h
+      · cases h
+        subst_eqs
+        exact hnm p hpin
+      · exact hwf.names_lt i m h p hpin
+    · exact hwf.nchildren_lt
+    · exact hwf.ncons_graph
+    · exact hwf.rbNames_size
+    · exact hwf.rbNames_spec
 
 /-- Interning a node whose children are already stored: the result
 denotes the node's denotation over the *old* store. -/
 theorem intern_denote {st : EStore} {n : ENode} (hwf : st.WF)
     (hc : ∀ c ∈ n.children, c < st.nodes.size) :
     (st.intern n).2.denote (st.intern n).1
-      = denoteNode st.denote st.denoteL n := by
+      = denoteNode st.denote st.denoteL st.denoteN n := by
   have hn := intern_node (n := n) hwf
   rw [intern_eq] at hn ⊢
   split at hn
@@ -828,10 +1057,11 @@ theorem intern_denote {st : EStore} {n : ENode} (hwf : st.WF)
           st.lnodes, st.lcons,
           st.bvarBs.push (n.bvarBoundOf st.bvarBs),
           st.fvarBs.push (n.fvarRangeOf st.fvarBs), st.lparamBs,
-          st.eparamBs.push (n.hasLParamOf st.eparamBs st.lparamBs)⟩
+          st.eparamBs.push (n.hasLParamOf st.eparamBs st.lparamBs),
+          st.nnodes, st.ncons, st.rbNames⟩
           : EStore).denote j
           = st.denote j := by
-      refine denote_agree (fun j hj => ?_) rfl
+      refine denote_agree (fun j hj => ?_) rfl rfl
       simp [Array.getElem?_push, Nat.ne_of_lt hj]
     rw [denote_node hn hc]
     exact denoteNode_congr' (fun c hcin => hagree c (hc c hcin))
@@ -840,9 +1070,19 @@ theorem intern_denote {st : EStore} {n : ENode} (hwf : st.WF)
           st.lnodes, st.lcons,
           st.bvarBs.push (n.bvarBoundOf st.bvarBs),
           st.fvarBs.push (n.fvarRangeOf st.fvarBs), st.lparamBs,
-          st.eparamBs.push (n.hasLParamOf st.eparamBs st.lparamBs)⟩
+          st.eparamBs.push (n.hasLParamOf st.eparamBs st.lparamBs),
+          st.nnodes, st.ncons, st.rbNames⟩
           : EStore)) (st := st)
         rfl u)
+      (fun q _ => denoteN_eq_of_nnodes_eq
+        (st' := (⟨st.nodes.push n, st.cons.insert n st.nodes.size,
+          st.lnodes, st.lcons,
+          st.bvarBs.push (n.bvarBoundOf st.bvarBs),
+          st.fvarBs.push (n.fvarRangeOf st.fvarBs), st.lparamBs,
+          st.eparamBs.push (n.hasLParamOf st.eparamBs st.lparamBs),
+          st.nnodes, st.ncons, st.rbNames⟩
+          : EStore)) (st := st)
+        rfl q)
 
 /-! ## `internL` / `internLevel`: the level round-trip -/
 
@@ -853,12 +1093,14 @@ theorem internL_eq (st : EStore) (n : LNode) :
       | none =>
         (st.lnodes.size, ⟨st.nodes, st.cons, st.lnodes.push n,
           st.lcons.insert n st.lnodes.size, st.bvarBs, st.fvarBs,
-          st.lparamBs.push (n.hasParamOf st.lparamBs), st.eparamBs⟩) := by
-  obtain ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs⟩ := st
+          st.lparamBs.push (n.hasParamOf st.lparamBs), st.eparamBs,
+          st.nnodes, st.ncons, st.rbNames⟩) := by
+  obtain ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs,
+    nnodes, ncons, rbNames⟩ := st
   rfl
 
 theorem internL_ext (st : EStore) (n : LNode) : Ext st (st.internL n).2 := by
-  refine ⟨fun i m h => ?_, fun u m h => ?_⟩
+  refine ⟨fun i m h => ?_, fun u m h => ?_, fun i m h => ?_⟩
   · rw [internL_eq]
     split
     · exact h
@@ -869,6 +1111,10 @@ theorem internL_ext (st : EStore) (n : LNode) : Ext st (st.internL n).2 := by
     · have : u < st.lnodes.size := (Array.getElem?_eq_some_iff.mp h).1
       rw [Array.getElem?_push, if_neg (Nat.ne_of_lt this)]
       exact h
+  · rw [internL_eq]
+    split
+    · exact h
+    · exact h
 
 /-- Interning a level node stores it at the returned index. -/
 theorem internL_node {st : EStore} {n : LNode} (hwf : st.WF) :
@@ -959,6 +1205,11 @@ theorem internL_wf {st : EStore} {n : LNode} (hwf : st.WF)
         (ENode.hasLParamOf_congr (fun c _ => rfl) (fun u hu => ?_))
       exact (getD_push_of_lt (hwf.lparamBs_size ▸
         hwf.levels_lt i m h u hu)).symm
+    · exact hwf.names_lt
+    · exact hwf.nchildren_lt
+    · exact hwf.ncons_graph
+    · exact hwf.rbNames_size
+    · exact hwf.rbNames_spec
 
 /-- Interning a level node whose children are already stored: the
 result denotes the node's denotation over the *old* store. -/
@@ -975,7 +1226,8 @@ theorem internL_denoteL {st : EStore} {n : LNode} (hwf : st.WF)
     have hagree : ∀ j, j < st.lnodes.size →
         (⟨st.nodes, st.cons, st.lnodes.push n,
           st.lcons.insert n st.lnodes.size, st.bvarBs, st.fvarBs,
-          st.lparamBs.push (n.hasParamOf st.lparamBs), st.eparamBs⟩
+          st.lparamBs.push (n.hasParamOf st.lparamBs), st.eparamBs,
+          st.nnodes, st.ncons, st.rbNames⟩
           : EStore).denoteL j
           = st.denoteL j := by
       apply denoteL_agree
@@ -1075,6 +1327,203 @@ theorem internBM_spec {st : EStore} (hwf : st.WF) (m : BinderMeta) :
     simp only [internBM, hI]
     exact ⟨hwf₁, hext₁, by simp [denoteBM, hden₁]⟩
 
+/-! ## `internN` / `internName`: the name round-trip (task #88) -/
+
+/-- `internN` with the store destructuring eliminated. -/
+theorem internN_eq (st : EStore) (n : NNode) :
+    st.internN n = match st.ncons[n]? with
+      | some i => (i, st)
+      | none =>
+        (st.nnodes.size, ⟨st.nodes, st.cons, st.lnodes, st.lcons,
+          st.bvarBs, st.fvarBs, st.lparamBs, st.eparamBs,
+          st.nnodes.push n, st.ncons.insert n st.nnodes.size,
+          st.rbNames.push (n.nameOf st.rbNames)⟩) := by
+  obtain ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs,
+    nnodes, ncons, rbNames⟩ := st
+  rfl
+
+theorem internN_ext (st : EStore) (n : NNode) : Ext st (st.internN n).2 := by
+  refine ⟨fun i m h => ?_, fun u m h => ?_, fun i m h => ?_⟩
+  · rw [internN_eq]
+    split
+    · exact h
+    · exact h
+  · rw [internN_eq]
+    split
+    · exact h
+    · exact h
+  · rw [internN_eq]
+    split
+    · exact h
+    · have : i < st.nnodes.size := (Array.getElem?_eq_some_iff.mp h).1
+      rw [Array.getElem?_push, if_neg (Nat.ne_of_lt this)]
+      exact h
+
+/-- Interning a name node stores it at the returned index. -/
+theorem internN_node {st : EStore} {n : NNode} (hwf : st.WF) :
+    (st.internN n).2.nnodes[(st.internN n).1]? = some n := by
+  rw [internN_eq]
+  split
+  · rename_i i h
+    exact (hwf.ncons_graph n i).mp h
+  · rw [Array.getElem?_push, if_pos rfl]
+
+theorem internN_lt_size {st : EStore} {n : NNode} (hwf : st.WF) :
+    (st.internN n).1 < (st.internN n).2.nnodes.size :=
+  (Array.getElem?_eq_some_iff.mp (internN_node hwf)).1
+
+/-- `internN` preserves the invariant when the node's prefix is an
+already-stored name index. -/
+theorem internN_wf {st : EStore} {n : NNode} (hwf : st.WF)
+    (hc : ∀ c ∈ n.children, c < st.nnodes.size) : (st.internN n).2.WF := by
+  rw [internN_eq]
+  split
+  · exact hwf
+  · rename_i hmiss
+    constructor
+    · exact hwf.children_lt
+    · exact hwf.cons_graph
+    · exact hwf.levels_lt
+    · exact hwf.lchildren_lt
+    · exact hwf.lcons_graph
+    · exact hwf.bvarBs_size
+    · exact hwf.fvarBs_size
+    · exact hwf.bvarBs_spec
+    · exact hwf.fvarBs_spec
+    · exact hwf.lparamBs_size
+    · exact hwf.lparamBs_spec
+    · exact hwf.eparamBs_size
+    · exact hwf.eparamBs_spec
+    · intro i m h p hpin
+      exact Nat.lt_trans (hwf.names_lt i m h p hpin) (by simp)
+    · intro i m h c hcin
+      rw [Array.getElem?_push] at h
+      split at h
+      · cases h
+        subst_eqs
+        exact hc c hcin
+      · exact hwf.nchildren_lt i m h c hcin
+    · intro m i
+      constructor
+      · intro h
+        rw [Std.HashMap.getElem?_insert] at h
+        by_cases hnm : n = m
+        · subst hnm
+          simp only [BEq.rfl, if_pos] at h
+          cases h
+          rw [Array.getElem?_push, if_pos rfl]
+        · rw [if_neg (by simpa using hnm)] at h
+          have h' := (hwf.ncons_graph m i).mp h
+          have hi : i < st.nnodes.size := (Array.getElem?_eq_some_iff.mp h').1
+          rw [Array.getElem?_push, if_neg (Nat.ne_of_lt hi)]
+          exact h'
+      · intro h
+        rw [Array.getElem?_push] at h
+        rw [Std.HashMap.getElem?_insert]
+        split at h
+        · cases h
+          subst_eqs
+          simp
+        · have hne : ¬ n = m := by
+            rintro rfl
+            have hcontra := (hwf.ncons_graph n i).mpr h
+            rw [hmiss] at hcontra
+            simp at hcontra
+          rw [if_neg (by simpa using hne)]
+          exact (hwf.ncons_graph m i).mpr h
+    · simpa using hwf.rbNames_size
+    · intro i m h
+      rw [Array.getElem?_push] at h
+      split at h
+      · cases h
+        subst_eqs
+        rw [Array.getElem?_push, hwf.rbNames_size, if_pos rfl]
+        refine congrArg some (NNode.nameOf_congr fun c hcin => ?_)
+        exact (getD_push_of_lt (hwf.rbNames_size ▸ hc c hcin)).symm
+      · have hi : i < st.nnodes.size := by
+          rcases Array.getElem?_eq_some_iff.mp h with ⟨hlt, -⟩
+          exact hlt
+        rw [Array.getElem?_push, if_neg (hwf.rbNames_size ▸ Nat.ne_of_lt hi),
+          hwf.rbNames_spec i m h]
+        refine congrArg some (NNode.nameOf_congr fun c hcin => ?_)
+        exact (getD_push_of_lt (hwf.rbNames_size ▸
+          Nat.lt_trans (hwf.nchildren_lt i m h c hcin) hi)).symm
+
+/-- Interning a name node whose prefix is already stored: the result
+denotes the node's denotation over the *old* store. -/
+theorem internN_denoteN {st : EStore} {n : NNode} (hwf : st.WF)
+    (hc : ∀ c ∈ n.children, c < st.nnodes.size) :
+    (st.internN n).2.denoteN (st.internN n).1
+      = denoteNNode st.denoteN n := by
+  have hn := internN_node (n := n) hwf
+  rw [internN_eq] at hn ⊢
+  split at hn
+  · rename_i i h
+    rw [denoteN_node hn (hwf.nchildren_lt _ _ hn)]
+  · rename_i hmiss
+    have hagree : ∀ j, j < st.nnodes.size →
+        (⟨st.nodes, st.cons, st.lnodes, st.lcons,
+          st.bvarBs, st.fvarBs, st.lparamBs, st.eparamBs,
+          st.nnodes.push n, st.ncons.insert n st.nnodes.size,
+          st.rbNames.push (n.nameOf st.rbNames)⟩
+          : EStore).denoteN j
+          = st.denoteN j := by
+      apply denoteN_agree
+      intro j hj
+      simp [Array.getElem?_push, Nat.ne_of_lt hj]
+    rw [denoteN_node hn hc]
+    exact denoteNNode_congr fun c hcin => hagree c (hc c hcin)
+
+/-- One name-interning step. -/
+theorem internN_step {st : EStore} {n : NNode} (hwf : st.WF)
+    (hc : ∀ c ∈ n.children, c < st.nnodes.size) {a : Name}
+    (hd : denoteNNode st.denoteN n = some a) :
+    (st.internN n).2.WF ∧ Ext st (st.internN n).2 ∧
+      (st.internN n).2.denoteN (st.internN n).1 = some a :=
+  ⟨internN_wf hwf hc, internN_ext st n, by rw [internN_denoteN hwf hc]; exact hd⟩
+
+/-- `internName` extends the store (no well-formedness needed). -/
+theorem internName_ext (st : EStore) (nm : Name) :
+    Ext st (st.internName nm).2 := by
+  induction nm generalizing st with
+  | anonymous => exact internN_ext st .anonymous
+  | str p sfx ih =>
+    rcases hI : st.internName p with ⟨pi, st₁⟩
+    have h := ih st
+    rw [hI] at h
+    simpa [internName, hI] using h.trans (internN_ext st₁ (.str pi sfx))
+  | num p k ih =>
+    rcases hI : st.internName p with ⟨pi, st₁⟩
+    have h := ih st
+    rw [hI] at h
+    simpa [internName, hI] using h.trans (internN_ext st₁ (.num pi k))
+
+/-- `internName` preserves the invariant, extends the store, and its
+result denotes the interned name. -/
+theorem internName_spec {st : EStore} (hwf : st.WF) (nm : Name) :
+    (st.internName nm).2.WF ∧ Ext st (st.internName nm).2 ∧
+      (st.internName nm).2.denoteN (st.internName nm).1 = some nm := by
+  induction nm generalizing st with
+  | anonymous => exact internN_step hwf (by simp [NNode.children]) rfl
+  | str p s ih =>
+    obtain ⟨hwf₁, hext₁, hden₁⟩ := ih hwf
+    rcases hI : st.internName p with ⟨pi, st₁⟩
+    simp only [hI] at hwf₁ hext₁ hden₁
+    have hstep := internN_step (n := .str pi s) hwf₁
+      (by simpa [NNode.children] using denoteN_lt_size hden₁)
+      (a := .str p s) (by rw [denoteNNode, hden₁]; rfl)
+    simp only [internName, hI]
+    exact ⟨hstep.1, hext₁.trans hstep.2.1, hstep.2.2⟩
+  | num p k ih =>
+    obtain ⟨hwf₁, hext₁, hden₁⟩ := ih hwf
+    rcases hI : st.internName p with ⟨pi, st₁⟩
+    simp only [hI] at hwf₁ hext₁ hden₁
+    have hstep := internN_step (n := .num pi k) hwf₁
+      (by simpa [NNode.children] using denoteN_lt_size hden₁)
+      (a := .num p k) (by rw [denoteNNode, hden₁]; rfl)
+    simp only [internName, hI]
+    exact ⟨hstep.1, hext₁.trans hstep.2.1, hstep.2.2⟩
+
 /-! ## `internExpr`: round-trip -/
 
 /-- One interning step of the round-trip: interning a node whose
@@ -1082,11 +1531,12 @@ children are stored and denote the subterms gives the invariant, the
 extension, and the node's denotation. -/
 private theorem intern_step {st : EStore} {n : ENode} (hwf : st.WF)
     (hc : ∀ c ∈ n.children, c < st.nodes.size)
-    (hlv : ∀ u ∈ n.levels, u < st.lnodes.size) {a : Expr}
-    (hd : denoteNode st.denote st.denoteL n = some a) :
+    (hlv : ∀ u ∈ n.levels, u < st.lnodes.size)
+    (hnm : ∀ p ∈ n.names, p < st.nnodes.size) {a : Expr}
+    (hd : denoteNode st.denote st.denoteL st.denoteN n = some a) :
     (st.intern n).2.WF ∧ Ext st (st.intern n).2 ∧
       (st.intern n).2.denote (st.intern n).1 = some a :=
-  ⟨intern_wf hwf hc hlv, intern_ext st n,
+  ⟨intern_wf hwf hc hlv hnm, intern_ext st n,
     by rw [intern_denote hwf hc]; exact hd⟩
 
 /-- In-range level references from a successful level-list
@@ -1124,7 +1574,7 @@ theorem internExpr_spec {st : EStore} (hwf : st.WF) (e : Expr) :
   induction e generalizing st with
   | bvar i =>
     exact intern_step hwf (by simp [ENode.children])
-      (by simp [ENode.levels]) rfl
+      (by simp [ENode.levels]) (by simp [ENode.names]) rfl
   | sort u =>
     obtain ⟨hwf₁, hext₁, hden₁⟩ := internLevel_spec hwf u
     rcases hI : st.internLevel u with ⟨ui, st₁⟩
@@ -1132,6 +1582,7 @@ theorem internExpr_spec {st : EStore} (hwf : st.WF) (e : Expr) :
     have hstep := intern_step (n := .sort ui) hwf₁
       (by simp [ENode.children])
       (by simpa [ENode.levels] using denoteL_lt_size hden₁)
+      (by simp [ENode.names])
       (a := .sort u) (by rw [denoteNode, hden₁]; rfl)
     simp only [internExpr, hI]
     exact ⟨hstep.1, hext₁.trans hstep.2.1, hstep.2.2⟩
@@ -1139,25 +1590,35 @@ theorem internExpr_spec {st : EStore} (hwf : st.WF) (e : Expr) :
     obtain ⟨hwf₁, hext₁, hden₁⟩ := internLevels_spec hwf us
     rcases hI : st.internLevels us with ⟨uis, st₁⟩
     simp only [hI] at hwf₁ hext₁ hden₁
-    have hstep := intern_step (n := .const n uis) hwf₁
+    obtain ⟨hwf₂, hext₂, hden₂⟩ := internName_spec hwf₁ n
+    rcases hN : st₁.internName n with ⟨ni, st₂⟩
+    simp only [hN] at hwf₂ hext₂ hden₂
+    have hden₁' := denoteLList_mono hext₂ hden₁
+    have hstep := intern_step (n := .const ni uis) hwf₂
       (by simp [ENode.children])
-      (by simpa [ENode.levels] using denoteLList_lt_size hden₁)
-      (a := .const n us) (by rw [denoteNode, hden₁]; rfl)
-    simp only [internExpr, hI]
-    exact ⟨hstep.1, hext₁.trans hstep.2.1, hstep.2.2⟩
+      (by simpa [ENode.levels] using denoteLList_lt_size hden₁')
+      (by simpa [ENode.names] using denoteN_lt_size hden₂)
+      (a := .const n us) (by rw [denoteNode, hden₁', hden₂]; rfl)
+    simp only [internExpr, hI, hN]
+    exact ⟨hstep.1, hext₁.trans (hext₂.trans hstep.2.1), hstep.2.2⟩
   | lit l =>
     exact intern_step hwf (by simp [ENode.children])
-      (by simp [ENode.levels]) rfl
+      (by simp [ENode.levels]) (by simp [ENode.names]) rfl
   | fvar idx nm ty ih =>
     obtain ⟨hwf₁, hext₁, hden₁⟩ := ih hwf
     rcases hI : st.internExpr ty with ⟨t, st₁⟩
     simp only [hI] at hwf₁ hext₁ hden₁
-    have hstep := intern_step (n := .fvar idx nm t) hwf₁
-      (by simpa [ENode.children] using denote_lt_size hden₁)
+    obtain ⟨hwf₂, hext₂, hden₂⟩ := internName_spec hwf₁ nm
+    rcases hN : st₁.internName nm with ⟨ni, st₂⟩
+    simp only [hN] at hwf₂ hext₂ hden₂
+    have hden₁' := denote_mono hext₂ hden₁
+    have hstep := intern_step (n := .fvar idx ni t) hwf₂
+      (by simpa [ENode.children] using denote_lt_size hden₁')
       (by simp [ENode.levels])
-      (a := .fvar idx nm ty) (by rw [denoteNode, hden₁]; rfl)
-    simp only [internExpr, hI]
-    exact ⟨hstep.1, hext₁.trans hstep.2.1, hstep.2.2⟩
+      (by simpa [ENode.names] using denoteN_lt_size hden₂)
+      (a := .fvar idx nm ty) (by rw [denoteNode, hden₁', hden₂]; rfl)
+    simp only [internExpr, hI, hN]
+    exact ⟨hstep.1, hext₁.trans (hext₂.trans hstep.2.1), hstep.2.2⟩
   | app f a ihf iha =>
     obtain ⟨hwf₁, hext₁, hden₁⟩ := ihf hwf
     rcases hI₁ : st.internExpr f with ⟨fi, st₁⟩
@@ -1173,6 +1634,7 @@ theorem internExpr_spec {st : EStore} (hwf : st.WF) (e : Expr) :
         · exact denote_lt_size hden₁'
         · exact denote_lt_size hden₂)
       (by simp [ENode.levels])
+      (by simp [ENode.names])
       (a := .app f a) (by rw [denoteNode, hden₁', hden₂]; rfl)
     simp only [internExpr, hI₁, hI₂]
     exact ⟨hstep.1, hext₁.trans (hext₂.trans hstep.2.1), hstep.2.2⟩
@@ -1186,19 +1648,26 @@ theorem internExpr_spec {st : EStore} (hwf : st.WF) (e : Expr) :
     obtain ⟨hwf₃, hext₃, hden₃⟩ := internBM_spec hwf₂ m
     rcases hI₃ : st₂.internBM m with ⟨mi, st₃⟩
     simp only [hI₃] at hwf₃ hext₃ hden₃
-    have hden₁' := denote_mono hext₃ (denote_mono hext₂ hden₁)
-    have hden₂' := denote_mono hext₃ hden₂
-    have hstep := intern_step (n := .lam n ti bi mi) hwf₃
+    obtain ⟨hwf₄, hext₄, hden₄⟩ := internName_spec hwf₃ n
+    rcases hI₄ : st₃.internName n with ⟨ni, st₄⟩
+    simp only [hI₄] at hwf₄ hext₄ hden₄
+    have hden₁' := denote_mono hext₄
+      (denote_mono hext₃ (denote_mono hext₂ hden₁))
+    have hden₂' := denote_mono hext₄ (denote_mono hext₃ hden₂)
+    have hden₃' := denoteBM_mono hext₄ hden₃
+    have hstep := intern_step (n := .lam ni ti bi mi) hwf₄
       (by
         simp only [ENode.children, List.mem_cons, List.not_mem_nil, or_false]
         rintro c (rfl | rfl)
         · exact denote_lt_size hden₁'
         · exact denote_lt_size hden₂')
-      (by simpa [ENode.levels] using denoteBM_lt_size hden₃)
+      (by simpa [ENode.levels] using denoteBM_lt_size hden₃')
+      (by simpa [ENode.names] using denoteN_lt_size hden₄)
       (a := .lam n ty body m)
-      (by rw [denoteNode, hden₁', hden₂', hden₃]; rfl)
-    simp only [internExpr, hI₁, hI₂, hI₃]
-    exact ⟨hstep.1, hext₁.trans (hext₂.trans (hext₃.trans hstep.2.1)),
+      (by rw [denoteNode, hden₁', hden₂', hden₃', hden₄]; rfl)
+    simp only [internExpr, hI₁, hI₂, hI₃, hI₄]
+    exact ⟨hstep.1,
+      hext₁.trans (hext₂.trans (hext₃.trans (hext₄.trans hstep.2.1))),
       hstep.2.2⟩
   | forallE n ty body m ihty ihbody =>
     obtain ⟨hwf₁, hext₁, hden₁⟩ := ihty hwf
@@ -1210,19 +1679,26 @@ theorem internExpr_spec {st : EStore} (hwf : st.WF) (e : Expr) :
     obtain ⟨hwf₃, hext₃, hden₃⟩ := internBM_spec hwf₂ m
     rcases hI₃ : st₂.internBM m with ⟨mi, st₃⟩
     simp only [hI₃] at hwf₃ hext₃ hden₃
-    have hden₁' := denote_mono hext₃ (denote_mono hext₂ hden₁)
-    have hden₂' := denote_mono hext₃ hden₂
-    have hstep := intern_step (n := .forallE n ti bi mi) hwf₃
+    obtain ⟨hwf₄, hext₄, hden₄⟩ := internName_spec hwf₃ n
+    rcases hI₄ : st₃.internName n with ⟨ni, st₄⟩
+    simp only [hI₄] at hwf₄ hext₄ hden₄
+    have hden₁' := denote_mono hext₄
+      (denote_mono hext₃ (denote_mono hext₂ hden₁))
+    have hden₂' := denote_mono hext₄ (denote_mono hext₃ hden₂)
+    have hden₃' := denoteBM_mono hext₄ hden₃
+    have hstep := intern_step (n := .forallE ni ti bi mi) hwf₄
       (by
         simp only [ENode.children, List.mem_cons, List.not_mem_nil, or_false]
         rintro c (rfl | rfl)
         · exact denote_lt_size hden₁'
         · exact denote_lt_size hden₂')
-      (by simpa [ENode.levels] using denoteBM_lt_size hden₃)
+      (by simpa [ENode.levels] using denoteBM_lt_size hden₃')
+      (by simpa [ENode.names] using denoteN_lt_size hden₄)
       (a := .forallE n ty body m)
-      (by rw [denoteNode, hden₁', hden₂', hden₃]; rfl)
-    simp only [internExpr, hI₁, hI₂, hI₃]
-    exact ⟨hstep.1, hext₁.trans (hext₂.trans (hext₃.trans hstep.2.1)),
+      (by rw [denoteNode, hden₁', hden₂', hden₃', hden₄]; rfl)
+    simp only [internExpr, hI₁, hI₂, hI₃, hI₄]
+    exact ⟨hstep.1,
+      hext₁.trans (hext₂.trans (hext₃.trans (hext₄.trans hstep.2.1))),
       hstep.2.2⟩
   | letE n ty val body ihty ihval ihbody =>
     obtain ⟨hwf₁, hext₁, hden₁⟩ := ihty hwf
@@ -1234,30 +1710,43 @@ theorem internExpr_spec {st : EStore} (hwf : st.WF) (e : Expr) :
     obtain ⟨hwf₃, hext₃, hden₃⟩ := ihbody hwf₂
     rcases hI₃ : st₂.internExpr body with ⟨bi, st₃⟩
     simp only [hI₃] at hwf₃ hext₃ hden₃
-    have hden₁' := denote_mono hext₃ (denote_mono hext₂ hden₁)
-    have hden₂' := denote_mono hext₃ hden₂
-    have hstep := intern_step (n := .letE n ti vi bi) hwf₃
+    obtain ⟨hwf₄, hext₄, hden₄⟩ := internName_spec hwf₃ n
+    rcases hI₄ : st₃.internName n with ⟨ni, st₄⟩
+    simp only [hI₄] at hwf₄ hext₄ hden₄
+    have hden₁' := denote_mono hext₄
+      (denote_mono hext₃ (denote_mono hext₂ hden₁))
+    have hden₂' := denote_mono hext₄ (denote_mono hext₃ hden₂)
+    have hden₃' := denote_mono hext₄ hden₃
+    have hstep := intern_step (n := .letE ni ti vi bi) hwf₄
       (by
         simp only [ENode.children, List.mem_cons, List.not_mem_nil, or_false]
         rintro c (rfl | rfl | rfl)
         · exact denote_lt_size hden₁'
         · exact denote_lt_size hden₂'
-        · exact denote_lt_size hden₃)
+        · exact denote_lt_size hden₃')
       (by simp [ENode.levels])
+      (by simpa [ENode.names] using denoteN_lt_size hden₄)
       (a := .letE n ty val body)
-      (by rw [denoteNode, hden₁', hden₂', hden₃]; rfl)
-    simp only [internExpr, hI₁, hI₂, hI₃]
-    exact ⟨hstep.1, hext₁.trans (hext₂.trans (hext₃.trans hstep.2.1)), hstep.2.2⟩
-  | proj s i e ih =>
+      (by rw [denoteNode, hden₁', hden₂', hden₃', hden₄]; rfl)
+    simp only [internExpr, hI₁, hI₂, hI₃, hI₄]
+    exact ⟨hstep.1,
+      hext₁.trans (hext₂.trans (hext₃.trans (hext₄.trans hstep.2.1))),
+      hstep.2.2⟩
+  | proj sN i e ih =>
     obtain ⟨hwf₁, hext₁, hden₁⟩ := ih hwf
     rcases hI : st.internExpr e with ⟨ei, st₁⟩
     simp only [hI] at hwf₁ hext₁ hden₁
-    have hstep := intern_step (n := .proj s i ei) hwf₁
-      (by simpa [ENode.children] using denote_lt_size hden₁)
+    obtain ⟨hwf₂, hext₂, hden₂⟩ := internName_spec hwf₁ sN
+    rcases hN : st₁.internName sN with ⟨si, st₂⟩
+    simp only [hN] at hwf₂ hext₂ hden₂
+    have hden₁' := denote_mono hext₂ hden₁
+    have hstep := intern_step (n := .proj si i ei) hwf₂
+      (by simpa [ENode.children] using denote_lt_size hden₁')
       (by simp [ENode.levels])
-      (a := .proj s i e) (by rw [denoteNode, hden₁]; rfl)
-    simp only [internExpr, hI]
-    exact ⟨hstep.1, hext₁.trans hstep.2.1, hstep.2.2⟩
+      (by simpa [ENode.names] using denoteN_lt_size hden₂)
+      (a := .proj sN i e) (by rw [denoteNode, hden₁', hden₂]; rfl)
+    simp only [internExpr, hI, hN]
+    exact ⟨hstep.1, hext₁.trans (hext₂.trans hstep.2.1), hstep.2.2⟩
 
 /-! ## Canonicity: index equality is expression equality -/
 
@@ -1395,72 +1884,212 @@ theorem denoteBM_inj {st : EStore} (hwf : st.WF) {m m' : IBinderMeta}
     obtain ⟨rfl, rfl⟩ := heq
     rw [denoteL_inj hwf hl hl']
 
+/-- Inversion of `denoteNNode` at each `Name` head constructor
+(task #88). -/
+theorem denoteNNode_anonymous_inv {den : NIdx → Option Name} {n : NNode}
+    (h : denoteNNode den n = some .anonymous) : n = .anonymous := by
+  cases n <;> simp_all [denoteNNode, Option.map_eq_some_iff]
+
+theorem denoteNNode_str_inv {den : NIdx → Option Name} {n : NNode}
+    {p : Name} {s : String} (h : denoteNNode den n = some (.str p s)) :
+    ∃ q, n = .str q s ∧ den q = some p := by
+  cases n <;> simp_all [denoteNNode, Option.map_eq_some_iff] <;> grind
+
+theorem denoteNNode_num_inv {den : NIdx → Option Name} {n : NNode}
+    {p : Name} {k : Nat} (h : denoteNNode den n = some (.num p k)) :
+    ∃ q, n = .num q k ∧ den q = some p := by
+  cases n <;> simp_all [denoteNNode, Option.map_eq_some_iff] <;> grind
+
+/-- The name cons-table makes stored name nodes unique. -/
+theorem nindex_unique {st : EStore} (hwf : st.WF) {n : NNode} {i j : NIdx}
+    (hi : st.nnodes[i]? = some n) (hj : st.nnodes[j]? = some n) : i = j :=
+  Option.some.inj
+    (((hwf.ncons_graph n i).mpr hi).symm.trans ((hwf.ncons_graph n j).mpr hj))
+
+/-- Name denotation is injective on a well-formed store: index equality
+is name equality. -/
+theorem denoteN_inj {st : EStore} (hwf : st.WF) :
+    ∀ {a : Name} {i j : NIdx}, st.denoteN i = some a → st.denoteN j = some a →
+      i = j := by
+  intro a
+  induction a with
+  | anonymous =>
+    intro i j hi hj
+    obtain ⟨n, hn, -, hdn⟩ := denoteN_some_inv hi
+    obtain ⟨m, hm, -, hdm⟩ := denoteN_some_inv hj
+    obtain rfl := denoteNNode_anonymous_inv hdn
+    obtain rfl := denoteNNode_anonymous_inv hdm
+    exact nindex_unique hwf hn hm
+  | str p s ih =>
+    intro i j hi hj
+    obtain ⟨n, hn, -, hdn⟩ := denoteN_some_inv hi
+    obtain ⟨m, hm, -, hdm⟩ := denoteN_some_inv hj
+    obtain ⟨q, rfl, hq⟩ := denoteNNode_str_inv hdn
+    obtain ⟨q', rfl, hq'⟩ := denoteNNode_str_inv hdm
+    obtain rfl := ih hq hq'
+    exact nindex_unique hwf hn hm
+  | num p k ih =>
+    intro i j hi hj
+    obtain ⟨n, hn, -, hdn⟩ := denoteN_some_inv hi
+    obtain ⟨m, hm, -, hdm⟩ := denoteN_some_inv hj
+    obtain ⟨q, rfl, hq⟩ := denoteNNode_num_inv hdn
+    obtain ⟨q', rfl, hq'⟩ := denoteNNode_num_inv hdm
+    obtain rfl := ih hq hq'
+    exact nindex_unique hwf hn hm
+
+/-- Interned name equality is name equality (`O(1)` equality on
+denoting indices). -/
+theorem denoteN_eq_iff {st : EStore} (hwf : st.WF) {i j : NIdx}
+    {a b : Name} (ha : st.denoteN i = some a) (hb : st.denoteN j = some b) :
+    i = j ↔ a = b := by
+  constructor
+  · rintro rfl
+    rw [ha] at hb
+    exact Option.some.inj hb
+  · rintro rfl
+    exact denoteN_inj hwf ha hb
+
+/-- `beqNameI` decides equality of the denoted name against a fixed
+`Name` (task #88). -/
+theorem beqNameI_eq {st : EStore} :
+    ∀ {nm : Name} {i : NIdx} {a : Name}, st.denoteN i = some a →
+      st.beqNameI i nm = (a == nm) := by
+  intro nm
+  induction nm with
+  | anonymous =>
+    intro i a h
+    obtain ⟨n, hn, -, hdn⟩ := denoteN_some_inv h
+    cases n with
+    | anonymous =>
+      cases hdn
+      simp [beqNameI, hn]
+    | str p sfx =>
+      rw [denoteNNode, Option.map_eq_some_iff] at hdn
+      obtain ⟨pa, -, rfl⟩ := hdn
+      simp only [beqNameI, hn]
+      rfl
+    | num p k =>
+      rw [denoteNNode, Option.map_eq_some_iff] at hdn
+      obtain ⟨pa, -, rfl⟩ := hdn
+      simp only [beqNameI, hn]
+      rfl
+  | str p sfx ih =>
+    intro i a h
+    obtain ⟨n, hn, -, hdn⟩ := denoteN_some_inv h
+    cases n with
+    | anonymous =>
+      cases hdn
+      simp only [beqNameI, hn]
+      rfl
+    | str pi s' =>
+      rw [denoteNNode, Option.map_eq_some_iff] at hdn
+      obtain ⟨pa, hpa, rfl⟩ := hdn
+      simp only [beqNameI, hn]
+      rw [ih hpa]
+      apply Bool.eq_iff_iff.mpr
+      simp only [Bool.and_eq_true, beq_iff_eq, Name.str.injEq]
+      grind
+    | num pi k =>
+      rw [denoteNNode, Option.map_eq_some_iff] at hdn
+      obtain ⟨pa, -, rfl⟩ := hdn
+      simp only [beqNameI, hn]
+      rfl
+  | num p k ih =>
+    intro i a h
+    obtain ⟨n, hn, -, hdn⟩ := denoteN_some_inv h
+    cases n with
+    | anonymous =>
+      cases hdn
+      simp only [beqNameI, hn]
+      rfl
+    | str pi s' =>
+      rw [denoteNNode, Option.map_eq_some_iff] at hdn
+      obtain ⟨pa, -, rfl⟩ := hdn
+      simp only [beqNameI, hn]
+      rfl
+    | num pi k' =>
+      rw [denoteNNode, Option.map_eq_some_iff] at hdn
+      obtain ⟨pa, hpa, rfl⟩ := hdn
+      simp only [beqNameI, hn]
+      rw [ih hpa]
+      apply Bool.eq_iff_iff.mpr
+      simp only [Bool.and_eq_true, beq_iff_eq, Name.num.injEq]
+      grind
+
 /-- Inversion of `denoteNode` at each `Expr` head constructor. -/
 theorem denoteNode_bvar_inv {den : EIdx → Option Expr}
-    {denL : LIdx → Option Level} {n : ENode} {k : Nat}
-    (h : denoteNode den denL n = some (.bvar k)) : n = .bvar k := by
+    {denL : LIdx → Option Level} {denN : NIdx → Option Name}
+    {n : ENode} {k : Nat}
+    (h : denoteNode den denL denN n = some (.bvar k)) : n = .bvar k := by
   cases n <;> simp_all [denoteNode, Option.map_eq_some_iff, Option.bind_eq_some_iff] <;> grind
 
 theorem denoteNode_fvar_inv {den : EIdx → Option Expr}
-    {denL : LIdx → Option Level} {n : ENode}
+    {denL : LIdx → Option Level} {denN : NIdx → Option Name} {n : ENode}
     {idx : Nat} {nm : Name} {ty : Expr}
-    (h : denoteNode den denL n = some (.fvar idx nm ty)) :
-    ∃ t, n = .fvar idx nm t ∧ den t = some ty := by
+    (h : denoteNode den denL denN n = some (.fvar idx nm ty)) :
+    ∃ ni t, n = .fvar idx ni t ∧ denN ni = some nm ∧ den t = some ty := by
   cases n <;> simp_all [denoteNode, Option.map_eq_some_iff, Option.bind_eq_some_iff] <;> grind
 
 theorem denoteNode_sort_inv {den : EIdx → Option Expr}
-    {denL : LIdx → Option Level} {n : ENode} {u : Level}
-    (h : denoteNode den denL n = some (.sort u)) :
+    {denL : LIdx → Option Level} {denN : NIdx → Option Name}
+    {n : ENode} {u : Level}
+    (h : denoteNode den denL denN n = some (.sort u)) :
     ∃ ui, n = .sort ui ∧ denL ui = some u := by
   cases n <;> simp_all [denoteNode, Option.map_eq_some_iff, Option.bind_eq_some_iff] <;> grind
 
 theorem denoteNode_const_inv {den : EIdx → Option Expr}
-    {denL : LIdx → Option Level} {n : ENode}
+    {denL : LIdx → Option Level} {denN : NIdx → Option Name} {n : ENode}
     {nm : Name} {us : List Level}
-    (h : denoteNode den denL n = some (.const nm us)) :
-    ∃ uis, n = .const nm uis ∧ denoteLList denL uis = some us := by
+    (h : denoteNode den denL denN n = some (.const nm us)) :
+    ∃ ni uis, n = .const ni uis ∧ denN ni = some nm ∧
+      denoteLList denL uis = some us := by
   cases n <;> simp_all [denoteNode, Option.map_eq_some_iff, Option.bind_eq_some_iff] <;> grind
 
 theorem denoteNode_app_inv {den : EIdx → Option Expr}
-    {denL : LIdx → Option Level} {n : ENode} {x y : Expr}
-    (h : denoteNode den denL n = some (.app x y)) :
+    {denL : LIdx → Option Level} {denN : NIdx → Option Name}
+    {n : ENode} {x y : Expr}
+    (h : denoteNode den denL denN n = some (.app x y)) :
     ∃ f a, n = .app f a ∧ den f = some x ∧ den a = some y := by
   cases n <;> simp_all [denoteNode, Option.map_eq_some_iff, Option.bind_eq_some_iff] <;> grind
 
 theorem denoteNode_lam_inv {den : EIdx → Option Expr}
-    {denL : LIdx → Option Level} {n : ENode}
+    {denL : LIdx → Option Level} {denN : NIdx → Option Name} {n : ENode}
     {nm : Name} {ty body : Expr} {m : BinderMeta}
-    (h : denoteNode den denL n = some (.lam nm ty body m)) :
-    ∃ t b mi, n = .lam nm t b mi ∧ den t = some ty ∧ den b = some body ∧
+    (h : denoteNode den denL denN n = some (.lam nm ty body m)) :
+    ∃ ni t b mi, n = .lam ni t b mi ∧ denN ni = some nm ∧
+      den t = some ty ∧ den b = some body ∧
       denoteBM denL mi = some m := by
   cases n <;> simp_all [denoteNode, Option.map_eq_some_iff, Option.bind_eq_some_iff] <;> grind
 
 theorem denoteNode_forallE_inv {den : EIdx → Option Expr}
-    {denL : LIdx → Option Level} {n : ENode}
+    {denL : LIdx → Option Level} {denN : NIdx → Option Name} {n : ENode}
     {nm : Name} {ty body : Expr} {m : BinderMeta}
-    (h : denoteNode den denL n = some (.forallE nm ty body m)) :
-    ∃ t b mi, n = .forallE nm t b mi ∧ den t = some ty ∧ den b = some body ∧
+    (h : denoteNode den denL denN n = some (.forallE nm ty body m)) :
+    ∃ ni t b mi, n = .forallE ni t b mi ∧ denN ni = some nm ∧
+      den t = some ty ∧ den b = some body ∧
       denoteBM denL mi = some m := by
   cases n <;> simp_all [denoteNode, Option.map_eq_some_iff, Option.bind_eq_some_iff] <;> grind
 
 theorem denoteNode_letE_inv {den : EIdx → Option Expr}
-    {denL : LIdx → Option Level} {n : ENode}
+    {denL : LIdx → Option Level} {denN : NIdx → Option Name} {n : ENode}
     {nm : Name} {ty val body : Expr}
-    (h : denoteNode den denL n = some (.letE nm ty val body)) :
-    ∃ t v b, n = .letE nm t v b ∧ den t = some ty ∧ den v = some val ∧
+    (h : denoteNode den denL denN n = some (.letE nm ty val body)) :
+    ∃ ni t v b, n = .letE ni t v b ∧ denN ni = some nm ∧
+      den t = some ty ∧ den v = some val ∧
       den b = some body := by
   cases n <;> simp_all [denoteNode, Option.map_eq_some_iff, Option.bind_eq_some_iff] <;> grind
 
 theorem denoteNode_lit_inv {den : EIdx → Option Expr}
-    {denL : LIdx → Option Level} {n : ENode} {l : Literal}
-    (h : denoteNode den denL n = some (.lit l)) : n = .lit l := by
+    {denL : LIdx → Option Level} {denN : NIdx → Option Name}
+    {n : ENode} {l : Literal}
+    (h : denoteNode den denL denN n = some (.lit l)) : n = .lit l := by
   cases n <;> simp_all [denoteNode, Option.map_eq_some_iff, Option.bind_eq_some_iff] <;> grind
 
 theorem denoteNode_proj_inv {den : EIdx → Option Expr}
-    {denL : LIdx → Option Level} {n : ENode}
+    {denL : LIdx → Option Level} {denN : NIdx → Option Name} {n : ENode}
     {s : Name} {j : Nat} {x : Expr}
-    (h : denoteNode den denL n = some (.proj s j x)) :
-    ∃ e, n = .proj s j e ∧ den e = some x := by
+    (h : denoteNode den denL denN n = some (.proj s j x)) :
+    ∃ si e, n = .proj si j e ∧ denN si = some s ∧ den e = some x := by
   cases n <;> simp_all [denoteNode, Option.map_eq_some_iff, Option.bind_eq_some_iff] <;> grind
 
 /-- The cons-table makes stored nodes unique: two indices holding the
@@ -1497,8 +2126,9 @@ theorem denote_inj {st : EStore} (hwf : st.WF) :
     intro i j hi hj
     obtain ⟨n, hn, -, hdn⟩ := denote_some_inv hi
     obtain ⟨m, hm, -, hdm⟩ := denote_some_inv hj
-    obtain ⟨uis, rfl, huis⟩ := denoteNode_const_inv hdn
-    obtain ⟨ujs, rfl, hujs⟩ := denoteNode_const_inv hdm
+    obtain ⟨ni, uis, rfl, hni, huis⟩ := denoteNode_const_inv hdn
+    obtain ⟨nj, ujs, rfl, hnj, hujs⟩ := denoteNode_const_inv hdm
+    obtain rfl := denoteN_inj hwf hni hnj
     obtain rfl := denoteLList_inj hwf huis hujs
     exact index_unique hwf hn hm
   | lit l =>
@@ -1512,8 +2142,9 @@ theorem denote_inj {st : EStore} (hwf : st.WF) :
     intro i j hi hj
     obtain ⟨n, hn, -, hdn⟩ := denote_some_inv hi
     obtain ⟨m, hm, -, hdm⟩ := denote_some_inv hj
-    obtain ⟨t, rfl, ht⟩ := denoteNode_fvar_inv hdn
-    obtain ⟨t', rfl, ht'⟩ := denoteNode_fvar_inv hdm
+    obtain ⟨ni, t, rfl, hni, ht⟩ := denoteNode_fvar_inv hdn
+    obtain ⟨nj, t', rfl, hnj, ht'⟩ := denoteNode_fvar_inv hdm
+    obtain rfl := denoteN_inj hwf hni hnj
     obtain rfl := ih ht ht'
     exact index_unique hwf hn hm
   | app x y ihx ihy =>
@@ -1529,8 +2160,10 @@ theorem denote_inj {st : EStore} (hwf : st.WF) :
     intro i j hi hj
     obtain ⟨n, hn, -, hdn⟩ := denote_some_inv hi
     obtain ⟨m', hm, -, hdm⟩ := denote_some_inv hj
-    obtain ⟨t, b, mi, rfl, ht, hb, hmi⟩ := denoteNode_lam_inv hdn
-    obtain ⟨t', b', mi', rfl, ht', hb', hmi'⟩ := denoteNode_lam_inv hdm
+    obtain ⟨ni, t, b, mi, rfl, hni, ht, hb, hmi⟩ := denoteNode_lam_inv hdn
+    obtain ⟨nj, t', b', mi', rfl, hnj, ht', hb', hmi'⟩ :=
+      denoteNode_lam_inv hdm
+    obtain rfl := denoteN_inj hwf hni hnj
     obtain rfl := ihty ht ht'
     obtain rfl := ihbody hb hb'
     obtain rfl := denoteBM_inj hwf hmi hmi'
@@ -1539,8 +2172,11 @@ theorem denote_inj {st : EStore} (hwf : st.WF) :
     intro i j hi hj
     obtain ⟨n, hn, -, hdn⟩ := denote_some_inv hi
     obtain ⟨m', hm, -, hdm⟩ := denote_some_inv hj
-    obtain ⟨t, b, mi, rfl, ht, hb, hmi⟩ := denoteNode_forallE_inv hdn
-    obtain ⟨t', b', mi', rfl, ht', hb', hmi'⟩ := denoteNode_forallE_inv hdm
+    obtain ⟨ni, t, b, mi, rfl, hni, ht, hb, hmi⟩ :=
+      denoteNode_forallE_inv hdn
+    obtain ⟨nj, t', b', mi', rfl, hnj, ht', hb', hmi'⟩ :=
+      denoteNode_forallE_inv hdm
+    obtain rfl := denoteN_inj hwf hni hnj
     obtain rfl := ihty ht ht'
     obtain rfl := ihbody hb hb'
     obtain rfl := denoteBM_inj hwf hmi hmi'
@@ -1549,8 +2185,10 @@ theorem denote_inj {st : EStore} (hwf : st.WF) :
     intro i j hi hj
     obtain ⟨n, hn, -, hdn⟩ := denote_some_inv hi
     obtain ⟨m, hm, -, hdm⟩ := denote_some_inv hj
-    obtain ⟨t, v, b, rfl, ht, hv, hb⟩ := denoteNode_letE_inv hdn
-    obtain ⟨t', v', b', rfl, ht', hv', hb'⟩ := denoteNode_letE_inv hdm
+    obtain ⟨ni, t, v, b, rfl, hni, ht, hv, hb⟩ := denoteNode_letE_inv hdn
+    obtain ⟨nj, t', v', b', rfl, hnj, ht', hv', hb'⟩ :=
+      denoteNode_letE_inv hdm
+    obtain rfl := denoteN_inj hwf hni hnj
     obtain rfl := ihty ht ht'
     obtain rfl := ihval hv hv'
     obtain rfl := ihbody hb hb'
@@ -1559,8 +2197,9 @@ theorem denote_inj {st : EStore} (hwf : st.WF) :
     intro i j hi hj
     obtain ⟨n, hn, -, hdn⟩ := denote_some_inv hi
     obtain ⟨m, hm, -, hdm⟩ := denote_some_inv hj
-    obtain ⟨e, rfl, he⟩ := denoteNode_proj_inv hdn
-    obtain ⟨e', rfl, he'⟩ := denoteNode_proj_inv hdm
+    obtain ⟨si, e, rfl, hsi, he⟩ := denoteNode_proj_inv hdn
+    obtain ⟨sj, e', rfl, hsj, he'⟩ := denoteNode_proj_inv hdm
+    obtain rfl := denoteN_inj hwf hsi hsj
     obtain rfl := ih he he'
     exact index_unique hwf hn hm
 
@@ -1577,6 +2216,66 @@ theorem denote_eq_iff {st : EStore} (hwf : st.WF) {i j : EIdx} {a b : Expr}
     exact denote_inj hwf ha hb
 
 /-! ## Totality and extension helpers for the operation proofs -/
+
+/-- On a well-formed store, every in-range name index denotes. -/
+theorem denoteN_total {st : EStore} (hwf : st.WF) :
+    ∀ (i : NIdx), i < st.nnodes.size → ∃ x, st.denoteN i = some x := by
+  intro i
+  induction i using Nat.strongRecOn with
+  | _ i ih =>
+    intro hi
+    have hn : st.nnodes[i]? = some st.nnodes[i] := by
+      simp [hi]
+    have hc := hwf.nchildren_lt i _ hn
+    rw [denoteN_node hn hc]
+    cases hnn : st.nnodes[i] with
+    | anonymous => exact ⟨_, rfl⟩
+    | str p sfx =>
+      obtain ⟨x, hx⟩ := ih p (hc p (by simp [hnn, NNode.children]))
+        (Nat.lt_trans (hc p (by simp [hnn, NNode.children])) hi)
+      exact ⟨_, by rw [denoteNNode, hx]; rfl⟩
+    | num p k =>
+      obtain ⟨x, hx⟩ := ih p (hc p (by simp [hnn, NNode.children]))
+        (Nat.lt_trans (hc p (by simp [hnn, NNode.children])) hi)
+      exact ⟨_, by rw [denoteNNode, hx]; rfl⟩
+
+/-- The executable readback (the eager array read) agrees with the
+structural name denotation on a well-formed store (task #88). -/
+theorem WF.readbackN_eq_denoteN {st : EStore} (hwf : st.WF) :
+    ∀ i, st.readbackN i = st.denoteN i := by
+  intro i
+  induction i using Nat.strongRecOn with
+  | _ i ih =>
+    show st.rbNames[i]? = st.denoteN i
+    cases hn : st.nnodes[i]? with
+    | none =>
+      have hsz : st.nnodes.size ≤ i := by
+        rcases Nat.lt_or_ge i st.nnodes.size with hlt | hge
+        · rw [Array.getElem?_eq_getElem hlt] at hn
+          cases hn
+        · exact hge
+      rw [denoteN.eq_def, hn]
+      exact Array.getElem?_eq_none (hwf.rbNames_size ▸ hsz)
+    | some n =>
+      have hc := hwf.nchildren_lt i n hn
+      have hisz : i < st.nnodes.size := (Array.getElem?_eq_some_iff.mp hn).1
+      rw [hwf.rbNames_spec i n hn, denoteN_node hn hc]
+      cases n with
+      | anonymous => rfl
+      | str p sfx =>
+        have hp := hc p (by simp [NNode.children])
+        obtain ⟨pn, hpn⟩ := denoteN_total hwf p (Nat.lt_trans hp hisz)
+        have hrb : st.rbNames[p]? = some pn := (ih p hp).trans hpn
+        rw [denoteNNode, hpn]
+        show some (NNode.nameOf st.rbNames (.str p sfx)) = _
+        simp [NNode.nameOf, Array.getD_eq_getD_getElem?, hrb]
+      | num p k =>
+        have hp := hc p (by simp [NNode.children])
+        obtain ⟨pn, hpn⟩ := denoteN_total hwf p (Nat.lt_trans hp hisz)
+        have hrb : st.rbNames[p]? = some pn := (ih p hp).trans hpn
+        rw [denoteNNode, hpn]
+        show some (NNode.nameOf st.rbNames (.num p k)) = _
+        simp [NNode.nameOf, Array.getD_eq_getD_getElem?, hrb]
 
 /-- On a well-formed store, every in-range level index denotes. -/
 theorem denoteL_total {st : EStore} (hwf : st.WF) :
@@ -1640,6 +2339,7 @@ theorem denote_total {st : EStore} (hwf : st.WF) :
       simp [hi]
     have hc := hwf.children_lt i _ hn
     have hlv := hwf.levels_lt i _ hn
+    have hnms := hwf.names_lt i _ hn
     rw [denote_node hn hc]
     have hcs : ∀ c ∈ (st.nodes[i]).children, ∃ x, st.denote c = some x :=
       fun c hcin => ih c (hc c hcin)
@@ -1653,11 +2353,15 @@ theorem denote_total {st : EStore} (hwf : st.WF) :
     | const nm us =>
       obtain ⟨ls, hls⟩ := denoteLList_total hwf us
         (fun u hu => hlv u (by simp [hnn, ENode.levels, hu]))
-      exact ⟨_, by rw [denoteNode, hls]; rfl⟩
+      obtain ⟨name, hname⟩ := denoteN_total hwf nm
+        (hnms nm (by simp [hnn, ENode.names]))
+      exact ⟨_, by rw [denoteNode, hls, hname]; rfl⟩
     | lit l => exact ⟨_, rfl⟩
     | fvar idx nm t =>
       obtain ⟨x, hx⟩ := hcs t (by simp [hnn, ENode.children])
-      exact ⟨_, by rw [denoteNode, hx]; rfl⟩
+      obtain ⟨name, hname⟩ := denoteN_total hwf nm
+        (hnms nm (by simp [hnn, ENode.names]))
+      exact ⟨_, by rw [denoteNode, hx, hname]; rfl⟩
     | app f a =>
       obtain ⟨xf, hf⟩ := hcs f (by simp [hnn, ENode.children])
       obtain ⟨xa, ha⟩ := hcs a (by simp [hnn, ENode.children])
@@ -1667,21 +2371,29 @@ theorem denote_total {st : EStore} (hwf : st.WF) :
       obtain ⟨xb, hb⟩ := hcs b (by simp [hnn, ENode.children])
       obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
         (fun u hu => hlv u (by simp [hnn, ENode.levels, hu]))
-      exact ⟨_, by rw [denoteNode, ht, hb, hbm]; rfl⟩
+      obtain ⟨name, hname⟩ := denoteN_total hwf nm
+        (hnms nm (by simp [hnn, ENode.names]))
+      exact ⟨_, by rw [denoteNode, ht, hb, hbm, hname]; rfl⟩
     | forallE nm t b m =>
       obtain ⟨xt, ht⟩ := hcs t (by simp [hnn, ENode.children])
       obtain ⟨xb, hb⟩ := hcs b (by simp [hnn, ENode.children])
       obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
         (fun u hu => hlv u (by simp [hnn, ENode.levels, hu]))
-      exact ⟨_, by rw [denoteNode, ht, hb, hbm]; rfl⟩
+      obtain ⟨name, hname⟩ := denoteN_total hwf nm
+        (hnms nm (by simp [hnn, ENode.names]))
+      exact ⟨_, by rw [denoteNode, ht, hb, hbm, hname]; rfl⟩
     | letE nm t vv b =>
       obtain ⟨xt, ht⟩ := hcs t (by simp [hnn, ENode.children])
       obtain ⟨xv, hv⟩ := hcs vv (by simp [hnn, ENode.children])
       obtain ⟨xb, hb⟩ := hcs b (by simp [hnn, ENode.children])
-      exact ⟨_, by rw [denoteNode, ht, hv, hb]; rfl⟩
+      obtain ⟨name, hname⟩ := denoteN_total hwf nm
+        (hnms nm (by simp [hnn, ENode.names]))
+      exact ⟨_, by rw [denoteNode, ht, hv, hb, hname]; rfl⟩
     | proj s j e' =>
       obtain ⟨x, hx⟩ := hcs e' (by simp [hnn, ENode.children])
-      exact ⟨_, by rw [denoteNode, hx]; rfl⟩
+      obtain ⟨name, hname⟩ := denoteN_total hwf s
+        (hnms s (by simp [hnn, ENode.names]))
+      exact ⟨_, by rw [denoteNode, hx, hname]; rfl⟩
 
 /-- Extension never shrinks the node table. -/
 theorem Ext.size_le {st st' : EStore} (hext : Ext st st') :
@@ -1703,6 +2415,18 @@ theorem Ext.lsize_le {st st' : EStore} (hext : Ext st st') :
         = some st.lnodes[st.lnodes.size - 1] := by
       simp
     have := hext.lvl _ _ hlast
+    have := (Array.getElem?_eq_some_iff.mp this).1
+    omega
+
+/-- Extension never shrinks the name table. -/
+theorem Ext.nsize_le {st st' : EStore} (hext : Ext st st') :
+    st.nnodes.size ≤ st'.nnodes.size := by
+  cases hsz : st.nnodes.size with
+  | zero => exact Nat.zero_le _
+  | succ k =>
+    have h : st.nnodes[k]? = some st.nnodes[k] := by
+      simp [hsz]
+    have := hext.name k _ h
     have := (Array.getElem?_eq_some_iff.mp this).1
     omega
 
@@ -1728,6 +2452,20 @@ theorem Ext.denoteL_eq_of_lt {st st' : EStore} (hext : Ext st st') {u : LIdx}
     (hu : u < st.lnodes.size) : st'.denoteL u = st.denoteL u :=
   denoteL_agree (fun _ hv => hext.lnodes_eq_of_lt hv) u hu
 
+/-- Below the old size, an extension does not change the name table. -/
+theorem Ext.nnodes_eq_of_lt {st st' : EStore} (hext : Ext st st') {q : NIdx}
+    (hq : q < st.nnodes.size) : st'.nnodes[q]? = st.nnodes[q]? := by
+  have hn : st.nnodes[q]? = some st.nnodes[q] := by
+    simp [hq]
+  rw [hn]
+  exact hext.name _ _ hn
+
+/-- Below the old size, an extension does not change the name
+denotation. -/
+theorem Ext.denoteN_eq_of_lt {st st' : EStore} (hext : Ext st st') {q : NIdx}
+    (hq : q < st.nnodes.size) : st'.denoteN q = st.denoteN q :=
+  denoteN_agree (fun _ hv => hext.nnodes_eq_of_lt hv) q hq
+
 /-- Below the old sizes, an extension does not change the denotation
 (not even `none` ones — the guards in `denote` are index-based).
 `denote` reads levels only through stored nodes, whose references an
@@ -1743,11 +2481,13 @@ theorem Ext.denote_eq_of_lt {st st' : EStore} (hext : Ext st st')
     | none => rfl
     | some n =>
       refine denoteNode_congr' (fun c _hc => ?_) (fun u hu => ?_)
+        (fun q hq => ?_)
       · by_cases hcj : c < j
         · simp only [dif_pos hcj]
           exact ih c hcj (Nat.lt_trans hcj hj)
         · simp [dif_neg hcj]
       · exact hext.denoteL_eq_of_lt (hwf.levels_lt j n hn u hu)
+      · exact hext.denoteN_eq_of_lt (hwf.names_lt j n hn q hq)
 
 /-! ## The memo invariant for the index→index traversals -/
 
@@ -1927,16 +2667,20 @@ theorem WF.bvarBoundD_exact {st : EStore} (hwf : st.WF) :
       cases hdn
       rfl
     | fvar idx nm t =>
-      rw [denoteNode, Option.map_eq_some_iff] at hdn
-      obtain ⟨xt, -, rfl⟩ := hdn
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xt, -, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
       rfl
     | sort u =>
       rw [denoteNode, Option.map_eq_some_iff] at hdn
       obtain ⟨lu, -, rfl⟩ := hdn
       rfl
     | const nm us =>
-      rw [denoteNode, Option.map_eq_some_iff] at hdn
-      obtain ⟨lus, -, rfl⟩ := hdn
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨lus, -, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
       rfl
     | lit l =>
       rw [denoteNode] at hdn
@@ -1957,8 +2701,10 @@ theorem WF.bvarBoundD_exact {st : EStore} (hwf : st.WF) :
       obtain ⟨xt, hxt, hdn⟩ := hdn
       rw [Option.bind_eq_some_iff] at hdn
       obtain ⟨xb, hxb, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨bm, -, hdn⟩ := hdn
       rw [Option.map_eq_some_iff] at hdn
-      obtain ⟨bm, -, rfl⟩ := hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
       have ht := hcl ty (by simp [ENode.children])
       have hb := hcl body (by simp [ENode.children])
       show max (st.bvarBoundD ty) (st.bvarBoundD body - 1) = _
@@ -1969,8 +2715,10 @@ theorem WF.bvarBoundD_exact {st : EStore} (hwf : st.WF) :
       obtain ⟨xt, hxt, hdn⟩ := hdn
       rw [Option.bind_eq_some_iff] at hdn
       obtain ⟨xb, hxb, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨bm, -, hdn⟩ := hdn
       rw [Option.map_eq_some_iff] at hdn
-      obtain ⟨bm, -, rfl⟩ := hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
       have ht := hcl ty (by simp [ENode.children])
       have hb := hcl body (by simp [ENode.children])
       show max (st.bvarBoundD ty) (st.bvarBoundD body - 1) = _
@@ -1981,8 +2729,10 @@ theorem WF.bvarBoundD_exact {st : EStore} (hwf : st.WF) :
       obtain ⟨xt, hxt, hdn⟩ := hdn
       rw [Option.bind_eq_some_iff] at hdn
       obtain ⟨xv, hxv, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨xb, hxb, hdn⟩ := hdn
       rw [Option.map_eq_some_iff] at hdn
-      obtain ⟨xb, hxb, rfl⟩ := hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
       have ht := hcl ty (by simp [ENode.children])
       have hv := hcl val (by simp [ENode.children])
       have hb := hcl body (by simp [ENode.children])
@@ -1991,8 +2741,10 @@ theorem WF.bvarBoundD_exact {st : EStore} (hwf : st.WF) :
       rw [ih ty ht hxt, ih val hv hxv, ih body hb hxb]
       rfl
     | proj sp j sub =>
-      rw [denoteNode, Option.map_eq_some_iff] at hdn
-      obtain ⟨xs, hxs, rfl⟩ := hdn
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xs, hxs, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
       have hs := hcl sub (by simp [ENode.children])
       show st.bvarBoundD sub = _
       rw [ih sub hs hxs]
@@ -2020,16 +2772,20 @@ theorem WF.fvarRangeD_exact {st : EStore} (hwf : st.WF) :
       cases hdn
       rfl
     | fvar idx nm t =>
-      rw [denoteNode, Option.map_eq_some_iff] at hdn
-      obtain ⟨xt, -, rfl⟩ := hdn
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xt, -, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
       rfl
     | sort u =>
       rw [denoteNode, Option.map_eq_some_iff] at hdn
       obtain ⟨lu, -, rfl⟩ := hdn
       rfl
     | const nm us =>
-      rw [denoteNode, Option.map_eq_some_iff] at hdn
-      obtain ⟨lus, -, rfl⟩ := hdn
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨lus, -, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
       rfl
     | lit l =>
       rw [denoteNode] at hdn
@@ -2050,8 +2806,10 @@ theorem WF.fvarRangeD_exact {st : EStore} (hwf : st.WF) :
       obtain ⟨xt, hxt, hdn⟩ := hdn
       rw [Option.bind_eq_some_iff] at hdn
       obtain ⟨xb, hxb, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨bm, -, hdn⟩ := hdn
       rw [Option.map_eq_some_iff] at hdn
-      obtain ⟨bm, -, rfl⟩ := hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
       have ht := hcl ty (by simp [ENode.children])
       have hb := hcl body (by simp [ENode.children])
       show max (st.fvarRangeD ty) (st.fvarRangeD body) = _
@@ -2062,8 +2820,10 @@ theorem WF.fvarRangeD_exact {st : EStore} (hwf : st.WF) :
       obtain ⟨xt, hxt, hdn⟩ := hdn
       rw [Option.bind_eq_some_iff] at hdn
       obtain ⟨xb, hxb, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨bm, -, hdn⟩ := hdn
       rw [Option.map_eq_some_iff] at hdn
-      obtain ⟨bm, -, rfl⟩ := hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
       have ht := hcl ty (by simp [ENode.children])
       have hb := hcl body (by simp [ENode.children])
       show max (st.fvarRangeD ty) (st.fvarRangeD body) = _
@@ -2074,8 +2834,10 @@ theorem WF.fvarRangeD_exact {st : EStore} (hwf : st.WF) :
       obtain ⟨xt, hxt, hdn⟩ := hdn
       rw [Option.bind_eq_some_iff] at hdn
       obtain ⟨xv, hxv, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨xb, hxb, hdn⟩ := hdn
       rw [Option.map_eq_some_iff] at hdn
-      obtain ⟨xb, hxb, rfl⟩ := hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
       have ht := hcl ty (by simp [ENode.children])
       have hv := hcl val (by simp [ENode.children])
       have hb := hcl body (by simp [ENode.children])
@@ -2084,8 +2846,10 @@ theorem WF.fvarRangeD_exact {st : EStore} (hwf : st.WF) :
       rw [ih ty ht hxt, ih val hv hxv, ih body hb hxb]
       rfl
     | proj sp j sub =>
-      rw [denoteNode, Option.map_eq_some_iff] at hdn
-      obtain ⟨xs, hxs, rfl⟩ := hdn
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xs, hxs, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
       have hs := hcl sub (by simp [ENode.children])
       show st.fvarRangeD sub = _
       rw [ih sub hs hxs]
@@ -2356,12 +3120,16 @@ theorem WF.ehasParamD_exact {st : EStore} (hwf : st.WF) :
       rw [hwf.lhasParamD_exact u hlu]
       rfl
     | const nm us =>
-      rw [denoteNode, Option.map_eq_some_iff] at hdn
-      obtain ⟨lus, hlus, rfl⟩ := hdn
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨lus, hlus, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
       exact hwf.lhasParamD_list hlus
     | fvar idx nm t =>
-      rw [denoteNode, Option.map_eq_some_iff] at hdn
-      obtain ⟨xt, hxt, rfl⟩ := hdn
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xt, hxt, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
       have hlt := hcl t (by simp [ENode.children])
       show st.ehasParamD t = _
       rw [ih t hlt hxt]
@@ -2381,8 +3149,10 @@ theorem WF.ehasParamD_exact {st : EStore} (hwf : st.WF) :
       obtain ⟨xt, hxt, hdn⟩ := hdn
       rw [Option.bind_eq_some_iff] at hdn
       obtain ⟨xb, hxb, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨bm, hbm, hdn⟩ := hdn
       rw [Option.map_eq_some_iff] at hdn
-      obtain ⟨bm, hbm, rfl⟩ := hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
       have ht := hcl ty (by simp [ENode.children])
       have hb := hcl body (by simp [ENode.children])
       obtain ⟨bi, cod⟩ := m
@@ -2404,8 +3174,10 @@ theorem WF.ehasParamD_exact {st : EStore} (hwf : st.WF) :
       obtain ⟨xt, hxt, hdn⟩ := hdn
       rw [Option.bind_eq_some_iff] at hdn
       obtain ⟨xb, hxb, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨bm, hbm, hdn⟩ := hdn
       rw [Option.map_eq_some_iff] at hdn
-      obtain ⟨bm, hbm, rfl⟩ := hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
       have ht := hcl ty (by simp [ENode.children])
       have hb := hcl body (by simp [ENode.children])
       obtain ⟨bi, cod⟩ := m
@@ -2427,8 +3199,10 @@ theorem WF.ehasParamD_exact {st : EStore} (hwf : st.WF) :
       obtain ⟨xt, hxt, hdn⟩ := hdn
       rw [Option.bind_eq_some_iff] at hdn
       obtain ⟨xv, hxv, hdn⟩ := hdn
+      rw [Option.bind_eq_some_iff] at hdn
+      obtain ⟨xb, hxb, hdn⟩ := hdn
       rw [Option.map_eq_some_iff] at hdn
-      obtain ⟨xb, hxb, rfl⟩ := hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
       have ht := hcl ty (by simp [ENode.children])
       have hv := hcl val (by simp [ENode.children])
       have hb := hcl body (by simp [ENode.children])
@@ -2436,8 +3210,10 @@ theorem WF.ehasParamD_exact {st : EStore} (hwf : st.WF) :
       rw [ih ty ht hxt, ih val hv hxv, ih body hb hxb]
       rfl
     | proj sp j sub =>
-      rw [denoteNode, Option.map_eq_some_iff] at hdn
-      obtain ⟨xs, hxs, rfl⟩ := hdn
+      rw [denoteNode, Option.bind_eq_some_iff] at hdn
+      obtain ⟨xs, hxs, hdn⟩ := hdn
+      rw [Option.map_eq_some_iff] at hdn
+      obtain ⟨nmv, -, rfl⟩ := hdn
       have hs := hcl sub (by simp [ENode.children])
       show st.ehasParamD sub = _
       rw [ih sub hs hxs]
@@ -2520,11 +3296,11 @@ theorem instantiate1IGo_spec {v : EIdx} {w : Expr} :
               rw [hI] at hgo
               cases hgo
               have hwfI : (st.intern (.bvar (i - 1))).2.WF :=
-                intern_wf hwf (by simp [ENode.children]) (by simp [ENode.levels])
+                intern_wf hwf (by simp [ENode.children]) (by simp [ENode.levels]) (by simp [ENode.names])
               have hextI : Ext st (st.intern (.bvar (i - 1))).2 := intern_ext _ _
               have hdI : (st.intern (.bvar (i - 1))).2.denote
                     (st.intern (.bvar (i - 1))).1
-                  = denoteNode st.denote st.denoteL (.bvar (i - 1)) :=
+                  = denoteNode st.denote st.denoteL st.denoteN (.bvar (i - 1)) :=
                 intern_denote hwf (by simp [ENode.children])
               rw [hI] at hwfI hextI hdI
               have hcond : ∀ x, st.denote e = some x →
@@ -2551,8 +3327,10 @@ theorem instantiate1IGo_spec {v : EIdx} {w : Expr} :
           cases hgo
           obtain ⟨xt, hxt⟩ := denote_total hwf t
             (Nat.lt_trans (hcl t (by simp [ENode.children])) hesz)
-          have hx : st.denote e = some (.fvar idx nm xt) := by
-            rw [hde, denoteNode, hxt]; rfl
+          obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+            (hwf.names_lt e _ hn nm (by simp [ENode.names]))
+          have hx : st.denote e = some (.fvar idx nmv xt) := by
+            rw [hde, denoteNode, hxt, hnm]; rfl
           have hcond : ∀ x, st.denote e = some x →
               st.denote e = some (x.instantiate1 w d) := by
             intro x hxx
@@ -2577,8 +3355,10 @@ theorem instantiate1IGo_spec {v : EIdx} {w : Expr} :
           cases hgo
           obtain ⟨lus, hlus⟩ := denoteLList_total hwf us
             (fun u hu => hwf.levels_lt e _ hn u (by simp [ENode.levels, hu]))
-          have hx : st.denote e = some (.const nm lus) := by
-            rw [hde, denoteNode, hlus]; rfl
+          obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+            (hwf.names_lt e _ hn nm (by simp [ENode.names]))
+          have hx : st.denote e = some (.const nmv lus) := by
+            rw [hde, denoteNode, hlus, hnm]; rfl
           have hcond : ∀ x, st.denote e = some x →
               st.denote e = some (x.instantiate1 w d) := by
             intro x hxx
@@ -2625,7 +3405,8 @@ theorem instantiate1IGo_spec {v : EIdx} {w : Expr} :
               rintro c (rfl | rfl)
               · exact denote_lt_size hf₂
               · exact denote_lt_size ha₂
-            have hwf₃ : (st₂.intern (.app f' a')).2.WF := intern_wf hwf₂ hcI (by simp [ENode.levels])
+            have hwf₃ : (st₂.intern (.app f' a')).2.WF :=
+              intern_wf hwf₂ hcI (by simp [ENode.levels]) (by simp [ENode.names])
             have hext₃ : Ext st₂ (st₂.intern (.app f' a')).2 := intern_ext _ _
             have hdI := intern_denote (n := .app f' a') hwf₂ hcI
             rw [h₃] at hwf₃ hext₃ hdI
@@ -2659,8 +3440,11 @@ theorem instantiate1IGo_spec {v : EIdx} {w : Expr} :
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
               (fun u hu => hwf.levels_lt e _ hn u
                 (by simpa [ENode.levels] using hu))
-            have hx : st.denote e = some (.lam nm xt xb bm) := by
-              rw [hde, denoteNode, ht, hb, hbm]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hnms nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.lam nmv xt xb bm) := by
+              rw [hde, denoteNode, ht, hb, hbm, hnm]; rfl
             obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ := ih ty hguard.1 hwf hv hinv h₁
             have hv₁ := denote_mono hext₁ hv
             obtain ⟨hwf₂, hext₂, hinv₂, hden₂⟩ := ih body hguard.2 hwf₁ hv₁ hinv₁ h₂
@@ -2680,18 +3464,23 @@ theorem instantiate1IGo_spec {v : EIdx} {w : Expr} :
                 (hwf.levels_lt e _ hn u (by simpa [ENode.levels] using hu))
                 (hext₁.trans hext₂).lsize_le
             have hwf₃ : (st₂.intern (.lam nm ty' body' m)).2.WF :=
-              intern_wf hwf₂ hcI hlvI
+              intern_wf hwf₂ hcI hlvI (fun p hp =>
+                Nat.lt_of_lt_of_le
+                  (hwf.names_lt e _ hn p (by simpa [ENode.names] using hp))
+                  (hext₁.trans hext₂).nsize_le)
             have hext₃ : Ext st₂ (st₂.intern (.lam nm ty' body' m)).2 := intern_ext _ _
             have hdI := intern_denote (n := .lam nm ty' body' m) hwf₂ hcI
             rw [h₃] at hwf₃ hext₃ hdI
             have hextAll : Ext st st₃ := hext₁.trans (hext₂.trans hext₃)
             have hbm₂ : denoteBM st₂.denoteL m = some bm :=
               denoteBM_mono (hext₁.trans hext₂) hbm
+            have hnm₂ : st₂.denoteN nm = some nmv :=
+              denoteN_mono (hext₁.trans hext₂) hnm
             have hcond : ∀ x, st.denote e = some x →
                 st₃.denote ri = some (x.instantiate1 w d) := by
               intro x hxx
               rw [hx] at hxx; cases hxx
-              rw [hdI, denoteNode, ht₂, hb₂, hbm₂]
+              rw [hdI, denoteNode, ht₂, hb₂, hbm₂, hnm₂]
               simp [Expr.instantiate1]
             refine ⟨hwf₃, hextAll, ?_, hcond⟩
             exact (hinv₂.mono hext₃ hwf₂).insert
@@ -2716,8 +3505,11 @@ theorem instantiate1IGo_spec {v : EIdx} {w : Expr} :
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
               (fun u hu => hwf.levels_lt e _ hn u
                 (by simpa [ENode.levels] using hu))
-            have hx : st.denote e = some (.forallE nm xt xb bm) := by
-              rw [hde, denoteNode, ht, hb, hbm]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hnms nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.forallE nmv xt xb bm) := by
+              rw [hde, denoteNode, ht, hb, hbm, hnm]; rfl
             obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ := ih ty hguard.1 hwf hv hinv h₁
             have hv₁ := denote_mono hext₁ hv
             obtain ⟨hwf₂, hext₂, hinv₂, hden₂⟩ := ih body hguard.2 hwf₁ hv₁ hinv₁ h₂
@@ -2737,7 +3529,10 @@ theorem instantiate1IGo_spec {v : EIdx} {w : Expr} :
                 (hwf.levels_lt e _ hn u (by simpa [ENode.levels] using hu))
                 (hext₁.trans hext₂).lsize_le
             have hwf₃ : (st₂.intern (.forallE nm ty' body' m)).2.WF :=
-              intern_wf hwf₂ hcI hlvI
+              intern_wf hwf₂ hcI hlvI (fun p hp =>
+                Nat.lt_of_lt_of_le
+                  (hwf.names_lt e _ hn p (by simpa [ENode.names] using hp))
+                  (hext₁.trans hext₂).nsize_le)
             have hext₃ : Ext st₂ (st₂.intern (.forallE nm ty' body' m)).2 :=
               intern_ext _ _
             have hdI := intern_denote (n := .forallE nm ty' body' m) hwf₂ hcI
@@ -2745,11 +3540,13 @@ theorem instantiate1IGo_spec {v : EIdx} {w : Expr} :
             have hextAll : Ext st st₃ := hext₁.trans (hext₂.trans hext₃)
             have hbm₂ : denoteBM st₂.denoteL m = some bm :=
               denoteBM_mono (hext₁.trans hext₂) hbm
+            have hnm₂ : st₂.denoteN nm = some nmv :=
+              denoteN_mono (hext₁.trans hext₂) hnm
             have hcond : ∀ x, st.denote e = some x →
                 st₃.denote ri = some (x.instantiate1 w d) := by
               intro x hxx
               rw [hx] at hxx; cases hxx
-              rw [hdI, denoteNode, ht₂, hb₂, hbm₂]
+              rw [hdI, denoteNode, ht₂, hb₂, hbm₂, hnm₂]
               simp [Expr.instantiate1]
             refine ⟨hwf₃, hextAll, ?_, hcond⟩
             exact (hinv₂.mono hext₃ hwf₂).insert
@@ -2775,8 +3572,11 @@ theorem instantiate1IGo_spec {v : EIdx} {w : Expr} :
             obtain ⟨xt, ht⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
             obtain ⟨xv, hvv⟩ := denote_total hwf val (Nat.lt_trans hguard.2.1 hesz)
             obtain ⟨xb, hb⟩ := denote_total hwf body (Nat.lt_trans hguard.2.2 hesz)
-            have hx : st.denote e = some (.letE nm xt xv xb) := by
-              rw [hde, denoteNode, ht, hvv, hb]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hnms nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.letE nmv xt xv xb) := by
+              rw [hde, denoteNode, ht, hvv, hb, hnm]; rfl
             obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ := ih ty hguard.1 hwf hv hinv h₁
             have hv₁ := denote_mono hext₁ hv
             obtain ⟨hwf₂, hext₂, hinv₂, hden₂⟩ :=
@@ -2798,7 +3598,10 @@ theorem instantiate1IGo_spec {v : EIdx} {w : Expr} :
               · exact denote_lt_size hvv₃
               · exact denote_lt_size hb₃
             have hwf₄ : (st₃.intern (.letE nm ty' val' body')).2.WF :=
-              intern_wf hwf₃ hcI (by simp [ENode.levels])
+              intern_wf hwf₃ hcI (by simp [ENode.levels]) (fun p hp =>
+                Nat.lt_of_lt_of_le
+                  (hwf.names_lt e _ hn p (by simpa [ENode.names] using hp))
+                  (hext₁.trans (hext₂.trans hext₃)).nsize_le)
             have hext₄ : Ext st₃ (st₃.intern (.letE nm ty' val' body')).2 :=
               intern_ext _ _
             have hdI := intern_denote (n := .letE nm ty' val' body') hwf₃ hcI
@@ -2809,7 +3612,8 @@ theorem instantiate1IGo_spec {v : EIdx} {w : Expr} :
                 st₄.denote ri = some (x.instantiate1 w d) := by
               intro x hxx
               rw [hx] at hxx; cases hxx
-              rw [hdI, denoteNode, ht₃, hvv₃, hb₃]
+              rw [hdI, denoteNode, ht₃, hvv₃, hb₃,
+                denoteN_mono (hext₁.trans (hext₂.trans hext₃)) hnm]
               simp [Expr.instantiate1]
             refine ⟨hwf₄, hextAll, ?_, hcond⟩
             exact (hinv₃.mono hext₄ hwf₃).insert
@@ -2827,14 +3631,20 @@ theorem instantiate1IGo_spec {v : EIdx} {w : Expr} :
             rw [h₂] at hgo
             cases hgo
             obtain ⟨xs, hs⟩ := denote_total hwf sub (Nat.lt_trans hguard hesz)
-            have hx : st.denote e = some (.proj s j xs) := by
-              rw [hde, denoteNode, hs]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf s
+              (hnms s (by simp [ENode.names]))
+            have hx : st.denote e = some (.proj nmv j xs) := by
+              rw [hde, denoteNode, hs, hnm]; rfl
             obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ := ih sub hguard hwf hv hinv h₁
             have hs₁ : st₁.denote sub' = some (xs.instantiate1 w d) := hden₁ xs hs
             have hcI : ∀ c ∈ (ENode.proj s j sub').children,
                 c < st₁.nodes.size := by
               simpa [ENode.children] using denote_lt_size hs₁
-            have hwf₂ : (st₁.intern (.proj s j sub')).2.WF := intern_wf hwf₁ hcI (by simp [ENode.levels])
+            have hwf₂ : (st₁.intern (.proj s j sub')).2.WF := intern_wf hwf₁ hcI (by simp [ENode.levels]) (fun p hp =>
+                Nat.lt_of_lt_of_le
+                  (hwf.names_lt e _ hn p (by simpa [ENode.names] using hp))
+                  hext₁.nsize_le)
             have hext₂ : Ext st₁ (st₁.intern (.proj s j sub')).2 := intern_ext _ _
             have hdI := intern_denote (n := .proj s j sub') hwf₁ hcI
             rw [h₂] at hwf₂ hext₂ hdI
@@ -2843,7 +3653,7 @@ theorem instantiate1IGo_spec {v : EIdx} {w : Expr} :
                 st₂.denote ri = some (x.instantiate1 w d) := by
               intro x hxx
               rw [hx] at hxx; cases hxx
-              rw [hdI, denoteNode, hs₁]
+              rw [hdI, denoteNode, hs₁, denoteN_mono hext₁ hnm]
               simp [Expr.instantiate1]
             refine ⟨hwf₂, hextAll, ?_, hcond⟩
             exact (hinv₁.mono hext₂ hwf₁).insert
@@ -2911,8 +3721,10 @@ theorem abstract1IGo_spec {dd : Nat} :
           dsimp only at hgo
           obtain ⟨xt, hxt⟩ := denote_total hwf t
             (Nat.lt_trans (hcl t (by simp [ENode.children])) hesz)
-          have hx : st.denote e = some (.fvar idx nm xt) := by
-            rw [hde, denoteNode, hxt]; rfl
+          obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+            (hwf.names_lt e _ hn nm (by simp [ENode.names]))
+          have hx : st.denote e = some (.fvar idx nmv xt) := by
+            rw [hde, denoteNode, hxt, hnm]; rfl
           split at hgo
           · -- idx = dd: abstracted to bvar k
             rename_i hid
@@ -2920,7 +3732,7 @@ theorem abstract1IGo_spec {dd : Nat} :
             rw [hI] at hgo
             cases hgo
             have hwfI : (st.intern (.bvar k)).2.WF :=
-              intern_wf hwf (by simp [ENode.children]) (by simp [ENode.levels])
+              intern_wf hwf (by simp [ENode.children]) (by simp [ENode.levels]) (by simp [ENode.names])
             have hextI : Ext st (st.intern (.bvar k)).2 := intern_ext _ _
             have hdI := intern_denote (n := .bvar k) hwf (by simp [ENode.children])
             rw [hI] at hwfI hextI hdI
@@ -2961,8 +3773,10 @@ theorem abstract1IGo_spec {dd : Nat} :
           cases hgo
           obtain ⟨lus, hlus⟩ := denoteLList_total hwf us
             (fun u hu => hwf.levels_lt e _ hn u (by simp [ENode.levels, hu]))
-          have hx : st.denote e = some (.const nm lus) := by
-            rw [hde, denoteNode, hlus]; rfl
+          obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+            (hwf.names_lt e _ hn nm (by simp [ENode.names]))
+          have hx : st.denote e = some (.const nmv lus) := by
+            rw [hde, denoteNode, hlus, hnm]; rfl
           have hcond : ∀ x, st.denote e = some x →
               st.denote e = some (x.abstract1 dd k) := by
             intro x hxx
@@ -3008,7 +3822,8 @@ theorem abstract1IGo_spec {dd : Nat} :
               rintro c (rfl | rfl)
               · exact denote_lt_size hf₂
               · exact denote_lt_size ha₂
-            have hwf₃ : (st₂.intern (.app f' a')).2.WF := intern_wf hwf₂ hcI (by simp [ENode.levels])
+            have hwf₃ : (st₂.intern (.app f' a')).2.WF :=
+              intern_wf hwf₂ hcI (by simp [ENode.levels]) (by simp [ENode.names])
             have hext₃ : Ext st₂ (st₂.intern (.app f' a')).2 := intern_ext _ _
             have hdI := intern_denote (n := .app f' a') hwf₂ hcI
             rw [h₃] at hwf₃ hext₃ hdI
@@ -3042,8 +3857,11 @@ theorem abstract1IGo_spec {dd : Nat} :
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
               (fun u hu => hwf.levels_lt e _ hn u
                 (by simpa [ENode.levels] using hu))
-            have hx : st.denote e = some (.lam nm xt xb bm) := by
-              rw [hde, denoteNode, ht, hb, hbm]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hnms nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.lam nmv xt xb bm) := by
+              rw [hde, denoteNode, ht, hb, hbm, hnm]; rfl
             obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ := ih ty hguard.1 hwf hinv h₁
             obtain ⟨hwf₂, hext₂, hinv₂, hden₂⟩ := ih body hguard.2 hwf₁ hinv₁ h₂
             have ht₂ : st₂.denote ty' = some (xt.abstract1 dd k) :=
@@ -3062,18 +3880,23 @@ theorem abstract1IGo_spec {dd : Nat} :
                 (hwf.levels_lt e _ hn u (by simpa [ENode.levels] using hu))
                 (hext₁.trans hext₂).lsize_le
             have hwf₃ : (st₂.intern (.lam nm ty' body' m)).2.WF :=
-              intern_wf hwf₂ hcI hlvI
+              intern_wf hwf₂ hcI hlvI (fun p hp =>
+                Nat.lt_of_lt_of_le
+                  (hwf.names_lt e _ hn p (by simpa [ENode.names] using hp))
+                  (hext₁.trans hext₂).nsize_le)
             have hext₃ : Ext st₂ (st₂.intern (.lam nm ty' body' m)).2 := intern_ext _ _
             have hdI := intern_denote (n := .lam nm ty' body' m) hwf₂ hcI
             rw [h₃] at hwf₃ hext₃ hdI
             have hextAll : Ext st st₃ := hext₁.trans (hext₂.trans hext₃)
             have hbm₂ : denoteBM st₂.denoteL m = some bm :=
               denoteBM_mono (hext₁.trans hext₂) hbm
+            have hnm₂ : st₂.denoteN nm = some nmv :=
+              denoteN_mono (hext₁.trans hext₂) hnm
             have hcond : ∀ x, st.denote e = some x →
                 st₃.denote ri = some (x.abstract1 dd k) := by
               intro x hxx
               rw [hx] at hxx; cases hxx
-              rw [hdI, denoteNode, ht₂, hb₂, hbm₂]
+              rw [hdI, denoteNode, ht₂, hb₂, hbm₂, hnm₂]
               simp [Expr.abstract1]
             refine ⟨hwf₃, hextAll, ?_, hcond⟩
             exact (hinv₂.mono hext₃ hwf₂).insert
@@ -3098,8 +3921,11 @@ theorem abstract1IGo_spec {dd : Nat} :
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
               (fun u hu => hwf.levels_lt e _ hn u
                 (by simpa [ENode.levels] using hu))
-            have hx : st.denote e = some (.forallE nm xt xb bm) := by
-              rw [hde, denoteNode, ht, hb, hbm]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hnms nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.forallE nmv xt xb bm) := by
+              rw [hde, denoteNode, ht, hb, hbm, hnm]; rfl
             obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ := ih ty hguard.1 hwf hinv h₁
             obtain ⟨hwf₂, hext₂, hinv₂, hden₂⟩ := ih body hguard.2 hwf₁ hinv₁ h₂
             have ht₂ : st₂.denote ty' = some (xt.abstract1 dd k) :=
@@ -3118,7 +3944,10 @@ theorem abstract1IGo_spec {dd : Nat} :
                 (hwf.levels_lt e _ hn u (by simpa [ENode.levels] using hu))
                 (hext₁.trans hext₂).lsize_le
             have hwf₃ : (st₂.intern (.forallE nm ty' body' m)).2.WF :=
-              intern_wf hwf₂ hcI hlvI
+              intern_wf hwf₂ hcI hlvI (fun p hp =>
+                Nat.lt_of_lt_of_le
+                  (hwf.names_lt e _ hn p (by simpa [ENode.names] using hp))
+                  (hext₁.trans hext₂).nsize_le)
             have hext₃ : Ext st₂ (st₂.intern (.forallE nm ty' body' m)).2 :=
               intern_ext _ _
             have hdI := intern_denote (n := .forallE nm ty' body' m) hwf₂ hcI
@@ -3126,11 +3955,13 @@ theorem abstract1IGo_spec {dd : Nat} :
             have hextAll : Ext st st₃ := hext₁.trans (hext₂.trans hext₃)
             have hbm₂ : denoteBM st₂.denoteL m = some bm :=
               denoteBM_mono (hext₁.trans hext₂) hbm
+            have hnm₂ : st₂.denoteN nm = some nmv :=
+              denoteN_mono (hext₁.trans hext₂) hnm
             have hcond : ∀ x, st.denote e = some x →
                 st₃.denote ri = some (x.abstract1 dd k) := by
               intro x hxx
               rw [hx] at hxx; cases hxx
-              rw [hdI, denoteNode, ht₂, hb₂, hbm₂]
+              rw [hdI, denoteNode, ht₂, hb₂, hbm₂, hnm₂]
               simp [Expr.abstract1]
             refine ⟨hwf₃, hextAll, ?_, hcond⟩
             exact (hinv₂.mono hext₃ hwf₂).insert
@@ -3156,8 +3987,11 @@ theorem abstract1IGo_spec {dd : Nat} :
             obtain ⟨xt, ht⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
             obtain ⟨xv, hvv⟩ := denote_total hwf val (Nat.lt_trans hguard.2.1 hesz)
             obtain ⟨xb, hb⟩ := denote_total hwf body (Nat.lt_trans hguard.2.2 hesz)
-            have hx : st.denote e = some (.letE nm xt xv xb) := by
-              rw [hde, denoteNode, ht, hvv, hb]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hnms nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.letE nmv xt xv xb) := by
+              rw [hde, denoteNode, ht, hvv, hb, hnm]; rfl
             obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ := ih ty hguard.1 hwf hinv h₁
             obtain ⟨hwf₂, hext₂, hinv₂, hden₂⟩ :=
               ih val hguard.2.1 hwf₁ hinv₁ h₂
@@ -3177,7 +4011,10 @@ theorem abstract1IGo_spec {dd : Nat} :
               · exact denote_lt_size hvv₃
               · exact denote_lt_size hb₃
             have hwf₄ : (st₃.intern (.letE nm ty' val' body')).2.WF :=
-              intern_wf hwf₃ hcI (by simp [ENode.levels])
+              intern_wf hwf₃ hcI (by simp [ENode.levels]) (fun p hp =>
+                Nat.lt_of_lt_of_le
+                  (hwf.names_lt e _ hn p (by simpa [ENode.names] using hp))
+                  (hext₁.trans (hext₂.trans hext₃)).nsize_le)
             have hext₄ : Ext st₃ (st₃.intern (.letE nm ty' val' body')).2 :=
               intern_ext _ _
             have hdI := intern_denote (n := .letE nm ty' val' body') hwf₃ hcI
@@ -3188,7 +4025,8 @@ theorem abstract1IGo_spec {dd : Nat} :
                 st₄.denote ri = some (x.abstract1 dd k) := by
               intro x hxx
               rw [hx] at hxx; cases hxx
-              rw [hdI, denoteNode, ht₃, hvv₃, hb₃]
+              rw [hdI, denoteNode, ht₃, hvv₃, hb₃,
+                denoteN_mono (hext₁.trans (hext₂.trans hext₃)) hnm]
               simp [Expr.abstract1]
             refine ⟨hwf₄, hextAll, ?_, hcond⟩
             exact (hinv₃.mono hext₄ hwf₃).insert
@@ -3206,14 +4044,20 @@ theorem abstract1IGo_spec {dd : Nat} :
             rw [h₂] at hgo
             cases hgo
             obtain ⟨xs, hs⟩ := denote_total hwf sub (Nat.lt_trans hguard hesz)
-            have hx : st.denote e = some (.proj s j xs) := by
-              rw [hde, denoteNode, hs]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf s
+              (hnms s (by simp [ENode.names]))
+            have hx : st.denote e = some (.proj nmv j xs) := by
+              rw [hde, denoteNode, hs, hnm]; rfl
             obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ := ih sub hguard hwf hinv h₁
             have hs₁ : st₁.denote sub' = some (xs.abstract1 dd k) := hden₁ xs hs
             have hcI : ∀ c ∈ (ENode.proj s j sub').children,
                 c < st₁.nodes.size := by
               simpa [ENode.children] using denote_lt_size hs₁
-            have hwf₂ : (st₁.intern (.proj s j sub')).2.WF := intern_wf hwf₁ hcI (by simp [ENode.levels])
+            have hwf₂ : (st₁.intern (.proj s j sub')).2.WF := intern_wf hwf₁ hcI (by simp [ENode.levels]) (fun p hp =>
+                Nat.lt_of_lt_of_le
+                  (hwf.names_lt e _ hn p (by simpa [ENode.names] using hp))
+                  hext₁.nsize_le)
             have hext₂ : Ext st₁ (st₁.intern (.proj s j sub')).2 := intern_ext _ _
             have hdI := intern_denote (n := .proj s j sub') hwf₁ hcI
             rw [h₂] at hwf₂ hext₂ hdI
@@ -3222,7 +4066,7 @@ theorem abstract1IGo_spec {dd : Nat} :
                 st₂.denote ri = some (x.abstract1 dd k) := by
               intro x hxx
               rw [hx] at hxx; cases hxx
-              rw [hdI, denoteNode, hs₁]
+              rw [hdI, denoteNode, hs₁, denoteN_mono hext₁ hnm]
               simp [Expr.abstract1]
             refine ⟨hwf₂, hextAll, ?_, hcond⟩
             exact (hinv₁.mono hext₂ hwf₁).insert
@@ -3284,8 +4128,10 @@ theorem abstractRangeIGo_spec {dd kk : Nat} :
           dsimp only at hgo
           obtain ⟨xt, hxt⟩ := denote_total hwf t
             (Nat.lt_trans (hcl t (by simp [ENode.children])) hesz)
-          have hx : st.denote e = some (.fvar idx nm xt) := by
-            rw [hde, denoteNode, hxt]; rfl
+          obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+            (hwf.names_lt e _ hn nm (by simp [ENode.names]))
+          have hx : st.denote e = some (.fvar idx nmv xt) := by
+            rw [hde, denoteNode, hxt, hnm]; rfl
           split at hgo
           · -- dd ≤ idx < dd + kk: abstracted to the range's bvar
             rename_i hid
@@ -3294,7 +4140,7 @@ theorem abstractRangeIGo_spec {dd kk : Nat} :
             rw [hI] at hgo
             cases hgo
             have hwfI : (st.intern (.bvar (k + (dd + kk - 1 - idx)))).2.WF :=
-              intern_wf hwf (by simp [ENode.children]) (by simp [ENode.levels])
+              intern_wf hwf (by simp [ENode.children]) (by simp [ENode.levels]) (by simp [ENode.names])
             have hextI : Ext st (st.intern (.bvar (k + (dd + kk - 1 - idx)))).2 :=
               intern_ext _ _
             have hdI := intern_denote (n := .bvar (k + (dd + kk - 1 - idx)))
@@ -3337,8 +4183,10 @@ theorem abstractRangeIGo_spec {dd kk : Nat} :
           cases hgo
           obtain ⟨lus, hlus⟩ := denoteLList_total hwf us
             (fun u hu => hwf.levels_lt e _ hn u (by simp [ENode.levels, hu]))
-          have hx : st.denote e = some (.const nm lus) := by
-            rw [hde, denoteNode, hlus]; rfl
+          obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+            (hwf.names_lt e _ hn nm (by simp [ENode.names]))
+          have hx : st.denote e = some (.const nmv lus) := by
+            rw [hde, denoteNode, hlus, hnm]; rfl
           have hcond : ∀ x, st.denote e = some x →
               st.denote e = some (x.abstractRange dd kk k) := by
             intro x hxx
@@ -3384,7 +4232,8 @@ theorem abstractRangeIGo_spec {dd kk : Nat} :
               rintro c (rfl | rfl)
               · exact denote_lt_size hf₂
               · exact denote_lt_size ha₂
-            have hwf₃ : (st₂.intern (.app f' a')).2.WF := intern_wf hwf₂ hcI (by simp [ENode.levels])
+            have hwf₃ : (st₂.intern (.app f' a')).2.WF :=
+              intern_wf hwf₂ hcI (by simp [ENode.levels]) (by simp [ENode.names])
             have hext₃ : Ext st₂ (st₂.intern (.app f' a')).2 := intern_ext _ _
             have hdI := intern_denote (n := .app f' a') hwf₂ hcI
             rw [h₃] at hwf₃ hext₃ hdI
@@ -3418,8 +4267,11 @@ theorem abstractRangeIGo_spec {dd kk : Nat} :
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
               (fun u hu => hwf.levels_lt e _ hn u
                 (by simpa [ENode.levels] using hu))
-            have hx : st.denote e = some (.lam nm xt xb bm) := by
-              rw [hde, denoteNode, ht, hb, hbm]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hnms nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.lam nmv xt xb bm) := by
+              rw [hde, denoteNode, ht, hb, hbm, hnm]; rfl
             obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ := ih ty hguard.1 hwf hinv h₁
             obtain ⟨hwf₂, hext₂, hinv₂, hden₂⟩ := ih body hguard.2 hwf₁ hinv₁ h₂
             have ht₂ : st₂.denote ty' = some (xt.abstractRange dd kk k) :=
@@ -3438,18 +4290,23 @@ theorem abstractRangeIGo_spec {dd kk : Nat} :
                 (hwf.levels_lt e _ hn u (by simpa [ENode.levels] using hu))
                 (hext₁.trans hext₂).lsize_le
             have hwf₃ : (st₂.intern (.lam nm ty' body' m)).2.WF :=
-              intern_wf hwf₂ hcI hlvI
+              intern_wf hwf₂ hcI hlvI (fun p hp =>
+                Nat.lt_of_lt_of_le
+                  (hwf.names_lt e _ hn p (by simpa [ENode.names] using hp))
+                  (hext₁.trans hext₂).nsize_le)
             have hext₃ : Ext st₂ (st₂.intern (.lam nm ty' body' m)).2 := intern_ext _ _
             have hdI := intern_denote (n := .lam nm ty' body' m) hwf₂ hcI
             rw [h₃] at hwf₃ hext₃ hdI
             have hextAll : Ext st st₃ := hext₁.trans (hext₂.trans hext₃)
             have hbm₂ : denoteBM st₂.denoteL m = some bm :=
               denoteBM_mono (hext₁.trans hext₂) hbm
+            have hnm₂ : st₂.denoteN nm = some nmv :=
+              denoteN_mono (hext₁.trans hext₂) hnm
             have hcond : ∀ x, st.denote e = some x →
                 st₃.denote ri = some (x.abstractRange dd kk k) := by
               intro x hxx
               rw [hx] at hxx; cases hxx
-              rw [hdI, denoteNode, ht₂, hb₂, hbm₂]
+              rw [hdI, denoteNode, ht₂, hb₂, hbm₂, hnm₂]
               simp [Expr.abstractRange]
             refine ⟨hwf₃, hextAll, ?_, hcond⟩
             exact (hinv₂.mono hext₃ hwf₂).insert
@@ -3474,8 +4331,11 @@ theorem abstractRangeIGo_spec {dd kk : Nat} :
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
               (fun u hu => hwf.levels_lt e _ hn u
                 (by simpa [ENode.levels] using hu))
-            have hx : st.denote e = some (.forallE nm xt xb bm) := by
-              rw [hde, denoteNode, ht, hb, hbm]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hnms nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.forallE nmv xt xb bm) := by
+              rw [hde, denoteNode, ht, hb, hbm, hnm]; rfl
             obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ := ih ty hguard.1 hwf hinv h₁
             obtain ⟨hwf₂, hext₂, hinv₂, hden₂⟩ := ih body hguard.2 hwf₁ hinv₁ h₂
             have ht₂ : st₂.denote ty' = some (xt.abstractRange dd kk k) :=
@@ -3494,7 +4354,10 @@ theorem abstractRangeIGo_spec {dd kk : Nat} :
                 (hwf.levels_lt e _ hn u (by simpa [ENode.levels] using hu))
                 (hext₁.trans hext₂).lsize_le
             have hwf₃ : (st₂.intern (.forallE nm ty' body' m)).2.WF :=
-              intern_wf hwf₂ hcI hlvI
+              intern_wf hwf₂ hcI hlvI (fun p hp =>
+                Nat.lt_of_lt_of_le
+                  (hwf.names_lt e _ hn p (by simpa [ENode.names] using hp))
+                  (hext₁.trans hext₂).nsize_le)
             have hext₃ : Ext st₂ (st₂.intern (.forallE nm ty' body' m)).2 :=
               intern_ext _ _
             have hdI := intern_denote (n := .forallE nm ty' body' m) hwf₂ hcI
@@ -3502,11 +4365,13 @@ theorem abstractRangeIGo_spec {dd kk : Nat} :
             have hextAll : Ext st st₃ := hext₁.trans (hext₂.trans hext₃)
             have hbm₂ : denoteBM st₂.denoteL m = some bm :=
               denoteBM_mono (hext₁.trans hext₂) hbm
+            have hnm₂ : st₂.denoteN nm = some nmv :=
+              denoteN_mono (hext₁.trans hext₂) hnm
             have hcond : ∀ x, st.denote e = some x →
                 st₃.denote ri = some (x.abstractRange dd kk k) := by
               intro x hxx
               rw [hx] at hxx; cases hxx
-              rw [hdI, denoteNode, ht₂, hb₂, hbm₂]
+              rw [hdI, denoteNode, ht₂, hb₂, hbm₂, hnm₂]
               simp [Expr.abstractRange]
             refine ⟨hwf₃, hextAll, ?_, hcond⟩
             exact (hinv₂.mono hext₃ hwf₂).insert
@@ -3532,8 +4397,11 @@ theorem abstractRangeIGo_spec {dd kk : Nat} :
             obtain ⟨xt, ht⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
             obtain ⟨xv, hvv⟩ := denote_total hwf val (Nat.lt_trans hguard.2.1 hesz)
             obtain ⟨xb, hb⟩ := denote_total hwf body (Nat.lt_trans hguard.2.2 hesz)
-            have hx : st.denote e = some (.letE nm xt xv xb) := by
-              rw [hde, denoteNode, ht, hvv, hb]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hnms nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.letE nmv xt xv xb) := by
+              rw [hde, denoteNode, ht, hvv, hb, hnm]; rfl
             obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ := ih ty hguard.1 hwf hinv h₁
             obtain ⟨hwf₂, hext₂, hinv₂, hden₂⟩ :=
               ih val hguard.2.1 hwf₁ hinv₁ h₂
@@ -3553,7 +4421,10 @@ theorem abstractRangeIGo_spec {dd kk : Nat} :
               · exact denote_lt_size hvv₃
               · exact denote_lt_size hb₃
             have hwf₄ : (st₃.intern (.letE nm ty' val' body')).2.WF :=
-              intern_wf hwf₃ hcI (by simp [ENode.levels])
+              intern_wf hwf₃ hcI (by simp [ENode.levels]) (fun p hp =>
+                Nat.lt_of_lt_of_le
+                  (hwf.names_lt e _ hn p (by simpa [ENode.names] using hp))
+                  (hext₁.trans (hext₂.trans hext₃)).nsize_le)
             have hext₄ : Ext st₃ (st₃.intern (.letE nm ty' val' body')).2 :=
               intern_ext _ _
             have hdI := intern_denote (n := .letE nm ty' val' body') hwf₃ hcI
@@ -3564,7 +4435,8 @@ theorem abstractRangeIGo_spec {dd kk : Nat} :
                 st₄.denote ri = some (x.abstractRange dd kk k) := by
               intro x hxx
               rw [hx] at hxx; cases hxx
-              rw [hdI, denoteNode, ht₃, hvv₃, hb₃]
+              rw [hdI, denoteNode, ht₃, hvv₃, hb₃,
+                denoteN_mono (hext₁.trans (hext₂.trans hext₃)) hnm]
               simp [Expr.abstractRange]
             refine ⟨hwf₄, hextAll, ?_, hcond⟩
             exact (hinv₃.mono hext₄ hwf₃).insert
@@ -3582,14 +4454,20 @@ theorem abstractRangeIGo_spec {dd kk : Nat} :
             rw [h₂] at hgo
             cases hgo
             obtain ⟨xs, hs⟩ := denote_total hwf sub (Nat.lt_trans hguard hesz)
-            have hx : st.denote e = some (.proj s j xs) := by
-              rw [hde, denoteNode, hs]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf s
+              (hnms s (by simp [ENode.names]))
+            have hx : st.denote e = some (.proj nmv j xs) := by
+              rw [hde, denoteNode, hs, hnm]; rfl
             obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ := ih sub hguard hwf hinv h₁
             have hs₁ : st₁.denote sub' = some (xs.abstractRange dd kk k) := hden₁ xs hs
             have hcI : ∀ c ∈ (ENode.proj s j sub').children,
                 c < st₁.nodes.size := by
               simpa [ENode.children] using denote_lt_size hs₁
-            have hwf₂ : (st₁.intern (.proj s j sub')).2.WF := intern_wf hwf₁ hcI (by simp [ENode.levels])
+            have hwf₂ : (st₁.intern (.proj s j sub')).2.WF := intern_wf hwf₁ hcI (by simp [ENode.levels]) (fun p hp =>
+                Nat.lt_of_lt_of_le
+                  (hwf.names_lt e _ hn p (by simpa [ENode.names] using hp))
+                  hext₁.nsize_le)
             have hext₂ : Ext st₁ (st₁.intern (.proj s j sub')).2 := intern_ext _ _
             have hdI := intern_denote (n := .proj s j sub') hwf₁ hcI
             rw [h₂] at hwf₂ hext₂ hdI
@@ -3598,7 +4476,7 @@ theorem abstractRangeIGo_spec {dd kk : Nat} :
                 st₂.denote ri = some (x.abstractRange dd kk k) := by
               intro x hxx
               rw [hx] at hxx; cases hxx
-              rw [hdI, denoteNode, hs₁]
+              rw [hdI, denoteNode, hs₁, denoteN_mono hext₁ hnm]
               simp [Expr.abstractRange]
             refine ⟨hwf₂, hextAll, ?_, hcond⟩
             exact (hinv₁.mono hext₂ hwf₁).insert
@@ -4096,8 +4974,10 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
             rw [h₂] at hgo
             cases hgo
             obtain ⟨xt, hxt⟩ := denote_total hwf t (Nat.lt_trans hguard hesz)
-            have hx : st.denote e = some (.fvar idx nm xt) := by
-              rw [hde, denoteNode, hxt]; rfl
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hwf.names_lt e _ hn nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.fvar idx nmv xt) := by
+              rw [hde, denoteNode, hxt, hnm]; rfl
             obtain ⟨hwf₁, hext₁, hinv₁, hlinv₁, hden₁⟩ :=
               ih t hguard hwf hus hinv hlinv h₁
             have ht₁ : st₁.denote t' = some (xt.instantiateLevelParams ks lus) :=
@@ -4106,7 +4986,10 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
                 c < st₁.nodes.size := by
               simpa [ENode.children] using denote_lt_size ht₁
             have hwf₂ : (st₁.intern (.fvar idx nm t')).2.WF :=
-              intern_wf hwf₁ hcI (by simp [ENode.levels])
+              intern_wf hwf₁ hcI (by simp [ENode.levels]) (fun p hp =>
+                Nat.lt_of_lt_of_le
+                  (hwf.names_lt e _ hn p (by simpa [ENode.names] using hp))
+                  hext₁.nsize_le)
             have hext₂ : Ext st₁ (st₁.intern (.fvar idx nm t')).2 := intern_ext _ _
             have hdI := intern_denote (n := .fvar idx nm t') hwf₁ hcI
             rw [h₂] at hwf₂ hext₂ hdI
@@ -4115,7 +4998,7 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
                 st₂.denote ri = some (x.instantiateLevelParams ks lus) := by
               intro x hxx
               rw [hx] at hxx; cases hxx
-              rw [hdI, denoteNode, ht₁]
+              rw [hdI, denoteNode, ht₁, denoteN_mono hext₁ hnm]
               simp [Expr.instantiateLevelParams]
             refine ⟨hwf₂, hextAll, ?_, hlinv₁.mono hext₂, hcond⟩
             exact (hinv₁.mono hext₂ hwf₁).insert
@@ -4138,6 +5021,7 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
           have hwf₂ : (st₁.intern (.sort u')).2.WF :=
             intern_wf hwf₁ (by simp [ENode.children])
               (by simpa [ENode.levels] using denoteL_lt_size hu₁)
+              (by simp [ENode.names])
           have hext₂ : Ext st₁ (st₁.intern (.sort u')).2 := intern_ext _ _
           have hdI := intern_denote (n := .sort u') hwf₁
             (by simp [ENode.children])
@@ -4162,8 +5046,10 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
           cases hgo
           obtain ⟨lvs, hlvs⟩ := denoteLList_total hwf vs
             (fun u hu => hwf.levels_lt e _ hn u (by simp [ENode.levels, hu]))
-          have hx : st.denote e = some (.const nm lvs) := by
-            rw [hde, denoteNode, hlvs]; rfl
+          obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+            (hwf.names_lt e _ hn nm (by simp [ENode.names]))
+          have hx : st.denote e = some (.const nmv lvs) := by
+            rw [hde, denoteNode, hlvs, hnm]; rfl
           obtain ⟨hwf₁, hext₁, hlinv₁, hlden₁⟩ :=
             substLIList_spec vs hwf hus hlinv h₁
           have hvs₁ : denoteLList st₁.denoteL vs'
@@ -4171,6 +5057,9 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
           have hwf₂ : (st₁.intern (.const nm vs')).2.WF :=
             intern_wf hwf₁ (by simp [ENode.children])
               (by simpa [ENode.levels] using denoteLList_lt_size hvs₁)
+              (fun p hp => Nat.lt_of_lt_of_le
+                (hwf.names_lt e _ hn p (by simpa [ENode.names] using hp))
+                hext₁.nsize_le)
           have hext₂ : Ext st₁ (st₁.intern (.const nm vs')).2 := intern_ext _ _
           have hdI := intern_denote (n := .const nm vs') hwf₁
             (by simp [ENode.children])
@@ -4180,7 +5069,7 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
               st₂.denote ri = some (x.instantiateLevelParams ks lus) := by
             intro x hxx
             rw [hx] at hxx; cases hxx
-            rw [hdI, denoteNode, hvs₁]
+            rw [hdI, denoteNode, hvs₁, denoteN_mono hext₁ hnm]
             simp [Expr.instantiateLevelParams]
           refine ⟨hwf₂, hextAll, ?_, hlinv₁.mono hext₂, hcond⟩
           exact (hinv.mono hextAll hwf).insert
@@ -4232,6 +5121,7 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
               · exact denote_lt_size ha₂
             have hwf₃ : (st₂.intern (.app f' a')).2.WF :=
               intern_wf hwf₂ hcI (by simp [ENode.levels])
+                (by simp [ENode.names])
             have hext₃ : Ext st₂ (st₂.intern (.app f' a')).2 := intern_ext _ _
             have hdI := intern_denote (n := .app f' a') hwf₂ hcI
             rw [h₃] at hwf₃ hext₃ hdI
@@ -4269,8 +5159,11 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
               (fun u hu => hwf.levels_lt e _ hn u
                 (by simpa [ENode.levels] using hu))
-            have hx : st.denote e = some (.lam nm xt xb bm) := by
-              rw [hde, denoteNode, ht, hb, hbm]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hnms nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.lam nmv xt xb bm) := by
+              rw [hde, denoteNode, ht, hb, hbm, hnm]; rfl
             obtain ⟨hwf₁, hext₁, hinv₁, hlinv₁, hden₁⟩ :=
               ih ty hguard.1 hwf hus hinv hlinv h₁
             have hus₁ := denoteLList_mono hext₁ hus
@@ -4279,6 +5172,8 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
             have hus₂ := denoteLList_mono hext₂ hus₁
             have hbm₂ : denoteBM st₂.denoteL m = some bm :=
               denoteBM_mono (hext₁.trans hext₂) hbm
+            have hnm₂ : st₂.denoteN nm = some nmv :=
+              denoteN_mono (hext₁.trans hext₂) hnm
             obtain ⟨hwf₃, hext₃, hlinv₃, hbden₃⟩ :=
               substLIBM_spec hwf₂ hus₂ hlinv₂ h₃
             have hm₃ : denoteBM st₃.denoteL m'
@@ -4297,6 +5192,9 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
             have hwf₄ : (st₃.intern (.lam nm ty' body' m')).2.WF :=
               intern_wf hwf₃ hcI
                 (by simpa [ENode.levels] using denoteBM_lt_size hm₃)
+                (fun p hp => Nat.lt_of_lt_of_le
+                  (hnms p (by simpa [ENode.names] using hp))
+                  (hext₁.trans (hext₂.trans hext₃)).nsize_le)
             have hext₄ : Ext st₃ (st₃.intern (.lam nm ty' body' m')).2 :=
               intern_ext _ _
             have hdI := intern_denote (n := .lam nm ty' body' m') hwf₃ hcI
@@ -4307,7 +5205,8 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
                 st₄.denote ri = some (x.instantiateLevelParams ks lus) := by
               intro x hxx
               rw [hx] at hxx; cases hxx
-              rw [hdI, denoteNode, ht₃, hb₃, hm₃]
+              rw [hdI, denoteNode, ht₃, hb₃, hm₃,
+                denoteN_mono hext₃ hnm₂]
               simp [Expr.instantiateLevelParams]
             refine ⟨hwf₄, hextAll, ?_, hlinv₃.mono hext₄, hcond⟩
             exact ((hinv₂.mono hext₃ hwf₂).mono hext₄ hwf₃).insert
@@ -4336,8 +5235,11 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
               (fun u hu => hwf.levels_lt e _ hn u
                 (by simpa [ENode.levels] using hu))
-            have hx : st.denote e = some (.forallE nm xt xb bm) := by
-              rw [hde, denoteNode, ht, hb, hbm]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hnms nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.forallE nmv xt xb bm) := by
+              rw [hde, denoteNode, ht, hb, hbm, hnm]; rfl
             obtain ⟨hwf₁, hext₁, hinv₁, hlinv₁, hden₁⟩ :=
               ih ty hguard.1 hwf hus hinv hlinv h₁
             have hus₁ := denoteLList_mono hext₁ hus
@@ -4346,6 +5248,8 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
             have hus₂ := denoteLList_mono hext₂ hus₁
             have hbm₂ : denoteBM st₂.denoteL m = some bm :=
               denoteBM_mono (hext₁.trans hext₂) hbm
+            have hnm₂ : st₂.denoteN nm = some nmv :=
+              denoteN_mono (hext₁.trans hext₂) hnm
             obtain ⟨hwf₃, hext₃, hlinv₃, hbden₃⟩ :=
               substLIBM_spec hwf₂ hus₂ hlinv₂ h₃
             have hm₃ : denoteBM st₃.denoteL m'
@@ -4364,6 +5268,9 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
             have hwf₄ : (st₃.intern (.forallE nm ty' body' m')).2.WF :=
               intern_wf hwf₃ hcI
                 (by simpa [ENode.levels] using denoteBM_lt_size hm₃)
+                (fun p hp => Nat.lt_of_lt_of_le
+                  (hnms p (by simpa [ENode.names] using hp))
+                  (hext₁.trans (hext₂.trans hext₃)).nsize_le)
             have hext₄ : Ext st₃ (st₃.intern (.forallE nm ty' body' m')).2 :=
               intern_ext _ _
             have hdI := intern_denote (n := .forallE nm ty' body' m') hwf₃ hcI
@@ -4374,7 +5281,8 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
                 st₄.denote ri = some (x.instantiateLevelParams ks lus) := by
               intro x hxx
               rw [hx] at hxx; cases hxx
-              rw [hdI, denoteNode, ht₃, hb₃, hm₃]
+              rw [hdI, denoteNode, ht₃, hb₃, hm₃,
+                denoteN_mono hext₃ hnm₂]
               simp [Expr.instantiateLevelParams]
             refine ⟨hwf₄, hextAll, ?_, hlinv₃.mono hext₄, hcond⟩
             exact ((hinv₂.mono hext₃ hwf₂).mono hext₄ hwf₃).insert
@@ -4403,8 +5311,11 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
             obtain ⟨xt, ht⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
             obtain ⟨xv, hvv⟩ := denote_total hwf val (Nat.lt_trans hguard.2.1 hesz)
             obtain ⟨xb, hb⟩ := denote_total hwf body (Nat.lt_trans hguard.2.2 hesz)
-            have hx : st.denote e = some (.letE nm xt xv xb) := by
-              rw [hde, denoteNode, ht, hvv, hb]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hnms nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.letE nmv xt xv xb) := by
+              rw [hde, denoteNode, ht, hvv, hb, hnm]; rfl
             obtain ⟨hwf₁, hext₁, hinv₁, hlinv₁, hden₁⟩ :=
               ih ty hguard.1 hwf hus hinv hlinv h₁
             have hus₁ := denoteLList_mono hext₁ hus
@@ -4429,7 +5340,10 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
               · exact denote_lt_size hvv₃
               · exact denote_lt_size hb₃
             have hwf₄ : (st₃.intern (.letE nm ty' val' body')).2.WF :=
-              intern_wf hwf₃ hcI (by simp [ENode.levels])
+              intern_wf hwf₃ hcI (by simp [ENode.levels]) (fun p hp =>
+                Nat.lt_of_lt_of_le
+                  (hwf.names_lt e _ hn p (by simpa [ENode.names] using hp))
+                  (hext₁.trans (hext₂.trans hext₃)).nsize_le)
             have hext₄ : Ext st₃ (st₃.intern (.letE nm ty' val' body')).2 :=
               intern_ext _ _
             have hdI := intern_denote (n := .letE nm ty' val' body') hwf₃ hcI
@@ -4440,7 +5354,8 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
                 st₄.denote ri = some (x.instantiateLevelParams ks lus) := by
               intro x hxx
               rw [hx] at hxx; cases hxx
-              rw [hdI, denoteNode, ht₃, hvv₃, hb₃]
+              rw [hdI, denoteNode, ht₃, hvv₃, hb₃,
+                denoteN_mono (hext₁.trans (hext₂.trans hext₃)) hnm]
               simp [Expr.instantiateLevelParams]
             refine ⟨hwf₄, hextAll, ?_, hlinv₃.mono hext₄, hcond⟩
             exact (hinv₃.mono hext₄ hwf₃).insert
@@ -4459,8 +5374,11 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
             rw [h₂] at hgo
             cases hgo
             obtain ⟨xs, hs⟩ := denote_total hwf sub (Nat.lt_trans hguard hesz)
-            have hx : st.denote e = some (.proj s j xs) := by
-              rw [hde, denoteNode, hs]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf s
+              (hnms s (by simp [ENode.names]))
+            have hx : st.denote e = some (.proj nmv j xs) := by
+              rw [hde, denoteNode, hs, hnm]; rfl
             obtain ⟨hwf₁, hext₁, hinv₁, hlinv₁, hden₁⟩ :=
               ih sub hguard hwf hus hinv hlinv h₁
             have hs₁ : st₁.denote sub' = some (xs.instantiateLevelParams ks lus) :=
@@ -4469,7 +5387,10 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
                 c < st₁.nodes.size := by
               simpa [ENode.children] using denote_lt_size hs₁
             have hwf₂ : (st₁.intern (.proj s j sub')).2.WF :=
-              intern_wf hwf₁ hcI (by simp [ENode.levels])
+              intern_wf hwf₁ hcI (by simp [ENode.levels]) (fun p hp =>
+                Nat.lt_of_lt_of_le
+                  (hwf.names_lt e _ hn p (by simpa [ENode.names] using hp))
+                  hext₁.nsize_le)
             have hext₂ : Ext st₁ (st₁.intern (.proj s j sub')).2 := intern_ext _ _
             have hdI := intern_denote (n := .proj s j sub') hwf₁ hcI
             rw [h₂] at hwf₂ hext₂ hdI
@@ -4478,7 +5399,7 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
                 st₂.denote ri = some (x.instantiateLevelParams ks lus) := by
               intro x hxx
               rw [hx] at hxx; cases hxx
-              rw [hdI, denoteNode, hs₁]
+              rw [hdI, denoteNode, hs₁, denoteN_mono hext₁ hnm]
               simp [Expr.instantiateLevelParams]
             refine ⟨hwf₂, hextAll, ?_, hlinv₁.mono hext₂, hcond⟩
             exact (hinv₁.mono hext₂ hwf₁).insert
@@ -4623,8 +5544,10 @@ theorem looseBVarsBoundedIGo_spec {st : EStore} (hwf : st.WF) :
           subst hgm
           obtain ⟨xt, hxt⟩ := denote_total hwf t
             (Nat.lt_trans (hcl t (by simp [ENode.children])) hesz)
-          have hx : st.denote e = some (.fvar idx nm xt) := by
-            rw [hde, denoteNode, hxt]; rfl
+          obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+            (hwf.names_lt e _ hn nm (by simp [ENode.names]))
+          have hx : st.denote e = some (.fvar idx nmv xt) := by
+            rw [hde, denoteNode, hxt, hnm]; rfl
           have hcond : ∀ x, st.denote e = some x →
               true = x.looseBVarsBounded k := by
             intro x hxx
@@ -4653,8 +5576,10 @@ theorem looseBVarsBoundedIGo_spec {st : EStore} (hwf : st.WF) :
           subst hgm
           obtain ⟨lus, hlus⟩ := denoteLList_total hwf us
             (fun v hv => hwf.levels_lt e _ hn v (by simp [ENode.levels, hv]))
-          have hx : st.denote e = some (.const nm lus) := by
-            rw [hde, denoteNode, hlus]; rfl
+          obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+            (hwf.names_lt e _ hn nm (by simp [ENode.names]))
+          have hx : st.denote e = some (.const nmv lus) := by
+            rw [hde, denoteNode, hlus, hnm]; rfl
           have hcond : ∀ x, st.denote e = some x →
               true = x.looseBVarsBounded k := by
             intro x hxx
@@ -4732,8 +5657,11 @@ theorem looseBVarsBoundedIGo_spec {st : EStore} (hwf : st.WF) :
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
               (fun u hu => hwf.levels_lt e _ hn u
                 (by simpa [ENode.levels] using hu))
-            have hx : st.denote e = some (.lam nm xt xb bm) := by
-              rw [hde, denoteNode, ht, hb, hbm]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hnms nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.lam nmv xt xb bm) := by
+              rw [hde, denoteNode, ht, hb, hbm, hnm]; rfl
             rcases h₁ : looseBVarsBoundedIGo st memo k ty with ⟨rt, memo₁⟩
             rw [h₁] at hgo
             try dsimp only at hgo
@@ -4780,8 +5708,11 @@ theorem looseBVarsBoundedIGo_spec {st : EStore} (hwf : st.WF) :
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
               (fun u hu => hwf.levels_lt e _ hn u
                 (by simpa [ENode.levels] using hu))
-            have hx : st.denote e = some (.forallE nm xt xb bm) := by
-              rw [hde, denoteNode, ht, hb, hbm]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hnms nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.forallE nmv xt xb bm) := by
+              rw [hde, denoteNode, ht, hb, hbm, hnm]; rfl
             rcases h₁ : looseBVarsBoundedIGo st memo k ty with ⟨rt, memo₁⟩
             rw [h₁] at hgo
             try dsimp only at hgo
@@ -4827,8 +5758,11 @@ theorem looseBVarsBoundedIGo_spec {st : EStore} (hwf : st.WF) :
             obtain ⟨xt, ht⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
             obtain ⟨xv, hvv⟩ := denote_total hwf val (Nat.lt_trans hguard.2.1 hesz)
             obtain ⟨xb, hb⟩ := denote_total hwf body (Nat.lt_trans hguard.2.2 hesz)
-            have hx : st.denote e = some (.letE nm xt xv xb) := by
-              rw [hde, denoteNode, ht, hvv, hb]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hnms nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.letE nmv xt xv xb) := by
+              rw [hde, denoteNode, ht, hvv, hb, hnm]; rfl
             rcases h₁ : looseBVarsBoundedIGo st memo k ty with ⟨rt, memo₁⟩
             rw [h₁] at hgo
             try dsimp only at hgo
@@ -4891,8 +5825,11 @@ theorem looseBVarsBoundedIGo_spec {st : EStore} (hwf : st.WF) :
             exact absurd (hcl sub (by simp [ENode.children])) hguard
           case isTrue hguard =>
             obtain ⟨xs, hs⟩ := denote_total hwf sub (Nat.lt_trans hguard hesz)
-            have hx : st.denote e = some (.proj s j xs) := by
-              rw [hde, denoteNode, hs]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf s
+              (hnms s (by simp [ENode.names]))
+            have hx : st.denote e = some (.proj nmv j xs) := by
+              rw [hde, denoteNode, hs, hnm]; rfl
             rcases h₁ : looseBVarsBoundedIGo st memo k sub with ⟨rs, memo₁⟩
             rw [h₁] at hgo
             try dsimp only at hgo
@@ -4981,8 +5918,10 @@ theorem wscopedBIGo_spec {st : EStore} (hwf : st.WF) :
           subst hgm
           obtain ⟨lus, hlus⟩ := denoteLList_total hwf us
             (fun v hv => hwf.levels_lt e _ hn v (by simp [ENode.levels, hv]))
-          have hx : st.denote e = some (.const nm lus) := by
-            rw [hde, denoteNode, hlus]; rfl
+          obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+            (hwf.names_lt e _ hn nm (by simp [ENode.names]))
+          have hx : st.denote e = some (.const nmv lus) := by
+            rw [hde, denoteNode, hlus, hnm]; rfl
           have hcond : ∀ x, st.denote e = some x → true = x.wscopedB d := by
             intro x hxx
             rw [hx] at hxx; cases hxx
@@ -5006,8 +5945,10 @@ theorem wscopedBIGo_spec {st : EStore} (hwf : st.WF) :
             exact absurd (hcl t (by simp [ENode.children])) hguard
           case isTrue hguard =>
             obtain ⟨xt, hxt⟩ := denote_total hwf t (Nat.lt_trans hguard hesz)
-            have hx : st.denote e = some (.fvar idx nm xt) := by
-              rw [hde, denoteNode, hxt]; rfl
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hwf.names_lt e _ hn nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.fvar idx nmv xt) := by
+              rw [hde, denoteNode, hxt, hnm]; rfl
             split at hgo
             · -- idx < d: recurse into the annotation at cutoff idx
               rename_i hlt
@@ -5087,8 +6028,11 @@ theorem wscopedBIGo_spec {st : EStore} (hwf : st.WF) :
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
               (fun u hu => hwf.levels_lt e _ hn u
                 (by simpa [ENode.levels] using hu))
-            have hx : st.denote e = some (.lam nm xt xb bm) := by
-              rw [hde, denoteNode, ht, hb, hbm]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hnms nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.lam nmv xt xb bm) := by
+              rw [hde, denoteNode, ht, hb, hbm, hnm]; rfl
             rcases h₁ : wscopedBIGo st memo d ty with ⟨rt, memo₁⟩
             rw [h₁] at hgo
             try dsimp only at hgo
@@ -5133,8 +6077,11 @@ theorem wscopedBIGo_spec {st : EStore} (hwf : st.WF) :
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
               (fun u hu => hwf.levels_lt e _ hn u
                 (by simpa [ENode.levels] using hu))
-            have hx : st.denote e = some (.forallE nm xt xb bm) := by
-              rw [hde, denoteNode, ht, hb, hbm]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hnms nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.forallE nmv xt xb bm) := by
+              rw [hde, denoteNode, ht, hb, hbm, hnm]; rfl
             rcases h₁ : wscopedBIGo st memo d ty with ⟨rt, memo₁⟩
             rw [h₁] at hgo
             try dsimp only at hgo
@@ -5178,8 +6125,11 @@ theorem wscopedBIGo_spec {st : EStore} (hwf : st.WF) :
             obtain ⟨xt, ht⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
             obtain ⟨xv, hvv⟩ := denote_total hwf val (Nat.lt_trans hguard.2.1 hesz)
             obtain ⟨xb, hb⟩ := denote_total hwf body (Nat.lt_trans hguard.2.2 hesz)
-            have hx : st.denote e = some (.letE nm xt xv xb) := by
-              rw [hde, denoteNode, ht, hvv, hb]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hnms nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.letE nmv xt xv xb) := by
+              rw [hde, denoteNode, ht, hvv, hb, hnm]; rfl
             rcases h₁ : wscopedBIGo st memo d ty with ⟨rt, memo₁⟩
             rw [h₁] at hgo
             try dsimp only at hgo
@@ -5239,8 +6189,11 @@ theorem wscopedBIGo_spec {st : EStore} (hwf : st.WF) :
             exact absurd (hcl sub (by simp [ENode.children])) hguard
           case isTrue hguard =>
             obtain ⟨xs, hs⟩ := denote_total hwf sub (Nat.lt_trans hguard hesz)
-            have hx : st.denote e = some (.proj s j xs) := by
-              rw [hde, denoteNode, hs]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf s
+              (hnms s (by simp [ENode.names]))
+            have hx : st.denote e = some (.proj nmv j xs) := by
+              rw [hde, denoteNode, hs, hnm]; rfl
             rcases h₁ : wscopedBIGo st memo d sub with ⟨rs, memo₁⟩
             rw [h₁] at hgo
             try dsimp only at hgo
@@ -5366,12 +6319,17 @@ theorem constsResolveIGo_spec {st : EStore} {env : Env} (hwf : st.WF) :
           subst hgm
           obtain ⟨lus, hlus⟩ := denoteLList_total hwf us
             (fun v hv => hwf.levels_lt e _ hn v (by simp [ENode.levels, hv]))
-          have hx : st.denote e = some (.const nm lus) := by
-            rw [hde, denoteNode, hlus]; rfl
+          obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+            (hwf.names_lt e _ hn nm (by simp [ENode.names]))
+          have hx : st.denote e = some (.const nmv lus) := by
+            rw [hde, denoteNode, hlus, hnm]; rfl
           have hcond : ∀ x, st.denote e = some x →
-              (env.find? nm).isSome = x.constsResolve env := by
+              (match st.readbackN nm with
+               | some name => (env.find? name).isSome
+               | none => false) = x.constsResolve env := by
             intro x hxx
             rw [hx] at hxx; cases hxx
+            rw [hwf.readbackN_eq_denoteN, hnm]
             simp [Expr.constsResolve]
           exact ⟨hinv.insert hcond, hcond⟩
         | fvar idx nm t =>
@@ -5381,8 +6339,10 @@ theorem constsResolveIGo_spec {st : EStore} {env : Env} (hwf : st.WF) :
             exact absurd (hcl t (by simp [ENode.children])) hguard
           case isTrue hguard =>
             obtain ⟨xt, hxt⟩ := denote_total hwf t (Nat.lt_trans hguard hesz)
-            have hx : st.denote e = some (.fvar idx nm xt) := by
-              rw [hde, denoteNode, hxt]; rfl
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hwf.names_lt e _ hn nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.fvar idx nmv xt) := by
+              rw [hde, denoteNode, hxt, hnm]; rfl
             rcases h₁ : constsResolveIGo st env memo t with ⟨rt, memo₁⟩
             rw [h₁] at hgo
             try dsimp only at hgo
@@ -5452,8 +6412,11 @@ theorem constsResolveIGo_spec {st : EStore} {env : Env} (hwf : st.WF) :
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
               (fun u hu => hwf.levels_lt e _ hn u
                 (by simpa [ENode.levels] using hu))
-            have hx : st.denote e = some (.lam nm xt xb bm) := by
-              rw [hde, denoteNode, ht, hb, hbm]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hnms nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.lam nmv xt xb bm) := by
+              rw [hde, denoteNode, ht, hb, hbm, hnm]; rfl
             rcases h₁ : constsResolveIGo st env memo ty with ⟨rt, memo₁⟩
             rw [h₁] at hgo
             try dsimp only at hgo
@@ -5500,8 +6463,11 @@ theorem constsResolveIGo_spec {st : EStore} {env : Env} (hwf : st.WF) :
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
               (fun u hu => hwf.levels_lt e _ hn u
                 (by simpa [ENode.levels] using hu))
-            have hx : st.denote e = some (.forallE nm xt xb bm) := by
-              rw [hde, denoteNode, ht, hb, hbm]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hnms nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.forallE nmv xt xb bm) := by
+              rw [hde, denoteNode, ht, hb, hbm, hnm]; rfl
             rcases h₁ : constsResolveIGo st env memo ty with ⟨rt, memo₁⟩
             rw [h₁] at hgo
             try dsimp only at hgo
@@ -5547,8 +6513,11 @@ theorem constsResolveIGo_spec {st : EStore} {env : Env} (hwf : st.WF) :
             obtain ⟨xt, ht⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
             obtain ⟨xv, hvv⟩ := denote_total hwf val (Nat.lt_trans hguard.2.1 hesz)
             obtain ⟨xb, hb⟩ := denote_total hwf body (Nat.lt_trans hguard.2.2 hesz)
-            have hx : st.denote e = some (.letE nm xt xv xb) := by
-              rw [hde, denoteNode, ht, hvv, hb]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hnms nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.letE nmv xt xv xb) := by
+              rw [hde, denoteNode, ht, hvv, hb, hnm]; rfl
             rcases h₁ : constsResolveIGo st env memo ty with ⟨rt, memo₁⟩
             rw [h₁] at hgo
             try dsimp only at hgo
@@ -5611,8 +6580,13 @@ theorem constsResolveIGo_spec {st : EStore} {env : Env} (hwf : st.WF) :
             exact absurd (hcl sub (by simp [ENode.children])) hguard
           case isTrue hguard =>
             obtain ⟨xs, hs⟩ := denote_total hwf sub (Nat.lt_trans hguard hesz)
-            have hx : st.denote e = some (.proj s j xs) := by
-              rw [hde, denoteNode, hs]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf s
+              (hnms s (by simp [ENode.names]))
+            have hx : st.denote e = some (.proj nmv j xs) := by
+              rw [hde, denoteNode, hs, hnm]; rfl
+            rw [hwf.readbackN_eq_denoteN, hnm] at hgo
+            dsimp only at hgo
             split at hgo
             · -- struct name resolves: recurse
               rename_i hres
@@ -5656,23 +6630,24 @@ The interned leaf list carries type *indices*; it agrees with
 `Expr.fvarLeaves` after mapping the denotation over the type
 component. -/
 
-/-- Denotation image of an interned leaf list. -/
-def leavesDen (st : EStore) (r : List (Nat × Name × EIdx)) :
-    List (Nat × Name × Option Expr) :=
-  r.map fun l => (l.1, l.2.1, st.denote l.2.2)
+/-- Denotation image of an interned leaf list (name components
+through the name denotation, task #88). -/
+def leavesDen (st : EStore) (r : List (Nat × NIdx × EIdx)) :
+    List (Nat × Option Name × Option Expr) :=
+  r.map fun l => (l.1, st.denoteN l.2.1, st.denote l.2.2)
 
 /-- The `Expr`-side leaf list in the same shape. -/
-def leavesExp (x : Expr) : List (Nat × Name × Option Expr) :=
-  x.fvarLeaves.map fun l => (l.1, l.2.1, some l.2.2)
+def leavesExp (x : Expr) : List (Nat × Option Name × Option Expr) :=
+  x.fvarLeaves.map fun l => (l.1, some l.2.1, some l.2.2)
 
-theorem leavesDen_append {st : EStore} {r₁ r₂ : List (Nat × Name × EIdx)} :
+theorem leavesDen_append {st : EStore} {r₁ r₂ : List (Nat × NIdx × EIdx)} :
     leavesDen st (r₁ ++ r₂) = leavesDen st r₁ ++ leavesDen st r₂ :=
   List.map_append ..
 
 /-- Memo invariant for the leaf-list traversal. -/
 def LMemoInv (st : EStore)
-    (memo : Std.HashMap EIdx (List (Nat × Name × EIdx))) : Prop :=
-  ∀ (e : EIdx) (r : List (Nat × Name × EIdx)), memo[e]? = some r →
+    (memo : Std.HashMap EIdx (List (Nat × NIdx × EIdx))) : Prop :=
+  ∀ (e : EIdx) (r : List (Nat × NIdx × EIdx)), memo[e]? = some r →
     ∀ x, st.denote e = some x → leavesDen st r = leavesExp x
 
 theorem LMemoInv.empty {st : EStore} : LMemoInv st {} := by
@@ -5680,8 +6655,8 @@ theorem LMemoInv.empty {st : EStore} : LMemoInv st {} := by
   simp at hr
 
 theorem LMemoInv.insert {st : EStore}
-    {memo : Std.HashMap EIdx (List (Nat × Name × EIdx))} {e : EIdx}
-    {r : List (Nat × Name × EIdx)} (h : LMemoInv st memo)
+    {memo : Std.HashMap EIdx (List (Nat × NIdx × EIdx))} {e : EIdx}
+    {r : List (Nat × NIdx × EIdx)} (h : LMemoInv st memo)
     (hcond : ∀ x, st.denote e = some x → leavesDen st r = leavesExp x) :
     LMemoInv st (memo.insert e r) := by
   intro e' r' hr'
@@ -5695,9 +6670,9 @@ theorem LMemoInv.insert {st : EStore}
     exact h e' r' hr'
 
 theorem fvarLeavesIGo_spec {st : EStore} (hwf : st.WF) :
-    ∀ (e : EIdx) {memo : Std.HashMap EIdx (List (Nat × Name × EIdx))}
-      {r : List (Nat × Name × EIdx)}
-      {memo' : Std.HashMap EIdx (List (Nat × Name × EIdx))},
+    ∀ (e : EIdx) {memo : Std.HashMap EIdx (List (Nat × NIdx × EIdx))}
+      {r : List (Nat × NIdx × EIdx)}
+      {memo' : Std.HashMap EIdx (List (Nat × NIdx × EIdx))},
       LMemoInv st memo →
       fvarLeavesIGo st memo e = (r, memo') →
       LMemoInv st memo' ∧
@@ -5762,8 +6737,10 @@ theorem fvarLeavesIGo_spec {st : EStore} (hwf : st.WF) :
           subst hgm
           obtain ⟨lus, hlus⟩ := denoteLList_total hwf us
             (fun v hv => hwf.levels_lt e _ hn v (by simp [ENode.levels, hv]))
-          have hx : st.denote e = some (.const nm lus) := by
-            rw [hde, denoteNode, hlus]; rfl
+          obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+            (hwf.names_lt e _ hn nm (by simp [ENode.names]))
+          have hx : st.denote e = some (.const nmv lus) := by
+            rw [hde, denoteNode, hlus, hnm]; rfl
           have hcond : ∀ x, st.denote e = some x →
               leavesDen st [] = leavesExp x := by
             intro x hxx
@@ -5789,8 +6766,10 @@ theorem fvarLeavesIGo_spec {st : EStore} (hwf : st.WF) :
             exact absurd (hcl t (by simp [ENode.children])) hguard
           case isTrue hguard =>
             obtain ⟨xt, hxt⟩ := denote_total hwf t (Nat.lt_trans hguard hesz)
-            have hx : st.denote e = some (.fvar idx nm xt) := by
-              rw [hde, denoteNode, hxt]; rfl
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hwf.names_lt e _ hn nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.fvar idx nmv xt) := by
+              rw [hde, denoteNode, hxt, hnm]; rfl
             rcases h₁ : fvarLeavesIGo st memo t with ⟨rt, memo₁⟩
             rw [h₁] at hgo
             try dsimp only at hgo
@@ -5804,7 +6783,7 @@ theorem fvarLeavesIGo_spec {st : EStore} (hwf : st.WF) :
               rw [hx] at hxx; cases hxx
               have := hden₁ xt hxt
               simp only [leavesDen, leavesExp, List.map_cons, Expr.fvarLeaves] at *
-              simp [hxt, this]
+              simp [hxt, this, hnm]
             exact ⟨hinv₁.insert hcond, hcond⟩
         | app f a =>
           dsimp only at hgo
@@ -5847,8 +6826,11 @@ theorem fvarLeavesIGo_spec {st : EStore} (hwf : st.WF) :
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
               (fun u hu => hwf.levels_lt e _ hn u
                 (by simpa [ENode.levels] using hu))
-            have hx : st.denote e = some (.lam nm xt xb bm) := by
-              rw [hde, denoteNode, ht, hb, hbm]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hnms nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.lam nmv xt xb bm) := by
+              rw [hde, denoteNode, ht, hb, hbm, hnm]; rfl
             rcases h₁ : fvarLeavesIGo st memo ty with ⟨rt, memo₁⟩
             rw [h₁] at hgo
             try dsimp only at hgo
@@ -5879,8 +6861,11 @@ theorem fvarLeavesIGo_spec {st : EStore} (hwf : st.WF) :
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
               (fun u hu => hwf.levels_lt e _ hn u
                 (by simpa [ENode.levels] using hu))
-            have hx : st.denote e = some (.forallE nm xt xb bm) := by
-              rw [hde, denoteNode, ht, hb, hbm]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hnms nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.forallE nmv xt xb bm) := by
+              rw [hde, denoteNode, ht, hb, hbm, hnm]; rfl
             rcases h₁ : fvarLeavesIGo st memo ty with ⟨rt, memo₁⟩
             rw [h₁] at hgo
             try dsimp only at hgo
@@ -5910,8 +6895,11 @@ theorem fvarLeavesIGo_spec {st : EStore} (hwf : st.WF) :
             obtain ⟨xt, ht⟩ := denote_total hwf ty (Nat.lt_trans hguard.1 hesz)
             obtain ⟨xv, hvv⟩ := denote_total hwf val (Nat.lt_trans hguard.2.1 hesz)
             obtain ⟨xb, hb⟩ := denote_total hwf body (Nat.lt_trans hguard.2.2 hesz)
-            have hx : st.denote e = some (.letE nm xt xv xb) := by
-              rw [hde, denoteNode, ht, hvv, hb]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf nm
+              (hnms nm (by simp [ENode.names]))
+            have hx : st.denote e = some (.letE nmv xt xv xb) := by
+              rw [hde, denoteNode, ht, hvv, hb, hnm]; rfl
             rcases h₁ : fvarLeavesIGo st memo ty with ⟨rt, memo₁⟩
             rw [h₁] at hgo
             try dsimp only at hgo
@@ -5942,8 +6930,11 @@ theorem fvarLeavesIGo_spec {st : EStore} (hwf : st.WF) :
             exact absurd (hcl sub (by simp [ENode.children])) hguard
           case isTrue hguard =>
             obtain ⟨xs, hs⟩ := denote_total hwf sub (Nat.lt_trans hguard hesz)
-            have hx : st.denote e = some (.proj s j xs) := by
-              rw [hde, denoteNode, hs]; rfl
+            have hnms := hwf.names_lt e _ hn
+            obtain ⟨nmv, hnm⟩ := denoteN_total hwf s
+              (hnms s (by simp [ENode.names]))
+            have hx : st.denote e = some (.proj nmv j xs) := by
+              rw [hde, denoteNode, hs, hnm]; rfl
             rcases h₁ : fvarLeavesIGo st memo sub with ⟨rs, memo₁⟩
             rw [h₁] at hgo
             try dsimp only at hgo
@@ -6102,8 +7093,9 @@ theorem internExprFastGo_eq :
     intro st hwf
     have h1 : (st.internExprFastGo ty).1 = st.internExpr ty := (ih hwf).1
     constructor
-    · show ((st.internExprFastGo ty).1.2.intern
-          (.fvar idx n (st.internExprFastGo ty).1.1)) = _
+    · show (((st.internExprFastGo ty).1.2.internName n).2.intern
+          (.fvar idx ((st.internExprFastGo ty).1.2.internName n).1
+            (st.internExprFastGo ty).1.1)) = _
       rw [h1]
       rfl
     · intro v i h
@@ -6126,8 +7118,9 @@ theorem internExprFastGo_eq :
     intro st hwf
     have h1 : (st.internExprFastGo e).1 = st.internExpr e := (ihe hwf).1
     constructor
-    · show ((st.internExprFastGo e).1.2.intern
-          (.proj s j (st.internExprFastGo e).1.1)) = _
+    · show (((st.internExprFastGo e).1.2.internName s).2.intern
+          (.proj ((st.internExprFastGo e).1.2.internName s).1 j
+            (st.internExprFastGo e).1.1)) = _
       rw [h1]
       rfl
     · intro v i h
@@ -6145,9 +7138,12 @@ theorem internExprFastGo_eq :
         = ((st.internExpr ty).2.internExpr val).2.internExpr body :=
       (ihb hwf₂).1
     constructor
-    · show ((((st.internExprFastGo ty).1.2.internExprFastGo
-          val).1.2.internExprFastGo body).1.2.intern
-          (.letE n (st.internExprFastGo ty).1.1
+    · show (((((st.internExprFastGo ty).1.2.internExprFastGo
+          val).1.2.internExprFastGo body).1.2.internName n).2.intern
+          (.letE
+            ((((st.internExprFastGo ty).1.2.internExprFastGo
+              val).1.2.internExprFastGo body).1.2.internName n).1
+            (st.internExprFastGo ty).1.1
             ((st.internExprFastGo ty).1.2.internExprFastGo val).1.1
             (((st.internExprFastGo ty).1.2.internExprFastGo
               val).1.2.internExprFastGo body).1.1)) = _
@@ -6169,10 +7165,16 @@ theorem internExprFastGo_eq :
       intro v i h
       exact hchild v i h
     constructor
-    · show ((((st.internExprFastGo ty).1.2.internExprFastGo
+    · show (((((st.internExprFastGo ty).1.2.internExprFastGo
           body).1.2.internBMFast m
-          ((st.internExprFastGo ty).1.2.internExprFastGo body).2).2.intern
-          (.lam n (st.internExprFastGo ty).1.1
+          ((st.internExprFastGo ty).1.2.internExprFastGo
+            body).2).2.internName n).2.intern
+          (.lam
+            (((((st.internExprFastGo ty).1.2.internExprFastGo
+              body).1.2.internBMFast m
+              ((st.internExprFastGo ty).1.2.internExprFastGo
+                body).2).2.internName n).1)
+            (st.internExprFastGo ty).1.1
             ((st.internExprFastGo ty).1.2.internExprFastGo body).1.1
             (((st.internExprFastGo ty).1.2.internExprFastGo
               body).1.2.internBMFast m
@@ -6197,10 +7199,11 @@ theorem internExprFastGo_eq :
         intro h
         simp only [Option.some.injEq] at h
         obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h
-        show ((((st.internExpr ty).2.internExpr body).2.internBM
-            ⟨bi, some v₀⟩).2.intern _).2.denoteL _ = some v₀
+        show (((((st.internExpr ty).2.internExpr body).2.internBM
+            ⟨bi, some v₀⟩).2.internName n).2.intern _).2.denoteL _ = some v₀
         rw [hst']
-        exact denoteL_mono (intern_ext _ _) hden'
+        exact denoteL_mono (intern_ext _ _)
+          (denoteL_mono (internName_ext _ _) hden')
   | forallE n ty body m iht ihb =>
     intro st hwf
     have h1 : (st.internExprFastGo ty).1 = st.internExpr ty := (iht hwf).1
@@ -6215,10 +7218,16 @@ theorem internExprFastGo_eq :
       intro v i h
       exact hchild v i h
     constructor
-    · show ((((st.internExprFastGo ty).1.2.internExprFastGo
+    · show (((((st.internExprFastGo ty).1.2.internExprFastGo
           body).1.2.internBMFast m
-          ((st.internExprFastGo ty).1.2.internExprFastGo body).2).2.intern
-          (.forallE n (st.internExprFastGo ty).1.1
+          ((st.internExprFastGo ty).1.2.internExprFastGo
+            body).2).2.internName n).2.intern
+          (.forallE
+            (((((st.internExprFastGo ty).1.2.internExprFastGo
+              body).1.2.internBMFast m
+              ((st.internExprFastGo ty).1.2.internExprFastGo
+                body).2).2.internName n).1)
+            (st.internExprFastGo ty).1.1
             ((st.internExprFastGo ty).1.2.internExprFastGo body).1.1
             (((st.internExprFastGo ty).1.2.internExprFastGo
               body).1.2.internBMFast m
@@ -6243,10 +7252,11 @@ theorem internExprFastGo_eq :
         intro h
         simp only [Option.some.injEq] at h
         obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h
-        show ((((st.internExpr ty).2.internExpr body).2.internBM
-            ⟨bi, some v₀⟩).2.intern _).2.denoteL _ = some v₀
+        show (((((st.internExpr ty).2.internExpr body).2.internBM
+            ⟨bi, some v₀⟩).2.internName n).2.intern _).2.denoteL _ = some v₀
         rw [hst']
-        exact denoteL_mono (intern_ext _ _) hden'
+        exact denoteL_mono (intern_ext _ _)
+          (denoteL_mono (internName_ext _ _) hden')
 
 /-- The entry-boundary interning with the codomain-chain fast path is
 `internExpr` (task #72). -/

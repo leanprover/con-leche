@@ -137,23 +137,34 @@ theorem proofIrrelI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
         obtain rfl : okB = okB' := hPok'
         exact SimAt.pure hs₉ rfl
       | bvar k => invert_node hd'; exact SimAt.pure hs₈ rfl
-      | const nm us => invert_node hd'; exact SimAt.pure hs₈ rfl
+      | const nmᵢ us => invert_node hd'; exact SimAt.pure hs₈ rfl
+
       | lit l => invert_node hd'; exact SimAt.pure hs₈ rfl
-      | fvar idx nm t => invert_node hd'; exact SimAt.pure hs₈ rfl
+      | fvar idx nmᵢ t => invert_node hd'; exact SimAt.pure hs₈ rfl
+
       | app f' a' => invert_node hd'; exact SimAt.pure hs₈ rfl
-      | lam nm t b' m => invert_node hd'; exact SimAt.pure hs₈ rfl
-      | forallE nm t b' m => invert_node hd'; exact SimAt.pure hs₈ rfl
-      | letE nm t v b' => invert_node hd'; exact SimAt.pure hs₈ rfl
-      | proj s' j' e' => invert_node hd'; exact SimAt.pure hs₈ rfl
+      | lam nmᵢ t b' m => invert_node hd'; exact SimAt.pure hs₈ rfl
+
+      | forallE nmᵢ t b' m => invert_node hd'; exact SimAt.pure hs₈ rfl
+
+      | letE nmᵢ t v b' => invert_node hd'; exact SimAt.pure hs₈ rfl
+
+      | proj s'ᵢ j' e' => invert_node hd'; exact SimAt.pure hs₈ rfl
+
     | bvar k => invert_node hd; exact SimAt.pure hs₄ rfl
-    | const nm us => invert_node hd; exact SimAt.pure hs₄ rfl
+    | const nmᵢ us => invert_node hd; exact SimAt.pure hs₄ rfl
+
     | lit l => invert_node hd; exact SimAt.pure hs₄ rfl
-    | fvar idx nm t => invert_node hd; exact SimAt.pure hs₄ rfl
+    | fvar idx nmᵢ t => invert_node hd; exact SimAt.pure hs₄ rfl
+
     | app f' a' => invert_node hd; exact SimAt.pure hs₄ rfl
-    | lam nm t b' m => invert_node hd; exact SimAt.pure hs₄ rfl
-    | forallE nm t b' m => invert_node hd; exact SimAt.pure hs₄ rfl
-    | letE nm t v b' => invert_node hd; exact SimAt.pure hs₄ rfl
-    | proj s' j' e' => invert_node hd; exact SimAt.pure hs₄ rfl
+    | lam nmᵢ t b' m => invert_node hd; exact SimAt.pure hs₄ rfl
+
+    | forallE nmᵢ t b' m => invert_node hd; exact SimAt.pure hs₄ rfl
+
+    | letE nmᵢ t v b' => invert_node hd; exact SimAt.pure hs₄ rfl
+
+    | proj s'ᵢ j' e' => invert_node hd; exact SimAt.pure hs₄ rfl
 
 end Walks
 
@@ -161,9 +172,11 @@ section Walks2
 
 variable {env : Env} {f : Nat}
 
-theorem etaCertI_sim (ih : SSimI env f) {d : Nat} {n₁ : Name}
+theorem etaCertI_sim (ih : SSimI env f) {d : Nat} {n₁ : NIdx}
+    {n₁x : Name}
     {ty₁ body₁ b : EIdx} {ty₁x body₁x bx : Expr} {m₁ : IBinderMeta}
     {bm₁ : BinderMeta} {s₀ : IState} (hs : ISOK env s₀)
+    (hn₁ : s₀.store.denoteN n₁ = some n₁x)
     (hty : s₀.store.denote ty₁ = some ty₁x)
     (hbody : s₀.store.denote body₁ = some body₁x)
     (hb : s₀.store.denote b = some bx)
@@ -172,7 +185,7 @@ theorem etaCertI_sim (ih : SSimI env f) {d : Nat} {n₁ : Name}
     (hwb : WScoped d bx) :
     SimAt env s₀ RelV
       (etaCertI (coreKnotI (mkFEnv env) f) (mkFEnv env) d n₁ ty₁ body₁ m₁ b)
-      (etaCert (fueledFns env) env d n₁ ty₁x body₁x bm₁ bx) := by
+      (etaCert (fueledFns env) env d n₁x ty₁x body₁x bm₁ bx) := by
   show SimAt env s₀ RelV
     ((coreKnotI (mkFEnv env) f).infer d b >>= fun tb =>
       (coreKnotI (mkFEnv env) f).whnf d tb >>= fun wtb =>
@@ -205,8 +218,8 @@ theorem etaCertI_sim (ih : SSimI env f) {d : Nat} {n₁ : Name}
             (fueledFns env).defeq d ty₂ ty₁x >>= fun r =>
             if r then
               (fueledFns env).defeq (d + 1)
-                (body₁x.instantiate1 (.fvar d n₁ ty₁x))
-                (.app bx (.fvar d n₁ ty₁x))
+                (body₁x.instantiate1 (.fvar d n₁x ty₁x))
+                (.app bx (.fvar d n₁x ty₁x))
             else pure false
           else pure false
         | _, _ => pure false
@@ -220,13 +233,15 @@ theorem etaCertI_sim (ih : SSimI env f) {d : Nat} {n₁ : Name}
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hwtbd
   rw [hn]
   cases n with
-  | forallE nm ty₂ b₂ m₂ =>
+  | forallE nmᵢ ty₂ b₂ m₂ =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨ty₂x, hty₂, hd⟩ := hd
     rw [Option.bind_eq_some_iff] at hd
     obtain ⟨b₂x, hb₂, hd⟩ := hd
-    rw [Option.map_eq_some_iff] at hd
+    rw [Option.bind_eq_some_iff] at hd
     obtain ⟨bm, hbmDen, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨nm, hnmDen, hd⟩ := hd
     subst hd
     dsimp only
     have hwty₂ : WScoped d ty₂x := by
@@ -275,16 +290,19 @@ theorem etaCertI_sim (ih : SSimI env f) {d : Nat} {n₁ : Name}
             simp only [↓reduceIte]
             have hext₀₄ :=
               (((hext₁.trans hext₂).trans hext₂o).trans hext₃).trans hext₄
-            have hfvd : denoteNode s₄.store.denote s₄.store.denoteL (.fvar d n₁ ty₁)
-                = some (.fvar d n₁ ty₁x) := by
-              rw [denoteNode, denote_mono hext₀₄ hty]; rfl
+            have hfvd : denoteNode s₄.store.denote s₄.store.denoteL
+                s₄.store.denoteN (.fvar d n₁ ty₁)
+                = some (.fvar d n₁x ty₁x) := by
+              rw [denoteNode, denote_mono hext₀₄ hty,
+                denoteN_mono hext₀₄ hn₁]; rfl
             refine SimAt.bind_left (internI_eff hs₄ hfvd)
               (fun s₅ fv hs₅ hext₅ hQfv => ?_)
             refine SimAt.bind_left (inst1M_eff hs₅
               (denote_mono (hext₀₄.trans hext₅) hbody) hQfv)
               (fun s₆ b₁ hs₆ hext₆ hQb₁ => ?_)
-            have hbad : denoteNode s₆.store.denote s₆.store.denoteL (.app b fv)
-                = some (.app bx (.fvar d n₁ ty₁x)) := by
+            have hbad : denoteNode s₆.store.denote s₆.store.denoteL
+                s₆.store.denoteN (.app b fv)
+                = some (.app bx (.fvar d n₁x ty₁x)) := by
               rw [denoteNode,
                 denote_mono ((hext₀₄.trans hext₅).trans hext₆) hb,
                 denote_mono hext₆ hQfv]
@@ -293,19 +311,23 @@ theorem etaCertI_sim (ih : SSimI env f) {d : Nat} {n₁ : Name}
               (fun s₇ ba hs₇ hext₇ hQba => ?_)
             refine ih.defeq hs₇ (denote_mono hext₇ hQb₁) hQba
               (WScoped.instantiate1 hwty 0 hwbody) ?_
-            show WScoped (d + 1) (.app bx (.fvar d n₁ ty₁x))
+            show WScoped (d + 1) (.app bx (.fvar d n₁x ty₁x))
             simp only [WScoped]
             exact ⟨WScoped.mono (Nat.le_succ d) hwb, Nat.lt_succ_self d,
               hwty⟩
   | bvar k => invert_node hd; exact SimAt.pure hs₂ rfl
   | sort u => invert_node hd; exact SimAt.pure hs₂ rfl
-  | const nm us => invert_node hd; exact SimAt.pure hs₂ rfl
+  | const nmᵢ us => invert_node hd; exact SimAt.pure hs₂ rfl
+
   | lit l => invert_node hd; exact SimAt.pure hs₂ rfl
-  | fvar idx nm t => invert_node hd; exact SimAt.pure hs₂ rfl
+  | fvar idx nmᵢ t => invert_node hd; exact SimAt.pure hs₂ rfl
+
   | app f' a' => invert_node hd; exact SimAt.pure hs₂ rfl
-  | lam nm t b' m => invert_node hd; exact SimAt.pure hs₂ rfl
-  | letE nm t v b' => invert_node hd; exact SimAt.pure hs₂ rfl
-  | proj s' j' e' => invert_node hd; exact SimAt.pure hs₂ rfl
+  | lam nmᵢ t b' m => invert_node hd; exact SimAt.pure hs₂ rfl
+
+  | letE nmᵢ t v b' => invert_node hd; exact SimAt.pure hs₂ rfl
+
+  | proj s'ᵢ j' e' => invert_node hd; exact SimAt.pure hs₂ rfl
 
 theorem projCertI_sim (ih : SSimI env f) {d : Nat} {i : EIdx} {e₂ : Expr}
     {idx : Nat} {fl sl : LIdx} {fieldLvl structLvl : Level} {nP : Nat}
@@ -341,7 +363,7 @@ theorem projCertI_sim (ih : SSimI env f) {d : Nat} {i : EIdx} {e₂ : Expr}
         | _ => pure false
       | _ => pure false)
     (projCert (fueledFns env) env d e₂ idx fieldLvl structLvl nP)
-  have hbv : denoteNode s₀.store.denote s₀.store.denoteL (.bvar 0) = some (.bvar 0) := rfl
+  have hbv : denoteNode s₀.store.denote s₀.store.denoteL s₀.store.denoteN (.bvar 0) = some (.bvar 0) := rfl
   refine SimAt.bind_left (internI_eff hs hbv)
     (fun s₁ bvar0 hs₁ hext₁ hQ0 => ?_)
   refine SimAt.withStore ?_
@@ -403,23 +425,34 @@ theorem projCertI_sim (ih : SSimI env f) {d : Nat} {i : EIdx} {e₂ : Expr}
       obtain rfl : okW = okW' := hPok'
       exact SimAt.pure hs₉ rfl
     | bvar k => invert_node hd'; exact SimAt.pure hs₈ rfl
-    | const nm us => invert_node hd'; exact SimAt.pure hs₈ rfl
+    | const nmᵢ us => invert_node hd'; exact SimAt.pure hs₈ rfl
+
     | lit l => invert_node hd'; exact SimAt.pure hs₈ rfl
-    | fvar idx' nm t => invert_node hd'; exact SimAt.pure hs₈ rfl
+    | fvar idx' nmᵢ t => invert_node hd'; exact SimAt.pure hs₈ rfl
+
     | app f' a' => invert_node hd'; exact SimAt.pure hs₈ rfl
-    | lam nm t b' m => invert_node hd'; exact SimAt.pure hs₈ rfl
-    | forallE nm t b' m => invert_node hd'; exact SimAt.pure hs₈ rfl
-    | letE nm t v b' => invert_node hd'; exact SimAt.pure hs₈ rfl
-    | proj s' j' e' => invert_node hd'; exact SimAt.pure hs₈ rfl
+    | lam nmᵢ t b' m => invert_node hd'; exact SimAt.pure hs₈ rfl
+
+    | forallE nmᵢ t b' m => invert_node hd'; exact SimAt.pure hs₈ rfl
+
+    | letE nmᵢ t v b' => invert_node hd'; exact SimAt.pure hs₈ rfl
+
+    | proj s'ᵢ j' e' => invert_node hd'; exact SimAt.pure hs₈ rfl
+
   | bvar k => invert_node hd; exact SimAt.pure hs₄ rfl
-  | const nm us => invert_node hd; exact SimAt.pure hs₄ rfl
+  | const nmᵢ us => invert_node hd; exact SimAt.pure hs₄ rfl
+
   | lit l => invert_node hd; exact SimAt.pure hs₄ rfl
-  | fvar idx' nm t => invert_node hd; exact SimAt.pure hs₄ rfl
+  | fvar idx' nmᵢ t => invert_node hd; exact SimAt.pure hs₄ rfl
+
   | app f' a' => invert_node hd; exact SimAt.pure hs₄ rfl
-  | lam nm t b' m => invert_node hd; exact SimAt.pure hs₄ rfl
-  | forallE nm t b' m => invert_node hd; exact SimAt.pure hs₄ rfl
-  | letE nm t v b' => invert_node hd; exact SimAt.pure hs₄ rfl
-  | proj s' j' e' => invert_node hd; exact SimAt.pure hs₄ rfl
+  | lam nmᵢ t b' m => invert_node hd; exact SimAt.pure hs₄ rfl
+
+  | forallE nmᵢ t b' m => invert_node hd; exact SimAt.pure hs₄ rfl
+
+  | letE nmᵢ t v b' => invert_node hd; exact SimAt.pure hs₄ rfl
+
+  | proj s'ᵢ j' e' => invert_node hd; exact SimAt.pure hs₄ rfl
 
 theorem structUnitCertI_sim (ih : SSimI env f) (henv : EnvWF env)
     {d : Nat} {i j : EIdx} {a b : Expr} {s₀ : IState} (hs : ISOK env s₀)
@@ -435,11 +468,12 @@ theorem structUnitCertI_sim (ih : SSimI env f) (henv : EnvWF env)
       Setlec.withStore (fun st => st.nodes[st.getAppFnI wta]?) >>= fun n =>
       match n with
       | some (.const T us') =>
-        match (mkFEnv env).find? T with
+        readbackNM T >>= fun Tn =>
+        match (mkFEnv env).find? Tn with
         | some (.indInfo cvT caps) =>
           Setlec.withStore (·.getAppArgsI wta) >>= fun targs =>
           if caps.unitlike = true ∧
-              reservedBasisNames.contains T = false ∧
+              reservedBasisNames.contains Tn = false ∧
               targs.length = caps.unitParams ∧
               us'.length = cvT.levelParams.length ∧
               (cvT.type.stripPis caps.unitParams).isSome = true then
@@ -447,7 +481,7 @@ theorem structUnitCertI_sim (ih : SSimI env f) (henv : EnvWF env)
             (coreKnotI (mkFEnv env) f).whnf d tb >>= fun wtb =>
             (coreKnotI (mkFEnv env) f).defeq d wta wtb >>= fun r =>
             if r then
-              constTyAtM (mkFEnv env) T us' >>= fun tyT =>
+              constTyAtM (mkFEnv env) T Tn us' >>= fun tyT =>
               iotaCertsI (coreKnotI (mkFEnv env) f) (mkFEnv env) d tyT targs
             else pure false
           else pure false
@@ -485,11 +519,20 @@ theorem structUnitCertI_sim (ih : SSimI env f) (henv : EnvWF env)
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv (getAppFnI_spec hs₂.wf hwtad)
   rw [hn]
   cases n with
-  | const T us' =>
-    rw [denoteNode, Option.map_eq_some_iff] at hd
-    obtain ⟨lus', hlusDen', hxf⟩ := hd
+  | const Tᵢ us' =>
+    rw [denoteNode, Option.bind_eq_some_iff] at hd
+    obtain ⟨lus', hlusDen', hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨T, hTDen, hxf⟩ := hd
     rw [← hxf]
     dsimp only
+    refine SimAt.bind_left (readbackNM_eff hs₂ hTDen)
+      (fun s₂' Tv hs₂ hext₂' hTv => ?_)
+    subst Tv
+    replace hTDen := denoteN_mono hext₂' hTDen
+    replace hlusDen' := denoteLList_mono hext₂' hlusDen'
+    replace hwtad := denote_mono hext₂' hwtad
+    replace hdenb := denote_mono (hext₁.trans (hext₂.trans hext₂')) hdenb
     rw [mkFEnv_find?]
     cases hfT : env.find? T with
     | none => exact SimAt.pure hs₂ rfl
@@ -503,8 +546,7 @@ theorem structUnitCertI_sim (ih : SSimI env f) (henv : EnvWF env)
         rw [hargs.length_eq, ← hlen]
         split
         · rename_i hcond
-          refine SimAt.bind (ih.infer hs₂
-            (denote_mono (hext₁.trans hext₂) hdenb) hwb)
+          refine SimAt.bind (ih.infer hs₂ hdenb hwb)
             (fun s₃ tb tbx hs₃ hext₃ hP₃ => ?_)
           obtain ⟨htbd, hwtb⟩ := hP₃
           refine SimAt.bind (ih.whnf hs₃ htbd hwtb)
@@ -521,6 +563,7 @@ theorem structUnitCertI_sim (ih : SSimI env f) (henv : EnvWF env)
           | true =>
             simp only [↓reduceIte]
             refine SimAt.bind_left (constTyAtM_eff hs₅
+              (denoteN_mono ((hext₃.trans hext₄).trans hext₅) hTDen)
               (denoteLList_mono ((hext₃.trans hext₄).trans hext₅)
                 hlusDen') hfT)
               (fun s₆ tyT hs₆ hext₆ hQty => ?_)
@@ -547,9 +590,11 @@ theorem structUnitCertI_sim (ih : SSimI env f) (henv : EnvWF env)
     rw [← hd]; exact SimAt.pure hs₂ rfl
   | lit l =>
     rw [← Option.some.inj hd]; exact SimAt.pure hs₂ rfl
-  | fvar idx nm t =>
-    rw [denoteNode, Option.map_eq_some_iff] at hd
+  | fvar idx nmᵢ t =>
+    rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨t', _, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨nm, hnmDen, hd⟩ := hd
     rw [← hd]; exact SimAt.pure hs₂ rfl
   | app f' a' =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
@@ -557,33 +602,41 @@ theorem structUnitCertI_sim (ih : SSimI env f) (henv : EnvWF env)
     rw [Option.map_eq_some_iff] at hd
     obtain ⟨ea, _, hd⟩ := hd
     rw [← hd]; exact SimAt.pure hs₂ rfl
-  | lam nm t b' m =>
+  | lam nmᵢ t b' m =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨et, _, hd⟩ := hd
     rw [Option.bind_eq_some_iff] at hd
     obtain ⟨eb, _, hd⟩ := hd
-    rw [Option.map_eq_some_iff] at hd
+    rw [Option.bind_eq_some_iff] at hd
     obtain ⟨bm, hbmDen, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨nm, hnmDen, hd⟩ := hd
     rw [← hd]; exact SimAt.pure hs₂ rfl
-  | forallE nm t b' m =>
+  | forallE nmᵢ t b' m =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨et, _, hd⟩ := hd
     rw [Option.bind_eq_some_iff] at hd
     obtain ⟨eb, _, hd⟩ := hd
-    rw [Option.map_eq_some_iff] at hd
+    rw [Option.bind_eq_some_iff] at hd
     obtain ⟨bm, hbmDen, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨nm, hnmDen, hd⟩ := hd
     rw [← hd]; exact SimAt.pure hs₂ rfl
-  | letE nm t v b' =>
+  | letE nmᵢ t v b' =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨et, _, hd⟩ := hd
     rw [Option.bind_eq_some_iff] at hd
     obtain ⟨ev, _, hd⟩ := hd
-    rw [Option.map_eq_some_iff] at hd
+    rw [Option.bind_eq_some_iff] at hd
     obtain ⟨eb, _, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨nm, hnmDen, hd⟩ := hd
     rw [← hd]; exact SimAt.pure hs₂ rfl
-  | proj s' j' e' =>
-    rw [denoteNode, Option.map_eq_some_iff] at hd
+  | proj s'ᵢ j' e' =>
+    rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨ee, _, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨s', hnmDen, hd⟩ := hd
     rw [← hd]; exact SimAt.pure hs₂ rfl
 
 end Walks2
@@ -647,7 +700,8 @@ theorem pairEtaCertI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
               viewI f₁ >>= fun n₄ =>
               match n₄ with
               | some (.const c us) =>
-                match (mkFEnv env).find? c with
+                readbackNM c >>= fun cn =>
+                match (mkFEnv env).find? cn with
                 | some (.ctorInfo _cvm 2 2) =>
                   (coreKnotI (mkFEnv env) f).infer d j >>= fun tb =>
                   (coreKnotI (mkFEnv env) f).whnf d tb >>= fun wtb =>
@@ -660,12 +714,13 @@ theorem pairEtaCertI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
                       viewI g₁ >>= fun m₂ =>
                       match m₂ with
                       | some (.const c' us') =>
-                        match (mkFEnv env).find? c' with
+                        readbackNM c' >>= fun c'n =>
+                        match (mkFEnv env).find? c'n with
                         | some (.indInfo _ _) =>
-                          match (mkFEnv env).find? (c'.str "rec") with
+                          match (mkFEnv env).find? (c'n.str "rec") with
                           | some (.recInfo _ mI rP [rr]) =>
-                            if rr.ctor = c ∧ rr.nfields = 2 ∧ mI = rP ∧
-                                reservedBasisNames.contains (c'.str "rec")
+                            if rr.ctor = cn ∧ rr.nfields = 2 ∧ mI = rP ∧
+                                reservedBasisNames.contains (c'n.str "rec")
                                   = true then
                               isEquivListLM us us' >>= fun o =>
                               liftFueled "level comparison" o >>= fun ok =>
@@ -736,11 +791,20 @@ theorem pairEtaCertI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
           obtain ⟨n₄, hn₄, hc₄, hd₄⟩ := denote_some_inv hf₁
           rw [hn₄]
           cases n₄ with
-          | const c us =>
-            rw [denoteNode, Option.map_eq_some_iff] at hd₄
-            obtain ⟨lus, hlusDen4, hxc⟩ := hd₄
+          | const cᵢ us =>
+            rw [denoteNode, Option.bind_eq_some_iff] at hd₄
+            obtain ⟨lus, hlusDen4, hd₄⟩ := hd₄
+            rw [Option.map_eq_some_iff] at hd₄
+            obtain ⟨c, hcDen, hxc⟩ := hd₄
             subst hxc
             dsimp only
+            refine SimAt.bind_left (readbackNM_eff hs hcDen)
+              (fun s₀' cv hs hext₀' hcv => ?_)
+            subst cv
+            replace hdenb := denote_mono hext₀' hdenb
+            replace hlusDen4 := denoteLList_mono hext₀' hlusDen4
+            replace hs₁d := denote_mono hext₀' hs₁d
+            replace hs₂d := denote_mono hext₀' hs₂d
             rw [mkFEnv_find?]
             have hws : WScoped d xs₁ ∧ WScoped d xs₂ := by
               simp only [WScoped] at hwa
@@ -783,18 +847,27 @@ theorem pairEtaCertI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
                       rw [hm₂]
                       cases m₂ with
                       | const c' us' =>
-                        rw [denoteNode, Option.map_eq_some_iff] at hdm₂
-                        obtain ⟨lus', hlusDen4', hxc'⟩ := hdm₂
+                        rw [denoteNode, Option.bind_eq_some_iff] at hdm₂
+                        obtain ⟨lus', hlusDen4', hdm₂⟩ := hdm₂
+                        rw [Option.map_eq_some_iff] at hdm₂
+                        obtain ⟨c'v, hc'Den, hxc'⟩ := hdm₂
                         subst hxc'
                         dsimp only
+                        refine SimAt.bind_left (readbackNM_eff hs₂' hc'Den)
+                          (fun s₂'' c'w hs₂' hext₂'' hc'w => ?_)
+                        subst c'w
+                        replace hlusDen4' := denoteLList_mono hext₂''
+                          hlusDen4'
+                        replace hc'Den := denoteN_mono hext₂'' hc'Den
+                        replace hext₂ := hext₂.trans hext₂''
                         rw [mkFEnv_find?, mkFEnv_find?]
-                        cases hfc' : env.find? c' with
+                        cases hfc' : env.find? c'v with
                         | none => exact SimAt.pure hs₂' rfl
                         | some ci' =>
                           cases ci' with
                           | indInfo cvI capsI =>
                             dsimp only
-                            cases hfr : env.find? (c'.str "rec") with
+                            cases hfr : env.find? (c'v.str "rec") with
                             | none => exact SimAt.pure hs₂' rfl
                             | some cir =>
                               cases cir with
@@ -826,10 +899,13 @@ theorem pairEtaCertI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
                                         ((hext₁.trans hext₂).trans
                                           hext₂o).trans hext₃
                                       have hp₀d : denoteNode s₃'.store.denote
-                                          s₃'.store.denoteL (.proj c' 0 j)
-                                          = some (.proj c' 0 b) := by
+                                          s₃'.store.denoteL
+                                          s₃'.store.denoteN (.proj c' 0 j)
+                                          = some (.proj c'v 0 b) := by
                                         rw [denoteNode,
-                                          denote_mono hext₀₃ hdenb]
+                                          denote_mono hext₀₃ hdenb,
+                                          denoteN_mono
+                                            (hext₂o.trans hext₃) hc'Den]
                                         rfl
                                       refine SimAt.bind_left
                                         (internI_eff hs₃' hp₀d)
@@ -839,7 +915,7 @@ theorem pairEtaCertI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
                                           hs₁d) hQ₀ hws.1 ?_)
                                         (fun s₅' r₁ r₁' hs₅' hext₅
                                           hPr₁ => ?_)
-                                      · show WScoped d (.proj c' 0 b)
+                                      · show WScoped d (.proj c'v 0 b)
                                         simp only [WScoped]
                                         exact hwb
                                       obtain rfl : r₁ = r₁' := hPr₁
@@ -852,11 +928,15 @@ theorem pairEtaCertI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
                                         simp only [↓reduceIte]
                                         have hp₁d :
                                             denoteNode s₅'.store.denote
-                                            s₅'.store.denoteL (.proj c' 1 j)
-                                            = some (.proj c' 1 b) := by
+                                            s₅'.store.denoteL
+                                            s₅'.store.denoteN (.proj c' 1 j)
+                                            = some (.proj c'v 1 b) := by
                                           rw [denoteNode, denote_mono
                                             ((hext₀₃.trans hext₄).trans
-                                              hext₅) hdenb]
+                                              hext₅) hdenb,
+                                            denoteN_mono
+                                              (((hext₂o.trans hext₃).trans
+                                                hext₄).trans hext₅) hc'Den]
                                           rfl
                                         refine SimAt.bind_left
                                           (internI_eff hs₅' hp₁d)
@@ -866,7 +946,7 @@ theorem pairEtaCertI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
                                             (((hext₀₃.trans hext₄).trans
                                               hext₅).trans hext₆) hs₂d)
                                           hQ₁ hws.2 ?_
-                                        show WScoped d (.proj c' 1 b)
+                                        show WScoped d (.proj c'v 1 b)
                                         simp only [WScoped]
                                         exact hwb
                                   · exact SimAt.pure hs₂' rfl
@@ -950,48 +1030,76 @@ theorem pairEtaCertI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
           | bvar k => invert_node hd₄; exact SimAt.pure hs rfl
           | sort u => invert_node hd₄; exact SimAt.pure hs rfl
           | lit l => invert_node hd₄; exact SimAt.pure hs rfl
-          | fvar idx nm t => invert_node hd₄; exact SimAt.pure hs rfl
+          | fvar idx nmᵢ t => invert_node hd₄; exact SimAt.pure hs rfl
+
           | app f₀ a₀ => invert_node hd₄; exact SimAt.pure hs rfl
-          | lam nm t b' m => invert_node hd₄; exact SimAt.pure hs rfl
-          | forallE nm t b' m => invert_node hd₄; exact SimAt.pure hs rfl
-          | letE nm t v b' => invert_node hd₄; exact SimAt.pure hs rfl
-          | proj s' j' e' => invert_node hd₄; exact SimAt.pure hs rfl
+          | lam nmᵢ t b' m => invert_node hd₄; exact SimAt.pure hs rfl
+
+          | forallE nmᵢ t b' m => invert_node hd₄; exact SimAt.pure hs rfl
+
+          | letE nmᵢ t v b' => invert_node hd₄; exact SimAt.pure hs rfl
+
+          | proj s'ᵢ j' e' => invert_node hd₄; exact SimAt.pure hs rfl
+
         | bvar k => invert_node hd₃; exact SimAt.pure hs rfl
         | sort u => invert_node hd₃; exact SimAt.pure hs rfl
-        | const nm us => invert_node hd₃; exact SimAt.pure hs rfl
+        | const nmᵢ us => invert_node hd₃; exact SimAt.pure hs rfl
+
         | lit l => invert_node hd₃; exact SimAt.pure hs rfl
-        | fvar idx nm t => invert_node hd₃; exact SimAt.pure hs rfl
-        | lam nm t b' m => invert_node hd₃; exact SimAt.pure hs rfl
-        | forallE nm t b' m => invert_node hd₃; exact SimAt.pure hs rfl
-        | letE nm t v b' => invert_node hd₃; exact SimAt.pure hs rfl
-        | proj s' j' e' => invert_node hd₃; exact SimAt.pure hs rfl
+        | fvar idx nmᵢ t => invert_node hd₃; exact SimAt.pure hs rfl
+
+        | lam nmᵢ t b' m => invert_node hd₃; exact SimAt.pure hs rfl
+
+        | forallE nmᵢ t b' m => invert_node hd₃; exact SimAt.pure hs rfl
+
+        | letE nmᵢ t v b' => invert_node hd₃; exact SimAt.pure hs rfl
+
+        | proj s'ᵢ j' e' => invert_node hd₃; exact SimAt.pure hs rfl
+
       | bvar k => invert_node hd₂; exact SimAt.pure hs rfl
       | sort u => invert_node hd₂; exact SimAt.pure hs rfl
-      | const nm us => invert_node hd₂; exact SimAt.pure hs rfl
+      | const nmᵢ us => invert_node hd₂; exact SimAt.pure hs rfl
+
       | lit l => invert_node hd₂; exact SimAt.pure hs rfl
-      | fvar idx nm t => invert_node hd₂; exact SimAt.pure hs rfl
-      | lam nm t b' m => invert_node hd₂; exact SimAt.pure hs rfl
-      | forallE nm t b' m => invert_node hd₂; exact SimAt.pure hs rfl
-      | letE nm t v b' => invert_node hd₂; exact SimAt.pure hs rfl
-      | proj s' j' e' => invert_node hd₂; exact SimAt.pure hs rfl
+      | fvar idx nmᵢ t => invert_node hd₂; exact SimAt.pure hs rfl
+
+      | lam nmᵢ t b' m => invert_node hd₂; exact SimAt.pure hs rfl
+
+      | forallE nmᵢ t b' m => invert_node hd₂; exact SimAt.pure hs rfl
+
+      | letE nmᵢ t v b' => invert_node hd₂; exact SimAt.pure hs rfl
+
+      | proj s'ᵢ j' e' => invert_node hd₂; exact SimAt.pure hs rfl
+
     | bvar k => invert_node hd₁; exact SimAt.pure hs rfl
     | sort u => invert_node hd₁; exact SimAt.pure hs rfl
-    | const nm us => invert_node hd₁; exact SimAt.pure hs rfl
+    | const nmᵢ us => invert_node hd₁; exact SimAt.pure hs rfl
+
     | lit l => invert_node hd₁; exact SimAt.pure hs rfl
-    | fvar idx nm t => invert_node hd₁; exact SimAt.pure hs rfl
-    | lam nm t b' m => invert_node hd₁; exact SimAt.pure hs rfl
-    | forallE nm t b' m => invert_node hd₁; exact SimAt.pure hs rfl
-    | letE nm t v b' => invert_node hd₁; exact SimAt.pure hs rfl
-    | proj s' j' e' => invert_node hd₁; exact SimAt.pure hs rfl
+    | fvar idx nmᵢ t => invert_node hd₁; exact SimAt.pure hs rfl
+
+    | lam nmᵢ t b' m => invert_node hd₁; exact SimAt.pure hs rfl
+
+    | forallE nmᵢ t b' m => invert_node hd₁; exact SimAt.pure hs rfl
+
+    | letE nmᵢ t v b' => invert_node hd₁; exact SimAt.pure hs rfl
+
+    | proj s'ᵢ j' e' => invert_node hd₁; exact SimAt.pure hs rfl
+
   | bvar k => invert_node hd₀; exact SimAt.pure hs rfl
   | sort u => invert_node hd₀; exact SimAt.pure hs rfl
-  | const nm us => invert_node hd₀; exact SimAt.pure hs rfl
+  | const nmᵢ us => invert_node hd₀; exact SimAt.pure hs rfl
+
   | lit l => invert_node hd₀; exact SimAt.pure hs rfl
-  | fvar idx nm t => invert_node hd₀; exact SimAt.pure hs rfl
-  | lam nm t b' m => invert_node hd₀; exact SimAt.pure hs rfl
-  | forallE nm t b' m => invert_node hd₀; exact SimAt.pure hs rfl
-  | letE nm t v b' => invert_node hd₀; exact SimAt.pure hs rfl
-  | proj s' j' e' => invert_node hd₀; exact SimAt.pure hs rfl
+  | fvar idx nmᵢ t => invert_node hd₀; exact SimAt.pure hs rfl
+
+  | lam nmᵢ t b' m => invert_node hd₀; exact SimAt.pure hs rfl
+
+  | forallE nmᵢ t b' m => invert_node hd₀; exact SimAt.pure hs rfl
+
+  | letE nmᵢ t v b' => invert_node hd₀; exact SimAt.pure hs rfl
+
+  | proj s'ᵢ j' e' => invert_node hd₀; exact SimAt.pure hs rfl
 
 end Walks3
 
@@ -1001,65 +1109,75 @@ variable {env : Env} {f : Nat}
 
 /-- The interned projection-application spine denotes the spec's
 mapped list. -/
-theorem projAppsI_eff (T : Name) (us' : List LIdx) (lus' : List Level) :
+theorem projAppsI_eff (T : NIdx) (Tn : Name) (us' : List LIdx)
+    (lus' : List Level) :
     ∀ (l : List Nat) {s₀ : IState}, ISOK env s₀ →
+      s₀.store.denoteN T = some Tn →
       denoteLList s₀.store.denoteL us' = some lus' →
       ∀ {targs : List EIdx} {xs : List Expr} {b : EIdx} {xb : Expr},
       DenL s₀.store targs xs → s₀.store.denote b = some xb →
       IEff env s₀ (fun s rs => DenL s.store rs
-          (l.map fun i => Expr.mkAppN (.const (projFnName T i) lus')
+          (l.map fun i => Expr.mkAppN (.const (projFnName Tn i) lus')
             (xs ++ [xb])))
         (projAppsI T us' targs b l)
-  | [], s₀, hs, hus', targs, xs, b, xb, htargs, hb => by
+  | [], s₀, hs, hT, hus', targs, xs, b, xb, htargs, hb => by
     exact IEff.pure hs trivial
-  | i :: rest, s₀, hs, hus', targs, xs, b, xb, htargs, hb => by
+  | i :: rest, s₀, hs, hT, hus', targs, xs, b, xb, htargs, hb => by
     show IEff env s₀ _
-      (internI (.const (projFnName T i) us') >>= fun h =>
+      (projFnIdxM T i >>= fun pf =>
+        internI (.const pf us') >>= fun h =>
         mkAppNM h (targs ++ [b]) >>= fun r =>
         projAppsI T us' targs b rest >>= fun rs =>
         pure (r :: rs))
-    have hcn : denoteNode s₀.store.denote s₀.store.denoteL
-        (.const (projFnName T i) us')
-        = some (.const (projFnName T i) lus') := by
-      rw [denoteNode, hus']
+    refine IEff.bind (projFnIdxM_eff hs hT i)
+      (fun s₀' pf hs₀' hext₀ hQpf => ?_)
+    have hcn : denoteNode s₀'.store.denote s₀'.store.denoteL
+        s₀'.store.denoteN (.const pf us')
+        = some (.const (projFnName Tn i) lus') := by
+      rw [denoteNode, denoteLList_mono hext₀ hus', hQpf]
       rfl
-    refine IEff.bind (internI_eff hs hcn) (fun s₁ h hs₁ hext₁ hQh => ?_)
+    refine IEff.bind (internI_eff hs₀' hcn) (fun s₁ h hs₁ hext₁ hQh => ?_)
     refine IEff.bind (mkAppNM_eff hs₁ hQh
-      ((htargs.mono hext₁).append (DenL.cons (denote_mono hext₁ hb) DenL.nil)))
+      (((htargs.mono hext₀).mono hext₁).append
+        (DenL.cons (denote_mono hext₁ (denote_mono hext₀ hb)) DenL.nil)))
       (fun s₂ r hs₂ hext₂ hQr => ?_)
-    refine IEff.bind (projAppsI_eff T us' lus' rest hs₂
-      (denoteLList_mono (hext₁.trans hext₂) hus')
-      (htargs.mono (hext₁.trans hext₂))
-      (denote_mono (hext₁.trans hext₂) hb))
+    refine IEff.bind (projAppsI_eff T Tn us' lus' rest hs₂
+      (denoteN_mono ((hext₀.trans hext₁).trans hext₂) hT)
+      (denoteLList_mono ((hext₀.trans hext₁).trans hext₂) hus')
+      ((htargs.mono hext₀).mono (hext₁.trans hext₂))
+      (denote_mono ((hext₀.trans hext₁).trans hext₂) hb))
       (fun s₃ rs hs₃ hext₃ hQrs => ?_)
     exact IEff.pure hs₃ ⟨denote_mono hext₃ hQr, hQrs⟩
 
 theorem structEtaProjCertsI_sim (ih : SSimI env f) (henv : EnvWF env)
-    {d : Nat} (T : Name) (us' : List LIdx) (lus' : List Level)
+    {d : Nat} (TI : NIdx) (T : Name) (us' : List LIdx) (lus' : List Level)
     (lpsT : List Name) :
     ∀ (idxs : List Nat) {s₀ : IState}, ISOK env s₀ →
+      s₀.store.denoteN TI = some T →
       denoteLList s₀.store.denoteL us' = some lus' →
       ∀ {targs : List EIdx} {xs : List Expr} {b : EIdx} {xb : Expr},
       DenL s₀.store targs xs → s₀.store.denote b = some xb →
       (∀ x ∈ xs, WScoped d x) → WScoped d xb →
       SimAt env s₀ RelV
         (structEtaProjCertsI (coreKnotI (mkFEnv env) f) (mkFEnv env) d
-          T us' targs b lpsT idxs)
+          TI T us' targs b lpsT idxs)
         (structEtaProjCerts (fueledFns env) env d T lus' xs xb lpsT idxs)
-  | [], s₀, hs, hus', targs, xs, b, xb, htargs, hb, hwxs, hwxb => by
+  | [], s₀, hs, hTI, hus', targs, xs, b, xb, htargs, hb, hwxs, hwxb => by
     exact SimAt.pure hs rfl
-  | i :: rest, s₀, hs, hus', targs, xs, b, xb, htargs, hb, hwxs, hwxb => by
+  | i :: rest, s₀, hs, hTI, hus', targs, xs, b, xb, htargs, hb, hwxs,
+      hwxb => by
     show SimAt env s₀ RelV
       (match (mkFEnv env).find? (projFnName T i) with
       | some (.recInfo cvp _ _ _) =>
         if cvp.levelParams = lpsT ∧
             (cvp.type.stripPis (targs.length + 1)).isSome = true then
-          constTyAtM (mkFEnv env) (projFnName T i) us' >>= fun pty =>
+          projFnIdxM TI i >>= fun pf =>
+          constTyAtM (mkFEnv env) pf (projFnName T i) us' >>= fun pty =>
           iotaCertsI (coreKnotI (mkFEnv env) f) (mkFEnv env) d pty
               (targs ++ [b]) >>= fun r =>
           if r then
             structEtaProjCertsI (coreKnotI (mkFEnv env) f) (mkFEnv env) d
-              T us' targs b lpsT rest
+              TI T us' targs b lpsT rest
           else pure false
         else pure false
       | _ => pure false)
@@ -1083,8 +1201,12 @@ theorem structEtaProjCertsI_sim (ih : SSimI env f) (henv : EnvWF env)
       | recInfo cvp mI rP rules =>
         dsimp only
         split
-        · refine SimAt.bind_left (constTyAtM_eff hs hus' hf)
-            (fun s₁ pty hs₁ hext₁ hQty => ?_)
+        · refine SimAt.bind_left (projFnIdxM_eff hs hTI i)
+            (fun s₀p pf hs hext₀ hQpf => ?_)
+          refine SimAt.bind_left (constTyAtM_eff hs hQpf
+            (denoteLList_mono hext₀ hus') hf)
+            (fun s₁ pty hs₁ hext₁' hQty => ?_)
+          have hext₁ := hext₀.trans hext₁'
           have htyw : WScoped d
               (cvp.type.instantiateLevelParams cvp.levelParams lus') := by
             obtain ⟨htf, -⟩ := henv _ (find?_mem hf)
@@ -1103,7 +1225,9 @@ theorem structEtaProjCertsI_sim (ih : SSimI env f) (henv : EnvWF env)
           cases r with
           | true =>
             simp only [↓reduceIte]
-            exact structEtaProjCertsI_sim ih henv T us' lus' lpsT rest hs₂
+            exact structEtaProjCertsI_sim ih henv TI T us' lus' lpsT rest
+              hs₂
+              (denoteN_mono (hext₁.trans hext₂) hTI)
               (denoteLList_mono (hext₁.trans hext₂) hus')
               (htargs.mono (hext₁.trans hext₂))
               (denote_mono (hext₁.trans hext₂) hb) hwxs hwxb
@@ -1183,7 +1307,8 @@ theorem structEtaCertWithI_sim (ih : SSimI env f) (henv : EnvWF env)
     (Setlec.withStore (fun st => st.nodes[st.getAppFnI i]?) >>= fun n =>
       match n with
       | some (.const c us) =>
-        match (mkFEnv env).find? c with
+        readbackNM c >>= fun cn =>
+        match (mkFEnv env).find? cn with
         | some (.ctorInfo cvc cnP cnF) =>
           Setlec.withStore (·.getAppArgsI i) >>= fun aargs =>
           if aargs.length = cnP + cnF then
@@ -1191,13 +1316,14 @@ theorem structEtaCertWithI_sim (ih : SSimI env f) (henv : EnvWF env)
               fun n' =>
             match n' with
             | some (.const T us') =>
-              match (mkFEnv env).find? T with
+              readbackNM T >>= fun Tn =>
+              match (mkFEnv env).find? Tn with
               | some (.indInfo cvT caps) =>
                 Setlec.withStore (·.getAppArgsI w) >>= fun targs =>
-                if caps.eta = true ∧ caps.etaCtor = c ∧
+                if caps.eta = true ∧ caps.etaCtor = cn ∧
                     caps.etaParams = cnP ∧ caps.etaFields = cnF ∧
-                    reservedBasisNames.contains T = false ∧
-                    reservedBasisNames.contains c = false ∧
+                    reservedBasisNames.contains Tn = false ∧
+                    reservedBasisNames.contains cn = false ∧
                     targs.length = cnP ∧
                     us'.length = cvT.levelParams.length ∧
                     cvc.levelParams = cvT.levelParams ∧
@@ -1205,12 +1331,12 @@ theorem structEtaCertWithI_sim (ih : SSimI env f) (henv : EnvWF env)
                   isEquivListLM us us' >>= fun o =>
                   liftFueled "level comparison" o >>= fun ok =>
                   if ok then
-                    constTyAtM (mkFEnv env) T us' >>= fun tyT =>
+                    constTyAtM (mkFEnv env) T Tn us' >>= fun tyT =>
                     iotaCertsI (coreKnotI (mkFEnv env) f) (mkFEnv env) d
                         tyT targs >>= fun r₁ =>
                     if r₁ then
                       structEtaProjCertsI (coreKnotI (mkFEnv env) f)
-                          (mkFEnv env) d T us' targs j cvT.levelParams
+                          (mkFEnv env) d T Tn us' targs j cvT.levelParams
                           (List.range cnF) >>= fun r₂ =>
                       if r₂ then
                         defEqListI (coreKnotI (mkFEnv env) f) (mkFEnv env)
@@ -1236,11 +1362,20 @@ theorem structEtaCertWithI_sim (ih : SSimI env f) (henv : EnvWF env)
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv (getAppFnI_spec hs.wf hdena)
   rw [hn]
   cases n with
-  | const c us =>
-    rw [denoteNode, Option.map_eq_some_iff] at hd
+  | const cᵢ us =>
+    rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨lus, hlusDen, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨c, hnmDen, hd⟩ := hd
     rw [← hd]
     dsimp only
+    refine SimAt.bind_left (readbackNM_eff hs hnmDen)
+      (fun s₀c cw hs hextc hcw => ?_)
+    subst cw
+    replace hdena := denote_mono hextc hdena
+    replace hdenb := denote_mono hextc hdenb
+    replace hdenw := denote_mono hextc hdenw
+    replace hlusDen := denoteLList_mono hextc hlusDen
     rw [mkFEnv_find?]
     cases hfc : env.find? c with
     | none => exact SimAt.pure hs rfl
@@ -1258,12 +1393,24 @@ theorem structEtaCertWithI_sim (ih : SSimI env f) (henv : EnvWF env)
           rw [hn']
           cases n' with
           | const T us' =>
-            rw [denoteNode, Option.map_eq_some_iff] at hd'
+            rw [denoteNode, Option.bind_eq_some_iff] at hd'
             obtain ⟨lus', hlusDen', hd'⟩ := hd'
+            rw [Option.map_eq_some_iff] at hd'
+            obtain ⟨Tv, hTDen, hd'⟩ := hd'
             rw [← hd']
             dsimp only
+            refine SimAt.bind_left (readbackNM_eff hs hTDen)
+              (fun s₀T Tw hs hextT hTw => ?_)
+            subst Tw
+            replace hdena := denote_mono hextT hdena
+            replace hdenb := denote_mono hextT hdenb
+            replace hdenw := denote_mono hextT hdenw
+            replace hlusDen := denoteLList_mono hextT hlusDen
+            replace hlusDen' := denoteLList_mono hextT hlusDen'
+            replace haargs := haargs.mono hextT
+            replace hTDen := denoteN_mono hextT hTDen
             rw [mkFEnv_find?]
-            cases hfT : env.find? T with
+            cases hfT : env.find? Tv with
             | none => exact SimAt.pure hs rfl
             | some ciT =>
               cases ciT with
@@ -1288,6 +1435,7 @@ theorem structEtaCertWithI_sim (ih : SSimI env f) (henv : EnvWF env)
                   | true =>
                     simp only [↓reduceIte]
                     refine SimAt.bind_left (constTyAtM_eff hs₁
+                      (denoteN_mono (hext₀o.trans hext₁) hTDen)
                       (denoteLList_mono (hext₀o.trans hext₁) hlusDen')
                       hfT)
                       (fun s₂ tyT hs₂ hext₂ hQty => ?_)
@@ -1309,7 +1457,8 @@ theorem structEtaCertWithI_sim (ih : SSimI env f) (henv : EnvWF env)
                       have hext₀₃ :=
                         ((hext₀o.trans hext₁).trans hext₂).trans hext₃
                       refine SimAt.bind (structEtaProjCertsI_sim ih henv
-                        T us' lus' cvT.levelParams (List.range cnF) hs₃
+                        T Tv us' lus' cvT.levelParams (List.range cnF) hs₃
+                        (denoteN_mono hext₀₃ hTDen)
                         (denoteLList_mono hext₀₃ hlusDen')
                         (htargs.mono hext₀₃)
                         (denote_mono hext₀₃ hdenb)
@@ -1338,8 +1487,9 @@ theorem structEtaCertWithI_sim (ih : SSimI env f) (henv : EnvWF env)
                         | true =>
                           simp only [↓reduceIte]
                           have hext₀₅ := hext₀₄.trans hext₅
-                          refine SimAt.bind_left (projAppsI_eff T us'
+                          refine SimAt.bind_left (projAppsI_eff T Tv us'
                             lus' (List.range cnF) hs₅
+                            (denoteN_mono hext₀₅ hTDen)
                             (denoteLList_mono hext₀₅ hlusDen')
                             (htargs.mono hext₀₅)
                             (denote_mono hext₀₅ hdenb))
@@ -1371,8 +1521,10 @@ theorem structEtaCertWithI_sim (ih : SSimI env f) (henv : EnvWF env)
             rw [← hd']; exact SimAt.pure hs rfl
           | lit l => rw [← Option.some.inj hd']; exact SimAt.pure hs rfl
           | fvar idx nm t =>
-            rw [denoteNode, Option.map_eq_some_iff] at hd'
+            rw [denoteNode, Option.bind_eq_some_iff] at hd'
             obtain ⟨t', _, hd'⟩ := hd'
+            rw [Option.map_eq_some_iff] at hd'
+            obtain ⟨c, hnmDen, hd'⟩ := hd'
             rw [← hd']; exact SimAt.pure hs rfl
           | app f' a' =>
             rw [denoteNode, Option.bind_eq_some_iff] at hd'
@@ -1385,28 +1537,36 @@ theorem structEtaCertWithI_sim (ih : SSimI env f) (henv : EnvWF env)
             obtain ⟨et, _, hd'⟩ := hd'
             rw [Option.bind_eq_some_iff] at hd'
             obtain ⟨eb, _, hd'⟩ := hd'
-            rw [Option.map_eq_some_iff] at hd'
+            rw [Option.bind_eq_some_iff] at hd'
             obtain ⟨bm, hbmDen, hd'⟩ := hd'
+            rw [Option.map_eq_some_iff] at hd'
+            obtain ⟨_nmw, _hnmw, hd'⟩ := hd'
             rw [← hd']; exact SimAt.pure hs rfl
           | forallE nm t b' m =>
             rw [denoteNode, Option.bind_eq_some_iff] at hd'
             obtain ⟨et, _, hd'⟩ := hd'
             rw [Option.bind_eq_some_iff] at hd'
             obtain ⟨eb, _, hd'⟩ := hd'
-            rw [Option.map_eq_some_iff] at hd'
+            rw [Option.bind_eq_some_iff] at hd'
             obtain ⟨bm, hbmDen, hd'⟩ := hd'
+            rw [Option.map_eq_some_iff] at hd'
+            obtain ⟨_nmw, _hnmw, hd'⟩ := hd'
             rw [← hd']; exact SimAt.pure hs rfl
           | letE nm t v b' =>
             rw [denoteNode, Option.bind_eq_some_iff] at hd'
             obtain ⟨et, _, hd'⟩ := hd'
             rw [Option.bind_eq_some_iff] at hd'
             obtain ⟨ev, _, hd'⟩ := hd'
-            rw [Option.map_eq_some_iff] at hd'
+            rw [Option.bind_eq_some_iff] at hd'
             obtain ⟨eb, _, hd'⟩ := hd'
+            rw [Option.map_eq_some_iff] at hd'
+            obtain ⟨_nmw, _hnmw, hd'⟩ := hd'
             rw [← hd']; exact SimAt.pure hs rfl
           | proj s' j' e' =>
-            rw [denoteNode, Option.map_eq_some_iff] at hd'
+            rw [denoteNode, Option.bind_eq_some_iff] at hd'
             obtain ⟨ee, _, hd'⟩ := hd'
+            rw [Option.map_eq_some_iff] at hd'
+            obtain ⟨c, hnmDen, hd'⟩ := hd'
             rw [← hd']; exact SimAt.pure hs rfl
         · exact SimAt.pure hs rfl
       | axiomInfo cv => exact SimAt.pure hs rfl
@@ -1421,9 +1581,11 @@ theorem structEtaCertWithI_sim (ih : SSimI env f) (henv : EnvWF env)
     obtain ⟨lu, hluDen, hd⟩ := hd
     rw [← hd]; exact SimAt.pure hs rfl
   | lit l => rw [← Option.some.inj hd]; exact SimAt.pure hs rfl
-  | fvar idx nm t =>
-    rw [denoteNode, Option.map_eq_some_iff] at hd
+  | fvar idx nmᵢ t =>
+    rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨t', _, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨nm, hnmDen, hd⟩ := hd
     rw [← hd]; exact SimAt.pure hs rfl
   | app f' a' =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
@@ -1431,33 +1593,41 @@ theorem structEtaCertWithI_sim (ih : SSimI env f) (henv : EnvWF env)
     rw [Option.map_eq_some_iff] at hd
     obtain ⟨ea, _, hd⟩ := hd
     rw [← hd]; exact SimAt.pure hs rfl
-  | lam nm t b' m =>
+  | lam nmᵢ t b' m =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨et, _, hd⟩ := hd
     rw [Option.bind_eq_some_iff] at hd
     obtain ⟨eb, _, hd⟩ := hd
-    rw [Option.map_eq_some_iff] at hd
+    rw [Option.bind_eq_some_iff] at hd
     obtain ⟨bm, hbmDen, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨nm, hnmDen, hd⟩ := hd
     rw [← hd]; exact SimAt.pure hs rfl
-  | forallE nm t b' m =>
+  | forallE nmᵢ t b' m =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨et, _, hd⟩ := hd
     rw [Option.bind_eq_some_iff] at hd
     obtain ⟨eb, _, hd⟩ := hd
-    rw [Option.map_eq_some_iff] at hd
+    rw [Option.bind_eq_some_iff] at hd
     obtain ⟨bm, hbmDen, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨nm, hnmDen, hd⟩ := hd
     rw [← hd]; exact SimAt.pure hs rfl
-  | letE nm t v b' =>
+  | letE nmᵢ t v b' =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨et, _, hd⟩ := hd
     rw [Option.bind_eq_some_iff] at hd
     obtain ⟨ev, _, hd⟩ := hd
-    rw [Option.map_eq_some_iff] at hd
+    rw [Option.bind_eq_some_iff] at hd
     obtain ⟨eb, _, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨nm, hnmDen, hd⟩ := hd
     rw [← hd]; exact SimAt.pure hs rfl
-  | proj s' j' e' =>
-    rw [denoteNode, Option.map_eq_some_iff] at hd
+  | proj s'ᵢ j' e' =>
+    rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨ee, _, hd⟩ := hd
+    rw [Option.map_eq_some_iff] at hd
+    obtain ⟨s', hnmDen, hd⟩ := hd
     rw [← hd]; exact SimAt.pure hs rfl
 
 theorem structEtaCertI_sim (ih : SSimI env f) (henv : EnvWF env)
