@@ -643,16 +643,17 @@ def checkProjRuleF (ops : CheckerOps m) (fe : FEnv) (pty : Expr) (cvj : Constant
     throw (.notImplemented "projection rule body")
   let some (cbindersR, _) := cvj.type.stripPis (nP + nF)
     | throw (.notImplemented "projection constructor telescope")
-  unless domsMatchAux (fun _ e => e) rbinders cbindersR 0 0 (nP + nF) do
+  unless domsMatchAuxA (fun _ e => e) rbinders.toArray cbindersR.toArray
+      0 0 (nP + nF) do
     throw (.notImplemented "projection rule domain mismatch")
-  let some (fvsP, _) := openPisAtFvars nP pty 0
+  let some (fvsP, _) := openPisAtFvarsF nP pty 0
     | throw (.notImplemented "projection type telescope")
-  let some (cdomsP, crestP) := Expr.instPisAt fvsP cvj.type
+  let some (cdomsP, crestP) := Expr.instPisAtF fvsP cvj.type
     | throw (.notImplemented "projection constructor telescope")
   checkDefEqList ops fe.env (nP + nF) (fvsP.map Expr.fvarTypeD) cdomsP
-  let some (xFvs, _) := openPisAtFvars nF crestP nP
+  let some (xFvs, _) := openPisAtFvarsF nF crestP nP
     | throw (.notImplemented "projection constructor telescope")
-  let some (ldoms, _) := Expr.instLamsAt (fvsP ++ xFvs) rhsA
+  let some (ldoms, _) := Expr.instLamsAtF (fvsP ++ xFvs) rhsA
     | throw (.notImplemented "projection rule telescope")
   checkDefEqList ops fe.env (nP + nF) ((fvsP ++ xFvs).map Expr.fvarTypeD)
     ldoms
@@ -849,6 +850,20 @@ def checkDirectFieldUnivF (ops : CheckerOps m) (fe : FEnv) (s : Level)
       throw (.invalid "direct structure: field universe too large")
     checkDirectFieldUnivF ops fe s nP fvs j
 
+/-- `checkDirectFieldUnivF` over an array (positional list indexing is
+linear per access; the callers convert once).  Equal to it at
+`List.toArray`: `checkDirectFieldUnivFA_eq`. -/
+def checkDirectFieldUnivFA (ops : CheckerOps m) (fe : FEnv) (s : Level)
+    (nP : Nat) (fvs : Array Expr) : Nat → m Unit
+  | 0 => pure ()
+  | j + 1 => do
+    let fv ← unwrapOr fvs[j]? (.internal "direct structure: field index")
+    let ty ← ops.inferType fe.env (nP + j) fv.fvarTypeD
+    let u ← ops.ensureSort fe.env (nP + j) ty
+    unless ← liftFueled "level comparison" (Level.leq u s) do
+      throw (.invalid "direct structure: field universe too large")
+    checkDirectFieldUnivFA ops fe s nP fvs j
+
 /-- `checkDirectDomsAt` through the index. -/
 def checkDirectDomsAtF (ops : CheckerOps m) (fe : FEnv) (off : Nat)
     (fvs doms : List Expr) : Nat → m Unit
@@ -859,6 +874,18 @@ def checkDirectDomsAtF (ops : CheckerOps m) (fe : FEnv) (off : Nat)
     unless ← ops.isDefEq fe.env (off + j) a.fvarTypeD b do
       throw (.notImplemented "direct structure: binder domain mismatch")
     checkDirectDomsAtF ops fe off fvs doms j
+
+/-- `checkDirectDomsAtF` over arrays (see `checkDirectFieldUnivFA`).
+Equal to it at `List.toArray`: `checkDirectDomsAtFA_eq`. -/
+def checkDirectDomsAtFA (ops : CheckerOps m) (fe : FEnv) (off : Nat)
+    (fvs doms : Array Expr) : Nat → m Unit
+  | 0 => pure ()
+  | j + 1 => do
+    let a ← unwrapOr fvs[j]? (.internal "direct structure: domain index")
+    let b ← unwrapOr doms[j]? (.internal "direct structure: domain index")
+    unless ← ops.isDefEq fe.env (off + j) a.fvarTypeD b do
+      throw (.notImplemented "direct structure: binder domain mismatch")
+    checkDirectDomsAtFA ops fe off fvs doms j
 
 /-- `checkDirectInd` through the index. -/
 def checkDirectIndF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts) :
@@ -878,19 +905,20 @@ def checkDirectCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (p : DirectParts)
     (.notImplemented "direct structure: constructor telescope")
   unless cbody == directFam p.cvT.name p.cvT.levelParams p.nP p.nF do
     throw (.notImplemented "direct structure: constructor result")
-  let cq ← unwrapOr (openPisAtFvars p.nP cvCa.type 0)
+  let cq ← unwrapOr (openPisAtFvarsF p.nP cvCa.type 0)
     (.notImplemented "direct structure: constructor telescope")
-  let tq ← unwrapOr (openPisAtFvars p.nP cvTa.type 0)
+  let tq ← unwrapOr (openPisAtFvarsF p.nP cvTa.type 0)
     (.notImplemented "direct structure: type former telescope")
-  checkDirectDomsAtF ops fe 0 cq.1 (tq.1.map Expr.fvarTypeD) p.nP
-  let xq ← unwrapOr (openPisAtFvars p.nF cq.2 p.nP)
+  checkDirectDomsAtFA ops fe 0 cq.1.toArray
+    (tq.1.map Expr.fvarTypeD).toArray p.nP
+  let xq ← unwrapOr (openPisAtFvarsF p.nF cq.2 p.nP)
     (.notImplemented "direct structure: constructor field telescope")
   unless xq.2 == Expr.mkAppN
       (.const p.cvT.name (p.cvT.levelParams.map .param)) cq.1 do
     throw (.notImplemented "direct structure: opened constructor residual")
   unless xq.1.all fun x => x.fvarTypeD.constsResolveF fe₀ do
     throw (.notImplemented "direct structure: field domain after the block")
-  checkDirectFieldUnivF ops fe p.resSort p.nP xq.1 p.nF
+  checkDirectFieldUnivFA ops fe p.resSort p.nP xq.1.toArray p.nF
   pure (fe.push (.ctorInfo cvCa p.nP p.nF), cvCa)
 
 /-- `checkDirectRecTy` through the index. -/
@@ -901,13 +929,13 @@ def checkDirectRecTyF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts)
   unless directShape T p.cvC.name lps p.elim p.nP p.nF
       cvTa.type cvCa.type cvRa.type do
     throw (.notImplemented "direct structure: annotated recursor shape")
-  let (fvsP, rest) ← unwrapOr (openPisAtFvars (p.nP + 2) cvRa.type 0)
+  let (fvsP, rest) ← unwrapOr (openPisAtFvarsF (p.nP + 2) cvRa.type 0)
     (.notImplemented "direct structure: recursor telescope")
   let ps := fvsP.take p.nP
   let famApp := Expr.mkAppN (.const T (lps.map .param)) ps
-  let (cdomsP, crest) ← unwrapOr (Expr.instPisAt ps cvCa.type)
+  let (cdomsP, crest) ← unwrapOr (Expr.instPisAtF ps cvCa.type)
     (.notImplemented "direct structure: constructor telescope")
-  checkDirectDomsAtF ops fe 0 ps cdomsP p.nP
+  checkDirectDomsAtFA ops fe 0 ps.toArray cdomsP.toArray p.nP
   let mfv ← unwrapOr fvsP[p.nP]?
     (.internal "direct structure: motive index")
   let (mbs, mbody) ← unwrapOr (mfv.fvarTypeD.stripPis 1)
@@ -921,11 +949,11 @@ def checkDirectRecTyF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts)
   let minfv ← unwrapOr fvsP[p.nP + 1]?
     (.internal "direct structure: minor index")
   let (xFvs, minBody) ← unwrapOr
-    (openPisAtFvars p.nF minfv.fvarTypeD (p.nP + 2))
+    (openPisAtFvarsF p.nF minfv.fvarTypeD (p.nP + 2))
     (.notImplemented "direct structure: minor telescope")
-  let (cdomsF, crest2) ← unwrapOr (Expr.instPisAt xFvs crest)
+  let (cdomsF, crest2) ← unwrapOr (Expr.instPisAtF xFvs crest)
     (.notImplemented "direct structure: constructor field telescope")
-  checkDirectDomsAtF ops fe (p.nP + 2) xFvs cdomsF p.nF
+  checkDirectDomsAtFA ops fe (p.nP + 2) xFvs.toArray cdomsF.toArray p.nF
   unless crest2 == famApp do
     throw (.notImplemented "direct structure: constructor residual")
   unless minBody == Expr.app mfv
@@ -954,24 +982,29 @@ def checkDirectRuleF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts)
   unless rbody == directRuleBody p.nF do
     throw (.notImplemented "direct structure: rule body")
   let depth := p.nP + 2 + p.nF
-  let (fvsP, _) ← unwrapOr (openPisAtFvars (p.nP + 2) cvRa.type 0)
+  let (fvsP, _) ← unwrapOr (openPisAtFvarsF (p.nP + 2) cvRa.type 0)
     (.notImplemented "direct structure: recursor telescope")
-  let (_, crest) ← unwrapOr (Expr.instPisAt (fvsP.take p.nP) cvCa.type)
+  let (_, crest) ← unwrapOr (Expr.instPisAtF (fvsP.take p.nP) cvCa.type)
     (.notImplemented "direct structure: constructor telescope")
-  let (xFvs, _) ← unwrapOr (openPisAtFvars p.nF crest (p.nP + 2))
+  let (xFvs, _) ← unwrapOr (openPisAtFvarsF p.nF crest (p.nP + 2))
     (.notImplemented "direct structure: constructor field telescope")
-  let (ldoms, _) ← unwrapOr (Expr.instLamsAt (fvsP ++ xFvs) rhsA)
+  let (ldoms, _) ← unwrapOr (Expr.instLamsAtF (fvsP ++ xFvs) rhsA)
     (.notImplemented "direct structure: rule telescope")
   checkDefEqList ops fe.env depth ((fvsP ++ xFvs).map Expr.fvarTypeD) ldoms
   let _rhsTy ← ops.inferType fe.env 0 rhsA
   pure rhsA
 
 
-/-- `checkDirectProj` through the index. -/
+/-- `checkDirectProj` through the index.  `rt?` is the incrementally
+threaded constructor residual `directProjResid T lps nP cvCa.type i`
+(the caller's invariant — `checkDirectProjsS` maintains it by
+construction), so the generated projection type is read off it in one
+step instead of redoing the `i` earlier substitutions
+(`directProjTy_eq_resid`). -/
 def checkDirectProjF (ops : CheckerOps m) (T C : Name) (lps : List Name)
-    (nP nF : Nat) (cvTa cvCa : ConstantVal) (fe : FEnv) (i : Nat) :
-    m FEnv := do
-  let pty ← unwrapOr (directProjTy T lps nP nF i cvTa.type cvCa.type)
+    (nP nF : Nat) (cvTa cvCa : ConstantVal) (rt? : Option Expr)
+    (fe : FEnv) (i : Nat) : m FEnv := do
+  let pty ← unwrapOr (directProjTyR T lps nP nF i cvTa.type rt?)
     (.notImplemented "direct structure: projection type")
   unless !pty.hasFvar && pty.looseBVarsBounded 0 do
     throw (.notImplemented "direct structure: projection type scoping")
@@ -986,7 +1019,7 @@ def checkDirectProjF (ops : CheckerOps m) (T C : Name) (lps : List Name)
   unless (fe.find? (projFnName T i)).isNone do
     throw (.invalid "projection name taken")
   checkProjShape (m := m) ptyA cvCa.type nP nF
-  let (fvsP, prest) ← unwrapOr (openPisAtFvars nP ptyA 0)
+  let (fvsP, prest) ← unwrapOr (openPisAtFvarsF nP ptyA 0)
     (.notImplemented "direct structure: projection type telescope")
   let famApp := Expr.mkAppN (.const T (lps.map .param)) fvsP
   let (sbs, _) ← unwrapOr (prest.stripPis 1)
@@ -1001,7 +1034,7 @@ def checkDirectProjF (ops : CheckerOps m) (T C : Name) (lps : List Name)
     (.internal "direct structure: projection subject index")
   let projArgs := (List.range i).map fun j =>
     Expr.mkAppN (.const (projFnName T j) (lps.map .param)) (fvsP ++ [tfv])
-  let (_, cresid) ← unwrapOr (Expr.instPisAt (fvsP ++ projArgs) cvCa.type)
+  let (_, cresid) ← unwrapOr (Expr.instPisAtF (fvsP ++ projArgs) cvCa.type)
     (.notImplemented "direct structure: projection field telescope")
   let fdom ← unwrapOr (match cresid with
       | .forallE _ d _ _ => some d
@@ -1120,6 +1153,24 @@ def installProjTemplateStepS (T ctorName : Name) (lps : List Name)
     installProjTemplateS fe T ctorName lps nP nF i
   else pure fe
 
+/-- The projection fold of the direct install, with the constructor
+residual `directProjResid T lps nP cvCa.type i` threaded alongside the
+index (`todo` counts the remaining fields, `i` the current one): each
+step consumes the residual for `i` and extends it by a **single**
+`instantiate1Lift` — the earlier projections' substitutions are never
+redone, which is what keeps wide structures out of the cubic
+regime. -/
+def checkDirectProjsS (T C : Name) (lps : List Name) (nP nF : Nat)
+    (cvTa cvCa : ConstantVal) :
+    (todo i : Nat) → Option Expr → FEnv → CheckIM FEnv
+  | 0, _, _, fe => pure fe
+  | todo + 1, i, rt?, fe => do
+    flushS
+    let fe' ← checkDirectProjF (sharedOps fe) T C lps nP nF cvTa cvCa
+      rt? fe i
+    checkDirectProjsS T C lps nP nF cvTa cvCa todo (i + 1)
+      (rt?.bind (Expr.instPisAtLift [directProjArg T lps nP i])) fe'
+
 /-- `checkDirectStruct` through the index. -/
 def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckIM FEnv := do
   -- one `flushS` per environment transition, as everywhere else in this
@@ -1142,11 +1193,9 @@ def checkDirectStructS (fe : FEnv) (p : DirectParts) : CheckIM FEnv := do
   unless (List.range p.nF).all
       (fun j => (fe₃.find? (projFnName p.cvT.name j)).isNone) do
     throw (.invalid "projection name family taken")
-  (List.range p.nF).foldlM
-    (fun e j => do
-      flushS
-      checkDirectProjF (sharedOps e) p.cvT.name p.cvC.name
-        p.cvT.levelParams p.nP p.nF cvTa cvCa e j) fe₃
+  checkDirectProjsS p.cvT.name p.cvC.name p.cvT.levelParams p.nP p.nF
+    cvTa cvCa p.nF 0
+    (Expr.instPisAtLift (directProjPs p.nP) cvCa.type) fe₃
 
 /-- The modeled inductive block (mirrors `checkIndDecl`), returning
 the extended index. -/
