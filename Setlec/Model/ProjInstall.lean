@@ -1193,8 +1193,17 @@ theorem rule_eq_of_bottom_ext
     (hopenP : openPisAtFvars rP cvA.type 0 = some (fvsP, restP))
     (hcinstP : Expr.instPisAt (fvsP.take cnP) cvj.type =
       some (cdomsP, crestP))
-    (hdeParsP : DefEqListOk F env (rP + nF)
-      ((fvsP.take cnP).map Expr.fvarTypeD) cdomsP)
+    (hctorPkg : ∀ (ψ : Name → Nat) (xs : List V),
+      xs.length ≤ rP + nF → rP ≤ xs.length →
+      FramePref m.val env ψ (fvsP ++ xFvs) xs →
+      WScoped rP crestP ∧ crestP.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded crestP ∧
+      FvarsOk V m.val env ψ (rP + nF)
+        (fun i => xs.getD i SetTheory.empty) crestP ∧
+      AnnotOk V m.val env ψ (rP + nF)
+        (fun i => xs.getD i SetTheory.empty) crestP ∧
+      ∃ P, interpExpr V m.val env ψ (rP + nF)
+        (fun i => xs.getD i SetTheory.empty) crestP = some P)
     (hopenX : openPisAtFvars nF crestP rP = some (xFvs, crest2X))
     (hlinstP : Expr.instLamsAt (fvsP ++ xFvs) (RecRule.rhs rule) =
       some (ldoms, lrestL))
@@ -1293,10 +1302,8 @@ theorem rule_eq_of_bottom_ext
   -- the semantic clause, per level assignment
   intro ψ
   -- Hty: the flat stage facts at the base environment, transported
-  have hctorPkg := ctor_pkg_plain (xFvsP := xFvs) m F hopenP hTcl hTb
-    (hAty ψ) hcinstP hdeParsP hplainLe hCcl hCb (hACty ψ) (hICty ψ)
   have hstage := modeled_stage (rP := rP) (cnF := nF) m F hopenP hTcl
-    hTb (hAty ψ) (hIty ψ) hopenX hctorPkg hlinstP hdeLamP hrhsw hrhsb
+    hTb (hAty ψ) (hIty ψ) hopenX (hctorPkg ψ) hlinstP hdeLamP hrhsw hrhsb
     (hArhs ψ) (hIrhs ψ)
   -- resolution of the frame annotations and tower domains
   have hfvsPres : ∀ a ∈ fvsP, a.constsResolve env = true :=
@@ -1635,7 +1642,11 @@ theorem proj_rule_eq_of_bottom
     rw [List.take_append_of_le_length (by omega), htakeP]
   refine rule_eq_of_bottom_ext m F hfresh hagree (Nat.le_refl nP) hfP₁ hfj
     hfirep hcp hnf hstripR hC_strip hcbody hdargs hopenP
-    (by rw [htakeP]; exact hcinstP) (by rw [htakeP]; exact hdeParsP)
+    (by rw [htakeP]; exact hcinstP)
+    (fun ψ => ctor_pkg_plain (xFvsP := xFvs) m F hopenP hTcl hTb
+      (hAty ψ) (by rw [htakeP]; exact hcinstP)
+      (by rw [htakeP]; exact hdeParsP)
+      (Nat.le_refl nP) hCcl hCb (hACty ψ) (hICty ψ))
     hopenX hlinstP hdeLamP hTcl hTb hCcl hCb hTres hCres hRres hrhsw
     hrhsb hAty hIty hACty hICty hArhs hIrhs ?_
   intro ψ xs hxs hpref
