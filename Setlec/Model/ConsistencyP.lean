@@ -97,7 +97,7 @@ private theorem foldSP {V : Type u} [SetTheory V] {st0 : EStore}
       Nonempty (EnvModel V fe.env) →
       EtaFamiliesClosed fe.env →
       ISOKF s₀ → Ext st0 s₀.store →
-      (pds.foldlM (checkDeclSPStep st0.nodes.size) fe) s₀ =
+      (pds.foldlM (checkDeclSPStep (st0.nodes.size + st0.nodes.size)) fe) s₀ =
         .ok (fe', s') →
       Nonempty (EnvModel V fe'.env)
   | [], fe, fe', s₀, s', _, hm, _, _, _, h => by
@@ -128,7 +128,7 @@ theorem checkDeclsSP_sound (V : Type u) [SetTheory V]
   unfold checkDeclsSP at h
   simp only [Bind.bind, Except.bind] at h
   have hwf : st.raw.WF := st.wf
-  cases hf : (pds.foldlM (checkDeclSPStep st.raw.nodes.size)
+  cases hf : (pds.foldlM (checkDeclSPStep (st.raw.nodes.size + st.raw.nodes.size))
       (mkFEnv Env.empty)).run' { store := st.raw } with
   | error e => rw [hf] at h; exact nomatch h
   | ok fe =>
@@ -137,7 +137,7 @@ theorem checkDeclsSP_sound (V : Type u) [SetTheory V]
       have h' : (Except.ok fe.env : CheckM Env) = .ok env' := h
       exact Except.ok.inj h'
     simp only [StateT.run'] at hf
-    cases hrun : (pds.foldlM (checkDeclSPStep st.raw.nodes.size)
+    cases hrun : (pds.foldlM (checkDeclSPStep (st.raw.nodes.size + st.raw.nodes.size))
         (mkFEnv Env.empty)) { store := st.raw } with
     | error e =>
       rw [hrun] at hf
@@ -178,7 +178,7 @@ theorem no_proof_of_Empty_input_SP (V : Type u) [SetTheory V]
   unfold checkDeclsSP at h
   have hwf : st.raw.WF := st.wf
   simp only [Bind.bind, Except.bind, StateT.run'] at h
-  cases hrun : (pds.foldlM (checkDeclSPStep st.raw.nodes.size)
+  cases hrun : (pds.foldlM (checkDeclSPStep (st.raw.nodes.size + st.raw.nodes.size))
       (mkFEnv Env.empty)) { store := st.raw } with
   | error e =>
     rw [hrun] at h
@@ -192,7 +192,7 @@ theorem no_proof_of_Empty_input_SP (V : Type u) [SetTheory V]
         Nonempty (EnvModel V fe.env) →
         EtaFamiliesClosed fe.env →
         ISOKF s₀ → Ext st.raw s₀.store →
-        (pds.foldlM (checkDeclSPStep st.raw.nodes.size) fe) s₀ =
+        (pds.foldlM (checkDeclSPStep (st.raw.nodes.size + st.raw.nodes.size)) fe) s₀ =
           .ok (fe', s') →
         ((∃ hint, DeclP.defnDecl cvp value hint ∈ pds) ∨
           DeclP.thmDecl cvp value ∈ pds) → False by

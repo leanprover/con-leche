@@ -51,13 +51,21 @@ def name : DeclP → Name
   | .axiomDecl v | .defnDecl v _ _ | .thmDecl v _ | .opaqueDecl v _ => v.name
   | .basisDecl _ | .indDecl _ => .anonymous
 
+/-- A parsed index reference is a tier-one (even) index below the
+encoded bound (task #64: `EIdx` is `2 * position + tier`; parser
+indices are always even, so the parity conjunct never fails on real
+streams). -/
+@[inline] def inRange1 (n0 : Nat) (e : EIdx) : Bool :=
+  etier e == 0 && e < n0
+
 /-- All expression indices are in the parse store's range (checked once
 per declaration at the checker seam; `O(1)` — under `EStore.WF`,
-in-range indices have total denotations). -/
+in-range tier-one indices have total denotations). -/
 def inRangeB (n0 : Nat) : DeclP → Bool
-  | .axiomDecl v => v.type < n0
-  | .defnDecl v value _ => v.type < n0 && value < n0
-  | .thmDecl v value | .opaqueDecl v value => v.type < n0 && value < n0
+  | .axiomDecl v => inRange1 n0 v.type
+  | .defnDecl v value _ => inRange1 n0 v.type && inRange1 n0 value
+  | .thmDecl v value | .opaqueDecl v value =>
+    inRange1 n0 v.type && inRange1 n0 value
   | .basisDecl _ | .indDecl _ => true
 
 end DeclP

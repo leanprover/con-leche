@@ -265,13 +265,15 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                       | some b₂ => exact absurd hQb (by simp [OptDen])
                       | none =>
                         obtain ⟨na, hna, hca, hda⟩ := denote_some_inv haS
+                        have hna := node1?_nodes hna
                         obtain ⟨nb, hnb, hcb, hdb⟩ := denote_some_inv hbS
+                        have hnb := node1?_nodes hnb
                         try dsimp only
                         refine SimAt.view ?_
-                        rw [getNode_of_stored hna]
+                        rw [hna]
                         try dsimp only
                         refine SimAt.view ?_
-                        rw [getNode_of_stored hnb]
+                        rw [hnb]
                         cases na with
                         | sort u₁ =>
                           rw [denoteNode, Option.map_eq_some_iff] at hda
@@ -380,7 +382,8 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                 try dsimp only
                                 refine SimAt.view ?_
                                 obtain ⟨nf, hnf, hcf, hdf⟩ := denote_some_inv hf₂
-                                rw [getNode_of_stored hnf]
+                                have hnf := node1?_nodes hnf
+                                rw [hnf]
                                 cases nf with
                                 | const cfᵢ usf =>
                                   rw [denoteNode, Option.bind_eq_some_iff] at hdf
@@ -512,7 +515,8 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                               try dsimp only
                               refine SimAt.view ?_
                               obtain ⟨nf, hnf, hcf, hdf⟩ := denote_some_inv hf₂
-                              rw [getNode_of_stored hnf]
+                              have hnf := node1?_nodes hnf
+                              rw [hnf]
                               cases nf with
                               | const cfᵢ usf =>
                                 rw [denoteNode, Option.bind_eq_some_iff] at hdf
@@ -1201,7 +1205,8 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                 try dsimp only
                                 refine SimAt.view ?_
                                 obtain ⟨nf, hnf, hcf, hdf⟩ := denote_some_inv hf₁
-                                rw [getNode_of_stored hnf]
+                                have hnf := node1?_nodes hnf
+                                rw [hnf]
                                 cases nf with
                                 | const cfᵢ usf =>
                                   rw [denoteNode, Option.bind_eq_some_iff] at hdf
@@ -1281,7 +1286,8 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                               try dsimp only
                               refine SimAt.view ?_
                               obtain ⟨nf, hnf, hcf, hdf⟩ := denote_some_inv hf₁
-                              rw [getNode_of_stored hnf]
+                              have hnf := node1?_nodes hnf
+                              rw [hnf]
                               cases nf with
                               | const cfᵢ usf =>
                                 rw [denoteNode, Option.bind_eq_some_iff] at hdf

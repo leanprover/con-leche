@@ -98,7 +98,7 @@ def natOpGuardF (fe : FEnv) (c : Name) : Bool :=
 
 /-- `isUnitLikeTy` through the index, on an interned (whnf'd) type. -/
 def isUnitLikeTyI (fe : FEnv) (st : EStore) (e : EIdx) : Bool :=
-  match st.getNode e with
+  match st.nodes[epos e]? with
   | some (.const c _) =>
     match st.readbackN c with
     | some cn =>
@@ -114,7 +114,7 @@ def isUnitLikeTyI (fe : FEnv) (st : EStore) (e : EIdx) : Bool :=
 
 /-- `isCtorApp` through the index. -/
 def isCtorAppI (fe : FEnv) (st : EStore) (e : EIdx) : Bool :=
-  match st.getNode (st.getAppFnI e) with
+  match st.nodes[epos (st.getAppFnI e)]? with
   | some (.const c _) =>
     match st.readbackN c with
     | some cn =>
@@ -126,7 +126,7 @@ def isCtorAppI (fe : FEnv) (st : EStore) (e : EIdx) : Bool :=
 
 /-- `headHint` through the index. -/
 def headHintI (fe : FEnv) (st : EStore) (e : EIdx) : ReducibilityHint :=
-  match st.getNode (st.getAppFnI e) with
+  match st.nodes[epos (st.getAppFnI e)]? with
   | some (.const n _) =>
     match st.readbackN n with
     | some nm =>
@@ -138,16 +138,16 @@ def headHintI (fe : FEnv) (st : EStore) (e : EIdx) : ReducibilityHint :=
 
 /-- `sameConstHeads` on indices. -/
 def sameConstHeadsI (st : EStore) (a b : EIdx) : Bool :=
-  match st.getNode a, st.getNode b with
+  match st.nodes[epos a]?, st.nodes[epos b]? with
   | some (.app f₁ _), some (.app f₂ _) =>
-    match st.getNode (st.getAppFnI f₁), st.getNode (st.getAppFnI f₂) with
+    match st.nodes[epos (st.getAppFnI f₁)]?, st.nodes[epos (st.getAppFnI f₂)]? with
     | some (.const n₁ _), some (.const n₂ _) => n₁ == n₂
     | _, _ => false
   | _, _ => false
 
 /-- `rawNatLit?` on an index. -/
 def rawNatLitI? (st : EStore) (e : EIdx) : Option Nat :=
-  match st.getNode e with
+  match st.nodes[epos e]? with
   | some (.lit (.natVal n)) => some n
   | some (.const c []) => if st.beqNameI c natZeroName then some 0 else none
   | _ => none
@@ -160,7 +160,7 @@ def constsResolveFIGo (st : EStore) (fe : FEnv)
   match memo[e]? with
   | some r => (r, memo)
   | none =>
-    match st.getNode e with
+    match st.nodes[epos e]? with
     | none => (false, memo)
     | some n =>
       let (r, memo) : Bool × Std.HashMap EIdx Bool :=
@@ -274,7 +274,7 @@ abbrev CheckIM := StateT IState CheckM
 
 /-- Read a node (no store change). -/
 @[inline] def viewI (e : EIdx) : CheckIM (Option ENode) :=
-  (fun s => s.store.getNode e) <$> get
+  (fun s => s.store.nodes[epos e]?) <$> get
 
 /-- Run a read-only store query.
 
@@ -696,7 +696,7 @@ structure CoreFnsI where
 through the `(name, levels)` cache).  Like the spec, theorem values
 unfold too. -/
 def unfoldDefinitionI (fe : FEnv) (e : EIdx) : CheckIM (Option EIdx) := do
-  match ← withStore (fun st => st.getNode (st.getAppFnI e)) with
+  match ← withStore (fun st => st.nodes[epos (st.getAppFnI e)]?) with
   | some (.const n us) => do
     let nm ← readbackNM n
     match fe.find? nm with
@@ -892,9 +892,9 @@ def defEqListI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
 /-- Twin of `defeqSpine`. -/
 def defeqSpineI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
     CheckIM Bool := do
-  match ← withStore (fun st => st.getNode (st.getAppFnI a)) with
+  match ← withStore (fun st => st.nodes[epos (st.getAppFnI a)]?) with
   | some (.const n us) =>
-    match ← withStore (fun st => st.getNode (st.getAppFnI b)) with
+    match ← withStore (fun st => st.nodes[epos (st.getAppFnI b)]?) with
     | some (.const n' us') => do
       let aargs ← withStore (·.getAppArgsI a)
       let bargs ← withStore (·.getAppArgsI b)
@@ -1024,14 +1024,14 @@ def structEtaProjCertsI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
 /-- Twin of `structEtaCertWith`. -/
 def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (a b wtb : EIdx) : CheckIM Bool := do
-  match ← withStore (fun st => st.getNode (st.getAppFnI a)) with
+  match ← withStore (fun st => st.nodes[epos (st.getAppFnI a)]?) with
   | some (.const c us) => do
     let cn ← readbackNM c
     match fe.find? cn with
     | some (.ctorInfo cvc cnP cnF) => do
       let aargs ← withStore (·.getAppArgsI a)
       if aargs.length = cnP + cnF then
-        match ← withStore (fun st => st.getNode (st.getAppFnI wtb)) with
+        match ← withStore (fun st => st.nodes[epos (st.getAppFnI wtb)]?) with
         | some (.const T us') => do
           let Tn ← readbackNM T
           match fe.find? Tn with
@@ -1077,7 +1077,7 @@ def structUnitCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
     CheckIM Bool := do
   let ta ← r.infer depth a
   let wta ← r.whnf depth ta
-  match ← withStore (fun st => st.getNode (st.getAppFnI wta)) with
+  match ← withStore (fun st => st.nodes[epos (st.getAppFnI wta)]?) with
   | some (.const T us') => do
     let Tn ← readbackNM T
     match fe.find? Tn with
@@ -1146,7 +1146,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
           if caps.ruleK = true ∧ cnF = 0 then do
             let tmaj₀ ← r.infer depth major
             let tmaj ← r.whnf depth tmaj₀
-            match ← withStore (fun st => st.getNode (st.getAppFnI tmaj)) with
+            match ← withStore (fun st => st.nodes[epos (st.getAppFnI tmaj)]?) with
             | some (.const T' ust) =>
               if (← beqNameM T' T) ∧ cvj.levelParams.length = ust.length then do
                 let margs ← withStore (·.getAppArgsI tmaj)
@@ -1187,7 +1187,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
               piResultIsProp cvT.type = false then do
             let tmaj₀ ← r.infer depth major
             let tmaj ← r.whnf depth tmaj₀
-            match ← withStore (fun st => st.getNode (st.getAppFnI tmaj)) with
+            match ← withStore (fun st => st.nodes[epos (st.getAppFnI tmaj)]?) with
             | some (.const T' ust) => do
               let margs ← withStore (·.getAppArgsI tmaj)
               let ustL ← readbackLevelsM ust
@@ -1270,7 +1270,7 @@ def pinArgsI (lps : List Name) (us : List LIdx) (args : List EIdx)
 /-- Twin of `iotaRec`. -/
 def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
     CheckIM (Option EIdx) := do
-  match ← withStore (fun st => st.getNode (st.getAppFnI e)) with
+  match ← withStore (fun st => st.nodes[epos (st.getAppFnI e)]?) with
   | some (.const c us) => do
     let cn ← readbackNM c
     match fe.find? cn with
@@ -1281,7 +1281,7 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
         let major₀ ← r.whnf depth (args.getD mI bvar0)
         let major₁ ← litMajorToCtorI r fe depth major₀
         let major ← majorToCtorI r fe depth cn rules major₁
-        match ← withStore (fun st => st.getNode (st.getAppFnI major)) with
+        match ← withStore (fun st => st.nodes[epos (st.getAppFnI major)]?) with
         | some (.const cj usj) => do
           let cjn ← readbackNM cj
           match fe.find? cjn with
@@ -1325,7 +1325,7 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
                         ← piResidualM tyCtor margs with
                     | some cbody, some residual =>
                       match ← withStore (fun st =>
-                          st.getNode (st.getAppFnI cbody)) with
+                          st.nodes[epos (st.getAppFnI cbody)]?) with
                       | some (.const _ _) => do
                         let resArgs ← withStore (·.getAppArgsI residual)
                         if ← defEqListI r fe depth
@@ -1476,7 +1476,7 @@ def whnfCoreBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
       let snn ← readbackNM sn
       match fe.findProj? snn i with
       | some entry =>
-        match ← withStore (fun st => st.getNode (st.getAppFnI e')) with
+        match ← withStore (fun st => st.nodes[epos (st.getAppFnI e')]?) with
         | some (.const c us) => do
           let args ← withStore (·.getAppArgsI e')
           if entry.native ∧ (← beqNameM c entry.ctor) ∧ i < entry.numFields ∧
@@ -1706,7 +1706,7 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
     | some (.proj _sn i pe) => do
       let tpe ← r.infer depth pe
       let te ← r.whnf depth tpe
-      match ← withStore (fun st => st.getNode (st.getAppFnI te)) with
+      match ← withStore (fun st => st.nodes[epos (st.getAppFnI te)]?) with
       | some (.const T us) => do
         let Tn ← readbackNM T
         match fe.findProj? Tn i with
@@ -1940,7 +1940,7 @@ def annotateProjRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
 /-- Twin of `annotateProjElim`. -/
 def annotateProjElimI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (sn : NIdx)
     (i : Nat) (te e' : EIdx) : CheckIM EIdx := do
-  match ← withStore (fun st => st.getNode (st.getAppFnI te)) with
+  match ← withStore (fun st => st.nodes[epos (st.getAppFnI te)]?) with
   | some (.const T us) => do
     let Tn ← readbackNM T
     if T = sn then
@@ -2199,7 +2199,7 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
       let e' ← r.annotate depth pe
       let tpe ← r.infer depth e'
       let te ← r.whnf depth tpe
-      match ← withStore (fun st => st.getNode (st.getAppFnI te)) with
+      match ← withStore (fun st => st.nodes[epos (st.getAppFnI te)]?) with
       | some (.const T _) => do
         let Tn ← readbackNM T
         match fe.findProj? Tn i with

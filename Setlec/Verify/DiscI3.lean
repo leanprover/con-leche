@@ -138,7 +138,7 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                 (coreKnotI (mkFEnv env) f).infer d i >>= fun tm =>
                 (coreKnotI (mkFEnv env) f).whnf d tm >>= fun tmaj =>
                 Setlec.withStore
-                    (fun st => st.getNode (st.getAppFnI tmaj)) >>= fun n =>
+                    (fun st => st.nodes[epos (st.getAppFnI tmaj)]?) >>= fun n =>
                 match n with
                 | some (.const T' ust) =>
                   beqNameM T' T >>= fun bq =>
@@ -180,7 +180,7 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                 (coreKnotI (mkFEnv env) f).infer d i >>= fun tm =>
                 (coreKnotI (mkFEnv env) f).whnf d tm >>= fun tmaj =>
                 Setlec.withStore
-                    (fun st => st.getNode (st.getAppFnI tmaj)) >>= fun n =>
+                    (fun st => st.nodes[epos (st.getAppFnI tmaj)]?) >>= fun n =>
                 match n with
                 | some (.const T' ust) =>
                   Setlec.withStore (·.getAppArgsI tmaj) >>= fun margs =>
@@ -273,7 +273,8 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                   refine SimAt.withStore ?_
                   obtain ⟨n, hn, hc, hd⟩ :=
                     denote_some_inv (getAppFnI_spec hs₂.wf htmajd)
-                  rw [getNode_of_stored hn]
+                  have hn := node1?_nodes hn
+                  rw [hn]
                   have hext₀₂ := hext₁.trans hext₂
                   cases n with
                   | const T' ust =>
@@ -449,7 +450,8 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                     refine SimAt.withStore ?_
                     obtain ⟨n, hn, hc, hd⟩ :=
                       denote_some_inv (getAppFnI_spec hs₂.wf htmajd)
-                    rw [getNode_of_stored hn]
+                    have hn := node1?_nodes hn
+                    rw [hn]
                     have hext₀₂ := hext₁.trans hext₂
                     cases n with
                     | const T' ust =>
@@ -755,7 +757,7 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
             match ocb, ores with
             | some cbody, some residual =>
               Setlec.withStore (fun st =>
-                  st.getNode (st.getAppFnI cbody)) >>= fun n'' =>
+                  st.nodes[epos (st.getAppFnI cbody)]?) >>= fun n'' =>
               match n'' with
               | some (.const _ _) =>
                 Setlec.withStore (·.getAppArgsI residual) >>= fun resArgs =>
@@ -896,7 +898,8 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
               obtain ⟨n'', hn'', hc'', hd''⟩ :=
                 denote_some_inv (getAppFnI_spec hs₅.wf
                   (denote_mono hext₅ hcbd))
-              rw [getNode_of_stored hn'']
+              have hn'' := node1?_nodes hn''
+              rw [hn'']
               cases n'' with
               | const cnᵢ cus =>
                 rw [denoteNode, Option.bind_eq_some_iff] at hd''
@@ -1066,7 +1069,8 @@ theorem iotaRecI_sim (ih : SSimI env f) (henv : EnvWF env)
   rw [iotaRec_unfold]
   refine SimAt.withStore ?_
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv (getAppFnI_spec hs.wf hden)
-  rw [getNode_of_stored hn]
+  have hn := node1?_nodes hn
+  rw [hn]
   cases n with
   | const cᵢ us =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
@@ -1114,7 +1118,8 @@ theorem iotaRecI_sim (ih : SSimI env f) (henv : EnvWF env)
           refine SimAt.withStore ?_
           obtain ⟨n', hn', hc', hd'⟩ :=
             denote_some_inv (getAppFnI_spec hs₄.wf hmd)
-          rw [getNode_of_stored hn']
+          have hn' := node1?_nodes hn'
+          rw [hn']
           have hext₀₄ :=
             ((hext₁.trans hext₂).trans hext₃).trans hext₄
           cases n' with

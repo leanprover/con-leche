@@ -38,18 +38,33 @@ abbrev LIdx := Nat
 (task #88). -/
 abbrev NIdx := Nat
 
-/-- The tier-two index tag (task #64): a tier-two arena index is
-`tierTag + offset`, keeping tier-one indices the *identity* embedding
-(index = table position), so the pre-tier code paths and their proofs
-are untouched.  The value is the high bit of the scalar-`Nat` range.
-It must stay behind this single definition: large `Nat` literals
-compile to a per-use GMP string parse in the generated C (measured
-landmine, task #64 experiments); a top-level constant is parsed once
-at initialization.  `@[noinline]` is load-bearing: without it the
-compiler inlines the small body into every use site, re-materializing
-the literal — measured at ~9 % of a tier-two-active reduction run
-(`__gmpz_set_str` per node, task #64 wiring). -/
-@[noinline] def tierTag : Nat := 2 ^ 62
+/-! ### Low-bit tier tag (task #64)
+
+The public `EIdx` is `2 * position + tier`: tier one even, tier two
+odd.  A *total* injection — both tiers unbounded, no size invariant
+and no insertion guard, so `intern` stays total and `enableTierTwo`
+needs no graceful-degradation path.  `epos` decodes the arena
+position, `etier` the tier bit, `eidx` encodes.
+
+Codegen (checked in the generated C on the task #64 scout): `>>> 1`
+and `&&& 1` compile to `lean_nat_shiftr` / `lean_nat_land`, both
+`static inline` in `lean.h` with a scalar fast path (`land` is a bare
+pointer-level AND — no unbox/rebox at all).  `p + p` is two
+`lean_nat_add` (also inline, `LEAN_ALWAYS_INLINE`); `2 * p` would be
+`lean_nat_mul`, whose inline path carries an overflow check
+`r / n1 == n2` — a hardware division — so the addition form is
+strictly leaner.  Only `lean_nat_shiftl` (`<<<`) is out-of-line,
+which is what made the task #89 packed-keys experiment expensive; the
+low-bit scheme touches none of it. -/
+
+/-- Decode the arena position out of a public `EIdx`. -/
+@[inline] def epos (e : EIdx) : Nat := e >>> 1
+
+/-- Decode the tier bit of a public `EIdx` (`0` tier one, `1` tier two). -/
+@[inline] def etier (e : EIdx) : Nat := e &&& 1
+
+/-- Encode a position and tier bit into a public `EIdx`. -/
+@[inline] def eidx (p : Nat) (t : Nat) : EIdx := p + p + t
 
 /-- One interned name node: the constructors of `Setlec.Name` with the
 prefix replaced by an arena index (task #88: `O(1)` node
@@ -125,12 +140,13 @@ range, so the `getD` default is never hit on well-formed stores). -/
 @[inline] def ENode.bvarBoundOf (bs : Array Nat) : ENode → Nat
   | .bvar i => i + 1
   | .fvar _ _ _ | .sort _ | .const _ _ | .lit _ => 0
-  | .app f a => max (bs.getD f 0) (bs.getD a 0)
+  | .app f a => max (bs.getD (epos f) 0) (bs.getD (epos a) 0)
   | .lam _ ty body _ | .forallE _ ty body _ =>
-    max (bs.getD ty 0) (bs.getD body 0 - 1)
+    max (bs.getD (epos ty) 0) (bs.getD (epos body) 0 - 1)
   | .letE _ ty val body =>
-    max (max (bs.getD ty 0) (bs.getD val 0)) (bs.getD body 0 - 1)
-  | .proj _ _ sub => bs.getD sub 0
+    max (max (bs.getD (epos ty) 0) (bs.getD (epos val) 0))
+      (bs.getD (epos body) 0 - 1)
+  | .proj _ _ sub => bs.getD (epos sub) 0
 
 /-- The fvar-range recurrence of one node over its children's entries
 (`fvar` type annotations are not descended, matching the abstraction
@@ -138,12 +154,13 @@ traversals). -/
 @[inline] def ENode.fvarRangeOf (fs : Array Nat) : ENode → Nat
   | .fvar idx _ _ => idx + 1
   | .bvar _ | .sort _ | .const _ _ | .lit _ => 0
-  | .app f a => max (fs.getD f 0) (fs.getD a 0)
+  | .app f a => max (fs.getD (epos f) 0) (fs.getD (epos a) 0)
   | .lam _ ty body _ | .forallE _ ty body _ =>
-    max (fs.getD ty 0) (fs.getD body 0)
+    max (fs.getD (epos ty) 0) (fs.getD (epos body) 0)
   | .letE _ ty val body =>
-    max (max (fs.getD ty 0) (fs.getD val 0)) (fs.getD body 0)
-  | .proj _ _ sub => fs.getD sub 0
+    max (max (fs.getD (epos ty) 0) (fs.getD (epos val) 0))
+      (fs.getD (epos body) 0)
+  | .proj _ _ sub => fs.getD (epos sub) 0
 
 /-- The has-level-param recurrence of one level node over its
 children's entries (official kernel `level.cpp` `has_param` flag,
@@ -164,16 +181,17 @@ included, matching the level-instantiation traversal). -/
   | .bvar _ | .lit _ => false
   | .sort u => lbs.getD u false
   | .const _ us => us.any (lbs.getD · false)
-  | .fvar _ _ ty => ebs.getD ty false
-  | .app f a => ebs.getD f false || ebs.getD a false
+  | .fvar _ _ ty => ebs.getD (epos ty) false
+  | .app f a => ebs.getD (epos f) false || ebs.getD (epos a) false
   | .lam _ ty body m | .forallE _ ty body m =>
-    ebs.getD ty false || ebs.getD body false ||
+    ebs.getD (epos ty) false || ebs.getD (epos body) false ||
       (match m.cod with
        | some u => lbs.getD u false
        | none => false)
   | .letE _ ty val body =>
-    ebs.getD ty false || ebs.getD val false || ebs.getD body false
-  | .proj _ _ sub => ebs.getD sub false
+    ebs.getD (epos ty) false || ebs.getD (epos val) false ||
+      ebs.getD (epos body) false
+  | .proj _ _ sub => ebs.getD (epos sub) false
 
 /-- The eager readback recurrence of one name node over its
 children's entries (task #88): the parent's `Name` is built from the
@@ -221,7 +239,8 @@ structure EStore where
   `truncateTierTwo` touch the flag. -/
   tierTwo : Bool
   /-- The tier-two expression node table (task #64; a node at position
-  `j` has index `tierTag + j`).  Names and levels stay single-tier. -/
+  `j` has the odd index `2 * j + 1`).  Names and levels stay
+  single-tier. -/
   tnodes : Array ENode
   /-- The tier-two cons-table (graph of `tnodes` under tagged
   indices).  Disjoint from `cons` by the probe order: `internT` probes
@@ -258,7 +277,7 @@ def internP (st : EStore) (n : ENode) : EIdx × EStore :=
     | ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs,
         nnodes, ncons, rbNames, tierTwo, tnodes, tcons, tbvarBs,
         tfvarBs, teparamBs⟩ =>
-      let i := nodes.size
+      let i := nodes.size + nodes.size
       let bb := n.bvarBoundOf bvarBs
       let fb := n.fvarRangeOf fvarBs
       let pb := n.hasLParamOf eparamBs lparamBs
@@ -270,21 +289,20 @@ def internP (st : EStore) (n : ENode) : EIdx × EStore :=
 /-- The eager per-node loose-bvar bound (task #87): the least `k` with
 `looseBVarsBounded k` for the node's denotation; `0` (also the
 out-of-range default) means bvar-closed.  Tier dispatch (task #64):
-a tier-one position reads the tier-one array exactly as before;
-anything else falls through to the tier-two array at offset
-`e - tierTag` (empty on a flag-off store, so the fallback is the old
-default `0`). -/
+an even index reads the tier-one array at its decoded position, an
+odd one the tier-two array (empty on a flag-off store, so the
+fallback is the old default `0`). -/
 @[inline] def bvarBoundD (st : EStore) (e : EIdx) : Nat :=
-  if h : e < st.bvarBs.size then st.bvarBs[e]
-  else st.tbvarBs.getD (e - tierTag) 0
+  if etier e = 0 then st.bvarBs.getD (epos e) 0
+  else st.tbvarBs.getD (epos e) 0
 
 /-- The eager per-node fvar range (task #87): max fvar index + 1 of
 the node's denotation (annotations not descended); `0` (also the
 out-of-range default) means fvar-free.  Tier dispatch as
 `bvarBoundD` (task #64). -/
 @[inline] def fvarRangeD (st : EStore) (e : EIdx) : Nat :=
-  if h : e < st.fvarBs.size then st.fvarBs[e]
-  else st.tfvarBs.getD (e - tierTag) 0
+  if etier e = 0 then st.fvarBs.getD (epos e) 0
+  else st.tfvarBs.getD (epos e) 0
 
 /-- The eager per-level-node has-param flag (task #87; `false` is
 also the out-of-range default).  Levels are single-tier (task #64). -/
@@ -295,29 +313,26 @@ also the out-of-range default).  Levels are single-tier (task #64). -/
 also the out-of-range default).  Tier dispatch as `bvarBoundD`
 (task #64). -/
 @[inline] def ehasParamD (st : EStore) (e : EIdx) : Bool :=
-  if h : e < st.eparamBs.size then st.eparamBs[e]
-  else st.teparamBs.getD (e - tierTag) false
+  if etier e = 0 then st.eparamBs.getD (epos e) false
+  else st.teparamBs.getD (epos e) false
 
 /-! ### Tier two (task #64)
 
 The structure carries a second expression tier so the eventual wiring
 can drop a declaration's reduction temporaries wholesale: while the
-internal flag is on, fresh nodes go to the tier-two tables (indices
-`tierTag + offset`), tier one is frozen, and `truncateTierTwo` later
-discards tier two without touching a single tier-one observation
-(`Setlec/Kernel/ArenaWF.lean`, `truncateTierTwo_*`).  Consumers stay
-tier-blind: `intern` and the derived reads dispatch internally, and
-tier-one indices remain the identity embedding. -/
+internal flag is on, fresh nodes go to the tier-two tables (odd
+indices `2 * position + 1`), tier one is frozen, and
+`truncateTierTwo` later discards tier two without touching a single
+tier-one observation (`Setlec/Kernel/ArenaWF.lean`,
+`truncateTierTwo_*`).  Consumers stay tier-blind: `intern` and the
+derived reads dispatch internally on the tier bit. -/
 
-/-- Tier-dispatched node read (task #64): a tier-one position reads
-the tier-one table at the identity index; anything else falls through
-to the tier-two table at offset `i - tierTag`.  On a flag-off store
-(tier two empty) this is exactly `st.getNode i`; with tier two live,
-the split is a theorem (`TWF.flag_bound`: tier-one indices sit below
-`tierTag`, tier-two indices at or above it). -/
+/-- Tier-dispatched node read (task #64): an even index reads the
+tier-one table at its decoded position, an odd one the tier-two
+table.  The tier bit disambiguates unconditionally — no size
+invariant is involved (the low-bit encoding is a total injection). -/
 def getNode (st : EStore) (i : EIdx) : Option ENode :=
-  if h : i < st.nodes.size then some st.nodes[i]
-  else st.tnodes[i - tierTag]?
+  if etier i = 0 then st.nodes[epos i]? else st.tnodes[epos i]?
 
 /-- Tier-blind loose-bvar-bound recurrence of one node over the
 dispatching derived reads (the tier-two intern's entry computation,
@@ -368,8 +383,8 @@ def nodeHasLParam (st : EStore) : ENode → Bool
 tier one is frozen while the flag is on, so a hit resolves to the
 node's canonical tier-one index and the tier-one table is never
 polluted — then the tier-two cons-table; a fresh node is pushed onto
-the tier-two tables at index `tierTag + tnodes.size`, its derived
-entries computed by the tier-blind recurrences. -/
+the tier-two tables at the odd index `2 * tnodes.size + 1`, its
+derived entries computed by the tier-blind recurrences. -/
 def internT (st : EStore) (n : ENode) : EIdx × EStore :=
   match st.cons[n]? with
   | some i => (i, st)
@@ -384,7 +399,7 @@ def internT (st : EStore) (n : ENode) : EIdx × EStore :=
       | ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs,
           nnodes, ncons, rbNames, tierTwo, tnodes, tcons, tbvarBs,
           tfvarBs, teparamBs⟩ =>
-        let i := tierTag + tnodes.size
+        let i := tnodes.size + tnodes.size + 1
         (i, ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs,
           eparamBs, nnodes, ncons, rbNames, tierTwo, tnodes.push n,
           tcons.insert n i, tbvarBs.push bb, tfvarBs.push fb,
@@ -397,17 +412,12 @@ def intern (st : EStore) (n : ENode) : EIdx × EStore :=
   if st.tierTwo then st.internT n else st.internP n
 
 /-- Enable tier two (task #64): set the internal flag; subsequent
-interns append to the tier-two tables and tier one is frozen.  Guarded
-by the tag bound `nodes.size ≤ tierTag`, the invariant that makes the
-high-bit index split a theorem (`TWF.flag_bound`,
-`Setlec/Kernel/ArenaWF.lean`) — the validate-at-insertion pattern
-(task #42): one comparison per enable, no per-access reasoning.  If
-the guard ever failed (a tier-one table of `2 ^ 62` nodes), the flag
-stays off and the store keeps operating in the fully verified
-single-tier mode — graceful degradation (only truncation's memory
-reclamation is lost), not an error. -/
+interns append to the tier-two tables and tier one is frozen.  No
+guard: the low-bit encoding is a total injection (both tiers
+unbounded), so there is no size invariant to establish and no
+graceful-degradation path to carry. -/
 def enableTierTwo (st : EStore) : EStore :=
-  if st.nodes.size ≤ tierTag then { st with tierTwo := true } else st
+  { st with tierTwo := true }
 
 /-- Drop tier two wholesale and clear the flag (task #64):
 `Array.shrink 0` keeps the tier-two arrays' capacity for the next
@@ -954,7 +964,7 @@ def instantiate1IGo (v : EIdx) (st : EStore) (memo : MemoN)
   match memo[(e, d)]? with
   | some r => (r, st, memo)
   | none =>
-    match st.getNode e with
+    match st.nodes[epos e]? with
     | none => (e, st, memo)
     | some n =>
       let (r, st, memo) : EIdx × EStore × MemoN :=
@@ -1043,7 +1053,7 @@ def instantiateListIGo (vs : Array EIdx) (st : EStore)
     match memo[(e, k, d)]? with
     | some r => (r, st, memo)
     | none =>
-      match st.getNode e with
+      match st.nodes[epos e]? with
       | none => (e, st, memo)
       | some n =>
         let (r, st, memo) : EIdx × EStore × MemoNL :=
@@ -1138,7 +1148,7 @@ def instantiateRevIGo (vs : Array EIdx) (st : EStore)
     match memo[(e, k, d)]? with
     | some r => (r, st, memo)
     | none =>
-      match st.getNode e with
+      match st.nodes[epos e]? with
       | none => (e, st, memo)
       | some n =>
         let (r, st, memo) : EIdx × EStore × MemoNL :=
@@ -1223,7 +1233,7 @@ def abstract1IGo (d : Nat) (st : EStore) (memo : MemoN) (e : EIdx) (k : Nat) :
   match memo[(e, k)]? with
   | some r => (r, st, memo)
   | none =>
-    match st.getNode e with
+    match st.nodes[epos e]? with
     | none => (e, st, memo)
     | some n =>
       let (r, st, memo) : EIdx × EStore × MemoN :=
@@ -1296,7 +1306,7 @@ def abstractRangeIGo (d k : Nat) (st : EStore)
   match memo[(e, c)]? with
   | some r => (r, st, memo)
   | none =>
-    match st.getNode e with
+    match st.nodes[epos e]? with
     | none => (e, st, memo)
     | some n =>
       let (r, st, memo) : EIdx × EStore × MemoN :=
@@ -1396,7 +1406,7 @@ def instantiateLevelParamsIGo (ks : List Name) (us : List LIdx)
   match memo[e]? with
   | some r => (r, st, memo, lmemo)
   | none =>
-    match st.getNode e with
+    match st.nodes[epos e]? with
     | none => (e, st, memo, lmemo)
     | some n =>
       let (r, st, memo, lmemo) : EIdx × EStore × Memo0 × LMemo :=
@@ -1499,7 +1509,7 @@ def looseBVarsBoundedIGo (st : EStore) (memo : Std.HashMap (EIdx × Nat) Bool)
   match memo[(e, k)]? with
   | some r => (r, memo)
   | none =>
-    match st.getNode e with
+    match st.nodes[epos e]? with
     | none => (false, memo)
     | some n =>
       let (r, memo) : Bool × Std.HashMap (EIdx × Nat) Bool :=
@@ -1585,7 +1595,7 @@ def allLevelParamsDefinedIGo (st : EStore) (params : List Name)
   match memo[e]? with
   | some r => (r, lmemo, memo)
   | none =>
-    match st.getNode e with
+    match st.nodes[epos e]? with
     | none => (false, lmemo, memo)
     | some n =>
       let (r, lmemo, memo) :
@@ -1655,7 +1665,7 @@ def wscopedBIGo (st : EStore) (memo : Std.HashMap (EIdx × Nat) Bool)
   match memo[(e, d)]? with
   | some r => (r, memo)
   | none =>
-    match st.getNode e with
+    match st.nodes[epos e]? with
     | none => (false, memo)
     | some n =>
       let (r, memo) : Bool × Std.HashMap (EIdx × Nat) Bool :=
@@ -1706,7 +1716,7 @@ def fvarLeavesIGo (st : EStore)
   match memo[e]? with
   | some r => (r, memo)
   | none =>
-    match st.getNode e with
+    match st.nodes[epos e]? with
     | none => ([], memo)
     | some n =>
       let (r, memo) : List (Nat × NIdx × EIdx) × Std.HashMap EIdx (List (Nat × NIdx × EIdx)) :=
@@ -1760,7 +1770,7 @@ def leavesSubIGo (st : EStore) (bl : List (Nat × NIdx × EIdx))
   match memo[e]? with
   | some r => (r, memo)
   | none =>
-    match st.getNode e with
+    match st.nodes[epos e]? with
     | none => (true, memo)
     | some n =>
       let (r, memo) : Bool × Std.HashMap EIdx Bool :=
@@ -1815,7 +1825,7 @@ def constsResolveIGo (st : EStore) (env : Env)
   match memo[e]? with
   | some r => (r, memo)
   | none =>
-    match st.getNode e with
+    match st.nodes[epos e]? with
     | none => (false, memo)
     | some n =>
       let (r, memo) : Bool × Std.HashMap EIdx Bool :=
@@ -1884,7 +1894,7 @@ fail on well-formed stores — `Setlec/Verify/IExprOps.lean`).
 
 /-- Interned counterpart of `Expr.getAppFn`. -/
 def getAppFnI (st : EStore) (e : EIdx) : EIdx :=
-  match st.getNode e with
+  match st.nodes[epos e]? with
   | some (.app f _) => if _h : f < e then getAppFnI st f else e
   | _ => e
 termination_by e
@@ -1894,7 +1904,7 @@ termination_by e
 previous append-per-node form was quadratic). -/
 def getAppArgsAccI (st : EStore) : EIdx → List EIdx → List EIdx
   | e, acc =>
-    match st.getNode e with
+    match st.nodes[epos e]? with
     | some (.app f a) =>
       if _h : f < e then getAppArgsAccI st f (a :: acc) else acc
     | _ => acc
@@ -1946,7 +1956,7 @@ def piResidualAccI (st : EStore) : List EIdx → EIdx → List EIdx →
     let (r, st) := st.instantiateListI e acc 0
     (some r, st)
   | acc, e, a :: as =>
-    match st.getNode e with
+    match st.nodes[epos e]? with
     | some (.forallE _ _ b _) => piResidualAccI st (a :: acc) b as
     | some (.bvar _) =>
       match acc with
@@ -1969,7 +1979,7 @@ def piResidualI (st : EStore) (e : EIdx) (args : List EIdx) :
 def pisToLamsI (st : EStore) : Nat → EIdx → EIdx → Option EIdx × EStore
   | 0, _, body => (some body, st)
   | k + 1, e, body =>
-    match st.getNode e with
+    match st.nodes[epos e]? with
     | some (.forallE n ty rest mb) =>
       match pisToLamsI st k rest body with
       | (some b, st) =>
@@ -1984,7 +1994,7 @@ the body). -/
 def stripPisBodyI (st : EStore) : Nat → EIdx → Option EIdx
   | 0, e => some e
   | k + 1, e =>
-    match st.getNode e with
+    match st.nodes[epos e]? with
     | some (.forallE _ _ b _) => stripPisBodyI st k b
     | _ => none
 
@@ -2019,7 +2029,7 @@ def readbackGo (st : EStore) (memo : Std.HashMap EIdx Expr)
   match memo[e]? with
   | some x => (some x, memo, lmemo)
   | none =>
-    match st.getNode e with
+    match st.nodes[epos e]? with
     | none => (none, memo, lmemo)
     | some n =>
       let (r, memo, lmemo) :

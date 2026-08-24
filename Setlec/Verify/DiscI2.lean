@@ -94,7 +94,8 @@ theorem proofIrrelI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
     obtain ⟨hwttad, hwwtta⟩ := hP₄
     refine SimAt.view ?_
     obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hwttad
-    rw [getNode_of_stored hn]
+    have hn := node1?_nodes hn
+    rw [hn]
     cases n with
     | sort uT =>
       rw [denoteNode, Option.map_eq_some_iff] at hd
@@ -121,7 +122,8 @@ theorem proofIrrelI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
       obtain ⟨hwttbd, hwwttb⟩ := hP₈
       refine SimAt.view ?_
       obtain ⟨n', hn', hc', hd'⟩ := denote_some_inv hwttbd
-      rw [getNode_of_stored hn']
+      have hn' := node1?_nodes hn'
+      rw [hn']
       cases n' with
       | sort vT =>
         rw [denoteNode, Option.map_eq_some_iff] at hd'
@@ -231,7 +233,8 @@ theorem etaCertI_sim (ih : SSimI env f) {d : Nat} {n₁ : NIdx}
   obtain ⟨hwtbd, hwwtb⟩ := hP₂
   refine SimAt.view ?_
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hwtbd
-  rw [getNode_of_stored hn]
+  have hn := node1?_nodes hn
+  rw [hn]
   cases n with
   | forallE nmᵢ ty₂ b₂ m₂ =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
@@ -382,7 +385,8 @@ theorem projCertI_sim (ih : SSimI env f) {d : Nat} {i : EIdx} {e₂ : Expr}
   obtain ⟨hwttad, hwwtta⟩ := hP₄
   refine SimAt.view ?_
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hwttad
-  rw [getNode_of_stored hn]
+  have hn := node1?_nodes hn
+  rw [hn]
   cases n with
   | sort uT =>
     rw [denoteNode, Option.map_eq_some_iff] at hd
@@ -408,7 +412,8 @@ theorem projCertI_sim (ih : SSimI env f) {d : Nat} {i : EIdx} {e₂ : Expr}
     obtain ⟨hwtted, hwwtte⟩ := hP₈
     refine SimAt.view ?_
     obtain ⟨n', hn', hc', hd'⟩ := denote_some_inv hwtted
-    rw [getNode_of_stored hn']
+    have hn' := node1?_nodes hn'
+    rw [hn']
     cases n' with
     | sort wT =>
       rw [denoteNode, Option.map_eq_some_iff] at hd'
@@ -465,7 +470,7 @@ theorem structUnitCertI_sim (ih : SSimI env f) (henv : EnvWF env)
   show SimAt env s₀ RelV
     ((coreKnotI (mkFEnv env) f).infer d i >>= fun ta =>
       (coreKnotI (mkFEnv env) f).whnf d ta >>= fun wta =>
-      Setlec.withStore (fun st => st.getNode (st.getAppFnI wta)) >>= fun n =>
+      Setlec.withStore (fun st => st.nodes[epos (st.getAppFnI wta)]?) >>= fun n =>
       match n with
       | some (.const T us') =>
         readbackNM T >>= fun Tn =>
@@ -517,7 +522,8 @@ theorem structUnitCertI_sim (ih : SSimI env f) (henv : EnvWF env)
   obtain ⟨hwtad, hwwta⟩ := hP₂
   refine SimAt.withStore ?_
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv (getAppFnI_spec hs₂.wf hwtad)
-  rw [getNode_of_stored hn]
+  have hn := node1?_nodes hn
+  rw [hn]
   cases n with
   | const Tᵢ us' =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
@@ -749,7 +755,8 @@ theorem pairEtaCertI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
   rw [pairEtaCert_unfold]
   refine SimAt.view ?_
   obtain ⟨n₀, hn₀, hc₀, hd₀⟩ := denote_some_inv hdena
-  rw [getNode_of_stored hn₀]
+  have hn₀ := node1?_nodes hn₀
+  rw [hn₀]
   cases n₀ with
   | app f₄ s₂ =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd₀
@@ -759,7 +766,8 @@ theorem pairEtaCertI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
     subst hd₀
     refine SimAt.view ?_
     obtain ⟨n₁, hn₁, hc₁, hd₁⟩ := denote_some_inv hf₄
-    rw [getNode_of_stored hn₁]
+    have hn₁ := node1?_nodes hn₁
+    rw [hn₁]
     cases n₁ with
     | app f₃ s₁ =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd₁
@@ -769,7 +777,8 @@ theorem pairEtaCertI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
       subst hd₁
       refine SimAt.view ?_
       obtain ⟨n₂, hn₂, hc₂, hd₂⟩ := denote_some_inv hf₃
-      rw [getNode_of_stored hn₂]
+      have hn₂ := node1?_nodes hn₂
+      rw [hn₂]
       cases n₂ with
       | app f₂ pβ =>
         rw [denoteNode, Option.bind_eq_some_iff] at hd₂
@@ -779,7 +788,8 @@ theorem pairEtaCertI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
         subst hd₂
         refine SimAt.view ?_
         obtain ⟨n₃, hn₃, hc₃, hd₃⟩ := denote_some_inv hf₂
-        rw [getNode_of_stored hn₃]
+        have hn₃ := node1?_nodes hn₃
+        rw [hn₃]
         cases n₃ with
         | app f₁ pα =>
           rw [denoteNode, Option.bind_eq_some_iff] at hd₃
@@ -789,7 +799,8 @@ theorem pairEtaCertI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
           subst hd₃
           refine SimAt.view ?_
           obtain ⟨n₄, hn₄, hc₄, hd₄⟩ := denote_some_inv hf₁
-          rw [getNode_of_stored hn₄]
+          have hn₄ := node1?_nodes hn₄
+          rw [hn₄]
           cases n₄ with
           | const cᵢ us =>
             rw [denoteNode, Option.bind_eq_some_iff] at hd₄
@@ -824,7 +835,8 @@ theorem pairEtaCertI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
                   obtain ⟨hwtbd, hwwtb⟩ := hP₂
                   refine SimAt.view ?_
                   obtain ⟨m₀, hm₀, hcm₀, hdm₀⟩ := denote_some_inv hwtbd
-                  rw [getNode_of_stored hm₀]
+                  have hm₀ := node1?_nodes hm₀
+                  rw [hm₀]
                   cases m₀ with
                   | app g₂ B =>
                     rw [denoteNode, Option.bind_eq_some_iff] at hdm₀
@@ -834,7 +846,8 @@ theorem pairEtaCertI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
                     subst hdm₀
                     refine SimAt.view ?_
                     obtain ⟨m₁, hm₁, hcm₁, hdm₁⟩ := denote_some_inv hg₂
-                    rw [getNode_of_stored hm₁]
+                    have hm₁ := node1?_nodes hm₁
+                    rw [hm₁]
                     cases m₁ with
                     | app g₁ A =>
                       rw [denoteNode, Option.bind_eq_some_iff] at hdm₁
@@ -844,7 +857,8 @@ theorem pairEtaCertI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
                       subst hdm₁
                       refine SimAt.view ?_
                       obtain ⟨m₂, hm₂, hcm₂, hdm₂⟩ := denote_some_inv hg₁
-                      rw [getNode_of_stored hm₂]
+                      have hm₂ := node1?_nodes hm₂
+                      rw [hm₂]
                       cases m₂ with
                       | const c' us' =>
                         rw [denoteNode, Option.bind_eq_some_iff] at hdm₂
@@ -1304,7 +1318,7 @@ theorem structEtaCertWithI_sim (ih : SSimI env f) (henv : EnvWF env)
       (structEtaCertWithI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i j w)
       (structEtaCertWith (fueledFns env) env d a b wtb) := by
   show SimAt env s₀ RelV
-    (Setlec.withStore (fun st => st.getNode (st.getAppFnI i)) >>= fun n =>
+    (Setlec.withStore (fun st => st.nodes[epos (st.getAppFnI i)]?) >>= fun n =>
       match n with
       | some (.const c us) =>
         readbackNM c >>= fun cn =>
@@ -1312,7 +1326,7 @@ theorem structEtaCertWithI_sim (ih : SSimI env f) (henv : EnvWF env)
         | some (.ctorInfo cvc cnP cnF) =>
           Setlec.withStore (·.getAppArgsI i) >>= fun aargs =>
           if aargs.length = cnP + cnF then
-            Setlec.withStore (fun st => st.getNode (st.getAppFnI w)) >>=
+            Setlec.withStore (fun st => st.nodes[epos (st.getAppFnI w)]?) >>=
               fun n' =>
             match n' with
             | some (.const T us') =>
@@ -1360,7 +1374,8 @@ theorem structEtaCertWithI_sim (ih : SSimI env f) (henv : EnvWF env)
   rw [structEtaCertWith_unfold]
   refine SimAt.withStore ?_
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv (getAppFnI_spec hs.wf hdena)
-  rw [getNode_of_stored hn]
+  have hn := node1?_nodes hn
+  rw [hn]
   cases n with
   | const cᵢ us =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
@@ -1390,7 +1405,8 @@ theorem structEtaCertWithI_sim (ih : SSimI env f) (henv : EnvWF env)
         · refine SimAt.withStore ?_
           obtain ⟨n', hn', hc', hd'⟩ :=
             denote_some_inv (getAppFnI_spec hs.wf hdenw)
-          rw [getNode_of_stored hn']
+          have hn' := node1?_nodes hn'
+          rw [hn']
           cases n' with
           | const T us' =>
             rw [denoteNode, Option.bind_eq_some_iff] at hd'

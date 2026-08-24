@@ -201,7 +201,8 @@ theorem inferLamsLeafI_sim (ih : SSimI env f) {d : Nat}
   obtain ⟨hwd, hww⟩ := hPw
   refine SimAt.view ?_
   obtain ⟨nd, hn, hc, hd⟩ := denote_some_inv hwd
-  rw [getNode_of_stored hn]
+  have hn := node1?_nodes hn
+  rw [hn]
   cases nd with
   | sort v' =>
     rw [denoteNode, Option.map_eq_some_iff] at hd
@@ -260,7 +261,8 @@ theorem inferLamsI_sim (ih : SSimI env f) {d : Nat} :
       _
     refine SimAt.view ?_
     obtain ⟨nd, hn, hc, hd⟩ := denote_some_inv ht
-    rw [getNode_of_stored hn]
+    have hn := node1?_nodes hn
+    rw [hn]
     cases nd with
     | lam nm ty body mb =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
@@ -303,7 +305,8 @@ theorem inferLamsI_sim (ih : SSimI env f) {d : Nat} :
         obtain ⟨hwd, hww⟩ := hPw
         refine SimAt.view ?_
         obtain ⟨nd', hn', hc', hd'⟩ := denote_some_inv hwd
-        rw [getNode_of_stored hn']
+        have hn' := node1?_nodes hn'
+        rw [hn']
         cases nd' with
         | sort u =>
           rw [denoteNode, Option.map_eq_some_iff] at hd'
@@ -460,7 +463,8 @@ theorem annotatePisOutI_sim (ih : SSimI env f) {d : Nat} :
           obtain ⟨hwd, hww⟩ := hPw
           refine SimAt.view ?_
           obtain ⟨nd, hn, hc, hd⟩ := denote_some_inv hwd
-          rw [getNode_of_stored hn]
+          have hn := node1?_nodes hn
+          rw [hn]
           cases nd with
           | sort u =>
             rw [denoteNode, Option.map_eq_some_iff] at hd
@@ -542,7 +546,8 @@ theorem annotatePisI_sim (ih : SSimI env f) {d : Nat} :
       _
     refine SimAt.view ?_
     obtain ⟨nd, hn, hc, hd⟩ := denote_some_inv ht
-    rw [getNode_of_stored hn]
+    have hn := node1?_nodes hn
+    rw [hn]
     cases nd with
     | forallE nm ty body mb =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
@@ -718,7 +723,8 @@ theorem annotateLamsOutI_sim (ih : SSimI env f) {d : Nat} :
           obtain ⟨hwd, hww⟩ := hPw
           refine SimAt.view ?_
           obtain ⟨nd, hn, hc, hd⟩ := denote_some_inv hwd
-          rw [getNode_of_stored hn]
+          have hn := node1?_nodes hn
+          rw [hn]
           cases nd with
           | sort u =>
             rw [denoteNode, Option.map_eq_some_iff] at hd
@@ -819,7 +825,8 @@ theorem annotateLamsI_sim (ih : SSimI env f) {d : Nat} :
       _
     refine SimAt.view ?_
     obtain ⟨nd, hn, hc, hd⟩ := denote_some_inv ht
-    rw [getNode_of_stored hn]
+    have hn := node1?_nodes hn
+    rw [hn]
     cases nd with
     | lam nm ty body mb =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd

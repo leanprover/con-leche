@@ -1584,7 +1584,8 @@ the whole fold shares it (the arena, the interned environment and the
 environment-independent caches persist; the environment-dependent
 caches are flushed per declaration). -/
 def checkDeclsSP (st : WFStore) (pds : List DeclP) : CheckM Env := do
-  let fe ← (pds.foldlM (checkDeclSPStep st.raw.nodes.size)
+  -- SCOUT (task #64 low-bit): `EIdx` bound is the encoded one.
+  let fe ← (pds.foldlM (checkDeclSPStep (st.raw.nodes.size + st.raw.nodes.size))
     (mkFEnv Env.empty)).run' { store := st.raw }
   pure fe.env
 

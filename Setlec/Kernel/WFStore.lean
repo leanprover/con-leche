@@ -74,7 +74,7 @@ arena), or is checked at runtime by the `?`-variants. -/
 
 /-- Intern one expression node. -/
 def intern (s : WFStore) (n : ENode)
-    (hc : ∀ c ∈ n.children, c < s.raw.nodes.size)
+    (hc : ∀ c ∈ n.children, s.raw.Valid1 c)
     (hlv : ∀ u ∈ n.levels, u < s.raw.lnodes.size)
     (hnm : ∀ p ∈ n.names, p < s.raw.nnodes.size) : EIdx × WFStore :=
   let p := s.raw.intern n
@@ -86,16 +86,18 @@ def intern (s : WFStore) (n : ENode)
 @[simp] theorem intern_idx (s : WFStore) (n : ENode) (hc hlv hnm) :
     (s.intern n hc hlv hnm).1 = (s.raw.intern n).1 := rfl
 
-/-- The interned node is stored at the returned index. -/
+/-- The interned node is stored at the returned index (the tier-one
+read). -/
 theorem intern_node (s : WFStore) (n : ENode) (hc hlv hnm) :
-    (s.intern n hc hlv hnm).2.raw.nodes[(s.intern n hc hlv hnm).1]?
+    (s.intern n hc hlv hnm).2.raw.node1? (s.intern n hc hlv hnm).1
       = some n :=
   EStore.intern_node s.wf
 
-/-- The returned index is in range of the extended arena. -/
-theorem intern_lt (s : WFStore) (n : ENode) (hc hlv hnm) :
-    (s.intern n hc hlv hnm).1 < (s.intern n hc hlv hnm).2.raw.nodes.size :=
-  EStore.intern_lt_size s.wf
+/-- The returned index is a valid tier-one index of the extended
+arena. -/
+theorem intern_valid1 (s : WFStore) (n : ENode) (hc hlv hnm) :
+    (s.intern n hc hlv hnm).2.raw.Valid1 (s.intern n hc hlv hnm).1 :=
+  EStore.intern_valid1 s.wf
 
 /-- Intern one level node. -/
 def internL (s : WFStore) (n : LNode)
@@ -136,16 +138,22 @@ parser reads them from translation tables): an `O(children)` runtime
 range check per node replaces the deleted one-shot whole-store sweep
 (the pre-#103 `wfB`). -/
 
-/-- `intern` with the range side conditions checked at runtime. -/
+/-- `intern` with the range side conditions checked at runtime.  The
+children are *encoded* `EIdx` (`2 * position + tier`), so the check
+is the tier-one validity: even, with the decoded position in range
+(parser-produced indices are always even, so the parity test never
+fails on the normal path). -/
 def intern? (s : WFStore) (n : ENode) : Option (EIdx × WFStore) :=
-  if h : n.children.all (· < s.raw.nodes.size)
+  if h : n.children.all (fun c => etier c == 0
+        && epos c < s.raw.nodes.size)
       && n.levels.all (· < s.raw.lnodes.size)
       && n.names.all (· < s.raw.nnodes.size) then
-    have h' : ((∀ c ∈ n.children, c < s.raw.nodes.size) ∧
+    have h' : ((∀ c ∈ n.children, s.raw.Valid1 c) ∧
         (∀ u ∈ n.levels, u < s.raw.lnodes.size)) ∧
         (∀ p ∈ n.names, p < s.raw.nnodes.size) := by
-      simpa only [Bool.and_eq_true, List.all_eq_true,
-        decide_eq_true_eq] using h
+      simp only [Bool.and_eq_true, List.all_eq_true,
+        decide_eq_true_eq, beq_iff_eq] at h
+      exact ⟨⟨fun c hc => ⟨(h.1.1 c hc).1, (h.1.1 c hc).2⟩, h.1.2⟩, h.2⟩
     some (s.intern n h'.1.1 h'.1.2 h'.2)
   else none
 
@@ -392,10 +400,9 @@ structure TWFStore where
   twf : raw.TWF
 
 /-- Enable tier two (task #64): subsequent interns append to the
-tier-two tables; tier one is frozen.  The raw op's guard (the tag
-bound, checked once — validate-at-insertion) is what discharges the
-invariant; on the impossible guard failure the store simply stays in
-the verified flag-off regime. -/
+tier-two tables; tier one is frozen.  Total and unguarded — the
+low-bit encoding is an unconditional injection, so there is no bound
+to establish and no degradation path. -/
 def WFStore.enableTierTwo (s : WFStore) : TWFStore :=
   ⟨s.raw.enableTierTwo, EStore.enableTierTwo_twf s.wf.toTWF⟩
 
@@ -492,9 +499,10 @@ theorem truncateTierTwo_cons (s : TWFStore) :
     s.truncateTierTwo.raw.cons = s.raw.cons :=
   EStore.truncateTierTwo_cons s.raw
 
-/-- Truncation is the identity on `getNode` at tier-one indices. -/
+/-- Truncation is the identity on `getNode` at tier-one (even)
+indices. -/
 theorem truncateTierTwo_getNode (s : TWFStore) {i : EIdx}
-    (h : i < s.raw.nodes.size) :
+    (h : etier i = 0) :
     s.truncateTierTwo.raw.getNode i = s.raw.getNode i :=
   EStore.truncateTierTwo_getNode h
 

@@ -70,7 +70,8 @@ theorem projFieldDomI_sim (ih : SSimI env f) (henv : EnvWF env)
     unfold projFieldDomI
     refine SimAt.view ?_
     obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hdt
-    rw [getNode_of_stored hn]
+    have hn := node1?_nodes hn
+    rw [hn]
     cases n with
     | forallE nmᵢ dom rest mb =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
@@ -110,7 +111,8 @@ theorem projFieldDomI_sim (ih : SSimI env f) (henv : EnvWF env)
     unfold projFieldDomI
     refine SimAt.view ?_
     obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hdt
-    rw [getNode_of_stored hn]
+    have hn := node1?_nodes hn
+    rw [hn]
     cases n with
     | forallE nmᵢ dom rest mb =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
@@ -473,7 +475,8 @@ theorem annotateProjElimI_sim (ih : SSimI env f) (henv : EnvWF env)
   unfold annotateProjElim
   refine SimAt.withStore ?_
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv (getAppFnI_spec hs.wf hte)
-  rw [getNode_of_stored hn]
+  have hn := node1?_nodes hn
+  rw [hn]
   cases n with
   | const Tᵢ us =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
@@ -593,7 +596,8 @@ theorem annotateSpineI_sim (ih : SSimI env f) (henv : EnvWF env)
     dsimp only
     refine SimAt.view ?_
     obtain ⟨n, hn, hc, hd⟩ := denote_some_inv ht
-    rw [getNode_of_stored hn]
+    have hn := node1?_nodes hn
+    rw [hn]
     cases n with
     | forallE nmᵢ dom body mb =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
@@ -782,7 +786,8 @@ theorem annotateSpineI_whnfArm (ih : SSimI env f) (henv : EnvWF env)
     obtain ⟨hwd, hww⟩ := hP
     refine SimAt.view ?_
     obtain ⟨n', hn', hc', hd'⟩ := denote_some_inv hwd
-    rw [getNode_of_stored hn']
+    have hn' := node1?_nodes hn'
+    rw [hn']
     have hext12 := hext₁.trans hext₂
     cases n' with
     | forallE nm2 dom body mb =>
@@ -879,7 +884,8 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
   unfold annotateBodyI
   refine SimAt.view ?_
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hden
-  rw [getNode_of_stored hn]
+  have hn := node1?_nodes hn
+  rw [hn]
   cases n with
   | bvar k =>
     cases hd
@@ -1161,7 +1167,8 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     refine SimAt.withStore ?_
     obtain ⟨n', hn', hc', hd'⟩ :=
       denote_some_inv (getAppFnI_spec hs₃.wf hted)
-    rw [getNode_of_stored hn']
+    have hn' := node1?_nodes hn'
+    rw [hn']
     cases n' with
     | const Tᵢ us =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd'
