@@ -4439,8 +4439,6 @@ invariant `WF`, so the store re-enters the fully verified single-tier
 regime. -/
 theorem truncateTierTwo_wf {st : EStore} (h : st.TWF) :
     st.truncateTierTwo.WF := by
-  have hnil : ∀ j : Nat, (st.tnodes.shrink 0)[j]? = none :=
-    getElem?_size_zero (by simp)
   rw [truncateTierTwo_eq]
   refine ⟨?_, rfl⟩
   constructor
