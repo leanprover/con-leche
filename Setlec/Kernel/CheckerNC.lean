@@ -296,7 +296,9 @@ def checkConstantValPNC (fe : FEnv) (cv : ConstantValP) :
   let tyE ← readbackEM jty
   pure (⟨cv.name, cv.levelParams, tyE⟩, jty)
 
-/-- `checkDefnValP` at the cert-skipping knot. -/
+/-- `checkDefnValP` at the cert-skipping knot (task #64 split: install
+phase first — guards, annotate, record — then the check phase; see
+`checkDefnValP`). -/
 def checkDefnValPNC (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     (value : EIdx) (hint : ReducibilityHint) : CheckIM FEnv := do
   unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
@@ -309,14 +311,16 @@ def checkDefnValPNC (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless ← withStore (fun st => constsResolveFI st fe jv) do
     throw (.invalid s!"unknown constant in value of {cvA.name}")
+  let vE ← readbackEM jv
+  recordIConst cvA.name cvA.type jty (some (vE, jv))
+  -- CHECK PHASE ENTRY (task #64 split, see `checkDefnValP`)
   let jvt ← (coreKnotNC fe checkFuel).infer 0 jv
   unless ← (coreKnotNC fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in definition {cvA.name}")
-  let vE ← readbackEM jv
-  recordIConst cvA.name cvA.type jty (some (vE, jv))
+  -- CHECK PHASE EXIT
   pure (fe.push (.defnInfo cvA vE hint))
 
-/-- `checkThmValP` at the cert-skipping knot. -/
+/-- `checkThmValP` at the cert-skipping knot (task #64 split). -/
 def checkThmValPNC (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     (value : EIdx) : CheckIM FEnv := do
   let jsty ← (coreKnotNC fe checkFuel).infer 0 jty
@@ -333,14 +337,16 @@ def checkThmValPNC (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless ← withStore (fun st => constsResolveFI st fe jv) do
     throw (.invalid s!"unknown constant in value of {cvA.name}")
+  let vE ← readbackEM jv
+  recordIConst cvA.name cvA.type jty (some (vE, jv))
+  -- CHECK PHASE ENTRY (task #64 split, see `checkDefnValP`)
   let jvt ← (coreKnotNC fe checkFuel).infer 0 jv
   unless ← (coreKnotNC fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in theorem {cvA.name}")
-  let vE ← readbackEM jv
-  recordIConst cvA.name cvA.type jty (some (vE, jv))
+  -- CHECK PHASE EXIT
   pure (fe.push (.thmInfo cvA vE))
 
-/-- `checkOpaqueValP` at the cert-skipping knot. -/
+/-- `checkOpaqueValP` at the cert-skipping knot (task #64 split). -/
 def checkOpaqueValPNC (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     (value : EIdx) : CheckIM FEnv := do
   unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
@@ -353,10 +359,12 @@ def checkOpaqueValPNC (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless ← withStore (fun st => constsResolveFI st fe jv) do
     throw (.invalid s!"unknown constant in value of {cvA.name}")
+  recordIConst cvA.name cvA.type jty none
+  -- CHECK PHASE ENTRY (task #64 split, see `checkDefnValP`)
   let jvt ← (coreKnotNC fe checkFuel).infer 0 jv
   unless ← (coreKnotNC fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in opaque {cvA.name}")
-  recordIConst cvA.name cvA.type jty none
+  -- CHECK PHASE EXIT
   pure (fe.push (.axiomInfo cvA))
 
 /-- `checkDeclSP` at the cert-skipping knot. -/

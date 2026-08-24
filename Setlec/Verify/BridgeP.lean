@@ -249,11 +249,23 @@ theorem checkDefnValP_sim (henv : EnvWF env) {cvA : ConstantVal}
     simp only [if_neg h4]
     exact SimAt.throw_bind
   simp only [if_pos h4]
-  refine SimAt.bind ((ssimI env henv checkFuel).infer hs₁ hjv hwv)
+  refine SimAt.bind_left (readbackEM_eff hs₁ hjv)
+    (fun s₁' vE hs₁' hext₁' hQ => ?_)
+  subst hQ
+  have hjv₁' : s₁'.store.denote jv = some vE := denote_mono hext₁' hjv
+  refine SimAt.bind_left (recordIConst_eff hs₁'
+      (denote_mono hext₁' (denote_mono hext₁ hjty))
+      (fun vE' vi h => by
+        cases h
+        exact hjv₁'))
+    (fun s₂' u hs₂' hext₂' hQ' => ?_)
+  refine SimAt.bind ((ssimI env henv checkFuel).infer hs₂'
+      (denote_mono hext₂' hjv₁') hwv)
     (fun s₂ jvt wvt hs₂ hext₂ hP₂ => ?_)
   obtain ⟨hjvt, hwvt⟩ := hP₂
   refine SimAt.bind ((ssimI env henv checkFuel).defeq hs₂ hjvt
-      (denote_mono hext₂ (denote_mono hext₁ hjty)) hwvt htf)
+      (denote_mono hext₂ (denote_mono hext₂' (denote_mono hext₁'
+        (denote_mono hext₁ hjty)))) hwvt htf)
     (fun s₃ b b' hs₃ hext₃ hP₃ => ?_)
   obtain rfl : b = b' := hP₃
   cases b with
@@ -262,19 +274,7 @@ theorem checkDefnValP_sim (henv : EnvWF env) {cvA : ConstantVal}
     exact SimAt.throw_bind
   | true =>
     simp only [↓reduceIte]
-    have hjv₃ : s₃.store.denote jv = some w :=
-      denote_mono hext₃ (denote_mono hext₂ hjv)
-    refine SimAt.bind_left (readbackEM_eff hs₃ hjv₃)
-      (fun s₄ vE hs₄ hext₄ hQ => ?_)
-    subst hQ
-    refine SimAt.bind_left (recordIConst_eff hs₄
-        (denote_mono hext₄ (denote_mono hext₃
-          (denote_mono hext₂ (denote_mono hext₁ hjty))))
-        (fun vE' vi h => by
-          cases h
-          exact denote_mono hext₄ hjv₃))
-      (fun s₅ u hs₅ hext₅ hQ' => ?_)
-    refine SimAt.pure hs₅ ⟨rfl, mkFEnv_push env _, ?_⟩
+    refine SimAt.pure hs₃ ⟨rfl, mkFEnv_push env _, ?_⟩
     intro cv' v' h' hf
     rw [show ((mkFEnv env).push (.defnInfo cvA vE hint)).env =
       ⟨.defnInfo cvA vE hint :: env.consts⟩ from rfl] at hf
@@ -343,11 +343,23 @@ theorem checkThmValP_sim (henv : EnvWF env) {cvA : ConstantVal}
     simp only [if_neg h4]
     exact SimAt.throw_bind
   simp only [if_pos h4]
-  refine SimAt.bind ((ssimI env henv checkFuel).infer hs₄ hjv hwv)
+  refine SimAt.bind_left (readbackEM_eff hs₄ hjv)
+    (fun s₄' vE hs₄' hext₄' hQ => ?_)
+  subst hQ
+  have hjv₄' : s₄'.store.denote jv = some vE := denote_mono hext₄' hjv
+  refine SimAt.bind_left (recordIConst_eff hs₄'
+      (denote_mono hext₄' (denote_mono hext₄ hjty₃))
+      (fun vE' vi h => by
+        cases h
+        exact hjv₄'))
+    (fun s₅' u₀ hs₅' hext₅' hQ' => ?_)
+  refine SimAt.bind ((ssimI env henv checkFuel).infer hs₅'
+      (denote_mono hext₅' hjv₄') hwv)
     (fun s₅ jvt wvt hs₅ hext₅ hP₅ => ?_)
   obtain ⟨hjvt, hwvt⟩ := hP₅
   refine SimAt.bind ((ssimI env henv checkFuel).defeq hs₅ hjvt
-      (denote_mono hext₅ (denote_mono hext₄ hjty₃)) hwvt htf)
+      (denote_mono hext₅ (denote_mono hext₅' (denote_mono hext₄'
+        (denote_mono hext₄ hjty₃)))) hwvt htf)
     (fun s₆ b b' hs₆ hext₆ hP₆ => ?_)
   obtain rfl : b = b' := hP₆
   cases b with
@@ -356,19 +368,7 @@ theorem checkThmValP_sim (henv : EnvWF env) {cvA : ConstantVal}
     exact SimAt.throw_bind
   | true =>
     simp only [↓reduceIte]
-    have hjv₆ : s₆.store.denote jv = some w := denote_mono hext₆
-      (denote_mono hext₅ hjv)
-    refine SimAt.bind_left (readbackEM_eff hs₆ hjv₆)
-      (fun s₇ vE hs₇ hext₇ hQ => ?_)
-    subst hQ
-    refine SimAt.bind_left (recordIConst_eff hs₇
-        (denote_mono hext₇ (denote_mono hext₆
-          (denote_mono hext₅ (denote_mono hext₄ hjty₃))))
-        (fun vE' vi h => by
-          cases h
-          exact denote_mono hext₇ hjv₆))
-      (fun s₈ u₀ hs₈ hext₈ hQ' => ?_)
-    exact SimAt.pure hs₈ ⟨rfl, mkFEnv_push env _⟩
+    exact SimAt.pure hs₆ ⟨rfl, mkFEnv_push env _⟩
 
 /-- `checkOpaqueValP` simulates the generic `checkOpaqueVal`. -/
 theorem checkOpaqueValP_sim (henv : EnvWF env) {cvA : ConstantVal}
@@ -411,11 +411,17 @@ theorem checkOpaqueValP_sim (henv : EnvWF env) {cvA : ConstantVal}
     simp only [if_neg h4]
     exact SimAt.throw_bind
   simp only [if_pos h4]
-  refine SimAt.bind ((ssimI env henv checkFuel).infer hs₁ hjv hwv)
+  refine SimAt.bind_left (recordIConst_eff hs₁
+      (denote_mono hext₁ hjty)
+      (fun vE' vi h => nomatch h))
+    (fun s₁' u hs₁' hext₁' hQ' => ?_)
+  refine SimAt.bind ((ssimI env henv checkFuel).infer hs₁'
+      (denote_mono hext₁' hjv) hwv)
     (fun s₂ jvt wvt hs₂ hext₂ hP₂ => ?_)
   obtain ⟨hjvt, hwvt⟩ := hP₂
   refine SimAt.bind ((ssimI env henv checkFuel).defeq hs₂ hjvt
-      (denote_mono hext₂ (denote_mono hext₁ hjty)) hwvt htf)
+      (denote_mono hext₂ (denote_mono hext₁'
+        (denote_mono hext₁ hjty))) hwvt htf)
     (fun s₃ b b' hs₃ hext₃ hP₃ => ?_)
   obtain rfl : b = b' := hP₃
   cases b with
@@ -424,12 +430,7 @@ theorem checkOpaqueValP_sim (henv : EnvWF env) {cvA : ConstantVal}
     exact SimAt.throw_bind
   | true =>
     simp only [↓reduceIte]
-    refine SimAt.bind_left (recordIConst_eff hs₃
-        (denote_mono hext₃ (denote_mono hext₂
-          (denote_mono hext₁ hjty)))
-        (fun vE' vi h => nomatch h))
-      (fun s₄ u hs₄ hext₄ hQ' => ?_)
-    exact SimAt.pure hs₄ ⟨⟨rfl, mkFEnv_push env _⟩,
+    exact SimAt.pure hs₃ ⟨⟨rfl, mkFEnv_push env _⟩,
       Bool.not_eq_true _ ▸ h2⟩
 
 /-! ## The parsed declaration -/
