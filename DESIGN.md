@@ -1520,6 +1520,16 @@ otherwise unchanged; init-prelude probe 20.94 G yolo / 27.22 G cert
 (vs 22.02/28.03 at the merge base — the guard also stops fruitless
 whnfs of open arguments during defeq).
 
+**Milestone — init-full completes** (init-full-pre2, streaming,
+32 GB ulimit): with the guard the *entire* 6 223 893-line /
+58 609-record full-Init stream runs to the end in **both modes** —
+**61 043 declarations accepted** (certified 4 m 09 s wall, `--yolo`
+3 m 50 s), exactly the two known taint skips
+(`Lean.reduceNat`/`Lean.reduceBool` via `Lean.trustCompiler`), final
+verdict decline (2) by taint-skip design.  No new frontier: the 66 %
+of the stream beyond the old 34 % detonation point checks clean on
+first contact.
+
 Modeled-install soundness architecture (2026-08-19, in progress): the
 fold facts for a modeled recursor come from eliminating its checked
 `R._model.iota_j` theorem.  The pipeline: the kernel's iota
