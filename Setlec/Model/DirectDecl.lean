@@ -2291,6 +2291,365 @@ theorem directProj_fold {envP : Env} (mP : EnvModel V envP)
   exact h
 
 omit [SetTheory V] in
+/-- The projection stage's stored constant determines its type and its
+rule's right-hand side. -/
+theorem directProj_store_inj {T C : Name} {lps : List Name} {nP nF : Nat}
+    {ptyA₁ ptyA₂ rhsA₁ rhsA₂ : Expr} {f₁ f₂ : RecRuleFire}
+    {cs : List ConstantInfo}
+    (h : (⟨.recInfo ⟨T, lps, ptyA₁⟩ nP nP [⟨C, nF, nP, f₁, rhsA₁⟩] :: cs⟩
+        : Env) =
+      ⟨.recInfo ⟨T, lps, ptyA₂⟩ nP nP [⟨C, nF, nP, f₂, rhsA₂⟩] :: cs⟩) :
+    ptyA₁ = ptyA₂ ∧ rhsA₁ = rhsA₂ := by
+  simp only [Env.mk.injEq, List.cons.injEq, ConstantInfo.recInfo.injEq,
+    ConstantVal.mk.injEq, RecRule.mk.injEq, and_true, true_and] at h
+  exact ⟨h.1, h.2.2⟩
+
+set_option maxHeartbeats 3200000 in
+/-- **The direct projection rule's bottom fact** — `Hbot` of
+`proj_rule_eq_of_bottom` at the constructed values.  Over a full frame
+the canonical left-hand side `T.proj.i p⃗ (C p⃗ f⃗)` interprets to the
+frame's `i`-th field value: `directCtorVal_fold` folds the
+constructor's spine to `tupleV f⃗`, `directProj_fold` folds the
+projection at `p⃗ (tupleV f⃗)` to `projV i (tupleV f⃗)`, and
+`directProj_iota` reads that back off the tuple.
+
+The two fits the folds consume come from the frame invariant
+(`TeleFit.of_framePref`), the parameter half crossed onto the
+constructor's and the type former's telescopes (`TeleFit.transfer` over
+the stage's own pins) and the field half onto the constructor's *own*
+opening — the two instantiations are index-matched, so
+`instPisAt_erasedEq_spines` and `TeleFit.erasedEq` identify them. -/
+theorem directProj_bottom {envP : Env} (mP : EnvModel V envP)
+    {F : Nat} {φ : Name → Nat} {p : DirectParts} {i : Nat}
+    {cvTa cvCa : ConstantVal} {envOut : Env}
+    {fvsC : List Expr} {crestC : Expr}
+    {cbs : List (Name × Expr × BinderMeta)}
+    (hpj : checkDirectProj (fueledOps F) p.cvT.name p.cvC.name
+      p.cvT.levelParams p.nP p.nF cvTa cvCa envP i = .ok envOut)
+    (hi : i < p.nF)
+    (hnz : p.resSort.isNonZero = true)
+    (hfrC : FrameOk V mP.val envP φ 0 (rho0 V) cvCa.type)
+    (hcq : openPisAtFvars p.nP cvCa.type 0 = some (fvsC, crestC))
+    (hstripC : Expr.stripPis (p.nP + p.nF) cvCa.type = some (cbs,
+      directFam p.cvT.name p.cvT.levelParams p.nP p.nF))
+    (hdomsCT : DomsInterpEq V mP.val envP φ p.nP 0 (rho0 V)
+      cvCa.type cvTa.type)
+    (hfieldAt : ∀ (ps : List V) (d₁ : Nat) (ρ₁ : Nat → V) (mid : Expr),
+      TeleFit V mP.val envP φ 0 (rho0 V) cvCa.type ps d₁ ρ₁ mid →
+      ps.length = p.nP →
+      FieldTele V mP.val envP φ (p.resSort.eval φ) p.nF d₁ ρ₁ mid)
+    (hTfold : ∀ (ps : List V) (d₁ : Nat) (ρ₁ : Nat → V) (r : Expr),
+      TeleFit V mP.val envP φ 0 (rho0 V) cvTa.type ps d₁ ρ₁ r →
+      ps.length = p.nP →
+      SpineFold V (mP.val p.cvT.name φ) ps =
+        sigmaTowerV V mP.val envP φ (p.resSort.eval φ) p.nF d₁ ρ₁ crestC)
+    (hCfold : ∀ (vs : List V) (d₁ : Nat) (ρ₁ : Nat → V) (r : Expr),
+      TeleFit V mP.val envP φ 0 (rho0 V) cvCa.type vs d₁ ρ₁ r →
+      vs.length = p.nP + p.nF →
+      SpineFold V (mP.val p.cvC.name φ) vs = tupleV (vs.drop p.nP))
+    (hinv : DirectProjInv V mP.val envP φ p.cvT.name p.cvT.levelParams
+      cvTa.type p.nP i)
+    (hTfind : envP.find? p.cvT.name = some (.indInfo cvTa (directCaps p)))
+    (hTlps : cvTa.levelParams = p.cvT.levelParams)
+    (hTname : cvTa.name = p.cvT.name)
+    (hCfind : envP.find? p.cvC.name = some (.ctorInfo cvCa p.nP p.nF)) :
+    ∃ ptyA rhsA fire fvsP restP cdomsP crestP xFvs crest2X ldoms lrestL,
+      envOut = ⟨.recInfo ⟨projFnName p.cvT.name i, p.cvT.levelParams, ptyA⟩
+        p.nP p.nP [⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩] :: envP.consts⟩ ∧
+      openPisAtFvars p.nP ptyA 0 = some (fvsP, restP) ∧
+      Expr.instPisAt fvsP cvCa.type = some (cdomsP, crestP) ∧
+      openPisAtFvars p.nF crestP p.nP = some (xFvs, crest2X) ∧
+      Expr.instLamsAt (fvsP ++ xFvs) rhsA = some (ldoms, lrestL) ∧
+      ∀ (c₀ : ConstantInfo) (val' : ConstVal V),
+        c₀.name = projFnName p.cvT.name i →
+        c₀.toConstantVal.levelParams = p.cvT.levelParams →
+        (∀ n, (envP.find? n).isSome = true → ∀ ψ : Name → Nat,
+          val' n ψ = mP.val n ψ) →
+        val' (projFnName p.cvT.name i) φ =
+          directProjVal V mP.val envP ptyA p.nP i φ →
+        ∀ (xs : List V), xs.length = p.nP + p.nF →
+          FramePref mP.val envP φ (fvsP ++ xFvs) xs →
+          (∃ w, interpExpr V val' (⟨c₀ :: envP.consts⟩ : Env) φ
+              (p.nP + p.nF) (fun l => xs.getD l SetTheory.empty)
+              (Expr.mkAppN (.const (projFnName p.cvT.name i)
+                  (p.cvT.levelParams.map .param))
+                ((fvsP ++ xFvs).take p.nP ++
+                  [Expr.mkAppN (.const p.cvC.name
+                      (cvCa.levelParams.map .param))
+                    (fvsP ++ xFvs)])) = some w ∧
+            ∀ e, Expr.ErasedEq e lrestL →
+              interpExpr V val' (⟨c₀ :: envP.consts⟩ : Env) φ (p.nP + p.nF)
+                (fun l => xs.getD l SetTheory.empty) e = some w) ∧
+          AnnotOk V val' (⟨c₀ :: envP.consts⟩ : Env) φ (p.nP + p.nF)
+            (fun l => xs.getD l SetTheory.empty)
+            (Expr.mkAppN (.const (projFnName p.cvT.name i)
+                (p.cvT.levelParams.map .param))
+              ((fvsP ++ xFvs).take p.nP ++
+                [Expr.mkAppN (.const p.cvC.name
+                    (cvCa.levelParams.map .param))
+                  (fvsP ++ xFvs)])) := by
+  obtain ⟨pty, ptyA, sty, u, fvsP, prest, sbs, sbody, sdom, tFvs, resid, tfv,
+    cds, fn, fdom, fbody, fm, rhsA, hpty, hptyf, hptyb, hann, hlpA, hresA,
+    hbbA, hfvA, hstA, hsty, hu, hnone, hshape, hopP, hsstrip, hsdom,
+    hpin1, hopT, htfv, hcinst, hpin2, hrule, henv⟩ := checkDirectProj_inv hpj
+  obtain ⟨raw, rbinders, cbindersR, cbody0, hraw, hrawf, hrawb, hannR, hlpR,
+    hresR, hbbR, hfvR, hstripR, hCstrip0, hdmatch, fvsP', rest0, cdomsP,
+    crestP, xFvs, crest2X, ldoms, lrestL, hopP', hcinstP, hdeParsP, hopenX,
+    hlinstP, hdeLamP, hrhsTy⟩ := checkProjRule_inv hrule
+  have hfvsPeq : fvsP' = fvsP := by
+    rw [hopP] at hopP'
+    exact (congrArg Prod.fst (Option.some.inj hopP')).symm
+  rw [hfvsPeq] at hcinstP hdeParsP hlinstP hdeLamP
+  refine ⟨ptyA, rhsA, _, fvsP, prest, cdomsP, crestP, xFvs, crest2X, ldoms,
+    lrestL, henv, hopP, hcinstP, hopenX, hlinstP, ?_⟩
+  intro c₀ val' hc₀name hlpsP hagree hvalP xs hxs hpref
+  -- the annotated projection type's frame conditions
+  have hAptyA : AnnotOk V mP.val envP φ 0 (rho0 V) ptyA :=
+    annotate_sound mP _ hann (Expr.WScoped.of_not_hasFvar hptyf) hptyb
+      (Expr.LeavesBounded.of_not_hasFvar hptyf) (rho0 V)
+      (FvarsOk.of_not_hasFvar hptyf)
+  have hfrPty : FrameOk V mP.val envP φ 0 (rho0 V) ptyA := by
+    obtain ⟨⟨v, tv, hvi, -, -⟩, -, -⟩ :=
+      inferTypeCore_sound (φ := φ) mP F hsty
+        (Expr.WScoped.of_not_hasFvar hfvA) hbbA
+        (Expr.LeavesBounded.of_not_hasFvar hfvA)
+        (FvarsOk.of_not_hasFvar hfvA) hAptyA
+    exact ⟨Expr.WScoped.of_not_hasFvar hfvA, hbbA,
+      Expr.LeavesBounded.of_not_hasFvar hfvA, FvarsOk.of_not_hasFvar hfvA,
+      hAptyA, v, hvi⟩
+  -- the stage's own parameter-domain agreement
+  have hAgPC : DomsAgree V mP.val envP φ p.nP 0 (rho0 V) ptyA 0 (rho0 V)
+      cvCa.type :=
+    DomsAgree.of_pins_inst_at mP F p.nP 0 (p.nP + p.nF) (rho0 V) ptyA
+      cvCa.type fvsP prest cdomsP crestP (by omega) hopP hcinstP
+      (fun j a b ha hb => DefEqListOk.pointwise hdeParsP j
+        (by rw [List.getElem?_map, ha]; rfl) hb)
+      hfrPty hfrC
+  -- spine shapes
+  obtain ⟨hopPinst, hlenfvsP, hshapeP⟩ := openPisAtFvars_spec p.nP 0 hopP
+  obtain ⟨hxInst, hlenxFvs, hshapeX⟩ :=
+    openPisAtFvars_spec p.nF p.nP hopenX
+  obtain ⟨hcqinst, hlenfvsC, hshapeC⟩ := openPisAtFvars_spec p.nP 0 hcq
+  have hspineLen : (fvsP ++ xFvs).length = p.nP + p.nF := by
+    rw [List.length_append, hlenfvsP, hlenxFvs]
+  have hshapeA : ∀ (j : Nat) (a : Expr), (fvsP ++ xFvs)[j]? = some a →
+      ∃ nm ty, a = Expr.fvar j nm ty := by
+    intro j a hj
+    rcases Nat.lt_or_ge j p.nP with hjn | hjn
+    · rw [List.getElem?_append_left (by omega)] at hj
+      obtain ⟨nm, ha⟩ := hshapeP j a hj
+      rw [Nat.zero_add] at ha
+      exact ⟨nm, Expr.fvarTypeD a, ha⟩
+    · rw [List.getElem?_append_right (by omega), hlenfvsP] at hj
+      obtain ⟨nm, ha⟩ := hshapeX (j - p.nP) a hj
+      refine ⟨nm, Expr.fvarTypeD a, ?_⟩
+      rw [show j = p.nP + (j - p.nP) from by omega]
+      exact ha
+  -- the two fits the frame invariant supplies
+  have hrho0 : (fun l => (xs.take 0).getD l SetTheory.empty) = rho0 V := by
+    funext l; rfl
+  have hfitP0 := TeleFit.of_framePref hpref p.nP 0 hopP
+    (fun k hk => by
+      rw [Nat.zero_add]
+      exact List.getElem?_append_left (by omega))
+    (by omega)
+  rw [hrho0, List.drop_zero, Nat.zero_add] at hfitP0
+  have hlenps : (xs.take p.nP).length = p.nP := by
+    rw [List.length_take]; omega
+  have hfsLen : (xs.drop p.nP).length = p.nF := by
+    rw [List.length_drop]; omega
+  have hfitX := TeleFit.of_framePref hpref p.nF p.nP hopenX
+    (fun k hk => by
+      rw [List.getElem?_append_right (by omega), hlenfvsP,
+        show p.nP + k - p.nP = k from by omega])
+    (by omega)
+  rw [show (xs.drop p.nP).take p.nF = xs.drop p.nP from by
+      rw [List.take_of_length_le (by omega)],
+    show xs.take (p.nP + p.nF) = xs from
+      List.take_of_length_le (by omega)] at hfitX
+  -- the parameters cross to the constructor's and the former's telescopes
+  obtain ⟨dC, ρC, restC0, hfitC0⟩ := TeleFit.transfer p.nP hfitP0 hlenps hAgPC
+  obtain ⟨hdC, fvsC0, hopC0⟩ := TeleFit_open p.nP hfitC0 hlenps
+  rw [Nat.zero_add] at hdC
+  subst hdC
+  have hrestC : restC0 = crestC := by
+    rw [hcq] at hopC0
+    exact (congrArg Prod.snd (Option.some.inj hopC0)).symm
+  have hρC : ρC = (fun l => (xs.take p.nP).getD l SetTheory.empty) :=
+    TeleFit.rho_det hfitC0 hfitP0
+  rw [hrestC, hρC] at hfitC0
+  obtain ⟨dT, ρT0, restT0, hfitT0⟩ :=
+    TeleFit.transfer p.nP hfitC0 hlenps hdomsCT
+  obtain ⟨hdT, -, -⟩ := TeleFit_open p.nP hfitT0 hlenps
+  rw [Nat.zero_add] at hdT
+  subst hdT
+  have hρT : ρT0 = (fun l => (xs.take p.nP).getD l SetTheory.empty) :=
+    TeleFit.rho_det hfitT0 hfitP0
+  rw [hρT] at hfitT0
+  -- the field half moves onto the constructor's own opening
+  have hEEcrest : Expr.ErasedEq crestP crestC :=
+    (instPisAt_erasedEq_spines fvsP (Expr.ErasedEq.rfl cvCa.type)
+      (by rw [hlenfvsP, hlenfvsC])
+      (fun j a b ha hb => by
+        obtain ⟨nma, hea⟩ := hshapeP j a ha
+        obtain ⟨nmb, heb⟩ := hshapeC j b hb
+        rw [hea, heb]
+        exact rfl)
+      hcinstP hcqinst).2
+  obtain ⟨crestC2, hfitXC, -⟩ := hfitX.erasedEq hEEcrest
+  have hfitCfull : TeleFit V mP.val envP φ 0 (rho0 V) cvCa.type xs
+      (p.nP + p.nF) (fun l => xs.getD l SetTheory.empty) crestC2 := by
+    have h := TeleFit_append hfitC0 hfitXC
+    rwa [List.take_append_drop] at h
+  -- the three fold facts
+  have hCf : SpineFold V (mP.val p.cvC.name φ) xs = tupleV (xs.drop p.nP) :=
+    hCfold xs _ _ _ hfitCfull hxs
+  have hfld : FieldTele V mP.val envP φ (p.resSort.eval φ) p.nF p.nP
+      (fun l => (xs.take p.nP).getD l SetTheory.empty) crestC :=
+    hfieldAt _ _ _ _ hfitC0 hlenps
+  have hxmem : tupleV (xs.drop p.nP) ∈ˢ
+      SpineFold V (mP.val p.cvT.name φ) (xs.take p.nP) := by
+    rw [hTfold _ _ _ _ hfitT0 hlenps]
+    exact tupleV_mem (Level.isNonZero_sound hnz φ) hfld hfitXC hfsLen
+  obtain ⟨ptyA₂, rhsA₂, henv₂, -, hstA', hbody, hfits⟩ :=
+    directProj_facts mP hpj hi hnz hfrC hcq hstripC hdomsCT hfieldAt hTfold
+      hinv hTfind hTlps hTname
+  obtain ⟨hpeq, -⟩ : ptyA₂ = ptyA ∧ rhsA₂ = rhsA :=
+    directProj_store_inj (henv₂.symm.trans henv)
+  rw [hpeq] at hstA' hbody hfits
+  obtain ⟨d', ρ', rest', hfitPX⟩ := hfits (xs.take p.nP) _ _ _ hfitT0 hlenps
+    _ hxmem
+  have hprojFold : SpineFold V (directProjVal V mP.val envP ptyA p.nP i φ)
+      (xs.take p.nP ++ [tupleV (xs.drop p.nP)]) =
+      projV i (tupleV (xs.drop p.nP)) := by
+    have h := teleLamV_fold hstA' hfitPX
+      (by rw [List.length_append, hlenps]; rfl) hfrPty.an hbody
+    rw [show (xs.take p.nP ++ [tupleV (xs.drop p.nP)]).getD p.nP
+        SetTheory.empty = tupleV (xs.drop p.nP) from by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_append_right (by omega),
+        hlenps]
+      simp] at h
+    exact h
+  -- the field value the whole left-hand side computes to
+  have hfieldVal : projV i (tupleV (xs.drop p.nP)) =
+      xs.getD (p.nP + i) SetTheory.empty := by
+    rw [directProj_iota hfsLen hi, List.getD_eq_getElem?_getD,
+      List.getElem?_drop, ← List.getD_eq_getElem?_getD]
+  -- the extended environment's lookups
+  have hfresh : envP.find? c₀.name = none := by rw [hc₀name]; exact hnone
+  have hfP₁ : (⟨c₀ :: envP.consts⟩ : Env).find? (projFnName p.cvT.name i) =
+      some c₀ := by
+    rw [Env.find?_cons, if_pos hc₀name]
+  have hCfind₁ : (⟨c₀ :: envP.consts⟩ : Env).find? p.cvC.name =
+      some (.ctorInfo cvCa p.nP p.nF) := by
+    rw [Env.find?_cons_of_isSome hfresh (by rw [hCfind]; rfl)]
+    exact hCfind
+  have hvalC : val' p.cvC.name φ = mP.val p.cvC.name φ :=
+    hagree _ (by rw [hCfind]; rfl) φ
+  -- the constant heads' interpretations
+  have hPi : interpExpr V val' (⟨c₀ :: envP.consts⟩ : Env) φ (p.nP + p.nF)
+      (fun l => xs.getD l SetTheory.empty)
+      (.const (projFnName p.cvT.name i) (p.cvT.levelParams.map .param)) =
+      some (val' (projFnName p.cvT.name i) φ) := by
+    rw [interp_const hfP₁ (by rw [hlpsP, List.length_map])]
+    rw [show Level.substFn φ c₀.toConstantVal.levelParams
+        (p.cvT.levelParams.map Level.param) = φ from by
+      rw [hlpsP]
+      exact funext fun q => Level.substFn_map_param]
+  have hCi : interpExpr V val' (⟨c₀ :: envP.consts⟩ : Env) φ (p.nP + p.nF)
+      (fun l => xs.getD l SetTheory.empty)
+      (.const p.cvC.name (cvCa.levelParams.map .param)) =
+      some (val' p.cvC.name φ) := by
+    rw [interp_const hCfind₁ (by simp [ConstantInfo.toConstantVal])]
+    rw [show Level.substFn φ
+        (ConstantInfo.ctorInfo cvCa p.nP p.nF).toConstantVal.levelParams
+        (cvCa.levelParams.map Level.param) = φ from
+      funext fun q => Level.substFn_map_param]
+  -- the frame spine interprets to the frame values
+  have hspAll : InterpSpine val' (⟨c₀ :: envP.consts⟩ : Env) φ (p.nP + p.nF)
+      (fun l => xs.getD l SetTheory.empty) (fvsP ++ xFvs) xs := by
+    refine InterpSpine.of_pointwise (by rw [hspineLen, hxs]) ?_
+    intro k a v ha hv
+    obtain ⟨nm, ty, rfl⟩ := hshapeA k a ha
+    simp only [interpExpr]
+    rw [List.getD_eq_getElem?_getD, hv]
+    rfl
+  have hfvAnnot : ∀ x ∈ fvsP ++ xFvs,
+      AnnotOk V val' (⟨c₀ :: envP.consts⟩ : Env) φ (p.nP + p.nF)
+        (fun l => xs.getD l SetTheory.empty) x := by
+    intro x hx
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem hx
+    obtain ⟨nm, ty, rfl⟩ := hshapeA j x hj
+    simp only [AnnotOk]
+  -- chain slots for the two heads
+  obtain ⟨Cv, hCvI, hCvmem⟩ := mP.mem_type _ (find?_mem hCfind) φ
+  have hCannot := (mP.annot_ok _ (find?_mem hCfind) φ).1
+  have hchainC : ChainSlots V (val' p.cvC.name φ) xs := by
+    rw [hvalC, ← (show (ConstantInfo.ctorInfo cvCa p.nP p.nF).name =
+      p.cvC.name from find?_name hCfind)]
+    exact TeleFit.chainSlots hfitCfull hCannot hCvI hCvmem
+  obtain ⟨Pv, hPvI⟩ := hfrPty.it
+  have hchainP : ChainSlots V (val' (projFnName p.cvT.name i) φ)
+      (xs.take p.nP ++ [tupleV (xs.drop p.nP)]) := by
+    rw [hvalP]
+    exact TeleFit.chainSlots hfitPX hfrPty.an hPvI
+      (directProjVal_mem hstA' hPvI hfrPty.an hbody)
+  -- the constructor application
+  obtain ⟨hActor, hictor⟩ := annotOk_spine (fvsP ++ xFvs)
+    (.const p.cvC.name (cvCa.levelParams.map Level.param))
+    (by simp only [AnnotOk]) hCi hfvAnnot hspAll hchainC
+  rw [hvalC, hCf] at hictor
+  -- the whole left-hand side
+  have htakeP : (fvsP ++ xFvs).take p.nP = fvsP := by
+    rw [List.take_append_of_le_length (by omega),
+      List.take_of_length_le (by omega)]
+  obtain ⟨hAbL, hibL⟩ := annotOk_spine
+    ((fvsP ++ xFvs).take p.nP ++
+      [Expr.mkAppN (.const p.cvC.name (cvCa.levelParams.map Level.param))
+        (fvsP ++ xFvs)])
+    (.const (projFnName p.cvT.name i) (p.cvT.levelParams.map Level.param))
+    (by simp only [AnnotOk]) hPi
+    (by
+      intro x hx
+      rcases List.mem_append.mp hx with hx | hx
+      · exact hfvAnnot x (List.mem_of_mem_take hx)
+      · obtain rfl : x = Expr.mkAppN
+            (.const p.cvC.name (cvCa.levelParams.map Level.param))
+            (fvsP ++ xFvs) := by simpa using hx
+        exact hActor)
+    (InterpSpine.append (InterpSpine.take p.nP hspAll)
+      (show InterpSpine val' (⟨c₀ :: envP.consts⟩ : Env) φ (p.nP + p.nF)
+        (fun l => xs.getD l SetTheory.empty) [_]
+        [tupleV (xs.drop p.nP)] from ⟨hictor, trivial⟩))
+    hchainP
+  -- the rule tower's instantiated body is the frame's `i`-th value
+  have hbounded : ∀ a ∈ fvsP ++ xFvs, a.looseBVarsBounded 0 = true := by
+    intro a ha
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem ha
+    obtain ⟨nm, ty, rfl⟩ := hshapeA j a hj
+    rfl
+  have hRmid : lrestL =
+      instSeq (fvsP ++ xFvs) (p.nP + p.nF - 1) (.bvar (p.nF - 1 - i)) := by
+    have h1 := (instLamsAt_stripLams (fvsP ++ xFvs) hlinstP
+      (by rw [hspineLen]; exact hstripR)).1
+    rw [hspineLen] at h1
+    exact h1
+  have hbv := Expr.instSeq_bvar (fvsP ++ xFvs) (p.nP + p.nF - 1)
+    (p.nF - 1 - i) hbounded (by omega) (by rw [hspineLen]; omega)
+  rw [show p.nP + p.nF - 1 - (p.nF - 1 - i) = p.nP + i from by omega] at hbv
+  obtain ⟨nmr, tyr, hfld₁⟩ := hshapeA (p.nP + i) _ hbv
+  have heRi : interpExpr V val' (⟨c₀ :: envP.consts⟩ : Env) φ
+      (p.nP + p.nF) (fun l => xs.getD l SetTheory.empty) lrestL =
+      some (xs.getD (p.nP + i) SetTheory.empty) := by
+    rw [hRmid, hfld₁]
+    simp only [interpExpr]
+  refine ⟨⟨xs.getD (p.nP + i) SetTheory.empty, ?_, ?_⟩, hAbL⟩
+  · rw [hibL, htakeP] at *
+    rw [hvalP, hprojFold, hfieldVal]
+  · intro e hee
+    rw [interp_erasedEq hee _ _, heRi]
+
+omit [SetTheory V] in
 /-- The recursor's telescope length is part of the checked shape. -/
 theorem directShape_stripPis {T C : Name} {lps : List Name} {elim : Name}
     {nP nF : Nat} {tty cty rty : Expr}
