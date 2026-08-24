@@ -2305,12 +2305,15 @@ theorem directProj_store_inj {T C : Name} {lps : List Name} {nP nF : Nat}
   exact ⟨h.1, h.2.2⟩
 
 set_option maxHeartbeats 3200000 in
-/-- **The direct projection rule's bottom fact** — `Hbot` of
-`proj_rule_eq_of_bottom` at the constructed values.  Over a full frame
-the canonical left-hand side `T.proj.i p⃗ (C p⃗ f⃗)` interprets to the
-frame's `i`-th field value: `directCtorVal_fold` folds the
-constructor's spine to `tupleV f⃗`, `directProj_fold` folds the
-projection at `p⃗ (tupleV f⃗)` to `projV i (tupleV f⃗)`, and
+/-- **The direct projection rule's `RecRulesOk` obligation**:
+`proj_rule_eq_of_bottom` at the constructed values.  Everything but the
+bottom fact is provenance-free and shared with the modeled path; the
+bottom is discharged here.
+
+Over a full frame the canonical left-hand side `T.proj.i p⃗ (C p⃗ f⃗)`
+interprets to the frame's `i`-th field value: `directCtorVal_fold`
+folds the constructor's spine to `tupleV f⃗`, `directProj_fold` folds
+the projection at `p⃗ (tupleV f⃗)` to `projV i (tupleV f⃗)`, and
 `directProj_iota` reads that back off the tuple.
 
 The two fits the folds consume come from the frame invariant
@@ -2319,8 +2322,8 @@ constructor's and the type former's telescopes (`TeleFit.transfer` over
 the stage's own pins) and the field half onto the constructor's *own*
 opening — the two instantiations are index-matched, so
 `instPisAt_erasedEq_spines` and `TeleFit.erasedEq` identify them. -/
-theorem directProj_bottom {envP : Env} (mP : EnvModel V envP)
-    {F : Nat} {φ : Name → Nat} {p : DirectParts} {i : Nat}
+theorem directProj_rule_eq {envP : Env} (mP : EnvModel V envP)
+    {F : Nat} {p : DirectParts} {i : Nat}
     {cvTa cvCa : ConstantVal} {envOut : Env}
     {fvsC : List Expr} {crestC : Expr}
     {cbs : List (Name × Expr × BinderMeta)}
@@ -2328,66 +2331,60 @@ theorem directProj_bottom {envP : Env} (mP : EnvModel V envP)
       p.cvT.levelParams p.nP p.nF cvTa cvCa envP i = .ok envOut)
     (hi : i < p.nF)
     (hnz : p.resSort.isNonZero = true)
-    (hfrC : FrameOk V mP.val envP φ 0 (rho0 V) cvCa.type)
+    (hfrC : ∀ φ : Name → Nat, FrameOk V mP.val envP φ 0 (rho0 V) cvCa.type)
     (hcq : openPisAtFvars p.nP cvCa.type 0 = some (fvsC, crestC))
     (hstripC : Expr.stripPis (p.nP + p.nF) cvCa.type = some (cbs,
       directFam p.cvT.name p.cvT.levelParams p.nP p.nF))
-    (hdomsCT : DomsInterpEq V mP.val envP φ p.nP 0 (rho0 V)
+    (hdomsCT : ∀ φ : Name → Nat, DomsInterpEq V mP.val envP φ p.nP 0 (rho0 V)
       cvCa.type cvTa.type)
-    (hfieldAt : ∀ (ps : List V) (d₁ : Nat) (ρ₁ : Nat → V) (mid : Expr),
+    (hfieldAt : ∀ (φ : Name → Nat) (ps : List V) (d₁ : Nat) (ρ₁ : Nat → V)
+        (mid : Expr),
       TeleFit V mP.val envP φ 0 (rho0 V) cvCa.type ps d₁ ρ₁ mid →
       ps.length = p.nP →
       FieldTele V mP.val envP φ (p.resSort.eval φ) p.nF d₁ ρ₁ mid)
-    (hTfold : ∀ (ps : List V) (d₁ : Nat) (ρ₁ : Nat → V) (r : Expr),
+    (hTfold : ∀ (φ : Name → Nat) (ps : List V) (d₁ : Nat) (ρ₁ : Nat → V)
+        (r : Expr),
       TeleFit V mP.val envP φ 0 (rho0 V) cvTa.type ps d₁ ρ₁ r →
       ps.length = p.nP →
       SpineFold V (mP.val p.cvT.name φ) ps =
         sigmaTowerV V mP.val envP φ (p.resSort.eval φ) p.nF d₁ ρ₁ crestC)
-    (hCfold : ∀ (vs : List V) (d₁ : Nat) (ρ₁ : Nat → V) (r : Expr),
+    (hCfold : ∀ (φ : Name → Nat) (vs : List V) (d₁ : Nat) (ρ₁ : Nat → V)
+        (r : Expr),
       TeleFit V mP.val envP φ 0 (rho0 V) cvCa.type vs d₁ ρ₁ r →
       vs.length = p.nP + p.nF →
       SpineFold V (mP.val p.cvC.name φ) vs = tupleV (vs.drop p.nP))
-    (hinv : DirectProjInv V mP.val envP φ p.cvT.name p.cvT.levelParams
-      cvTa.type p.nP i)
+    (hinv : ∀ φ : Name → Nat, DirectProjInv V mP.val envP φ p.cvT.name
+      p.cvT.levelParams cvTa.type p.nP i)
     (hTfind : envP.find? p.cvT.name = some (.indInfo cvTa (directCaps p)))
     (hTlps : cvTa.levelParams = p.cvT.levelParams)
     (hTname : cvTa.name = p.cvT.name)
     (hCfind : envP.find? p.cvC.name = some (.ctorInfo cvCa p.nP p.nF)) :
-    ∃ ptyA rhsA fire fvsP restP cdomsP crestP xFvs crest2X ldoms lrestL,
+    ∃ ptyA rhsA fire,
       envOut = ⟨.recInfo ⟨projFnName p.cvT.name i, p.cvT.levelParams, ptyA⟩
         p.nP p.nP [⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩] :: envP.consts⟩ ∧
-      openPisAtFvars p.nP ptyA 0 = some (fvsP, restP) ∧
-      Expr.instPisAt fvsP cvCa.type = some (cdomsP, crestP) ∧
-      openPisAtFvars p.nF crestP p.nP = some (xFvs, crest2X) ∧
-      Expr.instLamsAt (fvsP ++ xFvs) rhsA = some (ldoms, lrestL) ∧
       ∀ (c₀ : ConstantInfo) (val' : ConstVal V),
         c₀.name = projFnName p.cvT.name i →
         c₀.toConstantVal.levelParams = p.cvT.levelParams →
         (∀ n, (envP.find? n).isSome = true → ∀ ψ : Name → Nat,
           val' n ψ = mP.val n ψ) →
-        val' (projFnName p.cvT.name i) φ =
-          directProjVal V mP.val envP ptyA p.nP i φ →
-        ∀ (xs : List V), xs.length = p.nP + p.nF →
-          FramePref mP.val envP φ (fvsP ++ xFvs) xs →
-          (∃ w, interpExpr V val' (⟨c₀ :: envP.consts⟩ : Env) φ
-              (p.nP + p.nF) (fun l => xs.getD l SetTheory.empty)
-              (Expr.mkAppN (.const (projFnName p.cvT.name i)
-                  (p.cvT.levelParams.map .param))
-                ((fvsP ++ xFvs).take p.nP ++
-                  [Expr.mkAppN (.const p.cvC.name
-                      (cvCa.levelParams.map .param))
-                    (fvsP ++ xFvs)])) = some w ∧
-            ∀ e, Expr.ErasedEq e lrestL →
-              interpExpr V val' (⟨c₀ :: envP.consts⟩ : Env) φ (p.nP + p.nF)
-                (fun l => xs.getD l SetTheory.empty) e = some w) ∧
-          AnnotOk V val' (⟨c₀ :: envP.consts⟩ : Env) φ (p.nP + p.nF)
-            (fun l => xs.getD l SetTheory.empty)
-            (Expr.mkAppN (.const (projFnName p.cvT.name i)
-                (p.cvT.levelParams.map .param))
-              ((fvsP ++ xFvs).take p.nP ++
-                [Expr.mkAppN (.const p.cvC.name
-                    (cvCa.levelParams.map .param))
-                  (fvsP ++ xFvs)])) := by
+        (∀ ψ : Name → Nat, val' (projFnName p.cvT.name i) ψ =
+          directProjVal V mP.val envP ptyA p.nP i ψ) →
+        fire = .plain →
+        ∃ fvms bL,
+          ruleLhsParts (projFnName p.cvT.name i)
+              ⟨projFnName p.cvT.name i, p.cvT.levelParams, ptyA⟩ p.nP
+              ⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩ cvCa = some (fvms, bL) ∧
+          FrameWf 0 fvms bL ∧
+          fvms.length = p.nP + p.nF ∧
+          (closeLamsAt fvms bL).constsResolve
+            (⟨c₀ :: envP.consts⟩ : Env) = true ∧
+          ∀ ψ : Name → Nat,
+            AnnotOk V val' (⟨c₀ :: envP.consts⟩ : Env) ψ 0 (rho0 V)
+              (closeLamsAt fvms bL) ∧
+            ∃ Rv, interpClosed V val' (⟨c₀ :: envP.consts⟩ : Env) ψ
+                (closeLamsAt fvms bL) = some Rv ∧
+              interpClosed V val' (⟨c₀ :: envP.consts⟩ : Env) ψ rhsA =
+                some Rv := by
   obtain ⟨pty, ptyA, sty, u, fvsP, prest, sbs, sbody, sdom, tFvs, resid, tfv,
     cds, fn, fdom, fbody, fm, rhsA, hpty, hptyf, hptyb, hann, hlpA, hresA,
     hbbA, hfvA, hstA, hsty, hu, hnone, hshape, hopP, hsstrip, hsdom,
@@ -2400,9 +2397,61 @@ theorem directProj_bottom {envP : Env} (mP : EnvModel V envP)
     rw [hopP] at hopP'
     exact (congrArg Prod.fst (Option.some.inj hopP')).symm
   rw [hfvsPeq] at hcinstP hdeParsP hlinstP hdeLamP
-  refine ⟨ptyA, rhsA, _, fvsP, prest, cdomsP, crestP, xFvs, crest2X, ldoms,
-    lrestL, henv, hopP, hcinstP, hopenX, hlinstP, ?_⟩
-  intro c₀ val' hc₀name hlpsP hagree hvalP xs hxs hpref
+  refine ⟨ptyA, rhsA, _, henv, ?_⟩
+  intro c₀ val' hc₀name hlpsP hagree hvalP hfirep
+  -- the stored data's syntactic and semantic well-formedness
+  have hAty : ∀ ψ : Name → Nat, AnnotOk V mP.val envP ψ 0 (rho0 V) ptyA :=
+    fun ψ => annotate_sound mP _ hann (Expr.WScoped.of_not_hasFvar hptyf)
+      hptyb (Expr.LeavesBounded.of_not_hasFvar hptyf) (rho0 V)
+      (FvarsOk.of_not_hasFvar hptyf)
+  have hIty : ∀ ψ : Name → Nat, ∃ T,
+      interpClosed V mP.val envP ψ ptyA = some T := by
+    intro ψ
+    obtain ⟨⟨v, tv, hvi, -, -⟩, -, -⟩ :=
+      inferTypeCore_sound (φ := ψ) mP F hsty
+        (Expr.WScoped.of_not_hasFvar hfvA) hbbA
+        (Expr.LeavesBounded.of_not_hasFvar hfvA)
+        (FvarsOk.of_not_hasFvar hfvA) (hAty ψ)
+    exact ⟨v, hvi⟩
+  have hACty : ∀ ψ : Name → Nat,
+      AnnotOk V mP.val envP ψ 0 (rho0 V) cvCa.type :=
+    fun ψ => (mP.annot_ok _ (find?_mem hCfind) ψ).1
+  have hICty : ∀ ψ : Name → Nat, ∃ T,
+      interpClosed V mP.val envP ψ cvCa.type = some T := by
+    intro ψ
+    obtain ⟨t, ht, -⟩ := mP.mem_type _ (find?_mem hCfind) ψ
+    exact ⟨t, ht⟩
+  have hArhs : ∀ ψ : Name → Nat, AnnotOk V mP.val envP ψ 0 (rho0 V) rhsA :=
+    fun ψ => annotate_sound mP _ hannR (Expr.WScoped.of_not_hasFvar hrawf)
+      hrawb (Expr.LeavesBounded.of_not_hasFvar hrawf) (rho0 V)
+      (FvarsOk.of_not_hasFvar hrawf)
+  have hIrhs : ∀ ψ : Name → Nat, ∃ L,
+      interpClosed V mP.val envP ψ rhsA = some L := by
+    intro ψ
+    obtain ⟨rhsTy, hity⟩ := hrhsTy
+    obtain ⟨⟨v, tv, hvi, -, -⟩, -, -⟩ :=
+      inferTypeCore_sound (φ := ψ) mP F hity
+        (Expr.WScoped.of_not_hasFvar hfvR) hbbR
+        (Expr.LeavesBounded.of_not_hasFvar hfvR)
+        (FvarsOk.of_not_hasFvar hfvR) (hArhs ψ)
+    exact ⟨v, hvi⟩
+  obtain ⟨hCcl, -, hCres, hCb, -⟩ := mP.wf _ (find?_mem hCfind)
+  have hfresh : envP.find? c₀.name = none := by rw [hc₀name]; exact hnone
+  have hfP₁ : (⟨c₀ :: envP.consts⟩ : Env).find? (projFnName p.cvT.name i) =
+      some c₀ := by
+    rw [Env.find?_cons, if_pos hc₀name]
+  refine proj_rule_eq_of_bottom mP F hfresh hagree hfP₁ hCfind hfirep rfl rfl
+    hstripR hstripC rfl (by simp) hopP hcinstP hdeParsP hopenX hlinstP
+    hdeLamP hfvA hbbA hCcl hCb hresA hCres hresR hfvR hbbR hAty hIty
+    hACty hICty hArhs hIrhs ?_
+  intro φ xs hxs hpref
+  have hfrC := hfrC φ
+  have hdomsCT := hdomsCT φ
+  have hfieldAt := hfieldAt φ
+  have hTfold := hTfold φ
+  have hCfold := hCfold φ
+  have hinv := hinv φ
+  have hvalP := hvalP φ
   -- the annotated projection type's frame conditions
   have hAptyA : AnnotOk V mP.val envP φ 0 (rho0 V) ptyA :=
     annotate_sound mP _ hann (Expr.WScoped.of_not_hasFvar hptyf) hptyb
