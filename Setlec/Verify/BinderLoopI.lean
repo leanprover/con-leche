@@ -40,6 +40,10 @@ theorem toListRev_singleton {α} (x : α) :
     (#[x] : Array α).toList.reverse = [x] := by
   simp
 
+theorem toListRev_empty {α} :
+    (#[] : Array α).toList.reverse = ([] : List α) := by
+  simp
+
 /-! ## Stack relations -/
 
 /-- Pointwise relation of `inferLamsI` stack entries. -/

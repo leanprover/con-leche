@@ -76,18 +76,18 @@ namespace Setlec
 /-- Cert-skipping twin of `inferSpineI`: the telescope walk without the
 possibly-Prop argument re-checks (references are infer-only here). -/
 def inferSpineNC (r : CoreFnsI) (depth : Nat) :
-    EIdx → List EIdx → List EIdx → CheckIM EIdx
-  | ty, acc, [] => instListM ty acc
+    EIdx → Array EIdx → List EIdx → CheckIM EIdx
+  | ty, acc, [] => instListRevM ty acc
   | ty, acc, a :: rest => do
     match ← viewI ty with
     | some (.forallE _ _dom body _) =>
-      inferSpineNC r depth body (a :: acc) rest
+      inferSpineNC r depth body (acc.push a) rest
     | _ => do
-      let ty' ← instListM ty acc
+      let ty' ← instListRevM ty acc
       let w ← r.whnf depth ty'
       match ← viewI w with
       | some (.forallE _ _dom body _) =>
-        inferSpineNC r depth body [a] rest
+        inferSpineNC r depth body #[a] rest
       | _ => throw (.invalid "function expected")
 
 /-- Cert-skipping twin of `structEtaCertWithI`: keeps the guard, the
@@ -491,7 +491,7 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
       let h ← withStore (fun st => st.getAppFnI e)
       let args ← withStore (·.getAppArgsI e)
       let tf ← r.infer depth h
-      inferSpineNC r depth tf [] args
+      inferSpineNC r depth tf #[] args
     | some (.proj _sn i pe) => do
       let tpe ← r.infer depth pe
       let te ← r.whnf depth tpe

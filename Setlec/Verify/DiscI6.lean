@@ -1,4 +1,5 @@
 import Setlec.Verify.DiscI5
+import Setlec.Verify.AnnotSpine
 
 /-!
 # Interned body walks, part 6: annotation and the projection fallbacks
@@ -568,6 +569,307 @@ theorem annotateProjElimI_sim (ih : SSimI env f) (henv : EnvWF env)
   | proj s'ᵢ j' e'' => invert_head hd; exact SimAt.throw
 
 set_option maxHeartbeats 8000000 in
+mutual
+
+/-- The application-annotation spine loop simulates its pure mirror
+(task #96). -/
+theorem annotateSpineI_sim (ih : SSimI env f) (henv : EnvWF env)
+    {d : Nat} :
+    ∀ (rest : List EIdx) {xs : List Expr} {ty : EIdx} {tx : Expr}
+      {acc : Array EIdx} {ws : List Expr} {cur : EIdx} {curx : Expr}
+      {a' : EIdx} {a'x : Expr} {s₀ : IState}, ISOK env s₀ →
+      s₀.store.denote ty = some tx →
+      DenL s₀.store acc.toList.reverse ws →
+      WScoped d (tx.instantiateList ws) →
+      s₀.store.denote cur = some curx → WScoped d curx →
+      s₀.store.denote a' = some a'x → WScoped d a'x →
+      DenL s₀.store rest xs → (∀ x ∈ xs, WScoped d x) →
+      SimAt env s₀ (RelE d)
+        (annotateSpineI (coreKnotI (mkFEnv env) f) d ty acc cur a' rest)
+        (annotateSpine (fueledFns env) d tx ws curx a'x xs)
+  | rest, xs, ty, tx, acc, ws, cur, curx, a', a'x, s₀ => by
+    intro hs ht hacc hwty hcur hwcur ha' hwa' hrest hwrest
+    rw [annotateSpineI.eq_def]
+    dsimp only
+    refine SimAt.view ?_
+    obtain ⟨n, hn, hc, hd⟩ := denote_some_inv ht
+    rw [hn]
+    cases n with
+    | forallE nmᵢ dom body mb =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hd
+      obtain ⟨domx, hdom, hd⟩ := hd
+      rw [Option.bind_eq_some_iff] at hd
+      obtain ⟨bodyx, hbody, hd⟩ := hd
+      rw [Option.bind_eq_some_iff] at hd
+      obtain ⟨bm, hbmDen, hd⟩ := hd
+      rw [Option.map_eq_some_iff] at hd
+      obtain ⟨nm, hnmDen, hd⟩ := hd
+      subst hd
+      rw [annotateSpine_pi]
+      unfold annotateSpinePi
+      have hcomp : WScoped d (domx.instantiateList ws)
+          ∧ WScoped d (bodyx.instantiateList ws 1) := by
+        rw [instList_forallE] at hwty
+        simpa only [WScoped] using hwty
+      refine SimAt.bind_left (instListRevM_eff (d := 0) hs hdom hacc)
+        (fun s₁ dom' hs₁ hext₁ hQdom => ?_)
+      refine SimAt.bind (ih.infer hs₁ (denote_mono hext₁ ha') hwa')
+        (fun s₂ ta tax hs₂ hext₂ hP => ?_)
+      obtain ⟨htad, hwta⟩ := hP
+      refine SimAt.bind (ih.defeq hs₂ htad
+        (denote_mono hext₂ hQdom) hwta hcomp.1)
+        (fun s₃ b b' hs₃ hext₃ hPb => ?_)
+      obtain rfl : b = b' := hPb
+      cases b with
+      | false =>
+        simp only [Bool.false_eq_true, ↓reduceIte]
+        exact SimAt.throw_bind
+      | true =>
+        simp only [↓reduceIte]
+        have hextAll := (hext₁.trans hext₂).trans hext₃
+        have hnd : denoteNode s₃.store.denote s₃.store.denoteL
+            s₃.store.denoteN (.app cur a')
+            = some (.app curx a'x) := by
+          rw [denoteNode, denote_mono hextAll hcur,
+            denote_mono hextAll ha']
+          rfl
+        refine SimAt.bind_left (internI_eff hs₃ hnd)
+          (fun s₄ cur' hs₄ hext₄ hQcur => ?_)
+        have hextAll4 := hextAll.trans hext₄
+        have hwapp : WScoped d (Expr.app curx a'x) := by
+          simp only [WScoped]
+          exact ⟨hwcur, hwa'⟩
+        cases rest with
+        | nil =>
+          cases xs with
+          | nil => exact SimAt.pure hs₄ ⟨hQcur, hwapp⟩
+          | cons xb xs' => exact absurd hrest (by simp [DenL])
+        | cons b2 rest' =>
+          cases xs with
+          | nil => exact absurd hrest (by simp [DenL])
+          | cons xb xs' =>
+            obtain ⟨hbx, hrest'⟩ := hrest
+            have hwxb : WScoped d xb := hwrest xb (List.mem_cons_self ..)
+            refine SimAt.bind (ih.annotate hs₄
+              (denote_mono hextAll4 hbx) hwxb)
+              (fun s₅ b' b'x hs₅ hext₅ hP₅ => ?_)
+            obtain ⟨hb'd, hwb'⟩ := hP₅
+            have hextAll5 := hextAll4.trans hext₅
+            have hwsub : WScoped d (bodyx.instantiateList (a'x :: ws)) := by
+              rw [Expr.instantiateList_cons]
+              exact WScoped.instantiate1_gen hwa' 0 hcomp.2
+            refine annotateSpineI_sim ih henv rest' hs₅
+              (denote_mono hextAll5 hbody)
+              (by
+                rw [toListRev_push]
+                exact ⟨denote_mono hextAll5 ha', hacc.mono hextAll5⟩)
+              hwsub (denote_mono hext₅ hQcur) hwapp hb'd hwb'
+              (hrest'.mono hextAll5)
+              (fun x hx => hwrest x (List.mem_cons_of_mem _ hx))
+    | bvar k =>
+      cases hd
+      exact annotateSpineI_whnfArm ih henv rest hs ht hacc hwty
+        hcur hwcur ha' hwa' hrest hwrest
+        (fun n' dom' body' bi' h => nomatch h)
+    | sort u =>
+      rw [denoteNode, Option.map_eq_some_iff] at hd
+      obtain ⟨lu, _, rfl⟩ := hd
+      exact annotateSpineI_whnfArm ih henv rest hs ht hacc hwty
+        hcur hwcur ha' hwa' hrest hwrest
+        (fun n' dom' body' bi' h => nomatch h)
+    | const nmᵢ us =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hd
+      obtain ⟨lus, _, hd⟩ := hd
+      rw [Option.map_eq_some_iff] at hd
+      obtain ⟨nm, _, rfl⟩ := hd
+      exact annotateSpineI_whnfArm ih henv rest hs ht hacc hwty
+        hcur hwcur ha' hwa' hrest hwrest
+        (fun n' dom' body' bi' h => nomatch h)
+    | fvar idx nmᵢ t =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hd
+      obtain ⟨tyx2, _, hd⟩ := hd
+      rw [Option.map_eq_some_iff] at hd
+      obtain ⟨nm, _, rfl⟩ := hd
+      exact annotateSpineI_whnfArm ih henv rest hs ht hacc hwty
+        hcur hwcur ha' hwa' hrest hwrest
+        (fun n' dom' body' bi' h => nomatch h)
+    | app f2 a2 =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hd
+      obtain ⟨xf2, _, hd⟩ := hd
+      rw [Option.map_eq_some_iff] at hd
+      obtain ⟨xa2, _, rfl⟩ := hd
+      exact annotateSpineI_whnfArm ih henv rest hs ht hacc hwty
+        hcur hwcur ha' hwa' hrest hwrest
+        (fun n' dom' body' bi' h => nomatch h)
+    | lam nmᵢ t b2 m2 =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hd
+      obtain ⟨tyx2, _, hd⟩ := hd
+      rw [Option.bind_eq_some_iff] at hd
+      obtain ⟨bx2, _, hd⟩ := hd
+      rw [Option.bind_eq_some_iff] at hd
+      obtain ⟨bm2, _, hd⟩ := hd
+      rw [Option.map_eq_some_iff] at hd
+      obtain ⟨nm, _, rfl⟩ := hd
+      exact annotateSpineI_whnfArm ih henv rest hs ht hacc hwty
+        hcur hwcur ha' hwa' hrest hwrest
+        (fun n' dom' body' bi' h => nomatch h)
+    | letE nmᵢ t v2 b2 =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hd
+      obtain ⟨tyx2, _, hd⟩ := hd
+      rw [Option.bind_eq_some_iff] at hd
+      obtain ⟨vx2, _, hd⟩ := hd
+      rw [Option.bind_eq_some_iff] at hd
+      obtain ⟨bx2, _, hd⟩ := hd
+      rw [Option.map_eq_some_iff] at hd
+      obtain ⟨nm, _, rfl⟩ := hd
+      exact annotateSpineI_whnfArm ih henv rest hs ht hacc hwty
+        hcur hwcur ha' hwa' hrest hwrest
+        (fun n' dom' body' bi' h => nomatch h)
+    | lit l =>
+      cases hd
+      exact annotateSpineI_whnfArm ih henv rest hs ht hacc hwty
+        hcur hwcur ha' hwa' hrest hwrest
+        (fun n' dom' body' bi' h => nomatch h)
+    | proj sp j2 e2 =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hd
+      obtain ⟨xe2, _, hd⟩ := hd
+      rw [Option.map_eq_some_iff] at hd
+      obtain ⟨nm, _, rfl⟩ := hd
+      exact annotateSpineI_whnfArm ih henv rest hs ht hacc hwty
+        hcur hwcur ha' hwa' hrest hwrest
+        (fun n' dom' body' bi' h => nomatch h)
+termination_by rest => (rest.length, 1)
+
+/-- The normalize-and-retry arm of the annotation spine loop. -/
+theorem annotateSpineI_whnfArm (ih : SSimI env f) (henv : EnvWF env)
+    {d : Nat} :
+    ∀ (rest : List EIdx) {xs : List Expr} {ty : EIdx} {tx : Expr}
+      {acc : Array EIdx} {ws : List Expr} {cur : EIdx} {curx : Expr}
+      {a' : EIdx} {a'x : Expr} {s₀ : IState}, ISOK env s₀ →
+      s₀.store.denote ty = some tx →
+      DenL s₀.store acc.toList.reverse ws →
+      WScoped d (tx.instantiateList ws) →
+      s₀.store.denote cur = some curx → WScoped d curx →
+      s₀.store.denote a' = some a'x → WScoped d a'x →
+      DenL s₀.store rest xs → (∀ x ∈ xs, WScoped d x) →
+      (∀ n' dom' body' bi', tx ≠ Expr.forallE n' dom' body' bi') →
+      SimAt env s₀ (RelE d)
+        (do
+          let ty' ← instListRevM ty acc
+          let w ← (coreKnotI (mkFEnv env) f).whnf d ty'
+          match ← viewI w with
+          | some (.forallE _ dom body _) => do
+            let ta ← (coreKnotI (mkFEnv env) f).infer d a'
+            unless ← (coreKnotI (mkFEnv env) f).defeq d ta dom do
+              throw (.invalid "application argument type mismatch")
+            let cur' ← internI (.app cur a')
+            match rest with
+            | [] => pure cur'
+            | b :: rest' => do
+              let b' ← (coreKnotI (mkFEnv env) f).annotate d b
+              annotateSpineI (coreKnotI (mkFEnv env) f) d body #[a']
+                cur' b' rest'
+          | _ => throw (.invalid "function expected"))
+        (annotateSpine (fueledFns env) d tx ws curx a'x xs)
+  | rest, xs, ty, tx, acc, ws, cur, curx, a', a'x, s₀ => by
+    intro hs ht hacc hwty hcur hwcur ha' hwa' hrest hwrest hnpi
+    rw [annotateSpine_ne_pi _ _ _ _ _ _ hnpi]
+    unfold annotateSpineWhnf
+    refine SimAt.bind_left (instListRevM_eff (d := 0) hs ht hacc)
+      (fun s₁ ty' hs₁ hext₁ hQty => ?_)
+    refine SimAt.bind (ih.whnf hs₁ hQty hwty)
+      (fun s₂ w wx hs₂ hext₂ hP => ?_)
+    obtain ⟨hwd, hww⟩ := hP
+    refine SimAt.view ?_
+    obtain ⟨n', hn', hc', hd'⟩ := denote_some_inv hwd
+    rw [hn']
+    have hext12 := hext₁.trans hext₂
+    cases n' with
+    | forallE nm2 dom body mb =>
+      rw [denoteNode, Option.bind_eq_some_iff] at hd'
+      obtain ⟨domx, hdom, hd'⟩ := hd'
+      rw [Option.bind_eq_some_iff] at hd'
+      obtain ⟨bodyx, hbody, hd'⟩ := hd'
+      rw [Option.bind_eq_some_iff] at hd'
+      obtain ⟨bm, hbmDen, hd'⟩ := hd'
+      rw [Option.map_eq_some_iff] at hd'
+      obtain ⟨nm, hnmDen, hd'⟩ := hd'
+      subst hd'
+      have hwtb : WScoped d domx ∧ WScoped d bodyx := by
+        simpa only [WScoped] using hww
+      dsimp only
+      refine SimAt.bind (ih.infer hs₂
+        (denote_mono hext12 ha') (hwa'))
+        (fun s₃ ta tax hs₃ hext₃ hP₃ => ?_)
+      obtain ⟨htad, hwta⟩ := hP₃
+      refine SimAt.bind (ih.defeq hs₃ htad
+        (denote_mono hext₃ hdom) hwta hwtb.1)
+        (fun s₄ b b2 hs₄ hext₄ hPb => ?_)
+      obtain rfl : b = b2 := hPb
+      cases b with
+      | false =>
+        simp only [Bool.false_eq_true, ↓reduceIte]
+        exact SimAt.throw_bind
+      | true =>
+        simp only [↓reduceIte]
+        have hextAll := (hext12.trans hext₃).trans hext₄
+        have hnd : denoteNode s₄.store.denote s₄.store.denoteL
+            s₄.store.denoteN (.app cur a')
+            = some (.app curx a'x) := by
+          rw [denoteNode, denote_mono hextAll hcur,
+            denote_mono hextAll ha']
+          rfl
+        refine SimAt.bind_left (internI_eff hs₄ hnd)
+          (fun s₅ cur' hs₅ hext₅ hQcur => ?_)
+        have hextAll5 := hextAll.trans hext₅
+        have hwapp : WScoped d (Expr.app curx a'x) := by
+          simp only [WScoped]
+          exact ⟨hwcur, hwa'⟩
+        cases rest with
+        | nil =>
+          cases xs with
+          | nil => exact SimAt.pure hs₅ ⟨hQcur, hwapp⟩
+          | cons xb xs' => exact absurd hrest (by simp [DenL])
+        | cons b2 rest' =>
+          cases xs with
+          | nil => exact absurd hrest (by simp [DenL])
+          | cons xb xs' =>
+            obtain ⟨hbx, hrest'⟩ := hrest
+            have hwxb : WScoped d xb := hwrest xb (List.mem_cons_self ..)
+            refine SimAt.bind (ih.annotate hs₅
+              (denote_mono hextAll5 hbx) hwxb)
+              (fun s₆ b' b'x hs₆ hext₆ hP₆ => ?_)
+            obtain ⟨hb'd, hwb'⟩ := hP₆
+            have hextAll6 := hextAll5.trans hext₆
+            have hwsub : WScoped d (bodyx.instantiateList [a'x]) := by
+              rw [instList_single]
+              exact WScoped.instantiate1_gen hwa' 0 hwtb.2
+            refine annotateSpineI_sim ih henv rest' hs₆
+              (denote_mono ((hext₃.trans hext₄).trans
+                (hext₅.trans hext₆)) hbody)
+              (by
+                rw [toListRev_singleton]
+                exact DenL.cons (denote_mono
+                  (hext12.trans ((hext₃.trans hext₄).trans
+                    (hext₅.trans hext₆))) ha') DenL.nil)
+              hwsub (denote_mono hext₆ hQcur) hwapp hb'd hwb'
+              (hrest'.mono (hext12.trans ((hext₃.trans hext₄).trans
+                (hext₅.trans hext₆))))
+              (fun x hx => hwrest x (List.mem_cons_of_mem _ hx))
+    | bvar k => invert_node hd'; exact SimAt.throw
+    | sort u => invert_node hd'; exact SimAt.throw
+    | const nm2 us => invert_node hd'; exact SimAt.throw
+    | lit l => invert_node hd'; exact SimAt.throw
+    | fvar idx nm2 t2 => invert_node hd'; exact SimAt.throw
+    | app f2 a2 => invert_node hd'; exact SimAt.throw
+    | lam nm2 t2 b2 m2 => invert_node hd'; exact SimAt.throw
+    | letE nm2 t2 v2 b2 => invert_node hd'; exact SimAt.throw
+    | proj sp2 j2 e2 => invert_node hd'; exact SimAt.throw
+termination_by rest => (rest.length, 0)
+
+end
+
+set_option maxHeartbeats 8000000 in
 theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     {d : Nat} {i : EIdx} {ex : Expr} {s₀ : IState} (hs : ISOK env s₀)
     (hden : s₀.store.denote i = some ex) (hw : WScoped d ex) :
@@ -680,76 +982,52 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     rw [Option.map_eq_some_iff] at hd
     obtain ⟨xa, ha, hd⟩ := hd
     subst hd
-    have hwfa : WScoped d xg ∧ WScoped d xa := by
-      simpa only [WScoped] using hw
-    unfold annotateBody
-    try dsimp only
-    refine SimAt.bind (ih.annotate hs hg hwfa.1)
-      (fun s₁ f' f'x hs₁ hext₁ hP => ?_)
-    obtain ⟨hf'd, hwf'⟩ := hP
-    refine SimAt.bind (ih.annotate hs₁ (denote_mono hext₁ ha) hwfa.2)
-      (fun s₂ a' a'x hs₂ hext₂ hP₂ => ?_)
-    obtain ⟨ha'd, hwa'⟩ := hP₂
-    refine SimAt.bind (ih.infer hs₂ (denote_mono hext₂ hf'd) hwf')
-      (fun s₃ tf tfx hs₃ hext₃ hP₃ => ?_)
-    obtain ⟨htfd, hwtf⟩ := hP₃
-    refine SimAt.bind (ih.whnf hs₃ htfd hwtf)
-      (fun s₄ w wx hs₄ hext₄ hP₄ => ?_)
-    obtain ⟨hwd, hww⟩ := hP₄
-    refine SimAt.view ?_
-    obtain ⟨n', hn', hc', hd'⟩ := denote_some_inv hwd
-    rw [hn']
-    cases n' with
-    | forallE nmᵢ ty body mb =>
-      rw [denoteNode, Option.bind_eq_some_iff] at hd'
-      obtain ⟨tyx, hty, hd'⟩ := hd'
-      rw [Option.bind_eq_some_iff] at hd'
-      obtain ⟨bodyx, hbody, hd'⟩ := hd'
-      rw [Option.bind_eq_some_iff] at hd'
-      obtain ⟨bm, hbmDen, hd'⟩ := hd'
-      rw [Option.map_eq_some_iff] at hd'
-      obtain ⟨nm, hnmDen, hd'⟩ := hd'
-      subst hd'
-      have hwtb : WScoped d tyx ∧ WScoped d bodyx := by
-        simpa only [WScoped] using hww
-      refine SimAt.bind (ih.infer hs₄
-        (denote_mono (hext₃.trans hext₄) ha'd) hwa')
-        (fun s₅ ta tax hs₅ hext₅ hP₅ => ?_)
-      obtain ⟨htad, hwta⟩ := hP₅
-      refine SimAt.bind (ih.defeq hs₅ htad
-        (denote_mono hext₅ hty) hwta hwtb.1)
-        (fun s₆ b b' hs₆ hext₆ hPb => ?_)
-      obtain rfl : b = b' := hPb
-      cases b with
-      | false =>
-        simp only [Bool.false_eq_true, ↓reduceIte]
-        exact SimAt.throw_bind
-      | true =>
-        simp only [↓reduceIte]
-        refine SimAt.of_eff (internI_eff hs₆ (x := .app f'x a'x) ?_) _
-          (fun s r hQ => ?_)
-        · rw [denoteNode,
-            denote_mono ((((hext₂.trans hext₃).trans hext₄).trans
-              hext₅).trans hext₆) hf'd,
-            denote_mono (((hext₃.trans hext₄).trans hext₅).trans
-              hext₆) ha'd]
-          rfl
-        · refine ⟨hQ, ?_⟩
-          simp only [WScoped]
-          exact ⟨hwf', hwa'⟩
-    | bvar k => invert_node hd'; exact SimAt.throw
-    | sort u => invert_node hd'; exact SimAt.throw
-    | const nm'ᵢ us => invert_node hd'; exact SimAt.throw
-
-    | lit l => invert_node hd'; exact SimAt.throw
-    | fvar idx nm'ᵢ t' => invert_node hd'; exact SimAt.throw
-
-    | app f₂ a₂ => invert_node hd'; exact SimAt.throw
-    | lam nm'ᵢ t' b' m' => invert_node hd'; exact SimAt.throw
-
-    | letE nm'ᵢ t' v' b' => invert_node hd'; exact SimAt.throw
-
-    | proj s'ᵢ j' e'' => invert_node hd'; exact SimAt.throw
+    -- Spine loop (task #96): the twin annotates the head once and
+    -- walks the Π-telescope against the whole spine;
+    -- `annotateApp_sound_body` reproduces the loop's verdict in the
+    -- chained body.
+    refine SimAt.wr ?_ (fun v F hF => annotateApp_sound_body d xg xa v F hF)
+    refine SimAt.withStore ?_
+    refine SimAt.withStore ?_
+    have hhead := getAppFnI_spec hs.wf hden
+    have hargsSpec := getAppArgsI_spec hs.wf hden
+    unfold annotateApp
+    refine SimAt.bind (ih.annotate hs hhead hw.getAppFn)
+      (fun s₁ h' h'x hs₁ hext₁ hP => ?_)
+    obtain ⟨hh'd, hwh'⟩ := hP
+    cases hargEq : s₀.store.getAppArgsI i with
+    | nil =>
+      cases hxsEq : (Expr.app xg xa).getAppArgs with
+      | nil => exact SimAt.pure hs₁ ⟨hh'd, hwh'⟩
+      | cons xb xs' =>
+        rw [hargEq, hxsEq] at hargsSpec
+        exact absurd hargsSpec (by simp [DenL])
+    | cons a₁ rest =>
+      cases hxsEq : (Expr.app xg xa).getAppArgs with
+      | nil =>
+        rw [hargEq, hxsEq] at hargsSpec
+        exact absurd hargsSpec (by simp [DenL])
+      | cons xa₁ xs' =>
+        rw [hargEq, hxsEq] at hargsSpec
+        obtain ⟨hax₁, hrest⟩ := hargsSpec
+        have hwargs := hw.getAppArgs
+        rw [hxsEq] at hwargs
+        have hwxa₁ : WScoped d xa₁ := hwargs xa₁ (List.mem_cons_self ..)
+        dsimp only
+        refine SimAt.bind (ih.annotate hs₁
+          (denote_mono hext₁ hax₁) hwxa₁)
+          (fun s₂ a₁' a₁'x hs₂ hext₂ hP₂ => ?_)
+        obtain ⟨ha₁'d, hwa₁'⟩ := hP₂
+        refine SimAt.bind (ih.infer hs₂ (denote_mono hext₂ hh'd) hwh')
+          (fun s₃ th thx hs₃ hext₃ hP₃ => ?_)
+        obtain ⟨hthd, hwth⟩ := hP₃
+        refine annotateSpineI_sim ih henv rest hs₃ hthd
+          (by rw [toListRev_empty]; exact DenL.nil)
+          (by rw [Expr.instantiateList_nil]; exact hwth)
+          (denote_mono (hext₂.trans hext₃) hh'd) hwh'
+          (denote_mono hext₃ ha₁'d) hwa₁'
+          (hrest.mono (hext₁.trans (hext₂.trans hext₃)))
+          (fun x hx => hwargs x (List.mem_cons_of_mem _ hx))
 
   | forallE nmᵢ t b m =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
