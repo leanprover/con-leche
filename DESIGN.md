@@ -249,6 +249,10 @@ three stay declined by design under the axiom ceiling.
 7. Depending on mathlib is acceptable if necessary (ordinals etc.), but
    self-contained is preferred.
 8. Commit often.
+9. Load the `lean-rc-linearity` skill (`.claude/skills/lean-rc-linearity/`) before
+   any task touching hot-path state threading, memo/arena mutation, or per-node
+   arithmetic: it distills the Lean runtime's RC/linearity model together with this
+   project's measured RC-2 incidents, diagnosis toolkit and codegen landmines.
 
 ## Environment notes
 
@@ -256,6 +260,10 @@ three stay declined by design under the axiom ceiling.
   worktrees) go into `_tmp/` inside this repository (gitignored).
 * If the checker may OOM, run it under a timeout and memory limit; a process
   eating all memory can kill the whole session.
+* In a fresh worktree `_tmp/` is empty (gitignored), so the lean-inductive-models
+  preprocessor is missing and every inductive fixture declines (exit 2) —
+  `tests/arena.sh` then reports spurious CHANGE/FAIL lines.  Run it with
+  `SETLEC_INDUCTIVE_MODELS=<main checkout>/_tmp/lean-inductive-models/.lake/build/bin/lean-inductive-models`.
 * For Lean proof work, https://github.com/ejgallego/lean-beam/ may speed
   things up.
 
@@ -6480,3 +6488,157 @@ current system produces (flag-off); pointing them at `getNode`/the
 dispatching derived reads, and extending the denote-faithfulness layer
 (`Verify/IExpr`, ISOK) to tier-two indices, is the wiring's job, with
 `truncateTierTwo`'s identity family as the interface.
+
+## Projection-unification audit: what can and cannot go native (2026-08-24, task #107)
+
+Task #107 asked for every structure's `.proj` to become first-class
+(typed by a native `ProjEntry`, reduced by the generic structural
+rule, interpreted through per-(type, index) model facts), deleting
+`annotateProjElim`'s rewrite-to-application, `annotateProjRec`, and
+the artificial `projFnName` rec-constants of both the modeled and the
+direct install.  The audit (instrumented runs over init-prelude,
+init-full, the arena set and the whole e2e suite; instrumentation not
+landed) shows the target splits into one feasible slice and two
+provably-permanent restrictions.  Restrictions are findings — both
+are recorded here with their witnesses.
+
+### Route census (instrumented, this worktree)
+
+* **init-prelude** (`--pre`, exit 0): 155 artifact-route projection
+  functions installed (`checkProjFn`); **5 template entries** —
+  `ByteArray.IsValidUTF8` 0/1, `Nonempty` 0, `_wcore.Exists` 0/1, all
+  definitely-`Prop` owners with data (or data-crossing) fields whose
+  `_model.proj_i` artifacts the preprocessor correctly omits
+  (`eligibleProjectionFieldsM` mirrors the kernel's `infer_proj`
+  walk); **0 uses of `annotateProjRec`**; **0 direct installs** (the
+  direct path is artifact-absence gated and preprocessed streams
+  carry artifacts for everything); 496 annotate-time rewrites
+  (`PProd'`/`PProd` dominate: 345).
+* **init-full** (`--pre`, exit 0): 977 artifact-route projection
+  functions; 7 template entries (the init-prelude five plus `Exists`
+  0/1); **113 accepting uses of `annotateProjRec`, all on `Exists`
+  fields 0 and 1** — witness/proof projections at instantiations
+  where `α` collapses to `Prop` (`u = 0`), exactly the
+  level-instantiation-dependent legality that per-declaration
+  artifacts cannot express; 8 895 rewrites (`PProd` 3 565, `PProd'`
+  1 911, `PSigma` 1 940 lead).
+* **arena**: `annotateProjRec` is *load-bearing for verdicts on both
+  sides*: the projProp family 087–092 (a `Prop` structure-like with
+  `PUnit.{u}`/`PUnit.{v}` data fields interleaved with proof fields)
+  runs entirely through template entries + the fallback — 087/089
+  accept, 088/090–092 reject with the official `Prop`-restriction
+  errors surfacing from the re-annotated elimination.  Direct
+  installs appear only in raw `bad` duplicate-declaration tests
+  (nF = 0).
+* **e2e**: direct installs with fields only in `direct_struct_raw`
+  (`Wrap` nF = 2, `Unit'` nF = 0); `prop_proj_raw` (= arena 087)
+  accepts through the fallback; `direct_nested_dep` is preprocessed
+  and takes the modeled route (`Box`).
+
+### Finding A — the Prop template tail is permanent (kernel-parity)
+
+A template-entry field cannot be served by a native entry even in
+principle: whether `.proj T i e` is *legal* depends on the use site's
+level instantiation (which crossed fields collapse to `Prop`), and a
+native entry's single level-parametric `ty` cannot express that — the
+official kernel makes exactly this per-use decision in `infer_proj`,
+which is what `annotateProjRec`+`projFieldDom` re-create at the use
+site's concrete levels.  Moreover a native entry whose field sort is
+not `≤` the struct sort at every assignment is *semantically
+incoherent*: with `structSort = 0 < fieldSort` (e.g. a `Bool` data
+field of a `Prop` structure), proof irrelevance identifies `mk a ≡ mk
+b` while the structural rule reduces their projections to `a` and
+`b` — accepting such a reduction derives `false ≡ true`.  The current
+`projCert` does not check the implication `structSort = 0 →
+fieldSort = 0`; it doesn't need to *today* because the only native
+entries (the pair's) satisfy `u ≤ max u v` level-arithmetically.  Any
+future generalization of native entries must add that bound as an
+install-time obligation (the direct class has it: nonzero result sort
++ `checkDirectFieldUniv`).  **Verdict: `annotateProjRec`, the
+template entries and their install pass stay, unchanged.**
+
+### Finding B — modeled structures cannot go native (semantic obstruction)
+
+This upgrades the task-#18 scoped finding ("bare `.proj` nodes on
+non-Prop modeled structures have no compositional set interpretation,
+model bodies being opaque") from a proof-technique gap to a
+*counterexample-backed impossibility* under the current artifact set.
+A first-class `.proj T i e` carries neither the parent's levels nor
+its parameters, so `interpExpr` must interpret it through a single
+level- and parameter-free function `V → V` (the pair's `sfst`/`ssnd`
+shape).  For an opaquely modeled `T` no such function needs to exist:
+the checked artifacts (member types up to renaming, `proj_i` defs,
+`iota`/`eta` theorems) do not pin the model up to *projection
+coherence across instantiations*.  Witness (artifact-complete, fully
+checkable, eta included): public `T (p : Nat) : Type` with one field
+`x : {v // v = p}`; adversarial model `T._model := fun _ => PUnit'`,
+`mk._model := fun _ _ => unit`, `proj_0._model := fun p _ => ⟨p,
+rfl⟩` — `proj_0.iota` and `eta` are provable (the field type is a
+subsingleton), every install check passes, yet `⟦mk 1 x⟧ = ⟦mk 2 y⟧`
+while the two required reduction equations force different values of
+any candidate interpretation at that one point.  So *no* definition
+of the `.proj` clause supports the `Whnf` claim for modeled types;
+the failure is not about how the proofs are written.  The only
+escapes inspect model *bodies* (syntactically, or by pinning
+`T._model ≡ PSigma'-tower` definitionally at install) — the first is
+against the "models: public interface only" ruling, and both fail on
+the preprocessor's packed nested fields, so the artifact route keeps
+strictly more streams.  **Verdict: `checkProjFn`'s rules-carrying
+projection functions and `annotateProjElim`'s rewrite stay for
+modeled structures.**
+
+### The feasible slice — direct structures join the pair (parked, not started)
+
+The direct class is exactly the coherent class: nonzero result sort
+(recognition) + the per-field universe bound (`checkDirectFieldUniv`)
+give pair-style `projCert` soundness, and the model values are
+*transparent* towers (`DirectTower`), so level/parameter-free
+destructors exist by construction.  The revised #107 is therefore:
+`checkDirectProj` installs a native `ProjEntry` (ty = `directProjTy`
+switched to `.proj`-node spelling for the earlier-field substitutes;
+`fieldSort` via `ensureSort` at the opened frame; `structSort :=
+resSort`) instead of the degenerate recursor + rule, and the direct
+route's `.proj` nodes stay first-class end to end.  Known work
+items, sized during the audit:
+
+* **Tower dialect**: `tupleV`/`projV` are unit-terminated
+  (`⟨f₀,⟨…,∗⟩⟩`, `projV i = sfst ∘ ssnd^i`) while the pinned pair is
+  bare (`sfst`/`ssnd`), so a single destructor family does not cover
+  both.  Options: (iii) let the generalized `interpExpr` `.proj`
+  clause consult `env.findProj?` and dispatch pair-vs-tower on the
+  (ProjOk-pinned) `psigmaName` — precedent: the literal clauses
+  already consult the env (`natLitSupported`); or (i) de-unitize the
+  direct tower (last field bare) so `nF = 2` coincides with the pair.
+  (iii) avoids reworking `DirectTower`/`DirectDecl` value shapes but
+  makes the clause env-dependent, so the interp stability walks
+  (extension lemmas) need `findProj?`-agreement conditions; staging
+  is consistent (entry `i`'s `ty` mentions `.proj T j` only for
+  `j < i`, already installed).
+* **Kernel**: `checkDirectProj` (Checker.lean) + `checkDirectProjF`/
+  `checkDirectProjsS` (CheckerS) switch to entry install;
+  `Core`/`CoreI` need *no* changes (the annotate/infer/whnf `.proj`
+  rules are already generic over native entries; the recInfo branch
+  of `annotateProjElim` remains for the modeled route).
+* **Model**: `ProjOk` generalizes from "exactly the two pair
+  entries" to keyed per-entry clauses (pair ∨ direct-certified with
+  the semantic facts); `interpExpr`/`AnnotOk` `.proj` clauses
+  generalize; the three claim sites reworked (`Model/Core/Whnf.lean`
+  ~273–500, `Model/Core/Infer.lean` ~377–522, `Model/Annotate.lean`
+  ~369); `ProjOk.cons`/`env_swap`/`extend_fresh` transports pick up
+  the new clause; `Model/DirectDecl.lean`'s projection stage
+  (`checkDirectProj_inv`, `DirectProjInv`, `directProj_facts/_mem/
+  _fold/_rule_eq`, `extend_direct_proj`, `direct_proj_step/_fold`)
+  restates over `.proj`-node spelling — this is the bulk of the
+  work; `directProjVal` and the fold equations carry the semantic
+  content already.
+* **Streams**: verdict-preservation surface is small (direct installs
+  occur only in raw streams: arena `bad` dup tests, e2e
+  `direct_struct_raw`); stored forms on the direct route change
+  dialect, so any fixture pinning them regenerates via the
+  documented export-fixture flow.
+
+Payoff check before starting: today the direct path fires on *no
+accepting arena/init stream* (artifact-absence gate), so the slice
+buys internal uniformity and the #82 expansion's foundation, not
+stream coverage.  If #82's gate ever widens, this slice is its
+prerequisite; on its own it does not change a single verdict.
