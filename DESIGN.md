@@ -4064,19 +4064,68 @@ item 3 — see below; the head of item 4 is landed too):
    `ErasedEq` — would have meant a bespoke `modeled_stage` variant for
    the direct path alone, i.e. exactly the divergence from the shared
    machinery the re-check discipline exists to avoid.
-5. **The chain**: `extend_basis_one` for the recursor and the `nF`
-   projections (provisionally rule-less, then `extend_rec_swap` to
-   attach the rules), and the direct case of `checkDecl_sound` —
-   which must also return `EtaFamiliesClosed` for the extended
-   environment, available from `EtaFamiliesClosed.cons_nonind` at each
-   of the `3 + nF` installs.
+5. **The chain**: **the model side is landed** (2026-08-24) —
+   `extend_direct_struct` (`Setlec/Model/DirectDecl.lean`) installs the
+   `3 + nF` constants one at a time and returns exactly
+   `checkDecl_sound`'s shape, `Nonempty (EnvModel V envOut) ∧
+   EtaFamiliesClosed envOut`.
+
+   `extend_rec_swap` turned out to be unnecessary: `extend_basis_one`'s
+   `hrecm` obligation is stated at precisely the `val'` the rule
+   equalities are stated at (the extended valuation, agreeing with the
+   base off the new name), so the recursor and each projection go in
+   **with their rule in one step** (`extend_direct_rec`,
+   `extend_direct_proj`).  The one place the members differ is the eta
+   head obligation: a projection's name *is* projection-function-shaped,
+   so it is refuted by `projFnName_inj` against the block's own former,
+   whose `directCaps` claims no eta — the other three refute it by
+   `Name.isProjFnShape`.
+
+   The projection phase runs on **`DirectStageOk`**, a structure
+   bundling what one field's install hands to the next: the two earlier
+   members' `find?`s and resolutions, the four semantic stage facts
+   (`frC`, `domsCT`, `fieldAt`, `tfold`, `cfold`) *at that environment
+   and model*, and `DirectProjInv` up to `i`.  `direct_proj_step` is
+   `extend_direct_proj` plus transport, `direct_proj_fold` is its
+   induction over `List.range p.nF`, and `DirectStageOk.cons_zero` moves
+   the stage-0 instance across any fresh non-former extension (that is
+   how the recursor's install is crossed).
+
+   The transport kit that makes this mechanical: `TeleFit_congr` and
+   `TeleFit_congr'` (a value-spine fit crosses an `InterpAgree` in both
+   directions, since every stage fact is stated over expressions that
+   resolve one environment down), `FrameOk.extend_fresh` (all six
+   components of a closed resolving type at once), and the existing
+   `FieldTele_congr` / `sigmaTowerV_congr` / `DomsAgree.congr` /
+   `directTyVal_congr`.
+
+   *What is left of item 5* is only the `checkDecl_sound` clause, which
+   cannot be written before item 7 enables the dispatch (the proof
+   inverts `checkDecl`).  It needs one small missing inversion,
+   **`directParts?_inv`**: from `directParts? env block = some p`, the
+   three recognition facts `extend_direct_struct` takes as hypotheses —
+   `p.resSort.isNonZero`, `p.cvC.levelParams = p.cvT.levelParams` and
+   `(env.find? (p.cvT.name.str "_model")).isNone`.  An attempt was
+   reverted: `directPartsCore?`'s guard is a 13-fold `&&` and its
+   `match` arms do not line up with a naive `split at h` bullet
+   sequence, so write it with the goal states in view (the shape facts
+   come from `directShape`'s first conjunct and the guard's fourth).
 6. **`Setlec/Model/BridgeS.lean`**: `checkDirectStructS`'s
    shared-state-to-pure bridge, including the `flushS`/`ISOK`
    re-establishment at each of the five phases, and the run-tied
-   `EnvWF` discharges `checkDirectStruct_wfimp` is waiting on.
-7. **Enable**: the clause in `checkIndDecl` and its `S`/`NC` mirrors
-   (three lines each, verified to work), and the four expectation
-   flips (`direct_struct_raw` 2→0; `bad/tutorial/13{3,4,7}` 2→1).
+   `EnvWF` discharges `checkDirectStruct_wfimp` is waiting on.  This is
+   now the **only** blocker before the enable: turning the clause on in
+   `checkDecl` alone would break the `checkDeclSF`-to-`checkDecl`
+   bridge, so items 6 and 7 land together.
+7. **Enable**: the clause in `checkDecl` and its `S`/`NC` mirrors
+   (four lines each — `match directParts? env block with | some p =>
+   checkDirectStruct ops env p | none => checkIndDecl ops env block`,
+   and `directPartsF?`/`checkDirectStructS`/`checkDirectStructNC` in the
+   two index copies), and the four expectation flips
+   (`direct_struct_raw` 2→0; `bad/tutorial/13{3,4,7}` 2→1).  Re-verified
+   2026-08-24 by temporarily enabling all three: arena 90/92,
+   `direct_struct_raw` accepted, e2e 55/56 with exactly those four
+   changes.
 
 ## Level `leqCore` was not short-circuiting: the 2x stupidity (2026-08-23)
 
