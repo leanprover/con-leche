@@ -140,6 +140,9 @@ theorem extend_modeled_one {env : Env} (m : EnvModel V env)
       rcases hkind with ⟨cv', caps', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
         ⟨cv', mI', rP', rfl⟩ <;> simp)
     hcapsm
+    (hreduce := fun _ _ _ cv₀ heq _ _ => by
+      rcases hkind with ⟨cv', caps', rfl⟩ | ⟨cv', nP', nF', rfl⟩ |
+        ⟨cv', mI', rP', rfl⟩ <;> exact ConstantInfo.noConfusion heq)
 
 /-- The fold invariant of `checkIndDecl`: every installed block member
 has its `_model` companion stored (as a definition with the same level

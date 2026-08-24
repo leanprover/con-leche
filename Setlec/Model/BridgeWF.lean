@@ -690,6 +690,22 @@ private theorem checkDefnVal_run_shape {env : Env} {cv : ConstantVal}
           simp only [Bool.false_eq_true, ↓reduceIte] at h
           exact nomatch h
 
+/-- A successful pure `checkOpaqueVal` run passed the raw value's
+`hasFvar` guard (shape inversion for the compiler-trust install
+gate's re-annotation). -/
+private theorem checkOpaqueVal_run_hvf {env : Env} {cv : ConstantVal}
+    {value : Expr} {F : Nat} {env2 : Env}
+    (h : checkOpaqueVal (fueledOps F) env cv value = .ok env2) :
+    value.hasFvar = false := by
+  unfold checkOpaqueVal at h
+  dsimp only [] at h
+  by_cases h1 : Expr.looseBVarsBounded 0 value = true
+  case neg => rw [if_neg h1] at h; exact nomatch h
+  rw [if_pos h1] at h
+  by_cases h2 : value.hasFvar = true
+  · rw [if_pos h2] at h; exact nomatch h
+  · exact Bool.not_eq_true _ ▸ h2
+
 set_option maxHeartbeats 1600000 in
 theorem checkDecl_wfimp {env env₂ : Env} {d : Declaration} {F : Nat}
     (henv : EnvWF env)
@@ -802,7 +818,24 @@ theorem checkDecl_wfimp {env env₂ : Env} {d : Declaration} {F : Nat}
     rw [hccv]
     simp only [Bind.bind, Except.bind]
     obtain ⟨htf, -, -, -⟩ := cvA_type_facts hccv
-    exact checkOpaqueVal_wfimp henv htf h
+    obtain ⟨env2, hopW, h⟩ := atF_bind_ok h
+    have hop : checkOpaqueVal (fueledOps F) env cvA value = .ok env2 :=
+      checkOpaqueVal_wfimp henv htf hopW
+    show (checkOpaqueVal (fueledOps F) env cvA value >>= _) = _
+    rw [hop]
+    simp only [Bind.bind, Except.bind]
+    have hvf : value.hasFvar = false := checkOpaqueVal_run_hvf hop
+    by_cases h1 : reduceOpNames.contains cvA.name = true
+    case neg =>
+      rw [if_neg h1] at h ⊢
+      exact h
+    rw [if_pos h1] at h ⊢
+    obtain ⟨u, hpinW, h⟩ := atF_bind_ok h
+    have hpin' := checkReducePin_wfimp henv hvf hpinW
+    show (checkReducePin (fueledOps F) env env2 cvA.name value >>= _) = _
+    rw [hpin']
+    simp only [Bind.bind, Except.bind]
+    exact h
   | axiomDecl cv =>
     unfold checkDecl at h ⊢
     dsimp only [] at h ⊢
@@ -816,8 +849,8 @@ theorem checkDecl_wfimp {env env₂ : Env} {d : Declaration} {F : Nat}
     · rw [if_pos h1] at h ⊢
       exact h
     · rw [if_neg h1] at h ⊢
-      rw [FueledM.atF_ite, FueledM.atF_throw, FueledM.atF_ite,
-        FueledM.atF_pure, FueledM.atF_throw] at h
+      simp only [FueledM.atF_ite, FueledM.atF_pure,
+        FueledM.atF_throw] at h
       exact h
   | basisDecl kind =>
     have heq : checkDecl wfOpsM env (.basisDecl kind) =

@@ -179,10 +179,12 @@ theorem checkThmValS_sim (henv : EnvWF env) {cv : ConstantVal}
     simp only [↓reduceIte]
     exact SimAt.pure hs₆ rfl
 
-/-- `checkOpaqueVal` at the shared operations. -/
+/-- `checkOpaqueVal` at the shared operations (the postcondition
+carries the raw value's `hasFvar` fact for the compiler-trust install
+gate's re-annotation). -/
 theorem checkOpaqueValS_sim (henv : EnvWF env) {cv : ConstantVal}
     {value : Expr} (htf : WScoped 0 cv.type) (hs : ISOK env s₀) :
-    SimAt env s₀ RelV
+    SimAt env s₀ (fun _ v w => v = w ∧ value.hasFvar = false)
       (checkOpaqueVal (sharedOps (mkFEnv env)) env cv value)
       (checkOpaqueVal fueledOpsM env cv value) := by
   unfold checkOpaqueVal
@@ -215,7 +217,64 @@ theorem checkOpaqueValS_sim (henv : EnvWF env) {cv : ConstantVal}
     exact SimAt.throw_bind
   | true =>
     simp only [↓reduceIte]
-    exact SimAt.pure hs₃ rfl
+    exact SimAt.pure hs₃ ⟨rfl, Bool.not_eq_true _ ▸ h2⟩
+
+/-- `checkReducePin` at the shared operations. -/
+theorem checkReducePinS_sim (henv : EnvWF env) {env2 : Env} {c : Name}
+    {value : Expr} (hvf : value.hasFvar = false)
+    (hs : ISOK env s₀) :
+    SimAt env s₀ RelV
+      (checkReducePin (sharedOps (mkFEnv env)) env env2 c value)
+      (checkReducePin fueledOpsM env env2 c value) := by
+  unfold checkReducePin
+  dsimp only [sharedOps]
+  by_cases h1 : (reduceStoredOk env2 c && reduceElemOk env c) = true
+  case neg => simp only [if_neg h1]; exact SimAt.throw
+  simp only [if_pos h1]
+  by_cases h2 : reducePinGuard env c = true
+  case neg => simp only [if_neg h2]; exact SimAt.throw
+  simp only [if_pos h2]
+  refine SimAt.bind (opE_annotate_sim henv hs
+      (WScoped.of_not_hasFvar hvf))
+    (fun s₁ valA valA' hs₁ hext₁ hP => ?_)
+  obtain ⟨rfl, hwval⟩ := hP
+  have h2' := h2
+  unfold reducePinGuard at h2'
+  simp only [Bool.and_eq_true] at h2'
+  have hpinF : (reduceDeclPin c).hasFvar = false := by
+    simpa using h2'.1.1.2
+  refine SimAt.bind (opE_annotate_sim henv hs₁
+      (WScoped.of_not_hasFvar hpinF))
+    (fun s₂ pinA pinA' hs₂ hext₂ hP₂ => ?_)
+  obtain ⟨rfl, hwpin⟩ := hP₂
+  refine SimAt.bind (opB_sim henv hs₂ hwval hwpin)
+    (fun s₃ b b' hs₃ hext₃ hP₃ => ?_)
+  obtain rfl : b = b' := hP₃
+  cases b with
+  | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte]
+    exact SimAt.throw
+  | true =>
+    simp only [↓reduceIte]
+    have hxW : WScoped 1 (reduceCertVar c) := by
+      unfold reduceCertVar
+      simp only [WScoped]
+      refine ⟨Nat.zero_lt_one, ?_⟩
+      unfold reduceElemTy
+      split <;> simp only [WScoped]
+    have happW : WScoped 1 (Expr.app valA (reduceCertVar c)) := by
+      simp only [WScoped]
+      exact ⟨WScoped.mono (Nat.zero_le 1) hwval, hxW⟩
+    refine SimAt.bind (opB_sim henv hs₃ happW hxW)
+      (fun s₄ b2 b2' hs₄ hext₄ hP₄ => ?_)
+    obtain rfl : b2 = b2' := hP₄
+    cases b2 with
+    | false =>
+      simp only [Bool.false_eq_true, ↓reduceIte]
+      exact SimAt.throw
+    | true =>
+      simp only [↓reduceIte]
+      exact SimAt.pure hs₄ rfl
 
 /-- `certifyNatEqs` at the shared operations. -/
 theorem certifyNatEqsS_sim (henv : EnvWF env) :
@@ -480,7 +539,17 @@ theorem checkDeclS_nonind_sim (henv : EnvWF env) (hs : ISOK env s₀)
     refine SimAt.bind (checkConstantValS_sim henv hs)
       (fun s₁ cvA cvA' hs₁ hext₁ hP => ?_)
     obtain ⟨rfl, hwty⟩ := hP
-    exact checkOpaqueValS_sim henv hwty hs₁
+    refine SimAt.bind (checkOpaqueValS_sim henv hwty hs₁)
+      (fun s₂ env2 env2' hs₂ hext₂ hP₂ => ?_)
+    obtain ⟨rfl, hvf⟩ := hP₂
+    by_cases h1 : reduceOpNames.contains cvA.name = true
+    case neg =>
+      simp only [if_neg h1]
+      exact SimAt.pure hs₂ rfl
+    simp only [if_pos h1]
+    refine SimAt.bind (checkReducePinS_sim henv hvf hs₂)
+      (fun s₃ u u' hs₃ hext₃ hP₃ => ?_)
+    exact SimAt.pure hs₃ rfl
   | axiomDecl cv =>
     unfold checkDecl
     dsimp only
@@ -491,15 +560,32 @@ theorem checkDeclS_nonind_sim (henv : EnvWF env) (hs : ISOK env s₀)
     · simp only [if_pos h1]
       exact SimAt.pure hs₁ rfl
     · simp only [if_neg h1]
-      by_cases h2 : cvA.name = propextName ∨ cvA.name = choiceName
-      · simp only [if_pos h2]
-        exact SimAt.throw
-      · simp only [if_neg h2]
-        by_cases h3 : toleratedAxiomNames.contains cvA.name = true
-        · simp only [if_pos h3]
+      by_cases htc : cvA.name = trustCompilerName
+      · simp only [if_pos htc]
+        by_cases htc2 : trustCompilerOk env cvA = true
+        · simp only [if_pos htc2]
           exact SimAt.pure hs₁ rfl
-        · simp only [if_neg h3]
+        · simp only [if_neg htc2]
           exact SimAt.throw
+      · simp only [if_neg htc]
+        by_cases hor : cvA.name = ofReduceNatName ∨
+            cvA.name = ofReduceBoolName
+        · simp only [if_pos hor]
+          by_cases hor2 : ofReduceAxOk env cvA = true
+          · simp only [if_pos hor2]
+            exact SimAt.pure hs₁ rfl
+          · simp only [if_neg hor2]
+            exact SimAt.throw
+        · simp only [if_neg hor]
+          by_cases h2 : cvA.name = propextName ∨ cvA.name = choiceName
+          · simp only [if_pos h2]
+            exact SimAt.throw
+          · simp only [if_neg h2]
+            by_cases h3 : toleratedAxiomNames.contains cvA.name = true
+            · simp only [if_pos h3]
+              exact SimAt.pure hs₁ rfl
+            · simp only [if_neg h3]
+              exact SimAt.throw
   | basisDecl kind =>
     unfold checkDecl
     dsimp only

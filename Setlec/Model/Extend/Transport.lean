@@ -210,6 +210,28 @@ theorem ConstValParams.recRules_swap {val : ConstVal V}
         from hn)]
     exact hf
 
+/-- The reduce-op facts ignore a stored recursor's rule list. -/
+theorem ReduceOpsOk.recRules_swap {rules₁ rules₂ : List RecRule}
+    {val : ConstVal V}
+    (h : ReduceOpsOk V ⟨.recInfo cvA mI rP rules₁ :: env.consts⟩ val) :
+    ReduceOpsOk V ⟨.recInfo cvA mI rP rules₂ :: env.consts⟩ val := by
+  intro c hc cv hf hpin
+  by_cases hn : c = cvA.name
+  · rw [Env.find?_cons,
+      if_pos (show (ConstantInfo.recInfo cvA mI rP rules₂).name = c
+        from hn.symm)] at hf
+    exact nomatch (Option.some.inj hf)
+  · rw [Env.find?_recRules_swap rules₂ rules₁ hn] at hf
+    obtain ⟨hsome, hid⟩ := h c hc cv hf hpin
+    refine ⟨?_, hid⟩
+    by_cases hne : reduceElemName c = cvA.name
+    · rw [Env.find?_cons,
+        if_pos (show (ConstantInfo.recInfo cvA mI rP rules₂).name =
+          reduceElemName c from hne.symm)]
+      rfl
+    · rw [Env.find?_recRules_swap rules₂ rules₁ hne]
+      exact hsome
+
 /-- The clause-by-clause `EnvModel` transport from the provisional
 rules-free recursor to the same recursor with its checked rules
 attached: only the head's own fold obligations (`RecMemberOk`) and
@@ -246,7 +268,7 @@ theorem extend_rec_swap {rules' : List RecRule}
       AnnotOk V m₀.val
         (⟨.recInfo cvA mI rP rules' :: env.consts⟩ : Env) ψ d ρ e :=
     fun e ψ d ρ h => AnnotOk.recRules_swap [] rules' e ψ d ρ h
-  refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
+  refine ⟨⟨m₀.val, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
     fun n ψ => rfl⟩
   · -- wf
     intro c hc
@@ -497,6 +519,8 @@ theorem extend_rec_swap {rules' : List RecRule}
     exact NatOpsOk.cons_recRules m₀.nat_ops
   · -- div_mod: value-level equations, only the lookups move
     exact DivModOk.cons_recRules m₀.div_mod
+  · -- reduce_ops: value-level facts, only the lookups move
+    exact ReduceOpsOk.recRules_swap m₀.reduce_ops
 
 end RecRulesSwap
 
@@ -589,7 +613,17 @@ theorem extend_fresh {env : Env} (m : EnvModel V env)
       ∀ cv₀ v₀' h₀', ci = .defnInfo cv₀ v₀' h₀' →
       ci.name ∈ natDivModNames →
       natOpGuard (⟨ci :: env.consts⟩ : Env) ci.name = true ∧
-      DivModEqs V val' ci.name) :
+      DivModEqs V val' ci.name)
+    (hreduce : ∀ val' : ConstVal V,
+      (∀ ψ : Name → Nat, val' ci.name ψ = v₀ ψ) →
+      (∀ n, n ≠ ci.name → ∀ ψ' : Name → Nat, val' n ψ' = m.val n ψ') →
+      ∀ cv₀, ci = .axiomInfo cv₀ → ci.name ∈ reduceOpNames →
+      ConstantVal.matchesPin cv₀ (reduceOpCvA ci.name) = true →
+      ((⟨ci :: env.consts⟩ : Env).find? (reduceElemName ci.name)).isSome
+        = true ∧
+      ∀ (ψ : Name → Nat) (x : V),
+        x ∈ˢ val' (reduceElemName ci.name) ψ →
+        SetTheory.app (val' ci.name ψ) x = x) :
     ∃ m' : EnvModel V ⟨ci :: env.consts⟩,
       (∀ ψ, m'.val ci.name ψ = v₀ ψ) ∧
       (∀ n ψ, n ≠ ci.name → m'.val n ψ = m.val n ψ) := by
@@ -617,7 +651,7 @@ theorem extend_fresh {env : Env} (m : EnvModel V env)
     refine AnnotOk.mono hfind' e 0 (rho0 V) hres ?_
     exact AnnotOk.cval_ext (fun n hn ψ' => (hagree n hn ψ').symm) e 0 (rho0 V) ha
   have hwf' : EnvWF ⟨ci :: env.consts⟩ := EnvWF.cons m.wf hwf
-  refine ⟨⟨val', hwf', ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
+  refine ⟨⟨val', hwf', ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
   · -- val_params
     intro n ci2 hf ψ₁ ψ₂ hψ
     rw [Env.find?_cons] at hf
@@ -841,6 +875,12 @@ theorem extend_fresh {env : Env} (m : EnvModel V env)
     · intro n hne ψ'
       simp [hval', hne]
     · exact hdivmod val' (fun ψ => by simp [hval'])
+        (fun n hne ψ' => by simp [hval', hne])
+  · -- reduce_ops: preservation plus the forwarded head obligations
+    refine ReduceOpsOk.cons m.reduce_ops hfind' ?_ ?_
+    · intro n hne ψ'
+      simp [hval', hne]
+    · exact hreduce val' (fun ψ => by simp [hval'])
         (fun n hne ψ' => by simp [hval', hne])
   · -- the new constant's value
     intro ψ

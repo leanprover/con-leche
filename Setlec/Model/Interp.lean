@@ -708,6 +708,26 @@ theorem DivModOk.empty (val : ConstVal V) : DivModOk V Env.empty val := by
   intro c hc cv v hint h
   simp [Env.find?, Env.empty] at h
 
+/-- A stored compiler-trust opaque (`Lean.reduceNat`/`Lean.reduceBool`,
+stored as `axiomInfo` with the pinned type — the storage kind of every
+checked `opaque`) is interpreted as the identity on its element type,
+whose inductive is stored.  Established at the opaque's install from
+the identity certificate (`checkReducePin`); consumed at the
+`ofReduce*` axioms' install, where it makes their types trivially
+inhabited (task #95). -/
+def ReduceOpsOk (env : Env) (val : ConstVal V) : Prop :=
+  ∀ c ∈ reduceOpNames, ∀ cv, env.find? c = some (.axiomInfo cv) →
+    ConstantVal.matchesPin cv (reduceOpCvA c) = true →
+    (env.find? (reduceElemName c)).isSome = true ∧
+    ∀ (ψ : Name → Nat) (x : V), x ∈ˢ val (reduceElemName c) ψ →
+      SetTheory.app (val c ψ) x = x
+
+theorem ReduceOpsOk.empty (val : ConstVal V) :
+    ReduceOpsOk V Env.empty val := by
+  intro c hc cv h
+  simp [Env.find?, Env.empty] at h
+
+
 theorem CapsOk.empty (val : ConstVal V) : CapsOk V Env.empty val := by
   refine ⟨?_, ?_⟩
   · intro T cvT caps h
@@ -772,6 +792,11 @@ structure EnvModel (env : Env) where
   value level (established at install from the checked
   characterization certificates). -/
   div_mod : DivModOk V env val
+  /-- Every stored compiler-trust opaque (`Lean.reduceNat` /
+  `Lean.reduceBool`) is interpreted as the identity on its element
+  type (established at install from the identity certificate,
+  task #95). -/
+  reduce_ops : ReduceOpsOk V env val
 
 /-- The empty environment has a (trivial) model. -/
 def EnvModel.empty : EnvModel V Env.empty where
@@ -790,6 +815,7 @@ def EnvModel.empty : EnvModel V Env.empty where
   caps_ok := CapsOk.empty V _
   nat_ops := NatOpsOk.empty V _
   div_mod := DivModOk.empty V _
+  reduce_ops := ReduceOpsOk.empty V _
 
 /-! ## The literal guard, inverted
 

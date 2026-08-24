@@ -44,7 +44,8 @@ def main : IO Unit := do
                 | some (.ctorInfo _ nP _) => nP
                 | _ => 0
               { r with ctorParams := cnP
-                       plain := Expr.recRulePlain ty' mI rP cnP }
+                       fire := if Expr.recRulePlain ty' mI rP cnP
+                         then .plain else .inert }
             match annotateRules rules (.recInfo cv' mI rP rules) with
             | .error e =>
               IO.println s!"ERROR annotating rules of {cv.name}: {e}"
@@ -84,6 +85,30 @@ def main : IO Unit := do
       envS := ⟨ci' :: envS.consts⟩
   for cv in [propextRaw, choiceRaw] do
     match annotateCore envS checkFuel 0 cv.type with
+    | .error e =>
+      IO.println s!"ERROR annotating {cv.name}: {e}"
+      return
+    | .ok ty' =>
+      IO.println (repr ({ cv with type := ty' } : ConstantVal))
+      IO.println "---8<---"
+  -- compiler-trust pins (task #95): annotate the reduce-operation and
+  -- `ofReduce*` types over the pinned prerequisites (`Eq`/`Nat` basis,
+  -- pinned `True` family, installed `trustCompiler`, pinned `Bool`)
+  IO.println "===TRUST==="
+  let mut envT : Env := ⟨[.indInfo boolCvA {},
+    .axiomInfo trustCompilerA,
+    .ctorInfo trueIntroCvA 0 0, .indInfo trueCvA {}, natA, eqA]⟩
+  for cv in [reduceOpRaw reduceNatName, reduceOpRaw reduceBoolName] do
+    match annotateCore envT checkFuel 0 cv.type with
+    | .error e =>
+      IO.println s!"ERROR annotating {cv.name}: {e}"
+      return
+    | .ok ty' =>
+      IO.println (repr ({ cv with type := ty' } : ConstantVal))
+      IO.println "---8<---"
+      envT := ⟨.axiomInfo { cv with type := ty' } :: envT.consts⟩
+  for cv in [ofReduceRaw ofReduceNatName, ofReduceRaw ofReduceBoolName] do
+    match annotateCore envT checkFuel 0 cv.type with
     | .error e =>
       IO.println s!"ERROR annotating {cv.name}: {e}"
       return

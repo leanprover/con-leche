@@ -136,6 +136,44 @@ def stdAxiomOkF (fe : FEnv) (cvA : ConstantVal) : Bool :=
     ConstantVal.matchesPin cvA choiceA
   else false
 
+/-- `trustCompilerOk` through the index. -/
+def trustCompilerOkF (fe : FEnv) (cvA : ConstantVal) : Bool :=
+  (match fe.find? trueName with
+   | some (.indInfo cvT _) => ConstantVal.matchesPin cvT trueCvA
+   | _ => false) &&
+  (match fe.find? trueIntroName with
+   | some (.ctorInfo cvTi 0 0) => ConstantVal.matchesPin cvTi trueIntroCvA
+   | _ => false) &&
+  ConstantVal.matchesPin cvA trustCompilerA
+
+/-- `reduceStoredOk` through the index. -/
+def reduceStoredOkF (fe : FEnv) (c : Name) : Bool :=
+  match fe.find? c with
+  | some (.axiomInfo cvR) => ConstantVal.matchesPin cvR (reduceOpCvA c)
+  | _ => false
+
+/-- `reduceElemOk` through the index. -/
+def reduceElemOkF (fe : FEnv) (c : Name) : Bool :=
+  if c = reduceNatName then decide (fe.find? natName = some natA)
+  else
+    match fe.find? boolName with
+    | some (.indInfo cvB _) => ConstantVal.matchesPin cvB boolCvA
+    | _ => false
+
+/-- `ofReduceAxOk` through the index. -/
+def ofReduceAxOkF (fe : FEnv) (cvA : ConstantVal) : Bool :=
+  let c := ofReduceOp cvA.name
+  decide (fe.find? eqName = some eqA) &&
+  reduceElemOkF fe c &&
+  reduceStoredOkF fe c &&
+  ConstantVal.matchesPin cvA (ofReducePinA cvA.name)
+
+/-- `reducePinGuard` through the index. -/
+def reducePinGuardF (fe : FEnv) (c : Name) : Bool :=
+  (reduceDeclPin c).looseBVarsBounded 0 && !(reduceDeclPin c).hasFvar &&
+  (reduceDeclPin c).allLevelParamsDefined [] &&
+  (reduceDeclPin c).constsResolveF fe
+
 /-- `divModEnvGuard` through the index. -/
 def divModEnvGuardF (fe2 : FEnv) (c : Name) : Bool :=
   natOpGuardF fe2 c && (natOpDeps c).all (natOpStoredOkF fe2) &&
@@ -707,7 +745,7 @@ def checkOpaqueValF (ops : CheckerOps m) (fe : FEnv) (cv : ConstantVal)
   let vtype ← ops.inferType fe.env 0 value
   unless ← ops.isDefEq fe.env 0 vtype cv.type do
     throw (.invalid s!"type mismatch in opaque {cv.name}")
-  pure (fe.push (.thmInfo cv value))
+  pure (fe.push (.axiomInfo cv))
 
 /-- `installBasisDecl` through the index, returning the pushed index. -/
 def installBasisDeclF (fe : FEnv) (ci : ConstantInfo) : m FEnv := do
@@ -753,6 +791,27 @@ def checkDivModPinF (ops : CheckerOps m) (fe fe2 : FEnv) (c : Name) :
     | _ => throw (.internal s!"Nat.div/mod operation not stored ({c})")
   else throw (.notImplemented
     s!"unsupported Nat.div/mod environment ({c})")
+
+/-- `checkReducePin` through the index. -/
+def checkReducePinF (ops : CheckerOps m) (fe fe2 : FEnv) (c : Name)
+    (value : Expr) : m Unit := do
+  if reduceStoredOkF fe2 c && reduceElemOkF fe c then
+    if reducePinGuardF fe c then do
+      let valA ← ops.annotate fe.env 0 value
+      let pinA ← ops.annotate fe.env 0 (reduceDeclPin c)
+      let okPin ← ops.isDefEq fe.env 0 valA pinA
+      if okPin then do
+        let x := reduceCertVar c
+        let ok ← ops.isDefEq fe.env 1 (.app valA x) x
+        if ok then pure ()
+        else throw (.internal
+          s!"pinned compiler-trust opaque is not the identity ({c})")
+      else throw (.notImplemented
+        s!"unsupported compiler-trust opaque spelling ({c})")
+    else throw (.notImplemented
+      s!"unsupported compiler-trust opaque spelling ({c}: pin ground constants absent)")
+  else throw (.notImplemented
+    s!"unsupported compiler-trust opaque declaration ({c})")
 
 /-! ### The direct simple-structure path, through the index -/
 
@@ -1150,11 +1209,24 @@ def checkDeclSF (fe : FEnv) (d : Declaration) : CheckIM FEnv :=
     checkThmValF (sharedOps fe) fe cv value
   | .opaqueDecl cv value => do
     let cv ← checkConstantValF (sharedOps fe) fe cv
-    checkOpaqueValF (sharedOps fe) fe cv value
+    let fe2 ← checkOpaqueValF (sharedOps fe) fe cv value
+    if reduceOpNames.contains cv.name then
+      checkReducePinF (sharedOps fe) fe fe2 cv.name value
+    pure fe2
   | .axiomDecl cv => do
     let cvA ← checkConstantValF (sharedOps fe) fe cv
     if stdAxiomOkF fe cvA then
       pure (fe.push (.axiomInfo cvA))
+    else if cvA.name = trustCompilerName then
+      if trustCompilerOkF fe cvA then
+        pure (fe.push (.axiomInfo cvA))
+      else throw (.notImplemented
+        s!"unsupported Lean.trustCompiler shape ({cv.name})")
+    else if cvA.name = ofReduceNatName ∨ cvA.name = ofReduceBoolName then
+      if ofReduceAxOkF fe cvA then
+        pure (fe.push (.axiomInfo cvA))
+      else throw (.notImplemented
+        s!"unsupported compiler-trust axiom environment ({cv.name})")
     else if cvA.name = propextName ∨ cvA.name = choiceName then
       throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
     else if toleratedAxiomNames.contains cvA.name then
@@ -1303,8 +1375,9 @@ def checkThmValP (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
   recordIConst cvA.name cvA.type jty (some (vE, jv))
   pure (fe.push (.thmInfo cvA vE))
 
-/-- `checkOpaqueValF` on parsed indices (stored as a theorem, exactly
-as the `Expr`-level driver does). -/
+/-- `checkOpaqueValF` on parsed indices (stored as an `axiomInfo`,
+exactly as the `Expr`-level driver does — the checked value is a
+discarded realizability witness, so no value index is recorded). -/
 def checkOpaqueValP (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     (value : EIdx) : CheckIM FEnv := do
   unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
@@ -1320,9 +1393,8 @@ def checkOpaqueValP (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
   let jvt ← (coreKnotI fe checkFuel).infer 0 jv
   unless ← (coreKnotI fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in opaque {cvA.name}")
-  let vE ← readbackEM jv
-  recordIConst cvA.name cvA.type jty (some (vE, jv))
-  pure (fe.push (.thmInfo cvA vE))
+  recordIConst cvA.name cvA.type jty none
+  pure (fe.push (.axiomInfo cvA))
 
 /-- One parsed declaration (mirrors `checkDeclSF` branch by branch;
 inductive/basis blocks reuse the `Expr`-level drivers). -/
@@ -1355,12 +1427,28 @@ def checkDeclSP (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
     checkThmValP fe cvA jty value
   | .opaqueDecl cv value => do
     let (cvA, jty) ← checkConstantValP fe cv
-    checkOpaqueValP fe cvA jty value
+    let fe2 ← checkOpaqueValP fe cvA jty value
+    if reduceOpNames.contains cvA.name then do
+      let vE ← readbackEM value
+      checkReducePinF (sharedOps fe) fe fe2 cvA.name vE
+    pure fe2
   | .axiomDecl cv => do
     let (cvA, jty) ← checkConstantValP fe cv
     if stdAxiomOkF fe cvA then do
       recordIConst cvA.name cvA.type jty none
       pure (fe.push (.axiomInfo cvA))
+    else if cvA.name = trustCompilerName then
+      if trustCompilerOkF fe cvA then do
+        recordIConst cvA.name cvA.type jty none
+        pure (fe.push (.axiomInfo cvA))
+      else throw (.notImplemented
+        s!"unsupported Lean.trustCompiler shape ({cv.name})")
+    else if cvA.name = ofReduceNatName ∨ cvA.name = ofReduceBoolName then
+      if ofReduceAxOkF fe cvA then do
+        recordIConst cvA.name cvA.type jty none
+        pure (fe.push (.axiomInfo cvA))
+      else throw (.notImplemented
+        s!"unsupported compiler-trust axiom environment ({cv.name})")
     else if cvA.name = propextName ∨ cvA.name = choiceName then
       throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
     else if toleratedAxiomNames.contains cvA.name then
