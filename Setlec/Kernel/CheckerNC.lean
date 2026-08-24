@@ -530,23 +530,20 @@ def checkOpaqueValPNCB4 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
 /-- `checkDeclSPNC` with the in-place annotate-snapshot bracket. -/
 def checkDeclSPNC (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
   match pd with
-  | .defnDecl cv value hint => do
-    let (cvA, jty) ← checkConstantValPNC fe cv
-    if natOpNames.contains cvA.name || natDivModNames.contains cvA.name then
+  | .defnDecl cv value hint =>
+    if natOpNames.contains cv.name || natDivModNames.contains cv.name then
       checkDeclSPNCPlain fe pd
-    else
+    else do
+      let (cvA, jty) ← checkConstantValPNC fe cv
       checkDefnValPNCB4 fe cvA jty value hint
   | .thmDecl cv value => do
     let (cvA, jty) ← checkConstantValPNC fe cv
     checkThmValPNCB4 fe cvA jty value
-  | .opaqueDecl cv value => do
-    let (cvA, jty) ← checkConstantValPNC fe cv
-    if reduceOpNames.contains cvA.name then
-      let fe2 ← checkOpaqueValPNC fe cvA jty value
-      let vE ← readbackEM value
-      checkReducePinF (sharedOpsNC fe) fe fe2 cvA.name vE
-      pure fe2
-    else
+  | .opaqueDecl cv value =>
+    if reduceOpNames.contains cv.name then
+      checkDeclSPNCPlain fe pd
+    else do
+      let (cvA, jty) ← checkConstantValPNC fe cv
       checkOpaqueValPNCB4 fe cvA jty value
   | _ => checkDeclSPNCPlain fe pd
 

@@ -150,7 +150,8 @@ theorem checkConstantValP_sim (henv : EnvWF env) {cvp : ConstantValP}
     {tyE : Expr} (hs : ISOK env s₀)
     (hoff : s₀.store.tierTwo = false)
     (hden : s₀.store.denote cvp.type = some tyE) :
-    SimAt env s₀ (fun s v w => v.1 = w ∧ WScoped 0 v.1.type ∧
+    SimAt env s₀ (fun s v w => v.1 = w ∧ v.1.name = cvp.name ∧
+        WScoped 0 v.1.type ∧
         s.store.denote v.2 = some v.1.type)
       (checkConstantValP (mkFEnv env) cvp)
       (checkConstantVal fueledOpsM env
@@ -219,7 +220,7 @@ theorem checkConstantValP_sim (henv : EnvWF env) {cvp : ConstantValP}
   subst hQ
   have hwf₄ : s₄.store.WF := ⟨hs₄.wf, tierOffExt hext₄ (tierOffExt hext₃
     (tierOffExt hext₂ (tierOffExt hext₁ hoff)))⟩
-  exact SimAt.pure hs₄ ⟨rfl, hwty, hwf₄.denoteT_eq _ ▸
+  exact SimAt.pure hs₄ ⟨rfl, rfl, hwty, hwf₄.denoteT_eq _ ▸
     denoteT_mono hext₄ (denoteT_mono hext₃ (denoteT_mono hext₂ hjA))⟩
 
 /-- `checkDefnValP` simulates the generic `checkDefnVal`: the pushed
@@ -530,7 +531,7 @@ theorem checkDeclSPPlain_sim (henv : EnvWF env) (hs : ISOK env s₀)
     refine SimAt.bind (checkConstantValP_sim henv hs hoff htyE)
       (fun s₁ pr cvA hs₁ hext₁ hP => ?_)
     obtain ⟨cvR, jty⟩ := pr
-    obtain ⟨rfl, hwty, hjty⟩ := hP
+    obtain ⟨rfl, hname, hwty, hjty⟩ := hP
     dsimp only at hjty ⊢
     simp only [stdAxiomOkF_eq, trustCompilerOkF_eq, ofReduceAxOkF_eq]
     by_cases h1 : stdAxiomOk env cvR = true
@@ -584,7 +585,7 @@ theorem checkDeclSPPlain_sim (henv : EnvWF env) (hs : ISOK env s₀)
     refine SimAt.bind (checkConstantValP_sim henv hs hoff htyE)
       (fun s₁ pr cvA hs₁ hext₁ hP => ?_)
     obtain ⟨cvR, jty⟩ := pr
-    obtain ⟨rfl, hwty, hjty⟩ := hP
+    obtain ⟨rfl, hname, hwty, hjty⟩ := hP
     dsimp only at hjty ⊢
     refine SimAt.mono (fun s v w h => h) (checkThmValP_sim henv hwty hjty
       (denote_mono hext₁ hve) hs₁ (tierOffExt hext₁ hoff))
@@ -597,7 +598,7 @@ theorem checkDeclSPPlain_sim (henv : EnvWF env) (hs : ISOK env s₀)
     refine SimAt.bind (checkConstantValP_sim henv hs hoff htyE)
       (fun s₁ pr cvA hs₁ hext₁ hP => ?_)
     obtain ⟨cvR, jty⟩ := pr
-    obtain ⟨rfl, hwty, hjty⟩ := hP
+    obtain ⟨rfl, hname, hwty, hjty⟩ := hP
     dsimp only at hjty ⊢
     refine SimAt.bind (checkOpaqueValP_sim henv hwty hjty
         (denote_mono hext₁ hve) hs₁ (tierOffExt hext₁ hoff))
@@ -629,7 +630,7 @@ theorem checkDeclSPPlain_sim (henv : EnvWF env) (hs : ISOK env s₀)
     refine SimAt.bind (checkConstantValP_sim henv hs hoff htyE)
       (fun s₁ pr cvA hs₁ hext₁ hP => ?_)
     obtain ⟨cvR, jty⟩ := pr
-    obtain ⟨rfl, hwty, hjty⟩ := hP
+    obtain ⟨rfl, hname, hwty, hjty⟩ := hP
     dsimp only at hjty ⊢
     by_cases hb : (natOpNames.contains cvR.name ||
         natDivModNames.contains cvR.name) = true

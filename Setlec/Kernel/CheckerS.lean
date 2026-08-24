@@ -1706,23 +1706,24 @@ snapshot bracket; the rare pinned-cert branches and the install-only
 kinds run the unbracketed path (bounded content). -/
 def checkDeclSP (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
   match pd with
-  | .defnDecl cv value hint => do
-    let (cvA, jty) ← checkConstantValP fe cv
-    if natOpNames.contains cvA.name || natDivModNames.contains cvA.name then
+  | .defnDecl cv value hint =>
+    -- the pinned-name conditions depend only on the header name
+    -- (`checkConstantValP` preserves it), so the rare cert branches
+    -- dispatch before the header check and the unbracketed path runs
+    -- it exactly once
+    if natOpNames.contains cv.name || natDivModNames.contains cv.name then
       checkDeclSPPlain fe pd
-    else
+    else do
+      let (cvA, jty) ← checkConstantValP fe cv
       checkDefnValPB4 fe cvA jty value hint
   | .thmDecl cv value => do
     let (cvA, jty) ← checkConstantValP fe cv
     checkThmValPB4 fe cvA jty value
-  | .opaqueDecl cv value => do
-    let (cvA, jty) ← checkConstantValP fe cv
-    if reduceOpNames.contains cvA.name then
-      let fe2 ← checkOpaqueValP fe cvA jty value
-      let vE ← readbackEM value
-      checkReducePinF (sharedOps fe) fe fe2 cvA.name vE
-      pure fe2
-    else
+  | .opaqueDecl cv value =>
+    if reduceOpNames.contains cv.name then
+      checkDeclSPPlain fe pd
+    else do
+      let (cvA, jty) ← checkConstantValP fe cv
       checkOpaqueValPB4 fe cvA jty value
   | _ => checkDeclSPPlain fe pd
 

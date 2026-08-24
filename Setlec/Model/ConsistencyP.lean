@@ -1,5 +1,5 @@
 import Setlec.Model.ConsistencyS
-import Setlec.Verify.BridgeP
+import Setlec.Verify.BracketB4
 
 /-!
 # Consistency of the parsed-index executable checker (task #78)
