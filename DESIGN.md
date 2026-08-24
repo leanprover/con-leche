@@ -5409,3 +5409,130 @@ to environments alongside `Env.eraseCod`.
   expansion duplicates the value — so these are per-predicate lemmas
   with the substitution facts, not one-liners.  That is the first thing
   to write.
+
+#### Finding: `norm`'s zeta needs the *lifting* substitution (2026-08-24)
+
+The stage-4a `norm` used `Expr.instantiate1` for its zeta clause, by
+analogy with `annotateBody`.  That is wrong for `norm`, and the reason
+is instructive: `annotate` **opens** each binder into an `fvar` before
+descending, so by the time its `letE` clause fires the term is
+`bvar`-closed and the let value has no loose `bvar`s — the regime
+`instantiate1` requires (it inserts the replacement *unshifted* at every
+cursor depth).  `norm` recurses under binders *structurally*, without
+opening, so its let values are open terms and `instantiate1` captures.
+
+The discriminating case is a `let` under a binder whose value mentions
+that binder, used under a further binder:
+
+  `∀ y, let x := y; ∀ z, x`   must give   `∀ y, ∀ z, y`
+
+— `bvar 1` under the inner binder.  Plain `instantiate1` inserts the
+value unshifted and yields `∀ y, ∀ z, z`.  It is now a regression test.
+
+The fix needs no new machinery: `Expr.instantiate1Lift` already exists
+for exactly this situation (its docstring in
+`Setlec/Kernel/ExprOps.lean` calls out "let-values are open terms"), and
+`instantiate1Lift_eq_instantiate1` says the two agree on `bvar`-closed
+replacements — so `norm_letE_closed` recovers the kernel's own form in
+the kernel's own regime, which is the equation the flip will use.
+`Expr.eraseCodS_liftLooseBVars` and `Expr.eraseCodS_instantiate1Lift`
+extend the shallow-erasure kit to match.
+
+The general lesson for the rest of task #100: a proof-side pass that
+mirrors a kernel pass **must state which binder discipline it is in**.
+The kernel is always in the opened regime; a structural proof-side
+mirror is not, and every substitution it performs has to be the lifting
+one.
+
+#### Stage 4d groundwork: the `norm` congruences (2026-08-24)
+
+The three install-time certificates the `extend_*_raw` lemmas consume
+now transfer through `norm`, which is what gates re-proving those
+lemmas at `Env.TwinAt` instead of plain erasure:
+
+* `Expr.norm_hasFvar` — `norm` opens no binder, so it introduces no
+  free variables and `fvar`-freeness is genuinely preserved;
+* `Expr.norm_looseBVarsBounded` — the bound survives zeta;
+* `Expr.norm_constsResolve` — constant resolution survives zeta.
+
+Unlike stage 1's *erasure* congruences these are not invariances:
+`norm` duplicates the let value, so each rests on the substitution fact
+for the **lifting** substitution, and each of those in turn needs a
+lifting lemma underneath (`instantiate1Lift` shifts what it inserts).
+The five supporting facts —
+`looseBVarsBounded_liftLooseBVars`, `constsResolve_liftLooseBVars`,
+`hasFvar_lift`, and then `hasFvar_instantiate1Lift`,
+`looseBVarsBounded_instantiate1Lift`, `constsResolve_instantiate1Lift`
+— are proved here rather than in `Setlec/Verify/*` because they are
+about the *proof-side* pass; if the kernel ever needs them they should
+move.
+
+Each congruence carries an **oracle hypothesis**: the projection
+rewrite emits a term built from the environment, so only the annotation
+pass knows it is well-formed.  That hypothesis is the same shape as
+`CodAgree`'s — discharged at the flip from what the annotation pass
+established, not proved here.
+
+The interesting shape of `looseBVarsBounded_instantiate1Lift` is that
+the bound moves: substituting a `k`-bounded value for the binder at
+cursor `j` turns a `(k+1+j)`-bounded body into a `(k+j)`-bounded one.
+That is the statement zeta needs at *every* binder depth, and it is why
+the plain `looseBVarsBounded_instantiate1_gen` (stated at cursor `k`
+with a `bvar`-closed replacement) does not serve a structural pass.
+
+#### Handoff: the storage flip (task #100 stage 4b), call site by call site
+
+The flip is far more surgical than the model-side work suggested.  In
+the parsed-index driver (`Setlec/Kernel/CheckerS.lean`) every install
+follows one shape:
+
+```
+  let jty ← (coreKnotI fe checkFuel).annotate 0 cv.type   -- working index
+  …post-annotate guards on jty…
+  let tyE ← readbackEM jty                                -- what gets STORED
+  pure (⟨cv.name, cv.levelParams, tyE⟩, jty)
+```
+
+and for values (`checkDefnValP`, `checkThmValP`, `checkOpaqueValP`)
+likewise `let vE ← readbackEM jv` … `fe.push (.defnInfo cvA vE hint)`.
+
+So **storage is exactly the `readbackEM` argument**: the flip is
+`readbackEM jty → readbackEM cv.type` and `readbackEM jv →
+readbackEM value` — read back the *parsed* index instead of the
+annotated one.  The annotated index stays as the working index; the
+checks, `opSIx`, the defeq against `jty`, and the post-annotate guards
+(`allLevelParamsDefinedI`, `constsResolveFI` on `jty`) are all
+unchanged, because they are about the tree that was *checked*, not the
+tree that is *stored*.  Sites: `CheckerS.lean:1334` (types),
+`:1355`/`:1379` (defn/thm values), `:1447` (the direct-structure path),
+and the inductive/recursor/projection installs alongside them.
+
+Two decisions the flip has to make, neither settled here:
+
+1. **`recordIConst cvA.name cvA.type jty (some (vE, jv))`** — the
+   interned environment pairs a stored `Expr` tag with an arena index,
+   and its `ISOK.ienv` clause says the index denotes the tag.  After the
+   flip the stored `Expr` is raw while the index is annotated, so either
+   the tag becomes the raw tree and the clause becomes "denotes the
+   twin's erasure-normalization", or the entry carries both.  The
+   second is cheaper for the bisimulation and costs one field.
+2. **Guard retargeting** — `natLitSupportedF`/`strLitSupportedF` read
+   the stored environment, so after the flip they must become the raw
+   forms (`natLitSupportedRaw`/`strLitSupportedRaw`, stage 1, with
+   `natLitSupportedRaw_erase` already proving the annotated guard implies
+   them).  Everything else that reads storage goes through `FEnv`, so
+   the sweep is "what does `mkFEnv`'s consumer inspect".
+
+Leave `st.wfB` (`CheckerS.lean:1499`, `Main.lean:181`,
+`CheckerNC.lean:434`) exactly as it is — the valid-by-construction
+subtype arena is task #103 and comes after #100 settles.
+
+For (c), the ghost-run bisimulation: anchor on `decorate_eq`.  It makes
+"canonical twin" a *definition* rather than a choice — the twin is the
+unique tree the memo reconstructs — which is what the spike's warning
+demands (claims quantified over arbitrary truthful twins are false).
+The raw run and the ghost run share the arena and the memos; the
+decisions to align are exactly the ones that read a binder annotation
+(`inferType`'s λ/∀ clauses, `isDefEq`'s binder comparison), and each
+reads `codOf` on the raw side against the stored `cod` on the ghost
+side.

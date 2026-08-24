@@ -315,4 +315,21 @@ else. -/
       ⟨.default, none⟩)
   == .forallE (.str .anonymous "y") (.sort .zero) (.bvar 0) ⟨.default, none⟩
 
+-- The discriminating case for the zeta substitution: a `let` under a
+-- binder whose value mentions that binder, used under a *further*
+-- binder.  `∀ y, let x := y; ∀ z, x` must normalize to `∀ y, ∀ z, y` —
+-- i.e. `bvar 1` under the inner binder.  Plain `instantiate1` inserts
+-- the value unshifted and yields `∀ y, ∀ z, z`; the lifting
+-- substitution is what makes this right.
+#guard Expr.norm keepOracle 8 0
+    (.forallE (.str .anonymous "y") (.sort .zero)
+      (.letE (.str .anonymous "x") (.sort .zero) (.bvar 0)
+        (.forallE (.str .anonymous "z") (.sort .zero) (.bvar 1)
+          ⟨.default, none⟩))
+      ⟨.default, none⟩)
+  == .forallE (.str .anonymous "y") (.sort .zero)
+      (.forallE (.str .anonymous "z") (.sort .zero) (.bvar 1)
+        ⟨.default, none⟩)
+      ⟨.default, none⟩
+
 end SetlecTests
