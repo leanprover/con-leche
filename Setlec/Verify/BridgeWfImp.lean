@@ -2613,14 +2613,10 @@ theorem checkDirectRule_wfimp {env : Env} (henv : EnvWF env)
   rw [hci']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   try dsimp only []
-  obtain ⟨-, hcrW⟩ := instPisAt_WScoped (d := p.nP + 2 + p.nF) _ _ hci'
-    (WScoped.of_not_hasFvar hCf) hpsW
-  obtain ⟨minfv, hmi, h⟩ := atF_bind_ok h
-  have hmi' := unwrapOr_atF_ok hmi
-  rw [hmi']
-  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
-  have hmitW : WScoped (p.nP + 2) minfv.fvarTypeD :=
-    fvarTypeD_WScoped (hfvsW0 minfv (List.mem_of_getElem? hmi'))
+  have hpsW2 : ∀ x ∈ fvsP.take p.nP, WScoped (p.nP + 2) x :=
+    fun x hx => hfvsW0 x (List.mem_of_mem_take hx)
+  obtain ⟨-, hcrW2⟩ := instPisAt_WScoped (d := p.nP + 2) _ _ hci'
+    (WScoped.of_not_hasFvar hCf) hpsW2
   obtain ⟨q4, hox, h⟩ := atF_bind_ok h
   obtain ⟨xFvs, xrest⟩ := q4
   dsimp only [] at h
@@ -2628,13 +2624,8 @@ theorem checkDirectRule_wfimp {env : Env} (henv : EnvWF env)
   rw [hox']
   simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
   try dsimp only []
-  obtain ⟨hxW, -⟩ := openPisAtFvars_WScoped p.nF minfv.fvarTypeD (p.nP + 2)
-    hox' hmitW
-  obtain ⟨q5, hcf, h⟩ := atF_bind_ok h
-  have hcf' := unwrapOr_atF_ok hcf
-  rw [hcf']
-  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
-  try dsimp only []
+  obtain ⟨hxW, -⟩ := openPisAtFvars_WScoped p.nF crest (p.nP + 2)
+    hox' hcrW2
   obtain ⟨q6, hli, h⟩ := atF_bind_ok h
   obtain ⟨ldoms, lrest⟩ := q6
   dsimp only [] at h

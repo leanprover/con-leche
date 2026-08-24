@@ -227,12 +227,15 @@ def checkDirectRule (ops : CheckerOps m) (env : Env) (p : DirectParts)
     (.notImplemented "direct structure: recursor telescope")
   let (_, crest) ← unwrapOr (Expr.instPisAt (fvsP.take p.nP) cvCa.type)
     (.notImplemented "direct structure: constructor telescope")
-  let minfv ← unwrapOr fvsP[p.nP + 1]?
-    (.internal "direct structure: minor index")
-  let (xFvs, _) ← unwrapOr
-    (openPisAtFvars p.nF minfv.fvarTypeD (p.nP + 2))
-    (.notImplemented "direct structure: minor telescope")
-  let _ ← unwrapOr (Expr.instPisAt xFvs crest)
+  -- The frame is the **rule tower's own** (`ruleLhsParts`): the
+  -- constructor's field telescope opened at the rule prefix, not the
+  -- minor premise's opening of the same binders.  The two are pinned
+  -- definitionally equal by `checkDirectRecTy`, but only this one is
+  -- the frame the stored rule's total λ-equality is stated over, and
+  -- the model has no way to cross a definitional step it was not
+  -- handed — the same "route (X), at the stage's own frames"
+  -- discipline the projection stage follows.
+  let (xFvs, _) ← unwrapOr (openPisAtFvars p.nF crest (p.nP + 2))
     (.notImplemented "direct structure: constructor field telescope")
   let (ldoms, _) ← unwrapOr (Expr.instLamsAt (fvsP ++ xFvs) rhsA)
     (.notImplemented "direct structure: rule telescope")
