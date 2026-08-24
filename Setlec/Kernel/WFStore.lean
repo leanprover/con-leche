@@ -372,4 +372,140 @@ theorem beqNameI_eq (s : WFStore) {i : NIdx} {nm a : Name}
 
 end WFStore
 
+/-! ## The two-tier bundle (task #64)
+
+While tier two is live the store satisfies the two-tier invariant
+`EStore.TWF` but not the flag-off `EStore.WF`, so the enabled phase
+gets its own bundle: `WFStore.enableTierTwo` moves into `TWFStore`,
+tier-blind interning stays inside it, and `TWFStore.truncateTierTwo`
+drops tier two wholesale and returns to `WFStore` — with every
+tier-one observation untouched (`EStore.truncateTierTwo_*`,
+`Setlec/Kernel/ArenaWF.lean`).  Like `WFStore`, the proof field is
+erased: the compiled representation is exactly `EStore`. -/
+
+/-- An arena in the tier-two phase: the raw `EStore` together with the
+two-tier invariant `EStore.TWF`. -/
+structure TWFStore where
+  /-- The underlying raw arena. -/
+  raw : EStore
+  /-- The two-tier invariant. -/
+  twf : raw.TWF
+
+/-- Enable tier two (task #64): subsequent interns append to the
+tier-two tables; tier one is frozen.  The raw op's guard (the tag
+bound, checked once — validate-at-insertion) is what discharges the
+invariant; on the impossible guard failure the store simply stays in
+the verified flag-off regime. -/
+def WFStore.enableTierTwo (s : WFStore) : TWFStore :=
+  ⟨s.raw.enableTierTwo, EStore.enableTierTwo_twf s.wf.toTWF⟩
+
+@[simp] theorem WFStore.enableTierTwo_raw (s : WFStore) :
+    s.enableTierTwo.raw = s.raw.enableTierTwo := rfl
+
+namespace TWFStore
+
+/-- Two bundles with the same raw store are equal (proof
+irrelevance). -/
+protected theorem ext : ∀ {s t : TWFStore}, s.raw = t.raw → s = t
+  | ⟨_, _⟩, ⟨_, _⟩, rfl => rfl
+
+/-- Drop tier two wholesale and return to the flag-off bundle
+(task #64): `Array.shrink` keeps the tier-two arrays' capacity; every
+tier-one observation is untouched. -/
+def truncateTierTwo (s : TWFStore) : WFStore :=
+  ⟨s.raw.truncateTierTwo, EStore.truncateTierTwo_wf s.twf⟩
+
+@[simp] theorem truncateTierTwo_raw (s : TWFStore) :
+    s.truncateTierTwo.raw = s.raw.truncateTierTwo := rfl
+
+/-- Intern one expression node, tier-blind: the dispatcher appends to
+whichever tier is active; the children may be indices of either
+tier. -/
+def intern (s : TWFStore) (n : ENode)
+    (hc : ∀ c ∈ n.children, s.raw.Valid2 c)
+    (hlv : ∀ u ∈ n.levels, u < s.raw.lnodes.size)
+    (hnm : ∀ p ∈ n.names, p < s.raw.nnodes.size) : EIdx × TWFStore :=
+  let p := s.raw.intern n
+  (p.1, ⟨p.2, EStore.intern_twf s.twf hc hlv hnm⟩)
+
+@[simp] theorem intern_raw (s : TWFStore) (n : ENode) (hc hlv hnm) :
+    (s.intern n hc hlv hnm).2.raw = (s.raw.intern n).2 := rfl
+
+@[simp] theorem intern_idx (s : TWFStore) (n : ENode) (hc hlv hnm) :
+    (s.intern n hc hlv hnm).1 = (s.raw.intern n).1 := rfl
+
+/-- The interned node is read back tier-blind at the returned index. -/
+theorem intern_getNode (s : TWFStore) (n : ENode) (hc hlv hnm) :
+    (s.intern n hc hlv hnm).2.raw.getNode (s.intern n hc hlv hnm).1
+      = some n :=
+  EStore.intern_getNode s.twf
+
+/-- The returned index is a valid two-tier index of the extended
+arena. -/
+theorem intern_valid2 (s : TWFStore) (n : ENode) (hc hlv hnm) :
+    (s.intern n hc hlv hnm).2.raw.Valid2 (s.intern n hc hlv hnm).1 :=
+  EStore.intern_valid2 s.twf
+
+/-- Intern one level node (levels are single-tier). -/
+def internL (s : TWFStore) (n : LNode)
+    (hc : ∀ c ∈ n.children, c < s.raw.lnodes.size) : LIdx × TWFStore :=
+  let p := s.raw.internL n
+  (p.1, ⟨p.2, EStore.internL_twf s.twf hc⟩)
+
+@[simp] theorem internL_raw (s : TWFStore) (n : LNode) (hc) :
+    (s.internL n hc).2.raw = (s.raw.internL n).2 := rfl
+
+@[simp] theorem internL_idx (s : TWFStore) (n : LNode) (hc) :
+    (s.internL n hc).1 = (s.raw.internL n).1 := rfl
+
+/-- Intern one name node (names are single-tier). -/
+def internN (s : TWFStore) (n : NNode)
+    (hc : ∀ c ∈ n.children, c < s.raw.nnodes.size) : NIdx × TWFStore :=
+  let p := s.raw.internN n
+  (p.1, ⟨p.2, EStore.internN_twf s.twf hc⟩)
+
+@[simp] theorem internN_raw (s : TWFStore) (n : NNode) (hc) :
+    (s.internN n hc).2.raw = (s.raw.internN n).2 := rfl
+
+@[simp] theorem internN_idx (s : TWFStore) (n : NNode) (hc) :
+    (s.internN n hc).1 = (s.raw.internN n).1 := rfl
+
+/-! ### Truncation is the identity on tier-one observations
+
+The one theorem the eventual wiring consumes (task #64): dropping tier
+two changes no tier-one read — node reads, derived reads, cons hits,
+and the denotation are untouched. -/
+
+/-- Truncation is invisible to the denotation, at every index. -/
+theorem truncateTierTwo_denote (s : TWFStore) :
+    ∀ i, s.truncateTierTwo.raw.denote i = s.raw.denote i :=
+  EStore.truncateTierTwo_denote s.raw
+
+/-- Truncation keeps the tier-one node table (so node reads, spine
+walks, and cons hits are untouched). -/
+theorem truncateTierTwo_nodes (s : TWFStore) :
+    s.truncateTierTwo.raw.nodes = s.raw.nodes :=
+  EStore.truncateTierTwo_nodes s.raw
+
+@[inherit_doc truncateTierTwo_nodes]
+theorem truncateTierTwo_cons (s : TWFStore) :
+    s.truncateTierTwo.raw.cons = s.raw.cons :=
+  EStore.truncateTierTwo_cons s.raw
+
+/-- Truncation is the identity on `getNode` at tier-one indices. -/
+theorem truncateTierTwo_getNode (s : TWFStore) {i : EIdx}
+    (h : i < s.raw.nodes.size) :
+    s.truncateTierTwo.raw.getNode i = s.raw.getNode i :=
+  EStore.truncateTierTwo_getNode h
+
+end TWFStore
+
+/-- The enable/truncate round trip is the identity on the raw
+tier-one tables — enabling only sets the flag, truncation only drops
+tier two (which starts and ends empty on a `WFStore`). -/
+theorem WFStore.enable_truncate_denote (s : WFStore) :
+    ∀ i, s.enableTierTwo.truncateTierTwo.raw.denote i = s.raw.denote i :=
+  fun i => (EStore.truncateTierTwo_denote _ i).trans
+    (EStore.enableTierTwo_denote _ i)
+
 end Setlec

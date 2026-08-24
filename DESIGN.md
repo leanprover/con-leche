@@ -6192,3 +6192,137 @@ self-contained), lift the ops onto the bundle, then flip and drop the
 `ISOK.wf` clause mechanically.  Until then `ISOK.wf` is fed from the
 bundle at the seam (`ISOKF.fresh st.wf`), so the *provenance* of every
 canonicity fact is already the bundle.
+
+## Two-tier arena internals: build-now-wire-later (2026-08-24, task #64)
+
+The encapsulated arena (`EStore`) now carries the two-tier capability
+*internally* — structure and proofs only, behavior-neutral until its
+operations are called (the #103 pattern).  Nothing in the checker or
+frontend calls the new ops yet; every existing test and the init-prelude
+output are byte-identical.
+
+**The structure** (`Setlec/Kernel/IExpr.lean`).  `EStore` gains a second
+expression tier — `tnodes`/`tcons` plus second copies of the eager
+derived arrays (`tbvarBs`/`tfvarBs`/`teparamBs`) — and an internal
+`tierTwo : Bool` flag.  Names and levels stay single-tier (the #64
+experiments' validation).  Interface additions are exactly two:
+`enableTierTwo` (set the flag; subsequent interns append to tier two;
+tier one is frozen) and `truncateTierTwo` (drop tier two wholesale —
+`Array.shrink 0` keeps the arrays' capacity — and clear the flag).
+Consumers stay tier-blind: `intern` dispatches on the flag (`internP`,
+the pre-tier code path bit for bit, vs `internT`, which probes the
+frozen tier-one cons-table *first* so tier-one content keeps its
+canonical index and the tables stay disjoint), and
+`getNode`/`bvarBoundD`/`fvarRangeD`/`ehasParamD` dispatch on the index:
+a tier-one position reads the tier-one array exactly as before
+(the dispatch *is* the bounds check the read always did), anything else
+falls through to tier two at offset `i - tierTag`.  `EIdx` stays `Nat`
+with the high bit internally meaningful; the tag constant lives behind
+the single def `tierTag := 2^62` because large `Nat` literals compile to
+a per-use GMP string parse in the generated C (measured landmine from
+the experiments) while a top-level def is parsed once at init.
+
+**The invariant** (`Setlec/Kernel/ArenaWF.lean`, self-contained).  The
+key discipline: flag-off interns append tier one; flag-on interns append
+tier two; hence tier one is frozen under flag-on operation and tier-one
+nodes never reference tier-two indices (their children predate the
+flag).  `TWF` states this: the 18 pre-tier clauses verbatim, plus
+`flag_bound` (flag on → `nodes.size ≤ tierTag`), `toff_tnil` (flag off →
+tier two empty), tier-two child/level/name ranges, the tier-two
+cons-graph, cross-tier canonicity (`t_cons_fresh`, paid for by the probe
+order), and the tier-two derived-entry recurrences (`nodeBvarBound` etc.
+over the dispatching reads).  `WF` (the invariant every existing
+consumer names) is now `structure WF extends TWF` plus `tier_off`:
+statements and field projections are unchanged, so **`Setlec/Verify/*`
+and `Setlec/Model/*` compile untouched** — this is the load-bearing
+choice: `intern_node`/`intern_denote`/the round-trips are *false* for
+flag-on stores, so the invariant those lemma statements quantify over
+must entail flag-off; the flag-on regime gets its own `TWF` battery
+(`intern_twf`, `internT_twf`, `internL_twf`/`internN_twf`,
+`intern_getNode`, `intern_valid2`, `enableTierTwo_twf`).  The theorem
+the eventual wiring consumes: `truncateTierTwo_wf : TWF → WF` (the store
+re-enters the fully verified single-tier regime) together with the
+identity family `truncateTierTwo_{nodes,cons,…,getNode,bvarBoundD,…,
+denote,denoteL,denoteN}` — truncation changes *no* tier-one observation
+(`denote` at every index: it reads only tier-one tables).  Lifted
+through the bundles in `Setlec/Kernel/WFStore.lean`:
+`WFStore.enableTierTwo : WFStore → TWFStore` (a second zero-cost bundle
+carrying `TWF`), `TWFStore.intern/internL/internN`, and
+`TWFStore.truncateTierTwo : TWFStore → WFStore`.
+
+**Tag scheme decision (user-directed, decided on compiler evidence).**
+Two candidate index encodings:
+
+* *Low-bit* (`index = 2·offset + tier`): a total injection — both tiers
+  unbounded, no size invariant, no guard, and div/mod-by-2 decode.
+  Compiler facts (lean.h, v4.33.0): `lean_nat_div`, `lean_nat_mod`,
+  `lean_nat_land`, and `lean_nat_shiftr` all have `static inline`
+  scalar fast paths — only `lean_nat_shiftl` is out-of-line (which
+  refines the packed-keys #89 extrapolation: the +55–73% there came
+  through `<<<` pipelines; `>>>`/`&&&` decode is a few inline ALU ops).
+  So decode cost alone does *not* disqualify low-bit.  What does is the
+  loss of the **identity embedding**: tier-one indices become `2j`, so
+  every existing read site (`nodes[e]?` across the traversal ops), the
+  whole `denote`/WF/canonicity stack, and every Verify/Model proof that
+  identifies index with position would re-base — the exact cascade the
+  scheme was meant to avoid, and impossible to build behavior-neutrally
+  (flag-off indices change).  Rejected for this task on that structural
+  ground; recorded here with the compiled-code evidence.
+* *High-bit* (`index = tierTag + offset`, adopted): tier one keeps
+  identity positions, so the pre-tier code path and its entire proof
+  stack survive unchanged, and the tier-one read dispatch costs zero
+  beyond the bounds check the read already did.  The price is a bound:
+  the split `i < tierTag ⇔ tier one` is only sound below the tag.  It
+  is carried as the *invariant* `flag_bound`, established once by
+  `enableTierTwo`'s guard (`nodes.size ≤ tierTag`, one comparison per
+  enable — the #42 validate-at-insertion pattern), and consumed as
+  theorems (`TWF.tierOne_lt_tag`, `tierTwo_idx_ge`,
+  `tierTwo_idx_offset`, `TWF.getNode_tierTwo`): tier two itself needs
+  no bound because `Nat` does not wrap.  **No proof anywhere appeals to
+  practical unreachability.**
+
+**Guard placement and the failure channel.**  The alternative of an
+*unconditional* `nodes.size ≤ tierTag` clause with an insertion guard in
+the tier-one intern was analyzed and rejected: a refusing intern is
+false-at-the-cap for `intern_node`/`intern_denote`, so every whole-tree
+round-trip (`internExpr_spec`) becomes conditional on an arithmetic
+budget (`nodes.size + |e| ≤ tierTag`), and that hypothesis infects
+ParseP and ConsistencyP — a Model-layer cascade for a state that cannot
+occur.  With the flag-conditional bound no failure channel is needed at
+all: if the enable guard ever failed (a 2^62-node tier one, ≥ 2^66
+bytes), the flag stays off and the store keeps operating in the fully
+verified single-tier mode — same verdicts, only truncation's memory
+reclamation lost.  Graceful degradation, not an error; were a hard
+refusal ever wanted instead, it would be decline (2), a positively
+detected implementation limit like fuel — never exit 3.
+
+**Why `Nat`-with-tag rather than `UInt64` indices**: `UInt64` would need
+explicit bounds on *both* tiers plus mod-2^64 side conditions on every
+index computation; `Nat`'s non-wrapping arithmetic gives tier-two
+unboundedness and unique offset recovery for free, and the scalar-`Nat`
+fast paths make the arithmetic native-width in practice.
+
+**Behavior neutrality, measured.**  Nothing calls the new ops; the
+flag-off `intern` is `internP` (the old body verbatim) behind one
+predictable branch, and the derived reads keep the identical bounds
+check with the tier-two fallback in the (cold) else branch.  init-full
+prelude (`--pre`, exit 0), branch vs master, `perf stat -e
+instructions:u`, median of 3: 21.406×10⁹ vs 21.296×10⁹ — **+0.52 %**,
+well inside the experiments' ~+2 % dispatch envelope; stdout/stderr
+byte-identical.  Full gates green: `lake build` warning-free,
+`lake test` (including new `#guard`s exercising
+enable/intern/truncate/tier-one-invariance at both the raw and bundle
+level), arena 90/92 + e2e 64/64, `tests/scale.sh` all shapes PASS,
+soundness axioms exactly `[propext, Classical.choice, Quot.sound]`, no
+sorries.
+
+**For the wiring** (follow-up): `IState.store` is still a raw `EStore`
+(the #103 flip is parked), so the checker can call
+`enableTierTwo`/`truncateTierTwo` directly at declaration boundaries and
+thread `TWF` through the interior (or adopt `TWFStore` once the flip
+lands).  The tier-blind traversal ops are *not* yet tier-aware — they
+read `st.nodes[e]?` directly, which is correct for every store the
+current system produces (flag-off); pointing them at `getNode`/the
+dispatching derived reads, and extending the denote-faithfulness layer
+(`Verify/IExpr`, ISOK) to tier-two indices, is the wiring's job, with
+`truncateTierTwo`'s identity family as the interface.

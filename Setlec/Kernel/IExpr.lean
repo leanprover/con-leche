@@ -38,6 +38,16 @@ abbrev LIdx := Nat
 (task #88). -/
 abbrev NIdx := Nat
 
+/-- The tier-two index tag (task #64): a tier-two arena index is
+`tierTag + offset`, keeping tier-one indices the *identity* embedding
+(index = table position), so the pre-tier code paths and their proofs
+are untouched.  The value is the high bit of the scalar-`Nat` range.
+It must stay behind this single definition: large `Nat` literals
+compile to a per-use GMP string parse in the generated C (measured
+landmine, task #64 experiments); a top-level constant is parsed once
+at initialization. -/
+def tierTag : Nat := 2 ^ 62
+
 /-- One interned name node: the constructors of `Setlec.Name` with the
 prefix replaced by an arena index (task #88: `O(1)` node
 hashing/equality — every intern probe hashes a `Nat` and a leaf
@@ -202,55 +212,213 @@ structure EStore where
   the node's `Name`, shared structurally with its prefix's entry, so
   `readbackN` is an `O(1)` read of a shared value (task #88). -/
   rbNames : Array Name
+  /-- Tier-two mode flag (task #64).  Entirely internal: while set,
+  `intern` appends to the tier-two tables and tier one is frozen;
+  consumers stay tier-blind and only `enableTierTwo` /
+  `truncateTierTwo` touch the flag. -/
+  tierTwo : Bool
+  /-- The tier-two expression node table (task #64; a node at position
+  `j` has index `tierTag + j`).  Names and levels stay single-tier. -/
+  tnodes : Array ENode
+  /-- The tier-two cons-table (graph of `tnodes` under tagged
+  indices).  Disjoint from `cons` by the probe order: `internT` probes
+  the frozen tier-one table first. -/
+  tcons : Std.HashMap ENode EIdx
+  /-- Tier-two eager loose-bvar bounds (`tbvarBs.size = tnodes.size`). -/
+  tbvarBs : Array Nat
+  /-- Tier-two eager fvar ranges (`tfvarBs.size = tnodes.size`). -/
+  tfvarBs : Array Nat
+  /-- Tier-two eager has-level-param flags
+  (`teparamBs.size = tnodes.size`). -/
+  teparamBs : Array Bool
 
 namespace EStore
 
 /-- The empty arena. -/
-def empty : EStore := ⟨#[], {}, #[], {}, #[], #[], #[], #[], #[], {}, #[]⟩
+def empty : EStore :=
+  ⟨#[], {}, #[], {}, #[], #[], #[], #[], #[], {}, #[],
+    false, #[], {}, #[], #[], #[]⟩
 
 instance : Inhabited EStore := ⟨empty⟩
 
-/-- Intern one node: the existing index when the node is already in the
-cons-table, else the next fresh index (pushing the node and recording it,
-and pushing its derived-field entries computed from the children's).
-The store is destructured before updating so the tables are uniquely
-referenced during `push`/`insert` (avoiding whole-table copies). -/
-def intern (st : EStore) (n : ENode) : EIdx × EStore :=
+/-- Tier-one intern (the pre-tier `intern`, task #64): the existing
+index when the node is already in the cons-table, else the next fresh
+index (pushing the node and recording it, and pushing its derived-field
+entries computed from the children's).  The store is destructured
+before updating so the tables are uniquely referenced during
+`push`/`insert` (avoiding whole-table copies). -/
+def internP (st : EStore) (n : ENode) : EIdx × EStore :=
   match st.cons[n]? with
   | some i => (i, st)
   | none =>
     match st with
     | ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs,
-        nnodes, ncons, rbNames⟩ =>
+        nnodes, ncons, rbNames, tierTwo, tnodes, tcons, tbvarBs,
+        tfvarBs, teparamBs⟩ =>
       let i := nodes.size
       let bb := n.bvarBoundOf bvarBs
       let fb := n.fvarRangeOf fvarBs
       let pb := n.hasLParamOf eparamBs lparamBs
       (i, ⟨nodes.push n, cons.insert n i, lnodes, lcons,
         bvarBs.push bb, fvarBs.push fb, lparamBs, eparamBs.push pb,
-        nnodes, ncons, rbNames⟩)
+        nnodes, ncons, rbNames, tierTwo, tnodes, tcons, tbvarBs,
+        tfvarBs, teparamBs⟩)
 
 /-- The eager per-node loose-bvar bound (task #87): the least `k` with
 `looseBVarsBounded k` for the node's denotation; `0` (also the
-out-of-range default) means bvar-closed. -/
+out-of-range default) means bvar-closed.  Tier dispatch (task #64):
+a tier-one position reads the tier-one array exactly as before;
+anything else falls through to the tier-two array at offset
+`e - tierTag` (empty on a flag-off store, so the fallback is the old
+default `0`). -/
 @[inline] def bvarBoundD (st : EStore) (e : EIdx) : Nat :=
-  st.bvarBs.getD e 0
+  if h : e < st.bvarBs.size then st.bvarBs[e]
+  else st.tbvarBs.getD (e - tierTag) 0
 
 /-- The eager per-node fvar range (task #87): max fvar index + 1 of
 the node's denotation (annotations not descended); `0` (also the
-out-of-range default) means fvar-free. -/
+out-of-range default) means fvar-free.  Tier dispatch as
+`bvarBoundD` (task #64). -/
 @[inline] def fvarRangeD (st : EStore) (e : EIdx) : Nat :=
-  st.fvarBs.getD e 0
+  if h : e < st.fvarBs.size then st.fvarBs[e]
+  else st.tfvarBs.getD (e - tierTag) 0
 
 /-- The eager per-level-node has-param flag (task #87; `false` is
-also the out-of-range default). -/
+also the out-of-range default).  Levels are single-tier (task #64). -/
 @[inline] def lhasParamD (st : EStore) (u : LIdx) : Bool :=
   st.lparamBs.getD u false
 
 /-- The eager per-node has-level-param flag (task #87; `false` is
-also the out-of-range default). -/
+also the out-of-range default).  Tier dispatch as `bvarBoundD`
+(task #64). -/
 @[inline] def ehasParamD (st : EStore) (e : EIdx) : Bool :=
-  st.eparamBs.getD e false
+  if h : e < st.eparamBs.size then st.eparamBs[e]
+  else st.teparamBs.getD (e - tierTag) false
+
+/-! ### Tier two (task #64)
+
+The structure carries a second expression tier so the eventual wiring
+can drop a declaration's reduction temporaries wholesale: while the
+internal flag is on, fresh nodes go to the tier-two tables (indices
+`tierTag + offset`), tier one is frozen, and `truncateTierTwo` later
+discards tier two without touching a single tier-one observation
+(`Setlec/Kernel/ArenaWF.lean`, `truncateTierTwo_*`).  Consumers stay
+tier-blind: `intern` and the derived reads dispatch internally, and
+tier-one indices remain the identity embedding. -/
+
+/-- Tier-dispatched node read (task #64): a tier-one position reads
+the tier-one table at the identity index; anything else falls through
+to the tier-two table at offset `i - tierTag`.  On a flag-off store
+(tier two empty) this is exactly `st.nodes[i]?`; with tier two live,
+the split is a theorem (`TWF.flag_bound`: tier-one indices sit below
+`tierTag`, tier-two indices at or above it). -/
+def getNode (st : EStore) (i : EIdx) : Option ENode :=
+  if h : i < st.nodes.size then some st.nodes[i]
+  else st.tnodes[i - tierTag]?
+
+/-- Tier-blind loose-bvar-bound recurrence of one node over the
+dispatching derived reads (the tier-two intern's entry computation,
+task #64; the tier-one intern keeps the array-local
+`ENode.bvarBoundOf` — same values, uniquely-referenced reads). -/
+def nodeBvarBound (st : EStore) : ENode → Nat
+  | .bvar i => i + 1
+  | .fvar _ _ _ | .sort _ | .const _ _ | .lit _ => 0
+  | .app f a => max (st.bvarBoundD f) (st.bvarBoundD a)
+  | .lam _ ty body _ | .forallE _ ty body _ =>
+    max (st.bvarBoundD ty) (st.bvarBoundD body - 1)
+  | .letE _ ty val body =>
+    max (max (st.bvarBoundD ty) (st.bvarBoundD val))
+      (st.bvarBoundD body - 1)
+  | .proj _ _ sub => st.bvarBoundD sub
+
+/-- Tier-blind fvar-range recurrence (see `nodeBvarBound`). -/
+def nodeFvarRange (st : EStore) : ENode → Nat
+  | .fvar idx _ _ => idx + 1
+  | .bvar _ | .sort _ | .const _ _ | .lit _ => 0
+  | .app f a => max (st.fvarRangeD f) (st.fvarRangeD a)
+  | .lam _ ty body _ | .forallE _ ty body _ =>
+    max (st.fvarRangeD ty) (st.fvarRangeD body)
+  | .letE _ ty val body =>
+    max (max (st.fvarRangeD ty) (st.fvarRangeD val))
+      (st.fvarRangeD body)
+  | .proj _ _ sub => st.fvarRangeD sub
+
+/-- Tier-blind has-level-param recurrence (see `nodeBvarBound`;
+levels are single-tier, so the level reads are the plain
+`lhasParamD`). -/
+def nodeHasLParam (st : EStore) : ENode → Bool
+  | .bvar _ | .lit _ => false
+  | .sort u => st.lhasParamD u
+  | .const _ us => us.any st.lhasParamD
+  | .fvar _ _ ty => st.ehasParamD ty
+  | .app f a => st.ehasParamD f || st.ehasParamD a
+  | .lam _ ty body m | .forallE _ ty body m =>
+    st.ehasParamD ty || st.ehasParamD body ||
+      (match m.cod with
+       | some u => st.lhasParamD u
+       | none => false)
+  | .letE _ ty val body =>
+    st.ehasParamD ty || st.ehasParamD val || st.ehasParamD body
+  | .proj _ _ sub => st.ehasParamD sub
+
+/-- Tier-two intern (task #64): probe the tier-one cons-table first —
+tier one is frozen while the flag is on, so a hit resolves to the
+node's canonical tier-one index and the tier-one table is never
+polluted — then the tier-two cons-table; a fresh node is pushed onto
+the tier-two tables at index `tierTag + tnodes.size`, its derived
+entries computed by the tier-blind recurrences. -/
+def internT (st : EStore) (n : ENode) : EIdx × EStore :=
+  match st.cons[n]? with
+  | some i => (i, st)
+  | none =>
+    match st.tcons[n]? with
+    | some i => (i, st)
+    | none =>
+      let bb := st.nodeBvarBound n
+      let fb := st.nodeFvarRange n
+      let pb := st.nodeHasLParam n
+      match st with
+      | ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs,
+          nnodes, ncons, rbNames, tierTwo, tnodes, tcons, tbvarBs,
+          tfvarBs, teparamBs⟩ =>
+        let i := tierTag + tnodes.size
+        (i, ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs,
+          eparamBs, nnodes, ncons, rbNames, tierTwo, tnodes.push n,
+          tcons.insert n i, tbvarBs.push bb, tfvarBs.push fb,
+          teparamBs.push pb⟩)
+
+/-- Intern one node (task #64: internal tier dispatch): with the flag
+off — the ordinary state — the tier-one intern `internP`, the pre-tier
+code path bit for bit; with it on, the tier-two intern `internT`. -/
+def intern (st : EStore) (n : ENode) : EIdx × EStore :=
+  if st.tierTwo then st.internT n else st.internP n
+
+/-- Enable tier two (task #64): set the internal flag; subsequent
+interns append to the tier-two tables and tier one is frozen.  Guarded
+by the tag bound `nodes.size ≤ tierTag`, the invariant that makes the
+high-bit index split a theorem (`TWF.flag_bound`,
+`Setlec/Kernel/ArenaWF.lean`) — the validate-at-insertion pattern
+(task #42): one comparison per enable, no per-access reasoning.  If
+the guard ever failed (a tier-one table of `2 ^ 62` nodes), the flag
+stays off and the store keeps operating in the fully verified
+single-tier mode — graceful degradation (only truncation's memory
+reclamation is lost), not an error. -/
+def enableTierTwo (st : EStore) : EStore :=
+  if st.nodes.size ≤ tierTag then { st with tierTwo := true } else st
+
+/-- Drop tier two wholesale and clear the flag (task #64):
+`Array.shrink 0` keeps the tier-two arrays' capacity for the next
+enable round; the tier-two cons-table is dropped.  The identity on
+every tier-one observation (`truncateTierTwo_*`,
+`Setlec/Kernel/ArenaWF.lean`). -/
+def truncateTierTwo (st : EStore) : EStore :=
+  match st with
+  | ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs,
+      nnodes, ncons, rbNames, _tierTwo, tnodes, _tcons, tbvarBs,
+      tfvarBs, teparamBs⟩ =>
+    ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs,
+      nnodes, ncons, rbNames, false, tnodes.shrink 0, {},
+      tbvarBs.shrink 0, tfvarBs.shrink 0, teparamBs.shrink 0⟩
 
 /-- Intern one level node (the level-table analog of `intern`; pushes
 the node's has-param entry computed from the children's). -/
@@ -260,11 +428,13 @@ def internL (st : EStore) (n : LNode) : LIdx × EStore :=
   | none =>
     match st with
     | ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs,
-        nnodes, ncons, rbNames⟩ =>
+        nnodes, ncons, rbNames, tierTwo, tnodes, tcons, tbvarBs,
+        tfvarBs, teparamBs⟩ =>
       let i := lnodes.size
       let pb := n.hasParamOf lparamBs
       (i, ⟨nodes, cons, lnodes.push n, lcons.insert n i, bvarBs, fvarBs,
-        lparamBs.push pb, eparamBs, nnodes, ncons, rbNames⟩)
+        lparamBs.push pb, eparamBs, nnodes, ncons, rbNames, tierTwo,
+        tnodes, tcons, tbvarBs, tfvarBs, teparamBs⟩)
 
 /-- Intern one name node (the name-table analog of `intern`,
 task #88). -/
@@ -274,11 +444,13 @@ def internN (st : EStore) (n : NNode) : NIdx × EStore :=
   | none =>
     match st with
     | ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs,
-        nnodes, ncons, rbNames⟩ =>
+        nnodes, ncons, rbNames, tierTwo, tnodes, tcons, tbvarBs,
+        tfvarBs, teparamBs⟩ =>
       let i := nnodes.size
       let rb := n.nameOf rbNames
       (i, ⟨nodes, cons, lnodes, lcons, bvarBs, fvarBs, lparamBs, eparamBs,
-        nnodes.push n, ncons.insert n i, rbNames.push rb⟩)
+        nnodes.push n, ncons.insert n i, rbNames.push rb, tierTwo,
+        tnodes, tcons, tbvarBs, tfvarBs, teparamBs⟩)
 
 /-- Intern a whole name bottom-up (names are short cons-lists, so no
 memoization is needed — the walk is linear in the name's depth). -/
