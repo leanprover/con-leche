@@ -170,7 +170,7 @@ structure NormOracleOk (O : NormOracle) (env : Env) : Prop where
 
 /-! ## Certificate transfer across the twin relation -/
 
-variable {O : NormOracle} {f d : Nat}
+variable {O : NormOracle} {f d : Nat} {env : Env}
 
 /-- A raw-side `hasFvar` certificate transfers to the twin. -/
 theorem Expr.hasFvar_witnessN (hO : NormOracleOk O env) {ea e : Expr}

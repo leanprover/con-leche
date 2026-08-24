@@ -5691,6 +5691,26 @@ same tree the fallback would have interned) and is provable in today's
 framework: `ISOK.ienv` and `ISOK.insertIEnv` stay as they are, and each
 install-path simulation gains one `recordIConst_eff` step.
 
+*Why the arena index, and not `decorate`?*  Stage 2 (`codOfI`) and
+stage 3 (`decorate`) were built for the other answer — recompute the
+annotations on read, inference-free, from the codomain memo.  That
+answer is only available for storage that is the annotation pass's
+*output with its annotations dropped*: `decorate_eq` reconstructs
+`ê` from `ê.eraseCodS`, and nothing else.  The stage-4a ruling stores
+the **parsed** record, which differs from `ê.eraseCodS` by exactly the
+two skeleton-changing clauses `norm` models (zeta, projection
+rewrite) — so rebuilding the annotated tree from what is stored is not
+decoration but re-running `annotate`, i.e. full inference, per
+stored-constant read, against a memo (`annotC`) that is flushed at
+every environment transition.  That is not affordable.  Under parsed
+storage the annotated tree therefore has to be *retained* — which is
+what the arena already does — and the flip's real content is making
+every stored tree reachable through its arena index.  If a future
+ruling moved storage to `eraseCodS` of the annotation pass's output,
+chunk A would collapse to `decorate` at the four entry points and
+chunk B would collapse to uniformly-erased comparands; that trade is
+worth re-examining before chunk A is built.
+
 **B. The guard sweep, and the congruence direction it needs.**  The
 handoff's decision 2 (retarget `natLitSupportedF` / `strLitSupportedF`
 to the stage-1 raw forms) is right in outline and wrong in direction.
