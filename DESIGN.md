@@ -5168,3 +5168,371 @@ comparisons must use upstream nanoda, built from ammkrn/nanoda_lib.
 nanoda additionally *requires* structurally deduplicated table
 entries (it crashes on duplicates), which is why the generator
 hash-conses everything.
+
+### Raw storage stage 3: decoration, and the erasure as a parameter (2026-08-24, task #100)
+
+Three moves, all staged so the flip from the identity erasure to
+`Env.eraseCod` is local.
+
+**The erasure is a parameter.** `RawEnvModelE V er env` carries the
+annotated shadow `aenv`, `erase_eq : er aenv = env`, and the unchanged
+`EnvModel V aenv`.  `RawEnvModelId := RawEnvModelE V id` is the
+transitional instantiation — annotations are still stored, so the
+witness *is* the stored environment, and `ofEnvModel`/`toEnvModel` are
+inverse — while `RawEnvModel := RawEnvModelE V Env.eraseCod` is the end
+state.  `Setlec/Model/ConsistencyRaw.lean` restates `checkDecl_sound`,
+`checkDecls_sound` and `no_constant_of_Empty` over that interface at
+`id`: no content, all interface, so that consumers phrased against it
+survive the flip untouched.
+
+**Decoration.** A raw-storage kernel must put annotations back before
+`infer`/`whnf`/`defeq` — which read them — can run.  `decorate`
+(`Setlec/Model/Decorate.lean`) is the proof-side spec of that rebuild:
+structural everywhere, filling each binder's `cod` from a `DecorMemo`
+(the proof-side view of the interned `inferC`/`codOfC` pair — a
+`∀`-binder's sort is `codOf` of its opened body, a `λ`-binder's is
+`codOf` of that body's *inferred type*, hence two components).  It
+performs **no** inference, reduction or definitional equality.
+
+Its theorem is therefore syntactic, not semantic: `decorate_eq` says
+that decorating the erasure of an annotated tree returns that tree
+*exactly*, provided the memo agrees with its annotations at every
+binder (`CodAgree`).  Truthfulness then costs nothing —
+`decorate_sound` rewrites through the identification and hands the goal
+to `annotate_sound`.  That is the point of the split: the decoration
+pass carries no semantic burden of its own, because the annotations it
+restores are the ones the annotation pass already justified.  All the
+content sits in `CodAgree`, which the flip discharges from the memos'
+`ISOK` clauses.
+
+Two findings shaped the definition:
+
+* **Two erasures.** `Expr.eraseCod` is hereditary — it descends into
+  `fvar` type annotations, which is what makes twins survive binder
+  opening during reduction simulation.  A decoration pass opens binders
+  itself, at variables whose types it has *already* decorated, so its
+  `fvar` clause must be the identity; the matching erasure is the
+  shallow `Expr.eraseCodS`.  The two agree on `fvar`-free trees
+  (`eraseCodS_eq`) — i.e. on everything a declaration stores, by the
+  install-time certificate — so the top-level statement is unaffected,
+  and the non-recursive `fvar` clause is also what makes `decorate`
+  terminate on `sizeB` (the measure `AnnotOk` uses, for the same
+  reason).
+* **Decoration targets are let-free.**  `annotate`'s `letE` clause
+  zeta-reduces (value transparency; an opened opaque let-variable was
+  tried and rejects real streams).  So its output — and hence every
+  decoration target — contains no `letE`, and `CodAgree`'s `letE`
+  clause is `False`.  Correspondingly, what a raw-storage kernel keeps
+  is the *erasure of the annotation pass's output*, not of the input
+  record: `annotate` is not skeleton-preserving (it zeta-reduces lets
+  and normalizes projection heads), so `(annotate e).eraseCod = e` is
+  false in general and cannot be the storage contract.
+
+**Install paths.**  `extend_model_raw` is now generic in the installed
+`ConstantInfo`, so it covers every non-inductive path at once — axioms,
+definitions, theorems, opaques, and the pinned `Nat`-operation /
+`Nat.div`-`Nat.mod` / `reduce` families, whose extra obligations ride
+through unchanged; `extend_model_raw_defn`/`_axiom`/`_thm` are its
+instances.  The hypothesis split is the design's claim in miniature:
+raw-side certificates (freshness, `hasFvar`, `constsResolve`,
+`looseBVarsBounded`) transfer across erasure, witness-side obligations
+(`AnnotOk`, interpretations, `allLevelParamsDefined`) stay on the
+shadow.  For the remaining paths — inductive blocks, projections,
+direct structures, basis pins — the mechanical content is
+`RawEnvModelE.extend`/`extend_one`: *any* extension of the witness is
+an extension of the raw environment it erases to, given that the
+installed records erase to what is stored.  Each sibling is that
+combinator applied to the `extend_*` lemma the path already uses; no
+signature needs restating.
+## Mathlib-scoping driver fixes: wfB stack, diagnostic-pass linearity, --pre (2026-08-24)
+
+Scoping the full Mathlib stream (727 k declaration records, ~5.8 GB
+preprocessed) surfaced three driver-level defects; none touches a
+verified statement.
+
+**1. Store validation overflowed the stack at end of parse.**  The
+full stream crashed "Stack overflow detected" (exit 134) right after
+parsing at any default-sized stack; `LEAN_STACK_SIZE_KB=16777216`
+(16 GiB) was needed to get past it.  Site (gdb on a synthetic
+~150 k-node `spine` stream at `LEAN_STACK_SIZE_KB=8192`): 66 520
+recursive frames of `EStore.wfBNodes` under `wfB` — the downward
+shape `wfBNodes st (k+1) = wfBNodes st k && per-node k` recurses
+*before* the conjunction, one C frame (~126 bytes) per **arena
+node**; at Mathlib's arena size that is on the order of 10 GB of
+stack.  Fix: the per-node check is factored out (`wfBNode1`, likewise
+`wfBLNode1`/`wfBNNode1`) and folded by a tail-recursive upward walk
+(`wfBNodesGo st i (m+1) = wfBNode1 st i && wfBNodesGo st (i+1) m` —
+with `&&` the recursive call is in tail position, so the compiled
+loop is constant-stack; verified by rerunning the repro at reduced
+stack, and the full Mathlib parse passes `wfB` into checking at the
+default stack).  `Setlec/Verify/ParseP.lean` gains one generic
+extraction lemma (`wfBGo_one`); the `wfB*_facts` statements and
+`wfB_wf` are unchanged.  Remaining deep recursions are proportional
+to *expression depth* or *definitional-chain length* (inherent
+checker walks; the scale shapes trip them only at artificially tiny
+stacks), never to arena size.
+
+**2. The RC-2 holder behind "non-progress is >20× slower" was the
+diagnostic second pass, not the verified fold.**  A linearity audit
+(throwaway `dbgTraceIfShared` probes at `EStore.intern`/`internL` and
+`FEnv.push`, diag/linearity pattern) on an 800 k-line Mathlib prefix
+(1663 declarations, then a decline): progress mode 0 arena copies;
+plain mode 1259 `nodes@intern` + 1259 `cons@intern` + 623
+`lnodes@internL` copies — but on a stream that *accepts*, plain mode
+also shows 0.  `checkDeclsSP`'s `List.foldlM` is compiled as a
+specialized tail-recursive loop threading the state uniquely
+(confirmed in the generated C), so the verified fold was never the
+holder.  The copies all came from `checkMain`'s *diagnostic second
+pass* (error branch only — and every current big Mathlib stream ends
+in a decline): its `for d in decls2` loop's boxed state tuple kept
+the re-parsed arena shared (RC 2) into every step, so each
+declaration's first arena mutation copied the whole node/hash tables
+— the `lean_copy_expand_array`/`lean_del_core` tower in the scoping
+perf samples, and a copy cost that grows with the arena, which is why
+small streams never showed it.  Fix: `diagLoop`, explicit recursion
+with the accumulators as plain arguments (exactly the
+`progressLoop`/`parseExportStream` pattern; that trio now covers
+every driver loop).  Copies drop to 0.  `checkDeclsSP` itself is
+untouched — `checkDeclsSP_sound` and both `no_proof_of_Empty`
+statements *and proofs* unchanged.
+
+**3. `--pre`: skip preprocessing on already-preprocessed input.**
+Preprocessed streams still contain `inductive` records (modeled
+blocks are stored opaque), so `needsPreprocess` re-detects them and
+re-spawns lean-inductive-models — ~12 wasted minutes on full Mathlib.
+`--pre` is an explicit user assertion that the input is already
+lean-inductive-models output: `checkMain` skips the detection scan
+and the spawn entirely.  Deliberately *not* content sniffing (no
+`_model`-name detection — barred by the names-not-special ruling);
+the upstream already-preprocessed marker remains task #91.  `--help`
+added; the e2e runner gains a `pre` mode (`std_axioms` under `--pre`
+must *decline* at the raw `Iff` block — the verdict flip from its
+plain line proves the spawn really was skipped; `direct_struct_raw`
+under `--pre` direct-installs to the same verdict as its `raw` line).
+
+**Measured** (prefix-log2 slice of Mathlib, 50 783 declaration
+records, 283 MB preprocessed, `--pre`, same machine; both verdicts
+exit 2 at the known `Lean.PrefixTreeNode.rec_3` iota-statement
+frontier):
+
+* pre-fix binary (master 6e29d67), plain mode: killed unfinished at
+  the 40 min cap (scoping evidence: >1 h) — the second pass's
+  per-declaration whole-arena copy strike
+* post-fix, plain mode: **3 m 29 s** wall (205 s user, 4.1 GB RSS),
+  including the diagnostic second pass, which now also *locates* the
+  failing record ("[at inductive Lean.PrefixTreeNode]")
+* post-fix, progress mode: 1 m 56 s (114 s user) — plain ≈ 1.9×
+  progress, exactly the two passes an error stream costs
+* full Mathlib (5.8 GB, 727 k records) at the **default stack**,
+  `--pre`, progress: parses, passes `wfB`, and checks 29 660
+  declarations to the known `Lean.PrefixTreeNode.rec_3` frontier
+  decline in ~11 min (previously: stack overflow at end of parse;
+  22 min with the 16 GiB-stack workaround plus ~7.5 min
+  re-preprocessing)
+
+### Raw storage stage 4a: `norm`, and the twin relation (2026-08-24, task #100)
+
+Storage flips to the **parsed trees, untouched** — install stays pure
+parse + intern (orchestrator ruling, option (iii) on the stage-3
+finding).  The annotation pass is not skeleton-preserving, so the twin
+relation generalizes from "erase the annotations" to
+
+  `erase(ê) = norm(e)`
+
+with `norm` (`Setlec/Model/Norm.lean`) a **pure proof-side**
+normalization performing exactly the annotation pass's two
+skeleton-changing clauses and nothing else:
+
+* **zeta** — `annotateBody`'s `letE` clause annotates the body as its
+  zeta reduct (value transparency; the `letE`-preserving variant is
+  recorded as rejected in the task-#79 section).  `norm`'s `letE`
+  clause is that expansion, so `norm`'s output is let-free and the
+  model machinery keeps working in its let-free regime while the
+  kernel keeps its lazy zeta.
+* **projection rewrite** — the `proj` clause either keeps the node
+  (with the structure name normalized to the scrutinee type's head) or
+  rewrites it away (`annotateProjElim`).  This one is *not* a function
+  of the expression — it reads the projection table and the whnf of an
+  inferred type — so it enters `norm` as an **oracle**, exactly as
+  binder annotations enter `decorate`.  Its agreement with the
+  annotation pass is a hypothesis, discharged at the flip.
+
+Fuel is the measure, as for `annotateCore` and for the same reason
+(zeta expansion is not size-decreasing); every statement is at an
+arbitrary fixed fuel, so no fuel bookkeeping leaks into the flip.
+
+**The congruence layer, and what it buys.**  `norm_id` /
+`norm_keep_id`: on a let-free tree whose projection nodes the oracle
+keeps, `norm` is the identity — at *every* fuel.  That is the precise
+form of "init-prelude-style streams are unaffected by the flip", and
+with `Expr.TwinAt_keep` it collapses the twin relation to plain shallow
+erasure on such streams.  `eraseCodS_norm`: `norm` commutes with the
+shallow erasure (both leave `fvar` annotations alone, which is what
+makes them commute on the nose), so the composite the raw model is
+instantiated at is unambiguous.  `Expr.eraseCodS_instantiate1` extends
+stage 3's shallow-erasure kit to arbitrary substitutions, which the
+zeta clause needs.
+
+**The value-transparency bridge is not new work.**  `interp_zeta_step`
+and `AnnotOk_zeta_step` — one zeta step preserves the interpretation
+and transports annotation truthfulness — are `interp_beta` and
+`AnnotOk_beta`, the substitution lemmas task #79 already built for the
+`whnfCore` zeta case, packaged at the `letE` clause.  They are the
+seam where the kernel's lazy zeta and `norm`'s eager expansion meet.
+
+**The raw model's parameter is now a relation.**  `RawEnvModelE V Twin
+env` takes `Twin : Env → Env → Prop`, because the end state needs a map
+on *each* side.  Three instantiations, one per stage:
+`fun a e => a = e` (transitional), `fun a e => a.eraseCod = e`
+(stage 3), and `Env.TwinAt O f` = `fun a e => a.eraseCodS = Env.norm O f e`
+(the end state, `RawEnvModelN`).  `norm` and `eraseCodS` are lifted
+through `ConstantVal`/`RecRule`/`RecRuleFire`/`ProjEntry`/`ConstantInfo`
+to environments alongside `Env.eraseCod`.
+
+**Handoff — what stage 4 still needs.**
+
+* (b) *storage flip*: the kernel stores parse output; the guards and
+  defeq move to the memoized `codOf` / raw forms.  Nothing in the model
+  layer blocks this; `natLitSupportedRaw`/`strLitSupportedRaw` (stage 1)
+  are the raw guard forms, and `codOfI` (stage 2) is the memo.
+* (c) *ghost-run bisimulation*: raw run ≡ ghost run on the **canonical**
+  twin, decisions aligned via memoized `codOf` against stored cods.
+  The spike's warning stands: claims over arbitrary truthful twins are
+  FALSE — canonical twins only.  `decorate_eq` (stage 3) is what makes
+  "canonical" a definition rather than a choice: the twin is the unique
+  tree the memo reconstructs.
+* (d) *instantiation*: `RawEnvModelN` exists; what remains is
+  re-proving `extend_model_raw` &co. at `Env.TwinAt` instead of plain
+  erasure.  The certificate transfers need `norm` congruences for
+  `hasFvar`/`looseBVarsBounded`/`constsResolve` (the erasure ones are
+  stage 1); `norm` preserves none of them unconditionally — zeta
+  expansion duplicates the value — so these are per-predicate lemmas
+  with the substitution facts, not one-liners.  That is the first thing
+  to write.
+
+#### Finding: `norm`'s zeta needs the *lifting* substitution (2026-08-24)
+
+The stage-4a `norm` used `Expr.instantiate1` for its zeta clause, by
+analogy with `annotateBody`.  That is wrong for `norm`, and the reason
+is instructive: `annotate` **opens** each binder into an `fvar` before
+descending, so by the time its `letE` clause fires the term is
+`bvar`-closed and the let value has no loose `bvar`s — the regime
+`instantiate1` requires (it inserts the replacement *unshifted* at every
+cursor depth).  `norm` recurses under binders *structurally*, without
+opening, so its let values are open terms and `instantiate1` captures.
+
+The discriminating case is a `let` under a binder whose value mentions
+that binder, used under a further binder:
+
+  `∀ y, let x := y; ∀ z, x`   must give   `∀ y, ∀ z, y`
+
+— `bvar 1` under the inner binder.  Plain `instantiate1` inserts the
+value unshifted and yields `∀ y, ∀ z, z`.  It is now a regression test.
+
+The fix needs no new machinery: `Expr.instantiate1Lift` already exists
+for exactly this situation (its docstring in
+`Setlec/Kernel/ExprOps.lean` calls out "let-values are open terms"), and
+`instantiate1Lift_eq_instantiate1` says the two agree on `bvar`-closed
+replacements — so `norm_letE_closed` recovers the kernel's own form in
+the kernel's own regime, which is the equation the flip will use.
+`Expr.eraseCodS_liftLooseBVars` and `Expr.eraseCodS_instantiate1Lift`
+extend the shallow-erasure kit to match.
+
+The general lesson for the rest of task #100: a proof-side pass that
+mirrors a kernel pass **must state which binder discipline it is in**.
+The kernel is always in the opened regime; a structural proof-side
+mirror is not, and every substitution it performs has to be the lifting
+one.
+
+#### Stage 4d groundwork: the `norm` congruences (2026-08-24)
+
+The three install-time certificates the `extend_*_raw` lemmas consume
+now transfer through `norm`, which is what gates re-proving those
+lemmas at `Env.TwinAt` instead of plain erasure:
+
+* `Expr.norm_hasFvar` — `norm` opens no binder, so it introduces no
+  free variables and `fvar`-freeness is genuinely preserved;
+* `Expr.norm_looseBVarsBounded` — the bound survives zeta;
+* `Expr.norm_constsResolve` — constant resolution survives zeta.
+
+Unlike stage 1's *erasure* congruences these are not invariances:
+`norm` duplicates the let value, so each rests on the substitution fact
+for the **lifting** substitution, and each of those in turn needs a
+lifting lemma underneath (`instantiate1Lift` shifts what it inserts).
+The five supporting facts —
+`looseBVarsBounded_liftLooseBVars`, `constsResolve_liftLooseBVars`,
+`hasFvar_lift`, and then `hasFvar_instantiate1Lift`,
+`looseBVarsBounded_instantiate1Lift`, `constsResolve_instantiate1Lift`
+— are proved here rather than in `Setlec/Verify/*` because they are
+about the *proof-side* pass; if the kernel ever needs them they should
+move.
+
+Each congruence carries an **oracle hypothesis**: the projection
+rewrite emits a term built from the environment, so only the annotation
+pass knows it is well-formed.  That hypothesis is the same shape as
+`CodAgree`'s — discharged at the flip from what the annotation pass
+established, not proved here.
+
+The interesting shape of `looseBVarsBounded_instantiate1Lift` is that
+the bound moves: substituting a `k`-bounded value for the binder at
+cursor `j` turns a `(k+1+j)`-bounded body into a `(k+j)`-bounded one.
+That is the statement zeta needs at *every* binder depth, and it is why
+the plain `looseBVarsBounded_instantiate1_gen` (stated at cursor `k`
+with a `bvar`-closed replacement) does not serve a structural pass.
+
+#### Handoff: the storage flip (task #100 stage 4b), call site by call site
+
+The flip is far more surgical than the model-side work suggested.  In
+the parsed-index driver (`Setlec/Kernel/CheckerS.lean`) every install
+follows one shape:
+
+```
+  let jty ← (coreKnotI fe checkFuel).annotate 0 cv.type   -- working index
+  …post-annotate guards on jty…
+  let tyE ← readbackEM jty                                -- what gets STORED
+  pure (⟨cv.name, cv.levelParams, tyE⟩, jty)
+```
+
+and for values (`checkDefnValP`, `checkThmValP`, `checkOpaqueValP`)
+likewise `let vE ← readbackEM jv` … `fe.push (.defnInfo cvA vE hint)`.
+
+So **storage is exactly the `readbackEM` argument**: the flip is
+`readbackEM jty → readbackEM cv.type` and `readbackEM jv →
+readbackEM value` — read back the *parsed* index instead of the
+annotated one.  The annotated index stays as the working index; the
+checks, `opSIx`, the defeq against `jty`, and the post-annotate guards
+(`allLevelParamsDefinedI`, `constsResolveFI` on `jty`) are all
+unchanged, because they are about the tree that was *checked*, not the
+tree that is *stored*.  Sites: `CheckerS.lean:1334` (types),
+`:1355`/`:1379` (defn/thm values), `:1447` (the direct-structure path),
+and the inductive/recursor/projection installs alongside them.
+
+Two decisions the flip has to make, neither settled here:
+
+1. **`recordIConst cvA.name cvA.type jty (some (vE, jv))`** — the
+   interned environment pairs a stored `Expr` tag with an arena index,
+   and its `ISOK.ienv` clause says the index denotes the tag.  After the
+   flip the stored `Expr` is raw while the index is annotated, so either
+   the tag becomes the raw tree and the clause becomes "denotes the
+   twin's erasure-normalization", or the entry carries both.  The
+   second is cheaper for the bisimulation and costs one field.
+2. **Guard retargeting** — `natLitSupportedF`/`strLitSupportedF` read
+   the stored environment, so after the flip they must become the raw
+   forms (`natLitSupportedRaw`/`strLitSupportedRaw`, stage 1, with
+   `natLitSupportedRaw_erase` already proving the annotated guard implies
+   them).  Everything else that reads storage goes through `FEnv`, so
+   the sweep is "what does `mkFEnv`'s consumer inspect".
+
+Leave `st.wfB` (`CheckerS.lean:1499`, `Main.lean:181`,
+`CheckerNC.lean:434`) exactly as it is — the valid-by-construction
+subtype arena is task #103 and comes after #100 settles.
+
+For (c), the ghost-run bisimulation: anchor on `decorate_eq`.  It makes
+"canonical twin" a *definition* rather than a choice — the twin is the
+unique tree the memo reconstructs — which is what the spike's warning
+demands (claims quantified over arbitrary truthful twins are false).
+The raw run and the ghost run share the arena and the memos; the
+decisions to align are exactly the ones that read a binder annotation
+(`inferType`'s λ/∀ clauses, `isDefEq`'s binder comparison), and each
+reads `codOf` on the raw side against the stored `cod` on the ghost
+side.
