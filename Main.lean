@@ -180,37 +180,13 @@ def checkMain (file : String) (yolo : Bool) (pre : Bool) : IO UInt32 := do
     -- UNVERIFIED: the consistency statements cover only the default
     -- drivers below.
     let noCerts := yolo || (← IO.getEnv "SETLEC_NO_PROOF_CERTS") == some "1"
-    -- Measurement mode (task #64): SETLEC_TIER_BRACKET selects the
-    -- bracketed drivers — the def/thm/opaque check phases run with
-    -- tier two enabled, so their reduction temporaries are released
-    -- per declaration.  `1` = fork-discard (snapshot state, RC death
-    -- is the truncation), `2` = in-place (linear state,
-    -- enable/truncate + memo flush at the seam).  UNVERIFIED: the
-    -- consistency statements cover only the default drivers.
-    let bracketMode ← IO.getEnv "SETLEC_TIER_BRACKET"
-    let br : Option (Setlec.CheckIM Unit → Setlec.CheckIM Unit) :=
-      match bracketMode with
-      | some "1" => some bracketCheckS
-      | some "2" => some bracketCheckS2
-      | _ => none
-    let stepF := match noCerts, bracketMode, br with
-      | true, some "3", _ => checkDeclSPStepNCB3
-      | true, some "4", _ => checkDeclSPStepNCB4
-      | true, _, some br => checkDeclSPStepNCB br
-      | true, _, none => checkDeclSPStepNC
-      | false, some "3", _ => checkDeclSPStepB3
-      | false, some "4", _ => checkDeclSPStepB4
-      | false, _, some br => checkDeclSPStepB br
-      | false, _, none => checkDeclSPStep
-    let foldF := match noCerts, bracketMode, br with
-      | true, some "3", _ => checkDeclsSPNCB3
-      | true, some "4", _ => checkDeclsSPNCB4
-      | true, _, some br => checkDeclsSPNCB br
-      | true, _, none => checkDeclsSPNC
-      | false, some "3", _ => checkDeclsSPB3
-      | false, some "4", _ => checkDeclsSPB4
-      | false, _, some br => checkDeclsSPB br
-      | false, _, none => checkDeclsSP
+    -- Task #64: the per-declaration tier-two snapshot bracket IS the
+    -- default value pipeline (checkDeclsSP); the former
+    -- SETLEC_TIER_BRACKET measurement knob is retired — its modes and
+    -- their measurements are recorded in DESIGN.md (reproducible at
+    -- the pre-flip commit 2794be4).
+    let stepF := if noCerts then checkDeclSPStepNC else checkDeclSPStep
+    let foldF := if noCerts then checkDeclsSPNC else checkDeclsSP
     -- Streaming frontend (task #57): the preprocessor writes to a temp
     -- file and the parse reads line by line — no wholesale text buffer
     -- in this process; retained memory is the parse arena plus the

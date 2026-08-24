@@ -473,15 +473,16 @@ theorem checkOpaqueValP_sim (henv : EnvWF env) {cvA : ConstantVal}
 
 /-! ## The parsed declaration -/
 
-/-- The non-inductive branches of `checkDeclSP` simulate the generic
-`checkDecl` at the fueled families on the denoted declaration. -/
-theorem checkDeclSP_sim (henv : EnvWF env) (hs : ISOK env s₀)
+/-- The non-inductive branches of the unbracketed dispatcher
+`checkDeclSPPlain` simulate the generic `checkDecl` at the fueled
+families on the denoted declaration. -/
+theorem checkDeclSPPlain_sim (henv : EnvWF env) (hs : ISOK env s₀)
     (hoff : s₀.store.tierTwo = false)
     {pd : DeclP} {d : Declaration}
     (hden : denoteDeclP s₀.store pd = some d)
     (hnotind : ∀ block, pd ≠ .indDecl block) :
     SimAt env s₀ (fun _ v w => v.env = w ∧ v = mkFEnv v.env)
-      (checkDeclSP (mkFEnv env) pd)
+      (checkDeclSPPlain (mkFEnv env) pd)
       (checkDecl fueledOpsM env d) := by
   cases pd with
   | indDecl block => exact absurd rfl (hnotind block)
@@ -524,7 +525,7 @@ theorem checkDeclSP_sim (henv : EnvWF env) (hs : ISOK env s₀)
     obtain ⟨cv0, ⟨tyE, htyE, rfl⟩, rfl⟩ := hden
     show SimAt env s₀ _ _ (checkDecl fueledOpsM env
       (.axiomDecl ⟨cvp.name, cvp.levelParams, tyE⟩))
-    unfold checkDeclSP checkDecl
+    unfold checkDeclSPPlain checkDecl
     dsimp only
     refine SimAt.bind (checkConstantValP_sim henv hs hoff htyE)
       (fun s₁ pr cvA hs₁ hext₁ hP => ?_)
@@ -578,7 +579,7 @@ theorem checkDeclSP_sim (henv : EnvWF env) (hs : ISOK env s₀)
     simp only [denoteDeclP, denoteCVP, Option.bind_eq_some_iff,
       Option.map_eq_some_iff] at hden
     obtain ⟨cv0, ⟨tyE, htyE, rfl⟩, ve, hve, rfl⟩ := hden
-    unfold checkDeclSP checkDecl
+    unfold checkDeclSPPlain checkDecl
     dsimp only
     refine SimAt.bind (checkConstantValP_sim henv hs hoff htyE)
       (fun s₁ pr cvA hs₁ hext₁ hP => ?_)
@@ -591,7 +592,7 @@ theorem checkDeclSP_sim (henv : EnvWF env) (hs : ISOK env s₀)
     simp only [denoteDeclP, denoteCVP, Option.bind_eq_some_iff,
       Option.map_eq_some_iff] at hden
     obtain ⟨cv0, ⟨tyE, htyE, rfl⟩, ve, hve, rfl⟩ := hden
-    unfold checkDeclSP checkDecl
+    unfold checkDeclSPPlain checkDecl
     dsimp only
     refine SimAt.bind (checkConstantValP_sim henv hs hoff htyE)
       (fun s₁ pr cvA hs₁ hext₁ hP => ?_)
@@ -623,7 +624,7 @@ theorem checkDeclSP_sim (henv : EnvWF env) (hs : ISOK env s₀)
     simp only [denoteDeclP, denoteCVP, Option.bind_eq_some_iff,
       Option.map_eq_some_iff] at hden
     obtain ⟨cv0, ⟨tyE, htyE, rfl⟩, ve, hve, rfl⟩ := hden
-    unfold checkDeclSP checkDecl
+    unfold checkDeclSPPlain checkDecl
     dsimp only
     refine SimAt.bind (checkConstantValP_sim henv hs hoff htyE)
       (fun s₁ pr cvA hs₁ hext₁ hP => ?_)
