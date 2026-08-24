@@ -5244,3 +5244,88 @@ an extension of the raw environment it erases to, given that the
 installed records erase to what is stored.  Each sibling is that
 combinator applied to the `extend_*` lemma the path already uses; no
 signature needs restating.
+## Mathlib-scoping driver fixes: wfB stack, diagnostic-pass linearity, --pre (2026-08-24)
+
+Scoping the full Mathlib stream (727 k declaration records, ~5.8 GB
+preprocessed) surfaced three driver-level defects; none touches a
+verified statement.
+
+**1. Store validation overflowed the stack at end of parse.**  The
+full stream crashed "Stack overflow detected" (exit 134) right after
+parsing at any default-sized stack; `LEAN_STACK_SIZE_KB=16777216`
+(16 GiB) was needed to get past it.  Site (gdb on a synthetic
+~150 k-node `spine` stream at `LEAN_STACK_SIZE_KB=8192`): 66 520
+recursive frames of `EStore.wfBNodes` under `wfB` — the downward
+shape `wfBNodes st (k+1) = wfBNodes st k && per-node k` recurses
+*before* the conjunction, one C frame (~126 bytes) per **arena
+node**; at Mathlib's arena size that is on the order of 10 GB of
+stack.  Fix: the per-node check is factored out (`wfBNode1`, likewise
+`wfBLNode1`/`wfBNNode1`) and folded by a tail-recursive upward walk
+(`wfBNodesGo st i (m+1) = wfBNode1 st i && wfBNodesGo st (i+1) m` —
+with `&&` the recursive call is in tail position, so the compiled
+loop is constant-stack; verified by rerunning the repro at reduced
+stack, and the full Mathlib parse passes `wfB` into checking at the
+default stack).  `Setlec/Verify/ParseP.lean` gains one generic
+extraction lemma (`wfBGo_one`); the `wfB*_facts` statements and
+`wfB_wf` are unchanged.  Remaining deep recursions are proportional
+to *expression depth* or *definitional-chain length* (inherent
+checker walks; the scale shapes trip them only at artificially tiny
+stacks), never to arena size.
+
+**2. The RC-2 holder behind "non-progress is >20× slower" was the
+diagnostic second pass, not the verified fold.**  A linearity audit
+(throwaway `dbgTraceIfShared` probes at `EStore.intern`/`internL` and
+`FEnv.push`, diag/linearity pattern) on an 800 k-line Mathlib prefix
+(1663 declarations, then a decline): progress mode 0 arena copies;
+plain mode 1259 `nodes@intern` + 1259 `cons@intern` + 623
+`lnodes@internL` copies — but on a stream that *accepts*, plain mode
+also shows 0.  `checkDeclsSP`'s `List.foldlM` is compiled as a
+specialized tail-recursive loop threading the state uniquely
+(confirmed in the generated C), so the verified fold was never the
+holder.  The copies all came from `checkMain`'s *diagnostic second
+pass* (error branch only — and every current big Mathlib stream ends
+in a decline): its `for d in decls2` loop's boxed state tuple kept
+the re-parsed arena shared (RC 2) into every step, so each
+declaration's first arena mutation copied the whole node/hash tables
+— the `lean_copy_expand_array`/`lean_del_core` tower in the scoping
+perf samples, and a copy cost that grows with the arena, which is why
+small streams never showed it.  Fix: `diagLoop`, explicit recursion
+with the accumulators as plain arguments (exactly the
+`progressLoop`/`parseExportStream` pattern; that trio now covers
+every driver loop).  Copies drop to 0.  `checkDeclsSP` itself is
+untouched — `checkDeclsSP_sound` and both `no_proof_of_Empty`
+statements *and proofs* unchanged.
+
+**3. `--pre`: skip preprocessing on already-preprocessed input.**
+Preprocessed streams still contain `inductive` records (modeled
+blocks are stored opaque), so `needsPreprocess` re-detects them and
+re-spawns lean-inductive-models — ~12 wasted minutes on full Mathlib.
+`--pre` is an explicit user assertion that the input is already
+lean-inductive-models output: `checkMain` skips the detection scan
+and the spawn entirely.  Deliberately *not* content sniffing (no
+`_model`-name detection — barred by the names-not-special ruling);
+the upstream already-preprocessed marker remains task #91.  `--help`
+added; the e2e runner gains a `pre` mode (`std_axioms` under `--pre`
+must *decline* at the raw `Iff` block — the verdict flip from its
+plain line proves the spawn really was skipped; `direct_struct_raw`
+under `--pre` direct-installs to the same verdict as its `raw` line).
+
+**Measured** (prefix-log2 slice of Mathlib, 50 783 declaration
+records, 283 MB preprocessed, `--pre`, same machine; both verdicts
+exit 2 at the known `Lean.PrefixTreeNode.rec_3` iota-statement
+frontier):
+
+* pre-fix binary (master 6e29d67), plain mode: killed unfinished at
+  the 40 min cap (scoping evidence: >1 h) — the second pass's
+  per-declaration whole-arena copy strike
+* post-fix, plain mode: **3 m 29 s** wall (205 s user, 4.1 GB RSS),
+  including the diagnostic second pass, which now also *locates* the
+  failing record ("[at inductive Lean.PrefixTreeNode]")
+* post-fix, progress mode: 1 m 56 s (114 s user) — plain ≈ 1.9×
+  progress, exactly the two passes an error stream costs
+* full Mathlib (5.8 GB, 727 k records) at the **default stack**,
+  `--pre`, progress: parses, passes `wfB`, and checks 29 660
+  declarations to the known `Lean.PrefixTreeNode.rec_3` frontier
+  decline in ~11 min (previously: stack overflow at end of parse;
+  22 min with the 16 GiB-stack workaround plus ~7.5 min
+  re-preprocessing)
