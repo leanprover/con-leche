@@ -1,4 +1,5 @@
 import Setlec.Model.TypeChecker
+import Setlec.Model.Annotate
 import Setlec.Model.IotaWalk
 import Setlec.Model.RuleFold
 
@@ -1086,19 +1087,16 @@ theorem ctor_pkg_nested {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat)
     {ψ : Name → Nat} {tyA : Expr} {rP cnF : Nat} {cty : Expr}
     {fvsP : List Expr} {restP : Expr} {cdomsP : List Expr}
     {crestP : Expr} {xFvsP : List Expr}
-    {pins : List Expr} {Dn : Name} {lvls : List Level}
-    {preM : List (Name × Expr × BinderMeta)}
-    {nmM : Name} {domM bodyM : Expr} {bmM : BinderMeta}
+    {pins : List Expr}
     (hopenP : openPisAtFvars rP tyA 0 = some (fvsP, restP))
     (htyw : tyA.hasFvar = false)
     (htyb : tyA.looseBVarsBounded 0 = true)
     (hAty : AnnotOk V m₀.val env₀ ψ 0 (rho0 V) tyA)
     (hIty : ∃ T, interpClosed V m₀.val env₀ ψ tyA = some T)
-    (hstripM : tyA.stripPis rP = some (preM, .forallE nmM domM bodyM bmM))
-    (hdomFn : domM.getAppFn = .const Dn lvls)
-    (hdomArgs : domM.getAppArgs = pins)
     (hpinsW : ∀ p ∈ pins, p.hasFvar = false ∧
       p.looseBVarsBounded rP = true)
+    (hannP : AnnotListOk F env₀ (rP + cnF)
+      (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p)))
     (hcinstN : Expr.instPisAt
       (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p)) cty =
       some (cdomsP, crestP))
@@ -1192,58 +1190,6 @@ theorem ctor_pkg_nested {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat)
   obtain ⟨hfitP, hΘP⟩ := self_walk hfvsPInst hspP hwsP hWty htyb
     (Expr.LeavesBounded.of_not_hasFvar htyw)
     (FvarsOk.of_not_hasFvar htyw) hAty' hmemP
-  obtain ⟨-, hPrestEx⟩ := peel_walk hfvsPInst hspP hwsP hWty hAty'
-    hIty' hmemP
-  obtain ⟨Prest, hPrest⟩ := hPrestEx
-  obtain ⟨hWrest, hbrest, hArest, hlrest⟩ :=
-    TeleFitI.rest_wf hfitP hWty htyb hAty'
-  have hFrest : FvarsOk V m₀.val env₀ ψ (rP + cnF)
-      (fun i => xs.getD i SetTheory.empty) restP := by
-    intro l hl
-    rcases hlrest l hl with hl' | ⟨a, ha, hla⟩
-    · rw [fvarLeaves_eq_nil_of_not_hasFvar htyw] at hl'
-      cases hl'
-    · exact hΘP a ha l hla
-  have hLrest : Expr.LeavesBounded restP := by
-    intro l hl
-    rcases hlrest l hl with hl' | ⟨a, ha, hla⟩
-    · rw [fvarLeaves_eq_nil_of_not_hasFvar htyw] at hl'
-      cases hl'
-    · exact (hfvsPWf a ha).2.2 l hla
-  -- the major premise's domain, instantiated at the prefix
-  have hrestEq : restP = .forallE nmM
-      (instSeq fvsP (rP - 1) domM)
-      (instSeq fvsP (rP - 1 + 1) bodyM) bmM := by
-    obtain ⟨h1, -⟩ := instPisAt_stripPis fvsP hfvsPInst
-      (by rw [hfvsPLen]; exact hstripM)
-    rw [h1, hfvsPLen, instSeq_forallE fvsP (rP - 1) nmM domM bodyM bmM
-      (by rw [hfvsPLen]; omega)]
-  -- the instantiated parameter spine and its typing packages
-  have hdomEq : instSeq fvsP (rP - 1) domM =
-      Expr.mkAppN (.const Dn lvls)
-        (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p)) := by
-    conv => lhs; rw [show domM = Expr.mkAppN domM.getAppFn
-      domM.getAppArgs from (Expr.mkAppN_getApp domM).symm]
-    rw [hdomFn, hdomArgs, Expr.instSeq_mkAppN,
-      Expr.instSeq_eq_self _ _ (by rfl)]
-    congr 1
-    refine List.map_congr_left ?_
-    intro p hp
-    rw [Expr.instSpine_eq_instSeq]
-  rw [hrestEq] at hArest hPrest hWrest hbrest hFrest hLrest
-  have hAdomI : AnnotOk V m₀.val env₀ ψ (rP + cnF)
-      (fun i => xs.getD i SetTheory.empty)
-      (instSeq fvsP (rP - 1) domM) := by
-    have h := hArest
-    simp only [AnnotOk] at h
-    exact h.1
-  have hFdomI : FvarsOk V m₀.val env₀ ψ (rP + cnF)
-      (fun i => xs.getD i SetTheory.empty)
-      (instSeq fvsP (rP - 1) domM) :=
-    FvarsOk.of_subset (fun l hl => by
-      simp only [fvarLeaves, List.mem_append]; exact Or.inl hl) hFrest
-  have hLdomI : Expr.LeavesBounded (instSeq fvsP (rP - 1) domM) :=
-    LeavesBounded.of_forallE_ty hLrest
   -- per-argument facts of the instantiated parameters
   have hcargW : ∀ a ∈ pins.map (fun p => Expr.instSpine fvsP (rP - 1) p),
       WScoped (rP + cnF) a := by
@@ -1274,35 +1220,29 @@ theorem ctor_pkg_nested {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat)
     · exact Expr.LeavesBounded.of_not_hasFvar (hpinsW p hp).1
     · intro x hx
       exact (hfvsPWf x hx).2.2
+  -- the instantiated pins' leaves are prefix variables, so their
+  -- free-variable facts are the frame's
   have hcargF : ∀ a ∈ pins.map (fun p => Expr.instSpine fvsP (rP - 1) p),
       FvarsOk V m₀.val env₀ ψ (rP + cnF)
         (fun i => xs.getD i SetTheory.empty) a := by
     intro a ha
-    refine FvarsOk.of_subset (fun l hl => ?_) hFdomI
-    rw [hdomEq]
-    refine fvarLeaves_getAppArgs ?_ l hl
-    rw [Expr.getAppArgs_mkAppN,
-      show (Expr.const Dn lvls).getAppArgs = [] from rfl,
-      List.nil_append]
-    exact ha
+    obtain ⟨p, hp, rfl⟩ := List.mem_map.mp ha
+    intro l hl
+    rw [Expr.instSpine_eq_instSeq] at hl
+    rcases fvarLeaves_instSeq _ _ hl with hl' | ⟨x, hx, hlx⟩
+    · rw [fvarLeaves_eq_nil_of_not_hasFvar (hpinsW p hp).1] at hl'
+      cases hl'
+    · exact hΘP x hx l hlx
+  -- annotation truthfulness comes from the annotate-idempotence
+  -- certificate (`checkAnnotList`) — with index premises between the
+  -- prefix and the major it is not derivable from the recursor-type
+  -- walk
   have hcargA : ∀ a ∈ pins.map (fun p => Expr.instSpine fvsP (rP - 1) p),
       AnnotOk V m₀.val env₀ ψ (rP + cnF)
         (fun i => xs.getD i SetTheory.empty) a := by
     intro a ha
-    have hne : pins.map (fun p => Expr.instSpine fvsP (rP - 1) p) ≠
-        [] := by
-      intro h0
-      rw [h0] at ha
-      exact nomatch ha
-    have hAdom' : AnnotOk V m₀.val env₀ ψ (rP + cnF)
-        (fun i => xs.getD i SetTheory.empty)
-        (Expr.mkAppN (.const Dn lvls)
-          (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p))) := by
-      rw [← hdomEq]
-      exact hAdomI
-    obtain ⟨-, hargsA, -⟩ := annotOk_spine_inv _ (.const Dn lvls) hne
-      hAdom'
-    exact hargsA a ha
+    exact annotateCore_sound m₀ F a (hannP a ha) (hcargW a ha)
+      (hcargB a ha) (hcargL a ha) _ (hcargF a ha)
   -- walk the level-instantiated constructor type at the pins
   have hWct : WScoped (rP + cnF) cty := WScoped.of_not_hasFvar hCtw
   have hACt' : AnnotOk V m₀.val env₀ ψ (rP + cnF)
@@ -3165,14 +3105,10 @@ theorem modeled_bottom_nested
       AnnotOk V m₀.val env₀ ψ'' 0 (rho0 V) cvt.type)
     (hSw : cvt.type.hasFvar = false)
     (hSb : cvt.type.looseBVarsBounded 0 = true)
-    -- the stored instantiations and the member type's major shape
-    {lvls : List Level} {pins : List Expr} {Dn : Name}
-    {preM : List (Name × Expr × BinderMeta)}
-    {nmM : Name} {domM bodyM : Expr} {bmM : BinderMeta}
-    (hmIrP : mI = rP)
-    (hstripM : tyA.stripPis rP = some (preM, .forallE nmM domM bodyM bmM))
-    (hdomFn : domM.getAppFn = .const Dn lvls)
-    (hdomArgs : domM.getAppArgs = pins)
+    -- the stored instantiations and the member type's shape
+    {lvls : List Level} {pins : List Expr}
+    (hrPmI : rP ≤ mI)
+    (htyStrip : (tyA.stripPis mI).isSome = true)
     (hpinsW : ∀ p ∈ pins, p.hasFvar = false ∧
       p.looseBVarsBounded rP = true)
     (hpinsLen : pins.length = cnP)
@@ -3191,7 +3127,9 @@ theorem modeled_bottom_nested
       (Expr.mkAppN (.const (f ctor) lvls)
         (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
           (p.renameConsts f)) ++ fvs.drop rP)))
-    (hCstripSome : (cvj.type.stripPis (cnP + cnF)).isSome = true)
+    (hCresHead : ∃ bsC0 cbody0 Dc usc,
+      cvj.type.stripPis (cnP + cnF) = some (bsC0, cbody0) ∧
+      cbody0.getAppFn = Expr.const Dc usc)
     (hCps : cvj.type.allLevelParamsDefined cvj.levelParams = true)
     (hcinst : Expr.instPisAt
       (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
@@ -3199,6 +3137,9 @@ theorem modeled_bottom_nested
       ((cvj.type.instantiateLevelParams cvj.levelParams
         lvls).renameConsts f) = some (cdoms, cres))
     (hclen : cres.getAppArgs.length = cnP + (mI - rP))
+    (hdeIdx : DefEqListOk F env₀ (rP + cnF)
+      ((lhsS.getAppArgs.drop rP).take (mI - rP))
+      (cres.getAppArgs.drop cnP))
     (hrinst : Expr.instPisAt (fvs.take rP)
       (tyA.renameConsts f) = some (rdoms, rrest))
     (hdePre : DefEqListOk F env₀ (rP + cnF)
@@ -3209,8 +3150,10 @@ theorem modeled_bottom_nested
     {rhsA : Expr} {fvsP : List Expr} {restP : Expr}
     {cdomsP : List Expr} {crestP : Expr} {xFvsP : List Expr}
     {crest2 : Expr} {ldoms : List Expr} {lrest : Expr}
-    (hcrest2Len : crest2.getAppArgs.length = cnP)
+    (hcrest2Len : crest2.getAppArgs.length = cnP + (mI - rP))
     (hopenP : openPisAtFvars rP tyA 0 = some (fvsP, restP))
+    (hannP : AnnotListOk F env₀ (rP + cnF)
+      (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p)))
     (hcinstN : Expr.instPisAt
       (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p))
       (cvj.type.instantiateLevelParams cvj.levelParams lvls) =
@@ -3355,58 +3298,6 @@ theorem modeled_bottom_nested
   obtain ⟨hfitP, hΘP⟩ := self_walk hfvsPInst hspP hwsP hWty htyb
     (Expr.LeavesBounded.of_not_hasFvar htyw)
     (FvarsOk.of_not_hasFvar htyw) hAty' hmemP
-  obtain ⟨-, hPrestEx⟩ := peel_walk hfvsPInst hspP hwsP hWty hAty'
-    hIty' hmemP
-  obtain ⟨Prest, hPrest⟩ := hPrestEx
-  obtain ⟨hWrest, hbrest, hArest, hlrest⟩ :=
-    TeleFitI.rest_wf hfitP hWty htyb hAty'
-  have hFrest : FvarsOk V m₀.val env₀ ψ (rP + cnF)
-      (fun i => xs.getD i SetTheory.empty) restP := by
-    intro l hl
-    rcases hlrest l hl with hl' | ⟨a, ha, hla⟩
-    · rw [fvarLeaves_eq_nil_of_not_hasFvar htyw] at hl'
-      cases hl'
-    · exact hΘP a ha l hla
-  have hLrest : Expr.LeavesBounded restP := by
-    intro l hl
-    rcases hlrest l hl with hl' | ⟨a, ha, hla⟩
-    · rw [fvarLeaves_eq_nil_of_not_hasFvar htyw] at hl'
-      cases hl'
-    · exact (hfvsPWf a ha).2.2 l hla
-  -- the major premise's domain, instantiated at the prefix
-  have hrestEq : restP = .forallE nmM
-      (instSeq fvsP (rP - 1) domM)
-      (instSeq fvsP (rP - 1 + 1) bodyM) bmM := by
-    obtain ⟨h1, -⟩ := instPisAt_stripPis fvsP hfvsPInst
-      (by rw [hfvsPLen]; exact hstripM)
-    rw [h1, hfvsPLen, instSeq_forallE fvsP (rP - 1) nmM domM bodyM bmM
-      (by rw [hfvsPLen]; omega)]
-  -- the instantiated parameter spine and its typing packages
-  have hdomEq : instSeq fvsP (rP - 1) domM =
-      Expr.mkAppN (.const Dn lvls)
-        (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p)) := by
-    conv => lhs; rw [show domM = Expr.mkAppN domM.getAppFn
-      domM.getAppArgs from (Expr.mkAppN_getApp domM).symm]
-    rw [hdomFn, hdomArgs, Expr.instSeq_mkAppN,
-      Expr.instSeq_eq_self _ _ (by rfl)]
-    congr 1
-    refine List.map_congr_left ?_
-    intro p hp
-    rw [Expr.instSpine_eq_instSeq]
-  rw [hrestEq] at hArest hPrest hWrest hbrest hFrest hLrest
-  have hAdomI : AnnotOk V m₀.val env₀ ψ (rP + cnF)
-      (fun i => xs.getD i SetTheory.empty)
-      (instSeq fvsP (rP - 1) domM) := by
-    have h := hArest
-    simp only [AnnotOk] at h
-    exact h.1
-  have hFdomI : FvarsOk V m₀.val env₀ ψ (rP + cnF)
-      (fun i => xs.getD i SetTheory.empty)
-      (instSeq fvsP (rP - 1) domM) :=
-    FvarsOk.of_subset (fun l hl => by
-      simp only [fvarLeaves, List.mem_append]; exact Or.inl hl) hFrest
-  have hLdomI : Expr.LeavesBounded (instSeq fvsP (rP - 1) domM) :=
-    LeavesBounded.of_forallE_ty hLrest
   -- per-argument facts of the instantiated parameters
   have hcargW : ∀ a ∈ pins.map (fun p => Expr.instSpine fvsP (rP - 1) p),
       WScoped (rP + cnF) a := by
@@ -3437,35 +3328,29 @@ theorem modeled_bottom_nested
     · exact Expr.LeavesBounded.of_not_hasFvar (hpinsW p hp).1
     · intro x hx
       exact (hfvsPWf x hx).2.2
+  -- the instantiated pins' leaves are prefix variables, so their
+  -- free-variable facts are the frame's
   have hcargF : ∀ a ∈ pins.map (fun p => Expr.instSpine fvsP (rP - 1) p),
       FvarsOk V m₀.val env₀ ψ (rP + cnF)
         (fun i => xs.getD i SetTheory.empty) a := by
     intro a ha
-    refine FvarsOk.of_subset (fun l hl => ?_) hFdomI
-    rw [hdomEq]
-    refine fvarLeaves_getAppArgs ?_ l hl
-    rw [Expr.getAppArgs_mkAppN,
-      show (Expr.const Dn lvls).getAppArgs = [] from rfl,
-      List.nil_append]
-    exact ha
+    obtain ⟨p, hp, rfl⟩ := List.mem_map.mp ha
+    intro l hl
+    rw [Expr.instSpine_eq_instSeq] at hl
+    rcases fvarLeaves_instSeq _ _ hl with hl' | ⟨x, hx, hlx⟩
+    · rw [fvarLeaves_eq_nil_of_not_hasFvar (hpinsW p hp).1] at hl'
+      cases hl'
+    · exact hΘP x hx l hlx
+  -- annotation truthfulness comes from the annotate-idempotence
+  -- certificate (`checkAnnotList`) — with index premises between the
+  -- prefix and the major it is not derivable from the recursor-type
+  -- walk
   have hcargA : ∀ a ∈ pins.map (fun p => Expr.instSpine fvsP (rP - 1) p),
       AnnotOk V m₀.val env₀ ψ (rP + cnF)
         (fun i => xs.getD i SetTheory.empty) a := by
     intro a ha
-    have hne : pins.map (fun p => Expr.instSpine fvsP (rP - 1) p) ≠
-        [] := by
-      intro h0
-      rw [h0] at ha
-      exact nomatch ha
-    have hAdom' : AnnotOk V m₀.val env₀ ψ (rP + cnF)
-        (fun i => xs.getD i SetTheory.empty)
-        (Expr.mkAppN (.const Dn lvls)
-          (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p))) := by
-      rw [← hdomEq]
-      exact hAdomI
-    obtain ⟨-, hargsA, -⟩ := annotOk_spine_inv _ (.const Dn lvls) hne
-      hAdom'
-    exact hargsA a ha
+    exact annotateCore_sound m₀ F a (hannP a ha) (hcargW a ha)
+      (hcargB a ha) (hcargL a ha) _ (hcargF a ha)
   -- walk the level-instantiated constructor type at the pins
   have hWct : WScoped (rP + cnF) cty := WScoped.of_not_hasFvar hCtw
   have hACt' : AnnotOk V m₀.val env₀ ψ (rP + cnF)
@@ -3620,9 +3505,6 @@ theorem modeled_bottom_nested
   have hspWdrop := FvarSpine.drop rP hspW
   have hfvsPreLen : (fvs.take rP).length = rP := by
     rw [List.length_take, hfvsLen]; omega
-  have htyStrip : (tyA.stripPis mI).isSome = true := by
-    rw [hmIrP, hstripM]
-    rfl
   -- ===== S1: the membership packs across the frames =====
   -- the theorem prefix: memberships in the renamed member type's
   -- instantiated parameter domains
@@ -3770,8 +3652,7 @@ theorem modeled_bottom_nested
       rfl
     · rw [hfvsPreLen, looseBVarsBounded_renameConsts]
       exact (hpinsW pin hpin).2
-  obtain ⟨⟨bsC, cbody0⟩, hCstripPair⟩ :=
-    Option.isSome_iff_exists.mp hCstripSome
+  obtain ⟨bsC, cbody0, Dc, usc, hCstripPair, hcbodyHead⟩ := hCresHead
   have hiaR : InstArgs m₀.val env₀ ψ (rP + cnF)
       (fun l => xs.getD l SetTheory.empty)
       (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
@@ -4308,14 +4189,239 @@ theorem modeled_bottom_nested
         (fun i => xs.getD i SetTheory.empty) e :=
     fun e he => FvarsOk.of_subset
       (fun l hl => fvarLeaves_getAppArgs he l hl) hFlhs
-  -- the index tuple is empty (nested rules are index-free)
+  -- the level-instantiated constructor body and both residuals'
+  -- argument spines (the residual head is a constant — the kernel's
+  -- head certificate — so both walks decompose argument-wise)
+  have hcbodyINF : cbodyI.hasFvar = false :=
+    stripPis_body_hasFvar _ hCstripI
+      (by rw [hasFvar_instantiateLevelParams]; exact hCw)
+  have hcbodyIBnd : cbodyI.looseBVarsBounded (cnP + cnF) = true := by
+    have h0 := stripPis_body_bounded _ hCstripI
+      (by rw [looseBVarsBounded_instantiateLevelParams]; exact hCb)
+    simpa using h0
+  have hcbody0Spine : cbody0 = Expr.mkAppN (.const Dc usc)
+      cbody0.getAppArgs := by
+    conv => lhs; rw [← Expr.mkAppN_getApp cbody0]
+    rw [hcbodyHead]
+  have hcbodyIHead : cbodyI = Expr.mkAppN
+      (.const Dc (usc.map (Level.subst cvj.levelParams lvls)))
+      (cbody0.getAppArgs.map
+        (fun e => e.instantiateLevelParams cvj.levelParams lvls)) := by
+    rw [hbodyIeq]
+    conv => lhs; rw [hcbody0Spine]
+    rw [instantiateLevelParams_mkAppN]
+    rfl
+  have hcbodyIArgs : cbodyI.getAppArgs = cbody0.getAppArgs.map
+      (fun e => e.instantiateLevelParams cvj.levelParams lvls) := by
+    rw [hcbodyIHead, Expr.getAppArgs_mkAppN]
+    simp [Expr.getAppArgs]
+  obtain ⟨hcresEq0, -⟩ := instPisAt_stripPis
+    (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
+      (p.renameConsts f)) ++ fvs.drop rP) hcinst
+    (by rw [hspineRLen]; exact hstripRenI)
+  have hcresEq' : cres = instSeq
+      (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
+        (p.renameConsts f)) ++ fvs.drop rP)
+      (cnP + cnF - 1) (cbodyI.renameConsts f) := by
+    rw [hcresEq0, hspineRLen]
+  have hcresArgs : cres.getAppArgs =
+      (cbody0.getAppArgs.map
+        (fun e => e.instantiateLevelParams cvj.levelParams lvls)).map
+      (fun e => instSeq
+        (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
+          (p.renameConsts f)) ++ fvs.drop rP)
+        (cnP + cnF - 1) (e.renameConsts f)) := by
+    rw [hcresEq',
+      show cbodyI.renameConsts f = Expr.mkAppN
+        (.const (f Dc) (usc.map (Level.subst cvj.levelParams lvls)))
+        ((cbody0.getAppArgs.map
+          (fun e => e.instantiateLevelParams cvj.levelParams lvls)).map
+          (fun e => e.renameConsts f)) from by
+        rw [hcbodyIHead, renameConsts_mkAppN]
+        rfl,
+      instSeq_mkAppN,
+      instSeq_eq_self _ _ (by simp [Expr.looseBVarsBounded]),
+      Expr.getAppArgs_mkAppN]
+    simp [Expr.getAppArgs, List.map_map, Function.comp]
+  -- the public composed constructor walk and `crest2`'s spine
+  have hpubCN : Expr.instPisAt
+      (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p) ++ xFvsP)
+      cty = some (cdomsP ++ xFvsP.map Expr.fvarTypeD, crest2) :=
+    instPisAt_append_of _ hcinstN hxInst
+  have hpubLen : (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p) ++
+      xFvsP).length = cnP + cnF := by
+    rw [List.length_append, List.length_map, hpinsLen, hxLen]
+  obtain ⟨hcrest2Eq0, -⟩ := instPisAt_stripPis _ hpubCN
+    (by rw [hpubLen, hctyEq]; exact hCstripI)
+  have hcrest2Eq : crest2 = instSeq
+      (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p) ++ xFvsP)
+      (cnP + cnF - 1) cbodyI := by
+    rw [hcrest2Eq0, hpubLen]
+  have hcrest2Args : crest2.getAppArgs =
+      (cbody0.getAppArgs.map
+        (fun e => e.instantiateLevelParams cvj.levelParams lvls)).map
+      (fun e => instSeq
+        (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p) ++ xFvsP)
+        (cnP + cnF - 1) e) := by
+    rw [hcrest2Eq]
+    conv => lhs; rw [hcbodyIHead]
+    rw [instSeq_mkAppN,
+      instSeq_eq_self _ _ (by simp [Expr.looseBVarsBounded]),
+      Expr.getAppArgs_mkAppN]
+    simp [Expr.getAppArgs]
+  have hcargsINF : ∀ e ∈ cbody0.getAppArgs.map
+      (fun e => e.instantiateLevelParams cvj.levelParams lvls),
+      e.hasFvar = false := by
+    intro e he
+    rw [← hcbodyIArgs] at he
+    exact hasFvar_getAppArgs hcbodyINF _ he
+  have hcargsIBnd : ∀ e ∈ cbody0.getAppArgs.map
+      (fun e => e.instantiateLevelParams cvj.levelParams lvls),
+      e.looseBVarsBounded (cnP + cnF) = true := by
+    intro e he
+    rw [← hcbodyIArgs] at he
+    exact looseBVarsBounded_getAppArgs hcbodyIBnd _ he
+  -- `cres`'s per-argument facts
+  have hcresArgW : ∀ e ∈ cres.getAppArgs, WScoped (rP + cnF) e :=
+    fun e he => hWcres.getAppArgs e he
+  have hcresArgB : ∀ e ∈ cres.getAppArgs,
+      e.looseBVarsBounded 0 = true :=
+    fun e he => looseBVarsBounded_getAppArgs hbcres e he
+  have hcresArgL : ∀ e ∈ cres.getAppArgs, Expr.LeavesBounded e :=
+    fun e he l hl => hLcres l (fvarLeaves_getAppArgs he l hl)
+  have hcresArgF : ∀ e ∈ cres.getAppArgs,
+      FvarsOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) e :=
+    fun e he => FvarsOk.of_subset
+      (fun l hl => fvarLeaves_getAppArgs he l hl) hFcres
+  have hcresSpineInv : cres.getAppArgs ≠ [] →
+      AnnotOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty)
+        (Expr.mkAppN cres.getAppFn cres.getAppArgs) := by
+    intro _
+    rw [Expr.mkAppN_getApp]
+    exact hAcres
+  have hcresArgA : ∀ e ∈ cres.getAppArgs,
+      AnnotOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) e := by
+    intro e he
+    have hne : cres.getAppArgs ≠ [] := by
+      intro h0
+      rw [h0] at he
+      exact nomatch he
+    obtain ⟨-, hargsA, -⟩ := annotOk_spine_inv _ cres.getAppFn hne
+      (hcresSpineInv hne)
+    exact hargsA e he
+  have hcresArgI : ∀ e ∈ cres.getAppArgs,
+      ∃ w, interpExpr V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) e = some w := by
+    intro e he
+    have hne : cres.getAppArgs ≠ [] := by
+      intro h0
+      rw [h0] at he
+      exact nomatch he
+    obtain ⟨-, -, vf0, cvals0, -, hspCres, -, -⟩ :=
+      annotOk_spine_inv _ cres.getAppFn hne (hcresSpineInv hne)
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem he
+    obtain ⟨w, hw⟩ : ∃ w, cvals0[j]? = some w := by
+      have hlen0 := InterpSpine.length hspCres
+      refine ⟨_, List.getElem?_eq_getElem ?_⟩
+      rw [hlen0]
+      rcases Nat.lt_or_ge j cres.getAppArgs.length with h | h
+      · exact h
+      · rw [List.getElem?_eq_none h] at hj
+        exact nomatch hj
+    exact ⟨w, InterpSpine.pointwise hspCres j hj hw⟩
+  -- the index values: the statement's equal the public residual's
+  have hiaPubN : InstArgs m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty)
+      (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p) ++ xFvsP)
+      (cvals ++ xs.drop rP) :=
+    TeleFitI.toInstArgs hfitCfullP
   have hidxVal : ∀ (j : Nat) (e2 : Expr) (v : V),
       (crest2.getAppArgs.drop cnP)[j]? = some e2 →
       (lvals.drop rP)[j]? = some v → j < mI - rP →
       interpExpr V m₀.val env₀ ψ (rP + cnF)
         (fun i => xs.getD i SetTheory.empty) e2 = some v := by
-    intro j e2 v _ _ hjlt
-    exact absurd hjlt (by omega)
+    intro j e2 v he2 hv hjlt
+    obtain ⟨eS, heS⟩ : ∃ e, lhsS.getAppArgs[rP + j]? = some e :=
+      ⟨_, List.getElem?_eq_getElem (by omega)⟩
+    rw [List.getElem?_drop] at hv
+    have hintS := InterpSpine.pointwise hspL (rP + j) heS hv
+    have hcargsILen : (cbody0.getAppArgs.map
+        (fun e => e.instantiateLevelParams cvj.levelParams
+          lvls)).length = cnP + (mI - rP) := by
+      have h0 : cres.getAppArgs.length = (cbody0.getAppArgs.map
+          (fun e => e.instantiateLevelParams cvj.levelParams
+            lvls)).length := by
+        rw [hcresArgs, List.length_map]
+      rw [← h0, hclen]
+    obtain ⟨carg, hcarg⟩ : ∃ c, (cbody0.getAppArgs.map
+        (fun e => e.instantiateLevelParams cvj.levelParams
+          lvls))[cnP + j]? = some c :=
+      ⟨_, List.getElem?_eq_getElem (by omega)⟩
+    have heR : cres.getAppArgs[cnP + j]? = some
+        (instSeq (pins.map (fun p => Expr.instSpine (fvs.take rP)
+          (rP - 1) (p.renameConsts f)) ++ fvs.drop rP)
+          (cnP + cnF - 1) (carg.renameConsts f)) := by
+      rw [hcresArgs, List.getElem?_map, hcarg]
+      rfl
+    have he2' : e2 = instSeq
+        (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p) ++ xFvsP)
+        (cnP + cnF - 1) carg := by
+      rw [List.getElem?_drop, hcrest2Args, List.getElem?_map,
+        hcarg] at he2
+      exact (Option.some.inj he2).symm
+    have hdej := DefEqListOk.pointwise hdeIdx j
+      (a := eS) (b := instSeq (pins.map (fun p =>
+        Expr.instSpine (fvs.take rP) (rP - 1) (p.renameConsts f)) ++
+        fvs.drop rP) (cnP + cnF - 1) (carg.renameConsts f))
+      (by
+        rw [List.getElem?_take_of_lt hjlt, List.getElem?_drop]
+        exact heS)
+      (by
+        rw [List.getElem?_drop]
+        exact heR)
+    have heSmem : eS ∈ lhsS.getAppArgs := List.mem_of_getElem? heS
+    have heRmem : instSeq (pins.map (fun p =>
+        Expr.instSpine (fvs.take rP) (rP - 1) (p.renameConsts f)) ++
+        fvs.drop rP) (cnP + cnF - 1) (carg.renameConsts f) ∈
+        cres.getAppArgs :=
+      List.mem_of_getElem? heR
+    obtain ⟨wR, hwR⟩ := hcresArgI _ heRmem
+    have hveq := isDefEqCore_sound m₀ F hdej
+      (hlargsW eS heSmem) (hcresArgW _ heRmem)
+      (hlargsB eS heSmem) (hcresArgB _ heRmem)
+      (hlargsL eS heSmem) (hcresArgL _ heRmem)
+      (hlargsF eS heSmem) (hcresArgF _ heRmem)
+      (hlargsA eS heSmem) (hcresArgA _ heRmem)
+      hintS hwR
+    have hcargNF : carg.hasFvar = false :=
+      hcargsINF _ (List.mem_of_getElem? hcarg)
+    have hcargBnd : carg.looseBVarsBounded (cnP + cnF) = true :=
+      hcargsIBnd _ (List.mem_of_getElem? hcarg)
+    have hren : interpExpr V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty)
+        (instSeq (pins.map (fun p => Expr.instSpine (fvs.take rP)
+          (rP - 1) (p.renameConsts f)) ++ fvs.drop rP)
+          (cnP + cnF - 1) (carg.renameConsts f)) =
+        interpExpr V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty)
+        (instSeq (pins.map (fun p => Expr.instSpine (fvs.take rP)
+          (rP - 1) (p.renameConsts f)) ++ fvs.drop rP)
+          (cnP + cnF - 1) carg) := by
+      rw [← interp_erasedEq (instSeq_renameConsts _ (cnP + cnF - 1)
+        hEEargsR) _ _]
+      exact interp_renameConsts hro _ _ _
+    have hframes := interp_instSeq_frames (V := V) hiaR hiaPubN
+      hcargNF (by rw [hspineRLen]; exact hcargBnd)
+    rw [show (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
+        (p.renameConsts f)) ++ fvs.drop rP).length = cnP + cnF from
+      hspineRLen,
+      show (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p) ++
+        xFvsP).length = cnP + cnF from hpubLen] at hframes
+    rw [he2', ← hframes, ← hren, hwR]
+    exact congrArg some hveq.symm
   -- ===== S4c: the major value =====
   have hmajI : interpExpr V m₀.val env₀ ψ (rP + cnF)
       (fun i => xs.getD i SetTheory.empty) lastE = some vlast :=
@@ -4379,9 +4485,8 @@ theorem modeled_bottom_nested
       (fun i => xs.getD i SetTheory.empty) fvsP (lvals.take rP) := by
     rw [hpreValsEq]
     exact InterpSpine_of_FvarSpine hspP
-  have hcrest2ArgsLen : crest2.getAppArgs.length = cnP + (mI - rP) := by
-    rw [hmIrP]
-    simpa using hcrest2Len
+  have hcrest2ArgsLen : crest2.getAppArgs.length = cnP + (mI - rP) :=
+    hcrest2Len
   have hseg2 : InterpSpine m₀.val env₀ ψ (rP + cnF)
       (fun i => xs.getD i SetTheory.empty)
       (crest2.getAppArgs.drop cnP)
@@ -4728,14 +4833,9 @@ theorem modeled_rule_eq_nested
       AnnotOk V m₀.val env₀ ψ 0 (rho0 V) cvt.type)
     (hSw : cvt.type.hasFvar = false)
     (hSb : cvt.type.looseBVarsBounded 0 = true)
-    -- the stored instantiations and the member type's major shape
-    {Dn : Name}
-    {preM : List (Name × Expr × BinderMeta)}
-    {nmM : Name} {domM bodyM : Expr} {bmM : BinderMeta}
-    (hmIrP : mI = rP)
-    (hstripM : tyA.stripPis rP = some (preM, .forallE nmM domM bodyM bmM))
-    (hdomFn : domM.getAppFn = .const Dn lvls)
-    (hdomArgs : domM.getAppArgs = pins)
+    -- the stored instantiations and the member type's shape
+    (hrPmI : rP ≤ mI)
+    (htyStrip : (tyA.stripPis mI).isSome = true)
     (hpinsW : ∀ p ∈ pins, p.hasFvar = false ∧
       p.looseBVarsBounded rP = true)
     (hpinsLen : pins.length = cnP)
@@ -4755,7 +4855,9 @@ theorem modeled_rule_eq_nested
       (Expr.mkAppN (.const (f ctor) lvls)
         (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
           (p.renameConsts f)) ++ fvs.drop rP)))
-    (hCstripSome : (cvj.type.stripPis (cnP + cnF)).isSome = true)
+    (hCresHead : ∃ bsC0 cbody0 Dc usc,
+      cvj.type.stripPis (cnP + cnF) = some (bsC0, cbody0) ∧
+      cbody0.getAppFn = Expr.const Dc usc)
     (hCps : cvj.type.allLevelParamsDefined cvj.levelParams = true)
     (hcinst : Expr.instPisAt
       (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
@@ -4763,6 +4865,9 @@ theorem modeled_rule_eq_nested
       ((cvj.type.instantiateLevelParams cvj.levelParams
         lvls).renameConsts f) = some (cdoms, cres))
     (hclen : cres.getAppArgs.length = cnP + (mI - rP))
+    (hdeIdx : DefEqListOk F env₀ (rP + cnF)
+      ((lhsS.getAppArgs.drop rP).take (mI - rP))
+      (cres.getAppArgs.drop cnP))
     (hrinst : Expr.instPisAt (fvs.take rP)
       (tyA.renameConsts f) = some (rdoms, rrest))
     (hdePre : DefEqListOk F env₀ (rP + cnF)
@@ -4773,8 +4878,10 @@ theorem modeled_rule_eq_nested
     {fvsP : List Expr} {restP : Expr}
     {cdomsP : List Expr} {crestP : Expr} {xFvsP : List Expr}
     {crest2 : Expr} {ldoms : List Expr} {lrest : Expr}
-    (hcrest2Len : crest2.getAppArgs.length = cnP)
+    (hcrest2Len : crest2.getAppArgs.length = cnP + (mI - rP))
     (hopenP : openPisAtFvars rP tyA 0 = some (fvsP, restP))
+    (hannP : AnnotListOk F env₀ (rP + cnF)
+      (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p)))
     (hcinstN : Expr.instPisAt
       (pins.map (fun p => Expr.instSpine fvsP (rP - 1) p))
       (cvj.type.instantiateLevelParams cvj.levelParams lvls) =
@@ -4888,15 +4995,16 @@ theorem modeled_rule_eq_nested
     rw [interp_instLevels hcvp cvj.type 0 (rho0 V)]
     exact hT
   have hctorPkg := ctor_pkg_nested (xFvsP := xFvsP) m₀ F hopenP htyw
-    htyb (hAty ψ) (hIty ψ) hstripM hdomFn hdomArgs hpinsW hcinstN
+    htyb (hAty ψ) (hIty ψ) hpinsW hannP hcinstN
     htlP hCtw hCtb hACt hICt
   have hstage := modeled_stage m₀ F hopenP htyw htyb (hAty ψ) (hIty ψ)
     hopenX hctorPkg hlinst hdeLam hrhsw hrhsb (hArhs ψ) (hIrhs ψ)
   have hbot := modeled_bottom_nested m₀ F hro hcvp hfR hRlps hfRm
     hRmlps hfCm hCmlps hfC hClps heqfind heqval hthm_mem hthm_annot
-    hSw hSb hmIrP hstripM hdomFn hdomArgs hpinsW hpinsLen hpinsRen2
-    hopen hheadEq hargs3 hlhead hlarity hlpre hmaj hCstripSome hCps
-    hcinst hclen hrinst hdePre hdeFld hcrest2Len hopenP hcinstN htlP
+    hSw hSb hrPmI htyStrip hpinsW hpinsLen hpinsRen2
+    hopen hheadEq hargs3 hlhead hlarity hlpre hmaj hCresHead hCps
+    hcinst hclen hdeIdx hrinst hdePre hdeFld hcrest2Len hopenP hannP
+    hcinstN htlP
     hopenX hlinst hdeLam hdeRhs hrhsw hrhsb (hArhs ψ) (hIrhs ψ) htyw
     htyb (hAty ψ) (hIty ψ) hCw hCb hACty hICty
   -- frame bookkeeping for the tower recursion

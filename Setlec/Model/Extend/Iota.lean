@@ -99,7 +99,9 @@ def NestedChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
       (Expr.mkAppN (.const (f (RecRule.ctor r)) lvls)
         (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
           (p.renameConsts f)) ++ fvs.drop rP)) ∧
-    (cvj.type.stripPis (cnP + cnF)).isSome = true ∧
+    (∃ bsC0 cbody0 Dc usc,
+      cvj.type.stripPis (cnP + cnF) = some (bsC0, cbody0) ∧
+      cbody0.getAppFn = Expr.const Dc usc) ∧
     Expr.instPisAt
       (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
         (p.renameConsts f)) ++ fvs.drop rP)
@@ -479,9 +481,27 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
   case neg => rw [if_neg hmaj] at h; exact nomatch h
   rw [if_pos hmaj] at h
   try dsimp only at h
-  by_cases hcstrip : (cvj.type.stripPis (cnP + cnF)).isSome = true
-  case neg => rw [if_neg hcstrip] at h; exact nomatch h
-  rw [if_pos hcstrip] at h
+  revert h
+  match hcstrip : cvj.type.stripPis (cnP + cnF) with
+  | none => intro h; exact nomatch h
+  | some (bsC0, cbody0) => ?_
+  intro h
+  try simp only [Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  revert h
+  match hcheadEq : cbody0.getAppFn with
+  | .bvar _ => intro h; exact nomatch h
+  | .fvar _ _ _ => intro h; exact nomatch h
+  | .sort _ => intro h; exact nomatch h
+  | .app _ _ => intro h; exact nomatch h
+  | .lam _ _ _ _ => intro h; exact nomatch h
+  | .forallE _ _ _ _ => intro h; exact nomatch h
+  | .letE _ _ _ _ => intro h; exact nomatch h
+  | .lit _ => intro h; exact nomatch h
+  | .proj _ _ _ => intro h; exact nomatch h
+  | .const Dc usc => ?_
+  intro h
+  rw [if_pos rfl] at h
   try dsimp only at h
   revert h
   match hcinst : Expr.instPisAt
@@ -594,7 +614,8 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
         tbody, ℓA, αS, lhsS, rhsS, cdoms, cres, rdoms, rrest, fvsP,
         restP, cdomsP, crestP, xFvsP, crest2, ldoms, lrest,
         hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
-        eq_of_beq hlpre, Expr.ErasedEq.of_eqUpToNames hmaj, hcstrip,
+        eq_of_beq hlpre, Expr.ErasedEq.of_eqUpToNames hmaj,
+        ⟨bsC0, cbody0, Dc, usc, hcstrip, hcheadEq⟩,
         hcinst, hclen,
         checkDefEqList_inv hdq1, checkDefEqList_inv hdq2, hrinst,
         checkDefEqList_inv hdq3, hopenP, checkAnnotList_inv hannP,
