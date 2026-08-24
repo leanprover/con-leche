@@ -4923,3 +4923,100 @@ instructions): init-prelude probe 27.99 G → **26.44 G** certified
 `lake test`, arena 90/92 + e2e 57/57, scale.sh all PASS, soundness/
 consistency axioms exactly `[propext, Classical.choice, Quot.sound]`,
 verdicts identical.
+
+## Raw (annotation-free) storage: the erasure witness (2026-08-24, task #100)
+
+The environment currently stores expression trees carrying binder
+*codomain-sort annotations* (`BinderMeta.cod`), produced by the
+`annotate` pass and consumed by the model: the structural `∀`/`λ`
+interpretation needs the binder's Prop-or-not bit, and the annotation
+is where it comes from.  The refactor removes them from storage — the
+kernel stores and computes with **raw** trees — while the model keeps
+its level source on the proof side.
+
+### Why an annotation witness is forced
+
+The alternative (drop annotation data from the model as well, deriving
+the binder classifier semantically or structurally) is refuted, with
+checked witnesses in `Setlec/Model/RawEnvNoAnnot.lean`:
+
+* the interpretation reads its level argument only through the `v = 0`
+  test (`pi_pos`/`lam_pos`), so what a binder needs is exactly one bit;
+* that bit is **not** a function of the semantic data.  `⟦Nat.succ
+  Nat.zero⟧ = pt` (the von Neumann `1` *is* the proof point) and
+  `⟦PUnit⟧ = truthVal True`, so `fun (_ : PUnit) => (1 : Nat)` and
+  `fun (_ : PUnit) => True.intro` present identical domain values and
+  identical body-value functions while requiring different
+  interpretations (`lam_interp_not_value_determined`);
+* nor is it computable structurally: `Nat.imax` preserves the proof
+  bit through application but destroys the codomain's sort, and large
+  elimination makes the classifier whnf-dependent — computing it *is*
+  the inference the annotation pass performs.
+
+So the level source moves to a per-declaration **annotation witness**.
+
+### The erasure view
+
+A witness for a raw tree `e` is an annotated twin `ê` with
+`ê.eraseCod = e`; a witness for a raw environment is an annotated
+*shadow environment* that erases to it.  `interpExpr`, `AnnotOk`,
+`EnvModel` and the whole `Extend*` tower then survive **verbatim** as
+statements about the shadow; only the env-facing seam changes:
+
+* `RawEnvModel V env = {aenv, erase_eq : aenv.eraseCod = env, model :
+  EnvModel V aenv}` (`Setlec/Model/RawEnv.lean`);
+* raw-side syntactic certificates (freshness, `hasFvar`,
+  `constsResolve`, `looseBVarsBounded`) transfer across erasure —
+  those predicates read no annotation;
+* semantic obligations (`AnnotOk`, interpretations, and
+  `allLevelParamsDefined`, which reads annotation levels and is
+  therefore deliberately *not* raw-derivable) stay phrased on the
+  witness;
+* twin tracking through reduction rests on erasure being
+  constructor-wise: it commutes with `instantiate1`,
+  `instantiateList`, `instantiateLevelParams`, `abstract1` and
+  `abstractRange`, so the existing substitution lemmas apply to the
+  twin unchanged.
+
+`Setlec/Model/Erasure.lean` is that seam library, plus the inversion
+lemmas (`eraseCod_eq_app`, …) and the one family of syntactic
+environment checks erasure does *not* preserve: the literal-support
+guards.  `natLitSupported`/`strLitSupported` pin the *annotated*
+stored types of the `Nat`/`String` basis declarations; their **raw
+forms** (`natLitSupportedRaw`/`strLitSupportedRaw`) drop exactly the
+`mb.cod` conjuncts, and the congruences
+`natLitSupportedRaw_erase`/`strLitSupportedRaw_erase` say the
+annotated guard on the witness implies the raw guard on what the
+kernel stores — so a raw kernel's literal paths are open wherever the
+model's are.  `extend_model_raw` is the split in miniature for a plain
+definition install.
+
+### The `codOf` memo
+
+What the annotation stores, a raw kernel must recompute: the codomain
+sort of a binder is `ensureSort ∘ infer` on the binder's body (the
+`∀`-clause) resp. on the body's inferred type (the `λ`-clause).
+`codOfCore` (`Setlec/Kernel/TypeChecker.lean`) is that composite at
+the pure knot; `codOfI` (`Setlec/Kernel/CoreI.lean`) its interned,
+memoized twin — memo `IState.codOfC : EIdx → LIdx`, depth-free like
+the entry-point memos (by `codOfCore_depth_inv`), flushed with them at
+environment transitions.  Both are knot-parametric, so the
+cert-skipping knot uses them unchanged.
+
+Verification mirrors the entry-point memos exactly: an `ISOK.codOfC`
+clause (every entry backed by a pure `codOfCore` run at some fuel, at
+every depth at which the key is well-scoped), `ISOK.insertCodOfC`, and
+`codOfI_sim` — a hit consumes the backed entry, a miss runs
+`infer`+`ensureSort` (`SimAt.bind` of `ih.infer` and
+`ensureSortI_sim`) and re-inserts depth-universally.  The fueled
+comparand is `codOfF`, with `codOfF_atF` and `codOfCore_mono` derived
+from the family.
+
+The memo is **not consumed for verdicts**: annotations remain the live
+mechanism and nothing on a verdict path calls `codOfI`, so verdicts
+are byte-identical by construction.  Feeding it from `annotate` was
+considered and rejected as throwaway: `annotate` is what the
+decoration pass replaces, so entries produced there would be produced
+by `decorate` anyway.  Cost of carrying the extra `IState` field on
+the init-prelude probe: 25.187 G → 25.203 G instructions, **+0.064 %**
+(three runs each, spread < 2 M).

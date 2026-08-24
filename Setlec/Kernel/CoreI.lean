@@ -256,6 +256,11 @@ structure IState where
   inferC : Std.HashMap EIdx EIdx := {}
   defeqC : Std.HashMap (EIdx × EIdx) Bool := {}
   annotC : Std.HashMap EIdx EIdx := {}
+  /-- The codomain-sort memo (task #100): per node index, the sort of
+  that node's inferred type — the certificate a raw (annotation-free)
+  decoration pass consumes.  Per-declaration lifetime, flushed with the
+  entry-point memos. -/
+  codOfC : Std.HashMap EIdx LIdx := {}
   lsimpC : EStore.LMemo := {}
   lnzC : Std.HashMap LIdx Bool := {}
   eqvC : Std.HashMap (LIdx × LIdx) Bool := {}
@@ -2240,6 +2245,46 @@ def memoBI (f : Nat → EIdx → EIdx → CheckIM Bool) :
         let st := { st with defeqC := ∅ }
         { st with defeqC := mp.insert (a, b) r }
       pure r
+
+/-- Memoize a level-valued unary interned operation under its argument
+index (`O(1)` key), as `memoEI` does for expression-valued ones. -/
+def memoLI (get' : IState → Std.HashMap EIdx LIdx)
+    (set' : IState → Std.HashMap EIdx LIdx → IState)
+    (f : Nat → EIdx → CheckIM LIdx) : Nat → EIdx → CheckIM LIdx :=
+  fun d e => do
+    match (get' (← get))[e]? with
+    | some r => pure r
+    | none =>
+      let r ← f d e
+      modify fun st =>
+          let mp := get' st
+        let st := set' st ∅
+        set' st (mp.insert e r)
+      pure r
+
+/-- The **codomain-sort memo** (task #100): the sort of a node's
+inferred type (`ensureSort ∘ infer`) — the level the annotation pass
+stores in a binder's `mb.cod`, and the certificate a raw
+(annotation-free) decoration pass will read instead of a stored
+annotation.
+
+Not consumed for verdicts yet: annotations remain the live mechanism,
+so this entry point is called on demand only, and adding it changes no
+verdict.  Memoization is depth-free like the entry-point memos (the
+underlying `infer`/`whnf` results are depth-invariant on well-scoped
+inputs), and the memo is flushed on environment transitions with
+them (`IState.flushed`).
+
+`codOfBodyI` is the unmemoized body; `codOfI` the memoized entry.  Both
+are knot-parametric, so the cert-skipping knot (`coreKnotNC`) uses them
+unchanged. -/
+def codOfBodyI (r : CoreFnsI) (depth : Nat) (e : EIdx) : CheckIM LIdx :=
+  r.infer depth e >>= fun t => ensureSortI r depth t
+
+@[inherit_doc codOfBodyI]
+def codOfI (r : CoreFnsI) : Nat → EIdx → CheckIM LIdx :=
+  memoLI (·.codOfC) (fun st mp => { st with codOfC := mp })
+    (fun d e => codOfBodyI r d e)
 
 /-- Tie the interned bodies at the memoizing state monad (fuel only
 here, as in `coreKnot`; levels built lazily). -/

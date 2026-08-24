@@ -268,6 +268,25 @@ theorem ensureSort_atF (d : Nat) (e : Expr) (F : Nat) :
   unfold ensureSort
   atF_tac
 
+/-- The codomain-sort family (task #100): `ensureSort ∘ infer`, the
+fueled comparand of the interned `codOfI` memo. -/
+def codOfF (env : Env) (d : Nat) (e : Expr) : FueledM Level :=
+  (fueledFns env).infer d e >>= fun t => ensureSort (fueledFns env) env d t
+
+theorem codOfF_atF (d : Nat) (e : Expr) (F : Nat) :
+    (codOfF env d e).val F = codOfCore env F d e := by
+  show (inferTypeCore env F d e >>=
+    fun t => (ensureSort (fueledFns env) env d t).val F) = _
+  simp only [ensureSort_atF]
+  rfl
+
+/-- Fuel monotonicity of `codOfCore`, from the family's. -/
+theorem codOfCore_mono {f f' : Nat} (hle : f ≤ f') {d : Nat} {e : Expr}
+    {u : Level} (h : codOfCore env f d e = .ok u) :
+    codOfCore env f' d e = .ok u := by
+  rw [← codOfF_atF] at h ⊢
+  exact (codOfF env d e).property hle h
+
 theorem proofIrrel_atF (d : Nat) (a b : Expr) (F : Nat) :
     (proofIrrel (fueledFns env) env d a b).val F =
       proofIrrel (pureFns env F) env d a b := by
