@@ -116,6 +116,8 @@ def NestedChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
     DefEqListOk F env₀ (rP + cnF)
       ((fvs.take rP).map Expr.fvarTypeD) rdoms ∧
     openPisAtFvars rP cvA.type 0 = some (fvsP, restP) ∧
+    AnnotListOk F env₀ (rP + cnF)
+      (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p)) ∧
     Expr.instPisAt
       (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p))
       (cvj.type.instantiateLevelParams cvj.levelParams lvls) =
@@ -531,6 +533,12 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
   intro h
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
+  cases hannP : checkAnnotList (fueledOps F) env₀ (rP + cnF)
+      (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p)) with
+  | error e => rw [hannP] at h; exact nomatch h
+  | ok uA =>
+  rw [hannP] at h
+  try dsimp only at h
   revert h
   match hcinstP : Expr.instPisAt
       (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p))
@@ -589,7 +597,8 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
         eq_of_beq hlpre, Expr.ErasedEq.of_eqUpToNames hmaj, hcstrip,
         hcinst, hclen,
         checkDefEqList_inv hdq1, checkDefEqList_inv hdq2, hrinst,
-        checkDefEqList_inv hdq3, hopenP, hcinstP,
+        checkDefEqList_inv hdq3, hopenP, checkAnnotList_inv hannP,
+        hcinstP,
         checkTypedList_inv hdtP, hopenX, eq_of_beq harX, hlinst,
         checkDefEqList_inv hdq4, hde⟩
 

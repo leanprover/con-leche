@@ -521,8 +521,12 @@ def checkIotaThmNF (ops : CheckerOps m) (fe' feSelf : FEnv)
     unless Expr.eqUpToNames major (Expr.mkAppN (.const (f r.ctor) lvls)
         (pinsF ++ xFvs)) do
       throw (.notImplemented s!"iota statement major mismatch for {cvName}")
-    unless (cvj.type.stripPis (cnP + cnF)).isSome do
-      throw (.notImplemented s!"iota constructor telescope for {cvName}")
+    let (_, cbody0) ← unwrapOr (cvj.type.stripPis (cnP + cnF))
+      (.notImplemented s!"iota constructor telescope for {cvName}")
+    unless (match cbody0.getAppFn with
+        | .const _ _ => true
+        | _ => false) do
+      throw (.notImplemented s!"iota constructor residual head for {cvName}")
     let (cdoms, cres) ← unwrapOr
         (Expr.instPisAt (pinsF ++ xFvs)
           ((cvj.type.instantiateLevelParams cvj.levelParams

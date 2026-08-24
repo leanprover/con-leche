@@ -221,9 +221,16 @@ def checkIotaThmN (ops : CheckerOps m) (env' envSelf : Env)
       throw (.notImplemented s!"iota statement major mismatch for {cvName}")
     -- the constructor's telescope at the stored level instantiations
     -- (renamed), instantiated at the major's arguments: field domains
-    -- and the canonical index tuple
-    unless (cvj.type.stripPis (cnP + cnF)).isSome do
-      throw (.notImplemented s!"iota constructor telescope for {cvName}")
+    -- and the canonical index tuple.  The residual head must be a
+    -- constant (the family former): the soundness layer decomposes
+    -- both residual walks argument-wise over it, and a variable head
+    -- could be captured by a pin instantiation.
+    let (_, cbody0) ← unwrapOr (cvj.type.stripPis (cnP + cnF))
+      (.notImplemented s!"iota constructor telescope for {cvName}")
+    unless (match cbody0.getAppFn with
+        | .const _ _ => true
+        | _ => false) do
+      throw (.notImplemented s!"iota constructor residual head for {cvName}")
     let (cdoms, cres) ← unwrapOr
         (Expr.instPisAt (pinsF ++ xFvs)
           ((cvj.type.instantiateLevelParams cvj.levelParams

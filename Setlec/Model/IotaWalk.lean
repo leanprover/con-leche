@@ -59,6 +59,11 @@ def TypedListOk (F : Nat) (env : Env) (d : Nat) :
     TypedListOk F env d as bs
   | _, _ => False
 
+/-- Each expression is a fixed point of the annotation pass (the
+semantic content of a successful `checkAnnotList`). -/
+def AnnotListOk (F : Nat) (env : Env) (d : Nat) (l : List Expr) : Prop :=
+  ∀ a ∈ l, annotateCore env F d a = .ok a
+
 omit [SetTheory V] in
 theorem DefEqListOk.length {F : Nat} {env : Env} {d : Nat} :
     ∀ {as bs : List Expr}, DefEqListOk F env d as bs →
@@ -676,6 +681,42 @@ theorem checkTypedList_inv {F : Nat} {env : Env} {d : Nat} :
           | true =>
             rw [if_pos rfl] at h
             exact ⟨⟨ty, hty, hde⟩, ih h⟩
+
+omit [SetTheory V] in
+theorem fueledOpsW_annotate (F : Nat) (env : Env) (d : Nat) (e : Expr) :
+    (fueledOps F).annotate env d e = annotateCore env F d e := rfl
+
+omit [SetTheory V] in
+/-- Invert a successful `checkAnnotList` run. -/
+theorem checkAnnotList_inv {F : Nat} {env : Env} {d : Nat} :
+    ∀ {as : List Expr} {u : Unit},
+      checkAnnotList (fueledOps F) env d as = .ok u →
+      AnnotListOk F env d as := by
+  intro as
+  induction as with
+  | nil =>
+    intro u _ a ha
+    exact nomatch ha
+  | cons a as ih =>
+    intro u h
+    simp only [checkAnnotList, fueledOpsW_annotate, Bind.bind,
+      Except.bind] at h
+    revert h
+    cases hann : annotateCore env F d a with
+    | error e => intro h; exact nomatch h
+    | ok aA =>
+      intro h
+      dsimp only at h
+      by_cases heq : (aA == a) = true
+      case neg =>
+        rw [if_neg heq] at h
+        exact nomatch h
+      case pos =>
+        rw [if_pos heq] at h
+        intro x hx
+        rcases List.mem_cons.mp hx with rfl | hx
+        · rw [hann, eq_of_beq heq]
+        · exact ih h x hx
 
 omit [SetTheory V] in
 theorem hasFvar_renameConsts {f : Name → Name} :
