@@ -6192,3 +6192,103 @@ self-contained), lift the ops onto the bundle, then flip and drop the
 `ISOK.wf` clause mechanically.  Until then `ISOK.wf` is fed from the
 bundle at the seam (`ISOKF.fresh st.wf`), so the *provenance* of every
 canonicity fact is already the bundle.
+
+## Driver split: install phase / Bool-barrier check phase (2026-08-24, task #64 stage 1)
+
+The two-tier arena's enabling restructure, built first and on its own
+(the tier machinery itself is structure-internal — a parallel task in
+`IExpr`/`ArenaWF`/`WFStore`).  The user's insight that makes the tiers
+cheap to verify: if the per-declaration pipeline is split into an
+*install* phase (everything that produces or stores state) followed by
+a *check* phase that returns only success/failure, then at the moment
+the check phase ends **no live reference into its temporaries can
+exist** — dropping them needs no truncation-transport theory at all.
+
+**The split.**  `checkDefnValP` / `checkThmValP` / `checkOpaqueValP`
+(and their NC twins) are reordered install-first:
+
+* install: the syntactic guards on the parsed value, its annotation
+  (`jv`), the post-annotate guards, and the recording of the annotated
+  indices — `readbackEM jv` and `recordIConst` moved *before* the
+  conformance check.  These are state-only steps; nothing that can
+  fail moved, so the error order is exactly the pre-split one.
+* check: `infer jv` + `defeq` against `jty` — consumes the annotated
+  indices, produces nothing.  `CHECK PHASE ENTRY`/`EXIT` comments mark
+  the seam; the driver-level cert branches in `checkDeclSP` (Nat-op,
+  div/mod and reduce pins) are check-phase too — the future tier
+  bracket opens at the seam comment and closes after them, with the
+  temp-tier truncation folded into the next step's flush point.
+* the environment push stays last, `fe` consumed in tail position
+  (the FEnv-linearity discipline is untouched).
+
+Axiom, basis and inductive declarations are install-only for now:
+their per-member conformance checks stay inside the install fold
+(bounded per block; the reduction-temporary growth the split targets
+lives in the def/thm/opaque stream).  Moving block-member checks into
+the check phase is a later, measurement-driven refinement.
+
+**The prefix view is positional — no counter field.**  The redirect's
+"lookups during check(i) filtered to counter < i" is realized by
+*value retention*, not filtering: the check phase receives the very
+pre-push `FEnv` the install phase used (the push happens after the
+check), so the declaration is not visible to its own conformance
+check by construction.  Two reasons this beats a counter field:
+
+1. *Linearity.*  A counter-filtered view of the post-push index would
+   either retain the pre-push map across the push (the whole-bucket
+   copy per definition that the FEnv-linearity fix killed) or thread
+   bound-checking through every `find?`.  The retained pre-push value
+   costs nothing: no push happens between install and check, so the
+   map stays uniquely referenced.
+2. *Proof reuse.*  The check phase's environment is the literal
+   `mkFEnv env` value of the enclosing simulation, so every knot
+   simulation (`ssimI`) applies unchanged.  A distinct bounded-view
+   value would need find?-extensionality congruence across the whole
+   sim layer (the ~340-site `mkFEnv` seam recorded at task #100 C).
+
+The counter/prefix-view correctness statement is therefore the
+existing one: `checkDeclSP_sim` says the whole install+check step is
+reproduced by the pure `checkDecl` **at the pre-declaration
+environment**, and the fold (`ConsistencyP`) is the induction over the
+fold position — which *is* the installation counter.  A materialized
+counter field becomes necessary only for re-checking against arbitrary
+prefixes of a fully-installed environment (the `--check-range` rider
+over a prior install-only run); parked below.
+
+**Why verdict-identical, and why recordIConst-before-check is
+invisible.**  The spec-relevant operation sequence (guards, annotate,
+infer, defeq, certs — everything that can fail or reduce) is
+unchanged; only `readbackEM`/`recordIConst` moved, and those are
+state-only.  The early `ienv` entry for the current declaration is
+unreachable during its own check: every consumer
+(`constTyAtM`/`constValAtM`) is guarded by `fe.find?`, and `fe` is the
+pre-push view.  Measured: arena 90/92, e2e 64/64, scale.sh all-PASS,
+axioms unchanged.
+
+**Bridge.**  The three `BridgeP` walks were restructured to the new
+order (the `bind_left` blocks for readback/record moved before the
+infer/defeq binds); their statements are unchanged, so
+`ConsistencyP` and everything above it is untouched.
+
+**Parked riders** (build after the tier bracket lands, so the seam is
+wired once): install-only mode and `--check-range a:b` — in the
+interleaved driver both are the check phase filtered to a range
+(empty range = install-only), an unverified debug knob in the
+`SETLEC_NO_PROOF_CERTS` style.  They need either a driver variant
+with the check calls skipped or the counter-field machinery above;
+neither falls out of the flat bodies naturally today.
+
+**Handoff to the tier wiring** (when the structure-internal
+`enableTierTwo`/`truncate` land): open the bracket at each
+`CHECK PHASE ENTRY` comment; close it after the cert branches of the
+same declaration (truncation can ride the next step's `flushS`, which
+already drops every EIdx-carrying cache).  Dangling-safety is
+driver-level and short: what survives a declaration step is the
+arena, `ienv` (indices recorded at install, i.e. tier one), and the
+level caches (`lsimpC`/`lnzC`/`eqvC` — levels and names are
+single-tier and never truncated); everything else is flushed.  The
+one instruction-cost consequence to re-measure: stored-content
+re-interning during check (`ruleRhsAtM`, `pinArgsI`, const-cache
+instantiations) lands tier-two and is rebuilt per declaration unless
+its nodes already exist tier-one from install — the v1 experiment
+bounded this class at +7–8 % instructions, accepted.
