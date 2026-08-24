@@ -2919,10 +2919,11 @@ known superlinear residues (small constants, below the harness gate at
 its sizes): the per-prefix `inferSpineI` re-walk when `annotate`'s app
 case infers every spine prefix against the root telescope (Σ O(i)
 view-steps and per-prefix argument-list allocation; a spine loop in
-`annotateBodyI`'s app case would remove it), the `List.toArray`
-conversion inside `instantiateListI` per non-identity call with a
-growing accumulator, and `Expr.allLevelParamsDefined` walking deep
-codomain-annotation trees once per declaration guard.
+`annotateBodyI`'s app case would remove it — **done, task #96**), the
+`List.toArray` conversion inside `instantiateListI` per non-identity
+call with a growing accumulator (**done, task #97**), and
+`Expr.allLevelParamsDefined` walking deep codomain-annotation trees
+once per declaration guard.
 
 ### Theorems are delta-unfoldable (verified 2026-08-23)
 
@@ -4797,3 +4798,128 @@ intern install-time names and the Bridge to carry it), and gating the
 `readbackNM` in `unfoldDefinitionI`/`reduceNatI` behind cheaper
 checks.  Not pursued here: both trade the pinned `mkFEnv` interface
 for low single-digit percents.
+
+## FEnv linearity: the def path retained `fe` across the value check (2026-08-24)
+
+**Finding** (linearity audit, `dbgTraceIfShared` probes at every
+persistent-container mutation site).  Every `defnDecl` cost one full
+copy of the `FEnv.idx` bucket array: the driver branches kept `fe`
+live across `checkDefnValP`/`F` for the *conditional* Nat-op
+certification (`certifyNatEqs (sharedOps fe) fe.env`,
+`checkDivModPinF … fe fe2` — intentionally pre-insertion, see the
+Nat-ops design), so the compiler pinned `fe` at RC 2 and the final
+`fe.push` copied the whole hash map — a hidden O(n²) in the number of
+definitions.  On the init-prelude probe: 2532 shared pushes, 2244 of
+them one-per-def from `checkDefnValP` (the theorem path was already a
+true tail call, zero copies — the target shape).
+
+**Fix.**  The rare branch is a pure name test
+(`natOpNames`/`natDivModNames`, 16 pinned names), so it is decided
+*before* the value check: the common path tail-calls
+`checkDefnValP`/`F` with `fe` consumed; the rare path keeps today's
+exact behavior (still certifying against the pre-push `fe`).  Mirrored
+in `checkDeclSF`, `checkDeclNC`, `checkDeclSPNC`.  `checkDeclSF_nonind`
+and `checkDeclSP_sim` adapt by an early `by_cases` on the combined
+condition — no statement changes, no verdict changes anywhere.
+
+**Measured** (instructions, `perf stat -e instructions:u`).
+init-prelude probe 27.98 G → 27.82 G (−0.6 %); copies 2532 → 297
+(the residual is the per-inductive `provisionRecsS`/iota-fold and
+basis sites, 144+144, bounded by block count — a known separate,
+smaller lever).  `many` shape, extended series (startup-adjusted,
+successive doubling exponents):
+
+| n | base exp | fixed exp |
+|---|---|---|
+| 2000→4000 | 1.16 | 1.00 |
+| 4000→8000 | 1.27 | 1.00 |
+| 8000→16000 | 1.43 | 1.01 |
+
+At n=16000 the fix halves total instructions (8.91 G → 4.54 G).
+`tests/scale.sh` all four shapes PASS (chain 1.00, spine 1.26,
+many 1.01, telescope 1.11).
+
+**Gates** (all green): `lake build` warning-free, `lake test`, arena
+90/92 + e2e 57/57, axioms of the four soundness/consistency theorems
+exactly `[propext, Classical.choice, Quot.sound]`, no `sorry`s.
+
+## Two measured asymptotic fixes: telescope and spine walks (2026-08-24, tasks #97/#96)
+
+Scale-comparison profiling at n = 1600 (setlec vs official vs nanoda,
+identical adjusted-instructions methodology) showed both references
+flat (exponent ~1.0) where setlec was superlinear on two shapes:
+`telescope` 1.11@400 → **1.32**@1600, `spine` 1.26@400 → **1.58**@1600.
+Both were design bugs with known reference shapes; per the
+match-reference ruling the fixes mirror what the references do, no
+strategy changes.
+
+**Task #97 — telescope: Array accumulators in the binder loops.**  The
+binder-telescope loops (`inferLamsI`/`annotatePisI`/`annotateLamsI`)
+kept the opened-fvar accumulator as a cons list; each per-binder
+`instListM` converted it wholesale (`List.toArray`: `lengthTR` 10.1 %
++ `toArrayAux` 9.4 % of the n = 1600 run) — Σk = O(n²) bookkeeping.
+lean4lean's `inferLambda`/`inferForall` loops push opened fvars onto
+an `Array` and substitute with `instantiateRev` (innermost binder
+**last**), never converting.  Mirrored: `instantiateRevIGo`/
+`instantiateRevI` are `instantiateListIGo`/`instantiateListI` on the
+reversed replacement array (same memo discipline, back-indexed `bvar`
+hit), `instListRevM` the memoized wrapper with the bound shortcut; the
+loops push.  Verification: one pointwise equality
+`instantiateRevIGo_eq : instantiateRevIGo vs = instantiateListIGo
+vs.reverse` transfers every existing spec; `instListRevM_eff` is
+`instListM_eff` at the reversed read (`DenL fvs.toList.reverse ws`),
+and the `BinderLoopI` walks restate the accumulator relation through
+`toListRev_push`/`toListRev_singleton`.  Mirrors, chained spec, and
+everything above unchanged.
+
+**Task #96 — spine: annotate walks the spine once.**  The residue
+flagged under task #85 above: `annotateBodyI`'s chained app case ran
+`r.infer` on **every spine prefix**; each prefix (a distinct index —
+memoization cannot help) re-decomposed the spine (`getAppFnI`/
+`getAppArgsAccI`, ~15 %) and re-walked the root telescope through
+`inferSpineI` with a `codNonZeroIM` gate probe per position (~7 % of
+hash-lookup traffic — the `lnzC` memo *hits*; the quadratic was the
+call count, Σ O(i) = O(n²)), plus per-prefix argument lists (~20 %
+RC/alloc).  The official kernel's `infer` of an application walks the
+spine once with an argument accumulator; annotation is setlec's own
+extra pass, so its app case gets the same discipline:
+`annotateSpineI` peels the head's raw Π-telescope against the whole
+spine with deferred substitution (Array accumulator, task #97's
+`instListRevM`), replaying exactly the chained per-application checks
+in the chained order — argument annotated before the function part is
+inferred, `whnf` skipped on a syntactic `∀` (where it is the
+identity), substitute-and-normalize otherwise.  `inferSpineI`/
+`inferSpineNC` accumulators went `Array` in the same stroke (both
+knots share `annotateBodyI`, so certified and `--yolo` paths are both
+covered).
+
+Verification (`Setlec/Verify/AnnotSpine.lean` + `DiscI6`): the pure
+mirror `annotateSpine`/`annotateApp` (generic over the core record)
+with arm/`atF` equations, and the soundness of the loop against the
+chained spec — `annotateApp_sound_body` reproduces a successful
+mirror run in the chained `annotateBody` at some fuel, by forward
+induction with two step lemmas: `annotateStep_chain` (the chained app
+body succeeds on the loop's per-argument facts) and
+`inferStep_extend` (the prefix-type fact `infer cur =
+ty.instantiateList acc` extends by one argument through
+`inferBody_app_pure` + `inferStep`, the loop's checks discharging the
+possibly-Prop-gated re-check).  The interned walk `annotateSpineI_sim`
+(mutual with its normalize-and-retry arm) simulates the mirror, and
+`annotateBodyI_sim`'s app case composes it with the soundness bridge
+via `SimAt.wr` — the same seam as `inferSpineI`'s task #50
+construction.  The `Expr`-level spec and the Model layer are
+untouched.
+
+**Measured** (scalecmp dstreams, adjusted instructions, exponents per
+doubling): telescope 1.01 flat through n = 1600 (was 1.32; absolute
+4.1× at 1600), spine 0.99-1.01 flat through n = 1600 (was 1.58;
+absolute 3.1× at 1600); chain/many unchanged (1.02-1.04).  Reference
+comparison: setlec's exponents now match official/nanoda (~1.0) on
+all four shapes.  Real streams improve too (vs master ffcc17a,
+instructions): init-prelude probe 27.99 G → **26.44 G** certified
+(−5.6 %), 21.73 G → **20.46 G** `--yolo` (−5.8 %); grind-ring-5
+83.71 G → **78.15 G** certified (−6.6 %), 75.03 G → **70.45 G**
+`--yolo` (−6.1 %).  Gates: `lake build` warning-free,
+`lake test`, arena 90/92 + e2e 57/57, scale.sh all PASS, soundness/
+consistency axioms exactly `[propext, Classical.choice, Quot.sound]`,
+verdicts identical.

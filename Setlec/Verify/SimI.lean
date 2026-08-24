@@ -737,6 +737,30 @@ theorem instListM_eff (hs : ISOK env s₀) {e : EIdx} {vs : List EIdx}
     obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1.symm
     exact ⟨hs.withStore hwf' hext, hext, hden⟩
 
+private theorem instListRevM_run (e : EIdx) (vs : Array EIdx) (d : Nat)
+    (s : IState) :
+    instListRevM e vs d s = .ok
+      (if s.store.bvarBoundD e ≤ d then (e, s)
+       else ((s.store.instantiateRevI e vs d).1,
+         { s with store := (s.store.instantiateRevI e vs d).2 })) := rfl
+
+/-- `instListRevM` is `instListM` on the reversed accumulator read as
+a list (task #97). -/
+theorem instListRevM_eq (e : EIdx) (vs : Array EIdx) (d : Nat) :
+    instListRevM e vs d = instListM e vs.toList.reverse d := by
+  funext s
+  rw [instListRevM_run, instListM_run, instantiateRevI_eq]
+
+theorem instListRevM_eff (hs : ISOK env s₀) {e : EIdx} {vs : Array EIdx}
+    {d : Nat} {a : Expr} {ws : List Expr}
+    (he : s₀.store.denote e = some a)
+    (hvs : DenL s₀.store vs.toList.reverse ws) :
+    IEff env s₀
+      (fun s i => s.store.denote i = some (a.instantiateList ws d))
+      (instListRevM e vs d) := by
+  rw [instListRevM_eq]
+  exact instListM_eff hs he hvs
+
 theorem abstract1M_eff (hs : ISOK env s₀) {e : EIdx} {d : Nat} {a : Expr}
     (he : s₀.store.denote e = some a) :
     IEff env s₀ (fun s i => s.store.denote i = some (a.abstract1 d))

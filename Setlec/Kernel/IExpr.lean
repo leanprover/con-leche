@@ -946,6 +946,101 @@ def instantiateListI (st : EStore) (e : EIdx) (vs : List EIdx)
     let (r, st, _) := instantiateListIGo a st {} e a.size d
     (r, st)
 
+/-- Reversed-array core of `instantiateRevI` (task #97): as
+`instantiateListIGo`, but the replacement array holds the innermost
+binder **last** (`vs[vs.size - 1]` for `bvar d`) — the push order of a
+telescope-walking accumulator (lean4lean's `instantiateRev`
+discipline).  Pointwise equal to `instantiateListIGo vs.reverse`
+(`instantiateRevIGo_eq`, `Setlec/Verify/IExprOps.lean`); keeping the
+array un-reversed removes the per-call `O(k)` accumulator conversion
+that made telescope walks quadratic. -/
+def instantiateRevIGo (vs : Array EIdx) (st : EStore)
+    (memo : MemoNL) (e : EIdx) (k : Nat) (d : Nat) :
+    EIdx × EStore × MemoNL :=
+  if k = 0 then (e, st, memo)
+  else if st.bvarBoundD e ≤ d then (e, st, memo)
+  else
+    match memo[(e, k, d)]? with
+    | some r => (r, st, memo)
+    | none =>
+      match st.nodes[e]? with
+      | none => (e, st, memo)
+      | some n =>
+        let (r, st, memo) : EIdx × EStore × MemoNL :=
+          match n with
+          | .bvar i =>
+            if i < d then (e, st, memo)
+            else if _h : i - d < k then
+              if _h2 : i - d < vs.size then
+                instantiateRevIGo vs st memo
+                  (vs[vs.size - 1 - (i - d)]'(by omega)) (i - d) d
+              else (e, st, memo)
+            else
+              let (r, st) := st.intern (.bvar (i - k))
+              (r, st, memo)
+          | .fvar _ _ _ => (e, st, memo)
+          | .sort _ => (e, st, memo)
+          | .const _ _ => (e, st, memo)
+          | .app f a =>
+            if _h : f < e ∧ a < e then
+              let (f', st, memo) := instantiateRevIGo vs st memo f k d
+              let (a', st, memo) := instantiateRevIGo vs st memo a k d
+              let (r, st) := st.intern (.app f' a')
+              (r, st, memo)
+            else (e, st, memo)
+          | .lam n ty body m =>
+            if _h : ty < e ∧ body < e then
+              let (ty', st, memo) := instantiateRevIGo vs st memo ty k d
+              let (body', st, memo) :=
+                instantiateRevIGo vs st memo body k (d + 1)
+              let (r, st) := st.intern (.lam n ty' body' m)
+              (r, st, memo)
+            else (e, st, memo)
+          | .forallE n ty body m =>
+            if _h : ty < e ∧ body < e then
+              let (ty', st, memo) := instantiateRevIGo vs st memo ty k d
+              let (body', st, memo) :=
+                instantiateRevIGo vs st memo body k (d + 1)
+              let (r, st) := st.intern (.forallE n ty' body' m)
+              (r, st, memo)
+            else (e, st, memo)
+          | .letE n ty val body =>
+            if _h : ty < e ∧ val < e ∧ body < e then
+              let (ty', st, memo) := instantiateRevIGo vs st memo ty k d
+              let (val', st, memo) := instantiateRevIGo vs st memo val k d
+              let (body', st, memo) :=
+                instantiateRevIGo vs st memo body k (d + 1)
+              let (r, st) := st.intern (.letE n ty' val' body')
+              (r, st, memo)
+            else (e, st, memo)
+          | .lit _ => (e, st, memo)
+          | .proj s i sub =>
+            if _h : sub < e then
+              let (sub', st, memo) := instantiateRevIGo vs st memo sub k d
+              let (r, st) := st.intern (.proj s i sub')
+              (r, st, memo)
+            else (e, st, memo)
+        (r, st, memo.insert (e, k, d) r)
+termination_by (k, e)
+decreasing_by
+  all_goals first
+    | (apply Prod.Lex.left; omega)
+    | (apply Prod.Lex.right; first
+        | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h)
+
+/-- Interned counterpart of lean4lean's `Expr.instantiateRev` shape:
+bulk-substitute a whole accumulator array with the innermost binder
+last (the push order of the binder-telescope loops), in one memoized
+DAG traversal.  Equal to `instantiateListI e vs.toList.reverse d`
+(`instantiateRevI_eq`), with no per-call accumulator conversion
+(task #97). -/
+def instantiateRevI (st : EStore) (e : EIdx) (vs : Array EIdx)
+    (d : Nat := 0) : EIdx × EStore :=
+  if vs.size = 0 then (e, st)
+  else
+    let (r, st, _) := instantiateRevIGo vs st {} e vs.size d
+    (r, st)
+
 /-- Core of `abstract1I`; `d` is the abstracted fvar's de Bruijn level
 (fixed), `k` the binder cursor (mirrors `Expr.abstract1 e d k`). -/
 def abstract1IGo (d : Nat) (st : EStore) (memo : MemoN) (e : EIdx) (k : Nat) :
