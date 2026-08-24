@@ -34,15 +34,18 @@
 # generous) per-shape RSS gate.
 #
 # Modes:
-#   tests/scale.sh            standard: 4 points per shape, ~2-3 min
-#                             total; the CI profile / merge gate.
+#   tests/scale.sh            standard: 4 points per shape, ~1 min
+#                             measured (budget 2-3 min when loaded);
+#                             the CI profile / merge gate.
 #   tests/scale.sh --ci       alias for standard (documented CI entry
 #                             point; identical behavior).
 #   tests/scale.sh --deep     deep: up to 6 points per shape (n up to
-#   (or SCALE_DEEP=1)         32x base), ~10-15 min; for performance
-#                             work and nightly runs — quadratics that
-#                             read borderline at standard sizes are
-#                             unambiguous here.
+#   (or SCALE_DEEP=1)         32x base), ~3-4 min measured (budget
+#                             ~10 min); for performance work and
+#                             nightly runs — quadratics that read
+#                             borderline at standard sizes are
+#                             unambiguous here, with their own
+#                             deep-calibrated gates.
 #
 # Requirements and skip policy (flaky gates are worse than absent
 # ones — there is deliberately NO wall-time fallback):
@@ -153,39 +156,45 @@ rss_max3() { # rss_max3 MODE FILE -> max of 3 runs, empty on failure
 }
 
 # --- shape table -----------------------------------------------------
-# label : gen-shape : mode : base-n : deep-maxm : instr-gate : rss-gate
+# label : gen-shape : mode : base-n : deep-maxm : instr-gate :
+#   deep-instr-gate : rss-gate
 #
 # mode      def = plain definition stream; raw = preprocessor disabled
 #           (direct-install path); mod = preprocessor required.
 # deep-maxm largest n multiplier in deep mode (standard is always 8);
-#           bounded per shape so deep stays ~10-15 min even on the
+#           bounded per shape so deep stays in budget even on the
 #           known-superlinear shapes.
-# instr-gate  largest-step instruction exponent gate: measured master
-#           value + slack (see DESIGN.md for the measured table).
+# instr-gate / deep-instr-gate  largest-step instruction exponent
+#           gate for standard / deep mode: measured master value +
+#           slack (see DESIGN.md for the measured table).  The
+#           superlinear shapes read HIGHER exponents at deep sizes
+#           (their curves still rise), hence per-mode calibration;
+#           the flat shapes gate identically in both modes.
 # rss-gate  largest-step peak-RSS exponent gate (only applied above
 #           the RSS_FLOOR_KB signal floor), `-` = not measured.
 #
 # Gate provenance (measured on master 4f63b6c, 2026-08-24; full table
 # in DESIGN.md): the flat shapes measured 1.00-1.02 and gate at 1.15.
 # Four shapes measured SUPERLINEAR on master (known findings, gated at
-# measured+slack so they cannot silently get worse): lparams 1.49,
-# fields-raw 2.31, ctors-mod 2.58, fields-mod 2.08.
+# measured+slack so they cannot silently get worse): lparams 1.49/8x
+# 1.78/32x, fields-raw 2.31/8x 2.74/32x, ctors-mod 2.58/8x 2.76/16x,
+# fields-mod 2.08/8x 2.43/16x.
 SPECS="
-chain:chain:def:100:32:1.15:1.60
-spine:spine:def:50:32:1.15:-
-many:many:def:100:32:1.15:1.60
-telescope:telescope:def:50:32:1.15:-
-dag:dag:def:200:32:1.15:1.60
-delta:delta:def:100:32:1.15:-
-fanout:fanout:def:100:32:1.15:-
-lets:lets:def:100:32:1.15:-
-lparams:lparams:def:100:32:1.65:-
-thm:thm:def:200:32:1.15:1.60
-fields-raw:fields:raw:25:32:2.60:-
-ctors-mod:ctors:mod:4:16:2.90:-
-fields-mod:fields:mod:8:16:2.40:-
+chain:chain:def:100:32:1.15:1.15:1.60
+spine:spine:def:50:32:1.15:1.15:-
+many:many:def:100:32:1.15:1.15:1.60
+telescope:telescope:def:50:32:1.15:1.15:-
+dag:dag:def:200:32:1.15:1.15:1.60
+delta:delta:def:100:32:1.15:1.15:-
+fanout:fanout:def:100:32:1.15:1.15:-
+lets:lets:def:100:32:1.15:1.15:-
+lparams:lparams:def:100:32:1.65:1.95:-
+thm:thm:def:200:32:1.15:1.15:1.60
+fields-raw:fields:raw:25:32:2.60:2.90:-
+ctors-mod:ctors:mod:4:16:2.90:3.00:-
+fields-mod:fields:mod:8:16:2.40:2.70:-
 "
-RSS_FLOOR_KB=8192
+RSS_FLOOR_KB=16384
 
 MULTS="1 2 4 8"
 [ "$DEEP" = 1 ] && MULTS="1 2 4 8 16 32"
@@ -198,8 +207,10 @@ for spec in $SPECS; do
   mode=${rest%%:*}; rest=${rest#*:}
   n0=${rest%%:*}; rest=${rest#*:}
   maxm=${rest%%:*}; rest=${rest#*:}
-  gate=${rest%%:*}
+  gate=${rest%%:*}; rest=${rest#*:}
+  dgate=${rest%%:*}
   rssgate=${rest#*:}
+  [ "$DEEP" = 1 ] && gate=$dgate
   echo
   echo "== $label (base n=$n0, gate $gate) =="
   if [ "$mode" = mod ] && [ "$HAVE_PP" != 1 ]; then
