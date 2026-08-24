@@ -4202,6 +4202,135 @@ theorem direct_proj_step {envJ envJ' : Env} (mJ : EnvModel V envJ)
         exact ⟨⟨d', ρ', rest, TeleFit_congr' (hIA φ) hf hresA⟩,
           by rw [hval φ]; exact hfold⟩
 
+/-- The frame conditions of a **closed** resolving expression survive a
+fresh extension. -/
+theorem FrameOk.extend_fresh {envJ : Env} {mJ : EnvModel V envJ}
+    {c₀ : ConstantInfo} {val' : ConstVal V}
+    (hfresh : envJ.find? c₀.name = none)
+    (hagree : ∀ n, (envJ.find? n).isSome = true → ∀ ψ : Name → Nat,
+      val' n ψ = mJ.val n ψ)
+    {e : Expr} (hcl : e.hasFvar = false)
+    (hres : e.constsResolve envJ = true) (φ : Name → Nat)
+    (h : FrameOk V mJ.val envJ φ 0 (rho0 V) e) :
+    FrameOk V val' (⟨c₀ :: envJ.consts⟩ : Env) φ 0 (rho0 V) e := by
+  obtain ⟨Ev, hEv⟩ := h.it
+  refine ⟨h.ws, h.bb, h.lb, FvarsOk.of_not_hasFvar hcl,
+    AnnotOk.extend_fresh hfresh hagree hres φ h.an, Ev, ?_⟩
+  rw [interp_mono (cval := val') hfresh e 0 (rho0 V) hres,
+    interp_cval_ext hagree e 0 (rho0 V)]
+  exact hEv
+
+set_option maxHeartbeats 1600000 in
+/-- The phase invariant at stage `0` survives any fresh non-former
+extension: every stage fact is stated over expressions resolving one
+environment down, and the fold clause is vacuous. -/
+theorem DirectStageOk.cons_zero {envJ : Env} {mJ : EnvModel V envJ}
+    {c₀ : ConstantInfo} {mJ' : EnvModel V (⟨c₀ :: envJ.consts⟩ : Env)}
+    {p : DirectParts} {cvTa cvCa : ConstantVal}
+    {fvsC xFvs tfvs : List Expr} {crestC cresid trest : Expr}
+    (hfresh : envJ.find? c₀.name = none)
+    (hpres : ∀ (n : Name) (ψ : Name → Nat), n ≠ c₀.name →
+      mJ'.val n ψ = mJ.val n ψ)
+    (hnotind : ∀ cv caps, c₀ = .indInfo cv caps → caps.eta = true →
+      reservedBasisNames.contains c₀.name = true)
+    (hcq : openPisAtFvars p.nP cvCa.type 0 = some (fvsC, crestC))
+    (hxq : openPisAtFvars p.nF crestC p.nP = some (xFvs, cresid))
+    (htq : openPisAtFvars p.nP cvTa.type 0 = some (tfvs, trest))
+    (hst : DirectStageOk V mJ p cvTa cvCa crestC 0) :
+    DirectStageOk V mJ' p cvTa cvCa crestC 0 := by
+  have hagree' : ∀ n, (envJ.find? n).isSome = true → ∀ ψ : Name → Nat,
+      mJ'.val n ψ = mJ.val n ψ := by
+    intro n hn ψ
+    refine hpres n ψ ?_
+    intro hcon
+    rw [hcon, hfresh] at hn
+    exact nomatch hn
+  have hIA : ∀ φ : Name → Nat, InterpAgree V mJ.val envJ mJ'.val
+      (⟨c₀ :: envJ.consts⟩ : Env) φ := by
+    intro φ e hres d ρ
+    rw [interp_mono (cval := mJ'.val) hfresh e d ρ hres,
+      interp_cval_ext hagree' e d ρ]
+  have hTne : p.cvT.name ≠ c₀.name := by
+    intro hcon
+    have h := hst.tfind
+    rw [hcon, hfresh] at h
+    exact nomatch h
+  have hCne : p.cvC.name ≠ c₀.name := by
+    intro hcon
+    have h := hst.cfind
+    rw [hcon, hfresh] at h
+    exact nomatch h
+  have hCcl : cvCa.type.hasFvar = false :=
+    not_hasFvar_of_fvarsBelow_zero (hst.frC (fun _ => 0)).ws.fvarsBelow
+  have hxres : ∀ x ∈ xFvs, (Expr.fvarTypeD x).constsResolve envJ = true := by
+    have hcrestres : crestC.constsResolve envJ = true :=
+      (openPisAtFvars_resolve p.nP 0 hcq hst.cres).2
+    have h := (openPisAtFvars_resolve p.nF p.nP hxq hcrestres).1
+    intro x hx
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem hx
+    obtain ⟨nm, hsh⟩ := (openPisAtFvars_spec p.nF p.nP hxq).2.2 j x hj
+    have h1 := h x hx
+    rw [hsh] at h1 ⊢
+    simpa [Expr.constsResolve, Expr.fvarTypeD] using h1
+  have htres : ∀ x ∈ tfvs, (Expr.fvarTypeD x).constsResolve envJ = true := by
+    have h := (openPisAtFvars_resolve p.nP 0 htq hst.tres).1
+    intro x hx
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem hx
+    obtain ⟨nm, hsh⟩ := (openPisAtFvars_spec p.nP 0 htq).2.2 j x hj
+    have h1 := h x hx
+    rw [hsh] at h1 ⊢
+    simpa [Expr.constsResolve, Expr.fvarTypeD] using h1
+  have hcres' : ∀ x ∈ fvsC, (Expr.fvarTypeD x).constsResolve envJ = true := by
+    have h := (openPisAtFvars_resolve p.nP 0 hcq hst.cres).1
+    intro x hx
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem hx
+    obtain ⟨nm, hsh⟩ := (openPisAtFvars_spec p.nP 0 hcq).2.2 j x hj
+    have h1 := h x hx
+    rw [hsh] at h1 ⊢
+    simpa [Expr.constsResolve, Expr.fvarTypeD] using h1
+  exact
+    { eta := EtaFamiliesClosed.cons_nonind hst.eta hfresh hnotind
+      frC := fun φ => FrameOk.extend_fresh hfresh hagree' hCcl hst.cres φ
+        (hst.frC φ)
+      domsCT := fun φ =>
+        DomsAgree.congr (hIA φ) p.nP hcq htq hcres' htres (hst.domsCT φ)
+      fieldAt := by
+        intro φ ps d₁ ρ₁ mid hfit hlen
+        have hfitJ := TeleFit_congr (hIA φ) hfit hst.cres
+        have hfld := hst.fieldAt φ ps d₁ ρ₁ mid hfitJ hlen
+        obtain ⟨hd₁, fvs, hopen⟩ := TeleFit_open p.nP hfitJ hlen
+        rw [Nat.zero_add] at hd₁
+        subst hd₁
+        obtain rfl : mid = crestC := by
+          rw [hcq] at hopen
+          exact (congrArg Prod.snd (Option.some.inj hopen)).symm
+        exact FieldTele_congr (hIA φ) p.nF p.nP ρ₁ _ xFvs cresid hxq hxres
+          hfld
+      tfold := by
+        intro φ ps d₁ ρ₁ r hfit hlen
+        have hfitJ := TeleFit_congr (hIA φ) hfit hst.tres
+        have h := hst.tfold φ ps d₁ ρ₁ r hfitJ hlen
+        obtain ⟨hd₁, -, -⟩ := TeleFit_open p.nP hfitJ hlen
+        rw [Nat.zero_add] at hd₁
+        subst hd₁
+        rw [hpres _ φ hTne, h]
+        exact sigmaTowerV_congr (hIA φ) p.nF p.nP ρ₁ crestC xFvs cresid hxq
+          hxres
+      cfold := by
+        intro φ vs d₁ ρ₁ r hfit hlen
+        rw [hpres _ φ hCne]
+        exact hst.cfold φ vs d₁ ρ₁ r (TeleFit_congr (hIA φ) hfit hst.cres)
+          hlen
+      tfind := by
+        rw [Env.find?_cons_of_isSome hfresh (by rw [hst.tfind]; rfl)]
+        exact hst.tfind
+      cfind := by
+        rw [Env.find?_cons_of_isSome hfresh (by rw [hst.cfind]; rfl)]
+        exact hst.cfind
+      cres := Expr.constsResolve_mono hst.cres
+      tres := Expr.constsResolve_mono hst.tres
+      inv := fun φ j hj => absurd hj (by omega) }
+
 /-- The projection phase, folded: `direct_proj_step` along
 `List.range p.nF`. -/
 theorem direct_proj_fold {env₃ : Env} (m₃ : EnvModel V env₃)
