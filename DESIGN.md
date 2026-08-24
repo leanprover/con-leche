@@ -4432,3 +4432,76 @@ identically at the same declaration, so the exhaustion is in the
 shared reduction machinery (`checkFuel = 100000` knot layers), not the
 proof-cert feeding.  Not fixed on this branch; the whnfCore fuel
 ceiling on that declaration is its own task.
+
+## Name interning: NNode arena, NIdx in ENode (2026-08-24, task #88)
+
+Names joined expressions and levels in the hash-cons arena.  `NNode =
+.anonymous | .str (pre : NIdx) (s : String) | .num (pre : NIdx) (n :
+Nat)`; `EStore` gains `nnodes`/`ncons` beside the node and level
+tables, plus `rbNames : Array Name` — an eager derived array (task
+#87 pattern, congruent with `nnodes`, filled at `internN` from
+`NNode.nameOf`) so `readbackN` is a single array read returning the
+*shared* `Name` value built once at intern time.  `ENode`'s name
+slots (const, fvar, lam, forallE, letE, proj type-name) are `NIdx`;
+name equality inside the arena is index equality; intern probes hash
+a `Nat` prefix index + one segment instead of walking `Name` spines.
+The parser interns directly from the export stream's name-table
+indices (`{"in":i,...}`), so the stream's own sharing carries over
+structurally; the taint pre-scan's `taintedNames` lookup goes through
+`readbackN`, gated on the map being non-empty.
+
+**Readback at the boundary** (CoreI/CoreNC): the environment stays
+`Name`-keyed (`mkFEnv`'s shape is pinned by Model/BridgeS), so a
+node-sourced `NIdx` is read back (`readbackNM`, O(1)) before
+`fe.find?`; fixed-name pin dispatch uses `beqNameM` (structural
+compare against the pin, alloc-free); fabrication sites intern
+(`internNameM`, `projFnIdxM` for `(T.proj).i`).  The const caches are
+index-keyed: `constTyAt`/`constValAt : (NIdx × List LIdx) → EIdx`,
+`ruleRhsAt : (NIdx × NIdx × List LIdx) → EIdx`; `constTyAtM fe nI n
+us` takes the index alongside its readback.
+
+**Verification shape.**  `denoteNode den denL denN` gains the name
+denotation as the LAST bind of each name-carrying case
+(children-first order minimized proof churn across the ~15k restated
+lines).  The `denoteN` layer mirrors levels: congruence, inversion,
+totality, canonicity (`denoteN_inj`, `denoteN_eq_iff`), `Ext.name` +
+`denoteN_mono`; `WF` gains `names_lt`/`nchildren_lt`/`ncons_graph`
+and `rbNames_size`/`rbNames_spec`, with `WF.readbackN_eq_denoteN`
+rewriting the O(1) readback to the denotation.  The ISOK const-cache
+clauses carry `denoteN key = some name` existentials, and the
+`constTyAtM_eff`-family lemmas take a `denoteN` premise the call
+sites already have in scope from the const-node inversion.  Recipe
+for inserting the new monadic steps (readback/beq/internName) into
+existing SimAt/IEff walks: `bind_left` with the step's eff lemma,
+shadow `hs`, then either transport facts (`replace hX := denote_mono
+hextNew hX`) or fold exts (`have hext := hext.trans hextNew`).
+
+**Gates** (all green): `lake build` warning-free, `lake test`, arena
+90/92 + e2e 56/56, scale exponents 1.04/1.11 ≤ 1.3, soundness/
+consistency axioms exactly `[propext, Classical.choice, Quot.sound]`.
+Verdicts identical everywhere.
+
+**Measured** (instructions, `perf stat` best-of-2, vs master 494ed3b):
+
+| bench | yolo | cert |
+|---|---|---|
+| init-prelude probe | 21.88 G → 22.02 G (+0.6 %) | 27.79 G → 28.03 G (+0.9 %) |
+| grind-ring-5 | 75.19 G → 76.39 G (+1.6 %) | 84.19 G → 85.31 G (+1.3 %) |
+| shared-subterm | 4.31 G → 4.31 G (±0 %) | 4.79 G → 4.80 G (±0 %) |
+| repeated-subproblem | 3.80 G → 3.79 G (−0.3 %) | 4.25 G → 4.23 G (−0.4 %) |
+
+Net ≈ parity: the predicted removal happened — the grind profile
+shows `Name` hashing gone from the intern path (master 1.77 %
+`instHashableName_hash` + 1.30 % `Name` decEq vs branch <0.4 % +
+0.92 %) — but the boundary conversions (readback + `beqNameM` pin
+walks + name-side bookkeeping) cost roughly what the hashing saved on
+these workloads, where `Name` work was only ~3 % to begin with.  The
+value is architectural: `ENode` keys are now fully index-typed
+(hash/compare O(1) in all three sorts), and every remaining
+`Name`-priced operation is localized at one seam.  Remaining levers,
+in profile order: the `Name`-keyed `fe.find?` itself (0.9 % decEq +
+map probes; an `NIdx`-keyed env index would need the frontend to
+intern install-time names and the Bridge to carry it), and gating the
+`readbackNM` in `unfoldDefinitionI`/`reduceNatI` behind cheaper
+checks.  Not pursued here: both trade the pinned `mkFEnv` interface
+for low single-digit percents.
