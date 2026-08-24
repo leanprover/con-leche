@@ -141,7 +141,7 @@ theorem iotaCertsIAux_sim (ih : SSimI env f) {d : Nat} :
       rw [iotaCertsIAux.eq_def]
       refine SimAt.view ?_
       obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hty
-      rw [hn]
+      rw [getNode_of_stored hn]
       cases n with
       | forallE nmᵢ t b m =>
         rw [denoteNode, Option.bind_eq_some_iff] at hd
@@ -330,7 +330,7 @@ theorem iotaCertsGIAux_sim (ih : SSimI env f) {d : Nat} :
       rw [iotaCertsGIAux.eq_def]
       refine SimAt.view ?_
       obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hty
-      rw [hn]
+      rw [getNode_of_stored hn]
       cases n with
       | forallE nmᵢ t b m =>
         rw [denoteNode, Option.bind_eq_some_iff] at hd
@@ -550,7 +550,7 @@ theorem ensureSortI_sim (ih : SSimI env f) {d : Nat} {i : EIdx} {e : Expr}
   obtain ⟨hwden, hww⟩ := hP
   refine SimAt.view ?_
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hwden
-  rw [hn]
+  rw [getNode_of_stored hn]
   cases n with
   | sort u =>
     rw [denoteNode, Option.map_eq_some_iff] at hd
@@ -640,7 +640,7 @@ theorem litToCtorIfNatI_eff {s₀ : IState} (hs : ISOK env s₀)
     | _ => pure i)
   refine IEff.view ?_
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hden
-  rw [hn]
+  rw [getNode_of_stored hn]
   cases n with
   | lit l =>
     cases hd
@@ -699,7 +699,7 @@ theorem unfoldDefinitionI_eff {s₀ : IState} (hs : ISOK env s₀)
     IEff env s₀ (fun s o => OptDen s.store o (unfoldDefinition env e))
       (unfoldDefinitionI (mkFEnv env) i) := by
   show IEff env s₀ _
-    (Setlec.withStore (fun st => st.nodes[st.getAppFnI i]?) >>= fun n =>
+    (Setlec.withStore (fun st => st.getNode (st.getAppFnI i)) >>= fun n =>
       match n with
       | some (.const n us) => do
         let nm ← readbackNM n
@@ -722,7 +722,7 @@ theorem unfoldDefinitionI_eff {s₀ : IState} (hs : ISOK env s₀)
       | _ => pure none)
   refine IEff.withStore ?_
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv (getAppFnI_spec hs.wf hden)
-  rw [hn]
+  rw [getNode_of_stored hn]
   have hspec : unfoldDefinition env e =
       (match e.getAppFn with
       | .const n us =>
@@ -894,7 +894,7 @@ theorem litMajorToCtorI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
     (litMajorToCtor (fueledFns env) env d e)
   refine SimAt.view ?_
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hden
-  rw [hn]
+  rw [getNode_of_stored hn]
   cases n with
   | lit l =>
     cases hd
@@ -976,7 +976,7 @@ theorem projLitToCtorI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
     (projLitToCtor (fueledFns env) env d e)
   refine SimAt.view ?_
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hden
-  rw [hn]
+  rw [getNode_of_stored hn]
   cases n with
   | lit l =>
     cases hd
@@ -1038,10 +1038,10 @@ theorem defeqSpineI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
       (defeqSpineI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i j)
       (defeqSpine (fueledFns env) env d a b) := by
   show SimAt env s₀ RelV
-    (Setlec.withStore (fun st => st.nodes[st.getAppFnI i]?) >>= fun n =>
+    (Setlec.withStore (fun st => st.getNode (st.getAppFnI i)) >>= fun n =>
       match n with
       | some (.const nm us) =>
-        Setlec.withStore (fun st => st.nodes[st.getAppFnI j]?) >>= fun n' =>
+        Setlec.withStore (fun st => st.getNode (st.getAppFnI j)) >>= fun n' =>
         match n' with
         | some (.const nm' us') => do
           let aargs ← Setlec.withStore (·.getAppArgsI i)
@@ -1057,7 +1057,7 @@ theorem defeqSpineI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
     (defeqSpine (fueledFns env) env d a b)
   refine SimAt.withStore ?_
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv (getAppFnI_spec hs.wf hdena)
-  rw [hn]
+  rw [getNode_of_stored hn]
   have hspec : defeqSpine (fueledFns env) env d a b =
       (match a.getAppFn with
       | .const nm us =>
@@ -1081,7 +1081,7 @@ theorem defeqSpineI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
     dsimp only
     refine SimAt.withStore ?_
     obtain ⟨n', hn', hc', hd'⟩ := denote_some_inv (getAppFnI_spec hs.wf hdenb)
-    rw [hn']
+    rw [getNode_of_stored hn']
     cases n' with
     | const nm' us' =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd'
@@ -1334,7 +1334,7 @@ theorem reduceNatI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
     (reduceNat (fueledFns env) env d e)
   refine SimAt.view ?_
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hden
-  rw [hn]
+  rw [getNode_of_stored hn]
   cases n with
   | app f₁ b =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
@@ -1346,7 +1346,7 @@ theorem reduceNatI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
       simpa only [WScoped] using hw
     refine SimAt.view ?_
     obtain ⟨n', hn', hc', hd'⟩ := denote_some_inv hf₁
-    rw [hn']
+    rw [getNode_of_stored hn']
     cases n' with
     | const cᵢ us =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd'
@@ -1469,7 +1469,7 @@ theorem reduceNatI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
         simpa only [WScoped] using hwfb.1
       refine SimAt.view ?_
       obtain ⟨n'', hn'', hc'', hd''⟩ := denote_some_inv hf₂
-      rw [hn'']
+      rw [getNode_of_stored hn'']
       cases n'' with
       | const cᵢ us =>
         rw [denoteNode, Option.bind_eq_some_iff] at hd''

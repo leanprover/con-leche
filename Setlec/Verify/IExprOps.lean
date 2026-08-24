@@ -133,30 +133,30 @@ theorem getAppFnI_spec {st : EStore} (_hwf : st.WF) :
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨xa, ha, rfl⟩ := hd
       have hflt : f < e := hc f (by simp [ENode.children])
-      rw [getAppFnI, hn]
+      rw [getAppFnI, getNode_of_stored hn]
       dsimp only
       rw [dif_pos hflt]
       rw [show Expr.getAppFn (.app xf xa) = xf.getAppFn from rfl]
       exact ih f hflt hf
     | bvar i =>
-      cases hd; rw [getAppFnI, hn]; exact hx
+      cases hd; rw [getAppFnI, getNode_of_stored hn]; exact hx
     | sort u =>
       rw [denoteNode, Option.map_eq_some_iff] at hd
       obtain ⟨lu, _, rfl⟩ := hd
-      rw [getAppFnI, hn]; exact hx
+      rw [getAppFnI, getNode_of_stored hn]; exact hx
     | const nm us =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
       obtain ⟨lus, _, hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨_nmv, _hnmv, rfl⟩ := hd
-      rw [getAppFnI, hn]; exact hx
-    | lit l => cases hd; rw [getAppFnI, hn]; exact hx
+      rw [getAppFnI, getNode_of_stored hn]; exact hx
+    | lit l => cases hd; rw [getAppFnI, getNode_of_stored hn]; exact hx
     | fvar idx nm t =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
       obtain ⟨t', _, hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨_nmv, _hnmv, rfl⟩ := hd
-      rw [getAppFnI, hn]; exact hx
+      rw [getAppFnI, getNode_of_stored hn]; exact hx
     | lam nm t b m =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
       obtain ⟨et, _, hd⟩ := hd
@@ -166,7 +166,7 @@ theorem getAppFnI_spec {st : EStore} (_hwf : st.WF) :
       obtain ⟨bm, _, hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨_nmv, _hnmv, rfl⟩ := hd
-      rw [getAppFnI, hn]; exact hx
+      rw [getAppFnI, getNode_of_stored hn]; exact hx
     | forallE nm t b m =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
       obtain ⟨et, _, hd⟩ := hd
@@ -176,7 +176,7 @@ theorem getAppFnI_spec {st : EStore} (_hwf : st.WF) :
       obtain ⟨bm, _, hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨_nmv, _hnmv, rfl⟩ := hd
-      rw [getAppFnI, hn]; exact hx
+      rw [getAppFnI, getNode_of_stored hn]; exact hx
     | letE nm t v b =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
       obtain ⟨et, _, hd⟩ := hd
@@ -186,13 +186,13 @@ theorem getAppFnI_spec {st : EStore} (_hwf : st.WF) :
       obtain ⟨eb, _, hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨_nmv, _hnmv, rfl⟩ := hd
-      rw [getAppFnI, hn]; exact hx
+      rw [getAppFnI, getNode_of_stored hn]; exact hx
     | proj s j e' =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
       obtain ⟨ee, _, hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨_nmv, _hnmv, rfl⟩ := hd
-      rw [getAppFnI, hn]; exact hx
+      rw [getAppFnI, getNode_of_stored hn]; exact hx
 
 theorem getAppArgsAccI_spec {st : EStore} (_hwf : st.WF) :
     ∀ {e : EIdx} {x : Expr}, st.denote e = some x →
@@ -210,31 +210,31 @@ theorem getAppArgsAccI_spec {st : EStore} (_hwf : st.WF) :
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨xa, ha, rfl⟩ := hd
       have hflt : f < e := hc f (by simp [ENode.children])
-      rw [getAppArgsAccI, hn]
+      rw [getAppArgsAccI, getNode_of_stored hn]
       dsimp only
       rw [dif_pos hflt]
       have := ih f hflt hf (acc := a :: acc) (xs := xa :: xs) ⟨ha, hacc⟩
       rw [show Expr.getAppArgs (.app xf xa) = xf.getAppArgs ++ [xa] from rfl,
         List.append_assoc]
       exact this
-    | bvar i => cases hd; rw [getAppArgsAccI, hn]; exact hacc
+    | bvar i => cases hd; rw [getAppArgsAccI, getNode_of_stored hn]; exact hacc
     | sort u =>
       rw [denoteNode, Option.map_eq_some_iff] at hd
       obtain ⟨lu, _, rfl⟩ := hd
-      rw [getAppArgsAccI, hn]; exact hacc
+      rw [getAppArgsAccI, getNode_of_stored hn]; exact hacc
     | const nm us =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
       obtain ⟨lus, _, hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨_nmv, _hnmv, rfl⟩ := hd
-      rw [getAppArgsAccI, hn]; exact hacc
-    | lit l => cases hd; rw [getAppArgsAccI, hn]; exact hacc
+      rw [getAppArgsAccI, getNode_of_stored hn]; exact hacc
+    | lit l => cases hd; rw [getAppArgsAccI, getNode_of_stored hn]; exact hacc
     | fvar idx nm t =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
       obtain ⟨t', _, hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨_nmv, _hnmv, rfl⟩ := hd
-      rw [getAppArgsAccI, hn]; exact hacc
+      rw [getAppArgsAccI, getNode_of_stored hn]; exact hacc
     | lam nm t b m =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
       obtain ⟨et, _, hd⟩ := hd
@@ -244,7 +244,7 @@ theorem getAppArgsAccI_spec {st : EStore} (_hwf : st.WF) :
       obtain ⟨bm, _, hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨_nmv, _hnmv, rfl⟩ := hd
-      rw [getAppArgsAccI, hn]; exact hacc
+      rw [getAppArgsAccI, getNode_of_stored hn]; exact hacc
     | forallE nm t b m =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
       obtain ⟨et, _, hd⟩ := hd
@@ -254,7 +254,7 @@ theorem getAppArgsAccI_spec {st : EStore} (_hwf : st.WF) :
       obtain ⟨bm, _, hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨_nmv, _hnmv, rfl⟩ := hd
-      rw [getAppArgsAccI, hn]; exact hacc
+      rw [getAppArgsAccI, getNode_of_stored hn]; exact hacc
     | letE nm t v b =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
       obtain ⟨et, _, hd⟩ := hd
@@ -264,13 +264,13 @@ theorem getAppArgsAccI_spec {st : EStore} (_hwf : st.WF) :
       obtain ⟨eb, _, hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨_nmv, _hnmv, rfl⟩ := hd
-      rw [getAppArgsAccI, hn]; exact hacc
+      rw [getAppArgsAccI, getNode_of_stored hn]; exact hacc
     | proj s j e' =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
       obtain ⟨ee, _, hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨_nmv, _hnmv, rfl⟩ := hd
-      rw [getAppArgsAccI, hn]; exact hacc
+      rw [getAppArgsAccI, getNode_of_stored hn]; exact hacc
 
 theorem getAppArgsI_spec {st : EStore} (hwf : st.WF) :
     ∀ {e : EIdx} {x : Expr}, st.denote e = some x →
@@ -524,6 +524,7 @@ theorem instantiateListIGo_spec {vs : Array EIdx} {ws : List Expr} :
     have hlen : ws.length = vs.size := by
       simpa using hvs.length_eq.symm
     unfold instantiateListIGo at hgo
+    rw [hwf.getNode_eq] at hgo
     split at hgo
     · -- k = 0: the identity (empty live prefix)
       rename_i hk0
@@ -1098,7 +1099,7 @@ theorem instantiateRevIGo_eq {vs : Array EIdx} :
     cases hmemo : memo[(e, k, d)]? with
     | some r => rfl
     | none =>
-      cases hn : st.nodes[e]? with
+      cases hn : st.getNode e with
       | none => rfl
       | some n =>
         cases n with
@@ -1306,7 +1307,7 @@ theorem piResidualAccI_spec :
         obtain ⟨_nmv, _hnmv, rfl⟩ := hd
         rw [piResidualAccI.eq_def]
         dsimp only
-        rw [hn]
+        rw [getNode_of_stored hn]
         dsimp only
         simp only [Expr.instantiateList]
         rw [show piResidual
@@ -1321,7 +1322,7 @@ theorem piResidualAccI_spec :
         cases hd
         rw [piResidualAccI.eq_def]
         dsimp only
-        rw [hn]
+        rw [getNode_of_stored hn]
         dsimp only
         match acc, ws, hacc with
         | [], [], _ =>
@@ -1343,7 +1344,7 @@ theorem piResidualAccI_spec :
         obtain ⟨ea, _, rfl⟩ := hd
         rw [piResidualAccI.eq_def]
         dsimp only
-        rw [hn]
+        rw [getNode_of_stored hn]
         simp only [Expr.instantiateList]
         exact ⟨hwf, Ext.refl st, trivial⟩
       | sort u =>
@@ -1351,7 +1352,7 @@ theorem piResidualAccI_spec :
         obtain ⟨lu, _, rfl⟩ := hd
         rw [piResidualAccI.eq_def]
         dsimp only
-        rw [hn]
+        rw [getNode_of_stored hn]
         simp only [Expr.instantiateList]
         exact ⟨hwf, Ext.refl st, trivial⟩
       | const nm us =>
@@ -1361,14 +1362,14 @@ theorem piResidualAccI_spec :
         obtain ⟨_nmv, _hnmv, rfl⟩ := hd
         rw [piResidualAccI.eq_def]
         dsimp only
-        rw [hn]
+        rw [getNode_of_stored hn]
         simp only [Expr.instantiateList]
         exact ⟨hwf, Ext.refl st, trivial⟩
       | lit l =>
         cases hd
         rw [piResidualAccI.eq_def]
         dsimp only
-        rw [hn]
+        rw [getNode_of_stored hn]
         simp only [Expr.instantiateList]
         exact ⟨hwf, Ext.refl st, trivial⟩
       | fvar idx nm t =>
@@ -1378,7 +1379,7 @@ theorem piResidualAccI_spec :
         obtain ⟨_nmv, _hnmv, rfl⟩ := hd
         rw [piResidualAccI.eq_def]
         dsimp only
-        rw [hn]
+        rw [getNode_of_stored hn]
         simp only [Expr.instantiateList]
         exact ⟨hwf, Ext.refl st, trivial⟩
       | lam nm t b m =>
@@ -1392,7 +1393,7 @@ theorem piResidualAccI_spec :
         obtain ⟨_nmv, _hnmv, rfl⟩ := hd
         rw [piResidualAccI.eq_def]
         dsimp only
-        rw [hn]
+        rw [getNode_of_stored hn]
         simp only [Expr.instantiateList]
         exact ⟨hwf, Ext.refl st, trivial⟩
       | letE nm t v b =>
@@ -1406,7 +1407,7 @@ theorem piResidualAccI_spec :
         obtain ⟨_nmv, _hnmv, rfl⟩ := hd
         rw [piResidualAccI.eq_def]
         dsimp only
-        rw [hn]
+        rw [getNode_of_stored hn]
         simp only [Expr.instantiateList]
         exact ⟨hwf, Ext.refl st, trivial⟩
       | proj s j e' =>
@@ -1416,7 +1417,7 @@ theorem piResidualAccI_spec :
         obtain ⟨_nmv, _hnmv, rfl⟩ := hd
         rw [piResidualAccI.eq_def]
         dsimp only
-        rw [hn]
+        rw [getNode_of_stored hn]
         simp only [Expr.instantiateList]
         exact ⟨hwf, Ext.refl st, trivial⟩
 termination_by as _ acc => (as.length, acc.length)
@@ -1472,7 +1473,7 @@ theorem pisToLamsI_spec :
       subst hbi
       obtain ⟨hwf₁, hext₁, hres₁⟩ :=
         pisToLamsI_spec (k := k) hwf hbb hb (e := b) (body := body)
-      rw [pisToLamsI, hn]
+      rw [pisToLamsI, getNode_of_stored hn]
       dsimp only
       rw [show Expr.pisToLams (k + 1) (.forallE _nmv et eb ⟨m.bi, cod'⟩) xb =
         (Expr.pisToLams k eb xb).map (fun bx => .lam _nmv et bx ⟨m.bi, none⟩)
@@ -1501,25 +1502,25 @@ theorem pisToLamsI_spec :
       obtain ⟨ef, _, hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨ea, _, rfl⟩ := hd
-      rw [pisToLamsI, hn]; exact ⟨hwf, Ext.refl st, trivial⟩
-    | bvar i => cases hd; rw [pisToLamsI, hn]; exact ⟨hwf, Ext.refl st, trivial⟩
+      rw [pisToLamsI, getNode_of_stored hn]; exact ⟨hwf, Ext.refl st, trivial⟩
+    | bvar i => cases hd; rw [pisToLamsI, getNode_of_stored hn]; exact ⟨hwf, Ext.refl st, trivial⟩
     | sort u =>
       rw [denoteNode, Option.map_eq_some_iff] at hd
       obtain ⟨lu, _, rfl⟩ := hd
-      rw [pisToLamsI, hn]; exact ⟨hwf, Ext.refl st, trivial⟩
+      rw [pisToLamsI, getNode_of_stored hn]; exact ⟨hwf, Ext.refl st, trivial⟩
     | const nm us =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
       obtain ⟨lus, _, hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨_nmv, _hnmv, rfl⟩ := hd
-      rw [pisToLamsI, hn]; exact ⟨hwf, Ext.refl st, trivial⟩
-    | lit l => cases hd; rw [pisToLamsI, hn]; exact ⟨hwf, Ext.refl st, trivial⟩
+      rw [pisToLamsI, getNode_of_stored hn]; exact ⟨hwf, Ext.refl st, trivial⟩
+    | lit l => cases hd; rw [pisToLamsI, getNode_of_stored hn]; exact ⟨hwf, Ext.refl st, trivial⟩
     | fvar idx nm t =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
       obtain ⟨t', _, hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨_nmv, _hnmv, rfl⟩ := hd
-      rw [pisToLamsI, hn]; exact ⟨hwf, Ext.refl st, trivial⟩
+      rw [pisToLamsI, getNode_of_stored hn]; exact ⟨hwf, Ext.refl st, trivial⟩
     | lam nm t b m =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
       obtain ⟨et, _, hd⟩ := hd
@@ -1529,7 +1530,7 @@ theorem pisToLamsI_spec :
       obtain ⟨bm, _, hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨_nmv, _hnmv, rfl⟩ := hd
-      rw [pisToLamsI, hn]; exact ⟨hwf, Ext.refl st, trivial⟩
+      rw [pisToLamsI, getNode_of_stored hn]; exact ⟨hwf, Ext.refl st, trivial⟩
     | letE nm t v b =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
       obtain ⟨et, _, hd⟩ := hd
@@ -1539,13 +1540,13 @@ theorem pisToLamsI_spec :
       obtain ⟨eb, _, hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨_nmv, _hnmv, rfl⟩ := hd
-      rw [pisToLamsI, hn]; exact ⟨hwf, Ext.refl st, trivial⟩
+      rw [pisToLamsI, getNode_of_stored hn]; exact ⟨hwf, Ext.refl st, trivial⟩
     | proj s j e' =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
       obtain ⟨ee, _, hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨_nmv, _hnmv, rfl⟩ := hd
-      rw [pisToLamsI, hn]; exact ⟨hwf, Ext.refl st, trivial⟩
+      rw [pisToLamsI, getNode_of_stored hn]; exact ⟨hwf, Ext.refl st, trivial⟩
 
 theorem stripPisBodyI_spec {st : EStore} (_hwf : st.WF) :
     ∀ {k : Nat} {e : EIdx} {x : Expr}, st.denote e = some x →
@@ -1569,7 +1570,7 @@ theorem stripPisBodyI_spec {st : EStore} (_hwf : st.WF) :
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨_nmv, _hnmv, rfl⟩ := hd
       have := ih (e := b) hbb
-      rw [stripPisBodyI, hn]
+      rw [stripPisBodyI, getNode_of_stored hn]
       dsimp only
       rw [show Expr.stripPis (k + 1) (.forallE _nmv et eb bm) =
         (eb.stripPis k).map (fun p => ((_nmv, et, bm) :: p.1, p.2)) from rfl]
@@ -1581,25 +1582,25 @@ theorem stripPisBodyI_spec {st : EStore} (_hwf : st.WF) :
       obtain ⟨ef, _, hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨ea, _, rfl⟩ := hd
-      rw [stripPisBodyI, hn]; exact trivial
-    | bvar i => cases hd; rw [stripPisBodyI, hn]; exact trivial
+      rw [stripPisBodyI, getNode_of_stored hn]; exact trivial
+    | bvar i => cases hd; rw [stripPisBodyI, getNode_of_stored hn]; exact trivial
     | sort u =>
       rw [denoteNode, Option.map_eq_some_iff] at hd
       obtain ⟨lu, _, rfl⟩ := hd
-      rw [stripPisBodyI, hn]; exact trivial
+      rw [stripPisBodyI, getNode_of_stored hn]; exact trivial
     | const nm us =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
       obtain ⟨lus, _, hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨_nmv, _hnmv, rfl⟩ := hd
-      rw [stripPisBodyI, hn]; exact trivial
-    | lit l => cases hd; rw [stripPisBodyI, hn]; exact trivial
+      rw [stripPisBodyI, getNode_of_stored hn]; exact trivial
+    | lit l => cases hd; rw [stripPisBodyI, getNode_of_stored hn]; exact trivial
     | fvar idx nm t =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
       obtain ⟨t', _, hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨_nmv, _hnmv, rfl⟩ := hd
-      rw [stripPisBodyI, hn]; exact trivial
+      rw [stripPisBodyI, getNode_of_stored hn]; exact trivial
     | lam nm t b m =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
       obtain ⟨et, _, hd⟩ := hd
@@ -1609,7 +1610,7 @@ theorem stripPisBodyI_spec {st : EStore} (_hwf : st.WF) :
       obtain ⟨bm, _, hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨_nmv, _hnmv, rfl⟩ := hd
-      rw [stripPisBodyI, hn]; exact trivial
+      rw [stripPisBodyI, getNode_of_stored hn]; exact trivial
     | letE nm t v b =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
       obtain ⟨et, _, hd⟩ := hd
@@ -1619,13 +1620,13 @@ theorem stripPisBodyI_spec {st : EStore} (_hwf : st.WF) :
       obtain ⟨eb, _, hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨_nmv, _hnmv, rfl⟩ := hd
-      rw [stripPisBodyI, hn]; exact trivial
+      rw [stripPisBodyI, getNode_of_stored hn]; exact trivial
     | proj s j e' =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd
       obtain ⟨ee, _, hd⟩ := hd
       rw [Option.map_eq_some_iff] at hd
       obtain ⟨_nmv, _hnmv, rfl⟩ := hd
-      rw [stripPisBodyI, hn]; exact trivial
+      rw [stripPisBodyI, getNode_of_stored hn]; exact trivial
 
 /-! ## Readback -/
 
@@ -1843,7 +1844,7 @@ theorem readbackGo_spec {st : EStore} (hwf : st.WF) :
       rw [hx] at this
       exact ⟨by injection this with h; rw [h], hinv, hlinv⟩
     | none =>
-      rw [hm, hn] at hgo
+      rw [hm, getNode_of_stored hn] at hgo
       cases n with
       | bvar i =>
         cases hd
@@ -2095,7 +2096,7 @@ theorem isUnitLikeTyI_spec {st : EStore} {env : Env} {e : EIdx} {x : Expr}
     (hwf : st.WF) (hx : st.denote e = some x) :
     isUnitLikeTyI (mkFEnv env) st e = isUnitLikeTy env x := by
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hx
-  rw [isUnitLikeTyI, hn]
+  rw [isUnitLikeTyI, getNode_of_stored hn]
   cases n with
   | const nm us =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
@@ -2174,16 +2175,16 @@ theorem isUnitLikeTyI_spec {st : EStore} {env : Env} {e : EIdx} {x : Expr}
 convenience inversion pairing `getAppFnI_spec` with `denote_some_inv`. -/
 theorem head_node_spec {st : EStore} (hwf : st.WF) {e : EIdx} {x : Expr}
     (hx : st.denote e = some x) :
-    ∃ n, st.nodes[st.getAppFnI e]? = some n ∧
+    ∃ n, st.getNode (st.getAppFnI e) = some n ∧
       denoteNode st.denote st.denoteL st.denoteN n = some x.getAppFn := by
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv (getAppFnI_spec hwf hx)
-  exact ⟨n, hn, hd⟩
+  exact ⟨n, getNode_of_stored hn, hd⟩
 
 theorem isCtorAppI_spec {st : EStore} {env : Env} {e : EIdx} {x : Expr}
     (hwf : st.WF) (hx : st.denote e = some x) :
     isCtorAppI (mkFEnv env) st e = isCtorApp env x := by
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv (getAppFnI_spec hwf hx)
-  rw [isCtorAppI, hn, isCtorApp]
+  rw [isCtorAppI, getNode_of_stored hn, isCtorApp]
   cases n with
   | const nm us =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
@@ -2261,7 +2262,7 @@ theorem headHintI_spec {st : EStore} {env : Env} {e : EIdx} {x : Expr}
     (hwf : st.WF) (hx : st.denote e = some x) :
     headHintI (mkFEnv env) st e = headHint env x := by
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv (getAppFnI_spec hwf hx)
-  rw [headHintI, hn, headHint]
+  rw [headHintI, getNode_of_stored hn, headHint]
   cases n with
   | const nm us =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
@@ -2339,7 +2340,7 @@ theorem rawNatLitI?_spec {st : EStore} {e : EIdx} {x : Expr}
     (hx : st.denote e = some x) :
     rawNatLitI? st e = rawNatLit? x := by
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hx
-  rw [rawNatLitI?, hn]
+  rw [rawNatLitI?, getNode_of_stored hn]
   cases n with
   | const nm us =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
@@ -2422,7 +2423,7 @@ theorem sameConstHeadsI_spec {st : EStore} {a b : EIdx} {xa xb : Expr}
     sameConstHeadsI st a b = sameConstHeads xa xb := by
   obtain ⟨na, hna, hca, hda⟩ := denote_some_inv ha
   obtain ⟨nb, hnb, hcb, hdb⟩ := denote_some_inv hb
-  rw [sameConstHeadsI, hna, hnb]
+  rw [sameConstHeadsI, getNode_of_stored hna, getNode_of_stored hnb]
   cases na with
   | app f₁ a₁ =>
     rw [denoteNode, Option.bind_eq_some_iff] at hda
@@ -2442,7 +2443,7 @@ theorem sameConstHeadsI_spec {st : EStore} {a b : EIdx} {xa xb : Expr}
       obtain ⟨m₁, hm₁, -, hdm₁⟩ := denote_some_inv (getAppFnI_spec hwf hf₁)
       obtain ⟨m₂, hm₂, -, hdm₂⟩ := denote_some_inv (getAppFnI_spec hwf hf₂)
       dsimp only
-      rw [hm₁, hm₂]
+      rw [getNode_of_stored hm₁, getNode_of_stored hm₂]
       cases m₁ with
       | const n₁ us₁ =>
         rw [denoteNode, Option.bind_eq_some_iff] at hdm₁
@@ -2745,6 +2746,7 @@ private theorem leavesSubIGo_spec {st : EStore} (hwf : st.WF)
   | _ e ih =>
     intro memo r memo' hinv hgo
     unfold EStore.leavesSubIGo at hgo
+    rw [hwf.getNode_eq] at hgo
     split at hgo
     · rename_i hhit
       injection hgo with hgr hgm

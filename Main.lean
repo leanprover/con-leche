@@ -145,8 +145,22 @@ def checkMain (file : String) (yolo : Bool) (pre : Bool) : IO UInt32 := do
     -- UNVERIFIED: the consistency statements cover only the default
     -- drivers below.
     let noCerts := yolo || (← IO.getEnv "SETLEC_NO_PROOF_CERTS") == some "1"
-    let stepF := if noCerts then checkDeclSPStepNC else checkDeclSPStep
-    let foldF := if noCerts then checkDeclsSPNC else checkDeclsSP
+    -- Measurement mode (task #64): SETLEC_TIER_BRACKET=1 selects the
+    -- snapshot-bracketed drivers — the def/thm/opaque check phases run
+    -- on a discarded tier-two fork of the interned state, so their
+    -- reduction temporaries are released per declaration.  UNVERIFIED:
+    -- the consistency statements cover only the default drivers.
+    let bracket := (← IO.getEnv "SETLEC_TIER_BRACKET") == some "1"
+    let stepF := match noCerts, bracket with
+      | true, true => checkDeclSPStepNCB
+      | true, false => checkDeclSPStepNC
+      | false, true => checkDeclSPStepB
+      | false, false => checkDeclSPStep
+    let foldF := match noCerts, bracket with
+      | true, true => checkDeclsSPNCB
+      | true, false => checkDeclsSPNC
+      | false, true => checkDeclsSPB
+      | false, false => checkDeclsSP
     -- Streaming frontend (task #57): the preprocessor writes to a temp
     -- file and the parse reads line by line — no wholesale text buffer
     -- in this process; retained memory is the parse arena plus the

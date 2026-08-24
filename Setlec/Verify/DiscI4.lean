@@ -145,7 +145,7 @@ theorem whnfAppI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
       dsimp only
       refine SimAt.view ?_
       obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hv
-      rw [hn]
+      rw [getNode_of_stored hn]
       have hwxa : WScoped d xa := hwargs xa (List.mem_cons_self ..)
       have hwrest : ∀ x ∈ xs, WScoped d x :=
         fun x hx => hwargs x (List.mem_cons_of_mem _ hx)
@@ -403,7 +403,7 @@ theorem betaPeelI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
       dsimp only
       refine SimAt.view ?_
       obtain ⟨n, hn, hc, hd⟩ := denote_some_inv ht
-      rw [hn]
+      rw [getNode_of_stored hn]
       have hwxa : WScoped d xa := hwargs xa (List.mem_cons_self ..)
       have hwrest : ∀ x ∈ xs, WScoped d x :=
         fun x hx => hwargs x (List.mem_cons_of_mem _ hx)
@@ -673,7 +673,7 @@ theorem whnfCoreBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
   rw [whnfCoreBody_unfold]
   refine SimAt.view ?_
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hden
-  rw [hn]
+  rw [getNode_of_stored hn]
   cases n with
   | sort u =>
     rw [denoteNode, Option.map_eq_some_iff] at hd
@@ -758,7 +758,7 @@ theorem whnfCoreBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
       refine SimAt.withStore ?_
       obtain ⟨n', hn', hc', hd'⟩ :=
         denote_some_inv (getAppFnI_spec hs₁.wf he'd)
-      rw [hn']
+      rw [getNode_of_stored hn']
       cases n' with
       | const c us =>
         rw [denoteNode, Option.bind_eq_some_iff] at hd'
@@ -976,7 +976,7 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
       dsimp only
       refine SimAt.view ?_
       obtain ⟨n, hn, hc, hd⟩ := denote_some_inv ht
-      rw [hn]
+      rw [getNode_of_stored hn]
       have hwxa : WScoped d xa := hwargs xa (List.mem_cons_self ..)
       have hwrest : ∀ x ∈ xs, WScoped d x :=
         fun x hx => hwargs x (List.mem_cons_of_mem _ hx)
@@ -1046,7 +1046,7 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         obtain ⟨hwd, hww⟩ := hP
         refine SimAt.view ?_
         obtain ⟨n', hn', hc', hd'⟩ := denote_some_inv hwd
-        rw [hn']
+        rw [getNode_of_stored hn']
         cases n' with
         | forallE nm'ᵢ dom body mb =>
           rw [denoteNode, Option.bind_eq_some_iff] at hd'
@@ -1125,7 +1125,7 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         obtain ⟨hwd, hww⟩ := hP
         refine SimAt.view ?_
         obtain ⟨n', hn', hc', hd'⟩ := denote_some_inv hwd
-        rw [hn']
+        rw [getNode_of_stored hn']
         cases n' with
         | forallE nm'ᵢ dom body mb =>
           rw [denoteNode, Option.bind_eq_some_iff] at hd'
@@ -1206,7 +1206,7 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         obtain ⟨hwd, hww⟩ := hP
         refine SimAt.view ?_
         obtain ⟨n', hn', hc', hd'⟩ := denote_some_inv hwd
-        rw [hn']
+        rw [getNode_of_stored hn']
         cases n' with
         | forallE nm' dom body mb =>
           rw [denoteNode, Option.bind_eq_some_iff] at hd'
@@ -1279,7 +1279,7 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         obtain ⟨hwd, hww⟩ := hP
         refine SimAt.view ?_
         obtain ⟨n', hn', hc', hd'⟩ := denote_some_inv hwd
-        rw [hn']
+        rw [getNode_of_stored hn']
         cases n' with
         | forallE nm'ᵢ dom body mb =>
           rw [denoteNode, Option.bind_eq_some_iff] at hd'
@@ -1361,7 +1361,7 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         obtain ⟨hwd, hww⟩ := hP
         refine SimAt.view ?_
         obtain ⟨n', hn', hc', hd'⟩ := denote_some_inv hwd
-        rw [hn']
+        rw [getNode_of_stored hn']
         cases n' with
         | forallE nm' dom body mb =>
           rw [denoteNode, Option.bind_eq_some_iff] at hd'
@@ -1438,7 +1438,7 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         obtain ⟨hwd, hww⟩ := hP
         refine SimAt.view ?_
         obtain ⟨n', hn', hc', hd'⟩ := denote_some_inv hwd
-        rw [hn']
+        rw [getNode_of_stored hn']
         cases n' with
         | forallE nm'ᵢ dom body mb =>
           rw [denoteNode, Option.bind_eq_some_iff] at hd'
@@ -1524,7 +1524,7 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         obtain ⟨hwd, hww⟩ := hP
         refine SimAt.view ?_
         obtain ⟨n', hn', hc', hd'⟩ := denote_some_inv hwd
-        rw [hn']
+        rw [getNode_of_stored hn']
         cases n' with
         | forallE nm' dom body mb =>
           rw [denoteNode, Option.bind_eq_some_iff] at hd'
@@ -1605,7 +1605,7 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         obtain ⟨hwd, hww⟩ := hP
         refine SimAt.view ?_
         obtain ⟨n', hn', hc', hd'⟩ := denote_some_inv hwd
-        rw [hn']
+        rw [getNode_of_stored hn']
         cases n' with
         | forallE nm' dom body mb =>
           rw [denoteNode, Option.bind_eq_some_iff] at hd'
@@ -1682,7 +1682,7 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         obtain ⟨hwd, hww⟩ := hP
         refine SimAt.view ?_
         obtain ⟨n', hn', hc', hd'⟩ := denote_some_inv hwd
-        rw [hn']
+        rw [getNode_of_stored hn']
         cases n' with
         | forallE nm' dom body mb =>
           rw [denoteNode, Option.bind_eq_some_iff] at hd'
@@ -1751,7 +1751,7 @@ theorem inferBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
   unfold inferBodyI
   refine SimAt.view ?_
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hden
-  rw [hn]
+  rw [getNode_of_stored hn]
   cases n with
   | sort u =>
     rw [denoteNode, Option.map_eq_some_iff] at hd
@@ -1902,7 +1902,7 @@ theorem inferBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
       obtain ⟨hwd, hww⟩ := hP₂
       refine SimAt.view ?_
       obtain ⟨n', hn', hc', hd'⟩ := denote_some_inv hwd
-      rw [hn']
+      rw [getNode_of_stored hn']
       cases n' with
       | sort u =>
         rw [denoteNode, Option.map_eq_some_iff] at hd'
@@ -1960,7 +1960,7 @@ theorem inferBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
       obtain ⟨hwd, hww⟩ := hP₂
       refine SimAt.view ?_
       obtain ⟨n', hn', hc', hd'⟩ := denote_some_inv hwd
-      rw [hn']
+      rw [getNode_of_stored hn']
       cases n' with
       | sort u =>
         rw [denoteNode, Option.map_eq_some_iff] at hd'
@@ -2036,7 +2036,7 @@ theorem inferBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     refine SimAt.withStore ?_
     obtain ⟨n', hn', hc', hd'⟩ :=
       denote_some_inv (getAppFnI_spec hs₂.wf hted)
-    rw [hn']
+    rw [getNode_of_stored hn']
     cases n' with
     | const Tᵢ us =>
       rw [denoteNode, Option.bind_eq_some_iff] at hd'

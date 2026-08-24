@@ -266,6 +266,7 @@ theorem allLevelParamsDefinedIGo_spec {st : EStore} (hwf : st.WF)
   | _ e ih =>
     intro lmemo memo b lmemo' memo' hinv hgo
     unfold allLevelParamsDefinedIGo at hgo
+    rw [hwf.getNode_eq] at hgo
     split at hgo
     · -- level-param-free: trivially defined (task #87)
       rename_i hnp
@@ -764,7 +765,7 @@ theorem constsResolveFIGo_eq {st : EStore} {fe : FEnv} {env : Env}
     | some r => rfl
     | none =>
       dsimp only
-      cases hn : st.nodes[e]? with
+      cases hn : st.getNode e with
       | none => rfl
       | some n =>
         dsimp only

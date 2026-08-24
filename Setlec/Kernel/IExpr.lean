@@ -309,7 +309,7 @@ tier-one indices remain the identity embedding. -/
 /-- Tier-dispatched node read (task #64): a tier-one position reads
 the tier-one table at the identity index; anything else falls through
 to the tier-two table at offset `i - tierTag`.  On a flag-off store
-(tier two empty) this is exactly `st.nodes[i]?`; with tier two live,
+(tier two empty) this is exactly `st.getNode i`; with tier two live,
 the split is a theorem (`TWF.flag_bound`: tier-one indices sit below
 `tierTag`, tier-two indices at or above it). -/
 def getNode (st : EStore) (i : EIdx) : Option ENode :=
@@ -951,7 +951,7 @@ def instantiate1IGo (v : EIdx) (st : EStore) (memo : MemoN)
   match memo[(e, d)]? with
   | some r => (r, st, memo)
   | none =>
-    match st.nodes[e]? with
+    match st.getNode e with
     | none => (e, st, memo)
     | some n =>
       let (r, st, memo) : EIdx × EStore × MemoN :=
@@ -1040,7 +1040,7 @@ def instantiateListIGo (vs : Array EIdx) (st : EStore)
     match memo[(e, k, d)]? with
     | some r => (r, st, memo)
     | none =>
-      match st.nodes[e]? with
+      match st.getNode e with
       | none => (e, st, memo)
       | some n =>
         let (r, st, memo) : EIdx × EStore × MemoNL :=
@@ -1135,7 +1135,7 @@ def instantiateRevIGo (vs : Array EIdx) (st : EStore)
     match memo[(e, k, d)]? with
     | some r => (r, st, memo)
     | none =>
-      match st.nodes[e]? with
+      match st.getNode e with
       | none => (e, st, memo)
       | some n =>
         let (r, st, memo) : EIdx × EStore × MemoNL :=
@@ -1220,7 +1220,7 @@ def abstract1IGo (d : Nat) (st : EStore) (memo : MemoN) (e : EIdx) (k : Nat) :
   match memo[(e, k)]? with
   | some r => (r, st, memo)
   | none =>
-    match st.nodes[e]? with
+    match st.getNode e with
     | none => (e, st, memo)
     | some n =>
       let (r, st, memo) : EIdx × EStore × MemoN :=
@@ -1293,7 +1293,7 @@ def abstractRangeIGo (d k : Nat) (st : EStore)
   match memo[(e, c)]? with
   | some r => (r, st, memo)
   | none =>
-    match st.nodes[e]? with
+    match st.getNode e with
     | none => (e, st, memo)
     | some n =>
       let (r, st, memo) : EIdx × EStore × MemoN :=
@@ -1393,7 +1393,7 @@ def instantiateLevelParamsIGo (ks : List Name) (us : List LIdx)
   match memo[e]? with
   | some r => (r, st, memo, lmemo)
   | none =>
-    match st.nodes[e]? with
+    match st.getNode e with
     | none => (e, st, memo, lmemo)
     | some n =>
       let (r, st, memo, lmemo) : EIdx × EStore × Memo0 × LMemo :=
@@ -1496,7 +1496,7 @@ def looseBVarsBoundedIGo (st : EStore) (memo : Std.HashMap (EIdx × Nat) Bool)
   match memo[(e, k)]? with
   | some r => (r, memo)
   | none =>
-    match st.nodes[e]? with
+    match st.getNode e with
     | none => (false, memo)
     | some n =>
       let (r, memo) : Bool × Std.HashMap (EIdx × Nat) Bool :=
@@ -1582,7 +1582,7 @@ def allLevelParamsDefinedIGo (st : EStore) (params : List Name)
   match memo[e]? with
   | some r => (r, lmemo, memo)
   | none =>
-    match st.nodes[e]? with
+    match st.getNode e with
     | none => (false, lmemo, memo)
     | some n =>
       let (r, lmemo, memo) :
@@ -1652,7 +1652,7 @@ def wscopedBIGo (st : EStore) (memo : Std.HashMap (EIdx × Nat) Bool)
   match memo[(e, d)]? with
   | some r => (r, memo)
   | none =>
-    match st.nodes[e]? with
+    match st.getNode e with
     | none => (false, memo)
     | some n =>
       let (r, memo) : Bool × Std.HashMap (EIdx × Nat) Bool :=
@@ -1703,7 +1703,7 @@ def fvarLeavesIGo (st : EStore)
   match memo[e]? with
   | some r => (r, memo)
   | none =>
-    match st.nodes[e]? with
+    match st.getNode e with
     | none => ([], memo)
     | some n =>
       let (r, memo) : List (Nat × NIdx × EIdx) × Std.HashMap EIdx (List (Nat × NIdx × EIdx)) :=
@@ -1757,7 +1757,7 @@ def leavesSubIGo (st : EStore) (bl : List (Nat × NIdx × EIdx))
   match memo[e]? with
   | some r => (r, memo)
   | none =>
-    match st.nodes[e]? with
+    match st.getNode e with
     | none => (true, memo)
     | some n =>
       let (r, memo) : Bool × Std.HashMap EIdx Bool :=
@@ -1812,7 +1812,7 @@ def constsResolveIGo (st : EStore) (env : Env)
   match memo[e]? with
   | some r => (r, memo)
   | none =>
-    match st.nodes[e]? with
+    match st.getNode e with
     | none => (false, memo)
     | some n =>
       let (r, memo) : Bool × Std.HashMap EIdx Bool :=
@@ -1881,7 +1881,7 @@ fail on well-formed stores — `Setlec/Verify/IExprOps.lean`).
 
 /-- Interned counterpart of `Expr.getAppFn`. -/
 def getAppFnI (st : EStore) (e : EIdx) : EIdx :=
-  match st.nodes[e]? with
+  match st.getNode e with
   | some (.app f _) => if _h : f < e then getAppFnI st f else e
   | _ => e
 termination_by e
@@ -1891,7 +1891,7 @@ termination_by e
 previous append-per-node form was quadratic). -/
 def getAppArgsAccI (st : EStore) : EIdx → List EIdx → List EIdx
   | e, acc =>
-    match st.nodes[e]? with
+    match st.getNode e with
     | some (.app f a) =>
       if _h : f < e then getAppArgsAccI st f (a :: acc) else acc
     | _ => acc
@@ -1943,7 +1943,7 @@ def piResidualAccI (st : EStore) : List EIdx → EIdx → List EIdx →
     let (r, st) := st.instantiateListI e acc 0
     (some r, st)
   | acc, e, a :: as =>
-    match st.nodes[e]? with
+    match st.getNode e with
     | some (.forallE _ _ b _) => piResidualAccI st (a :: acc) b as
     | some (.bvar _) =>
       match acc with
@@ -1966,7 +1966,7 @@ def piResidualI (st : EStore) (e : EIdx) (args : List EIdx) :
 def pisToLamsI (st : EStore) : Nat → EIdx → EIdx → Option EIdx × EStore
   | 0, _, body => (some body, st)
   | k + 1, e, body =>
-    match st.nodes[e]? with
+    match st.getNode e with
     | some (.forallE n ty rest mb) =>
       match pisToLamsI st k rest body with
       | (some b, st) =>
@@ -1981,7 +1981,7 @@ the body). -/
 def stripPisBodyI (st : EStore) : Nat → EIdx → Option EIdx
   | 0, e => some e
   | k + 1, e =>
-    match st.nodes[e]? with
+    match st.getNode e with
     | some (.forallE _ _ b _) => stripPisBodyI st k b
     | _ => none
 
@@ -2016,7 +2016,7 @@ def readbackGo (st : EStore) (memo : Std.HashMap EIdx Expr)
   match memo[e]? with
   | some x => (some x, memo, lmemo)
   | none =>
-    match st.nodes[e]? with
+    match st.getNode e with
     | none => (none, memo, lmemo)
     | some n =>
       let (r, memo, lmemo) :

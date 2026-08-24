@@ -120,6 +120,7 @@ theorem instantiate1IGo_spec {v : EIdx} {w : Expr} :
   | _ e ih =>
     intro st memo d r st' memo' hwf hv hinv hgo
     unfold instantiate1IGo at hgo
+    rw [hwf.getNode_eq] at hgo
     split at hgo
     · -- per-node bound cutoff: no loose bvar at or above the cursor
       rename_i hcut
@@ -562,6 +563,7 @@ theorem abstract1IGo_spec {dd : Nat} :
   | _ e ih =>
     intro st memo k r st' memo' hwf hinv hgo
     unfold abstract1IGo at hgo
+    rw [hwf.getNode_eq] at hgo
     split at hgo
     · rename_i hhit
       cases hgo
@@ -961,6 +963,7 @@ theorem abstractRangeIGo_spec {dd kk : Nat} :
   | _ e ih =>
     intro st memo k r st' memo' hwf hinv hgo
     unfold abstractRangeIGo at hgo
+    rw [hwf.getNode_eq] at hgo
     split at hgo
     · -- per-node fvar-range cutoff: no fvar at or above the range base
       rename_i hcut
@@ -1798,6 +1801,7 @@ theorem instantiateLevelParamsIGo_spec {ks : List Name} {us : List LIdx}
   | _ e ih =>
     intro st memo lmemo r st' memo' lmemo' hwf hus hinv hlinv hgo
     unfold instantiateLevelParamsIGo at hgo
+    rw [hwf.getNode_eq] at hgo
     split at hgo
     · -- level-param-free: identity (task #87)
       rename_i hnp
@@ -2376,6 +2380,7 @@ theorem looseBVarsBoundedIGo_spec {st : EStore} (hwf : st.WF) :
   | _ e ih =>
     intro memo k r memo' hinv hgo
     unfold looseBVarsBoundedIGo at hgo
+    rw [hwf.getNode_eq] at hgo
     split at hgo
     · rename_i hhit
       injection hgo with hgr hgm
@@ -2737,6 +2742,7 @@ theorem wscopedBIGo_spec {st : EStore} (hwf : st.WF) :
   | _ e ih =>
     intro memo d r memo' hinv hgo
     unfold wscopedBIGo at hgo
+    rw [hwf.getNode_eq] at hgo
     split at hgo
     · rename_i hhit
       injection hgo with hgr hgm
@@ -3100,6 +3106,7 @@ theorem constsResolveIGo_spec {st : EStore} {env : Env} (hwf : st.WF) :
   | _ e ih =>
     intro memo r memo' hinv hgo
     unfold constsResolveIGo at hgo
+    rw [hwf.getNode_eq] at hgo
     split at hgo
     · rename_i hhit
       injection hgo with hgr hgm
@@ -3554,6 +3561,7 @@ theorem fvarLeavesIGo_spec {st : EStore} (hwf : st.WF) :
   | _ e ih =>
     intro memo r memo' hinv hgo
     unfold fvarLeavesIGo at hgo
+    rw [hwf.getNode_eq] at hgo
     split at hgo
     · rename_i hhit
       injection hgo with hgr hgm
