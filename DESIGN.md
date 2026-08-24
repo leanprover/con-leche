@@ -5009,9 +5009,10 @@ built binary, perf, and a process per stream): CI should invoke
 `tests/scale.sh --ci` as its own job step after `lake build`.
 
 **Gate rationale.**  Per-shape gates = measured master exponent +
-slack, not a blanket threshold.  Measured on master 4f63b6c
-(2026-08-24, instructions adjusted per methodology; "std" = largest
-standard step, "deep" = largest deep step):
+slack, not a blanket threshold.  Measured on master 4f63b6c and
+re-confirmed identical (±0.01) on 6e29d67 after merging tasks
+#95/#88 (2026-08-24, instructions adjusted per methodology; "std" =
+largest standard step, "deep" = largest deep step):
 
 | shape | std exponents per doubling | std | deep | gate std/deep | RSS |
 |---|---|---|---|---|---|
