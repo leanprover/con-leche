@@ -770,6 +770,32 @@ theorem checkTypedList_wfimp {env : Env} (henv : EnvWF env)
         (fun x hx => ha x (List.mem_cons_of_mem _ hx))
         (fun y hy => hb y (List.mem_cons_of_mem _ hy)) h
 
+/-- The annotate-idempotence check, `wfOpsM` run to pure run. -/
+theorem checkAnnotList_wfimp {env : Env} (henv : EnvWF env)
+    {depth : Nat} {F : Nat} :
+    ∀ {as : List Expr},
+      (∀ a ∈ as, WScoped depth a) →
+      ∀ {v : Unit},
+      (checkAnnotList wfOpsM env depth as).val F = .ok v →
+      checkAnnotList (fueledOps F) env depth as = .ok v
+  | [], _, _, h => h
+  | a :: as, ha, v, h => by
+    unfold checkAnnotList at h ⊢
+    rw [wfOpsM_annotate henv (ha a List.mem_cons_self).to_wscopedB] at h
+    obtain ⟨aA, hann, h⟩ := atF_bind_ok h
+    have hann' : annotateCore env F depth a = .ok aA := hann
+    show (annotateCore env F depth a >>= _) = _
+    rw [hann']
+    simp only [Bind.bind, Except.bind]
+    by_cases hc : (aA == a) = true
+    case neg =>
+      rw [if_neg hc] at h
+      exact absurd h atF_throw_bind
+    case pos =>
+      rw [if_pos hc] at h ⊢
+      exact checkAnnotList_wfimp henv
+        (fun x hx => ha x (List.mem_cons_of_mem _ hx)) h
+
 set_option maxHeartbeats 6400000 in
 /-- The iota-theorem check, `wfOpsM` run to pure run.  The recursor
 type, the constructor type and the annotated rule right-hand side are
@@ -1021,7 +1047,7 @@ theorem nestedRuleShape_pins {env' envSelf : Env} {cvName : Name}
   rename_i hcond
   simp only [Option.some.injEq, Prod.mk.injEq] at h
   obtain ⟨-, rfl⟩ := h
-  have hall := List.all_eq_true.mp hcond.2.1 p hp
+  have hall := List.all_eq_true.mp hcond.2.2.2.1 p hp
   simp only [Bool.and_eq_true, Bool.not_eq_true'] at hall
   exact hall.1.1.1
 
@@ -1113,9 +1139,25 @@ theorem checkIotaThmN_wfimp {env' envSelf : Env} (henv' : EnvWF env')
           (p.renameConsts f)) ++ fvs.drop rP)) = true
   case neg => rw [if_neg h7] at h; exact absurd h atF_throw_bind
   rw [if_pos h7] at h ⊢
-  by_cases h8 : (cvj.type.stripPis (cnP + cnF)).isSome = true
-  case neg => rw [if_neg h8] at h; exact absurd h atF_throw_bind
-  rw [if_pos h8] at h ⊢
+  obtain ⟨q8, hstrip8, h⟩ := atF_bind_ok h
+  obtain ⟨bs8, cbody8⟩ := q8
+  have hstrip8' := unwrapOr_atF_ok hstrip8
+  show ((unwrapOr (cvj.type.stripPis (cnP + cnF)) _ :
+    CheckM _) >>= _) = _
+  rw [hstrip8']
+  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
+  try dsimp only [] at h ⊢
+  obtain ⟨Dc, usc, hfnC⟩ : ∃ Dc usc,
+      cbody8.getAppFn = Expr.const Dc usc := by
+    revert h
+    cases hfn0 : cbody8.getAppFn <;> intro h
+    case const => exact ⟨_, _, rfl⟩
+    all_goals
+      rw [if_neg (by simp)] at h
+      exact absurd h atF_throw_bind
+  rw [hfnC] at h ⊢
+  rw [if_pos rfl] at h ⊢
+  try dsimp only [] at h ⊢
   obtain ⟨q2, hcinst, h⟩ := atF_bind_ok h
   obtain ⟨cdoms, cres⟩ := q2
   have hcinst' := unwrapOr_atF_ok hcinst
@@ -1200,6 +1242,17 @@ theorem checkIotaThmN_wfimp {env' envSelf : Env} (henv' : EnvWF env')
     (WScoped.of_not_hasFvar htyA)
   rw [Nat.zero_add] at hopenPW
   obtain ⟨hfvsPW, -⟩ := hopenPW
+  obtain ⟨uA, hdA, h⟩ := atF_bind_ok h
+  have hdA' := checkAnnotList_wfimp henvSelf
+    (fun a ha => by
+      obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
+      exact (instSpine_WScoped (rP - 1)
+        (WScoped.of_not_hasFvar (hpinsF x hx))
+        (fun a' ha' => hfvsPW a' (List.mem_of_mem_take ha'))).mono
+        (by omega)) hdA
+  show (checkAnnotList (fueledOps F) envSelf _ _ >>= _) = _
+  rw [hdA']
+  simp only [Bind.bind, Except.bind]
   obtain ⟨q5, hcinstP, h⟩ := atF_bind_ok h
   obtain ⟨cdomsP, crestP⟩ := q5
   have hcinstP' := unwrapOr_atF_ok hcinstP
@@ -1248,7 +1301,7 @@ theorem checkIotaThmN_wfimp {env' envSelf : Env} (henv' : EnvWF env')
     rcases List.mem_append.mp hax with hax | hax
     · exact WScoped.mono (by omega) (hfvsPW a hax)
     · exact hxFvsPW a hax
-  by_cases harX : (crest2.getAppArgs.length == cnP) = true
+  by_cases harX : (crest2.getAppArgs.length == cnP + (mI - rP)) = true
   case neg => rw [if_neg harX] at h; exact absurd h atF_throw_bind
   rw [if_pos harX] at h ⊢
   try dsimp only [] at h ⊢
