@@ -147,7 +147,11 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
       have ha'd₂ := denote_mono hext₂p ha'd₂
       have hb'd := denote_mono hext₂p hb'd
       have hs₂ := hs₂p
-      refine SimAt.bind (reduceNatI_sim ih hs₂ ha'd₂ hwa')
+      -- peel the fvar-guard read; `hasFvarI` agrees with the spec's
+      -- `hasFvar`, so both sides carry the same guard
+      refine SimAt.withStore ?_
+      rw [hasFvarI_spec hs₂.wf ha'd₂, hasFvarI_spec hs₂.wf hb'd]
+      refine SimAt.bind (reduceNatIfI_sim ih hs₂ ha'd₂ hwa' _)
         (fun s₃ o₁ o₁x hs₃ hext₃ hPo₁ => ?_)
       cases o₁ with
       | some a₂ =>
@@ -160,8 +164,8 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
         cases o₁x with
         | some a₂x => exact absurd hPo₁ (by simp [RelO])
         | none =>
-          refine SimAt.bind (reduceNatI_sim ih hs₃
-            (denote_mono hext₃ hb'd) hwb')
+          refine SimAt.bind (reduceNatIfI_sim ih hs₃
+            (denote_mono hext₃ hb'd) hwb' _)
             (fun s₄ o₂ o₂x hs₄ hext₄ hPo₂ => ?_)
           cases o₂ with
           | some b₂ =>

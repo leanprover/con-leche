@@ -1599,10 +1599,28 @@ def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
     -- 227 G → recovered by the hoist).  The fallback's copy stays
     -- (memoized; reachable when a reduction step rewrites a side).
     if ← proofIrrel r env depth a' b' then pure true else
-    match ← reduceNat r env depth a' with
+    -- Literal acceleration is guarded on *both* sides being free of
+    -- free variables, mirroring the official kernel
+    -- (`type_checker.cpp`, `lazy_delta_reduction`:
+    -- `if ((!has_fvar(t_n) && !has_fvar(s_n)) || m_eager_reduce)`) and
+    -- lean4lean (`TypeChecker.lean:782`).  Unguarded folding is a
+    -- forbidden strategy superset (DESIGN.md, reduction-strategy
+    -- ruling): on an *open* `Int32`/`Int64` arithmetic pair it whnfs
+    -- an open argument and delta-grinds the `Nat.brecOn` tower toward
+    -- `2^31`/`2^63` unary `succ` steps; guarded, such pairs fall
+    -- through to the `sameRegular` spine congruence below (the
+    -- official kernel's `is_def_eq_args`).  The whnf-loop `reduceNat`
+    -- (`whnfBody`) stays unguarded — the official whnf loop is too.
+    -- The `hasFvar` traversals cost no more than the `a' == b'`
+    -- comparison already above (this Expr-level body is the
+    -- specification; the executable interned twin reads an `O(1)`
+    -- eager per-node fvar range instead).
+    match ← (if !a'.hasFvar && !b'.hasFvar then
+        reduceNat r env depth a' else pure none) with
     | some a₂ => r.defeq depth a₂ b'
     | none =>
-    match ← reduceNat r env depth b' with
+    match ← (if !a'.hasFvar && !b'.hasFvar then
+        reduceNat r env depth b' else pure none) with
     | some b₂ => r.defeq depth a' b₂
     | none =>
     match unfoldDefinition env a', unfoldDefinition env b' with

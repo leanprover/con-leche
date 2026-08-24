@@ -87,29 +87,45 @@ theorem defeq_claims (m : EnvModel V env)
     exact (Option.some.inj hpa).trans (Option.some.inj hpb).symm
   | false =>
   simp only [Bool.false_eq_true, ↓reduceIte] at h
-  -- literal acceleration before delta (mirrors the whnf loop order)
-  cases hrna : reduceNatP env fuel d a' with
+  -- literal acceleration before delta (mirrors the whnf loop order),
+  -- guarded on both sides being fvar-free (the official kernel's
+  -- `lazy_delta_reduction` guard); the guard only prunes, so a `some`
+  -- result always comes from `reduceNatP` and `reduceNat_sound`
+  -- applies unchanged
+  cases hrna : (if !a'.hasFvar && !b'.hasFvar then
+      reduceNatP env fuel d a' else pure none) with
   | error e => rw [hrna] at h; exact nomatch h
   | ok oa =>
   rw [hrna] at h
   dsimp only at h
   cases oa with
   | some a₂ =>
+    have hrna' : reduceNatP env fuel d a' = .ok (some a₂) := by
+      by_cases hg : (!a'.hasFvar && !b'.hasFvar) = true
+      · rwa [if_pos hg] at hrna
+      · rw [if_neg hg] at hrna
+        exact absurd hrna (by simp [pure, Except.pure])
     obtain ⟨hi2, ha2, hw2, hb2, hLb2, hok2⟩ :=
-      reduceNat_sound m ihw hrna hwa' hba' hLba' hoka' haa'
+      reduceNat_sound m ihw hrna' hwa' hba' hLba' hoka' haa'
     exact ihd h hw2 hwb' hb2 hbb' hLb2 hLbb' hok2 hokb' ha2 hab'
       (by rw [hi2]; exact hva) hvb
   | none =>
   dsimp only at h
-  cases hrnb : reduceNatP env fuel d b' with
+  cases hrnb : (if !a'.hasFvar && !b'.hasFvar then
+      reduceNatP env fuel d b' else pure none) with
   | error e => rw [hrnb] at h; exact nomatch h
   | ok ob =>
   rw [hrnb] at h
   dsimp only at h
   cases ob with
   | some b₂ =>
+    have hrnb' : reduceNatP env fuel d b' = .ok (some b₂) := by
+      by_cases hg : (!a'.hasFvar && !b'.hasFvar) = true
+      · rwa [if_pos hg] at hrnb
+      · rw [if_neg hg] at hrnb
+        exact absurd hrnb (by simp [pure, Except.pure])
     obtain ⟨hi2, ha2, hw2, hb2, hLb2, hok2⟩ :=
-      reduceNat_sound m ihw hrnb hwb' hbb' hLbb' hokb' hab'
+      reduceNat_sound m ihw hrnb' hwb' hbb' hLbb' hokb' hab'
     exact ihd h hwa' hw2 hba' hb2 hLba' hLb2 hoka' hok2 haa' ha2
       hva (by rw [hi2]; exact hvb)
   | none =>

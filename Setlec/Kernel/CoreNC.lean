@@ -527,10 +527,14 @@ def defeqBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM B
     let b' ← r.whnfCore depth b
     if a' == b' then pure true else
     if ← proofIrrelI r fe depth a' b' then pure true else
-    match ← reduceNatI r fe depth a' with
+    -- fvar-free guard on defeq-side literal folding, as in
+    -- `defeqBodyI` (official kernel `lazy_delta_reduction`; lean4lean
+    -- `TypeChecker.lean:782`)
+    let fold ← withStore fun st => !st.hasFvarI a' && !st.hasFvarI b'
+    match ← (if fold then reduceNatI r fe depth a' else pure none) with
     | some a₂ => r.defeq depth a₂ b'
     | none =>
-    match ← reduceNatI r fe depth b' with
+    match ← (if fold then reduceNatI r fe depth b' else pure none) with
     | some b₂ => r.defeq depth a' b₂
     | none =>
     match ← unfoldDefinitionI fe a', ← unfoldDefinitionI fe b' with
