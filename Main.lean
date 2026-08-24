@@ -104,10 +104,40 @@ partial def progressLoop (stats : Bool)
     IO.println s!"setlec: accepted {fe.env.consts.length} declarations"
     pure 0
 
+/-- Display name of a parsed declaration record (diagnostics). -/
+def declPName : Setlec.DeclP → String
+  | .defnDecl cv _ _ => s!"def {cv.name}"
+  | .thmDecl cv _ => s!"theorem {cv.name}"
+  | .opaqueDecl cv _ => s!"opaque {cv.name}"
+  | .axiomDecl cv => s!"axiom {cv.name}"
+  | .indDecl b => s!"inductive {(b.head?.map (·.name)).getD .anonymous}"
+  | .basisDecl k => s!"basis block {repr k}"
+
+/-- Diagnostic second-pass loop (locates the failing declaration for
+the error message), as explicit recursion with the accumulators passed
+as plain arguments — exactly like `progressLoop` above, and for the
+same reason: a `for`-loop's boxed state tuple keeps the re-parsed
+arena shared (RC 2) into every step call, so each declaration's first
+arena mutation copies the whole node/hash tables.  On a multi-gigabyte
+arena that one-copy-per-declaration strike made error runs ~20×
+slower than the (linear) verified first pass. -/
+partial def diagLoop
+    (stepF : Nat → Setlec.FEnv → Setlec.DeclP → Setlec.IState →
+      Except Setlec.CheckError (Setlec.FEnv × Setlec.IState))
+    (n2 : Nat) (decls : Array Setlec.DeclP) (i : Nat)
+    (fe : Setlec.FEnv) (s : Setlec.IState) : String :=
+  if h : i < decls.size then
+    let d := decls[i]
+    match stepF n2 fe d s with
+    | .ok (fe, s) => diagLoop stepF n2 decls (i + 1) fe s
+    | .error _ => s!" [at {declPName d}]"
+  else ""
+
 /-- The real driver (run in the supervised child process).  `yolo`
 selects the unverified cert-skipping stack (same as
-`SETLEC_NO_PROOF_CERTS=1`). -/
-def checkMain (file : String) (yolo : Bool) : IO UInt32 := do
+`SETLEC_NO_PROOF_CERTS=1`); `pre` asserts the input is already
+preprocessed (`--pre`), skipping preprocessor detection and spawn. -/
+def checkMain (file : String) (yolo : Bool) (pre : Bool) : IO UInt32 := do
     -- Measurement mode (task #76): SETLEC_NO_PROOF_CERTS=1 (or the
     -- `--yolo` flag) selects the cert-skipping knot
     -- (Setlec/Kernel/CheckerNC.lean) — the proof-feeding infer/defeq
@@ -120,8 +150,9 @@ def checkMain (file : String) (yolo : Bool) : IO UInt32 := do
     -- Streaming frontend (task #57): the preprocessor writes to a temp
     -- file and the parse reads line by line — no wholesale text buffer
     -- in this process; retained memory is the parse arena plus the
-    -- declaration records.
-    let (path, isTemp) ← preprocess file
+    -- declaration records.  `--pre` (an explicit user assertion, never
+    -- content sniffing) skips detection and the preprocessor spawn.
+    let (path, isTemp) ← if pre then pure (file, false) else preprocess file
     try
       match ← Frontend.parseExportStream path (modeled := true) with
       | .error (.unsupported what) =>
@@ -164,36 +195,41 @@ def checkMain (file : String) (yolo : Bool) : IO UInt32 := do
           -- the verified run must own the parse store exclusively (a
           -- live second reference would turn every arena push into a
           -- whole-table copy), so the original store was moved into it.
-          let declName : Setlec.DeclP → String := fun d =>
-            match d with
-            | .defnDecl cv _ _ => s!"def {cv.name}"
-            | .thmDecl cv _ => s!"theorem {cv.name}"
-            | .opaqueDecl cv _ => s!"opaque {cv.name}"
-            | .axiomDecl cv => s!"axiom {cv.name}"
-            | .indDecl b => s!"inductive {(b.head?.map (·.name)).getD .anonymous}"
-            | .basisDecl k => s!"basis block {repr k}"
+          -- The walk itself is `diagLoop` — explicit recursion, so the
+          -- re-parsed store is owned exclusively too.
           let ctx := match ← Frontend.parseExportStream path (modeled := true) with
             | .error _ => ""
-            | .ok ⟨store2, decls2, _⟩ => Id.run do
-              let n2 := store2.nodes.size
-              let mut fe := Setlec.mkFEnv Setlec.Env.empty
-              let mut s : Setlec.IState := { store := store2 }
-              for d in decls2 do
-                match stepF n2 fe d s with
-                | .ok (fe', s') => fe := fe'; s := s'
-                | .error _ => return s!" [at {declName d}]"
-              return ""
+            | .ok ⟨store2, decls2, _⟩ =>
+              diagLoop stepF store2.nodes.size decls2 0
+                (Setlec.mkFEnv Setlec.Env.empty) { store := store2 }
           IO.eprintln s!"setlec: {e}{ctx}"
           return ← finish e.exitCode
     finally
       if isTemp then
         try IO.FS.removeFile path catch _ => pure ()
 
+def usage : String := String.intercalate "\n" [
+  "usage: setlec [--yolo] [--pre] FILE.ndjson",
+  "",
+  "  --yolo  skip the proof-feeding certification calls (unverified",
+  "          measurement mode; same as SETLEC_NO_PROOF_CERTS=1)",
+  "  --pre   assert FILE is already preprocessed output of",
+  "          lean-inductive-models: skip the preprocessor detection",
+  "          scan and spawn entirely"]
+
 def main (args : List String) : IO UInt32 := do
+  if args.contains "--help" then
+    IO.println usage
+    return 0
   -- `--yolo`: command-line alias for SETLEC_NO_PROOF_CERTS=1 (the
   -- unverified measurement mode, task #76).
+  -- `--pre`: the input is already-preprocessed lean-inductive-models
+  -- output (explicit user assertion — the checker never sniffs input
+  -- content for it); skips the `needsPreprocess` scan and the
+  -- preprocessor spawn.
   let yolo := args.contains "--yolo"
-  let args := args.filter (· != "--yolo")
+  let pre := args.contains "--pre"
+  let args := args.filter (fun a => a != "--yolo" && a != "--pre")
   match args with
   | [file] =>
     -- OOM supervision: the Lean runtime's out-of-memory handler
@@ -206,11 +242,12 @@ def main (args : List String) : IO UInt32 := do
     -- input proof".  Progress output streams through (stdout is
     -- inherited); stderr is buffered for inspection and re-printed.
     if (← IO.getEnv "SETLEC_SUPERVISED").isSome then
-      checkMain file yolo
+      checkMain file yolo pre
     else
       let child ← IO.Process.spawn {
         cmd := (← IO.appPath).toString
-        args := if yolo then #[file, "--yolo"] else #[file]
+        args := #[file] ++ (if yolo then #["--yolo"] else #[])
+          ++ (if pre then #["--pre"] else #[])
         env := #[("SETLEC_SUPERVISED", some "1")]
         stdout := .inherit
         stderr := .piped }
@@ -222,5 +259,5 @@ def main (args : List String) : IO UInt32 := do
         return 3
       return code
   | _ =>
-    IO.eprintln "usage: setlec [--yolo] FILE.ndjson"
+    IO.eprintln usage
     return 3
