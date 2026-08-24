@@ -5635,7 +5635,7 @@ contract, which compares a block member's stored type against the
 stored type of its `_model` counterpart.  The `_model` records arrive
 as ordinary stream **definitions** (so they flipped) while the block
 members are installed by the `Expr`-level inductive driver (so they did
-not), and a raw tree never equals an annotated one.
+not), and the two differ at every annotated binder.
 
 **The lesson.**  Storage annotation-consistency is a *global* property
 of the environment.  Every comparison between two stored trees — the
