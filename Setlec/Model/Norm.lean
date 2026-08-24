@@ -90,9 +90,16 @@ def Expr.norm (O : NormOracle) : Nat → Nat → Expr → Expr
     .lam n (Expr.norm O f d ty) (Expr.norm O f (d + 1) b) m
   | f + 1, d, .forallE n ty b m =>
     .forallE n (Expr.norm O f d ty) (Expr.norm O f (d + 1) b) m
-  -- zeta, exactly `annotateBody`'s `letE` clause: the body with the
-  -- value transparent
-  | f + 1, d, .letE _ _ v b => Expr.norm O f d (b.instantiate1 v)
+  -- zeta, `annotateBody`'s `letE` clause: the body with the value
+  -- transparent.  The substitution is the *lifting* one: `norm`
+  -- recurses under binders without opening them, so the let value is an
+  -- open term and `instantiate1` — which requires a `bvar`-closed
+  -- replacement — would capture (`Setlec/Kernel/ExprOps.lean`, whose
+  -- docstring calls out exactly this case).  The kernel's own zeta uses
+  -- `instantiate1` soundly because it only ever reduces terms whose
+  -- binders are already opened into `fvar`s, and there the two agree
+  -- (`instantiate1Lift_eq_instantiate1`).
+  | f + 1, d, .letE _ _ v b => Expr.norm O f d (b.instantiate1Lift v)
   | f + 1, d, .proj s i e =>
     let e' := Expr.norm O f d e
     match O d (.proj s i e') with
@@ -104,7 +111,16 @@ naming it keeps the value-transparency arguments readable). -/
 theorem Expr.norm_letE (O : NormOracle) (f d : Nat) (n : Name)
     (ty v b : Expr) :
     Expr.norm O (f + 1) d (.letE n ty v b) =
-      Expr.norm O f d (b.instantiate1 v) := rfl
+      Expr.norm O f d (b.instantiate1Lift v) := rfl
+
+/-- On a `bvar`-closed value — the kernel's regime, where binders are
+opened into `fvar`s before reduction — the zeta step is the kernel's
+own `instantiate1`. -/
+theorem Expr.norm_letE_closed (O : NormOracle) (f d : Nat) (n : Name)
+    {ty v b : Expr} (hv : v.looseBVarsBounded 0 = true) :
+    Expr.norm O (f + 1) d (.letE n ty v b) =
+      Expr.norm O f d (b.instantiate1 v) := by
+  rw [Expr.norm_letE, instantiate1Lift_eq_instantiate1 hv]
 
 /-- The everywhere-keep oracle: `norm` is then pure zeta expansion. -/
 def keepOracle : NormOracle := fun _ _ => none
@@ -178,8 +194,8 @@ theorem Expr.eraseCodS_norm (O : NormOracle)
     | forallE n ty b m =>
       simp only [Expr.norm, Expr.eraseCodS, ih d ty, ih (d + 1) b]
     | letE n ty v b =>
-      simp only [Expr.norm, Expr.eraseCodS, ih d (b.instantiate1 v),
-        Expr.eraseCodS_instantiate1 v b 0]
+      simp only [Expr.norm, Expr.eraseCodS, ih d (b.instantiate1Lift v),
+        Expr.eraseCodS_instantiate1Lift v b 0]
     | proj s i e =>
       have hkey : O d (.proj s i (Expr.norm O f d e.eraseCodS)) =
           (O d (.proj s i (Expr.norm O f d e))).map Expr.eraseCodS := by

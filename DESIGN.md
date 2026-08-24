@@ -5409,3 +5409,37 @@ to environments alongside `Env.eraseCod`.
   expansion duplicates the value — so these are per-predicate lemmas
   with the substitution facts, not one-liners.  That is the first thing
   to write.
+
+#### Finding: `norm`'s zeta needs the *lifting* substitution (2026-08-24)
+
+The stage-4a `norm` used `Expr.instantiate1` for its zeta clause, by
+analogy with `annotateBody`.  That is wrong for `norm`, and the reason
+is instructive: `annotate` **opens** each binder into an `fvar` before
+descending, so by the time its `letE` clause fires the term is
+`bvar`-closed and the let value has no loose `bvar`s — the regime
+`instantiate1` requires (it inserts the replacement *unshifted* at every
+cursor depth).  `norm` recurses under binders *structurally*, without
+opening, so its let values are open terms and `instantiate1` captures.
+
+The discriminating case is a `let` under a binder whose value mentions
+that binder, used under a further binder:
+
+  `∀ y, let x := y; ∀ z, x`   must give   `∀ y, ∀ z, y`
+
+— `bvar 1` under the inner binder.  Plain `instantiate1` inserts the
+value unshifted and yields `∀ y, ∀ z, z`.  It is now a regression test.
+
+The fix needs no new machinery: `Expr.instantiate1Lift` already exists
+for exactly this situation (its docstring in
+`Setlec/Kernel/ExprOps.lean` calls out "let-values are open terms"), and
+`instantiate1Lift_eq_instantiate1` says the two agree on `bvar`-closed
+replacements — so `norm_letE_closed` recovers the kernel's own form in
+the kernel's own regime, which is the equation the flip will use.
+`Expr.eraseCodS_liftLooseBVars` and `Expr.eraseCodS_instantiate1Lift`
+extend the shallow-erasure kit to match.
+
+The general lesson for the rest of task #100: a proof-side pass that
+mirrors a kernel pass **must state which binder discipline it is in**.
+The kernel is always in the opened regime; a structural proof-side
+mirror is not, and every substitution it performs has to be the lifting
+one.

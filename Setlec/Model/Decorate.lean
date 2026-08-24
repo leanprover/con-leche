@@ -123,6 +123,74 @@ theorem Expr.eraseCodS_instantiate1 (v : Expr) :
     simp [Expr.instantiate1, Expr.eraseCodS,
       Expr.eraseCodS_instantiate1 v e k]
 
+/-- The shallow erasure commutes with lifting. -/
+theorem Expr.eraseCodS_liftLooseBVars (amount : Nat) :
+    ∀ (c : Nat) (e : Expr),
+      (Expr.liftLooseBVars amount c e).eraseCodS =
+        Expr.liftLooseBVars amount c e.eraseCodS
+  | c, .bvar i => by
+    by_cases h : c ≤ i <;> simp [Expr.liftLooseBVars, Expr.eraseCodS, h]
+  | _, .fvar _ _ _ => by simp [Expr.liftLooseBVars, Expr.eraseCodS]
+  | _, .sort _ => by simp [Expr.liftLooseBVars, Expr.eraseCodS]
+  | _, .const _ _ => by simp [Expr.liftLooseBVars, Expr.eraseCodS]
+  | _, .lit _ => by simp [Expr.liftLooseBVars, Expr.eraseCodS]
+  | c, .app f a => by
+    simp [Expr.liftLooseBVars, Expr.eraseCodS,
+      Expr.eraseCodS_liftLooseBVars amount c f,
+      Expr.eraseCodS_liftLooseBVars amount c a]
+  | c, .lam _ t b _ => by
+    simp [Expr.liftLooseBVars, Expr.eraseCodS,
+      Expr.eraseCodS_liftLooseBVars amount c t,
+      Expr.eraseCodS_liftLooseBVars amount (c + 1) b]
+  | c, .forallE _ t b _ => by
+    simp [Expr.liftLooseBVars, Expr.eraseCodS,
+      Expr.eraseCodS_liftLooseBVars amount c t,
+      Expr.eraseCodS_liftLooseBVars amount (c + 1) b]
+  | c, .letE _ t v b => by
+    simp [Expr.liftLooseBVars, Expr.eraseCodS,
+      Expr.eraseCodS_liftLooseBVars amount c t,
+      Expr.eraseCodS_liftLooseBVars amount c v,
+      Expr.eraseCodS_liftLooseBVars amount (c + 1) b]
+  | c, .proj _ _ e => by
+    simp [Expr.liftLooseBVars, Expr.eraseCodS,
+      Expr.eraseCodS_liftLooseBVars amount c e]
+
+/-- The shallow erasure commutes with the *lifting* substitution — the
+one a structural normalization must use for open replacements. -/
+theorem Expr.eraseCodS_instantiate1Lift (v : Expr) :
+    ∀ (e : Expr) (k : Nat),
+      (e.instantiate1Lift v k).eraseCodS =
+        e.eraseCodS.instantiate1Lift v.eraseCodS k
+  | .bvar i, k => by
+    simp only [Expr.instantiate1Lift, Expr.eraseCodS]
+    by_cases h1 : i = k
+    · simp [h1, Expr.eraseCodS_liftLooseBVars]
+    · by_cases h2 : i > k <;> simp [h1, h2, Expr.eraseCodS]
+  | .fvar _ _ _, _ => by simp [Expr.instantiate1Lift, Expr.eraseCodS]
+  | .sort _, _ => by simp [Expr.instantiate1Lift, Expr.eraseCodS]
+  | .const _ _, _ => by simp [Expr.instantiate1Lift, Expr.eraseCodS]
+  | .lit _, _ => by simp [Expr.instantiate1Lift, Expr.eraseCodS]
+  | .app f a, k => by
+    simp [Expr.instantiate1Lift, Expr.eraseCodS,
+      Expr.eraseCodS_instantiate1Lift v f k,
+      Expr.eraseCodS_instantiate1Lift v a k]
+  | .lam _ t b _, k => by
+    simp [Expr.instantiate1Lift, Expr.eraseCodS,
+      Expr.eraseCodS_instantiate1Lift v t k,
+      Expr.eraseCodS_instantiate1Lift v b (k + 1)]
+  | .forallE _ t b _, k => by
+    simp [Expr.instantiate1Lift, Expr.eraseCodS,
+      Expr.eraseCodS_instantiate1Lift v t k,
+      Expr.eraseCodS_instantiate1Lift v b (k + 1)]
+  | .letE _ t vl b, k => by
+    simp [Expr.instantiate1Lift, Expr.eraseCodS,
+      Expr.eraseCodS_instantiate1Lift v t k,
+      Expr.eraseCodS_instantiate1Lift v vl k,
+      Expr.eraseCodS_instantiate1Lift v b (k + 1)]
+  | .proj _ _ e, k => by
+    simp [Expr.instantiate1Lift, Expr.eraseCodS,
+      Expr.eraseCodS_instantiate1Lift v e k]
+
 /-- The shallow erasure commutes with binder opening at a free
 variable — the one substitution a decoration pass performs.  (`fvar`s
 are shallow-erasure fixed points, so no side condition is needed.) -/
