@@ -109,22 +109,36 @@ Axioms: only the standard axioms are supported; anything else is
 ceiling (owner ruling, 2026-08-21): acceptance routes for custom
 axioms (opaque-with-witness, unfoldable-definition storage,
 canonical-value models) were explored and rejected: none is wanted.
-Refinement (user ruling, 2026-08-22): non-pinned axioms are
-*invisible*; their uses are unsupported.  A non-pinned `axiom` record
-no longer stops the run — the record is still well-formedness-checked
-(the official kernel checks the declaration, so a garbage record such
-as arena `bad/011_nonTypeAxiom` keeps rejecting) but nothing is
-installed, and the frontend taints the axiom's name
-(`State.skippedAxioms`, generalizing the previous `sorryAx`-only
-mechanism): any later declaration whose type or value references a
-skipped axiom is positively declined at its own record.  The two
-tutorial tests scaffolded by custom axioms (`032_letTypeDep`,
-`033_letRed`) thus now decline at their first *use* of the axiom
-rather than at the `axiom` record — still exit 2, so the vendored
-tutorial snapshot stays at 90/92 accepted, the full non-axiom set.
-This lets streams like `Init.Core` run past `Lean.trustCompiler`
-instead of dying there (the next blocker is then the first
-declaration that *uses* it, e.g. `Lean.reduceNat`).  `Quot.sound` is part
+Refinement (user rulings, 2026-08-22/24): exactly the *tolerated
+whitelist* (`toleratedAxiomNames`: `sorryAx` plus the `Init`
+compiler-trust axioms `Lean.trustCompiler`, `Lean.ofReduceNat`,
+`Lean.ofReduceBool`) may be *declared*.  A tolerated `axiom` record is
+dropped by the frontend without parsing its type at all
+(`Lean.ofReduceNat`'s own type references the tainted
+`Lean.reduceNat`, so even well-formedness-checking it would be a use);
+nothing is installed and the name is tainted
+(`Frontend.State.taintedNames`).  Any other `axiom` record is
+forwarded and positively declined by the checker at its own record,
+after well-formedness-checking — a garbage record such as arena
+`bad/011_nonTypeAxiom` keeps *rejecting*; the two tutorial tests
+scaffolded by custom axioms (`032_letTypeDep`, `033_letRed`) decline
+at their custom `axiom` record, exit 2, so the vendored tutorial
+snapshot stays at 90/92 accepted, the full non-axiom set.  *Uses* of
+a tainted constant are never accepted, but no longer stop the stream
+either (skip-and-continue, user directive 2026-08-24): a declaration
+whose type/value (transitively) references a tainted name is *skipped*
+at parse time — absent from the parsed declarations, so it can never
+be checked or installed — its declared names are tainted in turn (so
+transitive users skip too), and the rest of the stream is checked as
+usual.  `Frontend.ParseResult.taintSkipped` records the skips (name +
+whitelisted axiom root); the driver declines the input as a whole
+(exit 2) whenever it is nonempty, even if every remaining declaration
+checks, and prints a per-root summary (`Frontend.taintSummary`).  A
+stream with no tainted uses behaves exactly as before.  This lets the
+full `Init` export run past `opaque Lean.reduceNat` (whose value uses
+`Lean.trustCompiler`; formerly the whole stream declined there, 39.3 %
+in) with the compiler-trust-scaffolded declarations skipped and
+everything else still checked.  `Quot.sound` is part
 of the pinned quotient basis block; `propext` and `Classical.choice`
 are accepted as `axiomDecl`s by `stdAxiomOk`: a pure predicate that
 requires the pinned `Eq` basis plus standardly-shaped stored `Iff`
@@ -1039,11 +1053,11 @@ induction over the literal), consumed by `reduceNat_sound`.
 * **Findings.**  No operation resisted: all seven land with the
   ble-guarded defeq-checkable statement forms.  The full Init stream
   itself still does not check end-to-end for unrelated reasons
-  (frontend memory on the 336 MB export; the `Lean.trustCompiler`
-  axiom declines by design — since 2026-08-22 at its first *use*, not
-  its record; the `Unit.sizeOf` mismatch is fixed, see the basis
-  `PUnit` rescue note) — the previous positive declines at
-  `Nat.land`/`Nat.shiftRight`/… literal uses are gone.
+  (frontend memory on the 336 MB export; `Lean.trustCompiler` uses are
+  declined by design — since the 2026-08-24 skip-and-continue as a
+  whole-stream decline after skipping them; the `Unit.sizeOf` mismatch
+  is fixed, see the basis `PUnit` rescue note) — the previous positive
+  declines at `Nat.land`/`Nat.shiftRight`/… literal uses are gone.
 
 ### Theorem values delta-unfold (2026-08-22, task #66)
 
@@ -3077,7 +3091,12 @@ instructions, same machine, before → after):
   documented above.  (The task's "~30 GB to parse init-full" predates
   #78/#84; at the current base the wholesale cost was the 3.07 GB —
   contents + preprocessor stdout + the eager per-line split all held
-  at once — which streaming removes.)
+  at once — which streaming removes.)  Since the taint
+  skip-and-continue (2026-08-24, below) the parse no longer dies
+  there: the whole 6.2 M-line stream parses (exactly two taint skips,
+  `Lean.reduceNat`/`Lean.reduceBool`, both via `Lean.trustCompiler`)
+  and *checking* becomes the frontier — see the skip-and-continue
+  section for the new numbers.
 
 ## Recursor-rule fold contract as total λ-equalities (2026-08-23, task #58)
 
@@ -3702,7 +3721,8 @@ Everything above was re-validated with the clause temporarily enabled
 at each step: arena 90/92, `direct_struct_raw` accepted, the three
 duplicate-declaration fixtures rejecting.
 
-What remains, in dependency order:
+What remains, in dependency order (items 1 and 2 are landed, and so is
+item 3 — see below; the head of item 4 is landed too):
 
 1. ~~A cross-environment congruence for the constructed values.~~
    **Landed** (`InterpAgree`, `sigmaTowerV_congr`, `FieldTele_congr`,
@@ -3859,75 +3879,162 @@ What remains, in dependency order:
    `FrameOk.weaken_fit`, `FrameOk.fvar`, `FrameOk.openVars`,
    `FrameOk.ofInstWalk` (`DirectExtend`), `stripPis_one` (`DirectDecl`).
 
-   **What remains of item 3: the projections' `TeleBody` — and it is
-   blocked on a kernel gap (finding, 2026-08-23).**
+   **The projections' frame pins (finding + fix, 2026-08-23).**
 
    `checkDirectProj` **annotates** the generated projection type
    (`ptyA ← ops.annotate env 0 pty`) and stores `ptyA`, because
    `directProjTy` builds its binders with `cod = none`
-   (`replacePiBody` resets every kept binder to `⟨m.bi, none⟩` and the
+   (`replacePiBody` resets every kept binder to `⟨m.bi, none⟩`; the
    fresh subject binder is `⟨.default, none⟩`).  The *raw* `pty` is
    therefore **not interpretable at all** — `interpExpr` returns `none`
-   on a `∀` whose `cod` is missing — and the codebase has no
-   annotate-preserves-interpretation lemma (`annotate_sound` yields
-   `AnnotOk` for the result and nothing that relates it to its input;
-   the modeled path never needs one, because its projection type is a
-   stored *model* type renamed back verbatim, pinned by
-   `checkProjTy`'s roundtrip `==`).
+   on a `∀` whose `cod` is missing — and there is no
+   annotate-preserves-interpretation lemma, nor can there be a useful
+   one: `interpExpr` reads the `cod` level (`pi (v.eval φ) A B`), so two
+   differently-but-validly annotated copies need not have equal
+   interpretations.  (The modeled path never needs one: its projection
+   type is a stored *model* type renamed back verbatim, pinned by
+   `checkProjTy`'s roundtrip `==`.)
 
    So every semantic fact about the stored projection type must come
-   from what the kernel checks **about `ptyA`**, exactly as the rest of
-   the direct install re-checks its skeleton on the annotated constants
-   (`checkDirectInd`'s result sort, `checkDirectCtor`'s residual,
-   `checkDirectRecTy`'s `directShape` + domain pins).  For the
-   projections that re-check is *missing*: of `ptyA`, `checkDirectProj`
-   knows only that it is well-scoped, resolves, has `nP+1` binders and
-   is a type; `checkProjShape` adds only arities, and `checkProjRule`
-   pins only the **parameter** domains and the rule's λ-domains.
-   Nothing pins
+   from what the kernel checks **about `ptyA`** — the re-check
+   discipline the other three stages follow (`checkDirectInd`'s result
+   sort, `checkDirectCtor`'s residual, `checkDirectRecTy`'s
+   `directShape` + domain pins).  The projection stage had broken it:
+   of `ptyA` it knew only well-scopedness, resolution, `nP+1` binders
+   and that it is a type; `checkProjShape` adds arities and
+   `checkProjRule` pins only the **parameter** domains and the rule's
+   λ-domains.  `directProjVal_mem`'s `TeleBody` was therefore not
+   provable by anything.
 
-   * the subject binder's domain against the family at the opened
-     parameters (`T p⃗`), nor
-   * the residual against the constructor's `i`-th field domain
-     instantiated at those parameters and at the earlier projections
-     `T.proj.j p⃗ t`.
+   **Landed**: two definitional pins in `checkDirectProj` (and its
+   `F` mirror), route (X) at the projection stage's own frames —
 
-   Without those two the model cannot know `⟦ptyA⟧`'s residual, and
-   `directProjVal_mem`'s `TeleBody` is not provable — by anything, not
-   just by the present machinery.
+   * open `ptyA` at `nP` fvars; `isDefEq` the subject binder's domain
+     against `Expr.mkAppN (.const T lps) fvsP` at frame `nP`;
+   * open the subject; `isDefEq` the residual against the head domain of
+     `Expr.instPisAt (fvsP ++ projArgs) cvCa.type` at frame `nP+1`,
+     where `projArgs` are the **closed** applications
+     `T.proj.j p⃗ t` (`j < i`) built from the opened variables.
 
-   The fix is a kernel addition of exactly `checkDirectRecTy`'s shape:
-   open `ptyA` at `nP+1` fvars, `isDefEq` the subject's domain against
-   `mkAppN (.const T lps) fvsP` at frame `nP`, and `isDefEq` the
-   residual against the head domain of
-   `Expr.instPisAt (fvsP ++ projApps) cvCa.type` at frame `nP+1`, where
-   `projApps` are the *closed* applications
-   `T.proj.j p⃗ t` built from the opened variables.  Both comparands are
-   interpretable (`cvCa.type` is the annotated constructor type, the
-   arguments are `fvar`s and applications), which is what
-   `isDefEqCore_sound` needs.  Note the pin uses plain `Expr.instPisAt`
-   at closed arguments — with it in place the `instantiate1Lift` theory
-   is not needed for the proof at all, and `directProjTy` becomes a pure
-   *generator* whose output is validated rather than trusted.
-   This is a kernel change (plus its `S`/`NC` mirrors and their bridge
-   obligations), so it is reported rather than taken.
+   Both comparands are interpretable (`cvCa.type` is the annotated
+   constructor type; the arguments are `fvar`s and applications), which
+   is what `isDefEqCore_sound` needs, and both use plain
+   `Expr.instPisAt` at closed arguments — so `directProjTy` is now a
+   **validated generator** rather than a trusted one, and no
+   `instantiate1Lift` theory is needed for the proof.
 
-   *Landed anyway* (`Setlec/Verify/Subst.lean`): the substitution theory
-   for `Expr.instantiate1Lift`, which had none —
+   *Verdict safety.*  The pins compare a **self-generated** artifact
+   against the constructor telescope, so a failure means a generator
+   bug, never bad input: `.notImplemented` (decline, exit 2) is the
+   correct outcome, exactly as for the other direct-path shape
+   re-checks.  Validated by temporarily enabling the direct clause:
+   arena stays 90/92, `direct_struct_raw` still accepts (53 decls), and
+   the only e2e changes are the four expectation flips item 7 owns.
+
+   *Also landed, and now not on the critical path*
+   (`Setlec/Verify/Subst.lean`): the substitution theory for
+   `Expr.instantiate1Lift`, which had none —
    `instantiate1Lift_eq_self`, `instantiate1Lift_eq_instantiate1`,
    `instantiate1Lift_instantiate1` (the substitution lemma),
    `instSeq_instantiate1Lift`, `instSeqLift` with `instSeq_instSeqLift`
    (the collapse onto plain `instSeq` once the ambient variables are
    instantiated by a closed spine), `instSeqLift_forallE`,
    `stripPis_instantiate1Lift_full` and `instPisAtLift_head`.  It is
-   what a proof *against the current kernel* would have needed, and it
+   what a proof against the *unpinned* kernel would have needed, and it
    is the theory any future consumer of `instPisAtLift` will want.
+
+   **Item 3 is landed** (2026-08-23).  The projections' half is
+   `directProj_facts` (`Setlec/Model/DirectDecl.lean`), split into
+
+   * `checkDirectProj_inv` — the stage's data, in particular the two
+     frame pins;
+   * `directProj_param_stage` — the *parameter half*, at any fitting
+     parameter spine: the fit crosses to the constructor's telescope
+     (`DomsAgree.of_pins_inst_at` over `checkProjRule`'s parameter-domain
+     `checkDefEqList`) and on to the type former's, the field telescope
+     is small there, the type former's value is the tower over it, and
+     the **subject-domain pin** identifies the subject binder's domain
+     with that value;
+   * `directProj_facts` — the λ-tower body obligation, plus the converse
+     fit (the stored type is fit by every canonical spine `p⃗ t`), from
+     which `directProj_mem` (`mem_type`) and `directProj_fold` (the
+     stage's fold equation, via `teleLamV_fold`) both follow.
+
+   The **residual pin** is discharged as DESIGN predicted: it identifies
+   the stored residual with the `i`-th field domain walked at the
+   parameters and at the *applications* `T.proj.j p⃗ t`, whose values are
+   `projV j t` by `DirectProjInv` (the direct `ProjPhaseInv`, carrying
+   per installed `j < i` the stored constant, its level parameters, a
+   fit of its type at `p⃗ t`, and the fold equation).
+   `interp_instSeq_frames` then identifies the pin's right-hand side
+   with the `i`-th domain along the *canonical* field spine of `t`,
+   where structure eta (`directProj_body_mem`, restated on that spine —
+   the every-fitting-spine form is false) puts `projV i t`.
+
+   Three findings worth keeping:
+
+   * `checkProjRule`'s parameter-domain pins are checked at **one**
+     frame (`nP + nF`), not per binder, so `DomsAgree` had to learn to
+     consume a pin from above the walk's frame: `FrameOk.pad_exists` /
+     `isDefEqCore_sound_at` (one padded valuation carries every frame-ok
+     term up), and `DomsAgree.of_pins_inst_gen` generalizing
+     `of_pins_inst` over the pins' frames, with the per-frame and
+     fixed-frame instances as its two corollaries.
+   * The pin's right-hand side is **not** an opened walk, so its frame
+     conditions cannot come from `FrameOk.ofInstWalk`.  They come from
+     `TeleFitI.rest_wf` fed by `TeleFitI.ofInstWalk` — the non-variable
+     spine counterpart of `pi_walk`, whose per-stage memberships the
+     *existing* `fit_mem_frames` supplies from the opened-side fit.
+     `TeleFit.doms_at_end` and `TeleFit_nil_eq` are the two small
+     supports.
+   * `cases` on a `TeleFit` whose telescope is a stuck `instantiate1`
+     cannot refute the `cons` constructor; `TeleFit_nil_eq` exists for
+     exactly that.
 
 4. **The rules' fold obligation** (`RecMemberOk`) for the recursor rule
    and the `nF` projection rules, through `TowerOk.of_stages`
    (`Setlec/Model/RuleFold.lean`): the per-stage facts are the
    install's definitional domain pins, the bottom fact is
    `teleLamV_fold` composed with `directRec_iota` / `directProj_iota`.
+
+   **Landed (first step): `proj_rule_eq` is now provenance-free.**  Its
+   proof turned out to be modeled-specific in exactly *one line* — the
+   per-`ψ` bottom fact — so it is split into
+   `proj_rule_eq_of_bottom` (`Setlec/Model/ProjInstall.lean`), which
+   takes the bottom as a hypothesis and does everything else
+   (`ruleLhsParts` computation, `FrameWf`, resolution, `modeled_stage`'s
+   flat stage facts over the kernel's definitional pins,
+   `TowerOk.of_stages`/`TowerOk.out`, and the transport across the fresh
+   recursor extension), and the thin modeled wrapper `proj_rule_eq`,
+   which passes `proj_bottom`.  Note `modeled_stage` itself is already
+   provenance-free — it is stated over the stored type, the stored
+   right-hand side and the kernel's pins.
+
+   **What remains of item 4**, in order:
+
+   * `directProj_bottom`: the direct projection rule's bottom, i.e.
+     `proj_rule_eq_of_bottom`'s `Hbot` at the constructed values.  Over a
+     full frame `xs` (length `nP + nF`) with `FramePref`, the canonical
+     body `T.proj.i p⃗ (C p⃗ f⃗)` interprets to `xs.getD (nP+i)`:
+     `directCtorVal_fold` folds the constructor's spine to `tupleV f⃗`,
+     `directProj_fold` folds the projection at `p⃗ (tupleV f⃗)` to
+     `projV i (tupleV f⃗)`, and `directProj_iota` reads that back off the
+     tuple.  Two bridges are needed and do **not** exist yet:
+     `FramePref → TeleFit` (a ~30-line induction; note the two
+     valuation conventions — `TeleFit`'s `updV` chain from `rho0` and
+     `fun i => (xs.take j).getD i ∅` — are *equal* functions, so it is
+     `funext` plus the walk), and the identification of `crestP` (the
+     constructor telescope instantiated at the *projection type's*
+     opened parameters) with `crestC` (instantiated at its own): both
+     spines are index-matched, so `instPisAt_erasedEq_spines` /
+     `DomsAgree.of_erasedEq` apply.
+   * the recursor rule's own fold obligation, whose shape differs
+     (`rP = nP + 2 ≠ ctorParams = nP`, and the body applies the recursor
+     to the motive and minor as well), so `proj_rule_eq_of_bottom` does
+     not fit it as it stands; the corresponding modeled derivation is
+     `modeled_rule_eq` in `Setlec/Model/IndInstall.lean`, which should be
+     inspected for the same "generic except the bottom" split before
+     anything is written by hand.
 5. **The chain**: `extend_basis_one` for the recursor and the `nF`
    projections (provisionally rule-less, then `extend_rec_swap` to
    attach the rules), and the direct case of `checkDecl_sound` —
@@ -4262,3 +4369,66 @@ interning), not a rider on this one.  Also noted: the export's
 let-nondep flag cannot be threaded onto `ENode.letE` alone — an ENode
 field absent from `Expr.letE` breaks canonicity (`denote_inj`); it
 needs `Expr`-side threading first.
+
+## Taint skip-and-continue for tolerated-axiom uses (2026-08-24)
+
+User directive: keep the soundness semantics — uses of the tolerated
+axiom whitelist (`sorryAx`, `Lean.trustCompiler`, `Lean.ofReduceNat`,
+`Lean.ofReduceBool`) are never accepted — but maximize coverage.
+Previously the frontend translated the taint sentinel into a
+whole-stream decline at the first tainted record, so init-full died
+39.3 % in (at `opaque Lean.reduceNat`, whose value uses
+`Lean.trustCompiler`) with *nothing* checked.  Now:
+
+* **Tolerated axiom records** are dropped in `processLine` *before*
+  the type is parsed into checkable form at all (`Lean.ofReduceNat`'s
+  own type references the tainted `Lean.reduceNat`; the old
+  well-formedness check of the never-installed record bought nothing);
+  the name goes into `State.taintedNames` (root = the axiom itself).
+  Any *other* axiom record keeps the previous pipeline exactly:
+  forwarded, well-formedness-checked (garbage records keep rejecting,
+  arena `bad/011`), pinned standard axioms installed, the rest
+  positively declined at their own record (arena 032/033 stay exit 2).
+* **Tainted declarations are skipped, not fatal**: a read-only
+  pre-scan (`declRecordScan` — declared names plus exactly the
+  decl-level expression indices `getDeclEIdx'`/`getDeclExpr'` would
+  consult, including inductive member types and rec-rule rhss) runs
+  before `processLineCore`; on a taint hit the record is dropped, its
+  names tainted (transitive users then skip too), and the skip is
+  recorded in `State.taintSkipped` with its whitelisted root.  The
+  pre-scan (rather than catching the thrown sentinel) matters for
+  ownership: a catch handler closing over the state would hold a
+  second live reference across the record's arena inserts, turning
+  each into a whole-table copy.  The sentinel remains as a backstop
+  mapped to the old decline.
+* **Verdict**: `ParseResult.taintSkipped` flows to the driver; after
+  the (full) check pass, a nonempty skip set turns exit 0 into 2 with
+  a per-root summary on stderr (`Frontend.taintSummary`); rejects and
+  errors during the pass keep their own exit codes (a later invalid
+  declaration still rejects — pinned by the
+  `taint_skip_continue`/`taint_skip_bad_later` e2e twins).  Streams
+  with no tainted uses behave byte-identically to before.  Nothing
+  tainted can be installed: skipped declarations are absent from
+  `ParseResult.decls`, the only path into the checker, so the
+  consistency statements (which quantify over the installed
+  environment) are untouched — the frontend change is entirely outside
+  the verified boundary.
+
+**init-full measurement** (init-full-pre2, streaming, progress mode,
+32 GB `ulimit -v` — 8 GB now OOMs: the full-stream arena is ~3× the
+old 39.3 % one; child VSZ peaks ~14 GB): the whole 6 223 893-line /
+58 609-record stream parses; exactly **two** declarations are skipped
+by taint — `Lean.reduceNat` and `Lean.reduceBool`, both via
+`Lean.trustCompiler` (`sorryAx`/`ofReduceNat`/`ofReduceBool` are
+declared but unused in Init).  Checking then runs 20 156 declarations
+accepted before the **new frontier**, a genuine finding in
+previously-unchecked territory (the old run checked *nothing* on this
+stream): `theorem
+_private.Init.Data.Range.Polymorphic.SInt.0.Int32.instUpwardEnumerable_eq`
+(stream line 2 113 351, 34.0 %) fails with `internal error: fuel
+exhausted: whnfCore`, exit 3 — 91 s wall, 700 G instructions, 4.25 GB
+peak RSS to that point.  The `--yolo` (cert-skipping) stack fails
+identically at the same declaration, so the exhaustion is in the
+shared reduction machinery (`checkFuel = 100000` knot layers), not the
+proof-cert feeding.  Not fixed on this branch; the whnfCore fuel
+ceiling on that declaration is its own task.

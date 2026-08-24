@@ -19,19 +19,30 @@
 # so no .lean source exists for this fixture.)
 0 prop_proj_raw.ndjson
 # sorryAx handling: an unused sorryAx axiom record is skipped (no set
-# model exists for it), a use is positively declined.  sorry_unused is
-# hand-patched (an export never contains an unused axiom record; the
-# patched record's type is Bool-free since skipped axiom records are
-# still well-formedness-checked, and the slice does not declare Bool).
+# model exists for it) without even parsing its type (tolerated-axiom
+# records are invisible; since the taint skip-and-continue their types
+# are no longer well-formedness-checked either — `Lean.ofReduceNat`'s
+# own type references the tainted `Lean.reduceNat`), a use makes the
+# stream decline.  sorry_unused is hand-patched (an export never
+# contains an unused axiom record).
 0 sorry_unused.ndjson
 2 sorry_use.ndjson
-# Non-pinned axioms are invisible (user ruling): the axiom
+# Tolerated axioms (whitelist, user ruling) are invisible: the axiom
 # record is skipped without stopping the run — an independent theorem
 # after it is still accepted — and any declaration referencing the
-# skipped axiom is positively declined.  Hand-written minimal streams.
+# skipped axiom is itself skipped, with the stream declined as a whole
+# at the end.  Hand-written minimal streams.
 0 tolerated_axiom_unused.ndjson
 2 tolerated_axiom_use.ndjson
 2 custom_axiom_declined.ndjson
+# Taint skip-and-continue (user directive 2026-08-24): a use of a
+# tolerated axiom mid-stream is *skipped* — never checked or installed
+# — and the rest of the stream is still checked; the final verdict is
+# a decline (2).  The bad_later twin proves the post-skip declarations
+# really are checked: the same stream with an invalid later definition
+# must *reject* (1), not decline.
+2 taint_skip_continue.ndjson
+1 taint_skip_bad_later.ndjson
 # Basis PUnit 0-field stuck-major rescue (task #59): `Unit.sizeOf`
 # needs `PUnit.rec _ 1 u ≡ 1` at a neutral `u` — the official kernel's
 # structure rescue covers 0-field structures; dependency-closure slice

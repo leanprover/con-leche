@@ -2729,6 +2729,119 @@ theorem checkDirectProj_wfimp {env : Env} (henv : EnvWF env)
   rw [checkProjShape_datF] at hsh
   rw [hsh]
   simp only [Bind.bind, Except.bind]
+  -- the annotated projection type's own frame walk (task #82): the
+  -- subject's domain against the family, the residual against the
+  -- constructor's `i`-th field domain
+  obtain ⟨q1, hop, h⟩ := atF_bind_ok h
+  obtain ⟨fvsP, prest⟩ := q1
+  dsimp only [] at h
+  have hop' := unwrapOr_atF_ok hop
+  show ((unwrapOr (openPisAtFvars nP ptyA 0) _ : CheckM _) >>= _) = _
+  rw [hop']
+  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
+  try dsimp only []
+  obtain ⟨hfvsW, hprestW⟩ :=
+    openPisAtFvars_WScoped nP ptyA 0 hop' (WScoped.of_not_hasFvar hAf)
+  rw [Nat.zero_add] at hfvsW hprestW
+  have hfamW : WScoped nP (Expr.mkAppN (.const T (lps.map .param)) fvsP) :=
+    Expr.WScoped.mkAppN (by simp [WScoped]) hfvsW
+  obtain ⟨q2, hsb, h⟩ := atF_bind_ok h
+  obtain ⟨sbs, sbody⟩ := q2
+  dsimp only [] at h
+  have hsb' := unwrapOr_atF_ok hsb
+  show ((unwrapOr (prest.stripPis 1) _ : CheckM _) >>= _) = _
+  rw [hsb']
+  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
+  try dsimp only []
+  obtain ⟨sdom, hsd, h⟩ := atF_bind_ok h
+  have hsd' := unwrapOr_atF_ok hsd
+  show ((unwrapOr ((sbs[0]?).map (·.2.1)) _ : CheckM _) >>= _) = _
+  rw [hsd']
+  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
+  have hsdW : WScoped nP sdom := stripPis_head_WScoped hsb' hprestW hsd'
+  rw [wfOpsM_isDefEq henv hsdW.to_wscopedB hfamW.to_wscopedB] at h
+  obtain ⟨b1, hb1, h⟩ := atF_bind_ok h
+  have hb1' : isDefEqCore env F nP sdom
+      (Expr.mkAppN (.const T (lps.map .param)) fvsP) = .ok b1 := hb1
+  show (isDefEqCore env F nP sdom _ >>= _) = _
+  rw [hb1']
+  simp only [Bind.bind, Except.bind]
+  have hb1t : b1 = true := by
+    cases b1
+    · rw [if_neg (by simp)] at h; exact absurd h atF_throw_bind
+    · rfl
+  subst hb1t
+  rw [if_pos rfl] at h ⊢
+  obtain ⟨q3, hot, h⟩ := atF_bind_ok h
+  obtain ⟨tFvs, resid⟩ := q3
+  dsimp only [] at h
+  have hot' := unwrapOr_atF_ok hot
+  show ((unwrapOr (openPisAtFvars 1 prest nP) _ : CheckM _) >>= _) = _
+  rw [hot']
+  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
+  try dsimp only []
+  obtain ⟨htfW, hresidW⟩ := openPisAtFvars_WScoped 1 prest nP hot' hprestW
+  obtain ⟨tfv, htf, h⟩ := atF_bind_ok h
+  have htf' := unwrapOr_atF_ok htf
+  show ((unwrapOr tFvs[0]? _ : CheckM _) >>= _) = _
+  rw [htf']
+  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
+  have htfvW : WScoped (nP + 1) tfv := htfW tfv (List.mem_of_getElem? htf')
+  have hargsW : ∀ x ∈ fvsP ++ (List.range i).map (fun j =>
+      Expr.mkAppN (.const (projFnName T j) (lps.map .param))
+        (fvsP ++ [tfv])), WScoped (nP + 1) x := by
+    intro x hx
+    rcases List.mem_append.mp hx with hx | hx
+    · exact (hfvsW x hx).mono (by omega)
+    · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx
+      refine Expr.WScoped.mkAppN (by simp [WScoped]) (fun y hy => ?_)
+      rcases List.mem_append.mp hy with hy | hy
+      · exact (hfvsW y hy).mono (by omega)
+      · rcases List.mem_singleton.mp hy with rfl
+        exact htfvW
+  obtain ⟨q4, hci, h⟩ := atF_bind_ok h
+  obtain ⟨cdoms, cresid⟩ := q4
+  dsimp only [] at h
+  have hci' := unwrapOr_atF_ok hci
+  show ((unwrapOr (Expr.instPisAt (fvsP ++ _) cvCa.type) _ : CheckM _)
+    >>= _) = _
+  rw [hci']
+  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
+  try dsimp only []
+  obtain ⟨-, hcresW⟩ := instPisAt_WScoped (d := nP + 1) _ _ hci'
+    (WScoped.of_not_hasFvar hCf) hargsW
+  obtain ⟨fdom, hfd, h⟩ := atF_bind_ok h
+  have hfd' := unwrapOr_atF_ok hfd
+  obtain ⟨nmC, bodyC, mbC, hcres⟩ :
+      ∃ nmC bodyC mbC, cresid = .forallE nmC fdom bodyC mbC := by
+    match cresid, hfd' with
+    | .forallE nmC d bodyC mbC, hfd' =>
+      obtain rfl : d = fdom := by simpa using hfd'
+      exact ⟨nmC, bodyC, mbC, rfl⟩
+    | .bvar _, hfd' | .fvar _ _ _, hfd' | .sort _, hfd' | .const _ _, hfd'
+    | .app _ _, hfd' | .lam _ _ _ _, hfd' | .letE _ _ _ _, hfd'
+    | .lit _, hfd' | .proj _ _ _, hfd' => exact nomatch hfd'
+  have hfdW : WScoped (nP + 1) fdom := by
+    rw [hcres] at hcresW
+    simp only [WScoped] at hcresW
+    exact hcresW.1
+  show ((unwrapOr (match cresid with
+      | .forallE _ d _ _ => some d | _ => none) _ : CheckM _) >>= _) = _
+  rw [hcres]
+  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
+  try dsimp only []
+  rw [wfOpsM_isDefEq henv hresidW.to_wscopedB hfdW.to_wscopedB] at h
+  obtain ⟨b2, hb2, h⟩ := atF_bind_ok h
+  have hb2' : isDefEqCore env F (nP + 1) resid fdom = .ok b2 := hb2
+  show (isDefEqCore env F (nP + 1) resid fdom >>= _) = _
+  rw [hb2']
+  simp only [Bind.bind, Except.bind]
+  have hb2t : b2 = true := by
+    cases b2
+    · rw [if_neg (by simp)] at h; exact absurd h atF_throw_bind
+    · rfl
+  subst hb2t
+  rw [if_pos rfl] at h ⊢
   obtain ⟨rhsA, hrule, h⟩ := atF_bind_ok h
   have hrule' := checkProjRule_wfimp henv hAf hAb hCf hCb hrule
   rw [hrule']

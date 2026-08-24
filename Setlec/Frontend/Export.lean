@@ -107,16 +107,26 @@ structure State where
   levels : Std.HashMap Nat LIdx := {}
   exprs : Std.HashMap Nat EIdx := {}
   decls : Array DeclP := #[]
-  /-- Expression-table entries that (transitively) mention a skipped
-  axiom, maintained as entries are parsed so the check is `O(1)` per
-  entry even on heavily shared tables. -/
-  tainted : Std.HashMap Nat Unit := {}
-  /-- Names of skipped axiom records.  Non-pinned axioms are invisible
-  (user ruling: only the pinned standard axioms are ever accepted, see
-  DESIGN.md): the *declaration* is dropped without stopping the run —
-  like `sorryAx`, which has no set model (`∀ α, Bool → α` is empty at
-  `α := ∅`) — and any later *use* is positively declined. -/
-  skippedAxioms : Std.HashMap Name Unit := {}
+  /-- Expression-table entries that (transitively) mention a tainted
+  constant, mapped to the whitelisted axiom root the taint traces to;
+  maintained as entries are parsed so the check is `O(1)` per entry
+  even on heavily shared tables. -/
+  tainted : Std.HashMap Nat Name := {}
+  /-- Tainted constant names, mapped to the whitelisted axiom root:
+  the tolerated axioms themselves (root = the axiom; the *declaration*
+  record is dropped without stopping the run — user ruling: only the
+  pinned standard axioms are ever accepted, see DESIGN.md — like
+  `sorryAx`, which has no set model: `∀ α, Bool → α` is empty at
+  `α := ∅`) plus every declaration skipped because it (transitively)
+  *uses* one (skip-and-continue, user directive 2026-08-24). -/
+  taintedNames : Std.HashMap Name Name := {}
+  /-- Declarations skipped because they (transitively) use a tolerated
+  axiom — (declaration name, whitelisted axiom root), in stream order.
+  Tolerated axiom *records* themselves are not listed: dropping them is
+  by design and alone never declines the stream.  Nonempty means the
+  input as a whole is declined by the driver even when every remaining
+  declaration checks (uses of tolerated axioms are never accepted). -/
+  taintSkipped : Array (Name × Name) := #[]
   /-- Saturated *unshared tree size* per expression-table entry,
   maintained incrementally (`O(1)` per entry).  Since parse-time
   interning (task #78) the ordinary definition/theorem/opaque pipeline
@@ -125,7 +135,11 @@ structure State where
   `budgetExempt` below). -/
   sizes : Std.HashMap Nat Nat := {}
 
-/-- Internal sentinel converted to a decline at the record level. -/
+/-- Internal sentinel: a declaration-level expression lookup hit a
+tainted entry.  Backstop only — `processLine`'s read-only pre-scan
+(`declRecordScan`) skips tainted declarations before any parsing, so
+this should be unreachable; if it fires anyway it is converted to a
+decline at the record level (the pre-change behavior). -/
 private def taintSentinel : String := "\x00uses-skipped-axiom"
 
 /-- Internal sentinel converted to a decline at the record level. -/
@@ -202,8 +216,9 @@ private def getNameIdx' (st : State) (j : Json) (key : String) : M NIdx := do
 private def getExprIdx' (st : State) (j : Json) (key : String) : M EIdx := do
   st.expr (← getIdx j key)
 
-/-- Declaration-level expression lookup: a reference to a skipped
-(non-pinned) axiom is a positive decline (via `taintSentinel`).  The
+/-- Declaration-level expression lookup: a reference to a tainted
+entry throws `taintSentinel` (backstop — the pre-scan in `processLine`
+skips tainted declarations before parsing reaches here).  The
 tree-size budget is applied only when `budgeted` (see
 `declTreeSizeBudget`). -/
 private def getDeclEIdx' (st : State) (j : Json) (key : String)
@@ -313,54 +328,56 @@ private def parseExprEntry (st : State) (j : Json) (i : Nat) : M State := do
   let (e, taintConst, st) ←
     if let .ok v := j.getObjVal? "bvar" then
       let (e, st) := st.intern' (.bvar (← v.getNat?))
-      pure (e, false, st)
+      pure (e, none, st)
     else if let .ok v := j.getObjVal? "sort" then
       let (e, st) := st.intern' (.sort (← st.level (← v.getNat?)))
-      pure (e, false, st)
+      pure (e, none, st)
     else if let .ok v := j.getObjVal? "const" then
       let nI ← getNameIdx' st v "name"
       let us ← (← (← v.getObjVal? "us").getArr?).mapM
         (fun u => do st.level (← u.getNat?))
-      let taintC ← if st.skippedAxioms.isEmpty then pure false
-        else do pure (st.skippedAxioms.contains (← getName' st v "name"))
+      let taintC : Option Name ←
+        if st.taintedNames.isEmpty then pure none
+        else do pure st.taintedNames[(← getName' st v "name")]?
       let (e, st) := st.intern' (.const nI us.toList)
       pure (e, taintC, st)
     else if let .ok v := j.getObjVal? "app" then
       let (e, st) := st.intern'
         (.app (← getExprIdx' st v "fn") (← getExprIdx' st v "arg"))
-      pure (e, false, st)
+      pure (e, none, st)
     else if let .ok v := j.getObjVal? "lam" then
       let (e, st) := st.intern' (.lam (← getNameIdx' st v "name")
         (← getExprIdx' st v "type") (← getExprIdx' st v "body")
         ⟨← parseBinderInfo v, none⟩)
-      pure (e, false, st)
+      pure (e, none, st)
     else if let .ok v := j.getObjVal? "forallE" then
       let (e, st) := st.intern' (.forallE (← getNameIdx' st v "name")
         (← getExprIdx' st v "type") (← getExprIdx' st v "body")
         ⟨← parseBinderInfo v, none⟩)
-      pure (e, false, st)
+      pure (e, none, st)
     else if let .ok v := j.getObjVal? "letE" then
       let (e, st) := st.intern' (.letE (← getNameIdx' st v "name")
         (← getExprIdx' st v "type") (← getExprIdx' st v "value")
         (← getExprIdx' st v "body"))
-      pure (e, false, st)
+      pure (e, none, st)
     else if let .ok v := j.getObjVal? "proj" then
       let (e, st) := st.intern' (.proj (← getNameIdx' st v "typeName")
         (← (← v.getObjVal? "idx").getNat?) (← getExprIdx' st v "struct"))
-      pure (e, false, st)
+      pure (e, none, st)
     else if let .ok v := j.getObjVal? "natVal" then
       match (← v.getStr?).toNat? with
       | some n =>
         let (e, st) := st.intern' (.lit (.natVal n))
-        pure (e, false, st)
+        pure (e, none, st)
       | none => throw "malformed natVal literal"
     else if let .ok v := j.getObjVal? "strVal" then
       let (e, st) := st.intern' (.lit (.strVal (← v.getStr?)))
-      pure (e, false, st)
+      pure (e, none, st)
     else
       throw "malformed or unsupported expr entry"
   let cs ← exprEntryChildren j
-  let taint : Bool := taintConst || cs.any (fun c => st.tainted[c]?.isSome)
+  let taint : Option Name :=
+    taintConst <|> cs.findSome? (fun c => st.tainted[c]?)
   -- saturated unshared tree size (children default to 1: leaf entries
   -- are never inserted into `sizes` below the cap check's default)
   let size : Nat := min declTreeSizeBudget
@@ -371,10 +388,10 @@ private def parseExprEntry (st : State) (j : Json) (i : Nat) : M State := do
     let st := { st with sizes := {} }
     { st with sizes := m.insert i size }
   else st
-  if taint then
+  if let some root := taint then
     let t := st.tainted
     let st := { st with tainted := {} }
-    pure { st with tainted := t.insert i () }
+    pure { st with tainted := t.insert i root }
   else
     pure st
 
@@ -430,10 +447,11 @@ private def processLineCore (st : State) (j : Json)
   else if (j.getObjVal? "meta").isOk then
     return .inl st
   else if let .ok v := j.getObjVal? "axiom" then
-    -- an axiom whose own type references a previously skipped axiom
-    -- is itself a *use*: the sentinel in `parseConstantValP` declines.
-    -- Axiom records stay budgeted: standard-axiom pin matching walks
-    -- the stored type as a tree.
+    -- tolerated-whitelist axiom records never reach this branch
+    -- (`processLine` drops them without parsing the type); an axiom
+    -- whose own type references a tainted constant is itself a *use*
+    -- and was skipped by the pre-scan.  Axiom records stay budgeted:
+    -- standard-axiom pin matching walks the stored type as a tree.
     let cvp ← parseConstantValP st v (budgeted := true)
     if (← (← v.getObjVal? "isUnsafe").getBool?) then
       return .inr "unsafe axiom"
@@ -446,16 +464,10 @@ private def processLineCore (st : State) (j : Json)
         return .inl st
       else
         return .inr "quotient soundness axiom mismatch"
-    -- every axiom record is forwarded (the checker well-formedness-
-    -- checks it first — a garbage record must keep *rejecting* — and
-    -- then installs the pinned standard axioms, skips the tolerated
-    -- whitelist, and positively declines the rest).  For a tolerated
-    -- axiom the run continues and any later declaration referencing
-    -- it is positively declined here (see `State.skippedAxioms`).
-    if toleratedAxiomNames.contains cvp.name then
-      return .inl { st with
-        decls := st.decls.push (.axiomDecl cvp),
-        skippedAxioms := st.skippedAxioms.insert cvp.name () }
+    -- every remaining axiom record is forwarded (the checker
+    -- well-formedness-checks it first — a garbage record must keep
+    -- *rejecting* — then installs the pinned standard axioms and
+    -- positively declines the rest at their own record).
     return .inl { st with decls := st.decls.push (.axiomDecl cvp) }
   else if let .ok v := j.getObjVal? "def" then
     -- Note: `_model` companions the preprocessor may emit for basis
@@ -570,12 +582,73 @@ private def processLineCore (st : State) (j : Json)
   else
     throw "unrecognized line"
 
-/-- `processLineCore` plus the skipped-axiom-use sentinel translated
-into a decline. -/
+/-- Read-only pre-scan of a declaration record: its declared names and
+its declaration-level expression-table indices (type, value, and — for
+inductive blocks — every member type and recursor-rule right-hand
+side; exactly the indices `getDeclEIdx'`/`getDeclExpr'` would check).
+`none` for table entries and `meta` lines.  Used by `processLine` to
+decide a taint skip *before* `processLineCore` runs: a handler that
+inspected the state after a thrown sentinel would keep a second live
+reference to the state across the record's arena inserts, turning each
+into a whole-table copy. -/
+private def declRecordScan (st : State) (j : Json) :
+    M (Option (List Name × List Nat)) := do
+  for k in ["axiom", "quot"] do
+    if let .ok v := j.getObjVal? k then
+      return some ([← getName' st v "name"], [← getIdx v "type"])
+  for k in ["def", "thm", "opaque"] do
+    if let .ok v := j.getObjVal? k then
+      return some ([← getName' st v "name"],
+        [← getIdx v "type", ← getIdx v "value"])
+  if let .ok v := j.getObjVal? "inductive" then
+    let mut names := []
+    let mut idxs := []
+    for key in ["types", "ctors", "recs"] do
+      for t in (← (← v.getObjVal? key).getArr?) do
+        names := (← getName' st t "name") :: names
+        idxs := (← getIdx t "type") :: idxs
+    for r in (← (← v.getObjVal? "recs").getArr?) do
+      for ru in (← (← r.getObjVal? "rules").getArr?) do
+        idxs := (← getIdx ru "rhs") :: idxs
+    return some (names.reverse, idxs)
+  return none
+
+/-- `processLineCore` under the taint policy (user ruling: only the
+tolerated axiom whitelist may be *declared*, and uses of a tolerated
+axiom are never accepted; user directive 2026-08-24: maximize coverage
+by skipping instead of declining the whole stream):
+
+* a tolerated axiom record is dropped and its name tainted *without
+  parsing its type at all* — `Lean.ofReduceNat`'s own type references
+  the (tainted) `Lean.reduceNat`, so even well-formedness-checking it
+  would be a use; the record was never installed anyway;
+* a declaration that (transitively) references a tainted constant is
+  *skipped*: not checked, not installed, its declared names tainted
+  (so transitive users are skipped too), recorded in
+  `State.taintSkipped`; the stream continues and the driver declines
+  the input as a whole at the end;
+* the tree-size sentinel stays a decline at the record level. -/
 private def processLine (st : State) (j : Json)
-    (modeled : Bool := false) : M (State ⊕ String) :=
+    (modeled : Bool := false) : M (State ⊕ String) := do
+  if let .ok v := j.getObjVal? "axiom" then
+    let name ← getName' st v "name"
+    if toleratedAxiomNames.contains name then
+      let m := st.taintedNames
+      let st := { st with taintedNames := {} }
+      return .inl { st with taintedNames := m.insert name name }
+  if let some (names, idxs) ← declRecordScan st j then
+    if let some root := idxs.findSome? (fun i => st.tainted[i]?) then
+      let m := st.taintedNames
+      let sk := st.taintSkipped
+      let st := { st with taintedNames := {}, taintSkipped := #[] }
+      let m := names.foldl (fun m n => m.insert n root) m
+      return .inl { st with
+        taintedNames := m,
+        taintSkipped := sk.push (names.headD .anonymous, root) }
   tryCatch (processLineCore st j modeled) fun e =>
     if e = taintSentinel then
+      -- backstop, unreachable when `declRecordScan` is complete: keep
+      -- the pre-skip decline verdict rather than crash
       pure (.inr "declaration uses a skipped (non-pinned) axiom")
     else if e = sizeSentinel then
       pure (.inr "declaration's unshared tree size exceeds the frontend budget (heavily DAG-shared input; this record kind still materializes trees)")
@@ -602,17 +675,42 @@ private def feedLine (st : State) (line : String) (lineNo : Nat)
     | .ok (.inr what) => .error (.unsupported what)
     | .ok (.inl st) => .ok st
 
+/-- A parsed export stream. -/
+structure ParseResult where
+  /-- The parse arena. -/
+  store : EStore
+  /-- The declarations, in stream order.  Declarations skipped by
+  taint are *absent*: they can never reach the checker, so nothing
+  that uses a tolerated axiom is ever installed. -/
+  decls : Array DeclP
+  /-- Declarations skipped because they (transitively) use a tolerated
+  axiom — (name, whitelisted axiom root), in stream order.  Nonempty
+  means the driver must *decline* the input as a whole even when every
+  declaration in `decls` checks. -/
+  taintSkipped : Array (Name × Name)
+
+/-- Diagnostic summary of the taint skips: total, per-root counts, and
+the first few skipped names. -/
+def taintSummary (skips : Array (Name × Name)) : String :=
+  let perRoot := toleratedAxiomNames.filterMap fun r =>
+    match skips.foldl (fun c p => if p.2 == r then c + 1 else c) 0 with
+    | 0 => none
+    | c => some s!"{c} via {r}"
+  let names := (skips.toList.take 8).map (fun p => s!"{p.1}")
+  let more := if skips.size > 8 then ", …" else ""
+  s!"skipped {skips.size} declarations that use a tolerated axiom ({String.intercalate "; " perRoot}); first skipped: {String.intercalate ", " names}{more}"
+
 /-- Parse a whole in-memory export into the parse arena and the
 declarations it contains, in order.  (Wholesale entry point, kept for
 tests and small inputs; the driver streams via `parseExportStream`.) -/
 def parseExport (contents : String) (modeled : Bool := false) :
-    Except FrontendError (EStore × Array DeclP) := do
+    Except FrontendError ParseResult := do
   let mut st := initState
   let mut lineNo := 0
   for line in contents.splitToList (· == '\n') do
     lineNo := lineNo + 1
     st ← feedLine st line lineNo modeled
-  return (st.store, st.decls)
+  return ⟨st.store, st.decls, st.taintSkipped⟩
 
 /-- Streaming parse (task #57): read the export line by line from the
 file, feeding each record into the parse arena as it arrives — the raw
@@ -624,13 +722,13 @@ across the step, and the first insert then copies the whole node/hash
 tables (see `progressLoop` in `Main.lean`). -/
 partial def parseExportStream (path : System.FilePath)
     (modeled : Bool := false) :
-    IO (Except FrontendError (EStore × Array DeclP)) := do
+    IO (Except FrontendError ParseResult) := do
   let h ← IO.FS.Handle.mk path .read
   let rec loop (lineNo : Nat) (st : State) :
-      IO (Except FrontendError (EStore × Array DeclP)) := do
+      IO (Except FrontendError ParseResult) := do
     let raw ← h.getLine
     if raw.isEmpty then
-      return .ok (st.store, st.decls)
+      return .ok ⟨st.store, st.decls, st.taintSkipped⟩
     -- strip exactly the trailing newline (mirroring the wholesale
     -- entry point's `splitToList (· == '\n')`; a `\r` before it is
     -- kept, as there).  `copy` detaches the line from the read buffer.

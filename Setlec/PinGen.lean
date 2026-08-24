@@ -436,12 +436,24 @@ def opSpecs : List OpSpec :=
 
 /-! ## The generator command -/
 
-/-- The stream-prefix allowlists (`scripts/extract_natop_prefix.py`). -/
+/-- The stream-prefix allowlists (`scripts/extract_natop_prefix.py`).
+The embed is a static string object in the emitted code — free at
+process init. -/
 def natopPrefixJson : String :=
   include_str "../scripts/natop_prefix.json"
 
-def loadPrefixes : Except String (Std.HashMap String (List String)) := do
-  let j ← Json.parse natopPrefixJson
+/-- Parse the stream-prefix allowlists.  Deliberately a *function* (of
+the JSON text), not a closed `def`: a 0-ary definition is evaluated in
+the module initializer, and this module's object code is linked into
+the `setlec` executable via the `meta import` in
+`Setlec/Kernel/NatOpPins.lean` — a closed parse of the 1.96 MB embed
+cost ~0.26 G instructions at every process start (twice, under the OOM
+supervisor re-exec).  As a function it runs only when
+`#gen_natop_pins` elaborates, at `lake build` time.  (Closed subterms
+extracted from function bodies are lazy `once`-cells in the emitted
+code, so no eager work remains.) -/
+def loadPrefixes (json : String) : Except String (Std.HashMap String (List String)) := do
+  let j ← Json.parse json
   let o ← j.getObj?
   let mut m : Std.HashMap String (List String) := {}
   for ⟨k, v⟩ in o.toArray do
@@ -518,7 +530,7 @@ stripped, and the generator must inline exactly those proofs when it
 closes the certificates over the stream prefix.  The *splicing* targets
 the ambient environment. -/
 elab "#gen_natop_pins" : command => do
-  let prefixes ← match loadPrefixes with
+  let prefixes ← match loadPrefixes natopPrefixJson with
     | .ok m => pure m
     | .error e => throwError "bad scripts/natop_prefix.json: {e}"
   let genEnv ← importModules (loadExts := false) (level := .private)
