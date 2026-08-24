@@ -1398,9 +1398,21 @@ def checkConstantValP (fe : FEnv) (cv : ConstantValP) :
 
 /-- `checkDefnValF` on parsed indices, recording the interned entry
 (the value sequence is inlined flat so the simulation walk mirrors it
-clause by clause). -/
+clause by clause).
+
+**Task #64 driver split**: the body is ordered install-phase first —
+the syntactic guards, the annotation, the post-annotate guards, and
+the recording of the annotated indices (`readbackEM`/`recordIConst`,
+state-only steps, moved before the conformance check) — then the
+check phase (infer + defeq), which consumes the annotated indices and
+produces nothing.  The environment push comes last, with `fe`
+consumed in tail position; the check phase therefore runs against the
+pre-push environment (the prefix view: this declaration is not
+visible to its own conformance check), exactly as the pre-split
+order did. -/
 def checkDefnValP (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     (value : EIdx) (hint : ReducibilityHint) : CheckIM FEnv := do
+  -- install phase: guards, annotation, recording
   unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
     throw (.invalid s!"loose bound variable in value of {cvA.name}")
   if ← withStore (fun st => st.hasFvarI value) then
@@ -1411,14 +1423,20 @@ def checkDefnValP (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless ← withStore (fun st => constsResolveFI st fe jv) do
     throw (.invalid s!"unknown constant in value of {cvA.name}")
+  let vE ← readbackEM jv
+  recordIConst cvA.name cvA.type jty (some (vE, jv))
+  -- CHECK PHASE ENTRY (task #64: the two-tier bracket hooks here —
+  -- everything below produces no stored artifact)
   let jvt ← (coreKnotI fe checkFuel).infer 0 jv
   unless ← (coreKnotI fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in definition {cvA.name}")
-  let vE ← readbackEM jv
-  recordIConst cvA.name cvA.type jty (some (vE, jv))
+  -- CHECK PHASE EXIT (the driver-level cert branches that follow in
+  -- `checkDeclSP` are check-phase too; the bracket closes after them)
   pure (fe.push (.defnInfo cvA vE hint))
 
-/-- `checkThmValF` on parsed indices. -/
+/-- `checkThmValF` on parsed indices (split as `checkDefnValP`; the
+is-a-proposition test stays install-side, preserving the pre-split
+error order). -/
 def checkThmValP (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     (value : EIdx) : CheckIM FEnv := do
   let jsty ← (coreKnotI fe checkFuel).infer 0 jty
@@ -1435,16 +1453,19 @@ def checkThmValP (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless ← withStore (fun st => constsResolveFI st fe jv) do
     throw (.invalid s!"unknown constant in value of {cvA.name}")
+  let vE ← readbackEM jv
+  recordIConst cvA.name cvA.type jty (some (vE, jv))
+  -- CHECK PHASE ENTRY (task #64 split, see `checkDefnValP`)
   let jvt ← (coreKnotI fe checkFuel).infer 0 jv
   unless ← (coreKnotI fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in theorem {cvA.name}")
-  let vE ← readbackEM jv
-  recordIConst cvA.name cvA.type jty (some (vE, jv))
+  -- CHECK PHASE EXIT
   pure (fe.push (.thmInfo cvA vE))
 
 /-- `checkOpaqueValF` on parsed indices (stored as an `axiomInfo`,
 exactly as the `Expr`-level driver does — the checked value is a
-discarded realizability witness, so no value index is recorded). -/
+discarded realizability witness, so no value index is recorded; split
+as `checkDefnValP`). -/
 def checkOpaqueValP (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     (value : EIdx) : CheckIM FEnv := do
   unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
@@ -1457,10 +1478,13 @@ def checkOpaqueValP (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless ← withStore (fun st => constsResolveFI st fe jv) do
     throw (.invalid s!"unknown constant in value of {cvA.name}")
+  recordIConst cvA.name cvA.type jty none
+  -- CHECK PHASE ENTRY (task #64 split, see `checkDefnValP`)
   let jvt ← (coreKnotI fe checkFuel).infer 0 jv
   unless ← (coreKnotI fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in opaque {cvA.name}")
-  recordIConst cvA.name cvA.type jty none
+  -- CHECK PHASE EXIT (the reduce-pin cert branch in `checkDeclSP` is
+  -- check-phase too)
   pure (fe.push (.axiomInfo cvA))
 
 /-- One parsed declaration (mirrors `checkDeclSF` branch by branch;
