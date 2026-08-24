@@ -3187,10 +3187,10 @@ theorem modeled_bottom_nested
     (hlhead : lhsS.getAppFn = Expr.const (f R) (lps.map .param))
     (hlarity : lhsS.getAppArgs.length = mI + 1)
     (hlpre : lhsS.getAppArgs.take rP = fvs.take rP)
-    (hmaj : lhsS.getAppArgs.getLastD (.bvar 0) =
-      Expr.mkAppN (.const (f ctor) lvls)
+    (hmaj : Expr.ErasedEq (lhsS.getAppArgs.getLastD (.bvar 0))
+      (Expr.mkAppN (.const (f ctor) lvls)
         (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
-          (p.renameConsts f)) ++ fvs.drop rP))
+          (p.renameConsts f)) ++ fvs.drop rP)))
     (hCstripSome : (cvj.type.stripPis (cnP + cnF)).isSome = true)
     (hCps : cvj.type.allLevelParamsDefined cvj.levelParams = true)
     (hcinst : Expr.instPisAt
@@ -4263,14 +4263,14 @@ theorem modeled_bottom_nested
     take_concat_of_length (l := lhsS.getAppArgs) (n := mI) hlarity
   obtain ⟨vlast, hlvalsDecomp, hvlast⟩ :=
     take_concat_of_length (l := lvals) (n := mI) hlvalsLen
-  have hlastEmaj : lastE =
-      Expr.mkAppN (.const (f ctor) lvls)
+  have hlastEmaj : Expr.ErasedEq lastE
+      (Expr.mkAppN (.const (f ctor) lvls)
         (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
-          (p.renameConsts f)) ++ fvs.drop rP) := by
+          (p.renameConsts f)) ++ fvs.drop rP)) := by
     have h0 : lhsS.getAppArgs.getLastD (.bvar 0) = lastE := by
       conv => lhs; rw [hlargsDecomp]
       rw [List.getLastD_concat]
-    rw [← h0, hmaj]
+    exact h0 ▸ hmaj
   have hpreValsEq : lvals.take rP = xs.take rP := by
     apply List.ext_getElem?
     intro i
@@ -4320,7 +4320,7 @@ theorem modeled_bottom_nested
   have hmajI : interpExpr V m₀.val env₀ ψ (rP + cnF)
       (fun i => xs.getD i SetTheory.empty) lastE = some vlast :=
     InterpSpine.pointwise hspL mI hlastE hvlast
-  rw [hlastEmaj] at hmajI
+  rw [interp_erasedEq hlastEmaj] at hmajI
   obtain ⟨vh, hvh⟩ := interp_mkAppN_head_some _ _ hmajI
   have hlvlsLen : lvls.length = cimC.toConstantVal.levelParams.length := by
     revert hvh
@@ -4468,7 +4468,7 @@ theorem modeled_bottom_nested
         (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
           (p.renameConsts f)) ++ fvs.drop rP)) := by
     have h0 := hlargsA lastE (List.mem_of_getElem? hlastE)
-    rwa [hlastEmaj] at h0
+    exact AnnotOk.erasedEq _ hlastEmaj _ _ h0
   have hchainCtor : ChainSlots V
       (m₀.val ctor (Level.substFn ψ cvj.levelParams lvls))
       (cvals ++ xs.drop rP) := by
@@ -4751,10 +4751,10 @@ theorem modeled_rule_eq_nested
     (hlhead : lhsS.getAppFn = Expr.const (f R) (lps.map .param))
     (hlarity : lhsS.getAppArgs.length = mI + 1)
     (hlpre : lhsS.getAppArgs.take rP = fvs.take rP)
-    (hmaj : lhsS.getAppArgs.getLastD (.bvar 0) =
-      Expr.mkAppN (.const (f ctor) lvls)
+    (hmaj : Expr.ErasedEq (lhsS.getAppArgs.getLastD (.bvar 0))
+      (Expr.mkAppN (.const (f ctor) lvls)
         (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
-          (p.renameConsts f)) ++ fvs.drop rP))
+          (p.renameConsts f)) ++ fvs.drop rP)))
     (hCstripSome : (cvj.type.stripPis (cnP + cnF)).isSome = true)
     (hCps : cvj.type.allLevelParamsDefined cvj.levelParams = true)
     (hcinst : Expr.instPisAt

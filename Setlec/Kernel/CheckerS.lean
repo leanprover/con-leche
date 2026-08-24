@@ -510,8 +510,11 @@ def checkIotaThmNF (ops : CheckerOps m) (fe' feSelf : FEnv)
     unless largs.take rP == fvs.take rP do
       throw (.notImplemented s!"iota statement prefix mismatch for {cvName}")
     let major := largs.getLastD (.bvar 0)
-    unless major == Expr.mkAppN (.const (f r.ctor) lvls)
-        (pinsF ++ xFvs) do
+    -- up to display-only binder names, like `checkIotaThmN` (the pins
+    -- may contain binders; the artifact contract fixes statements only
+    -- up to `Expr.eqv`)
+    unless Expr.eqUpToNames major (Expr.mkAppN (.const (f r.ctor) lvls)
+        (pinsF ++ xFvs)) do
       throw (.notImplemented s!"iota statement major mismatch for {cvName}")
     unless (cvj.type.stripPis (cnP + cnF)).isSome do
       throw (.notImplemented s!"iota constructor telescope for {cvName}")

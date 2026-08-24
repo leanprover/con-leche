@@ -132,6 +132,19 @@
 # and `size_example`'s rfl fires them on concrete majors.
 0 nested_rec.ndjson
 
+# nested_pin_names.ndjson (tests/e2e/src/nested_pin_names.lean,
+# preprocessed then perturbed by scripts/mk_nested_pin_fixture.py):
+# nested-auxiliary rules whose stored pins contain a *binder* (the
+# dependent nested occurrence `DMap α (fun _ => PTree α)`), with the
+# iota theorems' majors spelling the pin lambda under a different
+# binder name than the recursor type — the drift the export format
+# permits (arenas intern name-insensitively; owner ruling 2026-08-21)
+# and the exact shape that declined Mathlib at
+# `Lean.PrefixTreeNode.rec_3`.  `checkIotaThmN` pins the major up to
+# display-only binder names; `total_example`'s rfl fires the rules on
+# concrete majors.
+0 nested_pin_names.ndjson
+
 # str_proj.ndjson (tests/e2e/src/str_proj.lean): a theorem forcing
 # `.proj String 0 ""` (the `String.utf8ByteSize_empty` shape:
 # `utf8ByteSize` is `ByteArray.size ∘ toByteArray` and `toByteArray`'s
