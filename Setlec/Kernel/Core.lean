@@ -1191,15 +1191,17 @@ for a canonical (`.plain`) rule the constructor's levels link to the
 recursor's by name and its parameters are the recursor's leading
 arguments; for a certified nested (`.nested`) rule both are the stored
 major-domain instantiations, at the recursor's level instantiation and
-(for the parameters) instantiated at the recursor's argument spine.
+(for the parameters) instantiated at the recursor's leading-argument
+spine (the stored pins live in the `rP`-binder prefix context — index
+arguments never occur in them, by the shape certification).
 (Junk for `.inert` rules — `iotaRec` declines before reading it.) -/
 def recFireComparands (rl : RecRule) (lps : List Name)
     (us : List Level) (cvjLps : List Name) (args : List Expr)
-    (mI : Nat) : List Level × List Expr :=
+    (rP : Nat) : List Level × List Expr :=
   match rl.fire with
   | .nested lvls pins =>
     (lvls.map (Level.subst lps us),
-     pins.map fun p => Expr.instSpine (args.take mI) (mI - 1)
+     pins.map fun p => Expr.instSpine (args.take rP) (rP - 1)
        (p.instantiateLevelParams lps us))
   | _ =>
     (cvjLps.map fun p => Level.subst lps us (.param p),
@@ -1263,10 +1265,10 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                 -- never re-derived per fire
                 if ← liftFueled "level comparison" (Level.isEquivList usj
                     (recFireComparands rl cv.levelParams us
-                      cvj.levelParams args mI).1) then
+                      cvj.levelParams args rP).1) then
                  if ← defEqList r env depth (margs.take rl.ctorParams)
                     (recFireComparands rl cv.levelParams us
-                      cvj.levelParams args mI).2 then
+                      cvj.levelParams args rP).2 then
                   if ← iotaCertsG r env depth
                      (cv.type.instantiateLevelParams cv.levelParams us)
                      (args.take mI ++ [major]) then

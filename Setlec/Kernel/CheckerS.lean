@@ -461,14 +461,19 @@ def nestedRuleShapeF (fe' feSelf : FEnv) (cvName : Name)
     (lps : List Name) (tyA : Expr) (mI rP cnP j : Nat) :
     Option (List Level × List Expr) :=
   if (fe'.findCV? ((cvName.str "_model").str s!"iota_{j}")).isSome ∧
-      mI = rP then
+      rP ≤ mI then
     match tyA.stripPis mI with
     | some (_, .forallE _ dom _ _) =>
       match dom.getAppFn with
       | .const _D lvls =>
-        let pins := dom.getAppArgs
-        if pins.length = cnP ∧
-            pins.all (fun p => !p.hasFvar && p.looseBVarsBounded mI &&
+        let args := dom.getAppArgs
+        let k := mI - rP
+        let pins := (args.take cnP).map (Expr.lowerBVars k 0)
+        if args.length = cnP + k ∧
+            args.take cnP == pins.map (Expr.liftLooseBVars k 0) ∧
+            args.drop cnP ==
+              (List.range k).map (fun i => Expr.bvar (k - 1 - i)) ∧
+            pins.all (fun p => !p.hasFvar && p.looseBVarsBounded rP &&
               p.constsResolveF feSelf && p.allLevelParamsDefined lps) ∧
             lvls.all (Level.allParamsDefined lps) then
           some (lvls, pins)
@@ -517,8 +522,12 @@ def checkIotaThmNF (ops : CheckerOps m) (fe' feSelf : FEnv)
     unless Expr.eqUpToNames major (Expr.mkAppN (.const (f r.ctor) lvls)
         (pinsF ++ xFvs)) do
       throw (.notImplemented s!"iota statement major mismatch for {cvName}")
-    unless (cvj.type.stripPis (cnP + cnF)).isSome do
-      throw (.notImplemented s!"iota constructor telescope for {cvName}")
+    let (_, cbody0) ← unwrapOr (cvj.type.stripPis (cnP + cnF))
+      (.notImplemented s!"iota constructor telescope for {cvName}")
+    unless (match cbody0.getAppFn with
+        | .const _ _ => true
+        | _ => false) do
+      throw (.notImplemented s!"iota constructor residual head for {cvName}")
     let (cdoms, cres) ← unwrapOr
         (Expr.instPisAt (pinsF ++ xFvs)
           ((cvj.type.instantiateLevelParams cvj.levelParams
@@ -539,13 +548,14 @@ def checkIotaThmNF (ops : CheckerOps m) (fe' feSelf : FEnv)
       (.notImplemented s!"iota recursor telescope for {cvName}")
     let pinsP := pins.map fun p =>
       Expr.instSpine (fvsP.take rP) (rP - 1) p
+    checkAnnotList ops feSelf.env depth pinsP
     let (cdomsP, crestP) ← unwrapOr (Expr.instPisAt pinsP
         (cvj.type.instantiateLevelParams cvj.levelParams lvls))
       (.notImplemented s!"iota constructor telescope for {cvName}")
     checkTypedList ops feSelf.env depth pinsP cdomsP
     let (xFvsP, crest2P) ← unwrapOr (openPisAtFvars cnF crestP rP)
       (.notImplemented s!"iota constructor telescope for {cvName}")
-    unless crest2P.getAppArgs.length == cnP do
+    unless crest2P.getAppArgs.length == cnP + (mI - rP) do
       throw (.notImplemented s!"iota constructor arity for {cvName}")
     let (ldoms, _) ← unwrapOr (Expr.instLamsAt (fvsP ++ xFvsP) rhsA)
       (.notImplemented s!"rule shape mismatch for {cvName}")

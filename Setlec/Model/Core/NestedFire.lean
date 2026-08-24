@@ -68,23 +68,26 @@ theorem nested_fire_premise {m : EnvModel V env} {fuel : Nat}
     {vsi ws : List V} {tvv : V} {restR restR' : Expr}
     {dR : Nat} {ρR : Nat → V} {argsRF : List Expr}
     (hnestWF : ∀ lvls pins, r.fire = .nested lvls pins →
-      mI = rP ∧
+      rP ≤ mI ∧
       (∀ l ∈ lvls, l.allParamsDefined cv.levelParams = true) ∧
       (∀ pin ∈ pins, pin.hasFvar = false ∧
         pin.allLevelParamsDefined cv.levelParams = true ∧
         pin.constsResolve env = true ∧
-        pin.looseBVarsBounded mI = true) ∧
+        pin.looseBVarsBounded rP = true) ∧
       ∃ pre nm dom body bm D,
         cv.type.stripPis mI = some (pre, .forallE nm dom body bm) ∧
         dom.getAppFn = .const D lvls ∧
-        dom.getAppArgs = pins)
+        dom.getAppArgs =
+          pins.map (Expr.liftLooseBVars (mI - rP) 0) ++
+            (List.range (mI - rP)).map
+              (fun i => Expr.bvar (mI - rP - 1 - i)))
     (hpeq : defEqListP env fuel d
       (major.getAppArgs.take r.ctorParams)
       (recFireComparands r cv.levelParams us cvj.levelParams
-        (Expr.app fe ae).getAppArgs mI).2 = .ok true)
+        (Expr.app fe ae).getAppArgs rP).2 = .ok true)
     (hlev : Level.isEquivList usj
       (recFireComparands r cv.levelParams us cvj.levelParams
-        (Expr.app fe ae).getAppArgs mI).1 = some true)
+        (Expr.app fe ae).getAppArgs rP).1 = some true)
     (husjlen : usj.length = cvj.levelParams.length)
     (hml : major.getAppArgs.length = r.ctorParams + r.nfields)
     (hvsilen : vsi.length = mI)
@@ -122,20 +125,20 @@ theorem nested_fire_premise {m : EnvModel V env} {fuel : Nat}
       argsRF (vsi ++ [tvv]) restR')
     (hfvRF : ∀ a ∈ argsRF, ∃ i n ty, a = .fvar i n ty) :
     ∀ lvls pins, r.fire = RecRuleFire.nested lvls pins →
-      mI = rP ∧
+      rP ≤ mI ∧
       (∀ p ∈ cvj.levelParams,
         Level.substFn φ cvj.levelParams usj p =
         Level.substFn (Level.substFn φ cv.levelParams us)
           cvj.levelParams lvls p) ∧
       ∃ (dP : Nat) (ρP : Nat → V) (spineP : List Expr),
-        FvarSpine dP ρP spineP vsi ∧
+        FvarSpine dP ρP spineP (vsi.take rP) ∧
         (∀ a ∈ spineP, ∃ i nm, a = Expr.fvar i nm (.sort .zero)) ∧
         (pins.map fun pin => Expr.instSeq spineP (spineP.length - 1)
           (pin.instantiateLevelParams cv.levelParams us)).mapM
           (interpExpr V m.val env φ dP ρP) =
           some (ws.take r.ctorParams) := by
   intro lvls pins hfp
-  obtain ⟨hmIrP, hlvlsWF, hpinsWF, pre, nmD, dom, bodyD, bmD, D,
+  obtain ⟨hrPmI, hlvlsWF, hpinsWF, pre, nmD, dom, bodyD, bmD, D,
     hstripD, hdomFn, hdomArgs⟩ := hnestWF lvls pins hfp
   -- the kernel comparands specialized to the nested mode
   have hlev' : Level.isEquivList usj
@@ -146,20 +149,23 @@ theorem nested_fire_premise {m : EnvModel V env} {fuel : Nat}
   have hpeq' : defEqListP env fuel d
       (major.getAppArgs.take r.ctorParams)
       (pins.map fun pin => Expr.instSeq
-        ((Expr.app fe ae).getAppArgs.take mI) (mI - 1)
+        (((Expr.app fe ae).getAppArgs.take mI).take rP) (rP - 1)
         (pin.instantiateLevelParams cv.levelParams us)) = .ok true := by
     have h0 := hpeq
     simp only [recFireComparands, hfp] at h0
     rw [show (pins.map fun pin => Expr.instSpine
-        ((Expr.app fe ae).getAppArgs.take mI) (mI - 1)
+        ((Expr.app fe ae).getAppArgs.take rP) (rP - 1)
         (pin.instantiateLevelParams cv.levelParams us)) =
         (pins.map fun pin => Expr.instSeq
-          ((Expr.app fe ae).getAppArgs.take mI) (mI - 1)
+          ((Expr.app fe ae).getAppArgs.take rP) (rP - 1)
           (pin.instantiateLevelParams cv.levelParams us)) from
       List.map_congr_left fun pin _ =>
         Expr.instSpine_eq_instSeq _ _ _] at h0
+    rw [show ((Expr.app fe ae).getAppArgs.take mI).take rP =
+        (Expr.app fe ae).getAppArgs.take rP from by
+      rw [List.take_take, Nat.min_eq_left hrPmI]]
     exact h0
-  refine ⟨hmIrP, ?_, ?_⟩
+  refine ⟨hrPmI, ?_, ?_⟩
   · -- the constructor's level assignment is the stored instantiations
     -- evaluated under the recursor's
     intro p hp
@@ -182,7 +188,8 @@ theorem nested_fire_premise {m : EnvModel V env} {fuel : Nat}
     rw [← hargsEdef]
     exact fun x hx => hargsB x (List.mem_of_mem_take hx)
   -- the comparand list
-  generalize hcmpdef : (pins.map fun pin => Expr.instSeq argsE (mI - 1)
+  generalize hcmpdef : (pins.map fun pin => Expr.instSeq
+    (argsE.take rP) (rP - 1)
     (pin.instantiateLevelParams cv.levelParams us)) = cmp at hpeq'
   have hpinslen : pins.length = r.ctorParams := by
     have h0 := defEqList_length _ _ hpeq'
@@ -231,24 +238,88 @@ theorem nested_fire_premise {m : EnvModel V env} {fuel : Nat}
       ?_
     rw [hbs'0.1]
     rfl
-  -- the domain as the constructor family over the comparand
-  have hdomEq : dom = Expr.mkAppN (.const D lvls) pins := by
+  -- the pin entries of the instantiated domain: a full-spine
+  -- instantiation over the lifted prefix-context pin only consumes
+  -- the prefix
+  have hpinmap : ∀ pin ∈ pins,
+      Expr.instSeq argsE (mI + 0 - 1)
+        ((Expr.liftLooseBVars (mI - rP) 0 pin).instantiateLevelParams
+          cv.levelParams us) =
+      Expr.instSeq (argsE.take rP) (rP - 1)
+        (pin.instantiateLevelParams cv.levelParams us) := by
+    intro pin hpin
+    rw [instantiateLevelParams_liftLooseBVars]
+    have hq : (pin.instantiateLevelParams cv.levelParams
+        us).looseBVarsBounded (argsE.take rP).length = true := by
+      rw [List.length_take, htakelen, Nat.min_eq_left hrPmI,
+        looseBVarsBounded_instantiateLevelParams]
+      exact (hpinsWF pin hpin).2.2.2
+    have h0 := instSeq_liftLooseBVars_prefix (argsE.take rP)
+      (argsE.drop rP)
+      (fun a ha => hargsEB a (List.mem_of_mem_take ha)) hq
+    rw [List.take_append_drop] at h0
+    simp only [List.length_take, List.length_drop, htakelen,
+      Nat.min_eq_left hrPmI] at h0
+    rw [show rP + (mI - rP) - 1 = mI + 0 - 1 from by omega] at h0
+    exact h0
+  -- the index entries of the instantiated domain: the trailing index
+  -- variables read off the recursor's index arguments
+  have hidxmap : ((List.range (mI - rP)).map
+      (fun i => Expr.bvar (mI - rP - 1 - i))).map
+      (fun x => Expr.instSeq argsE (mI + 0 - 1)
+        (x.instantiateLevelParams cv.levelParams us)) =
+      argsE.drop rP := by
+    apply List.ext_getElem?
+    intro i
+    by_cases hi : i < mI - rP
+    · have hidx : rP + i < argsE.length := by rw [htakelen]; omega
+      obtain ⟨a, ha⟩ : ∃ a, argsE[rP + i]? = some a :=
+        ⟨argsE[rP + i]'hidx, List.getElem?_eq_getElem hidx⟩
+      have hbv := Expr.instSeq_bvar argsE (mI + 0 - 1) (mI - rP - 1 - i)
+        hargsEB (by omega) (by rw [htakelen]; omega)
+      rw [show mI + 0 - 1 - (mI - rP - 1 - i) = rP + i from by omega,
+        ha] at hbv
+      rw [List.getElem?_map, List.getElem?_map, List.getElem?_range hi,
+        List.getElem?_drop, ha]
+      simp only [Option.map_some, Option.some.injEq]
+      show Expr.instSeq argsE (mI + 0 - 1)
+        ((Expr.bvar (mI - rP - 1 - i)).instantiateLevelParams
+          cv.levelParams us) = a
+      rw [show (Expr.bvar (mI - rP - 1 - i)).instantiateLevelParams
+          cv.levelParams us = Expr.bvar (mI - rP - 1 - i) from rfl]
+      exact (Option.some.inj hbv).symm
+    · rw [List.getElem?_eq_none (by
+        rw [List.length_map, List.length_map, List.length_range]
+        omega),
+      List.getElem?_eq_none (by rw [List.length_drop, htakelen]; omega)]
+  -- the domain as the constructor family over the comparand and the
+  -- recursor's index arguments
+  have hdomEq : dom = Expr.mkAppN (.const D lvls)
+      (pins.map (Expr.liftLooseBVars (mI - rP) 0) ++
+        (List.range (mI - rP)).map
+          (fun i => Expr.bvar (mI - rP - 1 - i))) := by
     have h0 := (Expr.mkAppN_getApp dom).symm
     rw [hdomFn, hdomArgs] at h0
     exact h0
   have hd0spine : d0 = Expr.mkAppN
-      (.const D (lvls.map (Level.subst cv.levelParams us))) cmp := by
+      (.const D (lvls.map (Level.subst cv.levelParams us)))
+      (cmp ++ argsE.drop rP) := by
     rw [hd0, hdx, hdomEq,
-      instantiateLevelParams_mkAppN cv.levelParams us pins,
+      instantiateLevelParams_mkAppN cv.levelParams us _,
       instSeq_mkAppN]
     congr 1
     · show Expr.instSeq argsE (mI + 0 - 1)
         (.const D (lvls.map (Level.subst cv.levelParams us))) = _
       exact instSeq_eq_self _ _ (by simp [Expr.looseBVarsBounded])
-    · rw [← hcmpdef, List.map_map]
-      refine List.map_congr_left ?_
-      intro pin _
-      simp only [Function.comp, Nat.add_zero]
+    · rw [List.map_append, List.map_append]
+      congr 1
+      · rw [← hcmpdef, List.map_map, List.map_map]
+        refine List.map_congr_left ?_
+        intro pin hpin
+        simpa [Function.comp] using hpinmap pin hpin
+      · rw [List.map_map, List.map_map]
+        rw [List.map_map] at hidxmap
+        exact hidxmap
   -- annotation truthfulness and interpretations of the comparand,
   -- read off the residual's domain
   obtain ⟨hmidW, hmidB, hmidA, -⟩ := TeleFitI.rest_wf hfitPre hRw hRb hRA
@@ -264,7 +335,7 @@ theorem nested_fire_premise {m : EnvModel V env} {fuel : Nat}
   have hd0B : d0.looseBVarsBounded 0 = true := by
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hmidB
     exact hmidB.1
-  have hd0args : d0.getAppArgs = cmp := by
+  have hd0args : d0.getAppArgs = cmp ++ argsE.drop rP := by
     rw [hd0spine, Expr.getAppArgs_mkAppN]
     simp [Expr.getAppArgs]
   -- fvar leaves and free-variable facts of the residual (hence of the
@@ -302,21 +373,21 @@ theorem nested_fire_premise {m : EnvModel V env} {fuel : Nat}
     have h0 := (TeleFitI.vs_length hfitRF).symm
     rw [List.length_append, hvsilen] at h0
     simpa using h0
-  have hFvPre : FvarSpine dR ρR (argsRF.take mI) vsi := by
-    have h0 := FvarSpine.take (D := dR) (ρ := ρR) mI hFvFull
-    rw [show (vsi ++ [tvv]).take mI = vsi from by
-      rw [List.take_append_of_le_length (by omega),
-        List.take_of_length_le (by omega)]] at h0
+  have hFvPre : FvarSpine dR ρR (argsRF.take rP) (vsi.take rP) := by
+    have h0 := FvarSpine.take (D := dR) (ρ := ρR) rP hFvFull
+    rw [show (vsi ++ [tvv]).take rP = vsi.take rP from
+      List.take_append_of_le_length (by omega)] at h0
     exact h0
-  have hFvS : FvarSpine dR ρR ((argsRF.take mI).map sanitizeArg) vsi :=
+  have hFvS : FvarSpine dR ρR ((argsRF.take rP).map sanitizeArg)
+      (vsi.take rP) :=
     FvarSpine.sanitize hFvPre
-  have hshS : ∀ a ∈ (argsRF.take mI).map sanitizeArg,
+  have hshS : ∀ a ∈ (argsRF.take rP).map sanitizeArg,
       ∃ i nm, a = Expr.fvar i nm (.sort .zero) :=
     FvarSpine.sanitize_shapes hFvPre
-  have hspinePlen : ((argsRF.take mI).map sanitizeArg).length = mI := by
+  have hspinePlen : ((argsRF.take rP).map sanitizeArg).length = rP := by
     rw [List.length_map, List.length_take, hlenRF]
     omega
-  refine ⟨dR, ρR, (argsRF.take mI).map sanitizeArg, hFvS, hshS, ?_⟩
+  refine ⟨dR, ρR, (argsRF.take rP).map sanitizeArg, hFvS, hshS, ?_⟩
   by_cases hpins0 : pins = []
   · -- no parameters: the value list is empty
     subst hpins0
@@ -327,25 +398,39 @@ theorem nested_fire_premise {m : EnvModel V env} {fuel : Nat}
     rw [← hcmpdef]
     simp only [ne_eq, List.map_eq_nil_iff]
     exact hpins0
+  have hspne : cmp ++ argsE.drop rP ≠ [] := by
+    intro h0
+    exact hcmpne (List.append_eq_nil_iff.mp h0).1
   have hd0A' : AnnotOk V m.val env φ d ρ (Expr.mkAppN
-      (.const D (lvls.map (Level.subst cv.levelParams us))) cmp) :=
+      (.const D (lvls.map (Level.subst cv.levelParams us)))
+      (cmp ++ argsE.drop rP)) :=
     hd0spine ▸ hd0A
-  obtain ⟨-, hcmpA, vD, pvals, hivD, hcmpSp, -, -⟩ :=
-    annotOk_spine_inv _ _ hcmpne hd0A'
+  obtain ⟨-, hallA, vD, pvalsAll, hivD, hallSp, -, -⟩ :=
+    annotOk_spine_inv _ _ hspne hd0A'
+  obtain ⟨pvals, pvalsIdx, rfl, hcmpSp, -⟩ :=
+    InterpSpine.append_inv hallSp
+  have hcmpA : ∀ x ∈ cmp, AnnotOk V m.val env φ d ρ x := by
+    intro x hx
+    exact hallA x (List.mem_append.mpr (Or.inl hx))
   have hcmpW : ∀ x ∈ cmp, WScoped d x := by
     intro x hx
-    exact hd0W.getAppArgs x (hd0args ▸ hx)
+    exact hd0W.getAppArgs x
+      (by rw [hd0args]; exact List.mem_append.mpr (Or.inl hx))
   have hcmpB : ∀ x ∈ cmp, x.looseBVarsBounded 0 = true := by
     intro x hx
-    exact looseBVarsBounded_getAppArgs hd0B x (hd0args ▸ hx)
+    exact looseBVarsBounded_getAppArgs hd0B x
+      (by rw [hd0args]; exact List.mem_append.mpr (Or.inl hx))
   have hcmpL : ∀ x ∈ cmp, Expr.LeavesBounded x := by
     intro x hx
     intro l hl
-    exact hd0L l (fvarLeaves_getAppArgs (hd0args ▸ hx) l hl)
+    exact hd0L l (fvarLeaves_getAppArgs
+      (by rw [hd0args]; exact List.mem_append.mpr (Or.inl hx)) l hl)
   have hcmpO : ∀ x ∈ cmp, FvarsOk V m.val env φ d ρ x := by
     intro x hx
     exact FvarsOk.of_subset
-      (fun l hl => fvarLeaves_getAppArgs (hd0args ▸ hx) l hl) hd0O
+      (fun l hl => fvarLeaves_getAppArgs
+        (by rw [hd0args]; exact List.mem_append.mpr (Or.inl hx)) l hl)
+      hd0O
   -- the comparand's values are the constructor's parameter values
   have hpvals : ws.take r.ctorParams = pvals := by
     refine defEqList_values ihd _ _ _ _ hpeq' ?_ ?_
@@ -367,10 +452,11 @@ theorem nested_fire_premise {m : EnvModel V env} {fuel : Nat}
     InstArgs.lift hcmpInst hdR hagrR
   have hargsEInst : InstArgs m.val env φ d ρ argsE vsi :=
     InstArgs_of_InterpSpine hspi hargsEW hargsEB
-  have hargsEInstR : InstArgs m.val env φ dR ρR argsE vsi :=
-    InstArgs.lift hargsEInst hdR hagrR
+  have hargsPreInstR : InstArgs m.val env φ dR ρR (argsE.take rP)
+      (vsi.take rP) :=
+    InstArgs.take rP (InstArgs.lift hargsEInst hdR hagrR)
   have hspSInst : InstArgs m.val env φ dR ρR
-      ((argsRF.take mI).map sanitizeArg) vsi :=
+      ((argsRF.take rP).map sanitizeArg) (vsi.take rP) :=
     InstArgs_of_FvarSpine_sanitized hFvS hshS
   -- the mapped instantiations interpret to the parameter values,
   -- elementwise via the value-determinedness of instantiation
@@ -378,12 +464,12 @@ theorem nested_fire_premise {m : EnvModel V env} {fuel : Nat}
   have hconvP : ∀ (l : List Expr) (vs0 : List V),
       (∀ pin ∈ l, pin ∈ pins) →
       InterpSpine m.val env φ dR ρR
-        (l.map fun pin => Expr.instSeq argsE (mI - 1)
+        (l.map fun pin => Expr.instSeq (argsE.take rP) (rP - 1)
           (pin.instantiateLevelParams cv.levelParams us)) vs0 →
       InterpSpine m.val env φ dR ρR
         (l.map fun pin => Expr.instSeq
-          ((argsRF.take mI).map sanitizeArg)
-          (((argsRF.take mI).map sanitizeArg).length - 1)
+          ((argsRF.take rP).map sanitizeArg)
+          (((argsRF.take rP).map sanitizeArg).length - 1)
           (pin.instantiateLevelParams cv.levelParams us)) vs0 := by
     intro l
     induction l with
@@ -405,17 +491,18 @@ theorem nested_fire_premise {m : EnvModel V env} {fuel : Nat}
           exact hpinF
         have hpinB' : (pin.instantiateLevelParams cv.levelParams
             us).looseBVarsBounded
-            ((argsRF.take mI).map sanitizeArg).length = true := by
+            ((argsRF.take rP).map sanitizeArg).length = true := by
           rw [hspinePlen, looseBVarsBounded_instantiateLevelParams]
           exact hpinB
-        have hcongr := interp_instSeq_congr hspSInst hargsEInstR
+        have hcongr := interp_instSeq_congr hspSInst hargsPreInstR
           (WScoped.of_not_hasFvar (d := dR) hpinF').fvarsBelow hpinB'
-        rw [show argsE.length - 1 = mI - 1 from by rw [htakelen]]
+        rw [show (argsE.take rP).length - 1 = rP - 1 from by
+          rw [List.length_take, htakelen, Nat.min_eq_left hrPmI]]
           at hcongr
         rw [hcongr]
         exact hix
   have hspineM : InterpSpine m.val env φ dR ρR
-      (pins.map fun pin => Expr.instSeq argsE (mI - 1)
+      (pins.map fun pin => Expr.instSeq (argsE.take rP) (rP - 1)
         (pin.instantiateLevelParams cv.levelParams us)) pvals := by
     -- `InstArgs` at the lifted frame projects to the interpretations
     clear hconvP

@@ -148,16 +148,16 @@
 # indexed_nested_aux.ndjson (tests/e2e/src/indexed_nested_aux.lean):
 # an *indexed* nested-auxiliary recursor — `TV` nests through the
 # indexed family `Vec`, so `TV.rec_1` carries an index premise
-# between the prefix and the major (`majorIdx = rulePrefix + 1`), the
-# shape `.nested` certification excludes: the rules stay `.inert` and
-# the fired match positively declines ("iota reduction over a nested
-# auxiliary recursor rule" at `TV.brecOn.go`).  Pinned at the current
-# verdict (user ruling 2026-08-24: the limitation gets a fix
-# regardless of streams needing it — the Mathlib census found zero
-# such rules); flips to 0 when indexed nested-aux certification
-# lands.  The raw export and this preprocessed stream are accepted by
-# the official kernel.
-2 indexed_nested_aux.ndjson
+# between the prefix and the major (`majorIdx = rulePrefix + 1`).
+# Task #105: the `.nested` certification covers index premises — the
+# shape split reads the constructor-parameter instantiations out of
+# the major domain (lowered into the prefix context; the lift-back
+# roundtrip certifies no index variable occurs) and requires the
+# domain's trailing arguments to be the index variables in order —
+# so `TV.size`'s below/brecOn machinery fires and `size_example`'s
+# rfl reduces.  Accepted end to end (previously a positive decline,
+# exit 2, at `TV.brecOn.go`).
+0 indexed_nested_aux.ndjson
 
 # str_proj.ndjson (tests/e2e/src/str_proj.lean): a theorem forcing
 # `.proj String 0 ""` (the `String.utf8ByteSize_empty` shape:

@@ -469,7 +469,7 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
       rfl
   have hnestedPrem : ∀ lvls pins,
       r.fire = RecRuleFire.nested lvls pins →
-      mI = rP ∧
+      rP ≤ mI ∧
       (∀ p ∈ cvj.levelParams,
         Level.substFn φ
           (ConstantInfo.ctorInfo cvj cnP cnF).toConstantVal.levelParams
@@ -479,7 +479,7 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
             rules).toConstantVal.levelParams us)
           cvj.levelParams lvls p) ∧
       ∃ (dP : Nat) (ρP : Nat → V) (spineP : List Expr),
-        FvarSpine dP ρP spineP vsi ∧
+        FvarSpine dP ρP spineP (vsi.take rP) ∧
         (∀ a ∈ spineP, ∃ i nm, a = Expr.fvar i nm (.sort .zero)) ∧
         (pins.map fun pin => Expr.instSeq spineP (spineP.length - 1)
           (pin.instantiateLevelParams cv.levelParams us)).mapM
@@ -642,17 +642,15 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
       exact InstArgs.take _ hiaP
     · -- nested: the stored pins' values, relocated from the premise's
       -- frame through the universal level/frame bridge
-      obtain ⟨hmIrP, hlvl, dP, ρP, spineP, hFvP, hshP, hmapP⟩ :=
+      obtain ⟨hrPmI, hlvl, dP, ρP, spineP, hFvP, hshP, hmapP⟩ :=
         hnestedPrem lvls pins hfn'
       obtain ⟨-, -, hpinsWf, -⟩ := hnestWF lvls pins hfn'
       have hspPlen : spineP.length = rP := by
         have h1 := FvarSpine.length hFvP
-        rw [h1, hvsilen, hmIrP]
-      have hvsiAll : vsi.take rP = vsi :=
-        List.take_of_length_le (by rw [hvsilen, hmIrP]; omega)
-      have hiaSpineP : InstArgs m.val env φ dP ρP spineP (vsi.take rP) := by
-        rw [hvsiAll]
-        exact InstArgs_of_FvarSpine_sanitized hFvP hshP
+        rw [h1, List.length_take, hvsilen]
+        omega
+      have hiaSpineP : InstArgs m.val env φ dP ρP spineP (vsi.take rP) :=
+        InstArgs_of_FvarSpine_sanitized hFvP hshP
       have hpinVal : ∀ (pin : Expr) (v : V), pin ∈ pins →
           interpExpr V m.val env φ dP ρP
             (instSeq spineP (spineP.length - 1)
@@ -671,7 +669,7 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
         rw [interp_instSeq_swap₁ (φ := φ) m.val_params
           (ks₂ := cv.levelParams) (us₂ := us) (ps := cv.levelParams)
           hiaP hiaSpineP hpF
-          (by rw [hfvsPlen, ← hmIrP]; exact hpB) hpPs
+          (by rw [hfvsPlen]; exact hpB) hpPs
           (fun p _ => rfl)]
         exact hv
       have hassemble : ∀ (ps' : List Expr) (vs' : List V),
@@ -727,7 +725,7 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
                 refine instSeq_bclosed ?_ ?_
                 · intro a ha
                   exact (hentryWf' a (List.mem_append.mpr (Or.inl ha))).2
-                · rw [hfvsPlen, ← hmIrP]
+                · rw [hfvsPlen]
                   exact hpB
       rw [hce]
       exact hassemble pins (ws.take r.ctorParams) (fun p hp => hp) hmapP

@@ -30,10 +30,13 @@ placeholder `.inert`).
   constructor's levels and parameters are *fixed instantiations*, read
   at install off the recursor type's major-premise domain — `lvls`
   are levels over the recursor's level parameters, `pins` expressions
-  in the recursor's `majorIdx`-binder telescope context (certified
-  only when `majorIdx = rulePrefix`, i.e. no indices).  At fire time
-  the constructor's levels and parameters are checked against these,
-  instantiated at the recursor's actual level and argument spine.
+  in the recursor's `rulePrefix`-binder telescope context (index
+  premises between the prefix and the major are supported: the shape
+  certification lowers the stored instantiations out of the
+  `majorIdx`-binder context after checking that no index variable
+  occurs in them).  At fire time the constructor's levels and
+  parameters are checked against these, instantiated at the recursor's
+  actual level and leading-argument spine.
 * `.inert` — never fires; a *matched* inert rule is a positive
   decline in `iotaRec` (an uncertified nested auxiliary rule). -/
 inductive RecRuleFire where

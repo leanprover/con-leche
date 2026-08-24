@@ -617,10 +617,10 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
       r.fire ≠ .inert ∧
       Level.isEquivList usj
         (recFireComparands r cv.levelParams us cvj.levelParams
-          e.getAppArgs mI).1 = some true ∧
+          e.getAppArgs rP).1 = some true ∧
       defEqListP env fuel d (major.getAppArgs.take r.ctorParams)
         (recFireComparands r cv.levelParams us cvj.levelParams
-          e.getAppArgs mI).2 = .ok true ∧
+          e.getAppArgs rP).2 = .ok true ∧
       iotaCertsGP env fuel d (cv.type.instantiateLevelParams cv.levelParams us)
         (e.getAppArgs.take mI ++ [major]) = .ok true ∧
       iotaCertsGP env fuel d (cvj.type.instantiateLevelParams cvj.levelParams usj)
@@ -734,7 +734,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   try simp only [Bind.bind, Except.bind] at h
   cases hlev : Level.isEquivList usj
       (recFireComparands r cv.levelParams us cvj.levelParams
-        e.getAppArgs mI).1 with
+        e.getAppArgs rP).1 with
   | none => rw [hlev] at h; simp [liftFueled] at h
   | some bl =>
   rw [hlev] at h
@@ -746,7 +746,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   simp only [↓reduceIte] at h
   try simp only [Bind.bind, Except.bind] at h
   cases hpeq : defEqListP env fuel d (major.getAppArgs.take r.ctorParams)
-      (recFireComparands r cv.levelParams us cvj.levelParams e.getAppArgs mI).2 with
+      (recFireComparands r cv.levelParams us cvj.levelParams e.getAppArgs rP).2 with
   | error err => rw [hpeq] at h; exact nomatch h
   | ok rp =>
   rw [hpeq] at h

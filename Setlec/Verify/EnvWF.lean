@@ -49,20 +49,25 @@ def ConstWF (env : Env) (c : ConstantInfo) : Prop :=
       (RecRule.rhs r).constsResolve env = true ∧
       (RecRule.rhs r).looseBVarsBounded 0 = true ∧
       -- a certified nested rule's stored instantiations are
-      -- syntactically well-formed in the recursor's telescope context
-      -- and are exactly the recursor type's major-premise domain
-      -- application (validated once at install, `nestedRuleShape`)
+      -- syntactically well-formed in the recursor's rule-prefix
+      -- context, and the recursor type's major-premise domain applies
+      -- the constructor family to exactly their liftings past the
+      -- index binders followed by the index variables in order
+      -- (validated once at install, `nestedRuleShape`)
       ∀ lvls pins, RecRule.fire r = .nested lvls pins →
-        mI = rP ∧
+        rP ≤ mI ∧
         (∀ l ∈ lvls, l.allParamsDefined cv.levelParams = true) ∧
         (∀ pin ∈ pins, pin.hasFvar = false ∧
           pin.allLevelParamsDefined cv.levelParams = true ∧
           pin.constsResolve env = true ∧
-          pin.looseBVarsBounded mI = true) ∧
+          pin.looseBVarsBounded rP = true) ∧
         ∃ pre nm dom body bm D,
           cv.type.stripPis mI = some (pre, .forallE nm dom body bm) ∧
           dom.getAppFn = .const D lvls ∧
-          dom.getAppArgs = pins) ∧
+          dom.getAppArgs =
+            pins.map (Expr.liftLooseBVars (mI - rP) 0) ++
+              (List.range (mI - rP)).map
+                (fun i => Expr.bvar (mI - rP - 1 - i))) ∧
   -- theorem values unfold in reduction (like the reference kernels'
   -- delta step), so they carry the same syntactic facts as
   -- definition values

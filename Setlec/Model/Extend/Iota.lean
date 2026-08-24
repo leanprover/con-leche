@@ -72,10 +72,11 @@ def PlainChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
 theorem (`checkIotaThmN`): everything `modeled_rule_fold_nested`
 consumes.  Mirrors `PlainChecked` with the constructor applied at the
 stored level instantiations `lvls` to the stored parameter
-instantiations `pins` (opened at the statement's prefix variables)
-instead of the leading telescope variables; certified only in the
-index-free shape (`mI = rP`, recorded next to this kit in
-`RuleChecked`). -/
+instantiations `pins` (rule-prefix context, opened at the statement's
+prefix variables) instead of the leading telescope variables; index
+premises between the prefix and the major flow through exactly as on
+the plain path (the statement's index arguments are pinned against
+the constructor residual's canonical tuple). -/
 def NestedChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
     (cvA : ConstantVal) (mI rP cnP cnF : Nat) (r : RecRule)
     (cvj : ConstantVal) (lvls : List Level) (pins : List Expr) : Prop :=
@@ -98,7 +99,9 @@ def NestedChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
       (Expr.mkAppN (.const (f (RecRule.ctor r)) lvls)
         (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
           (p.renameConsts f)) ++ fvs.drop rP)) ∧
-    (cvj.type.stripPis (cnP + cnF)).isSome = true ∧
+    (∃ bsC0 cbody0 Dc usc,
+      cvj.type.stripPis (cnP + cnF) = some (bsC0, cbody0) ∧
+      cbody0.getAppFn = Expr.const Dc usc) ∧
     Expr.instPisAt
       (pins.map (fun p => Expr.instSpine (fvs.take rP) (rP - 1)
         (p.renameConsts f)) ++ fvs.drop rP)
@@ -115,6 +118,8 @@ def NestedChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
     DefEqListOk F env₀ (rP + cnF)
       ((fvs.take rP).map Expr.fvarTypeD) rdoms ∧
     openPisAtFvars rP cvA.type 0 = some (fvsP, restP) ∧
+    AnnotListOk F env₀ (rP + cnF)
+      (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p)) ∧
     Expr.instPisAt
       (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p))
       (cvj.type.instantiateLevelParams cvj.levelParams lvls) =
@@ -123,7 +128,7 @@ def NestedChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
       (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p))
       cdomsP ∧
     openPisAtFvars cnF crestP rP = some (xFvsP, crest2) ∧
-    crest2.getAppArgs.length = cnP ∧
+    crest2.getAppArgs.length = cnP + (mI - rP) ∧
     Expr.instLamsAt (fvsP ++ xFvsP) (RecRule.rhs r) =
       some (ldoms, lrest) ∧
     DefEqListOk F env₀ (rP + cnF)
@@ -306,24 +311,31 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
         checkDefEqList_inv hdq4, hde⟩
 
 /-- Invert a successful `nestedRuleShape` computation into the facts
-the stored rule's flag records: the index-free shape, the syntactic
-well-formedness of the stored instantiations, and the recursor-type
-pin the instantiations were read off. -/
+the stored rule's flag records: the prefix-major offset, the syntactic
+well-formedness of the stored instantiations (lowered into the
+rule-prefix context), and the recursor-type pin the instantiations
+were read off — the major domain applies the family to the
+instantiations' liftings past the index binders followed by the index
+variables in order. -/
 theorem nestedRuleShape_inv {env' envSelf : Env} {cvName : Name}
     {lps : List Name} {tyA : Expr} {mI rP cnP j : Nat}
     {lvls : List Level} {pins : List Expr}
     (h : nestedRuleShape env' envSelf cvName lps tyA mI rP cnP j =
       some (lvls, pins)) :
-    mI = rP ∧
+    rP ≤ mI ∧
     (∀ l ∈ lvls, l.allParamsDefined lps = true) ∧
     (∀ pin ∈ pins, pin.hasFvar = false ∧
       pin.allLevelParamsDefined lps = true ∧
       pin.constsResolve envSelf = true ∧
-      pin.looseBVarsBounded mI = true) ∧
+      pin.looseBVarsBounded rP = true) ∧
     ∃ pre nm dom body bm D,
       tyA.stripPis mI = some (pre, .forallE nm dom body bm) ∧
       dom.getAppFn = .const D lvls ∧
-      dom.getAppArgs = pins ∧ pins.length = cnP := by
+      dom.getAppArgs =
+        pins.map (Expr.liftLooseBVars (mI - rP) 0) ++
+          (List.range (mI - rP)).map
+            (fun i => Expr.bvar (mI - rP - 1 - i)) ∧
+      pins.length = cnP := by
   simp only [nestedRuleShape] at h
   split at h
   case isFalse => exact nomatch h
@@ -362,14 +374,23 @@ theorem nestedRuleShape_inv {env' envSelf : Env} {cvName : Name}
   rename_i hcond2
   simp only [Option.some.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, rfl⟩ := h
+  obtain ⟨hlen, htake, hdrop, hpinsAll, hlvlsAll⟩ := hcond2
+  have hplen : ((dom.getAppArgs.take cnP).map
+      (Expr.lowerBVars (mI - rP) 0)).length = cnP := by
+    rw [List.length_map, List.length_take, hlen]
+    omega
   refine ⟨hcond1.2, ?_, ?_, pre, nm, dom, body, bm, D, rfl, hfn,
-    rfl, hcond2.1⟩
+    ?_, hplen⟩
   · intro l hl
-    exact List.all_eq_true.mp hcond2.2.2 l hl
+    exact List.all_eq_true.mp hlvlsAll l hl
   · intro p hp
-    have hall := List.all_eq_true.mp hcond2.2.1 p hp
+    have hall := List.all_eq_true.mp hpinsAll p hp
     simp only [Bool.and_eq_true, Bool.not_eq_true'] at hall
     exact ⟨hall.1.1.1, hall.2, hall.1.2, hall.1.1.2⟩
+  · conv => lhs; rw [← List.take_append_drop cnP dom.getAppArgs]
+    congr 1
+    · exact eq_of_beq htake
+    · exact eq_of_beq hdrop
 
 /-- Invert a `checkIotaThmN` run (on the rule as returned, whose `rhs`
 is the annotated right-hand side): either the rule was stored inert,
@@ -460,9 +481,27 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
   case neg => rw [if_neg hmaj] at h; exact nomatch h
   rw [if_pos hmaj] at h
   try dsimp only at h
-  by_cases hcstrip : (cvj.type.stripPis (cnP + cnF)).isSome = true
-  case neg => rw [if_neg hcstrip] at h; exact nomatch h
-  rw [if_pos hcstrip] at h
+  revert h
+  match hcstrip : cvj.type.stripPis (cnP + cnF) with
+  | none => intro h; exact nomatch h
+  | some (bsC0, cbody0) => ?_
+  intro h
+  try simp only [Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  revert h
+  match hcheadEq : cbody0.getAppFn with
+  | .bvar _ => intro h; exact nomatch h
+  | .fvar _ _ _ => intro h; exact nomatch h
+  | .sort _ => intro h; exact nomatch h
+  | .app _ _ => intro h; exact nomatch h
+  | .lam _ _ _ _ => intro h; exact nomatch h
+  | .forallE _ _ _ _ => intro h; exact nomatch h
+  | .letE _ _ _ _ => intro h; exact nomatch h
+  | .lit _ => intro h; exact nomatch h
+  | .proj _ _ _ => intro h; exact nomatch h
+  | .const Dc usc => ?_
+  intro h
+  rw [if_pos rfl] at h
   try dsimp only at h
   revert h
   match hcinst : Expr.instPisAt
@@ -514,6 +553,12 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
   intro h
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
+  cases hannP : checkAnnotList (fueledOps F) env₀ (rP + cnF)
+      (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p)) with
+  | error e => rw [hannP] at h; exact nomatch h
+  | ok uA =>
+  rw [hannP] at h
+  try dsimp only at h
   revert h
   match hcinstP : Expr.instPisAt
       (pins.map (fun p => Expr.instSpine (fvsP.take rP) (rP - 1) p))
@@ -537,7 +582,7 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
   intro h
   try simp only [Except.bind, pure, Except.pure] at h
   try dsimp only at h
-  by_cases harX : (crest2.getAppArgs.length == cnP) = true
+  by_cases harX : (crest2.getAppArgs.length == cnP + (mI - rP)) = true
   case neg => rw [if_neg harX] at h; exact nomatch h
   rw [if_pos harX] at h
   try dsimp only at h
@@ -569,10 +614,12 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
         tbody, ℓA, αS, lhsS, rhsS, cdoms, cres, rdoms, rrest, fvsP,
         restP, cdomsP, crestP, xFvsP, crest2, ldoms, lrest,
         hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
-        eq_of_beq hlpre, Expr.ErasedEq.of_eqUpToNames hmaj, hcstrip,
+        eq_of_beq hlpre, Expr.ErasedEq.of_eqUpToNames hmaj,
+        ⟨bsC0, cbody0, Dc, usc, hcstrip, hcheadEq⟩,
         hcinst, hclen,
         checkDefEqList_inv hdq1, checkDefEqList_inv hdq2, hrinst,
-        checkDefEqList_inv hdq3, hopenP, hcinstP,
+        checkDefEqList_inv hdq3, hopenP, checkAnnotList_inv hannP,
+        hcinstP,
         checkTypedList_inv hdtP, hopenX, eq_of_beq harX, hlinst,
         checkDefEqList_inv hdq4, hde⟩
 
@@ -591,16 +638,19 @@ def RuleChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
     (RecRule.fire r = .plain ↔
       Expr.recRulePlain cvA.type mI rP cnP = true) ∧
     (∀ lvls pins, RecRule.fire r = .nested lvls pins →
-      mI = rP ∧
+      rP ≤ mI ∧
       (∀ l ∈ lvls, l.allParamsDefined cvA.levelParams = true) ∧
       (∀ pin ∈ pins, pin.hasFvar = false ∧
         pin.allLevelParamsDefined cvA.levelParams = true ∧
         pin.constsResolve env₀ = true ∧
-        pin.looseBVarsBounded mI = true) ∧
+        pin.looseBVarsBounded rP = true) ∧
       (∃ pre nm dom body bm D,
         cvA.type.stripPis mI = some (pre, .forallE nm dom body bm) ∧
         dom.getAppFn = .const D lvls ∧
-        dom.getAppArgs = pins) ∧
+        dom.getAppArgs =
+          pins.map (Expr.liftLooseBVars (mI - rP) 0) ++
+            (List.range (mI - rP)).map
+              (fun i => Expr.bvar (mI - rP - 1 - i))) ∧
       pins.length = cnP ∧
       NestedChecked F env env₀ f cvA mI rP cnP cnF r cvj lvls pins) ∧
     raw.hasFvar = false ∧ raw.looseBVarsBounded 0 = true ∧

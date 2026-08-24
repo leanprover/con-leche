@@ -1308,7 +1308,7 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
                 let cmpArgs : List EIdx ←
                   match rl.fire with
                   | .nested _ pins =>
-                    pinArgsI cv.levelParams us (args.take mI) (mI - 1) pins
+                    pinArgsI cv.levelParams us (args.take rP) (rP - 1) pins
                   | _ => pure (args.take rl.ctorParams)
                 if ← liftFueled "level comparison"
                     (← isEquivListLM usj cmpLvls) then do

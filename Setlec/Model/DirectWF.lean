@@ -35,16 +35,19 @@ theorem directConstWF {env : Env} {c : ConstantInfo}
         (RecRule.rhs r).constsResolve env = true ∧
         (RecRule.rhs r).looseBVarsBounded 0 = true ∧
         ∀ lvls pins, RecRule.fire r = .nested lvls pins →
-          mI = rP ∧
+          rP ≤ mI ∧
           (∀ l ∈ lvls, l.allParamsDefined cv.levelParams = true) ∧
           (∀ pin ∈ pins, pin.hasFvar = false ∧
             pin.allLevelParamsDefined cv.levelParams = true ∧
             pin.constsResolve env = true ∧
-            pin.looseBVarsBounded mI = true) ∧
+            pin.looseBVarsBounded rP = true) ∧
           ∃ pre nm dom body bm D,
             cv.type.stripPis mI = some (pre, .forallE nm dom body bm) ∧
             dom.getAppFn = .const D lvls ∧
-            dom.getAppArgs = pins)
+            dom.getAppArgs =
+              pins.map (Expr.liftLooseBVars (mI - rP) 0) ++
+                (List.range (mI - rP)).map
+                  (fun i => Expr.bvar (mI - rP - 1 - i)))
     (h7 : ∀ cv value, c = .thmInfo cv value →
       value.hasFvar = false ∧
       value.allLevelParamsDefined cv.levelParams = true ∧

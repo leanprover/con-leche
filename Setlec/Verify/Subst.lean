@@ -945,6 +945,46 @@ theorem instSeq_eq_self :
     rw [instantiate1_eq_self (looseBVarsBounded_mono (Nat.zero_le t) hb)]
     exact ih (t - 1) hb
 
+/-- Instantiating a full spine over a lifted prefix-context expression
+only consumes the prefix: the lift skips the inner (index) slots, so
+the trailing instantiations never touch the base.  This is how a
+nested rule's stored pin (rule-prefix context, lifted past the index
+binders into the major-domain context) evaluates at the recursor's
+full argument spine to its evaluation at the leading arguments. -/
+theorem instSeq_liftLooseBVars_prefix :
+    ∀ (pre rest : List Expr) {q : Expr},
+      (∀ a ∈ pre, a.looseBVarsBounded 0 = true) →
+      q.looseBVarsBounded pre.length = true →
+      instSeq (pre ++ rest) (pre.length + rest.length - 1)
+        (q.liftLooseBVars rest.length 0) =
+      instSeq pre (pre.length - 1) q := by
+  intro pre
+  induction pre with
+  | nil =>
+    intro rest q _ hq
+    have hq0 : q.looseBVarsBounded 0 = true := by simpa using hq
+    simp only [List.nil_append, List.length_nil, Nat.zero_add]
+    show instSeq rest (rest.length - 1)
+      (q.liftLooseBVars rest.length 0) = instSeq [] (0 - 1) q
+    rw [liftLooseBVars_eq_self hq0, instSeq_eq_self _ _ hq0]
+    rfl
+  | cons a pre' ih =>
+    intro rest q hpre hq
+    have ha : a.looseBVarsBounded 0 = true := hpre a List.mem_cons_self
+    have hq' : (q.instantiate1 a pre'.length).looseBVarsBounded
+        pre'.length = true :=
+      looseBVarsBounded_instantiate1_gen ha (by simpa using hq)
+    show instSeq (pre' ++ rest) ((a :: pre').length + rest.length - 1 - 1)
+        ((q.liftLooseBVars rest.length 0).instantiate1 a
+          ((a :: pre').length + rest.length - 1)) =
+      instSeq pre' ((a :: pre').length - 1 - 1)
+        (q.instantiate1 a ((a :: pre').length - 1))
+    rw [show (a :: pre').length + rest.length - 1 =
+        pre'.length + rest.length from by simp,
+      show (a :: pre').length - 1 = pre'.length from by simp,
+      liftLooseBVars_instantiate1 ha (Nat.zero_le _)]
+    exact ih rest (fun x hx => hpre x (List.mem_cons_of_mem _ hx)) hq'
+
 /-- An instantiation sequence distributes over an application spine. -/
 theorem instSeq_mkAppN :
     ∀ (args : List Expr) (t : Nat) (h : Expr) (xs : List Expr),

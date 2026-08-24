@@ -46,16 +46,19 @@ private theorem constWF_intro {env : Env} {c : ConstantInfo}
         (RecRule.rhs r).constsResolve env = true ∧
         (RecRule.rhs r).looseBVarsBounded 0 = true ∧
         ∀ lvls pins, RecRule.fire r = .nested lvls pins →
-          mI = rP ∧
+          rP ≤ mI ∧
           (∀ l ∈ lvls, l.allParamsDefined cv.levelParams = true) ∧
           (∀ pin ∈ pins, pin.hasFvar = false ∧
             pin.allLevelParamsDefined cv.levelParams = true ∧
             pin.constsResolve env = true ∧
-            pin.looseBVarsBounded mI = true) ∧
+            pin.looseBVarsBounded rP = true) ∧
           ∃ pre nm dom body bm D,
             cv.type.stripPis mI = some (pre, .forallE nm dom body bm) ∧
             dom.getAppFn = .const D lvls ∧
-            dom.getAppArgs = pins)
+            dom.getAppArgs =
+              pins.map (Expr.liftLooseBVars (mI - rP) 0) ++
+                (List.range (mI - rP)).map
+                  (fun i => Expr.bvar (mI - rP - 1 - i)))
     (h7 : ∀ cv value, c = .thmInfo cv value →
       value.hasFvar = false ∧
       value.allLevelParamsDefined cv.levelParams = true ∧
@@ -356,23 +359,19 @@ theorem checkIndRecs_wfimp {blockNames : List Name} {env₂ env₃ : Env}
         exact htres
       · intro cvR mI' rP' rules'' heq r hr
         injection heq with e1 e2 e3 e4
-        subst e4
+        subst e1; subst e2; subst e3; subst e4
         obtain ⟨cvj, cnP, cnF, raw, rhsTy, rbinders, rbody, -, -, -, -,
           hnest, -, -, -, hrf, hrb, hrlp, hrres, -, -, -⟩ := hkits r hr
-        refine ⟨hrf, by rw [← e1]; exact hrlp, ?_, hrb, ?_⟩
+        refine ⟨hrf, hrlp, ?_, hrb, ?_⟩
         · rw [← Expr.constsResolve_congr hisoSome]
           exact hrres
         · intro lvls pins hf
           obtain ⟨hmi, hlvls, hpins, hshape, -⟩ := hnest lvls pins hf
-          refine ⟨by rw [← e2, ← e3]; exact hmi,
-            by rw [← e1]; exact hlvls, ?_, ?_⟩
-          · intro pin hp
-            obtain ⟨p1, p2, p3, p4⟩ := hpins pin hp
-            exact ⟨p1, by rw [← e1]; exact p2,
-              by rw [← Expr.constsResolve_congr hisoSome]; exact p3,
-              by rw [← e2]; exact p4⟩
-          · rw [← e1, ← e2]
-            exact hshape
+          refine ⟨hmi, hlvls, ?_, hshape⟩
+          intro pin hp
+          obtain ⟨p1, p2, p3, p4⟩ := hpins pin hp
+          exact ⟨p1, p2,
+            by rw [← Expr.constsResolve_congr hisoSome]; exact p3, p4⟩
 
 /-- The `checkIndMember` fold over a block, `wfOpsM` to pure. -/
 private theorem foldIndMember_wfimp {blockNames : List Name}

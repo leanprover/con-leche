@@ -158,6 +158,22 @@ def checkTypedList (ops : CheckerOps m) (env : Env) (depth : Nat) :
     checkTypedList ops env depth as ts
   | _, _ => throw (.notImplemented "nested pin arity mismatch")
 
+/-- Check that each expression is a fixed point of the annotation pass
+in the given context: its codomain-sort annotations are exactly the
+ones annotation reconstructs.  Used to certify a nested rule's stored
+parameter instantiations (opened at the rule-prefix variables): the
+soundness layer needs their annotation truthfulness at the canonical
+frame, and index premises between the prefix and the major put them
+out of reach of the recursor-type walk. -/
+def checkAnnotList (ops : CheckerOps m) (env : Env) (depth : Nat) :
+    List Expr → m Unit
+  | [] => pure ()
+  | a :: as => do
+    let aA ← ops.annotate env depth a
+    unless aA == a do
+      throw (.notImplemented "nested pin annotation mismatch")
+    checkAnnotList ops env depth as
+
 /-- Is the expression the pinned equality former at one level? -/
 def isEqHead : Expr → Bool
   | .const c [_ℓ] => c == eqName

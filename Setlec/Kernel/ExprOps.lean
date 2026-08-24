@@ -102,6 +102,30 @@ def liftLooseBVars (amount : Nat) : (cutoff : Nat) → Expr → Expr
   | _, .lit l => .lit l
   | c, .proj s i e => .proj s i (liftLooseBVars amount c e)
 
+/-- Lower every loose bound variable `≥ cutoff + amount` by `amount`
+(loose variables inside the window `[cutoff, cutoff + amount)` are left
+untouched — callers certify their absence by the `liftLooseBVars`
+roundtrip).  Used by the nested-rule shape certification to read a
+recursor's constructor-parameter instantiations out of the
+major-premise domain (an `mI`-binder context) into the rule-prefix
+context (`rP` binders): `p = (p.lowerBVars (mI - rP) 0).liftLooseBVars
+(mI - rP) 0` holds exactly when `p` mentions no index variable. -/
+def lowerBVars (amount : Nat) : (cutoff : Nat) → Expr → Expr
+  | c, .bvar i => if i ≥ c + amount then .bvar (i - amount) else .bvar i
+  | _, .fvar i n ty => .fvar i n ty
+  | _, .sort u => .sort u
+  | _, .const n us => .const n us
+  | c, .app a b => .app (lowerBVars amount c a) (lowerBVars amount c b)
+  | c, .lam n ty body m =>
+    .lam n (lowerBVars amount c ty) (lowerBVars amount (c + 1) body) m
+  | c, .forallE n ty body m =>
+    .forallE n (lowerBVars amount c ty) (lowerBVars amount (c + 1) body) m
+  | c, .letE n ty v body =>
+    .letE n (lowerBVars amount c ty) (lowerBVars amount c v)
+      (lowerBVars amount (c + 1) body)
+  | _, .lit l => .lit l
+  | c, .proj s i e => .proj s i (lowerBVars amount c e)
+
 /-- Replace `bvar d` by `v`, *lifting* `v`'s loose `bvar`s past the
 binders crossed on the way — the general capture-avoiding substitution
 for an open `v` (unlike `instantiate1`, which requires `v` to be

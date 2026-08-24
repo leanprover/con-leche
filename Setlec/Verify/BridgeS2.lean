@@ -89,6 +89,31 @@ theorem checkDefEqListS_sim (henv : EnvWF env) {depth : Nat} :
         (fun x hx => ha x (List.mem_cons_of_mem _ hx))
         (fun y hy => hb y (List.mem_cons_of_mem _ hy)) hs₁
 
+/-- `checkAnnotList` at the shared operations. -/
+theorem checkAnnotListS_sim (henv : EnvWF env) {depth : Nat} :
+    ∀ {as : List Expr},
+      (∀ a ∈ as, WScoped depth a) →
+      ∀ {s₀ : IState}, ISOK env s₀ →
+      SimAt env s₀ RelV
+        (checkAnnotList (sharedOps (mkFEnv env)) env depth as)
+        (checkAnnotList fueledOpsM env depth as)
+  | [], _, s₀, hs => SimAt.pure hs rfl
+  | a :: as, ha, s₀, hs => by
+    unfold checkAnnotList
+    dsimp only [sharedOps]
+    refine SimAt.bind (opE_annotate_sim henv hs
+        (ha a List.mem_cons_self))
+      (fun s₁ aA aA' hs₁ hext₁ hP => ?_)
+    obtain ⟨rfl, -⟩ := hP
+    by_cases hc : (aA == a) = true
+    case neg =>
+      simp only [if_neg hc]
+      exact SimAt.throw_bind
+    case pos =>
+      simp only [if_pos hc]
+      exact checkAnnotListS_sim henv
+        (fun x hx => ha x (List.mem_cons_of_mem _ hx)) hs₁
+
 set_option maxHeartbeats 6400000 in
 /-- The iota-theorem check at the shared operations (the operation
 environment is `env` = the provisioned `envSelf`; `env'` only feeds
@@ -340,10 +365,14 @@ theorem checkIotaThmNS_sim {env' : Env} (henv' : EnvWF env')
           (p.renameConsts f)) ++ fvs.drop rP)) = true
   case neg => simp only [if_neg h7]; exact SimAt.throw_bind
   simp only [if_pos h7]
-  by_cases h8 : (cvj.type.stripPis (cnP + cnF)).isSome = true
-  case neg => simp only [if_neg h8]; exact SimAt.throw_bind
-  simp only [if_pos h8]
-  refine SimAt.bind (SimAt.unwrapOr' hs₂) (fun s₃ q2 q2' hs₃ hext₃ hQ2 => ?_)
+  refine SimAt.bind (SimAt.unwrapOr' hs₂)
+    (fun s₂b q8 q8' hs₂b hext₂b hQ8 => ?_)
+  obtain ⟨rfl, hstrip8⟩ := hQ8
+  obtain ⟨bs8, cbody8⟩ := q8
+  dsimp only
+  split
+  case isFalse => exact SimAt.throw_bind
+  refine SimAt.bind (SimAt.unwrapOr' hs₂b) (fun s₃ q2 q2' hs₃ hext₃ hQ2 => ?_)
   obtain ⟨rfl, hcinst⟩ := hQ2
   obtain ⟨cdoms, cres⟩ := q2
   dsimp only
@@ -403,7 +432,15 @@ theorem checkIotaThmNS_sim {env' : Env} (henv' : EnvWF env')
     (WScoped.of_not_hasFvar htyA)
   rw [Nat.zero_add] at hopenPW
   obtain ⟨hfvsPW, -⟩ := hopenPW
-  refine SimAt.bind (SimAt.unwrapOr' hs₈) (fun s₉ q5 q5' hs₉ hext₉ hQ5 => ?_)
+  refine SimAt.bind (checkAnnotListS_sim henv
+      (fun a ha => by
+        obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
+        exact (instSpine_WScoped (rP - 1)
+          (WScoped.of_not_hasFvar (hpinsF x hx))
+          (fun a' ha' => hfvsPW a' (List.mem_of_mem_take ha'))).mono
+          (by omega)) hs₈)
+    (fun s₈b uA uA' hs₈b hext₈b hUA => ?_)
+  refine SimAt.bind (SimAt.unwrapOr' hs₈b) (fun s₉ q5 q5' hs₉ hext₉ hQ5 => ?_)
   obtain ⟨rfl, hcinstP⟩ := hQ5
   obtain ⟨cdomsP, crestP⟩ := q5
   dsimp only
@@ -437,7 +474,7 @@ theorem checkIotaThmNS_sim {env' : Env} (henv' : EnvWF env')
     rcases List.mem_append.mp hax with hax | hax
     · exact WScoped.mono (by omega) (hfvsPW a hax)
     · exact hxFvsPW a hax
-  by_cases harX : (crest2.getAppArgs.length == cnP) = true
+  by_cases harX : (crest2.getAppArgs.length == cnP + (mI - rP)) = true
   case neg => simp only [if_neg harX]; exact SimAt.throw_bind
   simp only [if_pos harX]
   refine SimAt.bind (SimAt.unwrapOr' hs10) (fun s11 q7 q7' hs11 hext11 hQ7 => ?_)
