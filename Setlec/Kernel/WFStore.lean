@@ -14,7 +14,7 @@ wrapper.
 
 The interning interface is lifted wholesale:
 * `empty` / `ofRaw` — constructors (the latter seeds from a raw store
-  whose invariant was established once, e.g. by `wfB` + `wfB_wf`);
+  together with a proof of its invariant);
 * `intern` / `internL` / `internN` — single-node interning; the node's
   index references must be in range, supplied as (erased) hypotheses,
   or checked at runtime by the `intern?` / `internL?` / `internN?`
@@ -59,8 +59,7 @@ instance : Inhabited WFStore := ⟨empty⟩
 @[simp] theorem empty_raw : empty.raw = EStore.empty := rfl
 
 /-- Seed a bundle from a raw store whose invariant has been
-established (e.g. once, at a trust boundary, via the decidable sweep
-`wfB` and its soundness `wfB_wf`). -/
+established. -/
 def ofRaw (st : EStore) (h : st.WF) : WFStore := ⟨st, h⟩
 
 @[simp] theorem ofRaw_raw (st : EStore) (h : st.WF) :
@@ -134,7 +133,8 @@ theorem internN_lt (s : WFStore) (n : NNode) (hc) :
 
 For callers whose child indices come from untrusted input (the export
 parser reads them from translation tables): an `O(children)` runtime
-range check per node replaces the one-shot whole-store `wfB` sweep. -/
+range check per node replaces the deleted one-shot whole-store sweep
+(the pre-#103 `wfB`). -/
 
 /-- `intern` with the range side conditions checked at runtime. -/
 def intern? (s : WFStore) (n : ENode) : Option (EIdx × WFStore) :=
@@ -318,6 +318,11 @@ theorem denoteN_eq_iff (s : WFStore) {i j : NIdx} {a b : Name}
 /-- `O(1)` interned-name readback (task #88). -/
 @[inline] def readbackN (s : WFStore) (i : NIdx) : Option Name :=
   s.raw.readbackN i
+
+/-- Memoized whole-tree readback of an interned expression
+(pointer-shared, `O(DAG)`). -/
+@[inline] def readbackI (s : WFStore) (e : EIdx) : Option Expr :=
+  s.raw.readbackI e
 
 /-- Alloc-free comparison of an interned name against a `Name`. -/
 @[inline] def beqNameI (s : WFStore) (i : NIdx) (nm : Name) : Bool :=

@@ -1,5 +1,6 @@
 import Setlec.Kernel.Checker
 import Setlec.Kernel.DeclI
+import Setlec.Kernel.WFStore
 
 /-!
 # The shared-state declaration checker (task #51)
@@ -1575,17 +1576,15 @@ def checkDeclSPStep (n0 : Nat) (fe : FEnv) (pd : DeclP) : CheckIM FEnv := do
   flushS
   checkDeclSP fe pd
 
-/-- The parsed-declaration checker the binary runs: the parse store is
-validated once (`wfB` — the invariant every interned operation
-preserves), seeds the run's single interned state, and the whole fold
-shares it (the arena, the interned environment and the
+/-- The parsed-declaration checker the binary runs: the parse arena
+arrives well-formed *by construction* (`WFStore`, task #103 — there is
+nothing left to validate), seeds the run's single interned state, and
+the whole fold shares it (the arena, the interned environment and the
 environment-independent caches persist; the environment-dependent
 caches are flushed per declaration). -/
-def checkDeclsSP (st : EStore) (pds : List DeclP) : CheckM Env := do
-  unless st.wfB do
-    throw (.internal "parse store not canonical")
-  let fe ← (pds.foldlM (checkDeclSPStep st.nodes.size)
-    (mkFEnv Env.empty)).run' { store := st }
+def checkDeclsSP (st : WFStore) (pds : List DeclP) : CheckM Env := do
+  let fe ← (pds.foldlM (checkDeclSPStep st.raw.nodes.size)
+    (mkFEnv Env.empty)).run' { store := st.raw }
   pure fe.env
 
 end Setlec

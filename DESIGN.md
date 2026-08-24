@@ -5624,6 +5624,9 @@ Two decisions the flip has to make, neither settled here:
 Leave `st.wfB` (`CheckerS.lean:1499`, `Main.lean:181`,
 `CheckerNC.lean:434`) exactly as it is — the valid-by-construction
 subtype arena is task #103 and comes after #100 settles.
+(Overtaken: #100 was backlogged and the #103 wiring landed against the
+annotated-storage checker — `wfB` and these seams are gone, see "Task
+#103 wiring landed" below.)
 
 For (c), the ghost-run bisimulation: anchor on `decorate_eq`.  It makes
 "canonical twin" a *definition* rather than a choice — the twin is the
@@ -6120,3 +6123,72 @@ the checker does not consume the bundle yet).**  Call sites that change:
   shrinking hypothesis plumbing incrementally; DAG verification is now
   independent of checker verification (the arena module has no checker
   imports).
+
+## Task #103 wiring landed: the parse arena is a `WFStore` (2026-08-24)
+
+The boundary wiring of the plan above is on master; one part is
+deliberately parked (below).
+
+* **Frontend** (`Setlec/Frontend/Export.lean`): `State.store` and
+  `ParseResult.store` are `WFStore`.  The per-record helpers
+  (`intern'`/`internL'`/`internN'`, now `M`-valued) go through the
+  checked `intern?`/`internL?`/`internN?`; a `none` — an out-of-range
+  arena index, unreachable in practice because children come from the
+  export-index translation maps, which only ever hold indices returned
+  by earlier interns — throws on the ordinary parse-error path
+  (malformed input, exit 3, the same channel as an undefined table
+  index; `malformed_midstream` and the whole e2e suite verdict-check
+  unchanged).  The model-alias path routes its `.const` head through
+  `intern?` too; `initState` seeds `WFStore.empty` with trivially
+  discharged side conditions.  The per-record `O(children)` guard
+  replaces the one-shot `O(nodes)` sweep.
+* **Seams**: `checkDeclsSP`/`checkDeclsSPNC` take a `WFStore`; the
+  `unless st.wfB` validation (and `Main.lean`'s progress-mode copy) is
+  deleted — the drivers seed the interned state with `st.raw`, and the
+  transitional `ofRaw + wfB_wf` seed never became necessary.
+* **Deletions**: `wfB`/`wfBNode1`/`wfBNodesGo`/`wfBNodes` (and the
+  L-/N-node variants) from `IExpr.lean`; `wfBGo_one`, the three
+  `wfB*_facts` extractions and `wfB_wf` from `ParseP.lean` — ParseP now
+  certifies walker specs and declaration denotation only; canonicity is
+  the bundle's `wf` field.  `ConsistencyP`'s statements quantify over
+  `WFStore` and read `st.wf` where they used to branch on `wfB` —
+  soundness/no-proof-of-Empty proofs otherwise unchanged (still exactly
+  [propext, Classical.choice, Quot.sound]).
+* **Linearity** re-verified with a throwaway `dbgTraceIfShared` probe on
+  the three parse intern sites: exactly one strike per run regardless
+  of stream size — the first mutation of the persistent `initState`
+  constant's two-node arena (top-level constants are persistent;
+  pre-existing, `O(1)`) — and zero per-entry copies.  The checked
+  `intern?` wrapper does not introduce a second live reference.
+* **Performance**: neutral-or-better, measured in retired instructions
+  (load-insensitive; wall-clock comparisons on this box are dominated
+  by concurrent runs).  init-full (`--pre`, 325 MB, 61 048 accepted,
+  exit 0, output byte-identical to master): 1.5413×10¹² vs
+  1.5545×10¹² instructions — **−0.84 %** (−13.1 G): the deleted
+  `O(nodes)` sweep (a hash-map lookup per node plus whole-map `toList`
+  materializations, paid as startup latency between parse and first
+  check) minus the added `O(children)` per-record checks.  Peak RSS at
+  parity (5.90 vs 5.91 GB — the checker's own peak dominates the
+  sweep's transient `toList`s on this stream).  Small probes at wall
+  parity (init-prelude ~2.3 s both).
+
+**Parked: the `IState.store` flip (`CoreI.lean`).**  Flipping the
+checker-internal state's arena to `WFStore` needs kernel-layer
+WF-preservation evidence for every mutating traversal op `CoreI`
+applies to the store — `instantiate1I`/`instantiateListI`/
+`instantiateRevI`, `abstract1I`, `abstractRangeI`, `mkAppNI`,
+`instSpineI`, `piResidualI`, `pisToLamsI`, `instantiateLevelParamsI`,
+`substLI`, `simplifyLIGo`, `isNonZeroLIGo`, `internLevelSubst(s)` —
+whose `WF ∧ Ext ∧ denote` specs live in `Setlec/Verify/IExpr.lean`,
+entangled with the denotation-commutation inductions that the module
+split above deliberately keeps *out* of the self-contained arena
+module.  The flip would further rewrite every `s.store` mention across
+the `ISOK`/`SimAt` proof stack (18+ Verify/Model files) from `EStore`
+to `WFStore.raw`.  Follow-up construction task, if the payoff (dropping
+`ISOK.wf` and its threading) is wanted: prove WF-only *range-invariant*
+preservation lemmas in `ArenaWF` (statement per op: `WF ∧ Ext ∧
+result index in range ∧ memo indices in range` — no denotation, so
+self-contained), lift the ops onto the bundle, then flip and drop the
+`ISOK.wf` clause mechanically.  Until then `ISOK.wf` is fed from the
+bundle at the seam (`ISOKF.fresh st.wf`), so the *provenance* of every
+canonicity fact is already the bundle.
