@@ -224,3 +224,12 @@
 # the full Init export (kept as _tmp/init-exports/
 # repro-int32-upward-enum-pre.ndjson, see DESIGN).
 0 reducenat_guard.ndjson
+
+# --pre flag (explicit "already preprocessed" assertion): the
+# detection scan and the preprocessor spawn are skipped entirely.
+# std_axioms has no inductive records (verdict trivially unchanged);
+# direct_struct_raw carries a raw inductive block, so with --pre (and
+# the preprocessor unavailable) it must still take the direct-install
+# path to the same verdict as its `raw` line.
+0 std_axioms.ndjson pre
+0 direct_struct_raw.ndjson pre

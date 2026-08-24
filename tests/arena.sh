@@ -78,6 +78,12 @@ if [ -f "$E2E_EXPECTED" ]; then
     # `_model` declarations and the direct install path is exercised
     if [ "${mode:-}" = raw ]; then
       SETLEC_INDUCTIVE_MODELS=/nonexistent timeout 60 "$BIN" "$src" >/dev/null 2>&1
+    elif [ "${mode:-}" = pre ]; then
+      # `pre` fixtures assert the --pre flag: the input is taken as
+      # already preprocessed — no detection scan, no spawn (the
+      # preprocessor is made unavailable so an accidental spawn cannot
+      # silently succeed either)
+      SETLEC_INDUCTIVE_MODELS=/nonexistent timeout 60 "$BIN" --pre "$src" >/dev/null 2>&1
     else
       timeout 60 "$BIN" "$src" >/dev/null 2>&1
     fi
