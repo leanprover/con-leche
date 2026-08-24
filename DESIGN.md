@@ -2139,6 +2139,13 @@ through `interp_erasedEq`/`AnnotOk.erasedEq` instead of rewriting.
 Regression fixture: `nested_pin_names.ndjson` (a dependent-pin nested
 block whose iota-theorem majors carry perturbed pin binder names,
 accepted; the firing is forced by a `rfl` on a concrete major).
+With the pin relaxed (and the driver fixes merged) the full Mathlib
+stream moves from declaration 29,661 (9.8 %) to **50,769 (16.9 %)**:
+the new frontier is `Nat.log2`, "unsupported Nat.div/mod spelling
+(pin ground constants absent)" — the Nat-ops certified-fast-path pin
+allowlists (`scripts/natop_prefix.json`) were extracted from Init
+streams and do not cover the Mathlib stream's ordering/spelling; a
+separate subsystem, follow-up task.
 
 **Slim recursor metadata (2026-08-22, task #46).**  Stored recursor
 metadata is exactly what the firing path reads.
