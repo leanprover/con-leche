@@ -899,12 +899,7 @@ def checkDirectRuleF (ops : CheckerOps m) (fe : FEnv) (p : DirectParts)
     (.notImplemented "direct structure: recursor telescope")
   let (_, crest) ← unwrapOr (Expr.instPisAt (fvsP.take p.nP) cvCa.type)
     (.notImplemented "direct structure: constructor telescope")
-  let minfv ← unwrapOr fvsP[p.nP + 1]?
-    (.internal "direct structure: minor index")
-  let (xFvs, _) ← unwrapOr
-    (openPisAtFvars p.nF minfv.fvarTypeD (p.nP + 2))
-    (.notImplemented "direct structure: minor telescope")
-  let _ ← unwrapOr (Expr.instPisAt xFvs crest)
+  let (xFvs, _) ← unwrapOr (openPisAtFvars p.nF crest (p.nP + 2))
     (.notImplemented "direct structure: constructor field telescope")
   let (ldoms, _) ← unwrapOr (Expr.instLamsAt (fvsP ++ xFvs) rhsA)
     (.notImplemented "direct structure: rule telescope")
@@ -1171,7 +1166,10 @@ def checkDeclSF (fe : FEnv) (d : Declaration) : CheckIM FEnv :=
       unless fe.find? eqName = some eqA do
         throw (.notImplemented "quotient basis requires the pinned Eq basis")
     kind.declsA.foldlM installBasisDeclF fe
-  | .indDecl block => checkIndDeclSF fe block
+  | .indDecl block =>
+    match directPartsF? fe block with
+    | some p => checkDirectStructS fe p
+    | none => checkIndDeclSF fe block
 
 /-- The shared-state checker step the binary runs: the index is
 threaded *across* declarations (built once for the whole stream; each
@@ -1374,7 +1372,10 @@ def checkDeclSP (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
       unless fe.find? eqName = some eqA do
         throw (.notImplemented "quotient basis requires the pinned Eq basis")
     kind.declsA.foldlM installBasisDeclF fe
-  | .indDecl block => checkIndDeclSF fe block
+  | .indDecl block =>
+    match directPartsF? fe block with
+    | some p => checkDirectStructS fe p
+    | none => checkIndDeclSF fe block
 
 /-- One step of the parsed-declaration fold: validate the indices
 against the parse store's range (`O(1)`; in-range indices denote under

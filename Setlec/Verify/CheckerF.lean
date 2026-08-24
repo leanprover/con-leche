@@ -128,6 +128,21 @@ theorem nestedRuleShapeF_eq (env' envS : Env) (cvName : Name)
   simp only [nestedRuleShapeF, nestedRuleShape, mkFEnv_findCV?,
     constsResolveF_eq] <;> rfl
 
+theorem directNonRecF_eq (env : Env) (p : DirectParts) :
+    directNonRecF (mkFEnv env) p = directNonRec env p := by
+  simp only [directNonRecF, directNonRec, constsResolveF_eq] <;> rfl
+
+theorem directNoModelF_eq (env : Env) (p : DirectParts) :
+    directNoModelF (mkFEnv env) p = directNoModel env p := by
+  simp only [directNoModelF, directNoModel, mkFEnv_find?] <;> rfl
+
+/-- The direct-structure recognition through the index is the pure
+one (task #82). -/
+theorem directPartsF?_eq (env : Env) (block : List ConstantInfo) :
+    directPartsF? (mkFEnv env) block = directParts? env block := by
+  simp only [directPartsF?, directParts?, directNonRecF_eq,
+    directNoModelF_eq] <;> rfl
+
 /-! ## Monadic mirrors (non-extending: plain program equalities) -/
 
 section Monadic
@@ -213,6 +228,42 @@ theorem checkProjIotaF_eq (env : Env) (T ctorName : Name)
     (checkProjIotaF (mkFEnv env) T ctorName lps cvj nP nF i : m _)
       = checkProjIota env T ctorName lps cvj nP nF i := by
   simp only [checkProjIotaF, checkProjIota, mkFEnv_find?] <;> rfl
+
+/-! ### The direct simple-structure path (task #82) -/
+
+theorem checkDirectFieldUnivF_eq (ops : CheckerOps m) (env : Env)
+    (s : Level) (nP : Nat) (fvs : List Expr) :
+    ∀ (j : Nat),
+      checkDirectFieldUnivF ops (mkFEnv env) s nP fvs j
+        = checkDirectFieldUniv ops env s nP fvs j
+  | 0 => rfl
+  | j + 1 => by
+    simp only [checkDirectFieldUnivF, checkDirectFieldUniv, mkFEnv_env,
+      checkDirectFieldUnivF_eq ops env s nP fvs j]
+
+theorem checkDirectDomsAtF_eq (ops : CheckerOps m) (env : Env)
+    (off : Nat) (fvs doms : List Expr) :
+    ∀ (j : Nat),
+      checkDirectDomsAtF ops (mkFEnv env) off fvs doms j
+        = checkDirectDomsAt ops env off fvs doms j
+  | 0 => rfl
+  | j + 1 => by
+    simp only [checkDirectDomsAtF, checkDirectDomsAt, mkFEnv_env,
+      checkDirectDomsAtF_eq ops env off fvs doms j]
+
+theorem checkDirectRecTyF_eq (ops : CheckerOps m) (env : Env)
+    (p : DirectParts) (cvTa cvCa cvRa : ConstantVal) :
+    checkDirectRecTyF ops (mkFEnv env) p cvTa cvCa cvRa
+      = checkDirectRecTy ops env p cvTa cvCa cvRa := by
+  simp only [checkDirectRecTyF, checkDirectRecTy, mkFEnv_env,
+    checkDirectDomsAtF_eq] <;> rfl
+
+theorem checkDirectRuleF_eq (ops : CheckerOps m) (env : Env)
+    (p : DirectParts) (cvCa cvRa : ConstantVal) :
+    checkDirectRuleF ops (mkFEnv env) p cvCa cvRa
+      = checkDirectRule ops env p cvCa cvRa := by
+  simp only [checkDirectRuleF, checkDirectRule, mkFEnv_env,
+    constsResolveF_eq] <;> rfl
 
 omit [MonadExceptOf CheckError m] in
 theorem checkDivModCertsF_eq (ops : CheckerOps m) (env : Env) (c : Name)
@@ -303,6 +354,38 @@ theorem installBasisFoldF_push :
       bind_assoc, bind_assoc]
     refine bindI_congr fun e => ?_
     rw [pure_bind, installBasisFoldF_push l e]
+
+/-! ### The direct simple-structure path's extending stages -/
+
+theorem checkDirectIndF_push (ops : CheckerOps CheckIM) (env : Env)
+    (p : DirectParts) :
+    checkDirectIndF ops (mkFEnv env) p
+      = checkDirectInd ops env p
+          >>= fun q => pure (mkFEnv q.1, q.2) := by
+  unfold checkDirectIndF checkDirectInd
+  simp only [checkConstantValF_eq, push_mkFEnv, bind_assoc,
+    pure_bind, ite_bindI, throwI_bind_eq] <;> rfl
+
+theorem checkDirectCtorF_push (ops : CheckerOps CheckIM) (env₀ env : Env)
+    (p : DirectParts) (cvTa : ConstantVal) :
+    checkDirectCtorF ops (mkFEnv env₀) (mkFEnv env) p cvTa
+      = checkDirectCtor ops env₀ env p cvTa
+          >>= fun q => pure (mkFEnv q.1, q.2) := by
+  unfold checkDirectCtorF checkDirectCtor
+  simp only [checkConstantValF_eq, checkDirectDomsAtF_eq,
+    checkDirectFieldUnivF_eq, constsResolveF_eq, push_mkFEnv,
+    bind_assoc, pure_bind, ite_bindI, throwI_bind_eq] <;> rfl
+
+theorem checkDirectProjF_push (ops : CheckerOps CheckIM) (T C : Name)
+    (lps : List Name) (nP nF : Nat) (cvTa cvCa : ConstantVal) (env : Env)
+    (i : Nat) :
+    checkDirectProjF ops T C lps nP nF cvTa cvCa (mkFEnv env) i
+      = checkDirectProj ops T C lps nP nF cvTa cvCa env i
+          >>= fun e => pure (mkFEnv e) := by
+  unfold checkDirectProjF checkDirectProj
+  simp only [checkProjRuleF_eq, constsResolveF_eq, mkFEnv_find?,
+    mkFEnv_env, push_mkFEnv, bind_assoc, pure_bind, ite_bindI,
+    throwI_bind_eq] <;> rfl
 
 /-- The non-inductive branches of `checkDeclSF` are the generic
 `checkDecl` (at the shared operations) followed by `mkFEnv`. -/

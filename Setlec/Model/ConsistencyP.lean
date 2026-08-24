@@ -74,10 +74,12 @@ theorem checkDeclSPStep_run {env : Env} (henv : EnvWF env) {pd : DeclP}
   | indDecl block =>
     obtain rfl : Declaration.indDecl block = d := by
       simpa [denoteDeclP] using hden'
-    have hrun : checkIndDeclSF (mkFEnv env) block s₀.flushed =
+    have hrun : (match directPartsF? (mkFEnv env) block with
+        | some p => checkDirectStructS (mkFEnv env) p
+        | none => checkIndDeclSF (mkFEnv env) block) s₀.flushed =
         .ok (fe', s') := h
     obtain ⟨hres', hext, hfe, F, hF⟩ :=
-      checkIndDeclSF_run henv hisok.residue hrun
+      checkIndOrDirectSF_run henv hisok.residue hrun
     exact ⟨hres', hext, hfe, F, hF⟩
   | defnDecl cv value hint => exact main (fun _ h => DeclP.noConfusion h)
   | thmDecl cv value => exact main (fun _ h => DeclP.noConfusion h)

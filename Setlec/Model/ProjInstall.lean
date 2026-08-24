@@ -1165,6 +1165,388 @@ kernel's definitional parameter pins (`modeled_stage`), the gluing from
 `TowerOk.of_stages`/`TowerOk.out` — so the modeled path (`proj_bottom`,
 off the checked `proj_i.iota` theorem) and the direct path (off the
 constructed values' fold equations) share it. -/
+theorem rule_eq_of_bottom_ext
+    {env : Env} (m : EnvModel V env) (F : Nat)
+    {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none)
+    {val' : ConstVal V}
+    (hagree : ∀ n, (env.find? n).isSome = true → ∀ ψ'' : Name → Nat,
+      val' n ψ'' = m.val n ψ'')
+    {P : Name} {rP cnP nF : Nat}
+    (hplainLe : cnP ≤ rP)
+    {rule : RecRule} {cvA cvj : ConstantVal}
+    (hfP₁ : (⟨c₀ :: env.consts⟩ : Env).find? P = some c₀)
+    (hfj : env.find? (RecRule.ctor rule) = some (.ctorInfo cvj cnP nF))
+    (hfirep : RecRule.fire rule = .plain)
+    (hcp : RecRule.ctorParams rule = cnP)
+    (hnf : RecRule.nfields rule = nF)
+    {rbs : List (Name × Expr × BinderMeta)} {rbody : Expr}
+    (hstripR : (RecRule.rhs rule).stripLams (rP + nF) = some (rbs, rbody))
+    {cbinders : List (Name × Expr × BinderMeta)} {cbody : Expr}
+    (hC_strip : cvj.type.stripPis (cnP + nF) = some (cbinders, cbody))
+    {dN : Name} {dus : List Level} {dargs : List Expr}
+    (hcbody : cbody = Expr.mkAppN (.const dN dus) dargs)
+    (hdargs : dargs.length = cnP)
+    -- the kernel pins over the base environment
+    {fvsP : List Expr} {restP : Expr} {cdomsP : List Expr}
+    {crestP : Expr} {xFvs : List Expr} {crest2X : Expr}
+    {ldoms : List Expr} {lrestL : Expr}
+    (hopenP : openPisAtFvars rP cvA.type 0 = some (fvsP, restP))
+    (hcinstP : Expr.instPisAt (fvsP.take cnP) cvj.type =
+      some (cdomsP, crestP))
+    (hctorPkg : ∀ (ψ : Name → Nat) (xs : List V),
+      xs.length ≤ rP + nF → rP ≤ xs.length →
+      FramePref m.val env ψ (fvsP ++ xFvs) xs →
+      WScoped rP crestP ∧ crestP.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded crestP ∧
+      FvarsOk V m.val env ψ (rP + nF)
+        (fun i => xs.getD i SetTheory.empty) crestP ∧
+      AnnotOk V m.val env ψ (rP + nF)
+        (fun i => xs.getD i SetTheory.empty) crestP ∧
+      ∃ P, interpExpr V m.val env ψ (rP + nF)
+        (fun i => xs.getD i SetTheory.empty) crestP = some P)
+    (hopenX : openPisAtFvars nF crestP rP = some (xFvs, crest2X))
+    (hlinstP : Expr.instLamsAt (fvsP ++ xFvs) (RecRule.rhs rule) =
+      some (ldoms, lrestL))
+    (hdeLamP : DefEqListOk F env (rP + nF)
+      ((fvsP ++ xFvs).map Expr.fvarTypeD) ldoms)
+    -- well-formedness over the base environment
+    (hTcl : cvA.type.hasFvar = false)
+    (hTb : cvA.type.looseBVarsBounded 0 = true)
+    (hCcl : cvj.type.hasFvar = false)
+    (hCb : cvj.type.looseBVarsBounded 0 = true)
+    (hTres : cvA.type.constsResolve env = true)
+    (hCres : cvj.type.constsResolve env = true)
+    (hRres : (RecRule.rhs rule).constsResolve env = true)
+    (hrhsw : (RecRule.rhs rule).hasFvar = false)
+    (hrhsb : (RecRule.rhs rule).looseBVarsBounded 0 = true)
+    (hAty : ∀ ψ'' : Name → Nat,
+      AnnotOk V m.val env ψ'' 0 (rho0 V) cvA.type)
+    (hIty : ∀ ψ'' : Name → Nat, ∃ T,
+      interpClosed V m.val env ψ'' cvA.type = some T)
+    (hArhs : ∀ ψ'' : Name → Nat,
+      AnnotOk V m.val env ψ'' 0 (rho0 V) (RecRule.rhs rule))
+    (hIrhs : ∀ ψ'' : Name → Nat, ∃ L,
+      interpClosed V m.val env ψ'' (RecRule.rhs rule) = some L)
+    (Hbot : ∀ (ψ : Name → Nat) (xs : List V), xs.length = rP + nF →
+      FramePref m.val env ψ (fvsP ++ xFvs) xs →
+      (∃ w, interpExpr V val' (⟨c₀ :: env.consts⟩ : Env) ψ (rP + nF)
+          (fun l => xs.getD l SetTheory.empty)
+          (Expr.mkAppN (.const P (cvA.levelParams.map .param))
+            (fvsP ++
+              [Expr.mkAppN (.const (RecRule.ctor rule)
+                  (cvj.levelParams.map .param))
+                (fvsP.take cnP ++ xFvs)])) = some w ∧
+        ∀ e, Expr.ErasedEq e lrestL →
+          interpExpr V val' (⟨c₀ :: env.consts⟩ : Env) ψ (rP + nF)
+            (fun l => xs.getD l SetTheory.empty) e = some w) ∧
+      AnnotOk V val' (⟨c₀ :: env.consts⟩ : Env) ψ (rP + nF)
+        (fun l => xs.getD l SetTheory.empty)
+        (Expr.mkAppN (.const P (cvA.levelParams.map .param))
+          (fvsP ++
+            [Expr.mkAppN (.const (RecRule.ctor rule)
+                (cvj.levelParams.map .param))
+              (fvsP.take cnP ++ xFvs)]))) :
+    ∃ fvms bL, ruleLhsParts P cvA rP rule cvj = some (fvms, bL) ∧
+      FrameWf 0 fvms bL ∧
+      fvms.length = rP + RecRule.nfields rule ∧
+      (closeLamsAt fvms bL).constsResolve
+        (⟨c₀ :: env.consts⟩ : Env) = true ∧
+      ∀ ψ'' : Name → Nat,
+        AnnotOk V val' (⟨c₀ :: env.consts⟩ : Env) ψ'' 0 (rho0 V)
+          (closeLamsAt fvms bL) ∧
+        ∃ Rv, interpClosed V val' (⟨c₀ :: env.consts⟩ : Env) ψ''
+            (closeLamsAt fvms bL) = some Rv ∧
+          interpClosed V val' (⟨c₀ :: env.consts⟩ : Env) ψ''
+            (RecRule.rhs rule) = some Rv := by
+  -- spine data and shapes
+  obtain ⟨hfvsPInst, hfvsPLen, hfvsPShape⟩ :=
+    openPisAtFvars_spec rP 0 hopenP
+  obtain ⟨hxInst, hxLen, hxShape⟩ := openPisAtFvars_spec nF rP hopenX
+  have hspineLen : (fvsP ++ xFvs).length = rP + nF := by
+    rw [List.length_append, hfvsPLen, hxLen]
+  -- the canonical decomposition computes
+  have hparts : ruleLhsParts P cvA rP rule cvj =
+      some ((fvsP ++ xFvs).zip (rbs.map (·.2.2)),
+        Expr.mkAppN (.const P (cvA.levelParams.map .param))
+          (fvsP ++ crest2X.getAppArgs.drop (RecRule.ctorParams rule) ++
+            [Expr.mkAppN (.const (RecRule.ctor rule)
+                (cvj.levelParams.map Level.param))
+              (fvsP.take (RecRule.ctorParams rule) ++ xFvs)])) := by
+    simp only [ruleLhsParts, hopenP, hfirep, ruleLhsAux, hcp,
+      hcinstP, hnf, hopenX,
+      show (RecRule.rhs rule).stripLams (rP + nF) = some (rbs, rbody)
+        from hstripR]
+  refine ⟨_, _, hparts, ?_⟩
+  have hpinsVac : ∀ lvls pins, RecRule.fire rule = .nested lvls pins →
+      ∀ p ∈ pins, p.hasFvar = false ∧
+        p.looseBVarsBounded rP = true := by
+    intro lvls pins hcon
+    rw [hfirep] at hcon
+    exact nomatch hcon
+  obtain ⟨hwf, hlen⟩ := ruleLhsParts_frameWf hparts hTcl hTb hCcl hCb
+    hpinsVac
+  refine ⟨hwf, hlen, ?_, ?_⟩
+  · refine ruleLhsParts_resolve hparts ?_ ?_
+      (Expr.constsResolve_mono hTres) (Expr.constsResolve_mono hCres)
+      (fun lvls pins hcon => by
+        rw [hfirep] at hcon
+        exact nomatch hcon)
+    · rw [hfP₁]
+      rfl
+    · rw [Env.find?_cons_of_isSome hfresh (by rw [hfj]; rfl), hfj]
+      rfl
+  -- the semantic clause, per level assignment
+  intro ψ
+  -- Hty: the flat stage facts at the base environment, transported
+  have hstage := modeled_stage (rP := rP) (cnF := nF) m F hopenP hTcl
+    hTb (hAty ψ) (hIty ψ) hopenX (hctorPkg ψ) hlinstP hdeLamP hrhsw hrhsb
+    (hArhs ψ) (hIrhs ψ)
+  -- resolution of the frame annotations and tower domains
+  have hfvsPres : ∀ a ∈ fvsP, a.constsResolve env = true :=
+    (openPisAtFvars_resolve rP 0 hopenP hTres).1
+  have hcrestPres : crestP.constsResolve env = true :=
+    instPisAt_resolve (fvsP.take cnP) hcinstP hCres
+      (fun a ha => hfvsPres a (List.mem_of_mem_take ha))
+  have hxFvsRes : ∀ a ∈ xFvs, a.constsResolve env = true :=
+    (openPisAtFvars_resolve nF rP hopenX hcrestPres).1
+  have hspineRes : ∀ a ∈ fvsP ++ xFvs, a.constsResolve env = true := by
+    intro a ha
+    rcases List.mem_append.mp ha with ha | ha
+    · exact hfvsPres a ha
+    · exact hxFvsRes a ha
+  have hldomsRes : ∀ (k : Nat) (ld : Expr), ldoms[k]? = some ld →
+      ld.constsResolve env = true := by
+    intro k ld hld
+    obtain ⟨rbsK, rbodyK⟩ := (rbs, rbody)
+    obtain ⟨-, hds⟩ := instLamsAt_stripLams (fvsP ++ xFvs) hlinstP
+      (by rw [hspineLen]; exact hstripR)
+    have hkN : k < rP + nF := by
+      rcases Nat.lt_or_ge k (rP + nF) with h | h
+      · exact h
+      · rw [List.getElem?_eq_none (by
+          rw [instLamsAt_length _ hlinstP, hspineLen]; omega)] at hld
+        exact nomatch hld
+    obtain ⟨b, hb⟩ : ∃ b, rbs[k]? = some b := by
+      have := Expr.stripLams_length (rP + nF) hstripR
+      exact ⟨_, List.getElem?_eq_getElem (by omega)⟩
+    have h1 := hds k b hb
+    rw [hld] at h1
+    obtain rfl := Option.some.inj h1
+    rw [← Expr.instSpine_eq_instSeq]
+    refine instSpine_constsResolve _ ?_ ?_
+    · exact (Expr.constsResolve_stripLams (rP + nF) hstripR hRres).1
+        b (List.mem_of_getElem? hb)
+    · intro a ha
+      exact hspineRes a (List.mem_of_mem_take ha)
+  have hannRes : ∀ (k : Nat) (fv : Expr),
+      (fvsP ++ xFvs)[k]? = some fv →
+      (Expr.fvarTypeD fv).constsResolve env = true := by
+    intro k fv hfv
+    have hmem := List.mem_of_getElem? hfv
+    rcases List.mem_append.mp hmem with hm | hm
+    · obtain ⟨j, hj⟩ := List.getElem?_of_mem hm
+      obtain ⟨nm, hsh⟩ := hfvsPShape j fv hj
+      have h1 := hfvsPres fv hm
+      rw [hsh] at h1 ⊢
+      simpa [Expr.constsResolve, Expr.fvarTypeD] using h1
+    · obtain ⟨j, hj⟩ := List.getElem?_of_mem hm
+      obtain ⟨nm, hsh⟩ := hxShape j fv hj
+      have h1 := hxFvsRes fv hm
+      rw [hsh] at h1 ⊢
+      simpa [Expr.constsResolve, Expr.fvarTypeD] using h1
+  -- frame bookkeeping for the tower recursion
+  have hrbsLen : rbs.length = rP + nF := Expr.stripLams_length _ hstripR
+  have hzipFst : ((fvsP ++ xFvs).zip (rbs.map (·.2.2))).map Prod.fst =
+      fvsP ++ xFvs :=
+    List.map_fst_zip (by
+      rw [hspineLen, List.length_map, hrbsLen]
+      omega)
+  have hzipSnd : ((fvsP ++ xFvs).zip (rbs.map (·.2.2))).map (·.2) =
+      rbs.map (·.2.2) :=
+    List.map_snd_zip (by
+      rw [hspineLen, List.length_map, hrbsLen]
+      omega)
+  have hfvmsLen : ((fvsP ++ xFvs).zip (rbs.map (·.2.2))).length =
+      rP + nF := by
+    rw [List.length_zip, hspineLen, List.length_map, hrbsLen]
+    simp
+  -- the tower spec from the transported stage facts and the bottom
+  have hbot := Hbot ψ
+  have htower := TowerOk.of_stages (cval := val')
+    (env := (⟨c₀ :: env.consts⟩ : Env)) (φ := ψ)
+    (bL := Expr.mkAppN (.const P (cvA.levelParams.map .param))
+      (fvsP ++ crest2X.getAppArgs.drop (RecRule.ctorParams rule) ++
+        [Expr.mkAppN (.const (RecRule.ctor rule)
+            (cvj.levelParams.map Level.param))
+          (fvsP.take (RecRule.ctorParams rule) ++ xFvs)]))
+    (lrest := lrestL)
+    (fvms := (fvsP ++ xFvs).zip (rbs.map (·.2.2)))
+    (ldoms := ldoms)
+    (Ok := FramePref m.val env ψ (fvsP ++ xFvs))
+    (Hty := by
+      intro k xs fv m ld hxs hfv hld hOk
+      have hfv' : (fvsP ++ xFvs)[k]? = some fv := by
+        have h0 := congrArg (·[k]?) hzipFst
+        simp only [List.getElem?_map] at h0
+        rw [← h0, hfv]
+        rfl
+      obtain ⟨A, h1, h2, h3, h4⟩ := hstage k xs fv ld hxs hfv' hld hOk
+      -- transport across the fresh extension
+      have hannR := hannRes k fv hfv'
+      have hWfv : WScoped k (Expr.fvarTypeD fv) := by
+        rcases Nat.lt_or_ge k rP with hkn | hkn
+        · have hfvL : fvsP[k]? = some fv := by
+            rw [List.getElem?_append_left (by omega)] at hfv'
+            exact hfv'
+          obtain ⟨hfw, -⟩ := openPisAtFvars_wf rP 0 hopenP
+            (WScoped.of_not_hasFvar hTcl) hTb
+            (Expr.LeavesBounded.of_not_hasFvar hTcl)
+          obtain ⟨nm, hsh⟩ := hfvsPShape k fv hfvL
+          rw [Nat.zero_add] at hsh
+          have hW := (hfw fv (List.mem_of_getElem? hfvL)).1
+          rw [hsh] at hW ⊢
+          simp only [WScoped] at hW ⊢
+          exact hW.2
+        · rw [List.getElem?_append_right (by omega), hfvsPLen] at hfv'
+          have hWcrRp : WScoped rP crestP := by
+            obtain ⟨-, h0⟩ := instPisAt_wscoped (D := rP) (fvsP.take cnP)
+              hcinstP (WScoped.of_not_hasFvar hCcl)
+              (by
+                intro a ha
+                obtain ⟨hfw, -⟩ := openPisAtFvars_wf rP 0 hopenP
+                  (WScoped.of_not_hasFvar hTcl) hTb
+                  (Expr.LeavesBounded.of_not_hasFvar hTcl)
+                have h1 := (hfw a (List.mem_of_mem_take ha)).1
+                rwa [Nat.zero_add] at h1)
+            exact h0
+          obtain ⟨cmid, hCpre, hCmidStrip⟩ :=
+            Expr.stripPis_add cnP nF hC_strip
+          have hlenTakeC : (fvsP.take cnP).length = cnP := by
+            rw [List.length_take, hfvsPLen]; omega
+          have hbcr : crestP.looseBVarsBounded 0 = true := by
+            have hchar := (instPisAt_stripPis (fvsP.take cnP) hcinstP
+              (by rw [hlenTakeC]; exact hCpre)).1
+            rw [hchar]
+            refine instSeq_bclosed ?_ ?_
+            · intro a ha
+              obtain ⟨j, hj⟩ := List.getElem?_of_mem
+                (List.mem_of_mem_take ha)
+              obtain ⟨nm, hsh⟩ := hfvsPShape j a hj
+              rw [hsh]
+              rfl
+            · rw [hlenTakeC]
+              have h0 := stripPis_body_bounded cnP hCpre hCb
+              simpa using h0
+          have hLcr : Expr.LeavesBounded crestP := by
+            have hchar := (instPisAt_stripPis (fvsP.take cnP) hcinstP
+              (by rw [hlenTakeC]; exact hCpre)).1
+            rw [hchar]
+            refine LeavesBounded_instSeq _ _ ?_ ?_
+            · exact Expr.LeavesBounded.of_not_hasFvar
+                (stripPis_body_hasFvar cnP hCpre hCcl)
+            · intro a ha
+              obtain ⟨hfw, -⟩ := openPisAtFvars_wf rP 0 hopenP
+                (WScoped.of_not_hasFvar hTcl) hTb
+                (Expr.LeavesBounded.of_not_hasFvar hTcl)
+              exact (hfw a (List.mem_of_mem_take ha)).2.2
+          obtain ⟨hxWf, -⟩ := openPisAtFvars_wf nF rP hopenX hWcrRp
+            hbcr hLcr
+          obtain ⟨nm, hsh⟩ := hxShape (k - rP) fv hfv'
+          have hW := (hxWf fv (List.mem_of_getElem? hfv')).1
+          rw [hsh] at hW ⊢
+          simp only [WScoped] at hW ⊢
+          rw [show rP + (k - rP) = k from by omega] at hW ⊢
+          exact hW.2
+      refine ⟨A, ?_, ?_, ?_, h4⟩
+      · rw [interp_mono (cval := val') hfresh _ _ _ hannR,
+          interp_cval_ext hagree _ _ _]
+        exact h1
+      · intro e hee
+        rw [interp_erasedEq hee _ _,
+          interp_mono (cval := val') hfresh _ _ _
+            (hldomsRes k ld hld),
+          interp_cval_ext hagree _ _ _]
+        exact h2 ld (Expr.ErasedEq.rfl _)
+      · exact AnnotOk.mono hfresh _ _ _ hannR
+          (AnnotOk.cval_ext (fun n hn ψ' => (hagree n hn ψ').symm)
+            _ _ _ h3))
+    (Hbot := by
+      intro xs hxs hOk
+      rw [hfvmsLen] at hxs
+      have h := hbot xs hxs hOk
+      rw [hfvmsLen]
+      -- identify the two spellings of the canonical body
+      have hlenTakeC : (fvsP.take cnP).length = cnP := by
+        rw [List.length_take, hfvsPLen]; omega
+      have hcombined : Expr.instPisAt (fvsP.take cnP ++ xFvs) cvj.type =
+          some (cdomsP ++ xFvs.map Expr.fvarTypeD, crest2X) :=
+        instPisAt_append_of (fvsP.take cnP) hcinstP hxInst
+      have hspineLenC : (fvsP.take cnP ++ xFvs).length = cnP + nF := by
+        rw [List.length_append, hlenTakeC, hxLen]
+      have hcrest2 : crest2X =
+          instSeq (fvsP.take cnP ++ xFvs) (cnP + nF - 1) cbody := by
+        have h1 := (instPisAt_stripPis (fvsP.take cnP ++ xFvs) hcombined
+          (by rw [hspineLenC]; exact hC_strip)).1
+        rw [hspineLenC] at h1
+        exact h1
+      have hidxNil : crest2X.getAppArgs.drop
+          (RecRule.ctorParams rule) = [] := by
+        rw [hcrest2, hcbody, Expr.instSeq_mkAppN,
+          Expr.instSeq_eq_self _ _ (by rfl), Expr.getAppArgs_mkAppN]
+        rw [show (Expr.const dN dus).getAppArgs = [] from rfl,
+          List.nil_append]
+        refine List.drop_eq_nil_of_le ?_
+        rw [hcp, List.length_map]
+        omega
+      rw [hidxNil, List.append_nil, hcp]
+      exact h)
+    ((fvsP ++ xFvs).zip (rbs.map (·.2.2))) 0 [] ldoms
+    (RecRule.rhs rule) (RecRule.rhs rule)
+    (by rw [Nat.zero_add])
+    rfl rfl rfl
+    (by
+      intro j p hp
+      have h0 := congrArg (·[j]?) hzipFst
+      simp only [List.getElem?_map] at h0
+      have hp1 : (fvsP ++ xFvs)[j]? = some p.1 := by
+        rw [← h0, hp]
+        rfl
+      rcases Nat.lt_or_ge j rP with hj | hj
+      · rw [List.getElem?_append_left (by omega)] at hp1
+        obtain ⟨nm, hsh⟩ := hfvsPShape j p.1 hp1
+        rw [Nat.zero_add] at hsh
+        refine ⟨nm, Expr.fvarTypeD p.1, ?_⟩
+        rw [Nat.zero_add]
+        exact hsh
+      · rw [List.getElem?_append_right (by omega), hfvsPLen] at hp1
+        obtain ⟨nm, hsh⟩ := hxShape (j - rP) p.1 hp1
+        refine ⟨nm, Expr.fvarTypeD p.1, ?_⟩
+        rw [Nat.zero_add, hsh]
+        congr 1
+        omega)
+    (Expr.ErasedEq.rfl _)
+    (by
+      rw [hzipFst]
+      exact hlinstP)
+    (by
+      refine ⟨rbs, rbody, ?_, hzipSnd⟩
+      rw [hfvmsLen]
+      exact hstripR)
+    (fun j v fv hjv _ => nomatch hjv)
+  have hrho : (fun i' => ([] : List V).getD i' SetTheory.empty) =
+      rho0 V := by
+    funext i'
+    rfl
+  rw [hrho] at htower
+  obtain ⟨⟨Rv, hL, hR⟩, hAL⟩ := TowerOk.out htower hwf
+    (AnnotOk.mono hfresh _ 0 (rho0 V) hRres
+      (AnnotOk.cval_ext (fun n hn ψ' => (hagree n hn ψ').symm)
+        _ 0 (rho0 V) (hArhs ψ)))
+  exact ⟨hAL, Rv, hL, hR⟩
+
+/-- The projection instance of `rule_eq_of_bottom_ext`: the rule
+prefix *is* the constructor's parameter count, so the canonical body's
+index list is empty and its constructor spine is the whole frame. -/
 theorem proj_rule_eq_of_bottom
     {env : Env} (m : EnvModel V env) (F : Nat)
     {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none)
@@ -1185,7 +1567,6 @@ theorem proj_rule_eq_of_bottom
     {dN : Name} {dus : List Level} {dargs : List Expr}
     (hcbody : cbody = Expr.mkAppN (.const dN dus) dargs)
     (hdargs : dargs.length = nP)
-    -- the kernel pins over the base environment
     {fvsP : List Expr} {restP : Expr} {cdomsP : List Expr}
     {crestP : Expr} {xFvs : List Expr} {crest2X : Expr}
     {ldoms : List Expr} {lrestL : Expr}
@@ -1198,7 +1579,6 @@ theorem proj_rule_eq_of_bottom
       some (ldoms, lrestL))
     (hdeLamP : DefEqListOk F env (nP + nF)
       ((fvsP ++ xFvs).map Expr.fvarTypeD) ldoms)
-    -- well-formedness over the base environment
     (hTcl : cvA.type.hasFvar = false)
     (hTb : cvA.type.looseBVarsBounded 0 = true)
     (hCcl : cvj.type.hasFvar = false)
@@ -1251,309 +1631,25 @@ theorem proj_rule_eq_of_bottom
             (closeLamsAt fvms bL) = some Rv ∧
           interpClosed V val' (⟨c₀ :: env.consts⟩ : Env) ψ''
             (RecRule.rhs rule) = some Rv := by
-  -- spine data and shapes
-  obtain ⟨hfvsPInst, hfvsPLen, hfvsPShape⟩ :=
-    openPisAtFvars_spec nP 0 hopenP
-  obtain ⟨hxInst, hxLen, hxShape⟩ := openPisAtFvars_spec nF nP hopenX
-  have hspineLen : (fvsP ++ xFvs).length = nP + nF := by
-    rw [List.length_append, hfvsPLen, hxLen]
-  have htakeP : fvsP.take (RecRule.ctorParams rule) = fvsP := by
-    rw [hcp, ← hfvsPLen]
-    exact List.take_length
-  -- the canonical decomposition computes
-  have hparts : ruleLhsParts P cvA nP rule cvj =
-      some ((fvsP ++ xFvs).zip (rbs.map (·.2.2)),
-        Expr.mkAppN (.const P (cvA.levelParams.map .param))
-          (fvsP ++ crest2X.getAppArgs.drop (RecRule.ctorParams rule) ++
-            [Expr.mkAppN (.const (RecRule.ctor rule)
-                (cvj.levelParams.map Level.param))
-              (fvsP.take (RecRule.ctorParams rule) ++ xFvs)])) := by
-    simp only [ruleLhsParts, hopenP, hfirep, ruleLhsAux, htakeP,
-      hcinstP, hnf, hopenX,
-      show (RecRule.rhs rule).stripLams (nP + nF) = some (rbs, rbody)
-        from hstripR]
-  refine ⟨_, _, hparts, ?_⟩
-  have hpinsVac : ∀ lvls pins, RecRule.fire rule = .nested lvls pins →
-      ∀ p ∈ pins, p.hasFvar = false ∧
-        p.looseBVarsBounded nP = true := by
-    intro lvls pins hcon
-    rw [hfirep] at hcon
-    exact nomatch hcon
-  obtain ⟨hwf, hlen⟩ := ruleLhsParts_frameWf hparts hTcl hTb hCcl hCb
-    hpinsVac
-  refine ⟨hwf, hlen, ?_, ?_⟩
-  · refine ruleLhsParts_resolve hparts ?_ ?_
-      (Expr.constsResolve_mono hTres) (Expr.constsResolve_mono hCres)
-      (fun lvls pins hcon => by
-        rw [hfirep] at hcon
-        exact nomatch hcon)
-    · rw [hfP₁]
-      rfl
-    · rw [Env.find?_cons_of_isSome hfresh (by rw [hfj]; rfl), hfj]
-      rfl
-  -- the semantic clause, per level assignment
-  intro ψ
-  -- Hty: the flat stage facts at the base environment, transported
-  have hctorPkg := ctor_pkg_plain (xFvsP := xFvs) m F hopenP hTcl hTb
-    (hAty ψ)
-    (by rw [show fvsP.take nP = fvsP from by
-          rw [← hfvsPLen]; exact List.take_length]
-        exact hcinstP)
-    (by rw [show fvsP.take nP = fvsP from by
-          rw [← hfvsPLen]; exact List.take_length]
-        exact hdeParsP)
-    (Nat.le_refl nP) hCcl hCb (hACty ψ) (hICty ψ)
-  have hstage := modeled_stage (rP := nP) (cnF := nF) m F hopenP hTcl
-    hTb (hAty ψ) (hIty ψ) hopenX hctorPkg hlinstP hdeLamP hrhsw hrhsb
-    (hArhs ψ) (hIrhs ψ)
-  -- resolution of the frame annotations and tower domains
-  have hfvsPres : ∀ a ∈ fvsP, a.constsResolve env = true :=
-    (openPisAtFvars_resolve nP 0 hopenP hTres).1
-  have hcrestPres : crestP.constsResolve env = true :=
-    instPisAt_resolve fvsP hcinstP hCres hfvsPres
-  have hxFvsRes : ∀ a ∈ xFvs, a.constsResolve env = true :=
-    (openPisAtFvars_resolve nF nP hopenX hcrestPres).1
-  have hspineRes : ∀ a ∈ fvsP ++ xFvs, a.constsResolve env = true := by
-    intro a ha
-    rcases List.mem_append.mp ha with ha | ha
-    · exact hfvsPres a ha
-    · exact hxFvsRes a ha
-  have hldomsRes : ∀ (k : Nat) (ld : Expr), ldoms[k]? = some ld →
-      ld.constsResolve env = true := by
-    intro k ld hld
-    obtain ⟨rbsK, rbodyK⟩ := (rbs, rbody)
-    obtain ⟨-, hds⟩ := instLamsAt_stripLams (fvsP ++ xFvs) hlinstP
-      (by rw [hspineLen]; exact hstripR)
-    have hkN : k < nP + nF := by
-      rcases Nat.lt_or_ge k (nP + nF) with h | h
-      · exact h
-      · rw [List.getElem?_eq_none (by
-          rw [instLamsAt_length _ hlinstP, hspineLen]; omega)] at hld
-        exact nomatch hld
-    obtain ⟨b, hb⟩ : ∃ b, rbs[k]? = some b := by
-      have := Expr.stripLams_length (nP + nF) hstripR
-      exact ⟨_, List.getElem?_eq_getElem (by omega)⟩
-    have h1 := hds k b hb
-    rw [hld] at h1
-    obtain rfl := Option.some.inj h1
-    rw [← Expr.instSpine_eq_instSeq]
-    refine instSpine_constsResolve _ ?_ ?_
-    · exact (Expr.constsResolve_stripLams (nP + nF) hstripR hRres).1
-        b (List.mem_of_getElem? hb)
-    · intro a ha
-      exact hspineRes a (List.mem_of_mem_take ha)
-  have hannRes : ∀ (k : Nat) (fv : Expr),
-      (fvsP ++ xFvs)[k]? = some fv →
-      (Expr.fvarTypeD fv).constsResolve env = true := by
-    intro k fv hfv
-    have hmem := List.mem_of_getElem? hfv
-    rcases List.mem_append.mp hmem with hm | hm
-    · obtain ⟨j, hj⟩ := List.getElem?_of_mem hm
-      obtain ⟨nm, hsh⟩ := hfvsPShape j fv hj
-      have h1 := hfvsPres fv hm
-      rw [hsh] at h1 ⊢
-      simpa [Expr.constsResolve, Expr.fvarTypeD] using h1
-    · obtain ⟨j, hj⟩ := List.getElem?_of_mem hm
-      obtain ⟨nm, hsh⟩ := hxShape j fv hj
-      have h1 := hxFvsRes fv hm
-      rw [hsh] at h1 ⊢
-      simpa [Expr.constsResolve, Expr.fvarTypeD] using h1
-  -- frame bookkeeping for the tower recursion
-  have hrbsLen : rbs.length = nP + nF := Expr.stripLams_length _ hstripR
-  have hzipFst : ((fvsP ++ xFvs).zip (rbs.map (·.2.2))).map Prod.fst =
-      fvsP ++ xFvs :=
-    List.map_fst_zip (by
-      rw [hspineLen, List.length_map, hrbsLen]
-      omega)
-  have hzipSnd : ((fvsP ++ xFvs).zip (rbs.map (·.2.2))).map (·.2) =
-      rbs.map (·.2.2) :=
-    List.map_snd_zip (by
-      rw [hspineLen, List.length_map, hrbsLen]
-      omega)
-  have hfvmsLen : ((fvsP ++ xFvs).zip (rbs.map (·.2.2))).length =
-      nP + nF := by
-    rw [List.length_zip, hspineLen, List.length_map, hrbsLen]
-    simp
-  -- the tower spec from the transported stage facts and the bottom
-  have hbot := Hbot ψ
-  have htower := TowerOk.of_stages (cval := val')
-    (env := (⟨c₀ :: env.consts⟩ : Env)) (φ := ψ)
-    (bL := Expr.mkAppN (.const P (cvA.levelParams.map .param))
-      (fvsP ++ crest2X.getAppArgs.drop (RecRule.ctorParams rule) ++
-        [Expr.mkAppN (.const (RecRule.ctor rule)
-            (cvj.levelParams.map Level.param))
-          (fvsP.take (RecRule.ctorParams rule) ++ xFvs)]))
-    (lrest := lrestL)
-    (fvms := (fvsP ++ xFvs).zip (rbs.map (·.2.2)))
-    (ldoms := ldoms)
-    (Ok := FramePref m.val env ψ (fvsP ++ xFvs))
-    (Hty := by
-      intro k xs fv m ld hxs hfv hld hOk
-      have hfv' : (fvsP ++ xFvs)[k]? = some fv := by
-        have h0 := congrArg (·[k]?) hzipFst
-        simp only [List.getElem?_map] at h0
-        rw [← h0, hfv]
-        rfl
-      obtain ⟨A, h1, h2, h3, h4⟩ := hstage k xs fv ld hxs hfv' hld hOk
-      -- transport across the fresh extension
-      have hannR := hannRes k fv hfv'
-      have hWfv : WScoped k (Expr.fvarTypeD fv) := by
-        rcases Nat.lt_or_ge k nP with hkn | hkn
-        · have hfvL : fvsP[k]? = some fv := by
-            rw [List.getElem?_append_left (by omega)] at hfv'
-            exact hfv'
-          obtain ⟨hfw, -⟩ := openPisAtFvars_wf nP 0 hopenP
-            (WScoped.of_not_hasFvar hTcl) hTb
-            (Expr.LeavesBounded.of_not_hasFvar hTcl)
-          obtain ⟨nm, hsh⟩ := hfvsPShape k fv hfvL
-          rw [Nat.zero_add] at hsh
-          have hW := (hfw fv (List.mem_of_getElem? hfvL)).1
-          rw [hsh] at hW ⊢
-          simp only [WScoped] at hW ⊢
-          exact hW.2
-        · rw [List.getElem?_append_right (by omega), hfvsPLen] at hfv'
-          have hWcrRp : WScoped nP crestP := by
-            obtain ⟨-, h0⟩ := instPisAt_wscoped (D := nP) fvsP hcinstP
-              (WScoped.of_not_hasFvar hCcl)
-              (by
-                intro a ha
-                obtain ⟨hfw, -⟩ := openPisAtFvars_wf nP 0 hopenP
-                  (WScoped.of_not_hasFvar hTcl) hTb
-                  (Expr.LeavesBounded.of_not_hasFvar hTcl)
-                have h1 := (hfw a ha).1
-                rwa [Nat.zero_add] at h1)
-            exact h0
-          obtain ⟨cmid, hCpre, hCmidStrip⟩ :=
-            Expr.stripPis_add nP nF hC_strip
-          have hbcr : crestP.looseBVarsBounded 0 = true := by
-            have hchar := (instPisAt_stripPis fvsP hcinstP
-              (by rw [hfvsPLen]; exact hCpre)).1
-            rw [hchar, hfvsPLen, ← hfvsPLen]
-            refine instSeq_bclosed ?_ ?_
-            · intro a ha
-              obtain ⟨j, hj⟩ := List.getElem?_of_mem ha
-              obtain ⟨nm, hsh⟩ := hfvsPShape j a hj
-              rw [hsh]
-              rfl
-            · have h0 := stripPis_body_bounded nP hCpre hCb
-              simpa [hfvsPLen] using h0
-          have hLcr : Expr.LeavesBounded crestP := by
-            have hchar := (instPisAt_stripPis fvsP hcinstP
-              (by rw [hfvsPLen]; exact hCpre)).1
-            rw [hchar]
-            refine LeavesBounded_instSeq _ _ ?_ ?_
-            · exact Expr.LeavesBounded.of_not_hasFvar
-                (stripPis_body_hasFvar nP hCpre hCcl)
-            · intro a ha
-              obtain ⟨j, hj⟩ := List.getElem?_of_mem ha
-              obtain ⟨hfw, -⟩ := openPisAtFvars_wf nP 0 hopenP
-                (WScoped.of_not_hasFvar hTcl) hTb
-                (Expr.LeavesBounded.of_not_hasFvar hTcl)
-              exact (hfw a ha).2.2
-          obtain ⟨hxWf, -⟩ := openPisAtFvars_wf nF nP hopenX hWcrRp
-            hbcr hLcr
-          obtain ⟨nm, hsh⟩ := hxShape (k - nP) fv hfv'
-          have hW := (hxWf fv (List.mem_of_getElem? hfv')).1
-          rw [hsh] at hW ⊢
-          simp only [WScoped] at hW ⊢
-          rw [show nP + (k - nP) = k from by omega] at hW ⊢
-          exact hW.2
-      refine ⟨A, ?_, ?_, ?_, h4⟩
-      · rw [interp_mono (cval := val') hfresh _ _ _ hannR,
-          interp_cval_ext hagree _ _ _]
-        exact h1
-      · intro e hee
-        rw [interp_erasedEq hee _ _,
-          interp_mono (cval := val') hfresh _ _ _
-            (hldomsRes k ld hld),
-          interp_cval_ext hagree _ _ _]
-        exact h2 ld (Expr.ErasedEq.rfl _)
-      · exact AnnotOk.mono hfresh _ _ _ hannR
-          (AnnotOk.cval_ext (fun n hn ψ' => (hagree n hn ψ').symm)
-            _ _ _ h3))
-    (Hbot := by
-      intro xs hxs hOk
-      rw [hfvmsLen] at hxs
-      have h := hbot xs hxs hOk
-      rw [hfvmsLen]
-      -- identify the two spellings of the canonical body
-      have hcombined : Expr.instPisAt (fvsP ++ xFvs) cvj.type =
-          some (cdomsP ++ xFvs.map Expr.fvarTypeD, crest2X) :=
-        instPisAt_append_of fvsP hcinstP hxInst
-      have hcrest2 : crest2X =
-          instSeq (fvsP ++ xFvs) (nP + nF - 1) cbody := by
-        have h1 := (instPisAt_stripPis (fvsP ++ xFvs) hcombined
-          (by rw [hspineLen]; exact hC_strip)).1
-        rw [hspineLen] at h1
-        exact h1
-      have hfvPXShapes : ∀ x ∈ fvsP ++ xFvs, ∃ i' n' t',
-          x = Expr.fvar i' n' t' := by
-        intro x hx
-        rcases List.mem_append.mp hx with hx' | hx'
-        · obtain ⟨j, hj⟩ := List.getElem?_of_mem hx'
-          obtain ⟨nm, hsh⟩ := hfvsPShape j x hj
-          exact ⟨0 + j, nm, _, hsh⟩
-        · obtain ⟨j, hj⟩ := List.getElem?_of_mem hx'
-          obtain ⟨nm, hsh⟩ := hxShape j x hj
-          exact ⟨nP + j, nm, _, hsh⟩
-      have hidxNil : crest2X.getAppArgs.drop
-          (RecRule.ctorParams rule) = [] := by
-        rw [hcrest2, hcbody, Expr.instSeq_mkAppN,
-          Expr.instSeq_eq_self _ _ (by rfl), Expr.getAppArgs_mkAppN]
-        rw [show (Expr.const dN dus).getAppArgs = [] from rfl,
-          List.nil_append]
-        refine List.drop_eq_nil_of_le ?_
-        rw [hcp, List.length_map]
-        omega
-      have htakeSp : (fvsP ++ xFvs).take nP = fvsP := by
-        rw [List.take_append_of_le_length (by omega), ← hfvsPLen,
-          List.take_length]
-      rw [hidxNil, htakeP, List.append_nil]
-      rw [htakeSp] at h
-      exact h)
-    ((fvsP ++ xFvs).zip (rbs.map (·.2.2))) 0 [] ldoms
-    (RecRule.rhs rule) (RecRule.rhs rule)
-    (by rw [Nat.zero_add])
-    rfl rfl rfl
-    (by
-      intro j p hp
-      have h0 := congrArg (·[j]?) hzipFst
-      simp only [List.getElem?_map] at h0
-      have hp1 : (fvsP ++ xFvs)[j]? = some p.1 := by
-        rw [← h0, hp]
-        rfl
-      rcases Nat.lt_or_ge j nP with hj | hj
-      · rw [List.getElem?_append_left (by omega)] at hp1
-        obtain ⟨nm, hsh⟩ := hfvsPShape j p.1 hp1
-        rw [Nat.zero_add] at hsh
-        refine ⟨nm, Expr.fvarTypeD p.1, ?_⟩
-        rw [Nat.zero_add]
-        exact hsh
-      · rw [List.getElem?_append_right (by omega), hfvsPLen] at hp1
-        obtain ⟨nm, hsh⟩ := hxShape (j - nP) p.1 hp1
-        refine ⟨nm, Expr.fvarTypeD p.1, ?_⟩
-        rw [Nat.zero_add, hsh]
-        congr 1
-        omega)
-    (Expr.ErasedEq.rfl _)
-    (by
-      rw [hzipFst]
-      exact hlinstP)
-    (by
-      refine ⟨rbs, rbody, ?_, hzipSnd⟩
-      rw [hfvmsLen]
-      exact hstripR)
-    (fun j v fv hjv _ => nomatch hjv)
-  have hrho : (fun i' => ([] : List V).getD i' SetTheory.empty) =
-      rho0 V := by
-    funext i'
-    rfl
-  rw [hrho] at htower
-  obtain ⟨⟨Rv, hL, hR⟩, hAL⟩ := TowerOk.out htower hwf
-    (AnnotOk.mono hfresh _ 0 (rho0 V) hRres
-      (AnnotOk.cval_ext (fun n hn ψ' => (hagree n hn ψ').symm)
-        _ 0 (rho0 V) (hArhs ψ)))
-  exact ⟨hAL, Rv, hL, hR⟩
+  have hfvsPLen : fvsP.length = nP := (openPisAtFvars_spec nP 0 hopenP).2.1
+  have htakeP : fvsP.take nP = fvsP := by
+    rw [← hfvsPLen]; exact List.take_length
+  have htakeSp : (fvsP ++ xFvs).take nP = fvsP := by
+    rw [List.take_append_of_le_length (by omega), htakeP]
+  refine rule_eq_of_bottom_ext m F hfresh hagree (Nat.le_refl nP) hfP₁ hfj
+    hfirep hcp hnf hstripR hC_strip hcbody hdargs hopenP
+    (by rw [htakeP]; exact hcinstP)
+    (fun ψ => ctor_pkg_plain (xFvsP := xFvs) m F hopenP hTcl hTb
+      (hAty ψ) (by rw [htakeP]; exact hcinstP)
+      (by rw [htakeP]; exact hdeParsP)
+      (Nat.le_refl nP) hCcl hCb (hACty ψ) (hICty ψ))
+    hopenX hlinstP hdeLamP hTcl hTb hCcl hCb hTres hCres hRres hrhsw
+    hrhsb hAty hIty hArhs hIrhs ?_
+  intro ψ xs hxs hpref
+  have h := Hbot ψ xs hxs hpref
+  rw [htakeSp] at h
+  rw [htakeP]
+  exact h
 
 
 /-- The modeled projection rule's obligation: `proj_rule_eq_of_bottom`

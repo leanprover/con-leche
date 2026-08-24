@@ -1283,6 +1283,174 @@ theorem FieldTele_reframe {cval : ConstVal V} {env : Env}
     | .app _ _, _ | .lam _ _ _ _, _ | .letE _ _ _ _, _ | .lit _, _
     | .proj _ _ _, _ => exact hag.elim
 
+/-- A value-spine fit moves along an `Expr.ErasedEq` telescope, at the
+same frames and valuation: the fit reads the domains only through their
+interpretations (`interp_erasedEq`), and each opening variable's index
+is all `ErasedEq` records of it.  This is the fit-level counterpart of
+`DomsAgree.of_erasedEq`, without its `stripPis` side condition. -/
+theorem TeleFit.erasedEq {cval : ConstVal V} {env : Env} {φ : Name → Nat} :
+    ∀ {d : Nat} {ρ : Nat → V} {t₁ : Expr} {vs : List V} {d' : Nat}
+      {ρ' : Nat → V} {r₁ : Expr},
+      TeleFit V cval env φ d ρ t₁ vs d' ρ' r₁ →
+      ∀ {t₂ : Expr}, Expr.ErasedEq t₁ t₂ →
+        ∃ r₂, TeleFit V cval env φ d ρ t₂ vs d' ρ' r₂ ∧
+          Expr.ErasedEq r₁ r₂ := by
+  intro d ρ t₁ vs d' ρ' r₁ hfit
+  induction hfit with
+  | nil => intro t₂ hEE; exact ⟨t₂, TeleFit.nil, hEE⟩
+  | @cons d ρ n ty body m x xs d' ρ' rest A hity hx hfit ih =>
+    intro t₂ hEE
+    match t₂, hEE with
+    | .forallE n₂ ty₂ body₂ m₂, hEE =>
+      obtain ⟨-, htyEE, hbodyEE⟩ := hEE
+      obtain ⟨r₂, hfit₂, hrEE⟩ := ih
+        (t₂ := body₂.instantiate1 (.fvar d n₂ ty₂))
+        (Expr.ErasedEq.instantiate1 hbodyEE
+          (show Expr.ErasedEq (.fvar d n ty) (.fvar d n₂ ty₂) from rfl))
+      exact ⟨r₂, TeleFit.cons (by rw [← interp_erasedEq htyEE d ρ]; exact hity)
+        hx hfit₂, hrEE⟩
+    | .bvar _, hEE | .fvar _ _ _, hEE | .sort _, hEE | .const _ _, hEE
+    | .app _ _, hEE | .lam _ _ _ _, hEE | .letE _ _ _ _, hEE
+    | .lit _, hEE | .proj _ _ _, hEE => exact hEE.elim
+
+/-- The frame conditions move **up** the canonical list valuations: a
+term frame-ok at `j` with the prefix's valuation is frame-ok at any
+frame above `xs.length` with the whole list's.  The upward companion of
+`interp_getD_canon`/`annotOk_getD_canon`, proved once for all six
+components by iterating `FrameOk.weaken_top`. -/
+theorem FrameOk.getD_up {cval : ConstVal V} {env : Env} {φ : Name → Nat}
+    {e : Expr} {xs : List V} {j D : Nat}
+    (hjx : j ≤ xs.length) (hxD : xs.length ≤ D)
+    (h : FrameOk V cval env φ j
+      (fun i => (xs.take j).getD i SetTheory.empty) e) :
+    FrameOk V cval env φ D (fun i => xs.getD i SetTheory.empty) e := by
+  have step1 : ∀ n, j + n ≤ xs.length →
+      FrameOk V cval env φ (j + n)
+        (fun i => (xs.take (j + n)).getD i SetTheory.empty) e := by
+    intro n
+    induction n with
+    | zero => intro _; exact h
+    | succ n ih =>
+      intro hn
+      have hprev := ih (by omega)
+      obtain ⟨v, hv⟩ : ∃ v, xs[j + n]? = some v :=
+        ⟨xs[j + n]'(by omega), List.getElem?_eq_getElem (by omega)⟩
+      have hupd : (fun i => (xs.take (j + n + 1)).getD i SetTheory.empty) =
+          updV V (fun i => (xs.take (j + n)).getD i SetTheory.empty)
+            (j + n) v := by
+        rw [List.take_add_one, hv]
+        exact getD_snoc_eq_updV (by rw [List.length_take]; omega)
+      rw [show j + (n + 1) = j + n + 1 from by omega, hupd]
+      exact FrameOk.weaken_top hprev
+  have h1 := step1 (xs.length - j) (by omega)
+  rw [show j + (xs.length - j) = xs.length from by omega,
+    List.take_of_length_le (Nat.le_refl _)] at h1
+  have step2 : ∀ n, FrameOk V cval env φ (xs.length + n)
+      (fun i => xs.getD i SetTheory.empty) e := by
+    intro n
+    induction n with
+    | zero => exact h1
+    | succ n ih =>
+      have hupd : (fun i => xs.getD i SetTheory.empty) =
+          updV V (fun i => xs.getD i SetTheory.empty) (xs.length + n)
+            (SetTheory.empty : V) := by
+        funext i
+        simp only [updV]
+        split
+        · next hi =>
+          rw [hi, List.getD_eq_getElem?_getD,
+            List.getElem?_eq_none (by omega)]
+          rfl
+        · rfl
+      have h3 := FrameOk.weaken_top (x := (SetTheory.empty : V)) ih
+      rw [show xs.length + (n + 1) = xs.length + n + 1 from by omega]
+      rwa [← hupd] at h3
+  have h2 := step2 (D - xs.length)
+  rw [show xs.length + (D - xs.length) = D from by omega] at h2
+  exact h2
+
+/-! ### From `FramePref` to a value-spine fit
+
+The rule-tower machinery (`TowerOk.of_stages`) carries its stage
+memberships as a `FramePref` over the *opening spine* — each value
+inhabits its own frame variable's annotation, at the prefix
+valuation — while every fold equation of the constructed values
+consumes a `TeleFit` of the telescope itself.  The two valuation
+conventions, `TeleFit`'s `updV` chain and `FramePref`'s
+`fun i => (xs.take j).getD i ∅`, are equal *functions*, so the bridge
+is the opening walk plus `funext` (`getD_snoc_eq_updV`). -/
+
+/-- **`FramePref` is a fit.**  A prefix-membership invariant over an
+opening spine is a value-spine fit of the opened telescope, at the
+canonical list valuations and at the very frames the opening runs
+at. -/
+theorem TeleFit.of_framePref {cval : ConstVal V} {env : Env}
+    {φ : Name → Nat} {spine : List Expr} {xs : List V}
+    (hpref : FramePref cval env φ spine xs) :
+    ∀ (n d : Nat) {e : Expr} {fvs : List Expr} {rest : Expr},
+      openPisAtFvars n e d = some (fvs, rest) →
+      (∀ k, k < n → spine[d + k]? = fvs[k]?) →
+      d + n ≤ xs.length →
+      TeleFit V cval env φ d (fun i => (xs.take d).getD i SetTheory.empty) e
+        ((xs.drop d).take n) (d + n)
+        (fun i => (xs.take (d + n)).getD i SetTheory.empty) rest := by
+  intro n
+  induction n with
+  | zero =>
+    intro d e fvs rest hop _ _
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
+    obtain ⟨-, rfl⟩ := hop
+    simpa using TeleFit.nil
+  | succ n ih =>
+    intro d e fvs rest hop halign hlen
+    match e with
+    | .forallE nm dom body mb =>
+      simp only [openPisAtFvars] at hop
+      cases hrec : openPisAtFvars n (body.instantiate1 (.fvar d nm dom))
+          (d + 1) with
+      | none => rw [hrec] at hop; exact nomatch hop
+      | some q =>
+        rw [hrec] at hop
+        simp only [Option.some.injEq, Prod.mk.injEq] at hop
+        obtain ⟨rfl, rfl⟩ := hop
+        have hd : d < xs.length := by omega
+        have hxv : xs[d]? = some (xs.getD d SetTheory.empty) := by
+          rw [List.getD_eq_getElem?_getD,
+            List.getElem?_eq_getElem hd]
+          rfl
+        have hsp : spine[d]? = some (Expr.fvar d nm dom) := by
+          have h0 := halign 0 (by omega)
+          rw [Nat.add_zero] at h0
+          rw [h0]
+          rfl
+        obtain ⟨B, hB, hvB⟩ := hpref d _ _ hxv hsp
+        simp only [Expr.fvarTypeD] at hB
+        -- the valuation after the head binder is the next prefix
+        have hupd : (fun i => (xs.take (d + 1)).getD i SetTheory.empty) =
+            updV V (fun i => (xs.take d).getD i SetTheory.empty) d
+              (xs.getD d SetTheory.empty) := by
+          rw [List.take_add_one, hxv]
+          exact getD_snoc_eq_updV (by rw [List.length_take]; omega)
+        have hrecfit := ih (d + 1) hrec
+          (fun k hk => by
+            have h := halign (k + 1) (by omega)
+            rw [show d + (k + 1) = d + 1 + k from by omega] at h
+            simpa using h)
+          (by omega)
+        rw [hupd, show d + 1 + n = d + (n + 1) from by omega] at hrecfit
+        have hhead : (xs.drop d).take (n + 1) =
+            xs.getD d SetTheory.empty :: (xs.drop (d + 1)).take n := by
+          rw [show xs.drop d = xs.getD d SetTheory.empty :: xs.drop (d + 1) from by
+            rw [List.drop_eq_getElem_cons hd, List.getD_eq_getElem?_getD,
+              List.getElem?_eq_getElem hd]
+            rfl]
+          rfl
+        rw [hhead]
+        exact TeleFit.cons hB hvB hrecfit
+    | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
+    | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+      exact nomatch hop
+
 /-! ### `FieldTele` from the per-field universe walk -/
 
 /-- The field telescope is small at the structure's own sort: each
