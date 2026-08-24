@@ -3666,8 +3666,9 @@ Two consequences worth recording:
   `checkIndDecl`; the shared-state copy mirrors it in `checkDeclSF`.
 
 **Not yet landed: the rest of the environment assembly of the install
-soundness** (the type former's extension *is* landed; see the list
-below).  `checkIndDecl` therefore does not yet dispatch to
+soundness** (the type former's extension *is* landed, and so are all
+four semantic obligations — `mem_type`, `val_params`, `annot_ok` and
+now both rule equalities; see the list below).  `checkIndDecl` therefore does not yet dispatch to
 `checkDirectStruct`, and the raw fixture is pinned at *decline* in the
 expectations; enabling the clause is a three-line change per checker
 copy once the assembly lands — verified by temporarily enabling it at
@@ -4010,31 +4011,59 @@ item 3 — see below; the head of item 4 is landed too):
    provenance-free — it is stated over the stored type, the stored
    right-hand side and the kernel's pins.
 
-   **What remains of item 4**, in order:
+   **Item 4 is landed** (2026-08-24).  Both rule obligations are
+   discharged: `directProj_rule_eq` and `directRec_rule_eq`
+   (`Setlec/Model/DirectDecl.lean`).
 
-   * `directProj_bottom`: the direct projection rule's bottom, i.e.
-     `proj_rule_eq_of_bottom`'s `Hbot` at the constructed values.  Over a
-     full frame `xs` (length `nP + nF`) with `FramePref`, the canonical
-     body `T.proj.i p⃗ (C p⃗ f⃗)` interprets to `xs.getD (nP+i)`:
-     `directCtorVal_fold` folds the constructor's spine to `tupleV f⃗`,
-     `directProj_fold` folds the projection at `p⃗ (tupleV f⃗)` to
-     `projV i (tupleV f⃗)`, and `directProj_iota` reads that back off the
-     tuple.  Two bridges are needed and do **not** exist yet:
-     `FramePref → TeleFit` (a ~30-line induction; note the two
-     valuation conventions — `TeleFit`'s `updV` chain from `rho0` and
-     `fun i => (xs.take j).getD i ∅` — are *equal* functions, so it is
-     `funext` plus the walk), and the identification of `crestP` (the
-     constructor telescope instantiated at the *projection type's*
-     opened parameters) with `crestC` (instantiated at its own): both
-     spines are index-matched, so `instPisAt_erasedEq_spines` /
-     `DomsAgree.of_erasedEq` apply.
-   * the recursor rule's own fold obligation, whose shape differs
-     (`rP = nP + 2 ≠ ctorParams = nP`, and the body applies the recursor
-     to the motive and minor as well), so `proj_rule_eq_of_bottom` does
-     not fit it as it stands; the corresponding modeled derivation is
-     `modeled_rule_eq` in `Setlec/Model/IndInstall.lean`, which should be
-     inspected for the same "generic except the bottom" split before
-     anything is written by hand.
+   The two bridges the projection needed are
+   `TeleFit.of_framePref` — a `FramePref` over an opening spine *is* a
+   value-spine fit of the opened telescope (the two valuation
+   conventions are equal functions, `getD_snoc_eq_updV` plus the walk)
+   — and `TeleFit.erasedEq`, a fit moving along an `Expr.ErasedEq`
+   telescope, which identifies `crestP` (the constructor telescope at
+   the projection type's opened parameters) with `crestC` (at its own)
+   through `instPisAt_erasedEq_spines`.  `TeleFit.erasedEq` is
+   preferred over `DomsAgree.of_erasedEq` here because it has no
+   `stripPis` side condition.
+
+   The generic half was split twice more.  `modeled_rule_eq_plain` now
+   goes through **`rule_eq_of_bottom`** (`Setlec/Model/IndInstall.lean`),
+   the single-environment "generic except the bottom" form DESIGN asked
+   for; it turned out **not** to be what the direct recursor can use,
+   because the direct rule's pins are checked in the *pre-recursor*
+   environment while the canonical tower's body mentions the recursor
+   itself.  What the direct recursor uses is
+   **`rule_eq_of_bottom_ext`** — `proj_rule_eq_of_bottom` generalized
+   from `rP = ctorParams` to `ctorParams ≤ rP`, with the projection case
+   kept as a thin instance.  Its second generalization: it takes the
+   *constructor-residual package* directly instead of the parameter-domain
+   `DefEqListOk`, because the direct install pins those domains **per
+   frame** (`checkDirectDomsAt` at frame `j`) rather than as one
+   `checkDefEqList` at the master frame; the direct side builds the
+   package with `FrameOk.ofInstWalk` (per-frame pins) plus the new
+   **`FrameOk.getD_up`**, the upward companion of
+   `interp_getD_canon`/`annotOk_getD_canon` (all six components at once,
+   by iterating `FrameOk.weaken_top`).
+
+   **Finding + fix (kernel, direct path only, 2026-08-24): the rule
+   stage was pinning at the wrong frame.**  `checkDirectRule` opened the
+   *minor premise's* copy of the field binders and pinned the stored
+   rule's λ-domains against those, while `ruleLhsParts` — the frame the
+   rule's total λ-equality is stated over — opens the **constructor's**
+   field telescope at the rule prefix.  The two openings are index-matched
+   and definitionally equal (`checkDirectRecTy` pins them), but the model
+   cannot cross a definitional step it was not handed, so the stage facts
+   were unprovable as the check stood.  `checkDirectRule` now opens
+   `crest` itself (`openPisAtFvars p.nF crest (p.nP + 2)`), which is
+   exactly the "route (X), at the stage's own frames" discipline
+   `checkDirectProj` already follows, and the pin is `checkDefEqList`
+   against that frame's annotations.  Verdict-neutral, verified with the
+   clause temporarily enabled: arena 90/92, `direct_struct_raw` accepted,
+   and the only e2e movement is item 7's four flips.  The alternative —
+   a semantic bridge chaining the two per-frame pins through
+   `ErasedEq` — would have meant a bespoke `modeled_stage` variant for
+   the direct path alone, i.e. exactly the divergence from the shared
+   machinery the re-check discipline exists to avoid.
 5. **The chain**: `extend_basis_one` for the recursor and the `nF`
    projections (provisionally rule-less, then `extend_rec_swap` to
    attach the rules), and the direct case of `checkDecl_sound` —
