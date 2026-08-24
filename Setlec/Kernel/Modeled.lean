@@ -117,26 +117,37 @@ def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
 
 /-- The nested-shape data of a non-canonical rule: the constructor's
 level and parameter instantiations, read off the recursor type's
-major-premise domain (`∀ …prefix…, ∀ (t : D.{lvls} p₁ … p_cnP), …`).
-`none` — the rule stays inert, and a matched major declines at fire
-time — when the model stores no `iota_j` constant, the recursor has index
-premises (`mI ≠ rP`; not covered by the certified shape), the major
-domain is not a constant-headed application of exactly `cnP`
-arguments, or an instantiation fails the syntactic well-formedness
-guards (closed, bounded by the telescope, constants resolving, levels
-declared — the facts `EnvWF` records for the stored rule). -/
+major-premise domain
+(`∀ …prefix… …indices…, ∀ (t : D.{lvls} p₁ … p_cnP i₁ … i_k), …`,
+`k = mI - rP`).  The parameter instantiations are stored *lowered into
+the rule-prefix context* (`rP` binders; `Expr.lowerBVars`) — the
+lift-back roundtrip certifies that no index variable occurs in them —
+and the domain's trailing arguments must be exactly the index
+variables in order.  `none` — the rule stays inert, and a matched
+major declines at fire time — when the model stores no `iota_j`
+constant, the prefix exceeds the major's position, the major domain is
+not a constant-headed application of exactly `cnP + k` arguments of
+this split shape, or an instantiation fails the syntactic
+well-formedness guards (closed, bounded by the prefix telescope,
+constants resolving, levels declared — the facts `EnvWF` records for
+the stored rule). -/
 def nestedRuleShape (env' envSelf : Env) (cvName : Name)
     (lps : List Name) (tyA : Expr) (mI rP cnP j : Nat) :
     Option (List Level × List Expr) :=
   if (env'.findCV? ((cvName.str "_model").str s!"iota_{j}")).isSome ∧
-      mI = rP then
+      rP ≤ mI then
     match tyA.stripPis mI with
     | some (_, .forallE _ dom _ _) =>
       match dom.getAppFn with
       | .const _D lvls =>
-        let pins := dom.getAppArgs
-        if pins.length = cnP ∧
-            pins.all (fun p => !p.hasFvar && p.looseBVarsBounded mI &&
+        let args := dom.getAppArgs
+        let k := mI - rP
+        let pins := (args.take cnP).map (Expr.lowerBVars k 0)
+        if args.length = cnP + k ∧
+            args.take cnP == pins.map (Expr.liftLooseBVars k 0) ∧
+            args.drop cnP ==
+              (List.range k).map (fun i => Expr.bvar (k - 1 - i)) ∧
+            pins.all (fun p => !p.hasFvar && p.looseBVarsBounded rP &&
               p.constsResolve envSelf && p.allLevelParamsDefined lps) ∧
             lvls.all (Level.allParamsDefined lps) then
           some (lvls, pins)
@@ -210,7 +221,7 @@ def checkIotaThmN (ops : CheckerOps m) (env' envSelf : Env)
       throw (.notImplemented s!"iota statement major mismatch for {cvName}")
     -- the constructor's telescope at the stored level instantiations
     -- (renamed), instantiated at the major's arguments: field domains
-    -- and (`mI = rP`) an index-free residual
+    -- and the canonical index tuple
     unless (cvj.type.stripPis (cnP + cnF)).isSome do
       throw (.notImplemented s!"iota constructor telescope for {cvName}")
     let (cdoms, cres) ← unwrapOr
@@ -244,10 +255,9 @@ def checkIotaThmN (ops : CheckerOps m) (env' envSelf : Env)
     checkTypedList ops envSelf depth pinsP cdomsP
     let (xFvsP, crest2P) ← unwrapOr (openPisAtFvars cnF crestP rP)
       (.notImplemented s!"iota constructor telescope for {cvName}")
-    -- the auxiliary constructor's residual applies the family to
-    -- exactly its parameters: the canonical body carries no index
-    -- tuple
-    unless crest2P.getAppArgs.length == cnP do
+    -- the auxiliary constructor's residual applies the family to its
+    -- parameters and the canonical index tuple (empty at `mI = rP`)
+    unless crest2P.getAppArgs.length == cnP + (mI - rP) do
       throw (.notImplemented s!"iota constructor arity for {cvName}")
     let (ldoms, _) ← unwrapOr (Expr.instLamsAt (fvsP ++ xFvsP) rhsA)
       (.notImplemented s!"rule shape mismatch for {cvName}")
