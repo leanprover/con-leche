@@ -5790,6 +5790,141 @@ ruling that storage is the parsed record untouched.  Computing the
 erasure only at `checkDeclsSP`'s return is a one-line change that
 buys the statement and nothing else — the kernel would still store and
 compute with annotated trees throughout.
+### Finding: annotation-free *consumption* is a kernel change the model cannot follow (2026-08-24, task #100)
+
+The orchestrator's fork resolution on the all-or-nothing finding was to
+invert the order: instead of building the annotated shadow index
+(chunk A), first make the checker's **consumption** annotation-free —
+every site that reads a binder's stored `cod` recomputes it with the
+memoized `codOf` (stage 2) — so that the storage flip would need no
+shadow.  That inversion was built and measured.  It works in the
+kernel and is **blocked in the model**, for a reason that applies to
+every site at once.  Both halves are recorded here; the scouting patch
+is `_tmp/annotfree-consumption.patch` (kernel-only, `lake build
+setlec`).
+
+**The inventory** — every read of a stored `cod` on the checking path,
+with what happens to it when the tree is raw:
+
+| site (`Setlec/Kernel/CoreI.lean`) | reads | on `cod = none` today |
+|---|---|---|
+| `inferBodyI` `∀`-clause | the imax rule's codomain level | `throw .internal` (exit 3) |
+| `inferBodyI` λ-clause / `inferLamsI` / `inferLamsOutI` | the λ-annotation, re-checked against the recomputed body sort and reused as the built `∀`'s meta | `throw .internal` (exit 3) |
+| `defeqBodyI` `∀`/λ clauses | the two binder cods, compared with `isEquivLM` | `throw .internal` (exit 3) |
+| `etaCertI` | λ-cod vs the function type's `∀`-cod | silently `false` — an accept can become a reject |
+| `whnfAppI` / `betaPeelI` | the possibly-Prop beta gate | silently *no beta at all* — arbitrary verdict change |
+| `codNonZeroIM` (← `inferSpineI`, `iotaCertsGIAux`) | the possibly-Prop iota/app-spine gate | `false` — certifies instead of skipping (verdict-preserving, slower) |
+| `natCod1` / `natOpTyPinned` / the pin guards (`Setlec/Kernel/Core.lean`) | *stored* trees, at install time | chunk B, unchanged by this stage |
+
+The recomputation is exactly what `annotateBody` does: a `∀`-binder's
+slot is `codOf` of its opened body (`binderCodPiI`), a λ-binder's is
+`codOf` of the opened body's *inferred type* (`binderCodLamI`); both
+memoized through `codOfI`.  `ensureSortI`, `memoLI` and the `codOf`
+pair move up in the file so the core bodies can call them.
+
+**The kernel result: verdict-identical, +45.7 %.**  With every site
+switched — the gates in their "always certify" form, which is what a
+raw tree forces — the checker is bit-for-bit as accurate and
+measurably slower:
+
+* arena 90/92, e2e 64/64 (`tests/arena.sh` compares exit codes against
+  the expectations file, so a clean run *is* the exit-code diff);
+* init-prelude probe exit 0 (3653/3653);
+* init-prelude instructions 21.47 G → 31.27 G (**+45.7 %**).
+
+The cost decomposes (init-prelude, `perf stat -e instructions:u`,
+master = 21.47 G), and the decomposition is the interesting part:
+
+| switched | G instr | Δ |
+|---|---|---|
+| master (annotations read everywhere) | 21.47 | — |
+| `defeq` binder cods + `etaCertI` + `inferLams` via `codOf` | 21.61 | +0.6 % |
+| ⋯ + `inferBodyI`'s `∀` clause via `codOf` | 22.87 | +6.5 % |
+| ⋯ + beta gate always-certifying | 27.10 | +26.2 % |
+| ⋯ + iota/app-spine gates always-certifying (fully annotation-free) | 31.27 | +45.7 % |
+| (variant: beta gate via `codOf` instead of always-certifying) | 76.3 | +255 % |
+
+So recomputation itself is nearly free where the checker already
+inferred the relevant term (`defeq`, `etaCert`, the λ-telescope — the
+λ-clause even gets *cheaper*: `inferLamsOutI`'s per-binder
+`isEquivLM` re-check against the annotation disappears, the recomputed
+`vcur` being the annotation's own definition).  What costs is the
+**possibly-Prop gates**: they exist to *avoid* an inference, so paying
+an inference to decide them (+255 %) is absurd and skipping them
+(always certify, +39 % between them) is the only sane raw form.  Note
+the gates degrade *gracefully* — `cod = none` already means "certify" —
+so this half of the price is what a flip would pay even with no
+consumption work at all.
+
+**The model result: no consumption site is switchable.**  `interpExpr`
+reads `m.cod` at every binder (`Setlec/Model/Interp.lean`); every
+soundness clause is therefore stated at the *stored* level, and a
+recomputed level is a different object with no connection to it:
+
+* `Setlec/Model/Core/Infer.lean` `forallE` case interprets the node as
+  `pi (v₀.eval φ) A B` with `v₀` from `m'.cod` and concludes membership
+  in `univ ((imax u v₀).eval φ)` — returning `imax u v_computed`
+  instead needs `v_computed ≈ v₀`;
+* the same file's app case discharges the gate through
+  `codNonZero_eq_true → mPi.cod = some v₀ → pi_pos` on the
+  *interpreted* Π — the nonzero bit must be the interpretation's, not a
+  recomputed one;
+* `defeq`'s binder clause needs `(m₁.cod = 0) ↔ (m₂.cod = 0)` to equate
+  the two interpretations, and `AnnotOk` cannot supply it: its clauses
+  are semantic memberships (`w ∈ˢ univ (v.eval φ)`) and `univ` is
+  cumulative (`univ_mono`), so the stored level is *not* recoverable
+  from the interpretation — the same non-determination
+  `Setlec/Model/RawEnvNoAnnot.lean` proves for the classifier bit.
+
+The bridge the switch would need is `codOf(e) ≈ the stored cod` **at
+every use site**, i.e. on reducts, after substitution, delta unfolding
+and level instantiation — a syntactic sort-stability (subject
+reduction for sorts) theory that the annotation-first design exists
+precisely to avoid.  `decorate_eq` gives it for a tree that *is* the
+annotation pass's output; nothing gives it for that tree's reducts.
+
+**Three architectures, and the fork.**
+
+1. **Chunk A (annotated arena index).**  Stored trees reach the
+   checking path only through their annotated arena index, so every
+   decision is made on inherited annotations, exactly as today.
+   Verification unchanged; no runtime cost; the price is retaining the
+   annotated trees in the arena (memory, ~2× on stored trees).
+2. **Computed consumption + bisimulation against a stored-annotation
+   shadow.**  Needs the bridge above at every site.  Not costed
+   further: the bridge is a new theory, not a proof effort.
+3. **Computed consumption + an interpretation parameterized by the
+   `codOf` oracle.**  Make `interpExpr`/`AnnotOk` take the binder level
+   from the same oracle the kernel reads, so truthfulness becomes
+   self-establishing (`⟦b⟧ ∈ univ (codOf b)` *is* `infer_sound` +
+   `ensureSort`).  This is the only route in which annotations
+   disappear from the model too, and it is consistent with
+   `RawEnvNoAnnot` (which says the bit must come from inference — here
+   it does).  It re-signatures `interpExpr`, `AnnotOk` and every
+   transport lemma in `Setlec/Model/*`, and it still pays the +39 %
+   gate price, since an oracle-parameterized model does not make the
+   gates cheap.
+
+*Considered and rejected inside 2:* letting the shadow tree *be* the
+decoration of the raw tree by the kernel's own memo, so that the
+decisions agree by construction.  It collapses back to the bridge: the
+model's transport lemmas (`AnnotOk_beta`, `AnnotOk_zeta_step`) produce
+the reduct with its annotations **inherited by substitution**, while
+the memo re-decorates the reduct from scratch, and the two coincide
+only if `codOf` is stable under the checker's own substitutions — the
+bridge again.
+
+Recorded as a fork for the orchestrator; **nothing from this stage is
+landed**, because the model-friendly-looking subset (infer's `∀`/λ
+clauses, +6.5 %) turns out not to be model-friendly either, and would
+be pure loss under architecture 1.
+
+**What this changes in the flip map.**  Chunk A is *not* deleted: it is
+the only route that keeps the verification, and it is now understood
+not as "make the shadow total so raw trees never reach the checker" but
+as "the checker's decisions must be made on annotated trees, because
+the model's every clause is stated at the stored annotation".  Chunks B
+(guard sweep) and C (two-env seam) are unaffected by this stage.
 ## fields-raw: the near-cubic direct install (2026-08-24, fix/fields-raw-cubic)
 
 The harness's `fields-raw` finding (2.31 std / 2.74 deep against an
