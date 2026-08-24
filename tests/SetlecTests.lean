@@ -332,4 +332,57 @@ else. -/
         ⟨.default, none⟩)
       ⟨.default, none⟩
 
+/-! ## The correct-by-construction arena bundle (task #103)
+
+`WFStore` carries `EStore.WF` in the type; the interface mirrors the
+raw one (zero runtime cost), so these only sanity-check the lifted
+operations and the unconditional derived reads. -/
+
+private def wfsTestExpr : Expr :=
+  .lam (.str .anonymous "x") (.sort .zero)
+    (.app (.bvar 0) (.fvar 2 (.str .anonymous "y") (.sort .zero)))
+    ⟨.default, none⟩
+
+-- Whole-tree interning is canonical: the same tree twice yields the
+-- same index, a different tree a different one.
+#guard let s := WFStore.empty
+       let (i, s) := s.internExpr wfsTestExpr
+       let (j, s) := s.internExpr wfsTestExpr
+       let (k, _) := s.internExpr (.sort .zero)
+       i == j && i != k
+
+-- The fast path lands on the same index (on the bundle they are the
+-- same function, `WFStore.internExprFast_eq_internExpr`).
+#guard let (i, _) := WFStore.empty.internExpr wfsTestExpr
+       let (j, _) := WFStore.empty.internExprFast wfsTestExpr
+       i == j
+
+-- The eager derived reads match the tree-side spec functions — no WF
+-- hypothesis at any call site (it is in the type).
+#guard let (i, s) := WFStore.empty.internExpr wfsTestExpr
+       s.bvarBoundD i == wfsTestExpr.bvarBound &&
+         s.fvarRangeD i == wfsTestExpr.fvarRange &&
+         s.ehasParamD i == wfsTestExpr.hasLevelParam
+
+-- …including a level parameter under a `sort` (the level entry at
+-- index 0 is the interned `.param` itself).
+#guard let (i, s) := WFStore.empty.internExpr
+         (.sort (.param (.str .anonymous "u")))
+       s.ehasParamD i && s.lhasParamD 0
+
+-- Name interning reads back `O(1)` and compares alloc-free.
+#guard let nm : Name := .num (.str .anonymous "foo") 3
+       let (i, s) := WFStore.empty.internName nm
+       s.readbackN i == some nm && s.beqNameI i nm
+
+-- Checked single-node interning: in-range children accepted,
+-- out-of-range rejected (the per-record guard of the wiring plan).
+#guard let (i, s) := WFStore.empty.internExpr (.sort .zero)
+       (s.intern? (.app i i)).isSome && (s.intern? (.app i (i + 7))).isNone
+
+-- The seeded constructor (`ofRaw` at a trust boundary).
+#guard let s := WFStore.ofRaw EStore.empty EStore.empty_wf
+       let (_, s) := s.internLevel (.succ .zero)
+       s.raw.lnodes.size == 2
+
 end SetlecTests
