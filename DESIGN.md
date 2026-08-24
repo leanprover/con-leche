@@ -6989,10 +6989,13 @@ Amended order, each stage green:
 
 1. **[landed]** `Derive/Collapse.lean` — operators, laws, refutation,
    evidence (this stage).
-2. **Kernel de-gating** (prerequisite, *kernel + Verify + Model*):
-   switch guarded beta, guarded proj and the #49 app-spine/iota gates
-   to their **always-certify** forms, and delete the defeq cod
-   comparison and the λ-cod re-check.  All of this was already built
+2. **[landed] Kernel de-gating** (prerequisite, *kernel + Verify +
+   Model*): switch guarded beta, guarded proj and the #49
+   app-spine/iota gates to their **always-certify** forms, and delete
+   the defeq cod comparison and the λ-cod re-check *(amended on
+   execution: the last two are NOT stage-2-deletable — see the
+   stage-2 record below; they move into stage 3)*.  All of this was
+   already built
    and measured verdict-identical in the annotation-free-consumption
    scouting (`_tmp/annotfree-consumption.patch`): beta certify
    +26.2 %, spine/iota certify ≈ +13 %, the rest ≈ free.  Those
@@ -7008,8 +7011,12 @@ Amended order, each stage green:
    coordinate with concurrent kernel work (#64).
 3. **The model flip**: `pi`/`lam` become the collapse ops;
    `interpExpr`'s binder clauses go level-free (no `m.cod` reads);
-   `AnnotOk` drops the cod conjuncts.  Shim design, recorded for the
-   executor:
+   `AnnotOk` drops the cod conjuncts.  *Also in this stage (moved from
+   stage 2): delete the defeq binder zero-ness comparison and the
+   λ-annotation re-check in `inferBody`'s lam clause/`inferLamsOutI` —
+   deletable exactly when the model stops reading levels
+   (`piC_congr`/`lamC` membership need no level agreement).*  Shim
+   design, recorded for the executor:
    * *Vestigial level*: `noncomputable abbrev pi (v : Nat) A B := piC
      A B` (same for `lam`) — definitional level-erasure, so the ~2000
      explicit-level call sites elaborate unchanged and interp-equation
@@ -7049,6 +7056,106 @@ Amended order, each stage green:
    raw-storage chunks (A/B/C above) collapse to their raw forms — with
    the model level-free, no shadow environment and no `codOf` oracle
    is needed (architecture 4 supersedes the fork's 1–3).
+
+### Stage 2 record: kernel de-gating landed; two deletions are flip-blocked (2026-08-24, task #100)
+
+**Landed.**  The three collapse-falsified annotation gates now run
+their certificates unconditionally, in the spec core, the interned
+core and the NC twins alike:
+
+* **guarded beta** (`whnfCoreBody` app/lam, `whnfAppI`/`betaPeelI`) —
+  every redex pays infer+defeq of the argument against the domain; the
+  `mb.cod`/`isNonZero` read is gone (NC still beta-reduces
+  unconditionally, now without the cod-presence read);
+* **guarded projection** (`whnfCoreBody`/`whnfCoreBodyI`/NC proj
+  clause) — `projCert` runs at every table-driven reduction; the
+  `structSort`-nonzero skip is gone (`projCertI` stays outside the NC
+  skip list, as before);
+* **the #49 app-spine/iota gates** — `codNonZero`/`codNonZeroIM` are
+  deleted; `iotaCertsG`/`iotaCertsGI(Aux)` are deleted with all call
+  sites on the ungated `iotaCerts`/`iotaCertsI`; `inferBody`'s app
+  clause and `inferSpineI` re-check every argument.
+
+Verification shrank as predicted: the certify arms were the already
+verified ones, so the change is mostly deletion — the gate-recovery
+theorems (`certsG_fit` and its domain-determination proof,
+`iotaCertsG_step_inv`, `codNonZero_eq_true`, `codNonZeroIM_eff`, the
+gated `_atF`/`_snoc`/`_shift`/`_disc`/`_sim` branches across
+`Verify/BetaSpine`, `Verify/Deep`, `Verify/Disc`, `Verify/DiscI1/3/4`,
+`Verify/Fueled`, `Verify/PairM`, `Verify/SimI`) are gone, and the
+model's beta/proj/app-slot proofs keep only the certified branch
+(`Model/Core/Whnf.lean`, `Model/Core/Infer.lean`, `Model/Core/Iota.lean`
+now consume `certs_fit`).  The domain-determination *lemmas* on the
+`SetTheory` side (`lam_dom`, `graph_dom_of_mem_piSet`, …) remain for
+the flip stage's false-surface accounting.
+
+**Finding — the other two stage-2 items are load-bearing pre-flip.**
+The plan also called for deleting the defeq binder cod comparison
+(the zero-ness form) and the λ-annotation re-check in the lam infer
+clause.  Both are *formally blocked* while the model is leveled, for
+the reason the scout finding above already recorded on the defeq side:
+`AnnotOk` supplies only cumulative `univ`-memberships, from which
+zero-ness of a stored level is not recoverable.
+
+* *defeq*: the binder clauses' soundness concludes
+  `pi (v₁.eval φ) A B = pi (v₂.eval φ) A B` via
+  `pi_congr_zero_agree`, whose zero-agreement input comes exactly from
+  the retained comparison.  Countermodel to the deleted form: cods
+  `param u` vs `zero`, both truthful over all-`pt` fibres (`pt ∈ univ 0
+  ⊆ univ 1`); at `u ↦ 1` the interpretations are `piSet`-of-graphs vs
+  a truth value — defeq true, interpretations unequal.
+* *λ-re-check*: `interpExpr` reads the λ's **stored** cod `v`, while
+  the certified fibre-universe fact is stated at the **recomputed**
+  sort `v'`; the re-check's `Level.isEquiv v v'` is what transfers it
+  (`Model/Core/Infer.lean`, `Level.isEquiv_sound heqv φ`) so that
+  `lam (v.eval) A F ∈ pi (v.eval) A B` closes.  Without it, stored
+  `v = 1` over a proof-valued body (truthful: the Prop is in
+  `univ 0 ⊆ univ 1`) makes the λ a graph while the built Π interprets
+  at the recomputed level 0 — membership fails.
+
+Both deletions become sound exactly at the flip (level-free
+`piC_congr`; `lamC` membership has no level), so they move into
+stage 3, where `pi/lam_congr_zero_agree` retire with them.  The
+migration-order text above is annotated accordingly.  Note the
+asymmetry that fixes the order overall: the *gates* are falsified *by*
+the flip (must de-gate before), while the *comparisons* are required
+*until* the flip (must delete at/after) — stage 2 is exactly the
+falsified set.
+
+**Measured cost (this stage alone, annotate pass still running).**
+Verdicts and outputs are byte-identical to master everywhere: arena
+90/92, e2e 64/64, `lake test`, scale harness all-PASS
+(thm 1.01/fields-raw 1.92/ctors-mod 2.68/fields-mod 2.06, all under
+gates), and both init probes byte-identical in both modes.
+Instructions (`perf stat -e instructions:u`, median of 3,
+init-core probe):
+
+| binary | certified | NC |
+|---|---|---|
+| master (c57da48) | 3.92 G | 3.01 G |
+| de-gated | 4.89 G (**+24.7 %**) | 2.98 G (−1 %) |
+
+init-full (61 048 declarations, single runs, output byte-identical in
+both modes):
+
+| binary | certified instr | certified wall | NC instr | NC wall |
+|---|---|---|---|---|
+| master (c57da48) | 230.1 G | 3:50 | 210.1 G | 3:30 |
+| de-gated | 357.0 G (**+55.1 %**) | 5:57 | 208.7 G (−0.7 %) | 3:29 |
+
+Peak RSS is unchanged (≈6.0 GB tree total in both).  The
+certified-mode cost is the predicted tight-domain-loss price of
+running the possibly-Prop certificates everywhere (scout: +26.2 % beta
++ ≈13 % spine/iota on the 2026-08 master; today's master is ~7× faster
+in absolute terms, so the same absolute certificate work weighs more
+relatively — +24.7 % on the mostly-Prop-light prelude, +55 % on the
+full stream, whose defeq-heavy tail previously skipped certification
+at almost every nonzero-annotated redex).  NC is flat-to-slightly
+faster: it never ran these certs, and the beta path lost its cod read.
+The end state recovers more than this: stage 6 deletes the annotate
+pass (a full inference sweep per declaration) and the per-binder cod
+storage; this stage's number is the *gate cost now*, reported on its
+own as ordered.
 
 
 ## The snapshot bracket is the default, verified (2026-08-24, task #64 landing)

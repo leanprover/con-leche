@@ -20,9 +20,9 @@ before this file existed; Main selects this knot only when the
 Skipped here (each site cites why it is proof-only):
 
 * `iotaRecNC` (vs `iotaRecI`): the per-fire recursor-telescope and
-  constructor-telescope certifications (since task #71 the certified
-  pipeline runs them possibly-Prop-*gated*, `iotaCertsGI`; NC skips
-  even the residue), the *ordinary* plain-rule parameter
+  constructor-telescope certifications (`iotaCertsI`; since task #100
+  de-gating the certified pipeline runs them ungated on every slot —
+  NC skips them entirely), the *ordinary* plain-rule parameter
   re-comparison, and
   the canonical-index `defEqListI` — lean4lean's `inductiveReduceRec`
   (`Lean4Lean/Inductive/Reduce.lean`) checks only: rule lookup by
@@ -48,13 +48,14 @@ Skipped here (each site cites why it is proof-only):
   task-#76 finding on arena `bad/098_ruleKbad`); NC differs only in
   dropping the `proofIrrelI` soundness certificate that follows it.
   The eta fabrication runs `structEtaCertWithNC`.
-* `whnfAppNC`/`betaPeelNC` (vs `whnfAppI`/`betaPeelI`): the
-  possibly-Prop per-binder argument re-check before beta — the
-  references beta-reduce unconditionally (lean4lean `whnfCore`).
-* `inferSpineNC` (vs `inferSpineI`): the possibly-Prop-gated
-  per-argument infer+defeq residue — the references never re-check
-  application arguments during inference (lean4lean `inferType` with
-  `inferOnly := true`).
+* `whnfAppNC`/`betaPeelNC` (vs `whnfAppI`/`betaPeelI`): the per-binder
+  argument re-check before beta (unconditional in the certified core
+  since the task-#100 de-gating) — the references beta-reduce
+  unconditionally (lean4lean `whnfCore`).
+* `inferSpineNC` (vs `inferSpineI`): the per-argument infer+defeq
+  (likewise unconditional since task #100) — the references never
+  re-check application arguments during inference (lean4lean
+  `inferType` with `inferOnly := true`).
 * `structEtaCertWithNC` (vs `structEtaCertWithI`): the type-former
   telescope certification (`iotaCertsI` on `tyT`) and the
   per-projection telescope certifications (`structEtaProjCertsI`) —
@@ -333,19 +334,15 @@ def iotaRecNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
 
 mutual
 
-/-- Cert-skipping twin of `whnfAppI`: an annotated λ-binder always
-beta-reduces (no possibly-Prop argument re-check). -/
+/-- Cert-skipping twin of `whnfAppI`: a λ-binder always beta-reduces
+(no per-redex argument re-check; since task #100 de-gating the
+certified twin re-checks every redex). -/
 def whnfAppNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     EIdx → List EIdx → CheckIM EIdx
   | v, [] => pure v
   | v, a :: rest => do
     match ← viewI v with
-    | some (.lam _ _ty body mb) =>
-      match mb.cod with
-      | some _ => betaPeelNC r fe depth body [a] rest
-      | none => do
-        let fa ← internI (.app v a)
-        mkAppNM fa rest
+    | some (.lam _ _ty body _mb) => betaPeelNC r fe depth body [a] rest
     | _ => do
       let fa ← internI (.app v a)
       match ← iotaRecNC r fe depth fa with
@@ -367,13 +364,7 @@ def betaPeelNC (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     r.whnfCore depth e'
   | t, acc, a :: rest => do
     match ← viewI t with
-    | some (.lam _ _ty body mb) =>
-      match mb.cod with
-      | some _ => betaPeelNC r fe depth body (a :: acc) rest
-      | none => do
-        let f' ← instListM t acc
-        let fa ← internI (.app f' a)
-        mkAppNM fa rest
+    | some (.lam _ _ty body _mb) => betaPeelNC r fe depth body (a :: acc) rest
     | _ => do
       let e' ← instListM t acc
       let v ← r.whnfCore depth e'
@@ -415,13 +406,13 @@ def whnfCoreBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
               entry.structSort
             let bvar0 ← internI (.bvar 0)
             let arg := args.getD (entry.numParams + i) bvar0
-            if ← isNonZeroLM mx then r.whnfCore depth arg
-            else do
-              let fl ← substLevelTreeM entry.levelParams us entry.fieldSort
-              if ← projCertI r fe depth e' i fl
-                  mx entry.numParams then
-                r.whnfCore depth arg
-              else internI (.proj sn i e')
+            -- task #100 de-gating: ungated, as in `whnfCoreBodyI`
+            -- (`projCertI` stays — outside the task-#76 skip list)
+            let fl ← substLevelTreeM entry.levelParams us entry.fieldSort
+            if ← projCertI r fe depth e' i fl
+                mx entry.numParams then
+              r.whnfCore depth arg
+            else internI (.proj sn i e')
           else internI (.proj sn i e')
         | _ => internI (.proj sn i e')
       | none => internI (.proj sn i e')

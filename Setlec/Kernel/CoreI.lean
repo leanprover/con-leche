@@ -503,14 +503,6 @@ def isNonZeroLM (u : LIdx) : CheckIM Bool :=
     let (r, memo) := s.store.isNonZeroLIGo memo u
     (r, { s with lnzC := memo })
 
-/-- Twin of `codNonZero` (task #49) on an interned binder annotation:
-the codomain-sort slot is a level index, so the nonzero test runs
-through the persistently memoized `isNonZeroLM`. -/
-@[inline] def codNonZeroIM (mt : IBinderMeta) : CheckIM Bool :=
-  match mt.cod with
-  | some v => isNonZeroLM v
-  | none => pure false
-
 /-- Interned `Expr.instantiateLevelParams` (interned replacement
 levels; fresh per-call memos). -/
 def instLevelParamsM (ks : List Name) (us : List LIdx)
@@ -841,43 +833,6 @@ the bulk-instantiating accumulator loop at the empty accumulator. -/
 def iotaCertsI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (ty : EIdx) (args : List EIdx) : CheckIM Bool :=
   iotaCertsIAux r fe depth ty [] args
-
-/-- Twin of `iotaCertsG` (tasks #49/#71), bulk form: a slot whose
-codomain-sort annotation is provably nonzero (`codNonZeroIM`) skips
-the per-fire infer+defeq (and the domain substitution); a possibly-Prop
-slot keeps them — the load-bearing residue (task #73). -/
-def iotaCertsGIAux (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
-    EIdx → List EIdx → List EIdx → CheckIM Bool
-  | _, _, [] => pure true
-  | ty, acc, arg :: rest => do
-    match ← viewI ty with
-    | some (.forallE _ dom body mt) => do
-      if ← codNonZeroIM mt then
-        iotaCertsGIAux r fe depth body (arg :: acc) rest
-      else do
-        let dom' ← instListM dom acc
-        let ta ← r.infer depth arg
-        if ← r.defeq depth ta dom' then
-          iotaCertsGIAux r fe depth body (arg :: acc) rest
-        else pure false
-    | some (.bvar _) =>
-      match acc with
-      | [] => pure false
-      | _ :: _ => do
-        let ty' ← instListM ty acc
-        iotaCertsGIAux r fe depth ty' [] (arg :: rest)
-    | _ => pure false
-termination_by _ acc args => (args.length, acc.length)
-decreasing_by
-  · apply Prod.Lex.left; simp
-  · apply Prod.Lex.left; simp
-  · apply Prod.Lex.right' <;> simp
-
-/-- Twin of `iotaCertsG`; the gated bulk loop at the empty
-accumulator. -/
-def iotaCertsGI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
-    (ty : EIdx) (args : List EIdx) : CheckIM Bool :=
-  iotaCertsGIAux r fe depth ty [] args
 
 /-- Twin of `defEqList`. -/
 def defEqListI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
@@ -1315,10 +1270,10 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : EIdx) :
                  if ← defEqListI r fe depth (margs.take rl.ctorParams)
                     cmpArgs then do
                   let tyRec ← constTyAtM fe c cn us
-                  if ← iotaCertsGI r fe depth tyRec
+                  if ← iotaCertsI r fe depth tyRec
                      (args.take mI ++ [major]) then do
                    let tyCtor ← constTyAtM fe cj cjn usj
-                   if ← iotaCertsGI r fe depth tyCtor margs then do
+                   if ← iotaCertsI r fe depth tyCtor margs then do
                     match ← withStore (fun st =>
                           st.stripPisBodyI (rl.ctorParams + rl.nfields)
                             tyCtor),
@@ -1366,19 +1321,12 @@ def whnfAppI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
   | v, [] => pure v
   | v, a :: rest => do
     match ← viewI v with
-    | some (.lam _ ty body mb) =>
-      match mb.cod with
-      | some lv =>
-        if ← isNonZeroLM lv then betaPeelI r fe depth body [a] rest
+    | some (.lam _ ty body _mb) => do
+        let ta ← r.infer depth a
+        if ← r.defeq depth ta ty then betaPeelI r fe depth body [a] rest
         else do
-          let ta ← r.infer depth a
-          if ← r.defeq depth ta ty then betaPeelI r fe depth body [a] rest
-          else do
-            let fa ← internI (.app v a)
-            mkAppNM fa rest
-      | none => do
-        let fa ← internI (.app v a)
-        mkAppNM fa rest
+          let fa ← internI (.app v a)
+          mkAppNM fa rest
     | _ => do
       let fa ← internI (.app v a)
       match ← iotaRecI r fe depth fa with
@@ -1394,8 +1342,9 @@ decreasing_by
 
 /-- Peel loop of `whnfAppI`: `t` is the raw (unsubstituted) lambda body
 after the binders consumed so far, `acc` their arguments (innermost
-first).  Each binder's possibly-Prop certificate substitutes only the
-*domain*; the body is substituted once, when peeling stops. -/
+first).  Each binder's argument certificate (unconditional since the
+task-#100 de-gating) substitutes only the *domain*; the body is
+substituted once, when peeling stops. -/
 def betaPeelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     EIdx → List EIdx → List EIdx → CheckIM EIdx
   | t, acc, [] => do
@@ -1403,23 +1352,15 @@ def betaPeelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     r.whnfCore depth e'
   | t, acc, a :: rest => do
     match ← viewI t with
-    | some (.lam _ ty body mb) =>
-      match mb.cod with
-      | some lv =>
-        if ← isNonZeroLM lv then betaPeelI r fe depth body (a :: acc) rest
+    | some (.lam _ ty body _mb) => do
+        let ty' ← instListM ty acc
+        let ta ← r.infer depth a
+        if ← r.defeq depth ta ty' then
+          betaPeelI r fe depth body (a :: acc) rest
         else do
-          let ty' ← instListM ty acc
-          let ta ← r.infer depth a
-          if ← r.defeq depth ta ty' then
-            betaPeelI r fe depth body (a :: acc) rest
-          else do
-            let f' ← instListM t acc
-            let fa ← internI (.app f' a)
-            mkAppNM fa rest
-      | none => do
-        let f' ← instListM t acc
-        let fa ← internI (.app f' a)
-        mkAppNM fa rest
+          let f' ← instListM t acc
+          let fa ← internI (.app f' a)
+          mkAppNM fa rest
     | _ => do
       let e' ← instListM t acc
       let v ← r.whnfCore depth e'
@@ -1486,13 +1427,14 @@ def whnfCoreBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
               entry.structSort
             let bvar0 ← internI (.bvar 0)
             let arg := args.getD (entry.numParams + i) bvar0
-            if ← isNonZeroLM mx then r.whnfCore depth arg
-            else do
-              let fl ← substLevelTreeM entry.levelParams us entry.fieldSort
-              if ← projCertI r fe depth e' i fl
-                  mx entry.numParams then
-                r.whnfCore depth arg
-              else internI (.proj sn i e')
+            -- task #100 de-gating: the certificate runs
+            -- unconditionally (the former nonzero-sort gate is
+            -- unsound-to-model under the domain-relative collapse)
+            let fl ← substLevelTreeM entry.levelParams us entry.fieldSort
+            if ← projCertI r fe depth e' i fl
+                mx entry.numParams then
+              r.whnfCore depth arg
+            else internI (.proj sn i e')
           else internI (.proj sn i e')
         | _ => internI (.proj sn i e')
       | none => internI (.proj sn i e')
@@ -1517,28 +1459,25 @@ def inferSpineI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
   | ty, acc, [] => instListRevM ty acc
   | ty, acc, a :: rest => do
     match ← viewI ty with
-    | some (.forallE _ dom body mt) => do
-      -- possibly-Prop-gated argument re-check (task #49; see the
-      -- spec body `inferBody` and `codNonZero`)
-      if ← codNonZeroIM mt then
-        inferSpineI r fe depth body (acc.push a) rest
-      else do
-        let dom' ← instListRevM dom acc
-        let ta ← r.infer depth a
-        unless ← r.defeq depth ta dom' do
-          throw (.invalid "application type mismatch")
-        inferSpineI r fe depth body (acc.push a) rest
+    | some (.forallE _ dom body _mt) => do
+      -- per-argument re-check (task #100 de-gating: the former
+      -- possibly-Prop gate of task #49 is unsound-to-model under the
+      -- domain-relative collapse; the certificate runs
+      -- unconditionally, as in the spec body `inferBody`)
+      let dom' ← instListRevM dom acc
+      let ta ← r.infer depth a
+      unless ← r.defeq depth ta dom' do
+        throw (.invalid "application type mismatch")
+      inferSpineI r fe depth body (acc.push a) rest
     | _ => do
       let ty' ← instListRevM ty acc
       let w ← r.whnf depth ty'
       match ← viewI w with
-      | some (.forallE _ dom body mt) => do
-        if ← codNonZeroIM mt then inferSpineI r fe depth body #[a] rest
-        else do
-          let ta ← r.infer depth a
-          unless ← r.defeq depth ta dom do
-            throw (.invalid "application type mismatch")
-          inferSpineI r fe depth body #[a] rest
+      | some (.forallE _ dom body _mt) => do
+        let ta ← r.infer depth a
+        unless ← r.defeq depth ta dom do
+          throw (.invalid "application type mismatch")
+        inferSpineI r fe depth body #[a] rest
       | _ => throw (.invalid "function expected")
 
 /-- Twin of `whnfBody`. -/

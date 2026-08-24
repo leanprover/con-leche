@@ -104,9 +104,9 @@ theorem whnfCore_claims (m : EnvModel V env)
     obtain ⟨haf, haa, vf, va, vE, A, B, hfi, hai, hpi, hvA, hfib⟩ := ha
     obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
     obtain ⟨hif, haf'⟩ := ihwc hwf hw.1 hb.1 hLbf hokf haf
-    rcases hcase with ⟨n, ty, body, mm, v, rfl, hc, hbeta, hcert⟩ |
+    rcases hcase with ⟨n, ty, body, mm, rfl, hbeta, ta, hta, hde⟩ |
       ⟨e'', hio, hwe''⟩ | rfl
-    · -- beta (guarded or certified)
+    · -- beta (always certified; task #100 de-gating)
       have hwlam := whnfCore_WScoped m.wf fuel hwf hw.1
       have hblam := whnfCore_looseBVars m.wf fuel hwf hb.1
       have hLblam : Expr.LeavesBounded (Expr.lam n ty body mm) := fun l hl =>
@@ -115,6 +115,8 @@ theorem whnfCore_claims (m : EnvModel V env)
         whnfCore_FvarsOk m.wf fuel hwf hokf
       simp only [WScoped] at hwlam
       simp only [looseBVarsBounded, Bool.and_eq_true] at hblam
+      simp only [AnnotOk] at haf'
+      obtain ⟨haty, ⟨v, hc⟩, hcond⟩ := haf'
       have hfi' : interpExpr V m.val env φ d ρ (.lam n ty body mm) = some vf := by
         rw [hif]; exact hfi
       rw [interpExpr, hc] at hfi'
@@ -124,42 +126,28 @@ theorem whnfCore_claims (m : EnvModel V env)
       | some Aty =>
       rw [hty] at hfi'
       simp only [Option.some.injEq] at hfi'
-      simp only [AnnotOk] at haf'
-      obtain ⟨haty, -, hcond⟩ := haf'
-      -- the argument is in the λ's domain
+      -- the argument is in the λ's domain: the (unconditional)
+      -- certificate hands the fact directly
       have hdom : va ∈ˢ Aty := by
-        rcases hcert with hnz | ⟨ta, hta, hde⟩
-        · -- guarded: certainly non-Prop, so the graph determines its domain
-          have hnz' : Level.eval φ v ≠ 0 := Level.isNonZero_sound hnz φ
-          by_cases hvE : vE = 0
-          · subst hvE
-            exact absurd (hfi'.trans (mem_pi_zero hpi)) (lam_ne_pt hnz')
-          · have hpil : SetTheory.lam (v.eval φ) Aty
-                (fun x => (interpExpr V m.val env φ (d + 1) (updV V ρ d x)
-                  (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty) ∈ˢ
-                pi vE A B := by
-              rw [hfi']; exact hpi
-            exact lam_dom hpil hvE hnz' va hvA
-        · -- certified: the runtime check hands the fact directly
-          obtain ⟨⟨va₂, vta, hai₂, htai, hmema⟩, hAta⟩ :=
-            ihi hta hw.2 hb.2 hLba hoka haa
-          have hva₂ : va₂ = va := by
-            rw [hai] at hai₂
-            exact (Option.some.inj hai₂).symm
-          subst hva₂
-          have hLbta : Expr.LeavesBounded ta := fun l hl =>
-            hLba l (inferTypeCore_fvarLeaves m.wf fuel hta hw.2 l hl)
-          have hLbty : Expr.LeavesBounded ty := fun l hl =>
-            hLblam l (by simp [fvarLeaves, hl])
-          have heqA : vta = Aty :=
-            ihd hde
-              (inferTypeCore_WScoped m.wf fuel hta hw.2) hwlam.1
-              (inferTypeCore_looseBVars m.wf fuel hta hw.2 hb.2 hLba) hblam.1
-              hLbta hLbty
-              (FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hta hw.2) hoka)
-              ((FvarsOk.of_lam hoklam).1)
-              hAta haty htai hty
-          exact heqA ▸ hmema
+        obtain ⟨⟨va₂, vta, hai₂, htai, hmema⟩, hAta⟩ :=
+          ihi hta hw.2 hb.2 hLba hoka haa
+        have hva₂ : va₂ = va := by
+          rw [hai] at hai₂
+          exact (Option.some.inj hai₂).symm
+        subst hva₂
+        have hLbta : Expr.LeavesBounded ta := fun l hl =>
+          hLba l (inferTypeCore_fvarLeaves m.wf fuel hta hw.2 l hl)
+        have hLbty : Expr.LeavesBounded ty := fun l hl =>
+          hLblam l (by simp [fvarLeaves, hl])
+        have heqA : vta = Aty :=
+          ihd hde
+            (inferTypeCore_WScoped m.wf fuel hta hw.2) hwlam.1
+            (inferTypeCore_looseBVars m.wf fuel hta hw.2 hb.2 hLba) hblam.1
+            hLbta hLbty
+            (FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hta hw.2) hoka)
+            ((FvarsOk.of_lam hoklam).1)
+            hAta haty htai hty
+        exact heqA ▸ hmema
       obtain ⟨hbodyA, hwfact⟩ := hcond va Aty hty hdom
       obtain ⟨w, Bl, hwi, hwB, hBu⟩ := hwfact v hc
       have hfb : fvarsBelow d body := hwlam.2.fvarsBelow
@@ -411,8 +399,6 @@ theorem whnfCore_claims (m : EnvModel V env)
           simp only [Level.eval] at this
           rw [← hψu, ← hψv] at this
           exact this hw0
-        rcases hcert with hcert | hcert
-        case inl => exact absurd hcert hnz
         obtain ⟨ta, sta, uT, te, ste, wT, hta, hsta, hwta, heq1, hte, hste, hwte, heq2⟩ :=
           projCert_inv hcert
         have hwT0 : Level.eval φ wT = 0 := by

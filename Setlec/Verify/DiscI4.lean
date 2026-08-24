@@ -33,17 +33,11 @@ private theorem whnfCoreBody_unfold (env : Env) (d : Nat) (e : Expr) :
       (fueledFns env).whnfCore d g' >>= fun f' =>
       match f' with
       | .lam n ty body mb =>
-        match mb.cod with
-        | some v =>
-          if v.isNonZero then
-            (fueledFns env).whnfCore d (body.instantiate1 a)
-          else
-            (fueledFns env).infer d a >>= fun ta =>
-            (fueledFns env).defeq d ta ty >>= fun b =>
-            if b then
-              (fueledFns env).whnfCore d (body.instantiate1 a)
-            else pure (.app (.lam n ty body mb) a)
-        | none => pure (.app (.lam n ty body mb) a)
+        (fueledFns env).infer d a >>= fun ta =>
+        (fueledFns env).defeq d ta ty >>= fun b =>
+        if b then
+          (fueledFns env).whnfCore d (body.instantiate1 a)
+        else pure (.app (.lam n ty body mb) a)
       | f' =>
         iotaRec (fueledFns env) env d (.app f' a) >>= fun o =>
         match o with
@@ -59,19 +53,14 @@ private theorem whnfCoreBody_unfold (env : Env) (d : Nat) (e : Expr) :
           if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
               e'.getAppArgs.length = entry.numParams + entry.numFields ∧
               us.length = entry.levelParams.length then
-            if (Level.subst entry.levelParams us
-                entry.structSort).isNonZero then
+            projCert (fueledFns env) env d e' i
+              (Level.subst entry.levelParams us entry.fieldSort)
+              (Level.subst entry.levelParams us entry.structSort)
+              entry.numParams >>= fun b =>
+            if b then
               (fueledFns env).whnfCore d
                 (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
-            else
-              projCert (fueledFns env) env d e' i
-                (Level.subst entry.levelParams us entry.fieldSort)
-                (Level.subst entry.levelParams us entry.structSort)
-                entry.numParams >>= fun b =>
-              if b then
-                (fueledFns env).whnfCore d
-                  (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
-              else pure (.proj sn i e')
+            else pure (.proj sn i e')
           else pure (.proj sn i e')
         | _ => pure (.proj sn i e')
       | none => pure (.proj sn i e')
@@ -168,72 +157,37 @@ theorem whnfAppI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
           exact WScoped.instantiate1_gen hwxa 0 hwtb.2
         rw [whnfApp_lam]
         unfold whnfAppLam
-        obtain ⟨bi, cod⟩ := mb
-        dsimp only
-        cases cod with
-        | none =>
-          simp only [denoteBM, Option.some.injEq] at hbmDen
-          subst hbmDen
-          have hfa : denoteNode s₀.store.denoteT s₀.store.denoteL s₀.store.denoteN (.app v a)
-              = some (.app (.lam nm tyx bodyx ⟨bi, none⟩) xa) := by
-            rw [denoteNode, hv, hax]; rfl
-          refine SimAt.bind_left (internI_eff hs hfa)
-            (fun s₁ fa hs₁ hext₁ hQfa => ?_)
-          refine SimAt.of_eff (mkAppNM_eff hs₁ hQfa (hrest.mono hext₁)) _
+        refine SimAt.bind (ih.infer hs hax hwxa)
+          (fun s₁ ta tax hs₁ hext₁ hP => ?_)
+        obtain ⟨htad, hwta⟩ := hP
+        refine SimAt.bind (ih.defeq hs₁ htad
+          (denoteT_mono hext₁ hty) hwta hwtb.1)
+          (fun s₂ b b' hs₂ hext₂ hPb => ?_)
+        obtain rfl : b = b' := hPb
+        cases b with
+        | true =>
+          simp only [↓reduceIte]
+          exact betaPeelI_sim ih henv hs₂
+            (denoteT_mono (hext₁.trans hext₂) hbody)
+            ⟨denoteT_mono (hext₁.trans hext₂) hax, DenL.nil⟩
+            hwsub (hrest.mono (hext₁.trans hext₂)) hwrest
+        | false =>
+          simp only [Bool.false_eq_true, ↓reduceIte]
+          have hfa : denoteNode s₂.store.denoteT s₂.store.denoteL
+              s₂.store.denoteN (.app v a)
+              = some (.app (.lam nm tyx bodyx bm) xa) := by
+            rw [denoteNode,
+              denoteT_mono (hext₁.trans hext₂) hv,
+              denoteT_mono (hext₁.trans hext₂) hax]
+            rfl
+          refine SimAt.bind_left (internI_eff hs₂ hfa)
+            (fun s₃ fa hs₃ hext₃ hQfa => ?_)
+          refine SimAt.of_eff (mkAppNM_eff hs₃ hQfa
+            (hrest.mono ((hext₁.trans hext₂).trans hext₃))) _
             (fun s r hQ => ⟨hQ, ?_⟩)
           refine Expr.WScoped.mkAppN ?_ hwrest
           simp only [WScoped]
           exact ⟨hwtb, hwxa⟩
-        | some u =>
-          simp only [denoteBM, Option.map_eq_some_iff] at hbmDen
-          obtain ⟨lv, hlv, rfl⟩ := hbmDen
-          dsimp only
-          refine SimAt.bind_left (isNonZeroLM_eff hs hlv)
-            (fun s₀z bz hs₀z hext₀z hbz => ?_)
-          subst hbz
-          by_cases hnz : lv.isNonZero
-          · rw [if_pos hnz, if_pos hnz]
-            exact betaPeelI_sim ih henv hs₀z
-              (denoteT_mono hext₀z hbody)
-              ⟨denoteT_mono hext₀z hax, DenL.nil⟩
-              hwsub (hrest.mono hext₀z) hwrest
-          · rw [if_neg hnz, if_neg hnz]
-            refine SimAt.bind (ih.infer hs₀z
-              (denoteT_mono hext₀z hax) hwxa)
-              (fun s₁ ta tax hs₁ hext₁ hP => ?_)
-            obtain ⟨htad, hwta⟩ := hP
-            refine SimAt.bind (ih.defeq hs₁ htad
-              (denoteT_mono (hext₀z.trans hext₁) hty) hwta hwtb.1)
-              (fun s₂ b b' hs₂ hext₂ hPb => ?_)
-            obtain rfl : b = b' := hPb
-            cases b with
-            | true =>
-              simp only [↓reduceIte]
-              exact betaPeelI_sim ih henv hs₂
-                (denoteT_mono ((hext₀z.trans hext₁).trans hext₂) hbody)
-                ⟨denoteT_mono ((hext₀z.trans hext₁).trans hext₂) hax,
-                  DenL.nil⟩
-                hwsub (hrest.mono ((hext₀z.trans hext₁).trans hext₂))
-                hwrest
-            | false =>
-              simp only [Bool.false_eq_true, ↓reduceIte]
-              have hfa : denoteNode s₂.store.denoteT s₂.store.denoteL
-                  s₂.store.denoteN
-                  (.app v a)
-                  = some (.app (.lam nm tyx bodyx ⟨bi, some lv⟩) xa) := by
-                rw [denoteNode,
-                  denoteT_mono ((hext₀z.trans hext₁).trans hext₂) hv,
-                  denoteT_mono ((hext₀z.trans hext₁).trans hext₂) hax]
-                rfl
-              refine SimAt.bind_left (internI_eff hs₂ hfa)
-                (fun s₃ fa hs₃ hext₃ hQfa => ?_)
-              refine SimAt.of_eff (mkAppNM_eff hs₃ hQfa
-                (hrest.mono (((hext₀z.trans hext₁).trans hext₂).trans
-                  hext₃))) _
-                (fun s r hQ => ⟨hQ, ?_⟩)
-              refine Expr.WScoped.mkAppN ?_ hwrest
-              simp only [WScoped]
-              exact ⟨hwtb, hwxa⟩
       | bvar k =>
         cases hd
         have hnl : ∀ n' ty' body' mb',
@@ -420,8 +374,6 @@ theorem betaPeelI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         subst hd
         rw [betaPeel_lam]
         unfold betaPeelLam
-        obtain ⟨bi, cod⟩ := mb
-        dsimp only
         have hcomp : WScoped d (tyx.instantiateList ws)
             ∧ WScoped d (bodyx.instantiateList ws 1) := by
           rw [instList_lam] at hwty
@@ -429,78 +381,43 @@ theorem betaPeelI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
         have hwsub : WScoped d (bodyx.instantiateList (xa :: ws)) := by
           rw [Expr.instantiateList_cons]
           exact WScoped.instantiate1_gen hwxa 0 hcomp.2
-        cases cod with
-        | none =>
-          simp only [denoteBM, Option.some.injEq] at hbmDen
-          subst hbmDen
-          refine SimAt.bind_left (instListM_eff (d := 0) hs ht hacc)
-            (fun s₁ f' hs₁ hext₁ hQf' => ?_)
-          have hfa : denoteNode s₁.store.denoteT s₁.store.denoteL s₁.store.denoteN (.app f' a)
+        refine SimAt.bind_left (instListM_eff (d := 0) hs hty hacc)
+          (fun s₁ ty' hs₁ hext₁ hQty => ?_)
+        refine SimAt.bind (ih.infer hs₁
+          (denoteT_mono hext₁ hax) hwxa)
+          (fun s₂ ta tax hs₂ hext₂ hP => ?_)
+        obtain ⟨htad, hwta⟩ := hP
+        refine SimAt.bind (ih.defeq hs₂ htad
+          (denoteT_mono hext₂ hQty) hwta hcomp.1)
+          (fun s₃ b b' hs₃ hext₃ hPb => ?_)
+        obtain rfl : b = b' := hPb
+        have hextAll := (hext₁.trans hext₂).trans hext₃
+        cases b with
+        | true =>
+          simp only [↓reduceIte]
+          exact betaPeelI_sim ih henv hs₃
+            (denoteT_mono hextAll hbody)
+            ⟨denoteT_mono hextAll hax, hacc.mono hextAll⟩
+            hwsub (hrest.mono hextAll) hwrest
+        | false =>
+          simp only [Bool.false_eq_true, ↓reduceIte]
+          refine SimAt.bind_left (instListM_eff (d := 0) hs₃
+            (denoteT_mono hextAll ht) (hacc.mono hextAll))
+            (fun s₄ f' hs₄ hext₄ hQf' => ?_)
+          have hfa : denoteNode s₄.store.denoteT s₄.store.denoteL s₄.store.denoteN (.app f' a)
               = some (.app ((Expr.lam nm tyx bodyx
-                ⟨bi, none⟩).instantiateList ws) xa) := by
-            rw [denoteNode, hQf', denoteT_mono hext₁ hax]
+                bm).instantiateList ws) xa) := by
+            rw [denoteNode, hQf',
+              denoteT_mono (hextAll.trans hext₄) hax]
             rfl
-          refine SimAt.bind_left (internI_eff hs₁ hfa)
-            (fun s₂ fa hs₂ hext₂ hQfa => ?_)
-          refine SimAt.of_eff (mkAppNM_eff hs₂ hQfa
-            (hrest.mono (hext₁.trans hext₂))) _
+          refine SimAt.bind_left (internI_eff hs₄ hfa)
+            (fun s₅ fa hs₅ hext₅ hQfa => ?_)
+          refine SimAt.of_eff (mkAppNM_eff hs₅ hQfa
+            (hrest.mono ((hextAll.trans hext₄).trans hext₅))) _
             (fun s r hQ => ⟨hQ, ?_⟩)
           refine Expr.WScoped.mkAppN ?_ hwrest
           simp only [WScoped]
           exact ⟨hwty, hwxa⟩
-        | some u =>
-          simp only [denoteBM, Option.map_eq_some_iff] at hbmDen
-          obtain ⟨lv, hlv, rfl⟩ := hbmDen
-          dsimp only
-          refine SimAt.bind_left (isNonZeroLM_eff hs hlv)
-            (fun s₀z bz hs₀z hext₀z hbz => ?_)
-          subst hbz
-          by_cases hnz : lv.isNonZero
-          · rw [if_pos hnz, if_pos hnz]
-            exact betaPeelI_sim ih henv hs₀z
-              (denoteT_mono hext₀z hbody)
-              ⟨denoteT_mono hext₀z hax, hacc.mono hext₀z⟩
-              hwsub (hrest.mono hext₀z) hwrest
-          · rw [if_neg hnz, if_neg hnz]
-            refine SimAt.bind_left (instListM_eff (d := 0) hs₀z
-              (denoteT_mono hext₀z hty) (hacc.mono hext₀z))
-              (fun s₁ ty' hs₁ hext₁ hQty => ?_)
-            refine SimAt.bind (ih.infer hs₁
-              (denoteT_mono (hext₀z.trans hext₁) hax) hwxa)
-              (fun s₂ ta tax hs₂ hext₂ hP => ?_)
-            obtain ⟨htad, hwta⟩ := hP
-            refine SimAt.bind (ih.defeq hs₂ htad
-              (denoteT_mono hext₂ hQty) hwta hcomp.1)
-              (fun s₃ b b' hs₃ hext₃ hPb => ?_)
-            obtain rfl : b = b' := hPb
-            have hextAll :=
-              ((hext₀z.trans hext₁).trans hext₂).trans hext₃
-            cases b with
-            | true =>
-              simp only [↓reduceIte]
-              exact betaPeelI_sim ih henv hs₃
-                (denoteT_mono hextAll hbody)
-                ⟨denoteT_mono hextAll hax, hacc.mono hextAll⟩
-                hwsub (hrest.mono hextAll) hwrest
-            | false =>
-              simp only [Bool.false_eq_true, ↓reduceIte]
-              refine SimAt.bind_left (instListM_eff (d := 0) hs₃
-                (denoteT_mono hextAll ht) (hacc.mono hextAll))
-                (fun s₄ f' hs₄ hext₄ hQf' => ?_)
-              have hfa : denoteNode s₄.store.denoteT s₄.store.denoteL s₄.store.denoteN (.app f' a)
-                  = some (.app ((Expr.lam nm tyx bodyx
-                    ⟨bi, some lv⟩).instantiateList ws) xa) := by
-                rw [denoteNode, hQf',
-                  denoteT_mono (hextAll.trans hext₄) hax]
-                rfl
-              refine SimAt.bind_left (internI_eff hs₄ hfa)
-                (fun s₅ fa hs₅ hext₅ hQfa => ?_)
-              refine SimAt.of_eff (mkAppNM_eff hs₅ hQfa
-                (hrest.mono ((hextAll.trans hext₄).trans hext₅))) _
-                (fun s r hQ => ⟨hQ, ?_⟩)
-              refine Expr.WScoped.mkAppN ?_ hwrest
-              simp only [WScoped]
-              exact ⟨hwty, hwxa⟩
       | bvar k =>
         cases hd
         have hnl : ∀ n' ty' body' mb',
@@ -791,49 +708,35 @@ theorem whnfCoreBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
               (.bvar 0) = some (.bvar 0) := rfl
           refine SimAt.bind_left (internI_eff hs₁m hbv)
             (fun s₂ bvar0 hs₂ hext₂ hQ0 => ?_)
-          refine SimAt.bind_left (isNonZeroLM_eff hs₂
-            (denoteL_mono hext₂ hQmx))
-            (fun s₂z bz hs₂z hext₂z hbz => ?_)
-          subst hbz
-          by_cases hnz : (Level.subst entry.levelParams lus
-              entry.structSort).isNonZero
-          · rw [if_pos hnz, if_pos hnz]
-            exact ih.whnfCore hs₂z
-              (DenL.getD (denoteT_mono hext₂z hQ0) (entry.numParams + ip)
-                (hargs.mono ((hext₁m.trans hext₂).trans hext₂z))) hwarg
-          · rw [if_neg hnz, if_neg hnz]
-            refine SimAt.bind_left (substLevelTreeM_eff hs₂z
-              (ks := entry.levelParams) entry.fieldSort
-              (denoteLList_mono
-                ((hext₁m.trans hext₂).trans hext₂z) hlusDen'))
-              (fun s₂f fl hs₂f hext₂f hQfl => ?_)
-            refine SimAt.bind (projCertI_sim ih hs₂f
-              (denoteT_mono
-                ((((hext₁m.trans hext₂).trans hext₂z).trans hext₂f))
-                he'd) hwe' hQfl
-              (denoteL_mono ((hext₂.trans hext₂z).trans hext₂f) hQmx))
-              (fun s₃ b b' hs₃ hext₃ hPb => ?_)
-            obtain rfl : b = b' := hPb
-            cases b with
-            | true =>
-              simp only [↓reduceIte]
-              exact ih.whnfCore hs₃
-                (DenL.getD (denoteT_mono
-                    ((hext₂z.trans hext₂f).trans hext₃) hQ0)
-                  (entry.numParams + ip)
-                  (hargs.mono ((((hext₁m.trans hext₂).trans
-                    hext₂z).trans hext₂f).trans hext₃))) hwarg
-            | false =>
-              simp only [Bool.false_eq_true, ↓reduceIte]
-              refine SimAt.of_eff (internI_eff hs₃
-                (x := .proj sn ip e'x) ?_) _
-                (fun s pr hQ => ⟨hQ, hwproj⟩)
-              rw [denoteNode,
-                denoteT_mono ((((hext₁m.trans hext₂).trans
-                  hext₂z).trans hext₂f).trans hext₃) he'd,
-                denoteN_mono ((((hext₁m.trans hext₂).trans
-                  hext₂z).trans hext₂f).trans hext₃) hsnDen]
-              rfl
+          refine SimAt.bind_left (substLevelTreeM_eff hs₂
+            (ks := entry.levelParams) entry.fieldSort
+            (denoteLList_mono (hext₁m.trans hext₂) hlusDen'))
+            (fun s₂f fl hs₂f hext₂f hQfl => ?_)
+          refine SimAt.bind (projCertI_sim ih hs₂f
+            (denoteT_mono ((hext₁m.trans hext₂).trans hext₂f) he'd)
+            hwe' hQfl
+            (denoteL_mono (hext₂.trans hext₂f) hQmx))
+            (fun s₃ b b' hs₃ hext₃ hPb => ?_)
+          obtain rfl : b = b' := hPb
+          cases b with
+          | true =>
+            simp only [↓reduceIte]
+            exact ih.whnfCore hs₃
+              (DenL.getD (denoteT_mono (hext₂f.trans hext₃) hQ0)
+                (entry.numParams + ip)
+                (hargs.mono (((hext₁m.trans hext₂).trans
+                  hext₂f).trans hext₃))) hwarg
+          | false =>
+            simp only [Bool.false_eq_true, ↓reduceIte]
+            refine SimAt.of_eff (internI_eff hs₃
+              (x := .proj sn ip e'x) ?_) _
+              (fun s pr hQ => ⟨hQ, hwproj⟩)
+            rw [denoteNode,
+              denoteT_mono (((hext₁m.trans hext₂).trans
+                hext₂f).trans hext₃) he'd,
+              denoteN_mono (((hext₁m.trans hext₂).trans
+                hext₂f).trans hext₃) hsnDen]
+            rfl
         · refine SimAt.of_eff (internI_eff hs₁
             (x := .proj sn ip e'x) ?_) _
             (fun s pr hQ => ⟨hQ, hwproj⟩)
@@ -1001,37 +904,27 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
           rw [Expr.instantiateList_cons]
           exact WScoped.instantiate1_gen hwxa 0 hcomp.2
         dsimp only
-        refine SimAt.bind_left (codNonZeroIM_eff hs hbmDen)
-          (fun sG g hsG hextG hg => ?_)
-        subst hg
-        by_cases hnz : codNonZero bm = true
-        · rw [if_pos hnz, if_pos hnz]
-          exact inferSpineI_sim ih henv hsG (denoteT_mono hextG hbody)
-            (by rw [toListRev_push]; exact ⟨denoteT_mono hextG hax, hacc.mono hextG⟩) hwsub
-            (hrest.mono hextG) hwrest
-        · rw [if_neg hnz, if_neg hnz]
-          refine SimAt.bind_left (instListRevM_eff (d := 0) hsG
-            (denoteT_mono hextG hdom) (hacc.mono hextG))
-            (fun s₁ dom' hs₁ hext₁ hQdom => ?_)
-          refine SimAt.bind (ih.infer hs₁
-            (denoteT_mono (hextG.trans hext₁) hax) hwxa)
-            (fun s₂ ta tax hs₂ hext₂ hP => ?_)
-          obtain ⟨htad, hwta⟩ := hP
-          refine SimAt.bind (ih.defeq hs₂ htad
-            (denoteT_mono hext₂ hQdom) hwta hcomp.1)
-            (fun s₃ b b' hs₃ hext₃ hPb => ?_)
-          obtain rfl : b = b' := hPb
-          cases b with
-          | false =>
-            simp only [Bool.false_eq_true, ↓reduceIte]
-            exact SimAt.throw_bind
-          | true =>
-            simp only [↓reduceIte]
-            have hextAll := hextG.trans
-              ((hext₁.trans hext₂).trans hext₃)
-            exact inferSpineI_sim ih henv hs₃ (denoteT_mono hextAll hbody)
-              (by rw [toListRev_push]; exact ⟨denoteT_mono hextAll hax, hacc.mono hextAll⟩) hwsub
-              (hrest.mono hextAll) hwrest
+        refine SimAt.bind_left (instListRevM_eff (d := 0) hs
+          hdom hacc)
+          (fun s₁ dom' hs₁ hext₁ hQdom => ?_)
+        refine SimAt.bind (ih.infer hs₁
+          (denoteT_mono hext₁ hax) hwxa)
+          (fun s₂ ta tax hs₂ hext₂ hP => ?_)
+        obtain ⟨htad, hwta⟩ := hP
+        refine SimAt.bind (ih.defeq hs₂ htad
+          (denoteT_mono hext₂ hQdom) hwta hcomp.1)
+          (fun s₃ b b' hs₃ hext₃ hPb => ?_)
+        obtain rfl : b = b' := hPb
+        cases b with
+        | false =>
+          simp only [Bool.false_eq_true, ↓reduceIte]
+          exact SimAt.throw_bind
+        | true =>
+          simp only [↓reduceIte]
+          have hextAll := (hext₁.trans hext₂).trans hext₃
+          exact inferSpineI_sim ih henv hs₃ (denoteT_mono hextAll hbody)
+            (by rw [toListRev_push]; exact ⟨denoteT_mono hextAll hax, hacc.mono hextAll⟩) hwsub
+            (hrest.mono hextAll) hwrest
       | bvar k =>
         cases hd
         have hnl : ∀ n' dom' body' bi',
@@ -1064,38 +957,27 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
             rw [instList_single]
             exact WScoped.instantiate1_gen hwxa 0 hwtb.2
           dsimp only
-          refine SimAt.bind_left (codNonZeroIM_eff hs₂ hbmDen)
-            (fun sG g hsG hextG hg => ?_)
-          subst hg
-          by_cases hnz : codNonZero bm = true
-          · rw [if_pos hnz, if_pos hnz]
-            exact inferSpineI_sim ih henv hsG (denoteT_mono hextG hbody)
+          refine SimAt.bind (ih.infer hs₂
+            (denoteT_mono (hext₁.trans hext₂) hax) hwxa)
+            (fun s₃ ta tax hs₃ hext₃ hP₃ => ?_)
+          obtain ⟨htad, hwta⟩ := hP₃
+          refine SimAt.bind (ih.defeq hs₃ htad
+            (denoteT_mono hext₃ hdom) hwta hwtb.1)
+            (fun s₄ b b' hs₄ hext₄ hPb => ?_)
+          obtain rfl : b = b' := hPb
+          cases b with
+          | false =>
+            simp only [Bool.false_eq_true, ↓reduceIte]
+            exact SimAt.throw_bind
+          | true =>
+            simp only [↓reduceIte]
+            have hextAll := hext₃.trans hext₄
+            exact inferSpineI_sim ih henv hs₄
+              (denoteT_mono hextAll hbody)
               (by
-                rw [toListRev_singleton]
-                exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextG) hax, DenL.nil⟩) hwsub
-              (hrest.mono ((hext₁.trans hext₂).trans hextG)) hwrest
-          · rw [if_neg hnz, if_neg hnz]
-            refine SimAt.bind (ih.infer hsG
-              (denoteT_mono ((hext₁.trans hext₂).trans hextG) hax) hwxa)
-              (fun s₃ ta tax hs₃ hext₃ hP₃ => ?_)
-            obtain ⟨htad, hwta⟩ := hP₃
-            refine SimAt.bind (ih.defeq hs₃ htad
-              (denoteT_mono (hextG.trans hext₃) hdom) hwta hwtb.1)
-              (fun s₄ b b' hs₄ hext₄ hPb => ?_)
-            obtain rfl : b = b' := hPb
-            cases b with
-            | false =>
-              simp only [Bool.false_eq_true, ↓reduceIte]
-              exact SimAt.throw_bind
-            | true =>
-              simp only [↓reduceIte]
-              have hextAll := hextG.trans (hext₃.trans hext₄)
-              exact inferSpineI_sim ih henv hs₄
-                (denoteT_mono hextAll hbody)
-                (by
-                rw [toListRev_singleton]
-                exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
-                (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
+              rw [toListRev_singleton]
+              exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
+              (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
         | bvar k => invert_node hd'; exact SimAt.throw
         | sort u => invert_node hd'; exact SimAt.throw
         | const nm'ᵢ us => invert_node hd'; exact SimAt.throw
@@ -1143,38 +1025,27 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
             rw [instList_single]
             exact WScoped.instantiate1_gen hwxa 0 hwtb.2
           dsimp only
-          refine SimAt.bind_left (codNonZeroIM_eff hs₂ hbmDen)
-            (fun sG g hsG hextG hg => ?_)
-          subst hg
-          by_cases hnz : codNonZero bm = true
-          · rw [if_pos hnz, if_pos hnz]
-            exact inferSpineI_sim ih henv hsG (denoteT_mono hextG hbody)
+          refine SimAt.bind (ih.infer hs₂
+            (denoteT_mono (hext₁.trans hext₂) hax) hwxa)
+            (fun s₃ ta tax hs₃ hext₃ hP₃ => ?_)
+          obtain ⟨htad, hwta⟩ := hP₃
+          refine SimAt.bind (ih.defeq hs₃ htad
+            (denoteT_mono hext₃ hdom) hwta hwtb.1)
+            (fun s₄ b b' hs₄ hext₄ hPb => ?_)
+          obtain rfl : b = b' := hPb
+          cases b with
+          | false =>
+            simp only [Bool.false_eq_true, ↓reduceIte]
+            exact SimAt.throw_bind
+          | true =>
+            simp only [↓reduceIte]
+            have hextAll := hext₃.trans hext₄
+            exact inferSpineI_sim ih henv hs₄
+              (denoteT_mono hextAll hbody)
               (by
-                rw [toListRev_singleton]
-                exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextG) hax, DenL.nil⟩) hwsub
-              (hrest.mono ((hext₁.trans hext₂).trans hextG)) hwrest
-          · rw [if_neg hnz, if_neg hnz]
-            refine SimAt.bind (ih.infer hsG
-              (denoteT_mono ((hext₁.trans hext₂).trans hextG) hax) hwxa)
-              (fun s₃ ta tax hs₃ hext₃ hP₃ => ?_)
-            obtain ⟨htad, hwta⟩ := hP₃
-            refine SimAt.bind (ih.defeq hs₃ htad
-              (denoteT_mono (hextG.trans hext₃) hdom) hwta hwtb.1)
-              (fun s₄ b b' hs₄ hext₄ hPb => ?_)
-            obtain rfl : b = b' := hPb
-            cases b with
-            | false =>
-              simp only [Bool.false_eq_true, ↓reduceIte]
-              exact SimAt.throw_bind
-            | true =>
-              simp only [↓reduceIte]
-              have hextAll := hextG.trans (hext₃.trans hext₄)
-              exact inferSpineI_sim ih henv hs₄
-                (denoteT_mono hextAll hbody)
-                (by
-                rw [toListRev_singleton]
-                exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
-                (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
+              rw [toListRev_singleton]
+              exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
+              (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
         | bvar k => invert_node hd'; exact SimAt.throw
         | sort u => invert_node hd'; exact SimAt.throw
         | const nm'ᵢ us => invert_node hd'; exact SimAt.throw
@@ -1224,38 +1095,27 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
             rw [instList_single]
             exact WScoped.instantiate1_gen hwxa 0 hwtb.2
           dsimp only
-          refine SimAt.bind_left (codNonZeroIM_eff hs₂ hbmDen)
-            (fun sG g hsG hextG hg => ?_)
-          subst hg
-          by_cases hnz : codNonZero bm = true
-          · rw [if_pos hnz, if_pos hnz]
-            exact inferSpineI_sim ih henv hsG (denoteT_mono hextG hbody)
+          refine SimAt.bind (ih.infer hs₂
+            (denoteT_mono (hext₁.trans hext₂) hax) hwxa)
+            (fun s₃ ta tax hs₃ hext₃ hP₃ => ?_)
+          obtain ⟨htad, hwta⟩ := hP₃
+          refine SimAt.bind (ih.defeq hs₃ htad
+            (denoteT_mono hext₃ hdom) hwta hwtb.1)
+            (fun s₄ b b' hs₄ hext₄ hPb => ?_)
+          obtain rfl : b = b' := hPb
+          cases b with
+          | false =>
+            simp only [Bool.false_eq_true, ↓reduceIte]
+            exact SimAt.throw_bind
+          | true =>
+            simp only [↓reduceIte]
+            have hextAll := hext₃.trans hext₄
+            exact inferSpineI_sim ih henv hs₄
+              (denoteT_mono hextAll hbody)
               (by
-                rw [toListRev_singleton]
-                exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextG) hax, DenL.nil⟩) hwsub
-              (hrest.mono ((hext₁.trans hext₂).trans hextG)) hwrest
-          · rw [if_neg hnz, if_neg hnz]
-            refine SimAt.bind (ih.infer hsG
-              (denoteT_mono ((hext₁.trans hext₂).trans hextG) hax) hwxa)
-              (fun s₃ ta tax hs₃ hext₃ hP₃ => ?_)
-            obtain ⟨htad, hwta⟩ := hP₃
-            refine SimAt.bind (ih.defeq hs₃ htad
-              (denoteT_mono (hextG.trans hext₃) hdom) hwta hwtb.1)
-              (fun s₄ b b' hs₄ hext₄ hPb => ?_)
-            obtain rfl : b = b' := hPb
-            cases b with
-            | false =>
-              simp only [Bool.false_eq_true, ↓reduceIte]
-              exact SimAt.throw_bind
-            | true =>
-              simp only [↓reduceIte]
-              have hextAll := hextG.trans (hext₃.trans hext₄)
-              exact inferSpineI_sim ih henv hs₄
-                (denoteT_mono hextAll hbody)
-                (by
-                rw [toListRev_singleton]
-                exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
-                (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
+              rw [toListRev_singleton]
+              exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
+              (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
         | bvar k => invert_node hd'; exact SimAt.throw
         | sort u => invert_node hd'; exact SimAt.throw
         | const nm' us => invert_node hd'; exact SimAt.throw
@@ -1297,38 +1157,27 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
             rw [instList_single]
             exact WScoped.instantiate1_gen hwxa 0 hwtb.2
           dsimp only
-          refine SimAt.bind_left (codNonZeroIM_eff hs₂ hbmDen)
-            (fun sG g hsG hextG hg => ?_)
-          subst hg
-          by_cases hnz : codNonZero bm = true
-          · rw [if_pos hnz, if_pos hnz]
-            exact inferSpineI_sim ih henv hsG (denoteT_mono hextG hbody)
+          refine SimAt.bind (ih.infer hs₂
+            (denoteT_mono (hext₁.trans hext₂) hax) hwxa)
+            (fun s₃ ta tax hs₃ hext₃ hP₃ => ?_)
+          obtain ⟨htad, hwta⟩ := hP₃
+          refine SimAt.bind (ih.defeq hs₃ htad
+            (denoteT_mono hext₃ hdom) hwta hwtb.1)
+            (fun s₄ b b' hs₄ hext₄ hPb => ?_)
+          obtain rfl : b = b' := hPb
+          cases b with
+          | false =>
+            simp only [Bool.false_eq_true, ↓reduceIte]
+            exact SimAt.throw_bind
+          | true =>
+            simp only [↓reduceIte]
+            have hextAll := hext₃.trans hext₄
+            exact inferSpineI_sim ih henv hs₄
+              (denoteT_mono hextAll hbody)
               (by
-                rw [toListRev_singleton]
-                exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextG) hax, DenL.nil⟩) hwsub
-              (hrest.mono ((hext₁.trans hext₂).trans hextG)) hwrest
-          · rw [if_neg hnz, if_neg hnz]
-            refine SimAt.bind (ih.infer hsG
-              (denoteT_mono ((hext₁.trans hext₂).trans hextG) hax) hwxa)
-              (fun s₃ ta tax hs₃ hext₃ hP₃ => ?_)
-            obtain ⟨htad, hwta⟩ := hP₃
-            refine SimAt.bind (ih.defeq hs₃ htad
-              (denoteT_mono (hextG.trans hext₃) hdom) hwta hwtb.1)
-              (fun s₄ b b' hs₄ hext₄ hPb => ?_)
-            obtain rfl : b = b' := hPb
-            cases b with
-            | false =>
-              simp only [Bool.false_eq_true, ↓reduceIte]
-              exact SimAt.throw_bind
-            | true =>
-              simp only [↓reduceIte]
-              have hextAll := hextG.trans (hext₃.trans hext₄)
-              exact inferSpineI_sim ih henv hs₄
-                (denoteT_mono hextAll hbody)
-                (by
-                rw [toListRev_singleton]
-                exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
-                (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
+              rw [toListRev_singleton]
+              exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
+              (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
         | bvar k => invert_node hd'; exact SimAt.throw
         | sort u => invert_node hd'; exact SimAt.throw
         | const nm'ᵢ us => invert_node hd'; exact SimAt.throw
@@ -1379,38 +1228,27 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
             rw [instList_single]
             exact WScoped.instantiate1_gen hwxa 0 hwtb.2
           dsimp only
-          refine SimAt.bind_left (codNonZeroIM_eff hs₂ hbmDen)
-            (fun sG g hsG hextG hg => ?_)
-          subst hg
-          by_cases hnz : codNonZero bm = true
-          · rw [if_pos hnz, if_pos hnz]
-            exact inferSpineI_sim ih henv hsG (denoteT_mono hextG hbody)
+          refine SimAt.bind (ih.infer hs₂
+            (denoteT_mono (hext₁.trans hext₂) hax) hwxa)
+            (fun s₃ ta tax hs₃ hext₃ hP₃ => ?_)
+          obtain ⟨htad, hwta⟩ := hP₃
+          refine SimAt.bind (ih.defeq hs₃ htad
+            (denoteT_mono hext₃ hdom) hwta hwtb.1)
+            (fun s₄ b b' hs₄ hext₄ hPb => ?_)
+          obtain rfl : b = b' := hPb
+          cases b with
+          | false =>
+            simp only [Bool.false_eq_true, ↓reduceIte]
+            exact SimAt.throw_bind
+          | true =>
+            simp only [↓reduceIte]
+            have hextAll := hext₃.trans hext₄
+            exact inferSpineI_sim ih henv hs₄
+              (denoteT_mono hextAll hbody)
               (by
-                rw [toListRev_singleton]
-                exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextG) hax, DenL.nil⟩) hwsub
-              (hrest.mono ((hext₁.trans hext₂).trans hextG)) hwrest
-          · rw [if_neg hnz, if_neg hnz]
-            refine SimAt.bind (ih.infer hsG
-              (denoteT_mono ((hext₁.trans hext₂).trans hextG) hax) hwxa)
-              (fun s₃ ta tax hs₃ hext₃ hP₃ => ?_)
-            obtain ⟨htad, hwta⟩ := hP₃
-            refine SimAt.bind (ih.defeq hs₃ htad
-              (denoteT_mono (hextG.trans hext₃) hdom) hwta hwtb.1)
-              (fun s₄ b b' hs₄ hext₄ hPb => ?_)
-            obtain rfl : b = b' := hPb
-            cases b with
-            | false =>
-              simp only [Bool.false_eq_true, ↓reduceIte]
-              exact SimAt.throw_bind
-            | true =>
-              simp only [↓reduceIte]
-              have hextAll := hextG.trans (hext₃.trans hext₄)
-              exact inferSpineI_sim ih henv hs₄
-                (denoteT_mono hextAll hbody)
-                (by
-                rw [toListRev_singleton]
-                exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
-                (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
+              rw [toListRev_singleton]
+              exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
+              (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
         | bvar k => invert_node hd'; exact SimAt.throw
         | sort u => invert_node hd'; exact SimAt.throw
         | const nm' us => invert_node hd'; exact SimAt.throw
@@ -1456,38 +1294,27 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
             rw [instList_single]
             exact WScoped.instantiate1_gen hwxa 0 hwtb.2
           dsimp only
-          refine SimAt.bind_left (codNonZeroIM_eff hs₂ hbmDen)
-            (fun sG g hsG hextG hg => ?_)
-          subst hg
-          by_cases hnz : codNonZero bm = true
-          · rw [if_pos hnz, if_pos hnz]
-            exact inferSpineI_sim ih henv hsG (denoteT_mono hextG hbody)
+          refine SimAt.bind (ih.infer hs₂
+            (denoteT_mono (hext₁.trans hext₂) hax) hwxa)
+            (fun s₃ ta tax hs₃ hext₃ hP₃ => ?_)
+          obtain ⟨htad, hwta⟩ := hP₃
+          refine SimAt.bind (ih.defeq hs₃ htad
+            (denoteT_mono hext₃ hdom) hwta hwtb.1)
+            (fun s₄ b b' hs₄ hext₄ hPb => ?_)
+          obtain rfl : b = b' := hPb
+          cases b with
+          | false =>
+            simp only [Bool.false_eq_true, ↓reduceIte]
+            exact SimAt.throw_bind
+          | true =>
+            simp only [↓reduceIte]
+            have hextAll := hext₃.trans hext₄
+            exact inferSpineI_sim ih henv hs₄
+              (denoteT_mono hextAll hbody)
               (by
-                rw [toListRev_singleton]
-                exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextG) hax, DenL.nil⟩) hwsub
-              (hrest.mono ((hext₁.trans hext₂).trans hextG)) hwrest
-          · rw [if_neg hnz, if_neg hnz]
-            refine SimAt.bind (ih.infer hsG
-              (denoteT_mono ((hext₁.trans hext₂).trans hextG) hax) hwxa)
-              (fun s₃ ta tax hs₃ hext₃ hP₃ => ?_)
-            obtain ⟨htad, hwta⟩ := hP₃
-            refine SimAt.bind (ih.defeq hs₃ htad
-              (denoteT_mono (hextG.trans hext₃) hdom) hwta hwtb.1)
-              (fun s₄ b b' hs₄ hext₄ hPb => ?_)
-            obtain rfl : b = b' := hPb
-            cases b with
-            | false =>
-              simp only [Bool.false_eq_true, ↓reduceIte]
-              exact SimAt.throw_bind
-            | true =>
-              simp only [↓reduceIte]
-              have hextAll := hextG.trans (hext₃.trans hext₄)
-              exact inferSpineI_sim ih henv hs₄
-                (denoteT_mono hextAll hbody)
-                (by
-                rw [toListRev_singleton]
-                exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
-                (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
+              rw [toListRev_singleton]
+              exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
+              (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
         | bvar k => invert_node hd'; exact SimAt.throw
         | sort u => invert_node hd'; exact SimAt.throw
         | const nm'ᵢ us => invert_node hd'; exact SimAt.throw
@@ -1542,38 +1369,27 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
             rw [instList_single]
             exact WScoped.instantiate1_gen hwxa 0 hwtb.2
           dsimp only
-          refine SimAt.bind_left (codNonZeroIM_eff hs₂ hbmDen)
-            (fun sG g hsG hextG hg => ?_)
-          subst hg
-          by_cases hnz : codNonZero bm = true
-          · rw [if_pos hnz, if_pos hnz]
-            exact inferSpineI_sim ih henv hsG (denoteT_mono hextG hbody)
+          refine SimAt.bind (ih.infer hs₂
+            (denoteT_mono (hext₁.trans hext₂) hax) hwxa)
+            (fun s₃ ta tax hs₃ hext₃ hP₃ => ?_)
+          obtain ⟨htad, hwta⟩ := hP₃
+          refine SimAt.bind (ih.defeq hs₃ htad
+            (denoteT_mono hext₃ hdom) hwta hwtb.1)
+            (fun s₄ b b' hs₄ hext₄ hPb => ?_)
+          obtain rfl : b = b' := hPb
+          cases b with
+          | false =>
+            simp only [Bool.false_eq_true, ↓reduceIte]
+            exact SimAt.throw_bind
+          | true =>
+            simp only [↓reduceIte]
+            have hextAll := hext₃.trans hext₄
+            exact inferSpineI_sim ih henv hs₄
+              (denoteT_mono hextAll hbody)
               (by
-                rw [toListRev_singleton]
-                exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextG) hax, DenL.nil⟩) hwsub
-              (hrest.mono ((hext₁.trans hext₂).trans hextG)) hwrest
-          · rw [if_neg hnz, if_neg hnz]
-            refine SimAt.bind (ih.infer hsG
-              (denoteT_mono ((hext₁.trans hext₂).trans hextG) hax) hwxa)
-              (fun s₃ ta tax hs₃ hext₃ hP₃ => ?_)
-            obtain ⟨htad, hwta⟩ := hP₃
-            refine SimAt.bind (ih.defeq hs₃ htad
-              (denoteT_mono (hextG.trans hext₃) hdom) hwta hwtb.1)
-              (fun s₄ b b' hs₄ hext₄ hPb => ?_)
-            obtain rfl : b = b' := hPb
-            cases b with
-            | false =>
-              simp only [Bool.false_eq_true, ↓reduceIte]
-              exact SimAt.throw_bind
-            | true =>
-              simp only [↓reduceIte]
-              have hextAll := hextG.trans (hext₃.trans hext₄)
-              exact inferSpineI_sim ih henv hs₄
-                (denoteT_mono hextAll hbody)
-                (by
-                rw [toListRev_singleton]
-                exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
-                (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
+              rw [toListRev_singleton]
+              exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
+              (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
         | bvar k => invert_node hd'; exact SimAt.throw
         | sort u => invert_node hd'; exact SimAt.throw
         | const nm' us => invert_node hd'; exact SimAt.throw
@@ -1623,38 +1439,27 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
             rw [instList_single]
             exact WScoped.instantiate1_gen hwxa 0 hwtb.2
           dsimp only
-          refine SimAt.bind_left (codNonZeroIM_eff hs₂ hbmDen)
-            (fun sG g hsG hextG hg => ?_)
-          subst hg
-          by_cases hnz : codNonZero bm = true
-          · rw [if_pos hnz, if_pos hnz]
-            exact inferSpineI_sim ih henv hsG (denoteT_mono hextG hbody)
+          refine SimAt.bind (ih.infer hs₂
+            (denoteT_mono (hext₁.trans hext₂) hax) hwxa)
+            (fun s₃ ta tax hs₃ hext₃ hP₃ => ?_)
+          obtain ⟨htad, hwta⟩ := hP₃
+          refine SimAt.bind (ih.defeq hs₃ htad
+            (denoteT_mono hext₃ hdom) hwta hwtb.1)
+            (fun s₄ b b' hs₄ hext₄ hPb => ?_)
+          obtain rfl : b = b' := hPb
+          cases b with
+          | false =>
+            simp only [Bool.false_eq_true, ↓reduceIte]
+            exact SimAt.throw_bind
+          | true =>
+            simp only [↓reduceIte]
+            have hextAll := hext₃.trans hext₄
+            exact inferSpineI_sim ih henv hs₄
+              (denoteT_mono hextAll hbody)
               (by
-                rw [toListRev_singleton]
-                exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextG) hax, DenL.nil⟩) hwsub
-              (hrest.mono ((hext₁.trans hext₂).trans hextG)) hwrest
-          · rw [if_neg hnz, if_neg hnz]
-            refine SimAt.bind (ih.infer hsG
-              (denoteT_mono ((hext₁.trans hext₂).trans hextG) hax) hwxa)
-              (fun s₃ ta tax hs₃ hext₃ hP₃ => ?_)
-            obtain ⟨htad, hwta⟩ := hP₃
-            refine SimAt.bind (ih.defeq hs₃ htad
-              (denoteT_mono (hextG.trans hext₃) hdom) hwta hwtb.1)
-              (fun s₄ b b' hs₄ hext₄ hPb => ?_)
-            obtain rfl : b = b' := hPb
-            cases b with
-            | false =>
-              simp only [Bool.false_eq_true, ↓reduceIte]
-              exact SimAt.throw_bind
-            | true =>
-              simp only [↓reduceIte]
-              have hextAll := hextG.trans (hext₃.trans hext₄)
-              exact inferSpineI_sim ih henv hs₄
-                (denoteT_mono hextAll hbody)
-                (by
-                rw [toListRev_singleton]
-                exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
-                (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
+              rw [toListRev_singleton]
+              exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
+              (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
         | bvar k => invert_node hd'; exact SimAt.throw
         | sort u => invert_node hd'; exact SimAt.throw
         | const nm' us => invert_node hd'; exact SimAt.throw
@@ -1700,38 +1505,27 @@ theorem inferSpineI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
             rw [instList_single]
             exact WScoped.instantiate1_gen hwxa 0 hwtb.2
           dsimp only
-          refine SimAt.bind_left (codNonZeroIM_eff hs₂ hbmDen)
-            (fun sG g hsG hextG hg => ?_)
-          subst hg
-          by_cases hnz : codNonZero bm = true
-          · rw [if_pos hnz, if_pos hnz]
-            exact inferSpineI_sim ih henv hsG (denoteT_mono hextG hbody)
+          refine SimAt.bind (ih.infer hs₂
+            (denoteT_mono (hext₁.trans hext₂) hax) hwxa)
+            (fun s₃ ta tax hs₃ hext₃ hP₃ => ?_)
+          obtain ⟨htad, hwta⟩ := hP₃
+          refine SimAt.bind (ih.defeq hs₃ htad
+            (denoteT_mono hext₃ hdom) hwta hwtb.1)
+            (fun s₄ b b' hs₄ hext₄ hPb => ?_)
+          obtain rfl : b = b' := hPb
+          cases b with
+          | false =>
+            simp only [Bool.false_eq_true, ↓reduceIte]
+            exact SimAt.throw_bind
+          | true =>
+            simp only [↓reduceIte]
+            have hextAll := hext₃.trans hext₄
+            exact inferSpineI_sim ih henv hs₄
+              (denoteT_mono hextAll hbody)
               (by
-                rw [toListRev_singleton]
-                exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextG) hax, DenL.nil⟩) hwsub
-              (hrest.mono ((hext₁.trans hext₂).trans hextG)) hwrest
-          · rw [if_neg hnz, if_neg hnz]
-            refine SimAt.bind (ih.infer hsG
-              (denoteT_mono ((hext₁.trans hext₂).trans hextG) hax) hwxa)
-              (fun s₃ ta tax hs₃ hext₃ hP₃ => ?_)
-            obtain ⟨htad, hwta⟩ := hP₃
-            refine SimAt.bind (ih.defeq hs₃ htad
-              (denoteT_mono (hextG.trans hext₃) hdom) hwta hwtb.1)
-              (fun s₄ b b' hs₄ hext₄ hPb => ?_)
-            obtain rfl : b = b' := hPb
-            cases b with
-            | false =>
-              simp only [Bool.false_eq_true, ↓reduceIte]
-              exact SimAt.throw_bind
-            | true =>
-              simp only [↓reduceIte]
-              have hextAll := hextG.trans (hext₃.trans hext₄)
-              exact inferSpineI_sim ih henv hs₄
-                (denoteT_mono hextAll hbody)
-                (by
-                rw [toListRev_singleton]
-                exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
-                (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
+              rw [toListRev_singleton]
+              exact ⟨denoteT_mono ((hext₁.trans hext₂).trans hextAll) hax, DenL.nil⟩) hwsub
+              (hrest.mono ((hext₁.trans hext₂).trans hextAll)) hwrest
         | bvar k => invert_node hd'; exact SimAt.throw
         | sort u => invert_node hd'; exact SimAt.throw
         | const nm' us => invert_node hd'; exact SimAt.throw

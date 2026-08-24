@@ -555,57 +555,6 @@ private theorem iotaCerts_shift (henv : EnvWF env)
     | .lit l => rfl
     | .proj sp i' e' => rfl
 
-private theorem iotaCertsG_shift (henv : EnvWF env)
-    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) :
-    ∀ {args : List Expr} {ty : Expr}, WScoped d ty →
-      (∀ x ∈ args, WScoped d x) →
-      iotaCertsG (pureFns env fuel) env (d + 1) (shiftFrom p ty)
-          (args.map (shiftFrom p)) =
-        iotaCertsG (pureFns env fuel) env d ty args := by
-  intro args
-  induction args with
-  | nil => intro ty _ _; rfl
-  | cons arg rest ihrest =>
-    intro ty hwty hwargs
-    have hwarg : WScoped d arg := hwargs arg (List.mem_cons_self ..)
-    have hwrest : ∀ x ∈ rest, WScoped d x :=
-      fun x hx => hwargs x (List.mem_cons_of_mem _ hx)
-    match ty with
-    | .forallE n ty' body mb =>
-      have hwty' : WScoped d ty' ∧ WScoped d body := by
-        simpa only [WScoped] using hwty
-      have hrec := ihrest (WScoped.instantiate1_gen hwarg 0 hwty'.2) hwrest
-      rw [shiftFrom_instantiate1_gen] at hrec
-      show (if codNonZero mb then
-          iotaCertsG (pureFns env fuel) env (d + 1)
-            ((shiftFrom p body).instantiate1 (shiftFrom p arg))
-            (rest.map (shiftFrom p))
-        else (do
-          let ta ← (pureFns env fuel).infer (d + 1) (shiftFrom p arg)
-          if ← (pureFns env fuel).defeq (d + 1) ta (shiftFrom p ty') then
-            iotaCertsG (pureFns env fuel) env (d + 1)
-              ((shiftFrom p body).instantiate1 (shiftFrom p arg))
-              (rest.map (shiftFrom p))
-          else pure false : CheckM Bool)) = _
-      refine ite_congr' (fun _ => hrec) (fun _ => ?_)
-      refine bind_congr _ (ih.infer hpd hwarg) ?_
-      intro ta hta
-      refine bind_congr_eq
-        (ih.defeq hpd (inferTypeCore_WScoped henv fuel hta hwarg)
-          hwty'.1) ?_
-      intro bb _
-      exact ite_congr' (fun _ => hrec) (fun _ => rfl)
-    | .bvar i => rfl
-    | .fvar idx n' ty'' => rw [shiftFrom_fvar]; rfl
-    | .sort u => rfl
-    | .const n' us => rfl
-    | .app f a => rfl
-    | .lam n' ty'' body' m' => rfl
-    | .letE n' ty'' v' b' => rfl
-    | .lit l => rfl
-    | .proj sp i' e' => rfl
-
-/-- The eta-rescue fabrication spine commutes with the fvar shift. -/
 private theorem etaFabArgs_shift (p : Nat) (T : Name) (ust : List Level)
     (targs : List Expr) (major : Expr) (nF : Nat) :
     etaFabArgs T ust (List.map (shiftFrom p) targs) (shiftFrom p major)
@@ -1483,7 +1432,7 @@ private theorem iotaRec_shift (henv : EnvWF env)
             us).hasFvar = false := by
           rw [hasFvar_instantiateLevelParams]
           exact (henv _ (find?_mem hfc)).1
-        have h2 := iotaCertsG_shift henv ih hpd
+        have h2 := iotaCerts_shift henv ih hpd
           (ty := cv.type.instantiateLevelParams cv.levelParams us)
           (WScoped.of_not_hasFvar htel₁)
           (args := e.getAppArgs.take mI ++ [major])
@@ -1500,7 +1449,7 @@ private theorem iotaRec_shift (henv : EnvWF env)
             usj).hasFvar = false := by
           rw [hasFvar_instantiateLevelParams]
           exact (henv _ (find?_mem hfj)).1
-        have h3 := iotaCertsG_shift henv ih hpd
+        have h3 := iotaCerts_shift henv ih hpd
           (ty := cvj.type.instantiateLevelParams cvj.levelParams usj)
           (WScoped.of_not_hasFvar htel₂)
           (args := major.getAppArgs)
@@ -1912,24 +1861,16 @@ private theorem whnfCore_step (henv : EnvWF env)
     | lam n₁ ty₁ body₁ m₁ =>
       simp only [WScoped] at hwf'
       dsimp only [shiftFrom]
-      cases hc : m₁.cod with
-      | none => rfl
-      | some v =>
-        dsimp only
-        refine ite_rel _ (fun _ => ?_) (fun _ => ?_)
-        · have h := ih.whnfCore hpd
-            (WScoped.instantiate1_gen hw.2 0 hwf'.2)
-          rwa [shiftFrom_instantiate1_gen] at h
-        · refine bind_rel _ _ (ih.infer hpd hw.2) ?_
-          intro ta hta
-          refine bind_rel_eq _
-            (ih.defeq hpd (inferTypeCore_WScoped henv fuel hta hw.2)
-              hwf'.1) ?_
-          intro bb _
-          refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-          have h := ih.whnfCore hpd
-            (WScoped.instantiate1_gen hw.2 0 hwf'.2)
-          rwa [shiftFrom_instantiate1_gen] at h
+      refine bind_rel _ _ (ih.infer hpd hw.2) ?_
+      intro ta hta
+      refine bind_rel_eq _
+        (ih.defeq hpd (inferTypeCore_WScoped henv fuel hta hw.2)
+          hwf'.1) ?_
+      intro bb _
+      refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
+      have h := ih.whnfCore hpd
+        (WScoped.instantiate1_gen hw.2 0 hwf'.2)
+      rwa [shiftFrom_instantiate1_gen] at h
     | bvar i => exact hiota _ hwf'
     | fvar idx n ty =>
       have h := hiota _ hwf'
@@ -1972,15 +1913,13 @@ private theorem whnfCore_step (henv : EnvWF env)
       have hwarg : WScoped d
           (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) :=
         WScoped_getD (fun x hx => hwe₃.getAppArgs x hx) _
-      refine ite_rel _ (fun _ => ?_) (fun _ => ?_)
-      · exact ih.whnfCore hpd hwarg
-      · refine bind_rel_eq _ (projCert_shift henv ih hpd hwe₃ i
-          (Level.subst entry.levelParams us₂ entry.fieldSort)
-          (Level.subst entry.levelParams us₂ entry.structSort)
-          entry.numParams) ?_
-        intro bb _
-        refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-        exact ih.whnfCore hpd hwarg
+      refine bind_rel_eq _ (projCert_shift henv ih hpd hwe₃ i
+        (Level.subst entry.levelParams us₂ entry.fieldSort)
+        (Level.subst entry.levelParams us₂ entry.structSort)
+        entry.numParams) ?_
+      intro bb _
+      refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
+      exact ih.whnfCore hpd hwarg
 
 private theorem whnf_step (henv : EnvWF env)
     (ih : ShiftClaims env fuel) : WhnfShift env (fuel + 1) := by
@@ -2137,17 +2076,14 @@ private theorem infer_step (henv : EnvWF env)
     have hwPi : WScoped d (Expr.forallE n' ty' body' m') :=
       whnf_WScoped henv fuel hww (inferTypeCore_WScoped henv fuel htf hw.1)
     simp only [WScoped] at hwPi
-    refine ite_rel _ (fun _ => ?_) (fun _ => ?_)
-    · rw [← shiftFrom_instantiate1_gen]
-      rfl
-    · refine bind_rel _ _ (ih.infer hpd hw.2) ?_
-      intro ta hta
-      refine bind_rel_eq _
-        (ih.defeq hpd (inferTypeCore_WScoped henv fuel hta hw.2) hwPi.1) ?_
-      intro bb _
-      refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-      rw [← shiftFrom_instantiate1_gen]
-      rfl
+    refine bind_rel _ _ (ih.infer hpd hw.2) ?_
+    intro ta hta
+    refine bind_rel_eq _
+      (ih.defeq hpd (inferTypeCore_WScoped henv fuel hta hw.2) hwPi.1) ?_
+    intro bb _
+    refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
+    rw [← shiftFrom_instantiate1_gen]
+    rfl
   | .proj sn i pe =>
     simp only [WScoped] at hw
     show inferBody (pureFns env fuel) env (d + 1)

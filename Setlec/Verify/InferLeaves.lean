@@ -461,7 +461,7 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
         intro l hl
         obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
         simp only [fvarLeaves, List.mem_append]
-        rcases hcase with ⟨n, ty, body, mm, v, rfl, hc, hbeta, -⟩ |
+        rcases hcase with ⟨n, ty, body, mm, rfl, hbeta, -⟩ |
           ⟨e'', hio, hwe''⟩ | rfl
         · have hl' := ihCore hbeta l hl
           rcases fvarLeaves_instantiate1 body 0 hl' with hb | hb
@@ -597,7 +597,7 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
         simp only [looseBVarsBounded, Bool.and_eq_true] at hb
         obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
         have hbf' := ihCore hwf hb.1
-        rcases hcase with ⟨n, ty, body, mm, v, rfl, hc, hbeta, -⟩ |
+        rcases hcase with ⟨n, ty, body, mm, rfl, hbeta, -⟩ |
           ⟨e'', hio, hwe''⟩ | rfl
         · simp only [looseBVarsBounded, Bool.and_eq_true] at hbf'
           exact ihCore hbeta
