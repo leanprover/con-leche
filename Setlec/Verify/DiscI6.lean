@@ -22,7 +22,7 @@ variable {env : Env} {f : Nat}
 
 theorem isPropTypeI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
     {ty : Expr} {s₀ : IState} (hs : ISOK env s₀)
-    (hden : s₀.store.denote i = some ty) (hw : WScoped d ty) :
+    (hden : s₀.store.denoteT i = some ty) (hw : WScoped d ty) :
     SimAt env s₀ RelV
       (isPropTypeI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i)
       (isPropType (fueledFns env) env d ty) := by
@@ -59,8 +59,8 @@ theorem projFieldDomI_sim (ih : SSimI env f) (henv : EnvWF env)
     (hwe : WScoped d e'x) :
     ∀ (k j : Nat) {tel : EIdx} {telx : Expr} {s₀ : IState},
       ISOK env s₀ → s₀.store.denoteN sn = some snx →
-      s₀.store.denote e' = some e'x →
-      s₀.store.denote tel = some telx → WScoped d telx →
+      s₀.store.denoteT e' = some e'x →
+      s₀.store.denoteT tel = some telx → WScoped d telx →
       SimAt env s₀ (RelE d)
         (projFieldDomI (coreKnotI (mkFEnv env) f) (mkFEnv env) d
           structProp sn e' j k tel)
@@ -69,8 +69,7 @@ theorem projFieldDomI_sim (ih : SSimI env f) (henv : EnvWF env)
   | 0, jj, tel, telx, s₀, hs, hsn, hde, hdt, hwtel => by
     unfold projFieldDomI
     refine SimAt.view ?_
-    obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hdt
-    have hn := getNode_of_stored hn
+    obtain ⟨n, hn, hc, hd⟩ := denoteT_some_inv hdt
     rw [hn]
     cases n with
     | forallE nmᵢ dom rest mb =>
@@ -110,8 +109,7 @@ theorem projFieldDomI_sim (ih : SSimI env f) (henv : EnvWF env)
   | k + 1, jj, tel, telx, s₀, hs, hsn, hde, hdt, hwtel => by
     unfold projFieldDomI
     refine SimAt.view ?_
-    obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hdt
-    have hn := getNode_of_stored hn
+    obtain ⟨n, hn, hc, hd⟩ := denoteT_some_inv hdt
     rw [hn]
     cases n with
     | forallE nmᵢ dom rest mb =>
@@ -150,34 +148,34 @@ theorem projFieldDomI_sim (ih : SSimI env f) (henv : EnvWF env)
             exact SimAt.throw_bind
           | true =>
             simp only [↓reduceIte]
-            have hpj : denoteNode s₁.store.denote s₁.store.denoteL
+            have hpj : denoteNode s₁.store.denoteT s₁.store.denoteL
                 s₁.store.denoteN (.proj sn jj e')
                 = some (.proj snx jj e'x) := by
-              rw [denoteNode, denote_mono hext₁ hde,
+              rw [denoteNode, denoteT_mono hext₁ hde,
                 denoteN_mono hext₁ hsn]; rfl
             refine SimAt.bind_left (internI_eff hs₁ hpj)
               (fun s₂ pj hs₂ hext₂ hQpj => ?_)
             refine SimAt.bind_left (inst1M_eff hs₂
-              (denote_mono (hext₁.trans hext₂) hrest) hQpj)
+              (denoteT_mono (hext₁.trans hext₂) hrest) hQpj)
               (fun s₃ rest' hs₃ hext₃ hQr => ?_)
             exact projFieldDomI_sim ih henv hwe k (jj + 1) hs₃
               (denoteN_mono ((hext₁.trans hext₂).trans hext₃) hsn)
-              (denote_mono ((hext₁.trans hext₂).trans hext₃) hde)
+              (denoteT_mono ((hext₁.trans hext₂).trans hext₃) hde)
               hQr hwrest'
         | false =>
           simp only [Bool.false_eq_true, ↓reduceIte]
-          have hpj : denoteNode s₀.store.denote s₀.store.denoteL
+          have hpj : denoteNode s₀.store.denoteT s₀.store.denoteL
               s₀.store.denoteN (.proj sn jj e')
               = some (.proj snx jj e'x) := by
             rw [denoteNode, hde, hsn]; rfl
           refine SimAt.bind_left (internI_eff hs hpj)
             (fun s₂ pj hs₂ hext₂ hQpj => ?_)
           refine SimAt.bind_left (inst1M_eff hs₂
-            (denote_mono hext₂ hrest) hQpj)
+            (denoteT_mono hext₂ hrest) hQpj)
             (fun s₃ rest' hs₃ hext₃ hQr => ?_)
           exact projFieldDomI_sim ih henv hwe k (jj + 1) hs₃
             (denoteN_mono (hext₂.trans hext₃) hsn)
-            (denote_mono (hext₂.trans hext₃) hde) hQr hwrest'
+            (denoteT_mono (hext₂.trans hext₃) hde) hQr hwrest'
     | bvar k' => cases hd; exact SimAt.throw
     | sort u =>
       rw [denoteNode, Option.map_eq_some_iff] at hd
@@ -215,10 +213,10 @@ private theorem annotateProjRecI_rest (ih : SSimI env f)
     (hs : ISOK env s₀)
     (hus : denoteLList s₀.store.denoteL us = some lus)
     (huf : denoteLList s₀.store.denoteL uf = some luf)
-    (hte : s₀.store.denote te = some tex)
-    (hde : s₀.store.denote e' = some e'x)
-    (hfi : s₀.store.denote fi = some fix)
-    (hmin : s₀.store.denote minor = some minorx)
+    (hte : s₀.store.denoteT te = some tex)
+    (hde : s₀.store.denoteT e' = some e'x)
+    (hfi : s₀.store.denoteT fi = some fix)
+    (hmin : s₀.store.denoteT minor = some minorx)
     (hparams : DenL s₀.store params paramsx) :
     SimAt env s₀ (RelE d)
       (internNameM (entry.structName.str "rec") >>= fun recI =>
@@ -247,12 +245,12 @@ private theorem annotateProjRecI_rest (ih : SSimI env f)
     (fun s₀r recI hs hext₀r hQrecI => ?_)
   replace hus := denoteLList_mono hext₀r hus
   replace huf := denoteLList_mono hext₀r huf
-  replace hte := denote_mono hext₀r hte
-  replace hde := denote_mono hext₀r hde
-  replace hfi := denote_mono hext₀r hfi
-  replace hmin := denote_mono hext₀r hmin
+  replace hte := denoteT_mono hext₀r hte
+  replace hde := denoteT_mono hext₀r hde
+  replace hfi := denoteT_mono hext₀r hfi
+  replace hmin := denoteT_mono hext₀r hmin
   replace hparams := hparams.mono hext₀r
-  have hcn : denoteNode s₀r.store.denote s₀r.store.denoteL
+  have hcn : denoteNode s₀r.store.denoteT s₀r.store.denoteL
       s₀r.store.denoteN
       (ENode.const recI (uf ++ us))
       = some (.const (entry.structName.str "rec") (luf ++ lus)) := by
@@ -262,27 +260,27 @@ private theorem annotateProjRecI_rest (ih : SSimI env f)
     (fun s₁ recC hs₁ hext₁ hQrec => ?_)
   refine SimAt.bind_left (internNameM_eff hs₁ (.str .anonymous "t"))
     (fun s₁t tI hs₁ hext₁t hQtI => ?_)
-  replace hQrec := denote_mono hext₁t hQrec
+  replace hQrec := denoteT_mono hext₁t hQrec
   replace hext₁ := hext₁.trans hext₁t
-  have hmot : denoteNode s₁t.store.denote s₁t.store.denoteL
+  have hmot : denoteNode s₁t.store.denoteT s₁t.store.denoteL
       s₁t.store.denoteN
       (ENode.lam tI te fi ⟨.default, none⟩)
       = some (.lam (.str .anonymous "t") tex fix ⟨.default, none⟩) := by
-    rw [denoteNode, denote_mono hext₁ hte, denote_mono hext₁ hfi, hQtI]
+    rw [denoteNode, denoteT_mono hext₁ hte, denoteT_mono hext₁ hfi, hQtI]
     rfl
   refine SimAt.bind_left (internI_eff hs₁ hmot)
     (fun s₂ motive hs₂ hext₂ hQmot => ?_)
   refine SimAt.bind_left (mkAppNM_eff hs₂
-    (denote_mono hext₂ hQrec)
+    (denoteT_mono hext₂ hQrec)
     ((hparams.mono (hext₁.trans hext₂)).append
       (DenL.cons hQmot (DenL.cons
-        (denote_mono (hext₁.trans hext₂) hmin)
-        (DenL.cons (denote_mono (hext₁.trans hext₂) hde) DenL.nil)))))
+        (denoteT_mono (hext₁.trans hext₂) hmin)
+        (DenL.cons (denoteT_mono (hext₁.trans hext₂) hde) DenL.nil)))))
     (fun s₃ raw hs₃ hext₃ hQraw => ?_)
   refine SimAt.withStore ?_
   rw [wscopedBI_spec hs₃.wf hQraw, looseBVarsBoundedI_spec hs₃.wf hQraw,
     leafGuardI_spec hs₃.wf hQraw
-      (denote_mono ((hext₁.trans hext₂).trans hext₃) hde)]
+      (denoteT_mono ((hext₁.trans hext₂).trans hext₃) hde)]
   dsimp only
   split
   · rename_i hguard
@@ -296,8 +294,8 @@ theorem annotateProjRecI_sim (ih : SSimI env f) (henv : EnvWF env)
     {tex e'x : Expr} {us : List LIdx} {lus : List Level} {s₀ : IState}
     (hs : ISOK env s₀)
     (hus : denoteLList s₀.store.denoteL us = some lus)
-    (hte : s₀.store.denote te = some tex)
-    (hde : s₀.store.denote e' = some e'x)
+    (hte : s₀.store.denoteT te = some tex)
+    (hde : s₀.store.denoteT e' = some e'x)
     (hwte : WScoped d tex) (hwe : WScoped d e'x) :
     SimAt env s₀ (RelE d)
       (annotateProjRecI (coreKnotI (mkFEnv env) f) (mkFEnv env) d entry
@@ -346,7 +344,7 @@ theorem annotateProjRecI_sim (ih : SSimI env f) (henv : EnvWF env)
               obtain ⟨htf, -⟩ := henv _ (find?_mem hfC)
               exact wscoped_instLevels_of_not_hasFvar htf _ _
             refine SimAt.bind (isPropTypeI_sim ih hs₂
-              (denote_mono (hext₁.trans hext₂) hte) hwte)
+              (denoteT_mono (hext₁.trans hext₂) hte) hwte)
               (fun s₃ sp sp' hs₃ hext₃ hPsp => ?_)
             obtain rfl : sp = sp' := hPsp
             refine SimAt.bind_left
@@ -355,16 +353,16 @@ theorem annotateProjRecI_sim (ih : SSimI env f) (henv : EnvWF env)
             replace hext₃ := hext₃.trans hext₃n
             refine SimAt.bind (projFieldDomI_sim ih henv hwe ip 0 hs₃
               hQsnI
-              (denote_mono ((hext₁.trans hext₂).trans hext₃) hde)
-              (denote_mono hext₃ hQtel) hwtel)
+              (denoteT_mono ((hext₁.trans hext₂).trans hext₃) hde)
+              (denoteT_mono hext₃ hQtel) hwtel)
               (fun s₄ fi fix hs₄ hext₄ hPfi => ?_)
             obtain ⟨hfid, hwfi⟩ := hPfi
-            have hbv : denoteNode s₄.store.denote s₄.store.denoteL s₄.store.denoteN (.bvar (cnF - 1 - ip))
+            have hbv : denoteNode s₄.store.denoteT s₄.store.denoteL s₄.store.denoteN (.bvar (cnF - 1 - ip))
                 = some (.bvar (cnF - 1 - ip)) := rfl
             refine SimAt.bind_left (internI_eff hs₄ hbv)
               (fun s₅ fieldBvar hs₅ hext₅ hQbv => ?_)
             refine SimAt.bind_left (pisToLamsM_eff (k := cnF) hs₅
-              (denote_mono ((hext₃.trans hext₄).trans hext₅) hQtel)
+              (denoteT_mono ((hext₃.trans hext₄).trans hext₅) hQtel)
               hQbv) (fun s₆ ominor hs₆ hext₆ hQmin => ?_)
             cases hmin : Expr.pisToLams cnF telx
                 (.bvar (cnF - 1 - ip)) with
@@ -379,7 +377,7 @@ theorem annotateProjRecI_sim (ih : SSimI env f) (henv : EnvWF env)
               | none => exact absurd hQmin (by simp [OptDen])
               | some minor =>
                 refine SimAt.bind (ih.annotate hs₆
-                  (denote_mono (hext₅.trans hext₆) hfid)
+                  (denoteT_mono (hext₅.trans hext₆) hfid)
                   hwfi) (fun s₇ fi' fi'x hs₇ hext₇ hPfi' => ?_)
                 obtain ⟨hfi'd, hwfi'⟩ := hPfi'
                 refine SimAt.bind (ih.infer hs₇ hfi'd hwfi')
@@ -391,12 +389,12 @@ theorem annotateProjRecI_sim (ih : SSimI env f) (henv : EnvWF env)
                   ((((((hext₁.trans hext₂).trans hext₃).trans
                     hext₄).trans hext₅).trans hext₆).trans
                     ((hext₇.trans hext₈).trans hext₉))
-                have hteN := denote_mono hext₀₉ hte
-                have hdeN := denote_mono hext₀₉ hde
-                have hfiN := denote_mono
+                have hteN := denoteT_mono hext₀₉ hte
+                have hdeN := denoteT_mono hext₀₉ hde
+                have hfiN := denoteT_mono
                   ((((hext₅.trans hext₆).trans hext₇).trans
                     hext₈).trans hext₉) hfid
-                have hminN : s₉.store.denote minor = some minorx :=
+                have hminN : s₉.store.denoteT minor = some minorx :=
                   hQmin.mono ((hext₇.trans hext₈).trans hext₉)
                 have hparamsN := hparams.mono
                   (hext₀₉.trans (Ext.refl _))
@@ -430,10 +428,10 @@ theorem annotateProjRecI_sim (ih : SSimI env f) (henv : EnvWF env)
                             denoteL_mono hextZ
                               (show s₉.store.denoteL sfi = some lsfi
                                 from hPsfi)])
-                      (denote_mono hextZ hteN)
-                      (denote_mono hextZ hdeN)
-                      (denote_mono hextZ hfiN)
-                      (denote_mono hextZ hminN)
+                      (denoteT_mono hextZ hteN)
+                      (denoteT_mono hextZ hdeN)
+                      (denoteT_mono hextZ hfiN)
+                      (denoteT_mono hextZ hminN)
                       (hparamsN.mono hextZ)
                 | false =>
                   simp only [Bool.false_eq_true, ↓reduceIte]
@@ -464,8 +462,8 @@ theorem annotateProjElimI_sim (ih : SSimI env f) (henv : EnvWF env)
     {tex e'x : Expr}
     {s₀ : IState} (hs : ISOK env s₀)
     (hsn : s₀.store.denoteN sn = some snx)
-    (hte : s₀.store.denote te = some tex)
-    (hde : s₀.store.denote e' = some e'x)
+    (hte : s₀.store.denoteT te = some tex)
+    (hde : s₀.store.denoteT e' = some e'x)
     (hwte : WScoped d tex) (hwe : WScoped d e'x) :
     SimAt env s₀ (RelE d)
       (annotateProjElimI (coreKnotI (mkFEnv env) f) (mkFEnv env) d sn
@@ -474,8 +472,7 @@ theorem annotateProjElimI_sim (ih : SSimI env f) (henv : EnvWF env)
   unfold annotateProjElimI
   unfold annotateProjElim
   refine SimAt.withStore ?_
-  obtain ⟨n, hn, hc, hd⟩ := denote_some_inv (getAppFnI_spec hs.wf hte)
-  have hn := getNode_of_stored hn
+  obtain ⟨n, hn, hc, hd⟩ := denoteT_some_inv (getAppFnI_spec hs.wf hte)
   rw [hn]
   cases n with
   | const Tᵢ us =>
@@ -488,14 +485,14 @@ theorem annotateProjElimI_sim (ih : SSimI env f) (henv : EnvWF env)
     refine SimAt.bind_left (readbackNM_eff hs hTDen)
       (fun s₀T Tw hs hextT hTw => ?_)
     subst Tw
-    replace hte := denote_mono hextT hte
-    replace hde := denote_mono hextT hde
+    replace hte := denoteT_mono hextT hte
+    replace hde := denoteT_mono hextT hde
     replace hlusDen := denoteLList_mono hextT hlusDen
     replace hTDen := denoteN_mono hextT hTDen
     replace hsn := denoteN_mono hextT hsn
     by_cases hT : T = snx
     · rw [if_pos (show Tᵢ = sn from
-          (denoteN_eq_iff hs.wf.toTWF hTDen hsn).mpr hT), if_pos hT]
+          (denoteN_eq_iff hs.wf hTDen hsn).mpr hT), if_pos hT]
       rw [mkFEnv_find?]
       cases hfp : env.find? (projFnName T ip) with
       | none =>
@@ -511,11 +508,11 @@ theorem annotateProjElimI_sim (ih : SSimI env f) (henv : EnvWF env)
           split
           · refine SimAt.bind_left (projFnIdxM_eff hs hTDen ip)
               (fun s₀p pf hs hextp hQpf => ?_)
-            replace hte := denote_mono hextp hte
-            replace hde := denote_mono hextp hde
+            replace hte := denoteT_mono hextp hte
+            replace hde := denoteT_mono hextp hde
             replace hlusDen := denoteLList_mono hextp hlusDen
             replace htargs := htargs.mono hextp
-            have hcn : denoteNode s₀p.store.denote s₀p.store.denoteL
+            have hcn : denoteNode s₀p.store.denoteT s₀p.store.denoteL
                 s₀p.store.denoteN
                 (ENode.const pf us)
                 = some (.const (projFnName T ip) lus) := by
@@ -525,13 +522,13 @@ theorem annotateProjElimI_sim (ih : SSimI env f) (henv : EnvWF env)
               (fun s₁ h hs₁ hext₁ hQh => ?_)
             refine SimAt.bind_left (mkAppNM_eff hs₁ hQh
               ((htargs.mono hext₁).append
-                (DenL.cons (denote_mono hext₁ hde) DenL.nil)))
+                (DenL.cons (denoteT_mono hext₁ hde) DenL.nil)))
               (fun s₂ raw hs₂ hext₂ hQraw => ?_)
             refine SimAt.withStore ?_
             rw [wscopedBI_spec hs₂.wf hQraw,
               looseBVarsBoundedI_spec hs₂.wf hQraw,
               leafGuardI_spec hs₂.wf hQraw
-                (denote_mono (hext₁.trans hext₂) hde)]
+                (denoteT_mono (hext₁.trans hext₂) hde)]
             try dsimp only
             split
             · rename_i hguard
@@ -555,7 +552,7 @@ theorem annotateProjElimI_sim (ih : SSimI env f) (henv : EnvWF env)
         | indInfo cv caps => exact SimAt.throw
         | ctorInfo cv nP nF => exact SimAt.throw
     · rw [if_neg (show ¬ Tᵢ = sn from fun h =>
-          hT ((denoteN_eq_iff hs.wf.toTWF hTDen hsn).mp h)), if_neg hT]
+          hT ((denoteN_eq_iff hs.wf hTDen hsn).mp h)), if_neg hT]
       exact SimAt.throw
   | bvar k => invert_head hd; exact SimAt.throw
   | sort u => invert_head hd; exact SimAt.throw
@@ -581,11 +578,11 @@ theorem annotateSpineI_sim (ih : SSimI env f) (henv : EnvWF env)
     ∀ (rest : List EIdx) {xs : List Expr} {ty : EIdx} {tx : Expr}
       {acc : Array EIdx} {ws : List Expr} {cur : EIdx} {curx : Expr}
       {a' : EIdx} {a'x : Expr} {s₀ : IState}, ISOK env s₀ →
-      s₀.store.denote ty = some tx →
+      s₀.store.denoteT ty = some tx →
       DenL s₀.store acc.toList.reverse ws →
       WScoped d (tx.instantiateList ws) →
-      s₀.store.denote cur = some curx → WScoped d curx →
-      s₀.store.denote a' = some a'x → WScoped d a'x →
+      s₀.store.denoteT cur = some curx → WScoped d curx →
+      s₀.store.denoteT a' = some a'x → WScoped d a'x →
       DenL s₀.store rest xs → (∀ x ∈ xs, WScoped d x) →
       SimAt env s₀ (RelE d)
         (annotateSpineI (coreKnotI (mkFEnv env) f) d ty acc cur a' rest)
@@ -595,8 +592,7 @@ theorem annotateSpineI_sim (ih : SSimI env f) (henv : EnvWF env)
     rw [annotateSpineI.eq_def]
     dsimp only
     refine SimAt.view ?_
-    obtain ⟨n, hn, hc, hd⟩ := denote_some_inv ht
-    have hn := getNode_of_stored hn
+    obtain ⟨n, hn, hc, hd⟩ := denoteT_some_inv ht
     rw [hn]
     cases n with
     | forallE nmᵢ dom body mb =>
@@ -617,11 +613,11 @@ theorem annotateSpineI_sim (ih : SSimI env f) (henv : EnvWF env)
         simpa only [WScoped] using hwty
       refine SimAt.bind_left (instListRevM_eff (d := 0) hs hdom hacc)
         (fun s₁ dom' hs₁ hext₁ hQdom => ?_)
-      refine SimAt.bind (ih.infer hs₁ (denote_mono hext₁ ha') hwa')
+      refine SimAt.bind (ih.infer hs₁ (denoteT_mono hext₁ ha') hwa')
         (fun s₂ ta tax hs₂ hext₂ hP => ?_)
       obtain ⟨htad, hwta⟩ := hP
       refine SimAt.bind (ih.defeq hs₂ htad
-        (denote_mono hext₂ hQdom) hwta hcomp.1)
+        (denoteT_mono hext₂ hQdom) hwta hcomp.1)
         (fun s₃ b b' hs₃ hext₃ hPb => ?_)
       obtain rfl : b = b' := hPb
       cases b with
@@ -631,11 +627,11 @@ theorem annotateSpineI_sim (ih : SSimI env f) (henv : EnvWF env)
       | true =>
         simp only [↓reduceIte]
         have hextAll := (hext₁.trans hext₂).trans hext₃
-        have hnd : denoteNode s₃.store.denote s₃.store.denoteL
+        have hnd : denoteNode s₃.store.denoteT s₃.store.denoteL
             s₃.store.denoteN (.app cur a')
             = some (.app curx a'x) := by
-          rw [denoteNode, denote_mono hextAll hcur,
-            denote_mono hextAll ha']
+          rw [denoteNode, denoteT_mono hextAll hcur,
+            denoteT_mono hextAll ha']
           rfl
         refine SimAt.bind_left (internI_eff hs₃ hnd)
           (fun s₄ cur' hs₄ hext₄ hQcur => ?_)
@@ -655,7 +651,7 @@ theorem annotateSpineI_sim (ih : SSimI env f) (henv : EnvWF env)
             obtain ⟨hbx, hrest'⟩ := hrest
             have hwxb : WScoped d xb := hwrest xb (List.mem_cons_self ..)
             refine SimAt.bind (ih.annotate hs₄
-              (denote_mono hextAll4 hbx) hwxb)
+              (denoteT_mono hextAll4 hbx) hwxb)
               (fun s₅ b' b'x hs₅ hext₅ hP₅ => ?_)
             obtain ⟨hb'd, hwb'⟩ := hP₅
             have hextAll5 := hextAll4.trans hext₅
@@ -663,11 +659,11 @@ theorem annotateSpineI_sim (ih : SSimI env f) (henv : EnvWF env)
               rw [Expr.instantiateList_cons]
               exact WScoped.instantiate1_gen hwa' 0 hcomp.2
             refine annotateSpineI_sim ih henv rest' hs₅
-              (denote_mono hextAll5 hbody)
+              (denoteT_mono hextAll5 hbody)
               (by
                 rw [toListRev_push]
-                exact ⟨denote_mono hextAll5 ha', hacc.mono hextAll5⟩)
-              hwsub (denote_mono hext₅ hQcur) hwapp hb'd hwb'
+                exact ⟨denoteT_mono hextAll5 ha', hacc.mono hextAll5⟩)
+              hwsub (denoteT_mono hext₅ hQcur) hwapp hb'd hwb'
               (hrest'.mono hextAll5)
               (fun x hx => hwrest x (List.mem_cons_of_mem _ hx))
     | bvar k =>
@@ -750,11 +746,11 @@ theorem annotateSpineI_whnfArm (ih : SSimI env f) (henv : EnvWF env)
     ∀ (rest : List EIdx) {xs : List Expr} {ty : EIdx} {tx : Expr}
       {acc : Array EIdx} {ws : List Expr} {cur : EIdx} {curx : Expr}
       {a' : EIdx} {a'x : Expr} {s₀ : IState}, ISOK env s₀ →
-      s₀.store.denote ty = some tx →
+      s₀.store.denoteT ty = some tx →
       DenL s₀.store acc.toList.reverse ws →
       WScoped d (tx.instantiateList ws) →
-      s₀.store.denote cur = some curx → WScoped d curx →
-      s₀.store.denote a' = some a'x → WScoped d a'x →
+      s₀.store.denoteT cur = some curx → WScoped d curx →
+      s₀.store.denoteT a' = some a'x → WScoped d a'x →
       DenL s₀.store rest xs → (∀ x ∈ xs, WScoped d x) →
       (∀ n' dom' body' bi', tx ≠ Expr.forallE n' dom' body' bi') →
       SimAt env s₀ (RelE d)
@@ -785,8 +781,7 @@ theorem annotateSpineI_whnfArm (ih : SSimI env f) (henv : EnvWF env)
       (fun s₂ w wx hs₂ hext₂ hP => ?_)
     obtain ⟨hwd, hww⟩ := hP
     refine SimAt.view ?_
-    obtain ⟨n', hn', hc', hd'⟩ := denote_some_inv hwd
-    have hn' := getNode_of_stored hn'
+    obtain ⟨n', hn', hc', hd'⟩ := denoteT_some_inv hwd
     rw [hn']
     have hext12 := hext₁.trans hext₂
     cases n' with
@@ -804,11 +799,11 @@ theorem annotateSpineI_whnfArm (ih : SSimI env f) (henv : EnvWF env)
         simpa only [WScoped] using hww
       dsimp only
       refine SimAt.bind (ih.infer hs₂
-        (denote_mono hext12 ha') (hwa'))
+        (denoteT_mono hext12 ha') (hwa'))
         (fun s₃ ta tax hs₃ hext₃ hP₃ => ?_)
       obtain ⟨htad, hwta⟩ := hP₃
       refine SimAt.bind (ih.defeq hs₃ htad
-        (denote_mono hext₃ hdom) hwta hwtb.1)
+        (denoteT_mono hext₃ hdom) hwta hwtb.1)
         (fun s₄ b b2 hs₄ hext₄ hPb => ?_)
       obtain rfl : b = b2 := hPb
       cases b with
@@ -818,11 +813,11 @@ theorem annotateSpineI_whnfArm (ih : SSimI env f) (henv : EnvWF env)
       | true =>
         simp only [↓reduceIte]
         have hextAll := (hext12.trans hext₃).trans hext₄
-        have hnd : denoteNode s₄.store.denote s₄.store.denoteL
+        have hnd : denoteNode s₄.store.denoteT s₄.store.denoteL
             s₄.store.denoteN (.app cur a')
             = some (.app curx a'x) := by
-          rw [denoteNode, denote_mono hextAll hcur,
-            denote_mono hextAll ha']
+          rw [denoteNode, denoteT_mono hextAll hcur,
+            denoteT_mono hextAll ha']
           rfl
         refine SimAt.bind_left (internI_eff hs₄ hnd)
           (fun s₅ cur' hs₅ hext₅ hQcur => ?_)
@@ -842,7 +837,7 @@ theorem annotateSpineI_whnfArm (ih : SSimI env f) (henv : EnvWF env)
             obtain ⟨hbx, hrest'⟩ := hrest
             have hwxb : WScoped d xb := hwrest xb (List.mem_cons_self ..)
             refine SimAt.bind (ih.annotate hs₅
-              (denote_mono hextAll5 hbx) hwxb)
+              (denoteT_mono hextAll5 hbx) hwxb)
               (fun s₆ b' b'x hs₆ hext₆ hP₆ => ?_)
             obtain ⟨hb'd, hwb'⟩ := hP₆
             have hextAll6 := hextAll5.trans hext₆
@@ -850,14 +845,14 @@ theorem annotateSpineI_whnfArm (ih : SSimI env f) (henv : EnvWF env)
               rw [instList_single]
               exact WScoped.instantiate1_gen hwa' 0 hwtb.2
             refine annotateSpineI_sim ih henv rest' hs₆
-              (denote_mono ((hext₃.trans hext₄).trans
+              (denoteT_mono ((hext₃.trans hext₄).trans
                 (hext₅.trans hext₆)) hbody)
               (by
                 rw [toListRev_singleton]
-                exact DenL.cons (denote_mono
+                exact DenL.cons (denoteT_mono
                   (hext12.trans ((hext₃.trans hext₄).trans
                     (hext₅.trans hext₆))) ha') DenL.nil)
-              hwsub (denote_mono hext₆ hQcur) hwapp hb'd hwb'
+              hwsub (denoteT_mono hext₆ hQcur) hwapp hb'd hwb'
               (hrest'.mono (hext12.trans ((hext₃.trans hext₄).trans
                 (hext₅.trans hext₆))))
               (fun x hx => hwrest x (List.mem_cons_of_mem _ hx))
@@ -877,14 +872,13 @@ end
 set_option maxHeartbeats 8000000 in
 theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     {d : Nat} {i : EIdx} {ex : Expr} {s₀ : IState} (hs : ISOK env s₀)
-    (hden : s₀.store.denote i = some ex) (hw : WScoped d ex) :
+    (hden : s₀.store.denoteT i = some ex) (hw : WScoped d ex) :
     SimAt env s₀ (RelE d)
       (annotateBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i)
       (annotateBody (fueledFns env) env d ex) := by
   unfold annotateBodyI
   refine SimAt.view ?_
-  obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hden
-  have hn := getNode_of_stored hn
+  obtain ⟨n, hn, hc, hd⟩ := denoteT_some_inv hden
   rw [hn]
   cases n with
   | bvar k =>
@@ -923,14 +917,14 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     refine SimAt.bind (ensureSortI_sim ih hs₂ httyd hwtty)
       (fun s₃ u lu hs₃ hext₃ hPu => ?_)
     refine SimAt.bind (ih.annotate hs₃
-      (denote_mono ((hext₁.trans hext₂).trans hext₃) hv) hwtvb.2.1)
+      (denoteT_mono ((hext₁.trans hext₂).trans hext₃) hv) hwtvb.2.1)
       (fun s₄ v' v'x hs₄ hext₄ hP₄ => ?_)
     obtain ⟨hv'd, hwv'⟩ := hP₄
     refine SimAt.bind (ih.infer hs₄ hv'd hwv')
       (fun s₅ tv tvx hs₅ hext₅ hP₅ => ?_)
     obtain ⟨htvd, hwtv⟩ := hP₅
     refine SimAt.bind (ih.defeq hs₅ htvd
-      (denote_mono (((hext₂.trans hext₃).trans hext₄).trans hext₅) hty'd)
+      (denoteT_mono (((hext₂.trans hext₃).trans hext₄).trans hext₅) hty'd)
       hwtv hwty')
       (fun s₆ bb bb' hs₆ hext₆ hPb => ?_)
     obtain rfl : bb = bb' := hPb
@@ -941,9 +935,9 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     | true =>
       simp only [↓reduceIte]
       refine SimAt.bind_left (inst1M_eff hs₆
-        (denote_mono (((((hext₁.trans hext₂).trans hext₃).trans
+        (denoteT_mono (((((hext₁.trans hext₂).trans hext₃).trans
           hext₄).trans hext₅).trans hext₆) hbody)
-        (denote_mono (((((hext₁.trans hext₂).trans hext₃).trans
+        (denoteT_mono (((((hext₁.trans hext₂).trans hext₃).trans
           hext₄).trans hext₅).trans hext₆) hv))
         (fun s₇ ob hs₇ hext₇ hQob => ?_)
       exact ih.annotate hs₇ hQob
@@ -1021,17 +1015,17 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
         have hwxa₁ : WScoped d xa₁ := hwargs xa₁ (List.mem_cons_self ..)
         dsimp only
         refine SimAt.bind (ih.annotate hs₁
-          (denote_mono hext₁ hax₁) hwxa₁)
+          (denoteT_mono hext₁ hax₁) hwxa₁)
           (fun s₂ a₁' a₁'x hs₂ hext₂ hP₂ => ?_)
         obtain ⟨ha₁'d, hwa₁'⟩ := hP₂
-        refine SimAt.bind (ih.infer hs₂ (denote_mono hext₂ hh'd) hwh')
+        refine SimAt.bind (ih.infer hs₂ (denoteT_mono hext₂ hh'd) hwh')
           (fun s₃ th thx hs₃ hext₃ hP₃ => ?_)
         obtain ⟨hthd, hwth⟩ := hP₃
         refine annotateSpineI_sim ih henv rest hs₃ hthd
           (by rw [toListRev_empty]; exact DenL.nil)
           (by rw [Expr.instantiateList_nil]; exact hwth)
-          (denote_mono (hext₂.trans hext₃) hh'd) hwh'
-          (denote_mono hext₃ ha₁'d) hwa₁'
+          (denoteT_mono (hext₂.trans hext₃) hh'd) hwh'
+          (denoteT_mono hext₃ ha₁'d) hwa₁'
           (hrest.mono (hext₁.trans (hext₂.trans hext₃)))
           (fun x hx => hwargs x (List.mem_cons_of_mem _ hx))
 
@@ -1052,7 +1046,7 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     refine SimAt.bind (ih.annotate hs hty hwtb.1)
       (fun s₁ ty' ty'x hs₁ hext₁ hP => ?_)
     obtain ⟨hty'd, hwty'⟩ := hP
-    have hfvd : denoteNode s₁.store.denote s₁.store.denoteL s₁.store.denoteN (.fvar d nmᵢ ty')
+    have hfvd : denoteNode s₁.store.denoteT s₁.store.denoteL s₁.store.denoteN (.fvar d nmᵢ ty')
         = some (.fvar d nm ty'x) := by
       rw [denoteNode, hty'd,
         denoteN_mono hext₁ hnmDen]; rfl
@@ -1062,8 +1056,8 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     rw [show (m : IBinderMeta).bi = bm.bi from (denoteBM_bi hbmDen).symm]
     exact annotatePisI_tail_sim ih hs₂
       (denoteN_mono (hext₁.trans hext₂) hnmDen)
-      (denote_mono (hext₁.trans hext₂) hbody)
-      (denote_mono hext₂ hty'd) hQfv hwty' hwtb.2
+      (denoteT_mono (hext₁.trans hext₂) hbody)
+      (denoteT_mono hext₂ hty'd) hQfv hwty' hwtb.2
   | lam nmᵢ t b m =>
     rw [denoteNode, Option.bind_eq_some_iff] at hd
     obtain ⟨tyx, hty, hd⟩ := hd
@@ -1083,10 +1077,10 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     by_cases hb0 : bb = 0
     · rw [if_pos hb0]
       subst hb0
-      refine SimAt.bindR (ih.annotate hsb (denote_mono hextb hty) hwtb.1)
+      refine SimAt.bindR (ih.annotate hsb (denoteT_mono hextb hty) hwtb.1)
         (fun s₁ ty' ty'x hs₁ hext₁ hP hRty => ?_)
       obtain ⟨hty'd, hwty'⟩ := hP
-      have hfvd : denoteNode s₁.store.denote s₁.store.denoteL
+      have hfvd : denoteNode s₁.store.denoteT s₁.store.denoteL
           s₁.store.denoteN
           (.fvar d nmᵢ ty') = some (.fvar d nm ty'x) := by
         rw [denoteNode, hty'd,
@@ -1097,16 +1091,16 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
       rw [show (m : IBinderMeta).bi = bm.bi from (denoteBM_bi hbmDen).symm]
       refine annotateLamsI_tail_sim ih hs₂
         (denoteN_mono ((hextb.trans hext₁).trans hext₂) hnmDen)
-        (denote_mono ((hextb.trans hext₁).trans hext₂) hbody)
-        (denote_mono hext₂ hty'd) hQfv hwty' hwtb.2
-        (hQb _ (denote_mono hextb hden)) ?_
+        (denoteT_mono ((hextb.trans hext₁).trans hext₂) hbody)
+        (denoteT_mono hext₂ hty'd) hQfv hwty' hwtb.2
+        (hQb _ (denoteT_mono hextb hden)) ?_
       obtain ⟨F₁, h1⟩ := hRty
       exact ⟨F₁, h1⟩
     · rw [if_neg hb0]
-      refine SimAt.bind (ih.annotate hsb (denote_mono hextb hty) hwtb.1)
+      refine SimAt.bind (ih.annotate hsb (denoteT_mono hextb hty) hwtb.1)
         (fun s₁ ty' ty'x hs₁ hext₁ hP => ?_)
       obtain ⟨hty'd, hwty'⟩ := hP
-      have hfvd : denoteNode s₁.store.denote s₁.store.denoteL
+      have hfvd : denoteNode s₁.store.denoteT s₁.store.denoteL
           s₁.store.denoteN (.fvar d nmᵢ ty')
           = some (.fvar d nm ty'x) := by
         rw [denoteNode, hty'd,
@@ -1114,7 +1108,7 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
       refine SimAt.bind_left (internI_eff hs₁ hfvd)
         (fun s₂ fv hs₂ hext₂ hQfv => ?_)
       refine SimAt.bind_left (inst1M_eff hs₂
-        (denote_mono ((hextb.trans hext₁).trans hext₂) hbody) hQfv)
+        (denoteT_mono ((hextb.trans hext₁).trans hext₂) hbody) hQfv)
         (fun s₃ ob hs₃ hext₃ hQob => ?_)
       refine SimAt.bind (ih.annotate hs₃ hQob
         (WScoped.instantiate1 hwty' 0 hwtb.2))
@@ -1129,13 +1123,13 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
       refine SimAt.bind (ensureSortI_sim ih hs₆ htbtd hwtbt)
         (fun s₇ v lv hs₇ hext₇ hPv => ?_)
       refine SimAt.bind_left (abstract1M_eff hs₇
-        (denote_mono ((hext₅.trans hext₆).trans hext₇) hbody'd))
+        (denoteT_mono ((hext₅.trans hext₆).trans hext₇) hbody'd))
         (fun s₈ bAbs hs₈ hext₈ hQabs => ?_)
       refine SimAt.of_eff (internI_eff hs₈
         (x := .lam nm ty'x (body'x.abstract1 d) ⟨bm.bi, some lv⟩) ?_) _
         (fun s r hQ => ?_)
       · rw [denoteNode,
-          denote_mono ((((((hext₂.trans hext₃).trans hext₄).trans
+          denoteT_mono ((((((hext₂.trans hext₃).trans hext₄).trans
             hext₅).trans hext₆).trans hext₇).trans hext₈) hty'd, hQabs,
           denoteN_mono ((((((((hextb.trans hext₁).trans hext₂).trans
             hext₃).trans
@@ -1166,8 +1160,7 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     obtain ⟨hted, hwte⟩ := hP₃
     refine SimAt.withStore ?_
     obtain ⟨n', hn', hc', hd'⟩ :=
-      denote_some_inv (getAppFnI_spec hs₃.wf hted)
-    have hn' := getNode_of_stored hn'
+      denoteT_some_inv (getAppFnI_spec hs₃.wf hted)
     rw [hn']
     cases n' with
     | const Tᵢ us =>
@@ -1180,8 +1173,8 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
       refine SimAt.bind_left (readbackNM_eff hs₃ hTxDen)
         (fun s₃T Tw hs₃ hextT hTw => ?_)
       subst Tw
-      replace hted := denote_mono hextT hted
-      replace he'd := denote_mono ((hext₂.trans hext₃).trans hextT) he'd
+      replace hted := denoteT_mono hextT hted
+      replace he'd := denoteT_mono ((hext₂.trans hext₃).trans hextT) he'd
       replace hnmDen := denoteN_mono
         (((hext₁.trans hext₂).trans hext₃).trans hextT) hnmDen
       replace hTxDen := denoteN_mono hextT hTxDen
@@ -1217,47 +1210,47 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
       invert_head hd'
       exact annotateProjElimI_sim ih henv hs₃
         (denoteN_mono ((hext₁.trans hext₂).trans hext₃) hnmDen) hted
-        (denote_mono (hext₂.trans hext₃) he'd) hwte hwe'
+        (denoteT_mono (hext₂.trans hext₃) he'd) hwte hwe'
     | sort u =>
       invert_head hd'
       exact annotateProjElimI_sim ih henv hs₃
         (denoteN_mono ((hext₁.trans hext₂).trans hext₃) hnmDen) hted
-        (denote_mono (hext₂.trans hext₃) he'd) hwte hwe'
+        (denoteT_mono (hext₂.trans hext₃) he'd) hwte hwe'
     | lit l =>
       invert_head hd'
       exact annotateProjElimI_sim ih henv hs₃
         (denoteN_mono ((hext₁.trans hext₂).trans hext₃) hnmDen) hted
-        (denote_mono (hext₂.trans hext₃) he'd) hwte hwe'
+        (denoteT_mono (hext₂.trans hext₃) he'd) hwte hwe'
     | fvar idx nm' t' =>
       invert_head hd'
       exact annotateProjElimI_sim ih henv hs₃
         (denoteN_mono ((hext₁.trans hext₂).trans hext₃) hnmDen) hted
-        (denote_mono (hext₂.trans hext₃) he'd) hwte hwe'
+        (denoteT_mono (hext₂.trans hext₃) he'd) hwte hwe'
     | app f₂ a₂ =>
       invert_head hd'
       exact annotateProjElimI_sim ih henv hs₃
         (denoteN_mono ((hext₁.trans hext₂).trans hext₃) hnmDen) hted
-        (denote_mono (hext₂.trans hext₃) he'd) hwte hwe'
+        (denoteT_mono (hext₂.trans hext₃) he'd) hwte hwe'
     | lam nm' t' b' m' =>
       invert_head hd'
       exact annotateProjElimI_sim ih henv hs₃
         (denoteN_mono ((hext₁.trans hext₂).trans hext₃) hnmDen) hted
-        (denote_mono (hext₂.trans hext₃) he'd) hwte hwe'
+        (denoteT_mono (hext₂.trans hext₃) he'd) hwte hwe'
     | forallE nm' t' b' m' =>
       invert_head hd'
       exact annotateProjElimI_sim ih henv hs₃
         (denoteN_mono ((hext₁.trans hext₂).trans hext₃) hnmDen) hted
-        (denote_mono (hext₂.trans hext₃) he'd) hwte hwe'
+        (denoteT_mono (hext₂.trans hext₃) he'd) hwte hwe'
     | letE nm' t' v' b' =>
       invert_head hd'
       exact annotateProjElimI_sim ih henv hs₃
         (denoteN_mono ((hext₁.trans hext₂).trans hext₃) hnmDen) hted
-        (denote_mono (hext₂.trans hext₃) he'd) hwte hwe'
+        (denoteT_mono (hext₂.trans hext₃) he'd) hwte hwe'
     | proj s' j' e'' =>
       invert_head hd'
       exact annotateProjElimI_sim ih henv hs₃
         (denoteN_mono ((hext₁.trans hext₂).trans hext₃) hnmDen) hted
-        (denote_mono (hext₂.trans hext₃) he'd) hwte hwe'
+        (denoteT_mono (hext₂.trans hext₃) he'd) hwte hwe'
 
 end Walks3
 

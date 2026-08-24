@@ -5,7 +5,7 @@ import Setlec.Verify.DiscI4
 
 Simulation walk for `defeqBodyI`, mirroring `defeqBody_disc`
 (`Setlec/Verify/Disc.lean`).  The syntactic fast paths compare arena
-indices; canonicity of the store (`denote_inj`) identifies the verdict
+indices; canonicity of the store (`denoteT_inj`) identifies the verdict
 with the spec's structural comparison.
 -/
 
@@ -21,8 +21,8 @@ section Walks
 variable {env : Env} {f : Nat}
 
 /-- Index equality decides expression equality on canonical stores. -/
-private theorem beq_transfer {st : EStore} (hwf : st.WF) {i j : EIdx}
-    {a b : Expr} (ha : st.denote i = some a) (hb : st.denote j = some b) :
+private theorem beq_transfer {st : EStore} (hwf : st.TWF) {i j : EIdx}
+    {a b : Expr} (ha : st.denoteT i = some a) (hb : st.denoteT j = some b) :
     (i == j) = (a == b) := by
   by_cases hij : i = j
   · subst hij
@@ -31,7 +31,7 @@ private theorem beq_transfer {st : EStore} (hwf : st.WF) {i j : EIdx}
     rw [beq_self_eq_true, beq_self_eq_true]
   · have hab : ¬ a = b := by
       rintro rfl
-      exact hij (denote_inj hwf ha hb)
+      exact hij (denoteT_inj hwf ha hb)
     rw [beq_eq_false_iff_ne.mpr hij, beq_eq_false_iff_ne.mpr hab]
 
 /-- The one-sided-λ (right) stuck arm. -/
@@ -40,11 +40,11 @@ private theorem defeqI_etaR_arm (ih : SSimI env f) (henv : EnvWF env)
     {nm₂x : Name}
     {m₂ : IBinderMeta} {bm₂ : BinderMeta} {s₀ : IState} (hs : ISOK env s₀)
     (hnm₂ : s₀.store.denoteN nm₂ = some nm₂x)
-    (haS : s₀.store.denote a' = some a'x)
-    (hty₂ : s₀.store.denote t₂ = some ty₂x)
-    (hbody₂ : s₀.store.denote b₂ = some body₂x)
+    (haS : s₀.store.denoteT a' = some a'x)
+    (hty₂ : s₀.store.denoteT t₂ = some ty₂x)
+    (hbody₂ : s₀.store.denoteT b₂ = some body₂x)
     (hm₂ : denoteBM s₀.store.denoteL m₂ = some bm₂)
-    (hbS : s₀.store.denote b' = some (.lam nm₂x ty₂x body₂x bm₂))
+    (hbS : s₀.store.denoteT b' = some (.lam nm₂x ty₂x body₂x bm₂))
     (hwa' : WScoped d a'x)
     (hwb' : WScoped d (Expr.lam nm₂x ty₂x body₂x bm₂)) :
     SimAt env s₀ RelV
@@ -67,8 +67,8 @@ private theorem defeqI_etaR_arm (ih : SSimI env f) (henv : EnvWF env)
     exact SimAt.pure hs₁ rfl
   | false =>
     simp only [Bool.false_eq_true, ↓reduceIte]
-    exact stuckIrrelI_sim ih henv hs₁ (denote_mono hext₁ haS)
-      (denote_mono hext₁ hbS) hwa' hwb'
+    exact stuckIrrelI_sim ih henv hs₁ (denoteT_mono hext₁ haS)
+      (denoteT_mono hext₁ hbS) hwa' hwb'
 
 /-- The one-sided-λ (left) stuck arm. -/
 private theorem defeqI_etaL_arm (ih : SSimI env f) (henv : EnvWF env)
@@ -76,11 +76,11 @@ private theorem defeqI_etaL_arm (ih : SSimI env f) (henv : EnvWF env)
     {nm₁x : Name}
     {m₁ : IBinderMeta} {bm₁ : BinderMeta} {s₀ : IState} (hs : ISOK env s₀)
     (hnm₁ : s₀.store.denoteN nm₁ = some nm₁x)
-    (haS : s₀.store.denote a' = some (.lam nm₁x ty₁x body₁x bm₁))
-    (hty₁ : s₀.store.denote t₁ = some ty₁x)
-    (hbody₁ : s₀.store.denote b₁ = some body₁x)
+    (haS : s₀.store.denoteT a' = some (.lam nm₁x ty₁x body₁x bm₁))
+    (hty₁ : s₀.store.denoteT t₁ = some ty₁x)
+    (hbody₁ : s₀.store.denoteT b₁ = some body₁x)
     (hm₁ : denoteBM s₀.store.denoteL m₁ = some bm₁)
-    (hbS : s₀.store.denote b' = some b'x)
+    (hbS : s₀.store.denoteT b' = some b'x)
     (hwa' : WScoped d (Expr.lam nm₁x ty₁x body₁x bm₁))
     (hwb' : WScoped d b'x) :
     SimAt env s₀ RelV
@@ -103,14 +103,14 @@ private theorem defeqI_etaL_arm (ih : SSimI env f) (henv : EnvWF env)
     exact SimAt.pure hs₁ rfl
   | false =>
     simp only [Bool.false_eq_true, ↓reduceIte]
-    exact stuckIrrelI_sim ih henv hs₁ (denote_mono hext₁ haS)
-      (denote_mono hext₁ hbS) hwa' hwb'
+    exact stuckIrrelI_sim ih henv hs₁ (denoteT_mono hext₁ haS)
+      (denoteT_mono hext₁ hbS) hwa' hwb'
 
 set_option maxHeartbeats 12000000 in
 theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     {d : Nat} {i j : EIdx} {a b : Expr} {s₀ : IState} (hs : ISOK env s₀)
-    (hdena : s₀.store.denote i = some a)
-    (hdenb : s₀.store.denote j = some b)
+    (hdena : s₀.store.denoteT i = some a)
+    (hdenb : s₀.store.denoteT j = some b)
     (hwa : WScoped d a) (hwb : WScoped d b) :
     SimAt env s₀ RelV
       (defeqBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i j)
@@ -125,10 +125,10 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     refine SimAt.bind (ih.whnfCore hs hdena hwa)
       (fun s₁ a' a'x hs₁ hext₁ hPa => ?_)
     obtain ⟨ha'd, hwa'⟩ := hPa
-    refine SimAt.bind (ih.whnfCore hs₁ (denote_mono hext₁ hdenb) hwb)
+    refine SimAt.bind (ih.whnfCore hs₁ (denoteT_mono hext₁ hdenb) hwb)
       (fun s₂ b' b'x hs₂ hext₂ hPb => ?_)
     obtain ⟨hb'd, hwb'⟩ := hPb
-    have ha'd₂ := denote_mono hext₂ ha'd
+    have ha'd₂ := denoteT_mono hext₂ ha'd
     rw [beq_transfer hs₂.wf ha'd₂ hb'd]
     by_cases hab' : (a'x == b'x) = true
     · rw [if_pos hab', if_pos hab']
@@ -144,8 +144,8 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
         exact SimAt.pure hs₂p rfl
       | false =>
       simp only [Bool.false_eq_true, ↓reduceIte]
-      have ha'd₂ := denote_mono hext₂p ha'd₂
-      have hb'd := denote_mono hext₂p hb'd
+      have ha'd₂ := denoteT_mono hext₂p ha'd₂
+      have hb'd := denoteT_mono hext₂p hb'd
       have hs₂ := hs₂p
       -- peel the fvar-guard read; `hasFvarI` agrees with the spec's
       -- `hasFvar`, so both sides carry the same guard
@@ -159,13 +159,13 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
         | none => exact absurd hPo₁ (by simp [RelO])
         | some a₂x =>
           obtain ⟨ha₂d, hwa₂⟩ := hPo₁
-          exact ih.defeq hs₃ ha₂d (denote_mono hext₃ hb'd) hwa₂ hwb'
+          exact ih.defeq hs₃ ha₂d (denoteT_mono hext₃ hb'd) hwa₂ hwb'
       | none =>
         cases o₁x with
         | some a₂x => exact absurd hPo₁ (by simp [RelO])
         | none =>
           refine SimAt.bind (reduceNatIfI_sim ih hs₃
-            (denote_mono hext₃ hb'd) hwb' _)
+            (denoteT_mono hext₃ hb'd) hwb' _)
             (fun s₄ o₂ o₂x hs₄ hext₄ hPo₂ => ?_)
           cases o₂ with
           | some b₂ =>
@@ -174,20 +174,20 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
             | some b₂x =>
               obtain ⟨hb₂d, hwb₂⟩ := hPo₂
               exact ih.defeq hs₄
-                (denote_mono ((hext₃.trans hext₄)) ha'd₂) hb₂d hwa' hwb₂
+                (denoteT_mono ((hext₃.trans hext₄)) ha'd₂) hb₂d hwa' hwb₂
           | none =>
             cases o₂x with
             | some b₂x => exact absurd hPo₂ (by simp [RelO])
             | none =>
-              have ha'd₄ := denote_mono (hext₃.trans hext₄) ha'd₂
-              have hb'd₄ := denote_mono hext₄ (denote_mono hext₃ hb'd)
+              have ha'd₄ := denoteT_mono (hext₃.trans hext₄) ha'd₂
+              have hb'd₄ := denoteT_mono hext₄ (denoteT_mono hext₃ hb'd)
               refine SimAt.bind_left (unfoldDefinitionI_eff hs₄ ha'd₄)
                 (fun s₅ ua hs₅ hext₅ hQa => ?_)
               refine SimAt.bind_left (unfoldDefinitionI_eff hs₅
-                (denote_mono hext₅ hb'd₄))
+                (denoteT_mono hext₅ hb'd₄))
                 (fun s₆ ub hs₆ hext₆ hQb => ?_)
-              have haS := denote_mono (hext₅.trans hext₆) ha'd₄
-              have hbS := denote_mono (hext₅.trans hext₆) hb'd₄
+              have haS := denoteT_mono (hext₅.trans hext₆) ha'd₄
+              have hbS := denoteT_mono (hext₅.trans hext₆) hb'd₄
               have hQa' := hQa.mono hext₆
               cases hua : unfoldDefinition env a'x with
               | some a₂x =>
@@ -242,8 +242,8 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             | false =>
                               simp only [Bool.false_eq_true, ↓reduceIte]
                               exact ih.defeq hs₇
-                                (denote_mono hext₇ hQa')
-                                (denote_mono hext₇ hQb) hwa₂ hwb₂
+                                (denoteT_mono hext₇ hQa')
+                                (denoteT_mono hext₇ hQb) hwa₂ hwb₂
                           · rw [if_neg hsr, if_neg hsr]
                             exact ih.defeq hs₆ hQa' hQb hwa₂ hwb₂
               | none =>
@@ -264,14 +264,14 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                     cases ub with
                       | some b₂ => exact absurd hQb (by simp [OptDen])
                       | none =>
-                        obtain ⟨na, hna, hca, hda⟩ := denote_some_inv haS
-                        obtain ⟨nb, hnb, hcb, hdb⟩ := denote_some_inv hbS
+                        obtain ⟨na, hna, hca, hda⟩ := denoteT_some_inv haS
+                        obtain ⟨nb, hnb, hcb, hdb⟩ := denoteT_some_inv hbS
                         try dsimp only
                         refine SimAt.view ?_
-                        rw [getNode_of_stored hna]
+                        rw [hna]
                         try dsimp only
                         refine SimAt.view ?_
-                        rw [getNode_of_stored hnb]
+                        rw [hnb]
                         cases na with
                         | sort u₁ =>
                           rw [denoteNode, Option.map_eq_some_iff] at hda
@@ -353,8 +353,8 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                 (beqNameM_eff hs₆ hnmDen natZeroName)
                                 (fun s₆b bq hs₆ hextb hbq => ?_)
                               subst bq
-                              replace haS := denote_mono hextb haS
-                              replace hbS := denote_mono hextb hbS
+                              replace haS := denoteT_mono hextb haS
+                              replace hbS := denoteT_mono hextb hbS
                               simp only [beq_iff_eq]
                               by_cases hz : c₂ = natZeroName ∧ us₂ = []
                               try dsimp only
@@ -379,8 +379,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                               | succ k =>
                                 try dsimp only
                                 refine SimAt.view ?_
-                                obtain ⟨nf, hnf, hcf, hdf⟩ := denote_some_inv hf₂
-                                have hnf := getNode_of_stored hnf
+                                obtain ⟨nf, hnf, hcf, hdf⟩ := denoteT_some_inv hf₂
                                 rw [hnf]
                                 cases nf with
                                 | const cfᵢ usf =>
@@ -402,9 +401,9 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                       (beqNameM_eff hs₆ hnmDen natSuccName)
                                       (fun s₆b bq hs₆ hextb hbq => ?_)
                                     subst bq
-                                    replace haS := denote_mono hextb haS
-                                    replace hbS := denote_mono hextb hbS
-                                    replace ha₂ := denote_mono hextb ha₂
+                                    replace haS := denoteT_mono hextb haS
+                                    replace hbS := denoteT_mono hextb hbS
+                                    replace ha₂ := denoteT_mono hextb ha₂
                                     simp only [beq_iff_eq]
                                     by_cases hsc : cf = natSuccName
                                     try dsimp only
@@ -418,7 +417,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                         (x := .lit (.natVal k)) rfl)
                                         (fun s₇ kl hs₇ hext₇ hQk => ?_)
                                       try dsimp only
-                                      exact ih.defeq hs₇ hQk (denote_mono hext₇ ha₂)
+                                      exact ih.defeq hs₇ hQk (denoteT_mono hext₇ ha₂)
                                         (by simp [WScoped]) hxw
                                     try dsimp only
                                     · rw [if_neg hsc, if_neg hsc]
@@ -512,8 +511,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                               subst hdb
                               try dsimp only
                               refine SimAt.view ?_
-                              obtain ⟨nf, hnf, hcf, hdf⟩ := denote_some_inv hf₂
-                              have hnf := getNode_of_stored hnf
+                              obtain ⟨nf, hnf, hcf, hdf⟩ := denoteT_some_inv hf₂
                               rw [hnf]
                               cases nf with
                               | const cfᵢ usf =>
@@ -528,8 +526,8 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                   (beqNameM_eff hs₆ hnmDen stringOfListName)
                                   (fun s₆b bq hs₆ hextb hbq => ?_)
                                 subst bq
-                                replace haS := denote_mono hextb haS
-                                replace hbS := denote_mono hextb hbS
+                                replace haS := denoteT_mono hextb haS
+                                replace hbS := denoteT_mono hextb hbS
                                 simp only [beq_iff_eq]
                                 by_cases hsc : cf = stringOfListName ∧ usf = [] ∧
                                     strLitSupported env = true
@@ -541,7 +539,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                     (strLitToConstructor str))
                                     (fun s₇ sc hs₇ hext₇ hQs => ?_)
                                   try dsimp only
-                                  exact ih.defeq hs₇ hQs (denote_mono hext₇ hbS)
+                                  exact ih.defeq hs₇ hQs (denoteT_mono hext₇ hbS)
                                     (strLitToConstructor_WScoped str d) hwb'
                                 try dsimp only
                                 · rw [if_neg hsc, if_neg
@@ -715,7 +713,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             try dsimp only
                             by_cases hcc : c₁ = c₂x
                             try dsimp only
-                            · rw [if_pos ((denoteN_eq_iff hs₆.wf.toTWF hnmDen
+                            · rw [if_pos ((denoteN_eq_iff hs₆.wf hnmDen
                                   hc₂Den).mpr hcc), if_pos hcc]
                               try dsimp only
                               refine SimAt.bind_left
@@ -734,12 +732,12 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                 simp only [Bool.false_eq_true, ↓reduceIte]
                                 try dsimp only
                                 exact stuckIrrelI_sim ih henv hs₇
-                                  (denote_mono (hextE.trans hext₇) haS)
-                                  (denote_mono (hextE.trans hext₇) hbS)
+                                  (denoteT_mono (hextE.trans hext₇) haS)
+                                  (denoteT_mono (hextE.trans hext₇) hbS)
                                   hwa' hwb'
                             try dsimp only
                             · rw [if_neg (fun h => hcc
-                                  ((denoteN_eq_iff hs₆.wf.toTWF hnmDen
+                                  ((denoteN_eq_iff hs₆.wf hnmDen
                                     hc₂Den).mp h)), if_neg hcc]
                               try dsimp only
                               exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
@@ -753,8 +751,8 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                 (beqNameM_eff hs₆ hnmDen natZeroName)
                                 (fun s₆b bq hs₆ hextb hbq => ?_)
                               subst bq
-                              replace haS := denote_mono hextb haS
-                              replace hbS := denote_mono hextb hbS
+                              replace haS := denoteT_mono hextb haS
+                              replace hbS := denoteT_mono hextb hbS
                               simp only [beq_iff_eq]
                               by_cases hz : c₁ = natZeroName ∧ us₁ = []
                               try dsimp only
@@ -846,24 +844,24 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                               exact SimAt.pure hs₇ rfl
                             | true =>
                               simp only [↓reduceIte]
-                              have hfv₁ : denoteNode s₇.store.denote
+                              have hfv₁ : denoteNode s₇.store.denoteT
                                   s₇.store.denoteL s₇.store.denoteN
                                   (.fvar d nm₁ᵢ t₁)
                                   = some (.fvar d nm₁ ty₁x) := by
-                                rw [denoteNode, denote_mono hext₇ hty₁,
+                                rw [denoteNode, denoteT_mono hext₇ hty₁,
                                   denoteN_mono hext₇ hnmDen]; rfl
                               try dsimp only
                               refine SimAt.bind_left (internI_eff hs₇ hfv₁)
                                 (fun s₈ fv₁ hs₈ hext₈ hQf₁ => ?_)
                               try dsimp only
                               refine SimAt.bind_left (inst1M_eff hs₈
-                                (denote_mono (hext₇.trans hext₈) hbody₁) hQf₁)
+                                (denoteT_mono (hext₇.trans hext₈) hbody₁) hQf₁)
                                 (fun s₉ ob₁ hs₉ hext₉ hQo₁ => ?_)
-                              have hfv₂ : denoteNode s₉.store.denote
+                              have hfv₂ : denoteNode s₉.store.denoteT
                                   s₉.store.denoteL s₉.store.denoteN
                                   (.fvar d nm₂ t₂)
                                   = some (.fvar d nm₂x ty₂x) := by
-                                rw [denoteNode, denote_mono
+                                rw [denoteNode, denoteT_mono
                                   ((hext₇.trans hext₈).trans hext₉) hty₂,
                                   denoteN_mono
                                     ((hext₇.trans hext₈).trans hext₉)
@@ -874,12 +872,12 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                 (fun s₁₀ fv₂ hs₁₀ hext₁₀ hQf₂ => ?_)
                               try dsimp only
                               refine SimAt.bind_left (inst1M_eff hs₁₀
-                                (denote_mono (((hext₇.trans hext₈).trans
+                                (denoteT_mono (((hext₇.trans hext₈).trans
                                   hext₉).trans hext₁₀) hbody₂) hQf₂)
                                 (fun s₁₁ ob₂ hs₁₁ hext₁₁ hQo₂ => ?_)
                               try dsimp only
                               refine SimAt.bind (ih.defeq hs₁₁
-                                (denote_mono (hext₁₀.trans hext₁₁) hQo₁) hQo₂
+                                (denoteT_mono (hext₁₀.trans hext₁₁) hQo₁) hQo₂
                                 (WScoped.instantiate1 h1.1 0 h1.2)
                                 (WScoped.instantiate1 h2.1 0 h2.2))
                                 (fun s₁₂ r₂ r₂' hs₁₂ hext₁₂ hP₂ => ?_)
@@ -1038,24 +1036,24 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                               exact SimAt.pure hs₇ rfl
                             | true =>
                               simp only [↓reduceIte]
-                              have hfv₁ : denoteNode s₇.store.denote
+                              have hfv₁ : denoteNode s₇.store.denoteT
                                   s₇.store.denoteL s₇.store.denoteN
                                   (.fvar d nm₁ᵢ t₁)
                                   = some (.fvar d nm₁ ty₁x) := by
-                                rw [denoteNode, denote_mono hext₇ hty₁,
+                                rw [denoteNode, denoteT_mono hext₇ hty₁,
                                   denoteN_mono hext₇ hnmDen]; rfl
                               try dsimp only
                               refine SimAt.bind_left (internI_eff hs₇ hfv₁)
                                 (fun s₈ fv₁ hs₈ hext₈ hQf₁ => ?_)
                               try dsimp only
                               refine SimAt.bind_left (inst1M_eff hs₈
-                                (denote_mono (hext₇.trans hext₈) hbody₁) hQf₁)
+                                (denoteT_mono (hext₇.trans hext₈) hbody₁) hQf₁)
                                 (fun s₉ ob₁ hs₉ hext₉ hQo₁ => ?_)
-                              have hfv₂ : denoteNode s₉.store.denote
+                              have hfv₂ : denoteNode s₉.store.denoteT
                                   s₉.store.denoteL s₉.store.denoteN
                                   (.fvar d nm₂ t₂)
                                   = some (.fvar d nm₂x ty₂x) := by
-                                rw [denoteNode, denote_mono
+                                rw [denoteNode, denoteT_mono
                                   ((hext₇.trans hext₈).trans hext₉) hty₂,
                                   denoteN_mono
                                     ((hext₇.trans hext₈).trans hext₉)
@@ -1066,12 +1064,12 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                 (fun s₁₀ fv₂ hs₁₀ hext₁₀ hQf₂ => ?_)
                               try dsimp only
                               refine SimAt.bind_left (inst1M_eff hs₁₀
-                                (denote_mono (((hext₇.trans hext₈).trans
+                                (denoteT_mono (((hext₇.trans hext₈).trans
                                   hext₉).trans hext₁₀) hbody₂) hQf₂)
                                 (fun s₁₁ ob₂ hs₁₁ hext₁₁ hQo₂ => ?_)
                               try dsimp only
                               refine SimAt.bind (ih.defeq hs₁₁
-                                (denote_mono (hext₁₀.trans hext₁₁) hQo₁) hQo₂
+                                (denoteT_mono (hext₁₀.trans hext₁₁) hQo₁) hQo₂
                                 (WScoped.instantiate1 h1.1 0 h1.2)
                                 (WScoped.instantiate1 h2.1 0 h2.2))
                                 (fun s₁₂ r₂ r₂' hs₁₂ hext₁₂ hP₂ => ?_)
@@ -1211,8 +1209,8 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             | true =>
                               simp only [↓reduceIte]
                               try dsimp only
-                              refine SimAt.bind (ih.defeq hs₇ (denote_mono hext₇ ha₁)
-                                (denote_mono hext₇ ha₂) h1.2 h2.2)
+                              refine SimAt.bind (ih.defeq hs₇ (denoteT_mono hext₇ ha₁)
+                                (denoteT_mono hext₇ ha₂) h1.2 h2.2)
                                 (fun s₈ r₂ r₂' hs₈ hext₈ hP₂ => ?_)
                               obtain rfl : r₂ = r₂' := hP₂
                               cases r₂ with
@@ -1224,13 +1222,13 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                 simp only [Bool.false_eq_true, ↓reduceIte]
                                 try dsimp only
                                 exact stuckIrrelI_sim ih henv hs₈
-                                  (denote_mono (hext₇.trans hext₈) haS)
-                                  (denote_mono (hext₇.trans hext₈) hbS) hwa' hwb'
+                                  (denoteT_mono (hext₇.trans hext₈) haS)
+                                  (denoteT_mono (hext₇.trans hext₈) hbS) hwa' hwb'
                             | false =>
                               simp only [Bool.false_eq_true, ↓reduceIte]
                               try dsimp only
-                              exact stuckIrrelI_sim ih henv hs₇ (denote_mono hext₇ haS)
-                                (denote_mono hext₇ hbS) hwa' hwb'
+                              exact stuckIrrelI_sim ih henv hs₇ (denoteT_mono hext₇ haS)
+                                (denoteT_mono hext₇ hbS) hwa' hwb'
                           | lit l₂ =>
                             cases hdb
                             cases l₂ with
@@ -1240,8 +1238,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                               | succ k =>
                                 try dsimp only
                                 refine SimAt.view ?_
-                                obtain ⟨nf, hnf, hcf, hdf⟩ := denote_some_inv hf₁
-                                have hnf := getNode_of_stored hnf
+                                obtain ⟨nf, hnf, hcf, hdf⟩ := denoteT_some_inv hf₁
                                 rw [hnf]
                                 cases nf with
                                 | const cfᵢ usf =>
@@ -1263,9 +1260,9 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                       (beqNameM_eff hs₆ hnmDen natSuccName)
                                       (fun s₆b bq hs₆ hextb hbq => ?_)
                                     subst bq
-                                    replace haS := denote_mono hextb haS
-                                    replace hbS := denote_mono hextb hbS
-                                    replace ha₁ := denote_mono hextb ha₁
+                                    replace haS := denoteT_mono hextb haS
+                                    replace hbS := denoteT_mono hextb hbS
+                                    replace ha₁ := denoteT_mono hextb ha₁
                                     simp only [beq_iff_eq]
                                     by_cases hsc : cf = natSuccName
                                     try dsimp only
@@ -1275,7 +1272,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                         (x := .lit (.natVal k)) rfl)
                                         (fun s₇ kl hs₇ hext₇ hQk => ?_)
                                       try dsimp only
-                                      exact ih.defeq hs₇ (denote_mono hext₇ ha₁) hQk h1.2
+                                      exact ih.defeq hs₇ (denoteT_mono hext₇ ha₁) hQk h1.2
                                         (by simp [WScoped])
                                     try dsimp only
                                     · rw [if_neg hsc, if_neg hsc]
@@ -1321,8 +1318,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             | strVal str =>
                               try dsimp only
                               refine SimAt.view ?_
-                              obtain ⟨nf, hnf, hcf, hdf⟩ := denote_some_inv hf₁
-                              have hnf := getNode_of_stored hnf
+                              obtain ⟨nf, hnf, hcf, hdf⟩ := denoteT_some_inv hf₁
                               rw [hnf]
                               cases nf with
                               | const cfᵢ usf =>
@@ -1337,8 +1333,8 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                   (beqNameM_eff hs₆ hnmDen stringOfListName)
                                   (fun s₆b bq hs₆ hextb hbq => ?_)
                                 subst bq
-                                replace haS := denote_mono hextb haS
-                                replace hbS := denote_mono hextb hbS
+                                replace haS := denoteT_mono hextb haS
+                                replace hbS := denoteT_mono hextb hbS
                                 simp only [beq_iff_eq]
                                 by_cases hsc : cf = stringOfListName ∧ usf = [] ∧
                                     strLitSupported env = true
@@ -1350,7 +1346,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                     (strLitToConstructor str))
                                     (fun s₇ sc hs₇ hext₇ hQs => ?_)
                                   try dsimp only
-                                  exact ih.defeq hs₇ (denote_mono hext₇ haS) hQs hwa'
+                                  exact ih.defeq hs₇ (denoteT_mono hext₇ haS) hQs hwa'
                                     (strLitToConstructor_WScoped str d)
                                 try dsimp only
                                 · rw [if_neg hsc, if_neg
@@ -1580,8 +1576,8 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                               | false =>
                                 simp only [Bool.false_eq_true, ↓reduceIte]
                                 try dsimp only
-                                exact stuckIrrelI_sim ih henv hs₇ (denote_mono hext₇ haS)
-                                  (denote_mono hext₇ hbS) hwa' hwb'
+                                exact stuckIrrelI_sim ih henv hs₇ (denoteT_mono hext₇ haS)
+                                  (denoteT_mono hext₇ hbS) hwa' hwb'
                             try dsimp only
                             · rw [if_neg hjj, if_neg hjj]
                               try dsimp only

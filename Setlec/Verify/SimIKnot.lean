@@ -25,24 +25,24 @@ open EStore Expr
 /-- The interned conditional simulation at fuel `f`. -/
 structure SSimI (env : Env) (f : Nat) : Prop where
   whnfCore : ∀ {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr},
-    ISOK env s₀ → s₀.store.denote i = some e → WScoped d e →
+    ISOK env s₀ → s₀.store.denoteT i = some e → WScoped d e →
     SimAt env s₀ (RelE d) ((coreKnotI (mkFEnv env) f).whnfCore d i)
       ((fueledFns env).whnfCore d e)
   whnf : ∀ {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr},
-    ISOK env s₀ → s₀.store.denote i = some e → WScoped d e →
+    ISOK env s₀ → s₀.store.denoteT i = some e → WScoped d e →
     SimAt env s₀ (RelE d) ((coreKnotI (mkFEnv env) f).whnf d i)
       ((fueledFns env).whnf d e)
   infer : ∀ {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr},
-    ISOK env s₀ → s₀.store.denote i = some e → WScoped d e →
+    ISOK env s₀ → s₀.store.denoteT i = some e → WScoped d e →
     SimAt env s₀ (RelE d) ((coreKnotI (mkFEnv env) f).infer d i)
       ((fueledFns env).infer d e)
   defeq : ∀ {s₀ : IState} {d : Nat} {i j : EIdx} {a b : Expr},
-    ISOK env s₀ → s₀.store.denote i = some a →
-    s₀.store.denote j = some b → WScoped d a → WScoped d b →
+    ISOK env s₀ → s₀.store.denoteT i = some a →
+    s₀.store.denoteT j = some b → WScoped d a → WScoped d b →
     SimAt env s₀ RelV ((coreKnotI (mkFEnv env) f).defeq d i j)
       ((fueledFns env).defeq d a b)
   annotate : ∀ {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr},
-    ISOK env s₀ → s₀.store.denote i = some e → WScoped d e →
+    ISOK env s₀ → s₀.store.denoteT i = some e → WScoped d e →
     SimAt env s₀ (RelE d) ((coreKnotI (mkFEnv env) f).annotate d i)
       ((fueledFns env).annotate d e)
 
@@ -62,7 +62,7 @@ variable {env : Env}
 
 theorem ISOK.insertWhnfCoreC {s : IState} (hs : ISOK env s)
     {i j : EIdx} {a b : Expr}
-    (hi : s.store.denote i = some a) (hj : s.store.denote j = some b)
+    (hi : s.store.denoteT i = some a) (hj : s.store.denoteT j = some b)
     (hrun : ∃ F, ∀ d, a.wscopedB d = true → whnfCore env F d a = .ok b) :
     ISOK env { s with whnfCoreC := s.whnfCoreC.insert i j } := by
   refine ⟨hs.wf, hs.constTy, hs.constVal, hs.ruleRhs, ?_, hs.whnfC,
@@ -81,7 +81,7 @@ theorem ISOK.insertWhnfCoreC {s : IState} (hs : ISOK env s)
 
 theorem ISOK.insertWhnfC {s : IState} (hs : ISOK env s)
     {i j : EIdx} {a b : Expr}
-    (hi : s.store.denote i = some a) (hj : s.store.denote j = some b)
+    (hi : s.store.denoteT i = some a) (hj : s.store.denoteT j = some b)
     (hrun : ∃ F, ∀ d, a.wscopedB d = true → whnf env F d a = .ok b) :
     ISOK env { s with whnfC := s.whnfC.insert i j } := by
   refine ⟨hs.wf, hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, ?_,
@@ -100,7 +100,7 @@ theorem ISOK.insertWhnfC {s : IState} (hs : ISOK env s)
 
 theorem ISOK.insertInferC {s : IState} (hs : ISOK env s)
     {i j : EIdx} {a b : Expr}
-    (hi : s.store.denote i = some a) (hj : s.store.denote j = some b)
+    (hi : s.store.denoteT i = some a) (hj : s.store.denoteT j = some b)
     (hrun : ∃ F, ∀ d, a.wscopedB d = true →
       inferTypeCore env F d a = .ok b) :
     ISOK env { s with inferC := s.inferC.insert i j } := by
@@ -120,7 +120,7 @@ theorem ISOK.insertInferC {s : IState} (hs : ISOK env s)
 
 theorem ISOK.insertAnnotC {s : IState} (hs : ISOK env s)
     {i j : EIdx} {a b : Expr}
-    (hi : s.store.denote i = some a) (hj : s.store.denote j = some b)
+    (hi : s.store.denoteT i = some a) (hj : s.store.denoteT j = some b)
     (hrun : ∃ F, ∀ d, a.wscopedB d = true →
       annotateCore env F d a = .ok b) :
     ISOK env { s with annotC := s.annotC.insert i j } := by
@@ -140,7 +140,7 @@ theorem ISOK.insertAnnotC {s : IState} (hs : ISOK env s)
 
 theorem ISOK.insertDefeqC {s : IState} (hs : ISOK env s)
     {i j : EIdx} {r : Bool} {a b : Expr}
-    (hi : s.store.denote i = some a) (hj : s.store.denote j = some b)
+    (hi : s.store.denoteT i = some a) (hj : s.store.denoteT j = some b)
     (hrun : ∃ F, ∀ d, a.wscopedB d = true → b.wscopedB d = true →
       isDefEqCore env F d a b = .ok r) :
     ISOK env { s with defeqC := s.defeqC.insert (i, j) r } := by
@@ -163,7 +163,7 @@ theorem ISOK.insertDefeqC {s : IState} (hs : ISOK env s)
 /-- Inserting a backed entry into the codomain-sort memo (task #100). -/
 theorem ISOK.insertCodOfC {s : IState} (hs : ISOK env s)
     {i : EIdx} {u : LIdx} {a : Expr} {l : Level}
-    (hi : s.store.denote i = some a) (hu : s.store.denoteL u = some l)
+    (hi : s.store.denoteT i = some a) (hu : s.store.denoteL u = some l)
     (hrun : ∃ F, ∀ d, a.wscopedB d = true → codOfCore env F d a = .ok l) :
     ISOK env { s with codOfC := s.codOfC.insert i u } := by
   refine ⟨hs.wf, hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC,
@@ -190,12 +190,12 @@ variable {env : Env} {f : Nat}
 
 theorem memoEI_whnfCore_sim (henv : EnvWF env)
     (hbody : ∀ {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr},
-      ISOK env s₀ → s₀.store.denote i = some e → WScoped d e →
+      ISOK env s₀ → s₀.store.denoteT i = some e → WScoped d e →
       SimAt env s₀ (RelE d)
         (whnfCoreBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i)
         (whnfCoreBody (fueledFns env) env d e))
     {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr}
-    (hs : ISOK env s₀) (hden : s₀.store.denote i = some e)
+    (hs : ISOK env s₀) (hden : s₀.store.denoteT i = some e)
     (hw : WScoped d e) :
     SimAt env s₀ (RelE d) ((coreKnotI (mkFEnv env) (f + 1)).whnfCore d i)
       ((fueledFns env).whnfCore d e) := by
@@ -238,7 +238,7 @@ theorem memoEI_whnfCore_sim (henv : EnvWF env)
       obtain ⟨hs₁, hext₁, v, ⟨hrv, hwv⟩, F, hF⟩ := hbody hs hden hw r s₁ hb
       rw [whnfCoreBody_atF] at hF
       rw [← whnfCore_succ] at hF
-      have hins := hs₁.insertWhnfCoreC (denote_mono hext₁ hden) hrv
+      have hins := hs₁.insertWhnfCoreC (denoteT_mono hext₁ hden) hrv
         ⟨F + 1, fun d' hd' => by
           rw [whnfCore_depth_inv henv (F + 1) hd' hw.to_wscopedB]
           exact hF⟩
@@ -246,12 +246,12 @@ theorem memoEI_whnfCore_sim (henv : EnvWF env)
 
 theorem memoEI_whnf_sim (henv : EnvWF env)
     (hbody : ∀ {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr},
-      ISOK env s₀ → s₀.store.denote i = some e → WScoped d e →
+      ISOK env s₀ → s₀.store.denoteT i = some e → WScoped d e →
       SimAt env s₀ (RelE d)
         (whnfBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i)
         (whnfBody (fueledFns env) env d e))
     {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr}
-    (hs : ISOK env s₀) (hden : s₀.store.denote i = some e)
+    (hs : ISOK env s₀) (hden : s₀.store.denoteT i = some e)
     (hw : WScoped d e) :
     SimAt env s₀ (RelE d) ((coreKnotI (mkFEnv env) (f + 1)).whnf d i)
       ((fueledFns env).whnf d e) := by
@@ -292,7 +292,7 @@ theorem memoEI_whnf_sim (henv : EnvWF env)
       obtain ⟨hs₁, hext₁, v, ⟨hrv, hwv⟩, F, hF⟩ := hbody hs hden hw r s₁ hb
       rw [whnfBody_atF] at hF
       rw [← whnf_succ] at hF
-      have hins := hs₁.insertWhnfC (denote_mono hext₁ hden) hrv
+      have hins := hs₁.insertWhnfC (denoteT_mono hext₁ hden) hrv
         ⟨F + 1, fun d' hd' => by
           rw [whnf_depth_inv henv (F + 1) hd' hw.to_wscopedB]
           exact hF⟩
@@ -300,12 +300,12 @@ theorem memoEI_whnf_sim (henv : EnvWF env)
 
 theorem memoEI_infer_sim (henv : EnvWF env)
     (hbody : ∀ {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr},
-      ISOK env s₀ → s₀.store.denote i = some e → WScoped d e →
+      ISOK env s₀ → s₀.store.denoteT i = some e → WScoped d e →
       SimAt env s₀ (RelE d)
         (inferBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i)
         (inferBody (fueledFns env) env d e))
     {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr}
-    (hs : ISOK env s₀) (hden : s₀.store.denote i = some e)
+    (hs : ISOK env s₀) (hden : s₀.store.denoteT i = some e)
     (hw : WScoped d e) :
     SimAt env s₀ (RelE d) ((coreKnotI (mkFEnv env) (f + 1)).infer d i)
       ((fueledFns env).infer d e) := by
@@ -347,7 +347,7 @@ theorem memoEI_infer_sim (henv : EnvWF env)
       obtain ⟨hs₁, hext₁, v, ⟨hrv, hwv⟩, F, hF⟩ := hbody hs hden hw r s₁ hb
       rw [inferBody_atF] at hF
       rw [← inferTypeCore_succ] at hF
-      have hins := hs₁.insertInferC (denote_mono hext₁ hden) hrv
+      have hins := hs₁.insertInferC (denoteT_mono hext₁ hden) hrv
         ⟨F + 1, fun d' hd' => by
           rw [inferTypeCore_depth_inv henv (F + 1) hd' hw.to_wscopedB]
           exact hF⟩
@@ -355,12 +355,12 @@ theorem memoEI_infer_sim (henv : EnvWF env)
 
 theorem memoEI_annotate_sim (henv : EnvWF env)
     (hbody : ∀ {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr},
-      ISOK env s₀ → s₀.store.denote i = some e → WScoped d e →
+      ISOK env s₀ → s₀.store.denoteT i = some e → WScoped d e →
       SimAt env s₀ (RelE d)
         (annotateBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i)
         (annotateBody (fueledFns env) env d e))
     {s₀ : IState} {d : Nat} {i : EIdx} {e : Expr}
-    (hs : ISOK env s₀) (hden : s₀.store.denote i = some e)
+    (hs : ISOK env s₀) (hden : s₀.store.denoteT i = some e)
     (hw : WScoped d e) :
     SimAt env s₀ (RelE d) ((coreKnotI (mkFEnv env) (f + 1)).annotate d i)
       ((fueledFns env).annotate d e) := by
@@ -403,7 +403,7 @@ theorem memoEI_annotate_sim (henv : EnvWF env)
       obtain ⟨hs₁, hext₁, v, ⟨hrv, hwv⟩, F, hF⟩ := hbody hs hden hw r s₁ hb
       rw [annotateBody_atF] at hF
       rw [← annotateCore_succ] at hF
-      have hins := hs₁.insertAnnotC (denote_mono hext₁ hden) hrv
+      have hins := hs₁.insertAnnotC (denoteT_mono hext₁ hden) hrv
         ⟨F + 1, fun d' hd' => by
           rw [annotateCore_depth_inv henv (F + 1) hd' hw.to_wscopedB]
           exact hF⟩
@@ -411,14 +411,14 @@ theorem memoEI_annotate_sim (henv : EnvWF env)
 
 theorem memoBI_defeq_sim (henv : EnvWF env)
     (hbody : ∀ {s₀ : IState} {d : Nat} {i j : EIdx} {a b : Expr},
-      ISOK env s₀ → s₀.store.denote i = some a →
-      s₀.store.denote j = some b → WScoped d a → WScoped d b →
+      ISOK env s₀ → s₀.store.denoteT i = some a →
+      s₀.store.denoteT j = some b → WScoped d a → WScoped d b →
       SimAt env s₀ RelV
         (defeqBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i j)
         (defeqBody (fueledFns env) env d a b))
     {s₀ : IState} {d : Nat} {i j : EIdx} {a b : Expr}
-    (hs : ISOK env s₀) (hdena : s₀.store.denote i = some a)
-    (hdenb : s₀.store.denote j = some b)
+    (hs : ISOK env s₀) (hdena : s₀.store.denoteT i = some a)
+    (hdenb : s₀.store.denoteT j = some b)
     (hwa : WScoped d a) (hwb : WScoped d b) :
     SimAt env s₀ RelV ((coreKnotI (mkFEnv env) (f + 1)).defeq d i j)
       ((fueledFns env).defeq d a b) := by
@@ -464,8 +464,8 @@ theorem memoBI_defeq_sim (henv : EnvWF env)
       rw [defeqBody_atF] at hF
       rw [← isDefEqCore_succ] at hF
       obtain rfl : r = v := hrv
-      have hins := hs₁.insertDefeqC (denote_mono hext₁ hdena)
-        (denote_mono hext₁ hdenb)
+      have hins := hs₁.insertDefeqC (denoteT_mono hext₁ hdena)
+        (denoteT_mono hext₁ hdenb)
         ⟨F + 1, fun d' hda' hdb' => by
           rw [isDefEqCore_depth_inv henv (F + 1) hda' hdb'
             hwa.to_wscopedB hwb.to_wscopedB]

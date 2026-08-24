@@ -70,7 +70,7 @@ comparand at some fuel. -/
 theorem runEntryE_bridge {pick : CoreFnsI → Nat → EIdx → CheckIM EIdx}
     {pf : FueledM Expr} {d : Nat} {e v : Expr}
     (hsim : ∀ {s₀ : IState} {i : EIdx}, ISOK env s₀ →
-      s₀.store.denote i = some e →
+      s₀.store.denoteT i = some e →
       SimAt env s₀ (RelE d)
         (pick (coreKnotI (mkFEnv env) checkFuel) d i) pf)
     (h : runEntryE env pick d e = .ok v) :
@@ -90,7 +90,8 @@ theorem runEntryE_bridge {pick : CoreFnsI → Nat → EIdx → CheckIM EIdx}
     rw [hrun] at h
     dsimp only at h
     obtain ⟨hs', hext, vv, ⟨hjd, hwv⟩, F, hF⟩ :=
-      hsim (ISOK.fresh env hwf0) hden0 j s' (run_inv hrun)
+      hsim (ISOK.fresh env hwf0)
+        (EStore.denoteT_of_denote hwf0.toTWF hden0) j s' (run_inv hrun)
     rw [readbackI_spec hs'.wf hjd] at h
     obtain rfl : vv = v := by
       simp only [pure, Except.pure, Except.ok.injEq] at h
@@ -101,7 +102,7 @@ theorem runEntryE_bridge {pick : CoreFnsI → Nat → EIdx → CheckIM EIdx}
 theorem runEntryB_bridge {pf : FueledM Bool} {d : Nat} {a b : Expr}
     {v : Bool}
     (hsim : ∀ {s₀ : IState} {i j : EIdx}, ISOK env s₀ →
-      s₀.store.denote i = some a → s₀.store.denote j = some b →
+      s₀.store.denoteT i = some a → s₀.store.denoteT j = some b →
       SimAt env s₀ RelV
         ((coreKnotI (mkFEnv env) checkFuel).defeq d i j) pf)
     (h : runEntryB env d a b = .ok v) :
@@ -130,7 +131,9 @@ theorem runEntryB_bridge {pf : FueledM Bool} {d : Nat} {a b : Expr}
   | ok pr =>
     obtain ⟨r, s'⟩ := pr
     obtain ⟨hs', hext, vv, hPv, F, hF⟩ :=
-      hsim (ISOK.fresh env hwf2) (denote_mono hext2 hdena) hdenb
+      hsim (ISOK.fresh env hwf2)
+        (EStore.denoteT_of_denote hwf2.toTWF (denote_mono hext2 hdena))
+        (EStore.denoteT_of_denote hwf2.toTWF hdenb)
         r s' (run_inv hrun)
     obtain rfl : r = vv := hPv
     rw [show ((coreKnotI (mkFEnv env) checkFuel).defeq d i0 j0).run
@@ -145,7 +148,7 @@ a level index which the runner reads back. -/
 theorem runEntryS_bridge {pf : FueledM Level} {d : Nat} {e : Expr}
     {u : Level}
     (hsim : ∀ {s₀ : IState} {i : EIdx}, ISOK env s₀ →
-      s₀.store.denote i = some e →
+      s₀.store.denoteT i = some e →
       SimAt env s₀ RelL
         (ensureSortI (coreKnotI (mkFEnv env) checkFuel) d i) pf)
     (h : runEntryS env d e = .ok u) :
@@ -165,7 +168,8 @@ theorem runEntryS_bridge {pf : FueledM Level} {d : Nat} {e : Expr}
   | ok pr =>
     obtain ⟨r, s'⟩ := pr
     obtain ⟨hs', hext, vv, hPv, F, hF⟩ :=
-      hsim (ISOK.fresh env hwf0) hden0 r s' (run_inv hrun)
+      hsim (ISOK.fresh env hwf0)
+        (EStore.denoteT_of_denote hwf0.toTWF hden0) r s' (run_inv hrun)
     rw [hrun] at h
     dsimp only at h
     rw [readbackL_spec (hPv : s'.store.denoteL r = some vv)] at h
