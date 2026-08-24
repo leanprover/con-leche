@@ -602,29 +602,25 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
     obtain ⟨thmName, cvt, ci, fvs, tbody, ℓA, αS, lhsS, rhsS, cdoms,
       cres, rdoms, rrest, fvsP, restP, cdomsP, crestP, xFvsP, crest2,
       ldoms, lrest, hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, hlhead,
-      hlarity, hlpre, hmaj, hcstrip, hcinst, hclen, hdeIdx, hdeFld,
-      hrinst, hdePre, hopenP, hcinstN0, htlP0, hopenX, hcrest2Len,
-      hlinst, hdeLam, hdeRhs⟩ := hnck
+      hlarity, hlpre, hmaj, hCresHead, hcinst, hclen, hdeIdx, hdeFld,
+      hrinst, hdePre, hopenP, hannP0, hcinstN0, htlP0, hopenX,
+      hcrest2Len, hlinst, hdeLam, hdeRhs⟩ := hnck
     -- the public prefix spine has exactly `rP` variables
     have hfvsPLen : fvsP.length = rP :=
       (openPisAtFvars_spec rP 0 hopenP).2.1
     have htake : fvsP.take rP = fvsP :=
       List.take_of_length_le (Nat.le_of_eq hfvsPLen)
-    rw [htake] at hcinstN0 htlP0
-    -- the member-type major shape
-    obtain ⟨preM, nmM, domM, bodyM, bmM, Dn, hstripM0, hdomFn,
-      hdomArgs⟩ := hshapeM
-    have hstripM : cvA.type.stripPis rP =
-        some (preM, .forallE nmM domM bodyM bmM) := by
-      rw [← hmIrP]
-      exact hstripM0
+    rw [htake] at hannP0 hcinstN0 htlP0
+    -- the member-type shape
+    obtain ⟨preM, nmM, domM, bodyM, bmM, Dn, hstripM0, -, -⟩ := hshapeM
+    have htyStrip : (cvA.type.stripPis mI).isSome = true := by
+      rw [hstripM0]
+      rfl
     -- the pins' wf facts in the kit's terms
     have hpinsW : ∀ p ∈ pins, p.hasFvar = false ∧
         p.looseBVarsBounded rP = true := by
       intro p hp
-      refine ⟨(hpinsFacts p hp).1, ?_⟩
-      rw [← hmIrP]
-      exact (hpinsFacts p hp).2.2.2
+      exact ⟨(hpinsFacts p hp).1, (hpinsFacts p hp).2.2.2⟩
     have hpinsRes : ∀ p ∈ pins, p.constsResolve envS = true :=
       fun p hp => (hpinsFacts p hp).2.2.1
     -- the block renaming is idempotent (model-shaped names are
@@ -738,11 +734,12 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
       hfr rfl hcp hnf rfl rfl rfl
       hself rfl hfRm hlpsm hfCm hCmlps hfcS rfl heqfindS heqval
       hthm_mem hthm_annot hSw hSb
-      hmIrP hstripM hdomFn hdomArgs hpinsW hpinsLen0 hpinsRen2
+      hmIrP htyStrip hpinsW hpinsLen0 hpinsRen2
       hpinsRes
-      hopen hheadEq hargs3 hlhead hlarity hlpre hmaj hcstrip hCps
-      hcinst hclen hrinst hdePre hdeFld
-      hcrest2Len hopenP hcinstN0 htlP0 hopenX hlinst hdeLam hdeRhs
+      hopen hheadEq hargs3 hlhead hlarity hlpre hmaj hCresHead hCps
+      hcinst hclen hdeIdx hrinst hdePre hdeFld
+      hcrest2Len hopenP hannP0 hcinstN0 htlP0 hopenX hlinst hdeLam
+      hdeRhs
       hrhsf hrhsb hArhsS hIrhs htyw htyb hAty hIty hCw hCb hACty
       hICty htyres hCres
     obtain ⟨fvms, bL, hparts, hwf, hlen, hres, hsem⟩ := hout
@@ -1105,24 +1102,20 @@ theorem checkIndRecs_sound {F : Nat} {blockNames : List Name}
         exact nomatch heq
       · intro cv2 mI2 rP2 rules2 heq r hr
         injection heq with e1 e2 e3 e4
-        subst e4
+        subst e1; subst e2; subst e3; subst e4
         obtain ⟨cvj, cnP, cnF, raw, rhsTy, rbinders, rbody, -, -, -, -,
           hnestK, -, -, -, hrf, hrb, hrlp, hrres, -, -, -⟩ := hkits r hr
-        refine ⟨hrf, by rw [← e1]; exact hrlp, ?_, hrb, ?_⟩
+        refine ⟨hrf, hrlp, ?_, hrb, ?_⟩
         · rw [← Expr.constsResolve_congr hisoSome]
           exact hrres
         · intro lvls pins hfr
           obtain ⟨n1, n2, n3, n4, -⟩ := hnestK lvls pins hfr
-          refine ⟨by rw [← e2, ← e3]; exact n1,
-            by rw [← e1]; exact n2, ?_, ?_⟩
+          refine ⟨n1, n2, ?_, n4⟩
           · intro pin hpin
             obtain ⟨p1, p2, p3, p4⟩ := n3 pin hpin
-            refine ⟨p1, by rw [← e1]; exact p2, ?_,
-              by rw [← e2]; exact p4⟩
+            refine ⟨p1, p2, ?_, p4⟩
             rw [← Expr.constsResolve_congr hisoSome]
             exact p3
-          · rw [← e1, ← e2]
-            exact n4
     · -- the rules' constructors are stored
       intro r hr
       obtain ⟨cvj, cnP, cnF, raw, rhsTy, rbinders, rbody, hfc, -⟩ :=
