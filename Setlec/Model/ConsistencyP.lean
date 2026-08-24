@@ -9,8 +9,10 @@ directly into an arena (`Setlec/Frontend/Export.lean`), declarations
 arrive as `DeclP` records carrying arena indices, and the whole
 declaration fold shares one interned state seeded from the parse store.
 
-The seam to the spec: the parse store is validated *once* (`wfB` —
-`wfB_wf` establishes `EStore.WF`), each declaration's indices are
+The seam to the spec: the parse arena arrives *well-formed by
+construction* (`WFStore`, task #103 — canonicity `EStore.WF` is the
+bundle's `wf` field, established per record by the frontend's checked
+interns), each declaration's indices are
 validated in range (denotations then exist, `denoteDeclP_total`), and
 the per-declaration walk (`checkDeclSP_sim`, `Setlec/Verify/BridgeP.lean`
 for the non-inductive branches; the inductive/basis branches are the
@@ -120,19 +122,14 @@ private theorem foldSP {V : Type u} [SetTheory V] {st0 : EStore}
 /-- Soundness of the **parsed-index executable** checker: every
 environment it accepts has a set-theoretic model. -/
 theorem checkDeclsSP_sound (V : Type u) [SetTheory V]
-    {st : EStore} {pds : List DeclP} {env' : Env}
+    {st : WFStore} {pds : List DeclP} {env' : Env}
     (h : checkDeclsSP st pds = .ok env') :
     Nonempty (EnvModel V env') := by
   unfold checkDeclsSP at h
-  by_cases hwfB : st.wfB = true
-  case neg =>
-    rw [if_neg hwfB] at h
-    exact absurd h (fun h => nomatch h)
-  rw [if_pos hwfB] at h
   simp only [Bind.bind, Except.bind] at h
-  have hwf : st.WF := wfB_wf hwfB
-  cases hf : (pds.foldlM (checkDeclSPStep st.nodes.size)
-      (mkFEnv Env.empty)).run' { store := st } with
+  have hwf : st.raw.WF := st.wf
+  cases hf : (pds.foldlM (checkDeclSPStep st.raw.nodes.size)
+      (mkFEnv Env.empty)).run' { store := st.raw } with
   | error e => rw [hf] at h; exact nomatch h
   | ok fe =>
     rw [hf] at h
@@ -140,8 +137,8 @@ theorem checkDeclsSP_sound (V : Type u) [SetTheory V]
       have h' : (Except.ok fe.env : CheckM Env) = .ok env' := h
       exact Except.ok.inj h'
     simp only [StateT.run'] at hf
-    cases hrun : (pds.foldlM (checkDeclSPStep st.nodes.size)
-        (mkFEnv Env.empty)) { store := st } with
+    cases hrun : (pds.foldlM (checkDeclSPStep st.raw.nodes.size)
+        (mkFEnv Env.empty)) { store := st.raw } with
     | error e =>
       rw [hrun] at hf
       exact nomatch hf
@@ -158,7 +155,7 @@ theorem checkDeclsSP_sound (V : Type u) [SetTheory V]
 executable checker**: if it accepts, no constant in the resulting
 environment has type `Empty`. -/
 theorem no_proof_of_Empty_SP (V : Type u) [SetTheory V]
-    {st : EStore} {pds : List DeclP} {env' : Env}
+    {st : WFStore} {pds : List DeclP} {env' : Env}
     (h : checkDeclsSP st pds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
@@ -170,22 +167,19 @@ containing a `def` or `theorem` record whose stated (parsed) type
 denotes `Empty` — the stream-level statement, with the parsed-index ↦
 expression identification through the parse store's denotation. -/
 theorem no_proof_of_Empty_input_SP (V : Type u) [SetTheory V]
-    {st : EStore} {pds : List DeclP} {env' : Env}
+    {st : WFStore} {pds : List DeclP} {env' : Env}
     (h : checkDeclsSP st pds = .ok env')
     {cvp : ConstantValP} {value : EIdx}
     (hd : (∃ hint, DeclP.defnDecl cvp value hint ∈ pds) ∨
       DeclP.thmDecl cvp value ∈ pds)
     (hty : st.denote cvp.type = some (.const emptyName [])) : False := by
+  -- expose the raw-store denotation (`WFStore.denote` is the abbrev)
+  replace hty : st.raw.denote cvp.type = some (.const emptyName []) := hty
   unfold checkDeclsSP at h
-  by_cases hwfB : st.wfB = true
-  case neg =>
-    rw [if_neg hwfB] at h
-    exact absurd h (fun h => nomatch h)
-  rw [if_pos hwfB] at h
-  have hwf : st.WF := wfB_wf hwfB
+  have hwf : st.raw.WF := st.wf
   simp only [Bind.bind, Except.bind, StateT.run'] at h
-  cases hrun : (pds.foldlM (checkDeclSPStep st.nodes.size)
-      (mkFEnv Env.empty)) { store := st } with
+  cases hrun : (pds.foldlM (checkDeclSPStep st.raw.nodes.size)
+      (mkFEnv Env.empty)) { store := st.raw } with
   | error e =>
     rw [hrun] at h
     exact nomatch h
@@ -197,8 +191,8 @@ theorem no_proof_of_Empty_input_SP (V : Type u) [SetTheory V]
         fe = mkFEnv fe.env →
         Nonempty (EnvModel V fe.env) →
         EtaFamiliesClosed fe.env →
-        ISOKF s₀ → Ext st s₀.store →
-        (pds.foldlM (checkDeclSPStep st.nodes.size) fe) s₀ =
+        ISOKF s₀ → Ext st.raw s₀.store →
+        (pds.foldlM (checkDeclSPStep st.raw.nodes.size) fe) s₀ =
           .ok (fe', s') →
         ((∃ hint, DeclP.defnDecl cvp value hint ∈ pds) ∨
           DeclP.thmDecl cvp value ∈ pds) → False by

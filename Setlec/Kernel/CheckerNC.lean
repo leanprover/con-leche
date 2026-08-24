@@ -440,11 +440,9 @@ def checkDeclSPStepNC (n0 : Nat) (fe : FEnv) (pd : DeclP) : CheckIM FEnv := do
   checkDeclSPNC fe pd
 
 /-- `checkDeclsSP` at the cert-skipping knot. -/
-def checkDeclsSPNC (st : EStore) (pds : List DeclP) : CheckM Env := do
-  unless st.wfB do
-    throw (.internal "parse store not canonical")
-  let fe ← (pds.foldlM (checkDeclSPStepNC st.nodes.size)
-    (mkFEnv Env.empty)).run' { store := st }
+def checkDeclsSPNC (st : WFStore) (pds : List DeclP) : CheckM Env := do
+  let fe ← (pds.foldlM (checkDeclSPStepNC st.raw.nodes.size)
+    (mkFEnv Env.empty)).run' { store := st.raw }
   pure fe.env
 
 end Setlec

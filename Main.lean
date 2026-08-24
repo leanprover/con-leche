@@ -176,14 +176,13 @@ def checkMain (file : String) (yolo : Bool) (pre : Bool) : IO UInt32 := do
         -- with SETLEC_PROGRESS set, check declaration by declaration and
         -- print a `DECL:` line before each (fold and interned state
         -- threaded exactly as in checkDeclsSP).
-        let n0 := store.nodes.size
+        let n0 := store.raw.nodes.size
         if (← IO.getEnv "SETLEC_PROGRESS").isSome then
-          unless store.wfB do
-            IO.eprintln "setlec: parse store not canonical"
-            return 3
+          -- the parse arena is well-formed by construction (task #103);
+          -- no validation sweep before checking
           let stats := (← IO.getEnv "SETLEC_STATS").isSome
           return ← finish (← progressLoop stats stepF n0 decls 0
-            (Setlec.mkFEnv Setlec.Env.empty) { store := store })
+            (Setlec.mkFEnv Setlec.Env.empty) { store := store.raw })
         match foldF store decls.toList with
         | .ok env =>
           IO.println s!"setlec: accepted {env.consts.length} declarations"
@@ -200,8 +199,8 @@ def checkMain (file : String) (yolo : Bool) (pre : Bool) : IO UInt32 := do
           let ctx := match ← Frontend.parseExportStream path (modeled := true) with
             | .error _ => ""
             | .ok ⟨store2, decls2, _⟩ =>
-              diagLoop stepF store2.nodes.size decls2 0
-                (Setlec.mkFEnv Setlec.Env.empty) { store := store2 }
+              diagLoop stepF store2.raw.nodes.size decls2 0
+                (Setlec.mkFEnv Setlec.Env.empty) { store := store2.raw }
           IO.eprintln s!"setlec: {e}{ctx}"
           return ← finish e.exitCode
     finally

@@ -153,7 +153,7 @@ private def emptyModelAuxName : Name :=
 -- indices read back to the spec declarations the spec checker takes).
 #guard match Frontend.parseExport basisModelExport with
   | .ok ⟨st, ds, _⟩ =>
-    match ds.toList.mapM st.readbackDecl with
+    match ds.toList.mapM st.raw.readbackDecl with
     | some decls => (checkDecls pureOps decls).toBool
     | none => false
   | .error _ => false

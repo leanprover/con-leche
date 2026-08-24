@@ -5,6 +5,7 @@ import Setlec.Kernel.Basis
 import Setlec.Kernel.StdAxioms
 import Setlec.Kernel.DeclI
 import Setlec.Kernel.Core
+import Setlec.Kernel.WFStore
 
 /-!
 # Reading lean4export ndjson files
@@ -22,7 +23,8 @@ inserted, so a later re-binding of an index cannot retroactively change
 anything built earlier.
 
 **Parse-time interning (task #78).**  Expression- and level-table entries
-are interned *directly into an `EStore`* — one `intern` per record,
+are interned *directly into the arena* (a `WFStore`, well-formed by
+construction since task #103) — one checked `intern?` per record,
 children resolved to already-interned indices, `O(1)` per entry — so the
 export format's structural sharing is preserved: a DAG-shaped table
 (arena `good/perf/app-lam`: 24k entries, ~10^1160 unshared tree nodes)
@@ -98,8 +100,11 @@ inductive FrontendError where
 
 structure State where
   /-- The parse arena: every expression/level-table entry interned on
-  arrival.  Seeded with the implicit level-table index 0 (`zero`). -/
-  store : EStore := .empty
+  arrival, well-formed *by construction* (`WFStore`, task #103 — the
+  entry interns go through the checked `intern?` variants, so a record
+  whose translated child indices were out of range is rejected on the
+  spot).  Seeded with the implicit level-table index 0 (`zero`). -/
+  store : WFStore := .empty
   /-- Stream name-table index → arena name index (task #88: name-table
   entries are interned directly; index 0 is the implicit
   `anonymous`, seeded by `initState`). -/
@@ -251,56 +256,60 @@ private def parseBinderInfo (j : Json) : M BinderInfo := do
   | s => throw s!"unknown binderInfo {s}"
 
 /-- Intern one name node into the parse arena (linear threading, as
-`internL'` below). -/
-private def State.internN' (st : State) (n : NNode) : NIdx × State :=
+`internL'` below; the checked intern rejects out-of-range child
+indices — a malformed export record). -/
+private def State.internN' (st : State) (n : NNode) : M (NIdx × State) :=
   let store := st.store
-  let st := { st with store := EStore.empty }
-  let (u, store) := store.internN n
-  (u, { st with store := store })
+  let st := { st with store := WFStore.empty }
+  match store.internN? n with
+  | some (u, store) => pure (u, { st with store := store })
+  | none => throw "malformed name entry: node index out of range"
 
 /-- Parse a name table entry `{"in": i, "str"|"num": {...}}`, interning
 the node directly from the stream's prefix index (task #88). -/
 private def parseNameEntry (st : State) (j : Json) (i : Nat) : M State := do
   let (ni, st) ← if let .ok v := j.getObjVal? "str" then do
       let p ← st.nameIdx (← getIdx v "pre")
-      pure <| st.internN' (.str p (← (← v.getObjVal? "str").getStr?))
+      st.internN' (.str p (← (← v.getObjVal? "str").getStr?))
     else if let .ok v := j.getObjVal? "num" then do
       let p ← st.nameIdx (← getIdx v "pre")
-      pure <| st.internN' (.num p (← (← v.getObjVal? "i").getNat?))
+      st.internN' (.num p (← (← v.getObjVal? "i").getNat?))
     else
       throw "malformed name entry"
   pure { st with names := st.names.insert i ni }
 
 /-- Intern one level node into the parse arena (linear threading: the
 store is detached from the state before the update). -/
-private def State.internL' (st : State) (n : LNode) : LIdx × State :=
+private def State.internL' (st : State) (n : LNode) : M (LIdx × State) :=
   let store := st.store
-  let st := { st with store := EStore.empty }
-  let (u, store) := store.internL n
-  (u, { st with store := store })
+  let st := { st with store := WFStore.empty }
+  match store.internL? n with
+  | some (u, store) => pure (u, { st with store := store })
+  | none => throw "malformed level entry: node index out of range"
 
 /-- Intern one expression node into the parse arena. -/
-private def State.intern' (st : State) (n : ENode) : EIdx × State :=
+private def State.intern' (st : State) (n : ENode) : M (EIdx × State) :=
   let store := st.store
-  let st := { st with store := EStore.empty }
-  let (i, store) := store.intern n
-  (i, { st with store := store })
+  let st := { st with store := WFStore.empty }
+  match store.intern? n with
+  | some (i, store) => pure (i, { st with store := store })
+  | none => throw "malformed expr entry: node index out of range"
 
 /-- Parse a level table entry `{"il": i, ...}`, interning the node. -/
 private def parseLevelEntry (st : State) (j : Json) (i : Nat) : M State := do
   let (l, st) ←
     if let .ok v := j.getObjVal? "succ" then
-      pure <| st.internL' (.succ (← st.level (← v.getNat?)))
+      st.internL' (.succ (← st.level (← v.getNat?)))
     else if let .ok v := j.getObjVal? "max" then
       match ← (← v.getArr?).mapM (·.getNat?) with
-      | #[a, b] => pure <| st.internL' (.max (← st.level a) (← st.level b))
+      | #[a, b] => st.internL' (.max (← st.level a) (← st.level b))
       | _ => throw "malformed max level"
     else if let .ok v := j.getObjVal? "imax" then
       match ← (← v.getArr?).mapM (·.getNat?) with
-      | #[a, b] => pure <| st.internL' (.imax (← st.level a) (← st.level b))
+      | #[a, b] => st.internL' (.imax (← st.level a) (← st.level b))
       | _ => throw "malformed imax level"
     else if let .ok v := j.getObjVal? "param" then
-      pure <| st.internL' (.param (← st.name (← v.getNat?)))
+      st.internL' (.param (← st.name (← v.getNat?)))
     else
       throw "malformed level entry"
   pure { st with levels := st.levels.insert i l }
@@ -327,10 +336,10 @@ sharing preserved. -/
 private def parseExprEntry (st : State) (j : Json) (i : Nat) : M State := do
   let (e, taintConst, st) ←
     if let .ok v := j.getObjVal? "bvar" then
-      let (e, st) := st.intern' (.bvar (← v.getNat?))
+      let (e, st) ← st.intern' (.bvar (← v.getNat?))
       pure (e, none, st)
     else if let .ok v := j.getObjVal? "sort" then
-      let (e, st) := st.intern' (.sort (← st.level (← v.getNat?)))
+      let (e, st) ← st.intern' (.sort (← st.level (← v.getNat?)))
       pure (e, none, st)
     else if let .ok v := j.getObjVal? "const" then
       let nI ← getNameIdx' st v "name"
@@ -339,39 +348,39 @@ private def parseExprEntry (st : State) (j : Json) (i : Nat) : M State := do
       let taintC : Option Name ←
         if st.taintedNames.isEmpty then pure none
         else do pure st.taintedNames[(← getName' st v "name")]?
-      let (e, st) := st.intern' (.const nI us.toList)
+      let (e, st) ← st.intern' (.const nI us.toList)
       pure (e, taintC, st)
     else if let .ok v := j.getObjVal? "app" then
-      let (e, st) := st.intern'
+      let (e, st) ← st.intern'
         (.app (← getExprIdx' st v "fn") (← getExprIdx' st v "arg"))
       pure (e, none, st)
     else if let .ok v := j.getObjVal? "lam" then
-      let (e, st) := st.intern' (.lam (← getNameIdx' st v "name")
+      let (e, st) ← st.intern' (.lam (← getNameIdx' st v "name")
         (← getExprIdx' st v "type") (← getExprIdx' st v "body")
         ⟨← parseBinderInfo v, none⟩)
       pure (e, none, st)
     else if let .ok v := j.getObjVal? "forallE" then
-      let (e, st) := st.intern' (.forallE (← getNameIdx' st v "name")
+      let (e, st) ← st.intern' (.forallE (← getNameIdx' st v "name")
         (← getExprIdx' st v "type") (← getExprIdx' st v "body")
         ⟨← parseBinderInfo v, none⟩)
       pure (e, none, st)
     else if let .ok v := j.getObjVal? "letE" then
-      let (e, st) := st.intern' (.letE (← getNameIdx' st v "name")
+      let (e, st) ← st.intern' (.letE (← getNameIdx' st v "name")
         (← getExprIdx' st v "type") (← getExprIdx' st v "value")
         (← getExprIdx' st v "body"))
       pure (e, none, st)
     else if let .ok v := j.getObjVal? "proj" then
-      let (e, st) := st.intern' (.proj (← getNameIdx' st v "typeName")
+      let (e, st) ← st.intern' (.proj (← getNameIdx' st v "typeName")
         (← (← v.getObjVal? "idx").getNat?) (← getExprIdx' st v "struct"))
       pure (e, none, st)
     else if let .ok v := j.getObjVal? "natVal" then
       match (← v.getStr?).toNat? with
       | some n =>
-        let (e, st) := st.intern' (.lit (.natVal n))
+        let (e, st) ← st.intern' (.lit (.natVal n))
         pure (e, none, st)
       | none => throw "malformed natVal literal"
     else if let .ok v := j.getObjVal? "strVal" then
-      let (e, st) := st.intern' (.lit (.strVal (← v.getStr?)))
+      let (e, st) ← st.intern' (.lit (.strVal (← v.getStr?)))
       pure (e, none, st)
     else
       throw "malformed or unsupported expr entry"
@@ -570,10 +579,14 @@ private def processLineCore (st : State) (j : Json)
         for ci in block do
           let cv := ci.toConstantVal
           let store := st.store
-          st := { st with store := EStore.empty }
+          st := { st with store := WFStore.empty }
           let (us, store) := store.internLevels (cv.levelParams.map .param)
           let (mI, store) := store.internName (cv.name.str "_model")
-          let (vi, store) := store.intern (.const mI us)
+          -- the alias head's levels/name were interned just above, so
+          -- the checked intern cannot fail; the guard keeps the arena
+          -- well-formed by construction
+          let some (vi, store) := store.intern? (.const mI us)
+            | throw "internal: parse-arena alias intern out of range"
           let (ti, store) := store.internExprFast cv.type
           let ds := st.decls.push
             (.defnDecl ⟨cv.name, cv.levelParams, ti⟩ vi .abbrev)
@@ -657,8 +670,10 @@ private def processLine (st : State) (j : Json)
 /-- Initial parse state: the implicit level-table index 0 (`zero`)
 and name-table index 0 (`anonymous`) pre-interned. -/
 private def initState : State :=
-  let (z0, store0) := EStore.empty.internL .zero
+  let (z0, store0) := WFStore.empty.internL .zero
+    (by simp [LNode.children])
   let (a0, store1) := store0.internN .anonymous
+    (by simp [NNode.children])
   { store := store1, levels := .ofList [(0, z0)],
     names := .ofList [(0, a0)] }
 
@@ -677,8 +692,9 @@ private def feedLine (st : State) (line : String) (lineNo : Nat)
 
 /-- A parsed export stream. -/
 structure ParseResult where
-  /-- The parse arena. -/
-  store : EStore
+  /-- The parse arena, well-formed by construction (task #103): the
+  checker consumes it without re-validating. -/
+  store : WFStore
   /-- The declarations, in stream order.  Declarations skipped by
   taint are *absent*: they can never reach the checker, so nothing
   that uses a tolerated axiom is ever installed. -/
