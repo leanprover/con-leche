@@ -6663,7 +6663,7 @@ kept `Nat` order compatible with the traversal for free; the total
 injection pays for it with a two-comparison guard (part of the off-
 mode instruction delta below).
 
-**Measured (init-core, 110 k lines / 3653 decls; instructions
+**Measured (init-core, 110 k lines / 5965 decls; instructions
 `perf stat -e instructions:u` median of 3; verdicts byte-identical to
 off in all modes, arena 90/92 + e2e 64/64 byte-identical, scale.sh
 all-PASS):**
@@ -6688,7 +6688,38 @@ check, the thm prop check) and block installs.  The perf pair is
 RSS-unchanged (app-lam 8.03 GB, intra-declaration by design;
 beta-ladder slightly lower), outputs identical.
 
-MATHLIB_PLACEHOLDER
+**Measured (Mathlib prefix, 12 M lines / 101,326 decls accepted,
+`_tmp/mathlib-scoping/prefix-12M-pre.ndjson`, `--pre`, RSS sampled at
+2 s alongside the progress counter; verdict streams byte-identical to
+off in modes 2 and 4; post-master-merge binary at 94d0aa7):**
+
+| mode | retained arena (nodes) | growth/decl above floor | peak RSS | wall |
+|---|---|---|---|---|
+| off | 139,803,862 | 1,215.6 | 22.12 GB | 798 s |
+| 2 in-place check | 122,162,895 | 1,041.5 | 15.95 GB (−27.9 %) | 803 s |
+| 4 in-place snapshot | 32,377,242 | 155.4 | 9.39 GB (−57.5 %) | 781 s |
+
+The decomposition inverts init-core's: `REACH: n0=11377543
+ienvReach=11372143 storedAboveParse=5255409` (identical in all
+modes), so the parse + stored floor is 16,632,952 nodes (164/decl).
+Of the off-mode growth above that floor (123.2 M nodes), the
+check-phase temporaries dropped by mode 2 are only 17.6 M (**14.3 %**
+— vs init-core's 29 %); the annotate-side install-phase intermediates
+additionally dropped by mode 4 are 89.8 M (**72.9 %** — vs 47 %); the
+mode-4 residue is 15.7 M (12.8 %, the unbracketed type-side work and
+block installs, ~4× the stored floor).  On Mathlib the annotate
+intermediates dominate outright — the check-only bracket is *not*
+sufficient as the memory lever; the value-pipeline bracket is.
+Mode 4 reproduces the v1 wholesale-truncation profile almost exactly
+(v1 on its ~2 M-line prefix: retained nodes 24.2 % of baseline, RSS
+−56.6 %; mode 4 here: 23.2 %, −57.5 %) while keeping the default
+drivers byte-identical and the promotion `O(|output DAG|)`.
+Post-merge instruction envelope re-confirmed on init-core (median of
+3): off 37.746 G, mode 2 +0.49 %, mode 4 +3.14 %, outputs
+byte-identical across modes.  **Consequence for landing order:** the
+flag-on verification battery should target mode 4 (in-place
+value-pipeline snapshot + promotion) directly; mode 2 alone leaves
+~86 % of the Mathlib-scale growth in place.
 
 **Verification status.**  The four bracket modes are measurement
 knobs; landing one as the *default* requires the flag-on interior
