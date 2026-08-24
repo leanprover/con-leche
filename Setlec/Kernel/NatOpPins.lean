@@ -18,8 +18,13 @@ here, at `lake build` time.
 
 Rebuild caveat: Lake sees no dependency edge from this module to
 `Setlec/PinGen/Certs.lean` (loaded by olean name at elaboration time)
-or to `scripts/natop_prefix.json`; after editing either, `touch` this
-file (or `lake build --rebuild`) to force regeneration.
+or from `Setlec/PinGen.lean` to `scripts/natop_prefix.json` (embedded
+via `include_str`).  Lake's traces are content hashes, so `touch`
+does *not* force a rebuild; after editing the certs or the prefix
+json, delete the build artifacts of the affected modules
+(`find .lake/build \( -name "PinGen*" -o -name "NatOpPins*" \)`
+— the json edge needs `Setlec.PinGen` rebuilt first, since the
+allowlists are baked into its object code) and run `lake build`.
 -/
 
 set_option maxRecDepth 1000000
