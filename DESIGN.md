@@ -249,6 +249,10 @@ three stay declined by design under the axiom ceiling.
 7. Depending on mathlib is acceptable if necessary (ordinals etc.), but
    self-contained is preferred.
 8. Commit often.
+9. Load the `lean-rc-linearity` skill (`.claude/skills/lean-rc-linearity/`) before
+   any task touching hot-path state threading, memo/arena mutation, or per-node
+   arithmetic: it distills the Lean runtime's RC/linearity model together with this
+   project's measured RC-2 incidents, diagnosis toolkit and codegen landmines.
 
 ## Environment notes
 
@@ -256,6 +260,10 @@ three stay declined by design under the axiom ceiling.
   worktrees) go into `_tmp/` inside this repository (gitignored).
 * If the checker may OOM, run it under a timeout and memory limit; a process
   eating all memory can kill the whole session.
+* In a fresh worktree `_tmp/` is empty (gitignored), so the lean-inductive-models
+  preprocessor is missing and every inductive fixture declines (exit 2) —
+  `tests/arena.sh` then reports spurious CHANGE/FAIL lines.  Run it with
+  `SETLEC_INDUCTIVE_MODELS=<main checkout>/_tmp/lean-inductive-models/.lake/build/bin/lean-inductive-models`.
 * For Lean proof work, https://github.com/ejgallego/lean-beam/ may speed
   things up.
 
