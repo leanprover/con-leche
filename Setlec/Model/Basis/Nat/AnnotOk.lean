@@ -33,10 +33,10 @@ theorem annotOk_natRecZero_rhs {cval : ConstVal V}
       cval ((Name.anonymous.str "Nat").str "succ") ψ' = natSuccVal V ψ' := hvalSc
   simp only [natRecZeroRhsA, natRecA, ConstantInfo.recRules, List.getD,
     List.getElem?_cons_zero, Option.getD_some, AnnotOk]
-  refine ⟨?_, ⟨_, rfl⟩, ?_⟩
+  refine ⟨?_, nrM (ψ uN), ?_⟩
   · -- the motive space `(t : Nat) → Sort u`
     try simp only [AnnotOk]
-    refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+    refine ⟨trivial, ψ uN + 1, ?_⟩
     intro t A hA ht
     refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
     refine ⟨univ (ψ uN), ?_, ?_⟩
@@ -138,7 +138,7 @@ theorem annotOk_natRecZero_rhs {cval : ConstVal V}
         (by simp [Expr.instantiate1, AnnotOk]),
         M, natzero, ψ uN + 1, omega, (fun _ => univ (ψ uN)),
         ?_, ?_, hM, natzero_mem,
-        fun _ _ => univ_mem_univ (ψ uN)⟩, ⟨_, rfl⟩, ?_⟩
+        fun _ _ => univ_mem_univ (ψ uN)⟩, nrZ (ψ uN), ?_⟩
       · simp [interpExpr, Expr.instantiate1, updV]
       · simp [interpExpr, Expr.instantiate1, updV, hfindZ', hvalZ',
           natZeroA, ConstantInfo.toConstantVal]
@@ -153,10 +153,11 @@ theorem annotOk_natRecZero_rhs {cval : ConstVal V}
       refine ⟨?_, ?_⟩
       · -- the s-λ over the successor space
         try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-        refine ⟨?_, ⟨_, rfl⟩, ?_⟩
+        refine ⟨?_, ψ uN, ?_⟩
         · -- the successor space is annotation-truthful
           try simp only [AnnotOk]
-          refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+          refine ⟨trivial,
+            (if ψ uN = 0 then 0 else Nat.max (ψ uN) (ψ uN)), ?_⟩
           intro n An hAn hn
           have hAn' : An = omega := by
             simp [interpExpr, hfindN', hvalN', natA,
@@ -171,7 +172,7 @@ theorem annotOk_natRecZero_rhs {cval : ConstVal V}
               (by simp [Expr.instantiate1, AnnotOk]),
               M, n, ψ uN + 1, omega, (fun _ => univ (ψ uN)),
               ?_, ?_, hM, hn, fun _ _ => univ_mem_univ (ψ uN)⟩,
-              ⟨_, rfl⟩, ?_⟩
+              ψ uN, ?_⟩
             · simp [interpExpr, Expr.instantiate1, updV]
             · simp [interpExpr, Expr.instantiate1, updV]
             intro ih Aih hAih hih
@@ -198,9 +199,7 @@ theorem annotOk_natRecZero_rhs {cval : ConstVal V}
                 try rfl
               · rw [natSuccVal_app hn]
                 exact natsucc_mem hn
-            · intro v hv
-              obtain rfl := Option.some.inj hv
-              refine ⟨SetTheory.app M (SetTheory.app (natSuccVal V ψ) n),
+            · refine ⟨SetTheory.app M (SetTheory.app (natSuccVal V ψ) n),
                 ?_, ?_⟩
               · simp [interpExpr, Expr.instantiate1, updV, hfindSc',
                   hvalSc', natSuccA, ConstantInfo.toConstantVal,
@@ -209,9 +208,7 @@ theorem annotOk_natRecZero_rhs {cval : ConstVal V}
                 try rfl
               · rw [natSuccVal_app hn]
                 exact hMfib (natsucc n) (natsucc_mem hn)
-          · intro v hv
-            obtain rfl := Option.some.inj hv
-            refine ⟨pi (ψ uN) (SetTheory.app M n) fun _ =>
+          · refine ⟨pi (ψ uN) (SetTheory.app M n) fun _ =>
               SetTheory.app M (SetTheory.app (natSuccVal V ψ) n), ?_, ?_⟩
             · simp [interpExpr, Expr.instantiate1, updV, hfindSc',
                 hvalSc', natSuccA, ConstantInfo.toConstantVal,
@@ -223,16 +220,11 @@ theorem annotOk_natRecZero_rhs {cval : ConstVal V}
                   (pi (ψ uN) (SetTheory.app M n) fun _ =>
                     SetTheory.app M (natsucc n)) from
                 pi_congr fun _ _ => by rw [natSuccVal_app hn]]
-              rw [show Level.eval ψ ((Level.param (Name.anonymous.str "u")).imax
-                  (Level.param (Name.anonymous.str "u"))) =
-                  enUU (ψ uN) from by
-                simp [Level.eval, uN, enUU,
-                  -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
-                try rfl, enUU_eq]
-              by_cases hu : ψ uN = 0
-              · rw [hu]
-                exact hu ▸ hsfib n hn
-              · exact hsfib n hn
+              have := pi_mem_univ (u := ψ uN) (v := ψ uN)
+                (B := fun _ => SetTheory.app M (natsucc n))
+                (hMfib n hn)
+                (fun _ _ => hMfib (natsucc n) (natsucc_mem hn))
+              exact this
         · intro s As hAs hs
           refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
           refine ⟨z, SetTheory.app M natzero, ?_, hz, hMz⟩
@@ -255,14 +247,7 @@ theorem annotOk_natRecZero_rhs {cval : ConstVal V}
           try rfl
         · exact lam_mem (V := V)
             (B := fun _ => SetTheory.app M natzero) fun _ _ => hz
-        · rw [show Level.eval ψ (((Level.zero.succ.imax
-              ((Level.param (Name.anonymous.str "u")).imax
-                (Level.param (Name.anonymous.str "u")))).imax
-              (Level.param (Name.anonymous.str "u")))) = nrZ (ψ uN) from by
-            simp [Level.eval, uN, nrZ, en11UU, enUU,
-              -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
-            try rfl]
-          exact hBin
+        · exact hBin
     · -- motive-cod slot: the z-λ pack's value and pi type
       refine ⟨SetTheory.lam (nrZ (ψ uN)) (SetTheory.app M natzero) fun z =>
           SetTheory.lam (ψ uN)
@@ -289,15 +274,7 @@ theorem annotOk_natRecZero_rhs {cval : ConstVal V}
             (fun _ => SetTheory.app M natzero))
           fun z hz => lam_mem (V := V)
             (B := fun _ => SetTheory.app M natzero) fun _ _ => hz
-      · rw [show Level.eval ψ ((Level.param (Name.anonymous.str "u")).imax
-            ((Level.zero.succ.imax
-              ((Level.param (Name.anonymous.str "u")).imax
-                (Level.param (Name.anonymous.str "u")))).imax
-              (Level.param (Name.anonymous.str "u")))) = nrM (ψ uN) from by
-          simp [Level.eval, uN, nrM, nrZ, en11UU, enUU,
-            -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
-          try rfl]
-        rw [nrM_eq]
+      · rw [nrM_eq]
         have hBin' := hBin
         rw [nrZ_eq] at hBin'
         by_cases hu : ψ uN = 0
@@ -428,10 +405,10 @@ theorem annotOk_natRecSucc_rhs {cval : ConstVal V}
   simp only [natRecSuccRhsA, natRecA, ConstantInfo.recRules, List.getD,
     List.getElem?_cons_zero, List.getElem?_cons_succ, Option.getD_some,
     AnnotOk]
-  refine ⟨?_, ⟨_, rfl⟩, ?_⟩
+  refine ⟨?_, enM (ψ uN), ?_⟩
   · -- the motive space `(t : Nat) → Sort u`
     try simp only [AnnotOk]
-    refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+    refine ⟨trivial, ψ uN + 1, ?_⟩
     intro t A hA ht
     refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
     refine ⟨univ (ψ uN), ?_, ?_⟩
@@ -462,7 +439,7 @@ theorem annotOk_natRecSucc_rhs {cval : ConstVal V}
         (by simp [Expr.instantiate1, AnnotOk]),
         M, natzero, ψ uN + 1, omega, (fun _ => univ (ψ uN)),
         ?_, ?_, hM, natzero_mem,
-        fun _ _ => univ_mem_univ (ψ uN)⟩, ⟨_, rfl⟩, ?_⟩
+        fun _ _ => univ_mem_univ (ψ uN)⟩, enZ (ψ uN), ?_⟩
       · simp [interpExpr, Expr.instantiate1, updV]
       · simp [interpExpr, Expr.instantiate1, updV, hfindZ', hvalZ',
           natZeroA, ConstantInfo.toConstantVal]
@@ -477,10 +454,11 @@ theorem annotOk_natRecSucc_rhs {cval : ConstVal V}
       refine ⟨?_, ?_⟩
       · -- the s-λ over the successor space
         try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-        refine ⟨?_, ⟨_, rfl⟩, ?_⟩
+        refine ⟨?_, en1U (ψ uN), ?_⟩
         · -- the successor space is annotation-truthful
           try simp only [AnnotOk]
-          refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+          refine ⟨trivial,
+            (if ψ uN = 0 then 0 else Nat.max (ψ uN) (ψ uN)), ?_⟩
           intro n An hAn hn
           have hAn' : An = omega := by
             simp [interpExpr, hfindN', hvalN', natA,
@@ -495,7 +473,7 @@ theorem annotOk_natRecSucc_rhs {cval : ConstVal V}
               (by simp [Expr.instantiate1, AnnotOk]),
               M, n, ψ uN + 1, omega, (fun _ => univ (ψ uN)),
               ?_, ?_, hM, hn, fun _ _ => univ_mem_univ (ψ uN)⟩,
-              ⟨_, rfl⟩, ?_⟩
+              ψ uN, ?_⟩
             · simp [interpExpr, Expr.instantiate1, updV]
             · simp [interpExpr, Expr.instantiate1, updV]
             intro ih Aih hAih hih
@@ -522,9 +500,7 @@ theorem annotOk_natRecSucc_rhs {cval : ConstVal V}
                 try rfl
               · rw [natSuccVal_app hn]
                 exact natsucc_mem hn
-            · intro v hv
-              obtain rfl := Option.some.inj hv
-              refine ⟨SetTheory.app M (SetTheory.app (natSuccVal V ψ) n),
+            · refine ⟨SetTheory.app M (SetTheory.app (natSuccVal V ψ) n),
                 ?_, ?_⟩
               · simp [interpExpr, Expr.instantiate1, updV, hfindSc',
                   hvalSc', natSuccA, ConstantInfo.toConstantVal,
@@ -532,25 +508,19 @@ theorem annotOk_natRecSucc_rhs {cval : ConstVal V}
                   -Nat.max_eq_zero_iff]
                 try rfl
               · exact hrawP M hM n hn
-          · intro v hv
-            obtain rfl := Option.some.inj hv
-            refine ⟨pi (ψ uN) (SetTheory.app M n) fun _ =>
+          · refine ⟨pi (ψ uN) (SetTheory.app M n) fun _ =>
               SetTheory.app M (SetTheory.app (natSuccVal V ψ) n), ?_, ?_⟩
             · simp [interpExpr, Expr.instantiate1, updV, hfindSc',
                 hvalSc', natSuccA, ConstantInfo.toConstantVal,
                 Level.eval, uN,
                 -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
               try rfl
-            · rw [show Level.eval ψ ((Level.param (Name.anonymous.str "u")).imax
-                  (Level.param (Name.anonymous.str "u"))) =
-                  enUU (ψ uN) from by
-                simp [Level.eval, uN, enUU,
-                  -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
-                try rfl, enUU_eq]
-              by_cases hu : ψ uN = 0
-              · rw [hu]
+            · by_cases hu : ψ uN = 0
+              · rw [if_pos hu]
                 exact hu ▸ hsfibP M hM n hn
-              · exact hsfibP M hM n hn
+              · rw [if_neg hu,
+                  show Nat.max (ψ uN) (ψ uN) = ψ uN from Nat.max_self _]
+                exact hsfibP M hM n hn
         · intro s As hAs hs
           have hAs' : As = pi (enUU (ψ uN)) omega fun n =>
               pi (ψ uN) (SetTheory.app M n) fun _ =>
@@ -566,7 +536,7 @@ theorem annotOk_natRecSucc_rhs {cval : ConstVal V}
           refine ⟨?_, ?_⟩
           · -- the n-λ over `Nat`
             try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-            refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+            refine ⟨trivial, ψ uN, ?_⟩
             intro n An hAn hn
             have hAn' : An = omega := by
               simp [interpExpr, hfindN', hvalN', natA,
@@ -737,13 +707,7 @@ theorem annotOk_natRecSucc_rhs {cval : ConstVal V}
                 hs (fun _ _ => htTP M hM))
                 hn (fun t ht => hMfib t ht)
               exact app_mem hsn h4 (fun _ _ => hrawP M hM n hn)
-            · rw [show Level.eval ψ (Level.zero.succ.imax
-                  (Level.param (Name.anonymous.str "u"))) =
-                  en1U (ψ uN) from by
-                simp [Level.eval, uN, en1U,
-                  -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
-                try rfl]
-              exact pi_mem_univ (u := 1) (v := ψ uN)
+            · exact pi_mem_univ (u := 1) (v := ψ uN)
                 (B := fun n => SetTheory.app M
                   (SetTheory.app (natSuccVal V ψ) n))
                 omega_mem_univ (fun n hn => hrawP M hM n hn)
@@ -788,16 +752,7 @@ theorem annotOk_natRecSucc_rhs {cval : ConstVal V}
             hs (fun _ _ => htTP M hM))
             hn (fun t ht => hMfib t ht)
           exact app_mem hsn h4 (fun _ _ => hrawP M hM n hn)
-        · rw [show Level.eval ψ ((Level.zero.succ.imax
-              ((Level.param (Name.anonymous.str "u")).imax
-                (Level.param (Name.anonymous.str "u")))).imax
-              (Level.zero.succ.imax
-                (Level.param (Name.anonymous.str "u")))) =
-              enZ (ψ uN) from by
-            by_cases hu : ψ (Name.anonymous.str "u") = 0 <;>
-              simp [Level.eval, enZ, en1U, en11UU, enUU, uN, hu,
-                Nat.max_self]]
-          exact pi_mem_univ (u := en11UU (ψ uN)) (v := en1U (ψ uN))
+        · exact pi_mem_univ (u := en11UU (ψ uN)) (v := en1U (ψ uN))
             (hspP M hM)
             (fun _ _ => pi_mem_univ (u := 1) (v := ψ uN)
               (B := fun n => SetTheory.app M
@@ -855,17 +810,7 @@ theorem annotOk_natRecSucc_rhs {cval : ConstVal V}
           hs (fun _ _ => htTP M hM))
           hn (fun t ht => hMfib t ht)
         exact app_mem hsn h4 (fun _ _ => hrawP M hM n hn)
-      · rw [show Level.eval ψ ((Level.param (Name.anonymous.str "u")).imax
-            ((Level.zero.succ.imax
-              ((Level.param (Name.anonymous.str "u")).imax
-                (Level.param (Name.anonymous.str "u")))).imax
-              (Level.zero.succ.imax
-                (Level.param (Name.anonymous.str "u"))))) =
-            enM (ψ uN) from by
-          by_cases hu : ψ (Name.anonymous.str "u") = 0 <;>
-            simp [Level.eval, enM, enZ, en1U, en11UU, enUU, uN, hu,
-              Nat.max_self]]
-        exact pi_mem_univ (u := ψ uN) (v := enZ (ψ uN))
+      · exact pi_mem_univ (u := ψ uN) (v := enZ (ψ uN))
           hMz
           (fun _ _ => pi_mem_univ (u := en11UU (ψ uN)) (v := en1U (ψ uN))
             (hspP M hM)

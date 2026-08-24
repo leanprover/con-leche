@@ -1,7 +1,8 @@
-import Setlec.Model.Basis.PUnit.Claims
-import Setlec.Model.Basis.Eq.Claims
-import Setlec.Model.Basis.Nat.Claims
-import Setlec.Model.Basis.PSigma.Claims
+import Setlec.Model.Basis.PUnit.Iota
+import Setlec.Model.Basis.Eq.Iota
+import Setlec.Model.Basis.Nat.Iota
+import Setlec.Model.Basis.PSigma.Iota
+import Setlec.Model.Basis.Glue
 
 /-!
 # Iota-rule semantics for the pinned basis recursors

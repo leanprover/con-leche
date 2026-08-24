@@ -27,7 +27,7 @@ theorem annotOk_psigmaRec_rhs {cval : ConstVal V}
       cval ((Name.anonymous.str "PSigma'").str "mk") ψ' = psigmaMkVal V ψ' := hvalM
   simp only [psigmaRecRhsA, psigmaRecA, ConstantInfo.recRules, List.getD,
     List.getElem?_cons_zero, Option.getD_some, AnnotOk]
-  refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+  refine ⟨trivial, 0, ?_⟩
   intro A SA hSA hAmem
   have hSA' : SA = univ (ψ uN) := by
     simp only [interpExpr, Level.eval, Option.some.injEq] at hSA
@@ -134,10 +134,10 @@ theorem annotOk_psigmaRec_rhs {cval : ConstVal V}
   refine ⟨?_, ?_⟩
   · -- the β-λ
     try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-    refine ⟨?_, ⟨_, rfl⟩, ?_⟩
+    refine ⟨?_, 0, ?_⟩
     · -- the binder type `(x : α) → Sort v`
       try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-      refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+      refine ⟨trivial, ψ vN + 1, ?_⟩
       intro x Sx hSx hxmem
       refine ⟨trivial, ?_⟩
       refine ⟨univ (ψ vN), ?_, ?_⟩
@@ -151,7 +151,7 @@ theorem annotOk_psigmaRec_rhs {cval : ConstVal V}
       refine ⟨?_, ?_⟩
       · -- the motive-λ
         try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-        refine ⟨?_, ⟨_, rfl⟩, ?_⟩
+        refine ⟨?_, 0, ?_⟩
         · -- the motive space `(t : PSigma' α β) → Prop`
           try simp only [Expr.instantiate1, reduceIte, AnnotOk]
           refine ⟨⟨⟨trivial, (by simp [Expr.instantiate1, AnnotOk]),
@@ -169,7 +169,7 @@ theorem annotOk_psigmaRec_rhs {cval : ConstVal V}
             (fun _ => univ (Nat.max (ψ uN) (ψ vN))),
             ?_, ?_, psigmaVal_app_mem hAmem, hBmem',
             fun _ _ => univ_mem_univ (Nat.max (ψ uN) (ψ vN))⟩,
-            ⟨_, rfl⟩, ?_⟩
+            1, ?_⟩
           · simp [interpExpr, Expr.instantiate1, updV, hfindS', hvalS',
               psigmaA, ConstantInfo.toConstantVal]
             try rfl
@@ -204,10 +204,10 @@ theorem annotOk_psigmaRec_rhs {cval : ConstVal V}
           refine ⟨?_, ?_⟩
           · -- the mk-λ
             try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-            refine ⟨?_, ⟨_, rfl⟩, ?_⟩
+            refine ⟨?_, 0, ?_⟩
             · -- the minor-premise space
               try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-              refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ⟨_, rfl⟩, ?_⟩
+              refine ⟨(by simp [Expr.instantiate1, AnnotOk]), 0, ?_⟩
               intro a Sa hSa hamem
               simp [interpExpr, Expr.instantiate1, updV] at hSa
               subst hSa
@@ -217,7 +217,7 @@ theorem annotOk_psigmaRec_rhs {cval : ConstVal V}
                 refine ⟨⟨(by simp [Expr.instantiate1, AnnotOk]),
                   (by simp [Expr.instantiate1, AnnotOk]), B, a, ψ vN + 1, A,
                   (fun _ => univ (ψ vN)), ?_, ?_, hBmem', hamem,
-                  fun _ _ => univ_mem_univ (ψ vN)⟩, ⟨_, rfl⟩, ?_⟩
+                  fun _ _ => univ_mem_univ (ψ vN)⟩, 0, ?_⟩
                 · simp [interpExpr, Expr.instantiate1, updV]
                 · simp [interpExpr, Expr.instantiate1, updV]
                 intro b Sb hSb hbmem
@@ -360,7 +360,7 @@ theorem annotOk_psigmaRec_rhs {cval : ConstVal V}
               refine ⟨?_, ?_⟩
               · -- the fst-λ
                 try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-                refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+                refine ⟨trivial, 0, ?_⟩
                 intro a Sa hSa hamem
                 have hSa' : Sa = A := by
                   simp [interpExpr, Expr.instantiate1, updV,
@@ -375,7 +375,7 @@ theorem annotOk_psigmaRec_rhs {cval : ConstVal V}
                     (by simp [Expr.instantiate1, AnnotOk]),
                     B, a, ψ vN + 1, A, (fun _ => univ (ψ vN)),
                     ?_, ?_, hBmem', hamem,
-                    fun _ _ => univ_mem_univ (ψ vN)⟩, ⟨_, rfl⟩, ?_⟩
+                    fun _ _ => univ_mem_univ (ψ vN)⟩, 0, ?_⟩
                   · simp [interpExpr, Expr.instantiate1, updV]
                   · simp [interpExpr, Expr.instantiate1, updV]
                   intro b Sb hSb hbmem

@@ -156,7 +156,7 @@ theorem natFr_interp_tyM {cval : ConstVal V}
 theorem natFr_annotOk_tyM {cval : ConstVal V} :
     AnnotOk V cval env ψ 0 (rho0 V) natFrTyM := by
   simp only [natFrTyM, AnnotOk]
-  refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+  refine ⟨trivial, ψ uN + 1, ?_⟩
   intro t A hA ht
   refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
   refine ⟨univ (ψ uN), ?_, ?_⟩
@@ -235,7 +235,8 @@ theorem natFr_annotOk_tyS {cval : ConstVal V} {M z : V}
   have hMfib : ∀ k, k ∈ˢ omega → SetTheory.app M k ∈ˢ univ (ψ uN) :=
     fun k hk => app_mem hM hk (fun _ _ => univ_mem_univ (ψ uN))
   simp only [natFrTyS, natFrM, natFrTyM, AnnotOk]
-  refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+  refine ⟨trivial,
+    (if ψ uN = 0 then 0 else Nat.max (ψ uN) (ψ uN)), ?_⟩
   intro n An hAn hn
   have hAn' : An = omega := by
     simp only [interpExpr, hfindN', hvalN', natA, ConstantInfo.toConstantVal,
@@ -248,7 +249,7 @@ theorem natFr_annotOk_tyS {cval : ConstVal V} {M z : V}
     refine ⟨⟨trivial, trivial, M, n, ψ uN + 1, omega,
       (fun _ => univ (ψ uN)),
       (by simp [interpExpr, updV]), (by simp [interpExpr, updV]),
-      hM, hn, fun _ _ => univ_mem_univ _⟩, ⟨_, rfl⟩, ?_⟩
+      hM, hn, fun _ _ => univ_mem_univ _⟩, ψ uN, ?_⟩
     intro ih Aih hAih hih
     refine ⟨?_, ?_⟩
     · -- the body `motive (Nat.succ n)`: nested app clauses
@@ -268,17 +269,13 @@ theorem natFr_annotOk_tyS {cval : ConstVal V} {M z : V}
           ConstantInfo.toConstantVal, Level.substFn_nil]
       · rw [natSuccVal_app hn]
         exact natsucc_mem hn
-    · intro v hv
-      obtain rfl := Option.some.inj hv
-      refine ⟨SetTheory.app M (SetTheory.app (natSuccVal V ψ) n), ?_, ?_⟩
+    · refine ⟨SetTheory.app M (SetTheory.app (natSuccVal V ψ) n), ?_, ?_⟩
       · rw [interpExpr]
         simp [interpExpr, updV, hfindSc', hvalSc', natSuccA,
           ConstantInfo.toConstantVal, Level.substFn_nil]
       · rw [natSuccVal_app hn]
         exact hMfib (natsucc n) (natsucc_mem hn)
-  · intro v hv
-    obtain rfl := Option.some.inj hv
-    refine ⟨pi (ψ uN) (SetTheory.app M n)
+  · refine ⟨pi (ψ uN) (SetTheory.app M n)
       (fun _ => SetTheory.app M (SetTheory.app (natSuccVal V ψ) n)), ?_, ?_⟩
     · simp [interpExpr, Expr.instantiate1, updV, hfindSc', hvalSc', natSuccA,
         ConstantInfo.toConstantVal, Level.eval, uN, Level.substFn_nil,
@@ -290,7 +287,6 @@ theorem natFr_annotOk_tyS {cval : ConstVal V} {M z : V}
             fun _ => SetTheory.app M (natsucc n)) :=
         pi_congr fun _ _ => by rw [natSuccVal_app hn]
       rw [heq]
-      simp only [Level.eval, show (Name.anonymous.str "u") = uN from rfl]
       have h := natFr_sfib hM n hn
       by_cases hu : ψ uN = 0
       · simpa [hu] using h

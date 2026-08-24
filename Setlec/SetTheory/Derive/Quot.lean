@@ -158,6 +158,13 @@ theorem app_eq_of_quotClass_eq {u : Nat} {A R f a b : V}
     rw [eq_pt_of_mem_univZero hA ha, eq_pt_of_mem_univZero hA hb]
   · exact app_eq_of_rel hinv (rel_of_qclass_eq ha hb hq)
 
+/-- Pointwise beta for the lift at any quotient member (the collapse
+op's premise-free beta; task #100). -/
+theorem quotLift_app {u v : Nat} {A R f q : V} (hq : q ∈ˢ quotSet u A R) :
+    app (quotLift u v A R f) q = app f (qrep u A R q) := by
+  unfold quotLift
+  exact app_lamC hq
+
 theorem quotLift_beta {u v : Nat} {A R f a : V} (hA : A ∈ˢ (univ u : V))
     (ha : a ∈ˢ A)
     (hinv : ∀ a' b', a' ∈ˢ A → b' ∈ˢ A → (∃ w, w ∈ˢ app (app R a') b') →

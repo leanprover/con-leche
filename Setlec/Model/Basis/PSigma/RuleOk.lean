@@ -182,7 +182,7 @@ theorem psigFr_interp_tyB {cval : ConstVal V} {A : V} :
 theorem psigFr_annotOk_tyB {cval : ConstVal V} {A : V} :
     AnnotOk V cval env ψ 1 (updV V (rho0 V) 0 A) psigFrTyB := by
   simp only [psigFrTyB, psigFrA, AnnotOk]
-  refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+  refine ⟨trivial, ψ vN + 1, ?_⟩
   intro x Sx hSx hx
   refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
   refine ⟨univ (ψ vN), ?_, ?_⟩
@@ -230,7 +230,7 @@ theorem psigFr_annotOk_tyM {cval : ConstVal V} {A B : V}
     (fun _ => univ (Nat.max (ψ uN) (ψ vN))),
     ?_, ?_, psigmaVal_app_mem hA, hB,
     fun _ _ => univ_mem_univ (Nat.max (ψ uN) (ψ vN))⟩,
-    ⟨_, rfl⟩, ?_⟩
+    1, ?_⟩
   · simp [interpExpr, Expr.instantiate1, updV, hfindS', hvalS', psigmaA,
       ConstantInfo.toConstantVal]
     try rfl
@@ -312,7 +312,7 @@ theorem psigFr_annotOk_tyMk {cval : ConstVal V} {A B M : V}
     exact psigmaMkVal_app₄_mem hA hB ha hb
   simp only [psigFrTyMk, psigFrMkC, psigFrA, psigFrB, psigFrTyB, psigFrM,
     psigFrTyM, AnnotOk]
-  refine ⟨trivial, ⟨_, rfl⟩, ?_⟩
+  refine ⟨trivial, 0, ?_⟩
   intro a Sa hSa ha
   have hSa' : Sa = A := by
     simp [interpExpr, Expr.instantiate1, updV] at hSa
@@ -324,7 +324,7 @@ theorem psigFr_annotOk_tyMk {cval : ConstVal V} {A B M : V}
     refine ⟨⟨(by simp [Expr.instantiate1, AnnotOk]),
       (by simp [Expr.instantiate1, AnnotOk]), B, a, ψ vN + 1, A,
       (fun _ => univ (ψ vN)), ?_, ?_, hB, ha,
-      fun _ _ => univ_mem_univ (ψ vN)⟩, ⟨_, rfl⟩, ?_⟩
+      fun _ _ => univ_mem_univ (ψ vN)⟩, 0, ?_⟩
     · simp [interpExpr, Expr.instantiate1, updV]
     · simp [interpExpr, Expr.instantiate1, updV]
     intro b Sb hSb hb
@@ -686,7 +686,12 @@ theorem psigmaRec_ruleOk {cval : ConstVal V}
         (SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app
           (psigmaMkVal V ψ') A) B) a) b)) = some pt
       rw [show (psigmaRecVal V ψ' : V) = pt from by
-        simp only [psigmaRecVal]; exact lam_zero]
+        simp only [psigmaRecVal]
+        refine lamC_of_forall fun A' hA' => ?_
+        refine lamC_of_forall fun B' hB' => ?_
+        refine lamC_of_forall fun M' hM' => ?_
+        refine lamC_of_forall fun m' hm' => ?_
+        exact lamC_of_forall fun t' ht' => rfl]
       simp only [app_pt]
     · show interpExpr V cval env ψ' 6
         (updV V (updV V (updV V (updV V (updV V (updV V (rho0 V) 0 A) 1 B)
