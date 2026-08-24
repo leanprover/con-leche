@@ -618,10 +618,10 @@ tolerated axiom whitelist may be *declared*, and uses of a tolerated
 axiom are never accepted; user directive 2026-08-24: maximize coverage
 by skipping instead of declining the whole stream):
 
-* a tolerated axiom record is dropped and its name tainted *without
-  parsing its type at all* — `Lean.ofReduceNat`'s own type references
-  the (tainted) `Lean.reduceNat`, so even well-formedness-checking it
-  would be a use; the record was never installed anyway;
+* a tolerated axiom record (exactly `sorryAx` since task #95 — the
+  compiler-trust family now *installs* through the checker instead)
+  is dropped and its name tainted *without parsing its type at all*;
+  the record was never installed anyway;
 * a declaration that (transitively) references a tainted constant is
   *skipped*: not checked, not installed, its declared names tainted
   (so transitive users are skipped too), recorded in
