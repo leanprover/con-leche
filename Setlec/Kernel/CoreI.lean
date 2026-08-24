@@ -366,6 +366,21 @@ def instListM (e : EIdx) (vs : List EIdx) (d : Nat := 0) :
       let (r', store) := store.instantiateListI e vs d
       (r', { s with store := store })
 
+/-- Memoized interned bulk instantiation on a reversed accumulator
+array — innermost binder **last**, the binder loops' push order
+(lean4lean's `instantiateRev` discipline, task #97); identity shortcut
+as in `instListM`.  Equal to `instListM e vs.toList.reverse d`
+(`instListRevM_eq`, `Setlec/Verify/SimI.lean`). -/
+def instListRevM (e : EIdx) (vs : Array EIdx) (d : Nat := 0) :
+    CheckIM EIdx :=
+  modifyGet fun s =>
+    if s.store.bvarBoundD e ≤ d then (e, s)
+    else
+      let store := s.store
+      let s := { s with store := EStore.empty }
+      let (r', store) := store.instantiateRevI e vs d
+      (r', { s with store := store })
+
 /-- Memoized interned `Expr.abstract1`. -/
 def abstract1M (e : EIdx) (d : Nat) : CheckIM EIdx :=
   modifyGet fun s =>
@@ -1584,8 +1599,8 @@ def inferLamsOutI (d : Nat) :
 /-- Leaf phase of `inferLamsI`: bulk-open the residual body, infer it
 and its type's sort, then rebuild outward. -/
 def inferLamsLeafI (r : CoreFnsI) (d : Nat) (t : EIdx) (k : Nat)
-    (fvs : List EIdx) (stk : List InferLamEntry) : CheckIM EIdx := do
-  let ob ← instListM t fvs
+    (fvs : Array EIdx) (stk : List InferLamEntry) : CheckIM EIdx := do
+  let ob ← instListRevM t fvs
   let bt ← r.infer (d + k) ob
   let tbt ← r.infer (d + k) bt
   let wtbt ← r.whnf (d + k) tbt
@@ -1601,19 +1616,19 @@ domain to be a type on the way in.  `k` counts the opened binders
 (`≥ 1`: the caller peels the first binder inline), `fvs` their free
 variables innermost-first. -/
 def inferLamsI (r : CoreFnsI) (d : Nat) :
-    Nat → EIdx → Nat → List EIdx → List InferLamEntry → CheckIM EIdx
+    Nat → EIdx → Nat → Array EIdx → List InferLamEntry → CheckIM EIdx
   | fuel + 1, t, k, fvs, stk => do
     match ← viewI t with
     | some (.lam n ty body mb) =>
       match mb.cod with
       | some v => do
-        let tyo ← instListM ty fvs
+        let tyo ← instListRevM ty fvs
         let tty ← r.infer (d + k) tyo
         let wtty ← r.whnf (d + k) tty
         match ← viewI wtty with
         | some (.sort u) => do
           let fv ← internI (.fvar (d + k) n tyo)
-          inferLamsI r d fuel body (k + 1) (fv :: fvs)
+          inferLamsI r d fuel body (k + 1) (fvs.push fv)
             ((n, tyo, mb, v, u) :: stk)
         | _ => throw (.invalid "expected a sort")
       | none => throw (.internal "unannotated λ-binder reached inferType")
@@ -1672,7 +1687,7 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
           -- open in bulk, rebuild with `abstractRange`.
           let fv ← internI (.fvar depth n ty)
           let fuel ← withStore (·.nodes.size)
-          inferLamsI r depth fuel body 1 [fv] [(n, ty, mb, v, u)]
+          inferLamsI r depth fuel body 1 #[fv] [(n, ty, mb, v, u)]
         | _ => throw (.invalid "expected a sort")
       | none => throw (.internal "unannotated λ-binder reached inferType")
     | some (.app _ _) => do
@@ -1979,8 +1994,8 @@ def annotatePisOutI (r : CoreFnsI) (d : Nat) :
 /-- Leaf phase of `annotatePisI`: bulk-open and annotate the residual
 body, check it is a type, then rebuild outward. -/
 def annotatePisLeafI (r : CoreFnsI) (d : Nat) (t : EIdx) (k : Nat)
-    (fvs : List EIdx) (stk : List AnnotBinderEntry) : CheckIM EIdx := do
-  let to ← instListM t fvs
+    (fvs : Array EIdx) (stk : List AnnotBinderEntry) : CheckIM EIdx := do
+  let to ← instListRevM t fvs
   let leaf' ← r.annotate (d + k) to
   let tb ← r.infer (d + k) leaf'
   let v ← ensureSortI r (d + k) tb
@@ -1992,14 +2007,15 @@ case): peel the raw ∀-chain, annotating each opened domain on the way
 in.  `k ≥ 1` counts the opened binders (first binder peeled inline by
 the caller), `fvs` their free variables innermost-first. -/
 def annotatePisI (r : CoreFnsI) (d : Nat) :
-    Nat → EIdx → Nat → List EIdx → List AnnotBinderEntry → CheckIM EIdx
+    Nat → EIdx → Nat → Array EIdx → List AnnotBinderEntry → CheckIM EIdx
   | fuel + 1, t, k, fvs, stk => do
     match ← viewI t with
     | some (.forallE n ty body mb) => do
-      let tyo ← instListM ty fvs
+      let tyo ← instListRevM ty fvs
       let ty' ← r.annotate (d + k) tyo
       let fv ← internI (.fvar (d + k) n ty')
-      annotatePisI r d fuel body (k + 1) (fv :: fvs) ((n, ty', mb.bi) :: stk)
+      annotatePisI r d fuel body (k + 1) (fvs.push fv)
+        ((n, ty', mb.bi) :: stk)
     | _ => annotatePisLeafI r d t k fvs stk
   | 0, t, k, fvs, stk => annotatePisLeafI r d t k fvs stk
 
@@ -2029,8 +2045,8 @@ def annotateLamsOutI (r : CoreFnsI) (d : Nat) :
 /-- Leaf phase of `annotateLamsI`: bulk-open and annotate the residual
 body, infer it and its type's sort, then rebuild outward. -/
 def annotateLamsLeafI (r : CoreFnsI) (d : Nat) (t : EIdx) (k : Nat)
-    (fvs : List EIdx) (stk : List AnnotBinderEntry) : CheckIM EIdx := do
-  let to ← instListM t fvs
+    (fvs : Array EIdx) (stk : List AnnotBinderEntry) : CheckIM EIdx := do
+  let to ← instListRevM t fvs
   let leaf' ← r.annotate (d + k) to
   let bt ← r.infer (d + k) leaf'
   let tbt ← r.infer (d + k) bt
@@ -2041,14 +2057,15 @@ def annotateLamsLeafI (r : CoreFnsI) (d : Nat) (t : EIdx) (k : Nat)
 /-- λ-telescope annotation loop (task #72; `annotateBodyI`'s lam
 case). -/
 def annotateLamsI (r : CoreFnsI) (d : Nat) :
-    Nat → EIdx → Nat → List EIdx → List AnnotBinderEntry → CheckIM EIdx
+    Nat → EIdx → Nat → Array EIdx → List AnnotBinderEntry → CheckIM EIdx
   | fuel + 1, t, k, fvs, stk => do
     match ← viewI t with
     | some (.lam n ty body mb) => do
-      let tyo ← instListM ty fvs
+      let tyo ← instListRevM ty fvs
       let ty' ← r.annotate (d + k) tyo
       let fv ← internI (.fvar (d + k) n ty')
-      annotateLamsI r d fuel body (k + 1) (fv :: fvs) ((n, ty', mb.bi) :: stk)
+      annotateLamsI r d fuel body (k + 1) (fvs.push fv)
+        ((n, ty', mb.bi) :: stk)
     | _ => annotateLamsLeafI r d t k fvs stk
   | 0, t, k, fvs, stk => annotateLamsLeafI r d t k fvs stk
 
@@ -2087,7 +2104,7 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
       let ty' ← r.annotate depth ty
       let fv ← internI (.fvar depth n ty')
       let fuel ← withStore (·.nodes.size)
-      annotatePisI r depth fuel body 1 [fv] [(n, ty', mb.bi)]
+      annotatePisI r depth fuel body 1 #[fv] [(n, ty', mb.bi)]
     | some (.lam n ty body mb) => do
       -- The λ-loop is chain-identical only on bvar-closed nodes (the
       -- chained tails re-open exactly what they closed); disciplined
@@ -2096,7 +2113,7 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
         let ty' ← r.annotate depth ty
         let fv ← internI (.fvar depth n ty')
         let fuel ← withStore (·.nodes.size)
-        annotateLamsI r depth fuel body 1 [fv] [(n, ty', mb.bi)]
+        annotateLamsI r depth fuel body 1 #[fv] [(n, ty', mb.bi)]
       else do
         let ty' ← r.annotate depth ty
         let fv ← internI (.fvar depth n ty')

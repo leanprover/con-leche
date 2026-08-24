@@ -1069,6 +1069,131 @@ theorem instantiateListI_spec {st : EStore} {e : EIdx} {vs : List EIdx}
     have := hcond x he
     rwa [htake] at this
 
+/-! ## The reversed-accumulator instantiation (task #97)
+
+`instantiateRevIGo` is `instantiateListIGo` on the reversed
+replacement array — same memo discipline, same guards (the sizes
+agree), only the `bvar` hit reads the array from the back.  The
+pointwise equality below transfers every `instantiateListI` fact to
+the reversed wrapper. -/
+
+theorem instantiateRevIGo_eq {vs : Array EIdx} :
+    ∀ (k : Nat) (e : EIdx) (st : EStore) (memo : MemoNL) (d : Nat),
+      instantiateRevIGo vs st memo e k d
+        = instantiateListIGo vs.reverse st memo e k d := by
+  intro k
+  induction k using Nat.strongRecOn with
+  | _ k ihk =>
+  intro e
+  induction e using Nat.strongRecOn with
+  | _ e ihe =>
+    intro st memo d
+    unfold instantiateRevIGo instantiateListIGo
+    by_cases hk0 : k = 0
+    · simp only [if_pos hk0]
+    rw [if_neg hk0, if_neg hk0]
+    by_cases hcut : st.bvarBoundD e ≤ d
+    · rw [if_pos hcut, if_pos hcut]
+    rw [if_neg hcut, if_neg hcut]
+    cases hmemo : memo[(e, k, d)]? with
+    | some r => rfl
+    | none =>
+      cases hn : st.nodes[e]? with
+      | none => rfl
+      | some n =>
+        cases n with
+        | bvar i =>
+          dsimp only
+          by_cases hid : i < d
+          · rw [if_pos hid, if_pos hid]
+          rw [if_neg hid, if_neg hid]
+          by_cases hidk : i - d < k
+          · rw [dif_pos hidk, dif_pos hidk]
+            have hsz : vs.reverse.size = vs.size := by simp
+            by_cases hidv : i - d < vs.size
+            · rw [dif_pos hidv, dif_pos (hsz ▸ hidv)]
+              have hget : vs.reverse[i - d]'(hsz ▸ hidv)
+                  = vs[vs.size - 1 - (i - d)]'(by omega) := by
+                simp [Array.getElem_reverse]
+              rw [ihk (i - d) hidk, hget]
+            · rw [dif_neg hidv, dif_neg (fun h => hidv (hsz ▸ h))]
+          · rw [dif_neg hidk, dif_neg hidk]
+        | fvar idx nm ty => rfl
+        | sort u => rfl
+        | const nm us => rfl
+        | app f a =>
+          dsimp only
+          by_cases h : f < e ∧ a < e
+          · rw [dif_pos h, dif_pos h, ihe f h.1]
+            rcases h1 : instantiateListIGo vs.reverse st memo f k d
+              with ⟨f', st₁, memo₁⟩
+            rw [ihe a h.2]
+          · rw [dif_neg h, dif_neg h]
+        | lam nm ty body mb =>
+          dsimp only
+          by_cases h : ty < e ∧ body < e
+          · rw [dif_pos h, dif_pos h, ihe ty h.1]
+            rcases h1 : instantiateListIGo vs.reverse st memo ty k d
+              with ⟨ty', st₁, memo₁⟩
+            rw [ihe body h.2]
+          · rw [dif_neg h, dif_neg h]
+        | forallE nm ty body mb =>
+          dsimp only
+          by_cases h : ty < e ∧ body < e
+          · rw [dif_pos h, dif_pos h, ihe ty h.1]
+            rcases h1 : instantiateListIGo vs.reverse st memo ty k d
+              with ⟨ty', st₁, memo₁⟩
+            rw [ihe body h.2]
+          · rw [dif_neg h, dif_neg h]
+        | letE nm ty val body =>
+          dsimp only
+          by_cases h : ty < e ∧ val < e ∧ body < e
+          · rw [dif_pos h, dif_pos h, ihe ty h.1]
+            rcases h1 : instantiateListIGo vs.reverse st memo ty k d
+              with ⟨ty', st₁, memo₁⟩
+            rw [ihe val h.2.1]
+            rcases h2 : instantiateListIGo vs.reverse st₁ memo₁ val k d
+              with ⟨val', st₂, memo₂⟩
+            rw [ihe body h.2.2]
+          · rw [dif_neg h, dif_neg h]
+        | lit l => rfl
+        | proj sp i sub =>
+          dsimp only
+          by_cases h : sub < e
+          · rw [dif_pos h, dif_pos h, ihe sub h]
+          · rw [dif_neg h, dif_neg h]
+
+/-- The reversed wrapper is `instantiateListI` on the reversed
+accumulator read as a list (`Expr.instantiateList` of
+`vs.toList.reverse`). -/
+theorem instantiateRevI_eq (st : EStore) (e : EIdx) (vs : Array EIdx)
+    (d : Nat) :
+    st.instantiateRevI e vs d
+      = st.instantiateListI e vs.toList.reverse d := by
+  unfold instantiateRevI instantiateListI
+  cases hrev : vs.toList.reverse with
+  | nil =>
+    have h0 : vs.size = 0 := by
+      have := congrArg List.length hrev
+      simpa using this
+    rw [if_pos h0]
+  | cons x xs =>
+    have h0 : ¬vs.size = 0 := by
+      have := congrArg List.length hrev
+      simp at this
+      omega
+    have harr : (x :: xs).toArray = vs.reverse := by
+      rw [← hrev, ← List.reverse_toArray, Array.toArray_toList]
+    rw [if_neg h0]
+    show _ = (let a := (x :: xs).toArray;
+      match instantiateListIGo a st {} e a.size d with
+      | (r, st, _) => (r, st))
+    rw [instantiateRevIGo_eq, harr]
+    show _ = (match instantiateListIGo vs.reverse st {} e
+        vs.reverse.size d with
+      | (r, st, _) => (r, st))
+    rw [Array.size_reverse]
+
 theorem mkAppNI_spec :
     ∀ {args : List EIdx} {xs : List Expr} {st : EStore}, st.WF →
       ∀ {f : EIdx} {x : Expr}, st.denote f = some x → DenL st args xs →
