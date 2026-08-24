@@ -1,10 +1,13 @@
 import Setlec.Model.BasisVal
 
 /-!
-# DESIGN SPIKE — option C ("semantic / structural universe source"): witnesses
+# Why raw storage needs an annotation witness (task #100)
 
-**Do not merge.**  Formal witnesses for the evaluation of the third
-candidate design for annotation-free storage: interpret raw trees with
+Formal witnesses for the *refutation* of the third candidate design for
+annotation-free storage — the reason `RawEnvModel`
+(`Setlec/Model/RawEnv.lean`) carries an annotated shadow environment
+rather than dropping annotation data from the model altogether.  The
+refuted design: interpret raw trees with
 the binder classifier derived *semantically* (least-`u` variant) or
 computed *structurally* alongside the recursion as a tuple component
 (structural variant), so that neither the environment nor `EnvModel`
