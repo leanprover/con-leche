@@ -556,6 +556,7 @@ theorem extend_proj_template {env : Env} (m : EnvModel V env)
       fun _ _ hx _ _ => nomatch hx⟩)
     (fun _ _ _ _ _ _ heq _ => nomatch heq)
     (fun _ _ _ _ _ _ heq _ => nomatch heq)
+    (fun _ _ _ _ heq _ _ => nomatch heq)
   · -- the junk value inhabits `Prop`
     show ∃ T, interpClosed V m.val env ψ entry.ty = some T ∧
       eqv pt pt ∈ˢ T

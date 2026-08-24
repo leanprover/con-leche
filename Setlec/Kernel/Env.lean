@@ -201,7 +201,10 @@ inductive Declaration where
   | thmDecl (val : ConstantVal) (value : Expr)
   /-- An `opaque` declaration: exactly a theorem check without the
   is-a-proposition requirement — the value is checked against the
-  type and the constant is never delta-unfolded. -/
+  type as a realizability witness and then discarded (stored as an
+  `axiomInfo`): the constant is never delta-unfolded, matching the
+  official kernel's `is_delta`, which unfolds theorems but never
+  opaques. -/
   | opaqueDecl (val : ConstantVal) (value : Expr)
   | basisDecl (kind : BasisKind)
   /-- A preprocessed (modeled) inductive block: type formers,

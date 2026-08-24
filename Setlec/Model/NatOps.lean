@@ -1387,6 +1387,45 @@ theorem DivModEqs.val_congr {val val' : ConstVal V} {c : Name}
        at hcl ⊢
      exact hcl)
 
+/-- Extend `ReduceOpsOk` by one fresh constant: the head's own
+obligation is forwarded (nontrivial only for an `axiomInfo` under a
+reduce-op name — the compiler-trust opaque install), and the stored
+facts survive because a stored constant (and its stored element
+inductive) is never the fresh head. -/
+theorem ReduceOpsOk.cons {env : Env} {val val' : ConstVal V}
+    {c₀ : ConstantInfo}
+    (h : ReduceOpsOk V env val)
+    (hfresh : env.find? c₀.name = none)
+    (hagree : ∀ n, n ≠ c₀.name → ∀ ψ' : Name → Nat, val' n ψ' = val n ψ')
+    (hhead : ∀ cv₀, c₀ = .axiomInfo cv₀ → c₀.name ∈ reduceOpNames →
+      ConstantVal.matchesPin cv₀ (reduceOpCvA c₀.name) = true →
+      ((⟨c₀ :: env.consts⟩ : Env).find? (reduceElemName c₀.name)).isSome
+        = true ∧
+      ∀ (ψ : Name → Nat) (x : V),
+        x ∈ˢ val' (reduceElemName c₀.name) ψ →
+        SetTheory.app (val' c₀.name ψ) x = x) :
+    ReduceOpsOk V (⟨c₀ :: env.consts⟩ : Env) val' := by
+  intro c hc cv hf hpin
+  rw [Env.find?_cons] at hf
+  by_cases hn : c₀.name = c
+  · rw [if_pos hn] at hf
+    subst hn
+    exact hhead cv (Option.some.inj hf) hc hpin
+  · rw [if_neg hn] at hf
+    obtain ⟨hsome, hid⟩ := h c hc cv hf hpin
+    have helemne : reduceElemName c ≠ c₀.name := by
+      intro he
+      rw [he, hfresh] at hsome
+      exact nomatch hsome
+    refine ⟨?_, ?_⟩
+    · rw [Env.find?_cons]
+      split
+      · rfl
+      · exact hsome
+    · intro ψ x hx
+      rw [hagree c (fun hcc => hn hcc.symm) ψ]
+      exact hid ψ x (by rw [← hagree _ helemne ψ]; exact hx)
+
 /-- `DivModOk` extension step: preservation for the stored operations
 (every name the equations mention is stored, hence distinct from the
 fresh head), plus a handler for the case that the new constant is

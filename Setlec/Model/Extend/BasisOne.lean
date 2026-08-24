@@ -90,13 +90,29 @@ theorem extend_basis_one {env : Env} (m : EnvModel V env)
           exact absurd hCres (by decide)
         · exact absurd hP (Name.num_ne_str _ _ _ _)
       · intro cv caps heq hcapu hres
-        exact absurd hres (by decide)) :
+        exact absurd hres (by decide))
+    -- the compiler-trust reduce-opaque obligation: at every basis and
+    -- standard-axiom install the head is refuted by kind or name
+    (hreduce : ∀ val' : ConstVal V,
+      (∀ ψ : Name → Nat, val' ci.name ψ = v₀ ψ) →
+      (∀ n, n ≠ ci.name → ∀ ψ' : Name → Nat, val' n ψ' = m.val n ψ') →
+      ∀ cv₀, ci = .axiomInfo cv₀ → ci.name ∈ reduceOpNames →
+      ConstantVal.matchesPin cv₀ (reduceOpCvA ci.name) = true →
+      ((⟨ci :: env.consts⟩ : Env).find? (reduceElemName ci.name)).isSome
+        = true ∧
+      ∀ (ψ : Name → Nat) (x : V),
+        x ∈ˢ val' (reduceElemName ci.name) ψ →
+        SetTheory.app (val' ci.name ψ) x = x := by
+      intro val' _ _ cv₀ heq hmem _
+      first
+      | exact ConstantInfo.noConfusion heq
+      | exact absurd hmem (by decide)) :
     ∃ m' : EnvModel V ⟨ci :: env.consts⟩,
       (∀ ψ, m'.val ci.name ψ = v₀ ψ) ∧
       (∀ n ψ, n ≠ ci.name → m'.val n ψ = m.val n ψ) := by
   refine extend_fresh m ci v₀ hfind' hwf htyres0 ?_ ?_ hkey hparams hAty
     hnewty hnewmk hnewunit hnewempty hpin hsib hrecm hctors
-    hprojOk hcaps ?_ ?_
+    hprojOk hcaps ?_ ?_ hreduce
   · intro cv2 value2 h2 heq
     exact absurd heq (hnotdefn cv2 value2 h2)
   · intro cv2 value2 heq

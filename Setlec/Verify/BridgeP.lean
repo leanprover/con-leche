@@ -375,7 +375,8 @@ theorem checkOpaqueValP_sim (henv : EnvWF env) {cvA : ConstantVal}
     {jty : EIdx} {value : EIdx} {ve : Expr}
     (htf : WScoped 0 cvA.type) (hjty : s₀.store.denote jty = some cvA.type)
     (hdenv : s₀.store.denote value = some ve) (hs : ISOK env s₀) :
-    SimAt env s₀ (fun _ v w => v.env = w ∧ v = mkFEnv v.env)
+    SimAt env s₀ (fun _ v w => (v.env = w ∧ v = mkFEnv v.env) ∧
+        ve.hasFvar = false)
       (checkOpaqueValP (mkFEnv env) cvA jty value)
       (checkOpaqueVal fueledOpsM env cvA ve) := by
   unfold checkOpaqueValP checkOpaqueVal
@@ -423,19 +424,13 @@ theorem checkOpaqueValP_sim (henv : EnvWF env) {cvA : ConstantVal}
     exact SimAt.throw_bind
   | true =>
     simp only [↓reduceIte]
-    have hjv₃ : s₃.store.denote jv = some w :=
-      denote_mono hext₃ (denote_mono hext₂ hjv)
-    refine SimAt.bind_left (readbackEM_eff hs₃ hjv₃)
-      (fun s₄ vE hs₄ hext₄ hQ => ?_)
-    subst hQ
-    refine SimAt.bind_left (recordIConst_eff hs₄
-        (denote_mono hext₄ (denote_mono hext₃
-          (denote_mono hext₂ (denote_mono hext₁ hjty))))
-        (fun vE' vi h => by
-          cases h
-          exact denote_mono hext₄ hjv₃))
-      (fun s₅ u hs₅ hext₅ hQ' => ?_)
-    exact SimAt.pure hs₅ ⟨rfl, mkFEnv_push env _⟩
+    refine SimAt.bind_left (recordIConst_eff hs₃
+        (denote_mono hext₃ (denote_mono hext₂
+          (denote_mono hext₁ hjty)))
+        (fun vE' vi h => nomatch h))
+      (fun s₄ u hs₄ hext₄ hQ' => ?_)
+    exact SimAt.pure hs₄ ⟨⟨rfl, mkFEnv_push env _⟩,
+      Bool.not_eq_true _ ▸ h2⟩
 
 /-! ## The parsed declaration -/
 
@@ -496,7 +491,7 @@ theorem checkDeclSP_sim (henv : EnvWF env) (hs : ISOK env s₀)
     obtain ⟨cvR, jty⟩ := pr
     obtain ⟨rfl, hwty, hjty⟩ := hP
     dsimp only at hjty ⊢
-    simp only [stdAxiomOkF_eq]
+    simp only [stdAxiomOkF_eq, trustCompilerOkF_eq, ofReduceAxOkF_eq]
     by_cases h1 : stdAxiomOk env cvR = true
     · simp only [if_pos h1]
       refine SimAt.bind_left (recordIConst_eff hs₁ hjty
@@ -504,15 +499,38 @@ theorem checkDeclSP_sim (henv : EnvWF env) (hs : ISOK env s₀)
         (fun s₂ u hs₂ hext₂ hQ => ?_)
       exact SimAt.pure hs₂ ⟨rfl, mkFEnv_push env _⟩
     · simp only [if_neg h1]
-      by_cases h2 : cvR.name = propextName ∨ cvR.name = choiceName
-      · simp only [if_pos h2]
-        exact SimAt.throw
-      · simp only [if_neg h2]
-        by_cases h3 : toleratedAxiomNames.contains cvR.name = true
-        · simp only [if_pos h3]
-          exact SimAt.pure hs₁ ⟨rfl, rfl⟩
-        · simp only [if_neg h3]
+      by_cases htc : cvR.name = trustCompilerName
+      · simp only [if_pos htc]
+        by_cases htok : trustCompilerOk env cvR = true
+        · simp only [if_pos htok]
+          refine SimAt.bind_left (recordIConst_eff hs₁ hjty
+              (fun vE vi h => nomatch h))
+            (fun s₂ u hs₂ hext₂ hQ => ?_)
+          exact SimAt.pure hs₂ ⟨rfl, mkFEnv_push env _⟩
+        · simp only [if_neg htok]
           exact SimAt.throw
+      · simp only [if_neg htc]
+        by_cases hor : cvR.name = ofReduceNatName ∨
+            cvR.name = ofReduceBoolName
+        · simp only [if_pos hor]
+          by_cases hoo : ofReduceAxOk env cvR = true
+          · simp only [if_pos hoo]
+            refine SimAt.bind_left (recordIConst_eff hs₁ hjty
+                (fun vE vi h => nomatch h))
+              (fun s₂ u hs₂ hext₂ hQ => ?_)
+            exact SimAt.pure hs₂ ⟨rfl, mkFEnv_push env _⟩
+          · simp only [if_neg hoo]
+            exact SimAt.throw
+        · simp only [if_neg hor]
+          by_cases h2 : cvR.name = propextName ∨ cvR.name = choiceName
+          · simp only [if_pos h2]
+            exact SimAt.throw
+          · simp only [if_neg h2]
+            by_cases h3 : toleratedAxiomNames.contains cvR.name = true
+            · simp only [if_pos h3]
+              exact SimAt.pure hs₁ ⟨rfl, rfl⟩
+            · simp only [if_neg h3]
+              exact SimAt.throw
   | thmDecl cvp value =>
     simp only [denoteDeclP, denoteCVP, Option.bind_eq_some_iff,
       Option.map_eq_some_iff] at hden
@@ -537,8 +555,26 @@ theorem checkDeclSP_sim (henv : EnvWF env) (hs : ISOK env s₀)
     obtain ⟨cvR, jty⟩ := pr
     obtain ⟨rfl, hwty, hjty⟩ := hP
     dsimp only at hjty ⊢
-    exact SimAt.mono (fun s v w h => h) (checkOpaqueValP_sim henv hwty hjty
-      (denote_mono hext₁ hve) hs₁)
+    refine SimAt.bind (checkOpaqueValP_sim henv hwty hjty
+        (denote_mono hext₁ hve) hs₁)
+      (fun s₂ fe2 env2 hs₂ hext₂ hP₂ => ?_)
+    obtain ⟨⟨henvEq, hmk⟩, hvf⟩ := hP₂
+    subst henvEq
+    rw [hmk]
+    simp only [mkFEnv_env]
+    by_cases hred : reduceOpNames.contains cvR.name = true
+    case neg =>
+      simp only [if_neg hred]
+      exact SimAt.pure hs₂ ⟨rfl, hmk ▸ hmk⟩
+    simp only [if_pos hred]
+    refine SimAt.bind_left (readbackEM_eff hs₂
+        (denote_mono hext₂ (denote_mono hext₁ hve)))
+      (fun s₃ vE hs₃ hext₃ hQ => ?_)
+    subst hQ
+    rw [checkReducePinF_eq]
+    refine SimAt.bind (checkReducePinS_sim henv hvf hs₃)
+      (fun s₄ u u' hs₄ hext₄ hP₄ => ?_)
+    exact SimAt.pure hs₄ ⟨rfl, hmk ▸ hmk⟩
   | defnDecl cvp value hint =>
     simp only [denoteDeclP, denoteCVP, Option.bind_eq_some_iff,
       Option.map_eq_some_iff] at hden

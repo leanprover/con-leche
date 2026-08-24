@@ -551,4 +551,56 @@ elab "#gen_natop_pins" : command => do
     for (spec, pinS, proofsS) in results do
       spliceOp spec pinS proofsS
 
+/-! ## Compiler-trust pins (task #95)
+
+The pinned defining expressions of the toolchain's `Lean.reduceNat` /
+`Lean.reduceBool` opaques (identity functions modulo the
+`have := trustCompiler` wrapper, which the conversion's zeta-expansion
+removes).  Compared by definitional equality at install
+(`checkReducePin`); the model never inspects these blobs. -/
+
+/-- `(toolchain opaque, generated pin name)`. -/
+def trustOpSpecs : List (Lean.Name × Lean.Name) :=
+  [(`Lean.reduceNat, `Setlec.reduceNatDeclPin),
+   (`Lean.reduceBool, `Setlec.reduceBoolDeclPin)]
+
+/-- Read one reduce operation's opaque value from the compiling
+environment and convert it. -/
+def computeTrustOp (op : Lean.Name) : MetaM Setlec.Expr := do
+  let env ← getEnv
+  let some ci := env.find? op |
+    throwError "{op} is absent from the compiling environment"
+  let some v := ci.value? (allowOpaque := true) |
+    throwError "{op} has no value in the compiling environment"
+  checkConsts s!"trust pin {op}"
+    (fun c => c == `Nat || c == `Bool || c == `True ||
+      c == `Lean.trustCompiler) v
+  match toSetlec v with
+  | .ok e => return e
+  | .error m => throwError "trust pin conversion ({op}): {m}"
+
+/-- Generate the compiler-trust pins (see `Setlec/Kernel/TrustPins.lean`). -/
+elab "#gen_trust_pins" : command => do
+  let genEnv ← importModules (loadExts := false) (level := .private)
+    #[{module := `Init}] {} 0
+  let mut results : List (Lean.Name × Setlec.Expr) := []
+  let opts ← getOptions
+  for (op, pinName) in trustOpSpecs do
+    let (r, _, _) ←
+      try
+        (computeTrustOp op).toIO
+          { fileName := "<gen_trust_pins>", fileMap := default,
+            options := opts, maxRecDepth := 1000000, maxHeartbeats := 0 }
+          { env := genEnv }
+      catch e =>
+        throwError "trust pin generation for {op} failed: {e.toMessageData}"
+    results := results ++ [(pinName, r)]
+  Elab.Command.liftTermElabM do
+    for (pinName, pinS) in results do
+      let pinDecl := Declaration.defnDecl {
+        name := pinName, levelParams := [], type := exprT,
+        value := buildExprValue pinS, hints := .abbrev, safety := .safe }
+      addDecl pinDecl
+      compileDecl pinDecl
+
 end Setlec.PinGen

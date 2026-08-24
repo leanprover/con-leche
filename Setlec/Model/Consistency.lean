@@ -3,6 +3,7 @@ import Setlec.Model.Basis.Quot.Iota
 import Setlec.Model.Basis.Quot.Consistency
 import Setlec.Model.StdAxioms
 import Setlec.Model.DivModCert
+import Setlec.Model.TrustAxioms
 
 /-!
 # Consistency of the checker
@@ -341,6 +342,89 @@ private theorem natop_eqs_sound {env : Env} (m : EnvModel V env) (F : Nat)
           (eqSide_succ m hs hfx) (eqSide_succ m hs hfy))
         (eqSide_app2 m hs hHi hHA2 hHF hHW hHlb hHL hHpi hCu hfx hfy)
 
+/-- What a successful `checkReducePin` run checked (task #95): the
+stored shape pins and the two definitional-equality runs — the pin
+comparison and the identity certificate. -/
+private theorem checkReducePin_run_inv {env env2 : Env} {c : Name}
+    {value : Expr} {F : Nat} {u : Unit}
+    (h : checkReducePin (fueledOps F) env env2 c value = .ok u) :
+    (reduceStoredOk env2 c && reduceElemOk env c) = true ∧
+    reducePinGuard env c = true ∧
+    ∃ valA pinA, annotateCore env F 0 value = .ok valA ∧
+      annotateCore env F 0 (reduceDeclPin c) = .ok pinA ∧
+      isDefEqCore env F 0 valA pinA = .ok true ∧
+      isDefEqCore env F 1 (.app valA (reduceCertVar c))
+        (reduceCertVar c) = .ok true := by
+  unfold checkReducePin at h
+  by_cases h1 : (reduceStoredOk env2 c && reduceElemOk env c) = true
+  case neg => rw [if_neg h1] at h; exact nomatch h
+  rw [if_pos h1] at h
+  by_cases h2 : reducePinGuard env c = true
+  case neg => rw [if_neg h2] at h; exact nomatch h
+  rw [if_pos h2] at h
+  refine ⟨h1, h2, ?_⟩
+  simp only [Bind.bind, Except.bind] at h
+  revert h
+  cases hannv : annotateCore env F 0 value with
+  | error e =>
+    intro h
+    rw [show CheckerOps.annotate (fueledOps F) env 0 value =
+      annotateCore env F 0 value from rfl, hannv] at h
+    exact nomatch h
+  | ok valA =>
+  intro h
+  rw [show CheckerOps.annotate (fueledOps F) env 0 value =
+    annotateCore env F 0 value from rfl, hannv] at h
+  simp only [Bind.bind, Except.bind] at h
+  revert h
+  cases hannp : annotateCore env F 0 (reduceDeclPin c) with
+  | error e =>
+    intro h
+    rw [show CheckerOps.annotate (fueledOps F) env 0 (reduceDeclPin c) =
+      annotateCore env F 0 (reduceDeclPin c) from rfl, hannp] at h
+    exact nomatch h
+  | ok pinA =>
+  intro h
+  rw [show CheckerOps.annotate (fueledOps F) env 0 (reduceDeclPin c) =
+    annotateCore env F 0 (reduceDeclPin c) from rfl, hannp] at h
+  simp only [Bind.bind, Except.bind] at h
+  revert h
+  cases hde0 : isDefEqCore env F 0 valA pinA with
+  | error e =>
+    intro h
+    rw [show CheckerOps.isDefEq (fueledOps F) env 0 valA pinA =
+      isDefEqCore env F 0 valA pinA from rfl, hde0] at h
+    exact nomatch h
+  | ok b0 =>
+  intro h
+  rw [show CheckerOps.isDefEq (fueledOps F) env 0 valA pinA =
+    isDefEqCore env F 0 valA pinA from rfl, hde0] at h
+  simp only [Bind.bind, Except.bind] at h
+  cases b0 with
+  | false => simp [pure, Except.pure] at h
+  | true =>
+  simp only [↓reduceIte] at h
+  revert h
+  cases hde1 : isDefEqCore env F 1 (.app valA (reduceCertVar c))
+      (reduceCertVar c) with
+  | error e =>
+    intro h
+    rw [show CheckerOps.isDefEq (fueledOps F) env 1
+        (.app valA (reduceCertVar c)) (reduceCertVar c) =
+      isDefEqCore env F 1 (.app valA (reduceCertVar c))
+        (reduceCertVar c) from rfl, hde1] at h
+    exact nomatch h
+  | ok b1 =>
+  intro h
+  rw [show CheckerOps.isDefEq (fueledOps F) env 1
+      (.app valA (reduceCertVar c)) (reduceCertVar c) =
+    isDefEqCore env F 1 (.app valA (reduceCertVar c))
+      (reduceCertVar c) from rfl, hde1] at h
+  simp only [Bind.bind, Except.bind] at h
+  cases b1 with
+  | false => simp [pure, Except.pure] at h
+  | true => exact ⟨valA, pinA, rfl, rfl, hde0, hde1⟩
+
 /-- What the `propext` branch of `stdAxiomOk` checked. -/
 private theorem stdAxiomOk_propext_inv {env : Env} {cvA : ConstantVal}
     (hn : cvA.name = propextName) (h : stdAxiomOk env cvA = true) :
@@ -409,23 +493,8 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     try dsimp only at h
     obtain ⟨hfind', hres', hpshape', hnd, hlbt, hitf, type, stype, u, hann, htp, htr, hst, hsort, rfl⟩ :=
       checkConstantVal_inv hccv
-    by_cases hok : stdAxiomOk env { cv with type := type } = true
-    case neg =>
-      -- non-pinned axiom: checked but not installed (user ruling) —
-      -- the environment is unchanged, so the model carries over; a
-      -- pinned name with a non-pinned shape throws
-      rw [if_neg hok] at h
-      split at h
-      · simp [pure, Except.pure] at h
-      · split at h
-        · simp only [pure, Except.pure, Except.ok.injEq] at h
-          subst h
-          exact ⟨⟨m⟩, hE1⟩
-        · simp [pure, Except.pure] at h
-    simp only [hok, if_true, ↓reduceIte, pure, Except.pure,
-      Except.ok.injEq] at h
-    subst h
-    -- semantic facts about the annotated type
+    -- semantic facts about the annotated type (shared by every
+    -- installing branch)
     have hwt : WScoped 0 cv.type := WScoped.of_not_hasFvar hitf
     have htf : type.hasFvar = false :=
       not_hasFvar_of_fvarsBelow_zero
@@ -437,6 +506,141 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       annotate_sound m cv.type hann hwt hlbt
         (Expr.LeavesBounded.of_not_hasFvar hitf) (rho0 V)
         (FvarsOk.of_not_hasFvar hitf)
+    by_cases hok : stdAxiomOk env { cv with type := type } = true
+    case neg =>
+      -- non-pinned standard axiom: the compiler-trust family installs
+      -- (task #95), the tolerated whitelist is a no-op, everything
+      -- else throws
+      rw [if_neg hok] at h
+      by_cases htc : cv.name = trustCompilerName
+      case pos =>
+        rw [if_pos htc] at h
+        by_cases htok : trustCompilerOk env { cv with type := type } = true
+        case neg =>
+          rw [if_neg htok] at h
+          simp [pure, Except.pure] at h
+        rw [if_pos htok] at h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        subst h
+        obtain ⟨⟨cvT, capsT, hTf, hTp⟩, ⟨cvTi, hTif, hTip⟩, hpinT⟩ :=
+          trustCompilerOk_inv htok
+        have hkey : ∀ ψ : Name → Nat, ∃ T,
+            interpClosed V m.val env ψ type = some T ∧
+              m.val trueIntroName ψ ∈ˢ T := by
+          intro ψ
+          obtain ⟨T, hT, hmem⟩ := trustCompiler_key m hTf hTp hTif hTip ψ
+          exact ⟨T, (interpClosed_matchesPin hpinT).trans hT, hmem⟩
+        obtain ⟨m', -, -⟩ := extend_basis_one m
+          (.axiomInfo { cv with type := type })
+          (fun ψ => m.val trueIntroName ψ)
+          hfind'
+          ⟨htf, htp, Expr.constsResolve_mono htr, hbt',
+            fun _ _ _ hx => ConstantInfo.noConfusion hx,
+            fun _ _ _ _ hx => ConstantInfo.noConfusion hx,
+            fun _ _ hx => ConstantInfo.noConfusion hx⟩
+          htr
+          (fun _ _ _ hx => nomatch hx)
+          (fun ψ => hkey ψ)
+          (fun ψ₁ ψ₂ hψ =>
+            m.val_params trueIntroName _ hTif ψ₁ ψ₂ (fun p hp => by
+              have hp' : p ∈ cvTi.levelParams := hp
+              rw [(ConstantVal.matchesPin_inv hTip).2] at hp'
+              exact nomatch hp'))
+          (fun ψ => hAty ψ)
+          (fun _ _ hx _ => nomatch hx)
+          (fun _ _ _ hx _ => nomatch hx)
+          (fun _ _ hx _ => nomatch hx)
+          (fun hn => absurd (htc.symm.trans hn) (by decide))
+          (fun hb _ => by simp [ConstantInfo.isBasis] at hb)
+          (fun _ _ _ _ hx => nomatch hx)
+          (fun _ _ _ _ _ _ _ hx => nomatch hx)
+          (fun _ _ _ _ hx => nomatch hx)
+          (fun _ hx _ => nomatch hx)
+          (hcaps := fun val' _ _ =>
+            ⟨capsEtaHead_of_kinds
+              (fun _ _ hx => ConstantInfo.noConfusion hx)
+              (fun _ _ _ hx => ConstantInfo.noConfusion hx)
+              (fun _ _ _ _ hx => ConstantInfo.noConfusion hx),
+            fun _ _ hx _ _ => ConstantInfo.noConfusion hx⟩)
+          (hreduce := fun _ _ _ _ _ hmem _ =>
+            absurd hmem (by
+              rw [show (ConstantInfo.axiomInfo
+                { cv with type := type }).name = cv.name from rfl, htc]
+              decide))
+        refine ⟨⟨m'⟩, ?_⟩
+        exact EtaFamiliesClosed.cons_nonind hE1 hfind'
+          (fun _ _ hx _ => ConstantInfo.noConfusion hx)
+      case neg =>
+      rw [if_neg htc] at h
+      by_cases hofr : cv.name = ofReduceNatName ∨
+          cv.name = ofReduceBoolName
+      case pos =>
+        rw [if_pos hofr] at h
+        by_cases hoo : ofReduceAxOk env { cv with type := type } = true
+        case neg =>
+          rw [if_neg hoo] at h
+          simp [pure, Except.pure] at h
+        rw [if_pos hoo] at h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        subst h
+        obtain ⟨-, -, -, hpinO⟩ := ofReduceAxOk_inv hoo
+        have hkey : ∀ ψ : Name → Nat, ∃ T,
+            interpClosed V m.val env ψ type = some T ∧
+              SetTheory.pt ∈ˢ T := by
+          intro ψ
+          obtain ⟨T, hT, hmem⟩ :=
+            ofReduce_key (cvA := { cv with type := type }) m hofr hoo ψ
+          exact ⟨T, (interpClosed_matchesPin hpinO).trans hT, hmem⟩
+        obtain ⟨m', -, -⟩ := extend_basis_one m
+          (.axiomInfo { cv with type := type })
+          (fun _ => SetTheory.pt)
+          hfind'
+          ⟨htf, htp, Expr.constsResolve_mono htr, hbt',
+            fun _ _ _ hx => ConstantInfo.noConfusion hx,
+            fun _ _ _ _ hx => ConstantInfo.noConfusion hx,
+            fun _ _ hx => ConstantInfo.noConfusion hx⟩
+          htr
+          (fun _ _ _ hx => nomatch hx)
+          (fun ψ => hkey ψ)
+          (fun _ _ _ => rfl)
+          (fun ψ => hAty ψ)
+          (fun _ _ hx _ => nomatch hx)
+          (fun _ _ _ hx _ => nomatch hx)
+          (fun _ _ hx _ => nomatch hx)
+          (fun hn => by
+            rcases hofr with hn' | hn' <;>
+              exact absurd (hn'.symm.trans hn) (by decide))
+          (fun hb _ => by simp [ConstantInfo.isBasis] at hb)
+          (fun _ _ _ _ hx => nomatch hx)
+          (fun _ _ _ _ _ _ _ hx => nomatch hx)
+          (fun _ _ _ _ hx => nomatch hx)
+          (fun _ hx _ => nomatch hx)
+          (hcaps := fun val' _ _ =>
+            ⟨capsEtaHead_of_kinds
+              (fun _ _ hx => ConstantInfo.noConfusion hx)
+              (fun _ _ _ hx => ConstantInfo.noConfusion hx)
+              (fun _ _ _ _ hx => ConstantInfo.noConfusion hx),
+            fun _ _ hx _ _ => ConstantInfo.noConfusion hx⟩)
+          (hreduce := fun _ _ _ _ _ hmem _ =>
+            absurd hmem (by
+              rw [show (ConstantInfo.axiomInfo
+                { cv with type := type }).name = cv.name from rfl]
+              rcases hofr with hn' | hn' <;> rw [hn'] <;> decide))
+        refine ⟨⟨m'⟩, ?_⟩
+        exact EtaFamiliesClosed.cons_nonind hE1 hfind'
+          (fun _ _ hx _ => ConstantInfo.noConfusion hx)
+      case neg =>
+      rw [if_neg hofr] at h
+      split at h
+      · simp [pure, Except.pure] at h
+      · split at h
+        · simp only [pure, Except.pure, Except.ok.injEq] at h
+          subst h
+          exact ⟨⟨m⟩, hE1⟩
+        · simp [pure, Except.pure] at h
+    simp only [hok, if_true, ↓reduceIte, pure, Except.pure,
+      Except.ok.injEq] at h
+    subst h
     by_cases hnp : cv.name = propextName
     · -- propext
       obtain ⟨hE, ⟨cvI, capsI, hIf, hIp⟩, ⟨cvIi, hIif, hIip⟩,
@@ -484,6 +688,11 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
             (fun _ _ _ hx => ConstantInfo.noConfusion hx)
             (fun _ _ _ _ hx => ConstantInfo.noConfusion hx),
           fun _ _ hx _ _ => ConstantInfo.noConfusion hx⟩)
+        (hreduce := fun _ _ _ _ _ hmem _ =>
+          absurd hmem (by
+            rw [show (ConstantInfo.axiomInfo
+              { cv with type := type }).name = cv.name from rfl, hnp]
+            decide))
       refine ⟨⟨m'⟩, ?_⟩
       exact EtaFamiliesClosed.cons_nonind hE1 hfind'
         (fun _ _ hx _ => ConstantInfo.noConfusion hx)
@@ -535,6 +744,11 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
             (fun _ _ _ hx => ConstantInfo.noConfusion hx)
             (fun _ _ _ _ hx => ConstantInfo.noConfusion hx),
           fun _ _ hx _ _ => ConstantInfo.noConfusion hx⟩)
+        (hreduce := fun _ _ _ _ _ hmem _ =>
+          absurd hmem (by
+            rw [show (ConstantInfo.axiomInfo
+              { cv with type := type }).name = cv.name from rfl, hnc]
+            decide))
       refine ⟨⟨m'⟩, ?_⟩
       exact EtaFamiliesClosed.cons_nonind hE1 hfind'
         (fun _ _ hx _ => ConstantInfo.noConfusion hx)
@@ -1791,6 +2005,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       hpshape'
       ?_
       ?_
+      (fun _ hex => by obtain ⟨cv₀, heq, -⟩ := hex; exact nomatch heq)
     -- the structural-Nat head obligation
     intro hcontains _
     obtain ⟨hgd, hcert0⟩ := harm2 hcontains
@@ -2114,6 +2329,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       hpshape'
       (fun _ hex => by obtain ⟨cv₀, v₀, heq⟩ := hex; exact nomatch heq)
       (fun _ hex => by obtain ⟨cv₀, v₀, h₀, heq⟩ := hex; exact nomatch heq)
+      (fun _ hex => by obtain ⟨cv₀, heq, -⟩ := hex; exact nomatch heq)
 
   | opaqueDecl cv value =>
     simp only [checkDecl, checkDefnVal, checkOpaqueVal, installBasisDecl,
@@ -2156,8 +2372,7 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
     cases b with
     | false => exact nomatch h
     | true =>
-    simp only [Bool.false_eq_true, ↓reduceIte, Except.ok.injEq] at h
-    subst h
+    simp only [Bool.false_eq_true, ↓reduceIte] at h
     have hwt : WScoped 0 cv.type := WScoped.of_not_hasFvar hitf
     have htf : type.hasFvar = false :=
       not_hasFvar_of_fvarsBelow_zero
@@ -2175,18 +2390,100 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       exact ⟨T, hT⟩
     obtain ⟨hvf', hAval, hkey⟩ :=
       value_facts m hlbv (by simpa using hivf) hannv hvt hde htf hbt' hAty hkeyT
-    refine ⟨?_, EtaFamiliesClosed.cons_nonind hE1 hfind'
-      (fun _ _ hx _ => ConstantInfo.noConfusion hx)⟩
-    exact extend_model m hfind' htp htf htr (annotateCore_looseBVars F cv.type hann hlbt)
-      hvp hvf' hvr (annotateCore_looseBVars F value hannv hlbv) hkey hAty hAval
-      (ConstantInfo.thmInfo { cv with type := type } value') rfl rfl
-      (fun cv2 value2 h2 heq => nomatch heq)
-      (fun cv2 value2 heq => by injection heq with h1 h2; exact ⟨h1.symm, h2.symm⟩)
-      rfl
-      hres'
-      hpshape'
-      (fun _ hex => by obtain ⟨cv₀, v₀, heq⟩ := hex; exact nomatch heq)
-      (fun _ hex => by obtain ⟨cv₀, v₀, h₀, heq⟩ := hex; exact nomatch heq)
+    have hbv' : value'.looseBVarsBounded 0 = true :=
+      annotateCore_looseBVars F value hannv hlbv
+    -- the common extension for the stored opaque (an `axiomInfo`
+    -- realized by the checked witness's interpretation), parameterized
+    -- by the compiler-trust head obligation
+    have hext : (reduceOpNames.contains cv.name = true →
+        (∃ cv₀, (ConstantInfo.axiomInfo { cv with type := type }) =
+            ConstantInfo.axiomInfo cv₀ ∧
+          ConstantVal.matchesPin cv₀ (reduceOpCvA cv.name) = true) →
+        ((⟨ConstantInfo.axiomInfo { cv with type := type } ::
+            env.consts⟩ : Env).find? (reduceElemName cv.name)).isSome
+          = true ∧
+        ∀ val' : ConstVal V,
+          (∀ ψ : Name → Nat,
+            interpClosed V m.val env ψ value' = some (val' cv.name ψ)) →
+          (∀ n, n ≠ cv.name → ∀ ψ' : Name → Nat,
+            val' n ψ' = m.val n ψ') →
+          ∀ (ψ : Name → Nat) (x : V),
+            x ∈ˢ val' (reduceElemName cv.name) ψ →
+            SetTheory.app (val' cv.name ψ) x = x) →
+        Nonempty (EnvModel V ⟨ConstantInfo.axiomInfo
+          { cv with type := type } :: env.consts⟩) := fun hred =>
+      extend_model m hfind' htp htf htr (annotateCore_looseBVars F cv.type hann hlbt)
+        hvp hvf' hvr hbv' hkey hAty hAval
+        (ConstantInfo.axiomInfo { cv with type := type }) rfl rfl
+        (fun cv2 value2 h2 heq => nomatch heq)
+        (fun cv2 value2 heq => nomatch heq)
+        rfl
+        hres'
+        hpshape'
+        (fun _ hex => by obtain ⟨cv₀, v₀, h₀, heq⟩ := hex; exact nomatch heq)
+        (fun _ hex => by obtain ⟨cv₀, v₀, h₀, heq⟩ := hex; exact nomatch heq)
+        hred
+    by_cases hred : reduceOpNames.contains cv.name = true
+    case neg =>
+      rw [if_neg hred] at h
+      simp only [pure, Except.pure, Bind.bind, Except.bind,
+        Except.ok.injEq] at h
+      subst h
+      refine ⟨hext (fun hcont _ => absurd hcont hred), ?_⟩
+      exact EtaFamiliesClosed.cons_nonind hE1 hfind'
+        (fun _ _ hx _ => ConstantInfo.noConfusion hx)
+    case pos =>
+      rw [if_pos hred] at h
+      revert h
+      cases hpin : checkReducePin (fueledOps F) env
+          ⟨ConstantInfo.axiomInfo { cv with type := type } ::
+            env.consts⟩ cv.name value with
+      | error e =>
+        intro h
+        exact nomatch h
+      | ok u =>
+      intro h
+      simp only [pure, Except.pure, Bind.bind, Except.bind,
+        Except.ok.injEq] at h
+      subst h
+      obtain ⟨hsto, hguard, valA, pinA, hannv2, hannp2, hde0, hde1⟩ :=
+        checkReducePin_run_inv hpin
+      rw [hannv] at hannv2
+      have hva : valA = value' := (Except.ok.inj hannv2).symm
+      subst hva
+      simp only [Bool.and_eq_true] at hsto
+      obtain ⟨hsto', helem⟩ := hsto
+      have hpinR : ConstantVal.matchesPin { cv with type := type }
+          (reduceOpCvA cv.name) = true := by
+        unfold reduceStoredOk at hsto'
+        rw [Env.find?_cons, if_pos (show (ConstantInfo.axiomInfo
+          { cv with type := type }).name = cv.name from rfl)] at hsto'
+        exact hsto'
+      refine ⟨hext ?_, ?_⟩
+      · intro hcont hex
+        refine ⟨?_, ?_⟩
+        · rw [Env.find?_cons]
+          split
+          · rfl
+          · exact reduceElemOk_isSome helem
+        · intro val' hvagr hoagr ψ x hx
+          have helemne : reduceElemName cv.name ≠ cv.name := by
+            rcases (by simpa [reduceOpNames] using
+                List.contains_iff_mem.mp hcont :
+                cv.name = reduceNatName ∨ cv.name = reduceBoolName)
+              with hn | hn <;> rw [hn] <;> decide
+          have hxm : x ∈ˢ m.val (reduceElemName cv.name) ψ := by
+            rw [← hoagr _ helemne ψ]
+            exact hx
+          exact reduceCert_sound m (List.contains_iff_mem.mp hcont)
+            helem hvf' hbv' (hAval ψ)
+            (by
+              obtain ⟨v, T, hvv, hTT, hmemv⟩ := hkey ψ
+              exact ⟨v, T, hvv,
+                (interpClosed_matchesPin hpinR).symm.trans hTT, hmemv⟩)
+            hde1 hxm (hvagr ψ)
+      · exact EtaFamiliesClosed.cons_nonind hE1 hfind'
+          (fun _ _ hx _ => ConstantInfo.noConfusion hx)
 
 private theorem foldlM_sound {env' : Env} :
     ∀ (ds : List Declaration) (env : Env), Nonempty (EnvModel V env) →
