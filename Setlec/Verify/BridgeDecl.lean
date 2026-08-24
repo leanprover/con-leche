@@ -1352,7 +1352,10 @@ theorem checkDecl_fst_dproj (env : Env) (d : Declaration) :
     · rw [if_neg hq, if_neg hq, foldlM_fst]
       simp only [installBasisDecl_fst_dproj]
   | indDecl block =>
-    exact checkIndDecl_fst_dproj env block
+    dsimp only
+    split
+    · exact checkDirectStruct_fst_dproj env _
+    · exact checkIndDecl_fst_dproj env block
 
 theorem checkDecl_snd_dproj (env : Env) (d : Declaration) :
     (checkDecl (pairOps o₁ o₂ h) env d).val.2 =
@@ -1419,7 +1422,10 @@ theorem checkDecl_snd_dproj (env : Env) (d : Declaration) :
     · rw [if_neg hq, if_neg hq, foldlM_snd]
       simp only [installBasisDecl_snd_dproj]
   | indDecl block =>
-    exact checkIndDecl_snd_dproj env block
+    dsimp only
+    split
+    · exact checkDirectStruct_snd_dproj env _
+    · exact checkIndDecl_snd_dproj env block
 
 theorem checkDecls_fst_dproj (ds : List Declaration) :
     (checkDecls (pairOps o₁ o₂ h) ds).val.1 =
@@ -2048,7 +2054,10 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
     · rw [if_neg hq, if_neg hq, foldlM_atF]
       simp only [installBasisDecl_datF]
   | indDecl block =>
-    exact checkIndDecl_datF env block F
+    dsimp only
+    split
+    · exact checkDirectStruct_datF env _ F
+    · exact checkIndDecl_datF env block F
 
 theorem checkDecls_datF (ds : List Declaration) (F : Nat) :
     (checkDecls fueledOpsM ds).val F =

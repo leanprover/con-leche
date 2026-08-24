@@ -2849,7 +2849,7 @@ theorem foldDirectProj_wfimp {T C : Name} {lps : List Name}
     (hCf : cvCa.type.hasFvar = false)
     (hCb : cvCa.type.looseBVarsBounded 0 = true)
     (hstep : ∀ (e e' : Env) (i : Nat), EnvWF e →
-      (checkDirectProj wfOpsM T C lps nP nF cvTa cvCa e i).val F = .ok e' →
+      checkDirectProj (fueledOps F) T C lps nP nF cvTa cvCa e i = .ok e' →
       EnvWF e') :
     ∀ (idxs : List Nat) (e : Env) {e₂ : Env}, EnvWF e →
       (idxs.foldlM (checkDirectProj wfOpsM T C lps nP nF cvTa cvCa)
@@ -2876,7 +2876,7 @@ theorem foldDirectProj_wfimp {T C : Name} {lps : List Name}
           .ok e₂ := h'
       have hp := checkDirectProj_wfimp he hCf hCb hm
       have hrest := foldDirectProj_wfimp hCf hCb hstep idxs e₁
-        (hstep e e₁ i he hm) h''
+        (hstep e e₁ i he hp) h''
       show (checkDirectProj (fueledOps F) T C lps nP nF cvTa cvCa e i >>=
         fun e₁ => idxs.foldlM
           (checkDirectProj (fueledOps F) T C lps nP nF cvTa cvCa) e₁) =
@@ -2914,8 +2914,8 @@ theorem checkDirectStruct_wfimp {env : Env} (henv : EnvWF env)
           if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP then
             .plain else .inert, rhsA⟩] :: e₂.consts⟩)
     (hstep : ∀ (cvTa cvCa : ConstantVal) (e e' : Env) (i : Nat), EnvWF e →
-      (checkDirectProj wfOpsM p.cvT.name p.cvC.name p.cvT.levelParams
-        p.nP p.nF cvTa cvCa e i).val F = .ok e' → EnvWF e')
+      checkDirectProj (fueledOps F) p.cvT.name p.cvC.name p.cvT.levelParams
+        p.nP p.nF cvTa cvCa e i = .ok e' → EnvWF e')
     (h : (checkDirectStruct wfOpsM env p).val F = .ok v) :
     checkDirectStruct (fueledOps F) env p = .ok v := by
   unfold checkDirectStruct at h ⊢

@@ -221,7 +221,10 @@ def checkDeclNC (fe : FEnv) (d : Declaration) : CheckIM FEnv :=
       unless fe.find? eqName = some eqA do
         throw (.notImplemented "quotient basis requires the pinned Eq basis")
     kind.declsA.foldlM installBasisDeclF fe
-  | .indDecl block => checkIndDeclNC fe block
+  | .indDecl block =>
+    match directPartsF? fe block with
+    | some p => checkDirectStructNC fe p
+    | none => checkIndDeclNC fe block
 
 /-- `checkDeclSharedF` at the cert-skipping ops (what the binary runs
 under `SETLEC_NO_PROOF_CERTS=1`). -/
@@ -376,7 +379,10 @@ def checkDeclSPNC (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
       unless fe.find? eqName = some eqA do
         throw (.notImplemented "quotient basis requires the pinned Eq basis")
     kind.declsA.foldlM installBasisDeclF fe
-  | .indDecl block => checkIndDeclNC fe block
+  | .indDecl block =>
+    match directPartsF? fe block with
+    | some p => checkDirectStructNC fe p
+    | none => checkIndDeclNC fe block
 
 /-- `checkDeclSPStep` at the cert-skipping knot. -/
 def checkDeclSPStepNC (n0 : Nat) (fe : FEnv) (pd : DeclP) : CheckIM FEnv := do

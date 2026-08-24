@@ -3626,7 +3626,10 @@ Supporting telescope lemmas: `TeleFit_split`, `TeleFit_open` (a fitting
 walk lands exactly where `openPisAtFvars` does), `TeleFit_rest_sort`
 and `stripPis_instantiate1_body`.
 
-### Status (2026-08-23)
+### Status (complete, 2026-08-24)
+
+The clause is **enabled**; the notes below record how the pieces landed
+(items 1-7 of the plan at the end of this section are all done).
 
 Landed and gate-green: the value-construction kit, the recognition
 layer, the checks and the install (`checkDirectStruct` and its
@@ -3665,15 +3668,12 @@ Two consequences worth recording:
   clause dispatches in **`checkDecl`** rather than inside
   `checkIndDecl`; the shared-state copy mirrors it in `checkDeclSF`.
 
-**Not yet landed: the rest of the environment assembly of the install
-soundness** (the type former's extension *is* landed, and so are all
-four semantic obligations — `mem_type`, `val_params`, `annot_ok` and
-now both rule equalities; see the list below).  `checkIndDecl` therefore does not yet dispatch to
-`checkDirectStruct`, and the raw fixture is pinned at *decline* in the
-expectations; enabling the clause is a three-line change per checker
-copy once the assembly lands — verified by temporarily enabling it at
-every step of this work, which accepts the fixture and leaves the arena
-at 90/92.
+The environment assembly of the install soundness is complete: the type
+former's extension, all four semantic obligations (`mem_type`,
+`val_params`, `annot_ok`, both rule equalities), `extend_direct_struct`,
+`checkDecl_sound`'s clause and the shared-state bridge.  The dispatch
+lives in `checkDecl` (and its `S`/`NC`/`SP` copies) and the raw fixture
+is pinned at *accept*.
 
 Landed on the verification side, so that enabling the clause is
 possible at all: the pair-monad projection batteries and the
@@ -4099,33 +4099,99 @@ item 3 — see below; the head of item 4 is landed too):
    `FieldTele_congr` / `sigmaTowerV_congr` / `DomsAgree.congr` /
    `directTyVal_congr`.
 
-   *What is left of item 5* is only the `checkDecl_sound` clause, which
-   cannot be written before item 7 enables the dispatch (the proof
-   inverts `checkDecl`).  It needs one small missing inversion,
-   **`directParts?_inv`**: from `directParts? env block = some p`, the
-   three recognition facts `extend_direct_struct` takes as hypotheses —
-   `p.resSort.isNonZero`, `p.cvC.levelParams = p.cvT.levelParams` and
-   `(env.find? (p.cvT.name.str "_model")).isNone`.  An attempt was
-   reverted: `directPartsCore?`'s guard is a 13-fold `&&` and its
-   `match` arms do not line up with a naive `split at h` bullet
-   sequence, so write it with the goal states in view (the shape facts
-   come from `directShape`'s first conjunct and the guard's fourth).
-6. **`Setlec/Model/BridgeS.lean`**: `checkDirectStructS`'s
-   shared-state-to-pure bridge, including the `flushS`/`ISOK`
-   re-establishment at each of the five phases, and the run-tied
-   `EnvWF` discharges `checkDirectStruct_wfimp` is waiting on.  This is
-   now the **only** blocker before the enable: turning the clause on in
-   `checkDecl` alone would break the `checkDeclSF`-to-`checkDecl`
-   bridge, so items 6 and 7 land together.
-7. **Enable**: the clause in `checkDecl` and its `S`/`NC` mirrors
-   (four lines each — `match directParts? env block with | some p =>
+   **Item 5 is landed** (2026-08-24), including the `checkDecl_sound`
+   clause: a recognised block takes `extend_direct_struct`, everything
+   else `checkIndDecl_sound`, and `directParts?_inv`
+   (`Setlec/Model/DirectDecl.lean`) supplies the three recognition
+   facts.
+
+   *Finding, on the reverted attempt.*  The inversion must follow the
+   **compiled** shape of `directPartsCore?`, not its source shape: the
+   match compiler hoists the two inner `match`es — the rule's
+   `stripLams` (a conjunct *inside* the 13-fold guard) and the type
+   former's `stripPis` (the `if`'s then-branch) — **out of** the `if`
+   and evaluates them first.  The split order that works is therefore
+   block shape, level parameters, `stripLams`, the guard, `stripPis`;
+   the `if` also needs a `dsimp only at h` first, because the three
+   `have T := …` binders block `split`.  With that, the guard is an
+   ordinary `Bool.and_eq_true` chain (`.1.1.1.1.1.1.1.1.1.2` is the
+   level-parameter conjunct, `.1.2` the `directShape` one) and
+   `directShape` yields the nonzero sort once its own first scrutinee
+   is identified with the recognition's `stripPis` (the split rebinds
+   the sort variable; the two are equated through the two equations).
+6. **Item 6 is landed** (2026-08-24): `checkDirectStructS`'s
+   shared-state-to-pure bridge.  Three layers, mirroring the modeled
+   path's:
+
+   * `Setlec/Verify/CheckerF.lean` — the `F`-mirror equalities under
+     `mkFEnv` (`checkDirectFieldUnivF_eq`, `checkDirectDomsAtF_eq`,
+     `checkDirectRecTyF_eq`, `checkDirectRuleF_eq`, `directPartsF?_eq`,
+     and the push forms `checkDirectIndF_push`, `checkDirectCtorF_push`,
+     `checkDirectProjF_push`), so everything above is stated over the
+     *generic* functions;
+   * `Setlec/Verify/BridgeS3.lean` (new) — the five stages as `SimAt`s
+     between `sharedOps` and `fueledOpsM`.  Each one is its
+     `Setlec/Verify/BridgeWfImp.lean` `_wfimp` walk transcribed:
+     identical per-site scoping facts, `SimAt.bind`/`SimAt.unwrapOr'`
+     in place of `atF_bind_ok`/`unwrapOr_atF_ok`;
+   * `Setlec/Model/BridgeS.lean` — `checkDirectStructS_run` (the five
+     `flushS` transitions, one fuel join at the end) and
+     `checkIndOrDirectSF_run`, the dispatch bridge both index drivers
+     consume (`checkDeclSharedF_bridge` and
+     `ConsistencyP.checkDeclSPStep_run`).
+
+   `Setlec/Model/DirectWF.lean` (new) carries the `EnvWF` of the
+   `3 + nF` environments the install walks (`direct_ind_wf`,
+   `direct_ctor_wf`, `direct_rec_wf`, `direct_proj_wf`), read straight
+   off the stage inversions; it sits below both bridges because
+   `Setlec/Model/BridgeWF.lean`'s cached-driver chain needs exactly the
+   same sequence to discharge `checkDirectStruct_wfimp`'s run-tied
+   hypotheses.  Two consequences of writing those discharges:
+
+   * **Finding + fix (kernel): the `F` mirror of `checkDirectRule` was
+     stale.**  The route-(X) frame fix of 2026-08-24 changed the pure
+     `checkDirectRule` to open `crest` at the rule prefix but left
+     `checkDirectRuleF` opening the *minor premise's* copy (and doing a
+     now-dead `instPisAt`).  Since `checkDirectRuleF` is what the
+     binary runs, the mirrors have to agree before the clause can be
+     enabled at all — the bridge is what makes such a drift a build
+     failure rather than a silent divergence.  Fixed in
+     `Setlec/Kernel/CheckerS.lean` (the `NC` driver reuses the same
+     mirror).
+   * `foldDirectProj_wfimp`/`checkDirectStruct_wfimp` now take their
+     per-step `EnvWF` hypothesis over the **pure** run rather than the
+     `wfOpsM` one.  The `wfOpsM` form was not dischargeable: it is
+     universally quantified over `cvTa`/`cvCa`, while converting a
+     `wfOpsM` projection run to a pure one needs the *checked*
+     constructor type's closedness.  The pure form is what the caller
+     has anyway (the fold already derives it).
+7. **Item 7 is landed** (2026-08-24): the clause is enabled in
+   `checkDecl`, `checkDeclSF`, `checkDeclSP`, `checkDeclNC` and
+   `checkDeclSPNC` (`match directParts? env block with | some p =>
    checkDirectStruct ops env p | none => checkIndDecl ops env block`,
    and `directPartsF?`/`checkDirectStructS`/`checkDirectStructNC` in the
-   two index copies), and the four expectation flips
-   (`direct_struct_raw` 2→0; `bad/tutorial/13{3,4,7}` 2→1).  Re-verified
-   2026-08-24 by temporarily enabling all three: arena 90/92,
-   `direct_struct_raw` accepted, e2e 55/56 with exactly those four
-   changes.
+   index copies), with the four expectation flips
+   (`direct_struct_raw` 2→0 in `tests/e2e-expected.txt`;
+   `bad/tutorial/13{3,4,7}` 2→1 in `tests/arena-expected.txt`).
+
+### Task #82 is complete (2026-08-24)
+
+The direct simple-structure install is on by default, verified end to
+end: `checkDecl_sound` covers it, and both executable drivers (the
+shared-state one and the parsed-index one) bridge to it.  Gates: `lake
+build` warning-free, `lake test`, arena 90/92 with e2e 56/56, `scale.sh`
+all four shapes PASS, no `sorry`s, axioms of `no_proof_of_Empty`,
+`no_proof_of_Empty_input`, `checkDecls_sound` and `checkDecl_sound`
+exactly `[propext, Classical.choice, Quot.sound]`, and both init-prelude
+probes (certified and `SETLEC_NO_PROOF_CERTS=1`) accept 3653
+declarations at exit 0 — the preprocessed stream still takes the
+modeled route byte for byte, since `directNoModel` defers to an
+available artifact.
+
+What the class still does *not* claim is `eta` and `unitlike` (see "The
+two frame-relative capabilities"); that is the remaining work before
+`lean-inductive-models` can stop generating artifacts for this class
+and the direct path takes over by absence.
 
 ## Level `leqCore` was not short-circuiting: the 2x stupidity (2026-08-23)
 

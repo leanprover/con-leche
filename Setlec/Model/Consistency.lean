@@ -538,7 +538,23 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
       refine ⟨⟨m'⟩, ?_⟩
       exact EtaFamiliesClosed.cons_nonind hE1 hfind'
         (fun _ _ hx _ => ConstantInfo.noConfusion hx)
-  | indDecl block => exact checkIndDecl_sound h m hE1
+  | indDecl block =>
+    -- task #82: a recognised *artifact-free* simple structure is
+    -- installed directly and modelled by the constructed values
+    -- (`extend_direct_struct`); everything else takes the modeled
+    -- route unchanged.  The three recognition facts the model
+    -- extension needs come from `directParts?_inv`.
+    replace h : (match directParts? env block with
+      | some p => checkDirectStruct (fueledOps F) env p
+      | none => checkIndDecl (fueledOps F) env block) = .ok env' := h
+    cases hdp : directParts? env block with
+    | none =>
+      rw [hdp] at h
+      exact checkIndDecl_sound h m hE1
+    | some p =>
+      rw [hdp] at h
+      obtain ⟨hnz, hlps, hnomodel⟩ := directParts?_inv hdp
+      exact extend_direct_struct m hE1 hnz hlps hnomodel h
   | basisDecl kind =>
     match kind, h with
     | .natK, h => ?_
