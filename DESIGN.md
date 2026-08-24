@@ -5666,3 +5666,81 @@ become state-conditional and the `BridgeS3` walks must carry them),
 with the references; touches every stored type and the tag-reading
 interpretation lemmas), or (c) changing what the direct install
 stores per projection (route X: the comparands themselves).
+
+## Correct-by-construction arena: ArenaWF + WFStore (2026-08-24, task #103)
+
+Arena validity is now a property of the *type*.  `Setlec/Kernel/WFStore.lean`
+defines `WFStore` — an `EStore` bundled with its invariant `EStore.WF` — so
+downstream code never states, checks, or threads a well-formedness
+hypothesis: every value of the type carries it (the `Std.HashMap` pattern).
+The proof field is erased; the generated C represents `WFStore` exactly as
+`EStore` (verified: `WFStore.empty` *is* the `EStore.empty` object, `ofRaw`
+is the identity, each op calls the raw op and reuses the returned pair in
+place), so the bundle is a zero-runtime-cost wrapper.
+
+**Layering resolution.**  The layering rule is liberalized (user decision):
+implementation may import a *self-contained data-structure verification* —
+one that imports no other Model or Verify modules.  Accordingly the arena's
+verification moved, as a pure reorganization (statements identical, all
+existing proofs re-elaborate), from `Setlec/Verify/IExpr.lean` into the
+kernel-layer `Setlec/Kernel/ArenaWF.lean`, which imports only
+`Setlec.Kernel.IExpr`: the denotations (`denote`/`denoteL`/`denoteN`), the
+child-list spec functions, `EStore.WF` with `empty_wf` and the
+`intern*_wf` preservation lemmas, the whole-tree round-trips
+(`internExpr_spec` etc.), canonicity (`denote_eq_iff`), the derived-field
+spec functions (`Expr.bvarBound`, `Expr.fvarRange`, `Level.hasParam`,
+`Expr.hasLevelParam`) with their exactness facts
+(`WF.bvarBoundD_exact` …), and `internExprFast_eq`.
+`Setlec/Verify/IExpr.lean` keeps everything that is *not* arena-intrinsic:
+the traversal-operation commutation proofs, the memo invariants, and the
+two bridges that mention `fvarsBelow` (`fvarsBelow_iff`,
+`WF.fvarRangeD_le`) — those need `Setlec/Verify/Shift.lean`, which the
+self-contained module must not import.
+
+**The bundle interface** (`Setlec/Kernel/WFStore.lean`): constructors
+`empty` / `ofRaw` (seed from a raw store + proof, e.g. `wfB_wf` at a trust
+boundary); single-node `intern`/`internL`/`internN` taking the in-range
+side conditions as erased hypotheses, plus checked `intern?`/`internL?`/
+`internN?` variants that verify them at runtime (`O(children)` per record);
+hypothesis-free whole-tree `internExpr`/`internExprFast`/`internLevel`/
+`internLevels`/`internBM`/`internName`; the eager derived reads
+(`bvarBoundD`, `fvarRangeD`, `lhasParamD`, `ehasParamD`, `readbackN`,
+`beqNameI`) with unconditional exactness lemmas.  Every op satisfies a
+definitional `*_raw`/`*_idx` equation exposing the raw op, and extraction
+is just the field (`s.wf : s.raw.WF`), so the entire existing lemma
+library applies to bundle results unchanged.  On the bundle the fast path
+is *equal* to `internExpr` (`internExprFast_eq_internExpr`) — the WF
+hypothesis of `internExprFast_eq` is in the type.
+
+**Wiring plan (deferred — waits for task #100's storage flip to settle;
+the checker does not consume the bundle yet).**  Call sites that change:
+
+* `Setlec/Frontend/Export.lean`: the parse `State.store : EStore` becomes
+  `WFStore`.  `State.intern'`/`internL'`/`internN'` — whose child indices
+  come from the export tables' index-translation maps, i.e. untrusted
+  input — go through the checked `intern?`/`internL?`/`internN?` (a
+  `none` is a malformed export record, exit 1 territory); the
+  `internLevels`/`internName` calls in the model-name path are already
+  hypothesis-free.  The per-record guard replaces the one-shot sweep.
+* `Setlec/Kernel/CheckerNC.lean` (~line 444): the `unless st.wfB` seam
+  check and its "parse store not canonical" internal error are deleted —
+  the parser hands over a `WFStore`, so there is nothing to validate.
+* `Setlec/Kernel/CoreI.lean`: `IState.store` becomes `WFStore`.  The
+  linearity dance (`{ s with store := EStore.empty }` take/put-back)
+  carries over verbatim since the representation is identical.  The
+  checker-internal single-node interns build nodes from indices obtained
+  from the same (append-only) store; their in-range evidence comes from
+  `intern_lt` + `Ext` monotonicity where the context has it, or the
+  checked variants where threading it is not worth it.
+* `Setlec/Kernel/CheckerS.lean`/`CheckerBase.lean`: entry runners intern
+  via the bundle; `runEntryE`'s fresh arenas start from `WFStore.empty`.
+* Deletions once no seam validates: `wfB`/`wfBNodes`/`wfBLNodes`/
+  `wfBNNodes` (`Setlec/Kernel/IExpr.lean`), `wfB_wf` and the wfB-conjunct
+  widening facts in `Setlec/Verify/ParseP.lean` (ParseP then certifies
+  parse success only, not canonicity — the bundle carries it).  Until the
+  flip, `WFStore.ofRaw st (wfB_wf h)` is the transitional seed.
+* Verify-side payoff: proofs that thread `st.WF` hypotheses through
+  `ISOK`/state invariants can take them from the bundle (`s.wf`),
+  shrinking hypothesis plumbing incrementally; DAG verification is now
+  independent of checker verification (the arena module has no checker
+  imports).
