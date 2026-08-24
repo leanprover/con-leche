@@ -66,6 +66,61 @@ low-bit scheme touches none of it. -/
 /-- Encode a position and tier bit into a public `EIdx`. -/
 @[inline] def eidx (p : Nat) (t : Nat) : EIdx := p + p + t
 
+/-- The traversal order on encoded indices (task #64 wiring): tier one
+below tier two, positions within a tier.  This is the well-founded
+order every arena node respects towards its children — a tier-one
+node's children are earlier tier-one nodes, a tier-two node's children
+are tier-one (frozen under the flag) or earlier tier-two nodes.  The
+plain `<` on encoded indices is *wrong* for the mixed case: a tier-two
+node's index (`2j+1`) is numerically below its own tier-one children
+whenever their positions exceed `j`, so `<`-guarded recursion would
+silently refuse the descent (the low-bit trade recorded in
+`DESIGN.md`; the high-bit tag kept `<` compatible, the total injection
+does not). -/
+def emlt (c e : EIdx) : Prop :=
+  etier c < etier e ∨ (etier c = etier e ∧ epos c < epos e)
+
+instance (c e : EIdx) : Decidable (emlt c e) := by
+  unfold emlt; infer_instance
+
+/-- An even (tier-one) index is `emlt`-below anything numerically
+above it — the bridge from every flag-off in-range fact (children are
+even and `<` their parent) to the traversal guard. -/
+theorem emlt_of_even_lt {c e : Nat} (hc : etier c = 0) (h : c < e) :
+    emlt c e := by
+  have htc : etier c = c % 2 := Nat.and_one_is_mod c
+  have hte : etier e = e % 2 := Nat.and_one_is_mod e
+  have hpc : epos c = c / 2 := by
+    simp [epos, Nat.shiftRight_succ, Nat.shiftRight_zero]
+  have hpe : epos e = e / 2 := by
+    simp [epos, Nat.shiftRight_succ, Nat.shiftRight_zero]
+  unfold emlt
+  rw [htc, hte, hpc, hpe]
+  rw [htc] at hc
+  omega
+
+/-- `emlt` into the lexicographic (tier, position) measure. -/
+theorem emlt_lex {c e : Nat} (h : emlt c e) :
+    Prod.Lex Nat.lt Nat.lt (etier c, epos c) (etier e, epos e) := by
+  rcases h with h | ⟨h1, h2⟩
+  · exact Prod.Lex.left _ _ h
+  · exact h1 ▸ Prod.Lex.right _ h2
+
+/-- `emlt` is well-founded (it embeds in the lexicographic pair). -/
+theorem emlt_wf : WellFounded fun c e : Nat => emlt c e :=
+  Subrelation.wf (fun h => emlt_lex h)
+    (InvImage.wf (fun e : Nat => (etier e, epos e))
+      ((Prod.lex Nat.lt_wfRel Nat.lt_wfRel).wf))
+
+/-- Well-founded induction along the traversal order (`emlt`): the
+store-unconditional companion of the `if _h : emlt c e` guards — a
+proof following an op's recursion inducts with exactly the guard
+hypothesis. -/
+@[elab_as_elim] theorem emlt_induction {motive : Nat → Prop}
+    (ind : ∀ e, (∀ c, emlt c e → motive c) → motive e) (e : Nat) :
+    motive e :=
+  emlt_wf.induction e ind
+
 /-- One interned name node: the constructors of `Setlec.Name` with the
 prefix replaced by an arena index (task #88: `O(1)` node
 hashing/equality — every intern probe hashes a `Nat` and a leaf
@@ -964,7 +1019,7 @@ def instantiate1IGo (v : EIdx) (st : EStore) (memo : MemoN)
   match memo[(e, d)]? with
   | some r => (r, st, memo)
   | none =>
-    match st.nodes[epos e]? with
+    match st.getNode e with
     | none => (e, st, memo)
     | some n =>
       let (r, st, memo) : EIdx × EStore × MemoN :=
@@ -979,28 +1034,28 @@ def instantiate1IGo (v : EIdx) (st : EStore) (memo : MemoN)
         | .sort _ => (e, st, memo)
         | .const _ _ => (e, st, memo)
         | .app f a =>
-          if _h : f < e ∧ a < e then
+          if _h : emlt f e ∧ emlt a e then
             let (f', st, memo) := instantiate1IGo v st memo f d
             let (a', st, memo) := instantiate1IGo v st memo a d
             let (r, st) := st.intern (.app f' a')
             (r, st, memo)
           else (e, st, memo)
         | .lam n ty body m =>
-          if _h : ty < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt body e then
             let (ty', st, memo) := instantiate1IGo v st memo ty d
             let (body', st, memo) := instantiate1IGo v st memo body (d + 1)
             let (r, st) := st.intern (.lam n ty' body' m)
             (r, st, memo)
           else (e, st, memo)
         | .forallE n ty body m =>
-          if _h : ty < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt body e then
             let (ty', st, memo) := instantiate1IGo v st memo ty d
             let (body', st, memo) := instantiate1IGo v st memo body (d + 1)
             let (r, st) := st.intern (.forallE n ty' body' m)
             (r, st, memo)
           else (e, st, memo)
         | .letE n ty val body =>
-          if _h : ty < e ∧ val < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt val e ∧ emlt body e then
             let (ty', st, memo) := instantiate1IGo v st memo ty d
             let (val', st, memo) := instantiate1IGo v st memo val d
             let (body', st, memo) := instantiate1IGo v st memo body (d + 1)
@@ -1009,14 +1064,14 @@ def instantiate1IGo (v : EIdx) (st : EStore) (memo : MemoN)
           else (e, st, memo)
         | .lit _ => (e, st, memo)
         | .proj s i sub =>
-          if _h : sub < e then
+          if _h : emlt sub e then
             let (sub', st, memo) := instantiate1IGo v st memo sub d
             let (r, st) := st.intern (.proj s i sub')
             (r, st, memo)
           else (e, st, memo)
       (r, st, memo.insert (e, d) r)
-termination_by (e, d)
-decreasing_by all_goals (apply Prod.Lex.left; first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h)
+termination_by (etier e, epos e)
+decreasing_by all_goals first | exact emlt_lex _h.1 | exact emlt_lex _h.2.1 | exact emlt_lex _h.2.2 | exact emlt_lex _h.2 | exact emlt_lex _h
 
 /-- Interned counterpart of `Expr.instantiate1 e v d`: replace `bvar d`
 by `v` (which must denote a `bvar`-closed expression; it is not shifted),
@@ -1053,7 +1108,7 @@ def instantiateListIGo (vs : Array EIdx) (st : EStore)
     match memo[(e, k, d)]? with
     | some r => (r, st, memo)
     | none =>
-      match st.nodes[epos e]? with
+      match st.getNode e with
       | none => (e, st, memo)
       | some n =>
         let (r, st, memo) : EIdx × EStore × MemoNL :=
@@ -1071,14 +1126,14 @@ def instantiateListIGo (vs : Array EIdx) (st : EStore)
           | .sort _ => (e, st, memo)
           | .const _ _ => (e, st, memo)
           | .app f a =>
-            if _h : f < e ∧ a < e then
+            if _h : emlt f e ∧ emlt a e then
               let (f', st, memo) := instantiateListIGo vs st memo f k d
               let (a', st, memo) := instantiateListIGo vs st memo a k d
               let (r, st) := st.intern (.app f' a')
               (r, st, memo)
             else (e, st, memo)
           | .lam n ty body m =>
-            if _h : ty < e ∧ body < e then
+            if _h : emlt ty e ∧ emlt body e then
               let (ty', st, memo) := instantiateListIGo vs st memo ty k d
               let (body', st, memo) :=
                 instantiateListIGo vs st memo body k (d + 1)
@@ -1086,7 +1141,7 @@ def instantiateListIGo (vs : Array EIdx) (st : EStore)
               (r, st, memo)
             else (e, st, memo)
           | .forallE n ty body m =>
-            if _h : ty < e ∧ body < e then
+            if _h : emlt ty e ∧ emlt body e then
               let (ty', st, memo) := instantiateListIGo vs st memo ty k d
               let (body', st, memo) :=
                 instantiateListIGo vs st memo body k (d + 1)
@@ -1094,7 +1149,7 @@ def instantiateListIGo (vs : Array EIdx) (st : EStore)
               (r, st, memo)
             else (e, st, memo)
           | .letE n ty val body =>
-            if _h : ty < e ∧ val < e ∧ body < e then
+            if _h : emlt ty e ∧ emlt val e ∧ emlt body e then
               let (ty', st, memo) := instantiateListIGo vs st memo ty k d
               let (val', st, memo) := instantiateListIGo vs st memo val k d
               let (body', st, memo) :=
@@ -1104,18 +1159,19 @@ def instantiateListIGo (vs : Array EIdx) (st : EStore)
             else (e, st, memo)
           | .lit _ => (e, st, memo)
           | .proj s i sub =>
-            if _h : sub < e then
+            if _h : emlt sub e then
               let (sub', st, memo) := instantiateListIGo vs st memo sub k d
               let (r, st) := st.intern (.proj s i sub')
               (r, st, memo)
             else (e, st, memo)
         (r, st, memo.insert (e, k, d) r)
-termination_by (k, e)
+termination_by (k, etier e, epos e)
 decreasing_by
   all_goals first
     | (apply Prod.Lex.left; omega)
     | (apply Prod.Lex.right; first
-        | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h)
+        | exact emlt_lex _h.1 | exact emlt_lex _h.2.1
+        | exact emlt_lex _h.2.2 | exact emlt_lex _h.2 | exact emlt_lex _h)
 
 /-- Interned counterpart of `Expr.instantiateList e ws d` (bulk
 instantiation, task #50): substitute a whole replacement list —
@@ -1148,7 +1204,7 @@ def instantiateRevIGo (vs : Array EIdx) (st : EStore)
     match memo[(e, k, d)]? with
     | some r => (r, st, memo)
     | none =>
-      match st.nodes[epos e]? with
+      match st.getNode e with
       | none => (e, st, memo)
       | some n =>
         let (r, st, memo) : EIdx × EStore × MemoNL :=
@@ -1167,14 +1223,14 @@ def instantiateRevIGo (vs : Array EIdx) (st : EStore)
           | .sort _ => (e, st, memo)
           | .const _ _ => (e, st, memo)
           | .app f a =>
-            if _h : f < e ∧ a < e then
+            if _h : emlt f e ∧ emlt a e then
               let (f', st, memo) := instantiateRevIGo vs st memo f k d
               let (a', st, memo) := instantiateRevIGo vs st memo a k d
               let (r, st) := st.intern (.app f' a')
               (r, st, memo)
             else (e, st, memo)
           | .lam n ty body m =>
-            if _h : ty < e ∧ body < e then
+            if _h : emlt ty e ∧ emlt body e then
               let (ty', st, memo) := instantiateRevIGo vs st memo ty k d
               let (body', st, memo) :=
                 instantiateRevIGo vs st memo body k (d + 1)
@@ -1182,7 +1238,7 @@ def instantiateRevIGo (vs : Array EIdx) (st : EStore)
               (r, st, memo)
             else (e, st, memo)
           | .forallE n ty body m =>
-            if _h : ty < e ∧ body < e then
+            if _h : emlt ty e ∧ emlt body e then
               let (ty', st, memo) := instantiateRevIGo vs st memo ty k d
               let (body', st, memo) :=
                 instantiateRevIGo vs st memo body k (d + 1)
@@ -1190,7 +1246,7 @@ def instantiateRevIGo (vs : Array EIdx) (st : EStore)
               (r, st, memo)
             else (e, st, memo)
           | .letE n ty val body =>
-            if _h : ty < e ∧ val < e ∧ body < e then
+            if _h : emlt ty e ∧ emlt val e ∧ emlt body e then
               let (ty', st, memo) := instantiateRevIGo vs st memo ty k d
               let (val', st, memo) := instantiateRevIGo vs st memo val k d
               let (body', st, memo) :=
@@ -1200,18 +1256,19 @@ def instantiateRevIGo (vs : Array EIdx) (st : EStore)
             else (e, st, memo)
           | .lit _ => (e, st, memo)
           | .proj s i sub =>
-            if _h : sub < e then
+            if _h : emlt sub e then
               let (sub', st, memo) := instantiateRevIGo vs st memo sub k d
               let (r, st) := st.intern (.proj s i sub')
               (r, st, memo)
             else (e, st, memo)
         (r, st, memo.insert (e, k, d) r)
-termination_by (k, e)
+termination_by (k, etier e, epos e)
 decreasing_by
   all_goals first
     | (apply Prod.Lex.left; omega)
     | (apply Prod.Lex.right; first
-        | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h)
+        | exact emlt_lex _h.1 | exact emlt_lex _h.2.1
+        | exact emlt_lex _h.2.2 | exact emlt_lex _h.2 | exact emlt_lex _h)
 
 /-- Interned counterpart of lean4lean's `Expr.instantiateRev` shape:
 bulk-substitute a whole accumulator array with the innermost binder
@@ -1233,7 +1290,7 @@ def abstract1IGo (d : Nat) (st : EStore) (memo : MemoN) (e : EIdx) (k : Nat) :
   match memo[(e, k)]? with
   | some r => (r, st, memo)
   | none =>
-    match st.nodes[epos e]? with
+    match st.getNode e with
     | none => (e, st, memo)
     | some n =>
       let (r, st, memo) : EIdx × EStore × MemoN :=
@@ -1247,28 +1304,28 @@ def abstract1IGo (d : Nat) (st : EStore) (memo : MemoN) (e : EIdx) (k : Nat) :
         | .sort _ => (e, st, memo)
         | .const _ _ => (e, st, memo)
         | .app f a =>
-          if _h : f < e ∧ a < e then
+          if _h : emlt f e ∧ emlt a e then
             let (f', st, memo) := abstract1IGo d st memo f k
             let (a', st, memo) := abstract1IGo d st memo a k
             let (r, st) := st.intern (.app f' a')
             (r, st, memo)
           else (e, st, memo)
         | .lam n ty body m =>
-          if _h : ty < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt body e then
             let (ty', st, memo) := abstract1IGo d st memo ty k
             let (body', st, memo) := abstract1IGo d st memo body (k + 1)
             let (r, st) := st.intern (.lam n ty' body' m)
             (r, st, memo)
           else (e, st, memo)
         | .forallE n ty body m =>
-          if _h : ty < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt body e then
             let (ty', st, memo) := abstract1IGo d st memo ty k
             let (body', st, memo) := abstract1IGo d st memo body (k + 1)
             let (r, st) := st.intern (.forallE n ty' body' m)
             (r, st, memo)
           else (e, st, memo)
         | .letE n ty val body =>
-          if _h : ty < e ∧ val < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt val e ∧ emlt body e then
             let (ty', st, memo) := abstract1IGo d st memo ty k
             let (val', st, memo) := abstract1IGo d st memo val k
             let (body', st, memo) := abstract1IGo d st memo body (k + 1)
@@ -1277,14 +1334,14 @@ def abstract1IGo (d : Nat) (st : EStore) (memo : MemoN) (e : EIdx) (k : Nat) :
           else (e, st, memo)
         | .lit _ => (e, st, memo)
         | .proj s i sub =>
-          if _h : sub < e then
+          if _h : emlt sub e then
             let (sub', st, memo) := abstract1IGo d st memo sub k
             let (r, st) := st.intern (.proj s i sub')
             (r, st, memo)
           else (e, st, memo)
       (r, st, memo.insert (e, k) r)
-termination_by (e, k)
-decreasing_by all_goals (apply Prod.Lex.left; first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h)
+termination_by (etier e, epos e)
+decreasing_by all_goals first | exact emlt_lex _h.1 | exact emlt_lex _h.2.1 | exact emlt_lex _h.2.2 | exact emlt_lex _h.2 | exact emlt_lex _h
 
 /-- Interned counterpart of `Expr.abstract1 e d k`: replace `fvar d …`
 leaves by `bvar k`, bumping `k` under binders (`fvar` type annotations
@@ -1306,7 +1363,7 @@ def abstractRangeIGo (d k : Nat) (st : EStore)
   match memo[(e, c)]? with
   | some r => (r, st, memo)
   | none =>
-    match st.nodes[epos e]? with
+    match st.getNode e with
     | none => (e, st, memo)
     | some n =>
       let (r, st, memo) : EIdx × EStore × MemoN :=
@@ -1320,28 +1377,28 @@ def abstractRangeIGo (d k : Nat) (st : EStore)
         | .sort _ => (e, st, memo)
         | .const _ _ => (e, st, memo)
         | .app f a =>
-          if _h : f < e ∧ a < e then
+          if _h : emlt f e ∧ emlt a e then
             let (f', st, memo) := abstractRangeIGo d k st memo f c
             let (a', st, memo) := abstractRangeIGo d k st memo a c
             let (r, st) := st.intern (.app f' a')
             (r, st, memo)
           else (e, st, memo)
         | .lam n ty body m =>
-          if _h : ty < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt body e then
             let (ty', st, memo) := abstractRangeIGo d k st memo ty c
             let (body', st, memo) := abstractRangeIGo d k st memo body (c + 1)
             let (r, st) := st.intern (.lam n ty' body' m)
             (r, st, memo)
           else (e, st, memo)
         | .forallE n ty body m =>
-          if _h : ty < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt body e then
             let (ty', st, memo) := abstractRangeIGo d k st memo ty c
             let (body', st, memo) := abstractRangeIGo d k st memo body (c + 1)
             let (r, st) := st.intern (.forallE n ty' body' m)
             (r, st, memo)
           else (e, st, memo)
         | .letE n ty val body =>
-          if _h : ty < e ∧ val < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt val e ∧ emlt body e then
             let (ty', st, memo) := abstractRangeIGo d k st memo ty c
             let (val', st, memo) := abstractRangeIGo d k st memo val c
             let (body', st, memo) := abstractRangeIGo d k st memo body (c + 1)
@@ -1350,14 +1407,14 @@ def abstractRangeIGo (d k : Nat) (st : EStore)
           else (e, st, memo)
         | .lit _ => (e, st, memo)
         | .proj s i sub =>
-          if _h : sub < e then
+          if _h : emlt sub e then
             let (sub', st, memo) := abstractRangeIGo d k st memo sub c
             let (r, st) := st.intern (.proj s i sub')
             (r, st, memo)
           else (e, st, memo)
       (r, st, memo.insert (e, c) r)
-termination_by (e, c)
-decreasing_by all_goals (apply Prod.Lex.left; first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h)
+termination_by (etier e, epos e)
+decreasing_by all_goals first | exact emlt_lex _h.1 | exact emlt_lex _h.2.1 | exact emlt_lex _h.2.2 | exact emlt_lex _h.2 | exact emlt_lex _h
 
 /-- Interned counterpart of `Expr.abstractRange e d k c` (bulk
 abstraction, task #72): close the `k` fvar levels `[d, d + k)` —
@@ -1406,14 +1463,14 @@ def instantiateLevelParamsIGo (ks : List Name) (us : List LIdx)
   match memo[e]? with
   | some r => (r, st, memo, lmemo)
   | none =>
-    match st.nodes[epos e]? with
+    match st.getNode e with
     | none => (e, st, memo, lmemo)
     | some n =>
       let (r, st, memo, lmemo) : EIdx × EStore × Memo0 × LMemo :=
         match n with
         | .bvar _ => (e, st, memo, lmemo)
         | .fvar idx nm ty =>
-          if _h : ty < e then
+          if _h : emlt ty e then
             let (ty', st, memo, lmemo) :=
               instantiateLevelParamsIGo ks us st memo lmemo ty
             let (r, st) := st.intern (.fvar idx nm ty')
@@ -1428,7 +1485,7 @@ def instantiateLevelParamsIGo (ks : List Name) (us : List LIdx)
           let (r, st) := st.intern (.const n vs')
           (r, st, memo, lmemo)
         | .app f a =>
-          if _h : f < e ∧ a < e then
+          if _h : emlt f e ∧ emlt a e then
             let (f', st, memo, lmemo) :=
               instantiateLevelParamsIGo ks us st memo lmemo f
             let (a', st, memo, lmemo) :=
@@ -1437,7 +1494,7 @@ def instantiateLevelParamsIGo (ks : List Name) (us : List LIdx)
             (r, st, memo, lmemo)
           else (e, st, memo, lmemo)
         | .lam n ty body m =>
-          if _h : ty < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt body e then
             let (ty', st, memo, lmemo) :=
               instantiateLevelParamsIGo ks us st memo lmemo ty
             let (body', st, memo, lmemo) :=
@@ -1447,7 +1504,7 @@ def instantiateLevelParamsIGo (ks : List Name) (us : List LIdx)
             (r, st, memo, lmemo)
           else (e, st, memo, lmemo)
         | .forallE n ty body m =>
-          if _h : ty < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt body e then
             let (ty', st, memo, lmemo) :=
               instantiateLevelParamsIGo ks us st memo lmemo ty
             let (body', st, memo, lmemo) :=
@@ -1457,7 +1514,7 @@ def instantiateLevelParamsIGo (ks : List Name) (us : List LIdx)
             (r, st, memo, lmemo)
           else (e, st, memo, lmemo)
         | .letE n ty val body =>
-          if _h : ty < e ∧ val < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt val e ∧ emlt body e then
             let (ty', st, memo, lmemo) :=
               instantiateLevelParamsIGo ks us st memo lmemo ty
             let (val', st, memo, lmemo) :=
@@ -1469,15 +1526,15 @@ def instantiateLevelParamsIGo (ks : List Name) (us : List LIdx)
           else (e, st, memo, lmemo)
         | .lit _ => (e, st, memo, lmemo)
         | .proj s i sub =>
-          if _h : sub < e then
+          if _h : emlt sub e then
             let (sub', st, memo, lmemo) :=
               instantiateLevelParamsIGo ks us st memo lmemo sub
             let (r, st) := st.intern (.proj s i sub')
             (r, st, memo, lmemo)
           else (e, st, memo, lmemo)
       (r, st, memo.insert e r, lmemo)
-termination_by e
-decreasing_by all_goals first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h
+termination_by (etier e, epos e)
+decreasing_by all_goals first | exact emlt_lex _h.1 | exact emlt_lex _h.2.1 | exact emlt_lex _h.2.2 | exact emlt_lex _h.2 | exact emlt_lex _h
 
 /-- Interned counterpart of `Expr.instantiateLevelParams ks us`:
 substitute level parameters throughout (sorts, constant level arguments,
@@ -1509,7 +1566,7 @@ def looseBVarsBoundedIGo (st : EStore) (memo : Std.HashMap (EIdx × Nat) Bool)
   match memo[(e, k)]? with
   | some r => (r, memo)
   | none =>
-    match st.nodes[epos e]? with
+    match st.getNode e with
     | none => (false, memo)
     | some n =>
       let (r, memo) : Bool × Std.HashMap (EIdx × Nat) Bool :=
@@ -1517,17 +1574,17 @@ def looseBVarsBoundedIGo (st : EStore) (memo : Std.HashMap (EIdx × Nat) Bool)
         | .bvar i => (decide (i < k), memo)
         | .fvar _ _ _ | .sort _ | .const _ _ | .lit _ => (true, memo)
         | .app f a =>
-          if _h : f < e ∧ a < e then
+          if _h : emlt f e ∧ emlt a e then
             let (rf, memo) := looseBVarsBoundedIGo st memo k f
             if rf then looseBVarsBoundedIGo st memo k a else (false, memo)
           else (false, memo)
         | .lam _ ty body _ | .forallE _ ty body _ =>
-          if _h : ty < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt body e then
             let (rt, memo) := looseBVarsBoundedIGo st memo k ty
             if rt then looseBVarsBoundedIGo st memo (k + 1) body else (false, memo)
           else (false, memo)
         | .letE _ ty val body =>
-          if _h : ty < e ∧ val < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt val e ∧ emlt body e then
             let (rt, memo) := looseBVarsBoundedIGo st memo k ty
             if rt then
               let (rv, memo) := looseBVarsBoundedIGo st memo k val
@@ -1535,11 +1592,11 @@ def looseBVarsBoundedIGo (st : EStore) (memo : Std.HashMap (EIdx × Nat) Bool)
             else (false, memo)
           else (false, memo)
         | .proj _ _ sub =>
-          if _h : sub < e then looseBVarsBoundedIGo st memo k sub
+          if _h : emlt sub e then looseBVarsBoundedIGo st memo k sub
           else (false, memo)
       (r, memo.insert (e, k) r)
-termination_by (e, k)
-decreasing_by all_goals (apply Prod.Lex.left; first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h)
+termination_by (etier e, epos e)
+decreasing_by all_goals first | exact emlt_lex _h.1 | exact emlt_lex _h.2.1 | exact emlt_lex _h.2.2 | exact emlt_lex _h.2 | exact emlt_lex _h
 
 /-- Interned counterpart of `Expr.looseBVarsBounded k`. -/
 def looseBVarsBoundedI (st : EStore) (k : Nat) (e : EIdx) : Bool :=
@@ -1595,7 +1652,7 @@ def allLevelParamsDefinedIGo (st : EStore) (params : List Name)
   match memo[e]? with
   | some r => (r, lmemo, memo)
   | none =>
-    match st.nodes[epos e]? with
+    match st.getNode e with
     | none => (false, lmemo, memo)
     | some n =>
       let (r, lmemo, memo) :
@@ -1609,17 +1666,17 @@ def allLevelParamsDefinedIGo (st : EStore) (params : List Name)
           let (r, lmemo) := lparamsDefinedListLI st params lmemo us
           (r, lmemo, memo)
         | .fvar _ _ ty =>
-          if _h : ty < e then allLevelParamsDefinedIGo st params lmemo memo ty
+          if _h : emlt ty e then allLevelParamsDefinedIGo st params lmemo memo ty
           else (false, lmemo, memo)
         | .app f a =>
-          if _h : f < e ∧ a < e then
+          if _h : emlt f e ∧ emlt a e then
             let (rf, lmemo, memo) :=
               allLevelParamsDefinedIGo st params lmemo memo f
             if rf then allLevelParamsDefinedIGo st params lmemo memo a
             else (false, lmemo, memo)
           else (false, lmemo, memo)
         | .lam _ ty body m | .forallE _ ty body m =>
-          if _h : ty < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt body e then
             let (rt, lmemo, memo) :=
               allLevelParamsDefinedIGo st params lmemo memo ty
             if rt then
@@ -1635,7 +1692,7 @@ def allLevelParamsDefinedIGo (st : EStore) (params : List Name)
             else (false, lmemo, memo)
           else (false, lmemo, memo)
         | .letE _ ty val body =>
-          if _h : ty < e ∧ val < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt val e ∧ emlt body e then
             let (rt, lmemo, memo) :=
               allLevelParamsDefinedIGo st params lmemo memo ty
             if rt then
@@ -1646,11 +1703,11 @@ def allLevelParamsDefinedIGo (st : EStore) (params : List Name)
             else (false, lmemo, memo)
           else (false, lmemo, memo)
         | .proj _ _ sub =>
-          if _h : sub < e then allLevelParamsDefinedIGo st params lmemo memo sub
+          if _h : emlt sub e then allLevelParamsDefinedIGo st params lmemo memo sub
           else (false, lmemo, memo)
       (r, lmemo, memo.insert e r)
-termination_by e
-decreasing_by all_goals first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h
+termination_by (etier e, epos e)
+decreasing_by all_goals first | exact emlt_lex _h.1 | exact emlt_lex _h.2.1 | exact emlt_lex _h.2.2 | exact emlt_lex _h.2 | exact emlt_lex _h
 
 /-- Interned counterpart of `Expr.allLevelParamsDefined params`. -/
 def allLevelParamsDefinedI (st : EStore) (params : List Name) (e : EIdx) :
@@ -1665,28 +1722,28 @@ def wscopedBIGo (st : EStore) (memo : Std.HashMap (EIdx × Nat) Bool)
   match memo[(e, d)]? with
   | some r => (r, memo)
   | none =>
-    match st.nodes[epos e]? with
+    match st.getNode e with
     | none => (false, memo)
     | some n =>
       let (r, memo) : Bool × Std.HashMap (EIdx × Nat) Bool :=
         match n with
         | .bvar _ | .sort _ | .const _ _ | .lit _ => (true, memo)
         | .fvar idx _ ty =>
-          if _h : ty < e then
+          if _h : emlt ty e then
             if idx < d then wscopedBIGo st memo idx ty else (false, memo)
           else (false, memo)
         | .app f a =>
-          if _h : f < e ∧ a < e then
+          if _h : emlt f e ∧ emlt a e then
             let (rf, memo) := wscopedBIGo st memo d f
             if rf then wscopedBIGo st memo d a else (false, memo)
           else (false, memo)
         | .lam _ ty body _ | .forallE _ ty body _ =>
-          if _h : ty < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt body e then
             let (rt, memo) := wscopedBIGo st memo d ty
             if rt then wscopedBIGo st memo d body else (false, memo)
           else (false, memo)
         | .letE _ ty val body =>
-          if _h : ty < e ∧ val < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt val e ∧ emlt body e then
             let (rt, memo) := wscopedBIGo st memo d ty
             if rt then
               let (rv, memo) := wscopedBIGo st memo d val
@@ -1694,11 +1751,11 @@ def wscopedBIGo (st : EStore) (memo : Std.HashMap (EIdx × Nat) Bool)
             else (false, memo)
           else (false, memo)
         | .proj _ _ sub =>
-          if _h : sub < e then wscopedBIGo st memo d sub
+          if _h : emlt sub e then wscopedBIGo st memo d sub
           else (false, memo)
       (r, memo.insert (e, d) r)
-termination_by (e, d)
-decreasing_by all_goals (apply Prod.Lex.left; first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h)
+termination_by (etier e, epos e)
+decreasing_by all_goals first | exact emlt_lex _h.1 | exact emlt_lex _h.2.1 | exact emlt_lex _h.2.2 | exact emlt_lex _h.2 | exact emlt_lex _h
 
 /-- Interned counterpart of `Expr.wscopedB d`. -/
 def wscopedBI (st : EStore) (d : Nat) (e : EIdx) : Bool :=
@@ -1716,42 +1773,42 @@ def fvarLeavesIGo (st : EStore)
   match memo[e]? with
   | some r => (r, memo)
   | none =>
-    match st.nodes[epos e]? with
+    match st.getNode e with
     | none => ([], memo)
     | some n =>
       let (r, memo) : List (Nat × NIdx × EIdx) × Std.HashMap EIdx (List (Nat × NIdx × EIdx)) :=
         match n with
         | .bvar _ | .sort _ | .const _ _ | .lit _ => ([], memo)
         | .fvar idx nm ty =>
-          if _h : ty < e then
+          if _h : emlt ty e then
             let (rt, memo) := fvarLeavesIGo st memo ty
             ((idx, nm, ty) :: rt, memo)
           else ([(idx, nm, ty)], memo)
         | .app f a =>
-          if _h : f < e ∧ a < e then
+          if _h : emlt f e ∧ emlt a e then
             let (rf, memo) := fvarLeavesIGo st memo f
             let (ra, memo) := fvarLeavesIGo st memo a
             (rf ++ ra, memo)
           else ([], memo)
         | .lam _ ty body _ | .forallE _ ty body _ =>
-          if _h : ty < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt body e then
             let (rt, memo) := fvarLeavesIGo st memo ty
             let (rb, memo) := fvarLeavesIGo st memo body
             (rt ++ rb, memo)
           else ([], memo)
         | .letE _ ty val body =>
-          if _h : ty < e ∧ val < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt val e ∧ emlt body e then
             let (rt, memo) := fvarLeavesIGo st memo ty
             let (rv, memo) := fvarLeavesIGo st memo val
             let (rb, memo) := fvarLeavesIGo st memo body
             (rt ++ rv ++ rb, memo)
           else ([], memo)
         | .proj _ _ sub =>
-          if _h : sub < e then fvarLeavesIGo st memo sub
+          if _h : emlt sub e then fvarLeavesIGo st memo sub
           else ([], memo)
       (r, memo.insert e r)
-termination_by e
-decreasing_by all_goals first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h
+termination_by (etier e, epos e)
+decreasing_by all_goals first | exact emlt_lex _h.1 | exact emlt_lex _h.2.1 | exact emlt_lex _h.2.2 | exact emlt_lex _h.2 | exact emlt_lex _h
 
 /-- Interned counterpart of `Expr.fvarLeaves`: the reachable `fvar`
 leaves as `(idx, name, type-index)` triples. -/
@@ -1770,7 +1827,7 @@ def leavesSubIGo (st : EStore) (bl : List (Nat × NIdx × EIdx))
   match memo[e]? with
   | some r => (r, memo)
   | none =>
-    match st.nodes[epos e]? with
+    match st.getNode e with
     | none => (true, memo)
     | some n =>
       let (r, memo) : Bool × Std.HashMap EIdx Bool :=
@@ -1778,21 +1835,21 @@ def leavesSubIGo (st : EStore) (bl : List (Nat × NIdx × EIdx))
         | .bvar _ | .sort _ | .const _ _ | .lit _ => (true, memo)
         | .fvar idx nm ty =>
           if bl.contains (idx, nm, ty) then
-            if _h : ty < e then leavesSubIGo st bl memo ty
+            if _h : emlt ty e then leavesSubIGo st bl memo ty
             else (true, memo)
           else (false, memo)
         | .app f a =>
-          if _h : f < e ∧ a < e then
+          if _h : emlt f e ∧ emlt a e then
             let (rf, memo) := leavesSubIGo st bl memo f
             if rf then leavesSubIGo st bl memo a else (false, memo)
           else (true, memo)
         | .lam _ ty body _ | .forallE _ ty body _ =>
-          if _h : ty < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt body e then
             let (rt, memo) := leavesSubIGo st bl memo ty
             if rt then leavesSubIGo st bl memo body else (false, memo)
           else (true, memo)
         | .letE _ ty val body =>
-          if _h : ty < e ∧ val < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt val e ∧ emlt body e then
             let (rt, memo) := leavesSubIGo st bl memo ty
             if rt then
               let (rv, memo) := leavesSubIGo st bl memo val
@@ -1800,11 +1857,11 @@ def leavesSubIGo (st : EStore) (bl : List (Nat × NIdx × EIdx))
             else (false, memo)
           else (true, memo)
         | .proj _ _ sub =>
-          if _h : sub < e then leavesSubIGo st bl memo sub
+          if _h : emlt sub e then leavesSubIGo st bl memo sub
           else (true, memo)
       (r, memo.insert e r)
-termination_by e
-decreasing_by all_goals first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h
+termination_by (etier e, epos e)
+decreasing_by all_goals first | exact emlt_lex _h.1 | exact emlt_lex _h.2.1 | exact emlt_lex _h.2.2 | exact emlt_lex _h.2 | exact emlt_lex _h
 
 /-- The fabrication leaf guard (scoped call discipline): every fvar
 leaf of `fab` is an fvar leaf of `base`.  Equal to the `Expr`-level
@@ -1825,7 +1882,7 @@ def constsResolveIGo (st : EStore) (env : Env)
   match memo[e]? with
   | some r => (r, memo)
   | none =>
-    match st.nodes[epos e]? with
+    match st.getNode e with
     | none => (false, memo)
     | some n =>
       let (r, memo) : Bool × Std.HashMap EIdx Bool :=
@@ -1846,20 +1903,20 @@ def constsResolveIGo (st : EStore) (env : Env)
            | some nm => (env.find? nm).isSome
            | none => false, memo)
         | .fvar _ _ ty =>
-          if _h : ty < e then constsResolveIGo st env memo ty
+          if _h : emlt ty e then constsResolveIGo st env memo ty
           else (false, memo)
         | .app f a =>
-          if _h : f < e ∧ a < e then
+          if _h : emlt f e ∧ emlt a e then
             let (rf, memo) := constsResolveIGo st env memo f
             if rf then constsResolveIGo st env memo a else (false, memo)
           else (false, memo)
         | .lam _ ty body _ | .forallE _ ty body _ =>
-          if _h : ty < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt body e then
             let (rt, memo) := constsResolveIGo st env memo ty
             if rt then constsResolveIGo st env memo body else (false, memo)
           else (false, memo)
         | .letE _ ty val body =>
-          if _h : ty < e ∧ val < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt val e ∧ emlt body e then
             let (rt, memo) := constsResolveIGo st env memo ty
             if rt then
               let (rv, memo) := constsResolveIGo st env memo val
@@ -1867,7 +1924,7 @@ def constsResolveIGo (st : EStore) (env : Env)
             else (false, memo)
           else (false, memo)
         | .proj s _ sub =>
-          if _h : sub < e then
+          if _h : emlt sub e then
             match st.readbackN s with
             | some sn =>
               if (env.find? sn).isSome then constsResolveIGo st env memo sub
@@ -1875,8 +1932,8 @@ def constsResolveIGo (st : EStore) (env : Env)
             | none => (false, memo)
           else (false, memo)
       (r, memo.insert e r)
-termination_by e
-decreasing_by all_goals first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h
+termination_by (etier e, epos e)
+decreasing_by all_goals first | exact emlt_lex _h.1 | exact emlt_lex _h.2.1 | exact emlt_lex _h.2.2 | exact emlt_lex _h.2 | exact emlt_lex _h
 
 /-- Interned counterpart of `Expr.constsResolve env`. -/
 def constsResolveI (st : EStore) (env : Env) (e : EIdx) : Bool :=
@@ -1894,21 +1951,23 @@ fail on well-formed stores — `Setlec/Verify/IExprOps.lean`).
 
 /-- Interned counterpart of `Expr.getAppFn`. -/
 def getAppFnI (st : EStore) (e : EIdx) : EIdx :=
-  match st.nodes[epos e]? with
-  | some (.app f _) => if _h : f < e then getAppFnI st f else e
+  match st.getNode e with
+  | some (.app f _) => if _h : emlt f e then getAppFnI st f else e
   | _ => e
-termination_by e
+termination_by (etier e, epos e)
+decreasing_by all_goals exact emlt_lex _h
 
 /-- Core of `getAppArgsI`: prepend the spine arguments of `e`
 (outermost last) to `acc` — linear in the spine length (task #50; the
 previous append-per-node form was quadratic). -/
 def getAppArgsAccI (st : EStore) : EIdx → List EIdx → List EIdx
   | e, acc =>
-    match st.nodes[epos e]? with
+    match st.getNode e with
     | some (.app f a) =>
-      if _h : f < e then getAppArgsAccI st f (a :: acc) else acc
+      if _h : emlt f e then getAppArgsAccI st f (a :: acc) else acc
     | _ => acc
-termination_by e _ => e
+termination_by e _ => (etier e, epos e)
+decreasing_by all_goals exact emlt_lex _h
 
 /-- Interned counterpart of `Expr.getAppArgs` (outermost last). -/
 def getAppArgsI (st : EStore) (e : EIdx) : List EIdx :=
@@ -1956,7 +2015,7 @@ def piResidualAccI (st : EStore) : List EIdx → EIdx → List EIdx →
     let (r, st) := st.instantiateListI e acc 0
     (some r, st)
   | acc, e, a :: as =>
-    match st.nodes[epos e]? with
+    match st.getNode e with
     | some (.forallE _ _ b _) => piResidualAccI st (a :: acc) b as
     | some (.bvar _) =>
       match acc with
@@ -1979,7 +2038,7 @@ def piResidualI (st : EStore) (e : EIdx) (args : List EIdx) :
 def pisToLamsI (st : EStore) : Nat → EIdx → EIdx → Option EIdx × EStore
   | 0, _, body => (some body, st)
   | k + 1, e, body =>
-    match st.nodes[epos e]? with
+    match st.getNode e with
     | some (.forallE n ty rest mb) =>
       match pisToLamsI st k rest body with
       | (some b, st) =>
@@ -1994,7 +2053,7 @@ the body). -/
 def stripPisBodyI (st : EStore) : Nat → EIdx → Option EIdx
   | 0, e => some e
   | k + 1, e =>
-    match st.nodes[epos e]? with
+    match st.getNode e with
     | some (.forallE _ _ b _) => stripPisBodyI st k b
     | _ => none
 
@@ -2029,7 +2088,7 @@ def readbackGo (st : EStore) (memo : Std.HashMap EIdx Expr)
   match memo[e]? with
   | some x => (some x, memo, lmemo)
   | none =>
-    match st.nodes[epos e]? with
+    match st.getNode e with
     | none => (none, memo, lmemo)
     | some n =>
       let (r, memo, lmemo) :
@@ -2037,7 +2096,7 @@ def readbackGo (st : EStore) (memo : Std.HashMap EIdx Expr)
         match n with
         | .bvar i => (some (.bvar i), memo, lmemo)
         | .fvar idx nm ty =>
-          if _h : ty < e then
+          if _h : emlt ty e then
             match readbackGo st memo lmemo ty with
             | (some t, memo, lmemo) =>
               match st.readbackN nm with
@@ -2057,7 +2116,7 @@ def readbackGo (st : EStore) (memo : Std.HashMap EIdx Expr)
             | none => (none, memo, lmemo)
           | (none, lmemo) => (none, memo, lmemo)
         | .app f a =>
-          if _h : f < e ∧ a < e then
+          if _h : emlt f e ∧ emlt a e then
             match readbackGo st memo lmemo f with
             | (some xf, memo, lmemo) =>
               match readbackGo st memo lmemo a with
@@ -2066,7 +2125,7 @@ def readbackGo (st : EStore) (memo : Std.HashMap EIdx Expr)
             | (none, memo, lmemo) => (none, memo, lmemo)
           else (none, memo, lmemo)
         | .lam n ty body mb =>
-          if _h : ty < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt body e then
             match readbackGo st memo lmemo ty with
             | (some xt, memo, lmemo) =>
               match readbackGo st memo lmemo body with
@@ -2081,7 +2140,7 @@ def readbackGo (st : EStore) (memo : Std.HashMap EIdx Expr)
             | (none, memo, lmemo) => (none, memo, lmemo)
           else (none, memo, lmemo)
         | .forallE n ty body mb =>
-          if _h : ty < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt body e then
             match readbackGo st memo lmemo ty with
             | (some xt, memo, lmemo) =>
               match readbackGo st memo lmemo body with
@@ -2096,7 +2155,7 @@ def readbackGo (st : EStore) (memo : Std.HashMap EIdx Expr)
             | (none, memo, lmemo) => (none, memo, lmemo)
           else (none, memo, lmemo)
         | .letE n ty val body =>
-          if _h : ty < e ∧ val < e ∧ body < e then
+          if _h : emlt ty e ∧ emlt val e ∧ emlt body e then
             match readbackGo st memo lmemo ty with
             | (some xt, memo, lmemo) =>
               match readbackGo st memo lmemo val with
@@ -2112,7 +2171,7 @@ def readbackGo (st : EStore) (memo : Std.HashMap EIdx Expr)
           else (none, memo, lmemo)
         | .lit l => (some (.lit l), memo, lmemo)
         | .proj s i sub =>
-          if _h : sub < e then
+          if _h : emlt sub e then
             match readbackGo st memo lmemo sub with
             | (some xs, memo, lmemo) =>
               match st.readbackN s with
@@ -2123,8 +2182,8 @@ def readbackGo (st : EStore) (memo : Std.HashMap EIdx Expr)
       match r with
       | some x => (some x, memo.insert e x, lmemo)
       | none => (none, memo, lmemo)
-termination_by e
-decreasing_by all_goals first | exact _h.1 | exact _h.2.1 | exact _h.2.2 | exact _h.2 | exact _h
+termination_by (etier e, epos e)
+decreasing_by all_goals first | exact emlt_lex _h.1 | exact emlt_lex _h.2.1 | exact emlt_lex _h.2.2 | exact emlt_lex _h.2 | exact emlt_lex _h
 
 /-- Read an interned expression back as an `Expr` tree (memoized: the
 rebuilt subtrees are shared in memory).  Agrees with the verification's

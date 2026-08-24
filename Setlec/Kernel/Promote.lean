@@ -135,20 +135,20 @@ structure PromoteSt where
     let (u', p) := p.level h lbase u
     (⟨m.bi, some u'⟩, p)
 
-/-- Promote one snapshot tier-two node, by offset `j` (children in
-tier one are kept — tier one was frozen under the snapshot, so they
-denote the same nodes in the retained store). -/
+/-- Promote one snapshot tier-two node, by position `j` (children in
+tier one — even indices — are kept: tier one was frozen under the
+snapshot, so they denote the same nodes in the retained store). -/
 def promoteEGo (h : Harvest) (lbase nbase : Nat) (p : PromoteSt)
     (j : Nat) : EIdx × PromoteSt :=
   match p.memoE[j]? with
   | some r => (r, p)
   | none =>
     match h.tnodes[j]? with
-    | none => (tierTag + j, p)
+    | none => (j + j + 1, p)
     | some n =>
       let sub (p : PromoteSt) (c : EIdx) : EIdx × PromoteSt :=
-        if c < tierTag then (c, p)
-        else if _h : c - tierTag < j then promoteEGo h lbase nbase p (c - tierTag)
+        if etier c = 0 then (c, p)
+        else if _h : epos c < j then promoteEGo h lbase nbase p (epos c)
         else (c, p)
       let (n', p) : ENode × PromoteSt :=
         match n with
@@ -202,9 +202,9 @@ decreasing_by all_goals first | exact _h.1 | exact _h.2 | exact _h
 are kept, a tier-two index has its sub-DAG re-interned. -/
 def EStore.promoteE (st : EStore) (h : Harvest) (lbase nbase : Nat)
     (e : EIdx) : EIdx × EStore :=
-  if e < tierTag then (e, st)
+  if etier e = 0 then (e, st)
   else
-    let (r, p) := promoteEGo h lbase nbase ⟨st, {}, {}, {}⟩ (e - tierTag)
+    let (r, p) := promoteEGo h lbase nbase ⟨st, {}, {}, {}⟩ (epos e)
     (r, p.st)
 
 end Setlec

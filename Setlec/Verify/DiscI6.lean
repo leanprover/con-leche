@@ -70,7 +70,7 @@ theorem projFieldDomI_sim (ih : SSimI env f) (henv : EnvWF env)
     unfold projFieldDomI
     refine SimAt.view ?_
     obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hdt
-    have hn := node1?_nodes hn
+    have hn := getNode_of_stored hn
     rw [hn]
     cases n with
     | forallE nmᵢ dom rest mb =>
@@ -111,7 +111,7 @@ theorem projFieldDomI_sim (ih : SSimI env f) (henv : EnvWF env)
     unfold projFieldDomI
     refine SimAt.view ?_
     obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hdt
-    have hn := node1?_nodes hn
+    have hn := getNode_of_stored hn
     rw [hn]
     cases n with
     | forallE nmᵢ dom rest mb =>
@@ -475,7 +475,7 @@ theorem annotateProjElimI_sim (ih : SSimI env f) (henv : EnvWF env)
   unfold annotateProjElim
   refine SimAt.withStore ?_
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv (getAppFnI_spec hs.wf hte)
-  have hn := node1?_nodes hn
+  have hn := getNode_of_stored hn
   rw [hn]
   cases n with
   | const Tᵢ us =>
@@ -596,7 +596,7 @@ theorem annotateSpineI_sim (ih : SSimI env f) (henv : EnvWF env)
     dsimp only
     refine SimAt.view ?_
     obtain ⟨n, hn, hc, hd⟩ := denote_some_inv ht
-    have hn := node1?_nodes hn
+    have hn := getNode_of_stored hn
     rw [hn]
     cases n with
     | forallE nmᵢ dom body mb =>
@@ -786,7 +786,7 @@ theorem annotateSpineI_whnfArm (ih : SSimI env f) (henv : EnvWF env)
     obtain ⟨hwd, hww⟩ := hP
     refine SimAt.view ?_
     obtain ⟨n', hn', hc', hd'⟩ := denote_some_inv hwd
-    have hn' := node1?_nodes hn'
+    have hn' := getNode_of_stored hn'
     rw [hn']
     have hext12 := hext₁.trans hext₂
     cases n' with
@@ -884,7 +884,7 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
   unfold annotateBodyI
   refine SimAt.view ?_
   obtain ⟨n, hn, hc, hd⟩ := denote_some_inv hden
-  have hn := node1?_nodes hn
+  have hn := getNode_of_stored hn
   rw [hn]
   cases n with
   | bvar k =>
@@ -1167,7 +1167,7 @@ theorem annotateBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
     refine SimAt.withStore ?_
     obtain ⟨n', hn', hc', hd'⟩ :=
       denote_some_inv (getAppFnI_spec hs₃.wf hted)
-    have hn' := node1?_nodes hn'
+    have hn' := getNode_of_stored hn'
     rw [hn']
     cases n' with
     | const Tᵢ us =>

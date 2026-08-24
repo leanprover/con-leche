@@ -201,7 +201,7 @@ theorem inferLamsLeafI_sim (ih : SSimI env f) {d : Nat}
   obtain ⟨hwd, hww⟩ := hPw
   refine SimAt.view ?_
   obtain ⟨nd, hn, hc, hd⟩ := denote_some_inv hwd
-  have hn := node1?_nodes hn
+  have hn := getNode_of_stored hn
   rw [hn]
   cases nd with
   | sort v' =>
@@ -261,7 +261,7 @@ theorem inferLamsI_sim (ih : SSimI env f) {d : Nat} :
       _
     refine SimAt.view ?_
     obtain ⟨nd, hn, hc, hd⟩ := denote_some_inv ht
-    have hn := node1?_nodes hn
+    have hn := getNode_of_stored hn
     rw [hn]
     cases nd with
     | lam nm ty body mb =>
@@ -305,7 +305,7 @@ theorem inferLamsI_sim (ih : SSimI env f) {d : Nat} :
         obtain ⟨hwd, hww⟩ := hPw
         refine SimAt.view ?_
         obtain ⟨nd', hn', hc', hd'⟩ := denote_some_inv hwd
-        have hn' := node1?_nodes hn'
+        have hn' := getNode_of_stored hn'
         rw [hn']
         cases nd' with
         | sort u =>
@@ -463,7 +463,7 @@ theorem annotatePisOutI_sim (ih : SSimI env f) {d : Nat} :
           obtain ⟨hwd, hww⟩ := hPw
           refine SimAt.view ?_
           obtain ⟨nd, hn, hc, hd⟩ := denote_some_inv hwd
-          have hn := node1?_nodes hn
+          have hn := getNode_of_stored hn
           rw [hn]
           cases nd with
           | sort u =>
@@ -546,7 +546,7 @@ theorem annotatePisI_sim (ih : SSimI env f) {d : Nat} :
       _
     refine SimAt.view ?_
     obtain ⟨nd, hn, hc, hd⟩ := denote_some_inv ht
-    have hn := node1?_nodes hn
+    have hn := getNode_of_stored hn
     rw [hn]
     cases nd with
     | forallE nm ty body mb =>
@@ -723,7 +723,7 @@ theorem annotateLamsOutI_sim (ih : SSimI env f) {d : Nat} :
           obtain ⟨hwd, hww⟩ := hPw
           refine SimAt.view ?_
           obtain ⟨nd, hn, hc, hd⟩ := denote_some_inv hwd
-          have hn := node1?_nodes hn
+          have hn := getNode_of_stored hn
           rw [hn]
           cases nd with
           | sort u =>
@@ -825,7 +825,7 @@ theorem annotateLamsI_sim (ih : SSimI env f) {d : Nat} :
       _
     refine SimAt.view ?_
     obtain ⟨nd, hn, hc, hd⟩ := denote_some_inv ht
-    have hn := node1?_nodes hn
+    have hn := getNode_of_stored hn
     rw [hn]
     cases nd with
     | lam nm ty body mb =>

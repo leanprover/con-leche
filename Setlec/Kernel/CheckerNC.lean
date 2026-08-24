@@ -562,7 +562,7 @@ def checkDeclSPStepNCB (br : CheckIM Unit → CheckIM Unit) (n0 : Nat)
 /-- `checkDeclsSPNC` with the bracketed step. -/
 def checkDeclsSPNCB (br : CheckIM Unit → CheckIM Unit) (st : WFStore)
     (pds : List DeclP) : CheckM Env := do
-  let fe ← (pds.foldlM (checkDeclSPStepNCB br st.raw.nodes.size)
+  let fe ← (pds.foldlM (checkDeclSPStepNCB br (st.raw.nodes.size + st.raw.nodes.size))
     (mkFEnv Env.empty)).run' { store := st.raw }
   pure fe.env
 
@@ -685,7 +685,7 @@ def checkDeclSPStepNCB3 (n0 : Nat) (fe : FEnv) (pd : DeclP) :
 
 /-- `checkDeclsSPNC` with the annotate-snapshot step. -/
 def checkDeclsSPNCB3 (st : WFStore) (pds : List DeclP) : CheckM Env := do
-  let fe ← (pds.foldlM (checkDeclSPStepNCB3 st.raw.nodes.size)
+  let fe ← (pds.foldlM (checkDeclSPStepNCB3 (st.raw.nodes.size + st.raw.nodes.size))
     (mkFEnv Env.empty)).run' { store := st.raw }
   pure fe.env
 
@@ -811,7 +811,7 @@ def checkDeclSPStepNCB4 (n0 : Nat) (fe : FEnv) (pd : DeclP) :
 
 /-- `checkDeclsSPNC` with the in-place annotate-snapshot step. -/
 def checkDeclsSPNCB4 (st : WFStore) (pds : List DeclP) : CheckM Env := do
-  let fe ← (pds.foldlM (checkDeclSPStepNCB4 st.raw.nodes.size)
+  let fe ← (pds.foldlM (checkDeclSPStepNCB4 (st.raw.nodes.size + st.raw.nodes.size))
     (mkFEnv Env.empty)).run' { store := st.raw }
   pure fe.env
 

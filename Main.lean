@@ -94,18 +94,21 @@ partial def ienvReachStats (s : Setlec.IState) (n0 : Nat) : String :=
         stack := stack.push vi
     let mut reach := 0
     let mut above := 0
+    -- task #64 low-bit: indices are encoded; walk in decoded positions
+    -- (end-of-run content is tier-one).
+    let p0 := Setlec.epos n0
     while stack.size > 0 do
-      let i := stack.back!
+      let p := Setlec.epos stack.back!
       stack := stack.pop
-      if i < n && !(seen.getD i true) then
-        seen := seen.set! i true
+      if p < n && !(seen.getD p true) then
+        seen := seen.set! p true
         reach := reach + 1
-        if n0 ≤ i then
+        if p0 ≤ p then
           above := above + 1
-        if let some nd := st.nodes[i]? then
+        if let some nd := st.nodes[p]? then
           for c in nd.children do
             stack := stack.push c
-    return s!"REACH: n0={n0} nodes={n} ienvReach={reach} storedAboveParse={above}"
+    return s!"REACH: n0={p0} nodes={n} ienvReach={reach} storedAboveParse={above}"
 
 /-- Progress-mode driver loop, as explicit recursion with the
 accumulators passed as plain arguments: a `for`-loop's boxed state
@@ -237,7 +240,8 @@ def checkMain (file : String) (yolo : Bool) (pre : Bool) : IO UInt32 := do
         -- with SETLEC_PROGRESS set, check declaration by declaration and
         -- print a `DECL:` line before each (fold and interned state
         -- threaded exactly as in checkDeclsSP).
-        let n0 := store.raw.nodes.size
+        -- task #64 low-bit: the in-range bound is the encoded index bound
+        let n0 := store.raw.nodes.size + store.raw.nodes.size
         if (← IO.getEnv "SETLEC_PROGRESS").isSome then
           -- the parse arena is well-formed by construction (task #103);
           -- no validation sweep before checking

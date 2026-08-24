@@ -266,6 +266,7 @@ theorem allLevelParamsDefinedIGo_spec {st : EStore} (hwf : st.WF)
   | _ e ih =>
     intro lmemo memo b lmemo' memo' hinv hgo
     unfold allLevelParamsDefinedIGo at hgo
+    rw [hwf.getNode_eq] at hgo
     split at hgo
     · -- level-param-free: trivially defined (task #87)
       rename_i hnp
@@ -286,21 +287,22 @@ theorem allLevelParamsDefinedIGo_spec {st : EStore} (hwf : st.WF)
         refine ⟨hinv, ?_⟩
         intro x hx
         obtain ⟨n, hn, -, -⟩ := denote_some_inv hx
-        rw [node1?_nodes hn] at hnone
+        rw [hn] at hnone
         cases hnone
       · rename_i n hn
         have hesz : epos e < st.nodes.size :=
-          (Array.getElem?_eq_some_iff.mp hn).1
-        have hclP := hwf.children_lt (epos e) n hn
+          (Array.getElem?_eq_some_iff.mp (node1?_nodes hn)).1
+        have hclP := hwf.children_lt (epos e) n (node1?_nodes hn)
         have hcl : ∀ c ∈ n.children, c < e := fun c hcin =>
           lt_of_epos_lt' (hclP c hcin).1 (hclP c hcin).2
         have hcv : ∀ c ∈ n.children, st.Valid1 c := fun c hcin =>
           ⟨(hclP c hcin).1, Nat.lt_trans (hclP c hcin).2 hesz⟩
-        have hlv := hwf.levels_lt (epos e) n hn
+        have hlv := hwf.levels_lt (epos e) n (node1?_nodes hn)
+        have hml : ∀ c ∈ n.children, emlt c e := fun c hcin =>
+          emlt_of_even_lt (hclP c hcin).1 (hcl c hcin)
         have hde : ∀ {x}, st.denote e = some x →
             st.denote e = denoteNode st.denote st.denoteL st.denoteN n :=
-          fun hxx => denote_node
-            (by rw [node1?_of_etier (denote_etier hxx)]; exact hn) hcl
+          fun hxx => denote_node hn hcl
         cases n with
         | bvar i =>
           dsimp only at hgo
@@ -351,7 +353,7 @@ theorem allLevelParamsDefinedIGo_spec {st : EStore} (hwf : st.WF)
           obtain ⟨hinv₁, hall⟩ :=
             lparamsDefinedListLI_spec hwf us hinv.1 h₁ hls
           obtain ⟨nm, hnmDen⟩ := denoteN_total hwf nmᵢ
-            (hwf.names_lt (epos e) _ hn nmᵢ (by simp [ENode.names]))
+            (hwf.names_lt (epos e) _ (node1?_nodes hn) nmᵢ (by simp [ENode.names]))
           have hcond : ∀ x, st.denote e = some x →
               x.allLevelParamsDefined params = r := by
             intro x hxx
@@ -365,17 +367,17 @@ theorem allLevelParamsDefinedIGo_spec {st : EStore} (hwf : st.WF)
           dsimp only at hgo
           split at hgo
           case isFalse hguard =>
-            exact absurd (hcl ty (by simp [ENode.children])) hguard
+            exact absurd (hml ty (by simp [ENode.children])) hguard
           case isTrue hguard =>
             obtain ⟨xt, hxt⟩ := denote_total hwf ty
               (hcv ty (by simp [ENode.children]))
             obtain ⟨nm, hnmDen⟩ := denoteN_total hwf nmᵢ
-              (hwf.names_lt (epos e) _ hn nmᵢ (by simp [ENode.names]))
+              (hwf.names_lt (epos e) _ (node1?_nodes hn) nmᵢ (by simp [ENode.names]))
             rcases h₁ : allLevelParamsDefinedIGo st params lmemo memo ty
               with ⟨rt, lmemo₁, memo₁⟩
             rw [h₁] at hgo
             cases hgo
-            obtain ⟨hinv₁, hden₁⟩ := ih ty hguard hinv h₁
+            obtain ⟨hinv₁, hden₁⟩ := ih ty (hcl ty (by simp [ENode.children])) hinv h₁
             have hcond : ∀ x, st.denote e = some x →
                 x.allLevelParamsDefined params = rt := by
               intro x hxx
@@ -389,8 +391,8 @@ theorem allLevelParamsDefinedIGo_spec {st : EStore} (hwf : st.WF)
           dsimp only at hgo
           split at hgo
           case isFalse hguard =>
-            exact absurd ⟨hcl f (by simp [ENode.children]),
-              hcl a (by simp [ENode.children])⟩ hguard
+            exact absurd ⟨hml f (by simp [ENode.children]),
+              hml a (by simp [ENode.children])⟩ hguard
           case isTrue hguard =>
             obtain ⟨xf, hxf⟩ := denote_total hwf f
               (hcv f (by simp [ENode.children]))
@@ -399,7 +401,7 @@ theorem allLevelParamsDefinedIGo_spec {st : EStore} (hwf : st.WF)
             rcases h₁ : allLevelParamsDefinedIGo st params lmemo memo f
               with ⟨rf, lmemo₁, memo₁⟩
             rw [h₁] at hgo
-            obtain ⟨hinv₁, hden₁⟩ := ih f hguard.1 hinv h₁
+            obtain ⟨hinv₁, hden₁⟩ := ih f (hcl f (by simp [ENode.children])) hinv h₁
             have hrf := hden₁ xf hxf
             cases hb : rf with
             | true =>
@@ -409,7 +411,7 @@ theorem allLevelParamsDefinedIGo_spec {st : EStore} (hwf : st.WF)
                 with ⟨ra, lmemo₂, memo₂⟩
               rw [h₂] at hgo
               cases hgo
-              obtain ⟨hinv₂, hden₂⟩ := ih a hguard.2 hinv₁ h₂
+              obtain ⟨hinv₂, hden₂⟩ := ih a (hcl a (by simp [ENode.children])) hinv₁ h₂
               have hcond : ∀ x, st.denote e = some x →
                   x.allLevelParamsDefined params = ra := by
                 intro x hxx
@@ -438,9 +440,9 @@ theorem allLevelParamsDefinedIGo_spec {st : EStore} (hwf : st.WF)
           dsimp only at hgo
           split at hgo
           case isFalse hguard =>
-            exact absurd ⟨hcl ty (by simp [ENode.children]),
-              hcl val (by simp [ENode.children]),
-              hcl body (by simp [ENode.children])⟩ hguard
+            exact absurd ⟨hml ty (by simp [ENode.children]),
+              hml val (by simp [ENode.children]),
+              hml body (by simp [ENode.children])⟩ hguard
           case isTrue hguard =>
             obtain ⟨xt, hxt⟩ := denote_total hwf ty
               (hcv ty (by simp [ENode.children]))
@@ -449,11 +451,11 @@ theorem allLevelParamsDefinedIGo_spec {st : EStore} (hwf : st.WF)
             obtain ⟨xb, hxb⟩ := denote_total hwf body
               (hcv body (by simp [ENode.children]))
             obtain ⟨nm, hnmDen⟩ := denoteN_total hwf nmᵢ
-              (hwf.names_lt (epos e) _ hn nmᵢ (by simp [ENode.names]))
+              (hwf.names_lt (epos e) _ (node1?_nodes hn) nmᵢ (by simp [ENode.names]))
             rcases h₁ : allLevelParamsDefinedIGo st params lmemo memo ty
               with ⟨rt, lmemo₁, memo₁⟩
             rw [h₁] at hgo
-            obtain ⟨hinv₁, hden₁⟩ := ih ty hguard.1 hinv h₁
+            obtain ⟨hinv₁, hden₁⟩ := ih ty (hcl ty (by simp [ENode.children])) hinv h₁
             have hrt := hden₁ xt hxt
             cases hbt : rt with
             | false =>
@@ -477,7 +479,7 @@ theorem allLevelParamsDefinedIGo_spec {st : EStore} (hwf : st.WF)
               rcases h₂ : allLevelParamsDefinedIGo st params lmemo₁ memo₁ val
                 with ⟨rv, lmemo₂, memo₂⟩
               rw [h₂] at hgo
-              obtain ⟨hinv₂, hden₂⟩ := ih val hguard.2.1 hinv₁ h₂
+              obtain ⟨hinv₂, hden₂⟩ := ih val (hcl val (by simp [ENode.children])) hinv₁ h₂
               have hrv := hden₂ xv hxv
               cases hbv : rv with
               | false =>
@@ -502,7 +504,7 @@ theorem allLevelParamsDefinedIGo_spec {st : EStore} (hwf : st.WF)
                   body with ⟨rb, lmemo₃, memo₃⟩
                 rw [h₃] at hgo
                 cases hgo
-                obtain ⟨hinv₃, hden₃⟩ := ih body hguard.2.2 hinv₂ h₃
+                obtain ⟨hinv₃, hden₃⟩ := ih body (hcl body (by simp [ENode.children])) hinv₂ h₃
                 have hcond : ∀ x, st.denote e = some x →
                     x.allLevelParamsDefined params = rb := by
                   intro x hxx
@@ -518,17 +520,17 @@ theorem allLevelParamsDefinedIGo_spec {st : EStore} (hwf : st.WF)
           dsimp only at hgo
           split at hgo
           case isFalse hguard =>
-            exact absurd (hcl sub (by simp [ENode.children])) hguard
+            exact absurd (hml sub (by simp [ENode.children])) hguard
           case isTrue hguard =>
             obtain ⟨xs, hxs⟩ := denote_total hwf sub
               (hcv sub (by simp [ENode.children]))
             obtain ⟨sN, hnmDen⟩ := denoteN_total hwf sNᵢ
-              (hwf.names_lt (epos e) _ hn sNᵢ (by simp [ENode.names]))
+              (hwf.names_lt (epos e) _ (node1?_nodes hn) sNᵢ (by simp [ENode.names]))
             rcases h₁ : allLevelParamsDefinedIGo st params lmemo memo sub
               with ⟨rs, lmemo₁, memo₁⟩
             rw [h₁] at hgo
             cases hgo
-            obtain ⟨hinv₁, hden₁⟩ := ih sub hguard hinv h₁
+            obtain ⟨hinv₁, hden₁⟩ := ih sub (hcl sub (by simp [ENode.children])) hinv h₁
             have hcond : ∀ x, st.denote e = some x →
                 x.allLevelParamsDefined params = rs := by
               intro x hxx
@@ -542,8 +544,8 @@ theorem allLevelParamsDefinedIGo_spec {st : EStore} (hwf : st.WF)
           dsimp only at hgo
           split at hgo
           case isFalse hguard =>
-            exact absurd ⟨hcl ty (by simp [ENode.children]),
-              hcl body (by simp [ENode.children])⟩ hguard
+            exact absurd ⟨hml ty (by simp [ENode.children]),
+              hml body (by simp [ENode.children])⟩ hguard
           case isTrue hguard =>
             obtain ⟨xt, hxt⟩ := denote_total hwf ty
               (hcv ty (by simp [ENode.children]))
@@ -552,11 +554,11 @@ theorem allLevelParamsDefinedIGo_spec {st : EStore} (hwf : st.WF)
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
               (fun u hu => hlv u (by simp [ENode.levels, hu]))
             obtain ⟨nm, hnmDen⟩ := denoteN_total hwf nmᵢ
-              (hwf.names_lt (epos e) _ hn nmᵢ (by simp [ENode.names]))
+              (hwf.names_lt (epos e) _ (node1?_nodes hn) nmᵢ (by simp [ENode.names]))
             rcases h₁ : allLevelParamsDefinedIGo st params lmemo memo ty
               with ⟨rt, lmemo₁, memo₁⟩
             rw [h₁] at hgo
-            obtain ⟨hinv₁, hden₁⟩ := ih ty hguard.1 hinv h₁
+            obtain ⟨hinv₁, hden₁⟩ := ih ty (hcl ty (by simp [ENode.children])) hinv h₁
             have hrt := hden₁ xt hxt
             cases hbt : rt with
             | false =>
@@ -580,7 +582,7 @@ theorem allLevelParamsDefinedIGo_spec {st : EStore} (hwf : st.WF)
               rcases h₂ : allLevelParamsDefinedIGo st params lmemo₁ memo₁
                 body with ⟨rb, lmemo₂, memo₂⟩
               rw [h₂] at hgo
-              obtain ⟨hinv₂, hden₂⟩ := ih body hguard.2 hinv₁ h₂
+              obtain ⟨hinv₂, hden₂⟩ := ih body (hcl body (by simp [ENode.children])) hinv₁ h₂
               have hrb := hden₂ xb hxb
               cases hbb : rb with
               | false =>
@@ -652,8 +654,8 @@ theorem allLevelParamsDefinedIGo_spec {st : EStore} (hwf : st.WF)
           dsimp only at hgo
           split at hgo
           case isFalse hguard =>
-            exact absurd ⟨hcl ty (by simp [ENode.children]),
-              hcl body (by simp [ENode.children])⟩ hguard
+            exact absurd ⟨hml ty (by simp [ENode.children]),
+              hml body (by simp [ENode.children])⟩ hguard
           case isTrue hguard =>
             obtain ⟨xt, hxt⟩ := denote_total hwf ty
               (hcv ty (by simp [ENode.children]))
@@ -662,11 +664,11 @@ theorem allLevelParamsDefinedIGo_spec {st : EStore} (hwf : st.WF)
             obtain ⟨bm, hbm⟩ := denoteBM_total hwf m
               (fun u hu => hlv u (by simp [ENode.levels, hu]))
             obtain ⟨nm, hnmDen⟩ := denoteN_total hwf nmᵢ
-              (hwf.names_lt (epos e) _ hn nmᵢ (by simp [ENode.names]))
+              (hwf.names_lt (epos e) _ (node1?_nodes hn) nmᵢ (by simp [ENode.names]))
             rcases h₁ : allLevelParamsDefinedIGo st params lmemo memo ty
               with ⟨rt, lmemo₁, memo₁⟩
             rw [h₁] at hgo
-            obtain ⟨hinv₁, hden₁⟩ := ih ty hguard.1 hinv h₁
+            obtain ⟨hinv₁, hden₁⟩ := ih ty (hcl ty (by simp [ENode.children])) hinv h₁
             have hrt := hden₁ xt hxt
             cases hbt : rt with
             | false =>
@@ -690,7 +692,7 @@ theorem allLevelParamsDefinedIGo_spec {st : EStore} (hwf : st.WF)
               rcases h₂ : allLevelParamsDefinedIGo st params lmemo₁ memo₁
                 body with ⟨rb, lmemo₂, memo₂⟩
               rw [h₂] at hgo
-              obtain ⟨hinv₂, hden₂⟩ := ih body hguard.2 hinv₁ h₂
+              obtain ⟨hinv₂, hden₂⟩ := ih body (hcl body (by simp [ENode.children])) hinv₁ h₂
               have hrb := hden₂ xb hxb
               cases hbb : rb with
               | false =>
@@ -781,15 +783,15 @@ theorem constsResolveFIGo_eq {st : EStore} {fe : FEnv} {env : Env}
       constsResolveFIGo st fe memo e =
         EStore.constsResolveIGo st env memo e := by
   intro e
-  induction e using Nat.strongRecOn with
-  | _ e ih =>
+  induction e using emlt_induction with
+  | ind e ih =>
     intro memo
     unfold constsResolveFIGo EStore.constsResolveIGo
     cases hm : memo[e]? with
     | some r => rfl
     | none =>
       dsimp only
-      cases hn : st.nodes[epos e]? with
+      cases hn : st.getNode e with
       | none => rfl
       | some n =>
         dsimp only
@@ -802,28 +804,28 @@ theorem constsResolveFIGo_eq {st : EStore} {fe : FEnv} {env : Env}
           rfl
 
         | fvar idx nmᵢ ty =>
-          by_cases hg : ty < e
+          by_cases hg : emlt ty e
           · simp only [dif_pos hg, ih ty hg]
           · simp only [dif_neg hg]
         | app f a =>
-          by_cases hg : f < e ∧ a < e
+          by_cases hg : emlt f e ∧ emlt a e
           · simp only [dif_pos hg, ih f hg.1, ih a hg.2]
           · simp only [dif_neg hg]
         | lam nmᵢ ty body m =>
-          by_cases hg : ty < e ∧ body < e
+          by_cases hg : emlt ty e ∧ emlt body e
           · simp only [dif_pos hg, ih ty hg.1, ih body hg.2]
           · simp only [dif_neg hg]
         | forallE nmᵢ ty body m =>
-          by_cases hg : ty < e ∧ body < e
+          by_cases hg : emlt ty e ∧ emlt body e
           · simp only [dif_pos hg, ih ty hg.1, ih body hg.2]
           · simp only [dif_neg hg]
         | letE nmᵢ ty val body =>
-          by_cases hg : ty < e ∧ val < e ∧ body < e
+          by_cases hg : emlt ty e ∧ emlt val e ∧ emlt body e
           · simp only [dif_pos hg, ih ty hg.1, ih val hg.2.1,
               ih body hg.2.2]
           · simp only [dif_neg hg]
         | proj sNᵢ j sub =>
-          by_cases hg : sub < e
+          by_cases hg : emlt sub e
           · simp only [dif_pos hg, hfind, ih sub hg]
             rfl
           · simp only [dif_neg hg]
