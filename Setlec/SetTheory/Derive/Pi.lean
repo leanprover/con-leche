@@ -67,6 +67,42 @@ theorem lam_congr {v : Nat} {A : V} {F F' : V → V}
   · rw [lam_pos (Nat.pos_iff_ne_zero.mp hv), lam_pos (Nat.pos_iff_ne_zero.mp hv)]
     exact graph_congr h
 
+/-- The dependent product reads its level argument **only through the
+`v = 0` test**: at nonzero levels the interpretation is level-blind
+(task #100 checkpoint; the kernel's relaxed binder-defeq codomain
+comparison rests on this). -/
+theorem pi_level_indifferent {u v : Nat} (hu : u ≠ 0) (hv : v ≠ 0)
+    {A : V} {B : V → V} : pi u A B = pi v A B := by
+  rw [pi_pos hu, pi_pos hv]
+
+/-- As `pi_level_indifferent`, for abstraction. -/
+theorem lam_level_indifferent {u v : Nat} (hu : u ≠ 0) (hv : v ≠ 0)
+    {A : V} {F : V → V} : lam u A F = lam v A F := by
+  rw [lam_pos hu, lam_pos hv]
+
+/-- `pi` congruence across levels that agree on zero-ness: since the
+level enters only through the `v = 0` test (`pi_level_indifferent`),
+agreeing zero-tests and pointwise-equal fibres give equal products. -/
+theorem pi_congr_zero_agree {u v : Nat} (hz : u = 0 ↔ v = 0) {A : V}
+    {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x = B' x) :
+    pi u A B = pi v A B' := by
+  by_cases hu : u = 0
+  · rw [hz.mp hu, hu]
+    exact pi_congr h
+  · have hv : v ≠ 0 := fun h0 => hu (hz.mpr h0)
+    rw [pi_pos hu, pi_pos hv]
+    exact piSet_congr h
+
+/-- As `pi_congr_zero_agree`, for abstraction. -/
+theorem lam_congr_zero_agree {u v : Nat} (hz : u = 0 ↔ v = 0) {A : V}
+    {F F' : V → V} (h : ∀ x, x ∈ˢ A → F x = F' x) :
+    lam u A F = lam v A F' := by
+  by_cases hu : u = 0
+  · rw [hz.mp hu, hu, lam_zero, lam_zero]
+  · have hv : v ≠ 0 := fun h0 => hu (hz.mpr h0)
+    rw [lam_pos hu, lam_pos hv]
+    exact graph_congr h
+
 /-- Introduction: fibre-wise members abstract into the product.  (For
 `v = 0` the premise itself witnesses every fibre inhabited.) -/
 theorem lam_mem {v : Nat} {A : V} {F B : V → V}

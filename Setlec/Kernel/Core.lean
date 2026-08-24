@@ -1700,19 +1700,34 @@ def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
       let b₁ := body₁.instantiate1 (.fvar depth n₁ ty₁)
       let b₂ := body₂.instantiate1 (.fvar depth n₂ ty₂)
       unless ← r.defeq (depth + 1) b₁ b₂ do return false
-      -- Deviation (see module docstring): codomain sorts must agree —
-      -- with annotations this is a cheap level comparison.
+      -- Deviation (shrunk 2026-08-24; see DESIGN.md "the binder
+      -- model"): the official kernel compares no binder annotations
+      -- at all; we compare ONE BIT — zero-ness agreement of the
+      -- codomain-sort annotations, the only thing the model reads
+      -- (`SetTheory.pi` consumes its level solely through the `v = 0`
+      -- test, `pi_level_indifferent`).  Both provably nonzero
+      -- (`Level.isNonZero`, sound under every valuation) is accepted
+      -- outright; otherwise fall back to full level equivalence,
+      -- which gives per-valuation zero-agreement.  A "both not
+      -- provably nonzero" acceptance would be unsound (`param u` vs
+      -- `zero` disagree under `u ↦ 1`).  Verdict-neutral on
+      -- truthfully annotated input, where the sorts are eval-equal.
       match m₁.cod, m₂.cod with
-      | some v₁, some v₂ => liftFueled "level comparison" (Level.isEquiv v₁ v₂)
+      | some v₁, some v₂ =>
+        if v₁.isNonZero && v₂.isNonZero then pure true
+        else liftFueled "level comparison" (Level.isEquiv v₁ v₂)
       | _, _ => throw (.internal "unannotated ∀-binder reached isDefEq")
     | .lam n₁ ty₁ body₁ m₁, .lam n₂ ty₂ body₂ m₂ => do
       unless ← r.defeq depth ty₁ ty₂ do return false
       let b₁ := body₁.instantiate1 (.fvar depth n₁ ty₁)
       let b₂ := body₂.instantiate1 (.fvar depth n₂ ty₂)
       unless ← r.defeq (depth + 1) b₁ b₂ do return false
-      -- Deviation, as for ∀ (see module docstring).
+      -- Deviation, as for ∀: zero-ness agreement only
+      -- (`SetTheory.lam` is likewise level-blind above zero).
       match m₁.cod, m₂.cod with
-      | some v₁, some v₂ => liftFueled "level comparison" (Level.isEquiv v₁ v₂)
+      | some v₁, some v₂ =>
+        if v₁.isNonZero && v₂.isNonZero then pure true
+        else liftFueled "level comparison" (Level.isEquiv v₁ v₂)
       | _, _ => throw (.internal "unannotated λ-binder reached isDefEq")
     | .app f₁ a₁, .app f₂ a₂ => do
       -- Stuck applications: congruence, then the stuck fallbacks

@@ -1547,7 +1547,9 @@ theorem defeqBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
           (WScoped.instantiate1 h2.1 0 h2.2)) (fun r₂ _ => ?_)
         split
         · split <;> first
-            | exact DiscV.liftFueled_true _ _
+            | (split <;> first
+                | exact DiscV.pure trivial
+                | exact DiscV.liftFueled_true _ _)
             | exact DiscV.throw _
         · exact DiscV.pure trivial
       · exact DiscV.pure trivial
@@ -1565,7 +1567,9 @@ theorem defeqBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
           (WScoped.instantiate1 h2.1 0 h2.2)) (fun r₂ _ => ?_)
         split
         · split <;> first
-            | exact DiscV.liftFueled_true _ _
+            | (split <;> first
+                | exact DiscV.pure trivial
+                | exact DiscV.liftFueled_true _ _)
             | exact DiscV.throw _
         · exact DiscV.pure trivial
       · exact DiscV.pure trivial
