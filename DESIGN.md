@@ -5020,3 +5020,151 @@ decoration pass replaces, so entries produced there would be produced
 by `decorate` anyway.  Cost of carrying the extra `IState` field on
 the init-prelude probe: 25.187 G → 25.203 G instructions, **+0.064 %**
 (three runs each, spread < 2 M).
+## Asymptotic scalability harness v2 (2026-08-24, task #98)
+
+`tests/scale.sh` grew from 4 to 13 gated shapes, per-shape gates, a
+deep mode, RSS gating, and a reference-comparison companion.  This
+section is the harness's reference documentation; the 2026-08-22
+section above records the original design and first findings.
+
+**Generators are deduplicated.**  `tests/scale/gen.py` hash-conses
+every name/level/expr table entry it emits.  Real lean4export never
+emits two structurally identical entries, and consumers rely on it —
+upstream nanoda crashes on duplicate entries.  Deduplication is part
+of the format contract, folded into the emitter (there is no
+postprocessing step to forget).  Every generated shape is validated
+against the official kernel checker (all 12 stream shapes accepted by
+official-v4.33.0 and upstream nanoda).
+
+**Shapes** (`gen.py SHAPE N`; one subsystem each):
+
+* `chain` — n-deep `d_i : Type := d_{i-1}` delta chain forced at the
+  type level;
+* `spine` — one application spine of n arguments;
+* `many` — n independent tiny defs (env insertion / per-decl setup);
+* `telescope` — one Π/λ telescope of depth n (binder opening);
+* `dag` — one definition whose value is a *perfectly shared* binary
+  DAG of depth n (`e_{i+1} = g e_i e_i`).  The expr table is O(n);
+  any unmemoized structural traversal is O(2^n) — this shape turns a
+  violation of the no-unmemoized-traversals invariant into an
+  immediate catastrophic exponent/timeout, so its gate is tight;
+* `delta` — n defs `d_i : Prop := (fun x : Prop => x) d_{i-1}` plus a
+  proof of `d_n`, forcing n delta+beta whnf steps (value-level
+  unfolding, complementing `chain`'s type-level chain);
+* `ctors` — one inductive enum with n constructors, an n-rule
+  recursor, and a use firing one iota step.  Note the export format
+  itself is Θ(n²) bytes here (each rule RHS λ-binds all n minors), so
+  2.0 is the *input-size floor* for this shape's exponent;
+* `fields` — one structure with n `Prop` fields plus a use projecting
+  every field.  Run twice: `fields-raw` (preprocessor disabled — the
+  direct simple-structure install) and `fields-mod` (through the
+  lean-inductive-models preprocessor — the modeled path);
+* `fanout` — one def referencing all n predecessors (n const lookups
+  inside a single declaration; guards per-lookup env-index copy bugs
+  of the FEnv-linearity family, previous section);
+* `lets` — one n-deep `letE` chain (lazy zeta);
+* `lparams` — one def with n universe parameters, instantiated at a
+  use (level instantiation + n-ary max normalization);
+* `thm` — one theorem with a size-n proof value (`thm`-record path).
+
+**Methodology.**  Retired instructions (`perf stat -e
+instructions:u`), median of 3 runs; per-shape startup baseline = the
+same shape at n=1 (covers basis install, IO, and the preprocessor's
+fixed cost for the `-mod` shapes), subtracted before fitting; growth
+exponent = log2 of the adjusted ratio per doubling; the gate applies
+to the exponent at the **largest** step, where superlinearity reads
+strongest (pre-fix `spine` read 1.26 at n=400 but 1.58 at n=1600).
+Peak RSS is fitted the same way for the shapes whose retained state
+grows with n (`chain`/`many`/`dag`/`thm`): max of 3 runs of the
+process tree's `ru_maxrss` (a Python `getrusage(RUSAGE_CHILDREN)`
+wrapper — portable, no GNU time dependency).  RSS is far noisier than
+instructions: on master the adjusted retention at the largest
+standard n is < 3 MB, inside allocator noise, so per-doubling RSS
+exponents there are meaningless.  The RSS gate therefore has a signal
+floor (16 MB adjusted at the top point — `dag`/`thm` legitimately
+retain ~8 MB at the deep sizes): below it the shape passes as
+"retention flat"; above it — where a real retention blowup lands at
+once — the largest-step RSS exponent must meet a generous gate
+(1.60).  Measured master retention: chain 0.7 MB @3200, many 2.3 MB
+@3200, dag 7.7 MB @6400, thm 8.4 MB @6400 — all linear-or-flat.
+
+**Modes.**  Standard (`tests/scale.sh`, also `--ci`): 4 points per
+shape (n..8n), ~1 min measured (budget 2-3 min on a loaded machine) —
+the merge-gate profile.  Deep (`--deep` / `SCALE_DEEP=1`): up to 6
+points (n..32n, per-shape caps keep the superlinear shapes bounded),
+~3-4 min measured (budget ~10 min) — for performance work and nightly
+runs; borderline standard-mode readings become unambiguous here, so
+the superlinear shapes carry separate deep-mode gates calibrated at
+the deep sizes.  No wall-time fallback exists: without working perf
+counters the harness prints a prominent SKIP notice and exits 0 (a
+flaky gate is worse than an absent one).  Without the
+lean-inductive-models preprocessor only the `-mod` shapes are
+skipped, with a notice.  Deliberately **not** part of `lake test`
+(`tests/SetlecTests.lean` is `#guard`-based build-time; scale needs a
+built binary, perf, and a process per stream): CI should invoke
+`tests/scale.sh --ci` as its own job step after `lake build`.
+
+**Gate rationale.**  Per-shape gates = measured master exponent +
+slack, not a blanket threshold.  Measured on master 4f63b6c and
+re-confirmed identical (±0.01) on 6e29d67 after merging tasks
+#95/#88 (2026-08-24, instructions adjusted per methodology; "std" =
+largest standard step, "deep" = largest deep step):
+
+| shape | std exponents per doubling | std | deep | gate std/deep | RSS |
+|---|---|---|---|---|---|
+| chain | 1.02 1.01 1.01 | 1.01 | 1.01 @3200 | 1.15 | flat |
+| spine | 1.02 1.01 1.01 | 1.01 | 1.01 @1600 | 1.15 | — |
+| many | 1.01 1.01 1.01 | 1.01 | 1.01 @3200 | 1.15 | flat |
+| telescope | 1.03 1.01 1.01 | 1.01 | 1.01 @1600 | 1.15 | — |
+| dag | 1.01 1.02 1.01 | 1.01 | 1.01 @6400 | 1.15 | flat |
+| delta | 1.02 1.01 1.01 | 1.01 | 1.01 @3200 | 1.15 | — |
+| fanout | 1.02 1.01 1.01 | 1.01 | 1.01 @3200 | 1.15 | — |
+| lets | 1.02 1.01 1.00 | 1.00 | 1.01 @3200 | 1.15 | — |
+| lparams | 1.16 1.32 1.49 | **1.49** | **1.78** @3200 | 1.65/1.95 | — |
+| thm | 1.01 1.00 1.01 | 1.01 | 1.00 @6400 | 1.15 | flat |
+| fields-raw | 1.76 2.02 2.31 | **2.31** | **2.74** @800 | 2.60/2.90 | — |
+| ctors-mod | 2.09 2.31 2.58 | **2.58** | **2.76** @64 | 2.90/3.00 | — |
+| fields-mod | 1.06 1.59 2.08 | **2.08** | **2.43** @128 | 2.40/2.70 | — |
+
+The nine flat shapes gate at 1.15 (tight — regressions past ~n^1.15
+fail immediately).  The four bold shapes are **superlinear on current
+master** — findings recorded by this harness, gated at measured+slack
+so they cannot silently get worse, to be fixed as their own tasks:
+
+* `lparams` (1.49 → 1.78 deep, rising toward 2): profile is dominated
+  by `Name` decidable equality under `Level.allParamsDefined`'s
+  `List.elem` and `Name.nodup` — per-declaration well-formedness does
+  O(n) linear list membership per parameter, O(n²) total.  The
+  references share this shape: on the same series the official
+  checker reads **1.41** and upstream nanoda **1.31** — a quadratic
+  everyone has, but setlec's curve is the steepest.
+* `fields-raw` (2.31 → 2.74 deep): the direct simple-structure
+  install spends ~40 % in tree-level
+  `Expr.instantiate1`/`instantiate1Lift` — per-field/projection
+  telescope instantiation on unshared trees.  The official checker is
+  **flat (1.07)** on the identical streams (nanoda reads 1.80), so
+  linear is achievable and this is setlec-specific.
+* `ctors-mod` (2.58 → 2.76 deep, against an input-size floor of 2.0,
+  i.e. ~ (input bytes)^1.4): attribution by running the pipeline
+  stages separately at n=64 puts ~3.4 G instructions in the
+  preprocessor but ~72 G in the checker on the preprocessed stream
+  (spread across `EStore.intern`, `instantiateListIGo`, `iotaRecI` —
+  the modeled install's per-rule work over n rules).
+* `fields-mod` (2.08 → 2.43 deep): both stages superlinear at n=64
+  (preprocessor ~1.5 G, checker ~2.5 G).
+
+**Reference comparison** stays a LOCAL script,
+`tests/scale/compare.sh` (references are not on CI): the same
+adjusted-median methodology applied identically to setlec, the
+official kernel checker, and **upstream** nanoda (override binary
+paths via `SET`/`OFF`/`NAN`).  2026-08-24 run: all three checkers
+flat on chain/spine/many/telescope/dag/delta/fanout/lets/thm; all
+three superlinear on lparams (setlec 1.49, official 1.41, nanoda
+1.31); on fields official is flat (1.07) while nanoda (1.80) and the
+setlec pipeline (2.62 through the preprocessor) are not.  Pitfall,
+spelled in the script header: the `_tmp/nanodatg` clone is the
+*certifying fork*, quadratic by design on several shapes — growth
+comparisons must use upstream nanoda, built from ammkrn/nanoda_lib.
+nanoda additionally *requires* structurally deduplicated table
+entries (it crashes on duplicates), which is why the generator
+hash-conses everything.
