@@ -152,6 +152,18 @@ theorem reduceNat_disc (ih : ScopedSim env f) (henv : EnvWF env)
                 | some _ => exact DiscV.throw _
             · exact DiscV.pure WScopedO.none
 
+/-- `reduceNat_disc` under the defeq-side fvar guard (the guard is the
+same pure `Bool` on both records, so the pruned branch is `pure none`
+twinned). -/
+theorem reduceNatIf_disc (ih : ScopedSim env f) (henv : EnvWF env)
+    {d : Nat} {e : Expr} (hw : WScoped d e) (g : Bool) :
+    DiscV env (WScopedO d)
+      (if g then reduceNat C env d e else pure none)
+      (if g then reduceNat G env d e else pure none) := by
+  cases g
+  · exact DiscV.pure WScopedO.none
+  · exact reduceNat_disc ih henv hw
+
 theorem iotaCerts_disc (ih : ScopedSim env f) (henv : EnvWF env)
     {d : Nat} :
     ∀ {args : List Expr} {ty : Expr}, WScoped d ty →
@@ -1437,10 +1449,10 @@ theorem defeqBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
   refine DiscV.bind (proofIrrel_disc ih henv ha' hb') (fun rpi _ => ?_)
   split
   · exact DiscV.pure trivial
-  refine DiscV.bind (reduceNat_disc ih henv ha') (fun o₁ ho₁ => ?_)
+  refine DiscV.bind (reduceNatIf_disc ih henv ha' _) (fun o₁ ho₁ => ?_)
   split
   · exact ih.site_defeq (ho₁ _ rfl) hb'
-  refine DiscV.bind (reduceNat_disc ih henv hb') (fun o₂ ho₂ => ?_)
+  refine DiscV.bind (reduceNatIf_disc ih henv hb' _) (fun o₂ ho₂ => ?_)
   split
   · exact ih.site_defeq ha' (ho₂ _ rfl)
   split

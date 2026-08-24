@@ -1476,6 +1476,50 @@ reference kernels, all safe-side: no failure cache for the same-head
 check yet, no `tryUnfoldProjApp`, no cheapProj (tracked as deferred
 tasks).  Arena suite wall time dropped ~33% (47s → 31s).
 
+### Defeq-side Nat folding: the fvar guard (2026-08-24, task #94)
+
+A **forbidden strategy superset** (match-reference ruling: the
+reduction strategy mirrors the reference kernels site by site — no
+supersets, even verdict-preserving ones) that real input detonated,
+found by the init-full frontier at 34.0 % (task #93 diagnosis).  `defeqBody`/
+`defeqBodyI` ran `reduceNat` during definitional equality
+*unconditionally*; the official kernel attempts defeq-side literal
+folding only when **both** whnfCore'd sides are free-variable-free
+(`type_checker.cpp`, `lazy_delta_reduction`:
+`if ((!has_fvar(t_n) && !has_fvar(s_n)) || m_eager_reduce)`), as does
+lean4lean (`TypeChecker.lean:782`).  On the *open* `Int32` arithmetic
+pairs of `_private.….Int32.instUpwardEnumerable_eq`, the unguarded
+attempt whnfs an open argument (`x + 2147483647`-shaped), which
+delta-unfolds `Nat.add` and iota-grinds its `Nat.brecOn` tower down
+the literal unarily toward `2^31` `succ` steps — fuel exhaustion,
+exit 3.  With the guard the pair falls through to the `sameRegular`
+spine-congruence path (the official kernel's `is_def_eq_args`) and
+reduces cheaply.
+
+Implementation: both defeq-side call sites (plus the `defeqBodyNC`
+twin) wrap `reduceNat` in `if fold then … else pure none`, `fold` =
+both sides fvar-free — `Expr.hasFvar` on the spec body (no more than
+the `a' == b'` comparison already there), the `O(1)` eager fvar-range
+read `hasFvarI` (task #86) on the interned twins.  The whnf-loop
+`reduceNat` stays **unguarded** — the official whnf loop is unguarded
+too; exact parity, no over-correction.  Verification: the guard only
+*prunes*, so each proof keeps its shape via a per-file guarded wrapper
+over the existing step lemma (`reduceNatIf_disc`, `reduceNatIf_shift`
++ `hasFvar_shiftFrom`, `reduceNatIfI_sim` behind a `SimAt.withStore`
+peel + `hasFvarI_spec`), and `defeq_claims` extracts the underlying
+`reduceNatP` run from a `some` result before `reduceNat_sound`
+(a false guard yields `ok none`, closing that case vacuously).
+
+Acceptance: the repro slice (`_tmp/init-exports/
+repro-int32-upward-enum-pre.ndjson`, 154 k lines, kept out of tree)
+flips exit 3 → 0 in both modes; committed as the minimal e2e fixture
+`reducenat_guard.ndjson` (`tests/e2e/src/reducenat_guard.lean`: open
+`x + 2147483647 + 1 ≡ Nat.succ (x + 2147483647)`, verified to
+detonate pre-fix and accept post-fix).  Arena/e2e/scale verdicts
+otherwise unchanged; init-prelude probe 20.94 G yolo / 27.22 G cert
+(vs 22.02/28.03 at the merge base — the guard also stops fruitless
+whnfs of open arguments during defeq).
+
 Modeled-install soundness architecture (2026-08-19, in progress): the
 fold facts for a modeled recursor come from eliminating its checked
 `R._model.iota_j` theorem.  The pipeline: the kernel's iota

@@ -1561,6 +1561,20 @@ theorem reduceNatI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
 
   | proj s'ᵢ j e' => invert_node hd; exact SimAt.pure hs trivial
 
+/-- `reduceNatI_sim` under the defeq-side fvar guard (the guard is the
+same `Bool` on both sides after the `hasFvarI` read is peeled, so the
+pruned branch is `pure none` twinned). -/
+theorem reduceNatIfI_sim (ih : SSimI env f) {d : Nat} {i : EIdx}
+    {e : Expr} {s₀ : IState} (hs : ISOK env s₀)
+    (hden : s₀.store.denote i = some e) (hw : WScoped d e) (g : Bool) :
+    SimAt env s₀ (RelO d)
+      (if g then reduceNatI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i
+        else pure none)
+      (if g then reduceNat (fueledFns env) env d e else pure none) := by
+  cases g
+  · exact SimAt.pure hs trivial
+  · exact reduceNatI_sim ih hs hden hw
+
 end Walks4
 
 end Setlec

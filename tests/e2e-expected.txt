@@ -196,3 +196,13 @@
 # lines — malformed input is a hard error (exit 3) with the line
 # number, identically under the streaming frontend (task #57).
 3 malformed_midstream.ndjson
+# reducenat_guard.ndjson (task #94): defeq-side Nat-literal folding is
+# guarded on both sides being fvar-free (official kernel
+# lazy_delta_reduction; lean4lean TypeChecker.lean:782).  Unguarded,
+# this open pair whnfs the open argument `x + 2147483647`,
+# delta-unfolds Nat.add, and grinds the Nat.brecOn tower down the 2^31
+# literal to fuel exhaustion (exit 3); guarded it reduces cheaply.
+# Minimal spelling of the Int32 instUpwardEnumerable_eq detonation in
+# the full Init export (kept as _tmp/init-exports/
+# repro-int32-upward-enum-pre.ndjson, see DESIGN).
+0 reducenat_guard.ndjson

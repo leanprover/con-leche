@@ -333,6 +333,14 @@ checker run at depth `d` with the run at depth `d + 1` whose opened
 Everything the checker core does to expressions commutes with the
 shift; this section collects those commutations. -/
 
+/-- Shifting preserves `hasFvar` (an `fvar` stays an `fvar`). -/
+theorem hasFvar_shiftFrom {p : Nat} :
+    ∀ {e : Expr}, (shiftFrom p e).hasFvar = e.hasFvar := by
+  intro e
+  induction e with
+  | fvar idx n ty ih => simp only [shiftFrom]; split <;> rfl
+  | _ => simp_all [Expr.hasFvar, shiftFrom]
+
 /-- A term without `fvar`s is untouched by shifting. -/
 theorem shiftFrom_eq_self_of_not_hasFvar {p : Nat} :
     ∀ {e : Expr}, e.hasFvar = false → shiftFrom p e = e := by

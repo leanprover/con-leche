@@ -1720,10 +1720,16 @@ def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM Bo
     -- proof irrelevance hoisted before lazy delta, as in the spec
     -- (and the official kernel)
     if ← proofIrrelI r fe depth a' b' then pure true else
-    match ← reduceNatI r fe depth a' with
+    -- Literal folding only when both sides are fvar-free, mirroring
+    -- the official kernel (`type_checker.cpp`, `lazy_delta_reduction`)
+    -- and lean4lean (`TypeChecker.lean:782`); see `defeqBody` for the
+    -- full rationale.  `hasFvarI` is an `O(1)` read of the eager
+    -- per-node fvar-range array.
+    let fold ← withStore fun st => !st.hasFvarI a' && !st.hasFvarI b'
+    match ← (if fold then reduceNatI r fe depth a' else pure none) with
     | some a₂ => r.defeq depth a₂ b'
     | none =>
-    match ← reduceNatI r fe depth b' with
+    match ← (if fold then reduceNatI r fe depth b' else pure none) with
     | some b₂ => r.defeq depth a' b₂
     | none =>
     match ← unfoldDefinitionI fe a', ← unfoldDefinitionI fe b' with

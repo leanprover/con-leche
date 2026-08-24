@@ -487,6 +487,29 @@ private theorem reduceNat_shift (_henv : EnvWF env)
             | none => cases rawNatLit? w₂ <;> rfl
             | some n₁ => cases rawNatLit? w₂ <;> rfl
 
+/-- `reduceNat_shift` under the defeq-side fvar guard: the pruned
+branch is `pure none` on both sides. -/
+private theorem reduceNatIf_shift (henv : EnvWF env)
+    (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) {e : Expr}
+    (hw : WScoped d e) (g : Bool) :
+    (if g then reduceNat (pureFns env fuel) env (d + 1) (shiftFrom p e)
+      else pure none) =
+      (if g then reduceNat (pureFns env fuel) env d e
+        else (pure none : CheckM (Option Expr))).map
+        (Option.map (shiftFrom p)) := by
+  cases g
+  · rfl
+  · exact reduceNat_shift henv ih hpd hw
+
+/-- A `some` result of the guarded fold always comes from `reduceNat`
+itself (the pruned branch returns `none`). -/
+private theorem reduceNatIf_some {g : Bool} {x : CheckM (Option Expr)}
+    {a : Expr} (h : (if g then x else pure none) = .ok (some a)) :
+    x = .ok (some a) := by
+  cases g
+  · exact absurd h (by simp [pure, Except.pure])
+  · exact h
+
 private theorem iotaCerts_shift (henv : EnvWF env)
     (ih : ShiftClaims env fuel) {p d : Nat} (hpd : p ≤ d) :
     ∀ {args : List Expr} {ty : Expr}, WScoped d ty →
@@ -2180,24 +2203,26 @@ private theorem defeq_step (henv : EnvWF env)
   refine bind_congr_eq (proofIrrel_shift henv ih hpd hwwa hwwb) ?_
   rintro rpi -
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
-  -- literal acceleration branches
+  -- literal acceleration branches (guarded on fvar-free sides; the
+  -- shift preserves the guard)
+  simp only [hasFvar_shiftFrom]
   refine bind_congr (Option.map (shiftFrom p))
-    (reduceNat_shift henv ih hpd hwwa) ?_
+    (reduceNatIf_shift henv ih hpd hwwa _) ?_
   intro oa hoa
   cases oa with
   | some a₂ =>
     have hwa₂ : WScoped d a₂ := by
-      rcases reduceNat_inv hoa with ⟨n, rfl⟩ | ⟨bn, rfl⟩ <;>
+      rcases reduceNat_inv (reduceNatIf_some hoa) with ⟨n, rfl⟩ | ⟨bn, rfl⟩ <;>
         simp [WScoped]
     exact ih.defeq hpd hwa₂ hwwb
   | none =>
   refine bind_congr (Option.map (shiftFrom p))
-    (reduceNat_shift henv ih hpd hwwb) ?_
+    (reduceNatIf_shift henv ih hpd hwwb _) ?_
   intro ob hob
   cases ob with
   | some b₂ =>
     have hwb₂ : WScoped d b₂ := by
-      rcases reduceNat_inv hob with ⟨n, rfl⟩ | ⟨bn, rfl⟩ <;>
+      rcases reduceNat_inv (reduceNatIf_some hob) with ⟨n, rfl⟩ | ⟨bn, rfl⟩ <;>
         simp [WScoped]
     exact ih.defeq hpd hwwa hwb₂
   | none =>
