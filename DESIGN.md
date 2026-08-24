@@ -974,6 +974,34 @@ hard build error.  Contract points:
   the supported streams and intersected per op.  The install-time
   `constsResolve` guards remain the actual gate; the allowlist only
   makes generation fail early and loudly.
+* **Prefix allowlists vs. stream order (2026-08-24).**  The original
+  allowlists were extracted from Init streams only; a cert proof may
+  then reference any constant Init happens to declare before the op,
+  which other stream orders need not provide.  Concretely: Mathlib's
+  full export declares `Nat.log2_terminates` *after* `Nat.log2`
+  (log2's exported value does not depend on it — the WF termination
+  theorem is a sibling, not a dependency), so the log2 certificates'
+  reference to it (via the inlined `Nat.log2_def`) failed
+  `constsResolve` and the full Mathlib run declined at `Nat.log2`
+  (decl 50,769, 16.9 %); a dependency-closure slice additionally
+  lacked `funext`/`Eq.subst`/`Eq.propIntro`/`of_decide_eq_true`
+  before `Nat.land` and `funext` before `Nat.gcd`.  Fix: regenerate
+  `scripts/natop_prefix.json` intersecting the Init streams with
+  `mathlib-full(-pre)` and the scoping slice — the generator then
+  *inlines* the dropped names (all plain theorems; inlining `funext`
+  pulls in `Quot.mk/lift/sound`, which every stream declares at the
+  start).  Diagnosis and re-verification: dump the generated blobs'
+  constants and diff them against a stream's declared-before-op
+  prefix; after the regeneration the only unresolved name per op is
+  the op itself, which the install gate substitutes away before the
+  `constsResolve` check.  The residual risk is inherent to the
+  design: the allowlists promise validity only for the *supported*
+  streams; a new stream order surfaces as this same positive decline,
+  and the remedy is to add that stream to the extraction inputs.
+  Rebuild caveat: the json is embedded into `Setlec/PinGen.lean` via
+  `include_str` and Lake tracks neither that edge nor the certs
+  module; `touch` does nothing (content-hash traces) — delete the
+  `PinGen*`/`NatOpPins*` build artifacts to force regeneration.
 * **StdAxioms pins** are small and stay vendored
   (`Setlec/Kernel/StdAxioms.lean`); basis blocks (`PSigma'` …) are
   preprocessor-owned and out of scope for the generator.
@@ -2171,8 +2199,9 @@ stream moves from declaration 29,661 (9.8 %) to **50,769 (16.9 %)**:
 the new frontier is `Nat.log2`, "unsupported Nat.div/mod spelling
 (pin ground constants absent)" — the Nat-ops certified-fast-path pin
 allowlists (`scripts/natop_prefix.json`) were extracted from Init
-streams and do not cover the Mathlib stream's ordering/spelling; a
-separate subsystem, follow-up task.
+streams and do not cover the Mathlib stream's ordering/spelling;
+fixed by regenerating the allowlists over the Mathlib streams too
+(see "Prefix allowlists vs. stream order" in the pin-ops section).
 
 **Slim recursor metadata (2026-08-22, task #46).**  Stored recursor
 metadata is exactly what the firing path reads.
@@ -5606,6 +5635,326 @@ decisions to align are exactly the ones that read a binder annotation
 reads `codOf` on the raw side against the stored `cod` on the ghost
 side.
 
+### Raw storage stage 4d: the install combinators at `Env.TwinAt` (2026-08-24, task #100)
+
+`RawEnvModelE` was already parametric in the twin relation, so moving
+from plain erasure to the end-state relation is a re-proof of the
+install combinators and nothing else.  `Setlec/Model/RawEnvN.lean` is
+that re-proof: `RawEnvModelE.extendN` / `extend_oneN` and
+`extend_model_rawN` with its `_defn` / `_axiom` / `_thm` instances,
+all at `Env.TwinAt O f` (`aenv.eraseCodS = Env.norm O f env`).
+
+Two things had to be built underneath:
+
+* the **shallow**-erasure invariances (`Expr.hasFvar_eraseCodS`,
+  `looseBVarsBounded_eraseCodS`, `constsResolve_eraseCodS`).  These are
+  stage 1's erasure invariances with the `fvar` clause replaced by
+  `rfl` — `eraseCodS` does not descend into annotations — plus name
+  preservation on both sides (`Env.find?_eraseCodS`, `Env.find?_norm`),
+  which is what turns a raw-side freshness certificate into a
+  witness-side one and lets `constsResolve` cross between the two
+  environments (`Expr.constsResolve_congr`, already in
+  `Setlec/Verify/EnvWF.lean`);
+* `NormOracleOk`, the bundle of the three oracle hypotheses the
+  stage-4d-prep `norm` congruences carry (`hasFvar` / `bounded` /
+  `consts` of the projection rewrite's output).  It is the twin of
+  `CodAgree`: discharged at the flip from what the annotation pass
+  established, never proved on its own.
+
+Note the asymmetry the split makes visible: raw-side certificates ride
+`norm_*` congruences *forward* (stored ⇒ witness), which is the
+direction the install needs.  The guard sweep below needs the other
+direction, and that is where the flip's remaining difficulty sits.
+
+### Finding: the storage flip is all-or-nothing (2026-08-24, task #100)
+
+The stage-4b handoff estimated the flip as surgical — "storage is
+exactly the `readbackEM` argument".  A scouting build says otherwise,
+and the finding is worth more than the estimate it replaces.
+
+**The probe.**  The parsed-index non-inductive installs only
+(`checkConstantValP` returning a raw `ConstantVal` beside the
+annotated one; `checkDefnValP` / `checkThmValP` / `checkOpaqueValP` and
+the axiom branch storing the parsed type and value; `recordIConst`
+pairing the *stored raw object* as the tag with the *annotated* index,
+which is decision 1's first option).  The immediate guards kept reading
+the annotated `cvA`, so nothing about the tree that is *checked*
+changed.  `Main` imports only `Setlec/Kernel/*` and
+`Setlec/Frontend/*`, so the binary builds without the proof layers —
+scouting a kernel change costs one `lake build setlec`.
+
+**The result.**  arena 90/92 → **46/92**, e2e 62/62 → **27/62**,
+init-prelude probe exit 0/3653 → **exit 2 in 0.5 s** at the first
+modeled inductive (`LT`).  Every single failure is the same decline:
+*"model type mismatch for `X`"* — the modeled-inductive syntactic
+contract, which compares a block member's stored type against the
+stored type of its `_model` counterpart.  The `_model` records arrive
+as ordinary stream **definitions** (so they flipped) while the block
+members are installed by the `Expr`-level inductive driver (so they did
+not), and the two differ at every annotated binder.
+
+**The lesson.**  Storage annotation-consistency is a *global* property
+of the environment.  Every comparison between two stored trees — the
+modeled-inductive contract is the loudest, but every
+`ConstantVal.matchesPin`, every `fe.find? n == some cA` pin test, every
+`_model` renaming comparison is one — silently breaks when one install
+path has flipped and another has not.  There is no verdict-preserving
+partial flip and no flag-gated intermediate: the flip lands across
+every install path at once, or not at all.
+
+The probe also produced a *positive* result, which is the mechanism
+decision 1 rests on: the 46 arena tests that still pass, and the
+absence of any exit 3, show that a raw stored tag paired with an
+annotated arena index carries `constTyAtM` / `constValAtM` through
+delta unfolding unchanged — the interned environment really is the
+place the annotations can live.  What the probe shows missing is
+*coverage*.
+
+### Handoff: what the storage flip actually needs (task #100 stage 4b/4c)
+
+Three chunks, in dependency order.  Only the third is model-side; the
+first is the largest and is verdict-identical by construction, so it
+can land on its own.
+
+**A. The annotated shadow index (`ienv`) must become total.**  Today
+only `checkDefnValP` / `checkThmValP` / `checkOpaqueValP` and the axiom
+branch call `recordIConst`.  Everything else pushes a `ConstantInfo`
+with no entry: inductive-block members and recursors
+(`checkIndMemberS`, `provisionRecsS`, `checkIndRecsS`), projection
+functions and elimination templates (`installProjFnStepS`,
+`installProjTemplateStepS`), the direct-structure path
+(`checkDirectStructS`), and the basis pins (`installBasisDeclF`).
+Worse, two arena entry points have **no entry mechanism at all** and
+intern the stored tree directly:
+
+* `ruleRhsAtM` (`Setlec/Kernel/CoreI.lean`) — `internExprM rl.rhs`,
+  the iota rule right-hand sides;
+* `pinArgsI` — `internExprM p`, the `RecRuleFire.nested` pins.
+
+After a flip these would intern *raw* trees, and the
+annotation-reading clauses of `inferType` / `isDefEq` would meet
+`cod = none`: an internal error (exit 3), not a verdict change.  So
+chunk A is "every stored tree the kernel ever interns is reachable
+through an annotated arena index", which needs new keyed entries for
+rule RHSs and nested pins alongside the per-constant ones.  Note the
+paths that *synthesize* their records (projection functions,
+elimination templates, the direct-structure recursor) have no parsed
+original, so their raw form is the erasure of what the checker built —
+`Expr.eraseCodS` has to become a kernel function for them.
+
+Chunk A changes no verdict (an ienv hit returns an index denoting the
+same tree the fallback would have interned) and is provable in today's
+framework: `ISOK.ienv` and `ISOK.insertIEnv` stay as they are, and each
+install-path simulation gains one `recordIConst_eff` step.
+
+*Why the arena index, and not `decorate`?*  Stage 2 (`codOfI`) and
+stage 3 (`decorate`) were built for the other answer — recompute the
+annotations on read, inference-free, from the codomain memo.  That
+answer is only available for storage that is the annotation pass's
+*output with its annotations dropped*: `decorate_eq` reconstructs
+`ê` from `ê.eraseCodS`, and nothing else.  The stage-4a ruling stores
+the **parsed** record, which differs from `ê.eraseCodS` by exactly the
+two skeleton-changing clauses `norm` models (zeta, projection
+rewrite) — so rebuilding the annotated tree from what is stored is not
+decoration but re-running `annotate`, i.e. full inference, per
+stored-constant read, against a memo (`annotC`) that is flushed at
+every environment transition.  That is not affordable.  Under parsed
+storage the annotated tree therefore has to be *retained* — which is
+what the arena already does — and the flip's real content is making
+every stored tree reachable through its arena index.  If a future
+ruling moved storage to `eraseCodS` of the annotation pass's output,
+chunk A would collapse to `decorate` at the four entry points and
+chunk B would collapse to uniformly-erased comparands; that trade is
+worth re-examining before chunk A is built.
+
+**B. The guard sweep, and the congruence direction it needs.**  The
+handoff's decision 2 (retarget `natLitSupportedF` / `strLitSupportedF`
+to the stage-1 raw forms) is right in outline and wrong in direction.
+Stage 1 proves `natLitSupportedRaw_erase : natLitSupported env = true →
+natLitSupportedRaw env.eraseCod = true` — annotated ⇒ raw.  A raw
+kernel *tests* the raw guard and the model *needs* the annotated one,
+so the flip consumes the **converse**, which is not an erasure
+invariance: it is true only because a binder's `cod` is a function of
+the skeleton and the environment (the annotation pass recomputes it),
+i.e. it is the same fact `decorate_eq` packages.  Every guard that
+pin-matches a stored tree is in this class:
+`natOpTyPinnedF` / `natOpStoredOkF`, `reduceStoredOkF`,
+`ofReduceAxOkF`, `divModEnvGuardF`, `checkEtaThmF` / `checkUnitThmF`,
+`directPartsF?`, the `fe.find? eqName = some eqA` tests, and the
+modeled-inductive `_model` comparison.  Two ways out per guard, to be
+decided guard by guard: prove the converse congruence, or keep the
+guard on the *annotated* tree by reading it through the ienv index
+(an arena-level guard).  The second preserves verdicts by construction
+and is probably right for the pin-matching guards, whose comparands are
+fixed annotated trees.
+
+**C. The two-env seam.**  `SimAt env s₀ Rel (interned at `mkFEnv env`)
+(pure at `env`)` carries **one** environment parameter, and
+`mkFEnv env` occurs ~340 times across 18 `Setlec/Verify/*` modules.
+After the flip the interned driver's `fe` is the raw environment while
+the ghost pure run is at the annotated one, so either the sim's env
+parameter splits into a linked pair (a large mechanical refactor whose
+`find?`-agreement rewrites become per-field twin relations), or the raw
+environment never reaches `coreKnotI` at all.  The cheap version of the
+second — `FEnv`'s index keeps annotated records and only the
+accumulated `Env` is raw — leaves the whole sim layer untouched and
+makes the top-level theorem speak about the parsed trees, but retains
+both trees at runtime, so it is a staging post, not the end state.
+Recorded explicitly as a fork for the orchestrator: it buys the
+*statement* half of task #100 (the accepted environment is the user's
+trees) at ~2× stored-tree memory and without the *computation* half
+(the kernel computing on raw trees).
+
+`RawEnvModelN` and its install combinators (stage 4d, above) are the
+landing point for whichever route C takes; nothing in the model layer
+blocks any of them.
+
+**Not a fork, for the record.**  Storing `eraseCodS` of the annotated
+tree instead of the parsed tree would make chunk B's congruences
+trivial (both sides of every comparison are uniformly erased) but
+changes nothing about chunks A and C, and contradicts the stage-4a
+ruling that storage is the parsed record untouched.  Computing the
+erasure only at `checkDeclsSP`'s return is a one-line change that
+buys the statement and nothing else — the kernel would still store and
+compute with annotated trees throughout.
+### Finding: annotation-free *consumption* is a kernel change the model cannot follow (2026-08-24, task #100)
+
+The orchestrator's fork resolution on the all-or-nothing finding was to
+invert the order: instead of building the annotated shadow index
+(chunk A), first make the checker's **consumption** annotation-free —
+every site that reads a binder's stored `cod` recomputes it with the
+memoized `codOf` (stage 2) — so that the storage flip would need no
+shadow.  That inversion was built and measured.  It works in the
+kernel and is **blocked in the model**, for a reason that applies to
+every site at once.  Both halves are recorded here; the scouting patch
+is `_tmp/annotfree-consumption.patch` (kernel-only, `lake build
+setlec`).
+
+**The inventory** — every read of a stored `cod` on the checking path,
+with what happens to it when the tree is raw:
+
+| site (`Setlec/Kernel/CoreI.lean`) | reads | on `cod = none` today |
+|---|---|---|
+| `inferBodyI` `∀`-clause | the imax rule's codomain level | `throw .internal` (exit 3) |
+| `inferBodyI` λ-clause / `inferLamsI` / `inferLamsOutI` | the λ-annotation, re-checked against the recomputed body sort and reused as the built `∀`'s meta | `throw .internal` (exit 3) |
+| `defeqBodyI` `∀`/λ clauses | the two binder cods, compared with `isEquivLM` | `throw .internal` (exit 3) |
+| `etaCertI` | λ-cod vs the function type's `∀`-cod | silently `false` — an accept can become a reject |
+| `whnfAppI` / `betaPeelI` | the possibly-Prop beta gate | silently *no beta at all* — arbitrary verdict change |
+| `codNonZeroIM` (← `inferSpineI`, `iotaCertsGIAux`) | the possibly-Prop iota/app-spine gate | `false` — certifies instead of skipping (verdict-preserving, slower) |
+| `natCod1` / `natOpTyPinned` / the pin guards (`Setlec/Kernel/Core.lean`) | *stored* trees, at install time | chunk B, unchanged by this stage |
+
+The recomputation is exactly what `annotateBody` does: a `∀`-binder's
+slot is `codOf` of its opened body (`binderCodPiI`), a λ-binder's is
+`codOf` of the opened body's *inferred type* (`binderCodLamI`); both
+memoized through `codOfI`.  `ensureSortI`, `memoLI` and the `codOf`
+pair move up in the file so the core bodies can call them.
+
+**The kernel result: verdict-identical, +45.7 %.**  With every site
+switched — the gates in their "always certify" form, which is what a
+raw tree forces — the checker is bit-for-bit as accurate and
+measurably slower:
+
+* arena 90/92, e2e 64/64 (`tests/arena.sh` compares exit codes against
+  the expectations file, so a clean run *is* the exit-code diff);
+* init-prelude probe exit 0 (3653/3653);
+* init-full exit 0, **61 048 declarations accepted**, output byte-identical
+  to master's (301 s → 353 s wall, +17 % — the full stream is far more
+  parse/IO-bound than the probe);
+* init-prelude instructions 21.47 G → 31.27 G (**+45.7 %**).
+
+The cost decomposes (init-prelude, `perf stat -e instructions:u`,
+master = 21.47 G), and the decomposition is the interesting part:
+
+| switched | G instr | Δ |
+|---|---|---|
+| master (annotations read everywhere) | 21.47 | — |
+| `defeq` binder cods + `etaCertI` + `inferLams` via `codOf` | 21.61 | +0.6 % |
+| ⋯ + `inferBodyI`'s `∀` clause via `codOf` | 22.87 | +6.5 % |
+| ⋯ + beta gate always-certifying | 27.10 | +26.2 % |
+| ⋯ + iota/app-spine gates always-certifying (fully annotation-free) | 31.27 | +45.7 % |
+| (variant: beta gate via `codOf` instead of always-certifying) | 76.3 | +255 % |
+
+So recomputation itself is nearly free where the checker already
+inferred the relevant term (`defeq`, `etaCert`, the λ-telescope — the
+λ-clause even gets *cheaper*: `inferLamsOutI`'s per-binder
+`isEquivLM` re-check against the annotation disappears, the recomputed
+`vcur` being the annotation's own definition).  What costs is the
+**possibly-Prop gates**: they exist to *avoid* an inference, so paying
+an inference to decide them (+255 %) is absurd and skipping them
+(always certify, +39 % between them) is the only sane raw form.  Note
+the gates degrade *gracefully* — `cod = none` already means "certify" —
+so this half of the price is what a flip would pay even with no
+consumption work at all.
+
+**The model result: no consumption site is switchable.**  `interpExpr`
+reads `m.cod` at every binder (`Setlec/Model/Interp.lean`); every
+soundness clause is therefore stated at the *stored* level, and a
+recomputed level is a different object with no connection to it:
+
+* `Setlec/Model/Core/Infer.lean` `forallE` case interprets the node as
+  `pi (v₀.eval φ) A B` with `v₀` from `m'.cod` and concludes membership
+  in `univ ((imax u v₀).eval φ)` — returning `imax u v_computed`
+  instead needs `v_computed ≈ v₀`;
+* the same file's app case discharges the gate through
+  `codNonZero_eq_true → mPi.cod = some v₀ → pi_pos` on the
+  *interpreted* Π — the nonzero bit must be the interpretation's, not a
+  recomputed one;
+* `defeq`'s binder clause needs `(m₁.cod = 0) ↔ (m₂.cod = 0)` to equate
+  the two interpretations, and `AnnotOk` cannot supply it: its clauses
+  are semantic memberships (`w ∈ˢ univ (v.eval φ)`) and `univ` is
+  cumulative (`univ_mono`), so the stored level is *not* recoverable
+  from the interpretation — the same non-determination
+  `Setlec/Model/RawEnvNoAnnot.lean` proves for the classifier bit.
+
+The bridge the switch would need is `codOf(e) ≈ the stored cod` **at
+every use site**, i.e. on reducts, after substitution, delta unfolding
+and level instantiation — a syntactic sort-stability (subject
+reduction for sorts) theory that the annotation-first design exists
+precisely to avoid.  `decorate_eq` gives it for a tree that *is* the
+annotation pass's output; nothing gives it for that tree's reducts.
+
+**Three architectures, and the fork.**
+
+1. **Chunk A (annotated arena index).**  Stored trees reach the
+   checking path only through their annotated arena index, so every
+   decision is made on inherited annotations, exactly as today.
+   Verification unchanged; no runtime cost; the price is retaining the
+   annotated trees in the arena (memory, ~2× on stored trees).
+2. **Computed consumption + bisimulation against a stored-annotation
+   shadow.**  Needs the bridge above at every site.  Not costed
+   further: the bridge is a new theory, not a proof effort.
+3. **Computed consumption + an interpretation parameterized by the
+   `codOf` oracle.**  Make `interpExpr`/`AnnotOk` take the binder level
+   from the same oracle the kernel reads, so truthfulness becomes
+   self-establishing (`⟦b⟧ ∈ univ (codOf b)` *is* `infer_sound` +
+   `ensureSort`).  This is the only route in which annotations
+   disappear from the model too, and it is consistent with
+   `RawEnvNoAnnot` (which says the bit must come from inference — here
+   it does).  It re-signatures `interpExpr`, `AnnotOk` and every
+   transport lemma in `Setlec/Model/*`, and it still pays the +39 %
+   gate price, since an oracle-parameterized model does not make the
+   gates cheap.
+
+*Considered and rejected inside 2:* letting the shadow tree *be* the
+decoration of the raw tree by the kernel's own memo, so that the
+decisions agree by construction.  It collapses back to the bridge: the
+model's transport lemmas (`AnnotOk_beta`, `AnnotOk_zeta_step`) produce
+the reduct with its annotations **inherited by substitution**, while
+the memo re-decorates the reduct from scratch, and the two coincide
+only if `codOf` is stable under the checker's own substitutions — the
+bridge again.
+
+Recorded as a fork for the orchestrator; **nothing from this stage is
+landed**, because the model-friendly-looking subset (infer's `∀`/λ
+clauses, +6.5 %) turns out not to be model-friendly either, and would
+be pure loss under architecture 1.
+
+**What this changes in the flip map.**  Chunk A is *not* deleted: it is
+the only route that keeps the verification, and it is now understood
+not as "make the shadow total so raw trees never reach the checker" but
+as "the checker's decisions must be made on annotated trees, because
+the model's every clause is stated at the stored annotation".  Chunks B
+(guard sweep) and C (two-env seam) are unaffected by this stage.
 ## fields-raw: the near-cubic direct install (2026-08-24, fix/fields-raw-cubic)
 
 The harness's `fields-raw` finding (2.31 std / 2.74 deep against an
@@ -5693,3 +6042,81 @@ become state-conditional and the `BridgeS3` walks must carry them),
 with the references; touches every stored type and the tag-reading
 interpretation lemmas), or (c) changing what the direct install
 stores per projection (route X: the comparands themselves).
+
+## Correct-by-construction arena: ArenaWF + WFStore (2026-08-24, task #103)
+
+Arena validity is now a property of the *type*.  `Setlec/Kernel/WFStore.lean`
+defines `WFStore` — an `EStore` bundled with its invariant `EStore.WF` — so
+downstream code never states, checks, or threads a well-formedness
+hypothesis: every value of the type carries it (the `Std.HashMap` pattern).
+The proof field is erased; the generated C represents `WFStore` exactly as
+`EStore` (verified: `WFStore.empty` *is* the `EStore.empty` object, `ofRaw`
+is the identity, each op calls the raw op and reuses the returned pair in
+place), so the bundle is a zero-runtime-cost wrapper.
+
+**Layering resolution.**  The layering rule is liberalized (user decision):
+implementation may import a *self-contained data-structure verification* —
+one that imports no other Model or Verify modules.  Accordingly the arena's
+verification moved, as a pure reorganization (statements identical, all
+existing proofs re-elaborate), from `Setlec/Verify/IExpr.lean` into the
+kernel-layer `Setlec/Kernel/ArenaWF.lean`, which imports only
+`Setlec.Kernel.IExpr`: the denotations (`denote`/`denoteL`/`denoteN`), the
+child-list spec functions, `EStore.WF` with `empty_wf` and the
+`intern*_wf` preservation lemmas, the whole-tree round-trips
+(`internExpr_spec` etc.), canonicity (`denote_eq_iff`), the derived-field
+spec functions (`Expr.bvarBound`, `Expr.fvarRange`, `Level.hasParam`,
+`Expr.hasLevelParam`) with their exactness facts
+(`WF.bvarBoundD_exact` …), and `internExprFast_eq`.
+`Setlec/Verify/IExpr.lean` keeps everything that is *not* arena-intrinsic:
+the traversal-operation commutation proofs, the memo invariants, and the
+two bridges that mention `fvarsBelow` (`fvarsBelow_iff`,
+`WF.fvarRangeD_le`) — those need `Setlec/Verify/Shift.lean`, which the
+self-contained module must not import.
+
+**The bundle interface** (`Setlec/Kernel/WFStore.lean`): constructors
+`empty` / `ofRaw` (seed from a raw store + proof, e.g. `wfB_wf` at a trust
+boundary); single-node `intern`/`internL`/`internN` taking the in-range
+side conditions as erased hypotheses, plus checked `intern?`/`internL?`/
+`internN?` variants that verify them at runtime (`O(children)` per record);
+hypothesis-free whole-tree `internExpr`/`internExprFast`/`internLevel`/
+`internLevels`/`internBM`/`internName`; the eager derived reads
+(`bvarBoundD`, `fvarRangeD`, `lhasParamD`, `ehasParamD`, `readbackN`,
+`beqNameI`) with unconditional exactness lemmas.  Every op satisfies a
+definitional `*_raw`/`*_idx` equation exposing the raw op, and extraction
+is just the field (`s.wf : s.raw.WF`), so the entire existing lemma
+library applies to bundle results unchanged.  On the bundle the fast path
+is *equal* to `internExpr` (`internExprFast_eq_internExpr`) — the WF
+hypothesis of `internExprFast_eq` is in the type.
+
+**Wiring plan (deferred — waits for task #100's storage flip to settle;
+the checker does not consume the bundle yet).**  Call sites that change:
+
+* `Setlec/Frontend/Export.lean`: the parse `State.store : EStore` becomes
+  `WFStore`.  `State.intern'`/`internL'`/`internN'` — whose child indices
+  come from the export tables' index-translation maps, i.e. untrusted
+  input — go through the checked `intern?`/`internL?`/`internN?` (a
+  `none` is a malformed export record, exit 1 territory); the
+  `internLevels`/`internName` calls in the model-name path are already
+  hypothesis-free.  The per-record guard replaces the one-shot sweep.
+* `Setlec/Kernel/CheckerNC.lean` (~line 444): the `unless st.wfB` seam
+  check and its "parse store not canonical" internal error are deleted —
+  the parser hands over a `WFStore`, so there is nothing to validate.
+* `Setlec/Kernel/CoreI.lean`: `IState.store` becomes `WFStore`.  The
+  linearity dance (`{ s with store := EStore.empty }` take/put-back)
+  carries over verbatim since the representation is identical.  The
+  checker-internal single-node interns build nodes from indices obtained
+  from the same (append-only) store; their in-range evidence comes from
+  `intern_lt` + `Ext` monotonicity where the context has it, or the
+  checked variants where threading it is not worth it.
+* `Setlec/Kernel/CheckerS.lean`/`CheckerBase.lean`: entry runners intern
+  via the bundle; `runEntryE`'s fresh arenas start from `WFStore.empty`.
+* Deletions once no seam validates: `wfB`/`wfBNodes`/`wfBLNodes`/
+  `wfBNNodes` (`Setlec/Kernel/IExpr.lean`), `wfB_wf` and the wfB-conjunct
+  widening facts in `Setlec/Verify/ParseP.lean` (ParseP then certifies
+  parse success only, not canonicity — the bundle carries it).  Until the
+  flip, `WFStore.ofRaw st (wfB_wf h)` is the transitional seed.
+* Verify-side payoff: proofs that thread `st.WF` hypotheses through
+  `ISOK`/state invariants can take them from the bundle (`s.wf`),
+  shrinking hypothesis plumbing incrementally; DAG verification is now
+  independent of checker verification (the arena module has no checker
+  imports).

@@ -13,6 +13,8 @@ import Setlec.SetTheory.Basic
 import Setlec.SetTheory.Core
 import Setlec.SetTheory.Aczel
 import Setlec.Kernel.IExpr
+import Setlec.Kernel.ArenaWF
+import Setlec.Kernel.WFStore
 import Setlec.Verify.IExpr
 import Setlec.Model.Interp
 import Setlec.Model.InterpLemmas
@@ -50,4 +52,5 @@ import Setlec.Model.RawEnv
 import Setlec.Model.RawEnvNoAnnot
 import Setlec.Model.Decorate
 import Setlec.Model.Norm
+import Setlec.Model.RawEnvN
 import Setlec.Model.ConsistencyRaw
