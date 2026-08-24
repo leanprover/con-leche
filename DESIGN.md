@@ -6575,6 +6575,115 @@ truncation identity family is stated on parities
 `truncateTierTwo_denote`/`_node1?` remain index-unconditional), and
 `intern?`-validated parser indices carry `Valid1` by construction.
 
+## The check-phase tier bracket: wiring and measurement (2026-08-24, task #64)
+
+The two-tier arena is now *callable*: knob-gated driver variants
+(`SETLEC_TIER_BRACKET`, the `SETLEC_NO_PROOF_CERTS` pattern —
+UNVERIFIED measurement variants; the consistency statements cover the
+default drivers, which are byte-identical to before) run the
+def/thm/opaque value pipeline with tier two enabled and release the
+per-declaration temporaries.  Four modes, two axes:
+
+* **Bracket extent**: modes 1/2 bracket the *check phase* (infer +
+  defeq, the driver-split seam); modes 3/4 bracket the whole *value
+  pipeline* — annotate, the post-annotate guards, the value readback
+  and the check all run under tier two, and on success only the stored
+  output's sub-DAG is *promoted* into the retained store
+  (`Setlec/Kernel/Promote.lean`: index-memoized re-intern, `O(|output
+  DAG|)`, never tree-shaped; opaques store nothing and promote
+  nothing).  The rare cert branches (Nat-op/div-mod/reduce pins) and
+  the install-only kinds stay on the default path (bounded content).
+* **State discipline**: modes 1/3 are *fork-discard* (retain the
+  pre-bracket `IState` value, run on a header copy with the flag set,
+  `set` the retained value back — the RC release is the truncation;
+  the snapshot argument of the RC-linearity skill, §5.1/5.2); modes
+  2/4 are *in-place* (linear state, `enableTierTwo` at the seam,
+  `truncateTierTwo` + `IState.flushed` at the close, detach-before-
+  update).  In-place wins decisively: the fork pays a per-declaration
+  copy-on-write of every shared component the check writes (level
+  tables, memo buckets — `lean_copy_expand_array` at ~8 % of cycles)
+  plus the discard's free traffic, and it *loses* the check phase's
+  level-cache and level/name-table warmth; in-place keeps single-tier
+  content (levels/names, `lsimpC`/`lnzC`/`eqvC` entries) across the
+  close — only the `EIdx`-carrying memos are flushed, which the next
+  declaration's `flushS` would have dropped anyway.  Promotion under
+  in-place needs no level/name remapping at all (their bracket-time
+  interns simply persist; the level/name bases are the harvest-time
+  table sizes, so `promoteLGo`/`promoteNGo` are identity), and the
+  tier-two node table is harvested *before* truncation — the
+  truncating shrink on the then-shared array is an O(1) empty-array
+  allocation.
+
+**Flag-off discipline, stated and probed.**  Install-phase content
+interns flag-off by construction: in modes 1/2 the bracket opens after
+`recordIConst` (annotate output, `readbackEM` and the `ienv` record
+are tier-one); in modes 3/4 the `ienv` record is written after the
+close from the *promoted* (tier-one) index, paired with the readback
+tree harvested from the snapshot.  Nothing the bracket interns can
+escape: the bracket returns the verdict, and the pushed
+`ConstantInfo` is built from `Expr` trees.  The `dbgTraceIfShared`
+probe battery (internP node/cons pushes, `FEnv.idx@push`; identically
+probed baseline): shared-mutation counts identical to the off-mode
+baseline in all four modes (init-core: `internP` 1 = 1, a
+pre-existing seed-handoff strike; `FEnv.idx@push` 445 → 434, fewer).
+
+**FINDING (restrictions-are-findings): the total injection broke the
+traversal order in the flag-on regime.**  The low-bit migration kept
+the `child < parent` recursion guards of the ~20 traversal ops; under
+`EIdx = 2·pos + tier` that order is wrong exactly when it matters — a
+tier-two node (`2j+1`) is numerically *below* its tier-one children
+whenever their positions exceed `j`, so every `<`-guarded descent
+silently refused (ops returned identity/false; the first bracketed
+declaration failed its own post-annotate guards).  The flag-off gates
+could not see it: nothing on master exercises the flag.  The fix is
+the tier-lexicographic order `emlt` (tier one below tier two,
+positions within a tier — the order every arena node respects towards
+its children, in both regimes) in the executable guards, with
+termination by `(etier e, epos e)` (`emlt_lex`), the flag-off proof
+bridge `emlt_of_even_lt` (flag-off children are even and `<` their
+parent), and `emlt_induction` for the store-unconditional
+function-equality proofs.  This is the executable face of the
+identity-embedding objection the tag-scheme entry recorded: high-bit
+kept `Nat` order compatible with the traversal for free; the total
+injection pays for it with a two-comparison guard (part of the off-
+mode instruction delta below).
+
+**Measured (init-core, 110 k lines / 3653 decls; instructions
+`perf stat -e instructions:u` median of 3; verdicts byte-identical to
+off in all modes, arena 90/92 + e2e 64/64 byte-identical, scale.sh
+all-PASS):**
+
+| mode | retained arena (nodes) | instructions | vs off |
+|---|---|---|---|
+| off | 916,433 | 38.539 G | — |
+| 1 fork check | 692,392 | 42.209 G | +9.5 % |
+| 2 in-place check | 692,392 | 38.718 G | **+0.47 %** |
+| 3 fork snapshot | 328,468 | 42.360 G | +9.9 % |
+| 4 in-place snapshot | 328,468 | 39.720 G | **+3.1 %** |
+
+The decomposition (`SETLEC_STATS` gains an end-of-run
+ienv-reachability count — `REACH: n0=139652 … ienvReach=136792
+storedAboveParse=72439`, identical in every mode): parse floor
+139,652; parse + stored floor **(c) = 212,091**; check-phase
+temporaries = 224 k (29 % of off-mode growth, dropped by modes 1/2);
+annotate-side intermediates = 364 k (47 %, additionally dropped by
+modes 3/4); the mode-4 residue above the floor (116 k) is the
+unbracketed type-side work (`checkConstantValP`'s annotate + sort
+check, the thm prop check) and block installs.  The perf pair is
+RSS-unchanged (app-lam 8.03 GB, intra-declaration by design;
+beta-ladder slightly lower), outputs identical.
+
+MATHLIB_PLACEHOLDER
+
+**Verification status.**  The four bracket modes are measurement
+knobs; landing one as the *default* requires the flag-on interior
+battery — `ISOK`/denote-faithfulness extended over `getNode` to
+tier-two indices (a tier-aware denotation and the op-sim battery in
+the flag-on regime), plus (modes 3/4) a promotion-correctness spec.
+The `emlt` executable/termination layer landed *verified* (the
+flag-off proofs bridge through `emlt_of_even_lt`; gates green,
+axioms exactly `[propext, Classical.choice, Quot.sound]`).
+
 ## Projection-unification audit: what can and cannot go native (2026-08-24, task #107)
 
 Task #107 asked for every structure's `.proj` to become first-class
