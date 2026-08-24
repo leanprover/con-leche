@@ -45,28 +45,38 @@ stores.  All existing model clauses — `mem_type`, `defn_eq`,
 `annot_ok`, `rec_rules`, … — are consumed through `model` verbatim;
 `erase_eq` is the one new proof obligation per install step.
 
-The erasure is a parameter so the switch can be staged: at `er := id`
-the witness *is* the stored environment (the transitional
-instantiation, while annotations are still stored), at
-`er := Env.eraseCod` it is the real thing.  `Expr.eraseCod_idem`
-characterizes the fixed points for the flip. -/
-structure RawEnvModelE (V : Type u) [SetTheory V] (er : Env → Env)
-    (env : Env) where
+The **twin relation** is a parameter, so the switch can be staged, and
+a relation rather than a map because the end state needs one on each
+side (task #100 stage 4):
+
+* `Twin a e := a = e` — the transitional instantiation, while
+  annotations are still stored and the witness *is* what is stored;
+* `Twin a e := a.eraseCod = e` — plain erasure, valid while the stored
+  tree is the annotation pass's output with its annotations dropped;
+* `Twin a e := a.eraseCodS = Env.norm O f e` (`Env.TwinAt`,
+  `Setlec/Model/Norm.lean`) — the end state, where storage is the
+  *parsed* record untouched and the annotation pass's two
+  skeleton-changing clauses (zeta, projection rewrite) are absorbed
+  into `norm` on the stored side.  `Expr.eraseCod_idem` characterizes
+  the erasure's fixed points; `Expr.TwinAt_keep` says the relation
+  collapses to plain erasure on let-free storage. -/
+structure RawEnvModelE (V : Type u) [SetTheory V]
+    (Twin : Env → Env → Prop) (env : Env) where
   /-- The annotated shadow environment (the witness). -/
   aenv : Env
-  /-- The witness erases to what the kernel stores. -/
-  erase_eq : er aenv = env
+  /-- The witness is a twin of what the kernel stores. -/
+  erase_eq : Twin aenv env
   /-- The unchanged model, over the shadow. -/
   model : EnvModel V aenv
 
-/-- The codomain-erasure instantiation: the end state of task #100. -/
+/-- The codomain-erasure instantiation. -/
 abbrev RawEnvModel (V : Type u) [SetTheory V] (env : Env) :=
-  RawEnvModelE V Env.eraseCod env
+  RawEnvModelE V (fun a e => a.eraseCod = e) env
 
-/-- The identity-erasure instantiation: the transitional state, in
-which the stored environment is its own witness. -/
+/-- The identity instantiation: the transitional state, in which the
+stored environment is its own witness. -/
 abbrev RawEnvModelId (V : Type u) [SetTheory V] (env : Env) :=
-  RawEnvModelE V id env
+  RawEnvModelE V (fun a e => a = e) env
 
 namespace RawEnvModelE
 

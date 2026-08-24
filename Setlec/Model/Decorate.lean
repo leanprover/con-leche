@@ -91,6 +91,38 @@ theorem Expr.eraseCodS_eq : ∀ (e : Expr), e.hasFvar = false →
     simp only [Expr.hasFvar] at h
     simp [Expr.eraseCodS, Expr.eraseCod, Expr.eraseCodS_eq e h]
 
+/-- The shallow erasure commutes with instantiation. -/
+theorem Expr.eraseCodS_instantiate1 (v : Expr) :
+    ∀ (e : Expr) (k : Nat),
+      (e.instantiate1 v k).eraseCodS = e.eraseCodS.instantiate1 v.eraseCodS k
+  | .bvar i, k => by
+    simp only [Expr.instantiate1, Expr.eraseCodS]
+    by_cases h1 : i = k
+    · simp [h1]
+    · by_cases h2 : i > k <;> simp [h1, h2, Expr.eraseCodS]
+  | .fvar _ _ _, _ => by simp [Expr.instantiate1, Expr.eraseCodS]
+  | .sort _, _ => by simp [Expr.instantiate1, Expr.eraseCodS]
+  | .const _ _, _ => by simp [Expr.instantiate1, Expr.eraseCodS]
+  | .lit _, _ => by simp [Expr.instantiate1, Expr.eraseCodS]
+  | .app f a, k => by
+    simp [Expr.instantiate1, Expr.eraseCodS,
+      Expr.eraseCodS_instantiate1 v f k, Expr.eraseCodS_instantiate1 v a k]
+  | .lam _ t b _, k => by
+    simp [Expr.instantiate1, Expr.eraseCodS,
+      Expr.eraseCodS_instantiate1 v t k,
+      Expr.eraseCodS_instantiate1 v b (k + 1)]
+  | .forallE _ t b _, k => by
+    simp [Expr.instantiate1, Expr.eraseCodS,
+      Expr.eraseCodS_instantiate1 v t k,
+      Expr.eraseCodS_instantiate1 v b (k + 1)]
+  | .letE _ t vl b, k => by
+    simp [Expr.instantiate1, Expr.eraseCodS,
+      Expr.eraseCodS_instantiate1 v t k, Expr.eraseCodS_instantiate1 v vl k,
+      Expr.eraseCodS_instantiate1 v b (k + 1)]
+  | .proj _ _ e, k => by
+    simp [Expr.instantiate1, Expr.eraseCodS,
+      Expr.eraseCodS_instantiate1 v e k]
+
 /-- The shallow erasure commutes with binder opening at a free
 variable — the one substitution a decoration pass performs.  (`fvar`s
 are shallow-erasure fixed points, so no side condition is needed.) -/
