@@ -3458,4 +3458,216 @@ theorem directRec_mem {env₂ : Env} (m₂ : EnvModel V env₂)
     (directRec_body m₂ hrt hnz hfrRa hfrC hcq hstripC hdomsCT hfieldAt
       hTfold hCfold hTfind hTlps hTname hCfind hClps)⟩
 
+set_option maxHeartbeats 1600000 in
+/-- **The recursor's model extension**: `extend_basis_one` at
+`directRecVal`, with the rule installed in the same step — the rule's
+`RecMemberOk` obligation is `directRec_rule_eq`, which is stated
+exactly at `extend_basis_one`'s `val'` (the extended valuation, agreeing
+with the base off the new name), so neither a rule-less detour nor
+`extend_rec_swap` is needed. -/
+theorem extend_direct_rec {env₂ : Env} (m₂ : EnvModel V env₂)
+    {p : DirectParts} {cvTa cvCa cvRa : ConstantVal} {F : Nat}
+    {rhsA : Expr} {fvsC : List Expr} {crestC : Expr}
+    {cbs : List (Name × Expr × BinderMeta)} {fire : RecRuleFire}
+    (hfireEq : (if Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP
+      then RecRuleFire.plain else .inert) = fire)
+    (hE2 : EtaFamiliesClosed env₂)
+    (hccR : checkConstantVal (fueledOps F) env₂ p.cvR = .ok cvRa)
+    (hrt : checkDirectRecTy (fueledOps F) env₂ p cvTa cvCa cvRa = .ok ())
+    (hru : checkDirectRule (fueledOps F) env₂ p cvCa cvRa = .ok rhsA)
+    (hnz : p.resSort.isNonZero = true)
+    (hfrC : ∀ φ : Name → Nat, FrameOk V m₂.val env₂ φ 0 (rho0 V) cvCa.type)
+    (hcq : openPisAtFvars p.nP cvCa.type 0 = some (fvsC, crestC))
+    (hstripC : Expr.stripPis (p.nP + p.nF) cvCa.type = some (cbs,
+      directFam p.cvT.name p.cvT.levelParams p.nP p.nF))
+    (hdomsCT : ∀ φ : Name → Nat, DomsInterpEq V m₂.val env₂ φ p.nP 0
+      (rho0 V) cvCa.type cvTa.type)
+    (hfieldAt : ∀ (φ : Name → Nat) (ps : List V) (d₁ : Nat) (ρ₁ : Nat → V)
+        (mid : Expr),
+      TeleFit V m₂.val env₂ φ 0 (rho0 V) cvCa.type ps d₁ ρ₁ mid →
+      ps.length = p.nP →
+      FieldTele V m₂.val env₂ φ (p.resSort.eval φ) p.nF d₁ ρ₁ mid)
+    (hTfold : ∀ (φ : Name → Nat) (ps : List V) (d₁ : Nat) (ρ₁ : Nat → V)
+        (r : Expr),
+      TeleFit V m₂.val env₂ φ 0 (rho0 V) cvTa.type ps d₁ ρ₁ r →
+      ps.length = p.nP →
+      SpineFold V (m₂.val p.cvT.name φ) ps =
+        sigmaTowerV V m₂.val env₂ φ (p.resSort.eval φ) p.nF d₁ ρ₁ crestC)
+    (hCfold : ∀ (φ : Name → Nat) (vs : List V) (d₁ : Nat) (ρ₁ : Nat → V)
+        (r : Expr),
+      TeleFit V m₂.val env₂ φ 0 (rho0 V) cvCa.type vs d₁ ρ₁ r →
+      vs.length = p.nP + p.nF →
+      SpineFold V (m₂.val p.cvC.name φ) vs = tupleV (vs.drop p.nP))
+    (hTfind : env₂.find? p.cvT.name = some (.indInfo cvTa (directCaps p)))
+    (hTlps : cvTa.levelParams = p.cvT.levelParams)
+    (hTname : cvTa.name = p.cvT.name)
+    (hCfind : env₂.find? p.cvC.name = some (.ctorInfo cvCa p.nP p.nF))
+    (hClps : cvCa.levelParams = p.cvT.levelParams)
+    (hCres : cvCa.type.constsResolve env₂ = true) :
+    ∃ m₃ : EnvModel V ⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
+        [⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩] :: env₂.consts⟩,
+      (∀ ψ, m₃.val cvRa.name ψ =
+        directRecVal V m₂.val env₂ cvRa.type p.nP p.nF ψ) ∧
+      (∀ n ψ, n ≠ cvRa.name → m₃.val n ψ = m₂.val n ψ) := by
+  obtain ⟨hfind0, hnres0, hpshape0, hnd, hlb, hfv, tyA, stype, u,
+    hann, hlp, hres, hst, hsort, hcvA⟩ := checkConstantVal_inv hccR
+  obtain ⟨rrbs, rfvsP, rrestR, rcdomsP, rcrest, rxFvs, rcrest2, rldoms,
+    rlrest, hrawf, hrawb, hannR, hrlp, hrhsres, hrhsb0, hrhsf, hstripRhs,
+    hopRr, hinstCr, hopXr, hlinstr, hdeLamr, rhsTy, hityR⟩ :=
+    checkDirectRule_inv hru
+  have hnameA : cvRa.name = p.cvR.name := by rw [hcvA]
+  have hlpsA : cvRa.levelParams = p.cvR.levelParams := by rw [hcvA]
+  have htypeA : cvRa.type = tyA := by rw [hcvA]
+  have hfind' : env₂.find? cvRa.name = none := by rw [hnameA]; exact hfind0
+  have hnres : reservedBasisNames.contains cvRa.name = false := by
+    rw [hnameA]; exact hnres0
+  have hshapeA : cvRa.name.isProjFnShape = false := by
+    rw [hnameA]; exact hpshape0
+  have htyf : cvRa.type.hasFvar = false := by
+    rw [htypeA]
+    exact not_hasFvar_of_fvarsBelow_zero
+      ((annotateCore_WScoped F _ hann (WScoped.of_not_hasFvar hfv)).fvarsBelow)
+  have htyb : cvRa.type.looseBVarsBounded 0 = true := by
+    rw [htypeA]; exact annotateCore_looseBVars F _ hann hlb
+  have htlp : cvRa.type.allLevelParamsDefined cvRa.levelParams = true := by
+    rw [htypeA, hlpsA]; exact hlp
+  have htresR : cvRa.type.constsResolve env₂ = true := by
+    rw [htypeA]; exact hres
+  have hfrRa : ∀ φ : Name → Nat,
+      FrameOk V m₂.val env₂ φ 0 (rho0 V) cvRa.type :=
+    fun φ => FrameOk.ofCheckedType m₂ hccR
+  have hnotnested : ∀ lvls pins, fire ≠ .nested lvls pins := by
+    intro lvls pins hcon
+    rw [← hfireEq] at hcon
+    split at hcon <;> exact nomatch hcon
+  have hnresR : reservedBasisNames.contains
+      (ConstantInfo.recInfo cvRa (p.nP + 2) (p.nP + 2)
+        [⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩]).name = false := hnres
+  have hfindI : env₂.find? (ConstantInfo.recInfo cvRa (p.nP + 2) (p.nP + 2)
+      [⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩]).name = none := hfind'
+  have hwf : ConstWF (⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
+      [⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩] :: env₂.consts⟩ : Env)
+      (.recInfo cvRa (p.nP + 2) (p.nP + 2)
+        [⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩]) := by
+    refine ⟨htyf, htlp, Expr.constsResolve_mono htresR, htyb, ?_, ?_, ?_⟩
+    · intro cv2 v2 h2 heq; exact nomatch heq
+    · intro cv2 mI' rP' rules heq r hr
+      injection heq with e1 e2 e3 e4
+      subst e1 e4
+      obtain rfl : r = ⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩ := by
+        rcases List.mem_cons.mp hr with h | h
+        · exact h
+        · cases h
+      exact ⟨hrhsf, hrlp, Expr.constsResolve_mono hrhsres, hrhsb0,
+        fun lvls pins hcon => absurd hcon (hnotnested lvls pins)⟩
+    · intro cv2 v2 heq; exact nomatch heq
+  refine extend_basis_one m₂ (.recInfo cvRa (p.nP + 2) (p.nP + 2)
+      [⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩])
+    (fun ψ => directRecVal V m₂.val env₂ cvRa.type p.nP p.nF ψ)
+    hfind' hwf htresR (fun cv2 value2 h2 heq => nomatch heq) ?_ ?_
+    (fun ψ => (hfrRa ψ).an)
+    (fun cv caps heq _ => nomatch heq)
+    (fun cv nP nF heq _ => nomatch heq)
+    (fun cv caps heq _ => nomatch heq)
+    (fun hn => absurd (hn ▸ hnresR) (by decide))
+    (fun _ hres2 => absurd (hres2 ▸ hnresR) (by simp))
+    (fun cv mI rP rules heq =>
+      ⟨fun hn => absurd (hn ▸ hnresR) (by decide),
+       fun hn => absurd (hn ▸ hnresR) (by decide),
+       fun hn => absurd (hn ▸ hnresR) (by decide),
+       fun hn => absurd (hn ▸ hnresR) (by decide)⟩)
+    ?_
+    (fun cvR mI rP rules heq r hr => by
+      obtain rfl : r = ⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩ := by
+        injection heq with e1 e2 e3 e4
+        subst e4
+        rcases List.mem_cons.mp hr with h | h
+        · exact h
+        · cases h
+      exact ⟨cvCa, p.nP, p.nF, hCfind⟩)
+    (fun entry heq _ => nomatch heq)
+    (hnotthm := fun cv2 value2 h => ConstantInfo.noConfusion h)
+    (hcaps := fun val' _ he => by
+      refine ⟨?_, ?_⟩
+      · intro T cvT capsT hfT hcape hresT hfam hpart
+        exfalso
+        rcases hpart with hT | hC | ⟨j, hj, hP⟩
+        · rw [hT, Env.find?_cons, if_pos rfl] at hfT
+          exact nomatch (Option.some.inj hfT)
+        · rw [Env.find?_cons] at hfT
+          split at hfT
+          · exact nomatch (Option.some.inj hfT)
+          · obtain ⟨cvC0, hfC0⟩ := hE2 T cvT capsT hfT hcape hresT
+            rw [hC] at hfC0
+            have hfC1 : env₂.find? cvRa.name =
+                some (.ctorInfo cvC0 capsT.etaParams capsT.etaFields) := hfC0
+            rw [hfind'] at hfC1
+            exact nomatch hfC1
+        · have hP' : projFnName T j = cvRa.name := hP
+          rw [← hP'] at hshapeA
+          simp [projFnName, Name.isProjFnShape] at hshapeA
+      · intro cv caps heq hcapu _
+        exact nomatch heq)
+  · -- `mem_type`
+    intro ψ
+    exact directRec_mem m₂ hrt hnz (hfrRa ψ) (hfrC ψ) hcq hstripC
+      (hdomsCT ψ) (hfieldAt ψ) (hTfold ψ) (hCfold ψ) hTfind hTlps hTname
+      hCfind hClps
+  · -- `val_params`
+    intro ψ₁ ψ₂ hψ
+    exact directRecVal_params m₂.val_params (ps := cvRa.levelParams) hψ htlp
+  · -- `RecMemberOk`: the single rule's total λ-equality
+    intro val' hv he
+    intro cvR mI' rP' rules heq r hr
+    injection heq with e1 e2 e3 e4
+    subst e1 e2 e3 e4
+    obtain rfl : r = ⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩ := by
+      rcases List.mem_cons.mp hr with h | h
+      · exact h
+      · cases h
+    have hagree : ∀ n, (env₂.find? n).isSome = true → ∀ ψ : Name → Nat,
+        val' n ψ = m₂.val n ψ := by
+      intro n hn ψ
+      refine he n ψ ?_
+      intro hcon
+      have hcon' : n = cvRa.name := hcon
+      rw [hcon', hfind'] at hn
+      exact nomatch hn
+    have hArhs₁ : ∀ ψ : Name → Nat,
+        AnnotOk V val' (⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
+          [⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩] :: env₂.consts⟩ : Env) ψ 0
+          (rho0 V) rhsA := by
+      intro ψ
+      refine AnnotOk.mono hfindI _ 0 (rho0 V) hrhsres
+        (AnnotOk.cval_ext (fun n hn ψ' => (hagree n hn ψ').symm) _ 0
+          (rho0 V) ?_)
+      exact annotate_sound m₂ _ hannR (Expr.WScoped.of_not_hasFvar hrawf)
+        hrawb (Expr.LeavesBounded.of_not_hasFvar hrawf) (rho0 V)
+        (FvarsOk.of_not_hasFvar hrawf)
+    refine ⟨hArhs₁, fun _ => Nat.le_refl _,
+      fun _ => show p.nP ≤ p.nP + 2 from by omega,
+      fun lvls pins hcon => absurd hcon (hnotnested lvls pins), ?_⟩
+    intro cvj' cnP' cnF' hfj hnotinert
+    have hfirep : fire = .plain := by
+      by_cases hc : Expr.recRulePlain cvRa.type (p.nP + 2) (p.nP + 2) p.nP
+          = true
+      · rw [← hfireEq, if_pos hc]
+      · have hni : fire ≠ .inert := hnotinert
+        rw [← hfireEq, if_neg hc] at hni
+        exact absurd rfl hni
+    have hCfind₁ : (⟨.recInfo cvRa (p.nP + 2) (p.nP + 2)
+        [⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩] :: env₂.consts⟩ : Env).find?
+        p.cvC.name = some (.ctorInfo cvCa p.nP p.nF) := by
+      rw [Env.find?_cons_of_isSome (c := ConstantInfo.recInfo cvRa (p.nP + 2)
+        (p.nP + 2) [⟨p.cvC.name, p.nF, p.nP, fire, rhsA⟩]) hfindI
+        (by rw [hCfind]; rfl)]
+      exact hCfind
+    rw [hCfind₁] at hfj
+    obtain hje := Option.some.inj hfj
+    injection hje with j1 j2 j3
+    subst j1 j2 j3
+    exact directRec_rule_eq m₂ hrt hru hnz hfrRa hfrC hcq hstripC hdomsCT
+      hfieldAt hTfold hCfold hTfind hTlps hTname hCfind hClps htresR hCres
+      hfirep hfind' hagree hv
+
 end Setlec
