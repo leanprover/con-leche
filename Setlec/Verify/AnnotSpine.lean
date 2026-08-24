@@ -324,14 +324,10 @@ private theorem inferStep_extend {d : Nat} {cur a' : Expr}
   unfold inferStep
   rw [whnf_def, whnf_mono (by omega) hw, okB_bind]
   dsimp only
-  by_cases hnz : codNonZero bi = true
-  · rw [if_pos hnz]
-    rfl
-  · rw [if_neg hnz]
-    rw [infer_def, inferTypeCore_mono (by omega) hta, okB_bind,
-      defeq_def, isDefEqCore_mono (by omega) hb, okB_bind]
-    simp only [↓reduceIte]
-    rfl
+  rw [infer_def, inferTypeCore_mono (by omega) hta, okB_bind,
+    defeq_def, isDefEqCore_mono (by omega) hb, okB_bind]
+  simp only [↓reduceIte]
+  rfl
 
 /-- Forward induction over the spine: a successful loop run from a
 chained-reproducible state is reproduced by the chained annotation of

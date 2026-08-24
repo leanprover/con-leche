@@ -718,28 +718,6 @@ def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
     else pure none
   | _ => pure none
 
-/-- The possibly-Prop gate (task #49): is the binder's codomain-sort
-annotation present and provably nonzero (at *every* level assignment,
-`Level.isNonZero`)?  Where it holds, an application argument's domain
-membership is recoverable from the app node's own `AnnotOk` slot by
-domain determination — the pi at a nonzero sort contains only graphs,
-and graphs determine their domains — so the inference re-check is
-skipped, as in the reference kernels' infer-only mode.  At a
-possibly-Prop Π no semantic invariant can recover the membership
-(impredicativity: the interpretation of a proposition collapses to a
-point, so the domain of a proof-λ is not determined by its value —
-the same analysis as the beta certificate, DESIGN.md), so the defeq
-re-check stays exactly there.  Task #73 established that the residue
-is *not removable* even with per-assignment (disjunctive) claims: it
-also guards the type-side invariants of inference outputs — see the
-DESIGN.md finding "the possibly-Prop infer residue is not removable"
-(a concrete AnnotOk-satisfying countermodel falsifies the whnf claims
-without it). -/
-def codNonZero (mt : BinderMeta) : Bool :=
-  match mt.cod with
-  | some v => v.isNonZero
-  | none => false
-
 /-- Certify a spine against a recursor telescope: each argument's
 inferred type is defeq to the corresponding (instantiated) domain.
 This is what hands the soundness proof the memberships the iota
@@ -752,34 +730,6 @@ def iotaCerts (r : CoreFns m) (env : Env) (depth : Nat) :
     if ← r.defeq depth ta ty then
       iotaCerts r env depth (body.instantiate1 arg) rest
     else pure false
-  | _, _ :: _ => pure false
-
-/-- Possibly-Prop-gated variant of `iotaCerts` (tasks #49/#71), used by
-`iotaRec`, whose spine comes from the redex's own annotated application
-chain: a slot whose codomain-sort annotation is provably nonzero
-(`codNonZero`) skips the per-fire infer+defeq — the soundness claims
-recover the argument's domain membership from the chain's `AnnotOk`
-slot by domain determination (the pi at a nonzero sort contains only
-graphs, and graphs determine their domains).  At a possibly-Prop slot
-no semantic invariant can recover the membership (impredicativity —
-the same analysis as the beta certificate; per the task-#73 finding
-the residue is load-bearing, do not remove it), so the certificate
-still runs there.  The reference kernels run no certification here;
-the gate is the provable middle ground.  Sites with *synthetic* spines
-(structure eta, unit-likeness, the projection telescopes — the spine
-is checker-fabricated, so there is no annotated chain to recover from)
-keep the ungated `iotaCerts`. -/
-def iotaCertsG (r : CoreFns m) (env : Env) (depth : Nat) :
-    Expr → List Expr → m Bool
-  | _, [] => pure true
-  | .forallE _ ty body mt, arg :: rest =>
-    if codNonZero mt then
-      iotaCertsG r env depth (body.instantiate1 arg) rest
-    else do
-      let ta ← r.infer depth arg
-      if ← r.defeq depth ta ty then
-        iotaCertsG r env depth (body.instantiate1 arg) rest
-      else pure false
   | _, _ :: _ => pure false
 
 /-- Peel a `∀`-telescope along an argument list (the residual type of
@@ -1075,16 +1025,14 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                       -- application's type must be defeq to the
                       -- major's (for `Eq` this is the endpoint
                       -- condition — `Eq.refl a : Eq a a` against the
-                      -- major's `Eq a b` forces `a ≡ b`).  Before
-                      -- task #71 this was implied by the per-fire
-                      -- iota certificates on the major slot; with
-                      -- those possibly-Prop-gated the major-slot
-                      -- certificate no longer runs at nonzero
-                      -- motives, so the reference check is
-                      -- load-bearing there (arena bad/098_ruleKbad
-                      -- fires at `Eq.rec.{3,3}`).  `proofIrrel`
-                      -- stays as the soundness certificate (in the
-                      -- model both sides are the proof point).
+                      -- major's `Eq a b` forces `a ≡ b`).  A
+                      -- reference-kernel check, kept independently of
+                      -- the per-fire iota certificates (during the
+                      -- gated era of tasks #49/#71 it was load-bearing
+                      -- on its own — arena bad/098_ruleKbad fires at
+                      -- `Eq.rec.{3,3}`).  `proofIrrel` stays as the
+                      -- soundness certificate (in the model both
+                      -- sides are the proof point).
                       if ← r.defeq depth tmaj (← r.infer depth fab) then
                         if ← proofIrrel r env depth fab major then
                           pure fab
@@ -1213,9 +1161,10 @@ major premise whnfs to a fully applied constructor with a matching
 rule (a literal major converts to constructor form — see
 `litMajorToCtor` —, a
 stuck major may be rescued — see `majorToCtor`), and the spine is
-certified against the recursor's own (pinned, annotated) type with the
-possibly-Prop-gated `iotaCertsG` (tasks #49/#71): provably-nonzero
-slots go check-free, possibly-Prop slots keep the infer+defeq.  The
+certified against the recursor's own (pinned, annotated) type with
+`iotaCerts` (per-slot infer+defeq; task #100 de-gating retired the
+possibly-Prop annotation gate of tasks #49/#71 — unsound-to-model
+under the domain-relative collapse, DESIGN.md).  The
 result is the rule's rhs applied to the non-index prefix and the
 constructor's fields; over-application is handled by the outer app
 recursion. -/
@@ -1269,10 +1218,10 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                  if ← defEqList r env depth (margs.take rl.ctorParams)
                     (recFireComparands rl cv.levelParams us
                       cvj.levelParams args rP).2 then
-                  if ← iotaCertsG r env depth
+                  if ← iotaCerts r env depth
                      (cv.type.instantiateLevelParams cv.levelParams us)
                      (args.take mI ++ [major]) then
-                   if ← iotaCertsG r env depth
+                   if ← iotaCerts r env depth
                       (cvj.type.instantiateLevelParams cvj.levelParams usj)
                       margs then
                     -- the recursor's index arguments must match the
@@ -1333,11 +1282,11 @@ def projCert (r : CoreFns m) (_env : Env) (depth : Nat)
     | _ => pure false
   | _ => pure false
 
-/-- The head-normalization body: beta (with the possibly-Prop
-certificate), iota (with the stuck-major machinery) and the native
-basis pair projection — but **no delta**; unfolding happens in the
-`whnf` loop.  Values (sorts, binders, constants, literals) return
-themselves. -/
+/-- The head-normalization body: beta (with the per-redex argument
+certificate, unconditional since the task-#100 de-gating), iota (with
+the stuck-major machinery) and the native basis pair projection — but
+**no delta**; unfolding happens in the `whnf` loop.  Values (sorts,
+binders, constants, literals) return themselves. -/
 def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
   fun depth e =>
     match e with
@@ -1349,21 +1298,19 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
     | .lit l => pure (.lit l)
     | .app f a => do
       match ← r.whnfCore depth f with
-      | .lam n ty body mb =>
-        match mb.cod with
-        | some v =>
-          if v.isNonZero then r.whnfCore depth (body.instantiate1 a)
-          else do
-            -- Possibly-Prop redex: certify the argument against the
-            -- domain before reducing (the soundness proof needs
-            -- `⟦a⟧ ∈ ⟦ty⟧` at every level assignment).  An uncertified
-            -- redex stays stuck — sound, and unreachable for
-            -- well-typed input.
-            let ta ← r.infer depth a
-            if ← r.defeq depth ta ty then
-              r.whnfCore depth (body.instantiate1 a)
-            else pure (.app (.lam n ty body mb) a)
-        | none => pure (.app (.lam n ty body mb) a)
+      | .lam n ty body mb => do
+        -- Certify the argument against the domain before reducing
+        -- (the soundness proof needs `⟦a⟧ ∈ ⟦ty⟧` at every level
+        -- assignment).  An uncertified redex stays stuck — sound, and
+        -- unreachable for well-typed input.  Task #100 de-gating: the
+        -- former possibly-Prop annotation gate (skip the certificate
+        -- at a provably nonzero codomain sort) is unsound-to-model
+        -- under the domain-relative collapse (DESIGN.md), so the
+        -- certificate now runs unconditionally.
+        let ta ← r.infer depth a
+        if ← r.defeq depth ta ty then
+          r.whnfCore depth (body.instantiate1 a)
+        else pure (.app (.lam n ty body mb) a)
       | f' => do
         match ← iotaRec r env depth (.app f' a) with
         | some e'' => r.whnfCore depth e''
@@ -1389,17 +1336,17 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
             let mx : Level := Level.subst entry.levelParams us
               entry.structSort
             let arg := args.getD (entry.numParams + i) (.bvar 0)
-            if mx.isNonZero then r.whnfCore depth arg
-            else do
-              -- Possibly-Prop subject: certify that at Prop instances
-              -- both the projected argument and the subject collapse
-              -- to the proof point (see DESIGN.md on beta
-              -- certification).
-              if ← projCert r env depth e' i
-                  (Level.subst entry.levelParams us entry.fieldSort)
-                  mx entry.numParams then
-                r.whnfCore depth arg
-              else pure (.proj sn i e')
+            -- Certify the reduction: at Prop instances both the
+            -- projected argument and the subject collapse to the
+            -- proof point (see DESIGN.md on beta certification).
+            -- Task #100 de-gating: the former nonzero-sort gate is
+            -- unsound-to-model under the domain-relative collapse,
+            -- so the certificate runs unconditionally.
+            if ← projCert r env depth e' i
+                (Level.subst entry.levelParams us entry.fieldSort)
+                mx entry.numParams then
+              r.whnfCore depth arg
+            else pure (.proj sn i e')
           else pure (.proj sn i e')
         | _ => pure (.proj sn i e')
       | none => pure (.proj sn i e')
@@ -1491,7 +1438,11 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           -- Re-check the stored annotation: it must be the sort of the
           -- body's type (the λ-annotation is *trusted* by the ∀ it
           -- builds, so it is *checked* here, where the body's type is
-          -- at hand).
+          -- at hand).  NOT deletable pre-flip (task #100 de-gating
+          -- finding): the leveled model reads the stored `v` in the
+          -- λ's interpretation and the certified sort is `v'`; this
+          -- equivalence is what transfers the fibre-universe fact —
+          -- it dies only with the level-free collapse model (stage 3).
           match ← r.whnf (depth + 1) (← r.infer (depth + 1) bt) with
           | .sort v' => do
             unless ← liftFueled "level comparison" (Level.isEquiv v v') do
@@ -1503,18 +1454,15 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
     | .app f a => do
       let tf ← r.infer depth f
       match ← r.whnf depth tf with
-      | .forallE _ ty body mt => do
-        -- Possibly-Prop-gated argument re-check (task #49): at a Π
-        -- whose codomain-sort annotation is provably nonzero the
-        -- argument's fact comes from the app node's own `AnnotOk`
-        -- slot (see `codNonZero`); the re-check runs only on the
-        -- possibly-Prop residue.
-        if codNonZero mt then pure (body.instantiate1 a)
-        else do
-          let ta ← r.infer depth a
-          unless ← r.defeq depth ta ty do
-            throw (.invalid "application type mismatch")
-          pure (body.instantiate1 a)
+      | .forallE _ ty body _mt => do
+        -- Per-argument re-check (task #100 de-gating: the former
+        -- possibly-Prop annotation gate of task #49 is unsound-to-model
+        -- under the domain-relative collapse, so the certificate runs
+        -- unconditionally; the soundness proof needs `⟦a⟧ ∈ ⟦ty⟧`).
+        let ta ← r.infer depth a
+        unless ← r.defeq depth ta ty do
+          throw (.invalid "application type mismatch")
+        pure (body.instantiate1 a)
       | _ => throw (.invalid "function expected")
     | .proj _sn i pe => do
       -- A `.proj` node is typed by its projection-table entry: the
@@ -1712,6 +1660,10 @@ def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
       -- provably nonzero" acceptance would be unsound (`param u` vs
       -- `zero` disagree under `u ↦ 1`).  Verdict-neutral on
       -- truthfully annotated input, where the sorts are eval-equal.
+      -- NOT deletable pre-flip (task #100 de-gating finding): `AnnotOk`
+      -- gives only cumulative `univ`-memberships, which cannot recover
+      -- zero-agreement; the comparison dies only with the level-free
+      -- collapse model (stage 3).
       match m₁.cod, m₂.cod with
       | some v₁, some v₂ =>
         if v₁.isNonZero && v₂.isNonZero then pure true

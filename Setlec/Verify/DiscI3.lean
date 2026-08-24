@@ -743,11 +743,11 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
     (hmargs : DenL s₀.store margs majorx.getAppArgs) :
     SimAt env s₀ (RelO d)
       (constTyAtM (mkFEnv env) cI c us >>= fun tyRec =>
-        iotaCertsGI (coreKnotI (mkFEnv env) f) (mkFEnv env) d tyRec
+        iotaCertsI (coreKnotI (mkFEnv env) f) (mkFEnv env) d tyRec
             (args.take mI ++ [major]) >>= fun r₂ =>
         if r₂ then
           constTyAtM (mkFEnv env) jI cj usj >>= fun tyCtor =>
-          iotaCertsGI (coreKnotI (mkFEnv env) f) (mkFEnv env) d tyCtor
+          iotaCertsI (coreKnotI (mkFEnv env) f) (mkFEnv env) d tyCtor
               margs >>= fun r₃ =>
           if r₃ then
             Setlec.withStore (fun st =>
@@ -774,11 +774,11 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
             | _, _ => pure none
           else pure none
         else pure none)
-      (iotaCertsG (fueledFns env) env d
+      (iotaCerts (fueledFns env) env d
           (cv.type.instantiateLevelParams cv.levelParams lus)
           (ex.getAppArgs.take mI ++ [majorx]) >>= fun r₂ =>
         if r₂ then
-          iotaCertsG (fueledFns env) env d
+          iotaCerts (fueledFns env) env d
               (cvj.type.instantiateLevelParams cvj.levelParams lusj)
               majorx.getAppArgs >>= fun r₃ =>
           if r₃ then
@@ -813,7 +813,7 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
   refine SimAt.bind_left (constTyAtM_eff hs hcI hus hfc)
     (fun s₁ tyRec hs₁ hext₁ hQrec => ?_)
   simp only [ConstantInfo.toConstantVal] at hQrec
-  refine SimAt.bind (iotaCertsGI_sim ih hs₁ hQrec hwrecty
+  refine SimAt.bind (iotaCertsI_sim ih hs₁ hQrec hwrecty
     (((hargs.mono hext₁).take mI).append
       (DenL.cons (denote_mono hext₁ hmd) DenL.nil)) ?_)
     (fun s₂ r₂ r₂' hs₂ hext₂ hPr₂ => ?_)
@@ -835,7 +835,7 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
       (fun s₃ tyCtor hs₃ hext₃ hQctor => ?_)
     simp only [ConstantInfo.toConstantVal] at hQctor
     have hext₀₃ := (hext₁.trans hext₂).trans hext₃
-    refine SimAt.bind (iotaCertsGI_sim ih hs₃ hQctor hwctorty
+    refine SimAt.bind (iotaCertsI_sim ih hs₃ hQctor hwctorty
       (hmargs.mono hext₀₃) hmaj.getAppArgs)
       (fun s₄ r₃ r₃' hs₄ hext₄ hPr₃ => ?_)
     obtain rfl : r₃ = r₃' := hPr₃
@@ -1010,13 +1010,13 @@ private theorem iotaRec_unfold (env : Env) (d : Nat) (e : Expr) :
                             cvj.levelParams e.getAppArgs rP).2 >>=
                         fun r₁ =>
                       if r₁ then
-                        iotaCertsG (fueledFns env) env d
+                        iotaCerts (fueledFns env) env d
                             (cv.type.instantiateLevelParams
                               cv.levelParams us)
                             (e.getAppArgs.take mI ++ [major]) >>=
                           fun r₂ =>
                         if r₂ then
-                          iotaCertsG (fueledFns env) env d
+                          iotaCerts (fueledFns env) env d
                               (cvj.type.instantiateLevelParams
                                 cvj.levelParams usj)
                               major.getAppArgs >>= fun r₃ =>

@@ -201,49 +201,6 @@ theorem iotaCerts_disc (ih : ScopedSim env f) (henv : EnvWF env)
     | bvar _ | fvar _ _ _ | sort _ | const _ _ | app _ _ | lam _ _ _ _
     | letE _ _ _ _ | lit _ | proj _ _ _ => exact DiscV.pure trivial
 
-theorem iotaCertsG_disc (ih : ScopedSim env f) (henv : EnvWF env)
-    {d : Nat} :
-    ∀ {args : List Expr} {ty : Expr}, WScoped d ty →
-      (∀ x ∈ args, WScoped d x) →
-      DiscV env (fun _ => True) (iotaCertsG C env d ty args)
-        (iotaCertsG G env d ty args) := by
-  intro args
-  induction args with
-  | nil => intro ty _ _; exact DiscV.pure trivial
-  | cons arg rest ihrest =>
-    intro ty hwty hwargs
-    have hwarg : WScoped d arg := hwargs arg (List.mem_cons_self ..)
-    have hwrest : ∀ x ∈ rest, WScoped d x :=
-      fun x hx => hwargs x (List.mem_cons_of_mem _ hx)
-    cases ty with
-    | forallE n ty body mb =>
-      have hwtb : WScoped d ty ∧ WScoped d body := by
-        simpa only [WScoped] using hwty
-      show DiscV env _
-        (if codNonZero mb then
-          iotaCertsG C env d (body.instantiate1 arg) rest
-        else (C : CoreFns CheckSM).infer d arg >>= fun ta =>
-          (C : CoreFns CheckSM).defeq d ta ty >>= fun b =>
-          if b then iotaCertsG C env d (body.instantiate1 arg) rest
-          else pure false)
-        (if codNonZero mb then
-          iotaCertsG G env d (body.instantiate1 arg) rest
-        else (G : CoreFns CheckSM).infer d arg >>= fun ta =>
-          (G : CoreFns CheckSM).defeq d ta ty >>= fun b =>
-          if b then iotaCertsG G env d (body.instantiate1 arg) rest
-          else pure false)
-      split
-      · exact ihrest (WScoped.instantiate1_gen hwarg 0 hwtb.2) hwrest
-      · refine DiscV.bind (ih.site_infer henv hwarg) (fun ta hta => ?_)
-        refine DiscV.bind (ih.site_defeq hta hwtb.1) (fun b _ => ?_)
-        cases b with
-        | true =>
-          simp only [↓reduceIte]
-          exact ihrest (WScoped.instantiate1_gen hwarg 0 hwtb.2) hwrest
-        | false => exact DiscV.pure trivial
-    | bvar _ | fvar _ _ _ | sort _ | const _ _ | app _ _ | lam _ _ _ _
-    | letE _ _ _ _ | lit _ | proj _ _ _ => exact DiscV.pure trivial
-
 theorem defEqList_disc (ih : ScopedSim env f) {d : Nat} :
     ∀ {as bs : List Expr}, (∀ x ∈ as, WScoped d x) →
       (∀ x ∈ bs, WScoped d x) →
@@ -883,14 +840,14 @@ theorem iotaRec_disc (ih : ScopedSim env f) (henv : EnvWF env)
       (cvj.type.instantiateLevelParams cvj.levelParams usj) := by
     obtain ⟨htf, -⟩ := henv _ (find?_mem hfj)
     exact wscoped_instLevels_of_not_hasFvar htf _ _
-  refine DiscV.bind (iotaCertsG_disc ih henv hwrecty ?_) (fun r₂ _ => ?_)
+  refine DiscV.bind (iotaCerts_disc ih henv hwrecty ?_) (fun r₂ _ => ?_)
   · intro x hx
     rcases List.mem_append.mp hx with hx | hx
     · exact hw.getAppArgs x (List.mem_of_mem_take hx)
     · rcases List.mem_singleton.mp hx with rfl
       exact hmaj
   split <;> try exact DiscV.pure WScopedO.none
-  refine DiscV.bind (iotaCertsG_disc ih henv hwctorty hmaj.getAppArgs)
+  refine DiscV.bind (iotaCerts_disc ih henv hwctorty hmaj.getAppArgs)
     (fun r₃ _ => ?_)
   split <;> try exact DiscV.pure WScopedO.none
   split <;> try exact DiscV.pure WScopedO.none
@@ -939,17 +896,11 @@ theorem whnfCoreBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
       ((C : CoreFns CheckSM).whnfCore d g' >>= fun f' =>
         match f' with
         | .lam n ty body mb =>
-          match mb.cod with
-          | some v =>
-            if v.isNonZero then
-              (C : CoreFns CheckSM).whnfCore d (body.instantiate1 a)
-            else
-              (C : CoreFns CheckSM).infer d a >>= fun ta =>
-              (C : CoreFns CheckSM).defeq d ta ty >>= fun b =>
-              if b then
-                (C : CoreFns CheckSM).whnfCore d (body.instantiate1 a)
-              else pure (.app (.lam n ty body mb) a)
-          | none => pure (.app (.lam n ty body mb) a)
+          (C : CoreFns CheckSM).infer d a >>= fun ta =>
+          (C : CoreFns CheckSM).defeq d ta ty >>= fun b =>
+          if b then
+            (C : CoreFns CheckSM).whnfCore d (body.instantiate1 a)
+          else pure (.app (.lam n ty body mb) a)
         | f' =>
           iotaRec C env d (.app f' a) >>= fun o =>
           match o with
@@ -958,17 +909,11 @@ theorem whnfCoreBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
       ((G : CoreFns CheckSM).whnfCore d g' >>= fun f' =>
         match f' with
         | .lam n ty body mb =>
-          match mb.cod with
-          | some v =>
-            if v.isNonZero then
-              (G : CoreFns CheckSM).whnfCore d (body.instantiate1 a)
-            else
-              (G : CoreFns CheckSM).infer d a >>= fun ta =>
-              (G : CoreFns CheckSM).defeq d ta ty >>= fun b =>
-              if b then
-                (G : CoreFns CheckSM).whnfCore d (body.instantiate1 a)
-              else pure (.app (.lam n ty body mb) a)
-          | none => pure (.app (.lam n ty body mb) a)
+          (G : CoreFns CheckSM).infer d a >>= fun ta =>
+          (G : CoreFns CheckSM).defeq d ta ty >>= fun b =>
+          if b then
+            (G : CoreFns CheckSM).whnfCore d (body.instantiate1 a)
+          else pure (.app (.lam n ty body mb) a)
         | f' =>
           iotaRec G env d (.app f' a) >>= fun o =>
           match o with
@@ -985,14 +930,11 @@ theorem whnfCoreBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
         exact ⟨hwtb, hwfa.2⟩
       have hwred : WScoped d (body.instantiate1 a) :=
         WScoped.instantiate1_gen hwfa.2 0 hwtb.2
-      split <;> try exact DiscV.pure hwapp
+      refine DiscV.bind (ih.site_infer henv hwfa.2) (fun ta hta => ?_)
+      refine DiscV.bind (ih.site_defeq hta hwtb.1) (fun b _ => ?_)
       split
       · exact ih.site_whnfCore henv hwred
-      · refine DiscV.bind (ih.site_infer henv hwfa.2) (fun ta hta => ?_)
-        refine DiscV.bind (ih.site_defeq hta hwtb.1) (fun b _ => ?_)
-        split
-        · exact ih.site_whnfCore henv hwred
-        · exact DiscV.pure hwapp
+      · exact DiscV.pure hwapp
     · -- iota / stuck
       rename_i hnolam
       have hwapp : WScoped d (Expr.app f' a) := by
@@ -1014,19 +956,14 @@ theorem whnfCoreBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
             if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
                 e'.getAppArgs.length = entry.numParams + entry.numFields ∧
                 us.length = entry.levelParams.length then
-              if (Level.subst entry.levelParams us
-                  entry.structSort).isNonZero then
+              projCert C env d e' i
+                (Level.subst entry.levelParams us entry.fieldSort)
+                (Level.subst entry.levelParams us entry.structSort)
+                entry.numParams >>= fun b =>
+              if b then
                 (C : CoreFns CheckSM).whnfCore d
                   (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
-              else
-                projCert C env d e' i
-                  (Level.subst entry.levelParams us entry.fieldSort)
-                  (Level.subst entry.levelParams us entry.structSort)
-                  entry.numParams >>= fun b =>
-                if b then
-                  (C : CoreFns CheckSM).whnfCore d
-                    (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
-                else pure (.proj sn i e')
+              else pure (.proj sn i e')
             else pure (.proj sn i e')
           | _ => pure (.proj sn i e')
         | none => pure (.proj sn i e'))
@@ -1039,19 +976,14 @@ theorem whnfCoreBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
             if entry.native ∧ c = entry.ctor ∧ i < entry.numFields ∧
                 e'.getAppArgs.length = entry.numParams + entry.numFields ∧
                 us.length = entry.levelParams.length then
-              if (Level.subst entry.levelParams us
-                  entry.structSort).isNonZero then
+              projCert G env d e' i
+                (Level.subst entry.levelParams us entry.fieldSort)
+                (Level.subst entry.levelParams us entry.structSort)
+                entry.numParams >>= fun b =>
+              if b then
                 (G : CoreFns CheckSM).whnfCore d
                   (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
-              else
-                projCert G env d e' i
-                  (Level.subst entry.levelParams us entry.fieldSort)
-                  (Level.subst entry.levelParams us entry.structSort)
-                  entry.numParams >>= fun b =>
-                if b then
-                  (G : CoreFns CheckSM).whnfCore d
-                    (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
-                else pure (.proj sn i e')
+              else pure (.proj sn i e')
             else pure (.proj sn i e')
           | _ => pure (.proj sn i e')
         | none => pure (.proj sn i e'))
@@ -1065,12 +997,10 @@ theorem whnfCoreBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     split <;> try exact DiscV.pure hwproj
     split <;> try exact DiscV.pure hwproj
     split <;> try exact DiscV.pure hwproj
+    refine DiscV.bind (projCert_disc ih henv he') (fun b _ => ?_)
     split
     · exact ih.site_whnfCore henv (hwarg _)
-    · refine DiscV.bind (projCert_disc ih henv he') (fun b _ => ?_)
-      split
-      · exact ih.site_whnfCore henv (hwarg _)
-      · exact DiscV.pure hwproj
+    · exact DiscV.pure hwproj
 
 theorem whnfBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
@@ -1397,16 +1327,14 @@ theorem inferBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     rename_i nw tyw bodyw mbw
     have hwtb : WScoped d tyw ∧ WScoped d bodyw := by
       simpa only [WScoped] using hww
+    refine DiscV.bind (ih.site_infer henv hwfa.2) (fun ta hta => ?_)
+    refine DiscV.bind (ih.site_defeq hta hwtb.1) (fun b _ => ?_)
     split
     · exact DiscV.pure (WScoped.instantiate1_gen hwfa.2 0 hwtb.2)
-    · refine DiscV.bind (ih.site_infer henv hwfa.2) (fun ta hta => ?_)
-      refine DiscV.bind (ih.site_defeq hta hwtb.1) (fun b _ => ?_)
-      split
-      · exact DiscV.pure (WScoped.instantiate1_gen hwfa.2 0 hwtb.2)
-      · first
-          | exact DiscV.throw _
-          | exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
-              (fun _ h => h.elim)
+    · first
+        | exact DiscV.throw _
+        | exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
+            (fun _ h => h.elim)
   | .proj sn i pe =>
     have hwpe : WScoped d pe := by simpa only [WScoped] using hw
     unfold inferBody

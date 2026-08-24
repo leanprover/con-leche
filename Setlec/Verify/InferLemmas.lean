@@ -27,17 +27,17 @@ theorem find?_mem {env : Env} {n : Name} {ci : ConstantInfo}
 
 /-! ## Inversion lemmas -/
 
-/-- Inversion for `whnfCore` on applications: either a (guarded or
-certified) beta step happened, or an iota step (with the stuck-major
+/-- Inversion for `whnfCore` on applications: either a certified beta
+step happened (task #100 de-gating: every beta redex carries the
+argument certificate), or an iota step (with the stuck-major
 machinery), or the application is stuck. -/
 theorem whnf_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
     (h : whnfCore env (fuel + 1) d (.app f a) = .ok e') :
     ∃ f', whnfCore env fuel d f = .ok f' ∧
-      ((∃ n ty body m v, f' = .lam n ty body m ∧ m.cod = some v ∧
+      ((∃ n ty body m, f' = .lam n ty body m ∧
           whnfCore env fuel d (body.instantiate1 a) = .ok e' ∧
-          (v.isNonZero = true ∨
-            ∃ ta, inferTypeCore env fuel d a = .ok ta ∧
-              isDefEqCore env fuel d ta ty = .ok true)) ∨
+          ∃ ta, inferTypeCore env fuel d a = .ok ta ∧
+            isDefEqCore env fuel d ta ty = .ok true) ∨
         (∃ e'', iotaRecP env fuel d (.app f' a) = .ok (some e'') ∧
           whnfCore env fuel d e'' = .ok e') ∨
         e' = .app f' a) := by
@@ -63,36 +63,25 @@ theorem whnf_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
   | .proj s' i' e'', h => ?_
   case _ =>
     dsimp only at h
-    cases hc : m.cod with
-    | none =>
-      rw [hc] at h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
+    try simp only [Bind.bind, Except.bind] at h
+    try dsimp only at h
+    cases hta : inferTypeCore env fuel d a with
+    | error err => rw [hta] at h; exact nomatch h
+    | ok ta =>
+    rw [hta] at h
+    dsimp only at h
+    cases hde : isDefEqCore env fuel d ta ty with
+    | error err => rw [hde] at h; exact nomatch h
+    | ok bb =>
+    rw [hde] at h
+    cases bb with
+    | true =>
+      simp only [if_true] at h
+      exact Or.inl ⟨n, ty, body, m, rfl, h, ta, rfl, hde⟩
+    | false =>
+      simp only [Bool.false_eq_true, if_false, pure, Except.pure,
+        Except.ok.injEq] at h
       exact Or.inr (Or.inr h.symm)
-    | some v =>
-      rw [hc] at h
-      dsimp only at h
-      split at h
-      next hnz => exact Or.inl ⟨n, ty, body, m, v, rfl, hc, h, Or.inl hnz⟩
-      next hnz =>
-        try simp only [Bind.bind, Except.bind] at h
-        try dsimp only at h
-        cases hta : inferTypeCore env fuel d a with
-        | error err => rw [hta] at h; exact nomatch h
-        | ok ta =>
-        rw [hta] at h
-        dsimp only at h
-        cases hde : isDefEqCore env fuel d ta ty with
-        | error err => rw [hde] at h; exact nomatch h
-        | ok bb =>
-        rw [hde] at h
-        cases bb with
-        | true =>
-          simp only [if_true] at h
-          exact Or.inl ⟨n, ty, body, m, v, rfl, hc, h, Or.inr ⟨ta, rfl, hde⟩⟩
-        | false =>
-          simp only [Bool.false_eq_true, if_false, pure, Except.pure,
-            Except.ok.injEq] at h
-          exact Or.inr (Or.inr h.symm)
   all_goals
     try simp only [Bind.bind, Except.bind] at h
     cases hio : iotaRecP env fuel d (.app _ a) with
@@ -223,18 +212,17 @@ theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
     exact ⟨v, tty, u, bt, tbt, v', rfl, rfl, hwtty, rfl, htbt, hwtbt, hEq,
       h.symm⟩
 
-/-- Inversion for the application rule of `inferTypeCore` (infer-only:
-no argument check — that ran once, in the annotation pass; since task
-#49 the possibly-Prop-gated re-check runs only when the Π's
-codomain-sort annotation is not provably nonzero). -/
+/-- Inversion for the application rule of `inferTypeCore` (task #100
+de-gating: the per-argument re-check runs unconditionally — the former
+possibly-Prop gate of task #49 is unsound-to-model under the
+domain-relative collapse). -/
 theorem inferTypeCore_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
     (h : inferTypeCore env (fuel + 1) d (.app f a) = .ok t) :
     ∃ tf n' ty' body' m', inferTypeCore env fuel d f = .ok tf ∧
       whnf env fuel d tf = .ok (.forallE n' ty' body' m') ∧
       t = body'.instantiate1 a ∧
-      (codNonZero m' = true ∨
-       ∃ ta, inferTypeCore env fuel d a = .ok ta ∧
-         isDefEqCore env fuel d ta ty' = .ok true) := by
+      ∃ ta, inferTypeCore env fuel d a = .ok ta ∧
+        isDefEqCore env fuel d ta ty' = .ok true := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind] at h
   simp only [infer_def, whnf_def, defeq_def] at h
@@ -260,26 +248,20 @@ theorem inferTypeCore_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
   | .lit l2, h => exact nomatch h
   | .proj s2 i2 e2, h => exact nomatch h
   dsimp only at h
-  by_cases hnz : codNonZero m' = true
-  · rw [if_pos hnz] at h
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    exact ⟨tf, n', ty', body', m', rfl, hw, h.symm, Or.inl hnz⟩
-  · rw [if_neg hnz] at h
-    cases hta : inferTypeCore env fuel d a with
-    | error err => rw [hta] at h; exact nomatch h
-    | ok ta =>
-    rw [hta] at h
-    dsimp only at h
-    cases hde : isDefEqCore env fuel d ta ty' with
-    | error err => rw [hde] at h; exact nomatch h
-    | ok r =>
-    rw [hde] at h
-    cases r with
-    | false => simp [throw, throwThe, MonadExceptOf.throw] at h
-    | true =>
-      simp only [if_true, pure, Except.pure, Except.ok.injEq] at h
-      exact ⟨tf, n', ty', body', m', rfl, hw, h.symm,
-        Or.inr ⟨ta, rfl, hde⟩⟩
+  cases hta : inferTypeCore env fuel d a with
+  | error err => rw [hta] at h; exact nomatch h
+  | ok ta =>
+  rw [hta] at h
+  dsimp only at h
+  cases hde : isDefEqCore env fuel d ta ty' with
+  | error err => rw [hde] at h; exact nomatch h
+  | ok r =>
+  rw [hde] at h
+  cases r with
+  | false => simp [throw, throwThe, MonadExceptOf.throw] at h
+  | true =>
+    simp only [if_true, pure, Except.pure, Except.ok.injEq] at h
+    exact ⟨tf, n', ty', body', m', rfl, hw, h.symm, ta, rfl, hde⟩
 
 /-- Inversion for the ∀-rule of `inferTypeCore`. -/
 theorem inferTypeCore_forall_inv {env : Env} {fuel d : Nat} {n : Name}
@@ -443,12 +425,10 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
           us.length = entry.levelParams.length ∧
           whnfCore env fuel d
             (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) = .ok e' ∧
-          ((Level.subst entry.levelParams us entry.structSort).isNonZero
-              = true ∨
-            projCertP env fuel d e₃ i
-              (Level.subst entry.levelParams us entry.fieldSort)
-              (Level.subst entry.levelParams us entry.structSort)
-              entry.numParams = .ok true)) := by
+          projCertP env fuel d e₃ i
+            (Level.subst entry.levelParams us entry.fieldSort)
+            (Level.subst entry.levelParams us entry.structSort)
+            entry.numParams = .ok true) := by
   rw [whnfCore_succ] at h
   simp only [whnfCoreBody, Bind.bind, Except.bind] at h
   simp only [whnfCore_def, whnf_def, projCert_fold, projLitToCtor_fold] at h
@@ -475,29 +455,23 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
     split at h
     next hcond =>
       obtain ⟨hnat, rfl, hi, hlen, hus⟩ := hcond
-      split at h
-      next hnz =>
-        exact Or.inr ⟨us, entry, rfl, rfl, hnat, hi, hlen, hus, h,
-          Or.inl hnz⟩
-      next hnz =>
-        try simp only [Bind.bind, Except.bind] at h
+      try simp only [Bind.bind, Except.bind] at h
+      try dsimp only at h
+      cases hcert : projCertP env fuel d e₃ i
+          (Level.subst entry.levelParams us entry.fieldSort)
+          (Level.subst entry.levelParams us entry.structSort)
+          entry.numParams with
+      | error err => rw [hcert] at h; exact nomatch h
+      | ok b =>
+      rw [hcert] at h
+      cases b with
+      | true =>
+        simp only [if_true] at h
         try dsimp only at h
-        cases hcert : projCertP env fuel d e₃ i
-            (Level.subst entry.levelParams us entry.fieldSort)
-            (Level.subst entry.levelParams us entry.structSort)
-            entry.numParams with
-        | error err => rw [hcert] at h; exact nomatch h
-        | ok b =>
-        rw [hcert] at h
-        cases b with
-        | true =>
-          simp only [if_true] at h
-          try dsimp only at h
-          exact Or.inr ⟨us, entry, rfl, rfl, hnat, hi, hlen, hus, h,
-            Or.inr hcert⟩
-        | false =>
-          simp only [Bool.false_eq_true, if_false] at h
-          exact Or.inl (Except.ok.inj h).symm
+        exact Or.inr ⟨us, entry, rfl, rfl, hnat, hi, hlen, hus, h, hcert⟩
+      | false =>
+        simp only [Bool.false_eq_true, if_false] at h
+        exact Or.inl (Except.ok.inj h).symm
     next hcond =>
       exact Or.inl (Except.ok.inj h).symm
   | bvar i2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
@@ -621,9 +595,9 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
       defEqListP env fuel d (major.getAppArgs.take r.ctorParams)
         (recFireComparands r cv.levelParams us cvj.levelParams
           e.getAppArgs rP).2 = .ok true ∧
-      iotaCertsGP env fuel d (cv.type.instantiateLevelParams cv.levelParams us)
+      iotaCertsP env fuel d (cv.type.instantiateLevelParams cv.levelParams us)
         (e.getAppArgs.take mI ++ [major]) = .ok true ∧
-      iotaCertsGP env fuel d (cvj.type.instantiateLevelParams cvj.levelParams usj)
+      iotaCertsP env fuel d (cvj.type.instantiateLevelParams cvj.levelParams usj)
         major.getAppArgs = .ok true ∧
       (cvj.type.instantiateLevelParams cvj.levelParams usj).stripPis
         (r.ctorParams + r.nfields) = some (cbinders, cbody) ∧
@@ -639,7 +613,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   dsimp only [iotaRecP] at h
   simp only [iotaRec, Bind.bind, Except.bind] at h
   simp only [whnf_def, majorToCtor_fold, litMajorToCtor_fold, defEqList_fold,
-    iotaCertsG_fold] at h
+    iotaCerts_fold] at h
   revert h
   cases hfn : e.getAppFn with
   | bvar i => intro h; exact nomatch h
@@ -756,7 +730,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   | true =>
   simp only [↓reduceIte] at h
   try simp only [Bind.bind, Except.bind] at h
-  cases hcerts : iotaCertsGP env fuel d
+  cases hcerts : iotaCertsP env fuel d
       (cv.type.instantiateLevelParams cv.levelParams us)
       (e.getAppArgs.take mI ++ [major]) with
   | error err => rw [hcerts] at h; exact nomatch h
@@ -768,7 +742,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   | true =>
   simp only [↓reduceIte] at h
   try simp only [Bind.bind, Except.bind] at h
-  cases hmcerts : iotaCertsGP env fuel d
+  cases hmcerts : iotaCertsP env fuel d
       (cvj.type.instantiateLevelParams cvj.levelParams usj)
       major.getAppArgs with
   | error err => rw [hmcerts] at h; exact nomatch h
@@ -1331,52 +1305,6 @@ theorem iotaCerts_step_inv {env : Env} {fuel d : Nat} {n : Name}
   | true =>
   simp only [↓reduceIte] at h
   exact ⟨ta, rfl, hde, h⟩
-
-/-- Inversion of one possibly-Prop-gated certification step (tasks
-#49/#71): either the slot's codomain-sort annotation is provably
-nonzero (the check-free branch — the claims recover the membership by
-domain determination), or the retained infer+defeq ran and succeeded;
-in both cases the rest of the telescope stays certified. -/
-theorem iotaCertsG_step_inv {env : Env} {fuel d : Nat} {n : Name}
-    {ty body : Expr} {m : BinderMeta} {arg : Expr} {rest : List Expr}
-    (h : iotaCertsGP env fuel d (.forallE n ty body m) (arg :: rest) =
-      .ok true) :
-    (codNonZero m = true ∨
-     ∃ ta, inferTypeCore env fuel d arg = .ok ta ∧
-       isDefEqCore env fuel d ta ty = .ok true) ∧
-    iotaCertsGP env fuel d (body.instantiate1 arg) rest = .ok true := by
-  dsimp only [iotaCertsGP] at h
-  simp only [iotaCertsG, Bind.bind, Except.bind] at h
-  simp only [infer_def, defeq_def, iotaCertsG_fold] at h
-  by_cases hnz : codNonZero m = true
-  · rw [if_pos hnz] at h
-    exact ⟨Or.inl hnz, h⟩
-  · rw [if_neg hnz] at h
-    cases hta : inferTypeCore env fuel d arg with
-    | error err => rw [hta] at h; exact nomatch h
-    | ok ta =>
-    rw [hta] at h
-    dsimp only at h
-    cases hde : isDefEqCore env fuel d ta ty with
-    | error err => rw [hde] at h; exact nomatch h
-    | ok r =>
-    rw [hde] at h
-    dsimp only at h
-    cases r with
-    | false => simp [pure, Except.pure] at h
-    | true =>
-    simp only [↓reduceIte] at h
-    exact ⟨Or.inr ⟨ta, rfl, hde⟩, h⟩
-
-/-- Unfold the possibly-Prop gate: a true verdict pins a provably
-nonzero codomain-sort annotation. -/
-theorem codNonZero_eq_true {m : BinderMeta} (h : codNonZero m = true) :
-    ∃ v, m.cod = some v ∧ v.isNonZero = true := by
-  unfold codNonZero at h
-  revert h
-  cases hcod : m.cod with
-  | some v => intro h; exact ⟨v, rfl, h⟩
-  | none => intro h; exact nomatch h
 
 /-- Inversion of the unit-type check. -/
 theorem isUnitLikeTy_inv {env : Env} {e : Expr}
@@ -2605,7 +2533,7 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
         simp only [WScoped] at hw
         obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
         have hwf' : WScoped d f' := ihCore hwf hw.1
-        rcases hcase with ⟨n, ty, body, mm, v, rfl, hc, hbeta, -⟩ |
+        rcases hcase with ⟨n, ty, body, mm, rfl, hbeta, -⟩ |
           ⟨e'', hio, hwe''⟩ | rfl
         · simp only [WScoped] at hwf'
           exact ihCore hbeta (WScoped.instantiate1_gen hw.2 0 hwf'.2)

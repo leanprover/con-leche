@@ -284,9 +284,9 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
       ((Expr.app fe ae).getAppArgs.take mI ++ [major])
       (vsi ++ [tvv]) :=
     InterpSpine.append hspi ⟨himaj, trivial⟩
-  obtain ⟨restR, hfitIR⟩ := certsG_fit ihd ihi
-    _ _ _ T vf0 hcerts hRw hRb (Expr.LeavesBounded.of_not_hasFvar hRhf)
-    (FvarsOk.of_not_hasFvar hRhf) hRA hRT hvf0T hchain hcertargs hspR
+  obtain ⟨restR, hfitIR⟩ := certs_fit ihd ihi
+    _ _ _ T hcerts hRw hRb (Expr.LeavesBounded.of_not_hasFvar hRhf)
+    (FvarsOk.of_not_hasFvar hRhf) hRA hRT hcertargs hspR
   obtain ⟨dR, ρR, restR', hfitR⟩ := TeleFitI.toTeleFit hfitIR hRw (by
     rw [show ((Expr.app fe ae).getAppArgs.take mI ++
         [major]).length = mI + 1 from by
@@ -333,12 +333,9 @@ theorem iota_sound {m : EnvModel V env} {fuel : Nat}
       fun l hl => hmajL l (fvarLeaves_getAppArgs hxm l hl),
       FvarsOk.of_subset (fun l hl => fvarLeaves_getAppArgs hxm l hl) hmajO,
       hmxsA _ hxm⟩
-  obtain ⟨restC, hfitIC⟩ := certsG_fit ihd ihi
-    _ _ _ TC (m.val (RecRule.ctor r) (Level.substFn φ
-      (ConstantInfo.ctorInfo cvj cnP
-        cnF).toConstantVal.levelParams usj))
-    hmcerts hCw hCb (Expr.LeavesBounded.of_not_hasFvar hChf)
-    (FvarsOk.of_not_hasFvar hChf) hCA hCT hCmem hmchain hcertmargs hmsp
+  obtain ⟨restC, hfitIC⟩ := certs_fit ihd ihi
+    _ _ _ TC hmcerts hCw hCb (Expr.LeavesBounded.of_not_hasFvar hChf)
+    (FvarsOk.of_not_hasFvar hChf) hCA hCT hcertmargs hmsp
   -- the recursor fit's final-frame fvar spine (for the nested premise)
   obtain ⟨hdR, hagrR, argsRF, hfitRF, hfvRF⟩ :=
     TeleFit.toTeleFitI hfitR hRw

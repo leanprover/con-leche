@@ -111,42 +111,6 @@ theorem iotaCerts_atF (d : Nat) (F : Nat) :
   | .const _ _, _ :: _ | .app _ _, _ :: _ | .lam _ _ _ _, _ :: _
   | .letE _ _ _ _, _ :: _ | .lit _, _ :: _ | .proj _ _ _, _ :: _ => rfl
 
-theorem iotaCertsG_atF (d : Nat) (F : Nat) :
-    ∀ (ty : Expr) (args : List Expr),
-      (iotaCertsG (fueledFns env) env d ty args).val F =
-        iotaCertsG (pureFns env F) env d ty args
-  | _, [] => rfl
-  | .forallE n ty body mb, arg :: rest => by
-    show ((if codNonZero mb then
-        iotaCertsG (fueledFns env) env d (body.instantiate1 arg) rest
-      else do
-        let ta ← (fueledFns env).infer d arg
-        if ← (fueledFns env).defeq d ta ty then
-          iotaCertsG (fueledFns env) env d (body.instantiate1 arg) rest
-        else pure false : FueledM Bool)).val F = (if codNonZero mb then
-        iotaCertsG (pureFns env F) env d (body.instantiate1 arg) rest
-      else do
-        let ta ← (pureFns env F).infer d arg
-        if ← (pureFns env F).defeq d ta ty then
-          iotaCertsG (pureFns env F) env d (body.instantiate1 arg) rest
-        else pure false)
-    split
-    · exact iotaCertsG_atF d F (body.instantiate1 arg) rest
-    · rw [FueledM.atF_bind]
-      congr 1
-      funext ta
-      rw [FueledM.atF_bind]
-      congr 1
-      funext b
-      cases b with
-      | true =>
-        simp only [↓reduceIte]
-        exact iotaCertsG_atF d F (body.instantiate1 arg) rest
-      | false => rfl
-  | .bvar _, _ :: _ | .fvar _ _ _, _ :: _ | .sort _, _ :: _
-  | .const _ _, _ :: _ | .app _ _, _ :: _ | .lam _ _ _ _, _ :: _
-  | .letE _ _ _ _, _ :: _ | .lit _, _ :: _ | .proj _ _ _, _ :: _ => rfl
-
 theorem defEqList_atF (d : Nat) (F : Nat) :
     ∀ (as bs : List Expr),
       (defEqList (fueledFns env) env d as bs).val F =
@@ -243,7 +207,6 @@ macro "atF_step" : tactic =>
     | rfl
     | (rw [liftFueled_atF])
     | (rw [iotaCerts_atF])
-    | (rw [iotaCertsG_atF])
     | (rw [defEqList_atF])
     | (rw [structEtaProjCerts_atF])
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
@@ -329,7 +292,6 @@ macro "atF_step2" : tactic =>
     | rfl
     | (rw [liftFueled_atF])
     | (rw [iotaCerts_atF])
-    | (rw [iotaCertsG_atF])
     | (rw [defEqList_atF])
     | (rw [structEtaProjCerts_atF])
     | (rw [reduceNat_atF])
@@ -464,7 +426,6 @@ macro "atF_step3" : tactic =>
     | rfl
     | (rw [liftFueled_atF])
     | (rw [iotaCerts_atF])
-    | (rw [iotaCertsG_atF])
     | (rw [defEqList_atF])
     | (rw [structEtaProjCerts_atF])
     | (rw [reduceNat_atF])
@@ -506,7 +467,6 @@ macro "atF_step4" : tactic =>
     | rfl
     | (rw [liftFueled_atF])
     | (rw [iotaCerts_atF])
-    | (rw [iotaCertsG_atF])
     | (rw [defEqList_atF])
     | (rw [structEtaProjCerts_atF])
     | (rw [reduceNat_atF])
