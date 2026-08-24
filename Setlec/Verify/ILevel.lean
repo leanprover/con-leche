@@ -73,11 +73,11 @@ theorem denoteL_imax_node {st : EStore} {u : LIdx} {x y : Level}
 
 /-! ## `combiningLI` -/
 
-theorem combiningLI_spec {st : EStore} (hwf : st.WF) :
+theorem combiningLI_spec {st : EStore} (hwf : st.TWF) :
     ∀ {a : LIdx} {b : LIdx} {la lb : Level} {r : LIdx} {st' : EStore},
       st.denoteL a = some la → st.denoteL b = some lb →
       st.combiningLI a b = (r, st') →
-      st'.WF ∧ Ext st st' ∧ st'.denoteL r = some (Level.combining la lb) := by
+      st'.TWF ∧ Ext st st' ∧ st'.denoteL r = some (Level.combining la lb) := by
   intro a
   induction a using Nat.strongRecOn with
   | _ a ih =>
@@ -88,9 +88,9 @@ theorem combiningLI_spec {st : EStore} (hwf : st.WF) :
     rw [hna, hnb] at hgo
     have hmax : ∀ {r₀ : LIdx} {st₀ : EStore},
         st.internL (.max a b) = (r₀, st₀) →
-        st₀.WF ∧ Ext st st₀ ∧ st₀.denoteL r₀ = some (.max la lb) := by
+        st₀.TWF ∧ Ext st st₀ ∧ st₀.denoteL r₀ = some (.max la lb) := by
       intro r₀ st₀ hI
-      obtain ⟨hwf₁, hext₁, hden₁⟩ := internL_step (n := .max a b) hwf
+      obtain ⟨hwf₁, hext₁, hden₁⟩ := internL_stepT (n := .max a b) hwf
         (by
           simp only [LNode.children, List.mem_cons, List.not_mem_nil, or_false]
           rintro c (rfl | rfl)
@@ -170,7 +170,7 @@ theorem combiningLI_spec {st : EStore} (hwf : st.WF) :
         rcases hcomb : st.combiningLI al bl with ⟨c, st₁⟩
         rw [hcomb] at hgo
         obtain ⟨hwf₁, hext₁, hden₁⟩ := ih al hlt hax hbx hcomb
-        obtain ⟨hwf₂, hext₂, hden₂⟩ := internL_step (n := .succ c) hwf₁
+        obtain ⟨hwf₂, hext₂, hden₂⟩ := internL_stepT (n := .succ c) hwf₁
           (by simpa [LNode.children] using denoteL_lt_size hden₁)
           (a := .succ (Level.combining ax bx))
           (by rw [denoteLNode, hden₁]; rfl)
@@ -286,10 +286,10 @@ def simplifyImaxSpec (xls xrs : Level) : Level :=
 
 theorem simplifyImax_spec {st : EStore} {memo : LMemo}
     {ls rs ri : LIdx} {st' : EStore} {memo' : LMemo} {xls xrs : Level}
-    (hwf : st.WF)
+    (hwf : st.TWF)
     (hls : st.denoteL ls = some xls) (hrs : st.denoteL rs = some xrs)
     (hgo : simplifyImax st memo ls rs = (ri, st', memo')) :
-    st'.WF ∧ Ext st st' ∧ memo' = memo ∧
+    st'.TWF ∧ Ext st st' ∧ memo' = memo ∧
       st'.denoteL ri = some (simplifyImaxSpec xls xrs) := by
   unfold simplifyImax at hgo
   cases hrsn : st.lnodes[rs]? with
@@ -312,7 +312,7 @@ theorem simplifyImax_spec {st : EStore} {memo : LMemo}
       rcases h₃ : st.combiningLI ls rs with ⟨c, st₁⟩
       rw [h₃] at hgo
       cases hgo
-      obtain ⟨zx, hzx⟩ := denoteL_total hwf.toTWF z
+      obtain ⟨zx, hzx⟩ := denoteL_total hwf z
         (Nat.lt_trans
           (hwf.lchildren_lt _ _ hrsn z (by simp [LNode.children]))
           (Array.getElem?_eq_some_iff.mp hrsn).1)
@@ -332,7 +332,7 @@ theorem simplifyImax_spec {st : EStore} {memo : LMemo}
         have := denoteL_head hrs hrsn
         simpa [denoteLNode] using this.symm
       subst hz
-      obtain ⟨hwf₁, hext₁, hden₁⟩ := internL_step (n := .imax ls rs) hwf
+      obtain ⟨hwf₁, hext₁, hden₁⟩ := internL_stepT (n := .imax ls rs) hwf
         (by
           simp only [LNode.children, List.mem_cons, List.not_mem_nil,
             or_false]
@@ -355,7 +355,7 @@ theorem simplifyImax_spec {st : EStore} {memo : LMemo}
         obtain ⟨yy, -, hres⟩ := this
         exact ⟨xx, yy, hres.symm⟩
       subst hz
-      obtain ⟨hwf₁, hext₁, hden₁⟩ := internL_step (n := .imax ls rs) hwf
+      obtain ⟨hwf₁, hext₁, hden₁⟩ := internL_stepT (n := .imax ls rs) hwf
         (by
           simp only [LNode.children, List.mem_cons, List.not_mem_nil,
             or_false]
@@ -378,7 +378,7 @@ theorem simplifyImax_spec {st : EStore} {memo : LMemo}
         obtain ⟨yy, -, hres⟩ := this
         exact ⟨xx, yy, hres.symm⟩
       subst hz
-      obtain ⟨hwf₁, hext₁, hden₁⟩ := internL_step (n := .imax ls rs) hwf
+      obtain ⟨hwf₁, hext₁, hden₁⟩ := internL_stepT (n := .imax ls rs) hwf
         (by
           simp only [LNode.children, List.mem_cons, List.not_mem_nil,
             or_false]
@@ -394,9 +394,9 @@ theorem simplifyImax_spec {st : EStore} {memo : LMemo}
 theorem simplifyLIGo_spec :
     ∀ (u : LIdx) {st : EStore} {memo : LMemo} {r : LIdx}
       {st' : EStore} {memo' : LMemo},
-      st.WF → LvlMemoInv st Level.simplify memo →
+      st.TWF → LvlMemoInv st Level.simplify memo →
       simplifyLIGo st memo u = (r, st', memo') →
-      st'.WF ∧ Ext st st' ∧ LvlMemoInv st' Level.simplify memo' ∧
+      st'.TWF ∧ Ext st st' ∧ LvlMemoInv st' Level.simplify memo' ∧
         ∀ x, st.denoteL u = some x → st'.denoteL r = some x.simplify := by
   intro u
   induction u using Nat.strongRecOn with
@@ -451,12 +451,12 @@ theorem simplifyLIGo_spec :
             rcases h₂ : st₁.internL (.succ l') with ⟨ri, st₂⟩
             rw [h₂] at hgo
             cases hgo
-            obtain ⟨xl, hl⟩ := denoteL_total hwf.toTWF l (Nat.lt_trans hguard husz)
+            obtain ⟨xl, hl⟩ := denoteL_total hwf l (Nat.lt_trans hguard husz)
             have hx : st.denoteL u = some (.succ xl) := by
               rw [hde, denoteLNode, hl]; rfl
             obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ := ih l hguard hwf hinv h₁
             have hl₁ := hden₁ xl hl
-            obtain ⟨hwf₂, hext₂, hden₂⟩ := internL_step (n := .succ l') hwf₁
+            obtain ⟨hwf₂, hext₂, hden₂⟩ := internL_stepT (n := .succ l') hwf₁
               (by simpa [LNode.children] using denoteL_lt_size hl₁)
               (a := .succ xl.simplify) (by rw [denoteLNode, hl₁]; rfl)
             rw [h₂] at hwf₂ hext₂ hden₂
@@ -484,8 +484,8 @@ theorem simplifyLIGo_spec :
             rcases h₃ : st₂.combiningLI l' r₂ with ⟨ri, st₃⟩
             rw [h₃] at hgo
             cases hgo
-            obtain ⟨xl, hl⟩ := denoteL_total hwf.toTWF l (Nat.lt_trans hguard.1 husz)
-            obtain ⟨xr, hr⟩ := denoteL_total hwf.toTWF r' (Nat.lt_trans hguard.2 husz)
+            obtain ⟨xl, hl⟩ := denoteL_total hwf l (Nat.lt_trans hguard.1 husz)
+            obtain ⟨xr, hr⟩ := denoteL_total hwf r' (Nat.lt_trans hguard.2 husz)
             have hx : st.denoteL u = some (.max xl xr) := by
               rw [hde, denoteLNode, hl, hr]; rfl
             obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ := ih l hguard.1 hwf hinv h₁
@@ -516,8 +516,8 @@ theorem simplifyLIGo_spec :
             rw [h₁] at hgo
             rcases h₂ : simplifyLIGo st₁ memo₁ r' with ⟨rs, st₂, memo₂⟩
             rw [h₂] at hgo
-            obtain ⟨xl, hl⟩ := denoteL_total hwf.toTWF l (Nat.lt_trans hguard.1 husz)
-            obtain ⟨xr, hr⟩ := denoteL_total hwf.toTWF r' (Nat.lt_trans hguard.2 husz)
+            obtain ⟨xl, hl⟩ := denoteL_total hwf l (Nat.lt_trans hguard.1 husz)
+            obtain ⟨xr, hr⟩ := denoteL_total hwf r' (Nat.lt_trans hguard.2 husz)
             have hx : st.denoteL u = some (.imax xl xr) := by
               rw [hde, denoteLNode, hl, hr]; rfl
             obtain ⟨hwf₁, hext₁, hinv₁, hden₁⟩ := ih l hguard.1 hwf hinv h₁
@@ -532,7 +532,7 @@ theorem simplifyLIGo_spec :
                 simplifyImax st₂ memo₂ ls rs = (ri₀, st₀, memo₀) →
                 xl.simplify ≠ Level.zero →
                 xl.simplify ≠ Level.succ .zero →
-                st₀.WF ∧ Ext st st₀ ∧
+                st₀.TWF ∧ Ext st st₀ ∧
                   LvlMemoInv st₀ Level.simplify (memo₀.insert u ri₀) ∧
                   ∀ x, st.denoteL u = some x →
                     st₀.denoteL ri₀ = some x.simplify := by
@@ -559,7 +559,7 @@ theorem simplifyLIGo_spec :
             -- the collapsing branch, shared by both collapse shapes
             have hColl : (xl.simplify = Level.zero ∨
                   xl.simplify = Level.succ .zero) →
-                st₂.WF ∧ Ext st st₂ ∧
+                st₂.TWF ∧ Ext st st₂ ∧
                   LvlMemoInv st₂ Level.simplify (memo₂.insert u rs) ∧
                   ∀ x, st.denoteL u = some x →
                     st₂.denoteL rs = some x.simplify := by
@@ -818,7 +818,7 @@ theorem EqvMemoInv.insert {st : EStore}
   · rw [if_neg (by simpa [Prod.ext_iff] using hk)] at hb'
     exact h l' r' b' hb'
 
-theorem isNonZeroLIGo_spec {st : EStore} (hwf : st.WF) :
+theorem isNonZeroLIGo_spec {st : EStore} (hwf : st.TWF) :
     ∀ (u : LIdx) {memo : Std.HashMap LIdx Bool} {b : Bool}
       {memo' : Std.HashMap LIdx Bool},
       LvlQMemoInv st Level.isNonZero memo →
@@ -882,9 +882,9 @@ theorem isNonZeroLIGo_spec {st : EStore} (hwf : st.WF) :
             exact absurd ⟨hcl a (by simp [LNode.children]),
               hcl b' (by simp [LNode.children])⟩ hguard
           case isTrue hguard =>
-            obtain ⟨xa, hxa⟩ := denoteL_total hwf.toTWF a
+            obtain ⟨xa, hxa⟩ := denoteL_total hwf a
               (Nat.lt_trans hguard.1 husz)
-            obtain ⟨xb, hxb⟩ := denoteL_total hwf.toTWF b'
+            obtain ⟨xb, hxb⟩ := denoteL_total hwf b'
               (Nat.lt_trans hguard.2 husz)
             have hx : st.denoteL u = some (.max xa xb) := by
               rw [hde, denoteLNode, hxa, hxb]; rfl
@@ -925,9 +925,9 @@ theorem isNonZeroLIGo_spec {st : EStore} (hwf : st.WF) :
           case isFalse hguard =>
             exact absurd (hcl b' (by simp [LNode.children])) hguard
           case isTrue hguard =>
-            obtain ⟨xa, hxa⟩ := denoteL_total hwf.toTWF a
+            obtain ⟨xa, hxa⟩ := denoteL_total hwf a
               (Nat.lt_trans (hcl a (by simp [LNode.children])) husz)
-            obtain ⟨xb, hxb⟩ := denoteL_total hwf.toTWF b'
+            obtain ⟨xb, hxb⟩ := denoteL_total hwf b'
               (Nat.lt_trans hguard husz)
             have hx : st.denoteL u = some (.imax xa xb) := by
               rw [hde, denoteLNode, hxa, hxb]; rfl
@@ -949,16 +949,16 @@ theorem isNonZeroLIGo_spec {st : EStore} (hwf : st.WF) :
 theorem internLevelSubst_spec {ks : List Name} {us : List LIdx}
     {lus : List Level} :
     ∀ (l : Level) {st : EStore} {r : LIdx} {st' : EStore},
-      st.WF → denoteLList st.denoteL us = some lus →
+      st.TWF → denoteLList st.denoteL us = some lus →
       st.internLevelSubst ks us l = (r, st') →
-      st'.WF ∧ Ext st st' ∧
+      st'.TWF ∧ Ext st st' ∧
         st'.denoteL r = some (Level.subst ks lus l) := by
   intro l
   induction l with
   | zero =>
     intro st r st' hwf hus hgo
     unfold internLevelSubst at hgo
-    obtain ⟨hwf₁, hext₁, hden₁⟩ := internL_step (n := .zero) hwf
+    obtain ⟨hwf₁, hext₁, hden₁⟩ := internL_stepT (n := .zero) hwf
       (by simp [LNode.children]) (a := .zero) rfl
     rw [hgo] at hwf₁ hext₁ hden₁
     exact ⟨hwf₁, hext₁, by simpa [Level.subst] using hden₁⟩
@@ -975,7 +975,7 @@ theorem internLevelSubst_spec {ks : List Name} {us : List LIdx}
     | none =>
       rw [hv] at hgo
       dsimp only at hgo
-      obtain ⟨hwf₁, hext₁, hden₁⟩ := internL_step (n := .param n) hwf
+      obtain ⟨hwf₁, hext₁, hden₁⟩ := internL_stepT (n := .param n) hwf
         (by simp [LNode.children]) (a := .param n) rfl
       rw [hgo] at hwf₁ hext₁ hden₁
       refine ⟨hwf₁, hext₁, ?_⟩
@@ -988,7 +988,7 @@ theorem internLevelSubst_spec {ks : List Name} {us : List LIdx}
     rw [h₁] at hgo
     dsimp only at hgo
     obtain ⟨hwf₁, hext₁, hden₁⟩ := ih hwf hus h₁
-    obtain ⟨hwf₂, hext₂, hden₂⟩ := internL_step (n := .succ x') hwf₁
+    obtain ⟨hwf₂, hext₂, hden₂⟩ := internL_stepT (n := .succ x') hwf₁
       (by simpa [LNode.children] using denoteL_lt_size hden₁)
       (a := .succ (Level.subst ks lus x)) (by rw [denoteLNode, hden₁]; rfl)
     rw [hgo] at hwf₂ hext₂ hden₂
@@ -1004,7 +1004,7 @@ theorem internLevelSubst_spec {ks : List Name} {us : List LIdx}
     dsimp only at hgo
     obtain ⟨hwf₁, hext₁, hden₁⟩ := ihx hwf hus h₁
     obtain ⟨hwf₂, hext₂, hden₂⟩ := ihy hwf₁ (denoteLList_mono hext₁ hus) h₂
-    obtain ⟨hwf₃, hext₃, hden₃⟩ := internL_step (n := .max x' y') hwf₂
+    obtain ⟨hwf₃, hext₃, hden₃⟩ := internL_stepT (n := .max x' y') hwf₂
       (by
         simp only [LNode.children, List.mem_cons, List.not_mem_nil, or_false]
         rintro c (rfl | rfl)
@@ -1026,7 +1026,7 @@ theorem internLevelSubst_spec {ks : List Name} {us : List LIdx}
     dsimp only at hgo
     obtain ⟨hwf₁, hext₁, hden₁⟩ := ihx hwf hus h₁
     obtain ⟨hwf₂, hext₂, hden₂⟩ := ihy hwf₁ (denoteLList_mono hext₁ hus) h₂
-    obtain ⟨hwf₃, hext₃, hden₃⟩ := internL_step (n := .imax x' y') hwf₂
+    obtain ⟨hwf₃, hext₃, hden₃⟩ := internL_stepT (n := .imax x' y') hwf₂
       (by
         simp only [LNode.children, List.mem_cons, List.not_mem_nil, or_false]
         rintro c (rfl | rfl)
@@ -1041,9 +1041,9 @@ theorem internLevelSubst_spec {ks : List Name} {us : List LIdx}
 theorem internLevelSubsts_spec {ks : List Name} {us : List LIdx}
     {lus : List Level} :
     ∀ (ls : List Level) {st : EStore} {rs : List LIdx} {st' : EStore},
-      st.WF → denoteLList st.denoteL us = some lus →
+      st.TWF → denoteLList st.denoteL us = some lus →
       st.internLevelSubsts ks us ls = (rs, st') →
-      st'.WF ∧ Ext st st' ∧
+      st'.TWF ∧ Ext st st' ∧
         denoteLList st'.denoteL rs
           = some (ls.map (Level.subst ks lus)) := by
   intro ls
@@ -1070,9 +1070,9 @@ theorem internLevelSubsts_spec {ks : List Name} {us : List LIdx}
 /-- `substLI` (fresh-memo wrapper) commutes with the denotation. -/
 theorem substLI_spec {st : EStore} {ks : List Name} {us : List LIdx}
     {lus : List Level} {u : LIdx} {la : Level} {r : LIdx} {st' : EStore}
-    (hwf : st.WF) (hus : denoteLList st.denoteL us = some lus)
+    (hwf : st.TWF) (hus : denoteLList st.denoteL us = some lus)
     (hl : st.denoteL u = some la) (hgo : st.substLI ks us u = (r, st')) :
-    st'.WF ∧ Ext st st' ∧ st'.denoteL r = some (Level.subst ks lus la) := by
+    st'.TWF ∧ Ext st st' ∧ st'.denoteL r = some (Level.subst ks lus la) := by
   unfold substLI at hgo
   rcases h₁ : substLIGo ks us st {} u with ⟨r₁, st₁, memo₁⟩
   rw [h₁] at hgo
