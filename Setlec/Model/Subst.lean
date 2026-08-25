@@ -251,41 +251,29 @@ theorem AnnotOk.substFvarAt {p : Nat} {a : Expr} {va : V}
         simp [AnnotOk]
   | .forallE n ty body m, D, hpD, ρ', hva, ha, hAa, hA => by
     simp only [AnnotOk] at hA
-    obtain ⟨haty, ⟨vE, hcond⟩, htie⟩ := hA
+    obtain ⟨haty, hcod, hcond⟩ := hA
     simp only [Expr.substFvarAt, AnnotOk]
-    have hva' : ∀ x : V, updV V ρ' (D + 1) x p = va := by
-      intro x
+    refine ⟨AnnotOk.substFvarAt hwa hba ty D hpD ρ' hva ha hAa haty, hcod, ?_⟩
+    intro x A hA' hx
+    rw [interp_substFvarAt hwa hba ty D hpD ρ' hva ha] at hA'
+    obtain ⟨hbody, hwfact⟩ := hcond x A hA' hx
+    have hva' : updV V ρ' (D + 1) x p = va := by
       simp only [updV]; rw [if_neg (by omega)]; exact hva
-    have ha' : ∀ x : V,
-        interpExpr V cval env φ p (updV V ρ' (D + 1) x) a = some va := by
-      intro x
+    have ha' : interpExpr V cval env φ p (updV V ρ' (D + 1) x) a = some va := by
       rw [interp_ext a (fun i hi => by
         simp only [updV]; rw [if_neg (by omega)]) hwa.fvarsBelow]
       exact ha
-    have hAa' : ∀ x : V, AnnotOk V cval env φ p (updV V ρ' (D + 1) x) a := by
-      intro x
+    have hAa' : AnnotOk V cval env φ p (updV V ρ' (D + 1) x) a := by
       refine AnnotOk.ext a (fun i hi => by
         simp only [updV]; rw [if_neg (by omega)]) hwa.fvarsBelow hAa
-    refine ⟨AnnotOk.substFvarAt hwa hba ty D hpD ρ' hva ha hAa haty, ⟨vE, ?_⟩, ?_⟩
-    · intro x A hA' hx
-      rw [interp_substFvarAt hwa hba ty D hpD ρ' hva ha] at hA'
-      obtain ⟨hbody, hwfact⟩ := hcond x A hA' hx
-      rw [← substFvarAt_instantiate1 hpD hba body 0, delV_updV hpD]
-      refine ⟨AnnotOk.substFvarAt hwa hba (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1)
-        (by omega) (updV V ρ' (D + 1) x) (hva' x) (ha' x) (hAa' x) hbody, ?_⟩
-      obtain ⟨w, hwi, hmem⟩ := hwfact
-      refine ⟨w, ?_, hmem⟩
-      rw [interp_substFvarAt hwa hba (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1)
-        (by omega) (updV V ρ' (D + 1) x) (hva' x) (ha' x)]
-      exact hwi
-    · intro v hv x A hA' hx
-      rw [interp_substFvarAt hwa hba ty D hpD ρ' hva ha] at hA'
-      obtain ⟨w, hwi, hmem⟩ := htie v hv x A hA' hx
-      rw [← substFvarAt_instantiate1 hpD hba body 0, delV_updV hpD]
-      refine ⟨w, ?_, hmem⟩
-      rw [interp_substFvarAt hwa hba (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1)
-        (by omega) (updV V ρ' (D + 1) x) (hva' x) (ha' x)]
-      exact hwi
+    rw [← substFvarAt_instantiate1 hpD hba body 0, delV_updV hpD]
+    refine ⟨AnnotOk.substFvarAt hwa hba (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1)
+      (by omega) (updV V ρ' (D + 1) x) hva' ha' hAa' hbody, ?_⟩
+    obtain ⟨w, hwi, hmem⟩ := hwfact
+    refine ⟨w, ?_, hmem⟩
+    rw [interp_substFvarAt hwa hba (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1)
+      (by omega) (updV V ρ' (D + 1) x) hva' ha']
+    exact hwi
   | .lam n ty body m, D, hpD, ρ', hva, ha, hAa, hA => by
     simp only [AnnotOk] at hA
     obtain ⟨haty, hcod, hcond⟩ := hA

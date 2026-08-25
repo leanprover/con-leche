@@ -182,21 +182,11 @@ def AnnotOk (cval : ConstVal V) (env : Env) (φ : Name → Nat) :
     (d : Nat) → (ρ : Nat → V) → Expr → Prop
   | d, ρ, .forallE n ty body m =>
     AnnotOk cval env φ d ρ ty ∧
-    (∃ vE, ∀ x A, interpExpr V cval env φ d ρ ty = some A → x ∈ˢ A →
+    ∃ vE, ∀ x A, interpExpr V cval env φ d ρ ty = some A → x ∈ˢ A →
       AnnotOk cval env φ (d + 1) (updV V ρ d x) (body.instantiate1 (.fvar d n ty)) ∧
       ∃ w, interpExpr V cval env φ (d + 1) (updV V ρ d x)
           (body.instantiate1 (.fvar d n ty)) = some w ∧
-        w ∈ˢ univ vE) ∧
-    -- Cod-truthfulness tie (task #100 stage-3 finding): while the
-    -- kernel's ∀-clause reads the stored cod for the imax rule
-    -- (through stage 5), inference soundness needs the fibres placed
-    -- at the *stored* level; the conjunct is vacuous once annotations
-    -- are erased (`m.cod = none`).
-    (∀ v, m.cod = some v → ∀ x A,
-      interpExpr V cval env φ d ρ ty = some A → x ∈ˢ A →
-      ∃ w, interpExpr V cval env φ (d + 1) (updV V ρ d x)
-          (body.instantiate1 (.fvar d n ty)) = some w ∧
-        w ∈ˢ univ (v.eval φ))
+        w ∈ˢ univ vE
   | d, ρ, .lam n ty body m =>
     AnnotOk cval env φ d ρ ty ∧
     ∃ vE, ∀ x A, interpExpr V cval env φ d ρ ty = some A → x ∈ˢ A →
