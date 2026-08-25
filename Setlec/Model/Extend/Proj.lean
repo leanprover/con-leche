@@ -283,9 +283,8 @@ theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
                 ((List.range nF).map fun k =>
                   Expr.bvar (nF - 1 - k)))])))
           (.bvar (nF - 1 - i))) ∧
-      (∃ idomE, sbinders[nP + i]? =
-          some (idomE.1, idomE.2.1, idomE.2.2) ∧
-        tySlot = idomE.2.1.liftLooseBVars (nF - i) 0) := by
+      (∃ nmI idom bmI, sbinders[nP + i]? = some (nmI, idom, bmI) ∧
+        tySlot = idom.liftLooseBVars (nF - i) 0) := by
   simp only [checkProjIota, Bind.bind, Except.bind] at h
   revert h
   match hthm : env'.find? ((projModelName T i).str "iota") with
@@ -402,7 +401,7 @@ theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
   case neg => rw [if_neg hts] at h; exact nomatch h
   exact ⟨tcv, tval, sbinders, cbindersR, cbody, tySlot, ℓA,
     rfl, htlps, rfl, hsdomsB, hS_strip,
-    ⟨(nmI, idom, bmI), hidom, eq_of_beq hts⟩⟩
+    ⟨nmI, idom, bmI, hidom, eq_of_beq hts⟩⟩
 
 /-- Invert a successful `checkProjShape` run. -/
 theorem checkProjShape_inv {pty cty : Expr} {nP nF : Nat} {u : Unit}
@@ -633,7 +632,8 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
     hopenP0, hcinstP0, hdeParsP0, hopenX0, hlinstP0, hdeLamP0,
     rhsTy0, hity0⟩ := checkProjRule_inv hrule
   obtain ⟨tcv, tval, sbinders, cbindersR₂, cbody₂, tySlot, ℓA,
-    hthm, htlps, hC_strip₂, hsdomsB, hS_strip⟩ := checkProjIota_inv hio
+    hthm, htlps, hC_strip₂, hsdomsB, hS_strip, htySlotP⟩ :=
+    checkProjIota_inv hio
   obtain ⟨rfl, rfl⟩ : cbindersR = cbindersR₂ ∧ cbody = cbody₂ := by
     have hpair := Option.some.inj (hC_strip.symm.trans hC_strip₂)
     exact ⟨congrArg Prod.fst hpair, congrArg Prod.snd hpair⟩
@@ -1010,7 +1010,7 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
       cases h : Expr.recRulePlain pty nP nP nP <;> simp [h])
     hctor rfl rfl
     hann hrawf hrawb hrres hstripR rfl hC_strip hS_strip
-    hsdoms hcbody hclenP hsbody' hthm htlps
+    hsdoms hcbody hclenP hsbody' htySlotP hthm htlps
     hopenP0 hcinstP0 hdeParsP0 hopenX0 hlinstP0 hdeLamP0 hrf hrb hity0
     hheadEtaP
   have hval₁' : ∀ ψ : Name → Nat,

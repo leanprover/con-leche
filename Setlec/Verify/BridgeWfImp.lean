@@ -1031,6 +1031,52 @@ theorem checkIotaThm_wfimp {env' envSelf : Env} (henv' : EnvWF env')
     exact nomatch h
   | true =>
     rw [if_pos rfl] at h ⊢
+    have hαSW : WScoped (rP + cnF)
+        (tbody.getAppArgs.getD 0 (.bvar 0)) := WScoped_getD' htargsW 0
+    rw [wfOpsM_inferType henvSelf hlhsW.to_wscopedB] at h
+    obtain ⟨tl, htl, h⟩ := atF_bind_ok h
+    have htl' : inferTypeCore envSelf F (rP + cnF)
+        (tbody.getAppArgs.getD 1 (.bvar 0)) = .ok tl := htl
+    show (inferTypeCore envSelf F _ _ >>= _) = _
+    rw [htl']
+    simp only [Bind.bind, Except.bind]
+    rw [wfOpsM_isDefEq henvSelf
+      (inferTypeCore_WScoped henvSelf F htl hlhsW).to_wscopedB
+      hαSW.to_wscopedB] at h
+    obtain ⟨cl, hdl, h⟩ := atF_bind_ok h
+    have hdl' : isDefEqCore envSelf F (rP + cnF) tl
+        (tbody.getAppArgs.getD 0 (.bvar 0)) = .ok cl := hdl
+    show (isDefEqCore envSelf F _ _ _ >>= _) = _
+    rw [hdl']
+    simp only [Bind.bind, Except.bind]
+    cases cl with
+    | false =>
+      rw [if_neg (by simp)] at h
+      exact nomatch h
+    | true =>
+    rw [if_pos rfl] at h ⊢
+    rw [wfOpsM_inferType henvSelf hrhsSW.to_wscopedB] at h
+    obtain ⟨tr, htr, h⟩ := atF_bind_ok h
+    have htr' : inferTypeCore envSelf F (rP + cnF)
+        (tbody.getAppArgs.getD 2 (.bvar 0)) = .ok tr := htr
+    show (inferTypeCore envSelf F _ _ >>= _) = _
+    rw [htr']
+    simp only [Bind.bind, Except.bind]
+    rw [wfOpsM_isDefEq henvSelf
+      (inferTypeCore_WScoped henvSelf F htr hrhsSW).to_wscopedB
+      hαSW.to_wscopedB] at h
+    obtain ⟨cr, hdr, h⟩ := atF_bind_ok h
+    have hdr' : isDefEqCore envSelf F (rP + cnF) tr
+        (tbody.getAppArgs.getD 0 (.bvar 0)) = .ok cr := hdr
+    show (isDefEqCore envSelf F _ _ _ >>= _) = _
+    rw [hdr']
+    simp only [Bind.bind, Except.bind]
+    cases cr with
+    | false =>
+      rw [if_neg (by simp)] at h
+      exact nomatch h
+    | true =>
+      rw [if_pos rfl] at h ⊢
 
 /-- A successful `nestedRuleShape` guards its stored parameter
 instantiations: they are fvar-free. -/
@@ -1344,7 +1390,53 @@ theorem checkIotaThmN_wfimp {env' envSelf : Env} (henv' : EnvWF env')
     exact nomatch h
   | true =>
     rw [if_pos rfl] at h ⊢
-    exact h
+    have hαSW : WScoped (rP + cnF)
+        (tbody.getAppArgs.getD 0 (.bvar 0)) := WScoped_getD' htargsW 0
+    rw [wfOpsM_inferType henvSelf hlhsW.to_wscopedB] at h
+    obtain ⟨tl, htl, h⟩ := atF_bind_ok h
+    have htl' : inferTypeCore envSelf F (rP + cnF)
+        (tbody.getAppArgs.getD 1 (.bvar 0)) = .ok tl := htl
+    show (inferTypeCore envSelf F _ _ >>= _) = _
+    rw [htl']
+    simp only [Bind.bind, Except.bind]
+    rw [wfOpsM_isDefEq henvSelf
+      (inferTypeCore_WScoped henvSelf F htl hlhsW).to_wscopedB
+      hαSW.to_wscopedB] at h
+    obtain ⟨cl, hdl, h⟩ := atF_bind_ok h
+    have hdl' : isDefEqCore envSelf F (rP + cnF) tl
+        (tbody.getAppArgs.getD 0 (.bvar 0)) = .ok cl := hdl
+    show (isDefEqCore envSelf F _ _ _ >>= _) = _
+    rw [hdl']
+    simp only [Bind.bind, Except.bind]
+    cases cl with
+    | false =>
+      rw [if_neg (by simp)] at h
+      exact nomatch h
+    | true =>
+    rw [if_pos rfl] at h ⊢
+    rw [wfOpsM_inferType henvSelf hrhsSW.to_wscopedB] at h
+    obtain ⟨tr, htr, h⟩ := atF_bind_ok h
+    have htr' : inferTypeCore envSelf F (rP + cnF)
+        (tbody.getAppArgs.getD 2 (.bvar 0)) = .ok tr := htr
+    show (inferTypeCore envSelf F _ _ >>= _) = _
+    rw [htr']
+    simp only [Bind.bind, Except.bind]
+    rw [wfOpsM_isDefEq henvSelf
+      (inferTypeCore_WScoped henvSelf F htr hrhsSW).to_wscopedB
+      hαSW.to_wscopedB] at h
+    obtain ⟨cr, hdr, h⟩ := atF_bind_ok h
+    have hdr' : isDefEqCore envSelf F (rP + cnF) tr
+        (tbody.getAppArgs.getD 0 (.bvar 0)) = .ok cr := hdr
+    show (isDefEqCore envSelf F _ _ _ >>= _) = _
+    rw [hdr']
+    simp only [Bind.bind, Except.bind]
+    cases cr with
+    | false =>
+      rw [if_neg (by simp)] at h
+      exact nomatch h
+    | true =>
+      rw [if_pos rfl] at h ⊢
+      exact h
 
 theorem checkIotaRule_wfimp {env' envSelf : Env} (henv' : EnvWF env')
     (henvSelf : EnvWF envSelf) {f : Name → Name} {cvName : Name}

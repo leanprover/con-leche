@@ -232,8 +232,10 @@ def checkEtaThmF (fe : FEnv) (T ctorName : Name) (lps : List Name)
             ((List.range nP).map fun k => Expr.bvar (nP - 1 - k))
         | none => false) &&
        (match sbody with
-        | .app (.app (.app (.const c [_ℓ]) _tySlot) lhsC) rhsC =>
+        | .app (.app (.app (.const c [_ℓ]) tySlot) lhsC) rhsC =>
           c == eqName && lhsC == Expr.bvar 0 &&
+          tySlot == Expr.mkAppN (.const (T.str "_model") (lps.map .param))
+            ((List.range nP).map fun k => Expr.bvar (nP - k)) &&
           rhsC == Expr.mkAppN
             (.const (ctorName.str "_model") (lps.map .param))
             (((List.range nP).map fun k => Expr.bvar (nP - k)) ++
@@ -267,8 +269,10 @@ def checkUnitThmF (fe : FEnv) (T : Name) (lps : List Name)
             ((List.range nP).map fun k => Expr.bvar (nP - k))
         | none => false) &&
        (match sbody with
-        | .app (.app (.app (.const c [_ℓ]) _tySlot) lhsC) rhsC =>
-          c == eqName && lhsC == Expr.bvar 1 && rhsC == Expr.bvar 0
+        | .app (.app (.app (.const c [_ℓ]) tySlot) lhsC) rhsC =>
+          c == eqName && lhsC == Expr.bvar 1 && rhsC == Expr.bvar 0 &&
+          tySlot == Expr.mkAppN (.const (T.str "_model") (lps.map .param))
+            ((List.range nP).map fun k => Expr.bvar (nP + 1 - k))
         | _ => false)
      | _, _ => false)
   | _, _, _ => false
@@ -456,6 +460,15 @@ def checkIotaThmF (ops : CheckerOps m) (fe' feSelf : FEnv)
     let rhsApplied := Expr.mkAppN (rhsA.renameConsts f) fvs
     unless ← ops.isDefEq feSelf.env depth rhsS rhsApplied do
       throw (.notImplemented s!"iota statement mismatch for {cvName}")
+    -- both equation sides inhabit the equation's type (task #100
+    -- stage-3 finding; see `checkIotaThm`)
+    let alphaS := targs.getD 0 (.bvar 0)
+    let tl ← ops.inferType feSelf.env depth lhsS
+    unless ← ops.isDefEq feSelf.env depth tl alphaS do
+      throw (.notImplemented s!"iota statement lhs type for {cvName}")
+    let tr ← ops.inferType feSelf.env depth rhsS
+    unless ← ops.isDefEq feSelf.env depth tr alphaS do
+      throw (.notImplemented s!"iota statement rhs type for {cvName}")
 
 /-- `nestedRuleShape` through the index. -/
 def nestedRuleShapeF (fe' feSelf : FEnv) (cvName : Name)
@@ -565,6 +578,15 @@ def checkIotaThmNF (ops : CheckerOps m) (fe' feSelf : FEnv)
     let rhsApplied := Expr.mkAppN (rhsA.renameConsts f) fvs
     unless ← ops.isDefEq feSelf.env depth rhsS rhsApplied do
       throw (.notImplemented s!"iota statement mismatch for {cvName}")
+    -- both equation sides inhabit the equation's type (task #100
+    -- stage-3 finding; see `checkIotaThm`)
+    let alphaS := targs.getD 0 (.bvar 0)
+    let tl ← ops.inferType feSelf.env depth lhsS
+    unless ← ops.isDefEq feSelf.env depth tl alphaS do
+      throw (.notImplemented s!"iota statement lhs type for {cvName}")
+    let tr ← ops.inferType feSelf.env depth rhsS
+    unless ← ops.isDefEq feSelf.env depth tr alphaS do
+      throw (.notImplemented s!"iota statement rhs type for {cvName}")
     pure (.nested lvls pins)
 
 /-- `checkIotaRule` through the index. -/
@@ -699,13 +721,19 @@ def checkProjIotaF (fe : FEnv) (T ctorName : Name) (lps : List Name)
   let lhsS := Expr.mkAppN
     (.const (projModelName T i) (lps.map .param)) (pArgs ++ [mkSpine])
   match sbody with
-  | .app (.app (.app (.const c [_ℓ]) _tySlot) lhsC) rhsC =>
+  | .app (.app (.app (.const c [_ℓ]) tySlot) lhsC) rhsC =>
     unless c = eqName do
       throw (.notImplemented "projection iota head")
     unless lhsC == lhsS do
       throw (.notImplemented "projection iota redex mismatch")
     unless rhsC == Expr.bvar (nF - 1 - i) do
       throw (.notImplemented "projection iota field mismatch")
+    -- type-slot pin (task #100 stage 3; see `checkProjIota`)
+    unless (match sbinders[nP + i]? with
+        | some (_, idom, _) =>
+          tySlot == idom.liftLooseBVars (nF - i) 0
+        | none => false) do
+      throw (.notImplemented "projection iota type slot mismatch")
   | _ => throw (.notImplemented "projection iota body shape")
 
 /-- `checkDefnVal` through the index, returning the pushed index. -/
