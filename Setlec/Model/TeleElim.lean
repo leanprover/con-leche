@@ -39,7 +39,7 @@ theorem TeleFit.elim :
   | @cons d ρ n ty body m x xs d' ρ' rest A hity hx ht ih =>
     intro v P hA hi hv
     simp only [AnnotOk] at hA
-    obtain ⟨haty, cod, hcond⟩ := hA
+    obtain ⟨haty, ⟨cod, hcond⟩, -⟩ := hA
     obtain ⟨hbody, hwfact⟩ := hcond x A hity hx
     -- the interpreted ∀ is a pi over the interpreted domain
     rw [interpExpr, hity] at hi
@@ -82,7 +82,7 @@ theorem TeleFit.chainSlots :
   | @cons d ρ n ty body m x xs d' ρ' rest A hity hx ht ih =>
     intro v P hA hi hv
     simp only [AnnotOk] at hA
-    obtain ⟨haty, cod, hcond⟩ := hA
+    obtain ⟨haty, ⟨cod, hcond⟩, -⟩ := hA
     obtain ⟨hbody, hwfact⟩ := hcond x A hity hx
     rw [interpExpr, hity] at hi
     dsimp only at hi
@@ -126,7 +126,7 @@ theorem TeleFitI.elim :
       ht ih =>
     intro v P hA hi hv
     simp only [AnnotOk] at hA
-    obtain ⟨haty, cod, hcond⟩ := hA
+    obtain ⟨haty, ⟨cod, hcond⟩, -⟩ := hA
     obtain ⟨hbody, hwfact⟩ := hcond x A hity hx
     rw [interpExpr, hity] at hi
     dsimp only at hi
@@ -910,7 +910,7 @@ theorem TeleFitI.rest_wf {d : Nat} {ρ : Nat → V} :
         body.looseBVarsBounded 1 = true := by
       simpa [Expr.looseBVarsBounded] using hb
     simp only [AnnotOk] at hA
-    obtain ⟨hAty, _vE, hcond⟩ := hA
+    obtain ⟨hAty, ⟨_vE, hcond⟩, -⟩ := hA
     obtain ⟨hAopen, -⟩ := hcond x A hity hx
     obtain ⟨hwR, hbR, hAR, hlR⟩ := ih (WScoped.instantiate1_gen hwa 0 hw'.2)
       (looseBVarsBounded_instantiate1_gen hba (k := 0) hb'.2)
