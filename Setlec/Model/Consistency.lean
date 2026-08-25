@@ -1081,35 +1081,29 @@ theorem checkDecl_sound {env env' : Env} {d : Declaration}
         · intro vE A₀ B₀ x hmem hx
           simp only [psigmaVal] at hmem
           exact lam_pi_dom hmem
-            (max_ne_zero_r'' (Nat.succ_ne_zero (Nat.max (ψ' uN) (ψ' vN)))) hx
+            (show SetTheory.lam _ _ _ ≠ pt from psigmaVal_ne_pt) hx
         · intro vA vE A₁ B₁ x hvA hmem hx
           rw [psigmaVal_app hvA] at hmem
-          exact lam_pi_dom hmem (Nat.succ_ne_zero _) hx
+          exact lam_pi_dom hmem psigmaVal_inner_ne_pt hx
         · intro vA vB hvA hvB
           exact psigmaVal_fold hvA hvB
       have hmkfacts : ∀ ψ' : Name → Nat,
           PairMkFacts V (psigmaMkVal V ψ') (ψ' uN) (ψ' vN) := by
         intro ψ'
-        refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
-        · intro hw vE A₀ B₀ x hmem hx
-          simp only [psigmaMkVal] at hmem
-          refine lam_pi_dom hmem ?_ hx
-          rw [if_neg hw]
-          exact max_ne_zero_r'' (Nat.succ_ne_zero (ψ' vN))
-        · intro hw vA vE A₁ B₁ x hvA hmem hx
-          rw [psigmaMkVal_app hvA] at hmem
-          exact lam_pi_dom hmem hw hx
-        · intro hw vA vB vE A₂ B₂ x hvA hvB hmem hx
-          rw [psigmaMkVal_app₂ hvA hvB] at hmem
-          exact lam_pi_dom hmem hw hx
-        · intro hw vA vB va vE A₃ B₃ x hvA hvB hva hmem hx
-          rw [psigmaMkVal_app₃ hvA hvB hva] at hmem
-          exact lam_pi_dom hmem hw hx
+        refine ⟨?_, ?_⟩
         · intro vA vB va vb hvA hvB hva hvb
           exact psigmaMkVal_fold hvA hvB hva hvb
         · intro hw x y z w'
-          simp only [psigmaMkVal]
-          rw [if_pos hw, lam_zero, app_pt, app_pt, app_pt, app_pt]
+          -- at the Prop collapse the whole constructor tower is the
+          -- proof point: every level collapses upward (task #100)
+          have hcol : psigmaMkVal V ψ' = pt := by
+            simp only [psigmaMkVal]
+            refine lamC_of_forall fun A _hA => ?_
+            refine lamC_of_forall fun B _hB => ?_
+            refine lamC_of_forall fun a _ha => ?_
+            refine lamC_of_forall fun b _hb => ?_
+            rw [if_pos hw]
+          rw [hcol, app_pt, app_pt, app_pt, app_pt]
       -- chain the three model extensions
       obtain ⟨m1, hval1, hpres1⟩ := extend_basis_one m psigmaA
         (fun ψ => psigmaVal V ψ)
