@@ -1521,43 +1521,32 @@ the residual binder chain back to the knot, which is exactly the
 chained spec's next step. -/
 
 /-- Stack entry of `inferLamsI`: binder name, opened domain, binder
-meta, the λ-annotation, and the domain's sort. -/
-abbrev InferLamEntry := NIdx × EIdx × IBinderMeta × LIdx × LIdx
+meta. -/
+abbrev InferLamEntry := NIdx × EIdx × IBinderMeta
 
 /-- Rebuild loop of `inferLamsI`: fold the stack (innermost binder
-first, `j` its binder level relative to the ambient depth `d`),
-replaying the per-level λ-annotation re-check against the body sort
-`vcur` and folding the codomain sorts by `imax`.  The intermediate
-`∀`-node inferences of the chained body are value-determined by the
-peel phase's domain sorts and cannot fail, so only the re-checks
-remain. -/
+first, `j` its binder level relative to the ambient depth `d`) into the
+`∀`-telescope.  Task #100 stage 3: the former per-level λ-annotation
+re-check died with the level-free collapse model, so the rebuild is a
+pure fold. -/
 def inferLamsOutI (d : Nat) :
-    List InferLamEntry → Nat → LIdx → EIdx → CheckIM EIdx
-  | [], _j, _vcur, cur => pure cur
-  | (n, tyo, mb, v, u) :: rest, j, vcur, cur => do
-    unless ← liftFueled "level comparison" (← isEquivLM v vcur) do
-      throw (.invalid "λ-annotation does not match the body's sort")
+    List InferLamEntry → Nat → EIdx → CheckIM EIdx
+  | [], _j, cur => pure cur
+  | (n, tyo, mb) :: rest, j, cur => do
     let tyAbs ← abstractRangeM tyo d j
     let node ← internI (.forallE n tyAbs cur mb)
     match rest with
     | [] => pure node
-    | _ :: _ => do
-      let v' ← internLM (.imax u v)
-      inferLamsOutI d rest (j - 1) v' node
+    | _ :: _ => inferLamsOutI d rest (j - 1) node
 
-/-- Leaf phase of `inferLamsI`: bulk-open the residual body, infer it
-and its type's sort, then rebuild outward. -/
+/-- Leaf phase of `inferLamsI`: bulk-open the residual body, infer it,
+then rebuild outward. -/
 def inferLamsLeafI (r : CoreFnsI) (d : Nat) (t : EIdx) (k : Nat)
     (fvs : Array EIdx) (stk : List InferLamEntry) : CheckIM EIdx := do
   let ob ← instListRevM t fvs
   let bt ← r.infer (d + k) ob
-  let tbt ← r.infer (d + k) bt
-  let wtbt ← r.whnf (d + k) tbt
-  match ← viewI wtbt with
-  | some (.sort v') => do
-    let cur ← abstractRangeM bt d k
-    inferLamsOutI d stk (k - 1) v' cur
-  | _ => throw (.invalid "expected a sort")
+  let cur ← abstractRangeM bt d k
+  inferLamsOutI d stk (k - 1) cur
 
 /-- λ-telescope inference loop (task #72; used by `inferBodyI`'s and
 `inferBodyNC`'s lam cases): peel the raw λ-chain, checking each opened
@@ -1570,15 +1559,15 @@ def inferLamsI (r : CoreFnsI) (d : Nat) :
     match ← viewI t with
     | some (.lam n ty body mb) =>
       match mb.cod with
-      | some v => do
+      | some _ => do
         let tyo ← instListRevM ty fvs
         let tty ← r.infer (d + k) tyo
         let wtty ← r.whnf (d + k) tty
         match ← viewI wtty with
-        | some (.sort u) => do
+        | some (.sort _) => do
           let fv ← internI (.fvar (d + k) n tyo)
           inferLamsI r d fuel body (k + 1) (fvs.push fv)
-            ((n, tyo, mb, v, u) :: stk)
+            ((n, tyo, mb) :: stk)
         | _ => throw (.invalid "expected a sort")
       | none => throw (.internal "unannotated λ-binder reached inferType")
     | _ => inferLamsLeafI r d t k fvs stk
@@ -1627,16 +1616,16 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
       | none => throw (.internal "unannotated ∀-binder reached inferType")
     | some (.lam n ty body mb) => do
       match mb.cod with
-      | some v => do
+      | some _ => do
         let tty ← r.infer depth ty
         let wtty ← r.whnf depth tty
         match ← viewI wtty with
-        | some (.sort u) => do
+        | some (.sort _) => do
           -- Binder-telescope loop (task #72): peel the whole λ-chain,
           -- open in bulk, rebuild with `abstractRange`.
           let fv ← internI (.fvar depth n ty)
           let fuel ← withStore (·.nodes.size)
-          inferLamsI r depth fuel body 1 #[fv] [(n, ty, mb, v, u)]
+          inferLamsI r depth fuel body 1 #[fv] [(n, ty, mb)]
         | _ => throw (.invalid "expected a sort")
       | none => throw (.internal "unannotated λ-binder reached inferType")
     | some (.app _ _) => do
@@ -1761,36 +1750,21 @@ def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM Bo
           pure true
         else stuckIrrelI r fe depth a' b'
       else stuckIrrelI r fe depth a' b'
-    | some (.forallE n₁ ty₁ body₁ m₁), some (.forallE n₂ ty₂ body₂ m₂) => do
+    | some (.forallE n₁ ty₁ body₁ _m₁), some (.forallE n₂ ty₂ body₂ _m₂) => do
+      -- no binder-annotation comparison; see `defeqBody`
       unless ← r.defeq depth ty₁ ty₂ do return false
       let fv₁ ← internI (.fvar depth n₁ ty₁)
       let b₁ ← inst1M body₁ fv₁
       let fv₂ ← internI (.fvar depth n₂ ty₂)
       let b₂ ← inst1M body₂ fv₂
-      unless ← r.defeq (depth + 1) b₁ b₂ do return false
-      -- zero-ness agreement only; see `defeqBody`
-      match m₁.cod, m₂.cod with
-      | some v₁, some v₂ => do
-        let nz₁ ← isNonZeroLM v₁
-        let nz₂ ← isNonZeroLM v₂
-        if nz₁ && nz₂ then pure true
-        else liftFueled "level comparison" (← isEquivLM v₁ v₂)
-      | _, _ => throw (.internal "unannotated ∀-binder reached isDefEq")
-    | some (.lam n₁ ty₁ body₁ m₁), some (.lam n₂ ty₂ body₂ m₂) => do
+      r.defeq (depth + 1) b₁ b₂
+    | some (.lam n₁ ty₁ body₁ _m₁), some (.lam n₂ ty₂ body₂ _m₂) => do
       unless ← r.defeq depth ty₁ ty₂ do return false
       let fv₁ ← internI (.fvar depth n₁ ty₁)
       let b₁ ← inst1M body₁ fv₁
       let fv₂ ← internI (.fvar depth n₂ ty₂)
       let b₂ ← inst1M body₂ fv₂
-      unless ← r.defeq (depth + 1) b₁ b₂ do return false
-      -- zero-ness agreement only; see `defeqBody`
-      match m₁.cod, m₂.cod with
-      | some v₁, some v₂ => do
-        let nz₁ ← isNonZeroLM v₁
-        let nz₂ ← isNonZeroLM v₂
-        if nz₁ && nz₂ then pure true
-        else liftFueled "level comparison" (← isEquivLM v₁ v₂)
-      | _, _ => throw (.internal "unannotated λ-binder reached isDefEq")
+      r.defeq (depth + 1) b₁ b₂
     | some (.app f₁ a₁), some (.app f₂ a₂) => do
       if ← r.defeq depth f₁ f₂ then do
         if ← r.defeq depth a₁ a₂ then

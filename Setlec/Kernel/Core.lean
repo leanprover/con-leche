@@ -1439,27 +1439,18 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       | none => throw (.internal "unannotated ∀-binder reached inferType")
     | .lam n ty body mb => do
       match mb.cod with
-      | some v => do
+      | some _ => do
         -- The domain must be a type (and the model needs its
-        -- interpretation defined), exactly as in the ∀ rule.
+        -- interpretation defined), exactly as in the ∀ rule.  The
+        -- stored codomain annotation is no longer re-checked here
+        -- (task #100 stage 3): the level-free collapse model reads no
+        -- levels at λ, so the annotation carries no semantic weight —
+        -- the resulting ∀'s own inference certifies its sort.
         match ← r.whnf depth (← r.infer depth ty) with
         | .sort _ => do
           let bt ← r.infer (depth + 1)
             (body.instantiate1 (.fvar depth n ty))
-          -- Re-check the stored annotation: it must be the sort of the
-          -- body's type (the λ-annotation is *trusted* by the ∀ it
-          -- builds, so it is *checked* here, where the body's type is
-          -- at hand).  NOT deletable pre-flip (task #100 de-gating
-          -- finding): the leveled model reads the stored `v` in the
-          -- λ's interpretation and the certified sort is `v'`; this
-          -- equivalence is what transfers the fibre-universe fact —
-          -- it dies only with the level-free collapse model (stage 3).
-          match ← r.whnf (depth + 1) (← r.infer (depth + 1) bt) with
-          | .sort v' => do
-            unless ← liftFueled "level comparison" (Level.isEquiv v v') do
-              throw (.invalid "λ-annotation does not match the body's sort")
-            pure (.forallE n ty (bt.abstract1 depth) mb)
-          | _ => throw (.invalid "expected a sort")
+          pure (.forallE n ty (bt.abstract1 depth) mb)
         | _ => throw (.invalid "expected a sort")
       | none => throw (.internal "unannotated λ-binder reached inferType")
     | .app f a => do
@@ -1654,44 +1645,19 @@ def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
           pure true
         else stuckIrrel r env depth (.const n us) (.const n' us')
       else stuckIrrel r env depth (.const n us) (.const n' us')
-    | .forallE n₁ ty₁ body₁ m₁, .forallE n₂ ty₂ body₂ m₂ => do
+    | .forallE n₁ ty₁ body₁ _m₁, .forallE n₂ ty₂ body₂ _m₂ => do
+      -- No binder-annotation comparison, like the official kernel's
+      -- (task #100 stage 3: the level-free collapse model reads no
+      -- levels at binders — `piC_congr` needs only the domain and
+      -- fibre agreements — so the former zero-ness comparison died
+      -- with the leveled model).
       unless ← r.defeq depth ty₁ ty₂ do return false
-      let b₁ := body₁.instantiate1 (.fvar depth n₁ ty₁)
-      let b₂ := body₂.instantiate1 (.fvar depth n₂ ty₂)
-      unless ← r.defeq (depth + 1) b₁ b₂ do return false
-      -- Deviation (shrunk 2026-08-24; see DESIGN.md "the binder
-      -- model"): the official kernel compares no binder annotations
-      -- at all; we compare ONE BIT — zero-ness agreement of the
-      -- codomain-sort annotations, the only thing the model reads
-      -- (`SetTheory.pi` consumes its level solely through the `v = 0`
-      -- test, `pi_level_indifferent`).  Both provably nonzero
-      -- (`Level.isNonZero`, sound under every valuation) is accepted
-      -- outright; otherwise fall back to full level equivalence,
-      -- which gives per-valuation zero-agreement.  A "both not
-      -- provably nonzero" acceptance would be unsound (`param u` vs
-      -- `zero` disagree under `u ↦ 1`).  Verdict-neutral on
-      -- truthfully annotated input, where the sorts are eval-equal.
-      -- NOT deletable pre-flip (task #100 de-gating finding): `AnnotOk`
-      -- gives only cumulative `univ`-memberships, which cannot recover
-      -- zero-agreement; the comparison dies only with the level-free
-      -- collapse model (stage 3).
-      match m₁.cod, m₂.cod with
-      | some v₁, some v₂ =>
-        if v₁.isNonZero && v₂.isNonZero then pure true
-        else liftFueled "level comparison" (Level.isEquiv v₁ v₂)
-      | _, _ => throw (.internal "unannotated ∀-binder reached isDefEq")
-    | .lam n₁ ty₁ body₁ m₁, .lam n₂ ty₂ body₂ m₂ => do
+      r.defeq (depth + 1) (body₁.instantiate1 (.fvar depth n₁ ty₁))
+        (body₂.instantiate1 (.fvar depth n₂ ty₂))
+    | .lam n₁ ty₁ body₁ _m₁, .lam n₂ ty₂ body₂ _m₂ => do
       unless ← r.defeq depth ty₁ ty₂ do return false
-      let b₁ := body₁.instantiate1 (.fvar depth n₁ ty₁)
-      let b₂ := body₂.instantiate1 (.fvar depth n₂ ty₂)
-      unless ← r.defeq (depth + 1) b₁ b₂ do return false
-      -- Deviation, as for ∀: zero-ness agreement only
-      -- (`SetTheory.lam` is likewise level-blind above zero).
-      match m₁.cod, m₂.cod with
-      | some v₁, some v₂ =>
-        if v₁.isNonZero && v₂.isNonZero then pure true
-        else liftFueled "level comparison" (Level.isEquiv v₁ v₂)
-      | _, _ => throw (.internal "unannotated λ-binder reached isDefEq")
+      r.defeq (depth + 1) (body₁.instantiate1 (.fvar depth n₁ ty₁))
+        (body₂.instantiate1 (.fvar depth n₂ ty₂))
     | .app f₁ a₁, .app f₂ a₂ => do
       -- Stuck applications: congruence, then the stuck fallbacks
       -- (proof irrelevance is additionally hoisted before lazy delta

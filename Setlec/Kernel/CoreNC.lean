@@ -467,15 +467,15 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
       | none => throw (.internal "unannotated ∀-binder reached inferType")
     | some (.lam n ty body mb) => do
       match mb.cod with
-      | some v => do
+      | some _ => do
         let tty ← r.infer depth ty
         let wtty ← r.whnf depth tty
         match ← viewI wtty with
-        | some (.sort u) => do
+        | some (.sort _) => do
           -- Binder-telescope loop (task #72), shared with `inferBodyI`.
           let fv ← internI (.fvar depth n ty)
           let fuel ← withStore (·.nodes.size)
-          inferLamsI r depth fuel body 1 #[fv] [(n, ty, mb, v, u)]
+          inferLamsI r depth fuel body 1 #[fv] [(n, ty, mb)]
         | _ => throw (.invalid "expected a sort")
       | none => throw (.internal "unannotated λ-binder reached inferType")
     | some (.app _ _) => do
@@ -593,36 +593,21 @@ def defeqBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → EIdx → CheckIM B
           pure true
         else stuckIrrelNC r fe depth a' b'
       else stuckIrrelNC r fe depth a' b'
-    | some (.forallE n₁ ty₁ body₁ m₁), some (.forallE n₂ ty₂ body₂ m₂) => do
+    | some (.forallE n₁ ty₁ body₁ _m₁), some (.forallE n₂ ty₂ body₂ _m₂) => do
+      -- no binder-annotation comparison; see `defeqBody`
       unless ← r.defeq depth ty₁ ty₂ do return false
       let fv₁ ← internI (.fvar depth n₁ ty₁)
       let b₁ ← inst1M body₁ fv₁
       let fv₂ ← internI (.fvar depth n₂ ty₂)
       let b₂ ← inst1M body₂ fv₂
-      unless ← r.defeq (depth + 1) b₁ b₂ do return false
-      -- zero-ness agreement only; see `defeqBody`
-      match m₁.cod, m₂.cod with
-      | some v₁, some v₂ => do
-        let nz₁ ← isNonZeroLM v₁
-        let nz₂ ← isNonZeroLM v₂
-        if nz₁ && nz₂ then pure true
-        else liftFueled "level comparison" (← isEquivLM v₁ v₂)
-      | _, _ => throw (.internal "unannotated ∀-binder reached isDefEq")
-    | some (.lam n₁ ty₁ body₁ m₁), some (.lam n₂ ty₂ body₂ m₂) => do
+      r.defeq (depth + 1) b₁ b₂
+    | some (.lam n₁ ty₁ body₁ _m₁), some (.lam n₂ ty₂ body₂ _m₂) => do
       unless ← r.defeq depth ty₁ ty₂ do return false
       let fv₁ ← internI (.fvar depth n₁ ty₁)
       let b₁ ← inst1M body₁ fv₁
       let fv₂ ← internI (.fvar depth n₂ ty₂)
       let b₂ ← inst1M body₂ fv₂
-      unless ← r.defeq (depth + 1) b₁ b₂ do return false
-      -- zero-ness agreement only; see `defeqBody`
-      match m₁.cod, m₂.cod with
-      | some v₁, some v₂ => do
-        let nz₁ ← isNonZeroLM v₁
-        let nz₂ ← isNonZeroLM v₂
-        if nz₁ && nz₂ then pure true
-        else liftFueled "level comparison" (← isEquivLM v₁ v₂)
-      | _, _ => throw (.internal "unannotated λ-binder reached isDefEq")
+      r.defeq (depth + 1) b₁ b₂
     | some (.app f₁ a₁), some (.app f₂ a₂) => do
       if ← r.defeq depth f₁ f₂ then do
         if ← r.defeq depth a₁ a₂ then
