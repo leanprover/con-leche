@@ -74,10 +74,14 @@ theorem annotOk_emptyRec_type {cval : ConstVal V}
     try simp only [AnnotOk]
     refine ⟨trivial, ψ uN + 1, ?_⟩
     intro t A hA ht
-    refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
-    refine ⟨univ (ψ uN), ?_, ?_⟩
-    · simp [Expr.instantiate1, interpExpr, Level.eval, uN]
-    · exact univ_mem_univ (ψ uN)
+    refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_, ?_⟩
+    · refine ⟨univ (ψ uN), ?_, ?_⟩
+      · simp [Expr.instantiate1, interpExpr, Level.eval, uN]
+      · exact univ_mem_univ (ψ uN)
+    · rintro v ⟨rfl⟩
+      refine ⟨univ (ψ uN), ?_, ?_⟩
+      · simp [Expr.instantiate1, interpExpr, Level.eval, uN]
+      · exact univ_mem_univ (ψ uN)
   · intro M A hA hM
     have hA' : A = pi (ψ uN + 1) SetTheory.empty fun _ => univ (ψ uN) := by
       simp [interpExpr, Expr.instantiate1, updV, hfindE', hvalE', emptyA,
@@ -86,7 +90,21 @@ theorem annotOk_emptyRec_type {cval : ConstVal V}
       rw [← hA]
       rfl
     subst hA'
-    refine ⟨?_, ?_⟩
+    have hopeni : interpExpr V cval env ψ (0 + 1) (updV V (rho0 V) 0 M)
+        ((Expr.forallE (Name.anonymous.str "t")
+          (.const (Name.anonymous.str "Empty") [])
+          (.app (.bvar 1) (.bvar 0))
+          ⟨.default, some (.param uN)⟩).instantiate1
+            (.fvar 0 (Name.anonymous.str "motive")
+              (.forallE (Name.anonymous.str "t")
+                (.const (Name.anonymous.str "Empty") [])
+                (.sort (.param uN)) ⟨.default, some (.succ (.param uN))⟩)))
+        = some (pi (ψ uN) SetTheory.empty (fun t => SetTheory.app M t)) := by
+      simp [interpExpr, Expr.instantiate1, updV, hfindE', hvalE', emptyA,
+        ConstantInfo.toConstantVal, Level.eval, uN,
+        -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
+      try rfl
+    refine ⟨?_, ?_, ?_⟩
     · -- opened `∀ (t : Empty), motive t`
       try simp only [Expr.instantiate1, reduceIte, AnnotOk]
       refine ⟨trivial, 0, ?_⟩
@@ -97,16 +115,24 @@ theorem annotOk_emptyRec_type {cval : ConstVal V}
           -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff] at hAt
         exact hAt.symm
       rw [hAt'] at ht
-      exact absurd ht (not_mem_empty t)
+      refine absurd ht (not_mem_empty t)
     · refine ⟨pi (ψ uN) SetTheory.empty (fun t => SetTheory.app M t),
-        ?_, ?_⟩
-      · simp [interpExpr, Expr.instantiate1, updV, hfindE', hvalE', emptyA,
-          ConstantInfo.toConstantVal, Level.eval, uN,
-          -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
-        try rfl
-      · exact piC_mem_univ_max (u := 1) (v := ψ uN)
-          (B := fun t => SetTheory.app M t)
-          (empty_mem_univ 1)
-          (fun t ht => absurd ht (not_mem_empty t))
+        hopeni, ?_⟩
+      exact piC_mem_univ_max (u := 1) (v := ψ uN)
+        (B := fun t => SetTheory.app M t)
+        (empty_mem_univ 1)
+        (fun t ht => absurd ht (not_mem_empty t))
+    · rintro v ⟨rfl⟩
+      refine ⟨pi (ψ uN) SetTheory.empty (fun t => SetTheory.app M t),
+        hopeni, ?_⟩
+      have := piC_mem_univ (u := 1) (v := ψ uN) (V := V)
+        (B := fun t => SetTheory.app M t)
+        (empty_mem_univ 1)
+        (fun t ht => absurd ht (not_mem_empty t))
+      have heq : Level.eval ψ (.imax (.succ .zero)
+            (.param (Name.anonymous.str "u")))
+          = if ψ uN = 0 then 0 else Nat.max 1 (ψ uN) := rfl
+      rw [heq]
+      exact this
 
 end Setlec
