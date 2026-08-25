@@ -7096,6 +7096,19 @@ split them:
   The re-check and the ∀-imax read die *together* in stage 6, where
   the ∀-clause infers its codomain sort and the tie becomes
   self-establishing.
+* **Modeled Eq-statement domains must be certified** (same collapse
+  root cause, `lam_dom` fully dead): the modeled fold derivations
+  (`modeled_bottom_plain/nested`, `eta/unit_rule_fold`,
+  `proj_bottom`) used to pin the equation arguments' memberships off
+  the *value* of the pinned `Eq` former.  Replacements, checked at
+  install: `checkIotaThm(N)` runs `checkIotaSidesTy` (both equation
+  sides' inferred types ≡ the equation type — kernel certificates the
+  soundness layer walks through `inferTypeCore_sound` +
+  `isDefEqCore_sound`); `checkEtaThm`/`checkUnitThm`/`checkProjIota`
+  pin the statement's *type slot* syntactically (the family
+  application / the field domain lifted), so the fold proofs read the
+  domain off the pin and the walk's own frame memberships.  All four
+  reject only statements the preprocessor never emits.
 * **The tie's shape** (`Model/Interp.lean`): the ∀-clause's level
   witness gains one conjunct — `∃ vE, (∀ v, m.cod = some v → univ vE
   ⊆ˢ univ (v.eval φ)) ∧ ∀ x A, …` — a *subset-form* fact outside the
