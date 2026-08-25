@@ -143,7 +143,7 @@ theorem teleLamV_mem :
         dsimp only [Option.getD]
         refine lam_mem (V := V) ?_
         intro x hx
-        obtain ⟨hAb, hwfact⟩ := hcond x A hdom hx
+        obtain ⟨hAb, hwfact, -⟩ := hcond x A hdom hx
         obtain ⟨w, hwi, -⟩ := hwfact
         rw [hwi]
         dsimp only [Option.getD]
@@ -204,7 +204,7 @@ theorem teleLamV_fold :
             ((interpExpr V cval env φ (d + 1) (updV V ρ d y)
               (body.instantiate1 (.fvar d n dom))).getD SetTheory.empty) := by
         intro y hy
-        obtain ⟨hAb, hwfact⟩ := hcond y A hdom hy
+        obtain ⟨hAb, hwfact, -⟩ := hcond y A hdom hy
         obtain ⟨w, hwi, -⟩ := hwfact
         rw [hwi]
         dsimp only [Option.getD]

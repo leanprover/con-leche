@@ -40,7 +40,7 @@ theorem TeleFit.elim :
     intro v P hA hi hv
     simp only [AnnotOk] at hA
     obtain ⟨haty, cod, hcond⟩ := hA
-    obtain ⟨hbody, hwfact⟩ := hcond x A hity hx
+    obtain ⟨hbody, hwfact, -⟩ := hcond x A hity hx
     -- the interpreted ∀ is a pi over the interpreted domain
     rw [interpExpr, hity] at hi
     dsimp only at hi
@@ -51,7 +51,7 @@ theorem TeleFit.elim :
           (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty) ∈ˢ
           univ cod := by
       intro y hy
-      obtain ⟨-, hwfact'⟩ := hcond y A hity hy
+      obtain ⟨-, hwfact', -⟩ := hcond y A hity hy
       obtain ⟨w, hwi, hwu⟩ := hwfact'
       rw [hwi]
       exact hwu
@@ -83,7 +83,7 @@ theorem TeleFit.chainSlots :
     intro v P hA hi hv
     simp only [AnnotOk] at hA
     obtain ⟨haty, cod, hcond⟩ := hA
-    obtain ⟨hbody, hwfact⟩ := hcond x A hity hx
+    obtain ⟨hbody, hwfact, -⟩ := hcond x A hity hx
     rw [interpExpr, hity] at hi
     dsimp only at hi
     obtain rfl := Option.some.inj hi
@@ -92,7 +92,7 @@ theorem TeleFit.chainSlots :
           (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty) ∈ˢ
           univ cod := by
       intro y hy
-      obtain ⟨-, hwfact'⟩ := hcond y A hity hy
+      obtain ⟨-, hwfact', -⟩ := hcond y A hity hy
       obtain ⟨w, hwi, hwu⟩ := hwfact'
       rw [hwi]
       exact hwu
@@ -127,7 +127,7 @@ theorem TeleFitI.elim :
     intro v P hA hi hv
     simp only [AnnotOk] at hA
     obtain ⟨haty, cod, hcond⟩ := hA
-    obtain ⟨hbody, hwfact⟩ := hcond x A hity hx
+    obtain ⟨hbody, hwfact, -⟩ := hcond x A hity hx
     rw [interpExpr, hity] at hi
     dsimp only at hi
     obtain rfl := Option.some.inj hi
@@ -136,7 +136,7 @@ theorem TeleFitI.elim :
           (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty) ∈ˢ
           univ cod := by
       intro y hy
-      obtain ⟨-, hwfact'⟩ := hcond y A hity hy
+      obtain ⟨-, hwfact', -⟩ := hcond y A hity hy
       obtain ⟨w, hwi, hwu⟩ := hwfact'
       rw [hwi]
       exact hwu
