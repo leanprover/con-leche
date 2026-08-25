@@ -453,42 +453,97 @@ theorem ofReduce_key (m : EnvModel V env) {cvA : ConstantVal}
       unfold reduceElemName at this
       rw [if_pos rfl] at this
       exact this
+    have hvalN : ∀ ψ'' : Name → Nat, m.val natName ψ'' = omega := by
+      intro ψ''
+      obtain ⟨-, hval⟩ := m.ind_ok.right.right.right.left natName natA helN
+        rfl (by decide)
+      rw [hval ψ'']
+      show pinnedVal V natName ψ'' = omega
+      delta pinnedVal
+      rw [if_neg (by decide), if_neg (by decide), if_neg (by decide),
+        if_pos rfl]
+    have hvalE : ∀ ψ'' : Name → Nat, m.val eqName ψ'' = eqVal V ψ'' := by
+      intro ψ''
+      obtain ⟨-, hval⟩ := m.ind_ok.right.right.right.left eqName eqA hE
+        rfl (by decide)
+      rw [hval ψ'']
+      show pinnedVal V eqName ψ'' = eqVal V ψ''
+      delta pinnedVal
+      rw [if_pos rfl]
     rw [hn]
     refine ⟨_, interp_ofReduceNat_type helN hE hR hlpR, ?_⟩
     refine pt_mem_pi_zero fun a ha => ?_
     refine pt_mem_pi_zero fun b hb => ?_
     refine pt_mem_pi_zero fun w hw => ?_
     rw [hidN a ha] at hw
+    rw [hvalN ψ'] at ha hb
+    rw [hvalE (pxψ ψ'), hvalN ψ',
+      eqVal_app₃ (ψ := pxψ ψ')
+        (by rw [pxψ_uN]; exact omega_mem_univ) ha hb] at hw
     have hab := mem_eqv hw
+    rw [hvalE (pxψ ψ'), hvalN ψ',
+      eqVal_app₃ (ψ := pxψ ψ')
+        (by rw [pxψ_uN]; exact omega_mem_univ) ha hb]
     exact hab ▸ pt_mem_eqv_self _
   · -- ofReduceBool
     rw [hn, (by decide : ofReduceOp ofReduceBoolName = reduceBoolName)]
       at hR hid hel
     have helB : ∃ cvB capsB,
         env.find? boolName = some (.indInfo cvB capsB) ∧
-        cvB.levelParams = [] := by
+        cvB.levelParams = [] ∧
+        cvB.type.eraseNames = (Expr.sort (.succ .zero)).eraseNames := by
       unfold reduceElemOk at hel
       rw [if_neg (by decide)] at hel
       revert hel
       split
       · next cvB capsB hf =>
         intro hp
-        exact ⟨cvB, capsB, hf, (ConstantVal.matchesPin_inv hp).2⟩
+        refine ⟨cvB, capsB, hf, (ConstantVal.matchesPin_inv hp).2, ?_⟩
+        simp only [ConstantVal.matchesPin, Bool.and_eq_true,
+          beq_iff_eq] at hp
+        exact hp.2
       · exact fun hc => nomatch hc
-    obtain ⟨cvB, capsB, hBf, hlpB⟩ := helB
+    obtain ⟨cvB, capsB, hBf, hlpB, hBty⟩ := helB
+    have hBu : m.val boolName ψ' ∈ˢ univ 1 := by
+      obtain ⟨t, ht, hmem⟩ := m.mem_type _ (find?_mem hBf) ψ'
+      have hteq : t = univ 1 := by
+        unfold interpClosed at ht
+        rw [interp_erasedEq
+          (Expr.ErasedEq.of_eraseNames
+            (show (ConstantInfo.indInfo cvB
+                capsB).toConstantVal.type.eraseNames
+              = (Expr.sort (.succ .zero)).eraseNames from hBty))
+          0 (rho0 V)] at ht
+        simp only [interpExpr, Level.eval, Option.some.injEq] at ht
+        exact ht.symm
+      rw [hteq] at hmem
+      exact (show (ConstantInfo.indInfo cvB capsB).name = boolName from
+        find?_name hBf) ▸ hmem
     have hidB : ∀ x : V, x ∈ˢ m.val boolName ψ' →
         SetTheory.app (m.val reduceBoolName ψ') x = x := by
       have := hid ψ'
       unfold reduceElemName at this
       rw [if_neg (by decide)] at this
       exact this
+    have hvalE : ∀ ψ'' : Name → Nat, m.val eqName ψ'' = eqVal V ψ'' := by
+      intro ψ''
+      obtain ⟨-, hval⟩ := m.ind_ok.right.right.right.left eqName eqA hE
+        rfl (by decide)
+      rw [hval ψ'']
+      show pinnedVal V eqName ψ'' = eqVal V ψ''
+      delta pinnedVal
+      rw [if_pos rfl]
     rw [hn]
     refine ⟨_, interp_ofReduceBool_type hBf hlpB hE hR hlpR, ?_⟩
     refine pt_mem_pi_zero fun a ha => ?_
     refine pt_mem_pi_zero fun b hb => ?_
     refine pt_mem_pi_zero fun w hw => ?_
     rw [hidB a ha] at hw
+    rw [hvalE (pxψ ψ'),
+      eqVal_app₃ (ψ := pxψ ψ') (by rw [pxψ_uN]; exact hBu) ha hb] at hw
     have hab := mem_eqv hw
+    rw [hvalE (pxψ ψ'),
+      eqVal_app₃ (ψ := pxψ ψ') (by rw [pxψ_uN]; exact hBu) ha hb]
     exact hab ▸ pt_mem_eqv_self _
 
 end Setlec
