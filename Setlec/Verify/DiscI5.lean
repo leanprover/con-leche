@@ -878,82 +878,10 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                   hext₉).trans hext₁₀) hbody₂) hQf₂)
                                 (fun s₁₁ ob₂ hs₁₁ hext₁₁ hQo₂ => ?_)
                               try dsimp only
-                              refine SimAt.bind (ih.defeq hs₁₁
+                              exact ih.defeq hs₁₁
                                 (denote_mono (hext₁₀.trans hext₁₁) hQo₁) hQo₂
                                 (WScoped.instantiate1 h1.1 0 h1.2)
-                                (WScoped.instantiate1 h2.1 0 h2.2))
-                                (fun s₁₂ r₂ r₂' hs₁₂ hext₁₂ hP₂ => ?_)
-                              obtain rfl : r₂ = r₂' := hP₂
-                              cases r₂ with
-                              | false =>
-                                simp only [Bool.false_eq_true, ↓reduceIte]
-                                try dsimp only
-                                exact SimAt.pure hs₁₂ rfl
-                              | true =>
-                                simp only [↓reduceIte]
-                                obtain ⟨bi₁, cod₁⟩ := m₁
-                                obtain ⟨bi₂, cod₂⟩ := m₂
-                                dsimp only
-                                have hextC :=
-                                  ((((hext₇.trans hext₈).trans hext₉).trans
-                                    hext₁₀).trans hext₁₁).trans hext₁₂
-                                cases cod₁ with
-                                | none =>
-                                  simp only [denoteBM,
-                                    Option.some.injEq] at hbmDen₁
-                                  subst hbmDen₁
-                                  cases cod₂ with
-                                  | none =>
-                                    simp only [denoteBM,
-                                      Option.some.injEq] at hbmDen₂
-                                    subst hbmDen₂
-                                    exact SimAt.throw
-                                  | some v₂ =>
-                                    simp only [denoteBM,
-                                      Option.map_eq_some_iff] at hbmDen₂
-                                    obtain ⟨lv₂, hlv₂, rfl⟩ := hbmDen₂
-                                    exact SimAt.throw
-                                | some v₁ =>
-                                  simp only [denoteBM,
-                                    Option.map_eq_some_iff] at hbmDen₁
-                                  obtain ⟨lv₁, hlv₁, rfl⟩ := hbmDen₁
-                                  cases cod₂ with
-                                  | none =>
-                                    simp only [denoteBM,
-                                      Option.some.injEq] at hbmDen₂
-                                    subst hbmDen₂
-                                    exact SimAt.throw
-                                  | some v₂ =>
-                                    simp only [denoteBM,
-                                      Option.map_eq_some_iff] at hbmDen₂
-                                    obtain ⟨lv₂, hlv₂, rfl⟩ := hbmDen₂
-                                    dsimp only
-                                    refine SimAt.bind_left
-                                      (isNonZeroLM_eff hs₁₂
-                                        (denoteL_mono hextC hlv₁))
-                                      (fun sN₁ nz₁ hsN₁ hextN₁ hnz₁ => ?_)
-                                    subst hnz₁
-                                    refine SimAt.bind_left
-                                      (isNonZeroLM_eff hsN₁
-                                        (denoteL_mono
-                                          (hextC.trans hextN₁) hlv₂))
-                                      (fun sN₂ nz₂ hsN₂ hextN₂ hnz₂ => ?_)
-                                    subst hnz₂
-                                    by_cases hnzc :
-                                        (lv₁.isNonZero && lv₂.isNonZero)
-                                          = true
-                                    · rw [if_pos hnzc, if_pos hnzc]
-                                      exact SimAt.pure hsN₂ rfl
-                                    · rw [if_neg hnzc, if_neg hnzc]
-                                      refine SimAt.bind_left
-                                        (isEquivLM_eff hsN₂
-                                          (denoteL_mono ((hextC.trans
-                                            hextN₁).trans hextN₂) hlv₁)
-                                          (denoteL_mono ((hextC.trans
-                                            hextN₁).trans hextN₂) hlv₂))
-                                        (fun sE o hsE hextE ho => ?_)
-                                      subst ho
-                                      exact SimAt.liftFueled _ _ hsE
+                                (WScoped.instantiate1 h2.1 0 h2.2)
                           | bvar k₂ =>
                             cases hdb
                             try dsimp only
@@ -1070,82 +998,10 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                                   hext₉).trans hext₁₀) hbody₂) hQf₂)
                                 (fun s₁₁ ob₂ hs₁₁ hext₁₁ hQo₂ => ?_)
                               try dsimp only
-                              refine SimAt.bind (ih.defeq hs₁₁
+                              exact ih.defeq hs₁₁
                                 (denote_mono (hext₁₀.trans hext₁₁) hQo₁) hQo₂
                                 (WScoped.instantiate1 h1.1 0 h1.2)
-                                (WScoped.instantiate1 h2.1 0 h2.2))
-                                (fun s₁₂ r₂ r₂' hs₁₂ hext₁₂ hP₂ => ?_)
-                              obtain rfl : r₂ = r₂' := hP₂
-                              cases r₂ with
-                              | false =>
-                                simp only [Bool.false_eq_true, ↓reduceIte]
-                                try dsimp only
-                                exact SimAt.pure hs₁₂ rfl
-                              | true =>
-                                simp only [↓reduceIte]
-                                obtain ⟨bi₁, cod₁⟩ := m₁
-                                obtain ⟨bi₂, cod₂⟩ := m₂
-                                dsimp only
-                                have hextC :=
-                                  ((((hext₇.trans hext₈).trans hext₉).trans
-                                    hext₁₀).trans hext₁₁).trans hext₁₂
-                                cases cod₁ with
-                                | none =>
-                                  simp only [denoteBM,
-                                    Option.some.injEq] at hbmDen₁
-                                  subst hbmDen₁
-                                  cases cod₂ with
-                                  | none =>
-                                    simp only [denoteBM,
-                                      Option.some.injEq] at hbmDen₂
-                                    subst hbmDen₂
-                                    exact SimAt.throw
-                                  | some v₂ =>
-                                    simp only [denoteBM,
-                                      Option.map_eq_some_iff] at hbmDen₂
-                                    obtain ⟨lv₂, hlv₂, rfl⟩ := hbmDen₂
-                                    exact SimAt.throw
-                                | some v₁ =>
-                                  simp only [denoteBM,
-                                    Option.map_eq_some_iff] at hbmDen₁
-                                  obtain ⟨lv₁, hlv₁, rfl⟩ := hbmDen₁
-                                  cases cod₂ with
-                                  | none =>
-                                    simp only [denoteBM,
-                                      Option.some.injEq] at hbmDen₂
-                                    subst hbmDen₂
-                                    exact SimAt.throw
-                                  | some v₂ =>
-                                    simp only [denoteBM,
-                                      Option.map_eq_some_iff] at hbmDen₂
-                                    obtain ⟨lv₂, hlv₂, rfl⟩ := hbmDen₂
-                                    dsimp only
-                                    refine SimAt.bind_left
-                                      (isNonZeroLM_eff hs₁₂
-                                        (denoteL_mono hextC hlv₁))
-                                      (fun sN₁ nz₁ hsN₁ hextN₁ hnz₁ => ?_)
-                                    subst hnz₁
-                                    refine SimAt.bind_left
-                                      (isNonZeroLM_eff hsN₁
-                                        (denoteL_mono
-                                          (hextC.trans hextN₁) hlv₂))
-                                      (fun sN₂ nz₂ hsN₂ hextN₂ hnz₂ => ?_)
-                                    subst hnz₂
-                                    by_cases hnzc :
-                                        (lv₁.isNonZero && lv₂.isNonZero)
-                                          = true
-                                    · rw [if_pos hnzc, if_pos hnzc]
-                                      exact SimAt.pure hsN₂ rfl
-                                    · rw [if_neg hnzc, if_neg hnzc]
-                                      refine SimAt.bind_left
-                                        (isEquivLM_eff hsN₂
-                                          (denoteL_mono ((hextC.trans
-                                            hextN₁).trans hextN₂) hlv₁)
-                                          (denoteL_mono ((hextC.trans
-                                            hextN₁).trans hextN₂) hlv₂))
-                                        (fun sE o hsE hextE ho => ?_)
-                                      subst ho
-                                      exact SimAt.liftFueled _ _ hsE
+                                (WScoped.instantiate1 h2.1 0 h2.2)
                           | bvar k₂ =>
                             cases hdb
                             try dsimp only
