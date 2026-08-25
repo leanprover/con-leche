@@ -1,7 +1,10 @@
 import Setlec.Model.Basis.PUnit.Iota
 import Setlec.Model.Basis.Eq.Iota
+import Setlec.Model.Basis.Eq.RuleOk
 import Setlec.Model.Basis.Nat.Iota
+import Setlec.Model.Basis.Nat.RuleOk
 import Setlec.Model.Basis.PSigma.Iota
+import Setlec.Model.Basis.PSigma.RuleOk
 import Setlec.Model.Basis.Glue
 
 /-!

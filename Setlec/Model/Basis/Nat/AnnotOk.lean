@@ -37,6 +37,15 @@ theorem annotOk_natRecZero_rhs {cval : ConstVal V}
   · -- the motive space `(t : Nat) → Sort u`
     try simp only [AnnotOk]
     refine ⟨trivial, ψ uN + 1, ?_⟩
+    refine ⟨?_, ?_⟩
+    · first
+        | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+        | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+        | (rintro v ⟨rfl⟩
+           intro z hz
+           refine univ_mono ?_ z hz
+           simp only [Level.eval, enM, enZ, en11UU, en1U, enUU, uN]
+           by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "u_1") = 0 <;> by_cases h3 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2, h3] <;> omega)
     intro t A hA ht
     refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
     refine ⟨univ (ψ uN), ?_, ?_⟩
@@ -158,6 +167,15 @@ theorem annotOk_natRecZero_rhs {cval : ConstVal V}
           try simp only [AnnotOk]
           refine ⟨trivial,
             (if ψ uN = 0 then 0 else Nat.max (ψ uN) (ψ uN)), ?_⟩
+          refine ⟨?_, ?_⟩
+          · first
+              | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+              | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+              | (rintro v ⟨rfl⟩
+                 intro z hz
+                 refine univ_mono ?_ z hz
+                 simp only [Level.eval, enM, enZ, en11UU, en1U, enUU, uN]
+                 by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "u_1") = 0 <;> by_cases h3 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2, h3] <;> omega)
           intro n An hAn hn
           have hAn' : An = omega := by
             simp [interpExpr, hfindN', hvalN', natA,
@@ -175,6 +193,15 @@ theorem annotOk_natRecZero_rhs {cval : ConstVal V}
               ψ uN, ?_⟩
             · simp [interpExpr, Expr.instantiate1, updV]
             · simp [interpExpr, Expr.instantiate1, updV]
+            refine ⟨?_, ?_⟩
+            · first
+                | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+                | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+                | (rintro v ⟨rfl⟩
+                   intro z hz
+                   refine univ_mono ?_ z hz
+                   simp only [Level.eval, enM, enZ, en11UU, en1U, enUU, uN]
+                   by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "u_1") = 0 <;> by_cases h3 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2, h3] <;> omega)
             intro ih Aih hAih hih
             refine ⟨?_, ?_⟩
             · -- the body `motive (Nat.succ n)` of the ih-∀
@@ -409,6 +436,15 @@ theorem annotOk_natRecSucc_rhs {cval : ConstVal V}
   · -- the motive space `(t : Nat) → Sort u`
     try simp only [AnnotOk]
     refine ⟨trivial, ψ uN + 1, ?_⟩
+    refine ⟨?_, ?_⟩
+    · first
+        | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+        | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+        | (rintro v ⟨rfl⟩
+           intro z hz
+           refine univ_mono ?_ z hz
+           simp only [Level.eval, enM, enZ, en11UU, en1U, enUU, uN]
+           by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "u_1") = 0 <;> by_cases h3 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2, h3] <;> omega)
     intro t A hA ht
     refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
     refine ⟨univ (ψ uN), ?_, ?_⟩
@@ -459,6 +495,15 @@ theorem annotOk_natRecSucc_rhs {cval : ConstVal V}
           try simp only [AnnotOk]
           refine ⟨trivial,
             (if ψ uN = 0 then 0 else Nat.max (ψ uN) (ψ uN)), ?_⟩
+          refine ⟨?_, ?_⟩
+          · first
+              | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+              | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+              | (rintro v ⟨rfl⟩
+                 intro z hz
+                 refine univ_mono ?_ z hz
+                 simp only [Level.eval, enM, enZ, en11UU, en1U, enUU, uN]
+                 by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "u_1") = 0 <;> by_cases h3 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2, h3] <;> omega)
           intro n An hAn hn
           have hAn' : An = omega := by
             simp [interpExpr, hfindN', hvalN', natA,
@@ -476,6 +521,15 @@ theorem annotOk_natRecSucc_rhs {cval : ConstVal V}
               ψ uN, ?_⟩
             · simp [interpExpr, Expr.instantiate1, updV]
             · simp [interpExpr, Expr.instantiate1, updV]
+            refine ⟨?_, ?_⟩
+            · first
+                | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+                | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+                | (rintro v ⟨rfl⟩
+                   intro z hz
+                   refine univ_mono ?_ z hz
+                   simp only [Level.eval, enM, enZ, en11UU, en1U, enUU, uN]
+                   by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "u_1") = 0 <;> by_cases h3 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2, h3] <;> omega)
             intro ih Aih hAih hih
             refine ⟨?_, ?_⟩
             · -- the body `motive (Nat.succ n)` of the ih-∀
