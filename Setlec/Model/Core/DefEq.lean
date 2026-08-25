@@ -256,8 +256,8 @@ theorem defeq_claims (m : EnvModel V env)
     obtain ⟨hokty₁, hokbody₁⟩ := FvarsOk.of_forallE hoka'
     obtain ⟨hokty₂, hokbody₂⟩ := FvarsOk.of_forallE hokb'
     simp only [AnnotOk] at haa' hab'
-    obtain ⟨haty₁, ⟨v₁, hv₁⟩, hcond₁⟩ := haa'
-    obtain ⟨haty₂, ⟨v₂, hv₂⟩, hcond₂⟩ := hab'
+    obtain ⟨haty₁, _vE₁, hcond₁⟩ := haa'
+    obtain ⟨haty₂, _vE₂, hcond₂⟩ := hab'
     cases hd1 : isDefEqCore env fuel d ty₁ ty₂ with
     | error e => rw [hd1] at h; exact nomatch h
     | ok r₁ =>
@@ -272,32 +272,14 @@ theorem defeq_claims (m : EnvModel V env)
     | error e => rw [hd2] at h; exact nomatch h
     | ok r₂ =>
     rw [hd2] at h
-    dsimp only at h
+    try dsimp only at h
     cases r₂ with
     | false => simp [pure, Except.pure] at h
     | true =>
-    simp only [] at h
-    rw [hv₁, hv₂] at h
-    dsimp only at h
-    -- The relaxed codomain comparison certifies exactly zero-ness
-    -- agreement of the two annotations under the (fixed) valuation:
-    -- either both are provably nonzero under *every* valuation
-    -- (`Level.isNonZero_sound`), or full level equivalence ran and
-    -- gives eval-equality (`Level.isEquiv_sound`).  Zero-ness is all
-    -- the interpretation reads (`pi_level_indifferent`).
-    have hzeq : (v₁.eval φ = 0 ↔ v₂.eval φ = 0) := by
-      by_cases hnz : (v₁.isNonZero && v₂.isNonZero) = true
-      · rw [Bool.and_eq_true] at hnz
-        exact iff_of_false (Level.isNonZero_sound hnz.1 φ)
-          (Level.isNonZero_sound hnz.2 φ)
-      · rw [if_neg hnz] at h
-        have hlev : Level.isEquiv v₁ v₂ = some true := by
-          revert h
-          cases hEq : Level.isEquiv v₁ v₂ with
-          | none => simp [liftFueled]
-          | some x => cases x <;> simp [liftFueled, pure, Except.pure]
-        rw [Level.isEquiv_sound hlev φ]
-    simp only [interpExpr, hv₁, hv₂] at hva hvb
+    -- The binder annotations are not compared and not interpreted
+    -- (task #100 stage 3): `piC_congr` needs only domain and fibre
+    -- agreement.
+    simp only [interpExpr] at hva hvb
     cases hA1 : interpExpr V m.val env φ d ρ ty₁ with
     | none => rw [hA1] at hva; exact nomatch hva
     | some A₁ =>
@@ -312,11 +294,9 @@ theorem defeq_claims (m : EnvModel V env)
       ihd hd1 hwa'.1 hwb'.1 hba'.1 hbb'.1 hLbty₁ hLbty₂ hokty₁ hokty₂
         haty₁ haty₂ hA1 hA2
     subst hAeq
-    refine pi_congr_zero_agree hzeq fun x hx => ?_
-    obtain ⟨habody₁, hwfact₁⟩ := hcond₁ x A₁ hA1 hx
-    obtain ⟨habody₂, hwfact₂⟩ := hcond₂ x A₁ hA2 hx
-    obtain ⟨w₁, hw₁, -⟩ := hwfact₁ v₁ hv₁
-    obtain ⟨w₂, hw₂, -⟩ := hwfact₂ v₂ hv₂
+    refine piC_congr fun x hx => ?_
+    obtain ⟨habody₁, w₁, hw₁, -⟩ := hcond₁ x A₁ hA1 hx
+    obtain ⟨habody₂, w₂, hw₂, -⟩ := hcond₂ x A₁ hA2 hx
     rw [hw₁, hw₂]
     have hLbo₁ : Expr.LeavesBounded (body₁.instantiate1 (.fvar d n₁ ty₁)) := by
       intro l hl
@@ -351,8 +331,8 @@ theorem defeq_claims (m : EnvModel V env)
     obtain ⟨hokty₁, hokbody₁⟩ := FvarsOk.of_lam hoka'
     obtain ⟨hokty₂, hokbody₂⟩ := FvarsOk.of_lam hokb'
     simp only [AnnotOk] at haa' hab'
-    obtain ⟨haty₁, ⟨v₁, hv₁⟩, hcond₁⟩ := haa'
-    obtain ⟨haty₂, ⟨v₂, hv₂⟩, hcond₂⟩ := hab'
+    obtain ⟨haty₁, _vE₁, hcond₁⟩ := haa'
+    obtain ⟨haty₂, _vE₂, hcond₂⟩ := hab'
     cases hd1 : isDefEqCore env fuel d ty₁ ty₂ with
     | error e => rw [hd1] at h; exact nomatch h
     | ok r₁ =>
@@ -367,27 +347,12 @@ theorem defeq_claims (m : EnvModel V env)
     | error e => rw [hd2] at h; exact nomatch h
     | ok r₂ =>
     rw [hd2] at h
-    dsimp only at h
+    try dsimp only at h
     cases r₂ with
     | false => simp [pure, Except.pure] at h
     | true =>
-    simp only [] at h
-    rw [hv₁, hv₂] at h
-    dsimp only at h
-    -- zero-ness agreement, as in the ∀ clause
-    have hzeq : (v₁.eval φ = 0 ↔ v₂.eval φ = 0) := by
-      by_cases hnz : (v₁.isNonZero && v₂.isNonZero) = true
-      · rw [Bool.and_eq_true] at hnz
-        exact iff_of_false (Level.isNonZero_sound hnz.1 φ)
-          (Level.isNonZero_sound hnz.2 φ)
-      · rw [if_neg hnz] at h
-        have hlev : Level.isEquiv v₁ v₂ = some true := by
-          revert h
-          cases hEq : Level.isEquiv v₁ v₂ with
-          | none => simp [liftFueled]
-          | some x => cases x <;> simp [liftFueled, pure, Except.pure]
-        rw [Level.isEquiv_sound hlev φ]
-    simp only [interpExpr, hv₁, hv₂] at hva hvb
+    -- no annotation comparison; `lamC_congr` (task #100 stage 3)
+    simp only [interpExpr] at hva hvb
     cases hA1 : interpExpr V m.val env φ d ρ ty₁ with
     | none => rw [hA1] at hva; exact nomatch hva
     | some A₁ =>
@@ -402,11 +367,9 @@ theorem defeq_claims (m : EnvModel V env)
       ihd hd1 hwa'.1 hwb'.1 hba'.1 hbb'.1 hLbty₁ hLbty₂ hokty₁ hokty₂
         haty₁ haty₂ hA1 hA2
     subst hAeq
-    refine lam_congr_zero_agree hzeq fun x hx => ?_
-    obtain ⟨habody₁, hwfact₁⟩ := hcond₁ x A₁ hA1 hx
-    obtain ⟨habody₂, hwfact₂⟩ := hcond₂ x A₁ hA2 hx
-    obtain ⟨w₁, B₁, hw₁, -, -⟩ := hwfact₁ v₁ hv₁
-    obtain ⟨w₂, B₂, hw₂, -, -⟩ := hwfact₂ v₂ hv₂
+    refine lamC_congr fun x hx => ?_
+    obtain ⟨habody₁, w₁, B₁, hw₁, -, -⟩ := hcond₁ x A₁ hA1 hx
+    obtain ⟨habody₂, w₂, B₂, hw₂, -, -⟩ := hcond₂ x A₁ hA2 hx
     rw [hw₁, hw₂]
     have hLbo₁ : Expr.LeavesBounded (body₁.instantiate1 (.fvar d n₁ ty₁)) := by
       intro l hl
