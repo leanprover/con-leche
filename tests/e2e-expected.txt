@@ -278,3 +278,21 @@
 # as its `raw` line.
 2 std_axioms.ndjson pre
 0 direct_struct_raw.ndjson pre
+
+# Stuck-major structure eta on the pinned `PSigma'` basis (task #61).
+# A *raw* export (`PSigma'` and the theorem are kernel-added by the
+# fixture source, exactly as the lean-inductive-models preprocessor
+# splices the tight pair, so the block matches setlec's pin -- a
+# non-matching block would be rejected as a reserved basis name).
+# `Eq.refl (motive t) (minor t.1 t.2)` at a *neutral* `t` forces both
+# eta sides: `motive (PSigma'.mk a b t.1 t.2) == motive t` (defeq-side
+# pair eta, `pairEtaCert`) and `PSigma'.rec a b motive minor t ==
+# minor t.1 t.2` (the stuck-major rescue `to_cnstr_when_structure`).
+# The rescue's eta branch is *inert* for `PSigma'` (the generic
+# `structEtaCertWith` excludes reserved basis names; the 0-field
+# `PUnit` fallback needs `etaFields = 0`), yet the verdict matches the
+# official kernel's: `PSigma'.rec` is Prop-eliminating only, so every
+# term the rescue could produce is a proof and proof irrelevance
+# identifies the two sides.  The fixture pins that agreement -- it must
+# stay 0 whether or not the rescue is ever made to fire here.
+0 psigma_rec_eta.ndjson raw

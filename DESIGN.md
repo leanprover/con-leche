@@ -1409,11 +1409,83 @@ pins `eta := true` with 2 fields — but the reserved-name gate in
 `structEtaCertWith` makes the declared capability inert for the
 stuck-major rescue (defeq-side pair eta is covered separately by
 `pairEtaCert`), so a stuck `PSigma'.rec` major is still not rescued.
-Open finding: fixing it needs a pair-eta-based rescue certificate for
-the basis pair (or restating the eta law in public names).  Note also
-the modeled eta branch still gates on the *static* `piResultIsProp`
-rather than the official instantiated `is_never_zero`; for the
-Type-valued structures the preprocessor emits the two agree.
+
+### `PSigma'` is deliberately eta-inert (2026-08-25, task #61)
+
+The inertness above was carried as an open finding; it is **closed as
+a non-bug**, on two independent grounds.  Both were established
+against the references and against real streams; the regression guard
+is `tests/e2e/psigma_rec_eta.ndjson` (source
+`tests/e2e/src/psigma_rec_eta.lean`, a *raw* fixture).
+
+1. **The rescue is unobservable for `PSigma'`: its recursor is
+   Prop-eliminating only.**  `PSigma'`'s result sort is `max u v`,
+   which may be zero, so Lean's kernel derives a *small* eliminator —
+   `motive : PSigma' α β → Sort 0`, two level parameters (the pinned
+   `psigmaRecA`; confirmed against the preprocessed Init export).
+   Everything the rescue could ever produce is therefore a **proof**
+   of `motive (PSigma'.mk α β t.1 t.2)`, compared against a proof of
+   `motive t`; those two propositions are identified by the
+   *defeq-side* pair eta (`pairEtaCert`), and `proofIrrel` then
+   identifies the terms.  The reduct can never enter a type — so
+   wherever the official kernel reduces through
+   `to_cnstr_when_structure` here, we reach the same verdict by proof
+   irrelevance.  (The fixture pins exactly this agreement: official
+   Lean 4.29.1 accepts it through the rescue, setlec accepts it
+   through proof irrelevance, both exit 0.)
+2. **No preprocessed stream even applies `PSigma'.rec`.**  The
+   preprocessor splices only the inductive and its constructor, and
+   derives `PSigma'.fst`/`.snd` (bodies: primitive `.proj`) and the
+   large `PSigma'.rec'` (`fun … t => minor t.1 t.2`) as *ordinary
+   definitions* — `PSigma'.rec` itself is never applied.  Measured on
+   the whole preprocessed Init export (`_tmp/init-exports/
+   init-full-pre2.ndjson`, 335 MB): `PSigma'.rec` occurs exactly once,
+   inside its own inductive block record — zero `const` nodes; `rec'`
+   has 15, `fst` 14.  Nor can a `.lean` source reach it: `PSigma'`
+   cannot be written with Lean's `inductive` command (the surface
+   checker refuses a result sort that may be `Prop`), and a
+   differently-shaped `PSigma'` fails pin matching and is rejected as
+   a reserved basis name.  The fixture therefore kernel-adds both the
+   block (exactly as the preprocessor splices it) and the theorem.
+
+**NOTE — queued rider, post-stage-6 (task #100 owns `Core.lean`).**
+The eta branch of `majorToCtor` still gates on the *static*
+`piResultIsProp cvT.type = false` rather than the official
+instantiated `is_never_zero`.  For `PSigma'` the static test **passes
+at every level assignment** (`max u v` is not syntactically `Prop`),
+so the branch is entered even at `PSigma'.{0,0}`, where the official
+rescue positively refuses — today that is masked *only* by the
+certificate failing on the reserved-name gate.  Any change that lets
+the reserved branch fire must therefore land together with the
+one-line tightening to `piResultNeverZero cvT.levelParams ust
+cvT.type` (already used by the `PUnit` 0-field fallback, and the
+official `is_never_zero`); at a `Prop` instantiation the model's
+`sigmaSet` collapses at `w = 0`, which is exactly the case the
+official gate excludes.  Mirror it in `majorToCtorI`/`majorToCtorNC`.
+
+**Fix shape, if the rescue is ever wanted here (recorded, not
+implemented).**  No name-keyed special case: the environment already
+distinguishes the two projection storages, so dispatch on the stored
+entry kind.  Where `env.find? (projFnName T j)` is a **native
+`.projInfo`** entry (the pinned pair's `pairFstA`/`pairSndA`),
+fabricate `Expr.proj T j major` — literally the official
+`expand_eta_struct`'s `mk_proj`, and the spelling `pairEtaCert`
+already consumes — instead of the projection-function constant that
+`etaFabArgs` builds for modeled structures (whose `structEtaProjCerts`
+requires a `.recInfo` projection function).  Model side: the eta fact
+comes from `EnvModel`'s `ProjOk` clause (`sfst`/`ssnd`) rather than
+the `_model` value bridge, i.e. `EtaFamilyStored` gains a
+native-entry disjunct instead of dropping its non-reserved conjunct.
+
+Reference points for the comparison (v4.29.1
+`src/kernel/inductive.cpp`): `is_structure_like` is purely shape-based
+(one constructor, no indices, non-recursive — no eta flag, no name
+list), `expand_eta_struct` fabricates `mk_proj(I, i, e)` per field,
+and the caller's guard is `whnf (inferType eType) = .sort u` with
+`u.isNeverZero` (lean4lean `Inductive/Reduce.lean:53-65`, used
+unconditionally at line 94; nanoda `tc.rs:1015-1034`, refusing
+`may_be_prop`; the C++ chain is `type_checker.cpp` `reduce_recursor` →
+`inductive_reduce_rec`).
 
 ## Indexed recursors (2026-08-21)
 
