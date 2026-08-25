@@ -1,4 +1,5 @@
 import Setlec.Model.IndInstall
+import Setlec.Model.DirectExtend
 
 /-!
 # Fold facts for an installed projection function
@@ -515,9 +516,15 @@ theorem proj_bottom
                Expr.bvar (nP + nF - 1 - k)) ++
             ((List.range nF).map fun k => Expr.bvar (nF - 1 - k)))]),
        .bvar (nF - 1 - i)])
-    (htySlotP : ∃ nmI idom bmI,
-      sbinders[nP + i]? = some (nmI, idom, bmI) ∧
-      tySlot = idom.liftLooseBVars (nF - i) 0)
+    -- the equation sides' type certificates at the opened statement
+    -- telescope (task #100 stage 3: the collapse removed value-driven
+    -- domain pinning, and the type slot carries no syntactic pin)
+    {fvsO : List Expr} {sbodyO : Expr}
+    (hopenO : openPisAtFvars (nP + nF) cvt.type 0 = some (fvsO, sbodyO))
+    (hrhsTyC : ∃ tr, inferTypeCore env F (nP + nF)
+        (sbodyO.getAppArgs.getD 2 (.bvar 0)) = .ok tr ∧
+      isDefEqCore env F (nP + nF) tr
+        (sbodyO.getAppArgs.getD 0 (.bvar 0)) = .ok true)
     -- the rule right-hand side
     {rhsA : Expr} {rbs : List (Name × Expr × BinderMeta)} {rbody : Expr}
     (hstripR : rhsA.stripLams (nP + nF) = some (rbs, rbody))
@@ -1082,61 +1089,206 @@ theorem proj_bottom
       (lamC_ne_pt_of_witness pt_mem_unitSet
         (lamC_ne_pt_of_witness pt_mem_unitSet
           (by unfold eqv; exact truthVal_ne_pt _)))
-  -- the field value inhabits the equation type, off the
-  -- `checkProjIota` type-slot pin (task #100 stage 3: the collapse
-  -- removed value-driven domain pinning)
-  obtain ⟨nmI, idom, bmI, hsbI, htsEq⟩ := htySlotP
-  have hidomB : idom.looseBVarsBounded (nP + i) = true := by
-    have h0 := stripPis_binder_bounded (nP + nF) hS_strip hSb (nP + i)
-      (nmI, idom, bmI) hsbI
-    simpa using h0
-  have htakeLen : ((fvsP ++ xFvs).take (nP + i)).length = nP + i := by
-    rw [List.length_take, hspineLenA]
-    omega
-  have hαRes : Expr.instSeq (fvsP ++ xFvs) (nP + nF - 1) tySlot =
-      Expr.instSeq ((fvsP ++ xFvs).take (nP + i)) (nP + i - 1) idom := by
-    rw [htsEq]
-    have h0 := instSeq_liftLooseBVars_prefix
-      ((fvsP ++ xFvs).take (nP + i)) ((fvsP ++ xFvs).drop (nP + i))
-      (fun a ha => by
-        obtain ⟨j', n', t', rfl⟩ :=
-          hfvPXShapes a (List.mem_of_mem_take ha)
-        rfl)
-      (by rw [htakeLen]; exact hidomB)
-    rw [List.take_append_drop, htakeLen, List.length_drop,
-      hspineLenA] at h0
-    rw [show nP + i + (nP + nF - (nP + i)) - 1 = nP + nF - 1 from
-      by omega] at h0
-    rw [show nP + nF - (nP + i) = nF - i from by omega] at h0
-    rw [show nP + i - 1 = nP + i - 1 from rfl] at h0
-    exact h0
-  obtain ⟨sdsE, hsdsE, hsdsEq⟩ : ∃ a, sds[nP + i]? = some a ∧
-      a = Expr.instSeq ((fvsP ++ xFvs).take (nP + i)) (nP + i - 1)
-        idom := by
-    obtain ⟨-, hdsS⟩ := instPisAt_stripPis (fvsP ++ xFvs) hSinst
-      (by rw [hspineLen]; exact hS_strip)
-    have h1 := hdsS (nP + i) (nmI, idom, bmI) hsbI
-    exact ⟨_, h1, rfl⟩
-  have hxsI : xs[nP + i]? = some (xs.getD (nP + i) SetTheory.empty) := by
-    rw [List.getD_eq_getElem?_getD]
-    rw [List.getElem?_eq_getElem (by omega)]
+  -- ===== the field value inhabits the equation type, off the
+  -- `checkProjIota` side certificates at the statement's own opening
+  -- (task #100 stage 3: the collapse removed value-driven domain
+  -- pinning, and the type slot carries no syntactic pin) =====
+  obtain ⟨hOinst, hfvsOLen, hfvsOShape⟩ :=
+    openPisAtFvars_spec (nP + nF) 0 hopenO
+  obtain ⟨hfvsOWf, hsbodyOWf⟩ := openPisAtFvars_wf (nP + nF) 0 hopenO
+    (WScoped.of_not_hasFvar hSw) hSb
+    (Expr.LeavesBounded.of_not_hasFvar hSw)
+  -- the opening and the master frame differ only in binder names and
+  -- `fvar` annotations, which nothing semantic reads
+  have hEEspine : ∀ (j : Nat) (a b : Expr), fvsO[j]? = some a →
+      (fvsP ++ xFvs)[j]? = some b → Expr.ErasedEq a b := by
+    intro j a b ha hb
+    obtain ⟨nmO, hshO⟩ := hfvsOShape j a ha
+    rw [Nat.zero_add] at hshO
+    obtain ⟨nmM, tyM, hshM⟩ := hspineShapeA j b hb
+    rw [hshO, hshM]
+    exact rfl
+  obtain ⟨hdsEE, hresEE⟩ := instPisAt_erasedEq_spines fvsO
+    (Expr.ErasedEq.rfl cvt.type)
+    (by rw [hfvsOLen, hspineLenA])
+    hEEspine hOinst hSinst
+  rw [hSmid, hresidual] at hresEE
+  obtain ⟨αO, lhsO, rhsO, hsbO, hαEE, hrEE⟩ :
+      ∃ αO lhsO rhsO,
+        sbodyO = .app (.app (.app (.const eqName [ℓA]) αO) lhsO)
+          rhsO ∧
+        Expr.ErasedEq αO
+          (Expr.instSeq (fvsP ++ xFvs) (nP + nF - 1) tySlot) ∧
+        Expr.ErasedEq rhsO
+          (Expr.instSeq (fvsP ++ xFvs) (nP + nF - 1)
+            (.bvar (nF - 1 - i))) := by
+    exact match sbodyO, hresEE with
+    | .app (.app (.app (.const c us) αO) lhsO) rhsO, hEE =>
+      have hc : c = eqName ∧ us = [ℓA] := hEE.1.1.1
+      ⟨αO, lhsO, rhsO, by rw [hc.1, hc.2], hEE.1.1.2, hEE.2⟩
+  obtain ⟨nmrO, tyrO, hrO⟩ : ∃ nm ty,
+      rhsO = .fvar (nP + i) nm ty := by
+    rw [hfld] at hrEE
+    exact match rhsO, hrEE with
+    | .fvar j nm ty, hEE =>
+      ⟨nm, ty, by rw [show j = nP + i from hEE]⟩
+  -- the opening's own walk at the master values
+  have hspO : FvarSpine (nP + nF)
+      (fun l => xs.getD l SetTheory.empty) fvsO xs := by
+    refine FvarSpine_of_open hopenO (by omega) (by omega) ?_
+    intro j v hjv
+    show xs.getD (0 + j) SetTheory.empty = v
+    rw [Nat.zero_add, List.getD_eq_getElem?_getD, hjv]
     rfl
-  obtain ⟨B, hBi, hvB⟩ := hmemS (nP + i) sdsE _ hsdsE hxsI
-  have hsdsRes : sdsE.constsResolve env = true := by
-    rw [hsdsEq]
-    refine instSeq_resolve_fvars _ _
-      (fun a ha => hfvPXShapes a (List.mem_of_mem_take ha))
-      (fun a ha => hspineRes a (List.mem_of_mem_take ha)) ?_
-    exact (Expr.constsResolve_stripPis (nP + nF) hS_strip hSres).1
-      (nmI, idom, bmI) (List.mem_of_getElem? hsbI)
-  have hvα : vα = B := by
-    rw [hαRes, ← hsdsEq] at hiα
-    rw [interp_mono (cval := val') hfresh sdsE _ _ hsdsRes,
-      interp_cval_ext hagree sdsE _ _, hBi] at hiα
-    exact (Option.some.inj hiα).symm
+  have hwsO : ∀ a ∈ fvsO, WScoped (nP + nF) a := fun a ha => by
+    have h := (hfvsOWf a ha).1
+    rwa [Nat.zero_add] at h
+  have hmemO : ∀ (k : Nat) (a : Expr) (v : V),
+      (fvsO.map Expr.fvarTypeD)[k]? = some a → xs[k]? = some v →
+      ∃ B, interpExpr V m.val env ψ (nP + nF)
+        (fun l' => xs.getD l' SetTheory.empty) a = some B ∧ v ∈ˢ B := by
+    intro k a v ha hv
+    have hkN : k < nP + nF := by
+      rcases Nat.lt_or_ge k (nP + nF) with h | h
+      · exact h
+      · rw [List.getElem?_eq_none (by omega)] at hv
+        exact nomatch hv
+    obtain ⟨b, hb⟩ : ∃ b, sds[k]? = some b := by
+      have hlen := instPisAt_length _ hSinst
+      exact ⟨_, List.getElem?_eq_getElem
+        (by rw [hlen, hspineLenA]; omega)⟩
+    obtain ⟨B, hBi, hvB⟩ := hmemS k b v hb hv
+    have hEEd : Expr.ErasedEq a b := hdsEE k a b ha hb
+    exact ⟨B, by rw [interp_erasedEq hEEd]; exact hBi, hvB⟩
+  obtain ⟨hfitO, hΘO⟩ := self_walk hOinst hspO hwsO
+    (WScoped.of_not_hasFvar hSw) hSb
+    (Expr.LeavesBounded.of_not_hasFvar hSw)
+    (FvarsOk.of_not_hasFvar hSw)
+    (AnnotOk.closed_invariant hSw _ _ (hthm_annot ψ))
+    hmemO
+  obtain ⟨hWsbO, hbsbO, hAsbO, hleavesO⟩ := TeleFitI.rest_wf hfitO
+    (WScoped.of_not_hasFvar hSw) hSb
+    (AnnotOk.closed_invariant hSw _ _ (hthm_annot ψ))
+  have hFsbO : FvarsOk V m.val env ψ (nP + nF)
+      (fun l => xs.getD l SetTheory.empty) sbodyO := by
+    intro l hl
+    rcases hleavesO l hl with hl' | ⟨a, ha, hla⟩
+    · rw [fvarLeaves_eq_nil_of_not_hasFvar hSw] at hl'
+      cases hl'
+    · exact hΘO a ha l hla
+  -- decompose the opened equation's chain (base environment)
+  have hargsO : sbodyO.getAppArgs = [αO, lhsO, rhsO] := by
+    rw [hsbO]; rfl
+  rw [hargsO] at hrhsTyC
+  simp only [List.getD_cons_succ, List.getD_cons_zero] at hrhsTyC
+  obtain ⟨tr, htr, hdr⟩ := hrhsTyC
+  have hAsbO' : AnnotOk V m.val env ψ (nP + nF)
+      (fun l => xs.getD l SetTheory.empty)
+      (Expr.mkAppN (.const eqName [ℓA]) [αO, lhsO, rhsO]) := by
+    rw [show Expr.mkAppN (.const eqName [ℓA]) [αO, lhsO, rhsO] =
+      .app (.app (.app (.const eqName [ℓA]) αO) lhsO) rhsO from rfl,
+      ← hsbO]
+    exact hAsbO
+  obtain ⟨-, hcompsO, _veqO, vsO, -, hspO2, -, -⟩ :=
+    annotOk_spine_inv _ (.const eqName [ℓA]) (by simp) hAsbO'
+  obtain ⟨vαO, vlO, vrO, rfl⟩ : ∃ a b c, vsO = [a, b, c] := by
+    match vsO, hspO2 with
+    | [a, b, c], _ => exact ⟨a, b, c, rfl⟩
+    | [], h => exact nomatch h
+    | [_], h => exact nomatch h.2
+    | [_, _], h => exact nomatch h.2.2
+    | _ :: _ :: _ :: _ :: _, h => exact nomatch h.2.2.2
+  obtain ⟨hiαO, -, hirO, -⟩ := hspO2
+  -- well-formedness of the certificate's operands
+  have hWargsO : ∀ x ∈ sbodyO.getAppArgs, WScoped (nP + nF) x :=
+    Expr.WScoped.getAppArgs hWsbO
+  rw [hargsO] at hWargsO
+  have hWαO : WScoped (nP + nF) αO := hWargsO _ (by simp)
+  have hWrO : WScoped (nP + nF) rhsO := hWargsO _ (by simp)
+  have hbαO : αO.looseBVarsBounded 0 = true :=
+    looseBVarsBounded_getAppArgs hbsbO _ (by rw [hargsO]; simp)
+  have hbrO : rhsO.looseBVarsBounded 0 = true :=
+    looseBVarsBounded_getAppArgs hbsbO _ (by rw [hargsO]; simp)
+  have hLsbO : Expr.LeavesBounded sbodyO := hsbodyOWf.2.2
+  have hαsubO : ∀ l ∈ αO.fvarLeaves, l ∈ sbodyO.fvarLeaves := by
+    intro l hl
+    rw [hsbO]
+    show l ∈ (Expr.app (.app (.app (.const eqName [ℓA]) αO) lhsO)
+      rhsO).fvarLeaves
+    simp only [Expr.fvarLeaves, List.mem_append, List.nil_append]
+    exact Or.inl (Or.inl hl)
+  have hrsubO : ∀ l ∈ rhsO.fvarLeaves, l ∈ sbodyO.fvarLeaves := by
+    intro l hl
+    rw [hsbO]
+    show l ∈ (Expr.app (.app (.app (.const eqName [ℓA]) αO) lhsO)
+      rhsO).fvarLeaves
+    simp only [Expr.fvarLeaves, List.mem_append, List.nil_append]
+    exact Or.inr hl
+  have hLαO : Expr.LeavesBounded αO := fun l hl => hLsbO l (hαsubO l hl)
+  have hLrO : Expr.LeavesBounded rhsO := fun l hl =>
+    hLsbO l (hrsubO l hl)
+  have hFαO : FvarsOk V m.val env ψ (nP + nF)
+      (fun l => xs.getD l SetTheory.empty) αO :=
+    fun l hl => hFsbO l (hαsubO l hl)
+  have hFrO : FvarsOk V m.val env ψ (nP + nF)
+      (fun l => xs.getD l SetTheory.empty) rhsO :=
+    fun l hl => hFsbO l (hrsubO l hl)
+  -- the right side's certificate: the field value inhabits the
+  -- equation type's value
+  obtain ⟨⟨vr', trv, hir', htrv, hmemr'⟩, hWtr, hAtr⟩ :=
+    inferTypeCore_sound m F htr hWrO hbrO hLrO hFrO
+      (hcompsO rhsO (by simp))
+  obtain rfl : vr' = vrO := by
+    rw [hir'] at hirO
+    exact Option.some.inj hirO
+  have hbtr : tr.looseBVarsBounded 0 = true :=
+    inferTypeCore_looseBVars m.wf F htr hWrO hbrO hLrO
+  have hLtr : Expr.LeavesBounded tr := fun l hl =>
+    hLrO l (inferTypeCore_fvarLeaves m.wf F htr hWrO l hl)
+  have hFtr : FvarsOk V m.val env ψ (nP + nF)
+      (fun l => xs.getD l SetTheory.empty) tr :=
+    FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf F htr hWrO) hFrO
+  have htrvα : trv = vαO :=
+    isDefEqCore_sound m F hdr hWtr hWαO hbtr hbαO hLtr hLαO hFtr hFαO
+      hAtr (hcompsO αO (by simp)) htrv hiαO
+  -- identify the opened chain's values with the master chain's
+  have hvrO : vrO = xs.getD (nP + i) SetTheory.empty := by
+    rw [hrO] at hir'
+    simp only [interpExpr] at hir'
+    exact (Option.some.inj hir').symm
+  have hαRres : (Expr.instSeq (fvsP ++ xFvs) (nP + nF - 1)
+      tySlot).constsResolve env = true := by
+    have h0 : (Expr.instSeq (fvsP ++ xFvs) (nP + nF - 1)
+        sbody).constsResolve env = true := by
+      rw [← hSmid]; exact hResRes
+    rw [hresidual] at h0
+    have h0' : ((((Expr.const eqName [ℓA]).app
+        (Expr.instSeq (fvsP ++ xFvs) (nP + nF - 1) tySlot)).app
+        (Expr.mkAppN (.const (f P) (cvA.levelParams.map .param))
+          ((fvsP ++ xFvs).take nP ++
+           [Expr.mkAppN (.const (f ctor) (cvj.levelParams.map .param))
+             ((fvsP ++ xFvs).take nP ++
+              (fvsP ++ xFvs).drop nP)]))).app
+        (Expr.instSeq (fvsP ++ xFvs) (nP + nF - 1)
+          (.bvar (nF - 1 - i)))).constsResolve env = true := h0
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h0'
+    exact h0'.1.1.2
+  have hvαO : vαO = vα := by
+    have h1 : interpExpr V m.val env ψ (nP + nF)
+        (fun l => xs.getD l SetTheory.empty)
+        (Expr.instSeq (fvsP ++ xFvs) (nP + nF - 1) tySlot) =
+        some vαO := by
+      rw [← interp_erasedEq hαEE]
+      exact hiαO
+    rw [interp_mono (cval := val') hfresh
+        (Expr.instSeq (fvsP ++ xFvs) (nP + nF - 1) tySlot) _ _ hαRres,
+      interp_cval_ext hagree
+        (Expr.instSeq (fvsP ++ xFvs) (nP + nF - 1) tySlot) _ _] at hiα
+    rw [h1] at hiα
+    exact Option.some.inj hiα
   have hvrmem : vr ∈ˢ vα := by
-    rw [hvα, hvr]
-    exact hvB
+    rw [hvr, ← hvrO, ← hvαO]
+    exact htrvα ▸ hmemr'
   have hvlmem : vl ∈ˢ vα := by
     have h2 := hpi₂
     rw [eqVal_app hαu] at h2
@@ -1818,9 +1970,12 @@ theorem proj_rule_eq
                Expr.bvar (nP + nF - 1 - k)) ++
             ((List.range nF).map fun k => Expr.bvar (nF - 1 - k)))]),
        .bvar (nF - 1 - i)])
-    (htySlotP : ∃ nmI idom bmI,
-      sbinders[nP + i]? = some (nmI, idom, bmI) ∧
-      tySlot = idom.liftLooseBVars (nF - i) 0)
+    {fvsO : List Expr} {sbodyO : Expr}
+    (hopenO : openPisAtFvars (nP + nF) cvt.type 0 = some (fvsO, sbodyO))
+    (hrhsTyC : ∃ tr, inferTypeCore env F (nP + nF)
+        (sbodyO.getAppArgs.getD 2 (.bvar 0)) = .ok tr ∧
+      isDefEqCore env F (nP + nF) tr
+        (sbodyO.getAppArgs.getD 0 (.bvar 0)) = .ok true)
     {dN : Name} {dus : List Level} {dargs : List Expr}
     (hcbody : cbody = Expr.mkAppN (.const dN dus) dargs)
     (hdargs : dargs.length = nP)
@@ -1878,6 +2033,7 @@ theorem proj_rule_eq
     (fun ψ => proj_bottom m F hfresh hagree hff₀ hro₀ hro₁ hi hfP₁
       hlpsP hfj hfPm hPmlps heqfind heqval₁ hthm_mem hthm_annot hSw hSb
       hSres
-      hC_strip hS_strip hsdoms hsbody htySlotP hstripR hrbody hopenP hcinstP
+      hC_strip hS_strip hsdoms hsbody hopenO hrhsTyC hstripR hrbody
+      hopenP hcinstP
       hdeParsP hopenX hlinstP hTcl hTb hTres (hAty ψ) hCcl hCb hCres
       (hACty ψ) (hICty ψ) (ψ := ψ))

@@ -503,8 +503,8 @@ theorem checkProjFn_inv {env' env₁ : Env} {T ctorName : Name}
       i < nF ∧
       ∃ rhsA, checkProjRule (fueledOps F) env' pty cvj lps nP nF i =
         .ok rhsA ∧
-      (∃ u : Unit, (checkProjIota env' T ctorName lps cvj nP nF i : CheckM _)
-        = .ok u) ∧
+      (∃ u : Unit, checkProjIota (fueledOps F) env' env' T ctorName
+        lps cvj nP nF i = .ok u) ∧
       env₁ = ⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
         [⟨ctorName, nF, nP, (if Expr.recRulePlain pty nP nP nP then RecRuleFire.plain else .inert), rhsA⟩] :: env'.consts⟩ := by
   simp only [checkProjFn, fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
@@ -535,7 +535,8 @@ theorem checkProjFn_inv {env' env₁ : Env} {T ctorName : Name}
   | ok rhsA => ?_
   rw [hrule] at h
   try dsimp only at h
-  cases hio : (checkProjIota env' T ctorName lps cvj nP nF i : CheckM _) with
+  cases hio : checkProjIota (fueledOps F) env' env' T ctorName lps
+      cvj nP nF i with
   | error e => rw [hio] at h; exact nomatch h
   | ok u => ?_
   rw [hio] at h
@@ -677,7 +678,8 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
     hopenP0, hcinstP0, hdeParsP0, hopenX0, hlinstP0, hdeLamP0,
     rhsTy0, hity0⟩ := checkProjRule_inv hrule
   obtain ⟨tcv, tval, sbinders, cbindersR₂, cbody₂, tySlot, ℓA,
-    hthm, htlps, hC_strip₂, hsdomsB, hS_strip, htySlotP⟩ :=
+    hthm, htlps, hC_strip₂, hsdomsB, hS_strip,
+    fvsO, sbodyO, hopenO, hlhsTyC, hrhsTyC⟩ :=
     checkProjIota_inv hio
   obtain ⟨rfl, rfl⟩ : cbindersR = cbindersR₂ ∧ cbody = cbody₂ := by
     have hpair := Option.some.inj (hC_strip.symm.trans hC_strip₂)
@@ -1055,7 +1057,7 @@ theorem checkProjFn_sound {env' env₁ : Env} {T ctorName : Name}
       cases h : Expr.recRulePlain pty nP nP nP <;> simp [h])
     hctor rfl rfl
     hann hrawf hrawb hrres hstripR rfl hC_strip hS_strip
-    hsdoms hcbody hclenP hsbody' htySlotP hthm htlps
+    hsdoms hcbody hclenP hsbody' hopenO hrhsTyC hthm htlps
     hopenP0 hcinstP0 hdeParsP0 hopenX0 hlinstP0 hdeLamP0 hrf hrb hity0
     hheadEtaP
   have hval₁' : ∀ ψ : Name → Nat,

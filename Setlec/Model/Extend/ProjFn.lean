@@ -74,9 +74,12 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
                Expr.bvar (nP + nF - 1 - k)) ++
             ((List.range nF).map fun k => Expr.bvar (nF - 1 - k)))]),
        .bvar (nF - 1 - i)])
-    (htySlotP : ∃ nmI idom bmI,
-      sbinders[nP + i]? = some (nmI, idom, bmI) ∧
-      tySlot = idom.liftLooseBVars (nF - i) 0)
+    {fvsO : List Expr} {sbodyO : Expr}
+    (hopenO : openPisAtFvars (nP + nF) cvt.type 0 = some (fvsO, sbodyO))
+    (hrhsTyC : ∃ tr, inferTypeCore env F (nP + nF)
+        (sbodyO.getAppArgs.getD 2 (.bvar 0)) = .ok tr ∧
+      isDefEqCore env F (nP + nF) tr
+        (sbodyO.getAppArgs.getD 0 (.bvar 0)) = .ok true)
     (hthm : env.find? thmName = some (.thmInfo cvt tval))
     (_hlpt : cvt.levelParams = cvA.levelParams)
     -- the kernel's frame walks and definitional pins (task #58)
@@ -358,7 +361,8 @@ theorem extend_proj_fn {env : Env} (m : EnvModel V env)
           mval hmcvm).toConstantVal.levelParams = cvA.levelParams from
           hlps)
         heqfind heqval₁ hthm_memL hthm_annotL hSw hSb hSres hfr hcp _hnf
-        hstripR hrbody hC_strip hS_strip hsdoms hsbody htySlotP hcbody
+        hstripR hrbody hC_strip hS_strip hsdoms hsbody hopenO hrhsTyC
+        hcbody
         hdargs
         hopenP hcinstP hdeParsP hopenX hlinstP hdeLamP
         hwf.1 hwf.2.2.2.1 hCtf hCtb htyres0 hCtres hrhsres hrhsw hrhsb

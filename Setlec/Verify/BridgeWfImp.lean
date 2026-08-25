@@ -1793,6 +1793,154 @@ theorem checkProjTy_wf {env' : Env} {T ctorName : Name}
     next => exact nomatch h
   next => exact nomatch h
 
+set_option maxHeartbeats 6400000 in
+/-- The projection-iota check, `wfOpsM` run to pure run (task #100
+stage 3: the side certificates run at the opened statement telescope,
+which is scoped by the stored statement's closedness). -/
+theorem checkProjIota_wfimp {env' : Env} (henv' : EnvWF env')
+    {T ctorName : Name} {lps : List Name} {cvj : ConstantVal}
+    {nP nF i F : Nat} {v : Unit}
+    (h : (checkProjIota wfOpsM env' env' T ctorName lps cvj nP nF
+      i).val F = .ok v) :
+    checkProjIota (fueledOps F) env' env' T ctorName lps cvj nP nF i
+      = .ok v := by
+  unfold checkProjIota at h ⊢
+  revert h
+  match hthm : env'.find? ((projModelName T i).str "iota") with
+  | none => intro h; rw [FueledM.atF_throw] at h; exact nomatch h
+  | some (.axiomInfo _) => intro h; rw [FueledM.atF_throw] at h; exact nomatch h
+  | some (.projInfo _) => intro h; rw [FueledM.atF_throw] at h; exact nomatch h
+  | some (.defnInfo _ _ _) => intro h; rw [FueledM.atF_throw] at h; exact nomatch h
+  | some (.indInfo _ _) => intro h; rw [FueledM.atF_throw] at h; exact nomatch h
+  | some (.ctorInfo _ _ _) => intro h; rw [FueledM.atF_throw] at h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; rw [FueledM.atF_throw] at h; exact nomatch h
+  | some (.thmInfo tcv _tval) => ?_
+  intro h
+  dsimp only at h ⊢
+  by_cases htlps : tcv.levelParams = lps
+  case neg =>
+    rw [if_neg htlps] at h
+    first
+    | exact absurd h atF_throw_bind
+    | (rw [FueledM.atF_throw] at h; exact nomatch h)
+  rw [if_pos htlps] at h ⊢
+  try dsimp only at h ⊢
+  revert h
+  match hS_strip : tcv.type.stripPis (nP + nF) with
+  | none => intro h; rw [FueledM.atF_throw] at h; exact nomatch h
+  | some (sbinders, sbody) => ?_
+  intro h
+  dsimp only at h ⊢
+  revert h
+  match hC_strip : cvj.type.stripPis (nP + nF) with
+  | none => intro h; rw [FueledM.atF_throw] at h; exact nomatch h
+  | some (cbindersR, cbody) => ?_
+  intro h
+  dsimp only at h ⊢
+  by_cases hsdomsB : domsMatchAux
+      (fun _ e => e.renameConsts (projFwd T ctorName nF))
+      sbinders cbindersR 0 0 (nP + nF) = true
+  case neg =>
+    rw [if_neg hsdomsB] at h
+    first
+    | exact absurd h atF_throw_bind
+    | (rw [FueledM.atF_throw] at h; exact nomatch h)
+  rw [if_pos hsdomsB] at h ⊢
+  try dsimp only at h ⊢
+  revert h
+  cases sbody
+  case bvar => intro h; exact absurd h atF_throw_bind
+  case fvar => intro h; exact absurd h atF_throw_bind
+  case sort => intro h; exact absurd h atF_throw_bind
+  case const => intro h; exact absurd h atF_throw_bind
+  case lam => intro h; exact absurd h atF_throw_bind
+  case forallE => intro h; exact absurd h atF_throw_bind
+  case letE => intro h; exact absurd h atF_throw_bind
+  case lit => intro h; exact absurd h atF_throw_bind
+  case proj => intro h; exact absurd h atF_throw_bind
+  rename_i sA rhsC
+  cases sA
+  case bvar => intro h; exact absurd h atF_throw_bind
+  case fvar => intro h; exact absurd h atF_throw_bind
+  case sort => intro h; exact absurd h atF_throw_bind
+  case const => intro h; exact absurd h atF_throw_bind
+  case lam => intro h; exact absurd h atF_throw_bind
+  case forallE => intro h; exact absurd h atF_throw_bind
+  case letE => intro h; exact absurd h atF_throw_bind
+  case lit => intro h; exact absurd h atF_throw_bind
+  case proj => intro h; exact absurd h atF_throw_bind
+  rename_i sB lhsC
+  cases sB
+  case bvar => intro h; exact absurd h atF_throw_bind
+  case fvar => intro h; exact absurd h atF_throw_bind
+  case sort => intro h; exact absurd h atF_throw_bind
+  case const => intro h; exact absurd h atF_throw_bind
+  case lam => intro h; exact absurd h atF_throw_bind
+  case forallE => intro h; exact absurd h atF_throw_bind
+  case letE => intro h; exact absurd h atF_throw_bind
+  case lit => intro h; exact absurd h atF_throw_bind
+  case proj => intro h; exact absurd h atF_throw_bind
+  rename_i sEq tySlot
+  cases sEq
+  case bvar => intro h; exact absurd h atF_throw_bind
+  case fvar => intro h; exact absurd h atF_throw_bind
+  case sort => intro h; exact absurd h atF_throw_bind
+  case app => intro h; exact absurd h atF_throw_bind
+  case lam => intro h; exact absurd h atF_throw_bind
+  case forallE => intro h; exact absurd h atF_throw_bind
+  case letE => intro h; exact absurd h atF_throw_bind
+  case lit => intro h; exact absurd h atF_throw_bind
+  case proj => intro h; exact absurd h atF_throw_bind
+  rename_i c ℓs
+  cases ℓs
+  case nil => intro h; exact absurd h atF_throw_bind
+  rename_i ℓA ℓtail
+  cases ℓtail
+  case cons => intro h; exact absurd h atF_throw_bind
+  intro h
+  try dsimp only at h ⊢
+  by_cases hc : c = eqName
+  case neg =>
+    rw [if_neg hc] at h
+    exact absurd h atF_throw_bind
+  rw [if_pos hc] at h ⊢
+  try dsimp only at h ⊢
+  by_cases hlhs : (lhsC == Expr.mkAppN
+      (.const (projModelName T i) (lps.map .param))
+      (((List.range nP).map fun k => Expr.bvar (nP + nF - 1 - k)) ++
+       [Expr.mkAppN
+         (.const (ctorName.str "_model") (cvj.levelParams.map .param))
+         (((List.range nP).map fun k => Expr.bvar (nP + nF - 1 - k)) ++
+          ((List.range nF).map fun k => Expr.bvar (nF - 1 - k)))])) = true
+  case neg =>
+    rw [if_neg hlhs] at h
+    exact absurd h atF_throw_bind
+  rw [if_pos hlhs] at h ⊢
+  try dsimp only at h ⊢
+  by_cases hrhsC : (rhsC == Expr.bvar (nF - 1 - i)) = true
+  case neg =>
+    rw [if_neg hrhsC] at h
+    exact absurd h atF_throw_bind
+  rw [if_pos hrhsC] at h ⊢
+  try dsimp only at h ⊢
+  obtain ⟨q, hopen, h⟩ := atF_bind_ok h
+  obtain ⟨fvsO, sbodyO⟩ := q
+  have hopen' := unwrapOr_atF_ok hopen
+  show ((unwrapOr (openPisAtFvars (nP + nF) tcv.type 0) _ :
+    CheckM _) >>= _) = _
+  rw [hopen']
+  simp only [unwrapOr, Bind.bind, Except.bind, pure, Except.pure]
+  have hcvtF : tcv.type.hasFvar = false :=
+    (henv' _ (find?_mem hthm)).1
+  have hopenW := openPisAtFvars_WScoped (nP + nF) tcv.type 0
+    hopen' (WScoped.of_not_hasFvar hcvtF)
+  rw [Nat.zero_add] at hopenW
+  obtain ⟨-, htbodyW⟩ := hopenW
+  have htargsW : ∀ x ∈ sbodyO.getAppArgs, WScoped (nP + nF) x :=
+    Expr.WScoped.getAppArgs htbodyW
+  exact checkIotaSidesTy_wfimp henv' (WScoped_getD' htargsW 0)
+    (WScoped_getD' htargsW 1) (WScoped_getD' htargsW 2) h
+
 theorem checkProjFn_wfimp {env' : Env} (henv' : EnvWF env')
     {T ctorName : Name} {lps : List Name} {nP nF i F : Nat} {v : Env}
     (h : (checkProjFn wfOpsM env' T ctorName lps nP nF i).val F = .ok v) :
@@ -1831,10 +1979,10 @@ theorem checkProjFn_wfimp {env' : Env} (henv' : EnvWF env')
   rw [hrule']
   simp only [Bind.bind, Except.bind]
   obtain ⟨u, hiota, h⟩ := atF_bind_ok h
-  rw [checkProjIota_datF] at hiota
-  show ((checkProjIota env' T ctorName lps cvj nP nF i :
-    CheckM Unit) >>= _) = _
-  rw [hiota]
+  have hiota' := checkProjIota_wfimp henv' hiota
+  show (checkProjIota (fueledOps F) env' env' T ctorName lps cvj nP
+    nF i >>= _) = _
+  rw [hiota']
   simp only [Bind.bind, Except.bind]
   exact h
 

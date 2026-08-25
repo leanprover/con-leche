@@ -869,15 +869,20 @@ theorem checkProjShapeS_sim {pty cty : Expr} {nP nF : Nat}
   | .lit _ => exact SimAt.throw
   | .proj _ _ _ => exact SimAt.throw
 
-/-- `checkProjIota` (operation-free) as a `SimAt`. -/
-theorem checkProjIotaS_sim {env' : Env} {T ctorName : Name}
+/-- `checkProjIota` at the shared operations (task #100 stage 3: the
+side certificates make it consult the ops at the opened statement
+telescope). -/
+theorem checkProjIotaS_sim {T ctorName : Name}
+    (henv : EnvWF env)
     {lps : List Name} {cvj : ConstantVal} {nP nF i : Nat}
     (hs : ISOK env s₀) :
     SimAt env s₀ RelV
-      (checkProjIota env' T ctorName lps cvj nP nF i : CheckIM _)
-      (checkProjIota env' T ctorName lps cvj nP nF i : FueledM _) := by
+      (checkProjIota (sharedOps (mkFEnv env)) env env T ctorName lps
+        cvj nP nF i)
+      (checkProjIota fueledOpsM env env T ctorName lps cvj nP nF
+        i) := by
   unfold checkProjIota
-  match h1 : env'.find? ((projModelName T i).str "iota") with
+  match h1 : env.find? ((projModelName T i).str "iota") with
   | none => exact SimAt.throw
   | some (.axiomInfo _) => exact SimAt.throw
   | some (.projInfo _) => exact SimAt.throw
@@ -936,16 +941,23 @@ theorem checkProjIotaS_sim {env' : Env} {T ctorName : Name}
               by_cases h8 : (rhsC == Expr.bvar (nF - 1 - i)) = true
               case neg => simp only [if_neg h8]; exact SimAt.throw_bind
               simp only [if_pos h8]
-              split
-              case h_2 =>
-                simp only [Bool.false_eq_true, ↓reduceIte]
-                exact SimAt.throw
-              rename_i nm9 idom9 bm9 heq9
-              by_cases h9 : (tySlot == idom9.liftLooseBVars (nF - i) 0)
-                = true
-              case neg => simp only [if_neg h9]; exact SimAt.throw
-              simp only [if_pos h9]
-              exact SimAt.pure hs rfl
+              refine SimAt.bind (SimAt.unwrapOr' hs)
+                (fun s10 q q' hs10 hext10 hQ => ?_)
+              obtain ⟨rfl, hopen⟩ := hQ
+              obtain ⟨fvsO, sbodyO⟩ := q
+              dsimp only
+              have hcvtF : tcv.type.hasFvar = false :=
+                (henv _ (find?_mem h1)).1
+              have hopenW := openPisAtFvars_WScoped (nP + nF)
+                tcv.type 0 hopen (WScoped.of_not_hasFvar hcvtF)
+              rw [Nat.zero_add] at hopenW
+              obtain ⟨-, htbodyW⟩ := hopenW
+              have htargsW : ∀ x ∈ sbodyO.getAppArgs,
+                  WScoped (nP + nF) x :=
+                Expr.WScoped.getAppArgs htbodyW
+              exact checkIotaSidesTyS_sim henv
+                (WScoped_getD' htargsW 0) (WScoped_getD' htargsW 1)
+                (WScoped_getD' htargsW 2) hs10
         | _ => exact SimAt.throw
       | _ => exact SimAt.throw
     | _ => exact SimAt.throw

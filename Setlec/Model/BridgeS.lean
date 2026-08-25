@@ -584,7 +584,7 @@ theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
   obtain rfl : rhsA = rhsA' := hPr
   obtain ⟨u, s₄, hio, h⟩ := bindI_ok h
   obtain ⟨hs₄, hext₄, u', hPu, F₂, hFio⟩ :=
-    (checkProjIotaS_sim hs₃) u s₄ hio
+    (checkProjIotaS_sim henv hs₃) u s₄ hio
   obtain ⟨hfe, rfl⟩ := pureI_ok h
   subst hfe
   -- the ops-free stages, `CheckM`-level
@@ -600,15 +600,20 @@ theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
       = .ok u0 := by
     rw [← checkProjShape_datF (F := F₀'')]
     exact hFshape
-  have hIOc : (checkProjIota env T ctorName lps cvj nP nF i :
-      CheckM _) = .ok u := by
-    rw [← checkProjIota_datF (F := F₂)]
-    exact hFio
-  have hFrp : checkProjRule (fueledOps F₁) env pty cvj lps nP nF i =
+  -- both fueled stages at a common fuel
+  obtain ⟨F₃, hF₁₃, hF₂₃⟩ : ∃ F₃, F₁ ≤ F₃ ∧ F₂ ≤ F₃ :=
+    ⟨max F₁ F₂, Nat.le_max_left _ _, Nat.le_max_right _ _⟩
+  have hIOc : checkProjIota (fueledOps F₃) env env T ctorName lps cvj
+      nP nF i = .ok u' := by
+    rw [← checkProjIota_datF (F := F₃)]
+    exact (checkProjIota fueledOpsM env env T ctorName lps cvj nP nF
+      i).property hF₂₃ hFio
+  have hFrp : checkProjRule (fueledOps F₃) env pty cvj lps nP nF i =
       .ok rhsA := by
     rw [← checkProjRule_datF]
-    exact hFr
-  have hFnp : checkProjFn (fueledOps F₁) env T ctorName lps nP nF i =
+    exact (checkProjRule fueledOpsM env pty cvj lps nP nF
+      i).property hF₁₃ hFr
+  have hFnp : checkProjFn (fueledOps F₃) env T ctorName lps nP nF i =
       .ok (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
         [⟨ctorName, nF, nP, if Expr.recRulePlain pty nP nP nP then
           .plain else .inert, rhsA⟩] :: env.consts⟩ : Env) := by
@@ -626,24 +631,24 @@ theorem checkProjFnS_run {env : Env} (henv : EnvWF env)
     simp only [Bind.bind, Except.bind]
     try dsimp only
     rw [if_pos hi]
-    show (checkProjRule (fueledOps F₁) env pty cvj lps nP nF i >>= _)
+    show (checkProjRule (fueledOps F₃) env pty cvj lps nP nF i >>= _)
       = _
     rw [hFrp]
     simp only [Bind.bind, Except.bind]
-    show ((checkProjIota env T ctorName lps cvj nP nF i :
-      CheckM _) >>= _) = _
+    show (checkProjIota (fueledOps F₃) env env T ctorName lps cvj nP
+      nF i >>= _) = _
     rw [hIOc]
     simp only [Bind.bind, Except.bind]
     rfl
   have hFn : (checkProjFn fueledOpsM env T ctorName lps nP nF
-      i).val F₁ = .ok (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
+      i).val F₃ = .ok (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
         [⟨ctorName, nF, nP, if Expr.recRulePlain pty nP nP nP then
           .plain else .inert, rhsA⟩] :: env.consts⟩ : Env) := by
     rw [checkProjFn_datF]
     exact hFnp
   refine ⟨hs₄.residue,
     hext₁.trans (hext₂.trans (hext₂'.trans (hext₃.trans hext₄))),
-    rfl, ?_, F₁, hFn⟩
+    rfl, ?_, F₃, hFn⟩
   -- the installed projection recursor is well-formed
   obtain ⟨cvj', mcv', hlk', pty', hty', ⟨_, hshape'⟩, hi', rhsA',
     hrule', ⟨_, hio'⟩, heq⟩ := checkProjFn_inv hFnp
