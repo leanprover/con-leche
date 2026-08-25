@@ -888,12 +888,11 @@ on literals.
   proof mentions `eq_true`/`and_self` and hence `Iff`/`propext`,
   which do not exist in the stream before `Nat.mod`; instead
   fuel-congruence and one-step `eq_def` unfoldings are reproved from
-  scratch), then closed over the stream prefix by inlining every
-  constant that is not declared before the op in the stream (the
-  allowlists are extracted from the supported streams — intersected
-  per op — by `scripts/extract_natop_prefix.py` into
-  `scripts/natop_prefix.json`; a non-prefix *inductive* aborts
-  generation loudly, i.e. fails the build).  At install each
+  scratch), then made *self-contained* by inlining every constant
+  outside the op's own dependency cone and the guard-enforced ground
+  (task #113 — see "Self-contained certificate proofs" below; an
+  unjustifiable residual aborts generation loudly, i.e. fails the
+  build).  At install each
   certificate is checked exactly
   like a theorem over an opened telescope — the generated proof,
   self-references substituted with the stored annotated value
@@ -979,37 +978,60 @@ hard build error.  Contract points:
 * **Prefix allowlists** (`scripts/natop_prefix.json`, from
   `scripts/extract_natop_prefix.py`) are checked-in generator *input*
   (an allowlist of stream-declared names, not a blob), extracted from
-  the supported streams and intersected per op.  The install-time
+  the supported streams and intersected per op.  Since task #113 they
+  apply to the **pins only** (the certificate proofs are closed over
+  the op's own dependency cone instead, see below).  The install-time
   `constsResolve` guards remain the actual gate; the allowlist only
   makes generation fail early and loudly.
-* **Prefix allowlists vs. stream order (2026-08-24).**  The original
-  allowlists were extracted from Init streams only; a cert proof may
-  then reference any constant Init happens to declare before the op,
-  which other stream orders need not provide.  Concretely: Mathlib's
-  full export declares `Nat.log2_terminates` *after* `Nat.log2`
-  (log2's exported value does not depend on it — the WF termination
-  theorem is a sibling, not a dependency), so the log2 certificates'
-  reference to it (via the inlined `Nat.log2_def`) failed
-  `constsResolve` and the full Mathlib run declined at `Nat.log2`
-  (decl 50,769, 16.9 %); a dependency-closure slice additionally
-  lacked `funext`/`Eq.subst`/`Eq.propIntro`/`of_decide_eq_true`
-  before `Nat.land` and `funext` before `Nat.gcd`.  Fix: regenerate
-  `scripts/natop_prefix.json` intersecting the Init streams with
-  `mathlib-full(-pre)` and the scoping slice — the generator then
-  *inlines* the dropped names (all plain theorems; inlining `funext`
-  pulls in `Quot.mk/lift/sound`, which every stream declares at the
-  start).  Diagnosis and re-verification: dump the generated blobs'
-  constants and diff them against a stream's declared-before-op
-  prefix; after the regeneration the only unresolved name per op is
-  the op itself, which the install gate substitutes away before the
-  `constsResolve` check.  The residual risk is inherent to the
-  design: the allowlists promise validity only for the *supported*
-  streams; a new stream order surfaces as this same positive decline,
-  and the remedy is to add that stream to the extraction inputs.
-  Rebuild caveat: the json is embedded into `Setlec/PinGen.lean` via
-  `include_str` and Lake tracks neither that edge nor the certs
-  module; `touch` does nothing (content-hash traces) — delete the
-  `PinGen*`/`NatOpPins*` build artifacts to force regeneration.
+* **Self-contained certificate proofs (task #113; supersedes the
+  2026-08-24 "prefix allowlists vs. stream order" fix).**  A cert
+  proof closed over a stream-*prefix* allowlist may reference any
+  constant the supported streams happen to declare before the op —
+  which a dependency-**sliced** stream (the cone-slicing debugging
+  workflow) need not provide: historically `Nat.log2_terminates` on
+  the Mathlib order, then `funext`/`Eq.subst`/`Eq.propIntro`/
+  `of_decide_eq_true` on dependency slices ("pin ground constants
+  absent" declines killing the slice before its target).  The proofs
+  are therefore made *self-contained*: the generator inlines every
+  constant outside `{the op itself (substituted at install)} ∪
+  {guard-enforced ground: natOpDeps mirror + Nat/Bool/Eq statement
+  machinery} ∪ {the op's transitive type/value dependency cone}` —
+  the cone members are exactly what *any* stream declaring the op
+  must declare first.  Beta/projection-of-constructor simplification
+  (`simpStep`) cleans up the arithmetic instance sugar (`HMul.mk` …),
+  and equation-compiler internals (`._f` functionals, `match_i`
+  matchers) are force-inlined even when cone-resident: the export
+  pipeline beta-inlines the brecOn functional into stored `go`
+  values, so the *stream's* cone need not declare them.  A residual
+  the rule cannot justify is a hard build error.  To keep the proofs
+  inside their cones, `Setlec/PinGen/Certs.lean` avoids the stock
+  lemmas whose proofs leave them: `WellFounded.Nat.fix_eq` (and the
+  auto `eq_def`s of `gcd`) mention `funext` → `Quot.*`; instead a
+  pointwise-congruence unfolding (`natFixGoCongr`/`natFixUnfold`,
+  with per-op `dcongr`-based congruence hypotheses — first-order
+  recursive occurrences never need function extensionality) derives
+  the one-step equations; `log2` is proved from a mirror of its
+  fuel-structural compiled value (`log2Go`, plain `Nat.rec` — no WF
+  machinery), with the `n/2 ≤ f` fuel bound hand-derived from the
+  file's own `div` certificates (`Nat.div_lt_self`'s stock proof
+  pulls `Or`/`Exists`/`propext`/`Acc`).  Blob sizes stay far under
+  the 2^25 tree budget (max ≈1.8 M unshared-tree / 8 k-node DAG per
+  op, `Nat.xor`); a *naive* full inlining had exploded to 2^40
+  saturated trees.  Each proof blob is spliced as its **own**
+  definition (`…CertProofs_i`) with `…CertProofs` a shallow constant
+  list: the model bridge (`Setlec/Model/DivModCert.lean`) reduces the
+  list structure and must never zeta through the blobs' `let`-chains
+  (kernel recursion depth; the blobs stay opaque to the model).
+  Verification fixtures: `nat_land_cone`/`nat_log2_cone` (e2e) are
+  *pure-cone* slices — the op's dependency closure plus only the
+  guard-required ground ops, with `funext`-et-al positively absent —
+  accepted end to end.  Diagnosis unchanged:
+  `scripts/DumpNatOpPinConsts.lean` + `scripts/
+  diagnose_natop_prefix.py` (the op self-ref stays a false positive).
+  Rebuild caveat: Lake tracks neither the `include_str` json edge nor
+  the certs module; `touch` does nothing (content-hash traces) —
+  delete the `PinGen*`/`NatOpPins*` build artifacts to force
+  regeneration.
 * **StdAxioms pins** are small and stay vendored
   (`Setlec/Kernel/StdAxioms.lean`); basis blocks (`PSigma'` …) are
   preprocessor-owned and out of scope for the generator.
