@@ -670,9 +670,15 @@ private theorem pairEtaCert_unfold (env : Env) (d : Nat) (a b : Expr) :
                 liftFueled "level comparison"
                   (Level.isEquivList us us') >>= fun ok =>
                 if ok then
-                  (fueledFns env).defeq d xs₁ (.proj c' 0 b) >>= fun r₁ =>
-                  if r₁ then
-                    (fueledFns env).defeq d xs₂ (.proj c' 1 b)
+                  (fueledFns env).defeq d _pα _A >>= fun rA =>
+                  if rA then
+                    (fueledFns env).defeq d _pβ _B >>= fun rB =>
+                    if rB then
+                      (fueledFns env).defeq d xs₁ (.proj c' 0 b) >>= fun r₁ =>
+                      if r₁ then
+                        (fueledFns env).defeq d xs₂ (.proj c' 1 b)
+                      else pure false
+                    else pure false
                   else pure false
                 else pure false
               else pure false
@@ -699,10 +705,10 @@ theorem pairEtaCertI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
         | some (.app f₃ s₁) =>
           viewI f₃ >>= fun n₂ =>
           match n₂ with
-          | some (.app f₂ _pβ) =>
+          | some (.app f₂ pβ) =>
             viewI f₂ >>= fun n₃ =>
             match n₃ with
-            | some (.app f₁ _pα) =>
+            | some (.app f₁ pα) =>
               viewI f₁ >>= fun n₄ =>
               match n₄ with
               | some (.const c us) =>
@@ -713,10 +719,10 @@ theorem pairEtaCertI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
                   (coreKnotI (mkFEnv env) f).whnf d tb >>= fun wtb =>
                   viewI wtb >>= fun m₀ =>
                   match m₀ with
-                  | some (.app g₂ _B) =>
+                  | some (.app g₂ B) =>
                     viewI g₂ >>= fun m₁ =>
                     match m₁ with
-                    | some (.app g₁ _A) =>
+                    | some (.app g₁ A) =>
                       viewI g₁ >>= fun m₂ =>
                       match m₂ with
                       | some (.const c' us') =>
@@ -731,12 +737,21 @@ theorem pairEtaCertI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
                               isEquivListLM us us' >>= fun o =>
                               liftFueled "level comparison" o >>= fun ok =>
                               if ok then
-                                internI (.proj c' 0 j) >>= fun p₀ =>
-                                (coreKnotI (mkFEnv env) f).defeq d s₁ p₀ >>=
-                                  fun r₁ =>
-                                if r₁ then
-                                  internI (.proj c' 1 j) >>= fun p₁ =>
-                                  (coreKnotI (mkFEnv env) f).defeq d s₂ p₁
+                                (coreKnotI (mkFEnv env) f).defeq d pα A >>=
+                                  fun rA =>
+                                if rA then
+                                  (coreKnotI (mkFEnv env) f).defeq d pβ B >>=
+                                    fun rB =>
+                                  if rB then
+                                    internI (.proj c' 0 j) >>= fun p₀ =>
+                                    (coreKnotI (mkFEnv env) f).defeq d s₁
+                                      p₀ >>= fun r₁ =>
+                                    if r₁ then
+                                      internI (.proj c' 1 j) >>= fun p₁ =>
+                                      (coreKnotI (mkFEnv env) f).defeq d s₂
+                                        p₁
+                                    else pure false
+                                  else pure false
                                 else pure false
                               else pure false
                             else pure false
@@ -816,10 +831,15 @@ theorem pairEtaCertI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
             replace hlusDen4 := denoteLList_mono hext₀' hlusDen4
             replace hs₁d := denote_mono hext₀' hs₁d
             replace hs₂d := denote_mono hext₀' hs₂d
+            replace hpα := denote_mono hext₀' hpα
+            replace hpβ := denote_mono hext₀' hpβ
             rw [mkFEnv_find?]
             have hws : WScoped d xs₁ ∧ WScoped d xs₂ := by
               simp only [WScoped] at hwa
               exact ⟨hwa.1.2, hwa.2⟩
+            have hwp : WScoped d xpα ∧ WScoped d xpβ := by
+              simp only [WScoped] at hwa
+              exact ⟨hwa.1.1.1.2, hwa.1.1.2⟩
             cases hfc : env.find? c with
             | none => exact SimAt.pure hs rfl
             | some ci =>
@@ -912,20 +932,61 @@ theorem pairEtaCertI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
                                       have hext₀₃ :=
                                         ((hext₁.trans hext₂).trans
                                           hext₂o).trans hext₃
-                                      have hp₀d : denoteNode s₃'.store.denote
-                                          s₃'.store.denoteL
-                                          s₃'.store.denoteN (.proj c' 0 j)
+                                      have hwABx : WScoped d xA ∧
+                                          WScoped d xB := by
+                                        simp only [WScoped] at hwwtb
+                                        exact ⟨hwwtb.1.2, hwwtb.2⟩
+                                      refine SimAt.bind (ih.defeq hs₃'
+                                        (denote_mono hext₀₃ hpα)
+                                        (denote_mono
+                                          ((hext₂''.trans hext₂o).trans
+                                            hext₃) hA)
+                                        hwp.1 hwABx.1)
+                                        (fun sA' rA rA' hsA' hextA
+                                          hPrA => ?_)
+                                      obtain rfl : rA = rA' := hPrA
+                                      cases rA with
+                                      | false =>
+                                        simp only [Bool.false_eq_true,
+                                          ↓reduceIte]
+                                        exact SimAt.pure hsA' rfl
+                                      | true =>
+                                      simp only [↓reduceIte]
+                                      refine SimAt.bind (ih.defeq hsA'
+                                        (denote_mono (hext₀₃.trans hextA)
+                                          hpβ)
+                                        (denote_mono
+                                          (((hext₂''.trans hext₂o).trans
+                                            hext₃).trans hextA) hB)
+                                        hwp.2 hwABx.2)
+                                        (fun sB' rB rB' hsB' hextB
+                                          hPrB => ?_)
+                                      obtain rfl : rB = rB' := hPrB
+                                      cases rB with
+                                      | false =>
+                                        simp only [Bool.false_eq_true,
+                                          ↓reduceIte]
+                                        exact SimAt.pure hsB' rfl
+                                      | true =>
+                                      simp only [↓reduceIte]
+                                      have hext₀₅ :=
+                                        (hext₀₃.trans hextA).trans hextB
+                                      have hextc₅ :=
+                                        (((hext₂o.trans hext₃).trans
+                                          hextA).trans hextB)
+                                      have hp₀d : denoteNode sB'.store.denote
+                                          sB'.store.denoteL
+                                          sB'.store.denoteN (.proj c' 0 j)
                                           = some (.proj c'v 0 b) := by
                                         rw [denoteNode,
-                                          denote_mono hext₀₃ hdenb,
-                                          denoteN_mono
-                                            (hext₂o.trans hext₃) hc'Den]
+                                          denote_mono hext₀₅ hdenb,
+                                          denoteN_mono hextc₅ hc'Den]
                                         rfl
                                       refine SimAt.bind_left
-                                        (internI_eff hs₃' hp₀d)
+                                        (internI_eff hsB' hp₀d)
                                         (fun s₄' p₀ hs₄' hext₄ hQ₀ => ?_)
                                       refine SimAt.bind (ih.defeq hs₄'
-                                        (denote_mono (hext₀₃.trans hext₄)
+                                        (denote_mono (hext₀₅.trans hext₄)
                                           hs₁d) hQ₀ hws.1 ?_)
                                         (fun s₅' r₁ r₁' hs₅' hext₅
                                           hPr₁ => ?_)
@@ -946,10 +1007,10 @@ theorem pairEtaCertI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
                                             s₅'.store.denoteN (.proj c' 1 j)
                                             = some (.proj c'v 1 b) := by
                                           rw [denoteNode, denote_mono
-                                            ((hext₀₃.trans hext₄).trans
+                                            ((hext₀₅.trans hext₄).trans
                                               hext₅) hdenb,
                                             denoteN_mono
-                                              (((hext₂o.trans hext₃).trans
+                                              ((hextc₅.trans
                                                 hext₄).trans hext₅) hc'Den]
                                           rfl
                                         refine SimAt.bind_left
@@ -957,7 +1018,7 @@ theorem pairEtaCertI_sim (ih : SSimI env f) {d : Nat} {i j : EIdx}
                                           (fun s₆' p₁ hs₆' hext₆ hQ₁ => ?_)
                                         refine ih.defeq hs₆'
                                           (denote_mono
-                                            (((hext₀₃.trans hext₄).trans
+                                            (((hext₀₅.trans hext₄).trans
                                               hext₅).trans hext₆) hs₂d)
                                           hQ₁ hws.2 ?_
                                         show WScoped d (.proj c'v 1 b)

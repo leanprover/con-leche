@@ -304,12 +304,18 @@ theorem pairEtaCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
     have hws : WScoped d s₁ ∧ WScoped d s₂ := by
       simp only [WScoped] at hwa
       exact ⟨hwa.1.2, hwa.2⟩
+    have hwp : WScoped d pα ∧ WScoped d pβ := by
+      simp only [WScoped] at hwa
+      exact ⟨hwa.1.1.1.2, hwa.1.1.2⟩
     split
     case _ cvm =>
       refine DiscV.bind (ih.site_infer henv hwb) (fun tb htb => ?_)
-      refine DiscV.bind (ih.site_whnf henv htb) (fun wtb _ => ?_)
+      refine DiscV.bind (ih.site_whnf henv htb) (fun wtb hwwtb => ?_)
       split
       case _ c' us' A B =>
+        have hwAB : WScoped d A ∧ WScoped d B := by
+          simp only [WScoped] at hwwtb
+          exact ⟨hwwtb.1.2, hwwtb.2⟩
         split
         case _ =>
           split
@@ -318,13 +324,21 @@ theorem pairEtaCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
             · refine DiscV.bind (DiscV.liftFueled_true _ _)
                 (fun ok _ => ?_)
               split
-              · refine DiscV.bind (ih.site_defeq hws.1 ?_)
-                  (fun r₁ _ => ?_)
-                · simpa only [WScoped] using hwb
-                · split
-                  · refine ih.site_defeq hws.2 ?_
-                    simpa only [WScoped] using hwb
+              · refine DiscV.bind (ih.site_defeq hwp.1 hwAB.1)
+                  (fun rA _ => ?_)
+                split
+                · refine DiscV.bind (ih.site_defeq hwp.2 hwAB.2)
+                    (fun rB _ => ?_)
+                  split
+                  · refine DiscV.bind (ih.site_defeq hws.1 ?_)
+                      (fun r₁ _ => ?_)
+                    · simpa only [WScoped] using hwb
+                    · split
+                      · refine ih.site_defeq hws.2 ?_
+                        simpa only [WScoped] using hwb
+                      · exact DiscV.pure trivial
                   · exact DiscV.pure trivial
+                · exact DiscV.pure trivial
               · exact DiscV.pure trivial
             · exact DiscV.pure trivial
           all_goals exact DiscV.pure trivial

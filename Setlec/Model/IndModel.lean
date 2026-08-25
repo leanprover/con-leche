@@ -35,28 +35,14 @@ structure PairTyFacts (pv : V) (u v : Nat) : Prop where
     app (app pv vA) vB = sigmaSet (Nat.max u v) vA fun x => app vB x
 
 /-- What the projection rules need from the pair constructor's value:
-away from the Prop collapse, partial applications determine their
-argument domains; the full application is the pair (or the proof point
-under the collapse). -/
+the full application at fitting arguments is the pair (or the proof
+point under the Prop collapse).  Task #100: the old partial-application
+domain-determination clauses are **false under the domain-relative
+collapse** (an application chain through an empty domain collapses to
+`pt`, which pins no domain); the proj-reduction soundness recovers the
+argument memberships from the unconditional certificate's inference
+walk instead (`Model/Core/Whnf.lean`). -/
 structure PairMkFacts (pv : V) (u v : Nat) : Prop where
-  dom₀ : Nat.max u v ≠ 0 →
-    ∀ {vE : Nat} {A₀ : V} {B₀ : V → V} {x : V},
-    pv ∈ˢ pi vE A₀ B₀ → x ∈ˢ A₀ → x ∈ˢ univ u
-  dom₁ : Nat.max u v ≠ 0 →
-    ∀ {vA : V} {vE : Nat} {A₁ : V} {B₁ : V → V} {x : V},
-    vA ∈ˢ univ u → app pv vA ∈ˢ pi vE A₁ B₁ →
-    x ∈ˢ A₁ → x ∈ˢ pi (v + 1) vA fun _ => univ v
-  dom₂ : Nat.max u v ≠ 0 →
-    ∀ {vA vB : V} {vE : Nat} {A₂ : V} {B₂ : V → V} {x : V},
-    vA ∈ˢ univ u → vB ∈ˢ pi (v + 1) vA (fun _ => univ v) →
-    app (app pv vA) vB ∈ˢ pi vE A₂ B₂ →
-    x ∈ˢ A₂ → x ∈ˢ vA
-  dom₃ : Nat.max u v ≠ 0 →
-    ∀ {vA vB va : V} {vE : Nat} {A₃ : V} {B₃ : V → V} {x : V},
-    vA ∈ˢ univ u → vB ∈ˢ pi (v + 1) vA (fun _ => univ v) →
-    va ∈ˢ vA →
-    app (app (app pv vA) vB) va ∈ˢ pi vE A₃ B₃ →
-    x ∈ˢ A₃ → x ∈ˢ app vB va
   fold : ∀ {vA vB va vb : V}, vA ∈ˢ univ u →
     vB ∈ˢ pi (v + 1) vA (fun _ => univ v) →
     va ∈ˢ vA → vb ∈ˢ app vB va →

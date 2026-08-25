@@ -1,5 +1,6 @@
 import Setlec.Model.Core.Iota
 import Setlec.Model.NatOps
+import Setlec.Verify.Mono
 
 /-!
 # Checker-core soundness: Whnf
@@ -15,6 +16,66 @@ namespace Setlec
 variable {V : Type u} [SetTheory V] {env : Env} {φ : Name → Nat}
 
 open SetTheory Expr
+
+/-! Fuel-lifted inversions for the certificate walk of the native pair
+projection (task #100: the walk replaces the collapse-refuted
+`PairMkFacts` domain clauses; `Verify/Mono.lean` lifts the one-level
+inner facts back to the claims' fuel). -/
+
+private theorem whnf_forallE_eq {env : Env} {fuel d : Nat} {n : Name}
+    {t b e' : Expr} {mb : BinderMeta}
+    (h : whnf env fuel d (.forallE n t b mb) = .ok e') :
+    e' = .forallE n t b mb := by
+  have h1 := whnf_mono (Nat.le_add_right fuel 2) h
+  have h2 : whnf env (fuel + 2) d (.forallE n t b mb) =
+      .ok (.forallE n t b mb) := rfl
+  rw [h1] at h2
+  exact Except.ok.inj h2
+
+private theorem inferTypeCore_app_inv' {env : Env} {fuel d : Nat}
+    {f a t : Expr} (h : inferTypeCore env fuel d (.app f a) = .ok t) :
+    ∃ tf n' ty' body' m', inferTypeCore env fuel d f = .ok tf ∧
+      whnf env fuel d tf = .ok (.forallE n' ty' body' m') ∧
+      t = body'.instantiate1 a ∧
+      ∃ ta, inferTypeCore env fuel d a = .ok ta ∧
+        isDefEqCore env fuel d ta ty' = .ok true := by
+  match fuel, h with
+  | 0, h => rw [inferTypeCore_zero] at h; exact nomatch h
+  | fuel + 1, h =>
+    obtain ⟨tf, n', ty', body', m', h1, h2, h3, ta, h4, h5⟩ :=
+      inferTypeCore_app_inv h
+    exact ⟨tf, n', ty', body', m', inferTypeCore_mono (Nat.le_succ _) h1,
+      whnf_mono (Nat.le_succ _) h2, h3, ta,
+      inferTypeCore_mono (Nat.le_succ _) h4,
+      isDefEqCore_mono (Nat.le_succ _) h5⟩
+
+private theorem inferTypeCore_const_inv {env : Env} {fuel d : Nat}
+    {n : Name} {us : List Level} {t : Expr}
+    (h : inferTypeCore env fuel d (.const n us) = .ok t) :
+    ∃ ci, env.find? n = some ci ∧
+      t = ci.toConstantVal.type.instantiateLevelParams
+        ci.toConstantVal.levelParams us := by
+  match fuel, h with
+  | 0, h => rw [inferTypeCore_zero] at h; exact nomatch h
+  | fuel + 1, h =>
+    rw [inferTypeCore_succ] at h
+    simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind,
+      Except.bind] at h
+    revert h
+    cases hf : env.find? n with
+    | none =>
+      intro h
+      simp [throw, throwThe, MonadExceptOf.throw] at h
+    | some ci =>
+      intro h
+      dsimp only at h
+      revert h
+      split
+      · intro h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        exact ⟨ci, rfl, h.symm⟩
+      · intro h
+        simp [throw, throwThe, MonadExceptOf.throw] at h
 
 section Claims
 
@@ -116,11 +177,10 @@ theorem whnfCore_claims (m : EnvModel V env)
       simp only [WScoped] at hwlam
       simp only [looseBVarsBounded, Bool.and_eq_true] at hblam
       simp only [AnnotOk] at haf'
-      obtain ⟨haty, ⟨v, hc⟩, hcond⟩ := haf'
+      obtain ⟨haty, vE', hcond⟩ := haf'
       have hfi' : interpExpr V m.val env φ d ρ (.lam n ty body mm) = some vf := by
         rw [hif]; exact hfi
-      rw [interpExpr, hc] at hfi'
-      dsimp only at hfi'
+      rw [interpExpr] at hfi'
       cases hty : interpExpr V m.val env φ d ρ ty with
       | none => rw [hty] at hfi'; exact nomatch hfi'
       | some Aty =>
@@ -149,7 +209,7 @@ theorem whnfCore_claims (m : EnvModel V env)
             hAta haty htai hty
         exact heqA ▸ hmema
       obtain ⟨hbodyA, hwfact⟩ := hcond va Aty hty hdom
-      obtain ⟨w, Bl, hwi, hwB, hBu⟩ := hwfact v hc
+      obtain ⟨w, Bl, hwi, hwB, hBu⟩ := hwfact
       have hfb : fvarsBelow d body := hwlam.2.fvarsBelow
       have hred_w : WScoped d (body.instantiate1 a) :=
         WScoped.instantiate1_gen hw.2 0 hwlam.2
@@ -174,10 +234,10 @@ theorem whnfCore_claims (m : EnvModel V env)
       have hfibres : ∀ x, x ∈ˢ Aty →
           ∃ B', ((interpExpr V m.val env φ (d + 1) (updV V ρ d x)
             (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty) ∈ˢ B' ∧
-            B' ∈ˢ univ (v.eval φ) := by
+            B' ∈ˢ univ vE' := by
         intro x hx
         obtain ⟨-, hwfact_x⟩ := hcond x Aty hty hx
-        obtain ⟨w_x, B_x, hwi_x, hwB_x, hBu_x⟩ := hwfact_x v hc
+        obtain ⟨w_x, B_x, hwi_x, hwB_x, hBu_x⟩ := hwfact_x
         exact ⟨B_x, by rw [hwi_x]; exact hwB_x, hBu_x⟩
       obtain ⟨Bf, hBf1, hBf2⟩ := choose_fibres (V := V) hfibres
       have happi : interpExpr V m.val env φ d ρ (.app f a) =
@@ -451,19 +511,280 @@ theorem whnfCore_claims (m : EnvModel V env)
           simp only [interpExpr, hveiC]
           rw [hveCpt, ssnd_pt]
           simp
-      · -- no collapse: the fold is a genuine pair
+      · -- no collapse: the certificate's inference walk on the pinned
+        -- constructor type pins the canonical argument memberships
+        -- (task #100: the old value-side domain clauses are false
+        -- under the collapse), then the stored fold computes the pair
         have hfacts := hmkfacts ψ'
-        have hαmem : vα ∈ˢ univ (ψ' uN) := hfacts.dom₀ hw0 (hvf₀ ▸ hpi₀) hvα₀
-        have hpi₁' : app (m.val psigmaMkName ψ') vα ∈ˢ pi vE₁ A₁ B₁ := by
-          rw [← hf₁]; exact hpi₁
-        have hβmem : vβ ∈ˢ pi (ψ' vN + 1) vα (fun _ => univ (ψ' vN)) :=
-          hfacts.dom₁ hw0 hαmem hpi₁' hvβ₁
-        have hpi₂' : app (app (m.val psigmaMkName ψ') vα) vβ ∈ˢ pi vE₂ A₂ B₂ := by
-          rw [← hf₁, ← hf₂]; exact hpi₂
-        have hamem : va ∈ˢ vα := hfacts.dom₂ hw0 hαmem hβmem hpi₂' hva₂
-        have hpi₃' : app (app (app (m.val psigmaMkName ψ') vα) vβ) va ∈ˢ pi vE₃ A₃ B₃ := by
-          rw [← hf₁, ← hf₂, ← hf₃]; exact hpi₃
-        have hbmem : vb ∈ˢ app vβ va := hfacts.dom₃ hw0 hαmem hβmem hamem hpi₃' hvb₃
+        -- α/β invariant bundles
+        have hLbα : Expr.LeavesBounded α := fun l hl => hLbe₂ l (by
+          simp only [fvarLeaves, List.mem_append]
+          exact Or.inl (Or.inl (Or.inl (Or.inr hl))))
+        have hLbβ : Expr.LeavesBounded β := fun l hl => hLbe₂ l (by
+          simp only [fvarLeaves, List.mem_append]
+          exact Or.inl (Or.inl (Or.inr hl)))
+        have hokα : FvarsOk V m.val env φ d ρ α := fun l hl => hoke₂ l (by
+          simp only [fvarLeaves, List.mem_append]
+          exact Or.inl (Or.inl (Or.inl (Or.inr hl))))
+        have hokβ : FvarsOk V m.val env φ d ρ β := fun l hl => hoke₂ l (by
+          simp only [fvarLeaves, List.mem_append]
+          exact Or.inl (Or.inl (Or.inr hl)))
+        -- the pinned block fixes the stored constructor type
+        obtain ⟨hpinned, -⟩ := m.ind_ok.2.2.2.1 psigmaMkName _ hfMk rfl
+          (by rfl)
+        rw [show pinnedInfo psigmaMkName = psigmaMkA from rfl] at hpinned
+        rw [show psigmaMkA =
+          ConstantInfo.ctorInfo psigmaMkA.toConstantVal 2 2 from rfl]
+          at hpinned
+        injection hpinned with hcv
+        -- the certificate's inference chain on the constructor spine
+        obtain ⟨tc, stc, uT', te, ste, wT', -, -, -, -, hte, -, -, -⟩ :=
+          projCert_inv hcert
+        rw [he₂] at hte
+        obtain ⟨tf₃, n₃, ty₃, body₃, m₃, hitf₃, hwtf₃, -, tb', hitb, hdeb⟩ :=
+          inferTypeCore_app_inv' hte
+        obtain ⟨tf₂, n₂', ty₂', body₂', m₂', hitf₂, hwtf₂, htf₃eq, ta',
+          hita, hdea⟩ := inferTypeCore_app_inv' hitf₃
+        obtain ⟨tf₁, n₁', ty₁', body₁', m₁', hitf₁, hwtf₁, htf₂eq, tβ,
+          hitβ, hdeβ⟩ := inferTypeCore_app_inv' hitf₂
+        obtain ⟨tf₀, n₀', ty₀', body₀', m₀', hitf₀, hwtf₀, htf₁eq, tα,
+          hitα, hdeα⟩ := inferTypeCore_app_inv' hitf₁
+        obtain ⟨ciMk, hfMk', htf₀eq⟩ := inferTypeCore_const_inv hitf₀
+        obtain rfl : ciMk = ConstantInfo.ctorInfo cvMk 2 2 := by
+          rw [hfMk'] at hfMk
+          exact (Option.some.inj hfMk)
+        rw [show (ConstantInfo.ctorInfo cvMk 2 2).toConstantVal = cvMk
+          from rfl, hcv] at htf₀eq
+        -- the instantiated pinned telescope, walked level by level
+        have htf₀c : tf₀ =
+            Expr.forallE (Name.anonymous.str "α") (.sort l0)
+              (Expr.forallE (Name.anonymous.str "β")
+                (Expr.forallE (Name.anonymous.str "x") (.bvar 0) (.sort l1)
+                  ⟨.default, some (.succ l1)⟩)
+                (Expr.forallE (Name.anonymous.str "fst") (.bvar 1)
+                  (Expr.forallE (Name.anonymous.str "snd")
+                    (.app (.bvar 1) (.bvar 0))
+                    (.app (.app (.const psigmaName [l0, l1]) (.bvar 3))
+                      (.bvar 2))
+                    ⟨.default, some (.max l0 l1)⟩)
+                  ⟨.default, some (.imax l1 (.max l0 l1))⟩)
+                ⟨.implicit, some (.imax l0 (.imax l1 (.max l0 l1)))⟩)
+              ⟨.implicit, some (.imax (.imax l0 (.succ l1))
+                (.imax l0 (.imax l1 (.max l0 l1))))⟩ := by
+          rw [htf₀eq]
+          rfl
+        obtain ⟨hn₀, hty₀, hbody₀, -⟩ :=
+          Expr.forallE.inj (whnf_forallE_eq (htf₀c ▸ hwtf₀))
+        have htf₁c : tf₁ =
+            Expr.forallE (Name.anonymous.str "β")
+              (Expr.forallE (Name.anonymous.str "x") α (.sort l1)
+                ⟨.default, some (.succ l1)⟩)
+              (Expr.forallE (Name.anonymous.str "fst") α
+                (Expr.forallE (Name.anonymous.str "snd")
+                  (.app (.bvar 1) (.bvar 0))
+                  (.app (.app (.const psigmaName [l0, l1]) α) (.bvar 2))
+                  ⟨.default, some (.max l0 l1)⟩)
+                ⟨.default, some (.imax l1 (.max l0 l1))⟩)
+              ⟨.implicit, some (.imax l0 (.imax l1 (.max l0 l1)))⟩ := by
+          rw [htf₁eq, hbody₀]
+          simp [Expr.instantiate1]
+        obtain ⟨hn₁, hty₁, hbody₁, -⟩ :=
+          Expr.forallE.inj (whnf_forallE_eq (htf₁c ▸ hwtf₁))
+        have htf₂c : tf₂ =
+            Expr.forallE (Name.anonymous.str "fst") α
+              (Expr.forallE (Name.anonymous.str "snd")
+                (.app β (.bvar 0))
+                (.app (.app (.const psigmaName [l0, l1]) α) β)
+                ⟨.default, some (.max l0 l1)⟩)
+              ⟨.default, some (.imax l1 (.max l0 l1))⟩ := by
+          rw [htf₂eq, hbody₁]
+          simp [Expr.instantiate1, instantiate1_eq_self hbα,
+            instantiate1_eq_self
+              (looseBVarsBounded_mono (Nat.zero_le _) hbα)]
+        obtain ⟨hn₂, hty₂, hbody₂, -⟩ :=
+          Expr.forallE.inj (whnf_forallE_eq (htf₂c ▸ hwtf₂))
+        have htf₃c : tf₃ =
+            Expr.forallE (Name.anonymous.str "snd") (.app β a)
+              (.app (.app (.const psigmaName [l0, l1]) α) β)
+              ⟨.default, some (.max l0 l1)⟩ := by
+          rw [htf₃eq, hbody₂]
+          simp [Expr.instantiate1, instantiate1_eq_self hbα,
+            instantiate1_eq_self hbβ,
+            instantiate1_eq_self
+              (looseBVarsBounded_mono (Nat.zero_le _) hbα),
+            instantiate1_eq_self
+              (looseBVarsBounded_mono (Nat.zero_le _) hbβ)]
+        obtain ⟨hn₃, hty₃, hbody₃, -⟩ :=
+          Expr.forallE.inj (whnf_forallE_eq (htf₃c ▸ hwtf₃))
+        -- interpretations of the walked domains
+        have hity₀ : interpExpr V m.val env φ d ρ ty₀' =
+            some (univ (ψ' uN)) := by
+          rw [hty₀]
+          simp only [interpExpr, Option.some.injEq]
+          rw [hψu]
+        have hity₁ : interpExpr V m.val env φ d ρ ty₁' =
+            some (pi (ψ' vN + 1) vα (fun _ => univ (ψ' vN))) := by
+          rw [hty₁]
+          rw [interpExpr, hαi]
+          refine congrArg some (congrArg (piC vα) (funext fun x => ?_))
+          rw [show (Expr.sort l1).instantiate1
+            (.fvar d (Name.anonymous.str "x") α) = Expr.sort l1 from rfl]
+          simp only [interpExpr, Option.getD_some]
+          rw [hψv]
+        have hity₂ : interpExpr V m.val env φ d ρ ty₂' = some vα := by
+          rw [hty₂]
+          exact hαi
+        have hity₃ : interpExpr V m.val env φ d ρ ty₃ =
+            some (app vβ va) := by
+          rw [hty₃]
+          rw [interpExpr, hβi, hai]
+        -- the arguments' membership in the walked domains, through
+        -- the certified defeqs
+        have hwty₀ : WScoped d ty₀' := by rw [hty₀]; simp [WScoped]
+        have hbty₀ : ty₀'.looseBVarsBounded 0 = true := by rw [hty₀]; rfl
+        have hLbty₀ : Expr.LeavesBounded ty₀' := by
+          rw [hty₀]
+          intro l hl
+          simp [fvarLeaves] at hl
+        have hokty₀ : FvarsOk V m.val env φ d ρ ty₀' := by
+          rw [hty₀]
+          intro l hl
+          simp [fvarLeaves] at hl
+        have haty₀ : AnnotOk V m.val env φ d ρ ty₀' := by
+          rw [hty₀]
+          simp [AnnotOk]
+        have hwtα := inferTypeCore_WScoped m.wf fuel hitα hwα
+        have hbtα := inferTypeCore_looseBVars m.wf fuel hitα hwα hbα hLbα
+        have hLbtα : Expr.LeavesBounded tα := fun l hl =>
+          hLbα l (inferTypeCore_fvarLeaves m.wf fuel hitα hwα l hl)
+        have hoktα : FvarsOk V m.val env φ d ρ tα :=
+          FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hitα hwα)
+            hokα
+        obtain ⟨⟨vα', vtα, hiα', htαi, hmemα⟩, hAtα⟩ :=
+          ihi hitα hwα hbα hLbα hokα haα
+        have hvαeq : vα' = vα := by
+          rw [hαi] at hiα'
+          exact (Option.some.inj hiα').symm
+        rw [hvαeq] at hmemα
+        have hαmem : vα ∈ˢ univ (ψ' uN) := by
+          have hveq := ihd hdeα hwtα hwty₀ hbtα hbty₀ hLbtα hLbty₀
+            hoktα hokty₀ hAtα haty₀ htαi hity₀
+          rw [← hveq]
+          exact hmemα
+        have hwty₁ : WScoped d ty₁' := by
+          rw [hty₁]
+          simp only [WScoped]
+          exact ⟨hwα, trivial⟩
+        have hbty₁ : ty₁'.looseBVarsBounded 0 = true := by
+          rw [hty₁]
+          simp [looseBVarsBounded, hbα]
+        have hLbty₁ : Expr.LeavesBounded ty₁' := by
+          rw [hty₁]
+          intro l hl
+          refine hLbα l ?_
+          simpa [fvarLeaves] using hl
+        have hokty₁ : FvarsOk V m.val env φ d ρ ty₁' := by
+          rw [hty₁]
+          intro l hl
+          refine hokα l ?_
+          simpa [fvarLeaves] using hl
+        have haty₁ : AnnotOk V m.val env φ d ρ ty₁' := by
+          rw [hty₁]
+          simp only [AnnotOk]
+          refine ⟨haα, ψ' vN + 1, ?_⟩
+          intro x Ax hAx hx
+          refine ⟨by simp [Expr.instantiate1, AnnotOk], ?_⟩
+          refine ⟨univ (ψ' vN), ?_, univ_mem_univ (ψ' vN)⟩
+          simp only [Expr.instantiate1, interpExpr, Option.some.injEq]
+          rw [hψv]
+        have hwtβ := inferTypeCore_WScoped m.wf fuel hitβ hwβ
+        have hbtβ := inferTypeCore_looseBVars m.wf fuel hitβ hwβ hbβ hLbβ
+        have hLbtβ : Expr.LeavesBounded tβ := fun l hl =>
+          hLbβ l (inferTypeCore_fvarLeaves m.wf fuel hitβ hwβ l hl)
+        have hoktβ : FvarsOk V m.val env φ d ρ tβ :=
+          FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hitβ hwβ)
+            hokβ
+        obtain ⟨⟨vβ', vtβ, hiβ', htβi, hmemβ⟩, hAtβ⟩ :=
+          ihi hitβ hwβ hbβ hLbβ hokβ haβ
+        have hvβeq : vβ' = vβ := by
+          rw [hβi] at hiβ'
+          exact (Option.some.inj hiβ').symm
+        rw [hvβeq] at hmemβ
+        have hβmem : vβ ∈ˢ pi (ψ' vN + 1) vα (fun _ => univ (ψ' vN)) := by
+          have hveq := ihd hdeβ hwtβ hwty₁ hbtβ hbty₁ hLbtβ hLbty₁
+            hoktβ hokty₁ hAtβ haty₁ htβi hity₁
+          rw [← hveq]
+          exact hmemβ
+        have hwta' := inferTypeCore_WScoped m.wf fuel hita hwa
+        have hbta' := inferTypeCore_looseBVars m.wf fuel hita hwa hba hLba
+        have hLbta' : Expr.LeavesBounded ta' := fun l hl =>
+          hLba l (inferTypeCore_fvarLeaves m.wf fuel hita hwa l hl)
+        have hokta' : FvarsOk V m.val env φ d ρ ta' :=
+          FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hita hwa)
+            hoka
+        obtain ⟨⟨va', vta, hia', htai', hmema⟩, hAta'⟩ :=
+          ihi hita hwa hba hLba hoka haa
+        have hvaeq' : va' = va := by
+          rw [hai] at hia'
+          exact (Option.some.inj hia').symm
+        rw [hvaeq'] at hmema
+        have hwty₂ : WScoped d ty₂' := by rw [hty₂]; exact hwα
+        have hbty₂ : ty₂'.looseBVarsBounded 0 = true := by
+          rw [hty₂]; exact hbα
+        have hLbty₂ : Expr.LeavesBounded ty₂' := by rw [hty₂]; exact hLbα
+        have hokty₂ : FvarsOk V m.val env φ d ρ ty₂' := by
+          rw [hty₂]; exact hokα
+        have haty₂ : AnnotOk V m.val env φ d ρ ty₂' := by
+          rw [hty₂]; exact haα
+        have hamem : va ∈ˢ vα := by
+          have hveq := ihd hdea hwta' hwty₂ hbta' hbty₂ hLbta' hLbty₂
+            hokta' hokty₂ hAta' haty₂ htai' hity₂
+          rw [← hveq]
+          exact hmema
+        have hwtb' := inferTypeCore_WScoped m.wf fuel hitb hwb
+        have hbtb' := inferTypeCore_looseBVars m.wf fuel hitb hwb hbb hLbb
+        have hLbtb' : Expr.LeavesBounded tb' := fun l hl =>
+          hLbb l (inferTypeCore_fvarLeaves m.wf fuel hitb hwb l hl)
+        have hoktb' : FvarsOk V m.val env φ d ρ tb' :=
+          FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hitb hwb)
+            hokb
+        obtain ⟨⟨vb', vtb, hib', htbi', hmemb⟩, hAtb'⟩ :=
+          ihi hitb hwb hbb hLbb hokb hab
+        have hvbeq' : vb' = vb := by
+          rw [hbi] at hib'
+          exact (Option.some.inj hib').symm
+        rw [hvbeq'] at hmemb
+        have hwty₃ : WScoped d ty₃ := by
+          rw [hty₃]
+          simp only [WScoped]
+          exact ⟨hwβ, hwa⟩
+        have hbty₃ : ty₃.looseBVarsBounded 0 = true := by
+          rw [hty₃]
+          simp [looseBVarsBounded, hbβ, hba]
+        have hLbty₃ : Expr.LeavesBounded ty₃ := by
+          rw [hty₃]
+          intro l hl
+          simp only [fvarLeaves, List.mem_append] at hl
+          rcases hl with hl | hl
+          · exact hLbβ l hl
+          · exact hLba l hl
+        have hokty₃ : FvarsOk V m.val env φ d ρ ty₃ := by
+          rw [hty₃]
+          intro l hl
+          simp only [fvarLeaves, List.mem_append] at hl
+          rcases hl with hl | hl
+          · exact hokβ l hl
+          · exact hoka l hl
+        have haty₃ : AnnotOk V m.val env φ d ρ ty₃ := by
+          rw [hty₃]
+          simp only [AnnotOk]
+          exact ⟨haβ, haa, vβ, va, ψ' vN + 1, vα, (fun _ => univ (ψ' vN)),
+            hβi, hai, hβmem, hamem, fun _ _ => univ_mem_univ (ψ' vN)⟩
+        have hbmem : vb ∈ˢ app vβ va := by
+          have hveq := ihd hdeb hwtb' hwty₃ hbtb' hbty₃ hLbtb' hLbty₃
+            hoktb' hokty₃ hAtb' haty₃ htbi' hity₃
+          rw [← hveq]
+          exact hmemb
         have hfold : app vf₃ vb = spair va vb := by
           rw [hf₃, hf₂, hf₁]
           rw [hfacts.fold hαmem hβmem hamem hbmem]

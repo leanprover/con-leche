@@ -899,9 +899,9 @@ def pairEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
     match ← viewI f₄ with
     | some (.app f₃ s₁) =>
       match ← viewI f₃ with
-      | some (.app f₂ _pβ) =>
+      | some (.app f₂ pβ) =>
         match ← viewI f₂ with
-        | some (.app f₁ _pα) =>
+        | some (.app f₁ pα) =>
           match ← viewI f₁ with
           | some (.const c us) => do
             let cn ← readbackNM c
@@ -910,9 +910,9 @@ def pairEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
               let tb ← r.infer depth b
               let wtb ← r.whnf depth tb
               match ← viewI wtb with
-              | some (.app g₂ _B) =>
+              | some (.app g₂ B) =>
                 match ← viewI g₂ with
-                | some (.app g₁ _A) =>
+                | some (.app g₁ A) =>
                   match ← viewI g₁ with
                   | some (.const c' us') => do
                     let c'n ← readbackNM c'
@@ -925,10 +925,14 @@ def pairEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
                               = true then do
                           if ← liftFueled "level comparison"
                               (← isEquivListLM us us') then do
-                            let p₀ ← internI (.proj c' 0 b)
-                            if ← r.defeq depth s₁ p₀ then do
-                              let p₁ ← internI (.proj c' 1 b)
-                              r.defeq depth s₂ p₁
+                            if ← r.defeq depth pα A then do
+                              if ← r.defeq depth pβ B then do
+                                let p₀ ← internI (.proj c' 0 b)
+                                if ← r.defeq depth s₁ p₀ then do
+                                  let p₁ ← internI (.proj c' 1 b)
+                                  r.defeq depth s₂ p₁
+                                else pure false
+                              else pure false
                             else pure false
                           else pure false
                         else pure false

@@ -41,8 +41,9 @@ theorem etaCert_sound {m : EnvModel V env} {fuel : Nat}
     (hva : interpExpr V m.val env φ d ρ (Expr.lam n₁ ty₁ body₁ m₁) = some va)
     (hvb : interpExpr V m.val env φ d ρ b = some vb) :
     va = vb := by
-  obtain ⟨tb, n₂, ty₂, fb, m₂, v₁, v₂, htb, hwtb, hm₁, hm₂, hlev, hdty, hdbody⟩ :=
+  obtain ⟨tb, n₂, ty₂, fb, m₂, v₁, v₂, htb, hwtb, hm₁, hm₂, -, hdty, hdbody⟩ :=
     etaCert_inv hec
+  clear hm₁ hm₂
   -- λ-side components
   simp only [WScoped] at hwa
   obtain ⟨hwty₁, hwbody₁⟩ := hwa
@@ -51,7 +52,7 @@ theorem etaCert_sound {m : EnvModel V env} {fuel : Nat}
   have hLbty₁ : Expr.LeavesBounded ty₁ := fun l hl => hLba l (by simp [fvarLeaves, hl])
   obtain ⟨hokty₁, hokbody₁⟩ := FvarsOk.of_lam hoka
   simp only [AnnotOk] at haa
-  obtain ⟨haty₁, ⟨v₁', hv₁'⟩, hconds⟩ := haa
+  obtain ⟨haty₁, _vE₁, hconds⟩ := haa
   -- b's inferred type
   obtain ⟨⟨vb', Tb, hvb', hTbi, hmemb⟩, hATb⟩ := ihi htb hwb hbb hLbb hokb hab
   have hvbeq : vb' = vb := by
@@ -79,11 +80,11 @@ theorem etaCert_sound {m : EnvModel V env} {fuel : Nat}
   have hLbty₂ : Expr.LeavesBounded ty₂ := fun l hl => hwLb l (by simp [fvarLeaves, hl])
   obtain ⟨hokty₂, hokfb⟩ := FvarsOk.of_forallE hwOk
   simp only [AnnotOk] at hAwtb
-  obtain ⟨haty₂, ⟨v₂', hv₂'⟩, hcondf⟩ := hAwtb
+  obtain ⟨haty₂, vE₂, hcondf⟩ := hAwtb
   -- the whnf'd type interprets to `Tb`
   have hTfi : interpExpr V m.val env φ d ρ (Expr.forallE n₂ ty₂ fb m₂) = some Tb := by
     rw [hiwtb, hTbi]
-  simp only [interpExpr, hm₂] at hTfi
+  simp only [interpExpr] at hTfi
   cases hA2 : interpExpr V m.val env φ d ρ ty₂ with
   | none => rw [hA2] at hTfi; exact nomatch hTfi
   | some A₂ =>
@@ -91,7 +92,7 @@ theorem etaCert_sound {m : EnvModel V env} {fuel : Nat}
   dsimp only at hTfi
   simp only [Option.some.injEq] at hTfi
   -- λ interp
-  simp only [interpExpr, hm₁] at hva
+  simp only [interpExpr] at hva
   cases hA1 : interpExpr V m.val env φ d ρ ty₁ with
   | none => rw [hA1] at hva; exact nomatch hva
   | some A₁ =>
@@ -103,7 +104,7 @@ theorem etaCert_sound {m : EnvModel V env} {fuel : Nat}
     ihd hdty hwty₂ hwty₁ hbty₂ hbty₁ hLbty₂ hLbty₁ hokty₂ hokty₁ haty₂ haty₁ hA2 hA1
   subst hAeq
   -- membership of `b`'s value in the pi over the λ's domain
-  have hmem' : vb ∈ˢ pi (Level.eval φ v₂) A₂ (fun x =>
+  have hmem' : vb ∈ˢ piC A₂ (fun x =>
       (interpExpr V m.val env φ (d + 1) (updV V ρ d x)
         (fb.instantiate1 (.fvar d n₂ ty₂))).getD SetTheory.empty) := by
     rw [hTfi]
@@ -115,7 +116,7 @@ theorem etaCert_sound {m : EnvModel V env} {fuel : Nat}
       SetTheory.app vb x := by
     intro x hx
     obtain ⟨habody₁, hwfact₁⟩ := hconds x A₂ hA1 hx
-    obtain ⟨w₁, B₁, hw₁, -, -⟩ := hwfact₁ v₁' hv₁'
+    obtain ⟨w₁, B₁, hw₁, -, -⟩ := hwfact₁
     have happI : interpExpr V m.val env φ (d + 1) (updV V ρ d x)
         (Expr.app b (.fvar d n₁ ty₁)) = some (SetTheory.app vb x) := by
       simp only [interpExpr]
@@ -146,7 +147,7 @@ theorem etaCert_sound {m : EnvModel V env} {fuel : Nat}
         (Expr.app b (.fvar d n₁ ty₁)) := by
       simp only [AnnotOk]
       refine ⟨AnnotOk.weaken_top hwb hab, trivial, vb, x,
-        Level.eval φ v₂, A₂,
+        vE₂, A₂,
         (fun y => (interpExpr V m.val env φ (d + 1) (updV V ρ d y)
           (fb.instantiate1 (.fvar d n₂ ty₂))).getD SetTheory.empty),
         ?_, ?_, hmem', hx, ?_⟩
@@ -155,14 +156,10 @@ theorem etaCert_sound {m : EnvModel V env} {fuel : Nat}
       · simp [interpExpr, updV]
       · intro y hy
         obtain ⟨-, hwf⟩ := hcondf y A₂ hA2 hy
-        obtain ⟨w, hwi, hwu⟩ := hwf v₂' hv₂'
+        obtain ⟨w, hwi, hwu⟩ := hwf
         dsimp only
         rw [hwi]
-        have hv₂eq : v₂' = v₂ := by
-          rw [hm₂] at hv₂'
-          exact (Option.some.inj hv₂').symm
-        rw [← hv₂eq]
-        simpa using hwu
+        exact hwu
     have hLbo₁ : Expr.LeavesBounded (body₁.instantiate1 (.fvar d n₁ ty₁)) := by
       intro l hl
       rcases fvarLeaves_instantiate1 body₁ 0 hl with hl' | hl'
@@ -181,15 +178,13 @@ theorem etaCert_sound {m : EnvModel V env} {fuel : Nat}
     simpa using heq
   -- assemble via congruence and eta
   rw [← hva]
-  have hstep : SetTheory.lam (Level.eval φ v₁) A₂
+  have hstep : lamC A₂
       (fun x => (interpExpr V m.val env φ (d + 1) (updV V ρ d x)
         (body₁.instantiate1 (.fvar d n₁ ty₁))).getD SetTheory.empty) =
-      SetTheory.lam (Level.eval φ v₁) A₂ (fun x => SetTheory.app vb x) :=
-    lam_congr (fun x hx => hpoint x hx)
+      lamC A₂ (fun x => SetTheory.app vb x) :=
+    lamC_congr (fun x hx => hpoint x hx)
   rw [hstep]
-  have hveq : Level.eval φ v₁ = Level.eval φ v₂ := Level.isEquiv_sound hlev φ
-  rw [hveq]
-  exact lam_eta hmem'
+  exact lamC_eta hmem'
 
 /-- Soundness of the one-sided-λ branch of `isDefEqCore` (λ on the
 left): eta, else proof irrelevance. -/

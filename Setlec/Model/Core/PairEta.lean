@@ -40,7 +40,7 @@ theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
     va = vb := by
   obtain ⟨c, us, pα, pβ, s₁, s₂, cvm, tb, c', us', A, B, cvi, capsi, cvr,
     mIr, rPr, r, rfl, hfindM, htb, hwtb, hfindI, hfr, hrc, hrf, hmirp,
-    hgres, hlev, hd1, hd2⟩ := pairEtaCert_inv h
+    hgres, hlev, hdA, hdB, hd1, hd2⟩ := pairEtaCert_inv h
   -- identify the structure through the pinned recursor, then the
   -- constructor through the recursor's rule
   obtain ⟨hpr, -⟩ := m.ind_ok.right.right.right.left _ _ hfr rfl hgres
@@ -218,6 +218,47 @@ theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
   have hs₂eq : vs₂ = ssnd vb :=
     ihd hd2 hws₂ (hwp 1) hbs₂ (hbp 1) hLbs₂ (hLbp 1) hoks₂ (hokp 1)
       has₂ (hap 1 (by omega)) hs₂i hproj1i
+  -- identify the constructor's type arguments with the stuck side's
+  -- (the certificate's two type-argument defeqs; task #100 — the
+  -- collapse model transports the fields' memberships from the stuck
+  -- side, since a constructor chain through an empty domain collapses
+  -- to the proof point and pins nothing)
+  have hwtbW := inferTypeCore_WScoped m.wf fuel htb hwb
+  have hbtb := inferTypeCore_looseBVars m.wf fuel htb hwb hbb hLbb
+  have hwPiW : WScoped d (Expr.app (.app (.const psigmaName us') A) B) :=
+    whnf_WScoped m.wf fuel hwtb hwtbW
+  have hbPi := whnf_looseBVars m.wf fuel hwtb hbtb
+  have hLbPi : Expr.LeavesBounded (Expr.app (.app (.const psigmaName us') A) B) :=
+    fun l hl => hLbtb l (whnf_fvarLeaves m.wf fuel hwtb l hl)
+  have hokPi : FvarsOk V m.val env φ d ρ
+      (Expr.app (.app (.const psigmaName us') A) B) :=
+    whnf_FvarsOk m.wf fuel hwtb hoktb
+  have hwAB : WScoped d A ∧ WScoped d B := by
+    simp only [WScoped] at hwPiW
+    exact ⟨hwPiW.1.2, hwPiW.2⟩
+  have hbAB : A.looseBVarsBounded 0 = true ∧ B.looseBVarsBounded 0 = true := by
+    simp only [looseBVarsBounded, Bool.and_eq_true] at hbPi
+    exact ⟨hbPi.1.2, hbPi.2⟩
+  have hLbA : Expr.LeavesBounded A := fun l hl =>
+    hLbPi l (by simp [fvarLeaves, hl])
+  have hLbB : Expr.LeavesBounded B := fun l hl =>
+    hLbPi l (by simp [fvarLeaves, hl])
+  have hokA : FvarsOk V m.val env φ d ρ A :=
+    FvarsOk.of_subset (fun l hl => by simp [fvarLeaves, hl]) hokPi
+  have hokB : FvarsOk V m.val env φ d ρ B :=
+    FvarsOk.of_subset (fun l hl => by simp [fvarLeaves, hl]) hokPi
+  have hLbpα : Expr.LeavesBounded pα := fun l hl =>
+    hLba l (by simp [fvarLeaves, hl])
+  have hLbpβ : Expr.LeavesBounded pβ := fun l hl =>
+    hLba l (by simp [fvarLeaves, hl])
+  have hokpα : FvarsOk V m.val env φ d ρ pα :=
+    FvarsOk.of_subset (fun l hl => by simp [fvarLeaves, hl]) hoka
+  have hokpβ : FvarsOk V m.val env φ d ρ pβ :=
+    FvarsOk.of_subset (fun l hl => by simp [fvarLeaves, hl]) hoka
+  have hpαA : vpα = vA :=
+    ihd hdA hwpα hwAB.1 hbpα hbAB.1 hLbpα hLbA hokpα hokA hapα haA hpαi hAi
+  have hpβB : vpβ = vB :=
+    ihd hdB hwpβ hwAB.2 hbpβ hbAB.2 hLbpβ hLbB hokpβ hokB hapβ haB hpβi hBi
   by_cases hw : Nat.max (ψk uN) (ψk vN) = 0
   · -- Prop collapse: both sides are the proof point
     rw [hva'', hmkf.zero hw vpα vpβ vs₁ vs₂]
@@ -225,20 +266,29 @@ theorem pairEta_sound {m : EnvModel V env} {fuel : Nat}
     have hw' : Nat.max (ψt uN) (ψt vN) = 0 := hψeq ▸ hw
     rw [hpt0 hw']
   · -- the pair of the stuck side's components
-    have hα : vpα ∈ˢ univ (ψk uN) := hmkf.dom₀ hw (hvf₀m ▸ hpi₀m) hvpα
-    have hβ : vpβ ∈ˢ pi (ψk vN + 1) vpα (fun _ => univ (ψk vN)) :=
-      hmkf.dom₁ hw hα (hvf₁m ▸ hpi₁m) hvpβ
-    have hs₁m : vs₁ ∈ˢ vpα :=
-      hmkf.dom₂ hw hα hβ ((hvf₂.trans (by rw [hvf₁m])) ▸ hpi₂) hvs₁
-    have hs₂m : vs₂ ∈ˢ app vpβ vs₁ :=
-      hmkf.dom₃ hw hα hβ hs₁m
-        ((hvf₃.trans (by rw [hvf₂, hvf₁m])) ▸ hpi₃) hvs₂
-    rw [hva'', hmkf.fold hα hβ hs₁m hs₂m, if_neg hw, hs₁eq, hs₂eq]
-    obtain ⟨a', b', -, -, -, hpair⟩ := mem_sigma_elim hvbmem
+    have hα : vpα ∈ˢ univ (ψk uN) := by
+      rw [hpαA, hψeq]
+      exact hAmem
+    have hβ : vpβ ∈ˢ pi (ψk vN + 1) vpα (fun _ => univ (ψk vN)) := by
+      rw [hpβB, hpαA, hψeq]
+      exact hBmem
+    obtain ⟨a', b', ha'A, hb'B, -, hpair⟩ := mem_sigma_elim hvbmem
     have hw' : ¬ Nat.max (ψt uN) (ψt vN) = 0 := by
       rw [← hψeq]
       exact hw
-    rw [hpair hw', sfst_spair, ssnd_spair]
+    have hvbpair : vb = spair a' b' := hpair hw'
+    have hs₁a' : vs₁ = a' := by
+      rw [hs₁eq, hvbpair, sfst_spair]
+    have hs₂b' : vs₂ = b' := by
+      rw [hs₂eq, hvbpair, ssnd_spair]
+    have hs₁m : vs₁ ∈ˢ vpα := by
+      rw [hpαA, hs₁a']
+      exact ha'A
+    have hs₂m : vs₂ ∈ˢ app vpβ vs₁ := by
+      rw [hpβB, hs₁a', hs₂b']
+      exact hb'B
+    rw [hva'', hmkf.fold hα hβ hs₁m hs₂m, if_neg hw, hs₁eq, hs₂eq]
+    rw [hvbpair, sfst_spair, ssnd_spair]
 
 end Claims
 

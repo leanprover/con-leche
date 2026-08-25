@@ -1481,6 +1481,8 @@ theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
       rr.ctor = c ∧ rr.nfields = 2 ∧ mI = rP ∧
       reservedBasisNames.contains (c'.str "rec") = true ∧
       Level.isEquivList us us' = some true ∧
+      isDefEqCore env fuel d pα A = .ok true ∧
+      isDefEqCore env fuel d pβ B = .ok true ∧
       isDefEqCore env fuel d s₁ (.proj c' 0 b) = .ok true ∧
       isDefEqCore env fuel d s₂ (.proj c' 1 b) = .ok true := by
   dsimp only [pairEtaCertP] at h
@@ -1656,6 +1658,26 @@ theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   | true =>
   simp only [↓reduceIte] at h
   try simp only [Bind.bind, Except.bind] at h
+  cases hdA : isDefEqCore env fuel d pα A with
+  | error err => rw [hdA] at h; exact nomatch h
+  | ok bA =>
+  rw [hdA] at h
+  dsimp only at h
+  cases bA with
+  | false => simp [pure, Except.pure] at h
+  | true =>
+  simp only [↓reduceIte] at h
+  try simp only [Bind.bind, Except.bind] at h
+  cases hdB : isDefEqCore env fuel d pβ B with
+  | error err => rw [hdB] at h; exact nomatch h
+  | ok bB =>
+  rw [hdB] at h
+  dsimp only at h
+  cases bB with
+  | false => simp [pure, Except.pure] at h
+  | true =>
+  simp only [↓reduceIte] at h
+  try simp only [Bind.bind, Except.bind] at h
   cases hd1 : isDefEqCore env fuel d s₁ (.proj c' 0 b) with
   | error err => rw [hd1] at h; exact nomatch h
   | ok b1 =>
@@ -1667,7 +1689,7 @@ theorem pairEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   simp only [↓reduceIte] at h
   exact ⟨c, us, pα, pβ, s₁, s₂, cvm, tb, c', us', A, B, cvi, capsi, cvr,
     mI, rP, rr, rfl, hfc, rfl, hwtb, hfi, hfr, hrc, hrf, hmirp, hres, hlev,
-    hd1, h⟩
+    hdA, hdB, hd1, h⟩
 
 
 /-- Invert the per-projection telescope certificates. -/

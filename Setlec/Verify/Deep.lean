@@ -732,6 +732,17 @@ private theorem pairEtaCert_shift (henv : EnvWF env)
         refine bind_congr_eq rfl ?_
         intro okl _
         refine ite_congr' (fun _ => ?_) (fun _ => rfl)
+        have hwwtb : WScoped d (Expr.app (.app (.const c' us') A) B) :=
+          whnf_WScoped henv fuel hwtb' hwtb
+        have hwAB : WScoped d A ∧ WScoped d B := by
+          simp only [WScoped] at hwwtb
+          exact ⟨hwwtb.1.2, hwwtb.2⟩
+        refine bind_congr_eq (ih.defeq hpd hwpα hwAB.1) ?_
+        intro bA _
+        refine ite_congr' (fun _ => ?_) (fun _ => rfl)
+        refine bind_congr_eq (ih.defeq hpd hwpβ hwAB.2) ?_
+        intro bB _
+        refine ite_congr' (fun _ => ?_) (fun _ => rfl)
         refine bind_congr_eq
           (ih.defeq hpd hws₁
             (show WScoped d (Expr.proj c' 0 b) by

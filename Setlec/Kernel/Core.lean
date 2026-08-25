@@ -792,12 +792,12 @@ constants. -/
 def pairEtaCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     m Bool := do
   match a with
-  | .app (.app (.app (.app (.const c us) _pα) _pβ) s₁) s₂ =>
+  | .app (.app (.app (.app (.const c us) pα) pβ) s₁) s₂ =>
     match env.find? c with
     | some (.ctorInfo _cvm 2 2) => do
       let tb ← r.infer depth b
       match ← r.whnf depth tb with
-      | .app (.app (.const c' us') _A) _B =>
+      | .app (.app (.const c' us') A) B =>
         match env.find? c' with
         | some (.indInfo _ _) =>
           match env.find? (c'.str "rec") with
@@ -806,8 +806,19 @@ def pairEtaCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
                 reservedBasisNames.contains (c'.str "rec") = true then
               if ← liftFueled "level comparison"
                   (Level.isEquivList us us') then
-                if ← r.defeq depth s₁ (.proj c' 0 b) then
-                  r.defeq depth s₂ (.proj c' 1 b)
+                -- Certify the constructor's type arguments against the
+                -- stuck side's (task #100: under the domain-relative
+                -- collapse the model cannot recover the constructor
+                -- spine's memberships from its value — an empty-domain
+                -- chain collapses to the proof point — so the fields'
+                -- memberships are transported from the stuck side's
+                -- type, which these two checks identify)
+                if ← r.defeq depth pα A then
+                  if ← r.defeq depth pβ B then
+                    if ← r.defeq depth s₁ (.proj c' 0 b) then
+                      r.defeq depth s₂ (.proj c' 1 b)
+                    else pure false
+                  else pure false
                 else pure false
               else pure false
             else pure false
