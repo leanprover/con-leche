@@ -445,7 +445,8 @@ theorem checkIotaThm_fst_dproj (env' envSelf : Env)
       cnP cnF rhsA := by
   unfold checkIotaThm
   simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
-    PairM.fst_ite, pairOps_isDefEq_fst, unwrapOr_fst_dproj,
+    PairM.fst_ite, pairOps_isDefEq_fst, pairOps_inferType_fst,
+    unwrapOr_fst_dproj,
     checkDefEqList_fst_dproj, checkTypedList_fst_dproj]
 
 theorem checkIotaThm_snd_dproj (env' envSelf : Env)
@@ -458,7 +459,8 @@ theorem checkIotaThm_snd_dproj (env' envSelf : Env)
       cnP cnF rhsA := by
   unfold checkIotaThm
   simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
-    PairM.snd_ite, pairOps_isDefEq_snd, unwrapOr_snd_dproj,
+    PairM.snd_ite, pairOps_isDefEq_snd, pairOps_inferType_snd,
+    unwrapOr_snd_dproj,
     checkDefEqList_snd_dproj, checkTypedList_snd_dproj]
 
 theorem checkIotaThmN_fst_dproj (env' envSelf : Env)
@@ -473,7 +475,8 @@ theorem checkIotaThmN_fst_dproj (env' envSelf : Env)
   split
   · rfl
   · simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
-      PairM.fst_ite, pairOps_isDefEq_fst, unwrapOr_fst_dproj,
+      PairM.fst_ite, pairOps_isDefEq_fst, pairOps_inferType_fst,
+      unwrapOr_fst_dproj,
       checkDefEqList_fst_dproj, checkTypedList_fst_dproj,
       checkAnnotList_fst_dproj]
 
@@ -489,7 +492,8 @@ theorem checkIotaThmN_snd_dproj (env' envSelf : Env)
   split
   · rfl
   · simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
-      PairM.snd_ite, pairOps_isDefEq_snd, unwrapOr_snd_dproj,
+      PairM.snd_ite, pairOps_isDefEq_snd, pairOps_inferType_snd,
+      unwrapOr_snd_dproj,
       checkDefEqList_snd_dproj, checkTypedList_snd_dproj,
       checkAnnotList_snd_dproj]
 

@@ -156,7 +156,7 @@ theorem modeled_caps_eta
   obtain ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody,
     tbodyM, tySlot, ℓA, hthmE, htlpsE, hTmE, hTmlpsE,
     ⟨cvmC, mvalC, hmC, hCmE, hCmlpsE⟩, hPjE, heqfE, hS_stripE,
-    hTm_stripE, hsdomsE, hxdomE, hsbodyE⟩ := hpins.1 hcape
+    hTm_stripE, hsdomsE, hxdomE, hsbodyE, htySlotE⟩ := hpins.1 hcape
   have hagreeS : ∀ n, (env.find? n).isSome = true →
       ∀ ψ : Name → Nat, val₁ n ψ = m.val n ψ := by
     intro n hn ψ
@@ -277,7 +277,7 @@ theorem modeled_caps_eta
       obtain ⟨cvmj, mvalj, hmj, hfj, hjlps⟩ := hPjE j hj
       exact ⟨.defnInfo cvmj mvalj hmj, hfj, hjlps⟩)
     heqfE heqval hthm_mem hthm_annot hSw hS_stripE hT_strip
-    hsdomsF hxdomE hsbodyE htyf hlen hx' hfit
+    hsdomsF hxdomE hsbodyE htySlotE htyf hlen hx' hfit
   rw [hvC]
   have h2 : ((List.range capsT.etaFields).map fun j =>
       SpineFold V (val₁ (projFnName T j)
@@ -310,7 +310,8 @@ theorem modeled_caps_unit
     UnitLaw V (⟨ci :: env.consts⟩ : Env) val₁ T cvTa capsT := by
   obtain ⟨tcv, tval, cvmT, mvalT, hmT, sbinders, tbindersM, sbody,
     tbodyM, tySlot, ℓA, hthmE, htlpsE, hTmE, hTmlpsE, heqfE,
-    hS_stripE, hTm_stripE, hsdomsE, hxdomE, hydomE, hsbodyE⟩ :=
+    hS_stripE, hTm_stripE, hsdomsE, hxdomE, hydomE, hsbodyE,
+    htySlotE⟩ :=
     hpins.2 hcapu
   have hagreeS : ∀ n, (env.find? n).isSome = true →
       ∀ ψ : Name → Nat, val₁ n ψ = m.val n ψ := by
@@ -428,7 +429,7 @@ theorem modeled_caps_unit
     exact hy
   exact unit_rule_fold hroS hcvp hTmE hTmlpsE heqfE heqval
     hthm_mem hthm_annot hSw hS_stripE hT_strip hsdomsF hxdomE
-    hydomE hsbodyE htyf hlen hx' hy' hfit
+    hydomE hsbodyE htySlotE htyf hlen hx' hy' hfit
 
 end Laws
 

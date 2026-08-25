@@ -604,7 +604,7 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
       ldoms, lrest, hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, hlhead,
       hlarity, hlpre, hmaj, hCresHead, hcinst, hclen, hdeIdx, hdeFld,
       hrinst, hdePre, hopenP, hannP0, hcinstN0, htlP0, hopenX,
-      hcrest2Len, hlinst, hdeLam, hdeRhs⟩ := hnck
+      hcrest2Len, hlinst, hdeLam, hdeRhs, hlhsTyC, hrhsTyC⟩ := hnck
     -- the public prefix spine has exactly `rP` variables
     have hfvsPLen : fvsP.length = rP :=
       (openPisAtFvars_spec rP 0 hopenP).2.1
@@ -739,7 +739,7 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
       hopen hheadEq hargs3 hlhead hlarity hlpre hmaj hCresHead hCps
       hcinst hclen hdeIdx hrinst hdePre hdeFld
       hcrest2Len hopenP hannP0 hcinstN0 htlP0 hopenX hlinst hdeLam
-      hdeRhs
+      hdeRhs hlhsTyC hrhsTyC
       hrhsf hrhsb hArhsS hIrhs htyw htyb hAty hIty hCw hCb hACty
       hICty htyres hCres
     obtain ⟨fvms, bL, hparts, hwf, hlen, hres, hsem⟩ := hout
@@ -769,7 +769,7 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
     ldoms, lrest, hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, hlhead,
     hlarity, hlpre, hmaj, hcstrip, hcinst, hclen, hdeIdx, hdeFld,
     hrinst, hdePre, hopenP, hcinstP, hdePars, hopenX, hlinst, hdeLam,
-    hdeRhs⟩ := hkit
+    hdeRhs, hlhsTyC, hrhsTyC⟩ := hkit
   -- the recursor's own stored facts
   have hselfMem := find?_mem hself
   obtain ⟨htyw, htyps, htyres, htyb, -, -⟩ := mS.wf _ hselfMem
@@ -863,7 +863,7 @@ theorem recMemberOk_of_kit {env₂ envS env₃ : Env} (mS : EnvModel V envS)
     (recRulePlain_le hplain)
     hopen hheadEq hargs3 hlhead hlarity hlpre hmaj hcstrip hcinst
     hclen hdeIdx hrinst hdePre hdeFld
-    hopenP hcinstP hdePars hopenX hlinst hdeLam hdeRhs
+    hopenP hcinstP hdePars hopenX hlinst hdeLam hdeRhs hlhsTyC hrhsTyC
     hrhsf hrhsb hArhsS hIrhs htyw htyb hAty hIty hCw hCb hACty hICty
     htyres hCres
   obtain ⟨fvms, bL, hparts, hwf, hlen, hres, hsem⟩ := hout
