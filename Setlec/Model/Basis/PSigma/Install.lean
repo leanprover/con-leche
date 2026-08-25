@@ -56,6 +56,15 @@ theorem annotOk_psigma_type {cval : ConstVal V} :
   simp only [psigmaA, ConstantInfo.toConstantVal, AnnotOk]
   refine ⟨trivial,
     Nat.max (Nat.max (ψ uN) (ψ vN + 1)) (Nat.max (ψ uN) (ψ vN) + 1), ?_⟩
+  refine ⟨?_, ?_⟩
+  · first
+      | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+      | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+      | (rintro v ⟨rfl⟩
+         intro z hz
+         refine univ_mono ?_ z hz
+         simp only [Level.eval, emA, emB, emV, uN, vN]
+         by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
   intro A SA hSA hAmem
   have hSA' : SA = univ (ψ uN) := by
     simp only [interpExpr, Level.eval, Option.some.injEq] at hSA
@@ -69,12 +78,30 @@ theorem annotOk_psigma_type {cval : ConstVal V} :
     · -- the binder type `(x : α) → Sort v`
       try simp only [Expr.instantiate1, reduceIte, AnnotOk]
       refine ⟨trivial, ψ vN + 1, ?_⟩
+      refine ⟨?_, ?_⟩
+      · first
+          | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+          | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+          | (rintro v ⟨rfl⟩
+             intro z hz
+             refine univ_mono ?_ z hz
+             simp only [Level.eval, emA, emB, emV, uN, vN]
+             by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
       intro x Sx hSx hxmem
       refine ⟨trivial, ?_⟩
       refine ⟨univ (ψ vN), ?_, ?_⟩
       · simp [interpExpr, Expr.instantiate1, updV, Level.eval, vN]
       · exact univ_mem_univ (ψ vN)
-    · intro B SB hSB hBmem
+    · refine ⟨?_, ?_⟩
+      · first
+          | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+          | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+          | (rintro v ⟨rfl⟩
+             intro z hz
+             refine univ_mono ?_ z hz
+             simp only [Level.eval, emA, emB, emV, uN, vN]
+             by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
+      intro B SB hSB hBmem
       refine ⟨trivial, ?_⟩
       refine ⟨univ (Nat.max (ψ uN) (ψ vN)), ?_, ?_⟩
       · simp [interpExpr, Expr.instantiate1, updV, Level.eval, uN, vN]
@@ -219,6 +246,15 @@ theorem annotOk_psigmaMk_type {cval : ConstVal V}
   refine ⟨trivial,
     (if emB (ψ uN) (ψ vN) = 0 then 0
       else Nat.max (Nat.max (ψ uN) (ψ vN + 1)) (emB (ψ uN) (ψ vN))), ?_⟩
+  refine ⟨?_, ?_⟩
+  · first
+      | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+      | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+      | (rintro v ⟨rfl⟩
+         intro z hz
+         refine univ_mono ?_ z hz
+         simp only [Level.eval, emA, emB, emV, uN, vN]
+         by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
   intro A SA hSA hAmem
   have hSA' : SA = univ (ψ uN) := by
     simp only [interpExpr, Level.eval, Option.some.injEq] at hSA
@@ -239,12 +275,30 @@ theorem annotOk_psigmaMk_type {cval : ConstVal V}
     · -- the binder type `(x : α) → Sort v`
       try simp only [Expr.instantiate1, reduceIte, AnnotOk]
       refine ⟨trivial, ψ vN + 1, ?_⟩
+      refine ⟨?_, ?_⟩
+      · first
+          | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+          | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+          | (rintro v ⟨rfl⟩
+             intro z hz
+             refine univ_mono ?_ z hz
+             simp only [Level.eval, emA, emB, emV, uN, vN]
+             by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
       intro x Sx hSx hxmem
       refine ⟨trivial, ?_⟩
       refine ⟨univ (ψ vN), ?_, ?_⟩
       · simp [interpExpr, Expr.instantiate1, updV, Level.eval, vN]
       · exact univ_mem_univ (ψ vN)
-    · intro B SB hSB hBmem
+    · refine ⟨?_, ?_⟩
+      · first
+          | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+          | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+          | (rintro v ⟨rfl⟩
+             intro z hz
+             refine univ_mono ?_ z hz
+             simp only [Level.eval, emA, emB, emV, uN, vN]
+             by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
+      intro B SB hSB hBmem
       simp [interpExpr, Expr.instantiate1, updV,
         -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff] at hSB
       subst hSB
@@ -255,6 +309,15 @@ theorem annotOk_psigmaMk_type {cval : ConstVal V}
         refine ⟨(by simp [Expr.instantiate1, AnnotOk]),
           (if Nat.max (ψ uN) (ψ vN) = 0 then 0
             else Nat.max (ψ vN) (Nat.max (ψ uN) (ψ vN))), ?_⟩
+        refine ⟨?_, ?_⟩
+        · first
+            | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+            | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+            | (rintro v ⟨rfl⟩
+               intro z hz
+               refine univ_mono ?_ z hz
+               simp only [Level.eval, emA, emB, emV, uN, vN]
+               by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
         intro a Sa hSa hamem
         simp [interpExpr, Expr.instantiate1, updV] at hSa
         subst hSa
@@ -267,6 +330,15 @@ theorem annotOk_psigmaMk_type {cval : ConstVal V}
             fun _ _ => univ_mem_univ (ψ vN)⟩, Nat.max (ψ uN) (ψ vN), ?_⟩
           · simp [interpExpr, Expr.instantiate1, updV]
           · simp [interpExpr, Expr.instantiate1, updV]
+          refine ⟨?_, ?_⟩
+          · first
+              | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+              | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+              | (rintro v ⟨rfl⟩
+                 intro z hz
+                 refine univ_mono ?_ z hz
+                 simp only [Level.eval, emA, emB, emV, uN, vN]
+                 by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
           intro b Sb hSb hbmem
           simp [interpExpr, Expr.instantiate1, updV,
             -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff] at hSb
@@ -597,6 +669,15 @@ theorem annotOk_psigmaRec_type {cval : ConstVal V}
       cval ((Name.anonymous.str "PSigma'").str "mk") ψ' = psigmaMkVal V ψ' := hvalM
   simp only [psigmaRecA, ConstantInfo.toConstantVal, AnnotOk]
   refine ⟨trivial, 0, ?_⟩
+  refine ⟨?_, ?_⟩
+  · first
+      | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+      | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+      | (rintro v ⟨rfl⟩
+         intro z hz
+         refine univ_mono ?_ z hz
+         simp only [Level.eval, emA, emB, emV, uN, vN]
+         by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
   intro A SA hSA hAmem
   have hSA' : SA = univ (ψ uN) := by
     simp only [interpExpr, Level.eval, Option.some.injEq] at hSA
@@ -623,12 +704,30 @@ theorem annotOk_psigmaRec_type {cval : ConstVal V}
     · -- the binder type `(x : α) → Sort v`
       try simp only [Expr.instantiate1, reduceIte, AnnotOk]
       refine ⟨trivial, ψ vN + 1, ?_⟩
+      refine ⟨?_, ?_⟩
+      · first
+          | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+          | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+          | (rintro v ⟨rfl⟩
+             intro z hz
+             refine univ_mono ?_ z hz
+             simp only [Level.eval, emA, emB, emV, uN, vN]
+             by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
       intro x Sx hSx hxmem
       refine ⟨trivial, ?_⟩
       refine ⟨univ (ψ vN), ?_, ?_⟩
       · simp [interpExpr, Expr.instantiate1, updV, Level.eval, vN]
       · exact univ_mem_univ (ψ vN)
-    · intro B SB hSB hBmem
+    · refine ⟨?_, ?_⟩
+      · first
+          | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+          | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+          | (rintro v ⟨rfl⟩
+             intro z hz
+             refine univ_mono ?_ z hz
+             simp only [Level.eval, emA, emB, emV, uN, vN]
+             by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
+      intro B SB hSB hBmem
       simp [interpExpr, Expr.instantiate1, updV,
         -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff] at hSB
       subst hSB
@@ -671,12 +770,30 @@ theorem annotOk_psigmaRec_type {cval : ConstVal V}
               psigmaA, ConstantInfo.toConstantVal]
             try rfl
           · simp [interpExpr, Expr.instantiate1, updV]
-          · intro t St hSt htmem
+          · refine ⟨?_, ?_⟩
+            · first
+                | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+                | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+                | (rintro v ⟨rfl⟩
+                   intro z hz
+                   refine univ_mono ?_ z hz
+                   simp only [Level.eval, emA, emB, emV, uN, vN]
+                   by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
+            intro t St hSt htmem
             refine ⟨trivial, ?_⟩
             refine ⟨univ 0, ?_, ?_⟩
             · simp [interpExpr, Expr.instantiate1, updV, Level.eval]
             · exact univ_mem_univ 0
-        · intro M SM hSM hMmem
+        · refine ⟨?_, ?_⟩
+          · first
+              | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+              | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+              | (rintro v ⟨rfl⟩
+                 intro z hz
+                 refine univ_mono ?_ z hz
+                 simp only [Level.eval, emA, emB, emV, uN, vN]
+                 by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
+          intro M SM hSM hMmem
           simp [interpExpr, Expr.instantiate1, updV, hfindS', hvalS',
             psigmaA, ConstantInfo.toConstantVal, Level.eval,
             -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff] at hSM
@@ -702,6 +819,15 @@ theorem annotOk_psigmaRec_type {cval : ConstVal V}
             · -- the minor-premise space
               try simp only [Expr.instantiate1, reduceIte, AnnotOk]
               refine ⟨(by simp [Expr.instantiate1, AnnotOk]), 0, ?_⟩
+              refine ⟨?_, ?_⟩
+              · first
+                  | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+                  | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+                  | (rintro v ⟨rfl⟩
+                     intro z hz
+                     refine univ_mono ?_ z hz
+                     simp only [Level.eval, emA, emB, emV, uN, vN]
+                     by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
               intro a Sa hSa hamem
               simp [interpExpr, Expr.instantiate1, updV] at hSa
               subst hSa
@@ -714,6 +840,15 @@ theorem annotOk_psigmaRec_type {cval : ConstVal V}
                   fun _ _ => univ_mem_univ (ψ vN)⟩, 0, ?_⟩
                 · simp [interpExpr, Expr.instantiate1, updV]
                 · simp [interpExpr, Expr.instantiate1, updV]
+                refine ⟨?_, ?_⟩
+                · first
+                    | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+                    | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+                    | (rintro v ⟨rfl⟩
+                       intro z hz
+                       refine univ_mono ?_ z hz
+                       simp only [Level.eval, emA, emB, emV, uN, vN]
+                       by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
                 intro b Sb hSb hbmem
                 simp [interpExpr, Expr.instantiate1, updV,
                   -ite_eq_left_iff, -ite_eq_right_iff,
@@ -815,7 +950,16 @@ theorem annotOk_psigmaRec_type {cval : ConstVal V}
                     app_mem hBmem' hamem fun _ _ => univ_mem_univ (ψ vN)
                   exact pi_mem_univ (u := ψ vN) (v := 0) hBa
                     (fun b hb => happM _ (hmk4 a hamem b hb))
-            · intro m Sm hSm hmmem
+            · refine ⟨?_, ?_⟩
+              · first
+                  | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+                  | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+                  | (rintro v ⟨rfl⟩
+                     intro z hz
+                     refine univ_mono ?_ z hz
+                     simp only [Level.eval, emA, emB, emV, uN, vN]
+                     by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
+              intro m Sm hSm hmmem
               simp [interpExpr, Expr.instantiate1, updV, hfindS', hvalS',
                 hfindM', hvalM', psigmaA, psigmaMkA,
                 ConstantInfo.toConstantVal, Level.eval,
@@ -858,6 +1002,15 @@ theorem annotOk_psigmaRec_type {cval : ConstVal V}
                     hvalS', psigmaA, ConstantInfo.toConstantVal]
                   try rfl
                 · simp [interpExpr, Expr.instantiate1, updV]
+                refine ⟨?_, ?_⟩
+                · first
+                    | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+                    | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+                    | (rintro v ⟨rfl⟩
+                       intro z hz
+                       refine univ_mono ?_ z hz
+                       simp only [Level.eval, emA, emB, emV, uN, vN]
+                       by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
                 intro t St hSt htmem
                 simp [interpExpr, Expr.instantiate1, updV, hfindS', hvalS',
                   psigmaA, ConstantInfo.toConstantVal,
@@ -1191,6 +1344,15 @@ theorem annotOk_pairFst_type {cval : ConstVal V}
       else Nat.max (Nat.max (ψ uN) (ψ vN + 1))
         (if ψ uN = 0 then 0
           else Nat.max (Nat.max (ψ uN) (ψ vN)) (ψ uN))), ?_⟩
+  refine ⟨?_, ?_⟩
+  · first
+      | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+      | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+      | (rintro v ⟨rfl⟩
+         intro z hz
+         refine univ_mono ?_ z hz
+         simp only [Level.eval, emA, emB, emV, uN, vN]
+         by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
   intro A SA hSA hAmem
   have hSA' : SA = univ (ψ uN) := by
     simp only [interpExpr, Level.eval, Option.some.injEq] at hSA
@@ -1206,12 +1368,30 @@ theorem annotOk_pairFst_type {cval : ConstVal V}
     · -- the binder type `(x : α) → Sort v`
       try simp only [Expr.instantiate1, reduceIte, AnnotOk]
       refine ⟨trivial, ψ vN + 1, ?_⟩
+      refine ⟨?_, ?_⟩
+      · first
+          | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+          | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+          | (rintro v ⟨rfl⟩
+             intro z hz
+             refine univ_mono ?_ z hz
+             simp only [Level.eval, emA, emB, emV, uN, vN]
+             by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
       intro x Sx hSx hxmem
       refine ⟨trivial, ?_⟩
       refine ⟨univ (ψ vN), ?_, ?_⟩
       · simp [interpExpr, Expr.instantiate1, updV, Level.eval, vN]
       · exact univ_mem_univ (ψ vN)
-    · intro B SB hSB hBmem
+    · refine ⟨?_, ?_⟩
+      · first
+          | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+          | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+          | (rintro v ⟨rfl⟩
+             intro z hz
+             refine univ_mono ?_ z hz
+             simp only [Level.eval, emA, emB, emV, uN, vN]
+             by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
+      intro B SB hSB hBmem
       simp [interpExpr, Expr.instantiate1, updV,
         -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff] at hSB
       subst hSB
@@ -1251,7 +1431,16 @@ theorem annotOk_pairFst_type {cval : ConstVal V}
             psigmaA, ConstantInfo.toConstantVal]
           try rfl
         · simp [interpExpr, Expr.instantiate1, updV]
-        · intro t St hSt htmem
+        · refine ⟨?_, ?_⟩
+          · first
+              | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+              | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+              | (rintro v ⟨rfl⟩
+                 intro z hz
+                 refine univ_mono ?_ z hz
+                 simp only [Level.eval, emA, emB, emV, uN, vN]
+                 by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
+          intro t St hSt htmem
           refine ⟨trivial, ?_⟩
           refine ⟨A, ?_, hAmem⟩
           simp [interpExpr, Expr.instantiate1, updV]
@@ -1321,6 +1510,15 @@ theorem annotOk_pairSnd_type {cval : ConstVal V}
       else Nat.max (Nat.max (ψ uN) (ψ vN + 1))
         (if ψ vN = 0 then 0
           else Nat.max (Nat.max (ψ uN) (ψ vN)) (ψ vN))), ?_⟩
+  refine ⟨?_, ?_⟩
+  · first
+      | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+      | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+      | (rintro v ⟨rfl⟩
+         intro z hz
+         refine univ_mono ?_ z hz
+         simp only [Level.eval, emA, emB, emV, uN, vN]
+         by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
   intro A SA hSA hAmem
   have hSA' : SA = univ (ψ uN) := by
     simp only [interpExpr, Level.eval, Option.some.injEq] at hSA
@@ -1336,12 +1534,30 @@ theorem annotOk_pairSnd_type {cval : ConstVal V}
     · -- the binder type `(x : α) → Sort v`
       try simp only [Expr.instantiate1, reduceIte, AnnotOk]
       refine ⟨trivial, ψ vN + 1, ?_⟩
+      refine ⟨?_, ?_⟩
+      · first
+          | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+          | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+          | (rintro v ⟨rfl⟩
+             intro z hz
+             refine univ_mono ?_ z hz
+             simp only [Level.eval, emA, emB, emV, uN, vN]
+             by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
       intro x Sx hSx hxmem
       refine ⟨trivial, ?_⟩
       refine ⟨univ (ψ vN), ?_, ?_⟩
       · simp [interpExpr, Expr.instantiate1, updV, Level.eval, vN]
       · exact univ_mem_univ (ψ vN)
-    · intro B SB hSB hBmem
+    · refine ⟨?_, ?_⟩
+      · first
+          | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+          | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+          | (rintro v ⟨rfl⟩
+             intro z hz
+             refine univ_mono ?_ z hz
+             simp only [Level.eval, emA, emB, emV, uN, vN]
+             by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
+      intro B SB hSB hBmem
       simp [interpExpr, Expr.instantiate1, updV,
         -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff] at hSB
       subst hSB
@@ -1394,7 +1610,16 @@ theorem annotOk_pairSnd_type {cval : ConstVal V}
             psigmaA, ConstantInfo.toConstantVal]
           try rfl
         · simp [interpExpr, Expr.instantiate1, updV]
-        · intro t St hSt htmem
+        · refine ⟨?_, ?_⟩
+          · first
+              | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+              | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+              | (rintro v ⟨rfl⟩
+                 intro z hz
+                 refine univ_mono ?_ z hz
+                 simp only [Level.eval, emA, emB, emV, uN, vN]
+                 by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
+          intro t St hSt htmem
           simp [interpExpr, Expr.instantiate1, updV, hfindS', hvalS',
             psigmaA, ConstantInfo.toConstantVal,
             -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
