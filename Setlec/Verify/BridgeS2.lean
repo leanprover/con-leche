@@ -114,7 +114,46 @@ theorem checkAnnotListS_sim (henv : EnvWF env) {depth : Nat} :
       exact checkAnnotListS_sim henv
         (fun x hx => ha x (List.mem_cons_of_mem _ hx)) hs₁
 
-set_option maxHeartbeats 6400000 in
+/-- The iota-sides type certificate at the shared operations (task
+#100 stage 3). -/
+theorem checkIotaSidesTyS_sim {depth : Nat} {alphaS lhsS rhsS : Expr}
+    {cvName : Name} (henv : EnvWF env)
+    (hα : WScoped depth alphaS) (hl : WScoped depth lhsS)
+    (hr : WScoped depth rhsS) (hs : ISOK env s₀) :
+    SimAt env s₀ RelV
+      (checkIotaSidesTy (sharedOps (mkFEnv env)) env depth alphaS lhsS
+        rhsS cvName)
+      (checkIotaSidesTy fueledOpsM env depth alphaS lhsS rhsS
+        cvName) := by
+  unfold checkIotaSidesTy
+  dsimp only [sharedOps]
+  refine SimAt.bind (opE_infer_sim henv hs hl)
+    (fun s₁ tl tl' hs₁ hext₁ hTl => ?_)
+  obtain ⟨rfl, htlW⟩ := hTl
+  refine SimAt.bind (opB_sim henv hs₁ htlW hα)
+    (fun s₂ cl cl' hs₂ hext₂ hCl => ?_)
+  obtain rfl : cl = cl' := hCl
+  cases cl with
+  | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte]
+    exact SimAt.throw_bind
+  | true =>
+  simp only [↓reduceIte]
+  refine SimAt.bind (opE_infer_sim henv hs₂ hr)
+    (fun s₃ tr tr' hs₃ hext₃ hTr => ?_)
+  obtain ⟨rfl, htrW⟩ := hTr
+  refine SimAt.bind (opB_sim henv hs₃ htrW hα)
+    (fun s₄ cr cr' hs₄ hext₄ hCr => ?_)
+  obtain rfl : cr = cr' := hCr
+  cases cr with
+  | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte]
+    exact SimAt.throw
+  | true =>
+    simp only [↓reduceIte]
+    exact SimAt.pure hs₄ rfl
+
+set_option maxHeartbeats 12800000 in
 /-- The iota-theorem check at the shared operations (the operation
 environment is `env` = the provisioned `envSelf`; `env'` only feeds
 the pure model lookups). -/
@@ -288,12 +327,13 @@ theorem checkIotaThmS_sim {env' : Env} (henv' : EnvWF env')
   cases c with
   | false =>
     simp only [Bool.false_eq_true, ↓reduceIte]
-    exact SimAt.throw
+    exact SimAt.throw_bind
   | true =>
     simp only [↓reduceIte]
-    exact SimAt.pure hs13 rfl
+    exact checkIotaSidesTyS_sim henv (WScoped_getD' htargsW 0)
+      hlhsW hrhsSW hs13
 
-set_option maxHeartbeats 6400000 in
+set_option maxHeartbeats 12800000 in
 /-- The nested-auxiliary iota-theorem check at the shared operations. -/
 theorem checkIotaThmNS_sim {env' : Env} (henv' : EnvWF env')
     (henv : EnvWF env) {f : Name → Name} {cvName : Name}
@@ -504,7 +544,10 @@ theorem checkIotaThmNS_sim {env' : Env} (henv' : EnvWF env')
     exact SimAt.throw_bind
   | true =>
     simp only [↓reduceIte]
-    exact SimAt.pure hs13 rfl
+    refine SimAt.bind (checkIotaSidesTyS_sim henv
+        (WScoped_getD' htargsW 0) hlhsW hrhsSW hs13)
+      (fun s14 u u' hs14 hext14 hU => ?_)
+    exact SimAt.pure hs14 rfl
 
 /-- One modeled recursor rule at the shared operations. -/
 theorem checkIotaRuleS_sim {env' : Env} (henv' : EnvWF env')
@@ -891,8 +934,17 @@ theorem checkProjIotaS_sim {env' : Env} {T ctorName : Name}
               case neg => simp only [if_neg h7]; exact SimAt.throw_bind
               simp only [if_pos h7]
               by_cases h8 : (rhsC == Expr.bvar (nF - 1 - i)) = true
-              case neg => simp only [if_neg h8]; exact SimAt.throw
+              case neg => simp only [if_neg h8]; exact SimAt.throw_bind
               simp only [if_pos h8]
+              split
+              case h_2 =>
+                simp only [Bool.false_eq_true, ↓reduceIte]
+                exact SimAt.throw
+              rename_i nm9 idom9 bm9 heq9
+              by_cases h9 : (tySlot == idom9.liftLooseBVars (nF - i) 0)
+                = true
+              case neg => simp only [if_neg h9]; exact SimAt.throw
+              simp only [if_pos h9]
               exact SimAt.pure hs rfl
         | _ => exact SimAt.throw
       | _ => exact SimAt.throw

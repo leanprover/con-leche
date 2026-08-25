@@ -153,7 +153,7 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
       cvA.type mI rP j r cvj cnP cnF rhsA = .ok u) :
     PlainChecked F env' env₀ f cvA mI rP cnP cnF
       { r with rhs := rhsA } cvj := by
-  simp only [checkIotaThm, unwrapOr, Env.findCV?, fueledOps_annotate,
+  simp only [checkIotaThm, checkIotaSidesTy, unwrapOr, Env.findCV?, fueledOps_annotate,
     fueledOps_inferType, fueledOps_isDefEq, fueledOps_ensureSort,
     fueledOps_whnf, Bind.bind, Except.bind, pure, Except.pure] at h
   revert h
@@ -447,7 +447,7 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
         mI rP cnP j = some (lvls, pins) ∧
       NestedChecked F env' env₀ f cvA mI rP cnP cnF
         { r with rhs := rhsA } cvj lvls pins := by
-  simp only [checkIotaThmN] at h
+  simp only [checkIotaThmN, checkIotaSidesTy] at h
   revert h
   cases hshape : nestedRuleShape env' env₀ cvA.name cvA.levelParams
       cvA.type mI rP cnP j with

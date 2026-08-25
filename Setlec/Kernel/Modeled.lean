@@ -21,6 +21,19 @@ namespace Setlec
 
 variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 
+/-- Certify that both sides of a modeled iota equation inhabit the
+equation's type (task #100 stage-3 finding: the collapse removed
+value-driven domain pinning, so the fold derivation reads these
+certificates). -/
+def checkIotaSidesTy (ops : CheckerOps m) (envSelf : Env) (depth : Nat)
+    (alphaS lhsS rhsS : Expr) (cvName : Name) : m Unit := do
+  let tl ← ops.inferType envSelf depth lhsS
+  unless ← ops.isDefEq envSelf depth tl alphaS do
+    throw (.notImplemented s!"iota statement lhs type for {cvName}")
+  let tr ← ops.inferType envSelf depth rhsS
+  unless ← ops.isDefEq envSelf depth tr alphaS do
+    throw (.notImplemented s!"iota statement rhs type for {cvName}")
+
 /-- Check a *canonical* recursor rule's `iota_j` theorem,
 *semantically*: the stored theorem's telescope is opened at free
 variables, its body must be an `Eq`, the equation's left side is
@@ -114,16 +127,8 @@ def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
     let rhsApplied := Expr.mkAppN (rhsA.renameConsts f) fvs
     unless ← ops.isDefEq envSelf depth rhsS rhsApplied do
       throw (.notImplemented s!"iota statement mismatch for {cvName}")
-    -- both equation sides inhabit the equation's type (task #100
-    -- stage-3 finding: the collapse removed value-driven domain
-    -- pinning, so the fold derivation reads these certificates)
-    let alphaS := targs.getD 0 (.bvar 0)
-    let tl ← ops.inferType envSelf depth lhsS
-    unless ← ops.isDefEq envSelf depth tl alphaS do
-      throw (.notImplemented s!"iota statement lhs type for {cvName}")
-    let tr ← ops.inferType envSelf depth rhsS
-    unless ← ops.isDefEq envSelf depth tr alphaS do
-      throw (.notImplemented s!"iota statement rhs type for {cvName}")
+    checkIotaSidesTy ops envSelf depth (targs.getD 0 (.bvar 0)) lhsS
+      rhsS cvName
 
 /-- The nested-shape data of a non-canonical rule: the constructor's
 level and parameter instantiations, read off the recursor type's
@@ -289,16 +294,8 @@ def checkIotaThmN (ops : CheckerOps m) (env' envSelf : Env)
     let rhsApplied := Expr.mkAppN (rhsA.renameConsts f) fvs
     unless ← ops.isDefEq envSelf depth rhsS rhsApplied do
       throw (.notImplemented s!"iota statement mismatch for {cvName}")
-    -- both equation sides inhabit the equation's type (task #100
-    -- stage-3 finding: the collapse removed value-driven domain
-    -- pinning, so the fold derivation reads these certificates)
-    let alphaS := targs.getD 0 (.bvar 0)
-    let tl ← ops.inferType envSelf depth lhsS
-    unless ← ops.isDefEq envSelf depth tl alphaS do
-      throw (.notImplemented s!"iota statement lhs type for {cvName}")
-    let tr ← ops.inferType envSelf depth rhsS
-    unless ← ops.isDefEq envSelf depth tr alphaS do
-      throw (.notImplemented s!"iota statement rhs type for {cvName}")
+    checkIotaSidesTy ops envSelf depth (targs.getD 0 (.bvar 0)) lhsS
+      rhsS cvName
     pure (.nested lvls pins)
 
 /-- Check one modeled recursor rule: generic well-formedness of the

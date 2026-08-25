@@ -460,15 +460,8 @@ def checkIotaThmF (ops : CheckerOps m) (fe' feSelf : FEnv)
     let rhsApplied := Expr.mkAppN (rhsA.renameConsts f) fvs
     unless ← ops.isDefEq feSelf.env depth rhsS rhsApplied do
       throw (.notImplemented s!"iota statement mismatch for {cvName}")
-    -- both equation sides inhabit the equation's type (task #100
-    -- stage-3 finding; see `checkIotaThm`)
-    let alphaS := targs.getD 0 (.bvar 0)
-    let tl ← ops.inferType feSelf.env depth lhsS
-    unless ← ops.isDefEq feSelf.env depth tl alphaS do
-      throw (.notImplemented s!"iota statement lhs type for {cvName}")
-    let tr ← ops.inferType feSelf.env depth rhsS
-    unless ← ops.isDefEq feSelf.env depth tr alphaS do
-      throw (.notImplemented s!"iota statement rhs type for {cvName}")
+    checkIotaSidesTy ops feSelf.env depth (targs.getD 0 (.bvar 0)) lhsS
+      rhsS cvName
 
 /-- `nestedRuleShape` through the index. -/
 def nestedRuleShapeF (fe' feSelf : FEnv) (cvName : Name)
@@ -578,15 +571,8 @@ def checkIotaThmNF (ops : CheckerOps m) (fe' feSelf : FEnv)
     let rhsApplied := Expr.mkAppN (rhsA.renameConsts f) fvs
     unless ← ops.isDefEq feSelf.env depth rhsS rhsApplied do
       throw (.notImplemented s!"iota statement mismatch for {cvName}")
-    -- both equation sides inhabit the equation's type (task #100
-    -- stage-3 finding; see `checkIotaThm`)
-    let alphaS := targs.getD 0 (.bvar 0)
-    let tl ← ops.inferType feSelf.env depth lhsS
-    unless ← ops.isDefEq feSelf.env depth tl alphaS do
-      throw (.notImplemented s!"iota statement lhs type for {cvName}")
-    let tr ← ops.inferType feSelf.env depth rhsS
-    unless ← ops.isDefEq feSelf.env depth tr alphaS do
-      throw (.notImplemented s!"iota statement rhs type for {cvName}")
+    checkIotaSidesTy ops feSelf.env depth (targs.getD 0 (.bvar 0)) lhsS
+      rhsS cvName
     pure (.nested lvls pins)
 
 /-- `checkIotaRule` through the index. -/
