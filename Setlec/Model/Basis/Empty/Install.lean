@@ -69,16 +69,18 @@ theorem annotOk_emptyRec_type {cval : ConstVal V}
   have hvalE' : ∀ ψ' : Name → Nat,
       cval (Name.anonymous.str "Empty") ψ' = SetTheory.empty := hvalE
   simp only [emptyRecA, ConstantInfo.toConstantVal, AnnotOk]
-  refine ⟨?_, Nat.max 1 (ψ uN), ?_⟩
+  refine ⟨?_, (if ψ uN = 0 then 0 else Nat.max 1 (ψ uN)), ?_, ?_⟩
+  case refine_2 =>
+    -- tie: the witness is the outer cod's evaluation
+    rintro v ⟨rfl⟩
+    exact fun z hz => hz
   · -- the motive space `(t : Empty) → Sort u`
     try simp only [AnnotOk]
-    refine ⟨trivial, ψ uN + 1, ?_⟩
-    intro t A hA ht
-    refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_, ?_⟩
-    · refine ⟨univ (ψ uN), ?_, ?_⟩
-      · simp [Expr.instantiate1, interpExpr, Level.eval, uN]
-      · exact univ_mem_univ (ψ uN)
+    refine ⟨trivial, ψ uN + 1, ?_, ?_⟩
     · rintro v ⟨rfl⟩
+      exact fun z hz => hz
+    · intro t A hA ht
+      refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
       refine ⟨univ (ψ uN), ?_, ?_⟩
       · simp [Expr.instantiate1, interpExpr, Level.eval, uN]
       · exact univ_mem_univ (ψ uN)
@@ -90,49 +92,29 @@ theorem annotOk_emptyRec_type {cval : ConstVal V}
       rw [← hA]
       rfl
     subst hA'
-    have hopeni : interpExpr V cval env ψ (0 + 1) (updV V (rho0 V) 0 M)
-        ((Expr.forallE (Name.anonymous.str "t")
-          (.const (Name.anonymous.str "Empty") [])
-          (.app (.bvar 1) (.bvar 0))
-          ⟨.default, some (.param uN)⟩).instantiate1
-            (.fvar 0 (Name.anonymous.str "motive")
-              (.forallE (Name.anonymous.str "t")
-                (.const (Name.anonymous.str "Empty") [])
-                (.sort (.param uN)) ⟨.default, some (.succ (.param uN))⟩)))
-        = some (pi (ψ uN) SetTheory.empty (fun t => SetTheory.app M t)) := by
-      simp [interpExpr, Expr.instantiate1, updV, hfindE', hvalE', emptyA,
-        ConstantInfo.toConstantVal, Level.eval, uN,
-        -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
-      try rfl
-    refine ⟨?_, ?_, ?_⟩
+    refine ⟨?_, ?_⟩
     · -- opened `∀ (t : Empty), motive t`
       try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-      refine ⟨trivial, 0, ?_⟩
-      intro t At hAt ht
-      have hAt' : At = SetTheory.empty := by
-        simp [interpExpr, hfindE', hvalE', emptyA,
-          ConstantInfo.toConstantVal,
-          -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff] at hAt
-        exact hAt.symm
-      rw [hAt'] at ht
-      refine absurd ht (not_mem_empty t)
+      refine ⟨trivial, 0, ?_, ?_⟩
+      · rintro v ⟨rfl⟩
+        exact univ_mono (Nat.zero_le _)
+      · intro t At hAt ht
+        have hAt' : At = SetTheory.empty := by
+          simp [interpExpr, hfindE', hvalE', emptyA,
+            ConstantInfo.toConstantVal,
+            -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff] at hAt
+          exact hAt.symm
+        rw [hAt'] at ht
+        exact absurd ht (not_mem_empty t)
     · refine ⟨pi (ψ uN) SetTheory.empty (fun t => SetTheory.app M t),
-        hopeni, ?_⟩
-      exact piC_mem_univ_max (u := 1) (v := ψ uN)
-        (B := fun t => SetTheory.app M t)
-        (empty_mem_univ 1)
-        (fun t ht => absurd ht (not_mem_empty t))
-    · rintro v ⟨rfl⟩
-      refine ⟨pi (ψ uN) SetTheory.empty (fun t => SetTheory.app M t),
-        hopeni, ?_⟩
-      have := piC_mem_univ (u := 1) (v := ψ uN) (V := V)
-        (B := fun t => SetTheory.app M t)
-        (empty_mem_univ 1)
-        (fun t ht => absurd ht (not_mem_empty t))
-      have heq : Level.eval ψ (.imax (.succ .zero)
-            (.param (Name.anonymous.str "u")))
-          = if ψ uN = 0 then 0 else Nat.max 1 (ψ uN) := rfl
-      rw [heq]
-      exact this
+        ?_, ?_⟩
+      · simp [interpExpr, Expr.instantiate1, updV, hfindE', hvalE', emptyA,
+          ConstantInfo.toConstantVal, Level.eval, uN,
+          -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
+        try rfl
+      · exact piC_mem_univ (u := 1) (v := ψ uN)
+          (B := fun t => SetTheory.app M t)
+          (empty_mem_univ 1)
+          (fun t ht => absurd ht (not_mem_empty t))
 
 end Setlec

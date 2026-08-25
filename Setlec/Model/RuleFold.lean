@@ -1440,24 +1440,19 @@ theorem AnnotOk.erasedEq :
     | .forallE n ty body m, he =>
       obtain ⟨rfl, hty, hbody⟩ := he
       simp only [AnnotOk] at ha ⊢
-      obtain ⟨haty, hcod, hcond⟩ := ha
-      refine ⟨AnnotOk.erasedEq ty' hty d ρ haty, hcod, ?_⟩
+      obtain ⟨haty, vE, htie, hcond⟩ := ha
+      refine ⟨AnnotOk.erasedEq ty' hty d ρ haty, vE, htie, ?_⟩
       intro x A hA hx
       rw [← interp_erasedEq hty d ρ] at hA
-      obtain ⟨hbodyA, hwfact, htie⟩ := hcond x A hA hx
+      obtain ⟨hbodyA, hwfact⟩ := hcond x A hA hx
       have hEE : Expr.ErasedEq (body.instantiate1 (.fvar d n ty))
           (body'.instantiate1 (.fvar d n' ty')) :=
         Expr.ErasedEq.instantiate1 hbody (by exact rfl)
-      refine ⟨AnnotOk.erasedEq _ hEE (d + 1) (updV V ρ d x) hbodyA, ?_, ?_⟩
-      · obtain ⟨w, hwi, hmem⟩ := hwfact
-        refine ⟨w, ?_, hmem⟩
-        rw [← interp_erasedEq hEE (d + 1) (updV V ρ d x)]
-        exact hwi
-      · intro v hv
-        obtain ⟨w, hwi, hmem⟩ := htie v hv
-        refine ⟨w, ?_, hmem⟩
-        rw [← interp_erasedEq hEE (d + 1) (updV V ρ d x)]
-        exact hwi
+      refine ⟨AnnotOk.erasedEq _ hEE (d + 1) (updV V ρ d x) hbodyA, ?_⟩
+      obtain ⟨w, hwi, hmem⟩ := hwfact
+      refine ⟨w, ?_, hmem⟩
+      rw [← interp_erasedEq hEE (d + 1) (updV V ρ d x)]
+      exact hwi
   | .lam n' ty' body' m', e₁, he, d, ρ, ha => by
     match e₁, he with
     | .lam n ty body m, he =>

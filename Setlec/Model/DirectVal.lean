@@ -131,7 +131,7 @@ theorem teleLamV_mem :
         | none => rw [hs] at hstrip; exact nomatch hstrip
         | some p => rfl
       simp only [AnnotOk] at hA
-      obtain ⟨-, _vE, hcond⟩ := hA
+      obtain ⟨-, _vE, -, hcond⟩ := hA
       rw [interpExpr] at hi
       cases hdom : interpExpr V cval env φ d ρ dom with
       | none => rw [hdom] at hi; exact nomatch hi
@@ -143,7 +143,7 @@ theorem teleLamV_mem :
         dsimp only [Option.getD]
         refine lam_mem (V := V) ?_
         intro x hx
-        obtain ⟨hAb, hwfact, -⟩ := hcond x A hdom hx
+        obtain ⟨hAb, hwfact⟩ := hcond x A hdom hx
         obtain ⟨w, hwi, -⟩ := hwfact
         rw [hwi]
         dsimp only [Option.getD]
@@ -186,7 +186,7 @@ theorem teleLamV_fold :
       have hb' : (Expr.stripPis k (body.instantiate1 (.fvar d n dom))).isSome
           = true := stripPis_instantiate1_isSome k body _ 0 hb
       simp only [AnnotOk] at hA
-      obtain ⟨-, _vE, hcond⟩ := hA
+      obtain ⟨-, _vE, -, hcond⟩ := hA
       have hbodyS : ∀ y, y ∈ˢ A →
           TeleBody V cval env φ k (d + 1) (updV V ρ d y)
             (body.instantiate1 (.fvar d n dom))
@@ -204,7 +204,7 @@ theorem teleLamV_fold :
             ((interpExpr V cval env φ (d + 1) (updV V ρ d y)
               (body.instantiate1 (.fvar d n dom))).getD SetTheory.empty) := by
         intro y hy
-        obtain ⟨hAb, hwfact, -⟩ := hcond y A hdom hy
+        obtain ⟨hAb, hwfact⟩ := hcond y A hdom hy
         obtain ⟨w, hwi, -⟩ := hwfact
         rw [hwi]
         dsimp only [Option.getD]

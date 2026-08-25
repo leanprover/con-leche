@@ -251,12 +251,12 @@ theorem AnnotOk.substFvarAt {p : Nat} {a : Expr} {va : V}
         simp [AnnotOk]
   | .forallE n ty body m, D, hpD, ρ', hva, ha, hAa, hA => by
     simp only [AnnotOk] at hA
-    obtain ⟨haty, hcod, hcond⟩ := hA
+    obtain ⟨haty, vE, htie, hcond⟩ := hA
     simp only [Expr.substFvarAt, AnnotOk]
-    refine ⟨AnnotOk.substFvarAt hwa hba ty D hpD ρ' hva ha hAa haty, hcod, ?_⟩
+    refine ⟨AnnotOk.substFvarAt hwa hba ty D hpD ρ' hva ha hAa haty, vE, htie, ?_⟩
     intro x A hA' hx
     rw [interp_substFvarAt hwa hba ty D hpD ρ' hva ha] at hA'
-    obtain ⟨hbody, hwfact, htie⟩ := hcond x A hA' hx
+    obtain ⟨hbody, hwfact⟩ := hcond x A hA' hx
     have hva' : updV V ρ' (D + 1) x p = va := by
       simp only [updV]; rw [if_neg (by omega)]; exact hva
     have ha' : interpExpr V cval env φ p (updV V ρ' (D + 1) x) a = some va := by
@@ -268,18 +268,12 @@ theorem AnnotOk.substFvarAt {p : Nat} {a : Expr} {va : V}
         simp only [updV]; rw [if_neg (by omega)]) hwa.fvarsBelow hAa
     rw [← substFvarAt_instantiate1 hpD hba body 0, delV_updV hpD]
     refine ⟨AnnotOk.substFvarAt hwa hba (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1)
-      (by omega) (updV V ρ' (D + 1) x) hva' ha' hAa' hbody, ?_, ?_⟩
-    · obtain ⟨w, hwi, hmem⟩ := hwfact
-      refine ⟨w, ?_, hmem⟩
-      rw [interp_substFvarAt hwa hba (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1)
-        (by omega) (updV V ρ' (D + 1) x) hva' ha']
-      exact hwi
-    · intro v hv
-      obtain ⟨w, hwi, hmem⟩ := htie v hv
-      refine ⟨w, ?_, hmem⟩
-      rw [interp_substFvarAt hwa hba (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1)
-        (by omega) (updV V ρ' (D + 1) x) hva' ha']
-      exact hwi
+      (by omega) (updV V ρ' (D + 1) x) hva' ha' hAa' hbody, ?_⟩
+    obtain ⟨w, hwi, hmem⟩ := hwfact
+    refine ⟨w, ?_, hmem⟩
+    rw [interp_substFvarAt hwa hba (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1)
+      (by omega) (updV V ρ' (D + 1) x) hva' ha']
+    exact hwi
   | .lam n ty body m, D, hpD, ρ', hva, ha, hAa, hA => by
     simp only [AnnotOk] at hA
     obtain ⟨haty, hcod, hcond⟩ := hA
