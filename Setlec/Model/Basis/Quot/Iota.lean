@@ -885,6 +885,15 @@ theorem annotOk_quotLift_rhs {cval : ConstVal V}
       try simp only [Expr.instantiate1, reduceIte, AnnotOk]
       refine ⟨(by simp [Expr.instantiate1, AnnotOk]),
         Nat.max (ψ uN) 1, ?_⟩
+      refine ⟨?_, ?_⟩
+      · first
+          | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+          | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+          | (rintro v ⟨rfl⟩
+             intro z hz
+             refine univ_mono ?_ z hz
+             simp only [Level.eval, qtA, qmR, qmA, qlQ, qlV, qlB, qlR, qlA, qlψ, uN, vN]
+             by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
       intro x Sx hSx hxmem
       simp only [interpExpr, Expr.instantiate1, reduceIte, updV,
         Option.some.injEq] at hSx
@@ -892,6 +901,15 @@ theorem annotOk_quotLift_rhs {cval : ConstVal V}
       refine ⟨?_, ?_⟩
       · try simp only [Expr.instantiate1, reduceIte, AnnotOk]
         refine ⟨(by simp [Expr.instantiate1, AnnotOk]), 1, ?_⟩
+        refine ⟨?_, ?_⟩
+        · first
+            | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+            | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+            | (rintro v ⟨rfl⟩
+               intro z hz
+               refine univ_mono ?_ z hz
+               simp only [Level.eval, qtA, qmR, qmA, qlQ, qlV, qlB, qlR, qlA, qlψ, uN, vN]
+               by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
         intro y Sy hSy hymem
         refine ⟨trivial, ?_⟩
         exact ⟨univ 0,
@@ -926,6 +944,15 @@ theorem annotOk_quotLift_rhs {cval : ConstVal V}
             try simp only [Expr.instantiate1, reduceIte, AnnotOk]
             refine ⟨(by simp [Expr.instantiate1, AnnotOk]),
               ψ vN, ?_⟩
+            refine ⟨?_, ?_⟩
+            · first
+                | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+                | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+                | (rintro v ⟨rfl⟩
+                   intro z hz
+                   refine univ_mono ?_ z hz
+                   simp only [Level.eval, qtA, qmR, qmA, qlQ, qlV, qlB, qlR, qlA, qlψ, uN, vN]
+                   by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
             intro x Sx hSx hxmem
             refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
             exact ⟨B, by simp [interpExpr, Expr.instantiate1, updV],
@@ -945,6 +972,15 @@ theorem annotOk_quotLift_rhs {cval : ConstVal V}
                 try simp only [Expr.instantiate1, reduceIte, AnnotOk]
                 refine ⟨(by simp [Expr.instantiate1, AnnotOk]),
                   0, ?_⟩
+                refine ⟨?_, ?_⟩
+                · first
+                    | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+                    | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+                    | (rintro v ⟨rfl⟩
+                       intro z hz
+                       refine univ_mono ?_ z hz
+                       simp only [Level.eval, qtA, qmR, qmA, qlQ, qlV, qlB, qlR, qlA, qlψ, uN, vN]
+                       by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
                 intro a Sa hSa hamem
                 simp only [interpExpr, Expr.instantiate1, reduceIte,
                   updV, Option.some.injEq] at hSa
@@ -954,6 +990,15 @@ theorem annotOk_quotLift_rhs {cval : ConstVal V}
                   try simp only [Expr.instantiate1, reduceIte, AnnotOk]
                   refine ⟨(by simp [Expr.instantiate1, AnnotOk]),
                     0, ?_⟩
+                  refine ⟨?_, ?_⟩
+                  · first
+                      | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+                      | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+                      | (rintro v ⟨rfl⟩
+                         intro z hz
+                         refine univ_mono ?_ z hz
+                         simp only [Level.eval, qtA, qmR, qmA, qlQ, qlV, qlB, qlR, qlA, qlψ, uN, vN]
+                         by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
                   intro b Sb hSb hbmem
                   simp only [interpExpr, Expr.instantiate1, reduceIte,
                     updV, Option.some.injEq] at hSb
@@ -989,7 +1034,16 @@ theorem annotOk_quotLift_rhs {cval : ConstVal V}
                         pi_mem_univ (u := ψ uN) (v := 1)
                           (B := fun _ => univ 0) hAmem
                           (fun _ _ => univ_mem_univ 0))
-                    · intro w Sw _hSw _hwmem
+                    · refine ⟨?_, ?_⟩
+                      · first
+                          | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+                          | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+                          | (rintro v ⟨rfl⟩
+                             intro z hz
+                             refine univ_mono ?_ z hz
+                             simp only [Level.eval, qtA, qmR, qmA, qlQ, qlV, qlB, qlR, qlA, qlψ, uN, vN]
+                             by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
+                      intro w Sw _hSw _hwmem
                       refine ⟨?_, ?_⟩
                       · -- AnnotOk of `Eq β (f a) (f b)`
                         try simp only [Expr.instantiate1, reduceIte,
@@ -1214,6 +1268,15 @@ theorem annotOk_quotInd_rhs {cval : ConstVal V}
       try simp only [Expr.instantiate1, reduceIte, AnnotOk]
       refine ⟨(by simp [Expr.instantiate1, AnnotOk]),
         Nat.max (ψ uN) 1, ?_⟩
+      refine ⟨?_, ?_⟩
+      · first
+          | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+          | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+          | (rintro v ⟨rfl⟩
+             intro z hz
+             refine univ_mono ?_ z hz
+             simp only [Level.eval, qtA, qmR, qmA, qlQ, qlV, qlB, qlR, qlA, qlψ, uN, vN]
+             by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
       intro x Sx hSx hxmem
       simp only [interpExpr, Expr.instantiate1, reduceIte, updV,
         Option.some.injEq] at hSx
@@ -1222,6 +1285,15 @@ theorem annotOk_quotInd_rhs {cval : ConstVal V}
       · -- inner `α → Prop`
         try simp only [Expr.instantiate1, reduceIte, AnnotOk]
         refine ⟨(by simp [Expr.instantiate1, AnnotOk]), 1, ?_⟩
+        refine ⟨?_, ?_⟩
+        · first
+            | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+            | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+            | (rintro v ⟨rfl⟩
+               intro z hz
+               refine univ_mono ?_ z hz
+               simp only [Level.eval, qtA, qmR, qmA, qlQ, qlV, qlB, qlR, qlA, qlψ, uN, vN]
+               by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
         intro y Sy hSy hymem
         refine ⟨trivial, ?_⟩
         exact ⟨univ 0,
@@ -1263,7 +1335,16 @@ theorem annotOk_quotInd_rhs {cval : ConstVal V}
               quotA, ConstantInfo.toConstantVal]
             try rfl
           · simp [interpExpr, Expr.instantiate1, updV]
-          · intro x Sx hSx hxmem
+          · refine ⟨?_, ?_⟩
+            · first
+                | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+                | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+                | (rintro v ⟨rfl⟩
+                   intro z hz
+                   refine univ_mono ?_ z hz
+                   simp only [Level.eval, qtA, qmR, qmA, qlQ, qlV, qlB, qlR, qlA, qlψ, uN, vN]
+                   by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
+            intro x Sx hSx hxmem
             refine ⟨trivial, ?_⟩
             exact ⟨univ 0,
               by simp [interpExpr, Expr.instantiate1, updV, Level.eval],
@@ -1285,6 +1366,15 @@ theorem annotOk_quotInd_rhs {cval : ConstVal V}
               try simp only [Expr.instantiate1, reduceIte, AnnotOk]
               refine ⟨(by simp [Expr.instantiate1, AnnotOk]),
                 0, ?_⟩
+              refine ⟨?_, ?_⟩
+              · first
+                  | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+                  | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+                  | (rintro v ⟨rfl⟩
+                     intro z hz
+                     refine univ_mono ?_ z hz
+                     simp only [Level.eval, qtA, qmR, qmA, qlQ, qlV, qlB, qlR, qlA, qlψ, uN, vN]
+                     by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
               intro a Sa hSa hamem
               simp only [interpExpr, Expr.instantiate1, reduceIte, updV,
                 Option.some.injEq] at hSa
@@ -1787,10 +1877,28 @@ theorem qFr_annotOk_tyR {cval : ConstVal V} {A : V}
     AnnotOk V cval env ψ 1 (updV V (rho0 V) 0 A) qFrTyR := by
   simp only [qFrTyR, qFrA, AnnotOk]
   refine ⟨trivial, Nat.max (ψ uN) 1, ?_⟩
+  refine ⟨?_, ?_⟩
+  · first
+      | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+      | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+      | (rintro v ⟨rfl⟩
+         intro z hz
+         refine univ_mono ?_ z hz
+         simp only [Level.eval, qtA, qmR, qmA, qlQ, qlV, qlB, qlR, qlA, qlψ, uN, vN]
+         by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
   intro x Sx hSx hx
   refine ⟨?_, ?_⟩
   · try simp only [Expr.instantiate1, reduceIte, AnnotOk]
     refine ⟨trivial, 1, ?_⟩
+    refine ⟨?_, ?_⟩
+    · first
+        | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+        | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+        | (rintro v ⟨rfl⟩
+           intro z hz
+           refine univ_mono ?_ z hz
+           simp only [Level.eval, qtA, qmR, qmA, qlQ, qlV, qlB, qlR, qlA, qlψ, uN, vN]
+           by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
     intro y Sy hSy hy
     refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
     refine ⟨univ 0, ?_, ?_⟩
@@ -1815,6 +1923,15 @@ theorem qlFr_annotOk_tyF {cval : ConstVal V} {A R B : V}
       (updV V (updV V (updV V (rho0 V) 0 A) 1 R) 2 B) qlFrTyF := by
   simp only [qlFrTyF, qFrA, qlFrB, AnnotOk]
   refine ⟨trivial, ψ vN, ?_⟩
+  refine ⟨?_, ?_⟩
+  · first
+      | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+      | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+      | (rintro v ⟨rfl⟩
+         intro z hz
+         refine univ_mono ?_ z hz
+         simp only [Level.eval, qtA, qmR, qmA, qlQ, qlV, qlB, qlR, qlA, qlψ, uN, vN]
+         by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
   intro x Sx hSx hx
   refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
   refine ⟨B, ?_, ?_⟩
@@ -1859,6 +1976,15 @@ theorem qlFr_annotOk_tyH {cval : ConstVal V} {A R B f : V}
     exact eqv_mem_univ _ _
   simp only [qlFrTyH, qFrA, qFrR, qFrTyR, qlFrB, qlFrF, qlFrTyF, AnnotOk]
   refine ⟨trivial, 0, ?_⟩
+  refine ⟨?_, ?_⟩
+  · first
+      | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+      | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+      | (rintro v ⟨rfl⟩
+         intro z hz
+         refine univ_mono ?_ z hz
+         simp only [Level.eval, qtA, qmR, qmA, qlQ, qlV, qlB, qlR, qlA, qlψ, uN, vN]
+         by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
   intro a' Sa hSa ha'
   have hSa' : Sa = A := by
     simp [interpExpr, updV] at hSa
@@ -1868,6 +1994,15 @@ theorem qlFr_annotOk_tyH {cval : ConstVal V} {A R B f : V}
   · -- opened `∀ (b : α), r a b → Eq β (f a) (f b)`
     try simp only [Expr.instantiate1, reduceIte, AnnotOk]
     refine ⟨(by simp [Expr.instantiate1, AnnotOk]), 0, ?_⟩
+    refine ⟨?_, ?_⟩
+    · first
+        | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+        | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+        | (rintro v ⟨rfl⟩
+           intro z hz
+           refine univ_mono ?_ z hz
+           simp only [Level.eval, qtA, qmR, qmA, qlQ, qlV, qlB, qlR, qlA, qlψ, uN, vN]
+           by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
     intro b' Sb hSb hb'
     have hSb' : Sb = A := by
       simp only [interpExpr, Expr.instantiate1, reduceIte, updV,
@@ -1899,7 +2034,16 @@ theorem qlFr_annotOk_tyH {cval : ConstVal V} {A R B f : V}
           pi_mem_univ (u := ψ uN) (v := 1)
             (B := fun _ => univ 0) hA
             (fun _ _ => univ_mem_univ 0))
-      · intro w Sw _hSw _hw
+      · refine ⟨?_, ?_⟩
+        · first
+            | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+            | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+            | (rintro v ⟨rfl⟩
+               intro z hz
+               refine univ_mono ?_ z hz
+               simp only [Level.eval, qtA, qmR, qmA, qlQ, qlV, qlB, qlR, qlA, qlψ, uN, vN]
+               by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
+        intro w Sw _hSw _hw
         refine ⟨?_, ?_⟩
         · -- AnnotOk of `Eq β (f a) (f b)`
           try simp only [Expr.instantiate1, reduceIte, AnnotOk]
@@ -2034,7 +2178,16 @@ theorem qiFr_annotOk_tyB {cval : ConstVal V} {A R : V}
       ConstantInfo.toConstantVal]
     try rfl
   · simp [interpExpr, Expr.instantiate1, updV]
-  · intro q Sq hSq hq
+  · refine ⟨?_, ?_⟩
+    · first
+        | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+        | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+        | (rintro v ⟨rfl⟩
+           intro z hz
+           refine univ_mono ?_ z hz
+           simp only [Level.eval, qtA, qmR, qmA, qlQ, qlV, qlB, qlR, qlA, qlψ, uN, vN]
+           by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
+    intro q Sq hSq hq
     refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
     refine ⟨univ 0, ?_, ?_⟩
     · simp [interpExpr, Expr.instantiate1, updV, Level.eval]
@@ -2080,6 +2233,15 @@ theorem qiFr_annotOk_tyMk {cval : ConstVal V} {A R B : V}
     exact quotClass_mem ha
   simp only [qiFrTyMk, qiFrB, qiFrTyB, qFrMkC, qFrA, qFrR, qFrTyR, AnnotOk]
   refine ⟨trivial, 0, ?_⟩
+  refine ⟨?_, ?_⟩
+  · first
+      | (rintro v ⟨rfl⟩; exact fun z hz => hz)
+      | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
+      | (rintro v ⟨rfl⟩
+         intro z hz
+         refine univ_mono ?_ z hz
+         simp only [Level.eval, qtA, qmR, qmA, qlQ, qlV, qlB, qlR, qlA, qlψ, uN, vN]
+         by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2] <;> omega)
   intro a Sa hSa ha
   have hSa' : Sa = A := by
     simp [interpExpr, updV] at hSa
