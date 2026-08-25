@@ -811,13 +811,13 @@ theorem natCod1_inv {mb : BinderMeta} (h : natCod1 mb = true) :
 and domain interpretation. -/
 theorem interp_forallE {cval : ConstVal V} {d : Nat} {ρ : Nat → V}
     {nm : Name} {ty body : Expr} {mb : BinderMeta} {v : Level} {A : V}
-    (hcod : mb.cod = some v)
+    (_hcod : mb.cod = some v)
     (hty : interpExpr V cval env φ d ρ ty = some A) :
     interpExpr V cval env φ d ρ (.forallE nm ty body mb) =
       some (pi (v.eval φ) A fun x =>
         (interpExpr V cval env φ (d + 1) (updV V ρ d x)
           (body.instantiate1 (.fvar d nm ty))).getD SetTheory.empty) := by
-  simp only [interpExpr, hcod, hty]
+  simp only [interpExpr, hty]
 
 /-- The pinned codomain's interpretation: a set in `univ 1`, the `Nat`
 value for the arithmetic operations. -/
