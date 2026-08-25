@@ -7101,14 +7101,29 @@ split them:
   (`modeled_bottom_plain/nested`, `eta/unit_rule_fold`,
   `proj_bottom`) used to pin the equation arguments' memberships off
   the *value* of the pinned `Eq` former.  Replacements, checked at
-  install: `checkIotaThm(N)` runs `checkIotaSidesTy` (both equation
+  install: `checkIotaThm(N)` and `checkProjIota` run
+  `checkIotaSidesTy` at the opened statement telescope (both equation
   sides' inferred types ≡ the equation type — kernel certificates the
   soundness layer walks through `inferTypeCore_sound` +
-  `isDefEqCore_sound`); `checkEtaThm`/`checkUnitThm`/`checkProjIota`
-  pin the statement's *type slot* syntactically (the family
-  application / the field domain lifted), so the fold proofs read the
-  domain off the pin and the walk's own frame memberships.  All four
-  reject only statements the preprocessor never emits.
+  `isDefEqCore_sound`); `checkEtaThm`/`checkUnitThm` pin the
+  statement's *type slot* syntactically (the family application), so
+  those fold proofs read the domain off the pin and the walk's own
+  frame memberships.  All four reject only statements the
+  preprocessor never emits.  A syntactic pin for `checkProjIota`
+  (field domain lifted past the remaining binders) was tried first
+  and *rejects real streams* — the preprocessor emits hygienic binder
+  names inside Π-shaped field domains (`Order.lt`'s
+  `a._@…._hyg.0`), and dependent field types spelled through the
+  earlier projections (`Subtype.property`'s slot is
+  `p (Subtype._model.proj_0 … (Subtype.mk._model … v pr))`, not the
+  lifted domain) — so the projection path certifies definitionally.
+  `proj_bottom` consumes the rhs certificate over the statement's
+  *own* opening: `openPisAtFvars` on the theorem type is `ErasedEq`
+  to the master frame index-by-index (`instPisAt_erasedEq_spines`),
+  `self_walk` establishes the opening's typing package from the
+  master memberships transported along `interp_erasedEq`, and the two
+  soundness lemmas pin the projected field's value into the equation
+  type's value.
 * **The tie's shape** (`Model/Interp.lean`): the ∀-clause's level
   witness gains one conjunct — `∃ vE, (∀ v, m.cod = some v → univ vE
   ⊆ˢ univ (v.eval φ)) ∧ ∀ x A, …` — a *subset-form* fact outside the
