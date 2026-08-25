@@ -7057,6 +7057,55 @@ Amended order, each stage green:
    the model level-free, no shadow environment and no `codOf` oracle
    is needed (architecture 4 supersedes the fork's 1–3).
 
+### Stage 3 finding: the λ-cod re-check is NOT flip-deletable; `AnnotOk` keeps a subset-form cod tie at ∀ (2026-08-25, task #100)
+
+The stage-3 plan moved two deletions into the flip.  Executing it
+split them:
+
+* **The defeq binder cod comparison deleted, as planned.**  With the
+  collapse ops the binder clauses' soundness closes by `piC_congr`/
+  `lamC_congr` (no zero-agreement input), so the comparison is gone
+  from `isDefEqCore`'s forallE/lam clauses (spec, interned twin, NC),
+  and defeq matches the official kernel's no-annotation-comparison
+  behavior.  `pi/lam_congr_zero_agree` retired with it.
+* **The λ-annotation re-check is load-bearing through stage 5 and is
+  restored** (`Kernel/Core.lean` lam infer clause, `inferLamsOutI`).
+  The plan's argument ("`lamC` membership has no level") covers the
+  membership conclusion but not `InferClaims`' *output* `AnnotOk`
+  conjunct.  Two countermodels close all the alternatives:
+  - the ∀-infer clause still reads the stored cod for the imax rule,
+    and its membership conclusion (`piC A B ∈ univ ((imax u v₀).eval
+    φ)`) is **false under a fully untied `AnnotOk`** — untruthful
+    `cod = 0` over `Type`-level fibres gives a big `piC` that is not
+    a truth value.  Type-expr *arguments* consume exactly this
+    membership (app-slot at the defeq-checked domain), so it cannot
+    be weakened away: `AnnotOk`'s ∀-clause must tie its level witness
+    to the stored cod;
+  - with the tie, the λ-infer clause's freshly built ∀ (reusing the
+    λ's meta) needs `⟦bt⟧ ∈ univ (v.eval φ)` per domain member —
+    obtainable *only* from the re-check's own inference chain
+    (`ihi` at `bt` + `sort_result` + `isEquiv_sound`); no semantic
+    invariant of the λ can supply it (the body's *type placement* is
+    a fact about the kernel-computed `bt`, and kernel-run-mentioning
+    invariant clauses do not transport across substitution — the
+    subject-reduction bridge again).  Cert-driven re-inference inside
+    whnf/defeq (proj/pairEta on inferred-type subterms) forces
+    infer's output `AnnotOk` to be full-strength, so no
+    weak/strong-split assignment is consistent either.
+
+  The re-check and the ∀-imax read die *together* in stage 6, where
+  the ∀-clause infers its codomain sort and the tie becomes
+  self-establishing.
+* **The tie's shape** (`Model/Interp.lean`): the ∀-clause's level
+  witness gains one conjunct — `∃ vE, (∀ v, m.cod = some v → univ vE
+  ⊆ˢ univ (v.eval φ)) ∧ ∀ x A, …` — a *subset-form* fact outside the
+  domain quantifier, so establishment costs one small obligation per
+  ∀-node (identity when the witness is the cod's evaluation;
+  `univ_mono zero_le` at `vE = 0`; `univ_mono` by case-split + omega
+  against the simplified raw-eval defs) instead of a duplicated
+  fibre proof, and the conjunct is vacuous once annotations are
+  erased.  The λ-clause carries no tie.
+
 ### Stage 2 record: kernel de-gating landed; two deletions are flip-blocked (2026-08-24, task #100)
 
 **Landed.**  The three collapse-falsified annotation gates now run
