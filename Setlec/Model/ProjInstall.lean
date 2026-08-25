@@ -405,6 +405,57 @@ theorem interpSpine_fvars_exists {d : Nat} {ρ : Nat → V} :
         have := hpos j (by omega)
         simpa [show off + (j + 1) = off + 1 + j from by omega] using this
 
+/-- Binder domains of a stripped telescope stay loose-bvar-bounded by
+their position. -/
+private theorem stripPis_binder_bounded :
+    ∀ (k : Nat) {e : Expr} {bs : List (Name × Expr × BinderMeta)}
+      {body : Expr} {j : Nat},
+      e.stripPis k = some (bs, body) → e.looseBVarsBounded j = true →
+      ∀ (l : Nat) (b : Name × Expr × BinderMeta), bs[l]? = some b →
+        (b.2.1).looseBVarsBounded (j + l) = true := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs body j h _ l b hb
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    rw [← h.1] at hb
+    exact nomatch hb
+  | succ k ih =>
+    intro e bs body j h hb l b hlb
+    match e, h with
+    | .forallE n ty bd m, h =>
+      simp only [Expr.stripPis, Option.map_eq_some_iff] at h
+      obtain ⟨⟨bs', body'⟩, hstrip, heq⟩ := h
+      obtain ⟨rfl, rfl⟩ : (n, ty, m) :: bs' = bs ∧ body' = body :=
+        ⟨congrArg Prod.fst heq, congrArg Prod.snd heq⟩
+      simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+      cases l with
+      | zero =>
+        obtain rfl := Option.some.inj hlb
+        exact hb.1
+      | succ l =>
+        have := ih hstrip hb.2 l b (by simpa using hlb)
+        rwa [show j + 1 + l = j + (l + 1) from by omega] at this
+
+/-- `instSeq` over an fvar spine preserves constant resolution. -/
+private theorem instSeq_resolve_fvars {env : Env} :
+    ∀ (args : List Expr) (t : Nat) {e : Expr},
+      (∀ a ∈ args, ∃ j n ty, a = Expr.fvar j n ty) →
+      (∀ a ∈ args, a.constsResolve env = true) →
+      e.constsResolve env = true →
+      (Expr.instSeq args t e).constsResolve env = true
+  | [], _, _, _, _, he => he
+  | a :: as, t, e, hsh, hargs, he => by
+    obtain ⟨j, n, ty, rfl⟩ := hsh a List.mem_cons_self
+    have hty : ty.constsResolve env = true := by
+      have := hargs _ List.mem_cons_self
+      simpa [Expr.constsResolve] using this
+    exact instSeq_resolve_fvars as (t - 1)
+      (fun x hx => hsh x (List.mem_cons_of_mem _ hx))
+      (fun x hx => hargs x (List.mem_cons_of_mem _ hx))
+      (Expr.constsResolve_instantiate1 hty t he)
+
+
 set_option maxHeartbeats 3200000 in
 /-- The projection rule's bottom fact (`Hbot` of `TowerOk.of_stages`):
 over any full frame-fitting value list, the canonical body (the
@@ -443,6 +494,7 @@ theorem proj_bottom
     (hthm_annot : ∀ ψ'' : Name → Nat,
       AnnotOk V m.val env ψ'' 0 (rho0 V) cvt.type)
     (hSw : cvt.type.hasFvar = false)
+    (hSb : cvt.type.looseBVarsBounded 0 = true)
     (hSres : cvt.type.constsResolve env = true)
     -- the statement's shape
     {cbinders : List (Name × Expr × BinderMeta)} {cbody : Expr}
@@ -463,6 +515,9 @@ theorem proj_bottom
                Expr.bvar (nP + nF - 1 - k)) ++
             ((List.range nF).map fun k => Expr.bvar (nF - 1 - k)))]),
        .bvar (nF - 1 - i)])
+    (htySlotP : ∃ nmI idom bmI,
+      sbinders[nP + i]? = some (nmI, idom, bmI) ∧
+      tySlot = idom.liftLooseBVars (nF - i) 0)
     -- the rule right-hand side
     {rhsA : Expr} {rbs : List (Name × Expr × BinderMeta)} {rbody : Expr}
     (hstripR : rhsA.stripLams (nP + nF) = some (rbs, rbody))
@@ -1023,17 +1078,72 @@ theorem proj_bottom
     have h1 := hpi₁
     simp only [eqVal] at h1
     refine lam_dom_of_ne h1 ?_ vα hmem₁
-    simp [Nat.max_eq_zero_iff]
+    exact lamC_ne_pt_of_witness (unitSet_mem_univ _)
+      (lamC_ne_pt_of_witness pt_mem_unitSet
+        (lamC_ne_pt_of_witness pt_mem_unitSet
+          (by unfold eqv; exact truthVal_ne_pt _)))
+  -- the field value inhabits the equation type, off the
+  -- `checkProjIota` type-slot pin (task #100 stage 3: the collapse
+  -- removed value-driven domain pinning)
+  obtain ⟨nmI, idom, bmI, hsbI, htsEq⟩ := htySlotP
+  have hidomB : idom.looseBVarsBounded (nP + i) = true := by
+    have h0 := stripPis_binder_bounded (nP + nF) hS_strip hSb (nP + i)
+      (nmI, idom, bmI) hsbI
+    simpa using h0
+  have htakeLen : ((fvsP ++ xFvs).take (nP + i)).length = nP + i := by
+    rw [List.length_take, hspineLenA]
+    omega
+  have hαRes : Expr.instSeq (fvsP ++ xFvs) (nP + nF - 1) tySlot =
+      Expr.instSeq ((fvsP ++ xFvs).take (nP + i)) (nP + i - 1) idom := by
+    rw [htsEq]
+    have h0 := instSeq_liftLooseBVars_prefix
+      ((fvsP ++ xFvs).take (nP + i)) ((fvsP ++ xFvs).drop (nP + i))
+      (fun a ha => by
+        obtain ⟨j', n', t', rfl⟩ :=
+          hfvPXShapes a (List.mem_of_mem_take ha)
+        rfl)
+      (by rw [htakeLen]; exact hidomB)
+    rw [List.take_append_drop, htakeLen, List.length_drop,
+      hspineLenA] at h0
+    rw [show nP + i + (nP + nF - (nP + i)) - 1 = nP + nF - 1 from
+      by omega] at h0
+    rw [show nP + nF - (nP + i) = nF - i from by omega] at h0
+    rw [show nP + i - 1 = nP + i - 1 from rfl] at h0
+    exact h0
+  obtain ⟨sdsE, hsdsE, hsdsEq⟩ : ∃ a, sds[nP + i]? = some a ∧
+      a = Expr.instSeq ((fvsP ++ xFvs).take (nP + i)) (nP + i - 1)
+        idom := by
+    obtain ⟨-, hdsS⟩ := instPisAt_stripPis (fvsP ++ xFvs) hSinst
+      (by rw [hspineLen]; exact hS_strip)
+    have h1 := hdsS (nP + i) (nmI, idom, bmI) hsbI
+    exact ⟨_, h1, rfl⟩
+  have hxsI : xs[nP + i]? = some (xs.getD (nP + i) SetTheory.empty) := by
+    rw [List.getD_eq_getElem?_getD]
+    rw [List.getElem?_eq_getElem (by omega)]
+    rfl
+  obtain ⟨B, hBi, hvB⟩ := hmemS (nP + i) sdsE _ hsdsE hxsI
+  have hsdsRes : sdsE.constsResolve env = true := by
+    rw [hsdsEq]
+    refine instSeq_resolve_fvars _ _
+      (fun a ha => hfvPXShapes a (List.mem_of_mem_take ha))
+      (fun a ha => hspineRes a (List.mem_of_mem_take ha)) ?_
+    exact (Expr.constsResolve_stripPis (nP + nF) hS_strip hSres).1
+      (nmI, idom, bmI) (List.mem_of_getElem? hsbI)
+  have hvα : vα = B := by
+    rw [hαRes, ← hsdsEq] at hiα
+    rw [interp_mono (cval := val') hfresh sdsE _ _ hsdsRes,
+      interp_cval_ext hagree sdsE _ _, hBi] at hiα
+    exact (Option.some.inj hiα).symm
+  have hvrmem : vr ∈ˢ vα := by
+    rw [hvα, hvr]
+    exact hvB
   have hvlmem : vl ∈ˢ vα := by
     have h2 := hpi₂
     rw [eqVal_app hαu] at h2
     refine lam_dom_of_ne h2 ?_ vl hmem₂
-    simp [Nat.max_eq_zero_iff]
-  have hvrmem : vr ∈ˢ vα := by
-    have h3 := hpi₃
-    rw [eqVal_app₂ hαu hvlmem] at h3
-    refine lam_dom_of_ne h3 ?_ vr hmem₃
-    simp
+    exact lamC_ne_pt_of_witness hvrmem
+      (lamC_ne_pt_of_witness hvrmem
+        (by unfold eqv; exact truthVal_ne_pt _))
   have hQeqv : QN = eqv vl vr := by
     rw [hfoldQ] at hQi
     rw [← Option.some.inj hQi, hveq]
@@ -1681,6 +1791,7 @@ theorem proj_rule_eq
     (hthm_annot : ∀ ψ'' : Name → Nat,
       AnnotOk V m.val env ψ'' 0 (rho0 V) cvt.type)
     (hSw : cvt.type.hasFvar = false)
+    (hSb : cvt.type.looseBVarsBounded 0 = true)
     (hSres : cvt.type.constsResolve env = true)
     (hfirep : RecRule.fire rule = .plain)
     (hcp : RecRule.ctorParams rule = nP)
@@ -1707,6 +1818,9 @@ theorem proj_rule_eq
                Expr.bvar (nP + nF - 1 - k)) ++
             ((List.range nF).map fun k => Expr.bvar (nF - 1 - k)))]),
        .bvar (nF - 1 - i)])
+    (htySlotP : ∃ nmI idom bmI,
+      sbinders[nP + i]? = some (nmI, idom, bmI) ∧
+      tySlot = idom.liftLooseBVars (nF - i) 0)
     {dN : Name} {dus : List Level} {dargs : List Expr}
     (hcbody : cbody = Expr.mkAppN (.const dN dus) dargs)
     (hdargs : dargs.length = nP)
@@ -1762,7 +1876,8 @@ theorem proj_rule_eq
     hdeLamP hTcl hTb hCcl hCb hTres hCres hRres hrhsw hrhsb hAty hIty
     hACty hICty hArhs hIrhs
     (fun ψ => proj_bottom m F hfresh hagree hff₀ hro₀ hro₁ hi hfP₁
-      hlpsP hfj hfPm hPmlps heqfind heqval₁ hthm_mem hthm_annot hSw hSres
-      hC_strip hS_strip hsdoms hsbody hstripR hrbody hopenP hcinstP
+      hlpsP hfj hfPm hPmlps heqfind heqval₁ hthm_mem hthm_annot hSw hSb
+      hSres
+      hC_strip hS_strip hsdoms hsbody htySlotP hstripR hrbody hopenP hcinstP
       hdeParsP hopenX hlinstP hTcl hTb hTres (hAty ψ) hCcl hCb hCres
       (hACty ψ) (hICty ψ) (ψ := ψ))

@@ -285,7 +285,7 @@ theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
           (.bvar (nF - 1 - i))) ∧
       (∃ idomE, sbinders[nP + i]? =
           some (idomE.1, idomE.2.1, idomE.2.2) ∧
-        tySlot = idomE.2.1.liftLooseBVars 0 (nF - i)) := by
+        tySlot = idomE.2.1.liftLooseBVars (nF - i) 0) := by
   simp only [checkProjIota, Bind.bind, Except.bind] at h
   revert h
   match hthm : env'.find? ((projModelName T i).str "iota") with
@@ -398,7 +398,7 @@ theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
   | some (nmI, idom, bmI) => ?_
   intro h
   try dsimp only at h
-  by_cases hts : (tySlot == idom.liftLooseBVars 0 (nF - i)) = true
+  by_cases hts : (tySlot == idom.liftLooseBVars (nF - i) 0) = true
   case neg => rw [if_neg hts] at h; exact nomatch h
   exact ⟨tcv, tval, sbinders, cbindersR, cbody, tySlot, ℓA,
     rfl, htlps, rfl, hsdomsB, hS_strip,

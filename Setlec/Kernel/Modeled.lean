@@ -531,7 +531,7 @@ def checkProjIota (env' : Env) (T ctorName : Name) (lps : List Name)
     -- derivation reads the statement's domain off this pin)
     unless (match sbinders[nP + i]? with
         | some (_, idom, _) =>
-          tySlot == idom.liftLooseBVars 0 (nF - i)
+          tySlot == idom.liftLooseBVars (nF - i) 0
         | none => false) do
       throw (.notImplemented "projection iota type slot mismatch")
   | _ => throw (.notImplemented "projection iota body shape")
