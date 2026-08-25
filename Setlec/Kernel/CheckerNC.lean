@@ -101,7 +101,7 @@ def checkProjFnNC (fe : FEnv) (T ctorName : Name) (lps : List Name)
   unless i < nF do
     throw (.invalid "projection index out of range")
   let rhsA ← checkProjRuleF (sharedOpsNC fe) fe pty cvj lps nP nF i
-  checkProjIotaF (m := CheckIM) fe T ctorName lps cvj nP nF i
+  checkProjIotaF (sharedOpsNC fe) fe T ctorName lps cvj nP nF i
   pure (fe.push (.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
     [⟨ctorName, nF, nP,
       if Expr.recRulePlain pty nP nP nP then .plain else .inert, rhsA⟩]))

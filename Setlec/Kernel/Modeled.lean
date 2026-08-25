@@ -491,9 +491,13 @@ def checkProjTy (env' : Env) (T ctorName : Name) (lps : List Name)
 /-- Stage 4: the model's `proj_i.iota` theorem pins the rule — the
 statement's telescope domains are the constructor's (renamed to the
 model side) and its body equates the projected constructor spine with
-field `i`.  The equality's type slot needs no pin (the collapse
-ignores it). -/
-def checkProjIota (env' : Env) (T ctorName : Name) (lps : List Name)
+field `i`.  Both equation sides are certified against the equality's
+type slot definitionally at the opened telescope (task #100 stage-3:
+the collapse removed value-driven domain pinning, and dependent field
+types are emitted through the projections, so a syntactic pin on the
+type slot would reject real streams). -/
+def checkProjIota (ops : CheckerOps m) (env' envSelf : Env)
+    (T ctorName : Name) (lps : List Name)
     (cvj : ConstantVal) (nP nF i : Nat) : m Unit := do
   let some (.thmInfo tcv _) := env'.find? ((projModelName T i).str "iota")
     | throw (.notImplemented "missing projection iota theorem")
@@ -516,22 +520,23 @@ def checkProjIota (env' : Env) (T ctorName : Name) (lps : List Name)
   let lhsS := Expr.mkAppN
     (.const (projModelName T i) (lps.map .param)) (pArgs ++ [mkSpine])
   match sbody with
-  | .app (.app (.app (.const c [_ℓ]) tySlot) lhsC) rhsC =>
+  | .app (.app (.app (.const c [_ℓ]) _tySlot) lhsC) rhsC =>
     unless c = eqName do
       throw (.notImplemented "projection iota head")
     unless lhsC == lhsS do
       throw (.notImplemented "projection iota redex mismatch")
     unless rhsC == Expr.bvar (nF - 1 - i) do
       throw (.notImplemented "projection iota field mismatch")
-    -- the equation's type slot is field `i`'s domain, lifted under
-    -- the remaining field binders (task #100 stage-3: the fold
-    -- derivation reads the statement's domain off this pin)
-    unless (match sbinders[nP + i]? with
-        | some (_, idom, _) =>
-          tySlot == idom.liftLooseBVars (nF - i) 0
-        | none => false) do
-      throw (.notImplemented "projection iota type slot mismatch")
   | _ => throw (.notImplemented "projection iota body shape")
+  -- certify both equation sides against the statement's type slot,
+  -- definitionally at the opened telescope (the fold derivation
+  -- reads these certificates)
+  let (_, sbodyO) ← unwrapOr (openPisAtFvars depth tcv.type 0)
+    (.notImplemented "projection iota telescope")
+  let targsO := sbodyO.getAppArgs
+  checkIotaSidesTy ops envSelf depth (targsO.getD 0 (.bvar 0))
+    (targsO.getD 1 (.bvar 0)) (targsO.getD 2 (.bvar 0))
+    (projModelName T i)
 
 /-- Check and install the public projection function for field `i` of
 a modeled single-constructor structure, against the model's
@@ -546,7 +551,7 @@ def checkProjFn (ops : CheckerOps m) (env' : Env) (T ctorName : Name) (lps : Lis
   unless i < nF do
     throw (.invalid "projection index out of range")
   let rhsA ← checkProjRule ops env' pty cvj lps nP nF i
-  checkProjIota env' T ctorName lps cvj nP nF i
+  checkProjIota ops env' env' T ctorName lps cvj nP nF i
   -- a degenerate recursor: no motive, no minors, no indices, so the
   -- major sits at position nP and the rule prefix is the parameters;
   -- the canonical flag is computed here, once, like `checkIotaRule`

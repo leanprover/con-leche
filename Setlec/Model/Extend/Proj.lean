@@ -259,11 +259,15 @@ theorem checkProjRule_inv {env' : Env} {pty : Expr} {cvj : ConstantVal}
     rfl, hcinstP, checkDefEqList_inv hde1, hopenX, hlinst,
     checkDefEqList_inv hde2, rhsTy, hity⟩
 
-/-- Invert stage 4 of `checkProjFn` (the pinned iota statement). -/
+/-- Invert stage 4 of `checkProjFn` (the pinned iota statement).  The
+type slot carries no syntactic pin (hygienic binder names and
+dependent field types spelled through projections defeat any pin);
+instead both equation sides carry definitional type certificates at
+the opened telescope (task #100 stage 3). -/
 theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
     {lps : List Name} {cvj : ConstantVal} {nP nF i : Nat} {u : Unit}
-    (h : (checkProjIota env' T ctorName lps cvj nP nF i : CheckM _) =
-      .ok u) :
+    (h : checkProjIota (fueledOps F) env' env' T ctorName lps cvj nP
+      nF i = .ok u) :
     ∃ tcv tval sbinders cbindersR cbody tySlot ℓA,
       env'.find? ((projModelName T i).str "iota") =
         some (.thmInfo tcv tval) ∧
@@ -283,9 +287,19 @@ theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
                 ((List.range nF).map fun k =>
                   Expr.bvar (nF - 1 - k)))])))
           (.bvar (nF - 1 - i))) ∧
-      (∃ nmI idom bmI, sbinders[nP + i]? = some (nmI, idom, bmI) ∧
-        tySlot = idom.liftLooseBVars (nF - i) 0) := by
-  simp only [checkProjIota, Bind.bind, Except.bind] at h
+      (∃ fvsO sbodyO,
+        openPisAtFvars (nP + nF) tcv.type 0 = some (fvsO, sbodyO) ∧
+        (∃ tl, inferTypeCore env' F (nP + nF)
+            (sbodyO.getAppArgs.getD 1 (.bvar 0)) = .ok tl ∧
+          isDefEqCore env' F (nP + nF) tl
+            (sbodyO.getAppArgs.getD 0 (.bvar 0)) = .ok true) ∧
+        (∃ tr, inferTypeCore env' F (nP + nF)
+            (sbodyO.getAppArgs.getD 2 (.bvar 0)) = .ok tr ∧
+          isDefEqCore env' F (nP + nF) tr
+            (sbodyO.getAppArgs.getD 0 (.bvar 0)) = .ok true)) := by
+  simp only [checkProjIota, checkIotaSidesTy, unwrapOr,
+    fueledOps_inferType, fueledOps_isDefEq, Bind.bind, Except.bind,
+    pure, Except.pure] at h
   revert h
   match hthm : env'.find? ((projModelName T i).str "iota") with
   | none => intro h; exact nomatch h
@@ -392,16 +406,47 @@ theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
   obtain rfl := eq_of_beq hrhsC
   try dsimp only at h
   revert h
-  match hidom : sbinders[nP + i]? with
+  match hopenO : openPisAtFvars (nP + nF) tcv.type 0 with
   | none => intro h; exact nomatch h
-  | some (nmI, idom, bmI) => ?_
+  | some (fvsO, sbodyO) => ?_
   intro h
   try dsimp only at h
-  by_cases hts : (tySlot == idom.liftLooseBVars (nF - i) 0) = true
-  case neg => rw [if_neg hts] at h; exact nomatch h
+  revert h
+  cases htl : inferTypeCore env' F (nP + nF)
+      (sbodyO.getAppArgs.getD 1 (.bvar 0)) with
+  | error e => intro h; exact nomatch h
+  | ok tl => ?_
+  intro h
+  try dsimp only at h
+  revert h
+  cases hdl : isDefEqCore env' F (nP + nF) tl
+      (sbodyO.getAppArgs.getD 0 (.bvar 0)) with
+  | error e => intro h; exact nomatch h
+  | ok vl => ?_
+  cases vl with
+  | false => intro h; simp at h
+  | true => ?_
+  intro h
+  try dsimp only at h
+  revert h
+  cases htr : inferTypeCore env' F (nP + nF)
+      (sbodyO.getAppArgs.getD 2 (.bvar 0)) with
+  | error e => intro h; exact nomatch h
+  | ok tr => ?_
+  intro h
+  try dsimp only at h
+  revert h
+  cases hdr : isDefEqCore env' F (nP + nF) tr
+      (sbodyO.getAppArgs.getD 0 (.bvar 0)) with
+  | error e => intro h; exact nomatch h
+  | ok vr => ?_
+  cases vr with
+  | false => intro h; simp at h
+  | true => ?_
+  intro h
   exact ⟨tcv, tval, sbinders, cbindersR, cbody, tySlot, ℓA,
     rfl, htlps, rfl, hsdomsB, hS_strip,
-    ⟨nmI, idom, bmI, hidom, eq_of_beq hts⟩⟩
+    ⟨fvsO, sbodyO, hopenO, ⟨tl, htl, hdl⟩, ⟨tr, htr, hdr⟩⟩⟩
 
 /-- Invert a successful `checkProjShape` run. -/
 theorem checkProjShape_inv {pty cty : Expr} {nP nF : Nat} {u : Unit}

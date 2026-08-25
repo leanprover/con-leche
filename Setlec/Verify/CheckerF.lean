@@ -247,11 +247,13 @@ theorem checkProjRuleF_eq (ops : CheckerOps m) (env : Env) (pty : Expr)
     domsMatchAuxA_eq, openPisAtFvarsF_eq, instPisAtF_eq,
     instLamsAtF_eq] <;> rfl
 
-theorem checkProjIotaF_eq (env : Env) (T ctorName : Name)
+theorem checkProjIotaF_eq (ops : CheckerOps m) (env : Env)
+    (T ctorName : Name)
     (lps : List Name) (cvj : ConstantVal) (nP nF i : Nat) :
-    (checkProjIotaF (mkFEnv env) T ctorName lps cvj nP nF i : m _)
-      = checkProjIota env T ctorName lps cvj nP nF i := by
-  simp only [checkProjIotaF, checkProjIota, mkFEnv_find?] <;> rfl
+    checkProjIotaF ops (mkFEnv env) T ctorName lps cvj nP nF i
+      = checkProjIota ops env env T ctorName lps cvj nP nF i := by
+  simp only [checkProjIotaF, checkProjIota, mkFEnv_find?, mkFEnv_env]
+    <;> rfl
 
 /-! ### The direct simple-structure path (task #82) -/
 

@@ -305,17 +305,19 @@ theorem checkProjTy_snd_dproj (env' : Env) (T ctorName : Name) (lps : List Name)
   unfold checkProjTy
   dsnd_tac
 
-theorem checkProjIota_fst_dproj (env' : Env) (T ctorName : Name) (lps : List Name) (cvj : ConstantVal) (nP nF i : Nat) :
-    (checkProjIota env' T ctorName lps cvj nP nF i : PairM rel _).val.1 =
-      (checkProjIota env' T ctorName lps cvj nP nF i : M₁ _) := by
+theorem checkProjIota_fst_dproj (env' envSelf : Env) (T ctorName : Name) (lps : List Name) (cvj : ConstantVal) (nP nF i : Nat) :
+    (checkProjIota (pairOps o₁ o₂ h) env' envSelf T ctorName lps cvj nP nF i).val.1 =
+      checkProjIota o₁ env' envSelf T ctorName lps cvj nP nF i := by
   unfold checkProjIota
-  dfst_tac
+  simp only [PairM.fst_bind, PairM.fst_pure, PairM.fst_throw,
+    PairM.fst_ite, unwrapOr_fst_dproj, checkIotaSidesTy_fst_dproj]
 
-theorem checkProjIota_snd_dproj (env' : Env) (T ctorName : Name) (lps : List Name) (cvj : ConstantVal) (nP nF i : Nat) :
-    (checkProjIota env' T ctorName lps cvj nP nF i : PairM rel _).val.2 =
-      (checkProjIota env' T ctorName lps cvj nP nF i : M₂ _) := by
+theorem checkProjIota_snd_dproj (env' envSelf : Env) (T ctorName : Name) (lps : List Name) (cvj : ConstantVal) (nP nF i : Nat) :
+    (checkProjIota (pairOps o₁ o₂ h) env' envSelf T ctorName lps cvj nP nF i).val.2 =
+      checkProjIota o₂ env' envSelf T ctorName lps cvj nP nF i := by
   unfold checkProjIota
-  dsnd_tac
+  simp only [PairM.snd_bind, PairM.snd_pure, PairM.snd_throw,
+    PairM.snd_ite, unwrapOr_snd_dproj, checkIotaSidesTy_snd_dproj]
 
 theorem checkProjShape_fst_dproj (pty cty : Expr) (nP nF : Nat) :
     (checkProjShape pty cty nP nF : PairM rel _).val.1 =
@@ -1568,11 +1570,12 @@ theorem checkProjShape_datF (pty cty : Expr) (nP nF : Nat) (F : Nat) :
   unfold checkProjShape
   datF_tac
 
-theorem checkProjIota_datF (env' : Env) (T ctorName : Name) (lps : List Name) (cvj : ConstantVal) (nP nF i : Nat) (F : Nat) :
-    (checkProjIota env' T ctorName lps cvj nP nF i : FueledM _).val F =
-      (checkProjIota env' T ctorName lps cvj nP nF i : CheckM _) := by
+theorem checkProjIota_datF (env' envSelf : Env) (T ctorName : Name) (lps : List Name) (cvj : ConstantVal) (nP nF i : Nat) (F : Nat) :
+    (checkProjIota fueledOpsM env' envSelf T ctorName lps cvj nP nF i).val F =
+      checkProjIota (fueledOps F) env' envSelf T ctorName lps cvj nP nF i := by
   unfold checkProjIota
-  datF_tac
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+    FueledM.atF_ite, unwrapOr_atF, checkIotaSidesTy_datF]
 
 theorem fueledOpsM_isDefEq_atF (env : Env) (d : Nat) (a b : Expr)
     (F : Nat) :

@@ -684,7 +684,8 @@ def checkProjRuleF (ops : CheckerOps m) (fe : FEnv) (pty : Expr) (cvj : Constant
   pure rhsA
 
 /-- `checkProjIota` through the index. -/
-def checkProjIotaF (fe : FEnv) (T ctorName : Name) (lps : List Name)
+def checkProjIotaF (ops : CheckerOps m) (fe : FEnv)
+    (T ctorName : Name) (lps : List Name)
     (cvj : ConstantVal) (nP nF i : Nat) : m Unit := do
   let some (.thmInfo tcv _) := fe.find? ((projModelName T i).str "iota")
     | throw (.notImplemented "missing projection iota theorem")
@@ -707,20 +708,21 @@ def checkProjIotaF (fe : FEnv) (T ctorName : Name) (lps : List Name)
   let lhsS := Expr.mkAppN
     (.const (projModelName T i) (lps.map .param)) (pArgs ++ [mkSpine])
   match sbody with
-  | .app (.app (.app (.const c [_ℓ]) tySlot) lhsC) rhsC =>
+  | .app (.app (.app (.const c [_ℓ]) _tySlot) lhsC) rhsC =>
     unless c = eqName do
       throw (.notImplemented "projection iota head")
     unless lhsC == lhsS do
       throw (.notImplemented "projection iota redex mismatch")
     unless rhsC == Expr.bvar (nF - 1 - i) do
       throw (.notImplemented "projection iota field mismatch")
-    -- type-slot pin (task #100 stage 3; see `checkProjIota`)
-    unless (match sbinders[nP + i]? with
-        | some (_, idom, _) =>
-          tySlot == idom.liftLooseBVars (nF - i) 0
-        | none => false) do
-      throw (.notImplemented "projection iota type slot mismatch")
   | _ => throw (.notImplemented "projection iota body shape")
+  -- side certificates (task #100 stage 3; see `checkProjIota`)
+  let (_, sbodyO) ← unwrapOr (openPisAtFvars depth tcv.type 0)
+    (.notImplemented "projection iota telescope")
+  let targsO := sbodyO.getAppArgs
+  checkIotaSidesTy ops fe.env depth (targsO.getD 0 (.bvar 0))
+    (targsO.getD 1 (.bvar 0)) (targsO.getD 2 (.bvar 0))
+    (projModelName T i)
 
 /-- `checkDefnVal` through the index, returning the pushed index. -/
 def checkDefnValF (ops : CheckerOps m) (fe : FEnv) (cv : ConstantVal)
@@ -1146,7 +1148,7 @@ def checkProjFnS (fe : FEnv) (T ctorName : Name) (lps : List Name)
   unless i < nF do
     throw (.invalid "projection index out of range")
   let rhsA ← checkProjRuleF (sharedOps fe) fe pty cvj lps nP nF i
-  checkProjIotaF (m := CheckIM) fe T ctorName lps cvj nP nF i
+  checkProjIotaF (sharedOps fe) fe T ctorName lps cvj nP nF i
   pure (fe.push (.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
     [⟨ctorName, nF, nP,
       if Expr.recRulePlain pty nP nP nP then .plain else .inert, rhsA⟩]))
