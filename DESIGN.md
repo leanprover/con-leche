@@ -7057,6 +7057,63 @@ Amended order, each stage green:
    the model level-free, no shadow environment and no `codOf` oracle
    is needed (architecture 4 supersedes the fork's 1–3).
 
+### Stages 3–5 landed; the erasure migration's remainder is exactly stage 6 (2026-08-25, task #100)
+
+**Landed** (branch `feat/100-flip`; gates: build warning-free, `lake
+test`, arena 90/92, e2e 64/64, axioms exactly `[propext,
+Classical.choice, Quot.sound]`, scale all-PASS, init-prelude
+byte-identical to pre-flip master in both modes).  The flip's
+execution absorbed stages 4 and 5 — they were not separable in
+practice, because the false-surface deletion (stage 3's `lam_zero`/
+`lam_dom`/… migration) *is* the iota-walk and basis-value rework:
+
+* **Stage 3 (the model flip)** — `interpExpr`'s binder clauses are
+  level-free; `AnnotOk`'s ∀-clause carries the subset-form cod tie
+  (below), the λ-clause none; the vestigial `pi (v) A B := piC A B`
+  abbrevs stand in at the ~2000 call sites; compat surface derived,
+  false surface deleted (`Derive/Pi.lean` documents the replacement
+  table).  Of the two moved deletions: the defeq binder cod
+  comparison is **gone** (spec/interned/NC), the λ-annotation
+  re-check is **restored** (see the finding below).
+* **Stage 4 (iota walk / basis domain recovery)** — `IotaWalk`,
+  `Basis/Glue`, `BasisLemmas` dispatch through `mem_piC_cases` /
+  `≠ pt` premises; the guarded-beta/proj successors consume the
+  de-gated certificates unconditionally in the soundness walks.
+* **Stage 5 (basis values)** — every per-type
+  `Install/Claims/Iota/RuleOk/AnnotOk` module re-derived on the
+  collapse laws (`lamC_of_forall` value computations, if-form
+  universe witnesses via `piC_mem_univ`, subset-form ties).
+* **Also forced here** (collapse root cause, recorded below):
+  modeled Eq-statement domains are *certified* —
+  `checkIotaThm(N)`/`checkProjIota` run `checkIotaSidesTy`,
+  eta/unit pin their type slots syntactically.
+
+**What remains — stage 6 (kernel-side erasure), in one piece:**
+
+1. Delete the annotate pass (`annotateCore` + `ops.annotate`
+   surface), `BinderMeta.cod` storage, the cod memos, and the
+   vestigial level parameters on `pi`/`lam` (the abbrevs die; goals
+   then read `piC`/`lamC` directly).
+2. The two loads that die *together with* the stored cod: the
+   λ-annotation re-check (`Kernel/Core.lean` lam infer clause,
+   `inferLamsOutI`) and the ∀-imax cod read — the ∀-clause then
+   infers its codomain sort, and `AnnotOk`'s subset-form tie becomes
+   self-establishing (`m.cod = none` renders the tie vacuous;
+   `Interp.lean` says so at the clause).
+3. The raw-storage flip is stage 6's implementation path: groundwork
+   landed (raw-storage stages 4a `norm`/twin relation and 4d install
+   combinators, above); the call-site-by-call-site plan for 4b/4c is
+   in the two storage-flip handoffs (`stage 4b, call site by call
+   site` and `what the storage flip actually needs`).  With the
+   model level-free there is no shadow environment and no `codOf`
+   oracle — architecture 4.
+4. Gates unchanged: verdicts byte-identical (the deletion is
+   consumption-side; the annotate pass's absence must not change
+   verdicts on well-formed streams), plus the standard battery; the
+   erasure finally recovers the de-gating's +55 % init-full
+   certified cost by deleting the per-declaration inference sweep —
+   re-measure then.
+
 ### Stage 3 finding: the λ-cod re-check is NOT flip-deletable; `AnnotOk` keeps a subset-form cod tie at ∀ (2026-08-25, task #100)
 
 The stage-3 plan moved two deletions into the flip.  Executing it
