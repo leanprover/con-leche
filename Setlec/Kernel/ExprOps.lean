@@ -473,7 +473,7 @@ def recRulePlain (recTy : Expr) (mI rP cnP : Nat) : Bool :=
 def pisToLams : Nat → Expr → Expr → Option Expr
   | 0, _, body => some body
   | k + 1, .forallE n ty rest m, body =>
-    (pisToLams k rest body).map fun b => .lam n ty b ⟨m.bi, none⟩
+    (pisToLams k rest body).map fun b => .lam n ty b ⟨m.bi⟩
   | _ + 1, _, _ => none
 
 /-- Replace the body under the first `k` `∀`-binders (binder domains and
@@ -481,7 +481,7 @@ names kept, codomain-sort annotations reset — the caller annotates). -/
 def replacePiBody : Nat → Expr → Expr → Option Expr
   | 0, _, b => some b
   | k + 1, .forallE n ty rest m, b =>
-    (replacePiBody k rest b).map fun r => .forallE n ty r ⟨m.bi, none⟩
+    (replacePiBody k rest b).map fun r => .forallE n ty r ⟨m.bi⟩
   | _ + 1, _, _ => none
 
 /-- The length of the leading `∀`-telescope. -/

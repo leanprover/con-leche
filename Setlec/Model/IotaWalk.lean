@@ -272,10 +272,10 @@ theorem pi_walk {env : Env} (m : EnvModel V env) (F : Nat)
         simp only [fvarLeaves, List.mem_append]; exact Or.inl hl) hFR
     have hAS' := hAS
     simp only [AnnotOk] at hAS'
-    obtain ⟨hAdomS, codS, -, hcondS⟩ := hAS'
+    obtain ⟨hAdomS, codS, hcondS⟩ := hAS'
     have hAR' := hAR
     simp only [AnnotOk] at hAR'
-    obtain ⟨hAdomR, codR, -, hcondR⟩ := hAR'
+    obtain ⟨hAdomR, codR, hcondR⟩ := hAR'
     -- interpretations of the two domains
     obtain ⟨PS, hPS⟩ := hIS
     obtain ⟨PR, hPR⟩ := hIR
@@ -458,7 +458,7 @@ theorem pi_walk_src {env : Env} (m : EnvModel V env) (F : Nat)
         simp only [fvarLeaves, List.mem_append]; exact Or.inl hl) hFR
     have hAR' := hAR
     simp only [AnnotOk] at hAR'
-    obtain ⟨hAdomR, codR, -, hcondR⟩ := hAR'
+    obtain ⟨hAdomR, codR, hcondR⟩ := hAR'
     obtain ⟨PR, hPR⟩ := hIR
     have hIdomR : ∃ B, interpExpr V m.val env φ D ρ domR = some B := by
       revert hPR
@@ -580,7 +580,7 @@ theorem typed_walk {env : Env} (m : EnvModel V env) (F : Nat)
         simp only [fvarLeaves, List.mem_append]; exact Or.inl hl) hFR
     have hAR' := hAR
     simp only [AnnotOk] at hAR'
-    obtain ⟨hAdomR, codR, -, hcondR⟩ := hAR'
+    obtain ⟨hAdomR, codR, hcondR⟩ := hAR'
     obtain ⟨PR, hPR⟩ := hIR
     have hIdomR : ∃ B, interpExpr V m.val env φ D ρ domR = some B := by
       revert hPR
@@ -765,9 +765,9 @@ theorem AnnotOk.renameConsts {f : Name → Name}
       AnnotOk V cval env φ d ρ (e.renameConsts f)
   | .forallE n ty body m, d, ρ, ha => by
     simp only [AnnotOk] at ha
-    obtain ⟨haty, vE, htie, hcond⟩ := ha
+    obtain ⟨haty, vE, hcond⟩ := ha
     simp only [Expr.renameConsts, AnnotOk]
-    refine ⟨AnnotOk.renameConsts hro ty d ρ haty, vE, htie, ?_⟩
+    refine ⟨AnnotOk.renameConsts hro ty d ρ haty, vE, ?_⟩
     intro x A hity hx
     rw [interp_renameConsts hro ty d ρ] at hity
     obtain ⟨hbody, hw⟩ := hcond x A hity hx
@@ -881,7 +881,7 @@ theorem expr_peel_walk {φ : Name → Nat} {D : Nat} {ρ : Nat → V} :
       simpa [WScoped] using hW
     have hA' := hA
     simp only [AnnotOk] at hA'
-    obtain ⟨hAdom, cod, -, hcond⟩ := hA'
+    obtain ⟨hAdom, cod, hcond⟩ := hA'
     obtain ⟨B, hBi, hvB⟩ := hmem 0 dom v rfl rfl
     obtain ⟨hWa, hba, hAa⟩ := hws a List.mem_cons_self
     obtain ⟨hAop, hfib⟩ := hcond v B hBi hvB
@@ -937,7 +937,7 @@ theorem peel_walk {φ : Name → Nat} {D : Nat} {ρ : Nat → V} :
       simpa [WScoped] using hW
     have hA' := hA
     simp only [AnnotOk] at hA'
-    obtain ⟨hAdom, cod, -, hcond⟩ := hA'
+    obtain ⟨hAdom, cod, hcond⟩ := hA'
     obtain ⟨B, hBi, hvB⟩ := hmem 0 dom v rfl rfl
     have hwfv : WScoped D (Expr.fvar i nfv tfv) :=
       hws _ List.mem_cons_self
@@ -1148,7 +1148,7 @@ theorem self_walk {φ : Name → Nat} {D : Nat} {ρ : Nat → V} :
         simp only [fvarLeaves, List.mem_append]; exact Or.inl hl) hF
     have hA' := hA
     simp only [AnnotOk] at hA'
-    obtain ⟨hAdom, cod, -, hcond⟩ := hA'
+    obtain ⟨hAdom, cod, hcond⟩ := hA'
     obtain ⟨B, hBi, hvB⟩ := hmem 0 tfv v (by simp [Expr.fvarTypeD]) rfl
     have hwfv : WScoped D (Expr.fvar i nfv tfv) :=
       hws _ List.mem_cons_self

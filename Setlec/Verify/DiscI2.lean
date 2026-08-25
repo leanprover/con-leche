@@ -191,38 +191,25 @@ theorem etaCertI_sim (ih : SSimI env f) {d : Nat} {n₁ : NIdx}
       (coreKnotI (mkFEnv env) f).whnf d tb >>= fun wtb =>
       viewI wtb >>= fun n =>
       match n with
-      | some (.forallE _ ty₂ _ m₂) =>
-        match m₁.cod, m₂.cod with
-        | some v₁, some v₂ =>
-          isEquivLM v₁ v₂ >>= fun o =>
-          liftFueled "level comparison" o >>= fun ok =>
-          if ok then
-            (coreKnotI (mkFEnv env) f).defeq d ty₂ ty₁ >>= fun r =>
-            if r then
-              internI (.fvar d n₁ ty₁) >>= fun fv =>
-              inst1M body₁ fv >>= fun b₁ =>
-              internI (.app b fv) >>= fun ba =>
-              (coreKnotI (mkFEnv env) f).defeq (d + 1) b₁ ba
-            else pure false
-          else pure false
-        | _, _ => pure false
+      | some (.forallE _ ty₂ _ _m₂) =>
+        (coreKnotI (mkFEnv env) f).defeq d ty₂ ty₁ >>= fun r =>
+        if r then
+          internI (.fvar d n₁ ty₁) >>= fun fv =>
+          inst1M body₁ fv >>= fun b₁ =>
+          internI (.app b fv) >>= fun ba =>
+          (coreKnotI (mkFEnv env) f).defeq (d + 1) b₁ ba
+        else pure false
       | _ => pure false)
     ((fueledFns env).infer d bx >>= fun tb =>
       (fueledFns env).whnf d tb >>= fun wtb =>
       match wtb with
-      | .forallE _ ty₂ _ m₂ =>
-        match bm₁.cod, m₂.cod with
-        | some v₁, some v₂ =>
-          liftFueled "level comparison" (Level.isEquiv v₁ v₂) >>= fun ok =>
-          if ok then
-            (fueledFns env).defeq d ty₂ ty₁x >>= fun r =>
-            if r then
-              (fueledFns env).defeq (d + 1)
-                (body₁x.instantiate1 (.fvar d n₁x ty₁x))
-                (.app bx (.fvar d n₁x ty₁x))
-            else pure false
-          else pure false
-        | _, _ => pure false
+      | .forallE _ ty₂ _ _m₂ =>
+        (fueledFns env).defeq d ty₂ ty₁x >>= fun r =>
+        if r then
+          (fueledFns env).defeq (d + 1)
+            (body₁x.instantiate1 (.fvar d n₁x ty₁x))
+            (.app bx (.fvar d n₁x ty₁x))
+        else pure false
       | _ => pure false)
   refine SimAt.bind (ih.infer hs hb hwb) (fun s₁ tb tbx hs₁ hext₁ hP => ?_)
   obtain ⟨htbd, hwtb⟩ := hP
@@ -247,74 +234,45 @@ theorem etaCertI_sim (ih : SSimI env f) {d : Nat} {n₁ : NIdx}
     have hwty₂ : WScoped d ty₂x := by
       simp only [WScoped] at hwwtb
       exact hwwtb.1
-    cases hc₁ : m₁.cod with
-    | none =>
-      rw [show bm₁.cod = none from (denoteBM_none_iff hm₁).mp hc₁]
-      exact SimAt.pure hs₂ rfl
-    | some v₁ =>
-      obtain ⟨lv₁, hlv₁, hbm₁c⟩ := denoteBM_some hm₁ hc₁
-      rw [hbm₁c]
-      cases hc₂ : m₂.cod with
-      | none =>
-        rw [show bm.cod = none from (denoteBM_none_iff hbmDen).mp hc₂]
-        exact SimAt.pure hs₂ rfl
-      | some v₂ =>
-        obtain ⟨lv₂, hlv₂, hbm₂c⟩ := denoteBM_some hbmDen hc₂
-        rw [hbm₂c]
-        dsimp only
-        refine SimAt.bind_left
-          (isEquivLM_eff hs₂
-            (denoteL_mono (hext₁.trans hext₂) hlv₁) hlv₂)
-          (fun s₂o o hs₂o hext₂o ho => ?_)
-        subst ho
-        refine SimAt.bind (SimAt.liftFueled _ _ hs₂o)
-          (fun s₃ ok ok' hs₃ hext₃ hPok => ?_)
-        obtain rfl : ok = ok' := hPok
-        cases ok with
-        | false =>
-          simp only [Bool.false_eq_true, ↓reduceIte]
-          exact SimAt.pure hs₃ rfl
-        | true =>
-          simp only [↓reduceIte]
-          refine SimAt.bind (ih.defeq hs₃
-            (denoteT_mono (hext₂o.trans hext₃) hty₂)
-            (denoteT_mono (((hext₁.trans hext₂).trans hext₂o).trans hext₃)
-              hty)
-            hwty₂ hwty) (fun s₄ r r' hs₄ hext₄ hPr => ?_)
-          obtain rfl : r = r' := hPr
-          cases r with
-          | false =>
-            simp only [Bool.false_eq_true, ↓reduceIte]
-            exact SimAt.pure hs₄ rfl
-          | true =>
-            simp only [↓reduceIte]
-            have hext₀₄ :=
-              (((hext₁.trans hext₂).trans hext₂o).trans hext₃).trans hext₄
-            have hfvd : denoteNode s₄.store.denoteT s₄.store.denoteL
-                s₄.store.denoteN (.fvar d n₁ ty₁)
-                = some (.fvar d n₁x ty₁x) := by
-              rw [denoteNode, denoteT_mono hext₀₄ hty,
-                denoteN_mono hext₀₄ hn₁]; rfl
-            refine SimAt.bind_left (internI_eff hs₄ hfvd)
-              (fun s₅ fv hs₅ hext₅ hQfv => ?_)
-            refine SimAt.bind_left (inst1M_eff hs₅
-              (denoteT_mono (hext₀₄.trans hext₅) hbody) hQfv)
-              (fun s₆ b₁ hs₆ hext₆ hQb₁ => ?_)
-            have hbad : denoteNode s₆.store.denoteT s₆.store.denoteL
-                s₆.store.denoteN (.app b fv)
-                = some (.app bx (.fvar d n₁x ty₁x)) := by
-              rw [denoteNode,
-                denoteT_mono ((hext₀₄.trans hext₅).trans hext₆) hb,
-                denoteT_mono hext₆ hQfv]
-              rfl
-            refine SimAt.bind_left (internI_eff hs₆ hbad)
-              (fun s₇ ba hs₇ hext₇ hQba => ?_)
-            refine ih.defeq hs₇ (denoteT_mono hext₇ hQb₁) hQba
-              (WScoped.instantiate1 hwty 0 hwbody) ?_
-            show WScoped (d + 1) (.app bx (.fvar d n₁x ty₁x))
-            simp only [WScoped]
-            exact ⟨WScoped.mono (Nat.le_succ d) hwb, Nat.lt_succ_self d,
-              hwty⟩
+    try dsimp only
+    refine SimAt.bind (ih.defeq hs₂
+      (denoteT_mono ?hexta hty₂)
+      (denoteT_mono (hext₁.trans hext₂) hty)
+      hwty₂ hwty) (fun s₄ r r' hs₄ hext₄ hPr => ?_)
+    case hexta => exact Ext.refl _
+    obtain rfl : r = r' := hPr
+    cases r with
+    | false =>
+      simp only [Bool.false_eq_true, ↓reduceIte]
+      exact SimAt.pure hs₄ rfl
+    | true =>
+      simp only [↓reduceIte]
+      have hext₀₄ := (hext₁.trans hext₂).trans hext₄
+      have hfvd : denoteNode s₄.store.denoteT s₄.store.denoteL
+          s₄.store.denoteN (.fvar d n₁ ty₁)
+          = some (.fvar d n₁x ty₁x) := by
+        rw [denoteNode, denoteT_mono hext₀₄ hty,
+          denoteN_mono hext₀₄ hn₁]; rfl
+      refine SimAt.bind_left (internI_eff hs₄ hfvd)
+        (fun s₅ fv hs₅ hext₅ hQfv => ?_)
+      refine SimAt.bind_left (inst1M_eff hs₅
+        (denoteT_mono (hext₀₄.trans hext₅) hbody) hQfv)
+        (fun s₆ b₁ hs₆ hext₆ hQb₁ => ?_)
+      have hbad : denoteNode s₆.store.denoteT s₆.store.denoteL
+          s₆.store.denoteN (.app b fv)
+          = some (.app bx (.fvar d n₁x ty₁x)) := by
+        rw [denoteNode,
+          denoteT_mono ((hext₀₄.trans hext₅).trans hext₆) hb,
+          denoteT_mono hext₆ hQfv]
+        rfl
+      refine SimAt.bind_left (internI_eff hs₆ hbad)
+        (fun s₇ ba hs₇ hext₇ hQba => ?_)
+      refine ih.defeq hs₇ (denoteT_mono hext₇ hQb₁) hQba
+        (WScoped.instantiate1 hwty 0 hwbody) ?_
+      show WScoped (d + 1) (.app bx (.fvar d n₁x ty₁x))
+      simp only [WScoped]
+      exact ⟨WScoped.mono (Nat.le_succ d) hwb, Nat.lt_succ_self d,
+        hwty⟩
   | bvar k => invert_node hd; exact SimAt.pure hs₂ rfl
   | sort u => invert_node hd; exact SimAt.pure hs₂ rfl
   | const nmᵢ us => invert_node hd; exact SimAt.pure hs₂ rfl

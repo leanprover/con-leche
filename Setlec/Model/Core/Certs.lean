@@ -224,7 +224,7 @@ theorem certs_fit {m : EnvModel V env} {fuel : Nat}
     obtain ⟨haw, hab, haL, haF, haA⟩ := hargs a List.mem_cons_self
     -- the domain interprets (the ∀-tower interp forces it)
     simp only [AnnotOk] at hAty
-    obtain ⟨hAdom, vE, -, hcond⟩ := hAty
+    obtain ⟨hAdom, vE, hcond⟩ := hAty
     rw [interpExpr] at hity
     obtain ⟨A, hidom, hpieq⟩ : ∃ A,
         interpExpr V m.val env φ d ρ dom = some A ∧

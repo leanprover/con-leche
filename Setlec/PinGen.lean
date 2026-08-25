@@ -89,7 +89,7 @@ instance : ToExpr Setlec.BinderInfo where
 
 instance : ToExpr Setlec.BinderMeta where
   toExpr m :=
-    mkApp2 (.const ``Setlec.BinderMeta.mk []) (toExpr m.bi) (toExpr m.cod)
+    .app (.const ``Setlec.BinderMeta.mk []) (toExpr m.bi)
   toTypeExpr := .const ``Setlec.BinderMeta []
 
 instance : ToExpr Setlec.Literal where
@@ -156,8 +156,7 @@ def sanitizeBinderName (n : Lean.Name) : Setlec.Name :=
 /-- Conversion; `letE` is zeta-expanded (pins are compared by
 definitional equality, and let-free pins keep the pin machinery
 independent of the kernel's letE rules), `mdata` stripped, binder
-metadata carries `cod := none` (the raw form: the checker's annotation
-pass computes the codomain sorts). -/
+metadata carries only the display info (task #100: annotation-free). -/
 partial def toSetlec : Lean.Expr → Except String Setlec.Expr
   | .bvar i => .ok (.bvar i)
   | .sort u => (Setlec.Expr.sort ·) <$> toSetlecLevel u
@@ -166,10 +165,10 @@ partial def toSetlec : Lean.Expr → Except String Setlec.Expr
   | .app f a => Setlec.Expr.app <$> toSetlec f <*> toSetlec a
   | .lam n ty b bi => do
     .ok (.lam (sanitizeBinderName n) (← toSetlec ty) (← toSetlec b)
-      ⟨toSetlecBI bi, none⟩)
+      ⟨toSetlecBI bi⟩)
   | .forallE n ty b bi => do
     .ok (.forallE (sanitizeBinderName n) (← toSetlec ty) (← toSetlec b)
-      ⟨toSetlecBI bi, none⟩)
+      ⟨toSetlecBI bi⟩)
   | .letE _ _ v b _ => toSetlec (b.instantiate1 v)
   | .lit (.natVal n) => .ok (.lit (.natVal n))
   | .lit (.strVal s) => .ok (.lit (.strVal s))

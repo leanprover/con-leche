@@ -67,10 +67,10 @@ theorem SpineFold_append (v : V) (xs ys : List V) :
   simp [SpineFold, List.foldl_append]
 
 /-- One `AnnotOk`-app typing slot: the function value sits in a pi whose
-domain contains the argument, with the fibres in the tag's universe. -/
+domain contains the argument (task #100 stage 6: level-free — no
+fibre-universe fact). -/
 def AppSlot (f a : V) : Prop :=
-  ∃ vE A B, f ∈ˢ pi vE A (B : V → V) ∧ a ∈ˢ A ∧
-    ∀ x, x ∈ˢ A → B x ∈ˢ univ vE
+  ∃ A B, f ∈ˢ piC A (B : V → V) ∧ a ∈ˢ A
 
 /-- Typing slots along a whole application spine. -/
 def ChainSlots (v : V) : List V → Prop

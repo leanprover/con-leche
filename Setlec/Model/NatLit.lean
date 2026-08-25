@@ -180,10 +180,9 @@ theorem annotOk_natLitToConstructor (m : EnvModel V env)
     rw [natLitToConstructor]
     simp only [AnnotOk]
     refine ⟨trivial, trivial, m.val natSuccName φ,
-      natLitVal V (m.val natZeroName φ) (m.val natSuccName φ) k, 1,
+      natLitVal V (m.val natZeroName φ) (m.val natSuccName φ) k,
       m.val natName φ, fun _ => m.val natName φ,
       interpExpr_const_natSucc hs, interpExpr_lit hs,
-      natSuccVal_mem_pi m hs φ, natLitVal_mem_nat m hs φ k,
-      fun x hx => natVal_mem_univ m hs φ⟩
+      natSuccVal_mem_pi m hs φ, natLitVal_mem_nat m hs φ k⟩
 
 end Setlec

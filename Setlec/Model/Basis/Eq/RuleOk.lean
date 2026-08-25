@@ -463,15 +463,6 @@ theorem eqFr_annotOk_tyM {cval : ConstVal V} {A a : V}
       cval (Name.anonymous.str "Eq") ψ' = eqVal V ψ' := hvalE
   simp only [eqFrTyM, eqFrEqC, eqFrA, eqFra, AnnotOk]
   refine ⟨trivial, ψ u1N + 1, ?_⟩
-  refine ⟨?_, ?_⟩
-  · first
-      | (rintro v ⟨rfl⟩; exact fun z hz => hz)
-      | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
-      | (rintro v ⟨rfl⟩
-         intro z hz
-         refine univ_mono ?_ z hz
-         simp only [Level.eval, erAl, erA, erA₀, erM, erRefl, erB, uN, u1N]
-         by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "u_1") = 0 <;> by_cases h3 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2, h3] <;> omega)
   intro b Sb hSb hb
   have hSb' : Sb = A := by
     simp [interpExpr, updV] at hSb
@@ -509,16 +500,7 @@ theorem eqFr_annotOk_tyM {cval : ConstVal V} {A a : V}
         ConstantInfo.toConstantVal]
       try rfl
     · simp [interpExpr, Expr.instantiate1, updV]
-    · refine ⟨?_, ?_⟩
-      · first
-          | (rintro v ⟨rfl⟩; exact fun z hz => hz)
-          | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
-          | (rintro v ⟨rfl⟩
-             intro z hz
-             refine univ_mono ?_ z hz
-             simp only [Level.eval, erAl, erA, erA₀, erM, erRefl, erB, uN, u1N]
-             by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "u_1") = 0 <;> by_cases h3 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2, h3] <;> omega)
-      intro t St hSt ht
+    · intro t St hSt ht
       refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
       refine ⟨univ (ψ u1N), ?_, ?_⟩
       · simp [interpExpr, Expr.instantiate1, updV, Level.eval, u1N]

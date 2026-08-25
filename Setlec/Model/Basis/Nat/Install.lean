@@ -82,15 +82,12 @@ theorem annotOk_natSucc_type {cval : ConstVal V}
   have hvalN' : ∀ ψ' : Name → Nat,
       cval (Name.anonymous.str "Nat") ψ' = omega := hvalN
   simp only [natSuccA, ConstantInfo.toConstantVal, AnnotOk]
-  refine ⟨trivial, 1, ?_, ?_⟩
-  · rintro v ⟨rfl⟩
-    exact fun z hz => hz
-  · intro n Sn hSn hnmem
-    refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
-    refine ⟨omega, ?_, ?_⟩
-    · simp [interpExpr, Expr.instantiate1, updV, hfindN', hvalN', natA,
-        ConstantInfo.toConstantVal]
-    · exact omega_mem_univ
+  refine ⟨trivial, ?_⟩
+  intro n Sn hSn hnmem
+  refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
+  refine ⟨omega, ?_⟩
+  simp [interpExpr, Expr.instantiate1, updV, hfindN', hvalN', natA,
+    ConstantInfo.toConstantVal]
 
 /-! Raw evaluations of `Nat.rec`'s binder annotations. -/
 
@@ -238,23 +235,14 @@ theorem annotOk_natRec_type {cval : ConstVal V}
   have hvalSc' : ∀ ψ' : Name → Nat,
       cval ((Name.anonymous.str "Nat").str "succ") ψ' = natSuccVal V ψ' := hvalSc
   simp only [natRecA, ConstantInfo.toConstantVal, AnnotOk]
-  refine ⟨?_, enM (ψ uN), ?_, ?_⟩
-  case refine_2 =>
-    rintro v ⟨rfl⟩
-    intro z hz
-    refine univ_mono ?_ z hz
-    simp only [Level.eval, enM, enZ, en11UU, en1U, enUU, uN]
-    by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> simp [h1] <;> omega
+  refine ⟨?_, ?_⟩
   · -- the motive space `(t : Nat) → Sort u`
     try simp only [AnnotOk]
-    refine ⟨trivial, ψ uN + 1, ?_, ?_⟩
-    · rintro v ⟨rfl⟩
-      exact fun z hz => hz
-    · intro t St hSt htmem
-      refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
-      refine ⟨univ (ψ uN), ?_, ?_⟩
-      · simp [interpExpr, Expr.instantiate1, updV, Level.eval, uN]
-      · exact univ_mem_univ (ψ uN)
+    refine ⟨trivial, ?_⟩
+    intro t St hSt htmem
+    refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
+    refine ⟨univ (ψ uN), ?_⟩
+    simp [interpExpr, Expr.instantiate1, updV, Level.eval, uN]
   · intro M SM hSM hMmem
     simp [interpExpr, Expr.instantiate1, updV, hfindN', hvalN', natA,
       ConstantInfo.toConstantVal, Level.eval, uN,
@@ -268,35 +256,19 @@ theorem annotOk_natRec_type {cval : ConstVal V}
       try simp only [Expr.instantiate1, reduceIte, AnnotOk]
       refine ⟨⟨(by simp [Expr.instantiate1, AnnotOk]),
         (by simp [Expr.instantiate1, AnnotOk]),
-        M, natzero, ψ uN + 1, omega, (fun _ => univ (ψ uN)),
-        ?_, ?_, hMmem', natzero_mem,
-        fun _ _ => univ_mem_univ (ψ uN)⟩, enZ (ψ uN), ?_, ?_⟩
+        M, natzero, omega, (fun _ => univ (ψ uN)),
+        ?_, ?_, hMmem', natzero_mem⟩, ?_⟩
       · simp [interpExpr, Expr.instantiate1, updV]
       · simp [interpExpr, Expr.instantiate1, updV, hfindZ', hvalZ',
           natZeroA, ConstantInfo.toConstantVal]
-      case refine_3 =>
-        rintro v ⟨rfl⟩
-        intro z hz
-        refine univ_mono ?_ z hz
-        simp only [Level.eval, enM, enZ, en11UU, en1U, enUU, uN]
-        by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> simp [h1] <;> omega
       intro z Sz hSz hzmem
       refine ⟨?_, ?_⟩
       · -- opened `∀ (succ : …), …`
         try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-        refine ⟨?_, en1U (ψ uN), ?_, ?_⟩
-        case refine_2 =>
-          rintro v ⟨rfl⟩
-          intro z hz
-          refine univ_mono ?_ z hz
-          simp only [Level.eval, en1U, uN]
-          by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> simp [h1] <;> omega
+        refine ⟨?_, ?_⟩
         · -- the successor minor-premise space
           try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-          refine ⟨trivial,
-            (if ψ uN = 0 then 0 else Nat.max (ψ uN) (ψ uN)), ?_, ?_⟩
-          · rintro v ⟨rfl⟩
-            exact fun z hz => hz
+          refine ⟨trivial, ?_⟩
           intro n Sn hSn hnmem
           simp [interpExpr, Expr.instantiate1, updV, hfindN', hvalN', natA,
             ConstantInfo.toConstantVal] at hSn
@@ -306,27 +278,21 @@ theorem annotOk_natRec_type {cval : ConstVal V}
             try simp only [Expr.instantiate1, reduceIte, AnnotOk]
             refine ⟨⟨(by simp [Expr.instantiate1, AnnotOk]),
               (by simp [Expr.instantiate1, AnnotOk]),
-              M, n, ψ uN + 1, omega, (fun _ => univ (ψ uN)),
-              ?_, ?_, hMmem', hnmem,
-              fun _ _ => univ_mem_univ (ψ uN)⟩, ψ uN, ?_, ?_⟩
+              M, n, omega, (fun _ => univ (ψ uN)),
+              ?_, ?_, hMmem', hnmem⟩, ?_⟩
             · simp [interpExpr, Expr.instantiate1, updV]
             · simp [interpExpr, Expr.instantiate1, updV]
-            case refine_3 =>
-              rintro v ⟨rfl⟩
-              exact fun z hz => hz
             intro ih Sih hSih hihmem
             refine ⟨?_, ?_⟩
             · -- the body `motive (Nat.succ n)`
               try simp only [Expr.instantiate1, reduceIte, AnnotOk]
               refine ⟨(by simp [Expr.instantiate1, AnnotOk]),
                 ⟨⟨trivial, (by simp [Expr.instantiate1, AnnotOk]),
-                  natSuccVal V ψ, n, 1, omega, (fun _ => omega),
-                  ?_, ?_, natSuccVal_mem, hnmem,
-                  fun _ _ => omega_mem_univ⟩,
+                  natSuccVal V ψ, n, omega, (fun _ => omega),
+                  ?_, ?_, natSuccVal_mem, hnmem⟩,
                 M, SetTheory.app (natSuccVal V ψ) n,
-                ψ uN + 1, omega, (fun _ => univ (ψ uN)),
-                ?_, ?_, hMmem', ?_,
-                fun _ _ => univ_mem_univ (ψ uN)⟩⟩
+                omega, (fun _ => univ (ψ uN)),
+                ?_, ?_, hMmem', ?_⟩⟩
               · simp [interpExpr, Expr.instantiate1, updV, hfindSc',
                   hvalSc', natSuccA, ConstantInfo.toConstantVal]
                 try rfl
@@ -337,35 +303,24 @@ theorem annotOk_natRec_type {cval : ConstVal V}
                 try rfl
               · rw [natSuccVal_app hnmem]
                 exact natsucc_mem hnmem
-            · -- fibre-universe of `n_ih`
+            · -- interpretability of the body
               refine ⟨SetTheory.app M (SetTheory.app (natSuccVal V ψ) n),
-                ?_, ?_⟩
-              · simp [interpExpr, Expr.instantiate1, updV, hfindSc',
-                  hvalSc', natSuccA, ConstantInfo.toConstantVal]
-                try rfl
-              · rw [natSuccVal_app hnmem]
-                exact hMfib (natsucc n) (natsucc_mem hnmem)
-          · -- fibre-universe of `n`
-            refine ⟨pi (ψ uN) (SetTheory.app M n) (fun _ =>
-              SetTheory.app M (SetTheory.app (natSuccVal V ψ) n)), ?_, ?_⟩
-            · simp [interpExpr, Expr.instantiate1, updV, hfindSc',
-                hvalSc', natSuccA, ConstantInfo.toConstantVal, Level.eval, uN,
-                -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
+                ?_⟩
+              simp [interpExpr, Expr.instantiate1, updV, hfindSc',
+                hvalSc', natSuccA, ConstantInfo.toConstantVal]
               try rfl
-            · exact pi_mem_univ (u := ψ uN) (v := ψ uN)
-                (B := fun _ => SetTheory.app M (SetTheory.app (natSuccVal V ψ) n))
-                (hMfib n hnmem)
-                (fun _ _ => by
-                  try dsimp only
-                  rw [natSuccVal_app hnmem]
-                  exact hMfib (natsucc n) (natsucc_mem hnmem))
+          · -- interpretability of the opened body
+            refine ⟨pi (ψ uN) (SetTheory.app M n) (fun _ =>
+              SetTheory.app M (SetTheory.app (natSuccVal V ψ) n)), ?_⟩
+            simp [interpExpr, Expr.instantiate1, updV, hfindSc',
+              hvalSc', natSuccA, ConstantInfo.toConstantVal, Level.eval, uN,
+              -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
+            try rfl
         · intro s Ss hSs hsmem
           refine ⟨?_, ?_⟩
           · -- opened `∀ (t : Nat), motive t`
             try simp only [Expr.instantiate1, reduceIte, AnnotOk]
-            refine ⟨trivial, ψ uN, ?_, ?_⟩
-            · rintro v ⟨rfl⟩
-              exact fun z hz => hz
+            refine ⟨trivial, ?_⟩
             intro t St hSt htmem
             simp [interpExpr, Expr.instantiate1, updV, hfindN', hvalN', natA,
               ConstantInfo.toConstantVal] at hSt
@@ -375,102 +330,39 @@ theorem annotOk_natRec_type {cval : ConstVal V}
               try simp only [Expr.instantiate1, reduceIte, AnnotOk]
               refine ⟨(by simp [Expr.instantiate1, AnnotOk]),
                 (by simp [Expr.instantiate1, AnnotOk]),
-                M, t, ψ uN + 1, omega, (fun _ => univ (ψ uN)),
-                ?_, ?_, hMmem', htmem,
-                fun _ _ => univ_mem_univ (ψ uN)⟩
+                M, t, omega, (fun _ => univ (ψ uN)),
+                ?_, ?_, hMmem', htmem⟩
               · simp [interpExpr, Expr.instantiate1, updV]
               · simp [interpExpr, Expr.instantiate1, updV]
-            · -- fibre-universe of `t`
-              refine ⟨SetTheory.app M t, ?_, ?_⟩
-              · simp [interpExpr, Expr.instantiate1, updV]
-              · exact hMfib t htmem
-          · -- fibre-universe of `succ`
-            refine ⟨pi (ψ uN) omega (fun t => SetTheory.app M t), ?_, ?_⟩
-            · simp [interpExpr, Expr.instantiate1, updV, hfindN', hvalN',
-                natA, ConstantInfo.toConstantVal, Level.eval, uN,
-                -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
-              try rfl
-            · exact pi_mem_univ (u := 1) (v := ψ uN) omega_mem_univ
-                (fun t ht => hMfib t ht)
-      · -- fibre-universe of `zero`
+            · -- interpretability of `motive t`
+              refine ⟨SetTheory.app M t, ?_⟩
+              simp [interpExpr, Expr.instantiate1, updV]
+          · -- interpretability of the opened body
+            refine ⟨pi (ψ uN) omega (fun t => SetTheory.app M t), ?_⟩
+            simp [interpExpr, Expr.instantiate1, updV, hfindN', hvalN',
+              natA, ConstantInfo.toConstantVal, Level.eval, uN,
+              -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
+            try rfl
+      · -- interpretability of the opened body
         refine ⟨pi (en1U (ψ uN)) (pi (enUU (ψ uN)) omega fun n =>
           pi (ψ uN) (SetTheory.app M n) fun _ =>
             SetTheory.app M (SetTheory.app (natSuccVal V ψ) n))
-          (fun _ => pi (ψ uN) omega fun t => SetTheory.app M t), ?_, ?_⟩
-        · simp [interpExpr, Expr.instantiate1, updV, hfindN', hvalN',
-            hfindSc', hvalSc', natA, natSuccA,
-            ConstantInfo.toConstantVal, Level.eval, uN,
-            -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
-          try rfl
-        · have hsp : (pi (enUU (ψ uN)) omega fun n =>
-              pi (ψ uN) (SetTheory.app M n) fun _ =>
-                SetTheory.app M (SetTheory.app (natSuccVal V ψ) n)) ∈ˢ
-              univ (en11UU (ψ uN)) :=
-            pi_mem_univ (u := 1) (v := enUU (ψ uN))
-              (B := fun n => pi (ψ uN) (SetTheory.app M n) fun _ =>
-                SetTheory.app M (SetTheory.app (natSuccVal V ψ) n))
-              omega_mem_univ
-              (fun n hn => by
-                try dsimp only
-                rw [enUU_eq]
-                have hin := pi_mem_univ (u := ψ uN) (v := ψ uN)
-                  (B := fun _ => SetTheory.app M
-                    (SetTheory.app (natSuccVal V ψ) n))
-                  (hMfib n hn)
-                  (fun _ _ => by
-                    try dsimp only
-                    rw [natSuccVal_app hn]
-                    exact hMfib (natsucc n) (natsucc_mem hn))
-                by_cases hu : ψ uN = 0
-                · simpa [hu] using hin
-                · simpa [hu, Nat.max_self] using hin)
-          exact pi_mem_univ (u := en11UU (ψ uN)) (v := en1U (ψ uN)) hsp
-            (fun _ _ => pi_mem_univ (u := 1) (v := ψ uN)
-              (B := fun t => SetTheory.app M t) omega_mem_univ
-              (fun t ht => hMfib t ht))
-    · -- fibre-universe of `motive`
+          (fun _ => pi (ψ uN) omega fun t => SetTheory.app M t), ?_⟩
+        simp [interpExpr, Expr.instantiate1, updV, hfindN', hvalN',
+          hfindSc', hvalSc', natA, natSuccA,
+          ConstantInfo.toConstantVal, Level.eval, uN,
+          -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
+        try rfl
+    · -- interpretability of the opened body
       refine ⟨pi (enZ (ψ uN)) (SetTheory.app M natzero)
         (fun _ => pi (en1U (ψ uN)) (pi (enUU (ψ uN)) omega fun n =>
           pi (ψ uN) (SetTheory.app M n) fun _ =>
             SetTheory.app M (SetTheory.app (natSuccVal V ψ) n))
-          (fun _ => pi (ψ uN) omega fun t => SetTheory.app M t)), ?_, ?_⟩
-      · simp [interpExpr, Expr.instantiate1, updV, hfindN', hvalN',
-          hfindZ', hvalZ', hfindSc', hvalSc', natA, natZeroA, natSuccA,
-          ConstantInfo.toConstantVal, Level.eval, uN,
-          -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
-        try rfl
-      · have hsp : (pi (enUU (ψ uN)) omega fun n =>
-            pi (ψ uN) (SetTheory.app M n) fun _ =>
-              SetTheory.app M (SetTheory.app (natSuccVal V ψ) n)) ∈ˢ
-            univ (en11UU (ψ uN)) :=
-          pi_mem_univ (u := 1) (v := enUU (ψ uN))
-            (B := fun n => pi (ψ uN) (SetTheory.app M n) fun _ =>
-              SetTheory.app M (SetTheory.app (natSuccVal V ψ) n))
-            omega_mem_univ
-            (fun n hn => by
-              try dsimp only
-              rw [enUU_eq]
-              have hin := pi_mem_univ (u := ψ uN) (v := ψ uN)
-                (B := fun _ => SetTheory.app M
-                  (SetTheory.app (natSuccVal V ψ) n))
-                (hMfib n hn)
-                (fun _ _ => by
-                  try dsimp only
-                  rw [natSuccVal_app hn]
-                  exact hMfib (natsucc n) (natsucc_mem hn))
-              by_cases hu : ψ uN = 0
-              · simpa [hu] using hin
-              · simpa [hu, Nat.max_self] using hin)
-        have hinner : (pi (en1U (ψ uN)) (pi (enUU (ψ uN)) omega fun n =>
-            pi (ψ uN) (SetTheory.app M n) fun _ =>
-              SetTheory.app M (SetTheory.app (natSuccVal V ψ) n))
-            (fun _ => pi (ψ uN) omega fun t => SetTheory.app M t)) ∈ˢ
-            univ (enZ (ψ uN)) :=
-          pi_mem_univ (u := en11UU (ψ uN)) (v := en1U (ψ uN)) hsp
-            (fun _ _ => pi_mem_univ (u := 1) (v := ψ uN)
-              (B := fun t => SetTheory.app M t) omega_mem_univ
-              (fun t ht => hMfib t ht))
-        exact pi_mem_univ (u := ψ uN) (v := enZ (ψ uN))
-          (hMfib natzero natzero_mem) (fun _ _ => hinner)
+          (fun _ => pi (ψ uN) omega fun t => SetTheory.app M t)), ?_⟩
+      simp [interpExpr, Expr.instantiate1, updV, hfindN', hvalN',
+        hfindZ', hvalZ', hfindSc', hvalSc', natA, natZeroA, natSuccA,
+        ConstantInfo.toConstantVal, Level.eval, uN,
+        -ite_eq_left_iff, -ite_eq_right_iff, -Nat.max_eq_zero_iff]
+      try rfl
 
 end Setlec

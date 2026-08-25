@@ -77,21 +77,21 @@ def ConstantVal.matchesPin (cv pin : ConstantVal) : Bool :=
 /-- The raw `Iff` family and `propext`, as the preprocessor emits
 them (dependency order). -/
 def iffFamily : List ConstantInfo := [
-  .indInfo ⟨(anonymous |>.str "Iff"), [], (.forallE (anonymous |>.str "a") (.sort (.zero)) (.forallE (anonymous |>.str "b") (.sort (.zero)) (.sort (.zero)) ⟨.default, none⟩) ⟨.default, none⟩)⟩ {},
-  .ctorInfo ⟨((anonymous |>.str "Iff") |>.str "intro"), [], (.forallE (anonymous |>.str "a") (.sort (.zero)) (.forallE (anonymous |>.str "b") (.sort (.zero)) (.forallE (anonymous |>.str "mp") (.forallE (anonymous) (.bvar 1) (.bvar 1) ⟨.default, none⟩) (.forallE (anonymous |>.str "mpr") (.forallE (anonymous) (.bvar 1) (.bvar 3) ⟨.default, none⟩) (.app (.app (.const (anonymous |>.str "Iff") []) (.bvar 3)) (.bvar 2)) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩) ⟨.implicit, none⟩)⟩ 2 2,
-  .recInfo ⟨((anonymous |>.str "Iff") |>.str "rec"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "a") (.sort (.zero)) (.forallE (anonymous |>.str "b") (.sort (.zero)) (.forallE (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.app (.app (.const (anonymous |>.str "Iff") []) (.bvar 1)) (.bvar 0)) (.sort (.param (anonymous |>.str "u"))) ⟨.default, none⟩) (.forallE (anonymous |>.str "intro") (.forallE (anonymous |>.str "mp") (.forallE (anonymous |>.str "right") (.bvar 2) (.bvar 2) ⟨.default, none⟩) (.forallE (anonymous |>.str "mpr") (.forallE (anonymous) (.bvar 2) (.bvar 4) ⟨.default, none⟩) (.app (.bvar 2) (.app (.app (.app (.app (.const ((anonymous |>.str "Iff") |>.str "intro") []) (.bvar 4)) (.bvar 3)) (.bvar 1)) (.bvar 0))) ⟨.default, none⟩) ⟨.default, none⟩) (.forallE (anonymous |>.str "t") (.app (.app (.const (anonymous |>.str "Iff") []) (.bvar 3)) (.bvar 2)) (.app (.bvar 2) (.bvar 0)) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩) ⟨.implicit, none⟩) ⟨.implicit, none⟩)⟩ 4 4 []]
+  .indInfo ⟨(anonymous |>.str "Iff"), [], (.forallE (anonymous |>.str "a") (.sort (.zero)) (.forallE (anonymous |>.str "b") (.sort (.zero)) (.sort (.zero)) ⟨.default⟩) ⟨.default⟩)⟩ {},
+  .ctorInfo ⟨((anonymous |>.str "Iff") |>.str "intro"), [], (.forallE (anonymous |>.str "a") (.sort (.zero)) (.forallE (anonymous |>.str "b") (.sort (.zero)) (.forallE (anonymous |>.str "mp") (.forallE (anonymous) (.bvar 1) (.bvar 1) ⟨.default⟩) (.forallE (anonymous |>.str "mpr") (.forallE (anonymous) (.bvar 1) (.bvar 3) ⟨.default⟩) (.app (.app (.const (anonymous |>.str "Iff") []) (.bvar 3)) (.bvar 2)) ⟨.default⟩) ⟨.default⟩) ⟨.implicit⟩) ⟨.implicit⟩)⟩ 2 2,
+  .recInfo ⟨((anonymous |>.str "Iff") |>.str "rec"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "a") (.sort (.zero)) (.forallE (anonymous |>.str "b") (.sort (.zero)) (.forallE (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.app (.app (.const (anonymous |>.str "Iff") []) (.bvar 1)) (.bvar 0)) (.sort (.param (anonymous |>.str "u"))) ⟨.default⟩) (.forallE (anonymous |>.str "intro") (.forallE (anonymous |>.str "mp") (.forallE (anonymous |>.str "right") (.bvar 2) (.bvar 2) ⟨.default⟩) (.forallE (anonymous |>.str "mpr") (.forallE (anonymous) (.bvar 2) (.bvar 4) ⟨.default⟩) (.app (.bvar 2) (.app (.app (.app (.app (.const ((anonymous |>.str "Iff") |>.str "intro") []) (.bvar 4)) (.bvar 3)) (.bvar 1)) (.bvar 0))) ⟨.default⟩) ⟨.default⟩) (.forallE (anonymous |>.str "t") (.app (.app (.const (anonymous |>.str "Iff") []) (.bvar 3)) (.bvar 2)) (.app (.bvar 2) (.bvar 0)) ⟨.default⟩) ⟨.default⟩) ⟨.implicit⟩) ⟨.implicit⟩) ⟨.implicit⟩)⟩ 4 4 []]
 
 /-- The raw `propext` declaration. -/
-def propextRaw : ConstantVal := ⟨(anonymous |>.str "propext"), [], (.forallE (anonymous |>.str "a") (.sort (.zero)) (.forallE (anonymous |>.str "b") (.sort (.zero)) (.forallE (anonymous) (.app (.app (.const (anonymous |>.str "Iff") []) (.bvar 1)) (.bvar 0)) (.app (.app (.app (.const (anonymous |>.str "Eq") [(.succ (.zero))]) (.sort (.zero))) (.bvar 2)) (.bvar 1)) ⟨.default, none⟩) ⟨.implicit, none⟩) ⟨.implicit, none⟩)⟩
+def propextRaw : ConstantVal := ⟨(anonymous |>.str "propext"), [], (.forallE (anonymous |>.str "a") (.sort (.zero)) (.forallE (anonymous |>.str "b") (.sort (.zero)) (.forallE (anonymous) (.app (.app (.const (anonymous |>.str "Iff") []) (.bvar 1)) (.bvar 0)) (.app (.app (.app (.const (anonymous |>.str "Eq") [(.succ (.zero))]) (.sort (.zero))) (.bvar 2)) (.bvar 1)) ⟨.default⟩) ⟨.implicit⟩) ⟨.implicit⟩)⟩
 
 /-- The raw `Nonempty` family. -/
 def nonemptyFamily : List ConstantInfo := [
-  .indInfo ⟨(anonymous |>.str "Nonempty"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.sort (.zero)) ⟨.default, none⟩)⟩ {},
-  .ctorInfo ⟨((anonymous |>.str "Nonempty") |>.str "intro"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "val") (.bvar 0) (.app (.const (anonymous |>.str "Nonempty") [(.param (anonymous |>.str "u"))]) (.bvar 1)) ⟨.default, none⟩) ⟨.implicit, none⟩)⟩ 1 1,
-  .recInfo ⟨((anonymous |>.str "Nonempty") |>.str "rec"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.app (.const (anonymous |>.str "Nonempty") [(.param (anonymous |>.str "u"))]) (.bvar 0)) (.sort (.zero)) ⟨.default, none⟩) (.forallE (anonymous |>.str "intro") (.forallE (anonymous |>.str "val") (.bvar 1) (.app (.bvar 1) (.app (.app (.const ((anonymous |>.str "Nonempty") |>.str "intro") [(.param (anonymous |>.str "u"))]) (.bvar 2)) (.bvar 0))) ⟨.default, none⟩) (.forallE (anonymous |>.str "t") (.app (.const (anonymous |>.str "Nonempty") [(.param (anonymous |>.str "u"))]) (.bvar 2)) (.app (.bvar 2) (.bvar 0)) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩) ⟨.implicit, none⟩)⟩ 3 3 []]
+  .indInfo ⟨(anonymous |>.str "Nonempty"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.sort (.zero)) ⟨.default⟩)⟩ {},
+  .ctorInfo ⟨((anonymous |>.str "Nonempty") |>.str "intro"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "val") (.bvar 0) (.app (.const (anonymous |>.str "Nonempty") [(.param (anonymous |>.str "u"))]) (.bvar 1)) ⟨.default⟩) ⟨.implicit⟩)⟩ 1 1,
+  .recInfo ⟨((anonymous |>.str "Nonempty") |>.str "rec"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.app (.const (anonymous |>.str "Nonempty") [(.param (anonymous |>.str "u"))]) (.bvar 0)) (.sort (.zero)) ⟨.default⟩) (.forallE (anonymous |>.str "intro") (.forallE (anonymous |>.str "val") (.bvar 1) (.app (.bvar 1) (.app (.app (.const ((anonymous |>.str "Nonempty") |>.str "intro") [(.param (anonymous |>.str "u"))]) (.bvar 2)) (.bvar 0))) ⟨.default⟩) (.forallE (anonymous |>.str "t") (.app (.const (anonymous |>.str "Nonempty") [(.param (anonymous |>.str "u"))]) (.bvar 2)) (.app (.bvar 2) (.bvar 0)) ⟨.default⟩) ⟨.default⟩) ⟨.implicit⟩) ⟨.implicit⟩)⟩ 3 3 []]
 
 /-- The raw `Classical.choice` declaration. -/
-def choiceRaw : ConstantVal := ⟨((anonymous |>.str "Classical") |>.str "choice"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous) (.app (.const (anonymous |>.str "Nonempty") [(.param (anonymous |>.str "u"))]) (.bvar 0)) (.bvar 1) ⟨.default, none⟩) ⟨.implicit, none⟩)⟩
+def choiceRaw : ConstantVal := ⟨((anonymous |>.str "Classical") |>.str "choice"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous) (.app (.const (anonymous |>.str "Nonempty") [(.param (anonymous |>.str "u"))]) (.bvar 0)) (.bvar 1) ⟨.default⟩) ⟨.implicit⟩)⟩
 
 /-- Annotated standard-shape pin (generated). -/
 def iffA : ConstantInfo :=
@@ -105,11 +105,8 @@ def iffA : ConstantInfo :=
                 (Setlec.Name.str (Setlec.Name.anonymous) "b")
                 (Setlec.Expr.sort (Setlec.Level.zero))
                 (Setlec.Expr.sort (Setlec.Level.zero))
-                { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.succ (Setlec.Level.zero)) })
-              { bi := Setlec.BinderInfo.default,
-                cod := some (Setlec.Level.imax
-                         (Setlec.Level.succ (Setlec.Level.zero))
-                         (Setlec.Level.succ (Setlec.Level.zero))) } }
+                { bi := Setlec.BinderInfo.default})
+              { bi := Setlec.BinderInfo.default} }
   { eta := false,
     etaCtor := Setlec.Name.anonymous,
     etaParams := 0,
@@ -135,38 +132,23 @@ def iffIntroA : ConstantInfo :=
                     (Setlec.Name.anonymous)
                     (Setlec.Expr.bvar 1)
                     (Setlec.Expr.bvar 1)
-                    { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.zero) })
+                    { bi := Setlec.BinderInfo.default})
                   (Setlec.Expr.forallE
                     (Setlec.Name.str (Setlec.Name.anonymous) "mpr")
                     (Setlec.Expr.forallE
                       (Setlec.Name.anonymous)
                       (Setlec.Expr.bvar 1)
                       (Setlec.Expr.bvar 3)
-                      { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.zero) })
+                      { bi := Setlec.BinderInfo.default})
                     (Setlec.Expr.app
                       (Setlec.Expr.app
                         (Setlec.Expr.const (Setlec.Name.str (Setlec.Name.anonymous) "Iff") [])
                         (Setlec.Expr.bvar 3))
                       (Setlec.Expr.bvar 2))
-                    { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.zero) })
-                  { bi := Setlec.BinderInfo.default,
-                    cod := some (Setlec.Level.imax
-                             (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))
-                             (Setlec.Level.zero)) })
-                { bi := Setlec.BinderInfo.implicit,
-                  cod := some (Setlec.Level.imax
-                           (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))
-                           (Setlec.Level.imax
-                             (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))
-                             (Setlec.Level.zero))) })
-              { bi := Setlec.BinderInfo.implicit,
-                cod := some (Setlec.Level.imax
-                         (Setlec.Level.succ (Setlec.Level.zero))
-                         (Setlec.Level.imax
-                           (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))
-                           (Setlec.Level.imax
-                             (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))
-                             (Setlec.Level.zero)))) } }
+                    { bi := Setlec.BinderInfo.default})
+                  { bi := Setlec.BinderInfo.default})
+                { bi := Setlec.BinderInfo.implicit})
+              { bi := Setlec.BinderInfo.implicit} }
   2
   2
 
@@ -191,9 +173,7 @@ def iffRecA : ConstantInfo :=
                         (Setlec.Expr.bvar 1))
                       (Setlec.Expr.bvar 0))
                     (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
-                    { bi := Setlec.BinderInfo.default,
-                      cod := some (Setlec.Level.succ
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))) })
+                    { bi := Setlec.BinderInfo.default})
                   (Setlec.Expr.forallE
                     (Setlec.Name.str (Setlec.Name.anonymous) "intro")
                     (Setlec.Expr.forallE
@@ -202,14 +182,14 @@ def iffRecA : ConstantInfo :=
                         (Setlec.Name.str (Setlec.Name.anonymous) "right")
                         (Setlec.Expr.bvar 2)
                         (Setlec.Expr.bvar 2)
-                        { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.zero) })
+                        { bi := Setlec.BinderInfo.default})
                       (Setlec.Expr.forallE
                         (Setlec.Name.str (Setlec.Name.anonymous) "mpr")
                         (Setlec.Expr.forallE
                           (Setlec.Name.anonymous)
                           (Setlec.Expr.bvar 2)
                           (Setlec.Expr.bvar 4)
-                          { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.zero) })
+                          { bi := Setlec.BinderInfo.default})
                         (Setlec.Expr.app
                           (Setlec.Expr.bvar 2)
                           (Setlec.Expr.app
@@ -223,12 +203,8 @@ def iffRecA : ConstantInfo :=
                                 (Setlec.Expr.bvar 3))
                               (Setlec.Expr.bvar 1))
                             (Setlec.Expr.bvar 0)))
-                        { bi := Setlec.BinderInfo.default,
-                          cod := some (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")) })
-                      { bi := Setlec.BinderInfo.default,
-                        cod := some (Setlec.Level.imax
-                                 (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))) })
+                        { bi := Setlec.BinderInfo.default})
+                      { bi := Setlec.BinderInfo.default})
                     (Setlec.Expr.forallE
                       (Setlec.Name.str (Setlec.Name.anonymous) "t")
                       (Setlec.Expr.app
@@ -237,52 +213,11 @@ def iffRecA : ConstantInfo :=
                           (Setlec.Expr.bvar 3))
                         (Setlec.Expr.bvar 2))
                       (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 0))
-                      { bi := Setlec.BinderInfo.default,
-                        cod := some (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")) })
-                    { bi := Setlec.BinderInfo.default,
-                      cod := some (Setlec.Level.imax
-                               (Setlec.Level.zero)
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))) })
-                  { bi := Setlec.BinderInfo.implicit,
-                    cod := some (Setlec.Level.imax
-                             (Setlec.Level.imax
-                               (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))
-                               (Setlec.Level.imax
-                                 (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))))
-                             (Setlec.Level.imax
-                               (Setlec.Level.zero)
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))) })
-                { bi := Setlec.BinderInfo.implicit,
-                  cod := some (Setlec.Level.imax
-                           (Setlec.Level.imax
-                             (Setlec.Level.zero)
-                             (Setlec.Level.succ (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))))
-                           (Setlec.Level.imax
-                             (Setlec.Level.imax
-                               (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))
-                               (Setlec.Level.imax
-                                 (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))))
-                             (Setlec.Level.imax
-                               (Setlec.Level.zero)
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))))) })
-              { bi := Setlec.BinderInfo.implicit,
-                cod := some (Setlec.Level.imax
-                         (Setlec.Level.succ (Setlec.Level.zero))
-                         (Setlec.Level.imax
-                           (Setlec.Level.imax
-                             (Setlec.Level.zero)
-                             (Setlec.Level.succ (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))))
-                           (Setlec.Level.imax
-                             (Setlec.Level.imax
-                               (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))
-                               (Setlec.Level.imax
-                                 (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))))
-                             (Setlec.Level.imax
-                               (Setlec.Level.zero)
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))))) } }
+                      { bi := Setlec.BinderInfo.default})
+                    { bi := Setlec.BinderInfo.default})
+                  { bi := Setlec.BinderInfo.implicit})
+                { bi := Setlec.BinderInfo.implicit})
+              { bi := Setlec.BinderInfo.implicit} }
   4
   4
   []
@@ -296,7 +231,7 @@ def nonemptyA : ConstantInfo :=
               (Setlec.Name.str (Setlec.Name.anonymous) "α")
               (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
               (Setlec.Expr.sort (Setlec.Level.zero))
-              { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.succ (Setlec.Level.zero)) } }
+              { bi := Setlec.BinderInfo.default} }
   { eta := false,
     etaCtor := Setlec.Name.anonymous,
     etaParams := 0,
@@ -321,11 +256,8 @@ def nonemptyIntroA : ConstantInfo :=
                     (Setlec.Name.str (Setlec.Name.anonymous) "Nonempty")
                     [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
                   (Setlec.Expr.bvar 1))
-                { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.zero) })
-              { bi := Setlec.BinderInfo.implicit,
-                cod := some (Setlec.Level.imax
-                         (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                         (Setlec.Level.zero)) } }
+                { bi := Setlec.BinderInfo.default})
+              { bi := Setlec.BinderInfo.implicit} }
   1
   1
 
@@ -347,7 +279,7 @@ def nonemptyRecA : ConstantInfo :=
                       [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
                     (Setlec.Expr.bvar 0))
                   (Setlec.Expr.sort (Setlec.Level.zero))
-                  { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.succ (Setlec.Level.zero)) })
+                  { bi := Setlec.BinderInfo.default})
                 (Setlec.Expr.forallE
                   (Setlec.Name.str (Setlec.Name.anonymous) "intro")
                   (Setlec.Expr.forallE
@@ -362,7 +294,7 @@ def nonemptyRecA : ConstantInfo :=
                             [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
                           (Setlec.Expr.bvar 2))
                         (Setlec.Expr.bvar 0)))
-                    { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.zero) })
+                    { bi := Setlec.BinderInfo.default})
                   (Setlec.Expr.forallE
                     (Setlec.Name.str (Setlec.Name.anonymous) "t")
                     (Setlec.Expr.app
@@ -371,23 +303,10 @@ def nonemptyRecA : ConstantInfo :=
                         [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
                       (Setlec.Expr.bvar 2))
                     (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 0))
-                    { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.zero) })
-                  { bi := Setlec.BinderInfo.default,
-                    cod := some (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero)) })
-                { bi := Setlec.BinderInfo.implicit,
-                  cod := some (Setlec.Level.imax
-                           (Setlec.Level.imax
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                             (Setlec.Level.zero))
-                           (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))) })
-              { bi := Setlec.BinderInfo.implicit,
-                cod := some (Setlec.Level.imax
-                         (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.succ (Setlec.Level.zero)))
-                         (Setlec.Level.imax
-                           (Setlec.Level.imax
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                             (Setlec.Level.zero))
-                           (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero)))) } }
+                    { bi := Setlec.BinderInfo.default})
+                  { bi := Setlec.BinderInfo.default})
+                { bi := Setlec.BinderInfo.implicit})
+              { bi := Setlec.BinderInfo.implicit} }
   3
   3
   []
@@ -418,13 +337,9 @@ def propextA : ConstantVal :=
                           (Setlec.Expr.sort (Setlec.Level.zero)))
                         (Setlec.Expr.bvar 2))
                       (Setlec.Expr.bvar 1))
-                    { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.zero) })
-                  { bi := Setlec.BinderInfo.implicit,
-                    cod := some (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero)) })
-                { bi := Setlec.BinderInfo.implicit,
-                  cod := some (Setlec.Level.imax
-                           (Setlec.Level.succ (Setlec.Level.zero))
-                           (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))) } }
+                    { bi := Setlec.BinderInfo.default})
+                  { bi := Setlec.BinderInfo.implicit})
+                { bi := Setlec.BinderInfo.implicit} }
 
 /-- Annotated standard-shape pin (generated). -/
 def choiceA : ConstantVal :=
@@ -441,12 +356,8 @@ def choiceA : ConstantVal :=
                       [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
                     (Setlec.Expr.bvar 0))
                   (Setlec.Expr.bvar 1)
-                  { bi := Setlec.BinderInfo.default,
-                    cod := some (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")) })
-                { bi := Setlec.BinderInfo.implicit,
-                  cod := some (Setlec.Level.imax
-                           (Setlec.Level.zero)
-                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))) } }
+                  { bi := Setlec.BinderInfo.default})
+                { bi := Setlec.BinderInfo.implicit} }
 
 
 /-- Is this checked axiom one of the two recognized standard axioms,

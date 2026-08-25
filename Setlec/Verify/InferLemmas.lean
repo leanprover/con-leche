@@ -141,23 +141,15 @@ annotation is reused whole). -/
 theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
     {ty body t : Expr} {m : BinderMeta}
     (h : inferTypeCore env (fuel + 1) d (.lam n ty body m) = .ok t) :
-    ∃ v tty u bt tbt v', m.cod = some v ∧
+    ∃ tty u bt,
       inferTypeCore env fuel d ty = .ok tty ∧
       whnf env fuel d tty = .ok (.sort u) ∧
       inferTypeCore env fuel (d + 1)
         (body.instantiate1 (.fvar d n ty)) = .ok bt ∧
-      inferTypeCore env fuel (d + 1) bt = .ok tbt ∧
-      whnf env fuel (d + 1) tbt = .ok (.sort v') ∧
-      Level.isEquiv v v' = some true ∧
       t = .forallE n ty (bt.abstract1 d) m := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind] at h
   simp only [infer_def, whnf_def] at h
-  cases hc : m.cod with
-  | none => rw [hc] at h; exact nomatch h
-  | some v =>
-  rw [hc] at h
-  dsimp only at h
   cases htty : inferTypeCore env fuel d ty with
   | error err => rw [htty] at h; exact nomatch h
   | ok tty =>
@@ -181,36 +173,8 @@ theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
   | error err => rw [hbt] at h; exact nomatch h
   | ok bt =>
   rw [hbt] at h
-  dsimp only at h
-  cases htbt : inferTypeCore env fuel (d + 1) bt with
-  | error err => rw [htbt] at h; exact nomatch h
-  | ok tbt =>
-  rw [htbt] at h
-  dsimp only at h
-  cases hwtbt : whnf env fuel (d + 1) tbt with
-  | error err => rw [hwtbt] at h; exact nomatch h
-  | ok wtbt =>
-  rw [hwtbt] at h
-  dsimp only at h
-  revert h
-  match wtbt with
-  | .sort v' => ?_
-  | .bvar _ | .fvar _ _ _ | .const _ _ | .app _ _ | .lam _ _ _ _
-  | .forallE _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
-    intro h; simp [throw, throwThe, MonadExceptOf.throw] at h
-  intro h
-  dsimp only at h
-  cases hEq : Level.isEquiv v v' with
-  | none => rw [hEq] at h; simp [liftFueled] at h
-  | some r =>
-  rw [hEq] at h
-  dsimp only [liftFueled] at h
-  cases r with
-  | false => simp [throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at h
-  | true =>
-    simp only [if_true, pure, Except.pure, Except.ok.injEq] at h
-    exact ⟨v, tty, u, bt, tbt, v', rfl, rfl, hwtty, rfl, htbt, hwtbt, hEq,
-      h.symm⟩
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  exact ⟨tty, u, bt, rfl, hwtty, rfl, h.symm⟩
 
 /-- Inversion for the application rule of `inferTypeCore` (task #100
 de-gating: the per-argument re-check runs unconditionally — the former
@@ -263,17 +227,21 @@ theorem inferTypeCore_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
     simp only [if_true, pure, Except.pure, Except.ok.injEq] at h
     exact ⟨tf, n', ty', body', m', rfl, hw, h.symm, ta, rfl, hde⟩
 
-/-- Inversion for the ∀-rule of `inferTypeCore`. -/
+/-- Inversion for the ∀-rule of `inferTypeCore` (task #100 stage 6:
+the codomain sort is inferred from the opened body — the stored
+annotation is not read). -/
 theorem inferTypeCore_forall_inv {env : Env} {fuel d : Nat} {n : Name}
-    {ty body t : Expr} {m : BinderMeta} {v : Level}
-    (hc : m.cod = some v)
+    {ty body t : Expr} {m : BinderMeta}
     (h : inferTypeCore env (fuel + 1) d (.forallE n ty body m) = .ok t) :
-    ∃ tty u, inferTypeCore env fuel d ty = .ok tty ∧
+    ∃ tty u bt v, inferTypeCore env fuel d ty = .ok tty ∧
       whnf env fuel d tty = .ok (.sort u) ∧
+      inferTypeCore env fuel (d + 1)
+        (body.instantiate1 (.fvar d n ty)) = .ok bt ∧
+      ensureSortCore env fuel (d + 1) bt = .ok v ∧
       t = .sort (.imax u v) := by
   rw [inferTypeCore_succ] at h
-  simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind, hc] at h
-  simp only [infer_def, whnf_def] at h
+  simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind] at h
+  simp only [infer_def, whnf_def, ensureSort_def] at h
   try dsimp only at h
   cases hty : inferTypeCore env fuel d ty with
   | error err => rw [hty] at h; exact nomatch h
@@ -285,20 +253,86 @@ theorem inferTypeCore_forall_inv {env : Env} {fuel d : Nat} {n : Name}
   | ok w =>
   rw [hwt] at h
   dsimp only at h
-  match w, h with
-  | .sort u, h =>
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    exact ⟨tty, u, rfl, hwt, h.symm⟩
-  | .fvar i n2 t2, h => exact nomatch h
-  | .const n2 us, h => exact nomatch h
-  | .lam n2 t2 b2 m2, h => exact nomatch h
-  | .forallE n2 t2 b2 m2, h => exact nomatch h
-  | .bvar i, h => exact nomatch h
-  | .app f2 a2, h => exact nomatch h
-  | .letE n2 t2 v2 b2, h => exact nomatch h
-  | .lit l2, h => exact nomatch h
-  | .proj s2 i2 e2, h => exact nomatch h
+  revert h
+  match w with
+  | .sort u => ?_
+  | .bvar _ | .fvar _ _ _ | .const _ _ | .app _ _ | .lam _ _ _ _
+  | .forallE _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+    intro h; simp [throw, throwThe, MonadExceptOf.throw] at h
+  intro h
+  dsimp only at h
+  cases hbt : inferTypeCore env fuel (d + 1)
+      (body.instantiate1 (.fvar d n ty)) with
+  | error err => rw [hbt] at h; exact nomatch h
+  | ok bt =>
+  rw [hbt] at h
+  dsimp only at h
+  cases hes : ensureSortCore env fuel (d + 1) bt with
+  | error err => rw [hes] at h; exact nomatch h
+  | ok v =>
+  rw [hes] at h
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  exact ⟨tty, u, bt, v, rfl, hwt, rfl, hes, h.symm⟩
 
+
+/-- Inversion for `ensureSortCore`: the subject whnfs to the sort. -/
+theorem ensureSortCore_inv {env : Env} {fuel d : Nat} {t : Expr} {u : Level}
+    (h : ensureSortCore env fuel d t = .ok u) :
+    whnf env fuel d t = .ok (.sort u) := by
+  unfold ensureSortCore ensureSort at h
+  simp only [Bind.bind, Except.bind, whnf_def] at h
+  cases hw : whnf env fuel d t with
+  | error err => rw [hw] at h; exact nomatch h
+  | ok w =>
+  rw [hw] at h
+  revert h
+  match w with
+  | .sort u' => ?_
+  | .bvar _ | .fvar _ _ _ | .const _ _ | .app _ _ | .lam _ _ _ _
+  | .forallE _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
+    intro h; simp [throw, throwThe, MonadExceptOf.throw] at h
+  intro h
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  rw [h]
+
+/-- Inversion for the let-rule of `inferTypeCore` (task #100 stage 6:
+the official kernel's `infer_let` checks moved here from the deleted
+annotation pass). -/
+theorem inferTypeCore_letE_inv {env : Env} {fuel d : Nat} {n : Name}
+    {ty v b t : Expr}
+    (h : inferTypeCore env (fuel + 1) d (.letE n ty v b) = .ok t) :
+    ∃ tty s tv, inferTypeCore env fuel d ty = .ok tty ∧
+      ensureSortCore env fuel d tty = .ok s ∧
+      inferTypeCore env fuel d v = .ok tv ∧
+      isDefEqCore env fuel d tv ty = .ok true ∧
+      inferTypeCore env fuel d (b.instantiate1 v) = .ok t := by
+  rw [inferTypeCore_succ] at h
+  simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind] at h
+  simp only [infer_def, whnf_def, defeq_def, ensureSort_def] at h
+  cases hty : inferTypeCore env fuel d ty with
+  | error err => rw [hty] at h; exact nomatch h
+  | ok tty =>
+  rw [hty] at h
+  dsimp only at h
+  cases hes : ensureSortCore env fuel d tty with
+  | error err => rw [hes] at h; exact nomatch h
+  | ok s =>
+  rw [hes] at h
+  dsimp only at h
+  cases htv : inferTypeCore env fuel d v with
+  | error err => rw [htv] at h; exact nomatch h
+  | ok tv =>
+  rw [htv] at h
+  dsimp only at h
+  cases hde : isDefEqCore env fuel d tv ty with
+  | error err => rw [hde] at h; exact nomatch h
+  | ok r =>
+  rw [hde] at h
+  cases r with
+  | false => simp [throw, throwThe, MonadExceptOf.throw] at h
+  | true =>
+    simp only [↓reduceIte] at h
+    exact ⟨tty, s, tv, rfl, hes, rfl, hde, h⟩
 
 /-! ## Application-spine helpers -/
 
@@ -2010,11 +2044,9 @@ theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
 theorem etaCert_inv {env : Env} {fuel d : Nat} {n₁ : Name} {ty₁ body₁ b : Expr}
     {m₁ : BinderMeta}
     (h : etaCertP env fuel d n₁ ty₁ body₁ m₁ b = .ok true) :
-    ∃ tb n₂ ty₂ fb m₂ v₁ v₂,
+    ∃ tb n₂ ty₂ fb m₂,
       inferTypeCore env fuel d b = .ok tb ∧
       whnf env fuel d tb = .ok (.forallE n₂ ty₂ fb m₂) ∧
-      m₁.cod = some v₁ ∧ m₂.cod = some v₂ ∧
-      Level.isEquiv v₁ v₂ = some true ∧
       isDefEqCore env fuel d ty₂ ty₁ = .ok true ∧
       isDefEqCore env fuel (d + 1) (body₁.instantiate1 (.fvar d n₁ ty₁))
         (.app b (.fvar d n₁ ty₁)) = .ok true := by
@@ -2042,25 +2074,6 @@ theorem etaCert_inv {env : Env} {fuel d : Nat} {n₁ : Name} {ty₁ body₁ b : 
   | .lit l2, h => exact nomatch h
   | .proj s2 i2 e3, h => exact nomatch h
   dsimp only at h
-  cases hm₁ : m₁.cod with
-  | none => rw [hm₁] at h; exact nomatch h
-  | some v₁ =>
-  rw [hm₁] at h
-  cases hm₂ : m₂.cod with
-  | none => rw [hm₂] at h; exact nomatch h
-  | some v₂ =>
-  rw [hm₂] at h
-  dsimp only at h
-  cases heq : Level.isEquiv v₁ v₂ with
-  | none => rw [heq] at h; simp [liftFueled] at h
-  | some okL =>
-  rw [heq] at h
-  try dsimp only [liftFueled] at h
-  try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
-  cases okL with
-  | false => simp at h
-  | true =>
-  simp only [↓reduceIte] at h
   cases hd1 : isDefEqCore env fuel d ty₂ ty₁ with
   | error err => rw [hd1] at h; exact nomatch h
   | ok r₁ =>
@@ -2070,7 +2083,7 @@ theorem etaCert_inv {env : Env} {fuel d : Nat} {n₁ : Name} {ty₁ body₁ b : 
   | false => simp [pure, Except.pure] at h
   | true =>
   simp only [↓reduceIte] at h
-  exact ⟨tb, n₂, ty₂, fb, m₂, v₁, v₂, rfl, hwtb, rfl, hm₂, heq, hd1, h⟩
+  exact ⟨tb, n₂, ty₂, fb, m₂, rfl, hwtb, hd1, h⟩
 
 /-- Inversion for the projection rule of `inferTypeCore`: the subject's
 type whnfs to a type application whose head has a native

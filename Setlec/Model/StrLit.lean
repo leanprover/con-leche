@@ -541,13 +541,12 @@ theorem annotOk_strLitList (m : EnvModel V env)
     exact ⟨trivial, trivial,
       m.val listNilName
         (Level.substFn φ (env.levelParamsAt listNilName) [.zero]),
-      m.val charName φ, 1, univ 1,
+      m.val charName φ, univ 1,
       fun x => SetTheory.app
         (m.val listName
           (Level.substFn φ (env.levelParamsAt listName) [.zero])) x,
       interpExpr_const_listNil hs, interpExpr_const_char hs,
-      listNilVal_mem_pi m hs φ, charVal_mem_univ m hs φ,
-      fun x hx => listVal_app_mem_univ m hs φ hx⟩
+      listNilVal_mem_pi m hs φ, charVal_mem_univ m hs φ⟩
   | c :: cs => by
     obtain ⟨hnat, -⟩ := strLitSupported_inv hs
     -- shared values
@@ -587,30 +586,20 @@ theorem annotOk_strLitList (m : EnvModel V env)
       exact ⟨trivial, trivial,
         m.val listConsName
           (Level.substFn φ (env.levelParamsAt listConsName) [.zero]),
-        m.val charName φ, 1, univ 1,
+        m.val charName φ, univ 1,
         fun x => pi 1 x (fun _ =>
           pi 1 (SetTheory.app (m.val listName
               (Level.substFn φ (env.levelParamsAt listName) [.zero])) x)
             (fun _ => SetTheory.app (m.val listName
               (Level.substFn φ (env.levelParamsAt listName) [.zero])) x)),
         interpExpr_const_listCons hs, interpExpr_const_char hs,
-        listConsVal_mem_pi m hs φ, charVal_mem_univ m hs φ,
-        fun x hx => by
-          have hLx := listVal_app_mem_univ m hs φ hx
-          have h1 : pi 1 (SetTheory.app (m.val listName
-              (Level.substFn φ (env.levelParamsAt listName) [.zero])) x)
-              (fun _ => SetTheory.app (m.val listName
-                (Level.substFn φ (env.levelParamsAt listName) [.zero])) x)
-              ∈ˢ (univ 1 : V) := by
-            simpa using pi_mem_univ (u := 1) (v := 1) hLx (fun _ _ => hLx)
-          simpa using pi_mem_univ (u := 1) (v := 1) hx (fun _ _ => h1)⟩
+        listConsVal_mem_pi m hs φ, charVal_mem_univ m hs φ⟩
     · -- `Char.ofNat (lit c)` node
       exact ⟨trivial, trivial, m.val charOfNatName φ,
         natLitVal V (m.val natZeroName φ) (m.val natSuccName φ) c.toNat,
-        1, m.val natName φ, fun _ => m.val charName φ,
+        m.val natName φ, fun _ => m.val charName φ,
         interpExpr_const_charOfNat hs, interpExpr_lit hnat,
-        charOfNatVal_mem_pi m hs φ, natLitVal_mem_nat m hnat φ c.toNat,
-        fun _ _ => charVal_mem_univ m hs φ⟩
+        charOfNatVal_mem_pi m hs φ, natLitVal_mem_nat m hnat φ c.toNat⟩
     · -- `(cons Char) (ofNat c)` application facts
       exact ⟨SetTheory.app
           (m.val listConsName
@@ -618,11 +607,11 @@ theorem annotOk_strLitList (m : EnvModel V env)
           (m.val charName φ),
         SetTheory.app (m.val charOfNatName φ)
           (natLitVal V (m.val natZeroName φ) (m.val natSuccName φ) c.toNat),
-        1, m.val charName φ,
+        m.val charName φ,
         fun _ => pi 1 (listCharVal m.val env φ)
           (fun _ => listCharVal m.val env φ),
         interpExpr_listConsChar hs, hIofNat,
-        listConsCharVal_mem_pi m hs φ, hchar, fun _ _ => hpiLCV⟩
+        listConsCharVal_mem_pi m hs φ, hchar⟩
     · -- top application onto the tail
       exact ⟨SetTheory.app (SetTheory.app
           (m.val listConsName
@@ -640,11 +629,11 @@ theorem annotOk_strLitList (m : EnvModel V env)
             (m.val charName φ))
           (m.val charOfNatName φ) (m.val natZeroName φ)
           (m.val natSuccName φ) cs,
-        1, listCharVal m.val env φ, fun _ => listCharVal m.val env φ,
+        listCharVal m.val env φ, fun _ => listCharVal m.val env φ,
         hIcons2, interpExpr_strLitList hs cs,
         app_mem (listConsCharVal_mem_pi m hs φ) hchar
           (fun _ _ => hpiLCV),
-        charListVal_mem m hs φ cs, fun _ _ => hLCV⟩
+        charListVal_mem m hs φ cs⟩
 
 /-- The constructor form of a string literal carries truthful
 annotations. -/
@@ -664,9 +653,8 @@ theorem annotOk_strLitToConstructor (m : EnvModel V env)
         (m.val charName φ))
       (m.val charOfNatName φ) (m.val natZeroName φ) (m.val natSuccName φ)
       s.toList,
-    1, listCharVal m.val env φ, fun _ => m.val stringName φ,
+    listCharVal m.val env φ, fun _ => m.val stringName φ,
     interpExpr_const_stringOfList hs, interpExpr_strLitList hs s.toList,
-    stringOfListVal_mem_pi m hs φ, charListVal_mem m hs φ s.toList,
-    fun _ _ => stringVal_mem_univ m hs φ⟩
+    stringOfListVal_mem_pi m hs φ, charListVal_mem m hs φ s.toList⟩
 
 end Setlec

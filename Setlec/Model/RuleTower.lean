@@ -201,7 +201,7 @@ theorem TowerOk.out :
     have hwf' : FrameWf d ((Expr.fvar d nm ty, m) :: fvms) bL :=
       ⟨⟨nm, ty, rfl, hwty, hbty, hcb, htys⟩, hwfT⟩
     simp only [AnnotOk] at hAR
-    obtain ⟨hAtyR, vE, hcondR⟩ := hAR
+    obtain ⟨hAtyR, hcondR⟩ := hAR
     -- pointwise facts of the two fibres
     have hfib : ∀ x, x ∈ˢ A →
         (∃ v, interpExpr V cval env φ (d + 1) (updV V ρ d x)
@@ -227,7 +227,7 @@ theorem TowerOk.out :
         (.lam nm ty ((closeLamsAt fvms bL).abstract1 d) m)
       have hrt := hwf'.roundtrip
       simp only [AnnotOk]
-      refine ⟨hAty, vE, ?_⟩
+      refine ⟨hAty, ?_⟩
       intro x A₀ hA₀ hx
       have hA0 : A₀ = A := by
         rw [hty] at hA₀
@@ -240,13 +240,13 @@ theorem TowerOk.out :
             (.fvar d nm ty) 0)
         rw [hrt]
         exact hAL
-      · obtain ⟨w', B, hw', hwB, hBu⟩ :=
+      · obtain ⟨w', B, hw', hwB⟩ :=
           (hcondR x A htyR hx).2
         have hwv : w' = v := by
           rw [hR] at hw'
           exact (Option.some.inj hw').symm
         rw [hwv] at hwB
-        refine ⟨v, B, ?_, hwB, hBu⟩
+        refine ⟨v, B, ?_, hwB⟩
         show interpExpr V cval env φ (d + 1) (updV V ρ d x)
           (((closeLamsAt fvms bL).abstract1 d).instantiate1
             (.fvar d nm ty) 0) = some v
@@ -307,14 +307,14 @@ theorem closeLamsAt_fold :
     have hA' : AnnotOk V cval env φ d ρ
         (.lam nm ty ((closeLamsAt fvms bL).abstract1 d) m) := hA
     simp only [AnnotOk] at hA'
-    obtain ⟨hAty, vE, hcond⟩ := hA'
+    obtain ⟨hAty, hcond⟩ := hA'
     have hcond' : ∀ y (A₀ : V),
         interpExpr V cval env φ d ρ ty = some A₀ → y ∈ˢ A₀ →
         AnnotOk V cval env φ (d + 1) (updV V ρ d y)
           (closeLamsAt fvms bL) ∧
         ∃ w B, interpExpr V cval env φ (d + 1) (updV V ρ d y)
             (closeLamsAt fvms bL) = some w ∧
-          w ∈ˢ B ∧ B ∈ˢ univ vE := by
+          w ∈ˢ B := by
       intro y A₀ hA₀ hy
       have h0 := hcond y A₀ hA₀ hy
       rw [hrt] at h0
@@ -322,14 +322,13 @@ theorem closeLamsAt_fold :
     -- functionalized fibre packages for the beta step and the slot
     have hfibres : ∀ y, y ∈ˢ A → ∃ B,
         ((interpExpr V cval env φ (d + 1) (updV V ρ d y)
-          (closeLamsAt fvms bL)).getD SetTheory.empty) ∈ˢ B ∧
-        B ∈ˢ univ vE := by
+          (closeLamsAt fvms bL)).getD SetTheory.empty) ∈ˢ B := by
       intro y hy
       obtain ⟨-, hpack⟩ := hcond' y A hty hy
-      obtain ⟨w, B, hw, hwB, hBu⟩ := hpack
+      obtain ⟨w, B, hw, hwB⟩ := hpack
       rw [hw]
-      exact ⟨B, hwB, hBu⟩
-    obtain ⟨Bf, hBf1, hBf2⟩ := choose_fibres hfibres
+      exact ⟨B, hwB⟩
+    obtain ⟨Bf, hBf1⟩ := choose_fibres hfibres
     have happ : SetTheory.app
         (lamC A fun y =>
           (interpExpr V cval env φ (d + 1) (updV V ρ d y)
@@ -338,12 +337,12 @@ theorem closeLamsAt_fold :
           (closeLamsAt fvms bL)).getD SetTheory.empty :=
       app_lamC hx
     obtain ⟨hAsub, hpack⟩ := hcond' x A hty hx
-    obtain ⟨w0, B0, hw0, -, -⟩ := hpack
+    obtain ⟨w0, B0, hw0, -⟩ := hpack
     obtain ⟨w, hwi, hfold, hchain⟩ := ih hwfT hAsub hw0
     refine ⟨w, hwi, ?_, ?_⟩
     · rw [SpineFold_cons, happ, hw0]
       simpa using hfold
-    · refine ⟨⟨vE, A, Bf, lam_mem hBf1, hx, hBf2⟩, ?_⟩
+    · refine ⟨⟨A, Bf, lamC_mem hBf1, hx⟩, ?_⟩
       rw [happ, hw0]
       simpa using hchain
 

@@ -251,9 +251,9 @@ theorem AnnotOk.substFvarAt {p : Nat} {a : Expr} {va : V}
         simp [AnnotOk]
   | .forallE n ty body m, D, hpD, ρ', hva, ha, hAa, hA => by
     simp only [AnnotOk] at hA
-    obtain ⟨haty, vE, htie, hcond⟩ := hA
+    obtain ⟨haty, hcond⟩ := hA
     simp only [Expr.substFvarAt, AnnotOk]
-    refine ⟨AnnotOk.substFvarAt hwa hba ty D hpD ρ' hva ha hAa haty, vE, htie, ?_⟩
+    refine ⟨AnnotOk.substFvarAt hwa hba ty D hpD ρ' hva ha hAa haty, ?_⟩
     intro x A hA' hx
     rw [interp_substFvarAt hwa hba ty D hpD ρ' hva ha] at hA'
     obtain ⟨hbody, hwfact⟩ := hcond x A hA' hx
@@ -269,16 +269,16 @@ theorem AnnotOk.substFvarAt {p : Nat} {a : Expr} {va : V}
     rw [← substFvarAt_instantiate1 hpD hba body 0, delV_updV hpD]
     refine ⟨AnnotOk.substFvarAt hwa hba (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1)
       (by omega) (updV V ρ' (D + 1) x) hva' ha' hAa' hbody, ?_⟩
-    obtain ⟨w, hwi, hmem⟩ := hwfact
-    refine ⟨w, ?_, hmem⟩
+    obtain ⟨w, hwi⟩ := hwfact
+    refine ⟨w, ?_⟩
     rw [interp_substFvarAt hwa hba (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1)
       (by omega) (updV V ρ' (D + 1) x) hva' ha']
     exact hwi
   | .lam n ty body m, D, hpD, ρ', hva, ha, hAa, hA => by
     simp only [AnnotOk] at hA
-    obtain ⟨haty, hcod, hcond⟩ := hA
+    obtain ⟨haty, hcond⟩ := hA
     simp only [Expr.substFvarAt, AnnotOk]
-    refine ⟨AnnotOk.substFvarAt hwa hba ty D hpD ρ' hva ha hAa haty, hcod, ?_⟩
+    refine ⟨AnnotOk.substFvarAt hwa hba ty D hpD ρ' hva ha hAa haty, ?_⟩
     intro x A hA' hx
     rw [interp_substFvarAt hwa hba ty D hpD ρ' hva ha] at hA'
     obtain ⟨hbody, hwfact⟩ := hcond x A hA' hx
@@ -294,18 +294,18 @@ theorem AnnotOk.substFvarAt {p : Nat} {a : Expr} {va : V}
     rw [← substFvarAt_instantiate1 hpD hba body 0, delV_updV hpD]
     refine ⟨AnnotOk.substFvarAt hwa hba (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1)
       (by omega) (updV V ρ' (D + 1) x) hva' ha' hAa' hbody, ?_⟩
-    obtain ⟨w, B, hwi, hwB, hBu⟩ := hwfact
-    refine ⟨w, B, ?_, hwB, hBu⟩
+    obtain ⟨w, B, hwi, hwB⟩ := hwfact
+    refine ⟨w, B, ?_, hwB⟩
     rw [interp_substFvarAt hwa hba (body.instantiate1 (.fvar (D + 1) n ty)) (D + 1)
       (by omega) (updV V ρ' (D + 1) x) hva' ha']
     exact hwi
   | .app f b, D, hpD, ρ', hva, ha, hAa, hA => by
     simp only [AnnotOk] at hA
-    obtain ⟨haf, hab, vf, vb, vE, A, B, hfi, hbi, hpi, hvb, hfib⟩ := hA
+    obtain ⟨haf, hab, vf, vb, A, B, hfi, hbi, hpi, hvb⟩ := hA
     simp only [Expr.substFvarAt, AnnotOk]
     refine ⟨AnnotOk.substFvarAt hwa hba f D hpD ρ' hva ha hAa haf,
       AnnotOk.substFvarAt hwa hba b D hpD ρ' hva ha hAa hab,
-      vf, vb, vE, A, B, ?_, ?_, hpi, hvb, hfib⟩
+      vf, vb, A, B, ?_, ?_, hpi, hvb⟩
     · rw [interp_substFvarAt hwa hba f D hpD ρ' hva ha]; exact hfi
     · rw [interp_substFvarAt hwa hba b D hpD ρ' hva ha]; exact hbi
 termination_by e => e.sizeB
@@ -340,17 +340,15 @@ theorem AnnotOk_beta {d : Nat} {n : Name} {ty body a : Expr} {ρ : Nat → V} {v
       rw [if_pos hi, if_neg (by omega)])
     (fvarsBelow_instantiate1_gen hwa.fvarsBelow k hfb) h
 
-/-- Functionalize per-point fibre witnesses (for `SetTheory.app_lam`). -/
-theorem choose_fibres {A : V} {F : V → V} {v : Nat}
-    (h : ∀ x, x ∈ˢ A → ∃ B, F x ∈ˢ B ∧ B ∈ˢ univ v) :
-    ∃ B : V → V, (∀ x, x ∈ˢ A → F x ∈ˢ B x) ∧ ∀ x, x ∈ˢ A → B x ∈ˢ univ v := by
+/-- Functionalize per-point fibre witnesses (for `lamC_mem`; task #100
+stage 6: level-free — no fibre-universe component). -/
+theorem choose_fibres {A : V} {F : V → V}
+    (h : ∀ x, x ∈ˢ A → ∃ B, F x ∈ˢ B) :
+    ∃ B : V → V, ∀ x, x ∈ˢ A → F x ∈ˢ B x := by
   classical
-  refine ⟨fun x => if hx : x ∈ˢ A then (h x hx).choose else SetTheory.empty, ?_, ?_⟩
-  · intro x hx
-    simp only [dif_pos hx]
-    exact (h x hx).choose_spec.1
-  · intro x hx
-    simp only [dif_pos hx]
-    exact (h x hx).choose_spec.2
+  refine ⟨fun x => if hx : x ∈ˢ A then (h x hx).choose else SetTheory.empty, ?_⟩
+  intro x hx
+  simp only [dif_pos hx]
+  exact (h x hx).choose_spec
 
 end Setlec

@@ -441,7 +441,7 @@ theorem stage_pkg_pre {env₀ : Env} (m₀ : EnvModel V env₀)
   -- extract the stage annotation's package
   have hAmid' := hAmid
   simp only [AnnotOk] at hAmid'
-  obtain ⟨hAdom, cod, -, -⟩ := hAmid'
+  obtain ⟨hAdom, cod, -⟩ := hAmid'
   have hWdom : WScoped (rP + cnF) (Expr.fvarTypeD fv) ∧
       WScoped (rP + cnF) bodyH := by
     simpa [WScoped] using hWmid
@@ -728,7 +728,7 @@ theorem stage_pkg_fld {env₀ : Env} (m₀ : EnvModel V env₀)
   -- extract the stage annotation's package
   have hAmidX' := hAmidX
   simp only [AnnotOk] at hAmidX'
-  obtain ⟨hAdom, cod, -, -⟩ := hAmidX'
+  obtain ⟨hAdom, cod, -⟩ := hAmidX'
   have hWdom : WScoped (rP + cnF) (Expr.fvarTypeD fv) ∧
       WScoped (rP + cnF) bodyH := by
     simpa [WScoped] using hWmidX

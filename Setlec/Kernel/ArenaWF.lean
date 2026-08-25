@@ -27,7 +27,6 @@ Contents:
 * the eager derived-field exactness facts (`WF.bvarBoundD_exact`,
   `WF.fvarRangeD_exact`, `WF.lhasParamD_exact`, `WF.ehasParamD_exact`,
   `WF.readbackN_eq_denoteN`);
-* `internExprFast_eq` — the boundary fast path equals `internExpr`.
 -/
 
 namespace Setlec
@@ -46,11 +45,10 @@ def LNode.children : LNode → List LIdx
   | .max u v | .imax u v => [u, v]
 
 /-- The level references of an expression node (sort level, constant
-level arguments, binder codomain annotation). -/
+level arguments). -/
 def ENode.levels : ENode → List LIdx
   | .sort u => [u]
   | .const _ us => us
-  | .lam _ _ _ m | .forallE _ _ _ m => m.cod.toList
   | _ => []
 
 namespace EStore
@@ -79,10 +77,10 @@ def denoteLList (denL : LIdx → Option Level) : List LIdx → Option (List Leve
   | u :: us =>
     (denL u).bind fun l => (denoteLList denL us).map fun ls => l :: ls
 
-/-- Denotation of interned binder metadata under a level denotation. -/
-def denoteBM (denL : LIdx → Option Level) : IBinderMeta → Option BinderMeta
-  | ⟨bi, none⟩ => some ⟨bi, none⟩
-  | ⟨bi, some u⟩ => (denL u).map fun l => ⟨bi, some l⟩
+/-- Denotation of interned binder metadata (annotation-free: the
+identity). -/
+def denoteBM (_denL : LIdx → Option Level) : IBinderMeta → Option BinderMeta
+  | ⟨bi⟩ => some ⟨bi⟩
 
 /-- `denoteLList` only looks at the listed indices. -/
 theorem denoteLList_congr {l₁ l₂ : LIdx → Option Level} :
@@ -96,13 +94,11 @@ theorem denoteLList_congr {l₁ l₂ : LIdx → Option Level} :
     simp only [denoteLList, h u (by simp),
       ih (fun v hv => h v (by simp [hv]))]
 
-/-- `denoteBM` only looks at the codomain annotation. -/
-theorem denoteBM_congr {l₁ l₂ : LIdx → Option Level} {m : IBinderMeta}
-    (h : ∀ u ∈ m.cod.toList, l₁ u = l₂ u) :
+/-- `denoteBM` is denotation-independent. -/
+theorem denoteBM_congr {l₁ l₂ : LIdx → Option Level} {m : IBinderMeta} :
     denoteBM l₁ m = denoteBM l₂ m := by
-  obtain ⟨bi, (_ | u)⟩ := m
-  · rfl
-  · simp only [denoteBM, h u (by simp)]
+  obtain ⟨bi⟩ := m
+  rfl
 
 /-- `denoteLNode` only looks at the children. -/
 theorem denoteLNode_congr {d₁ d₂ : LIdx → Option Level} {n : LNode}
@@ -492,12 +488,12 @@ theorem denoteNode_congr' {d₁ d₂ : EIdx → Option Expr}
   | lam nm t b m =>
     simp only [denoteNode, h t (by simp [ENode.children]),
       h b (by simp [ENode.children]),
-      denoteBM_congr (l₂ := l₂) (by simpa [ENode.levels] using hl),
+      denoteBM_congr (l₂ := l₂),
       hn nm (by simp [ENode.names])]
   | forallE nm t b m =>
     simp only [denoteNode, h t (by simp [ENode.children]),
       h b (by simp [ENode.children]),
-      denoteBM_congr (l₂ := l₂) (by simpa [ENode.levels] using hl),
+      denoteBM_congr (l₂ := l₂),
       hn nm (by simp [ENode.names])]
   | bvar i => rfl
   | lit l => rfl
@@ -730,15 +726,12 @@ theorem denoteLList_mono {st st' : EStore} (hext : Ext st st') :
     exact ⟨l, denoteL_mono hext hl, ls', ih hls', rfl⟩
 
 /-- Binder-meta denotation is stable under store extension. -/
-theorem denoteBM_mono {st st' : EStore} (hext : Ext st st')
+theorem denoteBM_mono {st st' : EStore} (_hext : Ext st st')
     {m : IBinderMeta} {bm : BinderMeta}
     (h : denoteBM st.denoteL m = some bm) :
     denoteBM st'.denoteL m = some bm := by
-  obtain ⟨bi, (_ | u)⟩ := m
-  · exact h
-  · simp only [denoteBM, Option.map_eq_some_iff] at h ⊢
-    obtain ⟨l, hl, rfl⟩ := h
-    exact ⟨l, denoteL_mono hext hl, rfl⟩
+  obtain ⟨bi⟩ := m
+  exact h
 
 /-- `denoteNode` transports along extension when the children's
 denotations transport. -/
@@ -1126,13 +1119,9 @@ theorem _root_.Setlec.ENode.hasLParamOf_congr {ebs ebs' lbs lbs' : Array Bool}
         rw [hml u (by simp), iht fun v hv => hml v (by simp [hv])]
     exact main us fun u hu => hl u (by simpa [ENode.levels] using hu)
   | lam nm ty body m =>
-    obtain ⟨bi, cod⟩ := m
-    cases cod <;>
-      simp_all [ENode.hasLParamOf, ENode.children, ENode.levels]
+    simp_all [ENode.hasLParamOf, ENode.children, ENode.levels]
   | forallE nm ty body m =>
-    obtain ⟨bi, cod⟩ := m
-    cases cod <;>
-      simp_all [ENode.hasLParamOf, ENode.children, ENode.levels]
+    simp_all [ENode.hasLParamOf, ENode.children, ENode.levels]
   | _ =>
     simp_all [ENode.hasLParamOf, ENode.children, ENode.levels]
 
@@ -1184,13 +1173,9 @@ theorem nodeHasLParam_congr {st st' : EStore} {n : ENode}
         rw [hml u (by simp), iht fun v hv => hml v (by simp [hv])]
     exact main us fun u hu => hl u (by simpa [ENode.levels] using hu)
   | lam nm ty body m =>
-    obtain ⟨bi, cod⟩ := m
-    cases cod <;>
-      simp_all [nodeHasLParam, ENode.children, ENode.levels]
+    simp_all [nodeHasLParam, ENode.children, ENode.levels]
   | forallE nm ty body m =>
-    obtain ⟨bi, cod⟩ := m
-    cases cod <;>
-      simp_all [nodeHasLParam, ENode.children, ENode.levels]
+    simp_all [nodeHasLParam, ENode.children, ENode.levels]
   | _ =>
     simp_all [nodeHasLParam, ENode.children, ENode.levels]
 
@@ -1920,25 +1905,15 @@ theorem internLevels_specT {st : EStore} (hwf : st.TWF) (ls : List Level) :
 theorem internBM_spec {st : EStore} (hwf : st.WF) (m : BinderMeta) :
     (st.internBM m).2.WF ∧ Ext st (st.internBM m).2 ∧
       denoteBM (st.internBM m).2.denoteL (st.internBM m).1 = some m := by
-  obtain ⟨bi, (_ | u)⟩ := m
-  · exact ⟨hwf, Ext.refl st, rfl⟩
-  · obtain ⟨hwf₁, hext₁, hden₁⟩ := internLevel_spec hwf u
-    rcases hI : st.internLevel u with ⟨ui, st₁⟩
-    simp only [hI] at hwf₁ hext₁ hden₁
-    simp only [internBM, hI]
-    exact ⟨hwf₁, hext₁, by simp [denoteBM, hden₁]⟩
+  obtain ⟨bi⟩ := m
+  exact ⟨hwf, Ext.refl st, rfl⟩
 
 /-- `internBM` round-trip, two-tier form (task #64). -/
 theorem internBM_specT {st : EStore} (hwf : st.TWF) (m : BinderMeta) :
     (st.internBM m).2.TWF ∧ Ext st (st.internBM m).2 ∧
       denoteBM (st.internBM m).2.denoteL (st.internBM m).1 = some m := by
-  obtain ⟨bi, (_ | u)⟩ := m
-  · exact ⟨hwf, Ext.refl st, rfl⟩
-  · obtain ⟨hwf₁, hext₁, hden₁⟩ := internLevel_specT hwf u
-    rcases hI : st.internLevel u with ⟨ui, st₁⟩
-    simp only [hI] at hwf₁ hext₁ hden₁
-    simp only [internBM, hI]
-    exact ⟨hwf₁, hext₁, by simp [denoteBM, hden₁]⟩
+  obtain ⟨bi⟩ := m
+  exact ⟨hwf, Ext.refl st, rfl⟩
 
 /-! ## `internN` / `internName`: the name round-trip (task #88) -/
 
@@ -2240,16 +2215,12 @@ theorem denoteLList_lt_size {st : EStore} :
     · exact denoteL_lt_size hl
     · exact ih hls' v hv'
 
-/-- In-range level reference from a successful binder-meta
-denotation. -/
+/-- In-range level references of binder metadata (annotation-free:
+vacuous). -/
 theorem denoteBM_lt_size {st : EStore} {m : IBinderMeta} {bm : BinderMeta}
-    (h : denoteBM st.denoteL m = some bm) :
-    ∀ u ∈ m.cod.toList, u < st.lnodes.size := by
-  obtain ⟨bi, (_ | u)⟩ := m
-  · simp
-  · simp only [denoteBM, Option.map_eq_some_iff] at h
-    obtain ⟨l, hl, rfl⟩ := h
-    simpa using denoteL_lt_size hl
+    (_h : denoteBM st.denoteL m = some bm) :
+    ∀ u ∈ ([] : List LIdx), u < st.lnodes.size := by
+  simp
 
 /-- `internExpr` preserves the invariant, extends the store, and its
 result denotes the interned expression. -/
@@ -2346,7 +2317,7 @@ theorem internExpr_spec {st : EStore} (hwf : st.WF) (e : Expr) :
         rintro c (rfl | rfl)
         · exact denote_valid1 hden₁'
         · exact denote_valid1 hden₂')
-      (by simpa [ENode.levels] using denoteBM_lt_size hden₃')
+      (by simp [ENode.levels])
       (by simpa [ENode.names] using denoteN_lt_size hden₄)
       (a := .lam n ty body m)
       (by rw [denoteNode, hden₁', hden₂', hden₃', hden₄]; rfl)
@@ -2377,7 +2348,7 @@ theorem internExpr_spec {st : EStore} (hwf : st.WF) (e : Expr) :
         rintro c (rfl | rfl)
         · exact denote_valid1 hden₁'
         · exact denote_valid1 hden₂')
-      (by simpa [ENode.levels] using denoteBM_lt_size hden₃')
+      (by simp [ENode.levels])
       (by simpa [ENode.names] using denoteN_lt_size hden₄)
       (a := .forallE n ty body m)
       (by rw [denoteNode, hden₁', hden₂', hden₃', hden₄]; rfl)
@@ -2545,29 +2516,16 @@ theorem denoteLList_inj {st : EStore} (hwf : st.TWF) :
       obtain rfl := ih hls' hls''
       rfl
 
-/-- Binder-meta denotation is injective on a well-formed store. -/
-theorem denoteBM_inj {st : EStore} (hwf : st.TWF) {m m' : IBinderMeta}
+/-- Binder-meta denotation is injective. -/
+theorem denoteBM_inj {st : EStore} (_hwf : st.TWF) {m m' : IBinderMeta}
     {bm : BinderMeta} (h : denoteBM st.denoteL m = some bm)
     (h' : denoteBM st.denoteL m' = some bm) : m = m' := by
-  obtain ⟨bi, (_ | u)⟩ := m <;> obtain ⟨bi', (_ | u')⟩ := m'
-  · simp only [denoteBM, Option.some.injEq] at h h'
-    rw [← h] at h'
-    simp only [BinderMeta.mk.injEq] at h'
-    simp [h'.1]
-  · simp only [denoteBM, Option.some.injEq, Option.map_eq_some_iff] at h h'
-    subst h
-    obtain ⟨l, -, hcon⟩ := h'
-    simp [BinderMeta.mk.injEq] at hcon
-  · simp only [denoteBM, Option.some.injEq, Option.map_eq_some_iff] at h h'
-    subst h'
-    obtain ⟨l, -, hcon⟩ := h
-    simp [BinderMeta.mk.injEq] at hcon
-  · simp only [denoteBM, Option.map_eq_some_iff] at h h'
-    obtain ⟨l, hl, rfl⟩ := h
-    obtain ⟨l', hl', heq⟩ := h'
-    simp only [BinderMeta.mk.injEq, Option.some.injEq] at heq
-    obtain ⟨rfl, rfl⟩ := heq
-    rw [denoteL_inj hwf hl hl']
+  obtain ⟨bi⟩ := m
+  obtain ⟨bi'⟩ := m'
+  simp only [denoteBM, Option.some.injEq] at h h'
+  rw [← h] at h'
+  simp only [BinderMeta.mk.injEq] at h'
+  simp [h']
 
 /-- Inversion of `denoteNNode` at each `Name` head constructor
 (task #88). -/
@@ -3010,14 +2968,11 @@ theorem denoteLList_total {st : EStore} (hwf : st.TWF) :
     obtain ⟨ls, hls⟩ := ih (fun v hv => h v (by simp [hv]))
     exact ⟨l :: ls, by simp [denoteLList, hl, hls]⟩
 
-/-- On a well-formed store, in-range binder metadata denotes. -/
-theorem denoteBM_total {st : EStore} (hwf : st.TWF) (m : IBinderMeta)
-    (h : ∀ u ∈ m.cod.toList, u < st.lnodes.size) :
+/-- Binder metadata always denotes (annotation-free). -/
+theorem denoteBM_total {st : EStore} (_hwf : st.TWF) (m : IBinderMeta) :
     ∃ bm, denoteBM st.denoteL m = some bm := by
-  obtain ⟨bi, (_ | u)⟩ := m
-  · exact ⟨_, rfl⟩
-  · obtain ⟨l, hl⟩ := denoteL_total hwf u (h u (by simp))
-    exact ⟨⟨bi, some l⟩, by simp [denoteBM, hl]⟩
+  obtain ⟨bi⟩ := m
+  exact ⟨_, rfl⟩
 
 /-- On a well-formed store, every valid tier-one index denotes. -/
 theorem denote_total {st : EStore} (hwf : st.WF) :
@@ -3063,7 +3018,6 @@ theorem denote_total {st : EStore} (hwf : st.WF) :
       obtain ⟨xt, ht⟩ := hcs t (by simp [hnn, ENode.children])
       obtain ⟨xb, hb⟩ := hcs b (by simp [hnn, ENode.children])
       obtain ⟨bm, hbm⟩ := denoteBM_total hwf.toTWF m
-        (fun u hu => hlv u (by simp [hnn, ENode.levels, hu]))
       obtain ⟨name, hname⟩ := denoteN_total hwf.toTWF nm
         (hnms nm (by simp [hnn, ENode.names]))
       exact ⟨_, by rw [denoteNode, ht, hb, hbm, hname]; rfl⟩
@@ -3071,7 +3025,6 @@ theorem denote_total {st : EStore} (hwf : st.WF) :
       obtain ⟨xt, ht⟩ := hcs t (by simp [hnn, ENode.children])
       obtain ⟨xb, hb⟩ := hcs b (by simp [hnn, ENode.children])
       obtain ⟨bm, hbm⟩ := denoteBM_total hwf.toTWF m
-        (fun u hu => hlv u (by simp [hnn, ENode.levels, hu]))
       obtain ⟨name, hname⟩ := denoteN_total hwf.toTWF nm
         (hnms nm (by simp [hnn, ENode.names]))
       exact ⟨_, by rw [denoteNode, ht, hb, hbm, hname]; rfl⟩
@@ -3638,20 +3591,16 @@ theorem WF.lhasParamD_false {st : EStore} (hwf : st.WF) {u : LIdx}
   hwf.toTWF.lhasParamD_false hx hp
 
 /-- Whether an expression mentions any level parameter (the spec
-function of the eager `eparamBs` entries; `fvar` type annotations and
-binder-cod annotations included, matching
-`Expr.instantiateLevelParams`). -/
+function of the eager `eparamBs` entries; `fvar` type annotations
+included, matching `Expr.instantiateLevelParams`). -/
 def _root_.Setlec.Expr.hasLevelParam : Expr → Bool
   | .bvar _ | .lit _ => false
   | .sort u => u.hasParam
   | .const _ us => us.any Level.hasParam
   | .fvar _ _ ty => ty.hasLevelParam
   | .app f a => f.hasLevelParam || a.hasLevelParam
-  | .lam _ ty body m | .forallE _ ty body m =>
-    ty.hasLevelParam || body.hasLevelParam ||
-      (match m.cod with
-       | some v => v.hasParam
-       | none => false)
+  | .lam _ ty body _ | .forallE _ ty body _ =>
+    ty.hasLevelParam || body.hasLevelParam
   | .letE _ ty val body =>
     ty.hasLevelParam || val.hasLevelParam || body.hasLevelParam
   | .proj _ _ e => e.hasLevelParam
@@ -3685,27 +3634,13 @@ theorem _root_.Setlec.Expr.instantiateLevelParams_eq_self
     simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
     simp [Expr.instantiateLevelParams, ihf h.1, iha h.2]
   | lam nm ty body m iht ihb =>
-    obtain ⟨bi, cod⟩ := m
     simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
-    obtain ⟨⟨ht, hb⟩, hcod⟩ := h
-    cases cod with
-    | none =>
-      simp [Expr.instantiateLevelParams, iht ht, ihb hb]
-    | some v =>
-      have hcv : v.hasParam = false := hcod
-      simp [Expr.instantiateLevelParams, iht ht, ihb hb,
-        Level.subst_eq_self hcv]
+    obtain ⟨ht, hb⟩ := h
+    simp [Expr.instantiateLevelParams, iht ht, ihb hb]
   | forallE nm ty body m iht ihb =>
-    obtain ⟨bi, cod⟩ := m
     simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
-    obtain ⟨⟨ht, hb⟩, hcod⟩ := h
-    cases cod with
-    | none =>
-      simp [Expr.instantiateLevelParams, iht ht, ihb hb]
-    | some v =>
-      have hcv : v.hasParam = false := hcod
-      simp [Expr.instantiateLevelParams, iht ht, ihb hb,
-        Level.subst_eq_self hcv]
+    obtain ⟨ht, hb⟩ := h
+    simp [Expr.instantiateLevelParams, iht ht, ihb hb]
   | letE nm ty val body iht ihv ihb =>
     simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
     simp [Expr.instantiateLevelParams, iht h.1.1, ihv h.1.2, ihb h.2]
@@ -3720,27 +3655,13 @@ theorem _root_.Setlec.Expr.allLevelParamsDefined_of_not_hasLevelParam
     x.allLevelParamsDefined params = true := by
   induction x with
   | lam nm ty body m iht ihb =>
-    obtain ⟨bi, cod⟩ := m
     simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
-    obtain ⟨⟨ht, hb⟩, hcod⟩ := h
-    cases cod with
-    | none =>
-      simp [Expr.allLevelParamsDefined, iht ht, ihb hb]
-    | some v =>
-      have hcv : v.hasParam = false := hcod
-      simp [Expr.allLevelParamsDefined, iht ht, ihb hb,
-        Level.allParamsDefined_of_not_hasParam hcv]
+    obtain ⟨ht, hb⟩ := h
+    simp [Expr.allLevelParamsDefined, iht ht, ihb hb]
   | forallE nm ty body m iht ihb =>
-    obtain ⟨bi, cod⟩ := m
     simp only [Expr.hasLevelParam, Bool.or_eq_false_iff] at h
-    obtain ⟨⟨ht, hb⟩, hcod⟩ := h
-    cases cod with
-    | none =>
-      simp [Expr.allLevelParamsDefined, iht ht, ihb hb]
-    | some v =>
-      have hcv : v.hasParam = false := hcod
-      simp [Expr.allLevelParamsDefined, iht ht, ihb hb,
-        Level.allParamsDefined_of_not_hasParam hcv]
+    obtain ⟨ht, hb⟩ := h
+    simp [Expr.allLevelParamsDefined, iht ht, ihb hb]
   | const nm vs =>
     simp only [Expr.hasLevelParam, List.any_eq_false] at h
     simp only [Expr.allLevelParamsDefined, List.all_eq_true]
@@ -3850,27 +3771,15 @@ theorem WF.ehasParamD_exact {st : EStore} (hwf : st.WF) :
       obtain ⟨nmv, -, rfl⟩ := hdn
       have ht := hcl ty (by simp [ENode.children])
       have hb := hcl body (by simp [ENode.children])
-      obtain ⟨bi, cod⟩ := m
-      cases cod with
-      | none =>
-        rw [denoteBM] at hbm
-        cases hbm
-        show (st.eparamBs.getD (epos ty) false
-            || st.eparamBs.getD (epos body) false || false) = _
-        rw [← ehasParamD_tierOne (denote_etier hxt),
-          ← ehasParamD_tierOne (denote_etier hxb),
-          ih ty ht hxt, ih body hb hxb]
-        rfl
-      | some u =>
-        rw [denoteBM, Option.map_eq_some_iff] at hbm
-        obtain ⟨lv, hlv, rfl⟩ := hbm
-        show (st.eparamBs.getD (epos ty) false
-            || st.eparamBs.getD (epos body) false
-            || st.lhasParamD u) = _
-        rw [← ehasParamD_tierOne (denote_etier hxt),
-          ← ehasParamD_tierOne (denote_etier hxb),
-          ih ty ht hxt, ih body hb hxb, hwf.lhasParamD_exact u hlv]
-        rfl
+      obtain ⟨bi⟩ := m
+      rw [denoteBM] at hbm
+      cases hbm
+      show (st.eparamBs.getD (epos ty) false
+          || st.eparamBs.getD (epos body) false) = _
+      rw [← ehasParamD_tierOne (denote_etier hxt),
+        ← ehasParamD_tierOne (denote_etier hxb),
+        ih ty ht hxt, ih body hb hxb]
+      rfl
     | forallE nm ty body m =>
       rw [denoteNode, Option.bind_eq_some_iff] at hdn
       obtain ⟨xt, hxt, hdn⟩ := hdn
@@ -3882,27 +3791,15 @@ theorem WF.ehasParamD_exact {st : EStore} (hwf : st.WF) :
       obtain ⟨nmv, -, rfl⟩ := hdn
       have ht := hcl ty (by simp [ENode.children])
       have hb := hcl body (by simp [ENode.children])
-      obtain ⟨bi, cod⟩ := m
-      cases cod with
-      | none =>
-        rw [denoteBM] at hbm
-        cases hbm
-        show (st.eparamBs.getD (epos ty) false
-            || st.eparamBs.getD (epos body) false || false) = _
-        rw [← ehasParamD_tierOne (denote_etier hxt),
-          ← ehasParamD_tierOne (denote_etier hxb),
-          ih ty ht hxt, ih body hb hxb]
-        rfl
-      | some u =>
-        rw [denoteBM, Option.map_eq_some_iff] at hbm
-        obtain ⟨lv, hlv, rfl⟩ := hbm
-        show (st.eparamBs.getD (epos ty) false
-            || st.eparamBs.getD (epos body) false
-            || st.lhasParamD u) = _
-        rw [← ehasParamD_tierOne (denote_etier hxt),
-          ← ehasParamD_tierOne (denote_etier hxb),
-          ih ty ht hxt, ih body hb hxb, hwf.lhasParamD_exact u hlv]
-        rfl
+      obtain ⟨bi⟩ := m
+      rw [denoteBM] at hbm
+      cases hbm
+      show (st.eparamBs.getD (epos ty) false
+          || st.eparamBs.getD (epos body) false) = _
+      rw [← ehasParamD_tierOne (denote_etier hxt),
+        ← ehasParamD_tierOne (denote_etier hxb),
+        ih ty ht hxt, ih body hb hxb]
+      rfl
     | letE nm ty val body =>
       rw [denoteNode, Option.bind_eq_some_iff] at hdn
       obtain ⟨xt, hxt, hdn⟩ := hdn
@@ -3942,7 +3839,7 @@ theorem WF.ehasParamD_false {st : EStore} (hwf : st.WF) {e : EIdx}
   rw [← hwf.ehasParamD_exact e hx]
   exact hp
 
-/-! ## `internExprFast` equals `internExpr` (task #72) -/
+/-! ## Level re-interning is a lookup -/
 
 /-- Re-interning an already-stored level is a pure lookup: the same
 index, the same store — the codomain-chain fast path's justification. -/
@@ -5107,7 +5004,6 @@ theorem TWF.denoteT_total {st : EStore} (h : st.TWF) :
       obtain ⟨xt, ht⟩ := hcs t (by simp [ENode.children])
       obtain ⟨xb, hb⟩ := hcs b (by simp [ENode.children])
       obtain ⟨bm, hbm⟩ := denoteBM_total h m
-        (fun u hu => hlv u (by simp [ENode.levels, hu]))
       obtain ⟨name, hname⟩ := denoteN_total h nm
         (hnms nm (by simp [ENode.names]))
       exact ⟨_, by rw [denoteNode, ht, hb, hbm, hname]; rfl⟩
@@ -5115,7 +5011,6 @@ theorem TWF.denoteT_total {st : EStore} (h : st.TWF) :
       obtain ⟨xt, ht⟩ := hcs t (by simp [ENode.children])
       obtain ⟨xb, hb⟩ := hcs b (by simp [ENode.children])
       obtain ⟨bm, hbm⟩ := denoteBM_total h m
-        (fun u hu => hlv u (by simp [ENode.levels, hu]))
       obtain ⟨name, hname⟩ := denoteN_total h nm
         (hnms nm (by simp [ENode.names]))
       exact ⟨_, by rw [denoteNode, ht, hb, hbm, hname]; rfl⟩
@@ -5584,24 +5479,13 @@ theorem TWF.ehasParamD_exact2 {st : EStore} (h : st.TWF) :
       obtain ⟨bm, hbm, hdn⟩ := hdn
       rw [Option.map_eq_some_iff] at hdn
       obtain ⟨nmv, -, rfl⟩ := hdn
-      obtain ⟨bi, cod⟩ := m
-      cases cod with
-      | none =>
-        rw [denoteBM] at hbm
-        cases hbm
-        show (st.ehasParamD ty || st.ehasParamD body || false) = _
-        rw [ih ty (hcl ty (by simp [ENode.children])) hxt,
-          ih body (hcl body (by simp [ENode.children])) hxb]
-        rfl
-      | some u =>
-        rw [denoteBM, Option.map_eq_some_iff] at hbm
-        obtain ⟨lv, hlv, rfl⟩ := hbm
-        show (st.ehasParamD ty || st.ehasParamD body
-            || st.lhasParamD u) = _
-        rw [ih ty (hcl ty (by simp [ENode.children])) hxt,
-          ih body (hcl body (by simp [ENode.children])) hxb,
-          h.lhasParamD_exact u hlv]
-        rfl
+      obtain ⟨bi⟩ := m
+      rw [denoteBM] at hbm
+      cases hbm
+      show (st.ehasParamD ty || st.ehasParamD body) = _
+      rw [ih ty (hcl ty (by simp [ENode.children])) hxt,
+        ih body (hcl body (by simp [ENode.children])) hxb]
+      rfl
     | forallE nm ty body m =>
       rw [denoteNode, Option.bind_eq_some_iff] at hdn
       obtain ⟨xt, hxt, hdn⟩ := hdn
@@ -5611,24 +5495,13 @@ theorem TWF.ehasParamD_exact2 {st : EStore} (h : st.TWF) :
       obtain ⟨bm, hbm, hdn⟩ := hdn
       rw [Option.map_eq_some_iff] at hdn
       obtain ⟨nmv, -, rfl⟩ := hdn
-      obtain ⟨bi, cod⟩ := m
-      cases cod with
-      | none =>
-        rw [denoteBM] at hbm
-        cases hbm
-        show (st.ehasParamD ty || st.ehasParamD body || false) = _
-        rw [ih ty (hcl ty (by simp [ENode.children])) hxt,
-          ih body (hcl body (by simp [ENode.children])) hxb]
-        rfl
-      | some u =>
-        rw [denoteBM, Option.map_eq_some_iff] at hbm
-        obtain ⟨lv, hlv, rfl⟩ := hbm
-        show (st.ehasParamD ty || st.ehasParamD body
-            || st.lhasParamD u) = _
-        rw [ih ty (hcl ty (by simp [ENode.children])) hxt,
-          ih body (hcl body (by simp [ENode.children])) hxb,
-          h.lhasParamD_exact u hlv]
-        rfl
+      obtain ⟨bi⟩ := m
+      rw [denoteBM] at hbm
+      cases hbm
+      show (st.ehasParamD ty || st.ehasParamD body) = _
+      rw [ih ty (hcl ty (by simp [ENode.children])) hxt,
+        ih body (hcl body (by simp [ENode.children])) hxb]
+      rfl
     | letE nm ty val body =>
       rw [denoteNode, Option.bind_eq_some_iff] at hdn
       obtain ⟨xt, hxt, hdn⟩ := hdn
@@ -5786,7 +5659,7 @@ theorem internExpr_specT {st : EStore} (hwf : st.TWF) (e : Expr) :
         rintro c (rfl | rfl)
         · exact denoteT_valid2 hden₁'
         · exact denoteT_valid2 hden₂')
-      (by simpa [ENode.levels] using denoteBM_lt_size hden₃')
+      (by simp [ENode.levels])
       (by simpa [ENode.names] using denoteN_lt_size hden₄)
       (a := .lam n ty body m)
       (by rw [denoteNode, hden₁', hden₂', hden₃', hden₄]; rfl)
@@ -5817,7 +5690,7 @@ theorem internExpr_specT {st : EStore} (hwf : st.TWF) (e : Expr) :
         rintro c (rfl | rfl)
         · exact denoteT_valid2 hden₁'
         · exact denoteT_valid2 hden₂')
-      (by simpa [ENode.levels] using denoteBM_lt_size hden₃')
+      (by simp [ENode.levels])
       (by simpa [ENode.names] using denoteN_lt_size hden₄)
       (a := .forallE n ty body m)
       (by rw [denoteNode, hden₁', hden₂', hden₃', hden₄]; rfl)
@@ -5872,295 +5745,6 @@ theorem internExpr_specT {st : EStore} (hwf : st.TWF) (e : Expr) :
       (a := .proj sN i e) (by rw [denoteNode, hden₁', hden₂]; rfl)
     simp only [internExpr, hI, hN]
     exact ⟨hstep.1, hext₁.trans (hext₂.trans hstep.2.1), hstep.2.2⟩
-
-/-- With a valid child-codomain fact, `internBMFast` is `internBM`
-(two-tier form). -/
-theorem internBMFast_eqT {st : EStore} (hwf : st.TWF) {m : BinderMeta}
-    {child : Option (Level × LIdx)}
-    (hchild : ∀ v i, child = some (v, i) → st.denoteL i = some v) :
-    st.internBMFast m child = st.internBM m := by
-  obtain ⟨bi, (_ | v)⟩ := m
-  · cases child with
-    | none => rfl
-    | some p => rfl
-  · match child with
-    | none => rfl
-    | some (vc, ic) =>
-      have hden : st.denoteL ic = some vc := hchild vc ic rfl
-      cases v with
-      | zero => rfl
-      | succ u => rfl
-      | max u v => rfl
-      | param p => rfl
-      | imax u vtail =>
-        show (if levelPtrBEq vtail vc then _ else _) = _
-        by_cases hb : levelPtrBEq vtail vc = true
-        · have hvv : vtail = vc := by
-            have hbeq : (vtail == vc) = true := hb
-            exact eq_of_beq hbeq
-          subst hvv
-          rw [if_pos hb]
-          show ((⟨bi, some ((st.internLevel u).2.internL
-              (.imax (st.internLevel u).1 ic)).1⟩ : IBinderMeta),
-            ((st.internLevel u).2.internL
-              (.imax (st.internLevel u).1 ic)).2)
-            = st.internBM ⟨bi, some (.imax u vtail)⟩
-          obtain ⟨hwf₁, hext₁, -⟩ := internLevel_specT hwf u
-          have hstep : (st.internLevel u).2.internLevel vtail
-              = (ic, (st.internLevel u).2) :=
-            internLevel_of_denoteL hwf₁ (denoteL_mono hext₁ hden)
-          show _ = ((⟨bi, some (st.internLevel (.imax u vtail)).1⟩ :
-              IBinderMeta), (st.internLevel (.imax u vtail)).2)
-          have hlvl : st.internLevel (.imax u vtail)
-              = (st.internLevel u).2.internL
-                (.imax (st.internLevel u).1 ic) := by
-            show ((st.internLevel u).2.internLevel vtail).2.internL
-                (.imax (st.internLevel u).1
-                  ((st.internLevel u).2.internLevel vtail).1)
-              = _
-            rw [hstep]
-          rw [hlvl]
-        · rw [if_neg hb]
-          rfl
-
-/-- The codomain slot of `internBM` on an annotated meta (two-tier
-form). -/
-theorem internBM_codT {st : EStore} (hwf : st.TWF) {bi : BinderInfo}
-    {v : Level} :
-    (st.internBM ⟨bi, some v⟩).1
-        = ⟨bi, some (st.internLevel v).1⟩ ∧
-      (st.internBM ⟨bi, some v⟩).2 = (st.internLevel v).2 ∧
-      (st.internBM ⟨bi, some v⟩).2.denoteL (st.internLevel v).1
-        = some v := by
-  obtain ⟨-, -, hden⟩ := internLevel_specT hwf v
-  exact ⟨rfl, rfl, hden⟩
-
-/-- The fast-path traversal computes exactly `internExpr`, and a
-returned codomain fact is valid in the result store (two-tier form). -/
-theorem internExprFastGo_eqT :
-    ∀ (x : Expr) {st : EStore}, st.TWF →
-      (st.internExprFastGo x).1 = st.internExpr x ∧
-      (∀ v i, (st.internExprFastGo x).2 = some (v, i) →
-        (st.internExpr x).2.denoteL i = some v) := by
-  intro x
-  induction x with
-  | bvar i =>
-    intro st hwf
-    exact ⟨rfl, fun v i h => nomatch h⟩
-  | sort u =>
-    intro st hwf
-    exact ⟨rfl, fun v i h => nomatch h⟩
-  | const n us =>
-    intro st hwf
-    exact ⟨rfl, fun v i h => nomatch h⟩
-  | lit l =>
-    intro st hwf
-    exact ⟨rfl, fun v i h => nomatch h⟩
-  | fvar idx n ty ih =>
-    intro st hwf
-    have h1 : (st.internExprFastGo ty).1 = st.internExpr ty := (ih hwf).1
-    constructor
-    · show (((st.internExprFastGo ty).1.2.internName n).2.intern
-          (.fvar idx ((st.internExprFastGo ty).1.2.internName n).1
-            (st.internExprFastGo ty).1.1)) = _
-      rw [h1]
-      rfl
-    · intro v i h
-      exact nomatch h
-  | app f a ihf iha =>
-    intro st hwf
-    have h1 : (st.internExprFastGo f).1 = st.internExpr f := (ihf hwf).1
-    have hwf₁ : (st.internExpr f).2.TWF := (internExpr_specT hwf f).1
-    have h2 : ((st.internExpr f).2.internExprFastGo a).1
-        = (st.internExpr f).2.internExpr a := (iha hwf₁).1
-    constructor
-    · show (((st.internExprFastGo f).1.2.internExprFastGo a).1.2.intern
-          (.app (st.internExprFastGo f).1.1
-            ((st.internExprFastGo f).1.2.internExprFastGo a).1.1)) = _
-      rw [h1, h2]
-      rfl
-    · intro v i h
-      exact nomatch h
-  | proj s j e ihe =>
-    intro st hwf
-    have h1 : (st.internExprFastGo e).1 = st.internExpr e := (ihe hwf).1
-    constructor
-    · show (((st.internExprFastGo e).1.2.internName s).2.intern
-          (.proj ((st.internExprFastGo e).1.2.internName s).1 j
-            (st.internExprFastGo e).1.1)) = _
-      rw [h1]
-      rfl
-    · intro v i h
-      exact nomatch h
-  | letE n ty val body iht ihv ihb =>
-    intro st hwf
-    have h1 : (st.internExprFastGo ty).1 = st.internExpr ty := (iht hwf).1
-    have hwf₁ : (st.internExpr ty).2.TWF := (internExpr_specT hwf ty).1
-    have h2 : ((st.internExpr ty).2.internExprFastGo val).1
-        = (st.internExpr ty).2.internExpr val := (ihv hwf₁).1
-    have hwf₂ : ((st.internExpr ty).2.internExpr val).2.TWF :=
-      (internExpr_specT hwf₁ val).1
-    have h3 : (((st.internExpr ty).2.internExpr val).2.internExprFastGo
-          body).1
-        = ((st.internExpr ty).2.internExpr val).2.internExpr body :=
-      (ihb hwf₂).1
-    constructor
-    · show (((((st.internExprFastGo ty).1.2.internExprFastGo
-          val).1.2.internExprFastGo body).1.2.internName n).2.intern
-          (.letE
-            ((((st.internExprFastGo ty).1.2.internExprFastGo
-              val).1.2.internExprFastGo body).1.2.internName n).1
-            (st.internExprFastGo ty).1.1
-            ((st.internExprFastGo ty).1.2.internExprFastGo val).1.1
-            (((st.internExprFastGo ty).1.2.internExprFastGo
-              val).1.2.internExprFastGo body).1.1)) = _
-      rw [h1, h2, h3]
-      rfl
-    · intro v i h
-      exact nomatch h
-  | lam n ty body m iht ihb =>
-    intro st hwf
-    have h1 : (st.internExprFastGo ty).1 = st.internExpr ty := (iht hwf).1
-    have hwf₁ : (st.internExpr ty).2.TWF := (internExpr_specT hwf ty).1
-    obtain ⟨h2, hchild⟩ := ihb (st := (st.internExpr ty).2) hwf₁
-    have hwf₂ : ((st.internExpr ty).2.internExpr body).2.TWF :=
-      (internExpr_specT hwf₁ body).1
-    have hbm : ((st.internExpr ty).2.internExpr body).2.internBMFast m
-          ((st.internExpr ty).2.internExprFastGo body).2
-        = ((st.internExpr ty).2.internExpr body).2.internBM m := by
-      refine internBMFast_eqT hwf₂ ?_
-      intro v i h
-      exact hchild v i h
-    constructor
-    · show (((((st.internExprFastGo ty).1.2.internExprFastGo
-          body).1.2.internBMFast m
-          ((st.internExprFastGo ty).1.2.internExprFastGo
-            body).2).2.internName n).2.intern
-          (.lam
-            (((((st.internExprFastGo ty).1.2.internExprFastGo
-              body).1.2.internBMFast m
-              ((st.internExprFastGo ty).1.2.internExprFastGo
-                body).2).2.internName n).1)
-            (st.internExprFastGo ty).1.1
-            ((st.internExprFastGo ty).1.2.internExprFastGo body).1.1
-            (((st.internExprFastGo ty).1.2.internExprFastGo
-              body).1.2.internBMFast m
-              ((st.internExprFastGo ty).1.2.internExprFastGo body).2).1)) = _
-      rw [h1, h2, hbm]
-      rfl
-    · intro v i h
-      revert h
-      show (match m.cod,
-          ((((st.internExprFastGo ty).1.2.internExprFastGo
-            body).1.2.internBMFast m
-            ((st.internExprFastGo ty).1.2.internExprFastGo body).2).1).cod
-          with
-        | some v, some i => some (v, i)
-        | _, _ => none) = some (v, i) → _
-      rw [h1, h2, hbm]
-      obtain ⟨bi, (_ | v₀)⟩ := m
-      · intro h
-        exact nomatch h
-      · obtain ⟨hm', hst', hden'⟩ := internBM_codT (bi := bi) (v := v₀) hwf₂
-        rw [hm']
-        intro h
-        simp only [Option.some.injEq] at h
-        obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h
-        show (((((st.internExpr ty).2.internExpr body).2.internBM
-            ⟨bi, some v₀⟩).2.internName n).2.intern _).2.denoteL _ = some v₀
-        rw [hst']
-        exact denoteL_mono (intern_ext _ _)
-          (denoteL_mono (internName_ext _ _) hden')
-  | forallE n ty body m iht ihb =>
-    intro st hwf
-    have h1 : (st.internExprFastGo ty).1 = st.internExpr ty := (iht hwf).1
-    have hwf₁ : (st.internExpr ty).2.TWF := (internExpr_specT hwf ty).1
-    obtain ⟨h2, hchild⟩ := ihb (st := (st.internExpr ty).2) hwf₁
-    have hwf₂ : ((st.internExpr ty).2.internExpr body).2.TWF :=
-      (internExpr_specT hwf₁ body).1
-    have hbm : ((st.internExpr ty).2.internExpr body).2.internBMFast m
-          ((st.internExpr ty).2.internExprFastGo body).2
-        = ((st.internExpr ty).2.internExpr body).2.internBM m := by
-      refine internBMFast_eqT hwf₂ ?_
-      intro v i h
-      exact hchild v i h
-    constructor
-    · show (((((st.internExprFastGo ty).1.2.internExprFastGo
-          body).1.2.internBMFast m
-          ((st.internExprFastGo ty).1.2.internExprFastGo
-            body).2).2.internName n).2.intern
-          (.forallE
-            (((((st.internExprFastGo ty).1.2.internExprFastGo
-              body).1.2.internBMFast m
-              ((st.internExprFastGo ty).1.2.internExprFastGo
-                body).2).2.internName n).1)
-            (st.internExprFastGo ty).1.1
-            ((st.internExprFastGo ty).1.2.internExprFastGo body).1.1
-            (((st.internExprFastGo ty).1.2.internExprFastGo
-              body).1.2.internBMFast m
-              ((st.internExprFastGo ty).1.2.internExprFastGo body).2).1)) = _
-      rw [h1, h2, hbm]
-      rfl
-    · intro v i h
-      revert h
-      show (match m.cod,
-          ((((st.internExprFastGo ty).1.2.internExprFastGo
-            body).1.2.internBMFast m
-            ((st.internExprFastGo ty).1.2.internExprFastGo body).2).1).cod
-          with
-        | some v, some i => some (v, i)
-        | _, _ => none) = some (v, i) → _
-      rw [h1, h2, hbm]
-      obtain ⟨bi, (_ | v₀)⟩ := m
-      · intro h
-        exact nomatch h
-      · obtain ⟨hm', hst', hden'⟩ := internBM_codT (bi := bi) (v := v₀) hwf₂
-        rw [hm']
-        intro h
-        simp only [Option.some.injEq] at h
-        obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h
-        show (((((st.internExpr ty).2.internExpr body).2.internBM
-            ⟨bi, some v₀⟩).2.internName n).2.intern _).2.denoteL _ = some v₀
-        rw [hst']
-        exact denoteL_mono (intern_ext _ _)
-          (denoteL_mono (internName_ext _ _) hden')
-
-/-- The entry-boundary interning with the codomain-chain fast path is
-`internExpr`, two-tier form. -/
-theorem internExprFast_eqT {st : EStore} (hwf : st.TWF) (e : Expr) :
-    st.internExprFast e = st.internExpr e :=
-  (internExprFastGo_eqT e hwf).1
-
-@[inherit_doc internBMFast_eqT]
-theorem internBMFast_eq {st : EStore} (hwf : st.WF) {m : BinderMeta}
-    {child : Option (Level × LIdx)}
-    (hchild : ∀ v i, child = some (v, i) → st.denoteL i = some v) :
-    st.internBMFast m child = st.internBM m :=
-  internBMFast_eqT hwf.toTWF hchild
-
-@[inherit_doc internBM_codT]
-theorem internBM_cod {st : EStore} (hwf : st.WF) {bi : BinderInfo}
-    {v : Level} :
-    (st.internBM ⟨bi, some v⟩).1
-        = ⟨bi, some (st.internLevel v).1⟩ ∧
-      (st.internBM ⟨bi, some v⟩).2 = (st.internLevel v).2 ∧
-      (st.internBM ⟨bi, some v⟩).2.denoteL (st.internLevel v).1
-        = some v :=
-  internBM_codT hwf.toTWF
-
-@[inherit_doc internExprFastGo_eqT]
-theorem internExprFastGo_eq :
-    ∀ (x : Expr) {st : EStore}, st.WF →
-      (st.internExprFastGo x).1 = st.internExpr x ∧
-      (∀ v i, (st.internExprFastGo x).2 = some (v, i) →
-        (st.internExpr x).2.denoteL i = some v) :=
-  fun x {_st} hwf => internExprFastGo_eqT x hwf.toTWF
-
-/-- The entry-boundary interning with the codomain-chain fast path is
-`internExpr` (task #72). -/
-theorem internExprFast_eq {st : EStore} (hwf : st.WF) (e : Expr) :
-    st.internExprFast e = st.internExpr e :=
-  internExprFast_eqT hwf.toTWF e
 
 end EStore
 

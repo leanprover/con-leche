@@ -1486,7 +1486,7 @@ theorem pisToLamsI_spec :
       rw [pisToLamsI, hn]
       dsimp only
       rw [show Expr.pisToLams (k + 1) (.forallE _nmv et eb ⟨m.bi, cod'⟩) xb =
-        (Expr.pisToLams k eb xb).map (fun bx => .lam _nmv et bx ⟨m.bi, none⟩)
+        (Expr.pisToLams k eb xb).map (fun bx => .lam _nmv et bx ⟨m.bi⟩)
         from rfl]
       rcases hgo : st.pisToLamsI k b body with ⟨o, st₁⟩
       rw [hgo] at hres₁ hwf₁ hext₁
@@ -1501,8 +1501,8 @@ theorem pisToLamsI_spec :
         | some bx =>
           rw [hox] at hres₁
           have hd' : denoteNode st₁.denoteT st₁.denoteL st₁.denoteN
-                (.lam nm t bidx ⟨m.bi, none⟩)
-              = some (.lam _nmv et bx ⟨m.bi, none⟩) := by
+                (.lam nm t bidx ⟨m.bi⟩)
+              = some (.lam _nmv et bx ⟨m.bi⟩) := by
             rw [denoteNode, denoteT_mono hext₁ ht, hres₁,
               denoteN_mono hext₁ _hnmv]; rfl
           obtain ⟨hwf₂, hext₂, hres₂⟩ := intern_spec hwf₁ hd'

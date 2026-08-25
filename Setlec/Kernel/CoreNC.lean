@@ -454,30 +454,27 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
         internI (.const si [])
       else throw (.notImplemented
         "string literals before the String support declarations")
-    | some (.forallE _ ty _ mb) => do
-      match mb.cod with
-      | some v => do
-        let tty ← r.infer depth ty
-        let wtty ← r.whnf depth tty
-        match ← viewI wtty with
-        | some (.sort u) => do
-          let iv ← internLM (.imax u v)
-          internI (.sort iv)
-        | _ => throw (.invalid "expected a sort")
-      | none => throw (.internal "unannotated ∀-binder reached inferType")
+    | some (.forallE n ty body _mb) => do
+      -- Binder-telescope loop (task #72), shared with `inferBodyI`
+      -- (task #100 stage 6: the codomain sort is inferred).
+      let tty ← r.infer depth ty
+      let wtty ← r.whnf depth tty
+      match ← viewI wtty with
+      | some (.sort u) => do
+        let fv ← internI (.fvar depth n ty)
+        let fuel ← withStore (·.nodes.size)
+        inferPisI r depth fuel body 1 #[fv] [u]
+      | _ => throw (.invalid "expected a sort")
     | some (.lam n ty body mb) => do
-      match mb.cod with
-      | some v => do
-        let tty ← r.infer depth ty
-        let wtty ← r.whnf depth tty
-        match ← viewI wtty with
-        | some (.sort u) => do
-          -- Binder-telescope loop (task #72), shared with `inferBodyI`.
-          let fv ← internI (.fvar depth n ty)
-          let fuel ← withStore (·.nodes.size)
-          inferLamsI r depth fuel body 1 #[fv] [(n, ty, mb, v, u)]
-        | _ => throw (.invalid "expected a sort")
-      | none => throw (.internal "unannotated λ-binder reached inferType")
+      let tty ← r.infer depth ty
+      let wtty ← r.whnf depth tty
+      match ← viewI wtty with
+      | some (.sort _) => do
+        -- Binder-telescope loop (task #72), shared with `inferBodyI`.
+        let fv ← internI (.fvar depth n ty)
+        let fuel ← withStore (·.nodes.size)
+        inferLamsI r depth fuel body 1 #[fv] [(n, ty, mb)]
+      | _ => throw (.invalid "expected a sort")
     | some (.app _ _) => do
       let h ← withStore (fun st => st.getAppFnI e)
       let args ← withStore (·.getAppArgsI e)
@@ -502,7 +499,13 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")
-    | some (.letE _ _ v b) => do
+    | some (.letE _ ty v b) => do
+      -- the official kernel's `infer_let` checks, as in `inferBodyI`
+      -- (task #100 stage 6: moved here from the deleted annotation pass)
+      let _ ← ensureSortI r depth (← r.infer depth ty)
+      let tv ← r.infer depth v
+      unless ← r.defeq depth tv ty do
+        throw (.invalid "let value type mismatch")
       let e' ← inst1M b v
       r.infer depth e'
     | some (.bvar _) =>

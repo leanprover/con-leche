@@ -223,7 +223,7 @@ private theorem annotateProjRecI_rest (ih : SSimI env f)
        internI (.const recI (uf ++ us)) >>=
         fun recC =>
        internNameM (.str .anonymous "t") >>= fun tI =>
-       internI (.lam tI te fi ⟨.default, none⟩) >>=
+       internI (.lam tI te fi ⟨.default⟩) >>=
         fun motive =>
        mkAppNM recC (params ++ [motive, minor, e']) >>= fun raw =>
        Setlec.withStore (fun st => st.wscopedBI d raw &&
@@ -234,7 +234,7 @@ private theorem annotateProjRecI_rest (ih : SSimI env f)
       (let raw := Expr.mkAppN
           (.const (entry.structName.str "rec") (luf ++ lus))
           (paramsx ++ [.lam (.str .anonymous "t") tex fix
-            ⟨.default, none⟩, minorx, e'x])
+            ⟨.default⟩, minorx, e'x])
         if raw.wscopedB d && raw.looseBVarsBounded 0 &&
             raw.fvarLeaves.all
               (fun l => e'x.fvarLeaves.contains l) then
@@ -264,8 +264,8 @@ private theorem annotateProjRecI_rest (ih : SSimI env f)
   replace hext₁ := hext₁.trans hext₁t
   have hmot : denoteNode s₁t.store.denoteT s₁t.store.denoteL
       s₁t.store.denoteN
-      (ENode.lam tI te fi ⟨.default, none⟩)
-      = some (.lam (.str .anonymous "t") tex fix ⟨.default, none⟩) := by
+      (ENode.lam tI te fi ⟨.default⟩)
+      = some (.lam (.str .anonymous "t") tex fix ⟨.default⟩) := by
     rw [denoteNode, denoteT_mono hext₁ hte, denoteT_mono hext₁ hfi, hQtI]
     rfl
   refine SimAt.bind_left (internI_eff hs₁ hmot)

@@ -224,8 +224,8 @@ def natSuccOk : Option ConstantInfo → Bool
   | some (.ctorInfo cv _ _) =>
     cv.levelParams.isEmpty &&
     (match cv.type with
-     | .forallE _ (.const c1 []) (.const c2 []) mb =>
-       c1 == natName && c2 == natName && mb.cod == some (.succ .zero)
+     | .forallE _ (.const c1 []) (.const c2 []) _mb =>
+       c1 == natName && c2 == natName
      | _ => false)
   | _ => false
 
@@ -328,9 +328,8 @@ def listTyOk : Option ConstantInfo → Bool
     match ci.toConstantVal.levelParams with
     | [p] =>
       (match ci.toConstantVal.type with
-       | .forallE _ (.sort u1) (.sort u2) mb =>
-         u1 == .succ (.param p) && u2 == .succ (.param p) &&
-           mb.cod == some (.succ (.succ (.param p)))
+       | .forallE _ (.sort u1) (.sort u2) _mb =>
+         u1 == .succ (.param p) && u2 == .succ (.param p)
        | _ => false)
     | _ => false
   | none => false
@@ -342,9 +341,8 @@ def listNilTyOk : Option ConstantInfo → Bool
     match ci.toConstantVal.levelParams with
     | [p] =>
       (match ci.toConstantVal.type with
-       | .forallE _ (.sort u1) (.app (.const l1 us1) (.bvar 0)) mb =>
-         u1 == .succ (.param p) && l1 == listName && us1 == [.param p] &&
-           mb.cod == some (.succ (.param p))
+       | .forallE _ (.sort u1) (.app (.const l1 us1) (.bvar 0)) _mb =>
+         u1 == .succ (.param p) && l1 == listName && us1 == [.param p]
        | _ => false)
     | _ => false
   | none => false
@@ -361,13 +359,9 @@ def listConsTyOk : Option ConstantInfo → Bool
        | .forallE _ (.sort u1)
            (.forallE _ (.bvar 0)
              (.forallE _ (.app (.const l1 us1) (.bvar 1))
-               (.app (.const l2 us2) (.bvar 2)) mb3) mb2) mb1 =>
+               (.app (.const l2 us2) (.bvar 2)) _mb3) _mb2) _mb1 =>
          u1 == .succ (.param p) && l1 == listName && l2 == listName &&
-           us1 == [.param p] && us2 == [.param p] &&
-           mb3.cod == some (.succ (.param p)) &&
-           mb2.cod == some (.imax (.succ (.param p)) (.succ (.param p))) &&
-           mb1.cod == some (.imax (.succ (.param p))
-             (.imax (.succ (.param p)) (.succ (.param p))))
+           us1 == [.param p] && us2 == [.param p]
        | _ => false)
     | _ => false
   | none => false
@@ -378,8 +372,8 @@ def charOfNatTyOk : Option ConstantInfo → Bool
   | some ci =>
     ci.toConstantVal.levelParams.isEmpty &&
       (match ci.toConstantVal.type with
-       | .forallE _ (.const c1 []) (.const c2 []) mb =>
-         c1 == natName && c2 == charName && mb.cod == some (.succ .zero)
+       | .forallE _ (.const c1 []) (.const c2 []) _mb =>
+         c1 == natName && c2 == charName
        | _ => false)
   | none => false
 
@@ -389,9 +383,9 @@ def stringOfListTyOk : Option ConstantInfo → Bool
   | some ci =>
     ci.toConstantVal.levelParams.isEmpty &&
       (match ci.toConstantVal.type with
-       | .forallE _ (.app (.const l1 us1) (.const c1 [])) (.const c2 []) mb =>
+       | .forallE _ (.app (.const l1 us1) (.const c1 [])) (.const c2 []) _mb =>
          l1 == listName && us1 == [.zero] && c1 == charName &&
-           c2 == stringName && mb.cod == some (.succ .zero)
+           c2 == stringName
        | _ => false)
   | none => false
 
@@ -621,12 +615,6 @@ def Expr.substConstAll (n : Name) (r : Expr) : Expr → Expr
   | .proj s i e => .proj s i (Expr.substConstAll n r e)
   | e => e
 
-/-- A binder's codomain-sort annotation is (equivalent to) `1`. -/
-def natCod1 (mb : BinderMeta) : Bool :=
-  match mb.cod with
-  | some v => Level.isEquiv v (.succ .zero) == some true
-  | none => false
-
 /-- The pinned codomain of a structural-Nat operation: `Bool` (itself
 stored level-monomorphically at type `Sort 1`) for the comparisons,
 `Nat` otherwise. -/
@@ -639,22 +627,21 @@ def natOpCod (env : Env) (c : Name) (e : Expr) : Bool :=
      | none => false)
   else e == .const natName []
 
-/-- The pinned (annotated) type of a structural-Nat operation:
+/-- The pinned type of a structural-Nat operation:
 `Nat → Nat` for `pred`, `Nat → Nat → Nat` for the arithmetic
-operations, `Nat → Nat → Bool` for the comparisons.  The codomain-sort
-annotations must be equivalent to `1`.  The model reads the
-operations' function-space memberships off this shape. -/
+operations, `Nat → Nat → Bool` for the comparisons.  The model reads
+the operations' function-space memberships off this shape. -/
 def natOpTyPinned (env : Env) (c : Name) (ty : Expr) : Bool :=
   if c = natPredName || c = natLog2Name then
     match ty with
-    | .forallE _ dom body mb =>
-      dom == .const natName [] && natOpCod env c body && natCod1 mb
+    | .forallE _ dom body _mb =>
+      dom == .const natName [] && natOpCod env c body
     | _ => false
   else
     match ty with
-    | .forallE _ dom (.forallE _ dom2 body mb2) mb =>
+    | .forallE _ dom (.forallE _ dom2 body _mb2) _mb =>
       dom == .const natName [] && dom2 == .const natName [] &&
-      natOpCod env c body && natCod1 mb && natCod1 mb2
+      natOpCod env c body
     | _ => false
 
 /-- Op `n` is stored as a level-monomorphic definition with the pinned
@@ -939,25 +926,22 @@ def structUnitCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
   | _ => pure false
 
 /-- Eta certification for a one-sided λ against a stuck term `b`: `b`'s
-type whnfs to a `∀` whose domain is defeq to the λ's and whose codomain
-annotation agrees, and the λ's body is pointwise the application of `b`.
-The λ is then `b`'s eta-expansion (soundness: `SetTheory.lam_eta`). -/
+type whnfs to a `∀` whose domain is defeq to the λ's, and the λ's body
+is pointwise the application of `b`.  The λ is then `b`'s eta-expansion
+(soundness: `SetTheory.lam_eta`). -/
 def etaCert (r : CoreFns m) (_env : Env) (depth : Nat)
-    (n₁ : Name) (ty₁ body₁ : Expr) (m₁ : BinderMeta) (b : Expr) :
+    (n₁ : Name) (ty₁ body₁ : Expr) (_m₁ : BinderMeta) (b : Expr) :
     m Bool := do
   let tb ← r.infer depth b
   match ← r.whnf depth tb with
-  | .forallE _ ty₂ _ m₂ =>
-    match m₁.cod, m₂.cod with
-    | some v₁, some v₂ =>
-      if ← liftFueled "level comparison" (Level.isEquiv v₁ v₂) then
-        if ← r.defeq depth ty₂ ty₁ then
-          r.defeq (depth + 1)
-            (body₁.instantiate1 (.fvar depth n₁ ty₁))
-            (.app b (.fvar depth n₁ ty₁))
-        else pure false
-      else pure false
-    | _, _ => pure false
+  | .forallE _ ty₂ _ _m₂ =>
+    -- (task #100 stage 6: the codomain-annotation agreement comparison
+    -- is gone — the collapse model's `lam_eta` is level-free)
+    if ← r.defeq depth ty₂ ty₁ then
+      r.defeq (depth + 1)
+        (body₁.instantiate1 (.fvar depth n₁ ty₁))
+        (.app b (.fvar depth n₁ ty₁))
+    else pure false
   | _ => pure false
 
 /-- The fallback for structurally distinct stuck terms: pair eta in
@@ -1428,43 +1412,29 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       if strLitSupported env then pure (.const stringName [])
       else throw (.notImplemented
         "string literals before the String support declarations")
-    | .forallE _ ty _ mb => do
-      -- The codomain-sort annotation is trusted: the body was checked once,
-      -- by real inference, when the annotation was created (`annotate`).
-      match mb.cod with
-      | some v => do
-        match ← r.whnf depth (← r.infer depth ty) with
-        | .sort u => pure (.sort (.imax u v))
-        | _ => throw (.invalid "expected a sort")
-      | none => throw (.internal "unannotated ∀-binder reached inferType")
+    | .forallE n ty body _mb => do
+      -- The ∀-formation rule, official-kernel style (task #100 stage 6):
+      -- the codomain sort is *inferred* from the opened body — the
+      -- stored codomain annotation is not read.
+      match ← r.whnf depth (← r.infer depth ty) with
+      | .sort u => do
+        let v ← ensureSort r env (depth + 1)
+          (← r.infer (depth + 1) (body.instantiate1 (.fvar depth n ty)))
+        pure (.sort (.imax u v))
+      | _ => throw (.invalid "expected a sort")
     | .lam n ty body mb => do
-      match mb.cod with
-      | some v => do
-        -- The domain must be a type (and the model needs its
-        -- interpretation defined), exactly as in the ∀ rule.
-        match ← r.whnf depth (← r.infer depth ty) with
-        | .sort _ => do
-          let bt ← r.infer (depth + 1)
-            (body.instantiate1 (.fvar depth n ty))
-          -- Re-check the stored annotation: it must be the sort of the
-          -- body's type (the λ-annotation is *trusted* by the ∀ it
-          -- builds, so it is *checked* here, where the body's type is
-          -- at hand).  NOT deletable at the flip either (task #100
-          -- stage-3 finding, recorded in DESIGN.md): the ∀-clause
-          -- below still consumes the stored cod for the imax rule, so
-          -- `AnnotOk` keeps a cod-truthfulness tie at ∀-binders, and
-          -- this re-check is the only certifier of that tie for the
-          -- freshly built ∀ (which reuses this λ's meta).  Both die
-          -- together in stage 6, when the ∀-clause infers its
-          -- codomain sort.
-          match ← r.whnf (depth + 1) (← r.infer (depth + 1) bt) with
-          | .sort v' => do
-            unless ← liftFueled "level comparison" (Level.isEquiv v v') do
-              throw (.invalid "λ-annotation does not match the body's sort")
-            pure (.forallE n ty (bt.abstract1 depth) mb)
-          | _ => throw (.invalid "expected a sort")
-        | _ => throw (.invalid "expected a sort")
-      | none => throw (.internal "unannotated λ-binder reached inferType")
+      -- The domain must be a type (and the model needs its
+      -- interpretation defined), exactly as in the ∀ rule.  The body's
+      -- type is not sort-checked here (task #100 stage 6: the
+      -- official-kernel `infer_lambda` shape — the λ-annotation
+      -- re-check died with the stored annotations, and the collapse
+      -- model's `AnnotOk` carries no fibre-universe facts).
+      match ← r.whnf depth (← r.infer depth ty) with
+      | .sort _ => do
+        let bt ← r.infer (depth + 1)
+          (body.instantiate1 (.fvar depth n ty))
+        pure (.forallE n ty (bt.abstract1 depth) mb)
+      | _ => throw (.invalid "expected a sort")
     | .app f a => do
       let tf ← r.infer depth f
       match ← r.whnf depth tf with
@@ -1499,13 +1469,17 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")
-    | .letE _ _ v b =>
-      -- infer the body instantiated with the value (nanoda `infer_let`;
-      -- the official kernel's `infer_let` at `infer_only` likewise
-      -- derives the result from the body with the let variable in
-      -- scope, zeta-transparent).  The value's type was checked against
-      -- the annotation once, by `annotate` — inference trusts it, as it
-      -- trusts the λ-annotation.
+    | .letE _ ty v b => do
+      -- The official kernel's `infer_let` check order (`!infer_only`):
+      -- the annotation is a type, the value's inferred type matches it,
+      -- then the body *with the value transparent* — nanoda's
+      -- `infer_let` instantiates the body with the value and recurses
+      -- (task #100 stage 6: these checks moved here from the deleted
+      -- annotation pass).
+      let _ ← ensureSort r env depth (← r.infer depth ty)
+      let tv ← r.infer depth v
+      unless ← r.defeq depth tv ty do
+        throw (.invalid "let value type mismatch")
       r.infer depth (b.instantiate1 v)
     | .bvar _ =>
       throw (.notImplemented "inferType beyond the supported fragment")
@@ -1769,7 +1743,7 @@ def annotateProjRec (r : CoreFns m) (env : Env) (depth : Nat)
           let uf := if entry.recExtraLevel then [sfi] else []
           let raw := Expr.mkAppN
             (.const (entry.structName.str "rec") (uf ++ us))
-            (params ++ [.lam (.str .anonymous "t") te fi ⟨.default, none⟩,
+            (params ++ [.lam (.str .anonymous "t") te fi ⟨.default⟩,
               minor, e'])
           if raw.wscopedB depth && raw.looseBVarsBounded 0 &&
               raw.fvarLeaves.all (fun l => e'.fvarLeaves.contains l) then
@@ -1853,30 +1827,23 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       else throw (.notImplemented
         "string literals before the String support declarations")
     | .app f a => do
+      -- structural (task #100 stage 6: the application rule's checks
+      -- moved to the driver's inference sweep — `inferBody`'s app
+      -- clause re-checks every argument unconditionally)
       let f' ← r.annotate depth f
       let a' ← r.annotate depth a
-      -- Run the application rule here (the one place typing is checked):
-      -- this establishes the semantic well-typedness clause for `app`
-      -- nodes that beta-reduction soundness relies on (see DESIGN.md).
-      let tf ← r.infer depth f'
-      match ← r.whnf depth tf with
-      | .forallE _ ty _ _ =>
-        let ta ← r.infer depth a'
-        unless ← r.defeq depth ta ty do
-          throw (.invalid "application argument type mismatch")
-        pure (.app f' a')
-      | _ => throw (.invalid "function expected")
+      pure (.app f' a')
     | .forallE n ty body mb => do
+      -- structural (task #100 stage 6: no annotation to compute and no
+      -- checks — the driver's inference sweep re-checks every binder
+      -- body via the ∀/λ rules)
       let ty' ← r.annotate depth ty
       let body' ← r.annotate (depth + 1) (body.instantiate1 (.fvar depth n ty'))
-      let v ← ensureSort r env (depth + 1) (← r.infer (depth + 1) body')
-      pure (.forallE n ty' (body'.abstract1 depth) ⟨mb.bi, some v⟩)
+      pure (.forallE n ty' (body'.abstract1 depth) ⟨mb.bi⟩)
     | .lam n ty body mb => do
       let ty' ← r.annotate depth ty
       let body' ← r.annotate (depth + 1) (body.instantiate1 (.fvar depth n ty'))
-      let bt ← r.infer (depth + 1) body'
-      let v ← ensureSort r env (depth + 1) (← r.infer (depth + 1) bt)
-      pure (.lam n ty' (body'.abstract1 depth) ⟨mb.bi, some v⟩)
+      pure (.lam n ty' (body'.abstract1 depth) ⟨mb.bi⟩)
     | .letE _ ty v b => do
       -- The official kernel's `infer_let` check order (`!infer_only`):
       -- the annotation is a type (`ensure_sort_core(infer(type))`), the

@@ -1440,8 +1440,8 @@ theorem AnnotOk.erasedEq :
     | .forallE n ty body m, he =>
       obtain ⟨rfl, hty, hbody⟩ := he
       simp only [AnnotOk] at ha ⊢
-      obtain ⟨haty, vE, htie, hcond⟩ := ha
-      refine ⟨AnnotOk.erasedEq ty' hty d ρ haty, vE, htie, ?_⟩
+      obtain ⟨haty, vE, hcond⟩ := ha
+      refine ⟨AnnotOk.erasedEq ty' hty d ρ haty, vE, ?_⟩
       intro x A hA hx
       rw [← interp_erasedEq hty d ρ] at hA
       obtain ⟨hbodyA, hwfact⟩ := hcond x A hA hx

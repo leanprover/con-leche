@@ -103,30 +103,14 @@ theorem annotOk_punitRec_type {cval : ConstVal V}
   have hvalU' : ∀ ψ' : Name → Nat,
       cval ((Name.anonymous.str "PUnit").str "unit") ψ' = pt := hvalU
   simp only [punitRecA, ConstantInfo.toConstantVal, AnnotOk]
-  have hcodM : (if ψ u1N = 0 then 0 else Nat.max (ψ uN) (ψ u1N)) = 0 ↔
-      ψ u1N = 0 := by
-    by_cases h1 : ψ u1N = 0
-    · simp [h1]
-    · have hmx : ¬ Nat.max (ψ uN) (ψ u1N) = 0 := by
-        simp [Nat.max_eq_zero_iff, h1]
-      simp [h1, hmx]
-  refine ⟨?_,
-    (if (if ψ u1N = 0 then 0 else Nat.max (ψ uN) (ψ u1N)) = 0 then 0
-      else Nat.max (ψ u1N)
-        (if ψ u1N = 0 then 0 else Nat.max (ψ uN) (ψ u1N))), ?_, ?_⟩
-  case refine_2 =>
-    rintro v ⟨rfl⟩
-    exact fun z hz => hz
+  refine ⟨?_, ?_⟩
   · -- the motive space `Π t : PUnit. Sort u_1`
     try simp only [AnnotOk]
-    refine ⟨trivial, ψ u1N + 1, ?_, ?_⟩
-    · rintro v ⟨rfl⟩
-      exact fun z hz => hz
-    · intro t A hA ht
-      refine ⟨by simp [Expr.instantiate1, AnnotOk], ?_⟩
-      refine ⟨univ (ψ u1N), ?_, ?_⟩
-      · simp [Expr.instantiate1, interpExpr, Level.eval, u1N]
-      · exact univ_mem_univ (ψ u1N)
+    refine ⟨trivial, ?_⟩
+    intro t A hA ht
+    refine ⟨by simp [Expr.instantiate1, AnnotOk], ?_⟩
+    refine ⟨univ (ψ u1N), ?_⟩
+    simp [Expr.instantiate1, interpExpr, Level.eval, u1N]
   · intro M A hA hM
     -- A is the motive space
     have hA' : A = pi (ψ u1N + 1) unitSet fun _ => univ (ψ u1N) := by
@@ -146,15 +130,11 @@ theorem annotOk_punitRec_type {cval : ConstVal V}
     constructor
     · -- annotations of the opened body are truthful
       simp only [Expr.instantiate1, AnnotOk]
-      refine ⟨?_, (if ψ u1N = 0 then 0 else Nat.max (ψ uN) (ψ u1N)), ?_, ?_⟩
-      case refine_2 =>
-        rintro v ⟨rfl⟩
-        exact fun z hz => hz
+      refine ⟨?_, ?_⟩
       · -- `motive PUnit.unit` : the app clause
         try simp only [AnnotOk]
-        refine ⟨?_, ?_, M, pt, ψ u1N + 1, unitSet,
-          (fun _ => univ (ψ u1N)), ?_, ?_, hM, pt_mem_unitSet,
-          fun _ _ => univ_mem_univ _⟩
+        refine ⟨?_, ?_, M, pt, unitSet,
+          (fun _ => univ (ψ u1N)), ?_, ?_, hM, pt_mem_unitSet⟩
         · simp only [reduceIte]
           simp [AnnotOk]
         · simp [AnnotOk]
@@ -166,9 +146,7 @@ theorem annotOk_punitRec_type {cval : ConstVal V}
         constructor
         · -- opened inner body `Π t : PUnit. motive t`
           try simp only [Expr.instantiate1, AnnotOk]
-          refine ⟨trivial, ψ u1N, ?_, ?_⟩
-          · rintro v ⟨rfl⟩
-            exact fun z hz => hz
+          refine ⟨trivial, ?_⟩
           intro t At hAt htm
           have hAt' : At = unitSet := by
             simp only [interpExpr, hfindP', hvalP', punitA, ConstantInfo.toConstantVal,
@@ -178,42 +156,28 @@ theorem annotOk_punitRec_type {cval : ConstVal V}
           refine ⟨?_, ?_⟩
           · -- `motive t` app clause
             try simp only [Expr.instantiate1, AnnotOk]
-            refine ⟨?_, ?_, M, t, ψ u1N + 1, unitSet,
-              (fun _ => univ (ψ u1N)), ?_, ?_, hM, htm, fun _ _ => univ_mem_univ _⟩
+            refine ⟨?_, ?_, M, t, unitSet,
+              (fun _ => univ (ψ u1N)), ?_, ?_, hM, htm⟩
             · simp only [reduceIte]
               simp [Expr.instantiate1, AnnotOk]
             · simp [Expr.instantiate1, AnnotOk]
             · simp [interpExpr, Expr.instantiate1, updV]
             · simp [interpExpr, Expr.instantiate1, updV]
-          · refine ⟨SetTheory.app M t, ?_, ?_⟩
-            · simp [interpExpr, Expr.instantiate1, updV]
-            · exact app_mem hM htm (fun _ _ => univ_mem_univ _)
+          · refine ⟨SetTheory.app M t, ?_⟩
+            simp [interpExpr, Expr.instantiate1, updV]
         · -- interp of the opened inner Π and its universe
-          refine ⟨pi (ψ u1N) unitSet (fun t => SetTheory.app M t), ?_, ?_⟩
-          · simp only [interpExpr, Expr.instantiate1, updV, hfindP', hvalP', punitA,
-              ConstantInfo.toConstantVal, List.length_cons, List.length_nil, reduceIte]
-            simp [interpExpr, Expr.instantiate1, updV, u1N, uN]
-          · exact piC_mem_univ (u := ψ uN) (v := ψ u1N)
-              (B := fun t => SetTheory.app M t) (unitSet_mem_univ (ψ uN))
-              (fun t htm => app_mem hM htm (fun _ _ => univ_mem_univ _))
+          refine ⟨pi (ψ u1N) unitSet (fun t => SetTheory.app M t), ?_⟩
+          simp only [interpExpr, Expr.instantiate1, updV, hfindP', hvalP', punitA,
+            ConstantInfo.toConstantVal, List.length_cons, List.length_nil, reduceIte]
+          simp [interpExpr, Expr.instantiate1, updV, u1N, uN]
     · -- interp of the opened body and its universe
       refine ⟨pi (if ψ u1N = 0 then 0 else Nat.max (ψ uN) (ψ u1N))
         (SetTheory.app M pt) (fun _ => pi (ψ u1N) unitSet (fun t => SetTheory.app M t)),
-        ?_, ?_⟩
-      · simp only [interpExpr, Expr.instantiate1, updV, hfindP', hvalP', hfindU', hvalU',
-          punitA, punitUnitA, ConstantInfo.toConstantVal, List.length_cons,
-          List.length_nil, reduceIte, Level.eval, Level.substFn]
-        simp [interpExpr, Expr.instantiate1, updV, uN, u1N]
-      · have hdom : SetTheory.app M pt ∈ˢ univ (ψ u1N) :=
-          app_mem hM pt_mem_unitSet (fun _ _ => univ_mem_univ _)
-        have hfib : ∀ x, x ∈ˢ SetTheory.app M pt →
-            pi (ψ u1N) unitSet (fun t => SetTheory.app M t) ∈ˢ
-              univ (if ψ u1N = 0 then 0 else Nat.max (ψ uN) (ψ u1N)) := by
-          intro x hx
-          exact piC_mem_univ (unitSet_mem_univ (ψ uN))
-            (fun t htm => app_mem hM htm (fun _ _ => univ_mem_univ _))
-        exact piC_mem_univ (u := ψ u1N)
-          (v := if ψ u1N = 0 then 0 else Nat.max (ψ uN) (ψ u1N)) hdom hfib
+        ?_⟩
+      simp only [interpExpr, Expr.instantiate1, updV, hfindP', hvalP', hfindU', hvalU',
+        punitA, punitUnitA, ConstantInfo.toConstantVal, List.length_cons,
+        List.length_nil, reduceIte, Level.eval, Level.substFn]
+      simp [interpExpr, Expr.instantiate1, updV, uN, u1N]
 
 end Setlec
 

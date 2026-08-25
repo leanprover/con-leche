@@ -19,7 +19,7 @@ The interning interface is lifted wholesale:
   index references must be in range, supplied as (erased) hypotheses,
   or checked at runtime by the `intern?` / `internL?` / `internN?`
   variants (`O(children)` per node — a per-record guard, not a sweep);
-* `internExpr` / `internExprFast` / `internLevel` / `internLevels` /
+* `internExpr` / `internLevel` / `internLevels` /
   `internBM` / `internName` — whole-tree interning, hypothesis-free;
 * the eager derived-field reads (`bvarBoundD`, `fvarRangeD`,
   `lhasParamD`, `ehasParamD`, `readbackN`, `beqNameI`) with their
@@ -228,21 +228,6 @@ def internExpr (s : WFStore) (e : Expr) : EIdx × WFStore :=
 @[simp] theorem internExpr_idx (s : WFStore) (e : Expr) :
     (s.internExpr e).1 = (s.raw.internExpr e).1 := rfl
 
-/-- Intern a whole expression with the boundary codomain-chain fast
-path (task #72). -/
-def internExprFast (s : WFStore) (e : Expr) : EIdx × WFStore :=
-  let p := s.raw.internExprFast e
-  (p.1, ⟨p.2, by
-    show (s.raw.internExprFast e).2.WF
-    rw [EStore.internExprFast_eq s.wf e]
-    exact (EStore.internExpr_spec s.wf e).1⟩)
-
-@[simp] theorem internExprFast_raw (s : WFStore) (e : Expr) :
-    (s.internExprFast e).2.raw = (s.raw.internExprFast e).2 := rfl
-
-@[simp] theorem internExprFast_idx (s : WFStore) (e : Expr) :
-    (s.internExprFast e).1 = (s.raw.internExprFast e).1 := rfl
-
 /-- Pairs of an index and a bundle are equal when their computational
 components are (proof irrelevance in the second slot). -/
 theorem pair_ext {α : Type} {p q : α × WFStore} (h1 : p.1 = q.1)
@@ -252,13 +237,6 @@ theorem pair_ext {α : Type} {p q : α × WFStore} (h1 : p.1 = q.1)
   cases h1
   cases WFStore.ext h2
   rfl
-
-/-- On the bundle, the fast path *is* `internExpr` — with no
-well-formedness hypothesis (it is in the type). -/
-theorem internExprFast_eq_internExpr (s : WFStore) (e : Expr) :
-    s.internExprFast e = s.internExpr e := by
-  have h := EStore.internExprFast_eq s.wf e
-  exact pair_ext (by simp [h]) (by simp [h])
 
 /-! ## Denotation and round-trips (hypothesis-free) -/
 

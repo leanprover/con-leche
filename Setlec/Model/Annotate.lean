@@ -99,7 +99,7 @@ theorem annotateCore_sound (m : EnvModel V env) :
     obtain ⟨⟨va, vta, hai, htai, hmema⟩, hwta, hAta⟩ :=
       inferTypeCore_sound m fuel hia hwa' hba' hLba' hFa' hAa
     simp only [AnnotOk] at haPi
-    obtain ⟨haty1, _vE1, -, hcond1⟩ := haPi
+    obtain ⟨haty1, _vE1, hcond1⟩ := haPi
     have hLbta : Expr.LeavesBounded ta := fun l hl =>
       hLba' l (inferTypeCore_fvarLeaves m.wf fuel hia hwa' l hl)
     have hLbPi : Expr.LeavesBounded (Expr.forallE n1 ty1 body1 m1) := fun l hl =>
@@ -196,9 +196,7 @@ theorem annotateCore_sound (m : EnvModel V env) :
       hokty l (annotateCore_leaves_sub fuel ty hty hw.1 hb.1 l hl)
     -- the annotation-truthfulness goal
     simp only [AnnotOk]
-    refine ⟨haty', v.eval φ, ?_, ?_⟩
-    · rintro v' ⟨rfl⟩
-      exact fun z hz => hz
+    refine ⟨haty', v.eval φ, ?_⟩
     intro x A hA hx
     have hfin : FvarsOk V m.val env φ (d + 1) (updV V ρ d x)
         (body.instantiate1 (.fvar d n ty')) :=

@@ -141,14 +141,13 @@ inductive LNode where
   | param (n : Name)
   deriving DecidableEq, Repr, Inhabited, Hashable
 
-/-- Interned binder metadata: `BinderMeta` with the codomain sort
-annotation as a level index. -/
+/-- Interned binder metadata: `BinderMeta` (annotation-free, task
+#100). -/
 structure IBinderMeta where
   bi : BinderInfo
-  cod : Option LIdx := none
   deriving DecidableEq, Repr, Hashable
 
-instance : Inhabited IBinderMeta := ⟨⟨.default, none⟩⟩
+instance : Inhabited IBinderMeta := ⟨⟨.default⟩⟩
 
 /-- One interned expression node: the constructors of `Setlec.Expr` with
 subexpressions replaced by arena indices and levels by level indices
@@ -229,7 +228,7 @@ task #87). -/
 /-- The has-level-param recurrence of one expression node over the
 derived arrays (official kernel `instantiate.cpp:232`'s
 `has_univ_param` mechanism, task #87): reads the level array (`lbs`)
-at `.sort`/`.const` levels and binder-cod annotations, else the
+at `.sort`/`.const` levels, else the
 disjunction of the children's entries (`ebs`; `fvar` type annotations
 included, matching the level-instantiation traversal). -/
 @[inline] def ENode.hasLParamOf (ebs lbs : Array Bool) : ENode → Bool
@@ -238,11 +237,8 @@ included, matching the level-instantiation traversal). -/
   | .const _ us => us.any (lbs.getD · false)
   | .fvar _ _ ty => ebs.getD (epos ty) false
   | .app f a => ebs.getD (epos f) false || ebs.getD (epos a) false
-  | .lam _ ty body m | .forallE _ ty body m =>
-    ebs.getD (epos ty) false || ebs.getD (epos body) false ||
-      (match m.cod with
-       | some u => lbs.getD u false
-       | none => false)
+  | .lam _ ty body _ | .forallE _ ty body _ =>
+    ebs.getD (epos ty) false || ebs.getD (epos body) false
   | .letE _ ty val body =>
     ebs.getD (epos ty) false || ebs.getD (epos val) false ||
       ebs.getD (epos body) false
@@ -425,11 +421,8 @@ def nodeHasLParam (st : EStore) : ENode → Bool
   | .const _ us => us.any st.lhasParamD
   | .fvar _ _ ty => st.ehasParamD ty
   | .app f a => st.ehasParamD f || st.ehasParamD a
-  | .lam _ ty body m | .forallE _ ty body m =>
-    st.ehasParamD ty || st.ehasParamD body ||
-      (match m.cod with
-       | some u => st.lhasParamD u
-       | none => false)
+  | .lam _ ty body _ | .forallE _ ty body _ =>
+    st.ehasParamD ty || st.ehasParamD body
   | .letE _ ty val body =>
     st.ehasParamD ty || st.ehasParamD val || st.ehasParamD body
   | .proj _ _ sub => st.ehasParamD sub
@@ -577,13 +570,10 @@ def internLevels (st : EStore) : List Level → List LIdx × EStore
     let (us', st) := st.internLevels us
     (u' :: us', st)
 
-/-- Intern binder metadata (the codomain annotation level, if any). -/
+/-- Intern binder metadata (annotation-free: the identity on the
+display info). -/
 def internBM (st : EStore) (m : BinderMeta) : IBinderMeta × EStore :=
-  match m.cod with
-  | none => (⟨m.bi, none⟩, st)
-  | some u =>
-    let (u', st) := st.internLevel u
-    (⟨m.bi, some u'⟩, st)
+  (⟨m.bi⟩, st)
 
 /-- Intern a whole expression bottom-up. -/
 def internExpr (st : EStore) : Expr → EIdx × EStore
@@ -627,19 +617,7 @@ def internExpr (st : EStore) : Expr → EIdx × EStore
     let (s', st) := st.internName s
     st.intern (.proj s' i e')
 
-/-! ### Boundary interning with the codomain-chain fast path (task #72)
-
-An annotated binder telescope of depth `n` carries codomain-sort
-annotations `vᵢ = imax uᵢ₊₁ vᵢ₊₁` — level *trees* of depth `O(n)`, so
-structurally re-interning an annotated expression at the entry-runner
-boundary costs `O(n²)` even though the readback shares the chains in
-memory (one level memo per `readbackI`).  `internExprFast` exploits
-exactly that sharing: at a binder node whose annotation is
-`imax _ (child's cod)` — pointer-checked via `withPtrEq`, which is
-definitionally its structural continuation, so proofs see plain
-equality — the already-interned child index is reused instead of
-walking the tail again.  Function-equal to `internExpr`
-(`internExprFast_eq`, `Setlec/Verify/IExpr.lean`). -/
+/-! ### Pointer-equality shortcuts -/
 
 /-- Structural level equality with a physical-equality shortcut
 (`withPtrEq` is definitionally its continuation `a == b`). -/
@@ -653,84 +631,6 @@ from the very object stored in the environment, so the pointer test
 succeeds without walking either expression. -/
 @[inline] def exprPtrBEq (a b : Expr) : Bool :=
   withPtrEq a b (fun _ => a == b) (fun h => by subst h; simp)
-
-/-- `internBM` reusing the direct child binder's codomain index when
-this binder's annotation is `imax _ (child's cod)` — the shape
-`annotate` produces on a binder telescope. -/
-def internBMFast (st : EStore) (m : BinderMeta)
-    (child : Option (Level × LIdx)) : IBinderMeta × EStore :=
-  match m.cod with
-  | none => (⟨m.bi, none⟩, st)
-  | some v =>
-    match child, v with
-    | some (vc, ic), .imax u vtail =>
-      if levelPtrBEq vtail vc then
-        let (u', st) := st.internLevel u
-        let (i, st) := st.internL (.imax u' ic)
-        (⟨m.bi, some i⟩, st)
-      else
-        let (i, st) := st.internLevel v
-        (⟨m.bi, some i⟩, st)
-    | _, _ =>
-      let (i, st) := st.internLevel v
-      (⟨m.bi, some i⟩, st)
-
-/-- Core of `internExprFast`: returns the interned index and, for a
-binder node, its codomain annotation (tree and interned index) for the
-parent's `internBMFast`. -/
-def internExprFastGo (st : EStore) :
-    Expr → (EIdx × EStore) × Option (Level × LIdx)
-  | .bvar i => (st.intern (.bvar i), none)
-  | .fvar idx n ty =>
-    let ((t, st), _) := st.internExprFastGo ty
-    let (n', st) := st.internName n
-    (st.intern (.fvar idx n' t), none)
-  | .sort u =>
-    let (u', st) := st.internLevel u
-    (st.intern (.sort u'), none)
-  | .const n us =>
-    let (us', st) := st.internLevels us
-    let (n', st) := st.internName n
-    (st.intern (.const n' us'), none)
-  | .app f a =>
-    let ((f', st), _) := st.internExprFastGo f
-    let ((a', st), _) := st.internExprFastGo a
-    (st.intern (.app f' a'), none)
-  | .lam n ty body m =>
-    let ((t, st), _) := st.internExprFastGo ty
-    let ((b, st), child) := st.internExprFastGo body
-    let (m', st) := st.internBMFast m child
-    let (n', st) := st.internName n
-    let cod := match m.cod, m'.cod with
-      | some v, some i => some (v, i)
-      | _, _ => none
-    (st.intern (.lam n' t b m'), cod)
-  | .forallE n ty body m =>
-    let ((t, st), _) := st.internExprFastGo ty
-    let ((b, st), child) := st.internExprFastGo body
-    let (m', st) := st.internBMFast m child
-    let (n', st) := st.internName n
-    let cod := match m.cod, m'.cod with
-      | some v, some i => some (v, i)
-      | _, _ => none
-    (st.intern (.forallE n' t b m'), cod)
-  | .letE n ty val body =>
-    let ((t, st), _) := st.internExprFastGo ty
-    let ((v, st), _) := st.internExprFastGo val
-    let ((b, st), _) := st.internExprFastGo body
-    let (n', st) := st.internName n
-    (st.intern (.letE n' t v b), none)
-  | .lit l => (st.intern (.lit l), none)
-  | .proj s i e =>
-    let ((e', st), _) := st.internExprFastGo e
-    let (s', st) := st.internName s
-    (st.intern (.proj s' i e'), none)
-
-/-- `internExpr` with the codomain-chain fast path (task #72; equal to
-`internExpr` by `internExprFast_eq`).  Used by the entry runners, whose
-inputs are readbacks of a previous arena. -/
-def internExprFast (st : EStore) (e : Expr) : EIdx × EStore :=
-  (st.internExprFastGo e).1
 
 /-!
 ## Level operations on indices (task #62)
@@ -1443,14 +1343,11 @@ def substLIList (ks : List Name) (us : List LIdx) (st : EStore)
     let (vs', st, memo) := substLIList ks us st memo vs
     (v' :: vs', st, memo)
 
-/-- Interned binder-meta level substitution (shared level memo). -/
-def substLIBM (ks : List Name) (us : List LIdx) (st : EStore)
+/-- Interned binder-meta level substitution (annotation-free: the
+identity). -/
+def substLIBM (_ks : List Name) (_us : List LIdx) (st : EStore)
     (memo : LMemo) (m : IBinderMeta) : IBinderMeta × EStore × LMemo :=
-  match m.cod with
-  | none => (⟨m.bi, none⟩, st, memo)
-  | some u =>
-    let (u', st, memo) := substLIGo ks us st memo u
-    (⟨m.bi, some u'⟩, st, memo)
+  (m, st, memo)
 
 /-- Core of `instantiateLevelParamsI` (no cursor; mirrors
 `Expr.instantiateLevelParams ks us`; the replacement levels are
@@ -1675,20 +1572,12 @@ def allLevelParamsDefinedIGo (st : EStore) (params : List Name)
             if rf then allLevelParamsDefinedIGo st params lmemo memo a
             else (false, lmemo, memo)
           else (false, lmemo, memo)
-        | .lam _ ty body m | .forallE _ ty body m =>
+        | .lam _ ty body _ | .forallE _ ty body _ =>
           if _h : emlt ty e ∧ emlt body e then
             let (rt, lmemo, memo) :=
               allLevelParamsDefinedIGo st params lmemo memo ty
             if rt then
-              let (rb, lmemo, memo) :=
-                allLevelParamsDefinedIGo st params lmemo memo body
-              if rb then
-                match m.cod with
-                | some v =>
-                  let (rc, lmemo) := lparamsDefinedLIGo st params lmemo v
-                  (rc, lmemo, memo)
-                | none => (true, lmemo, memo)
-              else (false, lmemo, memo)
+              allLevelParamsDefinedIGo st params lmemo memo body
             else (false, lmemo, memo)
           else (false, lmemo, memo)
         | .letE _ ty val body =>
@@ -2042,7 +1931,7 @@ def pisToLamsI (st : EStore) : Nat → EIdx → EIdx → Option EIdx × EStore
     | some (.forallE n ty rest mb) =>
       match pisToLamsI st k rest body with
       | (some b, st) =>
-        let (r, st) := st.intern (.lam n ty b ⟨mb.bi, none⟩)
+        let (r, st) := st.intern (.lam n ty b ⟨mb.bi⟩)
         (some r, st)
       | (none, st) => (none, st)
     | _ => (none, st)
@@ -2069,15 +1958,10 @@ def readbackLList (st : EStore) (memo : Std.HashMap LIdx Level) :
       | (none, memo) => (none, memo)
     | (none, memo) => (none, memo)
 
-/-- Memoized binder-meta readback (shared level memo). -/
-def readbackBM (st : EStore) (memo : Std.HashMap LIdx Level)
+/-- Memoized binder-meta readback (annotation-free). -/
+def readbackBM (_st : EStore) (memo : Std.HashMap LIdx Level)
     (m : IBinderMeta) : Option BinderMeta × Std.HashMap LIdx Level :=
-  match m.cod with
-  | none => (some ⟨m.bi, none⟩, memo)
-  | some u =>
-    match readbackLGo st memo u with
-    | (some l, memo) => (some ⟨m.bi, some l⟩, memo)
-    | (none, memo) => (none, memo)
+  (some ⟨m.bi⟩, memo)
 
 /-- Core of `readbackI` (memoized, so shared subterms are rebuilt once
 and share the resulting `Expr` values in memory; one level memo is

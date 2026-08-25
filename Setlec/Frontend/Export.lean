@@ -63,10 +63,8 @@ private def canonExpr (m : Name → Name) : Expr → Expr
   | .sort u => .sort (canonLevel m u)
   | .const n us => .const n (us.map (canonLevel m))
   | .app f a => .app (canonExpr m f) (canonExpr m a)
-  | .lam _ ty b bm => .lam .anonymous (canonExpr m ty) (canonExpr m b)
-      ⟨bm.bi, bm.cod.map (canonLevel m)⟩
-  | .forallE _ ty b bm => .forallE .anonymous (canonExpr m ty) (canonExpr m b)
-      ⟨bm.bi, bm.cod.map (canonLevel m)⟩
+  | .lam _ ty b bm => .lam .anonymous (canonExpr m ty) (canonExpr m b) bm
+  | .forallE _ ty b bm => .forallE .anonymous (canonExpr m ty) (canonExpr m b) bm
   | .letE _ ty v b => .letE .anonymous (canonExpr m ty) (canonExpr m v)
       (canonExpr m b)
   | .lit l => .lit l
@@ -357,12 +355,12 @@ private def parseExprEntry (st : State) (j : Json) (i : Nat) : M State := do
     else if let .ok v := j.getObjVal? "lam" then
       let (e, st) ← st.intern' (.lam (← getNameIdx' st v "name")
         (← getExprIdx' st v "type") (← getExprIdx' st v "body")
-        ⟨← parseBinderInfo v, none⟩)
+        ⟨← parseBinderInfo v⟩)
       pure (e, none, st)
     else if let .ok v := j.getObjVal? "forallE" then
       let (e, st) ← st.intern' (.forallE (← getNameIdx' st v "name")
         (← getExprIdx' st v "type") (← getExprIdx' st v "body")
-        ⟨← parseBinderInfo v, none⟩)
+        ⟨← parseBinderInfo v⟩)
       pure (e, none, st)
     else if let .ok v := j.getObjVal? "letE" then
       let (e, st) ← st.intern' (.letE (← getNameIdx' st v "name")
@@ -587,7 +585,7 @@ private def processLineCore (st : State) (j : Json)
           -- well-formed by construction
           let some (vi, store) := store.intern? (.const mI us)
             | throw "internal: parse-arena alias intern out of range"
-          let (ti, store) := store.internExprFast cv.type
+          let (ti, store) := store.internExpr cv.type
           let ds := st.decls.push
             (.defnDecl ⟨cv.name, cv.levelParams, ti⟩ vi .abbrev)
           st := { st with store := store, decls := ds }

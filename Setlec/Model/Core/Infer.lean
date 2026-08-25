@@ -125,16 +125,10 @@ theorem infer_claims (m : EnvModel V env)
     simp only [looseBVarsBounded, Bool.and_eq_true] at hb
     obtain ⟨hokty, hokbody⟩ := FvarsOk.of_forallE hok
     simp only [AnnotOk] at ha
-    obtain ⟨haty, vE, htie, hcond⟩ := ha
-    -- the kernel's imax rule reads the stored cod: expose it
-    cases hv₀ : m'.cod with
-    | none =>
-      rw [inferTypeCore_succ] at h
-      simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind,
-        pure, Except.pure, hv₀] at h
-      exact nomatch h
-    | some v₀ =>
-    obtain ⟨tty, u, hty, hwt, rfl⟩ := inferTypeCore_forall_inv hv₀ h
+    obtain ⟨haty, vE, hcond⟩ := ha
+    -- task #100 stage 6: the ∀-rule infers its codomain sort
+    obtain ⟨tty, u, bt, v, hty, hwt, hbt, hes, rfl⟩ :=
+      inferTypeCore_forall_inv h
     have hLbty : Expr.LeavesBounded ty := fun l hl => hLb l (by simp [fvarLeaves, hl])
     obtain ⟨⟨A, tA, hA, htA, hmemA⟩, hAtA⟩ :=
       ihi hty hw.1 hb.1 hLbty hokty haty
@@ -146,35 +140,65 @@ theorem infer_claims (m : EnvModel V env)
       FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hty hw.1) hokty
     rw [sort_result ihw hwt hwtty hbtty hLbtty hoktty hAtA] at htA
     obtain rfl := Option.some.inj htA
+    -- facts about the opened body
+    have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
+      hw.1.instantiate1 0 hw.2
+    have hbo : (body.instantiate1 (.fvar d n ty)).looseBVarsBounded 0 = true :=
+      looseBVarsBounded_instantiate1 body 0 hb.2
+    have hLbo : Expr.LeavesBounded (body.instantiate1 (.fvar d n ty)) := by
+      intro l hl
+      rcases fvarLeaves_instantiate1 body 0 hl with hb' | hb'
+      · exact hLb l (by simp [fvarLeaves, hb'])
+      · simp only [fvarLeaves, List.mem_cons] at hb'
+        rcases hb' with rfl | hb'
+        · exact hb.1
+        · exact hLbty l hb'
+    -- per-member: the fibre lands in `univ (v.eval φ)` (the inferred
+    -- codomain sort, certified by the run's `ensureSort` chain)
+    have hfib : ∀ x, x ∈ˢ A →
+        ((interpExpr V m.val env φ (d + 1) (updV V ρ d x)
+          (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty) ∈ˢ
+          univ (v.eval φ) := by
+      intro x hx
+      obtain ⟨hbodyA, -⟩ := hcond x A hA hx
+      have hoko : FvarsOk V m.val env φ (d + 1) (updV V ρ d x)
+          (body.instantiate1 (.fvar d n ty)) :=
+        FvarsOk.instantiate1 hw.1 hokty haty hA hx body 0 hw.2 hokbody
+      obtain ⟨⟨w, tw, hwi, hbti, hmem⟩, hAbt⟩ :=
+        ihi hbt hwo hbo hLbo hoko hbodyA
+      have hwbt := inferTypeCore_WScoped m.wf fuel hbt hwo
+      have hbbt : bt.looseBVarsBounded 0 = true :=
+        inferTypeCore_looseBVars m.wf fuel hbt hwo hbo hLbo
+      have hLbbt : Expr.LeavesBounded bt := fun l hl =>
+        hLbo l (inferTypeCore_fvarLeaves m.wf fuel hbt hwo l hl)
+      have hokbt : FvarsOk V m.val env φ (d + 1) (updV V ρ d x) bt :=
+        FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hbt hwo) hoko
+      rw [sort_result ihw (ensureSortCore_inv hes) hwbt hbbt hLbbt hokbt hAbt]
+        at hbti
+      obtain rfl := Option.some.inj hbti
+      rw [hwi]
+      simpa using hmem
     refine ⟨⟨piC A (fun x => (interpExpr V m.val env φ (d + 1) (updV V ρ d x)
         (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty),
-      univ ((Level.imax u v₀).eval φ), ?_, ?_, ?_⟩, by simp [AnnotOk]⟩
+      univ ((Level.imax u v).eval φ), ?_, ?_, ?_⟩, by simp [AnnotOk]⟩
     · simp only [interpExpr, hA]
     · simp only [interpExpr]
-    · -- fibres at the stored level, through the tie (task #100 stage-3
-      -- finding: the subset-form tie transports the witness-level
-      -- placements to the cod's evaluation)
-      have hpi := piC_mem_univ (V := V) (u := u.eval φ) (v := v₀.eval φ)
+    · have hpi := piC_mem_univ (V := V) (u := u.eval φ) (v := v.eval φ)
         (B := fun x => (interpExpr V m.val env φ (d + 1) (updV V ρ d x)
           (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty)
-        hmemA
-        (fun x hx => by
-          obtain ⟨-, hwfact⟩ := hcond x A hA hx
-          obtain ⟨w, hwi, hmem⟩ := hwfact
-          have hmem' := htie v₀ hv₀ w hmem
-          simpa [hwi] using hmem')
-      have heq : Level.eval φ (.imax u v₀) =
-          if v₀.eval φ = 0 then 0 else Nat.max (u.eval φ) (v₀.eval φ) := rfl
+        hmemA hfib
+      have heq : Level.eval φ (.imax u v) =
+          if v.eval φ = 0 then 0 else Nat.max (u.eval φ) (v.eval φ) := rfl
       rw [heq]
       exact hpi
   | lam n ty body m' =>
-    obtain ⟨v, tty, u, bt, tbt, v', hc, htyi, hu, hbt, htbt, hwv, heqv, rfl⟩ :=
+    obtain ⟨tty, u, bt, htyi, hu, hbt, rfl⟩ :=
       inferTypeCore_lam_inv h
     simp only [WScoped] at hw
     simp only [looseBVarsBounded, Bool.and_eq_true] at hb
     obtain ⟨hokty, hokbody⟩ := FvarsOk.of_lam hok
     simp only [AnnotOk] at ha
-    obtain ⟨haty, _vEl, hcond⟩ := ha
+    obtain ⟨haty, hcond⟩ := ha
     have hLbty : Expr.LeavesBounded ty := fun l hl => hLb l (by simp [fvarLeaves, hl])
     -- the domain interprets (via its own inference)
     obtain ⟨⟨A, tA, hA, -, -⟩, -⟩ :=
@@ -193,7 +217,6 @@ theorem infer_claims (m : EnvModel V env)
         · exact hb.1
         · exact hLbty l hb'
     -- the abstraction roundtrip
-    have hwbt := inferTypeCore_WScoped m.wf fuel hbt hwo
     have hrt : (bt.abstract1 d).instantiate1 (.fvar d n ty) = bt :=
       abstract1_instantiate1 bt 0
         (Expr.fvarConsistent_of_leafCond bt (fun l hl hld =>
@@ -205,7 +228,7 @@ theorem infer_claims (m : EnvModel V env)
         (∃ w tw, interpExpr V m.val env φ (d + 1) (updV V ρ d x)
             (body.instantiate1 (.fvar d n ty)) = some w ∧
           interpExpr V m.val env φ (d + 1) (updV V ρ d x) bt = some tw ∧
-          w ∈ˢ tw ∧ tw ∈ˢ univ (v.eval φ)) ∧
+          w ∈ˢ tw) ∧
         AnnotOk V m.val env φ (d + 1) (updV V ρ d x) bt := by
       intro x hx
       obtain ⟨hbodyA, -⟩ := hcond x A hA hx
@@ -214,56 +237,31 @@ theorem infer_claims (m : EnvModel V env)
         FvarsOk.instantiate1 hw.1 hokty haty hA hx body 0 hw.2 hokbody
       obtain ⟨⟨w, tw, hwi, hbti, hmem⟩, hAbt⟩ :=
         ihi hbt hwo hbo hLbo hoko hbodyA
-      -- the re-check gives the fibre's universe
-      have hokbt : FvarsOk V m.val env φ (d + 1) (updV V ρ d x) bt :=
-        FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel hbt hwo) hoko
-      have hbbt : bt.looseBVarsBounded 0 = true :=
-        inferTypeCore_looseBVars m.wf fuel hbt hwo hbo hLbo
-      have hLbbt : Expr.LeavesBounded bt := fun l hl =>
-        hLbo l (inferTypeCore_fvarLeaves m.wf fuel hbt hwo l hl)
-      obtain ⟨⟨vbt, tvbt, hbti2, htbti, hmem2⟩, hAtbt⟩ :=
-        ihi htbt hwbt hbbt hLbbt hokbt hAbt
-      have hwtbt := inferTypeCore_WScoped m.wf fuel htbt hwbt
-      have hbtbt := inferTypeCore_looseBVars m.wf fuel htbt hwbt hbbt hLbbt
-      have hLbtbt : Expr.LeavesBounded tbt := fun l hl =>
-        hLbbt l (inferTypeCore_fvarLeaves m.wf fuel htbt hwbt l hl)
-      have hoktbt : FvarsOk V m.val env φ (d + 1) (updV V ρ d x) tbt :=
-        FvarsOk.of_subset (inferTypeCore_fvarLeaves m.wf fuel htbt hwbt) hokbt
-      rw [sort_result ihw hwv hwtbt hbtbt hLbtbt hoktbt hAtbt] at htbti
-      obtain rfl := Option.some.inj htbti
-      rw [hbti] at hbti2
-      have hvbt : tw = vbt := Option.some.inj hbti2
-      refine ⟨⟨w, tw, hwi, hbti, hmem, ?_⟩, hAbt⟩
-      rw [Level.isEquiv_sound heqv φ, hvbt]
-      exact hmem2
+      exact ⟨⟨w, tw, hwi, hbti, hmem⟩, hAbt⟩
     -- assemble
-    refine ⟨⟨SetTheory.lam (v.eval φ) A (fun x =>
+    refine ⟨⟨lamC A (fun x =>
         (interpExpr V m.val env φ (d + 1) (updV V ρ d x)
           (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty),
-      pi (v.eval φ) A (fun x =>
+      piC A (fun x =>
         (interpExpr V m.val env φ (d + 1) (updV V ρ d x)
           ((bt.abstract1 d).instantiate1 (.fvar d n ty))).getD SetTheory.empty),
       ?_, ?_, ?_⟩, ?_⟩
-    · simp only [interpExpr, hc, hA]
-    · simp only [interpExpr, hc, hA]
-    · refine lam_mem fun x hx => ?_
-      obtain ⟨⟨w, tw, hwi, hbti, hmem, -⟩, -⟩ := hfacts x hx
+    · simp only [interpExpr, hA]
+    · simp only [interpExpr, hA]
+    · refine lamC_mem fun x hx => ?_
+      obtain ⟨⟨w, tw, hwi, hbti, hmem⟩, -⟩ := hfacts x hx
       rw [hrt, hwi, hbti]
       simpa using hmem
-    · -- annotation truthfulness of the inferred Π-type: the witness
-      -- level is the λ-annotation's evaluation, certified by the
-      -- re-check (the tie is then the identity)
+    · -- annotation truthfulness of the inferred Π-type (task #100
+      -- stage 6: hereditary truthfulness and interpretability only)
       simp only [AnnotOk]
-      refine ⟨haty, v.eval φ, ?_, ?_⟩
-      · intro v'' hv''
-        obtain rfl : v = v'' := by rw [hc] at hv''; injection hv''
-        exact fun z hz => hz
-      · intro x A' hA' hx
-        rw [hA] at hA'
-        obtain rfl := Option.some.inj hA'
-        obtain ⟨⟨w, tw, hwi, hbti, hmem, htwu⟩, hAbt⟩ := hfacts x hx
-        rw [hrt]
-        exact ⟨hAbt, tw, hbti, htwu⟩
+      refine ⟨haty, ?_⟩
+      intro x A' hA' hx
+      rw [hA] at hA'
+      obtain rfl := Option.some.inj hA'
+      obtain ⟨⟨w, tw, hwi, hbti, hmem⟩, hAbt⟩ := hfacts x hx
+      rw [hrt]
+      exact ⟨hAbt, tw, hbti⟩
   | app f a =>
     obtain ⟨tf, n', ty', body', mPi, htf, hwh, rfl, hgate⟩ :=
       inferTypeCore_app_inv h
@@ -271,7 +269,7 @@ theorem infer_claims (m : EnvModel V env)
     simp only [looseBVarsBounded, Bool.and_eq_true] at hb
     obtain ⟨hokf, hoka⟩ := FvarsOk.of_app hok
     simp only [AnnotOk] at ha
-    obtain ⟨haf, haa, vfA, vaA, vEc, Ac, Bc, hifA, hiaA, hpiA, hmemA, -⟩ :=
+    obtain ⟨haf, haa, vfA, vaA, Ac, Bc, hifA, hiaA, hpiA, hmemA⟩ :=
       ha
     have hLbf : Expr.LeavesBounded f := fun l hl => hLb l (by simp [fvarLeaves, hl])
     have hLba : Expr.LeavesBounded a := fun l hl => hLb l (by simp [fvarLeaves, hl])
@@ -303,7 +301,7 @@ theorem infer_claims (m : EnvModel V env)
     rw [htyPi] at hPii
     simp only [Option.some.injEq] at hPii
     simp only [AnnotOk] at haPi
-    obtain ⟨haty', _vEPi, -, hcond'⟩ := haPi
+    obtain ⟨haty', hcond'⟩ := haPi
     have hLbty' : Expr.LeavesBounded ty' := fun l hl =>
       hLbPi l (by simp [fvarLeaves, hl])
     -- the argument is in the Π's domain: the (unconditional, task
@@ -326,7 +324,7 @@ theorem infer_claims (m : EnvModel V env)
           hAta haty' htai htyPi
       exact ⟨va, hai, hAeq ▸ hmema⟩
     obtain ⟨hAopened, hwfact'⟩ := hcond' va A' htyPi hva
-    obtain ⟨w', hwi', hmem'⟩ := hwfact'
+    obtain ⟨w', hwi'⟩ := hwfact'
     have hfb' : fvarsBelow d body' := hwPi.2.fvarsBelow
     have hbeta_eq := interp_beta (V := V) (cval := m.val) (env := env) (φ := φ)
       (n := n') (ty := ty') hfb' hw.2 hb.2 hai 0
@@ -502,9 +500,7 @@ theorem infer_claims (m : EnvModel V env)
     -- infer of the instantiated body; the letE node's interpretation is
     -- the reduct's by `interp_beta`, and the reduct's truthfulness is
     -- `AnnotOk_beta` on the letE clause
-    rw [inferTypeCore_succ] at h
-    simp only [inferBody, viewM, Expr.view, Bind.bind, Except.bind, pure,
-      Except.pure, infer_def] at h
+    obtain ⟨-, -, -, -, -, -, -, h⟩ := inferTypeCore_letE_inv h
     simp only [WScoped] at hw
     simp only [looseBVarsBounded, Bool.and_eq_true] at hb
     simp only [AnnotOk] at ha

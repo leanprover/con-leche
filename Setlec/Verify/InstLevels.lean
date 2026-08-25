@@ -141,7 +141,7 @@ theorem stripPis_instantiateLevelParams_eq (ks : List Name)
         cases h1; exact ⟨rfl, rfl⟩
       obtain ⟨hb2, hbody2⟩ :
           (n, d.instantiateLevelParams ks us,
-            ⟨m.bi, m.cod.map (Level.subst ks us)⟩) :: p2.1 = bs' ∧
+            m) :: p2.1 = bs' ∧
             p2.2 = body' := by
         cases h2; exact ⟨rfl, rfl⟩
       subst hb1 hbody1 hb2 hbody2
@@ -217,7 +217,7 @@ theorem stripLams_instantiateLevelParams_eq (ks : List Name)
         cases h1; exact ⟨rfl, rfl⟩
       obtain ⟨hb2, hbody2⟩ :
           (n, d.instantiateLevelParams ks us,
-            ⟨m.bi, m.cod.map (Level.subst ks us)⟩) :: p2.1 = bs' ∧
+            m) :: p2.1 = bs' ∧
             p2.2 = body' := by
         cases h2; exact ⟨rfl, rfl⟩
       subst hb1 hbody1 hb2 hbody2

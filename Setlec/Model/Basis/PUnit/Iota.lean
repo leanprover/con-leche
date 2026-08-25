@@ -64,15 +64,6 @@ theorem annotOk_punitRec_rhs {cval : ConstVal V}
   · -- the motive space
     try simp only [AnnotOk]
     refine ⟨trivial, ψ u1N + 1, ?_⟩
-    refine ⟨?_, ?_⟩
-    · first
-        | (rintro v ⟨rfl⟩; exact fun z hz => hz)
-        | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
-        | (rintro v ⟨rfl⟩
-           intro z hz
-           refine univ_mono ?_ z hz
-           simp only [Level.eval, u1N, uN]
-           by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "u_1") = 0 <;> simp [h1, h2] <;> omega)
     intro t A hA ht
     refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
     refine ⟨univ (ψ u1N), ?_, ?_⟩
@@ -464,15 +455,6 @@ theorem punitRec_ruleOk {cval : ConstVal V}
             some (Level.succ (Level.param (Name.anonymous.str "u_1")))⟩) := by
       simp only [AnnotOk]
       refine ⟨trivial, ψ' u1N + 1, ?_⟩
-      refine ⟨?_, ?_⟩
-      · first
-          | (rintro v ⟨rfl⟩; exact fun z hz => hz)
-          | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
-          | (rintro v ⟨rfl⟩
-             intro z hz
-             refine univ_mono ?_ z hz
-             simp only [Level.eval, u1N, uN]
-             by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "u_1") = 0 <;> simp [h1, h2] <;> omega)
       intro t A hA ht
       refine ⟨by simp [Expr.instantiate1, AnnotOk], ?_⟩
       refine ⟨univ (ψ' u1N), ?_, ?_⟩

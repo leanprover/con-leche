@@ -127,13 +127,9 @@ structure PromoteSt where
     let (i', st, mN) := promoteNGo h nbase st mN i
     (i', ⟨st, mE, mL, mN⟩)
 
-@[inline] def PromoteSt.bm (p : PromoteSt) (h : Harvest) (lbase : Nat)
+@[inline] def PromoteSt.bm (p : PromoteSt) (_h : Harvest) (_lbase : Nat)
     (m : IBinderMeta) : IBinderMeta × PromoteSt :=
-  match m.cod with
-  | none => (m, p)
-  | some u =>
-    let (u', p) := p.level h lbase u
-    (⟨m.bi, some u'⟩, p)
+  (m, p)
 
 /-- Promote one snapshot tier-two node, by position `j` (children in
 tier one — even indices — are kept: tier one was frozen under the

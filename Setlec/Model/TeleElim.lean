@@ -39,24 +39,15 @@ theorem TeleFit.elim :
   | @cons d ρ n ty body m x xs d' ρ' rest A hity hx ht ih =>
     intro v P hA hi hv
     simp only [AnnotOk] at hA
-    obtain ⟨haty, cod, -, hcond⟩ := hA
+    obtain ⟨haty, hcond⟩ := hA
     obtain ⟨hbody, hwfact⟩ := hcond x A hity hx
     -- the interpreted ∀ is a pi over the interpreted domain
     rw [interpExpr, hity] at hi
     dsimp only at hi
     obtain rfl := Option.some.inj hi
     -- fibres are inhabited interpretations in the cod universe
-    have hfib : ∀ y, y ∈ˢ A →
-        ((interpExpr V cval env φ (d + 1) (updV V ρ d y)
-          (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty) ∈ˢ
-          univ cod := by
-      intro y hy
-      obtain ⟨-, hwfact'⟩ := hcond y A hity hy
-      obtain ⟨w, hwi, hwu⟩ := hwfact'
-      rw [hwi]
-      exact hwu
-    have happ := app_mem hv hx hfib
-    obtain ⟨w, hwi, hwu⟩ := hwfact
+    have happ := app_mem_piC hv hx
+    obtain ⟨w, hwi⟩ := hwfact
     rw [hwi] at happ
     simp only [Option.getD_some] at happ
     obtain ⟨Q, hQ, hmem, hA'⟩ := ih hbody hwi happ
@@ -82,26 +73,17 @@ theorem TeleFit.chainSlots :
   | @cons d ρ n ty body m x xs d' ρ' rest A hity hx ht ih =>
     intro v P hA hi hv
     simp only [AnnotOk] at hA
-    obtain ⟨haty, cod, -, hcond⟩ := hA
+    obtain ⟨haty, hcond⟩ := hA
     obtain ⟨hbody, hwfact⟩ := hcond x A hity hx
     rw [interpExpr, hity] at hi
     dsimp only at hi
     obtain rfl := Option.some.inj hi
-    have hfib : ∀ y, y ∈ˢ A →
-        ((interpExpr V cval env φ (d + 1) (updV V ρ d y)
-          (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty) ∈ˢ
-          univ cod := by
-      intro y hy
-      obtain ⟨-, hwfact'⟩ := hcond y A hity hy
-      obtain ⟨w, hwi, hwu⟩ := hwfact'
-      rw [hwi]
-      exact hwu
-    refine ⟨⟨cod, A,
+    refine ⟨⟨A,
       fun y => (interpExpr V cval env φ (d + 1) (updV V ρ d y)
         (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty,
-      hv, hx, hfib⟩, ?_⟩
-    have happ := app_mem hv hx hfib
-    obtain ⟨w, hwi, hwu⟩ := hwfact
+      hv, hx⟩, ?_⟩
+    have happ := app_mem_piC hv hx
+    obtain ⟨w, hwi⟩ := hwfact
     rw [hwi] at happ
     simp only [Option.getD_some] at happ
     exact ih hbody hwi happ
@@ -126,22 +108,13 @@ theorem TeleFitI.elim :
       ht ih =>
     intro v P hA hi hv
     simp only [AnnotOk] at hA
-    obtain ⟨haty, cod, -, hcond⟩ := hA
+    obtain ⟨haty, hcond⟩ := hA
     obtain ⟨hbody, hwfact⟩ := hcond x A hity hx
     rw [interpExpr, hity] at hi
     dsimp only at hi
     obtain rfl := Option.some.inj hi
-    have hfib : ∀ y, y ∈ˢ A →
-        ((interpExpr V cval env φ (d + 1) (updV V ρ d y)
-          (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty) ∈ˢ
-          univ cod := by
-      intro y hy
-      obtain ⟨-, hwfact'⟩ := hcond y A hity hy
-      obtain ⟨w, hwi, hwu⟩ := hwfact'
-      rw [hwi]
-      exact hwu
-    have happ := app_mem hv hx hfib
-    obtain ⟨w, hwi, hwu⟩ := hwfact
+    have happ := app_mem_piC hv hx
+    obtain ⟨w, hwi⟩ := hwfact
     rw [hwi] at happ
     simp only [Option.getD_some] at happ
     -- bridge the opened body back to the instantiated one
@@ -421,29 +394,29 @@ theorem TeleFitLam.fold :
       ht ih =>
     intro hA L hi
     simp only [AnnotOk] at hA
-    obtain ⟨hAty, cod, hcond⟩ := hA
+    obtain ⟨hAty, hcond⟩ := hA
     rw [interpExpr, hity] at hi
     dsimp only at hi
     obtain rfl := Option.some.inj hi
     obtain ⟨hbodyA, hwfact⟩ := hcond x A hity hx
-    obtain ⟨w, B0, hwi, hwB0, hB0u⟩ := hwfact
-    -- functional fibres for the beta step and the slot
+    obtain ⟨w, B0, hwi, hwB0⟩ := hwfact
+    -- functional fibres for the slot
     have hfibres : ∀ y, y ∈ˢ A → ∃ B, ((interpExpr V cval env φ (d + 1)
         (updV V ρ d y) (body.instantiate1 (.fvar d n ty))).getD
-          SetTheory.empty) ∈ˢ B ∧ B ∈ˢ univ cod := by
+          SetTheory.empty) ∈ˢ B := by
       intro y hy
       obtain ⟨-, hwfact2⟩ := hcond y A hity hy
-      obtain ⟨w2, B2, hw2, hwB2, hB2u⟩ := hwfact2
+      obtain ⟨w2, B2, hw2, hwB2⟩ := hwfact2
       rw [hw2]
-      exact ⟨B2, hwB2, hB2u⟩
-    obtain ⟨Bf, hBf1, hBf2⟩ := choose_fibres hfibres
+      exact ⟨B2, hwB2⟩
+    obtain ⟨Bf, hBf1⟩ := choose_fibres hfibres
     have happlam : SetTheory.app
-        (lam (cod) A fun y => (interpExpr V cval env φ (d + 1)
+        (lamC A fun y => (interpExpr V cval env φ (d + 1)
           (updV V ρ d y) (body.instantiate1 (.fvar d n ty))).getD
             SetTheory.empty) x =
         (interpExpr V cval env φ (d + 1) (updV V ρ d x)
           (body.instantiate1 (.fvar d n ty))).getD SetTheory.empty :=
-      app_lam hx hBf1 hBf2
+      app_lamC hx
     have hsubi : interpExpr V cval env φ d ρ (body.instantiate1 arg) =
         some w := by
       rw [interp_beta (n := n) (ty := ty) hfb hwa hba hiarg 0]
@@ -454,7 +427,7 @@ theorem TeleFitLam.fold :
     refine ⟨B, hBi, ?_, ?_⟩
     · rw [SpineFold_cons, happlam, hwi]
       simpa using hfold
-    · refine ⟨⟨cod, A, Bf, lam_mem hBf1, hx, hBf2⟩, ?_⟩
+    · refine ⟨⟨A, Bf, lamC_mem hBf1, hx⟩, ?_⟩
       rw [happlam, hwi]
       simpa using hchain
 
@@ -910,7 +883,7 @@ theorem TeleFitI.rest_wf {d : Nat} {ρ : Nat → V} :
         body.looseBVarsBounded 1 = true := by
       simpa [Expr.looseBVarsBounded] using hb
     simp only [AnnotOk] at hA
-    obtain ⟨hAty, _vE, -, hcond⟩ := hA
+    obtain ⟨hAty, hcond⟩ := hA
     obtain ⟨hAopen, -⟩ := hcond x A hity hx
     obtain ⟨hwR, hbR, hAR, hlR⟩ := ih (WScoped.instantiate1_gen hwa 0 hw'.2)
       (looseBVarsBounded_instantiate1_gen hba (k := 0) hb'.2)
@@ -1243,7 +1216,7 @@ theorem TeleFitLam.rest_wf {d : Nat} {ρ : Nat → V} :
         body.looseBVarsBounded 1 = true := by
       simpa [Expr.looseBVarsBounded] using hb
     simp only [AnnotOk] at hA
-    obtain ⟨hAty, _vE, hcond⟩ := hA
+    obtain ⟨hAty, hcond⟩ := hA
     obtain ⟨hAopen, -⟩ := hcond x A hity hx
     obtain ⟨hwR, hbR, hAR, hlR⟩ := ih (WScoped.instantiate1_gen hwa 0 hw'.2)
       (looseBVarsBounded_instantiate1_gen hba (k := 0) hb'.2)

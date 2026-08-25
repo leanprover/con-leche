@@ -41,9 +41,8 @@ theorem etaCert_sound {m : EnvModel V env} {fuel : Nat}
     (hva : interpExpr V m.val env φ d ρ (Expr.lam n₁ ty₁ body₁ m₁) = some va)
     (hvb : interpExpr V m.val env φ d ρ b = some vb) :
     va = vb := by
-  obtain ⟨tb, n₂, ty₂, fb, m₂, v₁, v₂, htb, hwtb, hm₁, hm₂, -, hdty, hdbody⟩ :=
+  obtain ⟨tb, n₂, ty₂, fb, m₂, htb, hwtb, hdty, hdbody⟩ :=
     etaCert_inv hec
-  clear hm₁ hm₂
   -- λ-side components
   simp only [WScoped] at hwa
   obtain ⟨hwty₁, hwbody₁⟩ := hwa
@@ -80,7 +79,7 @@ theorem etaCert_sound {m : EnvModel V env} {fuel : Nat}
   have hLbty₂ : Expr.LeavesBounded ty₂ := fun l hl => hwLb l (by simp [fvarLeaves, hl])
   obtain ⟨hokty₂, hokfb⟩ := FvarsOk.of_forallE hwOk
   simp only [AnnotOk] at hAwtb
-  obtain ⟨haty₂, vE₂, -, hcondf⟩ := hAwtb
+  obtain ⟨haty₂, vE₂, hcondf⟩ := hAwtb
   -- the whnf'd type interprets to `Tb`
   have hTfi : interpExpr V m.val env φ d ρ (Expr.forallE n₂ ty₂ fb m₂) = some Tb := by
     rw [hiwtb, hTbi]

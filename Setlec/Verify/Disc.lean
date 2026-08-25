@@ -503,20 +503,12 @@ theorem etaCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
   have hwty₂ : WScoped d ty₂ := by
     simp only [WScoped] at hwtb
     exact hwtb.1
-  cases hc₁ : m₁.cod with
-  | none => exact DiscV.pure trivial
-  | some v₁ =>
-    cases hc₂ : m₂.cod with
-    | none => exact DiscV.pure trivial
-    | some v₂ =>
-      refine DiscV.bind (DiscV.liftFueled_true _ _) (fun ok _ => ?_)
-      split <;> try exact DiscV.pure trivial
-      refine DiscV.bind (ih.site_defeq hwty₂ hwty) (fun r _ => ?_)
-      split <;> try exact DiscV.pure trivial
-      refine ih.site_defeq (WScoped.instantiate1 hwty 0 hwbody) ?_
-      show WScoped (d + 1) (.app b (.fvar d n₁ ty₁))
-      simp only [WScoped]
-      exact ⟨WScoped.mono (Nat.le_succ d) hwb, Nat.lt_succ_self d, hwty⟩
+  refine DiscV.bind (ih.site_defeq hwty₂ hwty) (fun r _ => ?_)
+  split <;> try exact DiscV.pure trivial
+  refine ih.site_defeq (WScoped.instantiate1 hwty 0 hwbody) ?_
+  show WScoped (d + 1) (.app b (.fvar d n₁ ty₁))
+  simp only [WScoped]
+  exact ⟨WScoped.mono (Nat.le_succ d) hwb, Nat.lt_succ_self d, hwty⟩
 
 theorem projCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
     {d : Nat} {e₂ : Expr} {i : Nat} {fieldLvl structLvl : Level}
@@ -1245,11 +1237,17 @@ theorem inferBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
   | .letE _ ty v b =>
     have hwtvb : WScoped d ty ∧ WScoped d v ∧ WScoped d b := by
       simpa only [WScoped] using hw
-    show DiscV env _
-      ((C : CoreFns CheckSM).infer d (b.instantiate1 v))
-      ((G : CoreFns CheckSM).infer d (b.instantiate1 v))
-    exact ih.site_infer henv
-      (WScoped.instantiate1_gen hwtvb.2.1 0 hwtvb.2.2)
+    unfold inferBody
+    dsimp only [viewM, Expr.view]
+    simp only [pure_bind]
+    refine DiscV.bind (ih.site_infer henv hwtvb.1) (fun tty htty => ?_)
+    refine DiscV.bind (ensureSort_disc ih henv htty) (fun u _ => ?_)
+    refine DiscV.bind (ih.site_infer henv hwtvb.2.1) (fun tv htv => ?_)
+    refine DiscV.bind (ih.site_defeq htv hwtvb.1) (fun r _ => ?_)
+    split
+    · exact ih.site_infer henv
+        (WScoped.instantiate1_gen hwtvb.2.1 0 hwtvb.2.2)
+    · exact DiscV.throw _
   | .lit (.strVal s) =>
     show DiscV env _
       (if strLitSupported env then pure (Expr.const stringName [])
@@ -1300,10 +1298,12 @@ theorem inferBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     unfold inferBody
     dsimp only [viewM, Expr.view]
     simp only [pure_bind]
-    split <;> try exact DiscV.throw _
     refine DiscV.bind (ih.site_infer henv hwtb.1) (fun tty htty => ?_)
     refine DiscV.bind (ih.site_whnf henv htty) (fun w hww => ?_)
     split <;> try exact DiscV.throw _
+    refine DiscV.bind (ih.site_infer henv
+      (WScoped.instantiate1 hwtb.1 0 hwtb.2)) (fun bt hbt => ?_)
+    refine DiscV.bind (ensureSort_disc ih henv hbt) (fun v _ => ?_)
     exact DiscV.pure (by simp [WScoped])
   | .lam n ty body mb =>
     have hwtb : WScoped d ty ∧ WScoped d body := by
@@ -1311,24 +1311,14 @@ theorem inferBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     unfold inferBody
     dsimp only [viewM, Expr.view]
     simp only [pure_bind]
-    split <;> try exact DiscV.throw _
     refine DiscV.bind (ih.site_infer henv hwtb.1) (fun tty htty => ?_)
     refine DiscV.bind (ih.site_whnf henv htty) (fun w hww => ?_)
     split <;> try exact DiscV.throw _
     refine DiscV.bind (ih.site_infer henv
       (WScoped.instantiate1 hwtb.1 0 hwtb.2)) (fun bt hbt => ?_)
-    refine DiscV.bind (ih.site_infer henv hbt) (fun tbt htbt => ?_)
-    refine DiscV.bind (ih.site_whnf henv htbt) (fun w' hww' => ?_)
-    split <;> try exact DiscV.throw _
-    refine DiscV.bind (DiscV.liftFueled_true _ _) (fun ok _ => ?_)
-    split
-    · exact DiscV.pure (by
-        simp only [WScoped]
-        exact ⟨hwtb.1, WScoped.abstract1 0 hbt⟩)
-    · first
-        | exact DiscV.throw _
-        | exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
-            (fun _ h => h.elim)
+    exact DiscV.pure (by
+      simp only [WScoped]
+      exact ⟨hwtb.1, WScoped.abstract1 0 hbt⟩)
   | .app g' a =>
     have hwfa : WScoped d g' ∧ WScoped d a := by
       simpa only [WScoped] using hw

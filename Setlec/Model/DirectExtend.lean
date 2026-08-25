@@ -117,7 +117,7 @@ theorem FrameOk.dom {cval : ConstVal V} {env : Env} {φ : Name → Nat}
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hbb
   simp only [AnnotOk] at han
-  obtain ⟨handom, cod, -, -⟩ := han
+  obtain ⟨handom, cod, -⟩ := han
   rw [interpExpr] at hit
   cases hdom : interpExpr V cval env φ d ρ dom with
   | none => rw [hdom] at hit; exact nomatch hit
@@ -138,7 +138,7 @@ theorem FrameOk.body {cval : ConstVal V} {env : Env} {φ : Name → Nat}
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hbb
   simp only [AnnotOk] at han
-  obtain ⟨handom, cod, -, hcond⟩ := han
+  obtain ⟨handom, cod, hcond⟩ := han
   obtain ⟨hAb, hwfact⟩ := hcond x A hdom hx
   obtain ⟨w, hwi, -⟩ := hwfact
   have hlbdom : Expr.LeavesBounded dom :=
@@ -507,7 +507,7 @@ theorem FrameOk.body_at {cval : ConstVal V} {env : Env} {φ : Name → Nat}
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hbb
   simp only [AnnotOk] at han
-  obtain ⟨-, cod, -, hcond⟩ := han
+  obtain ⟨-, cod, hcond⟩ := han
   obtain ⟨hAb, hwfact⟩ := hcond x A hdom hx
   obtain ⟨w, hwi, -⟩ := hwfact
   have hEE : Expr.ErasedEq (body.instantiate1 (.fvar d n dom))

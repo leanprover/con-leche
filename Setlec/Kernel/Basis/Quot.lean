@@ -19,13 +19,13 @@ open Name (anonymous)
 
 /-- The pinned `Quot` basis block. -/
 def quotBasis : List ConstantInfo := [
-  .indInfo ⟨(anonymous |>.str "Quot"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default, none⟩) ⟨.default, none⟩) (.sort (.param (anonymous |>.str "u"))) ⟨.default, none⟩) ⟨.implicit, none⟩)⟩ {},
-  .ctorInfo ⟨((anonymous |>.str "Quot") |>.str "mk"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default, none⟩) ⟨.default, none⟩) (.forallE (anonymous |>.str "a") (.bvar 1) (.app (.app (.const (anonymous |>.str "Quot") [(.param (anonymous |>.str "u"))]) (.bvar 2)) (.bvar 1)) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩)⟩ 2 1,
-  .recInfo ⟨((anonymous |>.str "Quot") |>.str "lift"), [(anonymous |>.str "u"), (anonymous |>.str "v")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default, none⟩) ⟨.default, none⟩) (.forallE (anonymous |>.str "β") (.sort (.param (anonymous |>.str "v"))) (.forallE (anonymous |>.str "f") (.forallE (anonymous |>.str "a") (.bvar 2) (.bvar 1) ⟨.default, none⟩) (.forallE (anonymous |>.str "a") (.forallE (anonymous |>.str "a") (.bvar 3) (.forallE (anonymous |>.str "b") (.bvar 4) (.forallE (anonymous |>.str "a") (.app (.app (.bvar 4) (.bvar 1)) (.bvar 0)) (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "v"))]) (.bvar 4)) (.app (.bvar 3) (.bvar 2))) (.app (.bvar 3) (.bvar 1))) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩) (.forallE (anonymous |>.str "a") (.app (.app (.const (anonymous |>.str "Quot") [(.param (anonymous |>.str "u"))]) (.bvar 4)) (.bvar 3)) (.bvar 3) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩) ⟨.implicit, none⟩) ⟨.implicit, none⟩)⟩ 5 5
-    [⟨((anonymous |>.str "Quot") |>.str "mk"), 1, 0, .inert, (.lam (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.lam (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default, none⟩) ⟨.default, none⟩) (.lam (anonymous |>.str "β") (.sort (.param (anonymous |>.str "v"))) (.lam (anonymous |>.str "f") (.forallE (anonymous |>.str "a") (.bvar 2) (.bvar 1) ⟨.default, none⟩) (.lam (anonymous |>.str "h") (.forallE (anonymous |>.str "a") (.bvar 3) (.forallE (anonymous |>.str "b") (.bvar 4) (.forallE (anonymous |>.str "a") (.app (.app (.bvar 4) (.bvar 1)) (.bvar 0)) (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "v"))]) (.bvar 4)) (.app (.bvar 3) (.bvar 2))) (.app (.bvar 3) (.bvar 1))) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩) (.lam (anonymous |>.str "a") (.bvar 4) (.app (.bvar 2) (.bvar 0)) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩)⟩],
-  .recInfo ⟨((anonymous |>.str "Quot") |>.str "ind"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default, none⟩) ⟨.default, none⟩) (.forallE (anonymous |>.str "β") (.forallE (anonymous |>.str "a") (.app (.app (.const (anonymous |>.str "Quot") [(.param (anonymous |>.str "u"))]) (.bvar 1)) (.bvar 0)) (.sort (.zero)) ⟨.default, none⟩) (.forallE (anonymous |>.str "mk") (.forallE (anonymous |>.str "a") (.bvar 2) (.app (.bvar 1) (.app (.app (.app (.const ((anonymous |>.str "Quot") |>.str "mk") [(.param (anonymous |>.str "u"))]) (.bvar 3)) (.bvar 2)) (.bvar 0))) ⟨.default, none⟩) (.forallE (anonymous |>.str "q") (.app (.app (.const (anonymous |>.str "Quot") [(.param (anonymous |>.str "u"))]) (.bvar 3)) (.bvar 2)) (.app (.bvar 2) (.bvar 0)) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩) ⟨.implicit, none⟩) ⟨.implicit, none⟩)⟩ 4 4
-    [⟨((anonymous |>.str "Quot") |>.str "mk"), 1, 0, .inert, (.lam (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.lam (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default, none⟩) ⟨.default, none⟩) (.lam (anonymous |>.str "β") (.forallE (anonymous |>.str "a") (.app (.app (.const (anonymous |>.str "Quot") [(.param (anonymous |>.str "u"))]) (.bvar 1)) (.bvar 0)) (.sort (.zero)) ⟨.default, none⟩) (.lam (anonymous |>.str "mk") (.forallE (anonymous |>.str "a") (.bvar 2) (.app (.bvar 1) (.app (.app (.app (.const ((anonymous |>.str "Quot") |>.str "mk") [(.param (anonymous |>.str "u"))]) (.bvar 3)) (.bvar 2)) (.bvar 0))) ⟨.default, none⟩) (.lam (anonymous |>.str "a") (.bvar 3) (.app (.bvar 1) (.bvar 0)) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.default, none⟩)⟩],
-  .axiomInfo ⟨((anonymous |>.str "Quot") |>.str "sound"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default, none⟩) ⟨.default, none⟩) (.forallE (anonymous |>.str "a") (.bvar 1) (.forallE (anonymous |>.str "b") (.bvar 2) (.forallE (anonymous) (.app (.app (.bvar 2) (.bvar 1)) (.bvar 0)) (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "u"))]) (.app (.app (.const (anonymous |>.str "Quot") [(.param (anonymous |>.str "u"))]) (.bvar 4)) (.bvar 3))) (.app (.app (.app (.const ((anonymous |>.str "Quot") |>.str "mk") [(.param (anonymous |>.str "u"))]) (.bvar 4)) (.bvar 3)) (.bvar 2))) (.app (.app (.app (.const ((anonymous |>.str "Quot") |>.str "mk") [(.param (anonymous |>.str "u"))]) (.bvar 4)) (.bvar 3)) (.bvar 1))) ⟨.default, none⟩) ⟨.implicit, none⟩) ⟨.implicit, none⟩) ⟨.implicit, none⟩) ⟨.implicit, none⟩)⟩]
+  .indInfo ⟨(anonymous |>.str "Quot"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default⟩) ⟨.default⟩) (.sort (.param (anonymous |>.str "u"))) ⟨.default⟩) ⟨.implicit⟩)⟩ {},
+  .ctorInfo ⟨((anonymous |>.str "Quot") |>.str "mk"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default⟩) ⟨.default⟩) (.forallE (anonymous |>.str "a") (.bvar 1) (.app (.app (.const (anonymous |>.str "Quot") [(.param (anonymous |>.str "u"))]) (.bvar 2)) (.bvar 1)) ⟨.default⟩) ⟨.default⟩) ⟨.implicit⟩)⟩ 2 1,
+  .recInfo ⟨((anonymous |>.str "Quot") |>.str "lift"), [(anonymous |>.str "u"), (anonymous |>.str "v")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default⟩) ⟨.default⟩) (.forallE (anonymous |>.str "β") (.sort (.param (anonymous |>.str "v"))) (.forallE (anonymous |>.str "f") (.forallE (anonymous |>.str "a") (.bvar 2) (.bvar 1) ⟨.default⟩) (.forallE (anonymous |>.str "a") (.forallE (anonymous |>.str "a") (.bvar 3) (.forallE (anonymous |>.str "b") (.bvar 4) (.forallE (anonymous |>.str "a") (.app (.app (.bvar 4) (.bvar 1)) (.bvar 0)) (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "v"))]) (.bvar 4)) (.app (.bvar 3) (.bvar 2))) (.app (.bvar 3) (.bvar 1))) ⟨.default⟩) ⟨.default⟩) ⟨.default⟩) (.forallE (anonymous |>.str "a") (.app (.app (.const (anonymous |>.str "Quot") [(.param (anonymous |>.str "u"))]) (.bvar 4)) (.bvar 3)) (.bvar 3) ⟨.default⟩) ⟨.default⟩) ⟨.default⟩) ⟨.implicit⟩) ⟨.implicit⟩) ⟨.implicit⟩)⟩ 5 5
+    [⟨((anonymous |>.str "Quot") |>.str "mk"), 1, 0, .inert, (.lam (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.lam (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default⟩) ⟨.default⟩) (.lam (anonymous |>.str "β") (.sort (.param (anonymous |>.str "v"))) (.lam (anonymous |>.str "f") (.forallE (anonymous |>.str "a") (.bvar 2) (.bvar 1) ⟨.default⟩) (.lam (anonymous |>.str "h") (.forallE (anonymous |>.str "a") (.bvar 3) (.forallE (anonymous |>.str "b") (.bvar 4) (.forallE (anonymous |>.str "a") (.app (.app (.bvar 4) (.bvar 1)) (.bvar 0)) (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "v"))]) (.bvar 4)) (.app (.bvar 3) (.bvar 2))) (.app (.bvar 3) (.bvar 1))) ⟨.default⟩) ⟨.default⟩) ⟨.default⟩) (.lam (anonymous |>.str "a") (.bvar 4) (.app (.bvar 2) (.bvar 0)) ⟨.default⟩) ⟨.default⟩) ⟨.default⟩) ⟨.default⟩) ⟨.default⟩) ⟨.default⟩)⟩],
+  .recInfo ⟨((anonymous |>.str "Quot") |>.str "ind"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default⟩) ⟨.default⟩) (.forallE (anonymous |>.str "β") (.forallE (anonymous |>.str "a") (.app (.app (.const (anonymous |>.str "Quot") [(.param (anonymous |>.str "u"))]) (.bvar 1)) (.bvar 0)) (.sort (.zero)) ⟨.default⟩) (.forallE (anonymous |>.str "mk") (.forallE (anonymous |>.str "a") (.bvar 2) (.app (.bvar 1) (.app (.app (.app (.const ((anonymous |>.str "Quot") |>.str "mk") [(.param (anonymous |>.str "u"))]) (.bvar 3)) (.bvar 2)) (.bvar 0))) ⟨.default⟩) (.forallE (anonymous |>.str "q") (.app (.app (.const (anonymous |>.str "Quot") [(.param (anonymous |>.str "u"))]) (.bvar 3)) (.bvar 2)) (.app (.bvar 2) (.bvar 0)) ⟨.default⟩) ⟨.default⟩) ⟨.implicit⟩) ⟨.implicit⟩) ⟨.implicit⟩)⟩ 4 4
+    [⟨((anonymous |>.str "Quot") |>.str "mk"), 1, 0, .inert, (.lam (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.lam (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default⟩) ⟨.default⟩) (.lam (anonymous |>.str "β") (.forallE (anonymous |>.str "a") (.app (.app (.const (anonymous |>.str "Quot") [(.param (anonymous |>.str "u"))]) (.bvar 1)) (.bvar 0)) (.sort (.zero)) ⟨.default⟩) (.lam (anonymous |>.str "mk") (.forallE (anonymous |>.str "a") (.bvar 2) (.app (.bvar 1) (.app (.app (.app (.const ((anonymous |>.str "Quot") |>.str "mk") [(.param (anonymous |>.str "u"))]) (.bvar 3)) (.bvar 2)) (.bvar 0))) ⟨.default⟩) (.lam (anonymous |>.str "a") (.bvar 3) (.app (.bvar 1) (.bvar 0)) ⟨.default⟩) ⟨.default⟩) ⟨.default⟩) ⟨.default⟩) ⟨.default⟩)⟩],
+  .axiomInfo ⟨((anonymous |>.str "Quot") |>.str "sound"), [(anonymous |>.str "u")], (.forallE (anonymous |>.str "α") (.sort (.param (anonymous |>.str "u"))) (.forallE (anonymous |>.str "r") (.forallE (anonymous) (.bvar 0) (.forallE (anonymous) (.bvar 1) (.sort (.zero)) ⟨.default⟩) ⟨.default⟩) (.forallE (anonymous |>.str "a") (.bvar 1) (.forallE (anonymous |>.str "b") (.bvar 2) (.forallE (anonymous) (.app (.app (.bvar 2) (.bvar 1)) (.bvar 0)) (.app (.app (.app (.const (anonymous |>.str "Eq") [(.param (anonymous |>.str "u"))]) (.app (.app (.const (anonymous |>.str "Quot") [(.param (anonymous |>.str "u"))]) (.bvar 4)) (.bvar 3))) (.app (.app (.app (.const ((anonymous |>.str "Quot") |>.str "mk") [(.param (anonymous |>.str "u"))]) (.bvar 4)) (.bvar 3)) (.bvar 2))) (.app (.app (.app (.const ((anonymous |>.str "Quot") |>.str "mk") [(.param (anonymous |>.str "u"))]) (.bvar 4)) (.bvar 3)) (.bvar 1))) ⟨.default⟩) ⟨.implicit⟩) ⟨.implicit⟩) ⟨.implicit⟩) ⟨.implicit⟩)⟩]
 
 /-! ## The annotated declarations
 
@@ -51,22 +51,11 @@ def quotA : ConstantInfo :=
                     (Setlec.Name.anonymous)
                     (Setlec.Expr.bvar 1)
                     (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.succ (Setlec.Level.zero)) })
-                  { bi := Setlec.BinderInfo.default,
-                    cod := some (Setlec.Level.imax
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                             (Setlec.Level.succ (Setlec.Level.zero))) })
+                    { bi := Setlec.BinderInfo.default})
+                  { bi := Setlec.BinderInfo.default})
                 (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))
-                { bi := Setlec.BinderInfo.default,
-                  cod := some (Setlec.Level.succ (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))) })
-              { bi := Setlec.BinderInfo.implicit,
-                cod := some (Setlec.Level.imax
-                         (Setlec.Level.imax
-                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                           (Setlec.Level.imax
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                             (Setlec.Level.succ (Setlec.Level.zero))))
-                         (Setlec.Level.succ (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))) } }
+                { bi := Setlec.BinderInfo.default})
+              { bi := Setlec.BinderInfo.implicit} }
   { eta := false,
     etaCtor := Setlec.Name.anonymous,
     etaParams := 0,
@@ -92,11 +81,8 @@ def quotMkA : ConstantInfo :=
                     (Setlec.Name.anonymous)
                     (Setlec.Expr.bvar 1)
                     (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.succ (Setlec.Level.zero)) })
-                  { bi := Setlec.BinderInfo.default,
-                    cod := some (Setlec.Level.imax
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                             (Setlec.Level.succ (Setlec.Level.zero))) })
+                    { bi := Setlec.BinderInfo.default})
+                  { bi := Setlec.BinderInfo.default})
                 (Setlec.Expr.forallE
                   (Setlec.Name.str (Setlec.Name.anonymous) "a")
                   (Setlec.Expr.bvar 1)
@@ -107,22 +93,9 @@ def quotMkA : ConstantInfo :=
                         [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
                       (Setlec.Expr.bvar 2))
                     (Setlec.Expr.bvar 1))
-                  { bi := Setlec.BinderInfo.default,
-                    cod := some (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")) })
-                { bi := Setlec.BinderInfo.default,
-                  cod := some (Setlec.Level.imax
-                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))) })
-              { bi := Setlec.BinderInfo.implicit,
-                cod := some (Setlec.Level.imax
-                         (Setlec.Level.imax
-                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                           (Setlec.Level.imax
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                             (Setlec.Level.succ (Setlec.Level.zero))))
-                         (Setlec.Level.imax
-                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")))) } }
+                  { bi := Setlec.BinderInfo.default})
+                { bi := Setlec.BinderInfo.default})
+              { bi := Setlec.BinderInfo.implicit} }
   2
   1
 
@@ -143,11 +116,8 @@ def quotLiftA : ConstantInfo :=
                     (Setlec.Name.anonymous)
                     (Setlec.Expr.bvar 1)
                     (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.succ (Setlec.Level.zero)) })
-                  { bi := Setlec.BinderInfo.default,
-                    cod := some (Setlec.Level.imax
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                             (Setlec.Level.succ (Setlec.Level.zero))) })
+                    { bi := Setlec.BinderInfo.default})
+                  { bi := Setlec.BinderInfo.default})
                 (Setlec.Expr.forallE
                   (Setlec.Name.str (Setlec.Name.anonymous) "β")
                   (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
@@ -157,8 +127,7 @@ def quotLiftA : ConstantInfo :=
                       (Setlec.Name.str (Setlec.Name.anonymous) "a")
                       (Setlec.Expr.bvar 2)
                       (Setlec.Expr.bvar 1)
-                      { bi := Setlec.BinderInfo.default,
-                        cod := some (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")) })
+                      { bi := Setlec.BinderInfo.default})
                     (Setlec.Expr.forallE
                       (Setlec.Name.str (Setlec.Name.anonymous) "a")
                       (Setlec.Expr.forallE
@@ -181,13 +150,9 @@ def quotLiftA : ConstantInfo :=
                                   (Setlec.Expr.bvar 4))
                                 (Setlec.Expr.app (Setlec.Expr.bvar 3) (Setlec.Expr.bvar 2)))
                               (Setlec.Expr.app (Setlec.Expr.bvar 3) (Setlec.Expr.bvar 1)))
-                            { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.zero) })
-                          { bi := Setlec.BinderInfo.default,
-                            cod := some (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero)) })
-                        { bi := Setlec.BinderInfo.default,
-                          cod := some (Setlec.Level.imax
-                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                   (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))) })
+                            { bi := Setlec.BinderInfo.default})
+                          { bi := Setlec.BinderInfo.default})
+                        { bi := Setlec.BinderInfo.default})
                       (Setlec.Expr.forallE
                         (Setlec.Name.str (Setlec.Name.anonymous) "a")
                         (Setlec.Expr.app
@@ -198,74 +163,12 @@ def quotLiftA : ConstantInfo :=
                             (Setlec.Expr.bvar 4))
                           (Setlec.Expr.bvar 3))
                         (Setlec.Expr.bvar 3)
-                        { bi := Setlec.BinderInfo.default,
-                          cod := some (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")) })
-                      { bi := Setlec.BinderInfo.default,
-                        cod := some (Setlec.Level.imax
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))) })
-                    { bi := Setlec.BinderInfo.default,
-                      cod := some (Setlec.Level.imax
-                               (Setlec.Level.imax
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                 (Setlec.Level.imax
-                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                   (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))))
-                               (Setlec.Level.imax
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))) })
-                  { bi := Setlec.BinderInfo.implicit,
-                    cod := some (Setlec.Level.imax
-                             (Setlec.Level.imax
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
-                             (Setlec.Level.imax
-                               (Setlec.Level.imax
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                 (Setlec.Level.imax
-                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                   (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))))
-                               (Setlec.Level.imax
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))))) })
-                { bi := Setlec.BinderInfo.implicit,
-                  cod := some (Setlec.Level.imax
-                           (Setlec.Level.succ (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
-                           (Setlec.Level.imax
-                             (Setlec.Level.imax
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
-                             (Setlec.Level.imax
-                               (Setlec.Level.imax
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                 (Setlec.Level.imax
-                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                   (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))))
-                               (Setlec.Level.imax
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))))) })
-              { bi := Setlec.BinderInfo.implicit,
-                cod := some (Setlec.Level.imax
-                         (Setlec.Level.imax
-                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                           (Setlec.Level.imax
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                             (Setlec.Level.succ (Setlec.Level.zero))))
-                         (Setlec.Level.imax
-                           (Setlec.Level.succ (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
-                           (Setlec.Level.imax
-                             (Setlec.Level.imax
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
-                             (Setlec.Level.imax
-                               (Setlec.Level.imax
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                 (Setlec.Level.imax
-                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                   (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))))
-                               (Setlec.Level.imax
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))))))) } }
+                        { bi := Setlec.BinderInfo.default})
+                      { bi := Setlec.BinderInfo.default})
+                    { bi := Setlec.BinderInfo.default})
+                  { bi := Setlec.BinderInfo.implicit})
+                { bi := Setlec.BinderInfo.implicit})
+              { bi := Setlec.BinderInfo.implicit} }
   5
   5
   [{ ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Quot") "mk",
@@ -284,11 +187,8 @@ def quotLiftA : ConstantInfo :=
                     (Setlec.Name.anonymous)
                     (Setlec.Expr.bvar 1)
                     (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.succ (Setlec.Level.zero)) })
-                  { bi := Setlec.BinderInfo.default,
-                    cod := some (Setlec.Level.imax
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                             (Setlec.Level.succ (Setlec.Level.zero))) })
+                    { bi := Setlec.BinderInfo.default})
+                  { bi := Setlec.BinderInfo.default})
                 (Setlec.Expr.lam
                   (Setlec.Name.str (Setlec.Name.anonymous) "β")
                   (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
@@ -298,8 +198,7 @@ def quotLiftA : ConstantInfo :=
                       (Setlec.Name.str (Setlec.Name.anonymous) "a")
                       (Setlec.Expr.bvar 2)
                       (Setlec.Expr.bvar 1)
-                      { bi := Setlec.BinderInfo.default,
-                        cod := some (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")) })
+                      { bi := Setlec.BinderInfo.default})
                     (Setlec.Expr.lam
                       (Setlec.Name.str (Setlec.Name.anonymous) "h")
                       (Setlec.Expr.forallE
@@ -322,85 +221,19 @@ def quotLiftA : ConstantInfo :=
                                   (Setlec.Expr.bvar 4))
                                 (Setlec.Expr.app (Setlec.Expr.bvar 3) (Setlec.Expr.bvar 2)))
                               (Setlec.Expr.app (Setlec.Expr.bvar 3) (Setlec.Expr.bvar 1)))
-                            { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.zero) })
-                          { bi := Setlec.BinderInfo.default,
-                            cod := some (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero)) })
-                        { bi := Setlec.BinderInfo.default,
-                          cod := some (Setlec.Level.imax
-                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                   (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))) })
+                            { bi := Setlec.BinderInfo.default})
+                          { bi := Setlec.BinderInfo.default})
+                        { bi := Setlec.BinderInfo.default})
                       (Setlec.Expr.lam
                         (Setlec.Name.str (Setlec.Name.anonymous) "a")
                         (Setlec.Expr.bvar 4)
                         (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 0))
-                        { bi := Setlec.BinderInfo.default,
-                          cod := some (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")) })
-                      { bi := Setlec.BinderInfo.default,
-                        cod := some (Setlec.Level.imax
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))) })
-                    { bi := Setlec.BinderInfo.default,
-                      cod := some (Setlec.Level.imax
-                               (Setlec.Level.imax
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                 (Setlec.Level.imax
-                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                   (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))))
-                               (Setlec.Level.imax
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))) })
-                  { bi := Setlec.BinderInfo.default,
-                    cod := some (Setlec.Level.imax
-                             (Setlec.Level.imax
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
-                             (Setlec.Level.imax
-                               (Setlec.Level.imax
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                 (Setlec.Level.imax
-                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                   (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))))
-                               (Setlec.Level.imax
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))))) })
-                { bi := Setlec.BinderInfo.default,
-                  cod := some (Setlec.Level.imax
-                           (Setlec.Level.succ (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
-                           (Setlec.Level.imax
-                             (Setlec.Level.imax
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
-                             (Setlec.Level.imax
-                               (Setlec.Level.imax
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                 (Setlec.Level.imax
-                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                   (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))))
-                               (Setlec.Level.imax
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))))) })
-              { bi := Setlec.BinderInfo.default,
-                cod := some (Setlec.Level.imax
-                         (Setlec.Level.imax
-                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                           (Setlec.Level.imax
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                             (Setlec.Level.succ (Setlec.Level.zero))))
-                         (Setlec.Level.imax
-                           (Setlec.Level.succ (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
-                           (Setlec.Level.imax
-                             (Setlec.Level.imax
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v")))
-                             (Setlec.Level.imax
-                               (Setlec.Level.imax
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                 (Setlec.Level.imax
-                                   (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                   (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))))
-                               (Setlec.Level.imax
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                                 (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "v"))))))) } }]
+                        { bi := Setlec.BinderInfo.default})
+                      { bi := Setlec.BinderInfo.default})
+                    { bi := Setlec.BinderInfo.default})
+                  { bi := Setlec.BinderInfo.default})
+                { bi := Setlec.BinderInfo.default})
+              { bi := Setlec.BinderInfo.default} }]
 
 /-- Annotated basis declaration (generated). -/
 def quotIndA : ConstantInfo :=
@@ -419,11 +252,8 @@ def quotIndA : ConstantInfo :=
                     (Setlec.Name.anonymous)
                     (Setlec.Expr.bvar 1)
                     (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.succ (Setlec.Level.zero)) })
-                  { bi := Setlec.BinderInfo.default,
-                    cod := some (Setlec.Level.imax
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                             (Setlec.Level.succ (Setlec.Level.zero))) })
+                    { bi := Setlec.BinderInfo.default})
+                  { bi := Setlec.BinderInfo.default})
                 (Setlec.Expr.forallE
                   (Setlec.Name.str (Setlec.Name.anonymous) "β")
                   (Setlec.Expr.forallE
@@ -436,7 +266,7 @@ def quotIndA : ConstantInfo :=
                         (Setlec.Expr.bvar 1))
                       (Setlec.Expr.bvar 0))
                     (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.succ (Setlec.Level.zero)) })
+                    { bi := Setlec.BinderInfo.default})
                   (Setlec.Expr.forallE
                     (Setlec.Name.str (Setlec.Name.anonymous) "mk")
                     (Setlec.Expr.forallE
@@ -453,7 +283,7 @@ def quotIndA : ConstantInfo :=
                               (Setlec.Expr.bvar 3))
                             (Setlec.Expr.bvar 2))
                           (Setlec.Expr.bvar 0)))
-                      { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.zero) })
+                      { bi := Setlec.BinderInfo.default})
                     (Setlec.Expr.forallE
                       (Setlec.Name.str (Setlec.Name.anonymous) "q")
                       (Setlec.Expr.app
@@ -464,49 +294,11 @@ def quotIndA : ConstantInfo :=
                           (Setlec.Expr.bvar 3))
                         (Setlec.Expr.bvar 2))
                       (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 0))
-                      { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.zero) })
-                    { bi := Setlec.BinderInfo.default,
-                      cod := some (Setlec.Level.imax
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                               (Setlec.Level.zero)) })
-                  { bi := Setlec.BinderInfo.implicit,
-                    cod := some (Setlec.Level.imax
-                             (Setlec.Level.imax
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                               (Setlec.Level.zero))
-                             (Setlec.Level.imax
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                               (Setlec.Level.zero))) })
-                { bi := Setlec.BinderInfo.implicit,
-                  cod := some (Setlec.Level.imax
-                           (Setlec.Level.imax
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                             (Setlec.Level.succ (Setlec.Level.zero)))
-                           (Setlec.Level.imax
-                             (Setlec.Level.imax
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                               (Setlec.Level.zero))
-                             (Setlec.Level.imax
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                               (Setlec.Level.zero)))) })
-              { bi := Setlec.BinderInfo.implicit,
-                cod := some (Setlec.Level.imax
-                         (Setlec.Level.imax
-                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                           (Setlec.Level.imax
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                             (Setlec.Level.succ (Setlec.Level.zero))))
-                         (Setlec.Level.imax
-                           (Setlec.Level.imax
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                             (Setlec.Level.succ (Setlec.Level.zero)))
-                           (Setlec.Level.imax
-                             (Setlec.Level.imax
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                               (Setlec.Level.zero))
-                             (Setlec.Level.imax
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                               (Setlec.Level.zero))))) } }
+                      { bi := Setlec.BinderInfo.default})
+                    { bi := Setlec.BinderInfo.default})
+                  { bi := Setlec.BinderInfo.implicit})
+                { bi := Setlec.BinderInfo.implicit})
+              { bi := Setlec.BinderInfo.implicit} }
   4
   4
   [{ ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "Quot") "mk",
@@ -525,11 +317,8 @@ def quotIndA : ConstantInfo :=
                     (Setlec.Name.anonymous)
                     (Setlec.Expr.bvar 1)
                     (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.succ (Setlec.Level.zero)) })
-                  { bi := Setlec.BinderInfo.default,
-                    cod := some (Setlec.Level.imax
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                             (Setlec.Level.succ (Setlec.Level.zero))) })
+                    { bi := Setlec.BinderInfo.default})
+                  { bi := Setlec.BinderInfo.default})
                 (Setlec.Expr.lam
                   (Setlec.Name.str (Setlec.Name.anonymous) "β")
                   (Setlec.Expr.forallE
@@ -542,7 +331,7 @@ def quotIndA : ConstantInfo :=
                         (Setlec.Expr.bvar 1))
                       (Setlec.Expr.bvar 0))
                     (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.succ (Setlec.Level.zero)) })
+                    { bi := Setlec.BinderInfo.default})
                   (Setlec.Expr.lam
                     (Setlec.Name.str (Setlec.Name.anonymous) "mk")
                     (Setlec.Expr.forallE
@@ -559,54 +348,16 @@ def quotIndA : ConstantInfo :=
                               (Setlec.Expr.bvar 3))
                             (Setlec.Expr.bvar 2))
                           (Setlec.Expr.bvar 0)))
-                      { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.zero) })
+                      { bi := Setlec.BinderInfo.default})
                     (Setlec.Expr.lam
                       (Setlec.Name.str (Setlec.Name.anonymous) "a")
                       (Setlec.Expr.bvar 3)
                       (Setlec.Expr.app (Setlec.Expr.bvar 1) (Setlec.Expr.bvar 0))
-                      { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.zero) })
-                    { bi := Setlec.BinderInfo.default,
-                      cod := some (Setlec.Level.imax
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                               (Setlec.Level.zero)) })
-                  { bi := Setlec.BinderInfo.default,
-                    cod := some (Setlec.Level.imax
-                             (Setlec.Level.imax
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                               (Setlec.Level.zero))
-                             (Setlec.Level.imax
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                               (Setlec.Level.zero))) })
-                { bi := Setlec.BinderInfo.default,
-                  cod := some (Setlec.Level.imax
-                           (Setlec.Level.imax
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                             (Setlec.Level.succ (Setlec.Level.zero)))
-                           (Setlec.Level.imax
-                             (Setlec.Level.imax
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                               (Setlec.Level.zero))
-                             (Setlec.Level.imax
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                               (Setlec.Level.zero)))) })
-              { bi := Setlec.BinderInfo.default,
-                cod := some (Setlec.Level.imax
-                         (Setlec.Level.imax
-                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                           (Setlec.Level.imax
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                             (Setlec.Level.succ (Setlec.Level.zero))))
-                         (Setlec.Level.imax
-                           (Setlec.Level.imax
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                             (Setlec.Level.succ (Setlec.Level.zero)))
-                           (Setlec.Level.imax
-                             (Setlec.Level.imax
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                               (Setlec.Level.zero))
-                             (Setlec.Level.imax
-                               (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                               (Setlec.Level.zero))))) } }]
+                      { bi := Setlec.BinderInfo.default})
+                    { bi := Setlec.BinderInfo.default})
+                  { bi := Setlec.BinderInfo.default})
+                { bi := Setlec.BinderInfo.default})
+              { bi := Setlec.BinderInfo.default} }]
 
 /-- Annotated basis declaration (generated). -/
 def quotSoundA : ConstantInfo :=
@@ -625,11 +376,8 @@ def quotSoundA : ConstantInfo :=
                     (Setlec.Name.anonymous)
                     (Setlec.Expr.bvar 1)
                     (Setlec.Expr.sort (Setlec.Level.zero))
-                    { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.succ (Setlec.Level.zero)) })
-                  { bi := Setlec.BinderInfo.default,
-                    cod := some (Setlec.Level.imax
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                             (Setlec.Level.succ (Setlec.Level.zero))) })
+                    { bi := Setlec.BinderInfo.default})
+                  { bi := Setlec.BinderInfo.default})
                 (Setlec.Expr.forallE
                   (Setlec.Name.str (Setlec.Name.anonymous) "a")
                   (Setlec.Expr.bvar 1)
@@ -670,30 +418,10 @@ def quotSoundA : ConstantInfo :=
                               (Setlec.Expr.bvar 4))
                             (Setlec.Expr.bvar 3))
                           (Setlec.Expr.bvar 1)))
-                      { bi := Setlec.BinderInfo.default, cod := some (Setlec.Level.zero) })
-                    { bi := Setlec.BinderInfo.implicit,
-                      cod := some (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero)) })
-                  { bi := Setlec.BinderInfo.implicit,
-                    cod := some (Setlec.Level.imax
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                             (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))) })
-                { bi := Setlec.BinderInfo.implicit,
-                  cod := some (Setlec.Level.imax
-                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                           (Setlec.Level.imax
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                             (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero)))) })
-              { bi := Setlec.BinderInfo.implicit,
-                cod := some (Setlec.Level.imax
-                         (Setlec.Level.imax
-                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                           (Setlec.Level.imax
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                             (Setlec.Level.succ (Setlec.Level.zero))))
-                         (Setlec.Level.imax
-                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                           (Setlec.Level.imax
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                             (Setlec.Level.imax (Setlec.Level.zero) (Setlec.Level.zero))))) } }
+                      { bi := Setlec.BinderInfo.default})
+                    { bi := Setlec.BinderInfo.implicit})
+                  { bi := Setlec.BinderInfo.implicit})
+                { bi := Setlec.BinderInfo.implicit})
+              { bi := Setlec.BinderInfo.implicit} }
 
 end Setlec

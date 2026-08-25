@@ -1061,10 +1061,9 @@ theorem eqSide_succ {a : Expr} {va : V}
     succ_closed m hs ψ va ham, ?_, ?_, ?_,
     by simp [Expr.looseBVarsBounded, haB], ?_⟩
   · simp only [AnnotOk]
-    exact ⟨by simp [AnnotOk], haA, m.val natSuccName ψ, va, 1,
+    exact ⟨by simp [AnnotOk], haA, m.val natSuccName ψ, va,
       m.val natName ψ, fun _ => m.val natName ψ,
-      interpExpr_const_natSucc hs, hai, natSuccVal_mem_pi m hs ψ, ham,
-      fun _ _ => natVal_mem_univ m hs ψ⟩
+      interpExpr_const_natSucc hs, hai, natSuccVal_mem_pi m hs ψ, ham⟩
   · intro l hl
     simp only [Expr.fvarLeaves, List.nil_append] at hl
     exact haF l hl
@@ -1101,11 +1100,10 @@ theorem eqSide_app2 {H a b : Expr} {hv va vb C : V}
     app_mem h1m hbm (fun _ _ => hCu), ?_, ?_, ?_,
     by simp [Expr.looseBVarsBounded, hHB, haB, hbB], ?_⟩
   · simp only [AnnotOk]
-    refine ⟨?_, hbA, app hv va, vb, 1, m.val natName ψ, fun _ => C,
-      interp_app1 hHi hai, hbi, h1m, hbm, fun _ _ => hCu⟩
-    exact ⟨hHA, haA, hv, va, 1, m.val natName ψ,
-      fun _ => pi 1 (m.val natName ψ) (fun _ => C), hHi, hai, hHm, ham,
-      hfib1⟩
+    refine ⟨?_, hbA, app hv va, vb, m.val natName ψ, fun _ => C,
+      interp_app1 hHi hai, hbi, h1m, hbm⟩
+    exact ⟨hHA, haA, hv, va, m.val natName ψ,
+      fun _ => pi 1 (m.val natName ψ) (fun _ => C), hHi, hai, hHm, ham⟩
   · intro l hl
     simp only [Expr.fvarLeaves, List.mem_append] at hl
     rcases hl with (hl | hl) | hl
@@ -1154,8 +1152,8 @@ theorem eqSide_app1 {H a : Expr} {hv va C : V}
     app_mem hHm ham (fun _ _ => hCu), ?_, ?_, ?_,
     by simp [Expr.looseBVarsBounded, hHB, haB], ?_⟩
   · simp only [AnnotOk]
-    exact ⟨hHA, haA, hv, va, 1, m.val natName ψ, fun _ => C, hHi, hai,
-      hHm, ham, fun _ _ => hCu⟩
+    exact ⟨hHA, haA, hv, va, m.val natName ψ, fun _ => C, hHi, hai,
+      hHm, ham⟩
   · intro l hl
     simp only [Expr.fvarLeaves, List.mem_append] at hl
     rcases hl with hl | hl

@@ -256,8 +256,8 @@ theorem defeq_claims (m : EnvModel V env)
     obtain ⟨hokty₁, hokbody₁⟩ := FvarsOk.of_forallE hoka'
     obtain ⟨hokty₂, hokbody₂⟩ := FvarsOk.of_forallE hokb'
     simp only [AnnotOk] at haa' hab'
-    obtain ⟨haty₁, _vE₁, -, hcond₁⟩ := haa'
-    obtain ⟨haty₂, _vE₂, -, hcond₂⟩ := hab'
+    obtain ⟨haty₁, _vE₁, hcond₁⟩ := haa'
+    obtain ⟨haty₂, _vE₂, hcond₂⟩ := hab'
     cases hd1 : isDefEqCore env fuel d ty₁ ty₂ with
     | error e => rw [hd1] at h; exact nomatch h
     | ok r₁ =>

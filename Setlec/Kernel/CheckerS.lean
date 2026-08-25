@@ -89,14 +89,14 @@ def natOpCodF (fe : FEnv) (c : Name) (e : Expr) : Bool :=
 def natOpTyPinnedF (fe : FEnv) (c : Name) (ty : Expr) : Bool :=
   if c = natPredName || c = natLog2Name then
     match ty with
-    | .forallE _ dom body mb =>
-      dom == .const natName [] && natOpCodF fe c body && natCod1 mb
+    | .forallE _ dom body _mb =>
+      dom == .const natName [] && natOpCodF fe c body
     | _ => false
   else
     match ty with
-    | .forallE _ dom (.forallE _ dom2 body mb2) mb =>
+    | .forallE _ dom (.forallE _ dom2 body _mb2) _mb =>
       dom == .const natName [] && dom2 == .const natName [] &&
-      natOpCodF fe c body && natCod1 mb && natCod1 mb2
+      natOpCodF fe c body
     | _ => false
 
 /-- `natOpStoredOk` through the index. -/

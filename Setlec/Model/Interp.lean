@@ -181,31 +181,27 @@ covered so that the invariant survives beta reduction. -/
 def AnnotOk (cval : ConstVal V) (env : Env) (φ : Name → Nat) :
     (d : Nat) → (ρ : Nat → V) → Expr → Prop
   | d, ρ, .forallE n ty body m =>
+    -- (task #100 stage 6: the binder annotations are erased and the
+    -- collapse model is level-free, so the binder clauses carry no
+    -- level witnesses and no fibre-universe facts — only hereditary
+    -- truthfulness and interpretability)
     AnnotOk cval env φ d ρ ty ∧
-    -- The `∃ vE` level witness carries a cod-truthfulness tie (task
-    -- #100 stage-3 finding): while the kernel's ∀-clause reads the
-    -- stored cod for the imax rule (through stage 5), inference
-    -- soundness needs the fibres placed at the *stored* level, so the
-    -- witness level must sit at or below it.  The tie conjunct is
-    -- vacuous once annotations are erased (`m.cod = none`).
-    ∃ vE, (∀ v, m.cod = some v → (univ vE : V) ⊆ˢ univ (v.eval φ)) ∧
-      ∀ x A, interpExpr V cval env φ d ρ ty = some A → x ∈ˢ A →
-        AnnotOk cval env φ (d + 1) (updV V ρ d x) (body.instantiate1 (.fvar d n ty)) ∧
-        ∃ w, interpExpr V cval env φ (d + 1) (updV V ρ d x)
-            (body.instantiate1 (.fvar d n ty)) = some w ∧
-          w ∈ˢ univ vE
+    ∀ x A, interpExpr V cval env φ d ρ ty = some A → x ∈ˢ A →
+      AnnotOk cval env φ (d + 1) (updV V ρ d x) (body.instantiate1 (.fvar d n ty)) ∧
+      ∃ w, interpExpr V cval env φ (d + 1) (updV V ρ d x)
+          (body.instantiate1 (.fvar d n ty)) = some w
   | d, ρ, .lam n ty body m =>
     AnnotOk cval env φ d ρ ty ∧
-    ∃ vE, ∀ x A, interpExpr V cval env φ d ρ ty = some A → x ∈ˢ A →
+    ∀ x A, interpExpr V cval env φ d ρ ty = some A → x ∈ˢ A →
       AnnotOk cval env φ (d + 1) (updV V ρ d x) (body.instantiate1 (.fvar d n ty)) ∧
       ∃ w B, interpExpr V cval env φ (d + 1) (updV V ρ d x)
           (body.instantiate1 (.fvar d n ty)) = some w ∧
-        w ∈ˢ B ∧ B ∈ˢ univ vE
+        w ∈ˢ B
   | d, ρ, .app f a =>
     AnnotOk cval env φ d ρ f ∧ AnnotOk cval env φ d ρ a ∧
-    ∃ vf va vE A B, interpExpr V cval env φ d ρ f = some vf ∧
+    ∃ vf va A B, interpExpr V cval env φ d ρ f = some vf ∧
       interpExpr V cval env φ d ρ a = some va ∧
-      vf ∈ˢ pi vE A B ∧ va ∈ˢ A ∧ ∀ x, x ∈ˢ A → B x ∈ˢ univ vE
+      vf ∈ˢ piC A B ∧ va ∈ˢ A
   | d, ρ, .letE n ty val body =>
     -- the value interprets, and the body opened at the value's
     -- interpretation is truthful — exactly what `AnnotOk_beta` needs to

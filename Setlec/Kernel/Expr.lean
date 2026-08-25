@@ -66,19 +66,14 @@ inductive BinderInfo where
   deriving DecidableEq, Repr, Inhabited, Hashable
 
 /-- Metadata carried by a binder (`forallE`, `lam`): the display
-`BinderInfo`, and the **codomain sort annotation** `cod` — for a
-`forallE`, the sort level of the body; for a `lam`, the sort level of the
-body's type.  Input expressions carry `none`; the checker computes each
-annotation once (by real inference, in the annotation pass) and it is
-trusted thereafter.  The set-model's Prop/Type classifier for dependent
-products reads this annotation, which makes the interpretation purely
-structural (see DESIGN.md, "sort annotations"). -/
+`BinderInfo`.  (Task #100: the codomain sort annotation `cod` is
+erased — the domain-relative collapse model is level-free and the
+kernel infers every sort it needs, so binders carry no annotations.) -/
 structure BinderMeta where
   bi : BinderInfo
-  cod : Option Level := none
   deriving DecidableEq, Repr, Hashable
 
-instance : Inhabited BinderMeta := ⟨⟨.default, none⟩⟩
+instance : Inhabited BinderMeta := ⟨⟨.default⟩⟩
 
 /-- Literals. -/
 inductive Literal where

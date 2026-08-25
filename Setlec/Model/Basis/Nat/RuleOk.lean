@@ -157,15 +157,6 @@ theorem natFr_annotOk_tyM {cval : ConstVal V} :
     AnnotOk V cval env ψ 0 (rho0 V) natFrTyM := by
   simp only [natFrTyM, AnnotOk]
   refine ⟨trivial, ψ uN + 1, ?_⟩
-  refine ⟨?_, ?_⟩
-  · first
-      | (rintro v ⟨rfl⟩; exact fun z hz => hz)
-      | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
-      | (rintro v ⟨rfl⟩
-         intro z hz
-         refine univ_mono ?_ z hz
-         simp only [Level.eval, enM, enZ, en11UU, en1U, enUU, uN]
-         by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "u_1") = 0 <;> by_cases h3 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2, h3] <;> omega)
   intro t A hA ht
   refine ⟨(by simp [Expr.instantiate1, AnnotOk]), ?_⟩
   refine ⟨univ (ψ uN), ?_, ?_⟩
@@ -246,15 +237,6 @@ theorem natFr_annotOk_tyS {cval : ConstVal V} {M z : V}
   simp only [natFrTyS, natFrM, natFrTyM, AnnotOk]
   refine ⟨trivial,
     (if ψ uN = 0 then 0 else Nat.max (ψ uN) (ψ uN)), ?_⟩
-  refine ⟨?_, ?_⟩
-  · first
-      | (rintro v ⟨rfl⟩; exact fun z hz => hz)
-      | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
-      | (rintro v ⟨rfl⟩
-         intro z hz
-         refine univ_mono ?_ z hz
-         simp only [Level.eval, enM, enZ, en11UU, en1U, enUU, uN]
-         by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "u_1") = 0 <;> by_cases h3 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2, h3] <;> omega)
   intro n An hAn hn
   have hAn' : An = omega := by
     simp only [interpExpr, hfindN', hvalN', natA, ConstantInfo.toConstantVal,
@@ -268,15 +250,6 @@ theorem natFr_annotOk_tyS {cval : ConstVal V} {M z : V}
       (fun _ => univ (ψ uN)),
       (by simp [interpExpr, updV]), (by simp [interpExpr, updV]),
       hM, hn, fun _ _ => univ_mem_univ _⟩, ψ uN, ?_⟩
-    refine ⟨?_, ?_⟩
-    · first
-        | (rintro v ⟨rfl⟩; exact fun z hz => hz)
-        | (rintro v ⟨rfl⟩; exact univ_mono (Nat.zero_le _))
-        | (rintro v ⟨rfl⟩
-           intro z hz
-           refine univ_mono ?_ z hz
-           simp only [Level.eval, enM, enZ, en11UU, en1U, enUU, uN]
-           by_cases h1 : ψ (Name.anonymous.str "u") = 0 <;> by_cases h2 : ψ (Name.anonymous.str "u_1") = 0 <;> by_cases h3 : ψ (Name.anonymous.str "v") = 0 <;> simp [h1, h2, h3] <;> omega)
     intro ih Aih hAih hih
     refine ⟨?_, ?_⟩
     · -- the body `motive (Nat.succ n)`: nested app clauses

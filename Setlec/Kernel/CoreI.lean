@@ -304,7 +304,7 @@ def internExprM (x : Expr) : CheckIM EIdx :=
   modifyGet fun s =>
     let store := s.store
     let s := { s with store := EStore.empty }
-    let (i, store) := store.internExprFast x
+    let (i, store) := store.internExpr x
     (i, { s with store := store })
 
 /-- Intern one name node (task #88). -/
@@ -1060,23 +1060,20 @@ def structUnitCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
 /-- Twin of `etaCert` (the λ's pieces come pre-destructured, as in the
 spec). -/
 def etaCertI (r : CoreFnsI) (_fe : FEnv) (depth : Nat)
-    (n₁ : NIdx) (ty₁ body₁ : EIdx) (m₁ : IBinderMeta) (b : EIdx) :
+    (n₁ : NIdx) (ty₁ body₁ : EIdx) (_m₁ : IBinderMeta) (b : EIdx) :
     CheckIM Bool := do
   let tb ← r.infer depth b
   let wtb ← r.whnf depth tb
   match ← viewI wtb with
-  | some (.forallE _ ty₂ _ m₂) =>
-    match m₁.cod, m₂.cod with
-    | some v₁, some v₂ => do
-      if ← liftFueled "level comparison" (← isEquivLM v₁ v₂) then do
-        if ← r.defeq depth ty₂ ty₁ then do
-          let fv ← internI (.fvar depth n₁ ty₁)
-          let b₁ ← inst1M body₁ fv
-          let ba ← internI (.app b fv)
-          r.defeq (depth + 1) b₁ ba
-        else pure false
-      else pure false
-    | _, _ => pure false
+  | some (.forallE _ ty₂ _ _m₂) => do
+    -- (task #100 stage 6: the codomain-annotation agreement comparison
+    -- is gone — the collapse model's `lam_eta` is level-free)
+    if ← r.defeq depth ty₂ ty₁ then do
+      let fv ← internI (.fvar depth n₁ ty₁)
+      let b₁ ← inst1M body₁ fv
+      let ba ← internI (.app b fv)
+      r.defeq (depth + 1) b₁ ba
+    else pure false
   | _ => pure false
 
 /-- Twin of `stuckIrrel`. -/
@@ -1520,44 +1517,33 @@ arena) is semantically transparent: on exhaustion the leaf phase hands
 the residual binder chain back to the knot, which is exactly the
 chained spec's next step. -/
 
-/-- Stack entry of `inferLamsI`: binder name, opened domain, binder
-meta, the λ-annotation, and the domain's sort. -/
-abbrev InferLamEntry := NIdx × EIdx × IBinderMeta × LIdx × LIdx
+/-- Stack entry of `inferLamsI`: binder name, opened domain and binder
+meta. -/
+abbrev InferLamEntry := NIdx × EIdx × IBinderMeta
 
 /-- Rebuild loop of `inferLamsI`: fold the stack (innermost binder
-first, `j` its binder level relative to the ambient depth `d`),
-replaying the per-level λ-annotation re-check against the body sort
-`vcur` and folding the codomain sorts by `imax`.  The intermediate
-`∀`-node inferences of the chained body are value-determined by the
-peel phase's domain sorts and cannot fail, so only the re-checks
-remain. -/
+first, `j` its binder level relative to the ambient depth `d`).  The
+intermediate `∀`-node inferences of the chained body are
+value-determined by the peel phase's domain sorts and the leaf phase's
+body-type sort and cannot fail (task #100 stage 6: the per-level
+λ-annotation re-check is gone with the stored annotations). -/
 def inferLamsOutI (d : Nat) :
-    List InferLamEntry → Nat → LIdx → EIdx → CheckIM EIdx
-  | [], _j, _vcur, cur => pure cur
-  | (n, tyo, mb, v, u) :: rest, j, vcur, cur => do
-    unless ← liftFueled "level comparison" (← isEquivLM v vcur) do
-      throw (.invalid "λ-annotation does not match the body's sort")
+    List InferLamEntry → Nat → EIdx → CheckIM EIdx
+  | [], _j, cur => pure cur
+  | (n, tyo, mb) :: rest, j, cur => do
     let tyAbs ← abstractRangeM tyo d j
     let node ← internI (.forallE n tyAbs cur mb)
-    match rest with
-    | [] => pure node
-    | _ :: _ => do
-      let v' ← internLM (.imax u v)
-      inferLamsOutI d rest (j - 1) v' node
+    inferLamsOutI d rest (j - 1) node
 
-/-- Leaf phase of `inferLamsI`: bulk-open the residual body, infer it
-and its type's sort, then rebuild outward. -/
+/-- Leaf phase of `inferLamsI`: bulk-open the residual body, infer it,
+then rebuild outward (task #100 stage 6: no body-type sort check — the
+official-kernel `infer_lambda` shape). -/
 def inferLamsLeafI (r : CoreFnsI) (d : Nat) (t : EIdx) (k : Nat)
     (fvs : Array EIdx) (stk : List InferLamEntry) : CheckIM EIdx := do
   let ob ← instListRevM t fvs
   let bt ← r.infer (d + k) ob
-  let tbt ← r.infer (d + k) bt
-  let wtbt ← r.whnf (d + k) tbt
-  match ← viewI wtbt with
-  | some (.sort v') => do
-    let cur ← abstractRangeM bt d k
-    inferLamsOutI d stk (k - 1) v' cur
-  | _ => throw (.invalid "expected a sort")
+  let cur ← abstractRangeM bt d k
+  inferLamsOutI d stk (k - 1) cur
 
 /-- λ-telescope inference loop (task #72; used by `inferBodyI`'s and
 `inferBodyNC`'s lam cases): peel the raw λ-chain, checking each opened
@@ -1568,21 +1554,61 @@ def inferLamsI (r : CoreFnsI) (d : Nat) :
     Nat → EIdx → Nat → Array EIdx → List InferLamEntry → CheckIM EIdx
   | fuel + 1, t, k, fvs, stk => do
     match ← viewI t with
-    | some (.lam n ty body mb) =>
-      match mb.cod with
-      | some v => do
-        let tyo ← instListRevM ty fvs
-        let tty ← r.infer (d + k) tyo
-        let wtty ← r.whnf (d + k) tty
-        match ← viewI wtty with
-        | some (.sort u) => do
-          let fv ← internI (.fvar (d + k) n tyo)
-          inferLamsI r d fuel body (k + 1) (fvs.push fv)
-            ((n, tyo, mb, v, u) :: stk)
-        | _ => throw (.invalid "expected a sort")
-      | none => throw (.internal "unannotated λ-binder reached inferType")
+    | some (.lam n ty body mb) => do
+      let tyo ← instListRevM ty fvs
+      let tty ← r.infer (d + k) tyo
+      let wtty ← r.whnf (d + k) tty
+      match ← viewI wtty with
+      | some (.sort _) => do
+        let fv ← internI (.fvar (d + k) n tyo)
+        inferLamsI r d fuel body (k + 1) (fvs.push fv)
+          ((n, tyo, mb) :: stk)
+      | _ => throw (.invalid "expected a sort")
     | _ => inferLamsLeafI r d t k fvs stk
   | 0, t, k, fvs, stk => inferLamsLeafI r d t k fvs stk
+
+/-- Rebuild loop of `inferPisI`: fold the accumulated domain sorts by
+`imax`, innermost binder first — exactly the chained `∀`-rule's result
+value. -/
+def inferPisOutI : List LIdx → LIdx → CheckIM LIdx
+  | [], v => pure v
+  | u :: rest, v => do
+    let v' ← internLM (.imax u v)
+    inferPisOutI rest v'
+
+/-- Leaf phase of `inferPisI`: bulk-open the residual body, infer its
+sort, then fold the domain sorts outward. -/
+def inferPisLeafI (r : CoreFnsI) (d : Nat) (t : EIdx) (k : Nat)
+    (fvs : Array EIdx) (stk : List LIdx) : CheckIM EIdx := do
+  let ob ← instListRevM t fvs
+  let bt ← r.infer (d + k) ob
+  let wbt ← r.whnf (d + k) bt
+  match ← viewI wbt with
+  | some (.sort v) => do
+    let iv ← inferPisOutI stk v
+    internI (.sort iv)
+  | _ => throw (.invalid "expected a sort")
+
+/-- ∀-telescope inference loop (task #100 stage 6: the `∀`-rule infers
+its codomain sort — the stored annotation is not read): peel the raw
+∀-chain, checking each opened domain to be a type on the way in and
+accumulating its sort, infer the bulk-opened leaf's sort once, and
+fold `imax` outward. -/
+def inferPisI (r : CoreFnsI) (d : Nat) :
+    Nat → EIdx → Nat → Array EIdx → List LIdx → CheckIM EIdx
+  | fuel + 1, t, k, fvs, stk => do
+    match ← viewI t with
+    | some (.forallE n ty body _mb) => do
+      let tyo ← instListRevM ty fvs
+      let tty ← r.infer (d + k) tyo
+      let wtty ← r.whnf (d + k) tty
+      match ← viewI wtty with
+      | some (.sort u) => do
+        let fv ← internI (.fvar (d + k) n tyo)
+        inferPisI r d fuel body (k + 1) (fvs.push fv) (u :: stk)
+      | _ => throw (.invalid "expected a sort")
+    | _ => inferPisLeafI r d t k fvs stk
+  | 0, t, k, fvs, stk => inferPisLeafI r d t k fvs stk
 
 /-- Twin of `inferBody`. -/
 def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
@@ -1614,31 +1640,28 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
         internI (.const si [])
       else throw (.notImplemented
         "string literals before the String support declarations")
-    | some (.forallE _ ty _ mb) => do
-      match mb.cod with
-      | some v => do
-        let tty ← r.infer depth ty
-        let wtty ← r.whnf depth tty
-        match ← viewI wtty with
-        | some (.sort u) => do
-          let iv ← internLM (.imax u v)
-          internI (.sort iv)
-        | _ => throw (.invalid "expected a sort")
-      | none => throw (.internal "unannotated ∀-binder reached inferType")
+    | some (.forallE n ty body _mb) => do
+      -- Binder-telescope loop (task #72 discipline; task #100 stage 6:
+      -- the codomain sort is inferred, not read off the annotation).
+      let tty ← r.infer depth ty
+      let wtty ← r.whnf depth tty
+      match ← viewI wtty with
+      | some (.sort u) => do
+        let fv ← internI (.fvar depth n ty)
+        let fuel ← withStore (·.nodes.size)
+        inferPisI r depth fuel body 1 #[fv] [u]
+      | _ => throw (.invalid "expected a sort")
     | some (.lam n ty body mb) => do
-      match mb.cod with
-      | some v => do
-        let tty ← r.infer depth ty
-        let wtty ← r.whnf depth tty
-        match ← viewI wtty with
-        | some (.sort u) => do
-          -- Binder-telescope loop (task #72): peel the whole λ-chain,
-          -- open in bulk, rebuild with `abstractRange`.
-          let fv ← internI (.fvar depth n ty)
-          let fuel ← withStore (·.nodes.size)
-          inferLamsI r depth fuel body 1 #[fv] [(n, ty, mb, v, u)]
-        | _ => throw (.invalid "expected a sort")
-      | none => throw (.internal "unannotated λ-binder reached inferType")
+      let tty ← r.infer depth ty
+      let wtty ← r.whnf depth tty
+      match ← viewI wtty with
+      | some (.sort _) => do
+        -- Binder-telescope loop (task #72): peel the whole λ-chain,
+        -- open in bulk, rebuild with `abstractRange`.
+        let fv ← internI (.fvar depth n ty)
+        let fuel ← withStore (·.nodes.size)
+        inferLamsI r depth fuel body 1 #[fv] [(n, ty, mb)]
+      | _ => throw (.invalid "expected a sort")
     | some (.app _ _) => do
       -- Bulk telescope consumption (task #50): infer the spine head
       -- once and walk its Π-telescope against the whole spine.
@@ -1665,9 +1688,16 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
           else throw (.notImplemented "projection without a native entry")
         | none => throw (.notImplemented "projection without a native entry")
       | _ => throw (.notImplemented "projection without a native entry")
-    | some (.letE _ _ v b) => do
-      -- infer the instantiated body (nanoda `infer_let`); the checks
-      -- ran at annotate time
+    | some (.letE _ ty v b) => do
+      -- The official kernel's `infer_let` check order (`!infer_only`):
+      -- the annotation is a type, the value's inferred type matches it,
+      -- then the body with the value transparent (nanoda `infer_let`;
+      -- task #100 stage 6: the checks moved here from the deleted
+      -- annotation pass).
+      let _ ← ensureSortI r depth (← r.infer depth ty)
+      let tv ← r.infer depth v
+      unless ← r.defeq depth tv ty do
+        throw (.invalid "let value type mismatch")
       let e' ← inst1M b v
       r.infer depth e'
     | some (.bvar _) =>
@@ -1860,7 +1890,7 @@ def annotateProjRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
           let recC ← internI (.const recI (uf ++ us))
           let tI ← internNameM (.str .anonymous "t")
           let motive ← internI
-            (.lam tI te fi ⟨.default, none⟩)
+            (.lam tI te fi ⟨.default⟩)
           let raw ← mkAppNM recC (params ++ [motive, minor, e'])
           if ← withStore (fun st => st.wscopedBI depth raw &&
               st.looseBVarsBoundedI 0 raw &&
@@ -1911,38 +1941,28 @@ def annotateProjElimI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (sn : NIdx)
 domain, binder info. -/
 abbrev AnnotBinderEntry := NIdx × EIdx × BinderInfo
 
-/-- Rebuild loop of `annotatePisI`: fold the stack (innermost binder
-first, `j` its binder level), inferring each domain's sort on the way
-out — the chained body's `infer` on the freshly annotated `∀`-node,
-which reduces to its domain inference — and folding codomain sorts by
-`imax`. -/
-def annotatePisOutI (r : CoreFnsI) (d : Nat) :
-    List AnnotBinderEntry → Nat → LIdx → EIdx → CheckIM EIdx
-  | [], _j, _vcur, cur => pure cur
-  | (n, ty', bi) :: rest, j, vcur, cur => do
+/-- Rebuild loop of the annotation binder-telescope loops: fold the
+stack (innermost binder first, `j` its binder level), rebuilding one
+binder node per entry (task #100 stage 6: the annotation pass is a
+pure normalizer at binders — no annotations to compute, no checks). -/
+def annotateBindersOutI (mk : NIdx → EIdx → EIdx → BinderInfo → ENode)
+    (d : Nat) :
+    List AnnotBinderEntry → Nat → EIdx → CheckIM EIdx
+  | [], _j, cur => pure cur
+  | (n, ty', bi) :: rest, j, cur => do
     let tyAbs ← abstractRangeM ty' d j
-    let node ← internI (.forallE n tyAbs cur ⟨bi, some vcur⟩)
-    match rest with
-    | [] => pure node
-    | _ :: _ => do
-      let tty ← r.infer (d + j) ty'
-      let wtty ← r.whnf (d + j) tty
-      match ← viewI wtty with
-      | some (.sort u) => do
-        let v' ← internLM (.imax u vcur)
-        annotatePisOutI r d rest (j - 1) v' node
-      | _ => throw (.invalid "expected a sort")
+    let node ← internI (mk n tyAbs cur bi)
+    annotateBindersOutI mk d rest (j - 1) node
 
 /-- Leaf phase of `annotatePisI`: bulk-open and annotate the residual
-body, check it is a type, then rebuild outward. -/
+body, then rebuild outward. -/
 def annotatePisLeafI (r : CoreFnsI) (d : Nat) (t : EIdx) (k : Nat)
     (fvs : Array EIdx) (stk : List AnnotBinderEntry) : CheckIM EIdx := do
   let to ← instListRevM t fvs
   let leaf' ← r.annotate (d + k) to
-  let tb ← r.infer (d + k) leaf'
-  let v ← ensureSortI r (d + k) tb
   let cur ← abstractRangeM leaf' d k
-  annotatePisOutI r d stk (k - 1) v cur
+  annotateBindersOutI (fun n ty b bi => .forallE n ty b ⟨bi⟩) d
+    stk (k - 1) cur
 
 /-- ∀-telescope annotation loop (task #72; `annotateBodyI`'s forallE
 case): peel the raw ∀-chain, annotating each opened domain on the way
@@ -1961,40 +1981,15 @@ def annotatePisI (r : CoreFnsI) (d : Nat) :
     | _ => annotatePisLeafI r d t k fvs stk
   | 0, t, k, fvs, stk => annotatePisLeafI r d t k fvs stk
 
-/-- Rebuild loop of `annotateLamsI`: as `annotatePisOutI`, plus the
-replay of the chained body's λ-annotation re-check (the `infer` of the
-freshly annotated λ-node re-checks its just-computed codomain sort
-against itself). -/
-def annotateLamsOutI (r : CoreFnsI) (d : Nat) :
-    List AnnotBinderEntry → Nat → LIdx → EIdx → CheckIM EIdx
-  | [], _j, _vcur, cur => pure cur
-  | (n, ty', bi) :: rest, j, vcur, cur => do
-    let tyAbs ← abstractRangeM ty' d j
-    let node ← internI (.lam n tyAbs cur ⟨bi, some vcur⟩)
-    match rest with
-    | [] => pure node
-    | _ :: _ => do
-      let tty ← r.infer (d + j) ty'
-      let wtty ← r.whnf (d + j) tty
-      match ← viewI wtty with
-      | some (.sort u) => do
-        unless ← liftFueled "level comparison" (← isEquivLM vcur vcur) do
-          throw (.invalid "λ-annotation does not match the body's sort")
-        let v' ← internLM (.imax u vcur)
-        annotateLamsOutI r d rest (j - 1) v' node
-      | _ => throw (.invalid "expected a sort")
-
-/-- Leaf phase of `annotateLamsI`: bulk-open and annotate the residual
-body, infer it and its type's sort, then rebuild outward. -/
+/-- Leaf phase of `annotateLamsI` (as `annotatePisLeafI`, rebuilding
+λ-nodes). -/
 def annotateLamsLeafI (r : CoreFnsI) (d : Nat) (t : EIdx) (k : Nat)
     (fvs : Array EIdx) (stk : List AnnotBinderEntry) : CheckIM EIdx := do
   let to ← instListRevM t fvs
   let leaf' ← r.annotate (d + k) to
-  let bt ← r.infer (d + k) leaf'
-  let tbt ← r.infer (d + k) bt
-  let v ← ensureSortI r (d + k) tbt
   let cur ← abstractRangeM leaf' d k
-  annotateLamsOutI r d stk (k - 1) v cur
+  annotateBindersOutI (fun n ty b bi => .lam n ty b ⟨bi⟩) d
+    stk (k - 1) cur
 
 /-- λ-telescope annotation loop (task #72; `annotateBodyI`'s lam
 case). -/
@@ -2010,55 +2005,6 @@ def annotateLamsI (r : CoreFnsI) (d : Nat) :
         ((n, ty', mb.bi) :: stk)
     | _ => annotateLamsLeafI r d t k fvs stk
   | 0, t, k, fvs, stk => annotateLamsLeafI r d t k fvs stk
-
-/-- Application-annotation spine loop (task #96): `annotateBodyI`'s
-app case walks the whole spine once — the head's Π-telescope with
-deferred substitution against the arguments, replaying exactly the
-chained body's per-application checks (annotate the argument, infer
-it, check it against the substituted domain, rebuild) in the chained
-order.  The chained recursion instead ran `r.infer` on **every spine
-prefix**, each of which re-decomposed the spine and re-walked the root
-telescope — Θ(n²) view-steps and per-prefix argument lists (references
-walk once; official `infer` of an application carries an argument
-accumulator).  `ty` is the raw telescope after the binders consumed so
-far, `acc` their (annotated) arguments innermost-**last** (push
-order), `cur` the annotated spine so far, `a'` the current argument,
-already annotated (the chained order annotates the argument before
-inferring the function part).  The chained `whnf` between prefix
-inference and `∀`-view is the identity on a syntactic `∀`, so peeling
-skips it; a non-syntactic step substitutes and normalizes, exactly
-like the chained body (`Setlec/Verify/AnnotSpine.lean` proves the
-identification). -/
-def annotateSpineI (r : CoreFnsI) (depth : Nat) :
-    EIdx → Array EIdx → EIdx → EIdx → List EIdx → CheckIM EIdx
-  | ty, acc, cur, a', rest => do
-    match ← viewI ty with
-    | some (.forallE _ dom body _) => do
-      let dom' ← instListRevM dom acc
-      let ta ← r.infer depth a'
-      unless ← r.defeq depth ta dom' do
-        throw (.invalid "application argument type mismatch")
-      let cur' ← internI (.app cur a')
-      match rest with
-      | [] => pure cur'
-      | b :: rest' => do
-        let b' ← r.annotate depth b
-        annotateSpineI r depth body (acc.push a') cur' b' rest'
-    | _ => do
-      let ty' ← instListRevM ty acc
-      let w ← r.whnf depth ty'
-      match ← viewI w with
-      | some (.forallE _ dom body _) => do
-        let ta ← r.infer depth a'
-        unless ← r.defeq depth ta dom do
-          throw (.invalid "application argument type mismatch")
-        let cur' ← internI (.app cur a')
-        match rest with
-        | [] => pure cur'
-        | b :: rest' => do
-          let b' ← r.annotate depth b
-          annotateSpineI r depth body #[a'] cur' b' rest'
-      | _ => throw (.invalid "function expected")
 
 /-- Twin of `annotateBody`. -/
 def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
@@ -2077,20 +2023,12 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
       if strLitSupportedF fe then pure e
       else throw (.notImplemented
         "string literals before the String support declarations")
-    | some (.app _ _) => do
-      -- Spine loop (task #96): annotate the head once, then walk its
-      -- Π-telescope against the whole spine; the chained body inferred
-      -- every prefix (quadratic).  The chained order is preserved:
-      -- head, first argument, head's type, then per-argument steps.
-      let h ← withStore (fun st => st.getAppFnI e)
-      let args ← withStore (·.getAppArgsI e)
-      let h' ← r.annotate depth h
-      match args with
-      | [] => pure h'
-      | a :: rest => do
-        let a' ← r.annotate depth a
-        let th ← r.infer depth h'
-        annotateSpineI r depth th #[] h' a' rest
+    | some (.app f a) => do
+      -- structural (task #100 stage 6: the application checks moved to
+      -- the driver's inference sweep)
+      let f' ← r.annotate depth f
+      let a' ← r.annotate depth a
+      internI (.app f' a')
     | some (.forallE n ty body mb) => do
       -- Binder-telescope loop (task #72): peel the whole ∀-chain,
       -- open in bulk, rebuild with `abstractRange`.
@@ -2112,11 +2050,8 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
         let fv ← internI (.fvar depth n ty')
         let ob ← inst1M body fv
         let body' ← r.annotate (depth + 1) ob
-        let bt ← r.infer (depth + 1) body'
-        let tbt ← r.infer (depth + 1) bt
-        let v ← ensureSortI r (depth + 1) tbt
         let bAbs ← abstract1M body' depth
-        internI (.lam n ty' bAbs ⟨mb.bi, some v⟩)
+        internI (.lam n ty' bAbs ⟨mb.bi⟩)
     | some (.letE _ ty v b) => do
       -- official `infer_let` check order (see the spec body): the
       -- annotation is a type, the value's inferred type matches it,
@@ -2257,7 +2192,7 @@ def runEntryE (env : Env)
     (pick : CoreFnsI → Nat → EIdx → CheckIM EIdx)
     (d : Nat) (e : Expr) : CheckM Expr := do
   let fe := mkFEnv env
-  let (i, store) := EStore.empty.internExprFast e
+  let (i, store) := EStore.empty.internExpr e
   let (j, s) ← (pick (coreKnotI fe checkFuel) d i).run { store := store }
   match s.store.readbackI j with
   | some v => pure v
@@ -2266,14 +2201,14 @@ def runEntryE (env : Env)
 /-- Run the interned definitional-equality entry on two `Expr`s. -/
 def runEntryB (env : Env) (d : Nat) (a b : Expr) : CheckM Bool := do
   let fe := mkFEnv env
-  let (i, store) := EStore.empty.internExprFast a
-  let (j, store) := store.internExprFast b
+  let (i, store) := EStore.empty.internExpr a
+  let (j, store) := store.internExpr b
   ((coreKnotI fe checkFuel).defeq d i j).run' { store := store }
 
 /-- Run the interned sort-ensuring entry on an `Expr`. -/
 def runEntryS (env : Env) (d : Nat) (e : Expr) : CheckM Level := do
   let fe := mkFEnv env
-  let (i, store) := EStore.empty.internExprFast e
+  let (i, store) := EStore.empty.internExpr e
   let (u, s) ← (ensureSortI (coreKnotI fe checkFuel) d i).run { store := store }
   match s.store.readbackL u with
   | some l => pure l

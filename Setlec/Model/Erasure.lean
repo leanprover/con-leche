@@ -39,7 +39,7 @@ namespace Setlec
 /-! ## The erasure map -/
 
 /-- Drop the codomain-sort annotation of one binder. -/
-def BinderMeta.eraseCod (m : BinderMeta) : BinderMeta := ⟨m.bi, none⟩
+def BinderMeta.eraseCod (m : BinderMeta) : BinderMeta := ⟨m.bi⟩
 
 @[simp] theorem BinderMeta.eraseCod_bi (m : BinderMeta) :
     m.eraseCod.bi = m.bi := rfl

@@ -979,11 +979,6 @@ private theorem etaCert_shift (henv : EnvWF env)
       whnf_WScoped henv fuel hwtb' hwtb
     simp only [WScoped] at hwPi
     simp only [shiftFrom]
-    cases m₁.cod <;> cases m₂.cod <;> try rfl
-    case some.some v₁ v₂ =>
-    refine bind_congr_eq rfl ?_
-    intro okv _
-    refine ite_congr' (fun _ => ?_) (fun _ => rfl)
     refine bind_congr_eq (ih.defeq hpd hwPi.1 hwty₁) ?_
     intro bb _
     refine ite_congr' (fun _ => ?_) (fun _ => rfl)
@@ -1728,14 +1723,14 @@ private theorem annotateProjRec_shift (henv : EnvWF env)
               else []) ++ us))
           (te.getAppArgs.map (shiftFrom p) ++
             [.lam (.str .anonymous "t") (shiftFrom p te)
-              (shiftFrom p fi) ⟨.default, none⟩,
+              (shiftFrom p fi) ⟨.default⟩,
              shiftFrom p minor, shiftFrom p e']) =
           shiftFrom p (Expr.mkAppN
             (.const (entry.structName.str "rec")
               ((if entry.recExtraLevel then [sfi]
                 else []) ++ us))
             (te.getAppArgs ++
-              [.lam (.str .anonymous "t") te fi ⟨.default, none⟩,
+              [.lam (.str .anonymous "t") te fi ⟨.default⟩,
                minor, e'])) := by
         rw [shiftFrom_mkAppN, List.map_append]
         rfl
@@ -1745,7 +1740,7 @@ private theorem annotateProjRec_shift (henv : EnvWF env)
             ((if entry.recExtraLevel then [sfi]
               else []) ++ us))
           (te.getAppArgs ++
-            [.lam (.str .anonymous "t") te fi ⟨.default, none⟩,
+            [.lam (.str .anonymous "t") te fi ⟨.default⟩,
              minor, e'])) := by
         refine Expr.WScoped.mkAppN (by simp [WScoped]) ?_
         intro x hx
@@ -1971,6 +1966,17 @@ private theorem infer_step (henv : EnvWF env)
       (inferBody (pureFns env fuel) env d (.letE n ty v body)).map
         (shiftFrom p)
     simp only [inferBody, viewM, Expr.view, pure_bind]
+    refine bind_rel _ _ (ih.infer hpd hw.1) ?_
+    intro tty htty
+    refine bind_rel_eq _ (ensureSort_shift henv ih hpd
+      (inferTypeCore_WScoped henv fuel htty hw.1)) ?_
+    intro s _
+    refine bind_rel _ _ (ih.infer hpd hw.2.1) ?_
+    intro tv htv
+    refine bind_rel_eq _ (ih.defeq hpd
+      (inferTypeCore_WScoped henv fuel htv hw.2.1) hw.1) ?_
+    intro bb _
+    refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
     have h := ih.infer hpd (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
     rwa [shiftFrom_instantiate1_gen] at h
   | .sort u => rfl
@@ -2019,17 +2025,26 @@ private theorem infer_step (henv : EnvWF env)
       (inferBody (pureFns env fuel) env d (.forallE n ty body mb)).map
         (shiftFrom p)
     simp only [inferBody, viewM, Expr.view, pure_bind]
-    cases hc : mb.cod with
-    | none => rfl
-    | some v =>
-      dsimp only
-      refine bind_rel _ _ (ih.infer hpd hw.1) ?_
-      intro tty htty
-      refine bind_rel _ _
-        (ih.whnf hpd (inferTypeCore_WScoped henv fuel htty hw.1)) ?_
-      intro w _
-      cases w <;> try rfl
-      case fvar => rw [shiftFrom_fvar]; rfl
+    refine bind_rel _ _ (ih.infer hpd hw.1) ?_
+    intro tty htty
+    refine bind_rel _ _
+      (ih.whnf hpd (inferTypeCore_WScoped henv fuel htty hw.1)) ?_
+    intro w _
+    cases w <;> try rfl
+    case fvar => rw [shiftFrom_fvar]; rfl
+    case sort u =>
+    have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
+      WScoped.instantiate1 (n := n) hw.1 0 hw.2
+    have hbody := ih.infer (p := p) (d := d + 1) (by omega) hwo
+    rw [shiftFrom_instantiate1 hpd] at hbody
+    refine bind_rel _ _ hbody ?_
+    intro bt hbt
+    have hwbt : WScoped (d + 1) bt :=
+      inferTypeCore_WScoped henv fuel hbt hwo
+    refine bind_rel_eq _ (ensureSort_shift henv ih (p := p)
+      (d := d + 1) (by omega) hwbt) ?_
+    intro v _
+    rfl
   | .lam n ty body mb =>
     simp only [WScoped] at hw
     show inferBody (pureFns env fuel) env (d + 1)
@@ -2037,41 +2052,22 @@ private theorem infer_step (henv : EnvWF env)
       (inferBody (pureFns env fuel) env d (.lam n ty body mb)).map
         (shiftFrom p)
     simp only [inferBody, viewM, Expr.view, pure_bind]
-    cases hc : mb.cod with
-    | none => rfl
-    | some v =>
-      dsimp only
-      refine bind_rel _ _ (ih.infer hpd hw.1) ?_
-      intro tty htty
-      refine bind_rel _ _
-        (ih.whnf hpd (inferTypeCore_WScoped henv fuel htty hw.1)) ?_
-      intro w _
-      cases w <;> try rfl
-      case fvar => rw [shiftFrom_fvar]; rfl
-      case sort u =>
-      have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
-        WScoped.instantiate1 (n := n) hw.1 0 hw.2
-      have hbody := ih.infer (p := p) (d := d + 1) (by omega) hwo
-      rw [shiftFrom_instantiate1 hpd] at hbody
-      refine bind_rel _ _ hbody ?_
-      intro bt hbt
-      have hwbt : WScoped (d + 1) bt :=
-        inferTypeCore_WScoped henv fuel hbt hwo
-      refine bind_rel _ _
-        (ih.infer (p := p) (d := d + 1) (by omega) hwbt) ?_
-      intro tbt htbt
-      refine bind_rel _ _
-        (ih.whnf (p := p) (d := d + 1) (by omega)
-          (inferTypeCore_WScoped henv fuel htbt hwbt)) ?_
-      intro w₂ _
-      cases w₂ <;> try rfl
-      case fvar => rw [shiftFrom_fvar]; rfl
-      case sort v' =>
-      refine bind_rel_eq _ rfl ?_
-      intro okv _
-      refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-      rw [← shiftFrom_abstract1 hpd]
-      rfl
+    refine bind_rel _ _ (ih.infer hpd hw.1) ?_
+    intro tty htty
+    refine bind_rel _ _
+      (ih.whnf hpd (inferTypeCore_WScoped henv fuel htty hw.1)) ?_
+    intro w _
+    cases w <;> try rfl
+    case fvar => rw [shiftFrom_fvar]; rfl
+    case sort u =>
+    have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
+      WScoped.instantiate1 (n := n) hw.1 0 hw.2
+    have hbody := ih.infer (p := p) (d := d + 1) (by omega) hwo
+    rw [shiftFrom_instantiate1 hpd] at hbody
+    refine bind_rel _ _ hbody ?_
+    intro bt hbt
+    rw [← shiftFrom_abstract1 hpd]
+    rfl
   | .app f a =>
     simp only [WScoped] at hw
     rw [shiftFrom_app]

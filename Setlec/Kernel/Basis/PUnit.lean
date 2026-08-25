@@ -17,8 +17,8 @@ def punitBasis : List ConstantInfo := [
     { eta := true, etaCtor := ((anonymous |>.str "PUnit") |>.str "unit"),
       etaParams := 0, etaFields := 0, unitlike := true },
   .ctorInfo ⟨((anonymous |>.str "PUnit") |>.str "unit"), [(anonymous |>.str "u")], (.const (anonymous |>.str "PUnit") [(.param (anonymous |>.str "u"))])⟩ 0 0,
-  .recInfo ⟨((anonymous |>.str "PUnit") |>.str "rec"), [(anonymous |>.str "u_1"), (anonymous |>.str "u")], (.forallE (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "PUnit") [(.param (anonymous |>.str "u"))]) (.sort (.param (anonymous |>.str "u_1"))) ⟨.default, none⟩) (.forallE (anonymous |>.str "unit") (.app (.bvar 0) (.const ((anonymous |>.str "PUnit") |>.str "unit") [(.param (anonymous |>.str "u"))])) (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "PUnit") [(.param (anonymous |>.str "u"))]) (.app (.bvar 2) (.bvar 0)) ⟨.default, none⟩) ⟨.default, none⟩) ⟨.implicit, none⟩)⟩ 2 2
-    [⟨((anonymous |>.str "PUnit") |>.str "unit"), 0, 0, .inert, (.lam (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "PUnit") [(.param (anonymous |>.str "u"))]) (.sort (.param (anonymous |>.str "u_1"))) ⟨.default, none⟩) (.lam (anonymous |>.str "unit") (.app (.bvar 0) (.const ((anonymous |>.str "PUnit") |>.str "unit") [(.param (anonymous |>.str "u"))])) (.bvar 0) ⟨.default, none⟩) ⟨.default, none⟩)⟩]]
+  .recInfo ⟨((anonymous |>.str "PUnit") |>.str "rec"), [(anonymous |>.str "u_1"), (anonymous |>.str "u")], (.forallE (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "PUnit") [(.param (anonymous |>.str "u"))]) (.sort (.param (anonymous |>.str "u_1"))) ⟨.default⟩) (.forallE (anonymous |>.str "unit") (.app (.bvar 0) (.const ((anonymous |>.str "PUnit") |>.str "unit") [(.param (anonymous |>.str "u"))])) (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "PUnit") [(.param (anonymous |>.str "u"))]) (.app (.bvar 2) (.bvar 0)) ⟨.default⟩) ⟨.default⟩) ⟨.implicit⟩)⟩ 2 2
+    [⟨((anonymous |>.str "PUnit") |>.str "unit"), 0, 0, .inert, (.lam (anonymous |>.str "motive") (.forallE (anonymous |>.str "t") (.const (anonymous |>.str "PUnit") [(.param (anonymous |>.str "u"))]) (.sort (.param (anonymous |>.str "u_1"))) ⟨.default⟩) (.lam (anonymous |>.str "unit") (.app (.bvar 0) (.const ((anonymous |>.str "PUnit") |>.str "unit") [(.param (anonymous |>.str "u"))])) (.bvar 0) ⟨.default⟩) ⟨.default⟩)⟩]]
 
 /-! ## The annotated declarations
 
@@ -61,9 +61,7 @@ def punitRecA : ConstantInfo :=
                     (Setlec.Name.str (Setlec.Name.anonymous) "PUnit")
                     [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
                   (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1")))
-                  { bi := Setlec.BinderInfo.default,
-                    cod := some (Setlec.Level.succ
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))) })
+                  { bi := Setlec.BinderInfo.default})
                 (Setlec.Expr.forallE
                   (Setlec.Name.str (Setlec.Name.anonymous) "unit")
                   (Setlec.Expr.app
@@ -77,18 +75,9 @@ def punitRecA : ConstantInfo :=
                       (Setlec.Name.str (Setlec.Name.anonymous) "PUnit")
                       [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
                     (Setlec.Expr.app (Setlec.Expr.bvar 2) (Setlec.Expr.bvar 0))
-                    { bi := Setlec.BinderInfo.default,
-                      cod := some (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1")) })
-                  { bi := Setlec.BinderInfo.default,
-                    cod := some (Setlec.Level.imax
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))) })
-                { bi := Setlec.BinderInfo.implicit,
-                  cod := some (Setlec.Level.imax
-                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))
-                           (Setlec.Level.imax
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u"))
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1")))) } }
+                    { bi := Setlec.BinderInfo.default})
+                  { bi := Setlec.BinderInfo.default})
+                { bi := Setlec.BinderInfo.implicit} }
     2
     2
     [{ ctor := Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "PUnit") "unit",
@@ -103,9 +92,7 @@ def punitRecA : ConstantInfo :=
                     (Setlec.Name.str (Setlec.Name.anonymous) "PUnit")
                     [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")])
                   (Setlec.Expr.sort (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1")))
-                  { bi := Setlec.BinderInfo.default,
-                    cod := some (Setlec.Level.succ
-                             (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))) })
+                  { bi := Setlec.BinderInfo.default})
                 (Setlec.Expr.lam
                   (Setlec.Name.str (Setlec.Name.anonymous) "unit")
                   (Setlec.Expr.app
@@ -114,11 +101,7 @@ def punitRecA : ConstantInfo :=
                       (Setlec.Name.str (Setlec.Name.str (Setlec.Name.anonymous) "PUnit") "unit")
                       [Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u")]))
                   (Setlec.Expr.bvar 0)
-                  { bi := Setlec.BinderInfo.default,
-                    cod := some (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1")) })
-                { bi := Setlec.BinderInfo.default,
-                  cod := some (Setlec.Level.imax
-                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))
-                           (Setlec.Level.param (Setlec.Name.str (Setlec.Name.anonymous) "u_1"))) } }]
+                  { bi := Setlec.BinderInfo.default})
+                { bi := Setlec.BinderInfo.default} }]
 
 end Setlec
