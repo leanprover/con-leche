@@ -141,14 +141,11 @@ annotation is reused whole). -/
 theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
     {ty body t : Expr} {m : BinderMeta}
     (h : inferTypeCore env (fuel + 1) d (.lam n ty body m) = .ok t) :
-    ∃ v tty u bt tbt v', m.cod = some v ∧
+    ∃ v tty u bt, m.cod = some v ∧
       inferTypeCore env fuel d ty = .ok tty ∧
       whnf env fuel d tty = .ok (.sort u) ∧
       inferTypeCore env fuel (d + 1)
         (body.instantiate1 (.fvar d n ty)) = .ok bt ∧
-      inferTypeCore env fuel (d + 1) bt = .ok tbt ∧
-      whnf env fuel (d + 1) tbt = .ok (.sort v') ∧
-      Level.isEquiv v v' = some true ∧
       t = .forallE n ty (bt.abstract1 d) m := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, viewM, Expr.view, pure, Except.pure, Bind.bind, Except.bind] at h
@@ -181,36 +178,8 @@ theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat} {n : Name}
   | error err => rw [hbt] at h; exact nomatch h
   | ok bt =>
   rw [hbt] at h
-  dsimp only at h
-  cases htbt : inferTypeCore env fuel (d + 1) bt with
-  | error err => rw [htbt] at h; exact nomatch h
-  | ok tbt =>
-  rw [htbt] at h
-  dsimp only at h
-  cases hwtbt : whnf env fuel (d + 1) tbt with
-  | error err => rw [hwtbt] at h; exact nomatch h
-  | ok wtbt =>
-  rw [hwtbt] at h
-  dsimp only at h
-  revert h
-  match wtbt with
-  | .sort v' => ?_
-  | .bvar _ | .fvar _ _ _ | .const _ _ | .app _ _ | .lam _ _ _ _
-  | .forallE _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _ =>
-    intro h; simp [throw, throwThe, MonadExceptOf.throw] at h
-  intro h
-  dsimp only at h
-  cases hEq : Level.isEquiv v v' with
-  | none => rw [hEq] at h; simp [liftFueled] at h
-  | some r =>
-  rw [hEq] at h
-  dsimp only [liftFueled] at h
-  cases r with
-  | false => simp [throw, throwThe, MonadExceptOf.throw, pure, Except.pure] at h
-  | true =>
-    simp only [if_true, pure, Except.pure, Except.ok.injEq] at h
-    exact ⟨v, tty, u, bt, tbt, v', rfl, rfl, hwtty, rfl, htbt, hwtbt, hEq,
-      h.symm⟩
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  exact ⟨v, tty, u, bt, rfl, rfl, hwtty, rfl, h.symm⟩
 
 /-- Inversion for the application rule of `inferTypeCore` (task #100
 de-gating: the per-argument re-check runs unconditionally — the former

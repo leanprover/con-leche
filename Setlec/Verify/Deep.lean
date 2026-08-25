@@ -2055,21 +2055,6 @@ private theorem infer_step (henv : EnvWF env)
       rw [shiftFrom_instantiate1 hpd] at hbody
       refine bind_rel _ _ hbody ?_
       intro bt hbt
-      have hwbt : WScoped (d + 1) bt :=
-        inferTypeCore_WScoped henv fuel hbt hwo
-      refine bind_rel _ _
-        (ih.infer (p := p) (d := d + 1) (by omega) hwbt) ?_
-      intro tbt htbt
-      refine bind_rel _ _
-        (ih.whnf (p := p) (d := d + 1) (by omega)
-          (inferTypeCore_WScoped henv fuel htbt hwbt)) ?_
-      intro w₂ _
-      cases w₂ <;> try rfl
-      case fvar => rw [shiftFrom_fvar]; rfl
-      case sort v' =>
-      refine bind_rel_eq _ rfl ?_
-      intro okv _
-      refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
       rw [← shiftFrom_abstract1 hpd]
       rfl
   | .app f a =>
@@ -2312,10 +2297,7 @@ private theorem defeq_step (henv : EnvWF env)
       (WScoped.instantiate1 (n := n₁) hwwa.1 0 hwwa.2)
       (WScoped.instantiate1 (n := n₂) hwwb.1 0 hwwb.2)
     rw [shiftFrom_instantiate1 hpd, shiftFrom_instantiate1 hpd] at hb
-    refine bind_congr_eq hb ?_
-    intro b₂ _
-    refine ite_congr' (fun _ => ?_) (fun _ => rfl)
-    cases m₁.cod <;> cases m₂.cod <;> rfl
+    exact hb
   case lam.lam n₁ ty₁ body₁ m₁ n₂ ty₂ body₂ m₂ hne =>
     simp only [WScoped] at hwwa hwwb
     refine bind_congr_eq (ih.defeq hpd hwwa.1 hwwb.1) ?_
@@ -2325,10 +2307,7 @@ private theorem defeq_step (henv : EnvWF env)
       (WScoped.instantiate1 (n := n₁) hwwa.1 0 hwwa.2)
       (WScoped.instantiate1 (n := n₂) hwwb.1 0 hwwb.2)
     rw [shiftFrom_instantiate1 hpd, shiftFrom_instantiate1 hpd] at hb
-    refine bind_congr_eq hb ?_
-    intro b₂ _
-    refine ite_congr' (fun _ => ?_) (fun _ => rfl)
-    cases m₁.cod <;> cases m₂.cod <;> rfl
+    exact hb
   case app.app f₁ a₁ f₂ a₂ hne =>
     simp only [WScoped] at hwwa hwwb
     refine bind_congr_eq (ih.defeq hpd hwwa.1 hwwb.1) ?_
