@@ -1,5 +1,4 @@
 import Setlec.Model.IndInstall
-import Setlec.Model.DirectExtend
 
 /-!
 # Fold facts for an installed projection function
@@ -1238,7 +1237,7 @@ theorem proj_bottom
   obtain ⟨⟨vr', trv, hir', htrv, hmemr'⟩, hWtr, hAtr⟩ :=
     inferTypeCore_sound m F htr hWrO hbrO hLrO hFrO
       (hcompsO rhsO (by simp))
-  obtain rfl : vr' = vrO := by
+  have hvr' : vr' = vrO := by
     rw [hir'] at hirO
     exact Option.some.inj hirO
   have hbtr : tr.looseBVarsBounded 0 = true :=
@@ -1253,6 +1252,7 @@ theorem proj_bottom
       hAtr (hcompsO αO (by simp)) htrv hiαO
   -- identify the opened chain's values with the master chain's
   have hvrO : vrO = xs.getD (nP + i) SetTheory.empty := by
+    rw [← hvr']
     rw [hrO] at hir'
     simp only [interpExpr] at hir'
     exact (Option.some.inj hir').symm
@@ -1287,7 +1287,7 @@ theorem proj_bottom
     rw [h1] at hiα
     exact Option.some.inj hiα
   have hvrmem : vr ∈ˢ vα := by
-    rw [hvr, ← hvrO, ← hvαO]
+    rw [hvr, ← hvrO, ← hvαO, ← hvr']
     exact htrvα ▸ hmemr'
   have hvlmem : vl ∈ˢ vα := by
     have h2 := hpi₂
