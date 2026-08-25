@@ -114,6 +114,16 @@ def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
     let rhsApplied := Expr.mkAppN (rhsA.renameConsts f) fvs
     unless ← ops.isDefEq envSelf depth rhsS rhsApplied do
       throw (.notImplemented s!"iota statement mismatch for {cvName}")
+    -- both equation sides inhabit the equation's type (task #100
+    -- stage-3 finding: the collapse removed value-driven domain
+    -- pinning, so the fold derivation reads these certificates)
+    let alphaS := targs.getD 0 (.bvar 0)
+    let tl ← ops.inferType envSelf depth lhsS
+    unless ← ops.isDefEq envSelf depth tl alphaS do
+      throw (.notImplemented s!"iota statement lhs type for {cvName}")
+    let tr ← ops.inferType envSelf depth rhsS
+    unless ← ops.isDefEq envSelf depth tr alphaS do
+      throw (.notImplemented s!"iota statement rhs type for {cvName}")
 
 /-- The nested-shape data of a non-canonical rule: the constructor's
 level and parameter instantiations, read off the recursor type's
@@ -279,6 +289,16 @@ def checkIotaThmN (ops : CheckerOps m) (env' envSelf : Env)
     let rhsApplied := Expr.mkAppN (rhsA.renameConsts f) fvs
     unless ← ops.isDefEq envSelf depth rhsS rhsApplied do
       throw (.notImplemented s!"iota statement mismatch for {cvName}")
+    -- both equation sides inhabit the equation's type (task #100
+    -- stage-3 finding: the collapse removed value-driven domain
+    -- pinning, so the fold derivation reads these certificates)
+    let alphaS := targs.getD 0 (.bvar 0)
+    let tl ← ops.inferType envSelf depth lhsS
+    unless ← ops.isDefEq envSelf depth tl alphaS do
+      throw (.notImplemented s!"iota statement lhs type for {cvName}")
+    let tr ← ops.inferType envSelf depth rhsS
+    unless ← ops.isDefEq envSelf depth tr alphaS do
+      throw (.notImplemented s!"iota statement rhs type for {cvName}")
     pure (.nested lvls pins)
 
 /-- Check one modeled recursor rule: generic well-formedness of the
@@ -499,13 +519,21 @@ def checkProjIota (env' : Env) (T ctorName : Name) (lps : List Name)
   let lhsS := Expr.mkAppN
     (.const (projModelName T i) (lps.map .param)) (pArgs ++ [mkSpine])
   match sbody with
-  | .app (.app (.app (.const c [_ℓ]) _tySlot) lhsC) rhsC =>
+  | .app (.app (.app (.const c [_ℓ]) tySlot) lhsC) rhsC =>
     unless c = eqName do
       throw (.notImplemented "projection iota head")
     unless lhsC == lhsS do
       throw (.notImplemented "projection iota redex mismatch")
     unless rhsC == Expr.bvar (nF - 1 - i) do
       throw (.notImplemented "projection iota field mismatch")
+    -- the equation's type slot is field `i`'s domain, lifted under
+    -- the remaining field binders (task #100 stage-3: the fold
+    -- derivation reads the statement's domain off this pin)
+    unless (match sbinders[nP + i]? with
+        | some (_, idom, _) =>
+          tySlot == idom.liftLooseBVars 0 (nF - i)
+        | none => false) do
+      throw (.notImplemented "projection iota type slot mismatch")
   | _ => throw (.notImplemented "projection iota body shape")
 
 /-- Check and install the public projection function for field `i` of
@@ -562,8 +590,13 @@ def checkEtaThm (env' : Env) (T ctorName : Name) (lps : List Name)
             ((List.range nP).map fun k => Expr.bvar (nP - 1 - k))
         | none => false) &&
        (match sbody with
-        | .app (.app (.app (.const c [_ℓ]) _tySlot) lhsC) rhsC =>
+        | .app (.app (.app (.const c [_ℓ]) tySlot) lhsC) rhsC =>
           c == eqName && lhsC == Expr.bvar 0 &&
+          -- the equation's type slot is the family application (task
+          -- #100 stage-3: the fold derivation reads the statement's
+          -- domain off this pin)
+          tySlot == Expr.mkAppN (.const (T.str "_model") (lps.map .param))
+            ((List.range nP).map fun k => Expr.bvar (nP - k)) &&
           rhsC == Expr.mkAppN
             (.const (ctorName.str "_model") (lps.map .param))
             (((List.range nP).map fun k => Expr.bvar (nP - k)) ++
@@ -600,8 +633,11 @@ def checkUnitThm (env' : Env) (T : Name) (lps : List Name)
             ((List.range nP).map fun k => Expr.bvar (nP - k))
         | none => false) &&
        (match sbody with
-        | .app (.app (.app (.const c [_ℓ]) _tySlot) lhsC) rhsC =>
-          c == eqName && lhsC == Expr.bvar 1 && rhsC == Expr.bvar 0
+        | .app (.app (.app (.const c [_ℓ]) tySlot) lhsC) rhsC =>
+          c == eqName && lhsC == Expr.bvar 1 && rhsC == Expr.bvar 0 &&
+          -- type-slot pin, as in `checkEtaThm` (task #100 stage 3)
+          tySlot == Expr.mkAppN (.const (T.str "_model") (lps.map .param))
+            ((List.range nP).map fun k => Expr.bvar (nP + 1 - k))
         | _ => false)
      | _, _ => false)
   | _, _, _ => false

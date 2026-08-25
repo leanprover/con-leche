@@ -117,8 +117,8 @@ theorem FrameOk.dom {cval : ConstVal V} {env : Env} {φ : Name → Nat}
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hbb
   simp only [AnnotOk] at han
-  obtain ⟨handom, ⟨cod, hcod⟩, -⟩ := han
-  rw [interpExpr, hcod] at hit
+  obtain ⟨handom, cod, -, -⟩ := han
+  rw [interpExpr] at hit
   cases hdom : interpExpr V cval env φ d ρ dom with
   | none => rw [hdom] at hit; exact nomatch hit
   | some A =>
@@ -138,9 +138,9 @@ theorem FrameOk.body {cval : ConstVal V} {env : Env} {φ : Name → Nat}
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hbb
   simp only [AnnotOk] at han
-  obtain ⟨handom, ⟨cod, hcod⟩, hcond⟩ := han
+  obtain ⟨handom, cod, -, hcond⟩ := han
   obtain ⟨hAb, hwfact⟩ := hcond x A hdom hx
-  obtain ⟨w, hwi, -⟩ := hwfact cod hcod
+  obtain ⟨w, hwi, -⟩ := hwfact
   have hlbdom : Expr.LeavesBounded dom :=
     fun l hl => hlb l (by simp [Expr.fvarLeaves, hl])
   have hbdom : dom.looseBVarsBounded 0 = true := hbb.1
@@ -565,9 +565,9 @@ theorem FrameOk.body_at {cval : ConstVal V} {env : Env} {φ : Name → Nat}
   simp only [Expr.WScoped] at hws
   simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hbb
   simp only [AnnotOk] at han
-  obtain ⟨-, ⟨cod, hcod⟩, hcond⟩ := han
+  obtain ⟨-, cod, -, hcond⟩ := han
   obtain ⟨hAb, hwfact⟩ := hcond x A hdom hx
-  obtain ⟨w, hwi, -⟩ := hwfact cod hcod
+  obtain ⟨w, hwi, -⟩ := hwfact
   have hEE : Expr.ErasedEq (body.instantiate1 (.fvar d n dom))
       (body.instantiate1 (.fvar d n' dom')) :=
     Expr.ErasedEq.instantiate1 (Expr.ErasedEq.rfl body) (by exact rfl)

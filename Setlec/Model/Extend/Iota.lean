@@ -66,7 +66,11 @@ def PlainChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
     DefEqListOk F env₀ (rP + cnF)
       ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldoms ∧
     isDefEqCore env₀ F (rP + cnF) rhsS
-      (Expr.mkAppN ((RecRule.rhs r).renameConsts f) fvs) = .ok true
+      (Expr.mkAppN ((RecRule.rhs r).renameConsts f) fvs) = .ok true ∧
+    (∃ tl, inferTypeCore env₀ F (rP + cnF) lhsS = .ok tl ∧
+      isDefEqCore env₀ F (rP + cnF) tl αS = .ok true) ∧
+    (∃ tr, inferTypeCore env₀ F (rP + cnF) rhsS = .ok tr ∧
+      isDefEqCore env₀ F (rP + cnF) tr αS = .ok true)
 
 /-- The kernel-checked data of a *nested-auxiliary* rule's `iota_j`
 theorem (`checkIotaThmN`): everything `modeled_rule_fold_nested`
@@ -134,7 +138,11 @@ def NestedChecked (F : Nat) (env env₀ : Env) (f : Name → Name)
     DefEqListOk F env₀ (rP + cnF)
       ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldoms ∧
     isDefEqCore env₀ F (rP + cnF) rhsS
-      (Expr.mkAppN ((RecRule.rhs r).renameConsts f) fvs) = .ok true
+      (Expr.mkAppN ((RecRule.rhs r).renameConsts f) fvs) = .ok true ∧
+    (∃ tl, inferTypeCore env₀ F (rP + cnF) lhsS = .ok tl ∧
+      isDefEqCore env₀ F (rP + cnF) tl αS = .ok true) ∧
+    (∃ tr, inferTypeCore env₀ F (rP + cnF) rhsS = .ok tr ∧
+      isDefEqCore env₀ F (rP + cnF) tr αS = .ok true)
 
 /-- Invert a successful `checkIotaThm` run (on the rule as returned,
 whose `rhs` is the annotated right-hand side). -/
@@ -296,19 +304,51 @@ theorem checkIotaThm_inv {env' env₀ : Env} {f : Name → Name}
       (Expr.mkAppN (rhsA.renameConsts f) fvs) with
   | error e => intro h; exact nomatch h
   | ok v =>
-    cases v with
-    | false => intro h; simp at h
-    | true =>
-      intro h
-      exact ⟨(cvA.name.str "_model").str s!"iota_{j}", cvt, ci, fvs,
-        tbody, ℓA, αS, lhsS, rhsS, cdoms, cres, rdoms, rrest, fvsP,
-        restP, cdomsP, crestP, xFvsP, crest2, ldoms, lrest,
-        hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
-        eq_of_beq hlpre, eq_of_beq hmaj, hcstrip, hcinst, hclen,
-        checkDefEqList_inv hdq1, checkDefEqList_inv hdq2, hrinst,
-        checkDefEqList_inv hdq3, hopenP, hcinstP,
-        checkDefEqList_inv hdqP, hopenX, hlinst,
-        checkDefEqList_inv hdq4, hde⟩
+  cases v with
+  | false => intro h; simp at h
+  | true =>
+  intro h
+  try simp only [Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  revert h
+  cases htl : inferTypeCore env₀ F (rP + cnF) lhsS with
+  | error e => intro h; exact nomatch h
+  | ok tl => ?_
+  intro h
+  try dsimp only at h
+  revert h
+  cases hdl : isDefEqCore env₀ F (rP + cnF) tl αS with
+  | error e => intro h; exact nomatch h
+  | ok vl =>
+  cases vl with
+  | false => intro h; simp at h
+  | true =>
+  intro h
+  try simp only [Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  revert h
+  cases htr : inferTypeCore env₀ F (rP + cnF) rhsS with
+  | error e => intro h; exact nomatch h
+  | ok tr => ?_
+  intro h
+  try dsimp only at h
+  revert h
+  cases hdr : isDefEqCore env₀ F (rP + cnF) tr αS with
+  | error e => intro h; exact nomatch h
+  | ok vr =>
+  cases vr with
+  | false => intro h; simp at h
+  | true =>
+  intro h
+  exact ⟨(cvA.name.str "_model").str s!"iota_{j}", cvt, ci, fvs,
+    tbody, ℓA, αS, lhsS, rhsS, cdoms, cres, rdoms, rrest, fvsP,
+    restP, cdomsP, crestP, xFvsP, crest2, ldoms, lrest,
+    hfthm, hcvt, hlpt, hopen, hheadEq, hargs3, eq_of_beq hlhead, hlarity,
+    eq_of_beq hlpre, eq_of_beq hmaj, hcstrip, hcinst, hclen,
+    checkDefEqList_inv hdq1, checkDefEqList_inv hdq2, hrinst,
+    checkDefEqList_inv hdq3, hopenP, hcinstP,
+    checkDefEqList_inv hdqP, hopenX, hlinst,
+    checkDefEqList_inv hdq4, hde, ⟨tl, htl, hdl⟩, ⟨tr, htr, hdr⟩⟩
 
 /-- Invert a successful `nestedRuleShape` computation into the facts
 the stored rule's flag records: the prefix-major offset, the syntactic
@@ -604,12 +644,44 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
       (Expr.mkAppN (rhsA.renameConsts f) fvs) with
   | error e => intro h; exact nomatch h
   | ok v =>
-    cases v with
-    | false => intro h; simp at h
-    | true =>
-      intro h
-      simp only [if_true, Except.ok.injEq] at h
-      exact Or.inr ⟨lvls, pins, h.symm, rfl,
+  cases v with
+  | false => intro h; simp at h
+  | true =>
+  intro h
+  try simp only [Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  revert h
+  cases htl : inferTypeCore env₀ F (rP + cnF) lhsS with
+  | error e => intro h; exact nomatch h
+  | ok tl => ?_
+  intro h
+  try dsimp only at h
+  revert h
+  cases hdl : isDefEqCore env₀ F (rP + cnF) tl αS with
+  | error e => intro h; exact nomatch h
+  | ok vl =>
+  cases vl with
+  | false => intro h; simp at h
+  | true =>
+  intro h
+  try simp only [Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  revert h
+  cases htr : inferTypeCore env₀ F (rP + cnF) rhsS with
+  | error e => intro h; exact nomatch h
+  | ok tr => ?_
+  intro h
+  try dsimp only at h
+  revert h
+  cases hdr : isDefEqCore env₀ F (rP + cnF) tr αS with
+  | error e => intro h; exact nomatch h
+  | ok vr =>
+  cases vr with
+  | false => intro h; simp at h
+  | true =>
+  intro h
+  simp only [if_true, Except.ok.injEq] at h
+  exact Or.inr ⟨lvls, pins, h.symm, rfl,
         (cvA.name.str "_model").str s!"iota_{j}", cvt, ci, fvs,
         tbody, ℓA, αS, lhsS, rhsS, cdoms, cres, rdoms, rrest, fvsP,
         restP, cdomsP, crestP, xFvsP, crest2, ldoms, lrest,
@@ -621,7 +693,7 @@ theorem checkIotaThmN_inv {env' env₀ : Env} {f : Name → Name}
         checkDefEqList_inv hdq3, hopenP, checkAnnotList_inv hannP,
         hcinstP,
         checkTypedList_inv hdtP, hopenX, eq_of_beq harX, hlinst,
-        checkDefEqList_inv hdq4, hde⟩
+        checkDefEqList_inv hdq4, hde, ⟨tl, htl, hdl⟩, ⟨tr, htr, hdr⟩⟩
 
 /-- The kernel-checked data of one modeled recursor rule: the
 hypothesis kit its fold obligation consumes.  `env` is the environment
@@ -868,7 +940,10 @@ def EtaPins (env' : Env) (T : Name) (lps : List Name)
            (.const (projModelName T j) (lps.map .param))
            (((List.range caps.etaParams).map fun k =>
                Expr.bvar (caps.etaParams - k)) ++
-            [Expr.bvar 0]))]) ∧
+            [Expr.bvar 0]))] ∧
+    tySlot = Expr.mkAppN (.const (T.str "_model") (lps.map .param))
+      ((List.range caps.etaParams).map fun k =>
+        Expr.bvar (caps.etaParams - k))) ∧
   (caps.unitlike = true →
   ∃ (tcv : ConstantVal) (tval : Expr) (cvmT : ConstantVal) (mvalT : Expr)
     (hmcvmT : ReducibilityHint)
@@ -894,7 +969,10 @@ def EtaPins (env' : Env) (T : Name) (lps : List Name)
       Expr.mkAppN (.const (T.str "_model") (lps.map .param))
         ((List.range caps.unitParams).map fun k =>
           Expr.bvar (caps.unitParams - k)), my)) ∧
-    sbody = Expr.mkAppN (.const eqName [ℓA]) [tySlot, .bvar 1, .bvar 0])
+    sbody = Expr.mkAppN (.const eqName [ℓA]) [tySlot, .bvar 1, .bvar 0] ∧
+    tySlot = Expr.mkAppN (.const (T.str "_model") (lps.map .param))
+      ((List.range caps.unitParams).map fun k =>
+        Expr.bvar (caps.unitParams + 1 - k)))
 
 set_option maxHeartbeats 3200000 in
 /-- Invert a positive unit-capability check into the stored pins. -/
@@ -923,7 +1001,9 @@ theorem checkUnitThm_inv {env' : Env} {T : Name}
         Expr.mkAppN (.const (T.str "_model") (lps.map .param))
           ((List.range nP).map fun k => Expr.bvar (nP - k)), my)) ∧
       sbody = Expr.mkAppN (.const eqName [ℓA])
-        [tySlot, .bvar 1, .bvar 0] := by
+        [tySlot, .bvar 1, .bvar 0] ∧
+      tySlot = Expr.mkAppN (.const (T.str "_model") (lps.map .param))
+        ((List.range nP).map fun k => Expr.bvar (nP + 1 - k)) := by
   rw [checkUnitThm] at h
   revert h
   match hthm : env'.find? ((T.str "_model").str "unitlike") with
@@ -1042,11 +1122,11 @@ theorem checkUnitThm_inv {env' : Env} {T : Name}
   | [ℓA] => ?_
   intro hb
   simp only [Bool.and_eq_true] at hb
-  obtain ⟨⟨hceq, hlhs⟩, hrhs⟩ := hb
+  obtain ⟨⟨⟨hceq, hlhs⟩, hrhs⟩, hts⟩ := hb
   refine ⟨tcv, tval, cvmT, mvalT, hmcvmT, sbinders, tbindersM, _, tbodyM,
     tySlot, ℓA, rfl, eq_of_beq htlps, rfl, eq_of_beq hTlps,
     (by rw [eq_of_beq heqA]), hS_strip, hTm_strip, hdoms, hxdom, hydom,
-    ?_⟩
+    ?_, eq_of_beq hts⟩
   rw [eq_of_beq hceq, eq_of_beq hlhs, eq_of_beq hrhs]
   rfl
 
@@ -1085,7 +1165,9 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
            (List.range nF).map fun j => Expr.mkAppN
              (.const (projModelName T j) (lps.map .param))
              (((List.range nP).map fun k => Expr.bvar (nP - k)) ++
-              [Expr.bvar 0]))] := by
+              [Expr.bvar 0]))] ∧
+      tySlot = Expr.mkAppN (.const (T.str "_model") (lps.map .param))
+        ((List.range nP).map fun k => Expr.bvar (nP - k)) := by
   rw [checkEtaThm] at h
   revert h
   match hthm : env'.find? ((T.str "_model").str "eta") with
@@ -1223,12 +1305,12 @@ theorem checkEtaThm_inv {env' : Env} {T ctorName : Name}
   | [ℓA] => ?_
   intro hb
   simp only [Bool.and_eq_true] at hb
-  obtain ⟨⟨hceq, hlhs⟩, hrhs⟩ := hb
+  obtain ⟨⟨⟨hceq, hlhs⟩, hts⟩, hrhs⟩ := hb
   refine ⟨tcv, tval, cvmT, mvalT, hmcvmT, sbinders, tbindersM, _, tbodyM,
     tySlot, ℓA, rfl, eq_of_beq htlps, rfl, eq_of_beq hTlps,
     ⟨cvmC, mvalC, hmcvmC, rfl, eq_of_beq hClps⟩, hprojf,
     (by rw [eq_of_beq heqA]), hS_strip,
-    hTm_strip, hdoms, hxdom, ?_⟩
+    hTm_strip, hdoms, hxdom, ?_, eq_of_beq hts⟩
   rw [eq_of_beq hceq, eq_of_beq hlhs, eq_of_beq hrhs]
   rfl
 

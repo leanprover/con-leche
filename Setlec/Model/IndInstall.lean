@@ -207,7 +207,7 @@ theorem stage_pkg_lam {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat)
   -- unpack the head binder's facts
   have hAlm' := hAlm
   simp only [AnnotOk] at hAlm'
-  obtain ⟨hAld, ⟨cod, hcod⟩, -⟩ := hAlm'
+  obtain ⟨hAld, cod, -⟩ := hAlm'
   have hWld : WScoped D ld ∧ WScoped D bodyL := by
     simpa [WScoped] using hWlm
   have hbld : ld.looseBVarsBounded 0 = true ∧
@@ -221,7 +221,7 @@ theorem stage_pkg_lam {env₀ : Env} (m₀ : EnvModel V env₀) (F : Nat)
       simp only [fvarLeaves, List.mem_append]; exact Or.inl hl) hFlm
   have hIld : ∃ B, interpExpr V m₀.val env₀ ψ D ρ ld = some B := by
     revert hBmid
-    simp only [interpExpr, hcod]
+    simp only [interpExpr]
     cases hB0 : interpExpr V m₀.val env₀ ψ D ρ ld with
     | none => intro h; exact nomatch h
     | some B => intro _; exact ⟨B, rfl⟩
@@ -441,7 +441,7 @@ theorem stage_pkg_pre {env₀ : Env} (m₀ : EnvModel V env₀)
   -- extract the stage annotation's package
   have hAmid' := hAmid
   simp only [AnnotOk] at hAmid'
-  obtain ⟨hAdom, ⟨cod, hcod⟩, -⟩ := hAmid'
+  obtain ⟨hAdom, cod, -, -⟩ := hAmid'
   have hWdom : WScoped (rP + cnF) (Expr.fvarTypeD fv) ∧
       WScoped (rP + cnF) bodyH := by
     simpa [WScoped] using hWmid
@@ -458,7 +458,7 @@ theorem stage_pkg_pre {env₀ : Env} (m₀ : EnvModel V env₀)
       (fun i => xs.getD i SetTheory.empty) (Expr.fvarTypeD fv) =
         some B := by
     revert hPmid
-    simp only [interpExpr, hcod]
+    simp only [interpExpr]
     cases hB0 : interpExpr V m₀.val env₀ ψ (rP + cnF)
         (fun i => xs.getD i SetTheory.empty) (Expr.fvarTypeD fv) with
     | none => intro h; exact nomatch h
@@ -728,7 +728,7 @@ theorem stage_pkg_fld {env₀ : Env} (m₀ : EnvModel V env₀)
   -- extract the stage annotation's package
   have hAmidX' := hAmidX
   simp only [AnnotOk] at hAmidX'
-  obtain ⟨hAdom, ⟨cod, hcod⟩, -⟩ := hAmidX'
+  obtain ⟨hAdom, cod, -, -⟩ := hAmidX'
   have hWdom : WScoped (rP + cnF) (Expr.fvarTypeD fv) ∧
       WScoped (rP + cnF) bodyH := by
     simpa [WScoped] using hWmidX
@@ -745,7 +745,7 @@ theorem stage_pkg_fld {env₀ : Env} (m₀ : EnvModel V env₀)
       (fun i => xs.getD i SetTheory.empty) (Expr.fvarTypeD fv) =
         some B := by
     revert hPmidX
-    simp only [interpExpr, hcod]
+    simp only [interpExpr]
     cases hB0 : interpExpr V m₀.val env₀ ψ (rP + cnF)
         (fun i => xs.getD i SetTheory.empty) (Expr.fvarTypeD fv) with
     | none => intro h; exact nomatch h
@@ -1370,6 +1370,10 @@ theorem modeled_bottom_plain
       ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldoms)
     (hdeRhs : isDefEqCore env₀ F (rP + cnF) rhsS
       (Expr.mkAppN (rhsA.renameConsts f) fvs) = .ok true)
+    (hlhsTyC : ∃ tl, inferTypeCore env₀ F (rP + cnF) lhsS = .ok tl ∧
+      isDefEqCore env₀ F (rP + cnF) tl αS = .ok true)
+    (hrhsTyC : ∃ tr, inferTypeCore env₀ F (rP + cnF) rhsS = .ok tr ∧
+      isDefEqCore env₀ F (rP + cnF) tr αS = .ok true)
     -- the rule right-hand side's facts
     (hrhsw : rhsA.hasFvar = false)
     (hrhsb : rhsA.looseBVarsBounded 0 = true)
@@ -1948,17 +1952,107 @@ theorem modeled_bottom_plain
     have h1 := hpi₁
     simp only [eqVal] at h1
     refine lam_dom_of_ne h1 ?_ vα hmem₁
-    simp [Nat.max_eq_zero_iff]
+    exact lamC_ne_pt_of_witness (unitSet_mem_univ _)
+      (lamC_ne_pt_of_witness pt_mem_unitSet
+        (lamC_ne_pt_of_witness pt_mem_unitSet (by unfold eqv; exact truthVal_ne_pt _)))
+  -- the equation sides' memberships flow through the kernel's type
+  -- certificates (task #100 stage-3 finding: the collapse removed
+  -- value-driven domain pinning, so `checkIotaThm` certifies them)
+  obtain ⟨hWtb2, hbtb2, -, hleavesTb2⟩ :=
+    TeleFitI.rest_wf hfitS2 hWmidS hbmidS hAmidS
+  have hFtb2 : FvarsOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) tbody := by
+    intro l hl
+    rcases hleavesTb2 l hl with hl' | ⟨a, ha, hla⟩
+    · exact hFmidS l hl'
+    · exact hΘx a ha l hla
+  have hLtb2 : Expr.LeavesBounded tbody := by
+    intro l hl
+    rcases hleavesTb2 l hl with hl' | ⟨a, ha, hla⟩
+    · exact hLmidS l hl'
+    · exact (hfvsWf a (List.mem_of_mem_drop ha)).2.2 l hla
+  have hαsub2 : ∀ l ∈ αS.fvarLeaves, l ∈ tbody.fvarLeaves := by
+    intro l hl
+    rw [htbodyEq]
+    show l ∈ (Expr.app (.app (.app (.const eqName [ℓA]) αS) lhsS)
+      rhsS).fvarLeaves
+    simp only [Expr.fvarLeaves, List.mem_append, List.nil_append]
+    exact Or.inl (Or.inl hl)
+  have hlsub2 : ∀ l ∈ lhsS.fvarLeaves, l ∈ tbody.fvarLeaves := by
+    intro l hl
+    rw [htbodyEq]
+    show l ∈ (Expr.app (.app (.app (.const eqName [ℓA]) αS) lhsS)
+      rhsS).fvarLeaves
+    simp only [Expr.fvarLeaves, List.mem_append, List.nil_append]
+    exact Or.inl (Or.inr hl)
+  have hrsub2 : ∀ l ∈ rhsS.fvarLeaves, l ∈ tbody.fvarLeaves := by
+    intro l hl
+    rw [htbodyEq]
+    show l ∈ (Expr.app (.app (.app (.const eqName [ℓA]) αS) lhsS)
+      rhsS).fvarLeaves
+    simp only [Expr.fvarLeaves, List.mem_append, List.nil_append]
+    exact Or.inr hl
+  have htargsW2 := Expr.WScoped.getAppArgs hWtb2
+  rw [hargs3] at htargsW2
+  have hWα2 : WScoped (rP + cnF) αS := htargsW2 _ (by simp)
+  have hWl2 : WScoped (rP + cnF) lhsS := htargsW2 _ (by simp)
+  have hWr2 : WScoped (rP + cnF) rhsS := htargsW2 _ (by simp)
+  have hbα2 : αS.looseBVarsBounded 0 = true :=
+    looseBVarsBounded_getAppArgs hbtb2 _ (by rw [hargs3]; simp)
+  have hbl2 : lhsS.looseBVarsBounded 0 = true :=
+    looseBVarsBounded_getAppArgs hbtb2 _ (by rw [hargs3]; simp)
+  have hbr2 : rhsS.looseBVarsBounded 0 = true :=
+    looseBVarsBounded_getAppArgs hbtb2 _ (by rw [hargs3]; simp)
+  have hLα2 : Expr.LeavesBounded αS := fun l hl => hLtb2 l (hαsub2 l hl)
+  have hLl2 : Expr.LeavesBounded lhsS := fun l hl => hLtb2 l (hlsub2 l hl)
+  have hLr2 : Expr.LeavesBounded rhsS := fun l hl => hLtb2 l (hrsub2 l hl)
+  have hFα2 : FvarsOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) αS :=
+    fun l hl => hFtb2 l (hαsub2 l hl)
+  have hFl2 : FvarsOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) lhsS :=
+    fun l hl => hFtb2 l (hlsub2 l hl)
+  have hFr2 : FvarsOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) rhsS :=
+    fun l hl => hFtb2 l (hrsub2 l hl)
   have hvlmem : vl ∈ˢ vα := by
-    have h2 := hpi₂
-    rw [eqVal_app hαu] at h2
-    refine lam_dom_of_ne h2 ?_ vl hmem₂
-    simp [Nat.max_eq_zero_iff]
+    obtain ⟨tl, htl, hdl⟩ := hlhsTyC
+    obtain ⟨⟨vl', tlv, hil', htlv, hmeml'⟩, hWtl, hAtl⟩ :=
+      inferTypeCore_sound m₀ F htl hWl2 hbl2 hLl2 hFl2
+        (hcompsA lhsS (by simp))
+    obtain rfl : vl' = vl := by
+      rw [hil'] at hil
+      exact Option.some.inj hil
+    have hbtl : tl.looseBVarsBounded 0 = true :=
+      inferTypeCore_looseBVars m₀.wf F htl hWl2 hbl2 hLl2
+    have hLtl : Expr.LeavesBounded tl := fun l hl =>
+      hLl2 l (inferTypeCore_fvarLeaves m₀.wf F htl hWl2 l hl)
+    have hFtl : FvarsOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) tl :=
+      FvarsOk.of_subset (inferTypeCore_fvarLeaves m₀.wf F htl hWl2) hFl2
+    have htlvα : tlv = vα :=
+      isDefEqCore_sound m₀ F hdl hWtl hWα2 hbtl hbα2 hLtl hLα2 hFtl hFα2
+        hAtl (hcompsA αS (by simp)) htlv hiα
+    exact htlvα ▸ hmeml'
   have hvrmem : vr ∈ˢ vα := by
-    have h3 := hpi₃
-    rw [eqVal_app₂ hαu hvlmem] at h3
-    refine lam_dom_of_ne h3 ?_ vr hmem₃
-    simp
+    obtain ⟨tr, htr, hdr⟩ := hrhsTyC
+    obtain ⟨⟨vr', trv, hir', htrv, hmemr'⟩, hWtr, hAtr⟩ :=
+      inferTypeCore_sound m₀ F htr hWr2 hbr2 hLr2 hFr2
+        (hcompsA rhsS (by simp))
+    obtain rfl : vr' = vr := by
+      rw [hir'] at hir
+      exact Option.some.inj hir
+    have hbtr : tr.looseBVarsBounded 0 = true :=
+      inferTypeCore_looseBVars m₀.wf F htr hWr2 hbr2 hLr2
+    have hLtr : Expr.LeavesBounded tr := fun l hl =>
+      hLr2 l (inferTypeCore_fvarLeaves m₀.wf F htr hWr2 l hl)
+    have hFtr : FvarsOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) tr :=
+      FvarsOk.of_subset (inferTypeCore_fvarLeaves m₀.wf F htr hWr2) hFr2
+    have htrvα : trv = vα :=
+      isDefEqCore_sound m₀ F hdr hWtr hWα2 hbtr hbα2 hLtr hLα2 hFtr hFα2
+        hAtr (hcompsA αS (by simp)) htrv hiα
+    exact htrvα ▸ hmemr'
   have hQeqv : Q = eqv vl vr := by
     rw [hQeq, hveq]
     show SpineFold V _ [vα, vl, vr] = _
@@ -3024,6 +3118,10 @@ theorem modeled_rule_eq_plain
       ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldoms)
     (hdeRhs : isDefEqCore env₀ F (rP + cnF) rhsS
       (Expr.mkAppN (rhsA.renameConsts f) fvs) = .ok true)
+    (hlhsTyC : ∃ tl, inferTypeCore env₀ F (rP + cnF) lhsS = .ok tl ∧
+      isDefEqCore env₀ F (rP + cnF) tl αS = .ok true)
+    (hrhsTyC : ∃ tr, inferTypeCore env₀ F (rP + cnF) rhsS = .ok tr ∧
+      isDefEqCore env₀ F (rP + cnF) tr αS = .ok true)
     -- wf and resolution of the stored data
     (hrhsw : rhsA.hasFvar = false)
     (hrhsb : rhsA.looseBVarsBounded 0 = true)
@@ -3062,7 +3160,8 @@ theorem modeled_rule_eq_plain
     hfCm hCmlps hfC hClps heqfind heqval hthm_mem hthm_annot hSw hSb
     htyStrip hrPmI hplainLe hopen hheadEq hargs3 hlhead hlarity hlpre
     hmaj hCstripSome hcinst hclen hdeIdx hrinst hdePre hdeFld hopenP
-    hcinstP hdePars hopenX hlinst hdeLam hdeRhs hrhsw hrhsb (hArhs ψ)
+    hcinstP hdePars hopenX hlinst hdeLam hdeRhs hlhsTyC hrhsTyC
+    hrhsw hrhsb (hArhs ψ)
     (hIrhs ψ) htyw htyb (hAty ψ) (hIty ψ) hCw hCb (hACty ψ) (hICty ψ)
     (ψ := ψ)
 
@@ -3170,6 +3269,10 @@ theorem modeled_bottom_nested
       ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldoms)
     (hdeRhs : isDefEqCore env₀ F (rP + cnF) rhsS
       (Expr.mkAppN (rhsA.renameConsts f) fvs) = .ok true)
+    (hlhsTyC : ∃ tl, inferTypeCore env₀ F (rP + cnF) lhsS = .ok tl ∧
+      isDefEqCore env₀ F (rP + cnF) tl αS = .ok true)
+    (hrhsTyC : ∃ tr, inferTypeCore env₀ F (rP + cnF) rhsS = .ok tr ∧
+      isDefEqCore env₀ F (rP + cnF) tr αS = .ok true)
     -- the rule right-hand side's facts
     (hrhsw : rhsA.hasFvar = false)
     (hrhsb : rhsA.looseBVarsBounded 0 = true)
@@ -4018,17 +4121,107 @@ theorem modeled_bottom_nested
     have h1 := hpi₁
     simp only [eqVal] at h1
     refine lam_dom_of_ne h1 ?_ vα hmem₁
-    simp [Nat.max_eq_zero_iff]
+    exact lamC_ne_pt_of_witness (unitSet_mem_univ _)
+      (lamC_ne_pt_of_witness pt_mem_unitSet
+        (lamC_ne_pt_of_witness pt_mem_unitSet (by unfold eqv; exact truthVal_ne_pt _)))
+  -- the equation sides' memberships flow through the kernel's type
+  -- certificates (task #100 stage-3 finding: the collapse removed
+  -- value-driven domain pinning, so `checkIotaThm` certifies them)
+  obtain ⟨hWtb2, hbtb2, -, hleavesTb2⟩ :=
+    TeleFitI.rest_wf hfitS2 hWmidS hbmidS hAmidS
+  have hFtb2 : FvarsOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) tbody := by
+    intro l hl
+    rcases hleavesTb2 l hl with hl' | ⟨a, ha, hla⟩
+    · exact hFmidS l hl'
+    · exact hΘx a ha l hla
+  have hLtb2 : Expr.LeavesBounded tbody := by
+    intro l hl
+    rcases hleavesTb2 l hl with hl' | ⟨a, ha, hla⟩
+    · exact hLmidS l hl'
+    · exact (hfvsWf a (List.mem_of_mem_drop ha)).2.2 l hla
+  have hαsub2 : ∀ l ∈ αS.fvarLeaves, l ∈ tbody.fvarLeaves := by
+    intro l hl
+    rw [htbodyEq]
+    show l ∈ (Expr.app (.app (.app (.const eqName [ℓA]) αS) lhsS)
+      rhsS).fvarLeaves
+    simp only [Expr.fvarLeaves, List.mem_append, List.nil_append]
+    exact Or.inl (Or.inl hl)
+  have hlsub2 : ∀ l ∈ lhsS.fvarLeaves, l ∈ tbody.fvarLeaves := by
+    intro l hl
+    rw [htbodyEq]
+    show l ∈ (Expr.app (.app (.app (.const eqName [ℓA]) αS) lhsS)
+      rhsS).fvarLeaves
+    simp only [Expr.fvarLeaves, List.mem_append, List.nil_append]
+    exact Or.inl (Or.inr hl)
+  have hrsub2 : ∀ l ∈ rhsS.fvarLeaves, l ∈ tbody.fvarLeaves := by
+    intro l hl
+    rw [htbodyEq]
+    show l ∈ (Expr.app (.app (.app (.const eqName [ℓA]) αS) lhsS)
+      rhsS).fvarLeaves
+    simp only [Expr.fvarLeaves, List.mem_append, List.nil_append]
+    exact Or.inr hl
+  have htargsW2 := Expr.WScoped.getAppArgs hWtb2
+  rw [hargs3] at htargsW2
+  have hWα2 : WScoped (rP + cnF) αS := htargsW2 _ (by simp)
+  have hWl2 : WScoped (rP + cnF) lhsS := htargsW2 _ (by simp)
+  have hWr2 : WScoped (rP + cnF) rhsS := htargsW2 _ (by simp)
+  have hbα2 : αS.looseBVarsBounded 0 = true :=
+    looseBVarsBounded_getAppArgs hbtb2 _ (by rw [hargs3]; simp)
+  have hbl2 : lhsS.looseBVarsBounded 0 = true :=
+    looseBVarsBounded_getAppArgs hbtb2 _ (by rw [hargs3]; simp)
+  have hbr2 : rhsS.looseBVarsBounded 0 = true :=
+    looseBVarsBounded_getAppArgs hbtb2 _ (by rw [hargs3]; simp)
+  have hLα2 : Expr.LeavesBounded αS := fun l hl => hLtb2 l (hαsub2 l hl)
+  have hLl2 : Expr.LeavesBounded lhsS := fun l hl => hLtb2 l (hlsub2 l hl)
+  have hLr2 : Expr.LeavesBounded rhsS := fun l hl => hLtb2 l (hrsub2 l hl)
+  have hFα2 : FvarsOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) αS :=
+    fun l hl => hFtb2 l (hαsub2 l hl)
+  have hFl2 : FvarsOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) lhsS :=
+    fun l hl => hFtb2 l (hlsub2 l hl)
+  have hFr2 : FvarsOk V m₀.val env₀ ψ (rP + cnF)
+      (fun i => xs.getD i SetTheory.empty) rhsS :=
+    fun l hl => hFtb2 l (hrsub2 l hl)
   have hvlmem : vl ∈ˢ vα := by
-    have h2 := hpi₂
-    rw [eqVal_app hαu] at h2
-    refine lam_dom_of_ne h2 ?_ vl hmem₂
-    simp [Nat.max_eq_zero_iff]
+    obtain ⟨tl, htl, hdl⟩ := hlhsTyC
+    obtain ⟨⟨vl', tlv, hil', htlv, hmeml'⟩, hWtl, hAtl⟩ :=
+      inferTypeCore_sound m₀ F htl hWl2 hbl2 hLl2 hFl2
+        (hcompsA lhsS (by simp))
+    obtain rfl : vl' = vl := by
+      rw [hil'] at hil
+      exact Option.some.inj hil
+    have hbtl : tl.looseBVarsBounded 0 = true :=
+      inferTypeCore_looseBVars m₀.wf F htl hWl2 hbl2 hLl2
+    have hLtl : Expr.LeavesBounded tl := fun l hl =>
+      hLl2 l (inferTypeCore_fvarLeaves m₀.wf F htl hWl2 l hl)
+    have hFtl : FvarsOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) tl :=
+      FvarsOk.of_subset (inferTypeCore_fvarLeaves m₀.wf F htl hWl2) hFl2
+    have htlvα : tlv = vα :=
+      isDefEqCore_sound m₀ F hdl hWtl hWα2 hbtl hbα2 hLtl hLα2 hFtl hFα2
+        hAtl (hcompsA αS (by simp)) htlv hiα
+    exact htlvα ▸ hmeml'
   have hvrmem : vr ∈ˢ vα := by
-    have h3 := hpi₃
-    rw [eqVal_app₂ hαu hvlmem] at h3
-    refine lam_dom_of_ne h3 ?_ vr hmem₃
-    simp
+    obtain ⟨tr, htr, hdr⟩ := hrhsTyC
+    obtain ⟨⟨vr', trv, hir', htrv, hmemr'⟩, hWtr, hAtr⟩ :=
+      inferTypeCore_sound m₀ F htr hWr2 hbr2 hLr2 hFr2
+        (hcompsA rhsS (by simp))
+    obtain rfl : vr' = vr := by
+      rw [hir'] at hir
+      exact Option.some.inj hir
+    have hbtr : tr.looseBVarsBounded 0 = true :=
+      inferTypeCore_looseBVars m₀.wf F htr hWr2 hbr2 hLr2
+    have hLtr : Expr.LeavesBounded tr := fun l hl =>
+      hLr2 l (inferTypeCore_fvarLeaves m₀.wf F htr hWr2 l hl)
+    have hFtr : FvarsOk V m₀.val env₀ ψ (rP + cnF)
+        (fun i => xs.getD i SetTheory.empty) tr :=
+      FvarsOk.of_subset (inferTypeCore_fvarLeaves m₀.wf F htr hWr2) hFr2
+    have htrvα : trv = vα :=
+      isDefEqCore_sound m₀ F hdr hWtr hWα2 hbtr hbα2 hLtr hLα2 hFtr hFα2
+        hAtr (hcompsA αS (by simp)) htrv hiα
+    exact htrvα ▸ hmemr'
   have hQeqv : Q = eqv vl vr := by
     rw [hQeq, hveq]
     show SpineFold V _ [vα, vl, vr] = _
@@ -4898,6 +5091,10 @@ theorem modeled_rule_eq_nested
       ((fvsP ++ xFvsP).map Expr.fvarTypeD) ldoms)
     (hdeRhs : isDefEqCore env₀ F (rP + cnF) rhsS
       (Expr.mkAppN (rhsA.renameConsts f) fvs) = .ok true)
+    (hlhsTyC : ∃ tl, inferTypeCore env₀ F (rP + cnF) lhsS = .ok tl ∧
+      isDefEqCore env₀ F (rP + cnF) tl αS = .ok true)
+    (hrhsTyC : ∃ tr, inferTypeCore env₀ F (rP + cnF) rhsS = .ok tr ∧
+      isDefEqCore env₀ F (rP + cnF) tr αS = .ok true)
     -- wf and resolution of the stored data
     (hrhsw : rhsA.hasFvar = false)
     (hrhsb : rhsA.looseBVarsBounded 0 = true)
@@ -5009,7 +5206,8 @@ theorem modeled_rule_eq_nested
     hopen hheadEq hargs3 hlhead hlarity hlpre hmaj hCresHead hCps
     hcinst hclen hdeIdx hrinst hdePre hdeFld hcrest2Len hopenP hannP
     hcinstN htlP
-    hopenX hlinst hdeLam hdeRhs hrhsw hrhsb (hArhs ψ) (hIrhs ψ) htyw
+    hopenX hlinst hdeLam hdeRhs hlhsTyC hrhsTyC
+    hrhsw hrhsb (hArhs ψ) (hIrhs ψ) htyw
     htyb (hAty ψ) (hIty ψ) hCw hCb hACty hICty
   -- frame bookkeeping for the tower recursion
   have hrbsLen : rbs.length = rP + cnF := Expr.stripLams_length _ hstripR

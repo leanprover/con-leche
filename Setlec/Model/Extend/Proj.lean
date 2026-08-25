@@ -282,7 +282,10 @@ theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
                    Expr.bvar (nP + nF - 1 - k)) ++
                 ((List.range nF).map fun k =>
                   Expr.bvar (nF - 1 - k)))])))
-          (.bvar (nF - 1 - i))) := by
+          (.bvar (nF - 1 - i))) ∧
+      (∃ idomE, sbinders[nP + i]? =
+          some (idomE.1, idomE.2.1, idomE.2.2) ∧
+        tySlot = idomE.2.1.liftLooseBVars 0 (nF - i)) := by
   simp only [checkProjIota, Bind.bind, Except.bind] at h
   revert h
   match hthm : env'.find? ((projModelName T i).str "iota") with
@@ -388,8 +391,18 @@ theorem checkProjIota_inv {env' : Env} {T ctorName : Name}
   case neg => rw [if_neg hrhsC] at h; exact nomatch h
   rw [if_pos hrhsC] at h
   obtain rfl := eq_of_beq hrhsC
+  try dsimp only at h
+  revert h
+  match hidom : sbinders[nP + i]? with
+  | none => intro h; exact nomatch h
+  | some (nmI, idom, bmI) => ?_
+  intro h
+  try dsimp only at h
+  by_cases hts : (tySlot == idom.liftLooseBVars 0 (nF - i)) = true
+  case neg => rw [if_neg hts] at h; exact nomatch h
   exact ⟨tcv, tval, sbinders, cbindersR, cbody, tySlot, ℓA,
-    rfl, htlps, rfl, hsdomsB, hS_strip⟩
+    rfl, htlps, rfl, hsdomsB, hS_strip,
+    ⟨(nmI, idom, bmI), hidom, eq_of_beq hts⟩⟩
 
 /-- Invert a successful `checkProjShape` run. -/
 theorem checkProjShape_inv {pty cty : Expr} {nP nF : Nat} {u : Unit}

@@ -67,6 +67,9 @@ theorem eta_rule_fold
            (.const (projModelName T j) (lps.map .param))
            (((List.range nP).map fun k => Expr.bvar (nP - k)) ++
             [Expr.bvar 0]))])
+    (htySlot : tySlot = Expr.mkAppN (.const (T.str "_model")
+        (lps.map .param))
+      ((List.range nP).map fun k => Expr.bvar (nP - k)))
     -- wellformedness of the public type former's type
     (hTw : cvTty.hasFvar = false)
     -- the use-site data
@@ -465,6 +468,38 @@ theorem eta_rule_fold
           SpineFold V (val' (projModelName T j) (Level.substFn φ' lps us))
             (ps ++ [x]))) :=
     interp_mkAppN _ _ hcCi (InterpSpine.append hSpineP' hprojSpine)
+  -- the equation type slot's value: the family fold at the parameters
+  -- (task #100 stage-3: the collapse removed value-driven domain
+  -- pinning; `checkEtaThm` pins the slot instead)
+  have hαRes : Expr.instSeq (argsC ++ [xArg]) nP tySlot =
+      Expr.mkAppN (.const (T.str "_model") (lps.map .param)) argsC := by
+    rw [htySlot, Expr.instSeq_mkAppN, Expr.instSeq_eq_self _ _ (by rfl)]
+    first
+      | rfl
+      | (congr 1
+         exact hres_p')
+      | (congr 1)
+  have hcTi : interpExpr V val' env₁ (Level.substFn φ' lps us)
+      (d₂ + 1) ρ₃ (.const (T.str "_model") (lps.map .param)) =
+      some (val' (T.str "_model") (Level.substFn φ' lps us)) := by
+    have h1 : Level.substFn (Level.substFn φ' lps us) lps
+        (lps.map .param) = Level.substFn φ' lps us :=
+      funext (fun p => Level.substFn_map_param)
+    simp only [interpExpr, hfTm]
+    rw [if_pos (by rw [hTmlps]; simp)]
+    rw [show cimT.toConstantVal.levelParams = lps from hTmlps]
+    rw [h1]
+  have hαVal : interpExpr V val' env₁ (Level.substFn φ' lps us)
+      (d₂ + 1) ρ₃ (Expr.instSeq (argsC ++ [xArg]) nP tySlot)
+      = some (SpineFold V (val' (T.str "_model")
+          (Level.substFn φ' lps us)) ps) := by
+    rw [hαRes]
+    refine interp_mkAppN _ _ hcTi ?_
+    have h0 := InterpSpine.take nP hSpineFull
+    rwa [List.take_append_of_le_length (by omega),
+      List.take_of_length_le (by omega),
+      List.take_append_of_le_length (by omega),
+      List.take_of_length_le (by omega)] at h0
   -- destructure the equation's chain and extract the value identity
   obtain ⟨-, hcomps, veq, vsE, hveqi, hspE, hchainE, hfoldQ⟩ :=
     annotOk_spine_inv _ (.const eqName [ℓA]) (by simp) hQA
@@ -496,22 +531,31 @@ theorem eta_rule_fold
   obtain ⟨⟨vE₂, A₂, B₂, hpi₂, hmem₂, -⟩, hchainE''⟩ := hchainE'
   obtain ⟨⟨vE₃, A₃, B₃, hpi₃, hmem₃, -⟩, -⟩ := hchainE''
   rw [hveq] at hpi₁ hpi₂ hpi₃
+  have hvα : vα = SpineFold V (val' (T.str "_model")
+      (Level.substFn φ' lps us)) ps := by
+    rw [hαVal] at hiα
+    exact (Option.some.inj hiα).symm
+  have hxα : x ∈ˢ vα := by
+    rw [hvα]
+    exact hx
   have hαu : vα ∈ˢ univ (Level.substFn (Level.substFn φ' lps us) [uN]
       [ℓA] uN) := by
     have h1 := hpi₁
     simp only [eqVal] at h1
     refine lam_dom_of_ne h1 ?_ vα hmem₁
-    simp [Nat.max_eq_zero_iff]
+    exact lamC_ne_pt_of_witness (unitSet_mem_univ _)
+      (lamC_ne_pt_of_witness pt_mem_unitSet
+        (lamC_ne_pt_of_witness pt_mem_unitSet
+          (by unfold eqv; exact truthVal_ne_pt _)))
   have hvlmem : vl ∈ˢ vα := by
-    have h2 := hpi₂
-    rw [eqVal_app hαu] at h2
-    refine lam_dom_of_ne h2 ?_ vl hmem₂
-    simp [Nat.max_eq_zero_iff]
+    rw [hvl]
+    exact hxα
   have hvrmem : vr ∈ˢ vα := by
     have h3 := hpi₃
     rw [eqVal_app₂ hαu hvlmem] at h3
     refine lam_dom_of_ne h3 ?_ vr hmem₃
-    simp
+    exact lamC_ne_pt_of_witness hxα
+      (by unfold eqv; exact truthVal_ne_pt _)
   have hQeqv : Q = eqv vl vr := by
     rw [hfoldQ] at hQi
     rw [← Option.some.inj hQi, hveq]
@@ -568,6 +612,9 @@ theorem unit_rule_fold
         ((List.range nP).map fun k => Expr.bvar (nP - k)), my))
     (hsbody : sbody = Expr.mkAppN (.const eqName [ℓA])
       [tySlot, .bvar 1, .bvar 0])
+    (htySlotU : tySlot = Expr.mkAppN (.const (T.str "_model")
+        (lps.map .param))
+      ((List.range nP).map fun k => Expr.bvar (nP + 1 - k)))
     (hTw : cvTty.hasFvar = false)
     {us : List Level} {ps : List V} {x y : V}
     (hlen : ps.length = nP)
@@ -915,6 +962,60 @@ theorem unit_rule_fold
     rw [hres_x, hres_y]
   rw [hresidEq, show nP + 2 + 0 - 1 = nP + 1 from by omega, hresidual]
     at hQi hQA
+  -- the equation type slot's value, off the `checkUnitThm` pin (task
+  -- #100 stage 3)
+  have hresolveU : ∀ (k : Nat), k < nP →
+      (argsC ++ [xArg, yArg])[k]? =
+        some (Expr.instSeq (argsC ++ [xArg, yArg]) (nP + 1)
+          (.bvar (nP + 1 - k))) := by
+    intro k hk
+    have h1 := Expr.instSeq_bvar (argsC ++ [xArg, yArg]) (nP + 1)
+      (nP + 1 - k) hbounded' (by omega) (by simp [hlenC]; omega)
+    rwa [show nP + 1 - (nP + 1 - k) = k from by omega] at h1
+  have hres_pU : (((List.range nP).map fun k =>
+        Expr.bvar (nP + 1 - k))).map
+        (Expr.instSeq (argsC ++ [xArg, yArg]) (nP + 1) ·) = argsC := by
+    refine List.ext_getElem? ?_
+    intro k
+    rcases Nat.lt_or_ge k nP with hk | hk
+    · rw [List.getElem?_map, List.getElem?_map, List.getElem?_range hk]
+      simp only [Option.map_some]
+      have h1 := (hresolveU k (by omega)).symm
+      rw [List.getElem?_append_left (by rw [hlenC]; omega)] at h1
+      exact h1
+    · rw [List.getElem?_map, List.getElem?_map]
+      rw [List.getElem?_eq_none (l := List.range nP) (by simp; omega)]
+      rw [List.getElem?_eq_none (l := argsC) (by rw [hlenC]; omega)]
+      all_goals rfl
+  have hαResU : Expr.instSeq (argsC ++ [xArg, yArg]) (nP + 1) tySlot =
+      Expr.mkAppN (.const (T.str "_model") (lps.map .param)) argsC := by
+    rw [htySlotU, Expr.instSeq_mkAppN, Expr.instSeq_eq_self _ _ (by rfl)]
+    first
+      | rfl
+      | (congr 1
+         exact hres_pU)
+      | (congr 1)
+  have hcTiU : interpExpr V val' env₁ (Level.substFn φ' lps us)
+      (d₂ + 2) ρ₄ (.const (T.str "_model") (lps.map .param)) =
+      some (val' (T.str "_model") (Level.substFn φ' lps us)) := by
+    have h1 : Level.substFn (Level.substFn φ' lps us) lps
+        (lps.map .param) = Level.substFn φ' lps us :=
+      funext (fun p => Level.substFn_map_param)
+    simp only [interpExpr, hfTm]
+    rw [if_pos (by rw [hTmlps]; simp)]
+    rw [show cimT.toConstantVal.levelParams = lps from hTmlps]
+    rw [h1]
+  have hαValU : interpExpr V val' env₁ (Level.substFn φ' lps us)
+      (d₂ + 2) ρ₄ (Expr.instSeq (argsC ++ [xArg, yArg]) (nP + 1) tySlot)
+      = some (SpineFold V (val' (T.str "_model")
+          (Level.substFn φ' lps us)) ps) := by
+    rw [hαResU]
+    refine interp_mkAppN _ _ hcTiU ?_
+    have h0 := InterpSpine.take nP (TeleFitI.toInterpSpine hfitFull)
+    rwa [List.take_append_of_le_length (by omega),
+      List.take_of_length_le (by omega),
+      List.take_append_of_le_length (by omega),
+      List.take_of_length_le (by omega)] at h0
   -- destructure and collapse the equation
   obtain ⟨-, hcomps, veq, vsE, hveqi, hspE, hchainE, hfoldQ⟩ :=
     annotOk_spine_inv _ (.const eqName [ℓA]) (by simp) hQA
@@ -942,22 +1043,31 @@ theorem unit_rule_fold
   obtain ⟨⟨vE₂, A₂, B₂, hpi₂, hmem₂, -⟩, hchainE''⟩ := hchainE'
   obtain ⟨⟨vE₃, A₃, B₃, hpi₃, hmem₃, -⟩, -⟩ := hchainE''
   rw [hveq] at hpi₁ hpi₂ hpi₃
+  have hvα : vα = SpineFold V (val' (T.str "_model")
+      (Level.substFn φ' lps us)) ps := by
+    rw [hαValU] at hiα
+    exact (Option.some.inj hiα).symm
+  have hxα : x ∈ˢ vα := by
+    rw [hvα]
+    exact hx
+  have hyα : y ∈ˢ vα := by
+    rw [hvα]
+    exact hy
   have hαu : vα ∈ˢ univ (Level.substFn (Level.substFn φ' lps us) [uN]
       [ℓA] uN) := by
     have h1 := hpi₁
     simp only [eqVal] at h1
     refine lam_dom_of_ne h1 ?_ vα hmem₁
-    simp [Nat.max_eq_zero_iff]
+    exact lamC_ne_pt_of_witness (unitSet_mem_univ _)
+      (lamC_ne_pt_of_witness pt_mem_unitSet
+        (lamC_ne_pt_of_witness pt_mem_unitSet
+          (by unfold eqv; exact truthVal_ne_pt _)))
   have hvlmem : vl ∈ˢ vα := by
-    have h2 := hpi₂
-    rw [eqVal_app hαu] at h2
-    refine lam_dom_of_ne h2 ?_ vl hmem₂
-    simp [Nat.max_eq_zero_iff]
+    rw [hvl]
+    exact hxα
   have hvrmem : vr ∈ˢ vα := by
-    have h3 := hpi₃
-    rw [eqVal_app₂ hαu hvlmem] at h3
-    refine lam_dom_of_ne h3 ?_ vr hmem₃
-    simp
+    rw [hvr]
+    exact hyα
   have hQeqv : Q = eqv vl vr := by
     rw [hfoldQ] at hQi
     rw [← Option.some.inj hQi, hveq]
