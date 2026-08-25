@@ -57,22 +57,34 @@ theorem recordIConst_run (n : Name) (tyE : Expr) (ty : EIdx)
     recordIConst n tyE ty val s =
       .ok ((), { s with ienv := s.ienv.insert n ⟨tyE, ty, val⟩ }) := rfl
 
-/-- `recordIConst` as a state-only effect. -/
-theorem recordIConst_eff (hs : ISOK env s₀) {n : Name} {tyE : Expr}
+/-- Flag-off-ness transports along store extension (task #64). -/
+theorem tierOffExt {st st' : EStore} (hext : EStore.Ext st st')
+    (h : st.tierTwo = false) : st'.tierTwo = false := hext.flag.trans h
+
+/-- `recordIConst` as a state-only effect.  The recorded indices must
+denote *tier-one* (the `ienv` clause survives the bracket close); at a
+flag-off state — the only states the drivers record from — the
+tier-aware facts the operation walks produce convert via
+`WF.denoteT_eq`. -/
+theorem recordIConst_eff (hs : ISOK env s₀)
+    (hoff : s₀.store.tierTwo = false) {n : Name} {tyE : Expr}
     {ty : EIdx} {val : Option (Expr × EIdx)}
-    (hty : s₀.store.denote ty = some tyE)
+    (hty : s₀.store.denoteT ty = some tyE)
     (hval : ∀ vE vi, val = some (vE, vi) →
-      s₀.store.denote vi = some vE) :
+      s₀.store.denoteT vi = some vE) :
     IEff env s₀ (fun _ _ => True) (recordIConst n tyE ty val) := by
   intro v' s' hr
   rw [recordIConst_run] at hr
   injection hr with h1
   obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1
-  exact ⟨hs.insertIEnv hty hval, Ext.refl _, trivial⟩
+  have hwf1 : s₀.store.WF := ⟨hs.wf, hoff⟩
+  refine ⟨hs.insertIEnv (hwf1.denoteT_eq _ ▸ hty)
+    (fun vE vi hv => hwf1.denoteT_eq _ ▸ hval vE vi hv), Ext.refl _,
+    trivial⟩
 
 /-- `readbackEM` yields the denotation, state untouched. -/
 theorem readbackEM_eff (hs : ISOK env s₀) {j : EIdx} {w : Expr}
-    (hden : s₀.store.denote j = some w) :
+    (hden : s₀.store.denoteT j = some w) :
     IEff env s₀ (fun _ v => v = w) (readbackEM j) := by
   intro v' s' hr
   rw [show readbackEM j = (Setlec.withStore (fun st => st.readbackI j) >>=
@@ -98,7 +110,7 @@ private theorem fueledM_bind_pure' {α : Type} (x : FueledM α) :
 
 /-- Parsed-index `ensureSort` simulates the fueled family. -/
 theorem opSIx_sim (henv : EnvWF env) {d : Nat} {i : EIdx} {e : Expr}
-    (hs : ISOK env s₀) (hden : s₀.store.denote i = some e)
+    (hs : ISOK env s₀) (hden : s₀.store.denoteT i = some e)
     (hw : WScoped d e) :
     SimAt env s₀ RelV (opSIx (mkFEnv env) d i)
       (fueledOpsM.ensureSort env d e) := by
@@ -136,12 +148,16 @@ the fueled result, its type well-scoped, and the returned index
 denotes it. -/
 theorem checkConstantValP_sim (henv : EnvWF env) {cvp : ConstantValP}
     {tyE : Expr} (hs : ISOK env s₀)
+    (hoff : s₀.store.tierTwo = false)
     (hden : s₀.store.denote cvp.type = some tyE) :
-    SimAt env s₀ (fun s v w => v.1 = w ∧ WScoped 0 v.1.type ∧
+    SimAt env s₀ (fun s v w => v.1 = w ∧ v.1.name = cvp.name ∧
+        WScoped 0 v.1.type ∧
         s.store.denote v.2 = some v.1.type)
       (checkConstantValP (mkFEnv env) cvp)
       (checkConstantVal fueledOpsM env
         ⟨cvp.name, cvp.levelParams, tyE⟩) := by
+  have hdenT : s₀.store.denoteT cvp.type = some tyE :=
+    EStore.denoteT_of_denote hs.wf hden
   unfold checkConstantValP checkConstantVal
   have hme : (mkFEnv env).env = env := rfl
   simp only [mkFEnv_find?, hme]
@@ -163,19 +179,19 @@ theorem checkConstantValP_sim (henv : EnvWF env) {cvp : ConstantValP}
     exact SimAt.throw_bind
   simp only [if_pos h4]
   refine SimAt.withStore ?_
-  rw [looseBVarsBoundedI_spec hs.wf hden]
+  rw [looseBVarsBoundedI_spec hs.wf hdenT]
   by_cases h5 : tyE.looseBVarsBounded 0 = true
   case neg =>
     simp only [if_neg h5]
     exact SimAt.throw_bind
   simp only [if_pos h5]
   refine SimAt.withStore ?_
-  rw [hasFvarI_spec hs.wf hden]
+  rw [hasFvarI_spec hs.wf hdenT]
   by_cases h6 : tyE.hasFvar = true
   · simp only [if_pos h6]
     exact SimAt.throw_bind
   simp only [if_neg h6]
-  refine SimAt.bind ((ssimI env henv checkFuel).annotate hs hden
+  refine SimAt.bind ((ssimI env henv checkFuel).annotate hs hdenT
       (WScoped.of_not_hasFvar (Bool.not_eq_true _ ▸ h6)))
     (fun s₁ jA w hs₁ hext₁ hP => ?_)
   obtain ⟨hjA, hwty⟩ := hP
@@ -199,11 +215,13 @@ theorem checkConstantValP_sim (henv : EnvWF env) {cvp : ConstantValP}
   refine SimAt.bind (opSIx_sim henv hs₂ hjsty hwsty)
     (fun s₃ u u' hs₃ hext₃ hP₃ => ?_)
   refine SimAt.bind_left (readbackEM_eff hs₃
-      (denote_mono hext₃ (denote_mono hext₂ hjA)))
+      (denoteT_mono hext₃ (denoteT_mono hext₂ hjA)))
     (fun s₄ tyR hs₄ hext₄ hQ => ?_)
   subst hQ
-  exact SimAt.pure hs₄ ⟨rfl, hwty,
-    denote_mono hext₄ (denote_mono hext₃ (denote_mono hext₂ hjA))⟩
+  have hwf₄ : s₄.store.WF := ⟨hs₄.wf, tierOffExt hext₄ (tierOffExt hext₃
+    (tierOffExt hext₂ (tierOffExt hext₁ hoff)))⟩
+  exact SimAt.pure hs₄ ⟨rfl, rfl, hwty, hwf₄.denoteT_eq _ ▸
+    denoteT_mono hext₄ (denoteT_mono hext₃ (denoteT_mono hext₂ hjA))⟩
 
 /-- `checkDefnValP` simulates the generic `checkDefnVal`: the pushed
 index is `mkFEnv` of the fueled environment, whose head stores the
@@ -211,27 +229,32 @@ annotated (fvar-free) value. -/
 theorem checkDefnValP_sim (henv : EnvWF env) {cvA : ConstantVal}
     {jty : EIdx} {value : EIdx} {ve : Expr} {hint : ReducibilityHint}
     (htf : WScoped 0 cvA.type) (hjty : s₀.store.denote jty = some cvA.type)
-    (hdenv : s₀.store.denote value = some ve) (hs : ISOK env s₀) :
+    (hdenv : s₀.store.denote value = some ve) (hs : ISOK env s₀)
+    (hoff : s₀.store.tierTwo = false) :
     SimAt env s₀ (fun _ v w => v.env = w ∧ v = mkFEnv v.env ∧
         ∀ cv' v' h', v.env.find? cvA.name = some (.defnInfo cv' v' h') →
           v'.hasFvar = false)
       (checkDefnValP (mkFEnv env) cvA jty value hint)
       (checkDefnVal fueledOpsM env cvA ve hint) := by
+  have hdenvT : s₀.store.denoteT value = some ve :=
+    EStore.denoteT_of_denote hs.wf hdenv
+  have hjtyT : s₀.store.denoteT jty = some cvA.type :=
+    EStore.denoteT_of_denote hs.wf hjty
   unfold checkDefnValP checkDefnVal
   refine SimAt.withStore ?_
-  rw [looseBVarsBoundedI_spec hs.wf hdenv]
+  rw [looseBVarsBoundedI_spec hs.wf hdenvT]
   by_cases h1 : ve.looseBVarsBounded 0 = true
   case neg =>
     simp only [if_neg h1]
     exact SimAt.throw_bind
   simp only [if_pos h1]
   refine SimAt.withStore ?_
-  rw [hasFvarI_spec hs.wf hdenv]
+  rw [hasFvarI_spec hs.wf hdenvT]
   by_cases h2 : ve.hasFvar = true
   · simp only [if_pos h2]
     exact SimAt.throw_bind
   simp only [if_neg h2]
-  refine SimAt.bind ((ssimI env henv checkFuel).annotate hs hdenv
+  refine SimAt.bind ((ssimI env henv checkFuel).annotate hs hdenvT
       (WScoped.of_not_hasFvar (Bool.not_eq_true _ ▸ h2)))
     (fun s₁ jv w hs₁ hext₁ hP => ?_)
   obtain ⟨hjv, hwv⟩ := hP
@@ -252,20 +275,21 @@ theorem checkDefnValP_sim (henv : EnvWF env) {cvA : ConstantVal}
   refine SimAt.bind_left (readbackEM_eff hs₁ hjv)
     (fun s₁' vE hs₁' hext₁' hQ => ?_)
   subst hQ
-  have hjv₁' : s₁'.store.denote jv = some vE := denote_mono hext₁' hjv
+  have hjv₁' : s₁'.store.denoteT jv = some vE := denoteT_mono hext₁' hjv
   refine SimAt.bind_left (recordIConst_eff hs₁'
-      (denote_mono hext₁' (denote_mono hext₁ hjty))
+      (tierOffExt hext₁' (tierOffExt hext₁ hoff))
+      (denoteT_mono hext₁' (denoteT_mono hext₁ hjtyT))
       (fun vE' vi h => by
         cases h
         exact hjv₁'))
     (fun s₂' u hs₂' hext₂' hQ' => ?_)
   refine SimAt.bind ((ssimI env henv checkFuel).infer hs₂'
-      (denote_mono hext₂' hjv₁') hwv)
+      (denoteT_mono hext₂' hjv₁') hwv)
     (fun s₂ jvt wvt hs₂ hext₂ hP₂ => ?_)
   obtain ⟨hjvt, hwvt⟩ := hP₂
   refine SimAt.bind ((ssimI env henv checkFuel).defeq hs₂ hjvt
-      (denote_mono hext₂ (denote_mono hext₂' (denote_mono hext₁'
-        (denote_mono hext₁ hjty)))) hwvt htf)
+      (denoteT_mono hext₂ (denoteT_mono hext₂' (denoteT_mono hext₁'
+        (denoteT_mono hext₁ hjtyT)))) hwvt htf)
     (fun s₃ b b' hs₃ hext₃ hP₃ => ?_)
   obtain rfl : b = b' := hP₃
   cases b with
@@ -288,12 +312,17 @@ theorem checkDefnValP_sim (henv : EnvWF env) {cvA : ConstantVal}
 theorem checkThmValP_sim (henv : EnvWF env) {cvA : ConstantVal}
     {jty : EIdx} {value : EIdx} {ve : Expr}
     (htf : WScoped 0 cvA.type) (hjty : s₀.store.denote jty = some cvA.type)
-    (hdenv : s₀.store.denote value = some ve) (hs : ISOK env s₀) :
+    (hdenv : s₀.store.denote value = some ve) (hs : ISOK env s₀)
+    (hoff : s₀.store.tierTwo = false) :
     SimAt env s₀ (fun _ v w => v.env = w ∧ v = mkFEnv v.env)
       (checkThmValP (mkFEnv env) cvA jty value)
       (checkThmVal fueledOpsM env cvA ve) := by
+  have hdenvT : s₀.store.denoteT value = some ve :=
+    EStore.denoteT_of_denote hs.wf hdenv
+  have hjtyT : s₀.store.denoteT jty = some cvA.type :=
+    EStore.denoteT_of_denote hs.wf hjty
   unfold checkThmValP checkThmVal
-  refine SimAt.bind ((ssimI env henv checkFuel).infer hs hjty htf)
+  refine SimAt.bind ((ssimI env henv checkFuel).infer hs hjtyT htf)
     (fun s₁ jsty wsty hs₁ hext₁ hP => ?_)
   obtain ⟨hjsty, hwsty⟩ := hP
   refine SimAt.bind (opSIx_sim henv hs₁ hjsty hwsty)
@@ -308,10 +337,12 @@ theorem checkThmValP_sim (henv : EnvWF env) {cvA : ConstantVal}
     exact SimAt.throw_bind
   | true =>
   simp only [↓reduceIte]
-  have hjty₃ : s₃.store.denote jty = some cvA.type :=
-    denote_mono hext₃ (denote_mono hext₂ (denote_mono hext₁ hjty))
-  have hdenv₃ : s₃.store.denote value = some ve :=
-    denote_mono hext₃ (denote_mono hext₂ (denote_mono hext₁ hdenv))
+  have hoff₃ : s₃.store.tierTwo = false :=
+    tierOffExt hext₃ (tierOffExt hext₂ (tierOffExt hext₁ hoff))
+  have hjty₃ : s₃.store.denoteT jty = some cvA.type :=
+    denoteT_mono hext₃ (denoteT_mono hext₂ (denoteT_mono hext₁ hjtyT))
+  have hdenv₃ : s₃.store.denoteT value = some ve :=
+    denoteT_mono hext₃ (denoteT_mono hext₂ (denoteT_mono hext₁ hdenvT))
   refine SimAt.withStore ?_
   rw [looseBVarsBoundedI_spec hs₃.wf hdenv₃]
   by_cases h1 : ve.looseBVarsBounded 0 = true
@@ -328,6 +359,7 @@ theorem checkThmValP_sim (henv : EnvWF env) {cvA : ConstantVal}
   refine SimAt.bind ((ssimI env henv checkFuel).annotate hs₃ hdenv₃
       (WScoped.of_not_hasFvar (Bool.not_eq_true _ ▸ h2)))
     (fun s₄ jv w hs₄ hext₄ hP₄ => ?_)
+  have hoff₄ : s₄.store.tierTwo = false := tierOffExt hext₄ hoff₃
   obtain ⟨hjv, hwv⟩ := hP₄
   refine SimAt.withStore ?_
   rw [allLevelParamsDefinedI_spec hs₄.wf hjv]
@@ -346,20 +378,21 @@ theorem checkThmValP_sim (henv : EnvWF env) {cvA : ConstantVal}
   refine SimAt.bind_left (readbackEM_eff hs₄ hjv)
     (fun s₄' vE hs₄' hext₄' hQ => ?_)
   subst hQ
-  have hjv₄' : s₄'.store.denote jv = some vE := denote_mono hext₄' hjv
+  have hjv₄' : s₄'.store.denoteT jv = some vE := denoteT_mono hext₄' hjv
   refine SimAt.bind_left (recordIConst_eff hs₄'
-      (denote_mono hext₄' (denote_mono hext₄ hjty₃))
+      (tierOffExt hext₄' hoff₄)
+      (denoteT_mono hext₄' (denoteT_mono hext₄ hjty₃))
       (fun vE' vi h => by
         cases h
         exact hjv₄'))
     (fun s₅' u₀ hs₅' hext₅' hQ' => ?_)
   refine SimAt.bind ((ssimI env henv checkFuel).infer hs₅'
-      (denote_mono hext₅' hjv₄') hwv)
+      (denoteT_mono hext₅' hjv₄') hwv)
     (fun s₅ jvt wvt hs₅ hext₅ hP₅ => ?_)
   obtain ⟨hjvt, hwvt⟩ := hP₅
   refine SimAt.bind ((ssimI env henv checkFuel).defeq hs₅ hjvt
-      (denote_mono hext₅ (denote_mono hext₅' (denote_mono hext₄'
-        (denote_mono hext₄ hjty₃)))) hwvt htf)
+      (denoteT_mono hext₅ (denoteT_mono hext₅' (denoteT_mono hext₄'
+        (denoteT_mono hext₄ hjty₃)))) hwvt htf)
     (fun s₆ b b' hs₆ hext₆ hP₆ => ?_)
   obtain rfl : b = b' := hP₆
   cases b with
@@ -374,26 +407,31 @@ theorem checkThmValP_sim (henv : EnvWF env) {cvA : ConstantVal}
 theorem checkOpaqueValP_sim (henv : EnvWF env) {cvA : ConstantVal}
     {jty : EIdx} {value : EIdx} {ve : Expr}
     (htf : WScoped 0 cvA.type) (hjty : s₀.store.denote jty = some cvA.type)
-    (hdenv : s₀.store.denote value = some ve) (hs : ISOK env s₀) :
+    (hdenv : s₀.store.denote value = some ve) (hs : ISOK env s₀)
+    (hoff : s₀.store.tierTwo = false) :
     SimAt env s₀ (fun _ v w => (v.env = w ∧ v = mkFEnv v.env) ∧
         ve.hasFvar = false)
       (checkOpaqueValP (mkFEnv env) cvA jty value)
       (checkOpaqueVal fueledOpsM env cvA ve) := by
+  have hdenvT : s₀.store.denoteT value = some ve :=
+    EStore.denoteT_of_denote hs.wf hdenv
+  have hjtyT : s₀.store.denoteT jty = some cvA.type :=
+    EStore.denoteT_of_denote hs.wf hjty
   unfold checkOpaqueValP checkOpaqueVal
   refine SimAt.withStore ?_
-  rw [looseBVarsBoundedI_spec hs.wf hdenv]
+  rw [looseBVarsBoundedI_spec hs.wf hdenvT]
   by_cases h1 : ve.looseBVarsBounded 0 = true
   case neg =>
     simp only [if_neg h1]
     exact SimAt.throw_bind
   simp only [if_pos h1]
   refine SimAt.withStore ?_
-  rw [hasFvarI_spec hs.wf hdenv]
+  rw [hasFvarI_spec hs.wf hdenvT]
   by_cases h2 : ve.hasFvar = true
   · simp only [if_pos h2]
     exact SimAt.throw_bind
   simp only [if_neg h2]
-  refine SimAt.bind ((ssimI env henv checkFuel).annotate hs hdenv
+  refine SimAt.bind ((ssimI env henv checkFuel).annotate hs hdenvT
       (WScoped.of_not_hasFvar (Bool.not_eq_true _ ▸ h2)))
     (fun s₁ jv w hs₁ hext₁ hP => ?_)
   obtain ⟨hjv, hwv⟩ := hP
@@ -412,16 +450,17 @@ theorem checkOpaqueValP_sim (henv : EnvWF env) {cvA : ConstantVal}
     exact SimAt.throw_bind
   simp only [if_pos h4]
   refine SimAt.bind_left (recordIConst_eff hs₁
-      (denote_mono hext₁ hjty)
+      (tierOffExt hext₁ hoff)
+      (denoteT_mono hext₁ hjtyT)
       (fun vE' vi h => nomatch h))
     (fun s₁' u hs₁' hext₁' hQ' => ?_)
   refine SimAt.bind ((ssimI env henv checkFuel).infer hs₁'
-      (denote_mono hext₁' hjv) hwv)
+      (denoteT_mono hext₁' hjv) hwv)
     (fun s₂ jvt wvt hs₂ hext₂ hP₂ => ?_)
   obtain ⟨hjvt, hwvt⟩ := hP₂
   refine SimAt.bind ((ssimI env henv checkFuel).defeq hs₂ hjvt
-      (denote_mono hext₂ (denote_mono hext₁'
-        (denote_mono hext₁ hjty))) hwvt htf)
+      (denoteT_mono hext₂ (denoteT_mono hext₁'
+        (denoteT_mono hext₁ hjtyT))) hwvt htf)
     (fun s₃ b b' hs₃ hext₃ hP₃ => ?_)
   obtain rfl : b = b' := hP₃
   cases b with
@@ -435,14 +474,16 @@ theorem checkOpaqueValP_sim (henv : EnvWF env) {cvA : ConstantVal}
 
 /-! ## The parsed declaration -/
 
-/-- The non-inductive branches of `checkDeclSP` simulate the generic
-`checkDecl` at the fueled families on the denoted declaration. -/
-theorem checkDeclSP_sim (henv : EnvWF env) (hs : ISOK env s₀)
+/-- The non-inductive branches of the unbracketed dispatcher
+`checkDeclSPPlain` simulate the generic `checkDecl` at the fueled
+families on the denoted declaration. -/
+theorem checkDeclSPPlain_sim (henv : EnvWF env) (hs : ISOK env s₀)
+    (hoff : s₀.store.tierTwo = false)
     {pd : DeclP} {d : Declaration}
     (hden : denoteDeclP s₀.store pd = some d)
     (hnotind : ∀ block, pd ≠ .indDecl block) :
     SimAt env s₀ (fun _ v w => v.env = w ∧ v = mkFEnv v.env)
-      (checkDeclSP (mkFEnv env) pd)
+      (checkDeclSPPlain (mkFEnv env) pd)
       (checkDecl fueledOpsM env d) := by
   cases pd with
   | indDecl block => exact absurd rfl (hnotind block)
@@ -485,17 +526,18 @@ theorem checkDeclSP_sim (henv : EnvWF env) (hs : ISOK env s₀)
     obtain ⟨cv0, ⟨tyE, htyE, rfl⟩, rfl⟩ := hden
     show SimAt env s₀ _ _ (checkDecl fueledOpsM env
       (.axiomDecl ⟨cvp.name, cvp.levelParams, tyE⟩))
-    unfold checkDeclSP checkDecl
+    unfold checkDeclSPPlain checkDecl
     dsimp only
-    refine SimAt.bind (checkConstantValP_sim henv hs htyE)
+    refine SimAt.bind (checkConstantValP_sim henv hs hoff htyE)
       (fun s₁ pr cvA hs₁ hext₁ hP => ?_)
     obtain ⟨cvR, jty⟩ := pr
-    obtain ⟨rfl, hwty, hjty⟩ := hP
+    obtain ⟨rfl, hname, hwty, hjty⟩ := hP
     dsimp only at hjty ⊢
     simp only [stdAxiomOkF_eq, trustCompilerOkF_eq, ofReduceAxOkF_eq]
     by_cases h1 : stdAxiomOk env cvR = true
     · simp only [if_pos h1]
-      refine SimAt.bind_left (recordIConst_eff hs₁ hjty
+      refine SimAt.bind_left (recordIConst_eff hs₁ (tierOffExt hext₁ hoff)
+          (EStore.denoteT_of_denote hs₁.wf hjty)
           (fun vE vi h => nomatch h))
         (fun s₂ u hs₂ hext₂ hQ => ?_)
       exact SimAt.pure hs₂ ⟨rfl, mkFEnv_push env _⟩
@@ -504,7 +546,8 @@ theorem checkDeclSP_sim (henv : EnvWF env) (hs : ISOK env s₀)
       · simp only [if_pos htc]
         by_cases htok : trustCompilerOk env cvR = true
         · simp only [if_pos htok]
-          refine SimAt.bind_left (recordIConst_eff hs₁ hjty
+          refine SimAt.bind_left (recordIConst_eff hs₁ (tierOffExt hext₁ hoff)
+              (EStore.denoteT_of_denote hs₁.wf hjty)
               (fun vE vi h => nomatch h))
             (fun s₂ u hs₂ hext₂ hQ => ?_)
           exact SimAt.pure hs₂ ⟨rfl, mkFEnv_push env _⟩
@@ -516,7 +559,8 @@ theorem checkDeclSP_sim (henv : EnvWF env) (hs : ISOK env s₀)
         · simp only [if_pos hor]
           by_cases hoo : ofReduceAxOk env cvR = true
           · simp only [if_pos hoo]
-            refine SimAt.bind_left (recordIConst_eff hs₁ hjty
+            refine SimAt.bind_left (recordIConst_eff hs₁ (tierOffExt hext₁ hoff)
+                (EStore.denoteT_of_denote hs₁.wf hjty)
                 (fun vE vi h => nomatch h))
               (fun s₂ u hs₂ hext₂ hQ => ?_)
             exact SimAt.pure hs₂ ⟨rfl, mkFEnv_push env _⟩
@@ -536,28 +580,28 @@ theorem checkDeclSP_sim (henv : EnvWF env) (hs : ISOK env s₀)
     simp only [denoteDeclP, denoteCVP, Option.bind_eq_some_iff,
       Option.map_eq_some_iff] at hden
     obtain ⟨cv0, ⟨tyE, htyE, rfl⟩, ve, hve, rfl⟩ := hden
-    unfold checkDeclSP checkDecl
+    unfold checkDeclSPPlain checkDecl
     dsimp only
-    refine SimAt.bind (checkConstantValP_sim henv hs htyE)
+    refine SimAt.bind (checkConstantValP_sim henv hs hoff htyE)
       (fun s₁ pr cvA hs₁ hext₁ hP => ?_)
     obtain ⟨cvR, jty⟩ := pr
-    obtain ⟨rfl, hwty, hjty⟩ := hP
+    obtain ⟨rfl, hname, hwty, hjty⟩ := hP
     dsimp only at hjty ⊢
     refine SimAt.mono (fun s v w h => h) (checkThmValP_sim henv hwty hjty
-      (denote_mono hext₁ hve) hs₁)
+      (denote_mono hext₁ hve) hs₁ (tierOffExt hext₁ hoff))
   | opaqueDecl cvp value =>
     simp only [denoteDeclP, denoteCVP, Option.bind_eq_some_iff,
       Option.map_eq_some_iff] at hden
     obtain ⟨cv0, ⟨tyE, htyE, rfl⟩, ve, hve, rfl⟩ := hden
-    unfold checkDeclSP checkDecl
+    unfold checkDeclSPPlain checkDecl
     dsimp only
-    refine SimAt.bind (checkConstantValP_sim henv hs htyE)
+    refine SimAt.bind (checkConstantValP_sim henv hs hoff htyE)
       (fun s₁ pr cvA hs₁ hext₁ hP => ?_)
     obtain ⟨cvR, jty⟩ := pr
-    obtain ⟨rfl, hwty, hjty⟩ := hP
+    obtain ⟨rfl, hname, hwty, hjty⟩ := hP
     dsimp only at hjty ⊢
     refine SimAt.bind (checkOpaqueValP_sim henv hwty hjty
-        (denote_mono hext₁ hve) hs₁)
+        (denote_mono hext₁ hve) hs₁ (tierOffExt hext₁ hoff))
       (fun s₂ fe2 env2 hs₂ hext₂ hP₂ => ?_)
     obtain ⟨⟨henvEq, hmk⟩, hvf⟩ := hP₂
     subst henvEq
@@ -569,7 +613,8 @@ theorem checkDeclSP_sim (henv : EnvWF env) (hs : ISOK env s₀)
       exact SimAt.pure hs₂ ⟨rfl, hmk ▸ hmk⟩
     simp only [if_pos hred]
     refine SimAt.bind_left (readbackEM_eff hs₂
-        (denote_mono hext₂ (denote_mono hext₁ hve)))
+        (EStore.denoteT_of_denote hs₂.wf
+          (denote_mono hext₂ (denote_mono hext₁ hve))))
       (fun s₃ vE hs₃ hext₃ hQ => ?_)
     subst hQ
     rw [checkReducePinF_eq]
@@ -580,12 +625,12 @@ theorem checkDeclSP_sim (henv : EnvWF env) (hs : ISOK env s₀)
     simp only [denoteDeclP, denoteCVP, Option.bind_eq_some_iff,
       Option.map_eq_some_iff] at hden
     obtain ⟨cv0, ⟨tyE, htyE, rfl⟩, ve, hve, rfl⟩ := hden
-    unfold checkDeclSP checkDecl
+    unfold checkDeclSPPlain checkDecl
     dsimp only
-    refine SimAt.bind (checkConstantValP_sim henv hs htyE)
+    refine SimAt.bind (checkConstantValP_sim henv hs hoff htyE)
       (fun s₁ pr cvA hs₁ hext₁ hP => ?_)
     obtain ⟨cvR, jty⟩ := pr
-    obtain ⟨rfl, hwty, hjty⟩ := hP
+    obtain ⟨rfl, hname, hwty, hjty⟩ := hP
     dsimp only at hjty ⊢
     by_cases hb : (natOpNames.contains cvR.name ||
         natDivModNames.contains cvR.name) = true
@@ -596,14 +641,14 @@ theorem checkDeclSP_sim (henv : EnvWF env) (hs : ISOK env s₀)
       simp only [if_neg hb, if_neg h1, if_neg h4]
       rw [← bind_pure (checkDefnValP (mkFEnv env) _ jty value hint)]
       refine SimAt.bind (checkDefnValP_sim henv hwty hjty
-          (denote_mono hext₁ hve) hs₁)
+          (denote_mono hext₁ hve) hs₁ (tierOffExt hext₁ hoff))
         (fun s₂ fe2 env2 hs₂ hext₂ hP₂ => ?_)
       obtain ⟨henvEq, hmk, -⟩ := hP₂
       subst henvEq
       exact SimAt.pure hs₂ ⟨rfl, hmk⟩
     simp only [if_pos hb]
     refine SimAt.bind (checkDefnValP_sim henv hwty hjty
-        (denote_mono hext₁ hve) hs₁)
+        (denote_mono hext₁ hve) hs₁ (tierOffExt hext₁ hoff))
       (fun s₂ fe2 env2 hs₂ hext₂ hP₂ => ?_)
     obtain ⟨henvEq, hmk, hv'fD⟩ := hP₂
     subst henvEq

@@ -1505,9 +1505,14 @@ def checkOpaqueValP (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
   -- check-phase too)
   pure (fe.push (.axiomInfo cvA))
 
-/-- One parsed declaration (mirrors `checkDeclSF` branch by branch;
-inductive/basis blocks reuse the `Expr`-level drivers). -/
-def checkDeclSP (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
+/-- One parsed declaration on the *unbracketed* path (mirrors
+`checkDeclSF` branch by branch; inductive/basis blocks reuse the
+`Expr`-level drivers).  The default driver `checkDeclSP` dispatches
+here for the install-only kinds and the rare pinned-cert branches
+(task #64: their per-declaration temporaries are bounded); the
+def/thm/opaque value pipeline runs under the tier-two snapshot
+bracket instead. -/
+def checkDeclSPPlain (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
   match pd with
   | .defnDecl cv value hint => do
     let (cvA, jty) ← checkConstantValP fe cv
@@ -1584,6 +1589,160 @@ def checkDeclSP (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
     | some p => checkDirectStructS fe p
     | none => checkIndDeclSF fe block
 
+/-! ## The per-declaration tier-two snapshot bracket (task #64)
+
+THE default value pipeline: each def/thm/opaque value is annotated,
+guarded, read back and conformance-checked with tier two enabled on
+the linearly-threaded state; at the close the tier-two node table is
+harvested, tier two truncated in place, the index-carrying memos
+flushed, and the stored output's sub-DAG promoted into the retained
+tier-one store (`Setlec/Kernel/Promote.lean`, index-memoized).  Levels
+and names intern single-tier throughout and simply persist, so
+promotion remaps only tier-two expression nodes (the level/name bases
+are the harvest-time table sizes — every reference is below them and
+kept).  Opaques store no value, so nothing is promoted.  Verified:
+`Setlec/Verify/BracketB4.lean` (the seam theory and the driver walks),
+consumed by the consistency chain in `Setlec/Model/ConsistencyP.lean`.
+-/
+
+/-- Promote a snapshot index into the ambient (retained) store. -/
+def promoteM (h : Harvest) (lbase nbase : Nat) (e : EIdx) :
+    CheckIM EIdx :=
+  modifyGet fun s =>
+    let store := s.store
+    let s := { s with store := EStore.empty }
+    let (r, store) := store.promoteE h lbase nbase e
+    (r, { s with store := store })
+
+/-- Open the per-declaration snapshot: enable tier two on the
+linearly-threaded state (detach-before-update). -/
+def openSnapshotM : CheckIM Unit :=
+  modify fun s =>
+    let st := s.store
+    let s := { s with store := EStore.empty }
+    { s with store := st.enableTierTwo }
+
+/-- Close a snapshot discarding everything: truncate tier two in
+place and flush the index-carrying memos (detach-before-update; the
+level caches and the interned environment survive). -/
+def closeDiscardM : CheckIM Unit :=
+  modify fun s =>
+    let st := s.store
+    let s := { s with store := EStore.empty }
+    let s := s.flushed
+    { s with store := st.truncateTierTwo }
+
+/-- In-place close for the annotate snapshot: harvest the tier-two
+node table, truncate, flush the index-carrying memos, promote the
+stored output. -/
+def closeSnapshotM (jv : EIdx) : CheckIM EIdx := do
+  let (tno, lsz, nsz) ← withStore
+    (fun st => (st.tnodes, st.lnodes.size, st.nnodes.size))
+  closeDiscardM
+  promoteM ⟨tno, #[], #[]⟩ lsz nsz jv
+
+/-- The shared bracketed middle of the def/thm value pipeline: under
+the snapshot, annotate the value, run the post-annotate guards, read
+the stored form back, infer and compare against the stated type; at
+the close promote the annotated value's sub-DAG.  Returns the
+readback, the promoted (tier-one) index and the conformance verdict —
+the throw on a failed conformance is the caller's (after the close,
+so the snapshot is released on both verdicts). -/
+def bracketValB4 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
+    (value : EIdx) : CheckIM (Expr × EIdx × Bool) := do
+  openSnapshotM
+  let jv ← (coreKnotI fe checkFuel).annotate 0 value
+  unless ← withStore
+      (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
+    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
+  unless ← withStore (fun st => constsResolveFI st fe jv) do
+    throw (.invalid s!"unknown constant in value of {cvA.name}")
+  let vE ← readbackEM jv
+  let jvt ← (coreKnotI fe checkFuel).infer 0 jv
+  let ok ← (coreKnotI fe checkFuel).defeq 0 jvt jty
+  let jv' ← closeSnapshotM jv
+  pure (vE, jv', ok)
+
+/-- `checkDefnValP` with the in-place annotate-snapshot bracket. -/
+def checkDefnValPB4 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
+    (value : EIdx) (hint : ReducibilityHint) : CheckIM FEnv := do
+  unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
+    throw (.invalid s!"loose bound variable in value of {cvA.name}")
+  if ← withStore (fun st => st.hasFvarI value) then
+    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
+  let (vE, jv', ok) ← bracketValB4 fe cvA jty value
+  unless ok do
+    throw (.invalid s!"type mismatch in definition {cvA.name}")
+  recordIConst cvA.name cvA.type jty (some (vE, jv'))
+  pure (fe.push (.defnInfo cvA vE hint))
+
+/-- `checkThmValP` with the in-place annotate-snapshot bracket. -/
+def checkThmValPB4 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
+    (value : EIdx) : CheckIM FEnv := do
+  let jsty ← (coreKnotI fe checkFuel).infer 0 jty
+  let ul ← opSIx fe 0 jsty
+  unless (← liftFueled "level comparison" (Level.isEquiv ul .zero)) do
+    throw (.invalid s!"type of theorem {cvA.name} is not a proposition")
+  unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
+    throw (.invalid s!"loose bound variable in value of {cvA.name}")
+  if ← withStore (fun st => st.hasFvarI value) then
+    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
+  let (vE, jv', ok) ← bracketValB4 fe cvA jty value
+  unless ok do
+    throw (.invalid s!"type mismatch in theorem {cvA.name}")
+  recordIConst cvA.name cvA.type jty (some (vE, jv'))
+  pure (fe.push (.thmInfo cvA vE))
+
+/-- `checkOpaqueValP` with the in-place annotate-snapshot bracket
+(nothing stored, nothing promoted). -/
+def checkOpaqueValPB4 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
+    (value : EIdx) : CheckIM FEnv := do
+  unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
+    throw (.invalid s!"loose bound variable in value of {cvA.name}")
+  if ← withStore (fun st => st.hasFvarI value) then
+    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
+  openSnapshotM
+  let jv ← (coreKnotI fe checkFuel).annotate 0 value
+  unless ← withStore
+      (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
+    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
+  unless ← withStore (fun st => constsResolveFI st fe jv) do
+    throw (.invalid s!"unknown constant in value of {cvA.name}")
+  let jvt ← (coreKnotI fe checkFuel).infer 0 jv
+  let ok ← (coreKnotI fe checkFuel).defeq 0 jvt jty
+  closeDiscardM
+  unless ok do
+    throw (.invalid s!"type mismatch in opaque {cvA.name}")
+  recordIConst cvA.name cvA.type jty none
+  pure (fe.push (.axiomInfo cvA))
+
+/-- One parsed declaration, THE default driver (task #64): the
+def/thm/opaque value pipeline runs under the per-declaration tier-two
+snapshot bracket; the rare pinned-cert branches and the install-only
+kinds run the unbracketed path (bounded content). -/
+def checkDeclSP (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
+  match pd with
+  | .defnDecl cv value hint =>
+    -- the pinned-name conditions depend only on the header name
+    -- (`checkConstantValP` preserves it), so the rare cert branches
+    -- dispatch before the header check and the unbracketed path runs
+    -- it exactly once
+    if natOpNames.contains cv.name || natDivModNames.contains cv.name then
+      checkDeclSPPlain fe pd
+    else do
+      let (cvA, jty) ← checkConstantValP fe cv
+      checkDefnValPB4 fe cvA jty value hint
+  | .thmDecl cv value => do
+    let (cvA, jty) ← checkConstantValP fe cv
+    checkThmValPB4 fe cvA jty value
+  | .opaqueDecl cv value =>
+    if reduceOpNames.contains cv.name then
+      checkDeclSPPlain fe pd
+    else do
+      let (cvA, jty) ← checkConstantValP fe cv
+      checkOpaqueValPB4 fe cvA jty value
+  | _ => checkDeclSPPlain fe pd
+
 /-- One step of the parsed-declaration fold: validate the indices
 against the parse store's range (`O(1)`; in-range indices denote under
 the store invariant), flush the environment-dependent caches, check. -/
@@ -1602,466 +1761,6 @@ caches are flushed per declaration). -/
 def checkDeclsSP (st : WFStore) (pds : List DeclP) : CheckM Env := do
   -- SCOUT (task #64 low-bit): `EIdx` bound is the encoded one.
   let fe ← (pds.foldlM (checkDeclSPStep (st.raw.nodes.size + st.raw.nodes.size))
-    (mkFEnv Env.empty)).run' { store := st.raw }
-  pure fe.env
-
-/-! ## The two-tier check bracket (task #64 wiring, measurement variant)
-
-The snapshot bracket (`SETLEC_TIER_BRACKET=1`): the driver retains the
-pre-check `IState` value, runs the check phase on a copy whose store
-has tier two enabled (a header copy — the tier-one arrays are shared
-and the flag-on regime never writes them; fresh check-phase nodes go
-to the tier-two tables, which start empty), and continues with the
-retained value.  The check phase's state *dies* at the seam — the RC
-release is the truncation; no tier-one observation can change because
-the retained value is literally the pre-check one.  A thrown check
-drops its state the same way (the fold aborts).
-
-Install-phase content (annotate output, `readbackEM`, `recordIConst`)
-interns *before* the bracket opens, hence tier-one, hence retained;
-nothing the check phase interns can escape: the bracket returns only
-the verdict, and the pushed `ConstantInfo` is built from install-phase
-data (`Expr` trees, no indices).
-
-UNVERIFIED (measurement variant, the `SETLEC_NO_PROOF_CERTS` pattern):
-the consistency statements cover the default drivers above; the rare
-cert branches (Nat-op/div-mod/reduce pins) and the install-only kinds
-(axiom/basis/inductive) run the default, unbracketed path. -/
-
-/-- Fork-discard check bracket: run `check` on the tier-two-enabled
-copy of the current state, discard that state, return the verdict. -/
-@[inline] def bracketCheckS {α : Type} (check : CheckIM α) : CheckIM α := do
-  let s0 ← get
-  modify fun s => { s with store := s.store.enableTierTwo }
-  let r ← check
-  set s0
-  pure r
-
-/-- In-place check bracket (`SETLEC_TIER_BRACKET=2`): enable tier two
-on the linearly-threaded state, run the check, then truncate tier two
-and flush the index-carrying memo caches (which may hold tier-two
-keys/values; the level caches are `LIdx`-keyed, single-tier, and
-survive — including entries the check phase added).  No state
-retention, so no per-declaration copy-on-write of the shared tables;
-tier-two array capacity is reused across declarations
-(`truncateTierTwo` shrinks in place). -/
-@[inline] def bracketCheckS2 {α : Type} (check : CheckIM α) : CheckIM α := do
-  modify fun s =>
-    let st := s.store
-    let s := { s with store := EStore.empty }
-    { s with store := st.enableTierTwo }
-  let r ← check
-  modify fun s =>
-    -- detach-before-update (linear discipline): the store is swapped
-    -- out before the record is rebuilt, so both the flush and the
-    -- truncation mutate uniquely-referenced structures in place.
-    let st := s.store
-    let s := { s with store := EStore.empty }
-    let s := s.flushed
-    { s with store := st.truncateTierTwo }
-  pure r
-
-/-- `checkDefnValP` with the check phase bracketed. -/
-def checkDefnValPB (br : CheckIM Unit → CheckIM Unit) (fe : FEnv)
-    (cvA : ConstantVal) (jty : EIdx)
-    (value : EIdx) (hint : ReducibilityHint) : CheckIM FEnv := do
-  unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
-    throw (.invalid s!"loose bound variable in value of {cvA.name}")
-  if ← withStore (fun st => st.hasFvarI value) then
-    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
-  let jv ← (coreKnotI fe checkFuel).annotate 0 value
-  unless ← withStore
-      (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
-    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
-  unless ← withStore (fun st => constsResolveFI st fe jv) do
-    throw (.invalid s!"unknown constant in value of {cvA.name}")
-  let vE ← readbackEM jv
-  recordIConst cvA.name cvA.type jty (some (vE, jv))
-  br do
-    let jvt ← (coreKnotI fe checkFuel).infer 0 jv
-    unless ← (coreKnotI fe checkFuel).defeq 0 jvt jty do
-      throw (.invalid s!"type mismatch in definition {cvA.name}")
-  pure (fe.push (.defnInfo cvA vE hint))
-
-/-- `checkThmValP` with the check phase bracketed. -/
-def checkThmValPB (br : CheckIM Unit → CheckIM Unit) (fe : FEnv)
-    (cvA : ConstantVal) (jty : EIdx)
-    (value : EIdx) : CheckIM FEnv := do
-  let jsty ← (coreKnotI fe checkFuel).infer 0 jty
-  let ul ← opSIx fe 0 jsty
-  unless (← liftFueled "level comparison" (Level.isEquiv ul .zero)) do
-    throw (.invalid s!"type of theorem {cvA.name} is not a proposition")
-  unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
-    throw (.invalid s!"loose bound variable in value of {cvA.name}")
-  if ← withStore (fun st => st.hasFvarI value) then
-    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
-  let jv ← (coreKnotI fe checkFuel).annotate 0 value
-  unless ← withStore
-      (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
-    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
-  unless ← withStore (fun st => constsResolveFI st fe jv) do
-    throw (.invalid s!"unknown constant in value of {cvA.name}")
-  let vE ← readbackEM jv
-  recordIConst cvA.name cvA.type jty (some (vE, jv))
-  br do
-    let jvt ← (coreKnotI fe checkFuel).infer 0 jv
-    unless ← (coreKnotI fe checkFuel).defeq 0 jvt jty do
-      throw (.invalid s!"type mismatch in theorem {cvA.name}")
-  pure (fe.push (.thmInfo cvA vE))
-
-/-- `checkOpaqueValP` with the check phase bracketed. -/
-def checkOpaqueValPB (br : CheckIM Unit → CheckIM Unit) (fe : FEnv)
-    (cvA : ConstantVal) (jty : EIdx)
-    (value : EIdx) : CheckIM FEnv := do
-  unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
-    throw (.invalid s!"loose bound variable in value of {cvA.name}")
-  if ← withStore (fun st => st.hasFvarI value) then
-    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
-  let jv ← (coreKnotI fe checkFuel).annotate 0 value
-  unless ← withStore
-      (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
-    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
-  unless ← withStore (fun st => constsResolveFI st fe jv) do
-    throw (.invalid s!"unknown constant in value of {cvA.name}")
-  recordIConst cvA.name cvA.type jty none
-  br do
-    let jvt ← (coreKnotI fe checkFuel).infer 0 jv
-    unless ← (coreKnotI fe checkFuel).defeq 0 jvt jty do
-      throw (.invalid s!"type mismatch in opaque {cvA.name}")
-  pure (fe.push (.axiomInfo cvA))
-
-/-! ### The annotate-snapshot variant (`SETLEC_TIER_BRACKET=3`)
-
-One snapshot per def/thm/opaque value: annotate, the post-annotate
-guards, the value readback AND the conformance check all run on the
-tier-two fork; on success the *stored output* (the annotated value's
-sub-DAG) is promoted into the retained store (`Setlec/Kernel/Promote`,
-index-memoized), so the retained tier-one growth is parse + stored
-content + the (unbracketed) type-side work — the annotate
-*intermediates* die with the snapshot.  Opaques store no value, so
-nothing is promoted.  UNVERIFIED (measurement variant). -/
-
-/-- Promote a snapshot index into the ambient (retained) store. -/
-def promoteM (h : Harvest) (lbase nbase : Nat) (e : EIdx) :
-    CheckIM EIdx :=
-  modifyGet fun s =>
-    let store := s.store
-    let s := { s with store := EStore.empty }
-    let (r, store) := store.promoteE h lbase nbase e
-    (r, { s with store := store })
-
-/-- `checkDefnValP` with the annotate-snapshot bracket. -/
-def checkDefnValPB3 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
-    (value : EIdx) (hint : ReducibilityHint) : CheckIM FEnv := do
-  unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
-    throw (.invalid s!"loose bound variable in value of {cvA.name}")
-  if ← withStore (fun st => st.hasFvarI value) then
-    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
-  let s0 ← get
-  let lbase := s0.store.lnodes.size
-  let nbase := s0.store.nnodes.size
-  modify fun s => { s with store := s.store.enableTierTwo }
-  let jv ← (coreKnotI fe checkFuel).annotate 0 value
-  unless ← withStore
-      (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
-    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
-  unless ← withStore (fun st => constsResolveFI st fe jv) do
-    throw (.invalid s!"unknown constant in value of {cvA.name}")
-  let vE ← readbackEM jv
-  let jvt ← (coreKnotI fe checkFuel).infer 0 jv
-  let ok ← (coreKnotI fe checkFuel).defeq 0 jvt jty
-  let h ← withStore (fun st => st.harvest)
-  set s0
-  unless ok do
-    throw (.invalid s!"type mismatch in definition {cvA.name}")
-  let jv' ← promoteM h lbase nbase jv
-  recordIConst cvA.name cvA.type jty (some (vE, jv'))
-  pure (fe.push (.defnInfo cvA vE hint))
-
-/-- `checkThmValP` with the annotate-snapshot bracket. -/
-def checkThmValPB3 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
-    (value : EIdx) : CheckIM FEnv := do
-  let jsty ← (coreKnotI fe checkFuel).infer 0 jty
-  let ul ← opSIx fe 0 jsty
-  unless (← liftFueled "level comparison" (Level.isEquiv ul .zero)) do
-    throw (.invalid s!"type of theorem {cvA.name} is not a proposition")
-  unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
-    throw (.invalid s!"loose bound variable in value of {cvA.name}")
-  if ← withStore (fun st => st.hasFvarI value) then
-    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
-  let s0 ← get
-  let lbase := s0.store.lnodes.size
-  let nbase := s0.store.nnodes.size
-  modify fun s => { s with store := s.store.enableTierTwo }
-  let jv ← (coreKnotI fe checkFuel).annotate 0 value
-  unless ← withStore
-      (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
-    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
-  unless ← withStore (fun st => constsResolveFI st fe jv) do
-    throw (.invalid s!"unknown constant in value of {cvA.name}")
-  let vE ← readbackEM jv
-  let jvt ← (coreKnotI fe checkFuel).infer 0 jv
-  let ok ← (coreKnotI fe checkFuel).defeq 0 jvt jty
-  let h ← withStore (fun st => st.harvest)
-  set s0
-  unless ok do
-    throw (.invalid s!"type mismatch in theorem {cvA.name}")
-  let jv' ← promoteM h lbase nbase jv
-  recordIConst cvA.name cvA.type jty (some (vE, jv'))
-  pure (fe.push (.thmInfo cvA vE))
-
-/-- `checkOpaqueValP` with the annotate-snapshot bracket (no stored
-value, so nothing is promoted). -/
-def checkOpaqueValPB3 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
-    (value : EIdx) : CheckIM FEnv := do
-  unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
-    throw (.invalid s!"loose bound variable in value of {cvA.name}")
-  if ← withStore (fun st => st.hasFvarI value) then
-    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
-  let s0 ← get
-  modify fun s => { s with store := s.store.enableTierTwo }
-  let jv ← (coreKnotI fe checkFuel).annotate 0 value
-  unless ← withStore
-      (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
-    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
-  unless ← withStore (fun st => constsResolveFI st fe jv) do
-    throw (.invalid s!"unknown constant in value of {cvA.name}")
-  let jvt ← (coreKnotI fe checkFuel).infer 0 jv
-  let ok ← (coreKnotI fe checkFuel).defeq 0 jvt jty
-  set s0
-  unless ok do
-    throw (.invalid s!"type mismatch in opaque {cvA.name}")
-  recordIConst cvA.name cvA.type jty none
-  pure (fe.push (.axiomInfo cvA))
-
-/-- `checkDeclSP` with the annotate-snapshot bracket (rare cert
-branches and install-only kinds run the default path). -/
-def checkDeclSPB3 (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
-  match pd with
-  | .defnDecl cv value hint => do
-    let (cvA, jty) ← checkConstantValP fe cv
-    if natOpNames.contains cvA.name || natDivModNames.contains cvA.name then
-      checkDeclSP fe pd
-    else
-      checkDefnValPB3 fe cvA jty value hint
-  | .thmDecl cv value => do
-    let (cvA, jty) ← checkConstantValP fe cv
-    checkThmValPB3 fe cvA jty value
-  | .opaqueDecl cv value => do
-    let (cvA, jty) ← checkConstantValP fe cv
-    if reduceOpNames.contains cvA.name then
-      let fe2 ← checkOpaqueValP fe cvA jty value
-      let vE ← readbackEM value
-      checkReducePinF (sharedOps fe) fe fe2 cvA.name vE
-      pure fe2
-    else
-      checkOpaqueValPB3 fe cvA jty value
-  | _ => checkDeclSP fe pd
-
-/-- `checkDeclSPStep` with the annotate-snapshot declaration checker. -/
-def checkDeclSPStepB3 (n0 : Nat) (fe : FEnv) (pd : DeclP) :
-    CheckIM FEnv := do
-  unless pd.inRangeB n0 do
-    throw (.internal "parsed declaration index out of range")
-  flushS
-  checkDeclSPB3 fe pd
-
-/-- `checkDeclsSP` with the annotate-snapshot step. -/
-def checkDeclsSPB3 (st : WFStore) (pds : List DeclP) : CheckM Env := do
-  let fe ← (pds.foldlM (checkDeclSPStepB3 (st.raw.nodes.size + st.raw.nodes.size))
-    (mkFEnv Env.empty)).run' { store := st.raw }
-  pure fe.env
-
-/-! ### The in-place annotate-snapshot variant (`SETLEC_TIER_BRACKET=4`)
-
-As mode 3, but on the linearly-threaded state (mode 2's bracket):
-levels and names interned during the bracket live in the single-tier
-tables and simply persist, so promotion remaps only tier-two
-expression nodes (the level/name bases are the harvest-time table
-sizes — every reference is below them and kept).  The tier-two node
-table is harvested before truncation (the truncating shrink on the
-then-shared array is an O(1) empty-array allocation).  UNVERIFIED
-(measurement variant). -/
-
-/-- In-place close for the annotate snapshot: harvest the tier-two
-node table, truncate, flush the index-carrying memos, promote the
-stored output. -/
-def closeSnapshotM (jv : EIdx) : CheckIM EIdx := do
-  let (tno, lsz, nsz) ← withStore
-    (fun st => (st.tnodes, st.lnodes.size, st.nnodes.size))
-  modify fun s =>
-    let st := s.store
-    let s := { s with store := EStore.empty }
-    let s := s.flushed
-    { s with store := st.truncateTierTwo }
-  promoteM ⟨tno, #[], #[]⟩ lsz nsz jv
-
-/-- `checkDefnValP` with the in-place annotate-snapshot bracket. -/
-def checkDefnValPB4 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
-    (value : EIdx) (hint : ReducibilityHint) : CheckIM FEnv := do
-  unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
-    throw (.invalid s!"loose bound variable in value of {cvA.name}")
-  if ← withStore (fun st => st.hasFvarI value) then
-    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
-  modify fun s =>
-    let st := s.store
-    let s := { s with store := EStore.empty }
-    { s with store := st.enableTierTwo }
-  let jv ← (coreKnotI fe checkFuel).annotate 0 value
-  unless ← withStore
-      (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
-    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
-  unless ← withStore (fun st => constsResolveFI st fe jv) do
-    throw (.invalid s!"unknown constant in value of {cvA.name}")
-  let vE ← readbackEM jv
-  let jvt ← (coreKnotI fe checkFuel).infer 0 jv
-  let ok ← (coreKnotI fe checkFuel).defeq 0 jvt jty
-  let jv' ← closeSnapshotM jv
-  unless ok do
-    throw (.invalid s!"type mismatch in definition {cvA.name}")
-  recordIConst cvA.name cvA.type jty (some (vE, jv'))
-  pure (fe.push (.defnInfo cvA vE hint))
-
-/-- `checkThmValP` with the in-place annotate-snapshot bracket. -/
-def checkThmValPB4 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
-    (value : EIdx) : CheckIM FEnv := do
-  let jsty ← (coreKnotI fe checkFuel).infer 0 jty
-  let ul ← opSIx fe 0 jsty
-  unless (← liftFueled "level comparison" (Level.isEquiv ul .zero)) do
-    throw (.invalid s!"type of theorem {cvA.name} is not a proposition")
-  unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
-    throw (.invalid s!"loose bound variable in value of {cvA.name}")
-  if ← withStore (fun st => st.hasFvarI value) then
-    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
-  modify fun s =>
-    let st := s.store
-    let s := { s with store := EStore.empty }
-    { s with store := st.enableTierTwo }
-  let jv ← (coreKnotI fe checkFuel).annotate 0 value
-  unless ← withStore
-      (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
-    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
-  unless ← withStore (fun st => constsResolveFI st fe jv) do
-    throw (.invalid s!"unknown constant in value of {cvA.name}")
-  let vE ← readbackEM jv
-  let jvt ← (coreKnotI fe checkFuel).infer 0 jv
-  let ok ← (coreKnotI fe checkFuel).defeq 0 jvt jty
-  let jv' ← closeSnapshotM jv
-  unless ok do
-    throw (.invalid s!"type mismatch in theorem {cvA.name}")
-  recordIConst cvA.name cvA.type jty (some (vE, jv'))
-  pure (fe.push (.thmInfo cvA vE))
-
-/-- `checkOpaqueValP` with the in-place annotate-snapshot bracket
-(nothing stored, nothing promoted). -/
-def checkOpaqueValPB4 (fe : FEnv) (cvA : ConstantVal) (jty : EIdx)
-    (value : EIdx) : CheckIM FEnv := do
-  unless ← withStore (fun st => st.looseBVarsBoundedI 0 value) do
-    throw (.invalid s!"loose bound variable in value of {cvA.name}")
-  if ← withStore (fun st => st.hasFvarI value) then
-    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
-  modify fun s =>
-    let st := s.store
-    let s := { s with store := EStore.empty }
-    { s with store := st.enableTierTwo }
-  let jv ← (coreKnotI fe checkFuel).annotate 0 value
-  unless ← withStore
-      (fun st => st.allLevelParamsDefinedI cvA.levelParams jv) do
-    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
-  unless ← withStore (fun st => constsResolveFI st fe jv) do
-    throw (.invalid s!"unknown constant in value of {cvA.name}")
-  let jvt ← (coreKnotI fe checkFuel).infer 0 jv
-  let ok ← (coreKnotI fe checkFuel).defeq 0 jvt jty
-  modify fun s =>
-    let st := s.store
-    let s := { s with store := EStore.empty }
-    let s := s.flushed
-    { s with store := st.truncateTierTwo }
-  unless ok do
-    throw (.invalid s!"type mismatch in opaque {cvA.name}")
-  recordIConst cvA.name cvA.type jty none
-  pure (fe.push (.axiomInfo cvA))
-
-/-- `checkDeclSP` with the in-place annotate-snapshot bracket. -/
-def checkDeclSPB4 (fe : FEnv) (pd : DeclP) : CheckIM FEnv :=
-  match pd with
-  | .defnDecl cv value hint => do
-    let (cvA, jty) ← checkConstantValP fe cv
-    if natOpNames.contains cvA.name || natDivModNames.contains cvA.name then
-      checkDeclSP fe pd
-    else
-      checkDefnValPB4 fe cvA jty value hint
-  | .thmDecl cv value => do
-    let (cvA, jty) ← checkConstantValP fe cv
-    checkThmValPB4 fe cvA jty value
-  | .opaqueDecl cv value => do
-    let (cvA, jty) ← checkConstantValP fe cv
-    if reduceOpNames.contains cvA.name then
-      let fe2 ← checkOpaqueValP fe cvA jty value
-      let vE ← readbackEM value
-      checkReducePinF (sharedOps fe) fe fe2 cvA.name vE
-      pure fe2
-    else
-      checkOpaqueValPB4 fe cvA jty value
-  | _ => checkDeclSP fe pd
-
-/-- `checkDeclSPStep` with the in-place annotate-snapshot checker. -/
-def checkDeclSPStepB4 (n0 : Nat) (fe : FEnv) (pd : DeclP) :
-    CheckIM FEnv := do
-  unless pd.inRangeB n0 do
-    throw (.internal "parsed declaration index out of range")
-  flushS
-  checkDeclSPB4 fe pd
-
-/-- `checkDeclsSP` with the in-place annotate-snapshot step. -/
-def checkDeclsSPB4 (st : WFStore) (pds : List DeclP) : CheckM Env := do
-  let fe ← (pds.foldlM (checkDeclSPStepB4 (st.raw.nodes.size + st.raw.nodes.size))
-    (mkFEnv Env.empty)).run' { store := st.raw }
-  pure fe.env
-
-/-- `checkDeclSP` with bracketed value checks.  The rare cert branches
-(Nat-op/div-mod pins, reduce pins) and the install-only kinds run the
-default path — their per-declaration temporaries are bounded (a fixed
-handful of pinned names per stream; block installs carry their own
-budget), so tier-one retention there does not affect the slope. -/
-def checkDeclSPB (br : CheckIM Unit → CheckIM Unit) (fe : FEnv)
-    (pd : DeclP) : CheckIM FEnv :=
-  match pd with
-  | .defnDecl cv value hint => do
-    let (cvA, jty) ← checkConstantValP fe cv
-    if natOpNames.contains cvA.name || natDivModNames.contains cvA.name then
-      -- Rare pinned-name branch: re-dispatch to the default driver
-      -- (the `checkConstantValP` prefix is idempotent — memoized
-      -- passes, same canonical indices; a fixed handful of names).
-      checkDeclSP fe pd
-    else
-      checkDefnValPB br fe cvA jty value hint
-  | .thmDecl cv value => do
-    let (cvA, jty) ← checkConstantValP fe cv
-    checkThmValPB br fe cvA jty value
-  | .opaqueDecl cv value => do
-    let (cvA, jty) ← checkConstantValP fe cv
-    if reduceOpNames.contains cvA.name then
-      let fe2 ← checkOpaqueValP fe cvA jty value
-      let vE ← readbackEM value
-      checkReducePinF (sharedOps fe) fe fe2 cvA.name vE
-      pure fe2
-    else
-      checkOpaqueValPB br fe cvA jty value
-  | _ => checkDeclSP fe pd
-
-/-- `checkDeclSPStep` with the bracketed declaration checker. -/
-def checkDeclSPStepB (br : CheckIM Unit → CheckIM Unit) (n0 : Nat)
-    (fe : FEnv) (pd : DeclP) : CheckIM FEnv := do
-  unless pd.inRangeB n0 do
-    throw (.internal "parsed declaration index out of range")
-  flushS
-  checkDeclSPB br fe pd
-
-/-- `checkDeclsSP` with the bracketed step. -/
-def checkDeclsSPB (br : CheckIM Unit → CheckIM Unit) (st : WFStore)
-    (pds : List DeclP) : CheckM Env := do
-  let fe ← (pds.foldlM (checkDeclSPStepB br (st.raw.nodes.size + st.raw.nodes.size))
     (mkFEnv Env.empty)).run' { store := st.raw }
   pure fe.env
 

@@ -113,7 +113,7 @@ def internL (s : WFStore) (n : LNode)
 
 theorem internL_lt (s : WFStore) (n : LNode) (hc) :
     (s.internL n hc).1 < (s.internL n hc).2.raw.lnodes.size :=
-  EStore.internL_lt_size s.wf
+  EStore.internL_lt_size s.wf.toTWF
 
 /-- Intern one name node. -/
 def internN (s : WFStore) (n : NNode)
@@ -129,7 +129,7 @@ def internN (s : WFStore) (n : NNode)
 
 theorem internN_lt (s : WFStore) (n : NNode) (hc) :
     (s.internN n hc).1 < (s.internN n hc).2.raw.nnodes.size :=
-  EStore.internN_lt_size s.wf
+  EStore.internN_lt_size s.wf.toTWF
 
 /-! ## Checked single-node interning
 
@@ -303,7 +303,7 @@ theorem denote_eq_iff (s : WFStore) {i j : EIdx} {a b : Expr}
 theorem denoteN_eq_iff (s : WFStore) {i j : NIdx} {a b : Name}
     (ha : s.denoteN i = some a) (hb : s.denoteN j = some b) :
     i = j ↔ a = b :=
-  EStore.denoteN_eq_iff s.wf ha hb
+  EStore.denoteN_eq_iff s.wf.toTWF ha hb
 
 /-! ## Eager derived-field reads with unconditional exactness -/
 

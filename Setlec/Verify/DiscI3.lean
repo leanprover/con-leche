@@ -117,7 +117,7 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
 theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
     {d : Nat} {recName : Name} {rules : List RecRule} {i : EIdx}
     {major : Expr} {s₀ : IState} (hs : ISOK env s₀)
-    (hden : s₀.store.denote i = some major) (hmaj : WScoped d major) :
+    (hden : s₀.store.denoteT i = some major) (hmaj : WScoped d major) :
     SimAt env s₀ (RelE d)
       (majorToCtorI (coreKnotI (mkFEnv env) f) (mkFEnv env) d recName
         rules i)
@@ -272,8 +272,7 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                   obtain ⟨htmajd, hwtmaj⟩ := hP₂
                   refine SimAt.withStore ?_
                   obtain ⟨n, hn, hc, hd⟩ :=
-                    denote_some_inv (getAppFnI_spec hs₂.wf htmajd)
-                  have hn := getNode_of_stored hn
+                    denoteT_some_inv (getAppFnI_spec hs₂.wf htmajd)
                   rw [hn]
                   have hext₀₂ := hext₁.trans hext₂
                   cases n with
@@ -289,7 +288,7 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                     refine SimAt.bind_left (beqNameM_eff hs₂ hT'Den T)
                       (fun s₂b bq hs₂ hextb hbq => ?_)
                     subst bq
-                    replace htmajd := denote_mono hextb htmajd
+                    replace htmajd := denoteT_mono hextb htmajd
                     replace hlustDen := denoteLList_mono hextb hlustDen
                     replace hext₀₂ := hext₀₂.trans hextb
                     simp only [beq_iff_eq]
@@ -300,14 +299,14 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                       split
                       rotate_left
                       · exact SimAt.pure hs₂
-                          ⟨denote_mono hext₀₂ hden, hmaj⟩
+                          ⟨denoteT_mono hext₀₂ hden, hmaj⟩
                       refine SimAt.bind_left (internNameM_eff hs₂ rl.ctor)
                         (fun s₂n ctorI hs₂ hextn hQctorI => ?_)
-                      replace htmajd := denote_mono hextn htmajd
+                      replace htmajd := denoteT_mono hextn htmajd
                       replace hlustDen := denoteLList_mono hextn hlustDen
                       replace hmargs := hmargs.mono hextn
                       replace hext₀₂ := hext₀₂.trans hextn
-                      have hcn : denoteNode s₂n.store.denote
+                      have hcn : denoteNode s₂n.store.denoteT
                           s₂n.store.denoteL s₂n.store.denoteN
                           (.const ctorI ust)
                           = some (.const rl.ctor lust) := by
@@ -322,7 +321,7 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                       rw [wscopedBI_spec hs₄.wf hQfab,
                         looseBVarsBoundedI_spec hs₄.wf hQfab,
                         leafGuardI_spec hs₄.wf hQfab
-                          (denote_mono
+                          (denoteT_mono
                             ((hext₀₂.trans hext₃).trans hext₄) hden)]
                       split
                       · rename_i hguard
@@ -355,18 +354,18 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                         | false =>
                           simp only [Bool.false_eq_true, ↓reduceIte]
                           exact SimAt.pure hs₄d
-                            ⟨denote_mono ((hext₀₄.trans hext₄c).trans
+                            ⟨denoteT_mono ((hext₀₄.trans hext₄c).trans
                               hext₄d) hden, hmaj⟩
                         | true =>
                           simp only [↓reduceIte]
                           -- the official `to_cnstr_when_K` type check
                           refine SimAt.bind (ih.infer hs₄d
-                            (denote_mono (hext₄c.trans hext₄d) hQfab)
+                            (denoteT_mono (hext₄c.trans hext₄d) hQfab)
                             hwfab)
                             (fun s₄e tfab tfabx hs₄e hext₄e hPtf => ?_)
                           obtain ⟨htfd, hwtf⟩ := hPtf
                           refine SimAt.bind (ih.defeq hs₄e
-                            (denote_mono ((((hext₃.trans hext₄).trans
+                            (denoteT_mono ((((hext₃.trans hext₄).trans
                               hext₄c).trans hext₄d).trans hext₄e)
                               htmajd)
                             htfd hwtmaj hwtf)
@@ -376,7 +375,7 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                           | false =>
                             simp only [Bool.false_eq_true, ↓reduceIte]
                             exact SimAt.pure hs₄f
-                              ⟨denote_mono ((((hext₀₄.trans
+                              ⟨denoteT_mono ((((hext₀₄.trans
                                 hext₄c).trans hext₄d).trans
                                 hext₄e).trans hext₄f) hden, hmaj⟩
                           | true =>
@@ -385,8 +384,8 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                               ((hext₄c.trans hext₄d).trans
                                 hext₄e).trans hext₄f
                             refine SimAt.bind (proofIrrelI_sim ih hs₄f
-                              (denote_mono hextC hQfab)
-                              (denote_mono (hext₀₄.trans hextC) hden)
+                              (denoteT_mono hextC hQfab)
+                              (denoteT_mono (hext₀₄.trans hextC) hden)
                               hwfab hmaj)
                               (fun s₅ r r' hs₅ hext₅ hPr => ?_)
                             obtain rfl : r = r' := hPr
@@ -394,47 +393,47 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                             | true =>
                               simp only [↓reduceIte]
                               exact SimAt.pure hs₅
-                                ⟨denote_mono hext₅
-                                  (denote_mono hextC hQfab), hwfab⟩
+                                ⟨denoteT_mono hext₅
+                                  (denoteT_mono hextC hQfab), hwfab⟩
                             | false =>
                               simp only [Bool.false_eq_true,
                                 ↓reduceIte]
                               exact SimAt.pure hs₅
-                                ⟨denote_mono ((hext₀₄.trans
+                                ⟨denoteT_mono ((hext₀₄.trans
                                   hextC).trans hext₅) hden, hmaj⟩
                       · exact SimAt.pure hs₄
-                          ⟨denote_mono
+                          ⟨denoteT_mono
                             ((hext₀₂.trans hext₃).trans hext₄) hden,
                             hmaj⟩
                     · exact SimAt.pure hs₂
-                        ⟨denote_mono hext₀₂ hden, hmaj⟩
+                        ⟨denoteT_mono hext₀₂ hden, hmaj⟩
                   | bvar k =>
                     invert_head hd
-                    exact SimAt.pure hs₂ ⟨denote_mono hext₀₂ hden, hmaj⟩
+                    exact SimAt.pure hs₂ ⟨denoteT_mono hext₀₂ hden, hmaj⟩
                   | sort u =>
                     invert_head hd
-                    exact SimAt.pure hs₂ ⟨denote_mono hext₀₂ hden, hmaj⟩
+                    exact SimAt.pure hs₂ ⟨denoteT_mono hext₀₂ hden, hmaj⟩
                   | lit l =>
                     invert_head hd
-                    exact SimAt.pure hs₂ ⟨denote_mono hext₀₂ hden, hmaj⟩
+                    exact SimAt.pure hs₂ ⟨denoteT_mono hext₀₂ hden, hmaj⟩
                   | fvar idx nm t =>
                     invert_head hd
-                    exact SimAt.pure hs₂ ⟨denote_mono hext₀₂ hden, hmaj⟩
+                    exact SimAt.pure hs₂ ⟨denoteT_mono hext₀₂ hden, hmaj⟩
                   | app f' a' =>
                     invert_head hd
-                    exact SimAt.pure hs₂ ⟨denote_mono hext₀₂ hden, hmaj⟩
+                    exact SimAt.pure hs₂ ⟨denoteT_mono hext₀₂ hden, hmaj⟩
                   | lam nm t b' m =>
                     invert_head hd
-                    exact SimAt.pure hs₂ ⟨denote_mono hext₀₂ hden, hmaj⟩
+                    exact SimAt.pure hs₂ ⟨denoteT_mono hext₀₂ hden, hmaj⟩
                   | forallE nm t b' m =>
                     invert_head hd
-                    exact SimAt.pure hs₂ ⟨denote_mono hext₀₂ hden, hmaj⟩
+                    exact SimAt.pure hs₂ ⟨denoteT_mono hext₀₂ hden, hmaj⟩
                   | letE nm t v b' =>
                     invert_head hd
-                    exact SimAt.pure hs₂ ⟨denote_mono hext₀₂ hden, hmaj⟩
+                    exact SimAt.pure hs₂ ⟨denoteT_mono hext₀₂ hden, hmaj⟩
                   | proj s' j' e' =>
                     invert_head hd
-                    exact SimAt.pure hs₂ ⟨denote_mono hext₀₂ hden, hmaj⟩
+                    exact SimAt.pure hs₂ ⟨denoteT_mono hext₀₂ hden, hmaj⟩
                 · rw [if_neg hK, if_neg hK]
                   by_cases hEta : caps.eta = true ∧
                       rl.ctor = caps.etaCtor ∧
@@ -449,8 +448,7 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                     obtain ⟨htmajd, hwtmaj⟩ := hP₂
                     refine SimAt.withStore ?_
                     obtain ⟨n, hn, hc, hd⟩ :=
-                      denote_some_inv (getAppFnI_spec hs₂.wf htmajd)
-                    have hn := getNode_of_stored hn
+                      denoteT_some_inv (getAppFnI_spec hs₂.wf htmajd)
                     rw [hn]
                     have hext₀₂ := hext₁.trans hext₂
                     cases n with
@@ -478,7 +476,7 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                       · split
                         rotate_left
                         · exact SimAt.pure hs₂r
-                            ⟨denote_mono (hext₀₂.trans hext₂r) hden,
+                            ⟨denoteT_mono (hext₀₂.trans hext₂r) hden,
                               hmaj⟩
                         refine SimAt.bind_left (internNameM_eff hs₂r T)
                           (fun s₂t TI hs₂r hextt hQTI => ?_)
@@ -488,14 +486,14 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                           hQTI
                           (denoteLList_mono hext₂r hlustDen)
                           (hmargs.mono hext₂r)
-                          (denote_mono (hext₀₂.trans hext₂r) hden))
+                          (denoteT_mono (hext₀₂.trans hext₂r) hden))
                           (fun s₃ projs hs₃ hext₃ hQp => ?_)
                         refine SimAt.bind_left (internNameM_eff hs₃
                           caps.etaCtor)
                           (fun s₃n ctorI hs₃ hextcn hQctorI => ?_)
                         replace hQp := hQp.mono hextcn
                         replace hext₃ := hext₃.trans hextcn
-                        have hcn : denoteNode s₃n.store.denote
+                        have hcn : denoteNode s₃n.store.denoteT
                             s₃n.store.denoteL s₃n.store.denoteN
                             (.const ctorI ust)
                             = some (.const caps.etaCtor lust) := by
@@ -515,7 +513,7 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                         rw [wscopedBI_spec hs₅.wf hQfab,
                           looseBVarsBoundedI_spec hs₅.wf hQfab,
                           leafGuardI_spec hs₅.wf hQfab
-                            (denote_mono hext₀₅ hden)]
+                            (denoteT_mono hext₀₅ hden)]
                         split
                         · rename_i hguard
                           have hwfab := WScoped.of_wscopedB
@@ -559,16 +557,16 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                           | false =>
                             simp only [Bool.false_eq_true, ↓reduceIte]
                             exact SimAt.pure hs₅d
-                              ⟨denote_mono ((hext₀₅.trans hext₅c).trans
+                              ⟨denoteT_mono ((hext₀₅.trans hext₅c).trans
                                 hext₅d) hden, hmaj⟩
                           | true =>
                             simp only [↓reduceIte]
                             have hextC := hext₅c.trans hext₅d
                             refine SimAt.bind (structEtaCertWithI_sim ih
                               henv hs₅d
-                              (denote_mono hextC hQfab)
-                              (denote_mono (hext₀₅.trans hextC) hden)
-                              (denote_mono ((((hext₂r.trans
+                              (denoteT_mono hextC hQfab)
+                              (denoteT_mono (hext₀₅.trans hextC) hden)
+                              (denoteT_mono ((((hext₂r.trans
                                 hext₃).trans hext₄).trans hext₅).trans
                                 hextC) htmajd)
                               hwfab hmaj hwtmaj)
@@ -578,16 +576,16 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                             | true =>
                               simp only [↓reduceIte]
                               exact SimAt.pure hs₆
-                                ⟨denote_mono hext₆
-                                  (denote_mono hextC hQfab), hwfab⟩
+                                ⟨denoteT_mono hext₆
+                                  (denoteT_mono hextC hQfab), hwfab⟩
                             | false =>
                               simp only [Bool.false_eq_true, ↓reduceIte]
                               split
                               · refine SimAt.bind (proofIrrelI_sim ih
                                   hs₆
-                                  (denote_mono hext₆
-                                    (denote_mono hextC hQfab))
-                                  (denote_mono ((hext₀₅.trans
+                                  (denoteT_mono hext₆
+                                    (denoteT_mono hextC hQfab))
+                                  (denoteT_mono ((hext₀₅.trans
                                     hextC).trans hext₆) hden)
                                   hwfab hmaj)
                                   (fun s₇ r₂ r₂' hs₇ hext₇ hPr₂ => ?_)
@@ -596,60 +594,60 @@ theorem majorToCtorI_sim (ih : SSimI env f) (henv : EnvWF env)
                                 | true =>
                                   simp only [↓reduceIte]
                                   exact SimAt.pure hs₇
-                                    ⟨denote_mono hext₇
-                                      (denote_mono hext₆
-                                        (denote_mono hextC hQfab)),
+                                    ⟨denoteT_mono hext₇
+                                      (denoteT_mono hext₆
+                                        (denoteT_mono hextC hQfab)),
                                       hwfab⟩
                                 | false =>
                                   simp only [Bool.false_eq_true,
                                     ↓reduceIte]
                                   exact SimAt.pure hs₇
-                                    ⟨denote_mono (((hext₀₅.trans
+                                    ⟨denoteT_mono (((hext₀₅.trans
                                       hextC).trans hext₆).trans hext₇)
                                       hden, hmaj⟩
                               · exact SimAt.pure hs₆
-                                  ⟨denote_mono ((hext₀₅.trans
+                                  ⟨denoteT_mono ((hext₀₅.trans
                                     hextC).trans hext₆) hden, hmaj⟩
                         · exact SimAt.pure hs₅
-                            ⟨denote_mono hext₀₅ hden, hmaj⟩
+                            ⟨denoteT_mono hext₀₅ hden, hmaj⟩
                       · exact SimAt.pure hs₂r
-                          ⟨denote_mono (hext₀₂.trans hext₂r) hden, hmaj⟩
+                          ⟨denoteT_mono (hext₀₂.trans hext₂r) hden, hmaj⟩
                     | bvar k =>
                       invert_head hd
                       exact SimAt.pure hs₂
-                        ⟨denote_mono hext₀₂ hden, hmaj⟩
+                        ⟨denoteT_mono hext₀₂ hden, hmaj⟩
                     | sort u =>
                       invert_head hd
                       exact SimAt.pure hs₂
-                        ⟨denote_mono hext₀₂ hden, hmaj⟩
+                        ⟨denoteT_mono hext₀₂ hden, hmaj⟩
                     | lit l =>
                       invert_head hd
                       exact SimAt.pure hs₂
-                        ⟨denote_mono hext₀₂ hden, hmaj⟩
+                        ⟨denoteT_mono hext₀₂ hden, hmaj⟩
                     | fvar idx nm t =>
                       invert_head hd
                       exact SimAt.pure hs₂
-                        ⟨denote_mono hext₀₂ hden, hmaj⟩
+                        ⟨denoteT_mono hext₀₂ hden, hmaj⟩
                     | app f' a' =>
                       invert_head hd
                       exact SimAt.pure hs₂
-                        ⟨denote_mono hext₀₂ hden, hmaj⟩
+                        ⟨denoteT_mono hext₀₂ hden, hmaj⟩
                     | lam nm t b' m =>
                       invert_head hd
                       exact SimAt.pure hs₂
-                        ⟨denote_mono hext₀₂ hden, hmaj⟩
+                        ⟨denoteT_mono hext₀₂ hden, hmaj⟩
                     | forallE nm t b' m =>
                       invert_head hd
                       exact SimAt.pure hs₂
-                        ⟨denote_mono hext₀₂ hden, hmaj⟩
+                        ⟨denoteT_mono hext₀₂ hden, hmaj⟩
                     | letE nm t v b' =>
                       invert_head hd
                       exact SimAt.pure hs₂
-                        ⟨denote_mono hext₀₂ hden, hmaj⟩
+                        ⟨denoteT_mono hext₀₂ hden, hmaj⟩
                     | proj s' j' e' =>
                       invert_head hd
                       exact SimAt.pure hs₂
-                        ⟨denote_mono hext₀₂ hden, hmaj⟩
+                        ⟨denoteT_mono hext₀₂ hden, hmaj⟩
                   · rw [if_neg hEta, if_neg hEta]
                     exact SimAt.pure hs ⟨hden, hmaj⟩
               | axiomInfo cv => exact SimAt.pure hs ⟨hden, hmaj⟩
@@ -718,7 +716,7 @@ theorem pinArgsI_eff (lps : List Name) (us : List LIdx)
       (denoteLList_mono (((hext₁.trans hext₁').trans hext₂)) hus) t
       (hargs.mono ((hext₁.trans hext₁').trans hext₂)))
       (fun s₃ rs hs₃ hext₃ hQrs => ?_)
-    exact IEff.pure hs₃ ⟨denote_mono hext₃ hQr, hQrs⟩
+    exact IEff.pure hs₃ ⟨denoteT_mono hext₃ hQr, hQrs⟩
 
 /-- The shared certificate tail of the iota step (after the firing-mode
 comparands): recursor/constructor telescope certificates, the
@@ -734,11 +732,11 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
     (hjI : s₀.store.denoteN jI = some cj)
     (hus : denoteLList s₀.store.denoteL us = some lus)
     (husj : denoteLList s₀.store.denoteL usj = some lusj)
-    (_hden : s₀.store.denote i = some ex) (hw : WScoped d ex)
+    (_hden : s₀.store.denoteT i = some ex) (hw : WScoped d ex)
     (hfc : env.find? c = some (.recInfo cv mI rP rules))
     (hfj : env.find? cj = some (.ctorInfo cvj cnP cnF))
     (hrule : rules.find? (fun r' => r'.ctor == cj) = some rl)
-    (hmd : s₀.store.denote major = some majorx) (hmaj : WScoped d majorx)
+    (hmd : s₀.store.denoteT major = some majorx) (hmaj : WScoped d majorx)
     (hargs : DenL s₀.store args ex.getAppArgs)
     (hmargs : DenL s₀.store margs majorx.getAppArgs) :
     SimAt env s₀ (RelO d)
@@ -815,7 +813,7 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
   simp only [ConstantInfo.toConstantVal] at hQrec
   refine SimAt.bind (iotaCertsI_sim ih hs₁ hQrec hwrecty
     (((hargs.mono hext₁).take mI).append
-      (DenL.cons (denote_mono hext₁ hmd) DenL.nil)) ?_)
+      (DenL.cons (denoteT_mono hext₁ hmd) DenL.nil)) ?_)
     (fun s₂ r₂ r₂' hs₂ hext₂ hPr₂ => ?_)
   · intro x hx
     rcases List.mem_append.mp hx with hx | hx
@@ -848,9 +846,9 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
       refine SimAt.withStore ?_
       have hsp := stripPisBodyI_spec hs₄.wf
         (k := rl.ctorParams + rl.nfields)
-        (denote_mono hext₄ hQctor)
+        (denoteT_mono hext₄ hQctor)
       refine SimAt.bind_left (piResidualM_eff hs₄
-        (denote_mono hext₄ hQctor)
+        (denoteT_mono hext₄ hQctor)
         (hmargs.mono (hext₀₃.trans hext₄)))
         (fun s₅ ores hs₅ hext₅ hQres => ?_)
       cases hspx : (cvj.type.instantiateLevelParams cvj.levelParams
@@ -879,7 +877,7 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
         | none => rw [hocb] at hsp; exact nomatch hsp
         | some cb =>
           rw [hocb] at hsp
-          have hcbd : s₄.store.denote cb = some cbody := hsp
+          have hcbd : s₄.store.denoteT cb = some cbody := hsp
           cases hresx : piResidual (cvj.type.instantiateLevelParams
               cvj.levelParams lusj) majorx.getAppArgs with
           | none =>
@@ -892,13 +890,12 @@ private theorem iotaRec_certs_tail (ih : SSimI env f) (henv : EnvWF env)
             cases ores with
             | none => exact nomatch hQres
             | some res =>
-              have hresd : s₅.store.denote res = some residual := hQres
+              have hresd : s₅.store.denoteT res = some residual := hQres
               dsimp only
               refine SimAt.withStore ?_
               obtain ⟨n'', hn'', hc'', hd''⟩ :=
-                denote_some_inv (getAppFnI_spec hs₅.wf
-                  (denote_mono hext₅ hcbd))
-              have hn'' := getNode_of_stored hn''
+                denoteT_some_inv (getAppFnI_spec hs₅.wf
+                  (denoteT_mono hext₅ hcbd))
               rw [hn'']
               cases n'' with
               | const cnᵢ cus =>
@@ -1061,15 +1058,14 @@ private theorem iotaRec_unfold (env : Env) (d : Nat) (e : Expr) :
 set_option maxHeartbeats 8000000 in
 theorem iotaRecI_sim (ih : SSimI env f) (henv : EnvWF env)
     {d : Nat} {i : EIdx} {ex : Expr} {s₀ : IState} (hs : ISOK env s₀)
-    (hden : s₀.store.denote i = some ex) (hw : WScoped d ex) :
+    (hden : s₀.store.denoteT i = some ex) (hw : WScoped d ex) :
     SimAt env s₀ (RelO d)
       (iotaRecI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i)
       (iotaRec (fueledFns env) env d ex) := by
   unfold iotaRecI
   rw [iotaRec_unfold]
   refine SimAt.withStore ?_
-  obtain ⟨n, hn, hc, hd⟩ := denote_some_inv (getAppFnI_spec hs.wf hden)
-  have hn := getNode_of_stored hn
+  obtain ⟨n, hn, hc, hd⟩ := denoteT_some_inv (getAppFnI_spec hs.wf hden)
   rw [hn]
   cases n with
   | const cᵢ us =>
@@ -1083,7 +1079,7 @@ theorem iotaRecI_sim (ih : SSimI env f) (henv : EnvWF env)
       (fun s₀c cw hs hextc hcw => ?_)
     subst cw
     replace hnmDen := denoteN_mono hextc hnmDen
-    replace hden := denote_mono hextc hden
+    replace hden := denoteT_mono hextc hden
     replace hlusDen := denoteLList_mono hextc hlusDen
     rw [mkFEnv_find?]
     cases hfc : env.find? c with
@@ -1100,7 +1096,7 @@ theorem iotaRecI_sim (ih : SSimI env f) (henv : EnvWF env)
         · rw [if_neg hlen, if_neg hlen]
           exact SimAt.pure hs trivial
         rw [if_pos hlen, if_pos hlen]
-        · have hbv : denoteNode s₀.store.denote s₀.store.denoteL s₀.store.denoteN (.bvar 0)
+        · have hbv : denoteNode s₀.store.denoteT s₀.store.denoteL s₀.store.denoteN (.bvar 0)
               = some (.bvar 0) := rfl
           refine SimAt.bind_left (internI_eff hs hbv)
             (fun s₁ bvar0 hs₁ hext₁ hQ0 => ?_)
@@ -1117,8 +1113,7 @@ theorem iotaRecI_sim (ih : SSimI env f) (henv : EnvWF env)
           obtain ⟨hmd, hmaj⟩ := hP₂
           refine SimAt.withStore ?_
           obtain ⟨n', hn', hc', hd'⟩ :=
-            denote_some_inv (getAppFnI_spec hs₄.wf hmd)
-          have hn' := getNode_of_stored hn'
+            denoteT_some_inv (getAppFnI_spec hs₄.wf hmd)
           rw [hn']
           have hext₀₄ :=
             ((hext₁.trans hext₂).trans hext₃).trans hext₄
@@ -1134,7 +1129,7 @@ theorem iotaRecI_sim (ih : SSimI env f) (henv : EnvWF env)
               (fun s₄c cjw hs₄ hextcj hcjw => ?_)
             subst cjw
             replace hcjDen := denoteN_mono hextcj hcjDen
-            replace hmd := denote_mono hextcj hmd
+            replace hmd := denoteT_mono hextcj hmd
             replace hlusjDen := denoteLList_mono hextcj hlusjDen
             replace hext₀₄ := hext₀₄.trans hextcj
             rw [mkFEnv_find?]
@@ -1234,9 +1229,9 @@ theorem iotaRecI_sim (ih : SSimI env f) (henv : EnvWF env)
                                   (hext₀₆.trans hext₇) hlusDen)
                                 (denoteLList_mono
                                   (hext₄₆.trans hext₇) hlusjDen)
-                                (denote_mono (hext₀₆.trans hext₇) hden)
+                                (denoteT_mono (hext₀₆.trans hext₇) hden)
                                 hw hfc hfj hrule
-                                (denote_mono
+                                (denoteT_mono
                                   ((hext₄₆.trans hext₇))
                                   hmd)
                                 hmaj
@@ -1298,9 +1293,9 @@ theorem iotaRecI_sim (ih : SSimI env f) (henv : EnvWF env)
                                   (hext₀₆.trans hext₇) hlusDen)
                                 (denoteLList_mono
                                   (hext₄₆.trans hext₇) hlusjDen)
-                                (denote_mono (hext₀₆.trans hext₇) hden)
+                                (denoteT_mono (hext₀₆.trans hext₇) hden)
                                 hw hfc hfj hrule
-                                (denote_mono
+                                (denoteT_mono
                                   (hext₄₆.trans hext₇)
                                   hmd)
                                 hmaj

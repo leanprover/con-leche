@@ -7219,3 +7219,77 @@ pass (a full inference sweep per declaration) and the per-binder cod
 storage; this stage's number is the *gate cost now*, reported on its
 own as ordered.
 
+
+## The snapshot bracket is the default, verified (2026-08-24, task #64 landing)
+
+The mode-4 tier bracket (in-place value-pipeline snapshot + promotion,
+the measurement winner: 23.2 % retained nodes / −57.5 % peak RSS /
++3.14 % instructions on the Mathlib prefix) is now THE default driver,
+and the flag-on regime is fully verified — `checkDeclsSP_sound` /
+`no_proof_of_Empty_SP` cover the shipping binary at exactly
+`[propext, Classical.choice, Quot.sound]`.  The `SETLEC_TIER_BRACKET`
+knob and modes 1–3 are retired; the measurement tables above remain
+reproducible at the pre-flip commit 2794be4.
+
+**The verified pipeline.**  `checkDeclSP` dispatches def/thm/opaque
+values through the named seams `openSnapshotM` → `bracketValB4`
+(annotate, post-annotate guards, readback, infer, defeq — shared
+def/thm middle) → `closeSnapshotM` (harvest tier two, truncate in
+place, flush the `EIdx`-carrying memos, promote the stored output's
+sub-DAG); opaques discard via `closeDiscardM`.  The pinned-cert
+branches (Nat-op/div-mod/reduce) and the install-only kinds run the
+unbracketed `checkDeclSPPlain` — their dispatch conditions moved to
+the *static header name* (`checkConstantValP` preserves it), so the
+rare branch no longer re-runs the header check and the walks reuse the
+Plain simulation whole.
+
+**The verification battery, as landed** (each item its own commits):
+
+1. *Tier-aware denotation.*  `EStore.denoteT` reads the dispatching
+   `getNode` and recurses along the traversal order `emlt`; on `WF`
+   stores it IS `denote`, on `TWF` stores it agrees with `denote` at
+   every even index.  `Ext` gained the tier-two prefix clause and flag
+   preservation (interns never flip the mode; the seams are
+   deliberately *not* extensions).  The whole op-spec battery
+   (IExpr/IExprOps/ILevel/ParseP walkers), the interned-core
+   invariant `ISOK` (now `TWF` + `denoteT` clauses; the `ienv` clause
+   alone stays on tier-one `denote` and survives the close) and the
+   DiscI/knot/bridge chain were restated over `(TWF, denoteT)` — the
+   flag-off proofs are the even-index special case, and
+   `denoteT_some_inv` hands each traversal proof its `emlt` guards
+   directly (most proofs got *shorter*).  Boundary walks thread the
+   declaration-boundary flag-off witness along `Ext.flag`
+   (`tierOffE`/`tierOffExt`), converting `denoteT` facts back to
+   tier-one facts at the record states.
+2. *Promotion correctness* (`Setlec/Verify/Promote.lean`):
+   `promoteE_spec` — the index-memoized re-intern of a tier-two
+   sub-DAG into any store carrying the snapshot's tier-one
+   denotations yields a `WF` extension whose result index denotes,
+   tier-one, exactly the snapshot's tier-aware denotation;
+   `promoteLGo_lt`/`promoteNGo_lt` are the level/name identity claims
+   (harvest-time bases bound every reference, `TWF.t_levels_lt`).
+3. *Seam state theory* (`Setlec/Verify/BracketB4.lean`):
+   `ISOK.enable` (the mode switch is invisible to every denotation),
+   `ISOK.truncFlush` + `closeSnapshotM_eff`/`closeDiscardM_eff` (flush
+   the `denoteT`-based caches — exactly the `EIdx`-carrying ones —
+   truncate, promote; the level caches and `ienv` survive), and the
+   `KeepsO` raw-table preservation that reconstitutes `Ext` across a
+   whole bracketed declaration (tier two empty and flags equal at both
+   ends).
+4. *Driver walks.*  `bracketValB4_eff` decomposes the bracketed middle
+   run and returns the fueled annotate/infer/defeq runs at one joined
+   fuel; the val-sims assemble the generic `checkDefnVal`/`checkThmVal`
+   /`checkOpaqueVal` runs from them, and `checkDeclSP_sim` feeds the
+   unchanged consistency fold.
+
+**Verdict identity and cost, re-measured post-flip.**  The flipped
+binary is byte-identical (stdout+stderr+exit) to the pre-flip default
+on init-core and on the 12 M-line Mathlib prefix (both accept 101,326
+declarations); arena 90/92 + e2e 64/64, `scale.sh` PASS.  Instructions
+(`perf stat -e instructions:u`, init-core `--pre`, median of 3):
+7.0489 G bracketed vs 7.0489 G unbracketed — **+0.002 %**, far inside
+the measured +3.14 % envelope (the envelope was measured at 94d0aa7
+against a pre-merge baseline; the interim master perf work also
+removed most of the bracket's re-walk overhead).  Peak RSS on the
+log2 Mathlib prefix (`time -v`): 2.63 GB bracketed vs 6.31 GB
+unbracketed — **−58.4 %**, the mode-4 profile as measured.

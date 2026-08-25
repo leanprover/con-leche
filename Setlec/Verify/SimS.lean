@@ -48,7 +48,7 @@ surviving components are the environment-free residue (`ISOKF`), the
 dropped caches' clauses are vacuous. -/
 theorem flushS_isok {env' : Env} {s : IState} (hs : ISOKF s) :
     ISOK env' s.flushed := by
-  refine ⟨hs.wf, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, hs.lsimp, hs.lnz,
+  refine ⟨hs.wf.toTWF, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, hs.lsimp, hs.lnz,
     hs.eqv, hs.ienv⟩ <;>
     (intros; simp_all [IState.flushed])
 
@@ -75,7 +75,7 @@ arena, run the simulated knot entry, read back. -/
 theorem opE_sim {pick : CoreFnsI → Nat → EIdx → CheckIM EIdx}
     {pf : FueledM Expr} {d : Nat} {e : Expr}
     (hsim : ∀ {s₁ : IState} {i : EIdx}, ISOK env s₁ →
-      s₁.store.denote i = some e →
+      s₁.store.denoteT i = some e →
       SimAt env s₁ (RelE d)
         (pick (coreKnotI (mkFEnv env) checkFuel) d i) pf)
     (hs : ISOK env s₀) :
@@ -134,7 +134,7 @@ theorem opB_sim (henv : EnvWF env) {d : Nat} {a b : Expr}
     (fun s₁ i hs₁ hext₁ hdena => ?_)
   refine SimAt.bind_left (internExprM_eff hs₁ b)
     (fun s₂ j hs₂ hext₂ hdenb => ?_)
-  exact (ssimI env henv checkFuel).defeq hs₂ (denote_mono hext₂ hdena)
+  exact (ssimI env henv checkFuel).defeq hs₂ (denoteT_mono hext₂ hdena)
     hdenb hwa hwb
 
 /-- Shared `ensureSort` simulates the fueled family. -/
