@@ -272,16 +272,16 @@ theorem pi_walk {env : Env} (m : EnvModel V env) (F : Nat)
         simp only [fvarLeaves, List.mem_append]; exact Or.inl hl) hFR
     have hAS' := hAS
     simp only [AnnotOk] at hAS'
-    obtain ⟨hAdomS, ⟨codS, hcodS⟩, hcondS⟩ := hAS'
+    obtain ⟨hAdomS, codS, -, hcondS⟩ := hAS'
     have hAR' := hAR
     simp only [AnnotOk] at hAR'
-    obtain ⟨hAdomR, ⟨codR, hcodR⟩, hcondR⟩ := hAR'
+    obtain ⟨hAdomR, codR, -, hcondR⟩ := hAR'
     -- interpretations of the two domains
     obtain ⟨PS, hPS⟩ := hIS
     obtain ⟨PR, hPR⟩ := hIR
     have hIdomS : ∃ AS, interpExpr V m.val env φ D ρ tfv = some AS := by
       revert hPS
-      simp only [interpExpr, hcodS]
+      simp only [interpExpr]
       cases hAS0 : interpExpr V m.val env φ D ρ tfv with
       | none => intro hPS; exact nomatch hPS
       | some AS => intro _; exact ⟨AS, rfl⟩
@@ -317,8 +317,8 @@ theorem pi_walk {env : Env} (m : EnvModel V env) (F : Nat)
         (bodyR.instantiate1 (.fvar i nfv tfv)) :=
       AnnotOk_beta hWdomR.2.fvarsBelow hwfv (by rfl) hifv
         (by simp [AnnotOk]) 0 hAopR
-    obtain ⟨wS, hwS, -⟩ := hfibS codS hcodS
-    obtain ⟨wR, hwR, -⟩ := hfibR codR hcodR
+    obtain ⟨wS, hwS, -⟩ := hfibS
+    obtain ⟨wR, hwR, -⟩ := hfibR
     have hIbodyS : ∃ P, interpExpr V m.val env φ D ρ
         (bodyS.instantiate1 (.fvar i nfv tfv)) = some P := by
       refine ⟨wS, ?_⟩
@@ -458,11 +458,11 @@ theorem pi_walk_src {env : Env} (m : EnvModel V env) (F : Nat)
         simp only [fvarLeaves, List.mem_append]; exact Or.inl hl) hFR
     have hAR' := hAR
     simp only [AnnotOk] at hAR'
-    obtain ⟨hAdomR, ⟨codR, hcodR⟩, hcondR⟩ := hAR'
+    obtain ⟨hAdomR, codR, -, hcondR⟩ := hAR'
     obtain ⟨PR, hPR⟩ := hIR
     have hIdomR : ∃ B, interpExpr V m.val env φ D ρ domR = some B := by
       revert hPR
-      simp only [interpExpr, hcodR]
+      simp only [interpExpr]
       cases hB0 : interpExpr V m.val env φ D ρ domR with
       | none => intro hPR; exact nomatch hPR
       | some B => intro _; exact ⟨B, rfl⟩
@@ -482,7 +482,7 @@ theorem pi_walk_src {env : Env} (m : EnvModel V env) (F : Nat)
         (bodyR.instantiate1 (.fvar i nfv tfv)) :=
       AnnotOk_beta hWdomR.2.fvarsBelow hwfv (by rfl) hifv
         (by simp [AnnotOk]) 0 hAopR
-    obtain ⟨wR, hwR, -⟩ := hfibR codR hcodR
+    obtain ⟨wR, hwR, -⟩ := hfibR
     have hIbodyR : ∃ P, interpExpr V m.val env φ D ρ
         (bodyR.instantiate1 (.fvar i nfv tfv)) = some P := by
       refine ⟨wR, ?_⟩
@@ -580,11 +580,11 @@ theorem typed_walk {env : Env} (m : EnvModel V env) (F : Nat)
         simp only [fvarLeaves, List.mem_append]; exact Or.inl hl) hFR
     have hAR' := hAR
     simp only [AnnotOk] at hAR'
-    obtain ⟨hAdomR, ⟨codR, hcodR⟩, hcondR⟩ := hAR'
+    obtain ⟨hAdomR, codR, -, hcondR⟩ := hAR'
     obtain ⟨PR, hPR⟩ := hIR
     have hIdomR : ∃ B, interpExpr V m.val env φ D ρ domR = some B := by
       revert hPR
-      simp only [interpExpr, hcodR]
+      simp only [interpExpr]
       cases hB0 : interpExpr V m.val env φ D ρ domR with
       | none => intro hPR; exact nomatch hPR
       | some B => intro _; exact ⟨B, rfl⟩
@@ -599,7 +599,7 @@ theorem typed_walk {env : Env} (m : EnvModel V env) (F : Nat)
     have hAbodyR : AnnotOk V m.val env φ D ρ
         (bodyR.instantiate1 a) :=
       AnnotOk_beta hWdomR.2.fvarsBelow hWa hba hiv hAa 0 hAopR
-    obtain ⟨wR, hwR, -⟩ := hfibR codR hcodR
+    obtain ⟨wR, hwR, -⟩ := hfibR
     have hIbodyR : ∃ P, interpExpr V m.val env φ D ρ
         (bodyR.instantiate1 a) = some P := by
       refine ⟨wR, ?_⟩
@@ -765,9 +765,9 @@ theorem AnnotOk.renameConsts {f : Name → Name}
       AnnotOk V cval env φ d ρ (e.renameConsts f)
   | .forallE n ty body m, d, ρ, ha => by
     simp only [AnnotOk] at ha
-    obtain ⟨haty, hcod, hcond⟩ := ha
+    obtain ⟨haty, vE, htie, hcond⟩ := ha
     simp only [Expr.renameConsts, AnnotOk]
-    refine ⟨AnnotOk.renameConsts hro ty d ρ haty, hcod, ?_⟩
+    refine ⟨AnnotOk.renameConsts hro ty d ρ haty, vE, htie, ?_⟩
     intro x A hity hx
     rw [interp_renameConsts hro ty d ρ] at hity
     obtain ⟨hbody, hw⟩ := hcond x A hity hx
@@ -778,8 +778,7 @@ theorem AnnotOk.renameConsts {f : Name → Name}
     constructor
     · rw [hopen]
       exact AnnotOk.renameConsts hro _ (d + 1) (updV V ρ d x) hbody
-    · intro v hv
-      obtain ⟨w, hwi, hwu⟩ := hw v hv
+    · obtain ⟨w, hwi, hwu⟩ := hw
       refine ⟨w, ?_, hwu⟩
       rw [hopen, interp_renameConsts hro _ (d + 1) (updV V ρ d x)]
       exact hwi
@@ -798,8 +797,7 @@ theorem AnnotOk.renameConsts {f : Name → Name}
     constructor
     · rw [hopen]
       exact AnnotOk.renameConsts hro _ (d + 1) (updV V ρ d x) hbody
-    · intro v hv
-      obtain ⟨w, B, hwi, hwB, hBu⟩ := hw v hv
+    · obtain ⟨w, B, hwi, hwB, hBu⟩ := hw
       refine ⟨w, B, ?_, hwB, hBu⟩
       rw [hopen, interp_renameConsts hro _ (d + 1) (updV V ρ d x)]
       exact hwi
@@ -883,13 +881,13 @@ theorem expr_peel_walk {φ : Name → Nat} {D : Nat} {ρ : Nat → V} :
       simpa [WScoped] using hW
     have hA' := hA
     simp only [AnnotOk] at hA'
-    obtain ⟨hAdom, ⟨cod, hcod⟩, hcond⟩ := hA'
+    obtain ⟨hAdom, cod, -, hcond⟩ := hA'
     obtain ⟨B, hBi, hvB⟩ := hmem 0 dom v rfl rfl
     obtain ⟨hWa, hba, hAa⟩ := hws a List.mem_cons_self
     obtain ⟨hAop, hfib⟩ := hcond v B hBi hvB
     have hAbody : AnnotOk V cval env φ D ρ (body.instantiate1 a) :=
       AnnotOk_beta hWd.2.fvarsBelow hWa hba hia hAa 0 hAop
-    obtain ⟨w, hwI, -⟩ := hfib cod hcod
+    obtain ⟨w, hwI, -⟩ := hfib
     have hIbody : ∃ P, interpExpr V cval env φ D ρ
         (body.instantiate1 a) = some P := by
       refine ⟨w, ?_⟩
@@ -939,7 +937,7 @@ theorem peel_walk {φ : Name → Nat} {D : Nat} {ρ : Nat → V} :
       simpa [WScoped] using hW
     have hA' := hA
     simp only [AnnotOk] at hA'
-    obtain ⟨hAdom, ⟨cod, hcod⟩, hcond⟩ := hA'
+    obtain ⟨hAdom, cod, -, hcond⟩ := hA'
     obtain ⟨B, hBi, hvB⟩ := hmem 0 dom v rfl rfl
     have hwfv : WScoped D (Expr.fvar i nfv tfv) :=
       hws _ List.mem_cons_self
@@ -951,7 +949,7 @@ theorem peel_walk {φ : Name → Nat} {D : Nat} {ρ : Nat → V} :
         (body.instantiate1 (.fvar i nfv tfv)) :=
       AnnotOk_beta hWd.2.fvarsBelow hwfv (by rfl) hifv
         (by simp [AnnotOk]) 0 hAop
-    obtain ⟨w, hwi, -⟩ := hfib cod hcod
+    obtain ⟨w, hwi, -⟩ := hfib
     have hIbody : ∃ P, interpExpr V cval env φ D ρ
         (body.instantiate1 (.fvar i nfv tfv)) = some P := by
       refine ⟨w, ?_⟩
@@ -1020,7 +1018,7 @@ theorem lam_walk {env : Env} (m : EnvModel V env) (F : Nat)
         simp only [fvarLeaves, List.mem_append]; exact Or.inl hl) hF
     have hA' := hA
     simp only [AnnotOk] at hA'
-    obtain ⟨hAdom, ⟨cod, hcod⟩, hcond⟩ := hA'
+    obtain ⟨hAdom, cod, hcond⟩ := hA'
     -- the opening variable's package
     have hFfv := hFs _ List.mem_cons_self
     have hhead := hFfv (i, nfv, tfv) (by simp [fvarLeaves])
@@ -1047,7 +1045,7 @@ theorem lam_walk {env : Env} (m : EnvModel V env) (F : Nat)
     obtain ⟨L, hLi⟩ := hI
     have hIdom : ∃ A, interpExpr V m.val env φ D ρ dom = some A := by
       revert hLi
-      simp only [interpExpr, hcod]
+      simp only [interpExpr]
       cases hd : interpExpr V m.val env φ D ρ dom with
       | none => intro hLi; exact nomatch hLi
       | some A => intro _; exact ⟨A, rfl⟩
@@ -1072,7 +1070,7 @@ theorem lam_walk {env : Env} (m : EnvModel V env) (F : Nat)
         (body.instantiate1 (.fvar i nfv tfv)) :=
       AnnotOk_beta hWd.2.fvarsBelow hwfv (by rfl) hifv
         (by simp [AnnotOk]) 0 hAop
-    obtain ⟨w, B, hwi, hwB, hBu⟩ := hfib cod hcod
+    obtain ⟨w, B, hwi, hwB, hBu⟩ := hfib
     have hIbody : ∃ P, interpExpr V m.val env φ D ρ
         (body.instantiate1 (.fvar i nfv tfv)) = some P := by
       refine ⟨w, ?_⟩
@@ -1150,7 +1148,7 @@ theorem self_walk {φ : Name → Nat} {D : Nat} {ρ : Nat → V} :
         simp only [fvarLeaves, List.mem_append]; exact Or.inl hl) hF
     have hA' := hA
     simp only [AnnotOk] at hA'
-    obtain ⟨hAdom, ⟨cod, hcod⟩, hcond⟩ := hA'
+    obtain ⟨hAdom, cod, -, hcond⟩ := hA'
     obtain ⟨B, hBi, hvB⟩ := hmem 0 tfv v (by simp [Expr.fvarTypeD]) rfl
     have hwfv : WScoped D (Expr.fvar i nfv tfv) :=
       hws _ List.mem_cons_self

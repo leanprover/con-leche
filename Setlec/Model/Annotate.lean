@@ -91,11 +91,6 @@ theorem annotateCore_sound (m : EnvModel V env) :
     have hPii : interpExpr V m.val env φ d ρ (.forallE n1 ty1 body1 m1) = some vtf := by
       rw [hiw]; exact htfi
     rw [interpExpr] at hPii
-    cases hcPi : m1.cod with
-    | none => rw [hcPi] at hPii; exact nomatch hPii
-    | some vPi =>
-    rw [hcPi] at hPii
-    dsimp only at hPii
     cases htyPi : interpExpr V m.val env φ d ρ ty1 with
     | none => rw [htyPi] at hPii; exact nomatch hPii
     | some A' =>
@@ -104,7 +99,7 @@ theorem annotateCore_sound (m : EnvModel V env) :
     obtain ⟨⟨va, vta, hai, htai, hmema⟩, hwta, hAta⟩ :=
       inferTypeCore_sound m fuel hia hwa' hba' hLba' hFa' hAa
     simp only [AnnotOk] at haPi
-    obtain ⟨haty1, -, hcond1⟩ := haPi
+    obtain ⟨haty1, _vE1, -, hcond1⟩ := haPi
     have hLbta : Expr.LeavesBounded ta := fun l hl =>
       hLba' l (inferTypeCore_fvarLeaves m.wf fuel hia hwa' l hl)
     have hLbPi : Expr.LeavesBounded (Expr.forallE n1 ty1 body1 m1) := fun l hl =>
@@ -122,17 +117,20 @@ theorem annotateCore_sound (m : EnvModel V env) :
     have hfib : ∀ x, x ∈ˢ A' →
         ((interpExpr V m.val env φ (d + 1) (updV V ρ d x)
           (body1.instantiate1 (.fvar d n1 ty1))).getD SetTheory.empty) ∈ˢ
-          univ (vPi.eval φ) := by
+          univ _vE1 := by
       intro x hx
       obtain ⟨-, hwf_x⟩ := hcond1 x A' htyPi hx
-      obtain ⟨w_x, hwi_x, hm_x⟩ := hwf_x vPi hcPi
+      obtain ⟨w_x, hwi_x, hm_x⟩ := hwf_x
       rw [hwi_x]
       simpa using hm_x
     simp only [AnnotOk]
-    refine ⟨hAf, hAa, vf, va, vPi.eval φ, A',
+    refine ⟨hAf, hAa, vf, va, _vE1, A',
       (fun x => (interpExpr V m.val env φ (d + 1) (updV V ρ d x)
         (body1.instantiate1 (.fvar d n1 ty1))).getD SetTheory.empty),
       hfi, hai, ?_, hva, hfib⟩
+    show vf ∈ˢ piC A' fun x =>
+      (interpExpr V m.val env φ (d + 1) (updV V ρ d x)
+        (body1.instantiate1 (.fvar d n1 ty1))).getD SetTheory.empty
     rw [hPii]
     exact hmemf
   | fuel + 1, .forallE n ty body mb, d, e', h, hw, hb, hLb, ρ, hok => by
@@ -198,7 +196,9 @@ theorem annotateCore_sound (m : EnvModel V env) :
       hokty l (annotateCore_leaves_sub fuel ty hty hw.1 hb.1 l hl)
     -- the annotation-truthfulness goal
     simp only [AnnotOk]
-    refine ⟨haty', ⟨v, rfl⟩, ?_⟩
+    refine ⟨haty', v.eval φ, ?_, ?_⟩
+    · rintro v' ⟨rfl⟩
+      exact fun z hz => hz
     intro x A hA hx
     have hfin : FvarsOk V m.val env φ (d + 1) (updV V ρ d x)
         (body.instantiate1 (.fvar d n ty')) :=
@@ -216,9 +216,7 @@ theorem annotateCore_sound (m : EnvModel V env) :
     constructor
     · rw [hrt]
       exact habody
-    · intro v' hv'
-      obtain rfl := Option.some.inj hv'
-      obtain ⟨⟨w, tw, hwi, htw, hmemw⟩, hwbt, hAbt⟩ :=
+    · obtain ⟨⟨w, tw, hwi, htw, hmemw⟩, hwbt, hAbt⟩ :=
         inferTypeCore_sound m fuel hit hwbody' hbbody' hLbbody' hfbody' habody
       have hLbbt : Expr.LeavesBounded bt := fun l hl =>
         hLbbody' l (inferTypeCore_fvarLeaves m.wf fuel hit hwbody' l hl)
@@ -294,7 +292,7 @@ theorem annotateCore_sound (m : EnvModel V env) :
     have hFty' : FvarsOk V m.val env φ d ρ ty' := fun l hl =>
       hokty l (annotateCore_leaves_sub fuel ty hty hw.1 hb.1 l hl)
     simp only [AnnotOk]
-    refine ⟨haty', ⟨v, rfl⟩, ?_⟩
+    refine ⟨haty', v.eval φ, ?_⟩
     intro x A hA hx
     have hfin : FvarsOk V m.val env φ (d + 1) (updV V ρ d x)
         (body.instantiate1 (.fvar d n ty')) :=
@@ -310,8 +308,6 @@ theorem annotateCore_sound (m : EnvModel V env) :
       · exact hokty l h2
       · exact hokbody l h2
     refine ⟨by rw [hrt]; exact habody, ?_⟩
-    intro v' hv'
-    obtain rfl := Option.some.inj hv'
     obtain ⟨⟨w, tw, hwi, htw, hmemw⟩, hwbt, hAbt⟩ :=
       inferTypeCore_sound m fuel hit hwbody' hbbody' hLbbody' hfbody' habody
     -- the sort of the body's type, via the second inference
