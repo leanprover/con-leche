@@ -48,9 +48,10 @@ theorem toListRev_empty {α} :
 
 /-- Pointwise relation of `inferLamsI` stack entries. -/
 def DenILE (s : IState) : InferLamEntry → InferLamEntryX → Prop
-  | (n, tyo, mb), (nx, tyox, mbx) =>
+  | (n, tyo, mb, v, u), (nx, tyox, mbx, vx, ux) =>
     s.store.denoteN n = some nx ∧ s.store.denote tyo = some tyox ∧
-    denoteBM s.store.denoteL mb = some mbx
+    denoteBM s.store.denoteL mb = some mbx ∧
+    s.store.denoteL v = some vx ∧ s.store.denoteL u = some ux
 
 def DenILStk (s : IState) : List InferLamEntry → List InferLamEntryX → Prop
   | [], [] => True
@@ -60,10 +61,11 @@ def DenILStk (s : IState) : List InferLamEntry → List InferLamEntryX → Prop
 theorem DenILE.mono {s s' : IState} (hext : Ext s.store s'.store)
     {e : InferLamEntry} {ex : InferLamEntryX} (h : DenILE s e ex) :
     DenILE s' e ex := by
-  obtain ⟨n, tyo, mb⟩ := e
-  obtain ⟨nx, tyox, mbx⟩ := ex
-  obtain ⟨h1, h2, h3⟩ := h
-  exact ⟨denoteN_mono hext h1, denote_mono hext h2, denoteBM_mono hext h3⟩
+  obtain ⟨n, tyo, mb, v, u⟩ := e
+  obtain ⟨nx, tyox, mbx, vx, ux⟩ := ex
+  obtain ⟨h1, h2, h3, h4, h5⟩ := h
+  exact ⟨denoteN_mono hext h1, denote_mono hext h2, denoteBM_mono hext h3,
+    denoteL_mono hext h4, denoteL_mono hext h5⟩
 
 theorem DenILStk.mono {s s' : IState} (hext : Ext s.store s'.store) :
     ∀ {stk : List InferLamEntry} {stkx : List InferLamEntryX},
@@ -97,57 +99,84 @@ theorem DenAStk.mono {s s' : IState} (hext : Ext s.store s'.store)
 
 theorem inferLamsOutI_sim {d : Nat} :
     ∀ {stk : List InferLamEntry} {stkx : List InferLamEntryX} {j : Nat}
-      {cur : EIdx} {curx : Expr} {s₀ : IState},
+      {v : LIdx} {lv : Level} {cur : EIdx} {curx : Expr} {s₀ : IState},
       ISOK env s₀ → DenILStk s₀ stk stkx →
+      s₀.store.denoteL v = some lv →
       s₀.store.denote cur = some curx →
-      SimAt env s₀ RelD (inferLamsOutI d stk j cur)
-        (inferLamsOut (m := FueledM) d stkx j curx) := by
+      SimAt env s₀ RelD (inferLamsOutI d stk j v cur)
+        (inferLamsOut (m := FueledM) d stkx j lv curx) := by
   intro stk
   induction stk with
   | nil =>
-    intro stkx j cur curx s₀ hs hstk hcur
+    intro stkx j v lv cur curx s₀ hs hstk hlv hcur
     cases stkx with
     | nil => exact SimAt.pure hs hcur
     | cons ex rx => exact absurd hstk (by simp [DenILStk])
   | cons e rest ihOut =>
-    obtain ⟨n, tyo, mb⟩ := e
-    intro stkx j cur curx s₀ hs hstk hcur
+    obtain ⟨n, tyo, mb, va, u⟩ := e
+    intro stkx j v lv cur curx s₀ hs hstk hlv hcur
     cases stkx with
     | nil => exact absurd hstk (by simp [DenILStk])
     | cons ex rx =>
-      obtain ⟨nx, tyox, mbx⟩ := ex
-      obtain ⟨⟨hnnm, htyo, hmb⟩, hrest⟩ := hstk
+      obtain ⟨nx, tyox, mbx, vax, ux⟩ := ex
+      obtain ⟨⟨hnnm, htyo, hmb, hva, hu⟩, hrest⟩ := hstk
       show SimAt env s₀ RelD
         (do
+          unless ← liftFueled "level comparison" (← isEquivLM va v) do
+            throw (.invalid "λ-annotation does not match the body's sort")
           let tyAbs ← abstractRangeM tyo d j
           let node ← internI (.forallE n tyAbs cur mb)
           match rest with
           | [] => pure node
-          | _ :: _ => inferLamsOutI d rest (j - 1) node)
+          | _ :: _ => do
+            let v' ← internLM (.imax u va)
+            inferLamsOutI d rest (j - 1) v' node)
         _
-      rw [inferLamsOut_cons' (m := FueledM) nx tyox mbx rx j curx]
-      refine SimAt.bind_left (abstractRangeM_eff hs htyo)
-        (fun s₃ tyAbs hs₃ hext₃ hQab => ?_)
-      have hnd : denoteNode s₃.store.denote s₃.store.denoteL
-          s₃.store.denoteN (.forallE n tyAbs cur mb)
-          = some (.forallE nx (tyox.abstractRange d j) curx mbx) := by
-        rw [denoteNode, hQab, denote_mono hext₃ hcur,
-          denoteBM_mono hext₃ hmb,
-          denoteN_mono hext₃ hnnm]
-        rfl
-      refine SimAt.bind_left (internI_eff hs₃ hnd)
-        (fun s₄ node hs₄ hext₄ hQnode => ?_)
-      cases rest with
-      | nil =>
-        cases rx with
-        | nil => exact SimAt.pure hs₄ hQnode
-        | cons ex2 rx2 => exact absurd hrest (by simp [DenILStk])
-      | cons e2 r2 =>
-        cases rx with
-        | nil => exact absurd hrest (by cases e2; simp [DenILStk])
-        | cons ex2 rx2 =>
-          exact ihOut hs₄
-            (DenILStk.mono (hext₃.trans hext₄) hrest) hQnode
+      rw [inferLamsOut_cons' (m := FueledM) nx tyox mbx vax ux rx j lv curx]
+      refine SimAt.bind_left (isEquivLM_eff hs hva hlv)
+        (fun s₁ o hs₁ hext₁ ho => ?_)
+      subst ho
+      refine SimAt.bind (SimAt.liftFueled _ _ hs₁)
+        (fun s₂ ok ok' hs₂ hext₂ hPok => ?_)
+      obtain rfl : ok = ok' := hPok
+      cases ok with
+      | false =>
+        simp only [Bool.false_eq_true, ↓reduceIte]
+        exact SimAt.throw_bind
+      | true =>
+        simp only [↓reduceIte]
+        have hext₀₂ := hext₁.trans hext₂
+        refine SimAt.bind_left (abstractRangeM_eff hs₂
+          (denote_mono hext₀₂ htyo)) (fun s₃ tyAbs hs₃ hext₃ hQab => ?_)
+        have hext₀₃ := hext₀₂.trans hext₃
+        have hnd : denoteNode s₃.store.denote s₃.store.denoteL
+            s₃.store.denoteN (.forallE n tyAbs cur mb)
+            = some (.forallE nx (tyox.abstractRange d j) curx mbx) := by
+          rw [denoteNode, hQab, denote_mono hext₀₃ hcur,
+            denoteBM_mono hext₀₃ hmb,
+            denoteN_mono hext₀₃ hnnm]
+          rfl
+        refine SimAt.bind_left (internI_eff hs₃ hnd)
+          (fun s₄ node hs₄ hext₄ hQnode => ?_)
+        have hext₀₄ := hext₀₃.trans hext₄
+        cases rest with
+        | nil =>
+          cases rx with
+          | nil => exact SimAt.pure hs₄ hQnode
+          | cons ex2 rx2 => exact absurd hrest (by simp [DenILStk])
+        | cons e2 r2 =>
+          cases rx with
+          | nil => exact absurd hrest (by cases e2; simp [DenILStk])
+          | cons ex2 rx2 =>
+            refine SimAt.bind_left (internLM_eff hs₄ (n := .imax u va)
+              (l := .imax ux vax) (by
+                rw [denoteLNode, denoteL_mono hext₀₄ hu,
+                  denoteL_mono hext₀₄ hva]
+                rfl))
+              (fun s₅ v' hs₅ hext₅ hv' => ?_)
+            exact ihOut hs₅
+              (DenILStk.mono (hext₀₄.trans hext₅) hrest) hv'
+              (denote_mono hext₅ hQnode)
 
 theorem inferLamsLeafI_sim (ih : SSimI env f) {d : Nat}
     {t : EIdx} {tx : Expr} {k : Nat} {fvs : Array EIdx} {ws : List Expr}
@@ -164,10 +193,36 @@ theorem inferLamsLeafI_sim (ih : SSimI env f) {d : Nat}
   refine SimAt.bind (ih.infer hs₁ hQob hw)
     (fun s₂ bt btx hs₂ hext₂ hPbt => ?_)
   obtain ⟨hbtd, hwbt⟩ := hPbt
-  refine SimAt.bind_left (abstractRangeM_eff hs₂ hbtd)
-    (fun s₅ cur hs₅ hext₅ hQcur => ?_)
-  exact inferLamsOutI_sim hs₅
-    (DenILStk.mono ((hext₁.trans hext₂).trans hext₅) hstk) hQcur
+  refine SimAt.bind (ih.infer hs₂ hbtd hwbt)
+    (fun s₃ tbt tbtx hs₃ hext₃ hPtbt => ?_)
+  obtain ⟨htbtd, hwtbt⟩ := hPtbt
+  refine SimAt.bind (ih.whnf hs₃ htbtd hwtbt)
+    (fun s₄ w wx hs₄ hext₄ hPw => ?_)
+  obtain ⟨hwd, hww⟩ := hPw
+  refine SimAt.view ?_
+  obtain ⟨nd, hn, hc, hd⟩ := denote_some_inv hwd
+  have hn := getNode_of_stored hn
+  rw [hn]
+  cases nd with
+  | sort v' =>
+    rw [denoteNode, Option.map_eq_some_iff] at hd
+    obtain ⟨lv', hlv', rfl⟩ := hd
+    refine SimAt.bind_left (abstractRangeM_eff hs₄
+      (denote_mono (hext₃.trans hext₄) hbtd))
+      (fun s₅ cur hs₅ hext₅ hQcur => ?_)
+    exact inferLamsOutI_sim hs₅
+      (DenILStk.mono ((((hext₁.trans hext₂).trans hext₃).trans
+        hext₄).trans hext₅) hstk)
+      (denoteL_mono hext₅ hlv') hQcur
+  | bvar i => cases hd; exact SimAt.throw
+  | fvar idx nm tt => invert_node hd; exact SimAt.throw
+  | const nm us => invert_node hd; exact SimAt.throw
+  | app f' a' => invert_node hd; exact SimAt.throw
+  | lam nm tt b mm => invert_node hd; exact SimAt.throw
+  | forallE nm tt b mm => invert_node hd; exact SimAt.throw
+  | letE nm tt vv b => invert_node hd; exact SimAt.throw
+  | lit l => cases hd; exact SimAt.throw
+  | proj sp i e' => invert_node hd; exact SimAt.throw
 
 theorem inferLamsI_sim (ih : SSimI env f) {d : Nat} :
     ∀ (fuel : Nat) {t : EIdx} {tx : Expr} {k : Nat}
@@ -190,15 +245,15 @@ theorem inferLamsI_sim (ih : SSimI env f) {d : Nat} :
         match ← viewI t with
         | some (.lam n ty body mb) =>
           match mb.cod with
-          | some _ => do
+          | some v => do
             let tyo ← instListRevM ty fvs
             let tty ← (coreKnotI (mkFEnv env) f).infer (d + k) tyo
             let wtty ← (coreKnotI (mkFEnv env) f).whnf (d + k) tty
             match ← viewI wtty with
-            | some (.sort _) => do
+            | some (.sort u) => do
               let fv ← internI (.fvar (d + k) n tyo)
               inferLamsI (coreKnotI (mkFEnv env) f) d fuel body (k + 1)
-                (fvs.push fv) ((n, tyo, mb) :: stk)
+                (fvs.push fv) ((n, tyo, mb, v, u) :: stk)
             | _ => throw (.invalid "expected a sort")
           | none =>
             throw (.internal "unannotated λ-binder reached inferType")
@@ -283,7 +338,9 @@ theorem inferLamsI_sim (ih : SSimI env f) {d : Nat} :
                   = some ⟨mbbi, some lv⟩
                 simp only [denoteBM,
                   denoteL_mono (hextAll) hlv]
-                rfl)⟩,
+                rfl),
+              denoteL_mono hextAll hlv,
+              denoteL_mono hext₄ hlu⟩,
               DenILStk.mono hextAll hstk⟩)
             hwopen
         | bvar i => cases hd'; exact SimAt.throw
@@ -874,43 +931,79 @@ private theorem inferLamTail_atF {env : Env} (d : Nat) (nm : Name)
     ((do
       let bt ← (fueledFns env).infer (d + 1)
         (bodyx.instantiate1 (.fvar d nm tyx))
-      pure (Expr.forallE nm tyx (bt.abstract1 d) ⟨mbbi, some lv⟩))
-      : FueledM Expr).val F
+      match ← (fueledFns env).whnf (d + 1)
+          (← (fueledFns env).infer (d + 1) bt) with
+      | .sort v' => do
+        unless ← liftFueled "level comparison" (Level.isEquiv lv v') do
+          throw (.invalid "λ-annotation does not match the body's sort")
+        pure (Expr.forallE nm tyx (bt.abstract1 d) ⟨mbbi, some lv⟩)
+      | _ => throw (.invalid "expected a sort")) : FueledM Expr).val F
     = (inferTypeCore env F (d + 1) (bodyx.instantiate1 (.fvar d nm tyx))
-        >>= fun bt =>
-        pure (Expr.forallE nm tyx (bt.abstract1 d) ⟨mbbi, some lv⟩)) := by
+        >>= fun bt => inferTypeCore env F (d + 1) bt >>= fun tbt =>
+        whnf env F (d + 1) tbt >>= fun w =>
+        match w with
+        | .sort v' =>
+          liftFueled "level comparison" (Level.isEquiv lv v') >>= fun b =>
+          if b = true then
+            pure (Expr.forallE nm tyx (bt.abstract1 d) ⟨mbbi, some lv⟩)
+          else
+            throw (.invalid "λ-annotation does not match the body's sort")
+        | _ => throw (.invalid "expected a sort")) := by
   rw [FueledM.atF_bind]
-  rfl
+  congr 1
+  funext bt
+  rw [FueledM.atF_bind]
+  congr 1
+  funext tbt
+  rw [FueledM.atF_bind]
+  congr 1
+  funext w
+  cases w <;> try rfl
+  rename_i v'
+  dsimp only
+  rw [FueledM.atF_bind, liftFueled_atF]
+  cases Level.isEquiv lv v' with
+  | none => rfl
+  | some b => cases b <;> rfl
 
 theorem inferLamsI_tail_sim (ih : SSimI env f) (henv : EnvWF env)
     {d fuel : Nat} {b t fv : EIdx} {bodyx tyx : Expr} {nm : NIdx}
     {nmx : Name}
-    {mbbi : BinderInfo} {v : LIdx} {lv : Level} {s₀ : IState}
+    {mbbi : BinderInfo} {v u : LIdx} {lv lu : Level} {s₀ : IState}
     (hs : ISOK env s₀)
     (hnm : s₀.store.denoteN nm = some nmx)
     (hbody : s₀.store.denote b = some bodyx)
     (hty : s₀.store.denote t = some tyx)
     (hlv : s₀.store.denoteL v = some lv)
+    (hlu : s₀.store.denoteL u = some lu)
     (hfv : s₀.store.denote fv = some (.fvar d nmx tyx))
-    (hwty : WScoped d tyx) (hwbody : WScoped d bodyx) :
+    (hwty : WScoped d tyx) (hwbody : WScoped d bodyx)
+    (htyR : ∃ F tty, inferTypeCore env F d tyx = .ok tty ∧
+      whnf env F d tty = .ok (.sort lu)) :
     SimAt env s₀ (RelE d)
       (inferLamsI (coreKnotI (mkFEnv env) f) d fuel b 1 #[fv]
-        [(nm, t, ⟨mbbi, some v⟩)])
+        [(nm, t, ⟨mbbi, some v⟩, v, u)])
       (do
         let bt ← (fueledFns env).infer (d + 1)
           (bodyx.instantiate1 (.fvar d nmx tyx))
-        pure (Expr.forallE nmx tyx (bt.abstract1 d) ⟨mbbi, some lv⟩)) := by
+        match ← (fueledFns env).whnf (d + 1)
+            (← (fueledFns env).infer (d + 1) bt) with
+        | .sort v' => do
+          unless ← liftFueled "level comparison" (Level.isEquiv lv v') do
+            throw (.invalid "λ-annotation does not match the body's sort")
+          pure (Expr.forallE nmx tyx (bt.abstract1 d) ⟨mbbi, some lv⟩)
+        | _ => throw (.invalid "expected a sort")) := by
   have hwopen : WScoped (d + 1)
       (bodyx.instantiateList [Expr.fvar d nmx tyx]) := by
     rw [instList_single]
     exact WScoped.instantiate1 hwty 0 hwbody
   have hcore : SimAt env s₀ RelD
       (inferLamsI (coreKnotI (mkFEnv env) f) d fuel b 1 #[fv]
-        [(nm, t, ⟨mbbi, some v⟩)])
+        [(nm, t, ⟨mbbi, some v⟩, v, u)])
       (inferLams (fueledFns env) d fuel bodyx 1 [Expr.fvar d nmx tyx]
-        [(nmx, tyx, ⟨mbbi, some lv⟩)]) := by
+        [(nmx, tyx, ⟨mbbi, some lv⟩, lv, lu)]) := by
     refine inferLamsI_sim ih fuel hs hbody (by rw [toListRev_singleton]; exact DenL.cons hfv DenL.nil)
-      ⟨⟨hnm, hty, ?_⟩, trivial⟩ hwopen
+      ⟨⟨hnm, hty, ?_, hlv, hlu⟩, trivial⟩ hwopen
     show denoteBM s₀.store.denoteL ⟨mbbi, some v⟩ = some ⟨mbbi, some lv⟩
     simp only [denoteBM, hlv]
     rfl
@@ -918,8 +1011,16 @@ theorem inferLamsI_tail_sim (ih : SSimI env f) (henv : EnvWF env)
   case himp =>
     intro res F hF
     rw [inferLams_atF] at hF
-    obtain ⟨F', hchain⟩ := inferLams_sound fuel bodyx 1
-      [Expr.fvar d nmx tyx] [(nmx, tyx, ⟨mbbi, some lv⟩)] F res rfl hF
+    have hstk : ILStkOK env d [(nmx, tyx, ⟨mbbi, some lv⟩, lv, lu)]
+        (1 - 1) := by
+      refine ⟨⟨rfl, ?_, ?_⟩, trivial⟩
+      · exact (hwty : WScoped (d + 0) tyx)
+      · obtain ⟨F₀, tty, h1, h2⟩ := htyR
+        exact ⟨F₀, tty, (h1 : inferTypeCore env F₀ (d + 0) tyx = .ok tty),
+          (h2 : whnf env F₀ (d + 0) tty = .ok (.sort lu))⟩
+    obtain ⟨F', hchain⟩ := inferLams_sound henv fuel bodyx 1
+      [Expr.fvar d nmx tyx] [(nmx, tyx, ⟨mbbi, some lv⟩, lv, lu)] F res rfl
+      hstk hwopen hF
     refine ⟨F', ?_⟩
     rw [inferLamTail_atF]
     obtain ⟨bt, hbt, hwrap⟩ := bind_okB hchain
@@ -928,22 +1029,75 @@ theorem inferLamsI_tail_sim (ih : SSimI env f) (henv : EnvWF env)
       rw [← instList_single bodyx (Expr.fvar d nmx tyx)]
       exact hbt
     rw [hbt', okB_bind]
-    exact hwrap
+    unfold inferLamsWrap at hwrap
+    obtain ⟨tbt, htbt, hwrap⟩ := bind_okB hwrap
+    rw [infer_def] at htbt
+    have htbt' : inferTypeCore env F' (d + 1) bt = .ok tbt := htbt
+    rw [htbt', okB_bind]
+    obtain ⟨w, hw, hwrap⟩ := bind_okB hwrap
+    rw [whnf_def] at hw
+    have hw' : whnf env F' (d + 1) tbt = .ok w := hw
+    rw [hw', okB_bind]
+    obtain ⟨v', rfl⟩ : ∃ v', w = Expr.sort v' := by
+      cases w with
+      | sort v'' => exact ⟨v'', rfl⟩
+      | bvar i => exact nomatch hwrap
+      | fvar idx nmx' tt => exact nomatch hwrap
+      | const nmx' us => exact nomatch hwrap
+      | app f' a' => exact nomatch hwrap
+      | lam nmx' tt bb mm => exact nomatch hwrap
+      | forallE nmx' tt bb mm => exact nomatch hwrap
+      | letE nmx' tt vv bb => exact nomatch hwrap
+      | lit l => exact nomatch hwrap
+      | proj sp i e' => exact nomatch hwrap
+    dsimp only at hwrap ⊢
+    obtain ⟨bb, hbb, hwrap⟩ := bind_okB hwrap
+    rw [hbb, okB_bind]
+    cases bb with
+    | false =>
+      simp only [Bool.false_eq_true, ↓reduceIte] at hwrap ⊢
+      exact nomatch hwrap
+    | true =>
+      simp only [↓reduceIte] at hwrap ⊢
+      try dsimp only at hwrap ⊢
+      exact hwrap
   case hsc =>
     intro s v' vv hden hrun
     refine ⟨hden, ?_⟩
     obtain ⟨F, hF⟩ := hrun
     rw [inferLamTail_atF] at hF
     obtain ⟨bt, hbt, hF⟩ := bind_okB hF
-    injection hF with hres
-    subst hres
-    have hwbt : WScoped (d + 1) bt :=
-      inferTypeCore_WScoped henv F hbt
-        (WScoped.instantiate1 hwty 0 hwbody)
-    exact (by
-      simp only [WScoped]
-      exact ⟨hwty, WScoped.abstract1 0 hwbt⟩ :
-      WScoped d (Expr.forallE nmx tyx (bt.abstract1 d) ⟨mbbi, some lv⟩))
+    obtain ⟨tbt, htbt, hF⟩ := bind_okB hF
+    obtain ⟨w, hw, hF⟩ := bind_okB hF
+    obtain ⟨vs, rfl⟩ : ∃ vs, w = Expr.sort vs := by
+      cases w with
+      | sort v'' => exact ⟨v'', rfl⟩
+      | bvar i => exact nomatch hF
+      | fvar idx nmx' tt => exact nomatch hF
+      | const nmx' us => exact nomatch hF
+      | app f' a' => exact nomatch hF
+      | lam nmx' tt bb mm => exact nomatch hF
+      | forallE nmx' tt bb mm => exact nomatch hF
+      | letE nmx' tt vv2 bb => exact nomatch hF
+      | lit l => exact nomatch hF
+      | proj sp i e' => exact nomatch hF
+    dsimp only at hF
+    obtain ⟨bb, hbb, hF⟩ := bind_okB hF
+    cases bb with
+    | false =>
+      simp only [Bool.false_eq_true, ↓reduceIte] at hF
+      exact nomatch hF
+    | true =>
+      simp only [↓reduceIte] at hF
+      injection hF with hres
+      subst hres
+      have hwbt : WScoped (d + 1) bt :=
+        inferTypeCore_WScoped henv F hbt
+          (WScoped.instantiate1 hwty 0 hwbody)
+      exact (by
+        simp only [WScoped]
+        exact ⟨hwty, WScoped.abstract1 0 hwbt⟩ :
+        WScoped d (Expr.forallE nmx tyx (bt.abstract1 d) ⟨mbbi, some lv⟩))
 
 private theorem annPiTail_atF {env : Env} (d : Nat) (nm : Name)
     (tyx' bodyx : Expr) (bi : BinderInfo) (F : Nat) :

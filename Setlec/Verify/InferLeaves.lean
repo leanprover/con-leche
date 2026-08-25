@@ -769,7 +769,7 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
       obtain ⟨tty, u, hty, hwt, rfl⟩ := inferTypeCore_forall_inv hc h
       simp [WScoped]
     | lam n ty body m =>
-      obtain ⟨v, tty, u, bt, hc, -, -, hbt, rfl⟩ :=
+      obtain ⟨v, tty, u, bt, tbt, v', hc, -, -, hbt, -, -, -, rfl⟩ :=
         inferTypeCore_lam_inv h
       simp only [WScoped] at hw
       have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
@@ -896,7 +896,7 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
       intro l hl
       simp [fvarLeaves] at hl
     | lam n ty body m =>
-      obtain ⟨v, tty, u, bt, hc, -, -, hbt, rfl⟩ :=
+      obtain ⟨v, tty, u, bt, tbt, v', hc, -, -, hbt, -, -, -, rfl⟩ :=
         inferTypeCore_lam_inv h
       simp only [WScoped] at hw
       have hwo : WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
@@ -1040,7 +1040,7 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
       obtain ⟨tty, u, hty, hwt, rfl⟩ := inferTypeCore_forall_inv hc h
       simp [looseBVarsBounded]
     | lam n ty body m =>
-      obtain ⟨v, tty, u, bt, hc, -, -, hbt, rfl⟩ :=
+      obtain ⟨v, tty, u, bt, tbt, v', hc, -, -, hbt, -, -, -, rfl⟩ :=
         inferTypeCore_lam_inv h
       simp only [WScoped] at hw
       simp only [looseBVarsBounded, Bool.and_eq_true] at hb

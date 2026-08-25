@@ -2055,6 +2055,21 @@ private theorem infer_step (henv : EnvWF env)
       rw [shiftFrom_instantiate1 hpd] at hbody
       refine bind_rel _ _ hbody ?_
       intro bt hbt
+      have hwbt : WScoped (d + 1) bt :=
+        inferTypeCore_WScoped henv fuel hbt hwo
+      refine bind_rel _ _
+        (ih.infer (p := p) (d := d + 1) (by omega) hwbt) ?_
+      intro tbt htbt
+      refine bind_rel _ _
+        (ih.whnf (p := p) (d := d + 1) (by omega)
+          (inferTypeCore_WScoped henv fuel htbt hwbt)) ?_
+      intro w₂ _
+      cases w₂ <;> try rfl
+      case fvar => rw [shiftFrom_fvar]; rfl
+      case sort v' =>
+      refine bind_rel_eq _ rfl ?_
+      intro okv _
+      refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
       rw [← shiftFrom_abstract1 hpd]
       rfl
   | .app f a =>

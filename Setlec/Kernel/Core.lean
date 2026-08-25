@@ -1439,18 +1439,30 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       | none => throw (.internal "unannotated ∀-binder reached inferType")
     | .lam n ty body mb => do
       match mb.cod with
-      | some _ => do
+      | some v => do
         -- The domain must be a type (and the model needs its
-        -- interpretation defined), exactly as in the ∀ rule.  The
-        -- stored codomain annotation is no longer re-checked here
-        -- (task #100 stage 3): the level-free collapse model reads no
-        -- levels at λ, so the annotation carries no semantic weight —
-        -- the resulting ∀'s own inference certifies its sort.
+        -- interpretation defined), exactly as in the ∀ rule.
         match ← r.whnf depth (← r.infer depth ty) with
         | .sort _ => do
           let bt ← r.infer (depth + 1)
             (body.instantiate1 (.fvar depth n ty))
-          pure (.forallE n ty (bt.abstract1 depth) mb)
+          -- Re-check the stored annotation: it must be the sort of the
+          -- body's type (the λ-annotation is *trusted* by the ∀ it
+          -- builds, so it is *checked* here, where the body's type is
+          -- at hand).  NOT deletable at the flip either (task #100
+          -- stage-3 finding, recorded in DESIGN.md): the ∀-clause
+          -- below still consumes the stored cod for the imax rule, so
+          -- `AnnotOk` keeps a cod-truthfulness tie at ∀-binders, and
+          -- this re-check is the only certifier of that tie for the
+          -- freshly built ∀ (which reuses this λ's meta).  Both die
+          -- together in stage 6, when the ∀-clause infers its
+          -- codomain sort.
+          match ← r.whnf (depth + 1) (← r.infer (depth + 1) bt) with
+          | .sort v' => do
+            unless ← liftFueled "level comparison" (Level.isEquiv v v') do
+              throw (.invalid "λ-annotation does not match the body's sort")
+            pure (.forallE n ty (bt.abstract1 depth) mb)
+          | _ => throw (.invalid "expected a sort")
         | _ => throw (.invalid "expected a sort")
       | none => throw (.internal "unannotated λ-binder reached inferType")
     | .app f a => do

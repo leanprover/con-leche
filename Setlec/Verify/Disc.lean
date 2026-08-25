@@ -1317,9 +1317,18 @@ theorem inferBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     split <;> try exact DiscV.throw _
     refine DiscV.bind (ih.site_infer henv
       (WScoped.instantiate1 hwtb.1 0 hwtb.2)) (fun bt hbt => ?_)
-    exact DiscV.pure (by
-      simp only [WScoped]
-      exact ⟨hwtb.1, WScoped.abstract1 0 hbt⟩)
+    refine DiscV.bind (ih.site_infer henv hbt) (fun tbt htbt => ?_)
+    refine DiscV.bind (ih.site_whnf henv htbt) (fun w' hww' => ?_)
+    split <;> try exact DiscV.throw _
+    refine DiscV.bind (DiscV.liftFueled_true _ _) (fun ok _ => ?_)
+    split
+    · exact DiscV.pure (by
+        simp only [WScoped]
+        exact ⟨hwtb.1, WScoped.abstract1 0 hbt⟩)
+    · first
+        | exact DiscV.throw _
+        | exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
+            (fun _ h => h.elim)
   | .app g' a =>
     have hwfa : WScoped d g' ∧ WScoped d a := by
       simpa only [WScoped] using hw

@@ -467,15 +467,15 @@ def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
       | none => throw (.internal "unannotated ∀-binder reached inferType")
     | some (.lam n ty body mb) => do
       match mb.cod with
-      | some _ => do
+      | some v => do
         let tty ← r.infer depth ty
         let wtty ← r.whnf depth tty
         match ← viewI wtty with
-        | some (.sort _) => do
+        | some (.sort u) => do
           -- Binder-telescope loop (task #72), shared with `inferBodyI`.
           let fv ← internI (.fvar depth n ty)
           let fuel ← withStore (·.nodes.size)
-          inferLamsI r depth fuel body 1 #[fv] [(n, ty, mb)]
+          inferLamsI r depth fuel body 1 #[fv] [(n, ty, mb, v, u)]
         | _ => throw (.invalid "expected a sort")
       | none => throw (.internal "unannotated λ-binder reached inferType")
     | some (.app _ _) => do

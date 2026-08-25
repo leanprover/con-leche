@@ -1521,32 +1521,43 @@ the residual binder chain back to the knot, which is exactly the
 chained spec's next step. -/
 
 /-- Stack entry of `inferLamsI`: binder name, opened domain, binder
-meta. -/
-abbrev InferLamEntry := NIdx × EIdx × IBinderMeta
+meta, the λ-annotation, and the domain's sort. -/
+abbrev InferLamEntry := NIdx × EIdx × IBinderMeta × LIdx × LIdx
 
 /-- Rebuild loop of `inferLamsI`: fold the stack (innermost binder
-first, `j` its binder level relative to the ambient depth `d`) into the
-`∀`-telescope.  Task #100 stage 3: the former per-level λ-annotation
-re-check died with the level-free collapse model, so the rebuild is a
-pure fold. -/
+first, `j` its binder level relative to the ambient depth `d`),
+replaying the per-level λ-annotation re-check against the body sort
+`vcur` and folding the codomain sorts by `imax`.  The intermediate
+`∀`-node inferences of the chained body are value-determined by the
+peel phase's domain sorts and cannot fail, so only the re-checks
+remain. -/
 def inferLamsOutI (d : Nat) :
-    List InferLamEntry → Nat → EIdx → CheckIM EIdx
-  | [], _j, cur => pure cur
-  | (n, tyo, mb) :: rest, j, cur => do
+    List InferLamEntry → Nat → LIdx → EIdx → CheckIM EIdx
+  | [], _j, _vcur, cur => pure cur
+  | (n, tyo, mb, v, u) :: rest, j, vcur, cur => do
+    unless ← liftFueled "level comparison" (← isEquivLM v vcur) do
+      throw (.invalid "λ-annotation does not match the body's sort")
     let tyAbs ← abstractRangeM tyo d j
     let node ← internI (.forallE n tyAbs cur mb)
     match rest with
     | [] => pure node
-    | _ :: _ => inferLamsOutI d rest (j - 1) node
+    | _ :: _ => do
+      let v' ← internLM (.imax u v)
+      inferLamsOutI d rest (j - 1) v' node
 
-/-- Leaf phase of `inferLamsI`: bulk-open the residual body, infer it,
-then rebuild outward. -/
+/-- Leaf phase of `inferLamsI`: bulk-open the residual body, infer it
+and its type's sort, then rebuild outward. -/
 def inferLamsLeafI (r : CoreFnsI) (d : Nat) (t : EIdx) (k : Nat)
     (fvs : Array EIdx) (stk : List InferLamEntry) : CheckIM EIdx := do
   let ob ← instListRevM t fvs
   let bt ← r.infer (d + k) ob
-  let cur ← abstractRangeM bt d k
-  inferLamsOutI d stk (k - 1) cur
+  let tbt ← r.infer (d + k) bt
+  let wtbt ← r.whnf (d + k) tbt
+  match ← viewI wtbt with
+  | some (.sort v') => do
+    let cur ← abstractRangeM bt d k
+    inferLamsOutI d stk (k - 1) v' cur
+  | _ => throw (.invalid "expected a sort")
 
 /-- λ-telescope inference loop (task #72; used by `inferBodyI`'s and
 `inferBodyNC`'s lam cases): peel the raw λ-chain, checking each opened
@@ -1559,15 +1570,15 @@ def inferLamsI (r : CoreFnsI) (d : Nat) :
     match ← viewI t with
     | some (.lam n ty body mb) =>
       match mb.cod with
-      | some _ => do
+      | some v => do
         let tyo ← instListRevM ty fvs
         let tty ← r.infer (d + k) tyo
         let wtty ← r.whnf (d + k) tty
         match ← viewI wtty with
-        | some (.sort _) => do
+        | some (.sort u) => do
           let fv ← internI (.fvar (d + k) n tyo)
           inferLamsI r d fuel body (k + 1) (fvs.push fv)
-            ((n, tyo, mb) :: stk)
+            ((n, tyo, mb, v, u) :: stk)
         | _ => throw (.invalid "expected a sort")
       | none => throw (.internal "unannotated λ-binder reached inferType")
     | _ => inferLamsLeafI r d t k fvs stk
@@ -1616,16 +1627,16 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
       | none => throw (.internal "unannotated ∀-binder reached inferType")
     | some (.lam n ty body mb) => do
       match mb.cod with
-      | some _ => do
+      | some v => do
         let tty ← r.infer depth ty
         let wtty ← r.whnf depth tty
         match ← viewI wtty with
-        | some (.sort _) => do
+        | some (.sort u) => do
           -- Binder-telescope loop (task #72): peel the whole λ-chain,
           -- open in bulk, rebuild with `abstractRange`.
           let fv ← internI (.fvar depth n ty)
           let fuel ← withStore (·.nodes.size)
-          inferLamsI r depth fuel body 1 #[fv] [(n, ty, mb)]
+          inferLamsI r depth fuel body 1 #[fv] [(n, ty, mb, v, u)]
         | _ => throw (.invalid "expected a sort")
       | none => throw (.internal "unannotated λ-binder reached inferType")
     | some (.app _ _) => do

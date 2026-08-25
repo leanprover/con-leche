@@ -1762,11 +1762,11 @@ theorem inferBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
       simp only [denoteBM, Option.map_eq_some_iff] at hbmDen
       obtain ⟨lv, hlv, rfl⟩ := hbmDen
       dsimp only
-      refine SimAt.bind (ih.infer hs hty hwtb.1)
-        (fun s₁ tty ttyx hs₁ hext₁ hP => ?_)
+      refine SimAt.bindR (ih.infer hs hty hwtb.1)
+        (fun s₁ tty ttyx hs₁ hext₁ hP hRtty => ?_)
       obtain ⟨httyd, hwtty⟩ := hP
-      refine SimAt.bind (ih.whnf hs₁ httyd hwtty)
-        (fun s₂ w wx hs₂ hext₂ hP₂ => ?_)
+      refine SimAt.bindR (ih.whnf hs₁ httyd hwtty)
+        (fun s₂ w wx hs₂ hext₂ hP₂ hRw => ?_)
       obtain ⟨hwd, hww⟩ := hP₂
       refine SimAt.view ?_
       obtain ⟨n', hn', hc', hd'⟩ := denote_some_inv hwd
@@ -1785,12 +1785,18 @@ theorem inferBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
         refine SimAt.bind_left (internI_eff hs₂ hfvd)
           (fun s₃ fv hs₃ hext₃ hQfv => ?_)
         refine SimAt.withStore ?_
-        exact inferLamsI_tail_sim ih henv hs₃
+        refine inferLamsI_tail_sim ih henv hs₃
           (denoteN_mono (hext₀₂.trans hext₃) hnmDen)
           (denote_mono (hext₀₂.trans hext₃) hbody)
           (denote_mono (hext₀₂.trans hext₃) hty)
           (denoteL_mono (hext₀₂.trans hext₃) hlv)
-          hQfv hwtb.1 hwtb.2
+          (denoteL_mono hext₃ hlu)
+          hQfv hwtb.1 hwtb.2 ?_
+        obtain ⟨F₁, h1⟩ := hRtty
+        obtain ⟨F₂, h2⟩ := hRw
+        exact ⟨max F₁ F₂, ttyx,
+          inferTypeCore_mono (Nat.le_max_left F₁ F₂) h1,
+          whnf_mono (Nat.le_max_right F₁ F₂) h2⟩
       | bvar k => invert_node hd'; exact SimAt.throw
       | const nm' us => invert_node hd'; exact SimAt.throw
       | lit l => invert_node hd'; exact SimAt.throw
