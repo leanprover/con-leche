@@ -692,6 +692,10 @@ theorem whnfCore_claims (m : EnvModel V env)
           rw [hty₁]
           simp only [AnnotOk]
           refine ⟨haα, ψ' vN + 1, ?_⟩
+          refine ⟨?_, ?_⟩
+          · rintro v ⟨rfl⟩
+            rw [hψv]
+            exact fun z hz => hz
           intro x Ax hAx hx
           refine ⟨by simp [Expr.instantiate1, AnnotOk], ?_⟩
           refine ⟨univ (ψ' vN), ?_, univ_mem_univ (ψ' vN)⟩

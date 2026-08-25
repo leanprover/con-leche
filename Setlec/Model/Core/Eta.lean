@@ -80,7 +80,7 @@ theorem etaCert_sound {m : EnvModel V env} {fuel : Nat}
   have hLbty₂ : Expr.LeavesBounded ty₂ := fun l hl => hwLb l (by simp [fvarLeaves, hl])
   obtain ⟨hokty₂, hokfb⟩ := FvarsOk.of_forallE hwOk
   simp only [AnnotOk] at hAwtb
-  obtain ⟨haty₂, vE₂, hcondf⟩ := hAwtb
+  obtain ⟨haty₂, vE₂, -, hcondf⟩ := hAwtb
   -- the whnf'd type interprets to `Tb`
   have hTfi : interpExpr V m.val env φ d ρ (Expr.forallE n₂ ty₂ fb m₂) = some Tb := by
     rw [hiwtb, hTbi]
