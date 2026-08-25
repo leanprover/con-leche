@@ -224,11 +224,11 @@ theorem certs_fit {m : EnvModel V env} {fuel : Nat}
     obtain ⟨haw, hab, haL, haF, haA⟩ := hargs a List.mem_cons_self
     -- the domain interprets (the ∀-tower interp forces it)
     simp only [AnnotOk] at hAty
-    obtain ⟨hAdom, ⟨cod, hcod⟩, hcond⟩ := hAty
-    rw [interpExpr, hcod] at hity
+    obtain ⟨hAdom, vE, hcond⟩ := hAty
+    rw [interpExpr] at hity
     obtain ⟨A, hidom, hpieq⟩ : ∃ A,
         interpExpr V m.val env φ d ρ dom = some A ∧
-        T = pi (cod.eval φ) A fun x =>
+        T = piC A fun x =>
           (interpExpr V m.val env φ (d + 1) (updV V ρ d x)
             (body.instantiate1 (.fvar d n dom))).getD SetTheory.empty := by
       revert hity
@@ -264,7 +264,7 @@ theorem certs_fit {m : EnvModel V env} {fuel : Nat}
     have hvA : va ∈ˢ A := hveq ▸ hmemta
     -- the instantiated body interprets and stays truthful
     obtain ⟨hbodyA, hwfact⟩ := hcond va A hidom hvA
-    obtain ⟨w, hwi, -⟩ := hwfact cod hcod
+    obtain ⟨w, hwi, -⟩ := hwfact
     have hfb : Expr.fvarsBelow d body := hwty'.2.fvarsBelow
     have hibody : interpExpr V m.val env φ d ρ (body.instantiate1 a) =
         some w := by
