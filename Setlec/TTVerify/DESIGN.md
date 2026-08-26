@@ -450,7 +450,7 @@ install:
 | `DeclThmTT` | **proved** |
 | `DeclOpaqueTT` | **proved** (`declOpaqueTT_closed`) |
 | `DeclDefnTT` | proved modulo `NatOpPinTT`, `DivModPinTT` |
-| `DeclAxiomTT` | proved modulo `StdAxiomKeyTT`, `OfReduceKeyTT` |
+| `DeclAxiomTT` | proved modulo `StdAxiomKeyTT` alone |
 | `DeclBasisTT`, `DeclIndTT` | open — **decomposed in §14** |
 
 **§11's `Eq` law landed** (`EnvTT.eq_law`), released by its consumers
@@ -478,7 +478,24 @@ per-declaration step is the per-expression claims applied once each**,
 which is why it could be left until stage 2's end.
 
 The remaining obligations sit at named checker functions
-(`certifyNatEqs`, `checkDivModPin`), per §8.6.  Note that both are
+(`certifyNatEqs`, `checkDivModPin`), per §8.6, and their shared content
+is landed: `denote_substConst0` (`Setlec/TTVerify/SubstConst.lean`).
+
+Both pins certify in the **pre-insertion** environment with the
+operation's self-references replaced by its stored value — because
+certifying after insertion would let the operation's own literal fast
+path discharge its all-literal equations vacuously.  So the bridge has
+to move a `Deq` across `Expr.substConst0`, and it does so for free:
+`cvalAt` sends the installed name to the *value's denotation*, which is
+exactly what `substConst0` writes in its place.  **The install's choice
+of valuation and the checker's choice of substitution are the same
+choice**, made for unrelated reasons — one to satisfy `defn_eq`, one to
+defeat a vacuous fast path.
+
+The lemma is restricted to the fragment `substConst0` is faithful on
+(`sort`, `const`, `fvar`, `app`), which is not a limitation dodged:
+`substConst0` is *shallow* by design and `natOpEquations` are spines
+over constants and two free variables with no binder anywhere.  Note that both are
 *pin* checks: they change no environment and exist only to record facts
 the reduction rules will consume, so their transposes are pure content
 with no install bookkeeping.
@@ -494,6 +511,18 @@ per §8.6.  Two things about that case are worth keeping:
   skip-and-continue design (`sorryAx`, user ruling) therefore pays a
   *zero* verification tax — a design chosen for stream-sharing reasons
   turns out to cost the bridge nothing at all.
+* **`OfReduceKeyTT` is discharged** (`Setlec/TTVerify/OfReduceKey.lean`),
+  and it is the reconciliation shape at its purest: **no layer constant
+  is used at all**.  The witness is `λ a b h. prf` — three lambdas and
+  the layer's canonical inhabitant of any `eqE` — because *the
+  hypothesis is the conclusion*: the reduce opaque was certified at its
+  own install to be the identity on its element type
+  (`ReduceOpsTT` ← `ReducePinTT`), so `reduce a ≡ a` and the equation
+  `h` carries is already the one the conclusion wants.  Everything
+  between is conversion: `denote_matchesPin` for the spelling,
+  `EnvTT.eq_law` for spine-to-former, `EnvTT.reduce_ops` for the
+  identity.  Two obligations discharged by one certificate the checker
+  ran for a different reason is §8.4 compounding.
 * **`TrustCompilerKeyTT` is discharged**, and it shows the shape the
   other two follow.  The pin fixes the axiom's type to `.const True []`
   *on the nose* — `eraseNames` is the identity on a bare constant — so
