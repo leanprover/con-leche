@@ -294,6 +294,19 @@ theorem proofIrrel_disc (ih : ScopedSim env f) (henv : EnvWF env)
         refine DiscV.bind (DiscV.liftFueled_true _ _) (fun okB _ => ?_)
         exact DiscV.pure trivial
 
+/-- Twin of `projTeleCert_disc` on the inference path (task #129); the
+entry's stored type is closed because the table entry is a stored
+constant.  Task #130 runs it at the pair-eta certificate too. -/
+theorem projParamCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
+    {d : Nat} {T : Name} {i : Nat} {entry : ProjEntry} {us : List Level}
+    {params : List Expr} (hfp : env.findProj? T i = some entry)
+    (hwargs : ∀ x ∈ params, WScoped d x) :
+    DiscV env (fun _ => True) (projParamCert C env d entry us params)
+      (projParamCert G env d entry us params) :=
+  iotaCerts_disc ih henv
+    (wscoped_instLevels_of_not_hasFvar
+      (henv _ (find?_mem (Env.findProj?_some hfp))).1 _ _) hwargs
+
 theorem pairEtaCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
     DiscV env (fun _ => True) (pairEtaCert C env d a b)
@@ -334,8 +347,20 @@ theorem pairEtaCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
                       (fun r₁ _ => ?_)
                     · simpa only [WScoped] using hwb
                     · split
-                      · refine ih.site_defeq hws.2 ?_
-                        simpa only [WScoped] using hwb
+                      · refine DiscV.bind (ih.site_defeq hws.2 ?_)
+                          (fun r₂ _ => ?_)
+                        · simpa only [WScoped] using hwb
+                        · split
+                          · split
+                            · rename_i entry hfp
+                              exact projParamCert_disc ih henv hfp (by
+                                intro x hx
+                                rcases List.mem_cons.mp hx with rfl | hx
+                                · exact hwAB.1
+                                · rw [List.mem_singleton.mp hx]
+                                  exact hwAB.2)
+                            · exact DiscV.pure trivial
+                          · exact DiscV.pure trivial
                       · exact DiscV.pure trivial
                   · exact DiscV.pure trivial
                 · exact DiscV.pure trivial
@@ -548,19 +573,6 @@ theorem projTeleCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
     obtain ⟨htf, -⟩ := henv _ (find?_mem hf)
     exact iotaCerts_disc ih henv
       (wscoped_instLevels_of_not_hasFvar htf _ _) hwargs
-
-/-- Twin of `projTeleCert_disc` on the inference path (task #129); the
-entry's stored type is closed because the table entry is a stored
-constant. -/
-theorem projParamCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
-    {d : Nat} {T : Name} {i : Nat} {entry : ProjEntry} {us : List Level}
-    {params : List Expr} (hfp : env.findProj? T i = some entry)
-    (hwargs : ∀ x ∈ params, WScoped d x) :
-    DiscV env (fun _ => True) (projParamCert C env d entry us params)
-      (projParamCert G env d entry us params) :=
-  iotaCerts_disc ih henv
-    (wscoped_instLevels_of_not_hasFvar
-      (henv _ (find?_mem (Env.findProj?_some hfp))).1 _ _) hwargs
 
 theorem stuckIrrel_disc (ih : ScopedSim env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :

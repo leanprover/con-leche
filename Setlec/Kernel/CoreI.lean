@@ -944,6 +944,14 @@ def proofIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
       | _ => pure false
     | _ => pure false
 
+/-- Twin of `projParamCert` (task #129).  The pinned projection type
+`pty` is the caller's — the same interned expression `piResidual`
+peels, and the same one `constTyAtM` caches for the η certificate
+below (task #130) — so this adds a telescope walk and no lookup. -/
+def projParamCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (pty : EIdx) (params : List EIdx) : CheckIM Bool :=
+  iotaCertsI r fe depth pty params
+
 /-- Twin of `pairEtaCert`. -/
 def pairEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
     CheckIM Bool := do
@@ -983,7 +991,19 @@ def pairEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : EIdx) :
                                 let p₀ ← internI (.proj c' 0 b)
                                 if ← r.defeq depth s₁ p₀ then do
                                   let p₁ ← internI (.proj c' 1 b)
-                                  r.defeq depth s₂ p₁
+                                  if ← r.defeq depth s₂ p₁ then do
+                                    -- Task #130: certify the pair
+                                    -- type's parameters against the
+                                    -- projection entry's telescope
+                                    -- (twin of `pairEtaCert`'s call).
+                                    match fe.findProj? c'n 0 with
+                                    | some _ => do
+                                      let pf ← projFnIdxM c' 0
+                                      let pty ← constTyAtM fe pf
+                                        (projFnName c'n 0) us'
+                                      projParamCertI r fe depth pty [A, B]
+                                    | none => pure false
+                                  else pure false
                                 else pure false
                               else pure false
                             else pure false
@@ -1393,13 +1413,6 @@ def projTeleCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     let tyCtor ← constTyAtM fe cI c us
     iotaCertsI r fe depth tyCtor args
   | _ => pure false
-
-/-- Twin of `projParamCert` (task #129).  The pinned projection type
-`pty` is the caller's — the same interned expression `piResidual`
-peels — so this adds a telescope walk and no lookup. -/
-def projParamCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
-    (pty : EIdx) (params : List EIdx) : CheckIM Bool :=
-  iotaCertsI r fe depth pty params
 
 mutual
 

@@ -431,13 +431,13 @@ theorem proofIrrel_snd_proj (d : Nat) (a b : Expr) :
 theorem pairEtaCert_fst_proj (d : Nat) (a b : Expr) :
     (pairEtaCert (pairFns r₁ r₂ h) env d a b).val.1 =
       pairEtaCert r₁ env d a b := by
-  unfold pairEtaCert
+  unfold pairEtaCert projParamCert
   fst_tac
 
 theorem pairEtaCert_snd_proj (d : Nat) (a b : Expr) :
     (pairEtaCert (pairFns r₁ r₂ h) env d a b).val.2 =
       pairEtaCert r₂ env d a b := by
-  unfold pairEtaCert
+  unfold pairEtaCert projParamCert
   snd_tac
 
 theorem structEtaCertWith_fst_proj (d : Nat) (a b wtb : Expr) :
