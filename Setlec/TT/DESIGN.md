@@ -548,6 +548,19 @@ an equivalence relation with application congruence (`Deq.app`,
 `Deq.appFun`, `Deq.appArg`, `Deq.ap2`) and supports equality reflection
 directly (`Deq.conv`).
 
+**Strengthening of the §2.3 ruling: the slot is inert *derivationally*,
+not merely semantically.**  `Deq.toHasType` is the proof: from a
+derivation at one slot it produces a derivation at an arbitrary slot,
+because `symm` leaves its output slot unconstrained and two `symm`s
+return the equation's orientation.  So an equation derivable at one
+type slot is derivable at *every* type slot — a purely syntactic fact
+about the rule set, independent of the interpretation never reading
+`ty`.  This is what a future rule-writer needs to know, and it is
+sharper than "soundness never reads it": constraining a `T` slot in a
+new equational rule would constrain **nothing**, since the constraint
+is immediately discharged by re-slotting.  The existential in `Deq`
+therefore loses no information at all.
+
 ### 7.3 The lemma shape: hypothetical over an arbitrary term
 
 **No lemma names an operation.**  Each is of the form "for every term
@@ -601,12 +614,26 @@ and auxiliary bounds are the model's, lemma for lemma.
 
 One thing is re-proved rather than reused: the meta-level recurrences
 for Lean's own `Nat.land`/`Nat.lor`/`Nat.xor`.  `Setlec/PinGen/Certs.lean`
-proves them, but under a self-imposed austerity (no `simp`, no
-`decide`, only stream-prefix lemmas, because those proofs are elaborated
-against an early `Init.Prelude` region) that does not apply here — and
-importing that library would tie the layer to the checker's build.
+proves the same three facts, so importing them was the obvious move and
+it was **deliberately rejected**, for two independent reasons.  First,
+the layer's whole premise is that it is checker-free (§1): a dependency
+on `SetlecPinCerts` would tie `Setlec/TT/*` to the checker's build
+graph — and to a Lake target that exists only because the pin generator
+needs a non-`module` library — for the sake of three arithmetic facts
+about the *metalanguage's* `Nat`, which have nothing to do with the
+checker at all.  Second, those proofs are written under a self-imposed
+austerity (no `simp`, no `decide`, only stream-prefix lemmas) that
+exists because they are elaborated against an early `Init.Prelude`
+region where `HAnd`/`testBit`/`Subsingleton` do not yet exist.  None of
+that constrains this layer, so inheriting it would import a
+justification that does not apply here.
 `Setlec/TT/Nat/WfOps.lean` derives them in three lines each from the
 public `Nat.bitwise_div_two_pow`/`bitwise_mod_two_pow`.
+
+**Rule, stated generally:** the layer re-proves metalanguage facts
+rather than importing them from anywhere in the checker's tree, however
+small the duplication.  A single import in the other direction would
+undo the separation the layer exists to create.
 
 ### 7.5 What is exposed, and what remains
 

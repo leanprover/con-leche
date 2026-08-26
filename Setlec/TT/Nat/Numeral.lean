@@ -39,7 +39,16 @@ namespace Setlec.TT
 /-- `Deq Γ a b` — the layer derives the equation `a ≡ b` in context
 `Γ`.  The `eqE` type slot is existentially quantified because it is
 semantically inert; `Deq.toHasType` recovers the judgment at any slot
-the caller wants. -/
+the caller wants.
+
+**The slot is inert *derivationally*, not merely semantically.**  The
+existential loses nothing: `Deq.toHasType` produces a derivation at an
+arbitrary slot from a derivation at any one slot, by applying `symm`
+twice.  So an equation derivable at one type slot is derivable at
+*every* type slot — the ruling recorded in `Setlec/TT/Syntax.lean` (the
+interpretation never reads `ty`) has this stronger, purely syntactic
+counterpart, and a rule-writer may rely on it: constraining a `T` slot
+in a new equational rule would constrain nothing. -/
 def Deq (Γ : List VExpr) (a b : VExpr) : Prop :=
   ∃ T, HasType Γ .prf (.eqE T a b)
 
