@@ -14,15 +14,22 @@ erasure: the domain-relative collapse"):
   canonicalization `canon : V → V` — by two formal horns exhausting the
   choice of `canon ∅` (`hereditary_canon_pt_not_fixed`,
   `hereditary_canon_pi_empty_not_prop`; the root cause is that `∅` is
-  both the empty function graph and falsity, with `pt = {∅}` pinned),
+  both the empty function graph and falsity, so the vacuous collapse
+  clause pins `canon ∅` inconsistently — the horns survive the #109
+  proof-point re-choice unchanged in statement),
   and the forcing lemma `pi_empty_forced` showing Horn B is not an
   artifact of chosen definitions;
 
 * the prior refutation witnesses (`Setlec/Model/RawEnvNoAnnot.lean`)
   re-run **positively**: the λ-terms `fun (_ : PUnit) => (1 : Nat)` and
-  `fun (_ : PUnit) => True.intro` now receive the *same* interpretation
-  `pt` (`lamC_witnesses_identified`), with `mem_type` for both
-  (`pt_mem_piC_punit_nat`, `pt_mem_piC_punit_true`);
+  `fun (_ : PUnit) => True.intro` are both interpreted annotation-free
+  — `lamC` is a function of domain and body values alone.  (History:
+  under the pre-#109 `pt = {∅}` the numeral `1` *was* `pt` and the two
+  witnesses were identified; with the fresh proof point the `Nat`
+  witness is a genuine graph and the `Prop` witness collapses —
+  `lamC_witnesses_distinguished` — with `mem_type` for both
+  (`graph_witness_mem_piC_punit_nat`, `pt_mem_piC_punit_true`).  The
+  collapse never *needed* the identification, only level-freedom.);
 
 * the formal core of the de-gating finding (the kernel's
   annotation-guarded reduction gates are unsound to model under the
@@ -40,36 +47,30 @@ universe u
 
 variable {V : Type u} [SetTheory V]
 
-/-! ## The prior refutation witnesses, re-run positively -/
+/-! ## The prior refutation witnesses, re-run positively
 
-/-- The von Neumann `1` is the proof point (local copy of the
-`Model`-layer lemma; the `SetTheory` layer must not import it). -/
-theorem vsucc_empty_eq_pt' : vsucc (empty : V) = pt := by
-  apply ext fun z => ?_
-  rw [mem_vsucc, mem_pt]
-  constructor
-  · rintro (hz | rfl)
-    · exact absurd hz (not_mem_empty z)
-    · rfl
-  · rintro rfl
-    exact Or.inr rfl
+(Since task #109 the proof point is data-fresh — `vsucc_ne_pt`,
+`Derive/PtFresh.lean` — so the numeral `1` is no longer `pt` and the
+two witnesses receive *different* values.  Both are still interpreted
+with no annotation in sight, which is all the collapse ever claimed:
+`lamC` is a function of the domain and the body values alone.) -/
 
-/-- The two witness λ-terms of `lam_interp_not_value_determined` get
-**equal** interpretations, namely the point. -/
-theorem lamC_witnesses_identified :
-    lamC (unitSet : V) (fun _ => vsucc empty) =
-      lamC (unitSet : V) (fun _ => pt) ∧
+/-- The two witness λ-terms of the old `lam_interp_not_value_determined`
+refutation, annotation-free: the `Nat`-valued one is a genuine graph
+(its body value `1 ≠ pt` by the #109 freshness battery), the
+`Prop`-valued one collapses to the point. -/
+theorem lamC_witnesses_distinguished :
+    lamC (unitSet : V) (fun _ => vsucc empty) ≠ pt ∧
     lamC (unitSet : V) (fun _ => pt) = pt :=
-  ⟨lamC_congr fun _ _ => vsucc_empty_eq_pt',
+  ⟨lamC_ne_pt_of_witness pt_mem_unitSet (vsucc_ne_pt empty),
    lamC_of_forall fun _ _ => rfl⟩
 
-/-- … and `mem_type` holds for the `Type`-level witness: the point is a
-member of the collapsed `⟦PUnit → Nat⟧` (the all-`pt` graph is total
-since `1 = pt ∈ ω`). -/
-theorem pt_mem_piC_punit_nat :
-    (pt : V) ∈ˢ piC unitSet (fun _ => omega) :=
-  pt_mem_piC_iff.mpr fun _ _ =>
-    vsucc_empty_eq_pt' (V := V) ▸ vsucc_mem_omega empty_mem_omega
+/-- … and `mem_type` holds for the `Type`-level witness against the
+collapsed `⟦PUnit → Nat⟧`, by ordinary introduction (`1 ∈ ω`). -/
+theorem graph_witness_mem_piC_punit_nat :
+    lamC (unitSet : V) (fun _ => vsucc empty) ∈ˢ
+      piC unitSet (fun _ => omega) :=
+  lamC_mem fun _ _ => vsucc_mem_omega empty_mem_omega
 
 /-- … and for the `Prop`-level witness against `⟦PUnit → True⟧`. -/
 theorem pt_mem_piC_punit_true :
@@ -85,9 +86,13 @@ abstraction collapses to the proof point at **every** codomain sort —
 there is no `lam_ne_pt` analogue — so off-domain "beta" produces `pt`
 regardless of the body. -/
 
-theorem univZero_ne_pt : (univZero : V) ≠ pt := fun h =>
-  not_mem_empty (pt : V)
-    (mem_pt.mp (h ▸ mem_univZero.mpr (Subset.refl _)) ▸ pt_mem_unitSet)
+theorem univZero_ne_pt : (univZero : V) ≠ pt := by
+  intro h
+  have hu : (unitSet : V) = ptTag :=
+    mem_pt.mp (h ▸ mem_univZero.mpr (Subset.refl _))
+  have hm := pt_mem_unitSet (V := V)
+  rw [hu] at hm
+  exact pt_not_mem_ptTag hm
 
 /-- The interpretation of `∀ p : Prop, p` under the collapse: the
 `p := ⟦False⟧ = ∅` fibre admits no choice, so the raw function set —
@@ -142,28 +147,33 @@ structure HereditaryCanonSpecNE (canon : V → V) : Prop where
     canon x = image canon x
 
 /-- **Horn A**: under the literal spec the proof point is not a `canon`
-fixed point — `canon ∅ = pt` (vacuous collapse), `pt = {∅}` contains no
-pair, so memberwise recursion yields `canon pt = {pt} ≠ pt`.  Every
+fixed point — `canon ∅ = pt` (vacuous collapse), `pt = {ptTag}`
+contains no pair, so memberwise recursion moves `pt` unless the tag is
+`canon`-fixed; the tag recurses memberwise too, landing `pt = canon ∅`
+among its members — impossible for both members of the tag.  Every
 proof's interpretation violates the global-canonicity invariant. -/
 theorem hereditary_canon_pt_not_fixed {canon : V → V}
     (h : HereditaryCanonSpec canon) : canon pt ≠ pt := by
   have h0 : canon empty = pt :=
     h.collapse empty fun p hp => absurd hp (not_mem_empty p)
-  have hpt : canon pt = unitSet := by
-    have hnc : ¬ HereditaryCollapse canon pt := fun hc => by
-      obtain ⟨a, b, hab, -⟩ := hc empty (mem_pt.mpr rfl)
-      exact kpair_ne_empty hab.symm
-    rw [h.memberwise pt hnc]
-    apply ext fun z => ?_
-    rw [mem_image, mem_unitSet_iff]
-    constructor
-    · rintro ⟨w, hw, rfl⟩
-      rw [mem_pt.mp hw, h0]
-    · rintro rfl
-      exact ⟨empty, mem_pt.mpr rfl, h0.symm⟩
+  have hpt : canon pt = image canon pt := by
+    refine h.memberwise pt fun hc => ?_
+    obtain ⟨a, b, hab, -⟩ := hc ptTag ptTag_mem_pt
+    exact ptTag_ne_kpair a b hab
   intro heq
-  rw [hpt] at heq
-  exact pt_ne_empty (mem_pt.mp (heq ▸ pt_mem_unitSet))
+  have htag : canon ptTag = ptTag := by
+    have hm : canon ptTag ∈ˢ (pt : V) := by
+      rw [← heq, hpt]
+      exact mem_image.mpr ⟨ptTag, ptTag_mem_pt, rfl⟩
+    exact mem_pt.mp hm
+  have htagm : canon ptTag = image canon ptTag := by
+    refine h.memberwise ptTag fun hc => ?_
+    obtain ⟨a, b, hab, -⟩ := hc empty empty_mem_ptTag
+    exact kpair_ne_empty hab.symm
+  have hin : (pt : V) ∈ˢ ptTag := by
+    rw [← htag, htagm]
+    exact mem_image.mpr ⟨empty, empty_mem_ptTag, h0.symm⟩
+  exact pt_not_mem_ptTag hin
 
 /-- **Horn A, idempotence form**: the proposal's fixed-point/idempotence
 lemma is unprovable — it is false at `∅`. -/

@@ -8405,3 +8405,136 @@ deleting them would push those imports around for no gain.
 untouched, as they must be.  No `Setlec/Verify/*` module imports
 `Setlec/Model/*` or `Setlec/SetTheory/*` (checked by grep), and no
 checker source changed at all, so verdicts cannot have moved.
+
+
+## pt-freshness: the proof-point re-choice and the battery (2026-08-26, task #109)
+
+**Landed** (branch `feat/109-pt-freshness`; gates: `lake build`
+warning-free, `lake test`, arena 90/92 / e2e 67/67 / split 11/11,
+axioms exactly `[propext, Classical.choice, Quot.sound]` on the
+consistency theorems and on every new lemma, init-prelude
+byte-identical — stdout, stderr, exit — to master in both modes.  The
+checker has no `SetTheory` import, so byte-identity is structural; no
+kernel file changed.)
+
+The proof point is re-chosen so that **no data-value encoding produces
+it**, making "data values are never `pt`" provable — the foundation
+both for restoring the de-gated possibly-Prop reduction gates (task
+#100 stage 2 measured their removal at +24.7 % probe / +55.1 %
+init-full certified) and for the task-#124 guard-clear route (iii).
+
+### The re-choice, and the selection principle
+
+`pt := {ptTag}` with `ptTag := {∅, {{∅}}}` (`Derive/Pt.lean`; the old
+`pt = {∅}` **was** the von Neumann numeral `1` — `fun _ => (1 : Nat)`
+interpreted to `pt`, so a freshness battery over it would have had to
+exclude `Nat` itself).  The constraints, stated as the **selection
+principle** because the next re-choice needs the criterion more than
+the choice:
+
+1. `pt` must be a singleton `{t}` whose tag `t` has an *empty member*
+   (so neither `t` nor `pt` is a Kuratowski pair — pair elements are
+   nonempty; the same anti-pair trick as the old `pt`, one level up);
+2. `t` must not be a singleton (`{{a}} = kpair a a`, a writable pair
+   value — this killed the `{{ω}}` candidate: `{{ω}} = ⟦⟨Nat, Nat⟩⟧`);
+3. `t ≠ ∅` (`{∅} = vnat 1`, the old collision) and `t` must not
+   itself be a writable value (`{vnat 2}` is the writable quotient
+   class of `Quot.mk (· = 2 ∧ · = 2) 2` — killed that candidate);
+4. **`t`'s members must not cohabit any writable type** — else `pt`
+   is a writable singleton quotient class over that type.  Every
+   rejected candidate died to a *writable* value; this clause is the
+   generalizable content.  `ptTag`'s members `∅` (a `Nat` value) and
+   `{{∅}} = kpair ∅ ∅` (a pair value) share no writable host — only
+   `Type` holds both, and pinning `{{∅}}` there needs a type-equality
+   to an unwritable type;
+5. `t` must be hereditarily finite, so `IsTGUniverse.pt_mem` (and the
+   whole `unitSet`/`univZero`/`truthVal` universe-closure chain)
+   survives for arbitrary inhabited TG universes — this killed `{ω}`
+   (false in `V_ω`), which also had a writable type-level collision:
+   `⟦Quot (fun _ _ : Nat => True)⟧ = {ω}` — squashed `Nat` *was* that
+   candidate `pt`.
+
+Blast radius, measured: `pt` is irreducible, and its ∅-content was
+consumed at exactly three sites outside `Pt.lean` (`graph_ne_pt`,
+`ne_pt_of_mem_piSet`, `sigmaSet_ne_pt` — all re-proved via the tag's
+empty member) plus the Collapse.lean evidence.  The Model layer
+(65 k lines) needed **zero** changes.  `Collapse.lean`'s witness
+lemmas restate (`lamC_witnesses_distinguished`: the `Nat` witness is
+now a genuine graph, the `Prop` witness still collapses — the collapse
+never *needed* the identification, only level-freedom; Horn A
+re-proves through the tag's memberwise recursion).
+
+### The battery (`Derive/PtFresh.lean`)
+
+Collision lemmas per encoding: `vsucc_ne_pt` (succ images fresh even
+off `ω`), `vnat_ne_pt`, `pt_not_mem_omega`, `pt_not_mem_sigmaPairs`,
+`pt_not_mem_sigmaSet_pos`, `pt_not_mem_piSet`, `pt_not_mem_univZero`;
+type-former values `omega`/`univ n`/`piC` are never `pt`
+(`piC_ne_pt` is new and unconditional).  `PtFresh T := pt ∉ˢ T` with
+`ne_pt_of_mem_fresh` (the namesake), the **existential** pi clause
+`ptFresh_piC_iff : PtFresh (piC A B) ↔ ∃ x ∈ A, PtFresh (B x)`
+(negation of `pt_mem_piC_iff` — over an empty domain every product
+collapses, so nonemptiness is part of any sufficient condition), and
+the consumer under-approximation `ptFresh_piC_of` (uniformly fresh
+fibres over a nonempty domain).  **The nonemptiness conjunct is what
+re-blocks the #100 de-gating countermodel by name**:
+`(fun (x : ∀ p : Prop, p) => Prop) Prop` has `⟦∀ p : Prop, p⟧ = ∅`,
+the ∃-inhabitant fails, and no restored gate can fire on it — the
+gate that was unsound returns with precisely the premise whose absence
+made it unsound.
+
+Domain determination (task #124 route (iii)): `piSet_dom_eq` (graphs
+determine domains *exactly*, both directions), `piC_dom_eq_of_ne_pt`
+(a non-`pt` member of two collapsed products pins the domains equal),
+`mem_dom_of_piC_of_ne_pt` / `mem_dom_of_piC_fresh` (the ambient
+argument fact transfers to any computed domain, `≠ pt` discharged by
+freshness).
+
+### Hard walls (forced, recorded so they are not re-attempted)
+
+* `pt ∈ univ (u+1)` is **forced** for every buildable proof point
+  (`univZero ∈ univ 1` + transitivity ⟹ `unitSet ∈ univ 1` ⟹
+  `pt ∈ univ 1`): sorts above `Prop` are never fresh
+  (`not_ptFresh_univ_succ`), while `Prop` itself **is**
+  (`ptFresh_univZero` — truth values are never `pt`, so predicates
+  `A → Prop` keep genuine graph values, matching the old
+  nonzero-sort classification of `Prop : Sort 1`).
+* Unit-likes are non-fresh **by design** (`⟦PUnit⟧ = {pt}`,
+  `not_ptFresh_unitSet`); inhabited propositions likewise.
+* Quotients are not unconditionally fresh for *any* constructible
+  `pt`: `quotSet_eq_pt_countermodel` (`Derive/Quot.lean`) exhibits
+  `quotSet 1 ptTag R_total = pt` — classes are arbitrary nonempty
+  definable subsets of the base.  **Never resurrect a
+  `quotSet_ne_pt`**; the old `pt = {∅}` was the unique choice immune
+  (∅ is never a class), which is exactly what the re-choice trades
+  for data freshness.  The countermodel base is not a writable type —
+  the obstruction is semantic, in the ∀-A-R quantification.
+
+### The syntactic guard (authoritative clause list)
+
+The consumers' static test, to be implemented with the gate
+restoration (soundness `ptFreshTy env T = true → interp T = some vT →
+PtFresh vT`): **fresh** — pinned `Nat`, `Empty`; `PSigma` at
+`Level.isNonZero (max u v)`; `Sort 0`; `Π x:A. B` with `B` uniformly
+fresh and `A` env-derivably nonempty (pinned inhabited basis types,
+inductives with a constructor of nonempty argument types, pis into
+nonempty, sorts).  **Excluded** — sorts ≥ 1, `Quot`, unit-likes,
+props, variable-headed types, and (pending the install artifact
+below) modeled inductives.  Note the convergence: the `PSigma` clause
+is the *same* all-assignments `isNonZero` level test as the old
+`codNonZero` gate — the battery's static tests converge on the old
+gates' tests because both under-approximate the same semantic
+boundary (which fibres can contain the proof point).  The task-#124
+census classifier aligns with this list.
+
+### Deferred (filed, not implemented here)
+
+Modeled inductives need an **install-time freshness artifact**: the
+opaque-model interface (mem_type + proj/iota/eta) cannot yield
+`PtFresh ⟦T⟧` — a unit-like modeled structure's value set is
+`{pt}`-shaped, so no interface-only argument exists.  Direction
+approved (capability-pipeline shape: run the syntactic test on the
+model's basis-typed type-level definition at install, store the
+verdict as a checked capability, as eta did); execution is its own
+task with its own gates.  Until it lands, modeled types stay outside
+the guard.

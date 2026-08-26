@@ -3,6 +3,7 @@ import Setlec.SetTheory.Derive.Sigma
 import Setlec.SetTheory.Derive.Natrec
 import Setlec.SetTheory.Derive.Quot
 import Setlec.SetTheory.Derive.Choice
+import Setlec.SetTheory.Derive.PtFresh
 
 /-!
 # The target set theory: the derived operator interface

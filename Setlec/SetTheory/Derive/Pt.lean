@@ -3,12 +3,21 @@ import Setlec.SetTheory.Derive.Universe
 /-!
 # The proof point, truth values, `univ 0`, and `eqv`
 
-* `pt := {∅}` — the tagged proof point: the canonical inhabitant of
-  every true proposition.  Its element `∅` is empty, while every
-  element of a Kuratowski pair is nonempty, so `pt` is never an
-  ordered pair and (since graphs are sets of pairs, and nonempty ones
-  at that) never a function graph — the tag `Derive/Graphs.lean`
-  exploits.
+* `pt := {ptTag}` with `ptTag := {∅, {{∅}}}` — the tagged proof
+  point: the canonical inhabitant of every true proposition.  The tag
+  is chosen so that **no data-value encoding produces `pt`** (task
+  #109; the battery is `Derive/PtFresh.lean`).  Selection principle:
+  `pt` must be a singleton whose element (a) has an *empty* member —
+  so neither the tag nor `pt` is a Kuratowski pair, pair elements
+  being nonempty (the anti-pair tag `Derive/Graphs.lean` exploits, one
+  level up from the old `pt = {∅}`); (b) is *not a singleton* — else
+  `pt = {{a}} = kpair a a`, a writable pair value; (c) is not `∅` —
+  else `pt = {∅} = vnat 1`, a writable numeral (the old collision);
+  and (d) has members that **cohabit no writable type** — else `pt` is
+  a writable singleton quotient class (`{2}` = the class of
+  `Quot.mk (· = 2 ∧ · = 2) 2` killed the `{vnat 2}` candidate).
+  `ptTag`'s members `∅` and `{{∅}} = kpair ∅ ∅` live in `Nat` resp.
+  pair types only, and no writable type hosts both.
 * `unitSet := {pt}` — the true truth value, and the model of `PUnit`.
 * `univZero := power unitSet = {∅, {pt}}` — the set of truth values,
   the `U₀ = {∅, {•}}` of Mario Carneiro, *The Type Theory of Lean*,
@@ -27,20 +36,60 @@ universe u
 
 variable {V : Type u} [SetTheory V]
 
-/-- The proof point `pt = {∅}`. -/
-noncomputable def pt : V := sing empty
+/-- The proof-point tag `{∅, {{∅}}}` (see the module docstring for the
+selection principle). -/
+noncomputable def ptTag : V := upair empty (sing (sing empty))
 
-theorem mem_pt {z : V} : z ∈ˢ (pt : V) ↔ z = empty := mem_sing
+theorem mem_ptTag {z : V} :
+    z ∈ˢ (ptTag : V) ↔ z = empty ∨ z = sing (sing empty) := mem_upair
+
+theorem empty_mem_ptTag : (empty : V) ∈ˢ ptTag :=
+  mem_ptTag.mpr (Or.inl rfl)
+
+theorem ptTag_ne_empty : (ptTag : V) ≠ empty :=
+  ne_empty_of_mem empty_mem_ptTag
+
+/-- The tag is not a singleton: its two members `∅` and `{{∅}}`
+differ.  (Blocks `pt = kpair a a = {{a}}`.) -/
+theorem ptTag_ne_sing (a : V) : (ptTag : V) ≠ sing a := by
+  intro h
+  obtain ⟨h1, h2⟩ := upair_eq_sing h
+  exact ne_empty_of_mem (mem_sing.mpr rfl) (h2.trans h1.symm)
+
+/-- The tag is not a Kuratowski pair: `∅` is among its members, while
+every member of a pair is nonempty. -/
+theorem ptTag_ne_kpair (a b : V) : (ptTag : V) ≠ kpair a b := by
+  intro h
+  obtain ⟨w, hw⟩ := mem_kpair_nonempty (h ▸ empty_mem_ptTag)
+  exact not_mem_empty w hw
+
+/-- The proof point `pt = {ptTag}`. -/
+noncomputable def pt : V := sing ptTag
+
+theorem mem_pt {z : V} : z ∈ˢ (pt : V) ↔ z = ptTag := mem_sing
+
+theorem ptTag_mem_pt : (ptTag : V) ∈ˢ pt := mem_pt.mpr rfl
 
 theorem pt_ne_empty : (pt : V) ≠ empty :=
-  ne_empty_of_mem (mem_pt.mpr rfl)
+  ne_empty_of_mem ptTag_mem_pt
 
-/-- `pt` is not a Kuratowski pair: its element is empty, a pair's
-elements are not. -/
+/-- `pt` is not a Kuratowski pair: `pt` is a singleton, so the pair
+would be degenerate (`kpair a a = {{a}}`), forcing the tag to be the
+singleton `{a}` — which it is not. -/
 theorem pt_ne_kpair (a b : V) : (pt : V) ≠ kpair a b := by
   intro h
-  obtain ⟨w, hw⟩ := mem_kpair_nonempty (h ▸ mem_pt.mpr rfl)
-  exact not_mem_empty w hw
+  obtain ⟨h1, -⟩ := upair_eq_sing h.symm
+  exact ptTag_ne_sing a h1.symm
+
+/-- `pt` is not a member of its own tag (blocks the two-step membership
+cycle `pt ∈ ptTag ∈ pt` that `not_mem_self` cannot see). -/
+theorem pt_not_mem_ptTag : ¬ (pt : V) ∈ˢ ptTag := by
+  intro h
+  rcases mem_ptTag.mp h with hpe | hps
+  · exact pt_ne_empty hpe
+  · have hm := ptTag_mem_pt (V := V)
+    rw [hps] at hm
+    exact ptTag_ne_sing empty (mem_sing.mp hm)
 
 /-- The canonical singleton `{pt}`: the true truth value. -/
 noncomputable def unitSet : V := sing pt
@@ -109,7 +158,9 @@ theorem truthVal_ne_pt (p : Prop) : (truthVal p : V) ≠ pt := by
   intro h
   by_cases hp : p
   · rw [truthVal_eq_unitSet hp] at h
-    exact pt_ne_empty (mem_pt.mp (h ▸ pt_mem_unitSet))
+    have hm := pt_mem_unitSet (V := V)
+    rw [h] at hm
+    exact not_mem_self (pt : V) hm
   · rw [truthVal_eq_empty hp] at h
     exact pt_ne_empty h.symm
 
@@ -154,7 +205,8 @@ theorem pt_mem_eqv_self (x : V) : (pt : V) ∈ˢ eqv x x :=
 (inhabited) Grothendieck universe. -/
 theorem _root_.Setlec.IsTGUniverse.pt_mem {U y : V}
     (hU : IsTGUniverse (Mem (V := V)) U) (hy : y ∈ˢ U) : (pt : V) ∈ˢ U :=
-  hU.sing_mem hy (hU.empty_mem hy)
+  hU.sing_mem hy (hU.upair_mem hy (hU.empty_mem hy)
+    (hU.sing_mem hy (hU.sing_mem hy (hU.empty_mem hy))))
 
 theorem _root_.Setlec.IsTGUniverse.unitSet_mem {U y : V}
     (hU : IsTGUniverse (Mem (V := V)) U) (hy : y ∈ˢ U) : (unitSet : V) ∈ˢ U :=
@@ -171,15 +223,17 @@ theorem _root_.Setlec.IsTGUniverse.truthVal_mem {U y : V}
 
 /- Compiler stubs (see `Derive/Empty.lean`): never executed, no logical
 content. -/
+private unsafe def ptTagImpl {V : Type u} [SetTheory V] : V := unsafeCast ()
 private unsafe def ptImpl {V : Type u} [SetTheory V] : V := unsafeCast ()
 private unsafe def unitSetImpl {V : Type u} [SetTheory V] : V := unsafeCast ()
 private unsafe def eqvImpl {V : Type u} [SetTheory V] (_x _y : V) : V := unsafeCast ()
 
+attribute [implemented_by ptTagImpl] ptTag
 attribute [implemented_by ptImpl] pt
 attribute [implemented_by unitSetImpl] unitSet
 attribute [implemented_by eqvImpl] eqv
 
 /- Opaque interface operators (see `Derive/Empty.lean`). -/
-attribute [irreducible] pt unitSet eqv
+attribute [irreducible] ptTag pt unitSet eqv
 
 end Setlec.SetTheory
