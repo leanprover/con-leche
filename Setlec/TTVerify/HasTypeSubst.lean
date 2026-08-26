@@ -42,6 +42,29 @@ the default hammer that stops that search.
 use `constructor` — `conv`'s conclusion `HasType Γ t B` unifies with
 every goal, so it gets selected in all 32 cases.  Every case below
 names its constructor.
+
+**Cost accounting, recorded because the estimate survived contact.**
+An independent design review priced this file and its algebra at 15–25
+lemmas ("each rule is closed under substitution; the `bvar` case needs
+the small lift/inst identities"); it landed at 19 substantive lemmas
+(7 commutation identities + 2 constant-closedness + 6 context-relation
+lemmas + 4 theorems/wrappers), with no Church–Rosser, no unique typing
+and no normalization anywhere.  Anyone estimating a job of this shape
+has nothing else to go on, so: hard, not deep, bounded as predicted.
+
+**FINDING — inner lifts make weakening as expensive as substitution.**
+"Closed under substitution" suggests weakening is the cheap half: the
+subject and type just distribute.  It is not, and the reason is that
+several rules *embed lifts in their statements* — `natStepT` and
+`quotInvT` carry `liftN 1..3` under binders, `arrow` and `relT` hide a
+`lift`, and `eta`/`funext` mention `f.liftN 1` — so the lift being
+pushed through the rule has to commute past the lifts already in it.
+The full commutation kit (`liftN_liftN_comm`/`_absorb`, and their
+lift/inst analogues) is therefore needed **already for the weakening
+lemma**, not just for substitution.  This is the non-obvious part of
+the cost and exactly what a re-estimate in another setting would get
+wrong.  (Contrast `HasType.weakenTail`, which appends to the context
+tail and is genuinely lift-free.)
 -/
 
 namespace Setlec.TT
