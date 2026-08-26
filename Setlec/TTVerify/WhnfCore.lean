@@ -1,5 +1,7 @@
 import Setlec.TTVerify.Claims
 import Setlec.TTVerify.Inst
+import Setlec.TTVerify.Certs
+import Setlec.Verify.InferLemmas
 
 /-!
 # `whnfCore`, clause by clause
@@ -14,20 +16,26 @@ certificate-only claims of `Setlec/TTVerify/Claims.lean`.
 | leaves (`sort`, `fvar`, `forallE`, `lam`, `const`, `lit`) | the reduct *is* the subject; `Deq.refl` |
 | `.app` with a λ head | `denote_beta_step` (`Setlec/TTVerify/Inst.lean`) |
 | `.app` otherwise | `iotaRec`, plus `congrApp` for the head's own reduction |
-| `.proj` | **blocked**: see `Setlec/TTVerify/DESIGN.md` §10 |
+| `.proj` | `projTeleCert_inv` → `certs_typed` → `projFstMk`/`projSndMk` |
 | `.letE` | `HasType.zeta`, premise-free |
 
 This module holds them as they are proved.  Leaves and zeta are here;
 the rest is noted at the end of `Setlec/TTVerify/DESIGN.md` §7 with its
 scale.
 
-**The `.proj` clause is blocked, and deliberately left so.**  Its rule
+**The `.proj` clause is unblocked** (task #126 landed).  Its rule
 (`projFstMk`/`projSndMk`) wants the four telescope domains of
-`PSigma'.mk`, and the checker's `.proj` clause certifies none of them —
-`projCert` checks levels for the collapse guard.  The fix is a check
-*in the checker* (`DESIGN.md` §10), which needs its own task rather
-than riding along in a proof branch, so this clause waits.  That is the
-honest state, not a gap to work around.
+`PSigma'.mk`; the checker now certifies exactly those, and
+`projTeleCert_inv` hands the `iotaCertsP` fact straight to
+`certs_typed` — see `proj_tele_typed` below.
+
+What still stands between that and the clause is the **pinned-basis
+valuation** clause of `ind_ok` (`Setlec/TTVerify/DESIGN.md` §11): the
+four premises arrive as typings at the denotations of `PSigma'.mk`'s
+*stored* telescope domains, and matching them to `projFstMk`'s
+`.sort u` / `arrow A (.sort v)` / `A` / `.app B a` needs the pinned
+constants' denotations fixed.  That is an `EnvTT` field, not a
+blocker.
 
 **The leaf clauses are the cheapest available evidence that
 certificate-only was the right shape.**  Threaded, each of the six
@@ -132,5 +140,41 @@ theorem denote_zeta_step {cval : TConstVal} {env : Env} {φ : Name → Nat}
       rw [denote_beta (n := n) (ty := ty) hcl hfb hwv hbv hv 0, hB]
       rfl
   · exact nomatch hden
+
+/-! ## The projection clause
+
+Task #126 added the constructor-spine certification this clause needs
+(`Setlec/TTVerify/DESIGN.md` §10.1 — the bridge's first request of the
+checker).  `projTeleCert_inv` converts a successful run into the
+constructor's stored type plus the `iotaCertsP` fact, which is
+`certs_typed`'s entry point, so the four premises of
+`projFstMk`/`projSndMk` arrive as premises. -/
+
+/-- The projection's constructor spine is a typed telescope.  The
+`.proj` counterpart of `rec_rules_fire`'s first half, and the direct
+consumer of task #126. -/
+theorem proj_tele_typed {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
+    (ihd : DefEqClaimsTT m φ fuel) (ihi : InferClaimsTT m φ fuel)
+    {d : Nat} {Δ : List VExpr} {c : Name} {us : List Level}
+    {args : List Expr} {cvj : ConstantVal} {nP nF : Nat} {T : VExpr}
+    (hcert : projTeleCertP env fuel d c us args = .ok true)
+    (hfind : env.find? c = some (.ctorInfo cvj nP nF))
+    (hw : Expr.WScoped d (cvj.type.instantiateLevelParams cvj.levelParams us))
+    (hb : (cvj.type.instantiateLevelParams cvj.levelParams us).looseBVarsBounded 0
+      = true)
+    (hC : CtxOk m.cval env φ d Δ
+      (cvj.type.instantiateLevelParams cvj.levelParams us))
+    (hi : denote m.cval env φ d
+      (cvj.type.instantiateLevelParams cvj.levelParams us) = some T)
+    (hargs : ∀ x ∈ args, Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true ∧
+      CtxOk m.cval env φ d Δ x) :
+    ∃ xs rest, TeleTyped m.cval env φ d Δ
+      (cvj.type.instantiateLevelParams cvj.levelParams us) args xs rest := by
+  obtain ⟨cvj', nP', nF', hfind', hcerts⟩ := projTeleCert_inv hcert
+  obtain rfl : cvj' = cvj := by
+    rw [hfind'] at hfind
+    exact (ConstantInfo.ctorInfo.inj (Option.some.inj hfind)).1
+  exact certs_typed m φ hcl ihd ihi _ _ T hcerts hw hb hC hi hargs
 
 end Setlec.TTVerify

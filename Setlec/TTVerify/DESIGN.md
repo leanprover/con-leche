@@ -1332,10 +1332,19 @@ to reconstruct a derivation.  Expected cost is one call on a path that
 already runs `projCert`, and `iotaCerts` on a four-element spine is
 small; but it is a kernel change and must be measured, not assumed.
 
-*Status.*  Task #126, dispatched.  Not implemented on this branch,
-deliberately.  Until it lands, `Setlec/TTVerify/WhnfCore.lean`'s
-`.proj` clause stays unproved, and that is the honest state rather than
-a gap to work around.
+*Status.*  **Landed** (task #126).  Measured **+0.145 % certified,
+0.00 % cert-skipping**, byte-identical in both modes, no verdict moved
+— so the "must be measured, not assumed" caveat resolved in the cheap
+direction.  The cert-skipping mode deliberately skips the new call, on
+the grounds that a mode skipping three telescope certifications and
+keeping a fourth reports a meaningless number; the rationale is in the
+top-level `DESIGN.md`.
+
+What the bridge gets: `projTeleCert_inv` turns a successful run into
+the constructor's stored type plus the `iotaCertsP` fact — **the direct
+entry point for `certs_typed`**, so the premises arrive as premises
+rather than as a call to replicate.  `whnf_proj_inv` grew a final
+conjunct for it.
 
 ### 10.2 To the layer: the irrelevance rules are over-constrained
 
@@ -1382,9 +1391,25 @@ substitution algebra §7 was built to avoid.  Paying that to work around
 an over-constrained rule would be the wrong trade twice over, and its
 cost is itself the argument for the generalization.
 
-*Status.*  Not implemented here.  A layer change belongs on its own
-branch with the layer's own gate (the axiom check on
-`Setlec.TT.*`), as the projection former did.
+*Status.*  **Landed** on `feat/74-relax-premises`, with the layer's own
+axiom gate unmoved.  The soundness cases changed by **one identifier
+each** — the number to quote if the relaxation is ever questioned.
+
+**The loop closes, and it closed cleanly.**  The first consumer written
+after the change, `proof_irrel_step`
+(`Setlec/TTVerify/Iota.lean`), needed **precisely** the freedom the
+change added — the two typings at *different* types — and nothing more.
+Before the change the lemma could not have been *stated*.  That is the
+cleanest validation a relaxation can get: request, change, and a
+consumer showing the request was right-sized rather than convenient.
+
+**And the negative half, which is the precedent.**  The proof needed no
+`propext`, no binder weakening, no substitution algebra.  The
+workaround was priced at three lemmas plus a commutation stack; the
+generalization made it two lines.  *That comparison is the argument for
+asking the layer for a change rather than working around it*, and it is
+the precedent for the next time this bridge meets an over-constrained
+rule: price the workaround first, and if it exceeds the change, ask.
 
 ## 11. DECIDED: how the pinned `Eq` block denotes
 
