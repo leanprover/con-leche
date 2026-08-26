@@ -3936,6 +3936,27 @@ forward.
 > paid once, and invisible from the decision, which is exactly why it
 > is recorded where the decision is praised.
 
+#### The recursive occurrence, checked — and it needed nothing
+
+`Nat.rec`'s `succ` rule is the first stored right-hand side in any
+block that **mentions the recursor being installed**: it applies
+`Nat.rec.{u}` to the motive, both minors and the field.  Flagged before
+writing it, because no finished block contained the shape.
+
+**It is expressible with no change.**  `EnvTT.cons`'s `hheadRec` states
+the rule's denotation at `cval'` — the *post-install* valuation, in the
+*extended* environment — and always did.  So the recursive occurrence
+resolves to the constant currently going in, which is exactly what the
+fired form needs.
+
+Worth stating plainly because the tempting reading is wrong: this is
+**not** a second payout of the returned-witness fix.  That fix solved a
+different problem — threading a valuation from one constant of a block
+to the *next* — and the recursive occurrence is within a single
+constant's own obligation, where `cval'` was already in scope.  Two
+adjacent problems with different answers, and conflating them would
+have credited the fix with something the original design had right.
+
 *The general lesson in miniature*: an install lemma's consumer is the
 **next install**, and what that consumer needs is the *state*, not the
 existence.  A `Nonempty`-shaped conclusion is right only where nothing
