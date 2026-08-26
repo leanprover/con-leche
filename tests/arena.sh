@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run the checker over the lean kernel arena tutorial tests and compare
-# against tests/arena-expected.txt (lines: "<expected-exit> <relative-path>").
+# against tests/arena-expected.txt (lines: "<expectation> <relative-path>").
 #
 # Exit codes of the checker: 0 accept, 1 reject, 2 decline, 3 error.
 # Rules enforced here, beyond matching expectations:
@@ -9,12 +9,45 @@
 #    soundness bug
 # The expectations file additionally pins the current accept/decline status
 # so that progress and regressions are both visible; update it consciously.
+#
+# Usage: tests/arena.sh [--direct-off] [tests-dir]
+#
+# An <expectation> is either a single exit code, as for the overwhelming
+# majority of fixtures, or a pair "<on>|<off>" for the few fixtures whose
+# verdict depends on the direct simple-structure master switch
+# (`Setlec.directStructsEnabled`, Setlec/Kernel/Direct.lean, task #119):
+# the left code is expected in the shipped configuration, the right one
+# with the switch off.  Both forms are accepted in tests/arena-expected.txt
+# and in tests/e2e-expected.txt.
+#
+# `--direct-off` runs the whole suite against a second binary built with
+# that switch set to `false` (tests/build-direct-off.sh builds it into
+# _tmp/, no source edit), applying the right-hand expectations.  It is an
+# opt-in run — the default invocation is unchanged, and unchanged in cost.
 set -u
 cd "$(dirname "$0")/.."
+
+DIRECT=on
+args=()
+for a in "$@"; do
+  case "$a" in
+    --direct-off) DIRECT=off;;
+    *) args+=("$a");;
+  esac
+done
+set -- ${args+"${args[@]}"}
 
 TESTS_DIR="${1:-_tmp/arena-tests}"
 BIN=.lake/build/bin/setlec
 EXPECTED=tests/arena-expected.txt
+
+# Select the applicable half of an expectation: "0|2" is (on|off), a bare
+# "0" applies to both configurations.
+if [ "$DIRECT" = off ]; then
+  pick() { case "$1" in *'|'*) want=${1#*|};; *) want=$1;; esac; }
+else
+  pick() { case "$1" in *'|'*) want=${1%%'|'*};; *) want=$1;; esac; }
+fi
 
 if [ ! -d "$TESTS_DIR" ]; then
   # The arena tests are vendored (pinned snapshot, 2026-08-19,
@@ -29,13 +62,21 @@ if [ ! -d "$TESTS_DIR" ]; then
   fi
 fi
 
-lake build setlec >/dev/null || exit 3
+if [ "$DIRECT" = off ]; then
+  BIN=$(tests/build-direct-off.sh 2>/dev/null) || {
+    echo "failed to build the direct-structs-off binary" \
+         "(run tests/build-direct-off.sh to see why)" >&2; exit 3; }
+  echo "direct simple-structure installs: OFF ($BIN)"
+else
+  lake build setlec >/dev/null || exit 3
+fi
 
 fail=0
 accepted=0
 total_good=0
-while read -r want rel; do
-  case "$want" in ''|'#'*) continue;; esac
+while read -r exp rel; do
+  case "$exp" in ''|'#'*) continue;; esac
+  pick "$exp"
   f="$TESTS_DIR/$rel"
   timeout 60 "$BIN" "$f" >/dev/null 2>&1
   got=$?
@@ -63,8 +104,9 @@ E2E_EXPECTED=tests/e2e-expected.txt
 if [ -f "$E2E_EXPECTED" ]; then
   e2e_ok=0
   e2e_total=0
-  while read -r want rel mode; do
-    case "$want" in ''|'#'*) continue;; esac
+  while read -r exp rel mode; do
+    case "$exp" in ''|'#'*) continue;; esac
+    pick "$exp"
     e2e_total=$((e2e_total+1))
     src="tests/e2e/$rel"
     if [ ! -f "$src" ] && [ -f "$src.gz" ]; then

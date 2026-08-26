@@ -1,3 +1,10 @@
+# Expected exit codes for the vendored arena tutorial tests, read by
+# tests/arena.sh (0 accept, 1 reject, 2 decline, 3 error).
+#
+# An expectation is a single exit code, or a pair "<on>|<off>" for the
+# fixtures whose verdict depends on the direct simple-structure master
+# switch (`Setlec.directStructsEnabled`, task #119): left = shipped
+# configuration, right = `tests/arena.sh --direct-off`.
 0 good/tutorial/001_basicDef.ndjson
 0 good/tutorial/003_arrowType.ndjson
 0 good/tutorial/004_dependentType.ndjson
@@ -130,9 +137,9 @@
 1 bad/tutorial/124_accRecNoEta.ndjson
 1 bad/tutorial/131_dup_defs.ndjson
 1 bad/tutorial/132_dup_ind_def.ndjson
-1 bad/tutorial/133_dup_ctor_def.ndjson
-1 bad/tutorial/134_dup_rec_def.ndjson
+1|2 bad/tutorial/133_dup_ctor_def.ndjson
+1|2 bad/tutorial/134_dup_rec_def.ndjson
 2 bad/tutorial/135_misnamed_rec_user.ndjson
 2 bad/tutorial/136_dup_rec_def2.ndjson
-1 bad/tutorial/137_dup_ctor_rec.ndjson
+1|2 bad/tutorial/137_dup_ctor_rec.ndjson
 2 bad/tutorial/138_DupConCon.ndjson
