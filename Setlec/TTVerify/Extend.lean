@@ -1457,6 +1457,7 @@ def EnvTT.cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
       env.find? psigmaMkName = some psigmaMkA)
     (hheadProjPair : ∀ i entry, c₀ = .projInfo entry →
       c₀.name = projFnName psigmaName i → entry.native = true)
+    (hheadEq : c₀.name = eqName → EqLawTT ⟨c₀ :: env.consts⟩ cval')
     (hheadBasis : reservedBasisNames.contains c₀.name = true →
       (isBasisKind c₀ = true → c₀ = pinnedInfoT c₀.name) ∧
       ∀ (ψ : Name → Nat) (t : VExpr),
@@ -1496,6 +1497,7 @@ def EnvTT.cons {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
         hheadEta hheadUnit
       proj_ok := ProjOkT.cons m.proj_ok hi.fresh hheadProj hheadProjPair
       rec_ctors := RecCtorsStoredT.cons m.rec_ctors hi.fresh hheadCtors
+      eq_law := EqLawTT.cons m.eq_law hi.fresh hi.ag hheadEq
       basis_pinned := BasisPinnedTT.cons m.basis_pinned hi hheadBasis
       nat_ops := NatOpsTT.cons m.nat_ops hi hheadNat
       div_mod := DivModTT.cons m.div_mod hi hheadDivMod

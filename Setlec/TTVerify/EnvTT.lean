@@ -350,6 +350,54 @@ def uNT : Name := Name.anonymous.str "u"
 /-- The second pinned level-parameter name. -/
 def vNT : Name := Name.anonymous.str "v"
 
+/-- **The pinned `Eq` block's fired law** (§11).  The checker's `Eq` is
+an ordinary pinned inductive *constant*, which can appear partially
+applied; the layer's `eqE` is a syntactic *former*, because `conv`
+pattern-matches on it.  §11 settled the mismatch by denoting the bare
+constant as its eta-expansion and stating what consumers need as a
+law rather than as a pinned valuation — matching `rec_rules` and
+`caps_ok`.
+
+This is that law, written now because §11's rule ("a definition is a
+conjecture until a consumer elaborates") has been satisfied: **all
+three standard-axiom keys consume it**.  `propext`'s pinned type ends
+in `Eq Prop a b`, `Classical.choice`'s domain mentions the stored
+`Nonempty`, and the two `ofReduce*` axioms are equality implications —
+so every one of them has to turn a spine over the stored `Eq` into the
+former the layer's rules are stated at.  The consumer arrived, so the
+definition lands (`Setlec/TTVerify/DESIGN.md` §12.10, sixth instance:
+a clause deferred rather than dropped, and released by its consumer
+rather than by a schedule).
+
+The premises are the three telescope typings, which is what §11
+predicted the *app-argument certificate* would supply — so the law
+costs its consumers nothing they were not already paying. -/
+def EqLawTT (env : Env) (cval : TConstVal) : Prop :=
+  env.find? eqName = some eqA →
+  ∀ (ψ : Name → Nat) (Δ : List VExpr) (A a b : VExpr),
+    HasType Δ A (.sort (ψ uNT)) → HasType Δ a A → HasType Δ b A →
+    Deq Δ (VExpr.mkAppN (cval eqName ψ) [A, a, b]) (.eqE A a b)
+
+theorem EqLawTT.empty (cval : TConstVal) : EqLawTT Env.empty cval := by
+  intro h
+  simp [Env.find?, Env.empty] at h
+
+/-- The law survives an install: `Eq` is reserved, so an ordinary
+install neither stores it nor changes its valuation, and the law is
+the old one read at the new environment. -/
+theorem EqLawTT.cons {env : Env} {cval cval' : TConstVal}
+    {c₀ : ConstantInfo} (h : EqLawTT env cval)
+    (hfresh : env.find? c₀.name = none)
+    (hag : ∀ n, n ≠ c₀.name → cval n = cval' n)
+    (hhead : c₀.name = eqName → EqLawTT ⟨c₀ :: env.consts⟩ cval') :
+    EqLawTT ⟨c₀ :: env.consts⟩ cval' := by
+  intro hf
+  by_cases hn : c₀.name = eqName
+  · exact hhead hn hf
+  · rw [Env.find?_cons, if_neg hn] at hf
+    rw [← hag eqName (fun hh => hn hh.symm)]
+    exact h hf
+
 /-- What a reserved basis constant denotes to, where it denotes to a
 bare built-in.  `none` for the four the layer derives rather than
 carries (see the section note). -/
@@ -666,6 +714,10 @@ structure EnvTT (env : Env) where
   (`RecCtorsStoredT`).  Part of the transpose of `IndOk`; consumed by
   `RecRulesTT.cons` at every install. -/
   rec_ctors : RecCtorsStoredT env
+  /-- The pinned `Eq` spine is the layer's equality former
+  (`EqLawTT`, §11).  Consumed by the three standard-axiom
+  inhabitation keys. -/
+  eq_law : EqLawTT env cval
   /-- The reserved basis constants denote to their pinned built-ins
   (`BasisPinnedTT`).  Part of the transpose of `IndOk`; the four
   layer-derived constants are covered by fired laws instead, and land
@@ -699,6 +751,7 @@ def EnvTT.empty : EnvTT Env.empty where
   caps_ok := CapsOkTT.empty _
   proj_ok := ProjOkT.empty
   rec_ctors := RecCtorsStoredT.empty
+  eq_law := EqLawTT.empty _
   basis_pinned := BasisPinnedTT.empty _
   nat_ops := NatOpsTT.empty _
   div_mod := DivModTT.empty _

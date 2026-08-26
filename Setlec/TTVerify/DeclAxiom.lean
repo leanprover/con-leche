@@ -89,7 +89,7 @@ theorem extendAxiomTT {env : Env} (m : EnvTT env) {cv : ConstantVal}
   refine ⟨EnvTT.cons m hi hwf ?_ ?_ ?_ (fun _ _ _ heq => nomatch heq)
     (fun _ _ heq => nomatch heq) ?_ (fun _ _ _ _ heq => nomatch heq)
     (fun _ _ _ _ heq => nomatch heq) ?_ (fun _ _ heq => nomatch heq)
-    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq) ?_
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq) ?_ ?_
     (fun _ _ _ heq => nomatch heq) (fun _ _ _ heq => nomatch heq) ?_⟩
   · intro ψ
     show VExpr.Closed (cvalWith m.cval cv.name V cv.name ψ)
@@ -116,6 +116,10 @@ theorem extendAxiomTT {env : Env} (m : EnvTT env) {cv : ConstantVal}
     · obtain ⟨-, -, hfP⟩ := hfam
       obtain ⟨cvP, mI, rP, rules, hfPj⟩ := hfP j hj
       rw [hP, Env.find?_cons, if_pos rfl] at hfPj; exact nomatch hfPj
+  · intro hE
+    rw [show (ConstantInfo.axiomInfo cv).name = cv.name from rfl] at hE
+    rw [hE] at hnres
+    exact nomatch hnres
   · intro hres
     show _ ∧ _
     rw [show (ConstantInfo.axiomInfo cv).name = cv.name from rfl] at hres

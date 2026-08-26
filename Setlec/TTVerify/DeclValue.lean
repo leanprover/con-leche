@@ -209,7 +209,7 @@ theorem extendValueTT {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
   refine ⟨EnvTT.cons m hi hwf ?_ ?_ ?_ ?_ ?_ ?_
     (fun cv2 mI rP rules heq => absurd heq (hc₀nrec cv2 mI rP rules))
     ?_ hheadEta ?_ ?_ (fun _ entry heq _ => absurd heq (hc₀nproj entry)) ?_
-    hheadNat hheadDivMod hheadReduce⟩
+    ?_ hheadNat hheadDivMod hheadReduce⟩
   · -- the new valuation is closed
     intro ψ
     obtain ⟨v, t, hv, -, -⟩ := hkey ψ
@@ -265,6 +265,11 @@ theorem extendValueTT {env : Env} (m : EnvTT env) {c₀ : ConstantInfo}
     intro hres
     rw [hc₀name] at hres
     rw [hres] at hnres
+    exact nomatch hnres
+  · -- `Eq` is reserved, so this install is not at it
+    intro hE
+    rw [hc₀name] at hE
+    rw [hE] at hnres
     exact nomatch hnres
 
 end Setlec.TTVerify
