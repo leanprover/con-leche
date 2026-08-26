@@ -827,6 +827,35 @@ should check this count before and after.
   (inversion gives the argument at the ambient domain `A₀`, and
   bridging `A₀` to `A` is the open question of §6).
 
+### The iota clause, decomposed
+
+Scouted before starting it, per the operational rule of §2 — and the
+scouting changed the estimate.
+
+`iotaRec_inv` (`Setlec/Verify/InferLemmas.lean`) is **importable** and
+inverts the whole guard cascade in one step, handing over: the stored
+recursor and constructor, the rule, the level and argument spines,
+*both* `iotaCertsP … = .ok true` facts, and `eout` in exactly the form
+`RecRulesTT` concludes about.  So the clause splits cleanly:
+
+1. **Assembly — de-risked.**  `iotaRec_inv`, then `certs_typed` twice
+   (once per telescope) to build the two `TeleTyped`s, then
+   `EnvTT.rec_rules`.  Every piece exists; nothing here needs
+   invention.
+2. **`majorToCtor` soundness — the real remaining work.**  The contract
+   speaks about a redex whose major is already in constructor form,
+   while the clause sees the major as written.  Bridging them is the
+   whnf claim on the major, `litMajorToCtor`, and `majorToCtor` — the
+   last being the ι-time structure-eta *rescue*, whose set-model
+   counterpart (`Setlec/Model/Core/MajorToCtor.lean`) is 550 lines.
+
+**Note what item 2 is**: `majorToCtor` is where `structEtaCert` and
+`projCert` are consumed.  So the iota clause is also **where two of
+§6's three open predictions get tested** — the structure-eta and
+`projCert` rows.  That is worth knowing before starting: the clause is
+not only the largest remaining piece, it is the one carrying the
+falsification test.
+
 ### Next: the remaining `whnfCore` clauses
 
 `whnfCoreBody` (`Setlec/Kernel/Core.lean`) has, beyond the leaf cases
