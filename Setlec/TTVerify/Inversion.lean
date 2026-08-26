@@ -12,8 +12,19 @@ metatheory: soundness goes straight to the model, so the whole
 substitution story is two *semantic* lemmas rather than lean4lean's 123
 syntactic ones.  That claim is about **soundness**, and it stands.
 
-The **bridge** needs a little more, and only because of the shape
-task #119's stage 2 now takes.  Threading a typing hypothesis through
+**Currently unconsumed, and kept deliberately.**  These were built for
+the threaded claim shape, which is now withdrawn
+(`Setlec/TTVerify/Claims.lean`); the certificate-only claims need no
+inversion at all.  They are kept because the *argument* for that
+withdrawal runs through them — route 2 of
+`Setlec/TTVerify/DESIGN.md` §6 is precisely "what inversion supplies,
+and why it is not enough" — so deleting them would delete the evidence.
+If a later clause does want inversion, these are what is available; if
+the count ever reaches four, that is the signal
+`Setlec/TT/DESIGN.md` §3.1 warns about.
+
+The **bridge** needed them because of the shape task #119's stage 2
+briefly took.  Threading a typing hypothesis through
 the reduction claims (rather than re-deriving membership at every node
 — see `Setlec/TTVerify/DESIGN.md` §6) means that when the induction
 recurses into a subterm, it must hand the recursive call a typing for

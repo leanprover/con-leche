@@ -24,6 +24,14 @@ The same fact could equally be had by `∀ Δ`-quantifying `EnvTT`'s
 the same lemma either way; proving it once here keeps the invariant
 stated at the empty context, which is where the corollary wants it.
 
+**Gotcha for anyone writing a `HasType` induction here.**  Do not
+reach for `induction h <;> constructor <;> assumption`: `conv`'s
+conclusion is `HasType Γ t B` with both `t` and `B` metavariables, so
+it unifies with *every* goal and `constructor` picks it in all 32
+cases.  The cases have to name their own constructor.  (Also note that
+`solve_by_elim`, `apply_assumption` and `by_contra` are Mathlib, not
+core, so they are unavailable in this project.)
+
 Like `Setlec/TTVerify/Inversion.lean` and
 `Setlec/TTVerify/VClosed.lean`, this lives on the bridge side so that
 it stays marked as a bridge need rather than becoming layer

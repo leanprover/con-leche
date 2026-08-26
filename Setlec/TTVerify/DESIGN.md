@@ -366,60 +366,72 @@ The last two are worth their keep for a reason that inverts the usual
 intuition: removing them made the run *slower*, because they
 short-circuit reduction.
 
-### What this changes here
+### What this changes here — and what it does not
 
-The claims of `Setlec/TTVerify/Claims.lean` **thread the typing
-hypothesis from the start** rather than re-deriving membership at each
-node: `Typeable Δ ⟦e⟧` in, `Deq Δ ⟦e⟧ ⟦e'⟧` and `Typeable Δ ⟦e'⟧` out.
+**Nothing.  The claims stay certificate-only**, mirroring
+`Setlec/Model/Core/Claims.lean`.  An earlier revision threaded a typing
+hypothesis through them on the argument that this was the path to
+removing the app-argument check; that revision is withdrawn, and the
+next subsection is why.
 
-**RETRACTION.**  This section previously justified that shape with
-"subject reduction is free, since conversion is equality reflection",
-and the reduction claims returned the reduct's typing *at the same
-type*, "free by `conv`".  **Both were false**, and the second is
-refutable, not merely underivable:
+### Why the certificates are structural (and task #124 cannot be
+### justified here)
 
-> `conv` changes the *type* of a fixed subject; **no rule changes the
-> subject of a fixed typing**.  With
-> `G := .app (.sort 0) (.sort 0)`, `t := natZeroT` and
-> `t' := .letE G natZeroT (.bvar 0)`: `[] ⊢ t : natT` by `const`;
-> `Deq [] t t'` by premise-free `zeta` and `symm` (the reduct is `t`
-> definitionally); and `t'` has **no type at all**, since any
-> `.letE`-subject derivation bottoms out at `letE`, which demands
-> `⊢ G : sort u`, needing a derivable chain from `sort 1` to a
-> syntactic `pi` — refuted by soundness in every model
-> (`∅ ∈ˢ univ 1` but `∅ ∉ piC X F`).
+The measurement above says the app-argument re-check is 98.6 % of the
+tax and that the reference kernels do it once per declaration rather
+than per reduct.  The natural conclusion — carry the fact instead of
+re-deriving it — **does not work in this layer**, and the reason is a
+property of the layer rather than a missing lemma.
 
-The culprit is the premise-free equational discipline of
-`Setlec/TT/DESIGN.md` §2.4: `zeta`, and `beta`'s unconstrained body,
-**equate typed terms with untypeable ones by design**.  An equation in
-this layer carries no typing information at all.  The discipline is
-still right — it minimizes bridge obligations — but "equality
-reflection makes subject reduction free" is exactly the wrong
-intuition to carry away from it.
+Take the app clause in infer-only mode.  The bridge must conclude
+`⊢ .app ⟦f⟧ ⟦a⟧ : ⟦B⟧.inst ⟦a⟧`.  `HasType.app` is the only rule with
+an `.app` conclusion (up to `conv`, which does not change the subject),
+and it demands the argument at **the domain of the function type used
+in that application**.  The induction hypothesis for `f` fixes that to
+be the checker's inferred `⟦A⟧`.  So `⊢ ⟦a⟧ : ⟦A⟧` is required, on the
+nose.  Four routes, all closed:
 
-So a reduct's typing is **built**, not transported: invert, use the
-step's own certificate, apply `HasType` substitution.  That lands at
-the *reduct's* type, not the subject's, and bridging the two would need
-Π-codomain-injectivity — refuted below along with the domain case.
-Hence `Typeable`, existentially.  It is also all the `whnf` loop needs.
+1. **Re-infer and compare** — the certificate.  This is the one we
+   were trying to remove.
+2. **Ambient hypothesis plus inversion.**  `hasType_app_inv` yields
+   `⊢ ⟦a⟧ : A₀` for *some* domain `A₀` of *some* pi type of `⟦f⟧`.
+   Bridging `A₀` to `⟦A⟧` means descending a `Deq` between two pi types
+   into the domain — **Π-domain-injectivity, refuted by `propext`**
+   (below).
+3. **A stronger carried invariant**, e.g. "every app node's argument is
+   typed at its function's inferred domain".  Reduction *creates* app
+   nodes — beta's reduct is a substitution instance — and the functions
+   in them have substituted types, so the invariant would have to be
+   preserved by substitution *at the inferred domains*, which is
+   route 2 again at every new node.
+4. **A global argument**: the declaration was checked once in checking
+   mode, and everything reduction sees descends from a well-typed term.
+   **This is the official kernel's actual justification, and it is
+   subject reduction** — which this layer *refutes*, by design, via the
+   premise-free equations of `Setlec/TT/DESIGN.md` §2.4 (see the
+   retraction above).
 
-Stating it this way now is the cheap move: an extra hypothesis makes
-each claim *weaker*, so nothing gets harder to prove, and when the
-checker eventually gains an infer-only mode and drops the app-argument
-check, that is a change to the checker rather than a retrofit of this
-induction.  Retrofitting later is the expensive direction.
+So the certificates are forced by the conjunction of two deliberate
+choices: **equations carry no typing** (premise-free rules), and
+**computation rules state their premises at annotations and inferred
+domains, not at ambient types**.  Together those mean every reduction
+rule's typing premise must be supplied where the rule fires.  No
+invariant carried from above can substitute for one.
 
-**The threading is not assumed to work — it is de-risked.**  A
-recursion that carries a typing must hand each subterm a typing of its
-own, and the layer has no inversion principle.  So
-`Setlec/TTVerify/Inversion.lean` proves exactly the two the checker's
-own recursion needs — the head and argument of an application, the
-subject of a projection — each one induction with two interesting cases
-(`app`/`proj*`, and `conv`, which does not change the subject) and a
-catch-all closed by constructor disjointness.  That is a bounded,
-named departure from the layer's "no syntactic metatheory" discipline,
-and it is in `Setlec/TTVerify/*` rather than `Setlec/TT/*` to keep it
-marked as a bridge need.
+**What this does and does not say about task #124.**  It does *not*
+say infer-only mode is unsound — the official kernel runs it and is
+sound, its justification living in a framework that *has* subject
+reduction.  It says **this bridge cannot justify it**, so adopting it
+would be a reduction in what the verification covers, not a free win.
+That is a scoping fact for #124 to weigh, not a defect in it; the
+performance case is untouched.
+
+And it says something about the shape of any future attempt: a layer
+that could justify infer-only would need premise-*carrying* equations,
+i.e. subject reduction — the opposite of §2.4.  That is a real trade
+(every equational rule gains typing premises, and every one of them
+becomes a bridge obligation), and it should be entered deliberately if
+ever, not drifted into.
 
 ### The beta clause: the certificate is needed under the current rule set
 
@@ -466,10 +478,18 @@ Note the same witness kills **codomain**-injectivity: `P₁` and `P₂`
 differ in both positions.  That is what makes the reduction claims'
 conclusion existential (above).
 
-So the earlier caution stands vindicated in form and reversed in
-substance: semantic falsity was indeed no evidence, and the actual
-argument had to come from *inside* the rule set — from `propext`, a
-rule the layer has.  A level-guarded variant of injectivity is not
+**The lesson, which is the transferable part.**  The earlier caution —
+"semantic falsity is not evidence about derivability" — was right in
+form and useless in substance.  It was unfalsifiable as stated: it
+ruled a bad argument out without indicating where a good one would come
+from, and so it parked the question indefinitely.  The actual argument
+had to come from *inside* the rule set, from `propext`, a rule the
+layer has.  **A caution that cannot be discharged either way is not
+progress**; when recording one, say what kind of evidence *would*
+settle it.  Here that would have been: look for a rule of the layer
+that manufactures equations between types with different components —
+which is exactly what `propext` does, and it was in `BConst` the whole
+time.  A level-guarded variant of injectivity is not
 refuted by this, but the layer cannot state the guard and no consumer
 needs it.
 
