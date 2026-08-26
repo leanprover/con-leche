@@ -1,5 +1,7 @@
 import Setlec.TTVerify.Denote
 import Setlec.TTVerify.EnvTT
+import Setlec.TTVerify.Claims
+import Setlec.TTVerify.Extend
 import Setlec.TTVerify.Consistency
 
 /-!

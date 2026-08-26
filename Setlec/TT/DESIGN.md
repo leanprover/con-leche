@@ -264,13 +264,48 @@ derivable*, and all four derivations are mechanized in
   evidence that the former is a primitive rather than an addition.
 
 Dropping them removes the most index-heavy dependent types from
-`BConst.type`.  Note that `congrEq` was **discovered by attempting the
-`Eq.rec` derivation** — without it the layer could not retype an
-equality proof along an equation between its own sides, and `Eq.rec`
-would not be derivable.  This is the kind of gap the design stage is
-for.
+`BConst.type`.
 
-### 3.1 The two standard axioms, in primitive form
+### 3.1 House rule: mechanize an elimination, or you are not finished
+
+**This rule set cannot be got right by inspection.  Two for two says
+so.**
+
+* `congrEq` was discovered by *attempting the `Eq.rec` derivation*.
+  Without it the layer cannot retype an equality proof along an
+  equation between its own sides, and `Eq.rec` is not derivable.  It
+  looks like a rule nobody would need until you need it.
+* `congrProj` was discovered by *attempting the projection former*
+  (task #119).  `proj` is not an application, so `congrApp` does not
+  reach it, and the only elimination over an equation is `conv`, which
+  changes types rather than terms — so "equal subjects have equal
+  fields" is not derivable, though every reader's first instinct says
+  it must be.
+
+Both gaps were invisible in the rule table and both surfaced the
+moment something was mechanized against it.  Neither was a subtle
+omission; both were rules that *read* as consequences of the others.
+So the house rule for anyone adding a former, a constant or a rule to
+this layer:
+
+> Mechanize a representative elimination — a derivation that actually
+> consumes the new thing, in `Setlec/TT/Examples.lean` — before
+> believing the rule set is complete.  An "obviously derivable" claim
+> about this layer is a conjecture until it elaborates.
+
+The corollary for reviewers: a change here that adds rules but no
+`Examples.lean` entry has not demonstrated anything, however plausible
+its table looks.
+
+And the corollary for *design*: when a new thing is added as a former
+rather than as constants, check the derivability direction both ways.
+The projection case is the template — the former derives the
+constants, and no set of constants derives the former, because only
+the former can be typed without its type arguments appearing in the
+term.  A former that shrinks `BConst` is a primitive; one that only
+grows it is an addition, and should be justified as such.
+
+### 3.2 The two standard axioms, in primitive form
 
 `propext` and `choice` are stated **without the modeled inductives that
 Lean's versions mention** — no `Iff`, no `Nonempty`:

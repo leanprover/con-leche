@@ -149,9 +149,10 @@ the term.
 `denote`'s clause is now the plain transpose of `interpExpr`'s, `i < 2`
 guard included.
 
-## 4. What is proved, and what the remaining hypothesis is
+## 4. What is proved, and what the remaining hypotheses are
 
-Stage 1 (this branch) proves, `sorry`-free and on
+Stage 1 (the denotation, the invariant, the fold) and the opening of
+stage 2 are proved, `sorry`-free and on
 `[propext, Classical.choice, Quot.sound]`:
 
 * `EnvTT.empty` — the base of the induction;
@@ -163,19 +164,51 @@ Stage 1 (this branch) proves, `sorry`-free and on
 * `foldlM_TT` / `checkDecls_TT` — the fold over the stream, reducing
   acceptance to the per-declaration step;
 * `no_constant_of_Empty_TT` and `no_proof_of_Empty_TT` — the
-  consistency corollary, through `Setlec.TT.no_proof_of_empty`.
+  consistency corollary, through `Setlec.TT.no_proof_of_empty`;
+* `checkSoundTT` — the mutual fuel induction, with its **fuel-zero**
+  case proved outright and its step named (`Setlec/TTVerify/Claims.lean`);
+* `denote_mono` — **denotations survive environment extension**
+  (`Setlec/TTVerify/Extend.lean`).  This is the workhorse every install
+  step needs, in the same place the set model needs its
+  `Extend/Transport` family, and it is one lemma here rather than a
+  family because nothing in this hierarchy mentions `AnnotOk` or a
+  set-theoretic interpretation.
 
-The open hypothesis is exactly one: `CheckDeclTT`, "checking one
-declaration preserves the derivation model" — the transpose of
-`checkDecl_sound`, and the clause-by-clause fuel induction of stage 2.
-It is a named `Prop` rather than a `sorry` so that every consumer of it
-is visible in the source.
+Two hypotheses remain open, both named `Prop`s rather than `sorry`s so
+that every consumer of an unproved step is visible in the source:
+
+* `CheckDeclTT` — "checking one declaration preserves the derivation
+  model", the transpose of `checkDecl_sound`;
+* `CheckStepTT` — the `succ` case of the fuel induction, the
+  clause-by-clause transpose of `Setlec/Model/Core/*`.
+
+`CheckDeclTT` will be discharged *through* `CheckStepTT`; they are
+separate because the declaration checker and the core knot are separate
+inductions on the set-model side too.
 
 Note where the set theory enters: **nowhere in `EnvTT`**.  The
 invariant is purely derivation-level; a `SetTheory V` instance is
 needed only at `no_constant_of_Empty_TT`, where the layer's own
 consistency theorem turns the pinned valuation of `Empty` into
 uninhabitation.
+
+### A candidate for the invariant-carrying shape (noted, not acted on)
+
+Every claim in `Setlec/TTVerify/Claims.lean` takes `CtxOk` as a
+*hypothesis* and every recursive clause will have to re-establish it
+for its subterms — which is a faithful mirror of what the checker does,
+and so is what stage 2 builds.
+
+But it is the obvious candidate for a formulation that *carries*
+well-typedness instead: `CtxOk` is an invariant of the traversal, not
+something each node earns, and subject reduction is free in this layer
+(conversion is equality reflection, so a `Deq` never disturbs a
+derivation).  Recorded here because a separate investigation is asking
+whether a TT-based proof could carry well-typedness through reduction
+rather than re-derive it at each node — the discipline behind the
+official kernel's `infer_only` mode.  **Not actionable**: it would
+require the checker to gain an infer-only mode, which `Core.lean`
+currently defers, and stage 2 must mirror what the checker does today.
 
 ### The direct-install hypothesis, and what it costs
 
