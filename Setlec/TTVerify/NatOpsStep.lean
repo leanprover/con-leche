@@ -146,6 +146,104 @@ denotation of its own equation sides into the shape
 six structural operations differ only in which primitives appear on
 the right-hand side; nothing about the argument is `add`-specific. -/
 
+/-- **The template's engine**, factored so that each operation's clause
+is shape work only.  Given a stored equation of `c` whose two sides
+denote, the equation holds at any two numerals.
+
+Everything an operation shares lives here: the guard's consequences,
+the `Nat` pin, the numerals' typing and closedness, and `Deq.close2`. -/
+theorem natOp_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {c : Name} (hc : c ∈ natOpNames) {cv : ConstantVal} {value : Expr}
+    {hint : ReducibilityHint}
+    (hf : env.find? c = some (.defnInfo cv value hint))
+    {eq : Expr × Expr} (hmem : eq ∈ natOpEquations 0 c)
+    {L R : VExpr}
+    (hL : denote m.cval env φ 2 eq.1 = some L)
+    (hR : denote m.cval env φ 2 eq.2 = some R)
+    {Γ : List VExpr} (a b : Nat) :
+    Deq Γ ((L.inst (numeral a) 1).inst (numeral b))
+      ((R.inst (numeral a) 1).inst (numeral b)) := by
+  obtain ⟨hguard, hlaw⟩ := m.nat_ops c hc cv value hint hf
+  have hnat : natLitSupported env = true := by
+    simp only [natOpGuard, Bool.and_eq_true] at hguard
+    exact hguard.1.1
+  obtain ⟨L', R', hL', hR', ⟨T, hD⟩⟩ := hlaw eq hmem φ
+  obtain rfl : L' = L := by rw [hL'] at hL; exact Option.some.inj hL
+  obtain rfl : R' = R := by rw [hR'] at hR; exact Option.some.inj hR
+  exact Deq.close2 (m.cval_closed _ _) hD
+    (by rw [cval_natT m φ hnat]; exact hasType_numeral a)
+    (by rw [cval_natT m φ hnat]; exact hasType_numeral b)
+
+/-- The guard's own consequences, in the form every operation clause
+reads them: the literal support, and that the operation and each of its
+dependencies is stored with no level parameters. -/
+theorem natOpGuard_deps {env : Env} {c : Name}
+    (hguard : natOpGuard env c = true) :
+    natLitSupported env = true ∧
+      ∀ n ∈ natOpDeps c, ∃ cv v hh, env.find? n = some (.defnInfo cv v hh) ∧
+        cv.levelParams = [] := by
+  simp only [natOpGuard, Bool.and_eq_true] at hguard
+  refine ⟨hguard.1.1, ?_⟩
+  intro n hn
+  have hd := hguard.1.2
+  rw [List.all_eq_true] at hd
+  have h := hd n (by simpa using hn)
+  cases hx : env.find? n with
+  | none => rw [hx] at h; exact nomatch h
+  | some ci =>
+    rw [hx] at h
+    cases ci with
+    | defnInfo cv v hh =>
+      exact ⟨cv, v, hh, rfl, by simpa [List.isEmpty_iff] using h⟩
+    | _ => simp at h
+
+/-- The `Bool` constructors are pinned by the guard of any operation
+whose recurrences mention them. -/
+theorem natOpGuard_bools {env : Env} {c : Name}
+    (hguard : natOpGuard env c = true)
+    (hc : c = natBeqName ∨ c = natBleName ∨ natDivModNames.contains c = true) :
+    (∃ ci, env.find? boolTrueName = some ci ∧
+        ci.toConstantVal.levelParams = []) ∧
+      (∃ ci, env.find? boolFalseName = some ci ∧
+        ci.toConstantVal.levelParams = []) := by
+  simp only [natOpGuard, Bool.and_eq_true] at hguard
+  have hb := hguard.2
+  rw [show (decide (c = natBeqName) || decide (c = natBleName) ||
+      natDivModNames.contains c) = true from by
+    rcases hc with rfl | rfl | h
+    · simp
+    · simp
+    · rw [h]; simp] at hb
+  simp only [if_true, Bool.and_eq_true] at hb
+  obtain ⟨hT, hF⟩ := hb
+  constructor
+  · cases hx : env.find? boolTrueName with
+    | none => rw [hx] at hT; exact nomatch hT
+    | some ci => rw [hx] at hT; exact ⟨ci, rfl,
+      by simpa [List.isEmpty_iff] using hT⟩
+  · cases hx : env.find? boolFalseName with
+    | none => rw [hx] at hF; exact nomatch hF
+    | some ci => rw [hx] at hF; exact ⟨ci, rfl,
+      by simpa [List.isEmpty_iff] using hF⟩
+
+/-- A dependency of a guarded operation denotes to its valuation. -/
+theorem denote_dep {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {c n : Name} (hguard : natOpGuard env c = true)
+    (hn : n ∈ natOpDeps c) (d : Nat) :
+    denote m.cval env φ d (.const n []) = some (m.cval n φ) := by
+  obtain ⟨-, hdeps⟩ := natOpGuard_deps hguard
+  obtain ⟨cv, v, hh, hf, hlp⟩ := hdeps n hn
+  exact denote_const_nolevels m φ hf (by simpa [ConstantInfo.toConstantVal]
+    using hlp) d
+
+/-- The guard of a stored operation. -/
+theorem natOp_guard {env : Env} (m : EnvTT env) {c : Name}
+    (hc : c ∈ natOpNames) {cv : ConstantVal} {value : Expr}
+    {hint : ReducibilityHint}
+    (hf : env.find? c = some (.defnInfo cv value hint)) :
+    natOpGuard env c = true :=
+  (m.nat_ops c hc cv value hint hf).1
+
 /-- The `Nat.add` recurrences, closed at numerals: exactly
 `numeral_add`'s two hypotheses. -/
 theorem natOps_add {env : Env} (m : EnvTT env) (φ : Name → Nat)
@@ -252,5 +350,444 @@ theorem natOps_add_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
       Deq Γ (ap2 (m.cval natAddName φ) (numeral a) (numeral b))
         (numeral (a + b)) :=
   numeral_add (natOps_add m φ hf).1 (natOps_add m φ hf).2
+
+/-! ## The remaining structural operations
+
+Each is the template applied: name the two (or three, or four) stored
+equations, compute both sides' denotations from the primitives, and
+hand the results to the matching `Setlec/TT/Nat/Ops.lean` family.  The
+`by decide` extraction keeps each clause independent of where its
+equation sits in `natOpEquations`' list. -/
+
+/-- `Nat.pred`, closed at numerals. -/
+theorem natOps_pred_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (hf : env.find? natPredName = some (.defnInfo cv value hint))
+    {Γ : List VExpr} : ∀ a : Nat,
+      Deq Γ (.app (m.cval natPredName φ) (numeral a)) (numeral (a - 1)) := by
+  have hg := natOp_guard m (by decide) hf
+  have hnat : natLitSupported env = true := (natOpGuard_deps hg).1
+  have hcv := denote_dep m φ (c := natPredName) (n := natPredName) hg
+    (by decide) 2
+  refine numeral_pred (Γ := Γ) (p := m.cval natPredName φ) ?_ ?_
+  · have h := natOp_closed m φ (by decide) hf (Γ := Γ)
+      (eq := (natOpEquations 0 natPredName)[0]!) (by decide)
+      (L := .app (m.cval natPredName φ) natZeroT) (R := natZeroT)
+      (by rw [show ((natOpEquations 0 natPredName)[0]!).1 =
+            .app (.const natPredName []) (.const natZeroName []) from by decide,
+          denote_app, hcv, denote_natZeroT m φ hnat])
+      (by rw [show ((natOpEquations 0 natPredName)[0]!).2 =
+            .const natZeroName [] from by decide, denote_natZeroT m φ hnat])
+      0 0
+    simpa [natZeroT, VExpr.inst,
+      VExpr.inst_eq_self_of_closed (m.cval_closed natPredName φ)] using h
+  · intro a
+    have h := natOp_closed m φ (by decide) hf (Γ := Γ)
+      (eq := (natOpEquations 0 natPredName)[1]!) (by decide)
+      (L := .app (m.cval natPredName φ) (natSuccT (.bvar 1)))
+      (R := .bvar 1)
+      (by rw [show ((natOpEquations 0 natPredName)[1]!).1 =
+            .app (.const natPredName [])
+              (.app (.const natSuccName [])
+                (.fvar 0 (.str .anonymous "x") (.const natName [])))
+            from by decide,
+          denote_app, hcv, denote_natSuccT m φ hnat (denote_natOp_x _ _)])
+      (by rw [show ((natOpEquations 0 natPredName)[1]!).2 =
+            .fvar 0 (.str .anonymous "x") (.const natName []) from by decide,
+          denote_natOp_x])
+      a 0
+    simpa [natSuccT, VExpr.inst,
+      VExpr.liftN_eq_self_of_closed (numeral_closed a),
+      VExpr.inst_eq_self_of_closed (numeral_closed a),
+      VExpr.inst_eq_self_of_closed (m.cval_closed natPredName φ)] using h
+
+/-- `Nat.sub`, closed at numerals. -/
+theorem natOps_sub_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (hf : env.find? natSubName = some (.defnInfo cv value hint))
+    {Γ : List VExpr} : ∀ a b : Nat,
+      Deq Γ (ap2 (m.cval natSubName φ) (numeral a) (numeral b))
+        (numeral (a - b)) := by
+  have hg := natOp_guard m (by decide) hf
+  have hnat := (natOpGuard_deps hg).1
+  obtain ⟨cvP, vP, hhP, hfP, -⟩ :=
+    (natOpGuard_deps hg).2 natPredName (by decide)
+  have hcv := denote_dep m φ (c := natSubName) (n := natSubName) hg
+    (by decide) 2
+  have hcp := denote_dep m φ (c := natSubName) (n := natPredName) hg
+    (by decide) 2
+  refine numeral_sub (p := m.cval natPredName φ)
+    (natOps_pred_closed m φ hfP) ?_ ?_
+  · intro a
+    have h := natOp_closed m φ (by decide) hf (Γ := Γ)
+      (eq := (natOpEquations 0 natSubName)[0]!) (by decide)
+      (L := .app (.app (m.cval natSubName φ) (.bvar 1)) natZeroT)
+      (R := .bvar 1)
+      (by rw [show ((natOpEquations 0 natSubName)[0]!).1 =
+            .app (.app (.const natSubName [])
+              (.fvar 0 (.str .anonymous "x") (.const natName [])))
+              (.const natZeroName []) from by decide,
+          denote_app, denote_app, hcv, denote_natOp_x,
+          denote_natZeroT m φ hnat])
+      (by rw [show ((natOpEquations 0 natSubName)[0]!).2 =
+            .fvar 0 (.str .anonymous "x") (.const natName []) from by decide,
+          denote_natOp_x])
+      a 0
+    simpa [ap2, natZeroT, VExpr.inst,
+      VExpr.liftN_eq_self_of_closed (numeral_closed a),
+      VExpr.inst_eq_self_of_closed (numeral_closed a),
+      VExpr.inst_eq_self_of_closed (m.cval_closed natSubName φ)] using h
+  · intro a b
+    have h := natOp_closed m φ (by decide) hf (Γ := Γ)
+      (eq := (natOpEquations 0 natSubName)[1]!) (by decide)
+      (L := .app (.app (m.cval natSubName φ) (.bvar 1))
+        (natSuccT (.bvar 0)))
+      (R := .app (m.cval natPredName φ)
+        (.app (.app (m.cval natSubName φ) (.bvar 1)) (.bvar 0)))
+      (by rw [show ((natOpEquations 0 natSubName)[1]!).1 =
+            .app (.app (.const natSubName [])
+              (.fvar 0 (.str .anonymous "x") (.const natName [])))
+              (.app (.const natSuccName [])
+                (.fvar 1 (.str .anonymous "y") (.const natName [])))
+            from by decide,
+          denote_app, denote_app, hcv, denote_natOp_x,
+          denote_natSuccT m φ hnat (denote_natOp_y _ _)])
+      (by rw [show ((natOpEquations 0 natSubName)[1]!).2 =
+            .app (.const natPredName [])
+              (.app (.app (.const natSubName [])
+                (.fvar 0 (.str .anonymous "x") (.const natName [])))
+                (.fvar 1 (.str .anonymous "y") (.const natName [])))
+            from by decide,
+          denote_app, denote_app, denote_app, hcp, hcv, denote_natOp_x,
+          denote_natOp_y])
+      a b
+    simpa [ap2, natSuccT, VExpr.inst,
+      VExpr.liftN_eq_self_of_closed (numeral_closed a),
+      VExpr.liftN_eq_self_of_closed (numeral_closed b),
+      VExpr.inst_eq_self_of_closed (numeral_closed a),
+      VExpr.inst_eq_self_of_closed (numeral_closed b),
+      VExpr.inst_eq_self_of_closed (m.cval_closed natSubName φ),
+      VExpr.inst_eq_self_of_closed (m.cval_closed natPredName φ)] using h
+
+/-- `Nat.mul`, closed at numerals. -/
+theorem natOps_mul_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (hf : env.find? natMulName = some (.defnInfo cv value hint))
+    {Γ : List VExpr} : ∀ a b : Nat,
+      Deq Γ (ap2 (m.cval natMulName φ) (numeral a) (numeral b))
+        (numeral (a * b)) := by
+  have hg := natOp_guard m (by decide) hf
+  have hnat := (natOpGuard_deps hg).1
+  obtain ⟨cvA, vA, hhA, hfA, -⟩ :=
+    (natOpGuard_deps hg).2 natAddName (by decide)
+  have hcv := denote_dep m φ (c := natMulName) (n := natMulName) hg
+    (by decide) 2
+  have hca := denote_dep m φ (c := natMulName) (n := natAddName) hg
+    (by decide) 2
+  refine numeral_mul (g := m.cval natAddName φ)
+    (natOps_add_closed m φ hfA) ?_ ?_
+  · intro a
+    have h := natOp_closed m φ (by decide) hf (Γ := Γ)
+      (eq := (natOpEquations 0 natMulName)[0]!) (by decide)
+      (L := .app (.app (m.cval natMulName φ) (.bvar 1)) natZeroT)
+      (R := natZeroT)
+      (by rw [show ((natOpEquations 0 natMulName)[0]!).1 =
+            .app (.app (.const natMulName []) (.fvar 0 (.str .anonymous "x")
+              (.const natName []))) (.const natZeroName []) from by decide,
+          denote_app, denote_app, hcv, denote_natOp_x,
+          denote_natZeroT m φ hnat])
+      (by rw [show ((natOpEquations 0 natMulName)[0]!).2 = .const natZeroName []
+            from by decide, denote_natZeroT m φ hnat])
+      a 0
+    simpa [ap2, natZeroT, VExpr.inst,
+      VExpr.liftN_eq_self_of_closed (numeral_closed a),
+      VExpr.inst_eq_self_of_closed (numeral_closed a),
+      VExpr.inst_eq_self_of_closed (m.cval_closed natMulName φ)] using h
+  · intro a b
+    have h := natOp_closed m φ (by decide) hf (Γ := Γ)
+      (eq := (natOpEquations 0 natMulName)[1]!) (by decide)
+      (L := .app (.app (m.cval natMulName φ) (.bvar 1))
+        (natSuccT (.bvar 0)))
+      (R := .app (.app (m.cval natAddName φ)
+        (.app (.app (m.cval natMulName φ) (.bvar 1)) (.bvar 0))) (.bvar 1))
+      (by rw [show ((natOpEquations 0 natMulName)[1]!).1 =
+            .app (.app (.const natMulName []) (.fvar 0 (.str .anonymous "x")
+              (.const natName []))) (.app (.const natSuccName [])
+              (.fvar 1 (.str .anonymous "y") (.const natName [])))
+            from by decide,
+          denote_app, denote_app, hcv, denote_natOp_x,
+          denote_natSuccT m φ hnat (denote_natOp_y _ _)])
+      (by rw [show ((natOpEquations 0 natMulName)[1]!).2 =
+            .app (.app (.const natAddName [])
+              (.app (.app (.const natMulName [])
+                (.fvar 0 (.str .anonymous "x") (.const natName [])))
+                (.fvar 1 (.str .anonymous "y") (.const natName []))))
+                (.fvar 0 (.str .anonymous "x") (.const natName []))
+            from by decide,
+          denote_app, denote_app, denote_app, denote_app, hca, hcv,
+          denote_natOp_x, denote_natOp_y])
+      a b
+    simpa [ap2, natSuccT, VExpr.inst,
+      VExpr.liftN_eq_self_of_closed (numeral_closed a),
+      VExpr.liftN_eq_self_of_closed (numeral_closed b),
+      VExpr.inst_eq_self_of_closed (numeral_closed a),
+      VExpr.inst_eq_self_of_closed (numeral_closed b),
+      VExpr.inst_eq_self_of_closed (m.cval_closed natMulName φ),
+      VExpr.inst_eq_self_of_closed (m.cval_closed natAddName φ)] using h
+
+/-- `Nat.pow`, closed at numerals. -/
+theorem natOps_pow_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (hf : env.find? natPowName = some (.defnInfo cv value hint))
+    {Γ : List VExpr} : ∀ a b : Nat,
+      Deq Γ (ap2 (m.cval natPowName φ) (numeral a) (numeral b))
+        (numeral (a ^ b)) := by
+  have hg := natOp_guard m (by decide) hf
+  have hnat := (natOpGuard_deps hg).1
+  obtain ⟨cvM, vM, hhM, hfM, -⟩ :=
+    (natOpGuard_deps hg).2 natMulName (by decide)
+  have hcv := denote_dep m φ (c := natPowName) (n := natPowName) hg
+    (by decide) 2
+  have hcm := denote_dep m φ (c := natPowName) (n := natMulName) hg
+    (by decide) 2
+  refine numeral_pow (g := m.cval natMulName φ)
+    (natOps_mul_closed m φ hfM) ?_ ?_
+  · intro a
+    have h := natOp_closed m φ (by decide) hf (Γ := Γ)
+      (eq := (natOpEquations 0 natPowName)[0]!) (by decide)
+      (L := .app (.app (m.cval natPowName φ) (.bvar 1)) natZeroT)
+      (R := natSuccT natZeroT)
+      (by rw [show ((natOpEquations 0 natPowName)[0]!).1 =
+            .app (.app (.const natPowName []) (.fvar 0 (.str .anonymous "x")
+              (.const natName []))) (.const natZeroName []) from by decide,
+          denote_app, denote_app, hcv, denote_natOp_x,
+          denote_natZeroT m φ hnat])
+      (by rw [show ((natOpEquations 0 natPowName)[0]!).2 = .app
+        (.const natSuccName []) (.const natZeroName [])
+            from by decide,
+          denote_natSuccT m φ hnat (denote_natZeroT m φ hnat 2)])
+      a 0
+    simpa [ap2, natZeroT, natSuccT, VExpr.inst,
+      VExpr.liftN_eq_self_of_closed (numeral_closed a),
+      VExpr.inst_eq_self_of_closed (numeral_closed a),
+      VExpr.inst_eq_self_of_closed (m.cval_closed natPowName φ)] using h
+  · intro a b
+    have h := natOp_closed m φ (by decide) hf (Γ := Γ)
+      (eq := (natOpEquations 0 natPowName)[1]!) (by decide)
+      (L := .app (.app (m.cval natPowName φ) (.bvar 1))
+        (natSuccT (.bvar 0)))
+      (R := .app (.app (m.cval natMulName φ)
+        (.app (.app (m.cval natPowName φ) (.bvar 1)) (.bvar 0))) (.bvar 1))
+      (by rw [show ((natOpEquations 0 natPowName)[1]!).1 =
+            .app (.app (.const natPowName []) (.fvar 0 (.str .anonymous "x")
+              (.const natName []))) (.app (.const natSuccName [])
+              (.fvar 1 (.str .anonymous "y") (.const natName [])))
+            from by decide,
+          denote_app, denote_app, hcv, denote_natOp_x,
+          denote_natSuccT m φ hnat (denote_natOp_y _ _)])
+      (by rw [show ((natOpEquations 0 natPowName)[1]!).2 =
+            .app (.app (.const natMulName [])
+              (.app (.app (.const natPowName [])
+                (.fvar 0 (.str .anonymous "x") (.const natName [])))
+                (.fvar 1 (.str .anonymous "y") (.const natName []))))
+                (.fvar 0 (.str .anonymous "x") (.const natName []))
+            from by decide,
+          denote_app, denote_app, denote_app, denote_app, hcm, hcv,
+          denote_natOp_x, denote_natOp_y])
+      a b
+    simpa [ap2, natSuccT, VExpr.inst,
+      VExpr.liftN_eq_self_of_closed (numeral_closed a),
+      VExpr.liftN_eq_self_of_closed (numeral_closed b),
+      VExpr.inst_eq_self_of_closed (numeral_closed a),
+      VExpr.inst_eq_self_of_closed (numeral_closed b),
+      VExpr.inst_eq_self_of_closed (m.cval_closed natPowName φ),
+      VExpr.inst_eq_self_of_closed (m.cval_closed natMulName φ)] using h
+
+/-! ### The two comparisons
+
+`Nat.beq` and `Nat.ble` return `Bool`, so their clauses additionally
+need the two constructor terms; the guard pins those for exactly the
+operations whose recurrences mention them (`natOpGuard_bools`). -/
+
+/-- `Nat.beq`, closed at numerals. -/
+theorem natOps_beq_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (hf : env.find? natBeqName = some (.defnInfo cv value hint))
+    {Γ : List VExpr} : ∀ a b : Nat,
+      Deq Γ (ap2 (m.cval natBeqName φ) (numeral a) (numeral b))
+        (if a = b then m.cval boolTrueName φ else m.cval boolFalseName φ) := by
+  have hg := natOp_guard m (by decide) hf
+  have hnat := (natOpGuard_deps hg).1
+  obtain ⟨⟨ciT, hfT, hlpT⟩, ⟨ciF, hfF, hlpF⟩⟩ :=
+    natOpGuard_bools hg (Or.inl rfl)
+  have hcv := denote_dep m φ (c := natBeqName) (n := natBeqName) hg
+    (by decide) 2
+  have hbT := denote_const_nolevels m φ hfT hlpT 2
+  have hbF := denote_const_nolevels m φ hfF hlpF 2
+  refine numeral_beq (f := m.cval natBeqName φ) ?_ ?_ ?_ ?_
+  · have h := natOp_closed m φ (by decide) hf (Γ := Γ)
+      (eq := (natOpEquations 0 natBeqName)[0]!) (by decide)
+      (L := .app (.app (m.cval natBeqName φ) natZeroT) natZeroT)
+      (R := m.cval boolTrueName φ)
+      (by rw [show ((natOpEquations 0 natBeqName)[0]!).1 =
+            .app (.app (.const natBeqName []) (.const natZeroName []))
+              (.const natZeroName []) from by decide,
+          denote_app, denote_app, hcv, denote_natZeroT m φ hnat])
+      (by rw [show ((natOpEquations 0 natBeqName)[0]!).2 =
+            .const boolTrueName [] from by decide, hbT])
+      0 0
+    simpa [ap2, natZeroT, VExpr.inst,
+      VExpr.inst_eq_self_of_closed (m.cval_closed natBeqName φ),
+      VExpr.inst_eq_self_of_closed (m.cval_closed boolTrueName φ)] using h
+  · intro b
+    have h := natOp_closed m φ (by decide) hf (Γ := Γ)
+      (eq := (natOpEquations 0 natBeqName)[1]!) (by decide)
+      (L := .app (.app (m.cval natBeqName φ) natZeroT) (natSuccT (.bvar 0)))
+      (R := m.cval boolFalseName φ)
+      (by rw [show ((natOpEquations 0 natBeqName)[1]!).1 =
+            .app (.app (.const natBeqName []) (.const natZeroName []))
+              (.app (.const natSuccName []) (.fvar 1 (.str .anonymous "y")
+              (.const natName []))) from by decide,
+          denote_app, denote_app, hcv, denote_natZeroT m φ hnat,
+          denote_natSuccT m φ hnat (denote_natOp_y _ _)])
+      (by rw [show ((natOpEquations 0 natBeqName)[1]!).2 =
+            .const boolFalseName [] from by decide, hbF])
+      0 b
+    simpa [ap2, natZeroT, natSuccT, VExpr.inst,
+      VExpr.liftN_eq_self_of_closed (numeral_closed b),
+      VExpr.inst_eq_self_of_closed (numeral_closed b),
+      VExpr.inst_eq_self_of_closed (m.cval_closed natBeqName φ),
+      VExpr.inst_eq_self_of_closed (m.cval_closed boolFalseName φ)] using h
+  · intro a
+    have h := natOp_closed m φ (by decide) hf (Γ := Γ)
+      (eq := (natOpEquations 0 natBeqName)[2]!) (by decide)
+      (L := .app (.app (m.cval natBeqName φ) (natSuccT (.bvar 1))) natZeroT)
+      (R := m.cval boolFalseName φ)
+      (by rw [show ((natOpEquations 0 natBeqName)[2]!).1 =
+            .app (.app (.const natBeqName []) (.app (.const natSuccName [])
+              (.fvar 0 (.str .anonymous "x") (.const natName []))))
+              (.const natZeroName []) from by decide,
+          denote_app, denote_app, hcv,
+          denote_natSuccT m φ hnat (denote_natOp_x _ _),
+          denote_natZeroT m φ hnat])
+      (by rw [show ((natOpEquations 0 natBeqName)[2]!).2 =
+            .const boolFalseName [] from by decide, hbF])
+      a 0
+    simpa [ap2, natZeroT, natSuccT, VExpr.inst,
+      VExpr.liftN_eq_self_of_closed (numeral_closed a),
+      VExpr.inst_eq_self_of_closed (numeral_closed a),
+      VExpr.inst_eq_self_of_closed (m.cval_closed natBeqName φ),
+      VExpr.inst_eq_self_of_closed (m.cval_closed boolFalseName φ)] using h
+  · intro a b
+    have h := natOp_closed m φ (by decide) hf (Γ := Γ)
+      (eq := (natOpEquations 0 natBeqName)[3]!) (by decide)
+      (L := .app (.app (m.cval natBeqName φ) (natSuccT (.bvar 1)))
+        (natSuccT (.bvar 0)))
+      (R := .app (.app (m.cval natBeqName φ) (.bvar 1)) (.bvar 0))
+      (by rw [show ((natOpEquations 0 natBeqName)[3]!).1 =
+            .app (.app (.const natBeqName []) (.app (.const natSuccName [])
+              (.fvar 0 (.str .anonymous "x") (.const natName []))))
+              (.app (.const natSuccName []) (.fvar 1 (.str .anonymous "y")
+              (.const natName [])))
+            from by decide,
+          denote_app, denote_app, hcv,
+          denote_natSuccT m φ hnat (denote_natOp_x _ _),
+          denote_natSuccT m φ hnat (denote_natOp_y _ _)])
+      (by rw [show ((natOpEquations 0 natBeqName)[3]!).2 =
+            .app (.app (.const natBeqName []) (.fvar 0 (.str .anonymous "x")
+              (.const natName []))) (.fvar 1 (.str .anonymous "y")
+              (.const natName [])) from by decide,
+          denote_app, denote_app, hcv, denote_natOp_x, denote_natOp_y])
+      a b
+    simpa [ap2, natSuccT, VExpr.inst,
+      VExpr.liftN_eq_self_of_closed (numeral_closed a),
+      VExpr.liftN_eq_self_of_closed (numeral_closed b),
+      VExpr.inst_eq_self_of_closed (numeral_closed a),
+      VExpr.inst_eq_self_of_closed (numeral_closed b),
+      VExpr.inst_eq_self_of_closed (m.cval_closed natBeqName φ)] using h
+
+/-- `Nat.ble`, closed at numerals.  This is the one the WF-recursive
+operations' guarded recurrences are stated with. -/
+theorem natOps_ble_closed {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (hf : env.find? natBleName = some (.defnInfo cv value hint))
+    {Γ : List VExpr} : ∀ a b : Nat,
+      Deq Γ (ap2 (m.cval natBleName φ) (numeral a) (numeral b))
+        (if a ≤ b then m.cval boolTrueName φ else m.cval boolFalseName φ) := by
+  have hg := natOp_guard m (by decide) hf
+  have hnat := (natOpGuard_deps hg).1
+  obtain ⟨⟨ciT, hfT, hlpT⟩, ⟨ciF, hfF, hlpF⟩⟩ :=
+    natOpGuard_bools hg (Or.inr (Or.inl rfl))
+  have hcv := denote_dep m φ (c := natBleName) (n := natBleName) hg
+    (by decide) 2
+  have hbT := denote_const_nolevels m φ hfT hlpT 2
+  have hbF := denote_const_nolevels m φ hfF hlpF 2
+  refine numeral_ble (f := m.cval natBleName φ) ?_ ?_ ?_
+  · intro b
+    have h := natOp_closed m φ (by decide) hf (Γ := Γ)
+      (eq := (natOpEquations 0 natBleName)[0]!) (by decide)
+      (L := .app (.app (m.cval natBleName φ) natZeroT) (.bvar 0))
+      (R := m.cval boolTrueName φ)
+      (by rw [show ((natOpEquations 0 natBleName)[0]!).1 =
+            .app (.app (.const natBleName []) (.const natZeroName []))
+              (.fvar 1 (.str .anonymous "y")
+              (.const natName [])) from by decide,
+          denote_app, denote_app, hcv, denote_natZeroT m φ hnat,
+          denote_natOp_y])
+      (by rw [show ((natOpEquations 0 natBleName)[0]!).2 =
+            .const boolTrueName [] from by decide, hbT])
+      0 b
+    simpa [ap2, natZeroT, VExpr.inst,
+      VExpr.liftN_eq_self_of_closed (numeral_closed b),
+      VExpr.inst_eq_self_of_closed (numeral_closed b),
+      VExpr.inst_eq_self_of_closed (m.cval_closed natBleName φ),
+      VExpr.inst_eq_self_of_closed (m.cval_closed boolTrueName φ)] using h
+  · intro a
+    have h := natOp_closed m φ (by decide) hf (Γ := Γ)
+      (eq := (natOpEquations 0 natBleName)[1]!) (by decide)
+      (L := .app (.app (m.cval natBleName φ) (natSuccT (.bvar 1))) natZeroT)
+      (R := m.cval boolFalseName φ)
+      (by rw [show ((natOpEquations 0 natBleName)[1]!).1 =
+            .app (.app (.const natBleName []) (.app (.const natSuccName [])
+              (.fvar 0 (.str .anonymous "x") (.const natName []))))
+              (.const natZeroName []) from by decide,
+          denote_app, denote_app, hcv,
+          denote_natSuccT m φ hnat (denote_natOp_x _ _),
+          denote_natZeroT m φ hnat])
+      (by rw [show ((natOpEquations 0 natBleName)[1]!).2 =
+            .const boolFalseName [] from by decide, hbF])
+      a 0
+    simpa [ap2, natZeroT, natSuccT, VExpr.inst,
+      VExpr.liftN_eq_self_of_closed (numeral_closed a),
+      VExpr.inst_eq_self_of_closed (numeral_closed a),
+      VExpr.inst_eq_self_of_closed (m.cval_closed natBleName φ),
+      VExpr.inst_eq_self_of_closed (m.cval_closed boolFalseName φ)] using h
+  · intro a b
+    have h := natOp_closed m φ (by decide) hf (Γ := Γ)
+      (eq := (natOpEquations 0 natBleName)[2]!) (by decide)
+      (L := .app (.app (m.cval natBleName φ) (natSuccT (.bvar 1)))
+        (natSuccT (.bvar 0)))
+      (R := .app (.app (m.cval natBleName φ) (.bvar 1)) (.bvar 0))
+      (by rw [show ((natOpEquations 0 natBleName)[2]!).1 =
+            .app (.app (.const natBleName []) (.app (.const natSuccName [])
+              (.fvar 0 (.str .anonymous "x") (.const natName []))))
+              (.app (.const natSuccName []) (.fvar 1 (.str .anonymous "y")
+              (.const natName [])))
+            from by decide,
+          denote_app, denote_app, hcv,
+          denote_natSuccT m φ hnat (denote_natOp_x _ _),
+          denote_natSuccT m φ hnat (denote_natOp_y _ _)])
+      (by rw [show ((natOpEquations 0 natBleName)[2]!).2 =
+            .app (.app (.const natBleName []) (.fvar 0 (.str .anonymous "x")
+              (.const natName []))) (.fvar 1 (.str .anonymous "y")
+              (.const natName [])) from by decide,
+          denote_app, denote_app, hcv, denote_natOp_x, denote_natOp_y])
+      a b
+    simpa [ap2, natSuccT, VExpr.inst,
+      VExpr.liftN_eq_self_of_closed (numeral_closed a),
+      VExpr.liftN_eq_self_of_closed (numeral_closed b),
+      VExpr.inst_eq_self_of_closed (numeral_closed a),
+      VExpr.inst_eq_self_of_closed (numeral_closed b),
+      VExpr.inst_eq_self_of_closed (m.cval_closed natBleName φ)] using h
 
 end Setlec.TTVerify
