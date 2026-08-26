@@ -463,6 +463,29 @@ theorem natLitT_eq_numeral {env : Env} (m : EnvTT env)
   | succ n ih =>
     rw [natLitT, ih, hs, numeral_succ, natSuccT]
 
+/-- The constant `Nat` denotes to the layer's `Nat` — what the literal
+clause of `inferBody` needs to hand `hasType_numeral` its type. -/
+theorem denote_natT_const {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    (hg : natLitSupported env = true) (d : Nat) :
+    denote m.cval env φ d (.const natName []) = some natT := by
+  have hg' := hg
+  simp only [natLitSupported, Bool.and_eq_true] at hg'
+  obtain ⟨⟨h1, -⟩, -⟩ := hg'
+  cases hf : env.find? natName with
+  | none => rw [hf] at h1; exact nomatch h1
+  | some ci =>
+    rw [hf] at h1
+    have hlp : ci.toConstantVal.levelParams = [] := by
+      cases ci with
+      | indInfo cv caps =>
+        simp only [natIndOk, Bool.and_eq_true] at h1
+        simpa [ConstantInfo.toConstantVal, List.isEmpty_iff] using h1.1
+      | _ => simp [natIndOk] at h1
+    rw [denote_const, hf]
+    simp only [hlp, List.length_nil, if_true, Level.substFn]
+    refine congrArg _ (cval_pinned m (by decide) (by rw [hf]; rfl) _ ?_)
+    simp [pinnedDirectT, natT]
+
 /-- **A `Nat` literal denotes to its numeral.**  The form every
 `reduceNat` clause consumes. -/
 theorem denote_natLit_numeral {env : Env} (m : EnvTT env)

@@ -14,6 +14,7 @@ import Setlec.TTVerify.Claims
 import Setlec.TTVerify.WhnfCore
 import Setlec.TTVerify.WhnfCoreStep
 import Setlec.TTVerify.NatOpsStep
+import Setlec.TTVerify.InferStep
 import Setlec.TTVerify.Extend
 import Setlec.TTVerify.Consistency
 import Setlec.TTVerify.HasTypeSubst
