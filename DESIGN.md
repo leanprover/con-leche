@@ -4543,6 +4543,35 @@ or already-flipped definition fails loudly instead of quietly testing
 the shipped configuration twice.  Result: arena 90/92, e2e 67/67, split
 11/11 in *both* configurations, against their respective expectations.
 
+**What was checked, including what did not move.**  The five flips were
+re-measured independently of the table above, by running both binaries
+on each fixture rather than trusting the pinned codes; and the two
+plausible neighbours were checked *and found unmoved*, which is the
+half of the evidence a list of changes cannot supply:
+
+| fixture | on | off | |
+|---|---|---|---|
+| `direct_struct_raw` (`raw`) | 0 | 2 | moves |
+| `direct_struct_raw` (`pre`) | 0 | 2 | moves |
+| `bad/tutorial/133_dup_ctor_def` | 1 | 2 | moves |
+| `bad/tutorial/134_dup_rec_def` | 1 | 2 | moves |
+| `bad/tutorial/137_dup_ctor_rec` | 1 | 2 | moves |
+| `bad/tutorial/131_dup_defs` | 1 | 1 | **unmoved** |
+| `bad/tutorial/136_dup_rec_def2` | 2 | 2 | **unmoved** |
+
+Beyond the spot checks, the off suite passing with exactly five paired
+lines *is* the completeness argument: any sixth fixture that moved
+would have failed its single-code expectation, across all 137 arena
+fixtures, 67 e2e lines and 11 split-driver cases.
+
+**What is not covered in either configuration**: the init-prelude and
+init-full streams.  "Both configurations pass" means the three suites
+`tests/arena.sh` runs and nothing wider — the long streams were not
+re-run for the off binary, and the on binary needs no re-run because it
+is bit-identical to master's.  The claim above that both init-prelude
+probes still accept 3653 declarations off is the switch author's
+measurement, not the harness's; nothing runs it on a schedule.
+
 The five moves are expected, not regressions, and split into two kinds.
 The two `direct_struct_raw` lines explicitly test the direct route and
 deliberately bypass generating a `_model` fallback, so of course they

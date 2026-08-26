@@ -41,10 +41,19 @@ for d in packages build; do
   fi
 done
 
-# 3. flip the switch in the copy.  Insist on exactly one pristine
-#    occurrence: if the definition is reworded or already flipped in the
-#    source tree, fail loudly rather than silently testing the shipped
-#    configuration twice.
+# 3. flip the switch in the copy.
+#
+#    THE GUARD BELOW IS LOAD-BEARING — do not "simplify" it into a bare
+#    `sed`.  A `sed` that matches nothing exits 0 and leaves the copy
+#    with the shipped `:= true`, so `tests/arena.sh --direct-off` would
+#    then build the shipped configuration, run it against the *off*
+#    column of the expectations, and — since the two columns agree
+#    everywhere except the five known fixtures — report a confident
+#    green for a configuration that was never built.  That is a silent
+#    false pass, the worst failure mode a test harness has.  Insisting
+#    on exactly one pristine occurrence turns every way of losing the
+#    flip (renamed, reworded, reformatted, already flipped, moved to
+#    another module) into a loud exit 3 instead.
 n=$(grep -c '^def directStructsEnabled : Bool := true$' "$OUT/$FLAGFILE" || true)
 if [ "$n" != 1 ]; then
   echo "build-direct-off: expected exactly one" \
