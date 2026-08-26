@@ -423,4 +423,88 @@ theorem infer_const_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
       · exact HasType.weakenNil hct Δ
     · simp [throw, throwThe, MonadExceptOf.throw] at h
 
+/-! ## The `λ` clause
+
+The checker infers the body's type in the opened context and then
+**abstracts** it back under the binder, so the bridge has to undo that
+round trip: `denote` of `(bt.abstract1 d).instantiate1 (.fvar d n ty)`
+must be `denote` of `bt`.  It is — `abstract1_instantiate1`
+(`Setlec/Verify/Abstract.lean`) — provided every `fvar` at index `d` in
+`bt` carries this binder's name and annotation, which is
+`Expr.fvarConsistent`.
+
+That side condition costs nothing here, and the reason is the leaf
+discipline: the inferred type's leaves are a subset of the subject's
+(`inferTypeCore_fvarLeaves`), the subject is the *opened* body, and its
+only leaf at index `d` is the variable the opening inserted.  So the
+condition is discharged from the same lemma the frame conditions use.
+
+Note what is **not** needed: `HasType.lam` carries no domain premise,
+so the checker's `whnf (infer ty) = .sort _` guard is not consumed at
+all — it is a well-formedness check the layer does not ask for.  This
+is the `Typable.lamBody` gap of `Setlec/TTVerify/Typable.lean` seen
+from the producing side. -/
+
+/-- `.lam` infers by `HasType.lam`. -/
+theorem infer_lam_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
+    (ihi : InferClaimsTT m φ fuel)
+    {d : Nat} {Δ : List VExpr} {n : Name} {ty body t : Expr}
+    {mb : BinderMeta}
+    (h : inferTypeCore env (fuel + 1) d (.lam n ty body mb) = .ok t)
+    (hws : Expr.WScoped d (.lam n ty body mb))
+    (hb : (Expr.lam n ty body mb).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.lam n ty body mb))
+    (hC : CtxOk m.cval env φ d Δ (.lam n ty body mb)) :
+    ∃ v tv, denote m.cval env φ d (.lam n ty body mb) = some v ∧
+      denote m.cval env φ d t = some tv ∧ HasType Δ v tv := by
+  obtain ⟨tty, u, bt, hty, hwu, hbt, rfl⟩ := inferTypeCore_lam_inv h
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  have hLty : Expr.LeavesBounded ty := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  have hCty : CtxOk m.cval env φ d Δ ty :=
+    CtxOk.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]) hC
+  have hCbody : CtxOk m.cval env φ d Δ body :=
+    CtxOk.of_subset (fun l hl => by simp [Expr.fvarLeaves, hl]) hC
+  obtain ⟨A, vtty, hA, -, -⟩ := ihi hty hws.1 hb.1 hLty hCty
+  -- open the binder and infer the body's type there
+  have hwopen : Expr.WScoped (d + 1) (body.instantiate1 (.fvar d n ty)) :=
+    Expr.WScoped.instantiate1 hws.1 0 hws.2
+  have hbopen : (body.instantiate1 (.fvar d n ty)).looseBVarsBounded 0
+      = true := looseBVarsBounded_instantiate1 body 0 hb.2
+  have hLopen : Expr.LeavesBounded (body.instantiate1 (.fvar d n ty)) :=
+    fun l hl => by
+      rcases Expr.fvarLeaves_instantiate1 body 0 hl with h2 | h2
+      · exact hLb l (by simp [Expr.fvarLeaves, h2])
+      · rw [Expr.fvarLeaves] at h2
+        rcases List.mem_cons.mp h2 with rfl | h3
+        · exact hb.1
+        · exact hLty l h3
+  have hCopen := CtxOk.open (n := n) hcl hCbody hCty hA hws.1.fvarsBelow
+  obtain ⟨B, vbt, hB, hvbt, hBt⟩ := ihi hbt hwopen hbopen hLopen hCopen
+  -- the abstraction round trip is the identity on the inferred type
+  have hleaf : Expr.LeafCond d n ty (body.instantiate1 (.fvar d n ty)) := by
+    intro l hl hd
+    rcases Expr.fvarLeaves_instantiate1 body 0 hl with h2 | h2
+    · exact absurd hd (by
+        have := Expr.fvarLeaves_lt_of_wscoped hws.2 l h2
+        omega)
+    · rw [Expr.fvarLeaves] at h2
+      rcases List.mem_cons.mp h2 with rfl | h3
+      · exact ⟨rfl, rfl⟩
+      · exact absurd hd (by
+          have := Expr.fvarLeaves_lt_of_wscoped hws.1 l h3
+          omega)
+  have hcons : Expr.fvarConsistent d n ty bt :=
+    Expr.fvarConsistent_of_leafCond bt (fun l hl =>
+      hleaf l (inferTypeCore_fvarLeaves m.wf fuel hbt hwopen l hl))
+  have hbtb : bt.looseBVarsBounded 0 = true :=
+    inferTypeCore_looseBVars m.wf fuel hbt hwopen hbopen hLopen
+  have hround : (bt.abstract1 d).instantiate1 (.fvar d n ty) = bt :=
+    abstract1_instantiate1 bt 0 hcons hbtb
+  refine ⟨.lam A B, .pi A vbt, ?_, ?_, HasType.lam hBt⟩
+  · rw [denote_lam, hA, hB]
+  · rw [denote_forallE, hA, hround, hvbt]
+
 end Setlec.TTVerify
