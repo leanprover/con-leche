@@ -312,13 +312,49 @@ binary is a category error.
   this layer is equality reflection.  K needs nothing at all — its
   guard makes it proof irrelevance (the #74 finding).
 
-## 6. The certificate tax, and why the claims thread typing
+## 6. The certificate tax, and the fact that explains it
 
-**Recorded here because the investigation that produced it ran on
-`diag/cert-tax`, a throwaway branch, and these numbers exist nowhere
-else in the repository.**  They are also the reason stage 2 deviates
-from a plain mirror of the set-model proof, so they belong to this
-argument rather than to a performance appendix.
+**The headline of this section is one fact about the layer.**  It was
+discovered three times, in three unrelated investigations, before being
+recognised as one thing; it is stated here first so that the fourth
+time is not a discovery.
+
+> **Premises are supplied where the rule fires.**
+>
+> The layer's rules state their typing premises at *annotations and
+> inferred domains* — `HasType.beta` wants the argument at the λ's own
+> annotation, `HasType.app` at the domain of the function type used in
+> that application — and its equational rules are **premise-free**
+> (`Setlec/TT/DESIGN.md` §2.4), so an equation carries no typing
+> information at all.  Together: every typing premise must be
+> established at the point where its rule is applied, and **nothing
+> carried from elsewhere — an ambient hypothesis, a global invariant, a
+> prior check — can substitute for it.**
+
+Three consequences, each of which looked like an independent question:
+
+1. **Subject reduction is refutable here** (not merely underivable):
+   "`⊢ t : A` and `Deq t t'` imply `⊢ t' : A`" fails, because equations
+   relate typed terms to untypeable ones by design.  See the
+   retraction below.
+2. **Infer-only mode cannot be justified in this bridge** (task #124),
+   so the app-argument certificate — 98.6 % of the tax — is permanent
+   *here*.  All four routes to the argument's typing at the inferred
+   domain are closed, the last of them because the official kernel's
+   own justification *is* subject reduction.  See "Why the certificates
+   are structural".
+3. **The modeled-iota contract is the fired form, by dominance** (§8):
+   the alternative — a closed λ-tower equality — does not avoid the
+   typing premises, it defers them to the fire site and adds a
+   β-reduction apparatus on top of them.
+
+A fourth consequence, if the reading under "Domain pinning" survives:
+the certificate is doing the one thing nothing else can do, which is
+why it is the one call that costs.
+
+The measurements below are **recorded here because the investigation
+that produced them ran on `diag/cert-tax`, a throwaway branch, and
+they exist nowhere else in the repository.**
 
 ### The tax is one call
 
@@ -365,6 +401,22 @@ every reduct is our artifact, not a fidelity requirement.
 The last two are worth their keep for a reason that inverts the usual
 intuition: removing them made the run *slower*, because they
 short-circuit reduction.
+
+**Read those verdicts carefully: they are about the *checker*, not
+about the bridge.**  "Replaceable" there means the checker still
+reaches the same verdicts without the call.  Whether the *proof* can do
+without it is a different question, and the headline fact answers it:
+any certificate that establishes an argument's typing at a rule's
+domain is **permanent for the bridge**, because that is precisely what
+no ambient fact can supply.
+
+That makes a testable prediction, recorded before the clause that will
+test it: the **iota telescope certifications** (`iotaCerts`), listed
+above as replaceable, are permanent in the same sense as the
+app-argument and beta ones — they are what will discharge the fired
+contract's typing hypotheses at the fire site (§8).  If the iota clause
+turns out not to need them, the headline fact is wrong and that matters
+more than the clause.
 
 ### What this changes here — and what it does not
 
@@ -480,13 +532,12 @@ domain — which the domain-relative collapse defeats at `Prop`, where
 countermodel, so the obstruction may be different and weaker there
 rather than absent.  Recorded as a lead, not a result.
 
-### The beta clause: the certificate is needed under the current rule set
+### The beta clause: the certificate is permanent
 
 The investigation left the beta re-check as its one **unclear** verdict,
-leaning needed.  The bridge sharpens that to **needed under the current
-rule set**, for a proof-level reason rather than a measurement — and
-the qualifier is not hedging, it is the whole content of the next
-paragraph but one.
+leaning needed.  The bridge sharpens that to **needed under every sound
+rule set** — an instance of the headline fact, with the alternative not
+merely unavailable but *inadmissible*.
 
 `HasType.beta`'s premise is `Γ ⊢ a : A` at *the λ's own annotation*.
 Inverting a typed redex `⊢ (λA.b) a : C` yields
@@ -727,6 +778,30 @@ it at actual arguments is `HasType.app`, which wants exactly
 `⊢ argᵢ : domainᵢ`.  Quantifying over them makes them *hypotheses* of
 the contract rather than obligations of the install, discharged at the
 fire site where the checker's own iota certificates supply them.
+
+*The shape to implement* (recorded so the next increment implements
+rather than redesigns).  `iotaRec` fires
+
+```
+mkAppN (.const c us) (args ++ [mkAppN (.const cj usj) margs])
+  ↦  mkAppN (rl.rhs[us]) (args.take rP ++ margs.drop rl.ctorParams)
+```
+
+so `EnvTT.rec_rules` quantifies over `n, cv, mI, rP, rules`, a
+non-inert `rl`, its stored constructor, and then over `φ, d, Δ, us,
+usj, args, margs`; it takes the two denotations as given (`some L`,
+`some R`) plus a **telescope-typing hypothesis** — each argument
+denotes and is typed at its domain in the instantiated telescope — and
+concludes `Deq Δ L R`.  The telescope-typing predicate is the one piece
+still to design; it is the transpose of `TeleFitI`
+(`Setlec/Model/Interp.lean`) with membership replaced by `HasType`, and
+it is what `iotaCerts` discharges at the fire site.
+
+Note what the fired form costs, stated honestly: the *field* is longer
+than the set model's, because the firing conditions move into its
+statement.  What it buys is that the *install* only has to denote the
+`_model.iota_j` theorem and instantiate it, and the *fire site* has the
+premises it needs anyway.  Long statement, short proofs, on both ends.
 
 *And the set model's reason does not transpose*, as suspected.  The
 "never resurrect fits-in-clause" ruling was forced by junk-agreement
