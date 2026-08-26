@@ -2372,3 +2372,59 @@ Revised decomposition, which also improves the promise boundary per
 * `IotaStepTT` — provable from it plus `rec_rules_fire`, plus frame
   conditions of which `iotaRec_WScoped` supplies one of three;
 * `ProjStepTT` — unchanged, and genuinely the smaller of the two.
+
+### 12.8 The `infer` quarter, assembled
+
+`InferClaimsTT` at `fuel + 1` is proved
+(`Setlec/TTVerify/InferStep.lean`), modulo two clause-granularity
+obligations (`InferStrLitStepTT`, `InferProjStepTT`).  Nine of eleven
+clauses are complete, and the assembly is eleven lines of dispatch.
+
+**That the assembly is eleven lines of dispatch is the directive's
+claim, checkable.**  The directive says the checker and the rules
+should be close enough that the bridge does nothing clever — thread an
+induction with a suitable invariant, case split, apply the right rule.
+The `infer` quarter is where that is most visible, because `inferBody`
+has one clause per former and each clause is one rule:
+
+| clause | rule | what supplies the premise |
+|---|---|---|
+| `.sort` | `sort` | — |
+| `.fvar` | `bvar` | `CtxOk`, and the index arithmetic *is* `CtxOk`'s |
+| `.const` | `EnvTT.has_type` | the environment invariant |
+| `.lit natVal` | `hasType_numeral` | `basis_pinned` |
+| `.forallE` | `pi` | two IHs and `ensureSort` |
+| `.lam` | `lam` | one IH — the rule has no domain premise |
+| `.app` | `app` | the IH for the head, the **certificate** for the argument |
+| `.letE` | `letE` | `ensureSort`, the certificate, the IH on the *substituted* body |
+| `.bvar` | — | refuted from the denotation |
+
+Three observations worth keeping.
+
+**The `.app` clause is §6 in four lines.**  Two induction hypotheses,
+two `conv`s, one rule; the argument's typing is re-established at the
+domain the redex names.  Nothing is threaded and nothing is inverted.
+
+**The `.letE` clause is where the layer's `letE` choice pays.**
+`HasType.letE` types the *substituted* body, and `inferBody` recurses
+on exactly that — so neither side opens the binder and the clause needs
+no substitution lemma at all.  The recorded finding that opening a
+`let` body with an opaque variable is too weak for real streams shows
+up here as an *absence* of work.
+
+**The `.lam` clause reads a guard the layer does not want.**  The
+checker checks `whnf (infer ty)` is a sort; `HasType.lam` has no domain
+premise, so the bridge never consumes it.  That is
+`Typable.lamBody`'s gap (§12.5) seen from the producing side — the same
+asymmetry from the other end, and a small confirmation that the gap is
+the layer's discipline rather than an oversight.
+
+One lemma had to be added, and it is the one place §12.6's separation is
+crossed **deliberately**: `denote_bvarsBelow` — a term scoped below
+depth `d` denotes to a `VExpr` whose bound variables are below `d`.
+That direction holds (an `fvar` at `idx < d` denotes to
+`.bvar (d-1-idx)`); the converse, typing telling you about syntax, is
+the one that does not.  It is what lets the `.const` clause move
+`EnvTT.has_type` from the empty context at depth 0 to `Δ` at depth `d`,
+using the same `denote_instLevels` and `denote_lift` the delta step
+needed — the same fact about `cval`, read in two directions.

@@ -507,4 +507,70 @@ theorem infer_lam_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
   · rw [denote_lam, hA, hB]
   · rw [denote_forallE, hA, hround, hvbt]
 
+/-! ## The two remaining clauses, as named obligations
+
+Both are stated at *clause* granularity (§8.6: put the boundary where
+it leaves the fewest unproved steps outside it), and both are content
+rather than structure.
+
+* `InferStrLitStepTT` — a string literal is typed at `String`.  Its
+  content is the chain `String.ofList (List.cons (Char.ofNat ⌜k⌝) …)`,
+  each link typed from `EnvTT.has_type` at the constant and the
+  guard's arity pins.  The `Nat` half of this is done
+  (`natLitT_eq_numeral` and the sixteen closed forms); this is the
+  same shape at `String`.
+* `InferProjStepTT` — a projection is typed at the residual of the
+  structure's projection-table entry.  Its content is `ProjOkT` plus
+  `piResidual`, and it is the clause that lands on `projFst`/`projSnd`.
+-/
+
+/-- The string-literal clause of `InferClaimsTT`. -/
+def InferStrLitStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {Δ : List VExpr} {str : String} {t : Expr},
+    inferTypeCore env (fuel + 1) d (.lit (.strVal str)) = .ok t →
+    ∃ v tv, denote m.cval env φ d (.lit (.strVal str)) = some v ∧
+      denote m.cval env φ d t = some tv ∧ HasType Δ v tv
+
+/-- The projection clause of `InferClaimsTT`. -/
+def InferProjStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {Δ : List VExpr} {sn : Name} {i : Nat} {pe t : Expr},
+    inferTypeCore env (fuel + 1) d (.proj sn i pe) = .ok t →
+    Expr.WScoped d (.proj sn i pe) →
+    (Expr.proj sn i pe).looseBVarsBounded 0 = true →
+    Expr.LeavesBounded (.proj sn i pe) →
+    CtxOk m.cval env φ d Δ (.proj sn i pe) →
+    ∃ v tv, denote m.cval env φ d (.proj sn i pe) = some v ∧
+      denote m.cval env φ d t = some tv ∧ HasType Δ v tv
+
+/-- **`InferClaimsTT` at `fuel + 1`.**  The fourth quarter of
+`CheckStepTT`, modulo the two clauses above.
+
+Reading the proof is the point: eleven clauses, each one line of
+dispatch, because each one *is* a rule. -/
+theorem infer_claimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
+    (hstr : InferStrLitStepTT m φ fuel) (hproj : InferProjStepTT m φ fuel)
+    (ihw : WhnfClaimsTT m φ fuel) (ihd : DefEqClaimsTT m φ fuel)
+    (ihi : InferClaimsTT m φ fuel) :
+    InferClaimsTT m φ (fuel + 1) := by
+  intro d e t Δ h hws hb hLb hC
+  match e, h, hws, hb, hLb, hC with
+  | .sort u, h, _, _, _, _ => exact infer_sort_claim h
+  | .fvar idx nm ty, h, _, _, _, hC => exact infer_fvar_claim h hC
+  | .const nm us, h, _, _, _, _ => exact infer_const_claim m φ hcl h
+  | .lit (.natVal k), h, _, _, _, _ => exact infer_natLit_claim m φ h
+  | .lit (.strVal st), h, _, _, _, _ => exact hstr h
+  | .bvar i, h, _, _, _, _ => exact infer_bvar_claim h
+  | .forallE nm ty body mb, h, hws, hb, hLb, hC =>
+    exact infer_forallE_claim m φ hcl ihw ihi h hws hb hLb hC
+  | .lam nm ty body mb, h, hws, hb, hLb, hC =>
+    exact infer_lam_claim m φ hcl ihi h hws hb hLb hC
+  | .app f a, h, hws, hb, hLb, hC =>
+    exact infer_app_claim m φ hcl ihw ihd ihi h hws hb hLb hC
+  | .letE nm ty val b, h, hws, hb, hLb, hC =>
+    exact infer_letE_claim m φ hcl ihw ihd ihi h hws hb hLb hC
+  | .proj sn i pe, h, hws, hb, hLb, hC => exact hproj h hws hb hLb hC
+
 end Setlec.TTVerify
