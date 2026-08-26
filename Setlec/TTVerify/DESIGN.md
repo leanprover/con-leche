@@ -2685,3 +2685,13 @@ must prove, and dropping one is a claim that no consumer needs it —
 which is only checkable by writing the consumer.**  Transposing a
 field is therefore not finished when it typechecks; it is finished when
 its consumers do.
+
+**And the discipline discriminates rather than merely conserves**,
+which is the part that makes it worth having: of the four clauses
+dropped, the three false savings all came back — one at a time, each
+found by an assembly that could not close — while the one genuine
+saving (`AnnotOk`, which has no counterpart in a syntactic layer)
+stayed dropped and still is.  A rule that told you to keep everything
+would have been right three times out of four by accident; this one is
+right four times out of four, because it tests each clause against a
+*consumer* instead of against a *policy*.
