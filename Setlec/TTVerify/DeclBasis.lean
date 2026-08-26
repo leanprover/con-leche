@@ -788,6 +788,54 @@ theorem declBasisTT_punitK {env env₁ : Env} (m : EnvTT env)
   exact extendPUnitRecTT m2 hP2 hU2 h3 hwf3
 
 
+/-- A declaration read at its *own* level parameters is read at the
+ambient assignment.  Every basis constant's type mentions its siblings
+this way. -/
+theorem substFn_param_self (φ : Name → Nat) :
+    ∀ (ks : List Name), Level.substFn φ ks (ks.map Level.param) = φ := by
+  intro ks
+  induction ks with
+  | nil => funext n; rfl
+  | cons k ks ih =>
+    funext n
+    by_cases h : k = n
+    · subst h; simp [Level.substFn, Level.eval]
+    · simp only [List.map_cons, Level.substFn, if_neg h]
+      exact congrFun ih n
+
+
+/-! ### β along a spine
+
+Every basis block's iota rule is the same shape — a λ-tower applied to
+the fire site's spine — and every one of them would otherwise spell out
+its own chain of intermediate towers.  `BetaSpine` records the chain
+and `Deq.ofBetaSpine` collapses it, so a block's iota obligation is
+*building the relation*, which the telescope's own typings do. -/
+
+/-- `f` applied to `args` β-reduces to `r`, one binder at a time. -/
+inductive BetaSpine (Γ : List VExpr) : VExpr → List VExpr → VExpr → Prop
+  | nil {f : VExpr} : BetaSpine Γ f [] f
+  | cons {A b x : VExpr} {xs : List VExpr} {r : VExpr} :
+      HasType Γ x A → BetaSpine Γ (b.inst x) xs r →
+      BetaSpine Γ (.lam A b) (x :: xs) r
+
+/-- A `Deq` under a spine's head. -/
+theorem Deq.mkAppN_congrFun {Γ : List VExpr} :
+    ∀ (xs : List VExpr) {f f' : VExpr}, Deq Γ f f' →
+      Deq Γ (VExpr.mkAppN f xs) (VExpr.mkAppN f' xs)
+  | [], _, _, h => h
+  | x :: xs, _, _, h => Deq.mkAppN_congrFun xs (Deq.appFun h)
+
+/-- **The chain, collapsed.** -/
+theorem Deq.ofBetaSpine {Γ : List VExpr} {f : VExpr} {args : List VExpr}
+    {r : VExpr} (h : BetaSpine Γ f args r) :
+    Deq Γ (VExpr.mkAppN f args) r := by
+  induction h with
+  | nil => exact Deq.refl
+  | @cons A b x xs r hx _ ih =>
+    exact Deq.trans (Deq.mkAppN_congrFun xs
+      (Deq.intro (HasType.beta (T := x) hx))) ih
+
 /-! ## `Eq`
 
 The block whose valuations were **deferred** (§11, and the house rule:
@@ -997,6 +1045,83 @@ theorem eqRecValT_typed (ψ : Name → Nat) :
         (VExpr.mkAppN (eqReflValT ψ) [.bvar 5, .bvar 4])))
 
 
+/-- `Eq.rec`'s tower is closed. -/
+theorem eqRecValT_closed (ψ : Name → Nat) : VExpr.Closed (eqRecValT ψ) := by
+  simp only [eqRecValT, VExpr.Closed, VExpr.bvarsBelow, VExpr.mkAppN,
+    eqValT, eqReflValT]
+  repeat' apply And.intro
+  all_goals first | trivial | omega
+
+
+/-- **`Eq.rec`'s pinned type, denoted.**  The six-binder walk, with the
+block's two earlier constants read at their pins. -/
+theorem denote_eqRec_type {env : Env} (m : EnvTT env)
+    {val : (Name → Nat) → VExpr} (φ : Name → Nat)
+    (hE : env.find? eqName = some eqA)
+    (hR : env.find? eqReflName = some eqReflA)
+    (hEv : ∀ ψ : Name → Nat, m.cval eqName ψ = eqValT ψ)
+    (hRv : ∀ ψ : Name → Nat, m.cval eqReflName ψ = eqReflValT ψ) :
+    denote (cvalSet m.cval eqRecA.name val) ⟨eqRecA :: env.consts⟩ φ 0
+        eqRecA.toConstantVal.type
+      = some (.pi (.sort (φ uNT))
+        (.pi (.bvar 0)
+          (.pi (.pi (.bvar 1)
+              (.pi (VExpr.mkAppN (eqValT φ) [.bvar 2, .bvar 1, .bvar 0])
+                (.sort (φ u1NT))))
+            (.pi (.app (.app (.bvar 0) (.bvar 1))
+                (VExpr.mkAppN (eqReflValT φ) [.bvar 2, .bvar 1]))
+              (.pi (.bvar 3)
+                (.pi (VExpr.mkAppN (eqValT φ) [.bvar 4, .bvar 3, .bvar 0])
+                  (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0)))))))) := by
+  have hEc : ∀ d : Nat,
+      denote (cvalSet m.cval eqRecA.name val) ⟨eqRecA :: env.consts⟩ φ d
+        (.const eqName [.param uNT]) = some (eqValT φ) := by
+    intro d
+    rw [denote_const, Env.find?_cons, if_neg (by decide), hE]
+    simp only [show ([Level.param uNT] : List Level).length
+      = eqA.toConstantVal.levelParams.length from rfl, if_true]
+    rw [cvalSet_ne (by decide),
+      show Level.substFn φ eqA.toConstantVal.levelParams [Level.param uNT]
+        = φ from substFn_param_self φ [uNT], hEv]
+  have hRc : ∀ d : Nat,
+      denote (cvalSet m.cval eqRecA.name val) ⟨eqRecA :: env.consts⟩ φ d
+        (.const eqReflName [.param uNT]) = some (eqReflValT φ) := by
+    intro d
+    rw [denote_const, Env.find?_cons, if_neg (by decide), hR]
+    simp only [show ([Level.param uNT] : List Level).length
+      = eqReflA.toConstantVal.levelParams.length from rfl, if_true]
+    rw [cvalSet_ne (by decide),
+      show Level.substFn φ eqReflA.toConstantVal.levelParams
+        [Level.param uNT] = φ from substFn_param_self φ [uNT], hRv]
+  rw [show eqRecA.toConstantVal.type
+      = Expr.forallE (Name.anonymous.str "α") (.sort (.param uNT))
+          (Expr.forallE (Name.anonymous.str "a") (.bvar 0)
+            (Expr.forallE (Name.anonymous.str "motive")
+              (Expr.forallE (Name.anonymous.str "b") (.bvar 1)
+                (Expr.forallE (Name.anonymous.str "t")
+                  (.app (.app (.app (.const eqName [.param uNT]) (.bvar 2))
+                    (.bvar 1)) (.bvar 0))
+                  (.sort (.param u1NT)) { bi := .default })
+                { bi := .default })
+              (Expr.forallE (Name.anonymous.str "refl")
+                (.app (.app (.bvar 0) (.bvar 1))
+                  (.app (.app (.const eqReflName [.param uNT]) (.bvar 2))
+                    (.bvar 1)))
+                (Expr.forallE (Name.anonymous.str "b") (.bvar 3)
+                  (Expr.forallE (Name.anonymous.str "t")
+                    (.app (.app (.app (.const eqName [.param uNT]) (.bvar 4))
+                      (.bvar 3)) (.bvar 0))
+                    (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0))
+                    { bi := .default })
+                  { bi := .implicit })
+                { bi := .default })
+              { bi := .implicit })
+            { bi := .implicit })
+          { bi := .implicit } from rfl]
+  simp [denote_forallE, denote_sort, denote_app, denote_fvar, Level.eval,
+    hEc, hRc, VExpr.mkAppN]
+
+
 /-- **`Eq`, installed** — and with it §11's law, discharged from the
 tower rather than assumed. -/
 theorem extendEqTT {env : Env} (m : EnvTT env)
@@ -1035,21 +1160,6 @@ theorem extendEqTT {env : Env} (m : EnvTT env)
       cvalSet_self (n := eqA.name)]
     exact eqValT_law hA ha hb
 
-
-/-- A declaration read at its *own* level parameters is read at the
-ambient assignment.  Every basis constant's type mentions its siblings
-this way. -/
-theorem substFn_param_self (φ : Name → Nat) :
-    ∀ (ks : List Name), Level.substFn φ ks (ks.map Level.param) = φ := by
-  intro ks
-  induction ks with
-  | nil => funext n; rfl
-  | cons k ks ih =>
-    funext n
-    by_cases h : k = n
-    · subst h; simp [Level.substFn, Level.eval]
-    · simp only [List.map_cons, Level.substFn, if_neg h]
-      exact congrFun ih n
 
 /-- `Eq.refl`, installed. -/
 theorem extendEqReflTT {env : Env} (m : EnvTT env)

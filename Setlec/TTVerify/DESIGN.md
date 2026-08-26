@@ -3826,6 +3826,21 @@ The frame is factored as `eqRecCtx` rather than written six times; that
 is worth noting only because the six-entry context appears in eight
 statements and the factoring is what made the proof readable.
 
+**`BetaSpine` is the block-independent half of every iota.**  Each
+basis block's rule is a λ-tower applied to the fire site's spine, and
+each would otherwise spell out its own chain of partially-instantiated
+towers — the intermediates being exactly what is tedious and exactly
+what nobody reads.  `BetaSpine Γ f args r` records the chain
+(`HasType Γ x A` per binder, the body instantiated as it goes) and
+`Deq.ofBetaSpine` collapses it to `Deq Γ (mkAppN f args) r`.
+
+So a block's iota obligation becomes **building the relation**, and the
+telescope's own typings are what build it: `VTeleTyped`'s `cons` gives
+exactly the `HasType Γ x A` that `BetaSpine`'s `cons` wants, at exactly
+the instantiated domain.  Written for `Eq`, it costs `Nat`, `PSigma`
+and `Quot` nothing — the same pilot-then-blocks economy the
+`instantiate1` kit had.
+
 **The computation needed a per-constructor `instantiate1` kit.**
 `denote` opens every binder with `instantiate1` at cut `0`, so a basis
 type's computation walks it once per node — and unfolding the
