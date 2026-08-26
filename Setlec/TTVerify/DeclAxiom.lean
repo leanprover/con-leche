@@ -261,4 +261,69 @@ theorem declAxiomTT (hstd : StdAxiomKeyTT) (htc : TrustCompilerKeyTT)
           · rw [if_neg htol] at h
             simp [throw, throwThe, MonadExceptOf.throw] at h
 
+/-! ## `Lean.trustCompiler`, discharged
+
+The smallest of the three keys, and the one that shows the shape.  The
+pin fixes the axiom's type to `.const True []` *on the nose* — `eraseNames`
+is the identity on a constant — so the witness is the stored
+`True.intro`'s valuation and the derivation is `cval_hasType` at the
+pinned type.  No layer constant is involved at all: the family is
+modeled, and being modeled is enough because the *constructor* is
+stored with the type the axiom wants. -/
+
+/-- `eraseNames` fixes a bare constant. -/
+theorem eraseNames_const_inv {e : Expr} {n : Name} {us : List Level}
+    (h : e.eraseNames = .const n us) : e = .const n us := by
+  cases e <;> simp only [Expr.eraseNames] at h <;> first
+    | exact h
+    | exact nomatch h
+
+/-- **`TrustCompilerKeyTT`, discharged.** -/
+theorem trustCompilerKeyTT : TrustCompilerKeyTT := by
+  intro env m cvA hok hname hfresh
+  simp only [trustCompilerOk, Bool.and_eq_true] at hok
+  obtain ⟨⟨hT, hTi⟩, hA⟩ := hok
+  -- the pinned `True` and `True.intro`
+  cases hfT : env.find? trueName with
+  | none => rw [hfT] at hT; exact nomatch hT
+  | some ciT =>
+  cases hfTi : env.find? trueIntroName with
+  | none => rw [hfTi] at hTi; exact nomatch hTi
+  | some ciTi =>
+  rw [hfT] at hT
+  rw [hfTi] at hTi
+  have hlpT : ciT.toConstantVal.levelParams = [] := by
+    cases ciT with
+    | indInfo cvT caps =>
+      simp only [ConstantVal.matchesPin, Bool.and_eq_true,
+        decide_eq_true_eq] at hT
+      exact hT.1.2
+    | _ => exact nomatch hT
+  obtain ⟨hlpTi, htyTi⟩ : ciTi.toConstantVal.levelParams = [] ∧
+      ciTi.toConstantVal.type = .const trueName [] := by
+    cases ciTi with
+    | ctorInfo cvTi nP nF =>
+      match nP, nF, hTi with
+      | 0, 0, hTi =>
+        simp only [ConstantVal.matchesPin, Bool.and_eq_true,
+          decide_eq_true_eq, beq_iff_eq] at hTi
+        exact ⟨hTi.1.2, eraseNames_const_inv hTi.2⟩
+    | _ => exact nomatch hTi
+  -- the axiom's own type is the pin, on the nose
+  have htyA : cvA.type = .const trueName [] := by
+    simp only [ConstantVal.matchesPin, Bool.and_eq_true,
+      decide_eq_true_eq, beq_iff_eq] at hA
+    exact eraseNames_const_inv hA.2
+  refine ⟨fun ψ => m.cval trueIntroName ψ, fun ψ => m.cval_closed _ _,
+    ?_, fun ψ => ?_⟩
+  · intro φ₁ φ₂ _
+    exact m.val_params trueIntroName ciTi hfTi φ₁ φ₂ (by
+      rw [hlpTi]; intro p hp; exact nomatch hp)
+  · refine ⟨m.cval trueName ψ, ?_, ?_⟩
+    · rw [htyA]
+      exact denote_const_nolevels m ψ hfT hlpT 0
+    · refine cval_hasType m hfTi ψ ?_
+      rw [htyTi]
+      exact denote_const_nolevels m ψ hfT hlpT 0
+
 end Setlec.TTVerify

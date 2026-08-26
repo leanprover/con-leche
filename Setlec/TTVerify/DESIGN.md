@@ -450,7 +450,7 @@ install:
 | `DeclThmTT` | **proved** |
 | `DeclOpaqueTT` | **proved** (`declOpaqueTT_closed`) |
 | `DeclDefnTT` | proved modulo `NatOpPinTT`, `DivModPinTT` |
-| `DeclAxiomTT` | proved modulo three inhabitation keys |
+| `DeclAxiomTT` | proved modulo `StdAxiomKeyTT`, `OfReduceKeyTT` |
 | `DeclBasisTT`, `DeclIndTT` | open |
 
 `extendValueTT` is the transpose of the set model's `extend_model`, and
@@ -478,6 +478,16 @@ per §8.6.  Two things about that case are worth keeping:
   skip-and-continue design (`sorryAx`, user ruling) therefore pays a
   *zero* verification tax — a design chosen for stream-sharing reasons
   turns out to cost the bridge nothing at all.
+* **`TrustCompilerKeyTT` is discharged**, and it shows the shape the
+  other two follow.  The pin fixes the axiom's type to `.const True []`
+  *on the nose* — `eraseNames` is the identity on a bare constant — so
+  the witness is the stored `True.intro`'s valuation and the derivation
+  is `cval_hasType` at the pinned type.  **No layer constant is
+  involved**: `True` is an ordinary modeled family, and being modeled is
+  enough, because the pin puts the *constructor* at exactly the type the
+  axiom wants.  The lesson generalises to the remaining two: an
+  inhabitation key is not an inhabitation *argument*, it is a
+  reconciliation between two spellings of one type.
 * **`propext` and `Classical.choice` need no inhabitation argument.**
   Both are already `BConst`s with `bval` and soundness
   (`Setlec/TT/Const.lean`, `Setlec/TT/Semantics/ConstOk.lean`), so
