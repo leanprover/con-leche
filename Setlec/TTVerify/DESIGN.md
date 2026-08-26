@@ -1588,12 +1588,28 @@ residual is a tail of an anonymous `do` block with nothing to name it
 with.  A lemma ending after two moves can return the facts it derived
 but not the residual, so the next move cannot start where it stopped.
 
-The practical consequence: `stuckIrrel` is a named function, so that is
-where the obligation sits; the four moves before it are not, so
-`defeqStep`'s claim is one proof.  Trying to slice it finer produces
-lemmas that are true, compile, and have no possible consumer — the
-"shim at a use site" tell (§0) reaching its limit case, where there is
-no use site at all.
+The practical consequence: `defeqStep`'s claim is one proof.  Trying to
+slice it finer produces lemmas that are true, compile, and have no
+possible consumer — the "shim at a use site" tell (§0) reaching its
+limit case, where there is no use site at all.
+
+**But there is a second kind of slice, and it is legitimate**:
+
+> **You may not slice a body into stages; you may slice its input
+> space into cases.**
+
+Every clause lemma in this bridge is the latter — `infer_app_claim` is
+`inferBody` restricted to `.app`, and it composes because its
+hypothesis is `inferBody`'s *own* call.  `DefEqStuckStepTT` is the same
+move at `defeqStep`: its hypothesis is `defeqStep`'s own call with the
+earlier moves' *negative outcomes* recorded as hypotheses, so a
+consumer applies it to the untouched original.  A stage lemma cannot
+return its position; a case lemma never left the entry point.
+
+The tell that distinguishes them, at statement time: **does the
+hypothesis name the function, or a point inside it?**  `DefEqLeafStepTT`
+had to invent a dummy continuation to phrase itself, which is that
+question answering itself.
 
 **The same question from the estimation side** (learned the hard way in
 §12.7, and recorded here because it belongs with the boundary rule):
