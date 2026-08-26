@@ -1384,7 +1384,7 @@ to the shared recursion-depth budget (and to the native stack).  The
 reproduces a loop run by the chained recursion *at some knot fuel*
 (`Setlec/Verify/BetaSpine.lean`), so the specification and everything
 above it are unchanged. -/
-def whnfCoreLoopFuel : Nat := 1000000
+@[irreducible] def whnfCoreLoopFuel : Nat := 1000000
 
 /-- Step budget of the `whnf` reduction loop (lean4lean's
 `FuelConfig.whnf`, same value).  Literal-acceleration and delta steps
@@ -1393,7 +1393,7 @@ are *iteration*, not recursion: the official kernel's loop is a
 routing them through the knot instead charged every unfolding step to
 the shared *recursion depth* budget (and to the native stack), so a
 long-but-perfectly-ordinary unfolding chain exhausted `checkFuel`. -/
-def whnfLoopFuel : Nat := 100000
+@[irreducible] def whnfLoopFuel : Nat := 100000
 
 /-- The reduction loop (the official kernel's `whnf`, lean4lean's
 `whnf'`): head-normalize, try literal acceleration, unfold one
@@ -1781,7 +1781,7 @@ def defeqLoop (r : CoreFns m) (env : Env) (depth : Nat) :
 `FuelConfig.lazyDelta`, generously sized here because this loop also
 absorbs the literal-acceleration re-entries lean4lean routes through
 `isDefEqCore`).  Exhaustion is an internal error, never a verdict. -/
-def defeqLoopFuel : Nat := 100000
+@[irreducible] def defeqLoopFuel : Nat := 100000
 
 /-- The definitional-equality body: the lazy-delta loop at its own
 step budget. -/
