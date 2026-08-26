@@ -238,6 +238,13 @@ This is acceptable, for exactly two reasons and no others.
    model remains the shipped guarantee while the TT route is built up
    over a sub-configuration.
 
+Since 2026-08-26 the switched-off configuration is at least
+*exercisable*: `tests/build-direct-off.sh` builds a second binary with
+the constant flipped, without mutating the tree.  That does not make
+the theorems cover the shipped default — they still do not — but it
+means the configuration they do cover is one a reader can run rather
+than one that exists only in a proof.
+
 **Exit condition.**  The TT route covers the shipped default only once
 one of two things happens: the layer supports directly installed
 structures (their tower encoding denotes, as
