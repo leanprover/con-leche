@@ -69,7 +69,31 @@ def Expr.eraseNames : Expr → Expr
   | .proj s i e => .proj s i e.eraseNames
 
 /-- Shape comparison for the standard pins: exact name, level
-parameters and counts, type up to binder names. -/
+parameters and counts, type up to binder names.
+
+**Guidance for anyone adding a pin.**  Two properties of a pin decide
+how expensive it is for a *consumer* of the pin (the checker's own
+soundness proofs, and the type-theory bridge of task #119):
+
+* **Pin the level when the artifact only ever needs one.**  A pin that
+  quantifies a level is more general, and that generality is paid for
+  by every consumer: it must supply a level assignment and carry it
+  through each application.  Measured instance —
+  `Nonempty.rec`'s motive sort is pinned to `Prop` while
+  `Iff.rec.{u_1,u}` quantifies its, and the bridge's `Iff` elimination
+  needed a bespoke assignment driving `u_1` to `0` where the
+  `Nonempty` one needed nothing at all.  *A pin that fixes a level is
+  easier to consume than a pin that quantifies one, even when the
+  quantified pin is more general.*
+* **What this comparison forgives is what the interpretation ignores.**
+  `matchesPin` accepts a stored type equal to the pin *up to binder
+  names*, and neither the set model's `interpExpr` nor the bridge's
+  `denote` reads a binder name — a binder is opened with a variable
+  whose meaning is its de Bruijn index.  That alignment is why a
+  `matchesPin` hit is usable at all: a consumer may compute on the
+  *pin* rather than on whatever spelling the input stream sent.
+  Preserve it — a pin comparison must never forgive something the
+  interpretation reads. -/
 def ConstantVal.matchesPin (cv pin : ConstantVal) : Bool :=
   cv.name = pin.name && cv.levelParams = pin.levelParams &&
     cv.type.eraseNames == pin.type.eraseNames

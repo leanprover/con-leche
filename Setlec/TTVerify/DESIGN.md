@@ -449,7 +449,7 @@ install:
 | --- | --- |
 | `DeclThmTT` | **proved** |
 | `DeclOpaqueTT` | **proved** (`declOpaqueTT_closed`) |
-| `DeclDefnTT` | proved modulo `NatOpPinTT`, `DivModPinTT` |
+| `DeclDefnTT` | proved modulo `DivModPinTT` (`NatOpPinTT` **discharged**) |
 | `DeclAxiomTT` | **proved** (`declAxiomTT_closed`) |
 | `DeclBasisTT`, `DeclIndTT` | open — **decomposed in §14** |
 
@@ -499,6 +499,34 @@ over constants and two free variables with no binder anywhere.  Note that both a
 *pin* checks: they change no environment and exist only to record facts
 the reduction rules will consume, so their transposes are pure content
 with no install bookkeeping.
+
+**`NatOpPinTT` is discharged** (`Setlec/TTVerify/NatOpPin.lean`).  Its
+content is one induction — `natFrag_subst_facts` — that produces, in a
+single pass over an equation side, everything `DefEqClaimsTT` asks for:
+the three frame conditions, the `CtxOk` correspondence in `[Nat, Nat]`,
+and the denotation.  Then `denote_substConst0` moves the resulting
+`Deq` across the install.
+
+A third §8.4 alignment, and the most literal one yet.  The fragment the
+bridge must denote is: `Nat.zero`, `Nat.succ`, the operation, its
+dependency operations, and (for `beq`/`ble`) the two `Bool`
+constructors.  That is, name for name, what `natOpGuard` checks is
+stored at empty level parameters — `natLitSupported` for the first two,
+`natOpDeps` for the middle, the `beq`/`ble` branch for the last.
+
+> **`natOpDeps` was written so the *checker* could certify the
+> recurrences.  It lists precisely the constants the *bridge* must be
+> able to denote.**
+
+The guard's dependency list and the bridge's denotation obligation are
+the same list, and neither was written with the other in view.  One
+wrinkle is worth recording because it is the kind of thing that
+generalises: `natOpDeps c` contains `c` itself, so the transfer of
+guard facts from the extended environment down to `env` needs an
+`n ≠ c` side condition at each use — the operation's own entry is the
+one dependency that is *not* available below.  The fragment lemma takes
+that side condition as a hypothesis rather than proving freshness
+internally, which is why it stays a statement about `env` alone.
 
 **`DeclAxiomTT`'s guard chain is proved** (`Setlec/TTVerify/DeclAxiom.lean`),
 modulo one inhabitation key per accepting guard — `StdAxiomKeyTT`,

@@ -40,6 +40,7 @@ import Setlec.TTVerify.DeclAxiom
 import Setlec.TTVerify.OfReduceKey
 import Setlec.TTVerify.SubstConst
 import Setlec.TTVerify.StdAxiomKey
+import Setlec.TTVerify.NatOpPin
 
 /-!
 # The TTVerify bridge (task #119)

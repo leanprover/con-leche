@@ -36,7 +36,10 @@ def NatOpPinTT (F : Nat) : Prop :=
   ∀ {env : Env} (m : EnvTT env) {cv : ConstantVal} {value value' : Expr}
     {hint : ReducibilityHint},
     cv.name ∈ natOpNames →
+    env.find? cv.name = none →
     annotateCore env F 0 value = .ok value' →
+    value'.hasFvar = false → value'.looseBVarsBounded 0 = true →
+    (∀ ψ : Name → Nat, ∃ v, denoteClosed m.cval env ψ value' = some v) →
     natOpGuard ⟨ConstantInfo.defnInfo cv value' hint :: env.consts⟩ cv.name
       = true →
     (∀ eq ∈ (natOpEquations 0 cv.name).map (fun eq =>
@@ -269,16 +272,18 @@ theorem declDefnTT (hnp : NatOpPinTT F) (hdm : DivModPinTT F) :
               simp only [Except.ok.injEq] at h
               exact finish (fun _ => ⟨hguard,
         hnp m (cv := { cv with type := type }) (hint := hint)
-          (List.contains_iff_mem.mp hnon) hannv hguard
-          (certifyNatEqs_inv _ hcert)⟩)
+          (List.contains_iff_mem.mp hnon) hfind' hannv hvf' hbv'
+          (fun ψ => by obtain ⟨v, -, hv, -, -⟩ := hkey ψ; exact ⟨v, hv⟩)
+          hguard (certifyNatEqs_inv _ hcert)⟩)
                 (fun _ => hdm m (cv := { cv with type := type })
                   (hint := hint) (List.contains_iff_mem.mp hdmn) hannv hpin) h.symm
           · rw [if_neg hdmn] at h
             simp only [Except.ok.injEq] at h
             exact finish (fun _ => ⟨hguard,
         hnp m (cv := { cv with type := type }) (hint := hint)
-          (List.contains_iff_mem.mp hnon) hannv hguard
-          (certifyNatEqs_inv _ hcert)⟩)
+          (List.contains_iff_mem.mp hnon) hfind' hannv hvf' hbv'
+          (fun ψ => by obtain ⟨v, -, hv, -, -⟩ := hkey ψ; exact ⟨v, hv⟩)
+          hguard (certifyNatEqs_inv _ hcert)⟩)
               (fun hmem => absurd (List.contains_iff_mem.mpr hmem) hdmn) h.symm
     · rw [if_neg hg] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
