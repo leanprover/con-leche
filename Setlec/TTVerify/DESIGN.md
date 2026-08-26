@@ -1401,6 +1401,46 @@ preventing one.  Both are wins; only the second is comfortable, and a
 practice that only ever caught errors in advance would be one nobody
 had tested.
 
+### 8.3 The extension layer is complete
+
+Every `EnvTT` field now has its `.cons`, and `EnvTT.cons` assembles
+them: it takes the head obligations for the constant being installed
+and returns the invariant for the extended environment.  That is the
+whole of what the `checkDecl` case analysis will consume from this
+side — obligations are stated *only* for the new constant, and clauses
+about already-stored constants are discharged once here rather than
+once per case.
+
+Three things made it cheaper than the model's equivalent.
+
+**The guards are monotone, not merely congruent.**  A guard that holds
+has already *found* every slot it reads, so each slot is `isSome` in
+the small environment and freshness supplies the distinctness.
+`natLitSupported_cons` / `strLitSupported_cons` / `natOpGuard_cons`
+therefore take one hypothesis, and `Installs.denoteUp` takes none —
+where `denote_mono` needs two.  The congruence lemmas (which need the
+distinctness as input) stay for the basis install, which is the one
+case where the new constant really is one of those slots.
+
+**`Installs` bundles the install context**, with `denoteUp`,
+`denoteDown`, `agree` and `find` as its API.  It describes an
+*ordinary* install; a basis install is exactly what violates its last
+three fields, and is exactly the thing that can change what a literal
+denotes.  That is the honest division rather than a convenience one.
+
+**`DivModTT` needed no new hypothesis.**  Every name its clauses read
+is pinned by `natOpGuard` — which is what the dependency list is *for*.
+The nine branches are written out because the dependency lists differ
+per operation; nothing else about them differs.
+
+A gotcha worth one line, because it cost time and gives no useful
+error: in `rcases hc with _ | ⟨-, hc⟩` on a `List.Mem`, the `-` clears
+the *head element* of the list — here `c₀` — and with it every
+hypothesis mentioning `c₀`.  The symptom is "unknown identifier
+`hi.fresh`" several lines later, pointing at the use rather than the
+cause.  Use `_`, not `-`, for a constructor argument that other
+hypotheses depend on.
+
 ### 8.2 "Too strong" is the recurring defect, not "too weak"
 
 Three instances in three increments, all found by reading a statement
