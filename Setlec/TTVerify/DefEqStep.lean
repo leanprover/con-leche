@@ -192,4 +192,59 @@ is where the obligation sits; the four moves before it are not, so
 `whnfCore_package` survives the withdrawal because it is not a *stage*
 of the step but a *fact about a reduct*, and every move wants it. -/
 
+/-! ## The step's obligations, at the checker's own function boundaries
+
+The factoring rule (§8.6) fixes where these may sit: at functions the
+checker names.  `defeqStep` calls four such, and the two that are not
+already proved become obligations.
+
+* `proofIrrel` — hoisted before lazy delta, and called again from
+  `stuckIrrel`.  Two consumers, so it is a boundary worth having.  Its
+  `Prop` branch is `proof_irrel_step`; its unit-like branch wants
+  `punitEta` and the pinned recursor shapes.
+* `stuckIrrel` — the five rescues.
+* `defeqSpine` — the same-head short-circuit.
+* `reduceNat` and `unfoldDefinition` — **proved**
+  (`reduceNat_stepTT`, `denote_delta_step`). -/
+
+/-- `proofIrrel`'s verdict yields an equation. -/
+def ProofIrrelStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {Δ : List VExpr} {a b : Expr},
+    proofIrrelP env fuel d a b = .ok true →
+    Expr.WScoped d a → a.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded a →
+    Expr.WScoped d b → b.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded b →
+    CtxOk m.cval env φ d Δ a → CtxOk m.cval env φ d Δ b →
+    ∀ {va vb : VExpr}, denote m.cval env φ d a = some va →
+      denote m.cval env φ d b = some vb → Deq Δ va vb
+
+/-- `defeqSpine`'s verdict yields an equation. -/
+def DefEqSpineStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {Δ : List VExpr} {a b : Expr},
+    defeqSpineP env fuel d a b = .ok true →
+    Expr.WScoped d a → a.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded a →
+    Expr.WScoped d b → b.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded b →
+    CtxOk m.cval env φ d Δ a → CtxOk m.cval env φ d Δ b →
+    ∀ {va vb : VExpr}, denote m.cval env φ d a = some va →
+      denote m.cval env φ d b = some vb → Deq Δ va vb
+
+/-! ### One that was drafted and deleted
+
+A `DefEqLeafStepTT` for "the stuck block's leaves and congruences"
+was written and removed on the same pass.  The `false, false` block is
+**not a named checker function** — the obligation could only be phrased
+by re-invoking `defeqStep` with a dummy continuation, which is a
+fabricated boundary, i.e. precisely the "sliced where the code does
+not slice" defect §8.6's factoring rule names.
+
+So the leaves and congruences are proved *inside* `defeqStep`'s claim,
+and the obligations are exactly the three checker functions above.
+Writing the rule down did not stop me drafting the violation; reading
+it back did, which is the argument for writing rules down at all. -/
+
 end Setlec.TTVerify
