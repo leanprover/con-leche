@@ -126,6 +126,41 @@ a sequential body at a point the body does not expose.  All four are
 read off the consumers — including, in the last case, off their
 absence.
 
+### The third practice: the checker is telescope-shaped throughout
+
+> **Every telescope-shaped obligation in this bridge decomposes against
+> the same walk** — and an obligation that does *not* decompose against
+> it is a signal the obligation is stated wrong.
+
+`TeleTyped` (the `Expr` side), `VTeleTyped` (the term side) and
+`BetaSpine` (the reduction side) are three inductives with the same
+`cons`, and they compose with no glue: `VTeleTyped`'s `cons` hands
+`BetaSpine`'s `cons` exactly the `HasType Γ x A` it wants, at exactly
+the instantiated domain, in order.  The reason is one fact about the
+*object*: the checker's recursors, its iota rules and its certificate
+frames are all built by walking the same telescope, so a bridge
+relation that walks it too meets the others already aligned.
+
+**Provenance, because that is what distinguishes this from an
+inspection-based claim.**  Filed as a *candidate* on the evidence of
+two blocks; deliberately held out of this list under the counting
+discipline (two instances is a coincidence of coincidences); paired
+with a second candidate about the stored rule format and recorded as
+**dependent on it**, so that a single adapter would have withdrawn
+both; tested at `Nat.rec`, the first block with **two rules and a
+field**; confirmed, with the residue named.
+
+**And the residue is named, because a diagnostic needs its
+counterexample.**  The `succ` obligation did require rewriting — six
+`inst_liftN_absorb` equations, normalising `((liftN 3 M).inst z 2).inst
+s 1).inst n` down to `M`.  That is **arithmetic bookkeeping**: de
+Bruijn index normalisation of facts that are already correct.  It is
+*not* an adapter, which would be a step that **reorders, reshapes, or
+supplies something the telescope failed to give**.  A
+"no-rewriting-at-all" pass criterion would have failed this test, and
+that criterion would have been wrong — so anyone applying the
+diagnostic above should know that absorb equations are not the signal.
+
 ### The second practice: measure rare shapes; the suite does not cover them
 
 > **A fixture suite being green says nothing about argument shapes it
@@ -2401,7 +2436,7 @@ first of the second, and they are different evidence:
   evidence is about the *author*: someone predicted a shape and got it
   right.
 
-Two more from the basis blocks, one of each kind:
+Three more from the basis blocks:
 
 * **`Nat`'s constructor levels — undesigned.**  `Nat.zero` and
   `Nat.succ` bind no level parameters, so a fired rule's `usj` is
@@ -2416,7 +2451,16 @@ Two more from the basis blocks, one of each kind:
   **nobody had in view when it was made**.
 
   That last one is the doctrine's strongest possible defence: §2.4 is
-  not aesthetics, it is *preemptive generality*.  A rule weakened
+  not aesthetics, it is *preemptive generality*.
+* **The stored rule format — undesigned, CONFIRMED at `Nat`.**  A
+  recursor's stored rule right-hand side is **the eliminator's own
+  telescope re-abstracted**, so its binders are the type's prefix
+  followed by the constructor's fields.  The preprocessor generates
+  rules that way for its own reasons; the bridge collects on it because
+  `hheadRec`'s telescope premises then arrive in exactly the order the
+  reduction consumes them.  Filed unproved at `Eq` (whose rule has no
+  fields, and so proved nothing), tested at `Nat.rec` — two rules, one
+  with a field — and confirmed.  A rule weakened
   because a premise could not be justified paid out on a problem
   discovered afterwards, which is precisely the return a "no unused
   premises" rule is supposed to earn and almost never gets to
@@ -4016,7 +4060,7 @@ telescope-decomposition candidate too.  So:
 `Nat` and `PSigma` therefore test both at once, and a single adapter
 withdraws both.
 
-#### CANDIDATE for the final summary: everything here is telescope-shaped
+#### CONFIRMED at `Nat.rec`, and promoted to §0's third practice
 
 > **Every telescope-shaped obligation in this bridge decomposes against
 > the same walk.**  `TeleTyped` (the `Expr` side), `VTeleTyped` (the
@@ -4024,8 +4068,10 @@ withdraws both.
 > inductives with the same `cons`, and they compose without glue
 > because all three are walking the checker's own telescope.
 
-Stated as a candidate, not a conclusion, because two of the three
-arrived together and the third is one block old.  **The test is
+Filed as a candidate, then tested and confirmed — see §0's third
+practice for the statement, the provenance and the arithmetic-versus-
+adapter distinction the diagnostic needs.  What follows is the test as
+it was set before the outcome was known.  **The test is
 `Nat`, `PSigma` and `Quot`**: if their iota obligations decompose
 against the same walk with no new relation and no adapter, the property
 is real and belongs in §0's practice list — *the checker is
