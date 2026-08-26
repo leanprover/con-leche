@@ -1,6 +1,7 @@
 import Setlec.Verify.IExpr
 import Setlec.Verify.InstList
 import Setlec.Kernel.CoreI
+import Setlec.Verify.EnvBound
 
 /-!
 # Specs for the interned core's arena operations (task #26)
@@ -2000,25 +2001,10 @@ theorem readbackI_spec {st : EStore} (hwf : st.TWF) {e : EIdx} {x : Expr}
   rw [readbackI, hgo]
 
 
-/-! ## The `FEnv` index agrees with `Env.find?` -/
+/-! ## The `FEnv` index agrees with `Env.find?`
 
-private theorem foldr_index_find? (n : Name) :
-    ∀ (l : List ConstantInfo),
-      (l.foldr (fun ci m => m.insert ci.name ci)
-        (∅ : Std.HashMap Name ConstantInfo))[n]? =
-        l.find? (fun ci => ci.name == n)
-  | [] => by simp
-  | ci :: l => by
-    rw [List.foldr_cons, Std.HashMap.getElem?_insert, List.find?_cons]
-    by_cases hn : ci.name == n
-    · rw [if_pos hn, hn]
-    · rw [if_neg hn, foldr_index_find? n l]
-      rw [show (ci.name == n) = false by simpa using hn]
-
-/-- The per-entry-call name index computes `Env.find?`. -/
-theorem mkFEnv_find? (env : Env) (n : Name) :
-    (mkFEnv env).find? n = env.find? n :=
-  foldr_index_find? n env.consts
+(`mkFEnv_find?` itself, and the bounded-lookup theory it now sits in,
+are in `Setlec/Verify/EnvBound.lean`.) -/
 
 /-- The indexed projection lookup computes `Env.findProj?`. -/
 theorem mkFEnv_findProj? (env : Env) (T : Name) (i : Nat) :
