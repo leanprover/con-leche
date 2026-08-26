@@ -1611,6 +1611,22 @@ hypothesis name the function, or a point inside it?**  `DefEqLeafStepTT`
 had to invent a dummy continuation to phrase itself, which is that
 question answering itself.
 
+And the constructive half: **the stuck block did not need a fabricated
+boundary, it needed its cases named by what failed before them.**  Once
+`DefEqStuckStepTT` records the earlier moves' *negative outcomes* as
+hypotheses, it is a case restriction on `defeqStep`'s own call and
+composes.  Every stage split this bridge wanted has had such a
+reformulation available; none has needed a boundary the checker does
+not draw.
+
+**What these rules are for**, stated because the episode says it
+better than a claim could: writing the factoring rule down did not stop
+me drafting a violation of it — reading it back did, twenty minutes
+later.  **They do not prevent errors; they make them cheap to catch at
+statement time instead of expensive to discover at composition time.**
+That is the whole return, and it is why the tells are all phrased as
+things visible in a *statement* rather than in a proof.
+
 **The same question from the estimation side** (learned the hard way in
 §12.7, and recorded here because it belongs with the boundary rule):
 **estimate an obligation from the checker function it inverts, not from
