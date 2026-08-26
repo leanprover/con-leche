@@ -222,6 +222,35 @@ theorem Deq.weakenHead {Γ : List VExpr} {a b : VExpr} (B : VExpr)
   obtain ⟨T, hT⟩ := h
   exact ⟨T.liftN 1, hT.weakenHead B⟩
 
+/-- Every leaf of an already-scoped expression survives one more
+binder: its index is unchanged, its slot shifts by the new head, and
+its annotation is denoted one level deeper.  Extracted from
+`CtxOk.openWith`, which is this fact plus the new variable's. -/
+theorem CtxOk.weakenTop {cval : TConstVal} {env : Env} {φ : Name → Nat}
+    (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
+    {d : Nat} {Δ : List VExpr} {e : Expr} {A : VExpr}
+    (hC : CtxOk cval env φ d Δ e) :
+    CtxOk cval env φ (d + 1) (A :: Δ) e := by
+  refine ⟨by simp [hC.1], fun l hl => ?_⟩
+  obtain ⟨hlt, hfb, T, hden, hT⟩ := hC.2 l hl
+  refine ⟨by omega, hfb, T.liftN 1, ?_, ?_⟩
+  · rw [denote_weaken_top hcl (Expr.fvarsBelow_mono (by omega) hfb), hden]
+    rfl
+  · have := hT.weakenHead A
+    rw [show d + 1 - 1 - l.1 = (d - 1 - l.1) + 1 from by omega]
+    simpa [VExpr.lift] using this
+
+/-- An application's leaves are its parts'. -/
+theorem CtxOk.app {cval : TConstVal} {env : Env} {φ : Name → Nat}
+    {d : Nat} {Δ : List VExpr} {f x : Expr}
+    (hf : CtxOk cval env φ d Δ f) (hx : CtxOk cval env φ d Δ x) :
+    CtxOk cval env φ d Δ (.app f x) := by
+  refine ⟨hf.1, fun l hl => ?_⟩
+  rw [Expr.fvarLeaves] at hl
+  rcases List.mem_append.mp hl with h | h
+  · exact hf.2 l h
+  · exact hx.2 l h
+
 /-! ## The four claims -/
 
 variable (m : EnvTT env) (φ : Name → Nat)
