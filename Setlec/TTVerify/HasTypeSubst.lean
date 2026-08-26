@@ -236,8 +236,8 @@ theorem HasType.weakenN : ∀ {Γ : List VExpr} {e A : VExpr}, Γ ⊢ e : A →
     rw [← liftN_liftN_comm f (Nat.zero_le k) 1 n,
       ← liftN_liftN_comm g (Nat.zero_le k) 1 n] at h3
     exact .funext (ihf H) (ihg H) h3
-  | proofIrrel _ _ _ ih1 ih2 ih3 =>
-    intro n k Γ' H; exact .proofIrrel (ih1 H) (ih2 H) (ih3 H)
+  | proofIrrel _ _ _ _ ih1 ih2 ih3 ih4 =>
+    intro n k Γ' H; exact .proofIrrel (ih1 H) (ih2 H) (ih3 H) (ih4 H)
   | natRecZero _ _ _ ihM ihz ihs =>
     intro n k Γ' H
     have h3 := ihs H
@@ -360,8 +360,8 @@ theorem HasType.instN {Γ₀ : List VExpr} {v A₀ : VExpr} (hv : Γ₀ ⊢ v : 
       inst_liftN_comm g (show 0 + 1 ≤ k + 1 by omega) v,
       Nat.add_sub_cancel] at h3
     exact .funext (ihf H) (ihg H) h3
-  | proofIrrel _ _ _ ih1 ih2 ih3 =>
-    intro k Γ' H; exact .proofIrrel (ih1 H) (ih2 H) (ih3 H)
+  | proofIrrel _ _ _ _ ih1 ih2 ih3 ih4 =>
+    intro k Γ' H; exact .proofIrrel (ih1 H) (ih2 H) (ih3 H) (ih4 H)
   | natRecZero _ _ _ ihM ihz ihs =>
     intro k Γ' H
     have h3 := ihs H
