@@ -3442,6 +3442,82 @@ either** (it is inverted inline).  So `DeclBasisTT` is a fold plus one
 `extendBasisTT` per constant, which is the shape `extendValueTT` and
 `extendAxiomTT` already have.
 
+#### Scouted (2026-08-26), and one claim above is worse than stated
+
+The model side was measured before grinding, per the discipline that
+paid at iota and at div/mod.  Three results change the plan.
+
+**There is no per-block install lemma to transpose — for five of the
+six blocks.**  Only `installQuotBasis_sound`
+(`Setlec/Model/Basis/Quot/Consistency.lean:23`, 479 lines) exists.  The
+other five blocks' drivers are *open-coded inline* in
+`Setlec/Model/Consistency.lean:777–1841` — 1 057 lines of driver, of
+which ~130 are pure inversion boilerplate (the same `simp only` incantation
+and one `by_cases … .isNone` group per constant, with the growing `Env`
+prefix written out literally) **duplicated six times**.  So the bridge
+does not cite a driver here; it writes one.  That is a cost the earlier
+estimate did not carry — and also an opportunity, because writing it
+*once* (a `BasisChain` relation plus a single fold inversion) is
+strictly less work than the six copies the model has.
+
+**The obligation buckets, measured** (13 485 lines over six blocks):
+
+| bucket | lines | share | bridge |
+| --- | ---: | ---: | --- |
+| `annotOk_<c>_type` | 2 626 | 19 % | gone |
+| `annotOk_<c>_rhs` + frame minors | 3 004 | 22 % | gone |
+| iota / `_ruleOk` / `*Val_fold` | 3 433 | 25 % | **transposes** to `hheadRec` |
+| value / frame / universe support | 2 464 | 18 % | re-derived, not transposed |
+| `interp_<c>_type` / `_rhs` | 799 | 6 % | **transposes** to `denote` computation |
+| `<c>_key` | 441 | 3 % | collapses to `HasType.const` |
+
+The `annotOk` family is **42 %** and all of it goes — not just the
+`_type` half §14.4 named.  The `_rhs` half feeds `RecMemberOk`, and the
+bridge's `hheadRec` wants the rhs's *denotation* and a `Deq`, never an
+`AnnotOk`.  Against that, the support bucket (18 %) does **not**
+transpose: it is infrastructure the model's own `interp` needs, and the
+bridge's `denote` needs different infrastructure.
+
+`<c>_key` is the one that collapses outright.  The model proves
+`v₀ ψ ∈ˢ T` per constant; the layer has `HasType.const : HasType Γ
+(.const c us) (c.type us)` **unconditionally**, so the bridge's version
+is "the pinned kernel type denotes to `BConst.type`" — a computation,
+with no membership argument at all.  That is the §14.4 prediction
+holding at its strongest point.
+
+**Per-block cost, and the order to take them:**
+
+| block | model lines | note |
+| --- | ---: | --- |
+| Empty | 107 | `Empty.rec`'s rule list is `[]` — no iota obligation exists |
+| PUnit | 812 | smallest block that exercises the *whole* `RecMemberOk` path |
+| Eq | 2 489 | three of the four derived constants live here |
+| Nat | 2 546 | |
+| PSigma | 2 662 | the only block installing `projInfo`s |
+| Quot | 4 763 | budget separately: 412 lines of universe arithmetic and 547 of value-level lemmas with no analogue elsewhere |
+
+So: **Empty as the pilot** (it validates the driver and nothing else),
+**PUnit as the first real block** (§14.5's item 2, now confirmed by
+measurement rather than by guess), Quot last and priced on its own.
+
+**A finding for the model side, not this one.**  Five `<c>_iota`
+theorems — `natZero_iota`, `natSucc_iota`, `eqRec_iota`,
+`psigmaMk_iota`, `punitRec_iota` — have **zero consumers anywhere in
+the repo**, 1 111 lines of them.  The real iota obligation is carried
+by the `*_ruleOk` family.  Nothing should be ported from them, and the
+model side may want them gone.
+
+**And one caution above is now stale.**  §8.3 says `Installs`
+"describes an *ordinary* install; a basis install is exactly what
+violates its last three fields".  Since §8.5's second pass made
+`LitAgree`'s seven equations **conditional on the guard holding in the
+old environment**, `Installs.of_fresh` applies to a basis install too:
+while a block is going in the guard is false (so the clauses are
+vacuous), and once it holds every name the clauses mention is stored,
+hence distinct from the fresh one.  What a basis install really changes
+is *which literals denote at all* — which is what the `lit` field
+exists to carry, not what it fails at.
+
 ### 14.5 What this buys, stated as a plan
 
 1. **Relocate tier A** (or the ~1 500 lines of it the bridge needs) out

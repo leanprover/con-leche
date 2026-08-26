@@ -349,6 +349,14 @@ the relocation note. -/
 def uNT : Name := Name.anonymous.str "u"
 /-- The second pinned level-parameter name. -/
 def vNT : Name := Name.anonymous.str "v"
+/-- The pinned *recursors*' motive-level parameter.  `Eq.rec`,
+`PUnit.rec` and their siblings are generated with the motive's level
+named `u_1` and the *type's* level named `u` — the opposite order from
+the layer's `BConst` level lists, where the type's level comes first.
+Reading the wrong name here is not a mismatch a proof would catch
+later: it is a `val_params` violation, because the declaration does not
+bind `v` at all. -/
+def u1NT : Name := Name.anonymous.str "u_1"
 
 /-- **The pinned `Eq` block's fired law** (§11).  The checker's `Eq` is
 an ordinary pinned inductive *constant*, which can appear partially
@@ -399,7 +407,21 @@ theorem EqLawTT.cons {env : Env} {cval cval' : TConstVal}
 
 /-- What a reserved basis constant denotes to, where it denotes to a
 bare built-in.  `none` for the four the layer derives rather than
-carries (see the section note). -/
+carries (see the section note).
+
+**Three entries were wrong until the basis install elaborated them**
+(task #119, `DESIGN.md` §8.2's defect, in its "unproved definition"
+form).  `Empty` is stored *level-monomorphically* (`levelParams = []`),
+so its valuation may not read the assignment at all — its level is
+fixed by its pinned type, `Sort 1`.  `Empty.rec` binds **one** level
+where the layer's `emptyRec` takes two, the first being `Empty`'s own.
+And `PUnit.rec` binds `u_1, u` — motive level *second* in the layer's
+order and named `u_1`, not `v`.
+
+Each would have been caught only here, because `val_params` is what
+they violate and nothing before the install asserts it for a basis
+constant.  That is the house rule's point exactly (`Setlec/TT/DESIGN.md`
+§3.1): a definition is a conjecture until a consumer elaborates it. -/
 def pinnedDirectT (n : Name) (ψ : Name → Nat) : Option VExpr :=
   if n = natName then some (.const .nat [])
   else if n = natZeroName then some (.const .natZero [])
@@ -410,10 +432,10 @@ def pinnedDirectT (n : Name) (ψ : Name → Nat) : Option VExpr :=
   else if n = punitName then some (.const .punit [ψ uNT])
   else if n = punitUnitName then some (.const .punitUnit [ψ uNT])
   else if n = punitName.str "rec" then
-    some (.const .punitRec [ψ uNT, ψ vNT])
-  else if n = emptyName then some (.const .empty [ψ uNT])
+    some (.const .punitRec [ψ uNT, ψ u1NT])
+  else if n = emptyName then some (.const .empty [1])
   else if n = emptyName.str "rec" then
-    some (.const .emptyRec [ψ uNT, ψ vNT])
+    some (.const .emptyRec [1, ψ uNT])
   else if n = quotName then some (.const .quot [ψ uNT])
   else if n = quotMkName then some (.const .quotMk [ψ uNT])
   else if n = quotLiftName then some (.const .quotLift [ψ uNT, ψ vNT])
