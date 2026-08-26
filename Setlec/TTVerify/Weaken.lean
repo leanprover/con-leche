@@ -2,6 +2,7 @@ import Setlec.TT.Judgment
 import Setlec.TT.Deq
 import Setlec.TTVerify.VClosed
 import Setlec.TTVerify.SubstAlgebra
+import Setlec.TTVerify.HasTypeSubst
 
 /-!
 # Context weakening
@@ -132,6 +133,21 @@ theorem Deq.close2 {A T L R : VExpr} (hA : VExpr.Closed A)
   have h3 := HasType.app h2 hb
   rw [VExpr.inst_eqE] at h3
   exact Deq.intro h3
+
+/-- **Closing a two-variable typing.**  The one place the object-level
+route does *not* reach: `lam`/`app` would move the equation's
+**subject** to a redex, which no rule concludes (F1).  So a typing over
+the frame's two variables is instantiated with `HasType.instN` — the
+residue that file is for. -/
+theorem HasType.close2 {A T e : VExpr} (hA : VExpr.Closed A)
+    (hT : VExpr.Closed T) (h : HasType [A, A] e T)
+    {Γ : List VExpr} {x y : VExpr}
+    (hx : HasType Γ x A) (hy : HasType Γ y A) :
+    HasType Γ ((e.inst x 1).inst y) T := by
+  have h1 := hx.instN (h.weakenTail Γ) (.succ A .zero)
+  rw [VExpr.inst_eq_self_of_closed hA, VExpr.inst_eq_self_of_closed hT] at h1
+  have h2 := hy.instN h1 .zero
+  rwa [VExpr.inst_eq_self_of_closed hT] at h2
 
 /-- **Closing a two-variable equation under proof binders.**  The
 div/mod certificate frame: two `Nat` variables and one binder per
