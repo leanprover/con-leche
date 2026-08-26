@@ -67,6 +67,34 @@ of the consistency argument — reached with less machinery: no
 unfolding, no well-founded recursion on the environment, and no
 termination obligation to discharge.
 
+### Operational rule: look for the set-model counterpart first
+
+The user's "follow the set model" directive has an operational form
+that keeps paying, and it is not "copy the proof":
+
+> **Before designing a bridge lemma, look for its set-model
+> counterpart — not to reuse the proof, but because the counterpart's
+> *existence* usually settles whether the statement is right.**
+
+Twice now it has decided an increment outright.
+
+* `denote_mono` (`Setlec/TTVerify/Extend.lean`) replaced the entire
+  `Setlec/Model/Extend/Transport` family with one lemma — the family's
+  size was itself the signal that most of it was `AnnotOk` plumbing
+  with no counterpart here.
+* `certs_fit` (`Setlec/Model/Core/Certs.lean`) turned out to be exactly
+  the induction §6's `iotaCerts` prediction was about to argue for,
+  and since `TeleTyped` demands strictly less than `TeleFitI`, its
+  existence *settled* the prediction's positive half without a line of
+  proof.
+
+The failure mode it guards against is designing a bridge statement that
+is subtly wrong in a way only a proof attempt reveals — which, given
+this codebase's base rate (`Setlec/TT/DESIGN.md` §3.1, three for
+three), is the expected outcome rather than the unlucky one.  A missing
+counterpart is informative too: it means either a genuine saving (as
+with `AnnotOk`) or a statement that needs its own justification.
+
 ### The rest of the transposition
 
 `EnvTT env` is `EnvModel env` field for field, **with one documented
@@ -437,11 +465,14 @@ contract's telescope hypothesis wants one per argument.  All three are
 the same shape as `beta`'s premise, so the headline fact applies to
 all three.
 
-#### The `iotaCerts` prediction: tested early, and it holds
+#### The `iotaCerts` prediction: tested early, and it holds — now mechanized
 
-Tested by *reading* rather than by proving, before the field statement
-was written — the asymmetry favoured it, since a failure would have
-invalidated a contract shape built on top of it.
+Tested first by *reading*, before the field statement was written — the
+asymmetry favoured it, since a failure would have invalidated a
+contract shape built on top of it.  The reading has since been
+**discharged as a proof**: `certs_typed`
+(`Setlec/TTVerify/Certs.lean`) is the transpose of `certs_fit`, and it
+builds a `TeleTyped` from a successful `iotaCerts` run.
 
 `iotaCerts` (`Setlec/Kernel/Core.lean`) walks a telescope one argument
 at a time, instantiating `body.instantiate1 arg` as it goes, and per
@@ -459,8 +490,10 @@ from `iotaCertsP` by exactly this induction, via `iotaCerts_step_inv`.
 premise fewer** (`AnnotOk` dropped), so it demands strictly less than
 what `iotaCerts` is already known to supply.
 
-*What this does and does not establish.*  It confirms the **positive**
-half — the checker computes exactly the facts the contract needs.  The
+*What this does and does not establish.*  The **positive** half is now
+proved, not merely checked: the checker computes exactly the facts the
+contract needs, one `HasType Δ ⟦arg⟧ ⟦dom⟧` per argument at the domain
+the rule fires at.  The
 **negative** half — that nothing else could supply them — still rests
 on the headline fact's argument, not on a mechanized proof, and the
 falsification test as set ("a clause discharges its rule's premises
