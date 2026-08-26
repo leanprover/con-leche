@@ -106,60 +106,48 @@ denoting into syntax rather than into sets:
   predicted: `.sort u ↦ .sort (u.eval φ)`, and two levels the checker
   calls equal are equal naturals at every `φ`.
 
-## 3. The open obligation: first-class projections
+## 3. Projections: a gap in the layer, found here and closed
 
-**This is a genuine gap in `Setlec/TT/*`, found by building the
-bridge, and it is not a coverage decision.**
+**Recorded because it is the one place the mirroring did not
+transpose, and because the fix made the layer smaller rather than
+bigger.**
 
-`interpExpr` reads a `.proj` node with the untyped set operations
-`sfst`/`ssnd`.  The type theory has no untyped projection: its
-`psigmaFst`/`psigmaSnd` are *constants applied to the pair's type
-arguments* `A` and `B`, and a `.proj` node does not carry them.  The
-checker recovers them at use time by whnf-ing the subject's inferred
-type (the `.proj` clause of `annotateBody`, `Setlec/Kernel/Core.lean`),
-which is information a function of the expression alone does not have.
+`interpExpr` reads a `.proj` node with the *untyped* `sfst`/`ssnd`.
+The layer's `psigmaFst`/`psigmaSnd` were constants **applied to the
+pair's type arguments** `A` and `B`.  A `.proj` node does not carry
+them; the checker recovers them at use time by whnf-ing the subject's
+inferred type.  A denotation that is a function of the expression alone
+cannot.  And a *relational* denotation is no escape — the defeq clause
+of the fuel induction needs both sides denoted by the same map, or the
+two existentials never meet.
 
-`Setlec/TT/DESIGN.md` §3 says projections "denote to applications of
-`psigmaFst`/`psigmaSnd`".  For a *modeled* structure that is right —
-the checker rewrites the node into a projection-function application at
-annotation time, so no `.proj` survives.  For the **pinned pair** the
-node is first-class by design (`ProjEntry.native`, installed only by
-the `PSigma'` basis block) and survives into stored terms.  So the
-sentence is true of the case where the node is gone and silent about
-the case where it is not.
+`Setlec/TT/DESIGN.md` §3's "projections denote to applications of
+`psigmaFst`/`psigmaSnd`" was right for a *modeled* structure, whose
+node the checker rewrites away at annotation, and silent about the
+**pinned pair**, whose node is first-class by design
+(`ProjEntry.native`) and survives into stored terms.  Scale, measured:
+188 `proj` records in the preprocessed init-prelude stream, and at
+least one in 34 of the committed e2e fixtures.
 
-Making the denotation *relational* is not an escape: the defeq clause
-of the fuel induction needs both sides denoted by the **same** map, or
-the two existentials never meet.  Reconstructing `A` and `B` by calling
-the checker's own inference is not one either: it would make the
-denotation fuel- and strategy-dependent, which is precisely what this
-layer exists to avoid.
+**Closed on `feat/74-proj-former`** (landed 2026-08-26): `VExpr.proj i
+e` carries exactly what the checker's node carries, and
+`projFst`/`projSnd` read `A` and `B` off the premise
+`Γ ⊢ p : PSigma' A B`.  Same move as the `app` rule, same payoff — the
+premise hands soundness the `⟦p⟧ ∈ˢ sigmaSet …` package that the set
+model's `AnnotOk` proj clause carries by hand.  One further rule was
+needed, `congrProj`: `proj` is not an application, so no existing
+congruence reaches it and `conv` changes types rather than terms.
 
-**The fix — a projection former in the layer.**  Add
-`VExpr.proj (i : Nat) (e : VExpr)`, interpreted by `sfst`/`ssnd`
-(literally `interpExpr`'s clause), with
+The net effect on the primitive set is **negative**: `psigmaFst` and
+`psigmaSnd` are `fun A B p => p.i` and left `BConst`, mechanized in
+`Examples.lean` beside `Eq.rec` and `PSigma'.rec`.  That asymmetry is
+the argument that the former is a primitive rather than an addition —
+it derives the constants, and no set of constants derives it, because
+only the former can be typed without its type arguments appearing in
+the term.
 
-```
-Γ ⊢ p : PSigma' u v A B                    Γ ⊢ p : PSigma' u v A B
---------------------------                 -------------------------------
-Γ ⊢ proj 0 p : A                           Γ ⊢ proj 1 p : B (proj 0 p)
-```
-
-and the computation rules `proj 0 (mk u v A B a b) ≐ a`,
-`proj 1 (…) ≐ b`, plus structure η `p ≐ mk (proj 0 p) (proj 1 p)`.
-The type arguments are *derived from the premise* instead of carried in
-the term, which is exactly how the checker's own rule works, and it
-gives the layer the same payoff the `app` rule already has: the premise
-hands soundness the `ve ∈ˢ sigmaSet …` package that the set model's
-`AnnotOk` proj clause has to carry by hand.  `psigmaFst`/`psigmaSnd`
-may then become *derivable* (`fun A B p => proj 0 p`), shrinking
-`BConst` rather than growing it.
-
-Until that lands, `denote` is `none` on `.proj` and the bridge covers
-only stored terms without a first-class projection node.  The scale of
-the gap, measured: 188 `proj` records in the preprocessed init-prelude
-stream and at least one in 34 of the committed e2e fixtures (most of
-them rewritten away at annotation, the pinned-pair ones not).
+`denote`'s clause is now the plain transpose of `interpExpr`'s, `i < 2`
+guard included.
 
 ## 4. What is proved, and what the remaining hypothesis is
 

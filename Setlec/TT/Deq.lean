@@ -71,6 +71,12 @@ theorem appFun (hf : Deq Γ f f') : Deq Γ (.app f x) (.app f' x) :=
 theorem appArg (hx : Deq Γ x x') : Deq Γ (.app f x) (.app f x') :=
   app refl hx
 
+/-- Congruence for the projection former (the checker's `.proj`-vs-
+`.proj` comparison).  Primitive: `proj` is not an application, so no
+other congruence reaches it. -/
+theorem proj (i : Nat) (h : Deq Γ a b) : Deq Γ (.proj i a) (.proj i b) :=
+  ⟨a, HasType.congrProj (T' := a) (h.toHasType a)⟩
+
 /-- Equality reflection, in `Deq` form. -/
 theorem conv {t A B : VExpr} (ht : HasType Γ t A) (h : Deq Γ A B) :
     HasType Γ t B :=

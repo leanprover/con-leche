@@ -21,7 +21,7 @@ replaced by the corresponding term formers.
 | `piC A fun x => …` | `.pi ⟦ty⟧ ⟦body opened⟧` |
 | `lamC A fun x => …` | `.lam ⟦ty⟧ ⟦body opened⟧` |
 | `SetTheory.app vf va` | `.app ⟦f⟧ ⟦a⟧` |
-| `sfst`/`ssnd` | *see "The projection gap"* |
+| `sfst ve`/`ssnd ve` | `.proj i ⟦e⟧` (the former, task #119) |
 | `natLitVal zv sv n` | `natLitT ⟦zero⟧ ⟦succ⟧ n` |
 
 Three points where the transpose is worth stating rather than reading
@@ -69,26 +69,25 @@ become relevant only when the checker stops zeta-expanding at
 annotation time (task #117), and the two are interderivable through
 `HasType.zeta` in any case.
 
-## The projection gap (task #119, open)
+## Projections, and why the layer grew a former for them
 
 `interpExpr` reads a `.proj` node with the *untyped* set operations
-`sfst`/`ssnd`.  The type theory has no untyped projection: its
-`psigmaFst`/`psigmaSnd` are constants applied to the pair's type
-arguments `A` and `B`, and a `.proj` node does not carry them — the
+`sfst`/`ssnd`.  The layer originally had no untyped projection: its
+`psigmaFst`/`psigmaSnd` were constants applied to the pair's type
+arguments `A` and `B`, which a `.proj` node does not carry — the
 checker recovers them at *use* time, by whnf-ing the subject's inferred
 type (`Setlec/Kernel/Core.lean`, the `.proj` clause of `annotateBody`).
-A denotation that is a function of the expression alone therefore
-cannot emit them, and a *relational* denotation is not an option
-either: the defeq claim of the fuel induction needs both sides denoted
-by the *same* function, or the two existentials do not meet.
+A denotation that is a function of the expression alone cannot emit
+them, and a *relational* denotation is not an option either: the defeq
+claim of the fuel induction needs both sides denoted by the *same*
+function, or the two existentials do not meet.
 
-So `denote` is `none` on `.proj`, and the bridge covers exactly the
-stored terms with no first-class projection node.  This is not a
-coverage decision, it is an open obligation; see the module's `TODO`
-below and the report for task #119.  The fix is one clause here plus a
-projection former in `Setlec/TT/Syntax.lean` (interpreted by
-`sfst`/`ssnd`, exactly as this file's table would then read), which is
-the same shape the set model already has.
+So the layer gained `VExpr.proj` (task #119; `Setlec/TT/Syntax.lean`
+§3, `Setlec/TT/DESIGN.md`), a former carrying exactly what the
+checker's node carries, whose typing rules read `A` and `B` off the
+premise.  This clause is then the plain transpose of `interpExpr`'s,
+`i < 2` guard included, and the layer came out *smaller*: `psigmaFst`
+and `psigmaSnd` are derivable from the former and left `BConst`.
 -/
 
 set_option linter.unusedVariables false
@@ -195,11 +194,12 @@ def denote (cval : TConstVal) (env : Env) (φ : Name → Nat) :
       | none => none
       | some b => some (b.inst xv)
   | d, .proj _ i e =>
-    -- TODO (task #119): the pair's type arguments are not on the node.
-    -- Needs a projection former in `Setlec/TT/Syntax.lean`, interpreted
-    -- by `sfst`/`ssnd` exactly as the set model reads this clause; see
-    -- "The projection gap" above.
-    none
+    -- the transpose of `interpExpr`'s clause, `i < 2` guard included:
+    -- the former carries only the index and the subject, and its
+    -- typing rules read the pair's type arguments off the premise
+    match denote cval env φ d e with
+    | none => none
+    | some ve => if i < 2 then some (.proj i ve) else none
   | _, .lit (.natVal n) =>
     -- guarded exactly like the checker's literal paths
     if natLitSupported env then
@@ -290,9 +290,12 @@ theorem denote_letE (cval : TConstVal) (env : Env) (φ : Name → Nat)
         | some b => some (b.inst xv) := by
   rw [denote]
 
-@[simp] theorem denote_proj (cval : TConstVal) (env : Env) (φ : Name → Nat)
+theorem denote_proj (cval : TConstVal) (env : Env) (φ : Name → Nat)
     (d : Nat) (T : Name) (i : Nat) (e : Expr) :
-    denote cval env φ d (.proj T i e) = none := by
+    denote cval env φ d (.proj T i e) =
+      match denote cval env φ d e with
+      | none => none
+      | some ve => if i < 2 then some (.proj i ve) else none := by
   rw [denote]
 
 @[simp] theorem denote_bvar (cval : TConstVal) (env : Env) (φ : Name → Nat)
