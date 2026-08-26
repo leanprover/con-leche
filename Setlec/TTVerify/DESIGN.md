@@ -3460,6 +3460,11 @@ estimate did not carry — and also an opportunity, because writing it
 *once* (a `BasisChain` relation plus a single fold inversion) is
 strictly less work than the six copies the model has.
 
+*A suggestion, not an obligation:* if the model side ever de-duplicates
+those six drivers, the bridge's `BasisChain` + `foldlM_installBasisDecl_inv`
+is the template — the relation is `V`-free, so it could be shared
+outright under #123's criterion rather than re-derived.
+
 **The obligation buckets, measured** (13 485 lines over six blocks):
 
 | bucket | lines | share | bridge |
@@ -3499,6 +3504,31 @@ holding at its strongest point.
 So: **Empty as the pilot** (it validates the driver and nothing else),
 **PUnit as the first real block** (§14.5's item 2, now confirmed by
 measurement rather than by guess), Quot last and priced on its own.
+
+**Landed: the driver and the pilot** (`Setlec/TTVerify/DeclBasis.lean`).
+`BasisChain` + `foldlM_installBasisDecl_inv` replace the model's six
+inline copies; `extendBasisTT` is `EnvTT.cons` at a pinned constant with
+**six head obligations discharged by computation on the reserved-name
+list**, which is what that list is for.  Three of the six are worth
+naming, because they are the reason a basis install does not have to
+reason about eta at all:
+
+* `hheadUnit` and `hheadEta`'s first disjunct want a family whose name
+  is *not* reserved, and a basis constant's is;
+* `hheadEta`'s second wants an eta capability whose constructor is the
+  constant being installed — and `EtaFamilyStored`'s **own first
+  conjunct** rules out a reserved-named constructor.  That conjunct is
+  documented in `Setlec/Verify/EnvGuards.lean` as existing "to keep the
+  basis installs' head obligations vacuous by computation", and this is
+  the install that collects on it;
+* `hheadEta`'s third wants a projection-function name, and `projFnName`
+  builds a `Name.num` node where every reserved name is a `Name.str`.
+
+The `Empty` block is then two `extendBasisTT` calls, ~120 lines total.
+Its whole content is one `htype` computation per constant, because
+`Empty.rec`'s rule list is `[]` — so it validates the driver, the
+`hEc`-style "the block's earlier constants denote to their pins" step,
+and nothing else, exactly as intended for a pilot.
 
 **A finding for the model side, not this one.**  Five `<c>_iota`
 theorems — `natZero_iota`, `natSucc_iota`, `eqRec_iota`,
