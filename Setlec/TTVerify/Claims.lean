@@ -164,12 +164,13 @@ Note that `denote_weaken_top` is applied to the *annotations*, which is
 why `CtxOk` demands them scoped below their own variable's index —
 `WScoped`'s own condition on an `fvar` leaf, and what the checker's
 scope guards establish. -/
-theorem CtxOk.open {cval : TConstVal} {env : Env} {φ : Name → Nat}
+theorem CtxOk.openWith {cval : TConstVal} {env : Env} {φ : Name → Nat}
     (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
-    {d : Nat} {Δ : List VExpr} {body ty : Expr} {n : Name} {A : VExpr}
+    {d : Nat} {Δ : List VExpr} {body ty : Expr} {n : Name} {A B : VExpr}
     (hb : CtxOk cval env φ d Δ body) (ht : CtxOk cval env φ d Δ ty)
-    (hty : denote cval env φ d ty = some A)
-    (htyb : Expr.fvarsBelow d ty) :
+    (hty : denote cval env φ d ty = some B)
+    (htyb : Expr.fvarsBelow d ty)
+    (hnew : HasType (A :: Δ) (.bvar 0) (B.liftN 1)) :
     CtxOk cval env φ (d + 1) (A :: Δ) (body.instantiate1 (.fvar d n ty)) := by
   -- an already-present leaf: index unchanged, slot shifted by `Δ`'s new
   -- head, annotation one lift deeper
@@ -196,14 +197,30 @@ theorem CtxOk.open {cval : TConstVal} {env : Env} {φ : Name → Nat}
     -- leaves, which is an already-present leaf
     rw [Expr.fvarLeaves] at hl'
     rcases List.mem_cons.mp hl' with rfl | hl''
-    · refine ⟨by omega, htyb, A.liftN 1, ?_, ?_⟩
+    · refine ⟨by omega, htyb, B.liftN 1, ?_, ?_⟩
       · rw [denote_weaken_top hcl htyb, hty]
         rfl
-      · have := HasType.bvar (Γ := A :: Δ) (i := 0) (A := A) (by simp)
-        rw [show d + 1 - 1 - d = 0 from by omega]
-        exact this
+      · rw [show d + 1 - 1 - d = 0 from by omega]
+        exact hnew
     · obtain ⟨hlt, hfb, T, hden, hT⟩ := ht.2 l hl''
       exact shift l hlt hfb T hden hT
+
+/-- Opening a binder with its *own* annotation: the head of the extended
+context is the annotation's denotation. -/
+theorem CtxOk.open {cval : TConstVal} {env : Env} {φ : Name → Nat}
+    (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
+    {d : Nat} {Δ : List VExpr} {body ty : Expr} {n : Name} {A : VExpr}
+    (hb : CtxOk cval env φ d Δ body) (ht : CtxOk cval env φ d Δ ty)
+    (hty : denote cval env φ d ty = some A)
+    (htyb : Expr.fvarsBelow d ty) :
+    CtxOk cval env φ (d + 1) (A :: Δ) (body.instantiate1 (.fvar d n ty)) :=
+  CtxOk.openWith hcl hb ht hty htyb (HasType.bvar (by simp))
+
+/-- Weakening a derivable equation by a fresh innermost binder. -/
+theorem Deq.weakenHead {Γ : List VExpr} {a b : VExpr} (B : VExpr)
+    (h : Deq Γ a b) : Deq (B :: Γ) (a.liftN 1) (b.liftN 1) := by
+  obtain ⟨T, hT⟩ := h
+  exact ⟨T.liftN 1, hT.weakenHead B⟩
 
 /-! ## The four claims -/
 

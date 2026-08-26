@@ -456,6 +456,94 @@ theorem hasType_strLitT {env : Env} (m : EnvTT env) (φ : Name → Nat)
   simpa [substFn_nil,
     VExpr.inst_eq_self_of_closed (m.cval_closed stringName φ)] using this
 
+/-! ## The constructor form, denoted
+
+The stuck block compares a `String` literal against a unary
+`String.ofList` application by *expanding* the literal
+(`tryStringLitExpansion` in the reference kernels), so the bridge owes
+the expansion's denotation.  It is `strLitT` — which is how `strLitT`
+was defined in the first place (`Setlec/TTVerify/Denote.lean`), so the
+lemma is the definition read forwards, once per constant the guard
+pins. -/
+
+/-- `List.nil.{0} Char`, denoted. -/
+theorem denote_nilTerm {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    (hg : strLitSupported env = true) (d : Nat) :
+    denote m.cval env φ d
+        (.app (.const listNilName [.zero]) (.const charName []))
+      = some (.app (m.cval listNilName
+          (Level.substFn φ (levelParamsAt env listNilName) [.zero]))
+        (m.cval charName φ)) := by
+  obtain ⟨ciN, p, nm, mb, hfN, hlpN, -⟩ := listNil_shape hg
+  obtain ⟨ciC, hfC, hlpC, -⟩ := char_shape hg
+  have hlpa : ciN.toConstantVal.levelParams
+      = levelParamsAt env listNilName := by simp [levelParamsAt, hfN]
+  rw [denote_app, denote_const, hfN]
+  dsimp only
+  rw [hlpa, if_pos (by rw [← hlpa]; simp [hlpN]),
+    denote_const_nolevels m φ hfC hlpC d]
+
+/-- `List.cons.{0} Char`, denoted. -/
+theorem denote_consTerm {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    (hg : strLitSupported env = true) (d : Nat) :
+    denote m.cval env φ d
+        (.app (.const listConsName [.zero]) (.const charName []))
+      = some (.app (m.cval listConsName
+          (Level.substFn φ (levelParamsAt env listConsName) [.zero]))
+        (m.cval charName φ)) := by
+  obtain ⟨ciC', p, -, -, -, -, -, -, hfC', hlpC', -⟩ := listCons_shape hg
+  obtain ⟨ciC, hfC, hlpC, -⟩ := char_shape hg
+  have hlpa : ciC'.toConstantVal.levelParams
+      = levelParamsAt env listConsName := by simp [levelParamsAt, hfC']
+  rw [denote_app, denote_const, hfC']
+  dsimp only
+  rw [hlpa, if_pos (by rw [← hlpa]; simp [hlpC']),
+    denote_const_nolevels m φ hfC hlpC d]
+
+/-- **The character-list expression denotes to `charListT`.** -/
+theorem denote_strLitList {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    (hg : strLitSupported env = true) (d : Nat) :
+    ∀ cs : List Char,
+      denote m.cval env φ d (strLitList cs) = some (charListT
+        (.app (m.cval listNilName
+          (Level.substFn φ (levelParamsAt env listNilName) [.zero]))
+          (m.cval charName φ))
+        (.app (m.cval listConsName
+          (Level.substFn φ (levelParamsAt env listConsName) [.zero]))
+          (m.cval charName φ))
+        (m.cval charOfNatName φ) (m.cval natZeroName φ)
+        (m.cval natSuccName φ) cs) := by
+  have hnat : natLitSupported env = true := by
+    simp only [strLitSupported, Bool.and_eq_true] at hg
+    exact hg.1.1.1.1.1.1.1
+  obtain ⟨ciF, nm, mb, hfF, hlpF, -⟩ := charOfNat_shape hg
+  intro cs
+  induction cs with
+  | nil => rw [strLitList, charListT]; exact denote_nilTerm m φ hg d
+  | cons c cs ih =>
+    rw [strLitList, charListT]
+    rw [show (Expr.app (.app (.app (.const listConsName [Level.zero])
+        (.const charName []))
+        (.app (.const charOfNatName []) (.lit (.natVal c.toNat))))
+        (strLitList cs)) = Expr.app (.app
+        (.app (.const listConsName [Level.zero]) (.const charName []))
+        (.app (.const charOfNatName []) (.lit (.natVal c.toNat))))
+        (strLitList cs) from rfl]
+    rw [denote_app, denote_app, denote_consTerm m φ hg d,
+      denote_app, denote_const_nolevels m φ hfF hlpF d,
+      denote_natLit, if_pos hnat, ih, substFn_nil]
+
+/-- **A string literal's constructor form denotes to the literal.** -/
+theorem denote_strLitToConstructor {env : Env} (m : EnvTT env)
+    (φ : Name → Nat) (hg : strLitSupported env = true) (d : Nat)
+    (s : String) :
+    denote m.cval env φ d (strLitToConstructor s)
+      = denote m.cval env φ d (.lit (.strVal s)) := by
+  obtain ⟨ciO, nm, mb, hfO, hlpO, -⟩ := stringOfList_shape hg
+  rw [strLitToConstructor_eq, denote_strLit, if_pos hg, denote_app,
+    denote_const_nolevels m φ hfO hlpO d, denote_strLitList m φ hg d,
+    strLitT, substFn_nil]
+
 /-- **`InferStrLitStepTT`, discharged.** -/
 theorem infer_strLit_step {env : Env} (m : EnvTT env) (φ : Name → Nat)
     {fuel : Nat} : InferStrLitStepTT m φ fuel := by

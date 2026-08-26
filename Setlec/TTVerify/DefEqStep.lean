@@ -235,6 +235,10 @@ def DefEqStuckStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
     whnfCore env fuel d a = .ok a' → whnfCore env fuel d b = .ok b' →
     (a' == b') = false →
     proofIrrelP env fuel d a' b' = .ok false →
+    (if !a'.hasFvar && !b'.hasFvar then
+      reduceNatP env fuel d a' else pure none) = .ok none →
+    (if !a'.hasFvar && !b'.hasFvar then
+      reduceNatP env fuel d b' else pure none) = .ok none →
     unfoldableHead env a' = false → unfoldableHead env b' = false →
     Expr.WScoped d a' → a'.looseBVarsBounded 0 = true →
     Expr.LeavesBounded a' →
@@ -375,7 +379,7 @@ theorem defeqStep_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
         · -- neither head unfolds: the stuck configuration, applied to
           -- the *untouched* original hypothesis
           exact hstk h0 (by simpa using ‹¬(a == b) = true›) hwca hwcb
-            (by simpa using ‹¬(a' == b') = true›) hir hha hhb
+            (by simpa using ‹¬(a' == b') = true›) hir hna hnb hha hhb
             hwa' hba' hLa' hwb' hbb' hLb' hCa' hCb' hva' hvb'
         · -- only the right head unfolds
           cases hub : unfoldDefinition env b' with
@@ -575,43 +579,52 @@ theorem substFn_of_evalEqList {φ : Name → Nat} :
         · exact h1
         · exact ih h2 p
 
-/-- **`DefEqSpineStepTT`, discharged.** -/
-theorem defeqSpine_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
-    {fuel : Nat} (ihd : DefEqClaimsTT m φ fuel) :
-    DefEqSpineStepTT m φ fuel := by
-  intro d Δ a b h hwa hba hLa hwb hbb hLb hCa hCb va vb hva hvb
-  obtain ⟨n, us, us', hfa, hfb, hlenAB, hlev, hlist⟩ := defeqSpine_inv h
-  -- both sides are the same constant applied to a spine
-  have hea : a = Expr.mkAppN (.const n us) a.getAppArgs := by
-    rw [← hfa, Expr.mkAppN_getApp]
-  have heb : b = Expr.mkAppN (.const n us') b.getAppArgs := by
-    rw [← hfb, Expr.mkAppN_getApp]
-  rw [hea] at hva
-  rw [heb] at hvb
-  obtain ⟨vfa, vas, hvfa, hspa, rfl⟩ := denote_mkAppN_inv hva
-  obtain ⟨vfb, vbs, hvfb, hspb, rfl⟩ := denote_mkAppN_inv hvb
-  -- the two level instantiations are indistinguishable to the valuation
-  have hheads : vfa = vfb := by
-    rw [denote_const] at hvfa hvfb
-    cases hf : env.find? n with
-    | none => rw [hf] at hvfa; exact nomatch hvfa
-    | some ci =>
-      rw [hf] at hvfa hvfb
-      dsimp only at hvfa hvfb
-      split at hvfa
-      · next hlenU =>
-        split at hvfb
-        · next hlenU' =>
-          rw [← Option.some.inj hvfa, ← Option.some.inj hvfb]
-          refine m.val_params n ci hf _ _ ?_
-          intro p hp
-          exact substFn_of_evalEqList _ (Level.isEquivList_sound hlev φ) p
-        · exact nomatch hvfb
-      · exact nomatch hvfa
-  subst hheads
-  -- and the arguments are pairwise equal
+/-- **A constant at level-equivalent instantiations denotes the same
+term.**  `val_params` says a valuation reads only its own parameters;
+`substFn_of_evalEqList` says the two instantiations agree on all of
+them.  Consumed by the spine short-circuit and by the stuck block's
+constant leaf. -/
+theorem denote_const_congr {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {d : Nat} {n : Name} {us us' : List Level} {va vb : VExpr}
+    (hlev : Level.isEquivList us us' = some true)
+    (hva : denote m.cval env φ d (.const n us) = some va)
+    (hvb : denote m.cval env φ d (.const n us') = some vb) : va = vb := by
+  rw [denote_const] at hva hvb
+  cases hf : env.find? n with
+  | none => rw [hf] at hva; exact nomatch hva
+  | some ci =>
+    rw [hf] at hva hvb
+    dsimp only at hva hvb
+    split at hva
+    · split at hvb
+      · rw [← Option.some.inj hva, ← Option.some.inj hvb]
+        refine m.val_params n ci hf _ _ ?_
+        intro p _
+        exact substFn_of_evalEqList _ (Level.isEquivList_sound hlev φ) p
+      · exact nomatch hvb
+    · exact nomatch hva
+
+/-- **The spine congruence.**  Two applications with equal-length
+argument lists, `Deq` heads and pairwise `Deq` arguments are `Deq`.
+Shared by `defeqSpine`'s same-constant short-circuit and by the stuck
+block's `.app`/`.app` clause — the checker factors the same way
+(`defEqList` is one function called from both). -/
+theorem spine_congr {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel d : Nat} {Δ : List VExpr} {a b : Expr}
+    (ihd : DefEqClaimsTT m φ fuel)
+    (hlist : defEqList (pureFns env fuel) env d a.getAppArgs b.getAppArgs
+      = .ok true)
+    (hwa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
+    (hLa : Expr.LeavesBounded a) (hCa : CtxOk m.cval env φ d Δ a)
+    (hwb : Expr.WScoped d b) (hbb : b.looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded b) (hCb : CtxOk m.cval env φ d Δ b)
+    {vfa vfb : VExpr} {vas vbs : List VExpr}
+    (hspa : DenoteSpine m.cval env φ d a.getAppArgs vas)
+    (hspb : DenoteSpine m.cval env φ d b.getAppArgs vbs)
+    (hhead : Deq Δ vfa vfb) :
+    Deq Δ (VExpr.mkAppN vfa vas) (VExpr.mkAppN vfb vbs) := by
   obtain ⟨hlen2, hall⟩ := defEqList_inv hlist
-  refine Deq.mkAppN Deq.refl (by rw [hspa.length, hspb.length, hlen2]) ?_
+  refine Deq.mkAppN hhead (by rw [hspa.length, hspb.length, hlen2]) ?_
   intro i
   have hi2 : (i : Nat) < a.getAppArgs.length := by
     rw [← hspa.length]; exact i.2
@@ -648,5 +661,26 @@ theorem defeqSpine_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
       = some (vbs.getD (i : Nat) default) := by
     rw [hbeq]; exact hspb.get ⟨i, hi3⟩
   exact ihd (hall ⟨i, hi2⟩) hw1 hb1 hL1 hw2 hb2 hL2 hC1 hC2 hva' hvb'
+
+/-- **`DefEqSpineStepTT`, discharged.** -/
+theorem defeqSpine_stepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel : Nat} (ihd : DefEqClaimsTT m φ fuel) :
+    DefEqSpineStepTT m φ fuel := by
+  intro d Δ a b h hwa hba hLa hwb hbb hLb hCa hCb va vb hva hvb
+  obtain ⟨n, us, us', hfa, hfb, hlenAB, hlev, hlist⟩ := defeqSpine_inv h
+  -- both sides are the same constant applied to a spine
+  have hea : a = Expr.mkAppN (.const n us) a.getAppArgs := by
+    rw [← hfa, Expr.mkAppN_getApp]
+  have heb : b = Expr.mkAppN (.const n us') b.getAppArgs := by
+    rw [← hfb, Expr.mkAppN_getApp]
+  rw [hea] at hva
+  rw [heb] at hvb
+  obtain ⟨vfa, vas, hvfa, hspa, rfl⟩ := denote_mkAppN_inv hva
+  obtain ⟨vfb, vbs, hvfb, hspb, rfl⟩ := denote_mkAppN_inv hvb
+  -- the two level instantiations are indistinguishable to the valuation
+  have hheads : vfa = vfb := denote_const_congr m φ hlev hvfa hvfb
+  subst hheads
+  exact spine_congr m φ ihd hlist hwa hba hLa hCa hwb hbb hLb hCb
+    hspa hspb Deq.refl
 
 end Setlec.TTVerify
