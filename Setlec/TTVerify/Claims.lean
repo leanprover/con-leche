@@ -1,6 +1,7 @@
 import Setlec.TTVerify.EnvTT
 import Setlec.TTVerify.Inversion
 import Setlec.TTVerify.Inst
+import Setlec.TTVerify.HasTypeSubst
 import Setlec.Verify.Leaves
 import Setlec.Verify.InferLeaves
 import Setlec.TT.Deq
@@ -112,14 +113,35 @@ Bruijn context `Δ`.
 The index arithmetic is the whole content: an `fvar` opened at depth
 `i` sits at de Bruijn *level* `i`, hence at index `d - 1 - i` when read
 at depth `d`, and `HasType.bvar` types `.bvar j` at `Δ[j]` lifted by
-`j + 1`.  With `j = d - 1 - i` and `i < d` that lift is by `d - i`,
-which is what the clause below demands of the leaf's annotation. -/
+`j + 1`.  With `j = d - 1 - i` and `i < d` that lift is by `d - i`.
+
+**A membership transposes to a *typing*, not to an identity**
+(`Setlec/TTVerify/DESIGN.md` §12.10, third instance).  `FvarsOk`'s
+clause is `ρ l.1 ∈ˢ T` — the variable *inhabits* its annotation — and
+the first transposition wrote it as the identity `Δ[j]? = some A ∧
+denote l.2.2 = some (A.liftN (d - l.1))`, which is what a membership
+looks like when the model's equalities are honest identities of
+values.  Here they are not: a `Deq` is a derivable equation, and the
+clause has to survive one.
+
+The place it does not is the binder congruences.  `defeqStep` compares
+`.lam n₁ ty₁ b₁` with `.lam n₂ ty₂ b₂` by certifying `ty₁ ≡ ty₂` and
+then opening **each body with its own annotation** — the reference
+kernels open both with one local, ours keeps both — so the two opened
+bodies have leaves `(d, n₁, ty₁)` and `(d, n₂, ty₂)` whose denotations
+are only *definitionally* equal.  Under the identity form no single
+`Δ` satisfies `CtxOk` for both, and `DefEqClaimsTT` demands one; under
+the typing form the second side is the first plus `HasType.conv`,
+which is exactly the move the checker's own certificate licenses.
+
+The identity form was never *needed*: its one consumer,
+`infer_fvar_claim`, wanted a typing and built it on the spot. -/
 def CtxOk (cval : TConstVal) (env : Env) (φ : Name → Nat) (d : Nat)
     (Δ : List VExpr) (e : Expr) : Prop :=
   Δ.length = d ∧
   ∀ l ∈ e.fvarLeaves, l.1 < d ∧ Expr.fvarsBelow l.1 l.2.2 ∧
-    ∃ A, Δ[d - 1 - l.1]? = some A ∧
-      denote cval env φ d l.2.2 = some (A.liftN (d - l.1))
+    ∃ T, denote cval env φ d l.2.2 = some T ∧
+      HasType Δ (.bvar (d - 1 - l.1)) T
 
 /-- At depth `0` the context is empty and there are no leaves to
 constrain — the shape every declaration-level statement uses. -/
@@ -152,36 +174,36 @@ theorem CtxOk.open {cval : TConstVal} {env : Env} {φ : Name → Nat}
   -- an already-present leaf: index unchanged, slot shifted by `Δ`'s new
   -- head, annotation one lift deeper
   have shift : ∀ l : Nat × Name × Expr, l.1 < d → Expr.fvarsBelow l.1 l.2.2 →
-      ∀ B, Δ[d - 1 - l.1]? = some B →
-        denote cval env φ d l.2.2 = some (B.liftN (d - l.1)) →
+      ∀ T, denote cval env φ d l.2.2 = some T →
+        HasType Δ (.bvar (d - 1 - l.1)) T →
         l.1 < d + 1 ∧ Expr.fvarsBelow l.1 l.2.2 ∧
-          ∃ C, (A :: Δ)[d + 1 - 1 - l.1]? = some C ∧
-            denote cval env φ (d + 1) l.2.2 = some (C.liftN (d + 1 - l.1)) := by
-    intro l hlt hfb B hΔl hden
-    refine ⟨by omega, hfb, B, ?_, ?_⟩
-    · rw [show d + 1 - 1 - l.1 = (d - 1 - l.1) + 1 from by omega]
-      simpa using hΔl
+          ∃ S, denote cval env φ (d + 1) l.2.2 = some S ∧
+            HasType (A :: Δ) (.bvar (d + 1 - 1 - l.1)) S := by
+    intro l hlt hfb T hden hT
+    refine ⟨by omega, hfb, T.liftN 1, ?_, ?_⟩
     · rw [denote_weaken_top hcl (Expr.fvarsBelow_mono (by omega) hfb), hden]
-      simp only [Option.map_some, liftN_liftN]
-      congr 2
-      omega
+      rfl
+    · have := hT.weakenHead A
+      rw [show d + 1 - 1 - l.1 = (d - 1 - l.1) + 1 from by omega]
+      simpa [VExpr.lift] using this
   refine ⟨by simp [hb.1], ?_⟩
   intro l hl
   rcases Expr.fvarLeaves_instantiate1 body 0 hl with hl' | hl'
-  · obtain ⟨hlt, hfb, B, hΔl, hden⟩ := hb.2 l hl'
-    exact shift l hlt hfb B hΔl hden
+  · obtain ⟨hlt, hfb, T, hden, hT⟩ := hb.2 l hl'
+    exact shift l hlt hfb T hden hT
   · -- a leaf of the opened variable: either the variable itself (the
     -- new head of `Δ`, at index `0`) or one of its annotation's own
     -- leaves, which is an already-present leaf
     rw [Expr.fvarLeaves] at hl'
     rcases List.mem_cons.mp hl' with rfl | hl''
-    · refine ⟨by omega, htyb, A, by simp, ?_⟩
-      rw [denote_weaken_top hcl htyb, hty]
-      simp only [Option.map_some]
-      congr 2
-      omega
-    · obtain ⟨hlt, hfb, B, hΔl, hden⟩ := ht.2 l hl''
-      exact shift l hlt hfb B hΔl hden
+    · refine ⟨by omega, htyb, A.liftN 1, ?_, ?_⟩
+      · rw [denote_weaken_top hcl htyb, hty]
+        rfl
+      · have := HasType.bvar (Γ := A :: Δ) (i := 0) (A := A) (by simp)
+        rw [show d + 1 - 1 - d = 0 from by omega]
+        exact this
+    · obtain ⟨hlt, hfb, T, hden, hT⟩ := ht.2 l hl''
+      exact shift l hlt hfb T hden hT
 
 /-! ## The four claims -/
 

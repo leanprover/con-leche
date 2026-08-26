@@ -67,13 +67,9 @@ theorem infer_fvar_claim {env : Env} {cval : TConstVal} {φ : Name → Nat}
   · next hlt =>
     simp only [Except.ok.injEq] at h
     subst h
-    obtain ⟨hlt', -, A, hΔ, hty⟩ :=
+    obtain ⟨-, -, T, hty, hT⟩ :=
       hC.2 (idx, n, ty) (by simp [Expr.fvarLeaves])
-    refine ⟨.bvar (d - 1 - idx), A.liftN (d - idx), ?_, ?_, ?_⟩
-    · rw [denote_fvar]
-    · exact hty
-    · have := HasType.bvar (Γ := Δ) (i := d - 1 - idx) (A := A) hΔ
-      rwa [show d - 1 - idx + 1 = d - idx from by omega] at this
+    exact ⟨.bvar (d - 1 - idx), T, by rw [denote_fvar], hty, hT⟩
   · simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- A `Nat` literal infers `Nat`. -/
