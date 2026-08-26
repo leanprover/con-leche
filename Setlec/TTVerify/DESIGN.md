@@ -1831,6 +1831,24 @@ exactly the constants the corresponding denotation clause reads, so
 whenever a clause fires, its guard has already established everything
 that clause's meaning depends on.
 
+**Why the count keeps rising** (six instances at the time of writing —
+the guard congruences, `DivModTT`'s transport, `denote_params_ext`'s
+literals, `denote_instLevels`'s literals, `strLitSupported`'s ten
+pinned types, and #129's projection entry).  It has stopped being a
+pattern and become a property of the design, and the property is one
+sentence:
+
+> **The pins exist so the *checker* can compare against known shapes,
+> and the same pins are why the *bridge* can compute against them.**
+
+A pin is a commitment that a declaration has an exact form.  The
+checker uses it to decide acceptance without inspecting a value; the
+bridge uses it to denote without inspecting one either.  Neither use
+was designed for the other, which is why each new pinned family
+produces a clause that is mechanical rather than a clause that needs
+an argument — and why the right first move, at any new obligation about
+a stored constant, is to read its guard.
+
 **Confirmed prospectively, which is what makes it a tool.**  The rule
 was written down after three retrospective sightings.  Its fourth use
 was the first *prospective* one: `denote_instLevels`'s literal clauses
