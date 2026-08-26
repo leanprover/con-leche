@@ -1607,5 +1607,96 @@ theorem declBasisTT_eqK {env env₁ : Env} (m : EnvTT env)
   exact ⟨m3⟩
 
 
+/-! ## `Nat`
+
+Four constants, and the level question does not arise: `Nat.zero` and
+`Nat.succ` bind **no** level parameters, so a fired rule's `usj` is
+forced to `[]` (§14.4).  Everything here is pinned, so no tower is
+needed and each valuation is read back through `BasisPinnedTT`. -/
+
+/-- `Nat`, installed. -/
+theorem extendNatTT {env : Env} (m : EnvTT env)
+    (hfresh : env.find? natName = none)
+    (hwf : EnvWF ⟨natA :: env.consts⟩) :
+    ∃ m' : EnvTT ⟨natA :: env.consts⟩,
+      m'.cval = cvalSet m.cval natA.name (fun _ => natT) := by
+  refine extendBasisTT m (val := fun _ => natT) (by decide) (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name natA = natName from rfl] at hp
+      simp +decide [pinnedDirectT] at hp
+      exact hp)
+    hfresh hwf (fun _ => trivial) (fun _ _ _ => rfl) ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq)
+    (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun heq => nomatch heq)
+  · intro φ
+    refine ⟨.sort 1, ?_, HasType.const⟩
+    rw [denoteClosed, show natA.toConstantVal.type = Expr.sort (.succ .zero)
+      from rfl, denote_sort]
+    rfl
+
+/-- `Nat.zero`, installed. -/
+theorem extendNatZeroTT {env : Env} (m : EnvTT env)
+    (hN : env.find? natName = some natA)
+    (hfresh : env.find? natZeroName = none)
+    (hwf : EnvWF ⟨natZeroA :: env.consts⟩) :
+    ∃ m' : EnvTT ⟨natZeroA :: env.consts⟩,
+      m'.cval = cvalSet m.cval natZeroA.name (fun _ => natZeroT) := by
+  refine extendBasisTT m (val := fun _ => natZeroT) (by decide)
+    (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name natZeroA = natZeroName from rfl] at hp
+      simp +decide [pinnedDirectT] at hp
+      exact hp)
+    hfresh hwf (fun _ => trivial) (fun _ _ _ => rfl) ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq)
+    (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun heq => nomatch heq)
+  · intro φ
+    refine ⟨natT, ?_, HasType.const⟩
+    rw [denoteClosed, show natZeroA.toConstantVal.type
+      = Expr.const natName [] from rfl]
+    refine denote_const_pin m (by decide) hN rfl (by decide) ?_ 0
+    simp +decide [pinnedDirectT]
+    rfl
+
+/-- `Nat.succ`, installed. -/
+theorem extendNatSuccTT {env : Env} (m : EnvTT env)
+    (hN : env.find? natName = some natA)
+    (hfresh : env.find? natSuccName = none)
+    (hwf : EnvWF ⟨natSuccA :: env.consts⟩) :
+    ∃ m' : EnvTT ⟨natSuccA :: env.consts⟩,
+      m'.cval = cvalSet m.cval natSuccA.name (fun _ => VExpr.const .natSucc []) := by
+  have hNc : ∀ d : Nat, ∀ φ : Name → Nat,
+      denote (cvalSet m.cval natSuccA.name (fun _ => VExpr.const .natSucc []))
+        ⟨natSuccA :: env.consts⟩ φ d (.const natName []) = some natT := by
+    intro d φ
+    refine denote_const_pin m (by decide) hN rfl (by decide) ?_ d
+    simp +decide [pinnedDirectT]
+    rfl
+  refine extendBasisTT m (val := fun _ => VExpr.const .natSucc []) (by decide)
+    (fun _ => by decide)
+    (fun ψ t hp => by
+      rw [show ConstantInfo.name natSuccA = natSuccName from rfl] at hp
+      simp +decide [pinnedDirectT] at hp
+      exact hp)
+    hfresh hwf (fun _ => trivial) (fun _ _ _ => rfl) ?_
+    (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun heq => nomatch heq)
+    (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
+    (fun _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
+    (fun heq => nomatch heq)
+  · intro φ
+    refine ⟨.pi natT natT, ?_, HasType.const⟩
+    rw [denoteClosed, show natSuccA.toConstantVal.type
+      = Expr.forallE (Name.anonymous.str "n") (.const natName [])
+          (.const natName []) { bi := .default } from rfl]
+    simp [denote_forallE, Expr.instantiate1, hNc]
+
+
 end Setlec.TTVerify
 
