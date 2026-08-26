@@ -7843,3 +7843,218 @@ reports its failure, after an install pass that costs a fraction of a
 full check (init-prelude: 0.84 s install-only vs 3.1 s full).  That is
 the frontier-investigation tool: reaching declaration N no longer
 means re-checking the N−1 before it.
+
+## Step-budget reduction loops: fuel stops being depth (2026-08-26, task #106)
+
+**Scope, stated up front: this task did NOT clear the `Std.Time`
+frontier.**  The two engine defects below are fixed and verified, and
+the measurement stands, but at the default `checkFuel` the declaration
+`Std.Time.Second.Offset.toDays._proof_1` still exits 3.  The *cause*
+has been reclassified: it is not fuel accounting but the
+**certified-mode tax** (task #90, ~42x by the table below), and the
+frontier is reassigned there.  #106 is "engine work done, frontier
+reassigned" — nothing in this section should be read as clearing it.
+
+`checkFuel` is the knot's structural fuel: every call through the
+`CoreFns` record costs one unit.  Before this task the *reduction
+chains* went through the record too — `whnfCore`'s beta/iota/zeta/proj
+chain, `whnf`'s literal-acceleration/delta loop, `defeq`'s lazy-delta
+loop — so an ordinary unfolding chain cost one unit of the shared
+**recursion-depth** budget (and one native stack frame) per *step*.
+An unremarkable declaration could exhaust `checkFuel` without any
+recursion being deep.
+
+lean4lean makes exactly this distinction and is the model followed
+here (`Lean4Lean/FuelConfig.lean`): local `while`-style loops get their
+own step budgets (`FuelConfig.whnf = 100000`,
+`FuelConfig.lazyDelta = 1000`), while `Methods.withFuel`
+(`recDepth = 10000`) bounds only genuine mutual-recursion *nesting*.
+
+### The shape: continuation-parameterized loop bodies
+
+Each loop is split into a **step body with the continuation
+abstracted** — the module's own open-recursion idiom, one more
+parameter alongside the record `r` — and a **loop** that iterates it on
+a budget:
+
+* `whnfCoreStepM`/`whnfCoreLoopI` (interned; `whnfAppI`/`betaPeelI`
+  thread the continuation, and their termination measures go back to
+  the plain `(args.length, phase)` of task #50),
+* `whnfStep`/`whnfLoop` (spec and interned),
+* `defeqStep`/`defeqLoop` (spec, interned, cert-skipping).
+
+Only the spine *head*'s normalization stays a knot call.  Because the
+continuation is abstract, every existing proof battery applies with one
+extra hypothesis about `k` (`PairM`'s `fst_step4k`/`snd_step4k` and
+`Fueled`'s `atF_step4k` are the level-4 cascades parameterized over one
+extra alternative), and each loop lemma is a plain induction on the
+budget.  The budgets are `@[irreducible]`: the `Verify/Knot.lean` `rfl`
+equations must not try to evaluate them, and proofs that need to peel
+one iteration use the `*_succ` positivity witnesses instead.
+
+### The idiom, named: open recursion one level down
+
+This factoring is **the pattern for introducing any future loop into
+the core**, not a one-off for this task.  The module's whole discipline
+is that a body never calls itself — recursion is routed through the
+`CoreFns` record `r`, and fuel lives only in the knot that ties it.  A
+loop is the same situation one level down: the loop body must not call
+*itself* either.  So abstract the loop's continuation as `k`, exactly
+as `r` abstracts the knot's, and let a separate two-line `Loop`
+function tie `k` to the budget.
+
+The payoff is that `k` behaves like `r` in every proof battery.  Each
+existing per-body lemma survives with **one extra hypothesis about
+`k`** — a projection equation for `PairM`, an `atF` equation for
+`Fueled`, a `SimAt` for the interned walks — and the loop lemma is then
+a plain induction on the budget with that hypothesis discharged by the
+induction hypothesis.  Concretely, `PairM`'s `fst_step4`/`snd_step4`
+and `Fueled`'s `atF_step4` were re-expressed as `*_core4`, a macro
+taking one extra tactic alternative, so `*_step4` is
+`*_core4 (fail)` and `*_step4k hk` is `*_core4 (rw [hk])`: the
+rewrite lists are not duplicated, and the cascades stay the same
+cascades.  **That the batteries needed a parameter rather than a fork
+is the evidence the factoring is right**; if a future loop cannot be
+expressed this way, that is a signal to re-examine the loop, not to
+duplicate the batteries.
+
+Threading the *budget* through the loop bodies instead (the first
+attempt) forces a lexicographic termination measure on the mutual
+block and makes every battery induct on two things at once.  The
+continuation form keeps `whnfAppI`/`betaPeelI` at task #50's plain
+`(args.length, phase)` measure.
+
+**`whnfCore` is looped on the interned side only.**  Its specification
+body stays chained, because the refinement bridge is existential in the
+knot fuel: `Verify/BetaSpine.lean` mirrors the loop at `Expr` level
+(`whnfCoreStepM`/`whnfCoreLoopM`) and `whnfCoreLoop_ksound` /
+`whnfCoreLoop_sound_body` reproduce a successful *loop* run by the
+chained `whnfCoreBody` at some fuel — the same device task #50 used for
+bulk beta, now also absorbing the loop steps.  `whnfApp_ksound` /
+`betaPeel_ksound` are the new piece: they turn a run whose continuation
+is merely *sound* into a run whose continuation **is** `whnfCore`, so
+the existing `snoc`/`sound` machinery is unchanged.
+
+**The obvious alternative is false — do not re-attempt it.**  The
+tempting move is to thread *two* continuations through
+`whnfApp_snoc`/`betaPeel_snoc` (the hypothesis run at `k`, the
+conclusion's prefix run at a refined `k'`).  It does not work at budget
+0: `betaPeel_snoc`'s `[]`-with-lambda-head case must produce a `w` with
+`betaPeel … t acc [] = .ok w`, and that is `k' ((lam …).instantiateList
+acc)` — so the conclusion needs the continuation to be **identity on
+lambdas**, which the budget-0 continuation (a `throw`) is not.  Worse,
+the hypothesis can hold *without ever calling the continuation* (the
+beta certificate fails and the clause returns a stuck application), so
+the lemma is genuinely false there rather than vacuous.  Every repair
+along that line — budget monotonicity, continuation refinement,
+reindexing the induction to keep the budget ≥ 1 — ends up needing the
+soundness of the *same* budget it is proving.  Converting the run to
+the `whnfCore` continuation up front sidesteps all of it, because
+`whnfCore` **is** identity on lambdas (`whnfCore_lam`) and its
+soundness is trivial.
+
+Resisting the symmetry is the general lesson here: the specification
+side is not looped because the bridge does not need it to be, and
+making it symmetric would replace an existential over knot fuel with a
+bounded budget that cannot absorb the interned side's different step
+count (bulk beta counts *groups*, the chained spec counts *binders*).
+
+### Eagerness the reference kernels do not have (Defect B)
+
+* **Lazy delta decides before it materializes.**  `unfoldableHead`
+  (official `is_delta`, lean4lean `isDelta`) is a pure head read; the
+  unfolding is built only inside the branch that consumes it, and the
+  same-head `defeqSpine` short-circuit runs *before* any unfolding, as
+  `try_eq_const_app` does.  The former spelling built both sides'
+  unfoldings in the match scrutinee before choosing a branch.
+* **Stuck applications compare spine-wise** (`is_def_eq_app`): equal
+  spine lengths, one head comparison, arguments pairwise
+  (`defEqList`).  The former spelling recursed `defeq` on the *partial*
+  applications, re-entering the whole body — syntactic fast path, two
+  `whnfCore`s, proof irrelevance (two inferences!) and a lazy-delta
+  decision — once per spine position, at one knot level each.  Nothing
+  is lost: `whnfCore` has already normalized the function parts, and
+  the `unfoldableHead` guards read the *head* constant, which the
+  partial applications share.  Model side: `defeqApp_values`
+  (`Model/Core/Certs.lean`) — both sides are the set-application fold
+  of the head value over the argument values, and the folds agree
+  componentwise.
+
+### Measurement (the evidence, and the escalation for task #90)
+
+`_tmp/std-time-cone/pre2.ndjson` — the 4215-declaration `Std.Time`
+cone, progress mode, this machine:
+
+| build | checkFuel | result |
+|---|---|---|
+| master | 100 000 | exit 3, `toDays._proof_1` (50 s) |
+| master | 3 000 000 | accepted, 3 m 38 s |
+| B1+B2 only | 200 000 / 400 000 | still exit 3 |
+| **full change set** | 100 000 | still exit 3 |
+| **full change set** | 200 000 | **accepted**, 3 m 51 s |
+| full change set, `--yolo` | 100 000 | **accepted, 5.4 s** |
+
+Instrumented maximum knot depth with the loops in place: **≈ 175 000**
+(nothing below 2 830 000 of a 3 000 000 budget).  That is **2 × 86 400**
+— seconds per day.  `Std.Time.Second.Offset.toDays` divides by 86 400,
+and the residual depth is `defeq`/`infer` walking a `Nat.below` `PProd`
+tower of height 86 400, one to two knot levels per tower level,
+comparing a `Nat.below`-form side against a `Nat.rec`-form side (they
+never become pointer-equal, so the whole tower is descended).
+
+**That residual is genuine mutual-recursion nesting, not step
+counting**: no budget change can turn it into iteration, and the
+official kernel would recurse just as deep if asked.  It is only
+*asked* because of our proof-feeding certificates (the per-argument
+inference re-check — the deferred infer-only mode — the beta
+certificate, and the iota telescope certificates).  `--yolo` skips
+exactly those and checks the same stream in 5.4 s versus 3 m 51 s: a
+**~42× certified-mode tax**, on the same engine and the same stream.
+That is the sharpest evidence yet for task #90 (*certified-mode tax —
+reuse reductions between check and cert paths*), and it is where the
+frontier actually lives.  It is also the measurement that makes a
+further question worth asking, now under separate investigation:
+whether a **TT-based soundness proof** could carry a well-typedness
+invariant *through* reduction instead of re-deriving it at each node —
+which would potentially validate a `--yolo` run outright, i.e. collapse
+the 3 m 51 s column into the 5.4 s one rather than merely narrowing it.
+See `Setlec/TT/DESIGN.md`.
+
+**A failing stream now takes longer — this is not a regression.**  The
+default-fuel run over `pre2.ndjson` went from 50 s (master) to 2 m 44 s
+(here) *while still exiting 3*.  That is the intended consequence of
+the loops: the same declaration now reduces far deeper before the
+**nesting** budget runs out, so the checker does much more real work
+before erroring.  Accepting runs are unaffected — init-prelude is
+byte-identical in both modes and unchanged in wall time, and the arena
+and e2e suites are unchanged.  A future reader benchmarking a *failing*
+stream and finding it slower is measuring how much further the engine
+got, not a slowdown.
+
+`checkFuel` is therefore deliberately left at **100 000**.  Raising it
+is a band-aid that will break: the required depth is proportional to a
+numeric *literal* in the proof (86 400 here; `Std.Time` also deals in
+nanoseconds, 86 400 000 000 000 per day), so no constant we could pick
+survives the next declaration of this shape.
+
+### Riders
+
+* **Diagnostic second-pass misattribution.**  `Main.lean`'s `diagLoop`
+  was handed `store2.raw.nodes.size` as the in-range bound where the
+  verified run passes the *encoded* bound (`2 * nodes.size`, task #64
+  low-bit), so `checkDeclSPStep` rejected the first declaration whose
+  encoded indices exceeded it with "parsed declaration index out of
+  range" and the second pass reported a declaration that never failed.
+  **`instShiftRightUInt32` — long recorded as the "next blocker" after
+  `toDays._proof_1` — was a phantom of exactly this bug**: it is what
+  master's second pass printed, not what failed.  With the bound fixed
+  the second pass agrees with progress mode.
+* **Task #61 gate defect.**  The `majorToCtor` eta rescue's non-Prop
+  guard is the *instantiated* `piResultNeverZero cvT.levelParams ust`
+  test, not the static `piResultIsProp cvT.type = false`: a parametric
+  `Sort u` passes the static test and is exactly the case a `Prop`
+  instantiation collapses.  Mirrored into all three bodies
+  (`majorToCtor`, `majorToCtorI`, `majorToCtorNC`) — a gate that is
+  instantiated in one mirror and static in another is worse than
+  either — and the now-redundant copy in the 0-field sub-branch is
+  gone.

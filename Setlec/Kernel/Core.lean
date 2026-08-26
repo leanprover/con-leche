@@ -175,6 +175,22 @@ def unfoldDefinition (env : Env) (e : Expr) : Option Expr :=
     | _ => none
   | _ => none
 
+/-- May the delta step unfold `e`'s head — is it a constant whose
+stored declaration carries a value at a matching level-parameter count
+(the official kernel's `is_delta`)?  This is the *decision* the lazy
+delta step takes; the unfolding itself is materialized only inside the
+branch that consumes it (`unfoldDefinition`), never in both slots of a
+match scrutinee.  By construction
+`unfoldableHead env e = (unfoldDefinition env e).isSome`. -/
+def unfoldableHead (env : Env) (e : Expr) : Bool :=
+  match e.getAppFn with
+  | .const n us =>
+    match env.find? n with
+    | some (.defnInfo cv _ _) => us.length == cv.levelParams.length
+    | some (.thmInfo cv _) => us.length == cv.levelParams.length
+    | _ => false
+  | _ => false
+
 /-- The reducibility hint of the constant at the head of `e` (`opaque`
 when the head is not a stored definition; in particular a theorem
 unfolds at hint `opaque`, exactly the official kernel's
@@ -1041,15 +1057,21 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
           else if caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
               -- a projection function's rescue would reduce to a
               -- no-op (its own reduct), looping the reduction: a
-              -- stuck projection stays stuck; and the official
-              -- kernel does not eta-rescue propositional structures
-              Name.isProjFnShape recName = false ∧
-              piResultIsProp cvT.type = false then
+              -- stuck projection stays stuck
+              Name.isProjFnShape recName = false then
             let tmaj ← r.whnf depth (← r.infer depth major)
             match tmaj.getAppFn with
             | .const T' ust =>
+              -- The official kernel does not eta-rescue propositional
+              -- structures (`to_cnstr_when_structure` requires the
+              -- structure's result sort to be provably nonzero).  The
+              -- test is the *instantiated* one (task #61): a static
+              -- `piResultIsProp cvT.type = false` passes a parametric
+              -- `Sort u` that a `Prop` instantiation collapses, which
+              -- is exactly the case the guard exists for.
               if T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
-                  ust.length = cvT.levelParams.length then
+                  ust.length = cvT.levelParams.length ∧
+                  piResultNeverZero cvT.levelParams ust cvT.type = true then
                 if cvj.levelParams.length = ust.length ∧
                     (cvj.type.stripPis
                       (caps.etaParams + caps.etaFields)).isSome
@@ -1079,10 +1101,10 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                       -- official rescue additionally requires the
                       -- instantiated result sort to be provably
                       -- nonzero
+                      -- 0-field rescue: the instantiated non-Prop
+                      -- test is already in the branch guard above
                       else if caps.etaFields = 0 ∧
-                          cvj.levelParams.length = ust.length ∧
-                          piResultNeverZero cvT.levelParams ust
-                            cvT.type = true then
+                          cvj.levelParams.length = ust.length then
                         if ← proofIrrel r env depth fab major then
                           pure fab
                         else pure major
@@ -1354,17 +1376,52 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
     | .bvar _ =>
       throw (.notImplemented "whnf beyond the supported fragment")
 
-/-- The reduction loop (the official kernel's `whnf`): head-normalize,
-try literal acceleration, unfold one definition, repeat. -/
+/-- Step budget of the `whnfCore` head-normalization loop (task #106).
+Beta, iota, zeta and projection steps are *iteration*: the interned
+`whnfCoreLoopI` runs them on this budget instead of charging each step
+to the shared recursion-depth budget (and to the native stack).  The
+`Expr`-level specification below stays chained — the refinement bridge
+reproduces a loop run by the chained recursion *at some knot fuel*
+(`Setlec/Verify/BetaSpine.lean`), so the specification and everything
+above it are unchanged. -/
+@[irreducible] def whnfCoreLoopFuel : Nat := 1000000
+
+/-- Step budget of the `whnf` reduction loop (lean4lean's
+`FuelConfig.whnf`, same value).  Literal-acceleration and delta steps
+are *iteration*, not recursion: the official kernel's loop is a
+`while (true)` and lean4lean's is a fixed-fuel local loop.  Task #106:
+routing them through the knot instead charged every unfolding step to
+the shared *recursion depth* budget (and to the native stack), so a
+long-but-perfectly-ordinary unfolding chain exhausted `checkFuel`. -/
+@[irreducible] def whnfLoopFuel : Nat := 100000
+
+/-- One iteration of the reduction loop (the official kernel's `whnf`
+body, lean4lean's `whnf'` loop body): head-normalize, try literal
+acceleration, unfold one definition — and hand the reduct to the
+loop's continuation `k`.  As everywhere in this module, the body never
+calls itself: the continuation is abstracted exactly like the record
+`r`, so every lemma about the body is proven once, with a hypothesis
+about `k`, and the loop lemma is one induction on the budget. -/
+def whnfStep (r : CoreFns m) (env : Env) (depth : Nat)
+    (k : Expr → m Expr) (e : Expr) : m Expr := do
+  let e₁ ← r.whnfCore depth e
+  match ← reduceNat r env depth e₁ with
+  | some e₂ => k e₂
+  | none =>
+    match unfoldDefinition env e₁ with
+    | some e₂ => k e₂
+    | none => pure e₁
+
+/-- The reduction loop: iterate `whnfStep` on its own step budget, so
+the whole chain costs one knot level however many steps it takes. -/
+def whnfLoop (r : CoreFns m) (env : Env) (depth : Nat) :
+    Nat → Expr → m Expr
+  | 0, _ => throw (.internal "fuel exhausted: whnf loop")
+  | n + 1, e => whnfStep r env depth (whnfLoop r env depth n) e
+
+/-- The reduction loop's body: run `whnfLoop` at its own step budget. -/
 def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
-  fun depth e => do
-    let e₁ ← r.whnfCore depth e
-    match ← reduceNat r env depth e₁ with
-    | some e₂ => r.whnf depth e₂
-    | none =>
-      match unfoldDefinition env e₁ with
-      | some e₂ => r.whnf depth e₂
-      | none => pure e₁
+  fun depth e => whnfLoop r env depth whnfLoopFuel e
 
 /-- Ensure `e` (the type of some expression) is a sort, returning its
 level. -/
@@ -1514,16 +1571,19 @@ irrelevance (the official kernel's `is_def_eq_proof_irrel`, run after
 unfoldable definition — unfold lazily, guided by the reducibility
 hints (unfold only the side with the greater hint; at equal hints try
 the same-head congruence short-circuit, then unfold both).  Each
-unfolding step recurses through `r.defeq`, so the reference kernels'
-`lazy_delta_step` loop is the knot recursion here, and every re-entry
-re-runs the syntactic fast path and `whnfCore` (the official kernel's
-`whnf_core` after each unfold).  Only when neither head unfolds does
+literal-acceleration and unfolding step is one **iteration of this
+loop** (the reference kernels' `lazy_delta_reduction` loop; lean4lean
+runs it on `FuelConfig.lazyDelta`), and every re-entry re-runs the
+syntactic fast path and `whnfCore` (the official kernel's `whnf_core`
+after each unfold).  Task #106: these steps used to recurse through
+`r.defeq`, charging a delta chain to the shared *recursion depth*
+budget one unit per step.  Only when neither head unfolds does
 structural congruence with the stuck fallbacks decide.  The hints
 steer *order only*: every branch below is an independently sound
 reduction or comparison, so the verdict never depends on the hint
 values. -/
-def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
-  fun depth a b => do
+def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
+    (k : Expr → Expr → m Bool) (a b : Expr) : m Bool := do
     -- syntactic fast path (the references' most-hit branch)
     if a == b then pure true else
     let a' ← r.whnfCore depth a
@@ -1555,35 +1615,67 @@ def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
     -- eager per-node fvar range instead).
     match ← (if !a'.hasFvar && !b'.hasFvar then
         reduceNat r env depth a' else pure none) with
-    | some a₂ => r.defeq depth a₂ b'
+    | some a₂ => k a₂ b'
     | none =>
     match ← (if !a'.hasFvar && !b'.hasFvar then
         reduceNat r env depth b' else pure none) with
-    | some b₂ => r.defeq depth a' b₂
+    | some b₂ => k a' b₂
     | none =>
-    match unfoldDefinition env a', unfoldDefinition env b' with
-    | some a₂, none => r.defeq depth a₂ b'
-    | none, some b₂ => r.defeq depth a' b₂
-    | some a₂, some b₂ =>
+    -- Lazy delta, **decision before materialization** (the official
+    -- kernel's `lazy_delta_reduction_step` reads a `delta_step` off
+    -- the two heads and their hints and calls `unfold_definition`
+    -- only inside the branch that consumes it; lean4lean's
+    -- `isDefEqDelta` likewise).  The former spelling built *both*
+    -- unfoldings in the match scrutinee before deciding which one it
+    -- needed — pure waste on every one-sided step and on every
+    -- short-circuited same-head step (measured at ~19 000 unfoldings
+    -- per side on `Std.Time…toDays._proof_1`, task #106).  The
+    -- `pure false` fallbacks are unreachable — `unfoldableHead env e`
+    -- is `(unfoldDefinition env e).isSome` by construction — and
+    -- sound (`false` is never a certificate).
+    match unfoldableHead env a', unfoldableHead env b' with
+    | true, false =>
+      match unfoldDefinition env a' with
+      | some a₂ => k a₂ b'
+      | none => pure false
+    | false, true =>
+      match unfoldDefinition env b' with
+      | some b₂ => k a' b₂
+      | none => pure false
+    | true, true =>
       let ha := headHint env a'
       let hb := headHint env b'
-      if ReducibilityHint.lt hb ha then r.defeq depth a₂ b'
-      else if ReducibilityHint.lt ha hb then r.defeq depth a' b₂
+      if ReducibilityHint.lt hb ha then
+        match unfoldDefinition env a' with
+        | some a₂ => k a₂ b'
+        | none => pure false
+      else if ReducibilityHint.lt ha hb then
+        match unfoldDefinition env b' with
+        | some b₂ => k a' b₂
+        | none => pure false
       else if ReducibilityHint.sameRegular ha hb && sameConstHeads a' b' then
         -- Same constant at equal *regular* hints: cheap congruence
         -- first — this short-circuit is where lazy delta wins on
-        -- large proof terms.  The `sameRegular` guard mirrors the
-        -- reference kernels (nanoda `try_eq_const_app`, the official
-        -- kernel) exactly and is deliberate: at equal `abbrev` (or
-        -- `opaque`) hints both sides unfold eagerly instead, because
-        -- proof authors rely on abbrevs unfolding eagerly and a spine
-        -- defeq attempt on abbrev-headed applications risks reduction
-        -- bombs (spines only equal after reduction, retried at every
-        -- congruence level).  Do not generalize this guard.
+        -- large proof terms, and (task #106) it now runs *before* any
+        -- unfolding is built, as `try_eq_const_app` does.  The
+        -- `sameRegular` guard mirrors the reference kernels (nanoda
+        -- `try_eq_const_app`, the official kernel) exactly and is
+        -- deliberate: at equal `abbrev` (or `opaque`) hints both
+        -- sides unfold eagerly instead, because proof authors rely on
+        -- abbrevs unfolding eagerly and a spine defeq attempt on
+        -- abbrev-headed applications risks reduction bombs (spines
+        -- only equal after reduction, retried at every congruence
+        -- level).  Do not generalize this guard.
         if ← defeqSpine r env depth a' b' then pure true
-        else r.defeq depth a₂ b₂
-      else r.defeq depth a₂ b₂
-    | none, none =>
+        else
+          match unfoldDefinition env a', unfoldDefinition env b' with
+          | some a₂, some b₂ => k a₂ b₂
+          | _, _ => pure false
+      else
+        match unfoldDefinition env a', unfoldDefinition env b' with
+        | some a₂, some b₂ => k a₂ b₂
+        | _, _ => pure false
+    | false, false =>
     match a', b' with
     | .sort u, .sort v => liftFueled "level comparison" (Level.isEquiv u v)
     | .lit l₁, .lit l₂ => pure (l₁ == l₂)
@@ -1645,14 +1737,30 @@ def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
       r.defeq (depth + 1) (body₁.instantiate1 (.fvar depth n₁ ty₁))
         (body₂.instantiate1 (.fvar depth n₂ ty₂))
     | .app f₁ a₁, .app f₂ a₂ => do
-      -- Stuck applications: congruence, then the stuck fallbacks
-      -- (proof irrelevance is additionally hoisted before lazy delta
-      -- at the top of this body, as in the official kernel; the
-      -- fallback copy here fires when a reduction step rewrote a
-      -- side after the hoist ran).
-      if ← r.defeq depth f₁ f₂ then
-        if ← r.defeq depth a₁ a₂ then
-          pure true
+      -- Stuck applications: **spine-wise** congruence (the official
+      -- kernel's `is_def_eq_app`, lean4lean's `isDefEqApp`, nanoda's
+      -- `def_eq_app`): equal spine lengths, one head comparison, then
+      -- the argument lists pairwise.  Task #106: the former spelling
+      -- recursed `defeq` on the *partial* applications `f₁ ≡ f₂`, so
+      -- a length-`n` spine re-entered the whole body `n` times —
+      -- `n` syntactic fast paths, `n` `whnfCore` pairs, `n` proof
+      -- irrelevance probes (two `infer`s each!) and `n` lazy delta
+      -- decisions, at `n` levels of knot recursion.  No reference
+      -- kernel does that, and nothing is lost: `whnfCore` already
+      -- normalized the function parts, and the `unfoldableHead`
+      -- guards above are read off the *head* constant, which the
+      -- partial applications share.  Then the stuck fallbacks (proof
+      -- irrelevance is additionally hoisted before lazy delta at the
+      -- top of this body, as in the official kernel; the fallback
+      -- copy here fires when a reduction step rewrote a side after
+      -- the hoist ran).
+      if (Expr.app f₁ a₁).getAppArgs.length =
+          (Expr.app f₂ a₂).getAppArgs.length then
+        if ← r.defeq depth (Expr.app f₁ a₁).getAppFn
+            (Expr.app f₂ a₂).getAppFn then
+          if ← defEqList r env depth (Expr.app f₁ a₁).getAppArgs
+              (Expr.app f₂ a₂).getAppArgs then pure true
+          else stuckIrrel r env depth (.app f₁ a₁) (.app f₂ a₂)
         else stuckIrrel r env depth (.app f₁ a₁) (.app f₂ a₂)
       else stuckIrrel r env depth (.app f₁ a₁) (.app f₂ a₂)
     | .proj s₁ i₁ e₁, .proj s₂ i₂ e₂ => do
@@ -1673,6 +1781,23 @@ def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
     -- thrown on unsupported heads, so no unimplemented case can hide
     -- here.
     | e₁, e₂ => stuckIrrel r env depth e₁ e₂
+
+/-- The lazy-delta loop: iterate `defeqStep` on its own step budget. -/
+def defeqLoop (r : CoreFns m) (env : Env) (depth : Nat) :
+    Nat → Expr → Expr → m Bool
+  | 0, _, _ => throw (.internal "fuel exhausted: defeq loop")
+  | fl + 1, a, b => defeqStep r env depth (defeqLoop r env depth fl) a b
+
+/-- Step budget of the lazy-delta loop (lean4lean's
+`FuelConfig.lazyDelta`, generously sized here because this loop also
+absorbs the literal-acceleration re-entries lean4lean routes through
+`isDefEqCore`).  Exhaustion is an internal error, never a verdict. -/
+@[irreducible] def defeqLoopFuel : Nat := 100000
+
+/-- The definitional-equality body: the lazy-delta loop at its own
+step budget. -/
+def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
+  fun depth a b => defeqLoop r env depth defeqLoopFuel a b
 
 /-- Check that a (raw) type is a `Prop` by annotating it and inferring
 its sort. -/

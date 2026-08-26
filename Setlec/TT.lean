@@ -1,5 +1,6 @@
 import Setlec.TT.Syntax
 import Setlec.TT.Subst
+import Setlec.TT.Deq
 import Setlec.TT.Const
 import Setlec.TT.Judgment
 import Setlec.TT.Examples

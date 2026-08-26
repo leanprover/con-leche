@@ -104,17 +104,78 @@ private theorem defeqI_etaL_arm (ih : SSimI env f) (henv : EnvWF env)
     exact stuckIrrelI_sim ih henv hs₁ (denoteT_mono hext₁ haS)
       (denoteT_mono hext₁ hbS) hwa' hwb'
 
-set_option maxHeartbeats 12000000 in
-theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
-    {d : Nat} {i j : EIdx} {a b : Expr} {s₀ : IState} (hs : ISOK env s₀)
+/-- The lazy-delta "unfold both sides" branch (task #106: the
+unfoldings are materialized only here, inside the branch that consumes
+them). -/
+private theorem defeqBoth (_ih : SSimI env f) (henv : EnvWF env)
+    {d : Nat} {kI : EIdx → EIdx → CheckIM Bool}
+    {kM : Expr → Expr → FueledM Bool}
+    (hk : ∀ {s : IState} {p q : EIdx} {x y : Expr}, ISOK env s →
+      s.store.denoteT p = some x → s.store.denoteT q = some y →
+      WScoped d x → WScoped d y →
+      SimAt env s RelV (kI p q) (kM x y))
+    {i j : EIdx} {a b : Expr} {s₀ : IState} (hs : ISOK env s₀)
     (hdena : s₀.store.denoteT i = some a)
     (hdenb : s₀.store.denoteT j = some b)
     (hwa : WScoped d a) (hwb : WScoped d b) :
     SimAt env s₀ RelV
-      (defeqBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i j)
-      (defeqBody (fueledFns env) env d a b) := by
-  unfold defeqBodyI
-  unfold defeqBody
+      (unfoldDefinitionI (mkFEnv env) i >>= fun ua =>
+        unfoldDefinitionI (mkFEnv env) j >>= fun ub =>
+        match ua, ub with
+        | some a₂, some b₂ => kI a₂ b₂
+        | _, _ => pure false)
+      (match unfoldDefinition env a, unfoldDefinition env b with
+        | some a₂, some b₂ => kM a₂ b₂
+        | _, _ => pure false) := by
+  refine SimAt.bind_left (unfoldDefinitionI_eff hs hdena)
+    (fun s₁ ua hs₁ hext₁ hQa => ?_)
+  refine SimAt.bind_left
+    (unfoldDefinitionI_eff hs₁ (denoteT_mono hext₁ hdenb))
+    (fun s₂ ub hs₂ hext₂ hQb => ?_)
+  have hQa' := hQa.mono hext₂
+  cases hua : unfoldDefinition env a with
+  | none =>
+    rw [hua] at hQa'
+    cases ua with
+    | some a₂ => exact absurd hQa' (by simp [OptDen])
+    | none => cases ub <;> exact SimAt.pure hs₂ rfl
+  | some a₂x =>
+    rw [hua] at hQa'
+    cases ua with
+    | none => exact absurd hQa' (by simp [OptDen])
+    | some a₂ =>
+      cases hub : unfoldDefinition env b with
+      | none =>
+        rw [hub] at hQb
+        cases ub with
+        | some b₂ => exact absurd hQb (by simp [OptDen])
+        | none => exact SimAt.pure hs₂ rfl
+      | some b₂x =>
+        rw [hub] at hQb
+        cases ub with
+        | none => exact absurd hQb (by simp [OptDen])
+        | some b₂ =>
+          exact hk hs₂ hQa' hQb
+            (unfoldDefinition_WScoped henv hua hwa)
+            (unfoldDefinition_WScoped henv hub hwb)
+
+set_option maxHeartbeats 12000000 in
+theorem defeqStepI_sim (ih : SSimI env f) (henv : EnvWF env)
+    {d : Nat} {kI : EIdx → EIdx → CheckIM Bool}
+    {kM : Expr → Expr → FueledM Bool}
+    (hk : ∀ {s : IState} {p q : EIdx} {x y : Expr}, ISOK env s →
+      s.store.denoteT p = some x → s.store.denoteT q = some y →
+      WScoped d x → WScoped d y →
+      SimAt env s RelV (kI p q) (kM x y))
+    {i j : EIdx} {a b : Expr} {s₀ : IState} (hs : ISOK env s₀)
+    (hdena : s₀.store.denoteT i = some a)
+    (hdenb : s₀.store.denoteT j = some b)
+    (hwa : WScoped d a) (hwb : WScoped d b) :
+    SimAt env s₀ RelV
+      (defeqStepI (coreKnotI (mkFEnv env) f) (mkFEnv env) d kI i j)
+      (defeqStep (fueledFns env) env d kM a b) := by
+  unfold defeqStepI
+  unfold defeqStep
   rw [beq_transfer hs.wf hdena hdenb]
   by_cases hab : (a == b) = true
   · rw [if_pos hab, if_pos hab]
@@ -157,7 +218,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
         | none => exact absurd hPo₁ (by simp [RelO])
         | some a₂x =>
           obtain ⟨ha₂d, hwa₂⟩ := hPo₁
-          exact ih.defeq hs₃ ha₂d (denoteT_mono hext₃ hb'd) hwa₂ hwb'
+          exact hk hs₃ ha₂d (denoteT_mono hext₃ hb'd) hwa₂ hwb'
       | none =>
         cases o₁x with
         | some a₂x => exact absurd hPo₁ (by simp [RelO])
@@ -171,7 +232,7 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
             | none => exact absurd hPo₂ (by simp [RelO])
             | some b₂x =>
               obtain ⟨hb₂d, hwb₂⟩ := hPo₂
-              exact ih.defeq hs₄
+              exact hk hs₄
                 (denoteT_mono ((hext₃.trans hext₄)) ha'd₂) hb₂d hwa' hwb₂
           | none =>
             cases o₂x with
@@ -179,89 +240,121 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
             | none =>
               have ha'd₄ := denoteT_mono (hext₃.trans hext₄) ha'd₂
               have hb'd₄ := denoteT_mono hext₄ (denoteT_mono hext₃ hb'd)
-              refine SimAt.bind_left (unfoldDefinitionI_eff hs₄ ha'd₄)
-                (fun s₅ ua hs₅ hext₅ hQa => ?_)
-              refine SimAt.bind_left (unfoldDefinitionI_eff hs₅
-                (denoteT_mono hext₅ hb'd₄))
-                (fun s₆ ub hs₆ hext₆ hQb => ?_)
-              have haS := denoteT_mono (hext₅.trans hext₆) ha'd₄
-              have hbS := denoteT_mono (hext₅.trans hext₆) hb'd₄
-              have hQa' := hQa.mono hext₆
-              cases hua : unfoldDefinition env a'x with
-              | some a₂x =>
-                rw [hua] at hQa'
-                cases ua with
-                | none => exact absurd hQa' (by simp [OptDen])
-                | some a₂ =>
-                  cases hub : unfoldDefinition env b'x with
+              -- Lazy delta, decision before materialization (task #106)
+              refine SimAt.withStore ?_
+              refine SimAt.withStore ?_
+              rw [unfoldableHeadI_spec hs₄.wf ha'd₄,
+                unfoldableHeadI_spec hs₄.wf hb'd₄]
+              cases hda : unfoldableHead env a'x with
+              | true =>
+                cases hdb : unfoldableHead env b'x with
+                | false =>
+                  dsimp only
+                  refine SimAt.bind_left (unfoldDefinitionI_eff hs₄ ha'd₄)
+                    (fun s₅ ua hs₅ hext₅ hQa => ?_)
+                  cases hua : unfoldDefinition env a'x with
                   | none =>
-                    rw [hub] at hQb
-                    cases ub with
-                    | some b₂ => exact absurd hQb (by simp [OptDen])
-                    | none =>
-                      exact ih.defeq hs₆ hQa' hbS
+                    rw [hua] at hQa
+                    cases ua with
+                    | some a₂ => exact absurd hQa (by simp [OptDen])
+                    | none => exact SimAt.pure hs₅ rfl
+                  | some a₂x =>
+                    rw [hua] at hQa
+                    cases ua with
+                    | none => exact absurd hQa (by simp [OptDen])
+                    | some a₂ =>
+                      exact hk hs₅ hQa (denoteT_mono hext₅ hb'd₄)
                         (unfoldDefinition_WScoped henv hua hwa') hwb'
-                  | some b₂x =>
-                    rw [hub] at hQb
-                    cases ub with
-                    | none => exact absurd hQb (by simp [OptDen])
-                    | some b₂ =>
-                      have hwa₂ := unfoldDefinition_WScoped henv hua hwa'
-                      have hwb₂ := unfoldDefinition_WScoped henv hub hwb'
-                      dsimp only
-                      refine SimAt.withStore ?_
-                      refine SimAt.withStore ?_
-                      rw [headHintI_spec hs₆.wf haS,
-                        headHintI_spec hs₆.wf hbS]
-                      by_cases hlt₁ : ReducibilityHint.lt
-                          (headHint env b'x) (headHint env a'x) = true
-                      · rw [if_pos hlt₁, if_pos hlt₁]
-                        exact ih.defeq hs₆ hQa' hbS hwa₂ hwb'
-                      · rw [if_neg hlt₁, if_neg hlt₁]
-                        by_cases hlt₂ : ReducibilityHint.lt
-                            (headHint env a'x) (headHint env b'x) = true
-                        · rw [if_pos hlt₂, if_pos hlt₂]
-                          exact ih.defeq hs₆ haS hQb hwa' hwb₂
-                        · rw [if_neg hlt₂, if_neg hlt₂]
-                          refine SimAt.withStore ?_
-                          rw [sameConstHeadsI_spec hs₆.wf haS hbS]
-                          by_cases hsr : (ReducibilityHint.sameRegular
-                              (headHint env a'x) (headHint env b'x) &&
-                              sameConstHeads a'x b'x) = true
-                          · rw [if_pos hsr, if_pos hsr]
-                            refine SimAt.bind (defeqSpineI_sim ih hs₆
-                              haS hbS hwa' hwb')
-                              (fun s₇ sp sp' hs₇ hext₇ hPsp => ?_)
-                            obtain rfl : sp = sp' := hPsp
-                            cases sp with
-                            | true =>
-                              simp only [↓reduceIte]
-                              exact SimAt.pure hs₇ rfl
-                            | false =>
-                              simp only [Bool.false_eq_true, ↓reduceIte]
-                              exact ih.defeq hs₇
-                                (denoteT_mono hext₇ hQa')
-                                (denoteT_mono hext₇ hQb) hwa₂ hwb₂
-                          · rw [if_neg hsr, if_neg hsr]
-                            exact ih.defeq hs₆ hQa' hQb hwa₂ hwb₂
-              | none =>
-                rw [hua] at hQa'
-                cases ua with
-                | some a₂ => exact absurd hQa' (by simp [OptDen])
-                | none =>
-                  cases hub : unfoldDefinition env b'x with
-                  | some b₂x =>
-                    rw [hub] at hQb
-                    cases ub with
-                    | none => exact absurd hQb (by simp [OptDen])
-                    | some b₂ =>
-                      exact ih.defeq hs₆ haS hQb hwa'
-                        (unfoldDefinition_WScoped henv hub hwb')
-                  | none =>
-                    rw [hub] at hQb
-                    cases ub with
-                      | some b₂ => exact absurd hQb (by simp [OptDen])
+                | true =>
+                  dsimp only
+                  refine SimAt.withStore ?_
+                  refine SimAt.withStore ?_
+                  rw [headHintI_spec hs₄.wf ha'd₄,
+                    headHintI_spec hs₄.wf hb'd₄]
+                  by_cases hlt₁ : ReducibilityHint.lt
+                      (headHint env b'x) (headHint env a'x) = true
+                  · rw [if_pos hlt₁, if_pos hlt₁]
+                    refine SimAt.bind_left (unfoldDefinitionI_eff hs₄ ha'd₄)
+                      (fun s₅ ua hs₅ hext₅ hQa => ?_)
+                    cases hua : unfoldDefinition env a'x with
+                    | none =>
+                      rw [hua] at hQa
+                      cases ua with
+                      | some a₂ => exact absurd hQa (by simp [OptDen])
+                      | none => exact SimAt.pure hs₅ rfl
+                    | some a₂x =>
+                      rw [hua] at hQa
+                      cases ua with
+                      | none => exact absurd hQa (by simp [OptDen])
+                      | some a₂ =>
+                        exact hk hs₅ hQa (denoteT_mono hext₅ hb'd₄)
+                          (unfoldDefinition_WScoped henv hua hwa') hwb'
+                  · rw [if_neg hlt₁, if_neg hlt₁]
+                    by_cases hlt₂ : ReducibilityHint.lt
+                        (headHint env a'x) (headHint env b'x) = true
+                    · rw [if_pos hlt₂, if_pos hlt₂]
+                      refine SimAt.bind_left
+                        (unfoldDefinitionI_eff hs₄ hb'd₄)
+                        (fun s₅ ub hs₅ hext₅ hQb => ?_)
+                      cases hub : unfoldDefinition env b'x with
                       | none =>
+                        rw [hub] at hQb
+                        cases ub with
+                        | some b₂ => exact absurd hQb (by simp [OptDen])
+                        | none => exact SimAt.pure hs₅ rfl
+                      | some b₂x =>
+                        rw [hub] at hQb
+                        cases ub with
+                        | none => exact absurd hQb (by simp [OptDen])
+                        | some b₂ =>
+                          exact hk hs₅ (denoteT_mono hext₅ ha'd₄) hQb hwa'
+                            (unfoldDefinition_WScoped henv hub hwb')
+                    · rw [if_neg hlt₂, if_neg hlt₂]
+                      refine SimAt.withStore ?_
+                      rw [sameConstHeadsI_spec hs₄.wf ha'd₄ hb'd₄]
+                      by_cases hsr : (ReducibilityHint.sameRegular
+                          (headHint env a'x) (headHint env b'x) &&
+                          sameConstHeads a'x b'x) = true
+                      · rw [if_pos hsr, if_pos hsr]
+                        refine SimAt.bind (defeqSpineI_sim ih hs₄
+                          ha'd₄ hb'd₄ hwa' hwb')
+                          (fun s₇ sp sp' hs₇ hext₇ hPsp => ?_)
+                        obtain rfl : sp = sp' := hPsp
+                        cases sp with
+                        | true =>
+                          simp only [↓reduceIte]
+                          exact SimAt.pure hs₇ rfl
+                        | false =>
+                          simp only [Bool.false_eq_true, ↓reduceIte]
+                          exact defeqBoth ih henv hk hs₇
+                            (denoteT_mono hext₇ ha'd₄)
+                            (denoteT_mono hext₇ hb'd₄) hwa' hwb'
+                      · rw [if_neg hsr, if_neg hsr]
+                        exact defeqBoth ih henv hk hs₄ ha'd₄ hb'd₄ hwa' hwb'
+              | false =>
+              cases hdb : unfoldableHead env b'x with
+              | true =>
+                dsimp only
+                refine SimAt.bind_left (unfoldDefinitionI_eff hs₄ hb'd₄)
+                  (fun s₅ ub hs₅ hext₅ hQb => ?_)
+                cases hub : unfoldDefinition env b'x with
+                | none =>
+                  rw [hub] at hQb
+                  cases ub with
+                  | some b₂ => exact absurd hQb (by simp [OptDen])
+                  | none => exact SimAt.pure hs₅ rfl
+                | some b₂x =>
+                  rw [hub] at hQb
+                  cases ub with
+                  | none => exact absurd hQb (by simp [OptDen])
+                  | some b₂ =>
+                    exact hk hs₅ (denoteT_mono hext₅ ha'd₄) hQb hwa'
+                      (unfoldDefinition_WScoped henv hub hwb')
+              | false =>
+                        dsimp only
+                        have haS := ha'd₄
+                        have hbS := hb'd₄
+                        have hs₆ := hs₄
                         obtain ⟨na, hna, hca, hda⟩ := denoteT_some_inv haS
                         obtain ⟨nb, hnb, hcb, hdb⟩ := denoteT_some_inv hbS
                         try dsimp only
@@ -1055,34 +1148,54 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             subst hdb
                             have h2 : WScoped d xf₂ ∧ WScoped d xa₂ := by
                               simpa only [WScoped] using hwb'
+                            -- spine-wise congruence (task #106)
                             try dsimp only
-                            refine SimAt.bind (ih.defeq hs₆ hf₁ hf₂ h1.1 h2.1)
-                              (fun s₇ r₁ r₁' hs₇ hext₇ hP₁ => ?_)
-                            obtain rfl : r₁ = r₁' := hP₁
-                            cases r₁ with
-                            | true =>
-                              simp only [↓reduceIte]
-                              try dsimp only
-                              refine SimAt.bind (ih.defeq hs₇ (denoteT_mono hext₇ ha₁)
-                                (denoteT_mono hext₇ ha₂) h1.2 h2.2)
-                                (fun s₈ r₂ r₂' hs₈ hext₈ hP₂ => ?_)
-                              obtain rfl : r₂ = r₂' := hP₂
-                              cases r₂ with
+                            refine SimAt.withStore ?_
+                            refine SimAt.withStore ?_
+                            have hAA := getAppArgsI_spec hs₆.wf haS
+                            have hBB := getAppArgsI_spec hs₆.wf hbS
+                            rw [hAA.length_eq, hBB.length_eq]
+                            by_cases hlen : (Expr.app xf₁ xa₁).getAppArgs.length
+                                = (Expr.app xf₂ xa₂).getAppArgs.length
+                            · rw [if_pos hlen, if_pos hlen]
+                              refine SimAt.withStore ?_
+                              refine SimAt.withStore ?_
+                              refine SimAt.bind (ih.defeq hs₆
+                                (getAppFnI_spec hs₆.wf haS)
+                                (getAppFnI_spec hs₆.wf hbS)
+                                hwa'.getAppFn hwb'.getAppFn)
+                                (fun s₇ r₁ r₁' hs₇ hext₇ hP₁ => ?_)
+                              obtain rfl : r₁ = r₁' := hP₁
+                              cases r₁ with
                               | true =>
                                 simp only [↓reduceIte]
                                 try dsimp only
-                                exact SimAt.pure hs₈ rfl
+                                refine SimAt.bind (defEqListI_sim ih hs₇
+                                  (hAA.mono hext₇) (hBB.mono hext₇)
+                                  hwa'.getAppArgs hwb'.getAppArgs)
+                                  (fun s₈ r₂ r₂' hs₈ hext₈ hP₂ => ?_)
+                                obtain rfl : r₂ = r₂' := hP₂
+                                cases r₂ with
+                                | true =>
+                                  simp only [↓reduceIte]
+                                  try dsimp only
+                                  exact SimAt.pure hs₈ rfl
+                                | false =>
+                                  simp only [Bool.false_eq_true, ↓reduceIte]
+                                  try dsimp only
+                                  exact stuckIrrelI_sim ih henv hs₈
+                                    (denoteT_mono (hext₇.trans hext₈) haS)
+                                    (denoteT_mono (hext₇.trans hext₈) hbS)
+                                    hwa' hwb'
                               | false =>
                                 simp only [Bool.false_eq_true, ↓reduceIte]
                                 try dsimp only
-                                exact stuckIrrelI_sim ih henv hs₈
-                                  (denoteT_mono (hext₇.trans hext₈) haS)
-                                  (denoteT_mono (hext₇.trans hext₈) hbS) hwa' hwb'
-                            | false =>
-                              simp only [Bool.false_eq_true, ↓reduceIte]
-                              try dsimp only
-                              exact stuckIrrelI_sim ih henv hs₇ (denoteT_mono hext₇ haS)
-                                (denoteT_mono hext₇ hbS) hwa' hwb'
+                                exact stuckIrrelI_sim ih henv hs₇
+                                  (denoteT_mono hext₇ haS)
+                                  (denoteT_mono hext₇ hbS) hwa' hwb'
+                            · rw [if_neg hlen, if_neg hlen]
+                              exact stuckIrrelI_sim ih henv hs₆ haS hbS
+                                hwa' hwb'
                           | lit l₂ =>
                             cases hdb
                             cases l₂ with
@@ -1484,6 +1597,32 @@ theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
                             invert_node hdb
                             try dsimp only
                             exact stuckIrrelI_sim ih henv hs₆ haS hbS hwa' hwb'
+
+/-- The lazy-delta *loop* simulates its specification, by induction on
+the shared step budget (task #106). -/
+theorem defeqLoopI_sim (ih : SSimI env f) (henv : EnvWF env) {d : Nat} :
+    ∀ (n : Nat) {i j : EIdx} {a b : Expr} {s₀ : IState}, ISOK env s₀ →
+      s₀.store.denoteT i = some a → s₀.store.denoteT j = some b →
+      WScoped d a → WScoped d b →
+      SimAt env s₀ RelV
+        (defeqLoopI (coreKnotI (mkFEnv env) f) (mkFEnv env) d n i j)
+        (defeqLoop (fueledFns env) env d n a b)
+  | 0, _, _, _, _, _, _, _, _, _, _ => SimAt.throw
+  | n + 1, _, _, _, _, _, hs, hda, hdb, hwa, hwb => by
+    simp only [defeqLoopI, defeqLoop]
+    exact defeqStepI_sim ih henv
+      (fun h1 h2 h3 h4 h5 => defeqLoopI_sim ih henv n h1 h2 h3 h4 h5)
+      hs hda hdb hwa hwb
+
+theorem defeqBodyI_sim (ih : SSimI env f) (henv : EnvWF env)
+    {d : Nat} {i j : EIdx} {a b : Expr} {s₀ : IState} (hs : ISOK env s₀)
+    (hdena : s₀.store.denoteT i = some a)
+    (hdenb : s₀.store.denoteT j = some b)
+    (hwa : WScoped d a) (hwb : WScoped d b) :
+    SimAt env s₀ RelV
+      (defeqBodyI (coreKnotI (mkFEnv env) f) (mkFEnv env) d i j)
+      (defeqBody (fueledFns env) env d a b) :=
+  defeqLoopI_sim ih henv defeqLoopFuel hs hdena hdenb hwa hwb
 
 end Walks
 

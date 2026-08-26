@@ -315,7 +315,16 @@ def checkMain (file : String) (yolo : Bool) (pre : Bool)
           let ctx := match ← Frontend.parseExportStream path (modeled := true) with
             | .error _ => ""
             | .ok ⟨store2, decls2, _⟩ =>
-              diagLoop stepF store2.raw.nodes.size decls2 0
+              -- The in-range bound is the *encoded* index bound
+              -- (task #64 low-bit), exactly as in the verified run
+              -- above: passing the raw node count instead made
+              -- `checkDeclSPStep` reject the first declaration whose
+              -- encoded indices exceed it with "parsed declaration
+              -- index out of range", so the second pass reported a
+              -- declaration that never failed in the real run
+              -- (task #106).
+              diagLoop stepF (store2.raw.nodes.size + store2.raw.nodes.size)
+                decls2 0
                 (Setlec.mkFEnv Setlec.Env.empty) { store := store2.raw }
           IO.eprintln s!"setlec: {e}{ctx}"
           return ← finish e.exitCode

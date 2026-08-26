@@ -27,11 +27,36 @@ theorem defeq_claims (m : EnvModel V env)
     (ihw : WhnfClaims m φ fuel) (ihd : DefEqClaims m φ fuel)
     (ihi : InferClaims m φ fuel) :
     DefEqClaims m φ (fuel + 1) := by
+  -- Task #106: the literal-acceleration and lazy-delta chain is
+  -- iteration on the loop's own step budget, so the claim is an
+  -- induction on that budget at the *same* knot fuel; `ihwc`, `ihw`,
+  -- `ihd` and `ihi` cover the per-step calls that do go through the
+  -- knot (head normalization, proof irrelevance, the structural
+  -- congruences).
+  suffices hloop : ∀ (n : Nat) {d : Nat} {a b : Expr} {ρ : Nat → V},
+      defeqLoop (pureFns env fuel) env d n a b = .ok true →
+      WScoped d a → WScoped d b →
+      a.looseBVarsBounded 0 = true → b.looseBVarsBounded 0 = true →
+      Expr.LeavesBounded a → Expr.LeavesBounded b →
+      FvarsOk V m.val env φ d ρ a → FvarsOk V m.val env φ d ρ b →
+      AnnotOk V m.val env φ d ρ a → AnnotOk V m.val env φ d ρ b →
+      ∀ {va vb : V}, interpExpr V m.val env φ d ρ a = some va →
+        interpExpr V m.val env φ d ρ b = some vb → va = vb by
+    intro d a b ρ h hwa hwb hba hbb hLba hLbb hoka hokb haa hab va vb hva hvb
+    rw [isDefEqCore_succ] at h
+    exact hloop defeqLoopFuel h hwa hwb hba hbb hLba hLbb hoka hokb haa hab
+      hva hvb
+  intro n
+  induction n with
+  | zero =>
+    intro _ _ _ _ h _ _ _ _ _ _ _ _ _ _ _ _ _ _
+    exact nomatch h
+  | succ n ihN =>
   intro d a b ρ h hwa hwb hba hbb hLba hLbb hoka hokb haa hab va vb hva hvb
-  rw [isDefEqCore_succ] at h
-  simp only [defeqBody, Bind.bind, Except.bind] at h
+  simp only [defeqLoop, defeqStep, Bind.bind, Except.bind] at h
   simp only [whnfCore_def, whnf_def, defeq_def, infer_def, stuckIrrel_fold,
-    etaCert_fold, reduceNat_fold, defeqSpine_fold, proofIrrel_fold] at h
+    etaCert_fold, reduceNat_fold, defeqSpine_fold, proofIrrel_fold,
+    defEqList_fold] at h
   by_cases heqab : (a == b) = true
   · obtain rfl : a = b := eq_of_beq heqab
     rw [hva] at hvb
@@ -107,7 +132,7 @@ theorem defeq_claims (m : EnvModel V env)
         exact absurd hrna (by simp [pure, Except.pure])
     obtain ⟨hi2, ha2, hw2, hb2, hLb2, hok2⟩ :=
       reduceNat_sound m ihw hrna' hwa' hba' hLba' hoka' haa'
-    exact ihd h hw2 hwb' hb2 hbb' hLb2 hLbb' hok2 hokb' ha2 hab'
+    exact ihN h hw2 hwb' hb2 hbb' hLb2 hLbb' hok2 hokb' ha2 hab'
       (by rw [hi2]; exact hva) hvb
   | none =>
   dsimp only at h
@@ -126,42 +151,104 @@ theorem defeq_claims (m : EnvModel V env)
         exact absurd hrnb (by simp [pure, Except.pure])
     obtain ⟨hi2, ha2, hw2, hb2, hLb2, hok2⟩ :=
       reduceNat_sound m ihw hrnb' hwb' hbb' hLbb' hokb' hab'
-    exact ihd h hwa' hw2 hba' hb2 hLba' hLb2 hoka' hok2 haa' ha2
+    exact ihN h hwa' hw2 hba' hb2 hLba' hLb2 hoka' hok2 haa' ha2
       hva (by rw [hi2]; exact hvb)
   | none =>
   dsimp only at h
-  -- the lazy delta unfolding decision: every branch is an
-  -- independently sound reduction or comparison, so the reducibility
-  -- hints (which only schedule) never enter the argument
-  cases hua : unfoldDefinition env a' with
-  | some a₂ =>
-    obtain ⟨hi2, ha2, hw2, hb2, hLb2, hok2⟩ :=
-      unfoldDefinition_sound m hua hwa' hba' hLba' hoka' haa'
-    cases hub : unfoldDefinition env b' with
-    | none =>
-      rw [hua, hub] at h
-      dsimp only at h
-      exact ihd h hw2 hwb' hb2 hbb' hLb2 hLbb' hok2 hokb' ha2 hab'
-        (by rw [hi2]; exact hva) hvb
-    | some b₂ =>
-      rw [hua, hub] at h
-      dsimp only at h
+  -- The lazy delta *decision* comes first and each unfolding is
+  -- materialized only inside the branch that consumes it (task #106);
+  -- every branch is an independently sound reduction or comparison,
+  -- so the reducibility hints (which only schedule) never enter the
+  -- argument.  The `pure false` slots are unreachable and vacuous.
+  have hLeft : ∀ {x y : Expr},
+      (match unfoldDefinition env x with
+        | some a₂ => defeqLoop (pureFns env fuel) env d n a₂ y
+        | none => pure false) = .ok true →
+      WScoped d x → WScoped d y →
+      x.looseBVarsBounded 0 = true → y.looseBVarsBounded 0 = true →
+      Expr.LeavesBounded x → Expr.LeavesBounded y →
+      FvarsOk V m.val env φ d ρ x → FvarsOk V m.val env φ d ρ y →
+      AnnotOk V m.val env φ d ρ x → AnnotOk V m.val env φ d ρ y →
+      ∀ {vx vy : V}, interpExpr V m.val env φ d ρ x = some vx →
+        interpExpr V m.val env φ d ρ y = some vy → vx = vy := by
+    intro x y hh hwx hwy hbx hby hLbx hLby hokx hoky hax hay vx vy hvx hvy
+    cases hu : unfoldDefinition env x with
+    | none => rw [hu] at hh; exact nomatch hh
+    | some x₂ =>
+      rw [hu] at hh
+      obtain ⟨hi2, ha2, hw2, hb2, hLb2, hok2⟩ :=
+        unfoldDefinition_sound m hu hwx hbx hLbx hokx hax
+      exact ihN hh hw2 hwy hb2 hby hLb2 hLby hok2 hoky ha2 hay
+        (by rw [hi2]; exact hvx) hvy
+  have hRight : ∀ {x y : Expr},
+      (match unfoldDefinition env y with
+        | some b₂ => defeqLoop (pureFns env fuel) env d n x b₂
+        | none => pure false) = .ok true →
+      WScoped d x → WScoped d y →
+      x.looseBVarsBounded 0 = true → y.looseBVarsBounded 0 = true →
+      Expr.LeavesBounded x → Expr.LeavesBounded y →
+      FvarsOk V m.val env φ d ρ x → FvarsOk V m.val env φ d ρ y →
+      AnnotOk V m.val env φ d ρ x → AnnotOk V m.val env φ d ρ y →
+      ∀ {vx vy : V}, interpExpr V m.val env φ d ρ x = some vx →
+        interpExpr V m.val env φ d ρ y = some vy → vx = vy := by
+    intro x y hh hwx hwy hbx hby hLbx hLby hokx hoky hax hay vx vy hvx hvy
+    cases hv : unfoldDefinition env y with
+    | none => rw [hv] at hh; exact nomatch hh
+    | some y₂ =>
+      rw [hv] at hh
       obtain ⟨hi3, ha3, hw3, hb3, hLb3, hok3⟩ :=
-        unfoldDefinition_sound m hub hwb' hbb' hLbb' hokb' hab'
+        unfoldDefinition_sound m hv hwy hby hLby hoky hay
+      exact ihN hh hwx hw3 hbx hb3 hLbx hLb3 hokx hok3 hax ha3
+        hvx (by rw [hi3]; exact hvy)
+  have hBoth : ∀ {x y : Expr},
+      (match unfoldDefinition env x, unfoldDefinition env y with
+        | some a₂, some b₂ => defeqLoop (pureFns env fuel) env d n a₂ b₂
+        | _, _ => pure false) = .ok true →
+      WScoped d x → WScoped d y →
+      x.looseBVarsBounded 0 = true → y.looseBVarsBounded 0 = true →
+      Expr.LeavesBounded x → Expr.LeavesBounded y →
+      FvarsOk V m.val env φ d ρ x → FvarsOk V m.val env φ d ρ y →
+      AnnotOk V m.val env φ d ρ x → AnnotOk V m.val env φ d ρ y →
+      ∀ {vx vy : V}, interpExpr V m.val env φ d ρ x = some vx →
+        interpExpr V m.val env φ d ρ y = some vy → vx = vy := by
+    intro x y hh hwx hwy hbx hby hLbx hLby hokx hoky hax hay vx vy hvx hvy
+    cases hu : unfoldDefinition env x with
+    | none => rw [hu] at hh; exact nomatch hh
+    | some x₂ =>
+    cases hv : unfoldDefinition env y with
+    | none => rw [hu, hv] at hh; exact nomatch hh
+    | some y₂ =>
+      rw [hu, hv] at hh
+      obtain ⟨hi2, ha2, hw2, hb2, hLb2, hok2⟩ :=
+        unfoldDefinition_sound m hu hwx hbx hLbx hokx hax
+      obtain ⟨hi3, ha3, hw3, hb3, hLb3, hok3⟩ :=
+        unfoldDefinition_sound m hv hwy hby hLby hoky hay
+      exact ihN hh hw2 hw3 hb2 hb3 hLb2 hLb3 hok2 hok3 ha2 ha3
+        (by rw [hi2]; exact hvx) (by rw [hi3]; exact hvy)
+  cases hda : unfoldableHead env a' with
+  | true =>
+    cases hdb : unfoldableHead env b' with
+    | false =>
+      rw [hda, hdb] at h
+      exact hLeft h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab'
+        hva hvb
+    | true =>
+      rw [hda, hdb] at h
+      dsimp only at h
       split at h
       case isTrue =>
-        exact ihd h hw2 hwb' hb2 hbb' hLb2 hLbb' hok2 hokb' ha2 hab'
-          (by rw [hi2]; exact hva) hvb
+        exact hLeft h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab'
+          hva hvb
       case isFalse =>
       split at h
       case isTrue =>
-        exact ihd h hwa' hw3 hba' hb3 hLba' hLb3 hoka' hok3 haa' ha3
-          hva (by rw [hi3]; exact hvb)
+        exact hRight h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab'
+          hva hvb
       case isFalse =>
       split at h
       case isFalse =>
-        exact ihd h hw2 hw3 hb2 hb3 hLb2 hLb3 hok2 hok3 ha2 ha3
-          (by rw [hi2]; exact hva) (by rw [hi3]; exact hvb)
+        exact hBoth h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab'
+          hva hvb
       case isTrue =>
         -- same-head short-circuit; a negative verdict falls back to
         -- unfolding both sides
@@ -175,19 +262,16 @@ theorem defeq_claims (m : EnvModel V env)
           exact defeqSpine_values ihd hsp hwa' hwb' hba' hbb' hLba' hLbb'
             hoka' hokb' haa' hab' hva hvb
         | false =>
-          exact ihd h hw2 hw3 hb2 hb3 hLb2 hLb3 hok2 hok3 ha2 ha3
-            (by rw [hi2]; exact hva) (by rw [hi3]; exact hvb)
-  | none =>
-  cases hub : unfoldDefinition env b' with
-  | some b₂ =>
-    rw [hua, hub] at h
-    dsimp only at h
-    obtain ⟨hi3, ha3, hw3, hb3, hLb3, hok3⟩ :=
-      unfoldDefinition_sound m hub hwb' hbb' hLbb' hokb' hab'
-    exact ihd h hwa' hw3 hba' hb3 hLba' hLb3 hoka' hok3 haa' ha3
-      hva (by rw [hi3]; exact hvb)
-  | none =>
-  rw [hua, hub] at h
+          exact hBoth h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab'
+            hva hvb
+  | false =>
+  cases hdb : unfoldableHead env b' with
+  | true =>
+    rw [hda, hdb] at h
+    exact hRight h hwa' hwb' hba' hbb' hLba' hLbb' hoka' hokb' haa' hab'
+      hva hvb
+  | false =>
+  rw [hda, hdb] at h
   dsimp only at h
   match a', b', h with
   | Expr.sort u, Expr.sort v, h =>
@@ -396,20 +480,18 @@ theorem defeq_claims (m : EnvModel V env)
       (FvarsOk.instantiate1 hwb'.1 hokty₂ haty₂ hA2 hx body₂ 0 hwb'.2 hokbody₂)
       habody₁ habody₂ hw₁ hw₂
   | Expr.app f₁ a₁, Expr.app f₂ a₂, h =>
+    -- spine-wise congruence (task #106): one head comparison and the
+    -- argument lists pairwise (`defeqApp_values`)
     dsimp only at h
-    simp only [WScoped] at hwa' hwb'
-    simp only [looseBVarsBounded, Bool.and_eq_true] at hba' hbb'
-    have hLbf₁ : Expr.LeavesBounded f₁ := fun l hl => hLba' l (by simp [fvarLeaves, hl])
-    have hLbf₂ : Expr.LeavesBounded f₂ := fun l hl => hLbb' l (by simp [fvarLeaves, hl])
-    have hLba₁ : Expr.LeavesBounded a₁ := fun l hl => hLba' l (by simp [fvarLeaves, hl])
-    have hLba₂ : Expr.LeavesBounded a₂ := fun l hl => hLbb' l (by simp [fvarLeaves, hl])
-    obtain ⟨hokf₁, hoka₁⟩ := FvarsOk.of_app hoka'
-    obtain ⟨hokf₂, hoka₂⟩ := FvarsOk.of_app hokb'
-    simp only [AnnotOk] at haa' hab'
-    obtain ⟨haf₁, haa₁, -⟩ := haa'
-    obtain ⟨haf₂, haa₂, -⟩ := hab'
     try simp only [Bind.bind, Except.bind] at h
-    cases hd1 : isDefEqCore env fuel d f₁ f₂ with
+    by_cases hlen : (Expr.app f₁ a₁).getAppArgs.length =
+        (Expr.app f₂ a₂).getAppArgs.length
+    case neg =>
+      rw [if_neg hlen] at h
+      exact hPI h
+    rw [if_pos hlen] at h
+    cases hd1 : isDefEqCore env fuel d (Expr.app f₁ a₁).getAppFn
+        (Expr.app f₂ a₂).getAppFn with
     | error e => rw [hd1] at h; exact nomatch h
     | ok r₁ =>
     rw [hd1] at h
@@ -420,7 +502,8 @@ theorem defeq_claims (m : EnvModel V env)
       exact hPI h
     | true =>
     simp only [↓reduceIte] at h
-    cases hd2 : isDefEqCore env fuel d a₁ a₂ with
+    cases hd2 : defEqListP env fuel d (Expr.app f₁ a₁).getAppArgs
+        (Expr.app f₂ a₂).getAppArgs with
     | error e => rw [hd2] at h; exact nomatch h
     | ok r₂ =>
     rw [hd2] at h
@@ -430,30 +513,9 @@ theorem defeq_claims (m : EnvModel V env)
       simp only [Bool.false_eq_true, ↓reduceIte] at h
       exact hPI h
     | true =>
-    simp only [interpExpr] at hva hvb
-    cases hf1 : interpExpr V m.val env φ d ρ f₁ with
-    | none => rw [hf1] at hva; exact nomatch hva
-    | some vf₁ =>
-    rw [hf1] at hva
-    cases ha1 : interpExpr V m.val env φ d ρ a₁ with
-    | none => rw [ha1] at hva; exact nomatch hva
-    | some va₁ =>
-    rw [ha1] at hva
-    cases hf2 : interpExpr V m.val env φ d ρ f₂ with
-    | none => rw [hf2] at hvb; exact nomatch hvb
-    | some vf₂ =>
-    rw [hf2] at hvb
-    cases ha2 : interpExpr V m.val env φ d ρ a₂ with
-    | none => rw [ha2] at hvb; exact nomatch hvb
-    | some va₂ =>
-    rw [ha2] at hvb
-    simp only [Option.some.injEq] at hva hvb
-    subst hva; subst hvb
-    have hfe : vf₁ = vf₂ :=
-      ihd hd1 hwa'.1 hwb'.1 hba'.1 hbb'.1 hLbf₁ hLbf₂ hokf₁ hokf₂ haf₁ haf₂ hf1 hf2
-    have hae : va₁ = va₂ :=
-      ihd hd2 hwa'.2 hwb'.2 hba'.2 hbb'.2 hLba₁ hLba₂ hoka₁ hoka₂ haa₁ haa₂ ha1 ha2
-    rw [hfe, hae]
+    exact defeqApp_values ihd hlen hd1 hd2
+      (by simp [Expr.getAppArgs]) hwa' hwb' hba' hbb' hLba' hLbb'
+      hoka' hokb' haa' hab' hva hvb
   | Expr.sort _, Expr.fvar _ _ _, h => exact hPI h
   | Expr.sort _, Expr.forallE _ _ _ _, h => exact hPI h
   | Expr.sort _, Expr.const _ _, h => exact hPI h

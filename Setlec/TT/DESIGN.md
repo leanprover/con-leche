@@ -404,7 +404,7 @@ exactly what the collapsed `app_lamC` needs to fire — see §6.)
 | `propext` | the `propext` constant, in primitive (`Iff`-free) form |
 | `Classical.choice` | the `choice` constant, in primitive (`Nonempty`-free) form |
 | `Quot.sound` | the `quotSound` constant |
-| Nat literal ↔ constructor, `reduceNat` (12 GMP ops), String-literal expansion | **DEFERRED**, see §7 |
+| Nat literal ↔ constructor, `reduceNat` (12 GMP ops), String-literal expansion | **derived** — the certified recurrences are discharged into the numeral families of `Setlec/TT/Nat/*`; see §7 |
 
 Things the checker positively *declines* (custom axioms, unsupported
 literal ops without their pins, nested-aux `.inert` rules) need no rule:
@@ -757,7 +757,12 @@ carries the whole burden:
    `T._model.eta` theorem, `caps.unitlike` from `T._model.unitlike`;
    after unfolding, each becomes an equation the layer must derive from
    `psigmaEta`/`punitEta`/`proofIrrel`.
-4. Literal fast paths — §7.
+4. Literal fast paths: **derived, not built in** — denote the
+   checker's own certificate for the operation (`NatOpsOk` /
+   `DivModOk`, which the environment invariant carries by the same
+   mechanism as the `_model` iota theorems), instantiate it at
+   numerals, and hand the resulting `Deq` equations to the families of
+   `Setlec/TT/Nat/*`.  §7.
 5. Level comparison: trivial, as noted in §2.2.
 
 ## 9. Status
