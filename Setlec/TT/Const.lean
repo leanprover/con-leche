@@ -46,12 +46,12 @@ def psigmaT (u v : Nat) (A B : VExpr) : VExpr :=
 /-- `@PSigma'.mk.{u,v} A B a b` -/
 def psigmaMkT (u v : Nat) (A B a b : VExpr) : VExpr :=
   mkAppN (.const .psigmaMk [u, v]) [A, B, a, b]
-/-- `@PSigma'.fst.{u,v} A B p` -/
-def psigmaFstT (u v : Nat) (A B p : VExpr) : VExpr :=
-  mkAppN (.const .psigmaFst [u, v]) [A, B, p]
-/-- `@PSigma'.snd.{u,v} A B p` -/
-def psigmaSndT (u v : Nat) (A B p : VExpr) : VExpr :=
-  mkAppN (.const .psigmaSnd [u, v]) [A, B, p]
+/-- `p.1` — field `0` of a pair.  A *former*, so it needs neither the
+pair's type arguments nor its levels: the typing rule reads them off
+the premise (`Setlec/TT/Syntax.lean`). -/
+def pfstT (p : VExpr) : VExpr := .proj 0 p
+/-- `p.2` — field `1` of a pair. -/
+def psndT (p : VExpr) : VExpr := .proj 1 p
 
 /-- `Empty.{u}` (level-polymorphic: `Empty.{0}` is `False`) -/
 def emptyT (u : Nat) : VExpr := .const .empty [u]
@@ -108,18 +108,6 @@ def BConst.type : BConst → List Nat → VExpr
     .pi (.bvar 1) <|
     .pi (.app (.bvar 1) (.bvar 0)) <|
     psigmaT u v (.bvar 3) (.bvar 2)
-  | .psigmaFst, us =>
-    let u := lv us 0; let v := lv us 1
-    .pi (.sort u) <|
-    .pi (arrow (.bvar 0) (.sort v)) <|
-    .pi (psigmaT u v (.bvar 1) (.bvar 0)) <|
-    .bvar 2
-  | .psigmaSnd, us =>
-    let u := lv us 0; let v := lv us 1
-    .pi (.sort u) <|
-    .pi (arrow (.bvar 0) (.sort v)) <|
-    .pi (psigmaT u v (.bvar 1) (.bvar 0)) <|
-    .app (.bvar 1) (psigmaFstT u v (.bvar 2) (.bvar 1) (.bvar 0))
   | .empty, us => .sort (lv us 0)
   | .emptyRec, us =>
     let u := lv us 0; let v := lv us 1

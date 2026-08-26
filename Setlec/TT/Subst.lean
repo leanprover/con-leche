@@ -32,6 +32,7 @@ def liftN (n : Nat) : VExpr → (k : Nat := 0) → VExpr
   | .pi A B, k => .pi (liftN n A k) (liftN n B (k + 1))
   | .letE T v b, k => .letE (liftN n T k) (liftN n v k) (liftN n b (k + 1))
   | .eqE T a b, k => .eqE (liftN n T k) (liftN n a k) (liftN n b k)
+  | .proj i e, k => .proj i (liftN n e k)
   | .prf, _ => .prf
 
 /-- Weakening by one. -/
@@ -49,6 +50,7 @@ def inst : VExpr → VExpr → (k : Nat := 0) → VExpr
   | .pi A B, a, k => .pi (inst A a k) (inst B a (k + 1))
   | .letE T v b, a, k => .letE (inst T a k) (inst v a k) (inst b a (k + 1))
   | .eqE T b c, a, k => .eqE (inst T a k) (inst b a k) (inst c a k)
+  | .proj i e, a, k => .proj i (inst e a k)
   | .prf, _, _ => .prf
 
 @[simp] theorem liftN_bvar (n k i : Nat) :
@@ -68,6 +70,8 @@ def inst : VExpr → VExpr → (k : Nat := 0) → VExpr
       .letE (liftN n T k) (liftN n v k) (liftN n b (k + 1)) := rfl
 @[simp] theorem liftN_eqE (n k : Nat) (T a b : VExpr) :
     liftN n (.eqE T a b) k = .eqE (liftN n T k) (liftN n a k) (liftN n b k) := rfl
+@[simp] theorem liftN_proj (n k i : Nat) (e : VExpr) :
+    liftN n (.proj i e) k = .proj i (liftN n e k) := rfl
 @[simp] theorem liftN_prf (n k : Nat) : liftN n .prf k = .prf := rfl
 
 @[simp] theorem inst_bvar (a : VExpr) (k i : Nat) :
@@ -89,6 +93,8 @@ def inst : VExpr → VExpr → (k : Nat := 0) → VExpr
       .letE (inst T a k) (inst v a k) (inst b a (k + 1)) := rfl
 @[simp] theorem inst_eqE (a : VExpr) (k : Nat) (T b c : VExpr) :
     inst (.eqE T b c) a k = .eqE (inst T a k) (inst b a k) (inst c a k) := rfl
+@[simp] theorem inst_proj (a : VExpr) (k i : Nat) (e : VExpr) :
+    inst (.proj i e) a k = .proj i (inst e a k) := rfl
 @[simp] theorem inst_prf (a : VExpr) (k : Nat) : inst .prf a k = .prf := rfl
 
 end VExpr

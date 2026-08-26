@@ -28,12 +28,31 @@ Differences from `Setlec.Expr`, each deliberate:
   scheduled for removal (task #117), after which stored terms carry
   `letE` and the bridge has to type them.  The typing rule substitutes
   the value (see `Setlec/TT/Judgment.lean`); zeta is an `Eq` rule.
-* **No `proj`.**  Projections denote to applications of the basis
-  projection constants (`psigmaFst`/`psigmaSnd`) or, for modeled and
-  directly-installed structures, to the projection functions of the
-  unfolded model — which is exactly what `annotateProjElim` /
-  `annotateProjRec` already do inside the checker.
-* **No `lit`.**  Literal computation is deferred; see `Setlec/TT/DESIGN.md`.
+* **`proj` is a former, and its type arguments live in the premise.**
+  A projection on a *modeled* structure never reaches this layer: the
+  checker rewrites the node into a projection-function application at
+  annotation time (`annotateProjElim`/`annotateProjRec`).  A projection
+  on the **pinned pair** does: `ProjEntry.native` nodes are first-class
+  by design and survive into stored terms — carrying the structure's
+  name and the field index, and *not* the pair's type arguments, which
+  the checker recovers at use time from the subject's inferred type.
+
+  So `proj i e` takes only the index and the subject, exactly like the
+  checker's node, and the typing rules read `A` and `B` off the
+  premise `Γ ⊢ p : PSigma' A B` instead of off the term.  This is the
+  same move the `app` rule makes, and it pays the same way: the
+  premise hands soundness the `⟦p⟧ ∈ˢ sigmaSet …` package that the set
+  model's `AnnotOk` proj clause has to carry by hand.  Interpretation
+  is then literally `interpExpr`'s clause, `sfst`/`ssnd`.
+
+  (An earlier design had projections denote to applications of basis
+  constants `psigmaFst`/`psigmaSnd`.  That is *unimplementable* for the
+  pinned pair — a denotation that is a function of the expression alone
+  cannot invent `A` and `B` — and the constants are now derivable from
+  this former anyway, so they are gone; see `Setlec/TT/Examples.lean`.)
+* **No `lit`.**  Literal computation is *derived*, not built in: any
+  term satisfying an operation's certified recurrences computes it on
+  numerals (`Setlec/TT/Nat/*`, `Setlec/TT/DESIGN.md` §7).
 * **No global environment / no named constants.**  There is no `Env`
   and no delta rule: every constant the checker accepts either has a
   value (definitions, theorems, `opaque`s, the trust family), or has a
@@ -62,12 +81,15 @@ to a syntactic former.  Everything else the checker stores — every
 modeled inductive, every direct structure — unfolds into this alphabet,
 which is why the alphabet can be closed.
 
-Two constants of the checker's basis are *derivable* here and therefore
-absent: `Eq.rec` (transport is the identity once equality is reflected,
-so `fun A a M m b h => m` types by conversion) and `PSigma'.rec`
-(`fun A B M f p => f (fst p) (snd p)`, typed by conversion along
-structure eta).  Dropping them removes two of the most index-heavy
-dependent types from `BConst.type`.
+Four constants of the checker's basis are *derivable* here and
+therefore absent: `Eq.rec` (transport is the identity once equality is
+reflected, so `fun A a M m b h => m` types by conversion), `PSigma'.rec`
+(`fun A B M f p => f p.1 p.2`, typed by conversion along structure
+eta), and `PSigma'.fst`/`PSigma'.snd` themselves
+(`fun A B p => proj i p`, once `proj` is a former).  Dropping them
+removes the most index-heavy dependent types from `BConst.type`, and
+in the projections' case it is evidence that the former is the right
+primitive rather than an addition on top of one.
 -/
 
 namespace Setlec.TT
@@ -102,10 +124,6 @@ inductive BConst where
   | psigma
   /-- `PSigma'.mk.{u,v}` -/
   | psigmaMk
-  /-- `PSigma'.fst.{u,v}` -/
-  | psigmaFst
-  /-- `PSigma'.snd.{u,v}` -/
-  | psigmaSnd
   /-- `Empty.{u} : Sort u` (level-polymorphic, so it covers `False` too) -/
   | empty
   /-- `Empty.rec.{u,v}` -/
@@ -160,6 +178,12 @@ inductive VExpr where
   hand-written derivations must annotate (see
   `Setlec/TT/Examples.lean`). -/
   | eqE (ty lhs rhs : VExpr)
+  /-- Field `i` of a pair.  Carries **only** what the checker's own
+  `.proj` node carries: the index and the subject.  The pair's type
+  arguments come from the typing premise `Γ ⊢ p : PSigma' A B`, not
+  from the term — see the module docstring.  Interpreted by
+  `sfst`/`ssnd`, i.e. literally `interpExpr`'s clause. -/
+  | proj (i : Nat) (e : VExpr)
   /-- the canonical (irrelevant) proof of a derivable equation -/
   | prf
   deriving Repr, Inhabited
@@ -185,7 +209,7 @@ def BConst.numLevels : BConst → Nat
   | .nat | .natZero | .natSucc | .propext => 0
   | .natRec | .punit | .punitUnit | .empty
   | .quot | .quotMk | .quotInd | .quotSound | .choice => 1
-  | .punitRec | .psigma | .psigmaMk | .psigmaFst | .psigmaSnd
+  | .punitRec | .psigma | .psigmaMk
   | .emptyRec | .quotLift => 2
 
 end Setlec.TT

@@ -193,14 +193,14 @@ that is easier to *apply* is a bridge that is easier to *build*.
 ```
 BConst := nat | natZero | natSucc | natRec
         | punit | punitUnit | punitRec
-        | psigma | psigmaMk | psigmaFst | psigmaSnd
+        | psigma | psigmaMk
         | empty | emptyRec
         | quot | quotMk | quotLift | quotInd | quotSound
         | propext | choice
 
 VExpr  := bvar i | sort n | const c us
         | app f a | lam ty body | pi ty body | letE ty val body
-        | eqE ty lhs rhs | prf
+        | eqE ty lhs rhs | proj i e | prf
 ```
 
 Differences from `Setlec.Expr`, each deliberate:
@@ -211,30 +211,40 @@ Differences from `Setlec.Expr`, each deliberate:
   before storage, but that pass is scheduled for removal (task #117),
   after which stored terms carry `letE` and the bridge has to type
   them.  See §5 for the rule shape.
-* **no `proj`** — projections denote to applications of `psigmaFst` /
-  `psigmaSnd`, or, for modeled and directly-installed structures, to
-  the projection functions of the unfolded model.  This is exactly what
-  `annotateProjElim` / `annotateProjRec` already do inside the checker.
+* **`proj i e`, a former whose type arguments live in the premise**
+  (revised 2026-08-26, task #119).  A projection on a *modeled* or
+  directly-installed structure never reaches the layer: the checker
+  rewrites the node into a projection-function application at
+  annotation time (`annotateProjElim`/`annotateProjRec`).  A projection
+  on the **pinned pair** does reach it — `ProjEntry.native` nodes are
+  first-class by design — carrying the field index and the subject and
+  *not* the pair's type arguments, which the checker recovers at use
+  time from the subject's inferred type.
 
-  **Superseded by a task #119 finding** (`Setlec/TTVerify/DESIGN.md`
-  §3): that is right for a *modeled* structure, whose `.proj` node the
-  checker rewrites away at annotation time, and wrong for the **pinned
-  pair**, whose node is first-class by design (`ProjEntry.native`) and
-  survives into stored terms.  `psigmaFst`/`psigmaSnd` are constants
-  applied to the pair's type arguments; a `.proj` node does not carry
-  them, and a denotation that is a function of the expression alone
-  cannot recover them.  The fix is a projection former here whose type
-  arguments come from its typing premise rather than from the term —
-  the shape the checker's own rule has, and the shape that gives this
-  layer the same premise-supplies-the-facts payoff the `app` rule
-  already has.
-* **no `lit`** — see §7: literal computation is *derived*, by proving
-  that any term satisfying an operation's certified recurrences
-  computes it on numerals.
+  The former therefore mirrors the checker's node exactly, and
+  `projFst`/`projSnd` read `A` and `B` off the premise
+  `Γ ⊢ p : PSigma' A B`.  That is the same move the `app` rule makes,
+  and it pays the same way (§6): soundness gets `⟦p⟧ ∈ˢ sigmaSet …`
+  from the premise, which is the package the set model's `AnnotOk`
+  proj clause establishes and re-consumes by hand.
+
+  *The original design said "no `proj`; projections denote to
+  applications of `psigmaFst`/`psigmaSnd`".*  That is right for a
+  modeled structure and **unimplementable for the pinned pair**: a
+  denotation which is a function of the expression alone cannot invent
+  `A` and `B`, and a relational denotation is no escape either,
+  because the bridge's defeq claim needs both sides denoted by the
+  same map.  The gap was found by building the bridge
+  (`Setlec/TTVerify/DESIGN.md` §3) — the kind of thing the design
+  stage is for, and the second one this layer has turned up after
+  `congrEq`.  Adding the former needed one further rule, `congrProj`
+  (§4): `proj` is not an application, so no existing congruence
+  reaches it, and `conv` changes types rather than terms.
+* **no `lit`** — literal computation is *derived*, see §7.
 * **no named constants and no environment** — see §2.1.
 
-Two constants of the checker's basis are *absent because they are
-derivable*, and both derivations are mechanized in
+Four constants of the checker's basis are *absent because they are
+derivable*, and all four derivations are mechanized in
 `Setlec/TT/Examples.lean`:
 
 * **`Eq.rec`** (`eqRec_derivable`): transport is the identity, so
@@ -245,8 +255,15 @@ derivable*, and both derivations are mechanized in
 * **`PSigma'.rec`** (`psigmaRec_derivable`): the minor premise applied
   to the two projections has the right type once the subject is
   converted along structure η.
+* **`PSigma'.fst` / `PSigma'.snd`** (`psigmaFst_derivable`,
+  `psigmaSnd_derivable`): `fun A B p => p.i`, straight from the
+  former's typing rule.  Note the asymmetry that settles the design
+  question: the former derives the constants, and no set of constants
+  derives the former, because only the former can be typed without its
+  type arguments appearing in the term.  Shrinking `BConst` is the
+  evidence that the former is a primitive rather than an addition.
 
-Dropping them removes the two most index-heavy dependent types from
+Dropping them removes the most index-heavy dependent types from
 `BConst.type`.  Note that `congrEq` was **discovered by attempting the
 `Eq.rec` derivation** — without it the layer could not retype an
 equality proof along an equation between its own sides, and `Eq.rec`
@@ -320,6 +337,7 @@ Equivalence and congruence (all conclude `Γ ⊢ prf : …`):
 | `congrApp` | `eqE T f f'`, `eqE T' a a'` ⇒ `eqE T'' (f a) (f' a')` |
 | `congrLam` | `eqE T A A'`, `A::Γ ⊢ eqE T' b b'` ⇒ `eqE T'' (λA.b) (λA'.b')` |
 | `congrPi` | `eqE T A A'`, `A::Γ ⊢ eqE T' B B'` ⇒ `eqE T'' (ΠA.B) (ΠA'.B')` |
+| `congrProj` | `eqE T a b` ⇒ `eqE T' (a.i) (b.i)` |
 | `congrEq` | `eqE T a a'`, `eqE T' b b'` ⇒ `eqE T'' (eqE S a b) (eqE S' a' b')` |
 
 Core computation:
@@ -340,9 +358,11 @@ Basis computation:
 | `natRecSucc` | ⇒ `eqE T (Nat.rec M z s (succ n)) (s n (Nat.rec M z s n))` |
 | `punitRecUnit` | ⇒ `eqE T (PUnit.rec M m unit) m` |
 | `punitEta` | `Γ ⊢ x, y : PUnit.{u}` ⇒ `eqE (PUnit.{u}) x y` |
-| `psigmaFstMk` | ⇒ `eqE T (fst (mk a b)) a` |
-| `psigmaSndMk` | ⇒ `eqE T (snd (mk a b)) b` |
-| `psigmaEta` | `Γ ⊢ p : PSigma' A B` ⇒ `eqE (PSigma' A B) p (mk (fst p) (snd p))` |
+| `projFst` | `Γ ⊢ A : Sort u`, `Γ ⊢ B : A → Sort v`, `Γ ⊢ p : PSigma' A B` ⇒ `Γ ⊢ p.1 : A` |
+| `projSnd` | ditto ⇒ `Γ ⊢ p.2 : B p.1` |
+| `projFstMk` | ⇒ `eqE T ((mk a b).1) a` |
+| `projSndMk` | ⇒ `eqE T ((mk a b).2) b` |
+| `psigmaEta` | `Γ ⊢ p : PSigma' A B` ⇒ `eqE (PSigma' A B) p (mk p.1 p.2)` |
 | `quotLiftMk` | ⇒ `eqE T (Quot.lift A r B f h (Quot.mk a)) (f a)` |
 
 (The basis rules carry the typing premises of their subterms, which is
@@ -363,7 +383,8 @@ exactly what the collapsed `app_lamC` needs to fire — see §6.)
 | ι, basis `Quot.ind` | `proofIrrel` (the motive is a `Prop`) |
 | ι, basis `Eq.rec` | derived (`eqRec_derivable`) |
 | ι, modeled recursors (incl. indexed, mutual, nested-aux) | derivable after unfolding `T._model`; **bridge obligation**, see §8 |
-| projection reduction (`.proj` on the pinned pair) | `psigmaFstMk` / `psigmaSndMk` |
+| `.proj` on the pinned pair (typing) | `projFst` / `projSnd` |
+| projection reduction (`.proj` on the pinned pair) | `projFstMk` / `projSndMk` |
 | projection functions of modeled / direct structures | β + ι of the unfolded model |
 | function η (`etaCert`) | `eta` |
 | structure η (`structEtaCert`, modeled) | `psigmaEta` after unfolding; bridge obligation |
@@ -375,7 +396,7 @@ exactly what the collapsed `app_lamC` needs to fire — see §6.)
 | proof irrelevance (`proofIrrel`) | `proofIrrel` |
 | ∀-congruence, λ-congruence | `congrPi`, `congrLam` |
 | app congruence, `defeqSpine` | `congrApp` (iterated) |
-| `proj` congruence | `congrApp` (projections are applications here) |
+| `proj` congruence | `congrProj` |
 | `const ≡ const` with equivalent levels | `refl` (levels are ground, hence identical) |
 | `sort ≡ sort` with `Level.isEquiv` | `refl` (ditto) |
 | `fvar ≡ fvar` by de Bruijn level | `refl` |
@@ -514,6 +535,21 @@ reduction proof re-consumes.  In the layer that package *is* the
 premise.  Correspondingly the β case of soundness is three tactic
 lines: `app_lamC` fires on domain membership alone under the collapse,
 and the membership is the IH.
+
+**The projection rules are the second instance of the same move**
+(task #119).  The set model's `AnnotOk` proj clause is
+
+```
+AnnotOk e ∧ i < 2 ∧ ∃ ve u v A Bf, ⟦e⟧ = some ve ∧
+  ve ∈ˢ sigmaSet (max u v) A Bf ∧ A ∈ˢ univ u ∧ ∀ x ∈ A, Bf x ∈ˢ univ v
+```
+
+— and `projFst`/`projSnd` have exactly those facts as premises, so
+`sfst_mem`/`ssnd_mem` apply directly.  This is why the former can take
+only the index and the subject: what the term does not carry, the
+derivation supplies.  It is also why the former *derives* the
+projection constants while no set of constants derives the former
+(§3).
 
 ## 7. Literal computation: derived, not built in
 
@@ -738,6 +774,17 @@ Landed on `feat/74-tt-layer`, ~1500 lines:
 * `Semantics/{Value, Interp, ConstOk, Soundness, Consistency}` — the
   interpretation, `bval_mem_type` (every built-in constant inhabits its
   type), `HasType.sound`, and `no_proof_of_empty`.
+
+Then, driven by the bridge:
+
+* literal computation, derived rather than built in (§7,
+  `Setlec/TT/Nat/*`);
+* the **projection former** (`feat/74-proj-former`, 2026-08-26,
+  task #119): `VExpr.proj`, the four `projFst`/`projSnd`/`projFstMk`/
+  `projSndMk` rules and `congrProj`, interpreted by `sfst`/`ssnd`.  Net
+  effect on the primitive set is *negative*: `BConst` loses
+  `psigmaFst` and `psigmaSnd`, which are now mechanized derivations in
+  `Examples.lean`.
 
 No `sorry`s; `no_proof_of_empty` depends only on
 `propext, Classical.choice, Quot.sound`.  Nothing in the checker
