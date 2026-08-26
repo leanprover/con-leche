@@ -1564,6 +1564,48 @@ depth-independent" step is `denote_lift` at `p = 0` composed with
 `interp_closed_invariant` for the same step because its valuation
 carries the depth; the bridge's lift is enough.
 
+### 8.8 The reduction loop, and where the strategy-independence shows
+
+`WhnfClaimsTT` at `fuel + 1` is closed
+(`Setlec/TTVerify/WhnfCoreStep.lean`), modulo one named obligation.
+It is the shortest of the four quarters, because `whnfBody` *is*
+`whnfLoop` and the loop's budget induction is structural: three moves
+per iteration, and nothing from the `Nat` machinery is needed to
+sequence them.
+
+**Which moves contribute an equation, and which does not.** The
+`whnfCore` move contributes a `Deq` (β, ζ, ι and projection all have
+layer rules). The literal move contributes a `Deq` (the recurrences
+are `Deq`s). The delta move contributes **nothing** — it is an
+identity (§2). So the equation the loop accumulates is exactly as long
+as the number of *non-delta* steps, however many constants were
+unfolded on the way. §2's claim that the unfolding strategy drops out
+of the consistency argument is visible right there in the proof term:
+`hD₁.trans hD₃` in the delta branch, where a `refl`-based treatment
+would have had three `trans`es and a strategy-dependent chain length.
+
+**The literal bridge is the piece that made `reduceNat` tractable at
+all**, and it is §5's recipe in one lemma: `natLitT_eq_numeral` says
+the bridge's `natLitT` and the layer's `TT.numeral` are the same term.
+They are built the same way — `Nat.succ` applied `n` times to
+`Nat.zero` — but over different constants: `natLitT` reads the
+*valuation*, because a denotation cannot know what a stored constant
+means, while `numeral` reads the *basis constants*, because the layer
+has no environment.  `EnvTT.basis_pinned` closes the gap: `Nat`,
+`Nat.zero` and `Nat.succ` are reserved basis names, so a stored
+declaration under one of them is valued by its pin and by nothing else.
+
+That is the whole of why "no 12345-step derivation" works.  Once a
+literal *is* a numeral, `Setlec/TT/Nat/*`'s meta-induction lemmas apply
+directly, and the remaining obligation (`ReduceNatStepTT`) is only the
+closing of `nat_ops`' open equations at numerals — the `lam`-twice,
+`app`-twice recipe already written down at `NatOpsTT`.
+
+Three of the four quarters' *structure* is now settled; what is
+outstanding is three named obligations (`IotaStepTT`, `ProjStepTT`,
+`ReduceNatStepTT`) and two whole quarters (`DefEqClaimsTT`,
+`InferClaimsTT`).
+
 ### 8.5 The claims were *under*-hypothesised — the dual of §8.2
 
 Found on the first clause of `CheckStepTT`, before writing any proof:

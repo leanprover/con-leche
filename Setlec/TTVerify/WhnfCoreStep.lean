@@ -1,6 +1,7 @@
 import Setlec.TTVerify.Iota
 import Setlec.TTVerify.WhnfCore
 import Setlec.TTVerify.Extend
+import Setlec.TT.Nat
 
 /-!
 # The `whnfCore` step of `CheckStepTT`
@@ -403,5 +404,179 @@ theorem denote_delta_step {env : Env} (m : EnvTT env) (φ : Name → Nat)
       · exact nomatch h
     · exact nomatch h
   · exact nomatch h
+
+/-! ## Literals are numerals
+
+The entry point for everything `reduceNat` needs, and the place where
+the bridge's `natLitT` and the layer's `numeral` are shown to be the
+same term.
+
+They are *defined* the same way — `Nat.succ` applied `n` times to
+`Nat.zero` — but over different constants: `natLitT` is built from the
+valuation (`cval natZeroName ψ`, `cval natSuccName ψ`) because the
+denotation cannot know which term a stored constant means, while
+`numeral` is built from the basis constants (`natZeroT`, `natSuccT`)
+because the layer has no environment.  `EnvTT.basis_pinned` closes the
+gap: `Nat`, `Nat.zero` and `Nat.succ` are reserved basis names, so a
+stored declaration under one of them is valued by its pin and by
+nothing else.
+
+This is the recipe of `Setlec/TTVerify/DESIGN.md` §5 in one lemma: a
+literal denotes to a numeral, and from there the meta-induction
+lemmas of `Setlec/TT/Nat/*` apply without any 12345-step derivation. -/
+
+/-- A pinned basis constant is valued by its pin. -/
+theorem cval_pinned {env : Env} (m : EnvTT env) {n : Name}
+    (hres : reservedBasisNames.contains n = true)
+    (hst : (env.find? n).isSome = true) (ψ : Name → Nat) {t : VExpr}
+    (hpin : pinnedDirectT n ψ = some t) : m.cval n ψ = t := by
+  cases hf : env.find? n with
+  | none => rw [hf] at hst; exact nomatch hst
+  | some ci => exact m.basis_pinned n ci t hf hres ψ hpin
+
+/-- **A `Nat` literal's term is the layer's numeral.** -/
+theorem natLitT_eq_numeral {env : Env} (m : EnvTT env)
+    (hg : natLitSupported env = true) (ψ : Name → Nat) :
+    ∀ n : Nat,
+      natLitT (m.cval natZeroName ψ) (m.cval natSuccName ψ) n
+        = numeral n := by
+  simp only [natLitSupported, Bool.and_eq_true] at hg
+  obtain ⟨⟨-, h2⟩, h3⟩ := hg
+  have hz : m.cval natZeroName ψ = natZeroT :=
+    cval_pinned m (by decide)
+      (by revert h2; cases env.find? natZeroName <;> simp [natZeroOk])
+      ψ (by
+        simp only [pinnedDirectT]
+        rw [if_neg (by decide : ¬ (natZeroName = natName))]
+        simp [natZeroT])
+  have hs : m.cval natSuccName ψ = .const .natSucc [] :=
+    cval_pinned m (by decide)
+      (by revert h3; cases env.find? natSuccName <;> simp [natSuccOk])
+      ψ (by
+        simp only [pinnedDirectT]
+        rw [if_neg (by decide : ¬ (natSuccName = natName)),
+          if_neg (by decide : ¬ (natSuccName = natZeroName))]
+        simp)
+  intro n
+  induction n with
+  | zero => rw [natLitT, hz, numeral_zero]
+  | succ n ih =>
+    rw [natLitT, ih, hs, numeral_succ, natSuccT]
+
+/-- **A `Nat` literal denotes to its numeral.**  The form every
+`reduceNat` clause consumes. -/
+theorem denote_natLit_numeral {env : Env} (m : EnvTT env)
+    (φ : Name → Nat) (hg : natLitSupported env = true) (d n : Nat) :
+    denote m.cval env φ d (.lit (.natVal n)) = some (numeral n) := by
+  rw [denote_natLit, if_pos hg, natLitT_eq_numeral m hg]
+
+/-! ## The reduction loop
+
+`whnfStep` is three moves — head-normalize, accelerate a literal,
+unfold one definition — and `whnfLoop` iterates it on its own budget.
+The budget induction is therefore structural and needs nothing from the
+`Nat` machinery: it consumes the `whnfCore` claim at the same knot
+level, the literal-acceleration obligation, and `denote_delta_step`.
+
+Note which of the three contributes a `Deq` and which does not.  The
+`whnfCore` move does (β, ζ, ι, projection all have layer rules); the
+literal move does (the recurrences are `Deq`s); the delta move does
+not, because it is an identity (§2).  So the loop's accumulated
+equation is exactly as long as the number of *non-delta* steps taken,
+however many constants were unfolded along the way — which is the
+unfolding-strategy independence of §2, visible in the proof term. -/
+
+/-- **The literal-acceleration obligation.**  `reduceNat` replaces an
+operation applied to literals by the literal of its value; the
+recurrences that justify that live in `EnvTT.nat_ops` and
+`EnvTT.div_mod`, and are closed at numerals by meta-induction
+(`Setlec/TT/Nat/*`).  Named rather than proved here for the same reason
+as the other two: an unproved step is a `Prop` its consumers name. -/
+def ReduceNatStepTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    (fuel : Nat) : Prop :=
+  ∀ {d : Nat} {Δ : List VExpr} {e e₂ : Expr} {v : VExpr},
+    reduceNatP env fuel d e = .ok (some e₂) →
+    Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+    Expr.LeavesBounded e → CtxOk m.cval env φ d Δ e →
+    denote m.cval env φ d e = some v →
+    ∃ w, denote m.cval env φ d e₂ = some w ∧ Deq Δ v w ∧
+      Expr.WScoped d e₂ ∧ e₂.looseBVarsBounded 0 = true ∧
+      Expr.LeavesBounded e₂ ∧ CtxOk m.cval env φ d Δ e₂
+
+/-- The budget induction: every iteration of the reduction loop
+preserves the denotation up to a derivable equation. -/
+theorem whnfLoop_claim {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
+    (ihwc : WhnfCoreClaimsTT m φ fuel) (hnat : ReduceNatStepTT m φ fuel) :
+    ∀ (budget : Nat) {d : Nat} {Δ : List VExpr} {e e' : Expr} {v : VExpr},
+      whnfLoop (pureFns env fuel) env d budget e = .ok e' →
+      Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+      Expr.LeavesBounded e → CtxOk m.cval env φ d Δ e →
+      denote m.cval env φ d e = some v →
+      ∃ v', denote m.cval env φ d e' = some v' ∧ Deq Δ v v' := by
+  intro budget
+  induction budget with
+  | zero =>
+    intro d Δ e e' v h
+    rw [whnfLoop] at h
+    simp [throw, throwThe, MonadExceptOf.throw] at h
+  | succ budget ih =>
+    intro d Δ e e' v h hws hb hLb hC hv
+    rw [whnfLoop, whnfStep] at h
+    simp only [Bind.bind, Except.bind, whnfCore_def] at h
+    -- move one: head normalization
+    cases hwc : whnfCore env fuel d e with
+    | error err => rw [hwc] at h; exact nomatch h
+    | ok e₁ =>
+    rw [hwc] at h
+    dsimp only at h
+    obtain ⟨v₁, hv₁, hD₁⟩ := ihwc hwc hws hb hLb hC hv
+    have hws₁ : Expr.WScoped d e₁ := whnfCore_WScoped m.wf fuel hwc hws
+    have hb₁ : e₁.looseBVarsBounded 0 = true :=
+      whnfCore_looseBVars m.wf fuel hwc hb
+    have hLb₁ : Expr.LeavesBounded e₁ := fun l hl =>
+      hLb l (whnfCore_fvarLeaves m.wf fuel hwc l hl)
+    have hC₁ : CtxOk m.cval env φ d Δ e₁ :=
+      CtxOk.of_subset (whnfCore_fvarLeaves m.wf fuel hwc) hC
+    -- move two: literal acceleration
+    cases hrn : reduceNatP env fuel d e₁ with
+    | error err => rw [reduceNat_fold] at h; rw [hrn] at h; exact nomatch h
+    | ok o =>
+    rw [reduceNat_fold] at h
+    rw [hrn] at h
+    dsimp only at h
+    match o, h with
+    | some e₂, h =>
+      obtain ⟨w, hw, hD₂, hws₂, hb₂, hLb₂, hC₂⟩ :=
+        hnat hrn hws₁ hb₁ hLb₁ hC₁ hv₁
+      obtain ⟨v', hv', hD₃⟩ := ih h hws₂ hb₂ hLb₂ hC₂ hw
+      exact ⟨v', hv', (hD₁.trans hD₂).trans hD₃⟩
+    | none, h =>
+      dsimp only at h
+      -- move three: delta, which changes no denotation at all
+      cases hud : unfoldDefinition env e₁ with
+      | none => rw [hud] at h; exact ⟨v₁, (Except.ok.inj h) ▸ hv₁, hD₁⟩
+      | some e₂ =>
+        rw [hud] at h
+        dsimp only at h
+        have hw₂ : denote m.cval env φ d e₂ = some v₁ :=
+          denote_delta_step m φ hcl hud hv₁
+        obtain ⟨v', hv', hD₃⟩ :=
+          ih h (unfoldDefinition_WScoped m.wf hud hws₁)
+            (unfoldDefinition_looseBVars m.wf hud hb₁)
+            (fun l hl => hLb₁ l (unfoldDefinition_fvarLeaves m.wf hud l hl))
+            (CtxOk.of_subset (unfoldDefinition_fvarLeaves m.wf hud) hC₁) hw₂
+        exact ⟨v', hv', hD₁.trans hD₃⟩
+
+/-- **`WhnfClaimsTT` at `fuel + 1`.**  The reduction loop run at its own
+budget; the second quarter of `CheckStepTT`, and the shortest of the
+four because `whnfBody` *is* the loop. -/
+theorem whnf_claimsTT {env : Env} (m : EnvTT env) (φ : Name → Nat)
+    {fuel : Nat} (hcl : ∀ n ψ, VExpr.Closed (m.cval n ψ))
+    (ihwc : WhnfCoreClaimsTT m φ fuel) (hnat : ReduceNatStepTT m φ fuel) :
+    WhnfClaimsTT m φ (fuel + 1) := by
+  intro d e e' Δ h hws hb hLb hC v hv
+  rw [whnf_succ, whnfBody] at h
+  exact whnfLoop_claim m φ hcl ihwc hnat whnfLoopFuel h hws hb hLb hC hv
 
 end Setlec.TTVerify
