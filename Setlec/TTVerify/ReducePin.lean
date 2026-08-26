@@ -36,13 +36,6 @@ open Setlec.TT
 
 variable {F : Nat}
 
-/-- Lifting by zero is the identity — the degenerate case the
-substitution lemma leaves behind at the outermost binder. -/
-theorem VExpr.liftN_zero : ∀ (e : VExpr) (k : Nat), VExpr.liftN 0 e k = e := by
-  intro e
-  induction e <;> intro k <;>
-    simp_all [VExpr.liftN]
-
 /-- A derivable equation weakens by appending to the context's tail. -/
 theorem Deq.weakenTail {Γ : List VExpr} {a b : VExpr} (Δ : List VExpr)
     (h : Deq Γ a b) : Deq (Γ ++ Δ) a b := by

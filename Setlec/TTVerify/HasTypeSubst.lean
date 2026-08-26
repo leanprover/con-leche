@@ -37,6 +37,14 @@ the object-level route does not reach (e.g. when the *type* being
 transported is not itself the subject of a rule); they must not become
 the default hammer that stops that search.
 
+**The policy has a compliance record.**  As of the div/mod pin
+(`Setlec/TTVerify/DivModPin.lean`), `HasType.instN` has exactly **one**
+consumer in the bridge — `HasType.close2` — and it sits at precisely
+the spot the paragraph above predicted: moving a *typing* rather than a
+`Deq`, where `lam`/`app` would put the subject in a redex and no rule
+concludes that (`Setlec/TTVerify/DESIGN.md` §6, F1).  A policy with a
+measured record is a different thing from a policy.
+
 **Gotcha for `HasType` inductions** (recorded in
 `Setlec/TTVerify/Weaken.lean` and repeated because it bites): do not
 use `constructor` — `conv`'s conclusion `HasType Γ t B` unifies with

@@ -29,6 +29,13 @@ namespace VExpr
 
 /-! ## Lift / lift -/
 
+/-- Lifting by zero is the identity — the degenerate case the
+substitution lemma leaves behind at the outermost binder. -/
+theorem liftN_zero : ∀ (e : VExpr) (k : Nat), VExpr.liftN 0 e k = e := by
+  intro e
+  induction e <;> intro k <;>
+    simp_all [VExpr.liftN]
+
 /-- Two lifts at the same cut compose by addition. -/
 theorem liftN_liftN_add : ∀ (e : VExpr) (m n k : Nat),
     liftN n (liftN m e k) k = liftN (m + n) e k := by

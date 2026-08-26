@@ -355,7 +355,8 @@ theorem natOpGuard_stored {env : Env} {c : Name}
     storedNoLevels env natName ∧ storedNoLevels env natZeroName ∧
     storedNoLevels env natSuccName ∧
     (∀ n ∈ natOpDeps c, storedNoLevels env n) ∧
-    (c = natBeqName ∨ c = natBleName →
+    ((decide (c = natBeqName) || decide (c = natBleName) ||
+        natDivModNames.contains c) = true →
       storedNoLevels env boolTrueName ∧ storedNoLevels env boolFalseName) := by
   simp only [natOpGuard, Bool.and_eq_true] at h
   obtain ⟨⟨hlit, hdeps⟩, hbool⟩ := h
@@ -376,9 +377,85 @@ theorem natOpGuard_stored {env : Env} {c : Name}
     · next _ _ _ hfd => rw [hfd]; exact hd
     · exact nomatch hd
   · intro hc
-    rw [if_pos (by rcases hc with rfl | rfl <;> simp)] at hbool
+    rw [if_pos hc] at hbool
     simp only [Bool.and_eq_true] at hbool
     exact ⟨hbool.1, hbool.2⟩
+
+
+/-- The pinned `Nat`'s stored declaration. -/
+theorem natOpGuard_natTy {env : Env} {c : Name} (h : natOpGuard env c = true) :
+    ∃ ci, env.find? natName = some ci ∧
+      ci.toConstantVal.levelParams = [] ∧
+      ci.toConstantVal.type = .sort (.succ .zero) := by
+  simp only [natOpGuard, Bool.and_eq_true] at h
+  obtain ⟨⟨hlit, -⟩, -⟩ := h
+  simp only [natLitSupported, Bool.and_eq_true] at hlit
+  obtain ⟨⟨hind, -⟩, -⟩ := hlit
+  unfold natIndOk at hind
+  split at hind
+  · next cvI caps hfd =>
+    simp only [Bool.and_eq_true, beq_iff_eq, List.isEmpty_iff] at hind
+    exact ⟨_, hfd, hind.1, hind.2⟩
+  · exact nomatch hind
+
+/-- The pinned `Nat.zero`'s stored declaration. -/
+theorem natOpGuard_zeroTy {env : Env} {c : Name} (h : natOpGuard env c = true) :
+    ∃ ci, env.find? natZeroName = some ci ∧
+      ci.toConstantVal.levelParams = [] ∧
+      ci.toConstantVal.type = .const natName [] := by
+  simp only [natOpGuard, Bool.and_eq_true] at h
+  obtain ⟨⟨hlit, -⟩, -⟩ := h
+  simp only [natLitSupported, Bool.and_eq_true] at hlit
+  obtain ⟨⟨-, hz⟩, -⟩ := hlit
+  unfold natZeroOk at hz
+  split at hz
+  · next cvZ nP nF hfd =>
+    simp only [Bool.and_eq_true, beq_iff_eq, List.isEmpty_iff] at hz
+    exact ⟨_, hfd, hz.1, hz.2⟩
+  · exact nomatch hz
+
+/-- The pinned `Nat.succ`'s stored declaration. -/
+theorem natOpGuard_succTy {env : Env} {c : Name} (h : natOpGuard env c = true) :
+    ∃ ci nm mb, env.find? natSuccName = some ci ∧
+      ci.toConstantVal.levelParams = [] ∧
+      ci.toConstantVal.type
+        = .forallE nm (.const natName []) (.const natName []) mb := by
+  simp only [natOpGuard, Bool.and_eq_true] at h
+  obtain ⟨⟨hlit, -⟩, -⟩ := h
+  simp only [natLitSupported, Bool.and_eq_true] at hlit
+  obtain ⟨-, hs⟩ := hlit
+  unfold natSuccOk at hs
+  split at hs
+  · next cvS nP nF hfd =>
+    simp only [Bool.and_eq_true, List.isEmpty_iff] at hs
+    obtain ⟨hlp, hty⟩ := hs
+    revert hty
+    match hcvs : cvS.type with
+    | .forallE nm (.const c1 []) (.const c2 []) mb =>
+      intro hty
+      simp only [Bool.and_eq_true, beq_iff_eq] at hty
+      obtain ⟨rfl, rfl⟩ := hty
+      exact ⟨_, nm, mb, hfd, hlp, by simp [ConstantInfo.toConstantVal, hcvs]⟩
+    | .bvar _ | .fvar _ _ _ | .sort _ | .const _ _ | .app _ _
+    | .lam _ _ _ _ | .letE _ _ _ _ | .lit _ | .proj _ _ _
+    | .forallE _ (.bvar _) _ _ | .forallE _ (.fvar _ _ _) _ _
+    | .forallE _ (.sort _) _ _ | .forallE _ (.app _ _) _ _
+    | .forallE _ (.lam _ _ _ _) _ _ | .forallE _ (.letE _ _ _ _) _ _
+    | .forallE _ (.lit _) _ _ | .forallE _ (.proj _ _ _) _ _
+    | .forallE _ (.forallE _ _ _ _) _ _
+    | .forallE _ (.const _ (_ :: _)) _ _
+    | .forallE _ (.const _ []) (.bvar _) _
+    | .forallE _ (.const _ []) (.fvar _ _ _) _
+    | .forallE _ (.const _ []) (.sort _) _
+    | .forallE _ (.const _ []) (.app _ _) _
+    | .forallE _ (.const _ []) (.lam _ _ _ _) _
+    | .forallE _ (.const _ []) (.letE _ _ _ _) _
+    | .forallE _ (.const _ []) (.lit _) _
+    | .forallE _ (.const _ []) (.proj _ _ _) _
+    | .forallE _ (.const _ []) (.forallE _ _ _ _) _
+    | .forallE _ (.const _ []) (.const _ (_ :: _)) _ =>
+      intro hty; exact nomatch hty
+  · exact nomatch hs
 
 /-! ## The assembly -/
 
@@ -417,8 +494,8 @@ theorem natOpPinTT : NatOpPinTT F := by
   -- both sides are in the fragment
   obtain ⟨hf1, hf2⟩ := natOpEquations_frag (env := env) (c := cv.name)
     (tr hnz hz') (tr hns hs') (fun n hn hne => tr hne (hdeps' n hn))
-    (fun hc => tr hnT (hbool' hc).1)
-    (fun hc => tr hnF (hbool' hc).2) eq hq
+    (fun hc => tr hnT (hbool' (by rcases hc with h | h <;> rw [h] <;> simp)).1)
+    (fun hc => tr hnF (hbool' (by rcases hc with h | h <;> rw [h] <;> simp)).2) eq hq
   have hxT : HasType [m.cval natName φ, m.cval natName φ]
       (.bvar (2 - 1 - 0)) (m.cval natName φ) := by
     have := HasType.bvar (Γ := [m.cval natName φ, m.cval natName φ])

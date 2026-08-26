@@ -62,7 +62,12 @@ def DivModPinTT (F : Nat) : Prop :=
   ∀ {env : Env} (m : EnvTT env) {cv : ConstantVal} {value value' : Expr}
     {hint : ReducibilityHint},
     cv.name ∈ natDivModNames →
+    env.find? cv.name = none →
     annotateCore env F 0 value = .ok value' →
+    value'.hasFvar = false → value'.looseBVarsBounded 0 = true →
+    (∀ ψ : Name → Nat, ∃ v t,
+      denoteClosed m.cval env ψ value' = some v ∧
+      denoteClosed m.cval env ψ cv.type = some t ∧ HasType [] v t) →
     checkDivModPin (fueledOps F) env
       ⟨ConstantInfo.defnInfo cv value' hint :: env.consts⟩ cv.name
       = .ok () →
@@ -276,7 +281,8 @@ theorem declDefnTT (hnp : NatOpPinTT F) (hdm : DivModPinTT F) :
           (fun ψ => by obtain ⟨v, -, hv, -, -⟩ := hkey ψ; exact ⟨v, hv⟩)
           hguard (certifyNatEqs_inv _ hcert)⟩)
                 (fun _ => hdm m (cv := { cv with type := type })
-                  (hint := hint) (List.contains_iff_mem.mp hdmn) hannv hpin) h.symm
+                  (hint := hint) (List.contains_iff_mem.mp hdmn) hfind' hannv
+                  hvf' hbv' hkey hpin) h.symm
           · rw [if_neg hdmn] at h
             simp only [Except.ok.injEq] at h
             exact finish (fun _ => ⟨hguard,
@@ -299,7 +305,8 @@ theorem declDefnTT (hnp : NatOpPinTT F) (hdm : DivModPinTT F) :
         simp only [Except.ok.injEq] at h
         exact finish (fun hmem => absurd (List.contains_iff_mem.mpr hmem) hnon)
           (fun _ => hdm m (cv := { cv with type := type })
-            (hint := hint) (List.contains_iff_mem.mp hdmn) hannv hpin) h.symm
+            (hint := hint) (List.contains_iff_mem.mp hdmn) hfind' hannv
+            hvf' hbv' hkey hpin) h.symm
     · rw [if_neg hdmn] at h
       simp only [Except.ok.injEq] at h
       exact finish (fun hmem => absurd (List.contains_iff_mem.mpr hmem) hnon)

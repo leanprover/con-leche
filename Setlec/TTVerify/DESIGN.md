@@ -158,7 +158,12 @@ A second verification path for the checker: instead of interpreting a
 real `Env` + `Expr` into the set model, interpret it into the
 declarative type theory of `Setlec/TT/*` and conclude with a `HasType`
 derivation.  Both paths coexist; nothing in `Setlec/Model/*` is
-replaced, weakened or deleted.
+replaced, weakened or deleted — and since the 2026-08-26 ruling that
+coexistence is **permanent and asymmetric**: the set model proves the
+shipped checker consistent, this path covers the certified
+configuration as a conditional theorem.  §4's "end state" subsection
+states the division of labour and why the alternative was refuted
+rather than declined.
 
 Layering: `Setlec/TTVerify/*` may import `Setlec/TT/*`,
 `Setlec/Kernel/*` and `Setlec/Verify/*`.  The checker never imports it,
@@ -449,7 +454,7 @@ install:
 | --- | --- |
 | `DeclThmTT` | **proved** |
 | `DeclOpaqueTT` | **proved** (`declOpaqueTT_closed`) |
-| `DeclDefnTT` | proved modulo `DivModPinTT` (`NatOpPinTT` **discharged**) |
+| `DeclDefnTT` | **proved** (`declDefnTT_closed`; both `Nat` pins discharged) |
 | `DeclAxiomTT` | **proved** (`declAxiomTT_closed`) |
 | `DeclBasisTT`, `DeclIndTT` | open — **decomposed in §14** |
 
@@ -477,9 +482,10 @@ is the whole content: `InferClaimsTT` at the checked value, then
 per-declaration step is the per-expression claims applied once each**,
 which is why it could be left until stage 2's end.
 
-The remaining obligations sit at named checker functions
-(`certifyNatEqs`, `checkDivModPin`), per §8.6, and their shared content
-is landed: `denote_substConst0` (`Setlec/TTVerify/SubstConst.lean`).
+Both obligations sat at named checker functions (`certifyNatEqs`,
+`checkDivModPin`), per §8.6, and **both are now discharged**; their
+shared content is `denote_substConst0`
+(`Setlec/TTVerify/SubstConst.lean`).
 
 Both pins certify in the **pre-insertion** environment with the
 operation's self-references replaced by its stored value — because
@@ -527,6 +533,56 @@ guard facts from the extended environment down to `env` needs an
 one dependency that is *not* available below.  The fragment lemma takes
 that side condition as a hypothesis rather than proving freshness
 internally, which is why it stays a statement about `env` alone.
+
+**`DivModPinTT` is discharged** (`Setlec/TTVerify/DivModPin.lean`), and
+with it `DeclDefnTT`.  Four things from it are worth keeping.
+
+> **The inert type slot pays for the guards.**  A clause hands the
+> bridge `Deq Δ (ble y x) true`, but the certificate wants an
+> *inhabitant* of the stored `Eq` spine.  `Deq.toHasType` re-slots a
+> derivation at **any** type, so the guard converts with no
+> unique-typing argument anywhere: pick the slot the law wants.
+
+Derivational inertness of `eqE`'s type argument entered this project as
+a curiosity (§5, "the slot is never checked"), became a caution (§12's
+contract discussion, where it is why the choice between three contracts
+is cheap rather than consequential), and is now doing load-bearing
+work for the third time.  **Curiosity → trap-warning → tool** is the
+whole trajectory, and it is worth naming because the third stage is not
+predictable from the first two: a property that makes a design *hard to
+get wrong* turned out to also make a proof *possible*.
+
+**The extra binders cost nothing** (`Deq.close4`).  A certificate
+checked under two `ble`-guard hypotheses closes at exactly `close2`'s
+instantiation: each hypothesis type and the equation are lifted over
+the binders below them, so every instantiation the `app` rule performs
+at a proof binder meets a lift and is absorbed.  There is deliberately
+no three-binder variant — the checker runs *every* certificate at depth
+`4` whatever its hypothesis count, and `CtxOk` ties the context length
+to the depth, so a one-hypothesis frame is a four-entry context with an
+entry no leaf mentions; give it the used hypothesis's type and inhabit
+it with the same proof.
+
+**One place the object-level route does not reach.**  `lam`/`app` moves
+a `Deq` from the frame to the caller's arguments for free, but the same
+trick cannot move a *typing*: it would put the subject in a redex,
+which no rule concludes (F1, §6).  So `HasType.close2` is the one use
+of `HasType.instN` in this whole file — exactly the residue
+`Setlec/TTVerify/HasTypeSubst.lean` says the substitution stack is
+for.
+
+**The §8.4 alignment repeats, twice in one file.**  `natOpDeps` is the
+list of constants the *checker* needs to certify the recurrences; it is
+also, name for name, the list the *bridge* must denote and type — and
+`divModEnvGuard` pins exactly `natOpDeps c` plus the two `Nat`
+constructors, the two `Bool` constructors and the pinned equality,
+which is exactly what `DMBase` carries.  Neither list was written with
+the other in view.  The one wrinkle worth a rule: `natOpDeps c`
+contains `c` itself, so every transfer of a guard fact from the
+extended environment down to `env` needs an `n ≠ c` side condition —
+**the operation's own entry is the one dependency not available
+below**, and the lemmas take that as a hypothesis rather than proving
+freshness internally, which keeps them statements about `env` alone.
 
 **`DeclAxiomTT`'s guard chain is proved** (`Setlec/TTVerify/DeclAxiom.lean`),
 modulo one inhabitation key per accepting guard — `StdAxiomKeyTT`,
@@ -740,7 +796,63 @@ between them is worth keeping straight.
   a fact the checker computes at run time.  Left as it is; noted so
   that a future reader sees it was considered.
 
-### The direct-install hypothesis, and what it costs
+### The end state: two conditionalities, documented together
+
+**USER RULING, 2026-08-26 — this is the final architecture, and the
+framing this document uses from here on.**
+
+> "Yes, finish the TT bridge as well, maybe we'll need it.  But this
+> means we also keep the direct checker→set model bridge alive and it
+> is what proves the real checker (with fast `infer_only`) consistent."
+
+The original ambition — *checker verification retargets onto this
+layer, and the set model becomes the layer's own semantics* — is dead
+for the shipped configuration.  It died **by refutation, not by
+preference**, and the two refutations are worth keeping because both
+were reached by trying:
+
+* **Execution preservation: BLOCKED.**  Carrying the checker's verdicts
+  onto the layer through a preservation argument needs transitivity and
+  stability of the *executable* definitional equality at the beta
+  tentpole.  The arena's own good/undecidability tests contradict
+  exactly that, and lean4lean's corresponding metatheory is `sorry`ed
+  behind a ~13 000-line graveyard of failed attempts.  This is not a
+  gap waiting for effort.
+* **The `DeqC` middle layer: REJECTED.**  A conversion relation sitting
+  between the two would have bought the preservation step at the price
+  of syntactic restrictions on the rules — against the settled
+  core-generic-over-env value (`Setlec/Model/DESIGN.md`, "no basis
+  special-casing in core rules").
+
+So the three parts of the final architecture, stated as they should be
+quoted:
+
+1. **The set model is the consistency proof of the real checker** —
+   the shipped binary, direct install and the fast `infer_only` path
+   included (the latter via the #109 `pt`-freshness /
+   domain-determination route now in progress).  Nothing in task #119
+   weakens, replaces or deletes any of it, and a reader wanting "is the
+   thing we ship consistent?" is asking the set model, not this file.
+2. **The TT bridge covers the *certified* configuration** —
+   certificates on (`infer_only` fast path off) and
+   `directStructsEnabled = false` — as a **conditional theorem**.  Two
+   flags, the same honest shape the direct-install conditionality
+   already had; both are named `Prop`s or named build constants, never
+   hidden side conditions.
+3. **The layer's unconditional returns** are not conditional on
+   anything: `Setlec/TT/*`'s own absolute consistency, its two-lemma
+   metatheory, and the design-instrumentation record this document is
+   — the call-site tell, the certificate tax, the §8.4 alignments, the
+   over/under-hypothesis rules.  Those were the returns whether or not
+   the retargeting ever happened, and they are why the bridge is worth
+   finishing.
+
+What follows is the *first* of the two conditionalities in detail; the
+second is the certificate configuration, and the accounting for it is
+§6's — the tax measurement there is the same flag read from the
+performance side.
+
+#### The direct-install hypothesis, and what it costs
 
 Stage 2's step is stated for `directStructsEnabled = false`
 (`Setlec/Kernel/Direct.lean`, and the top-level `DESIGN.md` section
@@ -754,7 +866,9 @@ ship.**  A reader who finds a conditional theorem here must not
 conclude that it covers the binary — it does not, and no amount of
 gate-green reporting changes that.
 
-This is acceptable, for exactly two reasons and no others.
+Under the 2026-08-26 ruling this is no longer a temporary state to be
+exited but the settled division of labour, and the reason it is
+acceptable is the second bullet below rather than the first.
 
 1. It is **explicitly staged**.  The hypothesis is a named `Prop`
    argument of every theorem that depends on it, not a hidden side
@@ -773,15 +887,17 @@ the theorems cover the shipped default — they still do not — but it
 means the configuration they do cover is one a reader can run rather
 than one that exists only in a proof.
 
-**Exit condition.**  The TT route covers the shipped default only once
-one of two things happens: the layer supports directly installed
-structures (their tower encoding denotes, as
-`Setlec/Model/DirectTower.lean` already interprets it), or direct
-install is retired — which is the standing plan the moment the class
+**Exit condition — for this flag only.**  The TT route covers the
+shipped default's *structures* once one of two things happens: the
+layer supports directly installed structures (their tower encoding
+denotes, as `Setlec/Model/DirectTower.lean` already interprets it), or
+direct install is retired — the standing plan the moment the class
 earns `eta`/`unitlike` and `lean-inductive-models` stops emitting
 artifacts for it (top-level `DESIGN.md`, "Task #82 is complete").
-Until then, quoting a TT consistency theorem as a statement about the
-binary is a category error.
+Clearing it would still leave the certificate flag, so even then:
+**quoting a TT consistency theorem as a statement about the shipped
+binary is a category error.**  The statement about the shipped binary
+is the set model's.
 
 ## 5. Interfaces this bridge consumes
 
@@ -2218,15 +2334,31 @@ exactly the constants the corresponding denotation clause reads, so
 whenever a clause fires, its guard has already established everything
 that clause's meaning depends on.
 
-**Why the count keeps rising** (six instances at the time of writing —
-the guard congruences, `DivModTT`'s transport, `denote_params_ext`'s
+**Why the count keeps rising** (eight instances at the time of writing
+— the guard congruences, `DivModTT`'s transport, `denote_params_ext`'s
 literals, `denote_instLevels`'s literals, `strLitSupported`'s ten
-pinned types, and #129's projection entry).  It has stopped being a
-pattern and become a property of the design, and the property is one
-sentence:
+pinned types, #129's projection entry, `natOpDeps` at the recurrence
+pin, and `divModEnvGuard`'s list at the div/mod pin).  It has stopped
+being a pattern and become a property of the design, and the property
+is one sentence:
 
 > **The pins exist so the *checker* can compare against known shapes,
 > and the same pins are why the *bridge* can compute against them.**
+
+**The alignment is now measurable, not just anecdotal.**  The div/mod
+pin's nine per-operation assemblies were written against one shared
+pair of drivers, from the guard's own dependency lists — and **seven of
+the nine compiled on first write**.  The two that did not (`Nat.div`,
+`Nat.mod`) failed for a reason unrelated to the alignment:
+`DivModClausesTT`'s own internal `if c = natDivName` survives into the
+goal and has to be reduced.
+
+That number is a better metric of design coherence than any single
+alignment anecdote.  A first-write success rate under a shared driver
+measures whether the guard's list, the denotation's needs and the
+law's shape actually coincide — if they only *nearly* coincided, the
+per-operation work would be where the discrepancies surfaced, and it
+is exactly where they did not.
 
 A pin is a commitment that a declaration has an exact form.  The
 checker uses it to decide acceptance without inspecting a value; the
@@ -3309,6 +3441,82 @@ And the `.basisDecl` case is `installBasisDecl` folded over `kind.declsA`
 either** (it is inverted inline).  So `DeclBasisTT` is a fold plus one
 `extendBasisTT` per constant, which is the shape `extendValueTT` and
 `extendAxiomTT` already have.
+
+#### Scouted (2026-08-26), and one claim above is worse than stated
+
+The model side was measured before grinding, per the discipline that
+paid at iota and at div/mod.  Three results change the plan.
+
+**There is no per-block install lemma to transpose — for five of the
+six blocks.**  Only `installQuotBasis_sound`
+(`Setlec/Model/Basis/Quot/Consistency.lean:23`, 479 lines) exists.  The
+other five blocks' drivers are *open-coded inline* in
+`Setlec/Model/Consistency.lean:777–1841` — 1 057 lines of driver, of
+which ~130 are pure inversion boilerplate (the same `simp only` incantation
+and one `by_cases … .isNone` group per constant, with the growing `Env`
+prefix written out literally) **duplicated six times**.  So the bridge
+does not cite a driver here; it writes one.  That is a cost the earlier
+estimate did not carry — and also an opportunity, because writing it
+*once* (a `BasisChain` relation plus a single fold inversion) is
+strictly less work than the six copies the model has.
+
+**The obligation buckets, measured** (13 485 lines over six blocks):
+
+| bucket | lines | share | bridge |
+| --- | ---: | ---: | --- |
+| `annotOk_<c>_type` | 2 626 | 19 % | gone |
+| `annotOk_<c>_rhs` + frame minors | 3 004 | 22 % | gone |
+| iota / `_ruleOk` / `*Val_fold` | 3 433 | 25 % | **transposes** to `hheadRec` |
+| value / frame / universe support | 2 464 | 18 % | re-derived, not transposed |
+| `interp_<c>_type` / `_rhs` | 799 | 6 % | **transposes** to `denote` computation |
+| `<c>_key` | 441 | 3 % | collapses to `HasType.const` |
+
+The `annotOk` family is **42 %** and all of it goes — not just the
+`_type` half §14.4 named.  The `_rhs` half feeds `RecMemberOk`, and the
+bridge's `hheadRec` wants the rhs's *denotation* and a `Deq`, never an
+`AnnotOk`.  Against that, the support bucket (18 %) does **not**
+transpose: it is infrastructure the model's own `interp` needs, and the
+bridge's `denote` needs different infrastructure.
+
+`<c>_key` is the one that collapses outright.  The model proves
+`v₀ ψ ∈ˢ T` per constant; the layer has `HasType.const : HasType Γ
+(.const c us) (c.type us)` **unconditionally**, so the bridge's version
+is "the pinned kernel type denotes to `BConst.type`" — a computation,
+with no membership argument at all.  That is the §14.4 prediction
+holding at its strongest point.
+
+**Per-block cost, and the order to take them:**
+
+| block | model lines | note |
+| --- | ---: | --- |
+| Empty | 107 | `Empty.rec`'s rule list is `[]` — no iota obligation exists |
+| PUnit | 812 | smallest block that exercises the *whole* `RecMemberOk` path |
+| Eq | 2 489 | three of the four derived constants live here |
+| Nat | 2 546 | |
+| PSigma | 2 662 | the only block installing `projInfo`s |
+| Quot | 4 763 | budget separately: 412 lines of universe arithmetic and 547 of value-level lemmas with no analogue elsewhere |
+
+So: **Empty as the pilot** (it validates the driver and nothing else),
+**PUnit as the first real block** (§14.5's item 2, now confirmed by
+measurement rather than by guess), Quot last and priced on its own.
+
+**A finding for the model side, not this one.**  Five `<c>_iota`
+theorems — `natZero_iota`, `natSucc_iota`, `eqRec_iota`,
+`psigmaMk_iota`, `punitRec_iota` — have **zero consumers anywhere in
+the repo**, 1 111 lines of them.  The real iota obligation is carried
+by the `*_ruleOk` family.  Nothing should be ported from them, and the
+model side may want them gone.
+
+**And one caution above is now stale.**  §8.3 says `Installs`
+"describes an *ordinary* install; a basis install is exactly what
+violates its last three fields".  Since §8.5's second pass made
+`LitAgree`'s seven equations **conditional on the guard holding in the
+old environment**, `Installs.of_fresh` applies to a basis install too:
+while a block is going in the guard is false (so the clauses are
+vacuous), and once it holds every name the clauses mention is stored,
+hence distinct from the fresh one.  What a basis install really changes
+is *which literals denote at all* — which is what the `lit` field
+exists to carry, not what it fails at.
 
 ### 14.5 What this buys, stated as a plan
 
