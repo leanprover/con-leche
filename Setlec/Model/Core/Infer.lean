@@ -364,8 +364,10 @@ theorem infer_claims (m : EnvModel V env)
       simpa using happ
     · exact AnnotOk_beta hfb' hw.2 hb.2 hai haa 0 hAopened
   | proj sn i e =>
+    -- task #129: the parameter-telescope certification is taken as `-`
+    -- — the set model gets these facts from `AnnotOk`
     obtain ⟨tpe, te, T, us, entry, hte, hwt, hfn, hf, hnat, hlen, husl,
-      hres⟩ := inferTypeCore_proj_inv h
+      -, hres⟩ := inferTypeCore_proj_inv h
     obtain ⟨hpin, hpsig, hpsigMk⟩ :=
       m.proj_ok _ _ (Env.findProj?_some hf) hnat
     -- the entry's stored name pins the head and the index

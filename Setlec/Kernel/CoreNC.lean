@@ -74,6 +74,22 @@ Skipped here (each site cites why it is proof-only):
   `.proj` node by direct field selection and certify nothing
   (lean4lean `projectCore`, official kernel `whnf_core`'s proj case),
   so it is proof-only in exactly the task-#76 sense.
+* `inferBodyNC`'s proj clause (vs `inferBodyI`'s): the
+  parameter-telescope certification `projParamCertI` (task #129) — the
+  inference-path sibling of the entry above, and the same `iotaCertsI`
+  family.  The judgement was made deliberately, not by analogy: the
+  call exists so that `projFst`/`projSnd`'s first two premises
+  (`⊢ A : Sort u`, `⊢ B : A → Sort v`) can be read off what the checker
+  recorded, and *neither reference infers anything about those
+  parameters* — lean4lean's `inferProj` and the official kernel's
+  `infer_proj` both peel the telescope with
+  `r := binding_body(r).instantiate1 args[i]` for each parameter, with
+  no `infer` and no `isDefEq` on `args[i]`; the parameters are
+  substituted, never typed.  Keeping the call would put a telescope
+  certification in the one mode whose whole purpose is to price them
+  out — and, as at `projTeleCertI`, a mode that skips every other
+  member of the family and keeps this one reports a meaningless
+  number.
 
 Not skipped (also proof-only, but outside the task-#76 site list —
 reported as residue): `projCertI`, the possibly-Prop projection
@@ -434,8 +450,8 @@ def whnfCoreBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
       throw (.notImplemented "whnf beyond the supported fragment")
     | none => throw (.internal "interned node missing")
 
-/-- Cert-skipping twin of `inferBodyI` (only the app clause differs,
-through `inferSpineNC`). -/
+/-- Cert-skipping twin of `inferBodyI` (the app clause differs, through
+`inferSpineNC`; the proj clause drops `projParamCertI`, task #129). -/
 def inferBodyNC (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
   fun depth e => do
     match ← viewI e with

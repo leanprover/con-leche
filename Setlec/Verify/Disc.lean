@@ -549,6 +549,19 @@ theorem projTeleCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
     exact iotaCerts_disc ih henv
       (wscoped_instLevels_of_not_hasFvar htf _ _) hwargs
 
+/-- Twin of `projTeleCert_disc` on the inference path (task #129); the
+entry's stored type is closed because the table entry is a stored
+constant. -/
+theorem projParamCert_disc (ih : ScopedSim env f) (henv : EnvWF env)
+    {d : Nat} {T : Name} {i : Nat} {entry : ProjEntry} {us : List Level}
+    {params : List Expr} (hfp : env.findProj? T i = some entry)
+    (hwargs : ∀ x ∈ params, WScoped d x) :
+    DiscV env (fun _ => True) (projParamCert C env d entry us params)
+      (projParamCert G env d entry us params) :=
+  iotaCerts_disc ih henv
+    (wscoped_instLevels_of_not_hasFvar
+      (henv _ (find?_mem (Env.findProj?_some hfp))).1 _ _) hwargs
+
 theorem stuckIrrel_disc (ih : ScopedSim env f) (henv : EnvWF env)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
     DiscV env (fun _ => True) (stuckIrrel C env d a b)
@@ -1352,19 +1365,27 @@ theorem inferBody_disc (ih : ScopedSim env f) (henv : EnvWF env)
     rename_i entry hfpw
     split <;> try exact DiscV.throw _
     rename_i hcond
+    -- task #129: the parameter-telescope certification, then the residual
+    refine DiscV.bind (projParamCert_disc ih henv hfpw hww.getAppArgs)
+      (fun bp _ => ?_)
     split
-    · rename_i resTy hres
-      refine DiscV.pure ?_
-      have hclosed := (henv _ (find?_mem (Env.findProj?_some hfpw))).1
-      exact piResidual_WScoped hres
-        (WScoped.of_not_hasFvar (by
-          rw [hasFvar_instantiateLevelParams]; exact hclosed))
-        (fun x hx => by
-          rcases List.mem_append.mp hx with hx | hx
-          · exact hww.getAppArgs x hx
-          · rcases List.mem_singleton.mp hx with rfl
-            exact hwpe)
-    · exact DiscV.throw _
+    · split
+      · rename_i resTy hres
+        refine DiscV.pure ?_
+        have hclosed := (henv _ (find?_mem (Env.findProj?_some hfpw))).1
+        exact piResidual_WScoped hres
+          (WScoped.of_not_hasFvar (by
+            rw [hasFvar_instantiateLevelParams]; exact hclosed))
+          (fun x hx => by
+            rcases List.mem_append.mp hx with hx | hx
+            · exact hww.getAppArgs x hx
+            · rcases List.mem_singleton.mp hx with rfl
+              exact hwpe)
+      · exact DiscV.throw _
+    · first
+        | exact DiscV.throw _
+        | exact DiscV.bind (P := fun _ => False) (DiscV.throw _)
+            (fun _ h => h.elim)
 
 set_option maxHeartbeats 1600000 in
 theorem defeqStep_disc (ih : ScopedSim env f) (henv : EnvWF env)

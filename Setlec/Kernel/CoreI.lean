@@ -1394,6 +1394,13 @@ def projTeleCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     iotaCertsI r fe depth tyCtor args
   | _ => pure false
 
+/-- Twin of `projParamCert` (task #129).  The pinned projection type
+`pty` is the caller's — the same interned expression `piResidual`
+peels — so this adds a telescope walk and no lookup. -/
+def projParamCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (pty : EIdx) (params : List EIdx) : CheckIM Bool :=
+  iotaCertsI r fe depth pty params
+
 mutual
 
 /-- Bulk-beta argument loop (task #50): consume the whole application
@@ -1781,6 +1788,10 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → EIdx → CheckIM EIdx :=
               us.length = entry.levelParams.length then do
             let pf ← projFnIdxM T i
             let pty ← constTyAtM fe pf (projFnName Tn i) us
+            -- Task #129: certify the type former's parameters against
+            -- the entry's own telescope (twin of `projParamCert`).
+            unless ← projParamCertI r fe depth pty targs do
+              throw (.invalid "projection parameter type mismatch")
             match ← piResidualM pty (targs ++ [pe]) with
             | some resTy => pure resTy
             | none => throw (.internal "malformed projection entry")
