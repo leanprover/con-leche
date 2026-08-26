@@ -444,8 +444,8 @@ motivated.
 | app-argument re-check (`inferSpineI`) | yes — the 98.6 % | **no** | *established* (four routes closed) |
 | beta re-check | yes | **no** | *established* (`propext` refutes the alternative) |
 | iota telescope certifications (`iotaCerts`) | yes | **no** | **prediction** |
-| structure-eta / unit-like telescope certifications | yes | **no** | **prediction** |
-| `projCert` | yes — measured free anyway | **no** | **prediction** |
+| structure-eta / unit-like telescope certifications | yes | **no** | **prediction** (pre-registered below) |
+| `projCert` | yes — measured free anyway | **no**, *partly* | **prediction, split** (pre-registered below) |
 | plain-rule parameter comparison | no — cheap, short-circuits reduction | no | needed by both, for *different* reasons |
 | canonical-index `defEqList` | no — ditto | no | needed by both, for *different* reasons |
 
@@ -505,6 +505,56 @@ other two rows are untested.
 live in `Setlec/Verify/*`, so they are importable from here.  The
 transposed `certs_typed` needs no re-derivation of the inversion — only
 the two substitutions (membership → typing, `AnnotOk` → nothing).
+
+#### PRE-REGISTERED: what `structEtaCert` and `projCert` are expected to discharge
+
+Written **before** the `majorToCtor` and `.proj` clauses, because a
+prediction recorded afterwards is not a prediction.  Naming the rule,
+the premise and the domain in each case, so the check is a comparison
+and not a vibe — the form that paid twice for `iotaCerts`.
+
+**`structEtaCert` — expected to confirm, and for a concrete reason: it
+calls `iotaCerts` itself.**  At the ι-time eta rescue the bridge must
+produce `Deq Δ ⟦b⟧ ⟦C p⃗ (proj₀ p⃗ b) … ⟧`, which will come from the
+`EtaLaw` transpose in `caps_ok`.  In the fired form (matching §8's iota
+decision) that law is hypothesised on exactly two things, and I expect
+`structEtaCert` to supply both:
+
+* `TeleTyped` for `T`'s parameter telescope at `p⃗ = wtb.getAppArgs` —
+  from `structEtaCertWith`'s own `iotaCerts` call on
+  `cvT.type.instantiateLevelParams …`, i.e. the same fact `certs_typed`
+  already extracts, at `T`'s parameter domains;
+* `HasType Δ ⟦b⟧ ⟦T p⃗⟧` — from `structEtaCert`'s `infer b` plus the
+  whnf claim on its type, at the domain `T p⃗`.
+
+**`projCert` — expected to confirm only *partly*, and this is the row I
+expect to fail if any does.**  `projCert` checks **sorts**, not
+argument typings: the field's type whnfs to `.sort uT` with
+`uT ≡ fieldLvl`, and the subject's type to `.sort wT` with
+`wT ≡ structLvl`.  So:
+
+* I expect it to discharge the **sorting** premises of
+  `projFstMk`/`projSndMk` — `⊢ A : .sort u` and
+  `⊢ B : arrow A (.sort v)` — at the levels the entry pins.
+* I **do not** see where the two *argument-typing* premises
+  (`⊢ a : A` and `⊢ b : .app B a`) would come from.  `whnfCoreBody`'s
+  `.proj` clause calls no `iotaCerts`, and by the headline fact the
+  ambient typing of the subject yields them only at *some* domain, not
+  at the pinned one.
+
+So the pre-registered outcome for `projCert` is a **split**: sorting
+premises yes, argument-typing premises unaccounted for.  If that is
+right, the finding is not about the bridge but about the *checker* —
+the `.proj` clause would be certifying less than its rule needs, and
+the missing certificate would be a real gap rather than a modelling
+artefact.  If instead the premises turn out to be available, the
+headline fact is wrong in the `.proj` case and that is the larger
+result.
+
+Recorded now, with no preference between the outcomes, and noting the
+prior: `projCert` measured **free** in the isolation (mask 8, 189 s
+against a 186 s baseline), which is at least consistent with the
+checker not needing it.
 
 **These are predictions, not re-verdicts.**  I have not reached those
 clauses.  They carry the same falsifiable status as the `iotaCerts`
