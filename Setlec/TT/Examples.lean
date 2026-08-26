@@ -87,5 +87,53 @@ example (x y : VExpr) (hx : HasType [] x (punitT 3))
     HasType [] .prf (.eqE (punitT 3) x y) :=
   .punitEta hx hy
 
+/-! ## Two basis constants the layer does *not* need
+
+`Eq.rec` and `PSigma'.rec` are absent from `BConst` because they are
+derivable.  Both derivations are mechanized below; each removes one
+index-heavy dependent type from `Setlec/TT/Const.lean`. -/
+
+/-- **`Eq.rec` is derivable**: once equality is reflected, transport is
+the identity, so `fun A a M m b h => m` has the recursor's type.  The
+step that makes it work is `congrEq`: it retypes the canonical proof
+`prf : a = a` as a proof of `a = b`, after which proof irrelevance
+identifies it with `h` and two `congrApp`s move the motive. -/
+theorem eqRec_derivable {Γ : List VExpr} {A a b M m h : VExpr}
+    (hh : HasType Γ h (.eqE A a b))
+    (hm : HasType Γ m (.app (.app M a) .prf)) :
+    HasType Γ m (.app (.app M b) h) := by
+  -- the canonical proof, retyped from `a = a` to `a = b`
+  have hprf : HasType Γ .prf (.eqE A a b) :=
+    .conv (A := .eqE A a a) (T := .sort 0) (.refl (T := A))
+      (.congrEq (T := A) (T' := A) (T'' := .sort 0) (S := A) (S' := A)
+        (a := a) (a' := a) (b := a) (b' := b) (.refl (T := A)) hh)
+  -- …hence indistinguishable from `h`
+  have hirr : HasType Γ .prf (.eqE (.eqE A a b) .prf h) :=
+    .proofIrrel .eqType hprf hh
+  -- move the motive along both arguments
+  exact .conv (T := .sort 0) hm
+    (.congrApp (T := .sort 0) (T' := .eqE A a b) (T'' := .sort 0)
+      (.congrApp (T := .sort 0) (T' := A) (T'' := .sort 0)
+        (.refl (T := .sort 0)) hh)
+      hirr)
+
+/-- **`PSigma'.rec` is derivable**: the minor premise applied to the two
+projections has the right type once the subject is converted along
+structure η. -/
+theorem psigmaRec_derivable {Γ : List VExpr} {u v : Nat}
+    {A B M f p : VExpr}
+    (hA : HasType Γ A (.sort u)) (hB : HasType Γ B (arrow A (.sort v)))
+    (hp : HasType Γ p (psigmaT u v A B))
+    (hf : HasType Γ (.app (.app f (psigmaFstT u v A B p))
+        (psigmaSndT u v A B p))
+      (.app M (psigmaMkT u v A B (psigmaFstT u v A B p)
+        (psigmaSndT u v A B p)))) :
+    HasType Γ (.app (.app f (psigmaFstT u v A B p))
+      (psigmaSndT u v A B p)) (.app M p) :=
+  .conv (T := .sort 0) hf
+    (.congrApp (T := .sort 0) (T' := psigmaT u v A B) (T'' := .sort 0)
+      (.refl (T := .sort 0))
+      (.symm (T' := psigmaT u v A B) (.psigmaEta hA hB hp)))
+
 end Examples
 end Setlec.TT

@@ -116,6 +116,11 @@ theorem HasType.sound {Γ : List VExpr} {e A : VExpr} (h : HasType Γ e A) :
       fun x hx => mem_eqv (ihq (cons V x ρ) (Sat_cons V hρ hx))
     rw [← hA, piC_congr hbb]
     exact pt_mem_eqv_self _
+  | congrEq _ _ ihp ihq =>
+    intro ρ hρ
+    simp only [interp_prf, interp_eqE]
+    rw [mem_eqv (ihp ρ hρ), mem_eqv (ihq ρ hρ)]
+    exact pt_mem_eqv_self _
   | beta _ iha =>
     intro ρ hρ
     simp only [interp_prf, interp_eqE, interp_app, interp_lam]

@@ -113,6 +113,13 @@ inductive HasType : List VExpr → VExpr → VExpr → Prop where
   | congrPi {Γ T T' T'' A A' B B' p q} : HasType Γ p (.eqE T A A') →
       HasType (A :: Γ) q (.eqE T' B B') →
       HasType Γ .prf (.eqE T'' (.pi A B) (.pi A' B'))
+  /-- Congruence for the equality former itself.  Without it the layer
+  could not retype an equality proof along an equation between its own
+  sides, and `Eq.rec` would *not* be derivable (see
+  `Setlec/TT/Examples.lean`, `eqRec_derivable`). -/
+  | congrEq {Γ T T' T'' S S' a a' b b' p q} : HasType Γ p (.eqE T a a') →
+      HasType Γ q (.eqE T' b b') →
+      HasType Γ .prf (.eqE T'' (.eqE S a b) (.eqE S' a' b'))
 
   -- ## The core computation rules
 
