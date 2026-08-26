@@ -836,6 +836,42 @@ theorem Deq.ofBetaSpine {Γ : List VExpr} {f : VExpr} {args : List VExpr}
     exact Deq.trans (Deq.mkAppN_congrFun xs
       (Deq.intro (HasType.beta (T := x) hx))) ih
 
+
+/-- Substituting each level parameter by itself is the identity. -/
+theorem Level.subst_param_self (ks : List Name) :
+    ∀ l : Level, Level.subst ks (ks.map Level.param) l = l := by
+  have hgo : ∀ (ks : List Name) (n : Name),
+      Level.subst.go ks (ks.map Level.param) n = .param n := by
+    intro ks
+    induction ks with
+    | nil => intro n; rfl
+    | cons k ks ih =>
+      intro n
+      by_cases h : k = n
+      · subst h; simp [Level.subst.go]
+      · simp only [List.map_cons, Level.subst.go, if_neg h]
+        exact ih n
+  intro l
+  induction l with
+  | zero => rfl
+  | succ l ih => simp [Level.subst, ih]
+  | max l r ihl ihr => simp [Level.subst, ihl, ihr]
+  | imax l r ihl ihr => simp [Level.subst, ihl, ihr]
+  | param n => exact hgo ks n
+
+/-- …and so is instantiating a declaration at its own parameters. -/
+theorem Expr.instantiateLevelParams_self (ks : List Name) :
+    ∀ e : Expr, e.instantiateLevelParams ks (ks.map Level.param) = e := by
+  intro e
+  have hmap : ∀ us : List Level,
+      us.map (Level.subst ks (ks.map Level.param)) = us := by
+    intro us
+    induction us with
+    | nil => rfl
+    | cons x xs ih => simp [Level.subst_param_self, ih]
+  induction e <;>
+    simp_all [Expr.instantiateLevelParams, Level.subst_param_self, hmap]
+
 /-! ## `Eq`
 
 The block whose valuations were **deferred** (§11, and the house rule:
@@ -1142,6 +1178,82 @@ theorem denote_eqRec_type {env : Env} (m : EnvTT env)
     show eqRecA.toConstantVal.levelParams = [u1NT, uNT] from rfl]
   simp [Expr.instantiateLevelParams, hsu, hsu1, denote_forallE, denote_sort,
     denote_app, denote_fvar, hEc, hRc, VExpr.mkAppN]
+
+
+/-- `Eq.rec`'s single stored rule. -/
+def eqRecRule : RecRule :=
+  { ctor := eqReflName, nfields := 0, ctorParams := 2, fire := .plain,
+    rhs := Expr.lam (Name.anonymous.str "α") (.sort (.param uNT))
+      (Expr.lam (Name.anonymous.str "a") (.bvar 0)
+        (Expr.lam (Name.anonymous.str "motive")
+          (Expr.forallE (Name.anonymous.str "b") (.bvar 1)
+            (Expr.forallE (Name.anonymous.str "t")
+              (.app (.app (.app (.const eqName [.param uNT]) (.bvar 2))
+                (.bvar 1)) (.bvar 0))
+              (.sort (.param u1NT)) { bi := .default })
+            { bi := .default })
+          (Expr.lam (Name.anonymous.str "refl")
+            (.app (.app (.bvar 0) (.bvar 1))
+              (.app (.app (.const eqReflName [.param uNT]) (.bvar 2))
+                (.bvar 1)))
+            (.bvar 0) { bi := .default })
+          { bi := .default })
+        { bi := .default })
+      { bi := .implicit } }
+
+/-- The stored declaration, with its rule named. -/
+theorem eqRecA_eq :
+    eqRecA = .recInfo eqRecA.toConstantVal 5 4 [eqRecRule] := rfl
+
+/-- **`Eq.rec`'s rule right-hand side, denoted** — the same four
+domains the type has, over the minor premise. -/
+theorem denote_eqRec_rhs {env : Env} (m : EnvTT env)
+    {val : (Name → Nat) → VExpr} (φ : Name → Nat) (d : Nat)
+    (w1 w2 : Level)
+    (hE : env.find? eqName = some eqA)
+    (hR : env.find? eqReflName = some eqReflA)
+    (hEv : ∀ ψ : Name → Nat, m.cval eqName ψ = eqValT ψ)
+    (hRv : ∀ ψ : Name → Nat, m.cval eqReflName ψ = eqReflValT ψ) :
+    denote (cvalSet m.cval eqRecA.name val) ⟨eqRecA :: env.consts⟩ φ d
+        ((RecRule.rhs eqRecRule).instantiateLevelParams
+          eqRecA.toConstantVal.levelParams [w1, w2])
+      = some (.lam (.sort (w2.eval φ))
+        (.lam (.bvar 0)
+          (.lam (.pi (.bvar 1)
+              (.pi (VExpr.mkAppN (eqValT (Level.substFn φ [uNT] [w2]))
+                  [.bvar 2, .bvar 1, .bvar 0])
+                (.sort (w1.eval φ))))
+            (.lam (.app (.app (.bvar 0) (.bvar 1))
+                (VExpr.mkAppN (eqReflValT (Level.substFn φ [uNT] [w2]))
+                  [.bvar 2, .bvar 1]))
+              (.bvar 0))))) := by
+  have hsu : Level.subst [u1NT, uNT] [w1, w2] (.param uNT) = w2 := by
+    simp [Level.subst, Level.subst.go, uNT, u1NT]
+  have hsu1 : Level.subst [u1NT, uNT] [w1, w2] (.param u1NT) = w1 := by
+    simp [Level.subst, Level.subst.go, u1NT]
+  have hEc : ∀ e : Nat,
+      denote (cvalSet m.cval eqRecA.name val) ⟨eqRecA :: env.consts⟩ φ e
+        (.const eqName [w2]) = some (eqValT (Level.substFn φ [uNT] [w2])) := by
+    intro e
+    rw [denote_const, Env.find?_cons, if_neg (by decide), hE]
+    simp only [show ([w2] : List Level).length
+      = eqA.toConstantVal.levelParams.length from rfl, if_true]
+    rw [cvalSet_ne (by decide), hEv]
+    rfl
+  have hRc : ∀ e : Nat,
+      denote (cvalSet m.cval eqRecA.name val) ⟨eqRecA :: env.consts⟩ φ e
+        (.const eqReflName [w2])
+        = some (eqReflValT (Level.substFn φ [uNT] [w2])) := by
+    intro e
+    rw [denote_const, Env.find?_cons, if_neg (by decide), hR]
+    simp only [show ([w2] : List Level).length
+      = eqReflA.toConstantVal.levelParams.length from rfl, if_true]
+    rw [cvalSet_ne (by decide), hRv]
+    rfl
+  rw [show eqRecA.toConstantVal.levelParams = [u1NT, uNT] from rfl]
+  simp only [eqRecRule]
+  simp [Expr.instantiateLevelParams, hsu, hsu1, denote_lam, denote_forallE,
+    denote_sort, denote_app, denote_fvar, hEc, hRc, VExpr.mkAppN]
 
 
 /-- **`Eq`, installed** — and with it §11's law, discharged from the

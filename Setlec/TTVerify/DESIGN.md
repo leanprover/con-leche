@@ -3887,6 +3887,30 @@ Three payouts from one erasure, and none of them was the reason for it
 — §2.2's stated reason was avoiding a vestigial `φ` on the whole
 semantics.
 
+*The tally's format — decision, stated reason, actual returns — is the
+one to reuse if another decision earns one.  What makes it worth
+keeping is the third column: a decision that only ever pays in the
+currency it was made for is unremarkable; one that pays in three others
+is evidence the decision was tracking something real about the
+object.*
+
+#### `Eq.rec`'s ingredients, complete
+
+The wrapper's four computational inputs are landed:
+`denote_eqRec_type` (any depth, any levels), `denote_eqRec_rhs` (the
+rule's right-hand side, at the same four domains the type has),
+`eqRecValT_typed`, and `eqRecValT_closed` — plus
+`Expr.instantiateLevelParams_self`, which is what lets the install's
+depth-`0`-own-parameters case be a specialisation of the general form
+rather than a second proof.
+
+What remains of the block is assembly: destructure the telescope,
+hand its six typings to two `BetaSpine`s — **six β on the left against
+four on the right, meeting at the minor premise** — and chain.  The
+domains line up by construction: the tower's are the type's, because
+that is what `htype` says, and the telescope's `cons` peels exactly
+those.
+
 #### CANDIDATE for the final summary: everything here is telescope-shaped
 
 > **Every telescope-shaped obligation in this bridge decomposes against
