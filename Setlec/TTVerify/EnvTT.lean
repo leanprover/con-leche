@@ -257,6 +257,78 @@ theorem ProjOkT.empty : ProjOkT Env.empty := by
   intro n entry h
   simp [Env.find?, Env.empty] at h
 
+/-! ## The pinned basis
+
+The transpose of `IndOk`'s pinned-valuation clause: what the reserved
+basis constants denote to.  The design is §11's — state what consumers
+need, and let the install supply the witness.
+
+**Split by whether the constant survives in `BConst`.**  Most pinned
+constants denote to a bare built-in at their own level instantiation,
+and the *equation* is what `.proj` and the basis iota clauses need
+syntactically — so those are pinned here.  Four do not survive: `Eq`,
+`Eq.refl`, `Eq.rec` and `PSigma'.rec` are *derivable* in the layer
+(`Setlec/TT/DESIGN.md` §3), so their denotations are λ-towers over
+formers, and §11 rules that they are stated as **fired laws** rather
+than as valuations.
+
+Those four are deliberately **not** written yet.  Each is an
+index-sensitive λ-tower, and the house rule (`Setlec/TT/DESIGN.md`
+§3.1) says a definition is a conjecture until a consumer elaborates —
+so each lands with the clause that consumes it, not before.  Writing
+four unverified towers now is exactly the error the rule exists to
+prevent. -/
+
+/-- The pinned level-parameter names.  A fourth `V`-free definition
+stranded in `Setlec/Model/BasisVal.lean`; see `EtaFamilyStoredT` for
+the relocation note. -/
+def uNT : Name := Name.anonymous.str "u"
+/-- The second pinned level-parameter name. -/
+def vNT : Name := Name.anonymous.str "v"
+
+/-- What a reserved basis constant denotes to, where it denotes to a
+bare built-in.  `none` for the four the layer derives rather than
+carries (see the section note). -/
+def pinnedDirectT (n : Name) (ψ : Name → Nat) : Option VExpr :=
+  if n = natName then some (.const .nat [])
+  else if n = natZeroName then some (.const .natZero [])
+  else if n = natSuccName then some (.const .natSucc [])
+  else if n = natName.str "rec" then some (.const .natRec [ψ uNT])
+  else if n = psigmaName then some (.const .psigma [ψ uNT, ψ vNT])
+  else if n = psigmaMkName then some (.const .psigmaMk [ψ uNT, ψ vNT])
+  else if n = punitName then some (.const .punit [ψ uNT])
+  else if n = punitUnitName then some (.const .punitUnit [ψ uNT])
+  else if n = punitName.str "rec" then
+    some (.const .punitRec [ψ uNT, ψ vNT])
+  else if n = emptyName then some (.const .empty [ψ uNT])
+  else if n = emptyName.str "rec" then
+    some (.const .emptyRec [ψ uNT, ψ vNT])
+  else if n = quotName then some (.const .quot [ψ uNT])
+  else if n = quotMkName then some (.const .quotMk [ψ uNT])
+  else if n = quotLiftName then some (.const .quotLift [ψ uNT, ψ vNT])
+  else if n = quotIndName then some (.const .quotInd [ψ uNT])
+  else if n = quotSoundName then some (.const .quotSound [ψ uNT])
+  else none
+
+/-- Every stored reserved-basis constant with a direct pin is valued by
+it.  Transpose of `IndOk`'s pinned-valuation conjunct, restricted to
+the constants the layer still carries.
+
+This is what makes a reduction's *syntactic* match usable: the `.proj`
+clause matches a constructor head against `entry.ctor`, and only this
+clause turns that into `⟦e'⟧ = psigmaMkT u v A B a b`, which is the
+shape `projFstMk` is stated at. -/
+def BasisPinnedTT (env : Env) (cval : TConstVal) : Prop :=
+  ∀ (n : Name) (ci : ConstantInfo) (t : VExpr),
+    env.find? n = some ci →
+    reservedBasisNames.contains n = true →
+    ∀ ψ : Name → Nat, pinnedDirectT n ψ = some t → cval n ψ = t
+
+theorem BasisPinnedTT.empty (cval : TConstVal) :
+    BasisPinnedTT Env.empty cval := by
+  intro n ci t h
+  simp [Env.find?, Env.empty] at h
+
 /-- A *derivation model* of an environment: a type-theory term for
 every constant (a function of the level-parameter assignment), such
 that the environment is well-formed, each valuation reads only its own
@@ -340,6 +412,11 @@ structure EnvTT (env : Env) where
   entry with its block stored (`ProjOkT`).  Transpose of
   `EnvModel.proj_ok`, verbatim — the clause is syntactic. -/
   proj_ok : ProjOkT env
+  /-- The reserved basis constants denote to their pinned built-ins
+  (`BasisPinnedTT`).  Part of the transpose of `IndOk`; the four
+  layer-derived constants are covered by fired laws instead, and land
+  with their consumers (§11). -/
+  basis_pinned : BasisPinnedTT env cval
 
 /-- The empty environment has a (trivial) derivation model. -/
 def EnvTT.empty : EnvTT Env.empty where
@@ -356,6 +433,7 @@ def EnvTT.empty : EnvTT Env.empty where
   rec_rules := RecRulesTT.empty _
   caps_ok := CapsOkTT.empty _
   proj_ok := ProjOkT.empty
+  basis_pinned := BasisPinnedTT.empty _
 
 /-! ## What the invariant delivers per declaration
 

@@ -189,7 +189,8 @@ an incidental well-formedness condition; see the row and §7:
 | `rec_rules : RecRulesOk` (tower λ-equality) | `rec_rules : RecRulesTT` — **done**, in the *fired* form (§8) |
 | `caps_ok : CapsOk` | `caps_ok : CapsOkTT` — **done**, fired form, same argument |
 | `proj_ok : ProjOk` | `proj_ok : ProjOkT` — **done**, *verbatim* (the clause is syntactic) |
-| `ind_ok`'s other clauses, `nat_ops`, `div_mod`, `reduce_ops` | stage 2; recipe in `EnvTT.lean` |
+| `ind_ok`'s pinned-valuation clause | `basis_pinned : BasisPinnedTT` — **done** for the constants the layer carries; the four it derives are fired laws landing with their consumers |
+| `ind_ok`'s remaining clauses, `nat_ops`, `div_mod`, `reduce_ops` | stage 2; recipe in `EnvTT.lean` |
 
 Two rows carry the whole idea.  `mem_type` becomes a typing judgment —
 that is the only change of substance.  And `AnnotOk` **disappears**:
@@ -1346,6 +1347,11 @@ entry point for `certs_typed`**, so the premises arrive as premises
 rather than as a call to replicate.  `whnf_proj_inv` grew a final
 conjunct for it.
 
+(That the merge cost this branch no mechanical fixes is **timing luck,
+not a free interface**: the bridge simply had no `whnf_proj_inv` call
+sites yet.  A branch that did would have paid the usual
+pattern-match update.)
+
 ### 10.2 To the layer: the irrelevance rules are over-constrained
 
 Found while proving `majorToCtor`'s **K branch**, and it is the same
@@ -1409,7 +1415,26 @@ workaround was priced at three lemmas plus a commutation stack; the
 generalization made it two lines.  *That comparison is the argument for
 asking the layer for a change rather than working around it*, and it is
 the precedent for the next time this bridge meets an over-constrained
-rule: price the workaround first, and if it exceeds the change, ask.
+rule: **price the workaround first, and if it exceeds the change,
+ask.**
+
+**But the rule does not transfer to requests against the *checker*, and
+the asymmetry is worth stating so the precedent is not
+over-applied.**  It works here because the layer is an **upper bound**
+(§2.1): a *sound* relaxation is a weaker obligation on the bridge and
+cannot change any verdict, so its cost really is just the edit.  A
+checker change can move verdicts, and must earn its way past
+byte-identity and a measurement.  Compare the two requests:
+
+| | layer (§10.2) | checker (§10.1) |
+|---|---|---|
+| can move verdicts | **no** (upper bound) | **yes** |
+| gate | the layer's axiom check | byte-identity + arena/e2e + measurement |
+| cost found | one identifier per soundness case | +0.145 % certified, 0.00 % NC |
+
+So: against the layer, price the workaround and ask if it loses.
+Against the checker, price the workaround *and* the measurement, and
+expect the burden of proof to sit with the request.
 
 ## 11. DECIDED: how the pinned `Eq` block denotes
 
