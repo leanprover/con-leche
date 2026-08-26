@@ -1,5 +1,6 @@
 import Setlec.TTVerify.Denote
 import Setlec.TTVerify.VClosed
+import Setlec.TTVerify.Tele
 import Setlec.TT.Semantics.Consistency
 
 /-!
@@ -52,13 +53,8 @@ the corresponding clause of the fuel induction is proved:
   `PUnit` collapse, the pinned-valuation clause, and the two purely
   *syntactic* conjuncts `BasisBlocks`/`RecCtorsStored`, which mention
   no `V` and so transpose verbatim);
-* `rec_rules : RecRulesOk` — the total λ-equality of every stored
-  fireable recursor rule (task #58) becomes a `Deq` between the
-  denotations of `ruleLhs` and the stored right-hand side.  Note that
-  for a *modeled* inductive this is not new work: the `_model` iota
-  theorems are stream declarations the checker itself accepted, so
-  `has_type` already hands over a derivation of each, and firing a rule
-  is instantiation plus `trans`;
+* ~~`rec_rules`~~ — **done**, as `RecRulesTT` above, in the fired form
+  rather than the tower one;
 * `proj_ok : ProjOk env` — syntactic, transposes verbatim;
 * `caps_ok : CapsOk` — the eta and unit-like laws, likewise from
   checked `_model` theorems;
@@ -78,6 +74,72 @@ this to look finished while proving nothing.
 namespace Setlec.TTVerify
 
 open Setlec.TT
+
+/-- **The fired modeled-iota contract** (task #119; the decision and its
+argument are in `Setlec/TTVerify/DESIGN.md` §8).
+
+Every stored fireable recursor rule holds **at each instantiation the
+checker can fire it at**, given that the spines are typed against their
+telescopes.  Read against `iotaRec` (`Setlec/Kernel/Core.lean`), which
+fires
+
+```
+mkAppN (.const n us) (args ++ [mkAppN (.const cj usj) margs])
+  ↦  mkAppN (rl.rhs[us]) (args.take rP ++ margs.drop rl.ctorParams)
+```
+
+**Why this and not the set model's tower λ-equality** (`RecRulesOk`).
+A closed tower has to be *fired* to be used — `congrApp` onto the
+actual arguments, then β-reduce each side — and `HasType.beta` demands
+`⊢ argᵢ : domainᵢ` for every argument.  So the tower does not avoid
+the typing premises; it defers them to the fire site and adds a
+β-apparatus on top.  Here they are hypotheses (`TeleTyped`), supplied
+at the fire site by `iotaCerts` — which computes exactly them, proved
+in `certs_typed` (`Setlec/TTVerify/Certs.lean`).
+
+And the set model's reason for the tower does not transpose: it was
+forced by junk-agreement between dependent-function graphs off-domain,
+and **a syntactic layer has no off-domain** — a `Deq` at an
+instantiation says exactly what it says.
+
+The cost, stated: this field is *longer* than `RecRulesOk`, because the
+firing conditions live in its statement.  What it buys is short proofs
+at both ends — the install denotes the `_model.iota_j` theorem and
+instantiates it (`TeleTyped.appN`), and the fire site already holds
+the premises. -/
+def RecRulesTT (env : Env) (cval : TConstVal) : Prop :=
+  ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+    env.find? n = some (.recInfo cv mI rP rules) →
+    ∀ rl ∈ rules, RecRule.fire rl ≠ .inert →
+    ∀ (cvj : ConstantVal) (cnP cnF : Nat),
+      env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
+    ∀ (φ : Name → Nat) (d : Nat) (Δ : List VExpr)
+      (us usj : List Level) (args margs : List Expr)
+      (xs ys : List VExpr) (restR restC : Expr) (L R : VExpr),
+      args.length = mI →
+      margs.length = RecRule.ctorParams rl + RecRule.nfields rl →
+      -- the recursor's spine, typed against its telescope
+      TeleTyped cval env φ d Δ
+        (cv.type.instantiateLevelParams cv.levelParams us)
+        (args ++ [Expr.mkAppN (.const (RecRule.ctor rl) usj) margs])
+        xs restR →
+      -- the constructor's spine, typed against its own
+      TeleTyped cval env φ d Δ
+        (cvj.type.instantiateLevelParams cvj.levelParams usj) margs ys
+        restC →
+      denote cval env φ d
+        (Expr.mkAppN (.const n us)
+          (args ++ [Expr.mkAppN (.const (RecRule.ctor rl) usj) margs])) =
+        some L →
+      denote cval env φ d
+        (Expr.mkAppN
+          ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us)
+          (args.take rP ++ margs.drop (RecRule.ctorParams rl))) = some R →
+      Deq Δ L R
+
+theorem RecRulesTT.empty (cval : TConstVal) : RecRulesTT Env.empty cval := by
+  intro n cv mI rP rules h
+  simp [Env.find?, Env.empty] at h
 
 /-- A *derivation model* of an environment: a type-theory term for
 every constant (a function of the level-parameter assignment), such
@@ -149,6 +211,11 @@ structure EnvTT (env : Env) where
   the layer's own consistency theorem, so this invariant needs no
   `SetTheory` instance and the set theory enters only at the corollary. -/
   empty_pinned : ∀ ψ : Name → Nat, ∃ u, cval emptyName ψ = emptyT u
+  /-- Every stored fireable recursor rule holds at every instantiation
+  the checker can fire it at (`RecRulesTT`).  The transpose of
+  `EnvModel.rec_rules`, in the **fired** form rather than the set
+  model's tower λ-equality — see `RecRulesTT` for why. -/
+  rec_rules : RecRulesTT env cval
 
 /-- The empty environment has a (trivial) derivation model. -/
 def EnvTT.empty : EnvTT Env.empty where
@@ -162,6 +229,7 @@ def EnvTT.empty : EnvTT Env.empty where
   defn_eq := by intro cv value hint h; cases h
   thm_ok := by intro cv value h; cases h
   empty_pinned := fun _ => ⟨0, rfl⟩
+  rec_rules := RecRulesTT.empty _
 
 /-! ## What the invariant delivers per declaration
 

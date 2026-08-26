@@ -111,7 +111,8 @@ an incidental well-formedness condition; see the row and §7:
 | `thm_ok` (equation **+ `AnnotOk`**) | just the equation |
 | `annot_ok` | **no counterpart** |
 | `ind_ok`'s `Empty` clause | `empty_pinned` |
-| `ind_ok`'s other clauses, `rec_rules`, `proj_ok`, `caps_ok`, `nat_ops`, `div_mod`, `reduce_ops` | stage 2; recipe in `EnvTT.lean` |
+| `rec_rules : RecRulesOk` (tower λ-equality) | `rec_rules : RecRulesTT` — **done**, in the *fired* form (§8) |
+| `ind_ok`'s other clauses, `proj_ok`, `caps_ok`, `nat_ops`, `div_mod`, `reduce_ops` | stage 2; recipe in `EnvTT.lean` |
 
 Two rows carry the whole idea.  `mem_type` becomes a typing judgment —
 that is the only change of substance.  And `AnnotOk` **disappears**:
@@ -852,9 +853,9 @@ Recorded so they are made rather than inherited.
 ### DECIDED: the modeled-iota contract is the *fired* form
 
 Made before the install clause rather than during it, and on the
-merits rather than by inheritance.  `EnvTT`'s `rec_rules` field will
-be **meta-quantified over typed argument terms, concluding `Deq []` at
-the applied instance** — not a transposition of the set model's tower
+merits rather than by inheritance.  `EnvTT`'s `rec_rules` field is
+**meta-quantified over typed argument terms, concluding `Deq` at
+the applied instance** (`RecRulesTT`, landed) — not a transposition of the set model's tower
 λ-equality (`RecRulesOk`, task #58).
 
 The argument is the general fact of §6, applied.
@@ -874,8 +875,7 @@ it at actual arguments is `HasType.app`, which wants exactly
 the contract rather than obligations of the install, discharged at the
 fire site where the checker's own iota certificates supply them.
 
-*The shape to implement* (recorded so the next increment implements
-rather than redesigns).  `iotaRec` fires
+*The shape, as landed.*  `iotaRec` fires
 
 ```
 mkAppN (.const c us) (args ++ [mkAppN (.const cj usj) margs])
