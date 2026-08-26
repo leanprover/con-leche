@@ -1088,6 +1088,32 @@ analysis held:
   metatheory is `liftN_liftN`, `liftN_zero` and the two closedness
   facts.
 
+### The substitution algebra: available, and deliberately not the default
+
+`Setlec/TTVerify/{SubstAlgebra,HasTypeSubst}.lean` (landed separately)
+supply `HasType.weakenHead` (head extension *with* lifting —
+complementary to `Weaken.lean`'s lift-free `weakenTail`, not a
+duplicate), `HasType.instantiate`, and a `liftN`/`inst` commutation kit
+over the smart constructors.  19 substantive lemmas.
+
+**They are the fallback for the residue, not the default**, and the
+policy is worth restating here because it is easy to erode: the
+*object-level* route — `lam`, then `app` at the closed arguments so the
+rule's own `B.inst a` does the instantiation **in the type**, then two
+`symm`s for the inert `prf` subject (§5) — is preferred wherever it
+works.  Two increments have avoided needing the algebra by taking it
+(the `Nat` recipe; the `Deq`-at-numerals move), and a hammer reached
+for first would undo that.  *Using `instantiate` where the object-level
+route would have worked is worth noticing rather than shipping.*
+
+**A finding from that work, which corrects an estimate I would
+otherwise have repeated**: rules embedding inner lifts (`natStepT`,
+`quotInvT`, `arrow`, `relT`, `eta`, `funext`) force the full
+commutation kit **already for weakening** — weakening-with-lifting is
+not the cheap half it looks like.  So do not price "just weakening" as
+a small ask; that was exactly the miscalculation available at §10.2,
+where the workaround's cost was the argument for the rule change.
+
 ### The accounting: four, not 123 — and why it is four
 
 `Setlec/TT/DESIGN.md` §6 makes this accounting for the *layer*:
@@ -1100,6 +1126,12 @@ The bridge cannot get to two: it has real de Bruijn bookkeeping, since
 `denote` must turn `fvar` levels into indices.  It gets to **four** —
 `liftN_liftN`, `liftN_zero`, and the two closedness facts of
 `Setlec/TTVerify/VClosed.lean`.
+
+(The 19 lemmas of the substitution algebra are *not* a refutation of
+this count: they exist for `HasType`-level weakening and substitution,
+which the structural `denote` never needed, and they are a fallback the
+clauses have so far not used.  The count to watch is still the one
+above — if a `denote` clause starts computing, it rises.)
 
 **The number is small for a reason, and the reason matters more than
 the number**: `denote` is structural (§2).  A `denote` that performs a
