@@ -406,6 +406,47 @@ that every consumer of an unproved step is visible in the source:
 separate because the declaration checker and the core knot are separate
 inductions on the set-model side too.
 
+### `CheckStepTT`, quarter by quarter (current)
+
+| quarter | status |
+| --- | --- |
+| `WhnfClaimsTT` | **closed** |
+| `InferClaimsTT` | **closed** |
+| `WhnfCoreClaimsTT` | closed modulo three chain links (`litMajorToCtor`, `majorToCtor`, `projLitToCtor`) |
+| `DefEqClaimsTT` | closed modulo `StructEtaCertStepTT` (mechanical) and `PairEtaCertStepTT` (**blocked, §13**) |
+
+Discharged inside `DefEqClaimsTT`: `defeqStep_claim`, `defeqLoop_claim`,
+`ProofIrrelStepTT`, `DefEqSpineStepTT`, `DefEqStuckStepTT` (all
+seventeen clauses of the stuck block), `EtaCertStepTT`,
+`StructUnitCertStepTT`, and `StuckIrrelStepTT` modulo the two eta
+certificates.
+
+Two definitions changed while closing the stuck block, both §12.10
+again and both recorded at their definition:
+
+* **`CtxOk` carries a typing, not an identity** (`Claims.lean`).  The
+  model's `FvarsOk` says the variable *inhabits* its annotation; the
+  first transposition wrote that as an identity of denotations, which
+  no single `Δ` can satisfy for both sides of a binder congruence,
+  because the checker opens each body with **its own** annotation and
+  the two are only definitionally equal.  Worth noting as a
+  *deviation from the reference kernels*: the official kernel's
+  `is_def_eq_lambda`/`is_def_eq_pi` push **one** local (the first
+  side's domain) for both bodies, ours pushes two.  Aligning the
+  checker would have made the identity form work; the bridge fixed
+  itself instead, which is the cheaper and more honest direction, but
+  the deviation is a finding either way.
+* **`BasisPinnedTT` regains the pinned *declaration*** (`EnvTT.lean`),
+  dropped as "syntactic, no consumer".  The consumer is
+  `ProofIrrelStepTT`'s unit-like branch: `isUnitLikeTy` accepts any
+  reserved single-rule zero-field index-free recursor, and identifying
+  that family as `PUnit` — the family `HasType.punitEta` is stated at —
+  is exactly reading the other four reserved recursors' pinned shapes.
+
+And one claim was under-hypothesised: `DefEqStuckStepTT` needed the two
+`reduceNat`-produced-`none` facts, which its call site had and its
+statement did not (§8.5 once more).
+
 Note where the set theory enters: **nowhere in `EnvTT`**.  The
 invariant is purely derivation-level; a `SetTheory V` instance is
 needed only at `no_constant_of_Empty_TT`, where the layer's own
@@ -2689,9 +2730,137 @@ its consumers do.
 **And the discipline discriminates rather than merely conserves**,
 which is the part that makes it worth having: of the four clauses
 dropped, the three false savings all came back — one at a time, each
-found by an assembly that could not close — while the one genuine
-saving (`AnnotOk`, which has no counterpart in a syntactic layer)
-stayed dropped and still is.  A rule that told you to keep everything
-would have been right three times out of four by accident; this one is
-right four times out of four, because it tests each clause against a
-*consumer* instead of against a *policy*.
+found by an assembly that could not close.
+
+**Correction (§13): the fourth came back too.**  `AnnotOk` was recorded
+here as the one genuine saving, "no counterpart in a syntactic layer".
+That is right about its *binder* clause and wrong about its
+*application* clause, and `pairEtaCert` is the assembly that could not
+close.  So the score is four out of four, not three: **every clause
+dropped on a policy argument was eventually needed.**  The rule still
+discriminates — it just discriminates by making you write the consumer,
+and the consumer for this one was two hundred lemmas downstream.
+
+## 13. BLOCKED: `pairEtaCert` does not certify its own type arguments
+
+The one obligation of `CheckStepTT` that cannot be discharged as the
+checker and the layer now stand.  Everything below is the full stack,
+because the conclusion is a request for a decision, not a report of a
+missing lemma.
+
+### The obligation
+
+`stuckIrrel`'s first two links are `pairEtaCert a b` and
+`pairEtaCert b a`, so `StuckIrrelStepTT` owes
+
+```
+pairEtaCertP env fuel d a b = .ok true  →  Deq Δ ⟦a⟧ ⟦b⟧
+```
+
+with `a = C pα pβ s₁ s₂` a fully applied pair constructor and `b` stuck.
+`pairEtaCert_inv` gives: `b`'s inferred type whnfs to
+`PSigma'.{us'} A B`; `Level.isEquivList us us'`; and four verdicts —
+`defeq pα A`, `defeq pβ B`, `defeq s₁ (b.1)`, `defeq s₂ (b.2)`.
+
+Congruence turns the four into
+`Deq Δ ⟦a⟧ (psigmaMkT u v ⟦A⟧ ⟦B⟧ (pfstT ⟦b⟧) (psndT ⟦b⟧))`, premise-free
+(`congrApp` asks for nothing).  What remains is exactly the layer's
+structure-η:
+
+```
+| psigmaEta {Γ u v A B p} :
+    HasType Γ A (.sort u) →
+    HasType Γ B (arrow A (.sort v)) →
+    HasType Γ p (psigmaT u v A B) →
+    HasType Γ .prf (.eqE (psigmaT u v A B) p (psigmaMkT u v A B (pfstT p) (psndT p)))
+```
+
+The third premise is available (`InferClaimsTT` at `b`, then
+`WhnfClaimsTT` at its type, then `Deq.conv`).  **The first two are
+not, and nothing in the checker's run establishes them.**
+
+### Why the premises cannot simply be dropped
+
+They are not decoration.  `psigmaEta_law` (`Setlec/TT/Semantics/Value.lean`)
+consumes `hA : A ∈ˢ univ u` and `hB : B ∈ˢ piC A fun _ => univ v` twice
+over — once to fold `interp_psigmaT` through `psigmaV_app`, once inside
+`psigmaMkV_app` — so §2.4's test ("a premise soundness never consumes")
+does **not** condemn them.  This is *not* another §10.2: the rule is
+correctly constrained; the certificate is under-specified.
+
+### Why the set-model path does not have this problem
+
+`pairEta_sound` (`Setlec/Model/Core/PairEta.lean`) gets the two
+memberships from **`AnnotOk` of the whnf'd type of `b`**:
+
+```
+obtain ⟨haCA, haB, vf₁, vB, A₁, B₁, hf₁i, hBi, hpi₁, hvB₁⟩ := haPi
+```
+
+`AnnotOk`'s *application* clause carries "the argument is a member of
+the function's domain" at every application node.  Applied twice to
+`PSigma'.{us'} A B` it yields `vA ∈ˢ univ (ψ u)` and
+`vB ∈ˢ pi … vA …` — precisely `psigmaEta`'s two premises.
+
+The bridge dropped `AnnotOk` from all four claim families on the
+argument (§ "The four claims") that *a derivation supplies at each
+binder what `AnnotOk` was reconstructing*.  That argument is sound for
+the **binder** clause and unsound for the **application** clause:
+`HasType.app` fixes the argument's type to the domain of the function
+type *used in that application*, and a derivation of the whole
+application (which is all `InferClaimsTT` returns for the type `tb`)
+existentially quantifies that domain away.  This is the same structural
+fact as §6's "why the certificates are structural", read in the other
+direction: **because the layer will not let you descend into an
+application's derivation, the facts about the arguments have to be
+*certified where they are used*, and `pairEtaCert` is the one place in
+the checker that uses them without certifying them.**
+
+### The certificate is the odd one out
+
+Every sibling in the same chain already certifies its type arguments:
+
+| certificate | what it certifies about its type arguments |
+| --- | --- |
+| `structUnitCert` | `iotaCerts` on the family's parameter telescope |
+| `structEtaCertWith` | `iotaCerts` on the family's telescope, plus `structEtaProjCerts` |
+| `.proj` (`inferBody`) | `projParamCert` — landed as task #129 for exactly this reason |
+| `pairEtaCert` | **nothing** — two bare `defeq`s against `A` and `B` |
+
+So this is not a general weakness of the certificate discipline; it is
+one function that was written before the discipline was settled and
+that the set model happened to cover from a different direction.
+
+### The three ways out, and the recommendation
+
+**(A) Certify the pair's telescope in `pairEtaCert` — recommended.**
+The pair *is* the native projection entry, and `projParamCert` is the
+certificate already written for it: `projEntry_tele_premises`
+(`Setlec/TTVerify/ProjStep.lean`, proved) turns a successful
+`projParamCert entry us [A, B]` into
+`HasType Δ VA (.sort u)` and `HasType Δ VB (arrow VA (.sort v))` —
+`psigmaEta`'s two premises, verbatim, with the bridge-side lemma
+already in hand.  Cost: one extra certificate call on a two-element
+telescope, in a function that already runs four `defeq`s.  Risk:
+strictly conservative — extra checks can only turn accepts into
+rejects, so the exposure is measurable by re-running the arena and the
+e2e battery.  This is a **kernel change** and therefore not the
+bridge's to make.
+
+**(B) Reintroduce an `AnnotOk` analogue in the claims.**  A
+typing-valued "annotation truthfulness" threaded through
+`WhnfClaimsTT` and produced by `InferClaimsTT`.  This is the faithful
+transpose of what the model does, it would close the obligation with
+no kernel change — and it is a large, invasive change to all four claim
+families that buys exactly one clause.  It also re-imports the cost the
+bridge was designed to avoid.
+
+**(C) Leave `pairEtaCert` uncertified and carry the obligation.**
+Honest but bad: it leaves `CheckStepTT` permanently modulo a named
+`Prop`, and the `Prop` is not obviously true — its truth is a
+canonicity-strength statement about the layer, not a lemma.
+
+Recommendation: **(A)**, with the `projParamCert` spelling rather than
+a fresh `iotaCerts` call, because the conversion lemma already exists
+and because it makes the pair's two certificates (projection and η)
+consume the same evidence.
