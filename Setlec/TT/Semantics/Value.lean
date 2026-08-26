@@ -72,18 +72,6 @@ noncomputable def psigmaMkV (u v : Nat) : V :=
         lamC (app B a) fun b =>
           if Nat.max u v = 0 then pt else spair a b
 
-/-- `PSigma'.fst.{u,v}`. -/
-noncomputable def psigmaFstV (u v : Nat) : V :=
-  lamC (univ u) fun A =>
-    lamC (piC A fun _ => univ v) fun B =>
-      lamC (sigmaSet (Nat.max u v) A fun x => app B x) sfst
-
-/-- `PSigma'.snd.{u,v}`. -/
-noncomputable def psigmaSndV (u v : Nat) : V :=
-  lamC (univ u) fun A =>
-    lamC (piC A fun _ => univ v) fun B =>
-      lamC (sigmaSet (Nat.max u v) A fun x => app B x) ssnd
-
 /-- `Quot.{u}`. -/
 noncomputable def quotV (u : Nat) : V :=
   lamC (univ u) fun A => lamC (relSpace V A) fun R => quotSet u A R
@@ -162,38 +150,54 @@ theorem psigmaMkV_mem {u v : Nat} {A B a b : V} (hA : A ∈ˢ (univ u : V))
   · next h => rw [h]; exact pt_mem_sigma ha hb
   · next h => exact spair_mem h ha hb
 
-theorem psigmaFstV_app {u v : Nat} {A B p : V} (hA : A ∈ˢ (univ u : V))
-    (hB : B ∈ˢ piC A fun _ => univ v)
-    (hp : p ∈ˢ sigmaSet (Nat.max u v) A fun x => app B x) :
-    app (app (app (psigmaFstV V u v) A) B) p = sfst p := by
-  rw [psigmaFstV, app_lamC hA, app_lamC hB, app_lamC hp]
+/-! ### The projections
 
-theorem psigmaSndV_app {u v : Nat} {A B p : V} (hA : A ∈ˢ (univ u : V))
+`sfst`/`ssnd` are what the `proj` former interprets to — literally the
+checker-side `interpExpr`'s clause.  The two membership lemmas are what
+the former's *typing* rules need, and they are exactly the facts the
+premise `p ∈ˢ sigmaSet …` supplies (compare the set model, where the
+`AnnotOk` proj clause has to carry them). -/
+
+/-- The first field of a pair is in the domain. -/
+theorem sfst_mem {u v : Nat} {A B p : V} (hA : A ∈ˢ (univ u : V))
+    (hp : p ∈ˢ sigmaSet (Nat.max u v) A fun x => app B x) : sfst p ∈ˢ A := by
+  obtain ⟨a, b, ha, hb, h0, hne⟩ := mem_sigma_elim hp
+  by_cases hw : Nat.max u v = 0
+  · rw [h0 hw, sfst_pt]
+    exact (mem_univ_zero ((psigma_zero_levels hw).1 ▸ hA) ha) ▸ ha
+  · rw [hne hw, sfst_spair]; exact ha
+
+/-- The second field lands in the fibre over the first. -/
+theorem ssnd_mem {u v : Nat} {A B p : V} (hA : A ∈ˢ (univ u : V))
     (hB : B ∈ˢ piC A fun _ => univ v)
     (hp : p ∈ˢ sigmaSet (Nat.max u v) A fun x => app B x) :
-    app (app (app (psigmaSndV V u v) A) B) p = ssnd p := by
-  rw [psigmaSndV, app_lamC hA, app_lamC hB, app_lamC hp]
+    ssnd p ∈ˢ app B (sfst p) := by
+  obtain ⟨a, b, ha, hb, h0, hne⟩ := mem_sigma_elim hp
+  by_cases hw : Nat.max u v = 0
+  · obtain ⟨hu, hv⟩ := psigma_zero_levels hw
+    have hapt : a = pt := mem_univ_zero (hu ▸ hA) ha
+    have hBa : app B a ∈ˢ (univ 0 : V) := hv ▸ app_mem_piC hB ha
+    have hbpt : b = pt := mem_univ_zero hBa hb
+    rw [h0 hw, ssnd_pt, sfst_pt, show app B pt = app B a by rw [hapt]]
+    exact hbpt ▸ hb
+  · rw [hne hw, ssnd_spair, sfst_spair]; exact hb
 
 /-! ### The `PSigma'` computation laws -/
 
-theorem psigmaFst_mk {u v : Nat} {A B a b : V} (hA : A ∈ˢ (univ u : V))
+theorem sfst_mk {u v : Nat} {A B a b : V} (hA : A ∈ˢ (univ u : V))
     (hB : B ∈ˢ piC A fun _ => univ v) (ha : a ∈ˢ A) (hb : b ∈ˢ app B a) :
-    app (app (app (psigmaFstV V u v) A) B)
-      (app (app (app (app (psigmaMkV V u v) A) B) a) b) = a := by
-  rw [psigmaFstV_app V hA hB (psigmaMkV_mem V hA hB ha hb),
-    psigmaMkV_app V hA hB ha hb]
+    sfst (app (app (app (app (psigmaMkV V u v) A) B) a) b) = a := by
+  rw [psigmaMkV_app V hA hB ha hb]
   split
   · next h =>
     rw [sfst_pt]
     exact (mem_univ_zero ((psigma_zero_levels h).1 ▸ hA) ha).symm
   · next _ => exact sfst_spair a b
 
-theorem psigmaSnd_mk {u v : Nat} {A B a b : V} (hA : A ∈ˢ (univ u : V))
+theorem ssnd_mk {u v : Nat} {A B a b : V} (hA : A ∈ˢ (univ u : V))
     (hB : B ∈ˢ piC A fun _ => univ v) (ha : a ∈ˢ A) (hb : b ∈ˢ app B a) :
-    app (app (app (psigmaSndV V u v) A) B)
-      (app (app (app (app (psigmaMkV V u v) A) B) a) b) = b := by
-  rw [psigmaSndV_app V hA hB (psigmaMkV_mem V hA hB ha hb),
-    psigmaMkV_app V hA hB ha hb]
+    ssnd (app (app (app (app (psigmaMkV V u v) A) B) a) b) = b := by
+  rw [psigmaMkV_app V hA hB ha hb]
   split
   · next h =>
     rw [ssnd_pt]
@@ -288,8 +292,6 @@ noncomputable def bval : BConst → List Nat → V
   | .punitRec, us => punitRecV V (lv us 1)
   | .psigma, us => psigmaV V (lv us 0) (lv us 1)
   | .psigmaMk, us => psigmaMkV V (lv us 0) (lv us 1)
-  | .psigmaFst, us => psigmaFstV V (lv us 0) (lv us 1)
-  | .psigmaSnd, us => psigmaSndV V (lv us 0) (lv us 1)
   | .empty, _ => empty
   | .emptyRec, _ => pt
   | .quot, us => quotV V (lv us 0)

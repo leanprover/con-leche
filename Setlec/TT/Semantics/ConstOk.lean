@@ -132,50 +132,6 @@ theorem bval_mem_psigmaMk (us : List Nat) (ρ : Nat → V) :
   · next h => rw [h]; exact pt_mem_sigma ha hb
   · next h => exact spair_mem h ha hb
 
-theorem bval_mem_psigmaFst (us : List Nat) (ρ : Nat → V) :
-    bval V .psigmaFst us ∈ˢ interp V ρ (BConst.type .psigmaFst us) := by
-  show psigmaFstV V (lv us 0) (lv us 1) ∈ˢ
-    piC (univ (lv us 0) : V) fun A =>
-      piC (piC A fun _ => univ (lv us 1)) fun B =>
-        piC (app (app (psigmaV V (lv us 0) (lv us 1)) A) B) fun _ => A
-  rw [psigmaFstV]
-  refine lamC_mem fun A hA => lamC_mem fun B hB => ?_
-  rw [psigmaV_app V hA hB]
-  refine lamC_mem fun p hp => ?_
-  obtain ⟨a, b, ha, hb, h0, hne⟩ := mem_sigma_elim hp
-  by_cases hw : Nat.max (lv us 0) (lv us 1) = 0
-  · rw [h0 hw, sfst_pt]
-    have hu := (psigma_zero_levels hw).1
-    have : a = pt := mem_univ_zero (hu ▸ hA) ha
-    exact this ▸ ha
-  · rw [hne hw, sfst_spair]
-    exact ha
-
-theorem bval_mem_psigmaSnd (us : List Nat) (ρ : Nat → V) :
-    bval V .psigmaSnd us ∈ˢ interp V ρ (BConst.type .psigmaSnd us) := by
-  show psigmaSndV V (lv us 0) (lv us 1) ∈ˢ
-    piC (univ (lv us 0) : V) fun A =>
-      piC (piC A fun _ => univ (lv us 1)) fun B =>
-        piC (app (app (psigmaV V (lv us 0) (lv us 1)) A) B) fun p =>
-          app B (app (app (app (psigmaFstV V (lv us 0) (lv us 1)) A) B) p)
-  rw [psigmaSndV]
-  refine lamC_mem fun A hA => lamC_mem fun B hB => ?_
-  rw [psigmaV_app V hA hB]
-  refine lamC_mem fun p hp => ?_
-  rw [psigmaFstV_app V hA hB hp]
-  obtain ⟨a, b, ha, hb, h0, hne⟩ := mem_sigma_elim hp
-  by_cases hw : Nat.max (lv us 0) (lv us 1) = 0
-  · obtain ⟨hu, hv⟩ := psigma_zero_levels hw
-    have hapt : a = pt := mem_univ_zero (hu ▸ hA) ha
-    have hBa : app B a ∈ˢ (univ 0 : V) := hv ▸ app_mem_piC hB ha
-    have hbpt : b = pt := mem_univ_zero hBa hb
-    rw [h0 hw, ssnd_pt, sfst_pt]
-    have hBeq : app B pt = app B a := by rw [hapt]
-    rw [hBeq]
-    exact hbpt ▸ hb
-  · rw [hne hw, ssnd_spair, sfst_spair]
-    exact hb
-
 /-! ## `Quot` -/
 
 theorem bval_mem_quot (us : List Nat) (ρ : Nat → V) :
@@ -298,8 +254,6 @@ theorem bval_mem_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
   | punitRec => exact bval_mem_punitRec V us ρ
   | psigma => exact bval_mem_psigma V us ρ
   | psigmaMk => exact bval_mem_psigmaMk V us ρ
-  | psigmaFst => exact bval_mem_psigmaFst V us ρ
-  | psigmaSnd => exact bval_mem_psigmaSnd V us ρ
   | empty => exact bval_mem_empty V us ρ
   | emptyRec => exact bval_mem_emptyRec V us ρ
   | quot => exact bval_mem_quot V us ρ

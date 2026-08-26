@@ -113,6 +113,14 @@ inductive HasType : List VExpr → VExpr → VExpr → Prop where
   | congrPi {Γ T T' T'' A A' B B' p q} : HasType Γ p (.eqE T A A') →
       HasType (A :: Γ) q (.eqE T' B B') →
       HasType Γ .prf (.eqE T'' (.pi A B) (.pi A' B'))
+  /-- Congruence for the projection former.  **Not derivable** from the
+  other congruences: `proj` is not an application, so `congrApp` does
+  not reach it, and the only elimination over an equation is `conv`,
+  which changes types rather than terms.  The checker compares
+  `p.i ≡ q.i` whenever it compares the subjects, so the rule is needed
+  — found the same way `congrEq` was, by trying to do without it. -/
+  | congrProj {Γ T T' i a b p} : HasType Γ p (.eqE T a b) →
+      HasType Γ .prf (.eqE T' (.proj i a) (.proj i b))
   /-- Congruence for the equality former itself.  Without it the layer
   could not retype an equality proof along an equation between its own
   sides, and `Eq.rec` would *not* be derivable (see
@@ -175,16 +183,32 @@ inductive HasType : List VExpr → VExpr → VExpr → Prop where
   | punitEta {Γ u x y} :
       HasType Γ x (punitT u) → HasType Γ y (punitT u) →
       HasType Γ .prf (.eqE (punitT u) x y)
+  /-- **Projection typing, first field.**  Note what the premises do:
+  `proj` carries only the index and the subject — exactly what the
+  checker's `.proj` node carries — so `A` and `B` are read off the
+  subject's type here rather than out of the term.  That is the same
+  move the `app` rule makes, and it pays the same way: soundness gets
+  `⟦p⟧ ∈ˢ sigmaSet …` for free, which is the package the set model's
+  `AnnotOk` proj clause has to establish and re-consume by hand. -/
+  | projFst {Γ u v A B p} :
+      HasType Γ A (.sort u) → HasType Γ B (arrow A (.sort v)) →
+      HasType Γ p (psigmaT u v A B) →
+      HasType Γ (pfstT p) A
+  /-- Projection typing, second field: dependent on the first. -/
+  | projSnd {Γ u v A B p} :
+      HasType Γ A (.sort u) → HasType Γ B (arrow A (.sort v)) →
+      HasType Γ p (psigmaT u v A B) →
+      HasType Γ (psndT p) (.app B (pfstT p))
   /-- Projection computation, first component. -/
-  | psigmaFstMk {Γ T u v A B a b} :
+  | projFstMk {Γ T u v A B a b} :
       HasType Γ A (.sort u) → HasType Γ B (arrow A (.sort v)) →
       HasType Γ a A → HasType Γ b (.app B a) →
-      HasType Γ .prf (.eqE T (psigmaFstT u v A B (psigmaMkT u v A B a b)) a)
+      HasType Γ .prf (.eqE T (pfstT (psigmaMkT u v A B a b)) a)
   /-- Projection computation, second component. -/
-  | psigmaSndMk {Γ T u v A B a b} :
+  | projSndMk {Γ T u v A B a b} :
       HasType Γ A (.sort u) → HasType Γ B (arrow A (.sort v)) →
       HasType Γ a A → HasType Γ b (.app B a) →
-      HasType Γ .prf (.eqE T (psigmaSndT u v A B (psigmaMkT u v A B a b)) b)
+      HasType Γ .prf (.eqE T (psndT (psigmaMkT u v A B a b)) b)
   /-- **Structure η** for the basis pair.  Every modeled structure's
   η law reduces to this one after the model is unfolded.  (The
   checker's own `PSigma'` is deliberately η-*inert*; the layer is
@@ -193,7 +217,7 @@ inductive HasType : List VExpr → VExpr → VExpr → Prop where
       HasType Γ A (.sort u) → HasType Γ B (arrow A (.sort v)) →
       HasType Γ p (psigmaT u v A B) →
       HasType Γ .prf (.eqE (psigmaT u v A B) p
-        (psigmaMkT u v A B (psigmaFstT u v A B p) (psigmaSndT u v A B p)))
+        (psigmaMkT u v A B (pfstT p) (psndT p)))
   /-- Quotient computation. -/
   | quotLiftMk {Γ T u v A r B f h a} :
       HasType Γ A (.sort u) → HasType Γ r (relT A) →

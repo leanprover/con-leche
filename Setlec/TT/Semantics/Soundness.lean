@@ -116,6 +116,11 @@ theorem HasType.sound {Γ : List VExpr} {e A : VExpr} (h : HasType Γ e A) :
       fun x hx => mem_eqv (ihq (cons V x ρ) (Sat_cons V hρ hx))
     rw [← hA, piC_congr hbb]
     exact pt_mem_eqv_self _
+  | congrProj _ ihp =>
+    intro ρ hρ
+    simp only [interp_prf, interp_eqE, interp_proj]
+    rw [mem_eqv (ihp ρ hρ)]
+    exact pt_mem_eqv_self _
   | congrEq _ _ ihp ihq =>
     intro ρ hρ
     simp only [interp_prf, interp_eqE]
@@ -190,21 +195,40 @@ theorem HasType.sound {Γ : List VExpr} {e A : VExpr} (h : HasType Γ e A) :
     simp only [interp_prf, interp_eqE]
     rw [mem_unitSet (ihx ρ hρ), mem_unitSet (ihy ρ hρ)]
     exact pt_mem_eqv_self _
-  | psigmaFstMk _ _ _ _ ihA ihB iha ihb =>
+  | projFst _ _ _ ihA ihB ihp =>
+    -- the premise *is* the `⟦p⟧ ∈ˢ sigmaSet …` package
+    intro ρ hρ
+    have hBm := ihB ρ hρ
+    simp only [interp_arrow, interp_sort] at hBm
+    have hAm := ihA ρ hρ
+    have hpm := ihp ρ hρ
+    rw [interp_psigmaT, psigmaV_app V hAm hBm] at hpm
+    rw [interp_pfstT]
+    exact sfst_mem V hAm hpm
+  | projSnd _ _ _ ihA ihB ihp =>
+    intro ρ hρ
+    have hBm := ihB ρ hρ
+    simp only [interp_arrow, interp_sort] at hBm
+    have hAm := ihA ρ hρ
+    have hpm := ihp ρ hρ
+    rw [interp_psigmaT, psigmaV_app V hAm hBm] at hpm
+    rw [interp_psndT, interp_app, interp_pfstT]
+    exact ssnd_mem V hAm hBm hpm
+  | projFstMk _ _ _ _ ihA ihB iha ihb =>
     intro ρ hρ
     simp only [interp_prf, interp_eqE]
     have hBm := ihB ρ hρ
     simp only [interp_arrow, interp_sort] at hBm
-    rw [interp_psigmaFstT, interp_psigmaMkT,
-      psigmaFst_mk V (ihA ρ hρ) hBm (iha ρ hρ) (ihb ρ hρ)]
+    rw [interp_pfstT, interp_psigmaMkT,
+      sfst_mk V (ihA ρ hρ) hBm (iha ρ hρ) (ihb ρ hρ)]
     exact pt_mem_eqv_self _
-  | psigmaSndMk _ _ _ _ ihA ihB iha ihb =>
+  | projSndMk _ _ _ _ ihA ihB iha ihb =>
     intro ρ hρ
     simp only [interp_prf, interp_eqE]
     have hBm := ihB ρ hρ
     simp only [interp_arrow, interp_sort] at hBm
-    rw [interp_psigmaSndT, interp_psigmaMkT,
-      psigmaSnd_mk V (ihA ρ hρ) hBm (iha ρ hρ) (ihb ρ hρ)]
+    rw [interp_psndT, interp_psigmaMkT,
+      ssnd_mk V (ihA ρ hρ) hBm (iha ρ hρ) (ihb ρ hρ)]
     exact pt_mem_eqv_self _
   | psigmaEta _ _ _ ihA ihB ihp =>
     intro ρ hρ
@@ -214,8 +238,7 @@ theorem HasType.sound {Γ : List VExpr} {e A : VExpr} (h : HasType Γ e A) :
     have hAm := ihA ρ hρ
     have hpm := ihp ρ hρ
     rw [interp_psigmaT, psigmaV_app V hAm hBm] at hpm
-    rw [interp_psigmaMkT, interp_psigmaFstT, interp_psigmaSndT,
-      psigmaFstV_app V hAm hBm hpm, psigmaSndV_app V hAm hBm hpm,
+    rw [interp_psigmaMkT, interp_pfstT, interp_psndT,
       psigmaEta_law V hAm hBm hpm]
     exact pt_mem_eqv_self _
   | quotLiftMk _ _ _ _ _ _ ihA ihr ihB ihf ihh iha =>
