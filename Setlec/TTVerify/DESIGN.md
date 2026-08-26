@@ -465,7 +465,7 @@ motivated.
 | beta re-check | yes | **no** | *established* (`propext` refutes the alternative) |
 | iota telescope certifications (`iotaCerts`) | yes | **no** | **prediction** |
 | structure-eta / unit-like telescope certifications | yes | **no** | **prediction** (pre-registered below) |
-| `projCert` | yes — measured free anyway | **no**, *partly* | **prediction, split, four branches** (pre-registered below) |
+| `projCert` | yes — measured free anyway | **no** — and it supplies *none* of the rule's premises | **resolved: branch A** (below) |
 | plain-rule parameter comparison | no — cheap, short-circuits reduction | no | needed by both, for *different* reasons |
 | canonical-index `defEqList` | no — ditto | no | needed by both, for *different* reasons |
 
@@ -608,43 +608,69 @@ set model carries exactly that invariant into reduction —
 `.proj` conjunct is the `sigmaSet` membership.  `WhnfCoreClaimsTT`
 carries nothing.
 
-#### Is D's fact semantic or syntactic?  Semantic — and it is F1 again
+#### RESOLVED: branch A, and the missing fact is a certificate the clause does not run
 
-A reviewer suggested the needed fact might be purely syntactic —
-`sn = head (whnf (infer p))`, an `Expr`-level side condition of the
-same class as `WScoped`, which the claims already carry and the
-checker's guards already establish.  That would make D far less
-uncomfortable: one more side condition, and "`AnnotOk` disappears"
-still true in the sense that matters.
+**RETRACTION.**  The previous revision of this subsection concluded
+that D's fact is *semantic* and that the obstruction is F1 at a third
+site: "the clause reduces `e' = whnf p` and needs premises about `e'`'s
+components, and moving a typing from `p` to `e'` across `Deq` is
+exactly the schema F1 refutes".  **That is wrong.**  It assumed the
+only source of a typing for `e'` is transport from `p`.  It is not:
 
-**Analysed, and it does not come out that way.**  Trace what each
-would give.
+> **`projCert` infers `e'` itself** —
+> `projCert r env depth e' i …` at the call site, and inside,
+> `let te ← r.infer depth e₂` with `e₂ = e'`.
 
-* The *syntactic* condition, plus `InferClaimsTT` and the whnf claim
-  on the type, yields `⊢ ⟦p⟧ : psigmaT …` — a typing of the
-  **subject as written**.
-* The clause, however, reduces `e' = whnf p` and needs
-  `projFstMk`'s premises about **`e'`'s own components**.  Moving the
-  typing from `p` to `e'` across `Deq Δ ⟦p⟧ ⟦e'⟧` is *exactly the
-  schema F1 refutes*.
-* The set model has no such problem, and the reason is precise:
-  `interp e' = interp e` is **value identity**, so the `sigmaSet`
-  membership carries over for nothing.  Equations in this layer carry
-  no typing; interpretations carry everything.
+So `InferClaimsTT` yields `HasType Δ ⟦e'⟧ ⟦te⟧` *directly*, about the
+reduct.  No transport, no `Deq`, **F1 never enters**.  The error was
+not following an observation I had already made and filed as an aside
+("neither the clause nor `projCert` checks that `e'`'s inferred type is
+pair-headed") to its conclusion.
 
-So the fact D needs is **semantic**, it is not obtainable from a side
-condition, and the obstruction is the headline fact of §6 at a *third*
-site — after subject reduction and the infer-only route.  Note also
-that neither `whnfCoreBody`'s `.proj` clause nor `projCert` ever checks
-that `e'`'s inferred type is *pair-headed*: `projCert` compares only
-its **sort** to `structSort`.
+**And a correction to the pre-registration, against my own favour.**
+It predicted `projCert` would discharge `projFstMk`'s *sorting*
+premises.  On a closer read it discharges **none of the four**:
+`projCert` checks the sort of the **field's type** and of the
+**subject's type**, never the sorts of the *parameters* `A` and `B`;
+and its `⊢ ⟦arg⟧ : ⟦ta⟧` is the field at its *inferred* type, not at
+`A` or at `.app B a`.
 
-*This is analysis, not proof.*  It predicts that the `.proj` clause is
-where certificate-only claims fail, and that the repair lives at the
-claim level (a reduct typing) rather than at the side-condition level.
-The proof attempt settles it, and the enumeration above stays open
-until then — including the possibility that this analysis is wrong,
-which would be the most interesting outcome of the four.
+*What is actually missing.*  For the pinned pair, `projFstMk`/
+`projSndMk` want, with `⟦e'⟧ = psigmaMkT u v A B a b`:
+
+```
+⊢ A : .sort u      ⊢ B : arrow A (.sort v)      ⊢ a : A      ⊢ b : .app B a
+```
+
+which are **exactly the four telescope domains of `PSigma'.mk`'s stored
+type** — so exactly what an `iotaCerts` on the constructor spine would
+produce, and what `certs_typed` converts to `TeleTyped` (modulo the
+pinned-basis valuation clause fixing `⟦e'⟧`'s shape).  `iotaRec`
+already makes precisely this call for its constructor telescope; the
+`.proj` clause does not.
+
+So **branch A holds**, in the careful sense and not the alarming one:
+
+> The checker **certifies less than its rule needs**, so the bridge
+> cannot reconstruct a derivation.  It is **not unsound** — nothing
+> here says the reduction is wrong, only that the checker does not
+> write down enough for a derivation to be rebuilt from it.
+
+**§6 is confirmed, not dented.**  The repair supplies the premise
+exactly where the rule fires, as an argument-typing-at-a-domain
+certificate — the kind the two-column table already predicts is
+permanent for the bridge.  Branch C is refuted (the derivation does not
+supply it); branch B is refuted (§6 stands); branch D is withdrawn (no
+claim-shape revision is needed, and no `AnnotOk` analogue).
+
+**This is the first case where the bridge tells us to change the
+checker** rather than the reverse — the bridge earning its keep as a
+design instrument, not only as a verification.
+
+*Not implemented here.*  A kernel change needs its own task, gates and
+byte-identity story, and must not ride along inside a proof branch.
+The `.proj` clause of `Setlec/TTVerify/WhnfCore.lean` stays unproved
+until it lands.
 
 Note carefully what D is **not**: it is not the threading withdrawn in
 `Setlec/TTVerify/Claims.lean`.  That withdrawal was about the
@@ -1123,16 +1149,46 @@ typecheck/reduction time.
 infers the subject to obtain it.  What makes that sound is an
 invariant the **annotate** pass establishes: its own `.proj` clause
 infers the subject, whnfs the type, and *normalises the node's `sn` to
-that type's head* (`Setlec/Kernel/Core.lean`, `annotateBody`).  The
-set model carries the invariant into reduction inside `AnnotOk`.
+that type's head* (`Setlec/Kernel/Core.lean`, `annotateBody`).
 
 So #117 must either **preserve that invariant by another route** or
 **establish it at the point of use** — i.e. have the `.proj` reduction
-itself determine the structure from the subject's type rather than
+determine the structure from the subject's own type rather than
 trusting the node.  The second is closer to what the reference kernels
-do and would also remove the bridge's dependence on it (§6, branch D),
-but it is a change to the reduction clause, not a deletion of a pass.
+do, and it composes well with the separate finding of §6 (the clause
+also needs a telescope certification of the constructor spine): both
+are checks *at the point of use*, and a redesign that adds one may as
+well add the other.
 
 Recorded as a constraint on the design, not as an observation about
-today's clause: whoever picks up #117 needs it *before* designing,
-and until now it existed only in this task's working notes.
+today's clause: whoever picks up #117 needs it *before* designing, and
+until now it existed only in this task's working notes.
+
+## 10. One change this bridge asks of the checker
+
+Collected here because it is the only one so far, and because it is a
+different *kind* of output than the rest of this document: not a
+verification result but a design request, with its own task, gates and
+byte-identity story to come.
+
+**The `.proj` clause of `whnfCoreBody` should certify the
+constructor's spine against the constructor's telescope**, exactly as
+`iotaRec` already does — an `iotaCerts` on
+`cvj.type.instantiateLevelParams cvj.levelParams us` against
+`e'.getAppArgs`.
+
+*Why.*  The reduction `proj_i (C p⃗ x⃗) ↦ x_i` is justified in the layer
+by `projFstMk`/`projSndMk`, whose premises are the four telescope
+domains of `PSigma'.mk`.  The clause currently runs `projCert`, which
+checks *levels* (the collapse guard) and supplies none of those four.
+So a derivation cannot be rebuilt from what the checker records.
+
+*What it is not.*  Not a soundness bug: nothing suggests the reduction
+is wrong.  The checker simply does not write down enough for the bridge
+to reconstruct a derivation.  Expected cost is one call on a path that
+already runs `projCert`, and `iotaCerts` on a four-element spine is
+small; but it is a kernel change and must be measured, not assumed.
+
+*Status.*  Not implemented on this branch, deliberately.  Until it
+lands, `Setlec/TTVerify/WhnfCore.lean`'s `.proj` clause stays unproved,
+and that is the honest state rather than a gap to work around.

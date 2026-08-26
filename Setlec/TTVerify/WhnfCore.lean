@@ -14,12 +14,20 @@ certificate-only claims of `Setlec/TTVerify/Claims.lean`.
 | leaves (`sort`, `fvar`, `forallE`, `lam`, `const`, `lit`) | the reduct *is* the subject; `Deq.refl` |
 | `.app` with a λ head | `denote_beta_step` (`Setlec/TTVerify/Inst.lean`) |
 | `.app` otherwise | `iotaRec`, plus `congrApp` for the head's own reduction |
-| `.proj` | the structural rule, `projCert`, `projLitToCtor` |
+| `.proj` | **blocked**: see `Setlec/TTVerify/DESIGN.md` §10 |
 | `.letE` | `HasType.zeta`, premise-free |
 
 This module holds them as they are proved.  Leaves and zeta are here;
 the rest is noted at the end of `Setlec/TTVerify/DESIGN.md` §7 with its
 scale.
+
+**The `.proj` clause is blocked, and deliberately left so.**  Its rule
+(`projFstMk`/`projSndMk`) wants the four telescope domains of
+`PSigma'.mk`, and the checker's `.proj` clause certifies none of them —
+`projCert` checks levels for the collapse guard.  The fix is a check
+*in the checker* (`DESIGN.md` §10), which needs its own task rather
+than riding along in a proof branch, so this clause waits.  That is the
+honest state, not a gap to work around.
 
 **The leaf clauses are the cheapest available evidence that
 certificate-only was the right shape.**  Threaded, each of the six
