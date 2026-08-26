@@ -55,7 +55,7 @@ the corresponding clause of the fuel induction is proved:
   no `V` and so transpose verbatim);
 * ~~`rec_rules`~~ — **done**, as `RecRulesTT` above, in the fired form
   rather than the tower one;
-* `proj_ok : ProjOk env` — syntactic, transposes verbatim;
+* ~~`proj_ok`~~ — **done**, as `ProjOkT` above, verbatim;
 * ~~`caps_ok`~~ — **done**, as `CapsOkTT` above, in the fired form;
 * `nat_ops : NatOpsOk` and `div_mod : DivModOk` — the certified
   recurrences, whose TT form is exactly the hypothesis shape of
@@ -233,6 +233,30 @@ def CapsOkTT (env : Env) (cval : TConstVal) : Prop :=
 theorem CapsOkTT.empty (cval : TConstVal) : CapsOkTT Env.empty cval := by
   refine ⟨?_, ?_⟩ <;> (intro T cvT caps h; simp [Env.find?, Env.empty] at h)
 
+/-- Every stored *native* projection-table entry is one of the two
+pinned pair entries, with the pair block stored alongside.
+
+**Purely syntactic, so it transposes verbatim** — it mentions no
+values, no interpretation and no derivations, and the `V` of
+`EnvModel`'s `ProjOk` never appears in it.  That is worth noticing
+rather than glossing: a clause that survives the transposition
+*unchanged* is one that was never about the model in the first place,
+and it is the cheapest kind of field to carry.
+
+Another deliberate duplicate of a `V`-free definition stranded in
+`Setlec/Model/Interp.lean`; see `EtaFamilyStoredT` for the relocation
+note and for why importing `Setlec/Model/*` here is the wrong fix. -/
+def ProjOkT (env : Env) : Prop :=
+  ∀ n entry, env.find? n = some (.projInfo entry) →
+    entry.native = true →
+    (entry = pairFstEntry ∨ entry = pairSndEntry) ∧
+    env.find? psigmaName = some psigmaA ∧
+    env.find? psigmaMkName = some psigmaMkA
+
+theorem ProjOkT.empty : ProjOkT Env.empty := by
+  intro n entry h
+  simp [Env.find?, Env.empty] at h
+
 /-- A *derivation model* of an environment: a type-theory term for
 every constant (a function of the level-parameter assignment), such
 that the environment is well-formed, each valuation reads only its own
@@ -312,6 +336,10 @@ structure EnvTT (env : Env) where
   in the fired form.  Transpose of `EnvModel.caps_ok`; consumed by
   `majorToCtor`'s rescue branches. -/
   caps_ok : CapsOkTT env cval
+  /-- Every stored native projection-table entry is a pinned pair
+  entry with its block stored (`ProjOkT`).  Transpose of
+  `EnvModel.proj_ok`, verbatim — the clause is syntactic. -/
+  proj_ok : ProjOkT env
 
 /-- The empty environment has a (trivial) derivation model. -/
 def EnvTT.empty : EnvTT Env.empty where
@@ -327,6 +355,7 @@ def EnvTT.empty : EnvTT Env.empty where
   empty_pinned := fun _ => ⟨0, rfl⟩
   rec_rules := RecRulesTT.empty _
   caps_ok := CapsOkTT.empty _
+  proj_ok := ProjOkT.empty
 
 /-! ## What the invariant delivers per declaration
 

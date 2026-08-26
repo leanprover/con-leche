@@ -158,7 +158,8 @@ an incidental well-formedness condition; see the row and §7:
 | `ind_ok`'s `Empty` clause | `empty_pinned` |
 | `rec_rules : RecRulesOk` (tower λ-equality) | `rec_rules : RecRulesTT` — **done**, in the *fired* form (§8) |
 | `caps_ok : CapsOk` | `caps_ok : CapsOkTT` — **done**, fired form, same argument |
-| `ind_ok`'s other clauses, `proj_ok`, `nat_ops`, `div_mod`, `reduce_ops` | stage 2; recipe in `EnvTT.lean` |
+| `proj_ok : ProjOk` | `proj_ok : ProjOkT` — **done**, *verbatim* (the clause is syntactic) |
+| `ind_ok`'s other clauses, `nat_ops`, `div_mod`, `reduce_ops` | stage 2; recipe in `EnvTT.lean` |
 
 Two rows carry the whole idea.  `mem_type` becomes a typing judgment —
 that is the only change of substance.  And `AnnotOk` **disappears**:
@@ -1271,6 +1272,15 @@ A different *kind* of output than the rest of this document: not
 verification results but design requests, each needing its own branch,
 gates and measurement.  Two so far — one to the checker, one to the
 layer.
+
+**This is a steady product of the work, not two incidents.**  Both came
+out of the same operation — *take a rule's premises; ask which call
+establishes each, at the rule's own domain* — and that operation reads
+the checker and the layer against each other.  A bridge that only
+consumed both sides would produce neither request: it is the
+*confrontation* that finds a checker certifying less than a rule needs
+(§10.1) and a rule demanding more than its soundness uses (§10.2).
+Expect more of these, and expect them to land on either side.
 
 ### 10.1 To the checker: certify the projection's constructor spine
 
