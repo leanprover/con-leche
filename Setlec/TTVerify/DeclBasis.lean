@@ -130,7 +130,16 @@ theorem cvalSet_ne {cval : TConstVal} {n c : Name}
 not about *this* constant is discharged here. -/
 theorem extendBasisTT {env : Env} (m : EnvTT env) {ci : ConstantInfo}
     {val : (Name → Nat) → VExpr}
-    (hres : reservedBasisNames.contains ci.name = true)
+    (hheadEta : ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
+      (⟨ci :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
+      caps.eta = true → reservedBasisNames.contains T = false →
+      EtaFamilyStoredT ⟨ci :: env.consts⟩ T caps →
+      (T = ci.name ∨ caps.etaCtor = ci.name ∨
+        ∃ j, j < caps.etaFields ∧ projFnName T j = ci.name) →
+      EtaLawTT ⟨ci :: env.consts⟩ (cvalSet m.cval ci.name val) T cvT caps)
+    (hheadUnit : ∀ cv caps, ci = .indInfo cv caps → caps.unitlike = true →
+      reservedBasisNames.contains ci.name = false →
+      UnitLawTT ⟨ci :: env.consts⟩ (cvalSet m.cval ci.name val) ci.name cv caps)
     (hpin : isBasisKind ci = true → ci = pinnedInfoT ci.name)
     (hdirect : ∀ (ψ : Name → Nat) (t : VExpr),
       pinnedDirectT ci.name ψ = some t → val ψ = t)
@@ -217,17 +226,8 @@ theorem extendBasisTT {env : Env} (m : EnvTT env) {ci : ConstantInfo}
     intro hn ψ
     obtain ⟨u, hu⟩ := hempty hn ψ
     exact ⟨u, by rw [← hn, cvalSet_self]; exact hu⟩
-  · -- no eta-capable family is completed by a reserved constant
-    intro T cvT caps hf hcape hresT hfam hpart
-    rcases hpart with hT | hC | ⟨j, hj, hP⟩
-    · rw [← hT] at hres; rw [hres] at hresT; exact nomatch hresT
-    · have hf1 := hfam.1
-      rw [hC, hres] at hf1
-      exact nomatch hf1
-    · exact absurd hP (projFnName_ne_reserved hres)
-  · -- no unit-like family either
-    intro cv caps heq hunit hnres
-    rw [hres] at hnres; exact nomatch hnres
+  · exact hheadEta
+  · exact hheadUnit
   · -- the pinned shape and valuation
     intro _
     exact ⟨hpin, fun ψ t hp => by rw [cvalSet_self]; exact hdirect ψ t hp⟩
@@ -285,6 +285,46 @@ the step without ever producing one. -/
     (Expr.lam n ty body bi).instantiate1 v d
       = .lam n (ty.instantiate1 v d) (body.instantiate1 v (d + 1)) bi := rfl
 
+
+/-! ### The reserved case, factored
+
+Twenty of the twenty-two pinned constants have **reserved** names, and
+for those the eta and unit-like head obligations are vacuous by
+computation on that list.  The other two are the pinned pair's
+projection functions, whose names are `Name.num` nodes and therefore
+never reserved (`projFnName_ne_reserved`) — which is why
+`extendBasisTT` takes the three head obligations as *parameters* rather
+than assuming reservedness.  These two helpers supply them for the
+twenty. -/
+
+theorem basisEtaVacuous {env : Env} (m : EnvTT env) {ci : ConstantInfo}
+    {val : (Name → Nat) → VExpr}
+    (hres : reservedBasisNames.contains ci.name = true) :
+    ∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
+      (⟨ci :: env.consts⟩ : Env).find? T = some (.indInfo cvT caps) →
+      caps.eta = true → reservedBasisNames.contains T = false →
+      EtaFamilyStoredT ⟨ci :: env.consts⟩ T caps →
+      (T = ci.name ∨ caps.etaCtor = ci.name ∨
+        ∃ j, j < caps.etaFields ∧ projFnName T j = ci.name) →
+      EtaLawTT ⟨ci :: env.consts⟩ (cvalSet m.cval ci.name val) T cvT caps := by
+  intro T cvT caps hf hcape hresT hfam hpart
+  rcases hpart with hT | hC | ⟨j, hj, hP⟩
+  · rw [← hT] at hres; rw [hres] at hresT; exact nomatch hresT
+  · have hf1 := hfam.1
+    rw [hC, hres] at hf1
+    exact nomatch hf1
+  · exact absurd hP (projFnName_ne_reserved hres)
+
+theorem basisUnitVacuous {env : Env} (m : EnvTT env) {ci : ConstantInfo}
+    {val : (Name → Nat) → VExpr}
+    (hres : reservedBasisNames.contains ci.name = true) :
+    ∀ cv caps, ci = .indInfo cv caps → caps.unitlike = true →
+      reservedBasisNames.contains ci.name = false →
+      UnitLawTT ⟨ci :: env.consts⟩ (cvalSet m.cval ci.name val) ci.name
+        cv caps := by
+  intro cv caps heq hunit hnres
+  rw [hres] at hnres; exact nomatch hnres
+
 /-! ## `Empty`
 
 The pilot block: two constants, and `Empty.rec`'s rule list is `[]`, so
@@ -297,8 +337,9 @@ theorem extendEmptyTT {env : Env} (m : EnvTT env)
     (hwf : EnvWF ⟨emptyA :: env.consts⟩) :
     ∃ m' : EnvTT ⟨emptyA :: env.consts⟩,
       m'.cval = cvalSet m.cval emptyA.name (fun _ => emptyT 1) := by
-  refine extendBasisTT m (val := fun _ => emptyT 1) (by decide) (fun _ => by
-      decide) ?_ hfresh hwf (fun _ => trivial) (fun _ _ _ => rfl) ?_
+  refine extendBasisTT m (val := fun _ => emptyT 1)
+    (basisEtaVacuous m (by decide)) (basisUnitVacuous m (by decide))
+    (fun _ => by decide) ?_ hfresh hwf (fun _ => trivial) (fun _ _ _ => rfl) ?_
     (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun _ ψ => ⟨1, rfl⟩)
     (fun _ _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
@@ -345,7 +386,8 @@ theorem extendEmptyRecTT {env : Env} (m : EnvTT env)
       List.length_nil, if_true, substFn_nil]
     rw [cvalSet_ne (show emptyName ≠ emptyRecA.name by decide), hEv]
   refine extendBasisTT m (val := fun ψ => .const .emptyRec [1, ψ uNT])
-    (by decide) (fun _ => by decide) ?_ hfresh hwf (fun _ => trivial) ?_ ?_
+    (basisEtaVacuous m (by decide)) (basisUnitVacuous m (by decide))
+    (fun _ => by decide) ?_ hfresh hwf (fun _ => trivial) ?_ ?_
     (fun _ _ _ heq => nomatch heq) (fun _ _ heq => nomatch heq)
     (fun _ heq => nomatch heq) (fun heq => nomatch heq)
     (fun _ _ _ _ heq => by
@@ -463,7 +505,7 @@ theorem extendPUnitTT {env : Env} (m : EnvTT env)
     (hwf : EnvWF ⟨punitA :: env.consts⟩) :
     ∃ m' : EnvTT ⟨punitA :: env.consts⟩,
       m'.cval = cvalSet m.cval punitA.name (fun ψ => punitT (ψ uNT)) := by
-  refine extendBasisTT m (val := fun ψ => punitT (ψ uNT)) (by decide)
+  refine extendBasisTT m (val := fun ψ => punitT (ψ uNT)) (basisEtaVacuous m (by decide)) (basisUnitVacuous m (by decide))
     (fun _ => by decide)
     (fun ψ t hp => by
       rw [show ConstantInfo.name punitA = punitName from rfl] at hp
@@ -491,7 +533,7 @@ theorem extendPUnitUnitTT {env : Env} (m : EnvTT env)
     ∃ m' : EnvTT ⟨punitUnitA :: env.consts⟩,
       m'.cval = cvalSet m.cval punitUnitA.name
         (fun ψ => punitUnitT (ψ uNT)) := by
-  refine extendBasisTT m (val := fun ψ => punitUnitT (ψ uNT)) (by decide)
+  refine extendBasisTT m (val := fun ψ => punitUnitT (ψ uNT)) (basisEtaVacuous m (by decide)) (basisUnitVacuous m (by decide))
     (fun _ => by decide)
     (fun ψ t hp => by
       rw [show ConstantInfo.name punitUnitA = punitUnitName from rfl] at hp
@@ -542,7 +584,7 @@ theorem extendPUnitRecTT {env : Env} (m : EnvTT env)
     simp +decide [pinnedDirectT]
     rfl
   refine extendBasisTT m
-    (val := fun ψ => VExpr.const .punitRec [ψ uNT, ψ u1NT]) (by decide)
+    (val := fun ψ => VExpr.const .punitRec [ψ uNT, ψ u1NT]) (basisEtaVacuous m (by decide)) (basisUnitVacuous m (by decide))
     (fun _ => by decide)
     (fun ψ t hp => by
       rw [show ConstantInfo.name punitRecA = punitName.str "rec" from rfl] at hp
@@ -1275,7 +1317,8 @@ theorem extendEqTT {env : Env} (m : EnvTT env)
     (hwf : EnvWF ⟨eqA :: env.consts⟩) :
     ∃ m' : EnvTT ⟨eqA :: env.consts⟩,
       m'.cval = cvalSet m.cval eqA.name eqValT := by
-  refine extendBasisTT m (val := eqValT) (by decide) (fun _ => by decide)
+  refine extendBasisTT m (val := eqValT) (basisEtaVacuous m (by decide)) (basisUnitVacuous m (by decide))
+    (fun _ => by decide)
     (fun ψ t hp => by
       rw [show ConstantInfo.name eqA = eqName from rfl] at hp
       simp +decide [pinnedDirectT] at hp)
@@ -1327,7 +1370,8 @@ theorem extendEqReflTT {env : Env} (m : EnvTT env)
     rw [cvalSet_ne (by decide),
       show Level.substFn φ eqA.toConstantVal.levelParams [Level.param uNT]
         = φ from substFn_param_self φ [uNT], hEv]
-  refine extendBasisTT m (val := eqReflValT) (by decide) (fun _ => by decide)
+  refine extendBasisTT m (val := eqReflValT) (basisEtaVacuous m (by decide)) (basisUnitVacuous m (by decide))
+    (fun _ => by decide)
     (fun ψ t hp => by
       rw [show ConstantInfo.name eqReflA = eqReflName from rfl] at hp
       simp +decide [pinnedDirectT] at hp)
@@ -1380,7 +1424,8 @@ theorem extendEqRecTT {env : Env} (m : EnvTT env)
     (hwf : EnvWF ⟨eqRecA :: env.consts⟩) :
     ∃ m' : EnvTT ⟨eqRecA :: env.consts⟩,
       m'.cval = cvalSet m.cval eqRecA.name eqRecValT := by
-  refine extendBasisTT m (val := eqRecValT) (by decide) (fun _ => by decide)
+  refine extendBasisTT m (val := eqRecValT) (basisEtaVacuous m (by decide)) (basisUnitVacuous m (by decide))
+    (fun _ => by decide)
     (fun ψ t hp => by
       rw [show ConstantInfo.name eqRecA = eqName.str "rec" from rfl] at hp
       simp +decide [pinnedDirectT] at hp)
@@ -1620,7 +1665,8 @@ theorem extendNatTT {env : Env} (m : EnvTT env)
     (hwf : EnvWF ⟨natA :: env.consts⟩) :
     ∃ m' : EnvTT ⟨natA :: env.consts⟩,
       m'.cval = cvalSet m.cval natA.name (fun _ => natT) := by
-  refine extendBasisTT m (val := fun _ => natT) (by decide) (fun _ => by decide)
+  refine extendBasisTT m (val := fun _ => natT) (basisEtaVacuous m (by decide)) (basisUnitVacuous m (by decide))
+    (fun _ => by decide)
     (fun ψ t hp => by
       rw [show ConstantInfo.name natA = natName from rfl] at hp
       simp +decide [pinnedDirectT] at hp
@@ -1644,7 +1690,7 @@ theorem extendNatZeroTT {env : Env} (m : EnvTT env)
     (hwf : EnvWF ⟨natZeroA :: env.consts⟩) :
     ∃ m' : EnvTT ⟨natZeroA :: env.consts⟩,
       m'.cval = cvalSet m.cval natZeroA.name (fun _ => natZeroT) := by
-  refine extendBasisTT m (val := fun _ => natZeroT) (by decide)
+  refine extendBasisTT m (val := fun _ => natZeroT) (basisEtaVacuous m (by decide)) (basisUnitVacuous m (by decide))
     (fun _ => by decide)
     (fun ψ t hp => by
       rw [show ConstantInfo.name natZeroA = natZeroName from rfl] at hp
@@ -1678,7 +1724,7 @@ theorem extendNatSuccTT {env : Env} (m : EnvTT env)
     refine denote_const_pin m (by decide) hN rfl (by decide) ?_ d
     simp +decide [pinnedDirectT]
     rfl
-  refine extendBasisTT m (val := fun _ => VExpr.const .natSucc []) (by decide)
+  refine extendBasisTT m (val := fun _ => VExpr.const .natSucc []) (basisEtaVacuous m (by decide)) (basisUnitVacuous m (by decide))
     (fun _ => by decide)
     (fun ψ t hp => by
       rw [show ConstantInfo.name natSuccA = natSuccName from rfl] at hp
@@ -1887,7 +1933,8 @@ theorem extendNatRecTT {env : Env} (m : EnvTT env)
       m'.cval = cvalSet m.cval natRecA.name
         (fun ψ => VExpr.const .natRec [ψ uNT]) := by
   refine extendBasisTT m (val := fun ψ => VExpr.const .natRec [ψ uNT])
-    (by decide) (fun _ => by decide)
+    (basisEtaVacuous m (by decide)) (basisUnitVacuous m (by decide))
+    (fun _ => by decide)
     (fun ψ t hp => by
       rw [show ConstantInfo.name natRecA = natName.str "rec" from rfl] at hp
       simp +decide [pinnedDirectT] at hp
@@ -2239,7 +2286,8 @@ theorem extendPSigmaTT {env : Env} (m : EnvTT env)
       m'.cval = cvalSet m.cval psigmaA.name
         (fun ψ => VExpr.const .psigma [ψ uNT, ψ vNT]) := by
   refine extendBasisTT m (val := fun ψ => VExpr.const .psigma [ψ uNT, ψ vNT])
-    (by decide) (fun _ => by decide)
+    (basisEtaVacuous m (by decide)) (basisUnitVacuous m (by decide))
+    (fun _ => by decide)
     (fun ψ t hp => by
       rw [show ConstantInfo.name psigmaA = psigmaName from rfl] at hp
       simp +decide [pinnedDirectT] at hp
@@ -2289,7 +2337,8 @@ theorem extendPSigmaMkTT {env : Env} (m : EnvTT env)
     simp +decide [pinnedDirectT]
   refine extendBasisTT m
     (val := fun ψ => VExpr.const .psigmaMk [ψ uNT, ψ vNT])
-    (by decide) (fun _ => by decide)
+    (basisEtaVacuous m (by decide)) (basisUnitVacuous m (by decide))
+    (fun _ => by decide)
     (fun ψ t hp => by
       rw [show ConstantInfo.name psigmaMkA = psigmaMkName from rfl] at hp
       simp +decide [pinnedDirectT] at hp

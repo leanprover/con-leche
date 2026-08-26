@@ -3690,6 +3690,22 @@ fifth cannot satisfy at all.  It was invisible for four blocks precisely
 disjointness — the vacuity hid not the clauses' shape but the
 **premise's**.
 
+**RE-SIGNED.**  `extendBasisTT` no longer takes `hres`; it takes the
+eta and unit-like head obligations as *parameters*, and
+`basisEtaVacuous` / `basisUnitVacuous` supply them from reservedness for
+the twenty constants that have it.  The `hpin`/`hdirect` pair stays,
+unconditional — for an unreserved constant both are vacuous anyway
+(`pinnedDirectT` is `none` there, and a `projInfo` is not a basis
+kind), so nothing is lost by not gating them.  Thirteen call sites, one
+helper pair each, and **no landed block's content changed**.
+
+The rejected alternative was a sibling wrapper for the two entries.  It
+would have preserved a signature we now know misdescribes the lemma:
+**a premise that is false on part of the intended domain is not a
+convenience, it is a misdescription**, and `projFnName_ne_reserved` —
+proved in the same file for another purpose — is the fact that refutes
+it.
+
 **Sharper than the flag predicted, and worth the rule.**  The flag said
 "an obligation discharged vacuously has never been consumed, so its
 shape is conjecture".  True, but incomplete: *the hypotheses a vacuous
@@ -3705,6 +3721,13 @@ clauses will have to fit: a `projInfo`'s `toConstantVal` is
 carries *its own* type, rather than borrowing the parent's, so the
 `htype` obligation reads `e.ty` and the two pinned entries are
 `native := true`.
+
+**And this is the first pre-registered flag to *fire*.**  Every earlier
+one — the constructor level question, `Nat.rec`'s recursive occurrence —
+resolved as a confirmed non-event.  A practice whose flags only ever
+confirm would be suspect by this document's own metric rule (*a metric
+that only ever succeeds measures nothing*); a firing, one level up from
+where it was aimed, is the practice validating itself.
 
 **Four of six landed** — `Empty`, `PUnit`, `Eq`, `Nat` — at ~2 230
 lines of `DeclBasis.lean` against the model's ~5 950 for the same four
