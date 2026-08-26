@@ -3904,12 +3904,22 @@ rule's right-hand side, at the same four domains the type has),
 depth-`0`-own-parameters case be a specialisation of the general form
 rather than a second proof.
 
-What remains of the block is assembly: destructure the telescope,
-hand its six typings to two `BetaSpine`s — **six β on the left against
-four on the right, meeting at the minor premise** — and chain.  The
-domains line up by construction: the tower's are the type's, because
-that is what `htype` says, and the telescope's `cons` peels exactly
-those.
+**The block is landed**, and the assembly went as predicted: the
+telescope's six typings, handed unchanged to two `BetaSpine`s — **six β
+on the left against four on the right, meeting at the minor premise** —
+and `Deq.trans`.  The domains line up by construction, so the six
+`cases` that peel `VTeleTyped` produce exactly the six arguments
+`BetaSpine.cons` wants, in order, with no adapter.
+
+One thing the assembly forced, and it is the kind of thing to expect
+again: `extendBasisTT` had to return **which valuation it installed**,
+not merely that some `EnvTT` exists.  `Nonempty` erases the witness, and
+the next constant in a block needs its predecessor's valuation — `Eq`'s
+is the first that cannot be recovered from `BasisPinnedTT`, because
+`Eq` is one of the four the layer *derives* and its `pinnedDirectT`
+entry is `none` by design.  So the conclusion is now
+`∃ m', m'.cval = cvalSet …`, and a block lemma threads the equations
+forward.
 
 **A second candidate, filed unproved.**  The reason `denote_eqRec_rhs`
 lands at *the same four domains the type has* is that **the stored rule
