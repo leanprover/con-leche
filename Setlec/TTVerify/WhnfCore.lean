@@ -1,4 +1,5 @@
 import Setlec.TTVerify.Claims
+import Setlec.TTVerify.Inst
 
 /-!
 # `whnfCore`, clause by clause
@@ -16,9 +17,15 @@ certificate-only claims of `Setlec/TTVerify/Claims.lean`.
 | `.proj` | the structural rule, `projCert`, `projLitToCtor` |
 | `.letE` | `HasType.zeta`, premise-free |
 
-This module holds them as they are proved.  The leaves are here; the
-rest is noted at the end of `Setlec/TTVerify/DESIGN.md` §7 with its
+This module holds them as they are proved.  Leaves and zeta are here;
+the rest is noted at the end of `Setlec/TTVerify/DESIGN.md` §7 with its
 scale.
+
+**The leaf clauses are the cheapest available evidence that
+certificate-only was the right shape.**  Threaded, each of the six
+would have had to carry a typing across a subject that does not move —
+pure bookkeeping, six times over, for nothing.  Here each is
+`Deq.refl`.
 -/
 
 namespace Setlec.TTVerify
@@ -81,5 +88,41 @@ theorem whnfCore_leaf_claim {cval : TConstVal} {φ : Name → Nat}
       exact h.symm
   subst he
   exact ⟨v, hv, Deq.refl⟩
+
+/-! ## The zeta clause
+
+`whnfCoreBody`'s `.letE` clause reduces to `b.instantiate1 v` and
+recurses.  On the bridge side this is where **keeping `denote`
+structural pays a second time** (`Setlec/TTVerify/DESIGN.md` §7): the
+denotation of the `let` is `VExpr.letE`, the denotation of its zeta
+reduct is that term's own `inst`, and the equation between them is
+`HasType.zeta` — *premise-free*, so this clause needs no certificate
+and no typing at all.
+
+Had `denote` computed the reduct directly, the two sides would have
+been syntactically identical and this clause trivial — but the shift
+and substitution lemmas would each have cost two commutation lemmas
+(§7), which is the trade that was made. -/
+
+/-- The zeta step: a `let` and its reduct denote to `Deq`-equal terms,
+and the reduct denotes. -/
+theorem denote_zeta_step {cval : TConstVal} {env : Env} {φ : Name → Nat}
+    (hcl : ∀ n ψ, VExpr.Closed (cval n ψ))
+    {Δ : List VExpr} {d : Nat} {n : Name} {ty v b : Expr} {V : VExpr}
+    (hfb : Expr.fvarsBelow d b) (hwv : Expr.WScoped d v)
+    (hbv : v.looseBVarsBounded 0 = true)
+    (hden : denote cval env φ d (.letE n ty v b) = some V) :
+    ∃ W, denote cval env φ d (b.instantiate1 v) = some W ∧ Deq Δ V W := by
+  rw [denote_letE] at hden
+  split at hden
+  · next A xv hA hv =>
+    split at hden
+    · exact nomatch hden
+    · next B hB =>
+      obtain rfl : V = .letE A xv B := (Option.some.inj hden).symm
+      refine ⟨VExpr.inst B xv, ?_, ⟨.sort 0, HasType.zeta⟩⟩
+      rw [denote_beta (n := n) (ty := ty) hcl hfb hwv hbv hv 0, hB]
+      rfl
+  · exact nomatch hden
 
 end Setlec.TTVerify

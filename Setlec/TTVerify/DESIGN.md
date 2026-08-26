@@ -433,6 +433,27 @@ i.e. subject reduction — the opposite of §2.4.  That is a real trade
 becomes a bridge obligation), and it should be entered deliberately if
 ever, not drifted into.
 
+#### Domain pinning, and what the certificate is *for*
+
+One sentence that covers both frameworks, offered as a reading rather
+than a result:
+
+> **From the ambient facts you cannot recover which domain a function
+> was applied at.  The certificate exists to pin it.**
+
+In this layer, `propext` makes `Π` non-injective, so a `Deq` between
+two pi types does not descend to their domains.  In the set model the
+domain-relative collapse erases the domain outright at `Prop`
+(`lamC A f = pt`), so the function's *value* does not determine it
+either.  Different mechanisms, same conclusion, and it explains why the
+certificate is the one call that costs 98.6 %: it is doing the one
+thing nothing else can do.
+
+If this reading survives contact with the remaining clauses it is the
+one-sentence summary of the whole certificate question; if a clause
+refutes it, that is worth more than confirming it.  Not investigated
+beyond what the clauses show.
+
 #### The trade, stated so the layer is not blamed for it later
 
 **The same property that forecloses infer-only is the one that buys
@@ -682,22 +703,39 @@ model spends ~7500 lines on `Setlec/Model/Core/*` for what
 
 Recorded so they are made rather than inherited.
 
-### The modeled-iota contract is not yet chosen
+### DECIDED: the modeled-iota contract is the *fired* form
 
-Before the modeled-inductive iota install is transposed, choose between
+Made before the install clause rather than during it, and on the
+merits rather than by inheritance.  `EnvTT`'s `rec_rules` field will
+be **meta-quantified over typed argument terms, concluding `Deq []` at
+the applied instance** — not a transposition of the set model's tower
+λ-equality (`RecRulesOk`, task #58).
 
-* the **fired form** — meta-quantified over typed argument terms,
-  concluding `Deq []` at applications; and
-* transposing the set model's **tower λ-equality** (`RecRulesOk`,
-  task #58).
+The argument is the general fact of §6, applied.
 
-**Do not inherit the set model's "never resurrect fits-in-clause"
-ruling by reflex.**  That ruling was forced by set-semantic
-junk-agreement — two dependent-function graphs agreeing off-domain —
-and by `Prop`-collapse concerns.  Neither transposes: typing premises
-replace domain-membership side conditions, and there is no off-domain
-in a syntactic layer at all.  The decision is genuinely open on this
-side and should be argued afresh.
+*Against the tower.*  A closed λ-tower equality has to be **fired** to
+be used: apply both sides to the actual arguments (`congrApp`, free)
+and then β-reduce each side — and `HasType.beta` demands
+`⊢ argᵢ : domainᵢ` **for every argument**.  So the tower form does not
+avoid the typing premises; it defers them to the fire site and adds a
+β-reduction apparatus on top.
+
+*For the fired form.*  Those same premises are what the install's own
+source supplies anyway.  The `_model.iota_j` artefact is a stream
+theorem whose denotation is a `pi`-tower ending in `eqE`; instantiating
+it at actual arguments is `HasType.app`, which wants exactly
+`⊢ argᵢ : domainᵢ`.  Quantifying over them makes them *hypotheses* of
+the contract rather than obligations of the install, discharged at the
+fire site where the checker's own iota certificates supply them.
+
+*And the set model's reason does not transpose*, as suspected.  The
+"never resurrect fits-in-clause" ruling was forced by junk-agreement
+(two dependent-function graphs agreeing off-domain) and by the `Prop`
+collapse.  A syntactic layer has **no off-domain**: a `Deq` at an
+instantiation says exactly what it says, and nothing is being compared
+away from where it is defined.  The objection is not merely weaker
+here — it is inverted, because the "side conditions" it feared are
+typing premises, which are this layer's currency.
 
 ### `HasType.letE`'s first two premises are not consumed by soundness
 
